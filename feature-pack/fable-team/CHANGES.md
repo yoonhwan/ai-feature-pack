@@ -1,3 +1,7 @@
+## 2026-10-22 — 오케스트레이션 게이트(`orchestration-gate.sh`)가 master 의 «검증된 키트 파일 설치 복사»(`cp` 한 줄)까지 코드 직접 편집으로 오탐 차단해, 착지 직후 `~/.hermes/scripts` 같은 설치 자리에 복사하려면 사람 손이 필요했다(r692 설치 틈) → 허용은 «명령 1개 · `cp [-p]` 절대 kit 원본(lstat 일반 파일 · origin/main 과 cmp0 · git 1회 7초) → 절대 파일 목적지» 한 꼴로만 좁게 열고, 그 밖의 `cp`/`install`(폴더 목적지는 원본 이름까지 검사)은 부모판 그대로 막는다 (r695 · 1.1.201 · 결함 고침 · 훅 1파일)
+
+- 판정문 §181(DA⑥ r1 HOLD H1~H3 고침 → arch 재대조 OK · 시험 41/0 · 부모판 9 FAIL · 변이 4종 각 rc=1 · 반례 10/0) · 증거 `harness/evidence/r695/`·`r695-da6/` · 설치: 있음(전역 훅 `templates/hooks/orchestration-gate.sh` → 설치 시 훅 자리 · 되돌림 = 이전 판).
+
 ## 2026-10-22 — desk 슬랙 파일 도구(`byz_slack_file_fetch.py`)가 텍스트 계열만 받아 오빠가 슬랙에 올린 사진(jpg)을 팀이 못 봤다(rc 3 «터미널에서 직접 열어 주세요») → 이미지 4종(png·jpg·gif·webp)을 허용 · 상한 10 MiB · 바이트 머리(매직 바이트)가 이미지가 아니면 저장 0 · 저장 자리·이름 정화·비밀·보내기 채널 규칙은 그대로 (r692 · 1.1.199 · 기능 추가)
 
 - 판정문 §178(DA⑥ 0 판정 · 격리 슬랙 시험 96 passed · svg·heic·x.jpg.exe 거절 · html·WAVE·빈 본문 저장 0 · 폴더 탈출 0) · 증거 `harness/evidence/r692/` · 설계 r231 §2·§5 갱신 · 설치: 있음(1파일 `byz_slack_file_fetch.py` → `~/.hermes/scripts` cmp0) · 되돌림 = 이전 판.

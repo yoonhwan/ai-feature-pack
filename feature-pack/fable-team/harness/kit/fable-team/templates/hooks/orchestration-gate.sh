@@ -205,6 +205,13 @@ def bash_write_target(cmd):
                 args = [t for t in toks[1:] if not t.startswith('-')]
                 if args and is_code_file(args[-1]):
                     return args[-1]
+                # cp/install 목적지가 폴더(원본 2+ · 끝 / · 있는 폴더)면 폴더/원본이름 도 코드 검사(r695)
+                if head in ('cp', 'install') and len(args) >= 2:
+                    dest, srcs = args[-1], args[:-1]
+                    if len(srcs) > 1 or dest.endswith('/') or os.path.isdir(os.path.join(CWD, os.path.expanduser(dest))):
+                        for s in srcs:
+                            if is_code_file(os.path.basename(s.rstrip('/'))):
+                                return os.path.join(dest, os.path.basename(s.rstrip('/')))
             elif head == 'tee':
                 for t in toks[1:]:
                     if not t.startswith('-') and is_code_file(t):
@@ -217,12 +224,55 @@ def bash_write_target(cmd):
     except Exception:
         return None
 
+CWD = data.get("cwd") or os.getcwd()
+PACK_ROOT = os.path.realpath(os.path.expanduser(os.environ.get("FT_PACK_ROOT") or "~/Project/ai-feature-pack"))
+ONE_COMMAND = re.compile(r"[;&|$`()<>\\\n\r]")   # 명령 잇기·치환·리다이렉트·이스케이프 글자
+
+# ── 설치 복사 허용(r695 · COMM-GUIDE-BOOT 15 «검증된 파일의 설치 복사 cp+cmp») ──
+# 허용 꼴은 정확히 하나: 명령 1개 «cp [-p] <절대 원본> <절대 목적지 파일>» ∧ 원본 = 일반 파일(심링크 아님)
+# ∧ 팩 리포 kit/ 아래 ∧ origin/main 판과 바이트 같음. 그 밖의 cp/install 은 (C) 그대로.
+# 이 허용만 FAIL-CLOSED: git 실패·7초 초과·경로 이상 = 허용 안 함.
+def kit_install_copy(cmd):
+    try:
+        import stat, subprocess
+        if ONE_COMMAND.search(cmd):
+            return False
+        toks = shlex.split(cmd)
+        if not toks or toks[0] != "cp":
+            return False
+        opts = [t for t in toks[1:] if t.startswith("-")]
+        args = [t for t in toks[1:] if not t.startswith("-")]
+        if opts not in ([], ["-p"]) or len(args) != 2:
+            return False
+        src, dest = args
+        if not (os.path.isabs(src) and os.path.isabs(dest)) or dest.endswith("/"):
+            return False
+        if not stat.S_ISREG(os.lstat(src).st_mode):
+            return False
+        if os.path.lexists(dest) and not stat.S_ISREG(os.lstat(dest).st_mode):
+            return False
+        real = os.path.realpath(src)
+        rel = os.path.relpath(real, PACK_ROOT)
+        if rel == ".." or rel.startswith(".." + os.sep) or "kit" not in rel.split(os.sep)[:-1]:
+            return False
+        r = subprocess.run(["git", "-C", PACK_ROOT, "show", "origin/main:" + rel],
+                           capture_output=True, timeout=7)
+        if r.returncode != 0:
+            return False
+        with open(real, "rb") as f:
+            return f.read() == r.stdout
+    except Exception:
+        return False
+
 if tool == "Bash":
     cmd = tin.get("command", "") or ""
+    if kit_install_copy(cmd):
+        allow()
     hit = bash_write_target(cmd)
     if hit:
         deny("🚫 [orchestration-gate] 오케스트레이터는 Bash로 코드 파일을 직접 수정할 수 없습니다.\n"
-             "감지: %s\n→ 코드 수정은 ft-implementer에 위임하세요 (redirect/sed/mv/cp/tee 우회 금지)." % hit.strip())
+             "감지: %s\n→ 코드 수정은 ft-implementer에 위임하세요 (redirect/sed/mv/cp/tee 우회 금지).\n"
+             "  (설치 복사는 명령 1개 «cp [-p] <절대 kit 원본> <절대 목적지 파일>» ∧ origin/main 판 cmp0 일 때만 통과)" % hit.strip())
     allow()
 
 # ── 3) Edit/Write/NotebookEdit — 턴당 distinct 코드파일 카운트 ──

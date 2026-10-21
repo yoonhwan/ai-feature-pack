@@ -1,0 +1,33 @@
+ok   bash -n (셔뱅 /bin/bash) → 0
+--- ⓑ 허용 (원본 = 팩 kit/ ∧ origin/main cmp0) ---
+FAIL 실 팩 r692 file_fetch 설치 복사 → 기대 0 · 실제 2
+FAIL cp -p kit → 코드 경로 → 기대 0 · 실제 2
+FAIL install -m 0755 kit → 코드 경로 → 기대 0 · 실제 2
+ok   cp kit 2개 → 폴더/ → 0
+FAIL 상대 경로(cwd 기준) kit 원본 → 기대 0 · 실제 2
+FAIL cp kit && cmp (BOOT 15 cp+cmp) → 기대 0 · 실제 2
+--- ⓒ 막아야 하는 칸 그대로 (2) ---
+ok   원본 kit 밖(/tmp) → 2
+ok   원본 팩 안 kit 밖(scripts/) → 2
+ok   원본 kit 안 · origin/main 과 다름 → 2
+ok   원본 kit 안 심링크 → 밖 → 2
+ok   원본 경로 글자 맞춤(kit/../) → 2
+FAIL 여러 원본 중 하나 kit 밖 → 폴더/ → 기대 2 · 실제 0
+FAIL 여러 원본 중 하나 다름 → 폴더/ → 기대 2 · 실제 0
+FAIL 단일 kit 밖 원본 → 있는 폴더 → 기대 2 · 실제 0
+ok   없는 원본(glob 미전개) → 2
+ok   git 실패(팩 루트가 git 아님) → 2
+ok   mv kit → 코드 경로(허용 0) → 2
+ok   rsync kit → 코드 경로(허용 0) → 2
+ok   sed -i 코드 → 2
+ok   > 리다이렉트 코드 → 2
+ok   tee 코드 → 2
+--- ⓓ 워커 모델·문서 경로 그대로 ---
+ok   Sonnet 5.5 kit 밖 cp (워커 면제) → 0
+ok   Opus 5.5 kit 밖 cp (워커 면제) → 0
+ok   TOP 문서 경로 cp(.md) → 0
+ok   TOP 단일 비코드 원본 → 폴더 → 0
+--- ⓔ Sonnet 5 대조 (TOP) ---
+FAIL Sonnet 5 kit cmp0 설치 복사 → 기대 0 · 실제 2
+ok   Sonnet 5 kit 밖 cp → 2
+pass=19 fail=9

@@ -1,0 +1,32 @@
+r695 orchestration-gate — 설치 복사(cp/install) 허용: 원본 전부 팩 kit/ ∧ origin/main cmp0
+훅: feature-pack/fable-team/harness/kit/fable-team/templates/hooks/orchestration-gate.sh (1파일)
+시험: feature-pack/fable-team/harness/tests/test_orch_gate_kit_cmp0.sh (셔뱅 /bin/bash 로 훅 직접 실행)
+
+01-before-red.txt   ⓐ 지금 판: 실 팩 r692 file_fetch 설치 복사 rc2 deny 포함 9 FAIL (pass=19 fail=9)
+02-after-green.txt  ⓑⓒⓓⓔ 후판: pass=28 fail=0
+03-mutation-fail.txt ⓕ 변이(바이트 비교 → return True): «다름» 2칸 FAIL (pass=26 fail=2)
+04-regress-top-models.txt KIT 5칸 ok · PROJ 5칸 FAIL(127) = 팩에 feature-pack/fable-team/.claude/hooks/orchestration-gate.sh 가 추적되지 않음(이 변경 전부터 · 이 카드 밖)
+
+동작 변경 2:
+ 1) cp/install 의 원본 전부가 FT_PACK_ROOT(기본 ~/Project/ai-feature-pack) kit/ 아래 실재 파일(realpath 기준 — 심링크·../ 풀어 판정)
+    ∧ git -C <팩> show origin/main:<rel> 과 바이트 같으면 허용. git 실패·7초 초과 = 허용 안 함(이 허용만 fail-closed).
+ 2) cp/install 목적지가 폴더(원본 2개+ · 끝 / · 있는 폴더)면 폴더/원본이름 을 쓰기 대상으로 판정 —
+    이전 판은 «cp x.py dir/» 를 통과시켰다(카드 ⓒ «여러 원본 중 하나라도 조건 밖 → rc2» 를 위해 막음).
+mv·rsync·tee·리다이렉트·sed 는 그대로(허용 0).
+
+관찰(카드 구현 범위 0 항): skill/templates/hooks/orchestration-gate.sh 사본은 키트판과 이미 다름
+ (TOP_MODELS 에 sonnet-5-5 제외 없음 · tmuxc 생명주기 패턴 등) — 이 카드에서 맞추지 않음.
+DA⑥ 참고: 한 명령 안에서 «python -c 로 kit 파일 고침 && cp kit→대상» 은 훅 판정 시점(실행 전) 바이트로 통과한다 —
+ 다만 python -c 로 대상에 바로 쓰는 길은 원래 훅이 못 막으므로 새 권한은 아님.
+
+== r2 (DA⑥ r1 HOLD 반송 #138347 · 처방 «좁은 꼴 하나만 허용») ==
+허용 꼴 = 명령 1개(; & | $ ` ( ) < > \ 줄바꿈 0 · cd 0) ∧ «cp» 또는 «cp -p» ∧ 비옵션 인자 정확히 2개
+ ∧ 원본 = 절대경로 · lstat 일반 파일(심링크 아님) · realpath 가 FT_PACK_ROOT 아래 kit/ · origin/main 판과 바이트 같음(git 1회 · 7초)
+ ∧ 목적지 = 절대경로 · 끝 / 아님 · 있으면 lstat 일반 파일.
+그 밖의 cp/install = 부모판 «마지막 비옵션 인자가 코드면 deny» 그대로 + 목적지가 폴더(원본 2+ · 끝 / · 있는 폴더)면 원본 이름도 코드 검사.
+H1(cp -R 폴더 → 있는 폴더.py) 부모판처럼 deny · install 은 허용 꼴 밖(막음) · ~ / $HOME 원본·목적지도 허용 꼴 밖(절대경로로 칠 것).
+05-r2-before-red.txt  r2 시험을 부모판 fa7e4890(9 FAIL)·r1 1bb3e88a(13 FAIL) 훅에
+06-r2-after-green.txt pass=41 fail=0
+07-r2-mutation-fail.txt 변이 4종(명령 1개 검사 · 원본 lstat · 폴더 목적지 검사 · 바이트 비교 삭제) 각 rc=1
+실 팩 경로에 기대던 칸 → FT_PACK_ROOT 픽스처(kit/slack-mirror/byz_slack_file_fetch.py)로 바꿈.
+부모판 대비 더 막는 것: 목적지가 폴더인 cp/install 에 코드 이름 원본(이전엔 통과 틈).

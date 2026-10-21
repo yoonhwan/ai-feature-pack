@@ -1,0 +1,21 @@
+# r2 변이 4종 — 각 변이 사본에서 시험이 FAIL(rc=1) 해야 한다
+## 변이 m1-one-command
+FAIL 목적지 안 $(…) 치환 → 기대 2 · 실제 0
+pass=40 fail=1
+rc=1
+## 변이 m2-lstat-src
+FAIL H2① 원본 kit 안 상대 심링크(같은 바이트) → 기대 2 · 실제 0
+pass=40 fail=1
+rc=1
+## 변이 m3-dir-dest
+FAIL 목적지 = 끝 / 폴더(kit 1개) → 기대 2 · 실제 0
+FAIL 목적지 = 있는 폴더(kit 1개) → 기대 2 · 실제 0
+FAIL cp kit 2개 → 폴더/ → 기대 2 · 실제 0
+FAIL 여러 원본 중 하나 kit 밖 → 폴더/ → 기대 2 · 실제 0
+FAIL 단일 kit 밖 원본 → 있는 폴더 → 기대 2 · 실제 0
+pass=36 fail=5
+rc=1
+## 변이 m4-cmp
+FAIL 원본 kit 안 · origin/main 과 다름 → 기대 2 · 실제 0
+pass=40 fail=1
+rc=1
