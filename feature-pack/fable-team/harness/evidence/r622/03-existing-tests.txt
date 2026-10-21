@@ -1,0 +1,15 @@
+# r622 인접 시험 (광역 0 · rebase 뒤 재실행: origin/main 235bb568 · manifest 1.1.166)
+## bash -n
+kit OK
+bin OK
+test OK
+
+## test_kit_bin_sync.sh (kit ↔ bin 짝)
+PASS control: identical → 0
+PASS control: missing detected
+PASS control: byte diff detected
+PASS control: mode diff detected
+ALL PASS
+
+## kit↔bin cmp
+cmp0

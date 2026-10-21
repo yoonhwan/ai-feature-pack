@@ -1,0 +1,30 @@
+# r622 — kit bin 안 display-message 대상 꼴 전수 (고침 0 · 각 도구 카드 후보)
+# grep -rn 'display-message' kit/fable-team/bin/  → 20줄
+
+## «-t "=이름"» 꼴 = 이 카드가 고친 곳 (지금은 둘 다 «=이름:» · 콜론 없는 «=이름» 0)
+kit/fable-team/bin//ft-successor-open.sh:85:  PCWD="$(tmux display-message -p -t "=$NAME:" '#{pane_current_path}' 2>/dev/null)"
+kit/fable-team/bin//ft-successor-open.sh:111:CWD="$(tmux display-message -p -t "=$NAME:" '#{pane_current_path}' 2>/dev/null)"   # r622: «=이름:» — «=이름» 은 창 대상에서 빈 값(새 좌석 jsonl 폴더가 엉뚱해진다)
+
+## 콜론 없는 «=이름» 잔여(창·판 대상 의심) — 0건 기대
+(0건)
+
+## 같은 결함을 이미 «pane_id 경유» 로 피한 곳 (참고 · 고침 대상 아님)
+kit/fable-team/bin/ft-nano-close.sh:550:# pane_id 경유 — `-t "=$SEAT"` 는 `#` 든 이름에 display-message 가 빈 값을 돌려준다(실측 2026-09-14)
+kit/fable-team/bin/ft-nano-spawn.sh:419:# ★`-t "=$NAME"` 은 has-session 에만 통한다★ (실측 2026-09-14): `#` 든 이름에 set-option/display-message 는
+
+## 나머지 display-message 호출 (대상이 $PANE·$TMUX_PANE·$SESSION = 창 지정 꼴 · 이 카드 범위 밖)
+kit/fable-team/bin//ft-reach-check.sh:66:    cwd="$(tmux display-message -p -t "$SESSION" '#{pane_current_path}' 2>/dev/null)"
+kit/fable-team/bin//ft-reach-check.sh:161:    pid="$(tmux display-message -p -t "$SESSION" '#{pane_pid}' 2>/dev/null)"
+kit/fable-team/bin//ft-reach-check.sh:167:    cwd="$(tmux display-message -p -t "$SESSION" '#{pane_current_path}' 2>/dev/null)"
+kit/fable-team/bin//ft-tmux-poll.sh:38:  local me="${ME_OPT:-$(tmux display-message -p '#S' 2>/dev/null)}"
+kit/fable-team/bin//ft-agent-ready.sh:49:[ -n "$PID_" ] || PID_="$(tmux display-message -p -t "$PANE" '#{pane_pid}' 2>/dev/null)"
+kit/fable-team/bin//ft-nano-close.sh:580:  cwd="$(tmux display-message -p -t "$PANE" '#{pane_current_path}' 2>&1)"; dm_rc=$?
+kit/fable-team/bin//ft_inbox_core.py:69:        return subprocess.run(["tmux", "display-message", "-p", "-t", pane, "#{session_name}"],
+kit/fable-team/bin//ft-nano-spawn-undo.sh:44:WTP="$(tmux display-message -p -t "$PANE_ID" '#{pane_current_path}' 2>/dev/null)"
+kit/fable-team/bin//ft-seat-status.sh:83:  cwd="$(tmux display-message -p -t "$1" '#{pane_current_path}' 2>/dev/null)"
+kit/fable-team/bin//ft-seat-close.sh:26:BY="unknown"; [ -z "${TMUX_PANE:-}" ] || BY="$(tmux display-message -p -t "$TMUX_PANE" '#{session_name}' 2>/dev/null || echo unknown)"
+kit/fable-team/bin//ft-fp-run.sh:23:SEAT="${FT_SEND_FROM:-$(tmux display-message -p '#S' 2>/dev/null || echo unknown)}"
+kit/fable-team/bin//ft-scratch-repo.sh:146:    OWNER="${FT_SCRATCH_OWNER:-$(tmux display-message -p '#S' 2>/dev/null || echo -)}"
+kit/fable-team/bin//ft-press-gate.sh:29:  [ -n "${TMUX_PANE:-}" ] && tmux display-message -p -t "$TMUX_PANE" '#{session_name}' 2>/dev/null
+kit/fable-team/bin//ft-seat-handover.sh:118:    me="$(tmux display-message -p -t "$TMUX_PANE" '#{session_name}')" || die 1 "display-message 실패"
+kit/fable-team/bin//ft-checkpoint.sh:20:[ -n "$SEAT" ] || SEAT="$([ -n "${TMUX_PANE:-}" ] && tmux display-message -p -t "$TMUX_PANE" '#{session_name}' 2>/dev/null)"

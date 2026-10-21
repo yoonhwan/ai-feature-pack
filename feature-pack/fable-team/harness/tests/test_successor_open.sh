@@ -22,7 +22,8 @@ mkstub() { printf '#!/usr/bin/env bash\n%s\n' "$2" > "$FAKE/$1"; chmod +x "$FAKE
 mkstub tmux   'case "$1" in
   has-session) [ -n "${EXISTS:-}" ] && case "$*" in *"=$EXISTS"*) exit 0;; esac; [ -f "$OPENED" ] && exit 0; exit 1;;
   list-panes) echo 4242;;
-  display-message) echo "${PANE_CWD_OVERRIDE:-$PANE_CWD}";;
+  display-message) t=""; while [ $# -gt 0 ]; do [ "$1" = "-t" ] && { t="${2:-}"; break; }; shift; done
+    case "$t" in "") :;; *:) [ -z "${PANE_CWD_UNREADABLE:-}" ] && echo "${PANE_CWD_OVERRIDE:-$PANE_CWD}";; *) :;; esac;;   # r622: 실제 tmux 꼴 — «=이름»(콜론 없음) 은 창 대상에서 빈 값, «=이름:» 만 pane 을 고른다
 esac; exit 0'
 mkstub tmuxc  'echo "tmuxc $*" >> "$LOG"; [ "${TMUXC_RC:-0}" = 0 ] && : > "$OPENED"; exit "${TMUXC_RC:-0}"'
 mkstub pgrep  'case "$*" in "-a -x claude"|"-a -x codex") exec "$SENSORS/pgrep" "$@";; esac; echo pgrep >> "$LOG"; n=$(cat "$CNT" 2>/dev/null || echo 0); n=$((n+1)); echo $n > "$CNT"; [ "$n" -ge "${PGREP_UP_AT:-3}" ] && { echo 5555; exit 0; }; exit 1'
@@ -171,5 +172,29 @@ EXISTS="$NEW" PANE_CWD_OVERRIDE="$OTHER" run SEND_RC=0
 { [ "$RC" -ne 0 ] && grep -q 'REJECT 세션' "$TMP/out" && grep -q '남의 세션' "$TMP/out" \
   && [ "$(count tmuxc)" = 0 ] && [ "$(count send)" = 0 ] && [ ! -e "$STATE/$OLD.json" ]; } \
   && ok "ⓟ r609 ⓒ 남의 세션 → REJECT · 열기·송신 0 · 도달 파일 0" || bad "ⓟ rc=$RC log=$(tr '\n' ' ' < "$LOG") out=$(cat "$TMP/out")"
+
+# ⓠ r622(카드 ⓐ·ⓑ) — 실제 tmux 꼴: 같은 이름 세션이 «같은 워크트리» 에 이미 있으면 «이어감»(옛 판 = 창 대상 «=이름» 이라 빈 값 → «작업 폴더가 다르다 pane=?» REJECT) · 다른 워크트리면 그 «실제 경로» 를 찍고 REJECT
+EXISTS="$NEW" PANE_CWD_OVERRIDE="$REPO" run SEND_RC=0
+{ [ "$RC" -eq 0 ] && grep -q "이어감: 세션 있음 $NEW — 열기 건너뜀" "$TMP/out" && [ "$(count tmuxc)" = 0 ] \
+  && [ "$(count send)" = 1 ] && [ -f "$STATE/$OLD.json" ]; } \
+  && ok "ⓠ r622 같은 폴더 → 이어감 · 열기 건너뜀 · 송신 1" || bad "ⓠ rc=$RC log=$(tr '\n' ' ' < "$LOG") out=$(cat "$TMP/out")"
+EXISTS="$NEW" PANE_CWD_OVERRIDE="$OTHER" run SEND_RC=0
+{ [ "$RC" -ne 0 ] && grep -q '작업 폴더가 다르다' "$TMP/out" && grep -qF "pane=$OTHER" "$TMP/out" && ! grep -q 'pane=?' "$TMP/out" \
+  && [ "$(count tmuxc)" = 0 ] && [ "$(count send)" = 0 ]; } \
+  && ok "ⓠ' r622 다른 폴더 → REJECT · 실제 경로(pane=) 찍힘" || bad "ⓠ' rc=$RC out=$(cat "$TMP/out")"
+
+# ⓡ r622(카드 ⓒ) — 판 경로를 못 읽음(대역으로 빈 값) → «못 읽음(판정 불가)» 로 REJECT · «다르다» 문구 0
+EXISTS="$NEW" PANE_CWD_OVERRIDE="$REPO" PANE_CWD_UNREADABLE=1 run SEND_RC=0
+{ [ "$RC" -ne 0 ] && grep -q '작업 폴더를 못 읽음(판정 불가' "$TMP/out" && ! grep -q '작업 폴더가 다르다' "$TMP/out" \
+  && [ "$(count tmuxc)" = 0 ] && [ "$(count send)" = 0 ] && [ ! -e "$STATE/$OLD.json" ]; } \
+  && ok "ⓡ r622 못 읽음 → 판정 불가 REJECT · «다르다» 0 · 송신 0" || bad "ⓡ rc=$RC out=$(cat "$TMP/out")"
+
+# ⓢ r622(카드 ⓓ) — 새로 연 좌석의 CWD 를 «실제 경로» 로 읽어 JDIR 이 그 워크트리 jsonl 폴더 → SessionStart 관측(옛 판 = «=이름» 빈 값 → 엉뚱한 폴더 → 미관측)
+JDIR_WT="$TMP/home/.claude/projects/$(printf '%s' "$REPO" | LC_ALL=C sed 's|[^A-Za-z0-9]|-|g')"
+mkdir -p "$JDIR_WT"; printf '{"type":"agent-name","agentName":"%s"}\n{"hookEvent":"SessionStart"}\n' "$NEW" > "$JDIR_WT/s.jsonl"
+PANE_CWD_OVERRIDE="$REPO" run SEND_RC=0
+{ [ "$RC" -eq 0 ] && grep -q 'SessionStart 관측' "$TMP/out" && ! grep -q '미관측' "$TMP/out"; } \
+  && ok "ⓢ r622 새 좌석 CWD 실제 경로 → JDIR 그 워크트리 · SessionStart 관측" || bad "ⓢ rc=$RC out=$(cat "$TMP/out")"
+rm -rf "$JDIR_WT"
 
 [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }
