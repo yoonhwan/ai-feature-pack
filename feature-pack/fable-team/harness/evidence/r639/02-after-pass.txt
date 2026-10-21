@@ -1,0 +1,4 @@
+$ python3.11 -m pytest tests/scripts/test_r639_queue_watch_dead_seat_send_timeout.py -q  # 고친 뒤
+........                                                                 [100%]
+8 passed in 4.54s
+rc=0
