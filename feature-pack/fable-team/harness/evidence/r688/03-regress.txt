@@ -1,0 +1,14 @@
+# r688 회귀 — 바뀐 도구를 부르는 시험 전/후 (FAIL 목록 diff · 새 빨강 0)
+| 시험 | 전판 | 후판 | 바뀐 FAIL |
+|---|---|---|---|
+| test_successor_open | fail=0 pass=29 | fail=0 pass=30 | 0 |
+| test_all_stop_r626 | fail=1 pass=107 | fail=1 pass=108 | 0 |
+| test_team_literal_paths | fail=4 pass=115 | fail=4 pass=115 | 0 |
+| test_press_permit | fail=0 pass=35 | fail=0 pass=35 | 0 |
+| test_raised_seat | fail=26 pass=94 | fail=26 pass=94 | 0 |
+| test_role_spawn_team | fail=9 pass=10 | fail=9 pass=10 | 0 |
+| test_team_roster_ref | fail=9 pass=13 | fail=9 pass=13 | 0 |
+- successor_open +1 PASS = r688 반례(명단 못 읽음 → REJECT) · all_stop +1 PASS = r688 team_rel 명단 칸·없는 팀 raise · 남은 all_stop FAIL 1 = 전판 같은 줄(r686)
+- 픽스처 고침 전 중간판: successor_open fail=5 · all_stop fail=18 (명단 origin/main 없음) → 시험 픽스처에 명단 행 + origin/main 고정
+- ruff ft_all_stop.py: F541 1건 = 185행 전판 그대로(이 카드 줄 아님)
+- 전판 열 = nano-close 고친 뒤 · successor-open/all_stop 고치기 전 실행(두 도구 기준 전판)

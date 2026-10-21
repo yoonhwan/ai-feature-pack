@@ -1,0 +1,251 @@
+...........F....F............FFF.F..FF..F.FFFFFF............F.....       [100%]
+=================================== FAILURES ===================================
+_______ test_siblings_present_keeps_existing_path[ft-successor-open.sh] ________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_siblings_present_keeps_ex0')
+fakebin = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_siblings_present_keeps_ex0/fakebin')
+tool = 'ft-successor-open.sh'
+
+    @pytest.mark.parametrize("tool", CASES)
+    def test_siblings_present_keeps_existing_path(tmp_path: Path, fakebin: Path, tool: str) -> None:
+        args, cwd, env, _ = _prepare(tmp_path, tool, with_siblings=True)
+        (tmp_path / "bin" / "mbox.py").write_text(
+            'import sys\nprint("STUB", *sys.argv[1:])\n', encoding="utf-8"
+        ) if tool == "mbox-v2.sh" else None
+        r = _run(args, cwd, env)
+        out = r.stdout + r.stderr
+        assert HINT not in out, out
+        expected = CASES[tool][2]
+        if expected:
+>           assert expected in out, out
+E           AssertionError: REJECT mbox 짝 파일 없음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_siblings_present_keeps_ex0/repo/.fable-team/comm/mbox_doorbell.sh (mbox.sh 가 source 하는 mbox_doorbell.sh · 짝이 빠진 폴더는 쓰지 않는다)
+E             
+E           assert 'REJECT tmuxc open 실패' in 'REJECT mbox 짝 파일 없음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_siblings_present_keeps_ex0/repo/.fable-team/comm/mbox_doorbell.sh (mbox.sh 가 source 하는 mbox_doorbell.sh · 짝이 빠진 폴더는 쓰지 않는다)\n'
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r687/feature-pack/fable-team/harness/tests/scripts/test_ft_sibling_reject.py:202: AssertionError
+_ test_nano_spawn_missing_teamset_helper_rejects_before_side_effects[ft_teamset.py] _
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_nano_spawn_missing_teamse0')
+fakebin = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_nano_spawn_missing_teamse0/fakebin')
+helper = 'ft_teamset.py'
+
+    @pytest.mark.parametrize("helper", ["ft_teamset.py", "ft_spawn_queue.py"])
+    def test_nano_spawn_missing_teamset_helper_rejects_before_side_effects(
+        tmp_path: Path, fakebin: Path, helper: str
+    ) -> None:
+        """ft-nano-spawn.sh:61 — 팀셋 도우미 하나만 없는 설치본은 열기 전 안내 REJECT, 부작용 0."""
+        args, cwd, env, bindir = _prepare(tmp_path, "ft-nano-spawn.sh", with_siblings=True)
+        (bindir / helper).unlink()
+        env.pop("FT_TEAMSET")  # 이 시험의 주제가 팀셋 칸 자체 — 끄지 않는다(R351)
+        before = _snapshot(bindir, cwd)
+        r = _run(args, cwd, env)
+        out = r.stdout + r.stderr
+        assert r.returncode == 1, (r.returncode, out)
+>       assert "REJECT ft_teamset.py·ft_spawn_queue.py 없음:" in out and HINT in out, out
+E       AssertionError: REJECT 나노 이름 규칙(ft_teamset.py prefix --team v65) 못 읽음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_nano_spawn_missing_teamse0/bin
+E         fatal: (현재 폴더 또는 상위 폴더 중 일부가) 깃 저장소가 아닙니다: .git
+E         fatal: (현재 폴더 또는 상위 폴더 중 일부가) 깃 저장소가 아닙니다: .git
+E         
+E       assert ('REJECT ft_teamset.py·ft_spawn_queue.py 없음:' in 'REJECT 나노 이름 규칙(ft_teamset.py prefix --team v65) 못 읽음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytes...issing_teamse0/bin\nfatal: (현재 폴더 또는 상위 폴더 중 일부가) 깃 저장소가 아닙니다: .git\nfatal: (현재 폴더 또는 상위 폴더 중 일부가) 깃 저장소가 아닙니다: .git\n')
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r687/feature-pack/fable-team/harness/tests/scripts/test_ft_sibling_reject.py:227: AssertionError
+_______________ test_spawn_records_worktree_info_base_sha_short ________________
+
+env = {'hb': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_spawn_re...rivate/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_spawn_records_worktree_in0')}
+
+    def test_spawn_records_worktree_info_base_sha_short(env):
+        short = _sha(env, "--short")
+>       assert _spawn(env, _card(env)).returncode == 0
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['bash', '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680... 못 찾음: byz-v65-nano-slug#0\n롤백 불가 — 고아: byz-v65-nano-slug#0 (소유권 값 못 읽음)\n', stderr="작업 트리 준비 중 (새 브랜치 'nano/slug')\n").returncode
+E        +    where CompletedProcess(args=['bash', '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680... 못 찾음: byz-v65-nano-slug#0\n롤백 불가 — 고아: byz-v65-nano-slug#0 (소유권 값 못 읽음)\n', stderr="작업 트리 준비 중 (새 브랜치 'nano/slug')\n") = _spawn({'hb': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_spawn_re...rivate/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_spawn_records_worktree_in0')}, PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_spawn_records_worktree_in0/repo/design/v65/indices/대기/slug.md'))
+E        +      where PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_spawn_records_worktree_in0/repo/design/v65/indices/대기/slug.md') = _card({'hb': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_spawn_re...rivate/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_spawn_records_worktree_in0')})
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r687/feature-pack/fable-team/harness/tests/scripts/test_nano_spawn_base_sha.py:81: AssertionError
+______________ test_first_spawn_writes_full_head_into_card_status ______________
+
+env = {'hb': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_first_sp...rivate/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_first_spawn_writes_full_h0')}
+
+    def test_first_spawn_writes_full_head_into_card_status(env):
+        head, card = _sha(env), _card(env)
+>       assert _spawn(env, card).returncode == 0
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['bash', '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680... 못 찾음: byz-v65-nano-slug#0\n롤백 불가 — 고아: byz-v65-nano-slug#0 (소유권 값 못 읽음)\n', stderr="작업 트리 준비 중 (새 브랜치 'nano/slug')\n").returncode
+E        +    where CompletedProcess(args=['bash', '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680... 못 찾음: byz-v65-nano-slug#0\n롤백 불가 — 고아: byz-v65-nano-slug#0 (소유권 값 못 읽음)\n', stderr="작업 트리 준비 중 (새 브랜치 'nano/slug')\n") = _spawn({'hb': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_first_sp...rivate/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_first_spawn_writes_full_h0')}, PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_first_spawn_writes_full_h0/repo/design/v65/indices/대기/slug.md'))
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r687/feature-pack/fable-team/harness/tests/scripts/test_nano_spawn_base_sha.py:88: AssertionError
+_____________ test_first_spawn_without_status_section_appends_one ______________
+
+env = {'hb': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_first_sp...rivate/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_first_spawn_without_statu0')}
+
+    def test_first_spawn_without_status_section_appends_one(env):
+        head, card = _sha(env), _card(env, "# 카드\n\n## 구현 범위\n- y\n")
+>       assert _spawn(env, card).returncode == 0
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['bash', '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680... 못 찾음: byz-v65-nano-slug#0\n롤백 불가 — 고아: byz-v65-nano-slug#0 (소유권 값 못 읽음)\n', stderr="작업 트리 준비 중 (새 브랜치 'nano/slug')\n").returncode
+E        +    where CompletedProcess(args=['bash', '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680... 못 찾음: byz-v65-nano-slug#0\n롤백 불가 — 고아: byz-v65-nano-slug#0 (소유권 값 못 읽음)\n', stderr="작업 트리 준비 중 (새 브랜치 'nano/slug')\n") = _spawn({'hb': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_first_sp...rivate/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_first_spawn_without_statu0')}, PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_first_spawn_without_statu0/repo/design/v65/indices/대기/slug.md'))
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r687/feature-pack/fable-team/harness/tests/scripts/test_nano_spawn_base_sha.py:95: AssertionError
+______________ test_respawn_passes_when_only_uncited_file_changed ______________
+
+env = {'hb': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_respawn_...rivate/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_respawn_passes_when_only_0')}
+
+    def test_respawn_passes_when_only_uncited_file_changed(env):
+        base = _sha(env)
+        commit(env["repo"], {"docs/d.md": "d2"}, "docs changed")
+>       assert _spawn(env, _card(env, base=base)).returncode == 0
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['bash', '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680... 못 찾음: byz-v65-nano-slug#0\n롤백 불가 — 고아: byz-v65-nano-slug#0 (소유권 값 못 읽음)\n', stderr="작업 트리 준비 중 (새 브랜치 'nano/slug')\n").returncode
+E        +    where CompletedProcess(args=['bash', '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680... 못 찾음: byz-v65-nano-slug#0\n롤백 불가 — 고아: byz-v65-nano-slug#0 (소유권 값 못 읽음)\n', stderr="작업 트리 준비 중 (새 브랜치 'nano/slug')\n") = _spawn({'hb': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_respawn_...rivate/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_respawn_passes_when_only_0')}, PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_respawn_passes_when_only_0/repo/design/v65/indices/대기/slug.md'))
+E        +      where PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_respawn_passes_when_only_0/repo/design/v65/indices/대기/slug.md') = _card({'hb': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_respawn_...rivate/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_respawn_passes_when_only_0')}, base='cd8751d01c724fd6e1bdfa345626182f66650a3d')
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r687/feature-pack/fable-team/harness/tests/scripts/test_nano_spawn_base_sha.py:110: AssertionError
+__________________ test_no_cited_paths_ignores_non_set_paths ___________________
+
+env = {'hb': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_no_cited...rivate/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_no_cited_paths_ignores_no0')}
+
+    def test_no_cited_paths_ignores_non_set_paths(env):
+        base = _sha(env)
+        commit(env["repo"], {"design/x.md": "x2"}, "design changed")
+>       assert _spawn(env, _card(env, PLAIN, base=base)).returncode == 0
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['bash', '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680... 못 찾음: byz-v65-nano-slug#0\n롤백 불가 — 고아: byz-v65-nano-slug#0 (소유권 값 못 읽음)\n', stderr="작업 트리 준비 중 (새 브랜치 'nano/slug')\n").returncode
+E        +    where CompletedProcess(args=['bash', '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680... 못 찾음: byz-v65-nano-slug#0\n롤백 불가 — 고아: byz-v65-nano-slug#0 (소유권 값 못 읽음)\n', stderr="작업 트리 준비 중 (새 브랜치 'nano/slug')\n") = _spawn({'hb': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_no_cited...rivate/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_no_cited_paths_ignores_no0')}, PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_no_cited_paths_ignores_no0/repo/design/v65/indices/대기/slug.md'))
+E        +      where PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_no_cited_paths_ignores_no0/repo/design/v65/indices/대기/slug.md') = _card({'hb': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_no_cited...rivate/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_no_cited_paths_ignores_no0')}, '# 카드\n\n## 구현 범위\n- 문장만\n\n## 상태\n- 대기\n', base='a962f75a9e435043acea715e6f08eb8f5614075f')
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r687/feature-pack/fable-team/harness/tests/scripts/test_nano_spawn_base_sha.py:129: AssertionError
+_____________ test_recheck_passes_when_verdict_names_current_head ______________
+
+env = {'hb': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_recheck_...rivate/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_recheck_passes_when_verdi0')}
+
+    def test_recheck_passes_when_verdict_names_current_head(env):
+        base = _sha(env)
+        commit(env["repo"], {"worker/w.py": "w2"}, "worker changed")
+        v = _verdict(env, f"판정: 재대조 완료 — feat HEAD {_sha(env, '--short')} 기준\n")
+        r = _spawn(env, _card(env, base=base), "--recheck", str(v))
+>       assert r.returncode == 0 and "RECHECK 통과" in r.stdout
+E       assert (1 == 0)
+E        +  where 1 = CompletedProcess(args=['bash', '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680... 못 찾음: byz-v65-nano-slug#0\n롤백 불가 — 고아: byz-v65-nano-slug#0 (소유권 값 못 읽음)\n', stderr="작업 트리 준비 중 (새 브랜치 'nano/slug')\n").returncode
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r687/feature-pack/fable-team/harness/tests/scripts/test_nano_spawn_base_sha.py:137: AssertionError
+______________ test_recheck_not_needed_when_nothing_cited_changed ______________
+
+env = {'hb': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_recheck_...rivate/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_recheck_not_needed_when_n0')}
+
+    def test_recheck_not_needed_when_nothing_cited_changed(env):
+        r = _spawn(env, _card(env, base=_sha(env)))
+>       assert r.returncode == 0 and "RECHECK" not in r.stdout
+E       assert (1 == 0)
+E        +  where 1 = CompletedProcess(args=['bash', '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680... 못 찾음: byz-v65-nano-slug#0\n롤백 불가 — 고아: byz-v65-nano-slug#0 (소유권 값 못 읽음)\n', stderr="작업 트리 준비 중 (새 브랜치 'nano/slug')\n").returncode
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r687/feature-pack/fable-team/harness/tests/scripts/test_nano_spawn_base_sha.py:155: AssertionError
+--------------------------- Captured stderr teardown ---------------------------
+REAL-STATE-GUARD WARN 번호표 늘었으나 실 좌석 계획(동시 실행): /private/tmp/h310 ← /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/state/approve-merge-loom-2507-4027a8327b-20261022.sh.hil
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+_________ test_spawn_tag_failure_rolls_back_via_undo_with_owned_values _________
+
+env = {'hb': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_spawn_ta...rivate/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_spawn_tag_failure_rolls_b0')}
+
+    def test_spawn_tag_failure_rolls_back_via_undo_with_owned_values(env):
+        r, _ = spawn(env, TAG_VAL="0")
+>       assert r.returncode == 1 and "태그 확인 실패" in r.stdout and "UNDONE" in r.stdout
+E       assert (1 == 1 and '태그 확인 실패' in 'ENV team=v65 prefix=byz-v65-nano- seats=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/p.../web/node_modules 없음 — 웹 시험 불가)\nREJECT pane 못 찾음: byz-v65-nano-slug#0\n롤백 불가 — 고아: byz-v65-nano-slug#0 (소유권 값 못 읽음)\n')
+E        +  where 1 = CompletedProcess(args=['bash', '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680... 못 찾음: byz-v65-nano-slug#0\n롤백 불가 — 고아: byz-v65-nano-slug#0 (소유권 값 못 읽음)\n', stderr="작업 트리 준비 중 (새 브랜치 'nano/slug')\n").returncode
+E        +  and   'ENV team=v65 prefix=byz-v65-nano- seats=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/p.../web/node_modules 없음 — 웹 시험 불가)\nREJECT pane 못 찾음: byz-v65-nano-slug#0\n롤백 불가 — 고아: byz-v65-nano-slug#0 (소유권 값 못 읽음)\n' = CompletedProcess(args=['bash', '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680... 못 찾음: byz-v65-nano-slug#0\n롤백 불가 — 고아: byz-v65-nano-slug#0 (소유권 값 못 읽음)\n', stderr="작업 트리 준비 중 (새 브랜치 'nano/slug')\n").stdout
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r687/feature-pack/fable-team/harness/tests/scripts/test_nano_spawn_rollback.py:72: AssertionError
+_____________ test_spawn_open_failure_with_live_session_rolls_back _____________
+
+env = {'hb': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_spawn_op...rivate/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_spawn_open_failure_with_l0')}
+
+    def test_spawn_open_failure_with_live_session_rolls_back(env):
+        r, _ = spawn(env, TMUXC_RC="1")
+>       assert r.returncode == 1 and "tmuxc open 실패" in r.stdout and len(undo_calls(env)) == 1
+E       assert (1 == 1 and 'tmuxc open 실패' in 'ENV team=v65 prefix=byz-v65-nano- seats=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/p...node_modules 없음 — 웹 시험 불가)\nREJECT tmuxc open 실패 (byz-v65-nano-slug#0)\n롤백 불가 — 고아: byz-v65-nano-slug#0 (소유권 값 못 읽음)\n' and 0 == 1)
+E        +  where 1 = CompletedProcess(args=['bash', '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680...n 실패 (byz-v65-nano-slug#0)\n롤백 불가 — 고아: byz-v65-nano-slug#0 (소유권 값 못 읽음)\n', stderr="작업 트리 준비 중 (새 브랜치 'nano/slug')\n").returncode
+E        +  and   'ENV team=v65 prefix=byz-v65-nano- seats=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/p...node_modules 없음 — 웹 시험 불가)\nREJECT tmuxc open 실패 (byz-v65-nano-slug#0)\n롤백 불가 — 고아: byz-v65-nano-slug#0 (소유권 값 못 읽음)\n' = CompletedProcess(args=['bash', '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680...n 실패 (byz-v65-nano-slug#0)\n롤백 불가 — 고아: byz-v65-nano-slug#0 (소유권 값 못 읽음)\n', stderr="작업 트리 준비 중 (새 브랜치 'nano/slug')\n").stdout
+E        +  and   0 = len([])
+E        +    where [] = undo_calls({'hb': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_spawn_op...rivate/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_spawn_open_failure_with_l0')})
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r687/feature-pack/fable-team/harness/tests/scripts/test_nano_spawn_rollback.py:78: AssertionError
+_____________ test_spawn_move_failure_kills_nothing_and_asks_human _____________
+
+env = {'hb': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_spawn_mo...rivate/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_spawn_move_failure_kills_0')}
+
+    def test_spawn_move_failure_kills_nothing_and_asks_human(env):
+        exe(env["hb"] / "ft-index-move.sh", "exit 1\n")
+        r, _ = spawn(env)
+>       assert r.returncode == 1 and "사람 판정" in r.stdout and "⑥ 인덱스 이동" in r.stdout and not undo_calls(env)
+E       assert (1 == 1 and '사람 판정' in 'ENV team=v65 prefix=byz-v65-nano- seats=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/p.../web/node_modules 없음 — 웹 시험 불가)\nREJECT pane 못 찾음: byz-v65-nano-slug#0\n롤백 불가 — 고아: byz-v65-nano-slug#0 (소유권 값 못 읽음)\n')
+E        +  where 1 = CompletedProcess(args=['bash', '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680... 못 찾음: byz-v65-nano-slug#0\n롤백 불가 — 고아: byz-v65-nano-slug#0 (소유권 값 못 읽음)\n', stderr="작업 트리 준비 중 (새 브랜치 'nano/slug')\n").returncode
+E        +  and   'ENV team=v65 prefix=byz-v65-nano- seats=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/p.../web/node_modules 없음 — 웹 시험 불가)\nREJECT pane 못 찾음: byz-v65-nano-slug#0\n롤백 불가 — 고아: byz-v65-nano-slug#0 (소유권 값 못 읽음)\n' = CompletedProcess(args=['bash', '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680... 못 찾음: byz-v65-nano-slug#0\n롤백 불가 — 고아: byz-v65-nano-slug#0 (소유권 값 못 읽음)\n', stderr="작업 트리 준비 중 (새 브랜치 'nano/slug')\n").stdout
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r687/feature-pack/fable-team/harness/tests/scripts/test_nano_spawn_rollback.py:84: AssertionError
+_________ test_spawn_roster_write_failure_kills_nothing_and_asks_human _________
+
+env = {'hb': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_spawn_ro...rivate/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_spawn_roster_write_failur0')}
+
+    def test_spawn_roster_write_failure_kills_nothing_and_asks_human(env):
+        (env["repo"] / ".fable-team/seats.json").chmod(0o444)
+        r, _ = spawn(env)
+>       assert r.returncode == 1 and "사람 판정" in r.stdout and "⑤ 명부 등록" in r.stdout and not undo_calls(env)
+E       assert (1 == 1 and '사람 판정' in 'ENV team=v65 prefix=byz-v65-nano- seats=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/p.../web/node_modules 없음 — 웹 시험 불가)\nREJECT pane 못 찾음: byz-v65-nano-slug#0\n롤백 불가 — 고아: byz-v65-nano-slug#0 (소유권 값 못 읽음)\n')
+E        +  where 1 = CompletedProcess(args=['bash', '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680... 못 찾음: byz-v65-nano-slug#0\n롤백 불가 — 고아: byz-v65-nano-slug#0 (소유권 값 못 읽음)\n', stderr="작업 트리 준비 중 (새 브랜치 'nano/slug')\n").returncode
+E        +  and   'ENV team=v65 prefix=byz-v65-nano- seats=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/p.../web/node_modules 없음 — 웹 시험 불가)\nREJECT pane 못 찾음: byz-v65-nano-slug#0\n롤백 불가 — 고아: byz-v65-nano-slug#0 (소유권 값 못 읽음)\n' = CompletedProcess(args=['bash', '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680... 못 찾음: byz-v65-nano-slug#0\n롤백 불가 — 고아: byz-v65-nano-slug#0 (소유권 값 못 읽음)\n', stderr="작업 트리 준비 중 (새 브랜치 'nano/slug')\n").stdout
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r687/feature-pack/fable-team/harness/tests/scripts/test_nano_spawn_rollback.py:91: AssertionError
+_______________________ test_spawn_normal_path_unchanged _______________________
+
+env = {'hb': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_spawn_no...rivate/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_spawn_normal_path_unchang0')}
+
+    def test_spawn_normal_path_unchanged(env):
+        r, card = spawn(env)
+>       assert r.returncode == 0 and "SPAWNED" in r.stdout and not undo_calls(env)
+E       assert (1 == 0)
+E        +  where 1 = CompletedProcess(args=['bash', '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680... 못 찾음: byz-v65-nano-slug#0\n롤백 불가 — 고아: byz-v65-nano-slug#0 (소유권 값 못 읽음)\n', stderr="작업 트리 준비 중 (새 브랜치 'nano/slug')\n").returncode
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r687/feature-pack/fable-team/harness/tests/scripts/test_nano_spawn_rollback.py:96: AssertionError
+_____________ test_spawn_card_without_slack_line_never_calls_check _____________
+
+env = {'hb': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_spawn_ca...rivate/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_spawn_card_without_slack_0')}
+
+    def test_spawn_card_without_slack_line_never_calls_check(env):
+        exe(env["tmp"] / "tp.sh", f"touch {env['tmp']}/tp.called\nexit 0\n")
+        r, _ = spawn(env)
+>       assert r.returncode == 0 and not (env["tmp"] / "tp.called").exists()
+E       assert (1 == 0)
+E        +  where 1 = CompletedProcess(args=['bash', '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680... 못 찾음: byz-v65-nano-slug#0\n롤백 불가 — 고아: byz-v65-nano-slug#0 (소유권 값 못 읽음)\n', stderr="작업 트리 준비 중 (새 브랜치 'nano/slug')\n").returncode
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r687/feature-pack/fable-team/harness/tests/scripts/test_nano_spawn_rollback.py:103: AssertionError
+______________ test_undo_rejects_foreign_prefix_pane_and_created _______________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_undo_rejects_foreign_pref0')
+
+    def test_undo_rejects_foreign_prefix_pane_and_created(tmp_path):
+        e = make_env(tmp_path)
+>       assert undo(e, "--owned", owned(e), "--card", str(e["card"]), FT_NANO_PREFIX="other-").returncode == 1
+E       AssertionError: assert 0 == 1
+E        +  where 0 = CompletedProcess(args=['bash', '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r687/feature-pack/fable-team/harnes...ects_foreign_pref0/repo/design/v65/indices/대기/slug.md'], returncode=0, stdout='UNDONE ft-v65-temp-slug#0\n', stderr='').returncode
+E        +    where CompletedProcess(args=['bash', '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r687/feature-pack/fable-team/harnes...ects_foreign_pref0/repo/design/v65/indices/대기/slug.md'], returncode=0, stdout='UNDONE ft-v65-temp-slug#0\n', stderr='') = undo({'card': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_undo_r...ers/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_undo_rejects_foreign_pref0/ledger.md'), ...}, '--owned', '%1:1792617443', '--card', '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_undo_rejects_foreign_pref0/repo/design/v65/indices/대기/slug.md', FT_NANO_PREFIX='other-')
+E        +      where '%1:1792617443' = owned({'card': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_undo_r...ers/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_undo_rejects_foreign_pref0/ledger.md'), ...})
+E        +      and   '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_undo_rejects_foreign_pref0/repo/design/v65/indices/대기/slug.md' = str(PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-680/test_undo_rejects_foreign_pref0/repo/design/v65/indices/대기/slug.md'))
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r687/feature-pack/fable-team/harness/tests/scripts/test_nano_spawn_rollback.py:135: AssertionError
+=========================== short test summary info ============================
+FAILED scripts/test_ft_sibling_reject.py::test_siblings_present_keeps_existing_path[ft-successor-open.sh]
+FAILED scripts/test_ft_sibling_reject.py::test_nano_spawn_missing_teamset_helper_rejects_before_side_effects[ft_teamset.py]
+FAILED scripts/test_nano_spawn_base_sha.py::test_spawn_records_worktree_info_base_sha_short
+FAILED scripts/test_nano_spawn_base_sha.py::test_first_spawn_writes_full_head_into_card_status
+FAILED scripts/test_nano_spawn_base_sha.py::test_first_spawn_without_status_section_appends_one
+FAILED scripts/test_nano_spawn_base_sha.py::test_respawn_passes_when_only_uncited_file_changed
+FAILED scripts/test_nano_spawn_base_sha.py::test_no_cited_paths_ignores_non_set_paths
+FAILED scripts/test_nano_spawn_base_sha.py::test_recheck_passes_when_verdict_names_current_head
+FAILED scripts/test_nano_spawn_base_sha.py::test_recheck_not_needed_when_nothing_cited_changed
+FAILED scripts/test_nano_spawn_rollback.py::test_spawn_tag_failure_rolls_back_via_undo_with_owned_values
+FAILED scripts/test_nano_spawn_rollback.py::test_spawn_open_failure_with_live_session_rolls_back
+FAILED scripts/test_nano_spawn_rollback.py::test_spawn_move_failure_kills_nothing_and_asks_human
+FAILED scripts/test_nano_spawn_rollback.py::test_spawn_roster_write_failure_kills_nothing_and_asks_human
+FAILED scripts/test_nano_spawn_rollback.py::test_spawn_normal_path_unchanged
+FAILED scripts/test_nano_spawn_rollback.py::test_spawn_card_without_slack_line_never_calls_check
+FAILED scripts/test_nano_spawn_rollback.py::test_undo_rejects_foreign_prefix_pane_and_created
+16 failed, 50 passed in 47.14s

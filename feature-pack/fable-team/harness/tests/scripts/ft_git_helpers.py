@@ -47,6 +47,11 @@ def copy_py_helpers(dest: Path) -> None:
     subprocess.run(["bash", "-c", '. "$1" && copy_source_deps "$2" "$3"', "_", str(lib), str(BIN), str(dest)], check=True)
 
 
+def nano_prefix(team: str = "v65") -> str:
+    """r687: ft-nano-spawn.sh 가 기본 접두를 읽는 같은 명령(`ft_teamset.py prefix --team v65`)의 값 — 픽스처에 접두 글자를 박지 않는다(r655 접두 변경을 따라간다)."""
+    return subprocess.run(["python3", str(BIN / "ft_teamset.py"), "prefix", "--team", team], check=True, capture_output=True, text=True).stdout.strip()
+
+
 def run_script(name: str, *args: str, cwd: Path | None = None, extra_env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
     env = {**os.environ, **(extra_env or {})}
     return subprocess.run(["bash", str(BIN / name), *args], capture_output=True, text=True, cwd=cwd, env=env)

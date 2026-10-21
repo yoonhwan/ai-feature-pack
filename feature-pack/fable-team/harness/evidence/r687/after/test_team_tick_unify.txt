@@ -1,0 +1,61 @@
+PASS ⓕ 키트 두 사본 동일 ft-tick.sh
+PASS ⓕ 키트 두 사본 동일 ft-tick-install.sh
+PASS ⓕ 키트 두 사본 동일 team-tick-env.tsv
+PASS bash -n
+PASS ⓐ feature dry-run rc
+PASS ⓐ feature 기존 키 보존 · 바뀐 키 = SEAT_STATUS 뿐 · ProgramArguments[1] = 공용
+PASS ⓐ feature SEAT_STATUS = 공용 bin
+PASS ⓐ feature FIRE_V2 · STATE_DIR
+PASS ⓐ loom dry-run rc
+PASS ⓐ loom 기존 키 보존 · 바뀐 키 = SEAT_STATUS 뿐 · ProgramArguments[1] = 공용
+PASS ⓐ loom SEAT_STATUS = 공용 bin
+PASS ⓐ loom FIRE_V2 · STATE_DIR
+PASS ⓐ ops dry-run rc
+PASS ⓐ ops 기존 키 보존 · 바뀐 키 = SEAT_STATUS 뿐 · ProgramArguments[1] = 공용
+PASS ⓐ ops SEAT_STATUS = 공용 bin
+PASS ⓐ ops FIRE_V2 · STATE_DIR
+PASS ⓐ cfo dry-run rc
+PASS ⓐ cfo 기존 키 보존 · 바뀐 키 = SEAT_STATUS 뿐 · ProgramArguments[1] = 공용
+PASS ⓐ cfo SEAT_STATUS = 공용 bin
+PASS ⓐ cfo FIRE_V2 · STATE_DIR
+PASS ⓐ dry-run: 실 plist 불변
+PASS ⓐ 표≠plist(PIDFILE) → 거부 rc
+PASS ⓐ 공용 bin 에 seat-status 없음 → 거부 rc
+PASS ⓐ 표에 없는 팀 → 거부 rc
+PASS ⓐ chatbot: 원본 plist 없음 → 거부 rc
+PASS ⓐ chatbot --from: 좌석표·라벨·로그
+PASS ⓖ H1 표≠plist(STATE_DIR) → 거부 rc
+PASS ⓖ H1 plist 에 STATE_DIR 없음 → 추가(rc 0 · 표 값)
+PASS ⓖ H2 메인 plist 없음 + --script 생략 → 거부 rc
+PASS ⓖ H2 --script 생략 → 메인 plist 의 스크립트
+PASS ⓖ H2 --script wt/.worktrees/x/.fable-team/bin → 거부 rc
+PASS ⓖ H2 --script wt/harness/bin → 거부 rc
+PASS ⓖ H2 --script wt/harness/kit/fable-team/bin → 거부 rc
+PASS ⓖ H2 라이브 .worktrees/v6-realtime-live/.fable-team/bin 은 허용 rc
+PASS ⓖ r3 H2 '..' 로 허용 패턴 흉내(--script) → 거부 rc
+PASS ⓖ r3 H2 '..' 흉내 + REJECT 출력 · plist 출력 0
+PASS ⓖ r3 H2 '..' 흉내(메인 plist 기본값) → 거부 rc
+PASS ⓖ r3 정규화 값이 plist 에 들어간다(허용 경로 '..' 우회 아닌 것)
+PASS ⓖ 변이(기본 선택 = 옛 동작)를 잡는다 rc
+PASS 설치 rc
+PASS 설치: 백업 = 원본 · plist 갱신
+PASS 설치: bootout·bootstrap 2줄
+PASS 설치 재실행(멱등) rc · launchctl 추가 0
+PASS 설치 plist lint
+PASS ⓑ 표: STATE_DIR·PIDFILE·STAMP_PREFIX 팀마다 다름(메인 기본값과도)
+PASS ⓑ 변이(ops 가 cfo STATE_DIR 를 씀)를 잡는다
+PASS ⓒ 팀 plist 가 끄는 스위치 8개
+PASS ⓒ 양성 대조(메인 env): 전역 감시 6종이 돈다
+PASS ⓒ 팀 env: 전역 감시 실행 0
+PASS ⓒ 팀 env: drift 알림 0
+PASS ⓓ idle-long 줄(그 팀 좌석만 · master 는 planner 앞)
+PASS ⓓ idle-long 나노(T-N#1) 0 — r615 나노 제외
+PASS ⓓ dead-seat 줄
+PASS ⓓ 죽은 나노(T-DEAD#0) = dead-seat-nano 1줄 · 죽음 셈 0
+PASS ⓓ 다른 팀 좌석(OTHER-N#1) 언급 0
+PASS ⓓ 명부 파일 불변(후계 이전 쓰기 0)
+PASS ⓔ FIRE_V2 미설정: 스피너만 있는 창엔 옛 동작(발사)
+PASS ⓔ FIRE_V2=1: 같은 창을 busy 로 건너뜀(발사 0)
+fail=0
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

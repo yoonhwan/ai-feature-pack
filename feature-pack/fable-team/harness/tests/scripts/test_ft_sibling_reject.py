@@ -154,6 +154,7 @@ def _prepare(
     args, cwd = make_args(tmp_path, bindir)
     if with_siblings and tool == "ft-successor-open.sh":
         _stub(tmp_path / "repo" / ".fable-team" / "comm" / "mbox.sh", 0)  # R343: mbox 는 대상 리포 것
+        _stub(tmp_path / "repo" / ".fable-team" / "comm" / "mbox_doorbell.sh", 0)  # r687: r607 이후 successor-open 은 mbox.sh 가 source 하는 짝도 요구
     env = _env(tmp_path / "fakebin")
     if tool == "ft-nano-spawn.sh":
         env["FT_SEATS_JSON"] = str(tmp_path / "seats.json")

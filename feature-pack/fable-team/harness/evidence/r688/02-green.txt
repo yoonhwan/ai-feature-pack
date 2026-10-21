@@ -1,0 +1,27 @@
+# r688 후판 = 이 가지 작업 트리 · test_team_literal_paths2.sh
+## ⓐ×2·ⓓ FAIL 0 · ⓒ 반례 4칸 PASS (남은 fail=7 = 전부 ⓔ r686 몫 — r686 가지 58536239 미착지)
+PASS ⓐ 실 bin 린트: INFO 리터럴 대기 0
+PASS ⓐ 키트 bin 린트(키트 전용 5 포함): INFO 대기 0 · rc0
+PASS ⓒ r688 린트 반례 real: rc=1(기대 1)
+PASS ⓒ r688 린트 반례 oldmark: rc=1(기대 1)
+PASS ⓒ r688 린트 반례 newmark: rc=0(기대 0)
+PASS ⓒ r688 표지 변수 실재
+PASS ⓓ ft-nano-close: 리터럴 팀 경로 0 · lib 경유(셸 ft-team-lib.sh 또는 파이썬 ft_team_lib)
+PASS ⓓ ft-nano-close: 기본 원장 = ft_team_in(_ref · r495) v65
+FAIL ⓔ1 ft-nano-spawn rc=1 ← REJECT ft-research-seat-lib.sh 없음: <TMP>/xhb1 (런타임 .fable-team/bin/ 에서 실행하라)
+FAIL ⓔ1 ft-nano-spawn 카드 실파일 위치 ← design/v65/indices/대기/slug.md 
+FAIL ⓔ1 ft-nano-spawn: 발주 본문 SEATBELT 경로 = 1꼴 v65 폴더(ft_team_file_ref) — 없음: «<TMP>/xs1/design/v65/SEATBELT-README.md» ← 
+FAIL ⓔ2 ft-nano-spawn rc=1 ← REJECT ft-research-seat-lib.sh 없음: <TMP>/xhb2 (런타임 .fable-team/bin/ 에서 실행하라)
+FAIL ⓔ2 ft-nano-spawn 카드 실파일 위치 ← design/teams/v65/indices/대기/slug.md 
+FAIL ⓔ2 ft-nano-spawn: 발주 본문 SEATBELT 경로 = 2꼴 v65 폴더(ft_team_file_ref) — 없음: «<TMP>/xs2/design/teams/v65/SEATBELT-README.md» ← 
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r688-team-path-lint-flags-nano-close-led/feature-pack/fable-team/harness/tests/test_team_literal_paths2.sh: 줄 359: <TMP>/eo.ft-live-bin-drift-check: 
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r688-team-path-lint-flags-nano-close-led/feature-pack/fable-team/harness/tests/test_team_literal_paths2.sh: 줄 359: <TMP>/eo.ft-issue-reopen: No such 
+FAIL ⓔ fail-closed ft-nano-spawn: rc=1 · «design/TEAMS.md)을 못 읽음» — 없음: «design/TEAMS.md)을 못 읽음» ← REJECT ft-research-seat-lib.sh 없음: <TMP>/xhb1 (런타임 .fable-team/bin/ 에서 실행하라)
+== fail=7
+## r621 판별 시험 test_nano_close_pack_wt.sh
+PASS   └ 팩 HEAD 그대로(WIP 커밋 0)
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+rc=0 (PASS 37 · FAIL 0)
+## 고른 길 = (가) — ft-nano-close 표지 대조를 «원장 파일 이름» 정규식 변수 1개(HARNESS_LEDGER_MARK_RE)로: 린트 예외 0(약화 0) · ⓓ 정적 대조도 그대로 · 하네스 폴더가 design/teams/ 로 옮겨도 같은 표지. (나)는 린트+ⓓ 시험 둘 다 예외를 넣어야 해 더 큼
+## master 137146 범위 확장: ft-successor-open.sh:81 = 명단 ref planner 칸(ft_team_cands_ref) · ft_all_stop.py team_rel = 명단 ref 칸(team_rows_ref · 꼴3 접두 제거 = 리포 안 같은 자리)

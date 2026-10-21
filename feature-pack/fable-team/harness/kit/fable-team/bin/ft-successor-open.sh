@@ -78,8 +78,10 @@ case "$NAME" in *-desk-*|*-planner-*) grep -qE -- '--ts [0-9]{10}\.[0-9]{6}' "$B
 # ⓐ'' (r660) desk 승계 본문 — ① 첫 10줄에 planner 안내서 27줄 원문 구절 없으면 열지 않는다 ② 팀 직발 예시(send·relay 뒤 byz-<planner 아닌 팀>-… · 따옴표 유무 무관) 있으면 열지 않는다(부작용 전 · 지침 = GUIDE-planner.md:27 «desk 는 인터뷰·응대·요청 정리만 … master 에 1통»).
 #   원문은 «origin/main» 에서 읽는다(못 읽으면 REJECT · fail-closed) · 판정기 하나 = python 인라인 · planner·다른 역할 승계는 이 문 밖.
 if [ "${NAME#*-desk-}" != "$NAME" ]; then
-  _gref="${FT_GUIDE_REF:-origin/main}"; _gpath="${FT_GUIDE_PATH:-design/teams/planner/GUIDE-planner.md}"; _gline="${FT_GUIDE_LINE:-27}"
-  _gd="$(git -C "$WT" show "$_gref:$_gpath" 2>/dev/null | sed -n "${_gline}p")"
+  _gref="${FT_GUIDE_REF:-origin/main}"; _gline="${FT_GUIDE_LINE:-27}"; _gpath="${FT_GUIDE_PATH:-}"
+  # r688: planner 폴더 = 명단(<ref>:design/TEAMS.md)의 planner 칸(ft_team_cands_ref 첫 후보) — 팀 폴더 글자 0 · 못 풀면 아래 «못 읽었다» REJECT 로 닫힌다(fail-closed)
+  if [ -z "$_gpath" ]; then _gdir="$(. "$HERE/ft-team-lib.sh" && ft_team_cands_ref "$WT" planner "$_gref")" && _gdir="${_gdir%%$'\n'*}" && _gpath="${_gdir#"$WT"/}/GUIDE-planner.md"; fi
+  _gd="$([ -n "$_gpath" ] && git -C "$WT" show "$_gref:$_gpath" 2>/dev/null | sed -n "${_gline}p")"
   [ -n "${_gd//[[:space:]]/}" ] || { echo "REJECT desk 승계 본문 검사 — $_gref:$_gpath ${_gline}줄을 읽지 못했다(못 읽으면 열지 않는다 · fail-closed)"; exit 1; }
   _gchk="$(python3 - "$BODY" "$_gd" "$_gline" <<'PYGUIDE'
 import re, sys

@@ -1,0 +1,32 @@
+# r687 시험 픽스처가 착지 기능(r655·r607·r615)을 따라가게 — 시험 파일만 · 키트 bin 변경 0
+전판 = 팩 main 7db078e1(r686 착지) · 후판 = 이 가지 · 원문 = before/*.txt · after/*.txt
+
+## ⓐ 전판 빨강 (before/)
+| 시험 | 전판 |
+|---|---|
+| test_spawn_hold.sh | rc1 fail=2 (ⓒ — mbox 짝 파일 없음) |
+| test_planner_nano_path.sh | rc1 FAILED 3 (v65 BODY 2 = 접두 · 하위 body_press rc≠0) |
+| test_team_tick_unify.sh | rc2 fail=2 (ⓓ idle-long · dead-seat 줄 수) |
+| scripts/ sibling_reject·base_sha·rollback | 16 failed, 50 passed |
+
+## ⓑ 후판 (after/)
+| 시험 | 후판 |
+|---|---|
+| test_spawn_hold.sh | rc0 fail=0 (첫 회 REAL-STATE-GUARD 가 남의 좌석 /tmp/h313(v6-realtime-live HIL) 생성을 잡음 → 재실행 PASS) |
+| test_planner_nano_path.sh | rc0 ALL PASS |
+| test_team_tick_unify.sh | rc0 fail=0 |
+| test_nano_spawn_body_press.sh (단독) | rc0 ALL PASS |
+| scripts/ 3개 | 1 failed, 65 passed — 남은 1 = ⑥(키트 결함 · 아래 [보고]) |
+
+## ⓒ 고친 칸마다 픽스처에 더한 것 (단언 삭제·skip 0 — 바꾼 단언 4줄은 같은 뜻으로 다시 씀 · 새 단언 +3)
+① r655 접두 — ft_git_helpers.nano_prefix() = spawn 이 기본 접두를 읽는 같은 명령(ft_teamset.py prefix --team v65). _nano_rollback_env SEAT·FT_NANO_PREFIX, base_sha 가짜 tmux list-panes, planner_nano_path panes 가 그 값을 쓴다(글자 박기 0).
+① 덧(rollback foreign_prefix) — r655 undo 는 명시 FT_NANO_PREFIX 를 규칙 접두에 «더함»(ft-nano-spawn-undo.sh:31) → «other-» env 로는 남의 좌석을 못 만듦. 남의 접두를 «좌석 이름 other-slug#0»(pane 은 보이게)으로 주고, rc1 + 거절 사유 «ⓑ» 까지 단언(전보다 강함).
+② body_press — (가) 팩 이전(3b25f81d) 뒤 $HERE/../../.gitignore 는 BYZ 루트가 아님(파일 없음 → ⓒ node_modules 2칸 빨강): BYZ origin/main .gitignore 108~109행 두 줄을 픽스처로 + BYZ 리포가 보이면 정본 줄 실재 대조 단언 1 추가(없으면 SKIP 1줄). (나) core.bare 를 cwd 대신 이 시험이 든 리포(git -C $HERE) 에서 — r541 guard 가 cwd 를 git 밖으로 옮겨 빈 값이었다.
+④ r607 짝 — 가짜 mbox 폴더에 mbox_doorbell.sh(exit 0) 추가: test_spawn_hold · test_ft_sibling_reject.
+⑤ r615(747d3789) — 나노는 누적 정지(idle-long) 대상 아님 · 죽은 나노는 kind=dead-seat-nano 줄. 기대를 그 규칙으로: idle-long = master 1줄 + «나노 T-N#1 idle-long 0» 단언 추가 · dead-seat 요약 1줄(공백까지 정확 매치) + «T-DEAD#0 = dead-seat-nano 1줄 · 죽음 셈 0» 단언 추가.
+
+## ⑥ [보고] 키트 결함 후보 — 고치지 않음 (카드 §구현 범위 3)
+scripts/test_ft_sibling_reject missing_teamset_helper[ft_teamset.py] — r655 가 ft-nano-spawn.sh:57-58 에 ft_teamset.py 선행 읽기를 넣었고, 그 REJECT 문구 «나노 이름 규칙(…) 못 읽음: $HERE» 에 설치 안내(«런타임 .fable-team/bin/ 에서 실행하라») 가 없다. 102행 존재 검사(안내 포함)보다 먼저 걸려 «도우미 없는 설치본 = 안내 REJECT» 계약이 깨짐. 픽스처로는 못 고침(기대를 낮추는 것 외엔). 처방 후보: 57행 앞에 ft_teamset.py 존재 검사 + 같은 안내 문구(키트 1파일 · 두 사본).
+
+## 범위 밖 그대로
+③ 리터럴 린트(r688) · 키트 bin 코드 0

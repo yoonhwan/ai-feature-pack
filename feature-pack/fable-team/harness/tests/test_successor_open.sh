@@ -203,6 +203,7 @@ rm -rf "$JDIR_WT"
 GDIR="$REPO/design/teams/planner"; mkdir -p "$GDIR"
 GUIDE_LINE='- **desk 좌석(판정 1779 · R205)**: desk 는 인터뷰·응대·요청 정리만(코드·커밋 0 · 팀 직접 발주 0 · 정리한 요청은 master 에 1통).'
 { for i in $(seq 1 26); do echo "- 안내서 $i 줄"; done; echo "$GUIDE_LINE"; } > "$GDIR/GUIDE-planner.md"
+printf '| 팀 | 폴더 | 오케 | 상태 |\n|---|---|---|---|\n| planner | `design/teams/planner/` | p | 현역 |\n' > "$REPO/design/TEAMS.md"   # r688: 안내서 폴더 = 명단(origin/main) planner 칸
 git -C "$REPO" add -A && git -C "$REPO" -c user.name=t -c user.email=t@t commit -q -m 'guide-planner 27줄'
 git -C "$REPO" update-ref refs/remotes/origin/main HEAD
 printf '골 원문 1줄\n골 원문 2줄\n골 원문 3줄\n%s\n' "$GUIDE_LINE" > "$TMP/desk_ok.txt"
@@ -232,5 +233,8 @@ OLD='byz-planner-desk-claude#38'; NEW='byz-planner-desk-claude#39'; BODY_USE="$T
 run FT_GUIDE_PATH=design/teams/planner/NOPE.md SEND_RC=0
 { [ "$RC" -ne 0 ] && grep -q '줄을 읽지 못했다' "$TMP/out" && [ "$(count tmuxc)" = 0 ] && [ "$(count send)" = 0 ]; } \
   && ok "ⓣ r660 GUIDE 원문을 못 읽음 → REJECT · open·송신 0(fail-closed)" || bad "ⓣ guide없음 rc=$RC out=$(cat "$TMP/out")"
+run FT_GUIDE_REF=HEAD~1 SEND_RC=0
+{ [ "$RC" -ne 0 ] && grep -q '명단(HEAD~1:design/TEAMS.md)을 못 읽음' "$TMP/out" && grep -q '줄을 읽지 못했다' "$TMP/out" && [ "$(count tmuxc)" = 0 ] && [ "$(count send)" = 0 ]; } \
+  && ok "ⓣ r688 planner 폴더 = 명단 칸 · 명단 못 읽음 → REJECT · open·송신 0(트리 목록으로 통과 0)" || bad "ⓣ r688 명단없음 rc=$RC out=$(cat "$TMP/out")"
 
 [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }

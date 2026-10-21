@@ -72,9 +72,10 @@ GIT update-ref refs/remotes/origin/main HEAD
 run()  { ( cd "$REPO" && env -i FT_TEAMSET=0 FT_RES_ROOT="$FT_RES_ROOT" HOME="$HOME" LC_ALL=en_US.UTF-8 FT_SHEET_ROOT="$FT_SHEET_ROOT" PATH="$T/fake:$PATH" FAKE_OPENED="$T/opened" FAKE_PANES="$T/panes" "$@" 2>&1 ); }
 lint() { ( cd "$REPO" && env -i HOME="$HOME" LC_ALL=en_US.UTF-8 PATH="$PATH" "$@" 2>&1 ); }
 LINT="$BIN/ft-index-lint.sh"
+V65_PREFIX="$(python3 "$SRC/ft_teamset.py" prefix --team v65)"   # r687: spawn 이 v65 기본 접두를 읽는 같은 명령(r655 byz-v65-nano-) — 픽스처에 글자로 박지 않는다
 spawn() { local bindir="$1"; shift; rm -f "$T/opened" "$T/body.txt"; run bash "$bindir/ft-nano-spawn.sh" "$@"; }
 real() {  # real <bindir> <카드> — 실 spawn(가짜 도구) · 좌석 이름은 카드 slug 에서
-  local slug; slug="$(basename "$2" .md)"; printf 'byz-planner-nano-%s#0|%%1|1\nft-v65-temp-%s#0|%%2|1\n' "$slug" "$slug" > "$T/panes"
+  local slug; slug="$(basename "$2" .md)"; printf 'byz-planner-nano-%s#0|%%1|1\n%s%s#0|%%2|1\n' "$slug" "$V65_PREFIX" "$slug" > "$T/panes"
   spawn "$1" "$2" --base HEAD
 }
 

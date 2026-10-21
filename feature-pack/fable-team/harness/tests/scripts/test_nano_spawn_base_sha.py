@@ -14,7 +14,7 @@ import stat
 import subprocess
 
 import pytest
-from ft_git_helpers import BIN, commit, copy_py_helpers, git, init_repo
+from ft_git_helpers import BIN, commit, copy_py_helpers, git, init_repo, nano_prefix
 from real_state_guard import guard_begin_module  # noqa: E402,F401  r541: 실 상태 지문 + git 밖 cwd(모듈 autouse)
 
 CARD = "# 카드\n\n## 골 원문\nx\n\n## 구현 범위\n- `worker/w.py` 를 고친다\n\n## 상태\n- 대기\n"
@@ -48,7 +48,7 @@ def env(tmp_path):
     _exe(
         sh / "tmux",
         f'case "$1" in has-session) [ -e {tmp_path}/opened ] && [[ "$*" == *"#0"* ]] ; exit $? ;; '
-        f'list-panes) echo "ft-v65-temp-slug#0|%1" ;; show-option) echo 1 ;; esac\nexit 0\n',
+        f'list-panes) echo "{nano_prefix()}slug#0|%1" ;; show-option) echo 1 ;; esac\nexit 0\n',  # r687: 도구 기본 접두(r655)
     )
     return {"repo": repo, "hb": hb, "sh": sh, "tmp": tmp_path}
 

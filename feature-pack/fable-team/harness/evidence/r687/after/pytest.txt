@@ -1,0 +1,31 @@
+................F.................................................       [100%]
+=================================== FAILURES ===================================
+_ test_nano_spawn_missing_teamset_helper_rejects_before_side_effects[ft_teamset.py] _
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-695/test_nano_spawn_missing_teamse0')
+fakebin = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-695/test_nano_spawn_missing_teamse0/fakebin')
+helper = 'ft_teamset.py'
+
+    @pytest.mark.parametrize("helper", ["ft_teamset.py", "ft_spawn_queue.py"])
+    def test_nano_spawn_missing_teamset_helper_rejects_before_side_effects(
+        tmp_path: Path, fakebin: Path, helper: str
+    ) -> None:
+        """ft-nano-spawn.sh:61 — 팀셋 도우미 하나만 없는 설치본은 열기 전 안내 REJECT, 부작용 0."""
+        args, cwd, env, bindir = _prepare(tmp_path, "ft-nano-spawn.sh", with_siblings=True)
+        (bindir / helper).unlink()
+        env.pop("FT_TEAMSET")  # 이 시험의 주제가 팀셋 칸 자체 — 끄지 않는다(R351)
+        before = _snapshot(bindir, cwd)
+        r = _run(args, cwd, env)
+        out = r.stdout + r.stderr
+        assert r.returncode == 1, (r.returncode, out)
+>       assert "REJECT ft_teamset.py·ft_spawn_queue.py 없음:" in out and HINT in out, out
+E       AssertionError: REJECT 나노 이름 규칙(ft_teamset.py prefix --team v65) 못 읽음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-695/test_nano_spawn_missing_teamse0/bin
+E         fatal: (현재 폴더 또는 상위 폴더 중 일부가) 깃 저장소가 아닙니다: .git
+E         fatal: (현재 폴더 또는 상위 폴더 중 일부가) 깃 저장소가 아닙니다: .git
+E         
+E       assert ('REJECT ft_teamset.py·ft_spawn_queue.py 없음:' in 'REJECT 나노 이름 규칙(ft_teamset.py prefix --team v65) 못 읽음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytes...issing_teamse0/bin\nfatal: (현재 폴더 또는 상위 폴더 중 일부가) 깃 저장소가 아닙니다: .git\nfatal: (현재 폴더 또는 상위 폴더 중 일부가) 깃 저장소가 아닙니다: .git\n')
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r687/feature-pack/fable-team/harness/tests/scripts/test_ft_sibling_reject.py:228: AssertionError
+=========================== short test summary info ============================
+FAILED scripts/test_ft_sibling_reject.py::test_nano_spawn_missing_teamset_helper_rejects_before_side_effects[ft_teamset.py]
+1 failed, 65 passed in 45.15s

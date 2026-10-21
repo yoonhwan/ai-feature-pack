@@ -1,0 +1,18 @@
+# r688 ⓐ 전판 = 팩 main bae6e035 · test_team_literal_paths2.sh rc=1 · 2026-10-22
+## 이 카드 몫 빨강 3 = ⓐ 실 bin · ⓐ 키트 bin · ⓓ ft-nano-close (린트 ERR 파일 3: ft-nano-close.sh:817 · ft-successor-open.sh:81 · ft_all_stop.py:68·70)
+2:FAIL ⓐ 실 bin 린트 rc=1 ← ft-nano-close.sh:817:if [ "$PACK_WT" = 1 ] && ! { [ -n "$CARD" ] && head -5 "$CARD" | grep -qF '<!-- ledger: design/harness/GOAL-harness.md -->'; }; then
+7:FAIL ⓐ 키트 bin 린트 rc=1 ← ft-nano-close.sh:817:if [ "$PACK_WT" = 1 ] && ! { [ -n "$CARD" ] && head -5 "$CARD" | grep -qF '<!-- ledger: design/harness/GOAL-harness.md -->'; }; then
+96:FAIL ⓓ ft-nano-close 리터럴 1곳 또는 lib 미참조
+ft-successor-open.sh:81:  _gref="${FT_GUIDE_REF:-origin/main}"; _gpath="${FT_GUIDE_PATH:-design/teams/planner/GUIDE-planner.md}"; _gline="${FT_GUIDE_LINE:-27}"
+ft_all_stop.py:68:    """명부 팀 → 팀 폴더 STATE.md (리포 기준) · harness = design/harness/ · `m.room` 꼴은 점 뒤 이름."""
+ft_all_stop.py:70:    return "design/harness/STATE.md" if name == "harness" else f"design/teams/{name}/STATE.md"
+ERR 리터럴 팀 이름 경로 3개 파일 — ft_team_root(셸)·ft_team_lib.team_in(파이썬)으로 바꾼다: ft-nano-close.sh ft-successor-open.sh ft_all_stop.py
+## 나머지 FAIL(ⓔ 6+1 = r686 research-seat-lib · 이 카드 밖)
+FAIL ⓔ1 ft-nano-spawn rc=1 ← REJECT ft-research-seat-lib.sh 없음: <TMP>/xhb1 (런타임 .fable-team/bin/ 에서 실행하라)
+FAIL ⓔ1 ft-nano-spawn 카드 실파일 위치 ← design/v65/indices/대기/slug.md 
+FAIL ⓔ1 ft-nano-spawn: 발주 본문 SEATBELT 경로 = 1꼴 v65 폴더(ft_team_file_ref) — 없음: «<TMP>/xs1/design/v65/SEATBELT-README.md» ← 
+FAIL ⓔ2 ft-nano-spawn rc=1 ← REJECT ft-research-seat-lib.sh 없음: <TMP>/xhb2 (런타임 .fable-team/bin/ 에서 실행하라)
+FAIL ⓔ2 ft-nano-spawn 카드 실파일 위치 ← design/teams/v65/indices/대기/slug.md 
+FAIL ⓔ2 ft-nano-spawn: 발주 본문 SEATBELT 경로 = 2꼴 v65 폴더(ft_team_file_ref) — 없음: «<TMP>/xs2/design/teams/v65/SEATBELT-README.md» ← 
+FAIL ⓔ fail-closed ft-nano-spawn: rc=1 · «design/TEAMS.md)을 못 읽음» — 없음: «design/TEAMS.md)을 못 읽음» ← REJECT ft-research-seat-lib.sh 없음: <TMP>/xhb1 (런타임 .fable-tea
+== fail=10

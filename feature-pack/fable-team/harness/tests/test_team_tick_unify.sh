@@ -180,8 +180,11 @@ chk "ⓒ 팀 env: drift 알림 0" "$(grep -c 'drift:' "$TMP/c-team/out")" 0
 # ⓓ 팀 명부로 --once --dry-run
 cp "$TMP/seats-t.json" "$TMP/seats-t.before"
 RT_FLAGS="--once --dry-run" runtick d "${TEAM_OFF[@]}" FT_TICK_TURN_FIXTURE_DIR= FT_TICK_RESUME_ATTEMPT="$TMP/resume-stub.sh"
-chk "ⓓ idle-long 줄(그 팀 좌석만 · master 는 planner 앞)" "$(grep 'kind=idle-long' "$TMP/d/out" | awk '{print $3,$5}' | tr '\n' ' ')" "seat=T-M#1 to=PLAN#1 seat=T-N#1 to=T-M#1 "
-chk "ⓓ dead-seat 줄" "$(grep -c 'kind=dead-seat' "$TMP/d/out")" 1
+# r687: r615(747d3789) 뒤 나노는 누적 정지 대상 아님 · 죽은 나노는 «dead-seat-nano» 줄로 따로(재개·죽음 목록 0) — 기대를 그 규칙으로, 나노 제외를 명시 단언
+chk "ⓓ idle-long 줄(그 팀 좌석만 · master 는 planner 앞)" "$(grep 'kind=idle-long ' "$TMP/d/out" | awk '{print $3,$5}' | tr '\n' ' ')" "seat=T-M#1 to=PLAN#1 "
+chk "ⓓ idle-long 나노(T-N#1) 0 — r615 나노 제외" "$(grep 'kind=idle-long ' "$TMP/d/out" | grep -c 'seat=T-N#1')" 0
+chk "ⓓ dead-seat 줄" "$(grep -c 'kind=dead-seat ' "$TMP/d/out")" 1
+chk "ⓓ 죽은 나노(T-DEAD#0) = dead-seat-nano 1줄 · 죽음 셈 0" "$(grep -c 'kind=dead-seat-nano seat=T-DEAD#0' "$TMP/d/out")|$(grep -o 'kind=dead-seat mode=[a-z]* dead=[0-9]*' "$TMP/d/out" | sed 's/.*dead=//')" "1|0"
 chk "ⓓ 다른 팀 좌석(OTHER-N#1) 언급 0" "$(grep -c 'OTHER-N#1' "$TMP/d/out")" 0
 chk "ⓓ 명부 파일 불변(후계 이전 쓰기 0)" "$(cmp -s "$TMP/seats-t.json" "$TMP/seats-t.before" && echo same || echo changed)" same
 

@@ -25,6 +25,7 @@ import time
 from pathlib import Path
 
 from ft_penalty import load_teams, now, root, state_dir
+from ft_team_lib import TeamPathError, team_rows_ref
 
 HEAD = "## 정지 직전"
 LOG = "all-stop.log"  # 원장(덧붙이기 전용) — 꺼짐의 유일한 증거 = 마지막 off 줄 (DA⑥ r2 재설계)
@@ -65,9 +66,13 @@ def _by() -> str:
 
 
 def team_rel(label: str) -> str:
-    """명부 팀 → 팀 폴더 STATE.md (리포 기준) · harness = design/harness/ · `m.room` 꼴은 점 뒤 이름."""
+    """명부 팀 → 팀 폴더 STATE.md (리포 기준) · `m.room` 꼴은 점 뒤 이름.
+    r688: 폴더 = 명단(<FT_TEAMS_REF 기본 origin/main>:design/TEAMS.md) 칸 — 팀 폴더 글자 0 · 꼴3(`$FT_HARNESS_ROOT/…`)은 리포 안 같은 자리 · 명단 못 읽음·팀 없음 = TeamPathError."""
     name = label.split(".")[-1]
-    return "design/harness/STATE.md" if name == "harness" else f"design/teams/{name}/STATE.md"
+    rows = team_rows_ref(os.environ.get("FT_TEAMS_REF") or "origin/main", root())
+    if name not in rows:
+        raise TeamPathError(f"ERROR {name} 은 팀 명단(TEAMS.md)에 없다 — STATE.md 자리를 못 푼다")
+    return re.sub(r"^(\$FT_HARNESS_ROOT/|\$\{FT_HARNESS_ROOT\}/)", "", rows[name]) + "STATE.md"
 
 
 def _cands(t: dict[str, object]) -> list[Path]:
@@ -120,7 +125,13 @@ def notify(p: Path | None, d: dict[str, object], only: list[str] | None, body) -
     for t in load_teams(root()):
         m = str(t["master"] or "")
         if m and (only is None or m in only):
-            (sent if send(m, body(t)) else failed).append(m)
+            try:
+                text = body(t)
+            except TeamPathError as e:  # r688 H1: 명단 밖 팀 하나가 뒤 팀 통지를 끊지 않게 — 그 팀장 = 실패(재통지 경로) · 대체 자리 0
+                print(f"통지 본문 못 만듦 {m}: {e}", file=sys.stderr)
+                failed.append(m)
+                continue
+            (sent if send(m, text) else failed).append(m)
     d["notify_failed"] = failed
     if p is not None:
         _ = p.write_text(json.dumps(d, ensure_ascii=False), encoding="utf-8")
@@ -243,7 +254,12 @@ def status() -> int:
     since = d.get("since", 0)
     print(f"all_stop=on since={_iso(since)} by={d.get('by')} reason={d.get('reason')} notify_failed={','.join(map(str, d.get('notify_failed') or [])) or '-'}")  # type: ignore[arg-type]
     for t in load_teams(root()):
-        hit = [p for p in _cands(t) if p.is_file() and p.stat().st_mtime >= float(since) and HEAD in p.read_text(encoding="utf-8")]  # type: ignore[arg-type]
+        try:
+            cands = _cands(t)
+        except TeamPathError as e:  # r688 H1: 그 팀 줄에 사유 · 다른 팀 줄은 계속
+            print(f"team={t['team']} state=X file=명단 못 풂({e})")
+            continue
+        hit = [p for p in cands if p.is_file() and p.stat().st_mtime >= float(since) and HEAD in p.read_text(encoding="utf-8")]  # type: ignore[arg-type]
         print(f"team={t['team']} state={'O' if hit else 'X'} file={hit[0] if hit else team_rel(str(t['team']))}")
     return 0
 
