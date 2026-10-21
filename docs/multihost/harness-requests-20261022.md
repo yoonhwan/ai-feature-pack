@@ -100,6 +100,6 @@
 | 4 | Mac mini BlackHole 2ch | mini 터미널 | ✅ 완료 (h135 rc=11 후 오빠 설치 + coreaudiod 재시작, 장치 보임) | `measured-mini-blackhole.md` | — |
 | 5 | **mini 마이크·소리 사전 점검** | 이 맥 `! bash /tmp/h143` → mini 터미널 한 줄 | ⏳ **미실행** | `/tmp/h143.ran` 없음 · mini `/tmp/aifp-mini-audio-check.sh` 아직 없음 | 오빠: h143 → mini 앞에서 `bash /tmp/aifp-mini-audio-check.sh`(소리 1초·마이크 허용 팝업 1회) |
 | 6 | Tailscale ACL(tag:aifp) | 브라우저 Access controls | ⏸ 대기(지금 하지 않음) | `tagOwners` 정의 선행 필요 · K1/K2 사용 직전에 JSON 을 드림 | 요청 D 의 키 등록 직전 |
-| 7 | 병합(docs 가지) | 이 맥 `! bash /tmp/h<N>` | ⏸ 대기 | 가지 `docs/multihost-plan-20261022` 가 아닌 `docs/multihost-plan-20261021` · 설계·실측 마감 후 한 번에 | 마감 때 |
+| 7 | 병합(docs 가지) | 이 맥 `! bash /tmp/h<N>` | ⏸ 대기 | 가지 `docs/multihost-plan-20261021` · 설계·실측 마감 후 한 번에 | 마감 때 |
 
 오빠 손 합계(지금 당장): **2건**(#2 키 만료 끄기 · #5 mini 소리 점검). 둘 다 구현 대기와 무관하게 할 수 있음.
