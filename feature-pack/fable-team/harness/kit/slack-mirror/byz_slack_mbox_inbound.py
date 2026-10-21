@@ -104,7 +104,7 @@ class Inbound:
                 self._notice(e, "stuck_notified", f"오빠 글을 {to} 에게 전달했는지 확인할 수 없어요 — 두 번 보내도 흔적이 없어서 멈췄어요. 사람 확인이 필요해요")
                 continue
             elif ib.queue_len(self.comm, to) >= ib.RING:  # 가득 찬 큐에 넣으면 오래된 메시지가 밀린다 — 보내지 않고 알린다
-                self._notice(e, "full_notified", f"{to} 의 mbox 큐가 가득 차 오빠 글 전달을 미뤘어요 — 좌석이 읽어야 전달돼요")
+                mack.full_notice(self, e, to)  # 슬랙 알림 1번(그대로) + 그 좌석 팀 master 쪽지 1번(r630)
                 continue
             else:
                 sent = ib.attempt_send(e, role, to, n, tok, self.a, self.spool, self.planner_seats, lambda: self._save(st))  # 시도 «전» 기록 · 가드 거절은 시도에서 뺀다

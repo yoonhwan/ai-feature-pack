@@ -1,0 +1,27 @@
+# 가지 HEAD(rebase 뒤 · base 5752dfd3) 인접 시험
+pytest test_byz_slack_mbox_inbound.py rc=0 47 passed in 50.46s
+pytest test_mbox_sent_log.py rc=0 9 passed in 14.42s
+pytest test_mbox_guard_tool_sender.py rc=0 7 passed in 3.97s
+pytest test_inbound_rows_cache.py rc=0 5 passed in 0.22s
+pytest test_mirror_team_inbound.py rc=0 2 passed in 2.08s
+pytest test_inbound_humans_and_install.py rc=0 46 passed, 1 skipped in 25.07s
+pytest test_byz_mbox_slack_mirror.py rc=0 26 passed in 22.65s
+bash test_kit_bin_sync.sh rc=0 fails=0
+bash test_ft_tick_renamed_args.sh rc=0 fails=0
+bash test_ft_tick_master_seat.sh rc=44 fails=44
+bash test_tick_line.sh rc=0 fails=0
+bash test_tick_team_msg.sh rc=0 fails=0
+bash test_team_tick_unify.sh rc=2 fails=2
+bash test_tick_idle_long_nano_wait.sh rc=0 fails=0
+bash test_tick_shim_guard.sh rc=0 fails=0
+bash test_mbox_guard.sh rc=0 fails=0
+bash test_mbox_lineage.sh rc=0 fails=0
+bash test_mbox_v2_guard.sh rc=1 fails=12
+bash test_mbox_reply_exempt_cap.sh rc=0 fails=0
+bash test_ft_mbox_sent_log.sh rc=0 fails=0
+bash test_question_board.sh rc=0 fails=1
+bash test_slack_readonly_share.sh rc=1 fails=1
+bash test_board_publish_tick.sh rc=0 fails=0
+bash test_install_team_tick_live.sh rc=0 fails=0
+bash test_nano_spawn_pi_effort_kind_r631.sh rc=0 fails=0
+bash test_nano_spawn_pi_effort_serena.sh rc=0 fails=0

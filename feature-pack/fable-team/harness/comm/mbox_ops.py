@@ -32,14 +32,14 @@ def send(to, frm, body, force=False):
         rows.append(row)
         byto = {}
         for r in rows: byto.setdefault(r["to"], []).append(r)
-        keep, dropped = [], 0
+        keep, dropped, oldest = [], 0, None
         for t, rs in byto.items():
             rs.sort(key=lambda r: r["seq"])
             # ★밀려난 건수를 «센다»★ — ring 은 조용히 가장 오래된 것을 버린다. 안 세면
             # «보낸 사람은 QUEUED 를 봤는데 받는 사람은 영영 못 보는» 유실이 무증상으로 쌓인다.
             # 포화는 대개 «받는 쪽이 안 읽고 있다» 는 신호라, 이 줄이 그 사실을 처음 알린다.
             if t == to and len(rs) > MAX_PER_TO:
-                dropped = len(rs) - MAX_PER_TO
+                dropped, oldest = len(rs) - MAX_PER_TO, rs[0]["seq"]
             keep.extend(rs[-MAX_PER_TO:])
         _save(CANON, keep)
         _log_sent(CANON, row)
@@ -51,7 +51,7 @@ def send(to, frm, body, force=False):
             _guard_record(to, frm, body, exempt)
         except Exception:
             pass
-        return seq, sum(1 for r in keep if r["to"] == to), dropped
+        return seq, sum(1 for r in keep if r["to"] == to), dropped, oldest
     res = _locked(CANON, op)
     if res[0] == "__BLOCKED__":
         reason, hint = res[1]
@@ -64,7 +64,7 @@ def send(to, frm, body, force=False):
         sys.stderr.write("BLOCKED %s\n%s\n→ BLOCKED %s · 정말 필요하면 --force\n"
                          % (reason, hint, reason))
         sys.exit(3)
-    seq, pend, dropped = res
+    seq, pend, dropped, oldest = res
     # ★«어느 파일에 몇 바이트» 를 찍는다★ — QUEUED 를 «도착»으로도 «온전»으로도 읽지 않게.
     print(f"QUEUED seq={seq} to={to} pending={pend} "
           f"file={_mbox(CANON)} bytes={len(body.encode('utf-8'))}")
@@ -73,10 +73,21 @@ def send(to, frm, body, force=False):
             "DROPPED %d oldest to=%s (ring=%d 포화) — 이 좌석이 %d건을 안 읽고 쌓아뒀다.\n"
             "가장 오래된 %d건은 «영구 유실»이다. 좌석 상태를 보고, 급하면 pane 으로 직접 보낸다.\n"
             % (dropped, to, MAX_PER_TO, pend, dropped))
+        _drop_log(to, dropped, oldest)
     # ★청소는 «QUEUED 를 찍은 뒤», «잠금 밖»에서★ — 이 호출이 실패하거나 느려도
     #   메시지는 이미 큐에 들어갔고 발신자는 이미 결과를 받았다. relay 는 send 를
     #   타므로 여기 한 곳이면 두 경로가 모두 덮인다.
     _prune_bodies(CANON)
+
+
+def _drop_log(to, dropped, oldest):
+    """★버림 원장 (r630)★ — stderr DROPPED 는 보낸 쪽 화면에만 남아 기록이 0 이었다. 건수만(본문 0) 1줄.
+    메시지는 이미 큐에 들어갔으니 기록 실패로 send 를 실패시키지 않는다 — 대신 stderr ERROR 1줄."""
+    try:
+        with open(os.path.join(CANON, "mailbox.drops.log"), "a", encoding="utf-8") as f:
+            f.write("%s to=%s dropped=%d oldest_seq=%s\n" % (time.strftime("%Y-%m-%dT%H:%M:%S"), to, dropped, oldest))
+    except OSError as e:
+        sys.stderr.write("ERROR mailbox.drops.log 기록 실패: %s\n" % e)
 
 
 def relay(to, frm, path, summary):
