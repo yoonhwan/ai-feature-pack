@@ -7,8 +7,8 @@ export FT_NANO_WT_PREFIX=room-nano-
 export FT_ACTIVE_TAG=@zc_room_active
 export FT_NANO_FEAT=origin/main
 export FT_MBOX_SH="$_RM_ROOT/.fable-team/comm/mbox.sh"   # 추적 사본(harness/kit)에서 spawn 을 돌려도 mbox 를 찾게 한다
-# 좌석 상한(판정 1949 · 팀장 상시 · 세션 팀당 3 · 위성 합 6) — ft-nano-spawn.sh 가 세션 열기 «전» ft_seat_cap.py 로 센다
-export FT_TEAM_SEAT_CAP=3     # byz-room-* tmux 세션 수(팀장 포함)
+# 좌석 상한(판정 1949 · 숫자 그대로 · r666: 세는 대상 = 나노만 — 팀장·은퇴 팀장 화면 제외 · 위성 합 6) — ft-nano-spawn.sh 가 세션 열기 «전» ft_seat_cap.py 로 센다 · 한도면 회수 1회 → 순번 큐(r666)
+export FT_TEAM_SEAT_CAP=3     # byz-room-nano-* tmux 세션 수(r666: 나노만 · 팀장 제외)
 export FT_GROUP_SEAT_CAP=6    # 명부 _parent 가 같은 위성팀들의 세션 합
 export FT_PORT_BASE=38331     # 로컬 서버 포트 슬롯 3 (gateway +0 · worker +1 · FE +2) — 전역 포트 규칙 38301~38399
 # ★개설 때 채운다(v65 제안서 판정 1935 확정 뒤 v65 master — 비워 둔다)★

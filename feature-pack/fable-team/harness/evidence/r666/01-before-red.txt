@@ -1,0 +1,17 @@
+FAIL ⓐ rc=1 o=REJECT 좌석 상한 lecture 3/3
+FAIL ⓐ' rc=1 o=REJECT 좌석 상한 lecture 3/1
+PASS ⓑ 나노 3/3 → REJECT: REJECT 좌석 상한 lecture 3/3
+FAIL ⓑ rc=1 o=REJECT 좌석 상한 lecture 6/4
+FAIL ⓑ' rc=1 o=REJECT 위성 합 상한 6/4
+PASS ⓔ tmux 실패 = ERROR rc1: ERROR tmux list-sessions 실패: tmux: boom — 좌석 상한을 셀 수 없다
+FAIL ⓒ rc=1 o=hold=none
+REJECT 좌석 상한 lecture 5/3 / calls=
+FAIL ⓒ' rc=1 o=hold=none
+REJECT 좌석 상한 lecture 5/3
+FAIL ⓒ'' rc=1 o=hold=none
+REJECT 좌석 상한 lecture 5/3
+grep: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nxOzcWcb3a/reclaim.calls: No such file or directory
+cat: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nxOzcWcb3a/reclaim.calls: No such file or directory
+FAIL ⓓ calls=
+PASS ⓔ' 스폰: tmux 실패 = ERROR rc1 · 큐 0
+FAILED (8)
