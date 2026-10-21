@@ -1,0 +1,23 @@
+# r672 DA⑥ r1 뒤 — 새 시험(54칸) + 기존·인접 18종 · HIL_DIR=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DHjT76BldH (실 /tmp/h* 쓰기 0)
+test_resource_freeze_exempt.sh(새 54)         rc=0 PASS=55 FAIL=0
+test_resource_gate.sh                          rc=0 PASS=45 FAIL=0
+test_resource_gate_pressure.sh                 rc=0 PASS=90 FAIL=0
+test_resource_watch.sh                         rc=0 PASS=75 FAIL=0
+test_resource_watch_incremental_r534.sh        rc=0 PASS=55 FAIL=0
+test_resource_reclaim.sh                       rc=0 PASS=107 FAIL=0
+test_resource_reclaim_pressure.sh              rc=0 PASS=28 FAIL=0
+test_fake_resource_env.sh                      rc=0 PASS=14 FAIL=0
+test_spawn_hold.sh                             rc=1 PASS=54 FAIL=2
+test_resource_reclaim_preventive.sh            rc=1 PASS=84 FAIL=3
+test_successor_open.sh                         rc=0 PASS=29 FAIL=0
+test_kit_bin_sync.sh                           rc=0 PASS=7 FAIL=0
+test_kit_exec_modes.sh                         rc=1 PASS=1 FAIL=5
+test_nano_spawn_tier.sh                        rc=0 PASS=43 FAIL=0
+test_nano_spawn_reuse_info.sh                  rc=0 PASS=24 FAIL=0
+test_nano_spawn_recheck_cited.sh               rc=0 PASS=11 FAIL=0
+test_nano_spawn_teamset_cap.sh                 rc=7 PASS=11 FAIL=8
+test_nano_spawn_body_press.sh                  rc=2 PASS=28 FAIL=3
+test_nano_spawn_pi_effort_kind_r631.sh         rc=0 PASS=65 FAIL=0
+test_nano_spawn_pi_effort_serena.sh            rc=0 PASS=50 FAIL=0
+test_nano_spawn_body_search_roster.sh          rc=0 PASS=26 FAIL=0
+test_live_install_check.sh                     rc=0 PASS=52 FAIL=0

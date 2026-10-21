@@ -72,7 +72,8 @@ mk_tsv 12289 0
 # R357: swap 절대량 단독 거절 폐기(카드 r357 — 교체 근거) — swap>12288 은 level>=2 와 결합할 때만 새 좌석 REJECT · 승계는 swap 축 면제
 g check FAKE_SWAP=12289;              expect "ⓔ R357 swap12289·level1 새 좌석 OK(swap 단독 거절 폐기)" 0 '^OK .*swap=12289MiB '
 g "check --succession" FAKE_SWAP=12289; expect "ⓔ R357 swap12289·level1 승계 OK" 0 '^OK .*swap=12289MiB '
-g check FAKE_SWAP=12289 FAKE_LEVEL=2;              expect "ⓔ R357 swap12289·level2 새 좌석 REJECT" 3 '^REJECT resource swap=12289MiB level=2 limit=12288MiB@level>=2$'
+g check FAKE_SWAP=12289 FAKE_LEVEL=2;              expect "r672 swap12289·level2·memfree51(>=30) 새 좌석 OK(빈 메모리 AND)" 0 '^OK .*swap=12289MiB '
+g check FAKE_SWAP=12289 FAKE_LEVEL=2 FAKE_MEMFREE=20; expect "ⓔ R357 swap12289·level2·memfree20 새 좌석 REJECT" 3 '^REJECT resource swap=12289MiB level=2 memfree=20% limit=12288MiB@level>=2&memfree<30$'
 g "check --succession" FAKE_SWAP=12289 FAKE_LEVEL=2; expect "ⓔ R357 swap12289·level2 승계 OK(swap 축 면제)" 0 '^OK .*swap=12289MiB '
 mk_tsv 9500 -100
 g check FAKE_SWAP=9000;              expect "ⓔ swap9000·rate≤0 새 좌석 OK(후행 구간)" 0 '^OK .*swap=9000MiB .*rate=-'
@@ -102,7 +103,8 @@ g check; { [ "$RC" -eq 0 ] && echo "$OUT" | grep -q 'rate=na'; } && ok "ⓘ 표�
 # ⓙ 동결 파일 → 둘 다 REJECT(현행)
 mk_tsv 6133 0; echo "시험 동결" > "$FREEZE"
 g check;              expect "ⓙ 동결 새 좌석 REJECT" 3 '^REJECT resource freeze='
-g "check --succession"; expect "ⓙ 동결 승계 REJECT" 3 '^REJECT resource freeze='
+g "check --succession"; expect "r672 동결 승계 WARN 통과(동결은 승계를 막지 않는다)" 0 '^WARN resource freeze=.*승계'
+g "check --research"; expect "r672 동결 리서치 WARN 통과" 0 '^WARN resource freeze=.*리서치'
 rm_freeze
 # status 한 줄 + level 측정 실패 = ERROR exit 4 + 옛 env 폐기
 g status; { [ "$RC" -eq 0 ] && [ "$(echo "$OUT" | grep -c '^disk=')" = 1 ] && echo "$OUT" | grep -q '^disk=.* level=1 rate=0 agents=35 freeze=0$'; } && ok "status 한 줄 level·rate 칸" || bad "status rc=$RC $OUT"

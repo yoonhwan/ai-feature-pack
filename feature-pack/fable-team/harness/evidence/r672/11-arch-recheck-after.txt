@@ -1,0 +1,12 @@
+# r672 arch 119 재대조 고침 — 새 시험 61칸 + 인접 (HIL_DIR 임시 · 실 /tmp/h* 쓰기 0)
+test_resource_freeze_exempt.sh(61)             rc=0 PASS=61 FAIL=0
+test_resource_gate.sh                          rc=0 PASS=45 FAIL=0
+test_resource_gate_pressure.sh                 rc=0 PASS=90 FAIL=0
+test_resource_watch.sh                         rc=0 PASS=75 FAIL=0
+test_resource_watch_incremental_r534.sh        rc=0 PASS=55 FAIL=0
+test_resource_reclaim.sh                       rc=0 PASS=107 FAIL=0
+test_successor_open.sh                         rc=0 PASS=29 FAIL=0
+test_kit_bin_sync.sh                           rc=0 PASS=7 FAIL=0
+test_nano_spawn_tier.sh                        rc=0 PASS=43 FAIL=0
+test_nano_spawn_pi_effort_serena.sh            rc=0 PASS=50 FAIL=0
+test_live_install_check.sh                     rc=0 PASS=52 FAIL=0

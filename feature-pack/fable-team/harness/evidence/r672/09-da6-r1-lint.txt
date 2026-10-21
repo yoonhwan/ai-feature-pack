@@ -1,0 +1,29 @@
+# r672 DA⑥ r1 lint — bash -n 5/5 · 키트↔추적 짝 cmp0 5/5 · 감시자 245줄 상한 · shellcheck
+bash -n ft-resource-gate.sh            rc=0
+bash -n ft-resource-watch.sh           rc=0
+bash -n ft-nano-spawn.sh               rc=0
+bash -n ft-resource-swap-lib.sh        rc=0
+bash -n ft-research-seat-lib.sh        rc=0
+cmp ft-resource-gate.sh            rc=0
+cmp ft-resource-watch.sh           rc=0
+cmp ft-nano-spawn.sh               rc=0
+cmp ft-resource-swap-lib.sh        rc=0
+cmp ft-research-seat-lib.sh        rc=0
+watch 줄 수 = 245 (상한 245)
+shellcheck(-S error) rc=0
+
+# 한 판정 함수 — 문지기·감시자가 같은 lib 를 부르는가
+bin/ft-resource-gate.sh:30:. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-resource-swap-lib.sh" || { echo "ERROR resource ft-resource-swap-lib.sh 없음(r672
+bin/ft-resource-gate.sh:35:ft_swap_memfree_max; SWAP_MEMFREE_MAX="$FT_SWAP_MEMFREE_MAX_VAL"; [ -z "${FT_SWAP_MEMFREE_WARN:-}" ] || echo "WARN resource
+bin/ft-resource-gate.sh:154:if [ "$SUCC" != 1 ] && ft_swap_axis_hit "$SWAP_MIB" "$LEVEL" "$MEMFREE" "$SWAP_HARD" "$SWAP_LEVEL_MIN" "$SWAP_MEMFREE_MAX"
+bin/ft-resource-watch.sh:5:#     - 동결 트리거(disk<25GiB | memfree<10% | (swap>12288MiB & level>=2 & memfree<FT_SWAP_MEMFREE_MAX(30)) — R357: swap 절대량 단독 
+bin/ft-resource-watch.sh:35:case "$SWAP_LEVEL_MIN" in ''|*[!0-9]*) SLM_WARN=1;; *) [ "$((10#$SWAP_LEVEL_MIN))" -ge 1 ] || SLM_WARN=1;; esac; [ -z "$SL
+bin/ft-resource-watch.sh:213:  ft_swap_axis_hit "$swap" "${level:-0}" "$memfree" "$SWAP_MAX" "$SWAP_LEVEL_MIN" "$SWAP_MEMFREE_MAX" && trax="${trax:+$t
+
+# 리서치 상한 한 곳 — spawn 이 lib 를 부르는가
+36:# ★r672 리서치 나노 1석 상한 (DA⑥ r1 H1)★: 판정·잠금·셈 = ft-research-seat-lib.sh 한 곳. 여기서는 «빠른 거절»만(셈 실패 = REJECT · 0석 취급 0), 진짜 상한 판정은 개설 직전에 잠금 안에서 다시 한다(③ 열
+37:[ -f "$HERE/ft-research-seat-lib.sh" ] || { echo "REJECT ft-research-seat-lib.sh 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
+38:. "$HERE/ft-research-seat-lib.sh"
+41:  _rslive="$(ft_research_live_count)" || { echo "REJECT 리서치 좌석 수 조회 실패(tmux list-sessions) — 셈 못 하면 열지 않는다(r672 H1)"; exit 3; }
+437:  _rcap="$(ft_research_cap_check "$RESEARCH_LOCK")"; _rcarc=$?
+444:ft_research_unlock "$RESEARCH_LOCK"   # r672 H1: 개설 확인 직후 잠금 해제 — 조회~개설 구간만 잡는다

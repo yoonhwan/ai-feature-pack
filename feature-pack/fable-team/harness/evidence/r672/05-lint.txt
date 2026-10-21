@@ -1,0 +1,20 @@
+# r672 lint — bash -n · 키트↔추적 짝 cmp0 · 감시자 줄 수
+bash -n ft-resource-gate.sh          rc=0
+bash -n ft-resource-watch.sh         rc=0
+bash -n ft-nano-spawn.sh             rc=0
+cmp bin/ft-resource-gate.sh kit/ft-resource-gate.sh rc=0
+cmp bin/ft-resource-watch.sh kit/ft-resource-watch.sh rc=0
+cmp bin/ft-nano-spawn.sh kit/ft-nano-spawn.sh rc=0
+watch 줄 수 = 245 (상한 245)
+gate 줄 수 = 161 · spawn 줄 수 = 488
+shellcheck(-S error) rc=0
+
+# 어긋남 0 확인 — 문지기·감시자가 같은 env 를 읽는지 grep
+bin/ft-resource-gate.sh:15:#   r672: swap 축에 «memfree<FT_SWAP_MEMFREE_MAX(30)» 를 AND 로 더한다 — 맥 스왑은 한 번 커지면 안 줄어서, 빈 메모리가 넉넉한데도 swap 만으로 막으면 회수해도 안 풀린다. 감시자(ft-resource-watch.sh)가 같은 env 로 같은 식을 쓴다.
+bin/ft-resource-gate.sh:16:#         `REJECT resource swap=<N>MiB level=<L> memfree=<F>% limit=<M>MiB@level>=<K>&memfree<X>` · FT_SWAP_MEMFREE_MAX 무효값(0·음수·비숫자)은 기본 30 + WARN(끄기 = 100).
+bin/ft-resource-gate.sh:18:#            · FT_SWAP_MEMFREE_MAX=30(r672 · 승계·리서치 포함 공통) · FT_MEM_FREE_MIN_PCT=15(승계 FT_MEM_FREE_MIN_SUCC=10) · FT_AGENT_MAX=65 (판정 1699 → 판정 1832 실측 재조정 64 → 오빠 판정 1839 로 55 · 라이브와 일치 · design/harness/staged-r213/RETUNE-1832-20261015.md → 오빠 판정 1883 ②·1885 로 65)
+bin/ft-resource-gate.sh:34:SWAP_MEMFREE_MAX="${FT_SWAP_MEMFREE_MAX:-30}"   # r672: swap 축에 AND 로 붙는 «빈 메모리» 문턱 — 감시자와 같은 env(한 값이 두 곳을 움직인다)
+bin/ft-resource-gate.sh:36:[ "$_smm_bad" = 0 ] || { [ -z "${FT_SWAP_MEMFREE_MAX:-}" ] || echo "WARN resource FT_SWAP_MEMFREE_MAX=${FT_SWAP_MEMFREE_MAX} 무효(양의 정수 아님) — 기본 30 사용" >&2; SWAP_MEMFREE_MAX=30; }
+bin/ft-resource-watch.sh:5:#     - 동결 트리거(disk<25GiB | memfree<10% | (swap>12288MiB & level>=2 & memfree<FT_SWAP_MEMFREE_MAX(30)) — R357: swap 절대량 단독 동결 폐기 · r672: 빈 메모리 AND 결함(빈 메모리 66~75% 인데 swap 만으로 동결되던 것 제거 · 문지기와 같은 env)) + 동결파일 없으면: 즉시 스냅샷 → RESOURCE_FREEZE 생성(사유·시각·증가1위 1줄) + osascript 알림 + 로그 1줄.
+bin/ft-resource-watch.sh:10:#   r534: 워크트리·claude.projects·caches·pytest 는 통째 du 대신 1단계 폴더별 «증분»(틱당 FT_RES_WT_PER_TICK(25)개 · 폴더별 캐시 du-cache.tsv · 합 = 캐시 합 + «<칸>.known 앎/전체») · 스냅샷 측정 예산 FT_RES_SNAP_BUDGET_SEC(55) · 상한 넘긴 폴더는 1단계 하위로 나눔(깊이 FT_RES_SPLIT_DEPTH(3)).  env(시험용): FT_SWAP_LEVEL_MIN(2 · R357) · FT_SWAP_MEMFREE_MAX(30 · r672 — 문지기와 같은 env · 감시자 전용 덮어쓰기 FT_RES_SWAP_MEMFREE_MAX) · FT_RES_ROOT · FT_WORKTREES · FT_RES_DISK_MIN(25) · FT_RES_SWAP_MAX(12288) · FT_RES_MEM_MIN(10) · FT_RES_SNAP_SEC(590) · FT_RES_DU_CAP_SEC · FT_RES_WT_PER_TICK · FT_RES_SNAP_BUDGET_SEC · FT_RES_SPLIT_DEPTH · FT_RECLAIM_PREVENT_SEC(600) · FT_RECLAIM_SH · FT_PREVENTIVE_SH
+bin/ft-resource-watch.sh:35:case "$SWAP_LEVEL_MIN" in ''|*[!0-9]*) SLM_WARN=1;; *) [ "$((10#$SWAP_LEVEL_MIN))" -ge 1 ] || SLM_WARN=1;; esac; [ -z "$SLM_WARN" ] || { SLM_WARN="WARN FT_SWAP_LEVEL_MIN=${FT_SWAP_LEVEL_MIN} 무효(양의 정수 아님) — 기본 2 사용"; SWAP_LEVEL_MIN=2; }; SWAP_MEMFREE_MAX="${FT_RES_SWAP_MEMFREE_MAX:-${FT_SWAP_MEMFREE_MAX:-30}}"; case "$SWAP_MEMFREE_MAX" in ''|*[!0-9]*) _smm_bad=1;; *) [ "$((10#$SWAP_MEMFREE_MAX))" -ge 1 ] && _smm_bad=0 || _smm_bad=1;; esac; [ "$_smm_bad" = 0 ] || { SLM_WARN="${SLM_WARN:+$SLM_WARN / }WARN FT_SWAP_MEMFREE_MAX=${FT_SWAP_MEMFREE_MAX} 무효(양의 정수 아님) — 기본 30 사용"; SWAP_MEMFREE_MAX=30; }   # r672: 문지기와 같은 env·같은 문턱(감시자 전용 덮어쓰기 FT_RES_SWAP_MEMFREE_MAX)

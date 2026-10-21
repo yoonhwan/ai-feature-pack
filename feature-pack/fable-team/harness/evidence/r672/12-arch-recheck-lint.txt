@@ -1,0 +1,17 @@
+# r672 arch 재대조 lint
+bash -n ft-research-seat-lib.sh    rc=0
+cmp ft-research-seat-lib.sh        rc=0
+bash -n ft-resource-swap-lib.sh    rc=0
+cmp ft-resource-swap-lib.sh        rc=0
+bash -n ft-resource-gate.sh        rc=0
+cmp ft-resource-gate.sh            rc=0
+bash -n ft-resource-watch.sh       rc=0
+cmp ft-resource-watch.sh           rc=0
+bash -n ft-nano-spawn.sh           rc=0
+cmp ft-nano-spawn.sh               rc=0
+watch 줄 수 = 245 (상한 245)
+4:#   rc1 갈래(arch 119 재대조): tmux 는 «서버 없음»(정상 0석)도, «소켓·권한 오류»도 rc1 이다 → stderr 에 «no server running» 이 있을 때만 0석, 그 밖 rc1 = 셈 실패(rc655 H4⑦ 과
+13:FT_RESEARCH_LOCK_STALE=10   # 빈 pid 잠금을 «만드는 중» 으로 봐 주는 시간(초) — 넘으면 회수
+22:    1) case "$err" in *"no server running"*) out="" ;; *) return 2;; esac;;   # 서버 없음 = 0석 · 소켓·권한 오류 등 그 밖 rc1 = 셈 실패
+36:      age=$(( $(date +%s) - $(stat -f %m "$d" 2>/dev/null || echo "$(date +%s)") ))
+37:      [ "$age" -gt "$FT_RESEARCH_LOCK_STALE" ] && rm -rf "$d" 2>/dev/null

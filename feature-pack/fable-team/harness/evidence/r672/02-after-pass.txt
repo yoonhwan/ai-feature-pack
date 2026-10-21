@@ -1,0 +1,32 @@
+PASS ⓐ 문지기 swap13000·level2·memfree66 → 통과
+PASS ⓐ 감시자 FREEZE created 0
+PASS ⓐ 동결 파일 없음
+PASS ⓑ 문지기 REJECT 메시지에 swap·memfree 문턱
+PASS ⓑ 감시자 FREEZE created 1
+PASS ⓑ 동결 사유에 swap·level
+PASS ⓒ 일반 check → REJECT freeze 그대로
+PASS ⓒ --succession → 통과
+PASS ⓒ --succession WARN 1줄
+PASS ⓒ 승계 조건 미충족 spawn → REJECT freeze
+PASS ⓓ 동결 중 일반 spawn → REJECT freeze
+PASS ⓓ 동결 중 --research → 동결 면제(REJECT freeze 없음)
+PASS ⓓ 리서치 1석 살아 있음 → REJECT
+PASS ⓓ 다른 리서치 아닌 좌석만 있으면 상한 아님
+PASS ⓔ --research disk 24G → REJECT
+PASS ⓔ --succession disk 24G → REJECT
+PASS ⓔ --research level 4 → REJECT
+PASS ⓔ --research memfree 9%(<15) → REJECT
+PASS ⓔ --succession memfree 9%(<10) → REJECT
+PASS ⓕ FT_SWAP_MEMFREE_MAX=100 → 문지기 REJECT(옛 동작)
+PASS ⓕ FT_SWAP_MEMFREE_MAX=100 → 감시자 동결(문지기와 같은 문턱)
+PASS ⓕ 무효값 «0» → 기본 30 + WARN
+PASS ⓕ 무효값 «abc» → 기본 30 + WARN
+PASS ⓕ 무효값 «-1» → 기본 30 + WARN
+PASS ⓖ cmp ft-resource-gate.sh
+PASS ⓖ cmp ft-resource-watch.sh
+PASS ⓖ cmp ft-nano-spawn.sh
+PASS bash -n ft-resource-gate.sh
+PASS bash -n ft-resource-watch.sh
+PASS bash -n ft-nano-spawn.sh
+fail=0
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

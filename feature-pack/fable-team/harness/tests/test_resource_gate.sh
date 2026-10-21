@@ -157,8 +157,10 @@ swap_checks() {
   rm_freeze
   sw "$d" 13500 1 55 check
   { [ $RC -eq 0 ] && echo "$OUT" | grep -q '^OK '; } || { echo "R357ⓐ swap13500·level1 → OK 이어야 함 rc=$RC $OUT"; e=1; }
-  sw "$d" 13500 2 55 check
-  { [ $RC -eq 3 ] && echo "$OUT" | grep -qx 'REJECT resource swap=13500MiB level=2 limit=12288MiB@level>=2'; } || { echo "R357ⓑ rc=$RC $OUT"; e=1; }
+  sw "$d" 13500 2 55 check   # r672: memfree 55(>=30) → swap 축 통과(빈 메모리 AND 결함)
+  { [ $RC -eq 0 ] && echo "$OUT" | grep -q '^OK '; } || { echo "r672ⓑ swap13500·level2·memfree55 → OK rc=$RC $OUT"; e=1; }
+  sw "$d" 13500 2 20 check
+  { [ $RC -eq 3 ] && echo "$OUT" | grep -qx 'REJECT resource swap=13500MiB level=2 memfree=20% limit=12288MiB@level>=2&memfree<30'; } || { echo "R357ⓑ rc=$RC $OUT"; e=1; }
   sw "$d" 13500 2 55 "check --succession"
   { [ $RC -eq 0 ] && echo "$OUT" | grep -q '^OK '; } || { echo "R357ⓒ 승계 swap 면제 rc=$RC $OUT"; e=1; }
   sw "$d" 13500 4 55 check
@@ -167,8 +169,8 @@ swap_checks() {
   { [ $RC -eq 3 ] && echo "$OUT" | grep -q '^REJECT resource level=4 limit=3'; } || { echo "R357ⓓ' 승계도 level4 는 REJECT rc=$RC $OUT"; e=1; }
   sw "$d" 9000 2 55 check
   { [ $RC -eq 0 ] && echo "$OUT" | grep -q '^OK '; } || { echo "R357ⓔ swap9000·level2 → OK(level2 단독은 거절 아님) rc=$RC $OUT"; e=1; }
-  sw "$d" 13500 1 55 check FT_SWAP_LEVEL_MIN=1
-  { [ $RC -eq 3 ] && echo "$OUT" | grep -q '^REJECT resource swap=13500MiB level=1 limit=12288MiB@level>=1'; } || { echo "R357ⓕ FT_SWAP_LEVEL_MIN=1 주입 rc=$RC $OUT"; e=1; }
+  sw "$d" 13500 1 20 check FT_SWAP_LEVEL_MIN=1
+  { [ $RC -eq 3 ] && echo "$OUT" | grep -q '^REJECT resource swap=13500MiB level=1 memfree=20% limit=12288MiB@level>=1'; } || { echo "R357ⓕ FT_SWAP_LEVEL_MIN=1 주입 rc=$RC $OUT"; e=1; }
   for v in 0 -1 abc; do
     sw "$d" 13500 1 55 check FT_SWAP_LEVEL_MIN="$v"
     { [ $RC -eq 0 ] && echo "$OUT" | grep -q '^OK ' && echo "$OUT" | grep -q '^WARN resource FT_SWAP_LEVEL_MIN'; } || { echo "R357ⓕ' 무효값 «${v}» →기본 2 + WARN rc=$RC $OUT"; e=1; }
@@ -214,7 +216,7 @@ done
 
 # 변이 2 — gate 의 동결 검사 삭제 → ⓒ 가 «실패»해야 한다
 M="$T/mut-gate"; mkdir -p "$M"; cp "$K1"/ft-*.sh "$M"/
-awk '/^if \[ "\$FREEZE_FLAG" = 1 \]; then$/{skip=1} skip{ if ($0=="fi") {skip=0}; next } {print}' "$K1/ft-resource-gate.sh" > "$M/ft-resource-gate.sh"
+awk '/^if \[ "\$FREEZE_FLAG" = 1 \]/{skip=1} skip{ if ($0=="fi") {skip=0}; next } {print}' "$K1/ft-resource-gate.sh" > "$M/ft-resource-gate.sh"
 grep -q 'REJECT resource freeze' "$M/ft-resource-gate.sh" && bad "변이2 준비 실패(동결 검사가 남음)" || {
   gate_checks "$M" >/dev/null 2>&1 && bad "변이2: 동결 검사 삭제가 검출되지 않음" || ok "변이2 검출"; }
 

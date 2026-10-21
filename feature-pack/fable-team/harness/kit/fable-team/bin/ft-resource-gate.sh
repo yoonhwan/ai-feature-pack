@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ft-resource-gate.sh <check [--succession]|status>
+# ft-resource-gate.sh <check [--succession|--research]|status>
 #   Res-1014 · 머신 자원(디스크·스왑·메모리·에이전트 수)이 한계를 넘으면 새 좌석 spawn 을 막는다.
 #   계기: 2026-10-14 03:31 watchdog 패닉(스왑 23개·디스크 748MiB·활성 claude jsonl ~100).
 #   bash 3.2 호환(declare -A 금지) · macOS 전용.
@@ -10,24 +10,29 @@
 #   표본 없음·낡음(>180초) = 문지기가 ft-resource-sample.sh 를 1회 직접 돌려 잰다(실패 rc4) · 줄 5칸 숫자·시각 순서 위반·미래 시각 = exit 4 · 측정 명령 rc≠0 = 출력이 숫자여도 exit 4.
 #   rate=na(+stderr WARN 1줄 · 속도 칸만 건너뜀) = 검증 통과한 «1줄뿐»(180초 안)일 때만 — 지나면 다시 재서 2줄이 되므로 영구 예외 아님.
 #   측정 실패(명령 없음·파싱 실패)는 통과시키지 않고 `ERROR resource measure <무엇>` + exit 4 (BYZ #0 NO SILENT FALLBACK).
-#   동결 파일(.fable-team/state/RESOURCE_FREEZE)이 있으면 check 는 무조건 REJECT.
-#   R357: swap 은 «swap>FT_SWAP_HARD_MIB AND level>=FT_SWAP_LEVEL_MIN(2)» 일 때만 거절(`REJECT resource swap=<N>MiB level=<L> limit=<M>MiB@level>=<K>`) · 승계(--succession)는 swap 축 면제 — level 4·memfree·rate 는 그대로. FT_SWAP_LEVEL_MIN 은 양의 정수(아니면 기본 2 + WARN).
+#   동결 파일(.fable-team/state/RESOURCE_FREEZE)이 있으면 check 는 REJECT — 단 승계(--succession)·리서치(--research)는 WARN 1줄로 통과한다(r672: 동결이 승계·리서치를 막아 팀이 멈추던 결함 · 다른 축은 그대로).
+#   R357: swap 은 «swap>FT_SWAP_HARD_MIB AND level>=FT_SWAP_LEVEL_MIN(2)» 일 때만 거절 · 승계(--succession)는 swap 축 면제 — level 4·memfree·rate 는 그대로. FT_SWAP_LEVEL_MIN 은 양의 정수(아니면 기본 2 + WARN).
+#   r672: swap 축에 «memfree<FT_SWAP_MEMFREE_MAX(30)» 를 AND 로 더한다 — 맥 스왑은 한 번 커지면 안 줄어서, 빈 메모리가 넉넉한데도 swap 만으로 막으면 회수해도 안 풀린다. 감시자(ft-resource-watch.sh)가 같은 env 로 같은 식을 쓴다.
+#         `REJECT resource swap=<N>MiB level=<L> memfree=<F>% limit=<M>MiB@level>=<K>&memfree<X>` · FT_SWAP_MEMFREE_MAX 무효값(0·음수·비숫자)은 기본 30 + WARN(끄기 = 100).
 #   문턱(env 덮어쓰기): FT_DISK_MIN_GIB=30 · FT_SWAP_HARD_MIB=12288 · FT_SWAP_RATE_MAX=512(승계 FT_SWAP_RATE_MAX_SUCC=1024) · FT_PRESSURE_MAX=2(= level 4 만 거절 · 승계 FT_PRESSURE_MAX_SUCC=3)
-#            · FT_MEM_FREE_MIN_PCT=15(승계 FT_MEM_FREE_MIN_SUCC=10) · FT_AGENT_MAX=65 (판정 1699 → 판정 1832 실측 재조정 64 → 오빠 판정 1839 로 55 · 라이브와 일치 · design/harness/staged-r213/RETUNE-1832-20261015.md → 오빠 판정 1883 ②·1885 로 65)
+#            · FT_SWAP_MEMFREE_MAX=30(r672 · 승계·리서치 포함 공통) · FT_MEM_FREE_MIN_PCT=15(승계 FT_MEM_FREE_MIN_SUCC=10) · FT_AGENT_MAX=65 (판정 1699 → 판정 1832 실측 재조정 64 → 오빠 판정 1839 로 55 · 라이브와 일치 · design/harness/staged-r213/RETUNE-1832-20261015.md → 오빠 판정 1883 ②·1885 로 65)
 #   FT_SWAP_MAX_MIB(옛 스왑 절대량 8192)는 폐기 · R213 — 읽지 않는다. 절대량 단독 거절 폐기(R357).
 #   시험용 env: FT_RES_ROOT(동결 파일이 놓이는 리포 루트 — 기본은 스크립트 위치에서 역산)
 set -uo pipefail
 [ -f "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" ] && . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" "$@"   # R201: 비설치 위치면 LIVE_BIN 으로 exec
 
-CMD="${1:-}"; SUCC=0
-case "$CMD" in check|status) ;; *) echo "usage: $0 <check [--succession]|status>" >&2; exit 2;; esac
-case "${2:-}" in "") ;; --succession) [ "$CMD" = check ] && SUCC=1 || SUCC=x;; *) SUCC=x;; esac
-[ "$SUCC" != x ] || { echo "usage: $0 <check [--succession]|status>" >&2; exit 2; }
+CMD="${1:-}"; SUCC=0; RESEARCH=0
+case "$CMD" in check|status) ;; *) echo "usage: $0 <check [--succession|--research]|status>" >&2; exit 2;; esac
+case "${2:-}" in "") ;; --succession) [ "$CMD" = check ] && SUCC=1 || SUCC=x;; --research) [ "$CMD" = check ] && RESEARCH=1 || SUCC=x;; *) SUCC=x;; esac
+[ "$SUCC" != x ] || { echo "usage: $0 <check [--succession|--research]|status>" >&2; exit 2; }
+EXEMPT=0; { [ "$SUCC" = 1 ] || [ "$RESEARCH" = 1 ]; } && EXEMPT=1   # r672: 동결 면제 대상(승계 · 리서치 나노 1석)
 
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-resource-swap-lib.sh" || { echo "ERROR resource ft-resource-swap-lib.sh 없음(r672: swap 축 판정 한 곳)"; exit 4; }   # r672 H2: 문지기·감시자가 같은 함수를 쓴다
 DISK_MIN="${FT_DISK_MIN_GIB:-30}"
 SWAP_HARD="${FT_SWAP_HARD_MIB:-12288}"
 AGENT_MAX="${FT_AGENT_MAX:-65}"
 SWAP_LEVEL_MIN="${FT_SWAP_LEVEL_MIN:-2}"
+ft_swap_memfree_max; SWAP_MEMFREE_MAX="$FT_SWAP_MEMFREE_MAX_VAL"; [ -z "${FT_SWAP_MEMFREE_WARN:-}" ] || echo "WARN resource ${FT_SWAP_MEMFREE_WARN}" >&2   # r672: 판정·문턱은 ft-resource-swap-lib.sh 한 곳(감시자와 같은 함수·같은 env)
 case "$SWAP_LEVEL_MIN" in ''|*[!0-9]*) _slm_bad=1;; *) [ "$((10#$SWAP_LEVEL_MIN))" -ge 1 ] && _slm_bad=0 || _slm_bad=1;; esac
 [ "$_slm_bad" = 0 ] || { [ -z "${FT_SWAP_LEVEL_MIN:-}" ] || echo "WARN resource FT_SWAP_LEVEL_MIN=${FT_SWAP_LEVEL_MIN} 무효(양의 정수 아님) — 기본 2 사용" >&2; SWAP_LEVEL_MIN=2; }
 if [ "$SUCC" = 1 ]; then
@@ -138,14 +143,15 @@ if [ "$CMD" = status ]; then
 fi
 
 # check
-if [ "$FREEZE_FLAG" = 1 ]; then
+if [ "$FREEZE_FLAG" = 1 ] && [ "$EXEMPT" != 1 ]; then
   echo "REJECT resource freeze=$(sed -n '1p' "$FREEZE" 2>/dev/null) limit=0"
   exit 3
 fi
+[ "$FREEZE_FLAG" != 1 ] || echo "WARN resource freeze=$(sed -n '1p' "$FREEZE" 2>/dev/null) — $([ "$SUCC" = 1 ] && echo 승계 || echo 리서치)는 동결 중에도 통과(다른 축은 그대로 · r672)" >&2
 if [ "$DISK_GIB" -lt "$DISK_MIN" ]; then echo "REJECT resource disk=${DISK_GIB}GiB limit=${DISK_MIN}GiB"; exit 3; fi
 if [ "$LEVEL" -gt "$LEVEL_MAX" ]; then echo "REJECT resource level=$LEVEL limit=$LEVEL_MAX"; exit 3; fi
 # R357: swap 절대량은 커널이 경고(level>=SWAP_LEVEL_MIN)라 말할 때만 거절 · 승계(순증 0)는 swap 축 면제 — level·memfree·rate 는 그대로
-if [ "$SUCC" != 1 ] && [ "$SWAP_MIB" -gt "$SWAP_HARD" ] && [ "$LEVEL" -ge "$SWAP_LEVEL_MIN" ]; then echo "REJECT resource swap=${SWAP_MIB}MiB level=${LEVEL} limit=${SWAP_HARD}MiB@level>=${SWAP_LEVEL_MIN}"; exit 3; fi
+if [ "$SUCC" != 1 ] && ft_swap_axis_hit "$SWAP_MIB" "$LEVEL" "$MEMFREE" "$SWAP_HARD" "$SWAP_LEVEL_MIN" "$SWAP_MEMFREE_MAX"; then echo "REJECT resource swap=${SWAP_MIB}MiB level=${LEVEL} memfree=${MEMFREE}% limit=${SWAP_HARD}MiB@level>=${SWAP_LEVEL_MIN}&memfree<${SWAP_MEMFREE_MAX}"; exit 3; fi
 if [ "$MEMFREE" -lt "$MEM_MIN" ]; then echo "REJECT resource memfree=${MEMFREE}% limit=${MEM_MIN}%"; exit 3; fi
 if [ "$RATE" != na ] && [ "$RATE" -gt "$RATE_MAX" ]; then echo "REJECT resource rate=${RATE}MiB/min limit=${RATE_MAX}MiB/min"; exit 3; fi
 if [ "$SUCC" != 1 ] && [ "$AGENTS" -gt "$AGENT_MAX" ]; then echo "REJECT resource agents=$AGENTS limit=$AGENT_MAX"; exit 3; fi

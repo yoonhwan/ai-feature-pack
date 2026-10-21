@@ -1,0 +1,34 @@
+FAIL ⓐ 문지기 rc=3 REJECT resource swap=13000MiB level=2 limit=12288MiB@level>=2
+FAIL ⓐ 감시자 FREEZE created 0 — «1» ≠ «0»
+FAIL ⓐ 동결 파일이 생김
+FAIL ⓑ 문지기 메시지 REJECT resource swap=13000MiB level=2 limit=12288MiB@level>=2
+PASS ⓑ 감시자 FREEZE created 1
+PASS ⓑ 동결 사유에 swap·level
+PASS ⓒ 일반 check → REJECT freeze 그대로
+FAIL ⓒ --succession rc=3 REJECT resource freeze=시험 동결 limit=0
+FAIL ⓒ --succession WARN 1줄 — «0» ≠ «1»
+PASS ⓒ 승계 조건 미충족 spawn → REJECT freeze
+PASS ⓓ 동결 중 일반 spawn → REJECT freeze
+FAIL ⓓ 동결 중 --research → 동결 면제(REJECT freeze 없음) — 있음: «REJECT resource freeze» ← hold=none
+REJECT resource freeze=시험 동결 limit=0
+FAIL ⓓ 리서치 1석 살아 있음 → REJECT — 없음: «REJECT 리서치» ← hold=none
+REJECT resource freeze=시험 동결 limit=0
+PASS ⓓ 다른 리서치 아닌 좌석만 있으면 상한 아님
+FAIL ⓔ --research disk rc=2 usage: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r672-freeze-rule-swap-and-memfree-succes/feature-pack/fable-team/harness/bin/ft-resource-gate.sh <check [--succession]|status>
+PASS ⓔ --succession disk 24G → REJECT
+FAIL ⓔ --research level rc=2 usage: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r672-freeze-rule-swap-and-memfree-succes/feature-pack/fable-team/harness/bin/ft-resource-gate.sh <check [--succession]|status>
+FAIL ⓔ --research memfree rc=2 usage: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r672-freeze-rule-swap-and-memfree-succes/feature-pack/fable-team/harness/bin/ft-resource-gate.sh <check [--succession]|status>
+PASS ⓔ --succession memfree 9%(<10) → REJECT
+FAIL ⓕ 문지기 rc=3 REJECT resource swap=13000MiB level=2 limit=12288MiB@level>=2
+PASS ⓕ FT_SWAP_MEMFREE_MAX=100 → 감시자 동결(문지기와 같은 문턱)
+FAIL ⓕ 무효값 «0» rc=3 REJECT resource swap=13000MiB level=2 limit=12288MiB@level>=2
+FAIL ⓕ 무효값 «abc» rc=3 REJECT resource swap=13000MiB level=2 limit=12288MiB@level>=2
+FAIL ⓕ 무효값 «-1» rc=3 REJECT resource swap=13000MiB level=2 limit=12288MiB@level>=2
+PASS ⓖ cmp ft-resource-gate.sh
+PASS ⓖ cmp ft-resource-watch.sh
+PASS ⓖ cmp ft-nano-spawn.sh
+PASS bash -n ft-resource-gate.sh
+PASS bash -n ft-resource-watch.sh
+PASS bash -n ft-nano-spawn.sh
+fail=15
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

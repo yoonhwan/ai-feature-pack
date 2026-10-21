@@ -1,0 +1,83 @@
+PASS ⓐ 문지기 swap13000·level2·memfree66 → 통과(OK 줄 있음)
+PASS ⓐ 감시자 FREEZE created 0
+PASS ⓐ 동결 파일 없음
+PASS ⓑ 문지기 REJECT — 사유 줄 전문 일치
+PASS ⓑ 감시자 FREEZE created 1
+PASS ⓑ 동결 사유에 swap·level
+PASS ⓒ 일반 check → REJECT freeze 그대로
+PASS ⓒ --succession → OK 줄 + WARN 통과 줄(둘 다 있음)
+PASS ⓒ --succession WARN 1줄
+PASS ⓒ --research → OK 줄 + WARN 통과 줄
+PASS ⓒ 승계 조건 미충족 spawn → REJECT freeze(사유 줄 있음)
+PASS ⓓ 동결 중 일반 spawn → REJECT freeze(다음 검사까지 안 감)
+PASS ⓓ 동결 중 --research → 동결 면제(REJECT freeze 없음)
+FAIL ⓓ --research 통과 뒤 단계 rc=1 hold=none
+ENV team=default prefix=ft-v65-temp- seats=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.8n64a7qZEu/root/.fable-team/seats.json
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r672-freeze-rule-swap-and-memfree-succes/feature-pack/fable-team/harness/bin
+REJECT 인덱스 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.8n64a7qZEu/card.md
+PASS ⓓ 리서치 1석 살아 있음 → REJECT(사유 줄 있음)
+PASS ⓓ 리서치 아닌 좌석만 있으면 상한 아님
+FAIL ⓓH1 조회 실패 rc=1 hold=none
+ENV team=default prefix=ft-v65-temp- seats=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.8n64a7qZEu/root/.fable-team/seats.json
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r672-freeze-rule-swap-and-memfree-succes/feature-pack/fable-team/harness/bin
+REJECT 인덱스 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.8n64a7qZEu/card.md
+FAIL ⓓH1 상한 env 우회 rc=1 hold=none
+ENV team=default prefix=ft-v65-temp- seats=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.8n64a7qZEu/root/.fable-team/seats.json
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r672-freeze-rule-swap-and-memfree-succes/feature-pack/fable-team/harness/bin
+REJECT 인덱스 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.8n64a7qZEu/card.md
+FAIL ⓓH1 상한 env 처리 «/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r672-freeze-rule-swap-and-memfree-succes/feature-pack/fable-team/harness/tests/test_resource_freeze_exempt.sh: 줄 110: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r672-freeze-rule-swap-and-memfree-succes/feature-pack/fable-team/harness/bin/ft-research-seat-lib.sh: No such file or directory
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r672-freeze-rule-swap-and-memfree-succes/feature-pack/fable-team/harness/tests/test_resource_freeze_exempt.sh: 줄 111: ft_research_cap_check: 명령을 찾을 수 없음
+rc=127
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r672-freeze-rule-swap-and-memfree-succes/feature-pack/fable-team/harness/tests/test_resource_freeze_exempt.sh: 줄 111: ft_research_unlock: 명령을 찾을 수 없음»
+FAIL ⓓH1 ft-research-seat-lib.sh 없음
+FAIL ⓓH1 동시 결과 A=«/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r672-freeze-rule-swap-and-memfree-succes/feature-pack/fable-team/harness/tests/test_resource_freeze_exempt.sh: 줄 117: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r672-freeze-rule-swap-and-memfree-succes/feature-pack/fable-team/harness/bin/ft-research-seat-lib.sh: No such file or directory
+REJECT /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r672-freeze-rule-swap-and-memfree-succes/feature-pack/fable-team/harness/tests/test_resource_freeze_exempt.sh: 줄 118: ft_research_cap_check: 명령을 찾을 수 없음» B=«/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r672-freeze-rule-swap-and-memfree-succes/feature-pack/fable-team/harness/tests/test_resource_freeze_exempt.sh: 줄 117: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r672-freeze-rule-swap-and-memfree-succes/feature-pack/fable-team/harness/bin/ft-research-seat-lib.sh: No such file or directory
+REJECT /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r672-freeze-rule-swap-and-memfree-succes/feature-pack/fable-team/harness/tests/test_resource_freeze_exempt.sh: 줄 118: ft_research_cap_check: 명령을 찾을 수 없음»
+PASS ⓓH1 잠금 해제됨(자국 0)
+FAIL ⓓH1 굳은 잠금 회수 실패 «/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r672-freeze-rule-swap-and-memfree-succes/feature-pack/fable-team/harness/tests/test_resource_freeze_exempt.sh: 줄 126: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r672-freeze-rule-swap-and-memfree-succes/feature-pack/fable-team/harness/bin/ft-research-seat-lib.sh: No such file or directory
+REJECT /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r672-freeze-rule-swap-and-memfree-succes/feature-pack/fable-team/harness/tests/test_resource_freeze_exempt.sh: 줄 127: ft_research_cap_check: 명령을 찾을 수 없음»
+PASS ⓔ 동결+--research disk 24G → REJECT disk
+PASS ⓔ 동결+--succession disk 24G → REJECT disk
+PASS ⓔ 동결+--research level 4 → REJECT level
+PASS ⓔ 동결+--research memfree 9%(<15) → REJECT
+PASS ⓔ 동결+--succession memfree 9%(<10) → REJECT
+PASS ⓕ FT_SWAP_MEMFREE_MAX=100 → 문지기 REJECT(옛 동작)
+PASS ⓕ FT_SWAP_MEMFREE_MAX=100 → 감시자 동결(문지기와 같은 문턱)
+FAIL ⓕH2 감시자 전용 변수 무시 — 공통 30 기준 동결 0(문지기와 일치) — «1» ≠ «0»
+PASS ⓕ 문지기 무효값 «0» → 기본 30 + WARN
+PASS ⓕH2 감시자 무효값 «0» 로그 WARN
+PASS ⓕH2 감시자 무효값 «0» 살아서 종료(기본 30 · 동결 0)
+PASS ⓕ 문지기 무효값 «abc» → 기본 30 + WARN
+PASS ⓕH2 감시자 무효값 «abc» 로그 WARN
+PASS ⓕH2 감시자 무효값 «abc» 살아서 종료(기본 30 · 동결 0)
+PASS ⓕ 문지기 무효값 «-1» → 기본 30 + WARN
+PASS ⓕH2 감시자 무효값 «-1» 로그 WARN
+PASS ⓕH2 감시자 무효값 «-1» 살아서 종료(기본 30 · 동결 0)
+PASS ⓗ 변이1(동결 면제=조기 성공) 검출
+Traceback (most recent call last):
+  File "<stdin>", line 3, in <module>
+FileNotFoundError: [Errno 2] No such file or directory: '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r672-freeze-rule-swap-and-memfree-succes/feature-pack/fable-team/harness/bin/ft-research-seat-lib.sh'
+FAIL ⓗ 변이2 준비 실패
+Traceback (most recent call last):
+  File "<stdin>", line 4, in <module>
+AssertionError: MUT-OLD 없음
+FAIL ⓗ 변이3 준비 실패
+Traceback (most recent call last):
+  File "<stdin>", line 3, in <module>
+FileNotFoundError: [Errno 2] No such file or directory: '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r672-freeze-rule-swap-and-memfree-succes/feature-pack/fable-team/harness/bin/ft-research-seat-lib.sh'
+FAIL ⓗ 변이4 준비 실패
+PASS ⓖ cmp ft-resource-gate.sh
+PASS ⓖ cmp ft-resource-watch.sh
+PASS ⓖ cmp ft-nano-spawn.sh
+FAIL ⓖ cmp ft-resource-swap-lib.sh
+FAIL ⓖ cmp ft-research-seat-lib.sh
+PASS bash -n ft-resource-gate.sh
+PASS bash -n ft-resource-watch.sh
+PASS bash -n ft-nano-spawn.sh
+bash: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r672-freeze-rule-swap-and-memfree-succes/feature-pack/fable-team/harness/bin/ft-resource-swap-lib.sh: No such file or directory
+FAIL bash -n ft-resource-swap-lib.sh
+bash: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r672-freeze-rule-swap-and-memfree-succes/feature-pack/fable-team/harness/bin/ft-research-seat-lib.sh: No such file or directory
+FAIL bash -n ft-research-seat-lib.sh
+PASS 감시자 줄 수 ≤245
+fail=15
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
