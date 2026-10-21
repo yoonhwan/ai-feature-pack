@@ -220,7 +220,8 @@ as check --succession 'r626-probe#0' 'r626-probe#1'; [ "$rc" = 1 ] && echo "$out
 export FAKE_ALIVE="byz-aa-master-claude#1"
 as check --succession 'byz-aa-master-claude#1' 'byz-aa-master-claude#2'; ck "r4 명부 현역 행 ∧ 세션 생존 ∧ #N+1 = 통과" "$rc"
 unset FAKE_ALIVE
-CB="$TMP/copybin"; mkdir -p "$CB"; cp "$BIN/ft-nano-spawn.sh" "$BIN/ft-all-stop.sh" "$BIN/ft-resource-gate.sh" "$BIN/ft-harness-root.sh" "$BIN"/ft_*.py "$CB/"
+CB="$TMP/copybin"; mkdir -p "$CB"; cp -R "$BIN"/. "$CB"/   # r686: 이름 골라 복사 0 — 새 lib(r672 swap·research) 가 생겨도 사본에 실재
+. "$HERE/lib/bin_source_deps.sh"; out="$(missing_source_deps "$CB")"; rc=0; [ -z "$out" ]; ck "r686 사본 bin 의 같은 폴더 source 대상 전부 실재" $?
 out="$(cd "$REPO" && bash "$CB/ft-nano-spawn.sh" "design/teams/aa/indices/대기/x.md" --dry-run 2>&1)"; rc=$?
 [ "$rc" = 1 ] && echo "$out" | grep -q '^REJECT 전팀 정지 중(since'; ck "r4 연동: spawn 사본 bin + 진짜 ft-all-stop.sh · 켜짐 → REJECT" $?
 as off

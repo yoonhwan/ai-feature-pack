@@ -1,0 +1,14 @@
+# r686 후판 green — 이 가지 · 2026-10-22 05:50:50
+bash tests/test_all_stop_r626.sh → fail=0 pass=109 · 끝줄: REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-featur
+bash tests/test_baseline_lint.sh → fail=0 pass=7 · 끝줄: REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-featur
+bash tests/test_dead_seat_resume.sh → fail=0 pass=85 · 끝줄: REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-featur
+bash tests/test_resource_reclaim_preventive.sh → fail=0 pass=87 · 끝줄: REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-featur
+bash tests/test_live_bin_drift_check.sh → fail=0 pass=69 · 끝줄: REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-featur
+bash tests/test_nano_team_env.sh → fail=0 pass=43 · 끝줄: REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-featur
+bash tests/test_proposal_gate_wiring.sh → fail=0 pass=19 · 끝줄: REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-featur
+bash tests/test_spawn_proxy_probe_r669.sh → fail=0 pass=22 · 끝줄: ALL PASS
+bash tests/test_team_path_oldpath_md.sh → fail=0 pass=63 · 끝줄: REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-featur
+## ⓓ 변이: 사본 생성 직후 ft-resource-swap-lib.sh 삭제 → test_all_stop_r626 rc=2:
+FAIL r686 사본 bin 의 같은 폴더 source 대상 전부 실재 :: rc=0 out=ft-resource-swap-lib.sh
+FAIL r4 연동: spawn 사본 bin + 진짜 ft-all-stop.sh · 켜짐 → REJECT :: rc=4 out=hold=none
+## ⓔ test_all_stop_r626 PASS 107(전판 FAIL 1 제외 전부) → 109(그 칸 + 새 ⓓ 단언) · 다른 칸 변화 0

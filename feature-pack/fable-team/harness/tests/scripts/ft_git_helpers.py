@@ -40,6 +40,11 @@ def copy_py_helpers(dest: Path) -> None:
     for helper in BIN.glob("ft_*.py"):
         shutil.copy(helper, dest / helper.name)
     shutil.copy(BIN / "ft-team-lib.sh", dest / "ft-team-lib.sh")  # R383: ft-nano-spawn.sh 가 같은 폴더의 팀 폴더 해석 lib 를 source 한다(없으면 REJECT)
+    if not (dest / "ft-all-stop.sh").exists():  # r626·r686: spawn 이 .fable-team 있으면 늘 `bash 같은 폴더/ft-all-stop.sh check` — 없으면 rc127 · 진짜는 원장 없는 임시 루트를 «정지» 로 본다. 전팀 정지는 test_all_stop_r626.sh 소관(test_baseline_lint 와 같은 가짜)
+        (dest / "ft-all-stop.sh").write_text("#!/usr/bin/env bash\nexit 0\n")
+    # r686: dest 의 셸 사본이 source 하는 같은 폴더 lib 전부(r672 research-seat · swap …) — 새 lib 가 생겨도 따라간다 · 이미 있는 가짜는 덮지 않는다
+    lib = Path(__file__).resolve().parents[1] / "lib" / "bin_source_deps.sh"
+    subprocess.run(["bash", "-c", '. "$1" && copy_source_deps "$2" "$3"', "_", str(lib), str(BIN), str(dest)], check=True)
 
 
 def run_script(name: str, *args: str, cwd: Path | None = None, extra_env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:

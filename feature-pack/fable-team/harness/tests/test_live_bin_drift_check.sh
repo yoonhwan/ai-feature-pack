@@ -28,6 +28,7 @@ git init -q -b main "$SEED"; mkdir -p "$SEED/$KP"
 printf '#!/bin/sh\necho a\n' > "$SEED/$KP/a.sh"; chmod 755 "$SEED/$KP/a.sh"
 printf 'data b\n' > "$SEED/$KP/b.sh"; chmod 644 "$SEED/$KP/b.sh"
 for f in ft-live-bin-drift-check.sh ft-harness-root.sh ft-nano-spawn.sh ft-nano-close.sh ft-tick.sh ft-resource-gate.sh ft_teamset.py ft_spawn_queue.py; do cp -p "$SRC/$f" "$SEED/$KP/$f"; done
+. "$HERE/lib/bin_source_deps.sh"; copy_source_deps "$SRC" "$SEED/$KP" || bad "r686 키트 꼴 source 대상 채우기"   # r686: 고른 4파일이 source 하는 같은 폴더 lib(r672 swap · research-seat …)
 git -C "$SEED" add -A && git -C "$SEED" -c user.email=t@t -c user.name=t commit -q -m kit
 git -C "$SEED" remote add origin "$ORIGIN" && git -C "$SEED" push -q origin main
 git clone -q "$ORIGIN" "$CLONE" 2>/dev/null
@@ -79,7 +80,7 @@ has "$out" "OK ref=origin/main@" "spawn 어긋남 0 → 검사 통과 줄"; hasn
 rm "$LIVE/ft-live-bin-drift-check.sh"   # 설치 누락(검사 스크립트 없음) = 같은 REJECT
 out="$(cd "$CLONE" && FT_NANO_PREFIX=zz- bash "$LIVE/ft-nano-spawn.sh" design/x/indices/대기/none.md --dry-run 2>&1)"; rc=$?
 rc_is "$rc" 1 "검사 스크립트 없음 → BLOCK"; has "$out" "REJECT 라이브 도구가" "설치 누락도 같은 REJECT"
-mkdir -p "$T/bin"; cp "$SRC/ft-nano-spawn.sh" "$SRC/ft-resource-gate.sh" "$SRC/ft_teamset.py" "$SRC/ft_spawn_queue.py" "$T/bin/"
+mkdir -p "$T/bin"; cp "$SRC/ft-nano-spawn.sh" "$SRC/ft-resource-gate.sh" "$SRC/ft_teamset.py" "$SRC/ft_spawn_queue.py" "$T/bin/"; copy_source_deps "$SRC" "$T/bin" || bad "r686 사본 source 대상 채우기"
 out="$(cd "$CLONE" && FT_NANO_PREFIX=zz- bash "$T/bin/ft-nano-spawn.sh" design/x/indices/대기/none.md --dry-run 2>&1)"
 has "$out" "INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: $T/bin" "spawn 설치 꼴 아님 → 건너뜀"; hasnt "$out" "REJECT 라이브 도구가" "spawn 설치 꼴 아님 → REJECT 없음"
 
@@ -88,7 +89,7 @@ fresh_live; echo "# a" >> "$LIVE/a.sh"
 out="$(cd "$CLONE" && FT_NANO_PREFIX=zz- bash "$LIVE/ft-nano-close.sh" zz-seat --result x --recv 1 2>&1)"; rc=$?
 rc_is "$rc" 1 "close 어긋남 → BLOCK"; has "$out" "REJECT 라이브 도구가" "close REJECT 줄"
 cp "$SRC/ft-nano-close.sh" "$T/bin/"
-cp "$SRC/ft_teamset.py" "$T/bin/"
+cp "$SRC/ft_teamset.py" "$T/bin/"; copy_source_deps "$SRC" "$T/bin" || bad "r686 사본 source 대상 채우기(close)"
 out="$(cd "$CLONE" && FT_NANO_PREFIX=zz- bash "$T/bin/ft-nano-close.sh" other-seat --result x --recv 1 2>&1)"
 has "$out" "INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: $T/bin" "close 설치 꼴 아님 → 건너뜀"; hasnt "$out" "REJECT 라이브 도구가" "close 설치 꼴 아님 → 라이브 REJECT 없음"
 

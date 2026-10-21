@@ -1,0 +1,29 @@
+# r686 ⓒ 전수 — 같은 꼴(키트 bin 일부를 이름으로 골라 임시 bin 에 복사) 시험 · 전판 = 팩 main 53b0a75a · 후판 = 이 가지 작업 트리 · 2026-10-22 05:50:05
+## grep: tests/*.sh 중 `cp …/ft-…` 로 r672 lib·ft-all-stop.sh 를 부르는 도구(ft-nano-spawn·resource-gate·resource-watch·successor-open·role-spawn·tick·spawn-hold …)를 고르는 시험 + tests/scripts copy_py_helpers 사용 4개
+| 시험 | 전판 | 후판 | 원인·처방 |
+|---|---|---|---|
+| test_all_stop_r626.sh | rc1 fail=1 pass=107 | rc0 fail=0 pass=109 | 같은 원인(resource-gate→swap-lib) · cp -R 통째 + ⓓ 단언 |
+| test_baseline_lint.sh | rc2 fail=2 pass=5 | rc0 fail=0 pass=7 | 같은 원인(spawn→research-seat-lib) · copy_source_deps |
+| test_dead_seat_resume.sh | rc6 fail=6(ⓕ) pass=79 | rc0 fail=0 pass=85 | 같은 원인(research-seat-lib) + ft-all-stop.sh 스텁 |
+| test_resource_reclaim_preventive.sh | rc1 fail=3 pass=84 | rc0 fail=0 pass=87 | 같은 원인(resource-watch→selflink-lib r589·swap-lib) |
+| test_live_bin_drift_check.sh | rc1 fail=7 pass=62 | rc0 fail=0 pass=69 | 같은 원인(swap-lib) · 키트 꼴 시드·사본 둘 다 |
+| test_nano_team_env.sh | rc1 fail=11 pass=32 | rc0 fail=0 pass=43 | 같은 원인(swap-lib) |
+| test_proposal_gate_wiring.sh | rc1 fail=12 pass=8 | rc0 fail=0 pass=19 | 같은 원인(swap-lib) |
+| test_spawn_proxy_probe_r669.sh | rc4 fail=5 pass=18 | rc0 fail=0 pass=22 | 같은 원인(research-seat-lib) |
+| test_team_path_oldpath_md.sh | rc1 fail=3 pass=60 | rc0 fail=0 pass=63 | 같은 원인(swap-lib) |
+| test_planner_nano_path.sh | rc1 fail=18 pass=15 | rc1 fail=4 pass=29 | 같은 원인(swap-lib + ft-all-stop.sh 스텁) 고침 · 남은 3 = 다른 원인 ①② |
+| test_team_literal_paths2.sh | rc1 fail=10 pass=315 | rc1 fail=3 pass=322 | 같은 원인(ⓔ research-seat-lib) 고침 · 남은 3 = 다른 원인 ③ |
+| test_spawn_hold.sh | rc1 fail=2 pass=54 | rc1 fail=2 pass=54 | 같은 원인 층(successor-open→ft-harness-root.sh) 고침 · 남은 2 = 다른 원인 ④ |
+| scripts/ 4개(sibling_reject·branch_collision·base_sha·rollback) | 31 failed, 41 passed in 40.93s | 16 failed, 56 passed in 76.69s (0:01:16) | 같은 원인(copy_py_helpers: research-seat-lib + ft-all-stop.sh) · 새 빨강 0 · 남은 16 = 다른 원인 ①④⑥ · 남은 16 은 전판에도 전부 빨강 |
+| PASS 그대로(손대지 않음) | autonomy_merge_equiv·harness_root·head_skip_list·magazine_check·nano_slots·nano_slots_cards_wt·resource_reclaim·root_bin_shim·tick_line·tick_shim_guard·install_team_tick_live·tick_idle_long_nano_wait·tracked_bin_call_gate rc0 | - | 고른 도구가 새 lib 를 source 하지 않음 |
+| test_team_tick_unify.sh | rc2 fail=2 | 손대지 않음 | 다른 원인 ⑤ |
+
+## 다른 원인(이 카드 범위 밖 · 원인 1줄씩)
+① r655(540f678f) 기본 나노 접두 byz-v65-nano- — 픽스처 가짜 tmux list-panes 가 옛 접두 좌석(ft-v65-temp-slug#0 등)만 돌려줘 «REJECT pane 못 찾음 → 롤백 불가 고아» (scripts/test_nano_spawn_rollback 7 · base_sha 7 · test_planner_nano_path v65 BODY 2)
+② test_planner_nano_path 안의 하위 test_nano_spawn_body_press.sh «core.bare 가 false 아님» FAIL
+③ r621(18e703a6) ft-nano-close.sh:817 원장 리터럴 «design/harness/GOAL-harness.md» 를 팀 경로 리터럴 린트가 잡음(test_team_literal_paths2 ⓐ×2·ⓓ)
+④ r607(4bf2b11e) successor-open 이 mbox 폴더의 mbox_doorbell.sh 짝을 요구 — 가짜 mbox 폴더에 짝 없음(test_spawn_hold ⓒ · scripts/test_ft_sibling_reject keeps_existing_path[successor-open])
+⑥ r655 접두 판정이 ft_teamset.py 를 먼저 불러 «ft_teamset.py 없음» 대신 «나노 이름 규칙 못 읽음» 이 먼저 나온다(scripts/test_ft_sibling_reject missing_teamset_helper[ft_teamset.py])
+⑤ test_team_tick_unify ⓓ idle-long·dead-seat 줄 수 어긋남(복사 무관)
+
+## r684 rollback 칸: 원인 3층 — (가) r672 research-seat-lib 없음 (나) 사본에 ft-all-stop.sh 없음 → 둘 다 이 카드에서 고침(copy_py_helpers) · (다) ① r655 접두 = 남음

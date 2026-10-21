@@ -18,6 +18,7 @@ cp "$BIN/ft-nano-spawn.sh" "$BIN/ft-proposal-gate.sh" "$BIN/ft_raised.py" "$BIN/
 printf '#!/usr/bin/env bash\nexit 0\n' > "$T/bin/ft-index-lint.sh"
 printf '#!/usr/bin/env bash\nexit 0\n' > "$T/bin/ft-resource-gate.sh"   # spawn 입구 자원 문지기(Res-1014) — 사본 폴더에 없으면 spawn 이 경고 줄 전에 죽어 3a·3b 가 FAIL 한다. 이 시험은 기준값 줄만 본다
 printf '#!/usr/bin/env bash\nexit 0\n' > "$T/bin/ft-all-stop.sh"   # r626 DA⑥ r2: spawn 이 .fable-team 있으면 늘 전팀 정지 check — 사본 폴더에 없으면 REJECT 로 죽는다. 이 시험은 기준값 줄만 본다
+. "$HERE/lib/bin_source_deps.sh"; copy_source_deps "$BIN" "$T/bin" || bad "r686 사본 source 대상 채우기"   # r686: spawn 이 source 하는 같은 폴더 lib(r672 research-seat …) — 이름 골라 복사하면 빠진다
 echo '{}' > "$T/seats.json"
 
 card() {  # card <파일> [기준값 줄(통째로, 생략하면 줄 없음)]

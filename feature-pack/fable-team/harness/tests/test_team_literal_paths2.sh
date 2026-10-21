@@ -183,6 +183,7 @@ p_spawn() {  # ft-nano-spawn(등급 A · §10-4) — 카드 이동은 «실파�
   for s in ft-index-lint ft-proposal-gate ft-resource-gate ft-agent-ready; do exe "$hb/$s.sh" 'exit 0'; done   # 카드 형식 린트·게이트만 대역 — 이동 자체는 실파일
   exe "$hb/ft-send-verified.sh" "echo \"SEND \$*\" >> $T/xcalls$F.log; exit 0"
   exe "$hb/ft-sheet-events.sh" 'case "$1" in key) echo k;; esac; exit 0'
+  ( . "$HERE/lib/bin_source_deps.sh"; copy_source_deps "$SRC" "$hb" ) || bad "r686 사본 source 대상 채우기"   # r686: spawn 이 source 하는 같은 폴더 lib(r672 research-seat …) · 위 대역은 덮지 않는다
   exe "$sh/sleep" 'exit 0'; exe "$sh/tmuxc" "touch $T/xopened$F; exit 0"
   exe "$sh/tmux" "case \"\$1\" in has-session) [ -e $T/xopened$F ] && [[ \"\$*\" == *\"#0\"* ]]; exit \$? ;; list-panes) echo \"byz-v65-nano-slug#0|%1|123\" ;; show-option) echo 1 ;; esac; exit 0"
   s0="$(snap "$R" "$a/v65" "$a/planner")"

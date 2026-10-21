@@ -1,0 +1,5 @@
+# r686 ⓐ 전판 빨강 — 팩 main 53b0a75a · bash tests/test_all_stop_r626.sh · 2026-10-22 05:27:02
+rc=1
+FAIL r4 연동: spawn 사본 bin + 진짜 ft-all-stop.sh · 켜짐 → REJECT :: rc=4 out=$TMP/copybin/ft-resource-gate.sh: 줄 30: $TMP/copybin/ft-resource-swap-lib.sh: No such file or directory
+fail=1
+PASS 줄 수 107
