@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""byz_slack_file_fetch — 슬랙 파일 1개를 desk 가 읽도록 로컬에 받는다(텍스트 계열 ≤ 1 MiB). 정본: DESIGN-r231-desk-slack-files-20261015.md §2·§5.
+"""byz_slack_file_fetch — 슬랙 파일 1개를 desk 가 읽도록 로컬에 받는다(텍스트 계열 ≤ 1 MiB · 이미지 png·jpg·gif·webp ≤ 10 MiB). 정본: DESIGN-r231-desk-slack-files-20261015.md §2·§5.
 
 받은 내용은 미검증 입력 — 자료로만 읽는다. 토큰·url_private* 는 출력·로그·오류문에 싣지 않는다.
 """
@@ -17,7 +17,10 @@ from pathlib import Path
 import mirror_lib as lib
 
 MAX_BYTES = 1024 * 1024
+IMAGE_MAX_BYTES = 10 * MAX_BYTES
 TEXT_EXT = (".md", ".txt", ".csv", ".json", ".yaml", ".log")
+IMAGE_EXT = (".png", ".jpg", ".jpeg", ".gif", ".webp")
+IMAGE_MIME = ("image/png", "image/jpeg", "image/gif", "image/webp")
 LAUNCH_S, TOTAL_CAP_S = 3.5, 70.0  # 크기 아는 배치(판정 1375): 고정비 + 7 s × ceil(크기/기준량), 재시도 포함 총 마감 70 s
 NOT_TEXT_RC = 3
 
@@ -30,9 +33,19 @@ def safe_name(name: object) -> str:
     return re.sub(r"[^A-Za-z0-9._-]", "_", str(name))[:80] or "file"
 
 
-def is_text(info: dict[str, object]) -> bool:
+def kind_of(info: dict[str, object]) -> str | None:
+    """text(지금 그대로) · image(png·jpg·gif·webp) · None(나머지 — 받지 않는다)."""
     name, mime = str(info.get("name", "")).lower(), str(info.get("mimetype", ""))
-    return name.endswith(TEXT_EXT) or mime.startswith("text/")
+    if name.endswith(TEXT_EXT) or mime.startswith("text/"):
+        return "text"
+    if name.endswith(IMAGE_EXT) or mime in IMAGE_MIME:
+        return "image"
+    return None
+
+
+def is_image_bytes(data: bytes) -> bool:
+    return (data.startswith((b"\x89PNG\r\n\x1a\n", b"\xff\xd8\xff", b"GIF87a", b"GIF89a"))
+            or (data[:4] == b"RIFF" and data[8:12] == b"WEBP"))
 
 
 def _open(req: urllib.request.Request, start: float, cap: float) -> http.client.HTTPResponse:
@@ -49,8 +62,8 @@ def _open(req: urllib.request.Request, start: float, cap: float) -> http.client.
     raise lib.MirrorError("다운로드 시작 실패")
 
 
-def download(url: str, token: str, size: int) -> bytes:
-    """총 마감 안에서만 읽는다 — 초과·크기 불일치·NUL(이진)은 raise(부분 저장 0)."""
+def download(url: str, token: str, size: int, kind: str = "text") -> bytes:
+    """총 마감 안에서만 읽는다 — 초과·크기 불일치·텍스트의 NUL(이진)·이미지의 머리 바이트 불일치는 raise(부분 저장 0)."""
     start, cap = time.monotonic(), deadline_s(size)
     data = b""
     with _open(urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"}), start, cap) as resp:
@@ -58,8 +71,10 @@ def download(url: str, token: str, size: int) -> bytes:
             data += chunk
             if len(data) > size or time.monotonic() - start > cap:
                 raise lib.MirrorError("다운로드가 크기 필드를 넘거나 총 마감을 넘었어요")
-    if len(data) != size or b"\0" in data:
+    if len(data) != size or (kind == "text" and b"\0" in data):
         raise lib.MirrorError(f"받은 바이트({len(data)})가 크기 필드({size})와 다르거나 텍스트가 아니에요")
+    if kind == "image" and not is_image_bytes(data):
+        raise lib.MirrorError("받은 바이트 머리가 png·jpg·gif·webp 가 아니에요")
     return data
 
 
@@ -68,15 +83,15 @@ def fetch(args: argparse.Namespace) -> int:
     info = lib.api_call(args.api_base, token, "files.info", {"file": args.file_id}, get=True).get("file")
     if not isinstance(info, dict):
         raise lib.MirrorError("files.info 응답에 file 없음")
-    size = info.get("size")
-    if not is_text(info) or not isinstance(size, int) or size > MAX_BYTES:
+    size, kind = info.get("size"), kind_of(info)
+    if kind is None or not isinstance(size, int) or size > (IMAGE_MAX_BYTES if kind == "image" else MAX_BYTES):
         print(f"터미널에서 직접 열어 주세요: {' '.join(str(info.get('name', '?')).split())}")
         return NOT_TEXT_RC
-    data = download(str(info.get("url_private_download", "")), token, size)
+    data = download(str(info.get("url_private_download", "")), token, size, kind)
     out = Path(args.root) / ".fable-team/state/desk-files" / datetime.date.today().isoformat() / f"{safe_name(info.get('id'))}-{safe_name(info.get('name'))}"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_bytes(data)
-    print(f"SAVED {out} bytes={len(data)}")
+    print(f"SAVED {out} bytes={len(data)} kind={kind}")
     return 0
 
 

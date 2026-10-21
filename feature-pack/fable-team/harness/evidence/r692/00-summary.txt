@@ -1,0 +1,14 @@
+r692 — byz_slack_file_fetch.py 이미지(png·jpg·gif·webp) 받기 허용 · 크기 상한 · 바이트 머리 확인 (base 팩 main 06f26aec)
+
+고침: kit/slack-mirror/byz_slack_file_fetch.py
+  kind_of(info) = text(지금 그대로 · 텍스트가 우선) | image(.png .jpg .jpeg .gif .webp ∨ mimetype image/png·jpeg·gif·webp) | None(나머지 rc 3)
+  상한 text MAX_BYTES 1 MiB(그대로) · image IMAGE_MAX_BYTES 10 MiB — 넘으면 rc 3 «터미널에서 직접 열어 주세요»
+  download(…, kind): 크기 불일치 raise(공통) · NUL 검사 text 만 · image 는 is_image_bytes() 아니면 MirrorError rc 1 · 저장 0
+  출력 SAVED <경로> bytes=<n> kind=text|image · deadline_s 식 그대로(7초 룰 · 크기 비례 · 70 s 천장 · 10 MiB → 70 s)
+시험: tests/scripts/test_byz_slack_file_fetch.py +12칸(ⓐⓑ 2 MiB jpg · 4종 확장자/mimetype · ⓒ HTML 본문 png · 10 MiB 상한 ±1 · 이미지 크기 불일치 · kind=text · ⓔ zip·svg·heic rc 3)
+  01-before-red.txt  = 지금 판: 11 failed, 12 passed (x.jpg → rc 3)
+  02-after-green.txt = 23 passed rc=0 · ruff All checks passed
+  03-mutation-fail.txt = ⓖ 머리 확인 2줄 삭제 사본 → HTML 본문 png 칸 FAILED (1 failed, 22 passed)
+ⓓ 텍스트 기존 칸 전부 PASS(02) · ⓕ 토큰·/dl/ 출력 0 단언 유지 + 이미지 칸에도 추가
+범위 밖: 보내기·채널 규칙·이미지 내용 해석 무변경
+press 필요: 없음 (실사건 1 = 착지·설치 뒤 master — F0CB4LC05AN · F0CB2SYTE22 SAVED 원문)

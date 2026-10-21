@@ -1,3 +1,7 @@
+## 2026-10-22 — desk 슬랙 파일 도구(`byz_slack_file_fetch.py`)가 텍스트 계열만 받아 오빠가 슬랙에 올린 사진(jpg)을 팀이 못 봤다(rc 3 «터미널에서 직접 열어 주세요») → 이미지 4종(png·jpg·gif·webp)을 허용 · 상한 10 MiB · 바이트 머리(매직 바이트)가 이미지가 아니면 저장 0 · 저장 자리·이름 정화·비밀·보내기 채널 규칙은 그대로 (r692 · 1.1.199 · 기능 추가)
+
+- 판정문 §178(DA⑥ 0 판정 · 격리 슬랙 시험 96 passed · svg·heic·x.jpg.exe 거절 · html·WAVE·빈 본문 저장 0 · 폴더 탈출 0) · 증거 `harness/evidence/r692/` · 설계 r231 §2·§5 갱신 · 설치: 있음(1파일 `byz_slack_file_fetch.py` → `~/.hermes/scripts` cmp0) · 되돌림 = 이전 판.
+
 ## 2026-10-22 — `ft-nano-spawn.sh` 가 팀셋 도우미(`ft_teamset.py`)를 선행 읽기에서 못 읽으면 «런타임 `.fable-team/bin/` 에서 실행하라» 설치 안내 없이 그냥 REJECT 해서 원인을 못 찾았다 → 읽기 실패 REJECT 에도 설치 안내 한 줄을 붙임 (r689 · 1.1.198 · 결함 고침 · 판정 규칙 무변경)
 
 - 판정문 §177 · 증거 `harness/evidence/r689/` · 설치: 있음(키트 1파일 `ft-nano-spawn.sh` → LIVE_BIN 새 판 `cmp0` · 추적 짝 `harness/bin/` 같음) · 되돌림 = 이전 판.
