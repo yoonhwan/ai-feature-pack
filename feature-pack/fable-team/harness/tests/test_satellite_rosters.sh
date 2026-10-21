@@ -119,6 +119,7 @@ o="$(cap room)"; rc=$?; { [ "$rc" = 1 ] && grep -q '^ERROR' <<<"$o"; } && ok "�
 # ⓗ-2 spawn 이 부작용 0 지점에서 실제로 부른다 — room 3석 + 임시 저장소, 워크트리·명부 변화 0
 git init -q "$T/repo" && git -C "$T/repo" -c user.name=t -c user.email=t@t commit -q --allow-empty -m init
 mkdir -p "$T/repo/.fable-team" && cp "$ROOT/.fable-team/seats-room.json" "$T/repo/.fable-team/"
+mkdir -p "$T/repo/.fable-team/state"   # r626 DA⑥ r2: 상태 폴더 없음 = 전팀 정지 — 픽스처 루트에 빈 상태 폴더(원장·상태 파일 없음 = 꺼짐)
 printf '#!/bin/sh\ncase "$1" in list-sessions) cat %s;; has-session) exit 1;; *) exit 1;; esac\n' "$SESS" > "$FAKE/tmux"; sess room:3
 before="$(cmp -s "$ROOT/.fable-team/seats-room.json" "$T/repo/.fable-team/seats-room.json" && echo same)"
 so="$( cd "$T/repo" && . "$ROOT/.fable-team/bin-room/room-env.sh" && export FT_SEATS_JSON="$T/repo/.fable-team/seats-room.json" && PATH="$FAKE:$PATH" bash "$KIT/ft-nano-spawn.sh" design/room/indices/대기/x.md --dry-run 2>&1 )"; src=$?

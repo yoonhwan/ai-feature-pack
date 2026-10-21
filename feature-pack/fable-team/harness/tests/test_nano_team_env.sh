@@ -19,6 +19,7 @@ ok "bash -n 3종"
 mkdir -p "$T/bin" "$T/fake"
 cp "$SRC/ft-nano-close.sh" "$SRC/ft-nano-spawn.sh" "$SRC/ft-proposal-gate.sh" "$SRC/ft-nano-evidence-check.sh" "$SRC/ft-team-lib.sh" "$T/bin/"
 cp "$SRC/ft-resource-gate.sh" "$SRC/ft_raised.py" "$SRC/ft_teamset.py" "$SRC/ft_spawn_queue.py" "$T/bin/"   # spawn 이 부르는 자원 문지기(R161)·상향 판정기 — 임시 bin 에도 있어야 한다
+printf '#!/usr/bin/env bash\nexit 0\n' > "$T/bin"/ft-all-stop.sh   # r626 DA⑥ r2: spawn 이 .fable-team 있으면 늘 전팀 정지 check — 사본 bin 에 없으면 REJECT · 이 시험 주제 밖이라 통과 스텁
 cp "$SRC/ft-sheet-events.sh" "$SRC/ft_sheet_events.py" "$SRC/ft_sheet_confirm.py" "$SRC/ft_sheet_key.py" "$SRC/ft_board_env.py" "$SRC/ft_board_mail.py" "$T/bin/"   # 사건 원장 훅(PLAN-status-sheet §3-1) 의존 — 설치 폴더 밖 시험이라 FT_SHEET_ROOT 로 임시 루트
 export FT_SHEET_ROOT="$T/sheet-root"; mkdir -p "$FT_SHEET_ROOT/.fable-team/state"
 

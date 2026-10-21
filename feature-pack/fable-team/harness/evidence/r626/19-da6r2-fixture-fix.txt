@@ -1,0 +1,12 @@
+tests/test_baseline_lint.sh rc=0 fail=0 :: 
+tests/test_nano_team_env.sh rc=0 fail=0 :: 
+tests/test_proposal_gate_wiring.sh rc=0 fail=0 :: 
+tests/test_role_spawn_team.sh rc=0 fail=0 :: 
+tests/test_team_literal_paths.sh rc=0 fail=0 :: 
+tests/test_team_roster_ref.sh rc=0 fail=0 :: 
+tests/test_team_literal_paths2.sh rc=1 fail=3 :: FAIL ⓐ 실 bin 린트 rc=1 ← ft-nano-close.sh:771:if [ "$PACK_WT" = 1 ] && ! { [ -n "$CARD" ] && head -5 "$CARD" | grep -qF '<!-- ledger: design/harness/GOAL-harness.md -->'; }; then|FAIL ⓐ 키트 bin 린트 rc=1 ← ft-nano-close.sh:771:if [ "$PACK_WT" = 1 ] && ! { [ -n "$CARD" ] && head -5 "$CARD" | grep -qF '<!-
+tests/test_role_spawn_name.sh rc=0 fail=0 :: 
+tests/test_satellite_rosters.sh rc=0 fail=0 :: 
+tests/test_press_role_bts_gate.sh rc=0 fail=0 :: 
+tests/test_raised_seat.sh rc=0 fail=0 :: (스텁 자리 정정 뒤 재실행)
+tests/test_press_baseline_check.sh rc=0 fail=0 :: (fake python3 가 ft_all_stop.py 만 진짜 python 으로 넘김 — 재실행)

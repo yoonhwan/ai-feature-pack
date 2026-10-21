@@ -31,6 +31,7 @@ mkdir -p "$R/.fable-team" "$R/design/v65/indices/대기" "$R/design/v65/indices/
 git -C "$R" init -q -b main && : > "$R/.gitkeep" && git -C "$R" add -A && git -C "$R" -c user.email=t@t -c user.name=t commit -q -m init
 printf '# 인덱스: r149x\n## 상태\n' > "$R/$CARD_REL"; printf 'x\n' > "$R/design/v65/SEATBELT-README.md"
 for f in ft-nano-spawn.sh ft-role-spawn.sh ft-tick.sh ft_raised.py ft_team_lib.py ft-resource-gate.sh ft_teamset.py ft_spawn_queue.py ft-team-lib.sh; do cp -p "$BIN/$f" "$B/"; done   # R382b: ft-role-spawn 이 ft-team-lib.sh 로 v65 폴더를 푼다
+printf '#!/usr/bin/env bash\nexit 0\n' > "$B"/ft-all-stop.sh   # r626 DA⑥ r2: spawn 이 .fable-team 있으면 늘 전팀 정지 check — 사본 bin 에 없으면 REJECT · 이 시험 주제 밖이라 통과 스텁
 printf '| 팀 | 폴더 | 오케 | 상태 |\n|---|---|---|---|\n| v65 | `design/v65/` | x | 현역 |\n' > "$R/design/TEAMS.md"
 git -C "$R" add design/TEAMS.md && git -C "$R" -c user.email=t@t -c user.name=t commit -q -m teams; export FT_TEAMS_REF=HEAD   # R406: spawn 은 명단을 ref 에서 읽는다 — 픽스처는 origin/main ref 0 이라 커밋된 HEAD
 for f in ft-index-lint.sh ft-proposal-gate.sh ft-index-move.sh ft-send-verified.sh ft-agent-ready.sh; do printf '#!/bin/bash\nexit 0\n' > "$B/$f"; done

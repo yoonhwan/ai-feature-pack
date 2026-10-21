@@ -31,6 +31,7 @@ cp -p "$R/.fable-team/seats.json" "$T/seats.v65.before"
 
 # 실행본 = 키트 사본 + 가짜 송신(실 쪽지 0)
 for f in ft-role-spawn.sh ft-team-lib.sh ft_raised.py ft-resource-gate.sh ft_teamset.py ft_spawn_queue.py ft-resource-sample.sh ft-harness-root.sh; do cp -p "$KIT/$f" "$B/"; done
+printf '#!/usr/bin/env bash\nexit 0\n' > "$B"/ft-all-stop.sh   # r626 DA⑥ r2: spawn 이 .fable-team 있으면 늘 전팀 정지 check — 사본 bin 에 없으면 REJECT · 이 시험 주제 밖이라 통과 스텁
 printf '#!/bin/bash\necho "SENT $*"\nexit 0\n' > "$B/ft-send-verified.sh"
 # 가짜 tmuxc: open 이면 --name 을 열린 목록에 적는다 · 가짜 tmux: 열린 목록에 있는 이름만 has-session 0
 OPENED="$T/opened"; : > "$OPENED"

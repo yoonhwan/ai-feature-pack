@@ -20,6 +20,7 @@ for f in ft-nano-spawn.sh ft-index-lint.sh ft-team-lib.sh; do bash -n "$SRC/$f" 
 # ── 사본 bin · 가짜 도구
 BIN="$T/bin"; mkdir -p "$BIN" "$T/fake"
 for f in ft-nano-spawn.sh ft-index-lint.sh ft-index-lint-install.sh ft-proposal-gate.sh ft-index-move.sh ft-sheet-events.sh ft_sheet_events.py ft_sheet_confirm.py ft_sheet_key.py ft_board_env.py ft_board_mail.py ft-nano-cherry-gate.sh ft-nano-spawn-undo.sh ft-resource-gate.sh ft_raised.py ft_teamset.py ft_spawn_queue.py ft-team-lib.sh; do cp "$SRC/$f" "$BIN/" 2>/dev/null; done
+printf '#!/usr/bin/env bash\nexit 0\n' > "$BIN"/ft-all-stop.sh   # r626 DA⑥ r2: spawn 이 .fable-team 있으면 늘 전팀 정지 check — 사본 bin 에 없으면 REJECT · 이 시험 주제 밖이라 통과 스텁
 printf '#!/usr/bin/env bash\nexit 0\n' > "$BIN/ft-send-verified.sh"; printf '#!/usr/bin/env bash\nexit 0\n' > "$BIN/ft-agent-ready.sh"
 printf '#!/usr/bin/env bash\ncase "$1" in has-session) exit 1;; esac\nexit 0\n' > "$T/fake/tmux"
 printf '#!/usr/bin/env bash\necho "TMUXC $*"\n' > "$T/fake/tmuxc"; printf '#!/bin/sh\nexit 0\n' > "$T/fake/sleep"; chmod +x "$BIN/"* "$T/fake/"*
