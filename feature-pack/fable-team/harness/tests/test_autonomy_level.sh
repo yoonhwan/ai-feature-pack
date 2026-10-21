@@ -45,7 +45,7 @@ fresh; run a on --for 12h
 [ "$(grep -c '^approve-scope ' "$LOG")" = 1 ] && [ "$(sed -n 1p "$LOG" | cut -f2-)" = "$(printf 'on\tA1')" ]; ck "ⓐ 순서 = 모드 줄 → 범위 승인 줄" $?
 grep -q '"level":"full"' "$S/autonomy.json" && [ "$(a mode)" = on ]; ck "ⓐ json level 칸 · 위변조 아님(mode=on)" $?
 run a status; has '레벨 풀자동 · 범위 S1\]$'; ck "ⓐ status 에 «레벨 풀자동 · 범위 S1»" $?
-grep -q '레벨 full' "$T/post.log" && [ "$(wc -l < "$T/post.log" | tr -d ' ')" = 1 ]; ck "ⓐ 슬랙 1줄(레벨 full)" $?
+[ "$(sed -n 1p "$T/post.log")" = "자율 켜짐(풀자동)" ] && [ "$(wc -l < "$T/post.log" | tr -d ' ')" = 3 ]; ck "ⓐ 슬랙 3줄 · 1줄 = 자율 켜짐(풀자동)(r658)" $?
 run a scope-status --audit; [ $rc = 0 ] && has '^AUDIT-OK grants=1'; ck "ⓐ --audit OK(새 칸 repos·level)" $?
 fresh; STUB_POST_RC=1 run a on --for 12h; [ $rc = 1 ] && [ ! -e "$LOG" ] && [ ! -e "$S/autonomy.json" ]; ck "ⓐ 슬랙 게시 실패 → on 전체 쓰기 0 · rc 1" $?
 fresh; run a on; [ $rc = 0 ] && [[ "$(glast)" == *" until=$((T0+86400)) "* ]]; ck "ⓐ 끝 없는 ON → 범위 until = 24h" $?

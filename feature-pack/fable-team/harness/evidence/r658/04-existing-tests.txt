@@ -1,0 +1,20 @@
+=== 인접 시험 — 새 워크트리(고침) vs base 워크트리(origin/main 03ae64a7) · 광역 0
+test_autonomy_core.sh                  새: rc=1 PASS=192 FAIL=3 | base: rc=1 PASS=192 FAIL=3
+test_autonomy_kinds_1675.sh            새: rc=0 PASS=109 FAIL=0 | base: rc=0 PASS=109 FAIL=0
+test_autonomy_scope.sh                 새: rc=0 PASS=134 FAIL=0 | base: rc=0 PASS=134 FAIL=0
+test_autonomy_level.sh                 새: rc=0 PASS=65 FAIL=0 | base: rc=0 PASS=65 FAIL=0
+test_autonomy_scope_classify.sh        새: rc=1 PASS=67 FAIL=6 | base: rc=1 PASS=67 FAIL=6
+test_autonomy_scope_pack.sh            새: rc=0 PASS=13 FAIL=0 | base: rc=0 PASS=13 FAIL=0
+test_autonomy_merge_equiv.sh           새: rc=0 PASS=13 FAIL=0 | base: rc=0 PASS=13 FAIL=0
+test_autonomy_preflight.sh             새: rc=0 PASS=113 FAIL=0 | base: rc=0 PASS=113 FAIL=0
+test_autonomy_hooks.sh                 새: rc=0 PASS=184 FAIL=0 | base: rc=0 PASS=184 FAIL=0
+test_autonomy_hooks_layout.sh          새: rc=0 PASS=17 FAIL=0 | base: rc=0 PASS=17 FAIL=0
+test_autonomy_scope_plain3_r658.sh     새: rc=0 PASS=27 FAIL=0 | base: (없음 · 새 시험)
+test_kit_bin_sync.sh                   새: rc=0 PASS=7 FAIL=0 | base: rc=0 PASS=7 FAIL=0
+test_merge_land.sh                     새: rc=0 PASS=49 FAIL=0 | base: rc=0 PASS=49 FAIL=0
+test_merge_land_equiv.sh               새: rc=0 PASS=42 FAIL=0 | base: rc=0 PASS=42 FAIL=0
+test_merge_land_off_approval.sh        새: rc=0 PASS=14 FAIL=0 | base: rc=0 PASS=14 FAIL=0
+test_merge_land_pack_repo.sh           새: rc=1 PASS=23 FAIL=10 | base: rc=1 PASS=23 FAIL=10
+test_merge_land_state_dir.sh           새: rc=0 PASS=8 FAIL=0 | base: rc=0 PASS=8 FAIL=0
+test_arch_required_gate.sh             새: rc=4 PASS=21 FAIL=5 | base: rc=4 PASS=21 FAIL=5
+test_proxy_decide_r188.sh              새: rc=1 PASS=56 FAIL=6 | base: rc=1 PASS=56 FAIL=6

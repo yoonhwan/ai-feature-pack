@@ -1,0 +1,22 @@
+=== ⓐ 고치기 전 판(base 03ae64a7)에서 새 시험 = RED
+--- FAIL 수: 17 / PASS 수: 16 / rc=1
+FAIL ⓐ 켜기 알림 = 정확히 3줄 :: rc=0 out=PASS gcloud 사용자 계정
+FAIL ⓐ 본문에 내부 번호·영어 칸 이름·10자리 숫자 0 :: rc=0 out=PASS gcloud 사용자 계정
+FAIL ⓐ 옛 머리말 «[범위 승인] S… 부여 <epoch>» 0 :: rc=0 out=PASS gcloud 사용자 계정
+FAIL ⓑ 풀자동 3줄 원문 일치(기본표 classes·code-max·하루) :: rc=0 out=PASS gcloud 사용자 계정
+FAIL ⓑ 중간 3줄 원문 일치(code 종류 없음 → 코드 병합 칸 0) :: rc=0 out=PASS gcloud 사용자 계정
+FAIL ⓑ 끝 없는 ON → «다음 범위 승인까지 · 24시간» :: rc=0 out=PASS gcloud 사용자 계정
+FAIL ⓑ 손 범위 승인(approve-scope)도 같은 3줄(레벨 = 지금 ON) :: rc=0 out=SCOPE-GRANTED S2 A1 until=03:00 max=5 daily=2 cla
+FAIL ⓓ 대응표 4종(docs·ff·revert·code) :: rc=0 out=SCOPE-GRANTED S2 A1 until=03:00 max=5 daily=5 classes=docs
+FAIL ⓓ 표에 없는 종류 → rc 1(조용히 키 그대로 0) :: rc=127 out=--: 줄 1: scope_class_plain: 명령을 찾을 수 없음
+FAIL ⓓ 본문 만들기 = 모르는 종류 REJECT(본문 0) :: rc=127 out=--: 줄 1: scope_slack_body: 명령을 찾을 수 없음
+FAIL ⓓ 게시 «전» REJECT — 슬랙 0 :: rc=0 out=
+FAIL ⓕ 재발급도 사람 말 3줄(SCOPE-RENEWED 경로) :: rc=0 out=SCOPE-RENEWED S2 A2 level=full (옛 S1 A1)
+FAIL ⓕ 재발급 본문 원문 = 같은 값·같은 3줄 :: rc=0 out=SCOPE-RENEWED S2 A2 level=full (옛 S1 A1)
+
+=== base 슬랙 글 vs 고친 뒤 슬랙 글
+base : [범위 승인] S1 · A1 · ~05:00까지 · max 30 · 하루 15 · docs,ff,revert,code · code 10 · 저장소 byz,pack · 레벨 full · 부여 1800000000
+고침 : 자율 켜짐(풀자동) / 혼자 해도 되는 것: 문서 병합 · 빨리 감기 병합 · 되돌림 30건까지 · 코드 병합 10건까지 · 하루 15건 / 언제까지: 05:00 까지
+
+=== 기계 줄·grants.audit = 이전 판과 바이트 동일(AUDIT-BYTES-SAME · diff 0)
+approve-scope S1 A1 1800000000 until=1800043200 max=30 daily=15 classes=docs,ff,revert,code codemax=10 repos=byz,pack level=full
