@@ -1,0 +1,14 @@
+$ python3.11 -m pytest tests/scripts/test_r630_queue_full_watch.py -q
+9 passed in 7.65s
+rc=0
+$ bash tests/test_kit_bin_sync.sh → rc=0 · ALL PASS
+$ bash tests/test_queue_reask_r529.sh → rc=0 · REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+$ bash tests/test_ft_tick_master_seat.sh → rc=44 · REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+$ bash tests/test_ft_tick_renamed_args.sh → rc=0 · REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+$ bash tests/test_tick_line.sh → rc=0 · REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+$ bash tests/test_tick_team_msg.sh → rc=0 · REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+$ bash tests/test_tick_shim_guard.sh → rc=0 · REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+$ bash tests/test_tick_idle_long_nano_wait.sh → rc=0 · REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+$ bash tests/test_team_tick_unify.sh → rc=2 · REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+# base 대조(ft-scratch-repo 1c580b42 사본 · 이 변경 없음): test_ft_tick_master_seat.sh rc=44 · test_team_tick_unify.sh rc=2 — 같은 rc
+#   = 이 카드 이전부터 깨진 시험(ft-tick-normal/r21/nomaster «ft-tick rc 1» · ⓓ idle-long·dead-seat 줄) · 고침 카드 요청(master 90)

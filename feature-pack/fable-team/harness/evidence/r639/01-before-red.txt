@@ -1,0 +1,8 @@
+$ python3.11 -m pytest tests/scripts/test_r639_queue_watch_dead_seat_send_timeout.py -q  # base 1c580b42 고치기 전
+FAILED tests/scripts/test_r639_queue_watch_dead_seat_send_timeout.py::test_a_send_over_limit_but_queued_alerts_once_and_keeps_signature
+FAILED tests/scripts/test_r639_queue_watch_dead_seat_send_timeout.py::test_b_send_fails_retries_once_after_30_minutes
+FAILED tests/scripts/test_r639_queue_watch_dead_seat_send_timeout.py::test_b2_retry_also_fails_gives_up_until_signature_changes
+FAILED tests/scripts/test_r639_queue_watch_dead_seat_send_timeout.py::test_c_dead_seat_alerts_harness_master_once_not_its_team
+FAILED tests/scripts/test_r639_queue_watch_dead_seat_send_timeout.py::test_e_broken_state_file_errors_and_starts_fresh
+5 failed, 3 passed in 23.31s
+rc=1

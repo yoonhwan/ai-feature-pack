@@ -59,7 +59,11 @@ def tick(root: Path) -> subprocess.CompletedProcess:
     ft = root / ".fable-team"
     script = (f'set -uo pipefail\nlog() {{ echo "$(date "+%F %T") $*"; }}\nDRY=0; HERE="{QW.parent}"; MBOX="{ft}/comm/mbox.sh"; '
               f'SEATS="{ft}/seats.json"\n{src}\nqueue_full_watch; echo "TICK_GOES_ON"')
-    env = {**os.environ, "FAKE_MBOX": str(ft / "comm" / "mbox.sh")}
+    fake_tmux = root / "bin" / "tmux"  # r639 죽은 좌석 판별 — 목록 못 읽음 = 살아 있음(실 tmux 0)
+    fake_tmux.parent.mkdir(exist_ok=True)
+    fake_tmux.write_text("#!/bin/bash\nexit 1\n")
+    fake_tmux.chmod(0o755)
+    env = {**os.environ, "FAKE_MBOX": str(ft / "comm" / "mbox.sh"), "PATH": f"{fake_tmux.parent}:{os.environ['PATH']}"}
     return subprocess.run(["bash", "-c", script], capture_output=True, text=True, timeout=30, env=env)
 
 
