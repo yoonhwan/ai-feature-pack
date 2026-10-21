@@ -1,0 +1,36 @@
+# base(origin/main 949cc998) 격리 워크트리(/tmp/r648/basewt)에서 같은 9시험 — 후판(03)과 같은 rc 인지 «쌍» 대조
+# base(origin/main 949cc998) 격리 워크트리에서 같은 9시험 — 후판과 같은 rc 인지 대조
+=== test_merge_land
+ALL PASS
+REAL-STATE-GUARD PASS
+rc=0
+=== test_merge_land_state_dir
+ALL PASS
+REAL-STATE-GUARD PASS
+rc=0
+=== test_merge_land_off_approval
+ALL PASS
+REAL-STATE-GUARD PASS
+rc=0
+=== test_merge_land_equiv
+ALL PASS
+REAL-STATE-GUARD PASS
+rc=0
+=== test_merge_land_push_reason
+ALL PASS
+REAL-STATE-GUARD PASS
+rc=0
+=== test_merge_head_gate
+ALL PASS
+rc=0
+=== test_autonomy_merge_equiv
+fail=0
+REAL-STATE-GUARD PASS
+rc=0
+=== test_evidence_log_gate
+ALL PASS
+REAL-STATE-GUARD PASS
+rc=0
+=== test_kit_bin_sync
+ALL PASS
+rc=0

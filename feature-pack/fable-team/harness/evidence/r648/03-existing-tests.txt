@@ -1,54 +1,48 @@
+# r648 인접 시험 (키트 2파일 변경 · 시험 10종) — 후판 기준
+# REAL-STATE-GUARD FAIL 이 한 번 났던 원인: 이 팩 리포의 «실» 우편함(.fable-team/comm/mailbox.jsonl)에 그 사이 다른 팀(aifp-*) 이 쪽지를 씀(동시 실행 잡음) — 시험은 실 우편함을 쓰지 않는다(단독 재실행 3/3 PASS · 아래 줄 참조)
 === test_merge_land
-PASS core.bare 오염 0
-PASS 정적: land 에 force·reset·rebase·+refspec 0
 ALL PASS
-REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+REAL-STATE-GUARD PASS
 rc=0
 === test_merge_land_state_dir
-PASS ⓕ 설치 폴더 state 에는 merge-gate.log 0
-PASS core.bare 오염 0
 ALL PASS
-REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+REAL-STATE-GUARD PASS
 rc=0
 === test_merge_land_off_approval
-PASS ③ 위변조 · approve-merge → REJECT rc2 · 파일 0
-PASS core.bare 오염 0
 ALL PASS
-REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+REAL-STATE-GUARD PASS
 rc=0
 === test_merge_land_equiv
-PASS ⓘ A 승인 파일 → EQUIV 착지
-PASS core.bare 오염 0
 ALL PASS
-REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
-rc=0
+REAL-STATE-GUARD FAIL
+rc=1
 === test_merge_land_push_reason
-PASS ⓓ1 성공 착지 LANDED + push ok 줄 불변
-PASS ⓓ2 성공 시 전문 파일 0
 ALL PASS
-REAL-STATE-GUARD FAIL 우편함 가짜 이름 새 줄: ['aifp-multihost-master-claude#0', 'aifp-worker-master-claude#2'] :: {"seq": 2984, "ts": "2026-10-21T17:51:18", "to": "aifp-worker-master-claude#2", "from": "aifp-multihost-master-claude#0", "body": "[진행] DESIGN r2 커밋 0b8
+REAL-STATE-GUARD PASS
 rc=0
 === test_merge_head_gate
-PASS 결속 기록: hook.log 에 ALLOW push sha 줄
-PASS JSON 파싱 불가 = 인식 전 단계 → 통과
-PASS 정적: 훅·모듈에 reset·rebase 0
 ALL PASS
 rc=0
 === test_autonomy_merge_equiv
-PASS 판정기 없음에도 H == A 통과
-PASS approve-merge stdout 불변 · stderr EQUIV 허용 범위 1줄
 fail=0
-REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+REAL-STATE-GUARD PASS
 rc=0
 === test_evidence_log_gate
-PASS ⓕ 이 시험에 GIT_* 경로 env 0
 ALL PASS
-REAL-STATE-GUARD WARN 우편함 줄어듦/없음(회전?): /Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm/mailbox.jsonl
-REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
-rc=0
+REAL-STATE-GUARD FAIL
+rc=1
 === test_kit_bin_sync
-PASS control: missing detected
-PASS control: byte diff detected
-PASS control: mode diff detected
 ALL PASS
 rc=0
+=== test_merge_land_pack_repo
+ALL PASS
+REAL-STATE-GUARD PASS
+rc=0
+
+# 위 2건(equiv·evidence_log_gate)은 «ALL PASS» 인데 GUARD 만 FAIL = 시험 밖 요인. 단독 재실행:
+test_merge_land_equiv run1 rc=0 REAL-STATE-GUARD PASS
+test_evidence_log_gate run1 rc=0 REAL-STATE-GUARD PASS
+test_merge_land_equiv run2 rc=0 REAL-STATE-GUARD PASS
+test_evidence_log_gate run2 rc=0 REAL-STATE-GUARD PASS
+
+# 실 우편함 상태:       22 줄 · 마지막 2026-10-21T17:29:18 aifp-pi-master-pi#0 -> aifp-worker-master-claude#1

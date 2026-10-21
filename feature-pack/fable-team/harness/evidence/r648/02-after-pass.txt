@@ -4,17 +4,21 @@ PASS ⓐ3 전판 · BYZ 기준 헤드를 팩 리포 객체로 찾음 → REJECT 
 PASS ⓐ4 전판 3꼴 전부 착지 0(팩 main 불변)
 PASS ⓐ5 고친 판 · 같은 입력 → LANDED · 팩 origin main = 착지 sha
 PASS ⓐ6 착지 트리 == 검사한 팩 PR head 트리
-PASS ⓑ gh pr view -R fake/pack(팩 remote URL 에서 풂 · BYZ 번호 조회 0)
+PASS ⓑ gh pr view -R fake/pack(실제 전송 URL 에서 풂 · BYZ 번호 조회 0)
 PASS ⓑ2 PR 코멘트·닫기 wrapper 도 FT_ISSUE_REPO=fake/pack
 PASS ⓒ 승인 파일·로그 = BYZ 자율 상태 폴더 그대로
 PASS ⓒ2 팩 리포에 상태 폴더 생성 0
 PASS ⓓ 게이트·착지 = 팩 origin/main 위(부모 = 착지 전 팩 main)
 PASS ⓓ2 기준 헤드 리포별(base-head-fake-pack ← Q · BYZ base-head 그대로)
 PASS ⓔ 원장 = BYZ 한 곳 · 줄에 repo=pack
-PASS ⓖ 못 풀면 REJECT 1줄 · 착지 0 · gh 조회 0(조용히 BYZ 조회 0)
+PASS ⓖ raw URL ≠ 실제 전송 URL(insteadOf) → REJECT 1줄 · 착지 0 · gh 조회 0
 PASS ⓖ2 승인 없음 → rc2 · 착지 0
+PASS ⓖ3 교차 리포 · 다른 sha 승인 → REJECT · 착지 0
 PASS ⓕ --repo 없음 = 지금 그대로 LANDED · gh -R 0
 PASS ⓕ2 같은 리포는 기준 헤드도 지금 그대로(base-head)
+PASS ⓕ3 CROSS=0 원장 줄 = 전판과 바이트 동일(repo= 칸 포함 · 시각·sha·PR번호만 가림)
+PASS ⓐ7 env 없음 · 승인이 공용 루트에만 → REJECT(공용 루트를 승인 폴더로 쓰지 않는다)
+PASS ⓐ8 대조 · 정식 상태 폴더(LIVE_ROOT)에 승인 → LANDED(리졸버 하나만 쓴다)
 PASS 키트 사본 2 cmp0
 PASS ft-merge-land.sh ≤ 120줄
 PASS bash -n ft-merge-lib.sh
