@@ -447,11 +447,53 @@ def _guard_verdict(to, frm, body, dispatch=False):
     return None
 
 
+def _desk_verdict(to, frm, body):
+    """desk 판정기(ft_desk_route_gate.py) 호출 — 통과면 None, 막으면 (reason, hint). desk 무관이면 부르지 않는다."""
+    if "-desk-" not in to and "-desk-" not in frm:
+        return None
+    gate = os.path.join(os.path.dirname(os.path.realpath(__file__)), "ft_desk_route_gate.py")
+    hint = "desk 는 planner 에게만 보내고, desk 에는 planner 가 보냅니다(planner 안내서 27줄) — 그 밖 길은 planner 를 거치세요."
+    if not os.path.isfile(gate):
+        return ("DESK_ROUTE_GATE_MISSING 판정기 없음(%s) — 설치 순서 · desk 쪽지 통과 0" % gate, hint)
+    tmp = os.path.join(RELAY_DIR, ".desk-route-%d-%d.txt" % (os.getpid(), int(time.time() * 1000) % 100000))
+    try:
+        os.makedirs(RELAY_DIR, exist_ok=True)
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(body)
+        r = subprocess.run(
+            [sys.executable, gate, "--to", to, "--from", frm, "--body-file", tmp,
+             "--seats-dir", os.path.dirname(CANON), "--comm", CANON],
+            capture_output=True, text=True, timeout=20,
+        )
+    finally:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+    for line in (r.stderr or "").splitlines():
+        if line.startswith("WARN "):
+            sys.stderr.write(line + "\n")
+    if r.returncode == 0:
+        return None
+    rej = next((ln for ln in (r.stdout or "").splitlines() if ln.startswith("REJECT ")), "")
+    if rej:
+        return ("DESK_ROUTE " + rej[7:].strip(), hint)
+    return ("DESK_ROUTE_GATE_ERROR rc=%d %s" % (r.returncode, (r.stderr or "").strip()[:120]), hint)
+
+
 def send(to, frm, body, force=False, dispatch=False):
     _check_name(to)
     _check_name(frm)
+    # ★desk 창구 고정(r660 · 판정 1125)★ — 규칙은 「판정기 하나」(ft_desk_route_gate.py)다. 우편함 길(comm/mbox.sh)도 같은 파일을 부른다(두 벌 금지 · 카드 ⓖ).
+    #   ★--force 로 안 풀린다★ — desk 방향은 재전송 규율이 아니라 길 자체의 문제다. 잠금 밖에서 판정(큐 무관).
+    try:
+        desk = _desk_verdict(to, frm, body)
+    except Exception:
+        desk = None   # 판정기 고장 = 통과(fail-open · 기존 가드와 같은 원칙)
 
     def op():
+        if desk:
+            return ("__BLOCKED__", desk)
         rows = _load(CANON)
         # ★F6: 가드 판정을 잠금 «안»에서(load 직후) — 밖이면 동시 send 가 서로의 큐를 못 봐 둘 다 통과.
         # ★게이트가 고장나면 통과시킨다(fail-open)★ — 가드 버그로 통신이 끊기는 쪽이 더 크다.
@@ -511,7 +553,9 @@ def send(to, frm, body, force=False, dispatch=False):
         #   가드였는지 사후에도 확정하지 못했다.
         #   잘리는 쪽을 우리가 정할 수 없으므로 ★양 끝에 둔다★.
         sys.stderr.write(
-            "BLOCKED %s\n%s\n→ BLOCKED %s · 정말 필요하면 --force\n" % (reason, hint, reason)
+            "BLOCKED %s\n%s\n→ BLOCKED %s%s\n"
+            % (reason, hint, reason,
+               " · desk 경로는 --force 로 안 풀린다" if reason.startswith("DESK_ROUTE") else " · 정말 필요하면 --force")
         )
         sys.exit(3)
     seq, pend, dropped = res

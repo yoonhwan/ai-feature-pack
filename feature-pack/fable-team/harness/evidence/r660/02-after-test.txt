@@ -1,0 +1,93 @@
+# r660 시험 — 고친 판 (고치기 전 = 01-before-base-test.txt)
+
+## ⓑ~ⓖ tests/test_r660_desk_route.sh
+PASS desk→팀장 보통 [kit] rc=3 큐증감=0
+PASS desk→팀장 보통 [comm] rc=3 큐증감=0
+PASS desk→팀 좌석 [kit] rc=3 큐증감=0
+PASS desk→팀 좌석 [comm] rc=3 큐증감=0
+PASS desk→planner master [kit] rc=0 큐증감=1
+PASS desk→planner master [comm] rc=0 큐증감=1
+PASS desk→[HIL] 팀장 [kit] rc=0 큐증감=1
+PASS desk→[HIL] 팀장 [comm] rc=0 큐증감=1
+PASS 팀장→desk 보통 [kit] rc=3 큐증감=0
+PASS 팀장→desk 보통 [comm] rc=3 큐증감=0
+PASS 팀장→desk [HIL] [kit] rc=0 큐증감=1
+PASS 팀장→desk [HIL] [comm] rc=0 큐증감=1
+PASS 팀장→desk [h7 결과] 기록 있음 [kit] rc=0 큐증감=1
+PASS 팀장→desk [h7 결과] 기록 있음 [comm] rc=0 큐증감=1
+PASS 팀장→desk [h8 결과] 기록 없음 [kit] rc=3 큐증감=0
+PASS 팀장→desk [h8 결과] 기록 없음 [comm] rc=3 큐증감=0
+PASS 팀장→desk [h7 결과] 2줄 [kit] rc=3 큐증감=0
+PASS 팀장→desk [h7 결과] 2줄 [comm] rc=3 큐증감=0
+PASS 팀장→desk [긴급] [kit] rc=3 큐증감=0
+PASS 팀장→desk [긴급] [comm] rc=3 큐증감=0
+PASS desk 계보 인계 [kit] rc=0 큐증감=1
+PASS desk 계보 인계 [comm] rc=0 큐증감=1
+PASS 도구 발신→desk [kit] rc=0 큐증감=1
+PASS 도구 발신→desk [comm] rc=0 큐증감=1
+PASS slack→desk [kit] rc=0 큐증감=1
+PASS slack→desk [comm] rc=0 큐증감=1
+PASS planner→팀 [kit] rc=0 큐증감=1
+PASS planner→팀 [comm] rc=0 큐증감=1
+PASS 팀끼리 [kit] rc=0 큐증감=1
+PASS 팀끼리 [comm] rc=0 큐증감=1
+케이스                              kit(rc/큐)  comm(rc/큐) 같음
+desk→팀장 보통                   rc=3/d=0     rc=3/d=0     O
+desk→팀 좌석                      rc=3/d=0     rc=3/d=0     O
+desk→planner master                  rc=0/d=1     rc=0/d=1     O
+desk→[HIL] 팀장                    rc=0/d=1     rc=0/d=1     O
+팀장→desk 보통                   rc=3/d=0     rc=3/d=0     O
+팀장→desk [HIL]                    rc=0/d=1     rc=0/d=1     O
+팀장→desk [h7 결과] 기록 있음 rc=0/d=1     rc=0/d=1     O
+팀장→desk [h8 결과] 기록 없음 rc=3/d=0     rc=3/d=0     O
+팀장→desk [h7 결과] 2줄         rc=3/d=0     rc=3/d=0     O
+팀장→desk [긴급]                 rc=3/d=0     rc=3/d=0     O
+desk 계보 인계                     rc=0/d=1     rc=0/d=1     O
+도구 발신→desk                   rc=0/d=1     rc=0/d=1     O
+slack→desk                           rc=0/d=1     rc=0/d=1     O
+planner→팀                          rc=0/d=1     rc=0/d=1     O
+팀끼리                              rc=0/d=1     rc=0/d=1     O
+PASS ⓖ 두 길 결과 표 동일(rc·큐 증감·판정 전부)
+PASS ⓖ 판정기 1개(ft_desk_route_gate.py)를 두 길이 부름
+PASS ⓖ 사람 말 사유 문구 = 판정기 1곳에만(호출부 0)
+PASS relay desk→팀장 REJECT · 큐 적재 0
+PASS relay 팀장→desk [h7 결과] 기록 있음 = 통과
+PASS ⓕ seats-planner.json 없음 → 판정 0 · 통과 · WARN
+PASS ⓕ _desk 칸 없음 → 판정 0 · 통과 · WARN
+PASS ⓕ 깨진 명부 → 판정기 rc0 · 판정 0 WARN(막지 않음)
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+rc=0
+
+## ⓗ tests/test_successor_open.sh (기존 ⓐ~ⓢ + 새 ⓣ)
+PASS bash -n
+PASS ⓐ 첫 3줄 빈 값 → REJECT · open·송신 0
+PASS ⓑ 기동 확인(pgrep 3) → 송신 1회 · 도달 파일
+PASS ⓑ-2 도달 파일 model = --model 값 · successor·seq·rc 불변
+PASS ⓒ 기동 미확인 → 송신 0 · 도달 파일 0 · [HIL]
+PASS ⓓ 5 → ring 1 → 5 → exit 5 · 도달 파일 0 · 닫기 0
+PASS ⓔ 2 → ring 1 → 도달 → 도달 파일 · exit 0
+PASS ⓕ open 실패 → REJECT · 기동 확인·송신 0
+PASS ⓖ SessionStart 레코드 있음 → 관측 후 송신
+PASS ⓖ SessionStart 없음 → 미관측 표시 · 송신 1회
+PASS ⓗ 다른 리포 → 대상 리포 mbox(ring·송신·꼬리 mbox=) · 호출자 0
+PASS ⓘ 같은 리포 → 같은 mbox · 도달 파일
+PASS ⓙ mbox 없는 리포 → REJECT rc2 · open·송신 0 · 호출자 mbox 0
+PASS ⓚ 링크 워크트리 사본 있음 → 리포 루트 mbox 고름 · 사본 0
+PASS ⓛ 짝 파일 없음 → RC2 · open·송신 0
+PASS ⓜ FT_MBOX_SH 명시 → 지금과 같음
+PASS ⓝ r609 ⓐ 세션 이미 있음 → 이어감 · 열기 건너뜀 · 송신 1 · 도달 파일
+PASS ⓞ r609 ⓑ 이미 도달 → rc0 · 송신 0(도달 파일 불변)
+PASS ⓟ r609 ⓒ 남의 세션 → REJECT · 열기·송신 0 · 도달 파일 0
+PASS ⓠ r622 같은 폴더 → 이어감 · 열기 건너뜀 · 송신 1
+PASS ⓠ' r622 다른 폴더 → REJECT · 실제 경로(pane=) 찍힘
+PASS ⓡ r622 못 읽음 → 판정 불가 REJECT · «다르다» 0 · 송신 0
+PASS ⓢ r622 새 좌석 CWD 실제 경로 → JDIR 그 워크트리 · SessionStart 관측
+PASS ⓣ r660 desk 본문에 GUIDE 27줄 없음 → 열기 전 REJECT · open·송신 0
+PASS ⓣ r660 desk 본문에 팀 직발 예시 → 열기 전 REJECT · open·송신 0
+PASS ⓣ r660 desk 본문 = 27줄 원문 포함 → 통과 · 송신 1
+PASS ⓣ planner 역할 승계 = 이 문 밖(판정 불변 · GUIDE 줄 없어도 송신 1)
+PASS ⓣ r660 GUIDE 원문을 못 읽음 → REJECT · open·송신 0(fail-closed)
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+rc=0

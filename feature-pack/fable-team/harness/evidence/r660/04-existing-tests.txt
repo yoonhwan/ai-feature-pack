@@ -1,0 +1,16 @@
+# r660 인접 시험(광역 0) — 고친 판
+
+== test_mbox_guard.sh rc=0 PASS=130 FAIL=0
+== test_mbox_guard_live_bin.sh rc=0 PASS=1 FAIL=0
+== test_mbox_reply_exempt_cap.sh rc=0 PASS=6 FAIL=0
+== test_mbox_root_resolve.sh rc=0 PASS=1 FAIL=0
+== test_mbox_lineage.sh rc=0 PASS=16 FAIL=0
+== test_mbox_py_link_import.sh rc=0 PASS=4 FAIL=0
+== test_ft_mbox_sent_log.sh rc=0 PASS=25 FAIL=0
+== test_ft_mbox_inbox_ingest.sh rc=0 PASS=36 FAIL=0
+== test_mbox_inbox_notify_reply_rate.sh rc=0 PASS=46 FAIL=0
+== test_desk_self_interview_gate.sh rc=0 PASS=12 FAIL=0
+== test_desk_bash_fg_gate.sh rc=0 PASS=14 FAIL=0
+== test_da_hold_gate.sh rc=1 PASS=91 FAIL=7
+== test_kit_bin_sync.sh rc=0 PASS=7 FAIL=0
+== test_all_stop_r626.sh rc=0 PASS=108 FAIL=0

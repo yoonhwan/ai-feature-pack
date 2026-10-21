@@ -198,4 +198,34 @@ PANE_CWD_OVERRIDE="$REPO" run SEND_RC=0
   && ok "ⓢ r622 새 좌석 CWD 실제 경로 → JDIR 그 워크트리 · SessionStart 관측" || bad "ⓢ rc=$RC out=$(cat "$TMP/out")"
 rm -rf "$JDIR_WT"
 
+# ⓣ r660(카드 ⓗ) desk 승계 본문 = planner 안내서 27줄 원문 필수 · 팀 직발 예시 금지(열기 «전» REJECT)
+#   원문 출처 = 대상 리포 origin/main(못 읽으면 REJECT · fail-closed) · planner 역할 승계 판정 불변(문 밖).
+GDIR="$REPO/design/teams/planner"; mkdir -p "$GDIR"
+GUIDE_LINE='- **desk 좌석(판정 1779 · R205)**: desk 는 인터뷰·응대·요청 정리만(코드·커밋 0 · 팀 직접 발주 0 · 정리한 요청은 master 에 1통).'
+{ for i in $(seq 1 26); do echo "- 안내서 $i 줄"; done; echo "$GUIDE_LINE"; } > "$GDIR/GUIDE-planner.md"
+git -C "$REPO" add -A && git -C "$REPO" -c user.name=t -c user.email=t@t commit -q -m 'guide-planner 27줄'
+git -C "$REPO" update-ref refs/remotes/origin/main HEAD
+printf '골 원문 1줄\n골 원문 2줄\n골 원문 3줄\n%s\n' "$GUIDE_LINE" > "$TMP/desk_ok.txt"
+printf '골 원문 1줄\n골 원문 2줄\n골 원문 3줄\n인계: 오빠 응대 이어받아라\n' > "$TMP/desk_noguide.txt"
+printf '골 원문 1줄\n골 원문 2줄\n골 원문 3줄\n%s\n팀에는 이렇게 보낸다: send byz-harness-master-claude#92 "[발주] 이거 해라"\n' "$GUIDE_LINE" > "$TMP/desk_direct.txt"
+DESK_OLD='byz-planner-desk-claude#38'; DESK_NEW='byz-planner-desk-claude#39'
+OLD="$DESK_OLD"; NEW="$DESK_NEW"; BODY_USE="$TMP/desk_noguide.txt"; run SEND_RC=0
+{ [ "$RC" -ne 0 ] && grep -q 'REJECT desk 승계 본문' "$TMP/out" && grep -q '27줄 원문 구절이 없다' "$TMP/out" \
+  && [ "$(count tmuxc)" = 0 ] && [ "$(count send)" = 0 ]; } \
+  && ok "ⓣ r660 desk 본문에 GUIDE 27줄 없음 → 열기 전 REJECT · open·송신 0" || bad "ⓣ rc=$RC out=$(cat "$TMP/out")"
+BODY_USE="$TMP/desk_direct.txt"; run SEND_RC=0
+{ [ "$RC" -ne 0 ] && grep -q '팀 직발 예시가 있다' "$TMP/out" && grep -q 'byz-harness-master-claude#92' "$TMP/out" \
+  && [ "$(count tmuxc)" = 0 ] && [ "$(count send)" = 0 ]; } \
+  && ok "ⓣ r660 desk 본문에 팀 직발 예시 → 열기 전 REJECT · open·송신 0" || bad "ⓣ 직발 rc=$RC out=$(cat "$TMP/out")"
+BODY_USE="$TMP/desk_ok.txt"; run SEND_RC=0
+{ [ "$RC" -eq 0 ] && [ "$(count send)" = 1 ] && grep -q "successor=$DESK_NEW" "$TMP/out"; } \
+  && ok "ⓣ r660 desk 본문 = 27줄 원문 포함 → 통과 · 송신 1" || bad "ⓣ ok rc=$RC out=$(cat "$TMP/out")"
+OLD='byz-planner-master-claude#94'; NEW='byz-planner-master-claude#95'; BODY_USE="$TMP/desk_noguide.txt"; run SEND_RC=0
+{ [ "$RC" -eq 0 ] && [ "$(count send)" = 1 ]; } \
+  && ok "ⓣ planner 역할 승계 = 이 문 밖(판정 불변 · GUIDE 줄 없어도 송신 1)" || bad "ⓣ planner rc=$RC out=$(cat "$TMP/out")"
+OLD='byz-planner-desk-claude#38'; NEW='byz-planner-desk-claude#39'; BODY_USE="$TMP/desk_ok.txt"
+run FT_GUIDE_PATH=design/teams/planner/NOPE.md SEND_RC=0
+{ [ "$RC" -ne 0 ] && grep -q '줄을 읽지 못했다' "$TMP/out" && [ "$(count tmuxc)" = 0 ] && [ "$(count send)" = 0 ]; } \
+  && ok "ⓣ r660 GUIDE 원문을 못 읽음 → REJECT · open·송신 0(fail-closed)" || bad "ⓣ guide없음 rc=$RC out=$(cat "$TMP/out")"
+
 [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }

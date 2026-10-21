@@ -1,0 +1,22 @@
+# r660 ⓖ 두 쪽지 길(키트 ft-mbox.sh · 우편함 comm/mbox.sh) 결과 표 — 같은 입력 → 같은 판정
+
+케이스                              kit(rc/큐)  comm(rc/큐) 같음
+desk→팀장 보통                   rc=3/d=0     rc=3/d=0     O
+desk→팀 좌석                      rc=3/d=0     rc=3/d=0     O
+desk→planner master                  rc=0/d=1     rc=0/d=1     O
+desk→[HIL] 팀장                    rc=0/d=1     rc=0/d=1     O
+팀장→desk 보통                   rc=3/d=0     rc=3/d=0     O
+팀장→desk [HIL]                    rc=0/d=1     rc=0/d=1     O
+팀장→desk [h7 결과] 기록 있음 rc=0/d=1     rc=0/d=1     O
+팀장→desk [h8 결과] 기록 없음 rc=3/d=0     rc=3/d=0     O
+팀장→desk [h7 결과] 2줄         rc=3/d=0     rc=3/d=0     O
+팀장→desk [긴급]                 rc=3/d=0     rc=3/d=0     O
+desk 계보 인계                     rc=0/d=1     rc=0/d=1     O
+도구 발신→desk                   rc=0/d=1     rc=0/d=1     O
+slack→desk                           rc=0/d=1     rc=0/d=1     O
+planner→팀                          rc=0/d=1     rc=0/d=1     O
+팀끼리                              rc=0/d=1     rc=0/d=1     O
+
+PASS ⓖ 두 길 결과 표 동일(rc·큐 증감·판정 전부)
+PASS ⓖ 판정기 1개(ft_desk_route_gate.py)를 두 길이 부름
+PASS ⓖ 사람 말 사유 문구 = 판정기 1곳에만(호출부 0)

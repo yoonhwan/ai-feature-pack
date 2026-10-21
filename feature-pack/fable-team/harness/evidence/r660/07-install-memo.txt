@@ -1,0 +1,18 @@
+# r660 설치 메모 (master 집행 · 나노는 설치하지 않는다)
+
+1) LIVE_BIN(키트 bin → 설치 폴더) 새 판
+   - ft_desk_route_gate.py   (새 파일 · 판정기)
+   - ft-mbox.py              (고침 · send/relay 앞 desk 판정)
+   - ft-successor-open.sh    (고침 · desk 승계 본문 검사)
+   확인: cmp <설치 폴더>/<파일> feature-pack/fable-team/harness/kit/fable-team/bin/<파일> → rc0 (3개)
+
+2) 우편함 정본 comm 사본(루트 .fable-team/comm · cmp0)
+   - mbox_guard.sh          (고침 · 200줄 유지 — source 를 기존 줄에 붙였다)
+   - mbox_guard_desk.sh     (새 파일 · 문 ⑥ 본체)
+
+3) 되돌림 = .bak-r660 (위 5개) · 명부·LIVE_BIN 연결 파일 무변경.
+
+4) 설치 뒤 실사건 1(master 소관): desk 38→39 증류를 desk 가 열고, 새 검사가 GUIDE-planner.md:27 원문을 요구해 통과 → 그 뒤 60분 desk↔팀 직송 0
+   (가드 로그 `<루트>/.fable-team/state/mbox-guard-desk.log` REJECT 줄 · 큐 행 0 확인)
+
+5) 설치 순서 주의: mbox_guard_desk.sh 가 없는데 mbox_guard.sh 만 새 판이면 desk 가 걸린 쪽지는 fail-closed REJECT 된다(두 파일을 함께 놓는다).
