@@ -1,0 +1,44 @@
+# r633 기존 시험 — 이 카드 파일(ft-resource-watch·gate·swapwarn-lib)을 부르는 시험만 · 광역 0
+# 1차(상한 280초 · 가지 rc≠0 이면 base 사본(git archive origin/main 5752dfd3c5)도 실행)
+test_resource_watch rc=124 FAIL줄=0 | base rc=124
+test_resource_gate rc=1 FAIL줄=4 | base rc=1
+test_resource_gate_pressure rc=0 FAIL줄=0
+test_resource_reclaim rc=0 FAIL줄=2
+test_resource_reclaim_preventive rc=124 FAIL줄=6 | base rc=124
+test_resource_reclaim_pressure rc=0 FAIL줄=2
+test_resource_cause rc=0 FAIL줄=0
+test_resource_cpu_owner rc=0 FAIL줄=0
+test_resource_selflink_r589 rc=0 FAIL줄=0
+test_resource_watch_incremental_r534 rc=0 FAIL줄=0
+test_harness_freeze_gate rc=0 FAIL줄=0
+test_fake_resource_env rc=0 FAIL줄=0
+test_dead_seat_resume rc=124 FAIL줄=0 | base rc=124
+test_baseline_lint rc=0 FAIL줄=0
+test_live_bin_drift_check rc=0 FAIL줄=0
+test_nano_team_env rc=0 FAIL줄=0
+test_planner_nano_path rc=1 FAIL줄=5 | base rc=1
+test_proposal_gate_wiring rc=0 FAIL줄=0
+test_raised_seat rc=0 FAIL줄=0
+test_role_spawn_team rc=0 FAIL줄=0
+test_spawn_hold rc=1 FAIL줄=2 | base rc=1
+test_team_literal_paths rc=0 FAIL줄=0
+test_team_literal_paths2 rc=1 FAIL줄=3 | base rc=1
+test_team_roster_ref rc=0 FAIL줄=0
+test_tracked_bin_call_gate rc=0 FAIL줄=0
+test_team_path_oldpath_md rc=0 FAIL줄=0
+
+# 2차(상한 없음 · test_resource_gate R357 swap 단언을 FT_RES_SWAP_FREEZE=1 로 묶은 뒤)
+test_resource_gate rc=0 42s FAIL=0
+test_resource_watch rc=0 314s FAIL=0
+test_resource_reclaim_preventive rc=1 345s FAIL=3
+
+[exited with code 0]
+test_resource_reclaim_preventive 빨강 3줄(가지):
+  FAIL r502 ⓓ 선제 회수가 받은 PATH = launchd PATH + EXTRA — «» ≠ «/usr/bin:/bin:/private
+  FAIL r502 ⓓ 표본도 같은 PATH — «» ≠ «/usr/bin:/bin:/private/var/folders/vm/j7_jw8050t
+  FAIL r502 ⓓ EXTRA 미설정 = 기본 홈브루 경로 — «» ≠ «/usr/bin:/bin:/opt/homebrew/bin:/usr/l
+
+# 1차 빨강 해석
+- test_resource_gate: 가지만 빨강 = R357ⓑ swap13500·level2 REJECT 기대 → 이 카드 의도 변경 → 2차에서 env 로 묶고 새 동작(OK+WARN) 단언 1줄 추가 → rc=0
+- test_resource_watch·test_resource_reclaim_preventive·test_dead_seat_resume: 280초 상한(rc=124) 가지·base 같음 → 2차 상한 없이 watch rc=0 · preventive r502 ⓓ 3줄(base 도 같은 줄)
+- test_planner_nano_path(ⓒ hold 2104 실 정지 파일)·test_spawn_hold(ft-nano-close 리터럴 린트)·test_team_literal_paths2: base 사본도 같은 FAIL 줄 → 이 카드 무관

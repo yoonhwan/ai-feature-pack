@@ -1,0 +1,55 @@
+# r633 고친 판 — 가지 nano/r633-resource-freeze-to-idle-close-list- (커밋 전 작업본)
+PASS bash -n ft-resource-watch.sh
+PASS 키트 사본 cmp 0 ft-resource-watch.sh
+PASS bash -n ft-resource-gate.sh
+PASS 키트 사본 cmp 0 ft-resource-gate.sh
+PASS bash -n ft-resource-swapwarn-lib.sh
+PASS 키트 사본 cmp 0 ft-resource-swapwarn-lib.sh
+PASS 감시자 줄 수 ≤245
+PASS ⓐ swap14288·level2·memfree31 → 동결 0
+PASS ⓐ check rc=0(REJECT 아님)
+PASS ⓐ check 첫 줄 OK
+PASS ⓐ check 뒤 WARN 1줄
+PASS ⓐ check REJECT 0
+PASS ⓐ 감시 로그 WARN … close-list sent n=3
+PASS ⓐ 감시 로그 FREEZE created 0
+PASS ⓐ 회수 도구는 --dry-run --preventive 로만(닫기 0)
+PASS ⓑ 후보 있는 팀 2개 → 쪽지 2통
+PASS ⓑ v65 팀장 쪽지 원문(옛 세대 포함)
+PASS ⓑ harness 팀장 쪽지 = 자기 팀 좌석만
+PASS ⓑ 승인 범위 밖(HIL) 행은 목록 0
+PASS ⓑ SKIP 행은 목록 0
+PASS ⓑ 후보 0 팀(v65)엔 안 보냄 — 1통
+PASS ⓑ v65 팀장 쪽지 0
+PASS ⓒ 같은 서명(같은 4 GiB 구간·같은 목록) 다음 틱 2번 → 추가 0
+PASS ⓒ 후보 목록이 바뀌면 1통 더
+PASS ⓒ 같은 서명도 반복 간격(시험 0초)이 지나면 다시
+PASS ⓒ swap 구간이 바뀌면(4 GiB 구간 3→4) 1통 더
+PASS ⓓ level 4 → 동결 생성
+PASS ⓓ 로그 trig=level
+PASS ⓓ check REJECT
+PASS ⓓ swap14288·level 4 → 동결 생성
+PASS ⓔ disk 24G → FREEZE trig=disk
+PASS ⓔ disk 24G → REJECT
+PASS ⓔ memfree 9 → FREEZE trig=memfree
+PASS ⓔ memfree 9 → REJECT
+PASS ⓕ 해제 조건 3표본 → THAW
+PASS ⓕ 로그 THAW removed
+PASS ⓕ 트리거 아직 참 → 유지
+PASS ⓕ 로그 THAW held
+PASS ⓖ FT_RES_SWAP_FREEZE=1 → 동결
+PASS ⓖ 로그 trig=swap
+PASS ⓖ 옛 동작 → 목록 쪽지 0
+PASS ⓖ check 옛 REJECT 줄
+PASS ⓗ 회수 도구 rc4 → 동결 0
+PASS ⓗ 회수 도구 실패 → 로그 ERROR 1줄
+PASS ⓗ 회수 도구 실패 → 쪽지 0
+PASS ⓗ 쪽지 실패 → 동결 0
+PASS ⓗ 쪽지 실패 → 로그 ERROR 1줄
+PASS ⓗ 쪽지 실패는 서명 기록 0 → 다음 틱 재시도
+PASS ⓗ 명부에 없는 좌석 → 로그 ERROR(조용한 통과 0)
+PASS swap 경고 아님 → 회수 도구 호출 0
+PASS swap 경고 아님 → 쪽지 0
+---- fail=0
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+rc=0

@@ -6,6 +6,7 @@ set -uo pipefail
 export FT_ALLOW_TRACKED_BIN=1
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
 export FT_RECLAIM_PREVENT_SEC=0   # R332 3b: 기존 시험은 선제 회수 호출 0 (예방 시험만 아래 ptick 이 켠다 · 실 tmux 0)
+export FT_RES_SWAP_FREEZE=1   # r633: 이 파일의 R357·R332 시험은 옛 swap∧level2 동결 동작 기준(새 동작 = 닫기 목록 쪽지 → test_resource_swap_closelist_r633.sh)
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO="$(cd -- "$HERE/../.." && pwd)"; BIN="$REPO/harness/bin"; KIT="$REPO/harness/kit/fable-team/bin"
 fail=0

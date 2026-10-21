@@ -1,0 +1,57 @@
+# r633 실패 시험 먼저 — base origin/main 5752dfd3c54292ad657cf7748ff7fb4566466fb6 사본(git archive · 구현 전) 에서 새 시험 실행
+PASS bash -n ft-resource-watch.sh
+PASS 키트 사본 cmp 0 ft-resource-watch.sh
+PASS bash -n ft-resource-gate.sh
+PASS 키트 사본 cmp 0 ft-resource-gate.sh
+FAIL bash -n ft-resource-swapwarn-lib.sh
+FAIL 키트 사본 어긋남 ft-resource-swapwarn-lib.sh
+PASS 감시자 줄 수 ≤245
+FAIL ⓐ 동결이 생김: FREEZE 2026-10-21T03:48:25Z disk=418G swap=14288M level=2 memfree=31% 1위 원인 미상(스냅샷 1개) · 원인 좌석(mem) byz-v65-tester-claude#77 0.5G; byz-planner-master-claude#90 0.4G; byz-planner-desk-claude#35 0.4G
+FAIL ⓐ check rc=0(REJECT 아님) — «3» ≠ «0»
+FAIL ⓐ check 첫 줄 OK — 없음: «OK disk=418GiB swap=14288MiB» ← REJECT resource freeze=FREEZE 2026-10-21T03:48:25Z disk=418G swap=14288M level=2 memfree=31% 1위 원인 미상(스냅샷 1개) · 원인 좌석(mem) byz-v65-tester-claude#77 0.5G; byz-planner-master-claude#90 0.4G; byz-planner-desk-claude#35 0.4G limit=0
+FAIL ⓐ check 뒤 WARN 1줄 — 없음: «WARN swap=14288MiB level=2 — 닫기 목록 보냄» ← REJECT resource freeze=FREEZE 2026-10-21T03:48:25Z disk=418G swap=14288M level=2 memfree=31% 1위 원인 미상(스냅샷 1개) · 원인 좌석(mem) byz-v65-tester-claude#77 0.5G; byz-planner-master-claude#90 0.4G; byz-planner-desk-claude#35 0.4G limit=0
+FAIL ⓐ check REJECT 0 — 있으면 안 됨: «REJECT»
+FAIL ⓐ 감시 로그 WARN … close-list sent n=3 — 없음: «WARN swap=14288M level=2 close-list sent n=3» ← 2026-10-21T03:48:17Z	ERROR ft-disk-alarm rc=3 (tick 은 계속)
+2026-10-21T03:48:25Z	FREEZE created disk=418G swap=14288M level=2 memfree=31% trig=swap cause=원인 미상(스냅샷 1개)
+FAIL ⓐ 감시 로그 FREEZE created 0 — 있으면 안 됨: «FREEZE created»
+FAIL ⓐ 회수 도구는 --dry-run --preventive 로만(닫기 0) — 없음: «--dry-run --preventive» ← 
+FAIL ⓑ 후보 있는 팀 2개 → 쪽지 2통 — «0» ≠ «2»
+FAIL ⓑ v65 팀장 쪽지 원문(옛 세대 포함) — 없음: «[자원 경고] swap 14288MiB level 2 — 닫아도 되는 유휴 좌석: byz-v65-arch-claude#3 byz-v65-nano-a#0 · 팀장이 닫기(nano-close 경로) · 새 spawn 은 막지 않음» ← 
+FAIL ⓑ harness 팀장 쪽지 = 자기 팀 좌석만 — 없음: «닫아도 되는 유휴 좌석: byz-harness-nano-b#0 ·» ← 
+PASS ⓑ 승인 범위 밖(HIL) 행은 목록 0
+PASS ⓑ SKIP 행은 목록 0
+FAIL ⓑ 후보 0 팀(v65)엔 안 보냄 — 1통 — «0» ≠ «1»
+PASS ⓑ v65 팀장 쪽지 0
+FAIL ⓒ 같은 서명(같은 4 GiB 구간·같은 목록) 다음 틱 2번 → 추가 0 — «0» ≠ «1»
+FAIL ⓒ 후보 목록이 바뀌면 1통 더 — «0» ≠ «2»
+FAIL ⓒ 같은 서명도 반복 간격(시험 0초)이 지나면 다시 — «0» ≠ «3»
+FAIL ⓒ swap 구간이 바뀌면(4 GiB 구간 3→4) 1통 더 — «0» ≠ «2»
+FAIL ⓓ level 4 인데 동결 0
+FAIL ⓓ 로그 trig=level — 없음: «trig=level» ← 2026-10-21T03:49:00Z	ERROR ft-disk-alarm rc=3 (tick 은 계속)
+PASS ⓓ check REJECT
+PASS ⓓ swap14288·level 4 → 동결 생성
+PASS ⓔ disk 24G → FREEZE trig=disk
+PASS ⓔ disk 24G → REJECT
+PASS ⓔ memfree 9 → FREEZE trig=memfree
+PASS ⓔ memfree 9 → REJECT
+PASS ⓕ 해제 조건 3표본 → THAW
+PASS ⓕ 로그 THAW removed
+PASS ⓕ 트리거 아직 참 → 유지
+PASS ⓕ 로그 THAW held
+PASS ⓖ FT_RES_SWAP_FREEZE=1 → 동결
+PASS ⓖ 로그 trig=swap
+PASS ⓖ 옛 동작 → 목록 쪽지 0
+PASS ⓖ check 옛 REJECT 줄
+FAIL ⓗ 회수 실패가 동결로 폴백
+FAIL ⓗ 회수 도구 실패 → 로그 ERROR 1줄 — «0» ≠ «1»
+PASS ⓗ 회수 도구 실패 → 쪽지 0
+FAIL ⓗ 쪽지 실패가 동결로 폴백
+FAIL ⓗ 쪽지 실패 → 로그 ERROR 1줄 — «0» ≠ «1»
+FAIL ⓗ 쪽지 실패는 서명 기록 0 → 다음 틱 재시도 — «0» ≠ «2»
+FAIL ⓗ 명부에 없는 좌석 → 로그 ERROR(조용한 통과 0) — 없음: «ERROR swap 닫기 목록 수신자 없음 byz-zz-orphan#0» ← 2026-10-21T03:50:00Z	ERROR ft-disk-alarm rc=3 (tick 은 계속)
+2026-10-21T03:50:04Z	FREEZE created disk=418G swap=14288M level=2 memfree=31% trig=swap cause=원인 미상
+PASS swap 경고 아님 → 회수 도구 호출 0
+PASS swap 경고 아님 → 쪽지 0
+---- fail=26
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+rc=1

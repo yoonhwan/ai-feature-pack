@@ -72,7 +72,8 @@ mk_tsv 12289 0
 # R357: swap 절대량 단독 거절 폐기(카드 r357 — 교체 근거) — swap>12288 은 level>=2 와 결합할 때만 새 좌석 REJECT · 승계는 swap 축 면제
 g check FAKE_SWAP=12289;              expect "ⓔ R357 swap12289·level1 새 좌석 OK(swap 단독 거절 폐기)" 0 '^OK .*swap=12289MiB '
 g "check --succession" FAKE_SWAP=12289; expect "ⓔ R357 swap12289·level1 승계 OK" 0 '^OK .*swap=12289MiB '
-g check FAKE_SWAP=12289 FAKE_LEVEL=2;              expect "ⓔ R357 swap12289·level2 새 좌석 REJECT" 3 '^REJECT resource swap=12289MiB level=2 limit=12288MiB@level>=2$'
+g check FAKE_SWAP=12289 FAKE_LEVEL=2 FT_RES_SWAP_FREEZE=1; expect "ⓔ R357 swap12289·level2 새 좌석 REJECT(r633 옛 동작 env)" 3 '^REJECT resource swap=12289MiB level=2 limit=12288MiB@level>=2$'
+g check FAKE_SWAP=12289 FAKE_LEVEL=2;              expect "ⓔ r633 swap12289·level2 새 좌석 OK + WARN(막지 않음)" 0 '^OK .*swap=12289MiB '
 g "check --succession" FAKE_SWAP=12289 FAKE_LEVEL=2; expect "ⓔ R357 swap12289·level2 승계 OK(swap 축 면제)" 0 '^OK .*swap=12289MiB '
 mk_tsv 9500 -100
 g check FAKE_SWAP=9000;              expect "ⓔ swap9000·rate≤0 새 좌석 OK(후행 구간)" 0 '^OK .*swap=9000MiB .*rate=-'
