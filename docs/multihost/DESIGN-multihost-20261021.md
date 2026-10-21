@@ -26,15 +26,16 @@
 | `mem_gb` | 배치 판단용 (oci = 24GB **[실측]** 호스트명 `xclaw-server-4ocpu-24gb`) |
 | `root` | 그 호스트의 저장소 경로 |
 
-노드 3개 **확정(오빠 인터뷰 2026-10-21, #2974)**:
+노드 3개 **정정 확정(r2 · 실측 `hosts-facts.md` §3b, 2026-10-21)** — r1 의 «mini = `mac-mobile-test`» 는 틀렸다. `mac-mobile-test`(100.92.216.120)는 **이 맥 자신**이다. **별칭 `mac-mobile-test` 는 문서·코드·hosts.json 어디에도 쓰지 않는다**(`aifp-<name>` 별칭만).
 
 | name | 정체 | addr | caps | 상태 |
 |---|---|---|---|---|
-| `book` | 이 MacBook-Pro.local | (Tailscale 설치됨·꺼짐) | browser·audio | 메모리 여유 1GB |
-| `mini` | BYZ Mac mini = ssh 별칭 `mac-mobile-test` | 100.92.216.120 (user yoonhwan) | browser·audio·heavy? **[미확인: 메모리]** | 이미 tailnet 안 |
-| `oci` | jarvis OCI = ssh 별칭 `oci` | ubuntu@168.107.44.128, Linux aarch64, 24GB | heavy (브라우저 없음) | tmux 있음·tailscale 없음 |
+| `book` | 이 MacBook-Pro.local (= 옛 별칭 mac-mobile-test) | 100.92.216.120 | browser·audio | Tailscale **켜짐(online)** · 메모리 여유 ≈1GB(swap 6.1/7.0GB) **[실측]** |
+| `mini` | BYZ Mac mini = tailnet 이름 `byzs-mac-mini` | 100.71.41.107 (user yoonhwan) | browser·audio 추정 · 메모리·CLI **[미확인 — ssh 키 미배포로 실측 PENDING]** | **망 online(ping 12ms) · ssh 인증 없음**(`Permission denied (publickey…)`) |
+| `oci` | jarvis OCI = ssh 별칭 `oci` | ubuntu@168.107.44.128 · Ubuntu 22.04 aarch64 · 4 vCPU · 24GB(여유 22.5GB) · 디스크 여유 73G · systemd · 무암호 sudo | heavy (브라우저 없음) | tmux **3.2a**·bash 5.1·python 3.10·node 22 있음 / claude·pi·codex·headroom·tailscale **없음** **[실측]** |
 
-→ 새로 설치할 곳 = **OCI 한 곳** + 맥북 Tailscale 켜기. 브라우저 가능 호스트 = Mac 두 대.
+→ **새로 Tailscale 을 설치할 곳 = OCI 한 곳**(맥북은 이미 켜짐, mini 는 이미 망 안). **mini 는 설치가 아니라 «ssh 키 배포 1회(사람 손)»가 선행**돼야 접속·실측이 된다. 브라우저 가능 호스트 = Mac 두 대(`book`·`mini`). jarvis 서비스(8080)가 현재 내려가 있는 것으로 보이나 이번 범위 밖(§14 D7).
+- 설계 영향: 원격 tmux 는 **3.2a 기준**으로 시험(맥 3.6a 와 다름) · 원격 python 3.10 문법 호환 · 에이전트 CLI 가 OCI 에 없으므로 «OCI 에서 좌석을 돌리려면» 설치 선행(P5, 키 귀속 = D6).
 
 ## 2. 전송층 (②) — 추천: **일반 ssh over Tailscale**
 
@@ -118,7 +119,7 @@
 - 오디오 E2E(BlackHole)는 **호스트당 시스템 전역 1개** → 지금의 «오디오 press 순차» 규칙을 «**호스트별 순차**»로 일반화. 서로 다른 호스트면 동시 가능 — 이것이 분산의 이득.
 - 포트: 지금의 `38301~38399` 슬롯 규칙을 호스트마다 독립 적용(호스트 간 충돌 없음). 허브에서 봐야 할 때만 `ssh -L` 임시 포워딩.
 - 결과 증거(스크린샷·로그)는 원격 `docs/…` 에 쓰고 git push 로 회수. 측정 조작 금지(임의 Redis·DOM 주입) 규칙은 원격에서도 동일 — 기존 e2e 러너 그대로.
-- Mac mini 를 브라우저 시험 호스트로 쓰는 것은 노드 확정으로 열려 있음 — 메모리·상시 가동만 P0 로 실측.
+- Mac mini(`mini`)를 브라우저 시험 호스트로 쓰는 것은 **ssh 키 배포 후 P0 실측(메모리·chrome·상시 가동)을 보고** 정한다. 그 전엔 `book` 이 유일한 브라우저 후보지만 메모리가 빠듯하다.
 
 ## 10. 보안 (⑩)
 
@@ -154,13 +155,13 @@
 
 | 단계 | 내용 | 사람 손 | 닫는 증거(명령 1줄) |
 |---|---|---|---|
-| **P0 읽기 전용** | `ft-host-probe.sh`(신규, 읽기 전용): hosts.json 각 호스트에 ssh 로 `uname -m; tmux -V; git --version; bash --version; free/vm_stat; command -v chrome node` 만 실행해 표 출력. 설치·쓰기 0. 노드 확정 입력 | 없음(oci 는 지금 가능) | `bash ft-host-probe.sh --all \| tee` 가 호스트별 1행·종료코드 0 (불통 호스트는 `UNREACHABLE` 행 + 비0) |
-| P1 망 | OCI 에 Tailscale 설치·로그인, 맥북 Tailscale 켜기(mini 는 이미 망 안), ACL 태그, 키 만료 끄기 | **오빠: OCI 브라우저 로그인 승인 + ACL** | `tailscale status` 에 3노드 · `ssh aifp-oci true` rc=0 (둘 다 tailnet 주소로) |
+| **P0 읽기 전용** | `ft-host-probe.sh`(신규, 읽기 전용): hosts.json 각 호스트에 ssh 로 `uname -m; tmux -V; git --version; bash --version; free/vm_stat; command -v chrome node` 만 실행해 표 출력. 설치·쓰기 0. 노드 확정 입력 | 없음(oci·book 은 지금 가능, **mini 는 P1② 전까지 `PENDING(no-auth)` 행**) | `bash ft-host-probe.sh --all \| tee` 가 호스트별 1행·종료코드 0 (불통 호스트는 `UNREACHABLE` 행 + 비0) |
+| P1 망·접속 | ① **OCI 에만** Tailscale 설치·로그인(book 켜짐·mini 망 안은 이미 완료) ② **mini 에 이 맥 공개키 1줄 배포**(`~/.ssh/authorized_keys`, 전용 키 `id_ed25519_aifp.pub` 권장) ③ ACL 태그·키 만료 끄기 | **오빠: ①OCI 브라우저 로그인 승인 ②mini 에서 공개키 1줄(`! bash /tmp/h<N>`) ③ACL 콘솔** | `tailscale status` 에 book·mini·oci 3노드 online · `ssh -o BatchMode=yes aifp-mini true` rc=0 · `ssh -o BatchMode=yes aifp-oci true` rc=0 (tailnet 주소로) |
 | P2 tmuxc 디스패치(구조 변경만) | `host_tmux`/`host_sh` 감싸기, 로컬 경로 argv 불변 | 없음 | argv 기록 스텁 전/후 diff = 0 (골든 테스트 1개) |
 | P3 우편함 허브 모드 | `host` 필드, `FT_HUB` 위임 send/recv, 스풀·mid 멱등, doorbell 원격 | 없음 | **격리 우편함 픽스처**(제품 키·제품 우편함 쓰기 0)로 허브↔oci 왕복 N=200: 유실 0·중복 0·순서 보존 |
 | P4 tmm HOST 열 | 일괄 스캔·UNREACHABLE·dead 오판 방지 | 없음 | 호스트 1개: 행 출력 `cmp` 동일 · 2개: host 열 + 한 호스트 차단해도 판이 7초 내 응답 |
 | P5 원격 나노·Linux | `ft-nano-spawn/close --host`, §8 수정, systemd tick, 원격 스크립트 설치 | **오빠: OCI/맥 설치 h** | 원격 나노 1개 spawn→push→close, 허브에서 `ls-remote` sha 일치 |
-| P6 브라우저 시험 이관 | caps 라우팅, 호스트별 오디오 순차 | Mac mini 접근 확인 | 원격 e2e 러너 1회 통과(기존 러너, trusted 클릭) |
+| P6 브라우저 시험 이관 | caps 라우팅, 호스트별 오디오 순차 | mini ssh 키 배포 완료(P1②) 후 mini 실측 확인 | 원격 e2e 러너 1회 통과(기존 러너, trusted 클릭) |
 
 **조율**: `ft-*` 와 fable-team 은 BYZ 하네스 번호 직렬(1.1.x) → P3 이후 구현은 착수 전 하네스(master)와 카드 번호를 먼저 받는다. 이 문서는 문서만.
 
@@ -168,11 +169,12 @@
 
 | # | 결정 | 3줄 |
 |---|---|---|
-| D2 | 허브(우편함 본거지) | ①지금은 이 맥북인데 메모리 여유가 1GB 입니다. ②Mac mini(`mini`)처럼 항상 켜 두는 기계가 허브가 되면 맥북을 닫아도 연락이 끊기지 않습니다. ③추천: Mac mini(항상 켜짐 확인 후), 안 되면 맥북 유지. |
-| D3 | Tailscale 권한 | ①Mac mini 가 이미 들어 있는 같은 tailnet 에 OCI·맥북을 넣으면 되나요? ②서버는 키 만료를 꺼야 조용히 끊기지 않습니다. ③접근 규칙(ACL)은 «우리 좌석 기계끼리 ssh 만» 으로 시작해도 될까요? (콘솔은 오빠만 만질 수 있습니다) |
-| D4 | 설치 승인 | ①OCI 에 Tailscale 설치·로그인(맥북은 켜기만)은 오빠 손이 필요합니다(브라우저 승인). ②저는 한 줄 스크립트(`! bash /tmp/h<N>`)만 드립니다. ③추천: OCI 먼저(이미 ssh 됨). |
+| D2 | 허브(우편함 본거지) | ①지금은 이 맥북인데 메모리 여유가 1GB 입니다. ②Mac mini(`mini`)처럼 항상 켜 두는 기계가 허브가 되면 맥북을 닫아도 연락이 끊기지 않습니다. ③추천: Mac mini(D3 의 키 배포 뒤 메모리·상시 가동을 재 본 다음), 안 되면 맥북 유지. |
+| D3 | Mac mini ssh 키 배포 | ①Mac mini(`byzs-mac-mini`)는 망에는 붙어 있는데 ssh 로 들어갈 열쇠가 없어 지금은 못 들어갑니다. ②Mac mini 에서 «이 맥 공개키 1줄 추가»를 오빠가 한 번 해 주셔야 합니다(제가 한 줄 스크립트 `! bash /tmp/h<N>` 를 드립니다). ③해야 메모리·브라우저 가능 여부를 재서 허브·시험 호스트로 쓸지 정합니다. |
+| D4 | OCI Tailscale 설치·접근 규칙 | ①새로 설치하는 곳은 OCI 한 곳이고 로그인 승인(브라우저)은 오빠 손이 필요합니다. ②같은 계정(yoonhwan.ko@) tailnet 에 넣고, 서버는 키 만료를 꺼서 조용히 끊기지 않게 합니다. ③접근 규칙(ACL)은 «우리 기계끼리 ssh 만» 으로 시작해도 될까요? 추천: 예. |
 | D5 | 전송 방식 | ①추천은 일반 ssh(Tailscale 위). 이미 oci 에서 되고 문제 생기면 원인 찾기 쉽습니다. ②Tailscale SSH 는 키가 필요 없지만 콘솔 설정에 기대게 됩니다. ③나중에 바꿔도 호출부는 안 바뀌게 설계했습니다. |
-| D6 | 원격으로 먼저 보낼 일 | ①추천: 메모리 큰 pi/opencode 나노(쓰고 닫는 일회성)와 읽기 전용 조사. ②브라우저 시험은 P6 에서 Mac mini 로. ③마스터·아키 같은 핵심 좌석은 허브에 둡니다. |
+| D6 | 원격(OCI)으로 먼저 보낼 일·CLI 설치 귀속 | ①추천: 메모리 큰 pi/opencode 나노(쓰고 닫는 일회성)와 읽기 전용 조사. ②브라우저 시험은 P6 에서 Mac mini 로. ③OCI 에는 claude·pi·codex 가 없어 설치가 먼저인데, 그 로그인·키를 누구 자격으로 둘지(op develop 볼트 경유 추천)는 오빠 결정입니다. 마스터·아키 같은 핵심 좌석은 허브에 둡니다. |
+| D7 | jarvis 서비스(8080) | ①OCI 의 jarvis 서비스는 지금 내려가 있는 것으로 보입니다. ②이번 멀티 호스트 작업 범위에는 «살리기»를 넣지 않았습니다. ③범위에 넣을지만 알려 주세요(추천: 넣지 않음). |
 
 ## 15. DA 헌장 7문항 자가 점검 (심사 전 예상 약점)
 
