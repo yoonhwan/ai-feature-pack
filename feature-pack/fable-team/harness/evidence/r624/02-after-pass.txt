@@ -1,0 +1,5 @@
+# r624 ⓐ~ⓒ 고친 뒤 — python3.11 (python3.14 = pytest 미설치라 생략)
+$ python3.11 -m pytest -q tests/scripts/test_inbound_rows_cache.py
+.....                                                                    [100%]
+5 passed in 0.13s
+rc=0

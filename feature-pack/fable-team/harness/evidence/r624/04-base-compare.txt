@@ -1,0 +1,64 @@
+# r624 base 대조 — 키트 mirror_inbound.py 만 origin/main(306e2740) 판으로 바꿔 같은 시험 · 시험 파일은 가지 판
+$ bash tests/test_slack_readonly_share.sh  (base 키트)
+AttributeError: 'Namespace' object has no attribute 'state_dir'
+FAILED rc=1
+rc=1
+$ python3.11 -m pytest -q tests/scripts/test_inbound_rows_cache.py  (base 키트)
+FAILED test_inbound_rows_cache.py::test_a_same_files_read_once_each - Asserti...
+FAILED test_inbound_rows_cache.py::test_a2_hit_returns_same_answers - Asserti...
+FAILED test_inbound_rows_cache.py::test_b_appended_line_is_seen - AssertionEr...
+3 failed, 2 passed in 0.51s
+
+$ git diff origin/main -- kit/slack-mirror/mirror_inbound.py  (가지 판)
+diff --git a/feature-pack/fable-team/harness/kit/slack-mirror/mirror_inbound.py b/feature-pack/fable-team/harness/kit/slack-mirror/mirror_inbound.py
+index 4ec101bf..d886e3e4 100644
+--- a/feature-pack/fable-team/harness/kit/slack-mirror/mirror_inbound.py
++++ b/feature-pack/fable-team/harness/kit/slack-mirror/mirror_inbound.py
+@@ -108,20 +108,34 @@ def migrate_planner(e: dict) -> None:
+     e["recips"].insert(i, role)
+ 
+ 
+-def _rows(comm_dir: Path, names: tuple[str, ...]) -> list[dict[str, object]]:
+-    out: list[dict[str, object]] = []
+-    for name in names:
+-        p = comm_dir / name
+-        if not p.exists():
++_ROWS_CACHE: dict[Path, tuple[tuple[int, int, int], list[dict[str, object]]]] = {}  # r624 — 경로 → ((mtime_ns, 크기, inode), 파싱된 줄) · 10초 패스마다 미완료 건 × 수신자 × 3파일 재파싱(CPU 평균 11.5%)을 «바뀐 파일만» 으로
++
++
++def _parsed(p: Path) -> list[dict[str, object]]:
++    """stat 이 지난번과 같으면 지난 파싱 결과 · 다르면 다시 읽는다(stat 을 읽기 «전» 에 떠서 읽는 중 덧붙은 줄은 다음 호출에 잡힌다). 없는 파일 = 캐시에서 빼고 빈 목록."""
++    try:
++        st = p.stat()
++    except FileNotFoundError:
++        _ROWS_CACHE.pop(p, None)
++        return []
++    key = (st.st_mtime_ns, st.st_size, st.st_ino)
++    hit = _ROWS_CACHE.get(p)
++    if hit and hit[0] == key:
++        return hit[1]
++    rows: list[dict[str, object]] = []
++    for ln in p.read_text(encoding="utf-8").splitlines():
++        try:
++            r = json.loads(ln)
++        except ValueError:
+             continue
+-        for ln in p.read_text(encoding="utf-8").splitlines():
+-            try:
+-                r = json.loads(ln)
+-            except ValueError:
+-                continue
+-            if isinstance(r, dict):
+-                out.append(r)
+-    return out
++        if isinstance(r, dict):
++            rows.append(r)
++    _ROWS_CACHE[p] = (key, rows)
++    return rows
++
++
++def _rows(comm_dir: Path, names: tuple[str, ...]) -> list[dict[str, object]]:
++    return [r for name in names for r in _parsed(comm_dir / name)]  # 새 목록 — 호출자가 캐시 목록을 건드릴 길 0(호출자 3곳은 읽기만)
+ 
+ 
+ def marker_seen(comm_dir: Path, token: str, to: str) -> bool:

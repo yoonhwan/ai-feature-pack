@@ -1,0 +1,16 @@
+# r624 ⓓ 인접 시험(이 카드 키트를 부르는 시험만 · 광역 0) — 가지 판
+$ python3.11 -m pytest -q tests/scripts/test_inbound_rows_cache.py tests/scripts/test_byz_slack_mbox_inbound.py tests/scripts/test_inbound_humans_and_install.py tests/scripts/test_mirror_team_inbound.py tests/scripts/test_thread_reply_to_slack.py tests/scripts/test_thread_room_post.py tests/scripts/test_thread_topic_only_replies.py
+....................................................................s... [ 54%]
+...........................................................              [100%]
+130 passed, 1 skipped in 81.48s (0:01:21)
+rc=0
+$ bash tests/test_question_board.sh
+PASS 줄 수 ≤ 200: byz_slack_mbox_inbound.py
+FAILS 0
+ALL PASS
+rc=0
+$ bash tests/test_slack_readonly_share.sh
+AttributeError: 'Namespace' object has no attribute 'state_dir'
+FAILED rc=1
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+rc=1

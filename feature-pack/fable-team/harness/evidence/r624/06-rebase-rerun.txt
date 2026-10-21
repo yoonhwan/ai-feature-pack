@@ -1,0 +1,11 @@
+# r624 rebase 뒤 재실행 — base origin/main c26e30f0 · 가지 위 · python3.11
+$ python3.11 -m pytest -q test_inbound_rows_cache.py test_byz_slack_mbox_inbound.py test_inbound_humans_and_install.py test_mirror_team_inbound.py test_thread_reply_to_slack.py test_thread_room_post.py test_thread_topic_only_replies.py
+....................................................................s... [ 54%]
+...........................................................              [100%]
+130 passed, 1 skipped in 63.48s (0:01:03)
+rc=0
+$ bash tests/test_question_board.sh
+ALL PASS
+rc=0
+$ git diff --stat origin/main HEAD (가지 = r624 파일만)
+ 9 files changed, 299 insertions(+), 14 deletions(-)

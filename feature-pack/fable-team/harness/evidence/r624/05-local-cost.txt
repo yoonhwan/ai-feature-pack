@@ -1,0 +1,11 @@
+# r624 실 우편함 사본(읽기 전용 복사 · 8.9M) 로 1패스 비용 — python3.11
+## base(origin/main 306e2740)
+1패스(marker_seen 24회) CPU=1.996s · maxrss 증가=235.3MB
+## 가지(캐시) — 첫 패스는 파싱, 둘째 패스부터 캐시
+1패스(marker_seen 24회) CPU=0.098s · maxrss 증가=98.7MB
+1패스(marker_seen 24회) CPU=0.015s · maxrss 증가=0.1MB
+
+## 참고 — 지금 돌고 있는 설치본 데몬(읽기만 · 2026-10-21 11:19:18)
+pid=19415 rss=22MB time=0:59.72 %cpu=0.4 channel=C0C6MJGRR89
+pid=19487 rss=31MB time=15:07.05 %cpu=0.0 channel=C0C9GRFHJE5
+→ 메모리 맞교환: 캐시는 파싱 결과를 상주시킨다(실 사본 9MB 기준 +99MB · 우편함 파일 크기에 비례 · 회전 규칙은 범위 밖). 설치본 desk 데몬 rss 는 파싱 순간에 따라 31~183MB 로 출렁인다(11:18 183MB · 11:19 31MB 실측) — 고친 판은 상주가 늘고 출렁임·CPU 는 준다. 실사건 1 에 rss 도 같이 볼 것.
