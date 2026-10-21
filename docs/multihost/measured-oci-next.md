@@ -45,3 +45,35 @@
 1. cliproxy 패치 빌드의 소스 위치·교차 빌드 가능 여부(스킬 #18 절차 대조)
 2. headroom 0.33.0 의 aarch64 휠 다운로드 가능 여부(`pip download --only-binary=:all: --no-deps headroom-ai==0.33.0 --platform manylinux_2_28_aarch64`)
 3. hermes 업데이트 절차(공식 명령·롤백) — 서비스 재시작 시 디스코드 게이트웨이 끊김 길이
+
+## 6. 후속 조회 결과 (2026-10-21 23:5x KST · 읽기 전용)
+
+### 6-1. ★mini 에는 이미 추론 스택이 돌고 있다 — P5a 의 모델이 달라진다
+| 항목 | mini (byz) 실측 |
+|---|---|
+| cliproxy | `~/.cli-proxy-api/bin/cli-proxy-api` (62.5 MB, 10-08 14:20) — launchd `com.cliproxy.api` 가동 · `127.0.0.1:8317` 리슨 |
+| headroom | `~/.headroom-venv` · **headroom-ai 0.33.0**(이 맥과 같은 버전) — launchd `com.headroom.proxy` 가동 · `127.0.0.1:8790` 리슨 |
+| 근거 | 스킬 함정 #20: «AINA(byz@100.71.41.107)도 같은 날 동일 바이너리로 교체» — 이 맥의 패치 빌드를 이미 배포해 둔 기계 |
+
+⇒ **OCI 는 새로 만드는 쪽, mini 는 이미 있는 쪽.** mini 가 허브(D2)이므로 «허브가 추론 스택을 이미 가진다»는 이득. OCI 에 같은 스택을 두는 이유(구독 한도 분산·OCI 좌석이 로컬 프록시로 호출)가 D10(같은 계정 확정)과 맞물린다 — 한도는 어차피 한 계정이므로 OCI 스택은 «지연·경로» 이득이지 «한도» 이득이 아니다.
+
+### 6-2. cliproxy 교차 빌드 (OCI 용 linux/arm64)
+| 항목 | 값 |
+|---|---|
+| 빌드 트리 | `~/.claude/jobs/ee330f7a/tmp/cpa` (git 17a65ee5 · go.mod 1.26.0 = 로컬 go1.26.0 일치) · 패치 3개(`patch-catalog-sonnet-5-5` · `patch-catalog-haiku-5-5-full` · `patch-claude-idle-conn-timeout`) 보관 |
+| 운영 빌드 플래그 | `-ldflags="-s -w -X main.Version=8.0.4-haiku55-sonnet55-sol61 -X main.Commit=d33f63f8-haiku55-idle -X main.BuildDate=2026-10-08"` · **CGO_ENABLED=1** · darwin/arm64 |
+| 교차 빌드의 걸림돌 | **CGO 사용 파일 24개** — 단 대부분 `examples/plugin/*`(빌드 대상 아님). 서버 경로에서는 `internal/pluginhost/*_unix.go` 가 `import "C"` → `GOOS=linux GOARCH=arm64` 교차 빌드에는 **리눅스 arm64 C 크로스 컴파일러**(예: zig cc 또는 `aarch64-linux-gnu-gcc`)가 필요하거나, 플러그인 호스트를 빼는 빌드 태그가 있어야 함 |
+| 판정 | 교차 빌드는 «가능 가능성 높음, 미검증» — **가장 안전한 길 = OCI 자체에서 빌드**(go 1.26 설치 필요, OCI 에 go 없음) 또는 **zig cc 교차 빌드**. 실제 빌드는 쓰기이므로 승인 후 별도 단계(시험은 이 맥 /tmp 에서 `go build` 만 — 원격 영향 0) |
+| 대안 | 공식 릴리스 `CLIProxyAPI_7.2.10_linux_aarch64.tar.gz`(7.2.x)는 카탈로그에 sonnet-5-5 가 없어 400 — 쓰려면 패치 필요 |
+
+### 6-3. headroom 0.33.0 aarch64
+`headroom_ai-0.33.0-cp310-abi3-manylinux_2_28_aarch64.whl` **존재**(PyPI JSON) · requires_python >=3.10 → OCI python 3.10.12 호환. → **0.33.0 고정 설치 가능.**
+
+### 6-4. hermes 업데이트 절차 (OCI)
+| 항목 | 값 |
+|---|---|
+| 설치 방식 | git 체크아웃 `~/.hermes/hermes-agent` (origin = NousResearch/hermes-agent · HEAD 46b2afc56) + venv |
+| 공식 업데이트 | `hermes update` — git pull + 의존 재설치. 옵션: `--check`(설치 없이 가능 여부만 조회) · `--backup`/`--no-backup` · `--yes` · `--branch` · `--force` |
+| 백업 | `hermes backup`(홈 폴더 zip) · 복원 `hermes import` · 점검 `hermes doctor` |
+| 재시작 | 유닛 `Restart=always` · `RestartSec=5` · `ExecStart=… gateway run --replace` → `systemctl --user restart hermes-gateway` 하면 **약 5초 + 기동 시간** 끊김 |
+| 권고 순서 | ① `hermes update --check`(읽기) → ② `hermes backup` → ③ `hermes update --yes` → ④ `systemctl --user restart hermes-gateway` → ⑤ `hermes doctor` · 롤백 = `git checkout <이전 해시>` + 재시작 또는 `hermes import` |
