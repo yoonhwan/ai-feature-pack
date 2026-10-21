@@ -1,9 +1,9 @@
-# mini 실측 (읽기 전용) — 2026-10-21 20:51:47 · 이 맥 → byz@100.71.41.107
+# mini 실측 (읽기 전용) — 2026-10-21 20:54:33 · 이 맥 → byz@100.71.41.107
 hostname=BYZs-Mac-mini.local
 os=26.5.1 arch=arm64
 ncpu=10 mem_bytes=17179869184
 swap=total = 2048.00M  used = 343.69M  free = 1704.31M  (encrypted)
-uptime=20:51  up 62 days, 10:12, 3 users, load averages: 0.73 0.79 0.81
+uptime=20:54  up 62 days, 10:15, 3 users, load averages: 0.67 0.74 0.78
 tmux=tmux 3.7 git=git version 2.53.0
 cmd:node=/opt/homebrew/bin/node
 cmd:python3=/opt/homebrew/bin/python3
@@ -17,7 +17,7 @@ cmd:tailscale=/opt/homebrew/bin/tailscale
 chrome=있음
 HAL=ParrotAudioPlugin.driver 
 audio_devices=TFG27Q14P2,Mac mini Speakers,
-pmset_sleep= disksleep 10; sleep 1 (sleep prevented by powerd); displaysleep 0;
+pmset_sleep= disksleep 10; sleep 1 (sleep prevented by timed, powerd); displaysleep 0;
 mic_permission=MIC_UNVERIFIED (macOS 가 프로그램 조회를 막음 — 녹음 확정 회차로 판정, 설계 P6)
 cdp_9222=0 리스너
 # rc=0
