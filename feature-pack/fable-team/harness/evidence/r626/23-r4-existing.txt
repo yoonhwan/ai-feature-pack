@@ -1,0 +1,69 @@
+tests/test_arch_required_gate.sh rc=4 fail=5 :: FAIL ④-c rc=2 calls=0 out=REJECT mbox 짝 파일 없음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.LGSLV6Cb3L/fake/mbox_doorbell.sh (mbox.sh 가 source 하는 mbox_doorbell.sh · 짝이 빠진 폴더는 쓰지 않는다)|FAIL ⑤ rc=2 calls=0 out=REJECT mbox 짝 파일 없음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T
+tests/test_autonomy_hooks.sh rc=0 fail=0 :: 
+tests/test_autonomy_kinds_1675.sh rc=0 fail=0 :: 
+tests/test_autonomy_scope.sh rc=0 fail=0 :: 
+tests/test_baseline_lint.sh rc=0 fail=0 :: 
+tests/test_block_destructive_hil.sh rc=0 fail=0 :: 
+tests/test_cherry_gate_identical_head.sh rc=0 fail=0 :: 
+tests/test_da_hold_gate.sh rc=1 fail=7 :: FAIL staged COMM-GUIDE-BOOT.md: 홈 대비 삭제 8 줄(홈이 바뀐 뒤 사본을 다시 뜬다)|FAIL staged main-team-governance.md: 홈 대비 삭제 5 줄(홈이 바뀐 뒤 사본을 다시 뜬다)|FAIL spawn dry-run rc=1 hold=none|
+tests/test_dead_seat_resume.sh rc=124 fail=6 :: FAIL ⓕ spawn 성공 출력 그대로 — 없음: «SPAWNED » ← bash: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.iN1oPOMG5D/sbin/ft-all-stop.sh: No such file or directory|FAIL ⓕ 기준선 파일 없음|FAIL ⓕ card_path·branch — «» ≠ «design/v65/indices/진행/r163x.md nano/r163x»|
+tests/test_desk_bash_fg_gate.sh rc=0 fail=0 :: 
+tests/test_distill_recv_gate.sh rc=0 fail=0 :: 
+tests/test_evidence_log_gate.sh rc=0 fail=0 :: 
+tests/test_finished_cleanup_auto.sh rc=1 fail=1 :: FAIL ⓒ swept [] 2026-10-21 ERROR tmux unreadable — 삭제 0 (tmux=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.q6N5WhgVbj/bin/tmux)|
+tests/test_flag_off_scan.sh rc=0 fail=0 :: 
+tests/test_ft_land.sh rc=0 fail=0 :: 
+tests/test_graphics_install.sh rc=1 fail=6 :: FAIL ⑥ spawn --dry-run rc=1: hold=none|FAIL ⑦ 라이브 정본에 «판정 649» 없음|FAIL ⑦ 라이브 정본에 «graphics 팀장 = `byz-graphics-master-claude#N`» 없음|
+tests/test_harness_root.sh rc=0 fail=0 :: 
+tests/test_hook_cmd_split_shared_r546.sh rc=0 fail=0 :: 
+tests/test_index_move_install_harness_repo.sh rc=0 fail=0 :: 
+tests/test_install_launchd_render.sh rc=0 fail=0 :: 
+tests/test_install_worktree_shim.sh rc=0 fail=0 :: 
+tests/test_installed_root.sh rc=0 fail=0 :: 
+tests/test_kit_bin_sync.sh rc=0 fail=0 :: 
+tests/test_live_bin_drift_check.sh rc=0 fail=0 :: 
+tests/test_live_install_check_plist_env.sh rc=0 fail=0 :: 
+tests/test_live_install_check_shim.sh rc=0 fail=0 :: 
+tests/test_nano_close_sha_base.sh rc=0 fail=0 :: 
+tests/test_nano_slots.sh rc=0 fail=0 :: 
+tests/test_nano_slots_cards_wt.sh rc=0 fail=0 :: 
+tests/test_nano_spawn_body_press.sh rc=2 fail=3 :: FAIL ⓒ status 에 node_modules 보임|FAIL ⓒ 전체 스테이징이 node_modules 를 담음|FAILED=2|
+tests/test_nano_spawn_body_search_roster.sh rc=0 fail=0 :: 
+tests/test_nano_spawn_pi_effort_kind_r631.sh rc=0 fail=0 :: 
+tests/test_nano_spawn_pi_effort_serena.sh rc=0 fail=0 :: 
+tests/test_nano_spawn_recheck_cited.sh rc=0 fail=0 :: 
+tests/test_nano_spawn_reuse_info.sh rc=0 fail=0 :: 
+tests/test_nano_spawn_teamset_cap.sh rc=7 fail=8 :: FAIL ⓐ hold=none|FAIL ⓑ calls=«» hold=none|FAIL ⓒ rc=1 hold=none|
+tests/test_nano_spawn_tier.sh rc=0 fail=0 :: 
+tests/test_nano_team_env.sh rc=0 fail=0 :: 
+tests/test_pack_nano_worktree_place.sh rc=0 fail=0 :: 
+tests/test_penalty_spawn_gate.sh rc=0 fail=0 :: 
+tests/test_pi_agent_allow_r540.sh rc=1 fail=6 :: FAIL ..: role-spawn pi → hold=none|REJECT 전팀 정지 중(상태 폴더 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.8OF5f17fsn/repo/.fable-team/state) — 사람 확인) — 끄기 전 spawn·press 0 · 사람 확인|FAIL fable-team: role-spawn pi → hold=none|REJECT 전팀 정지 중(상태 폴더 없음(/private/var/folders/vm/j7_jw8050t553wj5
+tests/test_planner_nano_path.sh rc=1 fail=17 :: FAIL 접두 byz-planner-nano- · 명부 seats-planner.json — 없음: «ENV team=planner prefix=byz-planner-nano- seats=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Y1Cy9EeEwT/repo/.fable-team/seats-planner.json» ← bash: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Y1Cy9EeEwT/bin/ft
+tests/test_plist_workdir_exist_r544.sh rc=124 fail=0 :: 
+tests/test_press_baseline_check.sh rc=0 fail=0 :: 
+tests/test_press_permit.sh rc=0 fail=0 :: 
+tests/test_press_role_bts_gate.sh rc=0 fail=0 :: 
+tests/test_proposal_gate_wiring.sh rc=0 fail=0 :: 
+tests/test_raised_seat.sh rc=0 fail=0 :: 
+tests/test_resource_gate.sh rc=0 fail=0 :: 
+tests/test_resource_gate_pressure.sh rc=0 fail=0 :: 
+tests/test_resource_reclaim.sh rc=0 fail=0 :: 
+tests/test_resource_reclaim_preventive.sh rc=1 fail=3 :: FAIL r502 ⓓ 선제 회수가 받은 PATH = launchd PATH + EXTRA — «» ≠ «/usr/bin:/bin:/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.N90jUgAPGH/xp»|FAIL r502 ⓓ 표본도 같은 PATH — «» ≠ «/usr/bin:/bin:/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.N90jUgAPGH/xp»|FAIL r502 ⓓ EXTRA 미설정 = 기본 홈브루
+tests/test_role_spawn_name.sh rc=0 fail=0 :: 
+tests/test_role_spawn_team.sh rc=0 fail=0 :: 
+tests/test_root_bin_shim.sh rc=0 fail=0 :: 
+tests/test_satellite_rosters.sh rc=0 fail=0 :: 
+tests/test_seat_retire.sh rc=4 fail=4 :: FAIL ①stall: 옛 M#1 제외 · M#2·N#0 포함 (got=[] want=[M#2 N#0])|FAIL ②_master 없음 → 무변경(M#1 M#2 N#0) (got=[] want=[M#1 M#2 N#0])|FAIL ②_master 문자열 아님 → 무변경 (got=[] want=[M#1 M#2])|
+tests/test_sheet_events.sh rc=0 fail=0 :: 
+tests/test_spawn_agent_ready.sh rc=0 fail=0 :: 
+tests/test_spawn_gate_landing_branch.sh rc=0 fail=0 :: 
+tests/test_spawn_hold.sh rc=1 fail=2 :: FAIL ⓒ rc=2 WARN spawn 정지 중이나 승계는 막지 않는다 — REJECT hold 2104 until=2026-10-21T10:34:41Z release=swap<8192&memfree>=15|FAIL ⓒ 정지 유효 + 문지기 통과 → open 단계 도달 — 없음: «REJECT tmuxc open 실패 (old-claude#2)» ← WARN spawn 정지 중이나 승계는 막지 않는다 — REJECT hold 2104 until=2026-10-21T10:34:41Z release=swap<8192&memfree>=
+tests/test_successor_open.sh rc=1 fail=2 :: FAIL ⓘ rc=1 log= out=REJECT 전팀 정지 중(원장 없음(all-stop.log) — 설치(install.sh --apply)가 init 줄을 남겨야 한다 · 사람 확인) — 끄기 전 spawn·press 0 · 사람 확인|FAILED 1|
+tests/test_team_literal_paths.sh rc=0 fail=0 :: 
+tests/test_team_literal_paths2.sh rc=1 fail=3 :: FAIL ⓐ 실 bin 린트 rc=1 ← ft-nano-close.sh:771:if [ "$PACK_WT" = 1 ] && ! { [ -n "$CARD" ] && head -5 "$CARD" | grep -qF '<!-- ledger: design/harness/GOAL-harness.md -->'; }; then|FAIL ⓐ 키트 bin 린트 rc=1 ← ft-nano-close.sh:771:if [ "$PACK_WT" = 1 ] && ! { [ -n "$CARD" ] && head -5 "$CARD" | grep -qF '<!-
+tests/test_team_path_oldpath_md.sh rc=0 fail=0 :: 
+tests/test_team_roster_ref.sh rc=0 fail=0 :: 
+tests/test_teamset_gitref.sh rc=3 fail=4 :: FAIL ⓑ rc=1 hold=none|FAIL ⓒ-1 hold=none|FAIL core.bare != false|
+tests/test_thread_reply_named.sh rc=1 fail=5 :: FAIL ⓔ desk rc=2 out=REJECT mbox 짝 파일 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Sk4ylcZFeL/fakebin/mbox_doorbell.sh (mbox.sh 가 source 하는 mbox_doorbell.sh · 짝이 빠진 폴더는 쓰지 않는다)|FAIL ⓔ planner rc=2 out=REJECT mbox 짝 파일 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Sk4ylcZFeL/fa
+tests/test_tracked_bin_call_gate.sh rc=0 fail=0 :: 

@@ -120,6 +120,7 @@ runx "$CALLER/bin/ft-successor-open.sh" "$REPO" SEND_RC=2 REACH_RC=0
 
 # ⓘ 같은 리포(설치 사본이 대상 리포 안) → 같은 mbox · 도달 파일 불변
 mkdir -p "$REPO/.fable-team"; cp -R "$CALLER/bin" "$REPO/.fable-team/bin"
+mkdir -p "$REPO/.fable-team/state"; printf '2026-10-21T00:00:00\toff\tinstall\tinit\n' > "$REPO/.fable-team/state/all-stop.log"   # r626 r4: 설치 꼴 루트 = 원장 없음이면 전팀 정지 — 설치가 남기는 init 줄
 runx "$REPO/.fable-team/bin/ft-successor-open.sh" "$REPO" SEND_RC=2 REACH_RC=0
 { [ "$RC" -eq 0 ] && [ "$(count 'mbox-target ring')" = 1 ] && [ -f "$STATE/$OLD.json" ] && grep -q "$NEW" "$STATE/$OLD.json"; } \
   && ok "ⓘ 같은 리포 → 같은 mbox · 도달 파일" || bad "ⓘ rc=$RC log=$(tr '\n' ' ' < "$LOG") out=$(cat "$TMP/out")"
