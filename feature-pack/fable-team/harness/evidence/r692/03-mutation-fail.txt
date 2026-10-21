@@ -1,0 +1,6 @@
+# ⓖ 변이: download() 의 이미지 머리 확인 2줄 삭제 사본(scratch git init 사본 · 정본 파일 무변경)
+76,77d75
+<     if kind == "image" and not is_image_bytes(data):
+<         raise lib.MirrorError("받은 바이트 머리가 png·jpg·gif·webp 가 아니에요")
+FAILED tests/scripts/test_byz_slack_file_fetch.py::test_image_named_file_whose_bytes_are_an_html_error_page_saves_nothing
+1 failed, 22 passed in 13.32s

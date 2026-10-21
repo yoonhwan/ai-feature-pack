@@ -1,0 +1,186 @@
+......FFFFFFFFFFF......                                                  [100%]
+=================================== FAILURES ===================================
+___________ test_two_mib_jpeg_is_saved_as_image_with_nul_bytes_kept ____________
+
+fake = <test_byz_slack_file_fetch.Fake object at 0x108c798c0>
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-746/test_two_mib_jpeg_is_saved_as_0')
+
+    def test_two_mib_jpeg_is_saved_as_image_with_nul_bytes_kept(fake: Fake, tmp_path: Path):
+        body = JPEG_HEAD + b"\x00" * (2 * MIB - len(JPEG_HEAD))
+        fake.add("F8", "x.jpg", body, mime="image/jpeg")
+        r = fetch(fake, tmp_path, "F8")
+>       (p,) = saved(tmp_path)
+        ^^^^
+E       ValueError: not enough values to unpack (expected 1, got 0)
+
+tests/scripts/test_byz_slack_file_fetch.py:112: ValueError
+_ test_each_image_kind_is_saved_by_extension_or_mimetype[a.png-image/png-\x89PNG\r\n\x1a\n] _
+
+fake = <test_byz_slack_file_fetch.Fake object at 0x108c7a030>
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-746/test_each_image_kind_is_saved_0')
+name = 'a.png', mime = 'image/png', head = b'\x89PNG\r\n\x1a\n'
+
+    @pytest.mark.parametrize(("name", "mime", "head"), [
+        ("a.png", "image/png", b"\x89PNG\r\n\x1a\n"), ("b.gif", "image/gif", b"GIF87a"), ("c.gif", "image/gif", b"GIF89a"),
+        ("d.webp", "image/webp", b"RIFF\x10\x00\x00\x00WEBP"), ("photo", "image/png", b"\x89PNG\r\n\x1a\n"), ("e.JPEG", "", JPEG_HEAD)])
+    def test_each_image_kind_is_saved_by_extension_or_mimetype(fake: Fake, tmp_path: Path, name: str, mime: str, head: bytes):
+        fake.add("F9", name, head + b"rest", mime=mime)
+        r = fetch(fake, tmp_path, "F9")
+>       assert r.returncode == 0 and r.stdout.rstrip().endswith("kind=image") and len(saved(tmp_path)) == 1
+E       AssertionError: assert (3 == 0)
+E        +  where 3 = CompletedProcess(args=['/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.venv/bin/python', '/Users/yoonhwan/Project/..._saved_0/tok.env', '--api-base', 'http://127.0.0.1:58026'], returncode=3, stdout='터미널에서 직접 열어 주세요: a.png\n', stderr='').returncode
+
+tests/scripts/test_byz_slack_file_fetch.py:123: AssertionError
+_ test_each_image_kind_is_saved_by_extension_or_mimetype[b.gif-image/gif-GIF87a] _
+
+fake = <test_byz_slack_file_fetch.Fake object at 0x108d34850>
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-746/test_each_image_kind_is_saved_1')
+name = 'b.gif', mime = 'image/gif', head = b'GIF87a'
+
+    @pytest.mark.parametrize(("name", "mime", "head"), [
+        ("a.png", "image/png", b"\x89PNG\r\n\x1a\n"), ("b.gif", "image/gif", b"GIF87a"), ("c.gif", "image/gif", b"GIF89a"),
+        ("d.webp", "image/webp", b"RIFF\x10\x00\x00\x00WEBP"), ("photo", "image/png", b"\x89PNG\r\n\x1a\n"), ("e.JPEG", "", JPEG_HEAD)])
+    def test_each_image_kind_is_saved_by_extension_or_mimetype(fake: Fake, tmp_path: Path, name: str, mime: str, head: bytes):
+        fake.add("F9", name, head + b"rest", mime=mime)
+        r = fetch(fake, tmp_path, "F9")
+>       assert r.returncode == 0 and r.stdout.rstrip().endswith("kind=image") and len(saved(tmp_path)) == 1
+E       AssertionError: assert (3 == 0)
+E        +  where 3 = CompletedProcess(args=['/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.venv/bin/python', '/Users/yoonhwan/Project/..._saved_1/tok.env', '--api-base', 'http://127.0.0.1:58060'], returncode=3, stdout='터미널에서 직접 열어 주세요: b.gif\n', stderr='').returncode
+
+tests/scripts/test_byz_slack_file_fetch.py:123: AssertionError
+_ test_each_image_kind_is_saved_by_extension_or_mimetype[c.gif-image/gif-GIF89a] _
+
+fake = <test_byz_slack_file_fetch.Fake object at 0x108d34a50>
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-746/test_each_image_kind_is_saved_2')
+name = 'c.gif', mime = 'image/gif', head = b'GIF89a'
+
+    @pytest.mark.parametrize(("name", "mime", "head"), [
+        ("a.png", "image/png", b"\x89PNG\r\n\x1a\n"), ("b.gif", "image/gif", b"GIF87a"), ("c.gif", "image/gif", b"GIF89a"),
+        ("d.webp", "image/webp", b"RIFF\x10\x00\x00\x00WEBP"), ("photo", "image/png", b"\x89PNG\r\n\x1a\n"), ("e.JPEG", "", JPEG_HEAD)])
+    def test_each_image_kind_is_saved_by_extension_or_mimetype(fake: Fake, tmp_path: Path, name: str, mime: str, head: bytes):
+        fake.add("F9", name, head + b"rest", mime=mime)
+        r = fetch(fake, tmp_path, "F9")
+>       assert r.returncode == 0 and r.stdout.rstrip().endswith("kind=image") and len(saved(tmp_path)) == 1
+E       AssertionError: assert (3 == 0)
+E        +  where 3 = CompletedProcess(args=['/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.venv/bin/python', '/Users/yoonhwan/Project/..._saved_2/tok.env', '--api-base', 'http://127.0.0.1:58101'], returncode=3, stdout='터미널에서 직접 열어 주세요: c.gif\n', stderr='').returncode
+
+tests/scripts/test_byz_slack_file_fetch.py:123: AssertionError
+_ test_each_image_kind_is_saved_by_extension_or_mimetype[d.webp-image/webp-RIFF\x10\x00\x00\x00WEBP] _
+
+fake = <test_byz_slack_file_fetch.Fake object at 0x108fb72f0>
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-746/test_each_image_kind_is_saved_3')
+name = 'd.webp', mime = 'image/webp', head = b'RIFF\x10\x00\x00\x00WEBP'
+
+    @pytest.mark.parametrize(("name", "mime", "head"), [
+        ("a.png", "image/png", b"\x89PNG\r\n\x1a\n"), ("b.gif", "image/gif", b"GIF87a"), ("c.gif", "image/gif", b"GIF89a"),
+        ("d.webp", "image/webp", b"RIFF\x10\x00\x00\x00WEBP"), ("photo", "image/png", b"\x89PNG\r\n\x1a\n"), ("e.JPEG", "", JPEG_HEAD)])
+    def test_each_image_kind_is_saved_by_extension_or_mimetype(fake: Fake, tmp_path: Path, name: str, mime: str, head: bytes):
+        fake.add("F9", name, head + b"rest", mime=mime)
+        r = fetch(fake, tmp_path, "F9")
+>       assert r.returncode == 0 and r.stdout.rstrip().endswith("kind=image") and len(saved(tmp_path)) == 1
+E       AssertionError: assert (3 == 0)
+E        +  where 3 = CompletedProcess(args=['/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.venv/bin/python', '/Users/yoonhwan/Project/...saved_3/tok.env', '--api-base', 'http://127.0.0.1:58121'], returncode=3, stdout='터미널에서 직접 열어 주세요: d.webp\n', stderr='').returncode
+
+tests/scripts/test_byz_slack_file_fetch.py:123: AssertionError
+_ test_each_image_kind_is_saved_by_extension_or_mimetype[photo-image/png-\x89PNG\r\n\x1a\n] _
+
+fake = <test_byz_slack_file_fetch.Fake object at 0x108fb7980>
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-746/test_each_image_kind_is_saved_4')
+name = 'photo', mime = 'image/png', head = b'\x89PNG\r\n\x1a\n'
+
+    @pytest.mark.parametrize(("name", "mime", "head"), [
+        ("a.png", "image/png", b"\x89PNG\r\n\x1a\n"), ("b.gif", "image/gif", b"GIF87a"), ("c.gif", "image/gif", b"GIF89a"),
+        ("d.webp", "image/webp", b"RIFF\x10\x00\x00\x00WEBP"), ("photo", "image/png", b"\x89PNG\r\n\x1a\n"), ("e.JPEG", "", JPEG_HEAD)])
+    def test_each_image_kind_is_saved_by_extension_or_mimetype(fake: Fake, tmp_path: Path, name: str, mime: str, head: bytes):
+        fake.add("F9", name, head + b"rest", mime=mime)
+        r = fetch(fake, tmp_path, "F9")
+>       assert r.returncode == 0 and r.stdout.rstrip().endswith("kind=image") and len(saved(tmp_path)) == 1
+E       AssertionError: assert (3 == 0)
+E        +  where 3 = CompletedProcess(args=['/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.venv/bin/python', '/Users/yoonhwan/Project/..._saved_4/tok.env', '--api-base', 'http://127.0.0.1:58138'], returncode=3, stdout='터미널에서 직접 열어 주세요: photo\n', stderr='').returncode
+
+tests/scripts/test_byz_slack_file_fetch.py:123: AssertionError
+_ test_each_image_kind_is_saved_by_extension_or_mimetype[e.JPEG--\xff\xd8\xff\xe0\x00\x10JFIF\x00] _
+
+fake = <test_byz_slack_file_fetch.Fake object at 0x108e47a10>
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-746/test_each_image_kind_is_saved_5')
+name = 'e.JPEG', mime = '', head = b'\xff\xd8\xff\xe0\x00\x10JFIF\x00'
+
+    @pytest.mark.parametrize(("name", "mime", "head"), [
+        ("a.png", "image/png", b"\x89PNG\r\n\x1a\n"), ("b.gif", "image/gif", b"GIF87a"), ("c.gif", "image/gif", b"GIF89a"),
+        ("d.webp", "image/webp", b"RIFF\x10\x00\x00\x00WEBP"), ("photo", "image/png", b"\x89PNG\r\n\x1a\n"), ("e.JPEG", "", JPEG_HEAD)])
+    def test_each_image_kind_is_saved_by_extension_or_mimetype(fake: Fake, tmp_path: Path, name: str, mime: str, head: bytes):
+        fake.add("F9", name, head + b"rest", mime=mime)
+        r = fetch(fake, tmp_path, "F9")
+>       assert r.returncode == 0 and r.stdout.rstrip().endswith("kind=image") and len(saved(tmp_path)) == 1
+E       AssertionError: assert (3 == 0)
+E        +  where 3 = CompletedProcess(args=['/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.venv/bin/python', '/Users/yoonhwan/Project/...saved_5/tok.env', '--api-base', 'http://127.0.0.1:58151'], returncode=3, stdout='터미널에서 직접 열어 주세요: e.JPEG\n', stderr='').returncode
+
+tests/scripts/test_byz_slack_file_fetch.py:123: AssertionError
+____ test_image_named_file_whose_bytes_are_an_html_error_page_saves_nothing ____
+
+fake = <test_byz_slack_file_fetch.Fake object at 0x108d24ad0>
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-746/test_image_named_file_whose_by0')
+
+    def test_image_named_file_whose_bytes_are_an_html_error_page_saves_nothing(fake: Fake, tmp_path: Path):
+        fake.add("F10", "x.png", b"<!DOCTYPE html><html>login</html>", mime="image/png")
+        r = fetch(fake, tmp_path, "F10")
+>       assert r.returncode == 1 and "ERROR" in r.stderr and saved(tmp_path) == []
+E       AssertionError: assert (3 == 1)
+E        +  where 3 = CompletedProcess(args=['/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.venv/bin/python', '/Users/yoonhwan/Project/...hose_by0/tok.env', '--api-base', 'http://127.0.0.1:58180'], returncode=3, stdout='터미널에서 직접 열어 주세요: x.png\n', stderr='').returncode
+
+tests/scripts/test_byz_slack_file_fetch.py:129: AssertionError
+____ test_image_over_the_image_cap_is_refused_and_exactly_the_cap_is_saved _____
+
+fake = <test_byz_slack_file_fetch.Fake object at 0x108e53a00>
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-746/test_image_over_the_image_cap_0')
+
+    def test_image_over_the_image_cap_is_refused_and_exactly_the_cap_is_saved(fake: Fake, tmp_path: Path):
+>       fake.add("F11", "huge.png", b"\x89PNG", mime="image/png", size=ff.IMAGE_MAX_BYTES + 1)
+                                                                       ^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'byz_slack_file_fetch' has no attribute 'IMAGE_MAX_BYTES'
+
+tests/scripts/test_byz_slack_file_fetch.py:134: AttributeError
+________ test_image_byte_count_differing_from_size_field_saves_nothing _________
+
+fake = <test_byz_slack_file_fetch.Fake object at 0x108c8de50>
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-746/test_image_byte_count_differin0')
+
+    def test_image_byte_count_differing_from_size_field_saves_nothing(fake: Fake, tmp_path: Path):
+        fake.add("F13", "lie.jpg", JPEG_HEAD + b"more", mime="image/jpeg", size=5)
+>       assert fetch(fake, tmp_path, "F13").returncode == 1 and saved(tmp_path) == []
+E       AssertionError: assert (3 == 1)
+E        +  where 3 = CompletedProcess(args=['/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.venv/bin/python', '/Users/yoonhwan/Project/...ferin0/tok.env', '--api-base', 'http://127.0.0.1:58207'], returncode=3, stdout='터미널에서 직접 열어 주세요: lie.jpg\n', stderr='').returncode
+E        +    where CompletedProcess(args=['/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.venv/bin/python', '/Users/yoonhwan/Project/...ferin0/tok.env', '--api-base', 'http://127.0.0.1:58207'], returncode=3, stdout='터미널에서 직접 열어 주세요: lie.jpg\n', stderr='') = fetch(<test_byz_slack_file_fetch.Fake object at 0x108c8de50>, PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-746/test_image_byte_count_differin0'), 'F13')
+
+tests/scripts/test_byz_slack_file_fetch.py:143: AssertionError
+_____________________ test_text_output_line_says_kind_text _____________________
+
+fake = <test_byz_slack_file_fetch.Fake object at 0x108c8ec90>
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-746/test_text_output_line_says_kin0')
+
+    def test_text_output_line_says_kind_text(fake: Fake, tmp_path: Path):
+        fake.add("F14", "n.txt", b"hi", mime="text/plain")
+        r = fetch(fake, tmp_path, "F14")
+>       assert r.returncode == 0 and r.stdout.rstrip().endswith("bytes=2 kind=text")
+E       AssertionError: assert (0 == 0 and False)
+E        +  where 0 = CompletedProcess(args=['/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.venv/bin/python', '/Users/yoonhwan/Project/...wan/pytest-746/test_text_output_line_says_kin0/.fable-team/state/desk-files/2026-10-22/F14-n.txt bytes=2\n', stderr='').returncode
+E        +  and   False = <built-in method endswith of str object at 0x108d27210>('bytes=2 kind=text')
+E        +    where <built-in method endswith of str object at 0x108d27210> = 'SAVED /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-746/test_text_output_line_says_kin0/.fable-team/state/desk-files/2026-10-22/F14-n.txt bytes=2'.endswith
+E        +      where 'SAVED /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-746/test_text_output_line_says_kin0/.fable-team/state/desk-files/2026-10-22/F14-n.txt bytes=2' = <built-in method rstrip of str object at 0x108d27590>()
+E        +        where <built-in method rstrip of str object at 0x108d27590> = 'SAVED /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-746/test_text_output_line_says_kin0/.fable-team/state/desk-files/2026-10-22/F14-n.txt bytes=2\n'.rstrip
+E        +          where 'SAVED /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-746/test_text_output_line_says_kin0/.fable-team/state/desk-files/2026-10-22/F14-n.txt bytes=2\n' = CompletedProcess(args=['/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.venv/bin/python', '/Users/yoonhwan/Project/...wan/pytest-746/test_text_output_line_says_kin0/.fable-team/state/desk-files/2026-10-22/F14-n.txt bytes=2\n', stderr='').stdout
+
+tests/scripts/test_byz_slack_file_fetch.py:149: AssertionError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_byz_slack_file_fetch.py::test_two_mib_jpeg_is_saved_as_image_with_nul_bytes_kept
+FAILED tests/scripts/test_byz_slack_file_fetch.py::test_each_image_kind_is_saved_by_extension_or_mimetype[a.png-image/png-\x89PNG\r\n\x1a\n]
+FAILED tests/scripts/test_byz_slack_file_fetch.py::test_each_image_kind_is_saved_by_extension_or_mimetype[b.gif-image/gif-GIF87a]
+FAILED tests/scripts/test_byz_slack_file_fetch.py::test_each_image_kind_is_saved_by_extension_or_mimetype[c.gif-image/gif-GIF89a]
+FAILED tests/scripts/test_byz_slack_file_fetch.py::test_each_image_kind_is_saved_by_extension_or_mimetype[d.webp-image/webp-RIFF\x10\x00\x00\x00WEBP]
+FAILED tests/scripts/test_byz_slack_file_fetch.py::test_each_image_kind_is_saved_by_extension_or_mimetype[photo-image/png-\x89PNG\r\n\x1a\n]
+FAILED tests/scripts/test_byz_slack_file_fetch.py::test_each_image_kind_is_saved_by_extension_or_mimetype[e.JPEG--\xff\xd8\xff\xe0\x00\x10JFIF\x00]
+FAILED tests/scripts/test_byz_slack_file_fetch.py::test_image_named_file_whose_bytes_are_an_html_error_page_saves_nothing
+FAILED tests/scripts/test_byz_slack_file_fetch.py::test_image_over_the_image_cap_is_refused_and_exactly_the_cap_is_saved
+FAILED tests/scripts/test_byz_slack_file_fetch.py::test_image_byte_count_differing_from_size_field_saves_nothing
+FAILED tests/scripts/test_byz_slack_file_fetch.py::test_text_output_line_says_kind_text
+11 failed, 12 passed in 12.90s

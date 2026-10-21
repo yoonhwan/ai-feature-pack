@@ -102,6 +102,60 @@ def test_text_named_file_with_binary_content_saves_nothing(fake: Fake, tmp_path:
     assert fetch(fake, tmp_path, "F7").returncode == 1 and saved(tmp_path) == []
 
 
+JPEG_HEAD = b"\xff\xd8\xff\xe0\x00\x10JFIF\x00"
+
+
+def test_two_mib_jpeg_is_saved_as_image_with_nul_bytes_kept(fake: Fake, tmp_path: Path):
+    body = JPEG_HEAD + b"\x00" * (2 * MIB - len(JPEG_HEAD))
+    fake.add("F8", "x.jpg", body, mime="image/jpeg")
+    r = fetch(fake, tmp_path, "F8")
+    (p,) = saved(tmp_path)
+    assert r.returncode == 0 and r.stdout.strip() == f"SAVED {p} bytes={2 * MIB} kind=image" and p.read_bytes() == body
+    assert "xoxp" not in r.stdout + r.stderr and "/dl/" not in r.stdout + r.stderr
+
+
+@pytest.mark.parametrize(("name", "mime", "head"), [
+    ("a.png", "image/png", b"\x89PNG\r\n\x1a\n"), ("b.gif", "image/gif", b"GIF87a"), ("c.gif", "image/gif", b"GIF89a"),
+    ("d.webp", "image/webp", b"RIFF\x10\x00\x00\x00WEBP"), ("photo", "image/png", b"\x89PNG\r\n\x1a\n"), ("e.JPEG", "", JPEG_HEAD)])
+def test_each_image_kind_is_saved_by_extension_or_mimetype(fake: Fake, tmp_path: Path, name: str, mime: str, head: bytes):
+    fake.add("F9", name, head + b"rest", mime=mime)
+    r = fetch(fake, tmp_path, "F9")
+    assert r.returncode == 0 and r.stdout.rstrip().endswith("kind=image") and len(saved(tmp_path)) == 1
+
+
+def test_image_named_file_whose_bytes_are_an_html_error_page_saves_nothing(fake: Fake, tmp_path: Path):
+    fake.add("F10", "x.png", b"<!DOCTYPE html><html>login</html>", mime="image/png")
+    r = fetch(fake, tmp_path, "F10")
+    assert r.returncode == 1 and "ERROR" in r.stderr and saved(tmp_path) == []
+    assert "xoxp" not in r.stdout + r.stderr and "/dl/" not in r.stdout + r.stderr
+
+
+def test_image_over_the_image_cap_is_refused_and_exactly_the_cap_is_saved(fake: Fake, tmp_path: Path):
+    fake.add("F11", "huge.png", b"\x89PNG", mime="image/png", size=ff.IMAGE_MAX_BYTES + 1)
+    r = fetch(fake, tmp_path, "F11")
+    assert ff.IMAGE_MAX_BYTES == 10 * MIB and r.returncode == 3 and "터미널에서 직접 열어 주세요: huge.png" in r.stdout and saved(tmp_path) == []
+    fake.add("F12", "edge.png", b"\x89PNG\r\n\x1a\n" + b"a" * (ff.IMAGE_MAX_BYTES - 8), mime="image/png")
+    assert fetch(fake, tmp_path, "F12").returncode == 0 and len(saved(tmp_path)) == 1
+
+
+def test_image_byte_count_differing_from_size_field_saves_nothing(fake: Fake, tmp_path: Path):
+    fake.add("F13", "lie.jpg", JPEG_HEAD + b"more", mime="image/jpeg", size=5)
+    assert fetch(fake, tmp_path, "F13").returncode == 1 and saved(tmp_path) == []
+
+
+def test_text_output_line_says_kind_text(fake: Fake, tmp_path: Path):
+    fake.add("F14", "n.txt", b"hi", mime="text/plain")
+    r = fetch(fake, tmp_path, "F14")
+    assert r.returncode == 0 and r.stdout.rstrip().endswith("bytes=2 kind=text")
+
+
+@pytest.mark.parametrize(("name", "mime"), [("a.zip", "application/zip"), ("b.svg", "image/svg+xml"), ("c.heic", "image/heic")])
+def test_other_kinds_stay_refused_with_rc3(fake: Fake, tmp_path: Path, name: str, mime: str):
+    fake.add("F15", name, b"x", mime=mime)
+    r = fetch(fake, tmp_path, "F15")
+    assert r.returncode == 3 and f"터미널에서 직접 열어 주세요: {name}" in r.stdout and saved(tmp_path) == []
+
+
 def test_deadline_for_one_mib_is_within_the_batch_ceiling():
     assert ff.deadline_s(MIB) == 10.5 and ff.deadline_s(0) <= 70 and ff.deadline_s(10**9) == 70.0
 
