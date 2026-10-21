@@ -1,0 +1,31 @@
+# R679 후(後)판 — 시험 test_nano_superseded_check_team_folder_r679.sh
+
+== ⓕ 키트 2곳(추적 짝·키트) 같은 바이트 + bash -n
+PASS cmp ft-nano-superseded-check.sh (harness/bin == kit)
+PASS bash -n ft-nano-superseded-check.sh
+== ⓐ 옛 꼴 그대로 통과(회귀 0)
+PASS ⓐ design/harness/indices/진행/… → rc=0(옛 꼴 유지)
+PASS ⓐ 옛 폴더 이름 «완료» → rc=0(호환 유지)
+== ⓑ 팀 폴더 꼴·«완성» 폴더 통과(R679 고침)
+PASS ⓑ design/teams/v65/indices/대기/team-wait.md → rc=0
+PASS ⓑ design/teams/v65/indices/진행/team-run.md → rc=0
+PASS ⓑ design/teams/v65/indices/완성/team-done.md → rc=0
+PASS ⓑ design/harness/indices/완성/new-done.md → rc=0
+== ⓒ 거절 길 유지 — 팀 폴더 꼴이 열려도 «없는 파일·base 밖·..·모르는 폴더·자기 자신·사유·줄 꼴·경로 불일치» 는 그대로 REJECT
+PASS ⓒ 팀 폴더 꼴인데 파일 없음 → rc=1
+PASS ⓒ base 밖 팀 폴더 파일 → rc=1
+PASS ⓒ «..» 들어간 팀 폴더 경로 → rc=1
+PASS ⓒ 모르는 폴더(기타/) → rc=1
+PASS ⓒ 대체 카드 = 자기 자신 → rc=1
+PASS ⓒ 사유 빈칸 → rc=1
+PASS ⓒ «대체됨:» 줄 없음 → rc=1
+PASS ⓒ 줄의 경로 ≠ --superseded-by → rc=1
+PASS ⓒ 팀 폴더 꼴 이름의 심링크가 base 밖 → rc=1(우회 차단 유지)
+== ⓓ 키트 전체에 옛 꼴 «indices/(대기|진행|완료)» 잔존 0 (같은 결함이 남은 곳 = 같이 고친다)
+PASS ⓓ bin 정규식 잔존 0
+PASS ⓓ bin 문구 «{대기,진행,완료}» 잔존 0
+PASS ⓓ bin 정규식 잔존 0
+PASS ⓓ bin 문구 «{대기,진행,완료}» 잔존 0
+
+ALL PASS
+RC=0

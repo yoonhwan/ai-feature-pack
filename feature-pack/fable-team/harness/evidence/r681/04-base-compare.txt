@@ -1,0 +1,16 @@
+# r681 base 대조 — 같은 시험 파일을 base(origin/main bf51b3e2) 와 후판에서 각각 실행 · 경로 정규화 diff
+== test_teamset_check.sh
+23c23
+< PASS ⓛ 진행/ 로 옮겨졌어도 명부 행 없으면 완료 아님
+---
+> PASS ⓛ 진행/ 로 옮겨졌으면 명부 행 없어도 완료(r681)
+== test_nano_spawn_teamset_cap.sh
+  DIFF 0 (base 와 동일)
+== test_seat_cap_nano_only_r666.sh
+  DIFF 0 (base 와 동일)
+== test_proposal_gate_wiring.sh
+  DIFF 0 (base 와 동일)
+== test_dead_seat_resume.sh
+  DIFF 0 (base 와 동일)
+
+## 새 시험: base 판 = FAIL 3 (01-before-red.txt) → 후판 = ALL PASS (02-after-pass.txt)

@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """ft_spawn_queue.py — 나노 상한에 걸린 spawn 카드의 팀별 순번 큐 (r-teamset-standard · 판정 2170 · DA r1 ⑦).
 
-  add    --root R --prefix P --card C [--from F]   `QUEUED <팀> 순번=<n>` (같은 카드는 중복 0 · 카드는 절대경로로 적는다)
-  stuck  --root R --prefix P                    확인 필요 항목(카드 없음·명부 행 없음) 출력
-  notify --root R --prefix P --mbox M --to MASTER   맨 앞 카드를 현역 master 에 쪽지(같은 카드 10분 1번 · 쪽지 실패 = WARN · 큐 유지)
-큐 항목은 «spawn 성공(카드가 진행/ 에 있고 그 팀 명부 행 index 가 그 카드)» 확인 때까지 남는다 — 카드 경로가 사라진 것만으로 지우지 않는다(확인 필요로 남김).
+  add    --root R --prefix P --card C [--from F]   `QUEUED <팀> 순번=<n>` (같은 카드는 중복 0 · 카드는 절대경로로 적는다 · 순번 = 대기/ 실재 행만 셈)
+  stuck  --root R --prefix P                    확인 필요 항목(대기/·진행/·완성/ 어디에도 없는 카드) 출력
+  notify --root R --prefix P --mbox M --to MASTER   맨 앞 «대기» 카드를 현역 master 에 쪽지(같은 카드 10분 1번 · 쪽지 실패 = WARN · 큐 유지)
+큐 항목의 완료 = 같은 indices 아래 진행/ 또는 완성/ 에 같은 이름이 «실재»(양의 증거 · r681). 명부 행은 보지 않는다 — 나노가 닫히면 행이 사라져 이미 끝난 카드가 영원히 큐에 남았다(하네스 26행 중 19행 거짓).
+대기/ 에 실재하는 행만 순번·알림에 세고, 어디에도 없는 카드만 «확인 필요» 로 남긴다(소실 0 · 순번 밖).
 큐 파일 `.fable-team/state/spawn-queue-<팀>.tsv` · 알림 표식 `…<팀>.notified` · 팀 접두는 ft_teamset.team_of.
 """
 import argparse
 import contextlib
 import io
-import json
 import os
 import subprocess
 import time
@@ -24,32 +24,28 @@ def paths(root, prefix):
     return base.with_suffix(".tsv"), base.with_suffix(".notified")
 
 
-def roster_indexes(root, prefix):
-    """그 팀 명부 행들의 index(카드 경로) 모음 — spawn 성공 근거(명부 등록)."""
-    team = team_of(prefix)
-    f = Path(root) / ".fable-team" / ("seats.json" if team == "v65" else f"seats-{team}.json")
-    try:
-        d = json.loads(f.read_text(encoding="utf-8"))
-    except (OSError, ValueError) as e:
-        raise SystemExit(f"ERROR 명부 읽기 실패 {f.name}: {e}")
-    return [v["index"] for v in d.values() if isinstance(v, dict) and isinstance(v.get("index"), str)]
+def moved_paths(card):
+    """대기/ 카드의 같은 indices 아래 진행/ · 완성/ 경로 — 완료 판정 근거(양의 증거). 대기/ 가 아니면 빈 목록."""
+    p = Path(card)
+    if p.parent.name != "대기":
+        return []
+    base = p.parent.parent
+    return [base / "진행" / p.name, base / "완성" / p.name]
 
 
 def split_entries(q, root, prefix):
-    """(대기 중, 확인 필요) — 완료 = 카드가 진행/ 에 있고 그 팀 명부 행의 index 가 그 카드(spawn 성공)일 때만 큐에서 지운다.
-    카드가 어디에도 없거나(옮겨졌는데 명부 행 없음 포함) 진행/ 인데 명부 행이 없으면 «확인 필요» 로 남긴다(소실 0)."""
+    """(대기 중, 확인 필요) — 완료 = 같은 indices 아래 진행/ 또는 완성/ 에 같은 이름이 실재(r681 · 명부 행 조건 없음).
+    어디에도 없는 카드만 «확인 필요» 로 남긴다(소실 0 · 판정 2170 ⑦)."""
     lines = [ln for ln in (q.read_text(encoding="utf-8").splitlines() if q.exists() else []) if ln]
-    idx, pending, stuck, keep = roster_indexes(root, prefix), [], [], []
+    pending, stuck, keep = [], [], []
     for ln in lines:
         card = ln.split("\t")[0]
         if Path(card).exists():
             pending.append(ln)
-            keep.append(ln)
-            continue
-        moved = card.replace("/대기/", "/진행/")
-        if moved != card and Path(moved).exists() and any(moved.endswith(i) or i == moved for i in idx):
-            continue  # spawn 성공 — 완료
-        stuck.append(ln)
+        elif any(s.exists() for s in moved_paths(card)):
+            continue  # 진행/·완성/ 에 실재 = 이미 spawn 됐거나 끝난 카드 → 큐에서 지운다
+        else:
+            stuck.append(ln)
         keep.append(ln)
     if keep != lines:
         q.write_text("".join(f"{x}\n" for x in keep), encoding="utf-8")
@@ -62,18 +58,23 @@ def live_entries(q, root, prefix):
 
 
 def add(a):
+    """순번 = 대기/ 실재 행만 센다(r681) — 확인 필요 행은 파일에 남지만 순번 밖."""
     q, _ = paths(a.root, a.prefix)
     q.parent.mkdir(parents=True, exist_ok=True)
-    lines, card = live_entries(q, a.root, a.prefix), str(Path(a.card).resolve())
-    for i, ln in enumerate(lines, 1):
+    pending, stuck = split_entries(q, a.root, a.prefix)
+    card = str(Path(a.card).resolve())
+    for i, ln in enumerate(pending, 1):
         if ln.split("\t")[0] == card:
             return print(f"QUEUED {team_of(a.prefix)} 순번={i} (이미 대기 중)")
-    lines.append(f"{card}\t{a.sender}")
-    q.write_text("".join(f"{x}\n" for x in lines), encoding="utf-8")
-    print(f"QUEUED {team_of(a.prefix)} 순번={len(lines)}")
+    if any(ln.split("\t")[0] == card for ln in stuck):
+        return print(f"QUEUED {team_of(a.prefix)} 순번={len(pending) + 1} (이미 확인 필요 항목)")
+    keep = pending + stuck + [f"{card}\t{a.sender}"]
+    q.write_text("".join(f"{x}\n" for x in keep), encoding="utf-8")
+    print(f"QUEUED {team_of(a.prefix)} 순번={len(pending) + 1}")
 
 
 def notify(a):
+    """맨 앞 «대기» 카드 1장 — 확인 필요 행은 알림 대상이 아니다(r681)."""
     q, stamp = paths(a.root, a.prefix)
     lines, _ = split_entries(q, a.root, a.prefix)
     if not lines:

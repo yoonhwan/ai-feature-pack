@@ -1,0 +1,118 @@
+# R679 base(origin/main bf51b3e2) 대비 diff — kit/ft-nano-superseded-check.sh · ft-nano-close.sh(주석 1줄) · harness/bin 짝 · 시험 1줄
+
+diff --git a/feature-pack/fable-team/harness/bin/ft-nano-close.sh b/feature-pack/fable-team/harness/bin/ft-nano-close.sh
+index 44d537b3..dbc0bb50 100755
+--- a/feature-pack/fable-team/harness/bin/ft-nano-close.sh
++++ b/feature-pack/fable-team/harness/bin/ft-nano-close.sh
+@@ -22,7 +22,7 @@
+ #   --shared-wt = 전용 워크트리가 없는 «공유 워크트리 좌석»(예: pane cwd = 공유 c-level-planning) 닫기 — 명시 인자로만(자동 판별 0). 확인 ⓐ~ⓔ 전부 통과해야 하고, 통과해도 cherry·wt-clean 은 건너뛰고 세션 kill·명부·원장만(워크트리·파일·브랜치 손대지 않음).
+ #   --cherry-override = ⑤ cherry 게이트의 코드 «+» 내용 REJECT 만 사람 사유로 우회(산출물이 의도적으로 대체된 석 · 원장 cherry-gate-override.log 1행 · 사유 빈 값은 exit 2).
+ #   --superseded-by <카드> = 다른 카드로 «대체된» 나노(세트를 랜딩하지 않아 ⑥ rc=0 증거 줄이 영원히 없다)를 닫는다(R171). 이 인자가 있으면 ⑥ 의 rc=0 증거 줄 대신 ft-nano-superseded-check.sh 가
+-#     «카드 ## 상태 맨 끝 줄 = 대체됨: <카드> · 사유: <글>» + 대체 카드(design/<팀>/indices/{대기,진행,완료}/*.md) 실재 + 자기 자신 아님을 요구하고, ⑤ cherry 게이트엔 --override "superseded-by <카드>"(원장 1행)를 넘긴다.
++#     «카드 ## 상태 맨 끝 줄 = 대체됨: <카드> · 사유: <글>» + 대체 카드(design/[teams/]<팀>/indices/{대기,진행,완성,완료}/*.md) 실재 + 자기 자신 아님을 요구하고, ⑤ cherry 게이트엔 --override "superseded-by <카드>"(원장 1행)를 넘긴다.
+ #     --cherry-override 와 동시 = usage 2 · 인자 없으면 동작 불변 · 브랜치 삭제 0 · 명부는 기존 CLOSED 경로가 갱신(손 편집 불필요) · 출력 `CLOSED <좌석> superseded-by=<카드> …`.
+ #   --plan-only <워크트리 경로> = 이미 좌석이 사라졌는데 정리 계획이 없는 나노 워크트리의 «계획만» 만든다(r-disk-drop-worktree-scratch-census · ft-disk-census.sh --plan 이 부른다). ①②③ 종료조건·cherry 게이트·명부·원장 행·kill 전부 건너뛰고
+ #     확인: 좌석 세션 0(tmux 조회 성공) · 그 경로가 이 리포 .worktrees/ 아래 등록 워크트리 · 가지가 nano/<좌석 키>[-rN]. 통과하면 <wt-clean>/<seat>.sh 생성 + `PLANNED <경로>` + exit 0 — 실행은 기존 ft-wt-sweep.sh. 착지 판정은 호출자(census) 몫이고, 원장에 닫힘 행이 없어도 계획은 표식 실패로 멈추지 않는다.
+diff --git a/feature-pack/fable-team/harness/bin/ft-nano-superseded-check.sh b/feature-pack/fable-team/harness/bin/ft-nano-superseded-check.sh
+index e580bf97..e3c763cb 100755
+--- a/feature-pack/fable-team/harness/bin/ft-nano-superseded-check.sh
++++ b/feature-pack/fable-team/harness/bin/ft-nano-superseded-check.sh
+@@ -3,7 +3,7 @@
+ #   --team-root (R177): 대체 카드가 «다른 팀» 것이면 그 팀(design/<팀>/)의 원장 워크트리를 <루트>/.fable-team/bin-<팀>/<팀>-env.sh 의 `export FT_NANO_LEDGER_WT=` 줄에서 글자로 읽어(source·eval 0) 검사 base 에만 하나 더한다. 못 찾으면 추가 0 = 기존 REJECT 그대로.
+ #   ft-nano-close.sh --superseded-by 의 ⑥ 대체 검사 (R171): 다른 카드로 «대체된» 나노는 세트를 랜딩하지 않아 rc=0 증거 줄이 없다 — 그 줄 대신 아래 셋을 요구한다.
+ #     ⓐ 카드 «## 상태» 의 맨 끝 줄 = `대체됨: <대체 카드 경로> · 사유: <비지 않은 글>` (경로는 --superseded-by 값과 같아야 한다)
+-#     ⓑ 대체 카드 경로가 design/<팀>/indices/{대기,진행,완료}/*.md 꼴이고 --base 디렉터리 중 하나 아래 파일로 실재한다
++#     ⓑ 대체 카드 경로가 design/<팀>/indices/{대기,진행,완성,완료}/*.md 또는 design/teams/<팀>/indices/{대기,진행,완성,완료}/*.md 꼴(R679: 팀 폴더 트리 · «완성» 폴더 · «완료» 는 옛 이름 호환)이고 --base 디렉터리 중 하나 아래 파일로 실재한다
+ #     ⓒ 대체 카드가 이 카드 자신이 아니다
+ #   값 추론 금지 — 하나라도 아니면 REJECT(사유 stdout). exit 0 = 통과 · 1 = REJECT · 2 = usage
+ set -uo pipefail
+@@ -30,8 +30,9 @@ line_path="${BASH_REMATCH[1]}"; reason="${BASH_REMATCH[2]}"
+ 
+ # ⓑ 경로 꼴 + 실재
+ case "$SUP" in *..*) echo "REJECT 대체됨 — 대체 카드 경로에 «..» 불가: $SUP"; exit 1;; esac
+-[[ "$SUP" =~ ^design/[^/]+/indices/(대기|진행|완료)/[^/]+\.md$ ]] \
+-  || { echo "REJECT 대체됨 — 대체 카드는 design/<팀>/indices/{대기,진행,완료}/*.md 여야 한다: $SUP"; exit 1; }
++CARD_FORM='^design/(teams/)?[^/]+/indices/(대기|진행|완성|완료)/[^/]+\.md$'   # R679: 팀 폴더 꼴(design/teams/<팀>/) · 실제 폴더 «완성» · «완료» 는 옛 이름 호환
++[[ "$SUP" =~ $CARD_FORM ]] \
++  || { echo "REJECT 대체됨 — 대체 카드는 design/<팀>/indices/{대기,진행,완성,완료}/*.md 또는 design/teams/<팀>/indices/{대기,진행,완성,완료}/*.md 여야 한다: $SUP"; exit 1; }
+ if [ -n "$TEAM_ROOT" ]; then  # R177: 대체 카드 팀의 원장 워크트리를 base 끝에 1개 더한다(없는 팀·env 없음·값 이상 = 추가 0)
+   team="${SUP#design/}"; team="${team%%/*}"; tw=""; tenv="$TEAM_ROOT/.fable-team/bin-$team/$team-env.sh"
+   if [ "$team" = v65 ]; then tw="$TEAM_ROOT/.worktrees/v6-realtime-live"
+@@ -55,7 +56,7 @@ for b in "${BASES[@]}"; do
+   cf="$(canon "$b/$SUP")"; cb="$(canon "$b")"
+   [ -n "$cf" ] && [ -n "$cb" ] || { echo "REJECT 대체됨 — 대체 카드 실제 위치 해석 실패: $SUP (base $b)"; exit 1; }
+   rel="${cf#"$cb"/}"
+-  if [ "$rel" != "$cf" ] && [[ "$rel" =~ ^design/[^/]+/indices/(대기|진행|완료)/[^/]+\.md$ ]]; then found="$b/$SUP"; break; fi
++  if [ "$rel" != "$cf" ] && [[ "$rel" =~ $CARD_FORM ]]; then found="$b/$SUP"; break; fi
+   outside="$cf"
+ done
+ [ -n "$found" ] || { [ -z "$outside" ] || { echo "REJECT 대체됨 — 대체 카드 실제 위치가 허용 범위 밖: $SUP → $outside"; exit 1; }; echo "REJECT 대체됨 — 대체 카드 파일이 없다: $SUP (찾은 곳: ${BASES[*]})"; exit 1; }
+diff --git a/feature-pack/fable-team/harness/kit/fable-team/bin/ft-nano-close.sh b/feature-pack/fable-team/harness/kit/fable-team/bin/ft-nano-close.sh
+index 44d537b3..dbc0bb50 100755
+--- a/feature-pack/fable-team/harness/kit/fable-team/bin/ft-nano-close.sh
++++ b/feature-pack/fable-team/harness/kit/fable-team/bin/ft-nano-close.sh
+@@ -22,7 +22,7 @@
+ #   --shared-wt = 전용 워크트리가 없는 «공유 워크트리 좌석»(예: pane cwd = 공유 c-level-planning) 닫기 — 명시 인자로만(자동 판별 0). 확인 ⓐ~ⓔ 전부 통과해야 하고, 통과해도 cherry·wt-clean 은 건너뛰고 세션 kill·명부·원장만(워크트리·파일·브랜치 손대지 않음).
+ #   --cherry-override = ⑤ cherry 게이트의 코드 «+» 내용 REJECT 만 사람 사유로 우회(산출물이 의도적으로 대체된 석 · 원장 cherry-gate-override.log 1행 · 사유 빈 값은 exit 2).
+ #   --superseded-by <카드> = 다른 카드로 «대체된» 나노(세트를 랜딩하지 않아 ⑥ rc=0 증거 줄이 영원히 없다)를 닫는다(R171). 이 인자가 있으면 ⑥ 의 rc=0 증거 줄 대신 ft-nano-superseded-check.sh 가
+-#     «카드 ## 상태 맨 끝 줄 = 대체됨: <카드> · 사유: <글>» + 대체 카드(design/<팀>/indices/{대기,진행,완료}/*.md) 실재 + 자기 자신 아님을 요구하고, ⑤ cherry 게이트엔 --override "superseded-by <카드>"(원장 1행)를 넘긴다.
++#     «카드 ## 상태 맨 끝 줄 = 대체됨: <카드> · 사유: <글>» + 대체 카드(design/[teams/]<팀>/indices/{대기,진행,완성,완료}/*.md) 실재 + 자기 자신 아님을 요구하고, ⑤ cherry 게이트엔 --override "superseded-by <카드>"(원장 1행)를 넘긴다.
+ #     --cherry-override 와 동시 = usage 2 · 인자 없으면 동작 불변 · 브랜치 삭제 0 · 명부는 기존 CLOSED 경로가 갱신(손 편집 불필요) · 출력 `CLOSED <좌석> superseded-by=<카드> …`.
+ #   --plan-only <워크트리 경로> = 이미 좌석이 사라졌는데 정리 계획이 없는 나노 워크트리의 «계획만» 만든다(r-disk-drop-worktree-scratch-census · ft-disk-census.sh --plan 이 부른다). ①②③ 종료조건·cherry 게이트·명부·원장 행·kill 전부 건너뛰고
+ #     확인: 좌석 세션 0(tmux 조회 성공) · 그 경로가 이 리포 .worktrees/ 아래 등록 워크트리 · 가지가 nano/<좌석 키>[-rN]. 통과하면 <wt-clean>/<seat>.sh 생성 + `PLANNED <경로>` + exit 0 — 실행은 기존 ft-wt-sweep.sh. 착지 판정은 호출자(census) 몫이고, 원장에 닫힘 행이 없어도 계획은 표식 실패로 멈추지 않는다.
+diff --git a/feature-pack/fable-team/harness/kit/fable-team/bin/ft-nano-superseded-check.sh b/feature-pack/fable-team/harness/kit/fable-team/bin/ft-nano-superseded-check.sh
+index e580bf97..e3c763cb 100755
+--- a/feature-pack/fable-team/harness/kit/fable-team/bin/ft-nano-superseded-check.sh
++++ b/feature-pack/fable-team/harness/kit/fable-team/bin/ft-nano-superseded-check.sh
+@@ -3,7 +3,7 @@
+ #   --team-root (R177): 대체 카드가 «다른 팀» 것이면 그 팀(design/<팀>/)의 원장 워크트리를 <루트>/.fable-team/bin-<팀>/<팀>-env.sh 의 `export FT_NANO_LEDGER_WT=` 줄에서 글자로 읽어(source·eval 0) 검사 base 에만 하나 더한다. 못 찾으면 추가 0 = 기존 REJECT 그대로.
+ #   ft-nano-close.sh --superseded-by 의 ⑥ 대체 검사 (R171): 다른 카드로 «대체된» 나노는 세트를 랜딩하지 않아 rc=0 증거 줄이 없다 — 그 줄 대신 아래 셋을 요구한다.
+ #     ⓐ 카드 «## 상태» 의 맨 끝 줄 = `대체됨: <대체 카드 경로> · 사유: <비지 않은 글>` (경로는 --superseded-by 값과 같아야 한다)
+-#     ⓑ 대체 카드 경로가 design/<팀>/indices/{대기,진행,완료}/*.md 꼴이고 --base 디렉터리 중 하나 아래 파일로 실재한다
++#     ⓑ 대체 카드 경로가 design/<팀>/indices/{대기,진행,완성,완료}/*.md 또는 design/teams/<팀>/indices/{대기,진행,완성,완료}/*.md 꼴(R679: 팀 폴더 트리 · «완성» 폴더 · «완료» 는 옛 이름 호환)이고 --base 디렉터리 중 하나 아래 파일로 실재한다
+ #     ⓒ 대체 카드가 이 카드 자신이 아니다
+ #   값 추론 금지 — 하나라도 아니면 REJECT(사유 stdout). exit 0 = 통과 · 1 = REJECT · 2 = usage
+ set -uo pipefail
+@@ -30,8 +30,9 @@ line_path="${BASH_REMATCH[1]}"; reason="${BASH_REMATCH[2]}"
+ 
+ # ⓑ 경로 꼴 + 실재
+ case "$SUP" in *..*) echo "REJECT 대체됨 — 대체 카드 경로에 «..» 불가: $SUP"; exit 1;; esac
+-[[ "$SUP" =~ ^design/[^/]+/indices/(대기|진행|완료)/[^/]+\.md$ ]] \
+-  || { echo "REJECT 대체됨 — 대체 카드는 design/<팀>/indices/{대기,진행,완료}/*.md 여야 한다: $SUP"; exit 1; }
++CARD_FORM='^design/(teams/)?[^/]+/indices/(대기|진행|완성|완료)/[^/]+\.md$'   # R679: 팀 폴더 꼴(design/teams/<팀>/) · 실제 폴더 «완성» · «완료» 는 옛 이름 호환
++[[ "$SUP" =~ $CARD_FORM ]] \
++  || { echo "REJECT 대체됨 — 대체 카드는 design/<팀>/indices/{대기,진행,완성,완료}/*.md 또는 design/teams/<팀>/indices/{대기,진행,완성,완료}/*.md 여야 한다: $SUP"; exit 1; }
+ if [ -n "$TEAM_ROOT" ]; then  # R177: 대체 카드 팀의 원장 워크트리를 base 끝에 1개 더한다(없는 팀·env 없음·값 이상 = 추가 0)
+   team="${SUP#design/}"; team="${team%%/*}"; tw=""; tenv="$TEAM_ROOT/.fable-team/bin-$team/$team-env.sh"
+   if [ "$team" = v65 ]; then tw="$TEAM_ROOT/.worktrees/v6-realtime-live"
+@@ -55,7 +56,7 @@ for b in "${BASES[@]}"; do
+   cf="$(canon "$b/$SUP")"; cb="$(canon "$b")"
+   [ -n "$cf" ] && [ -n "$cb" ] || { echo "REJECT 대체됨 — 대체 카드 실제 위치 해석 실패: $SUP (base $b)"; exit 1; }
+   rel="${cf#"$cb"/}"
+-  if [ "$rel" != "$cf" ] && [[ "$rel" =~ ^design/[^/]+/indices/(대기|진행|완료)/[^/]+\.md$ ]]; then found="$b/$SUP"; break; fi
++  if [ "$rel" != "$cf" ] && [[ "$rel" =~ $CARD_FORM ]]; then found="$b/$SUP"; break; fi
+   outside="$cf"
+ done
+ [ -n "$found" ] || { [ -z "$outside" ] || { echo "REJECT 대체됨 — 대체 카드 실제 위치가 허용 범위 밖: $SUP → $outside"; exit 1; }; echo "REJECT 대체됨 — 대체 카드 파일이 없다: $SUP (찾은 곳: ${BASES[*]})"; exit 1; }
+diff --git a/feature-pack/fable-team/harness/tests/test_nano_close_superseded_by.sh b/feature-pack/fable-team/harness/tests/test_nano_close_superseded_by.sh
+index fb656848..4b4f092f 100755
+--- a/feature-pack/fable-team/harness/tests/test_nano_close_superseded_by.sh
++++ b/feature-pack/fable-team/harness/tests/test_nano_close_superseded_by.sh
+@@ -94,7 +94,7 @@ reject "대체 카드 파일이 없다" "ⓑ 대체 카드 파일 없음" --supe
+ setup; printf '# 인덱스: sup\n## 상태\n대체됨: %s · 사유: 자기 자신\n' "$CARD_REL" > "$CARD"
+ reject "자신이다" "ⓑ 대체 카드 = 자기 자신" --superseded-by "$CARD_REL"
+ setup; printf '## 상태\n대체됨: design/planner/indices/폐기/other.md · 사유: 폐기 폴더\n' > "$CARD"; printf 'x\n' > "$REPO/design/planner/indices/폐기/other.md"
+-reject "{대기,진행,완료}" "ⓑ 대체 카드가 대기/진행/완료 밖(폐기/)" --superseded-by design/planner/indices/폐기/other.md
++reject "{대기,진행,완성,완료}" "ⓑ 대체 카드가 대기/진행/완성/완료 밖(폐기/)" --superseded-by design/planner/indices/폐기/other.md
+ setup; printf '## 상태\n대체됨: design/planner/../x/indices/진행/other.md · 사유: 상위 경로\n' > "$CARD"
+ reject "«..»" "ⓑ 대체 카드 경로에 .." --superseded-by design/planner/../x/indices/진행/other.md
+ setup; printf '## 상태\n대체됨: %s · 사유:   \n' "$SUP_REL" > "$CARD"
+
+# bash -n
+bash -n OK kit/fable-team/bin/ft-nano-superseded-check.sh
+bash -n OK bin/ft-nano-superseded-check.sh
+bash -n OK kit/fable-team/bin/ft-nano-close.sh
+bash -n OK bin/ft-nano-close.sh
+# cmp 키트↔추적 짝
+cmp0 ft-nano-superseded-check.sh
+cmp0 ft-nano-close.sh

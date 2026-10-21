@@ -1,0 +1,7 @@
+# r681 lint
+All checks passed!
+ruff rc=0
+bash -n test_spawn_queue_folder_done_r681.sh rc=0
+bash -n test_teamset_check.sh rc=0
+py_compile rc=0
+kit cmp 0 rc=0

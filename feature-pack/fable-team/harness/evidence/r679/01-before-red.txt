@@ -1,0 +1,37 @@
+# R679 전(前)판 — base origin/main bf51b3e2 · 시험 test_nano_superseded_check_team_folder_r679.sh
+
+== ⓕ 키트 2곳(추적 짝·키트) 같은 바이트 + bash -n
+PASS cmp ft-nano-superseded-check.sh (harness/bin == kit)
+PASS bash -n ft-nano-superseded-check.sh
+== ⓐ 옛 꼴 그대로 통과(회귀 0)
+PASS ⓐ design/harness/indices/진행/… → rc=0(옛 꼴 유지)
+PASS ⓐ 옛 폴더 이름 «완료» → rc=0(호환 유지)
+== ⓑ 팀 폴더 꼴·«완성» 폴더 통과(R679 고침)
+FAIL ⓑ design/teams/v65/indices/대기/team-wait.md rc=1 ← REJECT 대체됨 — 대체 카드는 design/<팀>/indices/{대기,진행,완료}/*.md 여야 한다: design/teams/v65/indices/대기/team-wait.md
+FAIL ⓑ design/teams/v65/indices/진행/team-run.md rc=1 ← REJECT 대체됨 — 대체 카드는 design/<팀>/indices/{대기,진행,완료}/*.md 여야 한다: design/teams/v65/indices/진행/team-run.md
+FAIL ⓑ design/teams/v65/indices/완성/team-done.md rc=1 ← REJECT 대체됨 — 대체 카드는 design/<팀>/indices/{대기,진행,완료}/*.md 여야 한다: design/teams/v65/indices/완성/team-done.md
+FAIL ⓑ design/harness/indices/완성/new-done.md rc=1 ← REJECT 대체됨 — 대체 카드는 design/<팀>/indices/{대기,진행,완료}/*.md 여야 한다: design/harness/indices/완성/new-done.md
+== ⓒ 거절 길 유지 — 팀 폴더 꼴이 열려도 «없는 파일·base 밖·..·모르는 폴더·자기 자신·사유·줄 꼴·경로 불일치» 는 그대로 REJECT
+FAIL ⓒ 팀 폴더 꼴인데 파일 없음 → rc=1 — 없음: «대체 카드 파일이 없다» ← REJECT 대체됨 — 대체 카드는 design/<팀>/indices/{대기,진행,완료}/*.md 여야 한다: design/teams/v65/indices/진행/none.md
+FAIL ⓒ base 밖 팀 폴더 파일 → rc=1 — 없음: «대체 카드 파일이 없다» ← REJECT 대체됨 — 대체 카드는 design/<팀>/indices/{대기,진행,완료}/*.md 여야 한다: design/teams/v65/indices/진행/o.md
+PASS ⓒ «..» 들어간 팀 폴더 경로 → rc=1
+PASS ⓒ 모르는 폴더(기타/) → rc=1
+FAIL ⓒ 대체 카드 = 자기 자신 → rc=1 — 없음: «자신이다» ← REJECT 대체됨 — 대체 카드는 design/<팀>/indices/{대기,진행,완료}/*.md 여야 한다: design/teams/v65/indices/진행/team-run.md
+PASS ⓒ 사유 빈칸 → rc=1
+PASS ⓒ «대체됨:» 줄 없음 → rc=1
+PASS ⓒ 줄의 경로 ≠ --superseded-by → rc=1
+FAIL ⓒ 팀 폴더 꼴 이름의 심링크가 base 밖 → rc=1(우회 차단 유지) — 없음: «실제 위치가 허용 범위 밖» ← REJECT 대체됨 — 대체 카드는 design/<팀>/indices/{대기,진행,완료}/*.md 여야 한다: design/teams/v65/indices/진행/link.md
+== ⓓ 키트 전체에 옛 꼴 «indices/(대기|진행|완료)» 잔존 0 (같은 결함이 남은 곳 = 같이 고친다)
+FAIL ⓓ 옛 꼴 정규식 잔존: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r679-superseded-check-accepts-team-folde/feature-pack/fable-team/harness/tests/../../harness/kit/fable-team/bin/ft-nano-superseded-check.sh:33:[[ "$SUP" =~ ^design/[^/]+/indices/(대기|진행|완료)/[^/]+\.md$ ]] \
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r679-superseded-check-accepts-team-folde/feature-pack/fable-team/harness/tests/../../harness/kit/fable-team/bin/ft-nano-superseded-check.sh:58:  if [ "$rel" != "$cf" ] && [[ "$rel" =~ ^design/[^/]+/indices/(대기|진행|완료)/[^/]+\.md$ ]]; then found="$b/$SUP"; break; fi
+FAIL ⓓ 옛 꼴 문구 잔존: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r679-superseded-check-accepts-team-folde/feature-pack/fable-team/harness/tests/../../harness/kit/fable-team/bin/ft-nano-close.sh:25:#     «카드 ## 상태 맨 끝 줄 = 대체됨: <카드> · 사유: <글>» + 대체 카드(design/<팀>/indices/{대기,진행,완료}/*.md) 실재 + 자기 자신 아님을 요구하고, ⑤ cherry 게이트엔 --override "superseded-by <카드>"(원장 1행)를 넘긴다.
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r679-superseded-check-accepts-team-folde/feature-pack/fable-team/harness/tests/../../harness/kit/fable-team/bin/ft-nano-superseded-check.sh:6:#     ⓑ 대체 카드 경로가 design/<팀>/indices/{대기,진행,완료}/*.md 꼴이고 --base 디렉터리 중 하나 아래 파일로 실재한다
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r679-superseded-check-accepts-team-folde/feature-pack/fable-team/harness/tests/../../harness/kit/fable-team/bin/ft-nano-superseded-check.sh:34:  || { echo "REJECT 대체됨 — 대체 카드는 design/<팀>/indices/{대기,진행,완료}/*.md 여야 한다: $SUP"; exit 1; }
+FAIL ⓓ 옛 꼴 정규식 잔존: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r679-superseded-check-accepts-team-folde/feature-pack/fable-team/harness/tests/../../harness/bin/ft-nano-superseded-check.sh:33:[[ "$SUP" =~ ^design/[^/]+/indices/(대기|진행|완료)/[^/]+\.md$ ]] \
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r679-superseded-check-accepts-team-folde/feature-pack/fable-team/harness/tests/../../harness/bin/ft-nano-superseded-check.sh:58:  if [ "$rel" != "$cf" ] && [[ "$rel" =~ ^design/[^/]+/indices/(대기|진행|완료)/[^/]+\.md$ ]]; then found="$b/$SUP"; break; fi
+FAIL ⓓ 옛 꼴 문구 잔존: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r679-superseded-check-accepts-team-folde/feature-pack/fable-team/harness/tests/../../harness/bin/ft-nano-close.sh:25:#     «카드 ## 상태 맨 끝 줄 = 대체됨: <카드> · 사유: <글>» + 대체 카드(design/<팀>/indices/{대기,진행,완료}/*.md) 실재 + 자기 자신 아님을 요구하고, ⑤ cherry 게이트엔 --override "superseded-by <카드>"(원장 1행)를 넘긴다.
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r679-superseded-check-accepts-team-folde/feature-pack/fable-team/harness/tests/../../harness/bin/ft-nano-superseded-check.sh:6:#     ⓑ 대체 카드 경로가 design/<팀>/indices/{대기,진행,완료}/*.md 꼴이고 --base 디렉터리 중 하나 아래 파일로 실재한다
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r679-superseded-check-accepts-team-folde/feature-pack/fable-team/harness/tests/../../harness/bin/ft-nano-superseded-check.sh:34:  || { echo "REJECT 대체됨 — 대체 카드는 design/<팀>/indices/{대기,진행,완료}/*.md 여야 한다: $SUP"; exit 1; }
+
+FAILED 12
+RC=1

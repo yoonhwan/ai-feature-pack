@@ -118,7 +118,8 @@ o1="$(q add --card "$T/cards/대기/c1.md" --from m#1)"; o2="$(q add --card "$T/
 rm "$T/cards/대기/c1.md"; o="$(q stuck)"
 { [[ "$o" == *"/대기/c1.md" ]] && [ "$(grep -c . "$Q")" = 2 ]; } && ok "ⓛ 카드만 사라짐(명부 행 없음) → 큐 유지 · 확인 필요 1" || bad "ⓛ-2 $o"
 mv "$T/cards/대기/c2.md" "$T/cards/진행/c2.md"; o="$(q stuck)"
-{ [ "$(grep -c . <<<"$o")" = 2 ] && [ "$(grep -c . "$Q")" = 2 ]; } && ok "ⓛ 진행/ 로 옮겨졌어도 명부 행 없으면 완료 아님" || bad "ⓛ-3 $o"
+# r681: 완료 = 같은 indices 아래 진행/·완성/ 에 같은 이름 «실재»(양의 증거) — 명부 행 조건은 뺐다(닫힌 나노의 행이 사라져도 큐가 정리된다)
+{ [ "$(grep -c . <<<"$o")" = 1 ] && [ "$(grep -c . "$Q")" = 1 ]; } && ok "ⓛ 진행/ 로 옮겨졌으면 명부 행 없어도 완료(r681)" || bad "ⓛ-3 $o"
 printf '{"_name":"alpha","_master":"byz-alpha-master-claude#1","_arch":"byz-alpha-arch-claude#1","byz-alpha-nano-q#0":{"role":"nano","index":"%s"}}\n' "$T/cards/진행/c2.md" > "$ROOT/.fable-team/seats-alpha.json"
 q stuck >/dev/null; { [ "$(grep -c . "$Q")" = 1 ] && grep -q 'c1.md' "$Q" && ! grep -q 'c2.md' "$Q"; } && ok "ⓛ 진행/ + 명부 index 일치(spawn 성공) → c2 만 완료로 지운다" || bad "ⓛ-4 $(cat "$Q")"
 rm -f "$Q"
@@ -134,7 +135,7 @@ rm -f "$T/mbox.fail"; o="$(chk alpha)"
 { [[ "$o" == *"큐 알림 c2.md"* ]] && [ "$(grep -c . "$T/mbox.log")" = 1 ] && grep -F 'send byz-alpha-master-claude#1 ft-teamset-check' "$T/mbox.log" | grep -qF 'c2.md'; } && ok "ⓝ 빈 석 ∧ 큐 → 현역 _master 에 쪽지 1통" || bad "ⓝ-3 $o / $(cat "$T/mbox.log" 2>/dev/null)"
 o="$(chk alpha)"; [ "$(grep -c . "$T/mbox.log")" = 1 ] && ok "ⓝ 같은 카드 10분 안 재실행 → 재발신 0(멱등)" || bad "ⓝ-4 $o"
 printf '%s\t0' "$T/cards/c2.md" > "${Q%.tsv}.notified"; o="$(chk alpha)"; [ "$(grep -c . "$T/mbox.log")" = 2 ] && ok "ⓝ 10분 지난 표식 → 다시 알림(승계·쪽지 유실 대비)" || bad "ⓝ-5 $o"
-rm "$T/cards/대기/c2.md"; : > "$T/mbox.log"; rm -f "${Q%.tsv}.notified"; o="$(chk alpha)"
+rm "$T/cards/대기/c2.md"; rm -f "$T/cards/진행/c2.md"; : > "$T/mbox.log"; rm -f "${Q%.tsv}.notified"; o="$(chk alpha)"   # r681: ⓛ 가 만든 진행/ 사본도 지운다 — «어디에도 없는 카드» 시나리오
 { [ ! -s "$T/mbox.log" ] && [[ "$o" == "alpha WARN "*"큐 확인 필요 1"* ]] && [ -s "$Q" ]; } && ok "ⓝ 카드가 사라진 항목 → 쪽지 0 · 큐 유지 · WARN 확인 필요" || bad "ⓝ-6 $o"
 # DA⑥ ① — 활성 팀 _master 검증: 없음·다른 팀 master·형식 위반 → ERR + 쪽지 0
 : > "$T/cards/대기/c2.md"; : > "$T/mbox.log"; rm -f "${Q%.tsv}.notified"
