@@ -1,0 +1,61 @@
+PASS bash -n ft-nano-close.sh
+PASS bash -n ft-team-lib.sh
+== ⓐ 명단 = origin/main(작업 트리 사본은 옛 명단) · 원장 = 쌍둥이(design/v65) 1곳에만 → CLOSED
+PASS ⓐ CLOSED(rc=0)
+PASS   └ INFO 원장 ← <쌍둥이 경로> (명단 origin/main)
+PASS   └ 원장에 닫힘 행 1
+== ⓑ 두 쌍둥이 모두 원장 → REJECT 후보 2개
+PASS ⓑ → rc 1
+PASS   └ «CLOSED» 0
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 좌석 그대로
+PASS   └ 사유(명단 꼴 먼저 · 쌍둥이 뒤 · r459 헬퍼 ERROR 꼴)
+== ⓑ2 (r495) 두 쌍둥이 모두 원장 ∧ origin/main 트리엔 새 꼴(design/teams/v65)만 → ft_team_in_ref 로 가름 · 새 꼴 원장에 CLOSED + WARN TWIN-STALE
+PASS ⓑ2 CLOSED(rc=0)
+PASS   └ INFO 원장 ← 새 꼴(ref 트리에 있는 쪽)
+PASS   └ WARN TWIN-STALE <옛 꼴>
+PASS   └ 새 꼴 원장에만 닫힘 행 1
+== ⓒ 어느 쪽에도 원장 없음 → REJECT 못 찾았다(후보 목록)
+PASS ⓒ → rc 1
+PASS   └ «CLOSED» 0
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 좌석 그대로
+PASS   └ 사유 + 후보 2(r459 헬퍼 ERROR 꼴)
+== ⓓ origin/main ref 없음 → REJECT 명단 못 읽음(작업 트리 사본으로 후퇴 0)
+PASS ⓓ → rc 1
+PASS   └ «CLOSED» 0
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 좌석 그대로
+PASS   └ 사유
+== ⓔ 명부 파일 없음 → REJECT 명부 없음(입구 · 원장 쓰기 0)
+PASS ⓔ → rc 1
+PASS   └ «CLOSED» 0
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 좌석 그대로
+PASS   └ 사유
+PASS   └ 원장 행 0
+== ⓕ 명부 쓰기 실패(chmod 444) → REJECT 명부 쓰기 실패 · 원장 행 0
+PASS ⓕ → rc 1
+PASS   └ «CLOSED» 0
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 좌석 그대로
+PASS   └ 사유
+PASS   └ 원장 행 0
+== ⓖ r448: 닫기 출력 reap 줄 · reap left≠0 → CLOSE-FAIL rc 1 · kill 0(reap 은 kill «앞» · --wt 좌석 워크트리 전달)
+PASS ⓖ 성공 출력에 reap left=0 rc=0
+PASS ⓖ CLOSE-FAIL reap left=1 rc=1 (rc 1)
+PASS   └ kill-session 0
+PASS   └ reap 인자 = 좌석 + --wt 좌석 워크트리
+== ⓗ r286: opencode 좌석 = 명부 지우기 앞 기록(--record) · 세션 kill 뒤 회수(--apply) · left≠0 → CLOSE-FAIL rc 1 · 재실행은 pid 파일로 판정
+PASS ⓗ opencode 좌석 → OC-REAPED left=0 (rc 0)
+PASS   └ 1번째 = --record(좌석 워크트리)
+PASS   └ 2번째 = --apply
+PASS   └ 회수는 세션 kill 뒤(kill-session 실행됨)
+PASS ⓗ left=1 → CLOSE-FAIL rc 1
+PASS   └ OC-REAPED 0
+PASS ⓗ claude 좌석 · pid 파일 없음 → opencode 회수 호출 0
+PASS ⓗ 명부에 opencode 없어도 pid 파일 있으면 회수(재실행 경로)
+
+ALL PASS
+REAL-STATE-GUARD WARN 번호표 늘었으나 실 좌석 계획(동시 실행): /private/tmp/h337 ← /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/state/approve-merge-v65-2535-044317188e-20261022.sh.hil
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

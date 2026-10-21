@@ -1,0 +1,39 @@
+PASS bash -n ft-seat-reap.sh
+PASS bash -n ft-seat-retire.sh
+== ⓐ press 러너 살아 있음(기본 패턴 tests/e2e/…press….py) → retire 뒤 고아 생존 · 미룸 1 · rc 0
+PASS ⓐ픽스처 러너·고아
+FAIL ⓐretire rc 0 · 고아 생존 (got=[0 dead] want=[0 alive])
+FAIL ⓐreap-defer 줄 — 없음: «reap-defer pid=75524 why=press-active» ← RETIRED r690t-75074#0 -> r690t-75074#1 file=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.jVXIBEmP8V/seats.json keys=[] files=1 roles=[] routes=[]
+NORECORD r690t-75074#0 조회 불가: pane 식별 조회 불가
+reap-kill pid=75524 via=② cmd=/opt/homebrew/bin/bash -c while true; do echo w >> lw.log; sleep 1; done # r690fx-75074
+reap-kill pid=75531 via=자손 cmd=sleep 1
+reap r690t-75074#0 stopped=1 left=0 rc=0
+reap left=0 rc=0
+FAIL ⓐretire 미룸 안내 줄 — 없음: «reap deferred=1 (press 중 · 끝난 뒤 다음 정리에서)» ← RETIRED r690t-75074#0 -> r690t-75074#1 file=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.jVXIBEmP8V/seats.json keys=[] files=1 roles=[] routes=[]
+NORECORD r690t-75074#0 조회 불가: pane 식별 조회 불가
+reap-kill pid=75524 via=② cmd=/opt/homebrew/bin/bash -c while true; do echo w >> lw.log; sleep 1; done # r690fx-75074
+reap-kill pid=75531 via=자손 cmd=sleep 1
+reap r690t-75074#0 stopped=1 left=0 rc=0
+reap left=0 rc=0
+PASS ⓐ끝 줄 reap left=0 rc=0 · CLOSE-FAIL 0
+FAIL ⓐ미룸 파일 1 · pid 기록 (got=[] want=[1])
+usage: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r690-seat-retire-reap-kills-live-press-o/feature-pack/fable-team/harness/tests/../../harness/bin/ft-seat-reap.sh <좌석> [--dry-run] [--wt <워크트리>] [--orphans-only]
+FAIL ⓐreap 끝 줄 deferred=1 — 없음: «stopped=0 left=0 deferred=1 rc=0» ← 
+== ⓓ 미룸 소화 — press 끝 → 다른 좌석 reap 이 미룸 pid 정지 · 파일 삭제
+FAIL ⓓ못 멈춤 → kept=1 — 없음: «reap-deferred-done file=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.jVXIBEmP8V/defer/r690t-75074#0.jsonl stopped=0 kept=1» ← reap r690other-75074#0 stopped=0 left=0 rc=0
+FAIL ⓓ못 멈춤 → 파일 유지 · 고아 생존 (got=[ dead] want=[kept alive])
+FAIL ⓓreap-kill via=⑤미룸 — 없음: «reap-kill pid=75524 via=⑤미룸» ← reap r690other-75074#0 stopped=0 left=0 rc=0
+FAIL ⓓreap-deferred-done stopped=1 — 없음: «reap-deferred-done file=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.jVXIBEmP8V/defer/r690t-75074#0.jsonl stopped=1 kept=0» ← reap r690other-75074#0 stopped=0 left=0 rc=0
+PASS ⓓ고아 정지 · 미룸 파일 삭제
+FAIL ⓓpid 재사용(lstart 다름) → kill 0 · 파일 삭제 (got=[alive left 0] want=[alive gone 0])
+== ⓑ 장치 허가 held=true(러너 없음) → 미룸 · ⓒ press 없음 → kill
+FAIL ⓑdevice held → rc 0 · 고아 생존 · 미룸 줄 (got=[0 dead 0] want=[0 alive 1])
+PASS ⓒpress 없음 → 미룸 소화 + 고아 정지 · 끝 줄 left=0
+FAIL ⓒ새 고아 → reap-kill · 미룸 0 · 파일 0 (got=[0 dead 0 f] want=[0 dead 0 nofile])
+== ⓔ 남의 uid 러너(launchd · root) → 미룸 0
+usage: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r690-seat-retire-reap-kills-live-press-o/feature-pack/fable-team/harness/tests/../../harness/bin/ft-seat-reap.sh <좌석> [--dry-run] [--wt <워크트리>] [--orphans-only]
+FAIL ⓔ남의 uid → kill · deferred=0 (got=[alive ] want=[dead deferred=0])
+FAIL ⓔ정규식 오류 → rc 20 (got=[2] want=[20])
+
+FAILED 14
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

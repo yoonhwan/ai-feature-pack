@@ -1,0 +1,29 @@
+PASS bash -n ft-seat-reap.sh
+PASS bash -n ft-seat-retire.sh
+== ⓐ press 러너 살아 있음(기본 패턴 tests/e2e/…press….py) → retire 뒤 고아 생존 · 미룸 1 · rc 0
+PASS ⓐ픽스처 러너·고아
+PASS ⓐretire rc 0 · 고아 생존
+PASS ⓐreap-defer 줄
+PASS ⓐretire 미룸 안내 줄
+PASS ⓐ끝 줄 reap left=0 rc=0 · CLOSE-FAIL 0
+PASS ⓐ미룸 파일 1 · pid 기록
+PASS ⓐreap 끝 줄 deferred=1
+== ⓓ 미룸 소화 — press 끝 → 다른 좌석 reap 이 미룸 pid 정지 · 파일 삭제
+PASS ⓓ못 멈춤 → kept=1
+PASS ⓓ못 멈춤 → 파일 유지 · 고아 생존
+PASS ⓓreap-kill via=⑤미룸
+PASS ⓓreap-deferred-done stopped=1
+PASS ⓓ고아 정지 · 미룸 파일 삭제
+PASS ⓓpid 재사용(lstart 다름) → kill 0 · 파일 삭제
+== ⓑ 장치 허가 held=true(러너 없음) → 미룸 · ⓒ press 없음 → kill
+PASS ⓑdevice held → rc 0 · 고아 생존 · 미룸 줄
+PASS ⓒpress 없음 → 미룸 소화 + 고아 정지 · 끝 줄 left=0
+PASS ⓒ새 고아 → reap-kill · 미룸 0 · 파일 0
+== ⓔ 남의 uid 러너(launchd · root) → 미룸 0
+PASS ⓔ남의 uid → kill · deferred=0
+PASS ⓔ셸 명령줄 글자 오탐 0 → kill · deferred=0
+PASS ⓔ정규식 오류 → rc 20
+PASS ⓔ미룸 경로 못 풂(데이터 루트 없음) → rc 20 · 고아 생존(조용히 지우지 않음)
+
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
