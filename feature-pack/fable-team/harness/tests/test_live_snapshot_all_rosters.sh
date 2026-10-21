@@ -53,7 +53,7 @@ chk "간격 0 → 다시 다른 명부까지" "$(calls)" "D-M#1 T-M#1 T-N#1 X-M#
 runtick "$T/s2" FT_TICK_LIVE_SNAPSHOT=0
 chk "FT_TICK_LIVE_SNAPSHOT=0 → 스냅샷 0" "$(calls)" ""
 cp "$T/s1/out" "$T/s1/out.keep"; : > "$SNAP_LOG"
-( cd "$T/repo" && env FT_TICK_PATH_FIRST="$T/bin" FT_TICK_SEATS="$T/ros/seats-t.json" FT_TICK_STATE_DIR="$T/s3" FT_TICK_RESUME_ATTEMPT="$T/resume-stub.sh" bash "$TICK" --once --dry-run 2>&1 ) > "$T/dry.out"
+( cd "$T/repo" && env FT_TICK_PATH_FIRST="$T/bin" FT_TICK_SEATS="$T/ros/seats-t.json" FT_TICK_STATE_DIR="$T/s3" FT_TICK_RESUME_ATTEMPT="$T/resume-stub.sh" FT_TICK_MBOX="$T/noop.sh" bash "$TICK" --once --dry-run 2>&1 ) > "$T/dry.out"
 chk "dry-run: 다른 명부 좌석도 DRY 줄에 나오되 스냅샷 호출 0" "$(grep -c 'kind=live-snapshot seat=X-N#1' "$T/dry.out")|$(calls)" "1|"
 [ ! -e "$T/s3/live-sweep" ] && ok "dry-run 은 스윕 stamp 를 쓰지 않음" || bad "dry-run 이 stamp 를 씀"
 

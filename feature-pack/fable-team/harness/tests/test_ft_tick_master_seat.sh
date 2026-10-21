@@ -9,6 +9,7 @@ ROOT="$HERE/../.."
 FX="$HERE/fixtures"
 TICKS=("$ROOT/harness/bin/ft-tick.sh" "$ROOT/harness/bin/ft-tick-team.sh")
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
+mkdir -p "$TMP/comm"   # r691: 틱은 comm 폴더가 없으면 rc1(r459 ft_comm_dir) — 임시 comm 을 FT_MBOX_DIR 로(실 루트 comm 0)
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }
@@ -18,7 +19,7 @@ ENVX="FT_TICK_LAUNCHD=0 FT_TICK_MAGAZINE=0 FT_TICK_IDLE_ENABLED=0 FT_TICK_WT_SWE
 # dry <틱> <픽스처> <케이스명> [출력접미사] → stdout/stderr 를 $TMP/<케이스>.out<접미사> 에. 알림 파일 = $TMP/<케이스>/p-DEAD-SEATS.alert
 dry() {
   local tick="$1" fx="$2" name="$3" sfx="${4:-}"; mkdir -p "$TMP/$name"
-  env $ENVX FT_TICK_SEATS="$fx" FT_TICK_STAMP_PREFIX="$TMP/$name/p-" FT_TICK_STATE_DIR="$TMP/$name/state" \
+  env $ENVX FT_MBOX_DIR="$TMP/comm" FT_TICK_SEATS="$fx" FT_TICK_STAMP_PREFIX="$TMP/$name/p-" FT_TICK_STATE_DIR="$TMP/$name/state" \
     bash "$tick" --once --dry-run > "$TMP/$name.out$sfx" 2>&1
   echo $?
 }
@@ -77,7 +78,7 @@ export -f tmux
 # heir <케이스> <좌석표 json> <FAKE_TMUX_LS> — 팀 틱을 --once(전송 경로)로 돌린다. 죽은 _master 좌석 → heir_of·retarget_seat·알림 경로.
 heir() {
   local c="$1"; mkdir -p "$TMP/$c"; printf '%s' "$2" > "$TMP/$c/seats.json"; cp "$TMP/$c/seats.json" "$TMP/$c/seats.orig"
-  FAKE_TMUX_LS="$3" FT_TICK_SEATS="$TMP/$c/seats.json" FT_TICK_STAMP_PREFIX="$TMP/$c/p-" FT_TICK_PIDFILE="$TMP/$c/pid" \
+  FAKE_TMUX_LS="$3" FT_MBOX_DIR="$TMP/comm" FT_TICK_SEATS="$TMP/$c/seats.json" FT_TICK_STAMP_PREFIX="$TMP/$c/p-" FT_TICK_PIDFILE="$TMP/$c/pid" \
     FT_TICK_SEAT_STATUS=/nonexistent FT_TICK_GOAL_TICK=/nonexistent bash "$TEAM" --once > "$TMP/$c.out" 2>&1
 }
 J() { jq -r "$2" "$TMP/$1/seats.json"; }

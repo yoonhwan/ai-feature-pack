@@ -1,0 +1,67 @@
+# 전판(origin/main 06f26aec) — test_ft_tick_master_seat.sh rc=44
+PASS ft-tick bash -n
+FAIL ft-tick-normal rc (got=[1] want=[0])
+FAIL ft-tick-normal master 줄 = T#2 만 (got=[] want=[T#2 ])
+FAIL ft-tick-normal WARN 0 · ERROR 0 (got=[1] want=[0])
+FAIL ft-tick-r21 rc (got=[1] want=[0])
+FAIL ft-tick-r21 master 줄 = T#2 만 (got=[] want=[T#2 ])
+FAIL ft-tick-r21 WARN 1줄(T#1) (got=[0] want=[1])
+FAIL ft-tick-r21 ERROR 0 (got=[1] want=[0])
+--- R21 ft-tick ---
+FAIL ft-tick-nomaster rc (got=[1] want=[0])
+PASS ft-tick-nomaster master 줄 0
+FAIL ft-tick-nomaster ERROR 1줄 (got=[0] want=[1])
+FAIL ft-tick-nomaster 알림 1줄 (got=[0] want=[1])
+FAIL ft-tick-mid rc (got=[1] want=[0])
+PASS ft-tick-mid master 줄 0
+FAIL ft-tick-mid ERROR 1줄 (got=[0] want=[1])
+FAIL ft-tick-mid 알림 1줄 (got=[0] want=[1])
+FAIL ft-tick-mid 같은 서명 2회째 ERROR 0 (got=[1] want=[0])
+FAIL ft-tick-mid 같은 서명 2회째 알림 유지 1줄 (got=[0] want=[1])
+FAIL ft-tick-mid 서명 바뀌면 ERROR 1줄 (got=[0] want=[1])
+FAIL ft-tick-mid 서명 바뀌면 알림 2줄 (got=[0] want=[2])
+FAIL ft-tick-nonews rc (got=[1] want=[0])
+FAIL ft-tick-nonews master 줄 0 · ERROR 0 · WARN 0 (got=[1] want=[0])
+PASS ft-tick-nonews 알림 파일 없음
+PASS ft-tick-team bash -n
+FAIL ft-tick-team-normal rc (got=[1] want=[0])
+FAIL ft-tick-team-normal master 줄 = T#2 만 (got=[] want=[T#2 ])
+FAIL ft-tick-team-normal WARN 0 · ERROR 0 (got=[1] want=[0])
+FAIL ft-tick-team-r21 rc (got=[1] want=[0])
+FAIL ft-tick-team-r21 master 줄 = T#2 만 (got=[] want=[T#2 ])
+FAIL ft-tick-team-r21 WARN 1줄(T#1) (got=[0] want=[1])
+FAIL ft-tick-team-r21 ERROR 0 (got=[1] want=[0])
+--- R21 ft-tick-team ---
+FAIL ft-tick-team-nomaster rc (got=[1] want=[0])
+PASS ft-tick-team-nomaster master 줄 0
+FAIL ft-tick-team-nomaster ERROR 1줄 (got=[0] want=[1])
+FAIL ft-tick-team-nomaster 알림 1줄 (got=[0] want=[1])
+FAIL ft-tick-team-mid rc (got=[1] want=[0])
+PASS ft-tick-team-mid master 줄 0
+FAIL ft-tick-team-mid ERROR 1줄 (got=[0] want=[1])
+FAIL ft-tick-team-mid 알림 1줄 (got=[0] want=[1])
+FAIL ft-tick-team-mid 같은 서명 2회째 ERROR 0 (got=[1] want=[0])
+FAIL ft-tick-team-mid 같은 서명 2회째 알림 유지 1줄 (got=[0] want=[1])
+FAIL ft-tick-team-mid 서명 바뀌면 ERROR 1줄 (got=[0] want=[1])
+FAIL ft-tick-team-mid 서명 바뀌면 알림 2줄 (got=[0] want=[2])
+FAIL ft-tick-team-nonews rc (got=[1] want=[0])
+FAIL ft-tick-team-nonews master 줄 0 · ERROR 0 · WARN 0 (got=[1] want=[0])
+PASS ft-tick-team-nonews 알림 파일 없음
+FAIL ①후계 X#5 → _master (got=[X#3] want=[X#5])
+FAIL ①X#5 tick (got=[null] want=[ft-master-tick])
+FAIL ①X#3 _replaced_by (got=[null] want=[X#5])
+PASS ①알림 0
+PASS ②X#2(낮은 N) → 명부 불변
+FAIL ②DEAD 알림 1줄 (got=[0] want=[1])
+PASS ③X#4 은퇴 행 → 명부 불변
+FAIL ③DEAD 알림 1줄 (got=[0] want=[1])
+PASS ④다른 base·낮은 N → 명부 불변(#2 회귀 0)
+FAIL ④DEAD 알림 1줄 (got=[0] want=[1])
+PASS ⑤retarget_seat rc
+PASS ⑤_master 불변(Y#9)
+PASS ⑤X#3 _replaced_by=X#5
+PASS ⑤X#5 tick 상속
+PASS ⑤b 은퇴 행 rc=3
+PASS ⑤b 명부 불변
+fail=44
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
