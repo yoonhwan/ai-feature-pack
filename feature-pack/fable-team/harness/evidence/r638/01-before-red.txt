@@ -1,0 +1,41 @@
+F.F...                                                                   [100%]
+=================================== FAILURES ===================================
+_________ test_a_fresh_idle_old_cache_working_wakes_without_typeerror __________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-607/test_a_fresh_idle_old_cache_wo0')
+
+    def test_a_fresh_idle_old_cache_working_wakes_without_typeerror(tmp_path: Path) -> None:  # ⓐ 옛 판 = TypeError
+        s = make_scan(tmp_path, fresh=("IDLE", IDLE_MIN + 7), cached=("WORKING", 0))
+>       assert s.wake(SEAT, None) is True
+               ^^^^^^^^^^^^^^^^^^
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r638-stall-scan-wake-idle-age-single-rea/feature-pack/fable-team/harness/tests/scripts/test_ft_stall_scan_wake_r638.py:62: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <ft_stall_scan.Scan object at 0x124ef4650>, seat = 't1-nano#0'
+seq = None
+
+    def wake(self, seat: str, seq: int | None) -> bool:
+        self.live = self.sessions()  # 직전 재확인 — 그 사이 attached 되거나 WORKING 이 됐으면 0
+>       if self.live.get(seat, 0) > 0 or self.idle_age(seat, fresh=True) is None or self.idle_age(seat) < IDLE_MIN:
+                                                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: '<' not supported between instances of 'NoneType' and 'float'
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r638-stall-scan-wake-idle-age-single-rea/feature-pack/fable-team/harness/kit/fable-team/bin/ft_stall_scan.py:173: TypeError
+___________ test_c_fresh_idle_young_does_not_wake_even_if_cache_old ____________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-607/test_c_fresh_idle_young_does_n0')
+
+    def test_c_fresh_idle_young_does_not_wake_even_if_cache_old(tmp_path: Path) -> None:  # ⓒ 옛 판 = 캐시(오래됨)로 깨움
+        s = make_scan(tmp_path, fresh=("IDLE", IDLE_MIN / 3), cached=("IDLE", IDLE_MIN + 7))
+>       assert s.wake(SEAT, 5) is False
+E       AssertionError: assert True is False
+E        +  where True = wake('t1-nano#0', 5)
+E        +    where wake = <ft_stall_scan.Scan object at 0x124ec6610>.wake
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r638-stall-scan-wake-idle-age-single-rea/feature-pack/fable-team/harness/tests/scripts/test_ft_stall_scan_wake_r638.py:75: AssertionError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_ft_stall_scan_wake_r638.py::test_a_fresh_idle_old_cache_working_wakes_without_typeerror
+FAILED tests/scripts/test_ft_stall_scan_wake_r638.py::test_c_fresh_idle_young_does_not_wake_even_if_cache_old
+2 failed, 4 passed in 0.83s
+rc=1

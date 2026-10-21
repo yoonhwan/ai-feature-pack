@@ -1,0 +1,7 @@
+..................................................................       [100%]
+66 passed in 37.33s
+pytest_rc=0
+PASS control: byte diff detected
+PASS control: mode diff detected
+ALL PASS
+sync_rc=0
