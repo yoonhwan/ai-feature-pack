@@ -1,0 +1,51 @@
+FAIL ⓕ 꺼짐 check rc0 :: rc=127 out=bash: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r626-all-teams-stop-switch-core/feature-pack/fable-team/harness/tests/../../harness/kit/fable-team/bin/ft-all-stop.sh: No such file or directory
+PASS ⓑ0 꺼짐 nano 정지 거절 0
+PASS ⓑ0 꺼짐 role PLAN
+PASS ⓒ0 꺼짐 device-acquire OK
+FAIL ⓐ on rc0 :: rc=127 out=bash: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r626-all-teams-stop-switch-core/feature-pack/fable-team/harness/tests/../../harness/kit/fable-team/bin/ft-all-stop.sh: No such file or directory
+FAIL ⓐ ALL_STOP.json {since,by,reason} :: rc=127 out=bash: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r626-all-teams-stop-switch-core/feature-pack/fable-team/harness/tests/../../harness/kit/fable-team/bin/ft-all-stop.sh: No such file or directory
+grep: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.iXf3aEBYyW/mail.log: No such file or directory
+FAIL ⓐ 두 팀 _master 통지 1통씩 :: rc=127 out=bash: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r626-all-teams-stop-switch-core/feature-pack/fable-team/harness/tests/../../harness/kit/fable-team/bin/ft-all-stop.sh: No such file or directory
+grep: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.iXf3aEBYyW/mail.log: No such file or directory
+FAIL ⓐ 통지 본문(답만·spawn·press 0·STATE.md 정지 직전) :: rc=127 out=bash: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r626-all-teams-stop-switch-core/feature-pack/fable-team/harness/tests/../../harness/kit/fable-team/bin/ft-all-stop.sh: No such file or directory
+grep: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.iXf3aEBYyW/mail.log: No such file or directory
+FAIL ⓐ STATE.md 없는 팀 = 틀로 만들기 구절 (m.bb → bb) :: rc=127 out=bash: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r626-all-teams-stop-switch-core/feature-pack/fable-team/harness/tests/../../harness/kit/fable-team/bin/ft-all-stop.sh: No such file or directory
+grep: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.iXf3aEBYyW/mail.log: No such file or directory
+PASS ⓐ STATE.md 있는 팀 = 틀 구절 0
+cp: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.iXf3aEBYyW/repo/.fable-team/state/ALL_STOP.json: No such file or directory
+FAIL ⓗ 이미 켜짐 on = rc0 변경 0 통지 0 :: rc=127 out=bash: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r626-all-teams-stop-switch-core/feature-pack/fable-team/harness/tests/../../harness/kit/fable-team/bin/ft-all-stop.sh: No such file or directory
+PASS ⓗ on 이 PENALTY_STOP 무변경
+FAIL ⓕ 켜짐 check rc1 사유 1줄 :: rc=127 out=bash: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r626-all-teams-stop-switch-core/feature-pack/fable-team/harness/tests/../../harness/kit/fable-team/bin/ft-all-stop.sh: No such file or directory
+FAIL ⓑ 켜짐 nano-spawn REJECT rc1 :: rc=1 out=hold=none
+REJECT 팀 env 없음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.iXf3aEBYyW/repo/.fable-team/bin-aa/aa-env.sh
+FAIL ⓑ 켜짐 role-spawn REJECT rc1 :: rc=0 out=hold=none
+PLAN seat=byz-v65-master-claude#0 role=master agent=claude model=claude-opus-5-5[1m] wt=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.iXf3aEBYyW/repo inbox=design/v65/indices/inbox/master replaces=[<없음>] (구 좌석 kill 안 함)
+BODY [Seatbelt 역할 교체] 너는 master 후계 좌석(byz-v65-master-cl
+PASS ⓒ 켜짐 device-release 통과
+FAIL ⓒ 켜짐 device-acquire REJECT rc1 :: rc=0 out=OK device-acquire mic
+PASS ⓒ 켜짐 status 통과
+FAIL ⓒ 켜짐 leave 통과 :: rc=1 out=REJECT 멤버 mic 이 장치 허가를 쥔 채 탈퇴 불가 — device-release 먼저
+FAIL ⓓ status on · 두 팀 X :: rc=127 out=bash: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r626-all-teams-stop-switch-core/feature-pack/fable-team/harness/tests/../../harness/kit/fable-team/bin/ft-all-stop.sh: No such file or directory
+FAIL ⓓ STATE.md «정지 직전» 적은 팀 O :: rc=127 out=bash: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r626-all-teams-stop-switch-core/feature-pack/fable-team/harness/tests/../../harness/kit/fable-team/bin/ft-all-stop.sh: No such file or directory
+FAIL ⓔ off = ALL_STOP.released-<시각> 로 옮김 :: rc=127 out=bash: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r626-all-teams-stop-switch-core/feature-pack/fable-team/harness/tests/../../harness/kit/fable-team/bin/ft-all-stop.sh: No such file or directory
+FAIL ⓔ 두 팀장 «재개» 통지 :: rc=127 out=bash: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r626-all-teams-stop-switch-core/feature-pack/fable-team/harness/tests/../../harness/kit/fable-team/bin/ft-all-stop.sh: No such file or directory
+PASS ⓗ off 가 PENALTY_STOP 무변경
+FAIL ⓕ 끈 뒤 check rc0 :: rc=127 out=bash: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r626-all-teams-stop-switch-core/feature-pack/fable-team/harness/tests/../../harness/kit/fable-team/bin/ft-all-stop.sh: No such file or directory
+FAIL ⓔ 꺼진 데 off = 이미 꺼짐 rc0 :: rc=127 out=bash: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r626-all-teams-stop-switch-core/feature-pack/fable-team/harness/tests/../../harness/kit/fable-team/bin/ft-all-stop.sh: No such file or directory
+FAIL usage rc2 :: rc=127 out=bash: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r626-all-teams-stop-switch-core/feature-pack/fable-team/harness/tests/../../harness/kit/fable-team/bin/ft-all-stop.sh: No such file or directory
+FAIL ⓖ 좌석 on 직접 = deny :: rc=0 out=
+FAIL ⓖ 좌석 off 직접 = deny :: rc=0 out=
+FAIL ⓖ 좌석 이름 못 읽음 on = deny :: rc=0 out=
+PASS ⓖ planner _master on = 통과
+PASS ⓖ 좌석 status·check = 통과
+FAIL ⓖ 좌석 ALL_STOP.json 쓰기 = deny :: rc=0 out=
+FAIL ⓖ planner 도 ALL_STOP.json 직접 Write = deny(도구로만) :: rc=0 out=
+PASS ⓖ 읽기 = 통과
+FAIL ⓖ 좌석이 bash /tmp/hN(정지 켜기) 실행 = deny :: rc=0 out=
+PASS ⓖ planner _master 가 hN 실행 = 통과
+PASS ⓖ 기존 자율 막기 문구 그대로
+PASS 변이 ft-nano-spawn.sh 검사 줄 제거 → 막기 0(시험이 잡는다)
+PASS 변이 ft-role-spawn.sh 검사 줄 제거 → 막기 0(시험이 잡는다)
+PASS 변이 ft-press-permit.sh 검사 줄 제거 → 막기 0(시험이 잡는다)
+fail=25
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
