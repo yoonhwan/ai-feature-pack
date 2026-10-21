@@ -1,0 +1,73 @@
+# r555 ⓕ 보정(1번 Serena 조항 문구만) · 2026-10-21 10:44:13
+## ① r625 가지(작업 트리)
+PASS ⓐ rc=0 (좌석 포트 기록 있음)
+PASS ⓐ ensure 인자 = 좌석 포트의 프로젝트(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.uF1BqnFAEI/proj/.worktrees/v6-realtime-live)
+PASS ⓐ ensure 인자에 ROOT 가 아님
+PASS ⓐ dry/apply 줄에 «ensure project=<경로> port=<n>»
+PASS ⓑ 기록 없음 rc=2
+PASS ⓑ die 문구에 «좌석 포트 <n> 의 프로젝트 기록 없음»
+PASS ⓑ die 문구에 처방(ensure <경로>)
+PASS ⓒ 맞는 경로 명시 rc=0
+PASS ⓒ 명시 경로가 그대로 렌더
+PASS ⓒ 포트 불일치(other=9267) rc=2
+PASS ⓒ die 문구에 계산 포트
+PASS ⓓ url 없음 rc=0
+PASS ⓓ 맞출 대상 없음 = ROOT 그대로
+PASS ⓓ stderr WARN 1줄
+PASS ⓔ plutil -lint OK
+PASS ⓔ AbandonProcessGroup true
+PASS ⓔ 템플릿에 옛 자리표 __ROOT__ 없음
+PASS ⓕ 1번 조항 1개
+PASS ⓕ 1번 줄 인자 이름 = session
+PASS ⓕ 1번 줄에 «session 없이» 문구
+PASS ⓕ 1번 줄에 옛 인자 «session_id=…» 없음
+ALL PASS
+rc=0
+## ② base = origin/main d3eed177842db7b06559540d9f84d8ec0c6a8321 BOOT + 보정 시험
+PASS ⓐ rc=0 (좌석 포트 기록 있음)
+PASS ⓐ ensure 인자 = 좌석 포트의 프로젝트(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.YHtUoOanyV/proj/.worktrees/v6-realtime-live)
+PASS ⓐ ensure 인자에 ROOT 가 아님
+PASS ⓐ dry/apply 줄에 «ensure project=<경로> port=<n>»
+PASS ⓑ 기록 없음 rc=2
+PASS ⓑ die 문구에 «좌석 포트 <n> 의 프로젝트 기록 없음»
+PASS ⓑ die 문구에 처방(ensure <경로>)
+PASS ⓒ 맞는 경로 명시 rc=0
+PASS ⓒ 명시 경로가 그대로 렌더
+PASS ⓒ 포트 불일치(other=9755) rc=2
+PASS ⓒ die 문구에 계산 포트
+PASS ⓓ url 없음 rc=0
+PASS ⓓ 맞출 대상 없음 = ROOT 그대로
+PASS ⓓ stderr WARN 1줄
+PASS ⓔ plutil -lint OK
+PASS ⓔ AbandonProcessGroup true
+PASS ⓔ 템플릿에 옛 자리표 __ROOT__ 없음
+PASS ⓕ 1번 조항 1개
+PASS ⓕ 1번 줄 인자 이름 = session
+PASS ⓕ 1번 줄에 «session 없이» 문구
+PASS ⓕ 1번 줄에 옛 인자 «session_id=…» 없음
+ALL PASS
+rc=0
+## ③ 변이1 = r625 BOOT 1번 줄 session= → session_id= (빨강 기대)
+PASS ⓐ rc=0 (좌석 포트 기록 있음)
+PASS ⓐ ensure 인자 = 좌석 포트의 프로젝트(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.TAr3o81UnH/proj/.worktrees/v6-realtime-live)
+PASS ⓐ ensure 인자에 ROOT 가 아님
+PASS ⓐ dry/apply 줄에 «ensure project=<경로> port=<n>»
+PASS ⓑ 기록 없음 rc=2
+PASS ⓑ die 문구에 «좌석 포트 <n> 의 프로젝트 기록 없음»
+PASS ⓑ die 문구에 처방(ensure <경로>)
+PASS ⓒ 맞는 경로 명시 rc=0
+PASS ⓒ 명시 경로가 그대로 렌더
+PASS ⓒ 포트 불일치(other=9412) rc=2
+PASS ⓒ die 문구에 계산 포트
+PASS ⓓ url 없음 rc=0
+PASS ⓓ 맞출 대상 없음 = ROOT 그대로
+PASS ⓓ stderr WARN 1줄
+PASS ⓔ plutil -lint OK
+PASS ⓔ AbandonProcessGroup true
+PASS ⓔ 템플릿에 옛 자리표 __ROOT__ 없음
+PASS ⓕ 1번 조항 1개
+FAIL ⓕ 1번 줄 인자 이름 = session — 없음: «session=» ← 1. **Serena**: `initial_instructions` 를 먼저 1회 호출해 `session_id` 를 받은 뒤 `activate_project(project="<현재 워크트리 절대경로>", session_id=…)` (이름 아님 · `get_current_config` 먼저 부르지 말 것 · session 없이 부르면 `Field required` 로 실패한다 — 2026-09-23 두 좌석 실측). 미노출이면 
+PASS ⓕ 1번 줄에 «session 없이» 문구
+FAIL ⓕ 1번 줄에 옛 인자 «session_id=…» 없음 — 있으면 안 됨: «session_id=…»
+FAILED=2
+rc=2
