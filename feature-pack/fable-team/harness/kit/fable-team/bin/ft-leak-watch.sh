@@ -3,7 +3,8 @@
 #   ps 1회 스냅샷(ft-leak-reap.sh --snapshot) → 같은 스냅샷으로 ft-leak-reap.sh --dry-run --quiet → 결과를 경보 큐(_hil_route planner, 없으면 _master)로.
 #   ★틱은 영구히 dry-run 경보만 — 사살(--kill) 실행자는 머신당 launchd 가드 1 이다. 이 파일은 --kill 을 부르지 않는다★
 #   rc 0(유출 0) → 미해소 유출이 있었으면 [부하 유출 해소] 1통 · rc 10(발견) → [부하 유출 N건] · 그 밖 전부(리퍼 없음·mktemp 실패·python3 없음·rc 20 …) → [부하 유출 조사 실패]
-#   ★경보 상태 = 머신 공통 두 칸·잠금 안에서만 갱신★ — $FT_LEAK_ALERT_STATE(미해소 유출 «지문 시각») · $FT_LEAK_ALERT_STATE.err(조사 실패 «지문 시각»).
+#   ★경보 상태 = 머신 공통 두 칸·잠금 안에서만 갱신★ — $FT_LEAK_ALERT_STATE(미해소 유출 «지문 시각») · $FT_LEAK_ALERT_STATE.err(조사 실패 «지문 시각 연속횟수 다음재조사시각»).
+#   ★r670★ 조사 실패(rc 20) 칸은 «연속 N회 · 다음 재조사 60초 뒤» 를 같이 남긴다 — 600초 억제는 «알림 빈도» 만 줄이고, 조사·연속 횟수 갱신은 경과한 틱마다 계속한다(부하 꼭대기에서 눈감지 않기).
 #   잠금(mkdir $FT_LEAK_ALERT_STATE.lock · 120s 넘은 잔재는 회수) 안에서 «최신 상태 재조회 → 송신 → 성공 시 원자 교체(mv)/해소 시 삭제» — 못 잡으면 이 틱은 알림만 건너뛴다(다음 틱).
 #   같은 지문은 FT_LEAK_REALERT_SEC(600s)에 1통 · 유출 → 조사 실패 → 정상 에서도 유출 칸이 보존돼 해소 1통이 나간다 · 해소 판단은 «내 관측 시각 이후에 쓴 상태»를 건드리지 않는다.
 #   오류 지문 = 임시 경로·긴 숫자를 지운 «안정된 원인 문자열» cksum · 수신자 조회는 python3 없이(grep)
@@ -14,7 +15,7 @@ HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REAP="${FT_LEAK_REAP_BIN:-$HERE/ft-leak-reap.sh}"
 SEATS="${FT_TICK_SEATS:-}"; MBOX="${FT_TICK_MBOX:-}"
 LEAK_ST="${FT_LEAK_ALERT_STATE:-/tmp/ft-leak-alert.state}"; ERR_ST="$LEAK_ST.err"; LOCK="$LEAK_ST.lock"
-REALERT="${FT_LEAK_REALERT_SEC:-600}"; LOCK_STALE="${FT_LEAK_LOCK_STALE:-120}"
+REALERT="${FT_LEAK_REALERT_SEC:-600}"; LOCK_STALE="${FT_LEAK_LOCK_STALE:-120}"; RECHECK="${FT_LEAK_RECHECK_SEC:-60}"
 [ "${1:-}" = --dry-run ] && { echo "DRY kind=leak-reap bin=$REAP"; exit 0; }
 now() { date +%s; }
 OBS="$(now)"; SNAP=""; HAVE_LOCK=0
@@ -36,6 +37,10 @@ acquire() {
   return 1
 }
 put() { printf '%s %s\n' "$2" "$(now)" > "$1.tmp$$" && mv "$1.tmp$$" "$1"; }   # 원자 교체
+put_err() { printf '%s %s %s %s\n' "$1" "$2" "$3" "$4" > "$ERR_ST.tmp$$" && mv "$ERR_ST.tmp$$" "$ERR_ST"; }   # 지문 시각 연속횟수 다음재조사시각(r670)
+# 직전 조사 실패의 «다음 재조사 시각» — 예정 시각을 넘겼으면 이번 틱이 그 재조사다(r670 · 같은 틱 안 대기 금지)
+PREV_NEXT=0; read -r _pf _pt _pc PREV_NEXT 2>/dev/null < "$ERR_ST" || PREV_NEXT=0
+[ "${PREV_NEXT:-0}" -gt 0 ] 2>/dev/null || PREV_NEXT=0
 
 # ── 조사: 어느 분기든 실패는 rc 20 으로 같은 경보 경로에 합류(조용한 종료 0) ──
 rc=0; out=""
@@ -59,26 +64,33 @@ case "$rc" in
     err="$(printf '%s\n' "$out" | grep -m1 . | cut -c1-160)"
     stable="$(printf '%s' "$err" | sed -E 's#(/[^ :;,]+)+#<경로>#g; s/[0-9]{3,}/N/g')"; fp="ERR:$(printf '%s' "$stable" | cksum | cut -d' ' -f1)"
     echo "leak-reap: ERROR rc=$rc ${err}"
-    body="[부하 유출 조사 실패] 유출 조사를 못 했다(rc=$rc) — ${err}. 유출 0 이 아니라 «못 봤다»다. 같은 오류는 ${REALERT}초에 1통.";;
+    [ "$PREV_NEXT" -eq 0 ] || [ "$OBS" -lt "$PREV_NEXT" ] || echo "ft-leak-watch: 재조사 — 직전 실패의 예정 시각($PREV_NEXT) 경과 — 이번 틱이 그 1회다"
+    body="[부하 유출 조사 실패] 유출 조사를 못 했다(rc=$rc) — ${err}. 유출 0 이 아니라 «못 봤다»다. 연속 @N@회 · 다음 재조사 ${RECHECK}초 뒤 · 같은 오류는 ${REALERT}초에 1통.";;
 esac
 
 acquire || exit 0   # 다른 틱이 상태를 쥐고 있다 — 이 틱의 알림은 건너뛴다(다음 틱이 이어받는다)
 read -r lfp lts 2>/dev/null < "$LEAK_ST" || { lfp=""; lts=0; }
-read -r efp ets 2>/dev/null < "$ERR_ST" || { efp=""; ets=0; }
-
+read -r efp ets ecnt enext 2>/dev/null < "$ERR_ST" || { efp=""; ets=0; ecnt=0; enext=0; }
+[ -n "${ets:-}" ] || ets=0; case "${ecnt:-}" in ''|*[!0-9]*) ecnt=0;; esac
 if [ "$rc" = 0 ]; then
-  [ -z "$efp" ] || { rm -f "$ERR_ST"; echo "leak-reap: 조사 오류 해소($efp)"; }
+  [ -z "$efp" ] || { rm -f "$ERR_ST"; echo "leak-reap: 조사 오류 해소($efp · 연속 ${ecnt}회였다)"; }
   [ -n "$lfp" ] || exit 0
   [ "$lts" -lt "$OBS" ] || exit 0   # 내 관측보다 늦게 쓴 유출 상태 — 해소 판단 보류(다음 틱)
   send "[부하 유출 해소] 지문 $lfp 의 고아 부하 프로세스가 더는 보이지 않는다(dry-run 재조사 0건)." && { rm -f "$LEAK_ST"; echo "leak-reap: 유출 해소 지문=$lfp"; }
   exit 0
 fi
 if [ "$rc" = 10 ]; then
-  [ -z "$efp" ] || rm -f "$ERR_ST"   # 유효한 조사 결과가 나왔다 — 오류 칸 해소
+  [ -z "$efp" ] || rm -f "$ERR_ST"   # 유효한 조사 결과가 나왔다 — 오류 칸 해소(연속 횟수 0)
   [ "$lfp" = "$fp" ] && [ $(( $(now) - lts )) -lt "$REALERT" ] && exit 0
   send "$body" && put "$LEAK_ST" "$fp"
   exit 0
 fi
-[ "$efp" = "$fp" ] && [ $(( $(now) - ets )) -lt "$REALERT" ] && exit 0   # 유출 칸(LEAK_ST)은 건드리지 않는다 — 오류 중에도 미해소 유출 보존
-send "$body" && put "$ERR_ST" "$fp"
+# ── 조사 실패(r670): 연속 횟수 · 다음 재조사 시각을 «억제 중에도» 남간다 — 알림(600초)과 조사(경과 틱마다)는 별개다 ──
+[ "$efp" = "$fp" ] || ecnt=0
+cnt=$(( ecnt + 1 )); body="${body/@N@/$cnt}"; next=$(( OBS + RECHECK ))
+if [ "$efp" = "$fp" ] && [ $(( $(now) - ets )) -lt "$REALERT" ]; then
+  put_err "$fp" "$ets" "$cnt" "$next"   # 같은 오류 600초 안 — 송신 0, 상태(연속·다음 시각)는 진행
+  exit 0
+fi
+send "$body" && { put_err "$fp" "$OBS" "$cnt" "$next"; exit 0; }   # 송신 실패 = 상태를 남기지 않는다(다음 틱 재시도)
 exit 0

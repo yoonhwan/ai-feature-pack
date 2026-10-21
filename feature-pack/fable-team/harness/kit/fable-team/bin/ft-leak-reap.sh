@@ -4,9 +4,11 @@
 # 상류: ai-feature-pack feature-pack/fable-team/skill/scripts/ft-leak-reap.sh @ 819dd4e (콘텐츠 sha256 = 카드 R347 상태 절 · LIVE-MAP 행)
 # ★상류와 다른 «4개 안전 변경 항목»★ — 판정(부하 시그니처 ∧ PPID=1 ∧ 누적 CPU ≥ MIN_CPU(30s) ∧ 보호 exe 제외)은 상류 그대로
 #   ① 조사 실패 = exit 20 + stderr «ft-leak-reap: ERROR …» 1줄(python3 없음 · ps rc≠0 · ps timeout · 스냅샷 읽기·쓰기·파싱·신선도 · 예외) — 상류는 exit 0 이라 유출 0 과 구분이 안 됐다(#0 RULE). traceback 0
-#   ② ps 입력 계약: FT_PS_SNAPSHOT=<파일> 이 있으면 그 파일만(자기 ps 폴백 0), 없으면 자기 ps 1회. 필드 7 = pid ppid pgid lstart time stat command (LC_ALL=C).
-#      생산(--snapshot)·소비가 같은 검증 — lstart 5토큰 형식·time·stat·빈 표 · 소비는 신선도(FT_PS_SNAPSHOT_MAX_AGE 120s)까지. 생산 실패 = 기존 출력 파일·임시 파일 삭제 + rc20
+#   ② ps 입력 계약: FT_PS_SNAPSHOT=<파일> 이 있으면 그 파일만(자기 ps 폴백 0), 없으면 자기 ps 1회. ★필드 5 = pid ppid lstart time command (LC_ALL=C · r670 — 판정에 쓰는 필드만: pgid·stat 은 판정에 안 쓴다)★
+#      소비는 옛 판·ft-agent-alive 의 필드 7(pid ppid pgid lstart time stat command)도 읽는다(설치 직후 120s 안에 남은 옛 스냅샷이 «조사 실패»로 오판되지 않게). 긴 명령 줄은 앞 512자만 판정·출력에 쓴다.
+#      생산(--snapshot)·소비가 같은 검증 — lstart 5토큰 형식·time·빈 표 · 소비는 신선도(FT_PS_SNAPSHOT_MAX_AGE 120s)까지. 생산 실패 = 기존 출력 파일·임시 파일 삭제 + rc20
 #   ③ ps 호출 timeout 7초 — FT_PS_TIMEOUT 은 7 이하만(초과 주입 = 7 로 제한 + stderr WARN 1줄) · 대역 주입 FT_PS_CMD(시험 전용)
+#      ★r670: 부하 꼭대기(load 98~122)에서 ps 1회가 7초를 넘겨 «조사 못 함»이 두 번 났다 — «첫 출력 전» 실패(timeout·출력 없는 rc≠0·실행 실패)만 1회 재시도한다(총 마감 2×7=14초 · 출력이 나온 뒤 실패는 재시도 0 — 같은 표를 두 번 읽는 것은 부하만 늘린다)★
 #   ④ 사건 지문 fp = 후보 (pid|lstart) 집합 sha1 앞 8자 — 틱 경보 중복 억제 단위 · 신규 --snapshot 발행 동작
 # 판정이 좁은 이유: «고아 + 누적 CPU» 만으로 찾으면 launchd 데몬(logd·mds…)이 전부 PPID=1 이라 오탐 사살 — 시그니처 필수.
 #
@@ -24,7 +26,7 @@ for a in "$@"; do case "$a" in
   --json)        JSON=1 ;;
   --min-cpu=*)   MIN_CPU="${a#*=}" ;;
   --snapshot=*)  SNAP_OUT="${a#*=}" ;;
-  -h|--help)     sed -n '2,19p' "$0"; exit 0 ;;
+  -h|--help)     sed -n '2,18p' "$0"; exit 0 ;;
   *) echo "usage: $0 [--kill|--dry-run] [--min-cpu=N] [--quiet] [--json] | --snapshot=<파일>" >&2; exit 2 ;;
 esac; done
 
@@ -36,7 +38,8 @@ found="$("$PY" - "$MIN_CPU" "$SNAP_OUT" <<'PY'
 import hashlib, os, re, shlex, subprocess, sys, time
 
 snap_out = sys.argv[2]
-DEFAULT_PS = "ps -axo pid=,ppid=,pgid=,lstart=,time=,stat=,command="
+DEFAULT_PS = "ps -axo pid=,ppid=,lstart=,time=,command="   # r670: 판정에 쓰는 필드만(pgid·stat 제거) — 부하 꼭대기의 ps 비용을 줄인다
+CMD_MAX = 512        # 긴 명령 줄은 앞 512자만 판정·출력(스냅샷 파일은 ps 출력 그대로 쓴다)
 SIGS = ("while :; do :; done", "while true; do :; done", "while [ 1 ]; do :; done", "while :;do :;done", "while true;do :;done")
 PROTECT_EXE = {"cli-proxy-api", "headroom", "tmux", "tmux-server", "hermes", "launchd", "WindowServer", "login", "sshd", "python3"}
 TIME_RE = re.compile(r"^(\d+-)?\d+:\d+(:\d+)?(\.\d+)?$")
@@ -80,17 +83,28 @@ def parse(text):   # 생산·소비 공용 검증 — 못 읽는 행 하나라�
     for ln in text.splitlines():
         if not ln.strip():
             continue
-        f = ln.strip().split(None, 10)
-        if len(f) < 11 or not (f[0].isdigit() and f[1].isdigit() and f[2].isdigit() and TIME_RE.match(f[8]) and STAT_RE.match(f[9]) and LST_RE.match(" ".join(f[3:8]))):
-            die(f"ps 행 파싱 실패(필드 7 계약 · LC_ALL=C 필요): {ln.strip()[:80]}")
-        rows.append((int(f[0]), f[1], " ".join(f[3:8]), secs(f[8]), f[10]))
+        s = ln.strip()
+        head = s.split(None, 3)
+        if len(head) >= 3 and head[2].isdigit():     # 필드 7(옛 판·ft-agent-alive 계약) — pid ppid pgid lstart time stat command
+            f = s.split(None, 10)
+            if len(f) < 11 or not STAT_RE.match(f[9]):
+                die(f"ps 행 파싱 실패(필드 7 · stat 열 · LC_ALL=C 필요): {s[:80]}")
+            pid, ppid, lstart, t, cmd = f[0], f[1], " ".join(f[3:8]), f[8], f[10]
+        else:                                        # 필드 5(r670 경량) — pid ppid lstart time command
+            f = s.split(None, 8)
+            if len(f) < 9:
+                die(f"ps 행 파싱 실패(필드 5 계약 · LC_ALL=C 필요): {s[:80]}")
+            pid, ppid, lstart, t, cmd = f[0], f[1], " ".join(f[2:7]), f[7], f[8]
+        if not (pid.isdigit() and ppid.isdigit() and TIME_RE.match(t) and LST_RE.match(lstart)):
+            die(f"ps 행 파싱 실패(필드 5 계약 · LC_ALL=C 필요): {s[:80]}")
+        rows.append((int(pid), ppid, lstart, secs(t), cmd[:CMD_MAX]))
     if not rows:
         die("ps 표가 비어 있음")
     return rows
 
 def read_ps():
     snap = os.environ.get("FT_PS_SNAPSHOT")
-    if snap and not snap_out:
+    if snap and not snap_out:   # 파일 읽기 = 재시도 0(r670)
         try:
             age = time.time() - os.stat(snap).st_mtime
             text = open(snap, encoding="utf-8", errors="replace").read()
@@ -105,15 +119,25 @@ def read_ps():
         limit = 7.0
     if limit <= 0:
         die(f"FT_PS_TIMEOUT={limit:g} 는 0 보다 커야 함")
-    try:
-        r = subprocess.run(shlex.split(os.environ.get("FT_PS_CMD") or DEFAULT_PS), capture_output=True, text=True, timeout=limit, env={**os.environ, "LC_ALL": "C"})
-    except subprocess.TimeoutExpired:
-        die("ps timeout")
-    except Exception as e:
-        die(f"ps 실행 실패: {e}")
-    if r.returncode != 0:
-        die(f"ps rc={r.returncode}")
-    return r.stdout
+    cmd = shlex.split(os.environ.get("FT_PS_CMD") or DEFAULT_PS)
+    deadline, err = time.time() + 2 * limit, ""
+    for attempt in (1, 2):   # 첫 출력 전 실패만 1회 더 본다(총 14초) — 두 번째도 실패하면 그대로 rc 20
+        budget = max(min(limit, deadline - time.time()), 0.1)
+        try:
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=budget, env={**os.environ, "LC_ALL": "C"})
+        except subprocess.TimeoutExpired:
+            err = "ps timeout"
+            continue
+        except Exception as e:
+            err = f"ps 실행 실패: {e}"
+            continue
+        if r.returncode != 0:
+            err = f"ps rc={r.returncode}"
+            if (r.stdout or "").strip():
+                die(err)   # 출력이 나왔다 = «첫 출력 전» 실패가 아니다(재시도 0)
+            continue
+        return r.stdout
+    die(f"{err} — 재시도 1회 포함 2회 실패")
 
 text = read_ps()
 table = parse(text)

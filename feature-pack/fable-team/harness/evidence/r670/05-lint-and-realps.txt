@@ -1,0 +1,24 @@
+### bash -n
+rc=0 bin/ft-leak-reap.sh
+rc=0 bin/ft-leak-watch.sh
+rc=0 tests/test_leak_reap_ps_retry_r670.sh
+rc=0 tests/test_leak_reap.sh
+### 키트↔추적 짝 cmp
+rc=0 ft-leak-reap.sh
+rc=0 ft-leak-watch.sh
+### python 변경 0(파이썬은 파이썬 히어독 안 — .py 파일 diff 0)
+(위 빈 줄 = py 변경 0)
+### --help = 헤더만(2..18)
+# exit: 0 = 유출 0 또는 정리 완료 · 10 = dry-run 발견 · 20 = 조사 실패 · 2 = usage
+### 실제 ps 경량 생산→소비
+snapshot rc=0
+    1     0 Wed Oct 21 14:34:22 2026      15:25.98 /sbin/launchd
+   95     1 Wed Oct 21 14:35:27 2026       8:42.94 /usr/libexec/logd
+leak-reap: 유출 0
+consume rc=0
+### 생산물 첫 행 필드(pid ppid lstart5 time command)
+tokens=9
+### 옛 필드 7 스냅샷 호환(설치 직후 120s 창)
+leak-reap: [dry] 유출 후보 pid=5001 start="Sat Oct 18 00:12:34 2026" cpu=90s cmd=bash -c (while :; do :; done)
+leak-reap: 유출 1건 fp=917a749f — 정리하려면 --kill(머신 가드 소관)
+consume rc=10

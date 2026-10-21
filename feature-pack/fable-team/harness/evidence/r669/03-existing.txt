@@ -1,0 +1,20 @@
+=== test_spawn_agent_ready rc=0 PASS=55 FAIL=0
+=== test_nano_spawn_tier rc=0 PASS=43 FAIL=0
+=== test_nano_spawn_recheck_cited rc=0 PASS=11 FAIL=0
+=== test_nano_spawn_reuse_info rc=0 PASS=24 FAIL=0
+=== test_nano_spawn_pi_effort_kind_r631 rc=0 PASS=65 FAIL=0
+=== test_nano_spawn_pi_effort_serena rc=0 PASS=50 FAIL=0
+=== test_nano_spawn_body_press rc=2 PASS=28 FAIL=3
+FAIL ⓒ status 에 node_modules 보임
+FAIL ⓒ 전체 스테이징이 node_modules 를 담음
+FAILED=2
+=== test_nano_spawn_body_search_roster rc=0 PASS=26 FAIL=0
+=== test_nano_spawn_teamset_cap rc=7 PASS=11 FAIL=8
+FAIL ⓐ hold=none
+FAIL ⓑ calls=«» hold=none
+FAIL ⓒ rc=1 hold=none
+=== test_seat_cap_nano_only_r666 rc=0 PASS=11 FAIL=0
+=== test_teamset_check rc=5 PASS=33 FAIL=6
+FAIL design/TEAMSET.md 없음
+FAIL ⓚ harness → ERROR TEAMSET 읽기 실패 /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r669-spawn-proxy-probe-first-response-7s/feature-pack/fable-team/harness/tests/../../design/TEAMSET.md: [Errno 2] No such file or directory: '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r669-spawn-proxy-probe-first-response-7s/feature-pack/fable-team/harness/tests/../../design/TEAMSET.md'
+FAIL ⓚ ops → ERROR TEAMSET 읽기 실패 /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r669-spawn-proxy-probe-first-response-7s/feature-pack/fable-team/harness/tests/../../design/TEAMSET.md: [Errno 2] No such file or directory: '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r669-spawn-proxy-probe-first-response-7s/feature-pack/fable-team/harness/tests/../../design/TEAMSET.md'

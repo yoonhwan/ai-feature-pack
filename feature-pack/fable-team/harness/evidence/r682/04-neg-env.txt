@@ -1,0 +1,9 @@
+# 음성 대조 — FT_TEAMSET_REAL_MD 에 harness=9 인 표를 주면 ⓤ 가 FAIL 해야 한다(조용한 PASS 0)
+# 실행: FT_TEAMSET_REAL_MD=<harness 9 표> bash feature-pack/fable-team/harness/tests/test_teamset_check.sh
+
+FAIL ⓤ 실 표 harness 값이 픽스처와 다름(표가 바뀌면 픽스처 갱신) → CAP harness live=0 cap=9
+FAIL ⓤ 실 표 ops 값이 픽스처와 다름(표가 바뀌면 픽스처 갱신) → CAP ops live=0 cap=3
+FAIL ⓤ 실 표 v65 값이 픽스처와 다름(표가 바뀌면 픽스처 갱신) → CAP v65 live=0 cap=3
+PASS ⓤ 실 표 cfo 상한 3
+FAILED 3
+rc(pipe)=3

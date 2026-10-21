@@ -1,0 +1,7 @@
+=== after (new template)
+test_board.sh rc=0 PASS=72 FAIL=0
+test_board_publish.sh rc=0 PASS=14 FAIL=0
+test_board_publish_norm.sh rc=0 PASS=15 FAIL=0
+test_board_publish_tick.sh rc=0 PASS=14 FAIL=0
+test_kit_bin_sync.sh rc=0 PASS=7 FAIL=0
+test_sheet_publish.sh rc=0 PASS=40 FAIL=0

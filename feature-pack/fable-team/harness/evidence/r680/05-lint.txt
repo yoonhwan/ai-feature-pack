@@ -1,0 +1,25 @@
+# 05-lint — 2026-10-22 02:45
+## bash -n
+kit/fable-team/bin/ft-nano-close.sh rc=0
+bin/ft-nano-close.sh rc=0
+tests/test_nano_close_cwd_holders_skip_self_r680.sh rc=0
+## 키트 ↔ 추적 짝 cmp
+cmp rc=0
+## shellcheck ShellCheck - shell script analysis tool version: 0.11.0 
+
+In kit/fable-team/bin/ft-nano-close.sh line 94:
+    . "$_tenv"
+      ^------^ SC1090 (warning): ShellCheck can't follow non-constant source. Use a directive to specify location.
+
+
+In kit/fable-team/bin/ft-nano-close.sh line 472:
+  WT_RERUN=1
+  ^------^ SC2034 (warning): WT_RERUN appears unused. Verify use (or export if used externally).
+
+For more information:
+  https://www.shellcheck.net/wiki/SC1090 -- ShellCheck can't follow non-const...
+  https://www.shellcheck.net/wiki/SC2034 -- WT_RERUN appears unused. Verify u...
+shellcheck rc=0
+## python 변경
+python 변경 0
+# 위 SC1090(:94)·SC2034(:472) 는 base 판에도 같은 줄·같은 수(경고 2) — 이 카드와 무관(내가 추가한 줄에 경고 0).

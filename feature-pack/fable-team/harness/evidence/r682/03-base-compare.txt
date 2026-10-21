@@ -1,0 +1,16 @@
+# 기준 대조 — PASS 줄 집합 before(00)/after(01) (r682)
+# before: 33 PASS · after: 37 PASS
+
+--- before 만 (사라진 PASS) ---
+--- after 만 (새 PASS) ---
+PASS ⓚ 픽스처 표 cfo 상한 3
+PASS ⓚ 픽스처 표 harness 상한 4
+PASS ⓚ 픽스처 표 ops 상한 5
+PASS ⓚ 픽스처 표 v65 상한 5
+
+--- before FAIL 5 원문 ---
+FAIL design/TEAMSET.md 없음
+FAIL ⓚ harness → ERROR TEAMSET 읽기 실패 /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r682-teamset-check-test-real-table-path-/feature-pack/fable-team/harness/tests/../../design/TEAMSET.md [디렉터리 없음]
+FAIL ⓚ ops → ERROR TEAMSET 읽기 실패 /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r682-teamset-check-test-real-table-path-/feature-pack/fable-team/harness/tests/../../design/TEAMSET.md [디렉터리 없음]
+FAIL ⓚ v65 → ERROR TEAMSET 읽기 실패 /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r682-teamset-check-test-real-table-path-/feature-pack/fable-team/harness/tests/../../design/TEAMSET.md [디렉터리 없음]
+FAIL ⓚ cfo → ERROR TEAMSET 읽기 실패 /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r682-teamset-check-test-real-table-path-/feature-pack/fable-team/harness/tests/../../design/TEAMSET.md [디렉터리 없음]

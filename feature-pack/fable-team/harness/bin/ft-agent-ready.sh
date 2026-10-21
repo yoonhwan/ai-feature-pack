@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # ft-agent-ready.sh — 좌석 기동 확인 (R251 · 판정 1945 후속 · ft-nano-spawn.sh 가 부른다)
-#   --proxy <작업폴더> [--agent A]   기동 전 추론 프록시 확인. 7초 룰: 시도당 curl -m 3 × 최대 2회(사이 2 s). 직결·codex 는 호출 0
-#                                    실패 = `REJECT 프록시 <url> 2회 실패` rc1 (직결로 바꾸지 않는다 — #0 RULE)
+#   --proxy <작업폴더> [--agent A]   기동 전 추론 프록시 확인. 7초 룰(하드 룰 12 · r669): 시도당 curl -m 7 × 최대 2회(사이 2 s) = 총 16 s 이하.
+#                                    상한 = FT_PROXY_PROBE_MAX(기본 7 · 7 초과 주입은 7 로 제한 + WARN) · 재시도 1회는 «첫 바이트 전 실패»(연결 거절·시간 초과)만 —
+#                                    HTTP 응답이 왔는데 비정상(500 등 curl rc22)이면 재시도 0 즉시 실패. 직결·codex 는 호출 0
+#                                    실패 = `REJECT 프록시 <url> 2회 실패` rc1 (직결로 바꾸지 않는다 — #0 RULE · 부르는 쪽이 순번 큐로 넘긴다)
 #   --pane <pane_id>|--pid <pid> --agent A [--wait 20] [--restart "<기동 명령>"]
 #                                    pane_pid 자손에서 «에이전트 본체» 를 1 s 간격으로 최대 wait 초 찾는다.
 #                                    READY <pid> rc0 · NOAGENT rc3 · ERROR <사유> rc1(ps 실패 — 조용한 READY 0)
@@ -23,17 +25,31 @@ agent_body_pids() {
       else if (p!=root) print p } }'
 }
 
+# r669: 옛 판은 시도당 3초 고정 — 부하 때 프록시 첫 응답이 7.0초면 두 번 다 실패해 «거짓 REJECT»(v65 3회 · 직후 curl 은 200/0.003초).
+#   하드 룰 12 기준값(시도당 7초 + 재시도 1회 · 재시도는 첫 바이트 전 실패만)으로 맞춘다.
+proxy_probe_max() { # stdout = 시도당 상한 초 (1..7)
+  local v="${FT_PROXY_PROBE_MAX:-7}"
+  case "$v" in ''|*[!0-9]*) echo "WARN FT_PROXY_PROBE_MAX='$v' 숫자 아님 — 7 로 본다" >&2; v=7;; esac
+  [ "$v" -ge 1 ] || { echo "WARN FT_PROXY_PROBE_MAX=$v < 1 — 1 로 본다" >&2; v=1; }
+  [ "$v" -le 7 ] || { echo "WARN FT_PROXY_PROBE_MAX=$v > 7 — 7 로 제한(하드 룰 12)" >&2; v=7; }
+  echo "$v"
+}
+
 proxy_check() { # $1=작업폴더 $2=agent
   [ "$2" = claude ] || return 0
-  local st urls=() u i; st="$(cd "$1" && eval "${FT_ROUTE_STATUS_CMD:-$HOME/.headroom/claude-hr.sh route status}" 2>&1)" \
+  local st urls=() u i rc max; st="$(cd "$1" && eval "${FT_ROUTE_STATUS_CMD:-$HOME/.headroom/claude-hr.sh route status}" 2>&1)" \
     || { echo "REJECT 경유 판독 실패 — claude-hr.sh route status ($1)"; return 1; }
   printf '%s\n' "$st" | awk '$1=="cliproxy"||$1=="headroom"{f=1} END{exit !f}' || { echo "REJECT 경유 판독 실패 — route status 출력에 headroom/cliproxy 줄 없음"; return 1; }
   printf '%s\n' "$st" | awk '$1=="headroom"&&$3=="on"{f=1} END{exit !f}' && urls+=("http://127.0.0.1:8790/health")
   printf '%s\n' "$st" | awk '$1=="cliproxy"&&$3=="on"{f=1} END{exit !f}' && urls+=("${FT_PROXY_PROBE_URL:-http://127.0.0.1:8317/v1/models}")
+  max="$(proxy_probe_max)"
   for u in ${urls[@]+"${urls[@]}"}; do
     for i in 1 2; do
-      curl -sf -m 3 -o /dev/null "$u" && continue 2
-      echo "INFO 프록시 확인 시도 $i/2 실패 $u" >&2; [ "$i" = 2 ] || sleep 2
+      curl -sf -m "$max" -o /dev/null "$u"; rc=$?
+      [ "$rc" = 0 ] && continue 2
+      # rc22 = HTTP 응답은 왔는데 -f 가 비정상 코드(4xx·5xx)로 실패 — 첫 바이트 전 실패가 아니므로 재시도 0
+      [ "$rc" != 22 ] || { echo "REJECT 프록시 $u HTTP 응답 비정상(curl rc=22) — 응답이 왔으므로 재시도 0"; return 1; }
+      echo "INFO 프록시 확인 시도 $i/2 실패(curl rc=$rc · 상한 ${max}s) $u" >&2; [ "$i" = 2 ] || sleep 2
     done
     echo "REJECT 프록시 $u 2회 실패 — 직결로 바꾸지 않는다(부작용 0)"; return 1
   done

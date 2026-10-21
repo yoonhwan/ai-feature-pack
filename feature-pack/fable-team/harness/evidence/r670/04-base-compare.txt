@@ -1,0 +1,12 @@
+### base test_leak_reap.sh
+rc=0 PASS=121 FAIL=0
+### base test_seat_reap_left0.sh
+rc=1 PASS=54 FAIL=2
+FAIL ⓔtmuxc create_tmux_session → 첫 셸 FT_SEAT=<세션명> (got=[] want=[X=r448e-57833#0])
+FAILED 1
+### base test_seat_reap_services.sh
+rc=0 PASS=16 FAIL=0
+### base test_agent_alive_fg_judge.sh
+rc=1 PASS=124 FAIL=2
+FAIL ⓔ 본체 판별 함수 정의 파일 목록(판정기 + 기동확인 복제 2사본) (got=[] want=[scripts/fable-team-bin/ft-agent-ready.sh scripts/harness-install/fable-team/bin/ft-agent-ready.sh tools/comm-canonical/ft-agent-alive.sh ])
+FAIL 1
