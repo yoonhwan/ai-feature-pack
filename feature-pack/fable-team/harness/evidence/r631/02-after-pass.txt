@@ -1,0 +1,70 @@
+# r631 후 — 가지 HEAD 398d8f8ce22d650620b90996795322c25730781b + 작업트리 변경(키트·추적본 ft-nano-spawn.sh · 시험 2) · 2026-10-21 12:04:13
+$ bash tests/test_nano_spawn_pi_effort_kind_r631.sh
+PASS fable-team: 블록 A+B 추출
+PASS fable-team: ⓐ --agent pi --tier impl effort=high
+PASS fable-team: ⓐ PLAN effort=high(impl:tier=impl)
+PASS fable-team: ⓐ tmuxc --effort high
+PASS fable-team: ⓑ --agent pi 코드 나노 PLAN effort=high(impl:code-nano)
+PASS fable-team: ⓒ --agent pi --tier search = low(short:tier=search)
+PASS fable-team: ⓒ --tier search(기본 pi) = low(short:tier=search)
+PASS fable-team: ⓒ --agent pi --research = low(short:research)
+PASS fable-team: ⓒ --agent pi --tier checker = low(short:tier=checker)
+PASS fable-team: ⓒ --agent pi --tier tester:2 = low(short:tier=tester)
+PASS fable-team: ⓒ checker·tester pi serena 판별 불변(on)
+PASS fable-team: ⓓ --tier impl --effort low = low(explicit)
+PASS fable-team: ⓓ --tier search --effort high = high(explicit)
+PASS fable-team: ⓔ FT_PI_EFFORT_SHORT=medium → short 갈래
+PASS fable-team: ⓔ FT_PI_EFFORT_SHORT 는 impl 갈래 불변
+PASS fable-team: ⓔ FT_PI_EFFORT_IMPL=low → impl 갈래
+PASS fable-team: ⓔ FT_PI_EFFORT_IMPL 은 short 갈래 불변
+PASS fable-team: ⓔ 옛 FT_PI_EFFORT → impl 갈래
+PASS fable-team: ⓔ 옛 FT_PI_EFFORT stderr WARN
+PASS fable-team: ⓔ WARN 1줄
+PASS fable-team: ⓔ 옛 FT_PI_EFFORT → short 갈래
+PASS fable-team: ⓔ 새 이름이 옛 이름보다 이긴다
+PASS fable-team: ⓔ --effort 직접이면 옛 이름 WARN 0
+PASS fable-team: ⓔ env 없으면 WARN 0
+PASS fable-team: ⓕ claude effort=high
+PASS fable-team: ⓕ claude PLANX 빈칸
+PASS fable-team: ⓕ claude --effort low 그대로
+PASS fable-team: ⓕ codex checker:1 effort=high
+PASS fable-team: ⓕ codex PLANX 빈칸
+PASS fable-team: ⓕ claude --tier impl 은 pi env 무시
+PASS fable-team: ⓕ cmd 는 옛 pi env 무시
+PASS fable-team: ⓕ cmd WARN 0
+PASS kit: 블록 A+B 추출
+PASS kit: ⓐ --agent pi --tier impl effort=high
+PASS kit: ⓐ PLAN effort=high(impl:tier=impl)
+PASS kit: ⓐ tmuxc --effort high
+PASS kit: ⓑ --agent pi 코드 나노 PLAN effort=high(impl:code-nano)
+PASS kit: ⓒ --agent pi --tier search = low(short:tier=search)
+PASS kit: ⓒ --tier search(기본 pi) = low(short:tier=search)
+PASS kit: ⓒ --agent pi --research = low(short:research)
+PASS kit: ⓒ --agent pi --tier checker = low(short:tier=checker)
+PASS kit: ⓒ --agent pi --tier tester:2 = low(short:tier=tester)
+PASS kit: ⓒ checker·tester pi serena 판별 불변(on)
+PASS kit: ⓓ --tier impl --effort low = low(explicit)
+PASS kit: ⓓ --tier search --effort high = high(explicit)
+PASS kit: ⓔ FT_PI_EFFORT_SHORT=medium → short 갈래
+PASS kit: ⓔ FT_PI_EFFORT_SHORT 는 impl 갈래 불변
+PASS kit: ⓔ FT_PI_EFFORT_IMPL=low → impl 갈래
+PASS kit: ⓔ FT_PI_EFFORT_IMPL 은 short 갈래 불변
+PASS kit: ⓔ 옛 FT_PI_EFFORT → impl 갈래
+PASS kit: ⓔ 옛 FT_PI_EFFORT stderr WARN
+PASS kit: ⓔ WARN 1줄
+PASS kit: ⓔ 옛 FT_PI_EFFORT → short 갈래
+PASS kit: ⓔ 새 이름이 옛 이름보다 이긴다
+PASS kit: ⓔ --effort 직접이면 옛 이름 WARN 0
+PASS kit: ⓔ env 없으면 WARN 0
+PASS kit: ⓕ claude effort=high
+PASS kit: ⓕ claude PLANX 빈칸
+PASS kit: ⓕ claude --effort low 그대로
+PASS kit: ⓕ codex checker:1 effort=high
+PASS kit: ⓕ codex PLANX 빈칸
+PASS kit: ⓕ claude --tier impl 은 pi env 무시
+PASS kit: ⓕ cmd 는 옛 pi env 무시
+PASS kit: ⓕ cmd WARN 0
+PASS 추적본 = 키트(cmp)
+
+ALL PASS
+rc=0

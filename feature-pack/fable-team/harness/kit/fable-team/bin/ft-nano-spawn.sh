@@ -110,8 +110,20 @@ case "$TIER" in
   '') ;; *) echo "unknown --tier $TIER (checker|tester[:1-3] · impl[:1-3] · search)" >&2; exit 2;;
 esac
 if [ "$AGENT_SET" = 1 ]; then AGENT="$_A0"; MODEL="$_M0"; EFFORT="$_E0"; FAST="$_F0"; fi   # 명시 --agent 우선(위 주석)
-# ★r556(오빠 인터뷰 «pi 나노만 low»)★ pi 나노 기본 effort = low — 13행 high·티어 기본값은 pi 에서 덮는다(직접 적은 --effort 만 이긴다 · 되돌림 = FT_PI_EFFORT=high)
-[ "$AGENT" != pi ] || [ "$EFFORT_SET" = 1 ] || EFFORT="${FT_PI_EFFORT:-low}"
+# ★r631(planner «짧은 나노 low · 구현 high» · r556 개정)★ pi 나노 종류 판별 1곳 — short = 티어 search·checker·tester 또는 --research · impl = 그 밖(티어 impl · 티어 없는 코드 나노).
+#   아래 serena 판별도 이 함수를 쓴다(동작 그대로: research·search 만 off).
+pi_kind() { if [ "$RESEARCH" = 1 ]; then echo "short:research"; else case "${TIER%%:*}" in search|checker|tester) echo "short:tier=${TIER%%:*}";; impl) echo "impl:tier=impl";; *) echo "impl:code-nano";; esac; fi; }
+# pi 기본 effort = short FT_PI_EFFORT_SHORT(low) · impl FT_PI_EFFORT_IMPL(high) — 13행 high·티어 기본값은 pi 에서 덮는다 · 직접 적은 --effort 가 이긴다(explicit)
+#   옛 이름 FT_PI_EFFORT(r556)는 두 갈래 모두에 적용 + stderr WARN(새 이름이 있으면 새 이름이 이긴다) · 되돌림 = FT_PI_EFFORT_IMPL=low
+EFFORT_WHY=""
+if [ "$AGENT" = pi ]; then
+  if [ "$EFFORT_SET" = 1 ]; then EFFORT_WHY="explicit"
+  else
+    EFFORT_WHY="$(pi_kind)"
+    [ -z "${FT_PI_EFFORT:-}" ] || echo "WARN FT_PI_EFFORT 는 옛 이름(r556) — FT_PI_EFFORT_SHORT·FT_PI_EFFORT_IMPL 로 나눠 적어라(지금은 두 갈래 모두 $FT_PI_EFFORT)" >&2
+    case "$EFFORT_WHY" in short:*) EFFORT="${FT_PI_EFFORT_SHORT:-${FT_PI_EFFORT:-low}}";; *) EFFORT="${FT_PI_EFFORT_IMPL:-${FT_PI_EFFORT:-high}}";; esac
+  fi
+fi
 # 역할을 seats.json 에 남긴다 — 세션 상태 절·stall 대상 판정이 «checker/tester/impl» 을 가른다
 ROLE="${TIER%%:*}"; ROLE="${ROLE:-nano}"
 # --model 미지정(티어도 안 정함)이면 에이전트별 기본 — claude 는 FT_IMPL_MODEL, 그 밖은 모델을 지어내지 않고 정해진 것만(표에 없는 에이전트는 REJECT)
@@ -283,13 +295,14 @@ case "$AGENT" in claude|cmd|codex|pi) OPEN+=(--effort "$EFFORT");; esac
 #   설치 tmuxc 가 --serena 를 모르면 조용히 빼고 열지 않는다(REJECT) · 끄기는 FT_PI_SERENA=0 + stderr WARN + PLAN 표시.
 SERENA="off(tier=search)"
 if [ "$AGENT" = pi ]; then
-  if [ "$RESEARCH" = 1 ]; then SERENA="off(research)"
-  elif [ "$TIER" = search ]; then SERENA="off(tier=search)"
+  _pk="$(pi_kind)"   # r631: 종류 판별 1곳(위 effort 와 같은 함수)
+  if [ "$_pk" = short:research ]; then SERENA="off(research)"
+  elif [ "$_pk" = short:tier=search ]; then SERENA="off(tier=search)"
   elif [ "${FT_PI_SERENA:-1}" = 0 ]; then SERENA="off(FT_PI_SERENA=0)"; echo "WARN pi 나노 --serena 를 껐다(FT_PI_SERENA=0) — 코드 탐색 도구 없이 연다" >&2
   elif tmuxc help 2>/dev/null | grep -q -- '--serena'; then SERENA="on"; OPEN+=(--serena)
   else echo "REJECT 설치 tmuxc 가 --serena 모름(0.4.3+ 필요) — FT_PI_SERENA=0 으로 끄면 serena 없이 연다"; exit 1; fi
 fi
-_PLANX=""; [ "$AGENT" != pi ] || _PLANX=" effort=$EFFORT serena=$SERENA"
+_PLANX=""; [ "$AGENT" != pi ] || _PLANX=" effort=$EFFORT($EFFORT_WHY) serena=$SERENA"
 # r476: opencode 2.0.32 TUI 는 --model 플래그가 없다 — tmuxc 가 모델을 세션 env OPENCODE_CONFIG_CONTENT 로 심는다(PLAN 에 경로 표기)
 _VIA=""; [ "$AGENT" = opencode ] && _VIA=" via=OPENCODE_CONFIG_CONTENT"
 echo "PLAN seat=$NAME agent=$AGENT model=$MODEL$_VIA${TIER:+ tier=$TIER}${FAST:+ fast=$FAST} wt=$WTDIR branch=$BRANCH base=$BASE_BRANCH index=$IDX_REL$_PLANX"
