@@ -1,0 +1,14 @@
+== test_news_html.sh ==
+.......................................                                  [100%]
+39 passed in 21.44s
+rc=0
+== test_news_tree_root.sh ==
+== fail=0
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+rc=0
+== news 계열 pytest 14파일 (rebase 뒤 cf30ff20) ==
+........................................................................ [ 40%]
+........................................................................ [ 81%]
+.................................                                        [100%]
+177 passed in 110.17s (0:01:50)
+rc=0
