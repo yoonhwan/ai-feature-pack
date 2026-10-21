@@ -1,6 +1,7 @@
 「tmm·tmuxc·tmux·fable-team 멀티 pc/맥 업그레이드 기획 — byz mac mini+jarvis OCI Tailscale 연동, cli 운용, 브라우저 시험 이관, 팀·나노 분산」(오빠 10-21) — 구현 P2~P4 착수 승인(오빠 AskUserQuestion 10-22).
 골의 어느 축: 멀티호스트 «구현» 단계 진입 — 닫는 증거 = 아래 요청 3건이 하네스 카드로 받아들여지고, 각 카드의 rc=0 원문이 설계서 §13 의 명령과 일치.
-상태: 초안(r1, 2026-10-22). 하네스 회신(#134276): ft-mbox.py·tmuxc·tmm 변경은 «하네스 카드로만» — 이 문서를 `byz-harness-master-claude#93` 앞에 보낸다.
+상태: r2(2026-10-22) — 하네스 회신(#134412) 반영: 카드 A=r673(P2) · B=r674(P4) · C=r675(P3) · 덤 r676(recv 15% 이중 소비). 착지 순번 r646→r673→r674→(r469→r676)→r430·r432·r627→r675. 구현 순서 P2→P4→P3 오빠 확정. 구현은 하네스 나노가 함 — 이 팀은 구현 착수 0. 요청 D(P1 aifp-gate)를 아래에 추가.
+(이전 상태: 초안 r1.) 하네스 회신(#134276): ft-mbox.py·tmuxc·tmm 변경은 «하네스 카드로만» — 이 문서를 `byz-harness-master-claude#93` 앞에 보낸다.
 
 # 하네스 요청문 초안 — 멀티 호스트 P2 · P4 · P3
 
@@ -74,3 +75,31 @@
 1. 위 A·B·C 를 카드(r 번호)로 접수, 번호와 착지 순번을 회신.
 2. 카드 대조 표의 «미확인» 4장(r430·r432·r627 + r469 본문)의 범위를 알려 주기.
 3. 15% 이중 소비를 r469 에 넣을지 별도 카드로 할지.
+
+---
+
+## 요청 D — P1 · `aifp-gate` 실물 + K1/K2 키 + 원격 설치 h  (★별도 카드 필요 — 요청 A~C 와 독립★)
+
+| 항목 | 내용 |
+|---|---|
+| **무엇을** | ①`aifp-gate`(원격 고정 진입점, 새 스크립트 1개): ssh 강제 명령으로만 실행, 인자 = `SSH_ORIGINAL_COMMAND` 의 «동사 이름만»(`[a-z-]+`, `attach` 만 3번째 토큰으로 좌석 이름), 본문은 stdin JSON(셸 해석 0), 로그는 동사 이름·호출자·rc 만(인자·본문 0). 동사 표 = 설계서 §10.3 그대로(K1: `ping`·`route`·… / K2: `ping`·`pty-check`·`tmuxc`·`attach`·`pane-capture`·`rows`·`inbox`·`git`·`probe`·`e2e`). 표 밖 동사는 `REJECT verb=<이름>` rc 2. ②키 2종 생성·등록 h: K2(허브→원격) 개인키는 **허브(mini)** 에서 생성해 book·oci 에 `restrict,pty,from="<허브 100.x>",command="…/aifp-gate --role remote"` 로 등록 / K1(원격→허브)은 book·oci 각각 생성해 mini 에 `restrict,from="<그 호스트 100.x>",command="…/aifp-gate --role hub --caller <host>"` 로 등록. ③원격(book·oci·mini)에 `aifp-gate` 설치 h(복사 + 실행 권한 + 버전 대조, 대화형 0). 기존 h84 가 이 맥에 만든 `~/.ssh/id_ed25519_aifp_op` 는 **임시**(허브 이전 전) — 새 키로 교체하는 단계 포함. |
+| **왜** | 모든 원격 조작(P2 디스패치·P3 우편함·P4 tmm 스캔)이 지나는 유일한 입구이고 보안 경계(K1=우편함 권한만 · K2=조작 권한)이다. 이것이 없으면 P2~P4 는 가짜 ssh 로만 시험되고 실제 호스트에서 동작하지 않는다. |
+| **골든 회귀 0 시험** | 단일 호스트 영향 0: `aifp-gate` 는 새 파일이고 호스트가 1개면 호출되지 않는다. 시험은 `ft-host-probe.sh --keys` 7항목(키×동사×결과) — 설계서 §13 P1 행. |
+| **닫는 증거(rc=0)** | `bash feature-pack/fable-team/skill/scripts/ft-host-probe.sh --all --via tailnet --keys --expect 'book=OK oci=OK mini=OK' --out docs/multihost/probe-p1.tsv; echo "rc=$?"` → `rc=0` + tsv (K1 ①~③·K2 ④~⑦: 바이트 동일 왕복·동사 거절·PTY 거절·`pty-check`·표 밖 동사·포워딩 거절 `administratively prohibited`) |
+| **설계서 절** | §10.1(키) · §10.2(거절 2종) · §10.3(동사표) · §13 P1 행 · §2(연결 수 상한 — OCI ufw limit: 새 연결 6회/30초, `measured-oci-tailscale.md` §2) |
+| **선행** | 요청 A(P2)와 독립. 요청 C(P3)의 `inbox` 동사 구현은 C 와 함께(표만 먼저 고정). 허브 이전(book → mini) 계획과 키 위치를 함께 정해야 해서 **오빠 승인 h** 가 들어간다(원격 쓰기). |
+| **하네스 제약 확인** | `fable-team` 소유 파일 신설(`ft-host-probe.sh`·`aifp-gate`)이라 번호 직렬(1.1.x) 대상 — 카드 번호 요청. 원격에 설치되는 실물은 «복사 + 버전 대조» 로 단순하게(설치 확인 = LIVE_BIN 과 루트 `.fable-team/comm` 정본 `cmp`). |
+
+## 오빠 손이 필요한 항목 — 현재 상태 (2026-10-22 00:1x KST · 읽기 전용 실측)
+
+| # | 항목 | 어디서 | 상태 | 확인 근거 | 다음 |
+|---|---|---|---|---|---|
+| 1 | OCI Tailscale 로그인 | 브라우저 | ✅ 완료 (aifp-oci-jarvis 100.115.169.113) | h83 rc=4 이지만 실제 로그인 완료 · `measured-oci-tailscale.md` | — |
+| 2 | **OCI 키 만료 끄기** | 브라우저 `login.tailscale.com/admin/machines` → aifp-oci-jarvis 줄 «…» → **Disable key expiry** | ⏳ **미완** | `tailscale status --json` 의 KeyExpiry = **2027-04-19T14:09Z**(약 180일 뒤 — 끄지 않으면 그날 조용히 끊김) | 오빠 1회 클릭 |
+| 3 | Mac mini ssh 키 배포 | mini | ✅ 완료 (h84 rc=0, 사용자 byz) | `measured-mini-probe.txt` | — |
+| 4 | Mac mini BlackHole 2ch | mini 터미널 | ✅ 완료 (h135 rc=11 후 오빠 설치 + coreaudiod 재시작, 장치 보임) | `measured-mini-blackhole.md` | — |
+| 5 | **mini 마이크·소리 사전 점검** | 이 맥 `! bash /tmp/h143` → mini 터미널 한 줄 | ⏳ **미실행** | `/tmp/h143.ran` 없음 · mini `/tmp/aifp-mini-audio-check.sh` 아직 없음 | 오빠: h143 → mini 앞에서 `bash /tmp/aifp-mini-audio-check.sh`(소리 1초·마이크 허용 팝업 1회) |
+| 6 | Tailscale ACL(tag:aifp) | 브라우저 Access controls | ⏸ 대기(지금 하지 않음) | `tagOwners` 정의 선행 필요 · K1/K2 사용 직전에 JSON 을 드림 | 요청 D 의 키 등록 직전 |
+| 7 | 병합(docs 가지) | 이 맥 `! bash /tmp/h<N>` | ⏸ 대기 | 가지 `docs/multihost-plan-20261022` 가 아닌 `docs/multihost-plan-20261021` · 설계·실측 마감 후 한 번에 | 마감 때 |
+
+오빠 손 합계(지금 당장): **2건**(#2 키 만료 끄기 · #5 mini 소리 점검). 둘 다 구현 대기와 무관하게 할 수 있음.
