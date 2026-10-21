@@ -1,0 +1,15 @@
+# r623 r3 전(red) — base(origin/main @ 398d8f8c) 에는 ft-redis-read.sh 가 없다(도구 신설 전) · 새 시험을 base 나무에 건 판
+PASS [r3-d-nocall /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.prpx9HeZ58/cmds.txt] 호출 0
+FAIL [r3-d-p2] want=2 got=127 :: bash: /tmp/r623-base/feature-pack/fable-team/harness/tests/../kit/fable-team/bin/ft-redis-read.sh: No such file or directory
+FAIL [r3-d-h2] want=2 got=127 :: bash: /tmp/r623-base/feature-pack/fable-team/harness/tests/../kit/fable-team/bin/ft-redis-read.sh: No such file or directory
+FAIL [r3-d-none] want=2 got=127 :: bash: /tmp/r623-base/feature-pack/fable-team/harness/tests/../kit/fable-team/bin/ft-redis-read.sh: No such file or directory
+FAIL [r3-d-out] want=2 got=127 :: bash: /tmp/r623-base/feature-pack/fable-team/harness/tests/../kit/fable-team/bin/ft-redis-read.sh: No such file or directory
+FAIL [r3-d-empty] want=2 got=127 :: bash: /tmp/r623-base/feature-pack/fable-team/harness/tests/../kit/fable-team/bin/ft-redis-read.sh: No such file or directory
+FAIL [r3-d-missing] want=2 got=127 :: bash: /tmp/r623-base/feature-pack/fable-team/harness/tests/../kit/fable-team/bin/ft-redis-read.sh: No such file or directory
+FAIL [r3-e] rc=127 사유=bash: /tmp/r623-base/feature-pack/fable-team/harness/tests/../kit/fable-team/bin/ft-redis-read.sh: No such file or directory
+PASS [r3-f-hook] 훅 = origin/main 판과 cmp0(변경 0)
+FAIL [r3-f-twin] 키트 ↔ 추적본 다름
+PASS [r3-f-inject] 기존 inject 시험 PASS (SUMMARY block=73 pass=75 mutant=19 fail=0)
+grep: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.prpx9HeZ58/log.txt: No such file or directory
+FAIL [r3-g-log] 원장 줄 모양 틀림: 
+SUMMARY block=5 pass=2 fail=20

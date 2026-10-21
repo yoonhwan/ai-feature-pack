@@ -1,0 +1,30 @@
+# r623 r3 후(green) — ft-redis-read.sh 신설 · 훅 변경 0
+PASS [r3-a] rc=0
+PASS [r3-a-sha] 받은 표준입력 == 파일 바이트 (3a0d075d0f54d96a9b02a932bbced0d4f1c4f450de010ef285a1792930fe3c13)
+PASS [r3-a-args] redis-cli 인자 = -p 6379
+PASS [r3-b] rc=2
+PASS [r3-b-nocall] redis-cli 호출 0
+PASS [r3-b-reason] 사유에 걸린 동사
+PASS [r3-c] rc=0
+PASS [r3-c-race] 파일이 바뀌어도 보낸 바이트 = 판정한 바이트(원본)
+PASS [r3-d[-x]] rc=2
+PASS [r3-d-nocall -x] 호출 0
+PASS [r3-d[--eval]] rc=2
+PASS [r3-d-nocall --eval] 호출 0
+PASS [r3-d[http://127.0.0.1:6379]] rc=2
+PASS [r3-d-nocall http://127.0.0.1:6379] 호출 0
+PASS [r3-d[/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.1FllhdK5hx/cmds.txt]] rc=2
+PASS [r3-d-nocall /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.1FllhdK5hx/cmds.txt] 호출 0
+PASS [r3-d-p2] rc=2
+PASS [r3-d-h2] rc=2
+PASS [r3-d-none] rc=2
+PASS [r3-d-out] rc=2
+PASS [r3-d-empty] rc=2
+PASS [r3-d-missing] rc=2
+PASS [r3-e] 목록 못 읽음 → rc2 · 호출 0
+PASS [r3-f-hook] 훅 = origin/main 판과 cmp0(변경 0)
+PASS [r3-f-twin] 키트 ↔ 추적본 cmp0
+PASS [r3-f-inject] 기존 inject 시험 PASS (SUMMARY block=73 pass=75 mutant=19 fail=0)
+PASS [r3-g-log] 원장 1줄(내용 0)
+SUMMARY block=18 pass=9 fail=0
+OK

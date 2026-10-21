@@ -1,0 +1,11 @@
+# r623 실사건 재현 — v65 tester 의 읽기 전용 묶음(789줄 전부 HSTRLEN) · 실제 redis 실행 0 · 가짜 redis-cli 가 받은 바이트만 본다
+파일 sha256 = 3a0d075d0f54d96a9b02a932bbced0d4f1c4f450de010ef285a1792930fe3c13
+훅 단독(block-destructive.sh) 로 같은 꼴 rc=2
+ft-redis-read.sh rc=OK ft-redis-read — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.lXdNRF3Ped/cmds.txt lines=789 sha256=3a0d075d0f54d96a
+0
+받은 표준입력 sha256 = 3a0d075d0f54d96a9b02a932bbced0d4f1c4f450de010ef285a1792930fe3c13
+원장: 2026-10-21T12:17:00 path=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.lXdNRF3Ped/cmds.txt lines=789 sha256=3a0d075d0f54d96a
+-- 쓰기 1줄 섞은 대조(HSET) --
+rc=REJECT ft-redis-read — 읽기 목록 밖 동사: HSET
+2
+가짜 redis-cli 호출 여부(파일 생김) = 호출 0

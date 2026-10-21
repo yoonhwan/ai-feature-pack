@@ -1,0 +1,37 @@
+# r623 기존·인접 시험(광역 0)
+== test_block_destructive.sh
+PASS [nr] rc=0 :: printf '| R39 | %s | rm -rf 오탐 |\n' x >> ledger.md
+SUMMARY blocked=76 pass=25 stage=2 sample=5 fail=0
+OK
+== test_block_destructive_inject.sh
+PASS [M10-XC-hval] rc=0 :: xargs redis-cli -h HKEYS SET k v
+SUMMARY block=73 pass=75 mutant=19 fail=0
+OK
+== test_block_destructive_inject_post.sh
+SUMMARY pass=18 block=43 mutant=21 fail=0
+OK
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+== test_block_destructive_hil.sh
+PASS [inst] --apply 목록 = 설치 ft-hil.sh realpath
+SUMMARY blocked=49 pass=12 fail=0
+OK
+== test_evidence_inject_scan.sh
+PASS 12 변이(폴더 조건 되돌림) → files≠1(음성 대조)
+PASS 11 변이(ⓒ 제거) → #3 SUSPECT 안 나옴(음성 대조)
+ALL PASS
+== test_kit_bin_sync.sh
+PASS control: byte diff detected
+PASS control: mode diff detected
+ALL PASS
+== test_baseline_lint.sh
+
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+== test_ft_redis_read.sh
+PASS [r3-g-log] 원장 1줄(내용 0)
+SUMMARY block=18 pass=9 fail=0
+OK
+== bash -n
+ft-redis-read.sh bash -n OK
+twin bash -n OK
+test bash -n OK
