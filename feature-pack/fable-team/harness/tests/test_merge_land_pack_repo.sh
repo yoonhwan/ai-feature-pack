@@ -98,6 +98,15 @@ mkpr "$P2" "$P2ORIGIN" 9 "$T/pack2.json"; P9="$PRSHA"; M9="$(omain "$P2ORIGIN")"
 land "$LAND"; REPO_ARG=""; REPO_ORIGIN=""
 [ "$rc" = 1 ] && [[ "$out" == *"remote URL 해석 실패"* ]] && [ "$(omain "$P2ORIGIN")" = "$M9" ] && [ ! -s "$STUB_LOG" ]; ck "ⓖ raw URL ≠ 실제 전송 URL(insteadOf) → REJECT 1줄 · 착지 0 · gh 조회 0" $?
 
+# ══ ⓖ4 push 목적지가 둘 이상(첫 = 팩 · 두 번째 = 다른 리포) → REJECT(land 는 등록된 모든 URL 로 보낸다)
+mkrepo "$T/pack4"; P4="$T/pack4/w"; P4ORIGIN="$T/pack4/origin.git"
+git -C "$P4" remote set-url origin git@github.com:fake/pack.git
+git -C "$P4" remote set-url --add --push origin git@github.com:fake/pack.git
+git -C "$P4" remote set-url --add --push origin git@github.com:fake/other.git
+mkpr "$P4" "$P4ORIGIN" 31 "$T/pack4.json"; P31="$PRSHA"; M31="$(omain "$P4ORIGIN")"; REPO_ARG="$P4"; REPO_ORIGIN="$P4ORIGIN"
+land "$LAND"; REPO_ARG=""; REPO_ORIGIN=""
+[ "$rc" = 1 ] && [[ "$out" == *"remote URL 해석 실패"* ]] && [ "$(omain "$P4ORIGIN")" = "$M31" ] && [ ! -s "$STUB_LOG" ]; ck "ⓖ4 push 목적지 2개(팩 + 다른 리포) → REJECT · 착지 0 · gh 조회 0" $?
+
 # ══ ⓖ2 승인 없음 = 실행 0 유지 · ⓖ3 교차 리포 «다른 sha 승인» → REJECT
 mkpr "$PACK" "$PACKORIGIN" 11 "$PACK_JSON" noapprove; M11="$(omain "$PACKORIGIN")"
 land "$LAND"
@@ -113,8 +122,11 @@ mkpr "$BYZ" "$BYZ_ORIGIN" 7 "$BYZ_JSON"; B7="$PRSHA"; MB="$(omain "$BYZ_ORIGIN")
 L_NEW="$(mled)"
 [ "$rc" = 0 ] && [[ "$out" == LANDED* ]] && [ "$(omain "$BYZ_ORIGIN")" != "$MB" ] && ! grep -q -- ' -R ' "$STUB_LOG"; ck "ⓕ --repo 없음 = 지금 그대로 LANDED · gh -R 0" $?
 [ "$(head -n1 "$BSTATE/base-head")" = "$(omain "$BYZ_ORIGIN")" ]; ck "ⓕ2 같은 리포는 기준 헤드도 지금 그대로(base-head)" $?
-mkpr "$BYZ" "$BYZ_ORIGIN" 8 "$BYZ_JSON"; B8="$PRSHA"
+mkpr "$BYZ" "$BYZ_ORIGIN" 8 "$BYZ_JSON"; B8="$PRSHA"; MB8="$(omain "$BYZ_ORIGIN")"
+LN0="$(grep -c . "$BSTATE/merge-gate.log" 2>/dev/null | tr -d ' ')"
 out="$(cd "$BYZ" && bash "$T/base/ft-merge-land.sh" 8 --approve-sha "$B8" 2>&1)"; rc=$?
+LN1="$(grep -c . "$BSTATE/merge-gate.log" 2>/dev/null | tr -d ' ')"
+[ "$rc" = 0 ] && [[ "$out" == LANDED* ]] && [ "$(omain "$BYZ_ORIGIN")" != "$MB8" ] && [ "${LN1:-0}" -gt "${LN0:-0}" ]; ck "ⓕ3a 전판이 «실제로» 착지했다(rc0·LANDED·main 전진·원장 +1 — 아니면 아래 비교는 무효)" $?
 [ -n "$L_NEW" ] && [ "$(mled)" = "$L_NEW" ]; ck "ⓕ3 CROSS=0 원장 줄 = 전판과 바이트 동일(repo= 칸 포함 · 시각·sha·PR번호만 가림)" $?
 
 # ══ ⓐ7/ⓐ8 승인 폴더 = 정식 리졸버(LIVE_ROOT) — 공용 루트에만 승인이 있으면 착지 0

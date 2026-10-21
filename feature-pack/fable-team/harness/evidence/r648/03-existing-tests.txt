@@ -1,5 +1,5 @@
-# r648 인접 시험 (키트 2파일 변경 · 시험 10종) — 후판 기준
-# REAL-STATE-GUARD FAIL 이 한 번 났던 원인: 이 팩 리포의 «실» 우편함(.fable-team/comm/mailbox.jsonl)에 그 사이 다른 팀(aifp-*) 이 쪽지를 씀(동시 실행 잡음) — 시험은 실 우편함을 쓰지 않는다(단독 재실행 3/3 PASS · 아래 줄 참조)
+# r648 인접 시험 (키트 2파일 변경 · 시험 10종) — 고친 판 기준
+# REAL-STATE-GUARD 만 FAIL 하는 경우의 원인: 이 팩 리포의 «실» 우편함(.fable-team/comm/mailbox.jsonl)에 그 사이 다른 팀(aifp-*)이 쪽지를 씀(동시 실행 잡음) — 시험은 실 우편함을 쓰지 않는다(단독 재실행 PASS · 파일 끝 참조)
 === test_merge_land
 ALL PASS
 REAL-STATE-GUARD PASS
@@ -14,8 +14,8 @@ REAL-STATE-GUARD PASS
 rc=0
 === test_merge_land_equiv
 ALL PASS
-REAL-STATE-GUARD FAIL
-rc=1
+REAL-STATE-GUARD PASS
+rc=0
 === test_merge_land_push_reason
 ALL PASS
 REAL-STATE-GUARD PASS
@@ -29,8 +29,8 @@ REAL-STATE-GUARD PASS
 rc=0
 === test_evidence_log_gate
 ALL PASS
-REAL-STATE-GUARD FAIL
-rc=1
+REAL-STATE-GUARD PASS
+rc=0
 === test_kit_bin_sync
 ALL PASS
 rc=0
@@ -39,10 +39,8 @@ ALL PASS
 REAL-STATE-GUARD PASS
 rc=0
 
-# 위 2건(equiv·evidence_log_gate)은 «ALL PASS» 인데 GUARD 만 FAIL = 시험 밖 요인. 단독 재실행:
+# 단독 재실행(앞서 GUARD 만 FAIL 했던 2건):
 test_merge_land_equiv run1 rc=0 REAL-STATE-GUARD PASS
 test_evidence_log_gate run1 rc=0 REAL-STATE-GUARD PASS
 test_merge_land_equiv run2 rc=0 REAL-STATE-GUARD PASS
 test_evidence_log_gate run2 rc=0 REAL-STATE-GUARD PASS
-
-# 실 우편함 상태:       22 줄 · 마지막 2026-10-21T17:29:18 aifp-pi-master-pi#0 -> aifp-worker-master-claude#1

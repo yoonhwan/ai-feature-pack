@@ -1,17 +1,10 @@
 === git diff --stat origin/main (도구·시험·키트)
  .../fable-team/harness/bin/ft-merge-land.sh        |  17 ++-
- .../fable-team/harness/bin/ft-merge-lib.sh         |  31 +++++
+ .../fable-team/harness/bin/ft-merge-lib.sh         |  37 +++++
  .../harness/kit/fable-team/bin/ft-merge-land.sh    |  17 ++-
- .../harness/kit/fable-team/bin/ft-merge-lib.sh     |  31 +++++
- .../harness/tests/test_merge_land_pack_repo.sh     | 144 +++++++++++++++++++++
- 5 files changed, 226 insertions(+), 14 deletions(-)
-
-=== 기존 시험·툴 무변경 확인(바뀐 것은 키트 2 + 추적 짝 2 뿐)
-feature-pack/fable-team/harness/bin/ft-merge-land.sh
-feature-pack/fable-team/harness/bin/ft-merge-lib.sh
-feature-pack/fable-team/harness/kit/fable-team/bin/ft-merge-land.sh
-feature-pack/fable-team/harness/kit/fable-team/bin/ft-merge-lib.sh
-feature-pack/fable-team/harness/tests/test_merge_land_pack_repo.sh
+ .../harness/kit/fable-team/bin/ft-merge-lib.sh     |  37 +++++
+ .../harness/tests/test_merge_land_pack_repo.sh     | 156 +++++++++++++++++++++
+ 5 files changed, 250 insertions(+), 14 deletions(-)
 
 === 키트 사본 cmp
 cmp0 ft-merge-land.sh
@@ -20,16 +13,14 @@ cmp0 ft-merge-lib.sh
 === bash -n
 bash -n OK bin/ft-merge-land.sh
 bash -n OK bin/ft-merge-lib.sh
-bash -n OK kit/fable-team/bin/ft-merge-land.sh
 bash -n OK kit/fable-team/bin/ft-merge-lib.sh
 bash -n OK tests/test_merge_land_pack_repo.sh
 
 === 줄 수
      120 bin/ft-merge-land.sh
-      67 bin/ft-merge-lib.sh
-     144 tests/test_merge_land_pack_repo.sh
-     331 total
+      73 bin/ft-merge-lib.sh
+     156 tests/test_merge_land_pack_repo.sh
+     349 total
 
 === baseline lint
 ALL PASS
-REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
