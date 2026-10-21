@@ -14,7 +14,7 @@ bash -n "$TOOL" && ok "bash -n" || bad "bash -n"
 
 LIVE_BEFORE="$(ls -la "$LIVE" 2>&1)"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
-export FT_PERMIT_DIR="$T"
+export FT_PERMIT_DIR="$T" FT_ROOT="$T"   # r626: device-acquire 가 ft-all-stop.sh check 로 리포 루트를 푼다 — 임시 루트(ALL_STOP 없음)
 run() { bash "$TOOL" "$@" 2>&1; }
 # exp <rc> <출력 패턴> <설명> <명령…>
 exp() { local rc="$1" pat="$2" desc="$3"; shift 3; local out; out="$(run "$@")"; local got=$?
