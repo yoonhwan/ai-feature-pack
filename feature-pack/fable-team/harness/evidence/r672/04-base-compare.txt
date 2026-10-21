@@ -1,0 +1,18 @@
+# r672 base 대조 — 이 카드가 만든 FAIL 0 확인 (base = origin/main 판 3파일)
+orphan 후보: ai-feature-pack/ms1/t1 (execution_ref feat/daily-trend-viewer — 활성 worktree 없음)
+orphan 후보: ai-feature-pack/ms1/t1 (execution_ref feat/daily-trend-viewer — 활성 worktree 없음)
+orphan 후보: ai-feature-pack/ms1/t1 (execution_ref feat/daily-trend-viewer — 활성 worktree 없음)
+BASE test_spawn_hold.sh                       rc=1 PASS=54 FAIL=2
+BASE test_resource_reclaim_preventive.sh      rc=1 PASS=84 FAIL=3
+BASE test_nano_spawn_teamset_cap.sh           rc=7 PASS=11 FAIL=8
+BASE test_nano_spawn_body_press.sh            rc=2 PASS=28 FAIL=3
+BASE test_resource_gate.sh                    rc=1 PASS=41 FAIL=4
+BASE test_resource_watch.sh                   rc=0 PASS=75 FAIL=0
+--- 내 판 복원 ---
+MINE test_spawn_hold.sh                       rc=1 PASS=54 FAIL=2
+MINE test_resource_reclaim_preventive.sh      rc=1 PASS=84 FAIL=3
+MINE test_nano_spawn_teamset_cap.sh           rc=7 PASS=11 FAIL=8
+MINE test_nano_spawn_body_press.sh            rc=2 PASS=28 FAIL=3
+MINE test_resource_gate.sh                    rc=0 PASS=45 FAIL=0
+MINE test_resource_watch.sh                   rc=0 PASS=75 FAIL=0
+BASE test_kit_exec_modes.sh FAIL=5 / MINE FAIL=5 (base 동수 — sparse 결손 scripts/·plist)

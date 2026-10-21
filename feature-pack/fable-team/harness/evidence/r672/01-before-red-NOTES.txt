@@ -1,0 +1,22 @@
+# r672 1차 01-before-red.txt(fail=15) 정정 — DA⑥ r1 H3⑥: «동작 실패»와 «메시지 형식 차이»·«옛 판 미지원 인자»를 구분한다
+#   기준: base(origin/main 판 3파일) + 이 카드의 새 시험. rc·사유 줄을 눈으로 갈라 적는다.
+
+## A. 동작 실패 11칸 (고침 뒤 초록이어야 하는 것 = 이 카드의 본체)
+ⓐ 문지기 rc=3 «REJECT swap=13000MiB level=2 limit=12288MiB@level>=2»        ← swap 축에 memfree AND 없음(빈 메모리 66% 인데 거절)
+ⓐ 감시자 «FREEZE created» 1 (기대 0)                                       ← 감시자 트리거가 memfree 를 안 봄
+ⓐ 동결 파일이 생김                                                          ← 위와 같은 원인(감시자)
+ⓒ --succession rc=3 «REJECT resource freeze=…»                             ← 동결 면제 없음
+ⓒ --succession WARN 1줄 0 (기대 1)                                         ← 위와 같은 원인
+ⓓ --research → «REJECT resource freeze» 있음(기대 없음)                     ← 리서치 면제 없음 + spawn 이 문지기에 --research 를 안 넘김
+ⓓ 리서치 1석 살아 있음 → «REJECT 리서치» 없음(기대 있음)                     ← 1석 상한 자체가 없음
+ⓕ 문지기 FT_SWAP_MEMFREE_MAX=100 → «REJECT swap=… level=2 limit=12288@level>=2»(기대 memfree=66% 포함) ← env 자체가 없음
+ⓕ 무효값 0/abc/-1 → 기본 30 + WARN 없음 (3칸)                                 ← env 자체가 없음
+  (합계 11)
+
+## B. 메시지 형식 차이 1칸 (동작은 같고 «글자»만 다름 — 동작 실패로 세지 않는다)
+ⓑ 문지기 메시지 — base 는 «…level=2 limit=12288MiB@level>=2», 새 판정식은 «…memfree=20% limit=…&memfree<30» 를 요구(거절 자체는 base 도 함)
+
+## C. 옛 판 미지원 인자 3칸 (rc=2 usage — base 문지기에 --research 자체가 없다 · 이 카드가 새로 만든 인자)
+ⓔ --research disk / level / memfree (3칸) — base «usage: <check [--succession]|status>» rc=2
+
+# 주의: B·C 는 «base 가 그 기능을 안 가진» 결과라 회귀로 세지 않는다. A 11칸이 회귀이자 이 카드의 고침 대상이다.

@@ -1,0 +1,33 @@
+# r672 바뀐 파일 — base HEAD 42a08106 (팩 origin/main @ spawn) 대조
+ .../fable-team/harness/bin/ft-nano-spawn.sh        |  8 ++++++-
+ .../fable-team/harness/bin/ft-resource-gate.sh     | 27 ++++++++++++++--------
+ .../fable-team/harness/bin/ft-resource-watch.sh    |  8 +++----
+ .../harness/kit/fable-team/bin/ft-nano-spawn.sh    |  8 ++++++-
+ .../harness/kit/fable-team/bin/ft-resource-gate.sh | 27 ++++++++++++++--------
+ .../kit/fable-team/bin/ft-resource-watch.sh        |  8 +++----
+ .../fable-team/harness/tests/test_resource_gate.sh | 12 ++++++----
+ .../harness/tests/test_resource_gate_pressure.sh   |  6 +++--
+ .../harness/tests/test_resource_watch.sh           | 18 +++++++--------
+ 9 files changed, 76 insertions(+), 46 deletions(-)
+
+# 판정식 원문 (문지기)
+28:EXEMPT=0; { [ "$SUCC" = 1 ] || [ "$RESEARCH" = 1 ]; } && EXEMPT=1   # r672: 동결 면제 대상(승계 · 리서치 나노 1석)
+34:SWAP_MEMFREE_MAX="${FT_SWAP_MEMFREE_MAX:-30}"   # r672: swap 축에 AND 로 붙는 «빈 메모리» 문턱 — 감시자와 같은 env(한 값이 두 곳을 움직인다)
+35:case "$SWAP_MEMFREE_MAX" in ''|*[!0-9]*) _smm_bad=1;; *) [ "$((10#$SWAP_MEMFREE_MAX))" -ge 1 ] && _smm_bad=0 || _smm_bad=1;; esac
+36:[ "$_smm_bad" = 0 ] || { [ -z "${FT_SWAP_MEMFREE_MAX:-}" ] || echo "WARN resource FT_SWAP_MEMFREE_MAX=${FT_SWAP_MEMFREE_MAX} 무효(양의 정수 아님) — 기본 30 사용" >&2; SWAP_MEMFREE_MAX=30; }
+139:FREEZE_FLAG=0; [ -f "$FREEZE" ] && FREEZE_FLAG=1
+142:  echo "disk=$DISK_GIB swap=$SWAP_MIB memfree=$MEMFREE level=$LEVEL rate=$RATE agents=$AGENTS freeze=$FREEZE_FLAG"
+147:if [ "$FREEZE_FLAG" = 1 ] && [ "$EXEMPT" != 1 ]; then
+151:[ "$FREEZE_FLAG" != 1 ] || echo "WARN resource freeze=$(sed -n '1p' "$FREEZE" 2>/dev/null) — $([ "$SUCC" = 1 ] && echo 승계 || echo 리서치)는 동결 중에도 통과(다른 축은 그대로 · r672)" >&2
+155:if [ "$SUCC" != 1 ] && [ "$SWAP_MIB" -gt "$SWAP_HARD" ] && [ "$LEVEL" -ge "$SWAP_LEVEL_MIN" ] && [ "$MEMFREE" -lt "$SWAP_MEMFREE_MAX" ]; then echo "REJECT resource swap=${SWAP_MIB}MiB level=${LEVEL} memfree=${MEMFREE}% limit=${SWAP_HARD}MiB@level>=${SWAP_LEVEL_MIN}&memfree<${SWAP_MEMFREE_MAX}"; exit 3; fi
+
+# 판정식 원문 (감시자 트리거)
+212:  trax=""; [ "$disk" -lt "$DISK_MIN" ] && trax="disk"   # R357: 트리거 축 이름 — swap 은 level>=SWAP_LEVEL_MIN 과 결합할 때만(절대량 단독 동결 폐기 — 해제가 swap 절대량을 안 봐 플래핑)
+213:  [ "$swap" -gt "$SWAP_MAX" ] && [ "${level:-0}" -ge "$SWAP_LEVEL_MIN" ] && [ "$memfree" -lt "$SWAP_MEMFREE_MAX" ] && trax="${trax:+$trax+}swap"
+214:  [ "$memfree" -lt "$MEM_MIN" ] && trax="${trax:+$trax+}memfree"
+
+# spawn — 문지기 인자 + 리서치 1석 상한
+28:_rgout="$(bash "$HERE/ft-resource-gate.sh" check $([ "$RESEARCH" = 1 ] && echo --research) 2>&1)"; _rgrc=$?   # r672: 리서치 나노(--research)는 동결 중에도 문지기 WARN 통과(1석 한도는 아래)
+35:# ★r672 리서치 나노 1석 상한★: 동결 면제의 대가 — 살아 있는 리서치 좌석(tmux 세션 이름 `*-research#N`)이 이미 있으면 열지 않는다(부작용 전 · 닫히면 다시 열린다).
+37:  _rslive="$(tmux list-sessions -F '#{session_name}' 2>/dev/null | grep -c -- '-research#[0-9]')"
+39:  [ "$_rslive" -lt "${FT_RESEARCH_SEAT_MAX:-1}" ] || { echo "REJECT 리서치 나노 상한 — 살아 있는 리서치 좌석 ${_rslive}석(한도 ${FT_RESEARCH_SEAT_MAX:-1} · r672: 동결 면제는 1석만)"; exit 3; }

@@ -1,0 +1,70 @@
+PASS ⓐ 문지기 swap13000·level2·memfree66 → 통과(OK 줄 있음)
+PASS ⓐ 감시자 FREEZE created 0
+PASS ⓐ 동결 파일 없음
+PASS ⓑ 문지기 REJECT — 사유 줄 전문 일치
+PASS ⓑ 감시자 FREEZE created 1
+PASS ⓑ 동결 사유에 swap·level
+PASS ⓒ 일반 check → REJECT freeze 그대로
+PASS ⓒ --succession → OK 줄 + WARN 통과 줄(둘 다 있음)
+PASS ⓒ --succession WARN 1줄
+PASS ⓒ --research → OK 줄 + WARN 통과 줄
+PASS ⓒ 승계 조건 미충족 spawn → REJECT freeze(사유 줄 있음)
+PASS ⓓ 동결 중 일반 spawn → REJECT freeze(다음 검사까지 안 감)
+PASS ⓓ 동결 중 --research → 동결 면제(REJECT freeze 없음)
+PASS ⓓ 동결 중 --research → 문지기 WARN 통과 + 다음 검사(인덱스)까지 감(성공 출력 있음)
+PASS ⓓ 리서치 1석 살아 있음 → REJECT(사유 줄 있음)
+PASS ⓓ 리서치 아닌 좌석만 있으면 상한 아님
+PASS ⓓH1 tmux 조회 실패(rc2) → REJECT(0석 취급 0)
+PASS ⓓH1 FT_RESEARCH_SEAT_MAX=5 주입 → 여전히 1석 상한 REJECT
+PASS ⓓH1 상한 env 주입 = WARN + 1 고정(rc0 통과)
+PASS ⓓH1 ft-research-seat-lib.sh 있음(판정 한 곳)
+PASS ⓓH1 동시 두 리서치 → 하나만 개설·둘째는 상한 거절(잠금 안 재조회)
+PASS ⓓH1 잠금 해제됨(자국 0)
+FAIL ⓓH1' rc1 오류 갈래가 0석으로 통과 «0 rc=0»
+PASS ⓓH1' tmux rc1 + «no server running» → 0석(정상)
+FAIL ⓓH1' spawn rc1 오류 갈래 rc=1 hold=none
+WARN resource freeze=시험 동결 — 리서치는 동결 중에도 통과(다른 축은 그대로 · r672)
+ENV team=default prefix=ft-v65-temp- seats=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.brXTt5Sv9A/root/.fable-team/seats.json
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r672-freeze-rule-swap-and-memfree-succes/feature-pack/fable-team/harness/bin
+REJECT 인덱스 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.brXTt5Sv9A/card.md
+PASS ⓓH1'' 빈 pid = 만드는 중 → 지우지 않고 기다려 통과(경과 0s)
+PASS ⓓH1'' 통과 뒤 잠금 해제
+PASS ⓓH1'' 묵은 빈 pid(10초 초과) → 회수하고 통과
+PASS ⓓH1 죽은 pid 잠금 → 회수되고 통과
+PASS ⓔ 동결+--research disk 24G → REJECT disk
+PASS ⓔ 동결+--succession disk 24G → REJECT disk
+PASS ⓔ 동결+--research level 4 → REJECT level
+PASS ⓔ 동결+--research memfree 9%(<15) → REJECT
+PASS ⓔ 동결+--succession memfree 9%(<10) → REJECT
+PASS ⓕ FT_SWAP_MEMFREE_MAX=100 → 문지기 REJECT(옛 동작)
+PASS ⓕ FT_SWAP_MEMFREE_MAX=100 → 감시자 동결(문지기와 같은 문턱)
+PASS ⓕH2 감시자 전용 변수 무시 — 공통 30 기준 동결 0(문지기와 일치)
+PASS ⓕ 문지기 무효값 «0» → 기본 30 + WARN
+PASS ⓕH2 감시자 무효값 «0» 로그 WARN
+PASS ⓕH2 감시자 무효값 «0» 살아서 종료(기본 30 · 동결 0)
+PASS ⓕ 문지기 무효값 «abc» → 기본 30 + WARN
+PASS ⓕH2 감시자 무효값 «abc» 로그 WARN
+PASS ⓕH2 감시자 무효값 «abc» 살아서 종료(기본 30 · 동결 0)
+PASS ⓕ 문지기 무효값 «-1» → 기본 30 + WARN
+PASS ⓕH2 감시자 무효값 «-1» 로그 WARN
+PASS ⓕH2 감시자 무효값 «-1» 살아서 종료(기본 30 · 동결 0)
+PASS ⓗ 변이1(동결 면제=조기 성공) 검출
+Traceback (most recent call last):
+  File "<stdin>", line 4, in <module>
+AssertionError: MUT-OLD 없음
+FAIL ⓗ 변이2 준비 실패
+PASS ⓗ 변이3(감시자 전용 변수 우선 = 문지기와 어긋남) 검출
+PASS ⓗ 변이4(상한 2) 검출
+PASS ⓖ cmp ft-resource-gate.sh
+PASS ⓖ cmp ft-resource-watch.sh
+PASS ⓖ cmp ft-nano-spawn.sh
+PASS ⓖ cmp ft-resource-swap-lib.sh
+PASS ⓖ cmp ft-research-seat-lib.sh
+PASS bash -n ft-resource-gate.sh
+PASS bash -n ft-resource-watch.sh
+PASS bash -n ft-nano-spawn.sh
+PASS bash -n ft-resource-swap-lib.sh
+PASS bash -n ft-research-seat-lib.sh
+PASS 감시자 줄 수 ≤245
+fail=3
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
