@@ -1,4 +1,4 @@
-# r660 시험 — 고친 판 (고치기 전 = 01-before-base-test.txt · base e79a4128)
+# r660 시험 — 고친 판 (rebase fd24ae4d 위 · 고치기 전 = 01-before-base-test.txt)
 
 ## ⓑ~ⓘ tests/test_r660_desk_route.sh (세 길: 키트·우편함·python 직접)
 PASS desk→팀장 보통 [kit] rc=3 큐증감=0
@@ -113,8 +113,8 @@ PASS ⓕ 깨진 명부 → py 판정기 WARN(판정 0 문구 확인 · 수신자
 PASS ⓕ 받는 쪽 desk + 깨진 명부 → kit = desk 문 판정 0 · 통과(카드 ⓕ 정책)
 PASS ⓕ 받는 쪽 desk + 깨진 명부 → comm = 수신자 판정 D3 가 거절(R97 · base 와 동일 동작 · 이 카드 무변경 — desk 문은 판정 0)
 깨진 명부[comm] rc=0 판정0=yes — WARN 명부 seats-planner.json 읽기 실패 · 이 판정에는 미사용
-깨진 명부[kit] rc=0 판정0=yes — WARN desk 경로 판정 0 — seats-planner.json 없음/깨짐(/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.zarYVkIoQ8/root.broken/.fable-team) · 이 문은 통과시킨다
-깨진 명부[py] rc=0 판정0=yes — WARN desk 경로 판정 0 — seats-planner.json 없음/깨짐(/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.zarYVkIoQ8/root.broken/.fable-team) · 이 문은 통과시킨다
+깨진 명부[kit] rc=0 판정0=yes — WARN desk 경로 판정 0 — seats-planner.json 없음/깨짐(/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.EkL2nziJ22/root.broken/.fable-team) · 이 문은 통과시킨다
+깨진 명부[py] rc=0 판정0=yes — WARN desk 경로 판정 0 — seats-planner.json 없음/깨짐(/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.EkL2nziJ22/root.broken/.fable-team) · 이 문은 통과시킨다
 ALL PASS
 REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
 rc=0
