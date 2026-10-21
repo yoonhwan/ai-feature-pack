@@ -1,0 +1,455 @@
+# r685 ⓐ 실패 시험 먼저 — 고치기 전 판(팩 main 53b0a75a:harness/bin/ft-press-gate.sh · r634 dev 갈래 + r655) 을 R634_SUT 로 물리고 새 시험 칸(가짜 tmux list-sessions = 세션 0개 성공)
+$ R634_SUT=<main 53b0a75a 판 사본> bash tests/test_press_gate_dev_target_r634.sh
+PASS bash -n gate
+PASS 가짜 tmux·curl·gcloud·lsof 스텁 설치(엄격)
+FAIL 1. ⓐ dev 통과 (exit 1)
+    ✓ 미랜딩 제품 커밋 0
+    · dev 대상 — 로컬 칸 ②~⑤ 대신 dev 칸(health 200 · 배포 이미지 sha ⊇ 8001e8bbb3) · https://byz-agents-web-dev-a3yix5apcq-du.a.run.app · https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✓ dev 러너 대상 일치 — BYZ_WEB_BASE=https://byz-agents-web-dev-a3yix5apcq-du.a.run.app
+    ✓ dev 러너 대상 일치 — BYZ_GATEWAY_BASE=https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✗ dev web health 200 이지만 본문이 HTML — 서비스가 아니라 오류 페이지다: https://byz-agents-web-dev-a3yix5apcq-du.a.run.app/
+    ✓ dev gateway health 200 — https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app/api/v1/health/
+    ✓ dev 이미지 web ⊇ 8001e8bbb3(byz-agents-web-dev 8001e8bbb3)
+    ✓ dev 이미지 gateway ⊇ 8001e8bbb3(byz-agents-gateway-dev 8001e8bbb3)
+    ✓ dev 이미지 worker ⊇ 8001e8bbb3(byz-agents-worker-dev 8001e8bbb3)
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha e93ca916fd73 · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VqLKt4Y4a6/case-a/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VqLKt4Y4a6/case-a/ev/BTS.md
+    
+    PRESS-GATE BLOCK — 위 ✗ 를 먼저 닫아라(랜딩 → stop→run → 화면도 같이)
+FAIL 2. ⓐ 허가 target 칸
+PASS 3. ⓑ dev gateway 503 → 막힘 (exit 1)
+PASS 4. ⓒ worker 이미지에 WANT 없음 → 막힘 (exit 1)
+PASS 5. ⓓ1 이미지 못 읽음(빈 값) → 막힘 (exit 1)
+PASS 6. ⓓ2 이미지 형식 불명(:latest) → 막힘 (exit 1)
+PASS 7. ⓓ3 이미지 태그 39자(축약 sha) → 막힘 (exit 1)
+PASS 8. ⓔ FT_PRESS_DEV_WANT 없음 → 막힘 (exit 1)
+PASS 9. ⓕ 대상=prod → 막힘 (exit 1)
+PASS 10. ⓖ 선언 없음 → 로컬 칸 그대로(막힘) (exit 1)
+PASS 11. ⓖ 선언 없음 → dev 갈래 출력 0 (exit 1)
+PASS 12. ⓗ1 dev 선언 + ⑥ 카드 미지정 → 막힘(dev 칸 통과했는데 ⑥ 이 막는다) (exit 1)
+PASS 13. ⓗ2 dev 선언이어도 ⑦ 역할 nano → 막힘 (exit 1)
+PASS 14. ⓗ3 dev 선언이어도 ⑧ 직전 BTS 빈칸 → 막힘 (exit 1)
+PASS 15. ⓗ4 옛 허가(target 칸 없음)도 ⑧ 이 읽는다(하위 호환) (exit 1)
+PASS 16. ⓘ1 러너 env BYZ_WEB_BASE 없음 → 막힘 (exit 1)
+PASS 17. ⓘ2 러너가 localhost 로 쏘면 → 막힘 (exit 1)
+PASS 18. ⓙ1 gcloud rc≠0 + 유효 태그 출력 → 막힘(종료코드 유실 금지) (exit 1)
+PASS 19. ⓙ2 WANT=가지 이름 → 막힘 (exit 1)
+PASS 20. ⓙ3 WANT=HEAD~1 → 막힘 (exit 1)
+PASS 21. ⓙ4 WANT=오래된 조상(≠HEAD) → 막힘 (exit 1)
+PASS 22. ⓚ1 SVCS 에 web·gateway 만 → 막힘 (exit 1)
+PASS 23. ⓚ2 SVCS 빈 값(루프 0회 통과 0) → 막힘 (exit 1)
+PASS 24. ⓚ3 SVCS 중복 → 막힘 (exit 1)
+FAIL 25. ⓚ4 gateway 200 이지만 HTML 오류 페이지 → 막힘(r685: JSON 판별) (exit 1 want 1 · pat=dev gateway health 200 이지만 본문이 status=ok JSON 객체가 아니다)
+    ✓ 미랜딩 제품 커밋 0
+    · dev 대상 — 로컬 칸 ②~⑤ 대신 dev 칸(health 200 · 배포 이미지 sha ⊇ 820e96d796) · https://byz-agents-web-dev-a3yix5apcq-du.a.run.app · https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✓ dev 러너 대상 일치 — BYZ_WEB_BASE=https://byz-agents-web-dev-a3yix5apcq-du.a.run.app
+    ✓ dev 러너 대상 일치 — BYZ_GATEWAY_BASE=https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✗ dev web health 200 이지만 본문이 HTML — 서비스가 아니라 오류 페이지다: https://byz-agents-web-dev-a3yix5apcq-du.a.run.app/
+    ✗ dev gateway health 200 이지만 본문이 HTML — 서비스가 아니라 오류 페이지다: https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app/api/v1/health/
+    ✓ dev 이미지 web ⊇ 820e96d796(byz-agents-web-dev 820e96d796)
+    ✓ dev 이미지 gateway ⊇ 820e96d796(byz-agents-gateway-dev 820e96d796)
+    ✓ dev 이미지 worker ⊇ 820e96d796(byz-agents-worker-dev 820e96d796)
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha 8f5c0808b5e2 · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VqLKt4Y4a6/case-k4/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VqLKt4Y4a6/case-k4/ev/BTS.md
+    
+    PRESS-GATE BLOCK — 위 ✗ 를 먼저 닫아라(랜딩 → stop→run → 화면도 같이)
+FAIL 26. ⓝ1 web 200 + 정상 앱 HTML(<!DOCTYPE html> · /_next/static/) → 통과 (exit 1 want 0 · pat=dev web health 200 —)
+    ✓ 미랜딩 제품 커밋 0
+    · dev 대상 — 로컬 칸 ②~⑤ 대신 dev 칸(health 200 · 배포 이미지 sha ⊇ 4d20e4112c) · https://byz-agents-web-dev-a3yix5apcq-du.a.run.app · https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✓ dev 러너 대상 일치 — BYZ_WEB_BASE=https://byz-agents-web-dev-a3yix5apcq-du.a.run.app
+    ✓ dev 러너 대상 일치 — BYZ_GATEWAY_BASE=https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✗ dev web health 200 이지만 본문이 HTML — 서비스가 아니라 오류 페이지다: https://byz-agents-web-dev-a3yix5apcq-du.a.run.app/
+    ✓ dev gateway health 200 — https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app/api/v1/health/
+    ✓ dev 이미지 web ⊇ 4d20e4112c(byz-agents-web-dev 4d20e4112c)
+    ✓ dev 이미지 gateway ⊇ 4d20e4112c(byz-agents-gateway-dev 4d20e4112c)
+    ✓ dev 이미지 worker ⊇ 4d20e4112c(byz-agents-worker-dev 4d20e4112c)
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha f8fbcf96a9fd · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VqLKt4Y4a6/case-n1/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VqLKt4Y4a6/case-n1/ev/BTS.md
+    
+    PRESS-GATE BLOCK — 위 ✗ 를 먼저 닫아라(랜딩 → stop→run → 화면도 같이)
+FAIL 27. ⓝ2 web 200 + 앱 표지 있는 오류 HTML «Service Unavailable» → 막힘 (exit 1 want 1 · pat=dev web health 200 이지만 본문에 오류 표지)
+    ✓ 미랜딩 제품 커밋 0
+    · dev 대상 — 로컬 칸 ②~⑤ 대신 dev 칸(health 200 · 배포 이미지 sha ⊇ b30f775202) · https://byz-agents-web-dev-a3yix5apcq-du.a.run.app · https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✓ dev 러너 대상 일치 — BYZ_WEB_BASE=https://byz-agents-web-dev-a3yix5apcq-du.a.run.app
+    ✓ dev 러너 대상 일치 — BYZ_GATEWAY_BASE=https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✗ dev web health 200 이지만 본문이 HTML — 서비스가 아니라 오류 페이지다: https://byz-agents-web-dev-a3yix5apcq-du.a.run.app/
+    ✓ dev gateway health 200 — https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app/api/v1/health/
+    ✓ dev 이미지 web ⊇ b30f775202(byz-agents-web-dev b30f775202)
+    ✓ dev 이미지 gateway ⊇ b30f775202(byz-agents-gateway-dev b30f775202)
+    ✓ dev 이미지 worker ⊇ b30f775202(byz-agents-worker-dev b30f775202)
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha b3d726fed596 · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VqLKt4Y4a6/case-n2/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VqLKt4Y4a6/case-n2/ev/BTS.md
+    
+    PRESS-GATE BLOCK — 위 ✗ 를 먼저 닫아라(랜딩 → stop→run → 화면도 같이)
+FAIL 28. ⓝ2 web 200 + 앱 표지 있는 오류 HTML «Application failed to start» → 막힘 (exit 1 want 1 · pat=dev web health 200 이지만 본문에 오류 표지)
+    ✓ 미랜딩 제품 커밋 0
+    · dev 대상 — 로컬 칸 ②~⑤ 대신 dev 칸(health 200 · 배포 이미지 sha ⊇ 7b45e663b5) · https://byz-agents-web-dev-a3yix5apcq-du.a.run.app · https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✓ dev 러너 대상 일치 — BYZ_WEB_BASE=https://byz-agents-web-dev-a3yix5apcq-du.a.run.app
+    ✓ dev 러너 대상 일치 — BYZ_GATEWAY_BASE=https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✗ dev web health 200 이지만 본문이 HTML — 서비스가 아니라 오류 페이지다: https://byz-agents-web-dev-a3yix5apcq-du.a.run.app/
+    ✓ dev gateway health 200 — https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app/api/v1/health/
+    ✓ dev 이미지 web ⊇ 7b45e663b5(byz-agents-web-dev 7b45e663b5)
+    ✓ dev 이미지 gateway ⊇ 7b45e663b5(byz-agents-gateway-dev 7b45e663b5)
+    ✓ dev 이미지 worker ⊇ 7b45e663b5(byz-agents-worker-dev 7b45e663b5)
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha 89b1106377bd · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VqLKt4Y4a6/case-n2/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VqLKt4Y4a6/case-n2/ev/BTS.md
+    
+    PRESS-GATE BLOCK — 위 ✗ 를 먼저 닫아라(랜딩 → stop→run → 화면도 같이)
+FAIL 29. ⓝ2 web 200 + 앱 표지 있는 오류 HTML «502 Bad Gateway» → 막힘 (exit 1 want 1 · pat=dev web health 200 이지만 본문에 오류 표지)
+    ✓ 미랜딩 제품 커밋 0
+    · dev 대상 — 로컬 칸 ②~⑤ 대신 dev 칸(health 200 · 배포 이미지 sha ⊇ 33f2481f47) · https://byz-agents-web-dev-a3yix5apcq-du.a.run.app · https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✓ dev 러너 대상 일치 — BYZ_WEB_BASE=https://byz-agents-web-dev-a3yix5apcq-du.a.run.app
+    ✓ dev 러너 대상 일치 — BYZ_GATEWAY_BASE=https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✗ dev web health 200 이지만 본문이 HTML — 서비스가 아니라 오류 페이지다: https://byz-agents-web-dev-a3yix5apcq-du.a.run.app/
+    ✓ dev gateway health 200 — https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app/api/v1/health/
+    ✓ dev 이미지 web ⊇ 33f2481f47(byz-agents-web-dev 33f2481f47)
+    ✓ dev 이미지 gateway ⊇ 33f2481f47(byz-agents-gateway-dev 33f2481f47)
+    ✓ dev 이미지 worker ⊇ 33f2481f47(byz-agents-worker-dev 33f2481f47)
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha 74c4f33b8453 · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VqLKt4Y4a6/case-n2/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VqLKt4Y4a6/case-n2/ev/BTS.md
+    
+    PRESS-GATE BLOCK — 위 ✗ 를 먼저 닫아라(랜딩 → stop→run → 화면도 같이)
+FAIL 30. ⓝ2 web 200 + 앱 표지 있는 오류 HTML «503 Service Temporarily Unavailable» → 막힘 (exit 1 want 1 · pat=dev web health 200 이지만 본문에 오류 표지)
+    ✓ 미랜딩 제품 커밋 0
+    · dev 대상 — 로컬 칸 ②~⑤ 대신 dev 칸(health 200 · 배포 이미지 sha ⊇ 152173e934) · https://byz-agents-web-dev-a3yix5apcq-du.a.run.app · https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✓ dev 러너 대상 일치 — BYZ_WEB_BASE=https://byz-agents-web-dev-a3yix5apcq-du.a.run.app
+    ✓ dev 러너 대상 일치 — BYZ_GATEWAY_BASE=https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✗ dev web health 200 이지만 본문이 HTML — 서비스가 아니라 오류 페이지다: https://byz-agents-web-dev-a3yix5apcq-du.a.run.app/
+    ✓ dev gateway health 200 — https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app/api/v1/health/
+    ✓ dev 이미지 web ⊇ 152173e934(byz-agents-web-dev 152173e934)
+    ✓ dev 이미지 gateway ⊇ 152173e934(byz-agents-gateway-dev 152173e934)
+    ✓ dev 이미지 worker ⊇ 152173e934(byz-agents-worker-dev 152173e934)
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha 092313e0721e · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VqLKt4Y4a6/case-n2/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VqLKt4Y4a6/case-n2/ev/BTS.md
+    
+    PRESS-GATE BLOCK — 위 ✗ 를 먼저 닫아라(랜딩 → stop→run → 화면도 같이)
+FAIL 31. ⓝ2 web 200 + 앱 표지 있는 오류 HTML «Error: Server Error» → 막힘 (exit 1 want 1 · pat=dev web health 200 이지만 본문에 오류 표지)
+    ✓ 미랜딩 제품 커밋 0
+    · dev 대상 — 로컬 칸 ②~⑤ 대신 dev 칸(health 200 · 배포 이미지 sha ⊇ c0f5d70a99) · https://byz-agents-web-dev-a3yix5apcq-du.a.run.app · https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✓ dev 러너 대상 일치 — BYZ_WEB_BASE=https://byz-agents-web-dev-a3yix5apcq-du.a.run.app
+    ✓ dev 러너 대상 일치 — BYZ_GATEWAY_BASE=https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✗ dev web health 200 이지만 본문이 HTML — 서비스가 아니라 오류 페이지다: https://byz-agents-web-dev-a3yix5apcq-du.a.run.app/
+    ✓ dev gateway health 200 — https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app/api/v1/health/
+    ✓ dev 이미지 web ⊇ c0f5d70a99(byz-agents-web-dev c0f5d70a99)
+    ✓ dev 이미지 gateway ⊇ c0f5d70a99(byz-agents-gateway-dev c0f5d70a99)
+    ✓ dev 이미지 worker ⊇ c0f5d70a99(byz-agents-worker-dev c0f5d70a99)
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha 331c2ba691d4 · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VqLKt4Y4a6/case-n2/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VqLKt4Y4a6/case-n2/ev/BTS.md
+    
+    PRESS-GATE BLOCK — 위 ✗ 를 먼저 닫아라(랜딩 → stop→run → 화면도 같이)
+FAIL 32. ⓝ2 web 200 + 앱 표지 있는 오류 HTML «That’s an error.» → 막힘 (exit 1 want 1 · pat=dev web health 200 이지만 본문에 오류 표지)
+    ✓ 미랜딩 제품 커밋 0
+    · dev 대상 — 로컬 칸 ②~⑤ 대신 dev 칸(health 200 · 배포 이미지 sha ⊇ 420a4e71d3) · https://byz-agents-web-dev-a3yix5apcq-du.a.run.app · https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✓ dev 러너 대상 일치 — BYZ_WEB_BASE=https://byz-agents-web-dev-a3yix5apcq-du.a.run.app
+    ✓ dev 러너 대상 일치 — BYZ_GATEWAY_BASE=https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✗ dev web health 200 이지만 본문이 HTML — 서비스가 아니라 오류 페이지다: https://byz-agents-web-dev-a3yix5apcq-du.a.run.app/
+    ✓ dev gateway health 200 — https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app/api/v1/health/
+    ✓ dev 이미지 web ⊇ 420a4e71d3(byz-agents-web-dev 420a4e71d3)
+    ✓ dev 이미지 gateway ⊇ 420a4e71d3(byz-agents-gateway-dev 420a4e71d3)
+    ✓ dev 이미지 worker ⊇ 420a4e71d3(byz-agents-worker-dev 420a4e71d3)
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha 6c619c429e16 · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VqLKt4Y4a6/case-n2/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VqLKt4Y4a6/case-n2/ev/BTS.md
+    
+    PRESS-GATE BLOCK — 위 ✗ 를 먼저 닫아라(랜딩 → stop→run → 화면도 같이)
+FAIL 33. ⓝ2 web 200 + 앱 표지 있는 오류 HTML «Internal Server Error» → 막힘 (exit 1 want 1 · pat=dev web health 200 이지만 본문에 오류 표지)
+    ✓ 미랜딩 제품 커밋 0
+    · dev 대상 — 로컬 칸 ②~⑤ 대신 dev 칸(health 200 · 배포 이미지 sha ⊇ 02378ab52b) · https://byz-agents-web-dev-a3yix5apcq-du.a.run.app · https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✓ dev 러너 대상 일치 — BYZ_WEB_BASE=https://byz-agents-web-dev-a3yix5apcq-du.a.run.app
+    ✓ dev 러너 대상 일치 — BYZ_GATEWAY_BASE=https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✗ dev web health 200 이지만 본문이 HTML — 서비스가 아니라 오류 페이지다: https://byz-agents-web-dev-a3yix5apcq-du.a.run.app/
+    ✓ dev gateway health 200 — https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app/api/v1/health/
+    ✓ dev 이미지 web ⊇ 02378ab52b(byz-agents-web-dev 02378ab52b)
+    ✓ dev 이미지 gateway ⊇ 02378ab52b(byz-agents-gateway-dev 02378ab52b)
+    ✓ dev 이미지 worker ⊇ 02378ab52b(byz-agents-worker-dev 02378ab52b)
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha 94ea78e5be60 · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VqLKt4Y4a6/case-n2/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VqLKt4Y4a6/case-n2/ev/BTS.md
+    
+    PRESS-GATE BLOCK — 위 ✗ 를 먼저 닫아라(랜딩 → stop→run → 화면도 같이)
+FAIL 34. ⓝ2 web 200 + 앱 표지 있는 오류 HTML «Application error: a client-side exception has occurred» → 막힘 (exit 1 want 1 · pat=dev web health 200 이지만 본문에 오류 표지)
+    ✓ 미랜딩 제품 커밋 0
+    · dev 대상 — 로컬 칸 ②~⑤ 대신 dev 칸(health 200 · 배포 이미지 sha ⊇ 0cfdca85ec) · https://byz-agents-web-dev-a3yix5apcq-du.a.run.app · https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✓ dev 러너 대상 일치 — BYZ_WEB_BASE=https://byz-agents-web-dev-a3yix5apcq-du.a.run.app
+    ✓ dev 러너 대상 일치 — BYZ_GATEWAY_BASE=https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✗ dev web health 200 이지만 본문이 HTML — 서비스가 아니라 오류 페이지다: https://byz-agents-web-dev-a3yix5apcq-du.a.run.app/
+    ✓ dev gateway health 200 — https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app/api/v1/health/
+    ✓ dev 이미지 web ⊇ 0cfdca85ec(byz-agents-web-dev 0cfdca85ec)
+    ✓ dev 이미지 gateway ⊇ 0cfdca85ec(byz-agents-gateway-dev 0cfdca85ec)
+    ✓ dev 이미지 worker ⊇ 0cfdca85ec(byz-agents-worker-dev 0cfdca85ec)
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha c1d913598a83 · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VqLKt4Y4a6/case-n2/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VqLKt4Y4a6/case-n2/ev/BTS.md
+    
+    PRESS-GATE BLOCK — 위 ✗ 를 먼저 닫아라(랜딩 → stop→run → 화면도 같이)
+FAIL 35. ⓝ3 web 200 + 앱 표지 없는 HTML(다른 서비스·빈 페이지) → 막힘 (exit 1 want 1 · pat=dev web health 200 이지만 본문에 앱 표지 «/_next/static/» 없음)
+    ✓ 미랜딩 제품 커밋 0
+    · dev 대상 — 로컬 칸 ②~⑤ 대신 dev 칸(health 200 · 배포 이미지 sha ⊇ 8ba623d77c) · https://byz-agents-web-dev-a3yix5apcq-du.a.run.app · https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✓ dev 러너 대상 일치 — BYZ_WEB_BASE=https://byz-agents-web-dev-a3yix5apcq-du.a.run.app
+    ✓ dev 러너 대상 일치 — BYZ_GATEWAY_BASE=https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✗ dev web health 200 이지만 본문이 HTML — 서비스가 아니라 오류 페이지다: https://byz-agents-web-dev-a3yix5apcq-du.a.run.app/
+    ✓ dev gateway health 200 — https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app/api/v1/health/
+    ✓ dev 이미지 web ⊇ 8ba623d77c(byz-agents-web-dev 8ba623d77c)
+    ✓ dev 이미지 gateway ⊇ 8ba623d77c(byz-agents-gateway-dev 8ba623d77c)
+    ✓ dev 이미지 worker ⊇ 8ba623d77c(byz-agents-worker-dev 8ba623d77c)
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha 7201060be1b8 · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VqLKt4Y4a6/case-n3/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VqLKt4Y4a6/case-n3/ev/BTS.md
+    
+    PRESS-GATE BLOCK — 위 ✗ 를 먼저 닫아라(랜딩 → stop→run → 화면도 같이)
+FAIL 36. ⓝ4 web 200 + 빈 본문 → 막힘 (exit 0 want 1 · pat=dev web health 200 이지만 본문이 비었다)
+    ✓ 미랜딩 제품 커밋 0
+    · dev 대상 — 로컬 칸 ②~⑤ 대신 dev 칸(health 200 · 배포 이미지 sha ⊇ 87078b1028) · https://byz-agents-web-dev-a3yix5apcq-du.a.run.app · https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✓ dev 러너 대상 일치 — BYZ_WEB_BASE=https://byz-agents-web-dev-a3yix5apcq-du.a.run.app
+    ✓ dev 러너 대상 일치 — BYZ_GATEWAY_BASE=https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✓ dev web health 200 — https://byz-agents-web-dev-a3yix5apcq-du.a.run.app/
+    ✓ dev gateway health 200 — https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app/api/v1/health/
+    ✓ dev 이미지 web ⊇ 87078b1028(byz-agents-web-dev 87078b1028)
+    ✓ dev 이미지 gateway ⊇ 87078b1028(byz-agents-gateway-dev 87078b1028)
+    ✓ dev 이미지 worker ⊇ 87078b1028(byz-agents-worker-dev 87078b1028)
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha 9469d02e3c44 · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VqLKt4Y4a6/case-n4/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VqLKt4Y4a6/case-n4/ev/BTS.md
+    
+    ✓ 허가 파일 발급 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VqLKt4Y4a6/case-n4/permits/byz-v65-tester-claude#0.json (target=dev)
+    PRESS-GATE PASS — 발화해도 된다
+FAIL 37. ⓝ5 web 200 + JSON 본문(옛 픽스처 기본값) → 막힘 (exit 0 want 1 · pat=dev web health 200 이지만 본문에 앱 표지)
+    ✓ 미랜딩 제품 커밋 0
+    · dev 대상 — 로컬 칸 ②~⑤ 대신 dev 칸(health 200 · 배포 이미지 sha ⊇ 061cd2606d) · https://byz-agents-web-dev-a3yix5apcq-du.a.run.app · https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✓ dev 러너 대상 일치 — BYZ_WEB_BASE=https://byz-agents-web-dev-a3yix5apcq-du.a.run.app
+    ✓ dev 러너 대상 일치 — BYZ_GATEWAY_BASE=https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✓ dev web health 200 — https://byz-agents-web-dev-a3yix5apcq-du.a.run.app/
+    ✓ dev gateway health 200 — https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app/api/v1/health/
+    ✓ dev 이미지 web ⊇ 061cd2606d(byz-agents-web-dev 061cd2606d)
+    ✓ dev 이미지 gateway ⊇ 061cd2606d(byz-agents-gateway-dev 061cd2606d)
+    ✓ dev 이미지 worker ⊇ 061cd2606d(byz-agents-worker-dev 061cd2606d)
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha 0d480b4a8f58 · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VqLKt4Y4a6/case-n5/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VqLKt4Y4a6/case-n5/ev/BTS.md
+    
+    ✓ 허가 파일 발급 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VqLKt4Y4a6/case-n5/permits/byz-v65-tester-claude#0.json (target=dev)
+    PRESS-GATE PASS — 발화해도 된다
+FAIL 38. ⓝ6 FT_PRESS_DEV_WEB_MARK 로 앱 표지만 바꾼다(표지 있으면 통과) (exit 1 want 0 · pat=dev web health 200 —)
+    ✓ 미랜딩 제품 커밋 0
+    · dev 대상 — 로컬 칸 ②~⑤ 대신 dev 칸(health 200 · 배포 이미지 sha ⊇ a6a347013c) · https://byz-agents-web-dev-a3yix5apcq-du.a.run.app · https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✓ dev 러너 대상 일치 — BYZ_WEB_BASE=https://byz-agents-web-dev-a3yix5apcq-du.a.run.app
+    ✓ dev 러너 대상 일치 — BYZ_GATEWAY_BASE=https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✗ dev web health 200 이지만 본문이 HTML — 서비스가 아니라 오류 페이지다: https://byz-agents-web-dev-a3yix5apcq-du.a.run.app/
+    ✓ dev gateway health 200 — https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app/api/v1/health/
+    ✓ dev 이미지 web ⊇ a6a347013c(byz-agents-web-dev a6a347013c)
+    ✓ dev 이미지 gateway ⊇ a6a347013c(byz-agents-gateway-dev a6a347013c)
+    ✓ dev 이미지 worker ⊇ a6a347013c(byz-agents-worker-dev a6a347013c)
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha 883c0fde2870 · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VqLKt4Y4a6/case-n6/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VqLKt4Y4a6/case-n6/ev/BTS.md
+    
+    PRESS-GATE BLOCK — 위 ✗ 를 먼저 닫아라(랜딩 → stop→run → 화면도 같이)
+FAIL 39. ⓝ7 표지를 바꾸면 기본 표지(/_next/static/)만으론 막힘 (exit 1 want 1 · pat=앱 표지 «data-app="byz"» 없음)
+    ✓ 미랜딩 제품 커밋 0
+    · dev 대상 — 로컬 칸 ②~⑤ 대신 dev 칸(health 200 · 배포 이미지 sha ⊇ fbd9c0b0ad) · https://byz-agents-web-dev-a3yix5apcq-du.a.run.app · https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✓ dev 러너 대상 일치 — BYZ_WEB_BASE=https://byz-agents-web-dev-a3yix5apcq-du.a.run.app
+    ✓ dev 러너 대상 일치 — BYZ_GATEWAY_BASE=https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✗ dev web health 200 이지만 본문이 HTML — 서비스가 아니라 오류 페이지다: https://byz-agents-web-dev-a3yix5apcq-du.a.run.app/
+    ✓ dev gateway health 200 — https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app/api/v1/health/
+    ✓ dev 이미지 web ⊇ fbd9c0b0ad(byz-agents-web-dev fbd9c0b0ad)
+    ✓ dev 이미지 gateway ⊇ fbd9c0b0ad(byz-agents-gateway-dev fbd9c0b0ad)
+    ✓ dev 이미지 worker ⊇ fbd9c0b0ad(byz-agents-worker-dev fbd9c0b0ad)
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha ca44ae3d3362 · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VqLKt4Y4a6/case-n7/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VqLKt4Y4a6/case-n7/ev/BTS.md
+    
+    PRESS-GATE BLOCK — 위 ✗ 를 먼저 닫아라(랜딩 → stop→run → 화면도 같이)
+PASS 40. ⓝ8 web 302(리다이렉트 뒤 다른 서비스) → 막힘(따라가지 않는다) (exit 1)
+PASS 41. ⓝ9 curl 실패(rc≠0) → 막힘 (exit 1)
+FAIL 42. ⓝ10 gateway 200 + 본문 «빈 본문» → 막힘 (exit 1 want 1 · pat=dev gateway health 200 이지만 본문이 비었다)
+    ✓ 미랜딩 제품 커밋 0
+    · dev 대상 — 로컬 칸 ②~⑤ 대신 dev 칸(health 200 · 배포 이미지 sha ⊇ c83732fc6b) · https://byz-agents-web-dev-a3yix5apcq-du.a.run.app · https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✓ dev 러너 대상 일치 — BYZ_WEB_BASE=https://byz-agents-web-dev-a3yix5apcq-du.a.run.app
+    ✓ dev 러너 대상 일치 — BYZ_GATEWAY_BASE=https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✗ dev web health 200 이지만 본문이 HTML — 서비스가 아니라 오류 페이지다: https://byz-agents-web-dev-a3yix5apcq-du.a.run.app/
+    ✓ dev gateway health 200 — https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app/api/v1/health/
+    ✓ dev 이미지 web ⊇ c83732fc6b(byz-agents-web-dev c83732fc6b)
+    ✓ dev 이미지 gateway ⊇ c83732fc6b(byz-agents-gateway-dev c83732fc6b)
+    ✓ dev 이미지 worker ⊇ c83732fc6b(byz-agents-worker-dev c83732fc6b)
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha c591e10804e0 · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VqLKt4Y4a6/case-n10/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VqLKt4Y4a6/case-n10/ev/BTS.md
+    
+    PRESS-GATE BLOCK — 위 ✗ 를 먼저 닫아라(랜딩 → stop→run → 화면도 같이)
+FAIL 43. ⓝ10 gateway 200 + 본문 «ok» → 막힘 (exit 1 want 1 · pat=dev gateway health 200 이지만 본문이 status=ok JSON 객체가 아니다)
+    ✓ 미랜딩 제품 커밋 0
+    · dev 대상 — 로컬 칸 ②~⑤ 대신 dev 칸(health 200 · 배포 이미지 sha ⊇ 79c73c7454) · https://byz-agents-web-dev-a3yix5apcq-du.a.run.app · https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✓ dev 러너 대상 일치 — BYZ_WEB_BASE=https://byz-agents-web-dev-a3yix5apcq-du.a.run.app
+    ✓ dev 러너 대상 일치 — BYZ_GATEWAY_BASE=https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✗ dev web health 200 이지만 본문이 HTML — 서비스가 아니라 오류 페이지다: https://byz-agents-web-dev-a3yix5apcq-du.a.run.app/
+    ✓ dev gateway health 200 — https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app/api/v1/health/
+    ✓ dev 이미지 web ⊇ 79c73c7454(byz-agents-web-dev 79c73c7454)
+    ✓ dev 이미지 gateway ⊇ 79c73c7454(byz-agents-gateway-dev 79c73c7454)
+    ✓ dev 이미지 worker ⊇ 79c73c7454(byz-agents-worker-dev 79c73c7454)
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha 6b2fee30fafb · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VqLKt4Y4a6/case-n10/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VqLKt4Y4a6/case-n10/ev/BTS.md
+    
+    PRESS-GATE BLOCK — 위 ✗ 를 먼저 닫아라(랜딩 → stop→run → 화면도 같이)
+FAIL 44. ⓝ10 gateway 200 + 본문 «{"error":"boom"}» → 막힘 (exit 1 want 1 · pat=dev gateway health 200 이지만 본문이 status=ok JSON 객체가 아니다)
+    ✓ 미랜딩 제품 커밋 0
+    · dev 대상 — 로컬 칸 ②~⑤ 대신 dev 칸(health 200 · 배포 이미지 sha ⊇ 932b1486a9) · https://byz-agents-web-dev-a3yix5apcq-du.a.run.app · https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✓ dev 러너 대상 일치 — BYZ_WEB_BASE=https://byz-agents-web-dev-a3yix5apcq-du.a.run.app
+    ✓ dev 러너 대상 일치 — BYZ_GATEWAY_BASE=https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✗ dev web health 200 이지만 본문이 HTML — 서비스가 아니라 오류 페이지다: https://byz-agents-web-dev-a3yix5apcq-du.a.run.app/
+    ✓ dev gateway health 200 — https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app/api/v1/health/
+    ✓ dev 이미지 web ⊇ 932b1486a9(byz-agents-web-dev 932b1486a9)
+    ✓ dev 이미지 gateway ⊇ 932b1486a9(byz-agents-gateway-dev 932b1486a9)
+    ✓ dev 이미지 worker ⊇ 932b1486a9(byz-agents-worker-dev 932b1486a9)
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha 3464a1e30dfe · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VqLKt4Y4a6/case-n10/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VqLKt4Y4a6/case-n10/ev/BTS.md
+    
+    PRESS-GATE BLOCK — 위 ✗ 를 먼저 닫아라(랜딩 → stop→run → 화면도 같이)
+FAIL 45. ⓝ10 gateway 200 + 본문 «{"status":"degraded"}» → 막힘 (exit 1 want 1 · pat=dev gateway health 200 이지만 본문이 status=ok JSON 객체가 아니다)
+    ✓ 미랜딩 제품 커밋 0
+    · dev 대상 — 로컬 칸 ②~⑤ 대신 dev 칸(health 200 · 배포 이미지 sha ⊇ 2130c0e485) · https://byz-agents-web-dev-a3yix5apcq-du.a.run.app · https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✓ dev 러너 대상 일치 — BYZ_WEB_BASE=https://byz-agents-web-dev-a3yix5apcq-du.a.run.app
+    ✓ dev 러너 대상 일치 — BYZ_GATEWAY_BASE=https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✗ dev web health 200 이지만 본문이 HTML — 서비스가 아니라 오류 페이지다: https://byz-agents-web-dev-a3yix5apcq-du.a.run.app/
+    ✓ dev gateway health 200 — https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app/api/v1/health/
+    ✓ dev 이미지 web ⊇ 2130c0e485(byz-agents-web-dev 2130c0e485)
+    ✓ dev 이미지 gateway ⊇ 2130c0e485(byz-agents-gateway-dev 2130c0e485)
+    ✓ dev 이미지 worker ⊇ 2130c0e485(byz-agents-worker-dev 2130c0e485)
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha 6e5d1018e878 · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VqLKt4Y4a6/case-n10/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VqLKt4Y4a6/case-n10/ev/BTS.md
+    
+    PRESS-GATE BLOCK — 위 ✗ 를 먼저 닫아라(랜딩 → stop→run → 화면도 같이)
+FAIL 46. ⓝ10 gateway 200 + 본문 «[{"status":"ok"}]» → 막힘 (exit 1 want 1 · pat=dev gateway health 200 이지만 본문이 status=ok JSON 객체가 아니다)
+    ✓ 미랜딩 제품 커밋 0
+    · dev 대상 — 로컬 칸 ②~⑤ 대신 dev 칸(health 200 · 배포 이미지 sha ⊇ 04ae3d7f82) · https://byz-agents-web-dev-a3yix5apcq-du.a.run.app · https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✓ dev 러너 대상 일치 — BYZ_WEB_BASE=https://byz-agents-web-dev-a3yix5apcq-du.a.run.app
+    ✓ dev 러너 대상 일치 — BYZ_GATEWAY_BASE=https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✗ dev web health 200 이지만 본문이 HTML — 서비스가 아니라 오류 페이지다: https://byz-agents-web-dev-a3yix5apcq-du.a.run.app/
+    ✓ dev gateway health 200 — https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app/api/v1/health/
+    ✓ dev 이미지 web ⊇ 04ae3d7f82(byz-agents-web-dev 04ae3d7f82)
+    ✓ dev 이미지 gateway ⊇ 04ae3d7f82(byz-agents-gateway-dev 04ae3d7f82)
+    ✓ dev 이미지 worker ⊇ 04ae3d7f82(byz-agents-worker-dev 04ae3d7f82)
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha 45c0103c8f28 · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VqLKt4Y4a6/case-n10/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VqLKt4Y4a6/case-n10/ev/BTS.md
+    
+    PRESS-GATE BLOCK — 위 ✗ 를 먼저 닫아라(랜딩 → stop→run → 화면도 같이)
+FAIL 47. ⓝ10 gateway 200 + 본문 «{"status":"ok"» → 막힘 (exit 1 want 1 · pat=dev gateway health 200 이지만 본문이 status=ok JSON 객체가 아니다)
+    ✓ 미랜딩 제품 커밋 0
+    · dev 대상 — 로컬 칸 ②~⑤ 대신 dev 칸(health 200 · 배포 이미지 sha ⊇ 2ab363fc70) · https://byz-agents-web-dev-a3yix5apcq-du.a.run.app · https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✓ dev 러너 대상 일치 — BYZ_WEB_BASE=https://byz-agents-web-dev-a3yix5apcq-du.a.run.app
+    ✓ dev 러너 대상 일치 — BYZ_GATEWAY_BASE=https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✗ dev web health 200 이지만 본문이 HTML — 서비스가 아니라 오류 페이지다: https://byz-agents-web-dev-a3yix5apcq-du.a.run.app/
+    ✓ dev gateway health 200 — https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app/api/v1/health/
+    ✓ dev 이미지 web ⊇ 2ab363fc70(byz-agents-web-dev 2ab363fc70)
+    ✓ dev 이미지 gateway ⊇ 2ab363fc70(byz-agents-gateway-dev 2ab363fc70)
+    ✓ dev 이미지 worker ⊇ 2ab363fc70(byz-agents-worker-dev 2ab363fc70)
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha 5c17c9820595 · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VqLKt4Y4a6/case-n10/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VqLKt4Y4a6/case-n10/ev/BTS.md
+    
+    PRESS-GATE BLOCK — 위 ✗ 를 먼저 닫아라(랜딩 → stop→run → 화면도 같이)
+FAIL 48. ⓝ11 gateway 200 + {"status":"ok",…} JSON → 통과 (exit 1 want 0 · pat=dev gateway health 200 —)
+    ✓ 미랜딩 제품 커밋 0
+    · dev 대상 — 로컬 칸 ②~⑤ 대신 dev 칸(health 200 · 배포 이미지 sha ⊇ f1555852c1) · https://byz-agents-web-dev-a3yix5apcq-du.a.run.app · https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✓ dev 러너 대상 일치 — BYZ_WEB_BASE=https://byz-agents-web-dev-a3yix5apcq-du.a.run.app
+    ✓ dev 러너 대상 일치 — BYZ_GATEWAY_BASE=https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app
+    ✗ dev web health 200 이지만 본문이 HTML — 서비스가 아니라 오류 페이지다: https://byz-agents-web-dev-a3yix5apcq-du.a.run.app/
+    ✓ dev gateway health 200 — https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app/api/v1/health/
+    ✓ dev 이미지 web ⊇ f1555852c1(byz-agents-web-dev f1555852c1)
+    ✓ dev 이미지 gateway ⊇ f1555852c1(byz-agents-gateway-dev f1555852c1)
+    ✓ dev 이미지 worker ⊇ f1555852c1(byz-agents-worker-dev f1555852c1)
+      NOTE 측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님
+      OK 기준선 통과 — design/v65/baselines/ok.md · set_sha daa1d55bcc47 · 세트 경로 diff 0 = 커밋 소스 동일(기원 증명 아님 · 판정 어휘는 docs/rules/e2e_testing.md)
+    ✓ ⑥ 기준선 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VqLKt4Y4a6/case-n11/repo/card.md
+    ✓ ⑦ 역할 tester — byz-v65-tester-claude#0
+    ✓ ⑧ 첫 회차 — 직전 허가 없음(byz-v65-tester-claude#0)
+      · 이번 회차 BTS.md 골격 생성 — press 뒤 4행을 채워라: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VqLKt4Y4a6/case-n11/ev/BTS.md
+    
+    PRESS-GATE BLOCK — 위 ✗ 를 먼저 닫아라(랜딩 → stop→run → 화면도 같이)
+FAIL 49. ⓝ12 표지 정의 위치
+PASS 50. ⓛ1 TERM 무시 스텁(gcloud 30초) → 10초 만에 막힘(timeout -k 강제종료 · exit 1)
+PASS 51. ⓛ1b _bounded(timeout 없는 PATH) = TERM 무시 자식을 5초에 KILL(rc=137)
+PASS 52. ⓛ2 전체 마감(FT_PRESS_DEV_BUDGET=5) 넘기면 막힘 — 8초(exit 1)
+PASS 53. ⓜ 변이(최종 FAIL 판정 삭제) 사본에서 ⓑ 가 exit 0 = 부정 칸이 그 변이를 죽인다
+PASS 54. 허가 줄 = 끝 칸 1개 덧붙임(옛 5칸 호환)
+PASS 55. 실제 리포 파일 쓰기 0(시험 전후 git status 동일)
+cases=55 fail=25
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+rc=1

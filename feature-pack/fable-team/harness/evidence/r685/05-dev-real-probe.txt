@@ -1,0 +1,30 @@
+# r685 dev 실제 표지 읽기 — 읽기 전용 GET 1회씩(curl -m 7 · 리다이렉트 따라가지 않음) 2026-10-21T19:14:07Z
+$ curl -s -m 7 -o body_web -w … https://byz-agents-web-dev-a3yix5apcq-du.a.run.app/
+code=200 ctype=text/html; charset=utf-8 size=137325
+rc=0
+$ curl -s -m 7 -o body_gateway -w … https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app/api/v1/health/
+code=200 ctype=application/json size=532
+rc=0
+
+## web 본문 앞 300자
+<!DOCTYPE html><html lang="ko"><head><meta charSet="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="preload" as="image" href="/brand/howto-talk/Howto-Talk_black.svg"/><link rel="preload" as="image" imageSrcSet="/_next/image?url=%2Flanding%2Fcover-hero-flip.jpg
+
+## web 본문 표지 셈(grep -oF | wc -l)
+191	/_next/static/
+0	Service Unavailable
+0	Application failed to start
+0	502 Bad Gateway
+0	503 Service
+0	Error: Server Error
+0	That’s an error
+0	That's an error
+0	Internal Server Error
+0	Application error: a client-side exception
+
+## gateway 본문 앞 200자
+{"status":"ok","service":"gateway","v5":{"v5_backend_enabled":true,"v5_event_enabled":true,"v5_ledger_attached":false,"v5_publish_channel":"v5:session:{session_id}:events","v5_stream_key":"v5:session:
+
+## 새 판 _dev_body_bad 를 실제 본문에 (빈 출력 = 정상)
+web  → «»
+json → «»
+(대조) 옛 판 판별 grep -qiE '^[[:space:]]*<(!doctype|html)' web 본문 → rc=0 (0 = «본문이 HTML» BLOCK)

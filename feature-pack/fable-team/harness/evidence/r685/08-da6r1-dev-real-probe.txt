@@ -1,0 +1,12 @@
+# r685 DA⑥ r1 고친 판 — 실제 dev 본문 재대조(읽기 전용 GET 1회씩 · curl -m 7) 2026-10-21T20:13:42Z
+$ curl -s -m 7 https://byz-agents-web-dev-a3yix5apcq-du.a.run.app/
+code=200 ctype=text/html; charset=utf-8 size=137325
+rc=0
+$ curl -s -m 7 https://byz-agents-gateway-dev-a3yix5apcq-du.a.run.app/api/v1/health/
+code=200 ctype=application/json size=532
+rc=0
+제목: <title>하우투 톡 — 실시간 AI 음성 통역 · 강의 자막</title>
+새 판별 web → rc=0 사유=«» (빈 사유 rc0 = 정상)
+새 판별 json → rc=0 사유=«» (빈 사유 rc0 = 정상)
+전체 본문 «This page could not be found» 2회 · script 뺀 보이는 글자 안 0회
+<body> 보이는 글자 3626자
