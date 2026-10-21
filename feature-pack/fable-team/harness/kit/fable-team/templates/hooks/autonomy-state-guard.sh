@@ -7,7 +7,7 @@
 #     단 approve-merge 는 자율 ON(ft-autonomy.sh mode = on)이면 허용 + 로그 `hN-approve seat=<tmux 세션|unknown> file=<경로>`(자율 중 병합 승인 = desk 실행) · OFF·못 읽음 = deny · on|off|forget-kind|approve-scope = 늘 deny · 파일 못 읽음 = 허용 + 로그.
 #   Write/Edit/NotebookEdit 는 file_path·notebook_path. Bash 는 «양성 일치»만: 리다이렉트 `>`/`>>`/`>|` 대상 · tee · cp(마지막 인자=대상) · mv/rm/ln/install/touch/truncate 인자 · dd of= · sed/perl -i.
 #   r626: `ALL_STOP.json`·`ALL_STOP.released-*` 쓰기(누구든) · `ft-all-stop.sh`/`ft_all_stop.py` on|off 실행(어느 꼴이든 · planner 명부 `_master` 좌석만 예외 · hN 본문도 같다) ·
-#     `.fable-team`·`.fable-team/state` 폴더 자체 mv·rm · 인터프리터 코드 안 ALL_STOP 쓰기·지우기·옮기기(heredoc 포함) — 사유 문구는 r626 것. 변수 간접·glob 은 위협 모델 밖(카드 DA⑥ r1).
+#     `all-stop.log`(원장 · DA⑥ r2) 쓰기 · `.fable-team`·`.fable-team/state` 폴더 자체 mv·rm · 인터프리터 코드 안 ALL_STOP 쓰기·지우기·옮기기(heredoc 포함) — 사유 문구는 r626 것. 변수 간접·glob 은 위협 모델 밖(카드 DA⑥ r1).
 #   읽기 목록 밖을 전부 막는 방향은 오탐 폭발(r106c 실측)이라 금지 — cat·jq·grep·tail·ft-autonomy.sh status|mode|event·따옴표 안 글자·heredoc 본문은 allow.
 # 한계(설계 §1): bypass 좌석의 적대적 우회(python -c 로 쓰기 등)까지는 못 막는다 — 그건 ft-autonomy.sh 의 위변조 표시가 잡는다.
 # ★FAIL-OPEN★: 파싱 불가 = 허용 + 로그(FT_AUTONOMY_HOOK_LOG · 기본 ~/.claude/logs/autonomy-hooks.log). 외부 호출 0 — 로컬 git rev-parse 뿐.
@@ -35,7 +35,7 @@ ANY_ARG = {"tee", "touch", "rm", "truncate", "ln", "install", "shred", "unlink",
 REASON = ("자율 모드 상태 파일(autonomy.json·autonomy.log)·병합 승인(autonomy-merge-approved/·옛 autonomy-merge-ok/)·범위 승인 폴더(autonomy-scope/)·묶음 발급(autonomy-digest/)·재개 원장(seat-resume-attempts/) 쓰기와 "
           "ft-autonomy.sh on|off|approve-merge|approve-scope · ft-queue-digest.sh issue · ft-resume-attempt.sh allow 는 오빠 `!` 한 줄만 — 좌석 경로 0(판정 1322·1675·2055). "
           "읽기(cat·jq·tail·ft-autonomy.sh status)와 좌석 도구 scope-approve·scope-stop·scope-status 는 허용.")
-AS_PROT = re.compile(r"(^|/)ALL_STOP\.(json(\.tmp)?$|released-)")   # r626 전팀 정지 상태 파일 — 쓰기는 planner 도 0(도구로만)
+AS_PROT = re.compile(r"(^|/)(ALL_STOP\.(json(\.tmp)?$|released-)|all-stop\.log$)")   # r626 전팀 정지 상태 파일 — 쓰기는 planner 도 0(도구로만)
 AS_REASON = ("전팀 정지 스위치(ft-all-stop.sh·ft_all_stop.py on|off)는 오빠 `!` 한 줄 또는 planner 팀장(명부 seats-planner.json `_master` 좌석)만 — 좌석 경로 0(r626). "
              "ALL_STOP.json·ALL_STOP.released-* 직접 쓰기·지우기·옮기기(파이썬 코드 포함)와 상태 폴더 mv·rm 은 planner 도 0(도구로만). status·check·읽기는 허용.")
 AS_EXE = re.compile(r"^ft[-_]all[-_]stop(\.sh|\.py)?$")   # r626 DA⑥ r1 Q2: 실행 꼴 무관(bash·sh·python3·직접 경로) — 이름 글자로 잡는다
@@ -173,7 +173,7 @@ def planner_seat():   # r626: 지금 좌석이 planner 명부 `_master` 인가(t
 
 
 def violates(cmd, depth=0, merge_ok=False, merges=None):   # merge_ok = 계획 파일 안 approve-merge 허용(자율 ON) · merges = 허용한 approve-merge 를 모은다
-    if "ALL_STOP" in cmd and AS_PYW.search(cmd) and AS_PYOP.search(cmd):   # r626: 인터프리터 코드 안 ALL_STOP 쓰기·지우기·옮기기(heredoc 본문 포함 · 누구든)
+    if ("ALL_STOP" in cmd or "all-stop.log" in cmd) and AS_PYW.search(cmd) and AS_PYOP.search(cmd):   # r626: 인터프리터 코드 안 ALL_STOP 쓰기·지우기·옮기기(heredoc 본문 포함 · 누구든)
         AS_HIT.append("py")
         return True
     for words, reds in simple_commands(cmd):

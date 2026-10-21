@@ -5,7 +5,10 @@ ALL_STOP.json(JSON: since·by·reason·notify_failed) = <리포 공용 루트>/.
 켜짐 = 모든 팀이 «정지»: 오빠·planner 요청에만 답·간단 작업 · 새 골·이슈·spawn·press 0 · 하던 일·할 일은 팀 폴더 STATE.md «정지 직전» 절에.
 막기 = nano·role spawn · tmux-spawn · press 게이트·장치 허가가 `check` 를, 승계 도구가 `check --succession <구> <새>` 를 부른다(진짜 승계 = 구 좌석이 명부에 있고 새 이름이 같은 계보 #N+1 만 통과).
 끄기 = 파일을 ALL_STOP.released-<시각> 로 옮기고 «재개» 통지. 상태 파일이 깨졌으면(JSON 아님·dict 아님·폴더·못 읽음) «정지(읽기 이상)» 로 본다 — 조용한 통과 0.
-통지는 rc 를 돌려받는다 — 실패 수신자는 그 상태 파일 notify_failed 에 남기고 rc 3 · 같은 on/off 를 다시 치면 상태는 그대로 두고 실패분만 다시 보낸다.
+★DA⑥ r2 재설계: «없음 = 꺼짐» 가정 0★ — 원장 <state>/all-stop.log(덧붙이기 전용 · `<시각>\ton|off\t<by>\t<사유>[\tnotify_failed=…]`)에 on·off 가 상태 변경 «전» 1줄.
+  판정: 상태 폴더 없음 = 정지(사람 확인) · 상태 파일 있음 = 정지 · 원장 마지막 on = 정지(상태 파일이 사라져도) · 원장 깨짐 = 정지 · 꺼짐 = 원장 마지막 off(또는 원장·상태 파일 둘 다 없는 처음 설치)뿐.
+통지는 rc 를 돌려받는다 — on 실패분은 상태 파일 notify_failed · off 실패분은 원장 off 줄 notify_failed · rc 3 · 같은 on/off 를 다시 치면 실패분만 다시 보낸다.
+승계 예외 = 새 이름이 구 좌석 계보 #N+1 ∧ 구 좌석 tmux 세션이 지금 살아 있음(목록 못 읽음 = 예외 0) · 명부 행이 닫힘 표시면 예외 0.
 위협 모델(카드 «DA⑥ r1 HOLD → 고침»): 같은 uid 좌석의 고의 우회(변수 간접·명부 위조·가짜 tmux)는 밖 · 표준 도구·평범한 한 줄·깨진 상태·통지 실패는 안.
 팀 목록·루트 = ft_penalty(load_teams·now·root·state_dir) 재사용 — 페널티와 달리 복구 팀 면제 없음(오빠 «전팀»).
 env: FT_ROOT(리포 루트) · FT_NOW(시험) · FT_MBOX_SH(쪽지) · FT_ALL_STOP_BY(켠 사람 칸 · 없으면 tmux 세션 이름 · 그것도 없으면 unknown).
@@ -23,6 +26,7 @@ from pathlib import Path
 from ft_penalty import load_teams, now, root, state_dir
 
 HEAD = "## 정지 직전"
+LOG = "all-stop.log"  # 원장(덧붙이기 전용) — 꺼짐의 유일한 증거 = 마지막 off 줄 (DA⑥ r2 재설계)
 Broken = str  # 읽기 이상 사유
 
 
@@ -130,6 +134,50 @@ def _report(head: str, sent: list[str], failed: list[str]) -> int:
     return 0
 
 
+def ledger() -> tuple[str, list[str]] | Broken | None:
+    """원장 마지막 줄 → (on|off, 그 줄 notify_failed) · 원장 없음 = None · 깨짐(못 읽음·빈 원장·꼴 틀림) = 사유."""
+    p = state_dir() / LOG
+    if not os.path.lexists(p):
+        return None
+    try:
+        lines = [x for x in p.read_text(encoding="utf-8").splitlines() if x.strip()]
+    except (OSError, ValueError) as e:
+        return f"{type(e).__name__}"
+    if not lines:
+        return "빈 원장"
+    f = lines[-1].split("\t")
+    if len(f) < 4 or f[1] not in ("on", "off"):
+        return "마지막 줄 꼴 틀림"
+    nf = next((x[len("notify_failed="):] for x in f[4:] if x.startswith("notify_failed=")), "")
+    return f[1], [x for x in nf.split(",") if x]
+
+
+def log(kind: str, by: str, reason: str, failed: list[str] | None = None) -> None:
+    """원장 덧붙이기 1줄 — `<시각>\ton|off\t<by>\t<사유>[\tnotify_failed=<좌석들>]`."""
+    cells = [time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(now())), kind, by, " ".join(str(reason).split())]
+    if failed is not None:
+        cells.append("notify_failed=" + ",".join(failed))
+    with open(state_dir() / LOG, "a", encoding="utf-8") as f:
+        _ = f.write("\t".join(cells) + "\n")
+
+
+def judge() -> tuple[str, str, dict[str, object] | None]:
+    """→ (off|stop|hard, 사유, 상태 dict) — «없음 = 꺼짐» 가정 0: 꺼짐 증거 = 원장 마지막 off 줄(또는 원장·상태 파일 둘 다 없는 처음 설치)뿐."""
+    sd = state_dir()
+    if not sd.is_dir():
+        return "hard", f"상태 폴더 없음({sd}) — 사람 확인", None
+    d, lg = read(_file()), ledger()
+    if isinstance(d, str):
+        return "hard", f"상태 파일 읽기 이상: {d}", None
+    if isinstance(lg, str):
+        return "hard", f"원장 읽기 이상({LOG}: {lg}) — 사람 확인", None
+    if d is not None:
+        return "stop", f"since {_iso(d.get('since'))}", d
+    if lg and lg[0] == "on":
+        return "stop", f"상태 파일 사라짐 — off 는 ft-all-stop.sh 로만 · 원장 마지막 줄 on", None
+    return "off", "", None
+
+
 def turn_on(reason: str) -> int:
     p = _file()
     d = read(p)
@@ -145,42 +193,49 @@ def turn_on(reason: str) -> int:
         return _report(f"all_stop=on (이미 켜짐 · 실패분 재통지 {len(retry)})", sent, failed)
     state_dir().mkdir(parents=True, exist_ok=True)
     d = {"since": int(now()), "by": _by(), "reason": reason, "notify_failed": []}
+    log("on", str(d["by"]), reason)  # 원장 먼저 — 상태 파일이 사라져도 «켜짐» 이 남는다
     _ = p.write_text(json.dumps(d, ensure_ascii=False), encoding="utf-8")  # 막기는 통지 «전»부터
     sent, failed = notify(p, d, None, lambda t: _on_body(t, d["since"], reason))
     return _report(f"all_stop=on since={d['since']}", sent, failed)
 
 
-def _last_released() -> Path | None:
-    got = sorted(glob.glob(str(state_dir() / "ALL_STOP.released-*")))
-    return Path(got[-1]) if got else None
-
-
 def turn_off() -> int:
-    p = _file()
-    if not os.path.lexists(p):
-        last = _last_released()
-        d = read(last) if last else None
-        retry = [str(x) for x in d.get("notify_failed") or []] if isinstance(d, dict) else []  # type: ignore[union-attr]
-        if not retry or last is None or not isinstance(d, dict):
+    p, sd = _file(), state_dir()
+    lg = ledger()
+    if not sd.is_dir() or (os.path.lexists(p) and p.is_dir()) or isinstance(lg, str):
+        why = "상태 폴더 없음" if not sd.is_dir() else ("상태 경로가 폴더" if isinstance(lg, tuple) or lg is None else f"원장 읽기 이상({lg})")
+        print(f"REJECT off 못 함 — {why}({sd}) · 옮김 0 · 사람 확인")
+        return 1
+    if not os.path.lexists(p) and (lg is None or lg[0] == "off"):
+        retry = lg[1] if lg else []
+        if not retry:
             print("all_stop=off (이미 꺼짐) — 변경 0")
             return 0
-        sent, failed = notify(last, d, retry, _off_body)
+        sent, failed = notify(None, {}, retry, _off_body)
+        log("off", _by(), "실패분 재통지", failed)
         return _report(f"all_stop=off (이미 꺼짐 · 실패분 재통지 {len(retry)})", sent, failed)
-    dst = state_dir() / f"ALL_STOP.released-{time.strftime('%Y%m%d%H%M%S', time.localtime(now()))}"
     d = read(p)
-    p.rename(dst)
-    rec = None if dst.is_dir() else dst  # 깨진 상태가 폴더였으면 실패 기록 자리 없음(화면·rc 만)
-    sent, failed = notify(rec, d if isinstance(d, dict) else {"broken": d}, None, _off_body)
-    return _report(f"all_stop=off released={dst.name}" + ("" if isinstance(d, dict) else f" (깨진 상태 치움: {d})"), sent, failed)
+    log("off", _by(), "끄기")  # 원장 먼저 — 그 뒤 상태 파일을 옮긴다
+    note = ""
+    if os.path.lexists(p):
+        dst = sd / f"ALL_STOP.released-{time.strftime('%Y%m%d%H%M%S', time.localtime(now()))}"
+        p.rename(dst)
+        note = f" released={dst.name}" + ("" if isinstance(d, dict) else f" (깨진 상태 치움: {d})")
+    else:
+        note = " (상태 파일 없이 원장 on 이던 것을 끔)"
+    sent, failed = notify(None, {}, None, _off_body)
+    if failed:
+        log("off", _by(), "통지 실패", failed)
+    return _report(f"all_stop=off{note}", sent, failed)
 
 
 def status() -> int:
-    d = read(_file())
-    if d is None:
+    kind, why, d = judge()
+    if kind == "off":
         print("all_stop=off")
         return 0
-    if isinstance(d, str):
-        print(f"all_stop=on(읽기 이상: {d}) — check 는 정지로 본다 · 치우기 = off")
+    if d is None:
+        print(f"all_stop=on({'읽기 이상 — ' if kind == 'hard' else ''}{why}) — check 는 정지로 본다 · 치우기 = 오빠 `!` ft-all-stop.sh off")
         return 0
     since = d.get("since", 0)
     print(f"all_stop=on since={_iso(since)} by={d.get('by')} reason={d.get('reason')} notify_failed={','.join(map(str, d.get('notify_failed') or [])) or '-'}")  # type: ignore[arg-type]
@@ -190,33 +245,52 @@ def status() -> int:
     return 0
 
 
-def true_succession(old: str, new: str) -> bool:
-    """새 이름 = 구 좌석 계보 #N+1 이고, 구 좌석이 명부(seats*.json)의 좌석 키 또는 역할 칸(`_` 키) 값."""
+def _alive(seat: str) -> bool | None:
+    """tmux 세션 생존 — True 살아 있음 · False 없음 · None 세션 목록 못 읽음."""
+    try:
+        p = subprocess.run(["tmux", "has-session", "-t", f"={seat}"], capture_output=True, text=True, timeout=7)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if p.returncode == 0:
+        return True
+    return False if "can't find session" in p.stderr else None
+
+
+def succession(old: str, new: str) -> tuple[bool, str]:
+    """진짜 승계 = 새 이름이 구 좌석 계보 #N+1 ∧ 구 좌석 tmux 세션이 지금 살아 있음 · 명부 행이 닫힘 표시면 예외 0."""
     m = re.fullmatch(r"(.+)#([0-9]+)", old)
     if not m or new != f"{m.group(1)}#{int(m.group(2)) + 1}":
-        return False
+        return False, "새 이름이 구 좌석 계보 #N+1 아님"
+    alive = _alive(old)
+    if alive is None:
+        return False, "tmux 세션 목록 못 읽음"
+    if not alive:
+        return False, f"구 좌석 세션 없음({old})"
     for f in glob.glob(str(root() / ".fable-team/seats*.json")):
         try:
-            d = json.loads(Path(f).read_text(encoding="utf-8"))
-        except (OSError, ValueError):
+            row = json.loads(Path(f).read_text(encoding="utf-8")).get(old)
+        except (OSError, ValueError, AttributeError):
             continue
-        if isinstance(d, dict) and (old in d or any(k.startswith("_") and v == old for k, v in d.items())):
-            return True
-    return False
+        if isinstance(row, dict):
+            role = str(row.get("role") or "")
+            if role in ("closed", "stop-ready") or role.endswith("-retired") or row.get("_replaced_by") or row.get("_closed"):
+                return False, f"명부 행 닫힘 표시(role={role or '-'})"
+    return True, ""
 
 
 def check(succ: list[str]) -> int:
-    d = read(_file())
-    if d is None:
+    kind, why, _d = judge()
+    if kind == "off":
         return 0
-    if isinstance(d, str):
-        print(f"REJECT 전팀 정지 중(상태 파일 읽기 이상: {d}) — 끄기 전 spawn·press 0 · 치우기 = 오빠 `!` ft-all-stop.sh off")
-        return 1
-    if succ and true_succession(succ[0], succ[1]):
-        print(f"INFO 전팀 정지 중이나 진짜 승계({succ[0]} → {succ[1]})라 통과 — 같은 자리 교대(순증 0)", file=sys.stderr)
-        return 0
-    print(f"REJECT 전팀 정지 중(since {_iso(d.get('since'))}) — 끄기 전 spawn·press 0 · 사유: {d.get('reason')} (ft-all-stop.sh status)"
-          + (f" · 승계 예외 아님(구 좌석 명부·계보 #N+1 둘 다 맞아야 · {succ[0]} → {succ[1]})" if succ else ""))
+    if kind == "stop" and succ:
+        ok, no = succession(succ[0], succ[1])
+        if ok:
+            print(f"INFO 전팀 정지 중이나 진짜 승계({succ[0]} → {succ[1]} · 구 좌석 세션 살아 있음)라 통과 — 같은 자리 교대(순증 0)", file=sys.stderr)
+            return 0
+        why += f" · 승계 예외 아님({no} · {succ[0]} → {succ[1]})"
+    tail = " · 사람 확인" if kind == "hard" else " (ft-all-stop.sh status)"
+    reason = f" · 사유: {_d.get('reason')}" if _d else ""
+    print(f"REJECT 전팀 정지 중({why}) — 끄기 전 spawn·press 0{reason}{tail}")
     return 1
 
 

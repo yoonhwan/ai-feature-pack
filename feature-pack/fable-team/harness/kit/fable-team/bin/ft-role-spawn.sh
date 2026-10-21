@@ -59,8 +59,8 @@ if [ -f "$ROOT/.fable-team/state/PENALTY_STOP" ]; then
   _pout="$(FT_ROOT="$ROOT" bash "$HERE/ft-penalty.sh" check "$_ptm" 2>&1)"; _prc=$?
   [ "$_prc" != 0 ] && { printf '%s\n' "$_pout"; exit "$_prc"; }
 fi
-# ★전팀 정지 게이트 (r626)★: ALL_STOP.json 이 있으면(파일·폴더·깨짐 무관 = -e) 끄기 전 spawn 0(팀 구분·우회 플래그 없음 · 부작용 전) · 판정기가 없으면 그 오류로 REJECT(조용한 통과 0).
-[ -e "$ROOT/.fable-team/state/ALL_STOP.json" ] && { _aout="$(FT_ROOT="$ROOT" bash "$HERE/ft-all-stop.sh" check 2>&1)" || { printf '%s\n' "$_aout"; exit 1; }; }
+# ★전팀 정지 게이트 (r626)★: 늘 check — 판정(상태 파일·원장 all-stop.log·상태 폴더)은 ft_all_stop.py 하나 · «파일 없음 = 꺼짐» 가정 0(DA⑥ r2) · 정지면 끄기 전 spawn 0(팀 구분·우회 플래그 없음 · 부작용 전) · 판정기가 없으면 그 오류로 REJECT(조용한 통과 0).
+[ -e "$ROOT/.fable-team" ] && { _aout="$(FT_ROOT="$ROOT" bash "$HERE/ft-all-stop.sh" check 2>&1)" || { printf '%s\n' "$_aout"; exit 1; }; }
 [ "$TEAM" = v65 ] && SEATS="$ROOT/.fable-team/seats.json" || SEATS="$ROOT/.fable-team/seats-$TEAM.json"   # 명부 이름 규칙 = ft_teamset.py roster_path
 . "$HERE/ft-team-lib.sh"   # R382b: 팀 폴더는 WT 의 design/TEAMS.md 폴더 칸으로(리터럴 0)
 _TD="$(ft_team_in "$WT" "$TEAM")" || { echo "REJECT $TEAM 팀 폴더를 못 풀었다(design/TEAMS.md 명단에 없거나 폴더 칸 오류): $WT"; exit 1; }

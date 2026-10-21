@@ -14,7 +14,7 @@ ck()  { if [ "$2" = 0 ]; then ok "$1"; else bad "$1"; fi; }
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 . "$HERE/lib/fake_resource_env.sh"; fake_resource_env "$TMP/sensors" ok
 REPO="$TMP/repo"; FAKE="$TMP/fakebin"; mkdir -p "$REPO" "$FAKE"
-printf '#!/usr/bin/env bash\ncase "$1" in has-session) exit 1;; display-message) echo "${FAKE_SEAT:-}";; *) exit 0;; esac\n' > "$FAKE/tmux"
+printf '#!/usr/bin/env bash\ncase "$1" in has-session) t="${3#=}"; case " ${FAKE_ALIVE:-} " in *" $t "*) exit 0;; esac; echo "can'"'"'t find session: $t" >&2; exit 1;; display-message) echo "${FAKE_SEAT:-}";; *) exit 0;; esac\n' > "$FAKE/tmux"   # r2: has-session = FAKE_ALIVE 목록
 printf '#!/usr/bin/env bash\nexit 0\n' > "$FAKE/tmuxc"; chmod +x "$FAKE/tmux" "$FAKE/tmuxc"
 fake_comm_root "$REPO" || bad "fake_comm_root"   # git init + .fable-team/comm · FT_ROOT=REPO
 MAIL="$TMP/mail.log"; printf '#!/usr/bin/env bash\nprintf "%%s\\t" "$@" >> "%s"; echo >> "%s"\n' "$MAIL" "$MAIL" > "$TMP/mbox.sh"
@@ -135,8 +135,15 @@ printf 'g1\ng2\ng3\n본문\n' > "$TMP/body.txt"
 succ() { out="$(cd "$REPO" && FT_SO_WAIT_MAX=1 FT_SO_POLL=0 bash "$BIN/ft-successor-open.sh" "$1" "$REPO" --name "$2" --agent claude --model m --body-file "$TMP/body.txt" 2>&1)"; rc=$?; }
 succ "byz-aa-master-claude#1" "byz-aa-nano-x#0"; [ "$rc" = 1 ] && echo "$out" | grep -q '^REJECT 전팀 정지 중'; ck "Q1 successor-open 새 이름 = REJECT rc1" $?
 succ "byz-aa-master-claude#1" "byz-aa-master-claude#3"; [ "$rc" = 1 ] && echo "$out" | grep -q '^REJECT 전팀 정지 중'; ck "Q1 successor-open 계보 건너뜀(#1→#3) = REJECT" $?
-succ "byz-zz-master-claude#1" "byz-zz-master-claude#2"; [ "$rc" = 1 ] && echo "$out" | grep -q '^REJECT 전팀 정지 중'; ck "Q1 successor-open 명부에 없는 구 좌석 = REJECT" $?
-succ "byz-aa-master-claude#1" "byz-aa-master-claude#2"; ! echo "$out" | grep -q '^REJECT 전팀 정지' && echo "$out" | grep -q '진짜 승계'; ck "Q1 successor-open 진짜 승계(#1→#2 · 명부 있음) = 통과" $?
+succ "byz-zz-master-claude#1" "byz-zz-master-claude#2"; [ "$rc" = 1 ] && echo "$out" | grep -q '^REJECT 전팀 정지 중'; ck "Q1 successor-open 구 좌석 세션 없음(계보 #N+1 이어도) = REJECT" $?
+succ "byz-aa-master-claude#1" "byz-aa-master-claude#2"; [ "$rc" = 1 ] && echo "$out" | grep -q '^REJECT 전팀 정지 중'; ck "r2 닫힌(세션 없는) 구 좌석 계보 다음 번호 승계 = REJECT" $?
+export FAKE_ALIVE="byz-aa-master-claude#1"
+succ "byz-aa-master-claude#1" "byz-aa-master-claude#2"; ! echo "$out" | grep -q '^REJECT 전팀 정지' && echo "$out" | grep -q '진짜 승계'; ck "Q1 successor-open 진짜 승계(#1→#2 · 구 좌석 세션 살아 있음) = 통과" $?
+succ "byz-aa-master-claude#1" "byz-aa-nano-x#0"; [ "$rc" = 1 ] && echo "$out" | grep -q '^REJECT 전팀 정지 중'; ck "r2 살아 있는 구 좌석이어도 새 이름 = REJECT" $?
+python3 -c 'import json,sys;p=sys.argv[1];d=json.load(open(p));d["byz-aa-master-claude#1"]["role"]="stop-ready";json.dump(d,open(p,"w"))' "$REPO/.fable-team/seats-aa.json"
+succ "byz-aa-master-claude#1" "byz-aa-master-claude#2"; [ "$rc" = 1 ] && echo "$out" | grep -q '^REJECT 전팀 정지 중'; ck "r2 명부 행 role=stop-ready 면 승계 예외 0" $?
+python3 -c 'import json,sys;p=sys.argv[1];d=json.load(open(p));d["byz-aa-master-claude#1"]["role"]="master";json.dump(d,open(p,"w"))' "$REPO/.fable-team/seats-aa.json"
+unset FAKE_ALIVE
 out="$(cd "$REPO" && bash "$BIN/ft-tmux-spawn.sh" --root "$REPO" --name byz-aa-worker-claude#0 --role worker 2>&1)"; rc=$?
 [ "$rc" = 1 ] && echo "$out" | grep -q '^REJECT 전팀 정지 중'; ck "Q1 tmux-spawn = REJECT rc1" $?
 out="$(FT_PRESS_WT="$REPO" FT_PRESS_ROOT="$REPO" bash "$BIN/ft-press-gate.sh" 2>&1)"; rc=$?
@@ -167,6 +174,33 @@ as off; [ "$rc" = 3 ] && echo "$out" | grep -q '통지 실패 1: byz-bb-master-c
 rm -f "$TMP/bbfail"; : > "$MAIL"
 as off; [ "$rc" = 0 ] && [ "$(grep -c . "$MAIL")" = 1 ] && grep 'byz-bb-master-claude#2' "$MAIL" | grep -q '재개'; ck "Q4 재실행 off = 실패분만 «재개» 재통지" $?
 : > "$MAIL"; as off; [ "$rc" = 0 ] && [ ! -s "$MAIL" ]; ck "Q4 실패분 없으면 off 재실행 통지 0" $?
+
+# ── DA⑥ r2 재설계: «없음 = 꺼짐» 가정 제거 · 꺼짐 증거 = 원장(all-stop.log) 마지막 off 줄 ──
+LOG="$ST/all-stop.log"
+as on "r2"; tail -1 "$LOG" | awk -F'\t' '$2=="on"{f=1} END{exit !f}'; ck "r2 on = 원장 마지막 줄 on" $?
+python3 -c "import os; os.rename('$AS', '$TMP/as.moved')"; as check
+[ "$rc" = 1 ] && echo "$out" | grep -q '상태 파일 사라짐'; ck "r2 python os.rename 로 상태 파일만 옮김 → check rc1 «상태 파일 사라짐»" $?
+nano; [ "$rc" = 1 ] && echo "$out" | grep -q '전팀 정지 중'; ck "r2 상태 파일 사라짐 → nano-spawn REJECT" $?
+perm device-acquire mic; [ "$rc" = 1 ] && echo "$out" | grep -q '전팀 정지 중'; ck "r2 상태 파일 사라짐 → device-acquire REJECT" $?
+(cd "$REPO/.fable-team" && mv state state.saved); as check
+[ "$rc" = 1 ] && echo "$out" | grep -q '상태 폴더 없음'; ck "r2 mv state state.saved → check rc1 «상태 폴더 없음»" $?
+role; [ "$rc" = 1 ] && echo "$out" | grep -q '상태 폴더 없음'; ck "r2 상태 폴더 없음 → role-spawn REJECT" $?
+(cd "$REPO/.fable-team" && mv state.saved state)
+as off; [ "$rc" = 0 ] && tail -1 "$LOG" | awk -F'\t' '$2=="off"{f=1} END{exit !f}'; ck "r2 상태 파일 없이 원장 on → off 로 끔 · 원장 마지막 off" $?
+as check; ck "r2 원장 마지막 off → check rc0" "$rc"
+cp "$LOG" "$TMP/log.ok"; printf 'garbage line\n' >> "$LOG"; as check
+[ "$rc" = 1 ] && echo "$out" | grep -q '원장 읽기 이상'; ck "r2 원장 깨짐(마지막 줄 꼴 틀림) → check rc1" $?
+cp "$TMP/log.ok" "$LOG"
+mkdir "$AS"; as off; [ "$rc" = 1 ] && [ -d "$AS" ] && echo "$out" | grep -q '사람 확인'; ck "r2 상태 경로 폴더 + off → rc1 옮김 0 · 사람 확인" $?
+rmdir "$AS"
+: > "$TMP/bbfail"; as on "r2 통지"; as off; [ "$rc" = 3 ] && tail -1 "$LOG" | grep -q 'notify_failed=byz-bb-master-claude#2'; ck "r2 off 통지 실패 → 원장 off 줄 notify_failed" $?
+rm -f "$TMP/bbfail"; rm -f "$ST"/ALL_STOP.released-*; : > "$MAIL"
+as off; [ "$rc" = 0 ] && [ "$(grep -c . "$MAIL")" = 1 ] && grep 'byz-bb-master-claude#2' "$MAIL" | grep -q '재개' && tail -1 "$LOG" | awk -F'\t' '$2=="off"{f=1} END{exit !f}' && ! tail -1 "$LOG" | grep -q 'notify_failed=byz'; ck "r2 off 재실행 = 원장 기준 실패분만 재통지(released 파일 없어도)" $?
+: > "$MAIL"; as off; [ "$rc" = 0 ] && [ ! -s "$MAIL" ] && echo "$out" | grep -q '이미 꺼짐'; ck "r2 실패분 없으면 off 재실행 통지 0" $?
+IH2="$TMP/hooks"; export TMUX=fake
+deny "byz-aa-master-claude#1" "$(mkbash "printf 'x\toff\n' >> /r/.fable-team/state/all-stop.log")"; ck "r2 가드: all-stop.log 덧붙이기 = deny" $?
+deny "byz-aa-master-claude#1" "$(mkbash "python3 -c \"open('/r/.fable-team/state/all-stop.log','a').write('x')\"")"; ck "r2 가드: python 으로 all-stop.log 쓰기 = deny" $?
+unset TMUX
 
 echo "fail=$fail"; [ "$fail" = 0 ] && echo "ALL PASS"
 exit "$fail"
