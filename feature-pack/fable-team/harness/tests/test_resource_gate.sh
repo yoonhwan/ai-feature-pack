@@ -157,7 +157,7 @@ swap_checks() {
   local FT_RES_SWAP_FREEZE=1; export FT_RES_SWAP_FREEZE   # r633: R357 의 swap 거절 단언은 옛 동작(env) 기준 · 함수 안에서만
   rm_freeze
   sw "$d" 13500 2 55 check FT_RES_SWAP_FREEZE=0
-  { [ $RC -eq 0 ] && echo "$OUT" | grep -q '^OK ' && echo "$OUT" | grep -qx 'WARN swap=13500MiB level=2 — 막지 않음(닫기 목록은 감시자가 보냄)'; } || { echo "r633 swap13500·level2 → OK + WARN(막지 않음) rc=$RC $OUT"; e=1; }
+  { [ $RC -eq 0 ] && echo "$OUT" | grep -q '^OK ' && echo "$OUT" | grep -qx 'WARN swap=13500MiB level=2 — 막지 않음(유휴 좌석은 선제 회수가 처리)'; } || { echo "r633 swap13500·level2 → OK + WARN(막지 않음) rc=$RC $OUT"; e=1; }
   sw "$d" 13500 1 55 check
   { [ $RC -eq 0 ] && echo "$OUT" | grep -q '^OK '; } || { echo "R357ⓐ swap13500·level1 → OK 이어야 함 rc=$RC $OUT"; e=1; }
   sw "$d" 13500 2 55 check

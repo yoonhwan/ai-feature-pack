@@ -1,0 +1,52 @@
+# r633 판정 2531(쪽지 발신 빼기) — 실패 시험 먼저: DA⑥ r3 HOLD 판 d3b7b482b1658c76b54bf3829292af88380c3fed(git archive) 에서 새 시험
+PASS bash -n ft-resource-watch.sh
+PASS 키트 사본 cmp 0 ft-resource-watch.sh
+PASS bash -n ft-resource-gate.sh
+PASS 키트 사본 cmp 0 ft-resource-gate.sh
+PASS 감시자 줄 수 ≤245
+FAIL 발신 lib 파일이 남음
+FAIL 감시자에 발신·pending·잠금·서명 상태 참조 0 — «3» ≠ «0»
+PASS ⓐ swap14288·level2·memfree31 → 동결 0
+PASS ⓐ check rc=0(REJECT 아님)
+PASS ⓐ check 첫 줄 OK
+FAIL ⓐ check 뒤 WARN 1줄(쪽지 주장 0) — 없음: «WARN swap=14288MiB level=2 — 막지 않음(유휴 좌석은 선제 회수가 처리)» ← OK disk=418GiB swap=14288MiB memfree=31% level=2 rate=0 agents=20
+WARN swap=14288MiB level=2 — 막지 않음(닫기 목록은 감시자가 보냄)
+PASS ⓐ check REJECT 0
+FAIL ⓐ 감시 로그 WARN 1줄 — 없음: «WARN swap=14288MiB level=2 — 막지 않음 · 선제 회수가 유휴 좌석 처리» ← 2026-10-21T07:17:16Z	ERROR ft-disk-alarm rc=3 (tick 은 계속)
+2026-10-21T07:17:16Z	ERROR swap 닫기 목록 회수 출력 형식 깨짐 — 요약 줄(PREVENTIVE reclaimed=… candidates=…) 없음 · 동결 0 · 쪽지 0
+PASS ⓐ 감시 로그 FREEZE created 0
+FAIL ⓐ swap 경고 경로가 회수 도구를 부름
+PASS ⓐ 자원 경고 쪽지 0
+FAIL ⓐ 옛 발신 상태 파일이 생김
+FAIL ⓑ 같은 사유(같은 4GiB 구간·level 2) 다음 틱 2번 → 추가 0 — «0» ≠ «1»
+FAIL ⓑ swap 구간이 바뀌면(3→4) 1줄 더 — «0» ≠ «2»
+FAIL ⓑ level 이 바뀌면(2→3) 1줄 더 — «0» ≠ «3»
+FAIL ⓑ 경고가 풀렸다가(swap 9000) 다시 오면 1줄 더 — «0» ≠ «4»
+FAIL ⓑ 회수 도구가 불림
+PASS ⓓ level 4 → 동결 생성
+PASS ⓓ 로그 trig=level
+PASS ⓓ check REJECT
+PASS ⓓ swap14288·level 4 → 동결 생성
+PASS ⓓ hard(level 4) 틱 → swap WARN 0
+PASS ⓔ disk 24G → FREEZE trig=disk
+PASS ⓔ disk 24G → REJECT
+PASS ⓔ memfree 9 → FREEZE trig=memfree
+PASS ⓔ memfree 9 → REJECT
+PASS ⓕ 해제 조건 3표본 → THAW
+PASS ⓕ 로그 THAW removed
+PASS ⓕ 트리거 아직 참 → 유지
+PASS ⓕ 로그 THAW held
+PASS ⓖ FT_RES_SWAP_FREEZE=1 → 동결
+PASS ⓖ 로그 trig=swap
+PASS ⓖ 옛 동작 → 막지 않음 WARN 0
+PASS ⓖ check 옛 REJECT 줄
+PASS ⓘ hard(disk 24G)∧swap 경고 → 동결 생성
+PASS ⓘ hard 조건 틱 → swap WARN 0
+PASS ⓘ hard 조건 틱 → 쪽지·회수 호출 0
+PASS ⓜ env 모드 level 4·swap 6000 → 동결
+PASS ⓜ env 모드 trig=level
+PASS swap 경고 아님 → WARN 0
+PASS swap 경고 아님 → 동결 0
+---- fail=11
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+rc=1

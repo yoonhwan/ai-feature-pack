@@ -32,7 +32,7 @@ seed() { # 표본줄 N개(이전 시각순) — 인자: swap memfree level 개�
   local i; NOW="$(date +%s)"; : > "$PTSV"; for i in $(seq "$4" -1 1); do printf '%s\t%s\t%s\t%s\t2303978\n' "$((NOW-60*i))" "$1" "$2" "$3" >> "$PTSV"; done; }
 printf '#!/bin/bash\necho "$*" >> "%s/wrc.calls"\necho "후보 | 종류 | 승인 근거 | 결과"\necho "PREVENTIVE reclaimed=0 candidates=0 skipped=0 pressure=0 swap=0%%"\n' "$T" > "$T/wrc.sh"; chmod 755 "$T/wrc.sh"   # r633: 기본 모드 swap 경고 틱의 회수 도구(가짜 · 실 tmux 0)
 printf '#!/bin/bash\n[ "$1" = send ] && printf "%%s\\n" "$*" >> "%s/wmbox.log"\nexit 0\n' "$T" > "$T/wmbox.sh"; chmod 755 "$T/wmbox.sh"   # r633: 가짜 mbox(실 쪽지 0)
-tick() { # tick <env…> — 임시 루트에서 감시자 tick 1회 (r633: 회수 도구·mbox 는 가짜 기본값 · 인자로 덮어쓸 수 있음)
+tick() { # tick <env…> — 임시 루트에서 감시자 tick 1회 (r633: 회수 도구·mbox 는 가짜 기본값 — swap 경고 경로가 부르면 안 됨 · 인자로 덮어쓸 수 있음)
   env FT_RES_ROOT="$R" PATH="$S:$PATH" FT_RES_SNAP_SEC=9999999999 FT_WORKTREES="$T/wt" FT_RECLAIM_SH="$T/wrc.sh" FT_MBOX_SH="$T/wmbox.sh" "$@" bash "$BIN/ft-resource-watch.sh" tick >/dev/null 2>&1; }
 bash -n "$BIN/ft-resource-watch.sh" && ok "bash -n watch" || bad "bash -n watch"
 cmp -s "$BIN/ft-resource-watch.sh" "$KIT/ft-resource-watch.sh" && ok "키트 사본 cmp 0 watch" || bad "키트 사본 어긋남 watch"
@@ -100,10 +100,10 @@ rm -f "$FREEZE" "$WLOG"; seed 13500 30 4 2; tick FAKE_SWAP=13500 FAKE_LEVEL=4 FA
 has "$(cat "$WLOG" 2>/dev/null)" "trig=swap" "R357 ⓛ5 (env 모드) disk 86G·level4·swap13500 → trig=swap(결합)"
 # ── r633 기본 모드(env 없음) — 같은 입력에서 swap∧level2 는 동결 0 · level 4 는 단독 동결 ──
 rm -f "$FREEZE" "$WLOG" "$T/wrc.calls"; seed 13500 55 2 3; for _i in 1 2; do tick FAKE_SWAP=13500 FAKE_LEVEL=2 FAKE_MEMFREE=55; done
-for _i in $(seq 1 100); do [ -f "$T/wrc.calls" ] && [ ! -d "$ST/swap-warn-send.lock.d" ] && break; sleep 0.2; done   # r633 r3: 발신 쪽은 분리 실행 — 끝날 때까지 기다려 다음 시험 로그에 섞이지 않게
 eq "$(cnt 'FREEZE created')" 0 "r633 기본 ⓗ swap13500·level2 ×2틱 → FREEZE created 0"
 [ ! -f "$FREEZE" ] && ok "r633 기본 ⓗ 동결 파일 없음" || bad "r633 기본 ⓗ 동결 파일이 생김"
-has "$(cat "$T/wrc.calls" 2>/dev/null)" "--dry-run --preventive" "r633 기본 ⓗ 닫기 목록 경로(가짜 회수 도구 --dry-run --preventive)"
+[ ! -f "$T/wrc.calls" ] && ok "r633 기본 ⓗ 회수 도구 호출 0(판정 2531 · 쪽지 경로 없음)" || bad "r633 기본 ⓗ swap 경고가 회수 도구를 부름"
+eq "$(grep -c 'WARN swap=13500MiB level=2 — 막지 않음 · 선제 회수가 유휴 좌석 처리' "$WLOG" 2>/dev/null || true)" 1 "r633 기본 ⓗ 막지 않음 WARN 1줄(2틱 · 같은 사유)"
 rm -f "$FREEZE" "$WLOG"; seed 13500 30 4 2; tick FAKE_SWAP=13500 FAKE_LEVEL=4 FAKE_MEMFREE=30
 has "$(cat "$WLOG" 2>/dev/null)" "trig=level" "r633 기본 ⓛ5 level4·swap13500 → trig=level(swap 결합 아님)"
 rm -f "$FREEZE" "$WLOG"; seed 6000 30 4 2; tick FAKE_SWAP=6000 FAKE_LEVEL=4 FAKE_MEMFREE=30

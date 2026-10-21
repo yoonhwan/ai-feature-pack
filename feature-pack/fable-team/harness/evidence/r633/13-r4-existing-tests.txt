@@ -1,0 +1,20 @@
+# r633 판정 2531 뒤 인접 resource 시험 — 가지 · rc≠0 이면 base origin/main effdd1ee 사본 대조 · 시작 load averages: 37.38 48.66 56.68
+test_resource_gate rc=0 FAIL=0
+test_resource_gate_pressure rc=1 FAIL=1
+  가지: FAIL r3 변이: 잠금 제거가 검출되지 않음
+  base rc=1
+  base: FAIL core.bare
+test_resource_watch rc=0 FAIL=0
+test_resource_selflink_r589 rc=0 FAIL=0
+test_resource_watch_incremental_r534 rc=0 FAIL=0
+test_resource_cpu_owner rc=0 FAIL=0
+test_resource_reclaim_preventive rc=1 FAIL=3
+  가지: FAIL r502 ⓓ 선제 회수가 받은 PATH = launchd PATH + EXTRA — «» ≠ «/usr/bin:/bin:/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.WFwHJSb
+  가지: FAIL r502 ⓓ 표본도 같은 PATH — «» ≠ «/usr/bin:/bin:/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.WFwHJSb794/xp»
+  가지: FAIL r502 ⓓ EXTRA 미설정 = 기본 홈브루 경로 — «» ≠ «/usr/bin:/bin:/opt/homebrew/bin:/usr/local/bin»
+  base rc=1
+  base: FAIL r502 ⓓ 선제 회수가 받은 PATH = launchd PATH + EXTRA — «» ≠ «/usr/bin:/bin:/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.onFNFF3
+  base: FAIL r502 ⓓ 표본도 같은 PATH — «» ≠ «/usr/bin:/bin:/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.onFNFF3B0o/xp»
+  base: FAIL r502 ⓓ EXTRA 미설정 = 기본 홈브루 경로 — «» ≠ «/usr/bin:/bin:/opt/homebrew/bin:/usr/local/bin»
+  base: FAIL core.bare 이상
+끝
