@@ -4,6 +4,7 @@
 #   전제: h-oci-infer-stack.sh 가 먼저 성공해 127.0.0.1:8317(cliproxy)·8790(headroom)이 살아 있어야 «claude ping» 증거가 나온다.
 # 비대화형 · 멱등(이미 깔린 버전이면 건너뜀) · 비밀값 0 · 전역 export 0(claude 래퍼 파일 안에서만 8317 을 본다)
 # 하지 않는 것: apt 설치 · sudo 필요 작업 · 기존 hermes-gateway/cloudflared 유닛 만지기 · PATH 영구 변경(래퍼 심링크만)
+# 상한: 외부 호출 단건 70초 천장(하드 룰 12) · 넘으면 rc=3 이고 같은 h 재실행이 이어감
 # rc: 0 성공 · 2 사전점검 · 3 설치 실패 · 5 증거(좌석 열기/닫기) 실패
 set -uo pipefail
 
@@ -56,13 +57,12 @@ printf '%s\n' "$PRE" | grep -q '^cliproxy=200' || die 2 "cliproxy(127.0.0.1:8317
 
 # ── 2) npm 사용자 prefix 로 3종 설치 ────────────────────────────────────────
 say "2/6 npm 설치(claude·pi·codex)"
-rs 240 "set -e
-export PATH=\"\$HOME/.npm-global/bin:\$PATH\"
-mkdir -p \"\$HOME/.npm-global\"
-npm install -g --prefix \"\$HOME/.npm-global\" '$CLAUDE_PKG' >/dev/null 2>&1
-npm install -g --prefix \"\$HOME/.npm-global\" '@earendil-works/pi-coding-agent@$PI_VER' >/dev/null 2>&1
-npm install -g --prefix \"\$HOME/.npm-global\" '@openai/codex@$CODEX_VER' >/dev/null 2>&1
-echo installed=ok" || die 3 "npm 설치 실패(네트워크/디스크 확인)"
+# 외부 호출 70초 천장(하드 룰 12): 패키지마다 1회씩 나눈다 — 넘으면 rc=3, 같은 h 재실행이 npm 캐시로 이어간다
+npm_one() { rs 70 "export PATH=\"\$HOME/.npm-global/bin:\$PATH\"; mkdir -p \"\$HOME/.npm-global\"; npm install -g --prefix \"\$HOME/.npm-global\" '$1' >/tmp/h-npm.log 2>&1 && echo ok" >/dev/null \
+  || die 3 "npm 설치 실패/70초 초과: $1 (/tmp/h-npm.log · 같은 h 재실행으로 이어감)"; }
+npm_one "$CLAUDE_PKG"
+npm_one "@earendil-works/pi-coding-agent@$PI_VER"
+npm_one "@openai/codex@$CODEX_VER"
 V="$(rs 40 'bash -lc "export PATH=\$HOME/.npm-global/bin:\$PATH; echo claude=\$(claude --version 2>/dev/null | head -1); echo pi=\$(pi --version 2>/dev/null); echo codex=\$(codex --version 2>/dev/null | head -1)"' 2>&1)"
 printf '%s\n' "$V" | sed 's/^/        /'
 
@@ -72,11 +72,11 @@ rs 25 'mkdir -p ~/packs && echo ok' >/dev/null || die 3 "~/packs 생성 실패"
 for pk in tmuxc tmm; do
   # 이전 사본은 .prev 로 밀어 두고 새로 푼다(롤백 경로 유지)
   rs 25 "set -e; rm -rf ~/packs/$pk.new; mkdir -p ~/packs; echo ok" >/dev/null || die 3 "정리 실패: $pk"
-  timeout 180 tar -C "$REPO/feature-pack" -czf - "$pk" | rs 180 "set -e; tar -xzf - -C ~/packs; echo unpack=ok" >/dev/null || die 3 "$pk 전송/해제 실패"
+  timeout 70 tar -C "$REPO/feature-pack" -czf - "$pk" | rs 70 "set -e; tar -xzf - -C ~/packs; echo unpack=ok" >/dev/null || die 3 "$pk 전송/해제 실패"
   rs 20 "set -e; [ -f ~/packs/$pk/core/VERSION ] && echo '$pk'=version_ok || exit 1" >/dev/null || die 3 "$pk 해제 후 버전 파일 없음"
 done
-rs 120 'set -e; cd ~/packs/tmuxc && bash install.sh >/tmp/h-tmuxc-install.log 2>&1; tail -3 /tmp/h-tmuxc-install.log; echo tmuxc_install_rc=0' || die 3 "tmuxc install.sh 실패(/tmp/h-tmuxc-install.log)"
-rs 120 'set -e; cd ~/packs/tmm && bash install.sh >/tmp/h-tmm-install.log 2>&1; tail -3 /tmp/h-tmm-install.log; echo tmm_install_rc=0' || die 3 "tmm install.sh 실패(/tmp/h-tmm-install.log)"
+rs 70 'set -e; cd ~/packs/tmuxc && bash install.sh >/tmp/h-tmuxc-install.log 2>&1; tail -3 /tmp/h-tmuxc-install.log; echo tmuxc_install_rc=0' || die 3 "tmuxc install.sh 실패(/tmp/h-tmuxc-install.log)"
+rs 70 'set -e; cd ~/packs/tmm && bash install.sh >/tmp/h-tmm-install.log 2>&1; tail -3 /tmp/h-tmm-install.log; echo tmm_install_rc=0' || die 3 "tmm install.sh 실패(/tmp/h-tmm-install.log)"
 LOCK="$(rs 30 'echo "tmuxc=$(cat ~/.tmuxc/current/core/VERSION 2>/dev/null)"; echo "tmm=$(cat ~/.tmm/current/core/VERSION 2>/dev/null)"; ls -l ~/.local/bin/tmuxc ~/.local/bin/tmm 2>/dev/null | awk "{print \$9, \$10, \$11}"' 2>&1)"
 printf '%s\n' "$LOCK" | sed 's/^/        /'
 printf '%s\n' "$LOCK" | grep -q "tmuxc=$TMUXC_VER" || die 3 "tmuxc 버전 불일치(기대 $TMUXC_VER)"
@@ -90,6 +90,8 @@ cat > ~/.local/bin/claude-aifp <<'W'
 #!/usr/bin/env bash
 # aifp · OCI 로컬 추론 경로 전용 래퍼 — ANTHROPIC_BASE_URL 을 «이 프로세스에만» 준다(전역 export 금지).
 export ANTHROPIC_BASE_URL='$CLIPROXY_URL'
+# OCI 의 claude 는 로그인 정보가 없다 — cliproxy(api-keys 비어 있음 = 클라이언트 인증 없음)용 자리표시 값(비밀 아님 · mini 와 같은 방식)
+export ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-aifp-local-no-auth}"
 export PATH=\"\$HOME/.npm-global/bin:\$PATH\"
 exec claude \"\$@\"
 W
