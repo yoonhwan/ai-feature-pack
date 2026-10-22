@@ -36,7 +36,7 @@ rm -f /tmp/aifp-mini-audio.err
 say "3/3 분석"
 VOL="$(ffmpeg -nostdin -hide_banner -i "$T" -af volumedetect -f null - 2>&1 | grep -E 'mean_volume|max_volume' | sed 's/^.*\] //')"
 echo "$VOL" | sed 's/^/        /'
-MEAN="$(echo "$VOL" | sed -n 's/^mean_volume: \(-\?[0-9.]*\) dB.*/\1/p')"
+MEAN="$(echo "$VOL" | sed -En 's/^mean_volume: (-?[0-9.]+) dB.*/\1/p')"
 if [ -n "$MEAN" ] && awk -v m="$MEAN" 'BEGIN{exit !(m > -50)}'; then
   say "신호 들어옴(평균 ${MEAN} dB) → MIC_OK 후보. 최종 확정은 e2e 러너의 trusted 클릭 회차에서."
   exit 0

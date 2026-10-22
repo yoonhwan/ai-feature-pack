@@ -70,7 +70,7 @@
 - 실측 A2: 새 이름 디렉터리 rename 중간 상태 관찰(설계 §16 공백).
 ### 5-3. ★오빠 손 2건 — «나중에 볼 것» (마감을 막지 않음)★
 1. OCI 키 만료 끄기 — login.tailscale.com/admin/machines → aifp-oci-jarvis «…» → Disable key expiry. 마지막 실측 KeyExpiry 2027-04-19T14:09Z (끄지 않으면 그날 조용히 끊김).
-2. mini 마이크 점검 — ! bash /tmp/h143 → mini 터미널에서 bash /tmp/aifp-mini-audio-check.sh. 마지막 확인: /tmp/h143.ran 없음.
+2. mini 마이크 점검 — ✅ 2026-10-22 오빠 실행: 시험음 들림(스피커 정상) · BlackHole 2ch 입력 mean -37.3 dB / max -10.6 dB(> -50 dB = 신호 들어옴 → MIC_OK 후보). 스크립트는 rc=3 으로 끝났으나 원인은 macOS sed 가 `\?` 를 못 읽어 평균값 추출이 비던 결함(신호 문제 아님) → h-plans/mini-audio-check.sh 를 `sed -E` 로 수정. 최종 확정은 e2e 러너 trusted 클릭 회차(P6 ①).
 
 ## 6. 정리 상태 (마감 시점)
 | 대상 | 상태 | 비고 |
