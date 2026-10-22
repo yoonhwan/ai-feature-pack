@@ -128,6 +128,8 @@ else
   for k in "${KEYS[@]}"; do v="${!k:-}"; [ -n "$v" ] && { printf 'export %s=%q\n' "$k" "$v" >> "$ENVF"; N=$((N+1)); }; done
 fi
 [ "$N" -gt 0 ] || die 2 "넘길 키가 0개다(KEY_SRC=$KEY_SRC)"
+# 비밀이 아닌 고정값(출처: 33335c7a tests/gateway/conftest.py 가 30 을 고정 · supabase/migrations 20261021000001 주석 «30일») — .env 에 없어도 gateway 기동(lifespan)이 요구한다
+grep -q '^export CORPUS_RETENTION_DAYS=' "$ENVF" || { printf 'export CORPUS_RETENTION_DAYS=30\n' >> "$ENVF"; N=$((N+1)); say "        CORPUS_RETENTION_DAYS 는 .env 에 없어 고정값 30 으로 둔다(비밀 아님)"; }
 for req in PAYMENT_MODE APP_ENV V6_AUTHORITATIVE_STT_MODE V6_AUTHORITATIVE_STT_PROVIDER BYZ_E2E_JWT_SECRET; do   # 이름만 검사
   grep -q "^export $req=" "$ENVF" || say "        ⚠ 필수 이름 누락: $req (gateway/worker 가 기동 중 raise 할 수 있다)"
 done
