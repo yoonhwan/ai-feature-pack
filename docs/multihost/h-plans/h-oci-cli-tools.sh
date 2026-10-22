@@ -25,7 +25,8 @@ SO=(-o BatchMode=yes -o ConnectTimeout=6 -o ServerAliveInterval=10 -o ServerAliv
     -o IdentitiesOnly=yes -i "$KEY" -o ControlMaster=auto -o ControlPersist=300 -o ControlPath="$CP/s")
 say() { printf '[h-cli] %s\n' "$*"; }
 die() { printf '[h-cli] REJECT rc=%s %s\n' "$1" "$2" >&2; exit "$1"; }
-rs() { local t="$1"; shift; timeout "$t" ssh "${SO[@]}" "$R" "$@"; }
+# ★원격은 항상 PATH 접두★ — ssh 비대화형 PATH 에는 ~/.local/bin·~/.npm-global/bin 이 없다(h377 1차 실측: 방금 깐 tmuxc 를 tmm 설치 점검이 «누락» 으로 오판 → rc=3)
+rs() { local t="$1"; shift; timeout "$t" ssh "${SO[@]}" "$R" "export PATH=\$HOME/.local/bin:\$HOME/.npm-global/bin:\$PATH; $*"; }
 
 # ── 0) 로컬 사전점검 ─────────────────────────────────────────────────────────
 say "0/6 로컬 사전점검"
