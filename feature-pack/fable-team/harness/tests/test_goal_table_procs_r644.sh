@@ -101,7 +101,22 @@ same() {  # <하위 명령> — 새 판과 origin/main 판 출력이 바이트 �
   B="$(env -u FT_ROOT FT_GOAL_REPO="$R" FT_LEDGER_REPO="$R" FT_TEAMS_REF=origin/main FT_GOAL_A6_LEDGER="$R/$F/PLAN-oppa-ledger.md" FT_GOAL_A6_MD="$R/$F/AUTONOMY-GOAL-A6-20261018.md" python3 "$BASE" "$1" 2>/dev/null)"
   [ -n "$A" ] && [ "$A" = "$B" ]
 }
-same render && ok "ⓗ1 render 바이트 동일(메인 6줄 블록 무변경)" || bad "ⓗ1 render"
+drop_readjust() {  # r714a: «재조정» 머리 1칸 + 표 5번째 칸을 걷어낸다(그 밖은 base 와 바이트 동일이어야 한다)
+  python3 -c '
+import re, sys
+for ln in sys.stdin:
+    ln = re.sub(r" · 재조정 [^)]*\)★$", ")★", ln.rstrip("\n"))
+    if ln.startswith("|") and ln.endswith("|"):
+        cells = ln[1:-1].split("|")
+        if len(cells) == 5:
+            cells = cells[:4]
+        ln = "|" + "|".join(cells) + "|"
+    print(ln)
+'
+}
+A="$(env -u FT_ROOT FT_GOAL_REPO="$R" FT_LEDGER_REPO="$R" FT_TEAMS_REF=origin/main FT_GOAL_A6_LEDGER="$R/$F/PLAN-oppa-ledger.md" FT_GOAL_A6_MD="$R/$F/AUTONOMY-GOAL-A6-20261018.md" python3 "$TOOL" render 2>/dev/null | drop_readjust)"
+B="$(env -u FT_ROOT FT_GOAL_REPO="$R" FT_LEDGER_REPO="$R" FT_TEAMS_REF=origin/main FT_GOAL_A6_LEDGER="$R/$F/PLAN-oppa-ledger.md" FT_GOAL_A6_MD="$R/$F/AUTONOMY-GOAL-A6-20261018.md" python3 "$BASE" render 2>/dev/null | drop_readjust)"
+[ -n "$A" ] && [ "$A" = "$B" ] && ok "ⓗ1 render 바이트 동일(«재조정» 1칸을 걷어내면 메인 6줄 블록 무변경 · r714a)" || bad "ⓗ1 render"
 printf '\n## 팀별 완성 진행\n\n| 팀 | 끝선 N/M | 마지막 착지 | 지금 하는 것 |\n|---|---|---|---|\n| planner | 3/5 | a1b2 | 골 표 |\n' >> "$R/$F/PLAN-oppa-ledger.md"; commit c12
 same teams && ok "ⓗ2 teams 바이트 동일" || bad "ⓗ2 teams"
 ORDER="$(cd "$(dirname "$TOOL")" && env -u FT_ROOT FT_GOAL_REPO="$R" FT_LEDGER_REPO="$R" FT_TEAMS_REF=origin/main python3 - <<'PY'

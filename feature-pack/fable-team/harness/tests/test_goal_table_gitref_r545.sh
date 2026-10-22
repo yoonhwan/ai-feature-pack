@@ -55,7 +55,7 @@ OUT="$(render)"; RC=$?
 printf '%s' "$OUT" | grep -q 'NEW3 진행' && ! printf '%s' "$OUT" | grep -q 'OLD3 진행' && ok "ⓐ2 표 = origin/main 판(체크아웃 옛 원장 OLD 0)" || bad "ⓐ2 :: $OUT"
 [ "$(printf '%s\n' "$OUT" | grep -c '^| .* | .* | .* | .* |$')" = 7 ] && ok "ⓐ3 표 7줄(제목 1 + 골 6)" || bad "ⓐ3 행 수 :: $OUT"
 # ── ⓑ 머리 = `origin/main@<sha10>` (출처 종류 + commit)
-printf '%s\n' "$OUT" | head -1 | grep -qxF "★골 표 A6 (origin/main@$SHA · 원장:${NOW:5})★" && ok "ⓑ 머리 = origin/main@<sha10>" || bad "ⓑ 머리 :: $(printf '%s' "$OUT" | head -1)"
+printf '%s\n' "$OUT" | head -1 | grep -qxE "★골 표 A6 \\(origin/main@$SHA · 원장:${NOW:5} · 재조정 .*\\)★" && ok "ⓑ 머리 = origin/main@<sha10>" || bad "ⓑ 머리 :: $(printf '%s' "$OUT" | head -1)"
 # ── ⓒ 체크아웃에 낡은 복사본(untracked · master 임시 조치 그 꼴) → 무시
 mkdir -p "$LIVE/design/teams/planner"; canon_txt > "$LIVE/design/teams/planner/AUTONOMY-GOAL-A6-20261018.md"
 ledger_txt "$NOW" STALE > "$LIVE/design/teams/planner/PLAN-oppa-ledger.md"
@@ -72,7 +72,7 @@ git -C "$R" revert --no-edit HEAD -q 2>/dev/null || true; git -C "$R" reset -q -
 canon_txt > "$T/env-canon.md"; ledger_txt "$NOW" ENV > "$T/env-ledger.md"
 FSHA="$(shasum -a 256 "$T/env-canon.md" | cut -c1-10)"
 OUT="$(render FT_GOAL_A6_MD="$T/env-canon.md" FT_GOAL_A6_LEDGER="$T/env-ledger.md")"; RC=$?
-[ "$RC" = 0 ] && printf '%s\n' "$OUT" | head -1 | grep -qxF "★골 표 A6 (file:$FSHA · 원장:${NOW:5})★" && printf '%s' "$OUT" | grep -q 'ENV3 진행' && ok "ⓔ env 파일 출처 = file:<sha10> · 그 파일 내용" || bad "ⓔ rc=$RC :: $(printf '%s' "$OUT" | head -1)"
+[ "$RC" = 0 ] && printf '%s\n' "$OUT" | head -1 | grep -qxE "★골 표 A6 \\(file:$FSHA · 원장:${NOW:5} · 재조정 .*\\)★" && printf '%s' "$OUT" | grep -q 'ENV3 진행' && ok "ⓔ env 파일 출처 = file:<sha10> · 그 파일 내용" || bad "ⓔ rc=$RC :: $(printf '%s' "$OUT" | head -1)"
 # ── ⓕ 원장 갱신 24h 초과 = «상태 낡음» (gitref 출처에서도 같은 규칙)
 ledger_txt "2020-01-01 10:30" NEW > "$R/design/teams/planner/PLAN-oppa-ledger.md"; commit "$R" stale
 git -C "$R" update-ref refs/remotes/origin/main HEAD

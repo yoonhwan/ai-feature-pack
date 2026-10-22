@@ -27,7 +27,7 @@ cat > "$CANON" <<'EOF'
 | 전팀 지침과 프로젝트 폴더 기준 재기동 | harness(지침 파일 배치) · planner(팀별 확인) | 12팀 cwd 에서 ft-teamset-check ERROR 0 + 팀별 확인 1줄 |
 | 메모리 세션 제한으로 안 멈춰 있게 완성 | harness(장치) · 각 팀장(끝난 좌석 닫기) | 정지 좌석 = 승인·차례 대기만(사유 1줄) · 자원 문지기 REJECT 로 멈춘 팀 0 |
 EOF
-SHA="$(shasum -a 256 "$CANON" | cut -c1-10)"
+SHA="$(shasum -a 256 "$CANON" | cut -c1-10)"   # r714a: 머리 끝 «재조정 …» 1칸(기록 없음/ok=…) — 모양만 맞으면 된다
 NOWSTAMP="$(python3 -c 'import datetime;print(datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))')"
 mkledger() {  # <갱신 'YYYY-MM-DD HH:MM'> [행 수=6] [절 제목=기본] — planner 원장 모양: 골 글자는 정본과 다르다(순번 결속만) · 뒤쪽 절의 표는 읽히면 안 된다
   python3 - "$1" "${2:-6}" "${3:-## 메인 골 6줄 — 지금 상태 (오빠 원문 그대로)}" > "$LEDGER" <<'PY'
@@ -48,7 +48,7 @@ check_body() { OUT="$(printf '%s' "$1" | render check - 2>&1)"; RC=$?; }
 # ── ⓐ 렌더: 머리·6행·꼬리·1600B·상태 칸(원장 2열 · 행 순번 결속)
 mkledger "$NOWSTAMP"; BLOCK="$(render 2>&1)"; RC=$?
 [ "$RC" = 0 ] && ok "ⓐ 렌더 rc0" || bad "ⓐ 렌더 rc=$RC :: $BLOCK"
-printf '%s\n' "$BLOCK" | head -1 | grep -qxF "★골 표 A6 (file:$SHA · 원장:${NOWSTAMP:5})★" && ok "ⓐ 머리 마커 줄(출처 file: + 원장:<갱신> · r545)" || bad "ⓐ 머리 :: $(printf '%s' "$BLOCK" | head -1)"
+printf '%s\n' "$BLOCK" | head -1 | grep -qxE "★골 표 A6 \(file:$SHA · 원장:${NOWSTAMP:5} · 재조정 .*\)★" && ok "ⓐ 머리 마커 줄(출처 file: + 원장:<갱신> · r545)" || bad "ⓐ 머리 :: $(printf '%s' "$BLOCK" | head -1)"
 printf '%s\n' "$BLOCK" | tail -1 | grep -qx '★/골 표★' && ok "ⓐ 꼬리 마커 줄" || bad "ⓐ 꼬리"
 [ "$(printf '%s\n' "$BLOCK" | grep -c '^| .* | .* | .* | .* |$')" = 7 ] && ok "ⓐ 표 7줄(제목 1 + 골 6)" || bad "ⓐ 표 행 수"
 printf '%s' "$BLOCK" | grep -q '상태3 진행' && ok "ⓐ 상태 칸 = 원장 2열 값(행 3)" || bad "ⓐ 상태 칸 값 없음"
@@ -148,7 +148,7 @@ mkledger "$NOWSTAMP"
 # ── ⓣ arch 재현 r3 — 설치본 위치 FT_ROOT 없음(조상 탐색) · FT_ROOT=LIVE_BIN 없는 폴더 · LIVE_BIN 삭제 = 정본·원장 둘 다 ERROR(고정 v6 경로 0) (표본 3)
 mkledger "$NOWSTAMP"
 TR="$(mktemp -d "$T/tr.XXXXXX")"; LV="$TR/.worktrees/live"; mkdir -p "$LV/.fable-team/bin" "$LV/design/planner" "$TR/.fable-team" "$TR/.worktrees/v6-realtime-live/design/planner"
-cp "$REPO/harness/bin/ft_goal_table.py" "$REPO/harness/bin/ft_goal_ledger.py" "$REPO/harness/bin/ft_team_lib.py" "$LV/.fable-team/bin/"; teams_md "$LV"
+cp "$REPO/harness/bin/ft_goal_table.py" "$REPO/harness/bin/ft_goal_ledger.py" "$REPO/harness/bin/ft_team_lib.py" "$REPO/harness/bin/ft_goal_readjust_state.py" "$LV/.fable-team/bin/"; teams_md "$LV"
 cp "$CANON" "$LV/design/planner/AUTONOMY-GOAL-A6-20261018.md"; cp "$CANON" "$TR/.worktrees/v6-realtime-live/design/planner/AUTONOMY-GOAL-A6-20261018.md"
 sed 's/상태\([0-9]\) 진행/NEW\1 진행/' "$LEDGER" > "$LV/design/planner/PLAN-oppa-ledger.md"; sed 's/상태\([0-9]\) 진행/OLD\1 진행/' "$LEDGER" > "$TR/.worktrees/v6-realtime-live/design/planner/PLAN-oppa-ledger.md"
 ref_commit "$LV"   # r545: 기본 출처 = origin/main 판(체크아웃 파일이 아니다)
@@ -183,7 +183,7 @@ check_body $'★/골 표★\n골좌표: 3 — m.lecture 멀티'; [ "$RC" = 3 ] &
 # ── 쪽지 가드 문 ③ — 격리 루트
 new_env() {
   ENVROOT="$(mktemp -d "$T/env.XXXXXX")"; mkdir -p "$ENVROOT/.fable-team/comm" "$ENVROOT/.fable-team/state" "$ENVROOT/.fable-team/bin" "$ENVROOT/seats"
-  cp "$SRC"/mbox*.py "$SRC"/mbox*.sh "$SRC"/bang_command_check.py "$ENVROOT/.fable-team/comm/"; cp "$TOOL" "$(dirname "$TOOL")/ft_goal_table.py" "$(dirname "$TOOL")/ft_goal_ledger.py" "$(dirname "$TOOL")/ft_team_lib.py" "$ENVROOT/.fable-team/bin/" 2>/dev/null; git -C "$ENVROOT" init -q
+  cp "$SRC"/mbox*.py "$SRC"/mbox*.sh "$SRC"/bang_command_check.py "$ENVROOT/.fable-team/comm/"; cp "$TOOL" "$(dirname "$TOOL")/ft_goal_table.py" "$(dirname "$TOOL")/ft_goal_ledger.py" "$(dirname "$TOOL")/ft_team_lib.py" "$(dirname "$TOOL")/ft_goal_readjust_state.py" "$ENVROOT/.fable-team/bin/" 2>/dev/null; git -C "$ENVROOT" init -q
   echo '{"_master":"byz-planner-master-claude#9","_desk":"byz-planner-desk-claude#3","_arch":"byz-planner-arch-claude#4"}' > "$ENVROOT/seats/seats-planner.json"
   echo '{"_master":"byz-harness-master-claude#64","_arch":"byz-harness-arch-claude#81","byz-harness-nano-x#0":{"role":"nano"}}' > "$ENVROOT/seats/seats-harness.json"
   echo '{}' > "$ENVROOT/seats/seats.json"; [ "${UNARMED:-0}" = 1 ] || : > "$ENVROOT/.fable-team/state/goal-gate.armed"
