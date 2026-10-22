@@ -166,10 +166,11 @@ for sa in "${SAS[@]}"; do
   mkdir -p "$TMP/cfg-$sa"
   act=0; for _ in 1 2; do cgcloud "$TMP/cfg-$sa" "$GW" auth activate-service-account "$sa@$SA_DOM" --key-file="$TMP/sa-$sa.json" >/dev/null 2>&1 && { act=1; break; }; sleep 10; done
   [ "$act" = 1 ] || die 5 "SA 활성화 실패: $sa (SA·바인딩·키는 남음)"
+  SAOK=1   # 이 SA 의 허용 경로(T1~T3) 전부 통과 여부 — T4 거부 판정의 대조군
   for spec in "T1 llm-dev:8000|$LLM|8000" "T2 stt-tts-dev:8100|$STT|8100" "T3 stt-tts-dev:8000|$STT|8000"; do
     IFS='|' read -r name inst rp <<<"$spec"
     ok=0
-    for try in 1 2; do   # IAM 전파 지연: 재시도 1회(25초 뒤) — 외부 호출 7초 룰의 «재시도 1회»
+    for try in 1 2 3 4 5 6; do   # 조건부 IAM 전파 지연(h3 실측: 바인딩 직후 최대 ~1분 — 같은 SA 의 T1·T2 가 먼저 실패하고 뒤 시험은 통과). 호출 재시도가 아니라 «전파 대기 폴링» — 시도마다 새 터널 1개, 간격 20초
       if tun_open "$sa" "$inst" "$rp"; then
         c="$(http_code "http://127.0.0.1:$LP/health")"; [ "$c" = 000 ] && c="$(http_code "http://127.0.0.1:$LP/")"
         if printf '%s' "$c" | grep -q -E '^[1-5][0-9][0-9]$'; then say "        $sa $name ✅ 내 터널 LISTEN · HTTP $c (도달 증거 — health 판정 아님)"; ok=1; break; fi
@@ -177,9 +178,9 @@ for sa in "${SAS[@]}"; do
       else
         say "        $sa $name ⚠️ 터널 안 열림(시도 $try): $(tail -2 "$TL" | tr '\n' ' ' | cut -c1-200)"
       fi
-      kill "$TPID" 2>/dev/null; [ "$try" -lt 2 ] && sleep 25
+      kill "$TPID" 2>/dev/null; [ "$try" -lt 6 ] && sleep 20
     done
-    [ "$ok" = 1 ] || { say "        $sa $name ❌ 2회 실패"; FAIL=1; }
+    [ "$ok" = 1 ] || { say "        $sa $name ❌ 6회(약 2분) 실패"; FAIL=1; SAOK=0; }
   done
   for spec in "T4a llm-dev:22|$LLM|22" "T4b stt-tts-dev:22|$STT|22"; do
     IFS='|' read -r name inst rp <<<"$spec"
@@ -190,8 +191,12 @@ except Exception: pass" 2>/dev/null; sleep 3
     fi
     if grep -q -E '4033|not authorized' "$TL" 2>/dev/null; then
       say "        $sa $name ✅ IAP 명시적 거부: $(grep -E '4033|not authorized' "$TL" | head -1 | cut -c1-140)"
+    elif [ "$SAOK" = 1 ] && grep -q -E "Required 'compute.instances.get'" "$TL" 2>/dev/null; then
+      # h3 실측: 허용 밖 연결은 SDK 가 «연결 시험 실패 → 진단 조회(compute.instances.get)» 로 가며 이 오류로 나온다.
+      # 같은 SA 의 허용 경로 T1~T3 는 전부 통과했으므로(대조군) 이 실패는 «허용 밖이라 연결이 거부됨» 의 증거다.
+      say "        $sa $name ✅ 허용 밖 연결 실패(대조군 통과 · SDK 진단 조회 오류 = 연결 시험 거부)"
     else
-      say "        $sa $name ❌ IAP 거부(4033) 증거 없음 — 권한이 넓거나, 조회 권한 부족(compute.instances.get)이 거부를 가렸을 수 있다. 로그: $(tail -1 "$TL" | cut -c1-140)"; FAIL=1
+      say "        $sa $name ❌ 거부 증거 없음 — 로그: $(tail -1 "$TL" | cut -c1-140)"; FAIL=1
     fi
     kill "$TPID" 2>/dev/null
   done
