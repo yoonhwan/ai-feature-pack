@@ -50,7 +50,7 @@ fi
 # ── 1) gcloud 설치(없을 때만 · 분리 실행 + 폴링) ──────────────────────────────
 if [ "$(get sdk)" = none ]; then
   say "1/4 gcloud $VER 사용자 설치(mini 가 직접 받음 · 분리 실행)"
-  ms 15 "mkdir -p \$HOME/.local/share/gcloud-587 && nohup setsid bash -c 'set -e; cd \$HOME/.local/share/gcloud-587; curl -sSf -o sdk.tgz \"$URL\"; echo \"$SHA256  sdk.tgz\" | shasum -a 256 -c - > sha.out 2>&1; tar -xzf sdk.tgz; rm -f sdk.tgz; echo DONE > done.flag' >\$HOME/.local/share/gcloud-587/install.log 2>&1 </dev/null & echo started" >/dev/null || die 3 "설치 시작 실패"
+  ms 15 "mkdir -p \$HOME/.local/share/gcloud-587 && nohup bash -c 'set -e; cd \$HOME/.local/share/gcloud-587; curl -sSf -o sdk.tgz \"$URL\"; echo \"$SHA256  sdk.tgz\" | shasum -a 256 -c - > sha.out 2>&1; tar -xzf sdk.tgz; rm -f sdk.tgz; echo DONE > done.flag' >\$HOME/.local/share/gcloud-587/install.log 2>&1 </dev/null & echo started" >/dev/null || die 3 "설치 시작 실패"
   OK=0
   for i in $(seq 1 60); do   # 60 × 5초 = 5분 상한(분리 실행이라 호출은 매번 ≤7초)
     sleep 5
