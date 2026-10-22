@@ -1,0 +1,6 @@
+# R741 키트 ↔ harness/bin 사본 대조 (2026-10-22T11:18:38Z)
+cmp0 ft_doc_exempt.py  (kit=     287줄 · harness/bin=     287줄)
+cmp0 ft_doc_exempt_paths.py  (kit=     132줄 · harness/bin=     132줄)
+
+# EXCLUDE_NAMES = 101개 · EXCLUDE_DIRS = ('indices', 'inbox', 'keys', 'baselines')
+# 재생성·검사: bash tests/test_doc_exempt_guard_r741.sh [--emit]

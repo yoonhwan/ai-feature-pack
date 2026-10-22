@@ -1,0 +1,25 @@
+# R741 r3 — 오빠 결정 「선택지 1」(슬랙 1792667121 · PACKET-r741-after-2hold.md · arch 124 f283edcce0) 구현·시험 대조
+# 근거 한 줄: 하위 폴더는 «새 파일 추가(A) 만» 면제. 이미 카드나 master 명령 인자가 가리키는 판정 파일(evidence/DA-*.md 류)은
+#   이름이 코드에 안 박혀 «이름 목록» 으로는 원리적으로 못 막는다 → «이미 가리키는 파일을 고치는» 길(M/D/R)만 닫으면 된다.
+#   새로 추가된 파일은 아직 아무도 안 가리키고, 가리키게 하려면 승인 경로를 한 번 더 지나야 한다.
+
+1. 하위 폴더 = A 만
+   코드: ft_doc_exempt_paths.team_of(path, status) — `if len(segs) > 1 and status != "A": 거절`
+         ft_doc_exempt.py 가 diff 의 status 를 그대로 넘긴다(`paths.team_of(p, st)`).
+   원문: NOT 팀 하위 폴더는 «새 파일 추가(A)» 만 면제 — 수정·삭제·이름바꾸기(M)는 직속만: design/teams/planner/evidence/EDITED-r741.md
+   시험: ⓗ① 수정(M) rc1 · ⓗ② 삭제(D) rc1 · ⓗ③ 이름바꾸기 rc1 · ⓗ④ 새 파일(A) rc0(DOC-EXEMPT … team=planner) ·
+         ⓗ⑤ 직속 새 파일 rc0(직속은 A·M 그대로) · ⓗ⑥ 변이(A-only 검사 삭제) → 수정(M) 반례가 rc0 = 시험이 검사를 실제로 잡는다
+
+2. 가드 시험 폴더 경로 오타 고침 (DA⑥ r2 지적 = 순수 버그)
+   옛 판: KHOOK="$KIT/hooks" · SLACK="$KIT/slack-mirror" ($KIT = harness/kit/fable-team → 없는 경로 · 스캐너가 조용히 건너뜀)
+   새 판: KHOOK="$ROOT/harness/kit/hooks" · SLACK="$ROOT/harness/kit/slack-mirror" (실재 경로)
+   시험: ⓘ①b 다섯 폴더 전부 실재 · ⓘ⑦ 가짜 훅 폴더에 새 .md 이름 → FAIL 로 잡힘 · ⓘ⑦b 가짜 slack-mirror 폴더도 동일 ·
+         ⓘ⑧ kit/hooks·kit/slack-mirror 에서 실제 .md 이름 16개를 읽는다(빈 손 스캔 아님)
+   오타를 고치자마자 실제로 목록이 모자란 이름이 드러났다 — 모듈 docstring 이 「PACKET-r741-after-2hold.md」 를 이름으로
+   부르고 있어 ⓘ② 가 빨강이었다(그 문구를 「arch 124 결정 묶음」 으로 바꿔 해결 · 가드가 실제로 잡는다는 증거).
+
+3. 반례 시험 = 위 ⓗ①~⑥ + ⓘ⑦·⑦b (새 파일 추가 = 통과 / 기존 파일 수정·삭제·이름바꾸기 = 거절)
+
+시험 결과: tests/test_doc_exempt_r725.sh 127 PASS ALL PASS · tests/test_doc_exempt_guard_r741.sh 10 PASS ALL PASS
+회귀: test_merge_land 49 · test_merge_land_equiv 42 · test_autonomy_scope 134 · test_name_lint 15 = rc0
+범위 밖: ft-merge-land · ft-merge-lib · 가드 훅 변경 0 (ft_doc_exempt_paths.py 만 하위 폴더 규칙 추가)

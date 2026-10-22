@@ -1,0 +1,25 @@
+# R741 DA⑥ r1 처방 1~6 ↔ 구현·시험 대조 (arch 124 판정문 VERDICT-card-closeout-batch-20261019.md §198 · 커밋 5c5450b439)
+
+1. 비교 키 = NFKC + casefold — ft_doc_exempt_paths.key() · 폴더(excluded_dir)·파일 이름(excluded_name)·CANON 접두(canon_hit) 전부 key 비교.
+   추가(실패 닫힘): 조각이 NFKC 로 바뀌면(호환 문자 ſ · ﬁ · 전각) shape_problem 이 그 자체로 거절.
+   시험: ⓕ 긴 s ſ 폴더(indiceſ) · ſ 파일 이름(ſTATE.md) · ﬁ · NFC 아님 / ⓙ②f 호환문자 검사 삭제 변이 → rc0(잡힘)
+   원문(새 판): NOT 호환 문자 조각(NFKC 로 바뀜 — 긴 s ſ·전각 등): design/teams/planner/indiceſ/진행/r741.md
+
+2. EXCLUDE_DIRS 에 baselines 추가 → ('indices','inbox','keys','baselines')
+   시험: ⓓ2 제외 baselines/FLAGS.md · 제외 Baselines(대소문자) / ⓙ②g key 비교 삭제 변이 → rc0(잡힘)
+   원문(새 판): NOT 도구가 판정 입력으로 읽는 제외 폴더(indices · inbox · keys · baselines): design/teams/v65/baselines/FLAGS.md
+
+3. 판정 입력 이름 목록 EXCLUDE_NAMES = 키트 5폴더(kit/fable-team/bin · kit/hooks · kit/fable-team/templates/hooks · kit/slack-mirror · harness/bin)의
+   [A-Za-z0-9_-]+\.md 토큰 전부 = 101개(key 값) · 허용 목록 0(빈 목록 — 지금 필요한 예외 없음)
+   재생성 경로: bash tests/test_doc_exempt_guard_r741.sh --emit → 모듈 EXCLUDE_NAMES 블록과 문자열 동일(ⓘ⑥ 이 상시 검사)
+   시험: ⓔ/ⓓ2 BTS.md(깊이 2) · bts.MD(대문자 확장자) · readme.md(직속 대소문자) / ⓙ②h excluded_name 검사 삭제 변이 → rc0(잡힘)
+   원문(새 판): NOT 키트가 이름으로 부르는 판정입력 .md(BTS.md)은 예외 아님: design/teams/v65/evidence/r1/BTS.md
+
+4. 가드 시험 재작성 = 다섯 폴더 전수 훑기 + 변수 조립 경로(os.path.join·$VAR/…) 탐지
+   ⓘ① 스캔이 실제 읽는 이름·폴더를 찾는다(헛돌지 않음) · ⓘ② .md 토큰 ⊆ EXCLUDE_NAMES · ⓘ③ 변수 조립 경로 조각 ⊆ EXCLUDE_DIRS
+   ⓘ④ EXCLUDE_NAMES 에서 FLAGS.md 제거 변이 → FAIL(잡힘) · ⓘ⑤ EXCLUDE_DIRS 에서 baselines 제거 변이 → FAIL(잡힘) · ⓘ⑥ --emit == 모듈 블록
+   변수 조립 탐지 원문 예: ft-press-baseline-check.sh 의 FLAGS="$V65/baselines/FLAGS.md" → DIR baselines 적발(제외 목록에 없으면 FAIL)
+
+5. 시험 추가(ⓓ2·ⓕ·ⓙ②f~h): indiceſ/진행 · evidence/ſTATE.md · evidence/ﬁle.md · baselines/FLAGS.md · evidence/r1/BTS.md · bts.MD = 전부 rc1
+
+6. 범위 밖 지킴: ft-merge-land · ft-merge-lib 변경 0 · 가드 훅(autonomy-merge-guard) 변경 0 · 직속 판정 회귀 0(test_doc_exempt_r725 121 PASS 안에 r725 원래 항목 전부 PASS)

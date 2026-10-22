@@ -1,0 +1,12 @@
+### feature/evidence/x.md
+  OLD rc=1 NOT 팀 하위 폴더: design/teams/feature/evidence/x.md
+  NEW rc=0 DOC-EXEMPT cfd474647f3dd3ecb60c6e5d65f86dcb860ee74c files=1 team=feature by=byz-planner-master-claude#105
+### room/evidence-t1/y.md
+  OLD rc=1 NOT 팀 하위 폴더: design/teams/room/evidence-t1/y.md
+  NEW rc=0 DOC-EXEMPT 754b1954eae867631aad58ddb691a65d1f1197e5 files=1 team=room by=byz-planner-master-claude#105
+### planner/20261022/z.md
+  OLD rc=1 NOT 팀 하위 폴더: design/teams/planner/20261022/z.md
+  NEW rc=0 DOC-EXEMPT c4df9925c6f87443050a817f12852c27c73b0e96 files=1 team=planner by=byz-planner-master-claude#105
+### feature/a/b/c.md
+  OLD rc=1 NOT 팀 하위 폴더: design/teams/feature/a/b/c.md
+  NEW rc=0 DOC-EXEMPT fa0ec7241679853cc30dfdecae6adc12dee35543 files=1 team=feature by=byz-planner-master-claude#105

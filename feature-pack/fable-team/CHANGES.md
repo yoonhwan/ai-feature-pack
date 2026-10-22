@@ -1,3 +1,9 @@
+## 2026-10-22 — r741 문서 전용 PR 승인 면제를 팀 하위 폴더로 확대(1.1.214 · 새 파일 추가만)
+
+- r725 가 «한 팀 폴더 직속 `.md`» 만 무승인으로 착지시키던 것을 `design/teams/<팀>/` 아래 하위 폴더의 **새 `.md` 파일 추가(A)** 까지 넓힘 — 하위 폴더의 수정(M)·삭제(D)·이름 바꾸기(R) 는 지금처럼 오빠 승인(오빠 결정 선택지 1 · 슬랙 1792667121).
+- 제외: `indices`·`inbox`·`keys` 폴더(경로 조각 어디든 · 대소문자 무시) · 점 폴더 · `baselines` · 정본·승인근거 이름(`ft_doc_exempt_paths.py` 이름 목록 101개 · 키트 5폴더 `.md` 토큰에서 생성) · 비교 키 NFKC+casefold(긴 s `ſ` 등 우회 거절).
+- 가드 시험 `test_doc_exempt_guard_r741.sh` 10 · `test_doc_exempt_r725.sh` 127 · 판정문 §198(DA⑥ 2 HOLD → 오빠 결정)·§201(arch 격리 재대조 OK) · 새 모듈 `ft_doc_exempt_paths.py` · 설치: LIVE_BIN 에 `ft_doc_exempt.py` + `ft_doc_exempt_paths.py` 둘 다 cmp0.
+
 ## 2026-10-22 — 묶음 착지 2건(r736 · r737 · 1.1.213 · 같은 manifest·CHANGES 줄을 건드려 한 PR 로 squash)
 
 - **r736** tmuxc 0.4.5 `session_agent_probe` — ①`*/claude/versions/*` 실경로 바이너리를 claude 로 인식(basename 이 버전 번호라 못 알아보던 것) ②종류는 «처음 찾은 것» 유지 · model·effort·sid 는 «정한 종류와 같은 종류 후손» 에서만 채움(claude 좌석 아래 pi 후손이 model·sid 를 덮어 restore 가 엉뚱한 대화를 열던 것 막음) · 시험 `test_agent_probe_claude_path.sh` 19 PASS(변이 포함) · 판정문 §200 · 설치: tmuxc 0.4.5 `~/.tmuxc/versions` cmp0.
