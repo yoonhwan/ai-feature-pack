@@ -100,7 +100,7 @@ rs 20 'ls -l ~/.cli-proxy-api | awk "NR>1{print \$1, \$5, \$9}"' 2>&1 | sed 's/^
 # ── 3) headroom venv(버전 고정) ─────────────────────────────────────────────
 say "3/6 headroom $HEADROOM_VER venv"
 rsq 30 'set -e; [ -d ~/.venvs/headroom ] || python3 -m venv ~/.venvs/headroom; ~/.venvs/headroom/bin/python -m pip -q install --upgrade pip >/dev/null 2>&1 || true; echo venv=ok' || die 3 "venv 생성 실패"
-rs 70 "set -e; ~/.venvs/headroom/bin/python -m pip -q install 'headroom-ai==$HEADROOM_VER' 2>&1 | tail -3; ~/.venvs/headroom/bin/python -c 'import headroom,sys;print(\"headroom=\"+getattr(headroom,\"__version__\",\"?\"))'" \
+rs 70 "set -e; ~/.venvs/headroom/bin/python -m pip -q install 'headroom-ai[proxy]==$HEADROOM_VER' 2>&1 | tail -3; ~/.venvs/headroom/bin/python -c 'import headroom,fastapi,uvicorn,sys;print(\"headroom=\"+getattr(headroom,\"__version__\",\"?\")+\" proxy_deps=ok\")'" \
   || die 3 "headroom $HEADROOM_VER 설치 실패 또는 70초 상한(7초 룰 천장) 초과 — 같은 h 를 다시 치면 pip 캐시로 이어간다(aarch64 휠 확인 필요)"
 say "        headroom 설치 완료"
 
