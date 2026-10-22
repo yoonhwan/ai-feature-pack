@@ -647,58 +647,24 @@ tmux has-session -t FC7 2>/dev/null && { echo 'FAIL: fork --dry-run must not cre
 
 rm -rf "$EMPTYSTORE" "$NOTFOUNDSTORE" "$FORKCWD"
 
-# ㉘ pi --serena (0.4.3) — 기동 때 Serena 를 «이 워크트리 프로젝트» 로 활성 + --approve 로만 프로젝트 신뢰
-#   오빠 지시 2026-10-20: «trust 를 넓히지 않는다. 기동 때 serena 에 경로를 지정해두고 온보딩해서 간다.»
-#   계약: ①플래그 없으면 출력 «문자 단위 불변» ②--dry-run 은 파일 쓰기 0(내용만 출력) ③실전 open 이 파일을 쓴다.
+# ㉘ Serena 은퇴(0.4.4) — `--serena` 는 «거부» 다. 공유서버(9493)도 MCP 등록도 없다.
+#   배경: 2026-10-22 하네스 공통 code-intel(`ci`)로 대체(공유서버 종료·claude/codex 등록 제거).
+#   계약: ①`--serena` 는 rc≠0 + 대체 안내(code-intel) ②거부이므로 .pi/mcp.json 같은 «쓰기» 가 없다 ③정상 open 출력에 mcp/mcp_json 줄이 없다
 SERWT="$(mktemp -d)/wtserena"; mkdir -p "$SERWT"; git -C "$SERWT" init -q .
+set +e
+_ser_out="$("$ROOT/core/bin/tmuxc" open "$SERWT" --agent pi --serena --dry-run 2>&1)"; _ser_rc=$?
+set -e
+[ "$_ser_rc" -ne 0 ] || { echo 'FAIL: --serena 가 거부되지 않았다(0.4.4 폐기 계약 위반)'; printf '%s\n' "$_ser_out"; exit 1; }
+printf '%s\n' "$_ser_out" | grep -q 'code-intel' || { echo "FAIL: --serena 거부 메시지에 대체(code-intel) 안내가 없다: $_ser_out"; exit 1; }
+printf '%s\n' "$_ser_out" | grep -q '은퇴' || { echo "FAIL: --serena 거부 메시지에 은퇴 사유가 없다: $_ser_out"; exit 1; }
+if [ -e "$SERWT/.pi/mcp.json" ]; then echo 'FAIL: --serena 가 거부됐는데 .pi/mcp.json 이 생겼다(쓰기 0 계약 위반)'; exit 1; fi
 _pi_plain="$("$ROOT/core/bin/tmuxc" open "$SERWT" --agent pi --dry-run 2>&1)"
-if printf '%s\n' "$_pi_plain" | grep -q -- '--approve'; then echo 'FAIL: --serena 없이 --approve 가 붙었다(플래그 없으면 동작 불변)'; printf '%s\n' "$_pi_plain"; exit 1; fi
-printf '%s\n' "$_pi_plain" | grep -q '^mcp' && { echo 'FAIL: --serena 없이 mcp 줄이 나온다'; exit 1; }
-_pi_ser="$("$ROOT/core/bin/tmuxc" open "$SERWT" --agent pi --serena --dry-run 2>&1)"
-SERROOT="$(printf '%s\n' "$_pi_ser" | sed -n 's/^root=//p' | head -1)"
-[ -n "$SERROOT" ] || { echo 'FAIL: --serena dry-run 에 root 없음'; printf '%s\n' "$_pi_ser"; exit 1; }
-printf '%s\n' "$_pi_ser" | grep -q -- '--approve' || { echo 'FAIL: --serena 인데 pi 명령에 --approve 없음'; printf '%s\n' "$_pi_ser"; exit 1; }
-printf '%s\n' "$_pi_ser" | grep -qxF "mcp=$SERROOT/.pi/mcp.json" || { echo 'FAIL: dry-run 에 mcp=<경로> 줄 없음'; printf '%s\n' "$_pi_ser"; exit 1; }
-printf '%s\n' "$_pi_ser" | grep -q "^mcp_json=.*--project $SERROOT" || { echo 'FAIL: mcp_json 에 --project <경로> 없음'; printf '%s\n' "$_pi_ser" | grep '^mcp_json='; exit 1; }
-printf '%s\n' "$_pi_ser" | grep -q -- '--context codex' || { echo 'FAIL: mcp_json 에 --context codex 없음'; exit 1; }
-printf '%s\n' "$_pi_ser" | grep -q 'serena@cd04838be9a92fd5c4963e59ecbe88419482d741' || { echo 'FAIL: 고정 sha 아님'; exit 1; }
-# MCP 도구는 --tools 에 패턴으로 들어 있어야 «선언» 된다(실측: 없으면 좌석이 JSON-RPC 우회로 감)
-printf '%s\n' "$_pi_ser" | grep -q -- "--tools 'read,bash,edit,write,grep,find,ls,mcp__serena__\*'" || { echo 'FAIL: pi --tools 에 mcp__serena__* 패턴이 없음(도구 미선언)'; printf '%s\n' "$_pi_ser" | grep '^command='; exit 1; }
-# 플래그 없을 때 명령은 «문자 단위 불변»(인용부호도 붙지 않는다)
-printf '%s\n' "$_pi_plain" | grep -q -- '--tools read,bash,edit,write,grep,find,ls --thinking' || { echo 'FAIL: --serena 없이 --tools 출력이 변했다'; printf '%s\n' "$_pi_plain" | grep '^command='; exit 1; }
-if [ -e "$SERROOT/.pi/mcp.json" ]; then echo 'FAIL: --dry-run 이 파일을 썼다(쓰기 0 계약 위반)'; exit 1; fi
-# 쓰기 경로는 실전 open 뿐 — 같은 함수를 직접 불러 잰다(세션 없이).
-eval "$(python3 - "$ROOT/core/bin/tmuxc" <<'PYEXTRACT'
-import sys
-src = open(sys.argv[1], encoding="utf-8").read()
-a = src.index("TMUXC_PI_SERENA_SHA=")
-b = src.index("agent_cmd() {", a)
-sys.stdout.write(src[a:b])
-PYEXTRACT
-)"
-[ "$TMUXC_PI_SERENA_SHA" = 'cd04838be9a92fd5c4963e59ecbe88419482d741' ] || { echo 'FAIL: 고정 sha 변수'; exit 1; }
-pi_serena_write_files "$SERROOT" || { echo 'FAIL: pi_serena_write_files rc≠0'; exit 1; }
-[ -s "$SERROOT/.pi/mcp.json" ] || { echo 'FAIL: 실전 쓰기 경로가 mcp.json 을 안 씀'; exit 1; }
-python3 -c 'import json,sys
-d=json.load(open(sys.argv[1]))["mcpServers"]["serena"]; t=d["toolExposure"]
-need={"find_symbol","find_referencing_symbols","get_symbols_overview","activate_project","onboarding"}
-assert not need-set(t), ("toolExposure 누락", sorted(need-set(t)))
-assert all(t[k]=="direct" for k in need), "핵심 도구가 direct 아님"
-assert d.get("exposure")=="hidden", "exposure 는 hidden"
-assert d["args"][1].count("--project")==1, "--project 1회"
-assert "read_file" not in t and "execute_shell_command" not in t, "중복 도구 노출"' "$SERROOT/.pi/mcp.json" || { echo 'FAIL: mcp.json 내용 계약'; exit 1; }
-grep -qxF '.pi/' "$(git -C "$SERROOT" rev-parse --path-format=absolute --git-path info/exclude)" || { echo 'FAIL: .pi/ 가 .git/info/exclude 에 없음'; exit 1; }
-grep -qxF '.serena/' "$(git -C "$SERROOT" rev-parse --path-format=absolute --git-path info/exclude)" || { echo 'FAIL: .serena/ 가 .git/info/exclude 에 없음'; exit 1; }
-pi_serena_write_files "$SERROOT" >/dev/null 2>&1
-[ "$(grep -cxF '.pi/' "$(git -C "$SERROOT" rev-parse --path-format=absolute --git-path info/exclude)")" = 1 ] || { echo 'FAIL: exclude 줄 중복(멱등 아님)'; exit 1; }
-# 기존 mcp.json 의 다른 서버는 보존된다(덮어쓰기 금지)
-printf '{"mcpServers":{"other":{"command":"x"}}}\n' > "$SERROOT/.pi/mcp.json"
-pi_serena_write_files "$SERROOT" >/dev/null 2>&1
-python3 -c 'import json,sys
-d=json.load(open(sys.argv[1]))["mcpServers"]
-assert "other" in d and "serena" in d, sorted(d)' "$SERROOT/.pi/mcp.json" || { echo 'FAIL: 기존 서버 보존 실패'; exit 1; }
-_got="$("$ROOT/core/bin/tmuxc" open "$SERROOT" --agent codex --serena --dry-run 2>&1 || true)"
-printf '%s\n' "$_got" | grep -q 'only for --agent pi\|--serena 는 --agent pi' || { echo "FAIL: --agent codex --serena 가 거부되지 않음: $_got"; exit 1; }
+printf '%s\n' "$_pi_plain" | grep -q '^mcp' && { echo 'FAIL: 정상 open 출력에 mcp 줄이 남아 있다(serena 잔재)'; printf '%s\n' "$_pi_plain"; exit 1; }
+printf '%s\n' "$_pi_plain" | grep -q -- '--approve' && { echo 'FAIL: --approve(serena 신뢰용)가 아직 붙는다'; exit 1; }
+printf '%s\n' "$_pi_plain" | grep -q -- '--tools read,bash,edit,write,grep,find,ls --thinking' || { echo 'FAIL: pi --tools 기본값이 변했다'; exit 1; }
+# 흔적 0 — 실행 경로에 serena 쓰기·ensure 호출이 남아 있지 않다(주석 제외)
+grep -qE '^[^#]*ensure_serena|^[^#]*pi_serena_write_files|^[^#]*mcp__serena' "$ROOT/core/bin/tmuxc" \
+  && { echo 'FAIL: tmuxc 에 serena 호출 코드가 남아 있다'; grep -nE '^[^#]*ensure_serena|^[^#]*pi_serena_write_files|^[^#]*mcp__serena' "$ROOT/core/bin/tmuxc" | head -3; exit 1; }
 rm -rf "$(dirname "$SERWT")"
 
 # ㉙ 비 claude 좌석 git 비대화 3종 (0.4.4) — pi 좌석이 화면 없는 vi 로 54분 정지(r599)
