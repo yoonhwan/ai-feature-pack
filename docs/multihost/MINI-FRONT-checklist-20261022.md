@@ -6,9 +6,9 @@
 > ★Chrome 정리는 필요 없다★ (2026-10-22 mini 실측): 지금 Chrome 은 17프로세스·약 2.1GB 로 줄어 있고 두 종류뿐이다 — ①오빠 평소 Chrome(`--no-startup-window`, 프로필 Default·1·3·4) ②agent-browser 의 헤드리스 Chrome(`--headless=new`, 도구용). 시험용 Chrome 은 **별도 프로필(`/tmp/chrome-byz-debug`)·별도 포트(9333)로 «추가로» 띄우므로** 위 둘을 닫을 이유가 없다. 오빠 개인 창·프로필은 건드리지 않는다.
 
 ## 먼저 (원격 `h` 로 끝나 있어야 하는 것)
-`h378`(러너 venv) → `h379`(tts-say) → `h381`(서버: 이 h 가 38312·38314 에 서버를 띄움). 서버가 떠 있어야 6번 마이크 허용을 할 수 있다. (`h376`·`h377` 은 OCI 용이라 mini 앞 작업과 무관.)
+`h378`(러너 venv) → `h379`(tts-say) → 서버 h(10-22 18:13 `h2` rc=0: 이 h 가 gateway 38312·web 38314 에 서버를 띄움 — ✅ 이미 떠 있음). 서버가 떠 있어야 6번 마이크 허용을 할 수 있다. (`h376`·`h377` 은 OCI 용이라 mini 앞 작업과 무관.)
 
-> ★서버가 도는 동안 이 맥이 켜져 있어야 한다★ (결정 2026-10-22: 서버는 mini, DB 는 이 맥과 같은 dev DB). mini 서버의 DB 길 = 이 맥 loom 터널(127.0.0.1:38309)을 mini 로 되돌려 주는 ssh 포워딩 — 이 맥이 잠들거나 꺼지면 mini 서버는 DB 를 잃는다. 시험하는 동안 이 맥 잠자기 방지.
+> ★서버가 도는 동안 이 맥이 켜져 있어야 한다★ (결정 2026-10-22: 서버는 mini, DB 는 이 맥과 같은 dev DB). mini 서버의 DB·LLM·GPU STT/TTS 길 = 이 맥 상주 터널을 mini 로 되돌려 주는 ssh 포워딩(mini 38309 DB · 8000 LLM ← 이 맥 18703 · 8001 STT/TTS) — 이 맥이 잠들거나 꺼지면 mini 서버는 DB 를 잃는다. 시험하는 동안 이 맥 잠자기 방지.
 
 ## 순서 (번호대로 · 각 줄 끝 = 확인 방법)
 1. ~~**[1분] 폴더 신뢰 «Yes»**~~ ★대체됨(2026-10-22): mini `~/.claude.json` 의 홈 폴더 신뢰 표식을 상위가 백업 후 켬 → 홈(`~`)은 생략. `~/Project/BYZ-Agents` 등 다른 운용 폴더만 남음 — 아래는 원문 — mini 터미널에서 폴더마다 한 번씩:
@@ -31,7 +31,7 @@
 7. **[30초] 마이크 신호 재확인(선택)** — `bash /tmp/aifp-mini-audio-check.sh` 또는 `docs/multihost/h-plans/mini-audio-check.sh` → 평균 > -50 dB (지난번 -37.3 dB).
 
 ## 끝나면
-오빠는 상위(planner/desk)에 «mini 앞 끝» 한 줄만. 그 뒤 러너 실행 `h`(`h-mini-e2e-round1-run.sh`, pi 초안 중)를 발급받아 `! bash /tmp/h<N>` 한 줄.
+오빠는 상위(planner/desk)에 «mini 앞 끝» 한 줄만. 그 뒤 러너 실행 `h`(`h-mini-e2e-round1-run.sh` · 상위가 등록 — 서버 sha 4c876d7f 기준 점검 완료)를 발급받아 `! bash /tmp/h<N>` 한 줄.
 
 ## 막히면 (증상 → 말할 것)
 | 증상 | 말할 한 줄 |

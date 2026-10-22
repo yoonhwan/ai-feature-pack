@@ -17,7 +17,7 @@ set -uo pipefail
 MINI="${MINI:-mini}"                          # ★고정 규칙: ssh 별칭만★
 SRC="${SRC:-/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents}"
 SHA="${SHA:-}"
-ACTION="${ACTION:-up}"                        # up | stop
+ACTION="${ACTION:-up}"                        # up | stop | fwd(포워딩만 재개설)
 KEY_SRC="${KEY_SRC:-}"                        # dotenv | op
 MAX_GB="${MAX_GB:-2}"
 P_REDIS="${P_REDIS:-38311}"; P_GATEWAY="${P_GATEWAY:-38312}"; P_WEB="${P_WEB:-38314}"
@@ -58,6 +58,35 @@ if [ "$ACTION" = "stop" ]; then
     rm -f "$TUN_PIDF"
   fi
   say "남의 프로세스·Chrome·기본 포트 Redis·이 맥 loom 터널 본체는 건드리지 않았다(위 pid 만)"
+  exit 0
+fi
+
+# ── ACTION=fwd — 역방향 포워딩만 다시 (서버는 건드리지 않는다) ───────────────────
+#   포워딩 ssh 가 죽으면(2026-10-22 19:2x 실측: 이 맥 ssh 0 · mini 38309·8000·8001 LISTEN 0 인데 서버는 health 200) 서버가 DB·LLM·STT 를 잃는다.
+if [ "$ACTION" = "fwd" ]; then
+  say "FWD — 역방향 포워딩만 재개설(서버 프로세스 불변)"
+  tp="$(cat "$TUN_PIDF" 2>/dev/null)"
+  if [ -n "$tp" ] && kill -0 "$tp" 2>/dev/null && ps -o args= -p "$tp" 2>/dev/null | grep -q -- "-R 127.0.0.1:"; then
+    OKN=0; for fp in "${FWD_PORTS[@]}"; do n="$(ms 15 "lsof -nP -iTCP:$fp -sTCP:LISTEN 2>/dev/null | wc -l | tr -d ' '")" || n=0; [ "${n:-0}" -ge 1 ] 2>/dev/null && OKN=$((OKN+1)); done
+    [ "$OKN" = "${#FWD_PORTS[@]}" ] && { say "        이미 살아 있음(ssh pid $tp · mini 포트 ${FWD_PORTS[*]} 전부 LISTEN) — 할 일 없음"; exit 0; }
+    kill "$tp" 2>/dev/null; say "        ssh 는 살아 있으나 포트 일부 없음($OKN/${#FWD_PORTS[@]}) — 그 ssh 만 종료 후 재개설"; sleep 1
+  fi
+  for fp in "${FWD_PORTS[@]}"; do
+    lsof -nP -iTCP:"$(lport "$fp")" -sTCP:LISTEN -t >/dev/null 2>&1 || die 2 "이 맥 127.0.0.1:$(lport "$fp") 상주 터널이 없다(mini 포트 $fp 용)"
+    TB="$(ms 15 "lsof -nP -iTCP:$fp -sTCP:LISTEN 2>/dev/null | wc -l | tr -d ' '")" || TB=0
+    [ "${TB:-0}" = 0 ] || die 2 "mini 에서 포트 $fp 가 이미 사용 중이다 — 남은 포워딩이면 mini 의 그 sshd 자식이 정리될 때까지(수십 초) 기다렸다 다시"
+  done
+  RARGS=(); for fp in "${FWD_PORTS[@]}"; do RARGS+=(-R "127.0.0.1:$fp:127.0.0.1:$(lport "$fp")"); done
+  FL="$(mktemp "${TMPDIR:-/tmp}/h-byz-fwd.XXXXXX")"
+  nohup ssh "${SO[@]}" -o ExitOnForwardFailure=yes -N "${RARGS[@]}" "$MINI" </dev/null >"$FL" 2>&1 &
+  echo $! > "$TUN_PIDF"; disown 2>/dev/null || true; sleep 3
+  kill -0 "$(cat "$TUN_PIDF")" 2>/dev/null || { tail -2 "$FL" | sed 's/^/        /'; rm -f "$TUN_PIDF" "$FL"; die 4 "역방향 포워딩이 서지 않았다"; }
+  for fp in "${FWD_PORTS[@]}"; do
+    n="$(ms 15 "lsof -nP -iTCP:$fp -sTCP:LISTEN 2>/dev/null | wc -l | tr -d ' '")" || n=0
+    [ "${n:-0}" -ge 1 ] 2>/dev/null || { kill "$(cat "$TUN_PIDF")" 2>/dev/null; rm -f "$TUN_PIDF" "$FL"; die 4 "mini 에서 127.0.0.1:$fp 가 LISTEN 이 아니다"; }
+  done
+  rm -f "$FL"
+  say "        포워딩 OK(${FWD_PORTS[*]}) · ssh pid $(cat "$TUN_PIDF") — 정지는 ACTION=stop (서버 포함 정지)"
   exit 0
 fi
 
