@@ -1,0 +1,26 @@
+r726 r4 — relay 경로의 유예 경고를 «본문 판정 1회» 로 (DA⑥ r2 남은 것 1 · arch 123 · 2026-10-22)
+=====================================================================================================
+남은 것(DA⑥ r2 질문 4 · 표시만 · 판정 rc 는 전부 맞음): comm/mbox_guard_goal.sh relay 경로가 첨부 검사 뒤에도 `_goal_grace_note "$res"`
+를 불러 ⓐ 유예 통과 때 경고 2줄 ⓑ 첨부 유예 통과 + 본문 골좌표 REJECT 때 REJECT 출력 앞에 경고 1줄이 더 붙었다(r1 판 REJECT 출력과 다름).
+
+고침(1줄 삭제 · 새 표면 0)
+  - `_guard_goal_lint` 첨부 경로의 `_goal_grace_note "$res"` 삭제 — 경고는 본문 판정 rc0 때만 1줄.
+  - 헤더 주석: «블록 검사·본문 판정 두 경로 모두» → «본문 판정 rc0 때만(relay 첨부 검사에서는 내지 않는다)».
+
+시험 2칸(+빨강 2)
+  ⓡ relay(첨부 = 블록만 · 본문 = 골좌표) 유예 통과 = `GL-GRACE` 1줄 · 빨강 = r1 판 가드 0줄 · 빨강2 = r3 판 가드 2줄(결함 재현)
+  ⓢ relay 첨부 유예 + 본문 골좌표 없음(REJECT) = 출력·rc 가 r1 판 가드와 «완전히 같다»(rc3)
+
+── 실제 출력 (bash test_goal_renumber_grace_r726.sh · rc=0 · PASS 57 · FAIL 0) ──
+-- ⓡ·ⓢ relay 경로 — 유예 경고는 «본문 판정 1회» 만(r4 · 첨부 검사에서는 안 낸다)
+PASS ⓡ relay 유예 = GL-GRACE 1줄(첨부·본문 합쳐)
+PASS ⓡ 빨강 = r1 판 가드는 relay 에서도 경고 0
+PASS ⓡ 빨강2 = r3 판(첨부 경로도 경고)은 같은 relay 에서 경고 2줄
+PASS ⓢ relay 첨부 유예 + 본문 REJECT = r1 판과 같은 출력·rc(3)
+== test_goal_renumber_grace_r726: fail=0
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+
+── 이웃 회귀 ──
+test_mbox_guard.sh .................... 130P 0F
+r668 39P 0F · gitref545 12P 0F · stale600 11P 0F · procs644 21P 0F · kit_bin_sync 7P 0F
+bash -n mbox_guard_goal.sh OK · ruff All checks passed · ft_goal_table.py bin·kit cmp0(이 카드 r4 무변경)
