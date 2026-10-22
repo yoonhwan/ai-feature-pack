@@ -96,8 +96,16 @@ export PATH=\"\$HOME/.npm-global/bin:\$PATH\"
 exec claude \"\$@\"
 W
 chmod 755 ~/.local/bin/claude-aifp
+# tmuxc open 은 --model 이 있으면 \$HOME/.headroom/claude-hr.sh 를 실행한다(tmuxc:235) — OCI 엔 그 파일이 없어 좌석이 바로 죽는다 → 얇은 심(하네스 파일 편집 0)
+mkdir -p ~/.headroom
+cat > ~/.headroom/claude-hr.sh <<'S'
+#!/usr/bin/env bash
+# aifp · OCI 심 — tmuxc 가 부르는 claude-hr.sh 자리를 claude-aifp(OCI 로컬 cliproxy 8317)로 잇는다.
+exec \"\$HOME/.local/bin/claude-aifp\" \"\$@\"
+S
+chmod 755 ~/.headroom/claude-hr.sh
 echo wrapper=ok" || die 3 "래퍼 작성 실패"
-rs 20 'grep -c "ANTHROPIC_BASE_URL" ~/.local/bin/claude-aifp; ls -l ~/.local/bin/claude-aifp | awk "{print \$1, \$9}"' 2>&1 | sed 's/^/        /'
+rs 20 'grep -c "ANTHROPIC_BASE_URL" ~/.local/bin/claude-aifp; ls -l ~/.headroom/claude-hr.sh | awk "{print \$1, \$9}"; ls -l ~/.local/bin/claude-aifp | awk "{print \$1, \$9}"' 2>&1 | sed 's/^/        /'
 
 # ── 5) 닫는 증거 — claude ping(7초 상한) + 좌석 열고 probe→닫기 ─────────────
 say "5/6 증거 ① claude -p ping (7초 상한)"
@@ -121,7 +129,7 @@ cat <<EOF
           · claude-aifp -p ping → 위 ping_rc 줄
           · tmuxc probe 결과(모델·세션) 줄
           · seat=closed 줄
-        롤백: ssh $R 'rm -f ~/.local/bin/claude-aifp; rm -rf ~/.tmuxc/versions/$TMUXC_VER ~/.tmm/versions/$TMM_VER; npm rm -g --prefix ~/.npm-global $CLAUDE_PKG @earendil-works/pi-coding-agent @openai/codex'
+        롤백: ssh $R 'rm -f ~/.local/bin/claude-aifp ~/.headroom/claude-hr.sh; rm -rf ~/.tmuxc/versions/$TMUXC_VER ~/.tmm/versions/$TMM_VER; npm rm -g --prefix ~/.npm-global $CLAUDE_PKG @earendil-works/pi-coding-agent @openai/codex'
         주의: tmuxc 좌석은 tmux 안에서 산다 — 닫기는 위에서 이미 했다(seat=closed 확인).
 EOF
 exit 0
