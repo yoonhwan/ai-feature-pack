@@ -54,7 +54,7 @@ ms 25 'set -e; mkdir -p ~/.local/bin; if [ -f ~/.local/bin/tts-say ]; then ts=$(
 
 # ── 3) 전송(shebang 치환 사본) ──────────────────────────────────────────────
 say "3/6 전송"
-if timeout 90 scp -q "${SO[@]}" "$NEW" "$MINI:~/.local/bin/tts-say.new"; then
+if timeout 70 scp -q "${SO[@]}" "$NEW" "$MINI:~/.local/bin/tts-say.new"; then
   ms 20 'set -e; chmod 755 ~/.local/bin/tts-say.new; mv ~/.local/bin/tts-say.new ~/.local/bin/tts-say; echo placed=ok' \
     || die 3 "배치 실패"
 else
