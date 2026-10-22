@@ -14,6 +14,19 @@ HERE="$(cd "$(dirname "$0")" && pwd)"  # cd 전에 절대화 — 상대경로로
 cd "$WT" || exit 1
 FAIL=0
 say(){ printf '%s %s\n' "$1" "$2"; }
+# ★숫자 env 입력 검사 «한 곳»(r769 r2 반송 · DA⑥ r2 HOLD: 변수마다 case 로 검사해 구멍 2개가 났다)★
+#   _int_port = ^[1-9][0-9]{3,4}$ 이고 1024~65535 일 때만 rc0 — 앞 0(017620 은 8진으로 8080) · 부호 · 공백 · 빈 값 = rc1
+#   _decimal  = ^[0-9]+(\.[0-9]+)?$ 일 때만 rc0 — 60..0 · 1e2 · 60. · .5 · -1 = rc1
+_int_port(){
+  case "$1" in ''|*[!0-9]*) return 1 ;; esac
+  case "$1" in 0*) return 1 ;; esac
+  [ "${#1}" -ge 4 ] && [ "${#1}" -le 5 ] || return 1
+  [ "$1" -ge 1024 ] && [ "$1" -le 65535 ]
+}
+_decimal(){
+  case "$1" in ''|*[!0-9.]*|.*|*.|*.*.*) return 1 ;; esac
+  return 0
+}
 # r634: press 대상 갈래 — FT_PRESS_TARGET=dev 로 «선언한 회차만» ②~⑤ 를 dev 세트 검사로 바꾼다(기본 local = 지금과 같음 · 조용히 건너뛰기 0 · ①⑥⑦⑧·허가 파일은 그대로)
 TARGET="${FT_PRESS_TARGET:-local}"
 DEV_WEB="${FT_PRESS_DEV_WEB:-https://byz-agents-web-dev-a3yix5apcq-du.a.run.app}"
@@ -69,7 +82,7 @@ _retry_at(){ # 10분 뒤 시각(HH:MM) — macOS date -v · GNU date -d
 }
 _load_gate(){
   local v
-  case "$LOAD_MAX" in ''|*[!0-9.]*) say "✗" "FT_PRESS_LOAD_MAX=$LOAD_MAX — 숫자(부하 임계)만"; FAIL=1; return ;; esac
+  _decimal "$LOAD_MAX" || { say "✗" "FT_PRESS_LOAD_MAX=$LOAD_MAX — 숫자(부하 임계)만"; FAIL=1; return; }
   v="$(_load5)"
   if [ -z "$v" ]; then say "⚠" "부하 5분 평균 못 읽음 — 부하 게이트 건너뜀"; return; fi
   if awk -v a="$v" -v b="$LOAD_MAX" 'BEGIN{exit !(a>=b)}'; then
@@ -362,7 +375,6 @@ GW_PORT=8080; WK_PORT=8081; FE_PORT=3001
 WORKER_LOG=/tmp/byz-worker.log
 SSE_HEALTH_URL=https://localhost:8443/api/v1/health/
 SSE_LABEL="Caddy 8443"
-_port_bad(){ case "$1" in ''|*[!0-9]*) return 0;; esac; [ "$1" -lt 1024 ] || [ "$1" -gt 65535 ]; }
 _ports(){ # rc 0 = 해석 끝(GW_PORT·WK_PORT·FE_PORT·WORKER_LOG·SSE_HEALTH_URL 확정) · rc 1 = 막힘
   local gw wk fe p
   if [ -n "${FT_PRESS_PORTS:-}" ]; then
@@ -370,15 +382,15 @@ _ports(){ # rc 0 = 해석 끝(GW_PORT·WK_PORT·FE_PORT·WORKER_LOG·SSE_HEALTH_
     [ -z "$p" ] && [ -n "$gw" ] && [ -n "$wk" ] && [ -n "$fe" ] \
       || { say "✗" "FT_PRESS_PORTS 는 «gw,worker,fe» 3칸이어야 한다(지금: $FT_PRESS_PORTS)"; return 1; }
     for p in "$gw" "$wk" "$fe"; do
-      _port_bad "$p" && { say "✗" "FT_PRESS_PORTS 포트가 숫자 1024~65535 가 아니다: $p"; return 1; }
+      _int_port "$p" || { say "✗" "FT_PRESS_PORTS 포트가 숫자 1024~65535 가 아니다: $p"; return 1; }
     done
     GW_PORT=$gw; WK_PORT=$wk; FE_PORT=$fe
     printf '포트 갈래: FT_PRESS_PORTS=%s → gateway %s · worker %s · 화면 %s\n' "$FT_PRESS_PORTS" "$gw" "$wk" "$fe"
   elif [ -n "${FT_PRESS_PORT_BASE:-}" ]; then
-    _port_bad "$FT_PRESS_PORT_BASE" && { say "✗" "FT_PRESS_PORT_BASE 가 숫자 1024~65535 가 아니다: $FT_PRESS_PORT_BASE"; return 1; }
-    GW_PORT=$FT_PRESS_PORT_BASE; WK_PORT=$((FT_PRESS_PORT_BASE+1)); FE_PORT=$((FT_PRESS_PORT_BASE+2))
+    _int_port "$FT_PRESS_PORT_BASE" || { say "✗" "FT_PRESS_PORT_BASE 가 숫자 1024~65535 가 아니다: $FT_PRESS_PORT_BASE"; return 1; }
+    GW_PORT=$FT_PRESS_PORT_BASE; WK_PORT=$((10#$FT_PRESS_PORT_BASE + 1)); FE_PORT=$((10#$FT_PRESS_PORT_BASE + 2))
     for p in "$WK_PORT" "$FE_PORT"; do
-      _port_bad "$p" && { say "✗" "FT_PRESS_PORT_BASE=$FT_PRESS_PORT_BASE 에서 나온 포트가 1024~65535 밖이다: $p"; return 1; }
+      _int_port "$p" || { say "✗" "FT_PRESS_PORT_BASE=$FT_PRESS_PORT_BASE 에서 나온 포트가 1024~65535 밖이다: $p"; return 1; }
     done
     printf '포트 갈래: FT_PRESS_PORT_BASE=%s → gateway %s · worker %s · 화면 %s\n' "$FT_PRESS_PORT_BASE" "$GW_PORT" "$WK_PORT" "$FE_PORT"
   else
