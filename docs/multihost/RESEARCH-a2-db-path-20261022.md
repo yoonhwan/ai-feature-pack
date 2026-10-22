@@ -32,3 +32,5 @@
 - Cloud SQL Auth Proxy는 `--address 0.0.0.0 --port <전용포트>`로 IAP가 닿게 해야 하고, 방화벽은 IAP 범위 `35.235.240.0/20`에서 해당 포트만 허용 «공식문서».
 - IAP IAM 조건 `destination.port`로 포트를 제한할 수 있음 «공식문서»; 다만 그 포트에 도달한 클라이언트를 프록시가 별도 인증하지 않으므로 IAM·방화벽·DB 인증으로 제한 «추정».
 - 기존 사람 SSH는 metadata ssh-keys와 IAP 22를 그대로 유지 가능 «공식문서».
+
+> 정정(2026-10-22 상위 #3202): A2 DB 대상 = 10.2.0.10 (byz-agents-postgres-prod 는 이름만 prod, 실제 dev 런타임). 위 본문의 10.2.0.3 은 나노 질문 시점 가정이었다.
