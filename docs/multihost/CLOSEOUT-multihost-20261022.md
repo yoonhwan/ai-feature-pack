@@ -69,7 +69,7 @@
 - D9 마이크 확정 회차: mini 터미널 앞 사전 점검(h-plans/mini-audio-check.sh, 평균 > -50dB = MIC_OK 후보) 후 e2e 러너 trusted 클릭 회차(P6 ①).
 - 실측 A2: 새 이름 디렉터리 rename 중간 상태 관찰(설계 §16 공백).
 ### 5-3. ★오빠 손 2건 — «나중에 볼 것» (마감을 막지 않음)★
-1. OCI 키 만료 끄기 — login.tailscale.com/admin/machines → aifp-oci-jarvis «…» → Disable key expiry. 마지막 실측 KeyExpiry 2027-04-19T14:09Z (끄지 않으면 그날 조용히 끊김).
+1. OCI 키 만료 끄기 — login.tailscale.com/admin/machines → aifp-oci-jarvis «…» → Disable key expiry. ★2026-10-22 오빠: 콘솔에서 이 메뉴를 못 찾음(화면 변경 가능성, 제 쪽은 콘솔 확인 불가)★ → 기기 상세 화면에서 찾기 · 안 되면 대안 ①만료 전(2027-04 초) OCI 에서 `tailscale up --force-reauth` 재로그인 ②r678 키 등록 때 tag:aifp 를 붙여 만료 면제(태그 노드는 면제로 알고 있음 — 콘솔 확인 필요). 재확인 명령: `tailscale status --json` 의 aifp-oci-jarvis KeyExpiry(끄면 null 이 됨). 마지막 실측 KeyExpiry 2027-04-19T14:09Z (끄지 않으면 그날 조용히 끊김).
 2. mini 마이크 점검 — ✅ 2026-10-22 오빠 실행: 시험음 들림(스피커 정상) · BlackHole 2ch 입력 mean -37.3 dB / max -10.6 dB(> -50 dB = 신호 들어옴 → MIC_OK 후보). 스크립트는 rc=3 으로 끝났으나 원인은 macOS sed 가 `\?` 를 못 읽어 평균값 추출이 비던 결함(신호 문제 아님) → h-plans/mini-audio-check.sh 를 `sed -E` 로 수정. 최종 확정은 e2e 러너 trusted 클릭 회차(P6 ①).
 
 ## 6. 정리 상태 (마감 시점)
