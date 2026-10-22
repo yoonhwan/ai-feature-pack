@@ -3,7 +3,7 @@
 #   ft-proxy-decide.sh --kind <card-start|press-order|nano-reopen|docs-push|wt-clean> --q "<질문>" --choice "<추천안>" --why "<근거>" --undo "<되돌림 1줄>"
 #       [--card <카드.md> --verdict <판정 번호>]       card-start 근거: 판정 줄에 카드 이름 + 착수 낱말 · 카드 본문 제외 어휘 검사
 #       [--card <진행/카드.md> --seat <좌석>]          nano-reopen 근거(설계 r1-1 ①~④ + r1-9 H2 ⑤): 진행 폴더 카드 · nano/* 브랜치 · 재개 기록 · 자원 문지기 rc 0 · spawn 기준선과 같음
-#       [--branch <가지> --sha <40hex>]               docs-push 근거: diff 전부 *.md|design/** · 가지 ∉ {main}∪FT_DEPLOY_BRANCHES(미설정=QUEUE) · fast-forward
+#       [--branch <가지> --sha <40hex>]               docs-push 근거: diff 전부 *.md(ft_doc_exempt.py --mode md-files 한 곳 · R725) · 가지 ∉ {main}∪FT_DEPLOY_BRANCHES(미설정=QUEUE) · fast-forward
 #       [--plan <상태>/wt-clean/<좌석>.sh.hil]        wt-clean 근거(R410 · 판정 2326): ft-nano-close 계획 · plan-ver = 라이브 생성기 blob · «브랜치는 지우지 않는다» · 좌석 tmux 세션 0 · 실행 줄 제외 어휘(계획 실행은 PROXY 뒤 호출자 몫)
 #       [--team <팀>]                               r529 큐 줄 팀 칸(없으면 --card 경로의 팀 · 둘 다 없으면 -)
 #   push-merge(main 병합·main push)는 오빠 값(판정 1675) — 항상 QUEUE, ok 파일 쓰기 0. 병합 승인 = ft-autonomy.sh approve-merge(오빠 `!`)뿐.
@@ -145,7 +145,9 @@ docs_push_check() {  # 설계 r1-1 — 원격 비교는 ls-remote 1회(7초 + �
   rsha="${rsha%%[[:space:]]*}"; grep -qE '^[0-9a-f]{40}$' <<<"$rsha" || queue_exit "원격에 가지($branch) 없음"
   git merge-base --is-ancestor "$rsha" "$sha" 2>/dev/null || queue_exit "③ fast-forward 아님(원격 $rsha ⊄ --sha)"
   files="$(git diff --name-only "$rsha" "$sha" 2>/dev/null)" && [ -n "$files" ] || queue_exit "① diff 를 못 읽음·비어 있음"
-  while IFS= read -r f; do case "$f" in *.md|design/*) ;; *) queue_exit "① 문서 아닌 파일: $f" ;; esac; done <<<"$files"
+  # R725: 파일 종류 판정 = ft_doc_exempt.py 한 곳(--mode md-files) — 옛 `*.md|design/*` 은 design/ 아래 .py·.sh 도 통과시키는 구멍이었다
+  drepo="$(git rev-parse --show-toplevel 2>/dev/null)" || queue_exit "① git 리포를 못 찾음(cwd) — diff·ls-remote 와 같은 리포에서만 판정한다"
+  dout="$(python3 "$HERE/ft_doc_exempt.py" --mode md-files --repo "$drepo" --base "$rsha" --head "$sha" 2>&1)" || queue_exit "① ${dout#NOT }"
 }
 
 wt_clean_check() {  # R410 · 판정 2326 — 근거 = ft-nano-close 가 만든 계획 파일 하나 · 하나라도 못 읽으면 QUEUE(계획 실행은 여기서 하지 않는다)

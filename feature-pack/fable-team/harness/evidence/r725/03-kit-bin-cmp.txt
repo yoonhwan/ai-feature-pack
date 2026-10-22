@@ -1,0 +1,11 @@
+# R725 키트 ↔ harness/bin 사본 대조 (cmp0 = 같음)
+cmp0 ft-autonomy.sh
+cmp0 ft-merge-land.sh
+cmp0 ft-merge-lib.sh
+cmp0 ft-proxy-decide.sh
+cmp0 ft_doc_exempt.py
+
+# 줄 수 상한(시험이 거는 값)
+     120 kit/fable-team/bin/ft-merge-land.sh
+     200 kit/fable-team/bin/ft-autonomy.sh
+     320 total

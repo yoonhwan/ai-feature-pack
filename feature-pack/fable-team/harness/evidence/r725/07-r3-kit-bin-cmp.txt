@@ -1,0 +1,10 @@
+# R725 r3 키트 ↔ harness/bin 사본 대조 (2026-10-22T06:24:08Z)
+cmp0 ft_doc_exempt.py
+cmp0 ft-merge-land.sh
+cmp0 ft-merge-lib.sh
+cmp0 ft-proxy-decide.sh
+cmp0 ft-autonomy.sh
+
+# 가드 훅 = kit templates 한 곳(설치 복사는 master) · 판정기 호출 자리들 = env -u 로 SELFTEST·좌석 덮어쓰기를 지운다
+74:  out="$(fm_t7 env -u FT_DOC_EXEMPT_SELFTEST -u FT_DOC_EXEMPT_SEAT python3 "$FM_HERE/ft_doc_exempt.py" --mode doc-exempt --repo "$repo" --root "$root" --base "$base" --head "$head" 2>&1)"; rc=$?
+10:#   ★R725★ 문서 전용 PR 예외는 `ft-merge-land` 경유(squash 1커밋) «한 길»뿐 — 판정은 그 도구 안 `ft_doc_exempt.py` 한 곳이 한다(팀 폴더 직속 .md 추가·수정). ★이 훅은 직접 `git push`·`gh pr merge` 에 예외를 주지 않는다★ — 그 경로는 승인 파일 필요 그대로(DA⑥ r1 질문 6: 직접 경로는 목적지·ref 이동 검사를 건너뛰었다).

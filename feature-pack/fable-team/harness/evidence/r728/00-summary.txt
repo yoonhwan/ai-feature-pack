@@ -1,0 +1,30 @@
+# r728 — 골 표 «시안·시험 렌더» 가 번호 공지를 실발송하고 표식까지 덮어쓰던 것 (나노 산출 요약)
+
+## 무엇이 틀렸나 (실사건)
+planner 가 골 정본 시안을 미리 보려고 FT_GOAL_A6_MD 를 시안 값으로 주입해 골 표를 그렸다. render() 가 출처와 상관없이 `notify_renumber(sha, rows)` 를 불러
+① 전 팀장에게 «골 번호 바뀜» 쪽지가 실제로 나갔고(2026-10-22T15:00:14 seq 140424 «정본 7d859dd806»),
+② «마지막으로 공지한 판» 표식(`.fable-team/state/goal-numbering.tsv`)이 시안 판으로 덮여, 31초 뒤 진짜 렌더가 «또 바뀌었다» 며 한 번 더 공지했다(seq 140437 «정본 e8296a81db»).
+
+## 무엇을 바꿨나 (조건 1개)
+`harness/bin/ft_goal_table.py` + `harness/kit/fable-team/bin/ft_goal_table.py`(짝 사본, cmp0):
+- `_canon_render()` 신설 — «진짜 정본 렌더» = **기본 ref(FT_TEAMS_REF·origin/main) 의 gitref + 정본 꼴 이름(AUTONOMY-GOAL-A6-<8자리>.md)**.
+  파일 경로(`file:` 표지) · 다른 ref 의 gitref · 정본 꼴 아닌 이름 = **시안·시험 렌더** → 공지·표식 쓰기 0.
+- render() 의 `notify_renumber(sha, rows)` → `_notify_or_skip(sha, rows)`. 시안이면 stderr `INFO 시안 렌더 — 번호 공지·표식 0 (정본 <spec>)` 1줄.
+  INFO 는 stdout 블록을 쓴 **뒤** stderr 로 낸다(소비처·시험이 2>&1 캡처에서 첫 줄을 머리로 읽는다 — 기존 시험 5곳이 이 순서에 걸려 있었다).
+- 파일 머리 docstring 에 r728 규칙 1줄.
+
+## 범위 밖(그대로)
+공지 문구·대상(r668) · 유예 판정(r726: 표식 prev 줄·지문 결속·신선도) · 뉴스·매거진(같은 render 를 기본 정본으로 부르므로 그대로) · docs/architect 변경 0.
+
+## 시험 (새 파일 1개)
+`harness/tests/test_goal_draft_render_no_notice_r728.sh` — ⓐ 빨강(base 판 50e88b8c 대조) · ⓑ 후판(시안 출처 3종: 파일 경로 · 다른 ref · 같은 ref 다른 이름 — 공지 0 · 표식 전후 cmp 0 · 블록 7행 그대로 · INFO 1줄 · 다음 기본 렌더 재공지 0) ·
+ⓒ 기본 정본(env 없음 / env == 기본 spec 글자) 번호표 바뀜 = 공지 1통 + 표식 전진 · ⓓ r726 유예 시험 그대로 PASS(57 PASS) · ⓔ 변이(조건 삭제 = if True:) → 시안 렌더가 공지(= ⓑ FAIL 재현).
+
+## 기존 시험 회귀
+증거 `03-existing.txt` — 이 카드 전/후 동일: r668 39 PASS · r726 57 PASS · r545 12 · r600 11 · r644 21 · check_ref 40 · news_html rc0.
+**선재 실패 2건(이 카드 무관 · 전/후 동일)**: `test_goal_table_gate.sh` ⓕ «r458 600/300 상한 등장» · `test_goal_readjust_r714.sh` ⓐ «장치 없는 판(origin/main ft_goal_table)» = base 사본에 ft_goal_readjust_state 모듈 없음(ModuleNotFoundError).
+`tests/test_goal_table_gate.sh` 1줄 적응: ⓐ 꼬리 판정에서 `grep -v '^INFO 시안 렌더'`(INFO 가 블록 뒤 stderr 로 오므로).
+
+## 남은 일 (master 소관)
+- 착지 → 설치(LIVE_BIN 키트 `ft_goal_table.py` cmp0) → 실사건 1: 다음 planner 시안 렌더 때 공지 0 · 표식(`goal-numbering.tsv`) 전후 cmp 그대로.
+- press 필요: 없음(단위·픽스처 시험만 · 라이브 오디오 무관).

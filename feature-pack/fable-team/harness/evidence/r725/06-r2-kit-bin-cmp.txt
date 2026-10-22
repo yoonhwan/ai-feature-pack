@@ -1,0 +1,12 @@
+# R725 r2 키트 ↔ harness/bin 사본 대조 (cmp0 = 같음) 2026-10-22T06:01:18Z
+cmp0 ft_doc_exempt.py
+cmp0 ft-merge-land.sh
+cmp0 ft-merge-lib.sh
+cmp0 ft-proxy-decide.sh
+cmp0 ft-autonomy.sh
+# 줄 수
+     120 harness/kit/fable-team/bin/ft-merge-land.sh
+     307 harness/kit/fable-team/bin/ft_doc_exempt.py
+     427 total
+# 훅(가드) = kit templates 한 곳(설치 복사는 master)
+1

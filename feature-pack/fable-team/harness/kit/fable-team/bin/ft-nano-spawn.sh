@@ -10,10 +10,10 @@
 set -uo pipefail
 [ -f "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" ] && . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" "$@"   # R201: 비설치 위치면 LIVE_BIN 으로 exec
 IDX="${1:-}"; shift || { echo "usage: $0 <indices/대기/X.md> [--agent claude|codex|cmd|opencode|pi] [--model M] [--effort E] [--raise \"<사유>\"] [--from SEAT] [--base REF] [--cherry-override \"<사유>\"] [--dry-run]" >&2; exit 2; }
-AGENT="claude"; AGENT_SET=0; MODEL=""; EFFORT="high"; EFFORT_SET=0; FROM="${FT_SEND_FROM:-dispatch}"; RESEARCH=0; DRY=0; FAST=""; TIER=""; RECHECK=""; BASE_REF=""; HAVE_CO=0; CO=""; RAISE=""
+AGENT="claude"; AGENT_SET=0; MODEL=""; EFFORT="high"; EFFORT_SET=0; FROM="${FT_SEND_FROM:-dispatch}"; FROM_SET=0; RESEARCH=0; DRY=0; FAST=""; TIER=""; RECHECK=""; BASE_REF=""; HAVE_CO=0; CO=""; RAISE=""
 while [ $# -gt 0 ]; do case "$1" in
   --agent) AGENT="$2"; AGENT_SET=1; shift 2;; --model) MODEL="$2"; shift 2;; --effort) EFFORT="$2"; EFFORT_SET=1; shift 2;; --raise) RAISE="${2:-}"; shift 2 2>/dev/null || shift;;
-  --from) FROM="$2"; shift 2;; --recheck) RECHECK="$2"; shift 2;; --dry-run) DRY=1; shift;; --research) RESEARCH=1; shift;; --tier) TIER="$2"; shift 2;; --base) BASE_REF="$2"; shift 2;;
+  --from) FROM="$2"; FROM_SET=1; shift 2;; --recheck) RECHECK="$2"; shift 2;; --dry-run) DRY=1; shift;; --research) RESEARCH=1; shift;; --tier) TIER="$2"; shift 2;; --base) BASE_REF="$2"; shift 2;;
   --cherry-override) HAVE_CO=1; CO="${2:-}"; shift 2 2>/dev/null || shift;; *) echo "unknown $1" >&2; exit 2;; esac; done
 CO_ARGS=(); [ "$HAVE_CO" -eq 0 ] || { [ -n "${CO//[[:space:]]/}" ] || { echo "usage: --cherry-override \"<사유>\" — 사유가 비었다(사유 없는 우회 거부)" >&2; exit 2; }; CO_ARGS=(--override "$CO"); }
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
@@ -177,6 +177,8 @@ if [ -z "$MODEL" ]; then case "$AGENT" in
   *) echo "REJECT --model 필수 (--agent $AGENT 는 기본 모델이 없다)"; exit 1;; esac
 fi
 SEATS="${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}"
+# r730 ★보내는 사람 = 명부 현역★: --from 을 «안 줬을 때만» env FT_SEND_FROM 을 그 팀 명부 `_master` 로 해석한다 — 팀장 승계 뒤에도 발주문(:533)·명부 보고자(:499)·송신 from 이 현역 팀장. 해석 함수 = ft-team-lib.sh 한 곳.
+[ "$FROM_SET" = 1 ] || [ ! -f "$HERE/ft-team-lib.sh" ] || FROM="$( . "$HERE/ft-team-lib.sh" && ft_from_current "$FROM" "$SEATS" )"
 if [ ! -f "$IDX" ] && [ -f "$HERE/ft-team-lib.sh" ]; then . "$HERE/ft-team-lib.sh"; _tw="$(ft_index_twin "$IDX")" && [ -f "$_tw" ] && { echo "INFO 인덱스 쌍둥이 경로로 해석: $IDX → $_tw (R382 전환 기간 역호환)"; IDX="$_tw"; }; fi
 [ -f "$IDX" ] || { echo "REJECT 인덱스 없음: $IDX"; exit 1; }
 [ ! -f "$HERE/ft-team-lib.sh" ] || ( . "$HERE/ft-team-lib.sh" && ft_card_location_ok "$IDX" ) || exit 1   # r447: 명단 새 꼴 팀 카드가 옛 꼴 폴더(쌍둥이 해석 포함)면 REJECT

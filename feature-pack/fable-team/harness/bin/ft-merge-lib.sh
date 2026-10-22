@@ -65,6 +65,24 @@ fm_gh_slug() {
 }
 #   fm_flag_off_new <repo> <옛> <새> : R239 랜딩 직후 «새로 생긴 기본 꺼짐 플래그» 줄 출력 — 출력만(rc 항상 0 · 실패는 WARN 1줄 · 로컬 git 만 읽는다)
 FM_HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
+#   fm_doc_exempt <상태폴더> <리포> <루트> <base> <head> : R725 — «문서 전용 PR» 예외 판정(1곳 = ft_doc_exempt.py) + autonomy.log 기록 한 줄.
+#     성공 rc0 = stdout `doc-exempt=yes team=<팀> files=<N> by=<좌석>`(판정 줄은 stderr) · 실패 rc1 = stdout 사유 + `doc-exempt-reject` 1줄(착지 0)
+#     판정 규칙·범위는 ft_doc_exempt.py 머리말 하나 — 여기서 다시 판정하지 않는다(사본 0). 기준 = master #140107 확정(모든 팀 폴더 .md).
+fm_doc_exempt() {
+  local st="$1" repo="$2" root="$3" base="$4" head="$5" out rc f dc dt seat
+  seat="$(printf '%s' "${FT_SEAT:-unknown}" | tr -cd 'A-Za-z0-9#_-')"; [ -n "$seat" ] || seat=unknown
+  out="$(fm_t7 env -u FT_DOC_EXEMPT_SELFTEST -u FT_DOC_EXEMPT_SEAT python3 "$FM_HERE/ft_doc_exempt.py" --mode doc-exempt --repo "$repo" --root "$root" --base "$base" --head "$head" 2>&1)"; rc=$?
+  f="$(printf '%s\n' "$out" | head -n1)"
+  if [ "$rc" -eq 0 ] && [ "${f#DOC-EXEMPT "$head" }" != "$f" ]; then
+    dc="$(printf '%s' "$f" | sed -n 's/.* files=\([0-9]*\).*/\1/p')"; dt="$(printf '%s' "$f" | sed -n 's/.* team=\([a-z0-9_-]*\).*/\1/p')"
+    dse="$(printf '%s' "$f" | sed -n 's/.* by=\([A-Za-z0-9#_-]*\).*/\1/p')"; [ -z "$dse" ] || seat="$dse"   # R725 r2: 기록 좌석 = 판정 모듈이 «실측»한 좌석(자기 신고가 아니다)
+    printf '%s\n' "$f" >&2
+    printf 'doc-exempt %s team=%s files=%s by=%s\n' "$head" "${dt:-planner}" "${dc:-0}" "$seat" >> "$st/autonomy.log" || { echo "autonomy.log 기록 실패 — 착지 0"; return 1; }
+    echo "doc-exempt=yes team=${dt:-planner} files=${dc:-0} by=$seat"; return 0
+  fi
+  printf 'doc-exempt-reject %s by=%s\n' "$head" "$seat" >> "$st/autonomy.log" 2>/dev/null || true
+  echo "doc-exempt 아님(rc=$rc): ${f:-출력 없음}"; return 1
+}
 fm_flag_off_new() {
   local tb out rc; tb="$(fm_timeout_bin)" || { echo "WARN flag-off 검사 실패 timeout 도구 없음"; return 0; }
   out="$("$tb" 7 python3 "$FM_HERE/ft_flag_off.py" --repo "$1" --new-between "$2" "$3" 2>&1)"; rc=$?

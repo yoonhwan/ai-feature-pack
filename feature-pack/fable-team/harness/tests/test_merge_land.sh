@@ -40,7 +40,7 @@ printf 'l1\nMAIN-LINE\nl2\nl3\n' > "$W/a.txt"; cm "$W" "main adds"; git -C "$W" 
 M1="$(omain)"
 mkpr 7 pr7 origin/main; P7="$PRSHA"
 
-land 7; [ "$rc" = 2 ] && [ "$(omain)" = "$M1" ] && [ ! -s "$STUB_LOG" ]; ck "승인 값 없음 → rc2 · main 불변 · PR 쓰기 0(실행 0)" $?
+land 7; [ "$rc" = 1 ] && [[ "$out" == *"doc-exempt"* ]] && [ "$(omain)" = "$M1" ] && [ ! -s "$STUB_LOG" ]; ck "승인 값 없음 + 문서 아님 → rc1 REJECT(doc-exempt 아님) · main 불변 · PR 쓰기 0(R725)" $?
 land 7 --approve-sha "$ZERO"; [ "$rc" = 1 ] && [[ "$out" == *"승인 sha"* ]] && [ "$(omain)" = "$M1" ]; ck "승인 sha != PR head → REJECT · main 불변" $?
 mkpr 6 pr6 origin/main CLOSED; land 6 --approve-sha "$PRSHA"; [ "$rc" = 1 ] && [[ "$out" == *"OPEN 아님"* ]] && [ "$(omain)" = "$M1" ]; ck "PR 가 OPEN 아님 → REJECT" $?
 mkpr 8 pr8 "$M0"; land 8 --approve-sha "$PRSHA"; [ "$rc" = 1 ] && [[ "$out" == *"게이트"* ]] && [[ "$out" == *"포함하지 않음"* ]] && [ "$(omain)" = "$M1" ]; ck "main 미포함 옛 세트 PR → 게이트 REJECT · main 불변" $?

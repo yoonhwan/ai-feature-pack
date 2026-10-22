@@ -7,6 +7,7 @@
 #   · `gh pr merge`/`ft-gh-as-tank.sh pr merge` → `--match-head-commit <sha>` 필수(헤드 결속은 gh 가 강제). `gh api …/pulls/N/merge` 는 `sha=<sha>`.
 #   · main 대상 `git push`(main·HEAD:main·x:main·refs/heads/main · `--repo` 포함 · 맨 push+현재 브랜치 main) → 보내는 쪽 ref(없으면 HEAD)의 rev-parse sha. 삭제(:main·--delete/-d)·--all·--mirror·와일드카드는 항상 deny. --dry-run allow.
 #   `env -S '<명령>'` 는 `bash -c` 처럼 안쪽을 재검사. OFF·위변조·따옴표/heredoc/mbox 본문 글자만 = allow.
+#   ★R725★ 문서 전용 PR 예외는 `ft-merge-land` 경유(squash 1커밋) «한 길»뿐 — 판정은 그 도구 안 `ft_doc_exempt.py` 한 곳이 한다(팀 폴더 직속 .md 추가·수정). ★이 훅은 직접 `git push`·`gh pr merge` 에 예외를 주지 않는다★ — 그 경로는 승인 파일 필요 그대로(DA⑥ r1 질문 6: 직접 경로는 목적지·ref 이동 검사를 건너뛰었다).
 # ★못 읽음(R176 · 판정 1675 ①)★: ft-autonomy.sh 못 찾음·rc≠0 = 병합·main push 는 deny + 이유 + 로그(FT_AUTONOMY_HOOK_LOG). 파싱 불가(JSON·예외)는 그대로 허용+로그. 외부 호출 0.
 #   ★r560★ ①판정기 자리 = <루트>/.fable-team/LIVE_BIN 1줄 + ft_approval_equiv.py (첫 줄이 bash 대리 파일(shim)이면 안 쓴다 — shim 폴더를 도구 자리로 잡으면 python3 -I 가 SyntaxError 로 «판정기 출력 없음» 만 남겼다) ②후보 순서 = `git rev-list <S> ^origin/main` 에 든 승인 먼저(병합 경로) → 그다음 최신순(rebase 경로) ③autonomy.log 는 «한 번» 읽어 집합(후보마다 다시 읽지 않음) ④판정기 stderr·rc·시간 초과·마감 소진을 거절 이유에 남긴다(마감 21초·후보당 7초는 그대로 — 판정 666).
 # 도구·상태 해석 = 오빠 `!` 와 같은 곳: FT_AUTONOMY_SH → harness-env.sh 의 FT_BIN → 루트 2경로 · 상태는 FT_ROOT 가 env 에 있을 때만 그것, 아니면 도구 자기 루트.
@@ -142,19 +143,20 @@ def head_arg(args, flag):
             return a[len(flag) + 1:]
     return ""
 
-def live_judge(root, sh):  # r560: 판정기 자리 — LIVE_BIN 우선 · 첫 줄 bash 대리 파일(shim)은 건너뛴다 · 없으면 "" (통과 0)
-    """<루트>/.fable-team/LIVE_BIN 1줄 = 라이브 bin 폴더. 두 번째 후보 = 도구 폴더(FT_AUTONOMY_SH 의 형제 · 설치 꼴·시험 꼴)."""
+def live_judge(root, sh, name="ft_approval_equiv.py"):  # r560: 판정기 자리 — LIVE_BIN 우선 · 첫 줄 bash 대리 파일(shim)은 건너뛴다 · 없으면 "" (통과 0)
+    """<루트>/.fable-team/LIVE_BIN 1줄 = 라이브 bin 폴더. 두 번째 후보 = 도구 폴더(FT_AUTONOMY_SH 의 형제 · 설치 꼴·시험 꼴).
+    R725: name 으로 도구를 가른다(현재 승인 대조 판정기 하나) — 자리 찾기 규칙은 하나."""
     cands = []
     try:
         with open(os.path.join(root, ".fable-team/LIVE_BIN"), encoding="utf-8") as f:
             for line in f:
                 if line.strip():
-                    cands.append(os.path.join(line.strip(), "ft_approval_equiv.py"))
+                    cands.append(os.path.join(line.strip(), name))
                     break
     except OSError:
         pass
     if sh:
-        cands.append(os.path.join(os.path.dirname(sh), "ft_approval_equiv.py"))
+        cands.append(os.path.join(os.path.dirname(sh), name))
     for c in cands:
         try:
             with open(c, encoding="utf-8", errors="replace") as f:
@@ -168,6 +170,7 @@ def live_judge(root, sh):  # r560: 판정기 자리 — LIVE_BIN 우선 · 첫 �
 class Guard:
     def __init__(self, state, cwd, sh=None, root=""):  # state 없음(못 읽음) = 승인 근거 0 → 병합·main push 전부 deny
         self.approved, self.logpath, self.cwd = (os.path.join(state, "autonomy-merge-approved"), os.path.join(state, "autonomy.log"), cwd) if state else (None, None, cwd)
+        self.root = root
         self.judge = live_judge(root, sh) if root else ""
         self.logged = None   # r560: autonomy.log 줄 집합 — 첫 exact() 때 한 번만 읽는다
         self.why = "" if self.judge else "라이브 판정기 없음: %s" % (os.path.join(root, ".fable-team/LIVE_BIN") if root else "<루트 미상>")
@@ -188,10 +191,14 @@ class Guard:
 
     def ok(self, sha):
         """정확 일치(exact) → 아니면 EQUIV(r462): 오빠 승인 sha 중 «같은 변경 집합»(ft_approval_equiv.py rc0 = 승인 위 main 병합·rebase 만)이 있으면 통과.
+        ★R725 DA⑥ r1 질문 6★: 문서 전용 면제는 여기에 없다 — 그 면제는 ft-merge-land 경유(squash) 한 길뿐이고,
+        직접 `git push`·`gh pr merge` 는 목적지·ref 이동 검사를 건너뛰므로 승인 파일이 있어야 통과한다.
         판정기 = ft-merge-land(R247)·scope-approve(r411)와 같은 것 하나 — 못 판단(rc3·시간 초과 7초)·판정기 없음 = 통과 0."""
         if self.exact(sha):
             return True
-        if not SHA.match(sha) or not self.approved or not self.judge:
+        if not SHA.match(sha):
+            return False
+        if not self.approved or not self.judge:
             return False
         try:   # ★DA⑥ r1 H2★ EQUIV 경로(판정기 찾기·실행·해독·파싱)의 예외는 deny — 훅 바깥 fail-open 으로 새면 안 된다
             return self.equiv(sha)

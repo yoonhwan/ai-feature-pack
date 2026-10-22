@@ -20,7 +20,7 @@ while [ $# -gt 0 ]; do case "$1" in
   --target) [ $# -ge 2 ] || usage; TARGET="$2"; shift 2;;
   -*) usage;; *) [ -z "$PR" ] || usage; PR="$1"; shift;; esac; done
 printf '%s' "$PR" | grep -Eq '^[0-9]+$' || usage
-printf '%s' "$AP" | grep -Eq '^[0-9a-f]{40}$' || { echo "REJECT 오빠 병합 승인 값(--approve-sha <PR head 40hex>) 없음 — 실행 0"; exit 2; }
+[ -z "$AP" ] || printf '%s' "$AP" | grep -Eq '^[0-9a-f]{40}$' || { echo "REJECT 오빠 병합 승인 값(--approve-sha <PR head 40hex>) 없음 — 실행 0"; exit 2; }   # R725: 빈 값 = 문서 전용 판정 경로(아래 ft_doc_exempt.py)
 [ -n "$REPO" ] || REPO="$(git rev-parse --show-toplevel 2>/dev/null)" || { echo "REJECT repo 를 찾을 수 없음"; exit 1; }
 G() { git -C "$REPO" "$@"; }
 rej() { echo "REJECT $* (착지 0)"; exit 1; }
@@ -35,10 +35,10 @@ AUT="$HERE/ft-autonomy.sh"   # R336: 모든 모드(on·off·tamper·불명)에�
 AST="$(bash "$AUT" state-dir 2>/dev/null)"   # r648: 승인 폴더 = 이 정식 리졸버 하나뿐(공용 루트를 직접 쓰는 길 0)
 [ -n "$AST" ] || AST="$(cd "${FT_ROOT:-$ROOT}" 2>/dev/null && bash "$AUT" state-dir 2>/dev/null)"   # 팩 cwd 등에서 해석 실패할 때만 부른 리포 안에서 재시도(LIVE_ROOT 그대로 작동)
 [ -n "$AST" ] || { echo "REJECT 자율 상태 폴더 해석 실패 — 실행 0"; exit 2; }
-AF="$AST/autonomy-merge-approved/$AP"
+[ -z "$AP" ] || { AF="$AST/autonomy-merge-approved/$AP"   # R725: 승인 값을 준 경우만 승인 파일을 본다(빈 값 = doc-exempt 판정이 가른다)
 [ "$(wc -l < "$AF" 2>/dev/null | tr -d ' ')" = 1 ] && grep -q "^approve-merge $AP " "$AF" && grep -qxF "$(head -n1 "$AF")" "$AST/autonomy.log" 2>/dev/null \
   || { echo "REJECT 오빠 승인 파일 없음 — 승인 h 한 줄 먼저(approve-merge $AP 승인 파일·로그 한 줄 없음) — 실행 0"; exit 2; }
-AFE="$(awk '{print $4}' "$AF")"   # 승인 epoch — merge-gate.log 에 «누가 언제 승인했나» 를 남긴다
+AFE="$(awk '{print $4}' "$AF")"; }   # 승인 epoch — merge-gate.log 에 «누가 언제 승인했나» 를 남긴다
 
 JSON="$(fm_t7 "$GH_R" pr view "$PR" ${SLUG:+-R "$SLUG"} --json headRefOid,title,body,state,baseRefName)" || rej "gh pr view $PR 실패(7 s + 재시도 1)"; deadline
 pf() { printf '%s' "$JSON" | python3 -c 'import json,sys;print(json.load(sys.stdin).get(sys.argv[1]) or "")' "$1"; }
@@ -51,13 +51,13 @@ S="$(G rev-parse --verify -q FETCH_HEAD^{commit})" && [ "$S" = "$HEADSHA" ] || r
 GOUT="$(bash "$HERE/ft-merge-gate.sh" "$S" --repo "$REPO" --remote "$REMOTE" --target "$TARGET" --base-head-file "$BH")" || rej "게이트: ${GOUT#DENY }"; deadline
 EQ=""   # R247: 게이트가 main 을 fetch 한 «뒤»(equiv 는 로컬 git 만) — 통과면 나머지 게이트·착지는 S 기준 그대로. 못 판단(rc3)도 REJECT.
 [ -z "$FF" ] || [ "$HEADSHA" = "$AP" ] || rej "ff 는 승인 sha == PR head 만(승인 ${AP:0:10} · head ${HEADSHA:0:10}) — 동일승인 대조 경로는 --ff 없이"   # R392: ff 는 equiv 경로 0
-if [ "$HEADSHA" != "$AP" ]; then
+if [ -n "$AP" ] && [ "$HEADSHA" != "$AP" ]; then
   EQ="$("$(fm_timeout_bin)" 30 bash "$HERE/ft-approval-equiv.sh" "$AP" "$S" --repo "$REPO" --remote "$REMOTE" --target "$TARGET" 2>&1)" \
     || rej "PR head($HEADSHA) != 승인 sha($AP) — 승인 뒤 head 가 움직였고 동일승인 대조(병합·rebase 두 경로)도 실패:${EQ:-timeout 도구 없음 또는 30 s 초과}"; deadline
   echo "$EQ"
 fi
 EQM="$(printf '%s' "$EQ" | sed -n 's/.* mode=\([a-z]*\) overlap=\([0-9]*\).*/equiv=\1 overlap=\2/p')"   # R281: merge-gate.log·PR 코멘트에 «어느 경로로 같은 승인이 됐나»
-M="$(G rev-parse --verify -q "refs/remotes/$REMOTE/$TARGET^{commit}")" || rej "main 확인 실패"
+M="$(G rev-parse --verify -q "refs/remotes/$REMOTE/$TARGET^{commit}")" || rej "main 확인 실패"; [ -n "$AP" ] || { DOCX="$(fm_doc_exempt "$AST" "$REPO" "$ROOT" "$M" "$S")" || rej "승인 파일 없음 · $DOCX"; }   # R725: 승인 값이 없을 때만 문서 전용 예외(실패 = 면제 0)
 [ ! -f "$HERE/ft-team-lib.sh" ] || OLDP="$(. "$HERE/ft-team-lib.sh" && ft_old_form_added "$REPO" "$M" "$S")" || rej "$OLDP"   # r447: 명단 새 꼴 팀의 옛 꼴 위치에 새 파일 = 착지 0
 EVL="$(G diff --name-only -z --no-renames --diff-filter=AM "$M...$S" -- design | tr '\0' '\n' | ft_evidence_filter)"   # r449: 가지가 더하거나 고친 design/ 증거 로그 = 착지 0(pre-commit 을 우회한 커밋도 여기서 선다)
 [ -z "$EVL" ] || rej "증거 로그 $(printf '%s\n' "$EVL" | grep -c .) — git rm --cached 뒤 다시: $(printf '%s\n' "$EVL" | head -n 10 | tr '\n' ' ')"
@@ -92,7 +92,7 @@ for i in 1 2; do
   elif [ "$lrc" -eq 0 ] && [ "$LSV" = "$M" ]; then rej "착지 0 확정(원격 $TARGET = $M) · push 응답 불명(rc=$PRC) · 재시도 0 — 총 마감 안에 끝내지 못함 · 다음 틱에 다시"
   else rej "원격 상태 불명 · 손 확인 필요(push rc=$PRC · ls-remote rc=$lrc 값=${LSO:0:80})"; fi
 done
-mkdir -p "$STATE" && printf '%s repo=%s main=%s head=%s method=ft-merge-land%s tree=%s landed=%s pr=%s approve=%s%s approve-file=%s%s\n' "$(date +%Y-%m-%dT%H:%M:%S)" "$(basename "${SLUG:-$ROOT}")" "$M" "$S" "${FF:+-ff}" "$(G rev-parse "$S^{tree}")" "$Q" "$PR" "$AP" "${EQM:+ $EQM}" "$AFE" "${LANDVIA:+ push-confirmed=ls-remote}" >>"$STATE/merge-gate.log"
+mkdir -p "$STATE" && printf '%s repo=%s main=%s head=%s method=ft-merge-land%s tree=%s landed=%s pr=%s approve=%s%s approve-file=%s%s%s\n' "$(date +%Y-%m-%dT%H:%M:%S)" "$(basename "${SLUG:-$ROOT}")" "$M" "$S" "${FF:+-ff}" "$(G rev-parse "$S^{tree}")" "$Q" "$PR" "$AP" "${EQM:+ $EQM}" "${AFE:-}" "${LANDVIA:+ push-confirmed=ls-remote}" "${DOCX:+ $DOCX}" >>"$STATE/merge-gate.log"
 echo "LANDED pr=$PR sha=$Q main_before=$M head=$S tree=$(G rev-parse "$Q^{tree}")${FF:+ mode=ff}"
 echo "push ok objects=$PN bound=$PB attempt=$AB took=$((SECONDS - PS))s${LANDVIA:+ confirmed=ls-remote(응답 후 timeout)}"   # R354: 착지마다 1줄 — bound=계산 최대 · attempt=실제 상한 · took=마지막 시도 소요 · 3건 모이면 기준량 U0 갱신 근거
 SN="$(awk -v ap="$AP" '$1=="scope-use" && $3==ap && $2 ~ /^S[0-9]+$/ {s=$2} END{print s}' "$STATE/autonomy.log" 2>/dev/null)"   # R298(DA⑥ H3): 그 승인 sha 의 «마지막 scope-use S<n>» 한 원장만 — 줄 없으면 0

@@ -49,7 +49,7 @@ check_body() { OUT="$(printf '%s' "$1" | render check - 2>&1)"; RC=$?; }
 mkledger "$NOWSTAMP"; BLOCK="$(render 2>&1)"; RC=$?
 [ "$RC" = 0 ] && ok "ⓐ 렌더 rc0" || bad "ⓐ 렌더 rc=$RC :: $BLOCK"
 printf '%s\n' "$BLOCK" | head -1 | grep -qxE "★골 표 A6 \(file:$SHA · 원장:${NOWSTAMP:5} · 재조정 .*\)★" && ok "ⓐ 머리 마커 줄(출처 file: + 원장:<갱신> · r545)" || bad "ⓐ 머리 :: $(printf '%s' "$BLOCK" | head -1)"
-printf '%s\n' "$BLOCK" | tail -1 | grep -qx '★/골 표★' && ok "ⓐ 꼬리 마커 줄" || bad "ⓐ 꼬리"
+printf '%s\n' "$BLOCK" | grep -v '^INFO 시안 렌더' | tail -1 | grep -qx '★/골 표★' && ok "ⓐ 꼬리 마커 줄" || bad "ⓐ 꼬리"   # r728: 시안 렌더 INFO(stderr) 는 블록 뒤에 온다
 [ "$(printf '%s\n' "$BLOCK" | grep -c '^| .* | .* | .* | .* |$')" = 7 ] && ok "ⓐ 표 7줄(제목 1 + 골 6)" || bad "ⓐ 표 행 수"
 printf '%s' "$BLOCK" | grep -q '상태3 진행' && ok "ⓐ 상태 칸 = 원장 2열 값(행 3)" || bad "ⓐ 상태 칸 값 없음"
 printf '%s' "$BLOCK" | grep -qF '긴상태값이길다긴상태값이길다긴상태값이길다긴상태…' && ok "ⓐ 상태 칸 24자 + «…»" || bad "ⓐ 24자 축약"

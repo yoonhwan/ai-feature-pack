@@ -78,6 +78,8 @@ REACH="$HERE/ft-reach-check.sh"
 MBOX="${FT_MBOX_SH:-}"; [ -n "$MBOX" ] || { . "$HERE/ft-harness-root.sh"; _CM="$(ft_comm_dir "$HERE")" || exit 1; MBOX="$_CM/mbox.sh"; }   # r385 r3: 설치본엔 형제 comm 폴더가 없다 — 데이터 루트의 comm
 # 발신자 이름 — mbox 의 세션명 allowlist(`[A-Za-z0-9._#-]+`)를 통과해야 한다.
 FROM="${FT_SEND_FROM:-dispatch}"
+# r730 ★보내는 사람 = 명부 현역★: FT_SEND_FROM 이 승계로 옛 세대가 됐으면 명부 `_master` 로(같은 계보일 때만 · 못 풀면 지금 값). 해석 함수 = ft-team-lib.sh 한 곳.
+[ ! -f "$HERE/ft-team-lib.sh" ] || FROM="$( . "$HERE/ft-team-lib.sh" && ft_from_current "$FROM" )"
 
 # 마커는 발주 «후»에 정해진다 — 번호를 발급하는 것은 큐다.
 MARKER=""

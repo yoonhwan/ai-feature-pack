@@ -1,0 +1,17 @@
+# R725 r3 인접 기존 시험 회귀 (2026-10-22T06:31:52Z) — 전부 rc0
+test_autonomy_hooks                        184P 0F
+test_autonomy_hooks_layout                 17P 0F
+test_autonomy_kinds_1675                   110P 0F
+test_autonomy_merge_equiv                  13P 0F
+test_baseline_lint                         7P 0F
+test_doc_exempt_r725                       75P 0F
+test_hook_cmd_split_shared_r546            19P 0F
+test_kit_bin_sync                          7P 0F
+test_merge_land                            49P 0F
+test_merge_land_equiv                      42P 0F
+test_merge_land_off_approval               14P 0F
+test_merge_land_push_reason                14P 0F
+test_merge_land_state_dir                  8P 0F
+test_r560_approval_equiv_base_and_hook     29P 0F
+
+# 선행 실패 4종(기준선 origin/main 사본과 같은 수 · 이 카드 무관): test_autonomy_core 3F · test_kit_exec_modes 5F · test_proxy_decide_r188 6F · test_merge_land_pack_repo 10F

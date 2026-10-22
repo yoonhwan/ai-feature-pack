@@ -1,0 +1,84 @@
+# R725 r3 — 고정 sha 사본으로 빨강(옛 판 동작) · 새 판 초록 · 2026-10-22
+# 격리: 임시 origin(bare)+clone · 가짜 tmux(좌석) · 실 mbox/tmux/push/gh 0. 픽스처 생성 실패 = 생성기 rc≠0(조용한 PASS 0)
+# 생성기 = /tmp/r725r3-evidence.sh <모듈사본> <harness> <tag> · 모듈 사본 = git show <고정 sha>:feature-pack/fable-team/harness/...(bin 3 + 훅 1 + merge_cmd)
+
+=== A) 옛 판 = 48b8472950 (r1 · DA⑥ r1 HOLD 판) — ①~⑤ 전부 rc0(면제 통과) · ⑥ rc0(자기 신고) · ⑦ allow(가드 직접경로 면제) ===
+① 좌석 = 자기 신고만 (TMUX_PANE 없음 · FT_SEAT=planner)
+   DOC-EXEMPT 1ed9c8e5ff27270a03c3825260805d2183a17b24 files=1 team=planner
+   rc=0
+② 가짜 명부 루트(_master = 나) · 좌석 = 나
+   DOC-EXEMPT 1ed9c8e5ff27270a03c3825260805d2183a17b24 files=1 team=planner
+   rc=0
+③ numstat rc=128
+   DOC-EXEMPT 1ed9c8e5ff27270a03c3825260805d2183a17b24 files=1 team=planner
+   rc=0
+④ 판정 입력 PLAN-oppa-ledger.md
+   DOC-EXEMPT 70ce994b6f4edcd1875947b925672df45941e44c files=1 team=planner
+   rc=0
+⑤ .git/info/attributes '*.md diff' + NUL 바이트 .md
+   DOC-EXEMPT e4d108add254626e94b56ca1bdb8d925a5cf2cea files=1 team=planner
+   rc=0
+⑥ SELFTEST env 로 좌석 덮어쓰기 (실제 좌석 = 나노 · 자기 신고 = planner)
+   DOC-EXEMPT 1ed9c8e5ff27270a03c3825260805d2183a17b24 files=1 team=planner
+   rc=0
+⑦ 가드: 직접 git push(문서만 sha) · gh pr merge
+   
+   rc=0 (빈 출력 = allow)
+   
+   rc=0 (빈 출력 = allow)
+   [A 생성기 rc=0]
+
+=== B) 옛 판 = be27813e (r2 · DA⑥ r2 HOLD 판) — ⑥ SELFTEST 덮어쓰기 rc0 = DA⑥ r2 가 지적한 마지막 구멍(착지 가능) · ⑦ 은 이미 deny ===
+① 좌석 = 자기 신고만 (TMUX_PANE 없음 · FT_SEAT=planner)
+   NOT 좌석 해석 실패(TMUX_PANE 의 세션명을 못 구함) — 면제 0
+   rc=2
+② 가짜 명부 루트(_master = 나) · 좌석 = 나
+   NOT 명부 루트(/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.8ars7e1Azu/fakeroot)가 대상 리포 공용 루트(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.8ars7e1Azu/w)도 그 .fable-team/LIVE_ROOT 도 아님 — 면제 0
+   rc=2
+③ numstat rc=128
+   NOT numstat 실패() — 바이너리 판정 불가 · 면제 0
+   rc=2
+④ 판정 입력 PLAN-oppa-ledger.md
+   NOT 정본·승인근거·판정입력 이름(GOAL- · GUIDE- · SEATBELT · VERDICTS- · AUTONOMY- · BOARD · README · PLAN-oppa-ledger · FLAG-DECISIONS · MERGE-QUEUE · STATE.md · NANO-LEDGER · NEWS-TREE · DECISION)은 예외 아님: design/teams/planner/PLAN-oppa-ledger.md
+   rc=1
+⑤ .git/info/attributes '*.md diff' + NUL 바이트 .md
+   NOT 바이너리(NUL 바이트): design/teams/planner/HANDOFF-nul.md
+   rc=1
+⑥ SELFTEST env 로 좌석 덮어쓰기 (실제 좌석 = 나노 · 자기 신고 = planner)
+   DOC-EXEMPT 33a8915d6cfada27db4051af13270ce877a6c518 files=1 team=planner by=byz-planner-master-claude#105
+   rc=0
+⑦ 가드: 직접 git push(문서만 sha) · gh pr merge
+   DENY(deny)
+   rc=0 (빈 출력 = allow)
+   DENY(deny)
+   rc=0 (빈 출력 = allow)
+   [B 생성기 rc=0]
+
+=== C) 새 판(r3) — ① rc2 · ② rc2 · ③ rc2 · ④ rc1 · ⑤ rc1 · ⑥ rc3(시험 판정 = 착지에 못 씀) · ⑦ deny ===
+① 좌석 = 자기 신고만 (TMUX_PANE 없음 · FT_SEAT=planner)
+   NOT 좌석 해석 실패(TMUX_PANE 의 세션명을 못 구함) — 면제 0
+   rc=2
+② 가짜 명부 루트(_master = 나) · 좌석 = 나
+   NOT 명부 루트(/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.QgluiazLKh/fakeroot)가 대상 리포 공용 루트(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.QgluiazLKh/w)도 그 .fable-team/LIVE_ROOT 도 아님 — 면제 0
+   rc=2
+③ numstat rc=128
+   NOT numstat 실패() — 바이너리 판정 불가 · 면제 0
+   rc=2
+④ 판정 입력 PLAN-oppa-ledger.md
+   NOT 정본·승인근거·판정입력 이름(GOAL- · GUIDE- · SEATBELT · VERDICTS- · AUTONOMY- · BOARD · README · PLAN-oppa-ledger · FLAG-DECISIONS · MERGE-QUEUE · STATE.md · NANO-LEDGER · NEWS-TREE · DECISION)은 예외 아님: design/teams/planner/PLAN-oppa-ledger.md
+   rc=1
+⑤ .git/info/attributes '*.md diff' + NUL 바이트 .md
+   NOT 바이너리(NUL 바이트): design/teams/planner/HANDOFF-nul.md
+   rc=1
+⑥ SELFTEST env 로 좌석 덮어쓰기 (실제 좌석 = 나노 · 자기 신고 = planner)
+   SELFTEST 시험 판정 — 착지에 못 쓴다(FT_DOC_EXEMPT_SELFTEST=1 · 실경로는 env -u 로 지운다)
+DOC-EXEMPT 1f72ab3405f0d5aea7254b579c1658a3c8ce961a files=1 team=planner by=byz-planner-master-claude#105
+   rc=3
+⑦ 가드: 직접 git push(문서만 sha) · gh pr merge
+   DENY(deny)
+   rc=0 (빈 출력 = allow)
+   DENY(deny)
+   rc=0 (빈 출력 = allow)
+   [C 생성기 rc=0]
+
+# 06-r2-redgreen.txt 는 삭제(DA⑥ r2: 그 빨강이 픽스처 생성 실패로 성립하지 않았음) — 이 파일이 대체한다.

@@ -1,0 +1,39 @@
+# ⓑ~ⓗ 초록 — 이 카드 판(ft_from_current + 부르는 곳 3)
+$ bash feature-pack/fable-team/harness/tests/test_from_current_r730.sh
+PASS bash -n kit/ft-team-lib.sh
+PASS cmp0 kit↔bin ft-team-lib.sh
+PASS bash -n kit/ft-nano-spawn.sh
+PASS cmp0 kit↔bin ft-nano-spawn.sh
+PASS bash -n kit/ft-role-spawn.sh
+PASS cmp0 kit↔bin ft-role-spawn.sh
+PASS bash -n kit/ft-send-verified.sh
+PASS ⓑ 같은 계보 → #5
+PASS ⓑ rc0
+PASS ⓑ INFO 1줄 원문
+PASS ⓑ 현역이면 침묵
+PASS ⓒ 계보 다름 그대로: ft-issue-manager#0
+PASS ⓒ 계보 다름 그대로: byz-planner-arch#0
+PASS ⓒ 계보 다름 그대로: byz-y-master-claude#2
+PASS ⓓ 명부 없음 값 그대로
+PASS ⓓ 명부 없음 WARN 1줄
+PASS ⓓ 명부 없음 WARN 에 값 병기
+PASS ⓓ _master 없음 값 그대로
+PASS ⓓ _master 없음 WARN 1줄
+PASS ⓓ _master 없음 WARN 에 값 병기
+PASS ⓓ lint 실패(FB_KK#4) 값 그대로
+PASS ⓓ lint 실패(FB_KK#4) WARN 1줄
+PASS ⓓ lint 실패(FB_KK#4) WARN 에 값 병기
+PASS ⓓ 빈 값 → 빈 값(rc0)
+PASS ⓔ nano-spawn 가드 줄 존재
+PASS ⓔ --from 명시 → 그대로
+PASS ⓔ --from 없으면 해석
+PASS ⓕ ft-nano-spawn.sh 가 함수 1회 호출
+PASS ⓕ ft-role-spawn.sh 가 함수 1회 호출
+PASS ⓕ ft-send-verified.sh 가 함수 1회 호출
+PASS ⓕ 정의는 ft-team-lib.sh 한 곳
+PASS ⓖ 변이1 적용(계보 비교 삭제)
+PASS ⓖ 계보 비교 삭제 → ⓒ FAIL(그대로 안 됨)
+PASS ⓖ 변이2 적용(명부 해석 삭제)
+PASS ⓖ 명부 해석 삭제 → ⓑ FAIL(#5 안 됨)
+PASS ⓗ ft_from_current 부작용 0(읽기만)
+ALL PASS

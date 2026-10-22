@@ -1,0 +1,95 @@
+FF.F.                                                                    [100%]
+=================================== FAILURES ===================================
+_ test_root_text_has_the_block_right_after_the_first_line_and_html_has_the_section _
+
+env = ((PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-874/test_root_text_has...var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-874/test_root_text_has_the_block_r0/ftroot'))
+
+    def test_root_text_has_the_block_right_after_the_first_line_and_html_has_the_section(env):
+        (mag, root) = env
+        arm(root)
+        slack = FakeMagazineSlack()
+>       assert md.main(argv(mag, "--publish", slack)) == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = <function main at 0x111e76e80>(['--src-repo', '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-874/test_root_text_has_the_block_r0/repo', '--src-sha', 'HEAD', '--src-path', 'doc.md', ...])
+E        +    where <function main at 0x111e76e80> = md.main
+E        +    and   ['--src-repo', '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-874/test_root_text_has_the_block_r0/repo', '--src-sha', 'HEAD', '--src-path', 'doc.md', ...] = argv((PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-874/test_root_text_has_...e/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-874/test_root_text_has_the_block_r0/repo')), '--publish', <_magazine_fakes.FakeMagazineSlack object at 0x111e496a0>)
+
+/Users/yoonhwan/Project/ai-feature-pack/feature-pack/fable-team/harness/tests/scripts/test_magazine_goal.py:44: AssertionError
+------------------------------ Captured log call -------------------------------
+ERROR    magazine_doc:magazine_doc.py:153 발행 실패: GoalGateError: 골 표 판정기 rc=1: Traceback (most recent call last):
+  File "/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-874/test_root_text_has_the_block_r0/ftroot/.fable-team/bin/ft_goal_table.p
+_ test_armed_gate_failure_publishes_nothing_writes_no_state_and_notifies_planner_once _
+
+env = ((PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-874/test_armed_gate_fa...var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-874/test_armed_gate_failure_publis0/ftroot'))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x111caa8b0>
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-874/test_armed_gate_failure_publis0')
+
+    def test_armed_gate_failure_publishes_nothing_writes_no_state_and_notifies_planner_once(env, monkeypatch, tmp_path):
+        (mag, root) = env
+        arm(root)
+        (root / ".fable-team" / "seats-planner.json").write_text('{"_master": "planner#9"}', encoding="utf-8")
+        stub, log = tmp_path / "mbox-stub.sh", tmp_path / "mbox-stub.log"
+        stub.write_text('#!/usr/bin/env bash\necho "$@" >> "$FT_STUB_LOG"\nexit 0\n', encoding="utf-8")
+        monkeypatch.setenv("FT_MBOX", str(stub))
+        monkeypatch.setenv("FT_STUB_LOG", str(log))
+        monkeypatch.setenv("FT_GOAL_A6_MD", str(root / "없는정본.md"))  # 정본 없음 → render ERROR
+        slack = FakeMagazineSlack()
+        assert md.main(argv(mag, "--publish", slack)) == 1
+        assert slack.roots == [] and not (mag[0] / "state.json").exists()
+>       assert log.read_text(encoding="utf-8").count("[긴급] 뉴스 발행 거절") == 1 and "진입점: magazine" in log.read_text(encoding="utf-8")
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+/Users/yoonhwan/Project/ai-feature-pack/feature-pack/fable-team/harness/tests/scripts/test_magazine_goal.py:63: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/lib/python3.13/pathlib/_local.py:546: in read_text
+    return PathBase.read_text(self, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/lib/python3.13/pathlib/_abc.py:632: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-874/test_armed_gate_failure_publis0/mbox-stub.log')
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed to by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-874/test_armed_gate_failure_publis0/mbox-stub.log'
+
+/Users/yoonhwan/.local/share/uv/python/cpython-3.13.12-macos-aarch64-none/lib/python3.13/pathlib/_local.py:537: FileNotFoundError
+------------------------------ Captured log call -------------------------------
+ERROR    magazine_doc:magazine_doc.py:153 발행 실패: GoalGateError: 골 표 판정기 rc=1: Traceback (most recent call last):
+  File "/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-874/test_armed_gate_failure_publis0/ftroot/.fable-team/bin/ft_goal_table.p
+_______________ test_dry_run_prints_the_block_in_the_slack_text ________________
+
+env = ((PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-874/test_dry_run_print...var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-874/test_dry_run_prints_the_block_0/ftroot'))
+capsys = <_pytest.capture.CaptureFixture object at 0x111e4a660>
+
+    def test_dry_run_prints_the_block_in_the_slack_text(env, capsys):
+        (mag, root) = env
+        assert md.main(argv(mag, "--dry-run")) == 0
+        out = capsys.readouterr().out
+>       assert "--- 슬랙 뿌리 글 ---" in out and "★골 표 A6 (" in out
+E       AssertionError: assert ('--- 슬랙 뿌리 글 ---' in 'DRY-RUN warn=0 elapsed=0.0s html=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-8...html\n--- 슬랙 뿌리 글 ---\n매거진 2026-10-16 · 오빠 확인판\n오빠 할 일과 지난 판 뒤로 바뀐 것을 한 쪽에 모은 HTML 이 스레드에 붙어 있어요.\nSLACK 링크 없음(드라이런)\n' and '★골 표 A6 (' in 'DRY-RUN warn=0 elapsed=0.0s html=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-8...html\n--- 슬랙 뿌리 글 ---\n매거진 2026-10-16 · 오빠 확인판\n오빠 할 일과 지난 판 뒤로 바뀐 것을 한 쪽에 모은 HTML 이 스레드에 붙어 있어요.\nSLACK 링크 없음(드라이런)\n')
+
+/Users/yoonhwan/Project/ai-feature-pack/feature-pack/fable-team/harness/tests/scripts/test_magazine_goal.py:80: AssertionError
+------------------------------ Captured log call -------------------------------
+WARNING  magazine_goal:magazine_goal.py:62 골 표 없이 진행(비무장): 골 표 판정기 rc=1: Traceback (most recent call last):
+  File "/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-874/test_dry_run_prints_the_block_0/ftroot/.fable-team/bin/ft_goal_table.p
+WARNING  magazine_goal:magazine_goal.py:72 팀별 완성 진행 없이 진행: 골 표 판정기 rc=1: Traceback (most recent call last):
+  File "/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-874/test_dry_run_prints_the_block_0/ftroot/.fable-team/bin/ft_goal_table.p
+WARNING  magazine_goal:magazine_goal.py:81 표준절차 골 없이 진행: 골 표 판정기 rc=1: Traceback (most recent call last):
+  File "/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-874/test_dry_run_prints_the_block_0/ftroot/.fable-team/bin/ft_goal_table.p
+=========================== short test summary info ============================
+FAILED ../../../../../ai-feature-pack/feature-pack/fable-team/harness/tests/scripts/test_magazine_goal.py::test_root_text_has_the_block_right_after_the_first_line_and_html_has_the_section
+FAILED ../../../../../ai-feature-pack/feature-pack/fable-team/harness/tests/scripts/test_magazine_goal.py::test_armed_gate_failure_publishes_nothing_writes_no_state_and_notifies_planner_once
+FAILED ../../../../../ai-feature-pack/feature-pack/fable-team/harness/tests/scripts/test_magazine_goal.py::test_dry_run_prints_the_block_in_the_slack_text
+3 failed, 2 passed in 3.56s

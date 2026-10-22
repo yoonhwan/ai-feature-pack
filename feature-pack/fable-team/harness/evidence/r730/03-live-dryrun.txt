@@ -1,0 +1,34 @@
+# ⓐ~ⓕ 실 스크립트 관측 — ft-nano-spawn.sh / ft-role-spawn.sh 를 --dry-run 으로 «격리 픽스처 루트» 에서 돌려 -x 추적으로 FROM 해석을 읽었다.
+#   픽스처 = /tmp 임시 리포(git init · design/TEAMS.md 팀 x · seats-x.json _master=byz-x-master-claude#5 · TEAMSET.md · 카드 1장 · 라이브 bin = 키트 복사본)
+#   실 쪽지 0 · tmux 0 · --dry-run 은 송신 «전»(376행)에 끝난다 · 실 명부·실 팀 env 무수정(읽기 0 — 픽스처만 씀)
+#   BEFORE = origin/main 판(50e88b8c) · AFTER = 이 카드 판
+
+== ⓐ BEFORE · env FT_SEND_FROM=byz-x-master-claude#2 (명부 _master 는 #5)
++ FROM=byz-x-master-claude#2
+   BODY 원문: mbox 로 byz-x-master-claude#2 에
+
+== ⓑ AFTER · 같은 env — 같은 계보 → 명부 현역 + INFO 1줄
+++ echo 'INFO FT_SEND_FROM 옛 세대(#2) → 명부 현역(#5)'
+INFO FT_SEND_FROM 옛 세대(#2) → 명부 현역(#5)
++ FROM=byz-x-master-claude#5
+   BODY 원문: mbox 로 byz-x-master-claude#5 에
+
+== ⓔ AFTER · --from 을 명시하면 해석하지 않는다
++ FROM=byz-x-master-claude#2
++ FROM=byz-x-master-claude#2
+
+== ⓒ AFTER · 계보가 다르면 그대로(옛 이름 ft-issue-manager#0)
++ FROM=ft-issue-manager#0
++ FROM=ft-issue-manager#0
+
+== ⓓ AFTER · 명부를 못 읽으면 값 그대로 + WARN 1줄
+++ echo 'WARN FT_SEND_FROM 현역 해석 못 함 — 명부 없음: /tmp/r730probe/.fable-team/none.json (값 그대로: byz-x-master-claude#2)'
+WARN FT_SEND_FROM 현역 해석 못 함 — 명부 없음: /tmp/r730probe/.fable-team/none.json (값 그대로: byz-x-master-claude#2)
++ FROM=byz-x-master-claude#2
+
+== ⓕ AFTER · ft-role-spawn.sh 도 같은 함수(한 곳) — --team x
+++ echo 'INFO FT_SEND_FROM 옛 세대(#2) → 명부 현역(#5)'
+INFO FT_SEND_FROM 옛 세대(#2) → 명부 현역(#5)
++ FROM=byz-x-master-claude#5
+
+# ★한계★ 발주문 원문(:533)과 송신 from 은 --dry-run 이 지나지 않는 구간이다 — 위 BODY 원문은 스크립트의 ^BODY= 줄을 «그대로 eval» 해 재현한 값(수정 0)이다.
