@@ -61,6 +61,7 @@
 - r674 착지 → tmm HOST 열·^B 호스트 판(원격 tmm 설치 h 가 P3 보다 먼저).
 - r469 → r676 착지 → P3 의 recv 잠금 부분 착수 가능.
 - r675 착지 → mbox-multihost-fault.sh N=200 + 장애 16종(F1~F22) rc=0.
+- 하네스 설치 누락: 이 리포 루트 `.fable-team/comm/` 에 `mbox_doorbell.sh`(mbox.sh 짝 파일)가 없어 `ft-successor-open.sh` 가 REJECT(rc2, 2026-10-22). 하네스에 설치 요청 필요 — 설치 확인은 LIVE_BIN ↔ 루트 comm `cmp`.
 - 공개 가지: 문서가 바뀌면 새 커밋 1개(히스토리 교체 0). 가림 도구는 scratchpad redact-multihost.py (공개 워크트리에서 재생성 금지).
 ### 5-2. «완성 후»
 - P5a OCI 추론 스택: headroom 0.33.0 aarch64 휠 고정 + cliproxy 패치 빌드 linux/arm64 교차 빌드(CGO → C 크로스 컴파일러(zig cc 등) 또는 OCI 자체 빌드; 시험 빌드는 이 맥 /tmp). 소스 ~/.claude/jobs/ee330f7a/tmp/cpa (패치 3개). 인증 파일은 D10=같은 계정 → op develop 에서만 0600.
