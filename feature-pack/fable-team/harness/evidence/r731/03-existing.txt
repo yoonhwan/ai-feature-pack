@@ -1,0 +1,14 @@
+r731 ⓔ 기존 시험 회귀 — 이 카드와 무관한 기존 FAIL 2건(기준선 동일) · 나머지 골 표 이웃 시험 FAIL 0
+
+== bash 시험(팩 워크트리 · tests/)
+test_goal_count_follows_canon_r668.sh      rc=0 :: == test_goal_count_follows_canon_r668: fail=0 
+test_goal_renumber_grace_r726.sh           rc=0 :: == test_goal_renumber_grace_r726: fail=0 
+test_goal_table_gitref_r545.sh             rc=0 :: 
+test_goal_table_stale_r600.sh              rc=0 :: == test_goal_table_stale_r600: fail=0 
+test_goal_table_procs_r644.sh              rc=0 :: 
+test_goal_check_ref.sh                     rc=0 :: == test_goal_check_ref: fail=0 
+test_goal_table_gate.sh                    rc=1 :: FAIL ⓕ r458 600/300 상한 등장 fail=1 
+test_goal_readjust_r714.sh                 rc=1 :: FAIL ⓐ 장치 없는 판(origin/main ft_goal_table) = 머리에 «재조정» 0(빨강 기준선) :: rc=1 out=Traceback (most recent call last): PASS ⓡ r668 골 개수 시험 전부 통과(fail=0) == te
+
+== pytest 골 표 이웃(scripts) — 지금 판과 기준선(stash) 결과 동일
+3 failed, 33 passed (FAILED 3건 = test_magazine_goal.py 3건 · 기준선과 같은 목록)

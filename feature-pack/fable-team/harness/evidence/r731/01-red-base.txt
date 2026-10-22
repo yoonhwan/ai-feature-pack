@@ -1,0 +1,7 @@
+r731 ⓐ 빨강 기준선 — 직전 판(origin/main) 골 표 도구 · 픽스처 = 골 원문 116자 6행 + 팀·상태·증거 칸 40자(재조정 기록 없음) · 임시 git 리포·임시 루트
+
+== ⓐ 직전 판(origin/main) — 같은 픽스처 = 골 표 정지(빨강 기준선)
+$ git show origin/main:feature-pack/fable-team/harness/bin/ft_goal_table.py > ft_goal_table.py · 같은 env(임시 리포·임시 루트)
+rc=1
+stdout: ''
+stderr: ERROR 골 표 예산 초과 1613B > 1600B (골 원문 칸은 절단하지 않는다)
