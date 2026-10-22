@@ -93,6 +93,19 @@ pi 좌석이 `git rebase --continue` 에서 화면 없는 `vi`(git 기본 편집
 claude 좌석은 Claude Code 가 이미 같은 값을 넣으므로 env 줄 변화 0.
 이미 떠 있는 좌석에는 적용되지 않는다 — 새 좌석부터.
 
+### 실경로 claude 좌석의 저장 판정 (0.4.5 · r736)
+
+`tmuxc save` 의 에이전트 판정(`session_agent_probe`)이 후손 argv 의 **basename 만** 비교해,
+claude 가 실경로(`~/.local/share/claude/versions/2.1.308`)로 돌면 이름이 «버전 번호» 라
+미검출 → `agent=shell` 로 스냅샷에 적히고 `restore` 가 그 좌석을 건너뛰었다(BYZ 2597).
+또 뒤 후손(도구 하위 프로세스)이 앞서 찾은 종류를 덮어써 claude 좌석이 `agent=pi` 로 적혔다.
+그리고 model·sid 를 종류와 무관하게 아무 후손에서나 채워, claude 좌석의 pi 하위 프로세스가 준
+`--model deepseek/flash --session X` 가 섞여 restore 가 **엉뚱한 대화**를 `claude --resume X` 로 되살렸다.
+⇒ ① `*/claude/versions/*` 경로 꼴을 claude 로 인정 ② **종류는 처음 찾은 것**(pane 에 가까운 쪽)을 지키고
+③ model·effort·sid 는 **정한 종류와 같은 종류의 후손**에서만 채운다(다른 엔진 값 섞임 0).
+순수 셸 좌석은 종전대로 `shell`(회귀 0).
+시험 = `test/test_agent_probe_claude_path.sh`(ps/pgrep/tmux 스텁 · 실 tmux 서버 0).
+
 ## BYZ 권장 패턴
 
 ```bash

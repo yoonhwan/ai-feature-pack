@@ -1,0 +1,4 @@
+== r737 ⓑ 후판 — 새 시험 6건 PASS ==
+cmd: PYTHONPATH=bin:kit/fable-team/bin python3.11 -m pytest tests/scripts/test_r737_news_map_canon_sha_change_trigger.py -q
+......                                                                   [100%]
+6 passed in 1.44s

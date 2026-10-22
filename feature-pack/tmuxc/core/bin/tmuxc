@@ -1032,6 +1032,12 @@ session_agent_probe() {
         command-code) kind="cmd" ;;
         '⌘') kind="cmd" ;;
       esac
+      # 실경로로 띄운 claude: argv0 이 `~/.local/share/claude/versions/2.1.308` 꼴이면
+      # basename 이 «버전 번호» 라 위 case 에 안 걸린다 → 저장이 agent=shell 로 적혀
+      # restore 가 그 좌석을 건너뛴다(BYZ 2597 · 2026-10-22). 경로 꼴로 판정한다.
+      if [[ -z "$kind" && "$t" == */claude/versions/* ]]; then
+        kind="claude"
+      fi
       [[ -n "$kind" ]] && break
     done
     # Node bundle: argv may be `node .../@earendil-works/pi-coding-agent/.../cli.js`
@@ -1059,11 +1065,18 @@ session_agent_probe() {
       fi
       prev="$t"
     done
-    # 더 구체적인 프로세스(sid/model 을 실제로 가진 쪽)를 우선 채택
-    agent="$kind"
-    [[ -n "$p_model"  ]] && model="$p_model"
-    [[ -n "$p_effort" ]] && effort="$p_effort"
-    [[ -n "$p_sid"    ]] && sid="$p_sid"
+    # 더 구체적인 프로세스(sid/model 을 실제로 가진 쪽)를 우선 채택 — 단 «종류»는
+    # 처음 찾은 것(pane 에 가까운 BFS 앞)을 지킨다. 뒤 후손(도구 하위 프로세스)이
+    # 덮어쓰면 claude 좌석이 agent=pi 로 저장된다(BYZ 2597 · 2026-10-22).
+    if [[ -z "$agent" ]]; then agent="$kind"; fi
+    # sid/model/effort 는 «정한 종류와 같은 종류의 후손» 에서만 채운다 — 다른 엔진(예: claude 좌석의
+    # 도구 하위 pi 프로세스)의 --model/--session 이 섞이면 restore 가 엉뚱한 대화를 claude --resume 으로
+    # 되살린다(r736 반송1 · 2026-10-22). 같은 종류의 더 구체적인 후손(sid/model 보유)은 그대로 채택.
+    if [[ "$kind" == "$agent" ]]; then
+      if [[ -n "$p_model"  ]]; then model="$p_model";   fi
+      if [[ -n "$p_effort" ]]; then effort="$p_effort"; fi
+      if [[ -n "$p_sid"    ]]; then sid="$p_sid";     fi
+    fi
     [[ -n "$sid" && -n "$model" ]] && break
   done
   [[ -n "$agent" ]] || return 1

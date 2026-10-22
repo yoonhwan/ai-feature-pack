@@ -4,13 +4,14 @@ opencode run(딥식 무료 · 비대화 1회)에 넘기고 «요약 3줄 + 팀 �
   ft_news_html.py build --out <폴더>                           input.json + prompt.txt
   ft_news_html.py run [--input <input.json>] --out <폴더>       (input 없으면 build 부터) → NEWS-<날짜>-<HHMM>.html + .summary.txt · 실패 rc1(발행 0)
   ft_news_html.py publish --html <f> --summary <f>            린트(rc3 = 발행 0) → 게시(ft_news_publish.publish_html)
-뉴스 틱(ft_news_ledger.py · FT_NEWS_MODE=html)은 tick() — 원장 내용(블롭)이 바뀌었거나 그날 첫 발행 = 지도 1장(어느 팀이든 main 커밋이 왔다는 것만으로는 아니다 · r656) · 변화 0 = FT_NEWS_REPEAT_MIN(기본 30)분마다
+뉴스 틱(ft_news_ledger.py · FT_NEWS_MODE=html)은 tick() — 원장 내용(블롭)이 바뀌었거나 골 정본 내용이 바뀌었거나(r737) 그날 첫 발행 = 지도 1장(어느 팀이든 main 커밋이 왔다는 것만으로는 아니다 · r656) · 변화 0 = FT_NEWS_REPEAT_MIN(기본 30)분마다
 «[뉴스 HH:MM] 변화 없음 · 지도 <직전 지도 링크>» 한 줄만. 미첨부(rc3)로 올라간 글은 다음 틱이 그 글 스레드에 첨부를 다시 시도한다.
 지도 만들기 실패가 FT_NEWS_DELAY_TICKS(기본 3)틱 연속이면 고정 문구 «뉴스 지연» 한 줄 1번(정지 1건당 · 모델·판단 0) · 다음 지도 발행 때 «뉴스 복구» 한 줄(r510 · state/news-delay.json).
 env: FT_ROOT · FT_LEDGER_REPO · FT_LEDGER_PATH · FT_NEWS_DIR · FT_NEWS_NOW · FT_NEWS_REPEAT_MIN · FT_NEWS_COMMITS(기본 15) · FT_NEWS_MAIN_REF(기본 origin/main)
      + ft_news_html_render(FT_NEWS_MODEL · FT_NEWS_EFFORT · FT_NEWS_DEPTH · FT_OPENCODE) · ft_news_publish(FT_NEWS_HEAD 등)
 """
 import argparse
+import hashlib
 import json
 import logging
 import os
@@ -308,14 +309,31 @@ def _ledger_blob(repo: Path, rel: str, cur: str) -> str | None:
         return None
 
 
-def _save_base(state: Path, cur: str, blob: str | None) -> None:
-    """기준선 두 칸 — last.sha(최근 커밋 칸 기준 = main 머리) · last.blob(변화 판정 = 원장 내용). 한 칸이라도 못 쓰면 둘 다 그대로(r656)."""
+def _canon_sha() -> str:
+    """골 정본 «내용» sha256 앞10 — 정본만 바뀐 커밋(원장 그대로)도 지도를 다시 내게 한다(r737).
+    load_canon 의 sha10 은 gitref 모드에서 ref 커밋 sha 라 main 커밋마다 흔들린다(r656 이 되돌아간다) — 그래서 본문을 다시 해싱한 내용 sha 를 쓴다.
+    못 읽으면 ''(판정 0 = r656 판정 그대로 · 뉴스 틱은 안 죽는다)."""
+    import ft_goal_table as gt
+    try:
+        text, _sha, _src = gt.load_canon()
+    except Exception as e:  # noqa: BLE001 — 정본 없음·깨짐이 뉴스 틱을 멈추게 두지 않는다
+        LOG.error("골 정본 못 읽음 — 정본 sha 판정 0: %s", e)  # r737 arch §199: 조용한 info 금지 — 정본이 사라진 것은 ERROR
+        return ""
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()[:10]
+
+
+def _save_base(state: Path, cur: str, blob: str | None, canon: str = "") -> None:
+    """기준선 세 칸 — last.sha(최근 커밋 칸 기준 = main 머리) · last.blob(변화 판정 = 원장 내용) · last.canon(변화 판정 = 골 정본 내용 · r737).
+    한 칸이라도 못 쓰면 셋 다 그대로(r656)."""
     sha_f, blob_f = state / "last.sha", state / "last.blob"
-    old = {f: (f.read_text(encoding="utf-8") if f.is_file() else None) for f in (sha_f, blob_f)}
+    canon_f = state / "last.canon"
+    old = {f: (f.read_text(encoding="utf-8") if f.is_file() else None) for f in (sha_f, blob_f, canon_f)}
     try:
         sha_f.write_text(cur + "\n", encoding="utf-8")
         if blob:
             blob_f.write_text(blob + "\n", encoding="utf-8")
+        if canon:
+            canon_f.write_text(canon + "\n", encoding="utf-8")
     except OSError:
         for f, text in old.items():
             f.unlink() if text is None else f.write_text(text, encoding="utf-8")
@@ -337,7 +355,10 @@ def tick(root: Path, state: Path, repo: Path, rel: str, news: Path, base: str, c
         os.environ["FT_NEWS_HEAD"] = f"{os.environ.get('FT_NEWS_HEAD') or '팀 지도'} · {warn}"
     blob, blob_f = _ledger_blob(repo, rel, cur), state / "last.blob"
     saved_blob = blob_f.read_text(encoding="utf-8").strip() if blob_f.is_file() else ""
+    canon, canon_f = _canon_sha(), state / "last.canon"
+    saved_canon = canon_f.read_text(encoding="utf-8").strip() if canon_f.is_file() else ""
     changed = blob != saved_blob if blob else base != cur  # r656 — 판정 = 원장 블롭(못 읽으면 옛 판정 base==cur 로 물러남)
+    changed = changed or (canon != saved_canon if canon else False)  # r737 — 정본만 바뀐 커밋도 지도를 다시 낸다(옛 상태 = 칸 없음 → 첫 판 1회 재발행)
     if not changed and last.get("map_at", "")[:10] == stamp[:10]:  # 변화 0(원장 내용 그대로) · 오늘 지도 있음 = 적정한 반복 한 줄만
         if since("at") < timedelta(minutes=int(os.environ.get("FT_NEWS_REPEAT_MIN", "30"))):
             return 0, "원장 커밋 0"
@@ -358,7 +379,7 @@ def tick(root: Path, state: Path, repo: Path, rel: str, news: Path, base: str, c
         _delay_clear(state, now, last)
         _save(hs, {"at": stamp, "map_at": stamp, "ts": got.get("ts"), "link": got.get("permalink")})
         state.mkdir(parents=True, exist_ok=True)
-        _save_base(state, cur, blob)  # 두 칸 같이 전진(마지막 main 머리 · 원장 블롭)
+        _save_base(state, cur, blob, canon)  # 세 칸 같이 전진(마지막 main 머리 · 원장 블롭 · 정본 내용)
     elif rc:
         _save(hs, {**last, "fail_at": stamp})
     return rc, (f"게시 실패 rc={rc}" if rc else "지도 발행")
