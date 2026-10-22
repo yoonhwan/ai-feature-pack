@@ -1,0 +1,6 @@
+== ⓖ 변이 — 유예 시간 검사·직전 판 결속을 지우면 ⓒ 가 뚫린다(시험이 잡는다)
+PASS ⓖ1 유예 시간 검사 삭제 → ⓒ1(유예 밖)이 GOAL-OK 로 뚫린다(변이 감지)
+PASS ⓖ2 직전 판 결속 삭제 → ⓒ2(두 판 이상 옛 판)가 통과한다(변이 감지)
+== test_goal_renumber_grace_r726: fail=0
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+rc=0

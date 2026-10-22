@@ -1,0 +1,73 @@
+r726 r3 — DA⑥ r1 HOLD 처방 5 (표식 형식 · prev 이력 대조 · 시간·env 경계 · 가드 경고 출력 · 시험 실패 분기) · arch 123 · 2026-10-22
+=========================================================================================================================================
+입력: 가지 ce876315fc(r2 고침) + origin/main 4006c9d7(r714a) 병합 위 추가 커밋 1. 범위 = ft_goal_table.py(bin·kit 짝) + comm/mbox_guard_goal.sh + 시험 1 파일(새 표면 0).
+
+처방 1 — 표식 형식 검증(DA 질문 1)
+  `_prev_record` 가 표식 두 줄을 «정확한 형식» 으로 본다: 첫 줄 `<sha10 hex>\t<지문 12 hex>` · prev 줄 `prev\t<sha10 hex>\t<지문 12 hex>\t<유한 정수 epoch>` (SHA10/FP12 정규식 · 시각은 int()).
+  아니면 rec=None = 유예 0. → `garbage` 첫 줄 · 빈 prev sha(`_fp_dist("")` 가 0 을 돌던 구멍) · `nan`/소수 시각이 한 자리에서 막힌다.
+처방 2 — prev 기록을 실제 이력에 대조(질문 3·5)
+  `_fp_of_commit(rec[0])` = `git show <rec[0]>:<정본>` 을 다시 파싱한 번호표 지문 == rec[1] 이어야 유예.
+  + 표식 첫 줄 지문 == 지금 정본 지문(rec[3] == cur) — 공지 실패로 표식이 뒤처지면 «두 판 전» 블록도 유예 0.
+처방 3 — 시간·env 경계(질문 3)
+  경과 = FT_NOW − 바뀐 시각 이 `0 <= 경과 < 유예*3600` 일 때만(미래 시각 = 0 · 경계 = 0) · 유예 = `min(max(env,0), 24)` — env 는 줄이기만, NaN/Inf 는 기본 24.
+처방 4 — 유예 경고가 송신자에게 보이게(질문 6)
+  `comm/mbox_guard_goal.sh`: rc0 판정 출력에 «옛 번호표(유예» 가 있으면 `GL-GRACE …` 1줄을 stderr 로(첨부 relay 경로 + 본문 경로 둘 다 · 송신은 그대로 통과 · `_goal_grace_note`).
+처방 5 — 시험(질문 7)
+  · 거절 칸마다 실패 분기 명시: `[ "$RC" = N ] || bad "… rc=$RC :: $OUT"` 를 15칸에 추가(변이 삭제가 fail=0 으로 새던 구멍).
+  · base 사본 = «이동하는 origin/main» 대신 고정 sha 050dae3e · r2 판(OLDSHA ce876315) 사본도 떠서 «빨강» 대조에 쓴다.
+  · 새 칸 ⓙ~ⓠ (각 칸: 새 판 = 거절/출력 · r2 판 = 통과 → 빨강 증명)
+     ⓙ 손상 첫 줄 `garbage` → REJECT(새) / rc0(r2)          ⓚ 빈 prev sha → REJECT / rc0
+     ⓛ 가짜 prev(sha=C7·지문=6행) → REJECT / rc0             ⓜ 미래 시각(+8784h) → REJECT / rc0
+     ⓝ 시각 `nan` → REJECT / rc0                            ⓞ GRACE_H=1e9 · 25시간 뒤 → REJECT / rc0
+     ⓟ 6→5 공지 성공 · 5→4 공지 실패 뒤 «두 판 전»(6행) 블록 → REJECT / rc0
+     ⓠ 가드 stderr `GL-GRACE … 옛 번호표(유예 …)` 1줄 + rc0(통과) / r2 판 가드는 경고 0
+
+의도로 남긴 것(고치지 않음): 공지가 늦게 성공하면 유예는 «공지 성공 시각» 부터 24h — 팀이 새 번호표를 받은 때부터 세는 것이 맞다.
+
+── 실제 출력 (bash test_goal_renumber_grace_r726.sh · rc=0 · PASS 53 · FAIL 0) ──
+== ⓙ~ⓠ r3 — 표식 형식 · prev 이력 대조 · 시간·env 경계 · 가드 경고(DA⑥ r1 처방 5 · 빨강 = r2 판 ce876315fcfa191cf6c206050527e6a018d0c301)
+PASS ⓙ 준비: 표식 지문 6행=a09906ceeecf · 7행=e45e99007b39
+-- ⓙ 손상 첫 줄(garbage) = 유예 0
+PASS ⓙ 손상 첫 줄(형식 위반) → REJECT rc3
+PASS ⓙ 빨강 = r2 판은 같은 쪽지를 통과시켰다(rc0 · 형식 검사가 없었다)
+-- ⓚ 빈 prev sha = 유예 0(_fp_dist("") 가 0 을 돌지 않는다)
+PASS ⓚ 빈 prev sha → REJECT rc3
+PASS ⓚ 빨강 = r2 판은 빈 sha 로도 통과(rc0)
+-- ⓛ 가짜 prev(이력과 지문이 다르다) = 유예 0
+PASS ⓛ prev sha 가 C7 인데 지문은 6행 → REJECT rc3(이력 대조)
+PASS ⓛ 빨강 = r2 판은 표식에 적힌 sha·지문을 그대로 믿었다(rc0)
+-- ⓜ 미래 시각 = 유예 0(경과 < 0)
+PASS ⓜ 미래 시각(+8784h) → REJECT rc3
+PASS ⓜ 빨강 = r2 판은 미래 시각을 «남은 시간 큼» 으로 읽었다(rc0)
+-- ⓝ 시각 칸이 NaN = 유예 0(유한 정수만)
+PASS ⓝ 시각 nan → REJECT rc3
+PASS ⓝ 빨강 = r2 판은 float("nan") 을 받아 rem 비교가 전부 거짓 → 통과(rc0)
+-- ⓞ env 유예는 «줄이기» 만 = 25시간 뒤엔 REJECT(GRACE_H=1e9 무시)
+PASS ⓞ GRACE_H=1e9 · 25시간 뒤 → REJECT rc3(min(env,24))
+PASS ⓞ 빨강 = r2 판은 env 값 그대로 유예를 늘렸다(25시간 뒤 rc0)
+-- ⓟ 공지 실패 뒤 «두 판 전» = 유예 0(표식 첫 줄이 지금 판이 아니다)
+PASS ⓟ 공지 실패 = 표식 전진 0(첫 줄은 아직 5행 판)
+PASS ⓟ 공지 실패 뒤 두 판 전(6행) 블록 → REJECT rc3(표식 첫 줄 ≠ 지금 판)
+PASS ⓟ 빨강 = r2 판은 두 판 전 블록을 유예로 통과시켰다(rc0)
+-- ⓠ 가드가 유예 통과를 송신자에게 보인다(GL-GRACE 1줄)
+PASS ⓠ 가드는 유예 통과를 막지 않는다(rc0)
+PASS ⓠ 가드 stderr 에 GL-GRACE … 옛 번호표(유예 …) 1줄
+PASS ⓠ 빨강 = r2 판 가드는 rc0 이면 출력을 버렸다(경고 0)
+== test_goal_renumber_grace_r726: fail=0
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+
+── 이웃 회귀(r3 뒤 · 가지 = ce876315fc + origin/main 4006c9d7 병합 위) ──
+r668 test_goal_count_follows_canon_r668.sh ....... 39P 0F
+r600 test_goal_table_stale_r600.sh ............... 11P 0F
+r545 test_goal_table_gitref_r545.sh .............. 12P 0F ALL PASS
+r644 test_goal_table_procs_r644.sh ............... 21P 0F ALL PASS
+     test_goal_check_ref.sh ...................... 40P 0F
+     test_kit_bin_sync.sh ........................ 7P 0F ALL PASS
+     test_mbox_guard.sh .......................... ALL PASS
+ruff check ft_goal_table.py(bin·kit) ............. All checks passed
+pytest scripts(test_ft_news_goal_block·test_magazine_goal·test_goal_gate_armed_contract) ... 25 passed / 3 failed
+  ↑ 3 failed = base(origin/main 4006c9d7) 에서도 «같은 3칸» 실패(워크트리에서 실측) — r714a 가 ft_goal_table.py 에 ft_goal_readjust_state import 를 넣었는데 그 시험 픽스처가 모듈을 안 떠서 rc=1.
+    이 카드 접촉 0 · 처방 1줄 = 픽스처 MODS 에 ft_goal_readjust_state.py 추가(범위 밖 → master 로 넘김)
+test_goal_table_gate.sh .......................... fail=1 — ⓕ «r458 600/300 상한» = base 050dae3e 와 같은 기존 FAIL
+test_goal_readjust_r714.sh ....................... 72P 1F — ⓐ 빨강 기준선(base 판) 이 origin/main 에서 «같은 1칸» 실패(워크트리 실측 · 이 카드 접촉 0)
+test_da_hold_gate.sh ............................. 7F — 스폰(tmux·에이전트) 환경 실패 · goal_table·mbox_guard_goal 참조 0(이 카드 접촉 0)

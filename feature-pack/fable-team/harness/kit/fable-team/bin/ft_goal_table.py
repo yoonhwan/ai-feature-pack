@@ -9,6 +9,9 @@ render  : 정본 표(골 → 팀 → 닫는 증거 N행 · N = 정본 표 행 �
 check   : 본문에 ⓐ마커 블록(N행 = 마커 sha10 의 정본 골 칸과 일치) ⓑ`골좌표: <1~N> — <그 행 골 원문 앞 min(12,len)자>` 가 있으면 `GOAL-OK n=<번호>` rc0 · 아니면 `REJECT 골 없음 — …` rc3.
           r668: 거절 문구에 «새 번호표 N줄(번호 — 골 앞 12자)» 를 싣는다 — 번호가 바뀐 판을 만난 좌석이 그 자리에서 고친다.
           r668 H2: 옛 마커 sha10 을 허용하는 것은 «현재 정본과 번호표(행 수·각 행 골 앞 12자)가 같을 때» 뿐이다(6→5행 바뀜 직후 옛 6행 블록이 통과하던 구멍).
+          r726: 번호표가 바뀐 판이면 «표식에 기록한 직전 정본 1판» 만, 번호표가 바뀐 시각 뒤 FT_GOAL_RENUMBER_GRACE_H(기본 24)시간 안에서 인정한다 — `GOAL-OK n=<번호> 옛 번호표(유예 <남은>시간 남음 · 새 번호표 …)` rc0 + stderr 로그 1줄(FT_SEAT). 유예 밖·두 판 이상 옛 판·표식 없음/손상 = 지금처럼 REJECT rc3(유예로 새지 않는다).
+          r726 r2: 결속 키 = «번호표 지문»(마커 sha == 표식 직전 판 sha 비교는 거뒀다 — 마커 sha 는 렌더 순간의 main 커밋이라 한 커밋 앞 렌더가 유예 밖으로 떨어졌다) · 신선도 상한 = 마커가 첫 부모 줄기에 있고 dist(마커) <= dist(직전 판)+STALE_FP_MAX(12) · 줄기에 없음/git 실패/직전 판이 줄기에 없음 = 유예 0(REJECT).
+          r726 r3(DA⑥ r1 처방 5): 표식 두 줄 형식을 «정확히» 본다(`<sha10>\t<지문12>` · `prev\t<sha10>\t<지문12>\t<유한 정수 epoch>`, 아니면 유예 0) · «직전 판» 을 `git show <rec[0]>:<정본>` 으로 다시 계산해 지문 대조 · 표식 첫 줄 지문 == 지금 정본 지문 · 경과는 `0 <= 경과 < 유예`(미래 시각 0) · env 유예는 `min(env,24)` 로 줄이기만(0 = 끄기 · NaN/Inf = 기본).
           r600: gitref 정본이면 마커 sha 신선도도 본다 — 지금 ref 첫 부모 줄기에서 STALE_FP_MAX(12) 넘게 뒤 = `REJECT 골 표 낡음 — …` rc3 · 줄기에 없음 = rc3 · git 실패 = `REJECT 골 표 신선도 확인 실패` rc3(fail-closed · 파일 정본은 검사 생략).
           `--block-only` = ⓑ 생략(다골 글: 뉴스·매거진).
 teams   : 원장 `## 팀별 완성 진행` 첫 표(팀 | 끝선 N/M | 마지막 착지 | 지금 하는 것) → 마커 2줄(`★팀별 완성 진행 (<원장 sha10>)★` … `★/팀별 완성 진행★`) 사이 표(≤1600B · R458).
@@ -24,6 +27,7 @@ from __future__ import annotations
 import fcntl
 import hashlib
 import json
+import math
 import os
 import re
 import subprocess
@@ -44,6 +48,7 @@ HEAD = re.compile(r"^★골 표 A6 \((?:(?:[^()\s]+@)|(?:file:))?([0-9a-f]{10}) 
 TAIL = "★/골 표★"
 COORD = re.compile(r"^골좌표:\s*(\d+)\s*[—-]\s*(.+?)\s*$")
 STALE_FP_MAX = 12  # r600: 마커 판이 지금 ref 첫 부모 줄기에서 이만큼(약 2시간 · 시간당 약 6커밋) 넘게 뒤면 «골 표 낡음»
+STALE_OLD = "REJECT 골 표 낡음"  # r726: 이 문구만 «직전 판 유예» 가 넘길 수 있다(줄기에 없음·확인 실패는 그대로 REJECT)
 TEAMS_SECTION = re.compile(r"^##\s+팀별 완성 진행")
 TEAMS_TAIL = "★/팀별 완성 진행★"
 TEAMS_NOW_CELLS = (24, 16, 8)  # «지금 하는 것» 칸 — 예산(1600B)에 들 때까지 줄인다 · 팀·끝선·착지 칸은 12자
@@ -55,7 +60,12 @@ PROCS_TITLE = re.compile(r"^#\s*골\s*[—–-]\s*(.+?)\s*$")
 PROCS_OWNER = re.compile(r"^[>\s]*담당\s*[:：]\s*(\S.*)$")
 SHORT_SHA = re.compile(r"(?<![0-9a-f])[0-9a-f]{10}(?![0-9a-f])")
 PROCS_STALE_H = 24
-RENUMBER_STATE = "goal-numbering.tsv"  # r668 — «골 번호 공지» 표식(같은 정본 sha 로 두 번 보내지 않는다)
+RENUMBER_STATE = "goal-numbering.tsv"  # r668 — «골 번호 공지» 표식(같은 정본 sha 로 두 번 보내지 않는다 · r726: 둘째 줄에 «직전 판» 을 적는다)
+PREV_TAG = "prev"  # r726 — 표식 둘째 줄 `prev	<sha10>	<번호표 지문>	<번호표 바뀐 시각 epoch>`
+SHA10 = re.compile(r"[0-9a-f]{10}")  # r726 r3 — 표식 형식 검사(첫 줄·직전 줄의 sha 칸)
+FP12 = re.compile(r"[0-9a-f]{12}")  # r726 r3 — 번호표 지문 칸(_num_hash = sha256 앞 12자)
+GRACE_H = 24.0  # r726 — 직전 정본 1판을 인정하는 시간(시간 단위 · FT_GOAL_RENUMBER_GRACE_H · 0 = 유예 없음 = 지금 판과 같다)
+GRACE_ENV = "FT_GOAL_RENUMBER_GRACE_H"
 LEGACY_N = 6  # r668 H4: 예전 코드가 박아 둔 골 개수 — 표식 없는 첫 렌더에서 «바뀐 판인가» 의 기준
 NOTIFY_TIMEOUT = 7  # r668 H4: 송신 1통 상한(초) — mbox 가 멈춰도 렌더는 계속
 
@@ -182,33 +192,143 @@ def _masters(root: Path) -> tuple[list[str], list[str]]:
     return out, bad
 
 
+def _num_hash(num: str) -> str:
+    """번호표 지문 = numbering() 글의 sha256 앞 12자(행 수·각 행 골 앞 12자가 바뀌면 값이 바뀐다)."""
+    return hashlib.sha256(num.encode("utf-8")).hexdigest()[:12]
+
+
 def _renumber_sig(sha: str, rows: list[list[str]]) -> str:
-    """표식 한 줄 = «정본 sha10<TAB>번호표 지문» — 번호표 = 행 수·각 행 골 앞 12자(numbering)."""
-    return f"{sha}\t{hashlib.sha256(numbering(rows).encode('utf-8')).hexdigest()[:12]}"
+    """표식 첫 줄 = «정본 sha10<TAB>번호표 지문» — 번호표 = 행 수·각 행 골 앞 12자(numbering)."""
+    return f"{sha}\t{_num_hash(numbering(rows))}"
 
 
-def _advance(mark: Path, sig: str) -> None:
+def _split_mark(text: str) -> tuple[str, str]:
+    """표식 글 → (첫 줄 = 지금 판, «직전 판» 줄 또는 빈 글). 옛 꼴(한 줄)도 그대로 읽는다."""
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    return (lines[0] if lines else ""), next((ln for ln in lines[1:] if ln.startswith(PREV_TAG + "\t")), "")
+
+
+def _advance(mark: Path, sig: str, prev_line: str = "") -> None:
     try:
         mark.parent.mkdir(parents=True, exist_ok=True)
-        mark.write_text(sig + "\n", encoding="utf-8")
+        mark.write_text(sig + "\n" + (prev_line + "\n" if prev_line else ""), encoding="utf-8")
     except OSError as e:
         print(f"WARN 골 번호 공지 표식 못 씀 {mark}: {e}", file=sys.stderr)
 
 
+def _prev_record(mark: Path) -> tuple[str, str, int, str] | None:
+    """표식의 «직전 판» = (sha10, 번호표 지문, 번호표 바뀐 시각 epoch, 첫 줄의 번호표 지문) · 형식·손상 = None(= 유예 없음 → 지금처럼 REJECT).
+    r726 r3: 표식 두 줄을 «정확한 형식» 으로 본다(DA 질문 1) — 첫 줄 `<sha10 hex>\t<지문 12 hex>` · prev 줄 `prev\t<sha10 hex>\t<지문 12 hex>\t<유한 정수 epoch>`.
+    아니면 유예 0 — `garbage` 첫 줄·빈 prev sha(`_fp_dist("")` 가 0 을 도는 것)·소수/NaN 시각을 한 자리에서 막는다."""
+    try:
+        text = mark.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    cur_line, prev = _split_mark(text)
+    cur = cur_line.split("\t")
+    if len(cur) != 2 or not SHA10.fullmatch(cur[0]) or not FP12.fullmatch(cur[1]):
+        return None
+    f = prev.split("\t")
+    if len(f) != 4 or f[0] != PREV_TAG or not SHA10.fullmatch(f[1]) or not FP12.fullmatch(f[2]):
+        return None
+    try:
+        ts = int(f[3])
+    except ValueError:
+        return None
+    return f[1], f[2], ts, cur[1]
+
+
+def _grace_h() -> float:
+    """유예 시간(시간) — env FT_GOAL_RENUMBER_GRACE_H · 값이 깨지면 기본 24 · 0 이면 유예 없음(지금 판과 같다).
+    r726 r3(DA 질문 3): env 는 «줄이기» 만 — `min(env, 24)` · 음수 = 0 · NaN/Inf = 기본 24(늘리기 0)."""
+    try:
+        h = float(os.environ.get(GRACE_ENV) or GRACE_H)
+    except ValueError:
+        return GRACE_H
+    if not math.isfinite(h):
+        return GRACE_H
+    return min(max(h, 0.0), GRACE_H)
+
+
+def _grace_mark() -> Path | None:
+    """유예 표식 경로 — 루트를 못 풀면 None(유예 없음). 판정 경로도 같은 표식을 «읽기만» 한다(쓰기는 렌더만)."""
+    root = _notify_root()
+    return _root_state(root, RENUMBER_STATE) if root is not None else None
+
+
+def _hours(h: float) -> str:
+    return f"{h:.1f}".rstrip("0").rstrip(".")
+
+
+def _fp_dist(sha: str) -> int | None:
+    """sha 가 지금 ref 의 첫 부모 줄기에서 몇 커밋 앞인가 — 줄기에 없음·git 실패·gitref 아님 = None(fail-closed)."""
+    spec = _spec()
+    if not spec.startswith("gitref:"):
+        return None
+    try:
+        chain = _git(_repo(), "rev-list", "--first-parent", spec.split(":", 2)[1]).split()
+    except GoalError:
+        return None
+    return next((i for i, c in enumerate(chain) if c.startswith(sha)), None)
+
+
+def _fp_of_commit(sha: str) -> str | None:
+    """그 커밋이 가리키는 정본의 번호표 지문 — gitref 정본이 아니거나 읽기 실패 = None(유예 0).
+    r726 r3(DA 질문 3): 표식에 임의의 옛 sha·지문을 써 넣어도 유예가 열리지 않게 «실제 이력» 과 대조한다."""
+    spec = _spec()
+    if not spec.startswith("gitref:"):
+        return None
+    try:
+        return _num_hash(numbering(parse_rows(_git(_repo(), "show", f"{sha}:{spec.split(':', 2)[2]}"))))
+    except GoalError:
+        return None
+
+
+def _grace(sha: str, old_num: str, rows: list[list[str]]) -> str:
+    """r726 — 옛 마커의 «번호표 지문» 이 표식의 직전 판 지문과 같고 번호표가 바뀐 시각 뒤 유예 시간 안이면 GOAL-OK 에 붙일 글을, 아니면 빈 글.
+    결속 키는 번호표 지문이다(마커 sha 는 렌더 순간의 main 커밋이라 «한 커밋 앞» 렌더가 유예 밖으로 떨어졌다 — r2 반송).
+    신선도 상한: 마커가 첫 부모 줄기에 있고 dist(마커) <= dist(rec[0]) + STALE_FP_MAX 일 때만(낡은 블록이 유예로 새지 않는다).
+    두 판 이상 옛 판·표식 없음/손상·번호표가 그대로인 판·유예 밖은 모두 «빈 글» = 지금처럼 REJECT."""
+    if (hours := _grace_h()) <= 0:
+        return ""
+    mark = _grace_mark()
+    rec = _prev_record(mark) if mark is not None else None
+    cur_num = _num_hash(numbering(rows))
+    if rec is None or rec[1] != _num_hash(old_num) or rec[1] == cur_num:
+        return ""
+    if rec[3] != cur_num:
+        return ""  # r726 r3: 표식 첫 줄이 «지금 정본 판» 을 가리켜야 한다 — 공지 실패로 뒤처진 표식은 두 판 전 블록을 열지 않는다(DA 질문 5)
+    if _fp_of_commit(rec[0]) != rec[1]:
+        return ""  # r726 r3: «직전 판» 은 실제 이력의 그 판이어야 한다 — 표식에 임의로 적은 sha·지문은 유예 0(DA 질문 3)
+    base, dist = _fp_dist(rec[0]), _fp_dist(sha)
+    if base is None or dist is None or dist > base + STALE_FP_MAX:
+        return ""
+    elapsed = _procs_now().timestamp() - rec[2]
+    if elapsed < 0 or elapsed >= hours * 3600:
+        return ""  # r726 r3: 미래 시각(경과 < 0)·경계(경과 >= 유예) 는 유예 0 — 리셋되는 시계를 만들지 않는다
+    rem = hours - elapsed / 3600
+    seat = os.environ.get("FT_SEAT") or os.environ.get("FT_SENDER") or "-"
+    new = f"새 번호표 {len(rows)}줄: {numbering(rows)}"
+    print(f"GRACE 옛 번호표 수용 — 좌석 {seat} · 마커 {sha} · 남은 {_hours(rem)}시간 · {new}", file=sys.stderr)
+    return f" 옛 번호표(유예 {_hours(rem)}시간 남음 · {new})"
+
+
 def _notify_once(root: Path, mark: Path, sha: str, rows: list[list[str]]) -> None:
-    """잠금 안에서 읽기 → (필요하면) 송신 → 표식 쓰기. 깨진 명부·송신 실패 = WARN · 표식 전진 0(다음 렌더가 다시 시도 · r668 H4③④)."""
+    """잠금 안에서 읽기 → (필요하면) 송신 → 표식 쓰기. 깨진 명부·송신 실패 = WARN · 표식 전진 0(다음 렌더가 다시 시도 · r668 H4③④).
+    r726: 번호표가 바뀌면 표식 둘째 줄에 «직전 판(sha10·번호표 지문·바뀐 시각)» 을 남긴다 — 그 한 판만 유예로 인정한다."""
     sig = _renumber_sig(sha, rows)
     try:
         prev = mark.read_text(encoding="utf-8").strip()
     except OSError:
         prev = ""
-    if prev == sig:
+    cur_line, prev_line = _split_mark(prev)
+    if cur_line == sig:
         return
-    old_sig = prev.partition("\t")[2]
+    old_sig = cur_line.partition("\t")[2]
     # 표식 없음 = 설치 직후 첫 렌더 — 옛 고정(6행)과 다르면 바뀐 판으로 본다(r668 H4①)
-    changed = old_sig != sig.partition("\t")[2] if prev else len(rows) != LEGACY_N
+    changed = old_sig != sig.partition("\t")[2] if cur_line else len(rows) != LEGACY_N
     if not changed:
-        _advance(mark, sig)
+        _advance(mark, sig, prev_line)
         return
     masters, bad = _masters(root)
     for name in bad:
@@ -232,7 +352,8 @@ def _notify_once(root: Path, mark: Path, sha: str, rows: list[list[str]]) -> Non
                 sent = False
     if bad or not sent:
         return  # 표식 전진 0 — 굳히지 않고 다음 렌더가 다시 시도한다
-    _advance(mark, sig)
+    old_sha = cur_line.partition("\t")[0]  # r726: 번호표가 바뀐 순간 직전 판을 박아 둔다(유예 근거)
+    _advance(mark, sig, f"{PREV_TAG}\t{old_sha}\t{old_sig}\t{int(_procs_now().timestamp())}" if old_sha else "")
 
 
 def notify_renumber(sha: str, rows: list[list[str]]) -> None:
@@ -417,20 +538,22 @@ def render_procs() -> str:
     return ""
 
 
-def _canon_for(sha: str) -> list[list[str]]:
-    """마커 sha10 의 정본 행 — sha 가 지금 정본과 같으면 그대로 · 옛 sha 면 «번호표(행 수·각 행 골 앞 12자)가 같을 때»만 인정한다(r668 H2 — 6→5행 바뀜 직후 옛 6행 블록 + «골좌표: 6» 이 통과하던 구멍)."""
+def _canon_for(sha: str) -> tuple[list[list[str]], str, list[list[str]]]:
+    """마커 sha10 의 정본 행 + 유예 문구 + 지금 정본 행 — sha 가 지금 정본과 같으면 그대로 · 옛 sha 면 «번호표가 같을 때»(r668 H2) 또는 «직전 판 유예»(r726)만 인정한다."""
     text, cur, _ = load_canon()
     rows = parse_rows(text)
     if cur == sha:
-        return rows
+        return rows, "", rows
     spec = _spec()
-    if spec.startswith("gitref:"):
-        old = parse_rows(_git(_repo(), "show", f"{sha}:{spec.split(':', 2)[2]}"))
-        if numbering(old) != numbering(rows):
-            raise GoalError(f"마커 sha10 {sha} 의 번호표({len(old)}줄)가 지금 정본 {cur}({len(rows)}줄)과 다르다 — 옛 번호표로는 판정하지 않는다"
-                            f" · 새 번호표 {len(rows)}줄: {numbering(rows)} · ft-goal-table.sh 를 다시 돌려 붙인다")
-        return old
-    raise GoalError(f"마커 sha10 {sha} 이 정본({cur})과 다르다")
+    if not spec.startswith("gitref:"):
+        raise GoalError(f"마커 sha10 {sha} 이 정본({cur})과 다르다")
+    old = parse_rows(_git(_repo(), "show", f"{sha}:{spec.split(':', 2)[2]}"))
+    if numbering(old) == numbering(rows):
+        return old, "", rows
+    if grace := _grace(sha, numbering(old), rows):
+        return old, grace, rows
+    raise GoalError(f"마커 sha10 {sha} 의 번호표({len(old)}줄)가 지금 정본 {cur}({len(rows)}줄)과 다르다 — 옛 번호표로는 판정하지 않는다"
+                    f" · 새 번호표 {len(rows)}줄: {numbering(rows)} · ft-goal-table.sh 를 다시 돌려 붙인다")
 
 
 def _stale_reason(sha: str) -> str:
@@ -462,26 +585,28 @@ def check(body: str, block_only: bool = False) -> tuple[int, str]:
     m0 = HEAD.match(block[0].strip())
     sha = m0[1] if m0 else ""
     stale = _stale_reason(sha) if sha else ""
-    if stale:
-        return 3, stale
+    if stale and not stale.startswith(STALE_OLD):
+        return 3, stale  # 줄기에 없음·신선도 확인 실패 = 유예로 넘기지 않는다(fail-closed)
     try:
-        canon = _canon_for(sha)
+        canon, grace, cur = _canon_for(sha)
     except GoalError as e:
         return 3, f"REJECT 골 없음 — 정본 대조 실패: {e}"
+    if stale and not grace:
+        return 3, stale  # r726: 유예로 인정한 직전 판만 신선도(«낡음»)를 넘긴다 — 유예 시간이 그 축을 대신한다
     got = [[_norm(c) for c in ln.strip().strip("|").split("|")] for ln in block if ln.startswith("| ") and not ln.startswith("| 골 |")]
     n = len(canon)
     if len(got) != n or any(g[0] != _norm(c[0]) for g, c in zip(got, canon)):
-        return 3, f"REJECT 골 없음 — 블록의 {len(got)}행이 정본(마커 sha10) {n}행과 다르다 · 새 번호표 {n}줄: {numbering(canon)}"
+        return 3, f"REJECT 골 없음 — 블록의 {len(got)}행이 정본(마커 sha10) {n}행과 다르다 · 새 번호표 {len(cur)}줄: {numbering(cur)}"
     if block_only:
-        return 0, "GOAL-OK block-only"
+        return 0, "GOAL-OK block-only" + grace
     for ln in lines:
         if m := COORD.match(ln.strip()):
             num, want = int(m[1]), _norm(canon[int(m[1]) - 1][0]) if 1 <= int(m[1]) <= n else ""
             if want and _norm(m[2]) == want[:12].rstrip():
-                return 0, f"GOAL-OK n={num}"
+                return 0, f"GOAL-OK n={num}{grace}"
             return 3, (f"REJECT 골 없음 — 골좌표 번호와 골 원문이 안 맞는다(번호 1~{n} · 원문 앞 {min(12, len(want)) or 12}자 복붙)"
-                       f" · 새 번호표 {n}줄: {numbering(canon)} — {ln.strip()[:40]}")
-    return 3, f"REJECT 골 없음 — `골좌표: <1~{n}> — <골 원문 앞 12자>` 줄이 없다 · 새 번호표 {n}줄: {numbering(canon)}"
+                       f" · 새 번호표 {len(cur)}줄: {numbering(cur)} — {ln.strip()[:40]}")
+    return 3, f"REJECT 골 없음 — `골좌표: <1~{n}> — <골 원문 앞 12자>` 줄이 없다 · 새 번호표 {len(cur)}줄: {numbering(cur)}"
 
 
 def main(argv: list[str]) -> int:

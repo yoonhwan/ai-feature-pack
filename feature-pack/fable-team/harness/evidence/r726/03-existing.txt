@@ -1,0 +1,17 @@
+== 기존 시험 회귀(같은 파일을 읽는 이웃) — 이 카드 변경 뒤
+--- test_goal_count_follows_canon_r668.sh : rc=0 · PASS=39 FAIL=0
+--- test_goal_table_stale_r600.sh : rc=0 · PASS=11 FAIL=0
+--- test_goal_table_gitref_r545.sh : rc=0 · PASS=12 FAIL=0
+--- test_goal_table_procs_r644.sh : rc=0 · PASS=21 FAIL=0
+--- test_goal_check_ref.sh : rc=0 · PASS=40 FAIL=0
+--- test_kit_bin_sync.sh : rc=0 · PASS=7 FAIL=0
+
+--- pytest (뉴스 골 블록·매거진 골 = ft_goal_table 소비처)
+.........................                                                [100%]
+25 passed in 9.12s
+
+== 기존 FAIL 1건(이 카드와 무관 · base 에서도 같은 값)
+--- test_goal_table_gate.sh ⓕ «r458 600/300 상한 등장» — bin/ft_news_ledger.py:256,259 의 FT_NEWS_FETCH_MIN(300) 때문 · origin/main 판과 같은 줄(카드 전 판 evidence/r668/03-existing.txt 에도 같은 FAIL)
+FAIL ⓕ r458 600/300 상한 등장
+fail=1
+--- 확인: ft_goal_table.py 안에 600/300 = 0건

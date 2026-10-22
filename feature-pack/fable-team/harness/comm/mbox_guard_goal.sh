@@ -7,8 +7,17 @@
 # relay(H2) = 대상이면 첨부를 «먼저 복사한 사본»에서 검사하고 그 사본만 전달한다 — 복사·읽기 실패 = 검사 실패(원본으로 후퇴 0) · 사본 폴더 = GUARD_TMP(mbox.sh 가 지운다) · 사본 파일 = GUARD_FILE.
 #   독립 검증 둘: ①첨부 사본에 골 표 블록 ②요약(본문)에 `골좌표:` 줄 — 좌표는 첨부의 블록 + 요약만으로 판정한다(첨부 안의 골좌표 줄은 요약 대신이 아니다).
 # 판정기 부재·실행 실패 = 무장이면 REJECT(fail-closed) · 아니면 WOULD-REJECT. 외부 호출 0.
+# r726 r3: 유예로 통과한 판정(«옛 번호표(유예 …)») 은 `GL-GRACE …` 1줄로 stderr 에 보인다 — ★본문 판정 rc0 때만★(relay 첨부 검사에서는 내지 않는다: 경고가 2줄이 되거나 REJECT 출력 앞에 붙는다 · r4).
 
 guard_tmp_clean() { [ -z "${GUARD_TMP:-}" ] || rm -rf "$GUARD_TMP"; }  # relay 검사 사본 폴더 정리(mbox.sh 가 끝에 부른다)
+
+# r726 r3(DA 질문 6): 유예로 통과한 판정은 송신자에게 «보여야» 한다 — 판정 출력의 유예 줄을 stderr 로 1줄(송신은 그대로 통과).
+_goal_grace_note() {
+  local line
+  line="$(printf '%s\n' "$1" | grep -m1 '옛 번호표(유예')" || return 0
+  [ -n "$line" ] && printf 'GL-GRACE %s\n' "$line" >&2
+  return 0
+}
 
 _goal_block_of() { awk '/^★골 표 A6 \(/{f=1} f{print} /^★\/골 표★$/{f=0}' "$1"; }  # 파일에서 마커 블록만
 
@@ -30,7 +39,7 @@ _guard_goal_lint() {
     text="$(_goal_block_of "$GUARD_FILE")"$'\n'"$body"   # 좌표는 요약에서만(첨부의 좌표 줄은 세지 않는다)
   else text="$body"; fi
   res="$(printf '%s' "$text" | bash "$tool" check - 2>&1)"; rc=$?
-  [ "$rc" = 0 ] && return 0
+  if [ "$rc" = 0 ]; then _goal_grace_note "$res"; return 0; fi
   why="${res#REJECT 골 없음 — }"; [ "$rc" = 3 ] || why="판정기 실행 실패 rc=$rc ${res:0:80}"
   _goal_refuse "$from" "$first" "$why"
 }

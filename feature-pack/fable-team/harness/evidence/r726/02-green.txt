@@ -1,0 +1,43 @@
+== 기준선 — 정본 6행 렌더(표식 첫 줄만 · 공지 0)
+PASS 기준선 6행 → rc0 · 표 7줄
+PASS 표식 = 첫 줄만(직전 판 0) · 공지 0
+== 번호표 바뀜 — 골 2·3 교체 + 7행 추가(planner 정본 PR 꼴)
+PASS 새 정본 7행 렌더 → rc0
+PASS 표식 둘째 줄 = «직전 판» = 옛 정본 sha(ccdfcbe59b)
+PASS 번호 바뀜 공지 = 팀장 1명 1통
+== ⓐ 빨강 — base 판(origin/main)은 같은 쪽지를 REJECT
+PASS ⓐ 옛 블록 + 옛 골좌표 → REJECT rc3(빨강)
+PASS ⓐ 거절 문구에 새 번호표 7줄
+   ⓐ 원문(base): REJECT 골 없음 — 정본 대조 실패: 마커 sha10 ccdfcbe59b 의 번호표(6줄)가 지금 정본 e9e70fd45c(7줄)과 다르다 — 옛 번호표로는 판정하지 않는다 · 새 번호표 7줄: 1 — k1 · 2 — k9 · 3 — k9b · 4 — k4 · 5 — k5 · 6 — k6 · 7 — k7 · ft-goal-table.sh 를 다시 돌려 붙인다
+== ⓑ 후판 — 직전 판 1개를 유예로 인정(GOAL-OK + 경고 줄)
+PASS ⓑ 옛 블록 → GOAL-OK n=2 rc0(유예 24시간 남음)
+PASS ⓑ 통과 때 발신 좌석 이름과 함께 로그 1줄
+   ⓑ 판정(새 판): GOAL-OK n=2 옛 번호표(유예 24시간 남음 · 새 번호표 7줄: 1 — k1 · 2 — k9 · 3 — k9b · 4 — k4 · 5 — k5 · 6 — k6 · 7 — k7)
+PASS ⓑ2 23시간 뒤 = 남은 시간이 줄어든다(유예 1시간 남음)
+PASS ⓑ3 같은 쪽지 · base 판은 여전히 REJECT(차이 = 이 카드)
+== ⓔ 유예 중에도 옛 판에 없는 번호 = REJECT
+PASS ⓔ 옛 6행 판에 번호 7 → REJECT rc3(유예는 행 수를 늘리지 않는다)
+== ⓒ1 유예 밖(25시간) = 지금처럼 REJECT
+PASS ⓒ1 유예 밖 → REJECT rc3
+PASS ⓒ1b FT_GOAL_RENUMBER_GRACE_H=0 = 유예 없음(지금 판과 같다 · 되돌림 손잡이)
+== ⓓ 새 판 블록·새 골좌표 = 지금처럼 GOAL-OK(유예 문구 0)
+PASS ⓓ 새 판 → GOAL-OK n=2 rc0
+PASS ⓓ 새 판 판정에는 유예 문구가 없다
+== 두 번째 번호표 바뀜(8행) — 직전 판이 앞으로 밀린다
+PASS 표식 직전 판 = 7행 판(e9e70fd45c)
+PASS ⓑ4 직전 판(7행)은 유예로 통과
+PASS ⓒ2 두 판 이상 옛 판(6행) → REJECT rc3(1판만 인정)
+== ⓒ3 표식 없음 · ⓒ4 표식 손상 = REJECT(유예로 새지 않는다)
+PASS ⓒ3 표식 없음 → REJECT rc3
+PASS ⓒ4 표식 손상(시각 칸이 숫자가 아니다) → REJECT rc3
+PASS ⓒ4b 표식 손상(직전 판 줄 없음) → REJECT rc3
+== ⓕ 격리 — 임시 리포·임시 루트·가짜 mbox(실 쪽지 0 · 실 리포 변경 0)
+PASS ⓕ 쪽지는 스텁에만(팀장 1명 × 번호표 바뀜 2회 = 2통)
+PASS ⓕ 임시 루트에 실 우편함 파일 0
+PASS ⓕ 실 리포 작업 트리 변경 0(이 시험은 자기 파일만 쓴다)
+== ⓖ 변이 — 유예 시간 검사·직전 판 결속을 지우면 ⓒ 가 뚫린다(시험이 잡는다)
+PASS ⓖ1 유예 시간 검사 삭제 → ⓒ1(유예 밖)이 GOAL-OK 로 뚫린다(변이 감지)
+PASS ⓖ2 직전 판 결속 삭제 → ⓒ2(두 판 이상 옛 판)가 통과한다(변이 감지)
+== test_goal_renumber_grace_r726: fail=0
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+rc=0

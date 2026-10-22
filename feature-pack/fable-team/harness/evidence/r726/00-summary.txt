@@ -1,0 +1,34 @@
+r726 — 골 정본 번호표가 바뀐 직후 «직전 정본 1판» 만 정해진 시간(기본 24h) 유예 + 경고 줄
+=========================================================================================
+원인(r668 H2): 옛 마커 sha10 을 인정하는 조건이 «지금 정본과 번호표(행 수·각 행 골 앞 12자)가 같을 때» 뿐이다.
+  ⇒ planner 가 골 2·3 을 갈아 끼우고 상시 골을 한 줄 더하면(6→7행) 번호표가 바뀌는 «그 순간» 부터
+     모든 팀장의 옛 블록·옛 골좌표 쪽지가 한꺼번에 REJECT 된다(전환 시간 0 = 통신이 같이 막힌다).
+
+바꾼 것(ft_goal_table.py 하나 · bin·kit 짝 cmp0)
+  1. 표식 `<루트>/.fable-team/state/goal-numbering.tsv` 둘째 줄 = «직전 판» — `prev\t<sha10>\t<번호표 지문>\t<번호표 바뀐 시각 epoch>`
+     · 첫 줄(<sha>\t<지문>)은 r668 그대로 = 옛 꼴 표식도 그대로 읽는다(하위 호환).
+  2. 판정(_canon_for → _grace): 옛 마커 sha 가 «표식의 직전 판» 이고 · 그 판의 번호표 지문이 표식과 맞고 · 지금 번호표와 다르고 ·
+     번호표가 바뀐 시각 뒤 FT_GOAL_RENUMBER_GRACE_H(기본 24)시간 안이면 → `GOAL-OK n=<번호> 옛 번호표(유예 <남은>시간 남음 · 새 번호표 N줄: …)` rc0
+     + stderr 로그 1줄 `GRACE 옛 번호표 수용 — 좌석 <FT_SEAT> · 마커 <sha> · 남은 <h>시간 · 새 번호표 …`
+     · 블록 행 대조·골좌표 대조는 «옛 판 행» 으로 한다(유예는 행 수를 늘리지 않는다).
+  3. 유예 밖 · 두 판 이상 옛 판 · 표식 없음/손상 · 번호표가 그대로인 판 = 지금처럼 REJECT rc3(유예로 새지 않는다).
+  4. 유예로 인정한 직전 판만 «골 표 낡음»(r600)을 넘긴다 — 유예 시간이 그 축을 대신한다.
+     줄기에 없음·신선도 확인 실패(fail-closed)는 그대로 REJECT.
+  5. 되돌림 손잡이 = env `FT_GOAL_RENUMBER_GRACE_H=0`(지금 판과 같음).
+
+시험 = feature-pack/fable-team/harness/tests/test_goal_renumber_grace_r726.sh (ⓐ~ⓖ · PASS 27 · FAIL 0 · 변이 2 감지)
+  ⓐ 빨강(base 판 = origin/main) 같은 쪽지 → REJECT rc3   ⓑ 후판 → GOAL-OK rc0 + 좌석 로그 1줄(남은 시간 감소)
+  ⓒ 유예 밖(25h)·두 판 이상·표식 없음/손상 2종 → REJECT   ⓓ 새 판 = GOAL-OK(유예 문구 0)
+  ⓔ 유예 중에도 옛 판에 없는 번호 = REJECT            ⓕ 임시 리포·임시 루트·가짜 mbox(실 쪽지 0 · 실 리포 변경 0)
+  ⓖ 변이: 유예 시간 검사 삭제 → ⓒ1 이 뚫린다 · 직전 판 결속 삭제 → ⓒ2 가 뚫린다(시험이 둘 다 잡는다)
+증거 = 이 폴더(01 빨강 · 02 초록 · 03 기존 회귀 · 04 변이)
+
+회귀: test_goal_count_follows_canon_r668(39) · test_goal_table_stale_r600(11) · test_goal_table_gitref_r545(12) ·
+      test_goal_table_procs_r644(21) · test_goal_check_ref(40) · test_kit_bin_sync(7) = FAIL 0
+      pytest tests/scripts/test_ft_news_goal_block.py + test_magazine_goal.py = 25 passed
+      기존 FAIL 1건(test_goal_table_gate ⓕ 600/300)은 이 카드와 무관 — 원인 = bin/ft_news_ledger.py 의 FT_NEWS_FETCH_MIN(300),
+      카드 이전 판(evidence/r668/03-existing.txt)에도 같은 FAIL. ft_goal_table.py 안 600/300 = 0건.
+
+press = 쏘지 않음(나노 · ft-press-gate ⑦). 라이브 확인이 필요하면 한 줄로 넘긴다 → 아래.
+press 필요: 없음 — 이 단위는 정본·쪽지 판정기라 라이브 오디오 축이 없다. 실사건 1(정본 착지 뒤 옛 블록 쪽지 통과 → 유예 뒤 REJECT)은 master 몫.
+범위 밖: planner 정본 PR 자체 · 원장 «상태» 칸(r702) · 뉴스·매거진(같은 정본을 읽으므로 코드 0).

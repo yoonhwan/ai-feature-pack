@@ -1,3 +1,9 @@
+## 2026-10-22 — 골 정본 번호표가 바뀐 직후 옛 골 표 블록·옛 골좌표 쪽지가 전 팀에서 한꺼번에 REJECT 되던 것을 «직전 정본 1판» 24시간 유예 + 경고 1줄로 완화(r726 · 1.1.208 · 동작 변경 · 키트 ft_goal_table.py + comm/mbox_guard_goal.sh + 시험 1)
+
+- 유예는 «직전 번호표 지문» 에 묶고(렌더 커밋 1개에 묶지 않는다) 신선도 상한 dist(마커)<=dist(직전 판)+12 · 표식 손상·빈 sha·NaN·미래 시각·가짜 prev·두 판 이상 전·env 늘리기(min(env,24)) = 유예 0 fail-closed. 가드 경고는 본문 판정 rc0 일 때 GL-GRACE 1줄(relay 경로 포함 · 첨부 유예 + 본문 REJECT 는 r1 출력 그대로).
+- 시험 `test_goal_renumber_grace_r726.sh` — 57 PASS · 거절 칸 실패 분기 · r1·r2·r3 판 빨강 대조 · 변이 · 이웃 6종 + test_mbox_guard 130 PASS 0 FAIL.
+- 판정문 §187(DA⑥ r1 HOLD 5 → r2 HOLD 2회째 → bounded DA 중단 · arch 격리 2칸 재대조 OK) · 증거 `harness/evidence/r726/` · 설치: 있음(키트 ft_goal_table.py + comm/mbox_guard_goal.sh → 라이브 · 되돌림 = 이전 판) · 실사건 = planner 정본 PR 착지 뒤 옛 블록 쪽지 GOAL-OK 유예 + GL-GRACE 원문.
+
 ## 2026-10-22 — 골 표를 «오빠가 요청할 때만» 다시 재는 회차 수집기(`ft-goal-readjust.sh --request "<출처>"`)가 없어, 골이 며칠씩 묵어도 «지금 어느 골이 어디까지인가» 를 사람이 손으로 모아야 했다 → 요청 1회 = run(`<날짜>-<k>`) 1개를 불변 파일 2개(.md·.json)로 남기고(덮어쓰기 0) 골 행별 «착지·증거» 사실을 고정 commit 트리에서 모아 쪽지 1통(여러 골 묶음)을 보낸다. 하루 최대 2회(3번째 요청은 rc2 거절) · 송신 실패는 rc3 + 머리 «송신 실패» · 손상·빈 표식·LIVE_ROOT 빈 값/상대경로는 «모름»·ERROR · 자동 시계(launchd) 0 · 이슈 팀 회신은 건드리지 않음 (r714a · 1.1.207 · 신규 장치 · 키트 4파일 + ft_goal_table.py 1 + 시험)
 
 - 판정문 §186(DA⑥ r1 HOLD 14건 → r2 HOLD «작은 고침 5» → arch 격리 재대조 OK · 시험 73/0 · r2 판에 같은 시험 얹으면 fail=7) · 증거 `harness/evidence/r714a/` · 설치: 있음(키트 5파일 → 라이브 도구 · 되돌림 = 이전 판) · 실사건 = 오빠 요청 회차 2개 원문.
