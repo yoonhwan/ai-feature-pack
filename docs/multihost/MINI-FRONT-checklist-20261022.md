@@ -21,7 +21,7 @@
    확인: 목록에 Google Chrome 이 켜져 있다. (없으면 6번에서 팝업이 뜨며 생긴다.)
 4. **[30초] 시험용 Chrome 띄우기** — mini 터미널에 한 줄:
    `"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --remote-debugging-port=9333 --no-first-run --no-default-browser-check --user-data-dir=/tmp/chrome-byz-debug about:blank &`
-   (headed 필수 · `--headless` 금지 — 정본 README §1.2. 시작 URL 은 러너가 직접 이동하는지 pi 실측(발주 중) 뒤 바뀔 수 있음.)
+   (headed 필수 · `--headless` 금지 — 정본 README §1.2. 시작 URL 은 `about:blank` 으로 충분 — 러너가 Chrome 을 직접 열지 않고 CDP 9333 에 붙어 필요한 탭을 직접 만든다(pi 실측 measured-runner-cli §3).)
    확인: `curl -s http://127.0.0.1:9333/json/version | head -c 100` → `Browser` 줄이 나온다.
 5. **[30초] 서버가 떠 있는지 눈으로** — 새로 뜬 시험용 Chrome 주소창에 `http://127.0.0.1:38314/` → 로그인/홈 화면이 보이면 OK (h381 이 끝난 뒤).
 6. **[1분] 마이크 허용 팝업 «허용» 1회** — 같은 창에서 실시간 통역 페이지(`/realtime` 계열)를 열고 마이크 권한 팝업이 뜨면 **허용**. 이 클릭은 «권한을 미리 주는 것» 이고 시험 증거가 아니다 — 증거는 러너의 trusted 클릭만.
