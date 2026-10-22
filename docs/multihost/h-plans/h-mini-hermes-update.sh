@@ -38,10 +38,30 @@ printf '%s\n' "$PRE" | grep -q '^svc=running' || die 2 "ai.hermes.gateway 가 ru
 printf '%s\n' "$PRE" | grep -q '^branch=main' || die 2 "mini 체크아웃이 main 이 아니다"
 AA="$(printf '%s\n' "$PRE" | sed -n 's/^active_agents=//p')"; [ "$AA" = 0 ] || die 2 "진행 중인 에이전트 작업이 ${AA}건이다 — 끝난 뒤(재시작이 끊는다)"
 FREE="$(printf '%s\n' "$PRE" | sed -n 's/^free_gb=//p')"; [ "${FREE:-0}" -ge 10 ] 2>/dev/null || die 2 "디스크 여유 ${FREE:-?}GB < 10GB"
-NEW_SHA="$(rs 20 "cd $HD/hermes-agent && timeout 15 git ls-remote origin refs/heads/main 2>&1 | cut -f1")" || die 2 "원격 main 조회 실패"
-[ ${#NEW_SHA} -eq 40 ] || die 2 "원격 main sha 이상: $NEW_SHA"
+# 원격 main sha — 실패를 빈값으로 삼키지 않는다(상위 #3261: github ls-remote 가 가끔 15초를 넘김 → 재시도 1회 + stderr 원문)
+NEW_SHA=""
+for try in 1 2; do
+  LR="$(rs 25 "cd $HD/hermes-agent && timeout 15 git ls-remote origin refs/heads/main 2>&1; echo __rc=\$?" 2>&1)" || LR="ssh 실패: $LR"
+  C="$(printf '%s\n' "$LR" | sed -n 's/^__rc=//p')"
+  if [ "$C" = 0 ]; then NEW_SHA="$(printf '%s\n' "$LR" | awk 'NR==1{print $1}')"; [ ${#NEW_SHA} -eq 40 ] && break; fi
+  say "        ls-remote 시도 $try 실패(rc=${C:-?}): $(printf '%s' "$LR" | grep -v '^__rc=' | tail -2 | tr '\n' ' ' | cut -c1-200)"
+  [ "$try" = 1 ] && sleep 3
+done
+[ ${#NEW_SHA} -eq 40 ] || die 2 "원격 main sha 를 읽지 못했다(2회 시도) — 위 stderr 참고"
 say "        현재 $OLD_SHA → 원격 main $NEW_SHA"
 [ "$OLD_SHA" != "$NEW_SHA" ] || { say "이미 최신 — 할 일 없음 rc=0"; exit 0; }
+# 미추적 파일이 새 main 이 추가하는 경로와 겹치면 update 가 «덮어쓰기 거부» 로 멈춘다 — 새 sha 트리에 같은 경로가 있는지 raw.githubusercontent 로 확인(mini 에서 7초 상한)
+UT="$(printf '%s\n' "$PRE" | sed -n 's/^untracked=//p' | tr ';' '\n' | sed '/^$/d')"
+CONFLICT=""
+if [ -n "$UT" ]; then
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    hc="$(rs 15 "curl -s -I -m 7 -o /dev/null -w '%{http_code}' https://raw.githubusercontent.com/NousResearch/hermes-agent/$NEW_SHA/$f" 2>/dev/null)" || hc=000
+    case "$hc" in 404) ;; 200) CONFLICT="$CONFLICT $f";; *) die 2 "새 sha 트리에서 $f 존재 여부를 판정하지 못했다(HTTP ${hc:-?}) — 다시";; esac
+  done <<<"$UT"
+fi
+[ -z "$CONFLICT" ] || die 2 "미추적 파일이 새 main 과 경로가 겹친다:$CONFLICT — update 가 덮어쓰기 거부로 멈춘다. 사람이 그 파일을 옮긴 뒤 다시(삭제 아님·이동)"
+say "        미추적 파일 $(printf '%s\n' "$UT" | wc -l | tr -d ' ')개 — 새 main 트리와 경로 충돌 0"
 MODS_BEFORE="$(printf '%s\n' "$PRE" | sed -n 's/^mods=//p')"
 if [ "$DRY" = 1 ]; then
   say "DRY — 하려던 일(쓰기 0): 1 보존 ~/.hermes/backups/pre-update-<ts>/(state.tgz 핵심 파일·local.patch·untracked.tgz·sha.txt) → 2 nohup hermes update --yes(빠른 스냅샷만 · --backup 금지: ~/.hermes 36.9GB) 10초 폴링 → 3 게이트웨이 확인 → 4 증거(버전·sha·svc·슬랙 connected·수정 파일 복원 여부)"
