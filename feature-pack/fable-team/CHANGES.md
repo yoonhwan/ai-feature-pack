@@ -1,3 +1,7 @@
+## 2026-10-22 — 오케스트레이션 게이트 시험(`test_orch_gate_top_models.sh`)의 «프로젝트 사본» 자리(`<팩>/.claude/hooks/…`)가 1.1.0 재배치(3b25f81d) 뒤 없어 PROJ 5칸이 «파일 없음»(127)으로 빨갰고, 팩 안 같은 훅 사본 2벌(kit/templates · skill/templates)이 서로 달랐다 → PROJ = 팩 안 두 번째 사본(skill/templates · `ORCH_GATE_PROJ` 로 바꿀 수 있음) · skill 사본을 정본(kit/templates)과 같게 복사 · 팩 안 사본 전부 = 정본 cmp0 단언 추가 (r699 · 1.1.202 · 시험·사본 정리 · 훅 동작 변경 0)
+
+- 증거 `harness/evidence/r699/`(고치기 전 5/5 FAIL · 후판 12/0 · 변이 cmp FAIL) · skill 사본은 manifest `template-only` 항목이라 지우지 않고 맞춤 · 설치: kit 판 불변 → 전역 훅 그대로(cmp0 확인만) · 되돌림 = 이전 판.
+
 ## 2026-10-22 — 오케스트레이션 게이트(`orchestration-gate.sh`)가 master 의 «검증된 키트 파일 설치 복사»(`cp` 한 줄)까지 코드 직접 편집으로 오탐 차단해, 착지 직후 `~/.hermes/scripts` 같은 설치 자리에 복사하려면 사람 손이 필요했다(r692 설치 틈) → 허용은 «명령 1개 · `cp [-p]` 절대 kit 원본(lstat 일반 파일 · origin/main 과 cmp0 · git 1회 7초) → 절대 파일 목적지» 한 꼴로만 좁게 열고, 그 밖의 `cp`/`install`(폴더 목적지는 원본 이름까지 검사)은 부모판 그대로 막는다 (r695 · 1.1.201 · 결함 고침 · 훅 1파일)
 
 - 판정문 §181(DA⑥ r1 HOLD H1~H3 고침 → arch 재대조 OK · 시험 41/0 · 부모판 9 FAIL · 변이 4종 각 rc=1 · 반례 10/0) · 증거 `harness/evidence/r695/`·`r695-da6/` · 설치: 있음(전역 훅 `templates/hooks/orchestration-gate.sh` → 설치 시 훅 자리 · 되돌림 = 이전 판).
