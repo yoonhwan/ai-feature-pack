@@ -1,0 +1,19 @@
+== r737 ⓐ 빨강(수정 전 판 · HEAD 판) — 정본만 바뀐 커밋이 (0,'원장 커밋 0') 으로 샌다 = FAIL 원문 ==
+cmd: PYTHONPATH=bin:kit/fable-team/bin python3.11 -m pytest tests/scripts/test_r737_news_map_canon_sha_change_trigger.py -q
+
+>       assert _tick(env, c2) == (0, "지도 발행") and len(made) == 2
+E       AssertionError: assert ((0, '원장 커밋 0') == (0, '지도 발행')
+E         
+E         At index 1 diff: '원장 커밋 0' != '지도 발행'
+E         Use -v to get more diff)
+>       assert (env[2] / "last.canon").read_text(encoding="utf-8").strip() == _sha10("정본 A\n")
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+E       FileNotFoundError: [Errno 2] No such file or directory: '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-74/test_b_state_records_canon_con0/root/.fable-team/state/news-ledger/last.canon'
+>       (env[2] / "last.canon").unlink()  # 설치 직후 옛 상태 파일 꼴
+>           os.unlink(self)
+E           FileNotFoundError: [Errno 2] No such file or directory: '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-74/test_d_old_state_without_canon0/root/.fable-team/state/news-ledger/last.canon'
+>       monkeypatch.setattr(fh, "_canon_sha", lambda: "")  # 변이 = 정본 sha 못 읽음
+E       AttributeError: <module 'ft_news_html' from '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r737-news-map-canon-sha-change-trigger/feature-pack/fable-team/harness/bin/ft_news_html.py'> has no attribute '_canon_sha'
+FAILED tests/scripts/test_r737_news_map_canon_sha_change_trigger.py::test_a_canon_only_commit_makes_one_map
+FAILED tests/scripts/test_r737_news_map_canon_sha_change_trigger.py::test_b_state_records_canon_content_sha
+FAILED tests/scripts/test_r737_news_map_canon_sha_change_trigger.py::test_d_old_state_without_canon_cell_republishes_once

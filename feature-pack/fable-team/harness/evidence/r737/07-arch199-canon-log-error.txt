@@ -1,0 +1,13 @@
+== r737 arch §199 반송 반영 — 정본 못 읽음 = LOG.error (수정 후 판) ==
+cmd: PYTHONPATH=bin:kit/fable-team/bin python3.11 -m pytest tests/scripts/test_r737_news_map_canon_sha_change_trigger.py -q
+......                                                                   [100%]
+6 passed in 2.30s
+
+== 수정 전 판 대조(같은 줄 LOG.info) — 새 단언이 잡는지 ==
+320:        LOG.error("골 정본 못 읽음 — 정본 sha 판정 0: %s", e)  # r737 arch §199: 조용한 info 금지 — 정본이 사라진 것은 ERROR
+(위 줄이 error 면 반영 완료 · info 였다면 test_canon_unreadable... 의 ERROR 단언이 FAIL)
+== 변이 대조: 같은 줄을 LOG.info 로 되돌리면 새 단언이 FAIL ==
+(위 실행 원문: '1 failed, 5 deselected' — test_canon_unreadable_keeps_ledger_judgment / 조용한 info 로는 통과 0)
+복원 후: bin=kit cmp rc=0 · 6 passed
+......                                                                   [100%]
+6 passed in 3.48s

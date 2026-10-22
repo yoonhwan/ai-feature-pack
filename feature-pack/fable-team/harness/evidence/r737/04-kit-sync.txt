@@ -1,0 +1,4 @@
+== r737 ⓑ kit 짝 사본 cmp0 ==
+cmp rc=0 동일
+352b047fea220721d1c54b176679ea5a5dd68031bff92445b718fa4f2352da18  bin/ft_news_html.py
+352b047fea220721d1c54b176679ea5a5dd68031bff92445b718fa4f2352da18  kit/fable-team/bin/ft_news_html.py

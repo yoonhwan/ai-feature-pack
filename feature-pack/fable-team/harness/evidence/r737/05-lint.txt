@@ -1,0 +1,4 @@
+== r737 ruff (bin + 새 시험 · 팩 리포에 ruff 설정 없음 = 기본값) ==
+cmd: python3.11 -m ruff check bin/ft_news_html.py tests/scripts/test_r737_news_map_canon_sha_change_trigger.py
+All checks passed!
+rc=0

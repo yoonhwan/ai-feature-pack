@@ -1,0 +1,11 @@
+== r737 ⓔ 기존 시험 그대로 PASS (r656·fetch_cap·ft_news_html·goal_block·ft_news_ledger) ==
+cmd: PYTHONPATH=bin:kit/fable-team/bin python3.11 -m pytest tests/scripts/test_r656_news_change_by_ledger_blob.py tests/scripts/test_news_fetch_cap.py tests/scripts/test_ft_news_html.py tests/scripts/test_ft_news_goal_block.py tests/scripts/test_ft_news_ledger.py -q
+........................................................................ [ 74%]
+.........................                                                [100%]
+97 passed in 76.48s (0:01:16)
+
+== ⓔ .sh 3종 + kit/bin 동기 시험 ==
+tests/test_news_html.sh: rc=0 OK
+tests/test_goal_table_gitref_r545.sh: rc=0 OK
+tests/test_goal_count_follows_canon_r668.sh: rc=0 OK
+tests/test_kit_bin_sync.sh: rc=0 OK

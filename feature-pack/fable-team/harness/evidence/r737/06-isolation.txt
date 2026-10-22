@@ -1,0 +1,12 @@
+== r737 ⓖ 격리 — 임시 리포·임시 루트·가짜 발행기(실 Slack·실 LLM·실 게시·실 Redis 0) ==
+51:def env(tmp_path, monkeypatch):
+53:    repo = tmp_path / "repo"
+58:    root = tmp_path / "root"
+62:    monkeypatch.setattr(fh, "run_files", lambda d, out, now: (made.append(now), (out / "a.html", out / "a.txt"))[1])
+63:    monkeypatch.setattr(fh, "publish_files", lambda h, s, now: (0, {"ts": str(len(made)), "link": f"http://x/{len(made)}"}))
+65:    monkeypatch.setattr(fp, "publish_line", lambda text, now: (lines.append(text), 0)[1])
+67:    monkeypatch.setenv("FT_NEWS_MAIN_REF", "HEAD")  # 최근 커밋 칸 = 이 리포 HEAD(origin 없음)
+69:    monkeypatch.setenv("FT_GOAL_A6_MD", str(repo / CANON))  # 정본 = 임시 리포 파일(file: 꼴 · gitref 아님)
+
+실 상태 지문 가드(real_state_guard) 모듈 autouse = 실 state/ 무접촉
+23:from real_state_guard import guard_begin_module  # noqa: E402,F401  r541: 실 상태 지문 + git 밖 cwd(모듈 autouse)

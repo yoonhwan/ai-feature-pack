@@ -1,3 +1,8 @@
+## 2026-10-22 — 묶음 착지 2건(r736 · r737 · 1.1.213 · 같은 manifest·CHANGES 줄을 건드려 한 PR 로 squash)
+
+- **r736** tmuxc 0.4.5 `session_agent_probe` — ①`*/claude/versions/*` 실경로 바이너리를 claude 로 인식(basename 이 버전 번호라 못 알아보던 것) ②종류는 «처음 찾은 것» 유지 · model·effort·sid 는 «정한 종류와 같은 종류 후손» 에서만 채움(claude 좌석 아래 pi 후손이 model·sid 를 덮어 restore 가 엉뚱한 대화를 열던 것 막음) · 시험 `test_agent_probe_claude_path.sh` 19 PASS(변이 포함) · 판정문 §200 · 설치: tmuxc 0.4.5 `~/.tmuxc/versions` cmp0.
+- **r737** 뉴스 지도 재발행 판정에 «골 정본 내용 sha(state/last.canon) 불일치» 조건 1개 추가(`ft_news_html.tick` · 정본 sha = 본문 sha256 앞10 — ref 커밋 sha 는 main 커밋마다 흔들려 r656 이 되돌아간다) · 정본 못 읽음 로그 info → error(판정문 §199) · 시험 6 + 기존 97 passed · 설치: 키트 `ft_news_html.py` LIVE_BIN cmp0 + 뉴스 kickstart.
+
 ## 2026-10-22 — 묶음 착지 2건(r742 · r738 · 1.1.212 · 같은 manifest·CHANGES 줄을 건드려 한 PR 로 squash)
 
 - **r742** 뉴스 발행 0 — 뉴스 린트(`ft_news_html_lint.py`)가 골 카드 안 골 정본 원문(예: «MR 수정 #2598~2601»)의 번호를 «각주 밖 번호»로 세어 발행을 막던 것 → `<section class="goal">` 안 첫 `<p class="say">` 만 검사 전에 지움(각주와 같은 꼴 · 다른 글 검사 그대로) · 시험 `test_news_lint_goal_canon_text_r742.py` 5 · 증거 `harness/evidence/r742/`.
