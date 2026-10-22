@@ -11,7 +11,7 @@
 > ★서버가 도는 동안 이 맥이 켜져 있어야 한다★ (결정 2026-10-22: 서버는 mini, DB 는 이 맥과 같은 dev DB). mini 서버의 DB 길 = 이 맥 loom 터널(127.0.0.1:38309)을 mini 로 되돌려 주는 ssh 포워딩 — 이 맥이 잠들거나 꺼지면 mini 서버는 DB 를 잃는다. 시험하는 동안 이 맥 잠자기 방지.
 
 ## 순서 (번호대로 · 각 줄 끝 = 확인 방법)
-1. **[1분] 폴더 신뢰 «Yes»** — mini 터미널에서 폴더마다 한 번씩:
+1. ~~**[1분] 폴더 신뢰 «Yes»**~~ ★대체됨(2026-10-22): mini `~/.claude.json` 의 홈 폴더 신뢰 표식을 상위가 백업 후 켬 → 홈(`~`)은 생략. `~/Project/BYZ-Agents` 등 다른 운용 폴더만 남음 — 아래는 원문 — mini 터미널에서 폴더마다 한 번씩:
    `cd ~ && claude` → «Quick safety check: trust this folder?» 가 뜨면 **1. Yes, I trust** → `/exit`.
    같은 방식으로 `~/Project/BYZ-Agents` · `~/Project/ai-feature-pack` · `~/packs` (tmuxc 좌석을 여는 폴더들).
    확인: 같은 폴더에서 `claude` 를 다시 열면 질문 없이 바로 입력창이 뜬다.
