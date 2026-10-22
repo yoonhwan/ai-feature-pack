@@ -41,3 +41,9 @@ mini 의 Chrome·BlackHole 은 준비돼 있고, 막힌 건 «러너 코드 없�
 - 러너 폐쇄 = 16파일(loom_domain.py·시나리오 jsonl 61KB 포함). 3rd-party = websockets·PyJWT. 비밀: `_load_e2e_jwt_secret` 가 `REPO/.env` 를 직접 파싱 → `.env` 는 옮기지 않고 `BYZ_E2E_JWT_SECRET` 환경변수(op develop)로만 준다.
 - ★발화 주입 경로 도구가 mini 에 없다★: `sag`·`tts-say`·`sox` 부재(`say`·`afplay` 는 있음). 첫 회차에서 TTS 로 음성을 만들어 BlackHole 로 흘리려면 이 3종(또는 `say` 로 대체 가능한지 러너 코드 확인)이 필요 → 별도 승인 h. 판정은 «러너가 `say` 만으로 도는 옵션이 있나» 먼저.
 - 도메인 풀(`shared/prompts/composable/domains`)은 서버 쪽 자산 → A 안(서버=이 맥)이면 자동 해결.
+
+## TTS 경로 결론 (pi · `measured-runner-tts-path-20261022.md`)
+- 발화 엔진 선택은 러너 CLI `--engine say|sag` 하나뿐(env 로 못 고름). `say` 엔진도 내부에서 `tts-say` 를 호출하므로 «`say` 만으로 도는 경로» 는 없다 → **mini 에 `tts-say` 하나만 설치하면 된다**(sag·sox 불필요: RMS 게이트는 `afconvert` 우선이고 mini 에 있음).
+- 소리는 `afplay` = 시스템 기본 출력장치로 나간다 → **출력 기본값을 BlackHole 2ch(또는 Multi-Output)로 맞추는 것이 조건**(오빠 손 1회, System Settings). SwitchAudioSource 는 재생에 불필요.
+- 따라서 mini 쪽 h 는 2장: ①러너 코드+venv(`h-mini-e2e-setup.sh`) ②`tts-say` 복사(`h-mini-tts-say.sh`, pi 초안 중).
+- 오빠 손(mini 앞, 한 자리): Chrome 정리·CDP 9333 재기동 · 마이크 허용 · 출력 기본값 BlackHole/Multi-Output.
