@@ -1,0 +1,3 @@
+# r667 범위 축소 — 2단계 자동 spawn 기본 꺼짐 (master 95 결정 139846 · DA⑥ r2 HOLD 2회째 · 재설계 = 새 카드 r721)
+# base = 팩 브랜치 nano/r667-idle-team-empty-seat-auto-fill @ 4f9bf52687 (이전 판 = 기본 켜짐)
+# 고친 판 = FT_IDLE_SLOT_AUTO 기본 «0»(꺼짐) · 켜기 = 명시 1 + 로그 ERROR«r721 전까지 미검증» 1줄 · 1단계(쪽지)는 그대로 돈다

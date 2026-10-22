@@ -1,0 +1,9 @@
+== 내 카드 인접 기존 시험(광역 0) ==
+test_ft_idle_wake rc=0 PASS=19 FAIL=0
+test_nano_slots rc=0 PASS=17 FAIL=0
+test_nano_slots_cards_wt rc=0 PASS=9 FAIL=0
+test_nano_close_named_wt rc=0 PASS=63 FAIL=0
+test_nano_close_std_wt_other_branch rc=0 PASS=27 FAIL=0
+test_team_literal_paths2 rc=0 PASS=330 FAIL=0
+test_baseline_lint rc=0 PASS=7 FAIL=0
+test_nano_spawn_tier rc=0 PASS=43 FAIL=0

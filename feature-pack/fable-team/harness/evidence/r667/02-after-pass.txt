@@ -1,0 +1,23 @@
+PASS bash -n 3종
+PASS ⓐ′ 접두 byz-harness-nano- → 팀 harness · 후보 = harness 카드 2장
+PASS ⓐ′ 접두 byz-v65-nano- → 팀 v65 · 후보 = v65 카드만
+PASS ⓐ′ 접두 미설정 → v65(기존 동작)
+PASS ⓐ′ 규칙 밖 접두 → ERROR rc≠0 · v65 후퇴 0 (rc=1)
+PASS ⓐ 건너뜀 — 지금 키트(/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r667-idle-team-empty-seat-auto-fill/feature-pack/fable-team/harness/tests/../kit/fable-team/bin)에 빈 석 장치가 있다(전/후 대조는 R667_SUT=base 로)
+PASS ⓑ 팀장 IDLE 20분 · 후보 2 → «빈 석 쪽지» 1통(후보·900 포함)
+PASS ⓑ 쪽지 단계에서는 spawn 0
+PASS ⓑ 같은 (팀, 후보 집합) 60초 뒤 → 쪽지 0(중복 억제)
+PASS ⓑ 30분 지나고 후보 집합이 바뀌면 → 쪽지 1통
+PASS ⓒ 900초 뒤 → 맨 위 카드 h1.md 1장 spawn · --from · 팀 env 서브셸(접두 주입)
+PASS ⓒ 팀장에 «[자동 spawn] 카드·좌석» 쪽지
+PASS ⓒ 같은 카드 다시 spawn 0(카드당 1회)
+PASS ⓓa FT_IDLE_SLOT_AUTO=0 → 쪽지는 가고 spawn 0
+PASS ⓓb 전팀 정지 → 쪽지 0 · spawn 0 + 로그 1줄
+PASS ⓓc 자원 동결 표식 → 0 + 로그
+PASS ⓓd 팀장 화면에 오빠가 치는 중(client_activity) → 0 + 로그
+PASS ⓓe 팀 env 파일 없음(bin-loom/loom-env.sh) → 0 + 로그
+PASS ⓕ 명부 못 읽음 → 0 + 로그 1줄(파일 보존)
+PASS ⓔ 상태 파일 손상 → 0 · 로그 ERROR · 파일 보존
+PASS ⓖ 기존 ring 경로 불변(빈 석 장치가 깨우기를 막지 않는다)
+
+ALL PASS

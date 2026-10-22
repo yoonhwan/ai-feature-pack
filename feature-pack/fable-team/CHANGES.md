@@ -1,3 +1,38 @@
+## 2026-10-22 — r667 범위 축소: 빈 석 장치 2단계(자동 spawn)를 «기본 꺼짐» 으로 — 1단계(빈 석 쪽지)만 착지 (master 95 결정 139846 · DA⑥ r2 HOLD 2회째 · 2단계 재설계 = 새 카드 r721 · 1.1.206 · 동작 변경(기본값) · 키트 1파일 + 시험 1)
+
+- `ft-idle-slot-fill.sh` — `FT_IDLE_SLOT_AUTO` 기본값 `1`(켜짐) → **`0`(꺼짐)**: `AUTO_ON = os.environ.get("FT_IDLE_SLOT_AUTO") == "1"`. 즉 2단계는 «명시 1» 일 때만 돈다. 켜면 로그에 `ERROR 자동 spawn 은 r721 전까지 미검증` 1줄(검증 안 된 문을 조용히 열지 않는다).
+- 1단계(«[빈 석]» 쪽지)는 기본으로 그대로 돈다 — 쪽지 꼬리 문구도 꺼짐 상태를 말한다(`900초 뒤에도 이대로여도 자동 spawn 은 꺼져 있다(FT_IDLE_SLOT_AUTO=0 · 기본 꺼짐 · 2단계 = r721)`).
+- 시험 `test_idle_slot_fill_r667.sh` — 새 칸 ⓗ 3개: ⓗa «env 없음(기본) = 쪽지 1통 · 900초 뒤에도 spawn 0» · ⓗb «명시 1 = 로그에 r721 미검증 1줄» · ⓗc **변이**(기본값을 1 로 되돌린 사본을 실제로 돌려 spawn 이 나는지 = ⓗa 가 FAIL 하는 판). 기존 2단계 칸(ⓒ·G1·G3·G4b·G7·G7c)은 `FT_IDLE_SLOT_AUTO=1` 을 «명시»해 그대로 유지(지우지 않음) → 39 → **42 PASS**.
+- 전(이전 판 키트 `4f9bf526` 를 `R667_SUT` 로) = **2 FAIL**(ⓗa·ⓗb · `evidence/r667/11-before-prev-kit-4f9bf526.txt`) → 후(고친 판) = **42 PASS rc=0**(`12-after-default-off.txt`). 인접 기존 시험 8종 전부 rc0(`13-existing-tests.txt`) · 추적 짝 `harness/bin/ft-idle-slot-fill.sh` cmp0.
+- 범위 밖: 2단계 재설계(r721) · planner 착지 순번 · 한도 숫자 · 좌석 한도(r666) · 골 표(r664) · `docs/architect` 변경 0 · press 필요 없음(쪽지·spawn 만 · live 오디오 축 무관).
+
+## 2026-10-22 — r667 DA⑥ r1 HOLD 반송(G1~G8) — 빈 석 장치가 «카드당 1회» 를 spawn 뒤에 기록해 죽으면 재spawn 됐고, 쪽지 억제가 마지막 후보집합 하나만 기억해 A→B→A 면 30분 안에 다시 보냈으며, 후보 계산이 부모 `FT_INDEX_DIR`(v65)을 따라 다른 팀 카드를 집었고, 팀장을 단일 명부의 «첫 오케 행» 으로 잡았으며, spawn 을 1800초 동기로 기다렸다 → 선점 기록(spawn 전)·집합별 억제·fail-closed 쪽지·직전 입력 재확인·팀 env 서브셸 계산·명부 `_master` 대조·비동기 spawn+70초 마감(명부 `r667-da6/SUMMARY-r667-da6.md` G1~G8 · 1.1.205 · 결함 고침 · 키트 2파일(`ft-idle-slot-fill.sh`·`ft-idle-wake.sh` 죽은 중복 6줄 제거) + 시험 1)
+
+- G1 카드당 1회 = spawn «전» 선점(`claimed[카드]` → 저장 → 기동) · 상태 파일 없음/손상 = 그 틱 0 + 로그 · «첫 실행 표식» `state/idle-slot.seen` 으로 «처음»과 «사라짐» 을 가른다(사라짐 = ERROR + 0 · 재spawn 0 · 재시도는 사람).
+- G2 쪽지 억제 = 마지막 sig 1개 → (팀, 후보 집합)별 «성공 송신» 시각 맵 — A→B→A 여도 30분 안 A 집합 재송신 0.
+- G3 쪽지 송신 rc≠0 = `note_at` 저장 0 → 900초 뒤에도 자동 spawn 0(fail-closed) · 다음 틱 재시도.
+- G4 송신·spawn «직전» `client_activity` 재확인 — 조회 뒤에 키가 들어왔으면 보류(오빠 입력 절단 0).
+- G5 후보 계산도 그 팀 env 서브셸 — 부모 `FT_INDEX_DIR` 제거 + 반환 `team`·`index_dir`·카드 소속 대조(어긋나면 0 + 로그) — 다른 팀 카드가 후보가 되지 않는다.
+- G6 팀장 = 그 팀 명부(`seats-<팀>.json` · v65 = `seats.json`)의 `_master` 한 명 — 이름 형식(`byz-<팀>-master-<에이전트>#N`)·라이브(tmux)·현역(`_replaced_by`·stop-ready) 대조, 어긋나면 그 팀 0(죽은 팀장에 쪽지 0).
+- G7 시간 상한 = spawn 비동기(`Popen` · `start_new_session` · 결과는 다음 틱 회수 → 팀장 쪽지) · 한 실행 총 마감 `FT_IDLE_SLOT_BUDGET_SEC`(70)초 · 남은 시간보다 긴 조회 0 · 한 틱 1장(두 팀 준비돼도 폭주 0).
+- **전(`harness/evidence/r667/07-da6-r2-before-base.txt` = 같은 시험을 base 65738ffd 키트로 = 30 FAIL rc=30) → 후(`06-da6-r2-after.txt` = 39 PASS rc=0)** · 인접 기존 시험 8종 전부 rc0(`08-da6-r2-existing-tests.txt` · idle_wake 19 · nano_slots 17 · nano_slots_cards_wt 9 · nano_close_named_wt 63 · nano_close_std_wt_other_branch 27 · team_literal_paths2 330 · baseline_lint 7 · nano_spawn_tier 43).
+- 추적 짝 `harness/bin/` 3파일 cmp0 · `bash -n` 3파일 rc0 · 범위 밖(planner 착지 순번 · 한도 숫자 · 좌석 한도 r666 · 골 표 r664 · `docs/architect`) 변경 0 · press 필요 없음(쪽지·spawn 만).
+
+## 2026-10-22 — 대기 카드가 수십 장 있어도 «빈 석을 채우는 손» 이 없어 planner 승인·[착지 차례]를 기다리는 팀장이 나노 0석으로 멈춰 있었다(빈 석 계산기 = 출력만 · 유휴 깨우기 = 안 읽은 쪽지 있는 좌석만) → 빈 석 계산기의 카드 폴더를 팀 단위로 풀고(FT_NANO_PREFIX 의 팀) 유휴 팀장에 «[빈 석] 후보 N … 착지 차례 대기 = 그 PR 만 대기, 다른 카드는 띄움» 1통, 900초 지나도 그대로면 그 팀 env 서브셸에서 맨 위 카드 1장을 `ft-nano-spawn.sh --from <팀장>` 로 띄우고 «[자동 spawn]» 1통 (r667 · 1.1.204 · 기능 추가 · 키트 3파일(새 1 · 200줄 규칙으로 분리) + 시험 1)
+
+- 사건(원인 표 `harness/design/harness/CAUSE-idle-teams-and-stale-goal-table-20261021.md` 행 1-1~1-5 · 오빠 슬랙 1792588659·1792589716 → planner 96 → master 92 발주 133684·133731 · arch 118): LIVE_BIN 1.1.186 실측 — `ft-nano-slots.sh:11` «출력만 · spawn 은 master» · `ft-idle-wake.sh:4` «pending 있는 좌석만» · 팀장 pane 전원 `✻ done` · 마지막 쪽지 = «나노 0/5 · 기다리는 것: planner 승인 h + [착지 차례]» · 그 팀 나노 0.
+- 0단계(ⓐ′): `ft-nano-slots.sh` 가 카드 폴더를 `v65` 로 고정해 **위성 팀이 늘 v65 카드를 후보로 봤다** → 팀 = `FT_NANO_PREFIX`(`byz-<팀>-nano-`) · 옛 접두(`ft-v65-temp-`)·미설정 = v65 · 규칙 밖 접두 = ERROR(v65 후퇴 0). `--json` = 같은 셈을 기계용 1줄로(사람 글에서 후보를 긁지 않는다) — 셈·판정 규칙은 글자 그대로(출력만 · spawn 은 부르는 쪽).
+- 1단계(ⓑ): `ft-idle-slot-fill.sh`(새 196줄) = 현역 오케 좌석(role master/orch/planner) 중 **IDLE ≥ FT_IDLE_SLOT_SEC(600)** 이고 그 팀 나노가 한도 미만이며 후보 ≥1 → 팀장에 쪽지 1통(`mbox send` = 도어벨 포함이므로 `ring` 중복 0) · 같은 (팀, 후보 집합) 은 FT_IDLE_SLOT_NOTE_SEC(1800) 1회.
+- 2단계(ⓒ): 쪽지 뒤 900초 지나도 팀장 IDLE ∧ 같은 후보 집합 → 맨 위 1장을 `bin-<팀>/<팀>-env.sh` 서브셸에서 `ft-nano-spawn.sh --from <팀장>` 로 띄우고 «[자동 spawn] 카드 → SPAWNED 좌석» 1통 · **한 틱 1장** · **카드당 1회**(재시도 = 사람). 실패면 spawn 원문을 그대로 팀장에 쪽지(조용한 실패 0).
+- 0 조건(ⓓ): 전팀 정지(`ft-all-stop.sh check` rc≠0) · `state/RESOURCE_FREEZE` 표식 · 팀장 화면에 오빠가 치는 중(`client_activity`) · 팀 env 파일 없음(비 v65) · `FT_IDLE_SLOT_AUTO=0`(2단계만) · 후보 계산 실패·명부 못 읽음 = **0 + 로그 1줄**. 상태 파일 손상 = 0 + 덮어쓰지 않음.
+- 붙이는 곳: `ft-idle-wake.sh`(60초 launchd 틱) 꼬리 1블록 — **깨우기(ring) rc 를 바꾸지 않는다**(상태 손상 rc4 보존 · `exit $_pyrc`) · 이 장치의 예외는 로그만(깨우기를 되돌리지 않는다).
+- **전(`harness/evidence/r667/01-before-red.txt` = 같은 시험을 base 키트 65738ffd 로 = 17 FAIL · ⓐ′ 원문 = `FT_NANO_PREFIX=byz-harness-nano-` 인데 후보가 `design/teams/v65/indices/대기/v1.md` ← v65 누출) → 후(`02-after-pass.txt` = ALL PASS rc0)**
+- 기존 시험(내 카드 인접 8종 · 광역 0): `test_ft_idle_wake` 19 · `test_nano_slots` 17 · `test_nano_slots_cards_wt` 9 · `test_nano_close_named_wt` 63 · `test_nano_close_std_wt_other_branch` 27 · `test_team_literal_paths2` 330 · `test_baseline_lint` 7 · `test_nano_spawn_tier` 43 = 전부 rc0(`03-existing-tests.txt`). **바뀐 기존 칸 1(전→후)**: `test_nano_close_named_wt.sh` R416 꼬리 픽스처가 `close()` 의 `FT_NANO_PREFIX=byz-planner-nano-` 를 넘기므로 명단·폴더도 그 팀(`design/teams/planner/`)으로 — 시험의 뜻(«루트 사본 명단 = 옛 판 · ref 명단 = 그 팀 있음»)은 그대로, 대상 팀만 v65→planner.
+- base 에서도 같은 수로 빨강인 선존 결함 2(내 변경과 무관 · 별도 카드): `test_team_literal_paths.sh` 4 · `test_nano_close_cwd_holders_skip_self_r680.sh` 5(`04-base-compare.txt` · `ft-resource-swap-lib.sh` 복사 누락 꼴).
+- 범위 밖: planner 착지 순번 운용 · 한도 숫자 · 좌석 한도(r666) · 골 표(r664) · `docs/architect` 변경 0.
+- 설치: 있음 — kit `bin/ft-nano-slots.sh`·`ft-idle-wake.sh`·`ft-idle-slot-fill.sh`(새) → LIVE_BIN `cmp0`(추적 짝 `harness/bin/` 같음) · 유휴 깨우기 launchd RESTART 는 master. **착지(자율 OFF → 오빠 줄) · 설치 · 실사건 1(승인·착지 차례를 기다리는 팀에서 «빈 석 쪽지» 또는 자동 spawn 으로 대기 카드 1장이 진행된 원문 = mbox 번호 + 좌석 이름)은 master 소관 — 미실행.**
+- press 필요: 없음(나노) — 이 장치는 라이브 오디오 축과 무관(쪽지·spawn 만 · press 게이트 ⑦ 대로 나노는 쏘지 않는다).
+
 ## 2026-10-22 — 틱(`ft-tick.sh`)의 «[HIL 미실행]» 알림이 planner 로 고정 송신돼, 다른 팀 좌석(aifp 팀장)이 칠 h 파일의 알림은 그 좌석이 못 받았다(aifp 는 자기 리포 쪽지함을 읽는다) → h 진입 파일 옆 수신자 표식(`/tmp/h<N>.notify` · seat= + comm= 두 줄)을 `ft-hil.sh --add --notify <좌석> --notify-comm <쪽지함>` 으로 달고, 틱은 표식이 있으면 그 쪽지함으로 그 좌석에 1통(planner 0) · 표식 없으면 기존대로 planner · 표식 손상은 ERROR 1줄 + planner «표식 손상» (r718 · 1.1.203 · 도구 선택지 추가 · 틱 분기 1 · 2파일)
 
 - 판정문 §184(DA⑥ r1 HOLD 처방 3건 + 시험 격리 반영 → arch 재대조 OK · 실 쪽지함 1행·planner 쪽 0 · 도어벨 격리 · 변이 4종 검출) · 증거 `harness/evidence/r718/` · 시험 `harness/tests/test_hil_notify_marker.sh` · 설치: 있음(kit `bin/ft-hil.sh`·`ft-tick.sh` → 설치 시 라이브 도구 · 되돌림 = 이전 판) · 표식 없는 h 는 동작 변화 0.

@@ -1,0 +1,9 @@
+BASE FAIL ⓐ1 골 표: planner 원장 «지금 상태» 6칸을 칸 경로에서 읽었다 — 없음: «상태6진행» ← WARN 골 표 원장 상태 칸 없음(절): gitref:origin/main:design/planner/PLAN-oppa-ledger.md — «상태 없음» 6칸으로 발행
+BASE FAIL ⓐ1 ft-role-spawn: 인박스 = v65 칸 아래(리포 상대) ← <T>/rb1/ft-resource-gate.sh: 줄 30: <T>/rb1/ft-resource-swap-lib. — 없음: «inbox=design/v65/indices/inbox/da» ← <T>/rb1/ft-resource-gate.sh: 줄 30: <T>/rb1/ft-resource-swap-lib.sh: No such file or directory
+BASE FAIL ⓐ2 골 표: planner 원장 «지금 상태» 6칸을 칸 경로에서 읽었다 — 없음: «상태6진행» ← WARN 골 표 원장 상태 칸 없음(절): gitref:origin/main:design/teams/planner/PLAN-oppa-ledger.md — «상태 없음» 6칸으로 발행
+BASE FAIL ⓐ2 ft-role-spawn: 인박스 = v65 칸 아래(리포 상대) ← <T>/rb2/ft-resource-gate.sh: 줄 30: <T>/rb2/ft-resource-swap-lib. — 없음: «inbox=design/teams/v65/indices/inbox/da» ← <T>/rb2/ft-resource-gate.sh: 줄 30: <T>/rb2/ft-resource-swap-lib.sh: No such file or directory
+BASE-r680 FAILCOUNT 5
+== 내 판(고친 키트) 같은 두 시험 ==
+test_team_literal_paths.sh FAIL=4
+test_nano_close_cwd_holders_skip_self_r680.sh FAIL=5
+⇒ 두 시험은 base(65738ffd)에서도 같은 수로 빨강 — 내 변경과 무관(선존 결함 · 별도 카드 대상)

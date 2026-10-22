@@ -1,0 +1,4 @@
+PASS ⓗa env 없음(기본) = 빈 석 쪽지 1통 · 900초 뒤에도 자동 spawn 0
+PASS ⓗb 켜기 = 명시 FT_IDLE_SLOT_AUTO=1 이고 로그에 «r721 전까지 미검증» 1줄
+PASS ⓗc 변이(기본값 1 로 되돌림) → 자동 spawn 발생 = ⓗa 칸이 FAIL 하는 판(변별력)
+ALL PASS
