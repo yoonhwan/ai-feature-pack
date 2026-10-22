@@ -113,10 +113,32 @@ PING="$(rs 12 'bash -lc "export PATH=\$HOME/.npm-global/bin:\$HOME/.local/bin:\$
 printf '%s\n' "$PING" | sed 's/^/        /'
 printf '%s\n' "$PING" | grep -q 'ping_rc=0' || say "        ⚠ ping rc≠0 — 로그: journalctl --user -u headroom -n 30 · cliproxy 인증 확인(다음 장에서 재시도)"
 
-say "5/6 증거 ② tmuxc 좌석 열기 → probe → 닫기"
+say "5/6 증거 ② 사전: 작업 폴더(\$HOME) 신뢰·온보딩·API키 승인 표식(첫 화면 질문이 Enter 로 «No, exit» 가 되는 것 방지)"
+# mini 실측(2026-10-22): 처음 여는 폴더는 «trust this folder?» 가 뜨고 tmuxc 가 보낸 Enter 가 기본값 «No, exit» 를 눌러 claude 가 종료됐다.
+# ~/.claude.json 의 projects[<폴더>].hasTrustDialogAccepted 는 Claude Code 의 표준 키(이 맥 파일에서 확인). 백업 후 JSON 검증을 거쳐 원자적 교체.
+rs 25 'python3 -' <<'PYEOF' 2>&1 | sed 's/^/        /'
+import json, os, shutil, time
+p = os.path.expanduser('~/.claude.json'); d = {}
+if os.path.exists(p):
+    shutil.copy2(p, p + '.bak-' + time.strftime('%Y%m%d-%H%M%S'))
+    d = json.load(open(p))
+d['hasCompletedOnboarding'] = True
+d.setdefault('projects', {}).setdefault(os.path.expanduser('~'), {})['hasTrustDialogAccepted'] = True
+d.setdefault('customApiKeyResponses', {}).setdefault('approved', [])
+if 'aifp-local-no-auth' not in d['customApiKeyResponses']['approved']:
+    d['customApiKeyResponses']['approved'].append('aifp-local-no-auth')
+tmp = p + '.tmp'
+json.dump(d, open(tmp, 'w'), ensure_ascii=False, indent=2); json.load(open(tmp)); os.chmod(tmp, 0o600); os.replace(tmp, p)
+print('trust_onboarding_key=ok')
+PYEOF
+
+say "5/6 증거 ② tmuxc 좌석 열기 → 화면 캡처 → probe → 닫기"
 SEAT="oci-cli-proof-$(date +%H%M%S)"
 OPEN="$(rs 60 "bash -lc 'export PATH=\$HOME/.local/bin:\$HOME/.npm-global/bin:\$PATH; cd ~ && tmuxc open . --name $SEAT --agent claude --model claude-sonnet-5-5 --role worker 2>&1 | tail -5'" 2>&1)" || true
 printf '%s\n' "$OPEN" | sed 's/^/        /'
+sleep 6
+SCR="$(rs 15 "bash -lc 'tmux capture-pane -p -t \"$SEAT:\" 2>/dev/null | grep -v \"^\\s*$\" | tail -8 | cut -c1-120'" 2>&1)" || true
+printf '%s\n' "$SCR" | sed 's/^/        화면| /'
 PROBE="$(rs 30 "bash -lc 'export PATH=\$HOME/.local/bin:\$PATH; tmuxc probe $SEAT 2>&1 | head -8'" 2>&1)" || true
 printf '%s\n' "$PROBE" | sed 's/^/        /'
 CLOSE="$(rs 25 "bash -lc 'tmux has-session -t \"=$SEAT\" 2>/dev/null && tmux kill-session -t \"=$SEAT\"; tmux has-session -t \"=$SEAT\" 2>/dev/null && echo seat=STILL_ALIVE || echo seat=closed'" 2>&1)" || true

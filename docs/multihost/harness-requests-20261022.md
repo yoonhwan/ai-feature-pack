@@ -103,3 +103,8 @@
 | 7 | 병합(docs 가지) | 이 맥 `! bash /tmp/h<N>` | ⏸ 대기 | 가지 `docs/multihost-plan-20261021` · 설계·실측 마감 후 한 번에 | 마감 때 |
 
 오빠 손 합계(지금 당장): **2건**(#2 키 만료 끄기 · #5 mini 소리 점검). 둘 다 구현 대기와 무관하게 할 수 있음.
+
+## 추가 요청 후보 — tmuxc open 의 «신뢰 질문 화면에서 Enter» (2026-10-22 · mini 실측)
+- 증상: mini 에서 처음 여는 폴더(/Users/byz)로 `tmuxc open --agent claude` 하면 claude 가 «Quick safety check: trust this folder?» (기본 선택 ❯ 1. No, exit) 를 띄우고, tmuxc 가 open 직후 보내는 Enter(`core/bin/tmuxc` inject_message — 가이드 주입)가 «No, exit» 를 눌러 claude 가 종료 → zsh 프롬프트 복귀 → `tmuxc probe: no known agent process`. (캡처 원문은 상위 진단 #3141·#3144.) 이 맥은 작업 폴더가 이미 신뢰돼 가려져 있었다. 타이밍 경쟁이 아님.
+- 요청(카드 후보, tmuxc = 하네스 소유): 가이드/프롬프트 주입 전에 pane 화면을 읽어 신뢰·온보딩 질문 화면이면 Enter 를 보내지 않고 «사람 입력 필요» 로 경고·종료 코드 반환(또는 신뢰 질문이면 주입을 미룬다). 멀티호스트에서 원격 호스트 첫 좌석 개설이 반드시 이 경로를 밟는다.
+- 우회(지금): 원격 운용 작업 폴더를 사람이 한 번 열어 «Yes, I trust» 를 눌러 두거나, 새 파일 생성이 안전한 호스트(OCI)에서는 h 가 `~/.claude.json` 의 `projects[<폴더>].hasTrustDialogAccepted` 를 백업·검증·원자 교체로 설정(h377 반영).
