@@ -85,8 +85,8 @@ out="$(unit scope_slack_body $((T0+9)) 5 5 docs,bogus 0 full '')"; rc=$?; [ $rc 
 
 # ===== ⓔ 기계 줄 = 바이트 그대로(grant 줄·grants.audit) =====
 fresh; a on --level full --for 12h >/dev/null 2>&1; : > "$P"; grant --for 10h --max 5 --daily 2 --classes docs,ff
-grep -qxF "approve-scope S2 A1 $T0 until=$((T0+36000)) max=5 daily=2 classes=docs,ff" "$LOG"; ck "ⓔ approve-scope 줄 바이트 그대로(내부 칸 이름 유지)" $?
-printf 'S2\tA1\t%s\tuntil=%s\tmax=5\tdaily=2\tclasses=docs,ff\tslack_ts=1800000000.000100\n' "$T0" "$((T0+36000))" | cmp -s - <(tail -1 "$AU"); ck "ⓔ grants.audit 줄 바이트 그대로(슬랙 ts 칸 포함)" $?
+grep -qxF "approve-scope S2 A1 $T0 until=$((T0+36000)) max=5 daily=2 classes=docs,ff repos=byz,pack" "$LOG"; ck "ⓔ approve-scope 줄 바이트 그대로(내부 칸 이름 유지)" $?
+printf 'S2\tA1\t%s\tuntil=%s\tmax=5\tdaily=2\tclasses=docs,ff\trepos=byz,pack\tslack_ts=1800000000.000100\n' "$T0" "$((T0+36000))" | cmp -s - <(tail -1 "$AU"); ck "ⓔ grants.audit 줄 바이트 그대로(슬랙 ts 칸 포함)" $?
 st="$(grep -c '^scope-use ' "$LOG")"; run a scope-approve "$(sha 9)"
 [ $rc = 0 ] && [ "$(grep -c '^scope-use ' "$LOG")" = "$((st+1))" ] && grep -qxF "scope-use S2 $(sha 9) docs $T0" "$LOG"; ck "ⓔ scope-use 줄 바이트 그대로" $?
 run a scope-status --audit; [ $rc = 0 ] && has '^AUDIT-OK'; ck "ⓔ --audit OK(게시 본문을 바꿔도 대조 그대로)" $?

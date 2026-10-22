@@ -1,3 +1,10 @@
+## 2026-10-23 — r748 자율 범위 몫(총·하루)은 제품 코드 병합만 센다(1.1.219)
+
+- 범위 승인의 총·하루 몫이 문서만 바꾸는 병합까지 먹어, 오빠에게 «1분에 하나씩 승인»이 올라가던 원인 하나를 줄인다. docs·ff 병합은 바뀐 경로가 «전부 .md» 이고 `scope-use` 줄 끝에 `counted=0` 칸이 있을 때만 셈 0. .md 아닌 경로가 하나라도 있거나 칸이 없거나(r748 전 옛 줄 포함) 못 재면 셈 1(실패 닫힘). `SCOPE_USE_RE` 는 `counted=0` 만 허용.
+- 시험: `test_autonomy_scope_code_only_r748.sh` 48 · scope 135 · scope_pack 19 · plain3_r658 28 · r560_equiv 30 · level 66 · merge_equiv 14 FAIL 0(scope_classify 5 FAIL 은 main 에서도 동일) · 변이 4종 빨강 · arch §222 격리 재대조 · 외부 DA⑥ r1·r2·r3 HOLD → 처방 1·2 이행 · r3 의 유일한 HOLD 근거는 «같은 UID 로 상태 파일을 손으로 고치면 셈이 바뀐다» = 자율 상태 전체 공통 한계(autonomy-state-guard.sh 8~12행) — master 결정 A(PACKET-r748-da6-r3-hold.md).
+- 한계: 같은 사용자 권한의 상태 파일 손 편집은 막지 않는다(좌석의 직접 쓰기만 가드가 막음). 분류기 구멍 5종은 r766.
+- 설치: ft-autonomy-scope.sh · ft-autonomy.sh bin/kit 짝 cmp0.
+
 ## 2026-10-23 — r746 루트 연결 파일(shim) `.py` 는 python 본문으로(1.1.218)
 
 - `ft-root-bin-shim.sh` 가 만드는 `.py` 연결 파일이 bash 본문이라 `python3 <shim>.py` 로 부르면 SyntaxError 나던 것 → 올바른 python 본문(1행 python3 · 2행 표식 · 3행 bash·python 겸용 줄)으로 생성. LIVE_BIN 검사 3종 문구·rc3 동일 · import 는 ImportError · 실행은 `os.execv`. 옛 호출 꼴 `bash <shim>.py` 도 겸용 줄로 그대로 통과.

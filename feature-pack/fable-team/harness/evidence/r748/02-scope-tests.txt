@@ -1,0 +1,138 @@
+$ bash tests/test_autonomy_scope.sh
+PASS bash -n ft-autonomy.sh
+PASS bash -n ft-autonomy-scope.sh
+PASS bash -n ft-autonomy-scope-code.sh
+PASS py_compile autonomy_scope_post.py
+PASS 설치 미러 cmp0 (bin 네 파일)
+PASS approve-scope OFF → REJECT rc 2
+PASS classes 에 code · --code-max 없음 → REJECT (R411)
+PASS --code-max 0 → REJECT
+PASS --code-max > max → REJECT
+PASS code 없는데 --code-max → REJECT
+PASS --for 73h → REJECT
+PASS --for 0h → REJECT
+PASS --for 단위 없음 → REJECT
+PASS --max 31 → REJECT
+PASS --max 0 → REJECT
+PASS --daily > max → REJECT
+PASS 모르는 종류 → REJECT
+PASS 종류 중복 → REJECT
+PASS 빈 종류 → REJECT
+PASS --max 없음 → REJECT
+PASS REJECT 전부 log 쓰기 0 (모드 줄 1줄만)
+PASS 정상 grant → SCOPE-GRANTED S1
+PASS log 에 approve-scope 줄 꼴
+PASS 정상 범위 줄은 위변조 아님 (mode=on)
+PASS 두 번째 grant = S2 · daily 기본 min(10,max)
+PASS 앞 grant 자동 대체 — status 는 S2
+PASS 범위 안 → SCOPE-OK (가짜 sha = 경로 못 재면 칸 없음 = 셈 1)
+PASS 승인 파일 1줄 == log 한 줄(기존 형식 · 병합 가드 결속)
+PASS log 에 scope-use 줄
+PASS 원장 1행(시각·sha·PR·종류·빈칸 3)
+PASS 원장 7칸(시각·sha·PR·종류·판정문·착지 sha·되돌림) · 6번째 = 착지 sha 빈칸 (r298b LEDGER_LANDED_COL)
+PASS scope-use·approve-merge 줄 뒤에도 mode=on
+PASS 같은 sha 두 번 → SCOPE-NOOP
+PASS NOOP 은 쓰기 0 (건수 불변)
+PASS daily 3 안의 3건째 OK
+PASS daily 도달 → REJECT (counted=1 은 몫을 깎는다)
+PASS daily REJECT 쓰기 0
+PASS daily 도달은 정지 아님(내일 풀림)
+PASS revert 는 건수 0 (used=0/2)
+PASS docs 2건 = max
+PASS max 도달 → REJECT
+PASS max 도달 → 자동 정지(log + .stopped)
+PASS status 정지 꼴
+PASS 정지 뒤 revert 도 REJECT
+PASS until 지남 → REJECT
+PASS until 지남 → 자동 정지
+PASS OFF→ON 다시 켬(A2) → 옛 S1 REJECT
+PASS 사건 번호 바뀜 → 자동 정지
+PASS 자율 OFF → REJECT
+PASS OFF REJECT 쓰기 0
+PASS 분류기 FORBID → REJECT(사유 그대로)
+PASS 분류기 없음 → REJECT
+PASS 분류기 출력 꼴 틀림 → REJECT
+PASS 종류 code → 범위 밖 REJECT
+PASS grant 에 없는 종류(revert) → REJECT
+PASS 분류기 REJECT 5종 전부 쓰기 0
+PASS sha 형식 틀림 → REJECT
+PASS grant 없음 → REJECT
+PASS check-revert rc 0 → 진행(SCOPE-OK)
+PASS check-revert 가 classify «전» 에 · 인자(--repo ROOT --remote origin --target main --scope S1)
+PASS check-revert rc 4 → REJECT + 사유 그대로
+PASS rc 4 → scope_write_stop(log + .stopped)
+PASS rc 4 쓰기 = stop 1줄뿐(scope-use·승인 0)
+PASS REVERTED stop 줄도 위변조 아님
+PASS REVERTED 뒤 status 정지
+PASS check-revert rc 1 → REJECT(닫힌 쪽)
+PASS rc 1 → 쓰기 0 · 정지 아님
+PASS scope-stop 사유의 탭·개행은 공백으로
+PASS stop 줄도 위변조 아님
+PASS scope-stop 뒤 scope-approve REJECT
+PASS scope-stop 멱등
+PASS 없는 S → REJECT
+PASS 사유 없음 → REJECT
+PASS 새 approve-scope(S2) 로만 재개
+PASS scope-use 꼴 틀림 → tamper
+PASS classes=foo 줄 → tamper (꼴 밖)
+PASS codemax=x 줄 → tamper (꼴 밖)
+PASS scope-use 종류 foo → tamper
+PASS 사유 빈 scope-stop 줄 → tamper
+PASS 위변조 상태 scope-approve REJECT
+PASS 위변조 status 정지 표시
+PASS status 승인 없음 꼴
+PASS 게시 성공 → grant + grants.audit 1줄(슬랙 ts 포함)
+PASS 슬랙 본문 3줄 꼴(켜짐·혼자 해도 되는 것·언제까지 · 내부 번호 0 · r658)
+PASS 게시 실패 → REJECT rc 1
+PASS 게시 실패 → grant·audit 쓰기 0
+PASS 게시 도구 없음 → REJECT rc 1 · 쓰기 0
+PASS 도구 없음 쓰기 0
+PASS audit 줄을 지운 상태(S1 grant 만 남음) → MISMATCH rc 3
+PASS --audit grant 없음 → AUDIT-OK grants=0
+PASS 정상 흐름 → AUDIT-OK grants=1 used=2
+PASS log 에 직접 덧붙인 grant(슬랙 줄 없음) → MISMATCH S2 rc 3
+PASS 덧붙인 grant 줄 꼴은 위변조 판정에 안 걸림(그래서 --audit 이 잡는다)
+PASS audit 값을 바꿈(max=9) → MISMATCH S1
+PASS audit 의 슬랙 ts 를 비움 → MISMATCH
+PASS scope-use 줄 삭제 → MISMATCH used(원장 행과 어긋남) rc 3
+PASS 승인 파일 삭제 → MISMATCH used(승인 파일 수 < scope-use 수) rc 3
+PASS 오빠 수동 approve-merge 가 더 있어도(파일 3 ≥ 2) AUDIT-OK
+PASS ⓐ code grant → SCOPE-GRANTED … codemax=2
+PASS ⓐ log grant 줄 꼴 · SCOPE_GRANT_RE 통과(mode=on)
+PASS ⓐ scope-status code 0/2
+PASS ⓐ 슬랙 2줄에 코드 병합 2건까지(r658) · --audit AUDIT-OK(codemax 칸)
+PASS ⓓ --card 없음 → REJECT
+PASS ⓓ 증거 줄 없음 → REJECT
+PASS ⓓ 시험 rc≠0 → REJECT
+PASS ⓓ 세트 sha 가 head 의 조상 아님 → REJECT
+PASS ⓓ A 위 자기 변경 더(NOT-EQUIV) → REJECT
+PASS ⓓ 카드 파일 없음 → REJECT
+PASS ⓓ 거절 전부 쓰기 0(승인 파일·원장 0)
+PASS ⓑ 세트 == head → SCOPE-OK class=code code=1/2
+PASS ⓑ 승인 파일 1줄 == log 한 줄 · scope-use code
+PASS ⓑ 원장 5번째 칸 evidence=<카드>@<A>
+PASS ⓑ scope-use code 줄은 위변조 아님
+PASS ⓔ docs 는 --card 없이 · code 건수와 별개
+PASS ⓒ 세트 위 main 병합 head → SCOPE-OK equiv=A
+PASS ⓒ 원장 evidence=<카드>@<A>
+PASS ⓔ code-max 도달 → REJECT
+PASS ⓔ 도달 = 기존 건수 도달과 같은 정지(log + .stopped) · 승인 0
+PASS ⓔ 정상 흐름 --audit AUDIT-OK
+PASS ⓔ 옛 grant(code 없음 · codemax 없음) → code 범위 밖 REJECT(기본 닫힘)
+PASS bash -n autonomy-state-guard.sh
+PASS 좌석 approve-scope 실행 → deny
+PASS ft-autonomy.sh approve-scope → deny
+PASS bash -c 안 approve-scope → deny
+PASS scope-approve → allow (좌석 경로)
+PASS scope-stop → allow
+PASS scope-status → allow
+PASS autonomy-scope/ 읽기 → allow
+PASS autonomy-scope/ 리다이렉트 쓰기 → deny
+PASS autonomy-scope/ rm → deny
+PASS autonomy-scope/ cp 대상 → deny
+PASS Write autonomy-scope/ → deny
+PASS Edit autonomy-scope/ → deny
+PASS 다른 경로 Write → allow
+fail=0
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+rc=0

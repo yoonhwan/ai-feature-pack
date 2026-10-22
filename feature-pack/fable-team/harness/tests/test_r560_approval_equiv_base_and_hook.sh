@@ -109,7 +109,7 @@ mkdir -p "$SR/harness"; cp -R "$SCOPE_BIN" "$SR/harness/bin"
 cat > "$T/stub-classify.sh" <<'EOF'
 #!/usr/bin/env bash
 [ "$1" = check-revert ] && { echo OK; exit 0; }
-echo "CLASS docs"; exit 0
+echo "${STUB_OUT:-CLASS docs}"; exit 0
 EOF
 cat > "$T/stub-post.sh" <<'EOF'
 #!/usr/bin/env bash
@@ -120,8 +120,8 @@ rm -rf "$S"; mkdir -p "$S"
 sa() { FT_ROOT="$SR" "$BASH" "$SR/harness/bin/ft-autonomy.sh" "$@"; }
 sr() { out="$(sa "$@" 2>&1)"; rc=$?; }
 sa on >/dev/null 2>&1; sa approve-scope --for 10h --max 5 --classes docs >/dev/null 2>&1
-sr scope-approve "$SA"; [ "$rc" = 0 ] && has 'SCOPE-OK .* used=1/5'; ck "ⓘ 픽스처: A 승인 = used=1/5" $?
-sr scope-approve "$SS"; [ "$rc" = 0 ] && has 'class=equiv' && has "equiv=$SA" && has 'used=1/5'; ck "ⓘ A 의 EQUIV(승인 위 main 병합만) = class=equiv · used 그대로 1/5" $?
+STUB_OUT="CLASS docs kind=ops-x learned" sr scope-approve "$SA"; [ "$rc" = 0 ] && has 'SCOPE-OK .* used=1/5'; ck "ⓘ 픽스처: A 승인 = used=1/5 (r748: 학습표 통과분이라 셈 1)" $?
+STUB_OUT="CLASS docs" sr scope-approve "$SS"; [ "$rc" = 0 ] && has 'class=equiv' && has "equiv=$SA" && has 'used=1/5'; ck "ⓘ A 의 EQUIV(승인 위 main 병합만) = class=equiv · used 그대로 1/5" $?
 sr scope-status; has '1/5' && has '오늘 1/'; ck "ⓘ 하루 셈도 그대로(오늘 1)" $?
 tail -1 "$S/autonomy-scope/S1.ledger.tsv" 2>/dev/null | awk -F'\t' '{exit !($4=="equiv")}'; ck "ⓘ 원장 줄 종류 = equiv" $?
 
@@ -169,8 +169,8 @@ S2="$T/state2"; rm -rf "$S2"; mkdir -p "$S2"
 sc() { FT_ROOT="$W2" FT_AUTONOMY_STATE_DIR="$S2" "$BASH" "$W2/harness/bin/ft-autonomy.sh" "$@"; }
 scr() { out="$(sc "$@" 2>&1)"; rc=$?; }
 sc on >/dev/null 2>&1; sc approve-scope --for 10h --max 5 --classes docs >/dev/null 2>&1
-scr scope-approve "$A3"; [ "$rc" = 0 ] && has 'used=1/5'; ck "ⓞ 그래프 1 세트 A 승인 = used=1/5" $?
-scr scope-approve "$S6"; [ "$rc" = 0 ] && ! has 'class=equiv' && has 'used=2/5'; ck "ⓞ 그래프 1 의 S 는 class=equiv 비차감을 못 받음(일반 셈 used=2/5)" $?
+STUB_OUT="CLASS docs kind=ops-x learned" scr scope-approve "$A3"; [ "$rc" = 0 ] && has 'used=1/5'; ck "ⓞ 그래프 1 세트 A 승인 = used=1/5 (r748: 학습표 통과분)" $?
+STUB_OUT="CLASS docs" scr scope-approve "$S6"; [ "$rc" = 0 ] && ! has 'class=equiv' && has 'used=2/5'; ck "ⓞ 그래프 1 의 S 는 class=equiv 비차감을 못 받음(일반 셈 used=2/5)" $?
 
 # ✅ 마무리 — 남의 파일 손대지 않았나(정본 미러 cmp0) + 기존 시험은 따로(ⓙ = evidence)
 cmp -s "$BIN/ft_approval_equiv.py" "$ROOT/harness/kit/fable-team/bin/ft_approval_equiv.py" && cmp -s "$BIN/ft-autonomy-scope.sh" "$ROOT/harness/kit/fable-team/bin/ft-autonomy-scope.sh"; ck "ⓙ 정본 미러 cmp0(harness/bin ↔ kit)" $?

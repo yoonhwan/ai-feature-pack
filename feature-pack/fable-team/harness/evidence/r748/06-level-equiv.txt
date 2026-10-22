@@ -1,0 +1,4 @@
+$ bash tests/test_autonomy_level.sh
+fail=0
+$ bash tests/test_autonomy_merge_equiv.sh
+fail=0

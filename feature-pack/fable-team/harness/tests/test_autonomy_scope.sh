@@ -65,16 +65,16 @@ grant --for 10h --max 5 --classes docs,,ff; [ $rc = 2 ]; ck "빈 종류 → REJE
 grant --for 10h --classes docs; [ $rc = 2 ]; ck "--max 없음 → REJECT" $?
 [ "$(lines)" = 1 ]; ck "REJECT 전부 log 쓰기 0 (모드 줄 1줄만)" $?
 grant --for 10h --max 5 --daily 2 --classes docs,ff,revert
-[ $rc = 0 ] && has '^SCOPE-GRANTED S1 A1 until=[0-9]{2}:[0-9]{2} max=5 daily=2 classes=docs,ff,revert$'; ck "정상 grant → SCOPE-GRANTED S1" $?
-grep -qxF "approve-scope S1 A1 $T0 until=$((T0+36000)) max=5 daily=2 classes=docs,ff,revert" "$LOG"; ck "log 에 approve-scope 줄 꼴" $?
+[ $rc = 0 ] && has '^SCOPE-GRANTED S1 A1 until=[0-9]{2}:[0-9]{2} max=5 daily=2 classes=docs,ff,revert repos=byz,pack$'; ck "정상 grant → SCOPE-GRANTED S1" $?
+grep -qxF "approve-scope S1 A1 $T0 until=$((T0+36000)) max=5 daily=2 classes=docs,ff,revert repos=byz,pack" "$LOG"; ck "log 에 approve-scope 줄 꼴" $?
 [ "$(a mode)" = on ]; ck "정상 범위 줄은 위변조 아님 (mode=on)" $?
-grant --for 5h --max 3 --classes docs; [ $rc = 0 ] && has '^SCOPE-GRANTED S2 .* max=3 daily=3 classes=docs$'; ck "두 번째 grant = S2 · daily 기본 min(10,max)" $?
+grant --for 5h --max 3 --classes docs; [ $rc = 0 ] && has '^SCOPE-GRANTED S2 .* max=3 daily=3 classes=docs repos=byz,pack$'; ck "두 번째 grant = S2 · daily 기본 min(10,max)" $?
 run a scope-status; has '^\[범위 승인 S2 · A1 · ~[0-9]{2}:[0-9]{2}까지 · 0/3 · 오늘 0/3 · docs\]$'; ck "앞 grant 자동 대체 — status 는 S2" $?
 
 # ===== scope-approve =====
 fresh; grant --for 10h --max 5 --daily 3 --classes docs,ff,revert >/dev/null
 run a scope-approve "$(sha 1)" --pr 7
-[ $rc = 0 ] && has "^SCOPE-OK $(sha 1) class=docs used=1/5 today=1/3$"; ck "범위 안 → SCOPE-OK" $?
+[ $rc = 0 ] && has "^SCOPE-OK $(sha 1) class=docs used=1/5 today=1/3$"; ck "범위 안 → SCOPE-OK (가짜 sha = 경로 못 재면 칸 없음 = 셈 1)" $?
 [ "$(cat "$AP/$(sha 1)")" = "approve-merge $(sha 1) A1 $T0" ] && grep -qxF "$(cat "$AP/$(sha 1)")" "$LOG"; ck "승인 파일 1줄 == log 한 줄(기존 형식 · 병합 가드 결속)" $?
 grep -qxF "scope-use S1 $(sha 1) docs $T0" "$LOG"; ck "log 에 scope-use 줄" $?
 printf '%s\t%s\t7\tdocs\t\t\t\n' "$T0" "$(sha 1)" | cmp -s - "$S/autonomy-scope/S1.ledger.tsv"; ck "원장 1행(시각·sha·PR·종류·빈칸 3)" $?
@@ -83,20 +83,20 @@ printf '%s\t%s\t7\tdocs\t\t\t\n' "$T0" "$(sha 1)" | cmp -s - "$S/autonomy-scope/
 n0="$(lines)"; run a scope-approve "$(sha 1)"; [ $rc = 0 ] && has '^SCOPE-NOOP .* used=1/5'; ck "같은 sha 두 번 → SCOPE-NOOP" $?
 [ "$(lines)" = "$n0" ]; ck "NOOP 은 쓰기 0 (건수 불변)" $?
 run a scope-approve "$(sha 2)"; run a scope-approve "$(sha 3)"; [ $rc = 0 ]; ck "daily 3 안의 3건째 OK" $?
-run a scope-approve "$(sha 4)"; [ $rc = 2 ] && has '하루 건수 도달'; ck "daily 도달 → REJECT" $?
+run a scope-approve "$(sha 4)"; [ $rc = 2 ] && has '하루 건수 도달'; ck "daily 도달 → REJECT (counted=1 은 몫을 깎는다)" $?
 [ ! -e "$AP/$(sha 4)" ] && ! grep -q "$(sha 4)" "$LOG"; ck "daily REJECT 쓰기 0" $?
 run a scope-status; ! has '정지' && has '^\[범위 승인 S1 · A1 .* 3/5 · 오늘 3/3 · docs,ff,revert\]$'; ck "daily 도달은 정지 아님(내일 풀림)" $?
 
-# max · 자동 정지 · revert 건수 0
+# max · 자동 정지 · revert 건수 0 (r748: 셈 0 = revert·equiv 와 «.md 만» docs·ff — 여기 docs 는 가짜 sha 라 셈 1)
 fresh; grant --for 10h --max 2 --daily 2 --classes docs,ff,revert >/dev/null
 STUB_OUT="CLASS revert"; export STUB_OUT
 run a scope-approve "$(sha 11)"; run a scope-approve "$(sha 12)"; [ $rc = 0 ] && has 'used=0/2'; ck "revert 는 건수 0 (used=0/2)" $?
 STUB_OUT="CLASS docs"
-run a scope-approve "$(sha 13)"; run a scope-approve "$(sha 14)"; [ $rc = 0 ] && has 'used=2/2'; ck "docs 2건 = max" $?
+run a scope-approve "$(sha 13)"; run a scope-approve "$(sha 14)"; [ $rc = 0 ] && has "^SCOPE-OK $(sha 14) class=docs used=2/2 today=2/2$"; ck "docs 2건 = max" $?
 run a scope-approve "$(sha 15)"; [ $rc = 2 ] && has '건수 도달'; ck "max 도달 → REJECT" $?
 [ -f "$S/autonomy-scope/S1.stopped" ] && grep -q '^scope-stop S1 ' "$LOG"; ck "max 도달 → 자동 정지(log + .stopped)" $?
-STUB_OUT="CLASS revert"; run a scope-approve "$(sha 16)"; [ $rc = 2 ] && has '정지'; ck "정지 뒤 revert 도 REJECT" $?
 run a scope-status; has '^\[범위 승인 S1 정지: 건수 도달\(2/2\)\]$'; ck "status 정지 꼴" $?
+STUB_OUT="CLASS revert"; run a scope-approve "$(sha 16)"; [ $rc = 2 ] && has '정지'; ck "정지 뒤 revert 도 REJECT" $?
 STUB_OUT="CLASS docs"
 
 # until 지남 · 사건 번호 바뀜
@@ -166,7 +166,7 @@ run a scope-status; rm -rf "$S"; mkdir -p "$S"; run a scope-status; has '^\[범�
 # ===== r3: grant 슬랙 1줄 + grants.audit + scope-status --audit (판정 2078 ⓐ — 직접 쓰기는 막지 못하고 «들킨다») =====
 AU="$S/autonomy-scope/grants.audit"; : > "$STUB_POST_LOG"
 fresh; grant --for 10h --max 5 --daily 2 --classes docs,ff
-[ $rc = 0 ] && [ "$(wc -l < "$AU" | tr -d ' ')" = 1 ] && printf 'S1\tA1\t%s\tuntil=%s\tmax=5\tdaily=2\tclasses=docs,ff\tslack_ts=1800000000.000100\n' "$T0" "$((T0+36000))" | cmp -s - "$AU"; ck "게시 성공 → grant + grants.audit 1줄(슬랙 ts 포함)" $?
+[ $rc = 0 ] && [ "$(wc -l < "$AU" | tr -d ' ')" = 1 ] && printf 'S1\tA1\t%s\tuntil=%s\tmax=5\tdaily=2\tclasses=docs,ff\trepos=byz,pack\tslack_ts=1800000000.000100\n' "$T0" "$((T0+36000))" | cmp -s - "$AU"; ck "게시 성공 → grant + grants.audit 1줄(슬랙 ts 포함)" $?
 [ "$(wc -l < "$STUB_POST_LOG" | tr -d ' ')" = 3 ] && grep -qE '^자율 켜짐\([^)]+\)$' <(sed -n 1p "$STUB_POST_LOG") \
   && [ "$(sed -n 2p "$STUB_POST_LOG")" = "혼자 해도 되는 것: 문서 병합 · 빨리 감기 병합 5건까지 · 하루 2건" ] \
   && grep -qE '^언제까지: [0-9]{2}:[0-9]{2} 까지$' <(sed -n 3p "$STUB_POST_LOG") \
@@ -210,8 +210,8 @@ card() { printf '# 카드\n## 상태\n- 세트: %s · 시험: %s · 이슈: 0\n'
 ar() { FT_ROOT="$R" a "$@"; }
 # ⓐ grant
 fresh; grant --for 2h --max 5 --classes docs,ff,revert,code --code-max 2
-[ $rc = 0 ] && has '^SCOPE-GRANTED S1 A1 until=[0-9]{2}:[0-9]{2} max=5 daily=5 classes=docs,ff,revert,code codemax=2$'; ck "ⓐ code grant → SCOPE-GRANTED … codemax=2" $?
-grep -qxF "approve-scope S1 A1 $T0 until=$((T0+7200)) max=5 daily=5 classes=docs,ff,revert,code codemax=2" "$LOG" && [ "$(a mode)" = on ]; ck "ⓐ log grant 줄 꼴 · SCOPE_GRANT_RE 통과(mode=on)" $?
+[ $rc = 0 ] && has '^SCOPE-GRANTED S1 A1 until=[0-9]{2}:[0-9]{2} max=5 daily=5 classes=docs,ff,revert,code codemax=2 repos=byz,pack$'; ck "ⓐ code grant → SCOPE-GRANTED … codemax=2" $?
+grep -qxF "approve-scope S1 A1 $T0 until=$((T0+7200)) max=5 daily=5 classes=docs,ff,revert,code codemax=2 repos=byz,pack" "$LOG" && [ "$(a mode)" = on ]; ck "ⓐ log grant 줄 꼴 · SCOPE_GRANT_RE 통과(mode=on)" $?
 run a scope-status; has '^\[범위 승인 S1 · A1 · .* 0/5 · 오늘 0/5 · docs,ff,revert,code · code 0/2\]$'; ck "ⓐ scope-status code 0/2" $?
 grep -qxF "혼자 해도 되는 것: 문서 병합 · 빨리 감기 병합 · 되돌림 5건까지 · 코드 병합 2건까지 · 하루 5건" "$STUB_POST_LOG" && run a scope-status --audit && [ $rc = 0 ]; ck "ⓐ 슬랙 2줄에 코드 병합 2건까지(r658) · --audit AUDIT-OK(codemax 칸)" $?
 # ⓓ 거절 — 쓰기 0

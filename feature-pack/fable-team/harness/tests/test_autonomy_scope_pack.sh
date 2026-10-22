@@ -30,7 +30,7 @@ fresh() { rm -rf "$S" "$T/args.log"; mkdir -p "$S"; }
 # full = repos=byz,pack
 fresh; a on --for 12h >/dev/null 2>&1; grep -q ' repos=byz,pack level=full$' "$LOG"; ck "ⓙ full 승인 줄 repos=byz,pack" $?
 run a scope-approve "$(sha 1)" --repo pack --pr 99
-[ $rc = 0 ] && has "^SCOPE-OK $(sha 1) class=docs used=1/30 today=1/15 repo=pack$"; ck "ⓙ --repo pack · docs → SCOPE-OK … repo=pack" $?
+[ $rc = 0 ] && has "^SCOPE-OK $(sha 1) class=docs used=1/30 today=1/15 repo=pack$"; ck "ⓙ --repo pack · docs → SCOPE-OK … repo=pack (가짜 sha = 못 재면 칸 없음 = 셈 1)" $?
 grep -q "^classify $(sha 1) --repo $PT --remote origin --target main --scope S1 --table .*/scope-classes-pack.tsv$" "$T/args.log" && grep -q "^check-revert --repo $PT " "$T/args.log"; ck "ⓙ 분류기·되돌림 검사에 팩 리포 + 팩 분류표(DDL 기록표 0)" $?
 grep -qx "scope-use S1 $(sha 1) docs $T0 repo=pack" "$LOG" && [ "$(a mode)" = on ]; ck "ⓙ log scope-use … repo=pack · 위변조 아님" $?
 [ "$(awk -F'\t' '{print $5}' "$S/autonomy-scope/S1.ledger.tsv")" = "repo=pack" ]; ck "ⓙ 원장 5번째 칸 repo=pack" $?
@@ -45,5 +45,19 @@ fresh; a on --level mid --for 12h >/dev/null 2>&1; run a scope-approve "$(sha 2)
 run a scope-approve "$(sha 3)" --repo elsewhere; [ $rc = 2 ] && has '--repo 는 byz 또는 pack'; ck "ⓙ --repo 모르는 값 → REJECT" $?
 fresh; a on --for 12h >/dev/null 2>&1; FT_HARNESS_ROOT="$T/none" run a scope-approve "$(sha 4)" --repo pack; [ $rc = 2 ] && has '팩 리포를 못 풂'; ck "ⓙ 팩 리포 못 풂 → REJECT(닫힌 쪽)" $?
 run a scope-approve "$(sha 5)"; [ $rc = 0 ] && grep -q "^classify $(sha 5) --repo $T/byz .*--ddl-records .*/scope-ddl-record.tsv$" "$T/args.log"; ck "ⓙ --repo 생략 = byz(FT_ROOT) + DDL 기록표" $?
+# ===== r748 2b: approve-scope --repos 생략 기본 = byz,pack (새 승인부터 · 소급 0) =====
+fresh; a on --level each >/dev/null 2>&1; run a approve-scope --for 12h --max 30 --classes docs
+[ $rc = 0 ] && grep -q '^approve-scope S[0-9]* A[0-9]* [0-9]* until=[0-9]* max=30 daily=10 classes=docs repos=byz,pack$' "$LOG"; ck "ⓝ --repos 생략 → 승인 줄 끝 repos=byz,pack" $?
+run a scope-approve "$(sha 6)" --repo pack; [ $rc = 0 ] && has "^SCOPE-OK $(sha 6) class=docs .* repo=pack$"; ck "ⓝ 생략 승인으로 팩 sha scope-approve → SCOPE-OK(종류 = 팩 표)" $?
+fresh; a on --level each >/dev/null 2>&1; run a approve-scope --for 12h --max 30 --classes docs --repos byz
+[ $rc = 0 ] && ! grep -q ' repos=' "$LOG"; ck "ⓞ --repos byz 명시 → 승인 줄에 repos 칸 없음(byz 만)" $?
+run a scope-approve "$(sha 7)" --repo pack; [ $rc = 2 ] && has '저장소 pack 은 승인 범위\(repos=byz\) 밖'; ck "ⓞ --repos byz 명시 → 팩 sha REJECT(지금과 같음)" $?
+
+# ⓟ 실 분류기 1벌 — 팩 manifest.json 은 docs 지만 .md 만이 아니다 = 셈 1 (r748 DA⑥ r1)
+fresh; a on --level each >/dev/null 2>&1; run a approve-scope --for 12h --max 30 --classes docs,ff --repos byz,pack
+G checkout -q -B nano2 origin/main; mkdir -p "$P/feature-pack/fable-team"; echo '{}' > "$P/feature-pack/fable-team/manifest.json"; G add -A; G commit -q -m manifest; MAN="$(G rev-parse HEAD)"
+FT_SCOPE_CLASSIFY= run a scope-approve "$MAN" --repo pack
+[ $rc = 0 ] && has "^SCOPE-OK $MAN class=(docs|ff) used=1/30 today=1/10 repo=pack$"; ck "ⓟ 팩 manifest.json(docs · .md 아님) → 칸 없음 = 셈 1" $?
+
 [ "$(git -C "$P" config --get core.bare)" != true ]; ck "core.bare 오염 0" $?
 echo "fail=$fail"; [ "$fail" = 0 ]

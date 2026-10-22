@@ -1,0 +1,51 @@
+$ bash tests/test_autonomy_scope_code_only_r748.sh
+PASS ⓐ grant S1 max=3 daily=2 codemax=2
+PASS ⓑ .md 만 docs → counted=0 칸 · 셈 0
+PASS ⓑ scope-use 줄 끝 = counted=0 (작성기가 만드는 유일한 칸)
+PASS ⓑ docs 3건째도 OK (옛 판 = «하루 건수 도달»)
+PASS ⓑ 원장 3행 · scope-use 3줄 · 승인 파일 3개 (감사 그대로)
+PASS ⓗ scope-status 숫자 = 셈 0(0/3 · 오늘 0/2)
+PASS ⓘ --audit = AUDIT-OK(셈 0 종류도 승인 파일·scope-use 를 씀)
+PASS ⓒ ff(.md 만) → counted=0 · 셈 0
+PASS ⓟ ff(.js) → 칸 없음 = 셈 1
+PASS ⓟ scope-use 줄에 counted 칸 «없음»(칸 없음 = 셈 1)
+PASS ⓟ docs(.md 아님 #1) → 칸 없음 · 셈 1
+PASS ⓟ docs(.md 아님 #2) → 칸 없음 · 셈 2
+PASS ⓟ docs(.md 아님 #3) → 칸 없음 · 셈 3
+PASS ⓟ docs(.md 아님 #4) → 칸 없음 · 셈 4
+PASS ⓟ docs(.md 아님 #5) → 칸 없음 · 셈 5
+PASS ⓟ counted 는 codemax 를 안 깎는다(code 0/2)
+PASS ⓟ daily=1 · 첫 .md 아님 docs = OK
+PASS ⓟ 둘째 .md 아님 docs → 하루 건수 도달
+PASS ⓟ 그 사이 .md 만 docs 는 계속 OK(셈 0)
+PASS ⓓ code 1건 → code=1/2 used=1/3
+PASS ⓓ code 2건(세트 위 main 병합 head) → code=2/2 used=2/3
+PASS ⓓ code 3건째 → 정지(code 건수 도달 2/2 · 진짜 경계 유지)
+PASS ⓓ 정지 = 승인 0
+PASS ⓔ code 1건 = 오늘 1/1
+PASS ⓔ 하루 몫이 차도 .md 만 docs 는 OK
+PASS ⓔ code 둘째 → 하루 건수 도달
+PASS ⓔ 하루 도달 = 쓰기 0 · 정지 아님(내일 풀림)
+PASS ⓕ revert·equiv 줄은 셈 0 그대로
+PASS ⓕ 같은 판에서 칸 없는 docs(.js) 는 셈 1(대조)
+PASS ⓖ 범위 밖 종류 code → REJECT
+PASS ⓖ 기록 없는 .sql → FORBID(승인 0)
+PASS ⓖ FORBID 거절 원장 1행 · 승인 0
+PASS ⓜ 학습표 통과분(package.json = deps) → docs + 셈 1
+PASS ⓜ scope-use 줄에 learned=deps 칸
+PASS ⓜ learned= 은 «다음 셈»에서도 1 (scope_used 가 센다)
+PASS ⓐ2 칸 없는 옛 docs 줄은 위변조 아님(정규식 통과)
+PASS ⓐ2 칸 없는 옛 docs 줄 = 셈 1
+PASS ⓐ2 옛 줄이 몫을 써서 다음 docs(.js = 셈 1) 승인 거절
+PASS ⓐ2 정지 표시
+PASS ⓓ2 revert … counted=0 → 거절(위변조)
+PASS ⓓ2 code … counted=0 → 거절(위변조)
+PASS ⓓ2 docs … counted=1 → 거절(위변조)
+PASS ⓓ2 docs … counted=0 → 허용
+PASS ⓓ2 ff … counted=0 → 허용
+PASS ⓓ2 작성기가 쓴 counted=0 줄도 위변조 아님
+PASS 설치 미러 cmp0 (ft-autonomy-scope.sh)
+PASS bash -n ft-autonomy-scope.sh
+fail=0
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+rc=0
