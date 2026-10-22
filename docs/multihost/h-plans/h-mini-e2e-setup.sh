@@ -51,10 +51,18 @@ printf '%s\n' "${FILES[@]}" | grep -qE '(^|/)\.env' && die 2 "폐쇄 목록에 .
 
 # ── 1) mini 사전점검 ────────────────────────────────────────────────────────
 say "1/6 mini 사전점검 (ssh $MINI)"
-PRE="$(ms 20 'bash -lc "echo user=$(id -un); echo py=$(python3 -V 2>&1 | awk "{print \\$2}"); python3 -c \"import websockets\" 2>/dev/null && echo ws=yes || echo ws=no; python3 -c \"import jwt\" 2>/dev/null && echo jwt=yes || echo jwt=no; echo disk=$(df -h ~ | awk \"NR==2{print \\$4}\"); df -h ~ | tail -1"' 2>&1)" || die 2 "mini 접속 실패: $PRE"
+PRE="$(ms 25 'bash -s' 2>&1 <<'PREEOF'
+echo user=$(id -un)
+echo py=$(python3 -V 2>&1 | awk '{print $2}')
+python3 -c 'import websockets' 2>/dev/null && echo ws=yes || echo ws=no
+python3 -c 'import jwt' 2>/dev/null && echo jwt=yes || echo jwt=no
+echo disk=$(df -h ~ | awk 'NR==2{print $4}')
+echo py313=$(test -x /opt/homebrew/bin/python3.13 && /opt/homebrew/bin/python3.13 -V 2>&1 | awk '{print $2}' || echo NO)
+PREEOF
+)" || die 2 "mini 접속 실패: $PRE"
 printf '%s\n' "$PRE" | sed 's/^/        /'
 printf '%s\n' "$PRE" | grep -q '^user=byz' || die 2 "원격 사용자가 byz 가 아니다(ssh 별칭 mini 확인)"
-printf '%s\n' "$PRE" | grep -q '^py=3\.9' || say "        ⚠ python 이 3.9 가 아니다 — pip 설치 경로 확인"
+printf '%s\n' "$PRE" | grep -q '^py313=3\.13' || die 2 "brew python3.13 이 없다(venv 를 만들 수 없다) — mini 에 brew python@3.13 필요"
 
 # ── 2) 목적지 준비 + 이전 사본 백업 ─────────────────────────────────────────
 say "2/6 목적지 준비"
@@ -105,7 +113,7 @@ from tests.e2e.multi_realtime_corpus import cli  # noqa: F401  (lazy import 대�
 import websockets        # noqa: F401  (3rd-party)
 print("IMPORT_OK cdp_helper tts_rms_gate corpus.cli websockets")
 PYEOF
-) || true"
+)" || true
 printf '%s\n' "$IMP" | tail -6 | sed 's/^/        /'
 printf '%s\n' "$IMP" | grep -q 'IMPORT_OK' || die 5 "import 확인 실패 — 위 오류(모듈 누락/경로 문제)"
 
