@@ -33,6 +33,10 @@
 ### 트랙 3 — 하네스 순번 당기기 (상위 worker-master 가 함)
 - r673(P2)·r678(P1) 을 앞당겨 달라는 요청 — 오빠 골 우선.
 
+## 노드 접속 (오빠 2026-10-22 고정)
+- **Mac mini 사용자 = `byz`**(yoonhwan 아님). 부를 땐 `ssh mini`(`~/.ssh/config` 에 `User byz`·키 `id_ed25519_aifp_op` 고정). 스크립트의 mini 사용자 기본값은 `byz` · `yoonhwan@` 로 접속해 «ssh 안 됨» 보고 금지.
+- OCI = `ssh oci`(ubuntu@) · tailnet 은 `aifp-oci-jarvis`.
+
 ## 하지 말 것
 - 하네스 소유 파일(feature-pack/fable-team·tmuxc·tmm 코드) 편집 0 — 카드 경유.
 - 원격 쓰기는 오빠가 치는 `! bash /tmp/h<N>` 로만 · 비밀은 op develop 볼트만 · 값 출력 0.
