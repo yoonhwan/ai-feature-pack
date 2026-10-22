@@ -9,8 +9,9 @@
 | 골 요소 | 상태 | 근거 |
 |---|---|---|
 | mini·OCI Tailscale + 계정 연동 | ✅ 됨 | `measured-oci-tailscale.md` · mini 는 원래 tailnet |
-| mini·OCI 에서 **CLI 로 운용** | ❌ 안 됨 | OCI: claude·pi·codex·headroom·cliproxy·tmuxc·tmm 0 (node 22·python 3.10·tmux 3.2a 만) · mini: tmuxc·claude·추론 스택 있음, tmm·pi 없음 |
-| OCI headroom·cliproxy 연결 | ❌ 안 됨 | P5a — cliproxy 는 로컬 패치 빌드 linux/arm64 교차 빌드 필요(CGO) · headroom 0.33.0 aarch64 휠 있음 |
+| mini 에서 **CLI 로 운용** | ✅ 설치 확인 | 2026-10-22 h375 rc=0 · 실측 mini tmuxc 0.4.4 · tmm 0.9.4 · pi 1.3.0 · fzf 0.74.5. «좌석 열기→probe→닫기» 원문은 오빠 h375 출력으로 확인 대기 |
+| OCI 에서 **CLI 로 운용** | ❌ 안 됨 | OCI: claude·pi·codex·headroom·cliproxy·tmuxc·tmm 0 (node 22·python 3.10·tmux 3.2a 만) · h376→h377 대기 |
+| OCI headroom·cliproxy 연결 | ❌ 안 됨 | P5a — cliproxy 교차 빌드 ✅(CGO 불필요, `measured-xbuild-cliproxy-20261022.md`) — OCI 설치 h376 대기 · headroom 0.33.0 aarch64 휠 있음 |
 | hermes 업데이트 지원 | ⚠️ 절차만 앎 | 이미 systemd 사용자 서비스 · `hermes update --check→backup→update→restart→doctor` |
 | 브라우저 시험 이관 | ❌ 안 됨 | mini: Chrome·BlackHole·마이크 사전 점검 통과(-37.3 dB) · e2e 러너 실행 0 |
 | tmm·tmuxc·fable-team 멀티 인스턴스 기능 | ⏳ 하네스 카드 대기 | r673(P2)·r678(P1)·r674(P4)·r676·r675(P3) — 하네스 순번 뒤쪽 |
