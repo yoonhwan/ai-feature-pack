@@ -1,0 +1,15 @@
+## 지금 판 REJECT 원문 4종(임시 리포 · 실 원격 0)
+$ ft-merge-deny.sh <head> --branch big --deny-file 목록
+착지 금지 가지(big · 목록 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.HKvfhzdqNi/n.txt:2)
+rc=1
+$ --branch feat-x (big 커밋을 조상으로 품음 · 목록에 끝 sha)
+착지 금지 가지의 커밋 d4069ec2c9 을 품음(가지 feat-x · 목록 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.HKvfhzdqNi/a.txt:1)
+rc=1
+$ --deny-file <없는 파일>
+착지 금지 목록을 읽을 수 없음(/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.HKvfhzdqNi/none.txt) — 목록 없이 착지 0(fail-closed)
+rc=1
+$ 목록 꼴 오류(TAB 둘째 칸 없음)
+착지 금지 목록 꼴 오류(/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.HKvfhzdqNi/f.txt:1 — TAB 둘째 칸이 없다 · <정규식><TAB><40hex|->)
+rc=1
+$ 목록 밖 가지 → 통과(출력 0)
+rc=0

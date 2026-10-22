@@ -1,0 +1,24 @@
+PASS bash -n ft-merge-deny.sh
+PASS bash -n ft-merge-land.sh
+PASS ft-merge-land.sh ≤ 120줄(기존 상한 유지)
+PASS 짝 사본 cmp0 ft-merge-land.sh
+PASS 짝 사본 cmp0 ft-merge-deny.sh
+PASS 짝 사본 cmp0 ft-merge-deny.txt
+PASS 기본 목록에 ^feat/v6-realtime-live$ 1줄(끝 sha '-')
+PASS ⓐ 빨강(옛 판): main 을 품은 big 가지가 그대로 착지(구멍 재현)
+PASS ⓑ 후판: 착지 금지 가지 big → REJECT(목록 파일:줄) · main 불변 · PR 쓰기 0
+PASS ⓒ feat-x 가 big 의 커밋 250a1cfa1f 을 품음 → REJECT · main 불변 · 쓰기 0
+PASS ⓓ 목록 밖 가지(main 품음) → 지금과 같이 착지
+PASS ⓔ 목록 파일 없음 → REJECT(fail-closed · 설치 누락을 조용히 통과 0) · main 불변
+PASS ⓔ 주석만(빈 목록) → 통과(착지)
+PASS ⓕ TAB 둘째 칸 없음 → 꼴 오류 REJECT · main 불변
+PASS ⓕ 둘째 칸이 40hex/'–' 아님 → 꼴 오류 REJECT · main 불변
+PASS ⓕ '#' 주석 줄은 검사 대상 아님(주석 안의 ^big 은 안 걸린다)
+PASS ⓕ 이름 정규식 줄은 이름 전체 일치 — big 걸림(단독 호출 rc1)
+PASS ⓕ 이름 전체 일치 — bigness 는 ^big$ 에 안 걸린다
+PASS ⓗ 이름 검사 삭제 → ⓑ 가 FAIL(착지됨 = 변이로 재현)
+PASS ⓗ 조상 검사 삭제 → ⓒ 가 FAIL(착지됨 = 변이로 재현)
+PASS ⓘ 격리: 원격 = 임시 bare 1개(실 원격·실 gh 0)
+PASS ⓘ gh 스텁 밖 동사 호출 0
+== OK ==
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

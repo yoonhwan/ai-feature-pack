@@ -1,0 +1,16 @@
+PASS bash -n
+PASS 짝 사본(harness/bin ↔ kit) cmp=0
+PASS ⓐ 옛 판(base) = W1(뒤진 가지)에서 연다 rc=0 · open 1 · 송신 1(빨강 재현)
+PASS ⓑ 지금 판 W1 → REJECT rc=1 · 뒤처짐 1 · open·송신·도달 파일 0
+PASS ⓑ-2 desk 이름 W1 → 같은 REJECT(자리 문이 본문 문보다 먼저)
+PASS ⓒ W2(main 품음) → 통과 · open 1 · 송신 1 · 도달 파일
+PASS ⓓ nano 좌석 → 검사 0 · W1 이어도 통과
+PASS ⓔ origin/main 없음 → REJECT rc=1 · open·송신 0(fail-closed)
+PASS ⓕ LIVE_ROOT 갈라짐 → REJECT rc=1 · 두 값 표시 · open·송신 0
+PASS ⓕ 워크트리 LIVE_ROOT 없음 → REJECT rc=1(fail-closed)
+PASS ⓕ LIVE_ROOT 같으면 통과(정상 흐름 그대로)
+PASS ⓗ① main 포함 검사 삭제 변이 → W1 통과(= 시험 ⓑ 가 잡는다)
+PASS ⓗ② LIVE_ROOT 대조 삭제 변이 → 갈라짐 통과(= 시험 ⓕ 가 잡는다)
+PASS ⓖ test_successor_open.sh ALL PASS
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

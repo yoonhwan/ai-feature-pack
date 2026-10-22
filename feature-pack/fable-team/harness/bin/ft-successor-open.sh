@@ -57,6 +57,24 @@ for _sib in "$SEND" "$REACH"; do
 done
 ROOT="$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')"
 [ -n "$ROOT" ] || { echo "REJECT 워크트리가 git 이 아니다: $WT"; exit 1; }
+# ★r756 좌석 자리 검사 (desk·planner · 열기 «전»)★: 이 도구가 «어느 워크트리에서 여는가» 를 보지 않아 desk·planner 가 main 보다 908 뒤진 옛 가지 워크트리에 그대로 앉았다(옛 훅·옛 지침이 그 좌석의 지침). 이름이 `*-desk-*`·`*-planner-*` 면 2검사 · 둘 다 fail-closed(못 읽으면 열지 않는다).
+#   ① 그 워크트리 HEAD 가 origin/main 을 품어야 한다(뒤처짐 수 표시) ② 워크트리·공용 루트의 .fable-team/LIVE_ROOT 1행이 같아야 한다(하네스 데이터 루트 갈라짐 = 자율·승인 상태가 둘로 갈린다).
+case "$NAME" in *-desk-*|*-planner-*)
+  _mref="${FT_SO_MAIN_REF:-origin/main}"
+  git -C "$WT" rev-parse --verify --quiet "$_mref^{commit}" >/dev/null 2>&1 \
+    || { echo "REJECT $_mref 을 읽지 못했다(못 읽으면 열지 않는다 · fail-closed) — wt=$WT"; exit 1; }
+  if ! git -C "$WT" merge-base --is-ancestor "$_mref" HEAD 2>/dev/null; then
+    echo "REJECT desk·planner 후계는 $_mref 을 품은 워크트리에서만 — $WT 은 $_mref 보다 $(git -C "$WT" rev-list --count "HEAD..$_mref" 2>/dev/null || echo '?') 뒤 (HEAD=$(git -C "$WT" rev-parse --short HEAD 2>/dev/null))"
+    exit 1
+  fi
+  _lr_wt="$(sed -n '1p' "$WT/.fable-team/LIVE_ROOT" 2>/dev/null | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+  _lr_rt="$(sed -n '1p' "$ROOT/.fable-team/LIVE_ROOT" 2>/dev/null | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+  [ -n "$_lr_wt" ] && [ -n "$_lr_rt" ] \
+    || { echo "REJECT 하네스 데이터 루트(LIVE_ROOT)를 읽지 못했다 — 워크트리=${_lr_wt:-(없음)} · 공용 루트=${_lr_rt:-(없음)} (둘 다 1행 필요 · fail-closed)"; exit 1; }
+  [ "$_lr_wt" = "$_lr_rt" ] \
+    || { echo "REJECT 하네스 데이터 루트 갈라짐 — 워크트리 LIVE_ROOT=$_lr_wt · 공용 루트 LIVE_ROOT=$_lr_rt (자율·승인 상태가 둘로 갈라진다 · 새 워크트리는 ft-root-bin-shim.sh --init --live-root 로 만들어라)"; exit 1; }
+  ;;
+esac
 # ★mbox = «대상 워크트리의 리포» 것 (R343)★: 승계 발주 본문·ring·recv 지시문은 후계가 읽는 리포 mbox 로 가야 한다 — 설치 폴더(BYZ) 기준이면 별도 리포 좌석이 0건으로 부팅한다.
 # 순서(r607): FT_MBOX_SH(시험·명시) → $ROOT/.fable-team/comm/mbox.sh. 못 찾으면 호출자 mbox 로 후퇴하지 않고 열기 «전» REJECT(#0 RULE).
 #   ★$WT 단계 삭제★: 링크 워크트리 안의 옛 사본(짝 파일 빠짐·따로 된 큐)이 리포 루트 것보다 먼저 잡혀 승계 발주가 죽었다(rc=5 · cfo 125653 · r607).

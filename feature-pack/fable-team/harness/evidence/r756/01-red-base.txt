@@ -1,0 +1,18 @@
+R756 ⓐ 빨강 — 같은 픽스처(W1 = origin/main 보다 1 뒤 = 옛 v6-realtime-live 꼴) · 같은 이름(byz-planner-master-claude#95)
+옛 판 = git show origin/main:feature-pack/fable-team/harness/kit/fable-team/bin/ft-successor-open.sh
+--- basebin
+SessionStart 미관측 byz-planner-master-claude#95 (3회) — 송신 후 도달 판정으로 확인
+QUEUED seq=777 to=byz-planner-master-claude#95 pending=1 doorbell=sent
+OK successor=byz-planner-master-claude#95 seq=777 file=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.2MGrCvhOfb/repo/.fable-team/state/successor/byz-planner-master-claude#94.json mbox=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.2MGrCvhOfb/repo/.fable-team/comm/mbox.sh
+rc=0 · 부작용: tmuxc=1 send=1 도달파일=1
+--- fixedbin
+REJECT desk·planner 후계는 origin/main 을 품은 워크트리에서만 — /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.2MGrCvhOfb/w1 은 origin/main 보다 1 뒤 (HEAD=e709864)
+rc=1 · 부작용: tmuxc=0 send=0 도달파일=0
+
+★실측(읽기 전용 · 실 워크트리 .worktrees/v6-realtime-live)★
+LIVE_ROOT(공용 루트) = /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live
+LIVE_ROOT(v6 워크트리) = /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live   ← 같음(그래서 ②검사는 통과 · ①검사가 문다)
+LIVE_ROOT(harness-ops) = /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents   ← 갈라짐(이 자리에서 desk 승계를 열면 ②검사가 REJECT)
+merge-base --is-ancestor origin/main HEAD = no
+origin/main 보다 뒤 = 916 · 앞 = 4761 · 미커밋 = 8500
+(카드 실측 908 뒤 = 10-22 23:2x 값 · main 이 계속 늘어 지금은 그보다 크다)

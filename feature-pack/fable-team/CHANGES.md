@@ -1,3 +1,10 @@
+## 2026-10-23 — r755 착지 금지 가지 목록 + r756 desk·planner 승계는 main 기반 워크트리에서만(1.1.217)
+
+- r755: `ft-merge-land.sh` 가 «착지 금지 가지 목록»(`ft-merge-deny.txt` · 기본 `^feat/v6-realtime-live$`) 에 걸린 PR 은 REJECT — 가지 이름이거나 그 가지의 커밋을 품은 경우. 목록이 없거나 꼴이 틀리면 fail-closed. 설치 때 master 가 목록 끝 sha 기입.
+- r756: `ft-successor-open.sh` — 이름이 `*-desk-*`·`*-planner-*` 면 열기 «전» ①`origin/main` 이 HEAD 의 조상이 아니면 REJECT(«보다 N 뒤») ②워크트리·공용 루트 `LIVE_ROOT` 1행이 다르거나 없으면 REJECT. 그 밖 좌석은 검사 0.
+- 시험: `test_merge_land_deny_stale.sh` 22 · merge_land 가족 49 PASS · `test_r756_desk_planner_worktree_gate.sh` 14 · `test_successor_open.sh` 30 · baseline_lint 7 — arch §209·§210 격리 재대조 OK(DA 0). 증거 `harness/evidence/r755/` · `r756/`.
+- 설치: bin+kit 짝 cmp0(ft-merge-deny.sh · ft-merge-deny.txt · ft-merge-land.sh · ft-successor-open.sh).
+
 ## 2026-10-22 — r749 `ft-head-sync --apply` 는 부른 워크트리 1개만(1.1.216)
 
 - `--apply` 가 리포 전 워크트리 296개를 돌며 다른 팀 가지 95개에 main 병합 커밋을 만들던 것(v65 나노가 [베이스 뒤처짐] 알림의 조치문대로 실행 · 로컬만 · 충돌 40 abort · 40분+) → `--apply` = 부른 cwd 워크트리 1개(대상 밖이면 REJECT rc2 · 쓰기 0) · 전 순회 = `--apply --all --confirm <N>`(N = 표 모드 «최신화 필요» 수 · 틀리면 REJECT) · 표 모드(읽기)는 그대로.
