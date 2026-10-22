@@ -67,6 +67,31 @@ npm_one "@openai/codex@$CODEX_VER"
 V="$(rs 40 'bash -lc "export PATH=\$HOME/.npm-global/bin:\$PATH; echo claude=\$(claude --version 2>/dev/null | head -1); echo pi=\$(pi --version 2>/dev/null); echo codex=\$(codex --version 2>/dev/null | head -1)"' 2>&1)"
 printf '%s\n' "$V" | sed 's/^/        /'
 
+# ── 2b) fzf ≥ 0.36 (tmm 피커가 --track 을 쓴다) — OCI apt fzf 는 0.29 라 피커가 rc=2 로 반복 실패(2026-10-22 실측) ──
+FZF_VER="${FZF_VER:-0.74.3}"
+say "2b/6 fzf >= 0.36 확인(없거나 낮으면 공식 arm64 릴리스를 ~/.local/bin 에 — 70초 상한 · sha256 대조)"
+FZF_NOW="$(rs 15 'fzf --version 2>/dev/null | cut -d" " -f1' 2>/dev/null)"
+if [ -n "$FZF_NOW" ] && [ "$(printf '%s\n0.36\n' "$FZF_NOW" | sort -V | head -1)" = "0.36" ]; then
+  say "        이미 충분: fzf $FZF_NOW"
+else
+  say "        현재 fzf='${FZF_NOW:-없음}' → $FZF_VER 설치"
+  rs 70 "bash -s" <<FZEOF 2>&1 | sed 's/^/        /' || die 3 "fzf $FZF_VER 설치 실패/70초 초과/sha 불일치 — 같은 h 재실행으로 이어감"
+set -e
+d=\$(mktemp -d); cd "\$d"
+b=https://github.com/junegunn/fzf/releases/download/v$FZF_VER
+curl -fsSL -m 30 -o f.tgz "\$b/fzf-$FZF_VER-linux_arm64.tar.gz"
+curl -fsSL -m 20 -o sums.txt "\$b/fzf_${FZF_VER}_checksums.txt"
+want=\$(grep " fzf-$FZF_VER-linux_arm64.tar.gz\\\$" sums.txt | cut -d' ' -f1)
+got=\$(sha256sum f.tgz | cut -d' ' -f1)
+[ -n "\$want" ] && [ "\$want" = "\$got" ] || { echo sha_mismatch; exit 1; }
+tar -xzf f.tgz fzf; mkdir -p ~/.local/bin; install -m 755 fzf ~/.local/bin/fzf
+cd /; rm -f "\$d/f.tgz" "\$d/sums.txt" "\$d/fzf"; rmdir "\$d"; echo fzf_installed
+FZEOF
+fi
+FZF_AFTER="$(rs 15 'fzf --version 2>/dev/null | cut -d" " -f1' 2>/dev/null)"
+[ "$(printf '%s\n0.36\n' "${FZF_AFTER:-0}" | sort -V | head -1)" = "0.36" ] || die 3 "fzf 가 여전히 0.36 미만이다(${FZF_AFTER:-없음}) — PATH 에서 ~/.local/bin 이 앞서는지 확인"
+say "        fzf $FZF_AFTER OK"
+
 # ── 3) tmuxc·tmm 팩 복사 + 사용자 설치 ──────────────────────────────────────
 say "3/6 tmuxc·tmm 팩 설치"
 rs 25 'mkdir -p ~/packs && echo ok' >/dev/null || die 3 "~/packs 생성 실패"
@@ -161,7 +186,7 @@ cat <<EOF
           · claude-aifp -p ping → 위 ping_rc 줄
           · tmuxc probe 결과(모델·세션) 줄
           · seat=closed 줄
-        롤백: ssh $R 'rm -f ~/.local/bin/claude-aifp ~/.headroom/claude-hr.sh; rm -rf ~/.tmuxc/versions/$TMUXC_VER ~/.tmm/versions/$TMM_VER; npm rm -g --prefix ~/.npm-global $CLAUDE_PKG @earendil-works/pi-coding-agent @openai/codex'
+        롤백: ssh $R 'rm -f ~/.local/bin/claude-aifp ~/.headroom/claude-hr.sh ~/.local/bin/fzf; rm -rf ~/.tmuxc/versions/$TMUXC_VER ~/.tmm/versions/$TMM_VER; npm rm -g --prefix ~/.npm-global $CLAUDE_PKG @earendil-works/pi-coding-agent @openai/codex'
         주의: tmuxc 좌석은 tmux 안에서 산다 — 닫기는 위에서 이미 했다(seat=closed 확인).
 EOF
 exit 0
