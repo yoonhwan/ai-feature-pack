@@ -12,6 +12,7 @@
 | mini 에서 **CLI 로 운용** | 🟡 부분 ✅ (raw tmux · 원인 확정=폴더 신뢰 질문) | h375 rc=0 설치 OK(tmuxc 0.4.4·tmm 0.9.4·pi 1.3.0·fzf). 운용 증거: `tmuxc open` 경유는 «tmuxc probe: no known agent process»(pane 자식 0) → 상위 진단(#3141): 같은 명령(claude-hr.sh … --remote-control)을 raw `tmux new-session` 으로 띄우면 **claude 생존 · ANTHROPIC_BASE_URL=http://localhost:8790(헤드룸 경유)**. 원인 가설 = tmuxc 가 빈 셸 생성 직후 send-keys 로 명령을 타이핑(core/bin/tmuxc:62·706)하는 경쟁 → 진단 h(`h-mini-tmuxc-diag.sh`)로 A/B 확정 대기 |
 | OCI 에서 **CLI 로 운용** | 🟡 진행 | **h376 rc=0(2026-10-22)**: cliproxy·headroom 유닛 active(127.0.0.1:8317/8790) · claude·codex 인증 파일 OCI 로컬 0600 생성 · /v1/models 32개 중 sonnet-5-5·haiku-5-5·gpt-6.1-sol 확인 · headroom /health 200. **h377 1차 rc=3**: claude·pi·codex npm 설치 OK, tmuxc 0.4.4 설치 OK, tmm 설치 점검이 «tmuxc 누락» 오판(ssh 비대화형 PATH 에 ~/.local/bin 없음) → PATH 접두로 고침, 재실행 필요 |
 | OCI headroom·cliproxy 연결 | ✅ 됨 | h376 rc=0 — 위 표 참조(두 유닛 active · 모델 3종 · health 200) |
+| OCI cliproxy 계정 7(claude 5 · codex 2) | ⏳ 대기 | 오빠 결정(2026-10-22): OCI 에서 차례 OAuth 로그인 — BYZ 인증 파일 복사 0 · 실행 h399(`h-oci-cliproxy-accounts.sh`, 상위 커밋 916f375c). 현재 OCI 는 claude 1·codex 1(h376 rc=0)만 있음 |
 | hermes 업데이트 지원 | ⚠️ 절차만 앎 | 이미 systemd 사용자 서비스 · `hermes update --check→backup→update→restart→doctor` |
 | 브라우저 시험 이관 | 🟡 진행 | mini: Chrome·BlackHole·마이크 사전 점검 통과(-37.3 dB). **h378 rc=0(2026-10-22)**: 러너 폐쇄 16파일 배치 + venv(python3.13) websockets 17.3·jwt import OK + sha 16/16 일치. 남음: tts-say(h379) · 서버(h381) · mini 앞 오빠 손 7단계 · 러너 1회차(h382) |
 | tmm·tmuxc·fable-team 멀티 인스턴스 기능 | ⏳ 하네스 카드 대기 | r673(P2)·r678(P1)·r674(P4)·r676·r675(P3) — 하네스 순번 뒤쪽 |
