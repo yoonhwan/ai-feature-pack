@@ -208,7 +208,27 @@ for s in '일반 보고 — 진행 중' '[완료] 끝'; do
   [ "$RC" = 0 ] && ok "R320c ⓔ 판정기 rc4 여도 머리 없는 쪽지 전송 «${s%%$'\n'*}»" || bad "R320c ⓔ rc4 에 머리 없는 쪽지 막힘 «$s» rc=$RC :: $OUT"
 done
 
+# ── 11. 개명 별칭(r745) — 명부 파일만 seats-<새 팀>.json 으로 바뀜(_renamed_from=<옛>) · 옛 이름 쪽지는 «미등록» 이 아니라 은퇴 좌석 규칙으로 후계를 가리킨다
+OLD=byz-old-arch-claude#1; W=byz-new-arch-claude#2
+new_env renamed; send_as "$OLD" "일반 쪽지"
+[ "$RC" = 3 ] && case "$OUT" in *"은퇴한 좌석 $OLD → 현역 $W — 후계 이름으로 다시 보내라"*) true;; *) false;; esac && [ "$(queued_to "$OLD")" = 0 ] \
+  && ok "ⓑ 개명 별칭: 옛 이름 = REJECT 후계 안내 · 큐 0" || bad "ⓑ rc=$RC :: $OUT"
+new_env renamed; send_as "$OLD" "$(body_of HIL)"
+[ "$RC" = 0 ] && [ "$(queued_to "$W")" = 1 ] && ok "ⓒ 개명 별칭 + [HIL] → 후계로 전달" || bad "ⓒ rc=$RC :: $OUT"
+new_env renamed; send_as "$W" "$(body_of BOOT)"
+[ "$RC" = 0 ] && [ "$(queued_to "$W")" = 1 ] && ok "ⓒr 새 이름은 지금과 같음(전송)" || bad "ⓒr rc=$RC :: $OUT"
+new_env renamed_orig; send_as "$OLD" "일반 쪽지"
+[ "$RC" = 0 ] && [ "$(queued_to "$OLD")" = 1 ] && ok "ⓓ 원 명부 파일이 있으면 그 파일이 이김(별칭 미사용 · 전송)" || bad "ⓓ rc=$RC :: $OUT"
+new_env renamed_dup; send_as "$OLD" "일반 쪽지"
+[ "$RC" = 0 ] && case "$OUT" in *'별칭 충돌'*'미등록'*) true;; *) false;; esac && [ "$(queued_to "$OLD")" = 1 ] \
+  && ok "ⓔ 별칭 충돌(2개+) = 경고 1줄 + 미등록 WARN + 전송" || bad "ⓔ rc=$RC :: $OUT"
+new_env renamed; sed -i '' 's/if direct in docs or direct in bad:/if True:/' "$ENVROOT/.fable-team/comm/mbox_teamfile.py"
+send_as "$OLD" "일반 쪽지"
+[ "$RC" = 0 ] && case "$OUT" in *'미등록'*'은퇴한 좌석'*) false;; *'미등록'*) true;; *) false;; esac && [ "$(queued_to "$OLD")" = 1 ] \
+  && ok "ⓗ 변이③ 별칭 해석 삭제 사본 = 미등록으로 되돌아감(빨강 확인)" || bad "ⓗ 변이가 안 잡힘 rc=$RC :: $OUT"
+
 # ── 7. 문법
 for f in "$SRC/mbox.sh" "$SRC/mbox_guard.sh" "$RETIRE"; do bash -n "$f" 2>/dev/null && ok "bash -n $(basename "$f")" || bad "bash -n $(basename "$f")"; done
+python3 -c 'import sys,py_compile;py_compile.compile(sys.argv[1],doraise=True)' "$SRC/mbox_teamfile.py" >/dev/null 2>&1 && ok "py_compile mbox_teamfile.py" || bad "py_compile mbox_teamfile.py"
 
 [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }

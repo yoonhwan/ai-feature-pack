@@ -1,0 +1,19 @@
+# red baseline (HEAD = 2e0bb166 · 새 시험·픽스처만 적용 · 구현 0)
+
+## test_mbox_lineage.sh
+FAIL ⓐr 개명 별칭 합류
+FAIL ⓔr 별칭 충돌 :: 
+PASS ⓔr 별칭 충돌이면 후계 합류 0 · 옛 큐 보존(지금 판과 같음)
+FAILED 2
+rc=1
+
+## test_mbox_guard.sh
+FAIL ⓑ rc=0 :: WARN 미등록 byz-old-arch-claude#1 — 전송 (다른 명부 seats-new.json 에만 있음 · 판정에 안 씀)
+FAIL ⓒ rc=0 :: WARN 미등록 byz-old-arch-claude#1 — 전송 (다른 명부 seats-new.json 에만 있음 · 판정에 안 씀)
+PASS ⓒr 새 이름은 지금과 같음(전송)
+PASS ⓓ 원 명부 파일이 있으면 그 파일이 이김(별칭 미사용 · 전송)
+FAIL ⓔ rc=0 :: WARN 미등록 byz-old-arch-claude#1 — 전송 (다른 명부 seats-new1.json 에만 있음 · 판정에 안 씀)
+PASS ⓗ 변이③ 별칭 해석 삭제 사본 = 미등록으로 되돌아감(빨강 확인)
+FAIL py_compile mbox_teamfile.py
+FAILED 4
+rc=1

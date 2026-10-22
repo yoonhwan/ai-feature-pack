@@ -25,8 +25,9 @@ nwarn() { grep -c '^WARN' "$ENVROOT/err"; }
 rows_to() { grep -c "\"to\": \"$1\"" "$Q"; }
 seq_order() { grep -o '^READ \[[^]]*\] #[0-9]*' "$1" | grep -o '#[0-9]*$' | tr '\n' ' '; }
 
-# 변이 ① 체인 끊기(eligible={me}) · 변이 ② 잠금 분리(조회 잠금 → sleep → 별도 소비 잠금)
+# 변이 ① 체인 끊기(eligible={me}) · 변이 ② 잠금 분리(조회 잠금 → sleep → 별도 소비 잠금) · 변이 ③ 별칭 해석 삭제(r745)
 mut_cut() { printf '\neligible = lambda me: ([me], [])\n' >> "$C/mbox_lineage.py"; }
+mut_noalias() { sed -i '' 's/if direct in docs or direct in bad:/if True:/' "$C/mbox_teamfile.py"; grep -q 'if True:' "$C/mbox_teamfile.py"; }
 mut_split() { cat >> "$C/mbox_lineage.py" <<'PY'
 
 def claim(dirs, names, frm, limit):
@@ -84,6 +85,32 @@ chk_e() {   # chk_e <variant> <읽는 사람> <합류되면 안 되는 이름>
 }
 chk_e foreign_retired "$P#10" "$P#9" && ok "ⓔ 타 팀 파일의 _replaced_by 로 합류 0" || bad "ⓔ foreign_retired"
 chk_e succ_closed "$F#1" "$P#9" && ok "ⓔ 팀이 바뀐 후계(planner→feature) 합류 0" || bad "ⓔ succ_closed"
+
+# ⓐr 개명 별칭(r745): 명부 파일만 seats-new.json(_renamed_from=old) 로 바뀐 팀 — 옛 이름 앞 쪽지를 후계가 읽는다(원인이던 tfile 규칙)
+O=byz-old-arch-claude#1; W=byz-new-arch-claude#2
+chk_ren() {   # chk_ren [변이함수] — 후계 recv 가 옛 이름 앞 행을 읽고 그 큐를 소비한다
+  new_env renamed "${1:-}"; row 1 "$O" old1
+  recv_as "$W"; [ "$(nread "$ENVROOT/out")" = 1 ] && grep -q "lineage=$O\$" "$ENVROOT/out" && [ "$(rows_to "$O")" = 0 ]
+}
+chk_ren && ok "ⓐr 개명 별칭: 옛 이름 앞 쪽지 → 후계 recv READ 1 · lineage=$O" || bad "ⓐr 개명 별칭 합류"
+chk_ren mut_noalias && bad "변이③ 별칭 해석 삭제가 ⓐr 에 안 잡힘" || ok "변이③ 별칭 해석 삭제 → ⓐr FAIL 확인"
+
+# ⓓr 원 명부 파일이 있으면 그 파일이 이김 — 별칭을 안 쓴다(개명 표식이 있어도 결과는 지금과 같다)
+new_env renamed_orig; row 1 "$O" old1
+recv_as "$W"; grep -q '^READ none' "$ENVROOT/out" && [ "$(rows_to "$O")" = 1 ] && ok "ⓓr seats-old.json 이 있으면 별칭 미사용 = 계보 0 · 큐 보존" || bad "ⓓr 원 파일 우선"
+
+# ⓔr 별칭 충돌(두 명부가 같은 _renamed_from) = 별칭을 안 쓰고 경고 1줄 — 지금 판과 같은 결과(자기 큐만 읽는다)
+new_env renamed_dup; row 1 "$O" old1
+recv_as "$O"; [ "$(nread "$ENVROOT/out")" = 1 ] && grep -q '^WARN lineage 명부 별칭 충돌 old' "$ENVROOT/err" \
+  && ok "ⓔr 별칭 충돌 = 별칭 미사용 + WARN 1줄" || bad "ⓔr 별칭 충돌 :: $(cat "$ENVROOT/err")"
+new_env renamed_dup; row 1 "$O" old1
+recv_as "$W"; grep -q '^READ none' "$ENVROOT/out" && [ "$(rows_to "$O")" = 1 ] \
+  && ok "ⓔr 별칭 충돌이면 후계 합류 0 · 옛 큐 보존(지금 판과 같음)" || bad "ⓔr 충돌 시 합류"
+
+# ⓕr 여러 단(a→b→c · seats-c 에 _renamed_from=b 만) = 범위 밖 · 한 단(b)만 잇고 두 단 전(a)은 안 잇는다
+new_env renamed_2step; row 1 "byz-a-arch-claude#1" a1
+recv_as "byz-c-arch-claude#3"; grep -q '^READ none' "$ENVROOT/out" && [ "$(rows_to "byz-a-arch-claude#1")" = 1 ] \
+  && ok "ⓕr 두 단 개명: 두 단 전 이름(a)은 안 이어짐(원문 기록)" || bad "ⓕr 두 단 개명"
 
 # ⓕ 기존 동작: LIFO · limit/HELD · --all (세 이름이 섞인 큐를 seq 역순)
 new_env lineage3; for s in 1 2 3 4 5 6; do case $((s % 3)) in 1) n="$P#1";; 2) n="$P#2";; 0) n="$P#3";; esac; row "$s" "$n" "m$s"; done

@@ -1,0 +1,11 @@
+# 관련 시험 (내가 고친 comm 파일을 쓰는 것만 · 광역 0)
+test_mbox_py_link_import.sh rc=0 pass=4 fail=0
+test_mbox_root_resolve.sh rc=0 pass=8 fail=0
+test_mbox_reply_exempt_cap.sh rc=0 pass=6 fail=0
+test_mbox_guard_live_bin.sh rc=0 pass=9 fail=0
+test_ft_mbox_inbox_ingest.sh rc=0 pass=36 fail=0
+test_ft_mbox_sent_log.sh rc=0 pass=25 fail=0
+test_mbox_inbox_notify_reply_rate.sh rc=0 pass=46 fail=0
+test_mbox_v2_guard.sh rc=1 pass=2 fail=12
+
+# test_mbox_v2_guard.sh 는 이 팩 레이아웃에 scripts/fable-team-bin/mbox-v2.sh 가 없어 12 FAIL — 내 변경을 stash 한 HEAD 에서도 같은 12 FAIL(사전 결함 · 카드 범위 밖)

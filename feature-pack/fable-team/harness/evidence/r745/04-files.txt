@@ -1,0 +1,9 @@
+# 변경 파일
+comm/mbox_teamfile.py (신규)       22줄
+comm/mbox_lineage.py       82줄 (81 → 82)
+comm/mbox_guard.sh      199줄 (200 → 199 · 200줄 규칙 이하)
+tests/test_mbox_lineage.sh      134줄
+tests/test_mbox_guard.sh      234줄
+tests/fixtures/mbox_guard/{renamed,renamed_orig,renamed_dup,renamed_2step}/seats*.json (신규 8파일)
+
+# 계보 규칙은 두 곳이 «같은 함수» 를 부른다 — 갈라짐 0
