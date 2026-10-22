@@ -37,7 +37,12 @@ OCI_KEY="${OCI_KEY:-$HOME/.ssh/oci_chuncheon}"
 
 say() { printf '[h-A1] %s\n' "$*"; }
 die() { printf '[h-A1] REJECT rc=%s %s\n' "$1" "$2" >&2; exit "$1"; }
-G() { if [ -n "$ADMIN" ]; then timeout 60 gcloud --account="$ADMIN" --project="$P" "$@"; else timeout 60 gcloud --project="$P" "$@"; fi; }
+GT="${GT:-15}"   # 외부 호출 상한(초): 읽기 15 · 쓰기는 GW=30 (기준 7초 + gcloud 기동 고정비, 재시도 1회 한도)
+GW="${GW:-30}"
+G()  { if [ -n "$ADMIN" ]; then timeout "$GT" gcloud --account="$ADMIN" --project="$P" "$@"; else timeout "$GT" gcloud --project="$P" "$@"; fi; }
+GWR() { if [ -n "$ADMIN" ]; then timeout "$GW" gcloud --account="$ADMIN" --project="$P" "$@"; else timeout "$GW" gcloud --project="$P" "$@"; fi; }
+# 시험은 상속 환경(토큰·자격증명 오버라이드·프록시)을 전부 걷어낸 깨끗한 환경에서만 (DA r3 ②)
+CLEAN=(env -u CLOUDSDK_AUTH_ACCESS_TOKEN -u CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE -u GOOGLE_APPLICATION_CREDENTIALS -u CLOUDSDK_CORE_ACCOUNT -u CLOUDSDK_CORE_PROJECT -u CLOUDSDK_AUTH_IMPERSONATE_SERVICE_ACCOUNT -u HTTPS_PROXY -u https_proxy -u HTTP_PROXY -u http_proxy -u ALL_PROXY -u all_proxy)
 
 TMP="$(mktemp -d /tmp/h-A1.XXXXXX)"; chmod 700 "$TMP"
 PIDS="$TMP/pids"; : > "$PIDS"
@@ -71,13 +76,22 @@ REAL_LLM="$(G compute instances describe "$LLM" --zone="$Z" --format='value(netw
 REAL_STT="$(G compute instances describe "$STT" --zone="$Z" --format='value(networkInterfaces[0].networkIP)' 2>/dev/null)"
 [ "$REAL_LLM" = "$LLM_IP" ] && [ "$REAL_STT" = "$STT_IP" ] || die 2 "VM 내부 IP 불일치(실제 llm=$REAL_LLM stt=$REAL_STT, 조건 $LLM_IP/$STT_IP) — LLM_IP·STT_IP 로 맞춰 다시"
 say "        VM 내부 IP 일치: llm-dev=$LLM_IP stt-tts-dev=$STT_IP"
+ROTATE="${ROTATE:-0}"   # 1 이면 기존 키가 있어도 새 키를 추가 발급(옛 키 폐기는 HIL)
 for sa in "${SAS[@]}"; do
-  if G iam service-accounts describe "$sa@$SA_DOM" >/dev/null 2>&1; then say "        SA 이미 있음: $sa (재사용 · 키는 새로 발급)"; else say "        SA 없음: $sa (생성 예정)"; fi
+  if G iam service-accounts describe "$sa@$SA_DOM" >/dev/null 2>&1; then
+    NK="$(G iam service-accounts keys list --iam-account="$sa@$SA_DOM" --managed-by=user --format='value(name)' 2>/dev/null | wc -l | tr -d ' ')"
+    say "        SA 이미 있음: $sa (사용자 발급 키 ${NK}개)"
+    [ "$NK" = 0 ] || [ "$ROTATE" = 1 ] || die 2 "$sa 에 사용자 키 ${NK}개가 이미 있다 — 재실행은 키 한도만 소진한다. 교체하려면 ROTATE=1 (옛 키 폐기는 사람 승인)"
+    # 같은 이름 조건부 바인딩이 이미 있으면 식이 지금 것과 같아야 한다(다르면 옛 허용 범위가 남는다 — DA r3 ③)
+    OLDX="$(G projects get-iam-policy "$P" --flatten='bindings[].members' --filter="bindings.members=serviceAccount:$sa@$SA_DOM AND bindings.role=roles/iap.tunnelResourceAccessor" --format='value(bindings.condition.expression)' 2>/dev/null)"
+    # 기존 바인딩이 전부 현재 식과 동일해야 한다 — 무조건부(빈 식)가 있어도 중단
+    if [ -n "$OLDX" ] && [ "$(printf '%s\n' "$OLDX" | sort -u | wc -l | tr -d ' ')" != 1 ]; then die 2 "$sa 의 기존 IAP 바인딩이 여러 개/무조건부다 — 사람이 정리(삭제=HIL) 후 재실행"; fi
+  else say "        SA 없음: $sa (생성 예정)"; fi
 done
-for pt in 49011 49012 49013 49014 49015 49016 49017 49018 49019 49020 49021 49022; do
+for pt in $(seq 49011 49040); do
   lsof -ti ":$pt" -sTCP:LISTEN >/dev/null 2>&1 && die 2 "시험 포트 $pt 가 이미 사용 중 — 거짓 통과 방지를 위해 중단"
 done
-say "        시험 포트 490(11~22) 비어 있음"
+say "        시험 포트 49011~49040 비어 있음"
 ssh -o BatchMode=yes -o ConnectTimeout=6 mini 'echo mini=ok' >/dev/null 2>&1 || die 2 "ssh mini 실패"
 ssh -o BatchMode=yes -o ConnectTimeout=6 -o IdentitiesOnly=yes -i "$OCI_KEY" oci 'echo oci=ok' >/dev/null 2>&1 || die 2 "ssh oci 실패"
 say "        mini·oci ssh 확인"
@@ -94,25 +108,22 @@ fi
 say "1/5 SA 생성"
 for sa in "${SAS[@]}"; do
   G iam service-accounts describe "$sa@$SA_DOM" >/dev/null 2>&1 || \
-    G iam service-accounts create "$sa" --display-name="IAP tunnel only ($sa)" >/dev/null || die 3 "SA 생성 실패: $sa"
+    GWR iam service-accounts create "$sa" --display-name="IAP tunnel only ($sa)" >/dev/null || die 3 "SA 생성 실패: $sa"
 done
 sleep 5
 
 # ── 2) IAP 바인딩(조건부) ───────────────────────────────────────────────────
 say "2/5 IAP 터널 권한(조건부) 부여"
 for sa in "${SAS[@]}"; do
-  G projects add-iam-policy-binding "$P" --member="serviceAccount:$sa@$SA_DOM" --role=roles/iap.tunnelResourceAccessor \
+  GWR projects add-iam-policy-binding "$P" --member="serviceAccount:$sa@$SA_DOM" --role=roles/iap.tunnelResourceAccessor \
     --condition="$IAP_COND,title=tunnel-$sa-only,description=llm-dev 8000 and stt-tts-dev 8000 8100 only" >/dev/null \
     || die 3 "IAP 바인딩 실패: $sa (앞서 만든 SA·바인딩은 남음 — 같은 줄 재실행하면 이어감)"
 done
 
 # ── 3) SA 키 발급 (이 맥 0600 임시) ──────────────────────────────────────────
 say "3/5 SA 키 발급(화면 출력 0)"
-( umask 077
-  for sa in "${SAS[@]}"; do
-    G iam service-accounts keys create "$TMP/sa-$sa.json" --iam-account="$sa@$SA_DOM" >/dev/null 2>&1 || exit 1
-  done ) || die 3 "키 발급 실패"
 for sa in "${SAS[@]}"; do
+  ( umask 077; GWR iam service-accounts keys create "$TMP/sa-$sa.json" --iam-account="$sa@$SA_DOM" >/dev/null 2>&1 ) || die 3 "키 발급 실패: $sa (앞서 발급한 키는 GCP 에 남음 — 장부 참조)"
   kid="$(python3 -c "import json;print(json.load(open('$TMP/sa-$sa.json'))['private_key_id'])")"
   say "        키 장부: SA=$sa key_id=$kid 발급=$(date +%Y-%m-%dT%H:%M) 교체권장=90일"
 done
@@ -120,26 +131,32 @@ done
 # ── 4) 새 SA 시험 (전용 CLOUDSDK_CONFIG) ─────────────────────────────────────
 say "4/5 새 SA 시험 — SA 마다 전용 설정 폴더 · 시험 포트 490xx"
 FAIL=0; PORT=49010
-own_listener() {  # own_listener <port> <pid> → 리스너가 내가 띄운 pid(또는 그 자손)인가
-  local pt="$1" root="$2" lp; lp="$(lsof -ti ":$pt" -sTCP:LISTEN 2>/dev/null | head -1)"; [ -n "$lp" ] || return 1
-  while [ -n "$lp" ] && [ "$lp" != 1 ]; do [ "$lp" = "$root" ] && return 0; lp="$(ps -o ppid= -p "$lp" 2>/dev/null | tr -d ' ')"; done; return 1
+own_listener() {  # own_listener <port> <pid> → 127.0.0.1:<port> 의 «모든» 리스너가 내가 띄운 pid(또는 자손)인가
+  local pt="$1" root="$2" lp n=0 anc
+  for lp in $(lsof -ti "TCP@127.0.0.1:$pt" -sTCP:LISTEN 2>/dev/null); do
+    n=$((n+1)); anc="$lp"
+    while [ -n "$anc" ] && [ "$anc" != 1 ] && [ "$anc" != "$root" ]; do anc="$(ps -o ppid= -p "$anc" 2>/dev/null | tr -d ' ')"; done
+    [ "$anc" = "$root" ] || return 1
+  done
+  [ "$n" -ge 1 ]
 }
 tun_open() {  # tun_open <sa> <inst> <rport> → 전역 LP(로컬 포트)·TL(로그)·TPID. 리스너가 «내 프로세스» 일 때만 0
   local sa="$1" inst="$2" rp="$3"; PORT=$((PORT+1)); LP=$PORT; TL="$TMP/tun-$LP.log"
-  CLOUDSDK_CONFIG="$TMP/cfg-$sa" timeout 70 gcloud --project="$P" --account="$sa@$SA_DOM" compute start-iap-tunnel "$inst" "$rp" \
+  "${CLEAN[@]}" CLOUDSDK_CONFIG="$TMP/cfg-$sa" timeout 40 gcloud --project="$P" --account="$sa@$SA_DOM" compute start-iap-tunnel "$inst" "$rp" \
     --local-host-port="127.0.0.1:$LP" --zone="$Z" >"$TL" 2>&1 &
   TPID=$!; echo "$TPID" >> "$PIDS"
   for _ in 1 2 3 4 5 6 7 8; do sleep 1; own_listener "$LP" "$TPID" && return 0; done
   return 1
 }
-http_code() { curl -s -m 7 -o /dev/null -w '%{http_code}' "$1" 2>/dev/null; }
+http_code() { curl --noproxy '*' -s -m 7 -o /dev/null -w '%{http_code}' "$1" 2>/dev/null; }
 for sa in "${SAS[@]}"; do
   mkdir -p "$TMP/cfg-$sa"
-  CLOUDSDK_CONFIG="$TMP/cfg-$sa" timeout 60 gcloud auth activate-service-account "$sa@$SA_DOM" --key-file="$TMP/sa-$sa.json" >/dev/null 2>&1 || die 5 "SA 활성화 실패: $sa"
+  act=0; for _ in 1 2; do "${CLEAN[@]}" CLOUDSDK_CONFIG="$TMP/cfg-$sa" timeout "$GW" gcloud auth activate-service-account "$sa@$SA_DOM" --key-file="$TMP/sa-$sa.json" >/dev/null 2>&1 && { act=1; break; }; sleep 10; done
+  [ "$act" = 1 ] || die 5 "SA 활성화 실패: $sa (SA·바인딩·키는 남음)"
   for spec in "T1 llm-dev:8000|$LLM|8000" "T2 stt-tts-dev:8100|$STT|8100" "T3 stt-tts-dev:8000|$STT|8000"; do
     IFS='|' read -r name inst rp <<<"$spec"
     ok=0
-    for try in 1 2 3; do   # IAM 전파 지연: 최대 3회(20초 간격)
+    for try in 1 2; do   # IAM 전파 지연: 재시도 1회(25초 뒤) — 외부 호출 7초 룰의 «재시도 1회»
       if tun_open "$sa" "$inst" "$rp"; then
         c="$(http_code "http://127.0.0.1:$LP/health")"; [ "$c" = 000 ] && c="$(http_code "http://127.0.0.1:$LP/")"
         if printf '%s' "$c" | grep -q -E '^[1-5][0-9][0-9]$'; then say "        $sa $name ✅ 내 터널 LISTEN · HTTP $c (도달 증거 — health 판정 아님)"; ok=1; break; fi
@@ -147,9 +164,9 @@ for sa in "${SAS[@]}"; do
       else
         say "        $sa $name ⚠️ 터널 안 열림(시도 $try): $(tail -2 "$TL" | tr '\n' ' ' | cut -c1-200)"
       fi
-      kill "$TPID" 2>/dev/null; [ "$try" -lt 3 ] && sleep 20
+      kill "$TPID" 2>/dev/null; [ "$try" -lt 2 ] && sleep 25
     done
-    [ "$ok" = 1 ] || { say "        $sa $name ❌ 3회 실패"; FAIL=1; }
+    [ "$ok" = 1 ] || { say "        $sa $name ❌ 2회 실패"; FAIL=1; }
   done
   for spec in "T4a llm-dev:22|$LLM|22" "T4b stt-tts-dev:22|$STT|22"; do
     IFS='|' read -r name inst rp <<<"$spec"
@@ -158,10 +175,10 @@ for sa in "${SAS[@]}"; do
 try: s.recv(8)
 except Exception: pass" 2>/dev/null; sleep 3
     fi
-    if grep -q -i -E '4033|not authorized|permission.*denied|PERMISSION_DENIED' "$TL" 2>/dev/null; then
-      say "        $sa $name ✅ IAP 명시적 거부: $(grep -i -E '4033|not authorized|denied' "$TL" | head -1 | cut -c1-140)"
+    if grep -q -E '4033|not authorized' "$TL" 2>/dev/null; then
+      say "        $sa $name ✅ IAP 명시적 거부: $(grep -E '4033|not authorized' "$TL" | head -1 | cut -c1-140)"
     else
-      say "        $sa $name ❌ 거부 증거 없음(권한이 설계보다 넓거나 다른 이유로 실패) — 로그: $(tail -1 "$TL" | cut -c1-140)"; FAIL=1
+      say "        $sa $name ❌ IAP 거부(4033) 증거 없음 — 권한이 넓거나, 조회 권한 부족(compute.instances.get)이 거부를 가렸을 수 있다. 로그: $(tail -1 "$TL" | cut -c1-140)"; FAIL=1
     fi
     kill "$TPID" 2>/dev/null
   done
