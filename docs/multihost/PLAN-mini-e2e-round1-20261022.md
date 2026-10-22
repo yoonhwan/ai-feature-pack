@@ -9,7 +9,7 @@ mini 의 Chrome·BlackHole 은 준비돼 있고, 막힌 건 «러너 코드 없�
 ## 막힌 4가지 → 푸는 법 (누가)
 | 막힘 | 푸는 법 | 누가 | 원격 쓰기 |
 |---|---|---|---|
-| ① BYZ 러너 코드 없음 | 이 맥 BYZ-Agents 에서 러너가 import 하는 파일만(`tests/e2e/` + 헬퍼) rsync → mini `~/Project/BYZ-e2e/` · `pip install --user websockets` | h 1장 (pi 초안) | 쓰기 있음 → 오빠 `!` |
+| ① BYZ 러너 코드 없음 | 이 맥 BYZ-Agents 에서 러너가 import 하는 파일만(`tests/e2e/` + 헬퍼) rsync → mini `~/Project/BYZ-e2e/` · 전용 venv(`~/Project/BYZ-e2e/.venv`, brew python3.13 — 시스템 python 3.9 는 websockets 16·러너 문법과 어긋남)에 websockets·pyjwt | h 1장 (pi 초안) | 쓰기 있음 → 오빠 `!` |
 | ② Chrome 디버그 포트 없음 | 기존 29 프로세스는 **사람 손**으로 종료 후 README §1.2 명령(`--remote-debugging-port=9333 --user-data-dir=/tmp/chrome-byz-debug`, headed)으로 재기동 | 오빠 손 1회 (mini 앞) | — |
 | ③ 서버 위치 | 아래 «결정» | 오빠 결정 | — |
 | ④ 마이크 권한(TCC) | mini 터미널 앞에서 `mini-audio-check.sh`(이미 -37.3 dB 로 신호 확인) + Chrome 의 마이크 허용 팝업 1회 | 오빠 손 (②와 같은 자리에서) | — |
@@ -24,7 +24,7 @@ mini 의 Chrome·BlackHole 은 준비돼 있고, 막힌 건 «러너 코드 없�
 1. [오빠 `!` h] mini 에 러너 코드 배치 + websockets.
 2. [오빠 mini 앞] Chrome 정리·CDP 9333 재기동·마이크 허용·`mini-audio-check.sh` 재확인.
 3. [이 맥] 서버 스택을 «검증된 한 세트(같은 HEAD)» 로 기동 — 포트는 로컬 규칙 38301~38399 레인지 · 러너 기본값 3015/8080 이 아니므로 `BYZ_WEB_BASE`·`BYZ_GATEWAY_BASE`·`BYZ_WEB_PORT` 를 환경변수로 명시(`.env` 수정 0).
-4. [mini] 러너 실행: `BYZ_WEB_BASE=… BYZ_GATEWAY_BASE=… CDP_PORT=9333 python3 tests/e2e/realtime_multi_e2e.py …` — 클릭은 러너의 `_real_click`(trusted `Input.dispatchMouseEvent`)만.
+4. [mini] 러너 실행: `BYZ_WEB_BASE=… BYZ_GATEWAY_BASE=… CDP_PORT=9333 .venv/bin/python tests/e2e/realtime_multi_e2e.py …` — 클릭은 러너의 `_real_click`(trusted `Input.dispatchMouseEvent`)만.
 5. 닫는 증거: 러너가 «마이크 버튼 trusted 클릭 → 녹음 시작 → STT 최종본 1건» 까지 간 원문 로그 줄 + mini 에서 돌았다는 호스트명 줄. 이게 D9 «마이크 확정 회차» 이자 «시험 이관 1회 성공».
 
 ## 지키는 것
@@ -36,3 +36,8 @@ mini 의 Chrome·BlackHole 은 준비돼 있고, 막힌 건 «러너 코드 없�
 ## 아직 모르는 것 (다음 실측)
 - 이 맥 포트가 tailnet 쪽에서 닿는지(방화벽·바인드) — A 안 결정 뒤 읽기 전용 확인.
 - 러너 import 폐쇄(어떤 파일까지 옮겨야 하나) — pi 에게 발주.
+
+## 추가 발견 (pi 폐쇄 실측 · 2026-10-22)
+- 러너 폐쇄 = 16파일(loom_domain.py·시나리오 jsonl 61KB 포함). 3rd-party = websockets·PyJWT. 비밀: `_load_e2e_jwt_secret` 가 `REPO/.env` 를 직접 파싱 → `.env` 는 옮기지 않고 `BYZ_E2E_JWT_SECRET` 환경변수(op develop)로만 준다.
+- ★발화 주입 경로 도구가 mini 에 없다★: `sag`·`tts-say`·`sox` 부재(`say`·`afplay` 는 있음). 첫 회차에서 TTS 로 음성을 만들어 BlackHole 로 흘리려면 이 3종(또는 `say` 로 대체 가능한지 러너 코드 확인)이 필요 → 별도 승인 h. 판정은 «러너가 `say` 만으로 도는 옵션이 있나» 먼저.
+- 도메인 풀(`shared/prompts/composable/domains`)은 서버 쪽 자산 → A 안(서버=이 맥)이면 자동 해결.
