@@ -76,7 +76,7 @@ for pk in tmuxc tmm; do
   rs 20 "set -e; [ -f ~/packs/$pk/core/VERSION ] && echo '$pk'=version_ok || exit 1" >/dev/null || die 3 "$pk 해제 후 버전 파일 없음"
 done
 rs 70 'set -e; cd ~/packs/tmuxc && bash install.sh >/tmp/h-tmuxc-install.log 2>&1; tail -3 /tmp/h-tmuxc-install.log; echo tmuxc_install_rc=0' || die 3 "tmuxc install.sh 실패(/tmp/h-tmuxc-install.log)"
-rs 70 'set -e; cd ~/packs/tmm && bash install.sh >/tmp/h-tmm-install.log 2>&1; tail -3 /tmp/h-tmm-install.log; echo tmm_install_rc=0' || die 3 "tmm install.sh 실패(/tmp/h-tmm-install.log)"
+rs 70 'set -e; export PATH="$HOME/.local/bin:$PATH"; cd ~/packs/tmm && bash install.sh >/tmp/h-tmm-install.log 2>&1; tail -3 /tmp/h-tmm-install.log; echo tmm_install_rc=0' || die 3 "tmm install.sh 실패(/tmp/h-tmm-install.log)"
 LOCK="$(rs 30 'echo "tmuxc=$(cat ~/.tmuxc/current/core/VERSION 2>/dev/null)"; echo "tmm=$(cat ~/.tmm/current/core/VERSION 2>/dev/null)"; ls -l ~/.local/bin/tmuxc ~/.local/bin/tmm 2>/dev/null | awk "{print \$9, \$10, \$11}"' 2>&1)"
 printf '%s\n' "$LOCK" | sed 's/^/        /'
 printf '%s\n' "$LOCK" | grep -q "tmuxc=$TMUXC_VER" || die 3 "tmuxc 버전 불일치(기대 $TMUXC_VER)"
