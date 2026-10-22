@@ -74,7 +74,7 @@
 1. `~/.ssh/config` 의 `Host mac-mobile-test` → `HostName 100.92.216.120` 은 **이 맥 자신을 가리킨다**(오늘 tailscale 을 켜자 `ssh mac-mobile-test 'hostname'` 이 `MacBook-Pro.local` 을 돌려줬다). 이름이 «mobile-test» 라 다른 기기로 오해하기 쉽다 — 문서·설계에서 이 별칭을 쓰지 말 것.
 2. **byz mac mini 에는 ssh 접속이 아직 안 된다**(키 미배포):
 ```
-$ ssh -o BatchMode=yes yoonhwan@100.71.41.107 'hostname'
+$ ssh -o BatchMode=yes yoonhwan@100.71.41.107 'hostname'   # ★잘못된 사용자로 시도한 기록 — 올바른 접속은 ssh mini(사용자 byz)★
 yoonhwan@100.71.41.107: Permission denied (publickey,password,keyboard-interactive).
 $ tailscale ping -c 2 100.71.41.107   → pong ... in 12ms     # 망은 정상
 ```
@@ -88,7 +88,7 @@ $ tailscale ping -c 2 100.71.41.107   → pong ... in 12ms     # 망은 정상
 
 **해제 즉시 돌릴 읽기 전용 캡처(쓰기 0)**:
 ```bash
-ssh -o BatchMode=yes yoonhwan@100.71.41.107 'bash -s' <<'EOF'
+ssh -o BatchMode=yes mini 'bash -s' <<'EOF'   # mini 사용자 = byz (~/.ssh/config 별칭 mini)
 hostname; sw_vers -productVersion; uname -m; uname -r
 sysctl -n hw.ncpu; sysctl -n hw.memsize; sysctl -n vm.swapusage
 df -h /; uptime; id -un; ps -p 1 -o comm=

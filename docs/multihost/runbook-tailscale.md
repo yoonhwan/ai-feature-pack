@@ -86,7 +86,7 @@ ss -ltn | grep -c ':22 '    # sshd 는 그대로 (공인 접속 유지)
 **mac mini 확인 2줄(읽기만)**:
 ```bash
 tailscale status | grep -i byzs-mac-mini
-ssh -o BatchMode=yes yoonhwan@100.71.41.107 'hostname; tailscale status | head -3'   # 지금은 Permission denied(publickey)
+ssh -o BatchMode=yes mini 'hostname; tailscale status | head -3'   # 지금은 Permission denied(publickey)
 ```
 **차단 해제(사람 손 1회 · 택1)** — (A) 이 맥 공개키를 mac mini `~/.ssh/authorized_keys` 에 추가(권고) · (B) mac mini 에 `sudo tailscale up --ssh` + ACL `ssh` 규칙(runbook §4.2 는 Tailscale SSH 미사용을 권고하므로 A 우선).
 
