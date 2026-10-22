@@ -56,6 +56,7 @@ if [ "$START" = "1" ]; then
   PRE="$(ms 40 'bash -s' 2>&1 <<EOF
 echo gw=\$(curl -s -o /dev/null -w '%{http_code}' -m 5 http://127.0.0.1:$P_GW/health || true)
 echo web=\$(curl -s -o /dev/null -w '%{http_code}' -m 5 http://127.0.0.1:$P_WEB/ || true)
+echo tun=\$(lsof -nP -iTCP:${LOOM_PG_TUNNEL_PORT:-38309} -sTCP:LISTEN 2>/dev/null | wc -l | tr -d ' ')
 echo cdp=\$(curl -s -m 4 http://127.0.0.1:$CDP/json/version | grep -c Chrome || true)
 echo blackhole=\$(system_profiler SPAudioDataType 2>/dev/null | grep -c 'BlackHole 2ch')
 echo outdev=\$(system_profiler SPAudioDataType 2>/dev/null | grep -B8 'Default Output Device: Yes' | grep -E '^ {8}[A-Za-z].*:\$' | head -1 | tr -d ' :')
@@ -73,6 +74,7 @@ EOF
   WANT=()
   [ "$(get gw)"  = "200" ] || WANT+=("gateway health 200 아님('$(get gw)') → 서버 h(h-mini-byz-server.sh) 먼저")
   [ "$(get web)" = "200" ] || WANT+=("web / 200 아님('$(get web)') → 서버 h 먼저")
+  [ "$(get tun)" -ge 1 ] 2>/dev/null || WANT+=("mini 127.0.0.1:${LOOM_PG_TUNNEL_PORT:-38309} 포워딩이 없다(이 맥 loom 터널로 가는 역방향 ssh 가 죽음) → 이 맥이 켜져 있는지 확인 후 서버 h(h381)를 다시: 서버 DB 가 이 맥 터널에 의존")
   [ "$(get cdp)" -ge 1 ] 2>/dev/null || WANT+=("CDP $CDP 응답 없음 → mini 앞 체크리스트 4번(시험용 Chrome 띄우기)")
   [ "$(get blackhole)" -ge 1 ] 2>/dev/null || WANT+=("BlackHole 2ch 장치 안 보임")
   case "$(get outdev)" in *BlackHole*|*Multi-Output*) ;; *) WANT+=("출력 기본값이 BlackHole/Multi-Output 이 아님('$(get outdev)') → 체크리스트 2번");; esac
