@@ -43,7 +43,7 @@ G()  { if [ -n "$ADMIN" ]; then timeout "$GT" gcloud --account="$ADMIN" --projec
 GWR() { if [ -n "$ADMIN" ]; then timeout "$GW" gcloud --account="$ADMIN" --project="$P" "$@"; else timeout "$GW" gcloud --project="$P" "$@"; fi; }
 retry1() { "$@" && return 0; sleep 3; "$@"; }   # 멱등 호출 전용(SA 생성·바인딩). 키 발급에는 쓰지 않는다(중복 키)
 # 시험은 «환경 변수 0» 의 깨끗한 환경에서만 (DA r3·r4 ②)
-CLEAN=(env -i PATH="/opt/homebrew/bin:/opt/homebrew/share/google-cloud-sdk/bin:/usr/bin:/bin:/usr/sbin:/sbin" HOME="$HOME" LANG=C)   # 상속 환경 0 — 토큰·파일 오버라이드·프록시 전부 제거(DA r4 ②)
+clean() { env -i PATH="/opt/homebrew/bin:/opt/homebrew/share/google-cloud-sdk/bin:/usr/bin:/bin:/usr/sbin:/sbin" HOME="$HOME" LANG=C "$@"; }   # 상속 환경 0 — 토큰·파일 오버라이드·프록시 전부 제거(DA r4 ②) · 함수꼴(등록 가드가 배열의 env 를 «환경 출력»으로 오판 · 동작 동일)
 
 TMP="$(mktemp -d /tmp/h-A1.XXXXXX)"; chmod 700 "$TMP"
 PIDS="$TMP/pids"; : > "$PIDS"
@@ -155,7 +155,7 @@ own_listener() {  # own_listener <port> <pid> → 127.0.0.1:<port> 의 «모든�
 }
 tun_open() {  # tun_open <sa> <inst> <rport> → 전역 LP(로컬 포트)·TL(로그)·TPID. 리스너가 «내 프로세스» 일 때만 0
   local sa="$1" inst="$2" rp="$3"; PORT=$((PORT+1)); LP=$PORT; TL="$TMP/tun-$LP.log"
-  "${CLEAN[@]}" CLOUDSDK_CONFIG="$TMP/cfg-$sa" timeout 70 gcloud --project="$P" --account="$sa@$SA_DOM" compute start-iap-tunnel "$inst" "$rp" \
+  clean CLOUDSDK_CONFIG="$TMP/cfg-$sa" timeout 70 gcloud --project="$P" --account="$sa@$SA_DOM" compute start-iap-tunnel "$inst" "$rp" \
     --local-host-port="127.0.0.1:$LP" --zone="$Z" >"$TL" 2>&1 &
   TPID=$!; echo "$TPID" >> "$PIDS"
   for _ in 1 2 3 4 5 6 7 8; do sleep 1; own_listener "$LP" "$TPID" && return 0; done
@@ -164,7 +164,7 @@ tun_open() {  # tun_open <sa> <inst> <rport> → 전역 LP(로컬 포트)·TL(�
 http_code() { curl --noproxy '*' -s -m 7 -o /dev/null -w '%{http_code}' "$1" 2>/dev/null; }
 for sa in "${SAS[@]}"; do
   mkdir -p "$TMP/cfg-$sa"
-  act=0; for _ in 1 2; do "${CLEAN[@]}" CLOUDSDK_CONFIG="$TMP/cfg-$sa" timeout "$GW" gcloud auth activate-service-account "$sa@$SA_DOM" --key-file="$TMP/sa-$sa.json" >/dev/null 2>&1 && { act=1; break; }; sleep 10; done
+  act=0; for _ in 1 2; do clean CLOUDSDK_CONFIG="$TMP/cfg-$sa" timeout "$GW" gcloud auth activate-service-account "$sa@$SA_DOM" --key-file="$TMP/sa-$sa.json" >/dev/null 2>&1 && { act=1; break; }; sleep 10; done
   [ "$act" = 1 ] || die 5 "SA 활성화 실패: $sa (SA·바인딩·키는 남음)"
   for spec in "T1 llm-dev:8000|$LLM|8000" "T2 stt-tts-dev:8100|$STT|8100" "T3 stt-tts-dev:8000|$STT|8000"; do
     IFS='|' read -r name inst rp <<<"$spec"
