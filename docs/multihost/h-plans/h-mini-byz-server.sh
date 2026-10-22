@@ -24,7 +24,7 @@ P_REDIS="${P_REDIS:-38311}"; P_GATEWAY="${P_GATEWAY:-38312}"; P_WEB="${P_WEB:-38
 PORTS=("$P_REDIS" "$P_GATEWAY" "$P_WEB")
 WORK="${TMPDIR:-/tmp}/h-byz-$$"               # 이 맥 임시 작업 폴더(끝에 지움)
 TUN_PORT="${LOOM_PG_TUNNEL_PORT:-38309}"       # 이 맥 loom 터널(launchd 상주 · 127.0.0.1) 포트 — 정본 server.sh 와 같은 값
-FWD_EXTRA="${FWD_EXTRA:-8000 8001}"             # 이 맥 상주 터널 중 mini 에 더 빌려줄 포트: 8000=LLM vLLM(LOCAL_VLLM_BASE_URL) · 8001=GPU STT/TTS(GPU_STT_TTS_URL) — 이 맥 로컬 기동과 같은 세트
+FWD_EXTRA="${FWD_EXTRA-8000 8001}"           # 이 맥 상주 터널 중 mini 에 더 빌려줄 포트: 8000=LLM vLLM(LOCAL_VLLM_BASE_URL) · 8001=GPU STT/TTS(GPU_STT_TTS_URL) — 이 맥 로컬 기동과 같은 세트
 FWD_PORTS=("$TUN_PORT" $FWD_EXTRA)               # 38309(DB) + 8000 + 8001
 # mini 쪽 포트 → 이 맥 쪽 포트. 8000(LLM)은 이 맥에서 launchd 상주 터널 18703 이 소유한다(수동 8000 터널은 재부팅으로 사라짐 · 상위 #3202). 나머지는 같은 번호.
 LLM_LOCAL_PORT="${LLM_LOCAL_PORT:-18703}"
