@@ -68,7 +68,7 @@ rsq 20 'mkdir -p ~/bin ~/.cli-proxy-api ~/h-backup && chmod 700 ~/bin ~/.cli-pro
 TS="$(date +%Y%m%d-%H%M%S)"
 rsq 20 "set -e; [ -f ~/bin/cli-proxy-api ] && cp -p ~/bin/cli-proxy-api ~/h-backup/cli-proxy-api.$TS || true; [ -f ~/.cli-proxy-api/config.yaml ] && cp -p ~/.cli-proxy-api/config.yaml ~/h-backup/config.yaml.$TS || true; echo backup=ok" || die 3 "백업 실패"
 
-if timeout 120 scp -q -o BatchMode=yes -o IdentitiesOnly=yes -i "$KEY" -o ControlPath="$CP/s" "$BIN_LOCAL" "$R:~/bin/cli-proxy-api.new"; then
+if timeout 70 scp -q -o BatchMode=yes -o IdentitiesOnly=yes -i "$KEY" -o ControlPath="$CP/s" "$BIN_LOCAL" "$R:~/bin/cli-proxy-api.new"; then
   rsq 25 "set -e; mv ~/bin/cli-proxy-api.new ~/bin/cli-proxy-api; chmod 700 ~/bin/cli-proxy-api; echo placed=ok" || die 3 "바이너리 배치 실패"
 else
   die 3 "scp 바이너리 실패(네트워크/권한)"
@@ -100,8 +100,8 @@ rs 20 'ls -l ~/.cli-proxy-api | awk "NR>1{print \$1, \$5, \$9}"' 2>&1 | sed 's/^
 # ── 3) headroom venv(버전 고정) ─────────────────────────────────────────────
 say "3/6 headroom $HEADROOM_VER venv"
 rsq 30 'set -e; [ -d ~/.venvs/headroom ] || python3 -m venv ~/.venvs/headroom; ~/.venvs/headroom/bin/python -m pip -q install --upgrade pip >/dev/null 2>&1 || true; echo venv=ok' || die 3 "venv 생성 실패"
-rs 180 "set -e; ~/.venvs/headroom/bin/python -m pip -q install 'headroom-ai==$HEADROOM_VER' 2>&1 | tail -3; ~/.venvs/headroom/bin/python -c 'import headroom,sys;print(\"headroom=\"+getattr(headroom,\"__version__\",\"?\"))'" \
-  || die 3 "headroom $HEADROOM_VER 설치 실패(aarch64 휠 확인 필요)"
+rs 70 "set -e; ~/.venvs/headroom/bin/python -m pip -q install 'headroom-ai==$HEADROOM_VER' 2>&1 | tail -3; ~/.venvs/headroom/bin/python -c 'import headroom,sys;print(\"headroom=\"+getattr(headroom,\"__version__\",\"?\"))'" \
+  || die 3 "headroom $HEADROOM_VER 설치 실패 또는 70초 상한(7초 룰 천장) 초과 — 같은 h 를 다시 치면 pip 캐시로 이어간다(aarch64 휠 확인 필요)"
 say "        headroom 설치 완료"
 
 # ── 4) systemd 사용자 유닛 2개(127.0.0.1 바인드) ────────────────────────────
