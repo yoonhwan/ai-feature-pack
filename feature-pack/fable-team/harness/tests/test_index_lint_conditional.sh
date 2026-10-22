@@ -8,7 +8,7 @@ ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }
 
 bash -n "$LINT" && ok "bash -n" || bad "bash -n"
-LINES="$(awk 'END{print NR}' "$LINT")"; [ "$LINES" -le 160 ] && ok "키트 ${LINES}줄 ≤160" || bad "키트 ${LINES}줄 > 160"
+LINES="$(awk 'END{print NR}' "$LINT")"; [ "$LINES" -le 200 ] && ok "키트 ${LINES}줄 ≤200" || bad "키트 ${LINES}줄 > 200"   # r767: 「소환: 규칙14」 길(+26줄)로 160 → 200(프로젝트 파일 상한)
 
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 cd "$T" && git init -q . || { echo "FAIL git init"; exit 1; }

@@ -1,3 +1,9 @@
+## 2026-10-23 — r767 카드 사전검증에 «소환: 규칙14» 길(1.1.219)
+
+- DA 보류(HOLD)가 2회 쌓인 카드는 하드 룰 14 로 3번째 사전 DA 를 생략한다. 이 정직한 통과 경로를 `ft-index-lint.sh` 의 사전검증이 읽는다: DA 판정문 마지막이 HOLD ∧ 보류 «라운드» 2회+ ∧ `- 규칙 14: 판정 N`(카드 id 와 같은 줄에 planner 원장 판정 줄이 있어야) ∧ 완료 조건 «합본 DA⑥». 하나라도 빠지면 종전대로 사전 APPROVE 요구.
+- 시험: `test_index_lint_rule14.sh` 35 PASS · index_lint/conditional/verdict_row/proposal_card 회귀 rc 0 · arch §226 격리 FAIL 0 · 외부 DA⑥ r1·r2·r3 HOLD(원문 evidence/r767-da6/) — 4번째 DA 0(규칙 14 · master 결정 A) · 한계 3줄 카드 고정(원문·요약 2라운드 · «은 생략»·«(생략)» · id 미이스케이프 — 기존 사용례 0).
+- 설치: ft-index-lint.sh bin/kit 짝 cmp0.
+
 ## 2026-10-23 — r746 루트 연결 파일(shim) `.py` 는 python 본문으로(1.1.218)
 
 - `ft-root-bin-shim.sh` 가 만드는 `.py` 연결 파일이 bash 본문이라 `python3 <shim>.py` 로 부르면 SyntaxError 나던 것 → 올바른 python 본문(1행 python3 · 2행 표식 · 3행 bash·python 겸용 줄)으로 생성. LIVE_BIN 검사 3종 문구·rc3 동일 · import 는 ImportError · 실행은 `os.execv`. 옛 호출 꼴 `bash <shim>.py` 도 겸용 줄로 그대로 통과.
