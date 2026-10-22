@@ -1,3 +1,9 @@
+## 2026-10-22 — r745 개명한 팀의 옛 이름 쪽지가 새 좌석에 이어진다(1.1.215 · mbox 계보 별칭)
+
+- 팀 이름을 바꾸면(loom → knowledge) 옛 이름의 팀 글자가 가리키던 명부 파일(`seats-loom.json`)이 없어져서, 계보 역추적(`mbox_lineage.py`)과 보내는 쪽 가드(`mbox_guard.sh`)가 옛 이름 쪽지를 «미등록»으로 보고 후계 recv 에 안 이어주던 것 → 새 모듈 `comm/mbox_teamfile.py` 의 «명부 파일 찾기» 함수 1개를 받는 쪽·보내는 쪽이 같이 부름: 원 명부 파일이 있으면 그대로 · 없을 때만 `_renamed_from == <팀>` 인 명부가 정확히 1개면 그 파일(0개·2개+ 는 지금과 같음 · 2개+ 는 경고 1줄).
+- 시험 `test_mbox_lineage.sh` 22 · `test_mbox_guard.sh` 137 PASS(구현 전 lineage 2·guard 4 FAIL 확인) · 판정문 §203(arch 격리 재대조 OK · 변이 빨강 확인) · 증거 `harness/evidence/r745/`.
+- 설치: comm 3파일(`mbox_lineage.py` · `mbox_guard.sh` · `mbox_teamfile.py`)을 한 번에 `.fable-team/comm` 에 cmp0 — 새 모듈이 빠지면 가드가 ImportError 로 comm 길 send 전부 정지. 실사건 = 옛 이름 앞 쪽지가 `comm/mbox.sh recv` 로 새 좌석에 잡힘. 별도: 좌석들이 치는 `ft-mbox.sh recv` 길은 r747.
+
 ## 2026-10-22 — r741 문서 전용 PR 승인 면제를 팀 하위 폴더로 확대(1.1.214 · 새 파일 추가만)
 
 - r725 가 «한 팀 폴더 직속 `.md`» 만 무승인으로 착지시키던 것을 `design/teams/<팀>/` 아래 하위 폴더의 **새 `.md` 파일 추가(A)** 까지 넓힘 — 하위 폴더의 수정(M)·삭제(D)·이름 바꾸기(R) 는 지금처럼 오빠 승인(오빠 결정 선택지 1 · 슬랙 1792667121).

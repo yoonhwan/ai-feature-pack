@@ -44,8 +44,8 @@ guard_mode() {
 
 # 출력 줄 = `<동사>␟<새 수신자>␟<문장>`(구분자 U+001F — 탭은 read 가 연속 구분자를 합친다) : OK · WARN · REJECT · FORWARD(후계로 전달) · EXPLICIT(명시 이름 그대로 + 로그)
 _guard_py_recipient() {
-  python3 - "$(_seats_json)" "$1" "$2" <<'PY'
-import json, glob, os, re, sys
+  python3 - "$(_seats_json)" "$1" "$2" "$DIR" <<'PY'
+import json, glob, os, re, sys; sys.path.insert(0, sys.argv[4]); import mbox_teamfile   # 명부 파일 고르기 = mbox_lineage.py 와 «같은 함수»(r745)
 sj, to, safe = sys.argv[1], sys.argv[2], sys.argv[3] == "1"
 d = os.path.dirname(sj) or "."
 def out(verb, new="", msg=""): print(f"{verb}\x1f{new}\x1f{msg}")
@@ -60,9 +60,8 @@ for f in sorted(glob.glob(d + "/seats*.json")):
     except Exception: v = None
     if isinstance(v, dict): docs[f] = v
     else: bad.append(f)
-def tfile(n):  # 이름의 팀 글자 → authoritative 명부 파일(없으면 "")
-    m = re.match(r"^(?:byz|ft)-([a-z0-9]+)-", n)
-    return (d + ("/seats.json" if m.group(1) == "v65" else "/seats-" + m.group(1) + ".json")) if m else ""
+def tfile(n):  # 이름의 팀 글자 → authoritative 명부 파일(없으면 "") · 개명 별칭은 공용 모듈 1개가 정한다(r745)
+    p, w = mbox_teamfile.teamfile(d, n, docs, bad); w and out("WARN", "", w); return p
 auth = tfile(to); team = os.path.basename(auth)[6:-5] if auth else ""
 for f in bad:
     if f != auth: out("WARN", "", "명부 " + os.path.basename(f) + " 읽기 실패 · 이 판정에는 미사용")

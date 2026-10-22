@@ -1,0 +1,20 @@
+# r745 mbox 계보 — 개명한 팀 별칭 (nano byz-harness-nano-r745-mbox-lineage-renamed-team-alias#0)
+
+## 원인
+명부 파일 이름 규칙(tfile)이 이름의 팀 글자로 seats-<팀>.json 을 만든다 · 개명은 행 이름을 그대로 두고 파일 이름만 바꾸므로(_renamed_from=<옛>) 옛 이름의 tfile 이 «없는 파일» 이 된다 → recv 계보가 그 행을 건너뛰고(«READ none») send 가드는 «미등록 — 전송» 으로 옛 큐에 쌓는다.
+
+## 고침 (규칙 1개 · 두 곳 같은 함수)
+- 새 모듈 comm/mbox_teamfile.py: teamfile(d,name,docs,bad) → 원 명부 파일이 있으면 그대로 · 없을 때만 `_renamed_from == <팀>` 인 명부 «정확히 1개» 면 그 파일 · 0개/2개+ = "" (2개+ 경고 1줄)
+- comm/mbox_lineage.py: _tfile 이 그 함수를 부르고 eligible 이 docs/bad 를 한 번만 읽는다 · 계보 조건 `_tfile(d,p,docs,bad) != auth` 그대로
+- comm/mbox_guard.sh: 같은 함수를 import(가드 폴더 = python argv[4] · sys.path) · 200줄 규칙 유지 199줄
+
+## 시험
+- tests/test_mbox_lineage.sh: ⓐr(별칭 합류) · 변이③(별칭 해석 삭제 → 빨강) · ⓓr(원 파일 우선) · ⓔr(별칭 충돌 경고 1줄 · 합류 0) · ⓕr(두 단 개명은 두 단 전 이름을 안 잇는다 — 원문 기록)
+- tests/test_mbox_guard.sh: ⓑ(옛 이름 = REJECT 후계 안내 · 큐 0) · ⓒ([HIL] → 후계 전달) · ⓒr(새 이름 = 지금과 같음) · ⓓ · ⓔ · ⓗ(변이③ 사본이 «미등록» 으로 되돌아감) · py_compile
+- 픽스처 4개: tests/fixtures/mbox_guard/{renamed,renamed_orig,renamed_dup,renamed_2step}
+
+## 값
+- 01-red-baseline.txt: 구현 0 + 새 시험 = lineage FAIL 2(ⓐr·ⓔr) · guard FAIL 4(ⓑ·ⓒ·ⓔ·py_compile)
+- 02-green.txt: test_mbox_lineage.sh 22 PASS rc=0 · test_mbox_guard.sh 137 PASS rc=0
+- 03-regression.txt: 관련 mbox 시험 8종(내 파일을 쓰는 것만)
+- 04-files.txt: 변경 파일·줄수

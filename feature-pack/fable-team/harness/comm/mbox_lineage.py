@@ -3,6 +3,7 @@
 #   계보 규칙은 mbox_guard.sh 의 명부 규칙(tfile 팀 명부 · _replaced_by · 명부 충돌 · closed/stopped)과 같다. 외부 호출 0(json·큐 파일만).
 from mbox_conf import *
 from mbox_store import _load, _locked, _save
+import mbox_teamfile   # 명부 파일 고르기 = mbox_guard.sh 와 «같은 함수»(개명 별칭 · r745)
 CANON = None   # mbox.py 가 묶는다
 
 
@@ -10,9 +11,8 @@ def _seats_json():   # mbox.sh 의 _seats_json 과 같은 규칙: env 가 이기
     return os.environ.get("FT_SEATS_JSON") or os.path.join(os.path.dirname(CANON), "seats.json")
 
 
-def _tfile(d, name):   # 이름의 팀 글자 → authoritative 명부 파일(없으면 "")
-    m = re.match(r"^(?:byz|ft)-([a-z0-9]+)-", name)
-    return (d + ("/seats.json" if m.group(1) == "v65" else "/seats-" + m.group(1) + ".json")) if m else ""
+def _tfile(d, name, docs, bad):   # 이름의 팀 글자 → authoritative 명부 파일(없으면 "") · 개명 별칭은 공용 모듈 1개가 정한다(r745)
+    return mbox_teamfile.teamfile(d, name, docs, bad)[0]
 
 
 def _load_docs(d):
@@ -35,8 +35,9 @@ def eligible(me):
     """
     names, warns = [me], []
     sj = _seats_json(); d = os.path.dirname(sj) or "."
-    auth = _tfile(d, me)
     docs, bad = _load_docs(d)
+    auth, awarn = mbox_teamfile.teamfile(d, me, docs, bad)
+    if awarn: warns.append(awarn)
     if auth in bad:
         return names, ["명부 읽기 실패 %s — 계보 없이 %s 큐만 읽는다" % (os.path.basename(auth), me)]
     if auth not in docs:
@@ -49,7 +50,7 @@ def eligible(me):
     while todo:
         cur = todo.pop(0)
         for p, row in rows.items():
-            if row.get("_replaced_by") != cur or p in seen or _tfile(d, p) != auth:
+            if row.get("_replaced_by") != cur or p in seen or _tfile(d, p, docs, bad) != auth:
                 continue
             seen.add(p)
             if len(holders(p)) > 1: warns.append("명부 충돌 %s — 이 지점에서 계보 중단(%s 큐 보존)" % (p, p))
