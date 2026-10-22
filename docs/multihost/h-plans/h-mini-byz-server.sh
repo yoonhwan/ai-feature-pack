@@ -89,7 +89,7 @@ done
 say "        전송 완료(rsync rc=0)"
 
 # ── 3) 설치·빌드 — mini 백그라운드 작업 + 짧은 폴링 ───────────────────────
-say "3/7 설치·빌드(uv sync → npm ci → next build)"
+say "3/7 설치·빌드(uv sync → npm ci → next build) — 파이썬은 3.13 고정(BYZ 에 .python-version 이 없고 mini 최신은 3.15.0 사전판 → 고정 안 하면 uv 가 3.15 를 고름 · 이 맥 .venv 는 3.13.12)"
 BUILD_ENV="NEXT_PUBLIC_API_URL=http://127.0.0.1:$P_GATEWAY/api/v1 NEXT_PUBLIC_SSE_URL=http://127.0.0.1:$P_GATEWAY/sse/v1 NEXT_PUBLIC_WS_URL=ws://127.0.0.1:$P_GATEWAY/ws/v1 NEXT_PUBLIC_BASE_URL=http://127.0.0.1:$P_WEB"
 MARK="$FULL|$P_GATEWAY|$P_WEB"
 STATE="$(ms 15 "cd \$HOME/Project/BYZ-Agents; if [ \"\$(cat .h-installed 2>/dev/null)\" = '$MARK' ]; then echo done; elif [ -f .h-install.pid ] && kill -0 \$(cat .h-install.pid) 2>/dev/null; then echo running; elif [ -f .h-install.rc ]; then echo rc=\$(cat .h-install.rc); else echo none; fi")" || STATE=none
@@ -98,7 +98,7 @@ case "$STATE" in
   running) say "        설치 작업이 아직 진행 중(.h-install.log)"; ms 10 'tail -2 $HOME/Project/BYZ-Agents/.h-install.log' | sed 's/^/        /'; die 3 "진행 중 — 몇 분 뒤 같은 인자로 재실행";;
   *)
     case "$STATE" in rc=0) ;; rc=*) say "        직전 설치 작업이 실패($STATE) — 로그 끝 3줄:"; ms 10 'tail -3 $HOME/Project/BYZ-Agents/.h-install.log' | sed 's/^/        /';; esac
-    ms 20 "cd \$HOME/Project/BYZ-Agents; rm -f .h-install.rc; nohup bash -c 'set -e; uv sync --frozen; cd clients/web; npm ci --no-audit --no-fund; $BUILD_ENV npm run build; cd ../..; echo \"$MARK\" > .h-installed' > .h-install.log 2>&1 < /dev/null & echo \$! > .h-install.pid; echo started" >/dev/null || die 3 "설치 작업 시작 실패"
+    ms 20 "cd \$HOME/Project/BYZ-Agents; rm -f .h-install.rc; nohup bash -c 'set -e; uv sync --frozen --python /opt/homebrew/bin/python3.13; cd clients/web; npm ci --no-audit --no-fund; $BUILD_ENV npm run build; cd ../..; echo \"$MARK\" > .h-installed' > .h-install.log 2>&1 < /dev/null & echo \$! > .h-install.pid; echo started" >/dev/null || die 3 "설치 작업 시작 실패"
     for i in 1 2 3 4 5 6 7 8 9 10; do
       sleep 5
       S="$(ms 10 'cd $HOME/Project/BYZ-Agents; if [ -f .h-installed ]; then echo done; elif kill -0 $(cat .h-install.pid) 2>/dev/null; then echo running; else echo failed; fi' 2>/dev/null)" || S=running
