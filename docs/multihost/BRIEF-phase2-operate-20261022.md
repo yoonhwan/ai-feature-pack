@@ -17,7 +17,7 @@
 | OCI headroom·cliproxy 연결 | ✅ 됨 | h376 rc=0 — 위 표 참조(두 유닛 active · 모델 3종 · health 200) |
 | OCI cliproxy 계정(claude 1 · codex 2) | ✅ 됨 | 오빠 결정 변경(2026-10-22 «일단 하나만»): claude 5→1. **h404 rc=0**(h399 대체): claude=1/1 · codex=2/2 · /v1/models 32개. BYZ 인증 파일 복사 0 |
 | hermes 업데이트 지원 | ⚠️ 절차만 앎 | 이미 systemd 사용자 서비스 · `hermes update --check→backup→update→restart→doctor` |
-| 브라우저 시험 이관 | 🟡 진행 | mini: Chrome·BlackHole·마이크 사전 점검 통과(-37.3 dB). h378 rc=0(러너 폐쇄 16파일 배치 · venv websockets/jwt import OK · sha 16/16). **h379 rc=0**(tts-say 설치: sha 일치 · shebang python3.13 · ko_KR 9 · Yuna 1 · help_rc=0). 남음: 서버(h381) · mini 앞 오빠 손 7단계 · 러너 1회차(h382) |
+| 브라우저 시험 이관 | 🟡 진행 | mini: Chrome·BlackHole·마이크 사전 점검 통과(-37.3 dB). h378 rc=0(러너 폐쇄 16파일 배치 · venv websockets/jwt import OK · sha 16/16). **h379 rc=0**(tts-say 설치: sha 일치 · shebang python3.13 · ko_KR 9 · Yuna 1 · help_rc=0). 남음: 서버(h381) · mini 앞 오빠 손 7단계 · 러너 1회차(h382) · ★10-22 17:3x 재개 지점(오빠 맥 재부팅 전 기록): mini 서버 정지됨(h381 stop rc=0) · 오빠 판정 «DB 는 dev(10.2.0.3) — 38309→prod(10.2.0.10) 는 의도 아님» · 자체 IAP 터널 설계 DA 보류 2회(DESIGN-host-iap-tunnels §7, 반박 원문 scratchpad da2) → h-A 를 A1(SA2+IAP 조건부+LLM/STT/TTS 터널, ssh 0)·A2(DB 경로, 리서치 나노 pi deepseek)로 분리. 다음: A1 스크립트(h-iap-tunnel-sa.sh 에서 ssh·메타 제거+버그 수정) 작성→DA r3 / A2 리서치 나노 결과 대기. 재부팅 뒤: 쪽지 recv → 이 줄 → docs/multihost git log ★ |
 | tmm·tmuxc·fable-team 멀티 인스턴스 기능 | ⏳ 하네스 카드 대기 | r673(P2)·r678(P1)·r674(P4)·r676·r675(P3) — 하네스 순번 뒤쪽 |
 | 운영 UX(슬랙·tmm 호스트 판) | ⏳ 설계만 | `DESIGN-multihost-ops-ux-20261021.md` |
 
