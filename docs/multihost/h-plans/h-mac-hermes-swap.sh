@@ -15,7 +15,7 @@
 # ★위험 1개★: 3 에서 코드만 새 것으로 바뀐 뒤 4 의 의존성 설치가 실패하면, 게이트웨이(메모리의 옛 코드)는 계속 돌지만 launchd 가 다시 띄우면 새 코드+옛 의존성이다.
 #   → 4 가 실패하면(rc=4) 즉시 아래 «되돌림»을 사람 승인으로 먼저 한다. (이 h 는 4 실패 시 게이트웨이를 건드리지 않는다.)
 # ★되돌림(사람 승인 · 출력만)★:
-#   cd ~/.hermes/hermes-agent && git checkout local/cliproxy-loopback-base-url && git stash pop   # (pop 대상은 stash 목록 맨 위의 «h-mac-swap-<ts>»)
+#   cd ~/.hermes/hermes-agent && git checkout local/cliproxy-loopback-base-url && git stash apply 'stash^{/h-mac-swap-<ts>}'   # 이름으로 지정(맨 위가 아닌 다른 stash 를 잘못 꺼내지 않음) · apply 라 stash 는 남는다
 #   cp ~/.hermes/config.yaml.bak-h-mac-swap-<ts> ~/.hermes/config.yaml ; hermes gateway restart ; hermes -p zion gateway restart
 set -uo pipefail
 
@@ -148,5 +148,5 @@ for sf in "${STATE_FILES[@]}"; do say "        $(basename "$(dirname "$sf")"): $
 for l in $WATCH_BEFORE; do p="$(pidof_label "$l")"; [ -n "$p" ] && [ "$p" != "-" ] || { say "        감시 $l ❌ 사라짐"; FAIL=1; }; done
 say "        옛 브랜치 $OLD_BRANCH $(g rev-parse --verify -q "refs/heads/$OLD_BRANCH" >/dev/null && echo 그대로 ✅ || echo 없음 ❌) · stash $(g stash list | wc -l | tr -d ' ')개 · 보존 브랜치 $(g branch --list 'backup/h-mac-pre-swap-*' | wc -l | tr -d ' ')개"
 if [ "$FAIL" = 0 ]; then say "완료 rc=0 — 이식 브랜치 위에서 새 main 으로 올라감, loopback 가드·침묵 접두사 유지, 게이트웨이 2개 가동. 슬랙에서 «— 메모» 와 일반 메시지 1회씩 확인(오빠 손 1회)"; exit 0; fi
-say "증거 불일치 rc=5 — 위 ❌ 확인. 되돌림(사람 승인): cd ~/.hermes/hermes-agent && git checkout $OLD_BRANCH && git stash pop ; cp $HD/config.yaml.bak-h-mac-swap-$TS $HD/config.yaml ; hermes gateway restart ; hermes -p zion gateway restart"
+say "증거 불일치 rc=5 — 위 ❌ 확인. 되돌림(사람 승인): cd ~/.hermes/hermes-agent && git checkout $OLD_BRANCH && git stash apply 'stash^{/h-mac-swap-$TS}' ; cp $HD/config.yaml.bak-h-mac-swap-$TS $HD/config.yaml ; hermes gateway restart ; hermes -p zion gateway restart"
 exit 5
