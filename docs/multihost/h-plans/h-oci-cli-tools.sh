@@ -130,7 +130,16 @@ if 'aifp-local-no-auth' not in d['customApiKeyResponses']['approved']:
     d['customApiKeyResponses']['approved'].append('aifp-local-no-auth')
 tmp = p + '.tmp'
 json.dump(d, open(tmp, 'w'), ensure_ascii=False, indent=2); json.load(open(tmp)); os.chmod(tmp, 0o600); os.replace(tmp, p)
-print('trust_onboarding_key=ok')
+# 2026-10-22 h377 실측: tmuxc 가 띄운 claude 첫 화면 «Bypass Permissions 동의» 에 Enter → «No, exit». 이 맥과 같은 설정 키(settings.json)로 건너뛴다.
+s = os.path.expanduser('~/.claude/settings.json'); sd = {}
+os.makedirs(os.path.dirname(s), exist_ok=True)
+if os.path.exists(s):
+    shutil.copy2(s, s + '.bak-' + time.strftime('%Y%m%d-%H%M%S'))
+    sd = json.load(open(s))
+sd['skipDangerousModePermissionPrompt'] = True
+tmp = s + '.tmp'
+json.dump(sd, open(tmp, 'w'), ensure_ascii=False, indent=2); json.load(open(tmp)); os.replace(tmp, s)
+print('trust_onboarding_key=ok skip_bypass_prompt=ok')
 PYEOF
 
 say "5/6 증거 ② tmuxc 좌석 열기 → 화면 캡처 → probe → 닫기"
