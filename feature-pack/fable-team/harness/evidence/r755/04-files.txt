@@ -1,0 +1,37 @@
+# 변경 파일(새 카드 r755)
+   M feature-pack/fable-team/harness/bin/ft-merge-land.sh
+   M feature-pack/fable-team/harness/kit/fable-team/bin/ft-merge-land.sh
+   M feature-pack/fable-team/harness/tests/test_merge_land_state_dir.sh
+  ?? feature-pack/fable-team/harness/bin/ft-merge-deny.sh
+  ?? feature-pack/fable-team/harness/bin/ft-merge-deny.txt
+  ?? feature-pack/fable-team/harness/evidence/r755/
+  ?? feature-pack/fable-team/harness/kit/fable-team/bin/ft-merge-deny.sh
+  ?? feature-pack/fable-team/harness/kit/fable-team/bin/ft-merge-deny.txt
+  ?? feature-pack/fable-team/harness/tests/test_merge_land_deny_stale.sh
+
+# 줄수 · 모드
+     120줄  100755  feature-pack/fable-team/harness/bin/ft-merge-land.sh
+     120줄  100755  feature-pack/fable-team/harness/kit/fable-team/bin/ft-merge-land.sh
+      39줄    feature-pack/fable-team/harness/bin/ft-merge-deny.sh
+      39줄    feature-pack/fable-team/harness/kit/fable-team/bin/ft-merge-deny.sh
+       7줄    feature-pack/fable-team/harness/bin/ft-merge-deny.txt
+       7줄    feature-pack/fable-team/harness/kit/fable-team/bin/ft-merge-deny.txt
+     128줄    feature-pack/fable-team/harness/tests/test_merge_land_deny_stale.sh
+      61줄  100644  feature-pack/fable-team/harness/tests/test_merge_land_state_dir.sh
+
+# 짝 사본 cmp (bin ↔ kit)
+  cmp0 ft-merge-land.sh
+  cmp0 ft-merge-deny.sh
+  cmp0 ft-merge-deny.txt
+
+# bash -n
+  OK feature-pack/fable-team/harness/bin/ft-merge-land.sh
+  OK feature-pack/fable-team/harness/bin/ft-merge-deny.sh
+  OK feature-pack/fable-team/harness/tests/test_merge_land_deny_stale.sh
+  OK feature-pack/fable-team/harness/tests/test_merge_land_state_dir.sh
+
+# ft-merge-land.sh 변경 diff
+-JSON="$(fm_t7 "$GH_R" pr view "$PR" ${SLUG:+-R "$SLUG"} --json headRefOid,title,body,state,baseRefName)" || rej "gh pr view $PR 실패(7 s + 재시도 1)"; deadline
++JSON="$(fm_t7 "$GH_R" pr view "$PR" ${SLUG:+-R "$SLUG"} --json headRefOid,headRefName,title,body,state,baseRefName)" || rej "gh pr view $PR 실패(7 s + 재시도 1)"; deadline
+-S="$(G rev-parse --verify -q FETCH_HEAD^{commit})" && [ "$S" = "$HEADSHA" ] || rej "fetch 한 head($S) != PR head($HEADSHA)"
++S="$(G rev-parse --verify -q FETCH_HEAD^{commit})" && [ "$S" = "$HEADSHA" ] || rej "fetch 한 head($S) != PR head($HEADSHA)"; DNY="$(bash "$HERE/ft-merge-deny.sh" "$S" --branch "$(pf headRefName)" --repo "$REPO")" || rej 

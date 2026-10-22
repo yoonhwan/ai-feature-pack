@@ -21,7 +21,7 @@ printf '#!/bin/bash\nexit 0\n' > "$T/install-stub"; chmod +x "$T/gh-stub" "$T/in
 
 mkinst() {  # mkinst <설치 루트> — <루트>/.fable-team/bin 에 병합 도구 묶음 복사(repo·원격은 설치 폴더 밖) · 시작 장부·뒤처짐 알림은 무동작 스텁
   local b="$1/.fable-team/bin"; mkdir -p "$b"
-  for f in ft-merge-land.sh ft-merge-lib.sh ft-evidence-lib.sh ft-merge-gate.sh ft_merge_lines.py ft-autonomy.sh ft-autonomy-level.sh ft-harness-root.sh; do cp "$BIN/$f" "$b/$f"; done
+  for f in ft-merge-land.sh ft-merge-lib.sh ft-evidence-lib.sh ft-merge-gate.sh ft_merge_lines.py ft-autonomy.sh ft-autonomy-level.sh ft-harness-root.sh ft-merge-deny.sh ft-merge-deny.txt; do cp "$BIN/$f" "$b/$f"; done
   for f in ft-autonomy-start.sh ft-head-lag.sh; do printf '#!/bin/bash\nexit 0\n' > "$b/$f"; done
   chmod +x "$b"/*.sh
 }

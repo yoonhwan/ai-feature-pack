@@ -1,0 +1,19 @@
+R756 회귀 — ft-successor-open.sh 를 직접 부르는 시험 전수(이 카드 변경 뒤)
+명령 = cd feature-pack/fable-team/harness/tests && bash <시험>
+test_successor_open.sh                       rc=0  FAIL줄=0  ALL PASS
+test_r756_desk_planner_worktree_gate.sh      rc=0  FAIL줄=0  ALL PASS
+test_thread_reply_named.sh                   rc=1  FAIL줄=5  FAILED 4
+test_resource_freeze_exempt.sh               rc=0  FAIL줄=0  
+test_distill_recv_gate.sh                    rc=0  FAIL줄=0  ALL PASS
+test_teamset_gitref.sh                       rc=3  FAIL줄=4  FAILED 3
+test_resource_reclaim_preventive.sh          rc=0  FAIL줄=0  
+test_teamset_check.sh                        rc=0  FAIL줄=0  ALL PASS
+test_pi_agent_allow_r540.sh                  rc=1  FAIL줄=6  FAILED 5
+test_arch_required_gate.sh                   rc=4  FAIL줄=5  FAILED 4
+test_role_spawn_team.sh                      rc=1  FAIL줄=9  FAILED 8
+test_resource_gate_pressure.sh               rc=1  FAIL줄=0  
+test_spawn_hold.sh                           rc=0  FAIL줄=0  
+test_tracked_bin_call_gate.sh                rc=0  FAIL줄=0  
+test_desk_bash_fg_gate.sh                    rc=0  FAIL줄=0  
+test_baseline_lint.sh                        rc=0  FAIL줄=0  ALL PASS
+test_resource_reclaim.sh — 이 카드 밖(ft-successor-open 은 bash -n·cmp 만 씀) · 기선 플레이크: 03b 참조
