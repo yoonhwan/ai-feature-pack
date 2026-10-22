@@ -141,6 +141,13 @@ gate e FAKE_LOADAVG='10.0 29.90 10.0' FT_PRESS_LOAD_MAX=30
 n=$((n+1)); [ "$RC" = 0 ] && has '✓ 부하 5분 평균 29.90 < 임계 30' && ok "$n. ⓓ 임계 30 아래(29.9) → rc=0" \
   || { bad "$n. ⓓ 임계 아래 (rc=$RC)"; printf '%s\n' "$OUT" | sed 's/^/    /'; }
 
+# ⓕ 거절 = «기다림 신호» — 지금 load · 기준(FT_PRESS_LOAD_MAX) · 다시 볼 시각 3요소가 1줄에(planner 2681)
+mkworld g
+gate g FAKE_LOADAVG='1.00 81.50 20.00' FT_PRESS_LOAD_MAX=60
+n=$((n+1)); [ "$RC" = 1 ] && printf '%s\n' "$OUT" | grep -qE "^· 지금 load 81.50 · 기준 FT_PRESS_LOAD_MAX=60 · 다시 볼 시각 [0-9]{2}:[0-9]{2} " \
+  && ok "$n. ⓕ REJECT 줄에 지금 load·기준·다시 볼 시각 3요소(기다림 신호)" \
+  || { bad "$n. ⓕ 다시 볼 시각 줄 (rc=$RC)"; printf '%s\n' "$OUT" | grep '다시 볼' | sed 's/^/    /'; printf '%s\n' "$OUT" | sed 's/^/    /' | tail -12; }
+
 # ⓔ 잘못된 임계 = 막힘
 mkworld f
 gate f FAKE_LOADAVG='1.0 2.0 3.0' FT_PRESS_LOAD_MAX=abc

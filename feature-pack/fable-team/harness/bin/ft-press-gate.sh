@@ -61,6 +61,12 @@ _load5(){ # macOS sysctl vm.loadavg = "{ 1분 5분 15분 }" · 없으면 /proc/l
   [ -n "$v" ] || v="$(awk '{print $2}' /proc/loadavg 2>/dev/null)"
   printf '%s' "$v"
 }
+_retry_at(){ # 10분 뒤 시각(HH:MM) — macOS date -v · GNU date -d
+  local t
+  t="$(date -v+10M '+%H:%M' 2>/dev/null)" || t=""
+  [ -n "$t" ] || t="$(date -d '+10 minutes' '+%H:%M' 2>/dev/null)"
+  printf '%s' "${t:-+10분}"
+}
 _load_gate(){
   local v
   case "$LOAD_MAX" in ''|*[!0-9.]*) say "✗" "FT_PRESS_LOAD_MAX=$LOAD_MAX — 숫자(부하 임계)만"; FAIL=1; return ;; esac
@@ -69,6 +75,8 @@ _load_gate(){
   if awk -v a="$v" -v b="$LOAD_MAX" 'BEGIN{exit !(a>=b)}'; then
     say "✗" "5분 평균 부하 $v ≥ 임계 $LOAD_MAX — 지금 쏘면 회차가 무효(청크 POST 타임아웃·Redis Timeout) · 원인 상위 3 프로세스:"
     ps -Ao pcpu,pid,comm -r 2>/dev/null | head -4 | tail -3 | sed 's/^/      /'
+    # 거절 = «기다림 신호» — 지금 값·기준·다시 볼 시각을 1줄로 준다(planner 2681)
+    say "·" "지금 load $v · 기준 FT_PRESS_LOAD_MAX=$LOAD_MAX · 다시 볼 시각 $(_retry_at) (5분 평균이 그때 내려오는지)"
     FAIL=1; return
   fi
   say "✓" "부하 5분 평균 $v < 임계 $LOAD_MAX"
