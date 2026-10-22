@@ -114,9 +114,10 @@ cmp -s "$REPO/.fable-team/seats-planner.json" "$T/seats.orig" && ok "  └ 명�
 rm -f "$IXR/대기/ovr.md" "$IXR/완성/ovr.md"
 
 echo "== 전부 맞음 → 통과"
-# R416: CLOSED 꼬리의 ft-nano-slots 가 실제로 돈다 — 루트 사본 TEAMS.md = 옛 판(v65 행 없음) · ref(origin/main) 명단 = v65 있음 (v6-live 꼴)
-cp "$SRC/ft-nano-slots.sh" "$SRC/ft-team-lib.sh" "$T/bin/"; mkdir -p "$REPO/design/teams/v65/indices/대기"
-printf '| 팀 | 폴더 |\n|---|---|\n| v65 | `design/teams/v65/` |\n' > "$REPO/design/TEAMS.md"; GIT add design/TEAMS.md; GIT commit -qm teams
+# R416: CLOSED 꼬리의 ft-nano-slots 가 실제로 돈다 — 루트 사본 TEAMS.md = 옛 판(팀 행 없음) · ref(origin/main) 명단 = 그 팀 있음 (v6-live 꼴)
+# r667: 카드 폴더의 팀 = FT_NANO_PREFIX 의 팀(close() 가 byz-planner-nano- 를 넘긴다) — 명단·폴더도 그 팀으로(전: v65 고정 · 후: planner)
+cp "$SRC/ft-nano-slots.sh" "$SRC/ft-team-lib.sh" "$T/bin/"; mkdir -p "$REPO/design/teams/planner/indices/대기"
+printf '| 팀 | 폴더 |\n|---|---|\n| planner | `design/teams/planner/` |\n' > "$REPO/design/TEAMS.md"; GIT add design/TEAMS.md; GIT commit -qm teams
 GIT update-ref refs/remotes/origin/main HEAD; printf '| 팀 | 폴더 |\n|---|---|\n| kk | `design/kk/` |\n' > "$REPO/design/TEAMS.md"
 setup; out="$(close --wt "$NW" --branch "$BR")"; rc=$?
 [ "$rc" -eq 0 ] && has "$out" "CLOSED $SEAT" "전부 맞음 → CLOSED(rc=0)" || bad "통과 rc=$rc ← ${out:0:500}"

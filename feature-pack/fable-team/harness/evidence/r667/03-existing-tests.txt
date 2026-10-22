@@ -1,0 +1,9 @@
+== 기존 시험(내 카드 인접 · 광역 0) ==
+test_ft_idle_wake.sh                          rc=0 19PASS
+test_nano_slots.sh                            rc=0 17PASS
+test_nano_slots_cards_wt.sh                   rc=0 9PASS
+test_nano_close_named_wt.sh                   rc=0 63PASS
+test_nano_close_std_wt_other_branch.sh        rc=0 27PASS
+test_team_literal_paths2.sh                   rc=0 330PASS
+test_baseline_lint.sh                         rc=0 7PASS
+test_nano_spawn_tier.sh                       rc=0 43PASS

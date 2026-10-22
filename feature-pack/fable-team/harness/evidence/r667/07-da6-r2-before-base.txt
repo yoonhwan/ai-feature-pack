@@ -1,0 +1,55 @@
+== 같은 시험을 base 키트(65738ffd · 고치기 전 r667 첫 판)로 — 30 FAIL = 이번 처방 칸이 «고치기 전엔 빨강»임을 보인다 ==
+bash: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.tVmBOwC4AJ/feature-pack/fable-team/harness/kit/fable-team/bin/ft-idle-slot-fill.sh: No such file or directory
+FAIL bash -n 3종 :: 
+FAIL ⓐ′ 접두 byz-harness-nano- → 팀 harness · 후보 = harness 카드 2장 :: SLOTS nano 점유 0/5 (일하는 석 0 · 노는 석 0) · 빈 석 5 · 예약석 비어 있음(+1 · 라이브 카드 전용)
+★빈 석 5 — 이 턴에 spawn 한다(arch 지정 대기 금지 · 예외는 사유 한 줄)★
+  후보(대기/ · 머리줄 4줄 충족 1장 · 앞 1):
+    bash .fable-team/bin/ft-nano-spawn.sh design/teams/v65/indices/대기/v1.md 
+FAIL ⓐ′ 접두 byz-v65-nano- → 팀 v65 · 후보 = v65 카드만 :: SLOTS nano 점유 0/5 (일하는 석 0 · 노는 석 0) · 빈 석 5 · 예약석 비어 있음(+1 · 라이브 카드 전용)
+★빈 석 5 — 이 턴에 spawn 한다(arch 지정 대기 금지 · 예외는 사유 한 줄)★
+  후보(대기/ · 머리줄 4줄 충족 1장 · 앞 1):
+    bash .fable-team/bin/ft-nano-spawn.sh design/teams/v65/indices/대기/v1.md
+FAIL ⓐ′ 접두 미설정 → v65(기존 동작) :: SLOTS nano 점유 0/5 (일하는 석 0 · 노는 석 0) · 빈 석 5 · 예약석 비어 있음(+1 · 라이브 카드 전용)
+★빈 석 5 — 이 턴에 spawn 한다(arch 지정 대기 금지 · 예외는 사유 한 줄)★
+  후보(대기/ · 머리줄 4줄 충족 1장 · 앞 1):
+    bash .fable-team/bin/ft-nano-spawn.sh design/teams/v65/indices/대기/v1.md
+FAIL ⓐ′ 규칙 밖 접두 → ERROR rc≠0 · v65 후퇴 0 (rc=0) :: SLOTS nano 점유 0/5 (일하는 석 0 · 노는 석 0) · 빈 석 5 · 예약석 비어 있음(+1 · 라이브 카드 전용)
+★빈 석 5 — 이 턴에 spawn 한다(arch 지정 대기 금지 · 예외는 사유 한 줄)★
+  후보(대기/ · 머리줄 4줄 충족 1장 · 앞 1):
+    bash .fable-team/bin/ft-nano-spawn.sh design/teams/v65/indices/대기/v1.md 
+PASS ⓐ (고치기 전 판 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.tVmBOwC4AJ/feature-pack/fable-team/harness/kit/fable-team/bin) 쪽지 0 · spawn 0
+FAIL ⓑ 팀장 IDLE 20분 · 후보 2 → «빈 석 쪽지» 1통(후보·900 포함) :: 
+PASS ⓑ 쪽지 단계에서는 spawn 0
+PASS ⓑ 같은 (팀, 후보 집합) 60초 뒤 → 쪽지 0(중복 억제)
+FAIL ⓑ 새 후보 집합 쪽지 없음
+PASS G2 후보 A→B→A — 30분 안에 A 집합 재송신 0(집합별 시각 맵)
+FAIL ⓒ 900초 뒤 → 맨 위 카드 h1.md 1장 spawn · --from · 팀 env 서브셸(접두 주입) :: 
+FAIL ⓒ 자동 spawn 쪽지 없음 ::  
+FAIL ⓒ 같은 카드 재spawn 
+FAIL G1a 첫 실행 표식 없음
+FAIL G1b 상태 파일 소실 → 그 틱 0 + 로그(«사라짐» ≠ 첫 실행) · 재spawn 0 ::  spawns=
+FAIL G1c 실패 쪽지 없음 :: 
+PASS G1c 실패한 카드 재spawn 0(선점 기록이 먼저)
+FAIL G3a 쪽지 송신 실패 → note_at 저장 0 + 로그 :: 
+PASS G3b 쪽지가 한 번도 성공 안 했으면 900초 뒤에도 자동 spawn 0
+PASS G3c 여전히 실패면 spawn 0(fail-closed 유지)
+FAIL G4a 첫 조회는 비었는데 송신 직전에 입력 → 쪽지 0 + 로그 :: 
+FAIL G4b spawn 직전에 입력 → spawn 0 + 로그(다음 틱) :: 
+FAIL G5 다른 팀 카드가 후보 :: 
+FAIL G5 후보 계산 실패 :: 
+FAIL G6a 팀장 선택 오류 :: 
+FAIL G6b 죽은 팀장에 쪽지 ::  
+PASS G7 가짜 spawn sleep 75 → 부모 실행 0초(≤70 · 비동기)
+FAIL G7 spawn 안 뜸
+FAIL G7c 쪽지 
+FAIL G7c 한 틱 다중 spawn 
+FAIL ⓓa FT_IDLE_SLOT_AUTO=0 → 쪽지는 가고 spawn 0 :: spawns=0 notes=0
+FAIL ⓓb 전팀 정지 → 쪽지 0 · spawn 0 + 로그 1줄 :: 
+FAIL ⓓc 자원 동결 표식 → 0 + 로그 :: 
+FAIL ⓓd 팀장 화면에 오빠가 치는 중(client_activity) → 0 + 로그 :: 
+FAIL ⓓe 팀 env 파일 없음(bin-loom/loom-env.sh) → 0 + 로그 :: 
+FAIL ⓕ 명부 못 읽음 → 0 + 로그 1줄(파일 보존) :: 
+FAIL ⓔ 상태 파일 손상 → 0 · 로그 ERROR · 파일 보존 :: 
+PASS ⓖ 기존 ring 경로 불변(빈 석 장치가 깨우기를 막지 않는다)
+
+FAIL 30

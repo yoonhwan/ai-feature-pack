@@ -136,3 +136,13 @@ for seat, (seq, age) in sorted(oldest_per_seat().items()):
         del st[seat]  # 명시 실패 — 다음 실행에 재시도
     save(st)
 PYEOF
+_pyrc=$?   # 깨우기(ring) 판정 rc — 아래 빈 석 장치가 이를 바꾸지 않는다(상태 손상 = 4 보존)
+# ★빈 석 채우기 (r667)★ — 유휴 팀장에게 «빈 석 쪽지»(1단계) → 그래도 그대로면 자동 spawn(2단계). 별도 도구·별도 상태·별도 로그 — 이 장치의 실패가 깨우기(ring)를 되돌리지 않는다.
+SLOT_LOG="${FT_IDLE_SLOT_LOG:-$FT_ROOT/.fable-team/state/idle-slot.log}"
+mkdir -p "$(dirname -- "$SLOT_LOG")" 2>/dev/null
+if [ -f "$HERE/ft-idle-slot-fill.sh" ]; then
+  FT_IDLE_SLOT_LOG="$SLOT_LOG" bash "$HERE/ft-idle-slot-fill.sh" >>"$SLOT_LOG" 2>&1 || echo "ft-idle-wake: ft-idle-slot-fill rc=$? — 깨우기 결과는 그대로" >>"$SLOT_LOG"
+else
+  echo "ft-idle-wake: ft-idle-slot-fill.sh 없음 — 빈 석 채우기 0" >>"$SLOT_LOG"
+fi
+exit "$_pyrc"

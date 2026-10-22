@@ -1,0 +1,13 @@
+# 인접 기존 시험 8종 — 이 카드 변경 후(기본 꺼짐 커밋)
+test_ft_idle_wake.sh rc=0 pass=19
+test_nano_slots.sh rc=0 pass=17
+test_nano_slots_cards_wt.sh rc=0 pass=9
+test_nano_close_named_wt.sh rc=0 pass=63
+test_nano_close_std_wt_other_branch.sh rc=0 pass=27
+test_nano_spawn_tier.sh rc=0 pass=43
+test_baseline_lint.sh rc=0 pass=7
+test_team_literal_paths2.sh rc=0 pass=330
+# bash -n:
+ft-idle-slot-fill.sh bash -n rc=0
+ft-idle-wake.sh bash -n rc=0
+# 추적 짝 cmp: kit/ft-idle-slot-fill.sh vs harness/bin/ft-idle-slot-fill.sh = 0

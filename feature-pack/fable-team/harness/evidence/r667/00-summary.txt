@@ -1,0 +1,5 @@
+r667 — 대기 카드가 있는데 «빈 석을 아무도 안 채우는» 팀을 채운다 (1단계 빈 석 쪽지 · 2단계 자동 spawn)
+도구 = harness/kit/fable-team/bin/ft-idle-slot-fill.sh(새 파일 · r2 286줄) + ft-nano-slots.sh(팀 폴더 = FT_NANO_PREFIX 의 팀 · --json) + ft-idle-wake.sh(60초 틱 꼬리에서 부른다)
+시험 = feature-pack/fable-team/harness/tests/test_idle_slot_fill_r667.sh (ⓐ′ · ⓐ · ⓑ · ⓒ · ⓓa~e · ⓔ · ⓕ · ⓖ)
+base = origin/main 65738ffd (팩) · 전/후 대조 = R667_SUT=/tmp/r667-base/... (같은 시험을 base 키트로)
+r2(DA⑥ r1 HOLD G1~G8 반영) = 06~09 파일 — 같은 시험 39 PASS rc0 · base 65738ffd 30 FAIL rc=30 · 인접 8시험 rc0. 폭주 칸(카드당 1회·집합별 억제·비동기·한 틱 1장) 닫힘.

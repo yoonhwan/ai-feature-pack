@@ -10,10 +10,18 @@
 #     squash 는 조상 관계를 안 만들어 원장 없이는 랜딩된 브랜치가 영원히 «미랜딩» 으로 남는다. 행: 브랜치\t마지막 커밋 날짜\t미랜딩 커밋 수\t카드 상태(대기|진행|완성|없음).
 #   출력만 한다(판정·spawn 은 master). ft-nano-close.sh 가 CLOSED 직후 부른다 · ft-news-tick 에서도 부를 수 있다.
 #   r606: 카드 폴더를 찾는 «체크아웃» = 명부 `_cards_wt` 워크트리(있으면) — 낡은 루트 체크아웃에서 닫아도 옛 쌍둥이 폴더로 조용히 안 내려간다(내려가면 WARN 1줄).
+#   r667: 카드 폴더의 «팀» = FT_NANO_PREFIX 의 팀(`byz-<팀>-nano-`) — v65 고정이면 위성 팀이 v65 카드를 후보로 본다(원인 표 1-8). 옛 접두(ft-v65-temp-)·미설정 = v65 · 규칙 밖 접두 = ERROR(엉뚱한 팀으로 후퇴 0).
+#     `--json` = 같은 셈을 기계용 1줄로(빈 석 채우기 장치 r667 이 읽는다 · 사람 글에서 후보를 긁지 않는다).
 WT="$(git rev-parse --show-toplevel)"
 ROOT="$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||')"
 SEATS="${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}"
 MAX="${FT_NANO_SLOTS:-5}"
+JSON_OUT=0; [ "${1:-}" = "--json" ] && JSON_OUT=1
+_team="v65"
+if [ -n "${FT_NANO_PREFIX:-}" ]; then
+  if [[ "$FT_NANO_PREFIX" =~ ^byz-([a-z0-9][a-z0-9_-]*)-nano- ]]; then _team="${BASH_REMATCH[1]}"
+  elif [[ "$FT_NANO_PREFIX" != ft-v65-temp-* ]]; then echo "ERROR FT_NANO_PREFIX 에서 팀을 못 풀었다: $FT_NANO_PREFIX (byz-<팀>-nano- 또는 ft-v65-temp-)" >&2; exit 1; fi
+fi
 if [ -n "${FT_INDEX_DIR:-}" ]; then IDX_DIR="$FT_INDEX_DIR"
 else   # R416: «명단 = ref · 폴더 = WT 실재»(R400 r3·R406 과 같은 함수) — 공유 루트의 옛 TEAMS.md 사본을 믿지 않는다 · ref 못 읽음 = ERROR(cwd 명단 후퇴 0)
   . "$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)/ft-team-lib.sh" || { echo "ERROR ft-team-lib.sh 를 못 읽었다" >&2; exit 1; }
@@ -29,7 +37,7 @@ print(v if isinstance(v, str) else "")' "$SEATS" 2>/dev/null)"
     _base="$ROOT/.worktrees/$_cwt"
     [ -d "$_base" ] || { echo "ERROR 카드 워크트리 없음: $_cwt ($_base)" >&2; exit 1; }
   fi
-  _cands="$(ft_team_cands_ref "$_base" v65 "$_ref")" || { echo "ERROR v65 팀 폴더를 못 풀었다(명단 $_ref:design/TEAMS.md · 폴더 = $_base)" >&2; exit 1; }
+  _cands="$(ft_team_cands_ref "$_base" "$_team" "$_ref")" || { echo "ERROR $_team 팀 폴더를 못 풀었다(명단 $_ref:design/TEAMS.md · 폴더 = $_base)" >&2; exit 1; }
   _first="$(printf '%s\n' "$_cands" | head -1)"
   IDX_DIR="$_first/indices"
   for _c in $_cands; do [ -d "$_c/indices" ] && { IDX_DIR="$_c/indices"; break; }; done
@@ -76,9 +84,9 @@ d=json.load(open('$SEATS',encoding='utf-8'))
 print('\n'.join(k for k,v in d.items() if isinstance(v,dict) and v.get('role')=='nano' and not v.get('_replaced_by')))" \
   | while read -r s; do printf '%s\n' "$LIVE" | grep -qxF "$s" || continue
       printf '%s\t%s\n' "$s" "$(bash "$(dirname "$0")/ft-seat-status.sh" turn "$s" 2>/dev/null | head -1)"; done)"
-python3 - "$MAX" "$IDX_DIR" "$IDLE_MIN" "$TURNS" "$SEATS" "${FT_ACTIVE_ISSUES:-}" <<'PY'
+python3 - "$MAX" "$IDX_DIR" "$IDLE_MIN" "$TURNS" "$SEATS" "${FT_ACTIVE_ISSUES:-}" "$_team" "$JSON_OUT" <<'PY'
 import json, os, re, sys
-mx, idx, idle_min, turns = int(sys.argv[1]), sys.argv[2], int(sys.argv[3]), sys.argv[4]
+mx, idx, idle_min, turns, team, json_out = int(sys.argv[1]), sys.argv[2], int(sys.argv[3]), sys.argv[4], sys.argv[7], sys.argv[8] == "1"
 seats_path, active = sys.argv[5], {t for t in re.split(r"[,\s]+", sys.argv[6]) if t}
 rows = [l.split("\t", 1) for l in turns.splitlines() if "\t" in l]
 def idle_s(st):  # turn 출력 = STATE <턴 끝 UTC ISO> … — 턴 끝에서 지금까지 초
@@ -93,10 +101,6 @@ seats = json.load(open(seats_path, encoding="utf-8"))
 reserved = [s for s, _ in rows if isinstance(seats.get(s), dict) and seats[s].get("reserved")]
 occupied = len(rows) - len(reserved)   # 점유 = 살아 있는 석 전부(노는 석 포함) · 예약석은 상한 밖
 empty = max(mx - occupied, 0)
-print(f"SLOTS nano 점유 {occupied}/{mx} (일하는 석 {len(working)} · 노는 석 {len(idle)}) · 빈 석 {empty} · 예약석 {'점유 ' + reserved[0] if reserved else '비어 있음'}(+1 · 라이브 카드 전용)")
-for s in working: print(f"  · {s}")
-for s, st in idle:
-    print(f"  ✗ 노는 석 {s} ({st.split()[0]} {idle_s(st)//60}분) → ★master 가 막힌 것을 푼다★(무엇을 기다리나 = 랜딩·DA 소환 요청·press 순번·판정 → 그 턴에 집행·요청) → 완성 → 테스트 끝나면 ft-nano-close(워크트리 정리·브랜치 보존)")
 wait = os.path.join(idx, "대기")
 cands, live, skipped = [], [], []
 for f in sorted(os.listdir(wait)) if os.path.isdir(wait) else []:
@@ -109,6 +113,16 @@ for f in sorted(os.listdir(wait)) if os.path.isdir(wait) else []:
     if miss: skipped.append(f"{f}(머리줄 없음: {'·'.join(miss)})"); continue
     if active and val["Issue"].split()[0] not in active: skipped.append(f"{f}(비활성 Issue {val['Issue'].split()[0]})"); continue
     (live if "라이브" in val["상태"] else cands).append(f)
+if json_out:   # r667: 기계용 1줄 — 빈 석 채우기 장치가 «후보» 를 사람 글에서 긁지 않는다
+    print(json.dumps({"team": team, "index_dir": idx, "max": mx, "occupied": occupied,
+                      "working": working, "idle": [s for s, _ in idle], "empty": empty,
+                      "reserved": reserved[0] if reserved else None,
+                      "candidates": [os.path.join(wait, f) for f in cands], "skipped": skipped}, ensure_ascii=False))
+    sys.exit(0)
+print(f"SLOTS nano 점유 {occupied}/{mx} (일하는 석 {len(working)} · 노는 석 {len(idle)}) · 빈 석 {empty} · 예약석 {'점유 ' + reserved[0] if reserved else '비어 있음'}(+1 · 라이브 카드 전용)")
+for s in working: print(f"  · {s}")
+for s, st in idle:
+    print(f"  ✗ 노는 석 {s} ({st.split()[0]} {idle_s(st)//60}분) → ★master 가 막힌 것을 푼다★(무엇을 기다리나 = 랜딩·DA 소환 요청·press 순번·판정 → 그 턴에 집행·요청) → 완성 → 테스트 끝나면 ft-nano-close(워크트리 정리·브랜치 보존)")
 if skipped: print(f"  후보 제외 {len(skipped)}장(REJECT 아님): " + " · ".join(skipped))
 if not reserved and live:
     print(f"  예약석(+1 · 라이브 전용) 후보 {len(live)}장:")

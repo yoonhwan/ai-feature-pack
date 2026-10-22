@@ -1,0 +1,4 @@
+FAIL ⓗa env 없음(기본) = 빈 석 쪽지 1통 · 900초 뒤에도 자동 spawn 0 :: notes1=1 spawns=1 2026-10-22T13:16:16 ft-idle-slot-fill: 쪽지 → byz-harness-master-claude#95 rc=0 seq=QUEUED
+FAIL ⓗb 켜기 = 명시 FT_IDLE_SLOT_AUTO=1 이고 로그에 «r721 전까지 미검증» 1줄 :: 2026-10-22T13:16:16 ft-idle-slot-fill: 쪽지 → byz-harness-master-claude#95 rc=0 seq=QUEUED
+PASS ⓗc 변이(기본값 1 로 되돌림) → 자동 spawn 발생 = ⓗa 칸이 FAIL 하는 판(변별력)
+FAIL 2

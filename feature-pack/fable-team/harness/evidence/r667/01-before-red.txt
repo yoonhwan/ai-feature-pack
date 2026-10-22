@@ -1,0 +1,36 @@
+bash: /tmp/r667-base/feature-pack/fable-team/harness/kit/fable-team/bin/ft-idle-slot-fill.sh: No such file or directory
+FAIL bash -n 3종 :: 
+FAIL ⓐ′ 접두 byz-harness-nano- → 팀 harness · 후보 = harness 카드 2장 :: SLOTS nano 점유 0/5 (일하는 석 0 · 노는 석 0) · 빈 석 5 · 예약석 비어 있음(+1 · 라이브 카드 전용)
+★빈 석 5 — 이 턴에 spawn 한다(arch 지정 대기 금지 · 예외는 사유 한 줄)★
+  후보(대기/ · 머리줄 4줄 충족 1장 · 앞 1):
+    bash .fable-team/bin/ft-nano-spawn.sh design/teams/v65/indices/대기/v1.md 
+FAIL ⓐ′ 접두 byz-v65-nano- → 팀 v65 · 후보 = v65 카드만 :: SLOTS nano 점유 0/5 (일하는 석 0 · 노는 석 0) · 빈 석 5 · 예약석 비어 있음(+1 · 라이브 카드 전용)
+★빈 석 5 — 이 턴에 spawn 한다(arch 지정 대기 금지 · 예외는 사유 한 줄)★
+  후보(대기/ · 머리줄 4줄 충족 1장 · 앞 1):
+    bash .fable-team/bin/ft-nano-spawn.sh design/teams/v65/indices/대기/v1.md
+FAIL ⓐ′ 접두 미설정 → v65(기존 동작) :: SLOTS nano 점유 0/5 (일하는 석 0 · 노는 석 0) · 빈 석 5 · 예약석 비어 있음(+1 · 라이브 카드 전용)
+★빈 석 5 — 이 턴에 spawn 한다(arch 지정 대기 금지 · 예외는 사유 한 줄)★
+  후보(대기/ · 머리줄 4줄 충족 1장 · 앞 1):
+    bash .fable-team/bin/ft-nano-spawn.sh design/teams/v65/indices/대기/v1.md
+FAIL ⓐ′ 규칙 밖 접두 → ERROR rc≠0 · v65 후퇴 0 (rc=0) :: SLOTS nano 점유 0/5 (일하는 석 0 · 노는 석 0) · 빈 석 5 · 예약석 비어 있음(+1 · 라이브 카드 전용)
+★빈 석 5 — 이 턴에 spawn 한다(arch 지정 대기 금지 · 예외는 사유 한 줄)★
+  후보(대기/ · 머리줄 4줄 충족 1장 · 앞 1):
+    bash .fable-team/bin/ft-nano-spawn.sh design/teams/v65/indices/대기/v1.md 
+PASS ⓐ (고치기 전 판 /tmp/r667-base/feature-pack/fable-team/harness/kit/fable-team/bin) 쪽지 0 · spawn 0
+FAIL ⓑ 팀장 IDLE 20분 · 후보 2 → «빈 석 쪽지» 1통(후보·900 포함) :: 
+PASS ⓑ 쪽지 단계에서는 spawn 0
+PASS ⓑ 같은 (팀, 후보 집합) 60초 뒤 → 쪽지 0(중복 억제)
+FAIL ⓑ 새 후보 집합 쪽지 없음
+FAIL ⓒ 900초 뒤 → 맨 위 카드 h1.md 1장 spawn · --from · 팀 env 서브셸(접두 주입) :: 
+FAIL ⓒ 자동 spawn 쪽지 없음 :: 
+FAIL ⓒ 같은 카드 재spawn 
+FAIL ⓓa FT_IDLE_SLOT_AUTO=0 → 쪽지는 가고 spawn 0 :: spawns=0 notes=0
+FAIL ⓓb 전팀 정지 → 쪽지 0 · spawn 0 + 로그 1줄 :: 
+FAIL ⓓc 자원 동결 표식 → 0 + 로그 :: 
+FAIL ⓓd 팀장 화면에 오빠가 치는 중(client_activity) → 0 + 로그 :: 
+FAIL ⓓe 팀 env 파일 없음(bin-loom/loom-env.sh) → 0 + 로그 :: 
+FAIL ⓕ 명부 못 읽음 → 0 + 로그 1줄(파일 보존) :: 
+FAIL ⓔ 상태 파일 손상 → 0 · 로그 ERROR · 파일 보존 :: 
+PASS ⓖ 기존 ring 경로 불변(빈 석 장치가 깨우기를 막지 않는다)
+
+FAIL 17

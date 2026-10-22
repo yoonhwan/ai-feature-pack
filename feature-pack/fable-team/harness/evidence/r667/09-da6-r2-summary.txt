@@ -1,0 +1,18 @@
+r667 DA⑥ r1 HOLD(G1~G8) 반영 — 같은 카드 · 같은 가지(e31b930f48) 위 추가 커밋 1
+경로 = harness/kit/fable-team/bin/ft-idle-slot-fill.sh(+ 짝 harness/bin/ cmp0) · ft-idle-wake.sh 꼬리(죽은 중복 블록 6줄 제거) · 시험 tests/test_idle_slot_fill_r667.sh
+
+G1 카드당 1회 = spawn «전» 선점(`claimed[카드] = NOW` → 저장 → launch) · 상태 파일 없음/손상 = 그 틱 0 + 로그 ·
+   «첫 실행 표식» state/idle-slot.seen 으로 «처음»과 «사라짐»을 가른다(사라짐 = ERROR 로그 + 0 · 재spawn 0). 시험 G1a·G1b·G1c
+G2 쪽지 억제 = 마지막 sig 1개 → (팀, 후보 집합)별 시각 맵(`notes[sig]`) — A→B→A 여도 30분 안 A 재발송 0. 시험 G2
+G3 쪽지 실패 = note_at 저장 0 → 900초 뒤에도 자동 spawn 0(fail-closed) · 다음 틱 재시도. 시험 G3a·G3b·G3c
+G4 송신·spawn 직전 client_activity 재확인(조회 뒤 키가 들어왔으면 보류). 시험 G4a·G4b
+G5 후보 계산도 그 팀 env 서브셸 — 부모 `FT_INDEX_DIR` 제거 + 반환 team·index_dir·카드 소속 대조(어긋나면 0 + 로그). 시험 G5 ×2
+G6 팀장 = 그 팀 명부(`seats-<팀>.json` · v65 = seats.json)의 `_master` 한 명 — 이름 형식(byz-<팀>-master-<에이전트>#N)·라이브(tmux)·현역 대조. 시험 G6a(둘째 행)·G6b(라이브 아님)
+G7 시간 상한 = spawn 비동기(Popen · start_new_session · 결과는 다음 틱 회수 → 팀장 쪽지) · 한 실행 총 마감 FT_IDLE_SLOT_BUDGET_SEC(70)초 · 남은 시간보다 긴 조회 0.
+   시험 G7(spawn sleep 75 인데 부모 1초) · G7c(두 팀 준비돼도 한 틱 1장 = 폭주 0)
+G8 시험 칸 = 위 G1~G7 15칸 + 기존 ⓐ′·ⓐ·ⓑ·ⓒ·ⓓ·ⓔ·ⓕ·ⓖ 유지 → 30 PASS → 39 PASS
+
+전/후 = 07(같은 시험 · base 65738ffd 키트) 30 FAIL rc=30 → 06(고친 판) ALL PASS 39 rc=0
+인접 기존 시험 8종 = 08 (idle_wake 19 · nano_slots 17 · nano_slots_cards_wt 9 · nano_close_named_wt 63 · nano_close_std_wt_other_branch 27 · team_literal_paths2 330 · baseline_lint 7 · nano_spawn_tier 43 = 전부 rc0)
+폭주 칸(라이브 설치 전 조건) = G1a·G1b·G1c(카드당 1회·선점·소실 시 0) + G2(30분 억제) + G7·G7c(비동기·70초 마감·한 틱 1장) = 닫힘
+press 필요: 없음(나노 · 이 장치는 쪽지·spawn 만 — 라이브 오디오 축 무관)
