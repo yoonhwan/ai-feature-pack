@@ -91,7 +91,7 @@ cat > ~/.local/bin/claude-aifp <<'W'
 # aifp · OCI 로컬 추론 경로 전용 래퍼 — ANTHROPIC_BASE_URL 을 «이 프로세스에만» 준다(전역 export 금지).
 export ANTHROPIC_BASE_URL='$CLIPROXY_URL'
 # OCI 의 claude 는 로그인 정보가 없다 — cliproxy(api-keys 비어 있음 = 클라이언트 인증 없음)용 자리표시 값(비밀 아님 · mini 와 같은 방식)
-export ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-aifp-local-no-auth}"
+export ANTHROPIC_API_KEY=aifp-local-no-auth
 export PATH=\"\$HOME/.npm-global/bin:\$PATH\"
 exec claude \"\$@\"
 W
