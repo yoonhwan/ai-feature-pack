@@ -41,7 +41,14 @@ say "        shebang: $(head -1 "$NEW")"
 
 # ── 1) mini 사전점검 ────────────────────────────────────────────────────────
 say "1/6 mini 사전점검 (ssh $MINI)"
-PRE="$(ms 20 'bash -lc "echo user=$(id -un); echo py=\$(/opt/homebrew/bin/python3.13 -V 2>&1); ls -l ~/.local/bin/tts-say 2>/dev/null || echo tts_say=absent; echo localbin=$(test -d ~/.local/bin && echo yes || echo NO); echo disk=$(df -h ~ | awk \"NR==2{print \\\$4}\")"' 2>&1)" || die 2 "mini 접속 실패: $PRE"
+PRE="$(ms 25 'bash -s' 2>&1 <<'PREEOF'
+echo user=$(id -un)
+echo py=$(/opt/homebrew/bin/python3.13 -V 2>&1)
+ls -l ~/.local/bin/tts-say 2>/dev/null || echo tts_say=absent
+echo localbin=$(test -d ~/.local/bin && echo yes || echo NO)
+echo disk=$(df -h ~ | awk 'NR==2{print $4}')
+PREEOF
+)" || die 2 "mini 접속 실패: $PRE"
 printf '%s\n' "$PRE" | sed 's/^/        /'
 printf '%s\n' "$PRE" | grep -q '^user=byz' || die 2 "원격 사용자가 byz 가 아니다(ssh 별칭 mini 확인)"
 printf '%s\n' "$PRE" | grep -q '^py=Python 3\.13' || die 2 "$MINI_PY 가 없거나 3.13 이 아니다 — mini 파이썬 경로 확인"
@@ -96,8 +103,8 @@ cat <<EOF
           · voices --engine say 앞 3줄
           · ko_KR 음성 수 · Yuna 유무
         ★PATH 안내(러너 실행 전 필수)★ mini 에서 러너를 돌리는 셸은 **비로그인 ssh PATH** 라 ~/.local/bin 이 없다(실측: PATH_HAS_LOCALBIN=0).
-          → 러너는 `tts-say` 를 PATH 에서 찾는다(subprocess). 실행 줄은 항상 PATH 를 앞에 붙이고, 시스템 python 3.9 가 아니라 h-mini-e2e-setup.sh 가 만든 venv python 으로 돌린다:
-              ssh mini 'cd ~/Project/BYZ-e2e && PATH="$HOME/.local/bin:/opt/homebrew/bin:$PATH" .venv/bin/python tests/e2e/<러너 파일> <러너 인자>'
+          → 러너는 tts-say 를 PATH 에서 찾는다(subprocess). 실행 줄은 항상 PATH 를 앞에 붙인다(첫 회차 러너는 h382 가 이 형태로 돈다 — 직접 칠 일은 없음):
+              ssh mini 'cd ~/Project/BYZ-Agents && PATH="\$HOME/.local/bin:/opt/homebrew/bin:\$PATH" .venv/bin/python tests/e2e/<러너 파일> <러너 인자>'
         ★소리 0 확인★ 이 h 는 \`voices\` 만 돌렸다(\`speak\` 금지). 발화 시험은 «출력 기본장치를 BlackHole 2ch/Multi-Output 으로 맞춘 뒤» 별도 승인으로 한다.
         이 h 가 하지 않은 것: sag 설치 0 · sox 설치 0 · SwitchAudioSource 설치 0 · Chrome 기동 0 · speak 실행 0 · 원본 tts-say 수정 0(로컬 /tmp 사본만 치환)
         롤백: ssh $MINI 'rm -f ~/.local/bin/tts-say' (백업이 있으면 ~/.local/bin/tts-say.bak-<ts> 로 복구)
