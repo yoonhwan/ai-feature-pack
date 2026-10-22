@@ -16,7 +16,7 @@
 | OCI headroom·cliproxy 연결 | ✅ 됨 | h376 rc=0 — 위 표 참조(두 유닛 active · 모델 3종 · health 200) |
 | OCI cliproxy 계정(claude 1 · codex 2) | ✅ 됨 | 오빠 결정 변경(2026-10-22 «일단 하나만»): claude 5→1. **h404 rc=0**(h399 대체): claude=1/1 · codex=2/2 · /v1/models 32개. BYZ 인증 파일 복사 0 |
 | hermes 업데이트 지원 | ⚠️ 절차만 앎 | 이미 systemd 사용자 서비스 · `hermes update --check→backup→update→restart→doctor` |
-| 브라우저 시험 이관 | 🟡 진행 | mini: Chrome·BlackHole·마이크 사전 점검 통과(-37.3 dB). **h378 rc=0(2026-10-22)**: 러너 폐쇄 16파일 배치 + venv(python3.13) websockets 17.3·jwt import OK + sha 16/16 일치. 남음: tts-say(h379) · 서버(h381) · mini 앞 오빠 손 7단계 · 러너 1회차(h382) |
+| 브라우저 시험 이관 | 🟡 진행 | mini: Chrome·BlackHole·마이크 사전 점검 통과(-37.3 dB). h378 rc=0(러너 폐쇄 16파일 배치 · venv websockets/jwt import OK · sha 16/16). **h379 rc=0**(tts-say 설치: sha 일치 · shebang python3.13 · ko_KR 9 · Yuna 1 · help_rc=0). 남음: 서버(h381) · mini 앞 오빠 손 7단계 · 러너 1회차(h382) |
 | tmm·tmuxc·fable-team 멀티 인스턴스 기능 | ⏳ 하네스 카드 대기 | r673(P2)·r678(P1)·r674(P4)·r676·r675(P3) — 하네스 순번 뒤쪽 |
 | 운영 UX(슬랙·tmm 호스트 판) | ⏳ 설계만 | `DESIGN-multihost-ops-ux-20261021.md` |
 
