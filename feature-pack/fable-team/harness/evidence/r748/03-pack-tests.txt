@@ -1,0 +1,22 @@
+$ bash tests/test_autonomy_scope_pack.sh
+PASS ⓙ full 승인 줄 repos=byz,pack
+PASS ⓙ --repo pack · docs → SCOPE-OK … repo=pack (가짜 sha = 못 재면 칸 없음 = 셈 1)
+PASS ⓙ 분류기·되돌림 검사에 팩 리포 + 팩 분류표(DDL 기록표 0)
+PASS ⓙ log scope-use … repo=pack · 위변조 아님
+PASS ⓙ 원장 5번째 칸 repo=pack
+PASS ⓙ --repo pack · code + 카드 세트 → SCOPE-OK(증거 검사 = 팩 리포)
+PASS ⓙ 원장 evidence=…@A repo=pack
+PASS ⓙ mid(repos 칸 없음) → --repo pack SCOPE-REJECT
+PASS ⓙ 범위 밖 = 분류기 호출 0 · 쓰기 0
+PASS ⓙ --repo 모르는 값 → REJECT
+PASS ⓙ 팩 리포 못 풂 → REJECT(닫힌 쪽)
+PASS ⓙ --repo 생략 = byz(FT_ROOT) + DDL 기록표
+PASS ⓝ --repos 생략 → 승인 줄 끝 repos=byz,pack
+PASS ⓝ 생략 승인으로 팩 sha scope-approve → SCOPE-OK(종류 = 팩 표)
+PASS ⓞ --repos byz 명시 → 승인 줄에 repos 칸 없음(byz 만)
+PASS ⓞ --repos byz 명시 → 팩 sha REJECT(지금과 같음)
+PASS ⓟ 팩 manifest.json(docs · .md 아님) → 칸 없음 = 셈 1
+PASS core.bare 오염 0
+fail=0
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+rc=0

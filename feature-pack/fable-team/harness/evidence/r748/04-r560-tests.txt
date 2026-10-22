@@ -1,0 +1,33 @@
+$ bash tests/test_r560_approval_equiv_base_and_hook.sh
+PASS bash -n autonomy-merge-guard.sh
+PASS py_compile ft_approval_equiv.py
+PASS ⓐ main 이 한 칸 더 갔어도 EQUIV · base=병합한 main(ed4ffd57)
+PASS ⓑ 병합 커밋이 그 밖의 변경을 담음 → NOT-EQUIV(거짓 통과 0)
+PASS ⓒ main 아닌 가지 병합 → NOT-EQUIV
+PASS ⓓ 병합 2번 = 마지막 병합의 main 쪽 부모(d9c220c5) 기준 · EQUIV
+PASS ⓔ 옛 main 위 rebase → EQUIV mode=rebase base=merge-base(S,main)
+PASS ⓕ 남의 세트 400개(최신순) + 자기 승인(가장 옛날) → EQUIV 통과 (0s)
+PASS ⓖ 판정기 rc≠0 → 거절 이유에 rc=1·stderr
+PASS ⓖ 판정기 7초 초과 → 거절 이유에 «판정기 7초 초과»
+PASS ⓖ 마감 21초 소진 → 거절 이유에 «후보 N 중 M 대조 · 마감 21초»
+PASS ⓗ 도구 자리가 루트 shim 폴더여도 LIVE_BIN 의 진짜 판정기로 EQUIV
+PASS ⓗ LIVE_BIN·도구 폴더 모두 판정기 없음 → 거절 + «라이브 판정기 없음»
+PASS ⓗ autonomy.log 를 여는 자리 1곳(후보 순회 안에서 다시 읽지 않음)
+PASS ⓘ 픽스처: A 승인 = used=1/5 (r748: 학습표 통과분이라 셈 1)
+PASS ⓘ A 의 EQUIV(승인 위 main 병합만) = class=equiv · used 그대로 1/5
+PASS ⓘ 하루 셈도 그대로(오늘 1)
+PASS ⓘ 원장 줄 종류 = equiv
+PASS ⓚ 그래프 1(역행 · retired.md 부활) · 판정기 A→S → NOT-EQUIV rc1
+PASS ⓛ 그래프 2(착지한 승인 B) · 판정기 B→F → NOT-EQUIV rc1
+PASS ⓛ 그래프 2 head(착지한 승인 B 만 등록) → 훅 deny
+PASS ⓛ 그래프 2 head 직접 main push → deny
+PASS ⓜ 판정기 출력이 잘못된 UTF-8 + rc3 → 훅 deny(예외로 새서 허용 0)
+PASS ⓜ 판정기 내부 예외(트레이스백) → 훅 deny + 이유에 stderr 첫 줄
+PASS ⓝ 옛 main 위 head 직접 main push → deny
+PASS ⓝ 최신 main 을 품은 승인 head 직접 push 는 통과(막지 않음)
+PASS ⓞ 그래프 1 세트 A 승인 = used=1/5 (r748: 학습표 통과분)
+PASS ⓞ 그래프 1 의 S 는 class=equiv 비차감을 못 받음(일반 셈 used=2/5)
+PASS ⓙ 정본 미러 cmp0(harness/bin ↔ kit)
+fail=0
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+rc=0

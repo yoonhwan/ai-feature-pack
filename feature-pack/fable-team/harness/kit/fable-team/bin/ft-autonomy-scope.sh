@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ft-autonomy-scope.sh — 오빠 부재 중 병합 «범위 사전 승인» 4명령 (R298 1/3 · 판정 2055 · 카드 r298a-away-scope-grant) — ft-autonomy.sh 가 source 한다(단독 실행 금지)
-#   approve-scope --for <N>h --max <n> [--daily <n>] --classes <docs,ff,revert[,code]> [--code-max <n>] [--repos byz|byz,pack]  오빠 `!` 전용 — 기간·건수·종류를 «한 번» 정한다(code 는 --code-max 1~max 필수 · R411 판정 2326)
+#   approve-scope --for <N>h --max <n> [--daily <n>] --classes <docs,ff,revert[,code]> [--code-max <n>] [--repos byz|byz,pack]  오빠 `!` 전용 — 기간·건수·종류를 «한 번» 정한다(code 는 --code-max 1~max 필수 · R411 판정 2326) · --repos 생략 = byz,pack(r748 2b: 팩 PR 도 범위 안 — 명시 `--repos byz` 만 byz · repos 칸 없는 옛 줄은 소급 0)
 #   scope-approve <40hex> [--pr <N>] [--card <카드.md>] [--repo byz|pack]   좌석 허용 — 범위 대조만(분류기 = r298b autonomy_scope_classify.py) · 통과하면 기존 형식 `approve-merge` 줄을 대신 쓴다 · 종류 code 는 --card 의 시험 통과 세트만(ft-autonomy-scope-code.sh)
 #   r466: 승인 줄 끝 선택 칸 `repos=byz,pack`(팩 PR 허용 · 팩 분류표) · `level=full|mid`(ft-autonomy.sh on --level 이 쓴다 — 사건 번호가 바뀌어도 지금 ON 의 레벨이 같으면 scope-approve 가 재발급 SCOPE-RENEWED)
 #         FORBID kind=<키> = 거절 원장 denied.tsv 1행 · 레벨 full 이면 학습표(learned-kinds.tsv)의 종류는 분류기가 docs 로 통과(`learned=<키>`)
@@ -10,7 +10,7 @@
 #   scope-status --audit               읽기 — log grant 줄 ↔ grants.audit(슬랙 ts 포함) 대조 + 승인 파일 수 ≥ scope-use 수 · 어긋나면 `AUDIT-MISMATCH …` rc 3
 # ★한계(판정 2078 ⓐ)★ 같은 uid 의 직접 쓰기(log 에 grant 줄 덧붙이기·scope-use 줄 지우기)는 막지 못한다 — approve-scope 의 슬랙 1줄 + --audit 대조로 «들킨다».
 #   r560: 같은 범위 원장에 이미 센 승인 A 가 새 sha 의 EQUIV(판정기 rc0)면 원장 줄 종류 `equiv` · used·today 증가 0 · 출력 `equiv=<A>`(재승인은 범위 한도 비차감 — 하루 한도 15 중 9 소진 사건)
-# 상태 원천 = autonomy.log 한 곳(추가 전용 · 쓰기는 ft-autonomy.sh 의 lock 안 · json 카운터 0) — 건수는 `scope-use` 줄을 센다(종류 revert·equiv 는 안 센다).
+# 상태 원천 = autonomy.log 한 곳(추가 전용 · 쓰기는 ft-autonomy.sh 의 lock 안 · json 카운터 0) — 건수는 `scope-use` 줄 중 종류 code · 학습표 통과분(`learned=` 칸) · `counted=0` 칸이 «없는» docs·ff 만 센다(r748 r2: 바뀐 경로가 전부 .md 인 docs·ff 만 `counted=0` 으로 셈 0 · 칸 없음 = 셈 1 — 옛 줄도 셈 1 · revert·equiv 는 셈 0 · 원장·scope-use·승인 파일은 셈 0 줄도 그대로 쓴다).
 # 원장 `$STATE/autonomy-scope/S<n>.ledger.tsv` 7칸 = 시각·sha·PR·종류·판정문(빈칸)·착지 sha(빈칸 — r298b 가 6번째 칸을 채운다)·되돌림 명령(빈칸)
 # 외부 호출 0 — 분류기는 로컬 git 뿐 · 상한 = 500파일 이하 7초 · 그 위 min(3.5 + 7 × ceil(파일 수/500), 70)초(r559 · 넘으면 REJECT · 판정 666).
 SDIR="$STATE/autonomy-scope"
@@ -93,8 +93,17 @@ scope_stop_reason() {  # <S> — log 의 마지막 stop 줄 사유(없으면 .st
   local r; r="$(grep "^scope-stop $1 " "$LOG" 2>/dev/null | tail -1 | cut -d' ' -f4-)"
   [ -n "$r" ] || r="$(head -1 "$SDIR/$1.stopped" 2>/dev/null)"; printf '%s' "$r"
 }
-scope_used() { awk -v s="$1" '$1=="scope-use" && $2==s && $4!="revert" && $4!="equiv" {n++} END{print n+0}' "$LOG" 2>/dev/null; }
-scope_today() { awk -v s="$1" -v c="$(( $(now_epoch) - 86400 ))" '$1=="scope-use" && $2==s && $4!="revert" && $4!="equiv" && $5>c {n++} END{print n+0}' "$LOG" 2>/dev/null; }
+scope_used() { awk -v s="$1" '$1=="scope-use" && $2==s && ($4=="code" || / learned=/ || (($4=="docs"||$4=="ff") && !/ counted=0/)) {n++} END{print n+0}' "$LOG" 2>/dev/null; }   # r748 r2: 몫(총) = code · 학습표 통과분(learned=) · counted=0 칸이 «없는» docs·ff(칸 없음 = 셈 1 · 옛 줄 포함) — revert·equiv 셈 0
+scope_today() { awk -v s="$1" -v c="$(( $(now_epoch) - 86400 ))" '$1=="scope-use" && $2==s && ($4=="code" || / learned=/ || (($4=="docs"||$4=="ff") && !/ counted=0/)) && $5>c {n++} END{print n+0}' "$LOG" 2>/dev/null; }   # r748 r2: 몫(하루)도 같다
+
+scope_md_only() {  # <sha> → rc 0 = merge-base(<remote>/<target>, sha)..sha 의 바뀐 경로가 «전부 *.md» (--no-renames · A/M/D 전부) · 못 재면 rc 1 = 셈 1(닫힌 쪽 · r748 DA⑥ r1)
+  local base out p
+  base="$(git -C "${SCOPE_REPO:-$ROOT}" merge-base refs/remotes/origin/main "$1" 2>/dev/null)" || return 1
+  out="$(perl -e 'alarm 7; exec @ARGV' -- git -C "${SCOPE_REPO:-$ROOT}" diff --no-renames --name-only "$base" "$1" 2>/dev/null)" || return 1
+  [ -n "$out" ] || return 1
+  while IFS= read -r p; do [ "${p%.md}" = "$p" ] && return 1; done <<<"$out"
+  return 0
+}
 
 scope_ledger_shas() {  # <S> → 이 범위 원장에 이미 센 승인 sha(최신순 · 중복 0) — 판정기 대조 후보
   [ -f "$SDIR/$1.ledger.tsv" ] || return 0
@@ -148,7 +157,7 @@ scope_slack_post() {  # <본문> → stdout = 슬랙 ts · 실패 = rc 1(호출�
 }
 
 cmd_approve_scope() {
-  local f="" mx="" dl="" cl="" cm="" rp=byz h now
+  local f="" mx="" dl="" cl="" cm="" rp=byz,pack h now   # r748 2b: --repos 생략 기본 = byz,pack(명시 --repos byz 는 byz 만)
   while [ $# -gt 0 ]; do
     [ $# -ge 2 ] || scope_err "$1 값 없음 (usage: approve-scope --for <N>h --max <n> [--daily <n>] --classes <docs,ff,revert[,code]> [--code-max <n>] [--repos byz|byz,pack])"
     case "$1" in --for) f="$2" ;; --max) mx="$2" ;; --daily) dl="$2" ;; --classes) cl="$2" ;; --code-max) cm="$2" ;; --repos) rp="$2" ;; *) scope_err "알 수 없는 인자: $1" ;; esac
@@ -216,7 +225,7 @@ scope_classify() {  # <sha> → CLS(종류) CLS_LEARNED(학습 키 · 없으면 
 }
 
 cmd_scope_approve() {
-  local sha="${1:-}" pr="" card="" rk=byz cls used today now line ev="" cu="" tail="" eq="" CODE_EQUIV="" dir="$STATE/autonomy-merge-approved"
+  local sha="${1:-}" pr="" card="" rk=byz cls used today now line ev="" cu="" tail="" eq="" CODE_EQUIV="" MD0="" dir="$STATE/autonomy-merge-approved"
   [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || scope_err "sha 형식 틀림(40hex 소문자): $sha (usage: scope-approve <40hex> [--pr <N>] [--card <카드.md>] [--repo byz|pack])"
   shift
   while [ $# -gt 0 ]; do case "$1" in
@@ -238,10 +247,14 @@ cmd_scope_approve() {
     cu="$(scope_code_used "$G_S")"
     [ "$cu" -lt "$G_CODEMAX" ] || { scope_write_stop "$G_S" "code 건수 도달($cu/$G_CODEMAX)"; scope_err "$G_S 정지: code 건수 도달($cu/$G_CODEMAX)"; }
     scope_code_check "$sha" "$card"; cu=$((cu + 1)); ev="evidence=$card@$CODE_A"
+  elif [ -n "$CLS_LEARNED" ]; then   # r748: 학습표 종류(원래 FORBID)가 분류기에서 docs 로 통과한 건 — 무제한 금지: 몫(max·daily)만 깎고 codemax 는 안 깎는다
+    :
   elif eq="$(scope_equiv_sha "$sha")"; then   # r560: 이미 센 승인 A 의 EQUIV = 재승인이 아니다 — 셈 0 · 원장 종류 equiv
     cls="equiv"; ev="equiv=$eq"
+  elif [ "$cls" = docs ] || [ "$cls" = ff ]; then   # r748 r2(DA⑥ r2 · master 결정 A): «바뀐 경로 전부 .md ∧ learned 아님» 일 때만 counted=0 칸(= 셈 0) · 그 밖은 칸 없음 = 셈 1(실패 닫힘)
+    scope_md_only "$sha" && { MD0=1; tail="$tail counted=0"; }
   fi
-  if [ "$cls" != revert ] && [ "$cls" != equiv ]; then   # r560: 종류 equiv(이미 센 승인의 EQUIV)만 셈 0 — code 의 CODE_EQUIV 는 종전대로 셈(code 건수 = 별도 칸)
+  if [ "$cls" != revert ] && [ "$cls" != equiv ] && [ -z "$MD0" ]; then   # r748 r2: 몫(max·daily) 검사·증가 = counted=0 칸이 없는 줄 전부(code · learned · 비-md docs·ff · 옛 줄) — counted=0·revert·equiv 는 원장·scope-use·승인 파일만 쓰고 셈 0(감사 유지)
     [ "$used" -lt "$G_MAX" ] || { scope_write_stop "$G_S" "건수 도달($used/$G_MAX)"; scope_err "$G_S 정지: 건수 도달($used/$G_MAX)"; }
     [ "$today" -lt "$G_DAILY" ] || scope_err "하루 건수 도달(오늘 $today/$G_DAILY)"
     used=$((used + 1)); today=$((today + 1))
