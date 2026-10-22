@@ -1,3 +1,9 @@
+## 2026-10-23 — r746 루트 연결 파일(shim) `.py` 는 python 본문으로(1.1.218)
+
+- `ft-root-bin-shim.sh` 가 만드는 `.py` 연결 파일이 bash 본문이라 `python3 <shim>.py` 로 부르면 SyntaxError 나던 것 → 올바른 python 본문(1행 python3 · 2행 표식 · 3행 bash·python 겸용 줄)으로 생성. LIVE_BIN 검사 3종 문구·rc3 동일 · import 는 ImportError · 실행은 `os.execv`. 옛 호출 꼴 `bash <shim>.py` 도 겸용 줄로 그대로 통과.
+- 시험: `test_root_bin_shim_py_python.sh` 신규 · py_python 74 · root_bin_shim 94 · r613 26 · r616 27 · r657 46 · install_worktree_shim 34 · tick_shim_guard 26 FAIL 0 — arch §211 격리 재대조 OK(DA 0). 옛 «형식» 단언 2곳만 수정.
+- 설치: bin/kit 짝 cmp0 · 설치 뒤 루트·열린 워크트리 연결 파일 재생성.
+
 ## 2026-10-23 — r755 착지 금지 가지 목록 + r756 desk·planner 승계는 main 기반 워크트리에서만(1.1.217)
 
 - r755: `ft-merge-land.sh` 가 «착지 금지 가지 목록»(`ft-merge-deny.txt` · 기본 `^feat/v6-realtime-live$`) 에 걸린 PR 은 REJECT — 가지 이름이거나 그 가지의 커밋을 품은 경우. 목록이 없거나 꼴이 틀리면 fail-closed. 설치 때 master 가 목록 끝 sha 기입.

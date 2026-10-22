@@ -1,0 +1,69 @@
+PASS bash -n (추적 짝)
+PASS 추적 짝 = 키트(cmp0)
+PASS base 판 생성기 추출(2e0bb166)
+PASS base 판 = .py 도 bash 본문(사건 재현 전제)
+PASS ⓐ base 판 생성 (rc=0)
+PASS ⓐ base 판 숫자(SHIM 2 · MOVED 1 · UNKNOWN 0)
+PASS ⓐ base 판 foo.py 1행 = bash(사건 그대로)
+PASS ⓐ base 판: ast.parse = SyntaxError(사건 재현)
+PASS ⓐ base 판: python3 <foo.py> = SyntaxError
+PASS ⓐ base 판: rc≠0 (1)
+PASS ⓑ 고친 판 생성 (rc=0)
+PASS ⓑ 고친 판 숫자(base 와 같음)
+PASS ⓑ ast.parse 통과 (rc=0)
+PASS ⓑ ast.parse SyntaxError 0
+PASS ⓑ 1행 = #!/usr/bin/env python3
+PASS ⓑ 2행 표식(# ft-root-bin-shim:) — r613·드리프트·틱 head -3 판정 그대로
+PASS ⓑ 2행 문구 = 지금 그대로(이름 → LIVE_BIN)
+PASS ⓑ 실행 = os.execv(sys.executable, [..., 라이브 경로, *argv[1:]])
+PASS ⓑ import 가드(__name__ != __main__) 1줄
+PASS ⓒ python3 <foo.py> rc 그대로(라이브 rc7) (rc=7)
+PASS ⓒ python3 <foo.py>: $HERE=라이브 · 인자 그대로
+PASS ⓒ 연결 파일 실행 비트 755
+PASS ⓒ <foo.py> 직접 실행(셔뱅) rc 그대로 (rc=7)
+PASS ⓒ <foo.py> 직접 실행: 인자 그대로
+PASS ⓒ stdin 파이프에서도 SyntaxError 0
+PASS ⓒ .sh 연결 파일은 지금처럼 bash 로 라이브 도구 실행
+PASS ⓓ import foo rc≠0 (1)
+PASS ⓓ import foo → ImportError
+PASS ⓓ ImportError 문구에 «LIVE_BIN 사본을 import»(어디로 가야 하는지)
+PASS ⓓ import 로 라이브 도구가 돌지 않는다(조용한 성공 0)
+PASS ⓓ .sh 이름은 import 대상이 아니다(ImportError 0 — 모듈 없음)
+PASS ⓔ LIVE_BIN 없음 → rc3 (rc=3)
+PASS ⓔ LIVE_BIN 없음 문구 = 지금 그대로(경로 꼴도 bash 판과 같다 · 정규화 0)
+PASS ⓔ base 판(bash 본문을 bash 로 실행)과 «같은 문구» 바이트 동일
+PASS ⓔ LIVE_BIN 빈 값 → rc3 (rc=3)
+PASS ⓔ 빈 값 문구
+PASS ⓔ 상대 LIVE_BIN → rc3 (rc=3)
+PASS ⓔ 절대경로 아님 문구 = 지금 그대로
+PASS ⓔ 상대 LIVE_BIN 인데 라이브 도구 실행 0
+PASS ⓔ 라이브 도구 없음 → rc3 (rc=3)
+PASS ⓔ 라이브 도구 없음 문구 = 지금 그대로
+PASS ⓔ 라이브 도구 없음도 base 판과 같은 문구
+PASS ⓕ .sh 연결 파일 = base 판과 바이트 동일
+PASS ⓕ r657 -p 이어주기 줄 그대로(.sh)
+PASS ⓖ base 판 루트에 새 판 실행 (rc=0)
+PASS ⓖ 옛 bash 판 .py 도 «연결 파일» 로 인정(옮기기 0)
+PASS ⓖ 옛 bash 판 foo.py → python 판으로 덮어씀
+PASS ⓖ 덮어쓴 본문 = 새 판 본문(바이트 동일)
+PASS ⓖ 두 번째 실행 (rc=0)
+PASS ⓖ 두 번째 = MOVED 0 · 숫자 같음
+PASS ⓖ 멱등(바이트·stale 폴더 수 불변)
+PASS ⓖ --dry-run (rc=0)
+PASS ⓘ 변이 파일 생성(.py 분기 제거)
+PASS ⓘ 변이 판 foo.py 1행 = bash(고치기 전으로 되돌아감)
+PASS ⓘ 변이 시 ⓑ 단언이 깨진다(ast.parse SyntaxError — 시험이 변이를 잡는다)
+PASS ⓗ test_root_bin_shim.sh (rc=0 · 94 PASS)
+PASS ⓗ test_root_bin_shim_r613.sh (rc=0 · 26 PASS)
+PASS ⓗ test_root_bin_shim_r616.sh (rc=0 · 27 PASS)
+PASS ⓗ test_root_bin_shim_r657.sh (rc=0 · 46 PASS)
+PASS ⓗ test_install_worktree_shim.sh (rc=0 · 34 PASS)
+PASS ⓗ test_live_install_check_shim.sh (rc=0 · 15 PASS)
+PASS ⓗ test_live_install_check_bin_row_shim.sh (rc=0 · 7 PASS)
+PASS ⓗ test_tick_shim_guard.sh (rc=0 · 26 PASS)
+PASS ⓙ LIVE_BIN 은 임시 루트에만(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.P8r1w4TTzx 아래) — 실 루트 쓰기 0
+PASS ⓙ LIVE_BIN 값 = 가짜 라이브(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.P8r1w4TTzx 아래)
+== fail=0
+REAL-STATE-GUARD WARN 번호표 늘었으나 실 좌석 계획(동시 실행): /private/tmp/h38 ← /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/state/approve-merge-planner112-2631-66f7e3a8dc-20261022.sh.hil
+REAL-STATE-GUARD WARN 번호표 늘었으나 실 좌석 계획(동시 실행): /private/tmp/h39 ← /Users/yoonhwan/Project/ai-feature-pack/.worktrees/multihost-plan/docs/multihost/h-plans/h-iap-old-keys-delete.sh
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

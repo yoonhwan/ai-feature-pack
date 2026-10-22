@@ -12,6 +12,9 @@
 #   출력 끝줄 `SHIM n · MOVED m · UNKNOWN k` (--dry-run 은 쓰기 0 · 같은 숫자 · `PLAN …` 줄).  종료: 0 · 2 usage · 3 ERROR(조용한 통과 0)
 #   r494 --init: 루트 bin 이 없을 때 루트가 «설치된 리포(공용 루트 .fable-team/LIVE_BIN 실재)의 git 워크트리 최상위» 면 bin 을 만들고 위 흐름 그대로
 #     (LIVE_ROOT 기본 = 공용 루트 경로 그 자체 · 공용 루트 LIVE_ROOT 파일 값 복사 0) · 공용 루트 자체·git 밖·설치 안 된 리포 = ERROR rc3 + 사유
+#   r746: 이름이 *.py 인 연결 파일은 «올바른 python» 본문으로 만든다 — 1행 `#!/usr/bin/env python3` · 2행 표식 그대로 · LIVE_BIN 검사 3종(문구·rc 3 은 bash 판과 같다) ·
+#     import 하면 ImportError(크게 실패 · 조용한 성공 0) · 실행하면 os.execv(sys.executable, [라이브 사본, *argv[1:]]) — python 으로 읽는 모든 길(ast.parse · python3 직접 실행 · import)이 문법 오류 0. .sh 본문은 불변.
+#     1b(arch 125): 3행 = bash·python 겸용 줄 `"exec" "python3" "$0" "$@"` — bash 로 부르면 python3 로 자기 자신을 exec · python 으로 읽으면 문자열 식(아무 일 없음) → 옛 호출 꼴 `bash <shim>.py` 도 그대로 돈다(옛 시험 단언 수정 0).
 set -uo pipefail
 usage() { echo "usage: $0 --root <리포 루트> --live <라이브 bin> [--live-root <데이터 루트>] [--ref <ref>] [--repo <키트 리포>] [--path <키트 경로>] [--init] [--dry-run]" >&2; exit 2; }
 err()   { echo "ERROR $*"; exit 3; }
@@ -68,9 +71,40 @@ if [ "$NEWBIN" = 1 ]; then  # r494: 모든 검사를 통과한 뒤에만 만든�
 fi
 
 MARK="# ft-root-bin-shim:"
+shim_body_py() {  # $1 = 도구 이름(*.py) — r746: 이름이 .py 면 «올바른 python» 본문(실행 = os.execv 로 라이브 사본 · import = ImportError)
+  local name="$1"
+  cat <<EOF
+#!/usr/bin/env python3
+$MARK $name → LIVE_BIN (루트 옛 사본이 아니다 — ft-root-bin-shim.sh 생성 · 수정하지 말 것)
+"exec" "python3" "\$0" "\$@"
+import os
+import sys
+
+_h = os.path.dirname(os.path.abspath(__file__))
+_f = os.path.join(_h, "..", "LIVE_BIN")
+_l = ""
+if os.path.isfile(_f):
+    with open(_f, "r", encoding="utf-8", errors="replace") as _fh:
+        _l = _fh.readline().strip()
+if not _l:
+    print("ERROR LIVE_BIN 이 없거나 비었다: " + _f)
+    sys.exit(3)
+if not _l.startswith("/"):
+    print("ERROR LIVE_BIN 이 절대경로(/ 로 시작)가 아니다: " + _l + " (" + _f + ")")
+    sys.exit(3)
+_t = os.path.join(_l, "$name")
+if not os.path.isfile(_t):
+    print("ERROR 라이브 도구 없음: " + _t)
+    sys.exit(3)
+if __name__ != "__main__":
+    raise ImportError("ft-root-bin-shim 의 .py 연결 파일이다 — import 하지 말고 LIVE_BIN 사본을 import 하거나 도구로 실행한다: " + _t)
+os.execv(sys.executable, [sys.executable, _t] + sys.argv[1:])
+EOF
+}
+
 shim_body() {  # $1 = 도구 이름
   local name="$1" runner="bash" runline
-  case "$name" in *.py) runner="python3";; esac
+  case "$name" in *.py) shim_body_py "$name"; return;; esac
   # r657: 부른 쪽 셸에 p(특권 모드)가 있으면 «같은 해석기로 -p» 를 붙여 넘긴다.
   #       -p 없이 불렀으면 지금과 같은 맨 bash — 도구 쪽 «-p 아니면 거절» 검사는 그대로(약화 0).
   runline="exec $runner \"\$_l/$name\" \"\$@\""

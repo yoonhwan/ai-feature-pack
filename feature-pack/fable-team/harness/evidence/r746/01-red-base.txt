@@ -1,0 +1,12 @@
+## ⓐ 고치기 전(base 2e0bb166 판 생성기) — .py 연결 파일 = bash 본문 → python 으로 읽는 길 전부 SyntaxError
+$ head -1 .fable-team/bin/foo.py
+#!/usr/bin/env bash
+$ python3 -c 'import ast;ast.parse(open(...).read())'
+  File "<unknown>", line 7
+    case "$_l" in /*) ;; *) echo "ERROR LIVE_BIN 이 절대경로(/ 로 시작)가 아니다: $_l ($_f)"; exit 3;; esac
+                    ^
+SyntaxError: unmatched ')'
+$ python3 .fable-team/bin/foo.py a
+    case "$_l" in /*) ;; *) echo "ERROR LIVE_BIN 이 절대경로(/ 로 시작)가 아니다: $_l ($_f)"; exit 3;; esac
+                    ^
+SyntaxError: unmatched ')'
