@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # ft-hil.sh — 사람이 `!` 로 칠 계획 파일(*.sh.hil 등)을 짧은 진입 파일 /tmp/h<N> 으로 등록한다 (R83 · 판정 850·853 · R186 판정 1720). 도구·오케가 부른다.
-#   ft-hil.sh --add <계획 파일> [--supersedes h<M>]  → stdout `! bash $HIL_DIR/h<N>` 1줄 (클립보드는 보조: pbcopy 가 있고 HIL_CLIP≠0)
+#   ft-hil.sh --add <계획 파일> [--supersedes h<M>] [--notify <좌석> [--notify-comm <쪽지함 폴더>]]  → stdout `! bash $HIL_DIR/h<N>` 1줄 (클립보드는 보조: pbcopy 가 있고 HIL_CLIP≠0)
+#                                  ★r718: --notify = «[HIL 미실행] 알림 받을 좌석» 을 h<N>.notify(seat= · comm= 두 줄)에 적는다 — 틱 hil_watch 가 그 쪽지함의 그 좌석으로 보낸다.
+#                                  --notify-comm 생략 = 부른 곳의 공용 루트 쪽지함(ft_comm_dir). 좌석 이름 린트 실패·쪽지함 폴더 없음 = REJECT rc2(등록 0).
 #                                  h<M> 을 «대체됨» 으로 적는다 — h<M> 을 치면 `REJECT 대체됨 → h<N>` rc 1 · 계획 실행 0
 #   ft-hil.sh --cmd '<명령>'      → 명령 1줄 계획을 $HIL_DIR/hil-cmd/<시각>.sh 로 쓰고 --add 와 같은 처리
-#   ft-hil.sh                     → 목록 `h<N>  <대상>  <대상 실재 여부>  <미실행 N분 | 실행 HH:MM rc=n | 대체됨 → h<N>>`
+#   ft-hil.sh                     → 목록 `h<N>  <대상>  <대상 실재 여부>  <미실행 N분 | 실행 HH:MM rc=n | 대체됨 → h<N>>  <수신=좌석@쪽지함 | 수신=- | 수신=표식 손상>`
 #   ft-hil.sh --pending [--each]  → 미실행·미대체 h 요약 1줄(0개면 출력 없음) · --each 는 `h<N> <분>` 줄만
 # h<N> = «실행되면 h<N>.ran(시작 시각 · rc)을 남기고 계획을 그대로 실행하는» 진입 파일. 계획 파일 수정 0 · 실행 권한 변경 0.
 # 진입점 폴더 = ${HIL_DIR:-/tmp}(시험만 바꾼다) · 홈($HOME) 아래 쓰기 0 · 등록기 자신의 실행 기능 0(실행은 사람이 `bash /tmp/h<N>`)
@@ -12,6 +14,7 @@
 set -uo pipefail
 D="${HIL_DIR:-/tmp}"
 die() { echo "REJECT $*" >&2; exit 1; }
+usage() { echo "usage: ft-hil.sh [--add <계획 파일> [--supersedes h<M>] [--notify <좌석> [--notify-comm <쪽지함 폴더>]] | --cmd '<명령>' | --pending [--each]]" >&2; exit 2; }
 
 clip() {  # 클립보드 실패는 출력을 막지 않는다
   [ "${HIL_CLIP:-1}" != 0 ] && command -v pbcopy >/dev/null 2>&1 || return 0
@@ -70,10 +73,30 @@ lint() {  # R135a: 계획 파일의 비밀 출력 경로 검사 — 걸리면 �
   return 1
 }
 
+seat_lint() {  # R718: 좌석 이름 = P6 문법(ft-name-lint.sh) — 실패면 REJECT rc2(등록 0)
+  local l="$(dirname "${BASH_SOURCE[0]}")/ft-name-lint.sh" why
+  if [ -f "$l" ]; then
+    why="$(bash "$l" "$1" 2>&1)" || { echo "REJECT 좌석 이름 린트 실패: ${why:-$1}" >&2; return 1; }
+  else
+    case "$1" in ''|*[!A-Za-z0-9._#-]*) echo "REJECT 좌석 이름 모양이 아니다: $1" >&2; return 1;; esac
+  fi
+  return 0
+}
+comm_default() {  # 부른 곳의 공용 루트 쪽지함(ft_comm_dir · 못 풀면 빈 줄 rc1)
+  local b; b="$(dirname "${BASH_SOURCE[0]}")"
+  . "$b/ft-harness-root.sh"
+  ft_comm_dir "$b"
+}
+
 add() {
-  local f="${1:-}" sup="${2:-}" t l n="" i=0 m=""
+  local f="${1:-}" sup="${2:-}" ns="${3:-}" nc="${4:-}" t l n="" i=0 m=""
   [ -f "$f" ] || die "계획 파일이 없다: $f"
   [ -z "$sup" ] || { [[ "$sup" =~ ^h[0-9]+$ ]] || die "--supersedes 값은 h<번호> 꼴이다: $sup"; m="$((10#${sup#h}))"; }
+  if [ -n "$ns" ]; then  # 표식 검사는 등록 «전» — 실패면 h 파일을 만들지 않는다
+    seat_lint "$ns" || exit 2
+    [ -n "$nc" ] || nc="$(comm_default)" || { echo "REJECT 쪽지함 폴더를 못 풂 — --notify-comm <폴더> 를 줘라" >&2; exit 2; }
+    [ -d "$nc" ] || { echo "REJECT 쪽지함 폴더가 없다: $nc" >&2; exit 2; }
+  fi
   lint "$f" || exit 1
   t="$(rp "$(cd "$(dirname "$f")" && pwd -P)/$(basename "$f")")"
   case "$t" in *[[:cntrl:]]*) die "계획 경로에 개행·제어문자가 있다(진입 파일 주입 방지): ${t//[[:cntrl:]]/?}";; esac
@@ -97,6 +120,7 @@ add() {
     [ ! -e "$D/h$n" ] && [ ! -L "$D/h$n" ] && ( set -C; entry_body "$t" "$D/h$n" > "$D/h$n" ) 2>/dev/null || die "등록 실패(이미 있는 이름은 덮지 않는다): $D/h$n"
   fi
   [ -z "$m" ] || echo "h$n" > "$D/h$m.superseded" || die "대체 표시를 못 썼다: $D/h$m.superseded"
+  [ -z "$ns" ] || printf 'seat=%s\ncomm=%s\n' "$ns" "$nc" > "$D/h$n.notify" || die "수신자 표식을 못 썼다: $D/h$n.notify"
   rmdir "$D/.hil.lock"; trap - EXIT
   echo "! bash $D/h$n"
   clip "bash $D/h$n"
@@ -122,12 +146,20 @@ state_of() {  # $1=h 파일 → 대체됨 → h<N> | 실행 HH:MM rc=<n> | 미�
   echo "실행 $(hhmm "$s") rc=$r"
 }
 
+marker_of() {  # $1=h 파일 → `수신=<좌석>@<쪽지함>` | `수신=표식 손상` | `수신=-` (r718)
+  local nf="$1.notify" s c
+  [ -e "$nf" ] || { echo "수신=-"; return; }
+  s="$(sed -n 's/^seat=//p' "$nf" 2>/dev/null | head -1)"; c="$(sed -n 's/^comm=//p' "$nf" 2>/dev/null | head -1)"
+  [ -n "$s" ] && [ -n "$c" ] || { echo "수신=표식 손상"; return; }
+  echo "수신=$s@$c"
+}
+
 list() {
   local i l any=0 m; m="$(max_n)"
   for ((i = 1; i <= m; i++)); do
     l="$D/h$i"; { [ -e "$l" ] || [ -L "$l" ]; } || continue
     any=1
-    printf 'h%s  %s  %s  %s\n' "$i" "$(p="$(plan_of "$l")"; echo "${p:-(링크 아님)}")" "$([ -e "$l" ] && echo 실재 || echo 없음)" "$(state_of "$l")"
+    printf 'h%s  %s  %s  %s  %s\n' "$i" "$(p="$(plan_of "$l")"; echo "${p:-(링크 아님)}")" "$([ -e "$l" ] && echo 실재 || echo 없음)" "$(state_of "$l")" "$(marker_of "$l")"
   done
   [ "$any" = 1 ] || echo "(등록 없음)"
 }
@@ -139,9 +171,20 @@ pending() {  # 진입 파일만 센다(옛 링크는 실행 여부를 모른다)
 
 case "${1:-}" in
   "") list ;;
-  --add) { [ -z "${3:-}" ] || { [ "$3" = --supersedes ] && [ -n "${4:-}" ]; }; } || { echo "usage: ft-hil.sh --add <계획 파일> [--supersedes h<M>]" >&2; exit 2; }
-         add "${2:-}" "${4:-}" ;;
+  --add) shift; af=""; as=""; an=""; ac=""
+         while [ $# -gt 0 ]; do
+           case "$1" in
+             --supersedes) [ -n "${2:-}" ] || { usage; }; as="$2"; shift 2 ;;
+             --notify) [ -n "${2:-}" ] || { usage; }; an="$2"; shift 2 ;;
+             --notify-comm) [ -n "${2:-}" ] || { usage; }; ac="$2"; shift 2 ;;
+             -*) usage ;;
+             *) [ -z "$af" ] || usage; af="$1"; shift ;;
+           esac
+         done
+         [ -n "$af" ] || usage
+         [ -z "$ac" ] || [ -n "$an" ] || { echo "usage: --notify-comm 은 --notify 와 함께 쓴다" >&2; exit 2; }
+         add "$af" "$as" "$an" "$ac" ;;
   --cmd) cmdplan "${2:-}" ;;
   --pending) pending "${2:-}" ;;
-  *) echo "usage: ft-hil.sh [--add <계획 파일> [--supersedes h<M>] | --cmd '<명령>' | --pending [--each]]" >&2; exit 2 ;;
+  *) usage ;;
 esac
