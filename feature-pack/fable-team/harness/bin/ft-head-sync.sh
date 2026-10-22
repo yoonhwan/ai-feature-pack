@@ -1,22 +1,27 @@
 #!/usr/bin/env bash
-# ft-head-sync.sh [--apply] [--base <ref=origin/main>] [--repo <dir>]   (R230 · 판정 1860·1862)
+# ft-head-sync.sh [--apply [--all --confirm <N>]] [--base <ref=origin/main>] [--repo <dir>]   (R230 · 판정 1860·1862 · R749)
 #   열린 브랜치(워크트리가 있는 것)를 새 main 위로 최신화하는 도구. 기본 = 표만(읽기 전용). --apply 일 때만 merge.
 #   · 대상 = `git worktree list` 의 브랜치 워크트리 중 main·배포·문서 줄기(제외 목록 ft-head-skip.txt · FT_HEAD_SYNC_SKIP 환경변수가 있으면 그 값) 제외
 #   · 줄마다: contains_main(is-ancestor base HEAD) · 미랜딩 패치(git cherry) · ft-nano-freshness 분류 · 미커밋 수 · 진행 중 연산
-#   · --apply: contains_main 거짓 전부 → 미커밋 0 ∧ 진행 중 연산 0 이면 그 워크트리에서 `git merge --no-edit <base 40hex>` (충돌이면 이 실행이 시작한 merge 만 abort + «충돌·사람»)
+#   · ★R749: --apply 의 쓰기 대상 = «부른 자리(cwd)의 워크트리 1개» 뿐이다. 그 워크트리가 대상 목록(제외 목록 밖 브랜치 워크트리)에 없으면 REJECT rc 2 · 쓰기 0.
+#     전 순회는 `--apply --all --confirm <N>` 만 — N 은 표 모드가 세는 «최신화 필요» 수와 같아야 한다(다르거나 없으면 REJECT rc 2 · 쓰기 0). 다른 워크트리를 이름으로 고르는 인자 0.
+#   · --apply: 미커밋 0 ∧ 진행 중 연산 0 이면 그 워크트리에서 `git merge --no-edit <base 40hex>` (충돌이면 이 실행이 시작한 merge 만 abort + «충돌·사람»)
 #     미커밋>0 = «보류(미커밋 N)» · 진행 중 연산 = «보류(진행 중 연산)» · ★rebase·reset·force push·원격 push 0★ (원격 push 는 각 팀 몫)
 #   · 비파괴 증거: 병합 안 한 워크트리는 전후 HEAD·staged diff·상태·미커밋 파일 내용 해시가 같아야 한다(다르면 rc 1)
-#   base sha 는 실행 시작에 한 번 풀어 40hex 로 고정한다(표 머리에 기록). exit 0 = 정상 · 1 = 비파괴 위반·오류 · 2 = usage
+#   base sha 는 실행 시작에 한 번 풀어 40hex 로 고정한다(표 머리에 기록). exit 0 = 정상 · 1 = 비파괴 위반·오류 · 2 = usage/REJECT
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 . "$HERE/ft-merge-lib.sh"
-APPLY=0; BASE="origin/main"; REPO=""
-usage() { echo "usage: $0 [--apply] [--base <ref=origin/main>] [--repo <dir>]" >&2; exit 2; }
+APPLY=0; ALL=0; CONFIRM=""; BASE="origin/main"; REPO=""
+usage() { echo "usage: $0 [--apply [--all --confirm <N>]] [--base <ref=origin/main>] [--repo <dir>]" >&2; exit 2; }
 while [ $# -gt 0 ]; do case "$1" in
   --apply) APPLY=1; shift;;
+  --all) ALL=1; shift;;
+  --confirm) [ $# -ge 2 ] || usage; CONFIRM="$2"; shift 2;;
   --base) [ $# -ge 2 ] || usage; BASE="$2"; shift 2;;
   --repo) [ $# -ge 2 ] || usage; REPO="$2"; shift 2;;
   *) usage;; esac; done
+if [ "$APPLY" -eq 0 ]; then { [ "$ALL" -eq 0 ] && [ -z "$CONFIRM" ]; } || usage; fi
 [ -n "$REPO" ] || REPO="$(git rev-parse --show-toplevel 2>/dev/null)" || { echo "ERROR repo 를 찾을 수 없음"; exit 1; }
 SKIP_RE="${FT_HEAD_SYNC_SKIP:-}"   # 환경변수가 우선 · 없으면 같은 폴더 ft-head-skip.txt(R249 · 한 줄 = 정규식 1개) — 못 읽거나 0줄이면 ERROR
 if [ -z "$SKIP_RE" ]; then
@@ -41,9 +46,9 @@ snap() {
     git -C "$wt" ls-files -m -o --exclude-standard -z | while IFS= read -r -d '' f; do printf '%s ' "$f"; shasum < "$wt/$f" 2>/dev/null || echo missing; done | shasum; } | shasum | cut -c1-16
 }
 
-# 대상 수집: "<wt>\t<branch>"
+# ── 1단계: 후보 전수 «읽기만» — 표 모드 출력과 --confirm 대조값이 여기서 나온다(쓰기 0)
 git -C "$REPO" worktree list --porcelain | awk '/^worktree /{w=substr($0,10)} /^branch refs\/heads\//{print w "\t" substr($0,19)}' > "$TMP/targets"
-: > "$TMP/rows"; : > "$TMP/before"
+: > "$TMP/scan"; : > "$TMP/before"
 while IFS=$'\t' read -r wt br; do
   [ -d "$wt" ] || continue
   printf '%s' "$br" | grep -Eq "$SKIP_RE" && continue
@@ -52,10 +57,30 @@ while IFS=$'\t' read -r wt br; do
   unl="$(git -C "$wt" cherry "$BSHA" HEAD 2>/dev/null | grep -c '^+')"
   ( cd "$wt" && bash "$HERE/ft-nano-freshness.sh" --root "$BSHA" "$wt" >/dev/null 2>&1 </dev/null ); frc=$?   # freshness 는 cwd 저장소를 본다 — 그 워크트리에서 실행
   case "$frc" in 0) cls=FRESH;; 1) cls=STALE;; 2) cls=STALE-OVERLAP;; 3) cls=LANDED;; *) cls=ERR;; esac
-  dirty="$(dirty_count "$wt")"; op="$(pending_op "$wt")"; res=""
+  op="$(pending_op "$wt")"; op="${op:--}"   # 빈 칸은 탭 연속이 되어 read 가 접는다 — 표식 "-"
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$wt" "$br" "$cls" "$contains" "$unl" "$(dirty_count "$wt")" "$op" "$(cd "$wt" && pwd -P)" >> "$TMP/scan"
+done < "$TMP/targets"
+need="$(awk -F'\t' '$4=="no"' "$TMP/scan" | grep -c .)"
+
+# ── 2단계: 쓰기 범위 게이트(R749) — 통과 전에는 어떤 워크트리도 안 건드린다
+CWDW="$(git rev-parse --show-toplevel 2>/dev/null)"; [ -n "$CWDW" ] && CWDW="$(cd -- "$CWDW" 2>/dev/null && pwd -P)"
+if [ "$APPLY" -eq 1 ]; then
+  if [ "$ALL" -eq 1 ]; then
+    [ -n "$CONFIRM" ] || { echo "REJECT --all 은 --confirm <대상 수> 가 필요하다 — 지금 «최신화 필요» $need 곳" >&2; exit 2; }
+    [ "$CONFIRM" = "$need" ] || { echo "REJECT --confirm $CONFIRM 은 지금 «최신화 필요» $need 곳과 다르다 — 표 모드 숫자를 보고 다시" >&2; exit 2; }
+  elif ! awk -F'\t' -v p="$CWDW" '$8==p{f=1} END{exit !f}' "$TMP/scan"; then
+    echo "REJECT 이 자리는 최신화 대상 워크트리가 아니다(${CWDW:-cwd 를 못 읽음}) — --apply 는 부른 자리의 워크트리 1개만 최신화한다 · 전 순회는 --apply --all --confirm <N>" >&2; exit 2
+  fi
+fi
+
+# ── 3단계: 결과 칸 · merge 는 고른 워크트리만
+: > "$TMP/rows"; : > "$TMP/merged"
+while IFS=$'\t' read -r wt br cls contains unl dirty op real; do
+  res=""
   if [ "$contains" = yes ]; then res="최신"
   elif [ "$APPLY" -eq 0 ]; then res="최신화 필요"
-  elif [ -n "$op" ]; then res="보류(진행 중 연산 $op)"
+  elif [ "$ALL" -eq 0 ] && [ "$real" != "${CWDW:-/nonexistent}" ]; then res="다른 워크트리 — 그 자리에서"
+  elif [ "$op" != "-" ]; then res="보류(진행 중 연산 $op)"
   elif [ "$dirty" -gt 0 ]; then res="보류(미커밋 $dirty)"
   else
     : > "$TMP/started"   # 시작 표식 — merge --abort 는 이 실행이 방금 시작한 merge 에만(진행 중 연산은 위에서 이미 보류)
@@ -69,9 +94,9 @@ while IFS=$'\t' read -r wt br; do
   fi
   [ "$contains" = no ] && [ "$unl" -eq 0 ] && [ "$APPLY" -eq 0 ] && res="최신화 필요·랜딩됨(닫기 후보)"
   printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$br" "$(basename "$wt")" "$cls" "$contains" "$unl" "$res" >> "$TMP/rows"
-done < "$TMP/targets"
+done < "$TMP/scan"
 
-echo "base=$BSHA ($BASE) apply=$APPLY"
+echo "base=$BSHA ($BASE) apply=$APPLY all=$ALL"
 { printf '브랜치\t워크트리\t분류\tcontains_main\t미랜딩\t결과\n'; cat "$TMP/rows"; } | column -t -s $'\t'
 n() { cut -f6 "$TMP/rows" | grep -c "^$1"; }
 echo "요약: 총 $(grep -c . "$TMP/rows") · 최신 $(n 최신$) · 최신화함 $(n 최신화함) · 충돌·사람 $(n 충돌·사람) · 보류 $(n 보류) · 최신화 필요 $(n '최신화 필요') · 오류 $(n 오류)"

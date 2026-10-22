@@ -1,0 +1,9 @@
+R749 조치문(ⓖ) — ft_head_lag.build() 출력 원문
+[베이스 뒤처짐] main aaaaaaaaaa 위에 있지 않은 워크트리 1곳 (이 팀 좌석이 앉은 곳):
+- wtA(nano/a) /Users/me/wtA · main 보다 2커밋 · 5시간
+조치: 그 워크트리 안에서(cd /Users/me/wtA) 미커밋 0 이면 bash /Users/me/bin/ft-head-sync.sh --apply (그 워크트리만 · merge 만 · rebase·force 0) · 충돌이면 그 팀 arch 에 · 옛 베이스 병합은 병합 게이트가 거절한다(R243/R749)
+--- 2곳일 때(경로가 여러 개면 «위 각 줄의 경로»)
+[베이스 뒤처짐] main bbbbbbbbbb 위에 있지 않은 워크트리 2곳 (이 팀 좌석이 앉은 곳):
+- wtA(nano/a) /Users/me/wtA · main 보다 2커밋 · 5시간
+- wtB(nano/b) /Users/me/wtB · main 보다 1커밋 · 10분
+조치: 그 워크트리 안에서(cd 위 각 줄의 경로) 미커밋 0 이면 bash /Users/me/bin/ft-head-sync.sh --apply (그 워크트리만 · merge 만 · rebase·force 0) · 충돌이면 그 팀 arch 에 · 옛 베이스 병합은 병합 게이트가 거절한다(R243/R749)

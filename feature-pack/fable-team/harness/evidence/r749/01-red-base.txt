@@ -1,0 +1,17 @@
+R749 ⓐ 빨강 먼저 — 옛 판(bin@origin/main = 94c8e4bc) 은 A 안에서 쳐도 B·C 를 같이 병합한다
+옛 판 sha256=ac1a5f539561c2f5a198dfb9362d2cae929cbf5a60f71297e19896f7ee858ed6 줄수=86
+픽스처: 임시 origin(bare)+clone + 워크트리 3개(A·B·C · 전부 main 뒤처짐 · 미커밋 0) · cwd=A · 명령 = bash <bin>/ft-head-sync.sh --apply --repo <W>
+전 a HEAD=0d6ff1c main_in=no
+전 b HEAD=27fa187 main_in=no
+전 c HEAD=630c20b main_in=no
+--- 옛 판 출력
+base=71cd386d055ae1cbb691df95db578073d4e475a5 (origin/main) apply=1
+브랜치  워크트리  분류   contains_main  미랜딩  결과
+nano/a  wt-a      STALE  no             1       최신화함
+nano/b  wt-b      STALE  no             1       최신화함
+nano/c  wt-c      STALE  no             1       최신화함
+요약: 총 3 · 최신 0 · 최신화함 3 · 충돌·사람 0 · 보류 0 · 최신화 필요 0 · 오류 0
+비파괴 증거: 병합 안 한 워크트리 0 개 전후 HEAD·staged·상태·미커밋 내용 해시 동일
+후 a HEAD=7c9393a main_in=yes
+후 b HEAD=778ccd1 main_in=yes
+후 c HEAD=2b6edd5 main_in=yes
