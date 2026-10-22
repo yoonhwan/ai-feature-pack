@@ -1,0 +1,26 @@
+r739 회귀 — 기존 슬랙 미러 시험 3종(요약 todo · 요약 HTTP · 서명) + 새 시험
+-----------------------------------------------------------------------
+$ bash feature-pack/fable-team/harness/tests/test_mirror_backlog.sh
+RESULT fail=0
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+rc=0
+
+$ bash feature-pack/fable-team/harness/tests/test_mirror_no_todo.sh
+PASS 본체: 스텁이 지어낸 todo 는 카드에 안 실림(「할 일 없음」)
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+rc=0
+
+$ bash feature-pack/fable-team/harness/tests/test_mirror_summary_http.sh
+PASS ⓜ 실패마다 경과 ≤ 2×0.25 + 0.2
+PASS ⓘ 모델·주소 상수
+RESULT fail=0
+rc=0
+
+$ bash feature-pack/fable-team/harness/tests/test_slack_mirror_signature.sh
+PASS github _item: opened·summary-fail·hil 텍스트 생성(TypeError 0)
+PASS seat default: planner-master-claude#11 · 옛 arch#3 매칭, 무관 이름 비매칭
+ALL PASS
+rc=0
+

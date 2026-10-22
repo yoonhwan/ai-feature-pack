@@ -1,3 +1,9 @@
+## 2026-10-22 — 슬랙 미러(`byz-mbox-slack-mirror`)가 장애·재시작 뒤 밀린 옛 쪽지 약 2000건을 슬랙에 전부 재전송해 오빠를 방해하던 것을, 밀림이 상한(`--backlog-max` 기본 50)을 넘으면 «밀린 쪽지 N건을 건너뛰었어요(seq A~B) — 원문은 mbox 원장에 있어요» 요약 1통만 올리고 `last_seq` 를 머리로 저장하게 함(r739 · 1.1.211 · 새 모듈 `mirror_backlog.py` + 본체 `run_pass` 분기 + `install.sh` 목록 + 시험 2)
+
+- 매 패스 적용(재시작만이 아님) · 50 이하는 원문 그대로(회귀 0) · `--backlog-max 0` = 묶음 끔 · pending 이 먼저 · 요약기 호출 0.
+- 설치 목록 구멍 방지: `install.sh` 고정 파일 목록에 새 모듈이 빠지면 설치본이 `ModuleNotFoundError` 로 KeepAlive 데몬이 30초마다 죽어 미러 전면 정지 → 목록에 `mirror_backlog.py` 추가(16→17) + 가드 시험 `test_mirror_install_list.sh`(본체가 import 하는 로컬 모듈이 목록에 전부 있나 · 임시 HOME 설치 시뮬 import 성공 · 변이 = 목록에서 빼면 FAIL).
+- 시험 `test_mirror_backlog.sh` · 판정문 §195(arch 격리 미러 시험 5종 FAIL 0 · 설치 흉내 import ok · 변이 잡힘) · 증거 `harness/evidence/r739/` · 설치: 있음(`kit/slack-mirror` 17파일 → `~/.hermes/scripts` + `com.hermes.byz-mbox-slack-mirror` kickstart) · 실사건 = 설치 뒤 err 로그 ImportError 0 + 슬랙 새 글 수.
+
 ## 2026-10-22 — 묶음 착지 5건(r725 · r730 · r727 · r728 · r733 · 1.1.210 · 같은 manifest·CHANGES 줄을 건드려 한 PR 로 squash)
 
 - **r725** 문서만 PR 승인 면제 — 한 팀 폴더 `design/teams/<팀>/` 직속 `.md` 만 바꾸는 PR 은 오빠 승인 없이 `ft-merge-land` 경유 squash 로만 착지(판정 `ft_doc_exempt.py` 1모듈을 승인 가드·착지 도구·docs-push 가 공통 호출). DA⑥ r1 HOLD 6건(좌석 `TMUX_PANE` 실측 · 명부 루트 한정 · 바이너리 blob 판정 · 골·결정 판정 입력 `.md` 제외 · 가드 직접 push 면제 제거 · 시험 보강) + r2 HOLD 2건(실경로 `env -u FT_DOC_EXEMPT_SELFTEST` · SELFTEST 판정 성공 = rc3 · 빨강 칸 성립) 반영 · 판정문 §189 · 설치: 키트 5파일 + 훅 `autonomy-merge-guard.sh`.
