@@ -25,7 +25,8 @@ PORTS=("$P_REDIS" "$P_GATEWAY" "$P_WEB")
 WORK="${TMPDIR:-/tmp}/h-byz-$$"               # 이 맥 임시 작업 폴더(끝에 지움)
 SO=(-o BatchMode=yes -o ConnectTimeout=6 -o ServerAliveInterval=10 -o ServerAliveCountMax=3)
 # 값은 «이름» 으로만 안다 — measured-byz-server-env-20261022.md §최소 세트 + 조건부(번역·TTS)
-KEYS=(PAYMENT_MODE APP_ENV V6_AUTHORITATIVE_STT_MODE V6_AUTHORITATIVE_STT_PROVIDER BYZ_E2E_JWT_SECRET
+KEYS=(CORPUS_RETENTION_DAYS SUPABASE_DB_URL LOOM_INTERIM_DB_URL LOOM_INTERIM_PG_DSN LOOM_INGEST_PG_DSN GCS_DATA_BUCKET GCS_DATA_PREFIX
+      PAYMENT_MODE APP_ENV V6_AUTHORITATIVE_STT_MODE V6_AUTHORITATIVE_STT_PROVIDER BYZ_E2E_JWT_SECRET
       FIREWORKS_API_KEY GROQ_API_KEY DEEPGRAM_API_KEY ELEVENLABS_API_KEY SONIOX_API_KEY
       RETURNZERO_ID RETURNZERO_SECRET CLOVA_API_SECRET GOOGLE_API_KEY
       LLM_PROVIDER BRAIN_LLM_PROVIDER TTS_PROVIDER CARTESIA_API_KEY TYPECAST_API_KEY SUPERTONE_API_KEY OPENAI_API_KEY)
@@ -100,7 +101,7 @@ case "$STATE" in
   running) say "        설치 작업이 아직 진행 중(.h-install.log)"; ms 10 'tail -2 $HOME/Project/BYZ-Agents/.h-install.log' | sed 's/^/        /'; die 3 "진행 중 — 몇 분 뒤 같은 인자로 재실행";;
   *)
     case "$STATE" in rc=0) ;; rc=*) say "        직전 설치 작업이 실패($STATE) — 로그 끝 3줄:"; ms 10 'tail -3 $HOME/Project/BYZ-Agents/.h-install.log' | sed 's/^/        /';; esac
-    ms 20 "cd \$HOME/Project/BYZ-Agents; rm -f .h-install.rc; nohup bash -c 'set -e; uv sync --frozen --python /opt/homebrew/bin/python3.13 --extra gateway --extra worker; cd clients/web; npm ci --no-audit --no-fund; $BUILD_ENV npm run build; cd ../..; echo \"$MARK\" > .h-installed' > .h-install.log 2>&1 < /dev/null & echo \$! > .h-install.pid; echo started" >/dev/null || die 3 "설치 작업 시작 실패"
+    ms 20 "cd \$HOME/Project/BYZ-Agents; rm -f .h-install.rc .h-installed; nohup bash -c 'set -e; uv sync --frozen --python /opt/homebrew/bin/python3.13 --extra gateway --extra worker; cd clients/web; npm ci --no-audit --no-fund; $BUILD_ENV npm run build; cd ../..; echo \"$MARK\" > .h-installed' > .h-install.log 2>&1 < /dev/null & echo \$! > .h-install.pid; echo started" >/dev/null || die 3 "설치 작업 시작 실패"
     for i in 1 2 3 4 5 6 7 8 9 10; do
       sleep 5
       S="$(ms 10 'cd $HOME/Project/BYZ-Agents; if [ -f .h-installed ]; then echo done; elif kill -0 $(cat .h-install.pid) 2>/dev/null; then echo running; else echo failed; fi' 2>/dev/null)" || S=running
@@ -165,6 +166,12 @@ say "        로그 끝 줄(오류 확인용 · 값 없음):"
 for f in gateway worker web; do printf '          %s: ' "$f"; ms 10 "tail -1 /tmp/h-byz-$f.log 2>/dev/null | cut -c1-120" 2>/dev/null; echo; done
 
 # ── 6~7) 끝 ──────────────────────────────────────────────────────────────
+GW_OK="$(ms 15 "curl -s -o /dev/null -w '%{http_code}' -m 5 http://127.0.0.1:$P_GATEWAY/health || true")"; WEB_OK="$(ms 15 "curl -s -o /dev/null -w '%{http_code}' -m 5 http://127.0.0.1:$P_WEB/ || true")"
+if [ "$GW_OK" != "200" ] || [ "$WEB_OK" != "200" ]; then
+  say "        ✗ health 실패 gateway=$GW_OK web=$WEB_OK — 로그 끝(값 없음):"
+  for f in gateway worker web; do printf '          %s: ' "$f"; ms 10 "tail -2 /tmp/h-byz-$f.log 2>/dev/null | tr '\n' ' ' | cut -c1-240" 2>/dev/null; echo; done
+  die 5 "서버가 안 떴다(health gateway=$GW_OK web=$WEB_OK) — 위 로그의 RuntimeError 가 빠진 env 이름. 정지: ACTION=stop"
+fi
 say "6/7 끝"
 cat <<EOF
         닫는 증거 4줄(보고에 그대로):
