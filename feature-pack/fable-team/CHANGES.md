@@ -1,3 +1,8 @@
+## 2026-10-22 — r714a 착지 뒤 매거진 골 시험 3칸이 실패하던 것(시험 픽스처 복사목록에 새 모듈 `ft_goal_readjust_state.py` 누락)을 한 줄로 고침(r727 · 1.1.209 · 시험만 · 설치 0)
+
+- `tests/scripts/test_magazine_goal.py` 복사목록 1줄 추가 — main 3 failed → 5 passed. 라이브 렌더 영향 0 · 키트·훅 변경 0.
+- 판정문 §188(arch 격리 magazine+news_import 10 passed · r726 코드 위에서도 5 passed) · 증거 `harness/evidence/r727/` · 설치: 없음(시험만).
+
 ## 2026-10-22 — 골 정본 번호표가 바뀐 직후 옛 골 표 블록·옛 골좌표 쪽지가 전 팀에서 한꺼번에 REJECT 되던 것을 «직전 정본 1판» 24시간 유예 + 경고 1줄로 완화(r726 · 1.1.208 · 동작 변경 · 키트 ft_goal_table.py + comm/mbox_guard_goal.sh + 시험 1)
 
 - 유예는 «직전 번호표 지문» 에 묶고(렌더 커밋 1개에 묶지 않는다) 신선도 상한 dist(마커)<=dist(직전 판)+12 · 표식 손상·빈 sha·NaN·미래 시각·가짜 prev·두 판 이상 전·env 늘리기(min(env,24)) = 유예 0 fail-closed. 가드 경고는 본문 판정 rc0 일 때 GL-GRACE 1줄(relay 경로 포함 · 첨부 유예 + 본문 REJECT 는 r1 출력 그대로).
