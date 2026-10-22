@@ -140,7 +140,7 @@ echo \$! >> .h-pids
 EOS
   cat "$ENVF"
   cat <<EOS
-export REDIS_HOST=127.0.0.1 REDIS_PORT=$P_REDIS
+export REDIS_HOST=127.0.0.1 REDIS_PORT=$P_REDIS REDIS_URL=redis://127.0.0.1:$P_REDIS/0   # REDIS_URL 이 우선(settings.py:104 · heartbeat 는 REDIS_URL 만 봄) — mini 기본 6379(기존 redis 가동 중)에 붙지 않게 고정
 nohup .venv/bin/python -m uvicorn gateway.main:app --host 127.0.0.1 --port $P_GATEWAY >/tmp/h-byz-gateway.log 2>&1 </dev/null &
 echo \$! >> .h-pids
 nohup .venv/bin/python -m worker.main >/tmp/h-byz-worker.log 2>&1 </dev/null &
