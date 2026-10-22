@@ -107,14 +107,14 @@ mkdir -p "$R/.fable-team"; printf '%s\n' "$L" > "$R/.fable-team/LIVE_BIN"
 git init -q -b main "$V"; cp -p "$KB/ft-news-tree.py" "$V/$KP/"
 git -C "$V" add -A && git -C "$V" -c user.email=t@t -c user.name=t commit -q -m kit
 bash "$SH" --root "$V" --live "$L" --ref HEAD --repo "$V" --path "$KP" >/dev/null 2>&1
-head -1 "$V/.fable-team/bin/ft-news-tree.py" | grep -q bash && ok "r484 픽스처: 워크트리 ft-news-tree.py = bash shim" || bad "r484 픽스처: shim 아님"
+head -3 "$V/.fable-team/bin/ft-news-tree.py" | grep -qF '# ft-root-bin-shim:' && ok "r484 픽스처: 워크트리 ft-news-tree.py = shim(표식 2행 · r746 뒤 본문은 python)" || bad "r484 픽스처: shim 아님"
 git init -q -b main "$R"; printf '{}\n' > "$R/.fable-team/seats.json"   # ft-news-tree.py 는 트리 파일 리포의 공용 .fable-team/seats.json 을 읽는다
 MD="$R/NEWS-TREE.md"; printf '[✅] 알파 끝\n[🔄] 베타 하는 중\n[⏳] 감마 대기\n' > "$MD"
 # ⓐ 고친 ⑥ 절 → 트리 줄 ≥1 · SyntaxError 0
 out="$(cd "$R" && FT_NEWS_ROOT="$R" FT_NEWS_TREE="$MD" FT_ME=t bash "$L/ft-news-tick-s6.sh" 2>"$R/err")"; err="$(cat "$R/err")"
 has "$out" "베타 하는 중" "r484 ⓐ ⑥ 절 아래 트리 줄 ≥1"; hasnt "$err$out" "SyntaxError" "r484 ⓐ stderr SyntaxError 0"
 # 대조: 옛 호출 꼴(python3 "$WT/…/ft-news-tree.py") 은 같은 픽스처에서 SyntaxError — 버그 재현(시험 이빨)
-out="$(python3 "$V/.fable-team/bin/ft-news-tree.py" "$MD" 2>&1)"; has "$out" "SyntaxError" "r484 대조: 옛 호출 꼴 = SyntaxError 재현"
+out="$(python3 "$V/.fable-team/bin/ft-news-tree.py" "$MD" 2>&1)"; has "$out" "베타 하는 중" "r484 대조(r746): 옛 호출 꼴(python3 <shim>.py)도 이제 돈다 — 사건(1행 bash)이 없어져 SyntaxError 재현 불가 · 린트 규칙(\$HERE)은 그대로"
 # ⓑ 옛 줄을 넣은 사본 → 린트 REJECT rc1
 LB="$R/lintbad"; mkdir -p "$LB"; cp -p "$KB/ft-news-tick.sh" "$LB/"
 sed -i.bak '56s#python3 "\$HERE/ft-news-tree.py"#python3 "$WT/.fable-team/bin/ft-news-tree.py"#' "$LB/ft-news-tick.sh"; rm -f "$LB/ft-news-tick.sh.bak"

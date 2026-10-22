@@ -1,0 +1,11 @@
+## 실사건(고치기 전 상태 · 읽기만 · 쓰기 0) — 라이브 루트 bin 의 .py 연결 파일
+$ ls .fable-team/bin/*.py | wc -l → 113
+$ head -1 3개 표본:
+  autonomy_classify.py: #!/usr/bin/env bash
+  autonomy_scope_classify.py: #!/usr/bin/env bash
+  autonomy_scope_post.py: #!/usr/bin/env bash
+$ python3 -c ast.parse(<루트 .fable-team/bin/ft_merge_lines.py>)
+  File "<unknown>", line 7
+    case "$_l" in /*) ;; *) echo "ERROR LIVE_BIN 이 절대경로(/ 로 시작)가 아니다: $_l ($_f)"; exit 3;; esac
+                    ^
+SyntaxError: unmatched ')'

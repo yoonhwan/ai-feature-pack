@@ -1,0 +1,10 @@
+ .../harness/tests/test_root_bin_shim_py_python.sh    | 20 ++++++++++++++++++++
+ 1 file changed, 20 insertions(+)
+--- cmp(추적 짝 = 키트):
+cmp0 OK
+--- 신규(untracked):
+ M feature-pack/fable-team/harness/tests/test_root_bin_shim_py_python.sh
+?? feature-pack/fable-team/harness/evidence/r746/00-summary.txt
+?? feature-pack/fable-team/harness/evidence/r746/01-red-base.txt
+?? feature-pack/fable-team/harness/evidence/r746/04-files.txt
+?? feature-pack/fable-team/harness/evidence/r746/05-real-log.txt
