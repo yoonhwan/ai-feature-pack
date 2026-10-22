@@ -1,0 +1,11 @@
+== 02 초록(고친 판) 같은 픽스처
+WARN ft-decision-count: 쪽지 본문 없음 #2 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.5AYTrHqc9b/repo/.fable-team/comm/bodies/2.txt
+결정 인터뷰 1건 · 스크립트 0건 · 팀 대기 1건(가장 오래 byz-cfo-master-claude#1 5분) · 본문 없음 1건 (MERGE-QUEUE 파일 없음)
+rc=0
+
+== 02b --detail
+WARN ft-decision-count: 쪽지 본문 없음 #2 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.5AYTrHqc9b/repo/.fable-team/comm/bodies/2.txt
+결정 인터뷰 1건 · 스크립트 0건 · 팀 대기 1건(가장 오래 byz-cfo-master-claude#1 5분) · 본문 없음 1건 (MERGE-QUEUE 파일 없음)
+  #1 byz-cfo-master-claude#1 5분 질문표식 [결정] 값 필요? ①예 ②아니오
+  #2 byz-cfo-master-claude#1 5분 본문 없음 
+rc=0

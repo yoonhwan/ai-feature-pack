@@ -1,0 +1,7 @@
+== 03 ⓑ N=0 바이트 대조 — 본문 다 있는 큐에서 고치기 전/후 stdout cmp
+new rc=0
+old rc=0
+cmp: stdout 바이트 같음
+new stderr=[]
+old stderr=[]
+

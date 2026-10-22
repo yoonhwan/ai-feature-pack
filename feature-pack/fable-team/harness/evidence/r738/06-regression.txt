@@ -1,0 +1,16 @@
+== 06 회귀(카드 ⓓ 기존 시험 그대로)
+--- tests/test_decision_count_tables_ref.sh
+== FAIL 0
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+--- tests/test_planner_decision_line_hook.sh
+
+ALL PASS
+--- tests/test_inbox_mark_still_open.sh
+PASS ⓓ obligation_closed 바이트 불변
+SUMMARY fail=0
+--- tests/test_queue_state_r528.sh
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+--- pytest tests/scripts/test_decision_count.py tests/scripts/test_decision_count_truth.py
+.................................                                        [100%]
+33 passed in 36.86s

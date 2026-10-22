@@ -1,0 +1,16 @@
+== 09 범위·바뀐 것 (base = origin/main e0d2b265)
+ feature-pack/fable-team/harness/bin/ft_decision_count.py   | 10 +++++-----
+ feature-pack/fable-team/harness/bin/ft_decision_kind.py    | 14 +++++++++++---
+ .../harness/kit/fable-team/bin/ft_decision_count.py        | 10 +++++-----
+ .../harness/kit/fable-team/bin/ft_decision_kind.py         | 14 +++++++++++---
+ .../harness/tests/scripts/test_decision_count_truth.py     |  6 ++++--
+ 5 files changed, 36 insertions(+), 18 deletions(-)
+
+-- 카드와 다른 점 1: tests/scripts/test_decision_count_truth.py::test_e
+   카드 ⓓ 는 «기존 시험 그대로 PASS» 였으나, 이 시험은 정확히 이번에 고치는 동작(본문 파일 삭제 → rc4)을 계약으로 박아 두고 있었다 = 결함의 성문화.
+   → 같은 시험이 «본문 없음 1건 + rc0 + WARN 1줄 · 결정 인터뷰 0건(지어내지 않는다)» 을 검사하도록 고쳤다. 묶음의 취지(지어내기 0)는 유지, rc4 계약만 «그 밖의 읽기 실패» 로 좁혔다.
+   나머지 5개 시험(test_decision_count · test_decision_count_tables_ref · test_planner_decision_line_hook · test_inbox_mark_still_open · test_queue_state_r528)은 무수정 PASS(06).
+
+-- 200줄 상한: ft_decision_count.py 를 200줄 그대로 유지(기존 시험 «≤200» 이 200 에 붙어 있어 새 줄은 기존 줄에 붙였다).
+-- 범위 밖(카드 3): 사라진 본문 복원 0 · 큐 쓰기 0 · loom env 0 · mbox.sh 0 · docs/architect 0.
+-- 준-기존 실패: tests/test_goal_table_gate.sh ⓕ r458 600/300 상한 등장 = 이 카드 전에도 동일 실패(stash 후 대조 확인) — 손대지 않음.

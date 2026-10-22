@@ -1,0 +1,3 @@
+== 01 빨강(고치기 전 = HEAD 사본) — 픽스처: 본문 있는 열린 행 #1 · 본문 파일 없는 열린 행 #2 · 본문 없는 닫힌 행 #3
+ERROR ft-decision-count: 쪽지 본문 못 읽음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.5AYTrHqc9b/repo/.fable-team/comm/bodies/2.txt FileNotFoundError
+rc=4

@@ -1,0 +1,15 @@
+
+## ⓐ 빨강(위에 실린 base 판 그대로) — 옛 판은 «각주 밖 번호 1건» 으로 발행 0
+base(origin/main) ⓐ 위반: ['각주 밖 번호 1건 (#2598)']
+base rc3 인가 = True
+new(worktree)   ⓐ 위반: []
+
+## 새 시험을 base 린트로 돌린 판(빨강)
+----------------------------- Captured stdout call -----------------------------
+LINT 각주 밖 번호 1건 (#2598)
+=========================== short test summary info ============================
+FAILED tests/scripts/test_news_lint_goal_canon_text_r742.py::test_r742_a_goal_canon_say_number_is_not_a_violation
+FAILED tests/scripts/test_news_lint_goal_canon_text_r742.py::test_r742_b_mutation_dropping_the_exclusion_brings_the_violation_back
+FAILED tests/scripts/test_news_lint_goal_canon_text_r742.py::test_r742_d_foot_numbers_still_pass
+FAILED tests/scripts/test_news_lint_goal_canon_text_r742.py::test_r742_e_cli_isolated_temp_files_rc0
+4 failed, 1 passed in 0.50s

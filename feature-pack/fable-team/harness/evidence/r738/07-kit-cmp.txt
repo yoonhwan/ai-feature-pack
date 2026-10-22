@@ -1,0 +1,7 @@
+== 07 키트 미러 cmp
+cmp 0: ft_decision_kind.py
+cmp 0: ft_decision_count.py
+== 08 줄 수
+      61 bin/ft_decision_kind.py
+     200 bin/ft_decision_count.py
+     261 total
