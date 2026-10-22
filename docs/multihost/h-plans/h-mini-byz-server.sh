@@ -23,6 +23,9 @@ MAX_GB="${MAX_GB:-2}"
 P_REDIS="${P_REDIS:-38311}"; P_GATEWAY="${P_GATEWAY:-38312}"; P_WEB="${P_WEB:-38314}"
 PORTS=("$P_REDIS" "$P_GATEWAY" "$P_WEB")
 WORK="${TMPDIR:-/tmp}/h-byz-$$"               # 이 맥 임시 작업 폴더(끝에 지움)
+TUN_PORT="${LOOM_PG_TUNNEL_PORT:-38309}"       # 이 맥 loom 터널(launchd 상주 · 127.0.0.1) 포트 — 정본 server.sh 와 같은 값
+TUN_PIDF="$HOME/.h-byz-tunnel.pid"              # 이 맥에서 이 h 가 연 «역방향 포워딩 ssh» pid(이 pid 만 정리)
+PYBIN="${PYBIN:-$SRC/.venv/bin/python}"        # psycopg 있는 python(DSN 해석 스크립트용 — 이 맥 BYZ .venv)
 SO=(-o BatchMode=yes -o ConnectTimeout=6 -o ServerAliveInterval=10 -o ServerAliveCountMax=3)
 # 값은 «이름» 으로만 안다 — measured-byz-server-env-20261022.md §최소 세트 + 조건부(번역·TTS)
 KEYS=(CORPUS_RETENTION_DAYS SUPABASE_DB_URL LOOM_INTERIM_DB_URL LOOM_INTERIM_PG_DSN LOOM_INGEST_PG_DSN GCS_DATA_BUCKET GCS_DATA_PREFIX
@@ -43,7 +46,12 @@ if [ "$ACTION" = "stop" ]; then
   ms 40 'f=$HOME/Project/BYZ-Agents/.h-pids; [ -f "$f" ] || { echo pids=none; exit 0; }; n=0; while read -r pid; do [ -n "$pid" ] || continue; if kill -0 "$pid" 2>/dev/null; then kill "$pid" 2>/dev/null && n=$((n+1)); fi; done < "$f"; : > "$f"; echo stopped=$n' 2>&1 | sed 's/^/        /'
   # 이 h 의 포트(${PORTS[*]})를 듣는 프로세스 중 작업 폴더가 ~/Project/BYZ-Agents 아래인 것만(next start 자식 next-server 처럼 pid 파일 밖에 남는 것)
   ms 20 "sleep 1; n=0; for p in ${PORTS[*]}; do for pid in \$(lsof -ti tcp:\$p -sTCP:LISTEN 2>/dev/null); do cwd=\$(lsof -a -p \$pid -d cwd -Fn 2>/dev/null | sed -n 's/^n//p'); case \"\$cwd\" in \"\$HOME/Project/BYZ-Agents\"*) kill \$pid 2>/dev/null && n=\$((n+1));; esac; done; done; echo stopped_port_listeners=\$n" 2>&1 | sed 's/^/        /'
-  say "남의 프로세스·Chrome·기본 포트 Redis 는 건드리지 않았다(위 pid 만)"
+  if [ -f "$TUN_PIDF" ]; then
+    tp="$(cat "$TUN_PIDF" 2>/dev/null)"
+    if [ -n "$tp" ] && kill -0 "$tp" 2>/dev/null && ps -o args= -p "$tp" 2>/dev/null | grep -q -- "-R 127.0.0.1:$TUN_PORT:"; then kill "$tp" 2>/dev/null; say "        이 맥 역방향 포워딩 ssh 종료(pid $tp)"; fi
+    rm -f "$TUN_PIDF"
+  fi
+  say "남의 프로세스·Chrome·기본 포트 Redis·이 맥 loom 터널 본체는 건드리지 않았다(위 pid 만)"
   exit 0
 fi
 
@@ -71,6 +79,13 @@ for p in "${PORTS[@]}"; do
   [ "$BUSY" = "0" ] || die 2 "포트 $p 이 mini 에서 이미 사용 중이다 — P_REDIS/P_GATEWAY/P_WEB 로 다른 383xx 를 주라"
 done
 say "        포트 3개 비어 있음"
+# loom 터널(사설 dev DB 로 가는 길)은 이 맥 launchd 가 상주 소유한다 — 이 h 는 그 로컬 포트를 mini 로 «빌려줄» 뿐 만들지 않는다(판정 909)
+lsof -nP -iTCP:"$TUN_PORT" -sTCP:LISTEN -t >/dev/null 2>&1 || die 2 "이 맥 127.0.0.1:$TUN_PORT 에 loom 터널이 없다 — 이 h 는 터널을 열지 않는다(하네스 kit/loom-tunnel/install.sh status 로 상태 확인)"
+[ -x "$PYBIN" ] || die 2 "psycopg 있는 python 이 없다: $PYBIN (PYBIN= 로 지정)"
+command -v gcloud >/dev/null 2>&1 || die 2 "이 맥에 gcloud 가 없다 — dev DSN 을 Secret Manager 에서 못 꺼낸다"
+TBUSY="$(ms 15 "lsof -nP -iTCP:$TUN_PORT -sTCP:LISTEN 2>/dev/null | wc -l | tr -d ' '")" || TBUSY=0
+[ "$TBUSY" = "0" ] || die 2 "mini 에서 포트 $TUN_PORT 이 이미 사용 중이다(이전 포워딩이 남았나 — ACTION=stop 먼저)"
+say "        이 맥 터널 127.0.0.1:$TUN_PORT LISTEN 확인 · mini $TUN_PORT 비어 있음"
 
 # ── 2) 코드 반입 — git archive(.env 는 미추적이라 애초에 안 들어옴) ───────
 say "2/7 코드 반입"
@@ -130,10 +145,29 @@ fi
 [ "$N" -gt 0 ] || die 2 "넘길 키가 0개다(KEY_SRC=$KEY_SRC)"
 # 비밀이 아닌 고정값(출처: 33335c7a tests/gateway/conftest.py 가 30 을 고정 · supabase/migrations 20261021000001 주석 «30일») — .env 에 없어도 gateway 기동(lifespan)이 요구한다
 grep -q '^export CORPUS_RETENTION_DAYS=' "$ENVF" || { printf 'export CORPUS_RETENTION_DAYS=30\n' >> "$ENVF"; N=$((N+1)); say "        CORPUS_RETENTION_DAYS 는 .env 에 없어 고정값 30 으로 둔다(비밀 아님)"; }
+# dev DB DSN 2개 — ★정본 경로 그대로★(scripts/server/loom_dsn.sh · supabase_dsn.sh: Secret Manager → 사설 host 를 127.0.0.1:$TUN_PORT 로 재작성 → 실효 검증).
+#   mini 에는 GCP 자격이 없다(gcloud 는 이 맥에서만 부른다). 결과 DSN 은 127.0.0.1:$TUN_PORT 라서 아래 역방향 포워딩이 mini 의 같은 이름 포트로 받는다.
+say "        dev DSN 2개를 정본 스크립트로 꺼낸다(값 출력 0 — 스크립트가 찍는 건 source·포트뿐)"
+DSN_OUT="$( cd "$WORK/repo" && APP_ENV=local LOOM_PG_TUNNEL_PORT="$TUN_PORT" PYTHON="$PYBIN" bash -c '
+  source scripts/server/loom_dsn.sh; source scripts/server/supabase_dsn.sh
+  resolve_loom_interim_dsn all >&2 && resolve_supabase_dsn >&2 || exit 1
+  printf "export LOOM_INTERIM_DB_URL=%q\nexport SUPABASE_DB_URL=%q\n" "$LOOM_INTERIM_DB_URL" "$SUPABASE_DB_URL"
+' 2>"$WORK/dsn.err" )" || { sed 's/^/        /' "$WORK/dsn.err" | tail -4; die 2 "dev DSN 을 못 꺼냈다(gcloud 로그인·터널·위 오류 — 값은 출력하지 않는다)"; }
+grep -E '^\[(LOOM|SUPABASE)-DSN\]' "$WORK/dsn.err" | head -3 | sed 's/^/        /'
+printf '%s\n' "$DSN_OUT" >> "$ENVF"; unset DSN_OUT; N=$((N+2))
 for req in PAYMENT_MODE APP_ENV V6_AUTHORITATIVE_STT_MODE V6_AUTHORITATIVE_STT_PROVIDER BYZ_E2E_JWT_SECRET; do   # 이름만 검사
   grep -q "^export $req=" "$ENVF" || say "        ⚠ 필수 이름 누락: $req (gateway/worker 가 기동 중 raise 할 수 있다)"
 done
 say "        키 ${N}개 이름을 stdin 으로 넘긴다(값 출력 0)"
+# 역방향 포워딩 — mini 의 127.0.0.1:$TUN_PORT 로 오는 접속을 이 맥의 loom 터널(127.0.0.1:$TUN_PORT)로 되돌린다.
+#   mini 가 사설 DB 에 닿는 길 = 이 맥 상주 터널을 빌림. ExitOnForwardFailure: 포워딩이 안 서면 ssh 가 즉시 실패. 이 h 가 연 ssh pid 만 TUN_PIDF 에 기록.
+say "        역방향 포워딩 개설(mini:$TUN_PORT → 이 맥:$TUN_PORT)"
+nohup ssh "${SO[@]}" -o ExitOnForwardFailure=yes -N -R "127.0.0.1:$TUN_PORT:127.0.0.1:$TUN_PORT" "$MINI" </dev/null >"$WORK/fwd.log" 2>&1 &
+echo $! > "$TUN_PIDF"; disown 2>/dev/null || true; sleep 3   # h 가 끝나도 포워딩은 남는다(서버가 쓰는 동안) — 정지는 ACTION=stop
+kill -0 "$(cat "$TUN_PIDF")" 2>/dev/null || { cat "$WORK/fwd.log" | tail -2 | sed 's/^/        /'; rm -f "$TUN_PIDF"; die 4 "역방향 포워딩이 서지 않았다(mini sshd 의 원격 포워딩 허용·포트 충돌 확인)"; }
+FWD_OK="$(ms 15 "lsof -nP -iTCP:$TUN_PORT -sTCP:LISTEN 2>/dev/null | wc -l | tr -d ' '")" || FWD_OK=0
+[ "$FWD_OK" -ge 1 ] 2>/dev/null || { kill "$(cat "$TUN_PIDF")" 2>/dev/null; rm -f "$TUN_PIDF"; die 4 "mini 에서 127.0.0.1:$TUN_PORT 가 LISTEN 이 아니다"; }
+say "        포워딩 OK · ssh pid $(cat "$TUN_PIDF") — 정지는 ACTION=stop"
 # 원격 스크립트 = [env 블록] + [기동 명령]. 전부 stdin 으로 가서 `bash -s` 가 읽는다 → 명령줄에 비밀이 없다.
 {
   cat <<EOS
