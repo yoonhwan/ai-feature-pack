@@ -21,12 +21,22 @@ siblings(){ # $1 임시 폴더 — 게이트가 형제(ft-all-stop.sh 등)를 $H
 }
 OLD="$T/oldbin/ft-press-gate.sh"
 siblings "$T/oldbin"
-git -C "$ROOT" show "HEAD:$OLDREL" > "$OLD.raw" 2>/dev/null || { echo "옛 판(HEAD) 못 꺼냄" >&2; exit 1; }
+# «옛 판» = 이 카드(포트 갈래) 를 아직 안 가진 최신 커밋의 파일 — HEAD 를 쓰면 커밋 뒤엔 빨강 대조가 무의미해진다
+OLD_SHA=""
+for sha in $(git -C "$ROOT" log --format=%H -30 -- "$OLDREL" 2>/dev/null); do
+  git -C "$ROOT" show "$sha:$OLDREL" 2>/dev/null | grep -q '_ports(){' || { OLD_SHA="$sha"; break; }
+done
+[ -n "$OLD_SHA" ] || { echo "옛 판(포트 갈래 이전 커밋) 못 찾음" >&2; exit 1; }
+git -C "$ROOT" show "$OLD_SHA:$OLDREL" > "$OLD.raw" 2>/dev/null || { echo "옛 판 내용 못 꺼냄($OLD_SHA)" >&2; exit 1; }
 rm -f "$OLD" && cp "$OLD.raw" "$OLD" && chmod +x "$OLD"
-[ -s "$OLD" ] && ok "빨강 대조용 옛 판(HEAD) 확보" || bad "옛 판 확보"
+[ -s "$OLD" ] && ok "빨강 대조용 옛 판(${OLD_SHA:0:9} · 포트 갈래 이전) 확보" || bad "옛 판 확보"
 
 # ── 가짜 도구(엄격 · 호출 전량 기록)
 FB="$T/fb"; mkdir -p "$FB"
+cat > "$FB/sysctl" <<'S'
+#!/bin/sh
+printf '{ 0.50 0.50 0.50 }\n'   # r769b 부하 게이트 — 이 시험은 포트 갈래만 본다(호스트 부하 무관)
+S
 cat > "$FB/lsof" <<'L'
 #!/bin/sh
 echo "lsof $*" >> "${STUB_LOG:-/dev/null}"
@@ -50,7 +60,7 @@ chmod +x "$FB"/*
 mkworld(){ # $1 이름 · $2 = stub(기본) | real(가짜 도구 없이 = 실제 lsof·curl)
   W="$T/w-$1"; rm -rf "$W"
   R="$W/repo"; mkdir -p "$R/worker" "$R/shared" "$R/gateway" "$R/clients/web" "$W/root/.fable-team" "$W/fb"
-  [ "${2:-stub}" = real ] && cp "$FB/tmux" "$W/fb"/ || cp "$FB"/* "$W/fb"/
+  [ "${2:-stub}" = real ] && { cp "$FB/tmux" "$FB/sysctl" "$W/fb"/; } || cp "$FB"/* "$W/fb"/
   echo '{}' > "$W/root/.fable-team/seats.json"
   mkdir -p "$W/root/.fable-team/state"
   printf '2026-10-21T00:00:00\toff\tinstall\tinit\n' > "$W/root/.fable-team/state/all-stop.log"   # ⓪ 전팀 정지 아님
@@ -98,7 +108,8 @@ sleep 1
 mkworld b real
 gate "$GATE" b FT_PORT_BASE="$BASE" FT_PRESS_WORKER_LOG="$W/worker.log" FT_PRESS_SSE_HEALTH_URL="http://127.0.0.1:$((BASE+2))/api/v1/health/"
 n=$((n+1))
-printf '%s\n' "$OUT" | sed -n '2p' | grep -q "포트 갈래: FT_PORT_BASE=$BASE → gateway $BASE · worker $((BASE+1)) · 화면 $((BASE+2))" \
+printf '%s' "$OUT" | awk -v pat="포트 갈래: FT_PORT_BASE=$BASE → gateway $BASE · worker $((BASE+1)) · 화면 $((BASE+2))" \
+  '$0==pat { getline nxt; if (nxt ~ /worker (pid=|리스너 없음)/) found=1 } END{ exit !found }' \
   && has 'worker pid=' && has 'gateway pid=' && has '화면 pid=' && hasnt '리스너 없음' \
   && ok "$n. ⓑ 슬롯 포트 3개를 찾음(갈래 줄 첫 줄 · chk 3/3 pid)" \
   || { bad "$n. ⓑ 슬롯 포트 인식"; printf '%s\n' "$OUT" | sed 's/^/    /'; }
@@ -118,7 +129,7 @@ mkworld d
 gate "$OLD" old
 OLD_OUT="$OUT"
 gate "$GATE" new
-NEW_OUT="$(printf '%s\n' "$OUT" | grep -v '^포트 갈래: 기본$')"
+NEW_OUT="$(printf '%s\n' "$OUT" | grep -v '^포트 갈래: 기본$' | grep -v '^[✓✗⚠] 부하 5분 평균')"   # 갈래 줄 + r769b 부하 줄은 뺀다
 n=$((n+1)); has '포트 갈래: 기본' \
   && [ "$(printf '%s\n' "$OUT" | grep -c '^포트 갈래:')" = "1" ] \
   && grep -q ':8081' "$W/stub-new.log" && grep -q ':8080' "$W/stub-new.log" && grep -q ':3001' "$W/stub-new.log" \
@@ -126,7 +137,7 @@ n=$((n+1)); has '포트 갈래: 기본' \
   && ok "$n. ⓓ 선언 없음 = 기본 포트·기본 로그·기본 SSE(줄 1개 추가)" \
   || { bad "$n. ⓓ 기본 갈래"; printf '%s\n' "$OUT" | sed 's/^/    /'; }
 OLD_OUT="$(printf '%s\n' "$OLD_OUT" | sed 's|/ev-old/|/ev-TAG/|g')"; NEW_OUT="$(printf '%s\n' "$NEW_OUT" | sed 's|/ev-new/|/ev-TAG/|g')"
-n=$((n+1)); [ "$NEW_OUT" = "$OLD_OUT" ] && ok "$n. ⓓ 기존 출력 바이트 불변(갈래 줄 1줄 빼고 옛 판 HEAD 와 같음)" \
+n=$((n+1)); [ "$NEW_OUT" = "$OLD_OUT" ] && ok "$n. ⓓ 기존 출력 바이트 불변(갈래 줄 1줄 빼고 포트 갈래 이전 판과 같음)" \
   || { bad "$n. ⓓ 바이트 불변"; diff <(printf '%s\n' "$OLD_OUT") <(printf '%s\n' "$NEW_OUT") | sed 's/^/    /'; }
 
 # ══ ⓔ 선언 반쪽 = 막힘

@@ -51,6 +51,28 @@ DEV_BUDGET="${FT_PRESS_DEV_BUDGET:-70}"   # dev 검사 «전체» 마감(초 · 
 DEV_END=0
 # ⓪ 전팀 정지(r626 DA⑥ r1 Q1) — 첫 검사 · 켜짐·깨짐이면 다른 검사 없이 막힘 1 (장치 허가 검사는 그대로)
 [ -e "$ROOT/.fable-team" ] && { _as="$(FT_ROOT="$ROOT" bash "$HERE/ft-all-stop.sh" check 2>&1)" || { say "✗" "⓪ $_as"; exit 1; }; }
+# ⓪b 부하 게이트(r769b · 오빠 지시 2026-10-23) — 5분 평균 load ≥ 임계(기본 60 FT_PRESS_LOAD_MAX)면 press 시작 REJECT.
+#   왜: 부하 81~102 에서 돈 lecture p3-r6 이 청크 POST 1500ms 초과 15 · Redis Timeout 14 로 무효가 됐다.
+#   임계는 env 로 덮는다 · 못 읽으면 경고만(이 머신의 load 를 못 읽는 것과 부하를 구분한다).
+LOAD_MAX="${FT_PRESS_LOAD_MAX:-60}"
+_load5(){ # macOS sysctl vm.loadavg = "{ 1분 5분 15분 }" · 없으면 /proc/loadavg 의 2칸
+  local v
+  v="$(sysctl -n vm.loadavg 2>/dev/null | tr -d '{}' | awk '{print $2}')"
+  [ -n "$v" ] || v="$(awk '{print $2}' /proc/loadavg 2>/dev/null)"
+  printf '%s' "$v"
+}
+_load_gate(){
+  local v
+  case "$LOAD_MAX" in ''|*[!0-9.]*) say "✗" "FT_PRESS_LOAD_MAX=$LOAD_MAX — 숫자(부하 임계)만"; FAIL=1; return ;; esac
+  v="$(_load5)"
+  if [ -z "$v" ]; then say "⚠" "부하 5분 평균 못 읽음 — 부하 게이트 건너뛀"; return; fi
+  if awk -v a="$v" -v b="$LOAD_MAX" 'BEGIN{exit !(a>=b)}'; then
+    say "✗" "5분 평균 부하 $v ≥ 임계 $LOAD_MAX — 지금 쏘면 회차가 무효(청크 POST 타임아웃·Redis Timeout) · 원인 상위 3 프로세스:"
+    ps -Ao pcpu,pid,comm -r 2>/dev/null | head -4 | tail -3 | sed 's/^/      /'
+    FAIL=1; return
+  fi
+  say "✓" "부하 5분 평균 $v < 임계 $LOAD_MAX"
+}
 # ★갈래를 «분명히 적은» 회차만 dev 검사 — 오타·미지 값은 막는다(선언 없이 로컬 칸을 건너뛰는 길 0)★
 case "$TARGET" in
   local|dev) ;;
@@ -257,6 +279,8 @@ if [ "${FT_PRESS_GATE_SELFTEST:-}" = "1" ]; then
   echo; [ "$FAIL" = "0" ] && { echo "PRESS-GATE SELFTEST PASS"; exit 3; }
   echo "PRESS-GATE SELFTEST BLOCK"; exit 1
 fi
+
+_load_gate   # ⓪b 부하 — 자체시험(위 stub 경로)은 부하와 무관하게 돈다
 
 # ① 현역 나노 브랜치 미랜딩 0
 UNLANDED=0
