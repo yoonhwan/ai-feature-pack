@@ -13,7 +13,7 @@ PY_MODS="${PY_MODS:-websockets pyjwt}"     # 러너 폐쇄의 3rd-party(§2). �
 SO=(-o BatchMode=yes -o ConnectTimeout=6 -o ServerAliveInterval=10 -o ServerAliveCountMax=3)
 say() { printf '[h-e2e] %s\n' "$*"; }
 die() { printf '[h-e2e] REJECT rc=%s %s\n' "$1" "$2" >&2; exit "$1"; }
-ms() { local t="$1"; shift; timeout "$t" ssh "${SO[@]}" "$MINI" "$@"; }
+ms() { local t="$1"; shift; timeout "$t" ssh "${SO[@]}" "$MINI" "export PATH=/opt/homebrew/bin:\$HOME/.local/bin:\$PATH; $*"; }   # ssh 비대화형 PATH 는 /usr/bin:/bin:/usr/sbin:/sbin 뿐 — brew·~/.local/bin 을 앞에 붙인다
 
 # 폐쇄 목록 — measured-runner-closure-20261022.md §1 과 1:1 (rsync --files-from 용)
 FILES=(

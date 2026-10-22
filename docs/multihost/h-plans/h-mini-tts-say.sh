@@ -19,7 +19,7 @@ DST_DIR='$HOME/.local/bin'
 SO=(-o BatchMode=yes -o ConnectTimeout=6 -o ServerAliveInterval=10 -o ServerAliveCountMax=3)
 say() { printf '[h-tts] %s\n' "$*"; }
 die() { printf '[h-tts] REJECT rc=%s %s\n' "$1" "$2" >&2; exit "$1"; }
-ms() { local t="$1"; shift; timeout "$t" ssh "${SO[@]}" "$MINI" "$@"; }
+ms() { local t="$1"; shift; timeout "$t" ssh "${SO[@]}" "$MINI" "export PATH=/opt/homebrew/bin:\$HOME/.local/bin:\$PATH; $*"; }   # ssh 비대화형 PATH 는 /usr/bin:/bin:/usr/sbin:/sbin 뿐 — brew·~/.local/bin 을 앞에 붙인다
 
 # ── 0) 로컬 사전점검 ────────────────────────────────────────────────────────
 say "0/6 로컬 사전점검"
