@@ -1,0 +1,125 @@
+#!/usr/bin/env bash
+# h-oci-cli-tools.sh — OCI(aifp-oci-jarvis · ubuntu)를 «CLI 운용 노드» 로: claude·pi·codex(npm 사용자 prefix) + tmuxc·tmm(이 리포 팩 복사)
+#   초안(2026-10-22 · aifp-pi-master-pi#0) · 실행은 오빠가 `! bash /tmp/h<N>` 로만.
+#   전제: h-oci-infer-stack.sh 가 먼저 성공해 127.0.0.1:8317(cliproxy)·8790(headroom)이 살아 있어야 «claude ping» 증거가 나온다.
+# 비대화형 · 멱등(이미 깔린 버전이면 건너뜀) · 비밀값 0 · 전역 export 0(claude 래퍼 파일 안에서만 8317 을 본다)
+# 하지 않는 것: apt 설치 · sudo 필요 작업 · 기존 hermes-gateway/cloudflared 유닛 만지기 · PATH 영구 변경(래퍼 심링크만)
+# rc: 0 성공 · 2 사전점검 · 3 설치 실패 · 5 증거(좌석 열기/닫기) 실패
+set -uo pipefail
+
+R="${R:-oci}"
+KEY="${KEY:-$HOME/.ssh/oci_chuncheon}"
+REPO="${REPO:-/Users/yoonhwan/Project/ai-feature-pack}"
+BIN_TMUXC="$REPO/feature-pack/tmuxc"
+BIN_TMM="$REPO/feature-pack/tmm"
+PI_VER="${PI_VER:-1.3.0}"            # 이 맥과 같은 버전
+CODEX_VER="${CODEX_VER:-0.163.0}"
+CLAUDE_PKG="@anthropic-ai/claude-code"
+CLIPROXY_URL="http://127.0.0.1:8317"
+
+CP="$(mktemp -d /tmp/h-oci-cm.XXXXXX)"
+cleanup() { ssh -O exit -o ControlPath="$CP/s" "$R" >/dev/null 2>&1; rm -f "$CP/s"; rmdir "$CP" 2>/dev/null; }
+trap cleanup EXIT
+SO=(-o BatchMode=yes -o ConnectTimeout=6 -o ServerAliveInterval=10 -o ServerAliveCountMax=3
+    -o IdentitiesOnly=yes -i "$KEY" -o ControlMaster=auto -o ControlPersist=300 -o ControlPath="$CP/s")
+say() { printf '[h-cli] %s\n' "$*"; }
+die() { printf '[h-cli] REJECT rc=%s %s\n' "$1" "$2" >&2; exit "$1"; }
+rs() { local t="$1"; shift; timeout "$t" ssh "${SO[@]}" "$R" "$@"; }
+
+# ── 0) 로컬 사전점검 ─────────────────────────────────────────────────────────
+say "0/6 로컬 사전점검"
+[ -f "$KEY" ] || die 2 "ssh 키 없음: $KEY"
+[ -d "$BIN_TMUXC" ] && [ -d "$BIN_TMM" ] || die 2 "팩 폴더가 없다: $BIN_TMUXC · $BIN_TMM"
+TMUXC_VER="$(cat "$BIN_TMUXC/core/VERSION" 2>/dev/null)"; TMM_VER="$(cat "$BIN_TMM/core/VERSION" 2>/dev/null)"
+[ -n "$TMUXC_VER" ] && [ -n "$TMM_VER" ] || die 2 "버전 파일을 못 읽었다"
+say "        복사할 팩 버전: tmuxc=$TMUXC_VER tmm=$TMM_VER · npm 고정: pi=$PI_VER codex=$CODEX_VER"
+
+# ── 1) 원격 사전점검 ────────────────────────────────────────────────────────
+say "1/6 원격 사전점검"
+PRE="$(rs 20 'bash -s' <<'PREEOF'
+echo "arch=$(uname -m)"
+echo "node=$(node --version 2>/dev/null)"
+echo "npm=$(npm --version 2>/dev/null)"
+echo "prefix=$(npm config get prefix 2>/dev/null)"
+echo "write_prefix=$(test -w "$(npm config get prefix 2>/dev/null)" && echo yes || echo NO)"
+for b in git tmux tar gzip; do command -v $b >/dev/null 2>&1 && echo "$b=yes" || echo "$b=NO"; done
+for c in claude pi codex tmuxc tmm; do command -v $c >/dev/null 2>&1 && echo "have_$c=yes" || echo "have_$c=no"; done
+echo "cliproxy=$(curl -s -o /dev/null -w '%{http_code}' -m 5 http://127.0.0.1:8317/v1/models || true)"
+PREEOF
+)" || die 2 "oci 접속 실패: $PRE"
+printf '%s\n' "$PRE" | sed 's/^/        /'
+printf '%s\n' "$PRE" | grep -qx 'arch=aarch64' || die 2 "aarch64 아님"
+printf '%s\n' "$PRE" | grep -q '^node=v22' || die 2 "node 22 가 아니다"
+for b in git tmux tar gzip; do printf '%s\n' "$PRE" | grep -qx "$b=yes" || die 2 "$b 이 없다"; done
+printf '%s\n' "$PRE" | grep -qx 'write_prefix=yes' || die 2 "npm prefix 에 쓰기 불가 — ~/.npm-global 로 바꾸는 단계가 먼저다"
+printf '%s\n' "$PRE" | grep -q '^cliproxy=200' || die 2 "cliproxy(127.0.0.1:8317) 가 200 이 아니다 — h-oci-infer-stack.sh 를 먼저 성공시켜라"
+
+# ── 2) npm 사용자 prefix 로 3종 설치 ────────────────────────────────────────
+say "2/6 npm 설치(claude·pi·codex)"
+rs 240 "set -e
+export PATH=\"\$HOME/.npm-global/bin:\$PATH\"
+mkdir -p \"\$HOME/.npm-global\"
+npm install -g --prefix \"\$HOME/.npm-global\" '$CLAUDE_PKG' >/dev/null 2>&1
+npm install -g --prefix \"\$HOME/.npm-global\" '@earendil-works/pi-coding-agent@$PI_VER' >/dev/null 2>&1
+npm install -g --prefix \"\$HOME/.npm-global\" '@openai/codex@$CODEX_VER' >/dev/null 2>&1
+echo installed=ok" || die 3 "npm 설치 실패(네트워크/디스크 확인)"
+V="$(rs 40 'bash -lc "export PATH=\$HOME/.npm-global/bin:\$PATH; echo claude=\$(claude --version 2>/dev/null | head -1); echo pi=\$(pi --version 2>/dev/null); echo codex=\$(codex --version 2>/dev/null | head -1)"' 2>&1)"
+printf '%s\n' "$V" | sed 's/^/        /'
+
+# ── 3) tmuxc·tmm 팩 복사 + 사용자 설치 ──────────────────────────────────────
+say "3/6 tmuxc·tmm 팩 설치"
+rs 25 'mkdir -p ~/packs && echo ok' >/dev/null || die 3 "~/packs 생성 실패"
+for pk in tmuxc tmm; do
+  # 이전 사본은 .prev 로 밀어 두고 새로 푼다(롤백 경로 유지)
+  rs 25 "set -e; rm -rf ~/packs/$pk.new; mkdir -p ~/packs; echo ok" >/dev/null || die 3 "정리 실패: $pk"
+  timeout 180 tar -C "$REPO/feature-pack" -czf - "$pk" | rs 180 "set -e; tar -xzf - -C ~/packs; echo unpack=ok" >/dev/null || die 3 "$pk 전송/해제 실패"
+  rs 20 "set -e; [ -f ~/packs/$pk/core/VERSION ] && echo '$pk'=version_ok || exit 1" >/dev/null || die 3 "$pk 해제 후 버전 파일 없음"
+done
+rs 120 'set -e; cd ~/packs/tmuxc && bash install.sh >/tmp/h-tmuxc-install.log 2>&1; tail -3 /tmp/h-tmuxc-install.log; echo tmuxc_install_rc=0' || die 3 "tmuxc install.sh 실패(/tmp/h-tmuxc-install.log)"
+rs 120 'set -e; cd ~/packs/tmm && bash install.sh >/tmp/h-tmm-install.log 2>&1; tail -3 /tmp/h-tmm-install.log; echo tmm_install_rc=0' || die 3 "tmm install.sh 실패(/tmp/h-tmm-install.log)"
+LOCK="$(rs 30 'echo "tmuxc=$(cat ~/.tmuxc/current/core/VERSION 2>/dev/null)"; echo "tmm=$(cat ~/.tmm/current/core/VERSION 2>/dev/null)"; ls -l ~/.local/bin/tmuxc ~/.local/bin/tmm 2>/dev/null | awk "{print \$9, \$10, \$11}"' 2>&1)"
+printf '%s\n' "$LOCK" | sed 's/^/        /'
+printf '%s\n' "$LOCK" | grep -q "tmuxc=$TMUXC_VER" || die 3 "tmuxc 버전 불일치(기대 $TMUXC_VER)"
+printf '%s\n' "$LOCK" | grep -q "tmm=$TMM_VER"     || die 3 "tmm 버전 불일치(기대 $TMM_VER)"
+
+# ── 4) claude 래퍼(전역 export 금지 · 파일 안에서만 8317) ───────────────────
+say "4/6 claude 래퍼"
+rs 25 "set -e
+mkdir -p ~/.local/bin
+cat > ~/.local/bin/claude-aifp <<'W'
+#!/usr/bin/env bash
+# aifp · OCI 로컬 추론 경로 전용 래퍼 — ANTHROPIC_BASE_URL 을 «이 프로세스에만» 준다(전역 export 금지).
+export ANTHROPIC_BASE_URL='$CLIPROXY_URL'
+export PATH=\"\$HOME/.npm-global/bin:\$PATH\"
+exec claude \"\$@\"
+W
+chmod 755 ~/.local/bin/claude-aifp
+echo wrapper=ok" || die 3 "래퍼 작성 실패"
+rs 20 'grep -c "ANTHROPIC_BASE_URL" ~/.local/bin/claude-aifp; ls -l ~/.local/bin/claude-aifp | awk "{print \$1, \$9}"' 2>&1 | sed 's/^/        /'
+
+# ── 5) 닫는 증거 — claude ping(7초 상한) + 좌석 열고 probe→닫기 ─────────────
+say "5/6 증거 ① claude -p ping (7초 상한)"
+PING="$(rs 12 'bash -lc "export PATH=\$HOME/.npm-global/bin:\$HOME/.local/bin:\$PATH; timeout 7 claude-aifp -p ping > /tmp/h-ping.out 2>&1; rc=\$?; tail -3 /tmp/h-ping.out; echo ping_rc=\$rc"' 2>&1)" || true
+printf '%s\n' "$PING" | sed 's/^/        /'
+printf '%s\n' "$PING" | grep -q 'ping_rc=0' || say "        ⚠ ping rc≠0 — 로그: journalctl --user -u headroom -n 30 · cliproxy 인증 확인(다음 장에서 재시도)"
+
+say "5/6 증거 ② tmuxc 좌석 열기 → probe → 닫기"
+SEAT="oci-cli-proof-$(date +%H%M%S)"
+OPEN="$(rs 60 "bash -lc 'export PATH=\$HOME/.local/bin:\$HOME/.npm-global/bin:\$PATH; cd ~ && tmuxc open . --name $SEAT --agent claude --model claude-sonnet-5-5 --role worker 2>&1 | tail -5'" 2>&1)" || true
+printf '%s\n' "$OPEN" | sed 's/^/        /'
+PROBE="$(rs 30 "bash -lc 'export PATH=\$HOME/.local/bin:\$PATH; tmuxc probe $SEAT 2>&1 | head -8'" 2>&1)" || true
+printf '%s\n' "$PROBE" | sed 's/^/        /'
+CLOSE="$(rs 25 "bash -lc 'tmux has-session -t \"=$SEAT\" 2>/dev/null && tmux kill-session -t \"=$SEAT\"; tmux has-session -t \"=$SEAT\" 2>/dev/null && echo seat=STILL_ALIVE || echo seat=closed'" 2>&1)" || true
+printf '%s\n' "$CLOSE" | sed 's/^/        /'
+
+# ── 6) 끝 ───────────────────────────────────────────────────────────────────
+say "6/6 끝"
+cat <<EOF
+        닫는 증거 3줄(보고에 그대로):
+          · claude-aifp -p ping → 위 ping_rc 줄
+          · tmuxc probe 결과(모델·세션) 줄
+          · seat=closed 줄
+        롤백: ssh $R 'rm -f ~/.local/bin/claude-aifp; rm -rf ~/.tmuxc/versions/$TMUXC_VER ~/.tmm/versions/$TMM_VER; npm rm -g --prefix ~/.npm-global $CLAUDE_PKG @earendil-works/pi-coding-agent @openai/codex'
+        주의: tmuxc 좌석은 tmux 안에서 산다 — 닫기는 위에서 이미 했다(seat=closed 확인).
+EOF
+exit 0
