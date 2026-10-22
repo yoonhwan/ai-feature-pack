@@ -5,7 +5,7 @@
 #
 # 이 맥: ~/.pi/agent/models.json 의 apiKey = «!security find-generic-password -ws opengateway»(키체인).
 # 원격(리눅스 키체인 없음): 키를 ~/.pi/agent/opengateway.key(0600)에 두고 apiKey = «!cat ~/.pi/agent/opengateway.key».
-# 키 값은 화면·로그·인자에 한 번도 안 나온다 — 키체인 → 변수 → ssh 표준입력 → 원격 파일(umask 077).
+# 키 값은 화면·로그·인자에 한 번도 안 나온다 — 키체인 → 이 맥 0600 임시 파일 → ssh 표준입력 → 원격 파일(umask 077) · 임시 파일은 끝나면 삭제.
 # models.json·settings.json 은 이 맥 파일에서 apiKey 한 칸만 바꿔 보낸다(나머지 동일). 기존 원격 파일은 .bak-<시각> 로 백업.
 # rc: 0 성공 · 2 사전점검 실패 · 3 배치 실패 · 5 pi 호출 확인 실패(설정은 남김 — 로그 안내)
 # 롤백: ssh <R> 'cd ~/.pi/agent && rm -f opengateway.key && for f in models.json settings.json; do b=$(ls -t $f.bak-* 2>/dev/null | head -1); [ -n "$b" ] && cp -p "$b" "$f"; done'
@@ -15,7 +15,7 @@ R="${R:-oci}"
 PI_DIR_LOCAL="$HOME/.pi/agent"
 if [ "$R" = oci ]; then SSHX=(-o IdentitiesOnly=yes -i "${KEY:-$HOME/.ssh/oci_chuncheon}"); else SSHX=(); fi
 CP="$(mktemp -d /tmp/h-pi-cm.XXXXXX)"
-cleanup() { ssh -O exit -o ControlPath="$CP/s" "$R" >/dev/null 2>&1; rm -f "$CP/s"; rmdir "$CP" 2>/dev/null; }
+cleanup() { ssh -O exit -o ControlPath="$CP/s" "$R" >/dev/null 2>&1; rm -f "$CP/s" "$CP/og.key"; rmdir "$CP" 2>/dev/null; }
 trap cleanup EXIT
 SO=(-o BatchMode=yes -o ConnectTimeout=6 -o ServerAliveInterval=10 -o ServerAliveCountMax=3
     ${SSHX[@]+"${SSHX[@]}"} -o ControlMaster=auto -o ControlPersist=120 -o ControlPath="$CP/s")
@@ -28,9 +28,11 @@ RP='export PATH="$HOME/.npm-global/bin:$HOME/.local/bin:/opt/homebrew/bin:$PATH"
 # ── 0) 로컬 사전점검 ─────────────────────────────────────────────────────────
 say "0/4 로컬 사전점검 (대상 R=$R)"
 [ -f "$PI_DIR_LOCAL/models.json" ] && [ -f "$PI_DIR_LOCAL/settings.json" ] || die 2 "이 맥 ~/.pi/agent/models.json·settings.json 없음"
-OG_KEY="$(security find-generic-password -ws opengateway 2>/dev/null)" || OG_KEY=""
-[ -n "$OG_KEY" ] || die 2 "키체인에서 opengateway 키를 못 읽었다(키체인 잠김? 항목 이름 opengateway)"
-say "        키체인 키 읽음(길이만): ${#OG_KEY}"
+# 키는 변수에 담지 않는다 — 키체인 → 이 맥 0600 임시 파일(종료 때 삭제) → ssh 표준입력
+KF="$CP/og.key"
+( umask 077; security find-generic-password -ws opengateway > "$KF" 2>/dev/null ) || true
+[ -s "$KF" ] || die 2 "키체인에서 opengateway 키를 못 읽었다(키체인 잠김? 항목 이름 opengateway)"
+say "        키체인 키 읽음(크기만): $(wc -c < "$KF" | tr -d ' ') bytes"
 MODELS_OUT="$(python3 - "$PI_DIR_LOCAL/models.json" <<'PY'
 import json, sys
 d = json.load(open(sys.argv[1]))
@@ -51,8 +53,8 @@ printf '%s\n' "$PRE" | grep -q '^pi=[0-9]' || die 2 "원격에 pi 가 없다 —
 # ── 2) 배치(백업 → 키 파일 0600 → models·settings) ─────────────────────────
 say "2/4 배치(기존 파일은 .bak-<시각> 백업)"
 rs 20 'set -e; mkdir -p ~/.pi/agent; chmod 700 ~/.pi ~/.pi/agent; cd ~/.pi/agent; ts=$(date +%Y%m%d-%H%M%S); for f in models.json settings.json opengateway.key; do [ -f "$f" ] && cp -p "$f" "$f.bak-$ts"; done; echo backup=ok' >/dev/null || die 3 "백업 실패"
-printf '%s' "$OG_KEY" | rs 20 'set -e; umask 077; cat > ~/.pi/agent/opengateway.key.tmp; test -s ~/.pi/agent/opengateway.key.tmp; mv ~/.pi/agent/opengateway.key.tmp ~/.pi/agent/opengateway.key; chmod 600 ~/.pi/agent/opengateway.key; echo key=ok' >/dev/null || die 3 "키 파일 쓰기 실패"
-unset OG_KEY
+rs 20 'set -e; umask 077; tr -d "\n" > ~/.pi/agent/opengateway.key.tmp; test -s ~/.pi/agent/opengateway.key.tmp; mv ~/.pi/agent/opengateway.key.tmp ~/.pi/agent/opengateway.key; chmod 600 ~/.pi/agent/opengateway.key; echo key=ok' < "$KF" >/dev/null || die 3 "키 파일 쓰기 실패"
+rm -f "$KF"
 printf '%s\n' "$MODELS_OUT" | rs 20 'set -e; cat > ~/.pi/agent/models.json.tmp; python3 -c "import json;json.load(open(\"$HOME/.pi/agent/models.json.tmp\"))"; mv ~/.pi/agent/models.json.tmp ~/.pi/agent/models.json; chmod 644 ~/.pi/agent/models.json; echo models=ok' >/dev/null || die 3 "models.json 쓰기 실패"
 rs 20 'set -e; cat > ~/.pi/agent/settings.json.tmp; python3 -c "import json;json.load(open(\"$HOME/.pi/agent/settings.json.tmp\"))"; mv ~/.pi/agent/settings.json.tmp ~/.pi/agent/settings.json; chmod 644 ~/.pi/agent/settings.json; echo settings=ok' < "$PI_DIR_LOCAL/settings.json" >/dev/null || die 3 "settings.json 쓰기 실패"
 rs 15 'cd ~/.pi/agent && ls -l opengateway.key models.json settings.json | awk "{print \$1, \$9}"' 2>&1 | sed 's/^/        /'
