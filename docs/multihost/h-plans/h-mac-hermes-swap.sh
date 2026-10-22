@@ -94,7 +94,7 @@ if [ "$BR" = "$OLD_BRANCH" ]; then
   say "3/5 교체 — 수정 6파일 stash(추가만) → checkout $NEW_BRANCH"
   g stash push -q -m "h-mac-swap-$TS" -- "${TRACK_FILES[@]}" || die 3 "stash 실패 — 되돌림 불필요(체크아웃 안 바뀜)"
   g checkout -q "$NEW_BRANCH" 2>&1 | sed 's/^/        /'
-  [ "$(g branch --show-current)" = "$NEW_BRANCH" ] || { g stash pop -q 2>/dev/null; die 3 "checkout 실패 — stash 를 되돌렸다"; }
+  [ "$(g branch --show-current)" = "$NEW_BRANCH" ] || { g stash apply -q "stash^{/h-mac-swap-$TS}" 2>/dev/null; die 3 "checkout 실패 — 수정 6파일을 stash 에서 되돌려 적용했다(stash 는 남김)"; }
   [ -z "$(g status --porcelain --untracked-files=no)" ] || die 3 "교체 후 추적 파일이 깨끗하지 않다: $(g status --porcelain --untracked-files=no | head -3 | tr '\n' ' ')"
   say "        $NEW_BRANCH@$(g rev-parse --short HEAD) 위 · 추적 파일 깨끗 · stash $(g stash list | wc -l | tr -d ' ')개(+1)"
 fi
