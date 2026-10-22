@@ -3,8 +3,8 @@
 출력 1줄: `결정 인터뷰 N건 · 스크립트 N건 · 팀 대기 N건(가장 오래 <팀 좌석> N분)`
   결정 인터뷰 = 인박스 미닫힘 중 머리 질문 표식(ft_decision_kind · R337) + MERGE-QUEUE 상태 «대기» 행 + AUTONOMY-QUEUE 행(파일 없음 = 0)
   스크립트 = ft-hil.sh --pending (R186 표식) · 팀 대기 = 그 질문 중 다른 팀 현역 좌석('#' 있는 이름)이 보낸 것 · 24시간 넘은 질문 = « · 묵은 M건»
---detail 현역 다른 팀 좌석 미닫힘 + 이유 낱말(질문표식/묵음/통보) · --alarm 30분(FT_DECISION_WAIT_MIN) 넘은 팀 대기 seq 마다 planner 에 쪽지 1통(상태 파일로 seq 당 1회).
-읽기 실패 = stderr ERROR + rc 4 (숫자 지어내기 0). 시험 env: FT_ROOT · FT_DECISION_{NOW,MBOX,FROM,MERGE_QUEUE,AUTONOMY_QUEUE} · HIL_DIR.
+--detail 현역 다른 팀 좌석 미닫힘 + 이유 낱말(질문표식/묵음/통보/본문 없음) · --alarm 30분(FT_DECISION_WAIT_MIN) 넘은 팀 대기 seq 마다 planner 에 쪽지 1통(상태 파일로 seq 당 1회).
+읽기 실패 = stderr ERROR + rc 4 (숫자 지어내기 0) · 본문 파일 없음 = «본문 없음 N건» 칸 + WARN 1줄(r738). 시험 env: FT_ROOT · FT_DECISION_{NOW,MBOX,FROM,MERGE_QUEUE,AUTONOMY_QUEUE} · HIL_DIR.
 """
 import json
 import os
@@ -18,7 +18,7 @@ from pathlib import Path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ft_decision_alarm import ReadError, alarm, first_line  # noqa: E402
 from ft_flag_off import open_flags, scan  # noqa: E402
-from ft_decision_kind import ORDER, open_rows  # noqa: E402
+from ft_decision_kind import BODY_MISSING, ORDER, open_rows  # noqa: E402
 from ft_inbox_core import R, answered_seqs, lineage, qpath, read_q  # noqa: E402
 from ft_team_lib import TeamPathError, data_root, planner_queue, team_doc_ref, team_in  # noqa: E402
 
@@ -110,7 +110,7 @@ def inbox(me, now):
     asks = [x["from"] for x, k, _ in rows if k == "질문표식"]
     dead = sum(1 for f in asks if "#" in f and f not in sessions)  # 은퇴·죽은 좌석의 질문은 N·팀 대기가 아니다(메모로만)
     live = [t for t in rows if "#" in t[0]["from"] and t[0]["from"] in sessions and lineage(t[0]["from"]) != lineage(me)]
-    return {"n": len(asks) - dead, "stale": sum(1 for t in rows if t[1] == "묵음"),
+    return {"n": len(asks) - dead, "stale": sum(1 for t in rows if t[1] == "묵음"), "miss": sum(1 for t in rows if t[1] == BODY_MISSING),
             "team": sorted(((x["seq"], x["from"], m, x["body_path"]) for x, k, m in live if k == "질문표식"), key=lambda t: -t[2]),
             "detail": sorted(((x["seq"], x["from"], m, k, x["body_path"]) for x, k, m in live), key=lambda t: (ORDER[t[3]], -t[2])),
             "old": dead}
@@ -169,7 +169,7 @@ def summary(now):
 
 def line(s):
     wait = f"팀 대기 {len(s['team'])}건" + (f"(가장 오래 {s['team'][0][1]} {s['team'][0][2]}분)" if s["team"] else "") + (f" · 묵은 {s['stale']}건" if s["stale"] else "")
-    return f"결정 인터뷰 {s['n']}건 · 스크립트 {s['m']}건 · {wait}" + (" " + s["notes"] if s["notes"] else "")
+    return f"결정 인터뷰 {s['n']}건 · 스크립트 {s['m']}건 · {wait}" + (f" · 본문 없음 {s['miss']}건" if s["miss"] else "") + (" " + s["notes"] if s["notes"] else "")
 
 
 def main(argv):

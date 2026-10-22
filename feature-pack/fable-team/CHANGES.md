@@ -1,3 +1,9 @@
+## 2026-10-22 — 묶음 착지 2건(r742 · r738 · 1.1.212 · 같은 manifest·CHANGES 줄을 건드려 한 PR 로 squash)
+
+- **r742** 뉴스 발행 0 — 뉴스 린트(`ft_news_html_lint.py`)가 골 카드 안 골 정본 원문(예: «MR 수정 #2598~2601»)의 번호를 «각주 밖 번호»로 세어 발행을 막던 것 → `<section class="goal">` 안 첫 `<p class="say">` 만 검사 전에 지움(각주와 같은 꼴 · 다른 글 검사 그대로) · 시험 `test_news_lint_goal_canon_text_r742.py` 5 · 증거 `harness/evidence/r742/`.
+- **r738** `ft-decision-count` 가 본문 파일 없는 옛 행 1개에 rc4 로 셈 전체를 멈추던 것 → 그 행을 «본문 없음 N건» 으로 세고 rc0 + WARN 1줄(seq·경로) · N=0 이면 이전과 바이트 같음 · `test_decision_count_truth.py::test_e` 계약 정정(본문 삭제 → rc4 → 본문 없음 1건) · 판정문 §196 · 시험 `test_decision_count_missing_body_r738.sh` · 증거 `harness/evidence/r738/`.
+- 설치: 있음 — 키트 `ft_news_html_lint.py`·`ft_decision_count.py`·`ft_decision_kind.py` → LIVE_BIN 복사 cmp0 · 뉴스 launchd(`com.byz.ft-news-planner`) kickstart 뒤 발행 1회 실측.
+
 ## 2026-10-22 — 슬랙 미러(`byz-mbox-slack-mirror`)가 장애·재시작 뒤 밀린 옛 쪽지 약 2000건을 슬랙에 전부 재전송해 오빠를 방해하던 것을, 밀림이 상한(`--backlog-max` 기본 50)을 넘으면 «밀린 쪽지 N건을 건너뛰었어요(seq A~B) — 원문은 mbox 원장에 있어요» 요약 1통만 올리고 `last_seq` 를 머리로 저장하게 함(r739 · 1.1.211 · 새 모듈 `mirror_backlog.py` + 본체 `run_pass` 분기 + `install.sh` 목록 + 시험 2)
 
 - 매 패스 적용(재시작만이 아님) · 50 이하는 원문 그대로(회귀 0) · `--backlog-max 0` = 묶음 끔 · pending 이 먼저 · 요약기 호출 0.

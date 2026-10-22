@@ -1,0 +1,41 @@
+
+## 바뀐 파일 (짝 사본 포함)
+ M feature-pack/fable-team/harness/bin/ft_news_html_lint.py
+ M feature-pack/fable-team/harness/kit/fable-team/bin/ft_news_html_lint.py
+?? feature-pack/fable-team/harness/evidence/r742/
+?? feature-pack/fable-team/harness/tests/scripts/test_news_lint_goal_canon_text_r742.py
+
+## 짝 사본 cmp
+cmp kit↔bin rc=0 (동일)
+
+## lint diff
+diff --git a/feature-pack/fable-team/harness/kit/fable-team/bin/ft_news_html_lint.py b/feature-pack/fable-team/harness/kit/fable-team/bin/ft_news_html_lint.py
+index 5ac1f313..4fc40f36 100644
+--- a/feature-pack/fable-team/harness/kit/fable-team/bin/ft_news_html_lint.py
++++ b/feature-pack/fable-team/harness/kit/fable-team/bin/ft_news_html_lint.py
+@@ -1,6 +1,6 @@
+ """ft_news_html_lint — 뉴스 HTML 모드(r478) 게시 «전» 검사: 팀 지도 HTML + 요약. 통과 = `OK` rc0 · 위반 = `LINT <무엇>` 줄들 rc3(발행 0).
+ 
+-규칙: 절 6(h1 «우리 팀들, 지금 어디쯤?» + h2 5개 · r490 «확인 불가») · 중요한 일 1~7 · 골 N행(r668: N = 절 머리 «골 N개» = 골 카드 수 · 1~FT_GOAL_MAX 기본 12 — 숫자 6 상수 0 · «행이어야»가 6 이 아니다) · 본문 번호(#숫자·판정 N·sha 꼴)는 맨 아래 각주(<p class="foot">)에만 ·
++규칙: 절 6(h1 «우리 팀들, 지금 어디쯤?» + h2 5개 · r490 «확인 불가») · 중요한 일 1~7 · 골 N행(r668: N = 절 머리 «골 N개» = 골 카드 수 · 1~FT_GOAL_MAX 기본 12 — 숫자 6 상수 0 · «행이어야»가 6 이 아니다) · 본문 번호(#숫자·판정 N·sha 꼴)는 맨 아래 각주(<p class="foot">)에만(r742: 골 카드 원문 문단 <p class="say"> = 오빠 승인 정본 글이라 제외) ·
+ 요약 1~3줄·≤600 B · 시크릿 꼴 0(HTML·요약 둘 다) · 요약·중요한 일이 코드 판정과 어긋남 0(fact_problems · r478d · r490 확인 불가 팀 쉼 단정).
+ 쓰는 쪽 = ft_news_html.py publish · ft-news-effort-test.sh.
+   ft_news_html_lint.py <html> <summary>
+@@ -25,6 +25,8 @@ SECRET = re.compile(r"xox[abposr]-[\w-]{6,}|sk-[A-Za-z0-9_-]{16,}|gh[pousr]_[A-Z
+                     r"|-----BEGIN [A-Z ]*PRIVATE KEY-----|eyJ[\w-]{10,}\.[\w-]{10,}\.[\w-]{10,}")
+ NUMBER = re.compile(r"#\d+|판정\s*\d+|\b(?=[0-9a-f]*[a-f])(?=[0-9a-f]*\d)[0-9a-f]{7,40}\b")
+ FOOT = re.compile(r'<p class="foot">.*?</p>', re.S)
++# r742: 골 카드(<section class="goal">) 안 첫 <p class="say"> = 골 정본 행 원문(모델 글 아님 · 고칠 수 없다) — 각주와 같은 꼴로 번호 검사 전에 지운다. 일하는 팀 카드(<section class="goal work">)는 제외.
++GOAL_SAY = re.compile(r'(<section class="goal">(?:(?!</section>).)*?<p class="say">).*?</p>', re.S)
+ ALL_STOP = re.compile(r"(모든|전체)\s*팀[^.\n]{0,40}?(멈|정지|대기|쉬)|전\s?팀(이|은|들이|들은)\s[^.\n]{0,40}?(멈|정지|대기|쉬)"  # «전팀 지침…» 제목은 조사 없음 = 제외
+                       r"|팀(이|은|들이|들은)?\s*(모두|전부|다)\s[^.\n]{0,20}?(멈|정지|대기|쉬)")
+ APPROVAL_WAIT = re.compile(r"승인[^.\n]{0,15}?(기다|대기)")
+@@ -65,7 +67,7 @@ def problem_records(html: str, summary: str) -> list[tuple[str, str]]:
+     g = html.count('<section class="goal">')
+     if not (g == want and 1 <= g <= goal_max()):
+         out.append((f"골 {g}행 ({want or '?'}행이어야 · 1~{goal_max()})", ""))
+-    if found := NUMBER.findall(_text(FOOT.sub(" ", html))):
++    if found := NUMBER.findall(_text(GOAL_SAY.sub(lambda m: m.group(1), FOOT.sub(" ", html)))):
+         out.append((f"각주 밖 번호 {len(found)}건 ({', '.join(found[:3])})", ""))
+     lines = [ln for ln in summary.splitlines() if ln.strip()]
+     if not 1 <= len(lines) <= SUMMARY_LINES or len(summary.encode("utf-8")) > SUMMARY_BYTES:

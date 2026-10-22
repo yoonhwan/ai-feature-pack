@@ -1,0 +1,16 @@
+== 05 변이: 새 분기(except FileNotFoundError → None + BODY_MISSING) 삭제 → 같은 시험
+PASS 키트 미러 cmp 0: ft_decision_kind.py
+PASS 키트 미러 cmp 0: ft_decision_count.py
+FAIL ⓐ rc0 · 결정 인터뷰 1건 · «본문 없음 1건» :: rc=4 out= err=ERROR ft-decision-count: 쪽지 본문 못 읽음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.WQT9Fli0FF/repo/.fable-team/comm/bodies/2.txt FileNotFoundError
+FAIL ⓐ stderr = WARN 1줄(seq #2 · 경로) :: rc=4 out= err=ERROR ft-decision-count: 쪽지 본문 못 읽음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.WQT9Fli0FF/repo/.fable-team/comm/bodies/2.txt FileNotFoundError
+FAIL ⓔ --detail 이 그 행을 «본문 없음» 으로 보여준다 :: rc=4 out= err=ERROR ft-decision-count: 쪽지 본문 못 읽음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.WQT9Fli0FF/repo/.fable-team/comm/bodies/2.txt FileNotFoundError
+FAIL ⓔ --detail 본문 없음 낱말 2(첫 줄 칸 + 그 행) :: rc=4 out= err=ERROR ft-decision-count: 쪽지 본문 못 읽음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.WQT9Fli0FF/repo/.fable-team/comm/bodies/2.txt FileNotFoundError
+PASS ⓑ 본문 있음만: 줄이 고치기 전과 같다(«본문 없음» 칸 0)
+PASS ⓑ WARN 0
+FAIL ⓒ 본문 없는 행만 → rc0 · 결정 인터뷰 0건 · 본문 없음 1건 :: rc=4 out= err=ERROR ft-decision-count: 쪽지 본문 못 읽음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.WQT9Fli0FF/repo/.fable-team/comm/bodies/2.txt FileNotFoundError
+PASS ⓓ 권한 없음 → rc4 + 숫자 0(조용한 후퇴 0)
+PASS ft_decision_count.py 200줄 ≤ 200
+PASS compile 2(바이트코드 파일 0)
+== FAIL 5
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+rc=1

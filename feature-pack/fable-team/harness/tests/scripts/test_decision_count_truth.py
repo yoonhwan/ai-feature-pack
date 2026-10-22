@@ -78,11 +78,13 @@ def test_d_missing_autonomy_queue_file_is_zero_without_memo(env):
     assert out.startswith("결정 인터뷰 0건") and "AUTONOMY-QUEUE" not in out, out
 
 
-def test_e_unreadable_body_of_open_row_is_rc4_not_guessed(env):
+def test_e_missing_body_of_open_row_is_counted_not_guessed(env):
+    """r738: 본문 파일이 사라진 열린 행은 셈을 멈추지 않고 «본문 없음» 으로 세고 경고 1줄(seq·경로)만 남긴다 — 그 밖의 읽기 실패은 그대로 rc4(tests/test_decision_count_missing_body_r738.sh ⓓ)."""
     put(env, [row(1, "②", G)])
     (env["root"] / ".fable-team/comm/bodies/1.txt").unlink()
     r = run(env)
-    assert r.returncode == 4 and r.stdout == "" and "본문" in r.stderr, r.stdout + r.stderr
+    assert r.returncode == 0 and "본문 없음 1건" in r.stdout and "쪽지 본문 없음 #1" in r.stderr, r.stdout + r.stderr
+    assert r.stdout.startswith("결정 인터뷰 0건"), r.stdout  # 본문을 못 읽은 행은 질문으로 «지어내지» 않는다
 
 
 def test_f_budget_with_big_sent_log_and_900_rows(env):
