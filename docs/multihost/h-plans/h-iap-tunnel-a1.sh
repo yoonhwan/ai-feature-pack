@@ -37,12 +37,13 @@ OCI_KEY="${OCI_KEY:-$HOME/.ssh/oci_chuncheon}"
 
 say() { printf '[h-A1] %s\n' "$*"; }
 die() { printf '[h-A1] REJECT rc=%s %s\n' "$1" "$2" >&2; exit "$1"; }
-GT="${GT:-15}"   # 외부 호출 상한(초): 읽기 15 · 쓰기는 GW=30 (기준 7초 + gcloud 기동 고정비, 재시도 1회 한도)
-GW="${GW:-30}"
+GT="${GT:-11}"   # 외부 호출 1회 상한(초) = 기준 7초 + gcloud 기동 고정비 3.5 (≈11) · 재시도는 1회까지 · 총 마감 70초 밖 값 없음
+GW="${GW:-11}"
 G()  { if [ -n "$ADMIN" ]; then timeout "$GT" gcloud --account="$ADMIN" --project="$P" "$@"; else timeout "$GT" gcloud --project="$P" "$@"; fi; }
 GWR() { if [ -n "$ADMIN" ]; then timeout "$GW" gcloud --account="$ADMIN" --project="$P" "$@"; else timeout "$GW" gcloud --project="$P" "$@"; fi; }
-# 시험은 상속 환경(토큰·자격증명 오버라이드·프록시)을 전부 걷어낸 깨끗한 환경에서만 (DA r3 ②)
-CLEAN=(env -u CLOUDSDK_AUTH_ACCESS_TOKEN -u CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE -u GOOGLE_APPLICATION_CREDENTIALS -u CLOUDSDK_CORE_ACCOUNT -u CLOUDSDK_CORE_PROJECT -u CLOUDSDK_AUTH_IMPERSONATE_SERVICE_ACCOUNT -u HTTPS_PROXY -u https_proxy -u HTTP_PROXY -u http_proxy -u ALL_PROXY -u all_proxy)
+retry1() { "$@" && return 0; sleep 3; "$@"; }   # 멱등 호출 전용(SA 생성·바인딩). 키 발급에는 쓰지 않는다(중복 키)
+# 시험은 «환경 변수 0» 의 깨끗한 환경에서만 (DA r3·r4 ②)
+CLEAN=(env -i PATH="/opt/homebrew/bin:/opt/homebrew/share/google-cloud-sdk/bin:/usr/bin:/bin:/usr/sbin:/sbin" HOME="$HOME" LANG=C)   # 상속 환경 0 — 토큰·파일 오버라이드·프록시 전부 제거(DA r4 ②)
 
 TMP="$(mktemp -d /tmp/h-A1.XXXXXX)"; chmod 700 "$TMP"
 PIDS="$TMP/pids"; : > "$PIDS"
@@ -76,17 +77,30 @@ REAL_LLM="$(G compute instances describe "$LLM" --zone="$Z" --format='value(netw
 REAL_STT="$(G compute instances describe "$STT" --zone="$Z" --format='value(networkInterfaces[0].networkIP)' 2>/dev/null)"
 [ "$REAL_LLM" = "$LLM_IP" ] && [ "$REAL_STT" = "$STT_IP" ] || die 2 "VM 내부 IP 불일치(실제 llm=$REAL_LLM stt=$REAL_STT, 조건 $LLM_IP/$STT_IP) — LLM_IP·STT_IP 로 맞춰 다시"
 say "        VM 내부 IP 일치: llm-dev=$LLM_IP stt-tts-dev=$STT_IP"
-ROTATE="${ROTATE:-0}"   # 1 이면 기존 키가 있어도 새 키를 추가 발급(옛 키 폐기는 HIL)
+IAP_COND="expression=(destination.ip == \"$LLM_IP\" && destination.port == 8000) || (destination.ip == \"$STT_IP\" && (destination.port == 8000 || destination.port == 8100))"
+REUSE="${REUSE:-0}"     # 1 = 이전 실행이 중간에 끊긴 뒤 이어가기. 기본은 «이미 있으면 중단»(fail-closed)
+ROTATE="${ROTATE:-0}"   # 1 = 기존 키가 있어도 새 키 추가(옛 키 폐기는 HIL)
+WANT_X="$(printf '%s' "$IAP_COND" | sed 's/^expression=//' | tr -s ' ')"
 for sa in "${SAS[@]}"; do
-  if G iam service-accounts describe "$sa@$SA_DOM" >/dev/null 2>&1; then
-    NK="$(G iam service-accounts keys list --iam-account="$sa@$SA_DOM" --managed-by=user --format='value(name)' 2>/dev/null | wc -l | tr -d ' ')"
-    say "        SA 이미 있음: $sa (사용자 발급 키 ${NK}개)"
-    [ "$NK" = 0 ] || [ "$ROTATE" = 1 ] || die 2 "$sa 에 사용자 키 ${NK}개가 이미 있다 — 재실행은 키 한도만 소진한다. 교체하려면 ROTATE=1 (옛 키 폐기는 사람 승인)"
-    # 같은 이름 조건부 바인딩이 이미 있으면 식이 지금 것과 같아야 한다(다르면 옛 허용 범위가 남는다 — DA r3 ③)
-    OLDX="$(G projects get-iam-policy "$P" --flatten='bindings[].members' --filter="bindings.members=serviceAccount:$sa@$SA_DOM AND bindings.role=roles/iap.tunnelResourceAccessor" --format='value(bindings.condition.expression)' 2>/dev/null)"
-    # 기존 바인딩이 전부 현재 식과 동일해야 한다 — 무조건부(빈 식)가 있어도 중단
-    if [ -n "$OLDX" ] && [ "$(printf '%s\n' "$OLDX" | sort -u | wc -l | tr -d ' ')" != 1 ]; then die 2 "$sa 의 기존 IAP 바인딩이 여러 개/무조건부다 — 사람이 정리(삭제=HIL) 후 재실행"; fi
-  else say "        SA 없음: $sa (생성 예정)"; fi
+  out="$(G iam service-accounts describe "$sa@$SA_DOM" --format='value(email)' 2>&1)"; rc=$?
+  if [ "$rc" = 0 ]; then
+    [ "$REUSE" = 1 ] || die 2 "SA $sa 가 이미 있다 — 이전 흔적. 이어가려면 REUSE=1 (그 SA 의 역할이 «설계 그대로» 일 때만 통과)"
+    # 프로젝트 정책에서 이 SA 의 모든 바인딩(role|조건식)을 읽어 «설계의 1개와 정확히 같을 때만» 통과
+    BL="$(G projects get-iam-policy "$P" --format=json 2>/dev/null | python3 -c "
+import sys,json
+d=json.load(sys.stdin); m='serviceAccount:$sa@$SA_DOM'
+for b in d.get('bindings',[]):
+    if m in b.get('members',[]): print(b['role']+'|'+' '.join(((b.get('condition') or {}).get('expression','')).split()))
+")" || die 2 "프로젝트 정책 읽기 실패 — 판정 불가(중단)"
+    EXPECT="roles/iap.tunnelResourceAccessor|$(printf '%s' "$WANT_X" | tr -s ' ')"
+    [ -z "$BL" ] || [ "$BL" = "$EXPECT" ] || die 2 "$sa 의 기존 프로젝트 역할이 설계와 다르다(과권한/옛 조건 가능) — 사람이 정리(삭제=HIL) 후 재실행:
+$BL"
+    KL="$(G iam service-accounts keys list --iam-account="$sa@$SA_DOM" --managed-by=user --format='value(name)' 2>&1)" || die 2 "키 목록 읽기 실패 — 판정 불가(중단)"
+    NK="$(printf '%s' "$KL" | grep -c . || true)"
+    say "        SA 재사용: $sa (역할 설계 일치 · 사용자 키 ${NK}개)"
+    [ "$NK" = 0 ] || [ "$ROTATE" = 1 ] || die 2 "$sa 에 사용자 키 ${NK}개 — 새 키를 더 만들려면 ROTATE=1 (옛 키 폐기는 사람 승인)"
+  elif printf '%s' "$out" | grep -q -E 'NOT_FOUND|not found|does not exist'; then say "        SA 없음: $sa (생성 예정)"
+  else die 2 "SA $sa 조회 실패(없음이 아님 — 판정 불가): $(printf '%s' "$out" | tail -1 | cut -c1-140)"; fi
 done
 for pt in $(seq 49011 49040); do
   lsof -ti ":$pt" -sTCP:LISTEN >/dev/null 2>&1 && die 2 "시험 포트 $pt 가 이미 사용 중 — 거짓 통과 방지를 위해 중단"
@@ -95,7 +109,6 @@ say "        시험 포트 49011~49040 비어 있음"
 ssh -o BatchMode=yes -o ConnectTimeout=6 mini 'echo mini=ok' >/dev/null 2>&1 || die 2 "ssh mini 실패"
 ssh -o BatchMode=yes -o ConnectTimeout=6 -o IdentitiesOnly=yes -i "$OCI_KEY" oci 'echo oci=ok' >/dev/null 2>&1 || die 2 "ssh oci 실패"
 say "        mini·oci ssh 확인"
-IAP_COND="expression=(destination.ip == \"$LLM_IP\" && destination.port == 8000) || (destination.ip == \"$STT_IP\" && (destination.port == 8000 || destination.port == 8100))"
 if [ "$DRY" = 1 ]; then
   say "DRY — 아래는 «하려던 일» 이다(쓰기 0):"
   say "  SA: ${SAS[*]} @$SA_DOM"
@@ -108,14 +121,14 @@ fi
 say "1/5 SA 생성"
 for sa in "${SAS[@]}"; do
   G iam service-accounts describe "$sa@$SA_DOM" >/dev/null 2>&1 || \
-    GWR iam service-accounts create "$sa" --display-name="IAP tunnel only ($sa)" >/dev/null || die 3 "SA 생성 실패: $sa"
+    retry1 GWR iam service-accounts create "$sa" --display-name="IAP tunnel only ($sa)" >/dev/null || die 3 "SA 생성 실패: $sa"
 done
 sleep 5
 
 # ── 2) IAP 바인딩(조건부) ───────────────────────────────────────────────────
 say "2/5 IAP 터널 권한(조건부) 부여"
 for sa in "${SAS[@]}"; do
-  GWR projects add-iam-policy-binding "$P" --member="serviceAccount:$sa@$SA_DOM" --role=roles/iap.tunnelResourceAccessor \
+  retry1 GWR projects add-iam-policy-binding "$P" --member="serviceAccount:$sa@$SA_DOM" --role=roles/iap.tunnelResourceAccessor \
     --condition="$IAP_COND,title=tunnel-$sa-only,description=llm-dev 8000 and stt-tts-dev 8000 8100 only" >/dev/null \
     || die 3 "IAP 바인딩 실패: $sa (앞서 만든 SA·바인딩은 남음 — 같은 줄 재실행하면 이어감)"
 done
@@ -142,7 +155,7 @@ own_listener() {  # own_listener <port> <pid> → 127.0.0.1:<port> 의 «모든�
 }
 tun_open() {  # tun_open <sa> <inst> <rport> → 전역 LP(로컬 포트)·TL(로그)·TPID. 리스너가 «내 프로세스» 일 때만 0
   local sa="$1" inst="$2" rp="$3"; PORT=$((PORT+1)); LP=$PORT; TL="$TMP/tun-$LP.log"
-  "${CLEAN[@]}" CLOUDSDK_CONFIG="$TMP/cfg-$sa" timeout 40 gcloud --project="$P" --account="$sa@$SA_DOM" compute start-iap-tunnel "$inst" "$rp" \
+  "${CLEAN[@]}" CLOUDSDK_CONFIG="$TMP/cfg-$sa" timeout 70 gcloud --project="$P" --account="$sa@$SA_DOM" compute start-iap-tunnel "$inst" "$rp" \
     --local-host-port="127.0.0.1:$LP" --zone="$Z" >"$TL" 2>&1 &
   TPID=$!; echo "$TPID" >> "$PIDS"
   for _ in 1 2 3 4 5 6 7 8; do sleep 1; own_listener "$LP" "$TPID" && return 0; done
