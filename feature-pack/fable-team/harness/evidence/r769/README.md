@@ -4,14 +4,16 @@
 정본: kit/fable-team/bin/ft-press-gate.sh == harness/bin/ft-press-gate.sh (cmp0) · skill/scripts 사본은 다른 판이라 안 건드림
 
 ## 커밋
+eb56d728 [fix] r769 r2 반송 — 숫자 env 엄격 검사 함수 2(_int_port · _decimal) + 10진 강제 산술
+9744f8bb [docs] r769 증거 갱신 — r1 반송 반영·다시 볼 시각·한계
 e144943d [feature] r769 부하 REJECT 출력에 «지금 load · 기준 · 다시 볼 시각» 1줄(거절 = 기다림 신호)
 25a5a07a [fix] r769 r1 반송 반영 — 슬롯 갈래는 press 전용 변수만(FT_PRESS_PORT_BASE) · 일반 FT_PORT_BASE 무시 · 부하 시험 보강
 1edba7dd [feature] r769b press 게이트 부하 게이트 — 5분 평균 load ≥ 60(FT_PRESS_LOAD_MAX) 이면 시작 REJECT + 원인 상위 3
 6a2bac71 [feature] r769 press 게이트 로컬 갈래 — 팀 선언 포트 슬롯(FT_PRESS_PORTS > FT_PORT_BASE > 기본 8080·8081·3001)
-70e392cb [fix] r746 루트 연결 파일 .py 를 python 본문으로 (1.1.218)
 
 ## 시험
 ```
+test_press_gate_numeric_env_r769.sh: rc=0 (15 PASS · ALL PASS (11))
 test_press_gate_team_port_slot_r769.sh: rc=0 (26 PASS · ALL PASS (18))
 test_press_gate_load_gate_r769.sh: rc=0 (13 PASS · ALL PASS (9))
 test_press_gate_dev_target_r634.sh: rc=0 (71 PASS · ALL PASS)
@@ -52,3 +54,12 @@ test_nano_spawn_body_press.sh: rc=0 (32 PASS · ALL PASS)
 ## 한계(범위 밖 · master 에 알림)
 - 부하 게이트는 dev 갈래에도 걸린다(클라이언트·오디오는 로컬이라 의도) · 임계 60 은 오빠 지시값
 - 로그·SSE 값의 «주인» 검사 없음(값 존재만 본다 — 남의 팀 로그를 지정해도 형식이 맞으면 통과)
+
+## r2 반송 반영(arch 147324 · DA⑥ r2 HOLD · master 결정 B)
+- 숫자 env 검사가 변수마다 `case` 로 흩어져 같은 종류 구멍 2개(017620 앞 0 = 8진 8080 · 60..0 점 개수 무제한) → **함수 2개를 게이트 안 한 곳**으로:
+  `_int_port` = `^[1-9][0-9]{3,4}$` 이고 1024~65535 만 rc0(앞 0·부호·공백·빈 값 = rc1) · `_decimal` = `^[0-9]+(\.[0-9]+)?$` 만 rc0
+- `_port_bad` 삭제 → `_int_port`(FT_PRESS_PORTS 각 칸 · FT_PRESS_PORT_BASE · 파생 +1/+2) · 산술은 `$((10#$FT_PRESS_PORT_BASE + 1))`(검사 뒤라도 10진 강제)
+- LOAD_MAX = `_decimal`(실패 = ✗ + FAIL=1 그대로)
+- 시험 `test_press_gate_numeric_env_r769.sh` ⓟ~ⓢ 11/11 — **빨강 먼저**: 변이 2종(앞 0 검사 삭제 → 017620 통과 재현 · 점 개수 검사 삭제 → «✓ 100 < 60..0» 재현)으로 단언이 변이를 죽이는지 확인 · 스텁만(실 포트 접촉 0)
+- ★같은 부류 남음(이 카드 범위 밖)★: `FT_PRESS_DEV_BUDGET`(50·180행 · r634 기존 입력)은 아직 `case`/산술 직접 사용 — 별 카드 대상.
+- 빈 값 = «선언 안 한 것»(기본값) — 검사 함수는 빈 값을 받지 않고, 호출측 `${VAR:-기본}` 이 먼저 처리한다.
