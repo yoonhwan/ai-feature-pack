@@ -50,9 +50,10 @@ hold_conditional() {  # $1=사전검증 본문 $2=카드 → 0=예외 성립(INF
   section_body "$2" '완료 조건' | grep -q '잔여 HOLD' || { HOLD_WHY="완료 조건에 「잔여 HOLD」 표식 없음"; return 1; }
   echo "INFO 사전검증: DA 마지막 판정 HOLD — planner 판정 $n 조건부 승인으로 통과"
 }
+da_verdict_path() { printf '%s\n' "$1" | grep -E '^[-* ]*DA: *[^ ]' | head -1 | tr -d '`' | sed -E 's/^[-* ]*DA: *//; s/[[:space:]].*$//; s/#.*$//'; }  # 「DA: <경로>」 한 줄 → 경로(백틱·#절·꼬리 제거)
 check_da_verdict() {  # $1=사전검증 본문 $2=카드 → bad+=
   local dpath v
-  dpath="$(printf '%s\n' "$1" | grep -E '^[-* ]*DA: *[^ ]' | head -1 | tr -d '`' | sed -E 's/^[-* ]*DA: *//; s/[[:space:]].*$//; s/#.*$//')"
+  dpath="$(da_verdict_path "$1")"
   [ -n "$dpath" ] || { bad+=("사전검증: 소환 예인데 「DA: <판정문 경로>」 줄 없음"); return; }
   path_exists "$dpath" || { bad+=("사전검증: DA 판정문 경로 없음 ($dpath)"); return; }
   v="$(last_verdict "$ROOT/$dpath" 2>/dev/null || true)"; [ -n "$v" ] || v="$(last_verdict "$dpath" 2>/dev/null || true)"
@@ -69,15 +70,54 @@ check_exemption() {  # $1=사전검증 본문 → bad+=
   IFS='-' read -r _ _ role _ <<< "${seat%#*}"
   [ "$role" = arch ] || bad+=("사전검증: 서명 좌석의 역할이 arch 가 아니다 ($role)")
 }
-check_preverify() {  # $1=file → bad+=
+check_rule14() {  # $1=사전검증 본문 $2=카드 → 0=통과(INFO) · 1=불성립(R14_WHY) — 하드 룰 14: 사전 DA 보류 2회 뒤 3회째 생략(재설계로 대신)
+  local n id v cnt=0 p f q dup rc rows done_body ok _r _ds=() _c _seen=() _files=(); R14_WHY=""
+  while IFS= read -r _c; do [ -n "$_c" ] && _ds+=("$_c"); done < <(printf '%s\n' "$1" | grep -E '^[-* ]*DA: *[^ ]' | tr -d '`' | sed -E 's/^[-* ]*DA: *//; s/[[:space:]].*$//; s/#.*$//')   # 「DA:」 줄 전부 = 라운드 목록 (da_verdict_path 는 첫 줄만 — «소환: 예» 길 전용)
+  [ "${#_ds[@]}" -ge 1 ] || { R14_WHY="「DA: <판정문 경로>」 줄 없음"; return 1; }
+  for p in "${_ds[@]}"; do path_exists "$p" || { R14_WHY="DA 판정문 경로 없음 ($p)"; return 1; }; done
+  f="$ROOT/${_ds[${#_ds[@]}-1]}"; [ -f "$f" ] || f="${_ds[${#_ds[@]}-1]}"; v="$(last_verdict "$f" 2>/dev/null || true)"   # 마지막 DA 줄 파일로 마지막 판정
+  case "$v" in
+    HOLD) ;;
+    APPROVE) R14_WHY="규칙 14 는 DA 마지막 판정이 HOLD 일 때만 쓴다 — APPROVE 면 「소환: 예」 로"; return 1;;
+    *) R14_WHY="규칙 14 는 DA 마지막 판정이 HOLD 일 때만 쓴다 (마지막 판정: ${v:-판정 단어 없음})"; return 1;;
+  esac
+  # 보류 횟수 = «라운드 수» (DA⑥ r1) — 한 파일의 판정 낱말 수가 아니다: 서로 다른 경로 · 내용도 다름(cmp) · 그 파일 마지막 판정 HOLD
+  for p in "${_ds[@]}"; do
+    case " ${_seen[*]-} " in *" $p "*) continue;; esac; _seen+=("$p")
+    f="$ROOT/$p"; [ -f "$f" ] || f="$p"; [ "$(last_verdict "$f" 2>/dev/null || true)" = HOLD ] || continue
+    dup=0; for q in "${_files[@]-}"; do [ -n "$q" ] && cmp -s "$f" "$q" && { dup=1; break; }; done
+    [ "$dup" = 1 ] || { _files+=("$f"); cnt=$((cnt+1)); }
+  done
+  [ "$cnt" -ge 2 ] || { R14_WHY="규칙 14 는 보류 2회부터 — 라운드별 판정문을 「DA:」 줄로 각각 적는다 (지금 ${cnt}개)"; return 1; }
+  n="$(printf '%s\n' "$1" | sed -nE 's/^[-* ]*규칙 14: *판정 ([0-9]+).*/\1/p' | head -1)"; [ -n "$n" ] || { R14_WHY="「- 규칙 14: 판정 <번호>」 줄 없음"; return 1; }
+  done_body="$(section_body "$2" '완료 조건')"
+  printf '%s\n' "$done_body" | grep -q '합본 DA⑥' || { R14_WHY="완료 조건에 「합본 DA⑥」 표식 없음"; return 1; }
+  printf '%s\n' "$done_body" | grep -qE '합본 DA⑥[[:space:]」:—-]*(생략|없음|면제|불요)' && { R14_WHY="합본 DA⑥ 를 생략하는 꼴 — 합본 DA⑥ 는 필수다"; return 1; }   # 붙어 있을 때만(DA⑥ r2) — 「합본 DA⑥ — 잔여 HOLD 없음 확인」 은 통과
+  . "$(dirname "${BASH_SOURCE[0]:-$0}")/ft-verdict-row.sh" 2>/dev/null || { R14_WHY="판정 줄 공용 함수(ft-verdict-row.sh) 없음"; return 1; }
+  git -C "$ROOT" rev-parse -q --verify refs/remotes/origin/main >/dev/null 2>&1 || { R14_WHY="원장 확인 불가 (origin/main ref 없음)"; return 1; }
+  local _ps=() _c2; while IFS= read -r _c2; do [ -n "$_c2" ] && _ps+=("${_c2#"$ROOT"/}/VERDICTS-planner-*.md"); done < <( . "$(dirname "${BASH_SOURCE[0]:-$0}")/ft-team-lib.sh" && ft_team_cands_ref "$ROOT" planner "${FT_TEAMS_REF:-origin/main}" 2>/dev/null ); [ "${#_ps[@]}" -ge 1 ] || { R14_WHY="원장 확인 불가 (planner 팀 폴더를 못 풀었다 · 명단 ${FT_TEAMS_REF:-origin/main}:design/TEAMS.md)"; return 1; }
+  rows="$(git -C "$ROOT" grep -hE -e "$(fv_row_re "$n")" origin/main -- "${_ps[@]}" 2>/dev/null)"; rc=$?
+  [ $rc -le 1 ] || { R14_WHY="원장 확인 불가 (git grep rc=$rc)"; return 1; }
+  { [ $rc -eq 0 ] && [ -n "$rows" ]; } || { R14_WHY="planner 원장에 판정 $n 줄 없음(글머리 「- **$n**」·표 행 「| $n |」 둘 다)"; return 1; }
+  id="$(basename "$2" .md)"; id="${id%%-*}"; ok=0   # 카드 id = 파일 이름 첫 조각(r767 · e1 …)
+  while IFS= read -r _r; do   # «같은 줄» 에 «규칙 14» 와 카드 id(경계 일치) 둘 다 (DA⑥ r2)
+    printf '%s' "$_r" | grep -qE '(규칙|룰) ?14' || continue
+    printf '%s' "$_r" | grep -qiE "(^|[^[:alnum:]])${id}([^[:alnum:]]|$)" || continue
+    ok=1; break
+  done <<< "$rows"
+  [ "$ok" = 1 ] || { R14_WHY="planner 판정 $n 줄에 「규칙 14」 와 카드 id($id) 가 없다 — 무관한 판정 번호"; return 1; }
+  echo "INFO 사전검증: 규칙 14 · 판정 $n · 합본 DA⑥ 필수 · DA: 줄 ${#_ds[@]}개 = 라운드 ${cnt} 으로 셈(원문·요약 중복 금지)"
+}
+check_preverify() {  # $1=file → bad+=  (세 꼴: 예 · 아니오 · 규칙14)
   local body mode
   grep -qE '^## 사전검증' "$1" || { bad+=("절 없음: 사전검증 (⑦)"); return; }
   body="$(section_body "$1" '사전검증')"
-  mode="$(printf '%s\n' "$body" | grep -E '^[-* ]*소환: *(예|아니오) *$' | head -1 | sed -E 's/^[-* ]*소환: *//; s/ *$//')"
+  mode="$(printf '%s\n' "$body" | grep -E '^[-* ]*소환: *(예|아니오|규칙14) *$' | head -1 | sed -E 's/^[-* ]*소환: *//; s/ *$//')"
   case "$mode" in
     예) check_da_verdict "$body" "$1";;
     아니오) check_exemption "$body";;
-    *) bad+=("사전검증: 「소환: 예」 또는 「소환: 아니오」 줄 없음");;
+    규칙14) check_rule14 "$body" "$1" || bad+=("사전검증: 규칙 14 불성립 — $R14_WHY");;
+    *) bad+=("사전검증: 「소환: 예」 또는 「소환: 아니오」 줄 없음 (규칙 14 생략은 「소환: 규칙14」)");;
   esac
 }
 check_evidence() {  # $1=file → bad+=  (경로:줄 — 경로 실재 + 줄 번호 ≤ 파일 줄 수)
