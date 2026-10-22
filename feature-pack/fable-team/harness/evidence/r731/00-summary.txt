@@ -1,0 +1,31 @@
+r731 — 골 표 예산(1600B) 초과로 골 블록이 멈출 때 «팀·상태·증거» 칸 폭을 24→20→16→12자로 단계 축소
+=============================================================================================
+원인(r731 · arch 123 실측): 정본 골 6줄이 길어지자 골 표 렌더가 `ERROR 골 표 예산 초과 1603B > 1600B` rc1.
+  지금 render() 의 축소 단계는 «재조정» 칸 라벨만 떼는 1단계뿐이고 팀·상태·증거 칸은 CELL=24 고정 —
+  골 원문 칸은 절단 금지라 더 줄일 곳이 없어 raise. 그 결과 골 표를 붙이는 쪽지 가드·뉴스·매거진 골 블록이 같이 섰다.
+
+바꾼 것(ft_goal_table.py 하나 · bin·kit 짝 cmp0)
+  1. `GOAL_CELLS = (24, 20, 16, 12)` — teams(TEAMS_NOW_CELLS)·procs(PROCS_NAME_CELLS)와 같은 꼴의 폭 사다리.
+  2. `_cut(s, keep_all=False, width=CELL)` — 폭 인자 추가(기본 24 = 지금과 같다).
+  3. render() 축소 순서 = ①재조정 라벨 글자만(폭 24 그대로 · r714a 그대로) → ②칸 24 → ③20 → ④16 → ⑤12.
+     가장 넓은 폭에서 멈춘다 → 짧은 정본은 지금 출력과 바이트 같다(회귀 0). 12자로도 넘치면 지금처럼 ERROR rc1.
+     골 원문 칸은 `keep_all=True` 그대로 — 끝까지 절단 0. 예산 값(1600)·마커 형식·teams·procs 블록은 손대지 않았다.
+
+시험 = feature-pack/fable-team/harness/tests/test_goal_table_budget_shrink_r731.sh (PASS 14 · FAIL 0)
+  ⓐ 40자 칸 픽스처 = 직전 판(origin/main) rc1 «예산 초과» → 지금 판 rc0(폭 20자에서 들어감)
+  ⓑ 출력 1541B ≤ 1600B · 골 원문 6행 글자 그대로(«…» 0) · 팀·상태·증거 칸만 «…»(21자 = 20+«…»)
+  ⓒ 축소 순서 — 라벨 축소만으로 들어가는 픽스처(골 123자 · 재조정 라벨 있음)는 폭이 24자(25자 칸) 그대로
+  ⓓ 400자 골 6행 = 12자로도 초과 → ERROR rc1(골 원문 절단 0) · 짧은 정본 = 직전 판과 바이트 같은 출력
+  ⓔ 변이: 폭 사다리 삭제 → ⓐ 픽스처 rc1(시험이 삭제를 잡는다)
+  ⓕ 격리 = 임시 git 리포·임시 루트·가짜 mbox(실 쪽지 0 · 실 리포 변경 0)
+증거 = 이 폴더(01 빨강 · 02 초록 · 03 기존 회귀 · 04 변이)
+
+회귀: test_goal_count_follows_canon_r668 · test_goal_renumber_grace_r726 · test_goal_table_gitref_r545 ·
+      test_goal_table_stale_r600 · test_goal_table_procs_r644 · test_goal_check_ref = FAIL 0
+      pytest 골 표 이웃(test_ft_news_goal_block · test_goal_gate_armed_contract · test_goal_receipt_lifecycle ·
+      test_magazine_goal) = 33 passed / 3 failed — 3건은 기준선(stash)과 같은 목록(test_magazine_goal.py 3건)
+      기존 FAIL 2건은 이 카드 이전부터: test_goal_table_gate ⓕ(r458 600/300 · bin/ft_news_ledger.py 축) ·
+      test_goal_readjust_r714 ⓐ(origin/main 판을 임시 폴더에서 import 실패) — 둘 다 기준선에서 동일.
+
+설치·실사건은 master 몫: 팩 착지 → LIVE_BIN ft_goal_table.py 1파일 cmp0 → 루트 `bash .fable-team/bin/ft-goal-table.sh` rc0 + 골 6줄 원문.
+press 필요: 없음(CLI 도구 렌더 · 라이브 오디오 시험 무관 — 나노는 쏘지 않는다).

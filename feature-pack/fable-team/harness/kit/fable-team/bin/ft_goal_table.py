@@ -2,7 +2,7 @@
 
 render  : 정본 표(골 → 팀 → 닫는 증거 N행 · N = 정본 표 행 수 · 1~FT_GOAL_MAX 기본 12 · r668) + planner 원장 `## 메인 골 …줄` 표(행 순번 결속 · ft_goal_ledger) → 마커 2줄(`★골 표 A6 (<sha10> · 상태 …)★` … `★/골 표★`) 사이 표 1개(≤1600B).
           r714a: 머리 줄 끝 «재조정: ok=<run> <HH:MM> · 최근=<run>-<nn> OK|ERROR <사유>» 1칸 + 행마다 «재조정» 칸(회차 파일 `state/goal-readjust/rounds/*.json` 의 라벨 · ft_goal_readjust_state 가 읽는다 — 기록 없음 `모름(기록 없음)` · 행 식별(번호+골 전문 해시)이 다르면 `모름(판 다름)`).
-          예산(1600B)이 넘치면 «재조정» 칸을 라벨 글자만으로 줄이고(·카드k··대응 모름··정본 바뀜 뗌), 그래도 넘치면 아래 «예산 초과» ERROR 그대로다.
+          예산(1600B)이 넘치면 «재조정» 칸을 라벨 글자만으로 줄이고(·카드k··대응 모름··정본 바뀜 뗌), 그래도 넘치면 팀·상태·증거 칸 폭을 24→20→16→12자로 차례로 줄인다(r731 · 골 원문 칸은 끝까지 절단 0), 그래도 넘치면 아래 «예산 초과» ERROR 그대로다.
           골 원문 칸은 절단 0 · 팀·증거·상태 칸만 24자 + «…» · 넘치면 `ERROR 골 표 예산 초과` rc1 · 정본 없음/N행 아님 = `ERROR 골 표 정본 …` rc1.
           r668: 정본 sha 가 바뀌고 **골 번호표(행 수·순서)가 바뀐** 첫 렌더에서 전 팀장(명부 `_master` 전부)에게 «골 번호 바뀜 · 새 번호표» 1통(표식 `<루트>/.fable-team/state/goal-numbering.tsv` — 같은 정본 sha 로는 1회 · 실패 = WARN 1줄 · 렌더는 계속).
           r668 H4: 표식 없는 첫 렌더에서도 정본이 6행(옛 고정)이 아니면 1통 · 읽기→송신→쓰기에 파일 잠금(동시 렌더 중복 0) · 깨진 명부 = WARN + 표식 전진 0 · 송신 1통 7초 상한.
@@ -44,6 +44,7 @@ from ft_goal_readjust_state import row_cell as readjust_cell
 DEFAULT_NAME = "AUTONOMY-GOAL-A6-20261018.md"  # planner 팀 폴더 안(폴더는 ft_team_lib 가 푼다)
 BUDGET = 1600
 CELL = 24
+GOAL_CELLS = (24, 20, 16, 12)  # r731: 팀·상태·증거 칸 폭 — 예산(1600B)에 들 때까지 차례로 줄인다(골 원문 칸은 keep_all 그대로)
 HEAD = re.compile(r"^★골 표 A6 \((?:(?:[^()\s]+@)|(?:file:))?([0-9a-f]{10}) · [^)]*\)★$")  # r545: 출처 표지(`origin/main@`|`file:`) 붙은 새 꼴 + 표지 없는 옛 꼴 둘 다
 TAIL = "★/골 표★"
 COORD = re.compile(r"^골좌표:\s*(\d+)\s*[—-]\s*(.+?)\s*$")
@@ -150,9 +151,9 @@ def _ledger_show(spec: str) -> str | None:
     return _git(_repo(), "show", f"{commit}:{rel}") if _git_ok(_repo(), "cat-file", "-e", f"{commit}:{rel}") else None
 
 
-def _cut(s: str, keep_all: bool = False) -> str:
+def _cut(s: str, keep_all: bool = False, width: int = CELL) -> str:
     s = _norm(s).replace("|", "/")
-    return s if keep_all or len(s) <= CELL else s[:CELL] + "…"
+    return s if keep_all or len(s) <= width else s[:width] + "…"
 
 
 def _root_state(root: Path, name: str) -> Path:
@@ -390,9 +391,11 @@ def render() -> str:
     canon_sha = hashlib.sha256(text.encode("utf-8")).hexdigest()[:10]
     cells = [readjust_cell(state, i, _goal_hash(g), canon_sha) for i, (g, _t, _e) in enumerate(rows, 1)]
     out = ""
-    for keep_suffix in (True, False):   # 예산 넘치면 «재조정» 칸부터 라벨 글자만으로 줄인다(r714a)
+    # 예산 넘치면 «재조정» 칸부터 라벨 글자만으로 줄이고(r714a), 그래도 넘치면 팀·상태·증거 칸 폭을 차례로 줄인다(r731)
+    plan = [(True, GOAL_CELLS[0])] + [(False, w) for w in GOAL_CELLS]
+    for keep_suffix, width in plan:
         pick = cells if keep_suffix else [c.split("·")[0] for c in cells]
-        body = [f"| {_cut(g, True)} | {_cut(t)} | {_cut(states.get(i, NO_STATE))} | {_cut(e)} | {pick[i - 1]} |"
+        body = [f"| {_cut(g, True)} | {_cut(t, width=width)} | {_cut(states.get(i, NO_STATE), width=width)} | {_cut(e, width=width)} | {pick[i - 1]} |"
                 for i, (g, t, e) in enumerate(rows, 1)]
         out = "\n".join([f"★골 표 A6 ({src}{sha} · {head} · {note})★",
                           "| 골 | 팀 | 지금 상태 | 닫는 증거 | 재조정 |", "|---|---|---|---|---|", *body, TAIL])

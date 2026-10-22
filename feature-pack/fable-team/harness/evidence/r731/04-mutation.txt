@@ -1,0 +1,8 @@
+r731 ⓔ 변이 — 폭 사다리([(False, w) for w in GOAL_CELLS])를 [(False, GOAL_CELLS[0])] 로 삭제하면 같은 픽스처가 다시 rc1 = 시험이 삭제를 잡는다
+
+== ⓔ 변이 — 폭 사다리 삭제(칸 폭 24 고정) = 같은 픽스처가 다시 멈춘다(시험이 삭제를 잡는다)
+변이 = [(False, w) for w in GOAL_CELLS] → [(False, GOAL_CELLS[0])]
+rc=1
+stdout: ''
+stderr: ERROR 골 표 예산 초과 1613B > 1600B (골 원문 칸은 절단하지 않는다)
+
