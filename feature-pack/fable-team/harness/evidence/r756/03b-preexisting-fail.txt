@@ -1,0 +1,15 @@
+R756 기선(옛 판 = origin/main 사본) 에서도 «같은 수» 로 실패하는 시험 — 이 카드 변경과 무관(환경·기선)
+옛 판을 bin·kit 양쪽에 넣고 같은 명령으로 돌린 결과 (되돌림 = 이 블록 끝에서 복원 · cmp=0)
+test_thread_reply_named.sh               옛판 rc=1  FAIL줄=5
+test_teamset_gitref.sh                   옛판 rc=3  FAIL줄=4
+test_pi_agent_allow_r540.sh              옛판 rc=1  FAIL줄=6
+test_arch_required_gate.sh               옛판 rc=4  FAIL줄=5
+test_role_spawn_team.sh                  옛판 rc=1  FAIL줄=9
+test_resource_gate_pressure.sh           옛판 rc=0  FAIL줄=0
+
+test_resource_reclaim.sh — 이 카드는 ft-successor-open.sh 를 bash -n·cmp 로만 본다 · 같은 시험 3회(옛판·옛판·지금판) 전부 내부 단언 실패 수가 달라진다(시간 문턱 시험 = 플레이크)
+  옛판 회차1 ---- fail=0
+  옛판 회차2 ---- fail=5
+  지금판 회차1 ---- fail=1
+  지금판 회차2 ---- fail=5
+  (test_resource_gate_pressure.sh 첫 측정 rc=1 은 과도 현상 — 같은 판 3회 재실행 rc=0 fail=0 · FAIL 줄 0)

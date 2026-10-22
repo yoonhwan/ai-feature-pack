@@ -1,0 +1,40 @@
+SCRATCH=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-8375e8a7-1792680994-20134
+# 기선(origin/main 8375e8a7) 사본에서 같은 시험 — 이 카드 변경 전에도 같은 수만큼 실패하는지 대조
+## test_merge_gate.sh (기선)
+FAIL 정적: gate·lines·lib 에 reset·rebase·force·push 호출 0 :: rc=2 out=usage: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-8375e8a7-1792680994-20134/featur
+FAILED 1
+## test_merge_gate.sh (이 카드)
+FAIL 정적: gate·lines·lib 에 reset·rebase·force·push 호출 0 :: rc=2 out=usage: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r755-merge-land-deny-stale-giant-br
+FAILED 1
+## test_head_lag.sh (기선)
+FAIL ⓐ 착지 성공 → 기준 헤드 파일 = 새 main sha(1줄) :: rc=1 out=REJECT 대상 리포 remote URL 해석 실패(fetch·push URL 이 같은 github owner/name 이어야) — 어느 리포 PR 인지 몰라 착지 0 (착지 0)
+FAILED 1
+## test_head_lag.sh (이 카드)
+FAIL ⓐ 착지 성공 → 기준 헤드 파일 = 새 main sha(1줄) :: rc=1 out=REJECT 대상 리포 remote URL 해석 실패(fetch·push URL 이 같은 github owner/name 이어야) — 어느 리포 PR 인지 몰라 착지 0 (착지 0)
+FAILED 1
+## test_autonomy_scope_classify.sh (기선)
+FAIL 원장 행 있음 → 착지 rc0 · LANDED :: rc=1 out=REJECT 대상 리포 remote URL 해석 실패(fetch·push URL 이 같은 github owner/name 이어야) — 어느 리포 PR 인지 몰라 착지 0 (착지 0)
+FAIL 원장 착지 sha 칸 = 착지 sha :: rc=1 out=REJECT 대상 리포 remote URL 해석 실패(fetch·push URL 이 같은 github owner/name 이어야) — 어느 리포 PR 인지 몰라 착지 0 (착지 0)
+FAIL 원장 되돌림 명령 칸 = git revert --no-edit <착지 sha> :: rc=1 out=REJECT 대상 리포 remote URL 해석 실패(fetch·push URL 이 같은 github owner/name 이어야) — 어느 리포 PR 인지 몰라 착지 0 (착지 
+FAIL 원장 없음 → 출력 변화 0 · 착지 rc0 :: rc=1 out=REJECT 대상 리포 remote URL 해석 실패(fetch·push URL 이 같은 github owner/name 이어야) — 어느 리포 PR 인지 몰라 착지 0 (착지 0)
+FAIL 원장 쓰기 실패 → WARN 1줄 · 착지 rc0 · 행 불변 :: rc=1 out=REJECT 대상 리포 remote URL 해석 실패(fetch·push URL 이 같은 github owner/name 이어야) — 어느 리포 PR 인지 몰라 착지 0 (착지 0)
+FAILED 5
+## test_autonomy_scope_classify.sh (이 카드)
+FAIL 원장 행 있음 → 착지 rc0 · LANDED :: rc=1 out=REJECT 대상 리포 remote URL 해석 실패(fetch·push URL 이 같은 github owner/name 이어야) — 어느 리포 PR 인지 몰라 착지 0 (착지 0)
+FAIL 원장 착지 sha 칸 = 착지 sha :: rc=1 out=REJECT 대상 리포 remote URL 해석 실패(fetch·push URL 이 같은 github owner/name 이어야) — 어느 리포 PR 인지 몰라 착지 0 (착지 0)
+FAIL 원장 되돌림 명령 칸 = git revert --no-edit <착지 sha> :: rc=1 out=REJECT 대상 리포 remote URL 해석 실패(fetch·push URL 이 같은 github owner/name 이어야) — 어느 리포 PR 인지 몰라 착지 0 (착지 
+FAIL 원장 없음 → 출력 변화 0 · 착지 rc0 :: rc=1 out=REJECT 대상 리포 remote URL 해석 실패(fetch·push URL 이 같은 github owner/name 이어야) — 어느 리포 PR 인지 몰라 착지 0 (착지 0)
+FAIL 원장 쓰기 실패 → WARN 1줄 · 착지 rc0 · 행 불변 :: rc=1 out=REJECT 대상 리포 remote URL 해석 실패(fetch·push URL 이 같은 github owner/name 이어야) — 어느 리포 PR 인지 몰라 착지 0 (착지 0)
+FAILED 5
+## test_kit_exec_modes.sh (기선)
+FAIL ft-merge-land.sh 의 기본 쓰기 도구 이름을 읽음()
+FAIL scripts/fable-team-bin/ 모드 100755
+FAIL scripts/harness-install/fable-team/bin/ 모드 100755
+FAIL plist 에서 직접 실행 도구를 1개 이상 찾음(0)
+FAILED 4
+## test_kit_exec_modes.sh (이 카드)
+FAIL ft-merge-land.sh 의 기본 쓰기 도구 이름을 읽음()
+FAIL scripts/fable-team-bin/ 모드 100755
+FAIL scripts/harness-install/fable-team/bin/ 모드 100755
+FAIL plist 에서 직접 실행 도구를 1개 이상 찾음(0)
+FAILED 4

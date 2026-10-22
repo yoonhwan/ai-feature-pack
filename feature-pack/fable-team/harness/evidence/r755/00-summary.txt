@@ -1,0 +1,26 @@
+R755 — «착지 금지 가지» 목록(ft-merge-deny.txt) + 착지 직전 REJECT (오래 갈라진 거대 가지가 main 을 합쳐 통과하던 구멍)
+
+결론
+- 착지 게이트에 «이 가지는 착지 대상이 아니다» 를 적어 두는 자리가 생겼다. 목록 파일 1개(`ft-merge-deny.txt`) + 그 목록을 읽는 도구 1개(`ft-merge-deny.sh`) + `ft-merge-land.sh` 의 착지 후보(commit-tree) 만들기 «전» 호출 1줄.
+- 가지 이름이 목록 정규식에 걸리면 착지 0: `REJECT 착지 금지 가지(<이름> · 목록 <파일>:<줄>) (착지 0)`.
+- 이름이 달라도 목록 줄의 «끝 sha» 를 조상으로 품은 가지는 착지 0: `REJECT 착지 금지 가지의 커밋 <sha10> 을 품음(…)`. (다른 피처 가지로 합쳐 온 뒤 main 에 올리는 경로를 이 조상 검사가 잡는다.)
+- 목록 파일 없음·못 읽음·꼴 오류 = REJECT(fail-closed — 설치 누락을 조용히 통과시키지 않는다). 주석만(빈 목록) = 통과. 목록 밖 가지는 지금과 똑같이 착지.
+- 범위 밖은 손대지 않았다: 로컬 merge(가지 ← 가지) 0 · 가지 정리·삭제 0(HIL) · 목록 자동 채우기 0 · docs/architect 변경 0.
+- `ft-merge-land.sh` 는 여전히 120줄(기존 상한 「≤ 120줄」 시험 그대로 통과). 늘어난 코드 1줄은 기존 head 확정 줄에 붙였고, 대신 `gh pr view --json` 필드에 `headRefName` 을 더했다.
+- 기존 시험: merge_land 가족 전부 PASS. 4종(`test_merge_gate` 1건 · `test_head_lag` 1건 · `test_autonomy_scope_classify` 5건 · `test_kit_exec_modes` 4건)은 이 카드 이전(origin/main 8375e8a7 사본)에서 «같은 수» 로 실패한다 — 03b 참조(범위 밖 기선 실패, remote URL 해석·pack 리포 경로 부재).
+
+증거 파일
+- 01-red-baseline.txt : ⓐ 빨강 — 옛 판(origin/main)은 ft-merge-deny 호출 0 · 목록 파일 0줄 = main 을 품은 거대 가지가 그대로 착지(시험 ⓐ).
+- 02-green.txt : 새 시험 전체 출력 — 22 PASS / 0 FAIL (`test_merge_land_deny_stale.sh`).
+- 03-regression.txt : 관련 기존 시험 16종 실행 결과(merge_land 가족 5종 ALL PASS 포함).
+- 03b-preexisting-fail.txt : 기선(origin/main 사본) vs 이 카드 — 실패 4종이 «같은 수»(내 변경이 늘린 실패 0).
+- 04-files.txt : 변경·신규 파일 · 줄수 · 모드 · bin↔kit cmp0 · bash -n · ft-merge-land.sh 실제 diff 2줄.
+- 05-deny-message.txt : 지금 판 REJECT 원문 4종 + 목록 밖 통과(출력 0).
+
+ⓐ~ⓘ 대응 (전부 시험 단언)
+ⓐ 빨강(옛 판 = 착지) = 01 + 시험 ⓐ  ⓑ 후판 REJECT(목록 파일:줄) · main 불변 · PR 쓰기 0 = 시험 ⓑ  ⓒ 다른 이름 가지가 금지 가지 커밋을 품음 → REJECT = 시험 ⓒ  ⓓ 목록 밖 보통 가지 = 지금과 같음(착지) = 시험 ⓓ  ⓔ 목록 없음/못 읽음 → REJECT fail-closed · 주석만 = 통과 = 시험 ⓔ 2건  ⓕ 꼴(`<정규식><TAB><40hex|->` · `#` 주석 · 이름 전체 일치) = 시험 ⓕ 5건  ⓖ 기존 시험 = 03(merge_land 가족 ALL PASS · 기선 실패 4종은 03b 로 동일 확인)  ⓗ 변이 2종(이름 검사 삭제 → ⓑ 가 착지 / 조상 검사 삭제 → ⓒ 가 착지) = 시험 ⓗ  ⓘ 격리 = 임시 bare origin 1개 · 실 gh 스텁 · 실 원격·실 push 0 · Redis/제품 키 쓰기 0.
+
+기존 시험 1줄 수정(설치 묶음에 새 파일 추가)
+- `tests/test_merge_land_state_dir.sh` 의 mkinst 복사 목록에 `ft-merge-deny.sh` · `ft-merge-deny.txt` 를 넣었다 — 설치 묶음이 목록 파일을 안 실으면 fail-closed 로 REJECT 되는 것이 «정상» 이므로, 설치 대역 시험도 실제 설치와 같은 묶음을 실어야 한다(그 파일이 빠지면 ⓒ 가 «착지 금지 목록 검사 실패» 로 RED 가 된다). 이 1줄 말고 기존 시험 수정 0.
+
+press 필요: 없음 (하네스 착지 게이트 도구 · 라이브 오디오·Redis 축 무관). 실사건 ⓙ(설치 뒤 목록에 `^feat/v6-realtime-live$<TAB><그 가지 지금 끝 sha>` 1줄 → 그 가지 이름으로 착지 REJECT 원문)은 master 소관.

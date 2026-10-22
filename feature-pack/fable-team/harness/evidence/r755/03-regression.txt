@@ -1,0 +1,61 @@
+##### test_merge_land.sh
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+##### test_merge_land_equiv.sh
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+##### test_merge_land_off_approval.sh
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+##### test_merge_land_push_reason.sh
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+##### test_merge_land_state_dir.sh
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+##### test_merge_gate.sh
+FAIL 정적: gate·lines·lib 에 reset·rebase·force·push 호출 0 :: rc=2 out=usage: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r755-merge-land-deny-stale-giant-branche/feature-pack/fable-team/harness/te
+FAILED 1
+##### test_merge_head_gate.sh
+== 음성(통과) — 병합이 아닌 것
+== 양성(deny) — main 병합 경로
+== main 향 git push — 게이트 결과
+ALL PASS
+##### test_evidence_log_gate.sh
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+##### test_doc_exempt_r725.sh
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+##### test_merge_lines_moved.sh
+ALL PASS
+##### test_autonomy_merge_equiv.sh
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+##### test_install_check_repo_outside.sh
+== ALL PASS ==
+##### test_seat_reap_left0.sh
+== ⓐ ft-seat-reap — ① pane 자손 · ② FT_SEAT 고아 2 · ③ cwd 고아 1 정지 · 남의 좌석·보호 exe 생존
+== ⓑ 못 멈춤 → left=1 rc=1 · ft-seat-close CLOSE-FAIL(세션 생존) → 신호 켜면 CLOSED-SESSION … reap left=0 rc=0
+== ⓒ ft-seat-retire --orphans-only — 고아만 정지 · 살아 있는 좌석 세션 그대로 · 못 멈춤 = CLOSE-FAIL rc 1
+== ⓓ ft-bg-loop 래퍼 — max-sec · stop-file · cmd-exit · usage
+== ⓓ ft-bg-loop-lint — 래퍼 밖 루프 ERR(줄 번호) · 래퍼 안 OK · --range = 가지가 추가·수정한 design/·tests/e2e/ 만
+== ⓔ 7초 룰 · tmuxc -e 상속 · GIT_* 0
+ALL PASS
+REAL-STATE-GUARD WARN 번호표 늘었으나 실 좌석 계획(동시 실행): /private/tmp/h49 ← /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/state/approve-merge-lecture15-2643-d8a6ea7f4e-20261022.sh.hil
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+##### test_head_lag.sh
+FAIL ⓐ 착지 성공 → 기준 헤드 파일 = 새 main sha(1줄) :: rc=1 out=REJECT 대상 리포 remote URL 해석 실패(fetch·push URL 이 같은 github owner/name 이어야) — 어느 리포 PR 인지 몰라 착지 0 (착지 0)
+FAILED 1
+##### test_autonomy_scope_classify.sh
+FAIL 원장 행 있음 → 착지 rc0 · LANDED :: rc=1 out=REJECT 대상 리포 remote URL 해석 실패(fetch·push URL 이 같은 github owner/name 이어야) — 어느 리포 PR 인지 몰라 착지 0 (착지 0)
+FAIL 원장 착지 sha 칸 = 착지 sha :: rc=1 out=REJECT 대상 리포 remote URL 해석 실패(fetch·push URL 이 같은 github owner/name 이어야) — 어느 리포 PR 인지 몰라 착지 0 (착지 0)
+FAIL 원장 되돌림 명령 칸 = git revert --no-edit <착지 sha> :: rc=1 out=REJECT 대상 리포 remote URL 해석 실패(fetch·push URL 이 같은 github owner/name 이어야) — 어느 리포 PR 인지 몰라 착지 0 (착지 0)
+FAIL 원장 없음 → 출력 변화 0 · 착지 rc0 :: rc=1 out=REJECT 대상 리포 remote URL 해석 실패(fetch·push URL 이 같은 github owner/name 이어야) — 어느 리포 PR 인지 몰라 착지 0 (착지 0)
+FAIL 원장 쓰기 실패 → WARN 1줄 · 착지 rc0 · 행 불변 :: rc=1 out=REJECT 대상 리포 remote URL 해석 실패(fetch·push URL 이 같은 github owner/name 이어야) — 어느 리포 PR 인지 몰라 착지 0 (착지 0)
+FAILED 5
+##### test_kit_exec_modes.sh
+FAIL ft-merge-land.sh 의 기본 쓰기 도구 이름을 읽음()
+FAIL scripts/fable-team-bin/ 모드 100755
+FAIL scripts/harness-install/fable-team/bin/ 모드 100755
+FAIL plist 에서 직접 실행 도구를 1개 이상 찾음(0)
+FAILED 4

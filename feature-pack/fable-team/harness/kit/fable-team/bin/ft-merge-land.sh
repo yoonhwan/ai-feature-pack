@@ -40,13 +40,13 @@ AST="$(bash "$AUT" state-dir 2>/dev/null)"   # r648: 승인 폴더 = 이 정식 
   || { echo "REJECT 오빠 승인 파일 없음 — 승인 h 한 줄 먼저(approve-merge $AP 승인 파일·로그 한 줄 없음) — 실행 0"; exit 2; }
 AFE="$(awk '{print $4}' "$AF")"; }   # 승인 epoch — merge-gate.log 에 «누가 언제 승인했나» 를 남긴다
 
-JSON="$(fm_t7 "$GH_R" pr view "$PR" ${SLUG:+-R "$SLUG"} --json headRefOid,title,body,state,baseRefName)" || rej "gh pr view $PR 실패(7 s + 재시도 1)"; deadline
+JSON="$(fm_t7 "$GH_R" pr view "$PR" ${SLUG:+-R "$SLUG"} --json headRefOid,headRefName,title,body,state,baseRefName)" || rej "gh pr view $PR 실패(7 s + 재시도 1)"; deadline
 pf() { printf '%s' "$JSON" | python3 -c 'import json,sys;print(json.load(sys.stdin).get(sys.argv[1]) or "")' "$1"; }
 [ "$(pf state)" = OPEN ] || rej "PR #$PR 가 OPEN 아님($(pf state))"
 [ "$(pf baseRefName)" = "$TARGET" ] || rej "PR #$PR base 가 $TARGET 아님($(pf baseRefName))"
 HEADSHA="$(pf headRefOid)"   # head != 승인 sha 는 게이트 뒤 ft-approval-equiv 가 가른다(R247 판정 1917 — A 뒤 main 병합만 했고 자기 변경이 같으면 같은 승인)
 fm_t7 git -c gc.auto=0 -C "$REPO" fetch --quiet "$REMOTE" "pull/$PR/head" || rej "PR head fetch 실패"; deadline
-S="$(G rev-parse --verify -q FETCH_HEAD^{commit})" && [ "$S" = "$HEADSHA" ] || rej "fetch 한 head($S) != PR head($HEADSHA)"
+S="$(G rev-parse --verify -q FETCH_HEAD^{commit})" && [ "$S" = "$HEADSHA" ] || rej "fetch 한 head($S) != PR head($HEADSHA)"; DNY="$(bash "$HERE/ft-merge-deny.sh" "$S" --branch "$(pf headRefName)" --repo "$REPO")" || rej "${DNY:-착지 금지 목록 검사 실패(사유 0)}"   # r755: 착지 금지 가지 목록(ft-merge-deny.txt) — 목록 없음·꼴 오류·금지 가지 = 착지 0(fail-closed)
 
 GOUT="$(bash "$HERE/ft-merge-gate.sh" "$S" --repo "$REPO" --remote "$REMOTE" --target "$TARGET" --base-head-file "$BH")" || rej "게이트: ${GOUT#DENY }"; deadline
 EQ=""   # R247: 게이트가 main 을 fetch 한 «뒤»(equiv 는 로컬 git 만) — 통과면 나머지 게이트·착지는 S 기준 그대로. 못 판단(rc3)도 REJECT.
