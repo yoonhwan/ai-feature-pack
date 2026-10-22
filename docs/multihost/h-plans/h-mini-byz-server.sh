@@ -26,6 +26,9 @@ WORK="${TMPDIR:-/tmp}/h-byz-$$"               # 이 맥 임시 작업 폴더(끝
 TUN_PORT="${LOOM_PG_TUNNEL_PORT:-38309}"       # 이 맥 loom 터널(launchd 상주 · 127.0.0.1) 포트 — 정본 server.sh 와 같은 값
 FWD_EXTRA="${FWD_EXTRA:-8000 8001}"             # 이 맥 상주 터널 중 mini 에 더 빌려줄 포트: 8000=LLM vLLM(LOCAL_VLLM_BASE_URL) · 8001=GPU STT/TTS(GPU_STT_TTS_URL) — 이 맥 로컬 기동과 같은 세트
 FWD_PORTS=("$TUN_PORT" $FWD_EXTRA)               # 38309(DB) + 8000 + 8001
+# mini 쪽 포트 → 이 맥 쪽 포트. 8000(LLM)은 이 맥에서 launchd 상주 터널 18703 이 소유한다(수동 8000 터널은 재부팅으로 사라짐 · 상위 #3202). 나머지는 같은 번호.
+LLM_LOCAL_PORT="${LLM_LOCAL_PORT:-18703}"
+lport() { case "$1" in 8000) printf '%s' "$LLM_LOCAL_PORT";; *) printf '%s' "$1";; esac; }
 TUN_PIDF="$HOME/.h-byz-tunnel.pid"            # 이 맥에서 이 h 가 연 «역방향 포워딩 ssh» pid(이 pid 만 정리)
 PYBIN="${PYBIN:-$SRC/.venv/bin/python}"        # psycopg 있는 python(DSN 해석 스크립트용 — 이 맥 BYZ .venv)
 SO=(-o BatchMode=yes -o ConnectTimeout=6 -o ServerAliveInterval=10 -o ServerAliveCountMax=3)
@@ -84,7 +87,8 @@ done
 say "        포트 3개 비어 있음"
 # loom 터널(사설 dev DB 로 가는 길)은 이 맥 launchd 가 상주 소유한다 — 이 h 는 그 로컬 포트를 mini 로 «빌려줄» 뿐 만들지 않는다(판정 909)
 for fp in "${FWD_PORTS[@]}"; do
-  lsof -nP -iTCP:"$fp" -sTCP:LISTEN -t >/dev/null 2>&1 || die 2 "이 맥 127.0.0.1:$fp 에 상주 터널이 없다 — 이 h 는 터널을 열지 않는다(포트 $fp: 38309=DB · 8000=LLM vLLM · 8001=GPU STT/TTS)"
+  lp="$(lport "$fp")"
+  lsof -nP -iTCP:"$lp" -sTCP:LISTEN -t >/dev/null 2>&1 || die 2 "이 맥 127.0.0.1:$lp 에 상주 터널이 없다 — 이 h 는 터널을 열지 않는다(mini 포트 $fp ← 이 맥 $lp: 38309=DB · 8000←18703=LLM vLLM · 8001=GPU STT/TTS)"
 done
 [ -x "$PYBIN" ] || die 2 "psycopg 있는 python 이 없다: $PYBIN (PYBIN= 로 지정)"
 command -v gcloud >/dev/null 2>&1 || die 2 "이 맥에 gcloud 가 없다 — dev DSN 을 Secret Manager 에서 못 꺼낸다"
@@ -92,7 +96,7 @@ for fp in "${FWD_PORTS[@]}"; do
   TBUSY="$(ms 15 "lsof -nP -iTCP:$fp -sTCP:LISTEN 2>/dev/null | wc -l | tr -d ' '")" || TBUSY=0
   [ "$TBUSY" = "0" ] || die 2 "mini 에서 포트 $fp 이 이미 사용 중이다(이전 포워딩이 남았나 — ACTION=stop 먼저)"
 done
-say "        이 맥 상주 터널 ${FWD_PORTS[*]} LISTEN 확인 · mini 에서 모두 비어 있음"
+say "        이 맥 상주 터널(mini 포트 ${FWD_PORTS[*]} ← 이 맥 $(for q in "${FWD_PORTS[@]}"; do printf "%s " "$(lport "$q")"; done)) LISTEN 확인 · mini 에서 모두 비어 있음"
 
 # ── 2) 코드 반입 — git archive(.env 는 미추적이라 애초에 안 들어옴) ───────
 say "2/7 코드 반입"
@@ -176,7 +180,7 @@ done
 say "        키 ${N}개 이름을 stdin 으로 넘긴다(값 출력 0)"
 # 역방향 포워딩 — mini 의 127.0.0.1:$TUN_PORT 로 오는 접속을 이 맥의 loom 터널(127.0.0.1:$TUN_PORT)로 되돌린다.
 #   mini 가 사설 DB 에 닿는 길 = 이 맥 상주 터널을 빌림. ExitOnForwardFailure: 포워딩이 안 서면 ssh 가 즉시 실패. 이 h 가 연 ssh pid 만 TUN_PIDF 에 기록.
-RARGS=(); for fp in "${FWD_PORTS[@]}"; do RARGS+=(-R "127.0.0.1:$fp:127.0.0.1:$fp"); done
+RARGS=(); for fp in "${FWD_PORTS[@]}"; do RARGS+=(-R "127.0.0.1:$fp:127.0.0.1:$(lport "$fp")"); done
 say "        역방향 포워딩 개설(mini ← 이 맥): ${FWD_PORTS[*]}"
 nohup ssh "${SO[@]}" -o ExitOnForwardFailure=yes -N "${RARGS[@]}" "$MINI" </dev/null >"$WORK/fwd.log" 2>&1 &
 echo $! > "$TUN_PIDF"; disown 2>/dev/null || true; sleep 3   # h 가 끝나도 포워딩은 남는다(서버가 쓰는 동안) — 정지는 ACTION=stop
