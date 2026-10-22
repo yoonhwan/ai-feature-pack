@@ -92,8 +92,11 @@ EOF
   say "2/6 러너 시작 (mini 백그라운드 · 상한 ${RUN_MAX}s · 시크릿 stdin)"
   JWT="$(grep -m1 -E '^BYZ_E2E_JWT_SECRET=' "$SRC/.env" | sed "s/^BYZ_E2E_JWT_SECRET=//; s/^[\"']//; s/[\"']\$//" | tr -d '\r')"
   [ -n "$JWT" ] || say "        ⚠ BYZ_E2E_JWT_SECRET 이 .env 에 없다 — 크레딧 경로가 None 이 될 수 있다(러너는 계속 돈다)"
+  # 시크릿은 600 임시 파일 → ssh stdin 으로만(h-mini-byz-server.sh 와 같은 꼴 · 화면 출력 0 · 끝나면 삭제)
+  ENVF="$(mktemp "${TMPDIR:-/tmp}/h-run1-env.XXXXXX")"; chmod 600 "$ENVF"; trap 'rm -f "$ENVF"' EXIT
+  printf 'export BYZ_E2E_JWT_SECRET=%q\n' "$JWT" > "$ENVF"
   {
-    printf 'export BYZ_E2E_JWT_SECRET=%q\n' "$JWT"
+    cat "$ENVF"
     cat <<EOS
 cd "\$HOME/Project/BYZ-Agents" || exit 1
 export BYZ_WEB_BASE=http://127.0.0.1:$P_WEB BYZ_GATEWAY_BASE=http://127.0.0.1:$P_GW CDP_PORT=$CDP BYZ_WORKER_LOG=/tmp/h-byz-worker.log
@@ -105,7 +108,7 @@ echo \$! > .h-run1.pid
 echo started_pid=\$(cat .h-run1.pid) log=\$LOG
 EOS
   } | timeout 30 ssh "${SO[@]}" "$MINI" "export PATH=/opt/homebrew/bin:\$HOME/.local/bin:\$PATH; bash -s" 2>&1 | sed 's/^/        /' || die 5 "러너 시작 실패"
-  unset JWT
+  rm -f "$ENVF"; unset JWT
 else
   HOST="$(ms 10 'hostname -s' 2>/dev/null)"
 fi
