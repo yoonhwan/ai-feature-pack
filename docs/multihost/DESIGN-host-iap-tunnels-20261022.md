@@ -25,9 +25,9 @@
 ## 3. 설계 (복사하지 않고 줄인다)
 
 - 호스트별 SA 2개(mini용·OCI용). byz-local-dev 의 10개 역할을 그대로 복사하지 않는다.
-- 부여 역할: `roles/iap.tunnelResourceAccessor` 만(가능하면 IAM 조건 `resource.name` 으로 두 인스턴스 한정). 키 발급은 SA 당 1개.
-- ssh 터널 1개(DB)는 `gcloud compute ssh` 대신 `ssh -o ProxyCommand="gcloud compute start-iap-tunnel stt-tts-dev 22 --listen-on-stdin …"` — 이 경우 SA 는 메타데이터를 쓰지 않으므로 instanceAdmin·serviceAccountUser 불필요. 대신 호스트별 전용 ssh 공개키를 프로젝트 `ssh-keys` 에 «사람이 h-A 에서 1회» 추가(롤백 = 그 줄 제거).
-- 8001 은 ssh 가 아니라 start-iap-tunnel(8000) 로 교체. 포트 번호(8001)는 그대로 둬 h381 env 변경 최소.
+- 부여 역할: `roles/iap.tunnelResourceAccessor` 만(★DA r1: IAP 는 `resource.name` 조건 미지원 → IAP 터널 리소스(VM별)에 직접 바인딩 + `destination.port` 조건: llm-dev 8000, stt-tts-dev 22·8000·8100★). 키 발급은 SA 당 1개.
+- ssh 터널 1개(DB)는 `gcloud compute ssh` 대신 `ssh -o ProxyCommand="gcloud compute start-iap-tunnel stt-tts-dev 22 --listen-on-stdin …"` — 이 경우 SA 는 메타데이터를 쓰지 않으므로 instanceAdmin·serviceAccountUser 불필요. 대신 호스트별 전용 ssh 공개키를 ★stt-tts-dev «인스턴스» 메타데이터 ssh-keys 에만★ «사람이 h-A 에서 1회» 추가(DA r1·반영) — 기존 인스턴스 키 목록을 읽어 «보존한 채 추가»(덮어쓰기 금지) · block-project-ssh-keys 는 건드리지 않음(yoonhwan 키 유지). 롤백 = 그 줄 제거.
+- 8001 은 ssh 가 아니라 start-iap-tunnel(8000) 로 교체. ★DA r1: 보류 — 기존 ssh 는 VM 안 localhost:8000, IAP 직접은 VM nic0 내부 IP:8000 이라 리스너가 127.0.0.1 전용이면 실패. h-A 시험에서 같은 요청·응답으로 입증되기 전엔 기존 ssh -L 방식 유지.★
 - 비밀: SA 키는 화면 출력 0 · 0600 임시 파일 → ssh stdin 으로 호스트 0600 · 이 맥 임시본 삭제.
 
 ## 4. 미확정 (h-A 에서 새 SA 로 «실제로 돌려 보기» 전엔 모름)
@@ -46,3 +46,17 @@
 ## 6. DA 권고
 
 IAM 변경(SA 생성·역할·프로젝트 ssh-keys 수정)이라 1회 권장. 질문 후보: ① 역할 최소성 ② 프로젝트 ssh-keys 추가의 범위(전 인스턴스에 키가 퍼짐) ③ 키 수명·회수.
+
+## 7. DA r1 판정 HOLD 반영 (gpt-6.1-sol · headroom · 출력 첫 줄 «판정: HOLD»)
+
+| DA 지적 | 반영 |
+|---|---|
+| 1 `resource.name` 은 IAP 미지원 / compute.instances.get·list 필요 여부는 SDK 동작 의존 | VM별 IAP 리소스 바인딩 + destination.port 조건. gcloud SDK 버전·`--project`·`--zone`·`--account` 고정. 조회 권한 «없는» 새 SA 로 연결·재연결 입증 — 실패하면 커스텀 역할(get 만) 설계 |
+| 2 ssh 키는 인스턴스 메타데이터에만 · 기존 키 보존 | 위 §3 반영. 호스트별 키 2줄(mini·OCI) |
+| 3 키 수명·회수 부재 | 호스트↔SA↔키 ID 표 + 교체 주기 + 교체 절차(새 키 검증 후 기존 비활성→폐기) + 유출 시 SA 키 차단·ssh 키 제거 각각 + 열린 포워딩 종료 확인. JSON 키는 «기한 있는 과도기안», WIF 는 신뢰 IdP 경로 미입증이라 후속 |
+| 4 8001 교체 동등성 미입증 | 보류(§3). 시험으로만 해제 |
+| 5 DB 전용 키가 일반 ssh 로 확대 | 전용 Linux 사용자 · sudo 금지 · authorized_keys `restrict,port-forwarding,permitopen="10.2.0.10:5432"` · 셸 불가 |
+| 6 무인 재기동·유휴 단절 | OCI `loginctl enable-linger` · mini LaunchAgent 로그인 세션 의존 확인 · keepalive·backoff · IAP 1시간 비활성 단절 후 «실제 요청 복구» 를 합격 기준에 |
+| 7 거짓 통과(기존 계정·기존 포트) | 시험은 전용 `CLOUDSDK_CONFIG` + 명시 계정 · 포트 소유 프로세스 확인 · `ExitOnForwardFailure=yes` · loopback 고정 · LISTEN 만으로 통과 금지(새 SA 연결 증거+API 응답+DB 쿼리) |
+
+DA 카운터: 이 설계 보류 1회.
