@@ -4,7 +4,9 @@
 왜: 자율 OFF 에서도 main 에 들어가는 모든 PR 이 오빠 승인 파일을 요구해, planner 팀장 교대 인계서처럼
     .md 만 바꾸는 PR 도 오빠께 실행 요청이 갔다(오빠 2026-10-22 13:3x 「이건 그냥 할 수 있는 건데」).
     ⇒ «한 팀 폴더 안의 .md 추가·수정만» 인 PR 을 기계로 판정해 승인 h 없이 착지시킨다.
-    범위(2026-10-22 master #140107 확정) = 모든 팀 폴더 design/teams/<팀>/ «직속» .md — 2576(이슈팀 표) 포함.
+    범위(2026-10-22 master #140107 확정 · R741 확대) = 모든 팀 폴더 design/teams/<팀>/ 아래 .md — 2576(이슈팀 표) 포함.
+    R741: «직속» 만이 아니라 «하위 폴더»(증거·날짜 폴더 등)까지. 단 도구가 판정 입력으로 읽는 폴더(indices·inbox·keys)와
+    점 폴더는 제외 — 그 목록·조각 검사는 ft_doc_exempt_paths.py 한 곳(카드 r741-doc-exempt-team-subfolders).
     이전 판(planner 직속 HANDOFF-*/CLOSEOUT-*.md 만)은 폐기.
 
 사용: ft_doc_exempt.py --mode <doc-exempt|md-files> --head <40hex> [--base <40hex>] [--repo <dir>]
@@ -17,8 +19,10 @@
     ① 부른 좌석 = 그 폴더 «팀 master»(명부 seats-<팀>.json `_master`) 또는 planner `_master` «정확 일치»
        ∧ 이름 lint PASS(ft-name-lint.sh 1곳)
     ② base(--base · 없으면 fetch 로 얻은 최신 <remote>/<target>) 가 head 의 조상
-    ③ merge-base(base,head)..head 최종 트리 diff 의 모든 경로가 «한» 팀 폴더 design/teams/<팀>/ «직속»(하위 폴더 0)
-       ∧ 이름이 *.md 이고 정본·승인근거·판정 입력 이름(CANON) 아님
+    ③ merge-base(base,head)..head 최종 트리 diff 의 모든 경로가 «한» 팀 폴더 design/teams/<팀>/ 아래(하위 폴더 허용 ·
+       indices·inbox·keys·baselines·점 폴더 제외 = ft_doc_exempt_paths.EXCLUDE_DIRS) ∧ 이름이 *.md 이고 정본·승인근거·판정 입력
+       이름(ft_doc_exempt_paths.CANON·EXCLUDE_NAMES · key(NFKC+casefold) 비교 · 어느 깊이에서든) 아님
+       ∧ ★하위 폴더는 «추가(A)» 만★ — 수정·삭제·이름바꾸기(M/D/R)는 직속만(오빠 결정 2026-10-22 · 선택지 1)
     ④ 추가(A)·수정(M)만 — 삭제·이름바꿈·복사 0(--no-renames · --find-copies=0)
     ⑤ 모드 100644 만(링크·실행비트·gitlink 0) · 바이너리 0 — numstat rc≠0 = rc2 · 바이너리 판정은 git diff 속성이 아니라
        head 의 blob 내용(NUL 바이트·UTF-8 아님)으로 본다(DA⑥ r1 질문 3: 속성 강제·numstat 실패로 바이너리가 통과하던 자리)
@@ -37,20 +41,15 @@ import os
 import re
 import subprocess
 import sys
-import unicodedata
+
+sys.dont_write_bytecode = True
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # R741: 같은 폴더 모듈(경로 조각 판정) — 설치본도 키트 트리 참조
+import ft_doc_exempt_paths as paths   # noqa: E402  (제외 폴더·CANON·경로 모양 = 한 곳 · 본 판정기 줄 수 상한)
 
 SHA = re.compile(r"^[0-9a-f]{40}$")
-TEAMS_PREFIX = "design/teams/"
 PLANNER = "planner"
-TEAM_RX = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
-# 정본·승인 근거가 되는 .md 는 예외가 아니다(오빠 손 · 승인 파일 판정의 근거). 카드 ⓒ 의 원장·GOAL·GUIDE·BOARD 반례 그대로.
-# 판정 입력 = 승인근거와 같이 제외한다(DA⑥ r1 질문 5): 키트가 골·결정·정지·카드 상태를 «읽는» 팀 폴더 직속 이름.
-#   실측 참조 = ft_goal_ledger.py(PLAN-oppa-ledger) · ft_goal_table.py(STATE.md · NANO-LEDGER · NEWS-TREE) · ft_decision_count.py(FLAG-DECISIONS · MERGE-QUEUE)
-CANON = ("GOAL-", "GUIDE-", "SEATBELT", "VERDICTS-", "AUTONOMY-", "BOARD", "README",
-         "PLAN-oppa-ledger", "FLAG-DECISIONS", "MERGE-QUEUE", "STATE.md", "NANO-LEDGER", "NEWS-TREE", "DECISION")
 GOOD_MODE = "100644"
 CALL_S = 7
-sys.dont_write_bytecode = True
 
 
 def notx(msg, rc=1):
@@ -196,29 +195,6 @@ def diff_paths(repo, base, head):
     return pairs
 
 
-def team_of(path):
-    """doc-exempt ③⑥ — (팀, 사유). 사유가 있으면 경로가 범위 밖."""
-    if any(ord(c) < 0x20 or ord(c) == 0x7F for c in path):
-        return "", "제어문자 포함 경로: %r" % path
-    if not unicodedata.is_normalized("NFC", path):
-        return "", "NFC 아닌 이름: %s" % path
-    if not path.startswith(TEAMS_PREFIX):
-        return "", "팀 폴더(design/teams/) 아님: %s" % path
-    tail = path[len(TEAMS_PREFIX):]
-    team, _, name = tail.partition("/")
-    if not name:
-        return "", "팀 폴더 직속 파일이 아님: %s" % path
-    if "/" in name:
-        return "", "팀 하위 폴더: %s" % path
-    if not TEAM_RX.match(team):
-        return "", "팀 이름 형식 틀림: %s" % path
-    if not name.endswith(".md"):
-        return "", "문서(.md) 아님: %s" % path
-    if name.startswith(CANON):
-        return "", "정본·승인근거·판정입력 이름(%s)은 예외 아님: %s" % (" · ".join(CANON), path)
-    return team, ""
-
-
 def main(argv):
     mode, head, base, repoa, roota, seat, remote, target = "doc-exempt", "", "", "", "", "", "origin", "main"
     i = 0
@@ -276,7 +252,7 @@ def main(argv):
     for st, p in pairs:
         if st not in ("A", "M"):
             notx("추가·수정 아닌 변경(%s): %s" % (st, p))
-        team, why = team_of(p)
+        team, why = paths.team_of(p, st)
         if why:
             notx(why)
         why = blob_bad(repo, head, p)

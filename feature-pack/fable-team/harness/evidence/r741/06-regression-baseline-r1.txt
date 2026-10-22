@@ -1,0 +1,5 @@
+# R741 선행 실패 3종의 «기준선» 실측 (origin/main e0d2b265 사본 = bin/ft-scratch-repo.sh origin/main · 2026-10-22T10:40:15Z)
+# 원판(= 이 카드 변경 전) 코드로 같은 세 시험 — 값이 새 판과 같으면 «선행 실패»(이 카드 무관)
+test_merge_gate rc=1 PASS=25 FAILED 1
+test_merge_land_pack_repo rc=1 PASS=23 FAILED 9
+test_goal_hook_merge rc=2 PASS=2 

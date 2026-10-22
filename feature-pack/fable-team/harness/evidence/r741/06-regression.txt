@@ -1,0 +1,12 @@
+# R741 기존 계약 시험 회귀 (r3 · 2026-10-22T11:18:45Z) — 새 판
+# 실행: cd feature-pack/fable-team/harness && bash tests/<파일>   (광역 pytest 0 · 카드 관련 시험만)
+test_doc_exempt_r725 rc=0 PASS=127 ALL PASS 
+test_doc_exempt_guard_r741 rc=0 PASS=10 ALL PASS 
+test_merge_land rc=0 PASS=49 ALL PASS 
+test_merge_land_equiv rc=0 PASS=42 ALL PASS 
+test_autonomy_scope rc=0 PASS=134 
+test_name_lint rc=0 PASS=15 
+test_merge_gate rc=1 PASS=25 FAIL 정적: gate·lines·lib 에 reset·rebase·force·push 호출 0 :: rc=2 out=usage: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r741-doc-exempt-team-subfolders/feature-pack/fable-team/harness/tests/../../harness/bin/ft-merge-gate.sh <sha> [--base-head-file <경로>] [--repo <dir>] [--remote origin] [--target main] FAILED 1 
+test_merge_land_pack_repo rc=1 PASS=23 FAIL ⓐ2 전판 · gh -R 없음 → BYZ 쪽 PR #5 로 조회(OPEN 아님) :: rc=0 out=LANDED pr=5 sha=5e4a01ed1568d3331a841fb001ba1d64647e6fa4 main_before=53371fc620efb9ec8f3361184f9714d09cd339bf head=87083ec21984e5e4b7964afdf4d2439f49052021 tree=2a4c078c328e7aef71c6aeb963f490749202c80b FAIL ⓐ3 전판 · BYZ 기준 헤드를 팩 리포 객체로 찾음 → REJECT «객체 없음» :: rc=1 out=REJECT 게이트: 기준 헤드 5e4a01ed15 가 후보 87083ec219 의 조상이 아님 — 옛 이력 위의 세트(ft-head-sync 로 최신화 먼저) (착지 0) 
+test_goal_hook_merge rc=2 PASS=2 FAIL bash -n FAIL main 병합 커밋이 거부됨 
+# 선행 실패 3종(test_merge_gate FAILED 1 · test_merge_land_pack_repo FAILED 9 · test_goal_hook_merge rc2)의 기준선 = 06-regression-baseline-r1.txt (origin/main 사본에서 같은 값 실측)

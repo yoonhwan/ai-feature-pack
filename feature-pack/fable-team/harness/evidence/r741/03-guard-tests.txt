@@ -1,0 +1,13 @@
+# R741 가드 시험 전문 (r3 · 다섯 폴더 경로 오타 고침) — bash harness/tests/test_doc_exempt_guard_r741.sh (2026-10-22T11:18:18Z)
+PASS ⓘ① 다섯 폴더 스캔이 실제 읽는 이름·폴더를 찾는다(헛돌지 않음)
+PASS ⓘ①b 훑는 다섯 폴더가 전부 실재(kit/hooks·kit/slack-mirror 포함)
+PASS ⓘ② 키트가 이름으로 부르는 .md 토큰 ⊆ EXCLUDE_NAMES (빠진 이름=없음)
+PASS ⓘ③ 팀 하위 폴더로 쓰이는 경로 조각 ⊆ EXCLUDE_DIRS (빠진 폴더=없음)
+PASS ⓘ④ 빨강: EXCLUDE_NAMES 에서 FLAGS.md 를 빼면 FAIL 로 잡힌다(빠진 이름=flags.md)
+PASS ⓘ⑤ 빨강: EXCLUDE_DIRS 에서 baselines 를 빼면 FAIL 로 잡힌다(빠진 폴더=baselines)
+PASS ⓘ⑥ --emit 출력 = 모듈 EXCLUDE_NAMES 블록(목록 갱신 경로가 실제로 맞다)
+PASS ⓘ⑦ 빨강: 훑는 폴더에 새 이름(.md)이 생기면 그 폴더를 정말 읽어 FAIL 로 잡힌다(빠진 이름=newname-r741.md)
+PASS ⓘ⑦b 빨강: slack-mirror 류 폴더도 같은 규칙으로 잡힌다(빠진 이름=pickr741.md)
+PASS ⓘ⑧ kit/hooks · kit/slack-mirror 에서 실제 .md 이름 16개를 읽는다(빈 손 스캔 아님)
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
