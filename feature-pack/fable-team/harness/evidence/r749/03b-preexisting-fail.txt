@@ -1,0 +1,4 @@
+기선(변경 전 bin·kit 를 stash 로 되돌린 상태)에서 test_head_lag.sh 를 같은 자리에서 실행한 결과 — 아래 1건은 이 카드 이전부터 실패했다(내 변경 0).
+명령: git stash push -- feature-pack/fable-team/harness/{bin,kit,tests} && bash tests/test_head_lag.sh && git stash pop
+관측: FAIL ⓐ 착지 성공 → 기준 헤드 파일 = 새 main sha(1줄) :: REJECT 대상 리포 remote URL 해석 실패(fetch·push URL 이 같은 github owner/name 이어야)
+원인 추정: 착지 도구가 로컬 경로 remote(픽스처 origin.git)를 github owner/name 으로 못 풀어 거절 — 이 카드 범위 밖(ft-merge-land.sh) · 내 변경 파일과 무관

@@ -1,0 +1,16 @@
+R749 변경 파일 (base = 94c8e4bc)
+ .../fable-team/harness/bin/ft-head-sync.sh         | 47 +++++++++++++++++-----
+ feature-pack/fable-team/harness/bin/ft_head_lag.py |  5 ++-
+ .../harness/kit/fable-team/bin/ft-head-sync.sh     | 47 +++++++++++++++++-----
+ .../harness/kit/fable-team/bin/ft_head_lag.py      |  5 ++-
+ .../fable-team/harness/tests/test_head_sync.sh     |  6 ++-
+ 5 files changed, 82 insertions(+), 28 deletions(-)
+--- 새 파일
+feature-pack/fable-team/harness/tests/test_head_sync_apply_scope.sh (88줄)
+--- kit ↔ bin 짝 사본 cmp (0 = 동일)
+ft-head-sync.sh cmp=0
+ft_head_lag.py cmp=0
+--- 줄수
+     111 feature-pack/fable-team/harness/bin/ft-head-sync.sh
+     148 feature-pack/fable-team/harness/bin/ft_head_lag.py
+     259 total

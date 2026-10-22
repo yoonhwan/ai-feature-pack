@@ -1,3 +1,10 @@
+## 2026-10-22 — r749 `ft-head-sync --apply` 는 부른 워크트리 1개만(1.1.216)
+
+- `--apply` 가 리포 전 워크트리 296개를 돌며 다른 팀 가지 95개에 main 병합 커밋을 만들던 것(v65 나노가 [베이스 뒤처짐] 알림의 조치문대로 실행 · 로컬만 · 충돌 40 abort · 40분+) → `--apply` = 부른 cwd 워크트리 1개(대상 밖이면 REJECT rc2 · 쓰기 0) · 전 순회 = `--apply --all --confirm <N>`(N = 표 모드 «최신화 필요» 수 · 틀리면 REJECT) · 표 모드(읽기)는 그대로.
+- `ft_head_lag.py` 알림 조치문 = «그 워크트리 안에서(cd <절대경로>) … --apply (그 워크트리만)» + 목록 줄에 절대 경로.
+- 시험 `test_head_sync_apply_scope.sh` 신규(ⓑ~ⓙ · 변이 2) · 기존 head_sync·head_skip_list PASS · 판정문 §207 · 증거 `harness/evidence/r749/` · 이미 생긴 다른 팀 로컬 병합은 main 을 합친 것이라 그대로 둠(되돌리기 = reset = HIL · 범위 밖).
+- 설치: `ft-head-sync.sh` · `ft_head_lag.py` LIVE_BIN cmp0 · 실사건 = 자기 워크트리 1곳 `--apply` + 다음 알림 조치문 원문.
+
 ## 2026-10-22 — r745 개명한 팀의 옛 이름 쪽지가 새 좌석에 이어진다(1.1.215 · mbox 계보 별칭)
 
 - 팀 이름을 바꾸면(loom → knowledge) 옛 이름의 팀 글자가 가리키던 명부 파일(`seats-loom.json`)이 없어져서, 계보 역추적(`mbox_lineage.py`)과 보내는 쪽 가드(`mbox_guard.sh`)가 옛 이름 쪽지를 «미등록»으로 보고 후계 recv 에 안 이어주던 것 → 새 모듈 `comm/mbox_teamfile.py` 의 «명부 파일 찾기» 함수 1개를 받는 쪽·보내는 쪽이 같이 부름: 원 명부 파일이 있으면 그대로 · 없을 때만 `_renamed_from == <팀>` 인 명부가 정확히 1개면 그 파일(0개·2개+ 는 지금과 같음 · 2개+ 는 경고 1줄).

@@ -9,6 +9,8 @@ ck() { if [ "$2" = 0 ]; then echo "PASS $1"; else echo "FAIL $1 :: rc=$rc out=${
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 row() { printf '%s\n' "$out" | awk -v b="$1" '$1==b'; }          # 표에서 브랜치 줄
 head_of() { sha "$T/wt-$1" HEAD; }
+# R749: --apply 는 부른 워크트리 1개만 쓴다 — 전 순회는 --apply --all --confirm <N>(N = 표 모드의 «최신화 필요» 수)
+apply_all() { out="$(bash "$SYNC" --repo "$W" 2>&1)"; local n; n="$(printf '%s\n' "$out" | sed -n 's/.*최신화 필요 \([0-9]*\).*/\1/p' | tail -1)"; out="$(bash "$SYNC" --apply --all --confirm "$n" --repo "$W" 2>&1)"; rc=$?; }
 wt() { git -C "$W" worktree add -q -b "$1" "$T/wt-$1" "${2:-$M0}"; git -C "$T/wt-$1" config user.name t; git -C "$T/wt-$1" config user.email t@t; }
 
 bash -n "$SYNC"; ck "bash -n head-sync" $?
@@ -42,7 +44,7 @@ out="$(bash "$SYNC" --repo "$W" 2>&1)"; printf '%s\n' "$out" | grep -qE '^main '
 
 # ② --apply
 DIRTY_SNAP="$(cd "$T/wt-dirty" && { git diff --binary; cat new.txt; git rev-parse HEAD; } | shasum)"
-out="$(bash "$SYNC" --apply --repo "$W" 2>&1)"; rc=$?
+apply_all
 [ "$rc" = 0 ]; ck "--apply rc=0 (비파괴 위반 0)" $?
 row clean | grep -q '최신화함'; ck "깨끗한 STALE → 최신화함" $?
 [ "$(git -C "$T/wt-clean" rev-list --first-parent --count "$H0_clean..HEAD")" = 1 ] && git -C "$T/wt-clean" merge-base --is-ancestor "$M1" HEAD && [ "$(git -C "$T/wt-clean" rev-list --parents -n1 HEAD | wc -w | tr -d ' ')" = 3 ]; ck "clean: merge 1커밋(부모 2) · main 이 조상" $?
@@ -58,7 +60,7 @@ row fresh | grep -qE '최신$'; ck "이미 포함 fresh 는 그대로" $?
 git -C "$W" worktree add -q -b opx "$T/wt-opx" "$M0"; git -C "$T/wt-opx" config user.name t; git -C "$T/wt-opx" config user.email t@t
 printf 'x\n' > "$T/wt-opx/a.txt"; cm "$T/wt-opx" "opx"; git -C "$T/wt-opx" merge --no-edit "$M1" >/dev/null 2>&1
 [ -e "$(git -C "$T/wt-opx" rev-parse --absolute-git-dir)/MERGE_HEAD" ]; ck "픽스처: opx 는 충돌로 병합 진행 중" $?
-H0x="$(head_of opx)"; out="$(bash "$SYNC" --apply --repo "$W" 2>&1)"
+H0x="$(head_of opx)"; apply_all
 row opx | grep -q '보류(진행 중 연산'; ck "진행 중 연산(MERGE_HEAD) → 보류" $?
 [ "$(head_of opx)" = "$H0x" ] && [ -e "$(git -C "$T/wt-opx" rev-parse --absolute-git-dir)/MERGE_HEAD" ]; ck "진행 중 연산 워크트리 손대지 않음(abort 도 안 함)" $?
 

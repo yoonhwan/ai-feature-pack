@@ -1,0 +1,15 @@
+R749 ⓑ 초록 — 같은 픽스처·같은 자리(cwd=A)에서 지금 판은 A 만 최신화한다
+전 a HEAD=504346f main_in=no
+전 b HEAD=62489f3 main_in=no
+전 c HEAD=00d4389 main_in=no
+--- 지금 판 출력
+base=80f449105795b39dfea7d6141c5d39694324f230 (origin/main) apply=1 all=0
+브랜치  워크트리  분류   contains_main  미랜딩  결과
+nano/a  wt-a      STALE  no             1       최신화함
+nano/b  wt-b      STALE  no             1       다른 워크트리 — 그 자리에서
+nano/c  wt-c      STALE  no             1       다른 워크트리 — 그 자리에서
+요약: 총 3 · 최신 0 · 최신화함 1 · 충돌·사람 0 · 보류 0 · 최신화 필요 0 · 오류 0
+비파괴 증거: 병합 안 한 워크트리 2 개 전후 HEAD·staged·상태·미커밋 내용 해시 동일
+후 a HEAD=8cf9ce6 main_in=yes
+후 b HEAD=62489f3 main_in=no
+후 c HEAD=00d4389 main_in=no

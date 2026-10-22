@@ -1,0 +1,106 @@
+===== test_head_sync.sh
+PASS bash -n head-sync
+PASS 표만 rc=0
+PASS 표 머리에 base 40hex 고정 기록
+PASS 표만 = 모든 HEAD 불변
+PASS 뒤처진 clean → «최신화 필요»
+PASS main 포함 fresh → «최신»
+PASS LANDED 도 최신화 대상 + 닫기 후보 표기(H3 · rc3 를 신선으로 안 봄)
+PASS main 브랜치 제외
+PASS --apply rc=0 (비파괴 위반 0)
+PASS 깨끗한 STALE → 최신화함
+PASS clean: merge 1커밋(부모 2) · main 이 조상
+PASS squash 계보(같은 내용 다른 커밋) → 자동 해소 → 최신화함
+PASS LANDED 도 merge · 닫기 후보 칸
+PASS 미커밋 있는 워크트리 → 보류
+PASS 보류 워크트리 손대지 않음(HEAD·수정·미추적 내용 동일)
+PASS 충돌 → «충돌·사람»
+PASS 충돌 워크트리: abort 뒤 HEAD 그대로·깨끗·MERGE_HEAD 0
+PASS 이미 포함 fresh 는 그대로
+PASS fresh HEAD 불변
+PASS 비파괴 증거 줄 출력
+PASS 픽스처: opx 는 충돌로 병합 진행 중
+PASS 진행 중 연산(MERGE_HEAD) → 보류
+PASS 진행 중 연산 워크트리 손대지 않음(abort 도 안 함)
+PASS core.bare 오염 0
+PASS 정적: head-sync 에 reset·rebase·force·push 호출 0
+ALL PASS
+----- rc=0
+===== test_head_sync_apply_scope.sh
+PASS bash -n head-sync
+PASS ft-head-sync.sh ≤ 130줄
+PASS ⓕ 표 모드는 A·B·C 셋 다 나열(apply=0)
+PASS ⓕ 표 모드 = 셋 다 «최신화 필요» · HEAD/상태 불변
+PASS ⓑ A 안 --apply rc=0 · a 줄 «최신화함»
+PASS ⓑ A 만 merge 1커밋(부모 2) · main 조상
+PASS ⓑ 비파괴 대조: B·C HEAD 전후 같음 · 미커밋 0
+PASS ⓑ 표에 B·C = «다른 워크트리 — 그 자리에서»
+PASS ⓑ 비파괴 증거 줄 출력
+PASS ⓒ main 워크트리에서 --apply → REJECT rc2 · 쓰기 0
+PASS ⓒ 리포 공용 루트(워크트리 아님)에서 --apply → REJECT rc2 · 쓰기 0
+PASS ⓒ bare origin 안에서 --apply → REJECT rc2 · 쓰기 0
+PASS ⓒ REJECT 문구에 usage 오분류 0
+PASS ⓓ --apply --all 만 → REJECT rc2 · «최신화 필요» 2 곳 출력 · 쓰기 0
+PASS ⓔ --confirm 99(틀림) → REJECT rc2 · 쓰기 0
+PASS ⓔ --confirm 2(맞음) → B·C 전 순회 최신화함(cwd 무관)
+PASS ⓔ B·C 에 main 조상 포함
+PASS ⓖ 목록 줄에 절대 경로
+PASS ⓖ 조치문 = 그 워크트리 안에서(cd <경로>) … --apply (그 워크트리만)
+PASS ⓖ 조치문에 --all 0
+PASS ⓖ 옛 조치문(어디서 쳐야 하는지 없음) 0
+PASS ⓘ 변이(cwd 한정 삭제) → B 도 병합됨 = ⓑ 단언이 잡는다
+PASS ⓘ 변이(옛 조치문) → (cd <경로>) 사라짐 = ⓖ 단언이 잡는다
+PASS 정적: reset·rebase·force·push 호출 0
+PASS core.bare 오염 0
+PASS 정적: 다른 리포 워크트리를 이름으로 고르는 인자 0
+ALL PASS
+----- rc=0
+===== test_head_skip_list.sh
+PASS ⓐ 문서 줄기 6개 뒤처짐 → ft_head_lag 알림 0
+PASS ⓑ 일반 nano 줄기 뒤처짐 → 알림 1(팀당 1통)
+PASS ⓐ 문서 줄기 6개 → ft-head-sync 표에서 제외
+PASS ⓑ nano/gen → ft-head-sync 표에 있음
+PASS ⓒ 환경변수 값이 파일 대신 — ft_head_lag
+PASS ⓒ 환경변수 값이 파일 대신 — ft-head-sync
+PASS ⓔ 파일에서 1줄 삭제 → ft_head_lag 가 그 줄기만 알림
+PASS ⓔ 같은 파일 → ft-head-sync 도 그 줄기만 표에 나옴
+PASS ⓓ missing → ft_head_lag ERROR rc≠0 알림 0
+PASS ⓓ missing → ft-head-sync ERROR rc≠0
+PASS ⓓ empty → ft_head_lag ERROR rc≠0 알림 0
+PASS ⓓ empty → ft-head-sync ERROR rc≠0
+PASS ⓓ comments → ft_head_lag ERROR rc≠0 알림 0
+PASS ⓓ comments → ft-head-sync ERROR rc≠0
+PASS ⓕ feat/v6-realtime-live 뒤처짐 → ft_head_lag 알림 0(공용 라이브 뿌리 제외)
+PASS ⓖ feat/v6-realtime-live → ft-head-sync 표에서 제외(같은 파일 1줄)
+PASS ⓗ 다른 기능 브랜치 nano/r549fn → 알림 1 · 표 1(제외 안 넓어짐 · 앵커 ^(…)$)
+PASS 정적: 기본값 4개 줄 보존
+PASS 정적: 하드코딩 기본 정규식 2곳 삭제
+PASS 정적: 키트 사본 ft-head-skip.txt 일치
+PASS core.bare 오염 0
+ALL PASS
+----- rc=0
+===== test_head_lag.sh
+PASS bash -n land
+PASS ft-merge-land.sh ≤ 120줄
+PASS ⓐ 착지 실패(non-FF 거절) → 기준 헤드 옛 값 그대로
+FAIL ⓐ 착지 성공 → 기준 헤드 파일 = 새 main sha(1줄) :: rc=1 out=REJECT 대상 리포 remote URL 해석 실패(fetch·push URL 이 같은 github owner/name 이어야) — 어느 리포 PR 인지 몰라 착지 0 (착지 0)
+PASS ⓐ 임시 파일 잔재 0(원자 교체)
+PASS ⓑ 뒤처진 팀 A·B master 에 각 1통(팀당 1통)
+PASS ⓑ 알림에 워크트리·브랜치·N커밋·N시간·명령 줄
+PASS ⓑ A 알림에 남의 워크트리·최신(lagC)·좌석 없는 곳(lagD)·release 브랜치(lagR) 없음
+PASS ⓑ B 알림 = lagB · 좌석 없는 lagD 알림 0
+PASS ⓒ 같은 main sha 재실행 → 0통
+PASS ⓒ 안전망(--cron)도 이미 알린 건 0통
+PASS ⓕ --summary 1줄(좌석 없는 lagD 포함 · 최신 lagC·release 제외)
+PASS ⓓ 6시간 뒤에도 그대로 → 재알림 1(팀당)
+PASS ⓓ 그 뒤 0(재촉 상한 1)
+PASS ⓔ 새 main sha → 다시 1(팀당) · 문턱 미만(lagC 10분)은 제외
+PASS ⓔ 문턱 5분이면 lagC 알림 1
+PASS ⓖ fetch 실패 → stderr ERROR · rc 4 · 알림 0
+PASS ⓕ 뒤처짐 0곳 → 빈 출력
+PASS bash -n head-lag
+PASS 진입 ≤ 40줄 · py 각 ≤ 150줄
+PASS 정적: head-lag 에 git reset·rebase·push·merge·force 0(읽기 전용)
+PASS core.bare 오염 0
+FAILED 1
+----- rc=0
