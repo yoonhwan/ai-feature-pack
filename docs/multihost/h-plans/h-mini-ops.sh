@@ -17,7 +17,8 @@ TMM_PACK="$REPO/feature-pack/tmm"
 SO=(-o BatchMode=yes -o ConnectTimeout=6 -o ServerAliveInterval=10 -o ServerAliveCountMax=3)
 say() { printf '[h-mini] %s\n' "$*"; }
 die() { printf '[h-mini] REJECT rc=%s %s\n' "$1" "$2" >&2; exit "$1"; }
-ms() { local t="$1"; shift; timeout "$t" ssh "${SO[@]}" "$MINI" "$@"; }
+# mini 의 ssh 비대화형 PATH 는 /usr/bin:/bin:/usr/sbin:/sbin 뿐(실측 10-22) — brew(/opt/homebrew/bin)·~/.local/bin 을 앞에 붙인다
+ms() { local t="$1"; shift; timeout "$t" ssh "${SO[@]}" "$MINI" "export PATH=/opt/homebrew/bin:\$HOME/.local/bin:\$PATH; $*"; }
 
 # ── 0) 로컬 사전점검 ────────────────────────────────────────────────────────
 say "0/6 로컬 사전점검"
@@ -48,7 +49,12 @@ printf '%s\n' "$PRE" | sed 's/^/        /'
 printf '%s\n' "$PRE" | grep -qx 'arch=arm64' || die 2 "arm64 가 아니다"
 printf '%s\n' "$PRE" | grep -qx 'user=byz' || die 2 "원격 사용자가 byz 가 아니다 — ssh 별칭 mini 의 User 설정 확인(~/.ssh/config: Host mini … User byz)"
 printf '%s\n' "$PRE" | grep -qx 'brew=yes' || die 2 "brew 모듈 폴더에 쓰기 불가 — npm -g 설치가 안 된다"
-printf '%s\n' "$PRE" | grep -qx 'fzf=yes' || die 2 "fzf 가 없다(tmm 은 fzf 필요) — brew install fzf 는 오빠 승인 뒤"
+if ! printf '%s\n' "$PRE" | grep -qx 'fzf=yes'; then   # tmm 은 fzf 필요 — brew 사용자 설치(sudo 0 · 오빠 h375 실행 = 승인)
+  say "        fzf 없음 → brew install fzf (사용자 권한 · 70초 상한)"
+  ms 70 'HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 brew install fzf >/tmp/h-mini-fzf.log 2>&1 && echo fzf_install=ok' >/dev/null \
+    || die 3 "fzf 설치 실패 또는 70초 초과(/tmp/h-mini-fzf.log) — 같은 h 를 다시 치면 이어간다"
+  ms 15 'command -v fzf >/dev/null' || die 3 "fzf 설치 후에도 안 보인다"
+fi
 printf '%s\n' "$PRE" | grep -qx 'claude=yes' || die 2 "mini 에 claude 가 없다(~/.local/bin/claude)"
 
 # ── 2) pi 설치(이 맥과 같은 버전) ───────────────────────────────────────────
@@ -97,7 +103,7 @@ cat <<EOF
           · pi=\$(pi --version) · tmuxc=$TMUXC_VER · tmm=$TMM_VER (위 잠금 확인 줄)
           · probe 결과(모델 줄 + ANTHROPIC_BASE_URL 유무)
           · seat=closed 줄
-        롤백: ssh mini 'rm -rf ~/.tmm/versions/$TMM_VER ~/.tmuxc/versions/$TMUXC_VER; npm rm -g @earendil-works/pi-coding-agent'
+        롤백: ssh mini 'rm -rf ~/.tmm/versions/$TMM_VER ~/.tmuxc/versions/$TMUXC_VER; npm rm -g @earendil-works/pi-coding-agent'  (fzf 를 이 h 가 깔았으면: ssh mini '/opt/homebrew/bin/brew uninstall fzf')
               기존 tmuxc 0.1.0 은 지우지 않았다(~/.tmuxc/versions/0.1.0 그대로 · 심링크만 $TMUXC_VER 로 바뀐다)
         남은 것(오빠 판정): mini 에 브라우저 시험을 이관하려면 Chrome CDP·BlackHole·러너 조건 목록이 필요 — 별도 발주.
 EOF
