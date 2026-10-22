@@ -13,3 +13,11 @@ h7(재실행)이 새 키를 SA 당 1개 발급한다 — 그 key_id 는 h7 출�
 ## 결정 (오빠 · 상위 #3234)
 - 옛 키 2개(위 표 폐기 대상)는 «h7 성공(새 키가 mini·OCI 에 배치된 것 확인) 뒤» 삭제한다. 삭제 h 는 폐기 대상 2개 key_id 만 지우도록 만들어 상위 점검 후 오빠께. h7 이 실패하면 지우지 않는다.
 - 2026-10-22: 좌석 정리는 상위가 재개 기록(verdict 20261022-aifp3-close) 후 multihost#1·worker#2 를 닫음 — 되살림 zombie-clean.sh resume.
+
+## 사용 중 키 (h7 rc=0 · 2026-10-22 13:48 UTC 발급 · 호스트 배치 0600)
+| 호스트 | 서비스 계정 | key_id | 발급(UTC) | 교체 권장 |
+|---|---|---|---|---|
+| mini | byz-mini-tunnel | e07046b7c932931950bf4215197413f4ef4f0748 | 2026-10-22 13:48:03 | 2027-01-20 |
+| oci | byz-oci-tunnel | d9db6b342a0cd926c0ee3056d865e30ee22f77e0 | 2026-10-22 13:48:07 | 2027-01-20 |
+
+옛 키 폐기: `docs/multihost/h-plans/h-iap-old-keys-delete.sh` (DRY 통과 · 호스트 sa.json key_id == 위 사용 중 키 확인 후에만 지움).
