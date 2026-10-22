@@ -10,6 +10,11 @@
 #     3 교체: 수정 6파일을 stash(추가만 · drop 0) → 브랜치 local/cliproxy-loopback-v2 로 checkout → 추적 파일 깨끗 확인
 #     4 올리기: config 에 updates.parked_branch_strategy: update_in_place(백업) → hermes update --yes(분리 실행 · 폴링 · 의존성 설치·웹 빌드·필요하면 더 새 main 병합 · 게이트웨이 2개 hermes 가 재시작)
 #     5 증거: 브랜치·HEAD 에 사본 커밋 2개 포함 · venv 파이썬으로 loopback 가드 호출(True/False) · 침묵 접두사 함수 · 게이트웨이 2개 새 pid·슬랙 connected · 감시 launchd 생존 · 옛 브랜치/stash 그대로
+# ★진행 중 작업 판정(상위 #3273 조사 · 2026-10-23)★: gateway_state.json 의 active_agents 는 «대화 턴의 시작·끝» 에서만 다시 써진다 — cron 작업의 시작·끝에는 안 써진다.
+#   active_agents = 진행 중 대화 턴 + 실행 중 cron 작업 + API 실행(gateway/run.py _active_work_count). 이 맥 파일은 01:20 값(=그 순간 돌던 cron 2개, 둘 다 01:21 에 끝남)이 그대로라 «낡은 값» 이다.
+#   실제 값을 읽는 창구는 없다(8644 는 webhook /health 만). 그래서 이 h 는 ①agent.log 로 «Running job 은 있는데 completed/failed 가 없는» 것 ②최근 120초의 대화 활동 ③다음 cron 시작까지 여유(jobs.json next_run_at ≥ GAP_MIN 분) 로 판정하고,
+#   창이 아니면 «기다린다»(최대 WAIT_MAX 초 · DRY 는 상태만 출력). 마지막 안전망 = hermes update 자체의 drain(살아 있는 대화·cron·API 를 세며 최대 2025초 기다린 뒤 재시작).
+#   cron 주기(실측): oz-notice-relay */20 · pairing-healthcheck 30분 간격 · memory-review-hourly·미국-이란 모니터링 매시 정각 — 한 번 2~5분. 시작 간격이 가장 넓은 구간은 :05~:20(15분) · :27~:40(13분) · :44~:55(11분).
 # rc: 0 성공 · 2 사전점검 실패(쓰기 0) · 3 보존/교체 실패(되돌림 안내) · 4 업데이트 실패 · 5 증거 불일치
 # ★삭제 0 — 옛 브랜치 local/cliproxy-loopback-base-url · 기존 stash 3개 · 보존 브랜치 · 사본 모두 그대로. (stash drop 0 · branch -D 0)★
 # ★위험 1개★: 3 에서 코드만 새 것으로 바뀐 뒤 4 의 의존성 설치가 실패하면, 게이트웨이(메모리의 옛 코드)는 계속 돌지만 launchd 가 다시 띄우면 새 코드+옛 의존성이다.
@@ -51,14 +56,64 @@ say "        라이브 수정 파일 $(printf '%s\n' "$MODS" | sed '/^$/d' | wc 
 TR="$(cd "$PORT" && PYTHONDONTWRITEBYTECODE=1 timeout 120 /opt/homebrew/bin/pytest -q -p no:cacheprovider tests/gateway/test_slack_silence_prefix.py tests/gateway/test_media_delivery_failure_notice_on_exception.py tests/hermes_cli/test_runtime_provider_resolution.py 2>&1 | tail -1)"
 printf '%s' "$TR" | grep -q "passed" && ! printf '%s' "$TR" | grep -q "failed" || die 2 "사본 시험이 통과하지 않는다: $TR"
 say "        사본 시험: $TR"
-BUSY=""
+GAP_MIN="${GAP_MIN:-10}"; WAIT_MAX="${WAIT_MAX:-1500}"
 for sf in "${STATE_FILES[@]}"; do
-  AA="$(python3 -c "import json;print(json.load(open('$sf')).get('active_agents'))" 2>&1)"
-  if [ "$AA" != 0 ]; then
-    if [ "$DRY" = 1 ]; then BUSY="$BUSY $(basename "$(dirname "$sf")")(active_agents=$AA)"; else die 2 "$(basename "$(dirname "$sf")") active_agents=$AA — 진행 중 작업이 있다(재시작이 끊는다). 끝난 뒤 다시"; fi
-  fi
+  prof="$(basename "$(dirname "$sf")")"; [ "$prof" = ".hermes" ] && prof=default
+  say "        참고(낡을 수 있음) $prof gateway_state.json active_agents=$(python3 -c "import json;print(json.load(open('$sf')).get('active_agents'))" 2>&1) · 갱신 $(date -r "$(stat -f %m "$sf")" '+%m-%d %H:%M')"
 done
-[ -z "$BUSY" ] && say "        두 게이트웨이 active_agents=0" || say "        ⚠️ 지금은 진행 중 작업이 있다:${BUSY} — DRY 가 아닌 실행이면 여기서 막힌다"
+gate_check() {   # 출력 1줄 · 0=창(한가함) 1=바쁨
+  python3 - "$HD/logs/agent.log" "$HD/cron/jobs.json" "$GAP_MIN" <<'PY'
+import datetime as dt, json, re, sys
+log, jobsf, gap = sys.argv[1], sys.argv[2], int(sys.argv[3])
+now = dt.datetime.now()
+def ts(l):
+    return dt.datetime.strptime(l[:19], "%Y-%m-%d %H:%M:%S") if re.match(r"\d{4}-\d\d-\d\d \d\d:\d\d:\d\d", l) else None
+lines = open(log, encoding="utf-8", errors="replace").read().splitlines()[-8000:]
+running = {}
+for l in lines:
+    t = ts(l)
+    if not t or (now - t).total_seconds() > 3 * 3600: continue
+    m = re.search(r"cron\.scheduler: Running job '(.+?)' \(ID: (\w+)\)", l)
+    if m: running[m.group(2)] = (m.group(1), t); continue
+    m = re.search(r"cron\.scheduler: Job '(.+?)' (completed|failed)", l)
+    if m:
+        for k, (n, _) in list(running.items()):
+            if n == m.group(1): running.pop(k)
+chat = [l for l in lines if ts(l) and 0 <= (now - ts(l)).total_seconds() <= 120
+        and re.search(r"conversation_loop|tool_executor|Sending response", l) and "[cron_" not in l]
+nxt, nn = None, ""
+try:
+    d = json.load(open(jobsf)); jobs = d.get("jobs", d)
+    for j in jobs:
+        if not j.get("enabled", True): continue
+        s = j.get("next_run_at") or j.get("next_run")
+        if not s: continue
+        t = dt.datetime.fromisoformat(s)
+        if t.tzinfo: t = t.astimezone().replace(tzinfo=None)
+        if t < now - dt.timedelta(minutes=1): continue          # 과거(재개 대기 등)는 제외
+        if nxt is None or t < nxt: nxt, nn = t, (j.get("name") or j.get("id") or "")[:28]
+except Exception as e:
+    print("jobs.json 읽기 실패: %s" % e); sys.exit(1)
+mins = None if nxt is None else (nxt - now).total_seconds() / 60
+busy = bool(running) or bool(chat) or (mins is not None and mins < gap)
+print("진행중 cron %d(%s) · 최근120초 대화활동 %d줄 · 다음 cron %s분 뒤(%s) · 필요여유 %d분" % (
+    len(running), ",".join(n for n, _ in running.values())[:60] or "-", len(chat),
+    "?" if mins is None else "%.0f" % mins, nn or "-", gap))
+sys.exit(1 if busy else 0)
+PY
+}
+wait_window() {  # wait_window <단계이름>
+  local t0 out rc; t0=$(date +%s)
+  while :; do
+    out="$(gate_check)"; rc=$?
+    if [ "$rc" = 0 ]; then say "        실행 창 ✅ ($1) $out"; return 0; fi
+    if [ "$DRY" = 1 ]; then say "        실행 창 ⏳ ($1) 지금은 아님: $out — DRY 가 아닌 실행이면 최대 $((WAIT_MAX/60))분 기다린다"; return 0; fi
+    [ $(( $(date +%s) - t0 )) -ge "$WAIT_MAX" ] && die 2 "$((WAIT_MAX/60))분 기다려도 실행 창이 안 열렸다($out) — 다시"
+    [ $(( ($(date +%s) - t0) % 60 )) -lt 20 ] && say "        대기 중($1): $out"
+    sleep 20
+  done
+}
+wait_window "사전점검"
 for l in "${GW_LABELS[@]}"; do p="$(pidof_label "$l")"; [ -n "$p" ] && [ "$p" != "-" ] || die 2 "$l 이 running 이 아니다"; done
 WATCH_BEFORE=""; for l in "${WATCH_LABELS[@]}"; do p="$(pidof_label "$l")"; [ -n "$p" ] && [ "$p" != "-" ] && WATCH_BEFORE="$WATCH_BEFORE $l"; done
 say "        슬랙 감시 launchd 가동 중:${WATCH_BEFORE:- 없음}"
@@ -91,6 +146,7 @@ if [ "$BR" = "$OLD_BRANCH" ]; then
   fi
   g merge-base --is-ancestor "${WANT_COMMITS[1]}" "refs/heads/$NEW_BRANCH" || die 3 "가져온 브랜치에 기대한 커밋이 없다"
 
+  wait_window "교체 직전"
   say "3/5 교체 — 수정 6파일 stash(추가만) → checkout $NEW_BRANCH"
   g stash push -q -m "h-mac-swap-$TS" -- "${TRACK_FILES[@]}" || die 3 "stash 실패 — 되돌림 불필요(체크아웃 안 바뀜)"
   g checkout -q "$NEW_BRANCH" 2>&1 | sed 's/^/        /'
