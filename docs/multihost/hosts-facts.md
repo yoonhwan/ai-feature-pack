@@ -74,13 +74,18 @@
 1. `~/.ssh/config` 의 `Host mac-mobile-test` → `HostName 100.92.216.120` 은 **이 맥 자신을 가리킨다**(오늘 tailscale 을 켜자 `ssh mac-mobile-test 'hostname'` 이 `MacBook-Pro.local` 을 돌려줬다). 이름이 «mobile-test» 라 다른 기기로 오해하기 쉽다 — 문서·설계에서 이 별칭을 쓰지 말 것.
 2. **byz mac mini 에는 ssh 접속이 아직 안 된다**(키 미배포):
 ```
-$ ssh -o BatchMode=yes yoonhwan@100.71.41.107 'hostname'   # ★잘못된 사용자로 시도한 기록 — 올바른 접속은 ssh mini(사용자 byz)★
+$ ssh -o BatchMode=yes yoonhwan@100.71.41.107 'hostname'   # ★잘못된 사용자로 시도한 기록(2026-10-21) — 올바른 접속은 «ssh mini»★
 yoonhwan@100.71.41.107: Permission denied (publickey,password,keyboard-interactive).
+$ ssh mini 'whoami; hostname -s'                            # ★정본(2026-10-22)★
+byz
+BYZs-Mac-mini
 $ tailscale ping -c 2 100.71.41.107   → pong ... in 12ms     # 망은 정상
 ```
 망은 붙었고 **인증만 없다** → mac mini 실측은 **SSH 키 배포 후** 가능(PENDING).
 
-**지금까지 확인된 것(읽기)**: 망 도달 ✓(12ms) · 호스트명 `byzs-mac-mini` · OS macOS · tailnet 소유자 동일 계정(`yoonhwan.ko@`). **그 외(RAM·CPU·tmux/git 버전·에이전트 CLI)는 미확인** — 추측으로 채우지 않는다.
+**지금까지 확인된 것(읽기)**: 망 도달 ✓(12ms) · `ssh mini` 접속 ✓(사용자 `byz` · 호스트 `BYZs-Mac-mini`) · OS macOS · tailnet 소유자 동일 계정(`yoonhwan.ko@`). **그 외(RAM·CPU·tmux/git 버전·에이전트 CLI)는 이 문서 작성 시점 미확인**(2026-10-22 이후 별건 실측으로 채운다) — 추측으로 채우지 않는다.
+
+**접속 규칙(고정)**: mini 는 **항상 `ssh mini`** 로만 부른다 — `~/.ssh/config` 에 `Host mini byz-mini byzs-mac-mini` · `HostName 100.71.41.107` · `User byz` · `IdentityFile ~/.ssh/id_ed25519_aifp_op` 가 있다. 스크립트·문서에 사용자 이름을 박지 않는다(실측 `ssh mini whoami` = `byz`).
 
 **해제 방법(사람 손 1회, 택1)**:
 - (A) 이 맥 공개키를 mac mini 의 `~/.ssh/authorized_keys` 에 추가(오빠가 그 머신에서 1줄). 이 맥 공개키 파일: `~/.ssh/id_ed25519.pub` · `~/.ssh/termius_mobile_ed25519.pub`.

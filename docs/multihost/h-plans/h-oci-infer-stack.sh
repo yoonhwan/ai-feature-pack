@@ -6,7 +6,7 @@
 # 비대화형(프롬프트 0) · 멱등(이미 된 단계는 건너뜀) · 비밀값 출력 0(파일 이름·크기·모드만 찍는다)
 # 하지 않는 것: 공인 22 닫기 · ufw/ACL 변경 · apt upgrade · 전역 환경변수 export · 기존 hermes/cloudflared 유닛 건드리기
 # 롤백: 실패하면 새로 만든 유닛 2개를 stop+disable 하고 «이전 상태 백업» 을 되돌린다(아래 rollback()).
-# rc: 0 성공 · 2 사전점검 실패 · 3 설치/배치 실패 · 5 기동·검증 실패(유닛은 남겨 두고 로그 안내)
+# rc: 0 성공 · 2 사전점검 실패 · 3 설치/배치 실패 · 4 OAuth 승인 대기 초과(같은 h 재실행으로 이어감) · 5 기동·로그인·검증 실패(유닛은 남겨 두고 로그 안내)
 set -uo pipefail
 
 # ── 설정(오빠 승인 뒤에만 실행) ───────────────────────────────────────────────
@@ -16,8 +16,7 @@ BIN_LOCAL="${BIN_LOCAL:-/private/tmp/claude-501/-Users-yoonhwan-Project-ai-featu
 BIN_SHA256="${BIN_SHA256:-8d5f778176e4beeeaeb70534c921dfc87f1e25eaaba76a836daa2109af982848}"
 HEADROOM_VER="${HEADROOM_VER:-0.33.0}"
 CFG_LOCAL="${CFG_LOCAL:-$HOME/.cli-proxy-api/config.yaml}"
-# 복사할 인증 파일 «이름만» — 값은 절대 읽지 않는다. 기본 = claude 1개 + codex 1개(최신 수정순).
-AUTH_FILES="${AUTH_FILES:-}"
+LOGIN_WAIT="${LOGIN_WAIT:-300}"                # OAuth 승인 대기 상한(초) — 넘기면 rc=4 로 끝나고 같은 h 재실행이 이어감
 PORT_CLIPROXY=8317
 PORT_HEADROOM=8790
 
@@ -40,13 +39,7 @@ ACTUAL="$(shasum -a 256 "$BIN_LOCAL" | awk '{print $1}')"
 [ "$ACTUAL" = "$BIN_SHA256" ] || die 2 "cliproxy sha256 불일치 — 기대 $BIN_SHA256 / 실제 $ACTUAL"
 say "        cliproxy 바이너리 sha256 일치 · $(wc -c <"$BIN_LOCAL" | tr -d ' ') bytes"
 [ -f "$CFG_LOCAL" ] || die 2 "cliproxy config 가 없다: $CFG_LOCAL"
-if [ -z "$AUTH_FILES" ]; then
-  AUTH_FILES="$(ls -t "$HOME/.cli-proxy-api"/claude-*.json 2>/dev/null | head -1 | xargs -n1 basename 2>/dev/null) $(ls -t "$HOME/.cli-proxy-api"/codex-*.json 2>/dev/null | head -1 | xargs -n1 basename 2>/dev/null)"
-  AUTH_FILES="$(printf '%s' "$AUTH_FILES" | xargs)"     # 공백 정리
-fi
-[ -n "$AUTH_FILES" ] || die 2 "복사할 인증 파일이 없다(~/.cli-proxy-api/claude-*.json·codex-*.json) — AUTH_FILES= 로 지정"
-for f in $AUTH_FILES; do [ -f "$HOME/.cli-proxy-api/$f" ] || die 2 "인증 파일 없음: $HOME/.cli-proxy-api/$f"; done
-say "        인증 파일(이름만): $AUTH_FILES"
+say "        인증: 이 맥 파일 복사 0 — OCI 에서 별도 OAuth 로그인(오빠 결정 2026-10-22)"
 
 # ── 1) 원격 사전점검(읽기만) ─────────────────────────────────────────────────
 say "1/6 원격 사전점검"
@@ -100,10 +93,7 @@ PYEOF
 chmod 600 "$CFG_TMP"
 timeout 60 scp -q -o BatchMode=yes -o IdentitiesOnly=yes -i "$KEY" -o ControlPath="$CP/s" "$CFG_TMP" "$R:~/.cli-proxy-api/config.yaml" || die 3 "config 전송 실패"
 rm -f "$CFG_TMP"
-for f in $AUTH_FILES; do
-  timeout 60 scp -q -o BatchMode=yes -o IdentitiesOnly=yes -i "$KEY" -o ControlPath="$CP/s" "$HOME/.cli-proxy-api/$f" "$R:~/.cli-proxy-api/$f" || die 3 "인증 파일 전송 실패: $f"
-done
-rsq 20 'set -e; chmod 700 ~/.cli-proxy-api; chmod 600 ~/.cli-proxy-api/*.json ~/.cli-proxy-api/config.yaml; ls -l ~/.cli-proxy-api | awk "{print \$1, \$5, \$9}"' \
+rsq 20 'set -e; chmod 700 ~/.cli-proxy-api; chmod 600 ~/.cli-proxy-api/config.yaml; find ~/.cli-proxy-api -maxdepth 1 -name "*.json" -exec chmod 600 {} +' \
   || die 3 "원격 권한 설정 실패"
 rs 20 'ls -l ~/.cli-proxy-api | awk "NR>1{print \$1, \$5, \$9}"' 2>&1 | sed 's/^/        /'   # 이름·크기·모드만(값 0)
 
@@ -154,6 +144,55 @@ echo unit2=ok" || die 3 "headroom 유닛 작성 실패"
 
 rsq 25 'set -e; systemctl --user daemon-reload; systemctl --user enable --now cliproxyapi.service; sleep 4; systemctl --user enable --now headroom.service; sleep 6; echo started=ok' || die 5 "유닛 기동 실패 — journalctl --user -u cliproxyapi -n 40 로 확인"
 
+# ── 4b) OCI 에서 OAuth 로그인(별도 계정 파일 · 이 맥 파일 복사 0) ────────────
+# claude: 브라우저 콜백이 «OCI 의 localhost:<포트>» 로 돌아오므로 이 맥에서 ssh 포트 포워딩(-O forward)으로 이어 준다.
+# codex : device 방식(코드 입력) — 포워딩 불필요. 둘 다 URL/코드만 화면에 찍고 토큰 값은 찍지 않는다.
+say "4b/6 OAuth 로그인(승인 대기 상한 ${LOGIN_WAIT}초 · 이미 있으면 건너뜀)"
+login_one() {   # $1=claude|codex  $2=cliproxy 로그인 플래그
+  local kind="$1" flag="$2" url port t=0 fwd=0
+  if rs 15 "ls ~/.cli-proxy-api/${kind}-*.json >/dev/null 2>&1" >/dev/null 2>&1; then
+    say "        $kind 인증 이미 있음 — 건너뜀"; return 0
+  fi
+  rs 25 "mkdir -p ~/h-login; [ -f ~/h-login/$kind.pid ] && kill \$(cat ~/h-login/$kind.pid) 2>/dev/null; : > ~/h-login/$kind.log; chmod 600 ~/h-login/$kind.log; nohup ~/bin/cli-proxy-api -config ~/.cli-proxy-api/config.yaml -no-browser $flag > ~/h-login/$kind.log 2>&1 < /dev/null & echo \$! > ~/h-login/$kind.pid; echo started" >/dev/null \
+    || die 3 "$kind 로그인 프로세스 시작 실패"
+  while [ "$t" -lt 40 ]; do
+    url="$(rs 10 "grep -oE 'https://[^ ]+' ~/h-login/$kind.log | head -1" 2>/dev/null)"
+    [ -n "$url" ] && break; sleep 2; t=$((t+2))
+  done
+  [ -n "$url" ] || { rs 10 "tail -5 ~/h-login/$kind.log" 2>&1 | sed 's/^/        /'; die 5 "$kind 로그인 주소가 안 나왔다(~/h-login/$kind.log)"; }
+  if [ "$kind" = claude ]; then
+    port="$(python3 -c 'import sys,urllib.parse as u;q=u.parse_qs(u.urlparse(sys.argv[1]).query).get("redirect_uri",[""])[0];print(u.urlparse(q).port or "")' "$url")"
+    [ -n "$port" ] || die 5 "claude 콜백 포트를 주소에서 못 읽었다"
+    ssh -O forward -L "$port:127.0.0.1:$port" -o ControlPath="$CP/s" "$R" >/dev/null 2>&1 \
+      || die 5 "이 맥 localhost:$port 포워딩 실패(이미 쓰는 중?) — 그 포트를 쓰는 프로세스를 끄고 같은 h 를 다시"
+    fwd=1
+    say "        ① 이 맥 브라우저에서 아래 주소를 열고 claude 계정으로 승인하세요 (콜백은 localhost:$port → OCI 로 포워딩됨)"
+    printf '        %s\n' "$url"
+  else
+    say "        ② 아래 주소를 열고, 표시된 코드로 codex(ChatGPT) 승인하세요"
+    rs 10 "grep -iE 'https://|code' ~/h-login/$kind.log | head -4" 2>/dev/null | sed 's/^/        /'
+  fi
+  t=0
+  while [ "$t" -lt "$LOGIN_WAIT" ]; do
+    if rs 10 "ls ~/.cli-proxy-api/${kind}-*.json >/dev/null 2>&1" >/dev/null 2>&1; then
+      [ "$fwd" = 1 ] && ssh -O cancel -L "$port:127.0.0.1:$port" -o ControlPath="$CP/s" "$R" >/dev/null 2>&1
+      rs 10 "chmod 600 ~/.cli-proxy-api/${kind}-*.json; kill \$(cat ~/h-login/$kind.pid) 2>/dev/null; rm -f ~/h-login/$kind.pid" >/dev/null 2>&1
+      say "        $kind 로그인 완료 (파일 이름·모드만): $(rs 10 "ls -l ~/.cli-proxy-api/${kind}-*.json | awk '{print \$1, \$9}'" 2>/dev/null | sed 's#/home/ubuntu/.cli-proxy-api/##')"
+      return 0
+    fi
+    sleep 5; t=$((t+5))
+  done
+  [ "$fwd" = 1 ] && ssh -O cancel -L "$port:127.0.0.1:$port" -o ControlPath="$CP/s" "$R" >/dev/null 2>&1
+  rs 10 "kill \$(cat ~/h-login/$kind.pid) 2>/dev/null; rm -f ~/h-login/$kind.pid" >/dev/null 2>&1
+  printf '[h-infer] %s 승인이 %s초 안에 안 왔다 — 같은 h 를 다시 치면 여기부터 이어간다(rc=4)\n' "$kind" "$LOGIN_WAIT" >&2
+  return 4
+}
+LOGIN_RC=0
+login_one claude -claude-login || LOGIN_RC=$?
+if [ "$LOGIN_RC" = 0 ]; then login_one codex -codex-device-login || LOGIN_RC=$?; fi
+[ "$LOGIN_RC" = 0 ] || exit "$LOGIN_RC"
+rsq 25 'systemctl --user restart cliproxyapi.service; sleep 5; echo restarted=ok' || die 5 "cliproxy 재시작 실패"
+
 # ── 5) 기동 확인(읽기만) ────────────────────────────────────────────────────
 say "5/6 기동 확인"
 ST="$(rs 20 'echo "cliproxy=$(systemctl --user is-active cliproxyapi)"; echo "headroom=$(systemctl --user is-active headroom)"; ss -ltn | awk "{print \$4}" | grep -E ":(8317|8790)$" | sort | tr "\n" " "; echo' 2>&1)" || die 5 "상태 조회 실패"
@@ -188,6 +227,6 @@ cat <<EOF
         다음 장: h-oci-cli-tools.sh (claude·pi·codex·tmuxc·tmm + claude 래퍼가 8317 을 보게)
         롤백: ssh $R 'systemctl --user disable --now headroom cliproxyapi; rm -f ~/.config/systemd/user/headroom.service ~/.config/systemd/user/cliproxyapi.service; systemctl --user daemon-reload'
               이전 파일 되돌리기: ~/h-backup/ 안의 <이름>.<타임스탬프> 를 원위치로 cp -p
-        보안: 인증 파일은 0600 · 디렉터리 700 · 이 스크립트는 값은 한 번도 출력하지 않았다(이름·크기·모드만).
+        보안: 인증 파일은 OCI 로컬에서 생성돼 0600 · 디렉터리 700 · 이 맥 파일 복사 0 · 값은 한 번도 출력하지 않았다(이름·모드만).
 EOF
 exit 0

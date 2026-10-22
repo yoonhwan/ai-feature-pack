@@ -78,7 +78,7 @@ ss -ltn | grep -c ':22 '    # sshd 는 그대로 (공인 접속 유지)
 | 노드 | tailnet IP | 상태 | 이 runbook 에서 할 일 |
 |---|---|---|---|
 | **이 맥** `MacBook-Pro.local` | **100.92.216.120** | online(오늘 켬 · 계정 유지) | 이미 망 안 → **확인만**. 설치 0 |
-| **byz mac mini** `byzs-mac-mini` | **100.71.41.107** | online · ping 12ms | 이미 망 안 → **확인만**(설치 0) 단 **ssh 키 미배포 = 차단** |
+| **byz mac mini** `byzs-mac-mini` | **100.71.41.107** | online · ping 12ms | 이미 망 안 → **확인만**(설치 0). 접속은 **`ssh mini`** 로만(사용자 byz · 2026-10-22 별칭 등록) |
 | 무관 | gamfss-mac-mini-2 100.74.88.108 · iOS 3대 | offline | 건드리지 않음 |
 
 ★주의★ `~/.ssh/config` 의 `Host mac-mobile-test`(`HostName 100.92.216.120`)는 **이 맥 자신**을 가리킨다(실측: `ssh mac-mobile-test 'hostname'` → `MacBook-Pro.local`). «mobile-test 라는 별도 기기» 로 오해한 채 설계하지 말 것 — 이 별칭은 쓰지 않는 것을 권고.
@@ -88,6 +88,8 @@ ss -ltn | grep -c ':22 '    # sshd 는 그대로 (공인 접속 유지)
 tailscale status | grep -i byzs-mac-mini
 ssh -o BatchMode=yes mini 'hostname; tailscale status | head -3'   # 지금은 Permission denied(publickey)
 ```
+**접속 규칙(고정)**: mini 는 `ssh mini` 로만(사용자 byz). 스크립트·문서에 `yoonhwan@…` 을 쓰지 않는다.
+
 **차단 해제(사람 손 1회 · 택1)** — (A) 이 맥 공개키를 mac mini `~/.ssh/authorized_keys` 에 추가(권고) · (B) mac mini 에 `sudo tailscale up --ssh` + ACL `ssh` 규칙(runbook §4.2 는 Tailscale SSH 미사용을 권고하므로 A 우선).
 
 ### 3. macOS (이 맥 · MacBook-Pro.local · 15.0.1 arm64)### 3. macOS (이 맥 · MacBook-Pro.local · 15.0.1 arm64)
