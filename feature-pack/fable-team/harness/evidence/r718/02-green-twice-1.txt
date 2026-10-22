@@ -1,0 +1,68 @@
+== ⓐ 표식 없이 등록 = 지금 그대로(옛 꼴) · 목록 «수신=-»
+WARN 비밀 출력 경로 검사를 건너뛴다(판정기 없음)
+PASS --add → h1
+PASS   └ --notify 없으면 표식 0
+PASS 목록 = 옛 칸 그대로
+PASS 목록 수신자 칸 = -
+== ⓑ --notify <좌석> — 표식 두 줄(seat= · comm=) · comm 생략 = 부른 곳 공용 루트 쪽지함
+WARN 비밀 출력 경로 검사를 건너뛴다(판정기 없음)
+PASS --notify 등록 → h2
+PASS   └ h2.notify = seat= · comm=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.ZxxEERHy9i/byzcomm(기본 ft_comm_dir)
+PASS 목록 = 수신=<좌석>@<쪽지함>
+== ⓒ --notify-comm <쪽지함 폴더> — 다른 팀 쪽지함(aifp 꼴)을 그대로 적는다
+WARN 비밀 출력 경로 검사를 건너뛴다(판정기 없음)
+PASS comm = /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.ZxxEERHy9i/aifpcomm
+PASS 목록 수신자 칸 = aifp 쪽지함
+== ⓓ REJECT 3종 — 좌석 린트 실패 · 쪽지함 폴더 없음 · --notify-comm 단독 (전부 rc2 · 등록 0)
+PASS 린트 실패 = REJECT rc2
+PASS 대문자·_ 좌석 = REJECT rc2
+PASS 쪽지함 폴더 없음 = REJECT rc2
+PASS --notify-comm 단독 = usage rc2
+PASS   └ REJECT 4건 모두 등록 0
+PASS --add 값 없음 = usage rc2
+== ⓔ --supersedes 와 같이 써도 둘 다 동작
+WARN 비밀 출력 경로 검사를 건너뛴다(판정기 없음)
+WARN 비밀 출력 경로 검사를 건너뛴다(판정기 없음)
+PASS 새 장 = h5
+PASS 대체 표시 그대로
+PASS   └ 새 h5.notify 도 기렭
+== ⓕ 표식 손상은 목록에 드러난다(조용한 대체 0)
+PASS 손상 표식 h2 목록
+PASS comm 줄 없음 → 수신=표식 손상
+== ⓖ 틱 hil_watch — 표식 있으면 그 쪽지함의 그 좌석 1통 · planner 쪽 0
+PASS ft-tick.sh 에서 hil_marker·hil_notify_marker·hil_watch 추출
+WARN 비밀 출력 경로 검사를 건너뛴다(판정기 없음)
+PASS 1통
+PASS   └ FT_MBOX_DIR=aifp 쪽지함 · to=aifp-worker-master-claude#2 · from=ft-tick
+PASS   └ planner 쪽 0
+== ⓗ 표식 손상(줄 없음·폴더 없음) = 로그 ERROR 1줄 + planner «표식 손상» 1통 · 표식 보존
+PASS ERROR 1줄
+PASS planner 에 표식 손상 1통
+PASS   └ 손상 표식으로 보내지 않는다
+PASS   └ 표식 그대로 보존
+PASS 쪽지함 폴더 없음도 손상으로 읽는다
+PASS   └ planner 1통
+== ⓘ 표식 없는 h = 지금처럼 planner(_hil_route)
+WARN 비밀 출력 경로 검사를 건너뛴다(판정기 없음)
+PASS 쪽지함 송신 0
+PASS planner 1통(옛 꼴 그대로)
+PASS   └ 하루 1통 선점은 수신자와 무관하게 유지
+== ⓙ 송신 실패면 선점 되돌림(다음 틱 재시도 가능)
+WARN 비밀 출력 경로 검사를 건너뛴다(판정기 없음)
+PASS 실패 = 선점 해제
+PASS 재시도 성공 = 1통
+== ⓚ 진입 파일 본문 변경 0 — 표식이 붙어도 옛 h 는 그대로 실행
+WARN 비밀 출력 경로 검사를 건너뛴다(판정기 없음)
+PASS h1 실행 = 계획 본문만(ran-K)
+PASS   └ 진입 파일 본문에 표식 코드 0
+== 변이 1: 틱 표식 분기 삭제 → ⓖ 가 FAIL(검출)
+PASS 변이 사본이 원본과 다르다
+PASS 변이: aifp 쪽지함 0 · planner 로 감 = ⓖ FAIL
+== 변이 2: 손상 경로의 ERROR 로그 제거 → ⓗ 가 FAIL(검출)
+PASS 변이 사본이 원본과 다르다
+PASS 변이: ERROR 0줄 = ⓗ FAIL
+== 키트 두 벌 cmp
+PASS ft-hil.sh cmp 0
+PASS ft-tick.sh cmp 0
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

@@ -1,0 +1,3 @@
+r718 — 틱 «[HIL 미실행]» 수신자 표식(h<N>.notify) · ft-hil.sh --notify/--notify-comm · ft-tick.sh hil_watch 분기
+시험 = feature-pack/fable-team/harness/tests/test_hil_notify_marker.sh (ⓐ~ⓖ + 변이 2)
+base = origin/main 833ab94e

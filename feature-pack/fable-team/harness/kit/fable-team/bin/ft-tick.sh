@@ -518,6 +518,22 @@ for k, v in d.items():
 PY
 }
 route_seat() { python3 -c 'import json,sys;v=json.load(open(sys.argv[1])).get("_hil_route");print(v if isinstance(v,str) else "")' "$SEATS" 2>/dev/null; }
+# ★r718 표식 수신자 — h<N>.notify(seat= · comm= 두 줄)가 있으면 그 쪽지함의 그 좌석으로★
+#   $1=h 이름 → `좌석<TAB>쪽지함` · 표식 없음 = 빈 줄 · 손상(줄 없음·폴더 없음) = `!<사유>`(표식은 지우지 않는다)
+hil_marker() {
+  local nf="${HIL_DIR:-/tmp}/$1.notify" seat comm
+  [ -e "$nf" ] || return 0
+  seat="$(sed -n 's/^seat=//p' "$nf" 2>/dev/null | head -1)"; comm="$(sed -n 's/^comm=//p' "$nf" 2>/dev/null | head -1)"
+  if [ -z "$seat" ] || [ -z "$comm" ] || [ ! -d "$comm" ]; then
+    echo "!seat=«${seat:--}» comm=«${comm:--}»$([ -n "$comm" ] && [ ! -d "$comm" ] && echo ' 폴더 없음')"; return 0
+  fi
+  printf '%s\t%s' "$seat" "$comm"
+}
+# $1=좌석 $2=쪽지함 폴더 $3=본문 → 그 쪽지함으로 1통(다른 팀 쪽지함은 FT_MBOX_DIR 로 갈아탄다) · 실패 1
+hil_notify_marker() {
+  [ "$DRY" = 1 ] && { echo "DRY kind=hil-notify-marker to=$1 comm=$2 body=${3:0:60}"; return 0; }
+  FT_MBOX_DIR="$2" bash "$MBOX" send "$1" ft-tick "$3" >/dev/null 2>&1 || { echo "$(date '+%F %T') hil_notify_marker: mbox failed to=$1 comm=$2" >&2; return 1; }
+}
 # $1 = 본문 · $2 = both(그 팀 master + planner) | planner(planner, 없으면 master). 하나라도 실패면 rc 1(호출자가 서명을 남기지 않는다).
 notify_team() {
   local master route t rc=0; master="$(master_seat)"; route="$(route_seat)"
@@ -547,13 +563,14 @@ autonomy_expire() {
 }
 
 # ★R186 (판정 1720) 미실행 h 감시★ — 오빠 실행 파일(/tmp/h<N>)이 발급만 되고 안 쳐진 채 팀이 멈추는 일(10-15 h4 9.5시간)을 사람보다 먼저 드러낸다.
-#   ft-hil.sh --pending(미실행·미대체 진입 파일)이 1개 이상이고 «개수가 바뀐 때만» 로그 1줄(서명 $STATE_DIR/hil.sig) · 30분 넘은 h 는 하루 h 당 planner(_hil_route) 앞 쪽지 1통(표식 $STATE_DIR/hil-notified/).
+#   ft-hil.sh --pending(미실행·미대체 진입 파일)이 1개 이상이고 «개수가 바뀐 때만» 로그 1줄(서명 $STATE_DIR/hil.sig) · 30분 넘은 h 는 하루 h 당 1통(표식 $STATE_DIR/hil-notified/).
+#   ★r718 수신자★ — h<N>.notify(ft-hil.sh --add --notify 가 쓴다)가 있으면 «그 쪽지함(comm=)» 의 «그 좌석(seat=)» 앞 1통(BYZ planner 쪽 0) · 없으면 지금처럼 planner(_hil_route) · 표식이 손상이면 로그 ERROR 1줄 + planner 에 «표식 손상» 1통(조용한 대체 0).
 #   FT_TICK_HIL=0 으로 끔(틱을 실제로 도는 시험은 «명시 설정» — 실 /tmp 의 h 파일에 기대지 않는다).
 #   ★메인 틱만 돈다(drift·raised 와 같은 R150 꼴 · DA⑥ H3)★ — 좌석표 이름이 seats.json 이 아니면(팀 틱 seats-<팀>.json) 건너뛴다: h 폴더는 팀 공통이라 팀마다 보면 중복·누락.
 #   하루 h 당 1통 = mkdir 선점(성공한 틱만 송신 · 송신 실패면 rmdir 해 다음 틱 재시도) · 상태는 이 틱의 STATE_DIR 아래.
 HIL_BIN="${FT_TICK_HIL_BIN:-$HERE/ft-hil.sh}"; HIL_NOTIFY_MIN="${FT_TICK_HIL_NOTIFY_MIN:-30}"
 hil_watch() {
-  local out sigf cnt each h m sdir day
+  local out sigf cnt each h m sdir day seat comm mk tab body
   [ "${FT_TICK_HIL:-1}" = 1 ] || return 0
   [ "$(basename "$SEATS")" = seats.json ] || return 0
   [ -f "$HIL_BIN" ] || { echo "$(date '+%F %T') hil_watch: missing $HIL_BIN" >&2; return 0; }
@@ -567,10 +584,17 @@ hil_watch() {
   each="$(bash "$HIL_BIN" --pending --each 2>/dev/null)"; sdir="$STATE_DIR/hil-notified"; day="$(date +%Y%m%d)"
   while read -r h m; do
     [ -n "$h" ] && [ "${m:-0}" -ge "$HIL_NOTIFY_MIN" ] || continue
+    body="[HIL 미실행] $h 가 ${m}분째 안 끝났다(미실행 또는 중단/실행 중) — 오빠가 칠 줄 = ! bash ${HIL_DIR:-/tmp}/$h (이미 대체된 장이면 무시)"
     # 원자적 선점 — 진 쪽은 송신하지 않는다
     if ! { mkdir -p "$sdir" && mkdir "$sdir/$h.$day" 2>/dev/null; }; then continue; fi
-    notify_team "[HIL 미실행] $h 가 ${m}분째 안 끝났다(미실행 또는 중단/실행 중) — 오빠가 칠 줄 = ! bash ${HIL_DIR:-/tmp}/$h (이미 대체된 장이면 무시)" planner \
-      || rmdir "$sdir/$h.$day" 2>/dev/null
+    mk="$(hil_marker "$h")"; tab=$'\t'; seat="${mk%%"$tab"*}"; comm="${mk#*"$tab"}"
+    case "$mk" in
+      "") notify_team "$body" planner || rmdir "$sdir/$h.$day" 2>/dev/null ;;                                     # 표식 없음 = 지금 그대로 planner
+      !*) echo "$(date '+%F %T') hil_watch: ERROR 표식 손상 ${HIL_DIR:-/tmp}/$h.notify ${mk#!}" >&2               # 조용한 대체 0 — 로그 1줄 + planner 1통(표식 보존)
+          notify_team "[HIL 미실행 · 표식 손상] $h — 표식 수신자를 못 읽어 planner 로 보낸다(${HIL_DIR:-/tmp}/$h.notify · ${mk#!})" planner \
+            || rmdir "$sdir/$h.$day" 2>/dev/null ;;
+      *)  hil_notify_marker "$seat" "$comm" "$body" || rmdir "$sdir/$h.$day" 2>/dev/null ;;
+    esac
   done <<< "$each"
   return 0
 }

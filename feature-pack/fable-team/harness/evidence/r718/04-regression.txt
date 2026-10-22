@@ -1,0 +1,8 @@
+test_hil.sh                            rc=0 32 PASS
+test_hil_run_marker.sh                 rc=0 69 PASS
+test_hil_pending_single_pass.sh        rc=0 19 PASS
+test_hil_route_team.sh                 rc=0 19 PASS
+test_block_destructive_hil.sh          rc=0 63 PASS
+--- test_hil_ledger.sh (이 카드 범위 밖 · FT_MBOX_DIR 없이는 comm 해석 실패 = 선행 결함)
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

@@ -1,3 +1,7 @@
+## 2026-10-22 — 틱(`ft-tick.sh`)의 «[HIL 미실행]» 알림이 planner 로 고정 송신돼, 다른 팀 좌석(aifp 팀장)이 칠 h 파일의 알림은 그 좌석이 못 받았다(aifp 는 자기 리포 쪽지함을 읽는다) → h 진입 파일 옆 수신자 표식(`/tmp/h<N>.notify` · seat= + comm= 두 줄)을 `ft-hil.sh --add --notify <좌석> --notify-comm <쪽지함>` 으로 달고, 틱은 표식이 있으면 그 쪽지함으로 그 좌석에 1통(planner 0) · 표식 없으면 기존대로 planner · 표식 손상은 ERROR 1줄 + planner «표식 손상» (r718 · 1.1.203 · 도구 선택지 추가 · 틱 분기 1 · 2파일)
+
+- 판정문 §184(DA⑥ r1 HOLD 처방 3건 + 시험 격리 반영 → arch 재대조 OK · 실 쪽지함 1행·planner 쪽 0 · 도어벨 격리 · 변이 4종 검출) · 증거 `harness/evidence/r718/` · 시험 `harness/tests/test_hil_notify_marker.sh` · 설치: 있음(kit `bin/ft-hil.sh`·`ft-tick.sh` → 설치 시 라이브 도구 · 되돌림 = 이전 판) · 표식 없는 h 는 동작 변화 0.
+
 ## 2026-10-22 — 오케스트레이션 게이트(`orchestration-gate.sh`)가 master 의 «검증된 키트 파일 설치 복사»(`cp` 한 줄)까지 코드 직접 편집으로 오탐 차단해, 착지 직후 `~/.hermes/scripts` 같은 설치 자리에 복사하려면 사람 손이 필요했다(r692 설치 틈) → 허용은 «명령 1개 · `cp [-p]` 절대 kit 원본(lstat 일반 파일 · origin/main 과 cmp0 · git 1회 7초) → 절대 파일 목적지» 한 꼴로만 좁게 열고, 그 밖의 `cp`/`install`(폴더 목적지는 원본 이름까지 검사)은 부모판 그대로 막는다 (r695 · 1.1.201 · 결함 고침 · 훅 1파일)
 
 - 판정문 §181(DA⑥ r1 HOLD H1~H3 고침 → arch 재대조 OK · 시험 41/0 · 부모판 9 FAIL · 변이 4종 각 rc=1 · 반례 10/0) · 증거 `harness/evidence/r695/`·`r695-da6/` · 설치: 있음(전역 훅 `templates/hooks/orchestration-gate.sh` → 설치 시 훅 자리 · 되돌림 = 이전 판).
