@@ -9,7 +9,7 @@
 | 골 요소 | 상태 | 근거 |
 |---|---|---|
 | mini·OCI Tailscale + 계정 연동 | ✅ 됨 | `measured-oci-tailscale.md` · mini 는 원래 tailnet |
-| mini 에서 **CLI 로 운용** | ✅ 설치 확인 | 2026-10-22 h375 rc=0 · 실측 mini tmuxc 0.4.4 · tmm 0.9.4 · pi 1.3.0 · fzf 0.74.5. «좌석 열기→probe→닫기» 원문은 오빠 h375 출력으로 확인 대기 |
+| mini 에서 **CLI 로 운용** | 🟡 부분 ✅ (raw tmux) | h375 rc=0 설치 OK(tmuxc 0.4.4·tmm 0.9.4·pi 1.3.0·fzf). 운용 증거: `tmuxc open` 경유는 «tmuxc probe: no known agent process»(pane 자식 0) → 상위 진단(#3141): 같은 명령(claude-hr.sh … --remote-control)을 raw `tmux new-session` 으로 띄우면 **claude 생존 · ANTHROPIC_BASE_URL=http://localhost:8790(헤드룸 경유)**. 원인 가설 = tmuxc 가 빈 셸 생성 직후 send-keys 로 명령을 타이핑(core/bin/tmuxc:62·706)하는 경쟁 → 진단 h(`h-mini-tmuxc-diag.sh`)로 A/B 확정 대기 |
 | OCI 에서 **CLI 로 운용** | ❌ 안 됨 | OCI: claude·pi·codex·headroom·cliproxy·tmuxc·tmm 0 (node 22·python 3.10·tmux 3.2a 만) · h376→h377 대기 |
 | OCI headroom·cliproxy 연결 | ❌ 안 됨 | P5a — cliproxy 교차 빌드 ✅(CGO 불필요, `measured-xbuild-cliproxy-20261022.md`) — OCI 설치 h376 대기 · headroom 0.33.0 aarch64 휠 있음 |
 | hermes 업데이트 지원 | ⚠️ 절차만 앎 | 이미 systemd 사용자 서비스 · `hermes update --check→backup→update→restart→doctor` |
