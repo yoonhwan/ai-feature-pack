@@ -65,7 +65,7 @@ _load_gate(){
   local v
   case "$LOAD_MAX" in ''|*[!0-9.]*) say "✗" "FT_PRESS_LOAD_MAX=$LOAD_MAX — 숫자(부하 임계)만"; FAIL=1; return ;; esac
   v="$(_load5)"
-  if [ -z "$v" ]; then say "⚠" "부하 5분 평균 못 읽음 — 부하 게이트 건너뛀"; return; fi
+  if [ -z "$v" ]; then say "⚠" "부하 5분 평균 못 읽음 — 부하 게이트 건너뜀"; return; fi
   if awk -v a="$v" -v b="$LOAD_MAX" 'BEGIN{exit !(a>=b)}'; then
     say "✗" "5분 평균 부하 $v ≥ 임계 $LOAD_MAX — 지금 쏘면 회차가 무효(청크 POST 타임아웃·Redis Timeout) · 원인 상위 3 프로세스:"
     ps -Ao pcpu,pid,comm -r 2>/dev/null | head -4 | tail -3 | sed 's/^/      /'
@@ -346,7 +346,9 @@ done
 [ "$UNLANDED" = "0" ] && say "✓" "미랜딩 제품 커밋 0" || FAIL=1
 
 # r769: 로컬 갈래 포트 해석 «1곳» — 팀이 선언한 슬롯을 따르고, 선언이 없으면 지금과 똑같다(조용한 바뀜 0).
-#   FT_PRESS_PORTS("gw,worker,fe") > FT_PORT_BASE(+0/+1/+2) > 기본 8080·8081·3001
+#   FT_PRESS_PORTS("gw,worker,fe") > FT_PRESS_PORT_BASE(+0/+1/+2) > 기본 8080·8081·3001
+#   ★일반 FT_PORT_BASE 는 «읽지 않는다»★ — 팀 env(lecture-env.sh 등)가 이미 export 하고 있어서, 그걸 읽으면
+#   press 갈래가 팀 잡일 env 에 끌려간다(lecture 는 기본 포트 서버로 press 해 왔다 — 그 동작 그대로).
 #   기본이 아닌 갈래는 로그·SSE 주소도 «같이» 선언해야 한다 — 반쪽 선언은 엉뚱한 서버를 통과시킨다.
 GW_PORT=8080; WK_PORT=8081; FE_PORT=3001
 WORKER_LOG=/tmp/byz-worker.log
@@ -364,13 +366,13 @@ _ports(){ # rc 0 = 해석 끝(GW_PORT·WK_PORT·FE_PORT·WORKER_LOG·SSE_HEALTH_
     done
     GW_PORT=$gw; WK_PORT=$wk; FE_PORT=$fe
     printf '포트 갈래: FT_PRESS_PORTS=%s → gateway %s · worker %s · 화면 %s\n' "$FT_PRESS_PORTS" "$gw" "$wk" "$fe"
-  elif [ -n "${FT_PORT_BASE:-}" ]; then
-    _port_bad "$FT_PORT_BASE" && { say "✗" "FT_PORT_BASE 가 숫자 1024~65535 가 아니다: $FT_PORT_BASE"; return 1; }
-    GW_PORT=$FT_PORT_BASE; WK_PORT=$((FT_PORT_BASE+1)); FE_PORT=$((FT_PORT_BASE+2))
+  elif [ -n "${FT_PRESS_PORT_BASE:-}" ]; then
+    _port_bad "$FT_PRESS_PORT_BASE" && { say "✗" "FT_PRESS_PORT_BASE 가 숫자 1024~65535 가 아니다: $FT_PRESS_PORT_BASE"; return 1; }
+    GW_PORT=$FT_PRESS_PORT_BASE; WK_PORT=$((FT_PRESS_PORT_BASE+1)); FE_PORT=$((FT_PRESS_PORT_BASE+2))
     for p in "$WK_PORT" "$FE_PORT"; do
-      _port_bad "$p" && { say "✗" "FT_PORT_BASE=$FT_PORT_BASE 에서 나온 포트가 1024~65535 밖이다: $p"; return 1; }
+      _port_bad "$p" && { say "✗" "FT_PRESS_PORT_BASE=$FT_PRESS_PORT_BASE 에서 나온 포트가 1024~65535 밖이다: $p"; return 1; }
     done
-    printf '포트 갈래: FT_PORT_BASE=%s → gateway %s · worker %s · 화면 %s\n' "$FT_PORT_BASE" "$GW_PORT" "$WK_PORT" "$FE_PORT"
+    printf '포트 갈래: FT_PRESS_PORT_BASE=%s → gateway %s · worker %s · 화면 %s\n' "$FT_PRESS_PORT_BASE" "$GW_PORT" "$WK_PORT" "$FE_PORT"
   else
     printf '포트 갈래: 기본\n'
     return 0
