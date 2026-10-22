@@ -24,11 +24,14 @@ P_REDIS="${P_REDIS:-38311}"; P_GATEWAY="${P_GATEWAY:-38312}"; P_WEB="${P_WEB:-38
 PORTS=("$P_REDIS" "$P_GATEWAY" "$P_WEB")
 WORK="${TMPDIR:-/tmp}/h-byz-$$"               # 이 맥 임시 작업 폴더(끝에 지움)
 TUN_PORT="${LOOM_PG_TUNNEL_PORT:-38309}"       # 이 맥 loom 터널(launchd 상주 · 127.0.0.1) 포트 — 정본 server.sh 와 같은 값
-TUN_PIDF="$HOME/.h-byz-tunnel.pid"              # 이 맥에서 이 h 가 연 «역방향 포워딩 ssh» pid(이 pid 만 정리)
+FWD_EXTRA="${FWD_EXTRA:-8000 8001}"             # 이 맥 상주 터널 중 mini 에 더 빌려줄 포트: 8000=LLM vLLM(LOCAL_VLLM_BASE_URL) · 8001=GPU STT/TTS(GPU_STT_TTS_URL) — 이 맥 로컬 기동과 같은 세트
+FWD_PORTS=("$TUN_PORT" $FWD_EXTRA)               # 38309(DB) + 8000 + 8001
+TUN_PIDF="$HOME/.h-byz-tunnel.pid"            # 이 맥에서 이 h 가 연 «역방향 포워딩 ssh» pid(이 pid 만 정리)
 PYBIN="${PYBIN:-$SRC/.venv/bin/python}"        # psycopg 있는 python(DSN 해석 스크립트용 — 이 맥 BYZ .venv)
 SO=(-o BatchMode=yes -o ConnectTimeout=6 -o ServerAliveInterval=10 -o ServerAliveCountMax=3)
 # 값은 «이름» 으로만 안다 — measured-byz-server-env-20261022.md §최소 세트 + 조건부(번역·TTS)
-KEYS=(CORPUS_RETENTION_DAYS SUPABASE_DB_URL LOOM_INTERIM_DB_URL LOOM_INTERIM_PG_DSN LOOM_INGEST_PG_DSN GCS_DATA_BUCKET GCS_DATA_PREFIX
+KEYS=(BYZ_LLM_SOURCING LOCAL_VLLM_BASE_URL LOCAL_VLLM_API_KEY GPU_STT_MODEL STT_PROVIDER GEMINI_API_KEY GOOGLE_API_KEY GOOGLE_PROJECT_ID
+      CORPUS_RETENTION_DAYS SUPABASE_DB_URL LOOM_INTERIM_DB_URL LOOM_INTERIM_PG_DSN LOOM_INGEST_PG_DSN GCS_DATA_BUCKET GCS_DATA_PREFIX
       PAYMENT_MODE APP_ENV V6_AUTHORITATIVE_STT_MODE V6_AUTHORITATIVE_STT_PROVIDER BYZ_E2E_JWT_SECRET
       FIREWORKS_API_KEY GROQ_API_KEY DEEPGRAM_API_KEY ELEVENLABS_API_KEY SONIOX_API_KEY
       RETURNZERO_ID RETURNZERO_SECRET CLOVA_API_SECRET GOOGLE_API_KEY
@@ -48,7 +51,7 @@ if [ "$ACTION" = "stop" ]; then
   ms 20 "sleep 1; n=0; for p in ${PORTS[*]}; do for pid in \$(lsof -ti tcp:\$p -sTCP:LISTEN 2>/dev/null); do cwd=\$(lsof -a -p \$pid -d cwd -Fn 2>/dev/null | sed -n 's/^n//p'); case \"\$cwd\" in \"\$HOME/Project/BYZ-Agents\"*) kill \$pid 2>/dev/null && n=\$((n+1));; esac; done; done; echo stopped_port_listeners=\$n" 2>&1 | sed 's/^/        /'
   if [ -f "$TUN_PIDF" ]; then
     tp="$(cat "$TUN_PIDF" 2>/dev/null)"
-    if [ -n "$tp" ] && kill -0 "$tp" 2>/dev/null && ps -o args= -p "$tp" 2>/dev/null | grep -q -- "-R 127.0.0.1:$TUN_PORT:"; then kill "$tp" 2>/dev/null; say "        이 맥 역방향 포워딩 ssh 종료(pid $tp)"; fi
+    if [ -n "$tp" ] && kill -0 "$tp" 2>/dev/null && ps -o args= -p "$tp" 2>/dev/null | grep -q -- "-R 127.0.0.1:"; then kill "$tp" 2>/dev/null; say "        이 맥 역방향 포워딩 ssh 종료(pid $tp)"; fi
     rm -f "$TUN_PIDF"
   fi
   say "남의 프로세스·Chrome·기본 포트 Redis·이 맥 loom 터널 본체는 건드리지 않았다(위 pid 만)"
@@ -80,12 +83,16 @@ for p in "${PORTS[@]}"; do
 done
 say "        포트 3개 비어 있음"
 # loom 터널(사설 dev DB 로 가는 길)은 이 맥 launchd 가 상주 소유한다 — 이 h 는 그 로컬 포트를 mini 로 «빌려줄» 뿐 만들지 않는다(판정 909)
-lsof -nP -iTCP:"$TUN_PORT" -sTCP:LISTEN -t >/dev/null 2>&1 || die 2 "이 맥 127.0.0.1:$TUN_PORT 에 loom 터널이 없다 — 이 h 는 터널을 열지 않는다(하네스 kit/loom-tunnel/install.sh status 로 상태 확인)"
+for fp in "${FWD_PORTS[@]}"; do
+  lsof -nP -iTCP:"$fp" -sTCP:LISTEN -t >/dev/null 2>&1 || die 2 "이 맥 127.0.0.1:$fp 에 상주 터널이 없다 — 이 h 는 터널을 열지 않는다(포트 $fp: 38309=DB · 8000=LLM vLLM · 8001=GPU STT/TTS)"
+done
 [ -x "$PYBIN" ] || die 2 "psycopg 있는 python 이 없다: $PYBIN (PYBIN= 로 지정)"
 command -v gcloud >/dev/null 2>&1 || die 2 "이 맥에 gcloud 가 없다 — dev DSN 을 Secret Manager 에서 못 꺼낸다"
-TBUSY="$(ms 15 "lsof -nP -iTCP:$TUN_PORT -sTCP:LISTEN 2>/dev/null | wc -l | tr -d ' '")" || TBUSY=0
-[ "$TBUSY" = "0" ] || die 2 "mini 에서 포트 $TUN_PORT 이 이미 사용 중이다(이전 포워딩이 남았나 — ACTION=stop 먼저)"
-say "        이 맥 터널 127.0.0.1:$TUN_PORT LISTEN 확인 · mini $TUN_PORT 비어 있음"
+for fp in "${FWD_PORTS[@]}"; do
+  TBUSY="$(ms 15 "lsof -nP -iTCP:$fp -sTCP:LISTEN 2>/dev/null | wc -l | tr -d ' '")" || TBUSY=0
+  [ "$TBUSY" = "0" ] || die 2 "mini 에서 포트 $fp 이 이미 사용 중이다(이전 포워딩이 남았나 — ACTION=stop 먼저)"
+done
+say "        이 맥 상주 터널 ${FWD_PORTS[*]} LISTEN 확인 · mini 에서 모두 비어 있음"
 
 # ── 2) 코드 반입 — git archive(.env 는 미추적이라 애초에 안 들어옴) ───────
 say "2/7 코드 반입"
@@ -155,19 +162,30 @@ DSN_OUT="$( cd "$WORK/repo" && APP_ENV=local LOOM_PG_TUNNEL_PORT="$TUN_PORT" PYT
 ' 2>"$WORK/dsn.err" )" || { sed 's/^/        /' "$WORK/dsn.err" | tail -4; die 2 "dev DSN 을 못 꺼냈다(gcloud 로그인·터널·위 오류 — 값은 출력하지 않는다)"; }
 grep -E '^\[(LOOM|SUPABASE)-DSN\]' "$WORK/dsn.err" | head -3 | sed 's/^/        /'
 printf '%s\n' "$DSN_OUT" >> "$ENVF"; unset DSN_OUT; N=$((N+2))
+# 정본 worker 기동 세트 — scripts/server/ready-check.sh 의 WORKER_ENV_SPEC(단일 소스 · 비밀 아님: 포트·모델명·스위치). .env 에 이미 있는 이름은 건드리지 않고, 없는 것만 채운다. PORT 는 mini 에서 쓰지 않는다.
+SPEC_N=0
+while IFS= read -r spec; do
+  nm="${spec%%=*}"; vl="${spec#*=}"
+  [ "$nm" = "PORT" ] && continue
+  grep -q "^export $nm=" "$ENVF" || { printf 'export %s=%q\n' "$nm" "$vl" >> "$ENVF"; SPEC_N=$((SPEC_N+1)); N=$((N+1)); }
+done < <(sed -n '/^WORKER_ENV_SPEC=(/,/^)/p' "$WORK/repo/scripts/server/ready-check.sh" | grep -E '^[[:space:]]*"[A-Z0-9_]+=' | sed -E 's/^[[:space:]]*"//; s/"[[:space:]]*$//')
+say "        정본 WORKER_ENV_SPEC 에서 .env 에 없던 고정값 ${SPEC_N}개를 채웠다(값 출력 0)"
 for req in PAYMENT_MODE APP_ENV V6_AUTHORITATIVE_STT_MODE V6_AUTHORITATIVE_STT_PROVIDER BYZ_E2E_JWT_SECRET; do   # 이름만 검사
   grep -q "^export $req=" "$ENVF" || say "        ⚠ 필수 이름 누락: $req (gateway/worker 가 기동 중 raise 할 수 있다)"
 done
 say "        키 ${N}개 이름을 stdin 으로 넘긴다(값 출력 0)"
 # 역방향 포워딩 — mini 의 127.0.0.1:$TUN_PORT 로 오는 접속을 이 맥의 loom 터널(127.0.0.1:$TUN_PORT)로 되돌린다.
 #   mini 가 사설 DB 에 닿는 길 = 이 맥 상주 터널을 빌림. ExitOnForwardFailure: 포워딩이 안 서면 ssh 가 즉시 실패. 이 h 가 연 ssh pid 만 TUN_PIDF 에 기록.
-say "        역방향 포워딩 개설(mini:$TUN_PORT → 이 맥:$TUN_PORT)"
-nohup ssh "${SO[@]}" -o ExitOnForwardFailure=yes -N -R "127.0.0.1:$TUN_PORT:127.0.0.1:$TUN_PORT" "$MINI" </dev/null >"$WORK/fwd.log" 2>&1 &
+RARGS=(); for fp in "${FWD_PORTS[@]}"; do RARGS+=(-R "127.0.0.1:$fp:127.0.0.1:$fp"); done
+say "        역방향 포워딩 개설(mini ← 이 맥): ${FWD_PORTS[*]}"
+nohup ssh "${SO[@]}" -o ExitOnForwardFailure=yes -N "${RARGS[@]}" "$MINI" </dev/null >"$WORK/fwd.log" 2>&1 &
 echo $! > "$TUN_PIDF"; disown 2>/dev/null || true; sleep 3   # h 가 끝나도 포워딩은 남는다(서버가 쓰는 동안) — 정지는 ACTION=stop
-kill -0 "$(cat "$TUN_PIDF")" 2>/dev/null || { cat "$WORK/fwd.log" | tail -2 | sed 's/^/        /'; rm -f "$TUN_PIDF"; die 4 "역방향 포워딩이 서지 않았다(mini sshd 의 원격 포워딩 허용·포트 충돌 확인)"; }
-FWD_OK="$(ms 15 "lsof -nP -iTCP:$TUN_PORT -sTCP:LISTEN 2>/dev/null | wc -l | tr -d ' '")" || FWD_OK=0
-[ "$FWD_OK" -ge 1 ] 2>/dev/null || { kill "$(cat "$TUN_PIDF")" 2>/dev/null; rm -f "$TUN_PIDF"; die 4 "mini 에서 127.0.0.1:$TUN_PORT 가 LISTEN 이 아니다"; }
-say "        포워딩 OK · ssh pid $(cat "$TUN_PIDF") — 정지는 ACTION=stop"
+kill -0 "$(cat "$TUN_PIDF")" 2>/dev/null || { tail -2 "$WORK/fwd.log" | sed 's/^/        /'; rm -f "$TUN_PIDF"; die 4 "역방향 포워딩이 서지 않았다(mini sshd 의 원격 포워딩 허용·포트 충돌 확인)"; }
+for fp in "${FWD_PORTS[@]}"; do
+  FWD_OK="$(ms 15 "lsof -nP -iTCP:$fp -sTCP:LISTEN 2>/dev/null | wc -l | tr -d ' '")" || FWD_OK=0
+  [ "$FWD_OK" -ge 1 ] 2>/dev/null || { kill "$(cat "$TUN_PIDF")" 2>/dev/null; rm -f "$TUN_PIDF"; die 4 "mini 에서 127.0.0.1:$fp 가 LISTEN 이 아니다"; }
+done
+say "        포워딩 OK(${FWD_PORTS[*]}) · ssh pid $(cat "$TUN_PIDF") — 정지는 ACTION=stop"
 # 원격 스크립트 = [env 블록] + [기동 명령]. 전부 stdin 으로 가서 `bash -s` 가 읽는다 → 명령줄에 비밀이 없다.
 {
   cat <<EOS
@@ -195,14 +213,14 @@ say "5/7 60초 뒤 프로세스별 RSS·memory_pressure"
 sleep 55
 ms 40 'cd $HOME/Project/BYZ-Agents; tot=0; while read -r pid; do r=$(ps -o rss= -p "$pid" 2>/dev/null | tr -d " "); [ -n "$r" ] || { echo "pid=$pid (종료됨)"; continue; }; mb=$((r/1024)); tot=$((tot+mb)); printf "pid=%s rss=%sMB %s\n" "$pid" "$mb" "$(ps -o comm= -p "$pid" | xargs basename)"; done < .h-pids; echo total_rss=${tot}MB; memory_pressure 2>/dev/null | tail -1' 2>&1 | sed 's/^/        /'
 for u in "127.0.0.1:$P_GATEWAY/health" "127.0.0.1:$P_WEB/"; do
-  CODE="$(ms 15 "curl -s -o /dev/null -w '%{http_code}' -m 5 http://$u || true")" || CODE="?"
+  CODE="$(ms 15 "curl -s -L -o /dev/null -w '%{http_code}' -m 5 http://$u || true")" || CODE="?"
   say "        http://$u → $CODE"
 done
 say "        로그 끝 줄(오류 확인용 · 값 없음):"
 for f in gateway worker web; do printf '          %s: ' "$f"; ms 10 "tail -1 /tmp/h-byz-$f.log 2>/dev/null | cut -c1-120" 2>/dev/null; echo; done
 
 # ── 6~7) 끝 ──────────────────────────────────────────────────────────────
-GW_OK="$(ms 15 "curl -s -o /dev/null -w '%{http_code}' -m 5 http://127.0.0.1:$P_GATEWAY/health || true")"; WEB_OK="$(ms 15 "curl -s -o /dev/null -w '%{http_code}' -m 5 http://127.0.0.1:$P_WEB/ || true")"
+GW_OK="$(ms 15 "curl -s -L -o /dev/null -w '%{http_code}' -m 5 http://127.0.0.1:$P_GATEWAY/health || true")"; WEB_OK="$(ms 15 "curl -s -o /dev/null -w '%{http_code}' -m 5 http://127.0.0.1:$P_WEB/ || true")"
 if [ "$GW_OK" != "200" ] || [ "$WEB_OK" != "200" ]; then
   say "        ✗ health 실패 gateway=$GW_OK web=$WEB_OK — 로그 끝(값 없음):"
   for f in gateway worker web; do printf '          %s: ' "$f"; ms 10 "tail -2 /tmp/h-byz-$f.log 2>/dev/null | tr '\n' ' ' | cut -c1-240" 2>/dev/null; echo; done

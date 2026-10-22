@@ -54,7 +54,7 @@ if [ "$START" = "1" ]; then
   # ── 2) preflight (전부 읽기 · bash -s 로 stdin) ─────────────────────────
   say "1/6 preflight — 서버 / CDP / 오디오 / tts-say / 파이썬 / 다른 오디오 회차"
   PRE="$(ms 40 'bash -s' 2>&1 <<EOF
-echo gw=\$(curl -s -o /dev/null -w '%{http_code}' -m 5 http://127.0.0.1:$P_GW/health || true)
+echo gw=\$(curl -s -L -o /dev/null -w '%{http_code}' -m 5 http://127.0.0.1:$P_GW/health || true)
 echo web=\$(curl -s -o /dev/null -w '%{http_code}' -m 5 http://127.0.0.1:$P_WEB/ || true)
 echo tun=\$(lsof -nP -iTCP:${LOOM_PG_TUNNEL_PORT:-38309} -sTCP:LISTEN 2>/dev/null | wc -l | tr -d ' ')
 echo cdp=\$(curl -s -m 4 http://127.0.0.1:$CDP/json/version | grep -c Chrome || true)
