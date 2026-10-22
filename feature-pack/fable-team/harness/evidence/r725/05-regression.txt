@@ -1,0 +1,13 @@
+# R725 관련 회귀 시험 (기존 계약 유지 대조) — 2026-10-22T05:18:08Z
+test_merge_land.sh                       rc0
+test_merge_land_off_approval.sh          rc0
+test_merge_land_equiv.sh                 rc0
+test_merge_land_push_reason.sh           rc0
+test_merge_land_state_dir.sh             rc0
+test_autonomy_hooks.sh                   rc0
+test_autonomy_hooks_layout.sh            rc0
+test_autonomy_merge_equiv.sh             rc0
+test_kit_bin_sync.sh                     rc0
+test_baseline_lint.sh                    rc0
+
+# 선행 실패(기준선 origin/main 에서도 같은 줄이 실패 — 이 카드와 무관): test_autonomy_core.sh H3 · test_merge_land_pack_repo.sh ⓐ2/ⓐ3/ⓐ4 · test_proxy_decide_r188.sh R410 · test_kit_exec_modes.sh 3줄

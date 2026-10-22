@@ -1,0 +1,77 @@
+# R725 r2 판정 시험 전문 — bash harness/tests/test_doc_exempt_r725.sh (2026-10-22T06:00:39Z)
+PASS bash -n 5종 · py 문법
+PASS ⓐ 빨강: 문서만 PR · 승인 파일 없음 → REJECT rc2 · main 불변(옛 판)
+PASS ⓑ doc-exempt 로 승인 없이 착지
+PASS ⓑ merge-gate.log 에 doc-exempt 기록
+PASS ⓑ autonomy.log «doc-exempt <sha> team=planner files=1 by=<좌석>» 한 줄
+PASS ⓑ autonomy.log 줄이 위변조 아님(mode=off) · 착지 커밋 = PR 1개(squash)
+PASS ⓑ 착지 트리에 인계서 존재
+PASS ⓓ① 승인 값 있는데 파일 없음 → 대체 없이 REJECT rc2 · main 불변
+PASS ⓓ② gh JSON 깨짐 → 착지 0
+PASS ⓓ③(대조) 정상 문서 PR 은 rc0
+PASS ⓖ FT_DOC_EXEMPT=0 → 예외 꺼짐 · reject 기록 · 착지 0
+PASS ⓑ+ 수정(M) 만도 통과 · 판정 줄에 실측 좌석
+PASS ⓑ+ 다른 팀 폴더(issues) .md · planner 좌석 → 통과
+PASS ⓑ+ 그 팀 master 좌석 → 통과
+PASS ⓒ 부른 좌석 팀 ≠ 폴더 팀 → 면제 0(rc2)
+PASS ⓒ 두 팀 폴더 섞인 PR → 면제 0
+PASS ⓒ VERDICTS 원장 → 면제 0 (NOT 정본·승인근거·판정입력 이름(GOAL- · GUIDE- · SEATBELT · VERDICTS- · AUTO)
+PASS ⓒ GOAL GUIDE SEATBELT → 면제 0 (NOT 정본·승인근거·판정입력 이름(GOAL- · GUIDE- · SEATBELT · VERDICTS- · AUTO)
+PASS ⓒ README BOARD → 면제 0 (NOT 정본·승인근거·판정입력 이름(GOAL- · GUIDE- · SEATBELT · VERDICTS- · AUTO)
+PASS ⓒ 팀 하위 폴더 → 면제 0 (NOT 팀 하위 폴더: design/teams/planner/sub/HANDOFF-x.md)
+PASS ⓒ md 아닌 파일 → 면제 0 (NOT 문서(.md) 아님: design/teams/planner/note.txt)
+PASS ⓒ 삭제 1개 → 면제 0 (NOT 추가·수정 아닌 변경(D): design/teams/planner/HANDOFF-pr1.md)
+PASS ⓒ 링크 md → 면제 0 (NOT 모드 120000 는 100644 아님: design/teams/planner/HANDOFF-link.md)
+PASS ⓒ 실행비트 md → 면제 0 (NOT 모드 100755 는 100644 아님: design/teams/planner/HANDOFF-run.md)
+PASS ⓒ 옛 꼴 design/issues → 면제 0 (NOT 팀 폴더(design/teams/) 아님: design/issues/TABLE.md)
+PASS ⓒ 팀 폴더 밖 design/TEAMS.md → 면제 0 (NOT 팀 폴더(design/teams/) 아님: design/TEAMS.md)
+PASS ⓒ 팀 이름 대문자 → 면제 0 (NOT 팀 이름 형식 틀림: design/teams/Issues/TABLE.md)
+PASS ⓒ 팀 master 도 planner 도 아닌 좌석 → 면제 0(rc2)
+PASS ⓒ 좌석 해석 실패 → 면제 0(rc2)
+PASS ⓒ 명부 없음 → 면제 0(rc2)
+PASS ⓒ 판정 뒤 head/base 바뀜(빈 diff) → 면제 0
+PASS ⓒ 없는 head → 면제 0
+PASS ⓒ base 형식 틀림 → 판정 불가 rc2
+PASS ⓗ 원격 불통 → 면제 0 · 1s(≤20)
+PASS ⓕ design/x.py = 면제 0(옛 design/* 구멍 막힘)
+PASS ⓕ .md 만이면 DOC-FILES
+PASS ⓕ·ⓔ 전제: 자율 ON · autonomy.log 위변조 아님
+PASS ⓕ ft-proxy-decide docs-push 가 같은 판정을 부른다(QUEUE)
+PASS ⓔ1 ON · 승인 없음 · 문서만 sha 직접 push → deny(면제 0)
+PASS ⓔ2 ON · gh pr merge 문서 sha → deny(면제 0)
+PASS ⓔ3 ON · 코드 sha → deny
+PASS ⓔ4 목적지 other 여도 직접 push → deny
+PASS ⓔ5(대조) 오빠 승인 파일 있는 sha 는 그대로 allow
+PASS ⓔ6 hook 이 자율 상태를 위변조로 만들지 않음(mode=on 유지)
+PASS ⓝ①a 빨강(옛 판 = 자기 신고 좌석만으로 rc0)
+PASS ⓝ①b TMUX_PANE 없이 자기 신고만 → 면제 0(rc2)
+PASS ⓝ①c 실제 좌석(tmux 세션명) == 자기 신고 → 통과
+PASS ⓝ①d 자기 신고 ≠ 실제 좌석 → 면제 0(rc2)
+PASS ⓝ①e tmux 조회 실패 → 면제 0(rc2)
+PASS ⓝ②a 빨강(옛 판 = 가짜 루트·가짜 _master 로 rc0)
+PASS ⓝ②b 가짜 명부 루트(_master = 나) → 면제 0(rc2)
+PASS ⓝ②c 대상 리포 .fable-team/LIVE_ROOT 1행의 루트 → 통과
+PASS ⓝ③a 빨강(옛 판 = NUL 바이트 .md 가 rc0)
+PASS ⓝ③b numstat rc≠0 = 판정 불가(rc2 · 면제 0) — 정상 문서에도 못 넘긴다
+PASS ⓝ③d NUL 바이트 .md → 면제 0
+PASS ⓝ③e UTF-8 아닌 .md → 면제 0
+PASS ⓝ③e git info attributes 의 *.md diff 속성으로도 안 열린다
+PASS ⓝ④a 빨강(추가분 제거한 사본 = PLAN-oppa-ledger ✓ 통과)
+PASS ⓒ canon-plan-oppa-ledger.md → 면제 0 (NOT 정본·승인근거·판정입력 이름(GOAL- · GUIDE- · SEATBELT · VERDICTS- · AUTO)
+PASS ⓒ canon-flag-decisions.md → 면제 0 (NOT 정본·승인근거·판정입력 이름(GOAL- · GUIDE- · SEATBELT · VERDICTS- · AUTO)
+PASS ⓒ canon-merge-queue.md → 면제 0 (NOT 정본·승인근거·판정입력 이름(GOAL- · GUIDE- · SEATBELT · VERDICTS- · AUTO)
+PASS ⓒ canon-state.md → 면제 0 (NOT 정본·승인근거·판정입력 이름(GOAL- · GUIDE- · SEATBELT · VERDICTS- · AUTO)
+PASS ⓒ canon-nano-ledger.md → 면제 0 (NOT 정본·승인근거·판정입력 이름(GOAL- · GUIDE- · SEATBELT · VERDICTS- · AUTO)
+PASS ⓒ canon-news-tree.md → 면제 0 (NOT 정본·승인근거·판정입력 이름(GOAL- · GUIDE- · SEATBELT · VERDICTS- · AUTO)
+PASS ⓒ canon-decision-x.md → 면제 0 (NOT 정본·승인근거·판정입력 이름(GOAL- · GUIDE- · SEATBELT · VERDICTS- · AUTO)
+Traceback (most recent call last):
+  File "<stdin>", line 4, in <module>
+AssertionError: 변이 대상 없음: if not self.approved or not self.judge:
+PASS ⓝ⑤ 빨강(가드에 직접경로 면제를 되살리면 allow — 변이 감지)
+PASS ⓙ① 정본·승인근거 이름 검사 삭제 → VERDICTS 반례가 통과(FAIL 재현)
+PASS ⓙ② 팀 직속 검사 삭제 → 하위 폴더 반례가 통과(FAIL 재현)
+PASS ⓙ③ --ff 강제 삭제 → ff 반례가 통과(FAIL 재현)
+PASS ⓙ③b 원판은 --ff 를 REJECT(문서 경로도 squash 만)
+PASS ⓘ 격리: 실 PR 병합 호출 0(가짜 gh 만)
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

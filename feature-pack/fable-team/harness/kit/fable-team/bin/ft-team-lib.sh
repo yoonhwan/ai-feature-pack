@@ -6,6 +6,7 @@
 #   ft_team_root <팀> [--alt]       : 팀 폴더 절대경로 · --alt = 쌍둥이 경로(꼴1↔꼴2 · 꼴3 은 쌍둥이 없음 = rc1·출력 0)
 #   ft_team_rel <팀>                : 칸에 적힌 원문 경로(치환 전) — 이동 도구의 before/after 줄용
 #   env: FT_REPO_ROOT(기본 git 루트) · FT_TEAMS_MD(기본 <루트>/design/TEAMS.md) · FT_HARNESS_ROOT(꼴3 치환값 · 없으면 꼴3 팀은 ERROR rc1)
+#   ft_from_current <값> [<명부>]   : 보내는 사람 이름의 «명부 현역» 해석 — 송신 from 단일 출처 (r730)
 #   실패는 stderr `ERROR …` + rc1 — 옛 `design/<팀>/` 으로 되돌아가지 않는다(#0 RULE).
 ft_team_repo_root() { local r="${FT_REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null)}"
   [ -n "$r" ] || { echo "ERROR 리포 루트를 못 찾았다(FT_REPO_ROOT 또는 git 안에서 실행)" >&2; return 1; }; printf '%s\n' "$r"; }
@@ -137,6 +138,31 @@ ft_team_has_ref() { ( r="$1"; ref="${5:-${FT_TEAMS_REF:-origin/main}}"; md="$(mk
   git -C "$r" show "$ref:design/TEAMS.md" > "$md" 2>/dev/null || { echo "ERROR 명단($ref:design/TEAMS.md)을 못 읽음: $r" >&2; exit 2; }
   export FT_TEAMS_MD="$md" FT_REPO_ROOT="$r"; ft_team_has "$2" "$3" "${4:-}" ); }
 #   ft_team_has <팀> <경로> [<하위>] : 경로가 그 팀 폴더(<하위> 가 있으면 그 아래) 안인가 — 명단 꼴·쌍둥이 둘 다 본다(상대·절대경로 모두 · 꼴3 은 FT_HARNESS_ROOT 절대경로). rc0 안 · rc1 밖(명단에 없는 팀도 «밖») · rc2 명단을 못 읽음/꼴3 env 없음(ERROR)
+#   ft_from_current <값> [<명부>]   : 보내는 사람 이름을 «명부 현역» 으로 (r730) — 팀장 승계로 명부 `_master` 는 바뀌는데 팀 env 의 FT_SEND_FROM 은 옛 세대 글자 그대로라
+#     나노 발주문이 «산출을 옛 팀장에게» 라고 적히고 송신 from 이 죽은 좌석으로 가던 사고(r730 · 챗봇 나노 보고 5통 유실)를 한 곳에서 푼다.
+#     계보 = 이름에서 끝 `#<숫자>` 를 뺀 글자 · 명부 = [<명부>] 또는 env FT_SEATS_JSON, 없으면 <루트>/.fable-team/seats-<FT_TEAM 또는 v65>.json 의 `_master`
+#     ★계보가 같을 때만★ 바꾼다(같은 계보 안 #N 교체) — 계보가 다르면(역할 다름·옛 이름) 그대로.
+#     stdout = 값 1줄(언제나) · rc0 · stderr = 바꿨으면 `INFO FT_SEND_FROM 옛 세대(#N) → 명부 현역(#M)` 1줄 ·
+#     명부 못 읽음/`_master` 없음/이름 lint 실패 = 그대로 + `WARN …` 1줄(안전 쪽 — 실패한다고 발신을 막지 않는다)
+_ft_from_gen() { case "$1" in *'#'*) printf '%s\n' "${1##*#}";; *) printf '\n';; esac; }
+_ft_from_lineage() { case "$1" in *'#'*) printf '%s\n' "${1%#*}";; *) printf '%s\n' "$1";; esac; }
+ft_from_current() { local v="${1:-}" seats="${2:-}" m d lint r
+  [ -n "$v" ] || { printf '\n'; return 0; }
+  if [ -z "$seats" ]; then
+    seats="${FT_SEATS_JSON:-}"
+    if [ -z "$seats" ]; then r="$(ft_team_repo_root 2>/dev/null)" || r=""
+      [ -n "$r" ] || { echo "WARN FT_SEND_FROM 현역 해석 못 함 — 리포 루트를 못 찾았다 (값 그대로: $v)" >&2; printf '%s\n' "$v"; return 0; }
+      seats="$r/.fable-team/seats-${FT_TEAM:-v65}.json"; fi
+  fi
+  [ -f "$seats" ] || { echo "WARN FT_SEND_FROM 현역 해석 못 함 — 명부 없음: $seats (값 그대로: $v)" >&2; printf '%s\n' "$v"; return 0; }
+  m="$(grep -o '"_master"[[:space:]]*:[[:space:]]*"[^"]*"' "$seats" 2>/dev/null | head -1 | sed -e 's/^"[^"]*"[[:space:]]*:[[:space:]]*"//' -e 's/"$//')"
+  [ -n "$m" ] || { echo "WARN FT_SEND_FROM 현역 해석 못 함 — 명부에 _master 없음: $seats (값 그대로: $v)" >&2; printf '%s\n' "$v"; return 0; }
+  d="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
+  if [ -f "$d/ft-name-lint.sh" ] && ! lint="$(bash "$d/ft-name-lint.sh" "$m" 2>&1)"; then
+    echo "WARN FT_SEND_FROM 현역 해석 못 함 — 명부 _master 이름 lint 실패($lint) (값 그대로: $v)" >&2; printf '%s\n' "$v"; return 0; fi
+  [ "$(_ft_from_lineage "$v")" = "$(_ft_from_lineage "$m")" ] || { printf '%s\n' "$v"; return 0; }
+  [ "$v" = "$m" ] || echo "INFO FT_SEND_FROM 옛 세대(#$(_ft_from_gen "$v")) → 명부 현역(#$(_ft_from_gen "$m"))" >&2
+  printf '%s\n' "$m"; }
 ft_team_has() { local t="$1" p="$2" sub="${3:-}" rel c md
   md="$(ft_team_teams_md)" || return 2
   ft_team_names "$md" | grep -qxF -- "$t" || return 1

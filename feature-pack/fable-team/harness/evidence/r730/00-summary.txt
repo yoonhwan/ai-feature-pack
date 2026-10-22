@@ -1,0 +1,13 @@
+r730 — 팀 env 의 FT_SEND_FROM 이 팀장 승계 때 안 바뀌어 나노 발주문·보고자·송신 from 이 옛 팀장으로 가던 결함
+=========================================================================================
+원인: env 고정 글자(팀 env :10) vs 명부 _master(승계 도구가 고침) — 세 곳이 env 를 그대로 씀(ft-nano-spawn:13 · ft-role-spawn:21 · ft-send-verified:80).
+
+바꾼 것(ft-team-lib.sh 새 함수 1 ft_from_current + 부르는 곳 3 · kit↔bin 짝 cmp0 · 시험 1)
+  1. 계보 = 이름에서 끝 '#<숫자>' 를 뺀 글자 · 명부 = 인자/FT_SEATS_JSON/<루트>/.fable-team/seats-<FT_TEAM|v65>.json 의 _master
+  2. 같은 계보면 _master 로 바꾸고 stderr 'INFO FT_SEND_FROM 옛 세대(#N) → 명부 현역(#M)' 1줄 · 이미 현역이면 침묵
+  3. 계보가 다르면(ft-issue-manager#0 · byz-planner-arch#0) 그대로 — 옛 이름 자동 교체 0(팀 env 1회 정리는 master 손)
+  4. 명부 못 읽음·_master 없음·이름 lint 실패(FB_KK#4) = 값 그대로 + WARN 1줄(안전 쪽 · 발신을 막지 않는다)
+  5. --from 을 명시하면 해석하지 않는다(사람·도구가 고른 값 존중) · stdout 은 언제나 값 1줄 rc0
+
+시험 = feature-pack/fable-team/harness/tests/test_from_current_r730.sh (ⓑ~ⓗ · PASS 37 · FAIL 0 · 변이 2 감지)
+  ⓐ 빨강 = base(origin/main) 판에서 'ft_from_current' 정의 0 → 27 FAIL (01-red-base.txt)

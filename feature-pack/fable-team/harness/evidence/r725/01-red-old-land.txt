@@ -1,0 +1,12 @@
+# R725 ⓐ 빨강 — 옛 판(origin/main 050dae3e4) ft-merge-land 는 «문서만 바뀐 PR» 도 오빠 승인 파일을 요구한다
+# 픽스처 = 임시 origin(bare) + clone · 문서만 바뀐 PR(pull/1/head) · 가짜 gh · cwd 는 git 밖(교차 리포 판정 0)
+
+$ bash <옛 판 ft-merge-land.sh> 1 --approve-sha 596496ed88a0156416f56c8140c9da78f9c4f5f2 --repo $W
+/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.0etn76jZJv/red/ft-merge-land.sh: 줄 39: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.0etn76jZJv/state/autonomy-merge-approved/596496ed88a0156416f56c8140c9da78f9c4f5f2: No such file or directory
+REJECT 오빠 승인 파일 없음 — 승인 h 한 줄 먼저(approve-merge 596496ed88a0156416f56c8140c9da78f9c4f5f2 승인 파일·로그 한 줄 없음) — 실행 0
+rc=2
+main_before=54518dad7c07da271593ea94d38bd69af234b8e4 main_after=54518dad7c07da271593ea94d38bd69af234b8e4
+--- ctx
+/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.0etn76jZJv|0||/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.0etn76jZJv/.fable-team/state/base-head|/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.0etn76jZJv/w
+ctx rc=0
+pwd=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.0etn76jZJv

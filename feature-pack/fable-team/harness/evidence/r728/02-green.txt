@@ -1,0 +1,39 @@
+== ⓐ 빨강 — base 판(50e88b8c): 시안 렌더가 공지 1통 + 표식 덮어씀 → 다음 기본 렌더가 재공지
+PASS ⓐ0 base · 기본 6행 렌더 rc0
+PASS ⓐ0 base · 첫 렌더 공지 0 · 표식 생김
+PASS ⓐ1 base · 시안 렌더 = 공지 1통(빨강 = 이 카드의 결함)
+PASS ⓐ2 base · 표식 첫 줄이 시안 판으로 덮어써짐
+PASS ⓐ3 base · 다음 기본 렌더가 재공지 1통(번호표는 그대로인데)
+== ⓑ 후판 — 시안 렌더 = 공지 0 · 표식 바이트 그대로 · 블록 7행 그대로 · stderr INFO 1줄
+PASS ⓑ0 기본 6행 렌더 rc0 · 공지 0 · 표식 생김
+PASS ⓑ1[파일] 시안 렌더 rc0 · 표 8줄(7행+머리) — 블록은 그대로 그린다
+PASS ⓑ2[파일] 시안 렌더 공지 0
+PASS ⓑ3[파일] 표식 바이트 그대로(전후 cmp)
+PASS ⓑ4[파일] stderr INFO 1줄
+PASS ⓑ1[다른ref] 시안 렌더 rc0 · 표 8줄(7행+머리) — 블록은 그대로 그린다
+PASS ⓑ2[다른ref] 시안 렌더 공지 0
+PASS ⓑ3[다른ref] 표식 바이트 그대로(전후 cmp)
+PASS ⓑ4[다른ref] stderr INFO 1줄
+PASS ⓑ1[같은ref다른이름] 시안 렌더 rc0 · 표 8줄(7행+머리) — 블록은 그대로 그린다
+PASS ⓑ2[같은ref다른이름] 시안 렌더 공지 0
+PASS ⓑ3[같은ref다른이름] 표식 바이트 그대로(전후 cmp)
+PASS ⓑ4[같은ref다른이름] stderr INFO 1줄
+PASS ⓑ5 시안 렌더 뒤 기본 렌더 = 재공지 0(공지 총 0)
+PASS ⓑ6 기본 렌더도 표식 그대로(번호표 그대로인 판)
+PASS ⓑ7 기본 렌더에는 시안 INFO 줄이 없다
+== ⓒ 기본 정본의 번호표 바뀜 = 지금처럼 공지 1통 + 표식 전진(env 없음 / env == 기본 spec 글자)
+PASS ⓒ0[env없음] 6행 첫 렌더 rc0 · 공지 0
+PASS ⓒ1[env없음] 번호표 바뀐 기본 렌더 = 공지 1통
+PASS ⓒ2[env없음] 표식 전진 + prev 줄(r726 그대로)
+PASS ⓒ3[env없음] 기본 렌더에 시안 INFO 0
+PASS ⓒ0[env같음] 6행 첫 렌더 rc0 · 공지 0
+PASS ⓒ1[env같음] 번호표 바뀐 기본 렌더 = 공지 1통
+PASS ⓒ2[env같음] 표식 전진 + prev 줄(r726 그대로)
+PASS ⓒ3[env같음] 기본 렌더에 시안 INFO 0
+== ⓓ r726 유예 시험 그대로 PASS(prev 줄이 시안으로 오염 0)
+PASS ⓓ r726 시험 rc0(57 PASS · 0 FAIL)
+== ⓔ 변이 — 조건 삭제(if True:) 판이면 시안 렌더가 공지한다(= ⓑ FAIL 재현)
+PASS ⓔ 변이 판 = 시안 렌더 공지 1통(조건이 실제로 문다)
+PASS ⓔ 변이 판에는 INFO 줄 0
+
+ALL PASS r728 (draft-render-no-notice)

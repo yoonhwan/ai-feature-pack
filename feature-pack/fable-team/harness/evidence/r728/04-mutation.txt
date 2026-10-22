@@ -1,0 +1,6 @@
+# ⓔ 변이 — _canon_render() 조건을 «if True:» 로 지운 판 = 시안 렌더가 공지(조건이 실제로 문다)
+== ⓔ 변이 — 조건 삭제(if True:) 판이면 시안 렌더가 공지한다(= ⓑ FAIL 재현)
+PASS ⓔ 변이 판 = 시안 렌더 공지 1통(조건이 실제로 문다)
+PASS ⓔ 변이 판에는 INFO 줄 0
+
+ALL PASS r728 (draft-render-no-notice)

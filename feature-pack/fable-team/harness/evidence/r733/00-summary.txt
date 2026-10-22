@@ -1,0 +1,11 @@
+r733 — r731 시험의 «직전 판 대조군» 을 이동하는 origin/main 에서 떠 오던 것 → 고정 sha 로 못 박기
+=============================================================================================
+원인(r733 · arch 123 실측): test_goal_table_budget_shrink_r731.sh:24 가 대조군(=고치기 전 판)을
+  `git show origin/main:...ft_goal_table.py` 로 떠 온다. r731 이 main 에 들어간 순간 origin/main 도
+  «고친 판» 이 되어 대조군이 더는 실패하지 않는다 → ⓐ «직전 판 rc1 이어야» 칸이 rc0 으로 FAIL,
+  팩 main 48ee981f23 에서 14 PASS 중 1 FAIL rc1 (시험 빨강).
+고침: 대조군을 «r731 직전 main» 커밋으로 고정 — PREVSHA=50e88b8c3bab25660e630e20cbe1a9eb7f823590
+  (1.1.208) · `git show "$PREVSHA:$REL"` · 없으면(얕은 클론) 그 칸만 SKIP 규칙 그대로(문구도 고정 sha 로).
+범위: 시험 파일 1개 · 키트·bin 코드 0 · 다른 시험 0.
+같은 꼴(고치지 않음 · 목록만): tests/test_goal_table_procs_r644.sh:95 ⓗ base = origin/main 판 —
+  착지하면 base==지금 판이 되어 «바이트 동일» 이 항등이 된다(빨강은 아니고 «약해짐»).

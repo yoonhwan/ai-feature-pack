@@ -1,3 +1,12 @@
+## 2026-10-22 — 묶음 착지 5건(r725 · r730 · r727 · r728 · r733 · 1.1.210 · 같은 manifest·CHANGES 줄을 건드려 한 PR 로 squash)
+
+- **r725** 문서만 PR 승인 면제 — 한 팀 폴더 `design/teams/<팀>/` 직속 `.md` 만 바꾸는 PR 은 오빠 승인 없이 `ft-merge-land` 경유 squash 로만 착지(판정 `ft_doc_exempt.py` 1모듈을 승인 가드·착지 도구·docs-push 가 공통 호출). DA⑥ r1 HOLD 6건(좌석 `TMUX_PANE` 실측 · 명부 루트 한정 · 바이너리 blob 판정 · 골·결정 판정 입력 `.md` 제외 · 가드 직접 push 면제 제거 · 시험 보강) + r2 HOLD 2건(실경로 `env -u FT_DOC_EXEMPT_SELFTEST` · SELFTEST 판정 성공 = rc3 · 빨강 칸 성립) 반영 · 판정문 §189 · 설치: 키트 5파일 + 훅 `autonomy-merge-guard.sh`.
+- **r730** `FT_SEND_FROM` 이 승계 뒤 옛 팀장을 가리키던 것 — 송신 때 명부 `_master` 현역을 따름(`ft_from_current`: 같은 계보 `#N` 만 교체 · `--from` 명시 존중 · 계보 다름·명부 없음 = 그대로) · 부르는 곳 3(`ft-nano-spawn` · `ft-role-spawn` · `ft-send-verified`) · 판정문 §190 · 설치: 키트 4파일.
+- **r728** 골 표 시안·시험 렌더가 «골 번호 바뀜» 공지를 실발송하고 표식을 덮어쓰던 것 — 기본 정본(origin/main · `AUTONOMY-GOAL-A6-<8자리>.md`)일 때만 공지·표식(그 밖은 stderr INFO 1줄) · 판정문 §192 · 설치: 키트 `ft_goal_table.py`.
+- **r727** 매거진 골 시험 픽스처 복사목록에 `ft_goal_readjust_state.py` 추가(r714a 회귀 3 failed → 5 passed) · 시험만 · 판정문 §188.
+- **r733** r731 시험의 «직전 판» 대조군을 고정 sha `50e88b8c3b` 로(움직이는 main 이라 착지 뒤 빨강) · 시험만 · 판정문 §193.
+- 증거 `harness/evidence/r725/ r727/ r728/ r730/ r733/` · 설치: 있음(키트 `ft_goal_table.py` · `ft-team-lib.sh` 외 + 훅 1) · 되돌림 = 이전 판.
+
 ## 2026-10-22 — 골 정본이 6줄 최악 길이로 바뀌자 골 표가 예산 1600B 를 3바이트 넘겨(1603B) `ft-goal-table.sh` 가 ERROR 로 멈추고 골 표 첨부 가드·뉴스·매거진이 정지하던 것을 «팀·상태·증거 칸 폭 24→20→16→12자 단계 축소» 로 막음(r731 · 1.1.209 · 키트 ft_goal_table.py 1파일 + 시험 1 · 골 원문 칸 절단 0)
 
 - 축소 사다리를 재조정 라벨 1단에서 «칸 폭 24→20→16→12» 로 늘림(teams·procs 와 같은 꼴) · 짧은 정본은 지금과 바이트 같음 · 실 정본 e0dce4a610 렌더 rc0 1494B 6행.

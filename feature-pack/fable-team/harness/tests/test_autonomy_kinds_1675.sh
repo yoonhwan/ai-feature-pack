@@ -135,10 +135,11 @@ setup_docs() {
 commit_files() { local f; for f in "$@"; do mkdir -p "$(dirname "$LR/$f")"; echo "$RANDOM" > "$LR/$f"; done; lg add -A; lg commit -q -m c; lg rev-parse HEAD; }
 dp() { CWD="$LR" D --kind docs-push --q "문서 push $1" --choice 올리기 --why "문서만" --undo "git revert" --branch "${3:-docs/x}" --sha "$2"; }
 mode_on; n0="$(ledger_n)"
-setup_docs; SD="$(commit_files NOTES.md design/harness/a.json)"; dp d1 "$SD"
-[ "$rc" = 0 ] && grep -q '^PROXY' <<<"$out" && [ "$(ledger_n)" = "$((n0+1))" ]; ck "ⓖ md + design/** 만 · docs/x · ff → PROXY rc 0" $?
+setup_docs; SD="$(commit_files NOTES.md design/harness/a.md)"; dp d1 "$SD"
+[ "$rc" = 0 ] && grep -q '^PROXY' <<<"$out" && [ "$(ledger_n)" = "$((n0+1))" ]; ck "ⓖ .md 만(NOTES.md + design/**.md) · docs/x · ff → PROXY rc 0" $?
 n0="$(ledger_n)"
 gq() { [ "$rc" = 2 ] && grep -q '^QUEUE' <<<"$out" && [ "$(ledger_n)" = "$n0" ]; ck "ⓖ $1 → QUEUE rc 2 · 대리 줄 0 ($(grep -o '^QUEUE .*' <<<"$out" | cut -c1-60))" $?; }
+setup_docs; SD="$(commit_files NOTES.md design/harness/a.json)"; dp d1b "$SD"; gq "design/** 지만 .md 아닌 파일(R725 r1: 옛 *.md|design/* 구멍 막힘)"
 setup_docs; SD="$(commit_files NOTES.md app/main.py)"; dp d2 "$SD"; gq "코드 파일 1개 섞임"
 setup_docs; SD="$(commit_files NOTES.md)"; dp d3 "$SD" main; gq "대상 가지 main"
 setup_docs; SD="$(commit_files NOTES.md)"; dp d4 "$SD" v65; gq "배포 가지 v65"

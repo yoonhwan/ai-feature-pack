@@ -1,0 +1,20 @@
+# 실 명부·실 팀 env 값으로 «읽기만» 한 대조(쓰기 0 · 쪽지 0 · tmux 0) — 지금 이 머신의 실제 값
+#   ft_from_current "<팀 env 의 FT_SEND_FROM>" <seats-<팀>.json>
+
+  팀        env 값(고정 글자)                    → 해석 결과                        판정
+  harness   byz-harness-master-claude#13        → byz-harness-master-claude#96      현역으로 바뀜
+  feature   byz-feature-master-claude#0         → byz-feature-master-claude#40      현역으로 바뀜
+  graphics  byz-graphics-master-claude#13       → byz-graphics-master-claude#28     현역으로 바뀜
+  loom      byz-loom-master-claude#0            → byz-loom-master-claude#47         현역으로 바뀜
+  ops       byz-ops-master-claude#0             → byz-ops-master-claude#45          현역으로 바뀜
+  kk        FB_KK#3                             → FB_KK#3                           그대로
+  chatbot   byz-chatbot-master-claude#20        → byz-chatbot-master-claude#20      그대로
+  cfo       byz-cfo-master-claude#105           → byz-cfo-master-claude#105         그대로
+  issues    ft-issue-manager#0                  → ft-issue-manager#0                그대로
+  planner   byz-planner-arch#0                  → byz-planner-arch#0                그대로
+
+# 판독
+  · harness(#13→#96)·feature(#0→#40)·graphics(#13→#28)·loom(#0→#47)·ops(#0→#45) = 같은 계보 — env 고정 글자가 옛 세대라 실제로 «바뀐다»(이 카드가 고치는 사고 그 자체).
+  · chatbot(#20)·cfo(#105) = 이미 현역 — 바뀌는 값 0(멱등).
+  · issues(ft-issue-manager#0)·planner(byz-planner-arch#0) = 계보가 다름(옛 이름·역할 다름) → 그대로 — 팀 env 1회 정리는 master 손(이 카드 범위 밖).
+  · kk(FB_KK#3) = 명부 _master FB_KK#4 가 이름 lint 를 통과하지 못한다(대문자·'_') → 값 그대로 + WARN 1줄.

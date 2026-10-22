@@ -12,6 +12,7 @@ check   : 본문에 ⓐ마커 블록(N행 = 마커 sha10 의 정본 골 칸과 �
           r726: 번호표가 바뀐 판이면 «표식에 기록한 직전 정본 1판» 만, 번호표가 바뀐 시각 뒤 FT_GOAL_RENUMBER_GRACE_H(기본 24)시간 안에서 인정한다 — `GOAL-OK n=<번호> 옛 번호표(유예 <남은>시간 남음 · 새 번호표 …)` rc0 + stderr 로그 1줄(FT_SEAT). 유예 밖·두 판 이상 옛 판·표식 없음/손상 = 지금처럼 REJECT rc3(유예로 새지 않는다).
           r726 r2: 결속 키 = «번호표 지문»(마커 sha == 표식 직전 판 sha 비교는 거뒀다 — 마커 sha 는 렌더 순간의 main 커밋이라 한 커밋 앞 렌더가 유예 밖으로 떨어졌다) · 신선도 상한 = 마커가 첫 부모 줄기에 있고 dist(마커) <= dist(직전 판)+STALE_FP_MAX(12) · 줄기에 없음/git 실패/직전 판이 줄기에 없음 = 유예 0(REJECT).
           r726 r3(DA⑥ r1 처방 5): 표식 두 줄 형식을 «정확히» 본다(`<sha10>\t<지문12>` · `prev\t<sha10>\t<지문12>\t<유한 정수 epoch>`, 아니면 유예 0) · «직전 판» 을 `git show <rec[0]>:<정본>` 으로 다시 계산해 지문 대조 · 표식 첫 줄 지문 == 지금 정본 지문 · 경과는 `0 <= 경과 < 유예`(미래 시각 0) · env 유예는 `min(env,24)` 로 줄이기만(0 = 끄기 · NaN/Inf = 기본).
+          r728: 번호 공지·표식 쓰기는 «기본 ref(FT_TEAMS_REF·origin/main) 의 gitref + 정본 꼴 이름(AUTONOMY-GOAL-A6-<8자리>.md)» 일 때만 — 시안·시험 렌더(FT_GOAL_A6_MD 에 파일 경로 · 다른 ref · 다른 이름을 주입)는 표만 그리고 공지·표식 0 + stderr `INFO 시안 렌더 — 번호 공지·표식 0 (정본 <spec>)` 1줄(시안 렌더가 표식을 옛 판으로 밀어 다음 진짜 렌더가 재공지하던 것).
           r600: gitref 정본이면 마커 sha 신선도도 본다 — 지금 ref 첫 부모 줄기에서 STALE_FP_MAX(12) 넘게 뒤 = `REJECT 골 표 낡음 — …` rc3 · 줄기에 없음 = rc3 · git 실패 = `REJECT 골 표 신선도 확인 실패` rc3(fail-closed · 파일 정본은 검사 생략).
           `--block-only` = ⓑ 생략(다골 글: 뉴스·매거진).
 teams   : 원장 `## 팀별 완성 진행` 첫 표(팀 | 끝선 N/M | 마지막 착지 | 지금 하는 것) → 마커 2줄(`★팀별 완성 진행 (<원장 sha10>)★` … `★/팀별 완성 진행★`) 사이 표(≤1600B · R458).
@@ -68,6 +69,7 @@ FP12 = re.compile(r"[0-9a-f]{12}")  # r726 r3 — 번호표 지문 칸(_num_hash
 GRACE_H = 24.0  # r726 — 직전 정본 1판을 인정하는 시간(시간 단위 · FT_GOAL_RENUMBER_GRACE_H · 0 = 유예 없음 = 지금 판과 같다)
 GRACE_ENV = "FT_GOAL_RENUMBER_GRACE_H"
 LEGACY_N = 6  # r668 H4: 예전 코드가 박아 둔 골 개수 — 표식 없는 첫 렌더에서 «바뀐 판인가» 의 기준
+CANON_NAME = re.compile(r"^AUTONOMY-GOAL-A6-\d{8}\.md$")  # r728 — 정본 꼴 이름(기본 spec 과 같은 꼴 · DEFAULT_NAME)
 NOTIFY_TIMEOUT = 7  # r668 H4: 송신 1통 상한(초) — mbox 가 멈춰도 렌더는 계속
 
 
@@ -101,6 +103,18 @@ def _repo() -> Path:
 
 def _spec() -> str:
     return os.environ.get("FT_GOAL_A6_MD") or default_spec(GoalError, DEFAULT_NAME)
+
+
+def _canon_render() -> bool:
+    """r728 — «진짜 정본 렌더» 인가: 기본 ref(FT_TEAMS_REF·origin/main) 의 gitref + 정본 꼴 이름(AUTONOMY-GOAL-A6-<8자리>.md).
+    기본 spec 글자와 같은 값도 이 규칙에 들어간다. 파일 경로(`file:` 표지)·다른 ref 의 gitref·다른 이름 = 시안·시험 렌더 → 공지·표식 쓰기 0.
+    기본 spec 을 풀어 비교하지 않는 이유: 명부(`design/TEAMS.md`) 없는 시험 픽스처에서도 기본 렌더를 기본으로 알아야 한다(오공지 0 은 시안에만 적용)."""
+    spec = _spec()
+    parts = spec.split(":", 2)
+    if len(parts) != 3 or parts[0] != "gitref":
+        return False
+    ref, name = parts[1], parts[2].rsplit("/", 1)[-1]
+    return ref == (os.environ.get("FT_TEAMS_REF") or "origin/main") and CANON_NAME.match(name) is not None
 
 
 def load_canon() -> tuple[str, str, str]:
@@ -357,6 +371,17 @@ def _notify_once(root: Path, mark: Path, sha: str, rows: list[list[str]]) -> Non
     _advance(mark, sig, f"{PREV_TAG}\t{old_sha}\t{old_sig}\t{int(_procs_now().timestamp())}" if old_sha else "")
 
 
+DRAFT_INFO: list[str] = []  # r728 — 시안 렌더 INFO 1줄은 «블록을 stdout 에 쓴 뒤» stderr 로 낸다(2>&1 캡처에서 블록이 첫 줄 = 소비처 파싱 그대로)
+
+
+def _notify_or_skip(sha: str, rows: list[list[str]]) -> None:
+    """r728 — 정본 렌더만 공지·표식(notify_renumber). 시안·시험 렌더(파일 경로·다른 ref·다른 이름 주입)는 쓰기 0 + stderr 1줄."""
+    if _canon_render():
+        notify_renumber(sha, rows)
+        return
+    DRAFT_INFO.append(f"INFO 시안 렌더 — 번호 공지·표식 0 (정본 {_spec()})")
+
+
 def notify_renumber(sha: str, rows: list[list[str]]) -> None:
     """r668 ⓖ — 정본 sha 가 바뀌고 골 번호표(행 수·순서)가 바뀐 첫 렌더에 전 팀장에게 1통. 같은 정본 sha 로는 1회(표식).
     읽기→송신→쓰기에 파일 잠금 — 동시 렌더가 겹쳐도 1통(r668 H4②). 공지 실패 = WARN 1줄(렌더는 계속 — 공지가 뉴스를 멈추지 않는다).
@@ -400,7 +425,7 @@ def render() -> str:
         out = "\n".join([f"★골 표 A6 ({src}{sha} · {head} · {note})★",
                           "| 골 | 팀 | 지금 상태 | 닫는 증거 | 재조정 |", "|---|---|---|---|---|", *body, TAIL])
         if len(out.encode("utf-8")) <= BUDGET:
-            notify_renumber(sha, rows)
+            _notify_or_skip(sha, rows)
             return out + "\n"
     raise GoalError(f"ERROR 골 표 예산 초과 {len(out.encode('utf-8'))}B > {BUDGET}B (골 원문 칸은 절단하지 않는다)")
 
@@ -621,6 +646,9 @@ def main(argv: list[str]) -> int:
             print(msg)
             return rc
         sys.stdout.write({"teams": render_teams, "procs": render_procs}.get(argv[0] if argv else "", render)())
+        sys.stdout.flush()
+        for line in DRAFT_INFO:   # r728 — 시안 렌더 INFO(블록 뒤 · 소비처가 첫 줄을 머리로 읽는다)
+            print(line, file=sys.stderr)
         return 0
     except GoalError as e:
         print(e, file=sys.stderr)

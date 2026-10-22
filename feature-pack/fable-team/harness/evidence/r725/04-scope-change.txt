@@ -1,0 +1,18 @@
+# R725 범위 확정 전후 (master #140107 · 2026-10-22)
+
+## 확정 전 (카드 초판 + DA② r1 HOLD)
+- planner «직속» HANDOFF-*.md · CLOSEOUT-*.md 만
+- 착지 좌석 = 현역 planner `_master` 만
+
+## 확정 후 (지금 구현)
+- 모든 팀 폴더 design/teams/<팀>/ «직속» .md — 2576(이슈팀 표) 포함
+- 착지 좌석 = 그 폴더 팀 master(seats-<팀>.json `_master`) 또는 planner `_master`
+- 한 PR = 한 팀 폴더(두 팀 섞이면 면제 0)
+- 정본·승인근거 이름은 그대로 제외: GOAL- · GUIDE- · SEATBELT · VERDICTS- · AUTONOMY- · BOARD · README
+  (DA② r1 HOLD 1 «승인 근거 .md 통과» 를 열지 않기 위해, master 목록 3종에 4종을 더 좁게 유지 — 넓히려면 오빠 판정 필요)
+
+## 시험 칸 (확정 후 추가)
+PASS ⓑ+ 다른 팀 폴더(issues) .md · planner 좌석 → 통과
+PASS ⓑ+ 그 팀 master 좌석 → 통과
+PASS ⓒ 부른 좌석 팀 ≠ 폴더 팀 → 면제 0(rc2)
+PASS ⓒ 두 팀 폴더 섞인 PR → 면제 0

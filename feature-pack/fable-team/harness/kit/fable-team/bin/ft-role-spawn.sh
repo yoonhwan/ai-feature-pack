@@ -18,16 +18,17 @@ set -uo pipefail
 ROLE="${1:-}"; shift || { echo "usage: $0 <master|da|pm|arch|tester> [--agent A] [--model M] [--effort E] [--from SEAT] [--dry-run]" >&2; exit 2; }
 case "$ROLE" in master|da|pm|arch|tester) ;; *) echo "usage: role 은 master|da|pm|arch|tester (받은 값: $ROLE)" >&2; exit 2;; esac
 # 오빠 2026-09-29 「arch도 fable 쓰지말고 opus5.5 high 쓰자 이후로는」
-AGENT="claude"; MODEL="claude-opus-5-5[1m]"; EFFORT="high"; FROM="${FT_SEND_FROM:-dispatch}"; DRY=0; RAISE=""; RAISE_CARD=""; TEAM="v65"
+AGENT="claude"; MODEL="claude-opus-5-5[1m]"; EFFORT="high"; FROM="${FT_SEND_FROM:-dispatch}"; FROM_SET=0; DRY=0; RAISE=""; RAISE_CARD=""; TEAM="v65"
 while [ $# -gt 0 ]; do case "$1" in
   --agent) AGENT="$2"; shift 2;; --model) MODEL="$2"; shift 2;; --effort) EFFORT="$2"; shift 2;; --team) TEAM="${2:-}"; shift 2 2>/dev/null || shift;;
   --raise) RAISE="${2:-}"; shift 2 2>/dev/null || shift;; --raise-card) RAISE_CARD="${2:-}"; shift 2 2>/dev/null || shift;;
-  --from) FROM="$2"; shift 2;; --dry-run) DRY=1; shift;; *) echo "unknown $1" >&2; exit 2;; esac; done
+  --from) FROM="$2"; FROM_SET=1; shift 2;; --dry-run) DRY=1; shift;; *) echo "unknown $1" >&2; exit 2;; esac; done
 # 오빠 확정(2026-09-24 · 09-28 재확인 · 09-29 세 번째 재발): v65 DA astra = low. 기본 high 로 뜨는 사고가 반복돼 여기서 막는다.
 case "$MODEL" in gpt-6-astra*) [ "$EFFORT" = "low" ] || { echo "REJECT: gpt-6-astra 는 --effort low 만 (받은 값: $EFFORT) — 오빠 확정" >&2; exit 2; };; esac
 case "$AGENT" in claude|codex|cmd|opencode|pi) ;; *) echo "usage: --agent 는 claude|codex|cmd|opencode|pi (받은 값: $AGENT)" >&2; exit 2;; esac
 [[ "$TEAM" =~ ^[a-z0-9][a-z0-9_-]*$ ]] || { echo "usage: --team 은 팀 이름 [a-z0-9_-] (받은 값: $TEAM)" >&2; exit 2; }
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
+# r730 ★보내는 사람 = 명부 현역★: --from 을 «안 줬을 때만» env FT_SEND_FROM 을 그 팀 명부 `_master` 로 해석한다(후계 좌석 첫 발주문이 옛 팀장을 가리키던 사고). 해석 함수 = ft-team-lib.sh 한 곳 · 명부(SEATS)가 정해진 뒤에 부른다.
 # ★spawn 정지 파일 (R320 · 판정 2166)★: 정지는 기한·해제 조건이 있는 SPAWN_HOLD 파일 하나로만 걸린다 — 문장·쪽지로 받은 정지는 효력 0. 출력 `hold=none` = 정지 아님. 없는 도구는 설치 누락(라이브 드리프트 검사가 잡는다).
 if [ -f "$HERE/ft-spawn-hold.sh" ]; then
   _hold="$(bash "$HERE/ft-spawn-hold.sh" status 2>&1)"; _hrc=$?
@@ -63,6 +64,7 @@ fi
 [ -e "$ROOT/.fable-team" ] && { _aout="$(FT_ROOT="$ROOT" bash "$HERE/ft-all-stop.sh" check 2>&1)" || { printf '%s\n' "$_aout"; exit 1; }; }
 [ "$TEAM" = v65 ] && SEATS="$ROOT/.fable-team/seats.json" || SEATS="$ROOT/.fable-team/seats-$TEAM.json"   # 명부 이름 규칙 = ft_teamset.py roster_path
 . "$HERE/ft-team-lib.sh"   # R382b: 팀 폴더는 WT 의 design/TEAMS.md 폴더 칸으로(리터럴 0)
+[ "$FROM_SET" = 1 ] || FROM="$(ft_from_current "$FROM" "$SEATS" )"   # r730: 보내는 사람 = 명부 현역(같은 계보일 때만)
 _TD="$(ft_team_in "$WT" "$TEAM")" || { echo "REJECT $TEAM 팀 폴더를 못 풀었다(design/TEAMS.md 명단에 없거나 폴더 칸 오류): $WT"; exit 1; }
 INBOX="$_TD/indices/inbox/$ROLE"; INBOX_REL="${INBOX#"$WT"/}"
 README="$_TD/SEATBELT-README.md"

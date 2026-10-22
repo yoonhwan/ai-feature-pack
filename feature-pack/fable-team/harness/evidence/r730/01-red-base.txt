@@ -1,0 +1,40 @@
+# ⓐ 빨강 — base(origin/main = 50e88b8c) 판에 이 카드의 시험만 얹었을 때
+#   하네스 전체 archive 를 /tmp 에 풀고 시험 1개만 복사해 돌렸다(코드 무수정).
+$ bash test_from_current_r730.sh
+PASS bash -n kit/ft-team-lib.sh
+PASS cmp0 kit↔bin ft-team-lib.sh
+PASS bash -n kit/ft-nano-spawn.sh
+PASS cmp0 kit↔bin ft-nano-spawn.sh
+PASS bash -n kit/ft-role-spawn.sh
+PASS cmp0 kit↔bin ft-role-spawn.sh
+PASS bash -n kit/ft-send-verified.sh
+FAIL ⓑ 같은 계보 결과 '' (기대 byz-x-master-claude#5)
+FAIL ⓑ rc=127
+FAIL ⓑ INFO 줄 다름: _: 줄 1: ft_from_current: 명령을 찾을 수 없음
+FAIL ⓑ 현역인데 stderr: _: 줄 1: ft_from_current: 명령을 찾을 수 없음
+FAIL ⓒ 계보 다름인데 '' / stderr=_: 줄 1: ft_from_current: 명령을 찾을 수 없음
+FAIL ⓒ 계보 다름인데 '' / stderr=_: 줄 1: ft_from_current: 명령을 찾을 수 없음
+FAIL ⓒ 계보 다름인데 '' / stderr=_: 줄 1: ft_from_current: 명령을 찾을 수 없음
+FAIL ⓓ 명부 없음 값이 '' 로 바뀜
+FAIL ⓓ 명부 없음 WARN: _: 줄 1: ft_from_current: 명령을 찾을 수 없음
+FAIL ⓓ 명부 없음 WARN 에 값 없음
+FAIL ⓓ _master 없음 값이 '' 로 바뀜
+FAIL ⓓ _master 없음 WARN: _: 줄 1: ft_from_current: 명령을 찾을 수 없음
+FAIL ⓓ _master 없음 WARN 에 값 없음
+FAIL ⓓ lint 실패(FB_KK#4) 값이 '' 로 바뀜
+FAIL ⓓ lint 실패(FB_KK#4) WARN: _: 줄 1: ft_from_current: 명령을 찾을 수 없음
+FAIL ⓓ lint 실패(FB_KK#4) WARN 에 값 없음
+PASS ⓓ 빈 값 → 빈 값(rc0)
+FAIL ⓔ nano-spawn 가드 줄 없음
+FAIL ⓔ --from 명시인데 해석됨
+FAIL ⓔ --from 없는데 해석 안 됨
+FAIL ⓕ ft-nano-spawn.sh 호출 0회 (기대 1)
+FAIL ⓕ ft-role-spawn.sh 호출 0회 (기대 1)
+FAIL ⓕ ft-send-verified.sh 호출 0회 (기대 1)
+FAIL ⓕ ft-team-lib.sh 의 ft_from_current 정의 0회 (기대 1)
+FAIL ⓖ 변이1 sed 미적용
+FAIL ⓖ 계보 비교를 지웠는데 ⓒ 가 통과
+FAIL ⓖ 변이2 sed 미적용
+FAIL ⓖ 명부 해석을 지웠는데 ⓑ 가 통과
+PASS ⓗ ft_from_current 부작용 0(읽기만)
+FAILED=27

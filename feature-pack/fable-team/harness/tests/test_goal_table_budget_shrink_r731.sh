@@ -16,12 +16,12 @@ R="$T/repo"; mkdir -p "$R/design/planner"; git -C "$R" init -q -b main
 export MBOX_LOG="$T/mbox.log"
 printf '#!/usr/bin/env bash\nprintf "%%s\\n" "$*" >> "$MBOX_LOG"\n' > "$T/mbox.sh"
 PAD40="$(printf 'y%.0s' $(seq 1 40))"; PAD40E="$(printf 'z%.0s' $(seq 1 40))"; PAD40S="$(printf 'q%.0s' $(seq 1 40))"
-# 직전 판(origin/main) 도구 — «지금 판 rc1» 의 대조군. 없으면 그 항목만 건너뛴다(다른 항목은 그대로 잡는다).
-# 직전 판(origin/main) 도구 — «지금 판 rc1» 의 대조군. import 이웃(ft_goal_ledger 등)이 필요해 bin 사본과 같이 돈다.
-#   없으면 그 항목만 건너뛴다(다른 항목은 그대로 잡는다).
+# 직전 판(고정 sha · r731 직전 main · 1.1.208) 도구 — «지금 판 rc1» 의 대조군. import 이웃(ft_goal_ledger 등)이 필요해 bin 사본과 같이 돈다.
+#   ★origin/main 을 쓰지 않는다★ — r731 이 main 에 들어가면 대조군도 «고친 판» 이 되어 ⓐ 가 빨강이 된다(r733).
+#   없으면 그 항목만 건너뛴다(다른 항목은 그대로 잡는다 · 얕은 클론).
 mkdir -p "$T/prevbin" "$T/mutbin"; cp "$REPO"/harness/bin/*.py "$T/prevbin/"; cp "$REPO"/harness/bin/*.py "$T/mutbin/"
-TOP="$(git -C "$REPO" rev-parse --show-toplevel 2>/dev/null || true)"; PREV=""
-if [ -n "$TOP" ]; then REL="${TOOL#"$TOP"/}"; git -C "$TOP" show "origin/main:$REL" > "$T/prevbin/ft_goal_table.py" 2>/dev/null && PREV="$T/prevbin/ft_goal_table.py"; fi
+TOP="$(git -C "$REPO" rev-parse --show-toplevel 2>/dev/null || true)"; PREV=""; PREVSHA=50e88b8c3bab25660e630e20cbe1a9eb7f823590
+if [ -n "$TOP" ]; then REL="${TOOL#"$TOP"/}"; git -C "$TOP" show "$PREVSHA:$REL" > "$T/prevbin/ft_goal_table.py" 2>/dev/null && PREV="$T/prevbin/ft_goal_table.py"; fi
 canon() {  # <골 원문 길이> — 골 6행(길이 가변) · 팀·증거 칸 40자
   printf '# 자율 골 A6 (시험 픽스처)\n\n## 골 → 팀 → 닫는 증거\n\n| 골(원문) | 담당 팀 | 닫는 증거 |\n|---|---|---|\n'
   local i pad; pad="$(printf 'x%.0s' $(seq 1 "$1"))"
@@ -71,7 +71,7 @@ if [ -n "$PREV" ]; then
   { [ "$RC" = 1 ] && case "$OUT" in *'ERROR 골 표 예산 초과'*) true;; *) false;; esac; } \
     && ok "ⓐ 직전 판: 40자 칸 픽스처 → 'ERROR 골 표 예산 초과' rc1" || bad "ⓐ 직전 판 rc=$RC :: $OUT"
 else
-  echo "SKIP ⓐ 직전 판 대조 — origin/main 판을 못 읽음"
+  echo "SKIP ⓐ 직전 판 대조 — 고정 sha($PREVSHA) 판을 못 읽음"
 fi
 OUT="$(render)"; RC=$?
 [ "$RC" = 0 ] && ok "ⓐ 지금 판: 같은 픽스처 → rc0 (폭 20자에서 예산 안)" || bad "ⓐ 지금 판 rc=$RC :: $OUT"
@@ -110,7 +110,7 @@ if [ -n "$PREV" ]; then
   cmp -s "$T/short_prev.txt" "$NOWF" && ok "ⓓ 짧은 정본 출력 = 직전 판과 바이트 같음(회귀 0)" \
     || bad "ⓓ 짧은 정본 출력이 직전 판과 다르다"
 else
-  echo "SKIP ⓓ 회귀 대조 — origin/main 판을 못 읽음"
+  echo "SKIP ⓓ 회귀 대조 — 고정 sha($PREVSHA) 판을 못 읽음"
 fi
 
 # ── ⓔ 변이: 폭 축소 단계 삭제 → ⓐ 픽스처가 다시 rc1
