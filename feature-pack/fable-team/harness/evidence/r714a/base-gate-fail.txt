@@ -1,0 +1,9 @@
+== base(origin/main 65738ffd) test_goal_table_gate.sh ==
+FAIL ⓕ r458 600/300 상한 등장
+fail=1
+
+== 이 카드(r714a · main 병합 뒤) test_goal_table_gate.sh ==
+FAIL ⓕ r458 600/300 상한 등장
+fail=1
+
+(같은 1건 «ⓕ r458 600/300 상한 등장» — base 에서도 동일 · 이 카드 무관)

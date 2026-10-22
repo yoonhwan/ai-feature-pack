@@ -1,0 +1,16 @@
+# r714a 회귀 — DA⑥ r2 HOLD «작은 고침 5개» 처방 뒤 · 팩 가지 nano/r714a-goal-readjust-round-collector (b8b15c86ff 위 추가 커밋 1)
+
+test_goal_readjust_r714.sh                    rc=0 73 PASS · fail=0 (ⓦ1~ⓦ6 7칸 포함)
+test_goal_count_follows_canon_r668.sh         rc=0 == test_goal_count_follows_canon_r668: fail=0
+test_goal_table_gate.sh                       rc=1 FAIL ⓕ r458 600/300 상한 등장 (base 에서도 같은 1건 — 이 카드 무관 · base-gate-fail.txt)
+test_goal_table_gitref_r545.sh                rc=0 ALL PASS
+test_goal_table_procs_r644.sh                 rc=0 ALL PASS
+test_goal_table_stale_r600.sh                 rc=0 == test_goal_table_stale_r600: fail=0
+test_goal_check_ref.sh                        rc=0 == test_goal_check_ref: fail=0
+test_mbox_guard.sh                            rc=0 ALL PASS
+test_mbox_guard_live_bin.sh                   rc=0 (요약줄 없음 · FAIL 0)
+test_install_launchd_render.sh                rc=0 ALL PASS
+test_plist_workdir_exist_r544.sh              rc=0 ALL PASS (273s — 느리지만 통과)
+test_news_html.sh                             rc=0 39 passed in 20.95s
+
+(회귀 12종 중 11종 rc=0 · test_goal_table_gate.sh 만 rc=1 = base 65738ffd 에서도 동일한 1건)

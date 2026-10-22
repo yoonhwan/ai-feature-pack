@@ -1,0 +1,98 @@
+PASS ⓐ 장치 없는 판(origin/main ft_goal_table) = 머리에 «재조정» 0(빨강 기준선)
+PASS ⓐ2 지금 판 = 머리에 «재조정» 1칸 + 행 «재조정» 칸
+PASS ⓑ 회차 파일 20261023-1-01.json · baseline null · rows 6 전부 «기준»
+PASS ⓑ2 보고서 .md 있음 · log 1줄 · 쪽지 0(알릴 사실 없음)
+PASS ⓑ3 머리 «재조정: ok=20261023-1 07:35 · 최근=…» + 행 칸 «기준»
+PASS ⓒ 골 5 «움직임·카드1» · 다른 5행 «변화 0(N시간)» · 원장 행 변화 0(다른 절 수정)
+PASS ⓒ2 골 표 칸에 «움직임·카드1»(r702 미착지라 «·대응 모름» 접미)
+PASS ⓓ 1~3행 «마감»(✅ 시작 3꼴) · 4·5행(닫힘·끝 글자) «마감 아님»
+PASS ⓓ2 마감 행 면제 · 연결 끊김 경보 0
+PASS ⓓ3 쓰기 허용 목록 밖 쓰기 0 — git status·refs/heads·HEAD 전후 동일
+PASS ⓔ 둘째 회차 7시간 무변화 = «변화 0(7시간)» · 경보 0 · 빈 라벨 0
+PASS ⓕ 닫힘 후보 [2] · 쪽지 1통 · 회차 파일 send.state=claimed
+PASS ⓕ2 본문 ≤700B · GR-<run> · [결정] 3줄 · claimed 가 송신 전(파일 mtime < 송신 로그) 
+PASS ⓕ3 실제 comm/mbox_guard.sh reject 모드 통과([결정] 3줄 고정)
+PASS ⓖ 정본 밖 골 파일 2 · 제안 ID 0 · 쪽지에 «정본 밖 골 파일 2»
+현재 브랜치 main
+커밋할 사항 없음, 작업 폴더 깨끗함
+PASS ⓗ 송신 뒤 중단 → 재실행 송신 0 · 새 attempt send.state=unknown · 경보 «송신 상태 모름» · 첫 파일 바이트 불변
+현재 브랜치 main
+커밋할 사항 없음, 작업 폴더 깨끗함
+PASS ⓗ2 송신 상한 7초 — 멈춘 mbox 에도 회차는 끝남(경과 8s) · .send-failed.json · ★rc3(조용한 rc0 0)★
+PASS ⓗ3 timeout 뒤 재실행(--retry) = 송신 0(run 상한 — 재시도 0 · 상대가 받았는데 또 보내는 길 0)
+PASS ⓘ --retry 같은 run 재실행 = <run>-01·<run>-02 두 파일 · rows 측정값 동일 · 같은 기준(null) · 쪽지 상한
+PASS ⓙ pm ERROR(원장 못 읽음) · OK 파일 불변 · [긴급] 1통
+PASS ⓙ2 같은 run 재시도 ERROR = 0통(쪽지 상한)
+PASS ⓙ3 머리에 마지막 성공(ok=)과 최근 시도(최근=… ERROR)를 둘 다
+PASS ⓙ4 30시간 뒤 = «재조정 없음 30시간 · 최근=…»
+PASS ⓚ 회차 1 «확인 불가»(앞 12자 같아도 전문 해시로 잡음) · 회차 2 라벨 ⑤ + «대응 유지 모름(r702 미착지)»
+PASS ⓚ2 r702 표식 픽스처 추가 → «확인 불가»(유지 조건은 r702 몫)
+PASS ⓛ 2행 «모름(판 다름)» · 다른 행은 라벨 유지 + «·정본 바뀜»
+PASS ⓜ BYZ·하네스 commit 따로 기록 · 팀 폴더를 디스크에서 지워도 commit 트리로 측정(ERROR 0)
+PASS ⓝ FT_HARNESS_ROOT 없음 = harness 행 «하네스 카드 모름(리포/ref 미정)» · 다른 행 정상 · repos.harness=null
+PASS ⓞ 모름 4종 구분 — r693 미착지 / r693 판별 미설정 / r664 미착지 / r708 미착지
+PASS ⓟ 동시 2건 = busy SKIP 1줄 · 회차 파일 1개(잠금)
+PASS ⓠ 뉴스 3파일(ft_news_html·render·ledger) base 대비 diff 0
+PASS ⓡ r668 골 개수 시험 전부 통과(fail=0)
+PASS ⓡ2 kit ↔ harness/bin cmp0 (새 4 + ft_goal_table)
+PASS ⓡ3 표 ≤1600B + «재조정» 칸 포함(6행)
+PASS ⓡ4 골 원문이 길어 1600B 넘침 = «ERROR 골 표 예산 초과» rc1(조용한 절단 0)
+PASS ⓢ① 정본 작업 파일 1줄 쓰기 변이 → ⓓ(git status 0) 가 FAIL 한다
+PASS ⓢ② attempt 고정 변이 — 원본은 2파일(ⓘ PASS) · 변이는 덮어쓰기 금지로 1파일(FAIL) = 2/1
+현재 브랜치 main
+커밋할 사항 없음, 작업 폴더 깨끗함
+PASS ⓢ③ claimed 를 송신 뒤로 옮긴 변이 → ⓕ(claimed 가 송신 전) 가 FAIL 한다
+PASS ⓢ④ goal_hash 대조 삭제 변이 — 원본은 «모름(판 다름)»(ⓛ PASS) · 변이는 없음(FAIL)
+PASS ⓢ⑤ 라벨 ⑤ 기본값 삭제 변이 → ⓔ(빈 라벨 0) 가 FAIL 한다
+PASS ⓢ⑥ 마감을 «닫힘 글자 포함» 으로 바꾼 변이 → ⓓ(4·5행 마감 아님) 가 FAIL 한다
+PASS ⓣ 표식 없음·5행 정본 — 장치 선실행 뒤 첫 렌더에도 «[골 번호 바뀜]» 1통(5줄)
+PASS ⓤ 자동 시계 0 — launchd 템플릿·install.sh --launchd-new 없음 · 수동 진입점 = ft-goal-readjust.sh 하나(등록 데몬 0)
+PASS ⓤ2 요청 없는 날 = 회차 파일 0(부르지 않으면 아무것도 안 돈다)
+PASS ⓤ3 하루 최대 2회 — 3번째 요청 = REJECT rc2 · 회차 파일 0 · 쪽지 0(요청 없는 날 건너뜀과 다른 조건)
+PASS ⓤ4 다음 날 요청 = 새 회차(20261023-1) 하나 더 — 상한은 «날» 단위
+PASS ⓤ5 --request 없음 = usage rc2 · 회차 파일 0(출처 없이 안 돈다)
+PASS ⓤ6 --request 빈 값 = usage rc2(빈 출처 0)
+PASS ⓥ1 H1 보고서만 있던 회차 재실행 = -02 로 쓰고 -01.md 덮어쓰기 0(바이트 불변)
+PASS ⓥ2 H2 모름이 사라지지 않는다 — 2·3번째 attempt 모두 unknown · 경보 유지 · 쪽지는 1통 그대로
+PASS ⓥ3 H3 30시간 뒤 머리에도 ok=<run> 과 최근= 를 둘 다(마지막 성공 생략 0)
+PASS ⓥ4 H4 «기준» 행도 «·정본 바뀜» 을 붙인다(조기 반환 0)
+PASS ⓥ5 H5 하네스 하위 폴더 prefix + fetch — 하네스 완성 카드 1 이 4행 «움직임·카드1»
+PASS ⓥ6 H6 커밋 안 한 작업 파일 변경 = 측정에 반영 0(«확인 불가» 0 · 고정 commit 판)
+PASS ⓥ7 H7 손상 표식·빈 파일도 «모름» · 넘긴 r714c·r701 «미착지» 글자(0 으로 합치지 않음)
+PASS ⓥ7b H7 «빈 배열 표식»·정상 표식은 «모름» 아님(손상과 구분 · 거짓 모름 0)
+PASS ⓥ8 H8 mbox 없음 = rc3(«OK … rc0» 0)
+PASS ⓥ8b H8 머리가 영수증을 읽어 «송신 실패» 를 보인다
+PASS ⓥ8c H8 planner 명부 없음 = send.state=failed · rc3(«보낼 수 없음» 을 조용히 0 으로 안 넘긴다)
+PASS ⓥ9 H9 «## 골좌표» 절 카드 = 5행에 묶임(정규식 ValueError 0)
+PASS ⓥ9b H9 측정 예외(디코드 실패) = ERROR 회차 파일(status=ERROR · rc1)
+PASS ⓥ10 H10 예산 초과 = ERROR 회차 파일 + rc1(래퍼 문구와 사실 일치)
+PASS ⓥ11 H11 bin 파일 목록 전후 동일(__pycache__ 새로 생김 0)
+PASS ⓥ12 H12 회차 파일 request 칸 = --request 값 그대로
+PASS ⓥ13 H13 무효 LIVE_ROOT = ERROR rc1 · 회차 파일 0(FT_ROOT 로 조용히 안 간다)
+PASS ⓥ13b H13 무효 LIVE_ROOT 라도 렌더는 rc0(«재조정 기록 없음»)
+FAIL ⓦ1 H7 손상 표식(«r702» 글자 없음) 둘째 회차 → render 행에 «·대응 모름» :: rc=0 out=★골 표 A6 (origin/main@ef4e07d4b3 · 원장:10-22 19:00 · 재조정: ok=20261022-2 19:35 · 최근=20261022-2-01 OK)★
+| 골 | 팀 | 지금 상태 | 닫는 증거 | 재조정 |
+|---|---|---|---|---|
+| goal-1-test | planner | 상태1 진행 | 착지 sha | 변화 0(12시간) |
+| goal-2-test | issues | 상태2 진행 | 착지 sha | 변화 0(12시간) |
+| goal-3-test | desk | 상태3 진행 | 착지 sha | 변화 0(12시간) |
+| goal-4-test | room | 상태4 진행 | 착지 sha | 변화 0(12시간) |
+| goal-5-test | planner | 상태5 진행 | 착지 sha | 변화 0(12시간) |
+| goal-6-test | issues | 상태6 진행 | 착지 sha | 변화 0(12시간) |
+★/골 표★
+FAIL ⓦ2 H10 느린 git(호출당 5초) 도 예산 7초에서 끊김 — 완료 호출 1 · ERROR 회차 파일 · 경과 10s(70초 kill 전) :: rc=1 out=ERROR 골 재조정 20261022-1-01: 시간 초과 — 10초 > 예산 7초(이번 회차 측정 중단)
+FAIL ⓦ3 H13 LIVE_ROOT 빈 값 = ERROR rc1 · 회차 파일 0 :: rc=0 out=OK 골 재조정 20261022-1-01 send=none rows=6 alarms=0
+FAIL ⓦ3b H13 빈 값이라도 렌더는 rc0(«재조정 기록 없음» — 사람이 «재조정 없음» 을 본다) :: rc=0 out=★골 표 A6 (origin/main@ceeccc40c5 · 원장:10-22 19:00 · 재조정: ok=20261022-1 07:35 · 최근=20261022-1-01 OK)★
+| 골 | 팀 | 지금 상태 | 닫는 증거 | 재조정 |
+|---|---|---|---|---|
+| goal-1-test | planner | 상태1 진행 | 착지 sha | 기준 |
+| goal-2-test | issues | 상태2 진행 | 착지 sha | 기준 |
+| goal-3-test | desk | 상태3 진행 | 착지 sha | 기준 |
+| goal-4-test | room | 상태4 진행 | 착지 sha | 기준 |
+| goal-5-test | planner | 상태5 진행 | 착지 sha | 기준 |
+| goal-6-test | issues | 상태6 진행 | 착지 sha | 기준 |
+★/골 표★
+FAIL ⓦ4 H13 LIVE_ROOT 상대경로(.) = ERROR rc1 · 회차 파일 0(cwd 따라 흔들리는 루트 0) :: rc=0 out=OK 골 재조정 20261022-1-01 send=none rows=6 alarms=0
+FAIL ⓦ5 회귀 H6 FT_LEDGER_PATH 상대경로 = 리포 기준(리포 밖 cwd 에서도 OK · «입력이 리포 밖» 0) :: rc=1 out=ERROR 골 재조정 20261022-1-01: 입력이 리포 밖이다(고정 commit 으로 못 잰다): design/planner/PLAN-oppa-ledger.md
+FAIL ⓦ6 회귀 H2 이월 «송신 모름» 이 _need() 앞 — 후보 해소된 다음 날에도 쪽지 1통(조용한 rc0 0) :: rc=0 out=OK 골 재조정 20261024-1-01 send=none rows=6 alarms=1
+== test_goal_readjust_r714: fail=7

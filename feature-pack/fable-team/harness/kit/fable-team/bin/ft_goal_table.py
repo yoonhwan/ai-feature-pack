@@ -1,6 +1,8 @@
 """ft_goal_table — 자율 골 표(A6) 렌더 + 판정기 하나 (R362 · 쓰는 쪽 ft-goal-table.sh · 뉴스·매거진·쪽지 가드가 같은 함수를 부른다).
 
 render  : 정본 표(골 → 팀 → 닫는 증거 N행 · N = 정본 표 행 수 · 1~FT_GOAL_MAX 기본 12 · r668) + planner 원장 `## 메인 골 …줄` 표(행 순번 결속 · ft_goal_ledger) → 마커 2줄(`★골 표 A6 (<sha10> · 상태 …)★` … `★/골 표★`) 사이 표 1개(≤1600B).
+          r714a: 머리 줄 끝 «재조정: ok=<run> <HH:MM> · 최근=<run>-<nn> OK|ERROR <사유>» 1칸 + 행마다 «재조정» 칸(회차 파일 `state/goal-readjust/rounds/*.json` 의 라벨 · ft_goal_readjust_state 가 읽는다 — 기록 없음 `모름(기록 없음)` · 행 식별(번호+골 전문 해시)이 다르면 `모름(판 다름)`).
+          예산(1600B)이 넘치면 «재조정» 칸을 라벨 글자만으로 줄이고(·카드k··대응 모름··정본 바뀜 뗌), 그래도 넘치면 아래 «예산 초과» ERROR 그대로다.
           골 원문 칸은 절단 0 · 팀·증거·상태 칸만 24자 + «…» · 넘치면 `ERROR 골 표 예산 초과` rc1 · 정본 없음/N행 아님 = `ERROR 골 표 정본 …` rc1.
           r668: 정본 sha 가 바뀌고 **골 번호표(행 수·순서)가 바뀐** 첫 렌더에서 전 팀장(명부 `_master` 전부)에게 «골 번호 바뀜 · 새 번호표» 1통(표식 `<루트>/.fable-team/state/goal-numbering.tsv` — 같은 정본 sha 로는 1회 · 실패 = WARN 1줄 · 렌더는 계속).
           r668 H4: 표식 없는 첫 렌더에서도 정본이 6행(옛 고정)이 아니면 1통 · 읽기→송신→쓰기에 파일 잠금(동시 렌더 중복 0) · 깨진 명부 = WARN + 표식 전진 0 · 송신 1통 7초 상한.
@@ -15,7 +17,7 @@ procs   : 원장 «메인 골 …줄» 만 읽어 안 보이던 오늘 등록 �
           «지금 단계» 칸이 `완료` 로 시작하고 그 행에 저장소에 실재하는 sha10 이 있으면 그 골은 목록에서 빼 «완성 N: 이름들» 1줄로 위에 묶는다(sha 없음 = 완성 아님 + WARN). 행 `git blame` 시각이 `FT_GOAL_PROC_STALE_H`(24)시간을 넘으면 그 줄 끝 `⚠ N시간 정지` + 블록 끝 `정지 골 N: …` 1줄. 시계 = `FT_NOW`("YYYY-MM-DD HH:MM").
           예산 1600B 넘으면 «지금 단계» 칸부터 줄임(teams 와 같은 꼴) · 골 파일 0개 = `표준절차 골 0` 1줄 · 원장·폴더 못 읽음 = `ERROR` rc1(조용히 빈 블록 0) — 소비처는 실패를 WARN + 빈 글로 받는다(뉴스·매거진을 멈추지 않는다).
 정본 = env FT_GOAL_A6_MD(파일 경로 | `gitref:<ref>:<경로>` · 기본 = `gitref:<FT_TEAMS_REF·origin/main>:<planner 팀 폴더>/AUTONOMY-GOAL-A6-20261018.md` — r545: 체크아웃(LIVE_ROOT) 파일이 아니라 그 ref 에 올라간 판 · 폴더도 ref 트리에서 푼다) · 상태 = 원장 env FT_GOAL_A6_LEDGER(같은 두 형식 · 기본 같은 꼴) · 저장소 = FT_GOAL_REPO(기본 FT_LEDGER_REPO · FT_ROOT). sha10 = 파일이면 내용 sha256 · gitref 면 commit sha. 머리에는 출처 종류(`origin/main@` | `file:`)를 sha10 앞에 붙인다(r545 · 옛 꼴 `(<sha10> · …)` 도 읽는다).
-원장: 행 수 ≠ 6 = ERROR rc1 · 파일·절 없음 = «상태 없음» + stderr WARN · 머리 `원장:<갱신>` · 24h 초과 = «상태 낡음».
+원장: 행 수 ≠ N = ERROR rc1(N = 정본 표 행 수 · r668) · 파일·절 없음 = «상태 없음» + stderr WARN · 머리 `원장:<갱신>` · 24h 초과 = «상태 낡음».
 """
 from __future__ import annotations
 
@@ -31,6 +33,9 @@ from datetime import datetime
 from pathlib import Path
 
 from ft_goal_ledger import NO_STATE, default_spec, find_root, goal_max, ledger_repo, ledger_spec, ledger_state, planner_ref, read_spec, table_rows, table_with_header
+from ft_goal_readjust_state import header as readjust_header
+from ft_goal_readjust_state import read as readjust_read
+from ft_goal_readjust_state import row_cell as readjust_cell
 
 DEFAULT_NAME = "AUTONOMY-GOAL-A6-20261018.md"  # planner 팀 폴더 안(폴더는 ft_team_lib 가 푼다)
 BUDGET = 1600
@@ -250,16 +255,30 @@ def notify_renumber(sha: str, rows: list[list[str]]) -> None:
         print(f"WARN 골 번호 공지 표식 못 씀 {mark}: {e}", file=sys.stderr)
 
 
+def _goal_hash(goal: str) -> str:
+    """골 칸 전문(NFC·공백 정규화) sha256 앞 10자 — 회차 파일의 행 식별과 «같은 함수»(대응 대조 · 설계 r3 §4)."""
+    return hashlib.sha256(_norm(goal).encode("utf-8")).hexdigest()[:10]
+
+
 def render() -> str:
     text, sha, src = load_canon()
     rows = parse_rows(text)
     head, states = ledger_state(_ledger_show, GoalError, n=len(rows))
-    body = [f"| {_cut(g, True)} | {_cut(t)} | {_cut(states.get(i, NO_STATE))} | {_cut(e)} |" for i, (g, t, e) in enumerate(rows, 1)]
-    out = "\n".join([f"★골 표 A6 ({src}{sha} · {head})★", "| 골 | 팀 | 지금 상태 | 닫는 증거 |", "|---|---|---|---|", *body, TAIL])
-    if len(out.encode("utf-8")) > BUDGET:
-        raise GoalError(f"ERROR 골 표 예산 초과 {len(out.encode('utf-8'))}B > {BUDGET}B (골 원문 칸은 절단하지 않는다)")
-    notify_renumber(sha, rows)
-    return out + "\n"
+    state = readjust_read()                                   # r714a: 기록 없음도 정상(None 두 칸)
+    note = readjust_header(state).replace("(", "/").replace(")", "/")   # 머리 괄호 = 마커 정규식 보호
+    canon_sha = hashlib.sha256(text.encode("utf-8")).hexdigest()[:10]
+    cells = [readjust_cell(state, i, _goal_hash(g), canon_sha) for i, (g, _t, _e) in enumerate(rows, 1)]
+    out = ""
+    for keep_suffix in (True, False):   # 예산 넘치면 «재조정» 칸부터 라벨 글자만으로 줄인다(r714a)
+        pick = cells if keep_suffix else [c.split("·")[0] for c in cells]
+        body = [f"| {_cut(g, True)} | {_cut(t)} | {_cut(states.get(i, NO_STATE))} | {_cut(e)} | {pick[i - 1]} |"
+                for i, (g, t, e) in enumerate(rows, 1)]
+        out = "\n".join([f"★골 표 A6 ({src}{sha} · {head} · {note})★",
+                          "| 골 | 팀 | 지금 상태 | 닫는 증거 | 재조정 |", "|---|---|---|---|---|", *body, TAIL])
+        if len(out.encode("utf-8")) <= BUDGET:
+            notify_renumber(sha, rows)
+            return out + "\n"
+    raise GoalError(f"ERROR 골 표 예산 초과 {len(out.encode('utf-8'))}B > {BUDGET}B (골 원문 칸은 절단하지 않는다)")
 
 
 def render_teams() -> str:
