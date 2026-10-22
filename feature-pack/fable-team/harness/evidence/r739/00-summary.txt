@@ -1,0 +1,44 @@
+r739 — 슬랙 미러가 재시작·장애 뒤 밀린 쪽지 약 2000건을 전부 다시 게시해 오빠 슬랙을 덮던 것 → 상한 초과면 요약 1통
+=============================================================================================================
+사건(오빠 슬랙 1792659217 «다비워 재시작했는데 머 다다시보내»): 미러가 멈춰 있던 사이 쪽지가 쌓이면
+  다시 켜질 때 저장된 last_seq 다음 행을 상한 없이 한 줄씩 게시(byz_mbox_slack_mirror.run_pass 의 행 루프) —
+  상한 장치는 «첫 실행(state 없음) 기준선» 하나뿐이라 재시작·긴 장애 뒤에는 밀린 만큼 다 나갔다.
+  요약 호출이 죽어 있으면 행마다 «원문 첫 문장으로 게시» 폴백까지 겹쳐 2000건이 그 꼴로 쏟아졌다.
+
+고침(1커밋 · 새 모듈 1 + 본체 분기 2 + 시험 1):
+  · kit/slack-mirror/mirror_backlog.py(신규 46줄) — is_target(게시 대상 조건 1곳) · pick(상한 초과일 때만 밀린 seq 목록)
+    · format_skip(«[상태] 슬랙 미러가 밀린 쪽지 N건을 건너뛰었어요(seq A~B) — 원문은 mbox 원장에 있어요» + 「할 일 없음」)
+    · skip_backlog(요약 1통 올리고 True → 이번 패스는 행 루프 생략) · SKIP_ANCHOR(변이 시험용 1줄 상수)
+  · byz_mbox_slack_mirror.py — pending 게시(:115) 뒤 · 행 루프(:118) 앞에서 bl.skip_backlog → 참이면 return(루프 생략).
+    last_seq 는 item 의 seq = 로그 마지막 행이므로 deliver 가 저장한다(다음 패스는 밀린 구간을 다시 보지 않는다).
+    :138 의 게시 대상 조건은 bl.is_target 로 모아 한 곳에서만 정의(동작 동일).
+  · mirror_board.add_args — --backlog-max(기본 50 · 0 이면 묶음 끔). 본체에 줄을 늘리지 않으려 공용 인자 자리에 두었다.
+  · tests/test_mirror_backlog.sh(신규) — ⓐ~ⓘ 17칸 · 실 슬랙 0(lib.post/read_token/save_state 스텁 · 임시 state·로그).
+
+값: 밀린 게시 대상 300건(상한 50) → 게시 1회(요약) · 요약기 호출 0 · last_seq=400.
+  밀린 3건(≤ 상한) → 지금처럼 원문 3회(회귀 0) · 0 이면 묶음 끔(300회) · pending 은 언제나 먼저 1회.
+  게시 대상 아닌 행(수신 좌석 불일치·slack-oppa)은 셈에서 뺀다.
+
+증거 파일: 01-red-base.txt(빨강 · base 판 300회 원문) · 02-green.txt(초록 17/17) ·
+  03-existing.txt(기존 미러 시험 3종 + 새 시험 rc=0) · 04-files.txt(줄 수·ruff·bash -n)
+
+줄 수: byz_mbox_slack_mirror.py 200 → 203(+3: import 1 · 분기 2 — 셈·요약 글·전달 본체는 새 모듈).
+  mirror_backlog.py 46 · mirror_board.py 185 → 186.
+
+범위 밖(손대지 않음): 요약기·게시 형식 0 · format_gap 0 · 역방향 수신 0 · 임시 조치한 state 되돌림 0 · DA 0(게시 묶음 조건 1개).
+남은 일(master 몫): 팩 착지 → 설치(kit/slack-mirror install.sh → ~/.hermes/scripts 사본 cmp0) →
+  launchctl kickstart com.hermes.byz-mbox-slack-mirror → ⓙ 실사건 1회(미러 재시작 뒤 슬랙 채널 새 글 수 — 밀림 없으면 0 · 있으면 요약 1통).
+press 필요: 없음(나노는 쏘지 않는다 · 이 카드는 단위·스텁 시험과 설치 뒤 미러 재시작 관측만으로 닫힌다).
+
+r1 반송(arch §195 · 2026-10-22) — 설치 FAIL 고침
+=============================================================================================================
+원인: mirror_backlog.py 를 새 모듈로 만들면서 install.sh 28행 고정 파일 목록에 넣지 않았다 →
+  설치본(~/.hermes/scripts)에 그 파일이 없어 본체가 import 에서 ModuleNotFoundError · KeepAlive 데몬이 30초마다 죽어 미러 전면 정지.
+  동작·단위 시험은 초록이었지만 «설치 뒤» 표면을 아무 시험도 안 봤다(설치 시뮬 부재).
+고침: ①install.sh 목록에 mirror_backlog.py 추가(17개) ②새 가드 시험 tests/test_mirror_install_list.sh —
+  ①본체가 import 하는 로컬 모듈(.py 가 같은 폴더에 있는 이름)이 전부 목록에 있는가 ②설치 시뮬(임시 HOME ·
+  launchctl·plutil 은 PATH 스텁 → 설치본에서 import 성공·사본 존재) ③변이(목록에서 빼면 ModuleNotFoundError 로 FAIL).
+  새 표면 0 — 고친 파일 install.sh 1줄 · 새 시험 1개.
+증거: 05-install-red.txt(사건 재현 rc=1 · ModuleNotFoundError) · 06-install-green.txt(rc=0 6 PASS) ·
+  07-regression.txt(미러 시험 5종 rc=0).
+남은 일(master): 착지 → 설치(install.sh) → launchctl kickstart → ⓙ 실사건.

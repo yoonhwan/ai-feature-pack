@@ -15,6 +15,7 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import mirror_backlog as bl  # noqa: E402
 import mirror_board as mb  # noqa: E402
 import mirror_lib as lib  # noqa: E402
 import mirror_summary as summ  # noqa: E402
@@ -113,6 +114,8 @@ class Mirror:
             seed_threads(self.threads_path, dict(st.get("threads") or {}))
         if st.get("pending"):
             self.deliver(st, st["pending"], resume=True)
+        if bl.skip_backlog(self, st, rows):  # 밀린 게시 대상이 상한 초과 → 요약 1통 · 이 패스는 여기서 끝
+            return self.posted
         for r in rows:
             self._row(st, r)
         return self.posted
@@ -132,7 +135,7 @@ class Mirror:
             self.deliver(st, {"id": f"#GAP-{prev + 1}-{s - 1}", "seq": s - 1, "key": lib.OTHER_KEY,
                               "what": "슬랙 미러가 알리는 기록 공백", "text": format_gap(prev + 1, s - 1)})
         mb.post_handled(self.deliver, st, r, self.rows, self.seat, self.threads_path, self._summarize, self.deliv.has_thread if self.deliv.teams else None)  # planner 가 받은 쪽지에 답한 행 → 그 스레드에 「planner 처리」 1줄
-        if not self.seat.search(str(r.get("to", ""))) or str(r.get("from", "")) == "slack-oppa":  # 오빠 글(역방향이 넣은 행)은 메아리로 다시 올리지 않는다
+        if not bl.is_target(r, self.seat):  # 오빠 글(역방향이 넣은 행)은 메아리로 다시 올리지 않는다
             st["last_seq"] = s
             if not self.a.dry_run:
                 lib.save_state(self.state_path, st)

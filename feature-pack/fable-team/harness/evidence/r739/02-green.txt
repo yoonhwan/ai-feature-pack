@@ -1,0 +1,21 @@
+r739 후판 — 시험 초록(같은 명령 · SLACK_MIRROR_KIT 없이 워크트리 키트)
+-----------------------------------------------------------------------
+PASS ⓑ 밀린 300건(상한 50) → 게시 1회
+PASS ⓑ 본문 «밀린 쪽지 300건을 건너뛰었어요(seq 101~400)» + 원장 안내
+PASS ⓑ 「할 일 없음」 줄 · 원문 본문 0
+PASS ⓑ 요약기 호출 0(묶음은 요약하지 않는다)
+PASS ⓑ last_seq=400 저장 · pending 없음
+PASS ⓒ 밀린 3건 → 게시 3회(요약 0)
+PASS ⓒ last_seq=103
+PASS ⓒ 요약기 호출 3
+PASS ⓓ 게시 대상 5건만 셈 → 묶음 0 · 원문 5회(+공백 알림 1)
+PASS ⓓ last_seq=254(마지막 행까지 지나감)
+PASS ⓔ pending 먼저 + 요약 1통 = 게시 2회
+PASS ⓔ 끝 last_seq=400 · pending 비움
+PASS ⓕ 상한 0 → 묶음 끔 · 게시 300회
+PASS ⓕ last_seq=400
+PASS ⓘ --backlog-max 기본 50
+PASS ⓗ 변이: 묶음 분기 삭제 → 게시 300회 원문(ⓐ FAIL 로 잡힘)
+RESULT fail=0
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

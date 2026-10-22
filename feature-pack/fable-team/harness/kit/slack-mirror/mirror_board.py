@@ -169,6 +169,7 @@ def post_handled(deliver, st: dict[str, object], r: dict[str, object], rows: lis
 
 def add_args(p) -> None:
     p.add_argument("--inbox-bin", default="", help="planner 인박스 ft-inbox.sh 절대 경로 — 없으면 시작 시 exit 1(조용한 기본값 0)")
+    p.add_argument("--backlog-max", type=int, default=50, help="밀린 게시 대상이 이 수를 넘으면 원문 대신 요약 1통(0 = 묶음 끔 · r739)")
 
 
 def check_args(a) -> None:

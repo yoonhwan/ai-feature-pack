@@ -1,0 +1,12 @@
+r739 파일 예산·정적 점검
+-----------------------------------------------------------------------
+     203 byz_mbox_slack_mirror.py
+      46 mirror_backlog.py
+     186 mirror_board.py
+     435 total
+--- ruff
+All checks passed!
+--- bash -n
+bash -n OK (test_mirror_backlog.sh)
+--- 새 시험
+     133 ../../tests/test_mirror_backlog.sh

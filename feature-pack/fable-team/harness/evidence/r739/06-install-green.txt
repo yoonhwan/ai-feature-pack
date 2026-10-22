@@ -1,0 +1,13 @@
+r739 r1 후판 — install.sh 고정 목록에 mirror_backlog.py 추가 뒤
+$ bash feature-pack/fable-team/harness/tests/test_mirror_install_list.sh    → rc=0 (6 PASS)
+  ①목록 대조(본체 로컬 import 12개 전부) ②설치 시뮬(임시 HOME·launchctl/plutil 스텁 → 설치본 import 성공) ③변이(목록에서 빼면 ModuleNotFoundError)
+-----------------------------------------------------------------------
+PASS ① 본체 로컬 import 전부 목록에 있다
+PASS ① 새 모듈 mirror_backlog.py 가 목록에 있다
+PASS ② 설치 시뮬 → 설치본에서 import 성공
+PASS ② 설치본에 mirror_backlog.py 사본 존재
+PASS ③ 변이: 목록에서 빼면 ① 이 먼저 잡는다
+PASS ③ 변이: 설치본 import 가 ModuleNotFoundError 로 죽는다
+RESULT fail=0
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

@@ -1,0 +1,24 @@
+r739 ⓐ 빨강 기준선 — base(origin/main) 판 미러 + 새 모듈만 있는 임시 키트 · 임시 state·로그(격리) · 실 슬랙 0
+$ SLACK_MIRROR_KIT=/tmp/r739-base-kit bash feature-pack/fable-team/harness/tests/test_mirror_backlog.sh
+rc=1 (빨강 5건) — 밀린 300건이 그대로 300회 원문 게시(사건 재현) · 요약기 300회
+-----------------------------------------------------------------------
+FAIL ⓑ 밀린 300건(상한 50) → 게시 1회 300건: ['[작업상황] 요약\n할 일 없음\n↳ 이어가기 · Issue 없음 · 카드 없음 · 담당 n#0 · 정본 bodies/101.txt@mbox\n↳ 다음: 없음 · 재개: claude --resume x']
+FAIL ⓑ 본문 «밀린 쪽지 300건을 건너뛰었어요(seq 101~400)» + 원장 안내 ['[작업상황] 요약\n할 일 없음\n↳ 이어가기 · Issue 없음 · 카드 없음 · 담당 n#0 · 정본 bodies/101.txt@mbox\n↳ 다음: 없음 · 재개: claude --resume x']
+PASS ⓑ 「할 일 없음」 줄 · 원문 본문 0
+FAIL ⓑ 요약기 호출 0(묶음은 요약하지 않는다) 300
+PASS ⓑ last_seq=400 저장 · pending 없음
+PASS ⓒ 밀린 3건 → 게시 3회(요약 0)
+PASS ⓒ last_seq=103
+PASS ⓒ 요약기 호출 3
+PASS ⓓ 게시 대상 5건만 셈 → 묶음 0 · 원문 5회(+공백 알림 1)
+PASS ⓓ last_seq=254(마지막 행까지 지나감)
+FAIL ⓔ pending 먼저 + 요약 1통 = 게시 2회 ['[상태] pending 원문', '[작업상황] 요약\n할 일 없음\n↳ 이어가기 · Issue 없음 · 카드 없음 · 담당 n#0 · 정본 bodies/101.txt@mbox\n↳ 다음: 없음 · 재개: claude --resume x', '[작업상황] 요약\n할 일 없 …[이하 절단: 총 55579자]
+PASS ⓔ 끝 last_seq=400 · pending 비움
+PASS ⓕ 상한 0 → 묶음 끔 · 게시 300회
+PASS ⓕ last_seq=400
+PASS ⓘ --backlog-max 기본 50
+Traceback (most recent call last):
+  File "<stdin>", line 103, in <module>
+AssertionError: if bl.skip_backlog(self, st, rows):
+FAILED
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

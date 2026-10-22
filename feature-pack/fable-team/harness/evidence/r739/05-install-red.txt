@@ -1,0 +1,13 @@
+r739 r1 반송(arch §195) ② 빨강 기준선 — install.sh 목록에 mirror_backlog.py 가 없는 판(고치기 전)
+$ bash feature-pack/fable-team/harness/tests/test_mirror_install_list.sh    → rc=1 (4 FAIL)
+  설치 시뮬이 사건 그대로 재현: ModuleNotFoundError: No module named 'mirror_backlog' (KeepAlive 30초 사망 원인)
+-----------------------------------------------------------------------
+FAIL ① 본체 로컬 import 전부 목록에 있다 목록 누락: ['mirror_backlog.py'] (목록 16개)
+FAIL ① 새 모듈 mirror_backlog.py 가 목록에 있다 ['byz_mbox_slack_mirror.py', 'mirror_lib.py', 'mirror_share.py', 'mirror_summary.py', 'mirror_deliver.py']
+FAIL ② 설치 시뮬 → 설치본에서 import 성공 ModuleNotFoundError: No module named 'mirror_backlog'
+FAIL ② 설치본에 mirror_backlog.py 사본 존재 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/r739-inst-real-6wd8g_ns/home/.hermes/scripts
+PASS ③ 변이: 목록에서 빼면 ① 이 먼저 잡는다
+PASS ③ 변이: 설치본 import 가 ModuleNotFoundError 로 죽는다
+RESULT fail=4
+FAILED
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
