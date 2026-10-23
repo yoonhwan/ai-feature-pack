@@ -1,0 +1,45 @@
+PASS 짝 사본 cmp0(키트 ↔ harness/bin)
+PASS 짝 사본 cmp0(판정기)
+PASS bash -n
+PASS py 문법
+PASS ⓐ 빨강: 옛 판 = 대기/ 새 카드도 거절(REJECT 도구가 판정 입력으로 읽는 제외 폴더(indices · inbox · keys · baselin)
+PASS ⓑ 대기/ 새 카드(A) → OK lecture
+PASS ⓒ 대기/ 카드 «수정(M)» → 거절(REJECT 도구가 판정 입력으로 읽는 제외 폴더(indices · inbox · keys · baselines):)
+PASS ⓒ 대기/ 카드 «삭제(D)» → 거절(REJECT 도구가 판정 입력으로 읽는 제외 폴더(indices · inbox · keys · baselines):)
+PASS ⓒ 대기/ 카드 «이름바꾸기(R)» → 거절(REJECT 도구가 판정 입력으로 읽는 제외 폴더(indices · inbox · keys · baselines):)
+PASS ⓒ 진행/ 새 카드 → 거절(REJECT 도구가 판정 입력으로 읽는 제외 폴더(indices · inbox · keys · baselines):)
+PASS ⓒ 완성/ 새 카드 → 거절(REJECT 도구가 판정 입력으로 읽는 제외 폴더(indices · inbox · keys · baselines):)
+PASS ⓒ 대기/ 더 깊은 경로 → 거절(REJECT 도구가 판정 입력으로 읽는 제외 폴더(indices · inbox · keys · baselines):)
+PASS ⓒ indices 직속(상태 폴더 없음) → 거절(REJECT 도구가 판정 입력으로 읽는 제외 폴더(indices · inbox · keys · baselines):)
+PASS ⓒ indices/inbox → 거절(REJECT 도구가 판정 입력으로 읽는 제외 폴더(indices · inbox · keys · baselines):)
+PASS ⓒ keys → 거절(REJECT 도구가 판정 입력으로 읽는 제외 폴더(indices · inbox · keys · baselines):)
+PASS ⓒ baselines → 거절(REJECT 도구가 판정 입력으로 읽는 제외 폴더(indices · inbox · keys · baselines):)
+PASS ⓒ 대기/ .md 아님 → 거절(REJECT 도구가 판정 입력으로 읽는 제외 폴더(indices · inbox · keys · baselines):)
+PASS ⓒ 대기/ 이름 예외 DECISION-x.md → 거절(REJECT 정본·승인근거·판정입력 이름(GOAL- · GUIDE- · SEATBELT · VERDICTS- · A)
+PASS ⓒ 대기/ 이름 예외 BTS.md → 거절(REJECT 키트가 이름으로 부르는 판정입력 .md(BTS.md)은 예외 아님: design/teams/lectur)
+PASS ⓒ 대기/ 이름 예외 README.md → 거절(REJECT 정본·승인근거·판정입력 이름(GOAL- · GUIDE- · SEATBELT · VERDICTS- · A)
+PASS ⓒ 대기/ 정본 이름 GOAL-lecture.md → 거절(REJECT 정본·승인근거·판정입력 이름(GOAL- · GUIDE- · SEATBELT · VERDICTS- · A)
+PASS ⓒ 대기/ LEDGER 접두 → 거절(REJECT 정본·승인근거·판정입력 이름(GOAL- · GUIDE- · SEATBELT · VERDICTS- · A)
+PASS ⓒ 상태 폴더 이름 변형(대 기 · 공백) → 거절(REJECT 도구가 판정 입력으로 읽는 제외 폴더(indices · inbox · keys · baselines):)
+PASS ⓒ 상태 폴더 이름 변형(대기 + 공백) → 거절(REJECT 도구가 판정 입력으로 읽는 제외 폴더(indices · inbox · keys · baselines):)
+PASS ⓒ 상태 폴더 영어(waiting) → 거절(REJECT 도구가 판정 입력으로 읽는 제외 폴더(indices · inbox · keys · baselines):)
+PASS ⓒ 대기/ 점 파일 → 거절(REJECT 숨김 조각(점으로 시작): design/teams/lecture/indices/대기/.hidden.md)
+PASS ⓒ 팀 폴더 밖 → 거절(REJECT 팀 폴더 직속 파일도 하위 폴더 문서도 아님: design/teams/L51-x.md)
+PASS ⓒ 팀 이름 대문자 → 거절(REJECT 팀 이름 형식 틀림: design/teams/Lecture/indices/대기/L51-x.md)
+PASS ⓒ indices/대기 이중 → 거절(REJECT 도구가 판정 입력으로 읽는 제외 폴더(indices · inbox · keys · baselines):)
+PASS ⓒ 대기/x.md/더 → 거절(REJECT 도구가 판정 입력으로 읽는 제외 폴더(indices · inbox · keys · baselines):)
+PASS ⓒ 대조 직속 .md(A) → 통과(team=lecture)
+PASS ⓒ 대조 하위 폴더 .md(A) → 통과(team=lecture)
+PASS ⓓ① 대기/ 새 카드 + 팀 일반 .md 한 PR → DOC-EXEMPT
+PASS ⓓ② 대기/ 카드 + 진행/ 카드 섞임 → 거절(NOT 도구가 판정 입력으로 읽는 제외 폴더(indices · inbox · keys · ba)
+PASS ⓓ③ 대기/ 카드 2장 한 PR → 통과(files=2)
+PASS ⓓ④(대조) 빈 diff → 거절
+PASS ⓕ① 대기/ 허용 삭제 → ⓑ 반례가 거절로 되돌아간다(변이 감지)
+PASS ⓕ② «추가(A)만» 두 곳 삭제 → ⓒ 수정(M) 반례가 통과(변이 감지)
+PASS ⓕ③ 깊이(조각 3 고정·위치) 삭제 → ⓒ sub 반례가 통과(변이 감지)
+PASS ⓕ④ key() 비교를 «그대로 비교» 로 바꿔도 waiting 은 여전히 거절(대조)
+PASS ⓕ 변이 사본 원복
+PASS ⓖ 격리: 실 리포 HEAD 무변경
+PASS ⓖ 격리: 실 gh 호출 경로 0
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

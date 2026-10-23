@@ -55,6 +55,8 @@ EXCLUDE_NAMES = (
     "tick-prompt-v65-unified.md", "tree.md", "update.md", "verdict-data-sovereignty-20260923.md",
     "x.md",
 )
+# r804 — indices 아래 «대기» 칸만 따로 연다(진행/·완성/ 은 제외 그대로). 비교는 key().
+WAITING = "대기"
 CANON = ("GOAL-", "GUIDE-", "SEATBELT", "VERDICTS-", "AUTONOMY-", "BOARD", "README",
          "PLAN-oppa-ledger", "FLAG-DECISIONS", "MERGE-QUEUE", "STATE.md", "NANO-LEDGER", "NEWS-TREE", "DECISION",
          "LEDGER")
@@ -100,6 +102,15 @@ def excluded_name(name):
     return key(name) in EXCLUDE_NAMES
 
 
+def waiting_card(segs, status):
+    """r804 — 팀 뒤 조각이 정확히 [indices, 대기, <이름>.md] 이고 «새 파일 추가(A)» 인 한 꼴.
+    아직 어떤 게이트도 이 자리를 읽지 않는다(대기/ 카드 = spawn ① 린트가 막는다) — 그래서 제외 폴더 검사에서 뺀다.
+    진행/·완성/ · 수정·삭제·이름바꾸기 · 더 깊은 경로는 그대로 제외."""
+    return (status == "A" and len(segs) == 3
+            and key(segs[0]) == "indices" and key(segs[1]) == key(WAITING)
+            and segs[2].endswith(".md"))
+
+
 def team_of(path, status="A"):
     """doc-exempt ③⑥ — (팀, 사유). status = git 변경 종류(A/M/D/R). 사유가 있으면 경로가 범위 밖.
     R741 오빠 결정(선택지 1 · arch 124 결정 묶음): 팀 «하위 폴더» 는 새 파일 추가(A) 만 면제 —
@@ -118,7 +129,7 @@ def team_of(path, status="A"):
     name = segs[-1]
     if not TEAM_RX.match(team):
         return "", "팀 이름 형식 틀림: %s" % path
-    why = excluded_dir(segs[:-1])
+    why = "" if waiting_card(segs, status) else excluded_dir(segs[:-1])
     if why:
         return "", "%s: %s" % (why, path)
     if not name.endswith(".md"):
