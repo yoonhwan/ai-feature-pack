@@ -19,6 +19,7 @@ from ft_board_root import CAP, _b
 
 DAY_CAP = 24
 PAGE_CAP = 6
+TEAMS_HEAD = "👥 팀별 지금"  # ft-sheet-publish.sh 가 넣는 팀 절 머리(r785)
 
 
 def rows(ledger: Path, day: str) -> list[dict]:
@@ -58,17 +59,83 @@ def footer(st: dict, rev: str, cap: int, partial: str = "") -> str:
     return base + (f" · rev {rev} 미발행(상한)" if st["TODAY_OK"] >= cap else f" · 지금 rev {rev} 미갱신(재시도 중)")
 
 
+_WIDE = re.compile(r"((?:정지|멈춤) )[0-9]+분")   # ASCII 숫자만 — 전각(１２３４)은 정규화하지 않는다(3바이트라 실제보다 작게 재인다)
+
+
+def _width(text: str) -> int:
+    """접는 자리 판정용 폭 — «정지 <숫자>분»·«멈춤 <숫자>분» 을 최악 폭(9999)으로 바꾼 사본으로 잰다.
+
+    분 숫자 자릿수가 늘어 상한을 넘으면 접는 자리가 바뀌어 매 틱 update 가 났다(DA⑥ r1 반례 ①).
+    출력 본문은 원래 숫자 그대로 — 판정만 넓게 잰다.
+    전각 숫자는 여기서 안 바꾼다(바꾸면 실제 바이트보다 작게 재어 상한을 넘긴다 · DA⑥ r2 반례 ②).
+    이 값은 «자리»만 정한다 — 상한을 지키는 최종 판정은 실제 바이트(_b)다.
+    """
+    return _b(_WIDE.sub(r"\g<1>9999분", text))
+
+
+def _fold_mark(k: int, n: int, unit: str) -> str:
+    """접힘 표시 — k 줄만 남았으면 «… 외 N{unit}», 다 남았으면 빈 값."""
+    return f"… 외 {n - k}{unit}" if k < n else ""
+
+
+def _join(lines: list[str], more: str, foot: str) -> str:
+    """줄들 + (접힘 표시 1줄) + 끝줄 — 접힘 표시가 빈 값이면 안 붙는다."""
+    return "\n".join([*lines, *([more] if more else []), foot])
+
+
+def _stack(lines: list[str], foot: str) -> str | None:
+    """끝에서부터 줄을 접어 상한에 맞춘다 — 팀 절이 없을 때(옛 본문). 안 맞으면 None."""
+    for k in range(len(lines), 0, -1):
+        text = _join(lines[:k], _fold_mark(k, len(lines), "줄"), foot)
+        if _width(text) <= CAP and _b(text) <= CAP:  # 자리 AND 실제 바이트(r2)
+            return text
+    return None
+
+
+def _team_split(lines: list[str]) -> tuple[list[str], list[str], list[str]] | None:
+    """팀 절 경계 — («머리까지», [팀 줄들], [나머지]). 팀 줄 = 머리 뒤 연속된 ` | ` 포함 줄."""
+    at = next((i for i, x in enumerate(lines) if x == TEAMS_HEAD), None)
+    if at is None:
+        return None
+    end = at + 1
+    while end < len(lines) and " | " in lines[end]:
+        end += 1
+    return lines[: at + 1], lines[at + 1: end], lines[end:]
+
+
+def _keep_teams(head: list[str], teams: list[str], tail: list[str], foot: str) -> str | None:
+    """팀 절은 그대로 두고 뒤쪽 카드 트리 줄부터 접는다 — 팀 절만으로도 넘치면 None(→ _fold_teams)."""
+    for k in range(len(tail), -1, -1):
+        text = _join([*head, *teams, *tail[:k]], _fold_mark(k, len(tail), "줄"), foot)
+        if _width(text) <= CAP and _b(text) <= CAP:  # 자리 AND 실제 바이트(r2)
+            return text
+    return None
+
+
+def _fold_teams(head: list[str], teams: list[str], foot: str) -> str:
+    """팀 절만으로 상한을 넘는다 — 팀 줄 뒤쪽부터 «… 외 N팀»(머리·끝줄은 남는다)."""
+    for k in range(len(teams), -1, -1):
+        text = _join([*head, *teams[:k]], _fold_mark(k, len(teams), "팀"), foot)
+        if _width(text) <= CAP and _b(text) <= CAP:  # 자리 AND 실제 바이트(r2)
+            return text
+    raise ValueError("끝줄만으로 상한 초과 — 끝줄 형식 점검")
+
+
 def root(tree: str, foot: str, fails: int) -> str:
     lines = tree.rstrip("\n").split("\n")
     if fails >= 3:  # 3회 실패부터 ⓪ 칸(❓ 줄 바로 뒤)에 드러낸다
         at = next((i for i, x in enumerate(lines) if x.startswith("❓")), 0) + 1
         lines.insert(at, f"⚠ PDF 발행 실패 {fails}회 — 다음 틱에 다시 시도해요")
-    build = lambda ls, n: "\n".join([*ls, *([f"… 외 {n}줄"] if n else []), foot])  # noqa: E731
-    for k in range(len(lines), 0, -1):
-        text = build(lines[:k], len(lines) - k)
-        if _b(text) <= CAP:
-            return text
-    raise ValueError("끝줄만으로 상한 초과 — 끝줄 형식 점검")
+    split = _team_split(lines)
+    if split is None:  # 팀 절 없음(옛 본문) — 지금까지 그대로 끝에서부터 접는다
+        text = _stack(lines, foot)
+        if text is None:
+            raise ValueError("끝줄만으로 상한 초과 — 끝줄 형식 점검")
+        return text
+    text = _keep_teams(*split, foot)
+    if text is not None:
+        return text
+    return _fold_teams(split[0], split[1], foot)
 
 
 def fold(html: str) -> str:

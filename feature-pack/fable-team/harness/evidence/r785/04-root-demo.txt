@@ -1,0 +1,19 @@
+## 05 실 라이브 렌더 + 팀 절 → 뿌리 글(root()) — 슬랙 호출 0 · 쓰기 0
+트리     1127B · 팀 절     1007B · 뿌리 글     2221B (상한 3500)
+
+$ 뿌리 글 머리 12줄
+확인 중 0 · 소유자 미확인 1칸
+👥 팀별 지금
+cfo | 열린 좌석 0 | 진행 0
+chatbot | 열린 좌석 0 | 진행 37(C-brain-a11-conclusion-card-redis)
+feature | 열린 좌석 0 | 진행 37(F-0b-knowledge-result-node-pairing)
+graphics | 정지 1분 · 기다리는 것 = 추정: byz-planner-master-claude#116 에 마지막 발신 #148004(10:38) · 기록상 이후 byz-planner-master-claude#116 회신 없음 | 진행 4(g1227-card-change-preview)
+harness | 일함 byz-harness-arch-claude#129, byz-harness-master-claude#100 | 진행 138(r286-roster-opencode-nano-close)
+issues | 열린 좌석 0 | 진행 0
+kk | 열린 좌석 0 | 진행 3(kk-arch)
+knowledge | 열린 좌석 0 | 진행 12(knowledge-sb1-ddl-base-registry-inherit-lists)
+m.lecture | 열린 좌석 0 | 진행 0
+ops | 열린 좌석 0 | 진행 10(arch-canon-ops)
+...
+$ 뿌리 글 끝 1줄
+📄 PDF 아직 없음 · 지금 rev demo 미갱신(재시도 중)

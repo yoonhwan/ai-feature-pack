@@ -1,3 +1,18 @@
+## 2026-10-23 — r785 뉴스판 슬랙 뿌리 글에 «👥 팀별 지금» 절(1.1.220)
+
+- 뉴스판(시트 모드) 뿌리 글은 카드 트리만 실어 «어느 팀이 일하고, 멈췄으면 몇 분째 무엇을 기다리는지» 가 0줄이었다 — 그 정보는 첨부 PDF 에만 있고 PDF 는 하루 24회 상한 뒤로 안 바뀐다(arch §129 · 오빠 「뉴스 팀 전체 깜깜이」) → 뿌리 글 첫 줄(«확인 중») 바로 다음에 `👥 팀별 지금` 절 + 팀 줄을 매 발행 싣는다(PDF·상한과 무관).
+- `ft-board.py teams` 에 `--from <collect 파일>` — `ft-sheet-publish.sh` 가 한 틱에 `collect` 1회 후 render·teams·snapshot 이 같은 파일을 읽는다(수집 2회 → 1회). teams 실패(-from 없음/깨짐) = 발행 0 rc 1(조용한 생략 0).
+- `ft_board_teams.team_line`: 살아 있는 좌석이 하나도 없는 팀 = `열린 좌석 0`(지금은 «정지 분 확인 불가 · 기다리는 것 = 기다림 확인 불가(master 칸 없음)» — «모름» 처럼 읽혔다). 좌석은 있고 master 칸만 없는 팀은 옛 문구 그대로.
+- `ft_sheet_publish.py root`: 접기 순서 — 팀 절은 그대로 두고 뒤쪽 카드 트리 줄부터 접으며(`… 외 N줄`), 팀 절만으로 3500B 를 넘으면 팀 줄 뒤쪽부터 `… 외 N팀`(머리·끝줄은 남는다). `same()` 정규화에 `정지 [0-9]+분` 추가 — 분 숫자만 바뀌면 발행 0, 팀 줄이 일함↔정지로 바뀌면 update 1회.
+- 시험 `harness/tests/test_sheet_root_teams_r785.sh` 신규 30 PASS(ⓐ~ⓙ · 변이 2종: 팀 절 삽입 삭제·정규화 삭제). 인접: `test_sheet_publish.sh` 41(+1 스텁 teams·⚠ 줄 위치 단언) · `test_board.sh` 73 · `test_sheet_render.sh` 70 · `test_sheet_events.sh` 136 · `test_kit_bin_sync.sh` 8 · pytest `test_ft_board_teams.py` 10 passed(전판과 같은 1 FAIL = render --term 환경) · `test_sheet_verify.sh` 8 FAIL 은 전판도 같은 줄(=base stash 대조).
+- 실측(라이브 루트 읽기 전용): teams 13줄 중 9팀이 «열린 좌석 0» · 트리 1127B + 팀 절 1007B → 뿌리 글 2221B(상한 3500 안). 증거 `harness/evidence/r785/`.
+- **r1 (DA⑥ HOLD 반례 3 · 반송장 `design/harness/evidence/r785-da6/REWORK-r785-r1.md`)**: ①`ft_sheet_publish._width()` — 길이 판정만 «정지/멈춤 <숫자>분» 을 최악 폭(9999)으로 바꾼 사본으로 재고 출력은 원래 숫자 그대로(분 자릿수가 늘어 상한을 넘으면 접는 자리가 바뀌어 매 틱 update 가 나던 것 → 경계 3485→3494B 에서 update 1) ②`ft_board_teams._one_line()` — 오류 문장(traceback)·wait 문구의 줄바꿈·CR 을 « ⏎ » 로 접어 팀 1개 = 1줄(여러 줄이면 접기가 «… 외 N줄» 로 깨져 30팀 중 21팀만 표시) ③`test_sheet_publish.sh` 의 ⚠ 줄 검사를 «아무 줄» → «❓ 줄 바로 다음 줄» 상대 위치로 복구(변이로 강도 확인: ⚠ 를 끝에 붙이면 FAIL).
+- 시험 r1 추가 ⓚ(3500B 경계에서 정지 9→10분 = update 0) ⓛ(오류 줄바꿈 = 1줄 · 40팀 «… 외 N팀») ⓜ(⚠ 는 ❓ 바로 다음) + 변이 3종 — 신규 시험 30 → **40 PASS** · 전판 69483719 에서 ⓚ update 1 · ⓛ MULTI 로 **빨강 확인**(`evidence/r785/05-rework-r1-red.txt`) · r783·r784 가지 merge-tree 충돌 0.
+- **r2 (DA⑥ 재설계 · 반송장 `design/harness/evidence/r785-da6/REWORK-r785-r2-redesign.md` · 「길이를 재는 글자 ≠ 보내는 글자」)**: ①`_WIDE` 를 `[0-9]+` 로 — 전각 «정지 １２３４분» 을 «9999» 로 접어 실제(3바이트/자)보다 작게 재던 것 ②`root` 의 접는 자리 채택 판정 = `_width(text) <= CAP and _b(text) <= CAP` — 사본으로 자리를 정하되 **실제 본문 바이트도 상한 안**이어야 그 자리를 쓴다(아니면 한 줄 더 접음). `same()` 정규화는 그대로.
+- 시험 r2 추가 ⓝ(18팀 경계 · 정지 9999→10000분 = 실제 3501B → 한 줄 더 접어 3492B · 그 틱만 update 1) ⓞ(9998→9999 · 10000→10001 = update 0) ⓟ(30팀 전각 «정지 １２３４분» = 3727B → 3489B) ⓠ 변이 4종 — 신규 시험 40 → **53 PASS** · 전판 b33066c5 에서 ⓝ(3501B · update 0) ⓟ(3727B) 로 **빨강 확인**(`evidence/r785/07-rework-r2-red.txt`).
+- ⓠ 실측 정정: «`_WIDE` 만 `\d+` 로 되돌림» 은 결과가 base 와 같다(3489B) — 실제 바이트 판정이 있으면 두 고침이 **겹쳐** 그것만으로는 안 뚫린다. 변이로 잡히는 것은 «둘 다 되돌림(= 전판) → ⓟ 3729B» 와 «실제 바이트 판정 제거 → ⓝ 3501B» 다.
+- r2 인접 무회귀: `test_sheet_publish.sh` rc=0 · `test_board.sh` rc=0 · `test_sheet_render.sh` rc=0 · `test_sheet_events.sh` rc=0 · `test_kit_bin_sync.sh` rc=0 · pytest `test_ft_board_teams.py` 10 passed 1 FAIL(전판 stash 대조도 같은 줄 = render --term 환경) · ruff All checks passed · kit↔bin cmp0 4파일 · r783 가지 merge-tree 충돌 0.
+
 ## 2026-10-23 — r782 DA 건너뛰기 머리는 설정에 `[model_providers.headroom]` 절이 있을 때만(1.1.219)
 
 - `ft-da-codex.sh` 가 `-c model_providers.headroom.http_headers=…` 를 늘 실어, 헤드룸을 끈 뒤(`~/.codex/config.toml` 에 그 provider 절 없음) codex 가 `provider name must not be empty` rc1 로 전 팀 DA 가 정지하던 것 → `${CODEX_HOME:-$HOME/.codex}/config.toml` 에 줄 시작 `[model_providers.headroom]` 이 있을 때만 머리를 싣고, 없으면 머리 0 + stderr INFO 1줄(출력 파일 미오염). r513 이유(DA 승인정책 never)는 유지.
