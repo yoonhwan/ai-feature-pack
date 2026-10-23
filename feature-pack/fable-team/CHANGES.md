@@ -1,3 +1,9 @@
+## 2026-10-23 — r804 문서 면제: 대기/ 새 카드 «추가(A)» 한 꼴만 승인 h 없이 착지(1.1.222)
+
+- lecture L51·P3·L37 카드 문서 PR 이 «대기/<이름>.md 추가» 뿐인데도 승인 h 를 요구해 강의 골 2 가 막혔다 → `ft_doc_exempt_paths.team_of` 에 waiting_card 한 갈래: 경로가 `design/**/indices/대기/<이름>.md` 이고 변경 종류가 추가(A)일 때만 문서 면제(이름 예외·그 밖 경로·수정·삭제는 그대로 거절). kit·bin 짝 사본 cmp0.
+- 시험 `harness/tests/test_doc_exempt_waiting_card_r804.sh` 43 PASS(빨강 → 초록 · 면제 0 꼴 · 통합 · 변이 감지) · r725·r741 가드 ALL PASS. 시험 36행 기준 `origin/main` 은 착지 뒤 새 판이 되면 빨강이 안 나서 `73f097b3` 로 고정(DA 지적 · 코드 0). 증거 `harness/evidence/r804/`.
+- 외부 DA⑥ r1 APPROVE — 원문 BYZ `design/harness/evidence/r804-da6/da-20261023-141305-3003.out`(gpt-6.1-sol · cliproxy).
+
 ## 2026-10-23 — r809 뉴스 틱 «변화 없음» 오보: 원장 리포를 먼저 정하고 받기 · 받기 실패면 «판정 불가» 머리 줄(1.1.221)
 
 - 뉴스 틱이 원장 받기(git fetch)에 실패해도 옛 판과 비교해 «변화 없음» 을 머리 줄로 발행했다(오빠 «아직 뉴스 바보인데» · 자율 내내 오보). 원인 = `ft_news_ledger._run` 이 리포 기본값을 풀기 «전에» 받기 여부를 정해, 기본 경로(FT_LEDGER_REPO 없음)에서는 받기 0 · 경보 0 이었다.
