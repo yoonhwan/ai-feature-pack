@@ -1,0 +1,16 @@
+PASS bash -n land·autonomy
+PASS 전제: 자율 OFF
+PASS ① OFF · 승인 파일 없음 → REJECT rc2 · main 불변 · 실행 0
+PASS ④ OFF · approve-merge 기록 성공(APPROVED … OFF)
+PASS ④ 승인 파일 1줄 == autonomy.log 한 줄(이벤트 OFF)
+PASS ④ 승인 뒤에도 mode=off(위변조 아님)
+PASS ④ 형식 틀린 sha → 여전히 REJECT rc2
+PASS ② OFF · 승인 파일 있음 → 착지
+PASS ② merge-gate.log 줄에 approve-file=<승인 epoch>
+PASS OFF · 파일만 있고 log 줄 없음 → REJECT rc2
+PASS 전제: 위변조 상태
+PASS ③ 위변조 · 승인 파일 없음 → REJECT rc2
+PASS ③ 위변조 · approve-merge → REJECT rc2 · 파일 0
+PASS core.bare 오염 0
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

@@ -1,0 +1,10 @@
+PASS ⓐ state-dir = 설치 폴더 기준 state (repo 아님)
+PASS ⓑ FT_AUTONOMY_STATE_DIR 지정이면 그 값
+PASS ⓒ 자율 ON · approve-merge 뒤 env 없이 착지(LANDED)
+PASS ⓓ 자율 ON · 승인 없음 → 같은 REJECT rc2 · main 불변
+PASS ⓔ state-dir 실패 → REJECT 자율 상태 폴더 해석 실패 · 착지 0
+PASS ⓕ merge-gate.log = <git 공용 루트>/.fable-team/state 에 1줄
+PASS ⓕ 설치 폴더 state 에는 merge-gate.log 0
+PASS core.bare 오염 0
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

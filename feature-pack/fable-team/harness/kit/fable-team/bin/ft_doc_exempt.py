@@ -45,6 +45,7 @@ import sys
 sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # R741: 같은 폴더 모듈(경로 조각 판정) — 설치본도 키트 트리 참조
 import ft_doc_exempt_paths as paths   # noqa: E402  (제외 폴더·CANON·경로 모양 = 한 곳 · 본 판정기 줄 수 상한)
+import ft_teamset as teamset   # noqa: E402  (r810: 명부 경로 규칙 roster_path 공용 한 곳)
 
 SHA = re.compile(r"^[0-9a-f]{40}$")
 PLANNER = "planner"
@@ -84,7 +85,7 @@ def repo_dir(arg):
 
 def roster_master(root, team, required=True):
     """명부 seats-<팀>.json `_master` 한 값 — 없음·깨짐 = (required 면)판정 불가 (추측 0) · 아니면 빈 값."""
-    p = os.path.join(root, ".fable-team", "seats-%s.json" % team)
+    p = str(teamset.roster_path(root, team))   # r810: v65 명부만 seats.json — 경로 규칙은 공용 한 곳
     try:
         with open(p, encoding="utf-8") as f:
             m = (json.load(f) or {}).get("_master") or ""

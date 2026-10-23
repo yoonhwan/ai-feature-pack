@@ -1,0 +1,10 @@
+PASS bash -n ft-merge-deny.sh
+PASS bash -n ft-merge-land.sh
+PASS ft-merge-land.sh ≤ 120줄(기존 상한 유지)
+PASS 짝 사본 cmp0 ft-merge-land.sh
+PASS 짝 사본 cmp0 ft-merge-deny.sh
+PASS 짝 사본 cmp0 ft-merge-deny.txt
+PASS 기본 목록에 ^feat/v6-realtime-live$ 1줄(끝 sha '-')
+fatal: path '/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-73f097b3-1792732659-76989/feature-pack/fable-team/harness/kit/fable-team/bin/ft-merge-land.sh' exists on disk, but not in 'origin/main'
+FAIL 옛 판을 못 꺼냄
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

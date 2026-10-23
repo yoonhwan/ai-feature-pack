@@ -1,3 +1,9 @@
+## 2026-10-23 — r810 문서 면제 판정기가 v65 명부를 seats.json 으로 찾게(1.1.223)
+
+- v65 문서 PR(2755·2759·2762)이 면제 판정에서 rc2 로 막혔다 — `ft_doc_exempt.py` 87행이 v65 명부를 `seats-v65.json` 으로만 찾았는데 실제 v65 명부는 `seats.json` 이다. → 공용 규칙 `ft_teamset.roster_path`(v65 = seats.json) 1곳으로 바꾼다. 오류 문구·rc 는 그대로. 별칭 파일(`seats-v65.json`)은 `teams_of` 글롭이 v65 를 두 번 세서 쓰지 않는다. kit·bin 짝 사본 cmp0.
+- 시험 `harness/tests/test_doc_exempt_v65_roster_r810.sh` 11 PASS(빨강 → 초록 · 변이) · r725 127 · r741 10 · merge_land 49 · equiv 42 ALL PASS. `merge_land_deny_stale`·`pack_repo` 실패는 73f097b3 에서도 같아 무관(증거 `BASE-origin-main-*.out`). 시험의 «빨강 기준 옛 판» 은 착지 뒤 origin/main 이 새 판이 되면 안 나서 `73f097b3` 로 고정(r804 DA 와 같은 지적). 증거 `harness/evidence/r810/`.
+- 외부 DA⑥ r1 APPROVE — 원문 BYZ `design/harness/evidence/r810-da6/da-20261023-142623-44598.out`(gpt-6.1-sol · cliproxy).
+
 ## 2026-10-23 — r804 문서 면제: 대기/ 새 카드 «추가(A)» 한 꼴만 승인 h 없이 착지(1.1.222)
 
 - lecture L51·P3·L37 카드 문서 PR 이 «대기/<이름>.md 추가» 뿐인데도 승인 h 를 요구해 강의 골 2 가 막혔다 → `ft_doc_exempt_paths.team_of` 에 waiting_card 한 갈래: 경로가 `design/**/indices/대기/<이름>.md` 이고 변경 종류가 추가(A)일 때만 문서 면제(이름 예외·그 밖 경로·수정·삭제는 그대로 거절). kit·bin 짝 사본 cmp0.
