@@ -1,0 +1,19 @@
+# green: template 탐침 -m7 + 재시도 1
+test_a_slow_but_alive_proxy_launches_claude (feature-pack.headroom.tests.test_claude_hr_probe_timeout_r829.ClaudeHrProbeSevenSecondRule.test_a_slow_but_alive_proxy_launches_claude) ... ok
+test_b_first_attempt_hangs_retry_succeeds (feature-pack.headroom.tests.test_claude_hr_probe_timeout_r829.ClaudeHrProbeSevenSecondRule.test_b_first_attempt_hangs_retry_succeeds) ... ok
+test_c_both_attempts_hang_refuses_within_deadline (feature-pack.headroom.tests.test_claude_hr_probe_timeout_r829.ClaudeHrProbeSevenSecondRule.test_c_both_attempts_hang_refuses_within_deadline) ... ok
+test_d_connection_refused_fails_fast_twice (feature-pack.headroom.tests.test_claude_hr_probe_timeout_r829.ClaudeHrProbeSevenSecondRule.test_d_connection_refused_fails_fast_twice) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 55.032s
+
+OK
+R829 a layer=cliproxy rc=0 claude=1 attempts=1 elapsed=3.47s
+R829 a layer=headroom rc=0 claude=1 attempts=1 elapsed=3.42s
+R829 b layer=cliproxy rc=0 claude=1 attempts=2 elapsed=8.38s
+R829 b layer=headroom rc=0 claude=1 attempts=2 elapsed=8.75s
+R829 c layer=cliproxy rc=69 claude=0 attempts=2 elapsed=14.54s
+R829 c layer=headroom rc=69 claude=0 attempts=2 elapsed=14.32s
+R829 d layer=cliproxy rc=69 claude=0 attempts=2 elapsed=0.27s
+R829 d layer=headroom rc=69 claude=0 attempts=2 elapsed=0.26s
+rc=0
