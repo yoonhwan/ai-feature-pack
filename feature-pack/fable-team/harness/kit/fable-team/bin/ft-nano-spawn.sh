@@ -207,6 +207,11 @@ _EBN=""; if ft_team_has_ref "$WT" planner "$IDX" indices/ && awk '/^##[[:space:]
 bash "$HERE/ft-index-lint.sh" "$IDX" || { echo "REJECT lint 실패"; exit 1; }
 # ①-0 제안서 «오빠가 본 승인» 게이트 (R77 · 판정 816 — 로직은 ft-proposal-gate.sh --card)
 _pg="$(bash "$HERE/ft-proposal-gate.sh" --card "$IDX")" || { echo "REJECT 제안서 승인 증거 부족 — $_pg"; exit 1; }; echo "$_pg"
+# ①-0b 착수 = 열린 깃 이슈 (r823 · 오빠 «시작시 깃 이슈 기반으로 작업 시작») — 대기/ 카드 착수만(--research·--dry-run 대상 아님) · 새·옛 판별·면제 0 · ①b 카드 쓰기·워크트리 «전»
+if [ "$RESEARCH" != 1 ] && [ "$DRY" != 1 ]; then
+  [ -f "$HERE/ft-spawn-issue-gate.sh" ] || { echo "REJECT ft-spawn-issue-gate.sh 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
+  _ig="$(bash "$HERE/ft-spawn-issue-gate.sh" "$IDX")" || { printf '%s\n' "$_ig"; exit 1; }; echo "$_ig"
+fi
 # ①a 머리줄 4줄(C6 · SPEC-roles P3-1) — 없으면 REJECT 가 아니라 «spawn 후보 제외» 경고(ft-nano-slots.sh 와 같은 검사 · 현행 동작 보존)
 _hmiss="$(awk '/^##[[:space:]]/{exit} {print}' "$IDX" | python3 -c "
 import re, sys

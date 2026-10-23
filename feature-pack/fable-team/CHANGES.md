@@ -1,3 +1,9 @@
+## 2026-10-24 — r823 착수 = 열린 깃 이슈(1.1.227)
+
+- 오빠 발주 «시작시 깃 이슈 기반으로 작업 시작». r812(카드 lint 에서 새 카드만 골라 검사)는 새·옛 판별·면제 판별에서 외부 DA 2회 반례로 버림 → 검사 자리를 «착수 1곳» = `ft-nano-spawn.sh` 대기/ 카드 착수로 옮긴다(판별·면제 0).
+- 새 `ft-spawn-issue-gate.sh <카드>`: 머리 `- Issue:` 줄 값의 «맨 앞 `#숫자`» 하나(r2 · 외부 DA r1 HOLD — `[#7](다른 저장소 링크)` 가 이 저장소 #7 로 읽혀 통과 → 맨 앞이 `#숫자` 가 아니면 링크·주소·`owner/repo#N`·`GH-7`·`#7a` 전부 «Issue 줄 꼴 오류» REJECT · gh 호출 0 · r3 외부 DA r2 HOLD — 번호 = 0 으로 시작하지 않는 1~7자리(`#012`·8자리 = 꼴 오류) · gh 응답 number 는 JSON 정수로만 정수 비교) → `gh issue view` 1회(`timeout -s KILL 7` 상수 · r3: env `FT_SPAWN_ISSUE_TIMEOUT` 읽기 삭제 · 전체 마감 상수 15 s · 재시도 = 출력 0 일 때만 1) → OPEN 만 통과 · CLOSED·없는 이슈·PR 번호·판정 불가 = REJECT(+ `ft-issue-create-pair.sh` 안내).
+- spawn 호출 위치 = 제안서 게이트 뒤 · ①b 카드 base_sha 쓰기·워크트리 «전» · `--research`·`--dry-run` 은 대상 아님. 시험 `test_spawn_issue_gate_r823.sh`(빨강 = 호출 뺀 판 착수 · r1 게이트 판 FAIL 16 · r2 게이트 판 FAIL 13 · 변이 7 — «맨 앞» → «아무 데나» · env 시간 되살림 · 글자 비교 · 0 시작 검사 삭제 각각 해당 DA 반례 칸 FAIL).
+
 ## 2026-10-24 — r829 claude-hr 살아 있음 탐침 7초 룰(1.1.226)
 
 - `headroom/templates/claude-hr.sh` cliproxy 점검(curl -m2)이 느린 응답에서 «죽음» 으로 오판해 전 팀 승계가 막혔다. → 탐침을 시도당 상한 7초 + 재시도 1(하드 룰 12)로 바꾼다. 6.5초 응답 = 살아 있음 · 503 = 거부 · 7초 닿으면 그 시도 실패(설계대로).
