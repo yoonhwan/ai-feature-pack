@@ -1,0 +1,51 @@
+PASS bash -n land
+PASS ft-merge-land.sh ≤ 120줄
+PASS 승인 값 없음 + 문서 아님 → rc1 REJECT(doc-exempt 아님) · main 불변 · PR 쓰기 0(R725)
+PASS 승인 sha != PR head → REJECT · main 불변
+PASS PR 가 OPEN 아님 → REJECT
+PASS main 미포함 옛 세트 PR → 게이트 REJECT · main 불변
+PASS 검사 뒤 main 이 움직임 → 서버 non-FF 거절 → REJECT
+PASS 착지 0 — origin main 은 경주 커밋 그대로(트리 어긋남 없음)
+PASS 거절이면 PR 코멘트·닫기 0
+PASS 정상 착지 rc=0
+PASS 출력 착지 sha == origin main
+PASS 착지 트리 == 검사한 PR head 트리
+PASS squash 1커밋(부모 = 검사 때 main 1개)
+PASS 메시지 = PR 제목·본문 + PR #11
+PASS PR 11 에 착지 sha 코멘트 + 닫기(ft-gh-as-tank 하이픈 동사 pr-close --comment <파일> --apply · R261)
+PASS 결속 기록 1줄(main·head·방법·트리·착지)
+PASS fetch 에 -c gc.auto=0 — gc 실패 rc≠0 이어도 착지(R271)
+PASS 자율 ON · 승인 파일 없음 → rc2 · 실행 0
+PASS 자율 ON · approve-merge 승인 뒤 착지
+PASS ⓐ 객체 1 → bound 11 (4.5+7) · push ok 줄(bound=PB attempt=AB)
+PASS ⓑ 객체 390(#1859) → ceil(390/100)=4 → bound 32
+PASS ⓒ 객체 5,000 → 4.5+350 → 70 클램프 · 900 → 67(fm_push_calc)
+PASS ⓓ 객체 수 조회 실패 → F+7=11 호환값 + stderr WARN 1줄(조용한 통과 0)
+PASS ⓗ1 응답 후 timeout(remote: 줄 뒤 rc124 · 원격 ref=Q) → 재시도 0 · ls-remote==Q → 착지됨 정상 종료
+PASS ⓗ2 응답 후 reset(remote: 줄 뒤) → 불명 · ls-remote==M → rej «착지 0 · 불명» · 재시도 0
+PASS ⓗ2b remote 출력 0 인 rc124 도 불명 → 재시도 0(옛 ⓔ1 대체) · ls-remote==M → rej
+PASS ⓗ3 응답 없음 연결 실패(remote: 0 · ssh timed out) → 재시도 1 후 착지 · 2차도 bound 11
+PASS ⓗ4 불명 + ls-remote 실패 → rej «원격 상태 불명» · «착지 0 확정» 문구 0(조용한 통과 0)
+PASS ⓔ3 PB=AB=8 · 1차 conn 실패 뒤 남은 < 8 → 시도 1 · 재시도 0 · main 불변(호출 전 캡처)
+PASS ⓘ1 PB 70 > REM → 1차 timeout 인자 == REM(=AB 29) · 절단 성공 → 착지 · bound=70 attempt=AB
+PASS ⓘ2 절단된 1차(AB 30) timeout → 재시도 조건 REM ≥ PB 거짓 → 시도 1 · rej «다음 틱» · main 불변
+PASS ⓕ1 서버 거절(fetch first) → 재시도 0
+PASS ⓕ2 pre-receive 거절 → 재시도 0
+PASS ⓕ3 분류 못 한 실패 → 재시도 0 + push 실패 REJECT
+PASS ⓖ1 FT_PUSH_FIXED_S=9 → 7 로 클램프(bound 14) + WARN
+PASS ⓖ2 FT_PUSH_UNIT_OBJECTS=0 → 기본 100(250객체=3단위 → 25) + WARN
+PASS ⓘff① 정상 → LANDED sha=HEAD mode=ff · origin main == PR head
+PASS ⓘff① commit-tree 호출 0 · push refspec <HEAD>:refs/heads/main(non-force)
+PASS ⓘff① 커밋 수 보존(2) · squash 커밋 0
+PASS ⓘff① merge-gate.log method=ft-merge-land-ff · landed=HEAD
+PASS ⓘff① base-head · install 검사 Q=HEAD(--range M..HEAD)
+PASS ⓘff④ 전송 객체 0 → push ok objects=0 bound=11
+PASS ⓘff② 검사 뒤 main 전진(head 조상 아님) → push 전 REJECT · origin main = 경주 커밋 그대로
+PASS ⓘff② 서버 non-FF 거절 스텁 → REJECT · 재시도 0 · main 불변
+PASS ⓘff③ 승인 sha != PR head → REJECT(equiv 경로 0) · push 0 · main 불변
+PASS 600·300 글자 0
+PASS 키트 사본 2 cmp0
+PASS core.bare 오염 0
+PASS 정적: land 에 force·reset·rebase·+refspec 0
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

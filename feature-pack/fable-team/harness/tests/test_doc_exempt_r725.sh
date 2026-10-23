@@ -19,7 +19,7 @@ python3 -c 'import json,sys;json.dump({"_master":sys.argv[1]},open(sys.argv[2],"
 python3 -c 'import json,sys;json.dump({"_master":sys.argv[1]},open(sys.argv[2],"w"))' 'byz-cfo-master-claude#3' "$W/.fable-team/seats-cfo.json"
 python3 -c 'import json,sys;json.dump({"_master":sys.argv[1]},open(sys.argv[2],"w"))' 'byz-feature-master-claude#2' "$W/.fable-team/seats-feature.json"   # R741: 하위 폴더가 있는 팀 폴더 판정 픽스처
 python3 -c 'import json,sys;json.dump({"_master":sys.argv[1]},open(sys.argv[2],"w"))' 'byz-room-master-claude#4' "$W/.fable-team/seats-room.json"
-python3 -c 'import json,sys;json.dump({"_master":sys.argv[1]},open(sys.argv[2],"w"))' 'byz-v65-master-claude#6' "$W/.fable-team/seats-v65.json"   # R741 DA⑥ r1: baselines·BTS.md 픽스처 팀
+python3 -c 'import json,sys;json.dump({"_master":sys.argv[1]},open(sys.argv[2],"w"))' 'byz-v65-master-claude#6' "$W/.fable-team/seats.json"   # r810: v65 명부 = seats.json · R741 DA⑥ r1: baselines·BTS.md 픽스처 팀
 printf -- '- **1** 착수 승인\n' > "$T/pdir/VERDICTS-planner-1.md"
 # r3: 실제 좌석 = TMUX_PANE 의 세션명 — 시험은 «가짜 tmux» 로 실경로를 그대로 탄다(SELFTEST env 는 실경로에서 못 쓴다 · rc3)
 mkdir -p "$T/fakebin"; SEATFILE="$T/seatname"; export SEATFILE; printf '%s' "$SEAT" > "$SEATFILE"
@@ -169,7 +169,7 @@ runhook "$(mkbash "git push origin $GD:refs/heads/main")"
 
 # ===== ⓝ r2(DA⑥ r1 HOLD 처방 1~5): 새 검사가 «옛 판 동작» 을 거절한다 — 각 항목 빨강(그 검사 지운 사본 = 통과) → 초록(새 판 = 거절) =====
 MUT2="$T/mut2"; mkdir -p "$MUT2"; ln -s "$BIN/ft-name-lint.sh" "$MUT2/"; cp "$ROOT/harness/kit/hooks/merge_cmd.py" "$MUT2/"   # 가드 사본도 같은 폴더 공용 모듈(r546)을 갖는다
-cp "$BIN/ft_doc_exempt.py" "$BIN/ft_doc_exempt_paths.py" "$MUT2/"   # R741: 사본도 같은 폴더 경로 모듈을 갖는다(없으면 import 실패 = 전부 rc2 로 덮인다)
+cp "$BIN/ft_doc_exempt.py" "$BIN/ft_doc_exempt_paths.py" "$BIN/ft_teamset.py" "$MUT2/"   # R741: 사본도 같은 폴더 경로 모듈을 갖는다(없으면 import 실패 = 전부 rc2 로 덮인다)
 mut2p() { python3 - "$BIN/ft_doc_exempt_paths.py" "$MUT2/ft_doc_exempt_paths.py" "$1" "$2" <<'PY'
 import sys
 src, dst, old, new = sys.argv[1:5]
@@ -269,7 +269,7 @@ out="$(printf '%s' "$(mkbash "git push origin $GD2:refs/heads/main")" | bash "$M
 
 # ===== ⓙ 변이: 검사를 지우면 그 반례가 통과해 버린다(시험이 검사를 실제로 잡는다) =====
 MUT="$T/mut"; mkdir -p "$MUT"; ln -s "$BIN/ft-name-lint.sh" "$MUT/"   # 변이 사본도 이름 lint 자리를 갖는다(같은 폴더 규칙)
-cp "$BIN/ft_doc_exempt.py" "$BIN/ft_doc_exempt_paths.py" "$MUT/"   # R741: 경로 판정 = 같은 폴더 새 모듈 · 변이는 그 모듈에서
+cp "$BIN/ft_doc_exempt.py" "$BIN/ft_doc_exempt_paths.py" "$BIN/ft_teamset.py" "$MUT/"   # R741: 경로 판정 = 같은 폴더 새 모듈 · 변이는 그 모듈에서
 PM="$BIN/ft_doc_exempt_paths.py"
 mut() { python3 - "$DX" "$MUT/$1" "$2" "$3" <<'PY'
 import sys
