@@ -22,8 +22,9 @@ G1="$(sed -n 1p "$TXT")"; G2="$(sed -n 2p "$TXT")"; G3="$(sed -n 3p "$TXT")"
 
 # ── 임시 리포 · 사본 bin · 가짜 도구
 BIN="$T/bin"; BIN2="$T/bin-stublint"; mkdir -p "$BIN" "$T/fake" "$T/comm/bodies"
-for f in ft-nano-spawn.sh ft-index-lint.sh ft-index-lint-install.sh ft-proposal-gate.sh ft-index-move.sh ft-sheet-events.sh ft_sheet_events.py ft_sheet_confirm.py ft_sheet_key.py ft_board_env.py ft_board_mail.py ft-nano-cherry-gate.sh ft-nano-spawn-undo.sh ft-resource-gate.sh ft_raised.py ft_teamset.py ft_spawn_queue.py ft-team-lib.sh; do cp "$SRC/$f" "$BIN/" 2>/dev/null; done
+for f in ft-nano-spawn.sh ft-spawn-issue-gate.sh ft-index-lint.sh ft-index-lint-install.sh ft-proposal-gate.sh ft-index-move.sh ft-sheet-events.sh ft_sheet_events.py ft_sheet_confirm.py ft_sheet_key.py ft_board_env.py ft_board_mail.py ft-nano-cherry-gate.sh ft-nano-spawn-undo.sh ft-resource-gate.sh ft_raised.py ft_teamset.py ft_spawn_queue.py ft-team-lib.sh; do cp "$SRC/$f" "$BIN/" 2>/dev/null; done
 printf '#!/usr/bin/env bash\necho "$2" > "%s/body.txt"; exit 0\n' "$T" > "$BIN/ft-send-verified.sh"   # 발주 BODY 를 잡는다
+printf '#!/usr/bin/env bash\necho "{\\"number\\":1,\\"state\\":\\"OPEN\\",\\"url\\":\\"https://github.com/o/r/issues/1\\"}"\n' > "$T/fake/gh-open"   # r823: 착수 게이트 = 픽스처 카드 #1 열린 이슈(가짜 gh · 제안서 게이트 라벨 조회도 같은 응답)
 printf '#!/usr/bin/env bash\nexit 0\n' > "$BIN/ft-agent-ready.sh"   # R251 필수 형제 — 기동 확인 자체는 test_spawn_agent_ready.sh 가 본다
 . "$HERE/lib/bin_source_deps.sh"; copy_source_deps "$SRC" "$BIN" || bad "r686 사본 source 대상 채우기"   # r686: 고른 도구가 source 하는 같은 폴더 lib(r672 swap · research-seat …)
 printf '#!/usr/bin/env bash\nexit 0\n' > "$BIN/ft-all-stop.sh"   # r626 DA⑥ r2·r686: spawn 이 .fable-team 있으면 늘 전팀 정지 check — 사본 bin 에 없으면 rc127 · 이 시험 주제 밖이라 통과 스텁(test_nano_team_env 와 같은 꼴)
@@ -55,7 +56,7 @@ echo '{}' > "$REPO/.fable-team/seats-planner.json"; echo '{}' > "$REPO/.fable-te
 printf '# GOAL — planner 제목줄\n\n## 원문 1 머리줄\n> 정본 문구 닫는증거는스무자이상이어야합니다 가나다라마바사\n' > "$REPO/design/planner/GOAL-planner.md"
 CLOSE='정본 문구 닫는증거는스무자이상이어야합니다 가나다라마바사'
 card() {  # card <경로> <머리 추가줄> <구현 범위 본문> <완료 조건 본문>
-  printf '# 인덱스: x\n- Issue: 없음\n- 제안서: 없음 — 시험용 카드\n- 상태: 대기\n- 선행: 없음\n- 시험 입력: 없음\n- 기준값: 없음 → 대체 축 시험\n%s\n\n## 골 원문 (항상 이 3줄)\n%s\n%s\n%s\n\n## 골좌표\n닫는 증거: 「%s」\n\n## 배경\n시험.\n\n## 구현 범위\n%s\n\n## 완료 조건\n%s\n\n## 상태\n- 대기\n' "$2" "$G1" "$G2" "$G3" "$CLOSE" "$3" "$4" > "$1"
+  printf '# 인덱스: x\n- Issue: #1\n- 제안서: 없음 — 시험용 카드\n- 상태: 대기\n- 선행: 없음\n- 시험 입력: 없음\n- 기준값: 없음 → 대체 축 시험\n%s\n\n## 골 원문 (항상 이 3줄)\n%s\n%s\n%s\n\n## 골좌표\n닫는 증거: 「%s」\n\n## 배경\n시험.\n\n## 구현 범위\n%s\n\n## 완료 조건\n%s\n\n## 상태\n- 대기\n' "$2" "$G1" "$G2" "$G3" "$CLOSE" "$3" "$4" > "$1"
 }
 FULL_IMPL='1. `scripts/real.sh` 를 고친다.'; FULL_DONE='- 시험 rc=0'
 card "$REPO/design/planner/indices/대기/full.md" '<!-- ledger: design/planner/GOAL-planner.md -->' "$FULL_IMPL" "$FULL_DONE"
@@ -69,7 +70,7 @@ mkdir -p "$REPO/design/harness/indices/대기"; cp "$REPO/design/planner/indices
 GIT add -A >/dev/null; GIT commit -q -m cards
 GIT update-ref refs/remotes/origin/main HEAD
 
-run()  { ( cd "$REPO" && env -i FT_TEAMSET=0 FT_RES_ROOT="$FT_RES_ROOT" HOME="$HOME" LC_ALL=en_US.UTF-8 FT_SHEET_ROOT="$FT_SHEET_ROOT" PATH="$T/fake:$PATH" FAKE_OPENED="$T/opened" FAKE_PANES="$T/panes" "$@" 2>&1 ); }
+run()  { ( cd "$REPO" && env -i FT_GH_READ="$T/fake/gh-open" GH_REPO=o/r FT_TEAMSET=0 FT_RES_ROOT="$FT_RES_ROOT" HOME="$HOME" LC_ALL=en_US.UTF-8 FT_SHEET_ROOT="$FT_SHEET_ROOT" PATH="$T/fake:$PATH" FAKE_OPENED="$T/opened" FAKE_PANES="$T/panes" "$@" 2>&1 ); }
 lint() { ( cd "$REPO" && env -i HOME="$HOME" LC_ALL=en_US.UTF-8 PATH="$PATH" "$@" 2>&1 ); }
 LINT="$BIN/ft-index-lint.sh"
 V65_PREFIX="$(python3 "$SRC/ft_teamset.py" prefix --team v65)"   # r687: spawn 이 v65 기본 접두를 읽는 같은 명령(r655 byz-v65-nano-) — 픽스처에 글자로 박지 않는다

@@ -183,9 +183,10 @@ SEAT_N='ft-v65-temp-u#0'; SEAT_C='byz-planner-nano-ovr#0'
 # ── 쓰기 도구 3 + undo: decoy 불변 + 새 경로 쓰기 ─────────────────────────────
 p_spawn() {  # ft-nano-spawn(등급 A · §10-4) — 카드 이동은 «실파일» ft-index-move.sh 로(대역 0): 새 꼴 진행/ 에 카드 실파일 + decoy 카드 불변 · SEATBELT 경로 = 그 꼴 v65 폴더
   local F="$1" R="$T/xs$F" b a hb sh o rc s0; b="$(bf "$F")"; a="$(af "$F")"; efix "$R" "$F"
-  printf '# 카드\n\n## 구현 범위\n- `worker/w.py` 를 고친다\n\n## 상태\n- 대기\n' > "$R/$b/v65/indices/대기/slug.md"; mkdir -p "$R/worker"; echo w > "$R/worker/w.py"; echo '{}' > "$R/.fable-team/seats.json"; echo sb > "$R/$b/v65/SEATBELT-README.md"   # R406: README = 그 꼴 v65 폴더에 실재 1개
+  printf '# 카드\n- Issue: #1\n\n## 구현 범위\n- `worker/w.py` 를 고친다\n\n## 상태\n- 대기\n' > "$R/$b/v65/indices/대기/slug.md"; mkdir -p "$R/worker"; echo w > "$R/worker/w.py"; echo '{}' > "$R/.fable-team/seats.json"; echo sb > "$R/$b/v65/SEATBELT-README.md"   # R406: README = 그 꼴 v65 폴더에 실재 1개
   GITC "$R" add -A >/dev/null 2>&1; GITC "$R" commit -q -m card
-  hb="$T/xhb$F"; sh="$T/xsh$F"; mkdir -p "$hb" "$sh"; cp "$SRC/ft-nano-spawn.sh" "$SRC/ft-index-move.sh" "$SRC/ft-team-lib.sh" "$SRC"/ft_*.py "$hb/"
+  hb="$T/xhb$F"; sh="$T/xsh$F"; mkdir -p "$hb" "$sh"; cp "$SRC/ft-nano-spawn.sh" "$SRC/ft-spawn-issue-gate.sh" "$SRC/ft-index-move.sh" "$SRC/ft-team-lib.sh" "$SRC"/ft_*.py "$hb/"
+  exe "$hb/gh-open" 'echo "{\"number\":1,\"state\":\"OPEN\",\"url\":\"https://github.com/o/r/issues/1\"}"'   # r823: 착수 게이트 = 픽스처 카드 #1 열린 이슈(가짜 gh)
   printf '#!/usr/bin/env bash\nexit 0\n' > "$hb"/ft-all-stop.sh   # r626 DA⑥ r2: spawn 이 .fable-team 있으면 늘 전팀 정지 check — 사본 bin 에 없으면 REJECT · 이 시험 주제 밖이라 통과 스텁
   for s in ft-index-lint ft-proposal-gate ft-resource-gate ft-agent-ready; do exe "$hb/$s.sh" 'exit 0'; done   # 카드 형식 린트·게이트만 대역 — 이동 자체는 실파일
   exe "$hb/ft-send-verified.sh" "echo \"SEND \$*\" >> $T/xcalls$F.log; exit 0"
@@ -194,7 +195,7 @@ p_spawn() {  # ft-nano-spawn(등급 A · §10-4) — 카드 이동은 «실파�
   exe "$sh/sleep" 'exit 0'; exe "$sh/tmuxc" "touch $T/xopened$F; exit 0"
   exe "$sh/tmux" "case \"\$1\" in has-session) [ -e $T/xopened$F ] && [[ \"\$*\" == *\"#0\"* ]]; exit \$? ;; list-panes) echo \"byz-v65-nano-slug#0|%1|123\" ;; show-option) echo 1 ;; esac; exit 0"
   s0="$(snap "$R" "$a/v65" "$a/planner")"
-  o="$(cd "$R" && PATH="$sh:$PATH" FT_SEATS_JSON="$R/.fable-team/seats.json" FT_TEAMSET=0 FT_TEAMS_REF=HEAD timeout 20 bash "$hb/ft-nano-spawn.sh" "$R/$b/v65/indices/대기/slug.md" --from me#1 2>&1)"; rc=$?   # R406: 명단 = ref — 픽스처는 origin/main ref 0 · 명단은 HEAD 커밋
+  o="$(cd "$R" && PATH="$sh:$PATH" FT_GH_READ="$hb/gh-open" FT_SEATS_JSON="$R/.fable-team/seats.json" FT_TEAMSET=0 FT_TEAMS_REF=HEAD timeout 20 bash "$hb/ft-nano-spawn.sh" "$R/$b/v65/indices/대기/slug.md" --from me#1 2>&1)"; rc=$?   # R406: 명단 = ref — 픽스처는 origin/main ref 0 · 명단은 HEAD 커밋
   [ "$rc" = 0 ] && ok "ⓔ$F ft-nano-spawn: rc0" || bad "ⓔ$F ft-nano-spawn rc=$rc ← $(printf "%s" "$o" | grep -E "REJECT|ERROR|WARN 중복|이미" | head -3 | cut -c1-300)"
   [ -f "$R/$b/v65/indices/진행/slug.md" ] && [ ! -e "$R/$b/v65/indices/대기/slug.md" ] && ok "ⓔ$F ft-nano-spawn: 실파일 ft-index-move 로 ${F}꼴 진행/ 에 카드 실파일 존재(대기/ 에서 사라짐)" || bad "ⓔ$F ft-nano-spawn 카드 실파일 위치 ← $(cd "$R" && find "$b/v65/indices" -type f | tr '\n' ' ')"
   [ -f "$R/$a/v65/indices/대기/slug.md" ] && ok "ⓔ$F ft-nano-spawn: decoy 카드(다른 꼴 대기/)는 그대로 있다" || bad "ⓔ$F ft-nano-spawn decoy 카드 사라짐"

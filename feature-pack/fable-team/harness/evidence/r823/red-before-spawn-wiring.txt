@@ -1,0 +1,105 @@
+== ⓐ Issue 없음 → REJECT · 부작용 0 (빨강 = 게이트 호출 뺀 판은 착수)
+FAIL ⓐ 새 판 REJECT rc1 — 없음: «REJECT 착수 = 열린 깃 이슈 번호 필수» ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: $TMPDIR/tmp.xdLu3RBDqH/bin
+OK 제안서 없음 선언(stub)
+WARN 후보 제외 — 카드 머리줄 없음: 선행 시험_입력 (REJECT 아님 · ft-nano-slots.sh 후보에서 빠진다): $TMPDIR/tmp.xdLu3RBDqH/repo/design/harness/indices/대기/a.md
+WARN 후보 제외 — 카드 머리줄 기준값 없음 또는 빈칸 (REJECT 아님 · 지표 없으면 「기준값: 없음 → 대체 축 <무엇>」 · 하네스 팀 
+FAIL ⓐ 만들기 안내(ft-issue-create-pair.sh → 「- Issue: #N」) — 없음: «ft-issue-create-pair.sh» ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: $TMPDIR/tmp.xdLu3RBDqH/bin
+OK 제안서 없음 선언(stub)
+WARN 후보 제외 — 카드 머리줄 없음: 선행 시험_입력 (REJECT 아님 · ft-nano-slots.sh 후보에서 빠진다): $TMPDIR/tmp.xdLu3RBDqH/repo/design/harness/indices/대기/a.md
+WARN 후보 제외 — 카드 머리줄 기준값 없음 또는 빈칸 (REJECT 아님 · 지표 없으면 「기준값: 없음 → 대체 축 <무엇>」 · 하네스 팀 
+FAIL ⓐ 착수 PLAN 0 — 있으면 안 됨: «PLAN seat=» ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: $TMPDIR/tmp.xdLu3RBDqH/bin
+OK 제안서 없음 선언(stub)
+WARN 후보 제외 — 카드 머리줄 없음: 선행 시험_입력 (REJECT 아님 · ft-nano-slots.sh 후보에서 빠진다): $TMPDIR/tmp.xdLu3RBDqH/repo/design/harness/indices/대기/a.md
+WARN 후보 제외 — 카드 머리줄 기준값 없음 또는 빈칸 (REJECT 아님 · 지표 없으면 「기준값: 없음 → 대체 축 <무엇>」 · 하네스 팀 
+FAIL ⓐ 카드 바뀜·이동
+PASS ⓐ 워크트리 0 · gh 호출 0(번호 없으면 조회 안 함)
+PASS ⓐ 빨강: 게이트 호출 뺀 판(= 지금 판) 은 같은 카드를 착수(PLAN) — ⓘ 변이 1 도 이것
+== ⓑ OPEN 착수 · CLOSED·없는 이슈·줄 없음 REJECT
+FAIL ⓑ #7 OPEN → OK — 없음: «OK #7 열린 이슈» ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: $TMPDIR/tmp.xdLu3RBDqH/bin
+OK 제안서 없음 선언(stub)
+WARN 후보 제외 — 카드 머리줄 없음: 선행 시험_입력 (REJECT 아님 · ft-nano-slots.sh 후보에서 빠진다): $TMPDIR/tmp.xdLu3RBDqH/repo/design/harness/indices/대기/b7.md
+WARN 후보 제외 — 카드 머리줄 기준값 없음 또는 빈칸 (REJECT 아님 · 지표 없으면 「기준값: 없음 → 대체 축 <무엇>」 · 하네스 팀
+PASS ⓑ #7 OPEN → 착수(PLAN)
+FAIL ⓑ 조회 인자 ← 
+FAIL ⓑ CLOSED → REJECT 닫힌 이슈 — 없음: «REJECT 닫힌 이슈 #8» ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: $TMPDIR/tmp.xdLu3RBDqH/bin
+OK 제안서 없음 선언(stub)
+WARN 후보 제외 — 카드 머리줄 없음: 선행 시험_입력 (REJECT 아님 · ft-nano-slots.sh 후보에서 빠진다): $TMPDIR/tmp.xdLu3RBDqH/repo/design/harness/indices/대기/b8.md
+WARN 후보 제외 — 카드 머리줄 기준값 없음 또는 빈칸 (REJECT 아님 · 지표 없으면 「기준값: 없음 → 대체 축 <무엇>」 · 하네스 팀
+FAIL ⓑ CLOSED → PLAN 0 — 있으면 안 됨: «PLAN seat=» ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: $TMPDIR/tmp.xdLu3RBDqH/bin
+OK 제안서 없음 선언(stub)
+WARN 후보 제외 — 카드 머리줄 없음: 선행 시험_입력 (REJECT 아님 · ft-nano-slots.sh 후보에서 빠진다): $TMPDIR/tmp.xdLu3RBDqH/repo/design/harness/indices/대기/b8.md
+WARN 후보 제외 — 카드 머리줄 기준값 없음 또는 빈칸 (REJECT 아님 · 지표 없으면 「기준값: 없음 → 대체 축 <무엇>」 · 하네스 팀
+FAIL ⓑ 없는 이슈 → REJECT — 없음: «REJECT 없는 이슈 #9» ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: $TMPDIR/tmp.xdLu3RBDqH/bin
+OK 제안서 없음 선언(stub)
+WARN 후보 제외 — 카드 머리줄 없음: 선행 시험_입력 (REJECT 아님 · ft-nano-slots.sh 후보에서 빠진다): $TMPDIR/tmp.xdLu3RBDqH/repo/design/harness/indices/대기/b9.md
+WARN 후보 제외 — 카드 머리줄 기준값 없음 또는 빈칸 (REJECT 아님 · 지표 없으면 「기준값: 없음 → 대체 축 <무엇>」 · 하네스 팀
+FAIL ⓑ 없는 이슈 → PLAN 0 — 있으면 안 됨: «PLAN seat=» ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: $TMPDIR/tmp.xdLu3RBDqH/bin
+OK 제안서 없음 선언(stub)
+WARN 후보 제외 — 카드 머리줄 없음: 선행 시험_입력 (REJECT 아님 · ft-nano-slots.sh 후보에서 빠진다): $TMPDIR/tmp.xdLu3RBDqH/repo/design/harness/indices/대기/b9.md
+WARN 후보 제외 — 카드 머리줄 기준값 없음 또는 빈칸 (REJECT 아님 · 지표 없으면 「기준값: 없음 → 대체 축 <무엇>」 · 하네스 팀
+FAIL ⓑ Issue 줄 없음 → REJECT — 없음: «「- Issue:」 줄 없음» ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: $TMPDIR/tmp.xdLu3RBDqH/bin
+OK 제안서 없음 선언(stub)
+WARN 후보 제외 — 카드 머리줄 없음: Issue 선행 시험_입력 (REJECT 아님 · ft-nano-slots.sh 후보에서 빠진다): $TMPDIR/tmp.xdLu3RBDqH/repo/design/harness/indices/대기/bn.md
+WARN 후보 제외 — 카드 머리줄 기준값 없음 또는 빈칸 (REJECT 아님 · 지표 없으면 「기준값: 없음 → 대체 축 <무엇>」 ·
+FAIL ⓑ 줄 없음 → PLAN 0 — 있으면 안 됨: «PLAN seat=» ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: $TMPDIR/tmp.xdLu3RBDqH/bin
+OK 제안서 없음 선언(stub)
+WARN 후보 제외 — 카드 머리줄 없음: Issue 선행 시험_입력 (REJECT 아님 · ft-nano-slots.sh 후보에서 빠진다): $TMPDIR/tmp.xdLu3RBDqH/repo/design/harness/indices/대기/bn.md
+WARN 후보 제외 — 카드 머리줄 기준값 없음 또는 빈칸 (REJECT 아님 · 지표 없으면 「기준값: 없음 → 대체 축 <무엇>」 ·
+PASS ⓑ 번호가 PR(url /pull/) → REJECT
+== ⓒ gh 실패·시간 초과 = 판정 불가 · ≤15 s · 재시도 = 출력 0 일 때만
+$TMPDIR/tmp.xdLu3RBDqH/bin/ft-spawn-issue-gate.sh: 줄 24: 93201 Killed: 9                  "$TO" -s KILL "$LIM" ${FT_GH_READ:-gh} issue view "$N" --repo "$REPO" --json number,state,url > "$T/o" 2> "$T/e"
+$TMPDIR/tmp.xdLu3RBDqH/bin/ft-spawn-issue-gate.sh: 줄 24: 99066 Killed: 9                  "$TO" -s KILL "$LIM" ${FT_GH_READ:-gh} issue view "$N" --repo "$REPO" --json number,state,url > "$T/o" 2> "$T/e"
+$TMPDIR/tmp.xdLu3RBDqH/bin/ft-spawn-issue-gate.sh: 줄 32: TRY�: 바인딩 해제한 변수
+FAIL ⓒ TERM 무시 8 s 스텁 → REJECT 판정 불가 — 없음: «REJECT 판정 불가(통과 0)» ← 
+PASS ⓒ 경과 ≤ 15 s (14 s · KILL 7 × 2)
+PASS ⓒ 시간 초과(출력 0) → 재시도 1(호출 2)
+$TMPDIR/tmp.xdLu3RBDqH/bin/ft-spawn-issue-gate.sh: 줄 32: TRY�: 바인딩 해제한 변수
+FAIL ⓒ #11 출력 0(rc=1) → REJECT — 없음: «판정 불가» ← 
+PASS ⓒ #11 출력 0 → 재시도 1(호출 2)
+PASS ⓒ #14 출력 0(rc=0) → REJECT
+PASS ⓒ #14 출력 0 → 재시도 1(호출 2)
+PASS ⓒ #12 출력 있음(불완전 JSON·rc≠0) → REJECT
+PASS ⓒ #12 출력 있음 → 재시도 0(호출 1)
+PASS ⓒ #13 출력 있음(불완전 JSON·rc≠0) → REJECT
+PASS ⓒ #13 출력 있음 → 재시도 0(호출 1)
+FAIL ⓒ spawn 경유 gh 실패 → PLAN 0(통과로 읽지 않음) — 있으면 안 됨: «PLAN seat=» ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: $TMPDIR/tmp.xdLu3RBDqH/bin
+OK 제안서 없음 선언(stub)
+WARN 후보 제외 — 카드 머리줄 없음: 선행 시험_입력 (REJECT 아님 · ft-nano-slots.sh 후보에서 빠진다): $TMPDIR/tmp.xdLu3RBDqH/repo/design/harness/indices/대기/c13s.md
+WARN 후보 제외 — 카드 머리줄 기준값 없음 또는 빈칸 (REJECT 아님 · 지표 없으면 「기준값: 없음 → 대체 축 <무엇>」 · 하네스
+== ⓓ 판독 = 머리 Issue 줄 첫 #숫자만 · owner/repo#N REJECT
+PASS ⓓ 첫 #7 만(뒤 #8 무시)
+PASS ⓓ 첫 #8 만(뒤 #7 로 통과 0)
+PASS ⓓ 본문(## 뒤) #7 무시 → REJECT
+PASS ⓓ owner/repo#N → REJECT
+PASS ⓓ 괄호 안 (#7) = 같은 저장소 #7
+== ⓔ 면제 0
+FAIL ⓔ proposal-* 카드도 REJECT — 없음: «REJECT 착수 = 열린 깃 이슈» ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: $TMPDIR/tmp.xdLu3RBDqH/bin
+OK 제안서 없음 선언(stub)
+WARN 후보 제외 — 카드 머리줄 없음: 선행 시험_입력 (REJECT 아님 · ft-nano-slots.sh 후보에서 빠진다): $TMPDIR/tmp.xdLu3RBDqH/repo/design/harness/indices/대기/proposal-x.md
+WARN 후보 제외 — 카드 머리줄 기준값 없음 또는 빈칸 (REJECT 아님 · 지표 없으면 「기준값: 없음 → 대체 축 <무엇>」
+FAIL ⓔ proposal-* PLAN 0 — 있으면 안 됨: «PLAN seat=» ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: $TMPDIR/tmp.xdLu3RBDqH/bin
+OK 제안서 없음 선언(stub)
+WARN 후보 제외 — 카드 머리줄 없음: 선행 시험_입력 (REJECT 아님 · ft-nano-slots.sh 후보에서 빠진다): $TMPDIR/tmp.xdLu3RBDqH/repo/design/harness/indices/대기/proposal-x.md
+WARN 후보 제외 — 카드 머리줄 기준값 없음 또는 빈칸 (REJECT 아님 · 지표 없으면 「기준값: 없음 → 대체 축 <무엇>」
+FAIL ⓔ 템플릿 카드도 REJECT — 없음: «REJECT 착수 = 열린 깃 이슈» ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: $TMPDIR/tmp.xdLu3RBDqH/bin
+OK 제안서 없음 선언(stub)
+WARN 후보 제외 — 카드 머리줄 없음: 선행 시험_입력 (REJECT 아님 · ft-nano-slots.sh 후보에서 빠진다): $TMPDIR/tmp.xdLu3RBDqH/repo/design/harness/indices/대기/tpl.md
+WARN 후보 제외 — 카드 머리줄 기준값 없음 또는 빈칸 (REJECT 아님 · 지표 없으면 「기준값: 없음 → 대체 축 <무엇>」 · 하네스 
+== ⓕ --research(진행/ 부모)·--dry-run = 대상 아님
+PASS ⓕ --dry-run 은 Issue 없음 카드도 PLAN(동작 그대로)
+PASS ⓕ --dry-run 게이트 0
+PASS ⓕ --research 진행/ 카드 PLAN(동작 그대로)
+PASS ⓕ --research 게이트 0
+PASS ⓕ gh 호출 0
+== ⓖ 순서 = ① lint 뒤 · 부작용 전
+FAIL ⓖ 줄 lint=207 g= renew=271 wt=433
+PASS ⓖ lint 실패 → lint REJECT 가 먼저
+PASS ⓖ lint 실패면 gh 호출 0(게이트는 lint 뒤)
+== ⓘ 변이 — 열림 확인 삭제 → CLOSED 통과 · 출력 확인 삭제 → 출력 있는 실패도 재시도
+PASS ⓘ 변이 2(열림 확인 삭제) → CLOSED 통과 = ⓑ CLOSED 단언 FAIL 로 잡힌다
+PASS ⓘ 변이 3(출력 확인 삭제) → 불완전 JSON 재시도(호출 2) = ⓒ 단언 FAIL 로 잡힌다
+== 짝 사본 cmp0 · bash -n
+PASS cmp0 · bash -n ft-nano-spawn.sh
+PASS cmp0 · bash -n ft-spawn-issue-gate.sh
+
+FAILED (19)
