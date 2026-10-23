@@ -93,21 +93,30 @@ hil() { echo "[HIL] 후계 $NAME 도달 미확인 — 구 좌석 닫기 0 (구=$
 [ "$(sed -n '1,3p' "$BODY" | grep -c '[^[:space:]]')" = 3 ] || { echo "REJECT 본문 첫 3줄(골 원문)이 비었다: $BODY"; exit 1; }
 # ⓐ' (r414) desk·planner 승계 본문의 슬랙 뿌리 ts 손 복사 = 열지 않는다 — 보고 스레드 뿌리는 등록부(slack-threads.json)가 소유
 case "$NAME" in *-desk-*|*-planner-*) grep -qE -- '--ts [0-9]{10}\.[0-9]{6}' "$BODY" && { echo "REJECT 본문에 슬랙 ts 손 복사(--ts …) — 방 글 = post --to <이름> · 오빠 글 답 = reply --to-slack <ts>"; exit 1; };; esac
-# ⓐ'' (r660) desk 승계 본문 — ① 첫 10줄에 planner 안내서 27줄 원문 구절 없으면 열지 않는다 ② 팀 직발 예시(send·relay 뒤 byz-<planner 아닌 팀>-… · 따옴표 유무 무관) 있으면 열지 않는다(부작용 전 · 지침 = GUIDE-planner.md:27 «desk 는 인터뷰·응대·요청 정리만 … master 에 1통»).
+# ⓐ'' (r660) desk 승계 본문 — ① 첫 10줄에 planner 안내서 desk 구절(r826: 줄 번호 아님 · 안내서 전체에서 정확히 1줄) 원문 없으면 열지 않는다 ② 팀 직발 예시(send·relay 뒤 byz-<planner 아닌 팀>-… · 따옴표 유무 무관) 있으면 열지 않는다(부작용 전 · 지침 = GUIDE-planner.md:27 «desk 는 인터뷰·응대·요청 정리만 … master 에 1통»).
 #   원문은 «origin/main» 에서 읽는다(못 읽으면 REJECT · fail-closed) · 판정기 하나 = python 인라인 · planner·다른 역할 승계는 이 문 밖.
 if [ "${NAME#*-desk-}" != "$NAME" ]; then
-  _gref="${FT_GUIDE_REF:-origin/main}"; _gline="${FT_GUIDE_LINE:-27}"; _gpath="${FT_GUIDE_PATH:-}"
+  _gref="${FT_GUIDE_REF:-origin/main}"; _gpath="${FT_GUIDE_PATH:-}"
+  # r826: 줄 번호 고정(27) 폐지 — 안내서 앞에 줄이 더해지면 엉뚱한 줄을 읽었다(PR 2793 뒤 30줄 · desk 53번 REJECT). 안내서 전체에서 구절 줄을 찾는다.
+  [ -n "${FT_GUIDE_LINE:-}" ] && echo "WARN FT_GUIDE_LINE=$FT_GUIDE_LINE 더 쓰지 않음 — 안내서 전체에서 구절을 찾는다(r826)"
   # r688: planner 폴더 = 명단(<ref>:design/TEAMS.md)의 planner 칸(ft_team_cands_ref 첫 후보) — 팀 폴더 글자 0 · 못 풀면 아래 «못 읽었다» REJECT 로 닫힌다(fail-closed)
   if [ -z "$_gpath" ]; then _gdir="$(. "$HERE/ft-team-lib.sh" && ft_team_cands_ref "$WT" planner "$_gref")" && _gdir="${_gdir%%$'\n'*}" && _gpath="${_gdir#"$WT"/}/GUIDE-planner.md"; fi
-  _gd="$([ -n "$_gpath" ] && git -C "$WT" show "$_gref:$_gpath" 2>/dev/null | sed -n "${_gline}p")"
-  [ -n "${_gd//[[:space:]]/}" ] || { echo "REJECT desk 승계 본문 검사 — $_gref:$_gpath ${_gline}줄을 읽지 못했다(못 읽으면 열지 않는다 · fail-closed)"; exit 1; }
-  _gchk="$(python3 - "$BODY" "$_gd" "$_gline" <<'PYGUIDE'
+  _gd="$([ -n "$_gpath" ] && git -C "$WT" show "$_gref:$_gpath" 2>/dev/null)"
+  [ -n "${_gd//[[:space:]]/}" ] || { echo "REJECT desk 승계 본문 검사 — $_gref:$_gpath 안내서 줄을 읽지 못했다(못 읽으면 열지 않는다 · fail-closed)"; exit 1; }
+  _gchk="$(python3 - "$BODY" "$_gd" <<'PYGUIDE'
 import re, sys
-body, guide, ln = sys.argv[1], sys.argv[2], sys.argv[3]
+body, guide = sys.argv[1], sys.argv[2]
 lines = open(body, encoding="utf-8").read().splitlines()
-m = re.search(r"desk 는 .*?1통\)", guide)
-if not m:
-    print("REJECT GUIDE %s줄 모양이 바뀌었다 — 「desk 는 … 1통)」 구절을 못 찾음(사람이 확인해야 한다)" % ln); sys.exit(3)
+# r826 r3: 마크다운 해석 0 — «고르기» 대신 «세기». 안내서 «모든» 줄에서 desk 구절(N통) 줄을 센다(인용·울타리·들여쓰기·주석 구분 0)
+#   정확히 1줄 + 그 줄이 맨 앞 «- **desk 좌석» 일 때만 쓴다 · 예시·옛 사본이 하나라도 있으면 사람이 정리할 상태(DA r1·r2 반례)
+hits = [(i, m) for i, g in enumerate(guide.splitlines(), 1) for m in [re.search(r"desk 는 .*?\d+통\)", g)] if m]
+if not hits:
+    print("REJECT GUIDE 에서 「desk 는 … N통)」 구절을 못 찾음(사람이 확인해야 한다)"); sys.exit(3)
+if len(hits) > 1:
+    print("REJECT GUIDE 에 「desk 는 … N통)」 구절이 여러 줄(%s줄) — 예시·옛 문구를 지우거나 고쳐 한 줄만 남겨라(사람이 확인해야 한다)" % ",".join(str(i) for i, _ in hits)); sys.exit(3)
+ln, m = hits[0]
+if not guide.splitlines()[ln - 1].startswith("- **desk 좌석"):
+    print("REJECT GUIDE %s줄 정본 줄 모양 바뀜 — 줄 맨 앞이 «- **desk 좌석» 이 아니다(사람이 확인해야 한다)" % ln); sys.exit(3)
 core = " ".join(m.group(0).split())
 if core not in " ".join(" ".join(lines[:10]).split()):
     print("REJECT desk 승계 본문 첫 10줄에 planner 안내서 %s줄 원문 구절이 없다 — 이 줄을 그대로 옮겨 적어라: 「%s」" % (ln, core)); sys.exit(3)

@@ -1,0 +1,2 @@
+BYZ origin/main design/teams/planner/GUIDE-planner.md 구절 줄 = [30] → 정확히 1줄
+568944960e2edfb0ac426f6642da5bc27d46e397
