@@ -1,0 +1,7 @@
+## 기존 news 계열 시험 (고친 판)
+E        +    where <built-in method startswith of str object at 0x11160a600> = "ft-inbox.sh show 실패(7초 초과 · 재시도 1회): Command '['bash', '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-129/test_slow_inbox_is_bounded_and0/inbox.sh', 'slow-m#1']' timed out after 7 seconds".startswith
+
+tests/scripts/test_r649_news_team_lines_isolate_error.py:165: AssertionError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_r649_news_team_lines_isolate_error.py::test_slow_inbox_is_bounded_and_only_that_team_errors
+1 failed, 270 passed, 1829 deselected in 135.28s (0:02:15)

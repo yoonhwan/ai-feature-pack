@@ -1,3 +1,11 @@
+## 2026-10-23 — r809 뉴스 틱 «변화 없음» 오보: 원장 리포를 먼저 정하고 받기 · 받기 실패면 «판정 불가» 머리 줄(1.1.221)
+
+- 뉴스 틱이 원장 받기(git fetch)에 실패해도 옛 판과 비교해 «변화 없음» 을 머리 줄로 발행했다(오빠 «아직 뉴스 바보인데» · 자율 내내 오보). 원인 = `ft_news_ledger._run` 이 리포 기본값을 풀기 «전에» 받기 여부를 정해, 기본 경로(FT_LEDGER_REPO 없음)에서는 받기 0 · 경보 0 이었다.
+- `ft_news_ledger._run`: 리포를 받기 앞에 정하고 html 모드면 env 유무와 무관하게 `fetch_if_stale(repo)` 를 부른다. `ft_news_html.zero_change_line`: 받기 실패(warn)가 있으면 «판정 불가 — <warn> · 지도 <링크>» 로 쓰고 «변화 없음» 글자는 0.
+- 범위 밖(r754 의 이전 판 반례 중 이 카드에서 제외): 경보 표·재시도·env 상한·news_ref 는 변경 0 — 필요하면 별 카드.
+- 시험 `harness/tests/scripts/test_r809_news_default_repo_fetch.py` 8 passed(기준판 같은 시험 3 failed = 빨강 대조) · news 계열 267 passed / 1 failed = `test_r649…`(기준판에서도 같은 FAIL · 무관 · 증거 05) · kit↔bin 짝 사본 cmp0. 증거 `harness/evidence/r809/`.
+- 외부 DA⑥ r1 APPROVE — 원문 BYZ `design/harness/evidence/r809-da6/da-20261023-140913-47846.out`(gpt-6.1-sol · cliproxy · 첫 «판정:» 줄 APPROVE) · 대체한 카드 r754(DA 3회 HOLD 로 버림).
+
 ## 2026-10-23 — r785 뉴스판 슬랙 뿌리 글에 «👥 팀별 지금» 절(1.1.220)
 
 - 뉴스판(시트 모드) 뿌리 글은 카드 트리만 실어 «어느 팀이 일하고, 멈췄으면 몇 분째 무엇을 기다리는지» 가 0줄이었다 — 그 정보는 첨부 PDF 에만 있고 PDF 는 하루 24회 상한 뒤로 안 바뀐다(arch §129 · 오빠 「뉴스 팀 전체 깜깜이」) → 뿌리 글 첫 줄(«확인 중») 바로 다음에 `👥 팀별 지금` 절 + 팀 줄을 매 발행 싣는다(PDF·상한과 무관).
