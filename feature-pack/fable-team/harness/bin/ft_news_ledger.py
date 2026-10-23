@@ -319,9 +319,10 @@ def ledger_blob(repo: Path, rel: str, cur: str) -> str:
 
 def _run(root: Path, state: Path) -> tuple[int, str]:
     html = os.environ.get("FT_NEWS_MODE") == "html"
-    sync_note = fetch_if_stale(Path(os.environ["FT_LEDGER_REPO"])) if html and os.environ.get("FT_LEDGER_REPO") else sync_repo()
-    repo = Path(os.environ.get("FT_LEDGER_REPO") or live_root(RuntimeError, root))
     try:
+        # r809 — 리포를 «받기 전» 에 정한다: html 이면 env 유무와 무관하게 그 리포를 받는다(옛 판 = env 없으면 받기 0 → 낡은 origin/main 을 «변화 없음» 으로 발행)
+        repo = Path(os.environ.get("FT_LEDGER_REPO") or live_root(RuntimeError, root))
+        sync_note = fetch_if_stale(repo) if html else sync_repo()
         # R383: planner 팀 폴더는 design/TEAMS.md 로(팀 이름 글자 0) — 원장 경로는 git 상대(꼴1·꼴2), 뉴스 폴더는 절대경로. 못 풀면 TeamPathError(RuntimeError) → 아래 «원장 읽기 실패»
         rel = os.environ.get("FT_LEDGER_PATH") or planner_ledger_rel(repo)
         news = Path(os.environ["FT_NEWS_DIR"]) if os.environ.get("FT_NEWS_DIR") else news_dir(root, rel)

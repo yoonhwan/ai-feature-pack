@@ -1,0 +1,7 @@
+## 짝 사본 cmp (kit ↔ harness/bin)
+ft_news_ledger.py cmp0
+ft_news_html.py cmp0
+c43f377528168cb1c0905e7fd45d9956c17e2c542ff2aea996fb24f1e2af008d  kit/fable-team/bin/ft_news_ledger.py
+c43f377528168cb1c0905e7fd45d9956c17e2c542ff2aea996fb24f1e2af008d  bin/ft_news_ledger.py
+2e5134a4adbc4cf5af6f06e14e2025ea37f07b91ef76bfa763f86c303f74681c  kit/fable-team/bin/ft_news_html.py
+2e5134a4adbc4cf5af6f06e14e2025ea37f07b91ef76bfa763f86c303f74681c  bin/ft_news_html.py

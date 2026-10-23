@@ -1,0 +1,9 @@
+## 기준판(고치기 전 · origin/main 73f097b3) — 시험 r809
+E       AttributeError: <module 'ft_news_html' from '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r809-news-default-repo-fetch-then-unknow/feature-pack/fable-team/harness/bin/ft_news_html.py'> has no attribute 'zero_change_line'
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r809-news-default-repo-fetch-then-unknow/feature-pack/fable-team/harness/tests/scripts/test_r809_news_default_repo_fetch.py:209: AttributeError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_r809_news_default_repo_fetch.py::test_a_default_repo_env_missing_still_fetches
+FAILED tests/scripts/test_r809_news_default_repo_fetch.py::test_b_fetch_failure_publishes_unjudgeable_line
+FAILED tests/scripts/test_r809_news_default_repo_fetch.py::test_g2_mutation_change_line_without_unjudgeable_head
+3 failed, 5 passed in 2.19s

@@ -1,0 +1,88 @@
+diff --git a/feature-pack/fable-team/harness/bin/ft_news_html.py b/feature-pack/fable-team/harness/bin/ft_news_html.py
+index 831f68eb..9899e7ee 100644
+--- a/feature-pack/fable-team/harness/bin/ft_news_html.py
++++ b/feature-pack/fable-team/harness/bin/ft_news_html.py
+@@ -340,6 +340,12 @@ def _save_base(state: Path, cur: str, blob: str | None, canon: str = "") -> None
+         raise
+ 
+ 
++def zero_change_line(now, last: dict, warn: str) -> str:
++    """r809 — 변화 0 반복 줄. 받기 실패(warn)면 «변화 없음» 이 아니라 «판정 불가» 머리 줄(낡은 판을 «변화 0» 으로 읽지 않게)."""
++    tail = f"지도 {last.get('link') or last['map_at']}"
++    return f"[뉴스 {now:%H:%M}] 판정 불가 — {warn} · {tail}" if warn else f"[뉴스 {now:%H:%M}] 변화 없음 · {tail}"
++
++
+ def tick(root: Path, state: Path, repo: Path, rel: str, news: Path, base: str, cur: str) -> tuple[int, str]:
+     """뉴스 틱 HTML 경로 — (rc, 정지 감시용 사유). «바뀌었나» = 원장 블롭(r656) · 기준선 두 칸은 지도 글이 올라갔을 때만 옮긴다."""
+     from ft_news_post import news_now
+@@ -362,7 +368,8 @@ def tick(root: Path, state: Path, repo: Path, rel: str, news: Path, base: str, c
+     if not changed and last.get("map_at", "")[:10] == stamp[:10]:  # 변화 0(원장 내용 그대로) · 오늘 지도 있음 = 적정한 반복 한 줄만
+         if since("at") < timedelta(minutes=int(os.environ.get("FT_NEWS_REPEAT_MIN", "30"))):
+             return 0, "원장 커밋 0"
+-        rc = publish_line(f"[뉴스 {now:%H:%M}] 변화 없음 · 지도 {last.get('link') or last['map_at']}" + (f" · {warn}" if warn else ""), now)
++        # r809 — 받기 실패(warn)면 «변화 없음» 이 아니라 «판정 불가» 머리 줄(낡은 판을 «변화 0» 으로 읽지 않게)
++        rc = publish_line(zero_change_line(now, last, warn), now)
+         if rc == 0:
+             _save(hs, {**last, "at": stamp})
+         return rc, "원장 커밋 0"
+diff --git a/feature-pack/fable-team/harness/bin/ft_news_ledger.py b/feature-pack/fable-team/harness/bin/ft_news_ledger.py
+index 2365f2b5..cd487759 100644
+--- a/feature-pack/fable-team/harness/bin/ft_news_ledger.py
++++ b/feature-pack/fable-team/harness/bin/ft_news_ledger.py
+@@ -319,9 +319,10 @@ def ledger_blob(repo: Path, rel: str, cur: str) -> str:
+ 
+ def _run(root: Path, state: Path) -> tuple[int, str]:
+     html = os.environ.get("FT_NEWS_MODE") == "html"
+-    sync_note = fetch_if_stale(Path(os.environ["FT_LEDGER_REPO"])) if html and os.environ.get("FT_LEDGER_REPO") else sync_repo()
+-    repo = Path(os.environ.get("FT_LEDGER_REPO") or live_root(RuntimeError, root))
+     try:
++        # r809 — 리포를 «받기 전» 에 정한다: html 이면 env 유무와 무관하게 그 리포를 받는다(옛 판 = env 없으면 받기 0 → 낡은 origin/main 을 «변화 없음» 으로 발행)
++        repo = Path(os.environ.get("FT_LEDGER_REPO") or live_root(RuntimeError, root))
++        sync_note = fetch_if_stale(repo) if html else sync_repo()
+         # R383: planner 팀 폴더는 design/TEAMS.md 로(팀 이름 글자 0) — 원장 경로는 git 상대(꼴1·꼴2), 뉴스 폴더는 절대경로. 못 풀면 TeamPathError(RuntimeError) → 아래 «원장 읽기 실패»
+         rel = os.environ.get("FT_LEDGER_PATH") or planner_ledger_rel(repo)
+         news = Path(os.environ["FT_NEWS_DIR"]) if os.environ.get("FT_NEWS_DIR") else news_dir(root, rel)
+diff --git a/feature-pack/fable-team/harness/kit/fable-team/bin/ft_news_html.py b/feature-pack/fable-team/harness/kit/fable-team/bin/ft_news_html.py
+index 831f68eb..9899e7ee 100644
+--- a/feature-pack/fable-team/harness/kit/fable-team/bin/ft_news_html.py
++++ b/feature-pack/fable-team/harness/kit/fable-team/bin/ft_news_html.py
+@@ -340,6 +340,12 @@ def _save_base(state: Path, cur: str, blob: str | None, canon: str = "") -> None
+         raise
+ 
+ 
++def zero_change_line(now, last: dict, warn: str) -> str:
++    """r809 — 변화 0 반복 줄. 받기 실패(warn)면 «변화 없음» 이 아니라 «판정 불가» 머리 줄(낡은 판을 «변화 0» 으로 읽지 않게)."""
++    tail = f"지도 {last.get('link') or last['map_at']}"
++    return f"[뉴스 {now:%H:%M}] 판정 불가 — {warn} · {tail}" if warn else f"[뉴스 {now:%H:%M}] 변화 없음 · {tail}"
++
++
+ def tick(root: Path, state: Path, repo: Path, rel: str, news: Path, base: str, cur: str) -> tuple[int, str]:
+     """뉴스 틱 HTML 경로 — (rc, 정지 감시용 사유). «바뀌었나» = 원장 블롭(r656) · 기준선 두 칸은 지도 글이 올라갔을 때만 옮긴다."""
+     from ft_news_post import news_now
+@@ -362,7 +368,8 @@ def tick(root: Path, state: Path, repo: Path, rel: str, news: Path, base: str, c
+     if not changed and last.get("map_at", "")[:10] == stamp[:10]:  # 변화 0(원장 내용 그대로) · 오늘 지도 있음 = 적정한 반복 한 줄만
+         if since("at") < timedelta(minutes=int(os.environ.get("FT_NEWS_REPEAT_MIN", "30"))):
+             return 0, "원장 커밋 0"
+-        rc = publish_line(f"[뉴스 {now:%H:%M}] 변화 없음 · 지도 {last.get('link') or last['map_at']}" + (f" · {warn}" if warn else ""), now)
++        # r809 — 받기 실패(warn)면 «변화 없음» 이 아니라 «판정 불가» 머리 줄(낡은 판을 «변화 0» 으로 읽지 않게)
++        rc = publish_line(zero_change_line(now, last, warn), now)
+         if rc == 0:
+             _save(hs, {**last, "at": stamp})
+         return rc, "원장 커밋 0"
+diff --git a/feature-pack/fable-team/harness/kit/fable-team/bin/ft_news_ledger.py b/feature-pack/fable-team/harness/kit/fable-team/bin/ft_news_ledger.py
+index 2365f2b5..cd487759 100644
+--- a/feature-pack/fable-team/harness/kit/fable-team/bin/ft_news_ledger.py
++++ b/feature-pack/fable-team/harness/kit/fable-team/bin/ft_news_ledger.py
+@@ -319,9 +319,10 @@ def ledger_blob(repo: Path, rel: str, cur: str) -> str:
+ 
+ def _run(root: Path, state: Path) -> tuple[int, str]:
+     html = os.environ.get("FT_NEWS_MODE") == "html"
+-    sync_note = fetch_if_stale(Path(os.environ["FT_LEDGER_REPO"])) if html and os.environ.get("FT_LEDGER_REPO") else sync_repo()
+-    repo = Path(os.environ.get("FT_LEDGER_REPO") or live_root(RuntimeError, root))
+     try:
++        # r809 — 리포를 «받기 전» 에 정한다: html 이면 env 유무와 무관하게 그 리포를 받는다(옛 판 = env 없으면 받기 0 → 낡은 origin/main 을 «변화 없음» 으로 발행)
++        repo = Path(os.environ.get("FT_LEDGER_REPO") or live_root(RuntimeError, root))
++        sync_note = fetch_if_stale(repo) if html else sync_repo()
+         # R383: planner 팀 폴더는 design/TEAMS.md 로(팀 이름 글자 0) — 원장 경로는 git 상대(꼴1·꼴2), 뉴스 폴더는 절대경로. 못 풀면 TeamPathError(RuntimeError) → 아래 «원장 읽기 실패»
+         rel = os.environ.get("FT_LEDGER_PATH") or planner_ledger_rel(repo)
+         news = Path(os.environ["FT_NEWS_DIR"]) if os.environ.get("FT_NEWS_DIR") else news_dir(root, rel)
