@@ -1,0 +1,113 @@
+#!/usr/bin/env python3
+"""serena-audit — 하네스별 Serena 호출 계측기 (code-intel 랜딩 모니터)
+
+실제 tool_use 이벤트만 센다(도구 스키마 목록에 나오는 이름은 제외).
+사용:
+  serena-audit                      # 최근 2일, 하네스별 요약
+  serena-audit --days 7 --by-harness --detail
+  serena-audit --days 1 --json
+"""
+import argparse, collections, json, os, sys, time
+
+HOME = os.path.expanduser("~")
+
+SOURCES = {
+    "claude":   [f"{HOME}/.claude/projects"],
+    "codex":    [f"{HOME}/.codex/sessions"],
+    "pi":       [f"{HOME}/.pi/agent/sessions"],
+    "opencode": [f"{HOME}/.local/share/opencode/storage"],
+}
+
+def iter_files(roots, cutoff):
+    for root in roots:
+        if not os.path.isdir(root):
+            continue
+        for dirpath, _dirs, files in os.walk(root):
+            for fn in files:
+                if not fn.endswith((".jsonl", ".json")):
+                    continue
+                p = os.path.join(dirpath, fn)
+                try:
+                    if os.path.getmtime(p) < cutoff:
+                        continue
+                except OSError:
+                    continue
+                yield p
+
+def walk_tool_uses(obj, sink):
+    """중첩 구조에서 type=='tool_use' 블록만 수집."""
+    if isinstance(obj, dict):
+        if obj.get("type") == "tool_use" and isinstance(obj.get("name"), str):
+            sink.append(obj["name"])
+        for v in obj.values():
+            walk_tool_uses(v, sink)
+    elif isinstance(obj, list):
+        for v in obj:
+            walk_tool_uses(v, sink)
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--days", type=float, default=2)
+    ap.add_argument("--by-harness", action="store_true")
+    ap.add_argument("--detail", action="store_true", help="serena 도구별 세부")
+    ap.add_argument("--json", action="store_true")
+    a = ap.parse_args()
+
+    cutoff = time.time() - a.days * 86400
+    per_harness = {}
+    detail = collections.Counter()
+
+    for harness, roots in SOURCES.items():
+        total = 0
+        serena = 0
+        for path in iter_files(roots, cutoff):
+            names = []
+            try:
+                with open(path, errors="replace") as fh:
+                    for line in fh:
+                        if "tool_use" not in line:
+                            continue
+                        try:
+                            walk_tool_uses(json.loads(line), names)
+                        except Exception:
+                            continue
+            except OSError:
+                continue
+            total += len(names)
+            for n in names:
+                if "serena" in n.lower():
+                    serena += 1
+                    detail[n] += 1
+        per_harness[harness] = {"tool_use": total, "serena": serena}
+
+    grand_total = sum(v["tool_use"] for v in per_harness.values())
+    grand_serena = sum(v["serena"] for v in per_harness.values())
+
+    out = {
+        "window_days": a.days,
+        "tool_use_total": grand_total,
+        "serena_total": grand_serena,
+        "serena_share": round(grand_serena / grand_total, 4) if grand_total else 0.0,
+        "by_harness": per_harness,
+        "serena_tools": dict(detail.most_common()) if a.detail else {},
+    }
+
+    if a.json:
+        print(json.dumps(out, ensure_ascii=False, indent=2))
+        return 0
+
+    print(f"[serena-audit] 최근 {a.days:g}일 | tool_use {grand_total}건 중 serena {grand_serena}건 "
+          f"({out['serena_share']*100:.1f}%)")
+    if a.by_harness or True:
+        print(f"  {'harness':<10}{'tool_use':>10}{'serena':>9}")
+        for h, v in per_harness.items():
+            print(f"  {h:<10}{v['tool_use']:>10}{v['serena']:>9}")
+    if a.detail and detail:
+        print("  --- serena 도구별")
+        for k, v in detail.most_common():
+            print(f"    {v:>5}  {k}")
+    print("  판정: serena 0 이면 Phase 5(완전 삭제) 진행 가능")
+    return 0
+
+if __name__ == "__main__":
+    sys.exit(main())
