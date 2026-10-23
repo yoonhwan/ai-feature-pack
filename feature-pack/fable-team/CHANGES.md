@@ -1,3 +1,8 @@
+## 2026-10-24 — r829 claude-hr 살아 있음 탐침 7초 룰(1.1.226)
+
+- `headroom/templates/claude-hr.sh` cliproxy 점검(curl -m2)이 느린 응답에서 «죽음» 으로 오판해 전 팀 승계가 막혔다. → 탐침을 시도당 상한 7초 + 재시도 1(하드 룰 12)로 바꾼다. 6.5초 응답 = 살아 있음 · 503 = 거부 · 7초 닿으면 그 시도 실패(설계대로).
+- 외부 DA r1 HOLD(질문지 7초 경계 문구 오류 · 원문 보존) → r1b APPROVE(gpt-6.1-sol/cliproxy). 시험 16 passed ×3 · 변이 2종(7→2 · 재시도 삭제) 빨강. 설치본 ~/.headroom/claude-hr.sh 는 templates 판 cp + cmp0.
+
 ## 2026-10-24 — r826 desk 승계 검사가 안내서 «줄 번호» 대신 구절 줄 세기로(1.1.225)
 
 - `ft-successor-open.sh` ⓐ'' desk 승계 검사가 GUIDE-planner.md 의 «27줄» 고정(`FT_GUIDE_LINE` 기본 27)을 읽어, PR 2793 뒤 구절이 30줄로 밀리자 desk#53 승계가 REJECT 됐다. → 줄 번호 대신 안내서 모든 줄에서 desk 구절(`desk 는 … 1통)`) 줄을 «세어» 정확히 1줄 + 맨 앞 `- **desk 좌석` 일 때만 쓴다(0줄·2줄 이상 = REJECT · 마크다운 해석 0 · `FT_GUIDE_LINE` 은 WARN 만).
