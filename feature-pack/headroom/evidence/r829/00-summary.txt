@@ -1,0 +1,24 @@
+r829 — claude-hr.sh 살아 있음 탐침 7초 룰 (base origin/main 66cf2825)
+
+고침: feature-pack/headroom/templates/claude-hr.sh
+  _headroom_up = curl -m1 1회 · _cliproxy_up = curl -m2 1회
+  → 둘 다 _probe_up: 시도당 curl -m7 · 실패(연결 거부·시간 초과·HTTP 오류)면 1회 재시도 · 최대 7+7 = 14초(+curl 기동) ≤ 16초
+  폴백 거부 동작·문구·rc 69 그대로 · 상한 env 0 · 모델 카탈로그 경고(-m2) 범위 밖이라 그대로
+
+시험: feature-pack/headroom/tests/test_claude_hr_probe_timeout_r829.py
+  가짜 HTTP 서버(임시 포트·요청별 지연) + URL 만 바꿔 /usr/bin/curl 로 넘기는 shim · 실 8317·8790 0 · claude 스텁
+  ⓐ~ⓓ 를 cliproxy(/v1/models)·headroom(/health) 두 층에 subTest 로 = ⓔ
+
+결과 (red-base.txt · green.txt · existing.txt · mut1-cap7to2.txt · mut2-no-retry.txt)
+  red-base (66cf2825 원판): ⓐ FAIL rc69 2.48s/1.25s · ⓑ FAIL rc69 · ⓒ ok(지킴 칸) · ⓓ FAIL attempts=1  → rc=1
+  green: ⓐ rc0 claude=1 3.4s · ⓑ rc0 attempts=2 8.4~8.8s · ⓒ rc69 «직결 폴백을 거부한다» 14.3~14.5s ≤16 · ⓓ rc69 attempts=2 0.26s  → rc=0
+  ⓕ 기존 test_claude_hr_wrapper.py: 12/12 OK rc=0 (독립 복제본에서 · 아래 주의)
+  ⓖ 변이1 상한 7→2: ⓐ FAIL(두 층) rc=1 · 변이2 재시도 삭제: ⓑ FAIL(두 층) + ⓓ FAIL rc=1
+
+주의 (기존 결함 · 이번 범위 밖 · 고치지 않음):
+  test_claude_hr_wrapper.py::test_project_entry_overrides_default 는 «git 워크트리 안에서» 돌리면 원판·설치본도 FAIL
+  (래퍼는 프로젝트 root 를 공용 git dir 로 접고 · 시험은 워크트리 경로를 키로 씀).
+  existing-base-worktree.txt = 원판 66cf2825 워크트리에서 같은 2칸 FAIL · existing-main-checkout.txt = 본 체크아웃 12/12 OK.
+  그래서 ⓕ 는 워크트리가 아닌 독립 복제본(git clone --shared · 66cf2825 + r829 2파일)에서 돌림.
+
+설치(master 손): ~/.headroom/claude-hr.sh 는 원판과 177행 1줄 다름(>&2 vs 2>&1 >/dev/null) — 팩 판 cp 로 맞추면 cmp0.

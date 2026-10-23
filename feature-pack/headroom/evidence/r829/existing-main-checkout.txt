@@ -1,0 +1,22 @@
+# 팩 본 체크아웃(워크트리 아님 · main b49cd7cb · headroom 파일 미수정)에서 기존 계약 시험
+test_both_off_clears_stale_base_url (feature-pack.headroom.tests.test_claude_hr_wrapper.ClaudeHeadroomWrapperContract.test_both_off_clears_stale_base_url) ... ok
+test_both_on_routes_through_headroom_with_workspace_header (feature-pack.headroom.tests.test_claude_hr_wrapper.ClaudeHeadroomWrapperContract.test_both_on_routes_through_headroom_with_workspace_header) ... ok
+test_cliproxy_only_routes_direct_to_8317_without_headroom_header (feature-pack.headroom.tests.test_claude_hr_wrapper.ClaudeHeadroomWrapperContract.test_cliproxy_only_routes_direct_to_8317_without_headroom_header) ... ok
+test_cliproxy_route_errors_instead_of_direct_fallback_when_down (feature-pack.headroom.tests.test_claude_hr_wrapper.ClaudeHeadroomWrapperContract.test_cliproxy_route_errors_instead_of_direct_fallback_when_down) ... ok
+test_disabled_route_is_not_a_health_fallback (feature-pack.headroom.tests.test_claude_hr_wrapper.ClaudeHeadroomWrapperContract.test_disabled_route_is_not_a_health_fallback)
+둘 다 off 는 '프록시가 죽어서' 가 아니라 '끄기로 했으니' 직결이다. ... ok
+test_env_override_beats_config (feature-pack.headroom.tests.test_claude_hr_wrapper.ClaudeHeadroomWrapperContract.test_env_override_beats_config) ... ok
+test_headroom_on_with_cliproxy_off_is_refused (feature-pack.headroom.tests.test_claude_hr_wrapper.ClaudeHeadroomWrapperContract.test_headroom_on_with_cliproxy_off_is_refused)
+headroom 의 upstream 은 plist 로 cliproxy 에 고정 — 우회 불가능한 조합. ... ok
+test_headroom_route_errors_instead_of_direct_fallback_when_down (feature-pack.headroom.tests.test_claude_hr_wrapper.ClaudeHeadroomWrapperContract.test_headroom_route_errors_instead_of_direct_fallback_when_down) ... ok
+test_missing_routing_file_defaults_to_direct (feature-pack.headroom.tests.test_claude_hr_wrapper.ClaudeHeadroomWrapperContract.test_missing_routing_file_defaults_to_direct)
+설정이 없으면 프록시를 태우지 않는다 — opt-in 이 기본. ... ok
+test_project_entry_overrides_default (feature-pack.headroom.tests.test_claude_hr_wrapper.ClaudeHeadroomWrapperContract.test_project_entry_overrides_default) ... ok
+test_route_status_reports_effective_target (feature-pack.headroom.tests.test_claude_hr_wrapper.ClaudeHeadroomWrapperContract.test_route_status_reports_effective_target) ... ok
+test_route_toggle_persists_to_routing_json (feature-pack.headroom.tests.test_claude_hr_wrapper.ClaudeHeadroomWrapperContract.test_route_toggle_persists_to_routing_json) ... ok
+
+----------------------------------------------------------------------
+Ran 12 tests in 5.783s
+
+OK
+rc=0

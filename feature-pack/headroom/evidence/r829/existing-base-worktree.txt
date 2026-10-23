@@ -1,0 +1,48 @@
+# 기준판(origin/main 66cf2825) 워크트리에서 기존 계약 시험 — 고치기 전에도 같은 2칸 실패인지
+test_both_off_clears_stale_base_url (feature-pack.headroom.tests.test_claude_hr_wrapper.ClaudeHeadroomWrapperContract.test_both_off_clears_stale_base_url) ... ok
+test_both_on_routes_through_headroom_with_workspace_header (feature-pack.headroom.tests.test_claude_hr_wrapper.ClaudeHeadroomWrapperContract.test_both_on_routes_through_headroom_with_workspace_header) ... ok
+test_cliproxy_only_routes_direct_to_8317_without_headroom_header (feature-pack.headroom.tests.test_claude_hr_wrapper.ClaudeHeadroomWrapperContract.test_cliproxy_only_routes_direct_to_8317_without_headroom_header) ... ok
+test_cliproxy_route_errors_instead_of_direct_fallback_when_down (feature-pack.headroom.tests.test_claude_hr_wrapper.ClaudeHeadroomWrapperContract.test_cliproxy_route_errors_instead_of_direct_fallback_when_down) ... ok
+test_disabled_route_is_not_a_health_fallback (feature-pack.headroom.tests.test_claude_hr_wrapper.ClaudeHeadroomWrapperContract.test_disabled_route_is_not_a_health_fallback)
+둘 다 off 는 '프록시가 죽어서' 가 아니라 '끄기로 했으니' 직결이다. ... ok
+test_env_override_beats_config (feature-pack.headroom.tests.test_claude_hr_wrapper.ClaudeHeadroomWrapperContract.test_env_override_beats_config) ... ok
+test_headroom_on_with_cliproxy_off_is_refused (feature-pack.headroom.tests.test_claude_hr_wrapper.ClaudeHeadroomWrapperContract.test_headroom_on_with_cliproxy_off_is_refused)
+headroom 의 upstream 은 plist 로 cliproxy 에 고정 — 우회 불가능한 조합. ... ok
+test_headroom_route_errors_instead_of_direct_fallback_when_down (feature-pack.headroom.tests.test_claude_hr_wrapper.ClaudeHeadroomWrapperContract.test_headroom_route_errors_instead_of_direct_fallback_when_down) ... ok
+test_missing_routing_file_defaults_to_direct (feature-pack.headroom.tests.test_claude_hr_wrapper.ClaudeHeadroomWrapperContract.test_missing_routing_file_defaults_to_direct)
+설정이 없으면 프록시를 태우지 않는다 — opt-in 이 기본. ... ok
+test_project_entry_overrides_default (feature-pack.headroom.tests.test_claude_hr_wrapper.ClaudeHeadroomWrapperContract.test_project_entry_overrides_default) ... 
+  test_project_entry_overrides_default (feature-pack.headroom.tests.test_claude_hr_wrapper.ClaudeHeadroomWrapperContract.test_project_entry_overrides_default) (wrapper=PosixPath('/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r829-claude-hr-cliproxy-probe-7s-rule/b87500cc-6125-4060-8c0c-00c0fc612228/scratchpad/r829-base-wt/feature-pack/headroom/templates/claude-hr.sh')) ... FAIL
+  test_project_entry_overrides_default (feature-pack.headroom.tests.test_claude_hr_wrapper.ClaudeHeadroomWrapperContract.test_project_entry_overrides_default) (wrapper=PosixPath('/Users/yoonhwan/.headroom/claude-hr.sh')) ... FAIL
+test_route_status_reports_effective_target (feature-pack.headroom.tests.test_claude_hr_wrapper.ClaudeHeadroomWrapperContract.test_route_status_reports_effective_target) ... ok
+test_route_toggle_persists_to_routing_json (feature-pack.headroom.tests.test_claude_hr_wrapper.ClaudeHeadroomWrapperContract.test_route_toggle_persists_to_routing_json) ... ok
+
+======================================================================
+FAIL: test_project_entry_overrides_default (feature-pack.headroom.tests.test_claude_hr_wrapper.ClaudeHeadroomWrapperContract.test_project_entry_overrides_default) (wrapper=PosixPath('/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r829-claude-hr-cliproxy-probe-7s-rule/b87500cc-6125-4060-8c0c-00c0fc612228/scratchpad/r829-base-wt/feature-pack/headroom/templates/claude-hr.sh'))
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r829-claude-hr-cliproxy-probe-7s-rule/b87500cc-6125-4060-8c0c-00c0fc612228/scratchpad/r829-base-wt/feature-pack/headroom/tests/test_claude_hr_wrapper.py", line 191, in test_project_entry_overrides_default
+    self.assertEqual(captured.splitlines()[0], CLIPROXY_URL)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'UNSET' != 'http://127.0.0.1:8317'
+- UNSET
++ http://127.0.0.1:8317
+
+
+======================================================================
+FAIL: test_project_entry_overrides_default (feature-pack.headroom.tests.test_claude_hr_wrapper.ClaudeHeadroomWrapperContract.test_project_entry_overrides_default) (wrapper=PosixPath('/Users/yoonhwan/.headroom/claude-hr.sh'))
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r829-claude-hr-cliproxy-probe-7s-rule/b87500cc-6125-4060-8c0c-00c0fc612228/scratchpad/r829-base-wt/feature-pack/headroom/tests/test_claude_hr_wrapper.py", line 191, in test_project_entry_overrides_default
+    self.assertEqual(captured.splitlines()[0], CLIPROXY_URL)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'UNSET' != 'http://127.0.0.1:8317'
+- UNSET
++ http://127.0.0.1:8317
+
+
+----------------------------------------------------------------------
+Ran 12 tests in 5.185s
+
+FAILED (failures=2)
+rc=1
