@@ -238,4 +238,48 @@ run FT_GUIDE_REF=HEAD~1 SEND_RC=0
 { [ "$RC" -ne 0 ] && grep -q '명단(HEAD~1:design/TEAMS.md)을 못 읽음' "$TMP/out" && grep -q '줄을 읽지 못했다' "$TMP/out" && [ "$(count tmuxc)" = 0 ] && [ "$(count send)" = 0 ]; } \
   && ok "ⓣ r688 planner 폴더 = 명단 칸 · 명단 못 읽음 → REJECT · open·송신 0(트리 목록으로 통과 0)" || bad "ⓣ r688 명단없음 rc=$RC out=$(cat "$TMP/out")"
 
+# ⓤ r826 — 안내서 구절을 «줄 번호» 가 아니라 안내서 전체에서 찾는다(정확히 1줄일 때만) · 옛 판 = 27줄 고정 → 구절이 30줄로 밀리면 REJECT
+guide_commit() { # guide_commit <앞 줄 수> <구절 반복 수> — 안내서를 다시 써 origin/main 으로 올린다
+  { for i in $(seq 1 "$1"); do echo "- 안내서 $i 줄"; done; for ((k = 0; k < $2; k++)); do echo "$GUIDE_LINE"; done; echo "- 꼬리 줄"; } > "$GDIR/GUIDE-planner.md"   # 반복 = 산술 루프(seq 1 0 = BSD 거꾸로 2줄)
+  git -C "$REPO" add -A && git -C "$REPO" -c user.name=t -c user.email=t@t commit -q -m "guide $1+$2"
+  git -C "$REPO" update-ref refs/remotes/origin/main HEAD
+}
+guide_commit 29 1; BODY_USE="$TMP/desk_ok.txt"; run SEND_RC=0
+{ [ "$RC" -eq 0 ] && [ "$(count send)" = 1 ] && grep -q "successor=$DESK_NEW" "$TMP/out"; } \
+  && ok "ⓤ-ⓐ r826 구절 30줄로 밀림 → 전체에서 찾아 통과 · 송신 1" || bad "ⓤ-ⓐ rc=$RC out=$(cat "$TMP/out")"
+guide_commit 29 0; run SEND_RC=0
+{ [ "$RC" -ne 0 ] && grep -q '구절을 못 찾음' "$TMP/out" && [ "$(count tmuxc)" = 0 ] && [ "$(count send)" = 0 ]; } \
+  && ok "ⓤ-ⓑ r826 안내서에 구절 0줄 → REJECT · open·송신 0" || bad "ⓤ-ⓑ0 rc=$RC out=$(cat "$TMP/out")"
+guide_commit 29 2; run SEND_RC=0
+{ [ "$RC" -ne 0 ] && grep -q '구절이 여러 줄' "$TMP/out" && grep -q '사람이 확인' "$TMP/out" && [ "$(count tmuxc)" = 0 ] && [ "$(count send)" = 0 ]; } \
+  && ok "ⓤ-ⓑ r826 안내서에 구절 2줄 → REJECT «여러 줄» · open·송신 0" || bad "ⓤ-ⓑ2 rc=$RC out=$(cat "$TMP/out")"
+guide_commit 29 1; BODY_USE="$TMP/desk_noguide.txt"; run SEND_RC=0
+{ [ "$RC" -ne 0 ] && grep -q '30줄 원문 구절이 없다' "$TMP/out" && [ "$(count tmuxc)" = 0 ] && [ "$(count send)" = 0 ]; } \
+  && ok "ⓤ-ⓒ r826 본문 첫 10줄에 구절 없음 → REJECT · 찾은 줄 번호(30) 표시" || bad "ⓤ-ⓒ rc=$RC out=$(cat "$TMP/out")"
+BODY_USE="$TMP/desk_ok.txt"; run FT_GUIDE_LINE=27 SEND_RC=0
+{ [ "$RC" -eq 0 ] && [ "$(count send)" = 1 ] && grep -q 'WARN FT_GUIDE_LINE' "$TMP/out" && grep -q '더 쓰지 않음' "$TMP/out"; } \
+  && ok "ⓤ-ⓓ r826 FT_GUIDE_LINE=27 줘도 판정에 안 씀 · WARN 1줄" || bad "ⓤ-ⓓ rc=$RC out=$(cat "$TMP/out")"
+
+# ⓥ r826 r3(재설계 · DA r1·r2 반례) — 마크다운 해석 0: 안내서 «모든» 줄에서 desk 구절(N통) 줄을 센다 · 정확히 1줄 + 맨 앞 «- **desk 좌석» 일 때만 통과
+guide_raw() { printf '%s\n' "$@" > "$GDIR/GUIDE-planner.md"; git -C "$REPO" add -A && git -C "$REPO" -c user.name=t -c user.email=t@t commit -q -m 'guide raw'; git -C "$REPO" update-ref refs/remotes/origin/main HEAD; }
+GUIDE_NEW="${GUIDE_LINE/1통)/2통)}"; OLD_CORE='desk 는 인터뷰·응대·요청 정리만(코드·커밋 0 · 팀 직접 발주 0 · 정리한 요청은 master 에 1통)'
+rejected0() { [ "$RC" -ne 0 ] && grep -q 'REJECT' "$TMP/out" && [ "$(count tmuxc)" = 0 ] && [ "$(count send)" = 0 ] && [ ! -e "$STATE/$OLD.json" ]; }
+BODY_USE="$TMP/desk_ok.txt"   # 본문 = 옛 «1통)» 구절
+vmany() { # vmany <이름> <안내서 줄…> — 정본 2통 + 옛 1통 사본 = 후보 2줄 → «여러 줄» REJECT · open·송신·도달 파일 0
+  local n="$1"; shift; guide_raw "$@"; run SEND_RC=0
+  rejected0 && grep -q '구절이 여러 줄' "$TMP/out" && ok "ⓥ $n → «여러 줄» REJECT · open·송신·도달 파일 0" || bad "ⓥ $n rc=$RC out=$(cat "$TMP/out")"
+}
+vmany "r1 반례(정본 2통 + > 인용 1통)" "- 안내서 1 줄" "$GUIDE_NEW" "## 폐기된 안내 문구 예시" "> $OLD_CORE"
+vmany "r2 반례(백틱 4개 울타리 속 백틱 3개 + 옛 1통)" "$GUIDE_NEW" '````markdown' '```markdown' "$GUIDE_LINE" '```' '````'
+vmany "~~~ 울타리 속 옛 1통" "$GUIDE_NEW" '~~~' "$GUIDE_LINE" '~~~'
+vmany "HTML 주석 속 옛 1통" "$GUIDE_NEW" '<!--' "$GUIDE_LINE" '-->'
+vmany "4칸 들여쓰기 속 옛 1통" "$GUIDE_NEW" '' "    $GUIDE_LINE"
+guide_commit 29 1; run SEND_RC=0
+{ [ "$RC" -eq 0 ] && [ "$(count send)" = 1 ] && grep -q "successor=$DESK_NEW" "$TMP/out"; } \
+  && ok "ⓥ 정본 1줄만(main 꼴 · 30행) → 통과 · 송신 1" || bad "ⓥ 정본만 rc=$RC out=$(cat "$TMP/out")"
+guide_raw "- 안내서 1 줄" "  $GUIDE_LINE"; run SEND_RC=0
+rejected0 && grep -q '정본 줄 모양 바뀜' "$TMP/out" && ok "ⓥ 정본이 들여쓰기로만 → «모양 바뀜» REJECT" || bad "ⓥ 들여쓰기만 rc=$RC out=$(cat "$TMP/out")"
+guide_raw "- 안내서 1 줄" "> $GUIDE_LINE"; run SEND_RC=0
+rejected0 && grep -q '정본 줄 모양 바뀜' "$TMP/out" && ok "ⓥ 정본이 > 인용으로만 → «모양 바뀜» REJECT" || bad "ⓥ 인용만 rc=$RC out=$(cat "$TMP/out")"
+
 [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }

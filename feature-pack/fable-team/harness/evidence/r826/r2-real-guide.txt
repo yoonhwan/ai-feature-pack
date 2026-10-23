@@ -1,0 +1,2 @@
+BYZ origin/main GUIDE-planner.md 정본 줄 후보 = [30] → 정확히 1줄
+604872985d1f5b539ad3799d32ad9aa975a4b9bc

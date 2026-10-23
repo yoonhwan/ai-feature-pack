@@ -1,0 +1,2 @@
+BYZ origin/main GUIDE-planner.md desk 구절(N통) 줄 = [30] · 맨 앞 «- **desk 좌석» = [True] → 통과
+aa45caf35359ceaf07bb8a0b934ba7acc2c73d22

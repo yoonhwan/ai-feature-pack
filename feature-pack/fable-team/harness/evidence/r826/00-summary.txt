@@ -1,0 +1,34 @@
+# r826 — ft-successor-open ⓐ'' desk 안내서 구절 = 줄 번호(27) 고정 → 안내서 전체에서 정확히 1줄
+변경: kit/fable-team/bin/ft-successor-open.sh 96~126행(+ 짝 bin/ 사본 cmp0) · tests/test_successor_open.sh ⓤ 5줄 추가(새 파일 0)
+- 안내서 전체(git show <ref>:<GUIDE>)에서 `desk 는 .*?1통\)` 줄을 찾음 · 정확히 1줄일 때만 그 줄 사용 · 0줄 = «구절을 못 찾음» REJECT · 2줄+ = «여러 줄(N,M줄) — 사람이 확인» REJECT
+- 본문 첫 10줄 검사 문구의 줄 번호 = 찾은 줄 번호 · 팀 직발 검사 그대로 · 못 읽음 = 그대로 REJECT(fail-closed)
+- FT_GUIDE_LINE = 판정에 안 씀 · 설정돼 있으면 WARN 1줄 «더 쓰지 않음»
+시험 매핑(카드 «시험 입력»):
+ ⓐ 구절 30줄 → base REJECT «27줄 모양이 바뀌었다»(red-base.txt) · 새 판 통과 송신 1(green.txt ⓤ-ⓐ)
+ ⓑ 0줄 → REJECT «구절을 못 찾음» · 2줄 → REJECT «구절이 여러 줄 … 사람이 확인»(green.txt ⓤ-ⓑ ×2)
+ ⓒ 본문 첫 10줄에 구절 없음 → REJECT «30줄 원문 구절이 없다»(찾은 줄 번호) (ⓤ-ⓒ) · 직발 검사 = 기존 ⓣ 3줄 PASS
+ ⓓ FT_GUIDE_LINE=27 → 통과 + WARN(ⓤ-ⓓ)
+ ⓔ 안내서 못 읽음 → REJECT(기존 ⓣ NOPE.md · r688 명단없음 PASS)
+ ⓕ test_successor_open.sh ALL PASS 35 rc=0 (green.txt · green.rc)
+ ⓖ 변이 mut1(27줄 고정 되돌림) → ⓤ-ⓐ 등 4 FAIL(mut1.txt) · mut2(«정확히 1줄» 검사 삭제) → ⓤ-ⓑ2 FAIL(mut2.txt)
+실 안내서: BYZ origin/main GUIDE-planner.md 구절 = 30줄 1개 → 새 판 통과(real-guide.txt)
+시험 꼴: 임시 리포·가짜 tmux 만 · 실 tmux·실 mbox 0 · press 불요
+
+## r2 (외부 DA r1 HOLD 반송 · REWORK-r826-r2.md) — 정본 줄 후보 = 줄 맨 앞 «- **desk 좌석» 글머리 · ``` 울타리 밖
+ 시험: r2-green.txt ALL PASS 40 rc=0 (기존 35 + ⓥ 5)
+ ⓥ-1 DA 반례(정본 «2통)» + 폐기 인용 «> … 1통)») → REJECT · open·송신·도달 파일 0 · ⓥ-2 울타리 안 · ⓥ-3 2칸 들여씀 · ⓥ-4 다른 글머리(- 예:) → 셋 다 REJECT · ⓥ-5 정본+인용 사본 → 통과 송신 1
+ r1 판(2a8629b2): ⓥ-1~4 rc=0 통과 = DA 반례 재현 · ⓥ-5 «여러 줄» REJECT (r2-r1.txt FAILED 5)
+ 기준판(a93d6326): FAILED 6 (r2-base.txt)
+ 변이: mutA(글머리 조건 삭제) → ⓥ-1·3·4·5 FAIL(r2-mutA-bullet.txt) · mutB(울타리 제외 삭제) → ⓥ-2 FAIL(r2-mutB-fence.txt) — 둘 다 빨강
+ 실 안내서: BYZ origin/main GUIDE-planner.md 정본 줄 후보 = 30줄 1개(r2-real-guide.txt) · shellcheck warning 0
+
+## r3 (외부 DA r2 HOLD 2번째 → 하드 룰 14 재설계 · REDESIGN-r826-r3 · r2 판 03e55c05 버림) — 마크다운 해석 0 · «고르기» 대신 «세기»
+ 규칙: 안내서 «모든» 줄에서 `desk 는 .*?\d+통\)` 줄을 센다(인용·울타리·들여쓰기·주석 구분 0) · 정확히 1줄 아니면 REJECT(0 = 못 찾음 · 2+ = 여러 줄) · 그 줄이 맨 앞 «- **desk 좌석» 아니면 REJECT «정본 줄 모양 바뀜» · 울타리 세기 코드 삭제
+ 시험: r3-green.txt ALL PASS 43 rc=0 (기존 35 + r2 ⓥ 5칸 → r3 ⓥ 8칸 교체)
+ ⓥ r1 반례(> 인용) · r2 반례(백틱 4개 울타리 속 백틱 3개) · ~~~ 울타리 · HTML 주석 · 4칸 들여쓰기 → 다섯 다 «여러 줄» REJECT · open·송신·도달 파일 0
+ ⓥ 정본 1줄만(30행) → 통과 · 정본이 들여쓰기만 / > 인용만 → «모양 바뀜» REJECT
+ r2 판: r2 반례·~~~·주석 rc0 통과 = DA r2 반례 재현(r3-r2.txt FAILED 7) · 기준판 FAILED 12(r3-base.txt)
+ 변이: mutA(울타리·인용 밖만 세기) → r1·r2 반례·~~~ FAIL(r3-mutA-outside-only.txt FAILED 4) · mutB(모양 검사 삭제) → 들여쓰기만·인용만 rc0 FAIL(r3-mutB-no-shape.txt FAILED 2) — 둘 다 빨강
+ 실 안내서: BYZ origin/main GUIDE-planner.md desk 구절 줄 = 30행 1개 · 맨 앞 «- **desk 좌석» → 통과(r3-real-guide.txt) · shellcheck warning 0
+ 남는 경계(범위 밖): 안내서의 desk 구절이 울타리 안 한 줄뿐이고 맨 앞 «- **desk 좌석» 이면 그 줄을 쓴다
+설치(master): LIVE_BIN ft-successor-open.sh cmp0 → 우회 env FT_GUIDE_LINE 제거 → 실사건 1
