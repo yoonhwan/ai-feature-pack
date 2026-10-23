@@ -1,0 +1,19 @@
+## 04 실 명부 읽기(쓰기 0) — 새 ft-board.py teams 로 라이브 루트 1회
+$ FT_ROOT=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents python3 kit/.../ft-board.py collect --out /tmp/r785_live.json
+collect rc=0 bytes=  928749
+
+$ ... teams --from /tmp/r785_live.json (실 출력)
+cfo | 열린 좌석 0 | 진행 0
+chatbot | 열린 좌석 0 | 진행 37(C-brain-a11-conclusion-card-redis)
+feature | 열린 좌석 0 | 진행 37(F-0b-knowledge-result-node-pairing)
+graphics | 정지 1분 · 기다리는 것 = 추정: byz-planner-master-claude#116 에 마지막 발신 #148004(10:38) · 기록상 이후 byz-planner-master-claude#116 회신 없음 | 진행 4(g1227-card-change-preview)
+harness | 일함 byz-harness-arch-claude#129, byz-harness-master-claude#100 | 진행 138(r286-roster-opencode-nano-close)
+issues | 열린 좌석 0 | 진행 0
+kk | 열린 좌석 0 | 진행 3(kk-arch)
+knowledge | 열린 좌석 0 | 진행 12(knowledge-sb1-ddl-base-registry-inherit-lists)
+m.lecture | 열린 좌석 0 | 진행 0
+ops | 열린 좌석 0 | 진행 10(arch-canon-ops)
+planner | 일함 byz-planner-master-claude#116 | 진행 2(external-call-timeout-scaled-by-size)
+m.room | 열린 좌석 0 | 진행 0
+v65 | 일함 byz-v65-master-claude#236 | 진행 60(M0-1945a-bg-return-no-frames-same-page-recovery)
+줄수=      13 바이트=    1008

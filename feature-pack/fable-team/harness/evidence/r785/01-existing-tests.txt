@@ -1,0 +1,13 @@
+## 02 기존 시험 (r785 전판 대조) — 2026-10-23
+test_sheet_publish.sh      rc=0 PASS=41
+test_sheet_render.sh       rc=0 PASS=70
+test_sheet_events.sh       rc=0 PASS=136
+test_board.sh              rc=0 PASS=73
+test_kit_bin_sync.sh       rc=0 PASS=8
+
+test_sheet_verify.sh       rc=1 FAIL=8 ← 전판(base stash)에서도 같은 줄 실패(timeout 원장 시험 · 이 카드 무관)
+
+## pytest tests/scripts/test_ft_board_teams.py
+=========================== short test summary info ============================
+FAILED tests/scripts/test_ft_board_teams.py::test_render_error_team_shows_unconfirmed_line_and_other_rows_unchanged
+1 failed, 10 passed in 2.04s

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # ft-sheet-publish.sh — 시트 슬랙 발행 (PLAN-status-sheet r4 §4·§4-1 · S2). `ft-board-publish.sh --sheet` 가 부른다.
 #   뿌리 글 = render --sheet 트리(≤3500B) + 끝줄 «📄 최신 PDF rev <발행 rev> <HH:MM> <PDF 첨부 링크>»
+#   뿌리 글 맨 위(r785) = 첫 줄(«확인 중») 뒤에 «👥 팀별 지금» 절 — `ft-board.py teams --from`(같은 collect 파일 · 수집 0) · 실패 = 발행 0 rc 1 · PDF·하루 상한과 무관하게 매 발행 싣는다
 #   발행 rev(렌더 md 전체의 정규화 해시)가 마지막 «업로드 성공» rev 와 다를 때만 PDF → 같은 스레드 첨부. 같은 rev 재실행 = 슬랙 호출 0.
 #   순서: plan(원장 admission) → 로컬 준비(root·html·md·PDF) 전부 → update → attach → append → 끝줄 update → 기록. 준비·admission 실패 = 슬랙 호출 0.
 #   rc: 0 | 2 부분 발행(쪽지함 말고 다른 원인의 일부 팀 «확인 못 함» — 나머지 팀은 발행됨 · 판정 r554) | 3 PDF 첨부 실패(끝줄에 «미갱신» · 다음 틱 재시도 · 원장 ok=false) | 그 밖 = 도구 rc 그대로(발행 0)
@@ -37,12 +38,17 @@ FROM=(--from "$TMP/collect.json")
 REVS="$("$BOARD" render --sheet --rev "${FROM[@]}")" || die "render --sheet --rev 실패 — 발행 0" 1
 read -r STRUCT PUBREV < <(printf '%s' "$REVS" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["structure"], d["publish"])') || die "rev 해석 실패" 1
 TREE="$("$BOARD" render --sheet --text "${FROM[@]}")" && [ -n "$TREE" ] || die "render --sheet --text 실패 — 발행 0" 1
+# r785: «👥 팀별 지금» 절 — 팀 줄은 같은 collect 파일에서(수집 0). 수집이 실패면 발행 0(조용한 생략 0)
+TEAMS="$("$BOARD" teams "${FROM[@]}")" || die "teams 실패 — 발행 0" 1
+TREE_HEAD="${TREE%%$'\n'*}"; TREE_TAIL=""
+[[ "$TREE" == *$'\n'* ]] && TREE_TAIL="${TREE#*$'\n'}"$'\n'
+BODY="$TREE_HEAD"$'\n'"👥 팀별 지금"$'\n'"${TEAMS:+$TEAMS$'\n'}$TREE_TAIL"
 PLAN="$($SP plan --ledger "$LEDGER" --day "$DAY" --rev "$PUBREV")" || die "발행 원장 admission 실패 — 슬랙 호출 0" 1  # 원장 쓰기 불가면 맨 앞에서 중단
 eval "$PLAN"
 mkdir -p "$SD"
-mkroot() { printf '%s' "$TREE" | $SP root --ledger "$LEDGER" --day "$DAY" --rev "$PUBREV" --partial "$INBOXFAIL" > "$TMP/root.txt" || die "뿌리 글 본문 만들기 실패 — 발행 0" 1; }
+mkroot() { printf '%s' "$BODY" | $SP root --ledger "$LEDGER" --day "$DAY" --rev "$PUBREV" --partial "$INBOXFAIL" > "$TMP/root.txt" || die "뿌리 글 본문 만들기 실패 — 발행 0" 1; }
 mkroot
-same() { cmp -s <(sed -E 's/[0-9]{2}:[0-9]{2}//g; s/멈춤 [0-9]+분/멈춤 N분/g' "$TMP/root.txt") <(sed -E 's/[0-9]{2}:[0-9]{2}//g; s/멈춤 [0-9]+분/멈춤 N분/g' "$SD/sheet-published.txt" 2>/dev/null); }  # 발행 rev 와 같은 정규화
+same() { cmp -s <(sed -E 's/[0-9]{2}:[0-9]{2}//g; s/멈춤 [0-9]+분/멈춤 N분/g; s/정지 [0-9]+분/정지 N분/g' "$TMP/root.txt") <(sed -E 's/[0-9]{2}:[0-9]{2}//g; s/멈춤 [0-9]+분/멈춤 N분/g; s/정지 [0-9]+분/정지 N분/g' "$SD/sheet-published.txt" 2>/dev/null); }  # 발행 rev 와 같은 정규화 · 정지 N분 = 팀 줄 분 숫자로 매 틱 update 하지 않는다(r785)
 if [ "$OK_REV" = "$PUBREV" ]; then  # 같은 rev — 슬랙 끝줄까지 맞아 있으면 발행 0 · 끝줄 update 만 실패했던 틱이면 update 1회 + 기록(PDF·원장 0)
   same && { echo "ft-sheet-publish: 같은 발행 rev $PUBREV — 발행 0"; exitv 0; }
   tp update --key "board:$DAY" --text-file "$TMP/root.txt" || die "끝줄 맞춤 update 실패" 1
