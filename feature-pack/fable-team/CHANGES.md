@@ -1,3 +1,10 @@
+## 2026-10-23 — r782 DA 건너뛰기 머리는 설정에 `[model_providers.headroom]` 절이 있을 때만(1.1.219)
+
+- `ft-da-codex.sh` 가 `-c model_providers.headroom.http_headers=…` 를 늘 실어, 헤드룸을 끈 뒤(`~/.codex/config.toml` 에 그 provider 절 없음) codex 가 `provider name must not be empty` rc1 로 전 팀 DA 가 정지하던 것 → `${CODEX_HOME:-$HOME/.codex}/config.toml` 에 줄 시작 `[model_providers.headroom]` 이 있을 때만 머리를 싣고, 없으면 머리 0 + stderr INFO 1줄(출력 파일 미오염). r513 이유(DA 승인정책 never)는 유지.
+- 시험: `test_da_codex_wrapper.sh` ⓐ~ⓗ 갱신 — 기준판 래퍼 rc=10 FAIL → 고침판 ALL PASS 49 · 변이 ⓖ(늘 실음→HR-ⓑ FAIL · 늘 뺌→HR-ⓒ FAIL) — arch DA⑥ r1 APPROVE(gpt-6.1-sol · 원문 `design/harness/evidence/r782-da6/da-20261023-101618-63952.out`). 증거 `harness/evidence/r782/`.
+- 남는 위험: TOML 표 머리 표기 변형(앞 공백·인용 키·괄호 안 공백)은 머리 0 — 기동 실패 아님 · 헤드룸 재가동 때 본문 접힘 가능.
+- 설치: bin+kit 짝 cmp0(ft-da-codex.sh).
+
 ## 2026-10-23 — r746 루트 연결 파일(shim) `.py` 는 python 본문으로(1.1.218)
 
 - `ft-root-bin-shim.sh` 가 만드는 `.py` 연결 파일이 bash 본문이라 `python3 <shim>.py` 로 부르면 SyntaxError 나던 것 → 올바른 python 본문(1행 python3 · 2행 표식 · 3행 bash·python 겸용 줄)으로 생성. LIVE_BIN 검사 3종 문구·rc3 동일 · import 는 ImportError · 실행은 `os.execv`. 옛 호출 꼴 `bash <shim>.py` 도 겸용 줄로 그대로 통과.
