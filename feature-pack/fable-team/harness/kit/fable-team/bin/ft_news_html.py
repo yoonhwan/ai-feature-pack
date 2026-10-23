@@ -340,6 +340,12 @@ def _save_base(state: Path, cur: str, blob: str | None, canon: str = "") -> None
         raise
 
 
+def zero_change_line(now, last: dict, warn: str) -> str:
+    """r809 — 변화 0 반복 줄. 받기 실패(warn)면 «변화 없음» 이 아니라 «판정 불가» 머리 줄(낡은 판을 «변화 0» 으로 읽지 않게)."""
+    tail = f"지도 {last.get('link') or last['map_at']}"
+    return f"[뉴스 {now:%H:%M}] 판정 불가 — {warn} · {tail}" if warn else f"[뉴스 {now:%H:%M}] 변화 없음 · {tail}"
+
+
 def tick(root: Path, state: Path, repo: Path, rel: str, news: Path, base: str, cur: str) -> tuple[int, str]:
     """뉴스 틱 HTML 경로 — (rc, 정지 감시용 사유). «바뀌었나» = 원장 블롭(r656) · 기준선 두 칸은 지도 글이 올라갔을 때만 옮긴다."""
     from ft_news_post import news_now
@@ -362,7 +368,8 @@ def tick(root: Path, state: Path, repo: Path, rel: str, news: Path, base: str, c
     if not changed and last.get("map_at", "")[:10] == stamp[:10]:  # 변화 0(원장 내용 그대로) · 오늘 지도 있음 = 적정한 반복 한 줄만
         if since("at") < timedelta(minutes=int(os.environ.get("FT_NEWS_REPEAT_MIN", "30"))):
             return 0, "원장 커밋 0"
-        rc = publish_line(f"[뉴스 {now:%H:%M}] 변화 없음 · 지도 {last.get('link') or last['map_at']}" + (f" · {warn}" if warn else ""), now)
+        # r809 — 받기 실패(warn)면 «변화 없음» 이 아니라 «판정 불가» 머리 줄(낡은 판을 «변화 0» 으로 읽지 않게)
+        rc = publish_line(zero_change_line(now, last, warn), now)
         if rc == 0:
             _save(hs, {**last, "at": stamp})
         return rc, "원장 커밋 0"

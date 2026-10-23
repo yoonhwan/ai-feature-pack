@@ -556,7 +556,8 @@ def test_r503_sync_error_rides_map_head_and_repeat_line(tmp_path, oc, slack, mon
     assert "[뉴스 09:15] 팀 지도 · 원장 사본 갱신 안 됨 — ERROR x — " in json.dumps(slack.msgs, ensure_ascii=False)
     monkeypatch.setenv("FT_NEWS_NOW", "2026-10-19 09:46")
     assert fh.tick(*args, "b", "b")[0] == 0
-    assert slack.msgs[-1]["text"].startswith("[뉴스 09:46] 변화 없음 · 지도 ") and slack.msgs[-1]["text"].endswith(" · 원장 사본 갱신 안 됨 — ERROR x")
+    # r809 — 받기/사본 갱신 실패(warn)면 «변화 없음» 이 아니라 «판정 불가 — …» 머리 줄(낡은 판을 «변화 0» 으로 읽지 않게)
+    assert slack.msgs[-1]["text"].startswith("[뉴스 09:46] 판정 불가 — 원장 사본 갱신 안 됨 — ERROR x · 지도 ") and "변화 없음" not in slack.msgs[-1]["text"]
 
 
 def test_e_tick_failure_publishes_nothing_keeps_base_and_backs_off(tmp_path, oc, slack, monkeypatch):
