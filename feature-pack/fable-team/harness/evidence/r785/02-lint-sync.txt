@@ -1,0 +1,26 @@
+## 03 lint · 문법 · LOC · kit↔추적 cmp0 — 2026-10-23
+
+$ ruff check (kit 3파일)
+All checks passed!
+
+$ ruff check --select E501 (kit 3파일) — r785 전판 42 · 후판
+
+Found 46 errors.
+
+$ bash -n ft-sheet-publish.sh · python -m py_compile
+bash -n OK
+py_compile OK
+
+$ wc -l (물리 줄 · 200 한도)
+     107 kit/fable-team/bin/ft-board.py
+      40 kit/fable-team/bin/ft_board_teams.py
+     173 kit/fable-team/bin/ft_sheet_publish.py
+     102 kit/fable-team/bin/ft-sheet-publish.sh
+     181 tests/test_sheet_root_teams_r785.sh
+     603 total
+
+$ cmp kit ↔ harness/bin (짝 사본)
+cmp0 ft-board.py
+cmp0 ft_board_teams.py
+cmp0 ft_sheet_publish.py
+cmp0 ft-sheet-publish.sh

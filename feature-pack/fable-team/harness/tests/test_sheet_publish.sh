@@ -21,6 +21,7 @@ while [ $# -gt 0 ]; do case "$1" in --from) from="$2"; shift 2;; --out) out="$2"
 set -- "${args[@]}"
 if [ "$1" = collect ]; then echo x >> "$D/collects"; [ -f "$D/collect.json" ] && cp "$D/collect.json" "$out" || echo '{"teams":[{"key":"stub","label":"스텁","cards_dir":null}]}' > "$out"; exit 0; fi
 if [ -n "$from" ]; then [ -s "$from" ] || exit 1; else echo x >> "$D/collects"; fi
+[ "$1" = teams ] && { [ -f "$D/teams_fail" ] && exit 1; cat "$D/teams.txt" 2>/dev/null || printf 'harness | 일함 h-nano#0 | 진행 1(c1)\n'; exit 0; }   # r785: 팀 상황 줄(같은 collect 파일)
 [ "$1" = snapshot ] && { cat "$D/snap.json"; exit 0; }
 [ "$1" = render ] && [ "$2" = --sheet ] || exit 2
 case "${3:-}" in --rev) cat "$D/rev.json" ;; --text) cat "$D/tree.txt" ;; --html) [ -f "$D/html_fail" ] && exit 1; cat "$D/sheet.html" ;; "") cat "$D/sheet.md" ;; *) exit 2 ;; esac
@@ -106,8 +107,12 @@ setrev $S1 $P1; a0="$(n_of '^attach|')"; rc="$(pub)"
 [ "$rc" = 0 ] && [ "$(n_of '^attach|')" = "$a0" ] && root_last | grep -q "^📄 최신 PDF rev 0*24 .* · rev $P1 미발행(상한)\$" && ok "상한 24 → 25회째 PDF 0 · 끝줄 미발행(상한)" || bad "상한 rc=$rc: $(root_last)"
 # 3회 연속 실패 → ⓪ 칸 줄
 export FT_BOARD_NOW="2026-10-14T09:00:00"; touch "$S/attach_fail"; setrev $S1 $P4
-pub >/dev/null; sed -n 2,3p "$S/root.last" | grep -q 'PDF 발행 실패' && bad "1회 실패에 ⓪ 줄이 나옴"; pub >/dev/null; pub >/dev/null
-sed -n 2,3p "$S/root.last" | grep -q '^⚠ PDF 발행 실패 3회' && ok "3회 연속 실패 → ⓪ 칸 줄 「PDF 발행 실패 3회」" || bad "3회 실패 줄: $(head -4 "$S/root.last")"
+pub >/dev/null; grep -q 'PDF 발행 실패' "$S/root.last" && bad "1회 실패에 ⓪ 줄이 나옴"; pub >/dev/null; pub >/dev/null
+# r785 r1 — 위치 검사(상대): ❓ 줄 «바로 다음» 이 ⚠ 줄이다(팀 절이 생겨 줄 번호는 바뀐다 · 끝에 붙이면 FAIL)
+at_q="$(grep -n '^❓' "$S/root.last" | head -1 | cut -d: -f1)"
+[ -n "$at_q" ] && [ "$(sed -n "$((at_q + 1))p" "$S/root.last")" = '⚠ PDF 발행 실패 3회 — 다음 틱에 다시 시도해요' ] \
+  && ok "3회 연속 실패 → ❓ 줄 «바로 다음» 줄이 「⚠ PDF 발행 실패 3회」" \
+  || bad "3회 실패 줄 위치(❓ ${at_q:-?} 다음): $(sed -n "$(( ${at_q:-1} + 1 ))p" "$S/root.last")"
 rm -f "$S/attach_fail"
 # fix2 F1 — 로컬 준비(html·md·PDF) 실패는 슬랙 호출 «전» 에 끝난다 / F2 — 원장 admission 이 맨 앞 / F3 — 기본 HOME 배치에서 magazine_pdf import
 export FT_BOARD_NOW="2026-10-15T09:00:00"; setrev $S1 $P1
