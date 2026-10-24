@@ -186,7 +186,7 @@ say "5/5 증거 (재시작 완료 대기 20초)"; sleep 20
 FAIL=0
 [ "$(g branch --show-current)" = "$NEW_BRANCH" ] && say "        브랜치 유지 ✅ $NEW_BRANCH@$(g rev-parse --short HEAD)" || { say "        브랜치가 바뀜 ❌ '$(g branch --show-current)'"; FAIL=1; }
 for c in "${WANT_COMMITS[@]}"; do g merge-base --is-ancestor "$c" HEAD 2>/dev/null && say "        이식 커밋 $c 유지 ✅" || { say "        이식 커밋 $c 사라짐 ❌"; FAIL=1; }; done
-SM="$("$REPO/venv/bin/python" - <<'PY' 2>&1 | tail -2
+SM="$(cd "$REPO" && "$REPO/venv/bin/python" - <<'PY' 2>&1 | tail -2
 import sys
 sys.path.insert(0, ".")
 from hermes_cli.runtime_provider import _anthropic_base_url_override_ok as f
