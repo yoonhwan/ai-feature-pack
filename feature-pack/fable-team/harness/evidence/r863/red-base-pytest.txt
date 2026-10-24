@@ -1,0 +1,6 @@
+FAILED tests/scripts/test_model_swap.py::test_kit_copies_identical_and_size
+FAILED tests/scripts/test_model_swap_account_outage_r838.py::test_k1_corrupt_blocked_value_kept_one_note
+FAILED tests/scripts/test_model_swap_account_outage_r838.py::test_k2_corrupt_outage_open_value_kept_one_hold_note
+FAILED tests/scripts/test_model_swap_account_outage_r838.py::test_k3_corrupt_key_isolated_other_key_closes_and_notes
+4 failed, 51 passed in 36.93s
+rc=1
