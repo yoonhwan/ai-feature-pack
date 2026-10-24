@@ -1,0 +1,19 @@
+PASS ⓐ W 뒤처짐 → --event 1통
+PASS ⓐ main 커밋 1 더 → --event 다시 → 재발송 0(합 1통)
+PASS ⓐ --cron 도 재발송 0
+PASS ⓐ 상태 키 = 워크트리 실제 경로 하나(@sha 0)
+PASS ⓑ 6시간 뒤 → 다시 알림 1(합 2)
+PASS ⓑ 그 뒤(새 main 커밋 · 13시간) 0 — n ≥ 2
+PASS ⓒ W 가 main 따라잡음 → W 기록 삭제 · 발송 0
+PASS ⓒ 다시 뒤처짐 → 바로 발송 1(새 사건 · n=1)
+PASS ⓓ 팀 A·B 각 1통
+PASS ⓓ 묶음 문구 기준판과 글자 같음(R749 절대 경로)
+FAIL ⓔ 옛 키 기록(1시간 전 · n 최대 2) 기준 → 발송 0 :: rc=0 out=
+FAIL ⓔ 합친 기록 = 최근 ts 의 seq·ts · n 최대 · @sha 키 0 :: rc=0 out=
+FAIL ⓔ 6시간 뒤 → n=1 인 B 만 다시 1 · n=2 인 A 0 :: rc=0 out=
+PASS ⓕ --summary 1줄
+PASS ⓕ 발송 실패 → rc 5 · 기록 0
+PASS ⓕ 기준 확인 실패 → rc 4 · 알림 0
+PASS ft_head_lag.py ≤ 150줄
+PASS 짝 사본(kit) cmp0
+FAILED 3
