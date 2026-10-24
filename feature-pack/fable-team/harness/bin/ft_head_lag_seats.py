@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""ft_head_lag_seats.py — R243: 워크트리 → tmux pane 세션 이름 → 팀 → 명부 `_master` (ft_head_lag.py 가 부른다 · 읽기 전용)."""
+"""ft_head_lag_seats.py — R243: 워크트리 → tmux pane 세션 이름 → 팀 → 명부 `_master` · R836: 상태 파일 읽기(load_state) (ft_head_lag.py 가 부른다 · 읽기 전용)."""
 import json
 import os
 import re
@@ -53,6 +53,34 @@ def seats_by_wt(all_real):
 def team_of(sess):
     m = re.match(r"byz-([a-z0-9]+)-", sess)
     return m.group(1) if m else ("v65" if sess.startswith("ft-v65-") else None)
+
+
+def _rec_ok(v):   # ts·n = 정수(bool 아님) · seq = 정수 또는 없음
+    return isinstance(v, dict) and type(v.get("ts")) is int and type(v.get("n")) is int and type(v.get("seq", 0)) is int
+
+
+def load_state(sf, live):
+    """R836: 새 판 = {"v": 2, "seats": {워크트리 실제 경로: {seq, ts, n}}} — 키는 글자 그대로(해석 0). `v` 없는 dict = 옛 판(`<경로>@<msha>`)
+    → 마지막 `@` 앞을 경로로 합침(최근 ts · n 최대 · 이 1회뿐 · 저장은 새 판). 기록별 꼴 검사(틀린 줄만 버리고 WARN) → 합침 → live(이번 뒤처짐 목록)
+    밖 삭제(따라잡음 → 다시 뒤처지면 새 사건). 파일 없음 = 빈 상태 · JSON·dict 아님·v≠2·seats 가 dict 아님 = 빈 상태 + WARN."""
+    try:
+        raw = json.load(open(sf))
+    except FileNotFoundError:
+        return {}
+    except (OSError, ValueError) as e:
+        raw = e
+    old = isinstance(raw, dict) and "v" not in raw
+    new = isinstance(raw, dict) and type(raw.get("v")) is int and raw["v"] == 2
+    recs = raw if old else raw["seats"] if new and "seats" in raw else None
+    if not isinstance(recs, dict):
+        warn(f"head-lag 상태 파일 꼴 오류 — {sf} 빈 상태로 시작({str(raw)[:80]})")
+        return {}
+    good = {k: v for k, v in recs.items() if _rec_ok(v) or warn(f"head-lag 상태 기록 꼴 오류 — {k[:80]} 버림")}
+    st = {}
+    for k, v in sorted(good.items(), key=lambda kv: kv[1]["ts"]):
+        if (p := k.rpartition("@")[0] if old else k) in live:
+            st[p] = dict(v, n=max(v["n"], st.get(p, {}).get("n", 0)))
+    return st
 
 
 def master_of(root, team):

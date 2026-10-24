@@ -81,9 +81,11 @@ export FT_HEAD_LAG_NOW="$(( $(date +%s) + 6*3600 + 60 ))"; lag --cron
 [ "$(msgs)" = 4 ]; ck "ⓓ 6시간 뒤에도 그대로 → 재알림 1(팀당)" $?
 export FT_HEAD_LAG_NOW="$(( $(date +%s) + 13*3600 ))"; lag --cron; [ "$(msgs)" = 4 ]; ck "ⓓ 그 뒤 0(재촉 상한 1)" $?
 unset FT_HEAD_LAG_NOW
-# ── ⓔ 새 main sha → 다시 1 · 문턱(--cron 60분)
+# ── ⓔ 새 main sha → 같은 워크트리 재발송 0(R836 · 기록 키 = 워크트리) · 기록 없으면 다시 1 · 문턱(--cron 60분)
 mainc c3 600; : > "$MBOX_LOG"
-lag --cron; [ "$(msgs)" = 2 ] && ! grep -q 'lagC' "$MBOX_LOG"; ck "ⓔ 새 main sha → 다시 1(팀당) · 문턱 미만(lagC 10분)은 제외" $?
+lag --cron; [ "$(msgs)" = 0 ]; ck "ⓔ 새 main sha → 이미 알린 워크트리 재발송 0(R836)" $?
+rm -f "$T/.fable-team/state/head-lag.json"
+lag --cron; [ "$(msgs)" = 2 ] && ! grep -q 'lagC' "$MBOX_LOG"; ck "ⓔ 기록 없음 → 다시 1(팀당) · 문턱 미만(lagC 10분)은 제외" $?
 FT_HEAD_LAG_MIN=5 lag --cron; [ "$(msgs)" = 3 ] && tail -n1 "$MBOX_LOG" | grep -q 'lagC'; ck "ⓔ 문턱 5분이면 lagC 알림 1" $?
 # ── ⓖ fetch 실패 → ERROR + rc 4 + 알림 0(지어내기 0)
 rm -f "$T/.fable-team/state/head-lag.json"; n0="$(msgs)"; ORIG_URL="$(git -C "$W" remote get-url origin)"; git -C "$W" remote set-url origin "$T/nonexistent.git"
