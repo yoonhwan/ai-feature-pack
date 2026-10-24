@@ -1,0 +1,8 @@
+test_head_sync_lock_r882 rc=0 18 PASS 0 FAIL
+test_head_sync_apply_scope rc=0 26 PASS 0 FAIL
+test_head_sync rc=0 25 PASS 0 FAIL
+test_head_lag rc=1 22 PASS 1 FAIL (ⓐ 착지 성공 — 수정 전 판도 같은 FAIL: base-test_head_lag.txt · remote URL 픽스처 · 범위 밖)
+test_head_lag_remind_per_wt_r836 rc=0 36 PASS 0 FAIL
+test_head_skip_list rc=0 21 PASS 0 FAIL
+test_merge_head_gate rc=0 32 PASS 0 FAIL
+test_cherry_gate_identical_head rc=0 20 PASS 0 FAIL

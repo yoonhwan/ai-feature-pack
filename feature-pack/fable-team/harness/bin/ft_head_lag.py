@@ -54,7 +54,8 @@ def build(items, msha):
     if len(items) > 8:
         out.append(f"- 외 {len(items) - 8}곳")
     where = items[0]["path"] if len(items) == 1 else "위 각 줄의 경로"
-    out.append(f"조치: 그 워크트리 안에서(cd {where}) 미커밋 0 이면 origin/main 을 merge 로 받는다(그 워크트리만 · rebase·force 0) · 충돌이면 그 팀 arch 에 · 팩 작업 폴더는 무관 · 옛 베이스 병합은 병합 게이트가 거절한다(R243/R749)")   # R886: 실행 도구 이름 0 — 쪽지 1통이 무거운 실행 1개를 낳아 19개 쌓임
+    # R882: 실행 지시 0 — 이 쪽지가 좌석마다 도구 실행을 낳으면 전수 스캔이 겹쳐 폭주한다(02:5x 14개). 앉은 좌석이 자기 워크트리만 스스로
+    out.append(f"조치: 그 워크트리 안에서(cd {where}) 앉은 좌석이 자기 일 사이에 스스로 받는다 — 미커밋 0 이면 그 자리에서 merge --no-edit {msha} (merge 만 · rebase·force 0 · 남의 워크트리 대신 맞추기 0) · 팩(ai-feature-pack) 작업 폴더는 이 알림과 무관 · 충돌이면 그 팀 arch 에 · 옛 베이스 병합은 병합 게이트가 거절한다(R243/R749/R882)")
     return "\n".join(out)
 
 

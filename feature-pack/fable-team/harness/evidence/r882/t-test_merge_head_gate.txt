@@ -1,0 +1,36 @@
+PASS bash -n hook
+PASS py 구문 merge_cmd
+== 음성(통과) — 병합이 아닌 것
+PASS git push --dry-run
+PASS gh pr merge --help
+PASS echo 따옴표 본문의 같은 글자
+PASS heredoc 본문의 같은 글자
+PASS main 아닌 대상 push
+PASS ft-merge-land.sh 호출은 병합 명령으로 인식 안 함
+PASS BYZ 밖(FT_ROOT 없음·git 아님)
+== 양성(deny) — main 병합 경로
+PASS gh pr merge --match-head-commit → deny(ft-merge-land 로)
+PASS ft-gh-as-tank.sh pr merge → deny
+PASS bash <경로>/ft-gh-as-tank.sh pr merge → deny
+PASS gh api …/pulls/N/merge → deny
+PASS bash -c 안의 gh pr merge → deny
+PASS env -S 안의 gh pr merge → deny
+PASS deny 사유에 ft-merge-land.sh 안내
+PASS +refspec main push → deny
+PASS --force main push → deny
+PASS --force-with-lease main push → deny
+PASS main 삭제 push → deny
+PASS --mirror → deny
+PASS 와일드카드 → deny
+== main 향 git push — 게이트 결과
+PASS 옛 세트(main 미포함) main push → deny(게이트 사유)
+PASS deny 사유에 게이트 문구(main 포함 안 함)
+PASS old:refs/heads/main → deny
+PASS main 을 포함한 세트 main push → allow
+PASS cd 뒤 push 도 같은 판정 → allow
+PASS sha 를 못 뽑는 main push → deny
+PASS 게이트 도구 못 찾음 → deny(병합은 되돌리기 어려움)
+PASS 결속 기록: hook.log 에 ALLOW push sha 줄
+PASS JSON 파싱 불가 = 인식 전 단계 → 통과
+PASS 정적: 훅·모듈에 reset·rebase 0
+ALL PASS
