@@ -1,0 +1,15 @@
+# r867 변이 (현재 코드 · python3.11 -m pytest tests/scripts/test_magazine_celebrate.py)
+## 변이 1 — 창 경계 완화(창 끝 +1초 · magazine_celebrate.window)
+____________ test_e_easy_text_breaking_the_guide_is_shown_as_failed ____________
+    def test_e_easy_text_breaking_the_guide_is_shown_as_failed(env, monkeypatch, capsys):
+FAILED tests/scripts/test_magazine_celebrate.py::test_a_only_closing_evidence_inside_the_window_is_celebrated
+FAILED tests/scripts/test_magazine_celebrate.py::test_b_each_done_has_one_easy_paragraph_and_a_cheer_head
+FAILED tests/scripts/test_magazine_celebrate.py::test_e_seven_second_rule_and_visible_failure
+FAILED tests/scripts/test_magazine_celebrate.py::test_e_easy_text_breaking_the_guide_is_shown_as_failed
+FAILED tests/scripts/test_magazine_celebrate.py::test_e_whole_batch_deadline_marks_late_batches_as_timeout
+5 failed, 3 passed in 5.41s
+## 변이 2 — 완성 0건에 축하 문구(magazine_brief.Brief.done_head)
+FAILED tests/scripts/test_magazine_celebrate.py::test_b_zero_done_says_zero_honestly_without_any_call
+1 failed, 7 passed in 4.51s
+## 복원 뒤
+8 passed in 3.81s
