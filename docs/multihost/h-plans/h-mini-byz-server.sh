@@ -36,6 +36,7 @@ SO=(-o BatchMode=yes -o ConnectTimeout=6 -o ServerAliveInterval=10 -o ServerAliv
 KEYS=(BYZ_LLM_SOURCING LOCAL_VLLM_BASE_URL LOCAL_VLLM_API_KEY GPU_STT_MODEL STT_PROVIDER GEMINI_API_KEY GOOGLE_API_KEY GOOGLE_PROJECT_ID
       CORPUS_RETENTION_DAYS SUPABASE_DB_URL LOOM_INTERIM_DB_URL LOOM_INTERIM_PG_DSN LOOM_INGEST_PG_DSN GCS_DATA_BUCKET GCS_DATA_PREFIX
       PAYMENT_MODE APP_ENV V6_AUTHORITATIVE_STT_MODE V6_AUTHORITATIVE_STT_PROVIDER BYZ_E2E_JWT_SECRET
+      V5_BACKEND_ENABLED   # 2026-10-24 러너 1회차: 없으면 gateway 가 /v5 라우터를 안 붙여 POST /v5/audio_event·/v5/sessions/init 404 → 오디오 조각 전송 실패(chunk_post_failed) → host_empty (shared/config/v5_config.py: 이 이름이 true 계열이어야 backend_enabled)
       FIREWORKS_API_KEY GROQ_API_KEY DEEPGRAM_API_KEY ELEVENLABS_API_KEY SONIOX_API_KEY
       RETURNZERO_ID RETURNZERO_SECRET CLOVA_API_SECRET GOOGLE_API_KEY
       LLM_PROVIDER BRAIN_LLM_PROVIDER TTS_PROVIDER CARTESIA_API_KEY TYPECAST_API_KEY SUPERTONE_API_KEY OPENAI_API_KEY)
@@ -203,7 +204,7 @@ while IFS= read -r spec; do
   grep -q "^export $nm=" "$ENVF" || { printf 'export %s=%q\n' "$nm" "$vl" >> "$ENVF"; SPEC_N=$((SPEC_N+1)); N=$((N+1)); }
 done < <(sed -n '/^WORKER_ENV_SPEC=(/,/^)/p' "$WORK/repo/scripts/server/ready-check.sh" | grep -E '^[[:space:]]*"[A-Z0-9_]+=' | sed -E 's/^[[:space:]]*"//; s/"[[:space:]]*$//')
 say "        정본 WORKER_ENV_SPEC 에서 .env 에 없던 고정값 ${SPEC_N}개를 채웠다(값 출력 0)"
-for req in PAYMENT_MODE APP_ENV V6_AUTHORITATIVE_STT_MODE V6_AUTHORITATIVE_STT_PROVIDER BYZ_E2E_JWT_SECRET; do   # 이름만 검사
+for req in PAYMENT_MODE APP_ENV V6_AUTHORITATIVE_STT_MODE V6_AUTHORITATIVE_STT_PROVIDER BYZ_E2E_JWT_SECRET V5_BACKEND_ENABLED; do   # 이름만 검사
   grep -q "^export $req=" "$ENVF" || say "        ⚠ 필수 이름 누락: $req (gateway/worker 가 기동 중 raise 할 수 있다)"
 done
 say "        키 ${N}개 이름을 stdin 으로 넘긴다(값 출력 0)"
