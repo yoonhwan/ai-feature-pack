@@ -1,0 +1,3 @@
+FAILED test_model_swap_account_outage_r838.py::test_r9_day_clock_counts_from_last_seen_stuck_not_notice
+FAILED test_model_swap_account_outage_r838.py::test_r9b_outage_key_closes_after_day_with_no_live_lineage
+2 failed, 13 deselected in 2.21s

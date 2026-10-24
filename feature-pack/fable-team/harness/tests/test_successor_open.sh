@@ -25,7 +25,7 @@ mkstub tmux   'case "$1" in
   display-message) t=""; while [ $# -gt 0 ]; do [ "$1" = "-t" ] && { t="${2:-}"; break; }; shift; done
     case "$t" in "") :;; *:) [ -z "${PANE_CWD_UNREADABLE:-}" ] && echo "${PANE_CWD_OVERRIDE:-$PANE_CWD}";; *) :;; esac;;   # r622: 실제 tmux 꼴 — «=이름»(콜론 없음) 은 창 대상에서 빈 값, «=이름:» 만 pane 을 고른다
 esac; exit 0'
-mkstub tmuxc  'echo "tmuxc $*" >> "$LOG"; [ "${TMUXC_RC:-0}" = 0 ] && : > "$OPENED"; exit "${TMUXC_RC:-0}"'
+mkstub tmuxc  'echo "tmuxc $*" >> "$LOG"; [ -n "${TMUXC_ERR:-}" ] && printf "%s\n" "$TMUXC_ERR" >&2; [ "${TMUXC_RC:-0}" = 0 ] && : > "$OPENED"; exit "${TMUXC_RC:-0}"'
 mkstub pgrep  'case "$*" in "-a -x claude"|"-a -x codex") exec "$SENSORS/pgrep" "$@";; esac; echo pgrep >> "$LOG"; n=$(cat "$CNT" 2>/dev/null || echo 0); n=$((n+1)); echo $n > "$CNT"; [ "$n" -ge "${PGREP_UP_AT:-3}" ] && { echo 5555; exit 0; }; exit 1'
 mkstub send   'echo send >> "$LOG"; echo "QUEUED seq=777 to=$1 pending=1 doorbell=sent"; exit "${SEND_RC:-0}"'
 mkstub mbox   'echo "mbox $1" >> "$LOG"; echo "RING seq=$3 doorbell=sent"; exit 0'
@@ -85,6 +85,23 @@ run SEND_RC=2 REACH_RC=0
 run TMUXC_RC=1
 { [ "$RC" -ne 0 ] && grep -q 'REJECT' "$TMP/out" && [ "$(count pgrep)" = 0 ] && [ "$(count send)" = 0 ]; } \
   && ok "ⓕ open 실패 → REJECT · 기동 확인·송신 0" || bad "ⓕ rc=$RC log=$(tr '\n' ' ' < "$LOG") out=$(cat "$TMP/out")"
+# ⓕ-2 r838 ⓓ — 열기 실패 이유(출력 마지막 3줄 · 200자) = REJECT 줄 끝 «이유:» · 토큰꼴 가림 · 송신 0 그대로(ⓕ 의 REJECT 비교는 grep 이라 꼬리 허용)
+run TMUXC_RC=1 TMUXC_ERR=$'줄1 버려짐\n줄2 token=abc123SECRET\n줄3\ntmux: server exited unexpectedly'
+{ [ "$RC" -ne 0 ] && grep -q "^REJECT tmuxc open 실패 ($NEW) — 송신 0 · 이유: 줄2 token=\*\*\* 줄3 tmux: server exited unexpectedly" "$TMP/out" \
+  && ! grep -q '줄1\|abc123' "$TMP/out" && [ "$(count send)" = 0 ]; } \
+  && ok "ⓕ-2 r838 열기 실패 → REJECT 줄에 «이유: 마지막 3줄» · 토큰 가림 · 송신 0" || bad "ⓕ-2 rc=$RC out=$(cat "$TMP/out")"
+# ⓡ5 r838 r2 (DA⑥ r1 반례 5) — 이유 줄 비밀값 두 꼴(Authorization: Bearer · AWS_ACCESS_KEY_ID=AKIA…) + sk- 낱말 → 원값 0 · ***
+run TMUXC_RC=1 TMUXC_ERR=$'Authorization: Bearer abcSECRET1\nAWS_ACCESS_KEY_ID=AKIAXYZSECRET2 x\nsee sk-liveSECRET3 tmux: fail'
+{ [ "$RC" -ne 0 ] && grep -q "^REJECT tmuxc open 실패 ($NEW) — 송신 0 · 이유: .*\*\*\*" "$TMP/out" \
+  && ! grep -q 'SECRET1\|SECRET2\|SECRET3\|AKIAXYZ' "$TMP/out" && [ "$(count send)" = 0 ]; } \
+  && ok "ⓡ5 r838 r2 이유 줄 비밀값(Bearer · KEY_ID= · sk-) 가림 · 송신 0" || bad "ⓡ5 rc=$RC out=$(cat "$TMP/out")"
+# ⓡ7 r838 r3 (DA⑥ r2 반례 2) — 값 꼴(Basic base64 · 따옴표 안 공백 · Cookie 의 a=b · JWT)에 기대지 않는 줄 단위 가림 → 원값 조각 0
+for ERR in $'Authorization: Basic ZmFrZTpTRUNSRVQ=\npassword="fake secret words"\nCookie: sid=abc' $'x\ny\nsee eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ4In0.c2ln tmux: fail'; do
+  run TMUXC_RC=1 TMUXC_ERR="$ERR"
+  { [ "$RC" -ne 0 ] && grep -q "^REJECT tmuxc open 실패 ($NEW) — 송신 0 · 이유: .*\*\*\*" "$TMP/out" \
+    && ! grep -q 'ZmFrZTpTRUNSRVQ\|fake\|words\|sid=abc\|eyJhbGci\|eyJzdWIi' "$TMP/out" && [ "$(count send)" = 0 ]; } \
+    && ok "ⓡ7 r838 r3 줄 단위 가림(Basic · 따옴표 · Cookie · JWT) · 송신 0" || bad "ⓡ7 rc=$RC out=$(cat "$TMP/out")"
+done
 
 # ⓖ 새 좌석 jsonl 에 SessionStart 가 있으면 «관측», 없으면 상한까지 기다린 뒤 «미관측» 을 드러내고 송신(도달 판정은 send-verified 몫)
 mkdir -p "$JDIR"
