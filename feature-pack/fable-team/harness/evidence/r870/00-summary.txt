@@ -1,0 +1,52 @@
+r870 원장 채움 push·로컬 git 시간 초과 — 증거 요약 (나노 byz-harness-nano-r870-ledger-fill-push-timeout#0 · 2026-10-25)
+
+카드: BYZ design/harness/indices/진행/r870-ledger-fill-push-timeout.md · base = 팩 origin/main ba445cce
+바뀐 것: bin/ft_ledger_fill.py · bin/ft_ledger_fill_src.py · bin/ft_news_html.py (+ kit/fable-team/bin 짝 사본 cmp0) · manifest 1.1.231 · CHANGES
+
+시험(ⓐ~ⓕ·ⓗ·1-b) — tests/scripts/test_ledger_fill_r870.py
+  ⓐ test_a_remote_tree_same_push_zero — 원격 사본 트리 = 이번 트리 → push 0 «push 생략(같음)»
+  ⓑ test_b_push_cap_no_hook_retry_once_on_silent_timeout — 훅 몫 빠짐(push 1.5+훅 1.0 > 상한 2.0 이던 판 통과) · 출력 0 시간 초과 재시도 1(push 줄 정확히 2) · 그 뒤 FillError «git push … timed out»
+     test_b_push_failure_with_output_no_retry — 출력 있는 실패 = 재시도 0
+  ⓒ test_c_push_failure_error_once_then_warning_and_same_commit_next_tick — 뉴스 ledger_fill: 실패 1회째 ERROR · 2회째 WARNING «같은 원인 연속 2회» · 회복 틱 = 처음 실패한 그 커밋 sha 가 ledger/auto 에 올라감 · push-fail.json 지움
+  ⓓ test_d_push_skips_hook_only_for_ledger_refspec — push 줄에 --no-verify · refspec 1개 = refs/heads/ledger/auto
+     판정: pre-push 훅(BYZ .fable-team/githooks/pre-push) = ①GATE_BRANCH(feat/v6-realtime-live) 체크아웃일 때만 제품코드 range 검사 — 원장 사본(news-ledger-main)은 detached HEAD 라 늘 통과 ②그 뒤 beads shim(bd hooks run pre-push · 이슈 장부) — 원장 docs 가지와 무관 → 원장 사본 push 에 필요 없음 · 건너뜀 범위 = branch() 입구 검사를 통과한 ledger/* refspec 1개
+  ⓔ r851 시험 38 ALL PASS (green.txt 의 46 = r870 8 + r851 38)
+  ⓕ mutation.sh — 8 변이 모두 KILLED (mutation.txt)
+  ⓗ test_h_read_tree_timeout_is_fill_error_news_tick_survives — read-tree 9초 → ledger_fill 이 cur 그대로 반환 + ERROR «원장 채움 실패 — 표 갱신 0: git read-tree 시간 초과(7초)» (옛 판 = TimeoutExpired 전파 = 뉴스 틱 Traceback rc1)
+     test_h2_ref_probe_timeout_is_fill_error — _has(rev-parse -q) 9초 → FillError (같은 꼴 · bases() 경로)
+  1-b test_1b_card_log_cap_scales_with_commits_in_window — sized(0)=7 · sized(261)=21 · 천장 70 · log 8초 잠에서 통과
+
+빨강 기준: red-base.txt (base bin 세 파일로 r870 시험 = 7 FAILED · 1 passed = 출력 있는 실패 재시도 0 은 옛 판도 같음)
+초록: green.txt · green.rc=0
+회귀(뉴스·원장 관련 시험 전체): regress.txt — 158 passed · 1 failed = test_r649 «ft-inbox.sh show 실패(7초 상한» 문구 기대 vs 실제 «7초 초과 · 재시도 1회» — 내 파일 밖(ft-inbox 경로) · base bin 사본에서도 같은 FAIL(무관)
+ruff: All checks passed
+
+발견(arch 참고):
+  - «내용 같아도 push?» — 사본 브랜치가 main 을 품는 동안은 표 같음 판정(tb.same)이 커밋 자체를 막아 push 0. push 가 매번 나는 것은 main 이 움직일 때(착지마다) — 사본 브랜치가 main 을 못 품으면 뉴스가 main(손 원장)을 읽으므로 그 merge 커밋 push 는 필요한 push 다. 그래서 push 횟수 자체는 착지 빈도만큼 남고, 이번 판은 «한 번 push 가 상한 안에 끝나게»(훅 건너뜀 · 묶음 KILL · 재시도 1) 쪽이다.
+  - read-tree = BYZ 트리 4.6만 항목을 임시 인덱스에 통째로 읽음(평소 0.1초 · 부하 40 대에서 7초 초과). 이번 범위는 «틱을 안 죽임» 까지. 더 줄이려면 경로 단계별 mktree(원장 경로 4단)로 인덱스 없이 트리를 만드는 길이 있다(범위 밖 · 제안만).
+
+press 필요: 없음(원장 채움 = 오디오 경로 아님)
+
+r2 (외부 DA⑥ r1 HOLD 1 반송 · REWORK-r870-r2 · 2026-10-25 03:1x · base = 팩 origin/main c059ddd1(r863 1.1.231 착지) 위로 옮김 → 1.1.232)
+  고침: ft_ledger_fill.py fill() «push 생략(같음)» 조건 = 원격 사본 트리 같음 ∧ src.read_ref(repo, ref) == origin/<사본>(= 사본 브랜치가 지금 main 을 품음 · 뉴스·매거진이 읽는 판 규칙 그대로) — 아니면 bases() 가 고른 [main, 사본] 병합 커밋 push(기존 경로)
+  ⓐ2 test_a2_same_tree_but_branch_misses_main_still_merges_and_pushes — 공통 부모 A · ledger/auto=B(채움) · main=M(빈 커밋) · 렌더 = B 트리 → 새 커밋 부모 [M, B] · 원장 가지 push 2(1차 B + 이번) · origin ledger/auto = 새 커밋 · read_ref = refs/remotes/origin/ledger/auto
+  변이 ⑨ «main 품음 검사 제거» = r1 판 그대로 → ⓐ2 FAIL(KILLED) · ①~⑧ 그대로 KILLED (mutation.txt 9/9 · rc=0)
+  빨강 기준(red-base.txt): base(origin/main) bin = 7 FAILED · 2 passed(출력 있는 실패 재시도 0 · ⓐ2 — 옛 판은 생략 갈래 자체가 없어 늘 push 하므로 통과 · r2 의 빨강은 r1 판 = 변이 ⑨)
+  초록: green.txt 47 passed(r870 9 + r851 38) · green.rc=0 · ruff 0 · 짝 사본 3 cmp0
+  관찰(arch 참고): ② 조건이 참이면 bases() 가 사본 머리를 판으로 고르므로(base=head) 렌더가 바이트 같을 때는 tb.same 이 먼저 «변화 없음» 으로 끝낸다 — 생략 갈래가 실제로 쓰이는 건 tb.same 이 지나친 경우(시험 ⓐ 처럼)뿐 · 위험한 갈래(사본이 main 을 못 품음)는 이번에 닫힘
+
+r3 (외부 DA⑥ r2 HOLD 1 · 보류 2회 → 하드 룰 14 재설계 · REWORK-r870-r3 · 2026-10-25 04:1x · base = 팩 origin/main 4d8704c3(r886 1.1.232 착지) 위로 옮김 → 1.1.233)
+  고침(삭제만): ft_ledger_fill.py «push 생략(같음)» 갈래 + _remote_tree() 삭제 · 이유 주석 1줄 — 사본 ⊇ main 이면 bases() 가 그 머리를 base 로 골라 tb.same 이 먼저 끝냄 · 생략 갈래는 fetch 경쟁 때만 닿고 닿으면 틀림(DA⑥ r1·r2) · 나머지(시간 초과·_pending·_push 상한·--no-verify) 그대로
+  ⓐ test_a_branch_holds_main_same_render_no_change_push_zero — tb.same 대역 없이 2번째 채움 = «FILL 변화 없음» · push 1 그대로 · 커밋 0 · 출력에 «push 생략(같음)» 0
+  ⓐ2 — read_ref 를 경쟁 대역(사본 C ⊇ M 을 고름)으로 둬도 [M, B] 병합 1 + 원장 push 2 · 출력 «push 생략(같음)» 0 · 끝의 read_ref 확인은 진짜 함수
+  변이 ⑩ «옛 생략 갈래 되살림»(tree 뒤 · 원격 트리 같음 ∧ read_ref == 사본) → ⓐ2 FAIL(KILLED) · ① 을 tb.same 제거로 바꿈 → ⓐ FAIL(KILLED) · ⑨ 은 대상 줄 삭제로 퇴역 · mutation.txt 9/9 KILLED rc=0
+  빨강 기준(red-base.txt · base = 4d8704c3 bin): 6 FAILED · 3 passed(ⓐ·ⓐ2·출력 있는 실패 — 옛 판도 생략 갈래가 없어 같은 동작 · r3 의 빨강은 변이 ⑩)
+  초록: green.txt 47 passed(r870 9 + r851 38) · green.rc=0 · ruff 0 · 짝 사본 3 cmp0
+
+r4 (외부 DA⑥ r3 HOLD 1 · 좁은 반송 · REWORK-r870-r4 · 2026-10-25 · base 팩 origin/main 4d8704c3 그대로 · 1.1.233)
+  고침(1줄): fill() «FILL 변화 없음» 반환 sha = '' → base(bases() 가 고른 이번 판) · 이유 주석 1줄 — 뉴스는 sha 빈칸이면 옛 cur 유지 → 다른 작성자가 같은 렌더를 먼저 올린 경쟁(DA⑥ r3)에서 새 판을 놓침 · 사본 없음·main 위 판이면 base = main = cur(뉴스 값 변화 0)
+  ⓐ3 test_a3_raced_same_render_no_change_returns_winner_to_news — 공통 부모 A · ledger/auto=B · main=M(빈 커밋) · 이번 push 직전 다른 작성자 C(부모 [M,B] · B 트리)가 먼저 올림(_push 대역) → ff 거절 → 다시 받기 → C 위 «변화 없음» → 뉴스 ledger_fill() 반환 = C(옛 판 = M) · 원장 push 2(B + 거절 1)
+  기존 «변화 없음» 단언(r851 test_b · r870 ⓐ) = 반환 = 사본 머리(sha_of BR)로 맞춤
+  변이 ⑪ «변화 없음 반환 ''» → ⓐ3 FAIL(KILLED) · mutation.txt 10/10 KILLED rc=0
+  빨강 기준(red-base.txt · base 4d8704c3 bin): 8 FAILED · 2 passed
+  초록: green.txt 48 passed(r870 10 + r851 38) · green.rc=0 · 뉴스 시험 test_ft_news_ledger.py 24 passed · ruff 0 · 짝 사본 3 cmp0

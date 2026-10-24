@@ -159,8 +159,8 @@ def ledger_fill(root: Path, repo: Path, rel: str, cur: str) -> str:
     push = os.environ.get("FT_LEDGER_FILL_PUSH", "1") != "0"
     try:
         _rc, sha = fill(root, repo, rel, os.environ.get("FT_NEWS_MAIN_REF", "origin/main"), now(), do_fetch=False, push=push)
-    except FillError as e:
-        LOG.error("원장 채움 실패 — 표 갱신 0: %s", e)
+    except FillError as e:  # r870 ⓒ — 같은 원인 push 실패 연속(repeat)은 경고로(실패 구간당 ERROR 1통)
+        (LOG.warning if getattr(e, "repeat", False) else LOG.error)("원장 채움 실패 — 표 갱신 0: %s", e)
         return cur
     return sha if sha and push else cur
 

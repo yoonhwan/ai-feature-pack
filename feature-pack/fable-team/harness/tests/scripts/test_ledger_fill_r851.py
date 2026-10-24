@@ -166,7 +166,7 @@ def test_b_no_change_no_commit_and_todo_rows_equal_ledger_sum(world):
     fill(world)
     n1 = n_commits(world)
     rc, sha = fill(world, NOW + timedelta(minutes=7))  # 시각만 다른 판 = 같은 판
-    assert (rc, sha) == (0, "") and n_commits(world) == n1
+    assert (rc, sha) == (0, sha_of(world, BR)) and n_commits(world) == n1  # r870 r4 — «변화 없음» = 읽은 판(사본 ⊇ main → 사본 머리)
     rows = [ln for ln in section(origin_ledger(world), "## 2. 오빠 할 일") if re.match(r"\d+\. ", ln)]
     assert len(rows) == 1 + 2 + 1  # 질문 열린 1(전달됨 제외) + h 대기 2 + QUEUE 빈칸 1
 
