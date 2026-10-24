@@ -68,7 +68,8 @@ mkwt lagD nano/lagD "$C1"; mkwt lagR release/x "$L" 'byz-teama-nano-claude#3'
 lag --event
 A="$(grep -c '^byz-teama-master-claude#1' "$MBOX_LOG")"; B="$(grep -c '^byz-teamb-master-claude#2' "$MBOX_LOG")"
 [ "$rc" = 0 ] && [ "$(msgs)" = 2 ] && [ "$A" = 1 ] && [ "$B" = 1 ]; ck "ⓑ 뒤처진 팀 A·B master 에 각 1통(팀당 1통)" $?
-grep '^byz-teama' "$MBOX_LOG" | grep -q '베이스 뒤처짐' && grep '^byz-teama' "$MBOX_LOG" | grep -q 'lagA(nano/lagA)' && grep '^byz-teama' "$MBOX_LOG" | grep -q '2커밋' && grep '^byz-teama' "$MBOX_LOG" | grep -q '5시간' && grep '^byz-teama' "$MBOX_LOG" | grep -q 'ft-head-sync.sh --apply'; ck "ⓑ 알림에 워크트리·브랜치·N커밋·N시간·명령 줄" $?
+grep '^byz-teama' "$MBOX_LOG" | grep -q '베이스 뒤처짐' && grep '^byz-teama' "$MBOX_LOG" | grep -q 'lagA(nano/lagA)' && grep '^byz-teama' "$MBOX_LOG" | grep -q '2커밋' && grep '^byz-teama' "$MBOX_LOG" | grep -q '5시간' && grep '^byz-teama' "$MBOX_LOG" | grep -q '미커밋 0 이면 origin/main 을 merge 로 받는다'; ck "ⓑ 알림에 워크트리·브랜치·N커밋·N시간·조치(동작 설명) 줄" $?
+! grep -qE 'ft-head-sync|--apply' "$MBOX_LOG"; ck "ⓐ R886 알림에 실행 지시(ft-head-sync·--apply) 0 — 쪽지 1통이 실행 1개를 낳지 않음" $?
 ! grep -E 'lagC|lagD|lagR' "$MBOX_LOG" | grep -q '^byz-teama'; ck "ⓑ A 알림에 남의 워크트리·최신(lagC)·좌석 없는 곳(lagD)·release 브랜치(lagR) 없음" $?
 grep '^byz-teamb' "$MBOX_LOG" | grep -q 'lagB' && ! grep -q 'lagD' "$MBOX_LOG"; ck "ⓑ B 알림 = lagB · 좌석 없는 lagD 알림 0" $?
 # ── ⓒ 같은 main sha → 0통
