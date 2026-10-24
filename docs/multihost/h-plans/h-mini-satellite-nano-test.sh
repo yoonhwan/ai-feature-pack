@@ -8,7 +8,7 @@
 #       DRY=1 bash /tmp/h<N>  → 사전점검만(쓰기 0)
 # rc: 0 성공 · 2 전제 실패 · 3 세션 열기 실패 · 4 작업 전달 실패 · 5 결과 시간 초과 · 6 닫기 실패(남은 프로세스 있음)
 set -uo pipefail
-MINI="${MINI:-mini}"; DRY="${DRY:-0}"; RUN="${RUN:-test-1}"
+MINI="${MINI:-mini}"; DRY="${DRY:-0}"; RUN="${RUN:-test-2}"
 NAME="aifp-sat-nano-pi#0"; MODEL="opengateway/deepseek/deepseek-v4.1-flash-ultrafast"
 RDIR="Project/satellite-nano/$RUN"; WAIT_S="${WAIT_S:-240}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; OUTD="$HERE/../satellite"
@@ -47,7 +47,7 @@ printf '%s\n' "$OP" | tail -6 | sed 's/^/        /'
 OPENED=1
 say "        pi 프로세스 기동 대기(최대 30초)"
 UP=0; for i in 1 2 3 4 5 6; do
-  N="$(ms 12 "pp=\$(tmux display -p -t '=$NAME' '#{pane_pid}' 2>/dev/null); [ -n \"\$pp\" ] && pgrep -P \$pp | wc -l | tr -d ' '" 2>/dev/null)"
+  N="$(ms 12 "pp=\$(tmux display -p -t '=$NAME:' '#{pane_pid}' 2>/dev/null); [ -n \"\$pp\" ] && pgrep -P \$pp | wc -l | tr -d ' '" 2>/dev/null)"
   [ "${N:-0}" -ge 1 ] 2>/dev/null && { UP=1; break; }; sleep 5
 done
 [ "$UP" = "1" ] || die 3 "pi 프로세스가 안 떴다(HARD GATE: 자식 0건이라 입력 전송 금지)"
@@ -55,9 +55,9 @@ sleep 8
 
 say "3/6 작업 전달 (한 줄 지시문 — -l 과 Enter 별도 호출)"
 MSG="[aifp-multihost-master-claude#4->$NAME] 작업이다. ~/$RDIR/TASK.md 를 읽고 그대로 수행해라. 결과는 같은 폴더 out.md."
-ms 12 "tmux send-keys -t '=$NAME' -l '$MSG'" || die 4 "send-keys(-l) 실패"
+ms 12 "tmux send-keys -t '=$NAME:' -l '$MSG'" || die 4 "send-keys(-l) 실패"
 sleep 1
-ms 12 "tmux send-keys -t '=$NAME' Enter" || die 4 "send-keys(Enter) 실패"
+ms 12 "tmux send-keys -t '=$NAME:' Enter" || die 4 "send-keys(Enter) 실패"
 
 say "4/6 결과 대기 (최대 ${WAIT_S}초 · 10초마다 확인)"
 DONE=0; T0=$(date +%s)
@@ -66,7 +66,7 @@ while [ $(( $(date +%s) - T0 )) -lt "$WAIT_S" ]; do
   sleep 10
 done
 if [ "$DONE" != "1" ]; then
-  say "시간 초과 — 화면 마지막 줄(진단):"; ms 12 "tmux capture-pane -p -t '=$NAME' | tail -6 | cut -c1-160" 2>&1 | sed 's/^/        /'
+  say "시간 초과 — 화면 마지막 줄(진단):"; ms 12 "tmux capture-pane -p -t '=$NAME:' | tail -6 | cut -c1-160" 2>&1 | sed 's/^/        /'
   die 5 "out.md 의 SAT-DONE 이 ${WAIT_S}초 안에 안 생겼다"
 fi
 say "        완료 — 걸린 시간 $(( $(date +%s) - T0 ))초"
