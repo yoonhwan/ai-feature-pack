@@ -1,0 +1,1 @@
+변이 원장 행 축하 갈래 되살림(r3 판 a92a7edd 코드 · 원장 경로 doc.md): rc=1 · 1 failed, 2 passed in 1.51s · 빨강=test_c_ledger_rows_alone_are_not_celebrated_and_the_head_says_so

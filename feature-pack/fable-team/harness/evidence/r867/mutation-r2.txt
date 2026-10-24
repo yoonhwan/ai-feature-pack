@@ -1,0 +1,3 @@
+변이1 이름 바꾸기 건너뛰기 제거: rc=1 · 1 failed, 2 passed in 2.77s · 빨강=test_rename_inside_done_folder_is_not_a_new_completion
+변이2 한 장 자르기 제거: rc=1 · 1 failed, 2 passed in 0.73s · 빨강=test_one_long_unit_is_cut_to_the_base_amount_with_a_visible_mark
+변이3 약어만 warn 제거: rc=1 · 1 failed, 2 passed in 1.48s · 빨강=test_remaining_line_with_only_abbreviations_warns_without_blocking
