@@ -30,6 +30,7 @@ def env(tmp_path: Path) -> Path:
 
 
 def rows_file(tmp: Path, *rows: tuple[int, str, str]) -> Path:
+    (tmp / "seats-fixture.json").write_text(json.dumps({"src#1": {"role": "nano"}}), encoding="utf-8")  # r846 r2: 보낸 이 src#1 = 명부 좌석(질문을 열 수 있다)
     p = tmp / "mailbox.log.jsonl"
     with open(p, "a", encoding="utf-8") as f:
         for seq, to, body in rows:
@@ -42,7 +43,7 @@ def run(tmp: Path, slack: FakeSlack, *extra: str):
         [sys.executable, str(SCRIPT), "--project", "byz", "--mailbox", str(tmp / "mailbox.log.jsonl"),
          "--seat", SEAT, "--channel", "C1", "--repo", "o/r", "--state-dir", str(tmp / "st"), "--token-file", str(tmp / "tok.env"),
          "--api-base", slack.base, "--mention", "U0AC2JF0M7D", "--once", "--inbox-bin", INBOX, "--resume-script", str(tmp / "resume.sh"),
-         "--summarizer-cmd", f"{sys.executable} {tmp / 'fake_sum.py'}", *extra],
+         "--summarizer-cmd", f"{sys.executable} {tmp / 'fake_sum.py'}", "--planner-seats", str(tmp / "seats-planner.json"), *extra],
         capture_output=True, text=True, timeout=60,
     )
 

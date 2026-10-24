@@ -1,0 +1,4 @@
+<<STDERR>>ERROR: 명부 못 읽음 · seats-planner.json · RecursionError
+WARN: 명부 못 읽음 — 질문 열기 0 · src#1 (/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-933/test_r5_da_r4_counterexample_d0 · RecursionError)
+ERROR: 명부 못 읽음 · seats-planner.json · RecursionError
+<<END>>

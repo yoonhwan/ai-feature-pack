@@ -1,0 +1,21 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_______ test_c_same_seat_same_thread_new_question_supersedes_the_old_one _______
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-570/test_c_same_seat_same_thread_n0')
+
+    def test_c_same_seat_same_thread_new_question_supersedes_the_old_one(tmp_path: Path):
+        qp = tmp_path / "byz_slack_questions.C1.json"
+        assert ask(qp, 10, S1, "첫 질문") and ask(qp, 11, S1, "둘째 질문")
+        data = mq.load(qp)
+>       assert list(data["open"]) == ["11"] and data["resolved"]["10"]["why"] == "superseded"
+E       AssertionError: assert (['10', '11'] == ['11']
+E         
+E         At index 0 diff: '10' != '11'
+E         Left contains one more item: '11'
+E         Use -v to get more diff)
+
+tests/scripts/test_mirror_question_cap_r846.py:70: AssertionError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_mirror_question_cap_r846.py::test_c_same_seat_same_thread_new_question_supersedes_the_old_one
+1 failed, 18 deselected in 0.14s

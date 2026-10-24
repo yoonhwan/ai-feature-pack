@@ -1,0 +1,84 @@
+FFFF                                                                     [100%]
+=================================== FAILURES ===================================
+_____ test_r2_da_counterexample_tool_with_lineage_number_opens_no_question _____
+
+env = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-646/test_r2_da_counterexample_tool0')
+slack = <_slack_fakes.FakeSlack object at 0x114e0ffd0>
+
+    def test_r2_da_counterexample_tool_with_lineage_number_opens_no_question(env: Path, slack: FakeSlack):  # noqa: F811
+        start(env, slack)
+        hil_row(env, 2, "ft-model-swap#1")  # DA r1 반례 — «이름#N» 꼴이지만 명부에 없다
+        assert run(env, slack).returncode == 0
+>       assert opened(env) == {} and "어느 쪽?" in slack.replies(slack.roots[0])[0]["text"]
+E       AssertionError: assert ({'2': {'asked...swap#1', ...}} == {}
+E         
+E         Left contains 1 more item:
+E         {'2': {'asked_at': 1792819457,
+E                'key': '#822',
+E                'options': ['a', 'b'],
+E                'seat': 'ft-model-swap#1',
+E                'state': 'open',...
+E         
+E         ...Full output truncated (3 lines hidden), use '-vv' to show)
+
+tests/scripts/test_mirror_question_cap_r846.py:69: AssertionError
+_______ test_r2_legacy_name_on_roster_opens_and_off_roster_name_does_not _______
+
+env = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-646/test_r2_legacy_name_on_roster_0')
+slack = <_slack_fakes.FakeSlack object at 0x114dfc550>
+
+    def test_r2_legacy_name_on_roster_opens_and_off_roster_name_does_not(env: Path, slack: FakeSlack):  # noqa: F811
+        start(env, slack)
+        (env / "seats-cfo.json").write_text(json.dumps({"_name": "cfo", "FB_CFO#46": {"role": "master"}}), encoding="utf-8")
+        hil_row(env, 2, "FB_CFO#46")
+        hil_row(env, 3, "byz-ghost-master-claude#1")
+        assert run(env, slack).returncode == 0
+>       assert list(opened(env)) == ["2"] and opened(env)["2"]["seat"] == "FB_CFO#46"
+E       AssertionError: assert (['2', '3'] == ['2']
+E         
+E         Left contains one more item: '3'
+E         Use -v to get more diff)
+
+tests/scripts/test_mirror_question_cap_r846.py:79: AssertionError
+______________ test_r2_broken_roster_opens_no_question_and_warns _______________
+
+env = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-646/test_r2_broken_roster_opens_no0')
+slack = <_slack_fakes.FakeSlack object at 0x114ebdc90>
+
+    def test_r2_broken_roster_opens_no_question_and_warns(env: Path, slack: FakeSlack):  # noqa: F811
+        start(env, slack)
+        (env / "seats-broken.json").write_text("{깨짐", encoding="utf-8")
+        hil_row(env, 2, "src#1")
+        r = run(env, slack)
+>       assert r.returncode == 0 and opened(env) == {} and "WARN: 명부 못 읽음" in r.stderr
+E       AssertionError: assert (0 == 0 and {'2': {'asked...'src#1', ...}} == {}
+E        +  where 0 = CompletedProcess(args=['/opt/homebrew/opt/python@3.11/bin/python3.11', '/Users/yoonhwan/Project/ai-feature-pack/.workt...pytest-of-yoonhwan/pytest-646/test_r2_broken_roster_opens_no0/seats-planner.json'], returncode=0, stdout='', stderr='').returncode
+E         
+E         Left contains 1 more item:
+E         {'2': {'asked_at': 1792819459,
+E                'key': '#822',
+E                'options': ['a', 'b'],
+E                'seat': 'src#1',
+E                'state': 'open',...
+E         
+E         ...Full output truncated (3 lines hidden), use '-vv' to show)
+
+tests/scripts/test_mirror_question_cap_r846.py:87: AssertionError
+_________________ test_r2_on_roster_exact_or_same_lineage_only _________________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-646/test_r2_on_roster_exact_or_sam0')
+capsys = <_pytest.capture.CaptureFixture object at 0x114ec8950>
+
+    def test_r2_on_roster_exact_or_same_lineage_only(tmp_path: Path, capsys):
+        (tmp_path / "seats-a.json").write_text(json.dumps({"_master": "x#0", S1: {}, "ft-harness-ops#2": {}}), encoding="utf-8")
+>       assert mq.on_roster(S1, tmp_path) and mq.on_roster("byz-cfo-master-claude#113", tmp_path) and mq.on_roster("ft-harness-ops#0", tmp_path)
+               ^^^^^^^^^^^^
+E       AttributeError: module 'mirror_questions' has no attribute 'on_roster'
+
+tests/scripts/test_mirror_question_cap_r846.py:93: AttributeError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_mirror_question_cap_r846.py::test_r2_da_counterexample_tool_with_lineage_number_opens_no_question
+FAILED tests/scripts/test_mirror_question_cap_r846.py::test_r2_legacy_name_on_roster_opens_and_off_roster_name_does_not
+FAILED tests/scripts/test_mirror_question_cap_r846.py::test_r2_broken_roster_opens_no_question_and_warns
+FAILED tests/scripts/test_mirror_question_cap_r846.py::test_r2_on_roster_exact_or_same_lineage_only
+4 failed, 19 deselected in 2.38s

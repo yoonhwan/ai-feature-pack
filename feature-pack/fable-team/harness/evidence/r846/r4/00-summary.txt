@@ -1,0 +1,21 @@
+r846 r4 — 명부 읽기 예외 = 명부 못 읽음 (REWORK-r846-r4.md · DA⑥ r3 HOLD 반례 seats-broken.json=[[1,{}]])
+
+변경 (kit/slack-mirror/mirror_questions.py)
+- _roster_names(새 함수): ⓐ 파일마다 최상위 dict 아님 · 키 문자열 아님 = 그 파일만 건너뜀 + WARN «명부 모양 틀림 — 건너뜀 · <파일>» · 나머지 명부 그대로
+- on_roster: ⓑ 명부 읽기의 어떤 예외든(except Exception) = False + WARN «명부 못 읽음» · 호출 쪽 byz_mbox_slack_mirror.py:73 변경 0(예외 전파 0 → 카드 게시 그대로)
+- 정확 일치(r3)·supersede·목록(r1) 변경 0
+
+시험 (tests/scripts/test_mirror_question_cap_r846.py)
+- 새 test_r4_da_r3_counterexample_… : 정상 명부 src#1 + seats-broken.json=[[1, {}]] · from src#1 [HIL] → rc0 · 카드 1(#822) · WARN 1 · 질문 ["2"] seat=src#1
+- 새 test_r4_any_roster_read_exception_… : seats-dir.json 폴더 주입(IsADirectoryError) → rc0 · 카드 1 · WARN «명부 못 읽음» 1 · 질문 0
+- 새 test_r4_on_roster_wraps_any_exception : json.loads 가 RuntimeError → False + WARN
+- 편차 1: test_r3_on_roster_exact_match_only 끝 단정 «seats-b.json=[1,2] 있으면 S1 False» → ⓐ 에 따라 «그 파일만 건너뜀 · S1 True · WARN 모양 틀림» 으로 뒤집음(설계 ⓐ 의 직접 귀결)
+
+결과
+- green.txt: 27 passed rc=0
+- red-r3.txt: r3 코드(957aee49) 위 3 failed(반례 칸 · 모양 틀림 건너뜀 단정 · 임의 예외 감싸기) — 폴더 주입 칸은 r3 에서도 OSError 로 잡혀 통과(그 칸은 변이 wrap-removed 가 지킴)
+- mut-skip-removed.txt: 파일별 건너뜀 삭제 → 2 failed(반례 칸 포함)
+- mut-wrap-removed.txt: 예외 감싸기 삭제 → 4 failed(주입 칸 포함)
+- regress.txt: 슬랙·미러 시험 12파일 189 passed rc=0
+- ruff.txt: All checks passed
+- press 필요: 없음(슬랙 라우터 · 오디오 무관)

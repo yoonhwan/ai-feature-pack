@@ -1,0 +1,29 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+______________ test_r2_broken_roster_opens_no_question_and_warns _______________
+
+env = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-641/test_r2_broken_roster_opens_no0')
+slack = <_slack_fakes.FakeSlack object at 0x11a32cb10>
+
+    def test_r2_broken_roster_opens_no_question_and_warns(env: Path, slack: FakeSlack):  # noqa: F811
+        start(env, slack)
+        (env / "seats-broken.json").write_text("{깨짐", encoding="utf-8")
+        hil_row(env, 2, "src#1")
+        r = run(env, slack)
+>       assert r.returncode == 0 and opened(env) == {} and "WARN: 명부 못 읽음" in r.stderr
+E       AssertionError: assert (0 == 0 and {'2': {'asked...'src#1', ...}} == {}
+E        +  where 0 = CompletedProcess(args=['/opt/homebrew/opt/python@3.11/bin/python3.11', '/Users/yoonhwan/Project/ai-feature-pack/.workt...m/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-641/test_r2_broken_roster_opens_no0 · JSONDecodeError)\n').returncode
+E         
+E         Left contains 1 more item:
+E         {'2': {'asked_at': 1792819434,
+E                'key': '#822',
+E                'options': ['a', 'b'],
+E                'seat': 'src#1',
+E                'state': 'open',...
+E         
+E         ...Full output truncated (3 lines hidden), use '-vv' to show)
+
+tests/scripts/test_mirror_question_cap_r846.py:87: AssertionError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_mirror_question_cap_r846.py::test_r2_broken_roster_opens_no_question_and_warns
+1 failed, 22 deselected in 1.45s
