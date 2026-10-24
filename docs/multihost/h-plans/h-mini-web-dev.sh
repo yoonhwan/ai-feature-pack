@@ -53,13 +53,15 @@ printf '%s\n' "$PRE" | sed 's/^/        /'
 LISTENER="$(get listener)"
 if [ "$LISTENER" != "none" ]; then
   case "$(get cwd)" in */Project/BYZ-Agents/*) ;; *) die 2 "web 포트 ${P_WEB} 리스너의 작업 폴더가 ~/Project/BYZ-Agents 아래가 아니다($(get cwd)) — 남의 프로세스는 건드리지 않는다";; esac
-  if printf '%s' "$(get cmd) $(get pcmd)" | grep -q 'next dev' && printf '%s' "$(get env)" | grep -q 'NEXT_PUBLIC_DEV_MOCK_HOST=1' && ! printf '%s' "$(get env)" | grep -q 'NODE_ENV=production'; then
-    say "        이미 dev + mock host 로 떠 있다 — 할 일 없음"; exit 0
-  fi
+  # (이전 판의 «이미 dev+mock 이면 할 일 없음» 조기 종료는 뺐다 — 브라우저 E2E 토큰 시크릿이 있는지는 프로세스 환경으로 확인할 수 없어(값 노출 금지) 항상 다시 띄운다)
 fi
 
 if [ "$DRY" = "1" ]; then
-  say "DRY — 하려던 일(쓰기 0): ② ${P_WEB} 의 web 프로세스(pid ${LISTENER} · 부모 $(get ppid))만 정지 → ③ clients/web 에서 next dev -p ${P_WEB} (NEXT_PUBLIC_DEV_MOCK_HOST=1 · API/SSE/WS=127.0.0.1:${P_GW} · BASE_URL=127.0.0.1:${P_WEB}) 기동 → ④ 증거"
+  SRC_D="${SRC:-/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents}"
+  grep -q -E '^BYZ_E2E_JWT_SECRET=.' "$SRC_D/.env" 2>/dev/null && JWT_OK="있음(값 미출력)" || JWT_OK="없음 ✗"
+  say "        이 맥 .env 의 BYZ_E2E_JWT_SECRET: ${JWT_OK}"
+  [ "$JWT_OK" != "없음 ✗" ] || die 2 "이 맥 ${SRC_D}/.env 에 BYZ_E2E_JWT_SECRET 이 없다"
+  say "DRY — 하려던 일(쓰기 0): ② ${P_WEB} 의 web 프로세스(pid ${LISTENER} · 부모 $(get ppid))만 정지 → ③ clients/web 에서 next dev -p ${P_WEB} (NEXT_PUBLIC_DEV_MOCK_HOST=1 · NEXT_PUBLIC_BYZ_E2E_JWT_SECRET=stdin 주입 · API/SSE/WS=127.0.0.1:${P_GW} · BASE_URL=127.0.0.1:${P_WEB}) 기동 → ④ 증거"
   exit 0
 fi
 
@@ -79,10 +81,17 @@ fi
 [ -z "$(rmt 10 "lsof -nP -iTCP:${P_WEB} -sTCP:LISTEN -t 2>/dev/null | head -1")" ] || die 3 "web 포트 ${P_WEB} 이 15초 안에 비지 않았다 — mini 에서 확인(강제 종료는 이 h 가 하지 않는다)"
 say "        web 포트 ${P_WEB} 비어짐"
 
-say "3/4 next dev 기동 (mock host · 분리 실행)"
-rmt 20 "P_WEB=${P_WEB} P_GW=${P_GW} bash -s" <<'REMOTE' || die 4 "기동 명령 실패"
+say "3/4 next dev 기동 (mock host + 브라우저 E2E 토큰 · 시크릿은 stdin 으로만 · 분리 실행)"
+# 브라우저 mock 토큰(createMockToken)은 NEXT_PUBLIC_BYZ_E2E_JWT_SECRET 이 있어야 만들어진다 — 없으면 토큰 없이 호출 → gateway 401 (러너 1회차 2번째 실패 실측: POST /rooms/*/qr/ensure 401 no-credential)
+# 값은 명령줄·mini 디스크·출력에 남기지 않는다(ssh stdin 첫 줄 → 원격 read → 자식 프로세스 환경)
+SRC="${SRC:-/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents}"
+JWT="$(grep -m1 -E '^BYZ_E2E_JWT_SECRET=' "$SRC/.env" 2>/dev/null | sed "s/^BYZ_E2E_JWT_SECRET=//; s/^[\"']//; s/[\"']\$//" | tr -d '\r')"
+[ -n "$JWT" ] || die 2 "이 맥 $SRC/.env 에 BYZ_E2E_JWT_SECRET 이 없다(이름만 확인 · 값은 출력하지 않는다)"
+START_CODE="$(cat <<'REMOTE'
+IFS= read -r JWT_IN
 cd "$HOME/Project/BYZ-Agents/clients/web" || exit 1
 ( env -u NODE_ENV \
+    NEXT_PUBLIC_BYZ_E2E_JWT_SECRET="$JWT_IN" \
     NEXT_PUBLIC_DEV_MOCK_HOST=1 \
     NEXT_PUBLIC_API_URL="http://127.0.0.1:${P_GW}/api/v1" \
     NEXT_PUBLIC_SSE_URL="http://127.0.0.1:${P_GW}/sse/v1" \
@@ -94,6 +103,9 @@ cd "$HOME/Project/BYZ-Agents/clients/web" || exit 1
 sleep 2
 echo started
 REMOTE
+)"
+printf '%s\n' "$JWT" | timeout 20 ssh "${SO[@]}" "$MINI" "export PATH=/opt/homebrew/bin:\$HOME/.local/bin:\$PATH; P_WEB=${P_WEB} P_GW=${P_GW} bash -c $(printf '%q' "$START_CODE")" || die 4 "기동 명령 실패"
+unset JWT
 
 say "4/4 증거 (첫 컴파일 때문에 최대 60초 기다린다)"
 EV="$(timeout 80 ssh "${SO[@]}" "$MINI" "export PATH=/opt/homebrew/bin:\$HOME/.local/bin:\$PATH; P_WEB=${P_WEB} bash -s" <<'REMOTE' 2>&1
