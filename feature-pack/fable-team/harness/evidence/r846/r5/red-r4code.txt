@@ -1,0 +1,65 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+_ test_r5_da_r4_counterexample_deeply_nested_planner_roster_marks_board_and_card_still_posts _
+
+env = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-901/test_r5_da_r4_counterexample_d0')
+slack = <_slack_fakes.FakeSlack object at 0x1094bae10>
+
+    def test_r5_da_r4_counterexample_deeply_nested_planner_roster_marks_board_and_card_still_posts(env: Path, slack: FakeSlack):  # noqa: F811
+        start(env, slack)
+        (env / "seats-planner.json").write_text("[" * 1500 + "]" * 1500, encoding="utf-8")  # DA r4 반례 — 1,500겹 중첩 배열 → json.loads RecursionError
+        hil_row(env, 2, "src#1")
+        r = run(env, slack)
+>       assert r.returncode == 0 and "Traceback" not in r.stderr
+E       AssertionError: assert (1 == 0)
+E        +  where 1 = CompletedProcess(args=['/opt/homebrew/opt/python@3.11/bin/python3.11', '/Users/yoonhwan/Project/ai-feature-pack/.workt...^^^^^^^^^^^^^^^\nRecursionError: maximum recursion depth exceeded while decoding a JSON array from a unicode string\n').returncode
+
+tests/scripts/test_mirror_question_cap_r846.py:143: AssertionError
+_________ test_r5_live_planner_reports_recursion_error_with_error_log __________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-901/test_r5_live_planner_reports_r0')
+capsys = <_pytest.capture.CaptureFixture object at 0x1094e3090>
+
+    def test_r5_live_planner_reports_recursion_error_with_error_log(tmp_path: Path, capsys):
+        import mirror_share as ms
+        p = tmp_path / "seats-planner.json"
+        p.write_text("[" * 1500 + "]" * 1500, encoding="utf-8")
+>       assert ms.live_planner(p) == (None, "JSON 오류 RecursionError")
+               ^^^^^^^^^^^^^^^^^^
+
+tests/scripts/test_mirror_question_cap_r846.py:155: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+kit/slack-mirror/mirror_share.py:89: in live_planner
+    data = json.loads(raw)
+           ^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/json/__init__.py:346: in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/json/decoder.py:337: in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <json.decoder.JSONDecoder object at 0x1015a03d0>
+s = '[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[...]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]'
+idx = 0
+
+    def raw_decode(self, s, idx=0):
+        """Decode a JSON document from ``s`` (a ``str`` beginning with
+        a JSON document) and return a 2-tuple of the Python
+        representation and the index in ``s`` where the document ended.
+    
+        This can be used to decode a JSON document from a string that may
+        have extraneous data at the end.
+    
+        """
+        try:
+>           obj, end = self.scan_once(s, idx)
+                       ^^^^^^^^^^^^^^^^^^^^^^
+E           RecursionError: maximum recursion depth exceeded while decoding a JSON array from a unicode string
+
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/json/decoder.py:353: RecursionError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_mirror_question_cap_r846.py::test_r5_da_r4_counterexample_deeply_nested_planner_roster_marks_board_and_card_still_posts
+FAILED tests/scripts/test_mirror_question_cap_r846.py::test_r5_live_planner_reports_recursion_error_with_error_log
+2 failed, 27 deselected in 0.68s
