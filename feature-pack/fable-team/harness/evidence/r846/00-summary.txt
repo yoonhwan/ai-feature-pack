@@ -1,0 +1,48 @@
+r846 슬랙 라우터 질문 상한 — 나노 byz-harness-nano-r846-slack-router-question-cap#0 · base origin/main f1cbd005
+
+바꾼 것
+- kit/slack-mirror/mirror_questions.py add: seat 가 «이름#계보»(SEAT_NAME) 아니면 False(장부 0 · 카드는 그대로 게시)
+  · 같은 thread_ts ∧ 같은 seat 의 열린·전달된 앞 질문 → resolved {at, why: superseded} · 늦게 온 옛 seq 는 자기 자신을 superseded(새 질문을 닫지 않음)
+- kit/slack-mirror/mirror_plan.py _plan: 질문 여럿 → 원문 + «열린 질문:» 목록(Q<번호> · <좌석> · <첫 줄 60자>) 최대 5줄 · 넘으면 «외 N개» · 받는 이 planner 그대로(자동 선택 0)
+- byz_mbox_slack_mirror.py 변경 0(add False 여도 카드 send 그대로 — 카드 §구현 범위 3)
+
+카드와 다른 점(편차 1)
+- ⓑ 좌석 판별 = ft-name-lint 엄격 문법이 아니라 «^[A-Za-z0-9][A-Za-z0-9_.-]*#\d+$»(계보 번호 필수).
+  이유: 실 mailbox [HIL] 보낸 이에 구 이름 FB_CFO#46 · CFO_OPS_ARCH#6 이 있다(엄격 문법이면 그 좌석 질문이 안 열림) ·
+  기존 시험 픽스처(src#1 · ft-a#1 · s#1 · fixture-worker#1)가 엄격 문법에 안 맞아 130건 회귀가 깨진다.
+  도구(ft-model-swap · ft-hil · slack-oppa · 빈 값)는 계보 번호가 없어 둘 다 막힌다 — ⓐ 목적 동일.
+
+시험 (tests/scripts/test_mirror_question_cap_r846.py · 19건)
+- ⓐ 도구 질문 50 → 장부 0 · 오빠 글 = «추정: 열린 질문 없음» 길 · e2e: ft-model-swap [HIL] 행 → 카드 게시 · 장부 open {}
+- ⓑ 막힘 7종(ft-model-swap · '' · slack-oppa · ft-hil · 계보 없는 좌석 · 'a#' · '#3') · 열림 4종(byz 좌석 · nano 좌석 · FB_CFO#46 · src#1)
+- ⓒ 같은 좌석·스레드 Q10→Q11 = Q10 superseded · tombstone 재개 부활 0 · «Q10 …» = 번호 못 찾음 길 · 전달됨도 superseded · 다른 스레드·다른 좌석은 유지 · 늦은 옛 seq 는 새 질문을 닫지 않음
+- ⓓ 좌석 2개 → planner 단독 · 목록 2줄(60자 절단) · 7개 → 5줄 + «외 2개»
+- ⓔ 질문 1개 · 번호 지정 · 팀 스레드 · --to-key 고정 = 지금과 같음
+- ⓕ 변이 3종 각 FAIL: mut-seat(좌석 꼴 판별 삭제 → ⓐ) · mut-supersede(→ ⓒ) · mut-list(→ ⓓ)
+
+결과
+- red-base.txt: 기준판 15 failed 4 passed (변경 전 코드)
+- green.txt: 19 passed rc=0
+- regress.txt: 기존 mirror 시험 5파일 + 새 파일 149 passed 1 skipped rc=0 (기준판 130 passed 1 skipped)
+- preexisting-*.txt: test_question_board.sh(byz_mbox_slack_mirror.py 203줄 > 200) · test_slack_readonly_share.sh(Namespace state_dir 없음) 는 기준판에서 이미 rc=1 · 변경 뒤 FAIL 줄 동일(새 실패 0)
+- ruff check 3파일 All checks passed
+- press 필요: 없음(슬랙 라우터 · 오디오 무관)
+
+── r2 (외부 DA r1 HOLD 반송 · REWORK-r846-r2 · arch 136) ──
+DA 반례: from="ft-model-swap#1" → «이름#N» 꼴만 봐서 질문이 열림 · _plan("1번") 이 그 도구로 보냄.
+고침: 질문을 여는 보낸 이 = 명부에 있는 좌석(꼴이 아니라 실재)
+- mirror_questions.on_roster(seat, fdir): fdir/seats*.json 전부의 좌석 이름(«_» 로 시작 안 하는 키) 정확 일치 또는 같은 계보(#N 만 다름)
+  · 명부 못 읽음(파일 0 · JSON 깨짐 · 최상위가 객체 아님) = False + stderr «WARN: 명부 못 읽음 — 질문 열기 0» (fail-closed · 카드는 게시)
+- byz_mbox_slack_mirror._send_item: on_roster 참일 때만 mq.add · 명부 폴더 = Path(planner_seats).parent
+  (라이브 plist: --planner-seats 없음 → mailbox 에서 유도한 <루트>/.fable-team/seats-planner.json 의 폴더 = .fable-team · 새 env 0)
+- SEAT_NAME(꼴) 은 add 의 1차 거름망으로 남김
+- 기존 공용 시험 헬퍼(test_byz_mbox_slack_mirror.py): rows_file 이 보낸 이 src#1 을 임시 명부 seats-fixture.json 에 등록 · run 이 --planner-seats <tmp>/seats-planner.json 을 넘김(명부 폴더 = 그 시험의 tmp — 공유 basetemp 읽기 0)
+
+r2 결과 (evidence/r846/r2/)
+- green.txt: 23 passed rc=0 (r2 4건 추가: DA 반례 e2e · 명부 구 이름 FB_CFO#46 열림 + 명부 밖 이름#N 닫힘 · 명부 깨짐 = 0 + WARN · on_roster 단위)
+- red-base-r1.txt: r1 코드(aa304ee9)에 r2 시험 → 4 failed
+- regress.txt: 기존 mirror 시험 5파일 + 새 파일 153 passed 1 skipped rc=0
+- 변이 5종 각 FAIL: mut-roster-check(명부 확인 삭제 → 반례 칸) · mut-unreadable-pass(못 읽음 = 통과 → 깨짐 칸) · mut-seat · mut-supersede · mut-list
+- live-roster-readonly.txt: 실 명부 읽기 전용 — byz 좌석·FB_CFO#46·CFO_OPS_ARCH#6 True · ft-model-swap(#1) False
+- preexisting: test_question_board.sh 줄 수 검사 byz_mbox_slack_mirror.py 203 → 204(이미 기준판 FAIL · +1 줄 = on_roster 조건) · test_slack_readonly_share.sh FAIL 줄 동일
+- ruff 5파일 All checks passed · press 필요: 없음

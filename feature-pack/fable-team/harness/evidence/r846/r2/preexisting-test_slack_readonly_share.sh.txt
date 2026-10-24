@@ -1,0 +1,6 @@
+## base (origin/main)
+AttributeError: 'Namespace' object has no attribute 'state_dir'
+FAILED rc=1
+## after r846 r2
+AttributeError: 'Namespace' object has no attribute 'state_dir'
+FAILED rc=1
