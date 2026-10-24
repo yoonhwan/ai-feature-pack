@@ -11,7 +11,7 @@ import sys
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # python -I 은 스크립트 폴더를 path 에 넣지 않는다
-from ft_head_lag_seats import master_of, seats_by_wt, skip_regex, team_of, warn
+from ft_head_lag_seats import load_state, master_of, seats_by_wt, skip_regex, team_of, warn
 
 
 def git(repo, *a):
@@ -112,14 +112,11 @@ def main():
     remind = int(os.environ.get("FT_HEAD_LAG_REMIND_H", "6")) * 3600
     with open(sf + ".lock", "w") as lk:
         fcntl.flock(lk, fcntl.LOCK_EX)
-        try:
-            st = {k: v for k, v in json.load(open(sf)).items() if k.endswith("@" + msha)}
-        except (OSError, ValueError):
-            st = {}
-        by = seats_by_wt([os.path.realpath(w["path"]) for w in wts])
+        st = load_state(sf, {s["real"] for s in stale})   # R836: 키 = 워크트리 하나(main sha 무관)
+        by =seats_by_wt([os.path.realpath(w["path"]) for w in wts])
         groups, failed = {}, set()
         for s in stale:
-            rec = st.get(f"{s['real']}@{msha}")
+            rec = st.get(s["real"])
             if s["secs"] < minutes * 60 or (rec and (rec["n"] >= 2 or now - rec["ts"] < remind)):
                 continue
             for team in sorted({t for t in map(team_of, by[s["real"]]) if t}):
@@ -134,12 +131,10 @@ def main():
                     sent[s["real"]] = seq
                 else:
                     failed.add(s["real"])
-        for real, seq in sent.items():
-            if real not in failed:
-                key = f"{real}@{msha}"
-                st[key] = {"seq": seq, "ts": now, "n": st.get(key, {}).get("n", 0) + 1}
+        for real in sent.keys() - failed:
+            st[real] = {"seq": sent[real], "ts": now, "n": st.get(real, {}).get("n", 0) + 1}
         tmp = f"{sf}.{os.getpid()}"
-        json.dump(st, open(tmp, "w"), ensure_ascii=False)
+        json.dump({"v": 2, "seats": st}, open(tmp, "w"), ensure_ascii=False)   # R836 r3: 판 번호로 새·옛을 가른다(키 글자 해석 0)
         os.replace(tmp, sf)
     return 5 if failed else 0
 

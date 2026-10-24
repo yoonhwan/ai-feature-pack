@@ -1,0 +1,23 @@
+PASS bash -n land
+PASS ft-merge-land.sh ≤ 120줄
+PASS ⓐ 착지 실패(non-FF 거절) → 기준 헤드 옛 값 그대로
+FAIL ⓐ 착지 성공 → 기준 헤드 파일 = 새 main sha(1줄) :: rc=1 out=REJECT 대상 리포 remote URL 해석 실패(fetch·push URL 이 같은 github owner/name 이어야) — 어느 리포 PR 인지 몰라 착지 0 (착지 0)
+PASS ⓐ 임시 파일 잔재 0(원자 교체)
+PASS ⓑ 뒤처진 팀 A·B master 에 각 1통(팀당 1통)
+PASS ⓑ 알림에 워크트리·브랜치·N커밋·N시간·명령 줄
+PASS ⓑ A 알림에 남의 워크트리·최신(lagC)·좌석 없는 곳(lagD)·release 브랜치(lagR) 없음
+PASS ⓑ B 알림 = lagB · 좌석 없는 lagD 알림 0
+PASS ⓒ 같은 main sha 재실행 → 0통
+PASS ⓒ 안전망(--cron)도 이미 알린 건 0통
+PASS ⓕ --summary 1줄(좌석 없는 lagD 포함 · 최신 lagC·release 제외)
+PASS ⓓ 6시간 뒤에도 그대로 → 재알림 1(팀당)
+PASS ⓓ 그 뒤 0(재촉 상한 1)
+PASS ⓔ 새 main sha → 다시 1(팀당) · 문턱 미만(lagC 10분)은 제외
+PASS ⓔ 문턱 5분이면 lagC 알림 1
+PASS ⓖ fetch 실패 → stderr ERROR · rc 4 · 알림 0
+PASS ⓕ 뒤처짐 0곳 → 빈 출력
+PASS bash -n head-lag
+PASS 진입 ≤ 40줄 · py 각 ≤ 150줄
+PASS 정적: head-lag 에 git reset·rebase·push·merge·force 0(읽기 전용)
+PASS core.bare 오염 0
+FAILED 1
