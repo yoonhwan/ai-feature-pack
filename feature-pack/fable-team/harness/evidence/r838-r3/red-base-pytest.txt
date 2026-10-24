@@ -1,0 +1,6 @@
+FAILED test_model_swap_account_outage_r838.py::test_r6_seat_key_kept_on_user_retry_closed_only_by_normal_turn
+FAILED test_model_swap_account_outage_r838.py::test_r8_summary_or_meta_record_does_not_close_outage
+FAILED test_model_swap.py::test_kit_copies_identical_and_size - AssertionErro...
+FAILED test_ft_api_outage.py::test_kit_copy_is_identical - assert b'"""ft_api...
+FAILED test_ft_api_outage.py::test_r838_summary_or_meta_record_is_not_recovery
+5 failed, 45 passed in 22.79s

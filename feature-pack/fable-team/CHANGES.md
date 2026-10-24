@@ -1,3 +1,16 @@
+## 2026-10-24 — r838 계정 전체 한도 때 자동 교대 보류 1통 · 열기 실패 이유 남기기(1.1.229)
+
+- `ft_model_swap` 이 계정 전체 한도(모든 모델 정지) 때 좌석마다 «[HIL] 자동 교대 불가 · 대체 모델 없음» 을 보냈다(실측 107통 · 같은 좌석 5~6통 = 정지 uuid 가 회차마다 새로 생김). → 후보를 고르기 전 계정 한도 판정: (가) api-outage 상태 «OUTAGE» ∧ 그 시작 뒤 정상 0 = 교대 0 · 발신 0(장애 알림은 ft_api_outage 1통) · (나) 최근 10분 역할 좌석 rate_limit 정지 ≥2 ∧ 첫 정지 뒤 정상 0 = 교대 0 · «[자동 교대 보류] 계정 전체 한도 — 정지 좌석 N · 교대 0 · 풀리면 ft_api_outage 재개» 장애당 1통(state `outage_open`·`outage_notified` 최근 20 · 정상 1 이 오면 닫힘). 장애 표식이 켜져도 그 뒤 다른 모델 정상이 있으면 모델 하나 한도 = 지금 규칙(교대).
+- 좌석 «교대 불가» 알림 키 = (계보 · 막힌 이유)(state `blocked` · 그 계보 정지가 풀리면 삭제 → 다시 막히면 새 1통) · 쪽지 머리 `[자동 교대 불가]`·`[자동 교대 보류]` — `[HIL]` 0(슬랙 미러가 질문으로 열어 desk 스레드에 쌓임) · 본문 «필요한 결정: 손 교대 여부(planner 인터뷰)». 옛 `hil` uuid 목록은 그대로 둠(읽기·쓰기 0).
+- `ft-successor-open.sh` tmuxc open 실패 때 출력 마지막 3줄(200자 · `token=`·`sk-` 꼴 가림)을 «REJECT … — 송신 0 · 이유: …» 끝에 남긴다(옛 판 = 출력 버림 → 10-21 실패 원인 복원 불가).
+- 시험 `tests/scripts/test_model_swap_account_outage_r838.py` 7 + `test_successor_open.sh` ⓕ-2 · 기준판 빨강(새 갈래 4 FAIL · ⓕ-2 FAIL) · 변이 6(계정 한도 갈래 삭제 · «정상 0» 삭제 · 키 uuid · 머리 [HIL] · 장애 중 발신 0 삭제 · 출력 버리기) 모두 빨강.
+
+- r2(외부 DA⑥ r1 HOLD 5 반송): ①장애 키(`outage_open`)는 «시작 뒤 정상 assistant 턴» 을 볼 때만 닫음 — 후보 없음·사용자 재시도는 키 유지(같은 장애 보류 2통 막음) ②«교대 불가» 키에 알린 시각 · 그 뒤 그 좌석 정상 턴이 있으면 지금 정지 = 새 1통(검사 사이 재정지 누락 막음) ③(나) = 교대 표의 «서로 다른 모델 2개 이상» 정지 — 같은 모델 여럿 = 모델 하나 한도 → r497 교대 ④api-outage 상태 모양 검사(status ∈ OK·OUTAGE·RECOVERED · OUTAGE 면 since 양의 정수) 어긋남 = ERROR · 교대 0 · rc 1 ⑤열기 실패 이유 가림 확대(Bearer 값 · 이름에 authorization/token/secret/key/password 가 든 `이름=값`·`이름: 값` · sk-/ghp_/github_pat_/xox?-/AKIA 낱말) 뒤 200자. 계정 한도 판정은 형제 모듈 `ft_model_swap_account.py`(Swap 이 상속 · 200줄 상한) · 시험 ⓡ1~ⓡ5 · 변이 6 빨강 · 시험 실행 `python -I -B`.
+
+- r3(DA⑥ r2 HOLD 3 · 재설계): 세 정의를 함수 하나씩 — ①정상 턴 = `is_normal` 하나(model 있음·<synthetic> 아님 ∧ 오류·요약 `isCompactSummary`·메타 `isMeta`·`isSidechain` 아님 · ft_api_outage 도 같은 함수라 요약·메타 레코드로 «장애 끝·재개» 0) ②알림 키(`outage_open`·`blocked`) 닫기 = `close_keys` 하나(키 값 = 알린 시각 · 그 뒤 정상 턴이 있을 때만 · 계보 사라짐 24시간 뒤) ③열기 실패 이유 가림 = 줄 단위(민감 낱말 뒤 줄 끝까지 · eyJ JWT 포함). 시험 ⓡ6·ⓡ7·ⓡ8 · 변이 7 빨강.
+
+- r4(DA⑥ r3 HOLD 2): 알림 키 값 = {at 알린 시각, seen 마지막 정지 본 시각}(옛 정수 = 둘 다 그 값 · 깨진 값 = ERROR 1줄 + 키 유지) · 지금 정지면 seen = now · 닫힘 = at 뒤 정상 턴 또는 now−seen ≥ 24시간(살아 있는 계보 0 이어도). 시험 ⓡ9·ⓡ9b · 변이 2 빨강.
+
 ## 2026-10-24 — r836 head-lag 재발송 막기 기록 키 = 워크트리 하나(1.1.228)
 
 - `ft-head-lag` 가 main 이 움직일 때마다 같은 워크트리에 경고를 다시 보냈다(기록 키에 main sha 가 들어가 매 커밋이 새 키). → 기록 키 = 워크트리 경로 하나(main sha 무관) · 상태 파일 `{"v": 2, "seats": {경로: 기록}}` · 새 판 키 글자 그대로 · `v` 없는 옛 판만 마지막 `@` 로 합쳐 읽고 다음 저장 때 새 판으로 · `v≠2` 또는 seats 없음/비dict = 빈 상태 + WARN.

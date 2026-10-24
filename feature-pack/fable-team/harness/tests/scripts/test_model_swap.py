@@ -86,7 +86,7 @@ class Fx:
         _ = (self.tmp / "panes").write_text("".join(f"{s}\t{WT}\n" for s in self.sessions), encoding="utf-8")
         env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
         env.update(TZ="UTC", FT_TMUX=str(self.tmp / "tmux"), FT_CLAUDE_PROJECTS=str(self.tmp / "projects"), FT_SUCCESSOR_OPEN=str(self.tmp / "so"))
-        cmd = [sys.executable, "-I", str(SWAP), "--root", str(self.root), "--mbox", str(self.tmp / "mbox"), "--now", str(now), *extra]
+        cmd = [sys.executable, "-I", "-B", str(SWAP), "--root", str(self.root), "--mbox", str(self.tmp / "mbox"), "--now", str(now), *extra]
         return subprocess.run(cmd, capture_output=True, text=True, env=env, timeout=30)
 
     def args(self) -> list[str]:
@@ -183,8 +183,8 @@ def test_g_limited_fallback_moves_to_next_then_hil_once(tmp_path):  # ⓖ
         r = fx.run(now)
         assert r.returncode == 0 and f"HIL {ARCH} 대체 모델 없음" in r.stdout
     assert not fx.argv.exists()
-    hil = [m for m in fx.mail() if m[2].startswith("[HIL]")]
-    assert len(hil) == 1 and hil[0][0] == PLANNER
+    hil = [m for m in fx.mail() if m[2].startswith("[자동 교대 불가]")]  # r838 ⓗ: 머리 [HIL] 0 · 키 = (계보 · 이유)
+    assert len(hil) == 1 and hil[0][0] == PLANNER and not any(m[2].startswith("[HIL]") for m in fx.mail())
 
 
 def test_i_no_goal_source_is_hil_and_no_swap(tmp_path):  # ⓘ
@@ -247,6 +247,6 @@ def test_tick_dry_run_lists_model_swap_kind(tmp_path):  # ft-tick 호출부 · �
 
 
 def test_kit_copies_identical_and_size():
-    for name in ("ft_model_swap.py", "model-fallback.tsv", "ft_api_outage.py", "ft_api_outage_util.py", "ft-tick.sh"):
+    for name in ("ft_model_swap.py", "ft_model_swap_account.py", "model-fallback.tsv", "ft_api_outage.py", "ft_api_outage_util.py", "ft-tick.sh"):
         assert (KIT / name).read_bytes() == (BIN / name).read_bytes(), name
-    assert len(SWAP.read_text(encoding="utf-8").splitlines()) <= 180
+    assert len(SWAP.read_text(encoding="utf-8").splitlines()) <= 200  # r838: 계정 한도 판정 +20줄 · 상한 = 리포 규칙 200
