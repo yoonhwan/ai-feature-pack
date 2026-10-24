@@ -1,0 +1,68 @@
+r847 — 뉴스 원장 ref fetch: 전용 표식 건너뛰기(r706 H3 가져옴) · ls-remote 같으면 fetch 0 · 이 경로 30초 상한 · 같은 경고 1통
+기준판 = pack origin/main f1cbd005 · 나노 = byz-harness-nano-r847-news-ledger-fetch-lsremote-30s#0 (claude-opus-5-5[1m])
+
+바뀐 것 (kit/fable-team/bin = bin 짝 사본 cmp0 · 04-pair-cmp0.txt)
+- ft_news_ledger.py
+  · 0. r706 H3(edeb9dbf) 몫만 가져옴: _fetch_stamp_file·_last_fetch·_mark_fetch(state/news-ledger/fetch.stamp · 성공 때만) — H4(ft-merge-land) 몫 0
+  · fetch_if_stale: 표식 300초 안 = 건너뜀(반올림 1초 허용 — 같은 초에 쓴 표식이 «미래» 로 읽혀 간헐 fetch 하던 것)
+    → ls-remote origin refs/heads/main(7초) == refs/remotes/origin/main 이면 fetch 0 + INFO «fetch 생략(ls-remote 같음)» · 표식 전진
+    → 묻기 실패·다름 = fetch(시도 30초 · start_new_session 묶음 TERM→1초→KILL · 재시도 1 = 첫 시도 출력 0 일 때만 · ls-remote 포함 총 70초)
+    → 실패 키(출력 첫 줄 · 시간 초과 = «시도 상한 N초 초과») 를 이미 알렸으면 FT_LEDGER_SYNC_REPEAT=1 + WARNING(ERROR 아님)
+    → 성공 = 표식 전진 · 실패 키 파일 지움(state/news-ledger/fetch-fail.key · env FT_NEWS_FETCH_FAIL_KEY)
+  · sync_repo: 스크립트 상한 20초 → FETCH_BUDGET_S 70초(스크립트 안 30초 fetch 를 바깥이 먼저 자르지 않게)
+- ft_news_html.py tick: REPEAT 면 머리 줄 경고 0 · «판정 불가» 줄 0(«변화 없음» 도 0 — 낡은 판을 변화 0 으로 쓰지 않음)
+  · 경고가 실제 글로 나갔을 때만(줄 rc0 · 지도 글 게시) mark_fail_announced → 못 낸 경고는 «알림» 으로 치지 않음
+  · 오래 가는 같은 장애 = 기존 check_stale(180분 정지 경보 1통)이 받침
+- ft-ledger-repo-sync.sh: ls-remote(7초) 같으면 fetch 0 · fetch 는 이 스크립트만 timeout -k 1 30(재시도 1 = 출력 0 · 두 번째는 66-SECONDS 로 잘라 총 70초 안) · 공용 fm_fetch/fm_t7(ft-merge-lib.sh) 변경 0
+- 시험: tests/test_news_ledger_fetch_lsremote_r847.sh(새) · test_news_fetch_cap.py ⓑ(상한 env 2초·3초 fetch — 30초 상한이라 옛 11초 꼴은 성공함) · test_r809 ⓓ(원격 == 로컬 → 받기 0)
+  · test_r706_news_fetch_stamp.py(edeb9dbf 그대로)
+
+시험
+- 01-before-red.txt : 새 시험 × 기준판 bin → FAILED 11 (ⓐ fetch=1 · ⓑ ls=0 · ⓒ 25초 10.5초 상한 실패 · ⓓ · ⓔ «판정 불가» 매 틱 · 남은 자식 sleep 실재)
+- 02-green.txt      : 새 시험 × 새 bin → ALL PASS (ⓐ ⓑ ⓒ25 ⓒ35(62초 · 시도 2) ⓓ ⓔ ⓖ×4 남은 자식 0) rc=0
+- 03-existing.txt   : ⓕ 기존 묶음 — 파이썬 92 → 99 passed(+r706 7) · ledger_repo_sync ALL PASS · news_html 39 passed · kit_bin_sync ALL PASS
+                      merge_gate FAIL 1 · kit_exec_modes FAIL 4 = 기준판과 같은 줄
+- 변이(ⓖ, 02 안): 표식→FETCH_HEAD 본문 읽기 → ⓐ FAIL · ls-remote 생략 삭제 → ⓑ FAIL · 30→10.5초 → ⓒ 25초 FAIL · 같은 경고 키 삭제 → ⓔ FAIL
+
+r2 — 외부 DA r1 HOLD(design/harness/evidence/r847-da6/da-20261024-140512-61425.out · gpt-6.1-sol) 반례 3 처리(REWORK-r847-r2)
+- ① 실패 키 = 실패 출력 «전체»(stdout+stderr · 앞뒤 공백 정리) sha256 앞 16자 · 시간 초과 = «시도 상한 초과 <부분 출력 해시>»(초 수는 남은 마감 따라 달라 키에서 뺌) · 경고 문구는 그대로 첫 줄
+- ② 단계 상한 = min(단계 상한, 남은 마감 − TERM→KILL 유예 1초 − 회수 여유 0.5초) · ls-remote·로컬 ref 조회도 그 안(_git_capped) · ≤ 0 = 시작 0
+     셸 = min(단계 상한, 67 − SECONDS)(정수 SECONDS 1 + 유예 1 + 기동 1) · 로컬 ref 조회도 timeout 안
+- ③ 재시도 = stdout·stderr «둘 다 0바이트» 일 때만 — 파이썬 = 날것 출력으로 판정 · 셸 = 파일로 받아 -s 판정 · 출력이 있으면 그 첫 줄이 오류
+- 05-r2-green.txt : ALL PASS — r2① 두 번째 tick 새 1통(세 번째 같은 것 생략) · r2② 총 69.515초 ≤ 70.0 · 시도 2 · 남은 자식 0 · r2③ 셸 시도 1 · 오류 = «fatal: stdout 오류 주입»
+     변이 3 FAIL: 키 = 160자 자르기 → r2① · 유예 빼기 삭제 → r2② (71.016초) · 셸 재시도 = rc 만 → r2③ (시도 2)
+- 03-existing.txt r2 절: 파이썬 99 passed · ledger_repo_sync ALL PASS · news_html 39 · merge_gate FAIL 1 = 기준판 같은 줄
+- test_news_fetch_cap ⓔ: _attempt_timeout(67) = 3 − 유예 − 여유 로 단정 조정
+
+r3 — 외부 DA r2 HOLD(보류 2회 · 하드 룰 14 재설계 · REWORK-r847-r3 · VERDICT-r847-da6-r2): 출력 전체 해시 키 = pid 바뀌는 같은 장애가 매 틱 새 경고
+- 같은 경고 판정 = 글자 비교 폐기 → «실패 구간당 1통»: state/news-ledger/fetch-last 1칸(ok|fail · env FT_NEWS_FETCH_LAST)
+  · 이번 실패 ∧ 마지막 ≠ fail → 경고 나감 · 이번 실패 ∧ 마지막 = fail → FT_LEDGER_SYNC_REPEAT=1 · 성공 = ok
+  · fail 은 경고가 실제 글로 나갔을 때만 적힘(mark_fail_announced · 게시 실패 = 다음 틱 다시) · 장기 장애 = check_stale 180분
+  · r2 의 fetch-fail.key·출력 해시(_fail_key·hashlib) 삭제 · ft_news_html.py 변경 0(REPEAT 읽기 그대로 · _announced 독스트링 «이유 키» 글자는 남음)
+  · 받기 30초·ls-remote 생략·총 마감·셸 재시도 부분은 r2 그대로
+- 06-r3-green.txt : ALL PASS — pid 바뀌는 장애 3틱 = 1통 · 사유 바뀜(160자 같음·완전히 다름) = 1통 · 실패→성공→실패 = 2통 · 게시 실패 틱 → 다음 틱 1통 · r2② 69.548초 · r2③
+     변이: 구간 판정 삭제 → ⓔ FAIL · 구간 판정 = 출력 글자 비교 → pid 칸 FAIL(+ 기존 변이 5 FAIL)
+- 03-existing.txt r3 절: 파이썬 99 passed · ledger_repo_sync ALL PASS · news_html 39 · merge_gate FAIL 1 = 기준판 같은 줄
+
+r4 — 외부 DA r3 HOLD(da-20261024-165335-13761.out · 보류 3회 · REWORK-r847-r4 · arch 137): fetch-last 권한 000 → 같은 구간 3통 · 444 → 재실패 0통
+- ft_news_ledger.py: _write_last = 같은 폴더 fetch-last.tmp.<pid> + os.replace(파일 권한 무관 · 실패 때 임시 파일 지움) · 폴더도 못 쓰면 ERROR + FT_NEWS_STATE_ERROR
+  · _read_last 권한 등 OSError = ERROR(알 수 없음 = 경고 냄 쪽) · fetch_if_stale 시작에 FT_NEWS_STATE_ERROR 비움
+- ft_news_html.py: tick = _tick 감싸개 — FT_NEWS_STATE_ERROR 면 rc 1 + 그 사유 · ⓗ 받기 실패(warn) 틱 = 블롭 바뀜과 무관하게 지도·요약 0 ·
+  구간 첫 틱 «[뉴스 HH:MM] 판정 불가 — <사유> · 지도 …» 1통(30분 반복 대기·5분 지도 재시도 대기 앞에서 처리) · 같은 구간 = 게시 0 · 사유 «원장 ref fetch 실패(계속)»
+  · 옛 «지도 머리에 사유 싣기»(r503)·zero-change 안 repeat 분기 삭제 · zero_change_line 지도 기록 없음 = «지도 없음»(KeyError 0)
+- 기존 시험 개정: test_ft_news_html r503 칸(지도 게시 → 지도 0 + 판정 불가 1줄 + 다음 틱 0) · test_r809 ⓑ·ⓖ② 반환 사유 «원장 커밋 0» → «원장 ref fetch 실패»
+- 07-r4-green.txt : ALL PASS — ⓗ 지도 0·30분 창 안 첫 틱 1통·2·3틱 0 · ⓘ 000 3틱 1통·ERROR 1 · ⓙ 444 → 둘째 구간 1통 · ⓚ 폴더 555 rc 1 + 사유 + ERROR · r2② 69.513초
+     변이: os.replace → write_text → ⓘ·ⓙ FAIL · ⓗ 게시 막음 삭제 → ⓗ FAIL · 30분 대기 우회 삭제 → ⓗ FAIL(+ 기존 변이 7 FAIL)
+- 03-existing.txt r4 절: 파이썬 99 passed · news_html 39 · ledger_repo_sync ALL PASS · merge_gate FAIL 1 = 기준판 같은 줄
+- 범위 밖(arch 5): 상태 폴더 자체 장애의 중복 억제(rc 1 로 보이게만) · fm_t7 · ft-ledger-repo-sync.sh(r3 그대로)
+
+범위 밖: 공용 fm_t7 7초 · loose 객체·gc · 뉴스 문구(r754·r827) · 머신 부하 · manifest/CHANGES 버전(착지 때 master)
+press 필요: 없음(오디오 경로 0)
+
+r5 — 외부 DA r4 HOLD(da-20261024-185506-16641.out · 보류 4회 · REWORK-r847-r5 · arch 137 · 재설계 해제): 첨부 대기 ∧ 받기 실패 겹침 = 실패 틱에 08:55 지도 HTML 첨부
+- ft_news_html.py _tick: retry_attach(now) 1줄을 받기 실패(warn) 분기 «뒤» 로 — 받기 실패 틱 = 첨부 재시도 0 · 대기 기록(pending-attach.json)은 남아 회복 틱에 이어서 · 그 밖 변경 0
+- 시험 칸 ⓛ: 실제 ft_news_publish.publish_html·retry_attach 경로(Slack 경계 _target·_find_posted·_link·post_root·upload_file 만 대역) · 151행 빈 대역은 다른 칸 그대로(E_ATTACH 일 때만 실제 경로)
+  08:55 첫 첨부 실패(rc3) → 대기 기록 · 09:00 offline «판정 불가» 1통 · 09:01 offline 게시 0 · 09:02 받기 성공 → 첨부 1 · 대기 기록 비움 · 첨부 «시도» 시각까지 봄(DA 꼴 = 첫 재시도 실패 뒤 09:01 성공도 잡힘)
+- 08-r5-red.txt : r4 코드(275e4bf2 ft_news_html.py) × 새 시험 → FAILED 1 = ⓛ 뿐(09:00 받기 실패 틱에 첨부 1 · ATTACH 09:00) · r1~r4 칸 전부 PASS
+- 09-r5-green.txt : ALL PASS — ⓛ + r1~r4 칸 전부 · 변이 12(새: retry_attach 를 실패 분기 앞으로 → ⓛ FAIL)
+- 03-existing.txt r5 절: 파이썬 99 passed · news_html 39 · ledger_repo_sync ALL PASS · merge_gate FAIL 1 = 기준판 같은 줄
