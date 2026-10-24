@@ -19,7 +19,7 @@
 | hermes 업데이트 지원 | ⚠️ 절차만 앎 | 이미 systemd 사용자 서비스 · `hermes update --check→backup→update→restart→doctor` |
 | 브라우저 시험 이관 | 🟡 진행 | mini: Chrome·BlackHole·마이크 사전 점검 통과(-37.3 dB). h378 rc=0(러너 폐쇄 16파일 배치 · venv websockets/jwt import OK · sha 16/16). **h379 rc=0**(tts-say 설치: sha 일치 · shebang python3.13 · ko_KR 9 · Yuna 1 · help_rc=0). 남음: 서버(h381) · mini 앞 오빠 손 7단계 · 러너 1회차(h382) · ★10-22 17:3x 재개 지점(오빠 맥 재부팅 전 기록): mini 서버 정지됨(h381 stop rc=0) · 오빠 판정 «DB 는 dev(10.2.0.3) — 38309→prod(10.2.0.10) 는 의도 아님» · 자체 IAP 터널 설계 DA 보류 2회(DESIGN-host-iap-tunnels §7, 반박 원문 scratchpad da2) → h-A 를 A1(SA2+IAP 조건부+LLM/STT/TTS 터널, ssh 0)·A2(DB 경로, 리서치 나노 pi deepseek)로 분리. 다음: A1 스크립트(h-iap-tunnel-sa.sh 에서 ssh·메타 제거+버그 수정) 작성→DA r3 / A2 리서치 나노 결과 대기. 재부팅 뒤: 쪽지 recv → 이 줄 → docs/multihost git log ★ |
 | 시험 이관 — mini 서버 (10-23 갱신) | ✅ h2 rc=0 (서버 4개 · gateway 38312·web 38314 · sha 4c876d7f · 포워딩 h18 재개설 38309·8000←18703·8001) |
-| 시험 이관 — mini 자체 IAP 터널 (이 맥 의존 제거) | 🟡 h7 ✅(새 SA 2개·IAP 조건부·키 배치·시험 T1~T4) · h40(h-B) 오빠 대기 → rc=0 이면 h-B2(h-mini-iap-swap.sh) · 옛 키 폐기 h39 대기 |
+| 시험 이관 — mini 자체 IAP 터널 (이 맥 의존 제거) | ✅ LLM·STT 부분 — h101(h-B) rc=0 + h215(h-B2) rc=0 (2026-10-24): mini 8000·8001 = 자체 IAP 터널 LISTEN · /health 200 · STT 동등성 sha 9dcd4d56ced08621 교체 전후 동일 · 이 맥 -R 8000/8001 포워딩 0. 남음: DB 38309 은 이 맥 포워딩 의존(DB 경로 행) · 옛 키 폐기(h-iap-old-keys-delete — 오빠 gcloud developer.ts 재로그인 필요) |
 | 시험 이관 — 러너 1회차 | 🟡 h19 첫 실행 rc=2(CDP 9333 시험용 Chrome 없음) → mini 앞 체크리스트 4번 후 재실행(NEW=1) |
 | hermes 업데이트 — OCI | ✅ v0.15.1→v0.22.4 (h5·h8 rc=0) |
 | hermes 업데이트 — mini · 이 맥 | 🟡 mini h64 · 이 맥 h68(재이식 브랜치 교체) 오빠 대기 |
