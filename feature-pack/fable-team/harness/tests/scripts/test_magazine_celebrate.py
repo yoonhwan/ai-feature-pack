@@ -110,34 +110,34 @@ def calls(env) -> int:
 
 
 def test_a_only_closing_evidence_inside_the_window_is_celebrated(env):
-    span, done = mc.collect(str(env[1]), "HEAD", "doc.md", DATE)
+    span, done = mc.collect(str(env[1]), "HEAD", DATE)
     assert span == "10-15 00:00 ~ 10-16 08:00"
-    # r3 — 카드 축하 재료 = 카드 제목(«끝:» 앞 이름) + sha 만(배경 글 옮기기 삭제 · DA⑥ r2 반례 3)
-    assert [d.title for d in done] == ["툴바 접기", "메일 링크", "r901-easy-news", "r900-easy-news"]
-    assert [d.chip for d in done] == ["원장 · 오빠가 시킨 일"] * 2 + ["harness 팀 · 카드 완성"] * 2
+    # r3 — 카드 축하 재료 = 카드 제목(«끝:» 앞 이름) + sha 만 · r4 — 원장 행 갈래 삭제(카드만 · 창 안 근거 sha 원장 행 «툴바 접기·메일 링크» 도 축하 0)
+    assert [d.title for d in done] == ["r901-easy-news", "r900-easy-news"]
+    assert [d.chip for d in done] == ["harness 팀 · 카드 완성"] * 2
     rc, page = run(env)
     top = part1(page)
-    assert rc == 0 and "툴바 접기" in top and "메일 링크" in top and "r900-easy-news" in top
-    for out in ("가입 메일", "운영 화면", "음성 보정", "키 교체", "r899", "r902", "창 밖 카드", "창 끝 카드", "아침 뉴스를"):
+    assert rc == 0 and "r900-easy-news" in top
+    for out in ("툴바 접기", "메일 링크", "가입 메일", "운영 화면", "음성 보정", "키 교체", "r899", "r902", "창 밖 카드", "창 끝 카드", "아침 뉴스를"):
         assert out not in top
 
 
 def test_b_each_done_has_one_easy_paragraph_and_a_cheer_head(env):
     rc, page = run(env)
     top = part1(page)
-    assert rc == 0 and "🎉 축하해요! 10-15 00:00 ~ 10-16 08:00 사이에 4건을 끝냈어요" in top
-    assert top.count('class="done"') == 4 and top.count("🌱 작은 정원에 새 꽃이 피었어요") == 4 and top.count("<h3>새로 좋아진 일이 생겼어요</h3>") == 4
-    assert "원문 — 툴바 접기 · 완료 — 배포 화면 확인" in top  # 쉬운 제목 아래 원문 한 줄(사실 칸)
-    for token in ("판정 1765", SHAS["툴바"], "#1612"):
-        assert token not in top  # 번호는 근거 표로 · r3 부터 카드 이름은 축하 제목이라 본문에 실린다
+    assert rc == 0 and "🎉 축하해요! 10-15 00:00 ~ 10-16 08:00 사이에 인덱스 카드 기준 2건을 끝냈어요(원장 행 완료는 이번 판 축하에 싣지 않아요)" in top
+    assert top.count('class="done"') == 2 and top.count("🌱 작은 정원에 새 꽃이 피었어요") == 2 and top.count("<h3>새로 좋아진 일이 생겼어요</h3>") == 2
+    assert "원문 — r900-easy-news" in top  # 쉬운 제목 아래 원문 한 줄(사실 칸 = 카드 이름)
     footer = page.split("<footer>")[1]
-    assert f"판정 1765 · {SHAS['툴바']}" in footer and "카드 r900-easy-news" in footer
+    sha = subprocess.run(["git", "-C", str(env[1]), "log", "-1", "--format=%h", "--abbrev=10", "--", "design/harness/indices/완성/r900-easy-news.md"],
+                         check=True, capture_output=True, text=True).stdout.strip()
+    assert sha not in top and f"{sha} 완성 이동 · 카드 r900-easy-news" in footer  # 커밋 번호는 근거 표로
 
 
 def test_b_zero_done_says_zero_honestly_without_any_call(env):
     rc, page = run(env, "2026-10-20")
     top = part1(page)
-    assert rc == 0 and "10-19 00:00 ~ 10-20 08:00 사이에 끝낸 일은 0건이에요" in top
+    assert rc == 0 and "10-19 00:00 ~ 10-20 08:00 사이 인덱스 카드 기준 0건 — 원장 행 완료는 이번 판 축하에 싣지 않아요" in top and "끝낸 일은 0건" not in top
     assert "🎉" not in top and "축하해요" not in top and 'class="done"' not in top and calls(env) == 0
 
 
@@ -166,15 +166,15 @@ def test_e_seven_second_rule_and_visible_failure(env, monkeypatch, caplog):
         rc, page = run(env)
     top = part1(page)
     assert rc == 0 and time.monotonic() - start < 6
-    assert top.count('class="done"') == 4 and top.count("쉬운 풀이 생성 실패 — 호출 실패") == 4 and "쉬운 풀이 생략" in caplog.text
-    assert "<h3>툴바 접기</h3>" in top and "원문 —" not in top  # 실패면 제목 = 원문(사실 칸) 그대로
+    assert top.count('class="done"') == 2 and top.count("쉬운 풀이 생성 실패 — 호출 실패") == 2 and "쉬운 풀이 생략" in caplog.text  # r4 — 카드 2건만
+    assert "<h3>r901-easy-news</h3>" in top and "원문 —" not in top  # 실패면 제목 = 원문(사실 칸) 그대로
 
 
 def test_e_easy_text_breaking_the_guide_is_shown_as_failed(env, monkeypatch, capsys):
     monkeypatch.setenv("ELI5_ANALOGY", "다양한 꽃이 피었어요")
     rc, page = run(env)
     top = part1(page)
-    assert rc == 0 and "다양한" not in page and top.count("쉬운 풀이 생성 실패 — 지침 위반 문장") == 4
+    assert rc == 0 and "다양한" not in page and top.count("쉬운 풀이 생성 실패 — 지침 위반 문장") == 2
     assert "WARN 지침" not in capsys.readouterr().out
 
 
@@ -182,4 +182,4 @@ def test_e_whole_batch_deadline_marks_late_batches_as_timeout(env, monkeypatch):
     monkeypatch.setattr(mb, "DEADLINE_S", 0.5)
     monkeypatch.setenv("ELI5_SLEEP", "1.5")
     rc, page = run(env)
-    assert rc == 0 and part1(page).count("쉬운 풀이 생성 실패 — 시간 초과") == 4
+    assert rc == 0 and part1(page).count("쉬운 풀이 생성 실패 — 시간 초과") == 2

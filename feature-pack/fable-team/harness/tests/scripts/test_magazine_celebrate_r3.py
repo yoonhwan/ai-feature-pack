@@ -1,10 +1,9 @@
-"""r867 r3 재설계 — «같은 일» = 닫는 증거 커밋 sha · eli5 상한 = 조립된 호출 프롬프트 전체 · 카드 축하 = 제목 + sha (DA⑥ r2 반례 3건).
+"""r867 r3·r4 — 원장 행 축하 0(r4 · 카드만) · eli5 상한 = 조립된 호출 프롬프트 전체 · 카드 축하 = 제목 + sha (DA⑥ r2 반례 3건).
 
 판 날짜 10-18 → 창 = 10-17 00:00 ~ 10-18 08:00 KST. 그 전 이력은 test_magazine_celebrate 의 같은 fixture.
 실행: env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE python3 -m pytest tests/scripts/test_magazine_celebrate_r3.py -q
 """
 import json
-import logging
 
 import _magazine_fakes  # noqa: F401 — slack-mirror 경로를 sys.path 에 올린다
 from test_magazine_celebrate import CARD, SHAS, commit, env, ledger, part1, run  # noqa: F401 — 같은 임시 원장·git 이력
@@ -36,28 +35,25 @@ def test_a_whole_prompt_stays_under_the_limit_whatever_the_input():
     assert '"자료": "짧아요"' in prompts[0]  # 짧은 칸은 그대로 — 긴 칸부터 깎는다
 
 
-def test_b_renaming_a_task_done_before_the_window_is_not_new(env):  # noqa: F811 — 위에서 가져온 fixture
-    _, repo, _ = env
-    commit(repo, "2026-10-17T10:00:00+09:00", {"doc.md": ledger({"운영 화면 새 이름": f"완료 — 창 전 착지 (main {SHAS['운영']})"})})
-    assert mc.collect(str(repo), "HEAD", "doc.md", DAY)[1] == []  # 근거 커밋이 창 밖 — 작업명이 바뀌어도 같은 일
-
-
-def test_c_sha_inside_the_window_is_one_done_even_on_two_rows(env, caplog):  # noqa: F811
+def test_c_ledger_rows_alone_are_not_celebrated_and_the_head_says_so(env):  # noqa: F811 — 위에서 가져온 fixture
+    # r4 — 원장 행 축하 갈래 삭제(카드만 · DA⑥ r1~r3 반례 8 중 5 가 원장 행) · 창 안 sha 행·상태 칸 sha 가 앞인 행(DA r3 반례 1)·sha 없는 완료 행(반례 2) 모두 축하 0
     _, repo, _ = env
     sha = commit(repo, "2026-10-17T09:00:00+09:00", {"code/new.txt": "n"})
-    rows = {"새 화면 열기": f"완료 — 화면 확인 (main {sha})", "새 화면 문서": f"완료 — 같은 커밋 (main {sha})", "없는 커밋": "완료 — 착지 (main abcdef1234)"}
+    rows = {"새 화면 열기": f"완료 — 화면 확인 (main {sha})", "상태 칸 앞 커밋": f"완료 — 옛 착지 {SHAS['운영']} 뒤 새 착지 (main {sha})",
+            "근거 없는 완료": "완료 — 시험 통과", "운영 화면 새 이름": f"완료 — 창 전 착지 (main {SHAS['운영']})"}
     commit(repo, "2026-10-17T10:00:00+09:00", {"doc.md": ledger(rows)})
-    with caplog.at_level(logging.WARNING, logger="magazine_doc"):
-        done = mc.collect(str(repo), "HEAD", "doc.md", DAY)[1]
-    assert [d.title for d in done] == ["새 화면 열기 · 새 화면 문서"]
-    assert "근거 커밋 못 읽음 sha=abcdef1234" in caplog.text  # 못 읽는 sha = 축하 0 + WARNING
+    assert mc.collect(str(repo), "HEAD", DAY)[1] == []
+    rc, page = run(env, DAY)
+    top = part1(page)
+    assert rc == 0 and "10-17 00:00 ~ 10-18 08:00 사이 인덱스 카드 기준 0건 — 원장 행 완료는 이번 판 축하에 싣지 않아요" in top
+    assert "끝낸 일은 0건" not in page and 'class="done"' not in top and not any(task in top for task in rows)
 
 
 def test_d_card_celebration_carries_only_title_and_sha(env):  # noqa: F811
     _, repo, _ = env
     bg = "카드 배경이 길어요. " * 60 + "일부 읽기는 실패했어요"
     sha = commit(repo, "2026-10-17T10:00:00+09:00", {"design/harness/indices/완성/r950-long-card.md": CARD.format(n=950, bg=bg)})
-    done = mc.collect(str(repo), "HEAD", "doc.md", DAY)[1]
+    done = mc.collect(str(repo), "HEAD", DAY)[1]
     assert [(d.title, d.source) for d in done] == [("r950-easy-news", "r950-easy-news")] and done[0].evidence.startswith(sha)  # 제목 = 카드 머리 «끝:» 앞 이름
     rc, page = run(env, DAY)
     top = part1(page)

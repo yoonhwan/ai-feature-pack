@@ -20,9 +20,9 @@ def test_rename_inside_done_folder_is_not_a_new_completion(env):  # noqa: F811 �
     _, repo, _ = env
     text = (repo / OLD).read_text(encoding="utf-8")
     commit(repo, "2026-10-17T10:00:00+09:00", {OLD: None, "design/harness/indices/완성/r900-renamed.md": text})
-    span, done = mc.collect(str(repo), "HEAD", "doc.md", "2026-10-18")
+    span, done = mc.collect(str(repo), "HEAD", "2026-10-18")
     assert span == "10-17 00:00 ~ 10-18 08:00" and done == []  # 창 전에 이미 완성/ 이던 카드 — 이름만 바뀜
-    _, done16 = mc.collect(str(repo), "HEAD", "doc.md", "2026-10-16")
+    _, done16 = mc.collect(str(repo), "HEAD", "2026-10-16")
     assert "r901-easy-news" in [d.title for d in done16]  # 진행/ → 완성/ 이동은 그대로 축하(r3 — 제목 = 카드 이름)
 
 

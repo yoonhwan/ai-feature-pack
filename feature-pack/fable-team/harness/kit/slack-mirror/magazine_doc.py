@@ -105,7 +105,7 @@ def run(args: argparse.Namespace) -> int:
     date = args.date or doc_date(doc)  # --date 가 판 날짜(제목에 날짜 없는 오빠 원장) · 둘 다 없으면 doc_date 가 DocError
     prev, note = load_previous(load_state(Path(args.state).expanduser()), args.src_repo, args.src_path, full, read_source)
     brief = build_brief(doc, date, full[:10], prev, note)
-    fill_done(brief, args.src_repo, args.done_ref, args.src_path, args.eli5_cmd)  # r867 ① 축하 칸 — 지침·날짜 가드 «전»에 채워 같은 검사를 받는다
+    fill_done(brief, args.src_repo, args.done_ref, args.eli5_cmd)  # r867 ① 축하 칸(인덱스 카드만 · r4) — 지침·날짜 가드 «전»에 채워 같은 검사를 받는다
     blocked = date_guard(brief.as_doc(), args.publish)  # 상대 날짜(오늘·내일…)가 판에 실리면 발행 0 — 게시 전에 거절(R202)
     flagged = guide_check(brief, args.publish)  # 지침 §3·§4-1 위반 — 같은 규칙(R259)
     if blocked or (flagged and args.publish):

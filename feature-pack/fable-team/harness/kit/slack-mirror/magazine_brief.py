@@ -68,10 +68,10 @@ class Brief:
         return clean
 
     def done_head(self) -> str:
-        """축하 칸 머리 1줄 — 완성 0건이면 꾸민 축하 없이 0건이라고만."""
+        """축하 칸 머리 1줄 — 셈은 «인덱스 카드 기준» 이라고 밝힌다(원장 행 완료는 안 셈 · r4) · 0건이면 꾸민 축하 없이 기준만."""
         if not self.done:
-            return f"{self.span} 사이에 끝낸 일은 0건이에요. 꾸민 축하는 싣지 않아요."
-        return f"🎉 축하해요! {self.span} 사이에 {len(self.done)}건을 끝냈어요. 하나씩 쉬운 말로 풀어 볼게요."
+            return f"{self.span} 사이 인덱스 카드 기준 0건 — 원장 행 완료는 이번 판 축하에 싣지 않아요."
+        return f"🎉 축하해요! {self.span} 사이에 인덱스 카드 기준 {len(self.done)}건을 끝냈어요(원장 행 완료는 이번 판 축하에 싣지 않아요). 하나씩 쉬운 말로 풀어 볼게요."
 
     def cells(self) -> list[Cell]:
         """칸마다 평문 줄 — 날짜 가드·지침 검사가 읽는 «판에 실릴 글»(근거 표 제외)."""
