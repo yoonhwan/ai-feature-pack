@@ -1,3 +1,11 @@
+## 2026-10-27 — r880 재설계 r3: land 정리 계획의 DA r1 반례 4 닫기(1.1.233)
+
+- 착지용 사본(`<리포>/.worktrees/land-*`)이 풀 체크아웃으로 만들어진 뒤 착지가 끝나도 닫는 사건이 없어 쌓였다(BYZ 실측 12곳 · 17GB · sparse 0). → `ft-wt-sweep.sh --land-plan` = ①HEAD 가 `FT_WT_LAND_REF`(기본 origin/main) 조상 ②미커밋 0(추적 밖 파일 포함) ③그 폴더 안에 cwd 를 둔 프로세스(lsof)·tmux pane 0 — 셋 다인 사본만 목록(이름·착지 sha·크기) → 계획 1개 `<state>/wt-clean/land-copies.sh.hil` · ★이 도구는 지우지 않는다★(실행 = 오빠 h). 나머지·잠김 = `KEEP <이름> — <이유>` 1줄 · 좌석을 못 읽으면(lsof·tmux 실패) 목록 0 + ERROR rc1.
+- 계획은 같은 검사 함수(`land_live`·`land_check` · declare -f)를 품고 실행 직전 다시 잰다 — HEAD 가 만든 때 sha 와 다르거나 새 미커밋·살아 있는 좌석이면 skip · 정리 = 깨끗한 워크트리만 받는 git 기본 제거(강제 옵션 0) · 좌석 못 읽으면 중단.
+- `--launchd`(일 1회)가 sweep 뒤 `--land-plan` 1회(FT_WT_LAND_PLAN=0 끔) · 목록이 바뀐 때만 `[HIL] seat=byz-harness-wt-land …` 1줄 → harness master.
+- 생성 쪽(land 용도 sparse — r835 `ft-wt-add.sh`)은 r835 미착지라 이 판에 없음.
+- ★재설계 r3(DA⑥ r1 HOLD 4 반영)★ ①실행 직전 재검사가 «시작 때 목록» 을 쓰던 것 → 사본마다 직전에 tmux·lsof 를 새로 읽는다(계획 생성 쪽·계획 실행 쪽 둘 다 · 못 읽으면 그 사본만 남김). ②tmux rc≠0 을 «좌석 없음» 으로 통과시키던 것 → «no server running» 하나만 좌석 0 · 그 밖(«error connecting … (Permission denied)»)은 계획 생성 중단 + ERROR + 오류 글자 그대로(stderr). ③계획이 사람 승인 진입점에 등록되지 않던 것 → `ft-hil.sh --add <계획>` 로 `/tmp/h<N>` 등록 + «! bash /tmp/h<N>» 한 줄을 [HIL] 알림에 실음(등록기 실패면 경로 안내로 후퇴). ④첫 알림 실패 뒤 재시도가 사라지던 것 → «보냄» 판정을 목록 비교가 아니라 표지로: `<계획>.sig`(지금 목록 해시) · `<계획>.sent`(실제로 나간 목록 해시) · mbox send 성공 뒤에만 `.sent` · 표지가 없거나 다르면 목록이 그대로여도 재발송. 시험은 칸 4(ⓐ~ⓓ) + 변이 4 를 더해 71 PASS · 기준판(r1 코드) FAIL 18 · 회귀 3종 rc0 · 증거 `harness/evidence/r880/r2-*.txt`. 시험 `tests/test_wt_sweep_land_plan_r880.sh` 39 · 기준판 빨강 22 · 변이 2(착지 조상 검사 제거 · 계획 대신 바로 정리) 빨강 · 증거 `harness/evidence/r880/`.
+
 ## 2026-10-24 — r838 계정 전체 한도 때 자동 교대 보류 1통 · 열기 실패 이유 남기기(1.1.230)
 
 - `ft_model_swap` 이 계정 전체 한도(모든 모델 정지) 때 좌석마다 «[HIL] 자동 교대 불가 · 대체 모델 없음» 을 보냈다(실측 107통 · 같은 좌석 5~6통 = 정지 uuid 가 회차마다 새로 생김). → 후보를 고르기 전 계정 한도 판정: (가) api-outage 상태 «OUTAGE» ∧ 그 시작 뒤 정상 0 = 교대 0 · 발신 0(장애 알림은 ft_api_outage 1통) · (나) 최근 10분 역할 좌석 rate_limit 정지 ≥2 ∧ 첫 정지 뒤 정상 0 = 교대 0 · «[자동 교대 보류] 계정 전체 한도 — 정지 좌석 N · 교대 0 · 풀리면 ft_api_outage 재개» 장애당 1통(state `outage_open`·`outage_notified` 최근 20 · 정상 1 이 오면 닫힘). 장애 표식이 켜져도 그 뒤 다른 모델 정상이 있으면 모델 하나 한도 = 지금 규칙(교대).

@@ -1,0 +1,53 @@
+PASS bash -n
+== ⓑ 착지 끝난 land 사본만 계획 1개 · 삭제 0
+PASS ⓑ rc 0
+FAIL ⓑ 대상 3곳(land-done·2·3) · 크기 합 — 없음: «LAND-PLAN 3곳 3000KB» ← sweep 계획 0 · cleaned/none 0 · wait 0 · hil 0
+FAIL ⓑ 목록 줄 = 이름·착지 sha·크기 — 없음: «LAND land-done sha=bfcc3082a0cb kb=1000» ← sweep 계획 0 · cleaned/none 0 · wait 0 · hil 0
+ls: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VxDrywPR7e/state/wt-clean: No such file or directory
+FAIL ⓑ 계획 파일 1개 (got=[0] want=[1])
+grep: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VxDrywPR7e/state/wt-clean/land-copies.sh.hil: No such file or directory
+FAIL ⓑ 계획의 land_rm 줄 = 3 (got=[] want=[3])
+FAIL ⓑ 첫 목록 = [HIL] 1줄 — 없음: «[HIL] seat=byz-harness-wt-land 착지 끝난 land 사본 3곳» ← sweep 계획 0 · cleaned/none 0 · wait 0 · hil 0
+PASS ⓑ 삭제 호출 0 — 워크트리 수 그대로
+PASS ⓑ 삭제 호출 0 — land-done 폴더 그대로
+PASS ⓑ land-* 아닌 사본은 대상 밖
+PASS ⓑ 목록이 같으면 [HIL] 0(바뀐 때만)
+== ⓒ 목록 밖 — 이유 1줄
+grep: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VxDrywPR7e/state/wt-clean/land-copies.sh.hil: No such file or directory
+PASS ⓒ land-dirty 계획 밖
+grep: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VxDrywPR7e/state/wt-clean/land-copies.sh.hil: No such file or directory
+PASS ⓒ land-alive 계획 밖
+grep: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VxDrywPR7e/state/wt-clean/land-copies.sh.hil: No such file or directory
+PASS ⓒ land-locked 계획 밖
+grep: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VxDrywPR7e/state/wt-clean/land-copies.sh.hil: No such file or directory
+PASS ⓒ land-unlanded 계획 밖
+FAIL ⓒ 미커밋 이유 — 없음: «KEEP land-dirty — 미커밋 1줄» ← sweep 계획 0 · cleaned/none 0 · wait 0 · hil 0
+FAIL ⓒ 미착지 이유 — 없음: «KEEP land-unlanded — 미착지» ← sweep 계획 0 · cleaned/none 0 · wait 0 · hil 0
+FAIL ⓒ 좌석 살아 있음 이유(cwd) — 없음: «KEEP land-alive — 좌석·프로세스 살아 있음» ← sweep 계획 0 · cleaned/none 0 · wait 0 · hil 0
+FAIL ⓒ 잠김 이유 — 없음: «KEEP land-locked — 잠김» ← sweep 계획 0 · cleaned/none 0 · wait 0 · hil 0
+FAIL ⓒ tmux pane 이 안에 = 목록 밖 — 없음: «KEEP land-done3 — 좌석·프로세스 살아 있음» ← sweep 계획 0 · cleaned/none 0 · wait 0 · hil 0
+FAIL ⓒ 목록이 바뀌면 [HIL] 다시 1줄 — 없음: «[HIL]» ← sweep 계획 0 · cleaned/none 0 · wait 0 · hil 0
+mv: rename /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VxDrywPR7e/state/wt-clean/land-copies.sh.hil to /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VxDrywPR7e/plan.keep: No such file or directory
+FAIL ⓒ 좌석 못 읽음 → rc 1 (got=[0] want=[1])
+FAIL ⓒ 좌석 못 읽음 → 이유 — 없음: «ERROR land 목록 건너뜀 — tmux 목록 실패» ← sweep 계획 0 · cleaned/none 0 · wait 0 · hil 0
+PASS ⓒ 좌석 못 읽음 → 계획 0
+== ⓕ 계획 실행 순간 다시 잰다(= 오빠 h)
+grep: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VxDrywPR7e/state/wt-clean/land-copies.sh.hil: No such file or directory
+FAIL ⓕ 다시 만든 계획 = 3곳 (got=[] want=[3])
+FAIL ⓕ 계획 rc 0 (got=[127] want=[0])
+FAIL ⓕ 검사 통과 = git worktree remove — 없음: «removed /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VxDrywPR7e/repo/.worktrees/land-done» ← bash: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VxDrywPR7e/state/wt-clean/land-copies.sh.hil: No such file or directory
+FAIL ⓕ land-done 지워짐 (got=[yes] want=[no])
+FAIL ⓕ 만든 뒤 미커밋 = skip — 없음: «skip /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VxDrywPR7e/repo/.worktrees/land-done2 — 미커밋 1줄» ← bash: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VxDrywPR7e/state/wt-clean/land-copies.sh.hil: No such file or directory
+FAIL ⓕ 만든 뒤 HEAD 바뀜 = skip(낡은 목록으로 지우기 0) — 없음: «skip /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VxDrywPR7e/repo/.worktrees/land-done3 — HEAD 바뀜» ← bash: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VxDrywPR7e/state/wt-clean/land-copies.sh.hil: No such file or directory
+PASS ⓕ land-done2 남음
+PASS ⓕ land-done3 남음
+PASS ⓕ land-dirty 남음
+PASS ⓕ land-alive 남음
+PASS ⓕ land-locked 남음
+PASS ⓕ land-unlanded 남음
+PASS ⓕ nano-x 남음
+FAIL ⓕ 실행 때 좌석 못 읽음 → 중단 rc 1 (got=[127] want=[1])
+FAIL ⓕ 중단 이유 — 없음: «중단 — tmux 목록 실패(rc=1)(지우기 0)» ← bash: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VxDrywPR7e/state/wt-clean/land-copies.sh.hil: No such file or directory
+
+FAILED 21
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

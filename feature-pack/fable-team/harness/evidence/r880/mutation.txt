@@ -1,0 +1,2 @@
+KILLED M1 — rc=1 · FAIL ⓒ land-unlanded 계획 밖 — 있으면 안 됨: «/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.U0ZDsAtnF6/repo/.worktrees/land-unlanded »
+KILLED M2 — rc=1 · FAIL ⓑ 삭제 호출 0 — 워크트리 수 그대로 (got=[6] want=[9])
