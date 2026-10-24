@@ -1,0 +1,43 @@
+# red — 시험 먼저 · 대상 = 수정 전 origin/main c059ddd1aa20c538e825ec141e96acbe77d2c5b4
+PASS bash -n head-sync
+PASS ⓐ wt-a 안 --apply rc0 · A 최신화
+FAIL ⓐ 남의 워크트리(wt-b·wt-c) git 호출 0 (실측 50) :: rc=0 out=base=f5b52f0b9424409154d5b600bbd5a62882053733 (origin/main) apply=1 all=0
+브랜치  워크트리  분류   contains_main  미랜딩  결과
+nano/a  wt-a      STALE  no             1       최신화함
+nano/b  wt-b      STALE  no             1       다른 워크트리 — 그 자리에서
+nano/c  wt-c      STALE  no             1       다른 워크트리 — 그 자리에서
+요약: 
+FAIL ⓐ 표에 B·C 줄 0 · B HEAD 불변 :: rc=0 out=base=f5b52f0b9424409154d5b600bbd5a62882053733 (origin/main) apply=1 all=0
+브랜치  워크트리  분류   contains_main  미랜딩  결과
+nano/a  wt-a      STALE  no             1       최신화함
+nano/b  wt-b      STALE  no             1       다른 워크트리 — 그 자리에서
+nano/c  wt-c      STALE  no             1       다른 워크트리 — 그 자리에서
+요약: 
+FAIL ⓑ --table = 전 워크트리 표(A·B·C) rc0 :: rc=2 out=usage: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r882-head-sync-apply-cwd-only-and-lock/feature-pack/fable-team/harness/tests/../../harness/bin/ft-head-sync.sh [--apply [--all --confirm <N>]] [--base <ref=origin/main>] [--repo <dir>]
+PASS ⓑ --table --apply → usage rc2
+FAIL ⓒ 겹친 3개 → 표 1 · «이미 실행 중 pid N · 시작 HH:MM» 2 · rc 전부 0 (표 0 · 대기 0) :: rc=2 out=usage: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r882-head-sync-apply-cwd-only-and-lock/feature-pack/fable-team/harness/tests/../../harness/bin/ft-head-sync.sh [--apply [--all --confirm <N>]] [--base <ref=origin/main>] [--repo <dir>]
+PASS ⓒ 끝나면 잠금 해제
+FAIL ⓒ 고아(주인 pid 없음) 회수 → 정상 실행 · 끝나고 해제 :: rc=2 out=usage: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r882-head-sync-apply-cwd-only-and-lock/feature-pack/fable-team/harness/tests/../../harness/bin/ft-head-sync.sh [--apply [--all --confirm <N>]] [--base <ref=origin/main>] [--repo <dir>]
+ln: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.EA3vGXEYeB/f1/w/.git/ft-head-sync.lock: File exists
+FAIL ⓒ 고아(pid 재사용 — 시작 시각 다름) 회수 :: rc=2 out=usage: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r882-head-sync-apply-cwd-only-and-lock/feature-pack/fable-team/harness/tests/../../harness/bin/ft-head-sync.sh [--apply [--all --confirm <N>]] [--base <ref=origin/main>] [--repo <dir>]
+ln: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.EA3vGXEYeB/f1/w/.git/ft-head-sync.lock: File exists
+FAIL ⓒ 살아 있는 주인 → 1줄 rc0 · 남의 잠금 그대로 :: rc=2 out=usage: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r882-head-sync-apply-cwd-only-and-lock/feature-pack/fable-team/harness/tests/../../harness/bin/ft-head-sync.sh [--apply [--all --confirm <N>]] [--base <ref=origin/main>] [--repo <dir>]
+PASS ⓒ 전수 잠금 중에도 자기 워크트리 --apply 는 돈다(잠금 범위 = 그 워크트리)
+FAIL ⓓ 쪽지에 --apply 0 :: rc=0 out=[베이스 뒤처짐] main aaaaaaaaaa 위에 있지 않은 워크트리 1곳 (이 팀 좌석이 앉은 곳):
+- wtA(nano/a) /tmp/wtA · main 보다 2커밋 · 5시간
+조치: 그 워크트리 안에서(cd /tmp/wtA) 미커밋 0 이면 bash /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r882-head-sync-apply-cwd-only-and-lock/feature-pack/fable-team/harness/tests/../../harness/bin/ft-head-sy
+FAIL ⓓ 쪽지 = 자기 워크트리 스스로(merge 만 · main sha 고정) · 팩 작업 무관 :: rc=0 out=[베이스 뒤처짐] main aaaaaaaaaa 위에 있지 않은 워크트리 1곳 (이 팀 좌석이 앉은 곳):
+- wtA(nano/a) /tmp/wtA · main 보다 2커밋 · 5시간
+조치: 그 워크트리 안에서(cd /tmp/wtA) 미커밋 0 이면 bash /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r882-head-sync-apply-cwd-only-and-lock/feature-pack/fable-team/harness/tests/../../harness/bin/ft-head-sy
+FAIL ⓕ 변이1 이 실제로 줄을 바꿨다 :: rc=0 out=[베이스 뒤처짐] main aaaaaaaaaa 위에 있지 않은 워크트리 1곳 (이 팀 좌석이 앉은 곳):
+- wtA(nano/a) /tmp/wtA · main 보다 2커밋 · 5시간
+조치: 그 워크트리 안에서(cd /tmp/wtA) 미커밋 0 이면 bash /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r882-head-sync-apply-cwd-only-and-lock/feature-pack/fable-team/harness/tests/../../harness/bin/ft-head-sy
+FAIL ⓕ 변이(잠금 제거) → 겹친 실행이 표 0 개 = ⓒ 단언이 잡는다 :: rc=0 out=[베이스 뒤처짐] main aaaaaaaaaa 위에 있지 않은 워크트리 1곳 (이 팀 좌석이 앉은 곳):
+- wtA(nano/a) /tmp/wtA · main 보다 2커밋 · 5시간
+조치: 그 워크트리 안에서(cd /tmp/wtA) 미커밋 0 이면 bash /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r882-head-sync-apply-cwd-only-and-lock/feature-pack/fable-team/harness/tests/../../harness/bin/ft-head-sy
+FAIL ⓕ 변이2 가 실제로 줄을 바꿨다 :: rc=0 out=[베이스 뒤처짐] main aaaaaaaaaa 위에 있지 않은 워크트리 1곳 (이 팀 좌석이 앉은 곳):
+- wtA(nano/a) /tmp/wtA · main 보다 2커밋 · 5시간
+조치: 그 워크트리 안에서(cd /tmp/wtA) 미커밋 0 이면 bash /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r882-head-sync-apply-cwd-only-and-lock/feature-pack/fable-team/harness/tests/../../harness/bin/ft-head-sy
+PASS ⓕ 변이(cwd 제한 제거) → 남의 워크트리 git 호출 50 = ⓐ 단언이 잡는다
+FAILED 12
+rc=1

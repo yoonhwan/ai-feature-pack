@@ -1,0 +1,30 @@
+R882 r2 — DA⑥ r1 HOLD 1(고아 잠금 회수 경쟁 · 둘 다 잡음) 좁은 반송 (REWORK-r882-r2.md · arch 139)
+base: origin/main 4d8704c3(r886) 위로 다시 맞춤 · 조치 줄 충돌 = r882 문구가 이김 · 버전 1.1.233
+
+바뀐 것
+- bin/ft-head-sync.sh (+kit 짝 사본 cmp=0 · 130줄 ≤130): lock_take = 심링크 잠금 + 고아 회수 삭제 →
+  커널 잠금: exec 9>>«git폴더»/ft-head-sync.flock(덮어쓰기 0) + python3 -I -c fcntl.flock(9, LOCK_EX|LOCK_NB)
+  (같은 열린 파일 설명 → python 이 끝나도 셸 fd 9 가 쥠 · 셸이 죽으면 커널이 풂 = 고아 0 · 회수 코드 0)
+  못 잡음(rc3) = «이미 실행 중 <파일 첫 줄> — 겹쳐 돌지 않고 끝낸다(경로)» 1줄 rc0 · python 다른 실패 = ERROR rc1(조용한 대체 0)
+  잡은 뒤 «pid N · 시작 HH:MM» 을 1<> 로 씀(자르기 0 → 읽는 쪽 빈 줄 틈 0) · 안내용만 · trap 잠금 파일 지우기 0
+  잠금 파일 이름 .lock → .flock (옛 판 심링크 잠금과 경로 분리 — 설치 전환 중 섞임 0)
+- tests/test_head_sync_lock_r882.sh 20: r2 ⓐ 두 실행 동시(첫 실행 GITSLOW=3 로 잠금 쥔 채) → 둘째 1줄 rc0 · 스캔 git(status·merge-base·cherry·diff) 0
+  r2 ⓑ 첫 실행 프로세스 나무를 신호 9 → 다음 실행 바로 잡음 · «회수» 문구 0 · r2 ⓒ 파일에 살아 있는 pid 글자만 → 막지 않음
+  살아 있는 주인 = 별도 python 이 flock 쥠 → 1줄 rc0 · 글자 그대로 · ⓕ 변이1 = flock 줄을 pass 로 → 겹친 표 3 · 둘째 스캔 36(r2 ⓐ 빨강)
+- tests/test_head_sync_apply_scope.sh: lagmsg 의 build() 3인자 → 2인자(r886 이 bin_dir 인자를 뺐는데 이 시험을 안 고쳐 origin/main 에서 ⓖ 2 FAIL 이었음)
+
+시험 (r2-t-*.txt 원문)
+test_head_sync_lock_r882 rc=0 PASS 20 FAIL 0
+test_head_sync_apply_scope rc=0 PASS 26 FAIL 0
+test_head_sync rc=0 PASS 25 FAIL 0
+test_head_lag_remind_per_wt_r836 rc=0 PASS 36 FAIL 0
+test_head_skip_list rc=0 PASS 21 FAIL 0
+test_merge_head_gate rc=0 PASS 32 FAIL 0
+test_cherry_gate_identical_head rc=0 PASS 20 FAIL 0
+test_head_lag rc=1 PASS 23 FAIL 1
+- 새 시험 3회 연속 ALL PASS · /bin/bash 3.2.57 로도 ALL PASS(r2-t-lock-bash32.txt)
+- 수정 전(r1 심링크 판) 빨강: r2-red-r1-script.txt — r2 ⓑ «잠금 고아 회수» 문구 · 살아 있는 flock 주인 무시(표를 냄) · ⓕ 3 = 변이 대상 줄 없음(정상)
+- test_head_lag FAIL 1 = ⓐ «착지 성공» remote URL 픽스처(ft-merge-land 쪽 · r889) — 기준판 동일 · 범위 밖
+
+남는 길(알고 있음): 스크립트가 신호 9 로 죽어도 그 자식(git 등)이 살아 있으면 fd 9 를 물려받아 그 자식이 끝날 때까지 잠금 유지 — 영영은 아님(자식 종료 = 해제 · fetch 는 7 s 상한)
+press 필요: 없음
