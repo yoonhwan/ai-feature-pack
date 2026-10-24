@@ -1,0 +1,3 @@
+cmp0 kit/fable-team/bin/ft_news_ledger.py == bin/ft_news_ledger.py
+cmp0 kit/fable-team/bin/ft_news_html.py == bin/ft_news_html.py
+cmp0 kit/fable-team/bin/ft-ledger-repo-sync.sh == bin/ft-ledger-repo-sync.sh
