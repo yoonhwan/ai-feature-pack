@@ -1,0 +1,5 @@
+FAILED fable-team/harness/tests/scripts/test_ledger_fill_disk_cards_r892.py::test_j_cards_moving_on_disk_count_equals_fixed_sha
+FAILED fable-team/harness/tests/scripts/test_ledger_fill_disk_cards_r892.py::test_j_uncommitted_move_seen_after_commit
+FAILED fable-team/harness/tests/scripts/test_ledger_fill_disk_cards_r892.py::test_l_done_card_added_in_window_is_landed_even_via_git_mv
+FAILED fable-team/harness/tests/scripts/test_ledger_fill_disk_cards_r892.py::test_world_fill_harness_row_from_git_and_tables_unchanged
+4 failed, 5 passed in 2.38s

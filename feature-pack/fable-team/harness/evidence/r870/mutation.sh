@@ -51,5 +51,5 @@ mutate "⑥commit시간초과잡기제거" test_h_ ft_ledger_fill.py '    except
         raise FillError(f"git {a[0]} 시간 초과({src.LOCAL_S:.0f}초)") from e
 ' ''
 mutate "⑦has시간초과잡기제거" test_h2_ ft_ledger_fill_src.py 'except (OSError, subprocess.TimeoutExpired) as e:  # r870' 'except OSError as e:  # r870'
-mutate "⑧크기비례상한제거" test_1b_ ft_ledger_fill_src.py '*(f"{rel}indices/완성/" for rel in on_ref.values()), timeout=cap)' '*(f"{rel}indices/완성/" for rel in on_ref.values()))'
+mutate "⑧크기비례상한제거" test_1b_ ft_ledger_fill_src.py '*(f"{rel}indices/완성/" for rel in rels.values()), timeout=cap)' '*(f"{rel}indices/완성/" for rel in rels.values()))'
 exit $fail
