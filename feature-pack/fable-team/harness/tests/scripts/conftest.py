@@ -68,6 +68,13 @@ def _ledger_sync_env_off(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture(autouse=True)
+def _ledger_fill_off(monkeypatch: pytest.MonkeyPatch) -> None:
+    """r851 — 뉴스 틱 시험이 원장 자동 채움(픽스처 리포에 커밋·push)·신선도 머리 줄을 타지 않게 끈다. 켜서 보는 시험은 test_ledger_fill_r851.py."""
+    monkeypatch.setenv("FT_LEDGER_FILL", "0")
+    monkeypatch.setenv("FT_LEDGER_FRESH_GATE", "0")
+
+
+@pytest.fixture(autouse=True)
 def _allow_tracked_bin(monkeypatch: pytest.MonkeyPatch) -> None:
     """R201: 시험은 추적 사본 원본을 직접 부른다 — ft-live-entry 가 LIVE_BIN(옛 라이브)으로 넘기지 않게 한다."""
     monkeypatch.setenv("FT_ALLOW_TRACKED_BIN", "1")

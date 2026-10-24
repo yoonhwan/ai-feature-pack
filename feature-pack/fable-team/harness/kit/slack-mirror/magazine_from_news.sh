@@ -21,6 +21,12 @@ SHA="$(git -C "$REPO" log -1 --format=%H -- "$REL" 2>&1)" || { echo "ERROR magaz
 NOW_BLOB="$(git -C "$REPO" hash-object -- "$REPO/$REL")"
 SHA_BLOB="$(git -C "$REPO" rev-parse "$SHA:$REL" 2>&1)" || { echo "ERROR magazine_from_news: git rev-parse 실패 — $SHA_BLOB" >&2; exit 4; }
 [ "$NOW_BLOB" = "$SHA_BLOB" ] || { echo "ERROR magazine_from_news: 매거진 원본 미커밋 수정 — $REL 의 지금 내용이 커밋 $SHA 와 다르다(커밋 뒤 다시)" >&2; exit 5; }
+# r851 A2 — 원장 신선도: max(«마지막 갱신», 기계 채움 성공) 이 FT_LEDGER_FRESH_MIN(60)분 넘게 낡으면 발행 0(exit 6 과 같은 급 · planner [긴급] 1통은 도구가 같은 사건 1번)
+#   FT_LEDGER_FRESH_GATE=0 = 끔(되돌림) · FT_LEDGER_FRESH = 도구 경로(시험 대역)
+if [ "${FT_LEDGER_FRESH_GATE:-1}" != 0 ]; then
+  FRESH="${FT_LEDGER_FRESH:-$(cat "$ROOT/.fable-team/LIVE_BIN" 2>/dev/null || true)/ft-ledger-fill}"
+  OUT="$(bash "$FRESH" fresh --repo "$REPO" --path "$REL" --ref "$SHA" 2>&1)" || { echo "ERROR magazine_from_news: 원장 신선도 — ${OUT:-$FRESH 실행 실패} (낡은 매거진 발행 0)" >&2; exit 6; }
+fi
 # 오빠 원장 제목에는 날짜가 없다 — 판 날짜는 발행 시각(FT_NEWS_NOW 또는 지금)의 날짜
 NOW="${FT_NEWS_NOW:-$(date '+%Y-%m-%d %H:%M')}"
 exec python3 "${FT_MAGAZINE_DOC:-$HERE/magazine_doc.py}" --src-repo "$REPO" --src-sha "$SHA" --src-path "$REL" --date "${NOW:0:10}" "$@"

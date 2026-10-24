@@ -291,7 +291,7 @@ M="$(mutate body '    last = _last_fetch()
 ' '    last = _mut_head(repo)
 ' )" && printf '\n\ndef _mut_head(repo):\n    try:\n        c = subprocess.run(["git", "-C", str(repo), "rev-parse", "--path-format=absolute", "--git-common-dir"], capture_output=True, text=True).stdout.strip()\n        return float((Path(c) / "FETCH_HEAD").read_text(encoding="utf-8").strip())\n    except (OSError, ValueError):\n        return None\n' >> "$M/ft_news_ledger.py"
 [ -n "$M" ] && { chk_a "$M" && bad "ⓖ 변이(표식→FETCH_HEAD 본문) 인데 ⓐ PASS" || ok "ⓖ 표식→FETCH_HEAD 본문 읽기 → ⓐ FAIL"; } || bad "ⓖ 변이 적용 실패(body)"
-M="$(mutate lsremote '    if _remote_same(repo, t_start):' '    if False:')"
+M="$(mutate lsremote '    if br and _remote_same(repo, t_start, br):' '    if False:')"
 [ -n "$M" ] && { chk_b "$M" && bad "ⓖ 변이(ls-remote 생략 삭제) 인데 ⓑ PASS" || ok "ⓖ ls-remote 생략 삭제 → ⓑ FAIL"; } || bad "ⓖ 변이 적용 실패(lsremote)"
 M="$(mutate cap 'FETCH_TIMEOUT_S = 30.0' 'FETCH_TIMEOUT_S = 10.5')"
 [ -n "$M" ] && { chk_c25 "$M" && bad "ⓖ 변이(30→10.5초) 인데 ⓒ 25초 PASS" || ok "ⓖ 30→10.5초 → ⓒ 25초 FAIL"; } || bad "ⓖ 변이 적용 실패(cap)"

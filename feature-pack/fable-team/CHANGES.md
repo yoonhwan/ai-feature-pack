@@ -11,6 +11,16 @@
 
 - r4(DA⑥ r3 HOLD 2): 알림 키 값 = {at 알린 시각, seen 마지막 정지 본 시각}(옛 정수 = 둘 다 그 값 · 깨진 값 = ERROR 1줄 + 키 유지) · 지금 정지면 seen = now · 닫힘 = at 뒤 정상 턴 또는 now−seen ≥ 24시간(살아 있는 계보 0 이어도). 시험 ⓡ9·ⓡ9b · 변이 2 빨강.
 
+## 2026-10-24 — r851 원장 자동 채움 ft-ledger-fill · 신선도 60분 · 한 일 전부 · 닫힌 줄 내림(1.1.229)
+
+- 원장(PLAN-oppa-ledger.md) 표 세 개(«메인 골 … 지금 상태» 칸 · «2. 오빠 할 일» · «3. 팀 작업»)를 planner 손 대신 기계가 채운다 — 새 `ft-ledger-fill fill`(+ `ft_ledger_fill_src.py` 원천 · `ft_ledger_fill_tables.py` 표). 원천 = 팀 카드 진행/대기/최근 24시간 완성(git 3회) · [완료]·[착지] 쪽지 · 질문 장부 open · `ft-hil.sh --pending` · AUTONOMY-QUEUE 빈칸. «오빠 할 일» 번호 줄 수 = 세 장부 합. 결론 문단·사람이 쓴 칸·다른 절은 바이트 그대로 · 칸 글자는 매거진 지침 검사 꼴(번호·sha·경로) 청소 + 원천 문장은 «» 인용(상대 날짜 가드).
+- 커밋 = 임시 인덱스 + commit-tree(작업 트리·가지 손댐 0) · 변화 0 = 커밋 0 · push 는 원장 사본 브랜치 `ledger/auto`(FT_LEDGER_FILL_BRANCH)에만 ff(강제 0 · main 쓰기 0 — r2 planner 결정 ②). 판 = 브랜치가 main 을 품으면 브랜치 위 · 아니면 main 위(planner 판이 이김 · 갈라진 브랜치 머리는 두 번째 부모로 이어 ff 유지). 거절이면 새 판 위 1번 더 · 또 거절 = rc1. main 착지 = planner _master 면제 경로 주기 1회(`gh pr create --base main --head ledger/auto …` → `ft-merge-land <PR> --approve-sha ""`). 원천 하나 실패 = 그 표만 갱신 0 + ERROR + rc1.
+- 뉴스·매거진 읽는 판 1곳 = `ft_ledger_fill_src.read_ref`(뉴스 `news_ref` · 매거진 사본 `ft-ledger-repo-sync.sh` 같은 규칙): 사본 브랜치가 main 을 품으면 그 브랜치 · 없거나 뒤처짐 = origin/main.
+- 뉴스 틱(`ft_news_html.tick`)이 발행 직전 1회 채움(FT_LEDGER_FILL=0 끔 · FT_LEDGER_FILL_PUSH=0 push 끔) · 신선도 = max(«마지막 갱신», 채움 성공) 60분(FT_LEDGER_FRESH_MIN) 넘으면 뉴스 머리·변화 0 줄에 «원장 N분 낡음 · 담당 <좌석>» + planner [긴급] 1통(같은 사건 1번) · 매거진(`magazine_from_news.sh`)은 원본 검사 뒤 같은 판정으로 exit 6 발행 0(FT_LEDGER_FRESH_GATE=0 끔).
+- `commits()` 15개 상한 제거 — 기준선 뒤 착지 전부(`landed_commits` · 기준선 없는 첫 판만 15). 매거진은 원장만 싣는 판이라 «지난밤 한 일» 별도 칸 없음 — 원장 3절 팀 표가 같은 착지 원천으로 채워진다.
+- 닫힌 줄 내림: 1절 «닫힘/완료» 행은 처음 본 시각 < 매거진 «발행 성공» 시각(magazine_doc 상태에 `at` 칸 신설)일 때만 5절 표 끝으로 · 발행 실패면 이동 0.
+- 시험 `test_ledger_fill_r851.py` 13 PASS · 변이 5(결론 보호·신선도 게이트·15 상한·발행 성공 조건·push 대상 main) 전부 빨강 · 실제 원장 쓰기 0 렌더 2초.
+
 ## 2026-10-24 — r836 head-lag 재발송 막기 기록 키 = 워크트리 하나(1.1.228)
 
 - `ft-head-lag` 가 main 이 움직일 때마다 같은 워크트리에 경고를 다시 보냈다(기록 키에 main sha 가 들어가 매 커밋이 새 키). → 기록 키 = 워크트리 경로 하나(main sha 무관) · 상태 파일 `{"v": 2, "seats": {경로: 기록}}` · 새 판 키 글자 그대로 · `v` 없는 옛 판만 마지막 `@` 로 합쳐 읽고 다음 저장 때 새 판으로 · `v≠2` 또는 seats 없음/비dict = 빈 상태 + WARN.
