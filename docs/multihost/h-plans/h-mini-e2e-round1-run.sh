@@ -97,6 +97,7 @@ EOF
   fi
   say "        preflight 전부 통과 (py=$(get py), 출력=$(get outdev))"
   HOST="$(get hostname)"
+  if [ "${DRY:-0}" = "1" ]; then say "DRY — preflight 까지만(쓰기 0). 러너 시작 안 함"; exit 0; fi
 
   # ── 3) 시작 — JWT 시크릿은 stdin 으로만 ────────────────────────────────
   say "2/6 러너 시작 (mini 백그라운드 · 상한 ${RUN_MAX}s · 시크릿 stdin)"
