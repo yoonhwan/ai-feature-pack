@@ -28,6 +28,7 @@ ROWS = {  # 일 → 상태 (판마다 바꿔 끼운다)
     "메일 링크": "오빠 확인 대기",
     "정리 절차": "막힘 — 검토 직전 정지",
 }
+SHAS: dict[str, str] = {}  # fixture 가 채우는 근거 커밋 앞 10자
 CARD = "# 인덱스: r{n}-easy-news — 끝: 닫는 증거\n\n## 골 원문 (항상 이 3줄)\n골\n\n## 배경 (한 단락)\n{bg}\n\n## 상태\n- 완성\n"
 FAKE_ELI5 = r'''import json, os, re, sys, time
 p = sys.stdin.read()
@@ -48,7 +49,8 @@ def ledger(rows: dict[str, str]) -> str:
             "## 3. 팀 작업 (10-16)\n| 팀 | 지금 하는 것 | 다음 |\n|---|---|---|\n| 하네스 | 매거진 고치기 | 시험 |\n")
 
 
-def commit(repo: Path, when: str, files: dict[str, str | None]) -> None:
+def commit(repo: Path, when: str, files: dict[str, str | None]) -> str:
+    """파일 바꾸고 그 시각으로 커밋 → 앞 10자 sha(원장 행 근거로 쓴다)."""
     for rel, text in files.items():
         path = repo / rel
         if text is None:
@@ -59,6 +61,7 @@ def commit(repo: Path, when: str, files: dict[str, str | None]) -> None:
     env = {**os.environ, "GIT_AUTHOR_DATE": when, "GIT_COMMITTER_DATE": when}
     subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True)
     subprocess.run(["git", "-C", str(repo), "commit", "-qm", when], check=True, env=env)
+    return subprocess.run(["git", "-C", str(repo), "rev-parse", "--short=10", "HEAD"], check=True, capture_output=True, text=True).stdout.strip()
 
 
 @pytest.fixture
@@ -67,18 +70,20 @@ def env(tmp_path, monkeypatch):
     repo.mkdir()
     for args in (("init", "-q", "-b", "main"), ("config", "user.email", "t@t"), ("config", "user.name", "t")):
         subprocess.run(["git", "-C", str(repo), *args], check=True)
-    rows = dict(ROWS)
+    rows = dict(ROWS)  # r3 — 원장 행 근거 sha 는 실제 커밋(그 커밋 시각이 창 안인가로 판정) · «가입 메일» 의 abc1234 는 없는 커밋 = 축하 0 + WARNING
     commit(repo, "2026-10-14T12:00:00+09:00", {"doc.md": ledger(rows), "design/harness/indices/진행/r901-x.md": CARD.format(n=901, bg="뉴스 창이 빨라졌어요. 이제 1초 만에 떠요.")})
-    rows["운영 화면"] = "완료 — 창 전 착지 (main 1234abc5)"  # 창 시작 1초 전 — 창 밖
+    SHAS["운영"] = commit(repo, "2026-10-14T23:59:00+09:00", {"code/ops.txt": "ops"})
+    rows["운영 화면"] = f"완료 — 창 전 착지 (main {SHAS['운영']})"  # 근거 커밋이 창 밖
     commit(repo, "2026-10-14T23:59:59+09:00", {"doc.md": ledger(rows), "design/harness/indices/완성/r899-old.md": CARD.format(n=899, bg="창 밖 카드예요.")})
     commit(repo, "2026-10-15T00:00:00+09:00", {"design/harness/indices/완성/r900-easy-news.md": CARD.format(n=900, bg="아침 뉴스를 쉬운 말로 바꿨어요. 이제 누구나 읽어요.")})
-    rows["툴바 접기"] = "완료 — 배포 화면 확인 (판정 1765 · 3e45783391)"
+    SHAS["툴바"] = commit(repo, "2026-10-15T09:00:00+09:00", {"code/toolbar.txt": "fold"})
+    rows["툴바 접기"] = f"완료 — 배포 화면 확인 (판정 1765 · {SHAS['툴바']})"
     rows["키 교체"] = "완료 — 시험 통과"  # 닫는 증거(커밋 번호) 없음 — 축하 0
     commit(repo, "2026-10-15T10:00:00+09:00", {"doc.md": ledger(rows), "design/harness/indices/진행/r901-x.md": None,
                                                "design/harness/indices/완성/r901-x.md": CARD.format(n=901, bg="뉴스 창이 빨라졌어요. 이제 1초 만에 떠요.")})
-    rows["메일 링크"] = "완료 — 링크 확인 (#1612 · 91c8035f8e)"
+    rows["메일 링크"] = f"완료 — 링크 확인 (#1612 · {commit(repo, '2026-10-16T07:00:00+09:00', {'code/mail.txt': 'link'})})"
     commit(repo, "2026-10-16T07:59:59+09:00", {"doc.md": ledger(rows)})
-    rows["음성 보정"] = "완료 — 창 뒤 착지 (main 9bed9dd690)"  # 창 끝 = 창 밖
+    rows["음성 보정"] = f"완료 — 창 뒤 착지 (main {commit(repo, '2026-10-16T08:00:00+09:00', {'code/voice.txt': 'v'})})"  # 근거 커밋 = 창 끝 = 창 밖
     commit(repo, "2026-10-16T08:00:00+09:00", {"doc.md": ledger(rows), "design/harness/indices/완성/r902-late.md": CARD.format(n=902, bg="창 끝 카드예요.")})
     script = tmp_path / "fake_eli5.py"
     script.write_text(FAKE_ELI5, encoding="utf-8")
@@ -107,12 +112,13 @@ def calls(env) -> int:
 def test_a_only_closing_evidence_inside_the_window_is_celebrated(env):
     span, done = mc.collect(str(env[1]), "HEAD", "doc.md", DATE)
     assert span == "10-15 00:00 ~ 10-16 08:00"
-    assert [d.title for d in done] == ["툴바 접기", "메일 링크", "뉴스 창이 빨라졌어요", "아침 뉴스를 쉬운 말로 바꿨어요"]
+    # r3 — 카드 축하 재료 = 카드 제목(«끝:» 앞 이름) + sha 만(배경 글 옮기기 삭제 · DA⑥ r2 반례 3)
+    assert [d.title for d in done] == ["툴바 접기", "메일 링크", "r901-easy-news", "r900-easy-news"]
     assert [d.chip for d in done] == ["원장 · 오빠가 시킨 일"] * 2 + ["harness 팀 · 카드 완성"] * 2
     rc, page = run(env)
     top = part1(page)
-    assert rc == 0 and "툴바 접기" in top and "메일 링크" in top and "아침 뉴스를 쉬운 말로 바꿨어요" in top
-    for out in ("가입 메일", "운영 화면", "음성 보정", "키 교체", "창 밖 카드", "창 끝 카드"):
+    assert rc == 0 and "툴바 접기" in top and "메일 링크" in top and "r900-easy-news" in top
+    for out in ("가입 메일", "운영 화면", "음성 보정", "키 교체", "r899", "r902", "창 밖 카드", "창 끝 카드", "아침 뉴스를"):
         assert out not in top
 
 
@@ -122,10 +128,10 @@ def test_b_each_done_has_one_easy_paragraph_and_a_cheer_head(env):
     assert rc == 0 and "🎉 축하해요! 10-15 00:00 ~ 10-16 08:00 사이에 4건을 끝냈어요" in top
     assert top.count('class="done"') == 4 and top.count("🌱 작은 정원에 새 꽃이 피었어요") == 4 and top.count("<h3>새로 좋아진 일이 생겼어요</h3>") == 4
     assert "원문 — 툴바 접기 · 완료 — 배포 화면 확인" in top  # 쉬운 제목 아래 원문 한 줄(사실 칸)
-    for token in ("판정 1765", "3e45783391", "#1612", "r900", "r901"):
-        assert token not in top  # 번호·카드 이름은 근거 표로
+    for token in ("판정 1765", SHAS["툴바"], "#1612"):
+        assert token not in top  # 번호는 근거 표로 · r3 부터 카드 이름은 축하 제목이라 본문에 실린다
     footer = page.split("<footer>")[1]
-    assert "판정 1765 · 3e45783391" in footer and "카드 r900-easy-news" in footer
+    assert f"판정 1765 · {SHAS['툴바']}" in footer and "카드 r900-easy-news" in footer
 
 
 def test_b_zero_done_says_zero_honestly_without_any_call(env):

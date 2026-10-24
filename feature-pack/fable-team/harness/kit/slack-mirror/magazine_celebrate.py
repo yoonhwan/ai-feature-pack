@@ -1,10 +1,11 @@
 """magazine_celebrate — 아침 매거진 윗부분 «끝낸 일 축하» 재료 (r867 · 오빠 10-25 «하루 성과 셀러브레이션 · eli5 · 아래에 남은 일 풀 설명»).
 
-창 = 판 날짜 D 의 (D-1) 00:00 ~ D 08:00 KST(끝 시각 제외). 창 안에 «닫는 증거»가 생긴 일만 싣는다 —
-①원장 행: 창 시작 때 원장에선 완료가 아니었는데 창 끝 때 원장에선 완료이고, 그 행에 커밋 번호가 있다
-②인덱스 카드: 창 안 커밋에서 «완성» 폴더로 옮겨졌다(그 커밋 = 닫는 증거).
-쉬운 풀이(eli5)는 외부 호출 — 7초 룰(묶음 2장 · 호출당 7초 + 재시도 1 · 전체 70초 · magazine_celebrate_eli5) · 실패 = ERROR 로그 + 그 칸 «쉬운 풀이 생성 실패 — 사유»(숨김 0).
-git 실패는 raise(반쪽 축하 0 · #0 RULE). 카드 글의 번호 낱말·상대 날짜는 근거 표로 옮긴다(판 본문 지침 §3).
+창 = 판 날짜 D 의 (D-1) 00:00 ~ D 08:00 KST(끝 시각 제외). «같은 일» = 닫는 증거 커밋 sha 하나(r3 재설계 · DA⑥ r1·r2 — 글자 비교 0) —
+①원장 행: 창 끝 원장에서 완료 ∧ 그 행 근거 커밋 sha 의 커밋 시각이 창 안 · sha 를 못 읽으면 그 행 축하 0 + WARNING 1줄
+②인덱스 카드: «완성» 폴더로 옮긴 커밋이 창 안 ∧ 옛 경로가 완성/ 밖 · 재료 = 카드 제목 + 그 커밋 sha 뿐(배경 글 옮기기 0 → 잘려 숨는 글 0)
+같은 sha 는 1건으로 합친다(제목을 « · » 로 이어 숨김 0).
+쉬운 풀이(eli5)는 외부 호출 — 7초 룰(묶음 2장 · 호출 프롬프트 전체 상한 · 호출당 7초 + 재시도 1 · 전체 70초 · magazine_celebrate_eli5) · 실패 = ERROR 로그 + 그 칸 «쉬운 풀이 생성 실패 — 사유»(숨김 0).
+ref·원장 git 실패는 raise(반쪽 축하 0 · #0 RULE). 번호 낱말·상대 날짜는 근거 표로 옮긴다(판 본문 지침 §3).
 """
 import logging
 import re
@@ -14,7 +15,7 @@ from pathlib import Path
 import magazine_eli5
 from magazine_brief import Brief, Done
 from magazine_brief_rows import is_done, split_evidence, table_rows
-from magazine_collect_detail import git, sections
+from magazine_collect_detail import git
 from magazine_date_guard import find_relative_dates
 from magazine_doc_md import Cell, Doc, parse_doc
 from magazine_celebrate_eli5 import explain
@@ -22,7 +23,7 @@ from magazine_eli5_batches import Eli5Error
 from magazine_guide_check import violations
 from magazine_indexless import strip_tokens
 from magazine_summary import run_cmd
-from magazine_window import KST
+from magazine_window import KST, MagazineError
 
 LOG = logging.getLogger("magazine_doc")
 CARD_GLOB = "design/*/indices/완성/*.md"
@@ -77,55 +78,70 @@ def _ledger_at(repo: Path, ref: str, path: str, when: datetime) -> str:
     return git(repo, "show", f"{sha}:{path}") if sha else ""
 
 
+def _commit(repo: Path, sha: str) -> tuple[str, datetime] | None:
+    """(전체 sha, 커밋 시각) · 못 읽으면 WARNING 1줄 + None(그 행 축하 0)."""
+    try:
+        full, at = git(repo, "show", "-s", "--format=%H %cI", f"{sha}^{{commit}}").split()
+    except (MagazineError, ValueError) as e:
+        LOG.warning("축하 제외 — 근거 커밋 못 읽음 sha=%s: %s", sha, (str(e).splitlines() or [type(e).__name__])[0])
+        return None
+    return full, datetime.fromisoformat(at)
+
+
 def _from_ledger(repo: Path, ref: str, path: str, start: datetime, end: datetime) -> list[Done]:
-    last = end - timedelta(seconds=1)
-    before, now = _done_rows(_ledger_at(repo, ref, path, start - timedelta(seconds=1))), _done_rows(_ledger_at(repo, ref, path, last))
     out = []
-    for task, (state, evidence) in now.items():
-        if task in before or not SHA.search(evidence):
-            continue  # 창 전에 이미 끝났거나 닫는 증거(커밋 번호)가 없다
+    for task, (state, evidence) in _done_rows(_ledger_at(repo, ref, path, end - timedelta(seconds=1))).items():
+        found = SHA.search(evidence)
+        commit = _commit(repo, found.group(0)) if found else None  # 근거 sha 없음 = 닫는 증거 없음
+        if commit is None or not start <= commit[1] < end:
+            continue
         why = [evidence]
         title, what = _plain(task, why), _plain(state, why)
-        out.append(Done(f"원장:{task}", title, f"원문 — {title} · {what}", " · ".join(why), "원장 · 오빠가 시킨 일", f"{title} — {what}"))
+        out.append(Done(f"sha:{commit[0]}", title, f"원문 — {title} · {what}", " · ".join(why), "원장 · 오빠가 시킨 일", f"{title} — {what}"))
     return out
 
 
-def _card_fact(text: str, path: str, why: list[str]) -> tuple[str, str]:
-    """(대신 제목, 풀이 재료). 판 제목은 쉬운 풀이의 제목 — 풀이가 실패하면 «배경» 첫 문장(60자) · 카드 이름(영문 번호 이름)은 근거 표로만."""
+def _card_name(text: str, path: str) -> str:
+    """카드 머리 «끝:» 앞 이름(«# 인덱스: <이름> — 끝: …»)."""
     head = next((m.group(1) for ln in text.split("\n")[:3] if (m := TITLE.match(ln))), Path(path).stem)
-    why.append(f"카드 {head.split(' — ')[0]}")
-    back, _ = strip_tokens(" ".join(next((s.body for s in sections(text) if s.head.startswith("배경")), "").split()))
-    if not back:
-        return "(배경 없는 카드 — 이름은 근거 표에)", head.split(" — ")[0]
-    first = back.split(". ")[0]
-    return _plain(first if len(first) <= 60 else first[:60] + "…", why), back[:500]
+    return head.split("— 끝:")[0].strip(" —")
 
 
 def _from_cards(repo: Path, ref: str, start: datetime, end: datetime) -> list[Done]:
     out = git(repo, "log", ref, "-M", "--diff-filter=AR", "--name-status", "--format=%x01%H%x00%cI",
               f"--since={start.isoformat()}", f"--until={end.isoformat()}", "--", CARD_GLOB)
-    seen: dict[str, Done] = {}
+    done: list[Done] = []
     for chunk in out.split("\x01")[1:]:
         lines = chunk.split("\n")
         sha, at = lines[0].split("\x00")
         if not start <= datetime.fromisoformat(at) < end:
             continue  # git --since/--until 는 경계 포함·근사 — 창은 여기서 정확히 자른다
-        for row in lines[1:]:
-            fields = row.split("\t")
-            path = fields[-1]
-            if row.startswith("R") and DONE_DIR in fields[1]:
-                continue  # 완성/ 안에서 이름만 바꿈 — 창 전에 이미 끝난 일(새 완성 아님 · DA⑥ r1 반례 1)
-            if row.strip() and path not in seen:
-                why = [f"{sha[:10]} 완성 이동"]
-                title, source = _card_fact(git(repo, "show", f"{sha}:{path}"), path, why)
-                seen[path] = Done(f"카드:{path}", title, f"원문 — {title}", " · ".join(why), f"{path.split('/')[1]} 팀 · 카드 완성", source)
-    return list(seen.values())
+        for fields in (row.split("\t") for row in lines[1:] if row.strip()):
+            if fields[0].startswith("R") and DONE_DIR in fields[1]:
+                continue  # 완성/ 안에서 이름만 바꿈 — 창 전에 이미 끝난 일
+            name = _card_name(git(repo, "show", f"{sha}:{fields[-1]}"), fields[-1])
+            why = [f"{sha[:10]} 완성 이동 · 카드 {name}"]
+            title = _plain(name, why) or "(카드 이름은 근거 표에)"  # 이름 속 번호 낱말(R259 등)은 근거 표로
+            done.append(Done(f"sha:{sha}", title, f"원문 — {title}", " · ".join(why), f"{fields[-1].split('/')[1]} 팀 · 카드 완성", title))
+    return done
+
+
+def _merge(items: list[Done]) -> list[Done]:
+    """같은 닫는 증거 sha = 같은 일 1건 — 제목·원문·근거를 « · » 로 잇는다(숨김 0)."""
+    by_key: dict[str, Done] = {}
+    for d in items:
+        if d.key not in by_key:
+            by_key[d.key] = d
+            continue
+        m = by_key[d.key]
+        m.title, m.what, m.evidence, m.source = (f"{a} · {b}" for a, b in ((m.title, d.title), (m.what, d.what), (m.evidence, d.evidence), (m.source, d.source)))
+    return list(by_key.values())
 
 
 def collect(repo: str, ref: str, path: str, day: str) -> tuple[str, list[Done]]:
-    """(창 글, 창 안 완성 목록 — 원장 행 먼저 · 카드 다음)."""
+    """(창 글, 창 안 완성 목록 — 원장 행 먼저 · 카드 다음 · 같은 sha 1건)."""
     start, end = window(day)
-    return span_text(start, end), _from_ledger(Path(repo), ref, path, start, end) + _from_cards(Path(repo), ref, start, end)
+    return span_text(start, end), _merge(_from_ledger(Path(repo), ref, path, start, end) + _from_cards(Path(repo), ref, start, end))
 
 
 def explain_done(done: list[Done], cmd: str) -> None:

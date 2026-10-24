@@ -23,7 +23,7 @@ def test_rename_inside_done_folder_is_not_a_new_completion(env):  # noqa: F811 �
     span, done = mc.collect(str(repo), "HEAD", "doc.md", "2026-10-18")
     assert span == "10-17 00:00 ~ 10-18 08:00" and done == []  # 창 전에 이미 완성/ 이던 카드 — 이름만 바뀜
     _, done16 = mc.collect(str(repo), "HEAD", "doc.md", "2026-10-16")
-    assert "뉴스 창이 빨라졌어요" in [d.title for d in done16]  # 진행/ → 완성/ 이동은 그대로 축하
+    assert "r901-easy-news" in [d.title for d in done16]  # 진행/ → 완성/ 이동은 그대로 축하(r3 — 제목 = 카드 이름)
 
 
 def test_one_long_unit_is_cut_to_the_base_amount_with_a_visible_mark():
@@ -37,8 +37,8 @@ def test_one_long_unit_is_cut_to_the_base_amount_with_a_visible_mark():
     result = mb.explain([{"ref": "a", "자료": "가" * 50000}, {"ref": "b", "자료": "나" * 10}], "cmd", "쉬운 말", runner)
     assert len(prompts) == 1 and isinstance(result["a"], dict) and isinstance(result["b"], dict)
     sent = json.loads(re.search(r"<자료>\n(.*)\n</자료>", prompts[0], re.S).group(1))
-    assert sum(len(u["자료"]) for u in sent) <= mb.BASE_CHARS  # 호출 한 번의 자료 합 ≤ 기준량(하드 룰 12)
-    assert sent[0]["자료"].endswith(mb.CUT_MARK) and sent[1]["자료"] == "나" * 10
+    assert len(prompts[0]) <= mb.PROMPT_LIMIT  # r3 — 상한 = 조립된 프롬프트 전체(하드 룰 12 · 자료 합 기준에서 바꿈)
+    assert sent[0]["자료"].endswith(mb.CUT_MARK) and sent[1]["자료"].startswith("나")
 
 
 def test_remaining_line_with_only_abbreviations_warns_without_blocking(capsys):
