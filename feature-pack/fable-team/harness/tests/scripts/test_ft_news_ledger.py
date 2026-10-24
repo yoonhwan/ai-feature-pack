@@ -189,7 +189,7 @@ def run_link(env_t, extra: dict | None = None) -> subprocess.CompletedProcess:
     repo, root, tmp = env_t
     doc = tmp / "doc.py"
     doc.write_text("import sys\nprint('ARGS', *sys.argv[1:])\n", encoding="utf-8")
-    e = {"PATH": PATH, "FT_ROOT": str(root), "FT_LEDGER_REPO": str(repo), "FT_LEDGER_PATH": REL, "FT_MAGAZINE_DOC": str(doc), "FT_LEDGER_SYNCED": "1", **(extra or {})}  # r503 기본 경로 = design/teams/planner/ — 이 픽스처는 옛 경로 리포
+    e = {"PATH": PATH, "FT_ROOT": str(root), "FT_LEDGER_REPO": str(repo), "FT_LEDGER_PATH": REL, "FT_MAGAZINE_DOC": str(doc), "FT_LEDGER_SYNCED": "1", "FT_LEDGER_FRESH_GATE": "0", **(extra or {})}  # r851 신선도 게이트는 test_ledger_fill_r851 · r503 기본 경로 = design/teams/planner/ — 이 픽스처는 옛 경로 리포
     return subprocess.run(["bash", str(KIT / "magazine_from_news.sh"), "--publish"], env=e, capture_output=True, text=True, timeout=30)
 
 
