@@ -1,3 +1,5 @@
+## 2026-10-25 — r888 `ft-nano-close --research` 리서치 좌석 닫기 길(좌석 브랜치 reflog 기준 판 뒤 구현 커밋 0 → ⑥ 증거 줄 면제) + 카드를 origin/main 판에서 읽기(1.1.235)
+
 ## 2026-10-25 — r882 `ft-head-sync` 동시 폭주 제거: --apply 는 cwd 1곳만 · 전수 표 --table · 동시 1개 커널 잠금(flock) · 쪽지 실행 지시 0(1.1.234)
 
 - 사건(master#108 #162149 · 02:5x): `ft-head-sync` 14개 동시 · 최장 30분 45초. 원인 3 = ①`[베이스 뒤처짐]` 쪽지가 나노마다 «bash ft-head-sync.sh --apply» 실행을 지시 ②--apply 가 cwd 1곳만 쓰면서도 워크트리 417곳 전수 스캔(status·freshness·snap) ③겹쳐도 막는 장치 0.
