@@ -1,0 +1,15 @@
+r838 r4 — 좁은 반송(DA⑥ r3 HOLD 2 · REWORK-r838-r4.md) · 가지 nano/r838-model-swap-account-outage-and-open- · base 팩 origin/main c91bee89(최신 그대로) · 기준판 = r3 a6a9a543
+
+고침 (close_keys 하나 + 키 값을 쓰는 두 자리)
+- 키 값 = {at 알린 시각, seen 마지막 정지 본 시각} · 옛 정수 = at=seen=그 값 · 깨진 값 = ERROR 1줄 + 키 유지(as_kv · ft_model_swap_account.py)
+- 매 실행: 지금 rate_limit 정지인 계보의 blocked seen = now · outage_open 은 정지 역할 좌석이 하나라도 있으면 seen = now (seen 갱신 «뒤» 닫힘 판정)
+- 닫힘 = ① at 뒤 정상 턴(is_normal · r3 그대로) 또는 ② now − seen ≥ 24시간 — 살아 있는 계보 0 이어도 ②(장애 키 포함)
+- 기록 두 자리: hil() blocked[key] = {at, seen} · account() outage_open = {at, seen}
+- 줄 수: ft_model_swap.py 200 · ft_model_swap_account.py 55
+
+시험
+- 기준판(r3) 빨강: red-base-pytest.txt(ⓡ9 «교대 불가» 2통 · ⓡ9b 보류 1통 = 2 failed)
+- 초록: green-pytest.txt(3파일 52 passed) · green-successor_open.txt(ALL PASS) · tick_line·tick_team_msg·kit_bin_sync rc 0 · kit↔bin cmp0 4파일
+- 변이: mutations.txt 9 모두 RED(r4 지정 2 + r3·r2 회귀 7)
+- 즉석 확인(시험 칸 아님): as_kv(옛 정수) → {at,seen} · 깨진 값 3꼴 → ERROR 1줄 + None
+press 필요: 없음

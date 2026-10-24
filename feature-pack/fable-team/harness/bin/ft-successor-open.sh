@@ -153,7 +153,14 @@ if [ "$RESUMED" = 0 ]; then
 OPEN=(tmuxc open "$WT" --name "$NAME" --agent "$AGENT" --model "$MODEL")
 [ "$AGENT" = claude ] && [ -n "$CTX" ] && OPEN+=(--ctx "$CTX")
 case "$AGENT" in claude|cmd|codex|pi) [ -n "$EFFORT" ] && OPEN+=(--effort "$EFFORT");; esac
-"${OPEN[@]}" >/dev/null 2>&1 || { echo "REJECT tmuxc open 실패 ($NAME) — 송신 0"; exit 1; }
+# r838: 실패 이유를 버리지 않는다 — 출력 마지막 3줄(200자 · 토큰꼴 가림)을 REJECT 줄 끝에 · 성공 때 출력은 버림(그대로)
+OPEN_OUT="$(mktemp "${TMPDIR:-/tmp}/ft-so-open.XXXXXX")" || { echo "REJECT tmuxc open 출력 임시 파일 실패 ($NAME) — 송신 0"; exit 1; }
+if ! "${OPEN[@]}" > "$OPEN_OUT" 2>&1; then
+  # r838 r3 ③ 가림 = 줄 단위(값 꼴에 기대지 않음): 토큰꼴 낱말(sk-·ghp_·github_pat_·xox?-·AKIA·eyJ) → *** · 민감 낱말 뒤 첫 =·:·공백부터 «줄 끝까지» *** · 가린 «뒤» 200자
+  WHY="$(tail -n 3 "$OPEN_OUT" | perl -pe 's/\b(?:sk-|ghp_|github_pat_|xox[abprs]-|AKIA|eyJ)[\w.-]*/***/g; s/((?:authorization|bearer|basic|token|secret|key|passw(?:or)?d|cookie|credential)[^=:\s]*[=:\s]).*/$1***/i' | tr '\n' ' ')"
+  rm -f "$OPEN_OUT"; echo "REJECT tmuxc open 실패 ($NAME) — 송신 0 · 이유: ${WHY:0:200}"; exit 1
+fi
+rm -f "$OPEN_OUT"
 tmux has-session -t "=$NAME" 2>/dev/null || { echo "REJECT 세션이 안 떴다: $NAME — 송신 0"; exit 1; }
 fi
 
