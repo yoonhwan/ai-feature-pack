@@ -1,0 +1,15 @@
+PASS ⓐ 표식 60초 전 = fetch 0 · 표식 깨짐 = WARN + fetch 1 · ValueError 0
+PASS ⓑ ls-remote 같음 = fetch 0 · 다름 = fetch 1 · 묻기 실패 = fetch 로 진행 + 로그 1줄
+PASS ⓒ 25초 fetch = 성공(30초 상한)
+  (35초 칸 경과 62초 · 시도 2)
+PASS ⓒ 35초·TERM 무시 = 30초 TERM→KILL · 재시도 1 · 70초 안 · 남은 자식 0 · 출력 있는 실패 = 재시도 0
+PASS ⓓ sync: ls-remote 같음 = fetch 0 · 25초 fetch 성공 · 공용 fm_t7 7초 그대로
+PASS ⓔ 같은 실패 연속 = «판정 불가» 1통 · 성공 뒤 다시 실패 = 새 1통 · 키 파일
+PASS ⓖ 표식→FETCH_HEAD 본문 읽기 → ⓐ FAIL
+PASS ⓖ ls-remote 생략 삭제 → ⓑ FAIL
+PASS ⓖ 30→10.5초 → ⓒ 25초 FAIL
+PASS ⓖ 같은 경고 키 삭제 → ⓔ FAIL
+PASS 남은 자식 0
+ALL PASS
+timeout 580 bash tests/test_news_ledger_fetch_lsremote_r847.sh  2.35s user 4.50s system 4% cpu 2:33.48 total
+rc=0

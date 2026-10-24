@@ -1,0 +1,25 @@
+PASS ⓐ 표식 60초 전 = fetch 0 · 표식 깨짐 = WARN + fetch 1 · ValueError 0
+PASS ⓑ ls-remote 같음 = fetch 0 · 다름 = fetch 1 · 묻기 실패 = fetch 로 진행 + 로그 1줄
+PASS ⓒ 25초 fetch = 성공(30초 상한)
+  (35초 칸 경과 62초 · 시도 2)
+PASS ⓒ 35초·TERM 무시 = 30초 TERM→KILL · 재시도 1 · 70초 안 · 남은 자식 0 · 출력 있는 실패 = 재시도 0
+PASS ⓓ sync: ls-remote 같음 = fetch 0 · 25초 fetch 성공 · 공용 fm_t7 7초 그대로
+PASS ⓔ 같은 실패 연속 = «판정 불가» 1통 · 성공 뒤 다시 실패 = 새 1통 · 키 파일(해시 16자)
+PASS r2① 앞 160자 같고 끝만 다른 실패 = 두 번째도 «판정 불가» 1통(같은 것 세 번째는 생략)
+  (총 마감 칸 elapsed=69.515 · 시도 2)
+PASS r2② ls-remote·로컬 ref 각 6초 + TERM 무시 fetch = 총 ≤ 70.0초 · 시도 2 · 남은 자식 0
+  (셸 칸 rc=4 시도 1 · ERROR ledger 사본 fetch 실패: fatal: stdout 오류 주입)
+PASS r2③ 셸 fetch stdout 오류 = 시도 1 · 오류 = 출력 첫 줄
+PASS ⓖ 표식→FETCH_HEAD 본문 읽기 → ⓐ FAIL
+PASS ⓖ ls-remote 생략 삭제 → ⓑ FAIL
+PASS ⓖ 30→10.5초 → ⓒ 25초 FAIL
+PASS ⓖ 같은 경고 키 삭제 → ⓔ FAIL
+PASS ⓖ 키 = 160자 자르기 되살림 → r2① FAIL
+  (총 마감 칸 elapsed=71.016 · 시도 2)
+PASS ⓖ 유예 빼기 삭제 → r2② FAIL
+  (셸 칸 rc=4 시도 2 · ERROR ledger 사본 fetch 실패: fatal: stdout 오류 주입)
+PASS ⓖ 셸 재시도 조건 = rc 만 → r2③ FAIL
+PASS 남은 자식 0
+ALL PASS
+timeout 900 bash tests/test_news_ledger_fetch_lsremote_r847.sh  3.25s user 7.27s system 3% cpu 4:57.77 total
+rc=0

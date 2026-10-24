@@ -342,23 +342,38 @@ def _save_base(state: Path, cur: str, blob: str | None, canon: str = "") -> None
 
 def zero_change_line(now, last: dict, warn: str) -> str:
     """r809 — 변화 0 반복 줄. 받기 실패(warn)면 «변화 없음» 이 아니라 «판정 불가» 머리 줄(낡은 판을 «변화 0» 으로 읽지 않게)."""
-    tail = f"지도 {last.get('link') or last['map_at']}"
+    tail = f"지도 {last.get('link') or last.get('map_at') or '없음'}"  # r847 r4: 지도 기록 전 첫 실패도 줄을 낸다(KeyError 0)
     return f"[뉴스 {now:%H:%M}] 판정 불가 — {warn} · {tail}" if warn else f"[뉴스 {now:%H:%M}] 변화 없음 · {tail}"
 
 
 def tick(root: Path, state: Path, repo: Path, rel: str, news: Path, base: str, cur: str) -> tuple[int, str]:
-    """뉴스 틱 HTML 경로 — (rc, 정지 감시용 사유). «바뀌었나» = 원장 블롭(r656) · 기준선 두 칸은 지도 글이 올라갔을 때만 옮긴다."""
+    """뉴스 틱 HTML 경로 — (rc, 정지 감시용 사유). r847 r4: 상태 파일(fetch-last) 쓰기 실패(FT_NEWS_STATE_ERROR) = rc 1 + 그 사유(launchd 종료 코드로 보이게 · 조용한 rc0 0)."""
+    rc, why = _tick(root, state, repo, rel, news, base, cur)
+    state_err = os.environ.get("FT_NEWS_STATE_ERROR", "")
+    return (1, state_err) if state_err else (rc, why)
+
+
+def _tick(root: Path, state: Path, repo: Path, rel: str, news: Path, base: str, cur: str) -> tuple[int, str]:
+    """«바뀌었나» = 원장 블롭(r656) · 기준선 두 칸은 지도 글이 올라갔을 때만 옮긴다."""
     from ft_news_post import news_now
     from ft_news_publish import publish_line, retry_attach
     now, hs = news_now(), state / "html.json"
     last, stamp = (json.loads(hs.read_text(encoding="utf-8")) if hs.is_file() else {}), f"{now:%Y-%m-%d %H:%M}"
-    retry_attach(now)
     since = lambda k: now - datetime.strptime(last[k], "%Y-%m-%d %H:%M") if last.get(k) else timedelta.max  # noqa: E731
+    warn = os.environ.get("FT_LEDGER_SYNC_ERROR", "")  # r503·r809 — 원장 ref 받기 실패 사유
+    if warn:  # r847 r4 ⓗ — 받기 실패 = 낡은 ref 로 지도·요약 0(블롭이 바뀌어 보여도) · 실패 구간 첫 틱만 «판정 불가» 1통
+        if os.environ.get("FT_LEDGER_SYNC_REPEAT") == "1":  # 이 구간 경고는 이미 나감 — 게시 0(오래 가면 check_stale 정지 경보 1통)
+            LOG.info("원장 ref fetch 실패 구간 계속 — 게시 0")
+            return 0, "원장 ref fetch 실패 계속"
+        rc = publish_line(zero_change_line(now, last, warn), now)  # r4: 30분 반복 대기 없이 구간 첫 틱 1통
+        if rc == 0:
+            _save(hs, {**last, "at": stamp})
+            from ft_news_ledger import mark_fail_announced
+            mark_fail_announced()  # 글이 실제 나갔을 때만 «이 구간 알림» 기록(게시 실패 = 다음 틱 다시)
+        return rc, "원장 ref fetch 실패"
+    retry_attach(now)  # r847 r5 — 받기 실패 틱 = 첨부 재시도 0(게시 0) · 대기 기록은 남아 회복 틱에 이어서
     if since("fail_at") < timedelta(minutes=int(os.environ.get("FT_NEWS_RETRY_MIN", "5"))):
         return 1, "지도 만들기 실패(재시도 대기)"
-    warn = os.environ.get("FT_LEDGER_SYNC_ERROR", "")  # r503 — 원장 사본 갱신 실패면 «변화 없음» 줄·지도 글 머리에 그 사유를 싣는다(낡은 판을 «변화 없음» 으로 읽지 않게)
-    if warn and warn not in os.environ.get("FT_NEWS_HEAD", ""):
-        os.environ["FT_NEWS_HEAD"] = f"{os.environ.get('FT_NEWS_HEAD') or '팀 지도'} · {warn}"
     blob, blob_f = _ledger_blob(repo, rel, cur), state / "last.blob"
     saved_blob = blob_f.read_text(encoding="utf-8").strip() if blob_f.is_file() else ""
     canon, canon_f = _canon_sha(), state / "last.canon"
@@ -368,8 +383,7 @@ def tick(root: Path, state: Path, repo: Path, rel: str, news: Path, base: str, c
     if not changed and last.get("map_at", "")[:10] == stamp[:10]:  # 변화 0(원장 내용 그대로) · 오늘 지도 있음 = 적정한 반복 한 줄만
         if since("at") < timedelta(minutes=int(os.environ.get("FT_NEWS_REPEAT_MIN", "30"))):
             return 0, "원장 커밋 0"
-        # r809 — 받기 실패(warn)면 «변화 없음» 이 아니라 «판정 불가» 머리 줄(낡은 판을 «변화 0» 으로 읽지 않게)
-        rc = publish_line(zero_change_line(now, last, warn), now)
+        rc = publish_line(zero_change_line(now, last, warn), now)  # warn = "" (받기 실패는 위에서 끝남 · r847 r4)
         if rc == 0:
             _save(hs, {**last, "at": stamp})
         return rc, "원장 커밋 0"

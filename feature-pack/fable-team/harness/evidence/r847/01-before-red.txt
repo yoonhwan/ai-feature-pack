@@ -1,0 +1,17 @@
+# R847_BIN = 기준판 pack f1cbd005 (git archive 사본) harness/bin
+FAIL ⓐ fetch=1 ls=0 ret=  
+FAIL ⓑ fetch=1 ls=0 ret=  
+FAIL ⓒ 25초 fetch=2 ret=원장 ref fetch 실패 — fetch 실행 실패: Command '['git', '-C', '/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.kkGaCMlaNC/C', 'fetch', '--quiet', 'origin', 'main']' timed out after  · origin/main = 0분 전 받은 판 
+  (35초 칸 경과 21초 · 시도 2)
+FAIL ⓒ 35초 fetch=2 ret=원장 ref fetch 실패 — fetch 실행 실패: Command '['git', '-C', '/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.kkGaCMlaNC/C', 'fetch', '--quiet', 'origin', 'main']' timed out after  · origin/main = 0분 전 받은 판 
+  ⓓ1 rc=0 out=SYNC up-to-date 1d086c6b5a
+FAIL ⓓ sync
+FAIL ⓔ 09:00 (0, '원장 커밋 0') ["[뉴스 09:00] 판정 불가 — 원장 ref fetch 실패 — fatal: offline · origin/main = 0분 전 받은 판 · 지도 http://x/0"] 09:31 (0, '원장 커밋 0') ["[뉴스 09:31] 판정 불가 — 원장 ref fetch 실패 — fatal: offline · origin/main = 0분 전 받은 판 · 지도 http://x/0"] 10:02 (0, '원장 커밋 0') ["[뉴스 10:02] 판정 불가 — 원장 ref fetch 실패 — fatal: offline · origin/main = 0분 전 받은 판 · 지도 http://x/0"] 10:33 (0, '원장 커밋 0') ["[뉴스 10:33] 변화 없음 · 지도 http://x/0"] 11:04 (0, '원장 커밋 0') ["[뉴스 11:04] 판정 불가 — 원장 ref fetch 실패 — fatal: offline · origin/main = 0분 전 받은 판 · 지도 http://x/0"] 11:35 (0, '원장 커밋 0') ["[뉴스 11:35] 판정 불가 — 원장 ref fetch 실패 — fatal: offline · origin/main = 0분 전 받은 판 · 지도 http://x/0"] UNJUDGEABLE 09:00 09:31 10:02 11:04 11:35 KEYFILE -  알림 건너뜀: [Errno 2] No such file or directory: '/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.kkGaCMlaNC/root/.fable-team/seats-planner.json' 원장 ref fetch 실패 — fatal: offline · origin/main = 0분 전 받은 판 알림 건너뜀: [Errno 2] No such file or directory: '/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.kkGaCMlaNC/root/.fable-team/seats-planner.json' 
+FAIL ⓖ 변이 적용 실패(body)
+FAIL ⓖ 변이 적용 실패(lsremote)
+FAIL ⓖ 변이 적용 실패(cap)
+FAIL ⓖ 변이 적용 실패(key)
+FAIL 남은 자식(sleep 35.0347) 있음
+FAILED 11
+R847_BIN=$S/base/feature-pack/fable-team/harness/bin timeout 580 bash   0.85s user 2.45s system 7% cpu 47.141 total
+rc=11

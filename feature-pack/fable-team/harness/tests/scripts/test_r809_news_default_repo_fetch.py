@@ -148,7 +148,7 @@ def test_b_fetch_failure_publishes_unjudgeable_line(world, tmp_path, monkeypatch
     """ⓑ 받기 실패면 «변화 없음» 이 아니라 «판정 불가 — 원장 ref fetch 실패 …» — 낡은 판을 «변화 0» 으로 읽지 않는다."""
     stub, counter = _stub(tmp_path, monkeypatch, FETCH_FAIL)
     monkeypatch.setenv("FT_LEDGER_FETCH", str(stub))
-    assert fl._run(world["root"], world["state"]) == (0, "원장 커밋 0")
+    assert fl._run(world["root"], world["state"]) == (0, "원장 ref fetch 실패")  # r847 r4: 받기 실패 사유가 정지 감시 원인 칸으로(옛 «원장 커밋 0»)
     assert _count(counter) >= 1  # 재시도 규칙은 이 카드 밖 — 1회 이상이면 받기 시도는 한 것
     _assert_unjudgeable(world)
 
@@ -172,7 +172,7 @@ def test_d_fetch_ok_and_no_new_commit_keeps_change_line(world, tmp_path, monkeyp
     monkeypatch.setenv("FT_LEDGER_FETCH", str(stub))
     monkeypatch.setenv("FT_LEDGER_REPO", str(world["live"]))
     assert fl._run(world["root"], world["state"]) == (0, "원장 커밋 0")
-    assert _count(counter) == 1 and world["made"] == []
+    assert _count(counter) == 0 and world["made"] == []  # r847: ls-remote 원격 == origin/main → 받기 0(옛 판 = 1)
     assert world["lines"] == ["[뉴스 09:40] 변화 없음 · 지도 http://x/0"]
 
 
@@ -208,7 +208,7 @@ def test_g2_mutation_change_line_without_unjudgeable_head(world, tmp_path, monke
     monkeypatch.setenv("FT_LEDGER_FETCH", str(stub))
     monkeypatch.setattr(fh, "zero_change_line",  # 변이 = 옛 판 문장(«변화 없음» + warn 꼬리)
                         lambda now, last, warn: f"[뉴스 {now:%H:%M}] 변화 없음 · 지도 {last.get('link')} · {warn}")
-    assert fl._run(world["root"], world["state"]) == (0, "원장 커밋 0")
+    assert fl._run(world["root"], world["state"]) == (0, "원장 ref fetch 실패")  # r847 r4
     with pytest.raises(AssertionError):
         _assert_unjudgeable(world)
 
