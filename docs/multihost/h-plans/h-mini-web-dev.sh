@@ -104,8 +104,12 @@ sleep 2
 echo started
 REMOTE
 )"
-printf '%s\n' "$JWT" | timeout 20 ssh "${SO[@]}" "$MINI" "export PATH=/opt/homebrew/bin:\$HOME/.local/bin:\$PATH; P_WEB=${P_WEB} P_GW=${P_GW} bash -c $(printf '%q' "$START_CODE")" || die 4 "기동 명령 실패"
+# 시크릿은 600 임시 파일 → ssh stdin 으로만(h-mini-e2e-round1-run.sh 와 같은 꼴 · 화면 출력 0 · 끝나면 삭제)
+ENVF="$(mktemp "${TMPDIR:-/tmp}/h-webdev-env.XXXXXX")"; chmod 600 "$ENVF"; trap 'rm -f "$ENVF"' EXIT
+printf '%s\n' "$JWT" > "$ENVF"
 unset JWT
+timeout 20 ssh "${SO[@]}" "$MINI" "export PATH=/opt/homebrew/bin:\$HOME/.local/bin:\$PATH; P_WEB=${P_WEB} P_GW=${P_GW} bash -c $(printf '%q' "$START_CODE")" < "$ENVF" || die 4 "기동 명령 실패"
+rm -f "$ENVF"
 
 say "4/4 증거 (첫 컴파일 때문에 최대 60초 기다린다)"
 EV="$(timeout 80 ssh "${SO[@]}" "$MINI" "export PATH=/opt/homebrew/bin:\$HOME/.local/bin:\$PATH; P_WEB=${P_WEB} bash -s" <<'REMOTE' 2>&1
