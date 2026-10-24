@@ -1,0 +1,69 @@
+# red — 새 시험 · 고치기 전 판(c059ddd1 의 ft-nano-close.sh) · rc=1 FAILED 12
+== ⓖ 키트 2곳 같은 바이트 + bash -n
+PASS cmp ft-nano-close.sh (bin == kit)
+PASS bash -n ft-nano-close.sh
+PASS 준비: origin/main = B · 로컬 main = A(대기/ 옛 사본)
+== ⓐ --research: 증거 줄 없음 · cherry +0 · 미커밋 0 · --result 실재 → CLOSED rc0
+PASS ⓐ 인자 없음 = 지금 판 ⑥증거 줄 없음 REJECT
+FAIL ⓐ --research rc=2 ← unknown --research
+FAIL   └ ⑥ 자리 = 리서치 검사 통과 줄 — 없음: «RESEARCH-OK» ← unknown --research
+PASS   └ ⑥ 증거 줄 검사 면제
+FAIL   └ 닫힘 원장 행에 research=1 — 없음: «research=1» ← 
+PASS   └ 브랜치 보존
+== ⓑ --research 인데 코드 커밋(cherry +1) · 미커밋 → REJECT «리서치 아님» (면제 0)
+FAIL ⓑ cherry rc=2 ← unknown --research
+FAIL   └ 다음 수 = 구현 닫기 경로 — 없음: «구현 닫기 경로» ← unknown --research
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+FAIL ⓑ 미커밋 rc=2 ← unknown --research
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+== ⓒ --research 인데 --result 없음 → REJECT ①
+FAIL ⓒ rc=2 ← unknown --research
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+== ⓤ 다른 ⑥ 면제·우회 인자와 동시 → usage 2
+PASS ⓤ --research + --suspended → usage rc=2
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS ⓤ --research + --superseded-by → usage rc=2
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS ⓤ --research + --never-started → usage rc=2
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS ⓤ --research + --shared-wt → usage rc=2
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS ⓤ --research + --cherry-override → usage rc=2
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+== ⓓ 로컬 루트 = 대기/ 옛 판 · origin/main = 진행/ 새 판 → origin/main 판을 읽는다
+FAIL ⓓ rc=1 ← WARN ft-team-lib.sh 없음(<T>/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+FAIL   └ INFO 카드 위치 ← origin/main:<경로> — 없음: «카드 위치 ← origin/main:design/planner/indices/진행/rs.md» ← WARN ft-team-lib.sh 없음(<T>/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+FAIL   └ 리서치 줄(origin/main 판)을 읽고 · 쓰기는 작업 트리 사본(대기/) — 없음: «- 리서치 닫힘: byz-planner-nano-rs#0» ← # 인덱스: rs
+PASS   └ 작업 트리에 진행/ 사본을 새로 만들지 않음
+PASS   └ 꺼낸 임시 카드 파일 정리(TMPDIR 비어 있음)
+== ⓓ origin/main 에 카드 없음 → 기존 후보 순서 그대로
+FAIL ⓓ 없음 rc=2 ← unknown --research
+== ⓓ origin fetch 실패 → 옛 origin/main ref 를 최신으로 믿지 않는다(기존 순서 · 증거 줄 없음 REJECT)
+FAIL ⓓ fetch 실패 → WARN 1줄 + origin/main 판 안 읽음 — 없음: «fetch 실패» ← WARN ft-team-lib.sh 없음(<T>/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+PASS   └ 옛 ref 카드 사용 0
+PASS   └ 작업 트리 옛 사본으로 판정(REJECT)
+== ⓕ 변이 — 면제 제거 → ⓐ FAIL · origin/main 후보 제거 → ⓓ FAIL
+PASS ⓕ 면제 제거 → ⓐ FAIL
+PASS ⓕ origin/main 후보 제거 → ⓓ FAIL
+== ⓖ 600/300 s · 외부 호출 · GIT_* env 0 (r888 줄)
+PASS ⓖ 600/300 숫자 0
+PASS ⓖ 외부 호출 0
+PASS ⓖ GIT_DIR env 0
+PASS ⓖ GIT_WORK_TREE env 0
+FAILED 12
