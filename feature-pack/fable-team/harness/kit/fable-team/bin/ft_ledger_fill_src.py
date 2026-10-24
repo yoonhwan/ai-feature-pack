@@ -13,6 +13,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 LOCAL_S = 7.0  # 로컬 git·도구 1회 상한(7초 룰)
+CAP_S = 70.0  # 크기 비례 상한 천장(하드 룰 12)
+LOG_BASE = 100  # 완성 카드 git log 기준량 = 창 안 커밋 100개당 7초(r870 1-b)
 MAILBOX_TAIL = 262144
 DONE_MARK = ("[완료", "[착지")
 _TEAM = re.compile(r"[a-z0-9][a-z0-9_-]*")
@@ -94,8 +96,16 @@ def branch() -> str:
     return name
 
 
+def sized(n: int, base: int) -> float:
+    """크기 아는 로컬 배치 상한 = min(7초 × ceil(n/base), 70초) — 최소 7초(하드 룰 12 · r870 1-b)."""
+    return min(LOCAL_S * max(1, -(-n // base)), CAP_S)
+
+
 def _has(repo: Path, ref: str) -> bool:
-    return subprocess.run([*GIT, "-C", str(repo), "rev-parse", "--verify", "-q", f"{ref}^{{commit}}"], capture_output=True, timeout=LOCAL_S, check=False).returncode == 0
+    try:
+        return subprocess.run([*GIT, "-C", str(repo), "rev-parse", "--verify", "-q", f"{ref}^{{commit}}"], capture_output=True, timeout=LOCAL_S, check=False).returncode == 0
+    except (OSError, subprocess.TimeoutExpired) as e:  # r870 — 시간 초과가 뉴스 틱을 죽이지 않게(FillError = 원장 채움만 0)
+        raise FillError(f"git rev-parse 실행 실패: {e}") from e
 
 
 def ancestor(repo: Path, a: str, b: str) -> bool:
@@ -177,12 +187,14 @@ def _disk_team(rel: str, team: str, since: datetime) -> dict:
 
 def team_cards(repo: Path, ref: str, now: datetime, hours: int = 24) -> dict[str, dict]:
     """팀마다 {진행: [(이름, 제목)], 대기: N, 착지: [(이름, 제목)]} — 착지 = 최근 hours 시간 안 완성 폴더에 «추가»된 카드.
-    git 3회(ls-tree · log · cat-file). 폴더 칸이 $FT_HARNESS_ROOT 꼴이면 디스크에서 읽는다(env 없음 = FillError · 표 전체 갱신 0)."""
+    git 4회(ls-tree · rev-list · log · cat-file). 폴더 칸이 $FT_HARNESS_ROOT 꼴이면 디스크에서 읽는다(env 없음 = FillError · 표 전체 갱신 0)."""
     rows, since = teams(repo, ref), now - timedelta(hours=hours)
     on_ref = {t: rel for t, rel in rows.items() if not rel.startswith("$")}
     paths = git(repo, "ls-tree", "-r", "--name-only", ref, "--", *(f"{rel}indices/" for rel in on_ref.values())).splitlines() if on_ref else []
-    recent = {p for p in git(repo, "log", ref, f"--since={since:%Y-%m-%d %H:%M}", "--diff-filter=A", "--name-only", "--format=", "--",
-                             *(f"{rel}indices/완성/" for rel in on_ref.values())).splitlines()} if on_ref else set()
+    window = f"--since={since:%Y-%m-%d %H:%M}"
+    cap = sized(int(git(repo, "rev-list", "--count", window, ref) or 0), LOG_BASE) if on_ref else LOCAL_S  # r870 1-b — 창 안 커밋 수 비례(부하 때 고정 7초에 걸리던 몫)
+    recent = {p for p in git(repo, "log", ref, window, "--diff-filter=A", "--name-only", "--format=", "--",
+                             *(f"{rel}indices/완성/" for rel in on_ref.values()), timeout=cap).splitlines()} if on_ref else set()
     pick: dict[tuple[str, str], list[str]] = {}
     for team, rel in on_ref.items():
         for state in ("진행", "대기", "완성"):

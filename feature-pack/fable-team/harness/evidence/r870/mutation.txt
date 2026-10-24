@@ -1,0 +1,12 @@
+PASS 무변이 기준(전부)
+KILLED ①같음판정제거(r3 = tb.same)
+KILLED ⑩옛생략갈래되살림(r3)
+KILLED ⑪변화없음반환빈칸(r4)
+KILLED ②재시도무한(5회)
+KILLED ③훅건너뜀제거
+KILLED ④같은커밋재사용제거
+KILLED ⑤같은원인경고제거
+KILLED ⑥commit시간초과잡기제거
+KILLED ⑦has시간초과잡기제거
+KILLED ⑧크기비례상한제거
+rc=0

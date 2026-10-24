@@ -1,3 +1,13 @@
+## 2026-10-25 — r870 원장 채움 push·로컬 git 시간 초과 — 뉴스 틱 안 죽음 · 훅 건너뜀 · 재시도 1(1.1.233)
+
+- 뉴스 틱 원장 채움(`ft_ledger_fill`)의 임시 인덱스 git(hash-object·read-tree·update-index·write-tree)과 사본 브랜치 유무 확인(`_has`)이 부하 때 7초를 넘기면 `TimeoutExpired` 가 잡히지 않아 뉴스 틱 전체가 Traceback rc1 로 죽었다(재부팅 뒤 3회). → 시간 초과·실행 실패 = FillError(«원장 채움 실패 — 표 갱신 0: git read-tree 시간 초과(7초)» 1줄 · 뉴스는 지금 판으로 계속).
+- push: ⓐ(r3 에서 삭제 — 같은 판 push 0 은 표 같음 판정이 맡음 · 아래 r3) ⓑ시도당 10.5초(CLI 고정비 3.5 + 7) · 출력 0 인 시간 초과만 재시도 1 · 넘기면 프로세스 묶음 TERM→KILL(r847 `_run_capped`) ⓒ실패 = 실패 커밋을 state `push-fail.json` 에 기억 → 다음 틱이 같은 트리·같은 부모면 «같은 커밋» 을 다시 올림 · 같은 원인 연속은 뉴스 로그 WARNING(실패 구간당 ERROR 1통 · 문구에 «git push … timed out» 그대로) ⓓ`--no-verify` = 원장 사본 refspec(`ledger/*` · 입구 검사) 1개만 — pre-push 게이트는 `feat/v6-realtime-live` 체크아웃 전용(원장 사본 = detached HEAD → 늘 통과)이고 그 뒤는 beads shim(원장과 무관) · 훅 몫이 상한을 먹던 자리.
+- 완성 카드 `git log`(최근 24시간 · 팀 완성/ 폴더) 상한 = 창 안 커밋 수 비례 `min(7초 × ceil(N/100), 70초)`(하드 룰 12 · `ft_ledger_fill_src.sized`) — 부하 때 고정 7초에 걸려 «메인 골 지금 상태·팀 작업» 표가 0 이던 몫. 실패 = 그 표만 ERROR(그대로).
+- 시험 `tests/scripts/test_ledger_fill_r870.py` 8(git 래퍼 · 축척 잠) · 기준판 빨강 7 · 변이 8 모두 빨강 · r851 시험 38 그대로 통과.
+- r2(외부 DA⑥ r1 HOLD 1 반송): ⓐ «push 생략(같음)» = 원격 사본 트리 같음 ∧ 사본 브랜치가 지금 main 을 품음(`read_ref` 가 그 판을 고름) 둘 다일 때만 — main 이 빈 커밋으로 앞서 사본이 main 을 못 품으면 트리가 같아도 [main, 사본] 병합 커밋을 올린다(옛 판 = 생략 → 뉴스는 옛 main 원장 · 채움은 성공 기록). 시험 ⓐ2 · 변이 ⑨(품음 검사 제거) 빨강.
+- r3(외부 DA⑥ r2 HOLD 1 · 보류 2회 → 재설계): «push 생략(같음)» 갈래와 `_remote_tree()` 삭제 — 사본 ⊇ main 이면 `bases()` 가 그 머리를 판으로 골라 표 같음(`tb.same`) «변화 없음» 이 먼저 push 0 으로 끝내므로 생략 갈래는 fetch 경쟁 때만 닿고, 닿으면 두 검사가 다른 시점 ref 를 읽어 새 판을 안 올렸다(반례: 원격 트리 B 읽은 뒤 사본이 C 로 전진 → push 0 · 성공 기록). 바뀐 줄은 삭제뿐. 시험 ⓐ = 대역 없이 «FILL 변화 없음» · push 0 · ⓐ2 = read_ref 경쟁 대역에서도 [main, 사본] 병합 push · 두 칸 모두 «push 생략(같음)» 0 · 변이 ⑩(옛 갈래 되살림) 빨강.
+- r4(외부 DA⑥ r3 HOLD 1): «FILL 변화 없음» 도 이번에 읽은 판 sha(`bases()` 의 base)를 돌려준다(옛 판 = 빈칸 → 뉴스 `ledger_fill()` 이 옛 cur 유지). 반례: 다른 작성자가 같은 렌더 C(부모 [main, 사본])를 먼저 올려 이번 push 가 ff 거절 → 다시 받아 C 위 «변화 없음» → 뉴스는 옛 main 원장. 사본 없음·main 위 판이면 base = main = cur(뉴스 값 그대로). 시험 ⓐ3 · 변이 ⑪(빈칸 되돌림) 빨강.
+
 ## 2026-10-24 — r838 계정 전체 한도 때 자동 교대 보류 1통 · 열기 실패 이유 남기기(1.1.230)
 
 - `ft_model_swap` 이 계정 전체 한도(모든 모델 정지) 때 좌석마다 «[HIL] 자동 교대 불가 · 대체 모델 없음» 을 보냈다(실측 107통 · 같은 좌석 5~6통 = 정지 uuid 가 회차마다 새로 생김). → 후보를 고르기 전 계정 한도 판정: (가) api-outage 상태 «OUTAGE» ∧ 그 시작 뒤 정상 0 = 교대 0 · 발신 0(장애 알림은 ft_api_outage 1통) · (나) 최근 10분 역할 좌석 rate_limit 정지 ≥2 ∧ 첫 정지 뒤 정상 0 = 교대 0 · «[자동 교대 보류] 계정 전체 한도 — 정지 좌석 N · 교대 0 · 풀리면 ft_api_outage 재개» 장애당 1통(state `outage_open`·`outage_notified` 최근 20 · 정상 1 이 오면 닫힘). 장애 표식이 켜져도 그 뒤 다른 모델 정상이 있으면 모델 하나 한도 = 지금 규칙(교대).
