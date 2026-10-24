@@ -1,0 +1,22 @@
+PASS ①오탐 재현 → PASS
+PASS ②옛 blob 롤백 → REJECT
+PASS ②사유 토큰 없음
+PASS ③superseded → PASS
+PASS ③동일 토큰 없음
+PASS ④새 내용 → REJECT
+PASS ⑤mode 만 다름 → REJECT
+PASS ⑥빈 사유 → exit 2
+PASS ⑥공백 사유 → exit 2
+PASS ⑥사유 있음 → 파싱 통과
+PASS ⑥인자 없음 → 현행 그대로
+PASS ⑥게이트 호출에 CO_ARGS 패스스루
+PASS ⑥FT_SEAT=$FROM 지정
+PASS ⑥--override 사유 전달
+PASS ⑦squash 시험 rc=0
+PASS ⑧cmp ft-nano-cherry-gate.sh
+PASS ⑧bash -n ft-nano-cherry-gate.sh
+PASS ⑧cmp ft-nano-spawn.sh
+PASS ⑧bash -n ft-nano-spawn.sh
+PASS ⑧게이트      186줄 ≤ 200
+---
+ALL PASS

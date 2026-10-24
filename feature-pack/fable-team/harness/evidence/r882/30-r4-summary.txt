@@ -1,0 +1,30 @@
+R882 r4 — DA⑥ r3 HOLD 1 좁은 반송(1자리 · 보류 3회 · REWORK-r882-r4.md · VERDICT-r882-da6-r3.md · arch 139)
+반례: abort 소유 판정을 «MERGE_HEAD = base sha» 로 함 → 잠금 밖 다른 실행이 검사 직후 같은 base 로 merge --no-commit 하면 우리 merge 는 거절(128)인데 sha 가 같아 남의 병합을 abort · «충돌·사람» rc0
+base: origin/main 위로 다시 맞춤(r870 e07bf7af 1.1.233 · r867 24330095 착지) → 버전 1.1.234 · 겹친 곳 CHANGES·manifest 만
+
+바뀐 것 (bin/ft-head-sync.sh + kit 짝 사본 cmp=0 · 130줄 ≤130)
+- merge 종료 코드를 변수로 받음(LC_ALL=C · mrc) · sha 비교 삭제
+  rc=0 → r3 검증 그대로(HEAD ⊇ base ∧ 미커밋 0 일 때만 «최신화함» · 아니면 ERROR rc1)
+  rc=1 ∧ MERGE_HEAD 있음 → 우리 merge 가 충돌로 멈춤 → merge --abort → «충돌·사람»
+  그 밖(rc=128 시작 못 함 등) → abort 0 · «보류(다른 연산 진행 중 · merge rc=N)» · ERROR 1줄(merge 출력 120자) · 끝 rc1 · 그 워크트리는 전후 대조 밖(남이 고치는 중 — VIOLATION 오보 0)
+  (r3 의 «오류(merge 거절 …)» 칸도 이 «보류 rc1» 로 합쳐짐 — 시작 못 한 merge 는 전부 abort 0)
+- 머리 주석 :10 r4 문구
+
+시험 tests/test_head_sync_lock_r882.sh 31 (git 대역 FOREIGN_MERGE = merge 직전 남이 같은 base 로 merge --no-commit --no-ff)
+- ⓝ 잠금 밖 남의 같은 base 병합 → 우리 merge rc=128 → abort 0 · MERGE_HEAD(=base) 그대로 · «보류(다른 연산 진행 중 · merge rc=128)» · ERROR · VIOLATION 0 · rc1
+- ⓞ 진짜 충돌(wt-a 의 m.txt ↔ main 의 m.txt · 우리 merge rc=1) → abort · «충돌·사람» · HEAD·파일 원래대로 · 미커밋 0 · rc0
+- ⓗ(남의 다른 sha MERGE_HEAD) 단언 갱신: rc0·«남의 병합 — abort 0» → rc1·«보류(다른 연산 진행 중 · merge rc=128)» · MERGE_HEAD 그대로
+- 변이4 = abort 판정을 rc 대신 sha 비교(r3 꼴)로 되돌림 → 남의 같은 base MERGE_HEAD 를 지움 = ⓝ 빨강
+- 나머지 r882 칸(1곳·전수·잠금·고아·변이 flock/cwd/공용 키) 그대로 통과
+- 3회 연속 ALL PASS(r4-t-test_head_sync_lock_r882.txt 1회분) · /bin/bash 3.2 ALL PASS(r4-t-lock-bash32.txt)
+- r3 판(89f6b03d)에 돌리면 ⓗ·ⓝ·변이4 빨강(r4-red-r3-script.txt — r3 판은 같은 base 남의 병합을 abort)
+회귀 (r4-t-*.txt · 다시 맞추기 전 r886 위 판)
+test_head_sync_apply_scope rc=0 PASS 26 FAIL 0
+test_head_sync rc=0 PASS 25 FAIL 0
+test_head_lag_remind_per_wt_r836 rc=0 PASS 36 FAIL 0
+test_head_skip_list rc=0 PASS 21 FAIL 0
+test_merge_head_gate rc=0 PASS 32 FAIL 0
+test_cherry_gate_identical_head rc=0 PASS 20 FAIL 0
+test_head_lag rc=1 PASS 23 FAIL 1
+- test_head_lag FAIL 1 = ⓐ «착지 성공» remote URL 픽스처(r889) — 기준판 동일 · 범위 밖
+press 필요: 없음
