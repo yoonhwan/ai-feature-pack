@@ -1,3 +1,11 @@
+## 2026-10-25 — r868 재부팅 기준선 2시간 재측정 잡 ft-postboot-measure(읽기 전용 · 1.1.231)
+
+- 오빠 지시(10-25 00:3x) «재부팅 직후 기준선 대비 같은 명령 2시간 주기 재측정». 새 `ft-postboot-measure.sh`(+ `ft_postboot_measure.py` 측정 · `ft_postboot_report.py` 상태·요약) + launchd 틀 `kit/launchd/com.byz.ft-postboot-measure.plist.template`(StartInterval 7200 · RunAtLoad = 적재·부팅 때 1열).
+- 1회 = 명령 10개(uptime · sysctl kern.boottime·vm.swapusage · memory_pressure · df -k · ps · tmux ls · git worktree list · lsof +L1 · colima status)만 · kill·rm·worktree 변경·git 쓰기 0. 기준선 표 9항목 + 원인 4 보조(지운 채 쥔 파일 합계·상위 5 · pi/claude/node/python 수·RSS · next-server 수·CPU · limactl · colima).
+- 명령마다 7초 상한 · lsof +L1 은 7초 × ceil(프로세스/500) · 70초 천장 · 넘으면 «시간 초과» · 실패 «실패(…)» 칸(0·빈 칸 0).
+- 상태 `<루트>/.fable-team/state/postboot-measure.tsv`(행 = 1회 · 14일 지난 행은 다음 기록 때 정리 = 닫는 사건) · 날이 바뀐 첫 회 = 전날 요약 1장 `<루트>/design/teams/planner/postboot/SUMMARY-postboot-<날짜>.md`(기준선 열 · 회차 열 · 차이 열 · 커밋 0) · `--summary` = 오늘 요약 지금. stdout 1회 1줄(`/tmp/byz-ft-postboot-measure.log`).
+- 시험 `tests/test_postboot_measure_r868.sh` 49(ⓐ~ⓕ · 변이 2: 시간 초과→0 · colima stop) · 렌더 목록 개수 고정 시험 2개 9 → 10.
+
 ## 2026-10-24 — r838 계정 전체 한도 때 자동 교대 보류 1통 · 열기 실패 이유 남기기(1.1.230)
 
 - `ft_model_swap` 이 계정 전체 한도(모든 모델 정지) 때 좌석마다 «[HIL] 자동 교대 불가 · 대체 모델 없음» 을 보냈다(실측 107통 · 같은 좌석 5~6통 = 정지 uuid 가 회차마다 새로 생김). → 후보를 고르기 전 계정 한도 판정: (가) api-outage 상태 «OUTAGE» ∧ 그 시작 뒤 정상 0 = 교대 0 · 발신 0(장애 알림은 ft_api_outage 1통) · (나) 최근 10분 역할 좌석 rate_limit 정지 ≥2 ∧ 첫 정지 뒤 정상 0 = 교대 0 · «[자동 교대 보류] 계정 전체 한도 — 정지 좌석 N · 교대 0 · 풀리면 ft_api_outage 재개» 장애당 1통(state `outage_open`·`outage_notified` 최근 20 · 정상 1 이 오면 닫힘). 장애 표식이 켜져도 그 뒤 다른 모델 정상이 있으면 모델 하나 한도 = 지금 규칙(교대).

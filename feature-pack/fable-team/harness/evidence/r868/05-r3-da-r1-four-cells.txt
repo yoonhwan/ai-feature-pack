@@ -1,0 +1,63 @@
+PASS bash -n
+PASS 짝 사본 cmp 0 ft-postboot-measure.sh
+PASS 짝 사본 cmp 0 ft_postboot_measure.py
+PASS 짝 사본 cmp 0 ft_postboot_report.py
+PASS ⓐ rc0
+PASS ⓐ 상태 파일 = 머리 1 + 행 1
+PASS ⓐ boot_min=120
+PASS ⓐ disk_avail_gib=160.0
+PASS ⓐ swap_used_mib=512
+PASS ⓐ mem_free_pct=70
+PASS ⓐ load15=15.25
+PASS ⓐ claude_n=2
+PASS ⓐ tmux_n=3
+PASS ⓐ worktrees_n=3
+PASS ⓐ next_n=1
+PASS ⓐ next_cpu=50.0
+PASS ⓐ pi_n=1
+PASS ⓐ python_n=2
+PASS ⓐ node_n=1
+PASS ⓐ limactl_n=1
+PASS ⓐ claude_rss_mib=600
+PASS ⓐ deleted_mib=1027
+PASS ⓐ colima=실행
+PASS ⓐ 지운 채 쥔 파일 상위 프로세스(python:14 1025MiB)
+PASS ⓐ 로그 1줄
+PASS ⓐ 실행당 출력 1줄(launchd 로그 증가 최소)
+PASS ⓒ 호출 10개 전부 허용 목록(kill·rm·worktree 변경 0)
+PASS ⓑ 느린 lsof·tmux → «시간 초과»
+PASS ⓑ 다른 칸은 정상 값
+PASS ⓑ 로그 줄에 시간 초과 수
+PASS ⓑ lsof 상한 = 고정비 + 7초×ceil(프로세스/500) · 70초 천장 · 모름=7초
+PASS ⓑ 명령 없음 → «실패…»(0 아님)
+PASS ⓓ 전날 요약 1장 1970-01-13
+PASS ⓓ 요약 파일 1개(오늘 것 0)
+PASS ⓔ 기준선 열
+PASS ⓔ 기준선 값 디스크 182
+PASS ⓔ 차이 열(마지막 측정 − 기준선: 디스크 160−182)
+PASS ⓔ 요약도 시간 초과를 그대로
+PASS ⓓ 커밋·add·push 0
+PASS ⓓ 같은 날 두 번째 회 = 요약 추가 0
+PASS ⓓ --summary = 오늘 요약 즉시(master 2·4시간 실측용)
+PASS ⓖ R1 tmux 접속 실패(rc1 Permission denied) → «오류(사유)»(세션 0 아님)
+PASS ⓖ R2 lsof rc1 + «Output information may be incomplete» → «불완전(사유)»
+PASS ⓖ R2 셈은 참고값으로 남김(0 으로 숨김 0)
+PASS ⓖ R2 상위 프로세스도 남김
+PASS ⓖ R3 env 80 → 7 · env 3 → 3 · 해석 불가 → 7 · lsof 천장 70
+PASS ⓖ R4 1MiB 넘은 로그 → 회전(닫는 사건)
+PASS ⓖ R4 하루 요약 → 로그 비움
+PASS 닫는 사건: 14일 지난 행 정리(머리 + 새 행 1)
+PASS FT_ROOT 없음 → ERROR rc≠0(#0 RULE)
+PASS plist lint
+PASS plist StartInterval 7200
+PASS plist 실행 = __FT_BIN__ shim
+PASS plist Label
+PASS ⓖ R4 plist 로그 = 상태 파일 옆 1개(닫는 사건 있는 자리)
+PASS ⓕ 변이1(시간 초과→0) → ⓑ FAIL 로 잡힘
+PASS ⓕ 변이2(쓰기 명령 colima stop) → ⓒ FAIL 로 잡힘
+PASS ⓕ 변이3(tmux 오류→0 되돌림) → ⓖ R1 FAIL 로 잡힘
+PASS ⓕ 변이4(lsof 불완전→0 숨김 되돌림) → ⓖ R2 FAIL 로 잡힘
+PASS ⓕ 변이5(상한 식 되돌림) → ⓖ R3 FAIL 로 잡힘
+PASS ⓕ 변이6(로그 회전 제거) → ⓖ R4 FAIL 로 잡힘
+(0 failed)
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
