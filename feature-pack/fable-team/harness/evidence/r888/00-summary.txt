@@ -1,0 +1,56 @@
+r888 — ft-nano-close 리서치 좌석 닫기 길(--research) + 카드를 origin/main 판에서 읽기 (1.1.233)
+카드: BYZ design/harness/indices/진행/r888-nano-close-research-seat-evidence-exempt-card-origin-main.md · Issue #3243 · 좌석 byz-harness-nano-r888-nano-close-research-seat-evidence-e#0
+
+원인 2 (카드 묶음 판정)
+ ① 리서치 좌석(코드 0 · 커밋 0)에도 ⑥ 구현 증거 줄(세트·시험 rc0)을 요구 — 실측 v65 m5 리서치 pi 좌석 닫기 rc=1 «⑥증거 줄 없음»
+ ② 카드 리졸버가 루트 로컬 design/(origin/main 보다 69커밋 뒤 · 대기/ 옛 사본)을 먼저 집음
+
+바꾼 것 (harness/bin/ft-nano-close.sh · 짝 kit/fable-team/bin cmp0)
+ - --research: ⑥ 자리에서 «코드 0» 을 값 2개로 센다 — 좌석 워크트리 HEAD 의 cherry <feat>(+ 면 origin/main fetch 성공 때만 한 번 더) «+» 0 · 미커밋 0(.serena/project.yml 제외 · untracked 포함).
+   하나라도 아니면 REJECT «⑥리서치 아님 — … · 구현 닫기 경로로» · 셀 수 없으면 REJECT · ①--result 실재 · ② · ③ · ⑤ cherry 게이트 그대로 · 원장/출력 꼬리 research=1.
+   --never-started·--superseded-by·--suspended·--cherry-override·--shared-wt 와 동시 = usage 2 · 인자 없으면 동작 불변.
+ - 카드 읽기: FT_CARD_REF(기본 origin/main)를 그 ref 하나만 fetch 한 뒤 <IDX>·쌍둥이의 indices/{진행,완성,대기}/<파일> 첫 판을 임시 파일 CARD_READ 로 꺼냄(INFO 카드 위치 ← <ref>:<경로>).
+   fetch 실패 = 옛 ref 판 안 읽음(WARN · CARD_READ=CARD) · ref 에 없음 = 기존 후보 그대로 · 임시 파일은 EXIT trap 으로 지움.
+   읽기 자리: 하네스 표지(head -5) · checkpoint grep · ⑥ «카드 못 찾음» · 증거 줄 검사 · 리서치 줄(RS_LINE).
+   증거 줄 검사 = 읽기 판 먼저 · 거절이고 작업 트리 판이 따로 있으면 그 판도(증거 줄은 «세트 = 지금 HEAD» 로 스스로 검증 → 옛 판 거짓 통과 0 · 작업 트리에 막 쓴 미착지 줄 · RED 판정의 git 이력 경로 보존).
+   리서치 줄도 읽기 판 → 작업 트리 판 순. 쓰기(리서치 닫힘 · 리서치 위반 · 중단 줄)는 작업 트리 CARD 그대로 · --superseded-by/--suspended 검사는 CARD 그대로(범위 밖).
+
+시험 (새 test_nano_close_research_r888.sh · 57 PASS)
+ ⓐ --research 통과(증거 줄 없음 · cherry +0 · 미커밋 0) · 인자 없으면 ⑥ REJECT 그대로  ⓑ cherry +1 · 미커밋 → «리서치 아님»  ⓒ --result 없음 → ①
+ ⓤ 동시 인자 5종 usage 2  ⓓ 로컬 대기/ 옛 판 vs origin/main 진행/ 새 판 → origin/main 판 읽음 · 쓰기 = 작업 트리 사본 · 임시 파일 0 · origin/main 에 없음 → 기존 순서 · fetch 실패 → 옛 ref 안 믿음
+ ⓕ 변이 2(면제 제거 → ⓐ FAIL · origin/main 후보 제거 → ⓓ FAIL)  ⓖ 600/300·외부 호출·GIT_* 0 + bin==kit cmp0
+ red = 고치기 전 판 FAILED 12 (red-new-test-old-code.txt) · green = rc0 (green.txt)
+
+기존 시험
+ - test_nano_close_* 14: 13 ALL PASS · r680 FAILED 4 — origin/main 판으로도 같은 4건(기존 실패 · 무관)
+ - ft-nano-close 를 부르는 다른 시험 27: 20 rc0 · 7 rc≠0 — origin/main 판으로도 같은 rc · PASS/FAIL 줄 diff 0(기존 실패 · 무관) (related-tests.txt)
+
+r2 (DA⑥ r1 HOLD 1 · REWORK-r888-r2.md · master#109 #162887)
+ - --research 기준을 _FEAT 에서 떼어 «origin/main 대비 좌석 HEAD 고유 커밋 = 0»(rev-list --count origin/main..HEAD · origin main fetch 실패면 로컬 origin/main + WARN — 옛 ref 는 더 세는 쪽이라 거짓 통과 0) · 셀 수 없으면 REJECT
+ - FT_NANO_FEAT = 좌석 자기 브랜치(이름) → REJECT «기준 브랜치가 좌석 자신» · 고유 커밋이 있는데 _FEAT 가 HEAD 를 품어도 같은 사유를 붙임
+   ※ 지시서 «HEAD 를 품으면 REJECT» 를 글자 그대로 쓰면 정상 리서치 좌석(고유 커밋 0 → HEAD 는 늘 main 에 포함)도 전부 막혀 «이름 = 자기 브랜치» + «커밋 있을 때 품음» 으로 좁혔다
+ - ① --research 면 결과 파일 0바이트 = REJECT(-s) · 일반 닫기 ① 은 불변
+ - 시험 ⓖ(FT_NANO_FEAT=좌석 브랜치 + 구현 커밋 1 → REJECT) · ⓗ(0바이트 → REJECT) · 변이 uniq 제거 → ⓖ FAIL · 67 PASS
+ - r2 red: r1 판은 ⓖ·ⓗ 를 CLOSED 로 통과(FAILED 7 · r2-red-new-cells-r1-code.txt)
+
+범위 밖: 일반 닫기 경로의 _FEAT 검증(별 카드 후보) · 쌓인 리서치 좌석 실제 닫기(master) · reap 판정기 · 파일 분할 · 위 기존 실패 8 시험
+press 필요: 없음
+
+== r3 (DA⑥ r2 HOLD 3 · REWORK-r888-r3.md · master#109 #163148) — origin/main e07bf7af 위 rebase · 1.1.234
+- 기준 판 = 카드 «- 리서치: <좌석> base=<40-hex>»(spawn --research 가 그 좌석에 쓴 판) › «## 상태» base_sha(40-hex) · 읽기 판 → 작업 트리 판 · 없음·못 읽음 = REJECT «리서치 기준 판 없음»
+- 구현 커밋 = rev-list --count --no-merges --first-parent <기준 판>..HEAD (착지했어도 센다 · 반례 1 닫음)
+- 머리 맞춤 병합 = 셈 밖 · 단 끌어온 쪽(둘째 부모~)이 origin/main 조상 아니면 «곁가지 병합» REJECT
+- 미커밋 = status --porcelain=v1 -z --untracked-files=all · 예외 정확히 «?? .serena/project.yml» 1항목 · R/C 는 원 경로 토큰까지 먹고 미커밋 (반례 2·3 닫음)
+- 편차 1(지시서 1 «base_sha»): 리서치 줄 base= 를 먼저 본다 — spawn --research 는 부모 카드 base_sha 를 안 갱신(STAMP_BASE=0 · ft-nano-spawn.sh 234~235)하고 좌석은 그 시각 HEAD 에서 열려, 부모 base_sha 로 세면 그 사이 main 커밋이 «구현 커밋» 으로 잡혀 정상 리서치가 막힌다(원래 버그 재발). 리서치 줄은 좌석 이름이 박힌 «그 좌석이 열린 판» 이다.
+- 편차 2(지시서 1 «--no-merges <base>..HEAD»): --first-parent 를 더했다 — 없으면 머리 맞춤 병합이 끌어온 main 커밋이 비병합 커밋으로 세져 ⓙ 가 막힌다. 대신 곁가지 구현을 병합으로 숨기는 길은 «끌어온 쪽 ⊂ origin/main» 대조로 막는다(ⓙ 곁가지 · 변이 side).
+- 남는 길(기록): 좌석이 구현을 곁가지로 main 에 착지시킨 뒤 main 을 병합하면 셈 밖 — main 착지 자체가 승인 h·DA 를 거친다.
+- 시험: test_nano_close_research_r888.sh 93 PASS rc0 (변이 6 FAIL 확인 · r3-green.txt) · r2 코드에 새 시험 = FAILED 13(ⓖ문구·ⓘⓙⓚⓛⓜ · r3-red-new-test-r2-code.txt) · 기존 닫기 시험 13 rc0 + r680 4칸 FAIL = origin/main 코드도 같음(r3-existing-close-tests.txt)
+
+== r4 (DA⑥ r3 HOLD 1 · REWORK-r888-r4.md · master#109 #163398) — origin/main 24330095 위 · 1.1.234 유지
+- 기준 판 출처 1자리 교체: 좌석 브랜치 reflog 맨 처음 줄(`git reflog show --format='%H %gs' refs/heads/<좌석 브랜치>` 마지막 줄)이 «branch: Created from …» 일 때 그 sha · 카드 «리서치 줄 base=»·«base_sha:» 는 리서치 판정에서 안 읽음(반례 1 = 좌석이 카드 줄을 HEAD 로 고쳐 구현 숨김 닫음)
+- reflog 없음 · 맨 처음 줄이 다른 것 · detached · sha 못 읽음 = REJECT «리서치 기준 판 없음(reflog)»
+- 셈은 r3 그대로(첫 부모 비병합 커밋 0 · 머리 맞춤 병합 끌어온 쪽 ⊂ origin/main · -z 정확 경로 미커밋 0)
+- 시험: ⓢ카드 줄 HEAD 로 고침+구현 1 → REJECT · ⓣ리서치 줄 중복·앞 추가 → 무영향 · ⓤreflog 비움 / 첫 줄 Created from 아님 → REJECT · ⓥ=ⓙ 앞절(머리 맞춤만 → OK) · 변이 기준=카드 줄 → ⓢ FAIL
+- 단언 갱신(사유: 기준 판이 카드 → reflog): ⓚ «base_sha 없는 카드 → REJECT» 를 «무영향 · RESEARCH-OK(reflog)» 로 · ⓘ 기준 판 B(카드) → reflog A + 착지 대역 = bare origin main 이동 · ⓛ 추적 파일을 열린 판 A 에 미리(카드 base 로 옮기던 «열린 판» 커밋 대신)
+- 시험 결과: 101 PASS rc0 · 변이 7 FAIL 확인(r4-green.txt) · r3 코드에 새 시험 = FAILED 7(ⓚⓢⓣⓤ · r4-red-new-test-r3-code.txt) · 기존 닫기 시험 13 rc0 + r680 4칸 FAIL(= origin/main 동일 · r4-existing-close-tests.txt)
+- 남는 길(기록): 좌석이 브랜치를 HEAD 에서 지우고 다시 만들면 reflog 맨 처음 줄이 «Created from <HEAD>» 로 깨끗해진다(체크아웃된 브랜치는 못 지워 detached 전환이 필요) · reflog 파일 직접 편집 — 둘 다 git 안쪽을 일부러 고치는 길
