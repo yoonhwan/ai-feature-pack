@@ -1,0 +1,6 @@
+RED ⓡ1 후보 없음 키 삭제 되살림 rc=1 · FAILED test_model_swap_account_outage_r838.py::test_r1_user_retry_only_keeps_outage_key_one_note
+RED ⓡ2 «알린 시각 뒤 정상» 삭제 rc=1 · FAILED test_model_swap_account_outage_r838.py::test_r2_normal_then_restuck_between_checks_new_note
+RED ⓡ3 서로 다른 모델 조건 삭제 rc=1 · FAILED test_model_swap_account_outage_r838.py::test_r3_same_model_two_role_seats_is_single_model_swap
+RED ⓡ4 모양 검사 삭제 rc=1 · FAILED test_model_swap_account_outage_r838.py::test_r4_bad_api_outage_state_error_no_swap
+RED ⓡ4' OUTAGE since 검사 삭제 rc=1 · FAILED test_model_swap_account_outage_r838.py::test_r4_bad_api_outage_state_error_no_swap
+RED ⓡ5 가림 삭제 rc=1 · FAIL ⓕ-2 rc=1 out=REJECT tmuxc open 실패 (byz-t-new-claude#2) — 송신 0 · 이유: 줄2 token=abc123SECRET 줄3 tmux: server

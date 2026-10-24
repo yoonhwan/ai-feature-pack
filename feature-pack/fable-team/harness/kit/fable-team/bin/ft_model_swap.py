@@ -2,7 +2,7 @@
 """ft_model_swap.py — 역할 좌석이 모델 한도로 멈추면 같은 역할 후계를 대체 모델로 연다 (r497).
 
 대상 = seats*.json 전부의 역할 칸(`_master`·`_arch`·`_desk`·`_da`… · `_hil_route` 제외) 현역 행 ∧ agent=claude ∧ tmux 생존 · 판정 = R146 analyze.
-줄 = WAIT(정지 < 3분 · 해제 예상 ±3분) · RECOVERED(같은 바탕 모델 정상) · NOOP(이미 교대 · 계보 30분) · SKIP · PLAN swap · HIL(같은 uuid 1통).
+줄 = WAIT(정지 < 3분 · 해제 예상 ±3분) · RECOVERED(같은 바탕 모델 정상) · NOOP(이미 교대 · 계보 30분) · SKIP · PLAN swap · HIL(계보·이유 1통) · HOLD(계정 한도 · r838).
 교대 = ft-successor-open.sh 분리 실행(1회 1건 · 본문 첫 3줄 = 계보 도달 파일 seq 의 골 3줄) · 옛 좌석 kill 0 · 원래 모델 복귀 0 · 끄기 FT_MODEL_SWAP=0.
 """
 import argparse
@@ -18,14 +18,15 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))  # 형제 모듈 — python -I 에서도 찾는다
 from ft_api_outage import Cut, analyze, back  # noqa: E402
 from ft_api_outage_util import base_model, fallback_table, find_jsonls, goal_source, hhmm, jsonl_cwd, locked, next_name, read_table  # noqa: E402
+from ft_model_swap_account import WINDOW, Account, as_kv  # noqa: E402  r838 계정 한도 판정(200줄 상한으로 분리)
 
 SENDER = "ft-model-swap"
 ROUTE_KEYS = {"_hil_route"}
-HOLD, WINDOW, NEAR = 30 * 60, 10 * 60, 3 * 60
+HOLD, NEAR, DAY = 30 * 60, 3 * 60, 24 * 3600
 Row = dict[str, object]
 
 
-class Swap:
+class Swap(Account):
     def __init__(self, a: argparse.Namespace):
         self.a, self.now, self.tmux = a, a.now, os.environ.get("FT_TMUX", "tmux")
         self.ft = Path(a.root) / ".fable-team"
@@ -83,15 +84,34 @@ class Swap:
                 print(f"SKIP {seat} 역할 좌석 아님")
             elif seat in self.alive and (cut := self.scan(seat, row)[1]) and cut.stuck and cut.cause == "rate_limit":
                 cands.append((seat, row, d, cut))
-        if not cands:
+        if not cands and not self.st.get("outage_open") and not self.st.get("blocked"):
             return
         live = [(s, r) for s, r, _, _ in rows if s in self.alive and r.get("agent") == "claude"]
-        self.paths([s for s, _ in live])  # 복구·대체 모델 근거 = 살아 있는 claude 좌석 전부(후보가 있을 때만)
+        self.paths([s for s, _ in live])  # 복구·대체 모델·키 닫기 근거 = 살아 있는 claude 좌석 전부(후보 또는 열린 알림 키가 있을 때만)
+        self.close_keys(live, {s.rsplit("#", 1)[0] for s, _, _, _ in cands})
+        if not cands:
+            return
         oks =[o for s, r in live for o in self.scan(s, r)[2]]
         cuts = [c for s, r in live if (c := self.scan(s, r)[1]) and c.stuck and c.cause == "rate_limit"]
+        if self.account(cands, oks):
+            return
         for seat, row, d, cut in cands:
             if self.one(seat, row, d, cut, oks, cuts):
                 break  # 1회 1건
+
+    def close_keys(self, live: list[tuple[str, Row]], stuck: set[str]) -> None:
+        """r838 알림 키(outage_open·blocked)를 지우는 곳은 여기 하나 — 값 {at 알린 시각, seen 마지막 정지 본 시각 · 지금 정지면 now} · 닫힘 = at 뒤 정상 턴(is_normal) 또는 now−seen ≥ 24시간(살아 있는 계보 0 이어도 · r4)."""
+        oks: dict[str, list[int]] = {}
+        for s, r in live:
+            oks.setdefault(s.rsplit("#", 1)[0], []).extend(t for t, _ in self.scan(s, r)[2])
+        def keep(name: str, b: str, v: object) -> object:  # b = 계보('' = 장애 키 · 살아 있는 claude 좌석 아무나) → 남길 값 · None = 닫힘
+            if (kv := as_kv(name, v)) is None:
+                return v  # 깨진 값 = ERROR 1줄 + 키 유지
+            kv["seen"] = self.now if (b in stuck if b else stuck) else kv["seen"]
+            return None if any(t > kv["at"] for k, ts in oks.items() if not b or k == b for t in ts) or self.now - kv["seen"] >= DAY else kv
+        if self.st.get("outage_open"):
+            self.st["outage_open"] = keep("outage_open", "", self.st["outage_open"]) or 0
+        self.st["blocked"] = {k: v for k, v0 in dict(self.st.get("blocked") or {}).items() if (v := keep(k, k.split("|", 1)[0], v0)) is not None}  # pyright: ignore[reportCallIssue,reportArgumentType,reportUnknownArgumentType,reportUnknownMemberType,reportUnknownVariableType]
 
     def one(self, seat: str, row: Row, d: dict[str, object], cut: Cut, oks: list[tuple[int, str]], cuts: list[Cut]) -> bool:
         base, age = seat.rsplit("#", 1)[0], self.now - cut.ts
@@ -144,11 +164,11 @@ class Swap:
 
     def hil(self, seat: str, d: dict[str, object], cut: Cut, why: str) -> None:
         print(f"HIL {seat} {why}")
-        to = d.get("_hil_route") or d.get("_master")
-        if cut.uuid in self.st["hil"] or not isinstance(to, str) or self.a.dry_run:  # pyright: ignore[reportOperatorIssue]
+        to, key = d.get("_hil_route") or d.get("_master"), f"{seat.rsplit('#', 1)[0]}|{why}"  # r838 ⓖ: 키 = (계보 · 이유) — 정지 uuid 는 회차마다 바뀐다
+        if key in self.st["blocked"] or not isinstance(to, str) or self.a.dry_run:  # pyright: ignore[reportOperatorIssue] · 닫힘 = close_keys 하나(r838 r3 ②)
             return
-        self.send(to, f"[HIL] 자동 교대 불가 {seat} · {why} · 교대 0 — 손 교대 판단")
-        self.st["hil"] = [*self.st["hil"], cut.uuid][-500:]  # pyright: ignore[reportGeneralTypeIssues] · 저장 = main 끝
+        self.send(to, f"[자동 교대 불가] {seat} · {why} · 교대 0 — 필요한 결정: 손 교대 여부(planner 인터뷰)")  # ⓗ 머리 [HIL] 0(슬랙 질문 적체)
+        self.st["blocked"][key] = {"at": self.now, "seen": self.now}  # pyright: ignore[reportIndexIssue] · r4 값 {at, seen} · 저장 = main 끝
 
 
 def main() -> int:

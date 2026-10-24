@@ -1,0 +1,18 @@
+r838 r2 — 외부 DA⑥ r1 HOLD 5 반송(REWORK-r838-r2.md) · 가지 nano/r838-model-swap-account-outage-and-open- · base 팩 origin/main c91bee89
+
+반례 → 고침
+ⓡ1 같은 장애 보류 2통 → outage_open 은 «was 뒤 정상 assistant 턴» 있을 때만 0 (후보 없음·사용자 재시도 = 키 유지) · ft_model_swap.py run()
+ⓡ2 검사 사이 정상→재정지 누락 → blocked[키]=알린 시각 · 그 좌석 jsonl 에 그 뒤 정상 턴 있으면 새 구간 1통 · ft_model_swap.py hil()
+ⓡ3 같은 모델 2석 = 계정 한도 오판 → (나) = 교대 표 모델 중 서로 다른 2개 이상 · ft_model_swap_account.py account()
+ⓡ4 상태 손상 무경고 교대 → outage_since(): status ∉ {OK,OUTAGE,RECOVERED} 또는 OUTAGE∧since 양의 정수 아님 = ValueError → ERROR model_swap · 교대 0 · rc 1
+ⓡ5 이유 줄 비밀값 → perl 가림(Bearer 값 · 이름에 authorization/token/secret/key/password 든 이름=값·이름: 값 · sk-/ghp_/github_pat_/xox?-/AKIA 낱말) 뒤 200자 · ft-successor-open.sh
+
+구조: ft_model_swap.py 218줄 → 200줄 상한(test_kit_copies_identical_and_size) 때문에 account()·outage_since() 를 형제 모듈 ft_model_swap_account.py(Account 믹스인 · Swap 상속)로 옮김 · 191 + 47줄
+부수: Fx.run 에 python -I -B (사본 bin/__pycache__ 생성 0) · 짝 시험 목록에 ft_model_swap_account.py
+
+시험
+- 기준판(고침 전) 빨강: red-base-pytest.txt(ⓡ1~ⓡ4 FAILED 4) · red-base-successor_open.txt(FAIL ⓡ5)
+- 초록: green-pytest.txt(3파일 47 passed) · green-successor_open.txt(ALL PASS) · test_kit_bin_sync.sh ALL PASS · kit↔bin cmp0 3파일
+- 변이: mutations.txt 6 모두 RED
+- 무관: test_kit_exec_modes.sh FAILED 4(ft-merge-land 이름·scripts/fable-team-bin 모드·plist — 이 카드 파일 아님 · 미조사)
+press 필요: 없음
