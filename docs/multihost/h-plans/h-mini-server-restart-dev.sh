@@ -33,8 +33,17 @@ R="$(timeout 20 ssh -o BatchMode=yes -o ConnectTimeout=6 "$MINI" "pgrep -f realt
 
 say "1/4 서버 정지"
 bash "$HP/h-mini-byz-server-run.sh" stop || die 3 "서버 정지 실패 — 위 출력 확인(서버가 이미 꺼져 있었다면 위 메시지로 판단)"
-say "2/4 서버 기동 (V5_BACKEND_ENABLED 포함)"
-bash "$HP/h-mini-byz-server-run.sh" up || die 4 "서버 기동 실패 — 위 출력 확인"
+say "2/4 서버 기동 (BYZ main c34fc47f · V5_BACKEND_ENABLED 포함 · 코드가 바뀌면 설치·빌드가 몇 분 걸려 50초마다 «이어서 확인» 으로 최대 10회 다시 부른다)"
+UPLOG="$(mktemp "${TMPDIR:-/tmp}/h-restart-up.XXXXXX")"; trap 'rm -f "$UPLOG"' EXIT
+UP_OK=0
+for i in 1 2 3 4 5 6 7 8 9 10; do
+  bash "$HP/h-mini-byz-server-run.sh" up 2>&1 | tee "$UPLOG"
+  RC="${PIPESTATUS[0]}"
+  if [ "$RC" = "0" ]; then UP_OK=1; break; fi
+  if grep -q -E "몇 분 뒤 같은 인자로 재실행|진행 중 — 몇 분" "$UPLOG"; then say "        설치·빌드 진행 중 — 45초 뒤 이어서(${i}/10)"; sleep 45; continue; fi
+  break
+done
+[ "$UP_OK" = "1" ] || die 4 "서버 기동 실패 — 위 출력 확인"
 say "3/4 웹 dev 교체"
 bash "$HP/h-mini-web-dev.sh" || die 5 "웹 dev 교체 실패 — 위 출력 확인"
 
