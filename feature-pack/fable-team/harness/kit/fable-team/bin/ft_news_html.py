@@ -145,8 +145,36 @@ def live_teams(root: Path) -> list[dict]:
 
 
 def commits(repo: Path, base: str) -> list[str]:
-    ref, n = os.environ.get("FT_NEWS_MAIN_REF", "origin/main"), os.environ.get("FT_NEWS_COMMITS", "15")
-    return _git(repo, "log", "--format=%h %s", "-n", n, f"{base}..{ref}" if base else ref).splitlines()
+    """기준선 뒤 착지 «전부»(r851 ⓓ · 15개 상한 0 · 매거진·원장 채움과 같은 함수) — 기준선 없는 첫 판만 FT_NEWS_COMMITS(15)개."""
+    from ft_ledger_fill_src import landed_commits  # 실패 = FillError(RuntimeError) — 지도 만들기 실패 경로 그대로
+    return landed_commits(repo, base, os.environ.get("FT_NEWS_MAIN_REF", "origin/main"), os.environ.get("FT_NEWS_COMMITS", "15"))
+
+
+def ledger_fill(root: Path, repo: Path, rel: str, cur: str) -> str:
+    """r851 A1 — 발행 직전 원장 표 기계 채움 1회(FT_LEDGER_FILL=0 = 끔 · 되돌림) · push 된 새 커밋이면 그 커밋이 이번 판.
+    실패 = ERROR 로그 + 지금 판으로 계속(오래 실패하면 아래 신선도 머리 줄이 알린다)."""
+    if os.environ.get("FT_LEDGER_FILL", "1") == "0":
+        return cur
+    from ft_ledger_fill import FillError, fill, now
+    push = os.environ.get("FT_LEDGER_FILL_PUSH", "1") != "0"
+    try:
+        _rc, sha = fill(root, repo, rel, os.environ.get("FT_NEWS_MAIN_REF", "origin/main"), now(), do_fetch=False, push=push)
+    except FillError as e:
+        LOG.error("원장 채움 실패 — 표 갱신 0: %s", e)
+        return cur
+    return sha if sha and push else cur
+
+
+def ledger_fresh(root: Path, repo: Path, rel: str, cur: str) -> str:
+    """r851 A2 — '' = 신선 · 아니면 «원장 N분 낡음 · 담당 X»(planner [긴급] 1통은 fresh_note 가 같은 사건 1번) · FT_LEDGER_FRESH_GATE=0 = 끔(되돌림)."""
+    if os.environ.get("FT_LEDGER_FRESH_GATE", "1") == "0":
+        return ""
+    from ft_ledger_fill import fresh_note, now
+    try:
+        return fresh_note(root, _git(repo, "show", f"{cur}:{rel}"), now())
+    except (RuntimeError, OSError, ValueError) as e:
+        LOG.error("원장 신선도 못 잼: %s", e)
+        return f"원장 신선도 못 잼 — {str(e)[:80]}"
 
 
 def autonomy(root: Path) -> str:
@@ -374,6 +402,9 @@ def _tick(root: Path, state: Path, repo: Path, rel: str, news: Path, base: str, 
     retry_attach(now)  # r847 r5 — 받기 실패 틱 = 첨부 재시도 0(게시 0) · 대기 기록은 남아 회복 틱에 이어서
     if since("fail_at") < timedelta(minutes=int(os.environ.get("FT_NEWS_RETRY_MIN", "5"))):
         return 1, "지도 만들기 실패(재시도 대기)"
+    cur = ledger_fill(root, repo, rel, cur)  # r851 — 표 세 개 기계 채움(변화 있을 때만 커밋)
+    if (fresh := ledger_fresh(root, repo, rel, cur)) and fresh not in os.environ.get("FT_NEWS_HEAD", ""):
+        os.environ["FT_NEWS_HEAD"] = f"{os.environ.get('FT_NEWS_HEAD') or '팀 지도'} · {fresh}"
     blob, blob_f = _ledger_blob(repo, rel, cur), state / "last.blob"
     saved_blob = blob_f.read_text(encoding="utf-8").strip() if blob_f.is_file() else ""
     canon, canon_f = _canon_sha(), state / "last.canon"
@@ -383,7 +414,7 @@ def _tick(root: Path, state: Path, repo: Path, rel: str, news: Path, base: str, 
     if not changed and last.get("map_at", "")[:10] == stamp[:10]:  # 변화 0(원장 내용 그대로) · 오늘 지도 있음 = 적정한 반복 한 줄만
         if since("at") < timedelta(minutes=int(os.environ.get("FT_NEWS_REPEAT_MIN", "30"))):
             return 0, "원장 커밋 0"
-        rc = publish_line(zero_change_line(now, last, warn), now)  # warn = "" (받기 실패는 위에서 끝남 · r847 r4)
+        rc = publish_line(zero_change_line(now, last, warn) + (f" · {fresh}" if fresh else ""), now)  # warn = "" (받기 실패는 위에서 끝남 · r847 r4)
         if rc == 0:
             _save(hs, {**last, "at": stamp})
         return rc, "원장 커밋 0"

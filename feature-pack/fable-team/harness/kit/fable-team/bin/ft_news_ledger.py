@@ -315,19 +315,27 @@ def _git_capped(repo: Path, t0: float, *a: str) -> tuple[int | None, str, str]:
     return _run_capped(["git", "-C", str(repo), *a], cap) if cap > 0 else (None, "", "총 마감 안에 시작 못 함")
 
 
-def _remote_same(repo: Path, t0: float) -> bool:
-    """r847 — 원격 main sha(`ls-remote` 7초) == 사본 origin/main 이면 True(fetch 0). 묻기 실패·sha 다름·origin/main 없음 = False(fetch 로 진행 · 판정 불가 아님) + 로그 1줄."""
-    rc, out, err = _git_capped(repo, t0, "ls-remote", "origin", "refs/heads/main")
-    rows = [r.split("\t") for r in out.splitlines()] if rc == 0 else []
-    remote = next((r[0] for r in rows if len(r) == 2 and r[1] == "refs/heads/main"), "")
+LEDGER_REFSPEC = "+refs/heads/ledger/*:refs/remotes/origin/ledger/*"  # r851 r3 ③ — 원장 사본 브랜치(ledger/ 만 · 원격에 없어도 실패 0)
+
+
+def _remote_same(repo: Path, t0: float, br: str) -> bool:
+    """r847 — 원격 sha(`ls-remote` 7초) == 사본 원격 추적 ref 이면 True(fetch 0). 묻기 실패·sha 다름·origin/main 없음 = False(fetch 로 진행 · 판정 불가 아님) + 로그 1줄.
+    r851 r3 ③ — 두 ref(main · 원장 사본 브랜치 br) 를 함께 비교(사본 브랜치만 전진해도 받는다 · 원격에 없음 = 로컬에도 없어야 같음)."""
+    rc, out, err = _git_capped(repo, t0, "ls-remote", "origin", "refs/heads/main", f"refs/heads/{br}")
+    rows = dict(reversed(r.split("\t")) for r in out.splitlines() if r.count("\t") == 1) if rc == 0 else {}
+    remote = rows.get("refs/heads/main", "")
     if not remote:
         LOG.warning("ls-remote 실패 — fetch 로 진행: rc=%s %s", rc, _first(out, err)[:160] or "출력 없음")
         return False
-    rc, local, _err = _git_capped(repo, t0, "rev-parse", "--verify", "-q", "refs/remotes/origin/main")
-    local = local.strip()
-    if rc != 0 or remote != local:
+    local = []
+    for ref in ("refs/remotes/origin/main", f"refs/remotes/origin/{br}"):
+        rc, sha, _err = _git_capped(repo, t0, "rev-parse", "--verify", "-q", ref)
+        if rc not in (0, 1):
+            return False
+        local.append(sha.strip())
+    if [remote, rows.get(f"refs/heads/{br}", "")] != local:
         return False
-    LOG.info("fetch 생략(ls-remote 같음) origin/main=%s", local[:10])
+    LOG.info("fetch 생략(ls-remote 같음) origin/main=%s %s=%s", local[0][:10], br, local[1][:10] or "없음")
     return True
 
 
@@ -389,7 +397,7 @@ def _fetch_ok() -> str:
 
 def fetch_if_stale(repo: Path) -> str:
     """r563 — 뉴스(HTML) 경로: 사본 «체크아웃 전진» 대신 origin/main ref 만 최신으로. 마지막 성공이 FT_NEWS_FETCH_MIN(300초) 안이면 건너뜀 ·
-    r847: 그다음 `ls-remote`(7초) 원격 main == origin/main 이면 fetch 0 · 아니면 `git fetch origin main`(시도당 30초 · TERM→1초 KILL ·
+    r847: 그다음 `ls-remote`(7초) 원격 main·원장 사본 브랜치 == 원격 추적 ref 이면 fetch 0 · 아니면 `git fetch origin main <ledger/*>`(r851 r3 ③ · 시도당 30초 · TERM→1초 KILL ·
     재시도 1 = 첫 시도 출력 0 일 때만 · ls-remote 포함 총 마감 70초 · FT_LEDGER_FETCH 로 대역).
     실패 = 머리 줄에 «N분 전 받은 판»(발행은 지금 ref 로 계속 · 조용한 낡음 0) · 이 실패 구간 경고를 이미 냈으면 FT_LEDGER_SYNC_REPEAT=1(구간당 1통 · r3)."""
     os.environ.pop("FT_NEWS_STATE_ERROR", None)  # r847 r4 — 이 틱의 상태 쓰기 실패만 싣는다
@@ -398,12 +406,18 @@ def fetch_if_stale(repo: Path) -> str:
     if last is not None and -1 <= time.time() - last < min_s:  # 미래 시각(시계 뒤틀림) = 최신 아님 · r847: 1초 = 표식 «{:.0f}» 반올림 몫(같은 초에 쓴 표식이 미래로 읽히던 간헐 fetch)
         return os.environ.get("FT_LEDGER_SYNC_ERROR", "")
     t_start = time.monotonic()
-    if _remote_same(repo, t_start):
+    from ft_ledger_fill_src import FillError, branch
+    try:
+        br = branch()  # r851 r3 ① — ledger/ 밖 이름 = 입구 거절(받기 실패 갈래 · 판정 불가)
+    except FillError as e:
+        br, line = "", str(e)
+    if br and _remote_same(repo, t_start, br):
         return _fetch_ok()
     script = os.environ.get("FT_LEDGER_FETCH")
-    cmd = ["bash", script, str(repo)] if script else ["git", "-C", str(repo), "fetch", "--quiet", "origin", "main"]
-    line = ""
-    for _ in range(2):
+    cmd = ["bash", script, str(repo)] if script else ["git", "-C", str(repo), "fetch", "--quiet", "origin", "main", LEDGER_REFSPEC]
+    if br:
+        line = ""
+    for _ in range(2 if br else 0):
         left = _attempt_timeout(time.monotonic() - t_start)
         if left <= 0:
             line = f"fetch 실행 실패: 총 마감 {FETCH_BUDGET_S:.0f}초 안에 시도 못 함"
@@ -429,9 +443,15 @@ def fetch_if_stale(repo: Path) -> str:
     return why
 
 
-def news_ref() -> str:
-    """뉴스가 읽는 ref — 사본 체크아웃 HEAD 가 아니라 origin/main(다른 도구 fetch 로 이미 최신 · r563)."""
-    return os.environ.get("FT_NEWS_MAIN_REF") or "origin/main"
+def news_ref(repo: Path | None = None) -> str:
+    """뉴스가 읽는 ref — 사본 체크아웃 HEAD 가 아니라 origin/main(다른 도구 fetch 로 이미 최신 · r563).
+    r851 r2: 원장 사본 브랜치(origin/ledger/auto)가 main 을 품으면(앞섬) 그 브랜치 · 없거나 뒤처짐 = origin/main(읽는 ref 고르는 곳 = 여기 1곳 · FT_NEWS_MAIN_REF = 고정)."""
+    if os.environ.get("FT_NEWS_MAIN_REF"):
+        return os.environ["FT_NEWS_MAIN_REF"]
+    if repo is None:
+        return "origin/main"
+    from ft_ledger_fill_src import read_ref
+    return read_ref(repo)
 
 
 def news_cur(repo: Path, rel: str, ref_mode: bool | None = None) -> str:
@@ -441,7 +461,7 @@ def news_cur(repo: Path, rel: str, ref_mode: bool | None = None) -> str:
         ref_mode = os.environ.get("FT_NEWS_MODE") == "html"
     if not ref_mode:
         return _git(repo, "log", "-1", "--format=%H", "--", rel).strip()
-    ref = news_ref()
+    ref = news_ref(repo)
     return _git(repo, "rev-parse", "--verify", f"{ref}^{{commit}}").strip()
 
 

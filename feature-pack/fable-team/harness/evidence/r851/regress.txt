@@ -1,0 +1,8 @@
+# r3 — 뉴스·매거진·원장 시험 67파일 (python3.11 -m pytest -q)
+FAILED tests/scripts/test_r649_news_team_lines_isolate_error.py::test_slow_inbox_is_bounded_and_only_that_team_errors
+1 failed, 694 passed, 1 skipped in 333.07s (0:05:33)
+rc=1
+# tests/test_ledger_repo_sync.sh:
+ALL PASS
+rc=0
+# FAILED 1 = test_r649 느린 인박스 오류 문구 — ft-board 쪽지함 조회 경로 · 이 가지 변경 파일 밖 = 기존 결함(r1·r2 와 같음)

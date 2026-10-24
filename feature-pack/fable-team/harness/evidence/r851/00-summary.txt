@@ -1,0 +1,67 @@
+r851 원장 자동 채움 ft-ledger-fill — 증거 요약 (nano byz-harness-nano-r851-ledger-auto-fill#0 · 2026-10-24)
+
+시험 입력 ⓐ~ⓗ → 시험 함수 (tests/scripts/test_ledger_fill_r851.py · 임시 bare origin + 사본 · 실 원장·실 push 0)
+  ⓐ test_a_three_tables_filled_one_commit_conclusion_bytes_kept — 3시간 전 판 + 팀 착지 2 + 질문 1 → 커밋 1 · 머리·결론·2-1절·4절 바이트 그대로 · 작업 트리 손댐 0
+  ⓑ test_b_no_change_no_commit_and_todo_rows_equal_ledger_sum — 시각만 다른 판 = 커밋 0 · 번호 줄 4 = 질문 열린 1(전달됨 제외) + h 2 + QUEUE 빈칸 1
+  ⓒ test_c_freshness_61_min_note_and_one_urgent — «원장 61분 낡음 · 담당 planner arch#14» · [긴급] 1통(두 번째 0) · 60분 = 신선 · 채움 성공 5분 전 = 신선 · «14:0x» = 14:09
+     test_c_news_head_and_zero_change_line_carry_note — 뉴스 머리(FT_NEWS_HEAD)·변화 0 줄 꼬리에 같은 1줄
+     test_c_magazine_stale_ledger_publishes_zero_rc6 — 매거진 exit 6 · magazine_doc 실행 0 · 새 원장이면 rc0
+  ⓓ test_d_all_landed_commits_no_15_cap — 기준선 뒤 40 → 40줄(landed_commits·ft_news_html.commits 같은 함수) · 기준선 없음 = 15
+  ⓔ test_e_closed_row_moves_only_after_publish_success — 발행 기록 없음·uploaded False = 이동 0 · 발행 성공 at 뒤 = 5절 끝 이동(내린 날)
+  ⓕ test_f_broken_source_skips_only_that_table_error_rc1 · test_f_push_failure_rc1_nothing_landed(+7초 룰 상수)
+  ⓖ test_g_filled_text_passes_magazine_guide_and_date_rules — 기계 줄 = magazine_guide_check.RULES 0건 · 상대 날짜 0 · 청소 규칙 = RULES 글자 그대로
+  r2 test_r2_news_and_magazine_read_branch_when_ahead_else_main · test_f_planner_edit_on_main_wins_when_branch_behind · test_f_concurrent_branch_push_retries_on_new_base · ⓐ 에 «main ref 변화 0 · 사본 브랜치 커밋 1»
+  ⓗ mutation.sh → mutation.txt — 5종 KILLED(⑤ push 대상 main = r2)
+
+빨강 먼저: red-base.txt (기준판 origin/main 에 새 시험 = 모듈 없음 수집 오류 rc2)
+실제 원장 쓰기 0 렌더: real-ledger-dryrun.txt (원천 수집 1.98초 · 오류 0 · diff = 세 표만)
+회귀: regress.txt (뉴스·매거진·원장 시험 전부 + test_ledger_repo_sync.sh)
+
+press 필요: 없음(오디오 경로 무관)
+주의(arch·DA 판단 거리):
+  - r2(planner 결정 ②): 뉴스 틱은 원장 사본 브랜치 ledger/auto 에만 ff push(main 쓰기 0) · 뉴스·매거진은 그 브랜치가 main 을 품으면 그 판, 아니면 main · main 착지 = planner _master 면제 경로 주기 1회 — 되돌림 FT_LEDGER_FILL=0 / FT_LEDGER_FILL_PUSH=0
+  - «메인 골 지금 상태» 칸 = 골 정본 팀 칸의 팀 카드 실측(행 순번 결속 · 행 수 다르면 그 표 갱신 0) — 골 표 블록이 24→12자로 자르므로 앞머리 = «진행 N장 · 최근 완성 M장»
+  - 매거진 신선도 게이트는 FT_LEDGER_FILL=0 이어도 켜져 있다(손 갱신 60분 기준) — 끄기는 FT_LEDGER_FRESH_GATE=0 · 기준 완화는 FT_LEDGER_FRESH_MIN
+  - 매거진(magazine_doc)은 원장만 싣는 판이라 «지난밤 한 일» 별도 칸이 없다 — 원장 3절 팀 표가 같은 착지 원천으로 채워짐
+
+r3 (외부 DA⑥ r1 HOLD 6 · REWORK-r851-r3 · 기준 = r847 r4 가지 머리 275e4bf2 위 rebase · master #159216)
+  ⓡ1 test_r1_branch_outside_ledger_prefix_rejected_push_zero[7 이름] — FT_LEDGER_FILL_BRANCH=main·HEAD·refs/heads/main·feature/x·ledger/·ledger/../main·ledger/a.lock → fill rc1 · fresh rc1 · main SHA 그대로 · 사본 브랜치 생성 0 · ft-ledger-repo-sync.sh rc1(입구 · 가지·더러움 검사 전)
+       고침: ft_ledger_fill_src.branch() = ledger/ 로 시작하는 이름만(그 밖 FillError) · fill 입구에서 1회 · push refspec 1개 «<sha>:refs/heads/<ledger/…>» · 뉴스 fetch_if_stale 도 같은 거절 = 받기 실패 갈래(판정 불가)
+  ⓡ2 test_r2_quotepath_true_korean_card_paths_still_counted — repo core.quotepath=true(날 git 은 8진수 경로) → cfo 진행 1·대기 1·착지 1
+       고침: 원천 읽기 git 호출 전부 «git -c core.quotepath=off»(GIT 튜플)
+  ⓡ3 test_r3_branch_only_advance_news_and_magazine_same_latest — 사본 브랜치만 전진(main 그대로) → 뉴스 fetch_if_stale+news_cur = 최신 · 매거진 ft-ledger-repo-sync.sh HEAD = 같은 판
+       고침: 뉴스 ls-remote 두 ref(main·사본 브랜치) 비교 · fetch = «origin main +refs/heads/ledger/*:refs/remotes/origin/ledger/*»(없어도 실패 0) · 매거진 sync 도 같은 두 ref · r847 상한·재시도·구간 1통 그대로
+  ⓡ4 test_r4_memo_line_before_team_table_kept · test_r4_two_tables_in_team_section_update_zero_error — 3절 머리·표 앞 메모 바이트 그대로 · 표 2개 = 그 표 갱신 0 + ERROR + rc1
+       고침: tb._replace_table — 절 안 연속 «|» 줄 블록 하나만 교체(0·2개 이상 = FillError) · 3절 머리 줄은 손대지 않음(기계 채움 시각은 2절 머리에만)
+  ⓡ5 test_r5_not_done_state_row_stays_open — «완료 아님 — 승인 대기» + 발행 성공 기록 → 1절 그대로 · 5절 0
+       고침: 상태 낱말(칸의 첫 « — » 앞) ∈ {닫힘, 완료} 정확 일치 · 접두사·포함 비교 0 (원장 실제 꼴 «닫힘 — 오빠 확인 …» 은 그대로 내림 = ⓔ 유지)
+  ⓡ6 test_r6_question_ledger_wrong_shape_only_that_table_zero[4 모양] — open 이 list · 최상위 list · 항목 str · 최상위 str → 그 표만 0 · 다른 표 갱신·커밋 1 · rc1 · ERROR
+       고침: open_questions 모양 검사(최상위·open·항목 = 객체) · 매거진 상태 최상위 객체 검사 · gather 의 원천 읽기 모든 예외 → FillError(그 표만) · 표 만들기 예외도 그 표만
+  ⓗ mutation.sh → mutation.txt — 임시 사본 안 git init·커밋 뒤 실행 · 무변이 기준 PASS · 기존 5 + r3 6 = 11종 KILLED
+  green.txt 29 passed · regress.txt 694 passed / 1 failed(test_r649 기존 결함 · r1·r2 와 같음) · test_ledger_repo_sync.sh ALL PASS
+  real-ledger-dryrun.txt 는 r1 판(15:14) — r3 뒤 3절 머리 줄은 planner 글 그대로 남는다(표 블록만 바뀜)
+
+## r4 — 외부 DA⑥ r2 HOLD 1(보류 2회 → 재설계 r4 · REWORK-r851-r4) · 원천 줄 걸러내기 0 · 원천 단위 거부
+  원칙 1개: «원천의 줄은 전부 그 원천의 꼴에 맞거나, 그 원천 전체가 오류» — ft_ledger_fill_src.strict_rows 1곳(빈 줄·정의된 주석 꼴만 건너뜀 · 첫 어긋난 줄 위치·앞 60자 FillError)
+  자리: 승인 h 대역 출력(h<N> <분>) · AUTONOMY-QUEUE 표(머리와 같은 칸 수 · 표 밖 = 빈 줄·#·> 만) · 질문 장부 항목(객체 · state 글자 · 열린 것 what·seat 글자) · 팀 명단 TEAMS.md 표(4칸 · 팀 이름 · 폴더 꼴 · 현역/휴면 · 표 뒤 빈 줄 · 표 2개 0)
+        + 같은 원칙을 쪽지함 꼬리(꼬리 첫 잘린 조각 1줄만 정의된 예외) · 매거진 상태 항목(객체)에도 — 걸러내기가 남은 원천 읽기 0
+  원천 오류 = 그 원천을 쓰는 표만 갱신 0 + ERROR 1줄 + rc1 · 그 실행 last-ok 기록 0(_ok) → 매거진 신선도 게이트 = 낡음 · 원천 명령 rc0 이어도 꼴 검사 그대로
+  ⓡ7 test_r7_hil_broken_line_rc0_whole_source_error_last_ok_kept_magazine_stale — 대역 «h5 30\nh7 깨짐» rc0 → 오빠 할 일 0 · ERROR 1(줄 2 «h7 깨짐») · rc1 · last-ok 전 값 · 팀 작업 갱신 · magazine_from_news.sh --dry-run rc6 낡음
+  ⓡ7b test_r7b_each_source_one_broken_line_only_its_tables_zero[hil·queue·questions·teams·mailbox] — 정상 줄 + 깨진 줄 1 → 그 원천 표만 0 · 나머지 갱신 · rc1
+  ⓡ7c test_r7c_blank_and_comment_lines_only_are_fine — 빈 줄·머리·인용·표 밖 글줄(TEAMS)만 섞임 → rc0 · ERROR 0
+  실 원천 읽기 확인(읽기만): 실 TEAMS.md 12팀 · 실 AUTONOMY-QUEUE · 실 질문 장부 · 실 쪽지함 꼬리 · ft-hil.sh 출력 · 매거진 상태 — 모두 꼴 오류 0
+  ⓗ mutation.txt — 무변이 기준 PASS · 13종 KILLED(기존 11 + ⓡ7 불일치 줄 버림 · ⓡ7' 원천 오류 때 last-ok 기록 되살림)
+  green.txt 36 passed rc0 · ruff 0 · 짝 사본 6 cmp0 · 회귀 = 원장·뉴스 모듈을 쓰는 시험 31파일 300 passed / 1 failed(test_r649 느린 쪽지함 — r1~r3 와 같은 기존 결함)
+
+## r4 병합 — 팩 origin/main c91bee891f(r847 squash 착지) 병합(master #160240)
+  충돌 해소: r847 파일(시험 sh · evidence/r847) = main 판 · r851 몫(ft_news_ledger · ft-ledger-repo-sync.sh · ft_news_html) = r851 판 + main 의 r847 r5 한 줄(retry_attach 를 받기 실패 분기 뒤로) · 짝 사본 6 cmp0
+  r847 시험 sh 변이 «lsremote» 자리 글자 = r851 두 ref 호출(if br and _remote_same(repo, t_start, br)) 로 맞춤 — 그 전엔 변이 적용 실패 1(병합 전 가지에서도 같음)
+  test_ledger_fill_r851 + test_ft_news_ledger 60 passed rc0 · test_news_ledger_fetch_lsremote_r847.sh ALL PASS(29) · test_ledger_repo_sync.sh ALL PASS · 변이 13 KILLED(무변이 PASS)
+  회귀 31파일 335 passed / 2 failed: test_r649 느린 쪽지함(기존) · test_decision_count 느린 git 총 마감(부하 중 시간 흔들림 — 단독 재실행 1 passed)
+
+## r5 — 외부 DA⑥ r3 HOLD 1(좁은 반송 · REWORK-r851-r5) · 쪽지함 꼬리 첫 줄 경계
+  고침 1자리(mbox_done): 쪽지함 > MAILBOX_TAIL 이면 꼬리 시작 바로 앞 1바이트를 읽는다 — 개행 = 첫 줄은 완전한 줄(strict_rows 에 넣음) · 그 밖 = 첫 줄만 잘린 조각(버림 · 전과 같음) · ≤ MAILBOX_TAIL = 전부
+  ⓡ9 test_r9_tail_starts_at_line_start_done_note_counted — 꼬리 시작 = 정상 [완료] 쪽지 줄 시작 → cfo 완료 1통 셈 · fill rc0 · 팀 작업 «완료·착지 쪽지 1통»
+  ⓡ9b test_r9b_tail_starts_at_broken_whole_line_source_error — 같은 자리 완전한 깨진 줄 → 쪽지함 원천 오류 · 팀 작업 갱신 0 · ERROR 1 · rc1 · last-ok 0
+  빨강→초록: 고침 전 가지(b8510a07)에서 ⓡ9·ⓡ9b 2 failed → 고침 뒤 2 passed
+  green.txt 62 passed rc0(test_ledger_fill_r851 38 + test_ft_news_ledger) · ruff 0 · 짝 사본 cmp0 · 변이 14 KILLED(무변이 PASS · ⓡ9 앞 1바이트 검사 삭제 추가) · 실 쪽지함 꼬리 읽기 꼴 오류 0
