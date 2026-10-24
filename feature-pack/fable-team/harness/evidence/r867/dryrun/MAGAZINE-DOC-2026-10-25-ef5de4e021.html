@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>매거진 2026-10-25 · 오빠 확인판</title>
+<style>
+:root{--bg:#fbfaf7;--fg:#1d1d1b;--mute:#6b6a65;--line:#e4e1d9;--accent:#b4441f;--chip:#f1ede4;--ok:#2f7d4f;--warn:#a86412}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#17171a;--fg:#ecebe6;--mute:#a19f98;--line:#2e2e33;--accent:#ff8a5c;--chip:#232328;--ok:#6fcf97;--warn:#f2b45a}}
+:root[data-theme="dark"]{--bg:#17171a;--fg:#ecebe6;--mute:#a19f98;--line:#2e2e33;--accent:#ff8a5c;--chip:#232328;--ok:#6fcf97;--warn:#f2b45a}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,"Apple SD Gothic Neo","Pretendard",sans-serif}
+main{max-width:720px;margin:0 auto;padding:28px 16px 64px}
+.date{color:var(--mute);font-size:14px;letter-spacing:.02em}
+h1{font-size:24px;line-height:1.4;margin:6px 0 22px}
+h2{font-size:15px;color:var(--accent);margin:34px 0 10px;letter-spacing:.03em}
+ol,ul{padding-left:22px;margin:0}
+li{margin:6px 0}
+.grp{margin:16px 0 4px;font-weight:600}
+.todo li::marker{color:var(--accent);font-weight:700}
+.cmd{font-family:ui-monospace,Menlo,monospace;background:var(--chip);padding:1px 6px;border-radius:4px;font-size:14px}
+.risk{border-left:3px solid var(--warn);padding:8px 12px;background:var(--chip);border-radius:0 6px 6px 0;margin-top:12px}
+table{width:100%;border-collapse:collapse;font-size:15px}
+td,th{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--mute);font-weight:600;font-size:13px}
+.ok{color:var(--ok)} .wait{color:var(--warn)} .mute{color:var(--mute)}
+.more{color:var(--mute);font-size:14px;margin-top:8px}
+.cheer{font-size:18px;font-weight:700;margin:4px 0 14px}
+.done{border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin:10px 0}
+.done h3{font-size:16px;margin:0 0 6px} .done .chip{color:var(--mute);font-size:12px;margin:0 0 2px} .done p{margin:4px 0}
+.eli5{background:var(--chip);border-radius:6px;padding:8px 12px;margin-top:8px}
+.analogy{font-weight:600} .fact{color:var(--mute);font-size:13px} .eli5-fail{color:var(--warn);font-weight:600}
+.part{margin:40px 0 0;padding-top:16px;border-top:2px solid var(--line);color:var(--mute);font-size:14px}
+footer{margin-top:44px;border-top:1px solid var(--line);padding-top:14px;font-size:13px;color:var(--mute)}
+footer table{font-size:13px} footer td,footer th{padding:5px 4px}
+</style>
+</head>
+<body>
+<main>
+<p class="date">10월 25일 아침 매거진</p>
+
+<h1>10-24 00시~08시 자율로 main 에 약 20건이 들어갔습니다 — 이슈 팀 오디오 8차 증거와 재현 확인, 두뇌 정본 17판·18판, 지식 팀 측정과 은퇴 카드, 챗봇 미리 불러오기와 재시험 통과, 운영툴 지식 종류 표 파일과 측정, 방 카드 4장 완성. 06:04~07:47 에는 Claude 계정 사용량 한도로 전 좌석이 멈췄다가 다시 돌았습니다. planner·운영툴·이슈 팀장이 교대했습니다. 실시간 통역 팀은 오빠 정지 지시로 대기 중입니다. 오빠 손 3줄: 요금 표 만들기 · 구독 유예 · 이슈 팀 사본 정리. 10-23 저녁에는 17:1x 정상 정지 뒤 22:07 에 다시 시작했고, 21:55 추론 API 장애로 멈춘 좌석 7개를 교대했습니다. 오빠 우선순위 3개는 골 표 바로 위에 있습니다.</h1>
+
+<h2>끝낸 일</h2>
+<p class="cheer">🎉 축하해요! 10-24 00:00 ~ 10-25 08:00 사이에 25건을 끝냈어요. 하나씩 쉬운 말로 풀어 볼게요.</p>
+<div class="done"><p class="chip">teams 팀 · 카드 완성</p><h3>설계에 적어 둔 실험 중 아직 못 해 본 것을 한 장씩 정리했어요</h3><p class="fact">원문 — (설명 문장은 근거 표에)</p><div class="eli5"><p class="analogy">📚 여행 계획표에 적힌 곳 중 아직 안 가 본 곳에 체크 표시를 하는 모습</p><p>빠뜨린 실험을 카드로 나눠서 다음에 무엇을 할지 한눈에 볼 수 있게 했어요.</p><p>아직 답이 없는 부분도 있어서 차근차근 채워 갈 거예요.</p></div></div>
+<div class="done"><p class="chip">teams 팀 · 카드 완성</p><h3>컴퓨터에서 챗봇을 켤 때 빠지던 준비 단계를 찾아서 고쳤어요</h3><p class="fact">원문 — (설명 문장은 근거 표에)</p><div class="eli5"><p class="analogy">🔧 요리를 시작하기 전에 재료를 미리 꺼내 두는 준비를 잊었던 것을 알아차린 모습</p><p>로컬에서 실행할 때 필요한 준비 과정이 빠져 있던 것을 찾았어요.</p><p>실제 서비스 환경은 원래 잘 돌아가고 있었으니 안심하셔도 돼요.</p></div></div>
+<div class="done"><p class="chip">teams 팀 · 카드 완성</p><h3>방을 나갈 때 서버에 바로 알려줄 수 있는 길이 생겼어요</h3><p class="fact">원문 — 방 화면을 닫기만 하면 서버가 받는 퇴장 신호가 없다 — 방 화면의 퇴장 호출처가 0이다(서버 퇴장 API …</p><div class="eli5"><p class="analogy">🚪 문을 닫을 때 손을 흔들어 인사하는 모습이 떠올라요</p><p>지금은 창만 닫으면 서버가 조금 늦게 알아채요.</p><p>이제는 나갈 때 바로 알려 목록에서 빨리 사라질 수 있어요.</p></div></div>
+<div class="done"><p class="chip">teams 팀 · 카드 완성</p><h3>대화 기록을 정리하는 규칙이 한눈에 보이게 되었어요</h3><p class="fact">원문 — 같은 키 <span class="cmd">room_messages:{room_id}</span>(ZSET, 멤버 = 메시지 JSON)에 쓰는 곳이 셋…</p><div class="eli5"><p class="analogy">📚 여러 사람이 함께 쓰는 공책에 쪽수 제한표를 붙인 모습이 떠올라요</p><p>메시지를 쓰는 곳마다 얼마나 보관할지 정리해 두었어요.</p><p>어디서 무엇이 얼마나 남는지 이제 알기 쉬워졌어요.</p></div></div>
+<div class="done"><p class="chip">teams 팀 · 카드 완성</p><h3>방 노트를 주고받는 양이 줄어들었어요</h3><p class="fact">원문 — 전수 점검 표(`design/teams/planner/AUDIT-growing-doc-whole-rw-202…</p><div class="eli5"><p class="analogy">📝 긴 두루마리를 통째로 들고 다니던 일을, 필요한 한 줄만 건네는 일로 바꾼 그림이에요</p><p>대화 한 번에 노트를 여러 번 통째로 읽고 쓰던 낭비를 찾아냈어요.</p><p>같은 저장 뒤에 하던 불필요한 계산을 다듬어서 더 가볍게 만들었어요.</p></div></div>
+<div class="done"><p class="chip">teams 팀 · 카드 완성</p><h3>방 실시간 화면은 구분선이 3겹(헤더·배지 줄·칩 줄 아래)이고, 타이머·txt·json 이 사이트 공용 헤…</h3><div class="eli5"><p class="eli5-fail">쉬운 풀이 생성 실패 — 지침 위반 문장</p></div></div>
+<div class="done"><p class="chip">teams 팀 · 카드 완성</p><h3>지식 상자 크기를 더 정확히 재는 방법을 적어 두었어요</h3><p class="fact">원문 — 원천 PLAN 651행: 지식 청크 1인 = chunks_max 100 × (본문 512 tok × «가정»…</p><div class="eli5"><p class="analogy">📦 상자에 물건을 담기 전에 빈 공간까지 세어 보는 그림이에요</p><p>지금 숫자는 짐작으로 적은 것이라 실제로 재 보는 실험이 필요해요.</p><p>빈 공간과 덧붙는 짐까지 포함해 나중에 다시 확인할 카드를 만들었어요.</p></div></div>
+<div class="done"><p class="chip">teams 팀 · 카드 완성</p><h3>가격 답에 언제 기준인지 알려 주는 말을 붙이기로 했어요</h3><p class="fact">원문 — 투어 1 실행 RESULT-r18 «문서에 반영하면 좋은 관찰» 1: 가격 답에 «(2026-10-20 수집…</p><div class="eli5"><p class="analogy">🗓️ 가게 가격표 옆에 날짜 도장을 찍어 두는 그림이에요</p><p>가격은 세일이나 쿠폰에 따라 바뀌니까 언제 적은 값인지가 꼭 보여야 해요.</p><p>답 끝에 수집한 날짜를 붙이는 작업을 카드로 남겼어요.</p></div></div>
+<div class="done"><p class="chip">teams 팀 · 카드 완성</p><h3>고른 자료만 정확히 찾도록 시험하는 방법을 만들었어요</h3><p class="fact">원문 — 챗봇 런타임 은 «고른 팩만 적중 · 안 고르면 0» 을 단계마다 «+팩 3줄» 로 시험한다</p><div class="eli5"><p class="analogy">🧩 상자에서 필요한 블록만 쏙 골라 쓰는 아이처럼요</p><p>질문과 맞는 자료만 정확히 찾는지 한 단계씩 살펴봐요.</p><p>자료가 섞여도 어떤 게 맞는지 가려내는 연습 재료도 준비했어요.</p></div></div>
+<div class="done"><p class="chip">teams 팀 · 카드 완성</p><h3>여러 사람이 동시에 누를 때 화면이 헷갈리지 않는지 살폈어요</h3><p class="fact">원문 — 정본 `docs/architect/v65/SESSION_SUBSCRIPTION_LIFECYCLE_ARCHIT…</p><div class="eli5"><p class="analogy">🎈 여럿이 한꺼번에 풍선을 불어도 각자 풍선이 따로 놓이는 모습이에요</p><p>한 사람이 누르는 동안 다른 사람의 상태가 잘못 섞이지 않는지 확인했어요.</p><p>방 화면에서도 같은 원리가 잘 지켜지도록 짚어 두었어요.</p></div></div>
+<div class="done"><p class="chip">teams 팀 · 카드 완성</p><h3>방에서 함께 쓰는 기록이 더 믿음직해졌어요</h3><p class="fact">원문 — 카드 B(<span class="cmd">R-room-lifecycle-mr-fixture-frozen-press</span> · main )가 방 …</p><div class="eli5"><p class="analogy">🏠 주인과 손님이 같은 방에서 책을 펼쳐 읽는 모습이 그려져요</p><p>책을 읽기만 할 때는 원래 있던 자리의 그림을 건드리지 않아요.</p><p>그림을 달라고 했는데 빠져 있으면 크게 알려 줘서 금방 알 수 있어요.</p></div></div>
+<div class="done"><p class="chip">teams 팀 · 카드 완성</p><h3>치과 다듬기가 한 번 더 찬찬히 살펴졌어요</h3><p class="fact">원문 — (한수) 처방 중 나노가 «출하 방 전부 degraded == » 가드를 만들자, 치과 2방의 다듬기 4행이…</p><div class="eli5"><p class="analogy">🦷 가방이 가득 차서 중요한 책이 밖으로 밀려나는 그림이 떠올라요</p><p>가방 안 자리가 모자라서 치과 공부 책이 빠질 뻔했어요.</p><p>이제 어떤 자리가 비는지 보고, 필요한 책을 지키는 길을 찾았어요.</p></div></div>
+<div class="done"><p class="chip">teams 팀 · 카드 완성</p><h3>치과 말을 더 똑똑하게 알아듣게 됐어요</h3><p class="fact">원문 — 두 방 다 «치과 문맥의 마치 → 마취» 규칙이 있고(suwon system.md:26 · 두 방 examp…</p><div class="eli5"><p class="analogy">🦷 치과 의자에 앉은 친구에게 마취 약을 정확히 전하는 그림이에요</p><p>‘마치’라는 말을 ‘마취’로 잘못 바꾸지 않도록 가르쳤어요.</p><p>‘마치 ~처럼’이라는 뜻은 그대로 살아 있도록 챙겼어요.</p></div></div>
+<div class="done"><p class="chip">teams 팀 · 카드 완성</p><h3>‘약’이라는 말을 더 정확히 옮기게 됐어요</h3><p class="fact">원문 — ★실제 조합(tuple) = domain rotary · audience rotary_member · env…</p><div class="eli5"><p class="analogy">🎁 숫자 앞에 붙은 작은 말을 꼭 찾아내는 돋보기 그림이에요</p><p>‘약’이라는 말은 원래 말한 사람이 ‘대략’이라고 했을 때만 쓰도록 정했어요.</p><p>‘대략’이 없는 예시도 함께 보여 주어서 더 알맞게 고르도록 도왔어요.</p></div></div>
+<div class="done"><p class="chip">teams 팀 · 카드 완성</p><h3>숨은 문장을 찾아 맞춰 두었어요</h3><p class="fact">원문 — 관문(고정 표본 56 · 예산 가드)은 tests/shared/prompts 전체를 보지 않았다 → 한수 환…</p><div class="eli5"><p class="analogy">🧩 퍼즐 조각이 빠진 걸 찾아서 제자리를 확인한 그림이에요</p><p>빠졌던 말이 시험에서 먼저 눈에 띄었어요.</p><p>어디에서 사라졌는지 하나씩 살펴보고 있어요.</p></div></div>
+<div class="done"><p class="chip">teams 팀 · 카드 완성</p><h3>씨앗을 잠가 길을 더 튼튼하게 했어요</h3><p class="fact">원문 — 서비스는 지시문·용어집을 DB 에서 읽고, 씨앗 이관 스크립트(seed_migrate)는 이미 있는 내용을 …</p><div class="eli5"><p class="analogy">🔒 상자에 자물쇠를 채우고 열쇠를 한 곳에만 둔 그림이에요</p><p>이제 씨앗 파일을 따로 고치지 않고 정해진 길로만 바꿔요.</p><p>그래서 여러 곳이 어긋나던 일이 줄어들었어요.</p></div></div>
+<div class="done"><p class="chip">teams 팀 · 카드 완성</p><h3>글 상자가 너무 커서 생긴 막힘을 찾아냈어요</h3><p class="fact">원문 — (옛 이름 예시 파일)를 고치며 «시그니처 → 파일 탐색 → kind·파싱 → 내용·예산» 단계로 실패를 가…</p><div class="eli5"><p class="analogy">🧩 가방에 물건을 너무 많이 넣어 지퍼가 안 잠기는 그림이에요</p><p>가방 속 물건을 줄이는 방법을 골라서 지퍼를 잠글 수 있게 됐어요.</p><p>이제 무엇이 잘못됐는지 한 걸음씩 나눠 찾을 수 있어요.</p></div></div>
+<div class="done"><p class="chip">teams 팀 · 카드 완성</p><h3>설계 : 지금 라이브 증거는 <span class="cmd">knowledge_scope operator_pick</span>(운영자가 자기 세션에 …</h3><div class="eli5"><p class="eli5-fail">쉬운 풀이 생성 실패 — 차단 단어</p></div></div>
+<div class="done"><p class="chip">teams 팀 · 카드 완성</p><h3>큰 상자를 나눠 담을 시간이 넉넉해졌어요</h3><p class="fact">원문 — 묶음 1 재빌드에서 두 팩이 <span class="cmd">DeadlineExceeded: promote … 21s/35s 마감 초과</span> …</p><div class="eli5"><p class="analogy">⏱️ 시간표를 넉넉하게 늘려 무거운 짐을 여러 번에 나눠 옮기는 그림이에요</p><p>이번에는 시간이 모자라 멈추던 작은 상자 두 개를 먼저 고쳤어요.</p><p>짐을 옮기는 양에 맞춰 기다리는 시간을 정해서 이제 제시간에 끝나요.</p></div></div>
+<div class="done"><p class="chip">teams 팀 · 카드 완성</p><h3>특별한 이름이 일반 주제로 잘못 쓰이지 않게 막았어요</h3><p class="fact">원문 — 이 <span class="cmd">ORG_ONLY_KNOWLEDGE_DOMAIN = "org-only"</span> 를 «방 지식 범위 예약 키»로…</p><div class="eli5"><p class="analogy">🚧 '출입 금지' 팻말을 문 앞에 달아 아무나 들어오지 못하게 한 그림이에요</p><p>'org-only'라는 이름은 방 안에서만 쓰는 특별한 자리로 정해 두었어요.</p><p>운영하는 분이 이 이름을 일반 주제로 넣으려 하면 다른 곳에서 헷갈리지 않도록 미리 막아요.</p></div></div>
+<div class="done"><p class="chip">teams 팀 · 카드 완성</p><h3>고객사가 쓸 수 있는 영역을 한눈에 보게 됐어요</h3><p class="fact">원문 — 운영툴이 «이 고객사가 쓸 수 있는 도메인»을 보여줄 원천이 없다</p><div class="eli5"><p class="analogy">🧭 여러 방 열쇠가 한 고리에 모여 어느 문이 열리는지 바로 보이는 그림</p><p>화면과 통역이 같은 기준으로 말하게 되었어요.</p><p>이제 화면에는 되는데 실제로는 안 열리는 일이 줄어들 거예요.</p></div></div>
+<div class="done"><p class="chip">teams 팀 · 카드 완성</p><h3>화면의 제목과 글씨 결이 더 가지런해졌어요</h3><p class="fact">원문 — graphics 확인 원문(고칠 것 3 · 복붙): - ⓐ 「머리글 «일반» 바로 아래 항목 «🌐 일반» 이…</p><div class="eli5"><p class="analogy">🎨 책 목차의 제목 글씨 크기를 맞춰 가지런히 정리한 책상 그림</p><p>비슷한 이름이 헷갈리지 않도록 제목을 작게 바꾸는 방향을 살폈어요.</p><p>빈 항목과 있는 항목이 칼럼처럼 줄 맞춰 보이도록 다듬을 준비가 되었어요.</p></div></div>
+<div class="done"><p class="chip">teams 팀 · 카드 완성</p><h3>원천 초안 = design/teams/feature/proposals/cards-brain-20261021/…</h3><div class="eli5"><p class="eli5-fail">쉬운 풀이 생성 실패 — 차단 단어</p></div></div>
+<div class="done"><p class="chip">teams 팀 · 카드 완성</p><h3>여럿이 함께 쓰는 방의 시험 길이 생겼어요</h3><p class="fact">원문 — 세션 생명주기 정본(`docs/architect/v65/SESSION_SUBSCRIPTION_LIFECYCL…</p><div class="eli5"><p class="analogy">🏠 혼자 쓰던 방에 여러 사람이 들어와도 괜찮은지 확인하는 그림이에요</p><p>한 사람만 있던 시험에서 벗어나, 여러 사람이 함께 있는 장면도 살펴볼 수 있게 됐어요.</p><p>누가 말했는지 구분하는 방식까지 꼼꼼히 챙겨서 더 든든해졌어요.</p></div></div>
+<div class="done"><p class="chip">teams 팀 · 카드 완성</p><h3>예전 버전으로 되돌리는 길이 생겼어요</h3><p class="fact">원문 — 오빠 «운영툴작업하면 런타임반영 승인적용</p><div class="eli5"><p class="analogy">🔁 지워지지 않고 서랍에 고이 남아 있던 옛 책을 다시 책장에 꺼내 놓는 모습이에요</p><p>옛 버전 기록은 그대로 남아 있어요.</p><p>그 기록을 다시 쓰는 상태로 바꾸면 돼요.</p></div></div>
+
+<p class="part">아래는 남은 일이에요 — 오빠 차례 · 골마다 남은 것 · 왜 아직 열려 있나 · 어느 팀이 다음에 무엇을 하나</p>
+
+
+<h2>지난 판 뒤로 바뀐 것</h2>
+<p class="more">지난 판 커밋 모름 — 이 칸은 지난 판이 남은 다음 판부터 채워져요</p>
+
+<h2>눈여겨볼 열린 일</h2>
+<table>
+  <tr><th>일</th><th>지금</th></tr>
+  <tr><td>OMC 제거 + 컨텍스트 표시 교체</td><td><span class="wait">오빠 확인 — OMC 제거 완료 · 표시 교체는 확인 필요</span></td></tr>
+  <tr><td>loom 없애고 프롬프트를 코드·DB로</td><td><span class="wait">오빠 확인 — 확인 필요</span></td></tr>
+</table>
+<p class="more">나머지 열린 일은 원장에 있어요(이 판에는 planner 가 고른 줄과 «오빠 확인 대기·막힘» 줄만 올라와요).</p>
+
+<h2>팀은 지금</h2>
+<table>
+  <tr><th>팀</th><th>지금</th><th>다음</th></tr>
+  <tr><td>결제</td><td>구독 크레딧 작업을 끝까지 닫았습니다 — 만료 하루 전 알림 · 구독 환불 오류 고침 · 정산 실패 때 잠금 풀기 · 웹에 «잔액 정리 지연» 한 줄 · 마감 정본. 번역 캐시 과청구를 재 보니 개발 전체 최대 약 9,890원</td><td>정산 실패를 부드럽게 넘기는 설정은 개발 서버 켜기가 권한 부족으로 실패(바뀐 것 없음) · 운영 켜기와 실돈 결제 시험은 오빠 몫</td></tr>
+  <tr><td>신기능</td><td>리랭커·캐시가 한 걸음 — 색인 머리말 · 캐시 최소 길이와 유효시간 칸 · 영수증 기준 캐시 판정 · 지식 마지막 조각 자르기 · 챗 계약 첫 코드. 두뇌 정본을 세 판 올림</td><td>정본 새 판 문서와 챗 계약 두 번째 코드가 승인 대기(어느 쪽 먼저인지 질문 올림) · 시험 조직 재색인은 오빠 승인</td></tr>
+  <tr><td>지식</td><td>슈퍼브레인 1단계(구조 표 3개)와 2단계(물려받는 베이스 · 등록부 · 개인 목록)를 착지 · 챗 기본 문안 자리 «chat» 새 축 · 팀 문서 main 이관</td><td>3단계(개발 DB 적용)는 주인 없는 개발 프로필 7개 오빠 답 대기 · 그 7개 빼고 진행 중</td></tr>
+  <tr><td>운영툴</td><td>main 시험 빨강과 마이그레이션 목록 빨강 고침 · 관리자 사용 이력 조회에 4칸 추가 · 운영 콘솔 요청 흐름 개발 실클릭 전부 통과 · 번역 캐시가 0으로 보이던 이유 밝힘(영수증이 캐시 칸을 접음)</td><td>코드 2건이 승인 범위 소진에 걸림 · 새 표가 필요한 지식 삭제 길은 사람 승인 대기</td></tr>
+  <tr><td>디자인</td><td>모바일 툴바 상태 점(칸 + 탭 말풍선) 구현 · 슈퍼브레인 설명 그림과 «내 분야» 고르기 시안 · 안 쓰는 옛 크레딧 카드 2개 삭제 · 끝난 카드 정리</td><td>프로필·설정 시안과 내 방 목록 시안 2장 오빠 확인 대기 · 툴바 이슈는 오빠 폰 확인 뒤 닫음</td></tr>
+  <tr><td>방</td><td>입퇴장 4가지 고침 — 나간 사람이 남던 것 · 안내와 대화 시간순 · 호스트 연결 전 누락 · 남의 세션 끝내기 막기. 세션 바 한 줄과 참가자 팝업 · 가림 두 군데 고침</td><td>오디오 확인 2줄은 하네스가 시험 부하 검사에 방 포트를 넣은 뒤 · 운영 게스트 로그인 표 켜는 시점은 오빠 결정</td></tr>
+  <tr><td>실시간 통역</td><td>같은 내용이면 다시 보내지 않는 캐시 착지(실측 적중 98.6%) · 짧은 탭을 길게 읽던 것 고침 · 긴 발화 확정 지연 고침 · 옛 가지 코드 98개를 대조해 옮길 것과 버릴 것 나눔</td><td>청구 캐시 카드는 검증 보류 여섯 번 → 입구 전수 표 → 외부 검증 한 번 · 말뭉치 회전은 새 반례로 재설계 중 · 두 문장 분할 저장은 오빠 답</td></tr>
+  <tr><td>강의</td><td>확정 말풍선이 번역 도착마다 되돌아가던 것 제거 · 늘 비어 있던 세션 기록 칸 삭제 · 고객 강의 링크를 새 화면으로 · 음성 보정 새 입구와 인증 가드 · 강의 종료 마지막 말하기 누락 고침</td><td>실제 음성 재실험은 컴퓨터 부하가 기준 밑일 때만 · 원인은 첫 조각이 늦으면 화면이 «응답 없음»으로 보고 서버가 3분 기다리는 구조 → 고치는 코드가 승인 범위 소진으로 대기</td></tr>
+  <tr><td>챗봇</td><td>브레인 카드·설계와 검증 판정 · 가이드투어 구조 정본 · 컨시어지 가이드 개발 재측정 전부 통과</td><td>코드는 아직 main 에 없음(시연 뒤 착지) · 지식 팀 회신 뒤 이어 감 · 옛 대화 키 안 옮겨도 되는지 질문 올림</td></tr>
+  <tr><td>이슈</td><td>음성 보정 복구와 보이스 클론 제안서 두 개 · 둘 다 오빠 승인 이슈로 열림(보이스 클론은 할 일 등재만) · 라이브 확인 남은 이슈 셋 닫음</td><td>모바일 툴바 이슈 닫기는 오빠 폰 확인 뒤 · 관련 이슈 두 개는 다른 판에서 두 번 더 확인 필요</td></tr>
+  <tr><td>하네스</td><td>코드 탐색 안내를 새 도구로 교체 · 하네스 팩 세 번 올리고 그때마다 설치와 감시 프로그램 재시작 · 로컬 작업 폴더가 너무 많은 것을 재고 정리 계획 · 반복 보류된 덧대기 세 건은 버리기로</td><td>시험 부하 검사(방 포트)는 리서치 세션이 먼저인데 리서치 자리가 막힘 · 터널 자동 시작 승인 한 건이 오빠 쪽 대기</td></tr>
+  <tr><td>planner</td><td>판정 원장 · 인계서 · 오빠 원장 갱신</td><td>아침 매거진 재발행 확인</td></tr>
+</table>
+
+<h2>드러난 문제</h2>
+<ul>
+  <li>★열림 · 크리티컬(10-21 09:43 · 10:27 재발)★ 실시간 통역 음성 조각 1개 실패(긴 조각이 실시간 4초 상한에 5번 걸림) → 그 말하기 구간 전체 종료 → 뒤 소리 전부 버림 · 다른 인식기로 넘기는 길 0 · 슬랙 경보 0 · 서버 상태 확인도 못 잡음 — 메인 골 1 닫는 마지막 칸 · v65 리포트 REPORT-gpu-stt-timeout-0943.md</li>
+  <li>★열림 · 오빠 «이어 개선해야 하는 중요한 문제»(10-18 22:1x)★ 하네스 끝선이 멈췄던 원인 분석 정본의 개선 7항(①카드 첫 줄에 «끝 칸 수» 린트 ②착지 순서표에 «다음 착지 전제를 깨나» 열 ③첫 실행 리허설 착수 조건 ④끝선 밖 카드는 «결함 수정»만 허용 ⑤발주서에 시험 범위·시간 상한 칸 ⑥다음 단계 카드 미리 준비 ⑦desk 틱에 «다음 카드·첫 실행 막힘 예측» 1줄) · 닫는 증거 = 항목별 장치가 main 에 들어간 커밋 · 순서 = 하네스 끝선 뒤 첫 묶음(규칙·가드 후속은 끝선 ③단계 뒤) · ②⑥⑦ 은 끝선 진행 중에도 운영으로 바로 적용</li>
+  <li>매거진이 옛 날짜로 나옴(10-16) — planner 가 네 번 바뀌는 동안 이 원장을 안 고치고 다른 메모(밤 큐·아침 브리프)에만 적음. 재발 방지: 승계 인계 체크에 «원장 마지막 갱신 = 지금 좌석» 줄.</li>
+  <li>진행 폴더 카드의 상태 줄이 실제와 다르다(하네스 18장 «대기» 표기 · 결제 진행 55장 중 세션 붙은 건 1장 · 신기능 끝난 카드 16장 잔류) — 카드 상태 정리가 먼저.</li>
+  <li>오빠 지시 → 카드 연결이 없어 «전달 누락»을 사람이 찾는다 — 이 원장이 그 연결의 기준.</li>
+  <li>뉴스 생성기 첫 시험(13:45): ①바뀐 것만이 아님(시킨 일 72줄 · 이슈 477개 절단) ②쉬운 문장 실패 꼬리표가 화면에 노출 ③일부러 멈춘 팀에 정지 경고·«담당 없음» 도배 — 원인 = 이 원장 없이 판정 원장 줄·카드 폴더를 직접 긁음.</li>
+</ul>
+
+<footer>
+<table>
+  <tr><th>근거</th><th>무엇</th></tr>
+  <tr><td>원장 ef5de4e021</td><td>이 판을 만든 원장 커밋</td></tr>
+  <tr><td>822f464bda 완성 이동 · 카드 ops-exp-j1-vllm-argv-pg-extensions-read (ops 팀 · 안 한 실험 카드 초안 · J1 · 정본 C1 «J1 실측 3건(ops · 읽기 전용)» 칸이 비어 있다 · 원천 442행 모름 ⓒ · 608행</td><td>(설명 문장은 근거 표에)</td></tr>
+  <tr><td>c377f42fd0 완성 이동 · 카드 C-fix-worker-uvicorn-encoder-preload (chatbot 팀 · 로컬 worker 를 uvicorn 으로 띄우면 챗 입력 예산 인코더(cl100k) 사전 로드가 빠진다) · E2 press(tester#6 · HEAD )에서 로컬 worker 를 uvicorn 으로 띄우자 챗 전부</td><td>(설명 문장은 근거 표에)</td></tr>
+  <tr><td>03ae1dafb1 완성 이동 · 카드 R-room-left-user-explicit-leave</td><td>방 화면을 닫기만 하면 서버가 받는 퇴장 신호가 없다 — 방 화면의 퇴장</td></tr>
+  <tr><td>03ae1dafb1 완성 이동 · 카드 R-room-messages-zset-cap</td><td>같은 키 `room_messages:{room_id}`(ZSET, 멤버 </td></tr>
+  <tr><td>03ae1dafb1 완성 이동 · 카드 R-room-note-whole-doc-rw-trim</td><td>전수 점검 표(`design/teams/planner/AUDIT-grow</td></tr>
+  <tr><td>03ae1dafb1 완성 이동 · 카드 R-room-session-bar-participants-popover</td><td>방 실시간 화면은 구분선이 3겹(헤더·배지 줄·칩 줄 아래)이고, 타이머</td></tr>
+  <tr><td>b03d3a981d 완성 이동 · 카드 loom-exp-m-ctx-7-chunk-bytes-overhead (knowledge 팀 · 측정 카드 M-ctx-7</td><td>원천 PLAN 651행: 지식 청크 1인 = chunks_max 100 </td></tr>
+  <tr><td>0ee4c94c0a 완성 이동 · 카드 C-fix-answer-collection-date (chatbot 팀 · 지식 답 끝에 «수집 기준일» 붙이기)</td><td>투어 1 실행 RESULT-r18 «문서에 반영하면 좋은 관찰» 1: 가</td></tr>
+  <tr><td>2391961272 완성 이동 · 카드 loom-chatbot-pack-test-materials (loom 팀 · 챗봇 런타임 시험 재료 2가지</td><td>챗봇 런타임 은 «고른 팩만 적중 · 안 고르면 0» 을 단계마다 «+팩</td></tr>
+  <tr><td>e10db73410 완성 이동 · 카드 R-room-lifecycle-mr-fe-released-open-press</td><td>정본 `docs/architect/v65/SESSION_SUBSCRIPT</td></tr>
+  <tr><td>e10db73410 완성 이동 · 카드 R-room-lifecycle-mr-fixture-readers-blob-loss</td><td>카드 B(`R-room-lifecycle-mr-fixture-frozen</td></tr>
+  <tr><td>d7ee875807 완성 이동 · 카드 #1434-b 치과 2방(dental_snudh · suwon_ye_dental) 다듬기에서 도메인 층까지 통째 탈락</td><td>(한수) 처방 중 나노가 «출하 방 전부 degraded == » 가드를</td></tr>
+  <tr><td>d7ee875807 완성 이동 · 카드 #1434-b2 치과 다듬기</td><td>두 방 다 «치과 문맥의 마치 → 마취» 규칙이 있고(suwon syst</td></tr>
+  <tr><td>d7ee875807 완성 이동 · 카드 #1434-c 한수 translate</td><td>★실제 조합(tuple) = domain rotary · audience</td></tr>
+  <tr><td>d7ee875807 완성 이동 · 카드 #1434-d 한수 통합(f4777a80c5) 랜딩 차단</td><td>관문(고정 표본 56 · 예산 가드)은 tests/shared/promp</td></tr>
+  <tr><td>d7ee875807 완성 이동 · 카드 #1434-d2 한수</td><td>서비스는 지시문·용어집을 DB 에서 읽고, 씨앗 이관 스크립트(seed_</td></tr>
+  <tr><td>d7ee875807 완성 이동 · 카드 #1434 (한수 몫 ④)</td><td>(옛 이름 예시 파일)를 고치며 «시그니처 → 파일 탐색 → kind·파</td></tr>
+  <tr><td>d7ee875807 완성 이동 · 카드 #789-U2·U3 조직 관리자 경로 라이브 press + 쌍방 개선 1회전</td><td>설계 : 지금 라이브 증거는 `knowledge_scope operato</td></tr>
+  <tr><td>d7ee875807 완성 이동 · 카드 loom-promote-deadline-base-dev-measured (loom 팀 · 승격 마감 계수만 dev 실측으로</td><td>묶음 1 재빌드에서 두 팩이 `DeadlineExceeded: promo</td></tr>
+  <tr><td>e88e09d6fa 완성 이동 · 카드 loom-reserved-domain-key-coord-block (knowledge 팀 · 예약 지식 키 `org-only` 가 domains 좌표 이름으로 생기는 길 막기)</td><td>이 `ORG_ONLY_KNOWLEDGE_DOMAIN = &quot;org-only</td></tr>
+  <tr><td>2d17c33cc5 완성 이동 · 카드 D1 도메인 소유 판정 읽기 + S5-ⓑ 판정 코어</td><td>운영툴이 «이 고객사가 쓸 수 있는 도메인»을 보여줄 원천이 없다</td></tr>
+  <tr><td>2d17c33cc5 완성 이동 · 카드 loom-choices-c2c-fe-display-polish (loom 팀 · 선택지 정리 카드 2c</td><td>graphics 확인 원문(고칠 것 3 · 복붙): - ⓐ 「머리글 «일</td></tr>
+  <tr><td>f8f3f6c7ae 완성 이동 · 카드 C-brain-t1-thread-persist (chatbot 팀 · 챗봇 브레인 발주서 카드 3 · 결론 카드 PG 기록 1단계(write-behind) · visibility 기본 personal · 나노 1)</td><td>원천 초안 = design/teams/feature/proposals/c</td></tr>
+  <tr><td>383258efcf 완성 이동 · 카드 R-room-lifecycle-mr-fixture-frozen-press</td><td>세션 생명주기 정본(`docs/architect/v65/SESSION_S</td></tr>
+  <tr><td>147c3dbc96 완성 이동 · 카드 L3 옛 loom 승인·버전 교체</td><td>오빠 «운영툴작업하면 런타임반영 승인적용</td></tr>
+</table>
+</footer>
+</main>
+</body>
+</html>

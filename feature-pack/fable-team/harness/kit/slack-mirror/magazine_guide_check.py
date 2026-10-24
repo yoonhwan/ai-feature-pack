@@ -23,6 +23,12 @@ RULES: tuple[tuple[str, re.Pattern[str]], ...] = (
 )
 
 
+def violations(raw: str) -> list[tuple[str, str]]:
+    """한 줄의 §3 금지 꼴 [(항목, 원문 조각 40자)] — 축하 칸(r867)이 판에 싣기 전에 같은 규칙으로 거른다."""
+    text = _CMD.sub("", raw)
+    return [(name, text[m.start():m.start() + 40]) for name, rx in RULES for m in rx.finditer(text)]
+
+
 def check(brief: Brief, publish: bool) -> int:
     """위반 줄을 stdout 에 찍고 건수를 돌려준다. 칸 1(결론)도 같은 금지 꼴을 본다(헤드라인에 번호가 새면 가장 눈에 띈다)."""
     tag = "REJECT" if publish else "WARN"
@@ -30,8 +36,7 @@ def check(brief: Brief, publish: bool) -> int:
     lines += [f"{tag} 지침 {item} {cell} {frag[:40]}" for item, cell, frag in brief.issues]
     for cell in brief.cells():
         for raw in cell.body.splitlines():
-            text = _CMD.sub("", raw)
-            lines += [f"{tag} 지침 {name} {cell.title} {text[m.start():m.start() + 40]}" for name, rx in RULES for m in rx.finditer(text)]
+            lines += [f"{tag} 지침 {name} {cell.title} {frag}" for name, frag in violations(raw)]
     if lines:
         print("\n".join(lines))
     if lines and publish:

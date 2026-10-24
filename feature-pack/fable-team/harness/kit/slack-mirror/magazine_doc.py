@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """magazine_doc — 오빠 원장(planner 정리 md) 한 장을 «아침 매거진 한 쪽» HTML 로 바꿔 Slack 매거진 채널에 1회 발행 (R117 · 판정 1424 · R259 판정 1988).
 
-칸 구성 = design/harness/GUIDE-magazine-20261016.md §1(magazine_brief · magazine_brief_html) · 외부 호출 0(쉬운 말 문단 없음) · 발행 전 지침 검사(magazine_guide_check) + 상대 날짜 가드(R202).
+칸 구성 = design/harness/GUIDE-magazine-20261016.md §1(magazine_brief · magazine_brief_html) — ①끝낸 일 축하(r867 · magazine_celebrate · 창 안 완성만 · 쉬운 풀이 = 외부 호출 7초 룰) ②남은 일 풀 설명 · 발행 전 지침 검사(magazine_guide_check) + 상대 날짜 가드(R202).
 --dry-run = HTML 만 만들고 게시·상태 쓰기 0(위반은 WARN) · --publish = 위반 1건이라도 있으면 발행 0·rc 1 · 아니면 뿌리 글 1개 + 스레드에 HTML 1개(같은 원본 sha 면 skip).
 """
 import argparse
@@ -17,11 +17,14 @@ from typing import cast
 
 from magazine_brief import build_brief
 from magazine_brief_diff import load_previous
-from magazine_brief_html import render
+from magazine_brief_html import REMAINING, render
+from magazine_celebrate import fill as fill_done
 from magazine_date_guard import check as date_guard
 from magazine_doc_md import Doc, DocError, parse_doc
 from magazine_guide_check import check as guide_check
 from magazine_slack import SLACK_BASE, Target, permalink, post_root, upload_file
+from magazine_summary import PROXY_URL
+from magazine_window import MagazineError
 from mirror_lib import MirrorError, read_token, save_state
 
 try:
@@ -61,7 +64,7 @@ def read_source(repo: str, sha: str, path: str) -> tuple[str, str]:
 
 def root_text(date: str, goal: str = "") -> str:
     """goal = 자율 골 표 블록(R362) — 첫 줄 바로 뒤. 첫 줄은 그대로(뿌리 글 «첫 줄 정확 일치» 탐색)."""
-    return with_root(f"매거진 {date} · 오빠 확인판\n오빠 할 일과 지난 판 뒤로 바뀐 것을 한 쪽에 모은 HTML 이 스레드에 붙어 있어요.", goal)
+    return with_root(f"매거진 {date} · 오빠 확인판\n윗부분은 끝낸 일 축하, 아랫부분은 남은 일 풀 설명 — 한 쪽짜리 HTML 이 스레드에 붙어 있어요.", goal)
 
 
 def load_state(path: Path) -> dict[str, object]:
@@ -102,6 +105,7 @@ def run(args: argparse.Namespace) -> int:
     date = args.date or doc_date(doc)  # --date 가 판 날짜(제목에 날짜 없는 오빠 원장) · 둘 다 없으면 doc_date 가 DocError
     prev, note = load_previous(load_state(Path(args.state).expanduser()), args.src_repo, args.src_path, full, read_source)
     brief = build_brief(doc, date, full[:10], prev, note)
+    fill_done(brief, args.src_repo, args.done_ref, args.src_path, args.eli5_cmd)  # r867 ① 축하 칸 — 지침·날짜 가드 «전»에 채워 같은 검사를 받는다
     blocked = date_guard(brief.as_doc(), args.publish)  # 상대 날짜(오늘·내일…)가 판에 실리면 발행 0 — 게시 전에 거절(R202)
     flagged = guide_check(brief, args.publish)  # 지침 §3·§4-1 위반 — 같은 규칙(R259)
     if blocked or (flagged and args.publish):
@@ -111,7 +115,7 @@ def run(args: argparse.Namespace) -> int:
     out.mkdir(parents=True, exist_ok=True)
     start = time.monotonic()
     html_path = out / f"MAGAZINE-DOC-{date}-{full[:10]}.html"
-    html_path.write_text(render(brief).replace("</h1>", "</h1>\n" + html_section(goal), 1) if goal else render(brief), encoding="utf-8")
+    html_path.write_text(render(brief).replace(REMAINING, html_section(goal) if goal else "", 1), encoding="utf-8")  # 골 표 = ② 남은 일 머리 바로 뒤
     print(f"{'DRY-RUN' if args.dry_run else 'PUBLISH'} warn={flagged} elapsed={time.monotonic() - start:.1f}s html={html_path}")
     if args.dry_run:
         print(f"--- 슬랙 뿌리 글 ---\n{root_text(date, goal)}\nSLACK 링크 없음(드라이런)")
@@ -142,6 +146,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--token-file", default=str(HOME / ".hermes/secrets/yoonhwan_bot.env"))
     p.add_argument("--slack-base", default=SLACK_BASE)
     p.add_argument("--channel", default="C0C6MJGRR89")
+    p.add_argument("--done-ref", default="HEAD", help="축하 칸 git 이력 기준(원장 사본의 origin/main 동기 HEAD)")
+    p.add_argument("--eli5-cmd", default=PROXY_URL, help="쉬운 풀이 호출 — http(s):// 면 프록시 Messages 직접, 아니면 stdin→stdout 명령")
     return p.parse_args(argv)
 
 
@@ -149,7 +155,7 @@ def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     try:
         return run(parse_args(argv))
-    except (MirrorError, DocError) as e:
+    except (MirrorError, DocError, MagazineError) as e:  # MagazineError = 축하 칸 git 실패(r867 · 반쪽 축하 0)
         LOG.error("발행 실패: %s: %s", type(e).__name__, e)
         return 1
 
