@@ -26,6 +26,7 @@ from magazine_window import KST
 
 LOG = logging.getLogger("magazine_doc")
 CARD_GLOB = "design/*/indices/완성/*.md"
+DONE_DIR = "/indices/완성/"
 SHA = re.compile(r"(?<![0-9A-Za-z])(?=[0-9a-f]*\d)(?=[0-9a-f]*[a-f])[0-9a-f]{7,40}(?![0-9A-Za-z])")
 TITLE = re.compile(r"^#\s+(?:인덱스:\s*)?(.+)$")
 
@@ -110,7 +111,10 @@ def _from_cards(repo: Path, ref: str, start: datetime, end: datetime) -> list[Do
         if not start <= datetime.fromisoformat(at) < end:
             continue  # git --since/--until 는 경계 포함·근사 — 창은 여기서 정확히 자른다
         for row in lines[1:]:
-            path = row.split("\t")[-1]
+            fields = row.split("\t")
+            path = fields[-1]
+            if row.startswith("R") and DONE_DIR in fields[1]:
+                continue  # 완성/ 안에서 이름만 바꿈 — 창 전에 이미 끝난 일(새 완성 아님 · DA⑥ r1 반례 1)
             if row.strip() and path not in seen:
                 why = [f"{sha[:10]} 완성 이동"]
                 title, source = _card_fact(git(repo, "show", f"{sha}:{path}"), path, why)

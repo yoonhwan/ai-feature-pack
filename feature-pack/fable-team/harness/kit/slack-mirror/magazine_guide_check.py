@@ -23,6 +23,15 @@ RULES: tuple[tuple[str, re.Pattern[str]], ...] = (
 )
 
 
+_ABBR = re.compile(r"\b[A-Z][A-Z0-9]{1,4}\b")  # 대문자 약어 2~5자(DA·STT·E2E)
+_SAID = ("결론", "끝낸 일")  # 이 칸 뒤 = ② 남은 일
+
+
+def abbr_only(raw: str) -> bool:
+    """약어만 있고 풀어 쓴 말(한글·소문자 낱말)이 0 인 줄 — 남은 일 칸은 «무엇·왜·다음 한 수» 를 말로 쓴다(DA⑥ r1 반례 3)."""
+    return bool(_ABBR.search(raw)) and not re.search(r"\w", _ABBR.sub("", raw))
+
+
 def violations(raw: str) -> list[tuple[str, str]]:
     """한 줄의 §3 금지 꼴 [(항목, 원문 조각 40자)] — 축하 칸(r867)이 판에 싣기 전에 같은 규칙으로 거른다."""
     text = _CMD.sub("", raw)
@@ -37,8 +46,9 @@ def check(brief: Brief, publish: bool) -> int:
     for cell in brief.cells():
         for raw in cell.body.splitlines():
             lines += [f"{tag} 지침 {name} {cell.title} {frag}" for name, frag in violations(raw)]
-    if lines:
-        print("\n".join(lines))
+    warns = [f"WARN 지침 약어만 {c.title} {raw.strip()[:40]}" for c in brief.cells() if c.title not in _SAID for raw in c.body.splitlines() if abbr_only(raw)]
+    if lines or warns:
+        print("\n".join(lines + warns))  # 약어만 줄은 warn 줄만 — 건수(발행 거절)에는 안 든다
     if lines and publish:
         LOG.error("지침 위반 %d건 — 발행 거절(원장을 지침 §4 대로 고친 뒤 다시)", len(lines))
     return len(lines)

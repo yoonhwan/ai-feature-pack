@@ -15,6 +15,11 @@ from mirror_lib import EXTERNAL_CALL_TIMEOUT_S
 
 LOG = logging.getLogger("magazine_doc")
 BATCH_SIZE, MAX_WORKERS, TIMEOUT, DEADLINE_S = 2, 4, EXTERNAL_CALL_TIMEOUT_S, 70.0
+# 하드 룰 12 기준량(입력 2,000토큰 ≈ 한국어 4,000자 잠정) — 묶음 한 번의 자료 합이 넘지 않게 한 장 상한 = 기준량 ÷ 묶음 장수.
+# 한 장은 더 쪼갤 단위가 없어(풀이 한 단 = 한 장) 넘는 글은 잘라 «… (이하 생략)» 을 보인다 — 실시간 경로 아님 · 숨김 0 (DA⑥ r1 반례 2)
+BASE_CHARS = 4000
+SOURCE_LIMIT = BASE_CHARS // BATCH_SIZE
+CUT_MARK = "… (이하 생략)"
 BLOCKED = ("배포", "승인", "결정", "전부", "모두", "필요없", "안전")  # 상태·범위 과장 — 끝낸 사실은 사실 칸(근거 표)이 말한다
 KEYS = {"ref", "icon", "title", "analogy", "lines"}
 Result = dict[str, dict[str, object] | str]
@@ -78,8 +83,17 @@ def _batch(units: list[dict[str, str]], cmd: str, skill: str, runner: Runner) ->
         return {r: "호출 실패" for r in refs}
 
 
+def _cap(unit: dict[str, str]) -> dict[str, str]:
+    text = unit["자료"]
+    if len(text) <= SOURCE_LIMIT:
+        return unit
+    LOG.warning("쉬운 풀이 자료 잘림 ref=%s %d자 → %d자", unit["ref"], len(text), SOURCE_LIMIT)
+    return {**unit, "자료": text[:SOURCE_LIMIT - len(CUT_MARK)] + CUT_MARK}
+
+
 def explain(units: list[dict[str, str]], cmd: str, skill: str, runner: Runner) -> Result:
-    """{ref: 풀이 dict | 실패 사유}. 묶음 2장씩 병렬 · 전체 DEADLINE_S 초 넘긴 묶음은 «시간 초과»."""
+    """{ref: 풀이 dict | 실패 사유}. 한 장 자료는 SOURCE_LIMIT 자까지 · 묶음 2장씩 병렬 · 전체 DEADLINE_S 초 넘긴 묶음은 «시간 초과»."""
+    units = [_cap(u) for u in units]
     batches = [units[i:i + BATCH_SIZE] for i in range(0, len(units), BATCH_SIZE)]
     pool = ThreadPoolExecutor(max_workers=MAX_WORKERS)
     futures = {pool.submit(_batch, b, cmd, skill, runner): b for b in batches}
