@@ -1,0 +1,54 @@
+PASS bash -n head-sync
+PASS ⓐ wt-a 안 --apply rc0 · A 최신화
+PASS ⓐ 남의 워크트리(wt-b·wt-c) git 호출 0 (실측 0)
+PASS ⓐ 표에 B·C 줄 0 · B HEAD 불변
+PASS ⓑ --table = 전 워크트리 표(A·B·C) rc0
+PASS ⓑ --table --apply → usage rc2
+PASS ⓒ 겹친 3개 → 표 1 · «이미 실행 중 pid N · 시작 HH:MM» 2 · rc 전부 0 (표 1 · 대기 2)
+PASS ⓒ 끝나면 잠금 풀림(쥔 프로세스 0 · 다음 실행 정상)
+PASS ⓐ r2 두 실행 동시 → 둘째 «이미 실행 중 pid N · 시작 HH:MM» 1줄 rc0 · 스캔 git 0 (실측 0)
+PASS ⓑ r2 신호 9 로 죽은 주인 → 다음 실행이 바로 잡음(회수 문구 0 · 고아 0)
+PASS ⓒ r2 잠금 파일의 옛 pid 글자만으로는 막지 않음
+PASS ⓒ 살아 있는 주인 → 1줄 rc0 · 남의 잠금 글자 그대로
+PASS ⓒ 전수 잠금 중에도 자기 워크트리 --apply 는 돈다(잠금 범위 = 그 워크트리)
+PASS ⓓ 쪽지에 --apply 0
+PASS ⓓ 쪽지 = 자기 워크트리 스스로(merge 만 · main sha 고정) · 팩 작업 무관
+PASS ⓖ r3 --all 은 1곳 실행이 쥔 wt-a 를 «건너뜀» · 끝줄 건너뜀 수 rc0
+PASS ⓖ r3 wt-a = 1곳 실행만 씀 · B·C = 전수가 씀
+PASS ⓖ r3 wt-a 작업 파일 = HEAD(미커밋 0 · MERGE_HEAD 0) · HEAD ⊇ main
+FAIL ⓗ r3~r5 남의 MERGE_HEAD(다른 sha) → abort 0 · 그대로 둠 · 오류·사람 rc1 :: rc=1 out=ERROR merge 시작 못 함(rc=128 · abort 0 · 남이 고치는 중이라 전후 대조 밖): /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.G3AzV7wxMv/f4/wt-a — fatal: You have not concluded your merge (MERGE_HEAD exists). Please, commit your changes before you merge. 
+base=2d31d04c6f12769b0b887e0452bddb3021bb714c (ori
+PASS ⓘ r3 병합 뒤 미커밋 남음 → «최신화함» 0 · ERROR rc1
+FAIL ⓝ r4·r5 남의 같은 base 병합 → abort 0 · MERGE_HEAD(=base) 그대로 · 오류·사람 rc1 :: rc=1 out=ERROR merge 시작 못 함(rc=128 · abort 0 · 남이 고치는 중이라 전후 대조 밖): /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.G3AzV7wxMv/f7/wt-a — fatal: You have not concluded your merge (MERGE_HEAD exists). Please, commit your changes before you merge. 
+base=ff96ced2f80f43e539243441c6ca401e5c8631c8 (ori
+PASS ⓟ r5 충돌 → merge 안 함 · «충돌·사람» · MERGE_HEAD 0 · HEAD·파일·index 무변경 rc0
+FAIL ⓠ r5 깨끗 + 서명 실패 → abort 0 · MERGE_HEAD 그대로 · 오류·사람 rc1 :: rc=1 out=ERROR merge 시작 못 함(rc=128 · abort 0 · 남이 고치는 중이라 전후 대조 밖): /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.G3AzV7wxMv/fq/wt-a — error: gpg failed to sign the data: (no gpg output) fatal: failed to write commit object 
+base=35d74613f6dd07fc0111617a47d38d005b1c8a18 (origin/main) apply=1 a
+PASS ⓡ r5 깨끗 → «최신화함» · 미커밋 0 rc0
+PASS ⓕ 변이1(flock 줄 제거)이 실제로 줄을 바꿨다
+PASS ⓕ 변이(flock 제거) → 겹친 실행이 표 3 개 = ⓒ 단언이 잡는다
+PASS ⓕ 변이(flock 제거) → 둘째도 스캔 git 36 = r2 ⓐ 단언이 잡는다
+PASS ⓕ 변이2 가 실제로 줄을 바꿨다
+PASS ⓕ 변이(cwd 제한 제거) → 남의 워크트리 git 호출 50 = ⓐ 단언이 잡는다
+PASS ⓕ 변이3(전수 쓰기 잠금 = 공용 키) 만듦
+PASS ⓕ 변이(공용 키) → --all 이 1곳 실행 중인 wt-a 를 씀 = ⓖ 단언이 잡는다
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import sys; s = open(sys.argv[1], encoding="utf-8").read(); assert s.count(sys.argv[3]) == 1, "변이 대상 없음"
+                                                                       ^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 변이 대상 없음
+FAIL ⓕ 변이4(merge-tree 사전 판정 제거) 만듦 :: rc=0 out=base=0f6a309560032bd1697d173a4bda389c2f815322 (origin/main) apply=1 all=1
+브랜치  워크트리  분류   contains_main  미랜딩  결과
+nano/a  wt-a      STALE  no             1       최신화함
+nano/b  wt-b      STALE  no             1       최신화함
+nano/c  wt-c      STALE  no             1       최신화함
+요약: 총 3 · 최신 0 · 최신화함 3 · 충돌
+FAIL ⓕ 변이(사전 판정 제거) → 충돌 merge 를 실제로 돌려 MERGE_HEAD·충돌 파일 남김 = ⓟ 단언이 잡는다 :: rc=127 out=bash: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.G3AzV7wxMv/mut4/ft-head-sync.sh: No such file or directory
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import sys; s = open(sys.argv[1], encoding="utf-8").read(); assert s.count(sys.argv[3]) == 1, "변이 대상 없음"
+                                                                       ^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 변이 대상 없음
+FAIL ⓕ 변이5(abort 되살림) 만듦 :: rc=127 out=bash: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.G3AzV7wxMv/mut4/ft-head-sync.sh: No such file or directory
+PASS ⓕ 변이(abort 되살림) → 서명 실패 병합을 abort 로 지움 = ⓠ 단언이 잡는다
+FAILED 6
