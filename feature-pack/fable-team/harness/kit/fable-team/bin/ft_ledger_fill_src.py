@@ -170,42 +170,48 @@ def _first_lines(repo: Path, specs: list[str]) -> list[str]:
     return out
 
 
-def _disk_cards(folder: Path) -> list[tuple[str, str]]:
-    if not folder.is_dir():
-        return []
-    return [(p.stem, _title((p.read_text(encoding="utf-8").splitlines() or [""])[0], p.stem)) for p in sorted(folder.glob("*.md")) if p.name != "README.md"]
-
-
-def _disk_team(rel: str, team: str, since: datetime) -> dict:
-    hroot = os.environ.get("FT_HARNESS_ROOT", "")
-    if not hroot:
-        raise FillError(f"{team} 폴더 {rel} — FT_HARNESS_ROOT 미설정")
-    base = Path(hroot) / rel.split("/", 1)[1] / "indices"
-    done = [(n, t) for n, t in _disk_cards(base / "완성") if datetime.fromtimestamp((base / "완성" / f"{n}.md").stat().st_mtime) >= since]
-    return {"진행": _disk_cards(base / "진행"), "대기": len(_disk_cards(base / "대기")), "착지": done}
-
-
-def team_cards(repo: Path, ref: str, now: datetime, hours: int = 24) -> dict[str, dict]:
-    """팀마다 {진행: [(이름, 제목)], 대기: N, 착지: [(이름, 제목)]} — 착지 = 최근 hours 시간 안 완성 폴더에 «추가»된 카드.
-    git 4회(ls-tree · rev-list · log · cat-file). 폴더 칸이 $FT_HARNESS_ROOT 꼴이면 디스크에서 읽는다(env 없음 = FillError · 표 전체 갱신 0)."""
-    rows, since = teams(repo, ref), now - timedelta(hours=hours)
-    on_ref = {t: rel for t, rel in rows.items() if not rel.startswith("$")}
-    paths = git(repo, "ls-tree", "-r", "--name-only", ref, "--", *(f"{rel}indices/" for rel in on_ref.values())).splitlines() if on_ref else []
+def _ref_cards(repo: Path, ref: str, rels: dict[str, str], since: datetime) -> dict[str, dict]:
+    """한 리포·한 ref(움직이지 않는 커밋 한 판) 위 팀 카드 — git 4회(ls-tree · rev-list · log · cat-file). rels = {팀: 리포 루트 기준 폴더/}."""
+    if not rels:
+        return {}
+    paths = git(repo, "ls-tree", "-r", "--name-only", ref, "--", *(f"{rel}indices/" for rel in rels.values())).splitlines()
     window = f"--since={since:%Y-%m-%d %H:%M}"
-    cap = sized(int(git(repo, "rev-list", "--count", window, ref) or 0), LOG_BASE) if on_ref else LOCAL_S  # r870 1-b — 창 안 커밋 수 비례(부하 때 고정 7초에 걸리던 몫)
-    recent = {p for p in git(repo, "log", ref, window, "--diff-filter=A", "--name-only", "--format=", "--",
-                             *(f"{rel}indices/완성/" for rel in on_ref.values()), timeout=cap).splitlines()} if on_ref else set()
+    cap = sized(int(git(repo, "rev-list", "--count", window, ref) or 0), LOG_BASE)  # r870 1-b — 창 안 커밋 수 비례(부하 때 고정 7초에 걸리던 몫)
+    recent = set(git(repo, "log", ref, window, "--diff-filter=A", "--name-only", "--format=", "--",
+                     *(f"{rel}indices/완성/" for rel in rels.values()), timeout=cap).splitlines())
     pick: dict[tuple[str, str], list[str]] = {}
-    for team, rel in on_ref.items():
+    for team, rel in rels.items():
         for state in ("진행", "대기", "완성"):
             pre = f"{rel}indices/{state}/"
             pick[(team, state)] = sorted(p for p in paths if p.startswith(pre) and "/" not in p[len(pre):] and p.endswith(".md") and not p.endswith("/README.md"))
     want = [p for (t, s), ps in pick.items() for p in ps if s == "진행" or (s == "완성" and p in recent)]
     titles = dict(zip(want, _first_lines(repo, [f"{ref}:{p}" for p in want])))
     card = lambda p: (Path(p).stem, _title(titles[p], Path(p).stem))  # noqa: E731
-    out = {t: {"진행": [card(p) for p in pick[(t, "진행")]], "대기": len(pick[(t, "대기")]),
-               "착지": [card(p) for p in pick[(t, "완성")] if p in recent]} for t in on_ref}
-    out.update({t: _disk_team(rel, t, since) for t, rel in rows.items() if rel.startswith("$")})
+    return {t: {"진행": [card(p) for p in pick[(t, "진행")]], "대기": len(pick[(t, "대기")]),
+                "착지": [card(p) for p in pick[(t, "완성")] if p in recent]} for t in rels}
+
+
+def _harness_ref(rels: dict[str, str]) -> tuple[Path, str, dict[str, str]]:
+    """r892 r3 — $FT_HARNESS_ROOT 꼴 팀(하네스)도 디스크 훑기 대신 그 워크트리 HEAD 커밋 한 판에서 읽는다(sha 1번 고정 → 훑는 사이 카드 이동 경쟁 0).
+    → (리포 루트, 고정 sha, {팀: 리포 루트 기준 폴더/}). env 없음·git 아님·sha 못 읽음 = FillError(그 표만 갱신 0).
+    알려진 한계: 커밋 안 된 카드 이동은 다음 커밋 뒤 틱부터 보인다(뉴스는 주기 발행 · 하네스 카드 이동은 master 가 바로 커밋)."""
+    hroot = os.environ.get("FT_HARNESS_ROOT", "")
+    if not hroot:
+        raise FillError(f"하네스 폴더 {', '.join(rels.values())} — FT_HARNESS_ROOT 미설정")
+    top, prefix = (git(Path(hroot), "rev-parse", "--show-toplevel", "--show-prefix").split("\n") + ["", ""])[:2]
+    sha = git(Path(hroot), "rev-parse", "--verify", "HEAD^{commit}").strip()
+    if not top or not re.fullmatch(r"[0-9a-f]{40,64}", sha):
+        raise FillError(f"하네스 리포 판 못 읽음: {hroot} (top={top!r} sha={sha[:12]!r})")
+    return Path(top), sha, {t: prefix + re.sub(r"^(\$FT_HARNESS_ROOT/|\$\{FT_HARNESS_ROOT\}/)", "", rel) for t, rel in rels.items()}
+
+
+def team_cards(repo: Path, ref: str, now: datetime, hours: int = 24) -> dict[str, dict]:
+    """팀마다 {진행: [(이름, 제목)], 대기: N, 착지: [(이름, 제목)]} — 착지 = 최근 hours 시간 안 완성 폴더에 «추가»된 카드.
+    팀 폴더 칸이 리포 경로면 <ref> 한 판 · $FT_HARNESS_ROOT 꼴이면 하네스 워크트리 HEAD 한 판(_harness_ref) — 디스크 훑기 0."""
+    rows, since = teams(repo, ref), now - timedelta(hours=hours)
+    out = _ref_cards(repo, ref, {t: rel for t, rel in rows.items() if not rel.startswith("$")}, since)
+    if hrels := {t: rel for t, rel in rows.items() if rel.startswith("$")}:
+        out.update(_ref_cards(*_harness_ref(hrels), since))
     return out
 
 

@@ -3,12 +3,14 @@
 실행: python3 -m pytest tests/scripts/test_ledger_fill_r870.py -q   (ⓕ 변이 = evidence/r870/mutation.sh)
 """
 import logging
+import os
 import shutil
 from datetime import timedelta
+from pathlib import Path
 
 import pytest
 
-from test_ledger_fill_r851 import BR, NOW, REL, fill, guard_begin_module, n_commits, sha_of, world  # noqa: F401  r851 픽스처 그대로
+from test_ledger_fill_r851 import BR, NOW, REL, fill, guard_begin_module, n_commits, run, sha_of, world  # noqa: F401  r851 픽스처 그대로
 import ft_ledger_fill as lf
 import ft_ledger_fill_src as src
 
@@ -155,6 +157,7 @@ def test_h2_ref_probe_timeout_is_fill_error(wrap):
 def test_1b_card_log_cap_scales_with_commits_in_window(wrap, monkeypatch):
     assert src.sized(0, 100) == 7.0 and src.sized(261, 100) == 21.0 and src.sized(10 ** 6, 100) == 70.0  # 하드 룰 12 · 70초 천장
     monkeypatch.setattr(src, "LOG_BASE", 1)  # 창 안 커밋 2개 = 상한 14초
+    run(Path(os.environ["FT_HARNESS_ROOT"]), "commit", "-q", "--allow-empty", "-m", "2")  # r892 r3 — 하네스 카드도 git log(같은 잠 래퍼) · 하네스 리포도 창 안 커밋 2개
     wrap["set"](log=8)  # 고정 7초 = 시간 초과(표 갱신 0) · 크기 비례 = 통과
     cards = src.team_cards(wrap["repo"], "origin/main", NOW)
     assert [n for n, _t in cards["cfo"]["착지"]] == ["cfo-done"]

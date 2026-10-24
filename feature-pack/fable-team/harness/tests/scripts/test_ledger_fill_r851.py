@@ -86,6 +86,9 @@ def world(tmp_path, monkeypatch):
     run(repo, "commit", "-qm", "팀 착지 2")
     run(repo, "push", "-q", "origin", "main")
     write(hroot, "design/harness/indices/진행/r851.md", "# 인덱스: r851 — 원장 자동 채움 — 원장 표\n")
+    subprocess.run(["git", "init", "-q", "-b", "main", str(hroot)], check=True)  # r892 r3 — 하네스 카드 = 그 워크트리 HEAD 한 판
+    run(hroot, "add", "-A")
+    run(hroot, "commit", "-qm", "harness cards")
     (root / ".fable-team/comm").mkdir(parents=True)
     (root / ".fable-team/seats-planner.json").write_text(json.dumps({"_master": "byz-planner-master-claude#9"}), encoding="utf-8")
     ts = (NOW - timedelta(hours=1)).isoformat()
