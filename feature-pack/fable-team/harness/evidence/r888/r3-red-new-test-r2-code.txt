@@ -1,0 +1,180 @@
+== ⓖ 키트 2곳 같은 바이트 + bash -n
+PASS cmp ft-nano-close.sh (bin == kit)
+PASS bash -n ft-nano-close.sh
+warning: 내장 깃 저장소 추가: .worktrees/v65-rs
+hint: You've added another git repository inside your current repository.
+hint: Clones of the outer repository will not contain the contents of
+hint: the embedded repository and will not know how to obtain it.
+hint: If you meant to add a submodule, use:
+hint:
+hint: 	git submodule add <url> .worktrees/v65-rs
+hint:
+hint: If you added this path by mistake, you can remove it from the
+hint: index with:
+hint:
+hint: 	git rm --cached .worktrees/v65-rs
+hint:
+hint: See "git help submodule" for more information.
+hint: Disable this message with "git config set advice.addEmbeddedRepo false"
+warning: unable to rmdir '.worktrees/v65-rs': Directory not empty
+PASS 준비: origin/main = B · 로컬 main = A(대기/ 옛 사본)
+== ⓐ --research: 증거 줄 없음 · cherry +0 · 미커밋 0 · --result 실재 → CLOSED rc0
+PASS ⓐ 인자 없음 = 지금 판 ⑥증거 줄 없음 REJECT
+PASS ⓐ --research → rc0 · CLOSED-ABSENT <좌석> research=1
+PASS   └ ⑥ 자리 = 리서치 검사 통과 줄
+PASS   └ ⑥ 증거 줄 검사 면제
+PASS   └ 닫힘 원장 행에 research=1
+PASS   └ 브랜치 보존
+== ⓑ --research 인데 코드 커밋(cherry +1) · 미커밋 → REJECT «리서치 아님» (면제 0)
+PASS ⓑ cherry +1 → REJECT «리서치 아님»
+PASS   └ 다음 수 = 구현 닫기 경로
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS ⓑ 미커밋 코드 → REJECT «리서치 아님»
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+== ⓒ --research 인데 --result 없음 → REJECT ①
+PASS ⓒ --result 없음 → ① REJECT
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+== ⓖ(r2) FT_NANO_FEAT=좌석 브랜치 + 구현 커밋 1 + --research → REJECT (r3 기준 = 카드 기준 판 뒤 구현 커밋)
+FAIL ⓖ 좌석 브랜치 기준 + 커밋 1 → REJECT «구현 커밋 1»(r3: 기준 판 뒤 · 단언 문구만 갱신) — 없음: «구현 커밋 1» ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Lgw9HtPo1A/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Lgw9HtPo1A/bin
+WARN ④checkpoint 면제 — 나노 브랜치에 press 산출 0(poller_dom.jsonl 없음)
+OK cherry 게이트 — nano/rs 의 모든 커밋이 nano/rs 에 patch 단위로 존재(+ 0)
+REJECT byz-planner-nano-rs#0
+  - ⑥리서치 아님 — origin/main 대비 고유 커밋 1 · 미커밋 0건 · 기준 브랜치가 좌석 자신(FT_NANO_FEAT=nano/rs) · 구현 닫기 경로로(--research 없이 · 카드 증거 줄)
+PASS   └ 사유에 «기준 브랜치가 좌석 자신»
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+== ⓗ(r2) 0바이트 --result + --research → REJECT ①
+PASS ⓗ 빈 결과 파일 → ① REJECT
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+== ⓤ 다른 ⑥ 면제·우회 인자와 동시 → usage 2
+PASS ⓤ --research + --suspended → usage rc=2
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS ⓤ --research + --superseded-by → usage rc=2
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS ⓤ --research + --never-started → usage rc=2
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS ⓤ --research + --shared-wt → usage rc=2
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS ⓤ --research + --cherry-override → usage rc=2
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+== ⓘ(r3) 기준 판 B 뒤 구현 커밋 1 · 이미 origin/main 에 착지(HEAD ⊂ origin/main) → REJECT
+FAIL ⓘ rc=0 ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Lgw9HtPo1A/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Lgw9HtPo1A/bin
+INFO feat=origin/main @ fd8d507 (fetch 완료)
+WARN ④checkpoint 면제 — 나노 브랜치에 press 산출 0(poller_dom.jsonl 없음)
+RESEARCH-OK origin/main 대비 고유 커밋 0 · 미커밋 0 · 결과 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Lgw9HtPo1A/result.md (⑥ 증거 줄 면제)
+OK cherry 게이트 — nano/rs 의 모든 커밋이 origin/main 에 patch 단위로 존재(+ 0)
+워크트리 정리 계획: /private/var/folders/vm/
+FAIL   └ RESEARCH-OK 0 — 있으면 안 됨: «RESEARCH-OK»
+PASS   └ kill·태그 해제 0
+FAIL ⓘ: 명부 삭제
+FAIL ⓘ: 원장 행 생김
+== ⓙ(r3) 기준 판 A 뒤 머리 맞춤 병합(origin/main 끌어옴)만 → RESEARCH-OK
+FAIL ⓙ rc=1 ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Lgw9HtPo1A/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Lgw9HtPo1A/bin
+INFO feat=origin/main @ 87428b6 (fetch 완료)
+WARN ④checkpoint 면제 — 나노 브랜치에 press 산출 0(poller_dom.jsonl 없음)
+OK cherry 게이트 — nano/rs 의 모든 커밋이 origin/main 에 patch 단위로 존재(+ 0)
+REJECT byz-planner-nano-rs#0
+  - ⑥리서치 아님 — origin/main 대비 고유 커밋 1 · 미커밋 0건 · 구현 닫기 경로로(--research 없이 · 카드 증거 줄)
+== ⓙ(r3) 곁가지(구현 커밋 · origin/main 밖) 병합 → REJECT «곁가지 병합 1»
+FAIL ⓙ 곁가지 구현 병합 → REJECT «곁가지 병합 1» — 없음: «곁가지 병합 1» ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Lgw9HtPo1A/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Lgw9HtPo1A/bin
+INFO feat=origin/main @ 87428b6 (fetch 완료)
+WARN ④checkpoint 면제 — 나노 브랜치에 press 산출 0(poller_dom.jsonl 없음)
+REJECT byz-planner-nano-rs#0
+  - ⑥리서치 아님 — origin/main 대비 고유 커밋 2 · 미커밋 0건 · 구현 닫기 경로로(--research 없이 · 카드 증거 줄)
+  - ⑤REJECT cherry 게이트 — nano/rs 머지 시 origin/main 에 design/ 밖 변경 1개가 생김(내용 미랜딩 · merge-tree 실제 delta):
+      scripts/s.py
+      tip
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+== ⓚ(r3) base_sha 줄 없는 카드 + --research → REJECT «리서치 기준 판 없음»
+FAIL ⓚ rc=0 ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Lgw9HtPo1A/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Lgw9HtPo1A/bin
+WARN ④checkpoint 면제 — 나노 브랜치에 press 산출 0(poller_dom.jsonl 없음)
+RESEARCH-OK origin/main 대비 고유 커밋 0 · 미커밋 0 · 결과 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Lgw9HtPo1A/result.md (⑥ 증거 줄 면제)
+OK cherry 게이트 — nano/rs 의 모든 커밋이 main 에 patc
+PASS   └ kill·태그 해제 0
+FAIL ⓚ: 명부 삭제
+FAIL ⓚ: 원장 행 생김
+== ⓛ(r3) «R scripts/x.py -> .serena/project.yml» · « M docs/.serena/project.yml» → 미커밋 REJECT(정확 경로)
+FAIL ⓛ R → .serena/project.yml → 미커밋 1건 REJECT — 없음: «미커밋 1건» ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Lgw9HtPo1A/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Lgw9HtPo1A/bin
+WARN ④checkpoint 면제 — 나노 브랜치에 press 산출 0(poller_dom.jsonl 없음)
+OK cherry 게이트 — nano/rs 의 모든 커밋이 rsbase 에 patch 단위로 존재(+ 0)
+REJECT byz-planner-nano-rs#0
+  - ⑥리서치 아님 — origin/main 대비 고유 커밋 1 · 미커밋 0건 · 기준 브랜치가 좌석 자신(rsbase 가 HEAD 를 품음) · 구현 닫기 경로로(--research 없이 · 카드 증거 줄)
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+FAIL ⓛ « M docs/.serena/project.yml» → 미커밋 1건 REJECT — 없음: «미커밋 1건» ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Lgw9HtPo1A/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Lgw9HtPo1A/bin
+WARN ④checkpoint 면제 — 나노 브랜치에 press 산출 0(poller_dom.jsonl 없음)
+OK cherry 게이트 — nano/rs 의 모든 커밋이 rsbase 에 patch 단위로 존재(+ 0)
+REJECT byz-planner-nano-rs#0
+  - ⑥리서치 아님 — origin/main 대비 고유 커밋 1 · 미커밋 0건 · 기준 브랜치가 좌석 자신(rsbase 가 HEAD 를 품음) · 구현 닫기 경로로(--research 없이 · 카드 증거 줄)
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+== ⓜ(r3) 루트 미추적 .serena/project.yml 만 → RESEARCH-OK
+FAIL ⓜ rc=1 ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Lgw9HtPo1A/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Lgw9HtPo1A/bin
+WARN ④checkpoint 면제 — 나노 브랜치에 press 산출 0(poller_dom.jsonl 없음)
+OK cherry 게이트 — nano/rs 의 모든 커밋이 main 에 patch 단위로 존재(+ 0)
+REJECT byz-planner-nano-rs#0
+  - ⑥리서치 아님 — origin/main 대비 고유 커밋 0 · 미커밋 1건 · 구현 닫기 경로로(--research 없이 · 카드 증거 줄)
+== ⓓ 로컬 루트 = 대기/ 옛 판 · origin/main = 진행/ 새 판 → origin/main 판을 읽는다
+PASS ⓓ 증거 줄(origin/main 판에만 있음) → rc0
+PASS   └ INFO 카드 위치 ← origin/main:<경로>
+PASS   └ 리서치 줄(origin/main 판)을 읽고 · 쓰기는 작업 트리 사본(대기/)
+PASS   └ 작업 트리에 진행/ 사본을 새로 만들지 않음
+PASS   └ 꺼낸 임시 카드 파일 정리(TMPDIR 비어 있음)
+== ⓓ origin/main 에 카드 없음 → 기존 후보 순서 그대로
+PASS ⓓ origin/main 에 없는 카드 → 작업 트리 후보(origin/main 표기 0)
+== ⓓ origin fetch 실패 → 옛 origin/main ref 를 최신으로 믿지 않는다(기존 순서 · 증거 줄 없음 REJECT)
+PASS ⓓ fetch 실패 → WARN 1줄 + origin/main 판 안 읽음
+PASS   └ 옛 ref 카드 사용 0
+PASS   └ 작업 트리 옛 사본으로 판정(REJECT)
+== ⓕ 변이 — 면제 제거 → ⓐ FAIL · origin/main 후보 제거 → ⓓ FAIL
+PASS ⓕ 면제 제거 → ⓐ FAIL
+PASS ⓕ origin/main 후보 제거 → ⓓ FAIL
+PASS ⓕ 고유 커밋 검사 제거 → ⓖ FAIL
+PASS ⓕ(r3) 기준 = origin/main 으로 되돌림 → ⓘ FAIL
+Traceback (most recent call last):
+  File "<stdin>", line 5, in <module>
+AssertionError: []
+PASS ⓕ(r3) 정확 경로 → 접미사 → ⓛ FAIL
+Traceback (most recent call last):
+  File "<stdin>", line 5, in <module>
+AssertionError: []
+PASS ⓕ(r3) 곁가지 대조 제거 → ⓙ FAIL
+== ⓖ 600/300 s · 외부 호출 · GIT_* env 0 (r888 줄)
+PASS ⓖ 600/300 숫자 0
+PASS ⓖ 외부 호출 0
+PASS ⓖ GIT_DIR env 0
+PASS ⓖ GIT_WORK_TREE env 0
+
+FAILED 13
+REAL-STATE-GUARD PASS 실 루트 없음(cwd=/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r888-nano-close-research-seat-evidence-e/fe91595a-3fff-46e2-a957-59808c8710e3/scratchpad)
