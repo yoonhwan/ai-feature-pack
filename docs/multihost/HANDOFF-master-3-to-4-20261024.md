@@ -44,3 +44,11 @@
 
 ## 4. 하지 말 것
 원격 쓰기는 오빠 `! bash /tmp/h<N>` 로만 · 하네스 소유 파일 편집 0 · main 직접 커밋 0 · 마감 질문 금지 · 임의 Redis/DOM 주입 0 · 약어로 골 부르기 0 · 삭제·덮어쓰기(브랜치 -D·키 폐기)는 HIL.
+
+## 5. 인계 직후 발견 (2026-10-24 23:50 · h313 6번째 = 새 코드 첫 회차 결과)
+- 결과: 러너 rc=2 · host_empty (STT 결과 빔). **앞 5가지 실패는 해소됨**: 호스트 입장·QR·게스트 입장·녹음 시작·오디오 조각 전송(`chunk_post seq=1,2` 성공)까지 통과.
+- 새 원인(확정): mini worker 가 조각을 받아(`V6-PULSE-CONSUMER consume_start`) 곧바로 **버림** — `[V6-B:ingress:DEAD_LETTERED] reason=backend_not_configured` + 이벤트 `stt_backend_unavailable`(notice) + terminal error. 코드 = `worker/graph/speech/pulse/v6/drain_contiguous.py:82` `FatalHoleReason.BACKEND_NOT_CONFIGURED` — 주석: «게이트 차단(provider 미호출)». 즉 STT provider 를 부르기 전 «게이트»가 막음.
+- 다음 첫 일(읽기 전용): 그 게이트가 어떤 설정을 보는지(`git grep` 새 main c34fc47f · worker/graph/speech/pulse/v6/lifecycle.py·drain 호출부·`worker/services/stt`)를 찾아, mini worker 에 그 env 이름이 있는지(이름만 · 값 출력 0 · BYZ .env 를 grep 하면 훅 REJECT — 변수에만 받고 길이/존재로 판정) 이 맥 로컬 worker 기동 세트(`scripts/server/ready-check.sh` 의 WORKER_ENV_SPEC·`server.sh`)와 대조. 유력 가설: 새 main 이 요구하는 env 이름이 늘었는데 서버 h 의 KEYS 화이트리스트(h-mini-byz-server.sh)에 없음(V5_BACKEND_ENABLED 와 같은 유형).
+- 고치면 `h-mini-server-restart-dev.sh` 로 한 줄 재시작(정지→기동→웹 dev→v5 증거) 뒤 `! bash /tmp/h313`.
+- 보류: h320(8081→8080 worker 상태 중계) — gateway pulse health 는 여전히 503(worker 는 8080). STT 가 정상이 된 뒤에도 FE 가 막으면 그때.
+- 사실 참고: gpu status 는 COLD(auto_warmup=false)인데 STT 터널 8001 /health 는 200·pool.stt=vllm. STT 서비스 자체는 살아 있음.
