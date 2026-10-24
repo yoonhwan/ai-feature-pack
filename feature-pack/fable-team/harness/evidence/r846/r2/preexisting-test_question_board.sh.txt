@@ -1,0 +1,8 @@
+## base (origin/main)
+FAIL 줄 수 ≤ 200: byz_mbox_slack_mirror.py 203
+FAILS 1
+FAILED rc=1
+## after r846 r2
+FAIL 줄 수 ≤ 200: byz_mbox_slack_mirror.py 204
+FAILS 1
+FAILED rc=1

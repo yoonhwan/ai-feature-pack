@@ -7,6 +7,7 @@
 import json
 import os
 import re
+import sys
 import time
 from pathlib import Path
 
@@ -21,6 +22,7 @@ BOARD_HEAD = "[상태] 결정 대기"
 OLD_BOARD_HEAD = "답을 기다리는 질문"  # 머리표 도입 전 보드 — 새 글을 또 올리지 않고 이 글을 찾아 제자리 갱신한다
 Q_PREFIX = re.compile(r"^\s*Q(\d+)(?!\d)\s*")
 _ASKS = re.compile(r"[?？]|선택|고르|골라|번호|답해|판정")
+SEAT_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*#\d+$")  # 좌석 = 이름#계보 (ft-name-lint 이름 + 구 이름 FB_CFO#46) · 도구는 계보가 없다
 
 
 def parse_options(text: str) -> list[str]:
@@ -74,15 +76,53 @@ def _save(path: Path, data: dict[str, dict]) -> None:
     os.replace(tmp, path)
 
 
+def _roster_names(fdir: Path) -> set[str]:
+    """r846 r4: 파일마다 모양 틀림(최상위 dict 아님 · 키 문자열 아님) = 그 파일만 건너뜀 + WARN — 나머지 명부는 그대로 쓴다."""
+    files = sorted(fdir.glob("seats*.json"))
+    if not files:
+        raise FileNotFoundError(f"{fdir}/seats*.json")
+    names: set[str] = set()
+    for f in files:
+        data = json.loads(f.read_text(encoding="utf-8"))
+        if not isinstance(data, dict) or not all(isinstance(k, str) for k in data):
+            print(f"WARN: 명부 모양 틀림 — 건너뜀 · {f.name}", file=sys.stderr)
+            continue
+        names |= {k for k in data if not k.startswith("_")}
+    return names
+
+
+def on_roster(seat: str, fdir: Path) -> bool:
+    """r846 r3: 질문을 여는 보낸 이 = 명부(fdir/seats*.json 전부)에 있는 좌석 이름 «정확 일치» 하나 — 같은 계보 다른 번호도 안 된다
+    (명부에 없는 src#999 가 질문을 열어 src#1 답을 막음 · DA r2). r4: 명부 읽기의 어떤 예외든 = 명부 못 읽음 → False + WARN
+    (예외가 미러로 새면 카드 게시까지 멈춤 · DA r3) — fail-closed, 카드는 알림으로 게시."""
+    try:
+        names = _roster_names(fdir)
+    except Exception as e:  # noqa: BLE001 — 명부 못 읽음 = 질문 0 + WARN, 카드 게시는 막지 않는다(r4 ⓑ)
+        print(f"WARN: 명부 못 읽음 — 질문 열기 0 · {seat} ({fdir} · {type(e).__name__})", file=sys.stderr)
+        return False
+    return seat in names
+
+
 def add(path: Path, seq: int, entry: dict[str, object]) -> bool:
-    """멱등 — 이미 열렸거나 해소된(tombstone) 질문은 건드리지 않는다. 새로 열렸으면 True."""
+    """멱등 — 이미 열렸거나 해소된(tombstone) 질문은 건드리지 않는다. 새로 열렸으면 True.
+    r846: 좌석(이름#계보)만 질문을 연다 — 도구(ft-model-swap 등)·빈 값은 False(카드는 알림으로만 게시).
+    좌석당 스레드 열린 질문 1 — 같은 좌석·스레드의 앞 질문(열림·전달됨)은 resolved(superseded), 늦게 온 옛 seq 는 그 자리에서 superseded."""
+    if not SEAT_NAME.match(str(entry.get("seat", ""))):
+        return False
     with dv.locked(path):
         data = load(path)
         if str(seq) in data["open"] or str(seq) in data["resolved"]:
             return False
-        data["open"][str(seq)] = {**entry, "state": "open", "asked_at": int(time.time())}
+        same = [int(k) for k, e in data["open"].items() if e.get("thread_ts") == entry.get("thread_ts") and e.get("seat") == entry["seat"]]
+        late = any(s > seq for s in same)
+        now = int(time.time())
+        for s in [seq] if late else same:
+            data["open"].pop(str(s), None)
+            data["resolved"][str(s)] = {"at": now, "why": "superseded"}
+        if not late:
+            data["open"][str(seq)] = {**entry, "state": "open", "asked_at": now}
         _save(path, data)
-        return True
+        return not late
 
 
 def set_delivered(path: Path, seq: int, answer_ts: str, mbox_seq: int = 0) -> None:

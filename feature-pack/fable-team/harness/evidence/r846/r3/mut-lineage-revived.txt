@@ -1,0 +1,43 @@
+.....FF.................                                                 [100%]
+=================================== FAILURES ===================================
+_ test_r3_da_r2_counterexample_off_roster_lineage_number_opens_nothing_and_roster_seat_gets_answer _
+
+env = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-683/test_r3_da_r2_counterexample_o0')
+slack = <_slack_fakes.FakeSlack object at 0x11353bb90>
+
+    def test_r3_da_r2_counterexample_off_roster_lineage_number_opens_nothing_and_roster_seat_gets_answer(env: Path, slack: FakeSlack):  # noqa: F811
+        start(env, slack)
+        hil_row(env, 2, "src#999")  # DA r2 반례 — 명부엔 src#1 만 · 같은 계보 다른 번호
+        assert run(env, slack).returncode == 0
+>       assert opened(env) == {} and any("#822" in r["text"] for r in slack.replies(slack.roots[0]))
+E       AssertionError: assert ({'2': {'asked...rc#999', ...}} == {}
+E         
+E         Left contains 1 more item:
+E         {'2': {'asked_at': 1792820980,
+E                'key': '#822',
+E                'options': ['a', 'b'],
+E                'seat': 'src#999',
+E                'state': 'open',...
+E         
+E         ...Full output truncated (3 lines hidden), use '-vv' to show)
+
+tests/scripts/test_mirror_question_cap_r846.py:95: AssertionError
+______________________ test_r3_on_roster_exact_match_only ______________________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-683/test_r3_on_roster_exact_match_0')
+capsys = <_pytest.capture.CaptureFixture object at 0x113519f50>
+
+    def test_r3_on_roster_exact_match_only(tmp_path: Path, capsys):
+        (tmp_path / "seats-a.json").write_text(json.dumps({"_master": "x#0", S1: {}, "ft-harness-ops#2": {}}), encoding="utf-8")
+        assert mq.on_roster(S1, tmp_path) and mq.on_roster("ft-harness-ops#2", tmp_path)
+>       assert not mq.on_roster("byz-cfo-master-claude#113", tmp_path) and not mq.on_roster("ft-harness-ops#0", tmp_path)  # 명부에 없는 같은 계보 번호 = 질문 0
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: assert (not True)
+E        +  where True = <function on_roster at 0x1134fa840>('byz-cfo-master-claude#113', PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-683/test_r3_on_roster_exact_match_0'))
+E        +    where <function on_roster at 0x1134fa840> = mq.on_roster
+
+tests/scripts/test_mirror_question_cap_r846.py:106: AssertionError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_mirror_question_cap_r846.py::test_r3_da_r2_counterexample_off_roster_lineage_number_opens_nothing_and_roster_seat_gets_answer
+FAILED tests/scripts/test_mirror_question_cap_r846.py::test_r3_on_roster_exact_match_only
+2 failed, 22 passed in 4.48s

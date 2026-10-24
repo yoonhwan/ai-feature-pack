@@ -31,6 +31,12 @@ def thread_link(a: argparse.Namespace, token: str, thread: str) -> str:
         return f"ts={thread}"
 
 
+def q_list(qs: list[tuple[int, dict]], cap: int = 5) -> str:
+    """«Q<번호> · <좌석> · <질문 첫 줄 60자>» 최대 cap 줄 · 넘으면 «외 N개»."""
+    rows = [f"Q{s} · {e.get('seat', '')} · {(str(e.get('what', '')).strip().splitlines() or [''])[0][:60]}" for s, e in qs[:cap]]
+    return "\n".join(rows + ([f"외 {len(qs) - cap}개"] if len(qs) > cap else []))
+
+
 def plan(a: argparse.Namespace, token: str, qpath: Path, m: dict[str, object]) -> dict[str, object]:
     p = _plan(a, token, qpath, m)
     if line := ib.files_line(m):  # 질문 번호·선택 해석이 끝난 뒤 한 곳에서 붙여 전 분기에 실린다
@@ -56,8 +62,8 @@ def _plan(a: argparse.Namespace, token: str, qpath: Path, m: dict[str, object]) 
         qs = [(s, e) for s, e in qs if s == int(hit.group(1))]
         if not qs:
             return {**base, "recips": [PLANNER], "text": f"오빠(Slack) 글인데 질문 번호 Q{hit.group(1)} 를 찾지 못했어요 — 원문:\n{text}"}
-    if len(qs) > 1:
-        return {**base, "recips": [PLANNER], "text": f"오빠(Slack) 글인데 질문이 {len(qs)}개라 좌석을 정하지 못했어요 — 원문:\n{text}"}
+    if len(qs) > 1:  # r846: 자동 선택 0 — planner 가 고르도록 열린 질문 목록을 같이 싣는다
+        return {**base, "recips": [PLANNER], "text": f"오빠(Slack) 글인데 질문이 {len(qs)}개라 좌석을 정하지 못했어요 — 원문:\n{text}\n열린 질문:\n{q_list(qs)}"}
     if len(qs) == 1:
         seq, e = qs[0]
         answer = ib.resolve_pick(text, list(e.get("options", [])))
