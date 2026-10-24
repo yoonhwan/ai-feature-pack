@@ -21,7 +21,9 @@ import ft_news_html_render as fr  # noqa: E402
 from real_state_guard import guard_begin_module  # noqa: E402,F401  r541: 실 상태 지문 + git 밖 cwd(모듈 autouse)
 
 TEAMS = ["chatbot", "graphics", "harness", "ops", "room", "v65", "kk", "lecture", "loom", "issues", "planner", "feature", "daily-trend"]
-LIVE13 = [{"team": t, "live": 2, "working": 1 if i % 2 == 0 else 0, "unknown": 0} for i, t in enumerate(TEAMS)]
+from _news_live import with_state  # noqa: E402  r850: live 팀 상태(state·label) = ft_team_state.judge 값
+
+LIVE13 = with_state([{"team": t, "live": 2, "working": 1 if i % 2 == 0 else 0, "unknown": 0} for i, t in enumerate(TEAMS)])
 DATA13 = {"goals": [{"n": i, "goal": f"골 글 {i}", "team": f"t{i}", "state": "지금"} for i in range(1, 7)], "live": LIVE13}
 
 
@@ -54,7 +56,7 @@ def test_r596_b_no_teams_budget_is_upper_bound_minus_status_only():
 
 def test_r596_c_model_over_budget_is_error_publish_zero():
     """ⓒ 받은 숫자를 넘긴 답 = ERROR(자르지 않는다 · 판정 불변)."""
-    live = [{"team": "kk", "live": 1, "working": 0, "unknown": 0}]
+    live = with_state([{"team": "kk", "live": 1, "working": 0, "unknown": 0}])
     budget = fr.summary_budget(fr.status_line(fr.bucket({}, live)))
     c = {**fr.bucket({}, live), "summary": ["a" * budget, "b"]}  # 두 줄 = 예산 초과(줄바꿈 1 추가)
     with pytest.raises(fr.NewsHtmlError) as e:
@@ -64,7 +66,7 @@ def test_r596_c_model_over_budget_is_error_publish_zero():
 
 def test_r596_d_model_within_budget_passes():
     """ⓓ 받은 숫자 안 = 통과(상태 줄 + 모델 2줄 그대로)."""
-    live = [{"team": "kk", "live": 1, "working": 0, "unknown": 0}]
+    live = with_state([{"team": "kk", "live": 1, "working": 0, "unknown": 0}])
     budget = fr.summary_budget(fr.status_line(fr.bucket({}, live)))
     c = {**fr.bucket({}, live), "summary": ["a" * (budget - 3), "b"]}  # 두 줄 = 줄바꿈 1 · 합 ≤ 예산
     out = fr.add_status_line(c)

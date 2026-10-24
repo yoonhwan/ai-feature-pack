@@ -138,12 +138,18 @@ def read_table(path: Path) -> dict[str, object] | None:
         return None
 
 
-def find_jsonls(seats: list[str], tmux: str, projects: Path, days: int = 2) -> dict[str, str]:
-    """r497 좌석들 → 최신 jsonl 을 «한 번에». ft-seat-status.sh jsonl 은 좌석마다 폴더 jsonl 전부(5989개)의 머리 1MB 를 읽어
-    부하 30 에서 1회 10초(실측) — 여기선 폴더 = tmux pane cwd 인코딩(같은 규칙) · 후보 = 최근 days 일 수정 파일만 · 파일 머리 1번 읽어 전 좌석 대조."""
+def list_panes(tmux: str) -> list[tuple[str, str]]:
+    """tmux pane 전부 → [(세션 이름, pane cwd)] 1회(상한 7초 · 넘으면 TimeoutExpired 그대로) — 실패 rc = [] (find_jsonls 옛 동작 그대로)."""
     r = subprocess.run([tmux, "list-panes", "-a", "-F", "#{session_name}\t#{pane_current_path}"], capture_output=True, text=True, timeout=7)
+    return [(s, cwd) for s, cwd in (ln.split("\t", 1) for ln in (r.stdout if r.returncode == 0 else "").splitlines() if "\t" in ln)]
+
+
+def find_jsonls(seats: list[str], tmux: str, projects: Path, days: int = 2, panes: list[tuple[str, str]] | None = None) -> dict[str, str]:
+    """r497 좌석들 → 최신 jsonl 을 «한 번에». ft-seat-status.sh jsonl 은 좌석마다 폴더 jsonl 전부(5989개)의 머리 1MB 를 읽어
+    부하 30 에서 1회 10초(실측) — 여기선 폴더 = tmux pane cwd 인코딩(같은 규칙) · 후보 = 최근 days 일 수정 파일만 · 파일 머리 1번 읽어 전 좌석 대조.
+    panes = 이미 읽은 list_panes() 값(r850 — cwd 재탐색과 pane 목록 1회를 나눠 쓴다) · None 이면 여기서 읽는다."""
     groups: dict[Path, list[str]] = {}
-    for s, cwd in (ln.split("\t", 1) for ln in (r.stdout if r.returncode == 0 else "").splitlines() if "\t" in ln):
+    for s, cwd in list_panes(tmux) if panes is None else panes:
         if s in seats and not any(s in g for g in groups.values()):
             groups.setdefault(projects / re.sub(r"[^A-Za-z0-9]", "-", cwd), []).append(s)
     out: dict[str, str] = {}
