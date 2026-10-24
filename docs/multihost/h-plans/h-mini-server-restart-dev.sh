@@ -51,5 +51,7 @@ say "4/4 증거 — /v5 라우터가 붙었는지"
 CODE="$(timeout 30 ssh -o BatchMode=yes -o ConnectTimeout=6 "$MINI" "curl -s -o /dev/null -m 7 -w '%{http_code}' -X POST http://127.0.0.1:${P_GW}/v5/sessions/init 2>/dev/null" 2>&1)" || die 5 "증거 조회 실패: ${CODE}"
 say "        POST /v5/sessions/init -> ${CODE}  (404 이면 라우터 없음)"
 [ "$CODE" != "404" ] || die 5 "/v5/sessions/init 이 아직 404 — V5_BACKEND_ENABLED 가 gateway 에 안 들어갔다"
+GPUENV="$(timeout 30 ssh -o BatchMode=yes -o ConnectTimeout=6 "$MINI" 'export PATH=/opt/homebrew/bin:$PATH; for p in $(pgrep -f "worker.main|worker/main|uvicorn.*worker|python.*worker" | head -3); do ps eww -p $p 2>/dev/null | tr " " "\n" | grep -c "^DEV_GPU_STATUS_URL=" ; done | sort -rn | head -1' 2>&1)" || GPUENV="?"
+say "        worker env 에 DEV_GPU_STATUS_URL 이름 있음(1=있음 · 값 출력 0): ${GPUENV:-?}  (0·? 이면 STT 게이트가 로컬 Redis 하트비트로 떨어진다)"
 say "완료 rc=0 — /v5 라우터 장착. 다음: 러너 1회차 h"
 exit 0

@@ -37,6 +37,7 @@ KEYS=(BYZ_LLM_SOURCING LOCAL_VLLM_BASE_URL LOCAL_VLLM_API_KEY GPU_STT_MODEL STT_
       CORPUS_RETENTION_DAYS SUPABASE_DB_URL LOOM_INTERIM_DB_URL LOOM_INTERIM_PG_DSN LOOM_INGEST_PG_DSN GCS_DATA_BUCKET GCS_DATA_PREFIX
       PAYMENT_MODE APP_ENV V6_AUTHORITATIVE_STT_MODE V6_AUTHORITATIVE_STT_PROVIDER BYZ_E2E_JWT_SECRET
       V5_BACKEND_ENABLED   # 2026-10-24 러너 1회차: 없으면 gateway 가 /v5 라우터를 안 붙여 POST /v5/audio_event·/v5/sessions/init 404 → 오디오 조각 전송 실패(chunk_post_failed) → host_empty (shared/config/v5_config.py: 이 이름이 true 계열이어야 backend_enabled)
+      DEV_GPU_STATUS_URL   # 2026-10-25 러너 1회차 6번째: 없으면 worker/services/gpu/client.py check_gpu_alive 가 APP_ENV=local 인데도 로컬 Redis byz:alive:stt-gpu(mini 에 0건)로 떨어져 «offline (no heartbeat)» → ingress_stt.py BACKEND_NOT_CONFIGURED dead-letter → host_empty. 이 맥은 이 이름(dev gateway 상태 주소)으로 STT=WARM 을 읽는다
       FIREWORKS_API_KEY GROQ_API_KEY DEEPGRAM_API_KEY ELEVENLABS_API_KEY SONIOX_API_KEY
       RETURNZERO_ID RETURNZERO_SECRET CLOVA_API_SECRET GOOGLE_API_KEY
       LLM_PROVIDER BRAIN_LLM_PROVIDER TTS_PROVIDER CARTESIA_API_KEY TYPECAST_API_KEY SUPERTONE_API_KEY OPENAI_API_KEY)
