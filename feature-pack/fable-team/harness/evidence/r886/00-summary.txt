@@ -1,0 +1,10 @@
+r886 — 뒤처짐 쪽지에서 실행 지시(ft-head-sync.sh --apply) 제거 · Issue #3237 · master#108 #162265
+원인: 쪽지 1통마다 받는 팀이 ft-head-sync.sh --apply 실행 → 전수 git status(10분+) · 동시 19개(03:2x)
+변경: ft_head_lag.py build() 조치 줄 = «미커밋 0 이면 origin/main 을 merge 로 받는다(그 워크트리만 · rebase·force 0) · 충돌이면 그 팀 arch 에 · 팩 작업 폴더는 무관 · 옛 베이스 병합은 병합 게이트가 거절» (도구 이름 0) · build() 의 bin_dir 인자 제거(고아) · --bin CLI 인자는 호출자(ft-head-lag.sh) 계약이라 유지(r882 몫)
+문구 편차: 카드 ⓑ 예시 «git merge origin/main» 은 기존 정적 단언(시험 100행: git…merge 금지 = 읽기 전용 보장)에 걸려 «origin/main 을 merge 로 받는다» 로 씀
+짝 사본: kit/fable-team/bin/ft_head_lag.py cmp0 · manifest 1.1.231 → 1.1.232
+시험(bash harness/tests/test_head_lag.sh):
+  red-new-test-old-code.txt : 새 단언 + 옛 코드 → ⓑ·ⓐ(R886) FAIL
+  green.txt                 : 새 코드 → ⓑ·ⓐ(R886) PASS · 그 외 FAIL 1 = 기존 건
+  mutation-old-line.txt     : 옛 조치 줄 되살림 → ⓐ(R886)·ⓑ FAIL
+  base-origin-main-test.txt : origin/main(c059ddd1) 원본 시험도 같은 FAIL 1 — «ⓐ 착지 성공 → 기준 헤드 파일» = ft-merge-land.sh 가 픽스처 remote URL 을 github owner/name 으로 해석 못 해 REJECT · 이 카드 범위 밖(ft-merge-land 픽스처) · 시험 rc=1 은 이 1건 때문
