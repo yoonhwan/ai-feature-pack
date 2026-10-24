@@ -9,7 +9,7 @@
 a·b·d 를 «처리한 뒤 다음 실행에도» 또 보면 ft-penalty.sh on (c 제외 · FT_STALL_PENALTY_AUTO=0 으로 끔 · 복구 팀 harness·planner 는 정지 대상 아님).
 r525 e = 명부 루프가 안 본 tmux 라이브 좌석(교대 표시·명부 밖) ∧ claude|codex ∧ IDLE ≥ FT_STALL_E_IDLE_MIN(30) ∧ (ctx ≥ 90 ∨ [완료·휴식] 없음)
 → planner + 계보 현역 master 에 [정지] 1통 · 같은 서명(좌석·IDLE 시작 시각) 재알림 0 · 깨우기·kill 0 · 요약 줄 d= 뒤 e= 칸.
-env(시험): FT_ROOT · FT_NOW · FT_SEAT_STATUS · FT_TMUX · FT_MBOX_SH · FT_INDEX_LINT · FT_MBOX_DIR · FT_STALL_STATE_DIR · FT_PS · FT_CTX_CMD.
+env(시험): FT_ROOT · FT_NOW · FT_SEAT_STATUS · FT_TMUX · FT_MBOX_SH · FT_INDEX_LINT · FT_MBOX_DIR · FT_STALL_STATE_DIR · FT_PS · FT_CTX_CMD · FT_CLAUDE_SESSIONS(r849 · 기본 ~/.claude/sessions).
 """
 import json
 import os
@@ -18,7 +18,7 @@ import time
 from pathlib import Path
 
 import ft_penalty
-from ft_stall_detect import IDLE_MIN, agent_sessions, ctx_pct, load_teams, off_roster_live, pending_mail, policy_stop, run, spawn_capacity, waiting_cards
+from ft_stall_detect import IDLE_MIN, agent_sessions, agent_starts, ctx_pct, load_teams, off_roster_live, pending_mail, policy_stop, run, spawn_capacity, waiting_cards
 from ft_stall_seats import Seats
 import ft_stall_state as stm
 
@@ -43,6 +43,9 @@ class Scan:
         self.ctx_cmd = os.environ.get("FT_CTX_CMD") or str(HERE / "ft-claude-context.sh")
         self.e_min = float(os.environ.get("FT_STALL_E_IDLE_MIN") or 30)
         self.notes: list[str] = []
+        self.loggedout: list[tuple[str, str | None, float | None]] = []  # r849 (좌석, 팀 _master, 첫 실패 epoch)
+        self.recovered: set[str] = set()  # r849 — 이번 scan 에 IDLE 로 본 좌석(로그아웃 서명 지움)
+        self.claude_sessions = Path(os.environ.get("FT_CLAUDE_SESSIONS") or Path.home() / ".claude/sessions")
         self.st = stm.load(self.state_dir)
         self.seats = Seats(self.status, self.now, self.st.setdefault("seats", {}))
 
@@ -105,6 +108,11 @@ class Scan:
                 if s not in self.live:
                     continue
                 state, end = self.turn(s)
+                if state == "LOGGEDOUT":  # r849 — 쉬는 좌석 아님(a·b·d 0) · 팀장 1통은 act_l
+                    self.loggedout.append((s, t["master"], end))
+                    continue
+                if state == "IDLE":
+                    self.recovered.add(s)
                 if state == "UNKNOWN" or end is None and state == "IDLE":
                     unknown += 1
                     continue
@@ -135,6 +143,11 @@ class Scan:
         agents = agent_sessions(self.tmux, self.ps) if cands else set()
         out: list[dict] = []
         for s, lineage, tag in cands:
+            if s in agents and self.turn(s)[0] == "LOGGEDOUT":  # r849 — 교대 표시·명부 밖 좌석도 로그아웃이면 계보 현역 master 1통(act_l)
+                self.loggedout.append((s, lineage, self.turn(s)[1]))
+                continue
+            if s in agents and self.turn(s)[0] == "IDLE":
+                self.recovered.add(s)
             age = self.idle_age(s) if s in agents else None
             if age is None or age < self.e_min:
                 continue
@@ -165,8 +178,43 @@ class Scan:
         _ = path.write_text(json.dumps({s: v for s, v in sigs.items() if s in self.live}), encoding="utf-8")
         return log
 
-    def send(self, to: str, body: str, urgent: bool = True) -> None:
-        run(["bash", self.mbox, "send", to, self.sender, body] + (["--urgent"] if urgent else []))
+    def act_l(self, stamp: str) -> list[str]:
+        """r849 로그아웃 좌석 — 팀 _master 1통 · 서명 = 그 좌석 claude 프로세스 시작(agent_starts) — 같은 프로세스 재알림 0 · 다시 띄우면 새 서명
+        (첫 실패 시각은 jsonl 창 상한에 따라 밀리므로 서명에서 뺀다 · DA⑥ r1) · 좌석이 IDLE(로그인 복구)로 보이면 서명을 지운다 · 서명 저장은 발신 rc0 뒤에만
+        (서명 파일 state/stall-scan.l.json) · 팀장 없음·자기 자신·명부 못 읽음 = 로그 1줄."""
+        path = self.state_dir / "stall-scan.l.json"
+        try:
+            sigs = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            sigs = {}
+        for s in self.recovered:
+            sigs.pop(s, None)
+        log: list[str] = []
+        for f in sorted((self.root / ".fable-team").glob("seats*.json")):  # load_teams 는 깨진 명부를 조용히 건너뛴다 — 그 좌석은 로그아웃 판정을 못 받는다
+            try:
+                _ = json.loads(f.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                log.append(f"{stamp} act=l ERROR 명부 못 읽음 {f.name} — 그 명부 좌석 로그아웃 판정 0")
+        starts = agent_starts(self.tmux, self.ps, self.claude_sessions) if self.loggedout else {}
+        for seat, master, end in self.loggedout:
+            sig = starts.get(seat, "?")
+            if sigs.get(seat) == sig:
+                continue
+            first = time.strftime("%m-%d %H:%M", time.localtime(end)) if end else "?"
+            if master and master != seat:
+                rc = self.send(master, f"[로그아웃 좌석] {seat} · 첫 실패(보이는 범위 최초) {first} · 재개 = 재시작(zombie-clean resume / claude-hr.sh --resume) · 깨우기 0 (ft-stall-scan r849)")
+                if rc != 0:
+                    log.append(f"{stamp} act=l ERROR 발신 실패 rc={rc} to={master} seat={seat} — 서명 0 · 다음 scan 재시도")
+                    continue
+                log.append(f"{stamp} act=l to={master} seat={seat} first={first} proc={sig}")
+            else:
+                log.append(f"{stamp} act=l seat={seat} first={first} — 알릴 팀장 없음(_master {master or '없음'})")
+            sigs[seat] = sig
+        _ = path.write_text(json.dumps({s: v for s, v in sigs.items() if s in self.live}), encoding="utf-8")
+        return log
+
+    def send(self, to: str, body: str, urgent: bool = True) -> int:
+        return run(["bash", self.mbox, "send", to, self.sender, body] + (["--urgent"] if urgent else []))[0]
 
     def wake(self, seat: str, seq: int | None) -> bool:
         self.live = self.sessions()  # 직전 재확인 — 그 사이 attached 되거나 WORKING 이 됐으면 0
@@ -218,8 +266,9 @@ class Scan:
         keys = {f"{f['kind']}:{f['seat']}": f for f in found}
         counts = {k: sum(1 for f in found if f["kind"] == k) for k in "abcde"}
         trig = sorted(k for k, f in keys.items() if k[0] in "abd" and k in prev and f["seat"] in handled and not f["attached"] and not f["held"])
-        lines = [f"stall={len(found)} a={counts['a']} b={counts['b']} c={counts['c']} d={counts['d']} e={counts['e']} seats={len(self.live)} u={unknown} ts={int(self.now)}"]
+        lines = [f"stall={len(found)} a={counts['a']} b={counts['b']} c={counts['c']} d={counts['d']} e={counts['e']} seats={len(self.live)} u={unknown} ts={int(self.now)} l={len(self.loggedout)}"]
         lines += [f"{f['kind']} {f['seat']} {f['age']:.0f} {f['why']}" + ("" if f["kind"] == "e" else " (attached·처리 0)" if f["attached"] else " (정지 중 처리 0)" if f["held"] else "") for f in found]
+        lines += [f"l {s} 첫 실패 {e if e is None else int(e)} 로그아웃(재개 = 재시작)" for s, _, e in self.loggedout]
         lines += self.notes
         print("\n".join(lines))
         if dry:
@@ -228,6 +277,7 @@ class Scan:
         log: list[str] = []
         d_seats = {f["seat"] for f in found if f["kind"] == "d"}
         log += self.act_e(found, stamp)  # e 는 알림만 — attached·페널티·10분 창과 무관, 서명으로만 1회
+        log += self.act_l(stamp)  # r849 — 로그아웃 좌석 팀장 1통 · 서명(좌석, 첫 실패)으로만 1회
         for f in found:
             if f["kind"] == "e" or f["kind"] == "b" and f["seat"] in d_seats:  # b+d 동시 = d 한 번(가장 오래된 pending seq ring · 새 send 생략)
                 continue

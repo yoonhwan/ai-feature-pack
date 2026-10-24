@@ -49,6 +49,13 @@ def is_error(rec: Rec) -> bool:
     return rec.get("type") == "assistant" and rec.get("isApiErrorMessage") is True
 
 
+def is_logged_out(rec: Rec) -> bool:
+    """r849 — 로그인 풀린 좌석의 0초 실패 턴 기록(합성 오류 assistant · error=authentication_failed 또는 «Not logged in»). 429·overloaded 등 다른 API 오류는 아니다(r838 몫)."""
+    msg = rec.get("message")
+    synthetic = bool(rec.get("type") == "assistant" and isinstance(msg, dict) and msg.get("model") == "<synthetic>")  # pyright: ignore[reportUnknownMemberType]
+    return (synthetic and rec.get("error") == "authentication_failed") or (is_error(rec) and "Not logged in" in text_of(rec))
+
+
 def is_normal(rec: Rec) -> bool:
     msg = rec.get("message")
     return rec.get("type") == "assistant" and not is_error(rec) and not (isinstance(msg, dict) and msg.get("model") == "<synthetic>")  # pyright: ignore[reportUnknownMemberType]

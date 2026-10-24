@@ -75,7 +75,7 @@ def off_roster_live(root: Path, live: Any, teams: list[dict[str, Any]]) -> list[
             for s in sorted(set(live) - seen)]
 
 
-def _has_agent(pid: str, kids: dict[str, list[str]], args: dict[str, str]) -> bool:
+def _agent_pid(pid: str, kids: dict[str, list[str]], args: dict[str, str]) -> str | None:
     todo, seen = [pid], set()
     while todo:
         p = todo.pop()
@@ -83,13 +83,13 @@ def _has_agent(pid: str, kids: dict[str, list[str]], args: dict[str, str]) -> bo
             continue
         seen.add(p)
         if AGENT.search(args.get(p, "")):
-            return True
+            return p
         todo += kids.get(p, [])
-    return False
+    return None
 
 
-def agent_sessions(tmux: list[str], ps: list[str]) -> set[str]:
-    """r525 — pane 프로세스(자신+자손)에 claude|codex 가 도는 tmux 세션 이름 (ps 1회 + list-panes 1회)."""
+def _pane_agents(tmux: list[str], ps: list[str]) -> dict[str, str]:
+    """tmux 세션 이름 → 그 pane 프로세스(자신+자손) 중 claude|codex pid (ps 1회 + list-panes 1회)."""
     kids: dict[str, list[str]] = {}
     args: dict[str, str] = {}
     for line in run([*ps, "-A", "-o", "pid=,ppid=,args="])[1].splitlines():
@@ -97,11 +97,33 @@ def agent_sessions(tmux: list[str], ps: list[str]) -> set[str]:
         if len(p) == 3:
             args[p[0]] = p[2]
             kids.setdefault(p[1], []).append(p[0])
-    out: set[str] = set()
+    out: dict[str, str] = {}
     for line in run([*tmux, "list-panes", "-a", "-F", "#{session_name}|#{pane_pid}"])[1].splitlines():
         name, _, pid = line.rpartition("|")
-        if name and _has_agent(pid, kids, args):
-            out.add(name)
+        a = _agent_pid(pid, kids, args) if name and name not in out else None
+        if a:
+            out[name] = a
+    return out
+
+
+def agent_sessions(tmux: list[str], ps: list[str]) -> set[str]:
+    """r525 — pane 프로세스(자신+자손)에 claude|codex 가 도는 tmux 세션 이름."""
+    return set(_pane_agents(tmux, ps))
+
+
+def agent_starts(tmux: list[str], ps: list[str], sessions: Path) -> dict[str, str]:
+    """r849 — 세션 이름 → 그 좌석 claude|codex 프로세스 «시작» 표식 `<pid>@<startedAt>` (~/.claude/sessions/<pid>.json · 없으면 ps lstart · 둘 다 없으면 `<pid>@?`).
+    프로세스를 다시 띄우면 바뀌고, 같은 프로세스 안에서는 jsonl 이 얼마나 길어져도 그대로다(로그아웃 쪽지 중복 키)."""
+    out: dict[str, str] = {}
+    for name, pid in _pane_agents(tmux, ps).items():
+        try:
+            v = json.loads((sessions / f"{pid}.json").read_text(encoding="utf-8")).get("startedAt")
+        except (OSError, ValueError, AttributeError):
+            v = None
+        if not v:
+            rc, o = run([*ps, "-o", "lstart=", "-p", pid])
+            v = o.strip() if rc == 0 and o.strip() else "?"
+        out[name] = f"{pid}@{v}"
     return out
 
 

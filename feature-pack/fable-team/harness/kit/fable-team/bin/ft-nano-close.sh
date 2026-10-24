@@ -778,7 +778,7 @@ if [ "$tmux_ok" = 1 ]; then
       last="$(find "$cwd" -type f -newer "$SEATS" -not -path '*/.git/*' -mmin -"$IDLE_MIN" 2>/dev/null | head -1)"
       [ -z "$last" ] || bad+=("③워크트리에 ${IDLE_MIN}분 내 편집: $last")
     else
-      _lt="$("${FT_JSONL_LAST_TS:-$HERE/ft-jsonl-last-ts.py}" "$f" 2>&1)"; _lt_rc=$?  # R53: 파일 mtime 이 아니라 timestamp 있는 마지막 기록
+      _lt="$("${FT_JSONL_LAST_TS:-$HERE/ft-jsonl-last-ts.py}" "$f" --skip-logged-out 2>&1)"; _lt_rc=$?  # R53: 파일 mtime 이 아니라 timestamp 있는 마지막 기록 · r849: 인증 실패 0초 턴은 «활동» 아님
       if [ "$_lt_rc" -ne 0 ]; then bad+=("③jsonl 기록 시각 없음: ${_lt%%$'\n'*}")
       else age=$(( ( $(date +%s) - ${_lt%% *} ) / 60 ))
         [ "$age" -ge "$IDLE_MIN" ] || bad+=("③jsonl 마지막 기록(${_lt#* }) ${age}분 전 < ${IDLE_MIN}분"); fi
