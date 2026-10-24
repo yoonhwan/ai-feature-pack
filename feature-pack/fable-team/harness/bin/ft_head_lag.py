@@ -47,14 +47,14 @@ def fmt(secs):
     return f"{secs // 3600}시간" if secs >= 3600 else f"{secs // 60}분"
 
 
-def build(items, msha, bin_dir):
+def build(items, msha):
     items = sorted(items, key=lambda s: -s["secs"])
     out = [f"[베이스 뒤처짐] main {msha[:10]} 위에 있지 않은 워크트리 {len(items)}곳 (이 팀 좌석이 앉은 곳):"]
     out += [f"- {os.path.basename(s['path'])}({s['branch']}) {s['path']} · main 보다 {s['n']}커밋 · {fmt(s['secs'])}" for s in items[:8]]   # R749: 절대 경로 — 어디서 쳐야 하는지
     if len(items) > 8:
         out.append(f"- 외 {len(items) - 8}곳")
     where = items[0]["path"] if len(items) == 1 else "위 각 줄의 경로"
-    out.append(f"조치: 그 워크트리 안에서(cd {where}) 미커밋 0 이면 bash {bin_dir}/ft-head-sync.sh --apply (그 워크트리만 · merge 만 · rebase·force 0) · 충돌이면 그 팀 arch 에 · 옛 베이스 병합은 병합 게이트가 거절한다(R243/R749)")
+    out.append(f"조치: 그 워크트리 안에서(cd {where}) 미커밋 0 이면 origin/main 을 merge 로 받는다(그 워크트리만 · rebase·force 0) · 충돌이면 그 팀 arch 에 · 팩 작업 폴더는 무관 · 옛 베이스 병합은 병합 게이트가 거절한다(R243/R749)")   # R886: 실행 도구 이름 0 — 쪽지 1통이 무거운 실행 1개를 낳아 19개 쌓임
     return "\n".join(out)
 
 
@@ -125,7 +125,7 @@ def main():
                     groups.setdefault(m, []).append(s)
         sent = {}
         for m, items in groups.items():
-            seq = send(root, m, build(items, msha, a.bin))
+            seq = send(root, m, build(items, msha))
             for s in items:
                 if seq:
                     sent[s["real"]] = seq
