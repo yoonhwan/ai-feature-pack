@@ -1,3 +1,10 @@
+## 2026-10-25 — r891 ft-scratch-repo 사본 sparse 기본 · --report --orphans · 등록부 ROOT 하나(1.1.237)
+
+- 검증 사본(ft-scratch-repo)을 기본 sparse 로 만들어 디스크를 줄인다(전체 복사는 --full 요청 때만). 등록은 체크아웃이 다 끝난 뒤 ROOT 등록부 1줄이고 실패하면 rc4 로 중단하며 지우기는 0 이다(기준판 순서).
+- --report --orphans 는 어느 등록부에도 없는 사본을 보고만 한다(삭제 0). 선등록·되돌림(ⓗ)과 --done·--sweep 의 여러 등록부 읽기는 이 카드 범위 밖 — 카드 r897 로.
+- spec_of 는 core.sparseCheckout 을 git 의 참 판정(config --bool --get)으로 읽는다(값 1 인 sparse 사본을 --full 요청에 재사용하던 결함 · DA⑥ r7 HOLD 1).
+- 시험 test_scratch_repo_sparse_auto_done_r891.sh 27 PASS · 기존 3종·census ALL PASS · 변이 3 빨강 · 외부 DA⑥ r8 APPROVE(VERDICT-r891-da6-r8.md · 승인판 0be0621b 와 harness/ 전체 diff 0, 차이 = manifest 1.1.237 + CHANGES).
+
 ## 2026-10-25 — r892 뉴스 원장 채움 — 하네스 카드도 git 한 판에서 읽기 · 카드 이동 경쟁 0(1.1.236)
 
 - 뉴스 원장 채움의 하네스 카드 읽기(`$FT_HARNESS_ROOT` 꼴 팀)가 디스크 폴더를 훑는 사이 카드 1장이 다른 폴더로 옮겨지면(nano spawn/close · ft-index-move) `FileNotFoundError` 하나로 «메인 골 지금 상태»·«팀 작업» 표 2개가 통째로 갱신 0 이었다(05:1x 뉴스 로그 ERROR 2 · r888 카드 이동 1회).
