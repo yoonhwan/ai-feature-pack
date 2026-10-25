@@ -223,6 +223,25 @@ for fp in "${FWD_PORTS[@]}"; do
 done
 say "        포워딩 OK(${FWD_PORTS[*]}) · ssh pid $(cat "$TUN_PIDF") — 정지는 ACTION=stop"
 # 원격 스크립트 = [env 블록] + [기동 명령]. 전부 stdin 으로 가서 `bash -s` 가 읽는다 → 명령줄에 비밀이 없다.
+
+# ── worker 기동 레인 (2026-10-25) ────────────────────────────────────────────
+#   flagoff(기본) = main 착지분(3c250223d1 · v65 M5 seam_store 배선)을 «우회 없이» 확인하는 기동 — python -m worker.main · PORT=$P_WORKER
+#   dev           = 착지 전 우회(c2c 개발 레인 · 이 맥 server.sh 와 같은 기동) — WORKER_LANE=dev 로만
+WORKER_LANE="${WORKER_LANE:-flagoff}"
+case "$WORKER_LANE" in
+  dev) WORKER_BLOCK=$(cat <<DEVEOF
+# 2026-10-25 v65 arch#310 판정(쪽지 167127): worker.main 직접 기동 = c2c flag-off → release 가 legacy 직결 2곳(v6_pulse_consumer.py:279 · release_finalizer.py:143)으로 가고 둘 다 seam_store 미전달 → 침묵 꼬리 회차에서 말풍선 0(host_empty).
+#   이 맥 server.sh 의 «개발 레인» 과 같게 기동한다: build 승인(approve-build-local · server.sh approve_local_build 와 같은 호출) 뒤 worker.c2c_act_entrypoint --c2c-act-dev · PORT=$P_WORKER · APP_ENV=local
+SHA=\$(cut -d'|' -f1 .h-installed)
+.venv/bin/python scripts/ops/deploy_standing_replacement_gate.py approve-build-local --build-sha "\$SHA" --redis-url "\$REDIS_URL" >/tmp/h-byz-approve.log 2>&1 || { echo APPROVE_FAIL; tail -3 /tmp/h-byz-approve.log; exit 7; }
+PORT=$P_WORKER APP_ENV=local V6_WORKER_BUILD_ID="\$SHA" nohup .venv/bin/python -m worker.c2c_act_entrypoint --c2c-act-dev >/tmp/h-byz-worker.log 2>&1 </dev/null &
+echo \$! >> .h-pids
+DEVEOF
+) ;;
+  flagoff) WORKER_BLOCK="PORT=$P_WORKER nohup .venv/bin/python -m worker.main >/tmp/h-byz-worker.log 2>&1 </dev/null &
+echo \$! >> .h-pids" ;;
+  *) die 2 "WORKER_LANE=flagoff|dev 만" ;;
+esac
 {
   cat <<EOS
 cd "\$HOME/Project/BYZ-Agents" || exit 1
@@ -237,12 +256,7 @@ export REDIS_HOST=127.0.0.1 REDIS_PORT=$P_REDIS REDIS_URL=redis://127.0.0.1:$P_R
 export WORKER_HEALTH_URL=http://127.0.0.1:$P_WORKER   # gateway pulse health 가 worker 를 이 주소로 본다(8081 하드코딩 기본값 대체)
 nohup .venv/bin/python -m uvicorn gateway.main:app --host 127.0.0.1 --port $P_GATEWAY >/tmp/h-byz-gateway.log 2>&1 </dev/null &
 echo \$! >> .h-pids
-# 2026-10-25 v65 arch#310 판정(쪽지 167127): worker.main 직접 기동 = c2c flag-off → release 가 legacy 직결 2곳(v6_pulse_consumer.py:279 · release_finalizer.py:143)으로 가고 둘 다 seam_store 미전달 → 침묵 꼬리 회차에서 말풍선 0(host_empty).
-#   이 맥 server.sh 의 «개발 레인» 과 같게 기동한다: build 승인(approve-build-local · server.sh approve_local_build 와 같은 호출) 뒤 worker.c2c_act_entrypoint --c2c-act-dev · PORT=$P_WORKER · APP_ENV=local
-SHA=\$(cut -d'|' -f1 .h-installed)
-.venv/bin/python scripts/ops/deploy_standing_replacement_gate.py approve-build-local --build-sha "\$SHA" --redis-url "\$REDIS_URL" >/tmp/h-byz-approve.log 2>&1 || { echo APPROVE_FAIL; tail -3 /tmp/h-byz-approve.log; exit 7; }
-PORT=$P_WORKER APP_ENV=local V6_WORKER_BUILD_ID="\$SHA" nohup .venv/bin/python -m worker.c2c_act_entrypoint --c2c-act-dev >/tmp/h-byz-worker.log 2>&1 </dev/null &
-echo \$! >> .h-pids
+$WORKER_BLOCK
 sleep 1
 echo started=\$(wc -l < .h-pids)
 EOS

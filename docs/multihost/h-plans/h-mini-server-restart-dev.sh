@@ -33,7 +33,7 @@ R="$(timeout 20 ssh -o BatchMode=yes -o ConnectTimeout=6 "$MINI" "pgrep -f realt
 
 say "1/4 서버 정지"
 bash "$HP/h-mini-byz-server-run.sh" stop || die 3 "서버 정지 실패 — 위 출력 확인(서버가 이미 꺼져 있었다면 위 메시지로 판단)"
-say "2/4 서버 기동 (BYZ main c34fc47f · V5_BACKEND_ENABLED 포함 · 코드가 바뀌면 설치·빌드가 몇 분 걸려 50초마다 «이어서 확인» 으로 최대 10회 다시 부른다)"
+say "2/4 서버 기동 (BYZ main 3c250223d1 · V5_BACKEND_ENABLED 포함 · 코드가 바뀌면 설치·빌드가 몇 분 걸려 50초마다 «이어서 확인» 으로 최대 10회 다시 부른다)"
 UPLOG="$(mktemp "${TMPDIR:-/tmp}/h-restart-up.XXXXXX")"; trap 'rm -f "$UPLOG"' EXIT
 UP_OK=0
 for i in 1 2 3 4 5 6 7 8 9 10; do
@@ -55,6 +55,6 @@ GPUENV="$(timeout 30 ssh -o BatchMode=yes -o ConnectTimeout=6 "$MINI" 'export PA
 say "        worker env 에 DEV_GPU_STATUS_URL 이름 있음(1=있음 · 값 출력 0): ${GPUENV:-?}  (0·? 이면 STT 게이트가 로컬 Redis 하트비트로 떨어진다)"
 sleep 8
 LANEOUT="$(timeout 30 ssh -o BatchMode=yes -o ConnectTimeout=6 "$MINI" "echo flag_off_lines=\$(grep -c 'C2c-ACT.*flag-off' /tmp/h-byz-worker.log 2>/dev/null); echo dev_lane_lines=\$(grep -c 'development lane\|c2c-act-dev\|C2c-ACT.*dev' /tmp/h-byz-worker.log 2>/dev/null); echo pulse_health=\$(curl -s -o /dev/null -m 5 -w '%{http_code}' http://127.0.0.1:${P_GW}/graph/speech/pulse_transcribe/v1/health 2>/dev/null)" 2>&1)" || LANEOUT="조회 실패"
-say "        worker 활성화 레인(2026-10-25 v65 판정: flag-off 면 release 가 seam_store 없는 legacy 경로 — flag_off_lines=0 이어야 함 · pulse_health=200 이어야 함): $(printf '%s' "$LANEOUT" | tr '\n' ' ')"
+say "        worker 레인(기본 flag-off = v65 M5 착지분 3c250223d1 을 우회 없이 확인 → flag_off_lines≥1 이 정상 · WORKER_LANE=dev 우회면 0 · pulse_health=200 이어야 함): $(printf '%s' "$LANEOUT" | tr '\n' ' ')"
 say "완료 rc=0 — /v5 라우터 장착. 다음: 러너 1회차 h"
 exit 0
