@@ -1,3 +1,11 @@
+## 2026-10-25 — r899 팀 폴더 이동 뒷정리 — 분류·보관 계획·실행 경로 옛 경로 고침(1.1.240)
+
+- `ft-team-move.sh --classify` (읽기 전용): 남은 옛 경로를 살아 있는 좌석(LIVE-OK·LIVE-FIX·LIVE-HAND) · 닫힌 좌석(ARCHIVE · 역할 계보 최댓값 행은 KEEP-LINEAGE/KEEP-FIX — ft-role-spawn 번호 기준이라 빼지 않음) · 코드(CODE-RUN·NOTE·RECORD·FIXTURE) 로 가른다. tmux 목록을 못 읽으면 분류 전체 ERROR(보관 판정 0). 상태 폴더만 다른 후보는 자동으로 따라가지 않는다(spawn 경쟁 실측 · LIVE-HAND).
+- `--cleanup-plan --out <폴더>` = plan.json·plan.tsv·plan.sh 만(쓰기 0) · plan.sh(master/오빠) → `--cleanup-run`(계획 sha 고정 · 실행 시점 tmux 재확인 · 행 바뀌면 SKIP · 보관 = 지우기 0) · `--cleanup-restore <archive.json>` 되살림(명부 키 순서까지).
+- `--verify`: 좌석 칸이 행 worktree 뿐 아니라 카드 워크트리(_cards_wt)·팀 루트 리포도 본다 · 코드 칸은 실행 글자·허용 목록 밖 픽스처 = ERR · 주석·독스트링·기록 폴더 = WARN · `design/TEAM-MOVE-ALLOW.tsv`(사유 필수 · 데이터 파일만) = 셈 밖.
+- 실 리포 리허설(사본): ERR 2753 → 보관 2302·다시 씀 14 뒤 46 → BYZ 가지(실행 경로 12파일 + 허용 목록) 착지 뒤 25(표 evidence/r899/README.md). 시험 test_team_move_cleanup_r899.sh · 변이(분류 반전) 빨강.
+
+
 ## 2026-10-25 — r912 우편함 넘칠 때 사람 글 보존 · 교대 불가 알림 10분 묶기(1.1.239)
 
 - mbox 큐가 넘칠 때 시스템 알림(ft-tick·뉴스의 자동 [HIL]/[긴급] 포함)부터 버리고 사람 글(slack-oppa·[HIL]·[긴급])은 보존한다. 자르는 곳 셋(comm·kit ft-mbox.py·skill ft-mbox.py)은 같은 공유 블록(바이트 동일)이다. 보낸 이 이름은 ft-name-lint 문법으로 판정한다(byz-tool#0 같은 이름은 일반).

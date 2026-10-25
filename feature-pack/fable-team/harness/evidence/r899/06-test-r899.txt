@@ -1,0 +1,85 @@
+== ⓐ --classify
+PASS ⓐ classify rc0
+PASS ⓐ 살아 있는 좌석 옛 경로 → LIVE-FIX(새 경로 1개)
+PASS ⓐ 살아 있는 좌석 후보 0 → LIVE-HAND
+PASS ⓐ 카드 워크트리에 실재 → LIVE-OK
+PASS ⓐ 상태 폴더만 다름 → 자동 0(LIVE-HAND · 후보는 사유에)
+PASS ⓐ tmux 세션 없음 → ARCHIVE(명부)
+PASS ⓐ tmux 세션 없음 → ARCHIVE(nano-card-base)
+PASS ⓐ 살아 있는 nano-card-base → LIVE-FIX
+PASS ⓐ 닫힌 역할 좌석(계보 최댓값 아님) → ARCHIVE
+PASS ⓐ 닫힌 옛 나노(-temp-) → ARCHIVE(번호 계보 아님)
+PASS ⓐ 계보 최댓값 + 옮긴 경로 실재 → KEEP-FIX(행 남기고 index 만)
+PASS ⓐ 닫힌 역할 좌석 계보 최댓값 → KEEP-LINEAGE(번호 기준 · 빼지 않음)
+PASS ⓐ 파이썬 문자열 경로 → CODE-RUN
+PASS ⓐ 셸 비주석 줄 → CODE-RUN
+PASS ⓐ 독스트링 → CODE-NOTE
+PASS ⓐ 주석 → CODE-NOTE
+PASS ⓐ 메시지 문장 중간 → CODE-NOTE
+PASS ⓐ 허용 목록 밖 픽스처 → UNLISTED
+PASS ⓐ 기록 폴더 → CODE-RECORD
+PASS ⓐ 끝줄 셈
+== ⓒ tmux 못 읽음 → ERROR · 보관 판정 0
+PASS ⓒ classify rc1
+PASS ⓒ ERROR 줄
+PASS ⓒ ARCHIVE 0
+PASS ⓒ cleanup-plan rc1
+PASS ⓒ 계획 파일 0
+== ⓑ --cleanup-plan = 계획만
+PASS ⓑ plan rc0
+PASS ⓑ 실행 대상 7(ARCHIVE 4 + LIVE-FIX 2 + KEEP-FIX 1)
+PASS ⓑ 계획만 — 명부·nano-card-base 바이트 그대로
+PASS ⓑ plan.sh = sha 고정 실행 1줄
+PASS ⓑ plan.tsv 에 사람 몫 표
+PASS ⓑ --plan-sha 없이 run = REJECT rc1
+PASS ⓑ REJECT 뒤 바이트 그대로
+== ⓑ 변조 계획 REJECT
+PASS ⓑ 변조 rc1
+PASS ⓑ 변조 REJECT 줄
+PASS ⓑ 변조 REJECT 뒤 바이트 그대로
+== ⓑ 실행 시점에 살아난 좌석은 SKIP (d1 세션이 생김)
+PASS ⓑ plan.sh rc0
+PASS ⓑ 살아난 좌석 SKIP
+PASS ⓑ 보관 3 · 다시 씀 3 · SKIP 1
+PASS ⓑ 명부: d1 그대로(SKIP) · l1 새 경로 · l4(LIVE-HAND) 그대로
+PASS ⓑ d2 nano-card-base 보관으로 이동
+PASS ⓑ 보관본 실재(지우기 0)
+PASS ⓑ l1 nano-card-base 새 경로
+== ⓓ --verify (뒷정리 뒤 좌석 칸 · 코드 칸)
+PASS ⓓ 남은 LIVE-HAND 는 ERR 유지
+PASS ⓓ SKIP 된 좌석 ERR 유지
+PASS ⓓ 카드 워크트리에 실재(LIVE-OK) = ERR 0
+PASS ⓓ 다시 쓴 좌석 ERR 0
+PASS ⓓ 실행 글자 ERR · 코드 파일은 허용 목록에 있어도 ERR
+PASS ⓓ 셸 실행 줄 ERR
+PASS ⓓ 주석 WARN
+PASS ⓓ 기록 WARN
+PASS ⓓ 사유 있는 픽스처 셈 밖
+PASS ⓓ 상태 폴더만 다른 좌석 ERR 유지(사람 몫)
+PASS ⓓ KEEP-LINEAGE 행 ERR 유지(남은 표)
+PASS ⓓ ERR 6(l2·l4·d1·master#3·run.py·run.sh) WARN 4(주석 3·기록 1)
+PASS ⓓ verify rc1
+PASS ⓓ 사유 빈 줄 = 예외 0(ERR)
+== ⓑ --cleanup-restore 되살림
+PASS ⓑ restore rc0
+PASS ⓑ 되살림 6(ncb 1 + 다시 쓴 칸 3 + 명부 2)
+PASS ⓑ d2 기록 되돌아옴
+PASS ⓑ 되살린 뒤 명부·nano-card-base 바이트 = 처음
+== ⓑ 보관 → 되살림 왕복 (명부 행 포함)
+PASS ⓑ 보관 4 · 다시 씀 3
+PASS ⓑ 명부 머리 칸 보존
+PASS ⓑ d1 명부에서 빠짐
+PASS ⓑ 되살림 7
+PASS ⓑ d1 행 원문 되돌아옴
+== ⓕ 변이: 분류 반전 → 살아 있는 좌석이 ARCHIVE (빨강이어야 함)
+PASS ⓕ 변이 빨강 — 살아 있는 l1 이 ARCHIVE 로 감(위 ⓐ «LIVE-FIX l1» 칸이 이 변이를 잡는다)
+== ⓔ 문법 · 키트 사본 cmp0
+PASS ast ft_team_move.py
+PASS ast ft_team_move_classify.py
+PASS ast ft_team_move_cleanup.py
+PASS bash -n ft-team-move.sh
+PASS 키트 사본 cmp0 ft_team_move.py
+PASS 키트 사본 cmp0 ft_team_move_classify.py
+PASS 키트 사본 cmp0 ft_team_move_cleanup.py
+PASS 키트 사본 cmp0 ft-team-move.sh
+== fail=0
