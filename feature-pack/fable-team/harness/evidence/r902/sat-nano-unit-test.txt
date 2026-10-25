@@ -1,55 +1,91 @@
-PASS ⓐ open: pi 기동 HARD GATE 통과 · 세션 1 · TASK.md 사본 · 기록 1행(신원 id·created·path) · 지시 전달 표식
-PASS ⓐ-2 open 재실행 = 폴더 REJECT(새 폴더 생성 0) · 남의 이름 세션 있음 = REJECT(덮지 않음)
-PASS ⓑ task: 파일 1개 전달 · 같은 작업 2번째 SKIP(중복 0)
-PASS ⓑ-2 task 남의 세션 = REJECT(쓰기 0)
-PASS ⓒ pull: 이 맥 배달 1 · mini ack(pending 0) · 2번째 pull 중복 0
-PASS ⓒ-2 pull --seats 없음 = REJECT
+PASS ⓐ open: 세션 1 · TASK.md · 기록 신원 3칸 · 표식 .sent/TASK.md/sent + .open.claim·.open.pid (claim/t 없음)
+PASS ⓐ-2 같은 run = 폴더 REJECT · 남의 이름 세션 = REJECT · 원격 열기 전 거절은 기록도 0
+PASS ⓑ task: 1개 전달 · 2번째 SKIP(ALREADY · 입력 0)
+PASS ⓑ-2 task 남의 세션 = REJECT
+PASS ⓒ pull: 배달 1 · mini ack · 2번째 pull 0
+PASS ⓒ-2 --seats 없음 rc2
 PASS ⓓ fetch: out.md 회수
-PASS ⓓ-2 close 남의 세션 = REJECT · 세션 살아 있음
-PASS ⓓ-3 close 확인 실패(pi_left=1) = rc6 표시만 · 기록 보존(강제 kill 0)
-PASS ⓓ-4 close: 이 도구가 연 세션만 닫힘 · 기록 삭제 · 남의 세션 보존
-PASS ⓖ-1 close: tmux 조회 rc2 → rc6 · 기록 유지 · 세션 보존(조회 실패를 gone 으로 안 봄)
-PASS ⓖ-2 close: pgrep rc2 → rc6(pi 0 으로 안 봄) · 기록 유지
-PASS ⓖ-3 close: lsof rc1(살아 있는 pid) → rc6(pi 0 으로 안 봄) · 기록 유지
-PASS ⓗ 같은 이름 다른 폴더·id 세션 → rc3 · 건드림 0(세션 보존·기록 유지)
-PASS ⓘ-1 이웃 폴더(i10)의 pi 는 i1 닫기에 안 섞인다
-PASS ⓘ-2 작업 폴더 하위(i2/sub)의 pi 는 남은 것으로 센다
-PASS ⓙ 동시 pull 2개 → 같은 쪽지 배달 1 · mini pending 0
-PASS ⓚ send-keys 실패 → rc4 · 표식 0 · 재시도는 다시 보냄(1회) · 그 뒤 SKIP
-PASS ⓛ 본문 끝 개행 2개까지 바이트 그대로 배달 · ack
-PASS ⓜ 300KB 쪽지 → ERROR 1줄 · 배달 0 · mini pending 0 · quarantine/ 보관(삭제 0)
-PASS ⓝ ../x · $() · 공백 · ; 값 전부 rc2 · 원격 호출 0 · 탈출/실행 흔적 0
-PASS ⓞ-1 느린 tmuxc(8초): 원격 호출 한 번이 7초를 넘지 않게 «백그라운드 시작 → 폴링» 으로 쪼개 열림(10초)
-PASS ⓞ-3 첫 연결 실패(255) 1회 → 재시도로 성공(ssh 2회)
-PASS ⓞ-4 연결 실패 2번 = 재시도 1회까지만(ssh 2회) → rc5
-PASS ⓠ lsof rc1 + 이미 사라진 pid → rc6 · 기록 유지(사라짐 추정 0)
-PASS ⓡ-1 잠금을 쥔 pull 이 SIGKILL → 다음 pull 즉시 잠금 획득(0초 · 회수 코드 0)
-PASS ⓡ-2 동시 pull 2개(한쪽 3초 지연) → 배달 1
-PASS ⓡ-3 잠금을 5초 안에 못 잡으면 rc1 «다른 pull 진행 중»(5초)
-PASS ⓢ-1 원격이 SENDOK 출력 뒤 rc255 → 재시도 0(ssh 1회) · 입력 1회
-PASS ⓢ-2 출력 0바이트 rc255(원격은 실행됨) → 재시도 1회 · 같은 토큰 = 보내지 않고 ALREADY → 입력 이번 건 1회
-PASS ⓣ SAT_TOTAL=2 · 배달 3초×2 → 로컬 구간 마감 검사로 rc5(4초 · 배달 1 뒤 중단 · 나머지는 다음 pull)
-PASS ⓣ-2 이어진 pull 이 나머지 1건을 배달(중복·유실 0)
-PASS ⓤ SAT_TMO=9 · SAT_TOTAL=90 · abc · 0 → 전부 rc2 · 원격 호출 0
-PASS ⓥ-1 open 마감(대역 지연 8초 · SAT_TOTAL=5) → rc5 · 기록 pending 으로 남음(6초)
-PASS ⓥ-2 마감으로 끝난 open 의 세션 → 안내한 close 로 정리 rc0 · 기록 삭제
-PASS ⓥ-3 pending 기록 + 같은 이름 다른 폴더 세션 → rc3 · 건드림 0
-PASS ⓥ-4 기록 없는 이름 close = REJECT
-PASS ⓕ-1 dedupe: ack 실패 창에서 같은 쪽지 2번 배달 0 (0→1→1)
-PASS ⓕ-2 변이(dedupe 끔) → 같은 쪽지를 다시 배달 시도(DELIVER_FAIL · 제품 쪽지함이 내용 중복을 거부) = 변이 감지
-PASS ⓕ-3 변이(opened 검사 끔)여도 2차 방어(fail-closed: 상태 없는 세션은 폴더를 모른다)로 남의 세션 보존
-PASS ⓕ-4 7초 룰: 원격이 안 답하면 SAT_TMO 에서 끊고 rc5(매달리지 않는다)
-PASS ⓟ-1 변이(신원 대조 끔) → ⓗ 빨강(다른 세션을 못 걸러냄 rc=0) = 변이 감지
-PASS ⓟ-2 변이(조회 실패=gone 복귀) → ⓖ-1 빨강(조회 실패 메시지 사라짐) = 변이 감지
-PASS ⓟ-3 변이(잠금 끔) → ⓙ 빨강(같은 쪽지 2번 배달) = 변이 감지
-PASS ⓟ-4 변이(값 검사 끔) → ⓝ 빨강(rc=0 · 원격 호출까지 감) · 그래도 2차 방어(printf %q)로 $() 실행 0
-PASS ⓟ-5 변이(사라진 pid 예외 복귀) → ⓠ 빨강(사라진 pid 를 «사라짐» 으로 보고 CLOSE ok) = 변이 감지
-PASS ⓟ-6 변이(출력 검사 끔) → ⓢ-1 빨강(SENDOK 뒤 255 를 재시도해 ssh 2회) = 변이 감지
-PASS ⓟ-7 변이(로컬 구간 마감 검사 끔) → ⓣ 빨강(SAT_TOTAL=2 인데 6초 걸려 rc0) = 변이 감지
-PASS ① bash -n ft-sat-nano.sh
-PASS ① /bin/bash(3.2) -n
-PASS ① 키트 사본 cmp 0
-PASS ① usage rc=2
-PASS ① 강제 kill 문구 0
-PASS ① grep readlink|kill -0|timeout <숫자> 0건
+PASS ⓓ-2 close 남의 세션 = REJECT
+PASS ⓓ-3 pi 남음 → rc6 · 기록 유지
+PASS ⓓ-4 close: 이 도구가 연 세션만 · 기록 삭제 · 남의 세션 보존
+PASS ⓖ-1 tmux 조회 rc2 → rc6 · 기록·세션 유지
+PASS ⓖ-2 pgrep rc2 → rc6
+PASS ⓖ-3 lsof rc1 → rc6
+PASS ⓗ 같은 이름 다른 id·폴더 → rc3 · 건드림 0
+PASS ⓘ-1 이웃 폴더 i10 의 pi 는 안 섞인다
+PASS ⓘ-2 하위 폴더 pi 는 남은 것
+PASS ⓙ 동시 pull 2개 → 발신 1 · mini pending 0
+PASS ⓜ 300KB → ERROR · 발신 0 · quarantine/ 보관
+PASS ⓝ ../x · $() · ; 값 전부 rc2 · 원격 호출 0 · 실행 흔적 0
+PASS ⓤ SAT_TMO=9·SAT_TOTAL=90·abc·0 → rc2 · 원격 0
+PASS ⓞ-1 느린 tmuxc(8초) → 백그라운드+폴링으로 열림(10초)
+PASS ⓞ-3 연결 실패 1회 → 읽기 재시도로 성공(ssh 2)
+PASS ⓞ-4 연결 실패 2회 → 재시도 1회까지(ssh 2) rc5
+PASS ⓞ-5 원격 무응답 → SAT_TMO 에서 끊고 rc5(1초)
+PASS ⓠ lsof rc1 + 사라진 pid → rc6
+PASS ⓡ-1 잠금 보유자 SIGKILL → 다음 pull 즉시 잠금(0초 · rc=7)
+PASS ⓡ-3 5초 못 잡으면 rc1(5초)
+PASS ⓢ-1 SENDOK 뒤 rc255 → 재시도 0 · 입력 1
+PASS ⓢ-2 SEND 출력 0B rc255 → 재시도 0(ssh 1) · rc4 불확실
+PASS ⓚ send-keys 실패 rc4 → 재호출 CLAIMED rc4 입력 0 → --retry 입력 1
+PASS ⓛ 꼬리표 [sat mini:902 from=…] + 원문 바이트 동일
+PASS ⓣ 총 2초·배달 3초 → rc5 배달 0 · 다음 pull 창 안 skip(rc7) · 창 경과 → 재발신 1 · done
+PASS Ⓐ 고아 배달: 즉시 pull 발신 0(rc7) · 창 뒤 1(꼬리표 동일) · 상한 2 넘으면 dead·격리·발신 0
+PASS Ⓑ 마지막 배달이 마감을 넘으면 rc5(ack 0) · 다음 pull 재발신 0·ack 1 · ack 실패 rc7
+PASS Ⓒ claim 장벽: 진행 중 재호출 CLAIMED rc4 입력 0 · 끝난 뒤 ALREADY · --retry 입력 1
+PASS Ⓓ SAT_TOTAL=08·SAT_TMO=07 rc0 · 0x7·7.0·-1 rc2
+PASS Ⓕ 장부 chmod 400 · fsync 예외 → rc2 · 원격 호출 0
+PASS Ⓖ .sent 부모 생성 실패 → rc4 · 입력 0
+PASS Ⓗ RATE_LIMIT·queued ok·seq=abc·둘째 줄 QUEUED → done 0·intent 유지 → 창 뒤 재발신 1 → done
+PASS Ⓘ ① 남은 시간 0 이하 = 예외 rc5 · ② 경계에서 자식 실행 0
+PASS Ⓙ pid 재사용 → alive 0 = 표시만 · open rc4 · close rc4 · 세션·기록 유지
+PASS Ⓚ 확인된 줄 gone + pi 잔존 → rc6 · gone + lsof 실패 → rc6 · 기록 유지
+PASS 고침3 close: has-session rc1 + 다른 글 → rc6(세션·기록 유지) · 정상 «없음»(no server) + 신원 참 → gone rc0
+PASS Ⓛ-0 OPEN_BG 출력 0B rc255 → 재시도 = 상태 응답(running · opener 1) · pid 전 끊김 → claimed rc4 · opener 1
+PASS Ⓛ-1 claim 직후 종료 → claimed rc4 · opener 0 · close rc4 · --forget 뒤에만 삭제 · ssh 0
+PASS Ⓛ-2 claim_fail → rc4 · 줄 유지(고침 1) · close rc4 · --forget 뒤에만 삭제
+PASS Ⓛ-3 pid 전 종료 → rc4 · 뒤늦은 세션에도 close rc4 · --forget = 기록만(세션 그대로 · ssh 0)
+PASS Ⓛ-4 opener 끝·세션 없음 → rc4 · 줄 유지 · --forget 뒤 삭제
+PASS Ⓜ-1 정상 task → 지시문([발주 #1] <파일>) 입력 1
+PASS Ⓜ-2 비어 있지 않은 파일 + 빈 $msg 주입 → rc4 · sent 0 · 입력 0
+PASS Ⓜ-3 빈 파일 task → rc4 · 입력 0
+PASS Ⓝ 벽시계 전진·LIMIT 변경·뒤늦은 세션 → close rc4 · 삭제 0 · 원격 0
+PASS Ⓞ POLL sess_rc=2 · rc1+다른 글 → open rc6 · 기록 유지 · 신원 조회·입력 0
+PASS Ⓟ --forget: 이유 없음·공백 rc2 · 확인된 줄 rc2 · 없는 이름 rc5 · pending 만 rc0 · ssh 0 · forgotten 1줄
+PASS Ⓠ·Ⓔ·ⓥ open 마감 → close rc4(전·후) · --adopt 폴더 다름/조회 실패 rc4 삭제 0 · 폴더 일치 → 신원 채움·닫힘 rc0
+PASS Ⓠ-2 세션 없음에 --adopt → rc4 삭제 0 → --forget rc0
+PASS 변이 신원 대조 끔 → cell_h 빨강 = 감지
+PASS 변이 값 검사 끔 → cell_n 빨강 = 감지
+PASS 변이 intent 끔 → cell_A 빨강 = 감지
+PASS 변이 재발신 상한 끔 → cell_A 빨강 = 감지
+PASS 변이 루프 뒤 검사 끔 → cell_B 빨강 = 감지
+PASS 변이 SEND claim 끔 → cell_C 빨강 = 감지
+PASS 변이 CLAIMED→ALREADY → cell_C 빨강 = 감지
+PASS 변이 int(x,0) → cell_D 빨강 = 감지
+PASS 변이 장부 예외 삼킴 → cell_F 빨강 = 감지
+PASS 변이 QUEUED 부분 문자열 → cell_H 빨강 = 감지
+PASS 변이 timeout 바닥 0.1 → cell_I 빨강 = 감지
+PASS 변이 gone 확인 생략 → cell_K 빨강 = 감지
+PASS 변이 rc1 = 없음 → cell_K3 빨강 = 감지
+PASS 변이 rc1 = 없음(open 폴링) → cell_O 빨강 = 감지
+PASS 변이 OPEN_BG claim 끔 → cell_L0 빨강 = 감지
+PASS 변이 claimed→started → cell_L1 빨강 = 감지
+PASS 변이 claim_fail→started → cell_L2 빨강 = 감지
+PASS 변이 claim_fail 줄 삭제 복귀 → cell_L2 빨강 = 감지
+PASS 변이 폴링 rowdel 복귀 → cell_L4 빨강 = 감지
+PASS 변이 $msg 대입 삭제 → cell_M 빨강 = 감지
+PASS 변이 불확실 줄 close 가 지움 → cell_N 빨강 = 감지
+PASS 변이 --why 검사 끔 → cell_P 빨강 = 감지
+PASS 변이 --forget 확인된 줄도 지움 → cell_P 빨강 = 감지
+PASS 변이 --adopt dirmatch 없이 → cell_Q 빨강 = 감지
+PASS 정적 py_compile
+PASS 정적 ruff
+PASS 정적 shellcheck(입구+시험)
+PASS 정적 kit cmp0 ft-sat-nano.sh
+PASS 정적 kit cmp0 ft_sat_nano.py
+PASS 정적 kit cmp0 ft_sat_rt.py
+PASS 정적 grep settled|OPEN_LIMIT|date +%s 0건
+PASS 정적 강제 kill 문구 0
+PASS 정적 usage rc2
 ALL PASS
+--- /bin/bash 3.2 같은 시험: PASS=89 FAIL=0 ALL PASS
