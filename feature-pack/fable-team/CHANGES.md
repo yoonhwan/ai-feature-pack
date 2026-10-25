@@ -1,3 +1,9 @@
+## 2026-10-25 — r911 끝난 가지 판정 «main 과 파일 단위 같음» 갈래(E1f) 추가(1.1.241)
+
+- ft-finished-check.sh 에 E1f 갈래: 가지가 바꾼 파일마다 main 의 blob 이 같으면(내용이 main 에 이미 있음) 끝난 가지로 본다. FINISHED = E0 ∧ E3 ∧ ((E1 ∧ E2) ∨ E1f). 판정은 C(merge-base..tip 바꾼 경로) ≠ ∅ ∧ C∩D(main..tip 다른 경로) = ∅ — 경로를 git 에 넘기지 않아 pathspec 매직 오판이 없고 git 호출은 3회 고정(5천 경로 12초 · 호출 7초 + 전체 마감 70초).
+- 비교 단위는 파일(blob·심링크·gitlink)이며 폴더 자체의 존재 차이는 정의 밖이다. 종료코드 계약: 정상 rc0 · 판정 불가 rc2 · rc1 없음. 비 UTF-8 경로 이름은 예외 없이 처리한다.
+- 시험 test_finished_e1f_r911.sh 39 PASS ×3 · 변이 13종 빨강 · kit cmp0 · 외부 DA⑥ r5 APPROVE(VERDICT-r911-da6-r5.md · 승인판 80e5fd14).
+
 ## 2026-10-25 — r899 팀 폴더 이동 뒷정리 — 분류·보관 계획·실행 경로 옛 경로 고침(1.1.240)
 
 - `ft-team-move.sh --classify` (읽기 전용): 남은 옛 경로를 살아 있는 좌석(LIVE-OK·LIVE-FIX·LIVE-HAND) · 닫힌 좌석(ARCHIVE · 역할 계보 최댓값 행은 KEEP-LINEAGE/KEEP-FIX — ft-role-spawn 번호 기준이라 빼지 않음) · 코드(CODE-RUN·NOTE·RECORD·FIXTURE) 로 가른다. tmux 목록을 못 읽으면 분류 전체 ERROR(보관 판정 0). 상태 폴더만 다른 후보는 자동으로 따라가지 않는다(spawn 경쟁 실측 · LIVE-HAND).

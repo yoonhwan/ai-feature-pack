@@ -1,0 +1,8 @@
+FINISHED nano/m7-lst-runtime-cleanup-under-outer-cance
+E0 ok 폴더 없음
+E1 no 카드 없음
+E2 no 카드 없음
+E3 ok 좌석 0
+E1f ok files=4
+branch=nano/m7-lst-runtime-cleanup-under-outer-cance sha=d5fe5dcb794c7f19c65c85cbf071cf72966d5b23 ahead=12 main=origin/main card=<0개> dir=<없음>
+WARN card 없음 — E1f ok 로 끝 처리(착지 줄·완성/ 불일치) · 카드 이동은 이 도구 몫 아님

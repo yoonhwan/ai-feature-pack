@@ -1,0 +1,41 @@
+PASS ⓐ 내용 같음(squash 착지·카드 착지 줄 없음) → FINISHED · E1f ok files=3 · WARN 1줄
+PASS ⓑ 1개만 다름 → ACTIVE · E1f no files=1 first=p3.txt
+PASS ⓒ 가지가 지운 파일을 main 도 지움 → 같음(FINISHED)
+PASS ⓒ 가지가 지웠는데 main 에 있음 → 다름(ACTIVE)
+PASS ⓓ E1f 참 + 좌석 살아 있음 → ACTIVE(E3 no)
+PASS ⓓ E1f 참 + 미커밋 → ACTIVE(E0 no)
+PASS ⓔ blob 조회 rc≠0 → rc2 판정 불가(FINISHED 0)
+PASS ⓔ 7초 룰(시험값 0.3s) 초과 → rc2 판정 불가(FINISHED 0)
+PASS ⓓ' 빈 커밋만 가지 → E1f 대상 아님(ACTIVE · 카드 규칙)
+PASS ⓕ E1f FINISHED → refs/archive 생성 · 폴더 쓰는 중이라 가지 유지 · 폴더 그대로
+PASS ⓕ 폴더 정리 뒤 같은 판정으로 가지 목록에서 뺌(보관 ref 유지)
+PASS ⓕ `git branch -D` 호출 0
+PASS ⓕ ACTIVE(E1f no) 가지 → 이동 0
+PASS ⓖ wt-sweep --launchd: E1f 끝난 가지 이동(archived=5 archive_skip=3 replanned=0 hil_files=0 orphans=0 freed_kb=0) · ACTIVE 가지는 그대로(정리 도구 코드 변경 0)
+PASS ⓗ diff.ignoreSubmodules=all 이어도 gitlink 다름 → ACTIVE(E1f no files=1 first=sub)
+PASS ⓘ (500 이하) 가지가 파일 tr2 삭제 · main 은 tr2 폴더 → «파일 tr2 = 양쪽 없음» = 같음(FINISHED · DA⑥ r3 §2 파일 단위 정의)
+PASS ⓘ (501 경로) bulk 500 같고 tr 은 «폴더 자체의 차이» → 파일 단위로는 같음(FINISHED · files=501)
+PASS ⓘ 501 경로 가지를 지난 뒤에도 «내용 같음» 판정 그대로(FINISHED · files=3)
+PASS ⓙ criss-cross(merge-base 2개) → rc2 판정 불가(FINISHED 0)
+PASS ⓚ :(literal)x·:(glob)*·*·[ab]·-x 5개가 main≠tip → ACTIVE(E1f no files=5)
+PASS ⓚ magic 꼴 이름이 main 과 같은 내용 → FINISHED(E1f ok files=3)
+PASS ⓛ 5,000 경로 · git 대역 각 4초 → 호출 3회 · 13초(<70) · FINISHED(ok files=5000)
+PASS ⓛ 전체 마감(시험값 3s) 초과 → rc2 판정 불가(남은 시간으로 호출을 줄이다 마감 · FINISHED 0)
+PASS ⓛ 기본 전체 마감 = 70초(하드 룰 12)
+PASS ⓜ 모드(실행권한)만 다름 → ACTIVE(E1f no files=1 first=sh.txt)
+PASS ⓜ 파일↔심링크 교체 → ACTIVE(E1f no files=1 first=ln.txt)
+PASS ⓞ E1f no + ACTIVE(보통 ASCII 이름) → rc0(1 아님)
+PASS ⓞ 카드 없는 가지(ORPHAN) → rc0
+PASS ⓞ 커밋 0 가지(EMPTY) → rc0
+PASS ⓞ E1f 로 끝난 가지(FINISHED) → rc0
+PASS ⓞ 판정기 rc 값역 = {0,2}(rc=0 · rc1 0)
+FAIL ⓞ exit 0 줄 없음(rc 계약 미고정)
+PASS ⓞ 옛 159줄 && 사슬 0(정상 판정이 rc1 로 끝나지 않는다)
+PASS ⓟ 판정기 rc1 + 1행 ACTIVE → 이동 0(SKIP rc1 · 호출자는 rc 를 안 읽는다)
+PASS ⓟ 판정기 rc2 + 1행 ERROR → 이동 0(«판정 불가 = 안 끝남» 계약과 일치)
+PASS ⓟ 호출자 ft-branch-archive.sh 판정기 호출 줄에 rc 읽기 0(1행 판정 이름만)
+PASS ⓝ 비 UTF-8 이름(raw-\xff)이 main 과 다름 → 판정 rc=0(2 아님) · ACTIVE · E1f no files=1 first=raw-\xff
+PASS ⓝ 비 UTF-8 이름이 main 과 같은 내용 → rc0 FINISHED(E1f ok files=1 · UnicodeEncodeError 0)
+PASS ⓝ 개행 든 경로 → first=nl-\n-x (E1f 증거 1줄 유지 · 개수+첫 경로 규약)
+(1 failed)
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
