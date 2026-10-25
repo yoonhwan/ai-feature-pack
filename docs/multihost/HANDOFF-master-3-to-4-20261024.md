@@ -16,7 +16,7 @@
 |---|---|
 | Tailscale 두 곳 · mini/OCI CLI 운용 · OCI headroom·cliproxy·pi · tmm 접속 | ✅ |
 | hermes — OCI | ✅ v0.22.4 |
-| hermes — mini | ✅ h216 rc=0 (v0.22.5 · 오빠 «mini 슬랙 봇 응답 확인» 1회 미확인) |
+| hermes — mini | ✅ h216 rc=0 (v0.22.5) · ✅ 슬랙 응답 확인 2026-10-25: #talk-aina 에서 @aina 가 «BYZs-Mac-mini.local · user byz · Darwin 25.5.0 arm64» 로 답함(오빠가 붙여 주신 답 원문) |
 | hermes — 이 맥 | ✅ h217 (rc=5 는 증거 단계 코드 버그 — 브랜치 local/cliproxy-loopback-v2@906227f14f 유지·두 게이트웨이 running · 스크립트 수정 커밋) |
 | mini 자체 IAP 터널(LLM·STT, 이 맥 의존 제거) | ✅ h101 rc=0 + h215 rc=0 (8000·8001 자체 터널 · STT 동등성 sha 9dcd4d56ced08621) |
 | 옛 키 폐기 | ✅ h297 rc=0 (남은 키 mini e07046b7… · OCI d9db6b34…) |
