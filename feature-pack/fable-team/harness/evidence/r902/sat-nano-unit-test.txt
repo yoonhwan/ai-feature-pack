@@ -1,0 +1,30 @@
+# r902 — ft-sat-nano 단위 시험 (ssh·tmux 대역 · 실 mini 접속 0 · press 0)
+
+- 실행: env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE bash tests/test_sat_nano_r902.sh
+- 일시(UTC): 2026-10-25T07:22:42Z
+- base: origin/main 3330d7fff03fedc88db90e0730571cb00bd89c01
+- shellcheck -S warning bin/ft-sat-nano.sh tests/test_sat_nano_r902.sh → rc=0
+- LOC: bin/ft-sat-nano.sh 177 · tests/test_sat_nano_r902.sh 161
+- 결과: 18 PASS / ALL PASS · rc=0
+
+```
+PASS ⓐ open: pi 기동 HARD GATE 통과 · 세션 1 · TASK.md 사본 · 기록 1행 · 지시 전달
+PASS ⓐ-2 open 재실행 = 폴더 REJECT(새 폴더 생성 0) · 남의 이름 세션 있음 = REJECT(덮지 않음)
+PASS ⓑ task: 파일 1개 전달 · 같은 작업 2번째 SKIP(중복 0)
+PASS ⓑ-2 task 남의 세션 = REJECT(쓰기 0)
+PASS ⓒ pull: 이 맥 배달 1 · mini ack(pending 0) · 2번째 pull 중복 0
+PASS ⓒ-2 pull --seats 없음 = REJECT
+PASS ⓓ fetch: out.md 회수
+PASS ⓓ-2 close 남의 세션 = REJECT · 세션 살아 있음
+PASS ⓓ-3 close 확인 실패(pi_left=1) = rc6 표시만 · 기록 보존(강제 kill 0)
+PASS ⓓ-4 close: 이 도구가 연 세션만 닫힘 · 기록 삭제 · 남의 세션 보존
+PASS ⓕ-1 dedupe: ack 실패 창에서 같은 쪽지 2번 배달 0 (0→1→1)
+PASS ⓕ-2 변이(dedupe 끔) → 같은 쪽지를 다시 배달 시도(DELIVER_FAIL · 제품 쪽지함이 내용 중복을 거부) = 변이 감지
+PASS ⓕ-3 변이(opened 검사 끔)여도 2차 방어(fail-closed: 상태 없는 세션은 폴더를 모른다)로 남의 세션 보존
+PASS ⓕ-4 7초 룰: 원격이 안 답하면 SAT_TMO 에서 끊고 rc5(매달리지 않는다)
+PASS ① bash -n ft-sat-nano.sh
+PASS ① 키트 사본 cmp 0
+PASS ① usage rc=2
+PASS ① 강제 kill 문구 0
+ALL PASS
+```
