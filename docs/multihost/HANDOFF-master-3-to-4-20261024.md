@@ -22,7 +22,7 @@
 | 옛 키 폐기 | ✅ h297 rc=0 (남은 키 mini e07046b7… · OCI d9db6b34…) |
 | 시험 이관 — mini 서버 | ✅ h321 rc=0: BYZ main **c34fc47f24c89e16c60cbe94bb54e45445aa1a31**(오빠 «v65 가 최신» — 4c876d7f 는 473커밋 뒤처졌음) · /v5 라우터 장착(POST /v5/sessions/init 404→422) · 웹 = next dev + mock host + E2E 토큰 |
 | 시험 이관 — mini 시험용 Chrome | ✅ h315 rc=0 (open 으로 launchd 부모 · 9333) · 마이크 권한 = h317 세션 권한(Chrome 다시 띄우면 사라짐) + 오빠가 팝업 «허용» 눌러 줌 |
-| 시험 이관 — 러너 1회차 | ✅ 2026-10-25 16:29 h191: baseline-ko-en 1/1 통과(STT «오늘 회의를 시작합니다.» CER 0.0 · 번역 «I am starting today's meeting.» · runner_rc=0) — 막힘 원인 = worker flag-off(v65 arch#310 판정 · 우회 = c2c 개발 레인 기동 h189) · ★합격 표지 정정★ `✅ host 단일 버블` 은 ptt_multi_utterance(5문장 1PTT) 전용 — 그 시나리오는 아직 안 돌림 · v65 수정 카드 M5-release-legacy-path-seam-store-wiring 착지 뒤 우회 걷고 재확인 |
+| 시험 이관 — 러너 1회차 | ✅ 2026-10-25 16:29 h191 (★오빠 «통과 인정» 2026-10-25 — 1문장 baseline-ko-en 통과를 시험 이관 닫는 증거로 인정/5문장 시나리오는 하지 않음★): baseline-ko-en 1/1 통과(STT «오늘 회의를 시작합니다.» CER 0.0 · 번역 «I am starting today's meeting.» · runner_rc=0) — 막힘 원인 = worker flag-off(v65 arch#310 판정 · 우회 = c2c 개발 레인 기동 h189) · ★합격 표지 정정★ `✅ host 단일 버블` 은 ptt_multi_utterance(5문장 1PTT) 전용 — 그 시나리오는 아직 안 돌림 · v65 수정 카드 M5-release-legacy-path-seam-store-wiring 착지 뒤 우회 걷고 재확인 |
 | DB 경로(mini → dev DB 10.2.0.10) | ⏳ 아직 이 맥 역방향 포워딩 38309 의존 — 대안 «VM DB 포워더 1개 + IAP 포트 한정» 은 VM 변경 1회라 오빠 승인 필요(RESEARCH-a2-db-path-20261022.md) |
 | 하네스 카드 r673~r678 | ⏳ 하네스 정지 중 |
 
