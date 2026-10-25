@@ -1,0 +1,30 @@
+........................................................................ [ 18%]
+........................................................................ [ 37%]
+........................................................................ [ 55%]
+..........................F............................................. [ 74%]
+........................................................................ [ 93%]
+..........................                                               [100%]
+=================================== FAILURES ===================================
+_____________ test_slow_inbox_is_bounded_and_only_that_team_errors _____________
+
+tmp_path = PosixPath('/private/tmp/claude-501/bt-r6c/test_slow_inbox_is_bounded_and0')
+
+    def test_slow_inbox_is_bounded_and_only_that_team_errors(tmp_path: Path) -> None:
+        """ⓔ 20초 느린 쪽지함 = 7초 상한 + 재시도 1(2회 호출) → 그 팀만 error · 정상 팀 숫자 그대로 · 수집 전체 < 20초."""
+        b = _board(tmp_path, "slow")
+        r, elapsed = _collect(b)
+        assert r.returncode == 0, r.stderr
+        d = json.loads(r.stdout)
+        assert _team_of(d, "ok")["counts"]["진행"] == 1
+        slow = _team_of(d, "slow")
+        assert "ft-inbox.sh show 실패" in slow["error"], slow
+>       assert slow["error"].startswith("ft-inbox.sh show 실패(7초 상한") or "7초 상한" in slow["error"], slow
+E       AssertionError: {'error': "ft-inbox.sh show 실패(7초 초과 · 재시도 1회): Command '['bash', '/private/tmp/claude-501/bt-r6c/test_slow_inbox_is_bounded_and0/inbox.sh', 'slow-m#1']' timed out after 7 seconds", 'inbox_fail': True, 'key': 'slow', 'label': '느린팀'}
+E       assert (False or '7초 상한' in "ft-inbox.sh show 실패(7초 초과 · 재시도 1회): Command '['bash', '/private/tmp/claude-501/bt-r6c/test_slow_inbox_is_bounded_and0/inbox.sh', 'slow-m#1']' timed out after 7 seconds")
+E        +  where False = <built-in method startswith of str object at 0x125f9ef50>('ft-inbox.sh show 실패(7초 상한')
+E        +    where <built-in method startswith of str object at 0x125f9ef50> = "ft-inbox.sh show 실패(7초 초과 · 재시도 1회): Command '['bash', '/private/tmp/claude-501/bt-r6c/test_slow_inbox_is_bounded_and0/inbox.sh', 'slow-m#1']' timed out after 7 seconds".startswith
+
+tests/scripts/test_r649_news_team_lines_isolate_error.py:165: AssertionError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_r649_news_team_lines_isolate_error.py::test_slow_inbox_is_bounded_and_only_that_team_errors
+1 failed, 385 passed in 412.04s (0:06:52)

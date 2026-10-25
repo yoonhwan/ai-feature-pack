@@ -199,7 +199,7 @@ def test_c_news_head_and_zero_change_line_carry_note(world, monkeypatch):
     monkeypatch.delenv("FT_LEDGER_SYNC_ERROR", raising=False)
     monkeypatch.setattr(np, "retry_attach", lambda now: None)
     monkeypatch.setattr(np, "publish_line", lambda text, now: lines.append(text) or 0)
-    monkeypatch.setattr(fh, "_ledger_blob", lambda *a: "B")
+    monkeypatch.setattr(fh, "_human_key", lambda *a: "B")  # r907 r4: 판정 키 함수 이름 = _human_key
     monkeypatch.setattr(fh, "_canon_sha", lambda: "")
     monkeypatch.setattr(fh, "ledger_fill", lambda root, repo, rel, cur: cur)
     monkeypatch.setattr(fh, "ledger_fresh", lambda *a: "원장 61분 낡음 · 담당 planner arch#14")
