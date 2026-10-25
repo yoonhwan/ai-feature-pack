@@ -21,7 +21,8 @@ ACTION="${ACTION:-up}"                        # up | stop | fwd(포워딩만 재
 KEY_SRC="${KEY_SRC:-}"                        # dotenv | op
 MAX_GB="${MAX_GB:-2}"
 P_REDIS="${P_REDIS:-38311}"; P_GATEWAY="${P_GATEWAY:-38312}"; P_WEB="${P_WEB:-38314}"
-PORTS=("$P_REDIS" "$P_GATEWAY" "$P_WEB")
+P_WORKER="${P_WORKER:-8081}"   # 2026-10-25: 이 맥 server.sh WORKER_PORT=8081 과 같게 — gateway pulse health 가 localhost:8081 을 본다(mini 에서 worker 8080 이라 503 worker_unreachable)
+PORTS=("$P_REDIS" "$P_GATEWAY" "$P_WEB" "$P_WORKER")
 WORK="${TMPDIR:-/tmp}/h-byz-$$"               # 이 맥 임시 작업 폴더(끝에 지움)
 TUN_PORT="${LOOM_PG_TUNNEL_PORT:-38309}"       # 이 맥 loom 터널(launchd 상주 · 127.0.0.1) 포트 — 정본 server.sh 와 같은 값
 FWD_EXTRA="${FWD_EXTRA-8000 8001}"           # 이 맥 상주 터널 중 mini 에 더 빌려줄 포트: 8000=LLM vLLM(LOCAL_VLLM_BASE_URL) · 8001=GPU STT/TTS(GPU_STT_TTS_URL) — 이 맥 로컬 기동과 같은 세트
@@ -235,7 +236,11 @@ EOS
 export REDIS_HOST=127.0.0.1 REDIS_PORT=$P_REDIS REDIS_URL=redis://127.0.0.1:$P_REDIS/0   # REDIS_URL 이 우선(settings.py:104 · heartbeat 는 REDIS_URL 만 봄) — mini 기본 6379(기존 redis 가동 중)에 붙지 않게 고정
 nohup .venv/bin/python -m uvicorn gateway.main:app --host 127.0.0.1 --port $P_GATEWAY >/tmp/h-byz-gateway.log 2>&1 </dev/null &
 echo \$! >> .h-pids
-nohup .venv/bin/python -m worker.main >/tmp/h-byz-worker.log 2>&1 </dev/null &
+# 2026-10-25 v65 arch#310 판정(쪽지 167127): worker.main 직접 기동 = c2c flag-off → release 가 legacy 직결 2곳(v6_pulse_consumer.py:279 · release_finalizer.py:143)으로 가고 둘 다 seam_store 미전달 → 침묵 꼬리 회차에서 말풍선 0(host_empty).
+#   이 맥 server.sh 의 «개발 레인» 과 같게 기동한다: build 승인(approve-build-local · server.sh approve_local_build 와 같은 호출) 뒤 worker.c2c_act_entrypoint --c2c-act-dev · PORT=$P_WORKER · APP_ENV=local
+SHA=\$(cut -d'|' -f1 .h-installed)
+.venv/bin/python scripts/ops/deploy_standing_replacement_gate.py approve-build-local --build-sha "\$SHA" --redis-url "\$REDIS_URL" >/tmp/h-byz-approve.log 2>&1 || { echo APPROVE_FAIL; tail -3 /tmp/h-byz-approve.log; exit 7; }
+PORT=$P_WORKER APP_ENV=local V6_WORKER_BUILD_ID="\$SHA" nohup .venv/bin/python -m worker.c2c_act_entrypoint --c2c-act-dev >/tmp/h-byz-worker.log 2>&1 </dev/null &
 echo \$! >> .h-pids
 sleep 1
 echo started=\$(wc -l < .h-pids)
