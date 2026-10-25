@@ -1,0 +1,12 @@
+# r897 r3 before-red — 고치기 전 판(63158415)에 같은 새 시험 ⓦ 를 돌린 결과
+# 명령: FT_SUT=/tmp/ft-scratch-repo-prefix-r3.sh FT_CASES=ⓦ bash tests/test_scratch_repo_r897_r10.sh
+PASS ⓦ 대조(호출 전부 rc0) = judged 끝 · 삭제
+PASS ⓦ revparse rc128(출력 있음) = 못 읽음 = 지우기 0
+PASS ⓦ gitdir rc128(출력 있음) = 못 읽음 = 지우기 0
+FAIL ⓦ mergebase 지움 [
+[임시 사본 자동 삭제] 주인 없는 사본 1개 0.00 GiB 삭제(되살릴 수 있는 사본만) — 목록: .fable-team/state/scratch-sweep.log]
+PASS ⓦ grep rc128(출력 있음) = 못 읽음 = 지우기 0
+FAIL ⓦ log 지움 [[임시 사본 자동 삭제] 주인 없는 사본 1개 0.00 GiB 삭제(되살릴 수 있는 사본만) — 목록: .fable-team/state/scratch-sweep.log]
+(2 failed)
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+rc=2
