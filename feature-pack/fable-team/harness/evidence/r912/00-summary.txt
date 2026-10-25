@@ -1,0 +1,73 @@
+r912 — 우편함이 넘칠 때 사람 글 보존 + «교대 불가» 알림 묶기 (팩 브랜치 nano/r912-mbox-queue-keep-human-mail-coalesce · Issue #3441)
+
+■ r3 재설계(반송 r3 · DA⑥ HOLD 3 · REWORK-r912-r3.md) — 세 반례를 그대로 고쳤다
+  ① «다른 자르기 경로» — 같은 mailbox.jsonl 을 자르는 곳이 셋인데(comm/mbox_ops.py · kit/ft-mbox.py ·
+     skill/scripts/ft-mbox.py) comm 만 새 규칙을 썼다 → kit 경로로 한 통만 보내도 사람 글이 0통이 됐다.
+     ⇒ 분류·버리는 순서를 «한 블록» 으로 만들어 세 곳에 바이트 동일로 박고(마커 `# >>> r912 mbox_keep
+     shared begin/end`), 시험 ⓘ 가 셋을 대조한다. kit·skill 자체는 독립 실행 파일이라 import 대신 사본이다.
+  ② «자동 알림이 사람 칸을 채움» — 옛 분류는 «본문 머리» 부터 봐서 ft-tick 의 [HIL]·ft-news 의 [긴급] 이
+     사람으로 분류됐다(25통 전부 HUMAN · 버림 0 · 큐 끝없이 증가). ⇒ ★보낸 이 먼저★:
+     slack-oppa = 사람 · 좌석(byz-…-#N)이 보낸 [HIL]/[긴급] = 사람 · 자동 도구는 머리가 있어도 시스템
+     (그 안에서 «머리 없음 → 머리 있음» 순으로 먼저 버린다) · 그 밖 = 일반.
+     버리는 순서 = 시스템(머리없음) → 시스템(머리있음) → 일반 · 사람은 안 버린다(넘치면 ERROR 1줄).
+  ③ «10분 경계 시험 무력» — ⓓ 가 «380초 재정지 1통» 만 봐서 NOTIFY_WIN 을 10^12 로 바꿔도 통과했다.
+     ⇒ 창(10분)은 «정상 회복 뒤 재정지» 에 적용한다: 회복 → 599초 재정지 = 알림 0통(횟수만 +1) ·
+     601초 = 새 1통 + 꼬리 « · 직전 10분 N회». 시험 ⓓ' 가 경계 양쪽을 보고, 변이 «NOTIFY_WIN 아주 큼» 이 ⓓ' 를 깬다.
+
+■ 카드 §구현범위
+  칸 1 comm/mbox_keep.py(공유 블록) + comm/mbox_ops.py — 넘칠 때 버리는 순서 · 사람 글 보존 · 넘침 ERROR.
+       같은 블록이 harness/kit/fable-team/bin/ft-mbox.py · skill/scripts/ft-mbox.py 의 자르는 곳에도 박힌다.
+       comm/check-drift.sh MAP 에 mbox_keep.py 행(한쪽만 설치 → 전 좌석 send ImportError).
+  칸 2 bin/ft_model_swap_account.py(hil_gate·notify_tail) — blocked 게이트(r838)는 그대로 두고, r912 창(10분)이
+       «회복 뒤 재정지» 를 묶는다(0통 · 시도 횟수 n). 상태 파일 = <루트>/.fable-team/state/model-swap-notify.json,
+       읽기·쓰기 실패 = 꼬리 없이 그냥 보낸다 + WARN(상태 파일이 발신을 막는 길 0).
+  칸 3 짝 사본 kit cmp0 — bin/ft_model_swap{,_account}.py → kit/fable-team/bin/ (files.txt cmp0).
+
+■ ★r838 ⓡ2 기대값을 고쳤다(교차 카드 · DA⑥ 지시 3 의 직접 결과)★
+  r838 ⓡ2 «정상 1턴 뒤 재정지 = 새 1통» 은 r912 창(10분) 안에서는 이제 «0통» 이다. 같은 픽스처에서
+  실행 시각만 바꿔 «창 안 300초 = 1통 유지 · 창 밖 700초 = 2통» 두 경계를 함께 보도록 시험을 고쳤다
+  (tests/scripts/test_model_swap_account_outage_r838.py::test_r2_...) — r838 의 «정지 사건당 1통» 의미는
+  blocked 게이트로 그대로 남아 있고(변이 ⑥ = ⓡ9 가 잡는다), 바뀐 것은 «10분 안 재정지» 뿐이다.
+
+■ 왜 (실측 · evidence/classify-senders.txt)
+  · 2026-10-25 13:20:19~13:26:50 에 ft-model-swap 이 desk#61 우편함으로 «[자동 교대 불가]» 15통(카드 배경의 8통보다 많다).
+  · 그 15통은 좌석이 서로 달라(계보가 다름) r838 «계보|이유» 게이트로도, r912 창으로도 묶이지 않는다.
+    → 이 사고를 막는 것은 칸 1(사람 글 보존)이다. 좌석 간 묶기는 카드 ⓔ(다른 좌석 = 각각 send)를 바꿔야 해 범위 밖.
+  · 실 mailbox.log 보낸 이 상위 = ft-tick 474 · ft-head-lag 134 · ft-model-swap 68 · ft-api-outage 43 · slack-oppa 32 …
+    → SYSTEM_SENDERS 목록의 근거(전부 목록에 들어 있다).
+
+■ 시험(전부 rc0 · evidence/green.txt · mutation.txt)
+  · shell 9케이스 ⓐⓑⓒⓕ(kit·skill)ⓖⓗⓘⓚ + 내부 변이 6종 RED-OK.
+  · pytest coalesce 15 passed(ⓓ·ⓓ' 경계·ⓔ·ⓔ2·ⓕⓖⓗ·ⓘ 첫발신실패·ⓙ 창안저장실패·ⓙ2·상태파일 실패 2종·kit 짝 cmp0).
+  · 위 + r838 19 + test_model_swap 13 + test_ft_api_outage·test_mbox_sent_log·test_mbox_guard_tool_sender·
+    test_byz_mbox_slack_mirror = 113 passed.
+  · shell mbox 6종(mbox_guard 137 · reply_exempt_cap 6 · lineage 22 · inbox_notify_reply_rate 46 · root_resolve 1 ·
+    ft_mbox_sent_log 25 · r660_desk_route 88) rc0 · keep_human_mail 8/8.
+  · 외부 변이 10/10 KILLED(evidence/mutation.txt).
+  · ★환경 의존(내 변경 무관)★ tests/test_inbox_watch.sh ⓔ-1·ⓔ-2 FAIL — 팩 루트 `.fable-team/LIVE_BIN` 미설치
+    (ft-live-entry 가 «master 가 ft-root-bin-shim.sh 로 설치해야 한다» 로 rc=3). 이 카드는 그 파일을 만들지 않는다.
+
+■ 남긴 판단(DA 몫)
+  · 좌석 간(다른 계보) «교대 불가» 묶기는 여전히 0 — 실 사고의 주 경로이다(카드 ⓔ 범위 밖 → 다음 질문지).
+  · ft_model_swap.py:55 송신 대기 30초(기존 값 · 범위 밖).
+
+■ ★r4 (반송 r4 · DA⑥ r2 HOLD 2 · REWORK-r912-r4.md)★ — r1 반례 3 은 닫혔고, 남은 것은 «좁은 순서·정규식» 두 곳이었다
+  ① «좌석 이름 판정이 넓음» — 옛 정규식 `^byz-[a-z0-9][a-z0-9-]*#\d+$` 는 `byz-tool#0`(팀·역할·에이전트 칸 없음)·`byz-x#1`
+     도 좌석으로 읽어 [HIL] 25통을 전부 사람 칸에 넣었다(큐 25 · 넘침 ERROR 15).
+     ⇒ 판정을 «ft-name-lint.sh 문법 그대로» 로 바꿨다(mbox_keep.seat()). 역할 예약어 11 · 에이전트 5 는 손으로
+     적지 않고 그 스크립트의 `ROLES=` · `AGENTS=` 줄에서 읽는다(사본 0 · lru_cache 1회). 문법도 같은 순서다:
+     길이 ≤60 · `#` 하나 + 정수 · 소문자·숫자·'-' · 빈 토큰 0 · 토큰 ≥4(프로젝트·팀·역할·꼬리) · 역할 = 예약어 ·
+     꼬리 = nano 면 slug(필수), 그 밖의 역할이면 에이전트 하나.
+     ★그 스크립트를 «부르지» 않고 «읽는» 이유★ = 1회 0.46초(macOS bash 기동 · 10회 4.66초 실측)라 send 경로에서
+     이름마다 부르면 한 번에 수 초가 붙는다. 문법을 못 읽으면 «좌석 아님»(NORMAL) — 사람 칸을 넓히지 않는 쪽.
+  ② «첫 발신 실패를 성공처럼 기록» — notify_tail 이 send «전» 에 last=now 를 저장해, mbox rc3 로 거절된 알림이
+     «보냄» 으로 남아 창(10분) 내내 침묵했다(N+60~599 = 0통 · +601 에야 1통).
+     ⇒ 저장 순서를 «판정(읽기만) → send → rc0 일 때만 notify_sent 가 last=now» 로 뒤집었다. send 실패 = 저장 0
+     (다음 틱에 다시 첫 알림 · 기존 실패 처리 그대로 = RuntimeError → exit 1). 창 안 «안 보냄» 판정도 저장이
+     성공했을 때만 — 저장이 실패하면 그 판정을 믿을 수 없으므로 «그냥 보낸다»(WARN 문구와 동작 일치).
+  · 시험 ⓘ(첫 send rc3 → 다음 틱 +60 에 1통 · 상태 파일 생기지 않음) · ⓙ(창 안 저장 실패 → 1통 + WARN) ·
+    ⓙ2(보낸 뒤 저장 실패 → WARN 만) · ⓚ(byz-tool#0·byz-x#1 = 일반 · 실 좌석 4개 = 사람 · 정본 부재 = 좌석 아님 ·
+    큐에서 byz-tool#0 이 일반 쪽으로 버려지고 slack-oppa 는 남는다).
+  · 변이 ⑧ 저장을 send 앞으로 → ⓘ 빨강 · ⑨ 창 안 저장 실패 무시 → ⓙ 빨강 · ⑩ 이름 판정 넓힘(세 사본 같이) → ⓚ 빨강.
+    외부 변이 10/10 KILLED(evidence/mutation.txt) · shell 8→9케이스(ⓚ 추가) · py coalesce 13→15.
+  · 보존: 칸 1·칸 2 의 «사람 글 보존»·«창(10분) 경계»·r838 ⓡ2 픽스처 기대값은 그대로다(arch 승인분 유지).

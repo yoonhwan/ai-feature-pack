@@ -2,6 +2,7 @@
 from mbox_conf import *
 from mbox_store import _check_name, _clip, _legacy_dirs, _load, _locked, _mbox, _next_seq, _prune_bodies, _save, _stash_body
 from mbox_guard import _guard_log, _guard_record, _guard_verdict, _log_sent, _reply_exempt
+import mbox_keep   # r912 — 넘칠 때 버리는 순서(시스템 → 일반 · 사람 글 보존)
 from mbox_lineage import claim, eligible
 from mbox_desk_gate import verdict as _desk_verdict   # r660 · DA⑥ r1 ⓒ: 판정 자리 = python send 층 하나(셸·python 직접·relay 전부)
 CANON = None   # mbox.py 가 묶는다
@@ -38,15 +39,17 @@ def send(to, frm, body, force=False, desk_attach=""):
         rows.append(row)
         byto = {}
         for r in rows: byto.setdefault(r["to"], []).append(r)
-        keep, dropped, oldest = [], 0, None
+        keep, dropped, oldest, overflow = [], 0, None, 0
         for t, rs in byto.items():
             rs.sort(key=lambda r: r["seq"])
-            # ★밀려난 건수를 «센다»★ — ring 은 조용히 가장 오래된 것을 버린다. 안 세면
-            # «보낸 사람은 QUEUED 를 봤는데 받는 사람은 영영 못 보는» 유실이 무증상으로 쌓인다.
-            # 포화는 대개 «받는 쪽이 안 읽고 있다» 는 신호라, 이 줄이 그 사실을 처음 알린다.
-            if t == to and len(rs) > MAX_PER_TO:
-                dropped, oldest = len(rs) - MAX_PER_TO, rs[0]["seq"]
-            keep.extend(rs[-MAX_PER_TO:])
+            # ★밀려난 건수를 «센다»★ — ring 은 조용히 버린다. 안 세면 «보낸 사람은 QUEUED 를
+            # 봤는데 받는 사람은 영영 못 보는» 유실이 무증상으로 쌓인다. 포화는 대개 «받는 쪽이
+            # 안 읽고 있다» 는 신호라, 이 줄이 그 사실을 처음 알린다.
+            # ★버리는 순서 = 시스템 알림 → 일반 · 사람 글은 안 버린다★ (r912 · mbox_keep).
+            k, d, o, ov = mbox_keep.trim(rs, MAX_PER_TO)
+            keep.extend(k)
+            if t == to:
+                dropped, oldest, overflow = d, o, overflow + ov
         _save(CANON, keep)
         _log_sent(CANON, row)
         # ★가드 기록을 «이미 잡고 있는» 우편함 잠금 안에서 한다★ — 밖에서 하면 동시 send 가
@@ -57,7 +60,7 @@ def send(to, frm, body, force=False, desk_attach=""):
             _guard_record(to, frm, body, exempt)
         except Exception:
             pass
-        return seq, sum(1 for r in keep if r["to"] == to), dropped, oldest
+        return seq, sum(1 for r in keep if r["to"] == to), dropped, oldest, overflow
     res = _locked(CANON, op)
     if res[0] == "__BLOCKED__":
         reason, hint = res[1]
@@ -70,16 +73,21 @@ def send(to, frm, body, force=False, desk_attach=""):
         tail = " · desk 경로는 --force 로 안 풀린다" if reason.startswith("DESK_ROUTE") else " · 정말 필요하면 --force"
         sys.stderr.write("BLOCKED %s\n%s\n→ BLOCKED %s%s\n" % (reason, hint, reason, tail))
         sys.exit(3)
-    seq, pend, dropped, oldest = res
+    seq, pend, dropped, oldest, overflow = res
     # ★«어느 파일에 몇 바이트» 를 찍는다★ — QUEUED 를 «도착»으로도 «온전»으로도 읽지 않게.
     print(f"QUEUED seq={seq} to={to} pending={pend} "
           f"file={_mbox(CANON)} bytes={len(body.encode('utf-8'))}")
     if dropped:
         sys.stderr.write(
-            "DROPPED %d oldest to=%s (ring=%d 포화) — 이 좌석이 %d건을 안 읽고 쌓아뒀다.\n"
-            "가장 오래된 %d건은 «영구 유실»이다. 좌석 상태를 보고, 급하면 pane 으로 직접 보낸다.\n"
+            "DROPPED %d to=%s (ring=%d 포화 · 시스템 알림 먼저 · 사람 글 보존) — 이 좌석이 %d건을 안 읽고 쌓아뒀다.\n"
+            "버려진 %d건은 «영구 유실»이다. 좌석 상태를 보고, 급하면 pane 으로 직접 보낸다.\n"
             % (dropped, to, MAX_PER_TO, pend, dropped))
         _drop_log(to, dropped, oldest)
+    if overflow:
+        # ★사람 글은 안 버린다★ — 상한을 넘긴 채로 두고 «그 사실»을 알린다(조용한 초과 0 · r912).
+        sys.stderr.write(
+            "ERROR 사람 글로 큐 넘침 — to=%s pending=%d (ring=%d) · 버리기 0 · 받는 좌석 확인\n"
+            % (to, pend, MAX_PER_TO))
     # ★청소는 «QUEUED 를 찍은 뒤», «잠금 밖»에서★ — 이 호출이 실패하거나 느려도
     #   메시지는 이미 큐에 들어갔고 발신자는 이미 결과를 받았다. relay 는 send 를
     #   타므로 여기 한 곳이면 두 경로가 모두 덮인다.

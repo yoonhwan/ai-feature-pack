@@ -141,6 +141,11 @@ def test_r1_user_retry_only_keeps_outage_key_one_note(tmp_path):  # ⓡ1 후보 
 
 
 def test_r2_normal_then_restuck_between_checks_new_note(tmp_path):  # ⓡ2 알린 시각 뒤 정상 → 그 구간 끝 · 지금 정지 = 새 1통
+    """★r912 r3 — r838 ⓡ2 의 «새 1통» 은 r912 창(10분) 밖에서만 성립한다★
+
+    r912 가 «같은 좌석·같은 사유가 마지막 알림 뒤 10분 안에 또 정지하면 0통» 을 더했으므로,
+    같은 픽스처에서 실행 시각만 바꿔 «창 안 = 1통 유지 · 창 밖 = 2통» 두 경계를 함께 본다.
+    """
     fx = Fx(tmp_path)
 
     def block(tag: str, at: int) -> None:
@@ -148,13 +153,19 @@ def test_r2_normal_then_restuck_between_checks_new_note(tmp_path):  # ⓡ2 알�
         fx.add("byz-x-nano-a#0", _err(f"o{tag}", at - 10, _limit("claude-opus-5-5")))
         fx.add("byz-x-nano-b#0", _err(f"s{tag}", at - 20, _limit("claude-sonnet-5-5")))
 
+    def notes() -> int:
+        return len([h for h in _heads(fx) if h.startswith("[자동 교대 불가]")])
+
     block("1", N - 240)
     assert fx.run().returncode == 0
     fx.add(ARCH, _ok("a-ok", N + 60, "claude-fable-5-1"))  # 검사 사이 정상 → 곧 다시 정지
     block("2", N + 120)
-    r = fx.run(N + 300)
+    r = fx.run(N + 300)   # ★r912 창(10분) 안 재정지 = 알림 0통★
     assert r.returncode == 0, r.stderr
-    assert len([h for h in _heads(fx) if h.startswith("[자동 교대 불가]")]) == 2
+    assert notes() == 1
+    r = fx.run(N + 700)   # ★창 밖(601초 이상) = 새 1통★
+    assert r.returncode == 0, r.stderr
+    assert notes() == 2
 
 
 def test_r3_same_model_two_role_seats_is_single_model_swap(tmp_path):  # ⓡ3 같은 모델 2석 = 모델 하나 한도 → r497 교대

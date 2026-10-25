@@ -1,3 +1,10 @@
+## 2026-10-25 — r912 우편함 넘칠 때 사람 글 보존 · 교대 불가 알림 10분 묶기(1.1.239)
+
+- mbox 큐가 넘칠 때 시스템 알림(ft-tick·뉴스의 자동 [HIL]/[긴급] 포함)부터 버리고 사람 글(slack-oppa·[HIL]·[긴급])은 보존한다. 자르는 곳 셋(comm·kit ft-mbox.py·skill ft-mbox.py)은 같은 공유 블록(바이트 동일)이다. 보낸 이 이름은 ft-name-lint 문법으로 판정한다(byz-tool#0 같은 이름은 일반).
+- ft_model_swap «교대 불가» 알림은 같은 좌석·같은 사유로 10분에 1통만 보낸다. 보낸 시각은 send rc0 뒤에만 저장하고, 창 안에서 저장이 실패하면 그냥 보낸다. hil() 옛 r838 가드(blocked·mute·dry_run·수신자 없음)는 그대로 복원했다.
+- r838 ⓡ2 픽스처는 «창 안 300초 = 1통 · 창 밖 700초 = 2통» 으로 화해(DA 승인 — 창 뒤에도 정지면 반드시 1통).
+- 시험: pytest 113 passed · shell mbox 6종 · test_mbox_keep_human_mail 9/9 · 변이 10/10 KILLED · 외부 DA⑥ r3 APPROVE(VERDICT-r912-da6-r3.md · 승인판 9aa1af56).
+
 ## 2026-10-25 — r908 자율 범위 --max 상한 30 → 100 · 수 인자 산술 전 자릿수 거름(1.1.238)
 
 - ft-autonomy-scope.sh 의 범위 승인 --max 상한을 30 에서 100 으로 올린다(자율 ON 중 병합 승인 묶음 한도).
