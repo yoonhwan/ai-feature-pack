@@ -21,7 +21,7 @@ ACTION="${ACTION:-up}"                        # up | stop | fwd(포워딩만 재
 KEY_SRC="${KEY_SRC:-}"                        # dotenv | op
 MAX_GB="${MAX_GB:-2}"
 P_REDIS="${P_REDIS:-38311}"; P_GATEWAY="${P_GATEWAY:-38312}"; P_WEB="${P_WEB:-38314}"
-P_WORKER="${P_WORKER:-8081}"   # 2026-10-25: 이 맥 server.sh WORKER_PORT=8081 과 같게 — gateway pulse health 가 localhost:8081 을 본다(mini 에서 worker 8080 이라 503 worker_unreachable)
+P_WORKER="${P_WORKER:-38313}"   # 2026-10-25: worker 포트도 38301~38399 안(포트 가드) · gateway pulse health 는 WORKER_HEALTH_URL(settings.worker_health_url)로 이 포트를 보게 한다(코드 기본 localhost:8081 = 이 맥 server.sh WORKER_PORT — mini 에선 8081 밖 금지)
 PORTS=("$P_REDIS" "$P_GATEWAY" "$P_WEB" "$P_WORKER")
 WORK="${TMPDIR:-/tmp}/h-byz-$$"               # 이 맥 임시 작업 폴더(끝에 지움)
 TUN_PORT="${LOOM_PG_TUNNEL_PORT:-38309}"       # 이 맥 loom 터널(launchd 상주 · 127.0.0.1) 포트 — 정본 server.sh 와 같은 값
@@ -234,6 +234,7 @@ EOS
   cat "$ENVF"
   cat <<EOS
 export REDIS_HOST=127.0.0.1 REDIS_PORT=$P_REDIS REDIS_URL=redis://127.0.0.1:$P_REDIS/0   # REDIS_URL 이 우선(settings.py:104 · heartbeat 는 REDIS_URL 만 봄) — mini 기본 6379(기존 redis 가동 중)에 붙지 않게 고정
+export WORKER_HEALTH_URL=http://127.0.0.1:$P_WORKER   # gateway pulse health 가 worker 를 이 주소로 본다(8081 하드코딩 기본값 대체)
 nohup .venv/bin/python -m uvicorn gateway.main:app --host 127.0.0.1 --port $P_GATEWAY >/tmp/h-byz-gateway.log 2>&1 </dev/null &
 echo \$! >> .h-pids
 # 2026-10-25 v65 arch#310 판정(쪽지 167127): worker.main 직접 기동 = c2c flag-off → release 가 legacy 직결 2곳(v6_pulse_consumer.py:279 · release_finalizer.py:143)으로 가고 둘 다 seam_store 미전달 → 침묵 꼬리 회차에서 말풍선 0(host_empty).
