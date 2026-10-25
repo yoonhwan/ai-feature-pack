@@ -1,3 +1,9 @@
+## 2026-10-25 — r908 자율 범위 --max 상한 30 → 100 · 수 인자 산술 전 자릿수 거름(1.1.238)
+
+- ft-autonomy-scope.sh 의 범위 승인 --max 상한을 30 에서 100 으로 올린다(자율 ON 중 병합 승인 묶음 한도).
+- 수 인자(--max·--daily·--code-max)를 산술 «전» 에 정규식(앞자리 0 허용 · 4자리 이상 거절)으로 거른다 — 2^64+100 같은 아주 큰 수가 산술 넘침으로 100 이 되어 통과하던 길을 닫는다(외부 DA⑥ r1 HOLD 1). ft-autonomy-level 은 같은 함수라 함께 막힌다.
+- 시험 test_autonomy_scope 144 PASS(ⓓ 5칸 신규) · _pack 13 · _plain3_r658 27 · _level 65 ALL PASS · 변이(정규식 완화) 3 빨강 · 외부 DA⑥ r2 APPROVE(VERDICT-r908-da6-r2.md · 승인판 35e418e727).
+
 ## 2026-10-25 — r891 ft-scratch-repo 사본 sparse 기본 · --report --orphans · 등록부 ROOT 하나(1.1.237)
 
 - 검증 사본(ft-scratch-repo)을 기본 sparse 로 만들어 디스크를 줄인다(전체 복사는 --full 요청 때만). 등록은 체크아웃이 다 끝난 뒤 ROOT 등록부 1줄이고 실패하면 rc4 로 중단하며 지우기는 0 이다(기준판 순서).
