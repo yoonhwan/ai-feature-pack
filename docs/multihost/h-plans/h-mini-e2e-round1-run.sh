@@ -144,6 +144,9 @@ say "4/6 결과 (로그 끝 40줄)"
 ms 20 "tail -n 40 \$HOME/Project/BYZ-Agents/$LOGP 2>/dev/null | cut -c1-200" 2>&1 | sed 's/^/        /'
 RC="$(ms 10 'cat $HOME/Project/BYZ-Agents/.h-run1.rc 2>/dev/null' 2>/dev/null)"
 OK_LINE="$(ms 20 "grep -F '✅ host 단일 버블' \$HOME/Project/BYZ-Agents/$LOGP 2>/dev/null | head -1 | cut -c1-200" 2>/dev/null)"
+# 2026-10-25: «✅ host 단일 버블» 은 ptt_multi_utterance(5문장 1PTT) 시나리오만 찍는다(realtime_multi_e2e.py:2893). 기본 시나리오 baseline-ko-en 의 합격 표지는 MR:corpus «turn_ok» + «scenario_done … ok=N/N errors=0».
+MR_OK="$(ms 20 "grep -E 'scenario_done id=.* ok=([0-9]+)/\\1 errors=0' \$HOME/Project/BYZ-Agents/$LOGP 2>/dev/null | head -1 | cut -c1-200" 2>/dev/null)"
+[ -z "$OK_LINE" ] && [ -n "$MR_OK" ] && OK_LINE="$MR_OK"
 say "5/6 증거 3줄"
 say "        · runner_rc=${RC:-?} · 성공줄: ${OK_LINE:-없음}"
 say "        · hostname=${HOST:-?}  (BYZs-Mac-mini 여야 mini)"
