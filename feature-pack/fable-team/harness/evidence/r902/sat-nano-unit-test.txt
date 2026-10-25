@@ -20,21 +20,36 @@ PASS ⓛ 본문 끝 개행 2개까지 바이트 그대로 배달 · ack
 PASS ⓜ 300KB 쪽지 → ERROR 1줄 · 배달 0 · mini pending 0 · quarantine/ 보관(삭제 0)
 PASS ⓝ ../x · $() · 공백 · ; 값 전부 rc2 · 원격 호출 0 · 탈출/실행 흔적 0
 PASS ⓞ-1 느린 tmuxc(8초): 원격 호출 한 번이 7초를 넘지 않게 «백그라운드 시작 → 폴링» 으로 쪼개 열림(10초)
-PASS ⓞ-2 총 마감(SAT_TOTAL=12) 안에 못 열면 rc5 로 끊는다(4초 · 기록은 남겨 close 로 정리)
 PASS ⓞ-3 첫 연결 실패(255) 1회 → 재시도로 성공(ssh 2회)
 PASS ⓞ-4 연결 실패 2번 = 재시도 1회까지만(ssh 2회) → rc5
-PASS ⓠ 죽은 pid 가 쥔 pull 잠금 회수 · 끝나면 잠금 해제
+PASS ⓠ lsof rc1 + 이미 사라진 pid → rc6 · 기록 유지(사라짐 추정 0)
+PASS ⓡ-1 잠금을 쥔 pull 이 SIGKILL → 다음 pull 즉시 잠금 획득(0초 · 회수 코드 0)
+PASS ⓡ-2 동시 pull 2개(한쪽 3초 지연) → 배달 1
+PASS ⓡ-3 잠금을 5초 안에 못 잡으면 rc1 «다른 pull 진행 중»(5초)
+PASS ⓢ-1 원격이 SENDOK 출력 뒤 rc255 → 재시도 0(ssh 1회) · 입력 1회
+PASS ⓢ-2 출력 0바이트 rc255(원격은 실행됨) → 재시도 1회 · 같은 토큰 = 보내지 않고 ALREADY → 입력 이번 건 1회
+PASS ⓣ SAT_TOTAL=2 · 배달 3초×2 → 로컬 구간 마감 검사로 rc5(4초 · 배달 1 뒤 중단 · 나머지는 다음 pull)
+PASS ⓣ-2 이어진 pull 이 나머지 1건을 배달(중복·유실 0)
+PASS ⓤ SAT_TMO=9 · SAT_TOTAL=90 · abc · 0 → 전부 rc2 · 원격 호출 0
+PASS ⓥ-1 open 마감(대역 지연 8초 · SAT_TOTAL=5) → rc5 · 기록 pending 으로 남음(6초)
+PASS ⓥ-2 마감으로 끝난 open 의 세션 → 안내한 close 로 정리 rc0 · 기록 삭제
+PASS ⓥ-3 pending 기록 + 같은 이름 다른 폴더 세션 → rc3 · 건드림 0
+PASS ⓥ-4 기록 없는 이름 close = REJECT
 PASS ⓕ-1 dedupe: ack 실패 창에서 같은 쪽지 2번 배달 0 (0→1→1)
 PASS ⓕ-2 변이(dedupe 끔) → 같은 쪽지를 다시 배달 시도(DELIVER_FAIL · 제품 쪽지함이 내용 중복을 거부) = 변이 감지
 PASS ⓕ-3 변이(opened 검사 끔)여도 2차 방어(fail-closed: 상태 없는 세션은 폴더를 모른다)로 남의 세션 보존
 PASS ⓕ-4 7초 룰: 원격이 안 답하면 SAT_TMO 에서 끊고 rc5(매달리지 않는다)
-PASS ⓟ-1 변이(신원 대조 끔) → ⓗ 빨강(다른 세션을 못 걸러냄 rc=6) = 변이 감지
+PASS ⓟ-1 변이(신원 대조 끔) → ⓗ 빨강(다른 세션을 못 걸러냄 rc=0) = 변이 감지
 PASS ⓟ-2 변이(조회 실패=gone 복귀) → ⓖ-1 빨강(조회 실패 메시지 사라짐) = 변이 감지
 PASS ⓟ-3 변이(잠금 끔) → ⓙ 빨강(같은 쪽지 2번 배달) = 변이 감지
 PASS ⓟ-4 변이(값 검사 끔) → ⓝ 빨강(rc=0 · 원격 호출까지 감) · 그래도 2차 방어(printf %q)로 $() 실행 0
+PASS ⓟ-5 변이(사라진 pid 예외 복귀) → ⓠ 빨강(사라진 pid 를 «사라짐» 으로 보고 CLOSE ok) = 변이 감지
+PASS ⓟ-6 변이(출력 검사 끔) → ⓢ-1 빨강(SENDOK 뒤 255 를 재시도해 ssh 2회) = 변이 감지
+PASS ⓟ-7 변이(로컬 구간 마감 검사 끔) → ⓣ 빨강(SAT_TOTAL=2 인데 6초 걸려 rc0) = 변이 감지
 PASS ① bash -n ft-sat-nano.sh
 PASS ① /bin/bash(3.2) -n
 PASS ① 키트 사본 cmp 0
 PASS ① usage rc=2
 PASS ① 강제 kill 문구 0
+PASS ① grep readlink|kill -0|timeout <숫자> 0건
 ALL PASS

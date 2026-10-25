@@ -47,6 +47,14 @@ while [ $# -gt 0 ]; do case "$1" in -o|-l|-p|-i) shift 2;; -*) shift;; *) break;
 shift 2>/dev/null || exit 255          # host(mini)
 cmd="$*"; pf='export PATH=/opt/homebrew/bin:$HOME/.local/bin:$PATH; '
 export HOME="$FAKE_RHOME" PATH="$FAKE_BIN:$PATH" FT_MBOX_DIR="$FAKE_RMBOX"
+if [ -s "${FAKE_SSH_LOST:-/nonexistent}" ]; then   # 원격은 끝까지 돌았는데 출력만 잃고 255 (표준출력 0바이트)
+  n="$(cat "$FAKE_SSH_LOST")"
+  if [ "$n" -gt 0 ]; then echo $((n - 1)) >"$FAKE_SSH_LOST"; bash -c "${cmd#"$pf"}" >/dev/null 2>&1; exit 255; fi
+fi
+if [ -s "${FAKE_SSH_AFTER:-/nonexistent}" ]; then  # 원격이 출력(SENDOK)까지 낸 뒤 255
+  n="$(cat "$FAKE_SSH_AFTER")"
+  if [ "$n" -gt 0 ]; then echo $((n - 1)) >"$FAKE_SSH_AFTER"; bash -c "${cmd#"$pf"}"; exit 255; fi
+fi
 exec bash -c "${cmd#"$pf"}"            # 대역 원격에는 그 PATH 접두가 필요 없다(tmux 스텁이 이겨야 한다)
 EOF
 cat >"$FB/tmuxc" <<'EOF'
@@ -101,6 +109,7 @@ echo "QUEUED seq=1 to=$2 pending=1"
 EOF
 chmod 755 "$FB"/* "$T/stub-mbox.sh"
 export FAKE_RHOME="$RH" FAKE_BIN="$FB" FAKE_SESS="$RSESS" FAKE_SEND="$SEND" FAKE_RMBOX="$RMBOX" FAKE_PI_PIDS="$T/pi-pids" FAKE_PI_CWDS="$T/pi-cwds"
+export FAKE_SSH_LOST="$T/ssh-lost" FAKE_SSH_AFTER="$T/ssh-after"
 export FAKE_SSHLOG="$T/sshlog" FAKE_SSH_FAILS="$T/ssh-fails" FAKE_SEND_FAIL="$T/sendfail" STUB_SENT_DIR="$T/stub-sent"
 export SAT_STATE_DIR="$T/state" SAT_MINI_MBOX_PY="$KIT/ft-mbox.py" SAT_MBOX_SH="$KIT/ft-mbox.sh"
 export SAT_OUT_DIR="$T/out" FT_MBOX_DIR="$MACBOX" PATH="$FB:$PATH"
@@ -243,11 +252,6 @@ o="$(bash "$TOOL" open "$T/card.md" --run o1 --name sat-o#1 2>&1)"; rc=$?; unset
 { [ "$rc" = 0 ] && grep -qxF sat-o#1 "$RSESS" && [ "$el" -lt 50 ]; } \
   && ok "ⓞ-1 느린 tmuxc(8초): 원격 호출 한 번이 7초를 넘지 않게 «백그라운드 시작 → 폴링» 으로 쪼개 열림(${el}초)" || bad "ⓞ-1 rc=$rc ${el}초: $o"
 bash "$TOOL" close sat-o#1 >/dev/null 2>&1
-s0=$SECONDS; export FAKE_TMUXC_SLEEP=25
-o="$(SAT_TOTAL=12 bash "$TOOL" open "$T/card.md" --run o2 --name sat-o#2 2>&1)"; rc=$?; unset FAKE_TMUXC_SLEEP; el=$((SECONDS - s0))
-{ [ "$rc" = 5 ] && grep -q "총 마감" <<<"$o" && [ "$el" -lt 25 ]; } \
-  && ok "ⓞ-2 총 마감(SAT_TOTAL=12) 안에 못 열면 rc5 로 끊는다(${el}초 · 기록은 남겨 close 로 정리)" || bad "ⓞ-2 rc=$rc ${el}초: $o"
-rm -f "$SAT_STATE_DIR/opened.tsv.tmp"; awk -F'\t' '$1!="sat-o#2"' "$SAT_STATE_DIR/opened.tsv" >"$SAT_STATE_DIR/opened.tmp"; mv "$SAT_STATE_DIR/opened.tmp" "$SAT_STATE_DIR/opened.tsv"
 b="$(sshn)"; echo 1 >"$FAKE_SSH_FAILS"
 o="$(bash "$TOOL" pull --seats 'seat-o#0' 2>&1)"; rc=$?; a="$(sshn)"
 { [ "$rc" = 0 ] && [ "$((a - b))" = 2 ] && grep -q "PULL ok" <<<"$o"; } && ok "ⓞ-3 첫 연결 실패(255) 1회 → 재시도로 성공(ssh 2회)" || bad "ⓞ-3 rc=$rc ssh $b→$a: $o"
@@ -255,11 +259,73 @@ b="$(sshn)"; echo 2 >"$FAKE_SSH_FAILS"
 o="$(bash "$TOOL" pull --seats 'seat-o#0' 2>&1)"; rc=$?; a="$(sshn)"; : >"$FAKE_SSH_FAILS"
 { [ "$rc" = 5 ] && [ "$((a - b))" = 2 ]; } && ok "ⓞ-4 연결 실패 2번 = 재시도 1회까지만(ssh 2회) → rc5" || bad "ⓞ-4 rc=$rc ssh $b→$a: $o"
 
-# ── ⓠ 죽은 pid 의 잠금은 회수 ──────────────────────────
-sleep 0 & dp=$!; wait $dp 2>/dev/null; ln -s "$dp" "$SAT_STATE_DIR/pull.lock"
-o="$(bash "$TOOL" pull --seats 'seat-q#0' 2>&1)"; rc=$?
-{ [ "$rc" = 0 ] && grep -q "PULL ok" <<<"$o" && [ ! -e "$SAT_STATE_DIR/pull.lock" ] && [ ! -L "$SAT_STATE_DIR/pull.lock" ]; } \
-  && ok "ⓠ 죽은 pid 가 쥔 pull 잠금 회수 · 끝나면 잠금 해제" || bad "ⓠ rc=$rc: $o"
+# ── ⓠ close — lsof 실패는 «사라진 pid» 여도 rc6 (예외 0) ──
+mkopen q1 sat-q#1; sleep 0 & dp=$!; wait $dp 2>/dev/null; printf '%s\n' "$dp" >"$T/pi-pids"
+o="$(FAKE_LSOF_RC=1 bash "$TOOL" close sat-q#1 2>&1)"; rc=$?
+{ [ "$rc" = 6 ] && instate sat-q#1; } && ok "ⓠ lsof rc1 + 이미 사라진 pid → rc6 · 기록 유지(사라짐 추정 0)" || bad "ⓠ rc=$rc: $o"
+: >"$T/pi-pids"; bash "$TOOL" close sat-q#1 >/dev/null 2>&1
+
+# ── ⓡ 커널 잠금 — 쥔 프로세스가 강제 종료돼도 다음 pull 즉시 획득 · 동시 pull(한쪽 지연) = 배달 1 · 5초 못 잡으면 rc1 ──
+rm -rf "$STUB_SENT_DIR"; printf 'r-body\n' >"$T/rb"; seed 905 'seat-r#0' 'mini-r#0' "$T/rb"
+( exec env STUB_MBOX_SLEEP=6 SAT_MBOX_SH="$T/stub-mbox.sh" bash "$TOOL" pull --seats 'seat-r#0' >/dev/null 2>&1 ) & rk=$!   # exec: $rk 가 도구 자신
+sleep 2; kill -9 "$rk" 2>/dev/null; wait "$rk" 2>/dev/null
+s0=$SECONDS; o="$(SAT_MBOX_SH="$T/stub-mbox.sh" bash "$TOOL" pull --seats 'seat-r#0' 2>&1)"; rc=$?; el=$((SECONDS - s0))
+{ [ "$rc" = 0 ] && grep -q "PULL ok" <<<"$o" && [ "$el" -le 3 ]; } \
+  && ok "ⓡ-1 잠금을 쥔 pull 이 SIGKILL → 다음 pull 즉시 잠금 획득(${el}초 · 회수 코드 0)" || bad "ⓡ-1 rc=$rc ${el}초: $o"
+sleep 6   # 죽은 pull 의 고아 stub 이 끝나길 기다린다
+rm -rf "$STUB_SENT_DIR"; printf 'r2-body\n' >"$T/rb2"; seed 906 'seat-r#1' 'mini-r#1' "$T/rb2"; export STUB_MBOX_SLEEP=3
+( SAT_MBOX_SH="$T/stub-mbox.sh" bash "$TOOL" pull --seats 'seat-r#1' >"$T/r1.out" 2>&1 ) & p1=$!
+sleep 1
+( SAT_MBOX_SH="$T/stub-mbox.sh" bash "$TOOL" pull --seats 'seat-r#1' >"$T/r2.out" 2>&1 ) & p2=$!
+wait $p1; wait $p2; unset STUB_MBOX_SLEEP
+{ [ "$(sentn)" = 1 ] && [ "$(rpend 'seat-r#1')" = 0 ]; } && ok "ⓡ-2 동시 pull 2개(한쪽 3초 지연) → 배달 1" || bad "ⓡ-2 배달 $(sentn)건: $(cat "$T/r1.out" "$T/r2.out")"
+( exec 9>>"$SAT_STATE_DIR/pull.flock"; python3 -c 'import fcntl,time;fcntl.flock(9,fcntl.LOCK_EX);time.sleep(8)' ) & hp=$!; sleep 1
+s0=$SECONDS; o="$(bash "$TOOL" pull --seats 'seat-r#9' 2>&1)"; rc=$?; el=$((SECONDS - s0)); wait $hp 2>/dev/null
+{ [ "$rc" = 1 ] && grep -q "다른 pull 진행 중" <<<"$o" && [ "$el" -le 8 ]; } && ok "ⓡ-3 잠금을 5초 안에 못 잡으면 rc1 «다른 pull 진행 중»(${el}초)" || bad "ⓡ-3 rc=$rc ${el}초: $o"
+
+# ── ⓢ 출력 뒤 255 = 재시도 0 · 출력 0바이트 255 = 재시도 1 · 같은 토큰 = 입력 1회 ──
+mkopen s1 sat-s#1; printf '네번째 작업\n' >"$T/t4.md"; printf '다섯번째 작업\n' >"$T/t5.md"
+b="$(sshn)"; echo 1 >"$FAKE_SSH_AFTER"
+o="$(bash "$TOOL" task sat-s#1 "$T/t4.md" 2>&1)"; rc=$?; a="$(sshn)"; ns="$(grep -c 's1/TASK-' "$SEND")"
+{ [ "$rc" = 0 ] && [ "$((a - b))" = 1 ] && [ "$ns" = 1 ]; } && ok "ⓢ-1 원격이 SENDOK 출력 뒤 rc255 → 재시도 0(ssh 1회) · 입력 1회" || bad "ⓢ-1 rc=$rc ssh $b→$a 입력=$ns: $o"
+b="$(sshn)"; echo 1 >"$FAKE_SSH_LOST"
+o="$(bash "$TOOL" task sat-s#1 "$T/t5.md" 2>&1)"; rc=$?; a="$(sshn)"; ns="$(grep -c 's1/TASK-' "$SEND")"
+{ [ "$rc" = 0 ] && [ "$((a - b))" = 2 ] && [ "$ns" = 2 ]; } && ok "ⓢ-2 출력 0바이트 rc255(원격은 실행됨) → 재시도 1회 · 같은 토큰 = 보내지 않고 ALREADY → 입력 이번 건 1회" || bad "ⓢ-2 rc=$rc ssh $b→$a 입력=$ns: $o"
+bash "$TOOL" close sat-s#1 >/dev/null 2>&1
+
+# ── ⓣ 총 마감 = 로컬 배달 구간에서도 ─────────────────────
+rm -rf "$STUB_SENT_DIR"; printf 't1\n' >"$T/tb1"; printf 't2\n' >"$T/tb2"; seed 907 'seat-t#0' 'mini-t#0' "$T/tb1"; seed 908 'seat-t#0' 'mini-t#0' "$T/tb2"
+s0=$SECONDS; export STUB_MBOX_SLEEP=3
+o="$(SAT_TOTAL=2 SAT_MBOX_SH="$T/stub-mbox.sh" bash "$TOOL" pull --seats 'seat-t#0' 2>&1)"; rc=$?; el=$((SECONDS - s0)); unset STUB_MBOX_SLEEP
+{ [ "$rc" = 5 ] && grep -q "총 마감" <<<"$o" && [ "$el" -le 5 ] && [ "$(sentn)" = 1 ]; } \
+  && ok "ⓣ SAT_TOTAL=2 · 배달 3초×2 → 로컬 구간 마감 검사로 rc5(${el}초 · 배달 1 뒤 중단 · 나머지는 다음 pull)" || bad "ⓣ rc=$rc ${el}초 배달=$(sentn): $o"
+rm -rf "$STUB_SENT_DIR"; o="$(SAT_MBOX_SH="$T/stub-mbox.sh" bash "$TOOL" pull --seats 'seat-t#0' 2>&1)"
+{ [ "$(sentn)" = 1 ] && grep -q "PULL ok" <<<"$o"; } && ok "ⓣ-2 이어진 pull 이 나머지 1건을 배달(중복·유실 0)" || bad "ⓣ-2 배달 $(sentn): $o"
+
+# ── ⓤ 설정 상한 — SAT_TMO>7 · SAT_TOTAL>70 · 숫자 아님 = rc2 · 원격 호출 0 ──
+b="$(sshn)"; c=""
+for kvp in SAT_TMO=9 SAT_TOTAL=90 SAT_TMO=abc SAT_TOTAL=0 SAT_TMO=0; do c="$c $(env "$kvp" bash "$TOOL" pull --seats 'seat-u#0' >/dev/null 2>&1; echo $?)"; done
+a="$(sshn)"
+{ [ "$a" = "$b" ] && [ "$c" = " 2 2 2 2 2" ]; } && ok "ⓤ SAT_TMO=9 · SAT_TOTAL=90 · abc · 0 → 전부 rc2 · 원격 호출 0" || bad "ⓤ rc:$c ssh $b→$a"
+
+# ── ⓥ open 마감 → close 로 정리 (기록을 손으로 지우지 않는다) ──
+export FAKE_TMUXC_SLEEP=8; s0=$SECONDS
+o="$(SAT_TOTAL=5 bash "$TOOL" open "$T/card.md" --run v1 --name sat-v#1 2>&1)"; rc=$?; el=$((SECONDS - s0)); unset FAKE_TMUXC_SLEEP
+{ [ "$rc" = 5 ] && grep -q "총 마감" <<<"$o" && instate sat-v#1 && [ "$el" -le 9 ]; } && ok "ⓥ-1 open 마감(대역 지연 8초 · SAT_TOTAL=5) → rc5 · 기록 pending 으로 남음(${el}초)" || bad "ⓥ-1 rc=$rc ${el}초: $o"
+for _ in 1 2 3 4 5 6 7 8 9 10; do grep -qxF sat-v#1 "$RSESS" && break; sleep 1; done
+o="$(bash "$TOOL" close sat-v#1 2>&1)"; rc=$?
+{ [ "$rc" = 0 ] && ! grep -qxF sat-v#1 "$RSESS" && ! instate sat-v#1; } && ok "ⓥ-2 마감으로 끝난 open 의 세션 → 안내한 close 로 정리 rc0 · 기록 삭제" || bad "ⓥ-2 rc=$rc: $o"
+export FAKE_TMUXC_SLEEP=8; SAT_TOTAL=5 bash "$TOOL" open "$T/card.md" --run v2 --name sat-v#2 >/dev/null 2>&1; unset FAKE_TMUXC_SLEEP
+for _ in 1 2 3 4 5 6 7 8 9 10; do grep -qxF sat-v#2 "$RSESS" && break; sleep 1; done
+orig="$(grep '^sat-v#2|' "$RSESS.meta")"
+awk -F'|' -v OFS='|' '$1=="sat-v#2"{$4="/some/other/dir"}{print}' "$RSESS.meta" >"$RSESS.t"; mv "$RSESS.t" "$RSESS.meta"
+o="$(bash "$TOOL" close sat-v#2 2>&1)"; rc=$?
+{ [ "$rc" = 3 ] && grep -q "다른 세션" <<<"$o" && grep -qxF sat-v#2 "$RSESS" && instate sat-v#2; } \
+  && ok "ⓥ-3 pending 기록 + 같은 이름 다른 폴더 세션 → rc3 · 건드림 0" || bad "ⓥ-3 rc=$rc: $o"
+grep -v '^sat-v#2|' "$RSESS.meta" >"$RSESS.t"; printf '%s\n' "$orig" >>"$RSESS.t"; mv "$RSESS.t" "$RSESS.meta"
+bash "$TOOL" close sat-v#2 >/dev/null 2>&1
+o="$(bash "$TOOL" close sat-v#9 2>&1)"; rc=$?
+[ "$rc" = 5 ] && ok "ⓥ-4 기록 없는 이름 close = REJECT" || bad "ⓥ-4 rc=$rc: $o"
 
 # ── ⓕ 변이 — dedupe·opened 검사·7초 룰 ──────────────────
 cat >"$T/mboxmod-acksavefail.py" <<'EOF'
@@ -302,9 +368,10 @@ mkopen p2 sat-p#2
 sed 's/^absent_rc() .*/absent_rc() { return 0; }/' "$TOOL" >"$T/mut-absent.sh"
 o="$(FAKE_HAS_RC=2 bash "$T/mut-absent.sh" close sat-p#2 2>&1)"; rc=$?
 { ! grep -q "조회" <<<"$o"; } && ok "ⓟ-2 변이(조회 실패=gone 복귀) → ⓖ-1 빨강(조회 실패 메시지 사라짐) = 변이 감지" || bad "ⓟ-2 변이(조회 실패=gone)인데 ⓖ 가 안 빨갛다: $o"
-rm -rf "$STUB_SENT_DIR"; printf 'p-body\n' >"$T/pb"; seed 904 'seat-p#0' 'mini-p#0' "$T/pb"; export STUB_MBOX_SLEEP=1
+rm -rf "$STUB_SENT_DIR"; printf 'p-body\n' >"$T/pb"; seed 904 'seat-p#0' 'mini-p#0' "$T/pb"; export STUB_MBOX_SLEEP=3
 sed 's/^pull_lock() .*/pull_lock() { return 0; }/' "$TOOL" >"$T/mut-lock.sh"
 ( SAT_MBOX_SH="$T/stub-mbox.sh" bash "$T/mut-lock.sh" pull --seats 'seat-p#0' >/dev/null 2>&1 ) & p1=$!
+sleep 1.5
 ( SAT_MBOX_SH="$T/stub-mbox.sh" bash "$T/mut-lock.sh" pull --seats 'seat-p#0' >/dev/null 2>&1 ) & p2=$!
 wait $p1; wait $p2; unset STUB_MBOX_SLEEP
 [ "$(sentn)" -ge 2 ] && ok "ⓟ-3 변이(잠금 끔) → ⓙ 빨강(같은 쪽지 $(sentn)번 배달) = 변이 감지" || bad "ⓟ-3 변이(잠금 끔)인데 ⓙ 가 안 빨갛다(배달 $(sentn))"
@@ -315,12 +382,30 @@ o="$(bash "$T/mut-valid.sh" open "$T/card.md" --run 'a$(touch /tmp/ft-sat-nano-r
   && ok "ⓟ-4 변이(값 검사 끔) → ⓝ 빨강(rc=$rc · 원격 호출까지 감) · 그래도 2차 방어(printf %q)로 \$() 실행 0" || bad "ⓟ-4 변이(값 검사 끔) rc=$rc MARK=$(ls /tmp/ft-sat-nano-r902-MARK2 2>&1): $o"
 rm -f /tmp/ft-sat-nano-r902-MARK2
 
+# ── ⓟ 변이 2 — 사라짐 예외 복귀 · 출력 검사 끔 · 로컬 구간 마감 검사 끔 ──
+mkopen p3 sat-p#3; sleep 0 & dp=$!; wait $dp 2>/dev/null; printf '%s\n' "$dp" >"$T/pi-pids"
+sed 's/^  if \[ "\$lrc" != 0 \]; then err=1; continue; fi$/  if [ "$lrc" != 0 ]; then ps -p "$p" >\/dev\/null 2>\&1 \&\& err=1; continue; fi/' "$TOOL" >"$T/mut-gone.sh"
+cmp -s "$TOOL" "$T/mut-gone.sh" && bad "ⓟ-5 변이 도구가 안 만들어졌다(sed 불일치)"
+o="$(FAKE_LSOF_RC=1 bash "$T/mut-gone.sh" close sat-p#3 2>&1)"; rc=$?
+[ "$rc" = 0 ] && ok "ⓟ-5 변이(사라진 pid 예외 복귀) → ⓠ 빨강(사라진 pid 를 «사라짐» 으로 보고 CLOSE ok) = 변이 감지" || bad "ⓟ-5 변이인데 ⓠ 가 안 빨갛다 rc=$rc: $o"
+: >"$T/pi-pids"; bash "$TOOL" close sat-p#3 >/dev/null 2>&1
+mkopen p4 sat-p#4; printf '여섯번째 작업\n' >"$T/t6.md"
+sed 's/^retry_ok() .*/retry_ok() { [ "$1" = 255 ]; }/' "$TOOL" >"$T/mut-retry.sh"
+b="$(sshn)"; echo 1 >"$FAKE_SSH_AFTER"; bash "$T/mut-retry.sh" task sat-p#4 "$T/t6.md" >/dev/null 2>&1; a="$(sshn)"
+[ "$((a - b))" = 2 ] && ok "ⓟ-6 변이(출력 검사 끔) → ⓢ-1 빨강(SENDOK 뒤 255 를 재시도해 ssh 2회) = 변이 감지" || bad "ⓟ-6 변이인데 ⓢ-1 이 안 빨갛다 ssh $b→$a"
+bash "$TOOL" close sat-p#4 >/dev/null 2>&1
+rm -rf "$STUB_SENT_DIR"; seed 909 'seat-p#7' 'mini-p#7' "$T/tb1"; seed 910 'seat-p#7' 'mini-p#7' "$T/tb2"
+sed 's/^local_deadline() .*/local_deadline() { return 0; }/' "$TOOL" >"$T/mut-dl.sh"
+export STUB_MBOX_SLEEP=3; o="$(SAT_TOTAL=2 SAT_MBOX_SH="$T/stub-mbox.sh" bash "$T/mut-dl.sh" pull --seats 'seat-p#7' 2>&1)"; rc=$?; unset STUB_MBOX_SLEEP
+{ [ "$rc" = 0 ] && [ "$(sentn)" = 2 ]; } && ok "ⓟ-7 변이(로컬 구간 마감 검사 끔) → ⓣ 빨강(SAT_TOTAL=2 인데 6초 걸려 rc0) = 변이 감지" || bad "ⓟ-7 변이인데 ⓣ 가 안 빨갛다 rc=$rc 배달=$(sentn)"
+
 # ── ① 정적 검사 ────────────────────────────────────────
 bash -n "$TOOL" && ok "① bash -n ft-sat-nano.sh" || bad "① bash -n"
 [ -x /bin/bash ] && { /bin/bash -n "$TOOL" && ok "① /bin/bash(3.2) -n" || bad "① /bin/bash -n"; }
 cmp -s "$TOOL" "$KIT/ft-sat-nano.sh" && ok "① 키트 사본 cmp 0" || bad "① 키트 사본 불일치"
 bash "$TOOL" bogus >/dev/null 2>&1; [ $? = 2 ] && ok "① usage rc=2" || bad "① usage rc"
 grep -q "kill -9\|pkill\|kill-server" "$TOOL" && bad "① 강제 kill 문구가 도구에 있다" || ok "① 강제 kill 문구 0"
+grep -nE 'readlink|kill -0|timeout [0-9]' "$TOOL" >/dev/null && bad "① 도구에 readlink·kill -0·단계별 timeout 숫자가 남았다" || ok "① grep readlink|kill -0|timeout <숫자> 0건"
 
 [ "$fail" = 0 ] && echo "ALL PASS" || echo "FAILED"
 exit $fail

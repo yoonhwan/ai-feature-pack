@@ -7,16 +7,20 @@
 #     원격 명령은 이 파일에 박힌 «고정 스크립트» + printf %q 로 한 번 더 인용한 인자뿐 — 사용자 값이 원격 셸 문자열이 되는 길 0.★
 #   ★닫기 = 신원 대조: open 때 #{session_id} #{session_created} #{pane_current_path} 를 opened.tsv 에 기록 · close 는 같은 셋일 때만 정리.
 #     다르면 rc3(건드림 0) · tmux·pgrep·lsof 조회가 실패하면 «닫힘» 이 아니라 rc6(기록 유지) · pi 검사는 작업 폴더 «경계 일치».★
-#   ★쪽지 가져오기: pull 은 로컬 잠금(ln -s · 죽은 pid 회수 · 5초 상한) 안에서 읽기→배달→기록→ack · 본문은 base64 로 바이트 보존(끝 개행 포함) ·
+#   ★쪽지 가져오기: pull 은 커널 잠금(flock · 프로세스가 죽으면 커널이 푼다 · 5초 안에 못 잡으면 rc1) 안에서 읽기→배달→기록→ack · 본문은 base64 로 바이트 보존(끝 개행 포함) ·
 #     SAT_MAX_BODY(256KB) 넘는 쪽지는 받지 않고 ERROR 1줄 + mini «quarantine/» 폴더로 이동(삭제 0 · 영구 pending 0).★
 #   ★작업 전달 완료 = send-keys 가 둘 다 rc0 일 때만 «<파일>.sent» 표식(파일 존재 ≠ 전달) · 표식이 없으면 재시도가 다시 보낸다.★
 #   ★원격 쓰기 = mini 의 ~/Project/satellite-nano/<run>/ 와 mini 쪽지함(+quarantine/)뿐. BYZ 소스·서버·Redis·settings·authorized_keys 접촉 0.★
-#   ★7초/70초: 원격 호출 한 번 = 연결 6초 + 명령 SAT_TMO(7초) · 첫 출력 전 연결 실패(ssh rc255)만 1회 재시도 · 명령 하나의 총 마감 SAT_TOTAL(70초 · open 포함).
+#   ★7초/70초 (원격 호출 = 함수 rcall 하나): SAT_TMO 1~7 · SAT_TOTAL 1~70 정수만(밖이면 rc2 · 원격 호출 0) · 작업 시작 시각 T0 하나로
+#     원격·로컬 모든 단계 «전» 에 마감을 검사한다(로컬 배달 루프 포함) · 재시도는 «ssh rc255 이고 표준출력 0바이트» 일 때만 1회 ·
+#     되풀이하면 안 되는 원격 동작(send-keys)은 표식(토큰)이 있으면 다시 보내지 않고 ALREADY.
 #     open 은 «원격 백그라운드 시작 → 짧은 확인 폴링» 으로 쪼갠다(45초 예외 없음). pull --every 는 회차마다 마감을 새로 센다.★
+#   ★기록은 먼저 쓴다(write-ahead): open 은 원격 호출 «전» opened.tsv 에 이름·폴더 줄(신원 칸 빈 것 = pending)을 쓴다 · 신원은 확인되면 채운다.
+#     close 는 pending 줄이면 «지금 그 이름 세션의 폴더 == 기록 폴더» 일 때만 정리(다르면 rc3 건드림 0 · 없으면 gone) — 마감으로 끝난 open 도 close 로 정리된다.★
 #   env: MINI(mini) · SAT_TMO(7) · SAT_TOTAL(70) · SAT_ROOT_REMOTE(Project/satellite-nano) · SAT_MODEL
 #        SAT_STATE_DIR(~/.fable-team/sat) · SAT_MINI_MBOX_PY · SAT_MBOX_SH · SAT_OUT_DIR(harness/evidence/r902)
 #        SAT_NOWAIT(1=pi 기동 대기 생략·시험용) · SAT_SEAT(pull 기본 수신자) · SAT_PULL_MAX(30) · SAT_MAX_BODY(262144) · SAT_PULL_ROWS(20)
-#   rc: 0 ok · 2 usage/전제실패/값 검사 · 3 세션 열기 실패·신원 불일치 · 4 전달 실패 · 5 원격 실패·시간 초과 · 6 닫기 확인 실패
+#   rc: 0 ok · 1 다른 pull 진행 중 · 2 usage/전제실패/값·설정 검사 · 3 세션 열기 실패·신원 불일치 · 4 전달 실패 · 5 원격 실패·시간 초과 · 6 닫기 확인 실패
 set -uo pipefail
 MINI="${MINI:-mini}"; TMO="${SAT_TMO:-7}"; TOTAL="${SAT_TOTAL:-70}"
 RROOT="${SAT_ROOT_REMOTE:-Project/satellite-nano}"
@@ -24,7 +28,7 @@ MODEL="${SAT_MODEL:-opengateway/deepseek/deepseek-v4.1-flash-ultrafast}"
 STATE="${SAT_STATE_DIR:-$HOME/.fable-team/sat}"
 OPENED="$STATE/opened.tsv"    # name<TAB>run<TAB>dir<TAB>ts<TAB>session_id<TAB>created<TAB>pane_path
 DELIVERED="$STATE/delivered"  # mini:<seq> 한 줄씩(같은 쪽지 2번 배달 0)
-LOCK="$STATE/pull.lock"
+LOCK="$STATE/pull.flock"
 HARNESS="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUTD="${SAT_OUT_DIR:-$HARNESS/evidence/r902}"
 MPY="${SAT_MINI_MBOX_PY:-\$HOME/.claude/skills/fable-team/scripts/ft-mbox.py}"
@@ -33,9 +37,11 @@ SO=(-o BatchMode=yes -o ConnectTimeout=6 -o ServerAliveInterval=10 -o ServerAliv
 T0=$SECONDS; HELD=0
 TMPD="$(mktemp -d)" || { echo "[sat] REJECT rc=2 임시 폴더 생성 실패" >&2; exit 2; }
 ROUTF="$TMPD/rout"; RERRF="$TMPD/rerr"; ROUT=""; RERR=""
-trap 'if [ "$HELD" = 1 ]; then rm -f "$LOCK"; fi; rm -rf "$TMPD"' EXIT
+trap 'rm -rf "$TMPD"' EXIT
 say() { printf '[sat] %s\n' "$*"; }
 die() { printf '[sat] REJECT rc=%s %s\n' "$1" "$2" >&2; exit "$1"; }
+[[ "$TMO" =~ ^[0-9]+$ && "$TOTAL" =~ ^[0-9]+$ ]] && [ "$TMO" -ge 1 ] && [ "$TMO" -le 7 ] && [ "$TOTAL" -ge 1 ] && [ "$TOTAL" -le 70 ] \
+  || die 2 "설정 오류: SAT_TMO 1~7 · SAT_TOTAL 1~70 정수만(7초/70초 룰) — SAT_TMO=$TMO SAT_TOTAL=$TOTAL"
 
 # ── 값 검사 (한 줄 함수 — 시험의 변이가 이 줄을 바꾼다) ─────
 RE_NAME='^[A-Za-z0-9][A-Za-z0-9._#-]{0,63}$'; RE_RUN='^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$'
@@ -63,13 +69,14 @@ d="$HOME/$1"; mkdir -p "$d" && cat >"$d/TASK.md"
 EOF
 IFS= read -r -d '' R_OPEN_BG <<'EOF' || true
 d="$HOME/$1"; cd "$d" || exit 3
+if [ -f "$d/.open.pid" ]; then echo started; exit 0; fi
 nohup tmuxc open "$d" --name "$2" --agent pi --role worker --model "$3" --effort medium >"$d/.open.log" 2>&1 </dev/null &
 echo $! >"$d/.open.pid"
 echo started
 EOF
 IFS= read -r -d '' R_POLL <<'EOF' || true
 d="$HOME/$2"; pid="$(cat "$d/.open.pid" 2>/dev/null)"
-if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then echo alive=1; else echo alive=0; fi
+if [ -n "$pid" ] && ps -p "$pid" >/dev/null 2>&1; then echo alive=1; else echo alive=0; fi
 tmux has-session -t "=$1" 2>/dev/null; echo "sess_rc=$?"
 tail -3 "$d/.open.log" 2>/dev/null | sed 's/^/log: /'
 EOF
@@ -82,10 +89,8 @@ if [ -n "$pp" ]; then pgrep -P "$pp" 2>/dev/null | wc -l | tr -d ' '; else echo 
 EOF
 IFS= read -r -d '' R_SEND <<'EOF' || true
 d="$HOME/$1"; f="$d/$2"; m="$f.sent"
-if [ "$4" = write ]; then
-  if [ -f "$m" ]; then echo ALREADY; exit 0; fi
-  cat >"$f" || exit 4
-fi
+if [ -f "$m" ]; then echo ALREADY; exit 0; fi
+if [ "$4" = write ]; then cat >"$f" || exit 4; fi
 msg="[발주 #1] $f 를 읽고 그대로 수행해라. 결과는 같은 폴더 out.md."
 tmux send-keys -t "=$3:" -l "$msg" || exit 1
 sleep 1
@@ -101,6 +106,8 @@ tmux has-session -t "=$1" 2>/dev/null; h=$?; echo "has=$h"
 if [ "$h" = 0 ]; then
   i="$(tmux display -p -t "=$1:" '#{session_id} #{session_created} #{pane_current_path}' 2>/dev/null)"; echo "drc=$?"
   echo "ident=$i"
+  p="${i#* }"; p="${p#* }"; d="$HOME/$2"
+  case "$p" in "$d"|"$d"/*) echo dirmatch=1;; *) echo dirmatch=0;; esac
 fi
 EOF
 IFS= read -r -d '' R_KILL <<'EOF' || true
@@ -117,10 +124,7 @@ pids="$(pgrep -x pi 2>/dev/null)"; prc=$?
 if [ "$prc" -ge 2 ]; then err=1; fi
 for p in $pids; do
   o="$(lsof -a -p "$p" -d cwd -Fn 2>/dev/null)"; lrc=$?
-  if [ "$lrc" != 0 ]; then
-    if kill -0 "$p" 2>/dev/null; then err=1; fi
-    continue
-  fi
+  if [ "$lrc" != 0 ]; then err=1; continue; fi
   c="$(printf '%s\n' "$o" | sed -n 's/^n//p')"
   case "$c" in "$d"|"$d"/*) left=$((left + 1));; esac
 done
@@ -166,8 +170,10 @@ for r in json.load(open(sys.argv[1])):
         open(os.path.join(sys.argv[2],seq+".body"),"wb").write(base64.b64decode(r["b64"])); kind="ok"
     print("\t".join([seq,str(r.get("to","")),str(r.get("from","")),kind]))'
 
-# ── 원격 호출 — 한 번 TMO · 연결 실패(rc255)만 1회 재시도 · 총 TOTAL 마감 ──
-rsc() { # rsc <원격 스크립트> [값...] — 값은 전부 printf %q · stdin = $RIN(없으면 /dev/null) · 결과 ROUT·RERR(+파일 ROUTF)
+# ── 원격 호출 = 함수 하나 rcall — 한 번 TMO · 재시도 = «rc255 + 표준출력 0바이트» 1회뿐 · 총 TOTAL 마감(모든 단계 전 검사) ──
+retry_ok() { [ "$1" = 255 ] && [ ! -s "$2" ]; }                       # $1=ssh rc $2=표준출력 파일
+local_deadline() { [ $((SECONDS - T0)) -lt "$TOTAL" ] || die 5 "총 마감 ${TOTAL}초 초과(단계: $1) — 열던 세션이 있으면 close <이름> 으로 정리"; }
+rcall() { # rcall <원격 스크립트> [값...] — 값은 전부 printf %q · stdin = $RIN(없으면 /dev/null) · 결과 ROUT·RERR(+파일 ROUTF)
   local script="$1"; shift
   local cmd a rc left t
   cmd="export PATH=/opt/homebrew/bin:\$HOME/.local/bin:\$PATH; bash -c $(printf %q "$script") _"
@@ -176,9 +182,9 @@ rsc() { # rsc <원격 스크립트> [값...] — 값은 전부 printf %q · stdi
     left=$((TOTAL - (SECONDS - T0)))
     if [ "$left" -le 0 ]; then ROUT=""; RERR="총 마감 ${TOTAL}초 초과"; return 124; fi
     t="$TMO"; [ "$left" -lt "$t" ] && t="$left"
-    timeout "$t" ssh "${SO[@]}" "$MINI" "$cmd" <"${RIN:-/dev/null}" >"$ROUTF" 2>"$RERRF"; rc=$?
+    timeout "$t" ssh "${SO[@]}" "$MINI" "$cmd" <"${RIN:-/dev/null}" >"$ROUTF" 2>"$RERRF" 9>&-; rc=$?
     ROUT="$(cat "$ROUTF")"; RERR="$(cat "$RERRF")"
-    [ "$rc" = 255 ] || return "$rc"
+    retry_ok "$rc" "$ROUTF" || return "$rc"
   done
   return "$rc"
 }
@@ -197,20 +203,19 @@ mbox_sh() {
   done
   return 1
 }
-lock_acquire() { # 로컬 잠금 = 심볼릭 링크(생성이 원자적 · 대상 = 쥔 pid) · 죽은 pid 는 회수 · 5초 상한
-  local n=0 p q
-  while ! ln -s "$$" "$LOCK" 2>/dev/null; do
-    p="$(readlink "$LOCK" 2>/dev/null)"
-    if [ -n "$p" ] && ! kill -0 "$p" 2>/dev/null; then
-      q="$(readlink "$LOCK" 2>/dev/null)"; [ "$q" = "$p" ] && rm -f "$LOCK"
-      continue
-    fi
-    n=$((n + 1)); [ "$n" -le 50 ] || return 1
-    sleep 0.1
-  done
+lock_acquire() { # 커널 잠금: 열어 둔 fd 9 에 flock(LOCK_EX|LOCK_NB) · 프로세스가 죽으면 커널이 푼다(회수 코드 0) · 5초 안에 못 잡으면 실패
+  exec 9>>"$LOCK" || return 1
+  python3 -c 'import fcntl,sys,time
+end=time.time()+5
+while True:
+    try:
+        fcntl.flock(9,fcntl.LOCK_EX|fcntl.LOCK_NB); break
+    except OSError:
+        if time.time()>end: sys.exit(1)
+        time.sleep(0.05)' || { exec 9>&-; return 1; }
   HELD=1
 }
-lock_release() { if [ "$HELD" = 1 ]; then rm -f "$LOCK"; HELD=0; fi; }
+lock_release() { if [ "$HELD" = 1 ]; then exec 9>&-; HELD=0; fi; }
 
 cmd_open() {
   local card="${1:-}"; [ $# -gt 0 ] && shift; local run="" name="byz-sat-nano-pi#0"
@@ -224,44 +229,47 @@ cmd_open() {
   mkdir -p "$STATE" || die 2 "상태 폴더 생성 실패: $STATE"
   _opened "$name" && die 2 "이 도구의 기록에 같은 이름이 남아 있다 — close $name 먼저: $name"
   local dir="$RROOT/$run" sr
-  rsc "$R_PRE" "$name" "$dir" || die 5 "mini 접속 실패: $(tail2 "${RERR:-$ROUT}")"
+  printf '%s\t%s\t%s\t%s\t\t\t\n' "$name" "$run" "$dir" "$(date -u +%FT%TZ)" >>"$OPENED"   # write-ahead: 원격 호출 «전» pending 줄(신원 칸 빔)
+  rej() { rowdel "$name"; die "$@"; }   # 아직 아무것도 만들지 않은 단계의 거절 — pending 줄도 걷는다
+  rcall "$R_PRE" "$name" "$dir" || rej 5 "mini 접속 실패: $(tail2 "${RERR:-$ROUT}")"
   printf '%s\n' "$ROUT" | sed 's/^/[sat]   /'
-  case "$ROUT" in *MISSING*) die 2 "mini 에 필요한 도구가 없다(위 MISSING)";; esac
+  case "$ROUT" in *MISSING*) rej 2 "mini 에 필요한 도구가 없다(위 MISSING)";; esac
   sr="$(kv "$ROUT" sess_rc)"
-  if [ "$sr" = 0 ]; then die 2 "같은 이름 세션이 이미 있다 — 남의 세션이라 건드리지 않는다: $name"
-  elif ! absent_rc "$sr"; then die 5 "mini 세션 조회 실패(sess_rc=${sr:-?}) — 열지 않는다"; fi
-  case "$ROUT" in *dir=EXISTS*) die 2 "작업 폴더가 이미 있다 — --run <다른이름> 으로 다시: $dir";; esac
-  RIN="$card" rsc "$R_WRITE" "$dir" || die 4 "TASK.md 쓰기 실패: $(tail2 "${RERR:-$ROUT}")"
+  if [ "$sr" = 0 ]; then rej 2 "같은 이름 세션이 이미 있다 — 남의 세션이라 건드리지 않는다: $name"
+  elif ! absent_rc "$sr"; then rej 5 "mini 세션 조회 실패(sess_rc=${sr:-?}) — 열지 않는다"; fi
+  case "$ROUT" in *dir=EXISTS*) rej 2 "작업 폴더가 이미 있다 — --run <다른이름> 으로 다시: $dir";; esac
+  RIN="$card" rcall "$R_WRITE" "$dir" || die 4 "TASK.md 쓰기 실패(기록은 남김 — close $name 으로 정리): $(tail2 "${RERR:-$ROUT}")"
   say "1/4 작업 폴더·TASK.md — $dir/TASK.md"
-  printf '%s\t%s\t%s\t%s\t\t\t\n' "$name" "$run" "$dir" "$(date -u +%FT%TZ)" >>"$OPENED"   # 신원은 세션이 보인 뒤 채운다
-  rsc "$R_OPEN_BG" "$dir" "$name" "$MODEL" || { rowdel "$name"; die 3 "원격 세션 열기 시작 실패: $(tail2 "${RERR:-$ROUT}")"; }
+  rcall "$R_OPEN_BG" "$dir" "$name" "$MODEL" || die 3 "원격 세션 열기 시작 실패(기록은 남김 — close $name 으로 정리): $(tail2 "${RERR:-$ROUT}")"
   local al
   while :; do
-    rsc "$R_POLL" "$name" "$dir" || die 5 "세션 확인 실패(기록은 남김 — close $name 으로 정리): $(tail2 "${RERR:-$ROUT}")"
+    rcall "$R_POLL" "$name" "$dir" || die 5 "세션 확인 실패(기록은 남김 — close $name 으로 정리): $(tail2 "${RERR:-$ROUT}")"
     sr="$(kv "$ROUT" sess_rc)"; al="$(kv "$ROUT" alive)"
     [ "$sr" = 0 ] && break
     if [ "$al" = 0 ]; then rowdel "$name"; die 3 "tmuxc open 이 세션 없이 끝났다: $(printf '%s' "$ROUT" | grep '^log:' | tail -3 | tr '\n' ' ')"; fi
-    [ $((TOTAL - (SECONDS - T0))) -ge 10 ] || die 5 "총 마감 ${TOTAL}초 안에 세션이 안 보인다(기록은 남김 — close $name 으로 정리)"
+    local_deadline "open 세션 확인"
     sleep 2
   done
-  rsc "$R_IDENT" "$name" || die 3 "세션 신원 조회 실패(세션은 열려 있다 — close 불가 상태 · 수동 확인): $(tail2 "${RERR:-$ROUT}")"
+  rcall "$R_IDENT" "$name" || die 3 "세션 신원 조회 실패(세션은 열려 있다 · 기록은 pending — close $name 으로 정리): $(tail2 "${RERR:-$ROUT}")"
   local sid cr pth; read -r sid cr pth <<<"$ROUT"
-  [ -n "$sid" ] && [ -n "$cr" ] && [ -n "$pth" ] || die 3 "세션 신원 해석 실패(세션은 열려 있다 — 수동 확인): $ROUT"
+  [ -n "$sid" ] && [ -n "$cr" ] && [ -n "$pth" ] || die 3 "세션 신원 해석 실패(세션은 열려 있다 · 기록은 pending — close $name 으로 정리): $ROUT"
   rowset "$name" "$sid" "$cr" "$pth" || die 2 "신원 기록 실패: $OPENED"
   printf '%s\n' "OPEN ok name=$name id=$sid" | sed 's/^/[sat]   /'
   say "2/4 세션 열기 — $name (이 도구가 연 세션으로 기록 · 신원 $sid $cr)"
   if [ "${SAT_NOWAIT:-0}" != "1" ]; then
     local i n=0
     for i in 1 2 3 4 5 6; do
-      rsc "$R_PIDS" "$name" && n="$ROUT" || n=0
+      local_deadline "pi 기동 확인"
+      rcall "$R_PIDS" "$name" && n="$ROUT" || n=0
       [ "${n:-0}" -ge 1 ] 2>/dev/null && break
-      [ $((TOTAL - (SECONDS - T0))) -ge 10 ] || break
       sleep 5
     done
     [ "${n:-0}" -ge 1 ] 2>/dev/null || die 3 "pi 프로세스가 안 떴다(HARD GATE: 자식 0건 — 입력 전송 금지 · close $name 으로 정리)"
     say "3/4 pi 기동 확인"
   fi
-  rsc "$R_SEND" "$dir" TASK.md "$name" keep || die 4 "지시 전달 실패(표식 0): $(tail2 "${RERR:-$ROUT}")"
+  local_deadline "지시 전달"
+  rcall "$R_SEND" "$dir" TASK.md "$name" keep
+  case "$ROUT" in *SENDOK*|*ALREADY*) ;; *) die 4 "지시 전달 실패(표식 0 · close $name 으로 정리 가능): $(tail2 "${RERR:-$ROUT}")";; esac
   say "4/4 지시 전달 — TASK.md · 회수 fetch $name · 닫기 close $name"
 }
 
@@ -272,27 +280,32 @@ cmd_task() {
   _opened "$name" || die 5 "이 도구가 연 세션이 아니다 — 남의 세션에는 쓰지 않는다: $name"
   local dir sum target rc; dir="$(field "$name" 3)"; [ -n "$dir" ] || die 2 "상태 기록이 깨졌다: $name"
   sum="$(shasum -a 256 "$file" | cut -c1-8)"; target="TASK-$sum.md"
-  RIN="$file" rsc "$R_SEND" "$dir" "$target" "$name" write; rc=$?
-  case "$ROUT" in *ALREADY*) say "SKIP 같은 작업이 이미 전달됐다(중복 0) — $dir/$target"; exit 0;; esac
-  [ "$rc" = 0 ] || die 4 "작업 전달 실패(rc=$rc · 표식 0 — 같은 명령을 다시 하면 재전송): $(tail2 "${RERR:-$ROUT}")"
+  RIN="$file" rcall "$R_SEND" "$dir" "$target" "$name" write; rc=$?
+  case "$ROUT" in
+    *ALREADY*) say "SKIP 같은 작업이 이미 전달됐다(중복 0) — $dir/$target"; exit 0;;
+    *SENDOK*) ;;
+    *) die 4 "작업 전달 실패(rc=$rc · 표식 0 — 같은 명령을 다시 하면 재전송): $(tail2 "${RERR:-$ROUT}")";;
+  esac
   say "TASK ok run=$(field "$name" 2) file=$dir/$target"
 }
 
 pull_once() { # $1=좌석들 $2=회차 $3=every
-  pull_lock || die 5 "pull 잠금을 5초 안에 못 잡았다(다른 pull 진행 중): $LOCK"
+  pull_lock || die 1 "다른 pull 진행 중(5초 안에 잠금을 못 잡았다): $LOCK"
   local seats="$1" PDIR="$TMPD/pull" seq to frm kind key body out ok="" qs="" nplan nok ackjson
   rm -rf "$PDIR"; mkdir -p "$PDIR"
-  rsc "$R_PY" "$PY_READ" "$MPY" "$seats" "$MAXB" "$ROWS" || die 5 "mini 쪽지함 읽기 실패: $(tail2 "${RERR:-$ROUT}")"
-  python3 -c "$PLAN_PY" "$ROUTF" "$PDIR" >"$TMPD/plan" 2>/dev/null || die 5 "mini 쪽지함 응답 해석 실패"
+  rcall "$R_PY" "$PY_READ" "$MPY" "$seats" "$MAXB" "$ROWS" || die 5 "mini 쪽지함 읽기 실패: $(tail2 "${RERR:-$ROUT}")"
+  python3 -c "$PLAN_PY" "$ROUTF" "$PDIR" >"$TMPD/plan" 2>/dev/null 9>&- || die 5 "mini 쪽지함 응답 해석 실패"
   while IFS=$'\t' read -r seq to frm kind; do
     [ -n "${seq:-}" ] || continue
+    local_deadline "pull 배달"
     key="mini:$seq"
     case "$kind" in
       oversize:*) say "ERROR oversize seq=$seq bytes=${kind#oversize:} > ${MAXB} — 받지 않음 · mini quarantine/ 으로 이동(삭제 0)"; qs="$qs $seq"; continue;;
     esac
     _seen "$key" && { ok="$ok $seq"; continue; }
-    body="$(cat "$PDIR/$seq.body"; printf x)"; body="${body%x}"   # 끝 개행 보존
-    out="$(bash "$mb" send "$to" "$frm" "$body" 2>&1 </dev/null)"
+    body="$(cat "$PDIR/$seq.body" 9>&-; printf x)"; body="${body%x}"   # 끝 개행 보존
+    bash "$mb" send "$to" "$frm" "$body" >"$TMPD/send.out" 2>&1 </dev/null 9>&-   # 긴 자식은 $() 서브셸 없이 직접 — 잠금 fd(9)를 안 쥔다
+    out="$(cat "$TMPD/send.out")"
     case "$out" in
       *QUEUED*)
         if printf '%s\n' "$key" >>"$DELIVERED" 2>/dev/null; then ok="$ok $seq"
@@ -302,10 +315,10 @@ pull_once() { # $1=좌석들 $2=회차 $3=every
   done <"$TMPD/plan"
   ackjson="[$(printf '%s' "$ok" | tr ' ' '\n' | grep -v '^$' | paste -sd, -)]"
   if [ "$ackjson" != "[]" ]; then
-    rsc "$R_PY" "$PY_ACK" "$MPY" ack "$ackjson" >/dev/null || say "ACK_FAIL (다음 pull 에서 중복 없이 재시도)"
+    rcall "$R_PY" "$PY_ACK" "$MPY" ack "$ackjson" >/dev/null || say "ACK_FAIL (다음 pull 에서 중복 없이 재시도)"
   fi
   if [ -n "$qs" ]; then
-    rsc "$R_PY" "$PY_ACK" "$MPY" quarantine "[$(printf '%s' "$qs" | tr ' ' '\n' | grep -v '^$' | paste -sd, -)]" >/dev/null \
+    rcall "$R_PY" "$PY_ACK" "$MPY" quarantine "[$(printf '%s' "$qs" | tr ' ' '\n' | grep -v '^$' | paste -sd, -)]" >/dev/null \
       || say "QUARANTINE_FAIL (큰 쪽지가 mini 큐에 남았다 — 다음 pull 에서 재시도)"
   fi
   nplan="$(grep -c . "$TMPD/plan")"; nok="$(printf '%s' "$ok" | wc -w | tr -d ' ')"
@@ -341,7 +354,7 @@ cmd_fetch() {
   mkdir -p "$OUTD/$run" || die 2 "회수 폴더 생성 실패: $OUTD/$run"
   for f in out.md TASK.md; do
     dest="$OUTD/$run/$f"
-    rsc "$R_CAT" "$dir" "$f"; rc=$?
+    rcall "$R_CAT" "$dir" "$f"; rc=$?
     case "$rc" in 124|255) die 5 "원격 실패·시간 초과(rc=$rc): $(tail2 "$RERR")";; esac
     if [ "$rc" = 0 ] && [ -s "$ROUTF" ] && cp "$ROUTF" "$dest"; then
       n=$((n + 1)); say "FETCH $dest"
@@ -359,18 +372,22 @@ cmd_close() {
   _opened "$name" || die 5 "이 도구가 연 세션이 아니다 — 남의 세션은 닫지 않는다: $name"
   local dir sid cr pth has want got kid; dir="$(field "$name" 3)"; [ -n "$dir" ] || die 2 "상태 기록이 깨졌다: $name"
   sid="$(field "$name" 5)"; cr="$(field "$name" 6)"; pth="$(field "$name" 7)"
-  rsc "$R_LOOKUP" "$name" || die 6 "세션 조회 실패 — 닫힘으로 보지 않는다(기록 유지): $(tail2 "${RERR:-$ROUT}")"
+  rcall "$R_LOOKUP" "$name" "$dir" || die 6 "세션 조회 실패 — 닫힘으로 보지 않는다(기록 유지): $(tail2 "${RERR:-$ROUT}")"
   has="$(kv "$ROUT" has)"; kid=""
   if [ "$has" = 0 ]; then
     [ "$(kv "$ROUT" drc)" = 0 ] || die 6 "세션 신원 조회 실패 — 건드리지 않는다(기록 유지)"
-    [ -n "$sid" ] && [ -n "$cr" ] && [ -n "$pth" ] || die 3 "신원 기록이 없다 — 이 도구가 연 세션인지 확인할 수 없다 · 건드림 0: $name"
-    want="$sid $cr $pth"; got="$(kv "$ROUT" ident)"
-    ident_same "$got" "$want" || die 3 "다른 세션이다 — 같은 이름이지만 신원이 다르다(기록 $want / 지금 $got) · 건드림 0: $name"
-    kid="$sid"
+    got="$(kv "$ROUT" ident)"; kid="${got%% *}"
+    [ -n "$kid" ] || die 6 "세션 신원이 비어 있다 — 건드리지 않는다(기록 유지)"
+    if [ -n "$sid" ] && [ -n "$cr" ] && [ -n "$pth" ]; then
+      want="$sid $cr $pth"
+      ident_same "$got" "$want" || die 3 "다른 세션이다 — 같은 이름이지만 신원이 다르다(기록 $want / 지금 $got) · 건드림 0: $name"
+    else   # pending(마감·실패로 신원을 못 채운 open) — 지금 그 이름 세션의 폴더가 기록 폴더일 때만
+      [ "$(kv "$ROUT" dirmatch)" = 1 ] || die 3 "다른 세션이다 — pending 기록의 폴더 $dir 와 지금 세션 폴더가 다르다(지금 $got) · 건드림 0: $name"
+    fi
   elif ! absent_rc "$has"; then
     die 6 "세션 조회 결과를 알 수 없다(has=${has:-?}) — 닫힘으로 보지 않는다(기록 유지): $name"
   fi
-  rsc "$R_KILL" "$kid" "$name" "$dir" || die 6 "닫기 명령 실패(기록 유지): $(tail2 "${RERR:-$ROUT}")"
+  rcall "$R_KILL" "$kid" "$name" "$dir" || die 6 "닫기 명령 실패(기록 유지): $(tail2 "${RERR:-$ROUT}")"
   printf '%s\n' "$ROUT" | sed 's/^/[sat]   /'
   grep -q "session=gone pi_left=0 err=0" <<<"$ROUT" || die 6 "닫기 확인 실패 — 세션/프로세스가 남았거나 확인이 안 됐다(강제 kill 은 하지 않는다 · 기록 유지): $name"
   rowdel "$name"
