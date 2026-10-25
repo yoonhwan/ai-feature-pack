@@ -1,0 +1,149 @@
+# BYZ 가지 nano/r899-team-move-cleanup-stale-paths 워크트리 기준 코드 칸(실행 경로 12파일 고침 + design/TEAM-MOVE-ALLOW.tsv) · 좌석 칸은 사본 프로젝트
+CLS CODE-FIXTURE harness code tests/fixtures/issue_close/closed-partial-two-sha.json:1 design/harness/ — 이슈 닫기 판정 픽스처 — 옛 경로 글자를 입력으로 쓰는 고정 데이터(경로를 열지 않음)
+CLS CODE-FIXTURE harness code tests/fixtures/issue_close/closed-with-6items-canon.json:1 design/harness/ — 이슈 닫기 판정 픽스처 — 옛 경로 글자를 입력으로 쓰는 고정 데이터(경로를 열지 않음)
+CLS CODE-FIXTURE v65 code clients/web/__tests__/fixtures/main-6c22cefe01/v65-owner-source-join.ts:2 design/v65/ — main 6c22cefe01 시점 코드 사본 픽스처 — 주석 속 설계 글자(실행 0 · 사본 바이트 보존)
+CLS CODE-FIXTURE v65 code tests/fixtures/issue_close/closed-partial-two-sha.json:1 design/v65/ — 이슈 닫기 판정 픽스처 — 옛 경로 글자를 입력으로 쓰는 고정 데이터(경로를 열지 않음)
+CLS CODE-FIXTURE v65 code tests/fixtures/issue_close/closed-with-5items.json:1 design/v65/ — 이슈 닫기 판정 픽스처 — 옛 경로 글자를 입력으로 쓰는 고정 데이터(경로를 열지 않음)
+CLS CODE-FIXTURE v65 code tests/fixtures/issue_close/closed-with-6items-canon.json:1 design/v65/ — 이슈 닫기 판정 픽스처 — 옛 경로 글자를 입력으로 쓰는 고정 데이터(경로를 열지 않음)
+CLS CODE-FIXTURE v65 code tests/fixtures/issue_close/closed-with-6items-no-impact.json:1 design/v65/ — 이슈 닫기 판정 픽스처 — 옛 경로 글자를 입력으로 쓰는 고정 데이터(경로를 열지 않음)
+CLS CODE-RUN ccu code design/ccu/runs/created-resources.json:50 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code design/ccu/runs/created-resources.json:82 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code design/ccu/runs/created-resources.json:95 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code design/ccu/runs/created-resources.json:110 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code design/ccu/runs/created-resources.json:131 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code design/ccu/runs/created-resources.json:154 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code design/ccu/runs/created-resources.json:182 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code design/ccu/runs/created-resources.json:260 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code design/ccu/runs/created-resources.json:262 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code design/ccu/runs/created-resources.json:275 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code design/ccu/runs/created-resources.json:284 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code design/ccu/runs/created-resources.json:286 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code design/ccu/runs/created-resources.json:296 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code design/ccu/runs/created-resources.json:309 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code design/ccu/runs/created-resources.json:335 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code design/ccu/runs/created-resources.json:356 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code design/ccu/runs/created-resources.json:382 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code design/ccu/runs/created-resources.json:453 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code design/ccu/tools/job_round.sh:11 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code design/ccu/tools/job_round.sh:21 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code design/ccu/tools/job_round.sh:24 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code design/ccu/tools/job_round.sh:25 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code design/ccu/tools/job_round.sh:29 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code design/ccu/tools/job_round.sh:30 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code design/ccu/tools/job_round.sh:34 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code design/ccu/tools/job_round.sh:78 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code design/ccu/tools/job_round.sh:82 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code design/ccu/tools/job_round.sh:95 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code design/ccu/tools/job_round.sh:97 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code design/ccu/tools/job_round.sh:98 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code design/ccu/tools/job_round.sh:101 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code design/ccu/tools/job_round.sh:102 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code design/ccu/tools/round.sh:7 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code design/ccu/tools/round.sh:10 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code design/ccu/tools/round.sh:12 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code design/ccu/tools/round.sh:16 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code design/ccu/tools/round.sh:17 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code design/ccu/tools/round.sh:22 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code design/ccu/tools/round.sh:25 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code design/ccu/tools/round.sh:33 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/aggregate.py:38 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/aggregate.py:39 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/aggregate.py:74 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/conditions.py:23 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/credits_job.py:58 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/finalize.py:161 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/finalize.py:172 design/ccu/ — 실행 글자
+CLS CODE-FIXTURE-UNLISTED ccu code tests/e2e/ccu_stress/fixtures/teardown/created-resources.post-r5.json:193 design/ccu/ — 시험 데이터 · 허용 목록에 없음
+CLS CODE-FIXTURE-UNLISTED ccu code tests/e2e/ccu_stress/fixtures/teardown/created-resources.post-r5.json:195 design/ccu/ — 시험 데이터 · 허용 목록에 없음
+CLS CODE-FIXTURE-UNLISTED ccu code tests/e2e/ccu_stress/fixtures/teardown/created-resources.post-r5.json:213 design/ccu/ — 시험 데이터 · 허용 목록에 없음
+CLS CODE-FIXTURE-UNLISTED ccu code tests/e2e/ccu_stress/fixtures/teardown/created-resources.post-r5.json:215 design/ccu/ — 시험 데이터 · 허용 목록에 없음
+CLS CODE-FIXTURE-UNLISTED ccu code tests/e2e/ccu_stress/fixtures/teardown/created-resources.pre-r5.json:175 design/ccu/ — 시험 데이터 · 허용 목록에 없음
+CLS CODE-FIXTURE-UNLISTED ccu code tests/e2e/ccu_stress/fixtures/teardown/created-resources.pre-r5.json:177 design/ccu/ — 시험 데이터 · 허용 목록에 없음
+CLS CODE-FIXTURE-UNLISTED ccu code tests/e2e/ccu_stress/fixtures/teardown/created-resources.pre-r5.json:193 design/ccu/ — 시험 데이터 · 허용 목록에 없음
+CLS CODE-FIXTURE-UNLISTED ccu code tests/e2e/ccu_stress/fixtures/teardown/created-resources.pre-r5.json:195 design/ccu/ — 시험 데이터 · 허용 목록에 없음
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/ops_state.py:164 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/ops_state_rows.py:7 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/pool_base.py:21 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/provision.py:25 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/retired_gate.py:9 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/retired_record.py:15 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/runner.py:127 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/runner.py:143 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/runner.py:174 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/runner.py:185 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/safe_evidence.py:126 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/stair_judge.py:16 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/teardown_world.py:13 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_a1_instruments.py:11 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_audio_plan.py:10 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_b0_check.py:10 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_build_branch_ref.py:7 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_c19_tag_table.py:9 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_c9_prep_tools.py:12 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_c9_prep_tools.py:13 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_c9_wall_ext_counts.py:11 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_clone_db_isolation.py:10 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_clone_db_isolation.py:22 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_clone_manifest_rules.py:10 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_conditions.py:55 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_env_key_diff.py:7 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_gcloud_observation.py:13 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_instance_count.py:10 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_isolation_preflight.py:12 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_job_clone.py:20 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_job_clone.py:23 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_job_round_dry_run.py:9 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_job_round_dry_run.py:11 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_job_round_dry_run.py:14 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_job_round_dry_run.py:20 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_job_round_dry_run.py:22 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_job_round_dry_run.py:53 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_job_round_dry_run.py:54 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_live_guard.py:9 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_log_count.py:10 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_log_count.py:12 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_ops_state.py:23 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_ops_state_wiring.py:10 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_ops_state_wiring.py:21 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_pool_reuse.py:70 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_press.py:109 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_redis_keyspace_probe.py:13 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_redis_probe_state_mode.py:12 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_redis_probe_state_mode.py:13 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_redis_state_probe.py:9 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_redis_state_probe_cli.py:9 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_render_clone_manifest.py:10 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_render_clone_manifest.py:22 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_retired_guard.py:10 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_retired_guard.py:11 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_retired_guard.py:14 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_revision_logs.py:9 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_round_dry_run.py:11 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_round_dry_run.py:28 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_round_dry_run.py:29 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_round_dry_run.py:33 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_round_extra_metrics.py:13 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_round_layer_metrics.py:19 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_round_pool_guard.py:12 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_round_report.py:8 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_round_tools_root_path.py:17 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_round_tools_root_path.py:22 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_round_tools_root_path.py:23 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_round_tools_root_path.py:38 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_round_tools_root_path.py:55 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_round_wait_not_orphan.py:12 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_seg_breakdown.py:10 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_stair.py:12 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_stair_ext_block.py:14 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_stair_ext_block_repr.py:16 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_stair_ext_block_shapes.py:15 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_teardown_revise4.py:12 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_teardown_revise6.py:76 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_teardown_revise6.py:79 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_tools_cli_boundary.py:9 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_vllm_delta.py:8 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_vllm_sampler.py:11 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/test_vu.py:128 design/ccu/ — 실행 글자
+CLS CODE-RUN ccu code tests/e2e/ccu_stress/wire_harness.py:16 design/ccu/ — 실행 글자
+CLASSIFY LIVE-OK=7 LIVE-FIX=0 LIVE-HAND=21 ARCHIVE=2309 KEEP-FIX=14 KEEP-LINEAGE=16 CODE-RUN=131 CODE-NOTE=430 CODE-RECORD=12 CODE-FIXTURE=7 CODE-FIXTURE-UNLISTED=8
+rc=0
