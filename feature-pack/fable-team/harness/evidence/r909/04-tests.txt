@@ -1,0 +1,33 @@
+# r909 기존 묶음 — 분류기·비밀 판정기 시험 (세트: c2357be8cb7472cf14e3e85d56394ab954007e50)
+
+== test_autonomy_scope_classify.sh rc=1
+   PASS 67
+   FAIL 원장 행 있음 → 착지 rc0 · LANDED :: rc=1 out=REJECT 대상 리포 remote URL 해석 실패(fetch·push URL 이 같은 github owner/name 이어야) — 어느 리포 PR 인지 몰라 착지 0 (착지 0)
+   FAIL 원장 착지 sha 칸 = 착지 sha :: rc=1 out=REJECT 대상 리포 remote URL 해석 실패(fetch·push URL 이 같은 github owner/name 이어야) — 어느 리포 PR 인지 몰라 착지 0 (착지 0)
+   FAIL 원장 되돌림 명령 칸 = git revert --no-edit <착지 sha> :: rc=1 out=REJECT 대상 리포 remote URL 해석 실패(fetch·push URL 이 같은 github owner/name 이어야) — 어느 리포 PR 인지 몰라 착지 0 (착지 0)
+   FAIL 원장 없음 → 출력 변화 0 · 착지 rc0 :: rc=1 out=REJECT 대상 리포 remote URL 해석 실패(fetch·push URL 이 같은 github owner/name 이어야) — 어느 리포 PR 인지 몰라 착지 0 (착지 0)
+   FAIL 원장 쓰기 실패 → WARN 1줄 · 착지 rc0 · 행 불변 :: rc=1 out=REJECT 대상 리포 remote URL 해석 실패(fetch·push URL 이 같은 github owner/name 이어야) — 어느 리포 PR 인지 몰라 착지 0 (착지 0)
+   FAILED 5
+== test_r559_scope_team_folder_docs.sh rc=1
+   PASS 40
+   FAIL ⓙ 기존 시험 파일 base 대조 diff = 승인된 f10 1칸만(2줄) :: rc=0 out=1000=0.22s 6676=0.84s CLASS ff / CLASS ff
+   FAIL ⓙ 기존 분류기 시험 rc0(ALL PASS) :: rc=0 out=1000=0.22s 6676=0.84s CLASS ff / CLASS ff
+   FAILED 2
+== test_autonomy_scope_pack.sh rc=0
+   PASS 13
+== test_autonomy_scope_plain3_r658.sh rc=0
+   PASS 27
+== test_secret_output_mask.sh rc=0
+   PASS 15
+
+== pytest tests/scripts/test_ft_secret_judge.py test_ft_secret_shapes.py
+FAILED tests/scripts/test_ft_secret_judge.py::test_lib_secret_timeout_env_can_only_shrink
+1 failed, 433 passed in 89.80s (0:01:29)
+
+== ruff(바뀐 .py 4개)
+All checks passed!
+
+## pytest 실패 1건 해석 — 7초 타임아웃 시험(load average 32.66 · 이 머신에 좌석 다수 가동)
+- 실패 시험은 실행마다 바뀐다(test_lib_secret_hung_gcloud_times_out_at_7s_with_one_retry ↔ test_lib_secret_timeout_env_can_only_shrink) = 벽시계 예산 시험의 부하 flake.
+- 내 변경이 닿는 파일 아님: `git diff origin/main -- bin/ft-secret-lib.sh bin/ft-hil.sh` = 0줄.
+- 나머지 433 passed · kit 사본 동일 시험(test_kit_copies_are_byte_identical) 포함 통과.
