@@ -1,0 +1,33 @@
+# 반례 3종 실측 (r2 기반 aad778cf) — 2026-10-27
+# R1 없는 PROJ 경로 주입 → «사본 없음» 1줄 FAIL · 127 다발 0 · rc=1
+ok   KIT bash -n → 0
+ok   KIT Sonnet 5 3번째 Edit → 2
+ok   KIT Sonnet 5.5 3번째 Edit → 0
+ok   KIT Fable 3번째 Edit → 2
+ok   KIT agent_id 있음 3번째 Edit → 0
+FAIL PROJ 사본 없음 — /nonexistent/orchestration-gate.sh (경로를 ORCH_GATE_PROJ 로 주거나 skill/templates 사본을 둔다)
+ok   사본 수 ≥ 2 → yes
+ok   팩 안 사본 전부 = 정본 cmp0 → 
+LIVE 정본과 cmp0 — /Users/yoonhwan/.claude/hooks/orchestration-gate.sh
+pass=7 fail=1
+r1 rc=1
+
+# R2 skill 사본에 1줄 변이 추가 → cmp 단언 FAIL · rc=1 (복원 뒤 cmp0 확인)
+FAIL 팩 안 사본 전부 = 정본 cmp0 → 기대  · 실제  skill/templates/hooks/orchestration-gate.sh
+LIVE 정본과 cmp0 — /Users/yoonhwan/.claude/hooks/orchestration-gate.sh
+pass=11 fail=1
+r2 rc=1
+
+# R3 라이브 경로 없음 주입 → «LIVE 없음» 1줄 · rc=0(설치 판정은 master 몫)
+LIVE 없음 — /nonexistent/live.sh
+pass=12 fail=0
+r3-missing rc=0
+
+# ⓒ 팩 안 orchestration-gate.sh 사본 목록 (git ls-files)
+harness/kit/fable-team/templates/hooks/orchestration-gate.sh
+skill/templates/hooks/orchestration-gate.sh
+# 정본 = harness/kit/fable-team/templates/hooks/orchestration-gate.sh · 전 사본 cmp0:
+cmp0 harness/kit/fable-team/templates/hooks/orchestration-gate.sh
+cmp0 skill/templates/hooks/orchestration-gate.sh
+# 라이브 설치 사본 정본 대조:
+cmp0 ~/.claude/hooks/orchestration-gate.sh (설치 0 · kit 판 불변)
