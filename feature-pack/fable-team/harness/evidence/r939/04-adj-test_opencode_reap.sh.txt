@@ -21,7 +21,7 @@ PASS ⓑ 남의 opencode other-run 생존
 PASS ⓑ 남의 opencode other-serve 생존
 PASS ⓐ pane 셸(opencode 아님) 은 kill-session 몫 — 신호 0
 == ⓒ TERM 무시 스텁 → KILL 로 left=0
-/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.oBAhAWT4P7/stub/opencode: 줄 1:  9272 Killed: 9                  OC_PIDOUT="$1-run" "$0" run
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.ReGoetO8Er/stub/opencode: 줄 1: 81799 Killed: 9                  OC_PIDOUT="$1-run" "$0" run
 PASS ⓒ TERM 무시 → left=0 rc 0
 PASS ⓒ TERM 무시 serve 소멸(KILL)
 == ⓓ 못 멈추면 rc 1 + oc-left 줄(FT_REAP_NOSIGNAL) · 닫기 FAIL 은 test_nano_close_fail_closed ⓗ

@@ -1,9 +1,10 @@
-## 2026-10-26 — r939 승계(retire)는 띄운 DA·설치를 죽이지 않고 후계에게 넘긴다 (1.1.246)
+## 2026-10-26 — r939 승계(retire)는 «스스로 등록한 곧 끝나는 일»을 죽이지 않고 후계에게 넘긴다 (1.1.246)
 
-- ft-seat-reap.sh `--handover <후계>`: «곧 끝나는 일»(명령줄의 실행 스크립트가 ft-da-codex.sh·install.sh·ft-scratch-repo.sh ∨ `timeout <n>` ∨ env FT_BG_FINITE=1)은 신호 0 으로 넘긴다. 명령줄에 루프 표식(while·until·done·tail -f)이 보이면 넘기지 않는다(허용 목록 «글자» 흉내 차단). 넘긴 뿌리의 자손도 같이 넘긴다. 넘김마다 `reap-handover pid=… cmd=… to=<후계>` · 끝 줄에 `handed=<n>`(닫기 출력 회귀 0).
-- 넘김 목록은 재개 기록(`ZC_RESUME_DIR·기본 ~/.claude/state/seat-resume`)/<좌석>.json 의 "handed" 칸(pid·cmd·started·at)에 남는다 — ft-seat-retire.sh 가 재개 기록을 쓴 뒤 `--handover <후계>` 로 부르므로 후계 부팅 때 보인다. 기록이 없으면 곁파일 `<좌석>.handed.json`(깨진 재개 기록은 덮지 않는다).
-- ft-leak-reap.sh: 넘긴 작업이 retire 시각 + 70분(`FT_HANDOVER_REPORT_MIN`)을 넘게 살아 있으면 `handover-stale …` 1줄 보고 — 죽이지 않고 유출 수·killed·rc 에 안 섬김.
-- 시험 test_seat_handover_r939.sh ALL PASS(ⓐ~ⓔ + 변이 3종) · bash 3.2 · 짝 사본 cmp0 · 인접 10건 PASS.
+- **판정을 «짐작»에서 «등록» 으로 (DA⑥ r1 반송 H1)** — ft-bg-finite.sh 신규: 끝나는 작업을 띄우는 도구(ft-da-codex.sh · install.sh · ft-scratch-repo.sh)가 시작할 때 자기 pid·pgid·lstart·상한을 장부 `<데이터 루트>/.fable-team/state/bg-finite.tsv` 에 한 줄 적고 trap EXIT 에서 지운다. 명령줄 허용 목록·env 판정은 지웠다.
+- ft-seat-reap.sh `--handover <후계>`: 장부에서 «이 좌석 ∧ pid 살아 있음 ∧ lstart 같음 ∧ 상한 전» 줄의 pgid 전체 + 자손만 넘긴다. 글자·인자 속 while·`timeout 999999` 로는 넘지 않고, 반대로 명령줄에 while·install.sh 글자가 있어도 등록된 작업은 넘는다. 등록 안 한 도구는 `reap-unregistered` 1줄로 보이게 남기고 지금처럼 정지.
+- **H2** 넘김은 장부의 좌석 칸을 후계로 바꾸는 것(flock + 읽기-병합-원자 교체 · 다른 줄 보존) — 후계의 다음 retire·닫기가 같은 장부로 그 작업을 본다. 재개 기록의 "handed" 칸은 보기용 사본으로만 남는다. 닫기(후계 없음)는 이 좌석의 등록 작업을 정리하고 죽은 줄을 prune 한다.
+- **H3** 넘김 분리를 press 미룸보다 먼저 — press 점유 중 retire 도 DA 를 넘기고, 그 뒤 정리에서 reap 0. 상한 지난 장부 줄은 ft-leak-reap 이 `handover-stale` 로 보고만 하고(죽이지 않음) 상태를 stale 로 표시, 죽은 pid 줄은 지운다.
+- 시험 test_seat_handover_r939.sh ALL PASS(ⓐ~ⓖ + 변이 4종) · /bin/bash 3.2 ALL PASS · 인접 20건 rc0 · 짝 사본 cmp0(bin 5 + kit) · 등록 실패는 도구 stdout 계약을 흔들지 않는다(넘김 대상 아님 = 오늘과 같은 reap).
 
 ## 2026-10-26 — r922a 초안 모드 골 표 검증 실패 = planner [긴급] 대신 WARN 1줄 (1.1.245)
 

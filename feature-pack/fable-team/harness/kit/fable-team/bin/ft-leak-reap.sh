@@ -35,12 +35,15 @@ esac; done
 
 PY="$(command -v python3 2>/dev/null || true)"
 [ -n "$PY" ] || { echo "ft-leak-reap: ERROR python3 없음 — 조사 못 함" >&2; exit 20; }
+HERE0="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"; BGF0="$HERE0/ft-bg-finite.sh"
+LDG0="${FT_BG_FINITE_LEDGER:-}"
+if [ -z "$LDG0" ] && [ -f "$HERE0/ft-harness-root.sh" ]; then DR="$(. "$HERE0/ft-harness-root.sh" && ft_data_root "$HERE0" 2>/dev/null)" || DR=""; LDG0="${DR:+$DR/.fable-team/state/bg-finite.tsv}"; fi
 
 # → stdout: 후보 TSV(pid \t lstart \t cpu초 \t 명령 앞 160자) + 끝줄 «#fp <8자>». 조사 실패 = exit 20(stderr 1줄).
-found="$("$PY" - "$MIN_CPU" "$SNAP_OUT" <<'PY'
+found="$("$PY" - "$MIN_CPU" "$SNAP_OUT" "$LDG0" "$BGF0" <<'PY'
 import datetime, glob, hashlib, json, os, re, shlex, subprocess, sys, time
 
-snap_out = sys.argv[2]
+snap_out, LEDGER, BGF = sys.argv[2], sys.argv[3], sys.argv[4]
 DEFAULT_PS = "ps -axo pid=,ppid=,lstart=,time=,command="   # r670: 판정에 쓰는 필드만(pgid·stat 제거) — 부하 꼭대기의 ps 비용을 줄인다
 CMD_MAX = 512        # 긴 명령 줄은 앞 512자만 판정·출력(스냅샷 파일은 ps 출력 그대로 쓴다)
 SIGS = ("while :; do :; done", "while true; do :; done", "while [ 1 ]; do :; done", "while :;do :;done", "while true;do :;done")
@@ -167,24 +170,31 @@ for pid, lstart, cpu, cmd in rows:
 if rows:
     print("#fp " + hashlib.sha1("\n".join(sorted(f"{p}|{s}" for p, s, _, _ in rows)).encode()).hexdigest()[:8])
 
-def stale_handed():   # r939 ⓔ — 넘긴 작업이 retire 뒤 이만큼 넘게 살아 있으면 보고(죽이지 않음 · 줄 1)
-    try: minho = float(os.environ.get("FT_HANDOVER_REPORT_MIN", "70"))
-    except ValueError: minho = 70.0
-    rd = os.environ.get("ZC_RESUME_DIR") or os.path.expanduser("~/.claude/state/seat-resume")
-    now, n, live = time.time(), 0, {r[0] for r in table}
-    for f in sorted(glob.glob(os.path.join(rd, "*.json"))):
-        try: rec = json.load(open(f, encoding="utf-8"))
-        except (OSError, ValueError) as e:
-            print(f"ft-leak-reap: WARN 넘김 목록 못 읽음 {f}: {e}", file=sys.stderr); continue
-        ents = rec.get("handed") if isinstance(rec, dict) else None
-        for e in (ents if isinstance(ents, list) else []):
-            if not (isinstance(e, dict) and isinstance(e.get("pid"), int)): continue
-            try: at = datetime.datetime.fromisoformat(str(e.get("at") or ""))
-            except ValueError: continue
-            age = (now - at.timestamp()) / 60
-            if age < minho or e["pid"] not in live: continue   # 이만큼 안 됐거나 이미 끝났다 — 보고 0
-            print(f"#handover-stale pid={e['pid']} at={e['at']} age={int(age)}m cmd={str(e.get('cmd') or '')[:100]}"); n += 1
+def stale_handed():   # r939 H3 — 장부의 «상한 지난 등록 줄» 보고(죽이지 않음) · 죽은 pid 줄은 지운다 · 줄 stale 표시
+    if not LEDGER: return 0
+    try: lines = open(LEDGER, encoding="utf-8").read().splitlines() if os.path.exists(LEDGER) else []
+    except OSError as e:
+        print(f"ft-leak-reap: WARN 장부 못 읽음 {LEDGER}: {e}", file=sys.stderr); return 0
+    now, n, live, dead = time.time(), 0, {r[0] for r in table}, []
+    stale = []
+    for ln in lines:
+        f = ln.split("\t")
+        try: pid, until = int(f[1]), int(f[4])
+        except (IndexError, ValueError): continue
+        if pid not in live: dead.append(pid); continue      # 끝난 작업 — 줄을 지운다(영원히 남기지 않음)
+        if until > now: continue                            # 상한 전 — 보고 0
+        stale.append(pid)
+        print(f"#handover-stale pid={pid} until={until} age={int((now - until) / 60)}m cmd={(f[6] if len(f) > 6 else '')[:100]}"); n += 1
+    if dead or stale:
+        if dead: bgf("prune", [str(p) for p in dead])
+        if stale: bgf("stale", [str(p) for p in stale])
     return n
+def bgf(mode, args):   # 장부 쓰기는 ft-bg-finite.sh 하나 — prune(죽은 줄) · stale(상한 지난 줄 표시)
+    env = {**os.environ, "FT_BG_FINITE_LEDGER": LEDGER}
+    try: r = subprocess.run(["bash", BGF, mode, *args], capture_output=True, text=True, timeout=7, env=env)
+    except (OSError, subprocess.SubprocessError) as e:
+        print(f"ft-leak-reap: WARN 장부 {mode} 실패: {e}", file=sys.stderr); return
+    if r.returncode != 0: print(f"ft-leak-reap: WARN 장부 {mode} rc={r.returncode}: {r.stderr.strip()[:160]}", file=sys.stderr)
 stale_handed()
 PY
 )"; prc=$?

@@ -46,6 +46,9 @@ for _t in /opt/homebrew/bin/tmux /usr/local/bin/tmux; do [ -n "$TMUX_BIN" ] || {
 [ -z "${FT_TMUX_TMPDIR:-}" ] || export TMUX_TMPDIR="$FT_TMUX_TMPDIR"
 tmux_sessions() { [ -n "$TMUX_BIN" ] || return 127; "$TMUX_BIN" ${FT_TMUX_SOCKET:+-S "$FT_TMUX_SOCKET"} list-sessions -F '#{session_name}' 2>/dev/null; }
 mkdir -p "$STATE" 2>/dev/null || die "상태 폴더 생성 실패: $STATE" 4
+# r939 H1: «곧 끝나는 일» 자기 등록 — 승계(retire)가 이 사본 생성을 죽이지 않고 후계에게 넘긴다(장부 state/bg-finite.tsv)
+bash "$HERE/ft-bg-finite.sh" register "${FT_SEAT:--}" "${FT_BG_FINITE_SCRATCH_SEC:-1200}" "$$" "ft-scratch-repo.sh $*" >/dev/null 2>&1 || true   # 등록 실패 = 넘김 대상 아님(오늘과 같은 reap) — 도구 stdout 계약을 흔들지 않는다
+trap 'bash "$HERE/ft-bg-finite.sh" unregister $$ >/dev/null 2>&1 || true' EXIT
 gib() { awk -v k="$1" 'BEGIN{ if (k ~ /^[0-9]+$/) printf "%.2f", k/1048576; else printf "?" }'; }
 kb()  { $TMO du -sk "$1" 2>/dev/null | awk '{print $1}'; }
 drop_reg() { grep -v "^$1	" "$TSV" > "$TSV.tmp.$$"; mv "$TSV.tmp.$$" "$TSV"; }

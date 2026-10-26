@@ -22,17 +22,19 @@ PASS ⓐdry ① pane 자손
 PASS ⓐdry ② L1
 PASS ⓐdry ② L2
 PASS ⓐdry 남의 좌석·보호 exe 후보 0
+ft-seat-reap: WARN 장부 prune rc=20: ft-bg-finite: ERROR 데이터 루트를 못 풂(FT_ROOT 없음 · LIVE_ROOT 없음) — 장부 자리 모름
 PASS ⓐ끝 줄 stopped≥5 left=0 rc=0
 PASS ⓐA 루프 2 · cwd 고아 정지
 PASS ⓐ남의 좌석 B · 보호 exe 생존
 PASS ⓐpane 자손 0 · 세션 생존
 == ⓑ 못 멈춤 → left=1 rc=1 · ft-seat-close CLOSE-FAIL(세션 생존) → 신호 켜면 CLOSED-SESSION … reap left=0 rc=0
+ft-seat-reap: WARN 장부 prune rc=20: ft-bg-finite: ERROR 데이터 루트를 못 풂(FT_ROOT 없음 · LIVE_ROOT 없음) — 장부 자리 모름
 PASS ⓑNOSIGNAL rc 1 · left=1
 PASS ⓑclose rc 1
 PASS ⓑCLOSE-FAIL reap left=1 rc=1
 PASS ⓑ세션 생존 · 루프 생존
 PASS ⓑ신호 켬 → rc 0 · CLOSED-SESSION … kill=ok reap left=0 rc=0
-PASS ⓑ세션 없음 · 루프 정지 · FT_SEAT=r448t-98657#0 잔존 0
+PASS ⓑ세션 없음 · 루프 정지 · FT_SEAT=r448t-19525#0 잔존 0
 == ⓒ ft-seat-retire --orphans-only — 고아만 정지 · 살아 있는 좌석 세션 그대로 · 못 멈춤 = CLOSE-FAIL rc 1
 PASS ⓒRETIRED · reap left=0 rc=0 · rc 0
 PASS ⓒ고아 정지 · 세션 생존
@@ -45,6 +47,7 @@ PASS ⓓstop-file → 1주기 안 · reason=stop-file
 PASS ⓓcmd-exit → rc 3 · reason=cmd-exit rc=3
 PASS ⓓ--max-sec 없음 → usage rc 2
 PASS ⓓ--stop-file 없음 → usage rc 2
+ft-seat-reap: WARN 장부 prune rc=20: ft-bg-finite: ERROR 데이터 루트를 못 풂(FT_ROOT 없음 · LIVE_ROOT 없음) — 장부 자리 모름
 PASS ⓓreap 이 래퍼(②b argv --seat) 찾아 정지 · 자식 0
 == ⓓ ft-bg-loop-lint — 래퍼 밖 루프 ERR(줄 번호) · 래퍼 안 OK · --range = 가지가 추가·수정한 design/·tests/e2e/ 만
 PASS ⓓguard.sh 꼴 → ERR :3 · rc 1
