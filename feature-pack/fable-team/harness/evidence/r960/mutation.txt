@@ -9,3 +9,8 @@
 == close_norec_quiet: ft-seat-close.sh 의 `echo "$NOLINE"` → ':' 로 끄면 ⓡ 이 NORECORD 줄 0 으로 FAIL
 == pi_model_firstline: ft_roster_lib.py 의 `# r960-mut:firstline` 줄을 옛 판(머리 modelId 만)으로 되돌리면 ⓢ 가 `model 못 읽음` 으로 FAIL
 (두 변이 다 사본에 글자만 바꿔 테스트 안에서 재실행 — 원문 = test-green.txt 의 ⓡ/ⓢ 변이 줄)
+
+# r3 추가 변이 (재설계 축 — 출력 함수 하나)
+== dead_branch_exit_first: ft-seat-close.sh 의 죽은 갈래 줄을 «직접 echo + exit 0»(finish 앞)으로 바꾸면 ⓣ 가 NORECORD 줄 0 으로 FAIL
+== finish_norec_quiet: finish() 의 NORECORD 출력 줄을 ':' 로 끄면 ⓡ 이 FAIL (r2 변이 자리 이동)
+(문자열 안전망 칸 = ⓤ — finish 밖 exit 0 / 직접 echo 를 세므로 갈래가 늘어도 잡는다)

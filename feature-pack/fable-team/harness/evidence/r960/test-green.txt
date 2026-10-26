@@ -1,6 +1,6 @@
-# r960 r2 시험 — 신규 2 + 기존 회귀 (2026-10-26 · /bin/bash 3.2)
+# r960 r3 시험 — 신규 2 + 기존 회귀 (2026-10-26 · /bin/bash 3.2)
 == test_nano_close_card_branch_r960.sh rc=0 21 PASS · 0 FAIL
-== test_seat_close_pi_resume_r960.sh rc=0 37 PASS · 0 FAIL
+== test_seat_close_pi_resume_r960.sh rc=0 51 PASS · 0 FAIL
 == test_seat_close.sh rc=0 81 PASS · 0 FAIL
 == test_seat_retire.sh rc=0 172 PASS · 0 FAIL
 == test_seat_retire_keep.sh rc=0 13 PASS · 0 FAIL

@@ -135,8 +135,8 @@ chk "ⓢ model = 마지막 model_change.modelId" "$(J "$ZC_RESUME_DIR/pi#8.json"
 out="$(close 'pi#8' --reason "r960 model_change" --seats "$REPO/.fable-team/seats.json" --verdict 2400)"; rc=$?
 chk "ⓢ close rc 0 · 기록 경로 출력" "$rc $(printf '%s' "$out" | grep -o "record=[^ ]*")" "0 record=$ZC_RESUME_DIR/pi#8.json"
 
-n="$(mutate "$T/bin/ft-seat-close.sh" "$T/bin/ft-seat-close.mut2.sh" 'echo "$NOLINE"' ':' sub)"
-chk "변이 표지 NOLINE 출력 1줄" "$n" 1
+n="$(mutate "$T/bin/ft-seat-close.sh" "$T/bin/ft-seat-close.mut2.sh" 'elif [ "$REC" = NORECORD ]; then printf' '  :')"
+chk "변이 표지 finish NORECORD 줄 1줄" "$n" 1
 seats_pi pi#9 pi; rm -f "$SESS"; CLOSE_BIN=ft-seat-close.mut2.sh
 out="$(close 'pi#9' --reason "변이" --seats "$REPO/.fable-team/seats.json" --verdict 2400)"
 chk "ⓡ 변이 «수용 뒤 출력 생략» → NORECORD 줄 0 (ⓡ FAIL)" "$(printf '%s\n' "$out" | grep -c '^NORECORD ')" 0
@@ -150,6 +150,45 @@ out="$(retire_rec 'pi#10')"; rc=$?
 has "$out" "model 못 읽음" "ⓢ 변이 «첫 줄만» → model 못 읽음(ⓢ FAIL)"
 chk "ⓢ 변이 기록 파일 0" "$([ -f "$ZC_RESUME_DIR/pi#10.json" ] && echo yes || echo no)" no
 cp "$T/bin/ft_roster_lib.py.orig" "$T/bin/ft_roster_lib.py"
+
+echo "== ⓣ r3 DA HOLD — 죽은 pi 좌석(세션 파일·기존 기록 없음) → CLOSED-DEAD + NORECORD 줄 1"
+seats_pi pi#dead pi; rm -f "$SESS"
+out="$(FAKE_SESSION=0 close 'pi#dead' --reason "r3 죽은 pi" --seats "$REPO/.fable-team/seats.json" --verdict 2400)"; rc=$?
+chk "ⓣ rc 0 · 첫 줄 CLOSED-DEAD" "$rc $(printf '%s' "$out" | head -1 | cut -d' ' -f1-2)" "0 CLOSED-DEAD pi#dead"
+chk "ⓣ NORECORD 줄 1개" "$(printf '%s\n' "$out" | grep -c '^NORECORD ')" 1
+has "$out" "NORECORD pi#dead pi 세션 없음 — 산출 커밋 보존" "  └ NORECORD 줄에 좌석·사유"
+chk "ⓣ 명부 닫힘(stop-ready · _closed.dead)" "$(J "$REPO/.fable-team/seats.json" '.["pi#dead"]|[.role,._closed.dead]|join(",")')" "stop-ready,true"
+
+echo "== ⓤ 갈래 묶음(살아 있음 · 죽음 · HELD) × (세션 파일 있음 · 없음) → 각각 재개 기록 경로 또는 NORECORD 줄"
+rec_or_norec() { printf '%s\n' "$1" | grep -qE '^(NORECORD |RESUME ok )|record=/[^ ]+' && echo yes || echo no; }
+seats_pi pi#u1 pi; pifile "$NOW"
+out="$(close 'pi#u1' --reason "ⓤ 살아있음+파일" --seats "$REPO/.fable-team/seats.json" --verdict 2400)"; rc=$?
+chk "ⓤ 살아있음+세션파일 → 재개 기록 경로" "$rc $(rec_or_norec "$out")" "0 yes"
+seats_pi pi#u2 pi; rm -f "$SESS"
+out="$(close 'pi#u2' --reason "ⓤ 살아있음+없음" --seats "$REPO/.fable-team/seats.json" --verdict 2400)"
+chk "ⓤ 살아있음+세션없음 → NORECORD 줄 1" "$(rec_or_norec "$out") $(printf '%s\n' "$out" | grep -c '^NORECORD ')" "yes 1"
+seats_pi pi#u3 pi; pifile "$NOW"
+out="$(FAKE_SESSION=0 close 'pi#u3' --reason "ⓤ 죽음+파일" --seats "$REPO/.fable-team/seats.json" --verdict 2400)"
+chk "ⓤ 죽음+세션파일 → 재개 기록 경로(RESUME ok 줄1)" "$(rec_or_norec "$out") $(printf '%s\n' "$out" | grep -c '^RESUME ok ')" "yes 1"
+seats_pi pi#u4 pi; rm -f "$SESS"
+out="$(FAKE_SESSION=0 close 'pi#u4' --reason "ⓤ 죽음+없음" --seats "$REPO/.fable-team/seats.json" --verdict 2400)"
+chk "ⓤ 죽음+세션없음 → NORECORD 줄 1" "$(rec_or_norec "$out") $(printf '%s\n' "$out" | grep -c '^NORECORD ')" "yes 1"
+seats_pi cl#u5 claude
+out="$(close 'cl#u5' --reason "ⓤ HELD" --seats "$REPO/.fable-team/seats.json" --verdict 2400)"; rc=$?
+chk "ⓤ HELD(claude 기록 없음) rc 3 · NORECORD 줄 1" "$rc $(printf '%s\n' "$out" | grep -c '^NORECORD ')" "3 1"
+
+n="$(mutate "$T/bin/ft-seat-close.sh" "$T/bin/ft-seat-close.mut3.sh" 'vlog dead; [ "$CELLS" = - ]' '  vlog dead; echo "CLOSED-DEAD $SEAT record=$RK handoff=$CELLS"; exit 0')"
+chk "변이 표지 죽은 갈래 finish 앞 exit 1줄" "$n" 1
+seats_pi pi#deadm pi; rm -f "$SESS"; CLOSE_BIN=ft-seat-close.mut3.sh
+out="$(FAKE_SESSION=0 close 'pi#deadm' --reason "변이" --seats "$REPO/.fable-team/seats.json" --verdict 2400)"
+chk "ⓣ 변이 «죽은 갈래 exit 를 함수 앞에» → NORECORD 줄 0 (ⓣ FAIL)" "$(printf '%s\n' "$out" | grep -c '^NORECORD ')" 0
+CLOSE_BIN=""
+
+echo "== ⓤ 안전망 — 갈래가 늘어도 잡는 문자열 검사(finish 밖 exit 0 = 0 · 결과 줄 직접 echo = 0 · finish 호출 ≥ 5)"
+NOFIN="$(awk '/^finish\(\)/{f=1} f&&/^}/{f=0;next} !f' "$BIN/ft-seat-close.sh" | grep -v '^[[:space:]]*#')"
+chk "finish() 밖 exit 0 = 0" "$(printf '%s\n' "$NOFIN" | grep -c 'exit 0')" 0
+chk "finish() 밖 결과 줄 직접 echo = 0" "$(printf '%s\n' "$NOFIN" | grep -cE 'echo "(CLOSED|HELD|FAIL|CLOSE-FAIL)')" 0
+chk "finish() 갈래 호출 ≥ 5" "$([ "$(grep -c 'finish [0-9]' "$BIN/ft-seat-close.sh")" -ge 5 ] && echo yes || echo no)" yes
 
 echo "== ⓖ 600/300 s · 외부 호출 0 (r960 새 줄)"
 NEWL="$(grep 'r960\|pi_seat_resume\|PI_NOREC' "$BIN/ft-seat-retire.sh" "$BIN/ft-seat-close.sh" "$BIN/ft_roster_lib.py")"

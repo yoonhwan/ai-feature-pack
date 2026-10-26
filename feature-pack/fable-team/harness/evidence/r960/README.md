@@ -53,3 +53,19 @@
 - 변이 2종 추가: «수용 뒤 출력 생략» → ⓡ FAIL · `_pi_model` 을 «첫 줄만» 로 되돌림 → ⓢ FAIL(`mutation.txt` · 시험 안에서 사본에 글자만 바꿔 재실행)
 - 시험: `test_seat_close_pi_resume_r960.sh` 25 → 37 PASS · 기존 회귀 = `test-green.txt`(16종 · 1042 PASS · 2 FAIL = 착수 전부터 빨간 2종 그대로)
 - kit 짝 cmp0 = `{ft-seat-close.sh,ft_roster_lib.py}` (줄 수 상한: close 120 ≤ 120 · retire 200 그대로)
+
+## r3 (DA⑥ r2 HOLD 1 반송 · 같은 축 2회째 = 재설계 · 반송서 = `design/harness/evidence/r960-da6/REWORK-r960-r3.md`)
+**원인(축)**: 닫기 결과 줄을 «갈래마다 따로» 찍었다 — r1 은 살아 있는 갈래, r2 는 죽은 좌석 갈래가 같은 `NORECORD` 줄을 빠뜨렸다. 갈래가 늘면 또 빠뜨린다.
+
+| 재설계 | 값 | 시험 칸 |
+|---|---|---|
+| 출력 함수 하나 | `ft-seat-close.sh` `finish()` — 모든 종료 갈래(`CLOSED-ROLE` · `CLOSED-DEAD` · `CLOSED-SESSION` · `HELD` · `FAIL`)가 이 함수로만 끝난다. 결과 줄들 다음에 ① `NORECORD <좌석> <사유>` 원문 1줄(어느 갈래든 — `NOLINE` 은 retire 출력에서 case **앞**에 잡는다) ② 원문을 못 잡았으면 `pi 세션 없음 — 산출 커밋 보존` 안전망 문구 ③ 기록 성공인데 경로가 결과 줄에 없으면 `RESUME ok <경로>` 1줄 | ⓣ ⓤ |
+| 죽은 좌석 갈래(DA r2 반례) | `CLOSED-DEAD <좌석> record=NORECORD handoff=-` + `NORECORD pi#dead pi 세션 없음 — 산출 커밋 보존 …` 2줄 · 첫 줄 형식은 r427 그대로(기존 시험 `ⓐⓑⓒ` 불변) | ⓣ |
+| 갈래 묶음 | 살아 있음/죽음 × 세션 파일 있음/없음 + HELD → 각각 «재개 기록 경로» 또는 «`NORECORD` 줄» (죽은 좌석 + 세션 파일 = `RESUME ok <경로>` 줄, HELD = `HELD …` + `NORECORD …` 2줄) | ⓤ |
+| 안전망(문자열) | `finish()` 밖 `exit 0` = 0 · `finish()` 밖 결과 줄 직접 `echo "CLOSED|HELD|FAIL…"` = 0 · `finish` 호출 갈래 ≥ 5 — 갈래가 늘어도 이 칸이 잡는다 | ⓤ |
+| 줄 수 | `ft-seat-close.sh` 118줄(상한 120) · `ft-seat-retire.sh` 200 · `ft_roster_lib.py` 112 | ⓖ |
+
+- 빨강 먼저: 고치기 전 판(HEAD 5fc418c8 = r2)으로 같은 시험 → ⓣ2 · ⓤ3 · 안전망 3 · 변이표지 2 = 11 FAIL(`red-first-r3.txt`) · 고친 판 = ALL PASS
+- 변이 3종: «죽은 갈래 exit 를 함수 앞에» → ⓣ FAIL · «finish 의 NORECORD 줄 생략» → ⓡ FAIL · «첫 줄 modelId 만» → ⓢ FAIL
+- 기존 시험 불변: `test_seat_close.sh` 81 PASS · `test_seat_resume_binding.sh` 92 PASS · `test_seat_retire*` 전부 0 FAIL
+- 덤(DA r3 요청 1줄): 격리에서 보인 `test_seat_close` 3F · `test_seat_retire_defer_press_r690` 1F 는 여기서 **base 331eb013 도 0F · 이 세트도 0F**(r690 은 부하에서 1회 흔들림 = 시험 대역 잡음 · 같은 건수 아님)
