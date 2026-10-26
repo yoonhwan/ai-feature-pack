@@ -1,3 +1,8 @@
+## 2026-10-26 — r922a 초안 모드 골 표 검증 실패 = planner [긴급] 대신 WARN 1줄 (1.1.245)
+
+- ft_news_post.py 가 초안 모드(무장)에서 골 표 검증에 실패하면 goal_gate.refuse 를 부르지 않고 WARN 1줄만 남긴다. rc·발행 0·기준선은 그대로(초안+무장 rc=3). 게이트 본체 없는 설치도 같은 문을 지난다.
+- 시험 test_r922a_news_draft_gate_warn.sh 35 PASS · 변이 MUTATION-ALL-RED · 회귀 test_news_html.sh rc0 · 외부 DA⑥ r1 APPROVE(BYZ design/harness/evidence/r922a-da6/VERDICT-r922a-da6-r1.md · 승인판 3dd15da0).
+
 ## 2026-10-26 — r926 자율 인터뷰 명부 = $ROOT 기준만 · 쌍둥이 경고는 가지가 main 안 품으면 «이동 0»(1.1.244)
 
 - ft-autonomy-level.sh 가 명부(seats-planner.json)를 $ROOT 와 $ROOT 리포의 공용 루트 2곳에서만 찾는다. cwd·설치 위치는 보지 않는다. 둘 다 없으면 WARN + rc1(조용한 건너뜀 0).
