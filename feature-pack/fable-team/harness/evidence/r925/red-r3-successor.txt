@@ -29,12 +29,12 @@ PASS ⓡ r622 못 읽음 → 판정 불가 REJECT · «다르다» 0 · 송신 0
 PASS ⓡ2 r925 r3 이어가기 → boot-enter 1회(후계 이름) · 이 도구 Enter 0 · 제출 확인 → 송신 1
 PASS ⓡ2' 이어가기 + 입력줄 ≠ 전문(boot-enter rc4) → HIL rc5 · 송신 0 · 도달 파일 0
 PASS ⓡ3 이어가기 + 입력줄 판독 불가 → rc5 «[HIL] 입력줄 판독 불가» · 송신 0
-FAIL ⓡ5 /bin/bash 3.2 -n 실패: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.cWd7ZI6nz9/r3/bin/ft-successor-open.sh: line 174: unexpected EOF while looking for matching ``'
-/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.cWd7ZI6nz9/r3/bin/ft-successor-open.sh: line 210: syntax error: unexpected end of file
-FAIL ⓡ5' rc=2 out=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.cWd7ZI6nz9/r3/bin/ft-successor-open.sh: line 174: unexpected EOF while looking for matching ``'
-/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.cWd7ZI6nz9/r3/bin/ft-successor-open.sh: line 210: syntax error: unexpected end of file
-FAIL ⓡ5'' rc=2 out=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.cWd7ZI6nz9/r3/bin/ft-successor-open.sh: line 174: unexpected EOF while looking for matching ``'
-/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.cWd7ZI6nz9/r3/bin/ft-successor-open.sh: line 210: syntax error: unexpected end of file
+FAIL ⓡ5 /bin/bash 3.2 -n 실패: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.JexPYYhHxP/r3/bin/ft-successor-open.sh: line 174: unexpected EOF while looking for matching ``'
+/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.JexPYYhHxP/r3/bin/ft-successor-open.sh: line 210: syntax error: unexpected end of file
+FAIL ⓡ5' rc=2 out=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.JexPYYhHxP/r3/bin/ft-successor-open.sh: line 174: unexpected EOF while looking for matching ``'
+/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.JexPYYhHxP/r3/bin/ft-successor-open.sh: line 210: syntax error: unexpected end of file
+FAIL ⓡ5'' rc=2 out=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.JexPYYhHxP/r3/bin/ft-successor-open.sh: line 174: unexpected EOF while looking for matching ``'
+/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.JexPYYhHxP/r3/bin/ft-successor-open.sh: line 210: syntax error: unexpected end of file
 PASS ⓡ4 새로 열기 → boot-enter 0 · tmuxc open 1 · 송신 1
 PASS ⓢ r622 새 좌석 CWD 실제 경로 → JDIR 그 워크트리 · SessionStart 관측
 PASS ⓣ r660 desk 본문에 GUIDE 27줄 없음 → 열기 전 REJECT · open·송신 0

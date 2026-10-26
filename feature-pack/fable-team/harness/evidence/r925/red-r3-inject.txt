@@ -5,11 +5,15 @@ FAIL ⓑ rc=0 enters=1 transcript=[[byz-t-old-claude#1→byz-t-new-claude#2] 통
 PASS ⓓ capture 정상 모양 + rc1 → rc=1 · 주입 0 · Enter 0
 FAIL ⓗ rc=0 enters=1 out=state=submitted session=sess enters=1 
 FAIL ⓘ rc=0 enters=2 rec=2 out=state=submitted session=sess enters=2 
-FAIL ⓙ rc=1 secs=18.07 out=state=submit-failed session=sess enters=2 — 제출 실패: 세션 기록에 우리 글자가 없다(글자 재입력 0) 
-PASS g1 준비 6초 늦음 → 준비 확인 뒤 제출 1(기록) · 입력줄 빔 (6.88s)
-PASS g2 첫 Enter 유실 → 재전송 1회 제출 · 글자 1회 (1.63s)
+FAIL ⓙ rc=1 secs=18.27 out=state=submit-failed session=sess enters=2 — 제출 실패: 세션 기록에 우리 글자가 없다(글자 재입력 0) 
+PASS ⓙ2 inject 조회 1.4초가 마감(1초)을 넘겨 찾은 새 기록 → rc=0 · Enter 1 · 1.72s(<2.9)
+FAIL ⓙ2 boot rc=0 enters=1 rec=1 secs=2.92 out=state=submitted session=sess enters=1 
+FAIL ⓙ3 inject rc=0 enters=1→1 rec=1→1 secs=3.33 out=state=submitted session=sess enters=1 
+FAIL ⓙ3 boot rc=0 enters=1→1 rec=1→1 secs=6.14 out=state=submitted session=sess enters=1 
+PASS g1 준비 6초 늦음 → 준비 확인 뒤 제출 1(기록) · 입력줄 빔 (6.59s)
+PASS g2 첫 Enter 유실 → 재전송 1회 제출 · 글자 1회 (1.39s)
 PASS g3 Enter 전부 유실 → rc=1 «제출 실패» · Enter 2(재전송 1) · 글자 1회
-PASS g4 준비 빠름 → 제출 1 · 추가 대기 0.13s (≤0.9)
+PASS g4 준비 빠름 → 제출 1 · 추가 대기 0.02s (≤0.9)
 PASS g5 자리표시 «Try …» 입력줄 → 주입·제출 1 (rc=0)
 PASS g6 사람 글자 위 → 전문 아님 · Enter 0 · rc=1 · 사람 글자 제출 0
 PASS g7 id 없음 → rc=1 · 주입 0
@@ -25,8 +29,8 @@ PASS ⓖ'' env·resume·명부 모두 없음 → rc=3 · Enter 0
 FAIL g9 rc=0 enters=0 out=state=already-submitted session=sess — 부팅 문장이 이미 기록에 있다 · Enter 0 
 PASS ⓛ plain·인자 없음(send·restore) → 기준 커밋 cbe218a5 과 tmux 호출·결과 바이트 같음 · 캡처 0
 PASS ⓝ cmd_open 판독 실패 → rc=1 «부팅 문장 제출 실패» · «session created» 성공 문구 0
-PASS ⓞ cmd_open claude → --session-id 발급(f70c1ba6-95f6-48ba-b5c8-88ba86ce4bb2) = 세션 env 같은 값 · 호출자 env 값 안 씀 · TMUXC_BOOT_TEXT 기록
+PASS ⓞ cmd_open claude → --session-id 발급(e8771692-f1ae-47e5-b8cf-61948073e694) = 세션 env 같은 값 · 호출자 env 값 안 씀 · TMUXC_BOOT_TEXT 기록
 PASS ⓞ' codex open → --session-id·TMUXC_CLAUDE 0(P3)
 ----
-FAILED 9 (mutate=0)
+FAILED 12 (mutate=0)
 rc=1

@@ -30,19 +30,19 @@ FAIL ⓡ2' rc=0 out=이어감: 세션 있음 byz-t-new-claude#2 — 열기 건�
 [HIL] 입력줄이 부팅 문장 전문이 아니다 — byz-t-new-claude#2 · Enter 0
 SessionStart 미관측 byz-t-new-claude#2 (5회) — 송신 후 도달 판정으로 확인
 QUEUED seq=777 to=byz-t-new-claude#2 pending=1 doorbell=sent
-OK successor=byz-t-new-claude#2 seq=777 file=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XelGKMeDKy/repo/.fable-team/state/successor/byz-t-old-claude#1.json mbox=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XelGKMeDKy/fakebin/mbox
+OK successor=byz-t-new-claude#2 seq=777 file=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.H0INGqVBfz/repo/.fable-team/state/successor/byz-t-old-claude#1.json mbox=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.H0INGqVBfz/fakebin/mbox
 FAIL ⓡ3 rc=0 out=이어감: 세션 있음 byz-t-new-claude#2 — 열기 건너뜀
 [HIL] 입력줄 판독 불가 — byz-t-new-claude#2 (권한 프롬프트·화면 못 읽음) · Enter 0
 SessionStart 미관측 byz-t-new-claude#2 (5회) — 송신 후 도달 판정으로 확인
 QUEUED seq=777 to=byz-t-new-claude#2 pending=1 doorbell=sent
-OK successor=byz-t-new-claude#2 seq=777 file=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XelGKMeDKy/repo/.fable-team/state/successor/byz-t-old-claude#1.json mbox=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XelGKMeDKy/fakebin/mbox
+OK successor=byz-t-new-claude#2 seq=777 file=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.H0INGqVBfz/repo/.fable-team/state/successor/byz-t-old-claude#1.json mbox=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.H0INGqVBfz/fakebin/mbox
 PASS ⓡ5 /bin/bash 3.2 -n rc0
 PASS ⓡ5' /bin/bash 3.2 새로 열기 → 송신 1 · 도달 파일
 FAIL ⓡ5'' rc=0 out=이어감: 세션 있음 byz-t-new-claude#2 — 열기 건너뜀
 [HIL] 입력줄 판독 불가 — byz-t-new-claude#2 · Enter 0
 SessionStart 미관측 byz-t-new-claude#2 (5회) — 송신 후 도달 판정으로 확인
 QUEUED seq=777 to=byz-t-new-claude#2 pending=1 doorbell=sent
-OK successor=byz-t-new-claude#2 seq=777 file=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XelGKMeDKy/repo/.fable-team/state/successor/byz-t-old-claude#1.json mbox=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XelGKMeDKy/fakebin/mbox
+OK successor=byz-t-new-claude#2 seq=777 file=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.H0INGqVBfz/repo/.fable-team/state/successor/byz-t-old-claude#1.json mbox=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.H0INGqVBfz/fakebin/mbox
 PASS ⓡ4 새로 열기 → boot-enter 0 · tmuxc open 1 · 송신 1
 PASS ⓢ r622 새 좌석 CWD 실제 경로 → JDIR 그 워크트리 · SessionStart 관측
 PASS ⓣ r660 desk 본문에 GUIDE 27줄 없음 → 열기 전 REJECT · open·송신 0

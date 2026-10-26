@@ -1,6 +1,6 @@
 ### RED — 고치기 전(8d6a4756) tmuxc
 $ FT_TMUXC_PATH=<8d6a4756> bash /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r925-tmuxc-inject-submit-verify-and-succ/feature-pack/tmuxc/test/test_tmuxc_inject_ready_submit.sh
-FAIL 고치기 전 사본 — 세션 기록 판정(claude_submitted_since)이 없다: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.cWd7ZI6nz9/r2/tmuxc
+FAIL 고치기 전 사본 — 세션 기록 판정(claude_submitted_since)이 없다: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.JexPYYhHxP/r2/tmuxc
 옛 판 ⓐ(옛 출력 + 새 제출 0): rc=0 out=[state=submitted session=sess try=1 ] 새 기록=0
 옛 판 g5(자리표시): rc=1 out=[state=input-busy session=sess — 입력줄에 다른 글자가 있어 주입 0: [2mTry "how does cairn.py work?"[0m ] 제출=[]
 rc=1
