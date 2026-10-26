@@ -80,7 +80,7 @@ astra r2 HOLD(N1~N4)의 «같은 원칙 다른 자리» 를 결정 문서 표의
 r3 변이 4: ⓕ bad 있을 때 override 빼기 끔 → [ⓕ] · ⓖ 자손 모으기 끔(killpg 만) → [ⓖ] · ⓙ 리서치 fetch 실패를 WARN 로 복귀 → [ⓙ] · ⓛ 둘째 cherry rc124 분기 끔 → [ⓛ].
 
 ## r4 계약 정정 (판 올림 0 · 근거 BYZ `design/harness/evidence/r938-da6/DECISION-r938-r4-contract.md`)
-- nf_bound 계약 = «총 ≤ 상한 + 3.5초 = 자손 조회 2회(각 ≤ 1초) + TERM 유예 1초 + 회수 대기 0.5초 · 어떤 단계도 상한 없는 기다림 0» — 실행 줄 0 · 머리 주석 1줄(bin·kit cmp0).
+- nf_bound 계약(r5 정정 · BYZ `DECISION-r938-r5-final.md`) = «총(nf_bound 호출부터 rc 까지) ≤ 상한 + 4초 — ps 가 안 돌아와도 · 대상이 TERM 을 무시해도 · 손자가 출력 fd 를 물고 있어도 그 안에 rc(상한 = 124)를 돌려준다» — 실행 줄 0 · 머리 주석(bin·kit cmp0). 근거(계약 아님): ps 2회 각 1초 + 유예 1 + 회수 0.5 = 3.5초 + 고정 부담 ≈0.33초. 한계: ps 가 1초 안에 안 돌아오면 새 세션 손자는 못 잡는다(완성 후 카드).
 - ⓖ2: PATH 앞 ps 대역(0.7초 뒤 /bin/ps) · `nf_bound 1 /bin/sleep 10` → rc124 · 3.641초(≤ 4.9) · 대상 생존 0.
 - ⓖ3: ps 대역 5초(`exec /bin/sleep 5` = 멈춘 ps 한 프로세스) → 조회 상한 1초에 잘림 · rc124 · 4.053초(≤ 4.9) · 대상·대역 생존 0.
 - 시험 115 PASS rc0(/bin/bash 3.2 · `test-green.txt`). 1회차는 arch 변이 실행과 겹쳐 ⓗ(전역 `pgrep "sleep 90"`) 1칸 오염 → 그 실행이 끝난 뒤 재실행.

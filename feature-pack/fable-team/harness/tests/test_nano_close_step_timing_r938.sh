@@ -268,7 +268,8 @@ sleep 5
 [ ! -e "$GC.late" ] && ok "$(card ⓖ '  └ 반환 뒤 5초 손자 쓰기 0')" || bad "$(card ⓖ '  └ 손자가 반환 뒤에 씀(새 세션 손자 회수 실패)')"
 gpid="$(cat "$GC.pid" 2>/dev/null)"
 [ -n "$gpid" ] && ! kill -0 "$gpid" 2>/dev/null && ok "$(card ⓖ "  └ 손자 pid ${gpid} 생존 0")" || { bad "$(card ⓖ "  └ 손자 pid ${gpid:-<없음>} 살아 있음/기록 없음")"; [ -z "$gpid" ] || kill -9 "$gpid" 2>/dev/null; }
-# ⓖ2·ⓖ3(r4 계약 · astra r3 반례): 총 ≤ 상한 + 3.5초(자손 조회 2회 각 ≤1초 + 유예 1 + 회수 0.5) · 측정 여유 0.4초 → 상한 1초면 ≤ 4.9초
+# ⓖ2·ⓖ3(r5 계약 · astra r3 반례): 총(nf_bound 호출부터 rc 까지) ≤ 상한 + 4초 — ps 가 안 돌아와도 · 대상이 TERM 을 무시해도 · 손자가 출력 fd 를 물고 있어도 그 안에 rc(상한 = 124)를 돌려준다
+#   시험 단언 ≤ 4.9초(상한 1초) < 계약 상한 5.0초 = 의도
 #   PATH 앞 ps 대역 — ⓖ2 는 0.7초 잠든 뒤 진짜 ps · ⓖ3 는 5초 잠듦(조회 상한 1초에 잘림 · exec 로 대역 = 한 프로세스 = 진짜 ps 가 멈춘 꼴)
 timed() {  # timed <ps 대역 폴더> — nf_bound 1 /bin/sleep 10 의 «rc 걸린초» (소수 3자리)
   PATH="$1:$PATH" python3 -c 'import subprocess,sys,time
@@ -280,7 +281,7 @@ printf '#!/bin/sh\nsleep 0.7\nexec /bin/ps "$@"\n' > "$T/ps07/ps"; printf '#!/bi
 for g in ⓖ2:ps07 ⓖ3:ps5; do
   nm="${g%%:*}"; r="$(timed "$T/${g#*:}")"; rrc="${r%% *}"; sec="${r#* }"
   [ "$rrc" = "124" ] && ok "$(card ⓖ "$nm ps 대역(${g#*:}) · nf_bound 1 /bin/sleep 10 → rc 124")" || bad "$(card ⓖ "$nm rc=$rrc ← $r")"
-  awk -v s="$sec" 'BEGIN{exit !(s <= 4.9)}' && ok "$(card ⓖ "  └ $nm ${sec}초 ≤ 4.9초(상한 1 + 3.5 + 측정 여유 0.4)")" || bad "$(card ⓖ "  └ $nm ${sec}초 > 4.9초(계약 밖)")"
+  awk -v s="$sec" 'BEGIN{exit !(s <= 4.9)}' && ok "$(card ⓖ "  └ $nm ${sec}초 ≤ 4.9초(시험 단언 · 계약 상한 1 + 4 = 5.0초)")" || bad "$(card ⓖ "  └ $nm ${sec}초 > 4.9초(시험 단언 밖)")"
   pgrep -f '^/bin/sleep 10$' >/dev/null 2>&1 && bad "$(card ⓖ "  └ $nm 대상 /bin/sleep 10 살아 있음")" || ok "$(card ⓖ "  └ $nm 대상 /bin/sleep 10 생존 0")"
 done
 pgrep -f '^/bin/sleep 5$' >/dev/null 2>&1 && bad "$(card ⓖ '  └ ⓖ3 대역 ps(sleep 5) 살아 있음')" || ok "$(card ⓖ '  └ ⓖ3 대역 ps(sleep 5) 생존 0(조회 상한 1초에 잘림)')"
