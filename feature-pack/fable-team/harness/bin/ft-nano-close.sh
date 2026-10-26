@@ -806,13 +806,47 @@ while [ -z "$IDX" ] && [ "$_in" -lt 10 ]; do _ic="$(jq -r --arg s "$_ic" '.[$s].
 _tw=""; [ -z "$IDX" ] || { declare -F ft_index_twin >/dev/null && _tw="$(ft_index_twin "$IDX")"; }   # R382: design/teams/<팀>/ ↔ design/<팀>/ 쌍둥이 후보(미전환·전환 워크트리가 섞인 기간)
 # r444 ⑥(planner #111324 · L6b): 카드 = 팀 폴더 리졸버(ft_team_cands_ref · 명단 = ref · 폴더 = 각 루트)의 indices/<단계>/<파일> 먼저 — 단계 진행→완성→대기 순 · 루트 WT→ROOT→LEDGER_WT 순.
 #   옛 글자 경로(design/<팀>/indices/대기)에 남은 사본이 실제 카드(design/teams/<팀>/indices/진행 · 미커밋)를 가리지 않게. 못 찾으면 아래 기존 후보 그대로.
-if [ -n "$IDX" ] && [[ "$IDX" =~ design/(teams/)?([a-z0-9][a-z0-9_-]*)/indices/[^/]+/([^/]+)$ ]] && declare -F ft_team_cands_ref >/dev/null; then
-  _ct="${BASH_REMATCH[2]}"; _cf="${BASH_REMATCH[3]}"
-  for _d in 진행 완성 대기; do [ -z "$CARD" ] || break
-    for _b in "$WT" "$ROOT" "$LEDGER_WT"; do [ -z "$CARD" ] || break
-      while IFS= read -r _c; do [ -n "$_c" ] && [ -z "$CARD" ] && [ -f "$_c/indices/$_d/$_cf" ] && CARD="$_c/indices/$_d/$_cf"
-      done < <(ft_team_cands_ref "$_b" "$_ct" "${FT_TEAMS_REF:-origin/main}" 2>/dev/null); done; done
-  [ -z "$CARD" ] || echo "INFO 카드 위치(팀 폴더) ← $CARD"
+# r842: 카드 «단계» = ref 트리(ft_card_stage_ref · 기본 origin/main) — 뒤처진 루트 체크아웃의 옛 진행/ 사본이 ref 에서 이미 완성/ 으로 옮긴 카드를 가리던 자리(ops 나노 2석 닫기 REJECT).
+#   단계가 정해지면 그 단계 하나만 · 디스크 사본 WT→LEDGER_WT→ROOT(낡을 수 있는 루트 마지막) · 그 단계 사본이 없으면 REJECT(옛 단계 사본·아래 기존 후보로 후퇴 0) ·
+#   지금 규칙으로 가는 길 하나 = «ABSENT» 글자(그때만 카드 없음) · STAGE 밖의 모든 응답·실패 = ERROR + REJECT(DA⑥ r2: 빈 출력 rc0 이 후퇴길이던 자리) · 쓰기(리서치 닫힘·중단 줄)도 이 CARD 를 쓴다
+_cs=""; _cref="${FT_CARD_REF:-origin/main}"
+if [ -n "$IDX" ]; then   # r842-mut:libskip
+  # 문지기 두 칸(DA⑥ r3): (가) 팀 카드 꼴인가 — 아니면 단계 개념 0 = 지금 규칙(오류 아님) (나) 꼴이면 lib·단계 함수가 있는가 — 없으면 ERROR + REJECT(R382 옛 설치 역호환은 버린다)
+  _istage=0
+  if [[ "$IDX" =~ design/(teams/)?([a-z0-9][a-z0-9_-]*)/indices/[^/]+/([^/]+)$ ]]; then _istage=1; _ct="${BASH_REMATCH[2]}"; _cf="${BASH_REMATCH[3]}"; else echo "INFO 카드 단계 판정 0 — idx 가 팀 카드 꼴 아님(지금 규칙): $IDX"; fi   # r842-mut:idxshape
+  if [ "$_istage" = 1 ]; then
+  declare -F ft_card_stage_ref >/dev/null || { echo "ERROR 카드 단계 함수 없음(ft-team-lib.sh 의 ft_card_stage_ref 미로드) — 단계 판정 불가"; echo "REJECT $SEAT"; echo "  - ⑥단계 판정 함수 없음 — 옛 규칙으로 후퇴 0: index=$IDX"; exit 1; }   # r842-mut:nofn
+  _cstg="진행 완성 대기"; _cbases=("$WT" "$LEDGER_WT" "$ROOT"); _rts=("${IDX%%/indices/*}")
+  if declare -F ft_index_twin >/dev/null; then _twr="$(ft_index_twin "$IDX" 2>/dev/null)"; [ -z "$_twr" ] || _rts+=("${_twr%%/indices/*}"); fi
+  # 응답 세 갈래만 받는다 — «STAGE <단계>» · «ABSENT» · 그 밖(빈 출력·rc≠0·모르는 글자) = REJECT. 실패는 ABSENT 글자를 못 만들므로 조용한 후퇴가 구조로 막힌다
+  _err="${TMPDIR:-/tmp}/ft-nano-close-stage.$$"; _cs="$(ft_card_stage_ref "$ROOT" "$IDX" "$_cref" 2>"$_err")"; _crc=$?; _emsg="$(head -1 "$_err" 2>/dev/null)"; rm -f "$_err"   # ⓑ3: stdout 만 판정 글자 · stderr 는 사유
+  case "$_crc:$_cs" in
+    0:ABSENT) _cs="";;   # r842-mut:absent
+    0:"STAGE "*) _cs="${_cs#STAGE }"; _cstg="$_cs"; echo "INFO 카드 단계($_cref) ← $_cs";;   # r842-mut:stage
+    *) echo "ERROR 카드 단계 판정 실패($_cref · rc=$_crc) — ${_emsg#ERROR }"; echo "REJECT $SEAT"; echo "  - ⑥카드 단계($_cref)를 못 읽음 — 디스크 단계 순서로 후퇴 0: index=$IDX"; exit 1;;   # r842-mut:referr
+  esac
+  # 디스크 사본 = IDX·쌍둥이 뿌리에서 직접(명부 TEAMS.md·ft_team_cands_ref 안 씀 · DA⑥ r2: 명부가 없으면 후보 0 → 옛 진행/ 후퇴) · 단계마다 WT→LEDGER_WT→ROOT(낡을 수 있는 루트 마지막)
+  if [ -n "$_cs" ]; then   # 단계가 정해진 때만 직접 고른다 · ABSENT(카드 없음)면 아래 기존 후보·R400 형제 규칙 그대로(모호성 REJECT 보존)
+    for _d in $_cstg; do [ -z "$CARD" ] || break
+      for _b in "${_cbases[@]}"; do [ -z "$CARD" ] || break
+        for _rt in "${_rts[@]}"; do [ -f "$_b/$_rt/indices/$_d/$_cf" ] && { CARD="$_b/$_rt/indices/$_d/$_cf"; break; }; done; done; done
+    [ -z "$CARD" ] || echo "INFO 카드 위치(팀 폴더) ← $CARD"
+  fi
+  if [ -n "$_cs" ] && [ -z "$CARD" ]; then _cold=""   # r842-mut:nostage
+    for _d in 진행 완성 대기; do [ "$_d" = "$_cs" ] && continue
+      for _b in "${_cbases[@]}"; do for _rt in "${_rts[@]}"; do [ -f "$_b/$_rt/indices/$_d/$_cf" ] && _cold+="${_cold:+ · }$_d($_b/$_rt)"; done; done; done
+    echo "REJECT $SEAT"; echo "  - ⑥카드 단계 $_cref=$_cs · 디스크 사본 없음(다른 단계 사본 = ${_cold:-없음}${_cold:+ — 낡은 사본}) — 옛 단계 사본으로 후퇴 0: index=$IDX"; exit 1
+  fi
+  # ABSENT(카드 없음) = «단계 판정 없음» → 지금 규칙 그대로(r444 ⑥): 팀 폴더 후보 × 단계 진행→완성→대기 × WT→ROOT→LEDGER_WT.
+  #   DA⑥ r4 반례: 아래 :IDX 경로 고리(명부 index 의 대기/ 등)를 먼저 집으면 나노 WT 의 진행/ 증거 사본을 가려 «증거 줄 없음» REJECT — IDX 우선 집기는 단계가 정해졌을 때만.
+  if [ -z "$_cs" ] && declare -F ft_team_cands_ref >/dev/null; then   # r842-mut:absentidx
+    for _d in 진행 완성 대기; do [ -z "$CARD" ] || break
+      for _b in "$WT" "$ROOT" "$LEDGER_WT"; do [ -z "$CARD" ] || break
+        while IFS= read -r _c; do [ -n "$_c" ] && [ -z "$CARD" ] && [ -f "$_c/indices/$_d/$_cf" ] && CARD="$_c/indices/$_d/$_cf"
+        done < <(ft_team_cands_ref "$_b" "$_ct" "${FT_TEAMS_REF:-origin/main}" 2>/dev/null); done; done
+    [ -z "$CARD" ] || echo "INFO 카드 위치(팀 폴더) ← $CARD"
+  fi
+  fi
 fi
 for c in "$WT/$IDX" "$ROOT/$IDX" "$LEDGER_WT/$IDX" ${_tw:+"$WT/$_tw" "$ROOT/$_tw" "$LEDGER_WT/$_tw"}; do [ -n "$IDX" ] && [ -z "$CARD" ] && [ -f "$c" ] && { CARD="$c"; break; }; done
 # R400 r2: 카드 생애 이동(대기→진행→완성) 뒤 명부 index 는 옛 폴더 그대로 — 같은 indices 뿌리의 형제 폴더에서 같은 파일명이 «정확히 1개» 일 때만 그 카드(쌍둥이도 같은 규칙 · 0·2+ = 아래 REJECT 그대로 · 명부 쓰기 0)

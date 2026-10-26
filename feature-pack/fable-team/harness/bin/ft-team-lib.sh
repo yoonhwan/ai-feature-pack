@@ -115,6 +115,27 @@ ft_team_in_ref() { local r="$1" t="$2" ref="${3:-${FT_TEAMS_REF:-origin/main}}" 
     2) echo "WARN TWIN-BOTH ${hits[0]} ${hits[1]} (ref 에 둘 다 · 명단 꼴 ${hits[0]})" >&2; printf '%s\n' "${hits[0]}";;
     *) echo "ERROR $t 폴더 실재 후보 2개 — 정확히 1개여야 한다(명단 $ref:design/TEAMS.md · 후보 ${cands//$'\n'/ }) (ref 에 둘 다 없음)" >&2; return 1;;
   esac; }
+#   ft_card_stage_ref <루트> <IDX> [<ref>] : 카드 «단계» 를 ref 트리로 정한다(r842 · 뒤처진 루트 체크아웃의 옛 단계 사본이 ref 에서 이미 옮긴 카드를 가리지 않게) —
+#     IDX(design/[teams/]<팀>/indices/<단계>/<파일>) 와 ft_index_twin 쌍둥이의 <indices 뿌리>/{진행,완성,대기}/<파일> 을 ref 에서 직접 본다 · 명부(TEAMS.md)·ft_team_cands_ref 안 씀 · 디스크 안 봄 · 읽기만
+#     stdout 첫 줄 = «STAGE <단계>» rc0 · «ABSENT» rc0(ref 풀림 + 모든 후보 ls-tree 성공 + 전부 없음) · 그 밖(빈 출력 포함) = stderr ERROR rc1
+#     — 조회 실패(ref·ls-tree·쌍둥이 계산)가 «카드 없음» 으로 읽히지 않게 세 갈래를 글자로 가른다(DA⑥ r2 반례: 명부 없음 = 빈 출력 rc0 → 옛 진행/ 후퇴)
+ft_card_stage_ref() { local r="$1" idx="$2" ref="${3:-${FT_CARD_REF:-origin/main}}" base tw d out hits="" rc roots=()
+  case "$idx" in */indices/*/*) ;; *) echo "ERROR 카드 단계 idx 꼴 아님(…/indices/<단계>/<파일>): $idx" >&2; return 1;; esac
+  base="${idx%%/indices/*}"; roots=("$base")
+  if declare -F ft_index_twin >/dev/null; then tw="$(ft_index_twin "$idx" 2>/dev/null)" || { echo "ERROR 카드 단계 쌍둥이 계산 실패: $idx" >&2; return 1; }
+    [ -z "$tw" ] || roots+=("${tw%%/indices/*}"); fi
+  git -C "$r" rev-parse --verify -q "$ref^{commit}" >/dev/null 2>&1; rc=$?
+  [ "$rc" -eq 0 ] || { echo "ERROR 카드 단계 ref($ref)를 못 읽음(rc=$rc · ref 없음·리포 아님): $r" >&2; return 1; }
+  :   # r842-mut:teams
+  for base in "${roots[@]}"; do
+    for d in 진행 완성 대기; do
+      out="$(git -C "$r" ls-tree --name-only "$ref" -- "$base/indices/$d/${idx##*/}" 2>/dev/null)"; rc=$?
+      [ "$rc" -eq 0 ] || { echo "ERROR 카드 단계 ls-tree 실패(rc=$rc): $ref:$base/indices/$d/${idx##*/}" >&2; return 1; }
+      [ -z "$out" ] || case " $hits " in *" $d "*) ;; *) hits="${hits:+$hits }$d";; esac
+    done; done
+  case "$hits" in *' '*) echo "ERROR ${idx##*/} 카드가 $ref 에 여러 단계($hits) — 정확히 1단계여야 한다" >&2; return 1;; esac
+  [ -n "$hits" ] && { echo "STAGE $hits"; return 0; }
+  echo ABSENT; }
 #   ft_planner_queue <루트>         : 오빠 큐(AUTONOMY-QUEUE.md) 경로 1줄(r515 · 대리·자율 상태·결정 셈이 같이 쓰는 단일 출처 · 파이썬 planner_queue 와 같은 규칙) — FT_PLANNER_DIR 있으면 그 폴더 ·
 #                                    없으면 ref(FT_TEAMS_REF · 기본 origin/main) 명단 꼴 planner 폴더가 루트에 실재하면 그 폴더 · 실재 0(이동 전 가지 체크아웃)이면 공용 루트 .fable-team/state/planner ·
 #                                    ref 명단 못 읽음·공용 루트 못 풂 = stderr ERROR rc1(옛 체크아웃 꼴 후퇴 0) · 쓰기 0(폴더는 쓰는 쪽이 만든다)
