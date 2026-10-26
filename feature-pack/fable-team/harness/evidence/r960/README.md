@@ -69,3 +69,19 @@
 - 변이 3종: «죽은 갈래 exit 를 함수 앞에» → ⓣ FAIL · «finish 의 NORECORD 줄 생략» → ⓡ FAIL · «첫 줄 modelId 만» → ⓢ FAIL
 - 기존 시험 불변: `test_seat_close.sh` 81 PASS · `test_seat_resume_binding.sh` 92 PASS · `test_seat_retire*` 전부 0 FAIL
 - 덤(DA r3 요청 1줄): 격리에서 보인 `test_seat_close` 3F · `test_seat_retire_defer_press_r690` 1F 는 여기서 **base 331eb013 도 0F · 이 세트도 0F**(r690 은 부하에서 1회 흔들림 = 시험 대역 잡음 · 같은 건수 아님)
+
+## r4 (DA⑥ r3 HOLD 1 반송 · 3회째 = 축 자체를 고침 · 반송서 = `design/harness/evidence/r960-da6/REWORK-r960-r4.md`)
+**원인(축)**: «pi 인지» 를 **출력 글자**로 판정했다 — `ft-seat-close.sh` 가 retire 출력에 `"pi 세션 없음"` 이라는 글자가 «어디든» 있으면 pi 수용으로 갔다. 보존 안내에 붙은 **경로 글자**가 걸려서 `agent=claude` 좌석이 pi 로 읽혔다(DA 반례: `ZC_RESUME_DIR="$T/pi 세션 없음/resume"` → 기준판 HELD rc 3 / 검토판 CLOSED-ROLE rc 0 · kill 1).
+
+| 고침 (구조로 닫기) | 값 | 시험 칸 |
+|---|---|---|
+| 판정 근거 = 명부 agent 칸 | 수용 판정 **전에** `ft_roster_lib.load` 로 그 좌석 행의 `agent` 를 직접 읽는다(새 해석기 0 · `AGENT` 1줄) | ⓥ ⓦ |
+| 수용 조건 | `AGENT=pi` 일 때만 살아 있는 좌석의 `NORECORD` 를 수용(`[ "$AGENT" = pi ] && RK=NORECORD || held`) — 출력 글자 비교는 판정에서 뺐다(문구는 표시용으로만 남음) | ⓥ |
+| 못 읽으면 | 명부 없음·좌석 없음·파싱 실패 = `AGENT` 빈 값 → **pi 수용 0** = 지금 claude 길(HELD rc 3 · kill 0 · role 불변). 조용한 수용 0 | ⓦ |
+| r3 구조 유지 | `finish()` 하나 구조 그대로 · `ft-seat-close.sh` 120줄(상한 120) | ⓤ ⓖ |
+
+- 빨강 먼저: 고치기 전 판(HEAD 90b8272c 의 close)으로 새 시험 → **ⓥ rc 3 HELD 기대가 rc 0 · kill 1 · role stop-ready** = 반례 재현 + 새 변이 표지 0줄(`red-first-r4.txt`)
+- 변이: «수용 조건을 출력 글자로 되돌림» → ⓥ FAIL · «pi 갈래 끔» → ⓒ 의 재개 기록 파일 0
+- ⓕ 칸 하나를 계약대로 바꿨다: r3 까지 «pi 갈래 끄면 close rc 3 HELD» 를 기대했는데, 판정이 명부 agent 칸이 된 뒤로는 pi 좌석이 **어느 갈래든** NORECORD 줄 + 닫기 진행(계약 ①)이 맞다 → 기대값을 «기록 파일 0(ⓒ FAIL) + NORECORD 줄 1 + rc 0» 으로 고쳤다
+- 시험: `test_seat_close_pi_resume_r960.sh` 51 → **57 PASS**(ⓥ3 ⓦ2 + 변이 칸) · 기존 회귀 = `test-green.txt`(16종 · 1061 PASS · 2 FAIL = 착수 전부터 빨간 그대로)
+- `/bin/bash` 3.2.57 로 신규 2종 0 FAIL · kit 짝 cmp0 4 · press 필요 없음(단위·기존 시험만 — 나노는 press 를 쏘지 않는다)
