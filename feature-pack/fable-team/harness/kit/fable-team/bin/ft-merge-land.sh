@@ -22,7 +22,7 @@ while [ $# -gt 0 ]; do case "$1" in
 printf '%s' "$PR" | grep -Eq '^[0-9]+$' || usage
 [ -z "$AP" ] || printf '%s' "$AP" | grep -Eq '^[0-9a-f]{40}$' || { echo "REJECT 오빠 병합 승인 값(--approve-sha <PR head 40hex>) 없음 — 실행 0"; exit 2; }   # R725: 빈 값 = 문서 전용 판정 경로(아래 ft_doc_exempt.py)
 [ -n "$REPO" ] || REPO="$(git rev-parse --show-toplevel 2>/dev/null)" || { echo "REJECT repo 를 찾을 수 없음"; exit 1; }
-G() { git -C "$REPO" "$@"; }
+G() { git -C "$REPO" "$@"; }; lr_del() { local e; e="$(G update-ref -d "refs/ft-land/$PR" ${1:+"$1"} 2>&1)" || { echo "WARN 개인 ref 정리 실패 refs/ft-land/$PR — ${e:-git 원문 0}" >&2; return 1; }; }   # r706: 개인 ref 정리 = 이 도구 하나 책임(공용 FETCH_HEAD 는 다른 좌석 fetch 가 덮는다)
 rej() { echo "REJECT $* (착지 0)"; exit 1; }
 CTX="$(fm_land_ctx "$REPO" "$REMOTE" "${FT_ROOT:-}")" || rej "대상 리포 remote URL 해석 실패(fetch·push URL 이 같은 github owner/name 이어야) — 어느 리포 PR 인지 몰라 착지 0"   # r648: 승인 루트(BYZ) ≠ 대상 리포
 IFS='|' read -r ROOT CROSS SLUG BH RROOT <<<"$CTX"; STATE="${FT_AUTONOMY_STATE_DIR:-$ROOT/.fable-team/state}"
@@ -45,8 +45,8 @@ pf() { printf '%s' "$JSON" | python3 -c 'import json,sys;print(json.load(sys.std
 [ "$(pf state)" = OPEN ] || rej "PR #$PR 가 OPEN 아님($(pf state))"
 [ "$(pf baseRefName)" = "$TARGET" ] || rej "PR #$PR base 가 $TARGET 아님($(pf baseRefName))"
 HEADSHA="$(pf headRefOid)"   # head != 승인 sha 는 게이트 뒤 ft-approval-equiv 가 가른다(R247 판정 1917 — A 뒤 main 병합만 했고 자기 변경이 같으면 같은 승인)
-fm_fetch "$REPO" "$REMOTE" "+pull/$PR/head:refs/ft-land/$PR" || { G update-ref -d "refs/ft-land/$PR" 2>/dev/null; rej "PR head fetch 실패"; }; deadline   # r706: 개인 ref — 공용 FETCH_HEAD 는 다른 좌석 fetch 가 덮어 남의 sha 를 읽었다
-S="$(G rev-parse --verify -q "refs/ft-land/$PR^{commit}")"; [ -z "$S" ] || G update-ref -d "refs/ft-land/$PR" "$S" 2>/dev/null; [ -n "$S" ] && [ "$S" = "$HEADSHA" ] || rej "fetch 한 head($S) != PR head($HEADSHA)"; DNY="$(bash "$HERE/ft-merge-deny.sh" "$S" --branch "$(pf headRefName)" --repo "$REPO")" || rej "${DNY:-착지 금지 목록 검사 실패(사유 0)}"   # r755: 착지 금지 가지 목록(ft-merge-deny.txt) — 목록 없음·꼴 오류·금지 가지 = 착지 0(fail-closed)
+lr_exit() { local st=$?; lr_del || { [ "$st" = 0 ] && exit 4; }; return 0; }; lr_trap() { local p; p="$(trap -p EXIT)"; p="${p#trap -- }"; p="${p% EXIT}"; p="${p#\'}"; p="${p%\'}"; p="${p#lr_exit}"; p="${p#; }"; trap "lr_exit${p:+; $p}${1:+; $1}" EXIT; }; lr_trap; fm_fetch "$REPO" "$REMOTE" "+pull/$PR/head:refs/ft-land/$PR" || rej "PR head fetch 실패"; deadline   # r706: 개인 ref — 정리는 EXIT trap 이 모든 출구(총 마감 거절 포함)에서 한다
+S="$(G rev-parse --verify -q "refs/ft-land/$PR^{commit}")"; [ -z "$S" ] || lr_del "$S" || rej "개인 ref 정리 실패 refs/ft-land/$PR(착지 0)"; [ -n "$S" ] && [ "$S" = "$HEADSHA" ] || rej "fetch 한 head($S) != PR head($HEADSHA)"; DNY="$(bash "$HERE/ft-merge-deny.sh" "$S" --branch "$(pf headRefName)" --repo "$REPO")" || rej "${DNY:-착지 금지 목록 검사 실패(사유 0)}"   # r755: 착지 금지 가지 목록(ft-merge-deny.txt) — 목록 없음·꼴 오류·금지 가지 = 착지 0(fail-closed)
 
 GOUT="$(bash "$HERE/ft-merge-gate.sh" "$S" --repo "$REPO" --remote "$REMOTE" --target "$TARGET" --base-head-file "$BH")" || rej "게이트: ${GOUT#DENY }"; deadline
 EQ=""   # R247: 게이트가 main 을 fetch 한 «뒤»(equiv 는 로컬 git 만) — 통과면 나머지 게이트·착지는 S 기준 그대로. 못 판단(rc3)도 REJECT.
@@ -114,7 +114,7 @@ ITO="${FT_INSTALL_CHECK_TIMEOUT:-7}"; IOUT="$("$TB" "$ITO" bash "${FT_INSTALL_CH
 if [ "$irc" -eq 124 ] || [ "$irc" -eq 143 ]; then echo "INSTALL-PENDING 설치 검사 ${ITO}초 초과 — 손으로: ft-live-install-check.sh --range $M..$Q"; IOUT="INSTALL-PENDING 검사 시간 초과"
 else printf '%s\n' "$IOUT" | sed 's/^/INSTALL /'; fi
 [ "$irc" -eq 0 ] || { mkdir -p "$ROOT/.fable-team/state/install-pending" && printf '%s\n' "$IOUT" > "$ROOT/.fable-team/state/install-pending/$Q.txt"; } || echo "WARN install-pending 기록 실패"
-CB="$(mktemp)"; trap 'rm -f "$CB"' EXIT   # R261: ft-gh-as-tank.sh 는 하이픈 동사 + 본문 «파일» + --apply(없으면 dry-run) · pr-close --comment 한 번이 코멘트+닫기
+CB="$(mktemp)"; lr_trap 'rm -f "$CB"'   # R261: ft-gh-as-tank.sh 는 하이픈 동사 + 본문 «파일» + --apply(없으면 dry-run) · pr-close --comment 한 번이 코멘트+닫기
 printf '%s\n' "착지 sha $Q (ft-merge-land · 검사 트리 == 착지 트리 · 판정 1875)${EQ:+ · 동일승인 대조 EQUIV (${AP:0:10}→${S:0:10} · 판정 1917${EQM:+ · $EQM})}" > "$CB"
 fm_t7 ${SLUG:+env FT_ISSUE_REPO="$SLUG"} "$GH_W" pr-close "$PR" --comment "$CB" --apply \
   || { echo "WARN 착지는 성공 — PR #$PR 코멘트/닫기 실패: 손으로 처리(착지 sha $Q)"; exit 3; }
