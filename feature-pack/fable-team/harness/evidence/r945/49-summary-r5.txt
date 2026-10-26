@@ -1,0 +1,23 @@
+# r945 r5 요약 — 껍데기 판정 = git 에게 직접 묻기(오빠 결정 10-27 07:4x 선택 1 · arch 156)
+
+## 무엇을 바꿨나(구현 1커밋)
+- sparse 워크트리 판정 = `git ls-files -d -z` 1회 → «삭제된 추적 파일 수 ≥ 1» = 껍데기 · 7초 상한(git7) · rc≠0/124 = «판정 불가» 1줄(오빠 판정 0 · 삭제 0)
+- 삭제한 것(r1~r4 가 만든 «git 규칙 흉내»): sparse 패턴 손 해석 · 종류(mode) 표 · `check-ignore -z -v --stdin` 제외 규칙 · 제어문자 «판정 불가» 분기
+- 일반 워크트리 규칙은 그대로(최상위 2개 이상 부재) — 회귀 0
+
+## 시험
+- `cd feature-pack/fable-team/harness/tests && WT_TEST_BASH=/bin/bash bash test_wt_shell_scan_sparse_r945.sh` → **39 PASS · ALL PASS** (41-after-green-bash32.txt · bash5 도 동일 42-after-green-bash5.txt)
+- 옛 판(r4 = 94dab690)으로 같은 시험 → **11 FAIL** (40-before-red-old-r4.txt) — ⓔⓙ(제외 규칙) · ⓘ · ⓓ 의미가 r5 에서 바뀌었다
+- 변이 4종 전부 빨강: ①판정 불가를 «껍데기 아님»으로 → ⓓ ②임계 ≥1→≥2 → ⓑ ③sparse 분기 끔 → ⓑ·ⓐ ④임계 ≥1→≥0 → ⓐ (43-mut1~4.txt)
+- 7초 상한: 가짜 git 이 4초 잠 → 상한 1초면 «판정 불가» 1줄 · 기본 7초면 정상(47-cap-7s.txt)
+- 인접: test_wt_clean_two_stage rc0 · test_wt_sweep_budget_replan_r535 rc0 · test_kit_bin_sync rc0 · test_finished_cleanup_auto rc1(기준판 stash 상태에서도 같은 1건 «tmux unreadable» — 내 변경 무관)
+- bash -n: /bin/bash(3.2) rc0 · bash5 rc0 · bin↔kit cmp0(44·45)
+
+## 실 스캔루트 1회(읽기 전용 · 계획 0 · 삭제 0)
+- BYZ-Agents 등록 워크트리 553 · sparse 325 · **껍데기 후보 41곳** · 판정 불가 0 · 소요 2분 남짓(48-real-scan-r5.txt)
+- 41곳은 **전부 «추적된 .serena 삭제»** (46-serena-census.txt) — `.serena/` 는 `.git/info/exclude` 에 있고 워크트리 준비가 디스크에서 지운다. git 입장에선 «삭제된 추적 파일» 이 맞다.
+- ⇒ 카드 끝 조건 «실 1회 껍데기 [HIL] 에 sparse 워크트리 0» 은 **미충족**. r5 는 «패턴 손 해석 오탐»(옛 38~54곳)을 없앴지만 «추적된 .serena 삭제» 41곳이 남는다.
+- 판단(arch 몫 · 선택지 3):
+  (a) 그대로 착지 + 별 카드로 «.serena 추적 해제(저장소 정책) 또는 청소 도구가 `git rm --cached`» — 도구는 git 만 묻는 지금 꼴 유지 · 추천
+  (b) `check-ignore` 1회 부활 + `!` 부정 규칙 제외 — r4 HOLD 1건을 고친 1줄이지만 «규칙 흉내» 표면이 다시 열린다
+  (c) «점(.)으로 시작하는 최상위 이름 제외» 사람 규칙 추가 — 41곳은 사라지나 규칙이 하나 늘고 진짜 껍데기를 숨길 수 있다
