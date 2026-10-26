@@ -54,8 +54,10 @@ done
 #   거절 범위 = «공용 루트 체크아웃 + 가지 main» 하나. 작업 폴더(.worktrees/<slug>)·다른 가지·표지 FT_PACK_ROOT_COMMIT=1 은 통과.
 #   r1(DA⑥ HOLD): 훅 자리 판단은 `git rev-parse --path-format=absolute --git-path hooks` 하나 — git 이 실제로 보는 곳(포함·전역 설정 반영).
 #   실재하는 «다른» 훅 폴더는 덮지도 지우지도 않고 rc1 · 없는 폴더가 로컬 밖(포함·전역)에서 와서 못 지우면 rc1(«HEALED» 0 · 쓰기 0).
+#   r2(오빠 결정 10-27 07:4x · 계약 ③): core.hooksPath 가 설정돼 있는데 그 폴더가 없으면 «기본 자리와 같아도» ERROR 1줄(출처 원문 포함).
+#     기본 자리면 설치가 폴더를 만들 수 있으므로 apply 는 진행 · dry-run 은 rc1 · 다른 자리면 종전대로 해제 후 진행.
 pack_hooks() {
-  local P="$1" src="$KIT/githooks/pack/pack-pre-commit" top common dh origin dst hpd now healed=0
+  local P="$1" src="$KIT/githooks/pack/pack-pre-commit" top common dh origin dst hpd now healed=0 missing=0
   [ -d "$P" ] || { echo "REJECT 팩 리포 폴더 없음: $P (쓰기 0)" >&2; exit 2; }
   P="$(cd "$P" && pwd -P)"
   [ "$(git -C "$P" rev-parse --is-inside-work-tree 2>/dev/null || true)" = true ] || { echo "REJECT git 리포 아님: $P (쓰기 0)" >&2; exit 2; }
@@ -72,11 +74,12 @@ pack_hooks() {
     echo "ERROR core.hooksPath=$hpd ($origin) 실재 — 그 폴더의 훅을 끄지 않으려면 사람이 정한다(쓰기 0)" >&2
     exit 1
   fi
-  dst="$dh/pre-commit"
-  if [ "$hpd" != "$dh" ]; then echo "ERROR core.hooksPath 폴더 없음 — git 이 보는 훅 자리 = $hpd · 이 리포 훅이 전부 꺼져 있다(설치가 .git/hooks 로 되돌린다 · 출처 $origin)"; healed=1; fi
+  dst="$dh/pre-commit"; missing=0
+  if [ -n "$origin" ] && [ ! -d "$hpd" ]; then echo "ERROR core.hooksPath 폴더 없음 — git 이 보는 훅 자리 = $hpd · 이 리포 훅이 전부 꺼져 있다(출처 $origin)"; missing=1; fi
+  if [ "$missing" = 1 ] && [ "$hpd" != "$dh" ]; then healed=1; fi
   echo "PACK-HOOKS $dst <- $src ($([ "$APPLY" = 1 ] && echo apply || echo 'dry-run · 쓰기 0'))"
   if [ "$APPLY" != 1 ]; then
-    if [ "$healed" = 1 ]; then echo "(dry-run: 쓰지 않았다 — 고치려면 --apply)" >&2; exit 1; fi
+    if [ "$missing" = 1 ]; then echo "(dry-run: 쓰지 않았다 — 고치려면 --apply)" >&2; exit 1; fi
     exit 0
   fi
   if [ "$healed" = 1 ]; then git -C "$common" config --unset-all core.hooksPath >/dev/null 2>&1 || true; fi

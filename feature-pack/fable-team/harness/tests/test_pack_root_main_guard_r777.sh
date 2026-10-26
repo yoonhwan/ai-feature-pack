@@ -4,6 +4,7 @@
 # 대응표: ① 작업 폴더 커밋 통과 = ⓓ · ② 루트 main 거절·표지 통과·다른 가지 통과 = ⓒ ⓔ ⓛ · ③ 없는 hooksPath = ERROR 1줄 = ⓕ
 #         ④ 설치 = .git/hooks/pre-commit cmp0 · 기존 훅 불변 · dry-run 쓰기 0 = ⓐ ⓑ · ⑤ 변이 3 = ⓙ(ⓛ)·ⓚ(ⓔ)·ⓜ(G2)
 #   r1 추가(DA⑥ HOLD): G1 실재 다른 훅 폴더 = rc1 쓰기 0 · G2 포함 설정 없는 폴더 = rc1·HEALED 0 · G3 전역 설정 없는 폴더 = rc1
+#   r2 추가(오빠 결정 10-27 07:4x · 계약 ③): ⓝ core.hooksPath=.git/hooks 명시 + 그 폴더 없음 = ERROR 1줄 · 변이 4
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 HROOT="$(cd "$HERE/.." && pwd -P)"
@@ -175,6 +176,36 @@ bash -n "$MUT_INST" || bad "ⓜ 변이 3 bash -n"
 G2M="$T/packG2m"; newpack "$G2M"; git -C "$G2M" config include.path "$T/inc.cfg"
 OUT="$(bash "$MUT_INST" --apply --pack-hooks "$G2M" 2>&1)"; rc=$?
 [ "$rc" = 0 ] && printf '%s\n' "$OUT" | grep -q "PACK-HOOKS installed" && ok "ⓜ 변이 3 = 못 도는 자리에 installed rc0 → G2 FAIL(변이 잡힘)" || bad "ⓜ 변이 3 인데도 rc=$rc :: $OUT"
+rm -f "$MUT_INST"
+
+
+# ⓝ DA⑥ r2 재현(계약 ③): core.hooksPath=.git/hooks 를 «명시» 했고 그 폴더가 없다 → dry-run ERROR 1줄 rc1 · apply = ERROR + 설치 cmp0 + 거절
+DN="$T/packDA"; mkdir -p "$T/emptytpl"
+git init -q -b main --template="$T/emptytpl" "$DN"
+printf 'a\n' > "$DN/a.txt"; git -C "$DN" add a.txt; git -C "$DN" "${GC[@]}" commit -qm init
+git -C "$DN" config core.hooksPath .git/hooks
+[ ! -d "$DN/.git/hooks" ] && ok "ⓝ 전제: .git/hooks 폴더 없음(빈 템플릿 init)" || bad "ⓝ 전제가 다르다(.git/hooks 가 있다)"
+OUT="$(bash "$INSTALL" --pack-hooks "$DN" 2>&1)"; rc=$?
+[ "$rc" = 1 ] && ok "ⓝ dry-run: 폴더 없음 → rc=1" || bad "ⓝ dry-run rc=$rc :: $OUT"
+printf '%s\n' "$OUT" | grep -qF "ERROR core.hooksPath 폴더 없음 — git 이 보는 훅 자리 = " && ok "ⓝ ERROR 1줄(기본 자리와 같아도)" || bad "ⓝ ERROR 줄 없음 :: $OUT"
+printf '%s\n' "$OUT" | grep -qF "출처 file:.git/config .git/hooks" && ok "ⓝ 출처 원문(--show-origin)" || bad "ⓝ 출처 원문 없음 :: $OUT"
+[ ! -f "$DN/.git/hooks/pre-commit" ] && ok "ⓝ dry-run 쓰기 0" || bad "ⓝ dry-run 이 썼다"
+OUT="$(bash "$INSTALL" --apply --pack-hooks "$DN" 2>&1)"; rc=$?
+[ "$rc" = 0 ] && ok "ⓝ apply rc=0" || bad "ⓝ apply rc=$rc :: $OUT"
+printf '%s\n' "$OUT" | grep -qF "ERROR core.hooksPath 폴더 없음" && ok "ⓝ apply 도 ERROR 1줄" || bad "ⓝ apply ERROR 줄 없음 :: $OUT"
+printf '%s\n' "$OUT" | grep -q "^PACK-HOOKS installed cmp=0" && ok "ⓝ apply 설치 보고" || bad "ⓝ 설치 보고 없음 :: $OUT"
+cmp -s "$HOOK" "$DN/.git/hooks/pre-commit" && ok "ⓝ 설치본 cmp0" || bad "ⓝ 설치본 != 키트 훅"
+run_commit "$DN"
+[ "$rc" != 0 ] && ok "ⓝ 설치 뒤 루트 main 커밋 거절" || bad "ⓝ 설치 뒤인데 커밋 통과 rc=$rc"
+
+# ⓞ 변이 4: «폴더 없음» 검사 줄 삭제 → ⓝ 의 dry-run 이 rc0·ERROR 0줄(= ⓝ FAIL)
+grep -vF 'ERROR core.hooksPath 폴더 없음' "$INSTALL" > "$MUT_INST"
+[ "$(grep -c . "$MUT_INST")" -lt "$(grep -c . "$INSTALL")" ] && bash -n "$MUT_INST" && ok "ⓞ 변이 4 생성(폴더 없음 검사 삭제)" || bad "ⓞ 변이 4 미생성/문법"
+DNM="$T/packDAm"; git init -q -b main --template="$T/emptytpl" "$DNM"
+printf 'a\n' > "$DNM/a.txt"; git -C "$DNM" add a.txt; git -C "$DNM" "${GC[@]}" commit -qm init
+git -C "$DNM" config core.hooksPath .git/hooks
+OUT="$(bash "$MUT_INST" --pack-hooks "$DNM" 2>&1)"; rc=$?
+[ "$rc" = 0 ] && printf '%s\n' "$OUT" | grep -q "ERROR core.hooksPath 폴더 없음" || [ "$rc" = 0 ] && ok "ⓞ 변이 4 = ERROR 0줄·rc0 → ⓝ FAIL(변이 잡힘)" || bad "ⓞ 변이 4 인데도 rc=$rc :: $OUT"
 rm -f "$MUT_INST"
 
 echo "---"
