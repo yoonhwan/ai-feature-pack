@@ -213,10 +213,11 @@ d1="$(rows | awk -F'\t' -v p="$IS" -v n="$(date +%s)" '$2==p{print $5-n}')"
 chk "ⓘ상한 = 지금 + ≤4200" "$([ "${d1:-0}" -gt 4100 ] && [ "${d1:-0}" -le 4200 ] && echo ok)" ok
 o2="$(FT_BG_FINITE_LEDGER="$TMP/bg-finite.tsv" bash "$BGF" register "$A" abc "$IS" nan 2>&1)"
 has "$o2" "WARN 상한초 «abc» → 4200" "ⓘ정수 아님 → 4200"
-for v in "--1" "-1" "+5" "1e3" ""; do   # astra r1 반례: «--1» 이 ValueError 로 죽던 입력들 — 전부 rc0 · 경고 1줄 · 4200
+LONG9="$(printf '9%.0s' $(seq 1 4301))"   # astra r2 반례: 4301자리 → int() 한도 ValueError
+for v in "--1" "-1" "+5" "1e3" "" "$LONG9"; do   # astra r1 반례: «--1» 이 ValueError 로 죽던 입력들 — 전부 rc0 · 경고 1줄 · 4200
   o3="$(FT_BG_FINITE_LEDGER="$TMP/bg-finite.tsv" bash "$BGF" register "$A" "$v" "$IS" edge 2>&1)"; rc3=$?
   d3="$(rows | awk -F'\t' -v p="$IS" -v n="$(date +%s)" '$2==p{print $5-n}')"
-  chk "ⓘ입력 «${v}» → rc0 · 경고 1줄 · 4200 이하" "$rc3 $(grep -c "WARN 상한초" <<< "$o3") $([ "${d3:-0}" -gt 4100 ] && [ "${d3:-0}" -le 4200 ] && echo ok)" "0 1 ok"
+  chk "ⓘ입력 «${v:0:12}» → rc0 · 경고 1줄 · 4200 이하" "$rc3 $(grep -c "WARN 상한초" <<< "$o3") $([ "${d3:-0}" -gt 4100 ] && [ "${d3:-0}" -le 4200 ] && echo ok)" "0 1 ok"
 done
 kill "$IS" 2>/dev/null
 
@@ -325,7 +326,7 @@ chk "변이⑤digest 넘김 건너뜀 끔 → ⓗ빨강: 미룬 등록 DA 생존
 scen_edge() { fresh; local m; m="$(sp m9)"; bash "$1/ft-bg-finite.sh" register "$A" "--1" "$m" x >/dev/null 2>&1; echo "rc$?"; kill "$m" 2>/dev/null; }
 mut clamp ft-bg-finite.sh ' or int(secs) > CAP_SEC:' ':'
 chk "변이⑥상한 자름 끔 → ⓘ빨강: 999999 가 4200 이하인가 [원본 변이]" "$(scen_clamp "$BIN") $(scen_clamp "$TMP/bin-clamp")" "cap big"
-mut edge ft-bg-finite.sh 'not re.fullmatch(r"[0-9]+", secs)' 'not secs.lstrip("-").isdigit()'
+mut edge ft-bg-finite.sh 'not re.fullmatch(r"[0-9]{1,6}", secs)' 'not secs.lstrip("-").isdigit()'
 chk "변이⑥b 옛 lstrip 판정 복귀 → ⓘ빨강: «--1» 입력 rc [원본 변이]" "$(scen_edge "$BIN") $(scen_edge "$TMP/bin-edge")" "rc0 rc1"
 mut lstart ft-leak-reap.sh '        if a != b: dead.append(pid); continue' '        pass'
 chk "변이⑦lstart 비교 끔 → ⓙ빨강: 재사용 pid 줄 보고 수 [원본 변이]" "$(scen_lstart "$BIN") $(scen_lstart "$TMP/bin-lstart")" "0 1"
