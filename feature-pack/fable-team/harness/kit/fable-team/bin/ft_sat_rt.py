@@ -69,7 +69,8 @@ class Deadline:
 
 
 # ── 값 검사 — 규칙 밖이면 rc2 · 원격 호출 0 ──
-RE = {"name": r"[A-Za-z0-9][A-Za-z0-9._#-]{0,63}", "run": r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}",
+RE = {"name": r"[A-Za-z0-9][A-Za-z0-9._#-]{0,95}", "run": r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}",
+      "sock": r"/[A-Za-z0-9._/-]{1,200}",
       "root": r"[A-Za-z0-9][A-Za-z0-9._/-]{0,63}", "model": r"[A-Za-z0-9][A-Za-z0-9._/:@-]{0,127}",
       "seats": r"[A-Za-z0-9._#-]+(,[A-Za-z0-9._#-]+)*", "mpy": r"[A-Za-z0-9_$/{}.-]+"}
 
@@ -143,20 +144,40 @@ def append_line(path, line):
         raise Fail(2, f"기록 실패({path}: {e}) — 원격 호출 0")
 
 
+LOCK_WAIT = 5.0
+_held = []  # 지금 이 프로세스가 쥔 장부 잠금 fd — 장부 쓰기는 이 안에서만(R1)
+
+
+def in_time(dl, stage, msg):
+    """장부 잠금 대기·쓰기·삭제 «전» 마감 검사 — 넘었으면 rc4(기록 유지)."""
+    if dl.left() <= 0:
+        raise Fail(4, f"총 마감 {dl.total}초 초과({stage}) — {msg}")
+
+
 @contextlib.contextmanager
-def locked(path, wait=5.0):
+def ledger(dl):
+    """R1 — opened.flock 을 명령 시작~끝 내내 쥔다(open·close·--adopt·--forget) · 대기 상한 min(5, 남은 마감)."""
+    path = spath("opened.flock")
+    in_time(dl, "장부 잠금 대기 전", "원격 0 · 기록 유지")
+    wait = min(LOCK_WAIT, dl.left())
     fd = flock_try(path, wait)
     if fd is None:
-        raise Fail(1, f"잠금을 {wait:.0f}초 안에 못 잡았다: {path}")
+        in_time(dl, "장부 잠금 대기", "원격 0 · 기록 유지 · 다시 실행")
+        raise Fail(1, f"다른 open/close 진행 중(장부 잠금을 {wait:.1f}초 안에 못 잡았다) — 원격 0: {path}")
+    _held.append(fd)
     try:
         yield
     finally:
+        _held.remove(fd)
         os.close(fd)
 
 
 def flock_try(path, wait=5.0):
-    """커널 잠금 — 쥔 프로세스가 죽으면 커널이 푼다(회수 코드 0) · fd 는 자식에 상속 0."""
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o644)
+    """커널 잠금 — 쥔 프로세스가 죽으면 커널이 푼다(회수 코드 0) · fd 는 자식에 상속 0 · 열기 실패 = rc2."""
+    try:
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o644)
+    except OSError as e:
+        raise Fail(2, f"기록 실패(잠금 파일 열기 {path}: {e}) — 원격 0")
     end = time.monotonic() + wait
     while True:
         try:
@@ -179,40 +200,68 @@ def read_rows(name):
         raise Fail(2, f"장부 읽기 실패({name}: {e})")
 
 
-# opened.tsv = name run dir ts session_id created pane_path (신원 3칸 빔 = pending «열기 불확실»)
-def opened_get(name):
-    return next((r for r in read_rows("opened.tsv") if r[0] == name), None)
+# opened.tsv = name run dir ts session_id created pane_path socket — 정확히 8칸 · 열쇠 = run(R1)
+# 신원 3칸·소켓 칸이 모두 차면 confirmed · 하나라도 비면 pending «열기 불확실»
+NCOL = 8
+
+
+def same_run(r, run):
+    return len(r) > 1 and r[1] == run
+
+
+def opened_find(name):
+    """공용 줄 찾기(task·fetch·close·--forget) — 없음 = None · 같은 이름/run 줄이 둘 이상·칸 수 ≠ 8 = rc6(건드림 0)."""
+    rows = read_rows("opened.tsv")
+    hit = [r for r in rows if r[0] == name]
+    if not hit:
+        return None
+    if len(hit) != 1 or len(hit[0]) != NCOL or sum(1 for r in rows if same_run(r, hit[0][1])) != 1:
+        raise Fail(6, f"장부 손상 — 건드림 0(같은 이름 줄 {len(hit)}개 · 칸 {len(hit[0])}개 · 정확히 1줄·{NCOL}칸이어야): {name}")
+    return hit[0]
+
+
+def confirmed(row):
+    return len(row) == NCOL and all(row[4:NCOL])
+
+
+def _must_hold():
+    if not _held:
+        raise Fail(2, "장부 잠금 없이 쓰기(코드 결함) — 기록 그대로")
 
 
 def opened_add(row):
-    with locked(spath("opened.flock")):
-        append_line(spath("opened.tsv"), "\t".join(row))
+    _must_hold()
+    append_line(spath("opened.tsv"), "\t".join(row))
 
 
-def _opened_rewrite(fn):
-    with locked(spath("opened.flock")):
-        rows = fn(read_rows("opened.tsv"))
-        tmp = spath("opened.tsv.tmp")
-        try:
-            with open(tmp, "w", encoding="utf-8") as f:
-                f.write("".join("\t".join(r) + "\n" for r in rows))
-                f.flush()
-                os.fsync(f.fileno())
-            os.replace(tmp, spath("opened.tsv"))
-        except Exception as e:
-            raise Fail(2, f"기록 실패(opened.tsv: {e})")
+def _opened_rewrite(run, fn):
+    """run 이 같은 «한 줄만» 바꾼다(fn 이 None 이면 지움) · 그런 줄이 정확히 1개가 아니면 rc6."""
+    _must_hold()
+    rows = read_rows("opened.tsv")
+    if sum(1 for r in rows if same_run(r, run)) != 1:
+        raise Fail(6, f"장부 손상 — run={run} 줄이 정확히 1개가 아니다 · 건드림 0")
+    new = [r for r in (fn(r) if same_run(r, run) else r for r in rows) if r is not None]
+    tmp = spath("opened.tsv.tmp")
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write("".join("\t".join(r) + "\n" for r in new))
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, spath("opened.tsv"))
+    except Exception as e:
+        raise Fail(2, f"기록 실패(opened.tsv: {e})")
 
 
-def opened_del(name):
-    _opened_rewrite(lambda rows: [r for r in rows if r[0] != name])
+def opened_del(run):
+    _opened_rewrite(run, lambda r: None)
 
 
-def opened_set_ident(name, sid, created, path):
-    _opened_rewrite(lambda rows: [r[:4] + [sid, created, path] if r[0] == name else r for r in rows])
+def opened_set_ident(run, sid, created, path, sock):
+    _opened_rewrite(run, lambda r: r[:4] + [sid, created, path, sock])
 
 
 def forgotten_add(row, why):
-    """forgotten.tsv(추가 전용) = 시각 · 좌석/사용자 · run · 원 줄 전체(7칸) · why."""
+    """forgotten.tsv(추가 전용) = 시각 · 좌석/사용자 · run · 원 줄 전체(8칸) · why."""
     who = os.environ.get("FT_SEAT") or os.environ.get("USER", "?")
     append_line(spath("forgotten.tsv"), "\t".join([time.strftime("%Y-%m-%dT%H:%M:%S%z"), who, row[1], *row, why]))
 

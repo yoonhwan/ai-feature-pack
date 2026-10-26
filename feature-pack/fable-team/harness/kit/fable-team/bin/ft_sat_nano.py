@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
-"""ft-sat-nano 본체 — 위성(mini) 나노 도구 하나 (r902 r7 · DECISION-r902-design-final 고침 3).
+"""ft-sat-nano 본체 — 위성(mini) 나노 도구 하나 (r902 r7 · DECISION-r902-design-final 고침 3 · 반송 r5 R1~R3).
 
 골 축: 하네스 골 C «메인 하네스를 유니크하게 머신들에 완전히 독립 배분해 운용» — 이 맥 대신 mini 에 작업 좌석을 열고 쓰고 닫는다.
 명령: open <카드> [--run R] [--name N] · task <세션> <파일> [--retry] · pull --seats A,B [--every N] · fetch <세션>
       close <세션> [--adopt | --forget --why '<1~200자>']
 보장: 쪽지 = 최소 한 번(꼬리표 · 재발신 상한 · dead 격리) · 지시 입력·원격 열기 = 최대 한 번(결과 모름 = rc4 · 자동 해소 0)
       close = 신원이 확인된 줄만 닫는다 · 열기 불확실 줄은 도구가 지우지 않는다(--forget = 사람·master 명시 · 원격 0)
+장부(r5): R1 열쇠 = run(기본 이름 byz-sat-nano-<run>#0) · open·close·--adopt·--forget 은 장부 잠금을 명령 내내 쥔다
+      R2 삭제 길 = close(gone 확인)·--forget 둘 + R_PRE 만 돈 open 실패 · 줄 = 정확히 8칸(아니면 rc6)
+      R3 확인된 줄의 원격 조회·kill·입력 = 기록 소켓(tmux -S)만
 원격 쓰기 = mini ~/<SAT_ROOT_REMOTE>/<run>/ · 쪽지함(+quarantine/) 뿐 · 사용자 값은 위치 인자(shlex 인용)로만.
-rc: 0 ok · 1 다른 pull 진행 중 · 2 값·설정·기록 실패(원격 0) · 3 열기 실패·다른 세션 · 4 불확실/전달 실패(기록 유지)
+rc: 0 ok · 1 다른 pull·open/close 진행 중(원격 0) · 2 값·설정·기록 실패(원격 0) · 3 열기 실패·다른 세션 · 4 불확실/전달 실패(기록 유지)
     5 원격 실패·총 마감·남의 세션 · 6 조회/닫기 확인 실패(기록 유지) · 7 pull 미완(skip·실패·dead·ack 실패)
 """
 import base64
@@ -28,9 +31,15 @@ MODEL = os.environ.get("SAT_MODEL", "opengateway/deepseek/deepseek-v4.1-flash-ul
 MPY = os.environ.get("SAT_MINI_MBOX_PY", "$HOME/.claude/skills/fable-team/scripts/ft-mbox.py")
 KILL_OK = "session=gone pi_left=0 err=0"
 
-# ── 원격 고정 스크립트 — has-session 의 «없음» 은 정상 응답(rc1 ∧ can't find session / no server running)만 · 그 밖은 2(조회 실패) ──
-SESS = """sess() { e="$(tmux has-session -t "=$1" 2>&1)"; r=$?; case "$r:$e" in 0:*) echo 0;; "1:can't find session"*|"1:no server running"*) echo 1;; *) echo 2;; esac; }
+# ── 원격 고정 스크립트 — 첫 인자 = tmux 소켓(R3 · 빔 = 기본 서버 · 확인된 줄은 기록 소켓만) ──
+# has-session 의 «없음» 은 정상 응답(rc1 ∧ can't find session / no server running)만 · 그 밖은 2(조회 실패)
+# «없음» 을 지우는 증거로 쓰는 곳은 close 뿐이고, close 는 확인된 줄(소켓 기록)에서만 조회한다
+TM = """SOCK="$1"; shift
+tm() { if [ -n "$SOCK" ]; then tmux -S "$SOCK" "$@"; else tmux "$@"; fi; }
 """
+SESS = TM + """sess() { e="$(tm has-session -t "=$1" 2>&1)"; r=$?; case "$r:$e" in 0:*) echo 0;; "1:can't find session"*|"1:no server running"*) echo 1;; *) echo 2;; esac; }
+"""
+IDENT_FMT = "'#{session_id} #{session_created} #{socket_path} #{pane_current_path}'"
 R_PRE = SESS + """for t in tmuxc pi perl; do if command -v "$t" >/dev/null 2>&1; then echo "$t=ok"; else echo "$t=MISSING"; fi; done
 echo "sess_rc=$(sess "$1")"
 if [ -e "$HOME/$2" ]; then echo dir=EXISTS; else echo dir=absent; fi
@@ -51,11 +60,11 @@ if [ -f "$d/.open.pid" ]; then read -r p l <"$d/.open.pid"; [ -n "$l" ] && [ "$(
 echo "alive=$a"; echo "done=$(cat "$d/.open.done" 2>/dev/null)"; echo "sess_rc=$(sess "$1")"
 tail -3 "$d/.open.log" 2>/dev/null | sed 's/^/log: /'
 """
-R_IDENT = """tmux display -p -t "=$1:" '#{session_id} #{session_created} #{pane_current_path}'\n"""
-R_PIDS = """pp="$(tmux display -p -t "=$1:" '#{pane_pid}' 2>/dev/null)"
+R_IDENT = TM + 'tm display -p -t "=$1:" ' + IDENT_FMT + "\n"
+R_PIDS = TM + """pp="$(tm display -p -t "=$1:" '#{pane_pid}' 2>/dev/null)"
 if [ -n "$pp" ]; then pgrep -P "$pp" 2>/dev/null | wc -l | tr -d ' '; else echo 0; fi
 """
-R_SEND = """d="$HOME/$1"; f="$d/$2"; tok="$5"
+R_SEND = TM + """d="$HOME/$1"; f="$d/$2"; tok="$5"
 mkdir -p "$d/.sent" || exit 4
 if [ -e "$d/.sent/$tok/sent" ]; then echo ALREADY; exit 0; fi
 if ! mkdir "$d/.sent/$tok" 2>/dev/null; then echo CLAIMED; exit 0; fi
@@ -63,20 +72,20 @@ if [ "$4" = write ]; then cat >"$f" || exit 4; fi
 [ -s "$f" ] || exit 4
 msg="[발주 #1] $f 를 읽고 그대로 수행해라. 결과는 같은 폴더 out.md."
 [ -n "$msg" ] || exit 4
-tmux send-keys -t "=$3:" -l "$msg" && sleep 1 && tmux send-keys -t "=$3:" Enter || { : >"$d/.sent/$tok/FAIL"; exit 1; }
+tm send-keys -t "=$3:" -l "$msg" && sleep 1 && tm send-keys -t "=$3:" Enter || { : >"$d/.sent/$tok/FAIL"; exit 1; }
 : >"$d/.sent/$tok/sent" || exit 1
 echo SENDOK
 """
 R_CAT = 'cat "$HOME/$1/$2"\n'
 R_LOOKUP = SESS + """h="$(sess "$1")"; echo "has=$h"
 if [ "$h" = 0 ]; then
-  i="$(tmux display -p -t "=$1:" '#{session_id} #{session_created} #{pane_current_path}' 2>/dev/null)"; echo "drc=$?"
+  i="$(tm display -p -t "=$1:" """ + IDENT_FMT + """ 2>/dev/null)"; echo "drc=$?"
   echo "ident=$i"
-  p="${i#* }"; p="${p#* }"; d="$HOME/$2"
+  p="${i#* }"; p="${p#* }"; p="${p#* }"; d="$HOME/$2"
   case "$p" in "$d"|"$d"/*) echo dirmatch=1;; *) echo dirmatch=0;; esac
 fi
 """
-R_KILL = SESS + """if [ -n "$1" ]; then tmux kill-session -t "$1" >/dev/null 2>&1; fi
+R_KILL = SESS + """if [ -n "$1" ]; then tm kill-session -t "$1" >/dev/null 2>&1; fi
 n=0; h=0
 while [ "$n" -lt 6 ]; do h="$(sess "$2")"; [ "$h" != 0 ] && break; sleep 0.5; n=$((n + 1)); done
 case "$h" in 0) s=alive;; 1) s=gone;; *) s=unknown;; esac
@@ -165,9 +174,9 @@ def opts(argv, flags, valued):
     return pos, o
 
 
-def send_task(dl, d, fname, name, mode, tok, stdin=None):
-    """SEND = 되풀이 금지 — claim 3상태 · 자동 재시도 0(idem=False)."""
-    rc, out, err = rt.rcall(dl, R_SEND, d, fname, name, mode, tok, stdin=stdin, idem=False)
+def send_task(dl, d, fname, name, mode, tok, sock, stdin=None):
+    """SEND = 되풀이 금지 — claim 3상태 · 자동 재시도 0(idem=False) · 입력은 기록 소켓의 서버로만(R3)."""
+    rc, out, err = rt.rcall(dl, R_SEND, sock, d, fname, name, mode, tok, stdin=stdin, idem=False)
     lines = out.decode("utf-8", "replace").splitlines()
     if "SENDOK" in lines:
         return "sent"
@@ -186,40 +195,58 @@ def cmd_open(argv):
     if len(pos) != 1 or not os.path.isfile(card):
         raise Fail(2, f"usage open <카드파일> [--run R] [--name N] — 카드 파일이 없다: {card or '<없음>'}")
     run = o.get("--run") or re.sub(r"^[^A-Za-z0-9]+", "", re.sub(r"[^A-Za-z0-9._-]", "-", os.path.splitext(os.path.basename(card))[0]))[:40]
-    name = o.get("--name") or "byz-sat-nano-pi#0"
+    name = o.get("--name") or f"byz-sat-nano-{run}#0"
     rt.need("run", run, "--run")
     rt.need("name", name, "--name")
     rt.need("root", RROOT, "SAT_ROOT_REMOTE")
     rt.need("model", MODEL, "SAT_MODEL")
+    try:
+        with open(card, "rb") as f:
+            data = f.read()
+    except OSError as e:
+        raise Fail(2, f"카드 읽기 실패(원격 0): {card} ({e})")
     cfg = rt.config()
     dl = rt.Deadline(cfg["total"], cfg["tmo"])
     rt.ensure_state()
-    if rt.opened_get(name):
-        raise Fail(2, f"이 도구의 기록에 같은 이름이 남아 있다 — close {name} 먼저: {name}")
     d = f"{RROOT}/{run}"
-    rt.opened_add([name, run, d, time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "", "", ""])  # write-ahead(pending) — 실패 = rc2 · 원격 0
+    with rt.ledger(dl):
+        reserve(dl, name, run, d)
+        return open_body(dl, name, run, d, data)
+
+
+def reserve(dl, name, run, d):
+    """R1 — 같은 이름·같은 run 줄 검사와 pending 추가(write-ahead)를 명령 내내 쥔 장부 잠금 안에서 · 실패 = rc2 · 원격 0."""
+    if any(r[0] == name or rt.same_run(r, run) for r in rt.read_rows("opened.tsv")):
+        raise Fail(2, f"이 도구의 기록에 같은 이름 또는 같은 run 이 남아 있다 — close 먼저 · 원격 0: {name} run={run}")
+    rt.in_time(dl, "pending 기록 전", "원격 0")
+    rt.opened_add([name, run, d, time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "", "", "", ""])
+
+
+def open_body(dl, name, run, d, data):
     try:
-        pre_and_write(dl, name, d, card)
+        pre(dl, name, d)
     except Fail:
-        rt.opened_del(name)  # 원격 열기(OPEN_BG) 호출 «전» 단계 — 세션이 생길 길이 아직 없다
+        rt.in_time(dl, "pending 삭제 전", unsure(name, d, "사전점검 뒤 마감 · 원격 쓰기 0"))
+        rt.opened_del(run)  # R2 — 원격 호출이 R_PRE(읽기 전용) 뿐 · 세션이 생길 길 0
         raise
+    write_task(dl, name, d, data)  # R2 — R_WRITE 를 부르기 시작했으면 결과와 무관하게 실패 = rc4 · 줄 유지
     try:
-        open_bg_and_poll(dl, name, d)
+        sock = open_bg_and_poll(dl, name, run, d)
     except Fail as e:
         if e.rc == 5:
             raise Fail(5, f"{e.msg} — 열기 진행 중일 수 있다 · {unsure(name, d, '마감')}")
         raise
     if os.environ.get("SAT_NOWAIT", "0") != "1":
-        wait_pi(dl, name)
+        wait_pi(dl, name, sock)
     dl.check("지시 전달")
-    send_task(dl, d, "TASK.md", name, "keep", "TASK.md")
+    send_task(dl, d, "TASK.md", name, "keep", "TASK.md", sock)
     dl.check("open 끝")
     say(f"4/4 지시 전달 — TASK.md · 회수 fetch {name} · 닫기 close {name}")
     return 0
 
 
-def pre_and_write(dl, name, d, card):
-    rc, out, err = rt.rcall(dl, R_PRE, name, d)
+def pre(dl, name, d):
+    rc, out, err = rt.rcall(dl, R_PRE, "", name, d)
     if rc != 0:
         raise Fail(5, f"mini 접속 실패(rc={rc}): {tail(out, err)}")
     for ln in out.decode("utf-8", "replace").splitlines():
@@ -233,14 +260,19 @@ def pre_and_write(dl, name, d, card):
         raise Fail(5, f"mini 세션 조회 실패(sess_rc={k.get('sess_rc')}) — 열지 않는다")
     if k.get("dir") != "absent":
         raise Fail(2, f"작업 폴더가 이미 있다 — --run <다른이름> 으로 다시: {d}")
-    with open(card, "rb") as f:
-        rc, out, err = rt.rcall(dl, R_WRITE, d, stdin=f.read())
+
+
+def write_task(dl, name, d, data):
+    try:
+        rc, out, err = rt.rcall(dl, R_WRITE, d, stdin=data)
+    except Fail as e:
+        raise Fail(4, unsure(name, d, f"TASK.md 쓰기 중 {e.msg} · 원격 열기 전"))
     if rc != 0:
-        raise Fail(4, f"TASK.md 쓰기 실패(rc={rc} · 원격 열기 전): {tail(out, err)}")
+        raise Fail(4, unsure(name, d, f"TASK.md 쓰기 결과 모름 rc={rc} · 원격 열기 전: {tail(out, err)}"))
     say(f"1/4 작업 폴더·TASK.md — {d}/TASK.md")
 
 
-def open_bg_and_poll(dl, name, d):
+def open_bg_and_poll(dl, name, run, d):
     rc, out, err = rt.rcall(dl, R_OPEN_BG, d, name, MODEL)
     first = (out.decode("utf-8", "replace").splitlines() or [""])[0]
     if rc == 4 and first == "claim_fail":
@@ -250,7 +282,7 @@ def open_bg_and_poll(dl, name, d):
     if not (rc == 0 and first == "running"):
         raise Fail(4, unsure(name, d, f"원격 열기 응답 모름 rc={rc}: {tail(out, err)}"))
     while True:
-        rc, out, err = rt.rcall(dl, R_POLL, name, d)
+        rc, out, err = rt.rcall(dl, R_POLL, "", name, d)
         if rc != 0:
             raise Fail(6, f"세션 확인 조회 실패(rc={rc}) — 기록 유지: {tail(out, err)}")
         k = kv(out)
@@ -263,19 +295,21 @@ def open_bg_and_poll(dl, name, d):
             raise Fail(4, unsure(name, d, f"opener 끝났으나 세션 없음 done={k.get('done')} {logs}"))
         dl.check("open 세션 확인")
         time.sleep(max(0.0, min(2.0, dl.left())))
-    rc, out, err = rt.rcall(dl, R_IDENT, name)
-    parts = out.decode("utf-8", "replace").strip().split(" ", 2)
-    if rc != 0 or len(parts) != 3 or not all(parts):
+    rc, out, err = rt.rcall(dl, R_IDENT, "", name)
+    p = out.decode("utf-8", "replace").strip().split(" ", 3)  # session_id created socket pane_path
+    if rc != 0 or len(p) != 4 or not all(p) or not rt.valid("sock", p[2]):
         raise Fail(6, f"신원 조회 실패(세션은 있음 · 기록 pending · {unsure(name, d, 'IDENT')}): {tail(out, err)}")
-    rt.opened_set_ident(name, *parts)
-    say(f"  OPEN ok name={name} id={parts[0]}")
-    say(f"2/4 세션 열기 — {name} (이 도구가 연 세션으로 기록 · 신원 {parts[0]} {parts[1]})")
+    rt.in_time(dl, "신원 기록 전", unsure(name, d, "세션은 있음 · 신원 기록 전 마감"))
+    rt.opened_set_ident(run, p[0], p[1], p[3], p[2])
+    say(f"  OPEN ok name={name} id={p[0]}")
+    say(f"2/4 세션 열기 — {name} (이 도구가 연 세션으로 기록 · 신원 {p[0]} {p[1]} · 소켓 {p[2]})")
+    return p[2]
 
 
-def wait_pi(dl, name):
+def wait_pi(dl, name, sock):
     for i in range(6):
         dl.check("pi 기동 확인")
-        rc, out, _ = rt.rcall(dl, R_PIDS, name)
+        rc, out, _ = rt.rcall(dl, R_PIDS, sock, name)
         if rc == 0 and out.strip().isdigit() and int(out.strip()) >= 1:
             say("3/4 pi 기동 확인")
             return
@@ -290,10 +324,10 @@ def cmd_task(argv):
         raise Fail(2, "usage task <세션> <파일> [--retry]")
     name, path = pos
     rt.need("name", name, "세션 이름")
-    row = rt.opened_get(name)
+    row = rt.opened_find(name)
     if not row:
         raise Fail(5, f"이 도구가 연 세션이 아니다 — 남의 세션에는 쓰지 않는다: {name}")
-    if not all(row[4:7]):
+    if not rt.confirmed(row):
         raise Fail(4, f"열기 불확실 줄 — 입력 0 · {unsure(name, row[2], 'pending')}")
     cfg = rt.config()
     dl = rt.Deadline(cfg["total"], cfg["tmo"])
@@ -305,7 +339,7 @@ def cmd_task(argv):
         k = 1 + sum(1 for r in rt.read_rows("retries.tsv") if r[:2] == [name, target])
         rt.append_line(rt.spath("retries.tsv"), f"{name}\t{target}\t{k}")  # 기록 먼저
         tok = f"{target}.r{k}"
-    res = send_task(dl, row[2], target, name, "write", tok, stdin=data)
+    res = send_task(dl, row[2], target, name, "write", tok, row[7], stdin=data)
     if res == "already":
         say(f"SKIP 같은 작업이 이미 전달됐다(중복 0) — {row[2]}/{target}")
     else:
@@ -421,7 +455,7 @@ def cmd_fetch(argv):
     pos, _ = opts(argv, (), ())
     name = pos[0] if len(pos) == 1 else ""
     rt.need("name", name, "세션 이름")
-    row = rt.opened_get(name)
+    row = rt.opened_find(name)
     if not row:
         raise Fail(5, f"이 도구가 연 세션이 아니다: {name}")
     cfg = rt.config()
@@ -448,57 +482,70 @@ def cmd_close(argv):
     pos, o = opts(argv, ("--adopt", "--forget"), ("--why",))
     name = pos[0] if len(pos) == 1 else ""
     rt.need("name", name, "세션 이름")
-    row = rt.opened_get(name)
-    if not row:
-        raise Fail(5, f"이 도구가 연 세션이 아니다 — 남의 세션은 닫지 않는다: {name}")
-    confirmed = all(row[4:7])
-    if "--forget" in o:
-        return forget(row, o.get("--why"), confirmed)
-    if confirmed and "--adopt" in o:
-        raise Fail(2, f"확인된 세션이다 — --adopt 없이 close {name} 로 닫는다")
-    if not confirmed and "--adopt" not in o:
-        raise Fail(4, f"{unsure(name, row[2], 'pending · 신원 미확인')} · 원격 kill 0")
     cfg = rt.config()
     dl = rt.Deadline(cfg["total"], cfg["tmo"])
-    rc, out, err = rt.rcall(dl, R_LOOKUP, name, row[2])
+    rt.ensure_state()
+    with rt.ledger(dl):  # R1 — close·--adopt·--forget 도 명령 내내 장부 잠금
+        row = rt.opened_find(name)
+        if not row:
+            raise Fail(5, f"이 도구가 연 세션이 아니다 — 남의 세션은 닫지 않는다: {name}")
+        if "--forget" in o:
+            return forget(dl, row, o.get("--why"))
+        return close_row(dl, row, "--adopt" in o)
+
+
+def close_row(dl, row, adopt):
+    name, run = row[0], row[1]
+    conf = rt.confirmed(row)
+    if conf and adopt:
+        raise Fail(2, f"확인된 세션이다 — --adopt 없이 close {name} 로 닫는다")
+    if not conf and not adopt:
+        raise Fail(4, f"{unsure(name, row[2], 'pending · 신원 미확인')} · 원격 kill 0")
+    sock = row[7] if conf else ""  # R3 — 확인된 줄은 기록 소켓만 · --adopt(pending)는 기본 서버에서 찾고 소켓을 채운다
+    rc, out, err = rt.rcall(dl, R_LOOKUP, sock, name, row[2])
     k = kv(out)
-    has, ident = k.get("has"), k.get("ident", "").split(" ", 2)
-    if "--adopt" in o:
-        if not (rc == 0 and has == "0" and k.get("drc") == "0" and len(ident) == 3 and all(ident) and k.get("dirmatch") == "1"):
+    has, ident = k.get("has"), k.get("ident", "").split(" ", 3)  # session_id created socket pane_path
+    whole = rc == 0 and has == "0" and k.get("drc") == "0" and len(ident) == 4 and all(ident) and rt.valid("sock", ident[2])
+    if adopt:
+        if not (whole and k.get("dirmatch") == "1"):
             raise Fail(4, f"채울 세션이 없다/다르다/조회 실패(rc={rc} has={has} drc={k.get('drc')} dirmatch={k.get('dirmatch')}) — 삭제 0 · 건드림 0")
-        rt.opened_set_ident(name, *ident)
-        kid = ident[0]
+        rt.in_time(dl, "신원 기록 전", "--adopt 마감 — 기록 그대로(pending) · 원격 0")
+        rt.opened_set_ident(run, ident[0], ident[1], ident[3], ident[2])
+        kid, sock = ident[0], ident[2]
         say(f"ADOPT 신원 채움 {' '.join(ident)}")
     elif rc != 0 or has not in ("0", "1"):
         raise Fail(6, f"세션 조회 실패(rc={rc} has={has}) — 닫힘으로 보지 않는다(기록 유지): {tail(out, err)}")
     elif has == "1":
-        kid = ""  # 정상 «없음» 응답 + 신원 찬 줄 = gone 후보 — R_KILL 확인(pi 0·err 0)을 거쳐야 지운다
+        kid = ""  # 기록 소켓의 정상 «없음» + 신원 찬 줄 = gone 후보 — R_KILL 확인(pi 0·err 0)을 거쳐야 지운다
     else:
-        if k.get("drc") != "0" or len(ident) != 3 or not all(ident):
+        if not whole:
             raise Fail(6, "세션 신원 조회 실패 — 건드리지 않는다(기록 유지)")
-        if not same(" ".join(ident), " ".join(row[4:7])):
-            raise Fail(3, f"다른 세션이다 — 같은 이름이지만 신원이 다르다(기록 {' '.join(row[4:7])} / 지금 {' '.join(ident)}) · 건드림 0: {name}")
+        now_id = [ident[0], ident[1], ident[3]]
+        if not same(" ".join(now_id), " ".join(row[4:7])):
+            raise Fail(3, f"다른 세션이다 — 같은 이름이지만 신원이 다르다(기록 {' '.join(row[4:7])} / 지금 {' '.join(now_id)}) · 건드림 0: {name}")
         kid = ident[0]
-    rc, out, err = rt.rcall(dl, R_KILL, kid, name, row[2])
+    rc, out, err = rt.rcall(dl, R_KILL, sock, kid, name, row[2])
     for ln in out.decode("utf-8", "replace").splitlines():
         say(f"  {ln}")
     ok = rc == 0 and KILL_OK in out.decode("utf-8", "replace")
     if not ok:
         raise Fail(6, f"닫기 확인 실패 — 세션/프로세스가 남았거나 확인이 안 됐다(강제 kill 0 · 기록 유지): {name}")
-    rt.opened_del(name)
+    rt.in_time(dl, "삭제 전", "닫힘 확인했으나 마감 초과 — 기록 유지 · 다시 close 하면 gone 경로로 지운다")
+    rt.opened_del(run)
     say(f"CLOSE ok {name} — 세션 없음 · 이 폴더에서 도는 pi 0")
     return 0
 
 
-def forget(row, why, confirmed):
+def forget(dl, row, why):
     """--forget = 기록만 지운다(원격 호출 0) · pending 줄에만 · 이유 필수 · forgotten.tsv 1줄."""
     w = (why or "").strip()
     if not w or len(why) > 200 or any(c in why for c in "\t\r\n"):
         raise Fail(2, "--forget 은 --why '<1~200자 한 줄>' 필수 — 기록 그대로 · 원격 0")
-    if confirmed:
+    if rt.confirmed(row):
         raise Fail(2, "확인된 세션은 close 로 닫는다(--forget 불가) — 기록 그대로")
+    rt.in_time(dl, "삭제 전", "--forget 마감 — 기록 그대로 · 원격 0")
     rt.forgotten_add(row, w)
-    rt.opened_del(row[0])
+    rt.opened_del(row[1])
     say(f"FORGET ok {row[0]} — 기록만 지움 · 원격 세션은 손대지 않음 · forgotten.tsv 1줄")
     return 0
 

@@ -1,5 +1,5 @@
 PASS ⓐ open: 세션 1 · TASK.md · 기록 신원 3칸 · 표식 .sent/TASK.md/sent + .open.claim·.open.pid (claim/t 없음)
-PASS ⓐ-2 같은 run = 폴더 REJECT · 남의 이름 세션 = REJECT · 원격 열기 전 거절은 기록도 0
+PASS ⓐ-2 장부에 같은 run = REJECT(원격 0) · 남의 이름 세션 = REJECT · mini 폴더 있음 = REJECT · R_PRE 만 돈 거절은 기록도 0
 PASS ⓑ task: 1개 전달 · 2번째 SKIP(ALREADY · 입력 0)
 PASS ⓑ-2 task 남의 세션 = REJECT
 PASS ⓒ pull: 배달 1 · mini ack · 2번째 pull 0
@@ -18,7 +18,7 @@ PASS ⓙ 동시 pull 2개 → 발신 1 · mini pending 0
 PASS ⓜ 300KB → ERROR · 발신 0 · quarantine/ 보관
 PASS ⓝ ../x · $() · ; 값 전부 rc2 · 원격 호출 0 · 실행 흔적 0
 PASS ⓤ SAT_TMO=9·SAT_TOTAL=90·abc·0 → rc2 · 원격 0
-PASS ⓞ-1 느린 tmuxc(8초) → 백그라운드+폴링으로 열림(10초)
+PASS ⓞ-1 느린 tmuxc(8초) → 백그라운드+폴링으로 열림(9초)
 PASS ⓞ-3 연결 실패 1회 → 읽기 재시도로 성공(ssh 2)
 PASS ⓞ-4 연결 실패 2회 → 재시도 1회까지(ssh 2) rc5
 PASS ⓞ-5 원격 무응답 → SAT_TMO 에서 끊고 rc5(1초)
@@ -51,9 +51,15 @@ PASS Ⓜ-2 비어 있지 않은 파일 + 빈 $msg 주입 → rc4 · sent 0 · �
 PASS Ⓜ-3 빈 파일 task → rc4 · 입력 0
 PASS Ⓝ 벽시계 전진·LIMIT 변경·뒤늦은 세션 → close rc4 · 삭제 0 · 원격 0
 PASS Ⓞ POLL sess_rc=2 · rc1+다른 글 → open rc6 · 기록 유지 · 신원 조회·입력 0
-PASS Ⓟ --forget: 이유 없음·공백 rc2 · 확인된 줄 rc2 · 없는 이름 rc5 · pending 만 rc0 · ssh 0 · forgotten 1줄
+PASS Ⓟ --forget: 이유 없음·공백 rc2 · 확인된 줄 rc2 · 없는 이름 rc5 · pending 만 rc0 · ssh 0 · forgotten 1줄(12칸)
 PASS Ⓠ·Ⓔ·ⓥ open 마감 → close rc4(전·후) · --adopt 폴더 다름/조회 실패 rc4 삭제 0 · 폴더 일치 → 신원 채움·닫힘 rc0
 PASS Ⓠ-2 세션 없음에 --adopt → rc4 삭제 0 → --forget rc0
+PASS ⓡ1 동시 open 같은 이름: A 잠금 중 B1 open·B2 --forget rc1 원격 0 · 뒤 B3 rc2 원격 0 · A 줄 유지·확인 · A close rc0
+PASS ⓡ2 R_WRITE 뒤 응답 유실 ×2 → open rc4 · 줄 유지 · close rc4 · --forget 뒤에만 삭제
+PASS ⓡ3 4칸·9칸 줄 → task·close·fetch·--forget rc6 · ssh 0 · 입력 0 · 줄 그대로
+PASS ⓡ4 서버 2개: 기본 소켓 B(꺼짐)여도 close 는 기록 소켓 A 로 닫음 · B 의 «no server» 로 삭제 0
+PASS ⓡ5 SAT_TOTAL=3 · 장부 잠금 4초 점유 → close rc4 줄 유지 → 다음 close rc0 · 닫힘 확인 뒤 마감 → 삭제 전 rc4 → 다시 close gone rc0
+PASS ⓡ6 opened.flock 쓰기 불가 → open·close rc2 · ssh 0 · traceback 0
 PASS 변이 신원 대조 끔 → cell_h 빨강 = 감지
 PASS 변이 값 검사 끔 → cell_n 빨강 = 감지
 PASS 변이 intent 끔 → cell_A 빨강 = 감지
@@ -78,6 +84,12 @@ PASS 변이 불확실 줄 close 가 지움 → cell_N 빨강 = 감지
 PASS 변이 --why 검사 끔 → cell_P 빨강 = 감지
 PASS 변이 --forget 확인된 줄도 지움 → cell_P 빨강 = 감지
 PASS 변이 --adopt dirmatch 없이 → cell_Q 빨강 = 감지
+PASS 변이 잠금 구간 = 추가만(r5 ⓡ1) → cell_r1 빨강 = 감지
+PASS 변이 삭제 열쇠 = 이름(r5 ⓡ1 · 이름 검사 끔과 짝) → cell_r1 빨강 = 감지
+PASS 변이 R_WRITE 뒤 자동 삭제(r5 ⓡ2) → cell_r2 빨강 = 감지
+PASS 변이 칸 수 검사 끔(r5 ⓡ3) → cell_r3 빨강 = 감지
+PASS 변이 -S 빼기(r5 ⓡ4) → cell_r4 빨강 = 감지
+PASS 변이 삭제 전 dl.check 끔(r5 ⓡ5) → cell_r5 빨강 = 감지
 PASS 정적 py_compile
 PASS 정적 ruff
 PASS 정적 shellcheck(입구+시험)
@@ -88,4 +100,6 @@ PASS 정적 grep settled|OPEN_LIMIT|date +%s 0건
 PASS 정적 강제 kill 문구 0
 PASS 정적 usage rc2
 ALL PASS
---- /bin/bash 3.2 같은 시험: PASS=89 FAIL=0 ALL PASS
+--- 반복(r5): bash#1 rc=0 PASS=101 FAIL=0 168s bash#2 rc=0 PASS=101 FAIL=0 178s bash#3 rc=0 PASS=101 FAIL=0 167s bin/bash3.2#1 rc=0 PASS=101 FAIL=0 242s bin/bash3.2#2 rc=0 PASS=101 FAIL=0 235s bin/bash3.2#3 rc=0 PASS=101 FAIL=0 202s   
+--- r5 변이 빨강 사유(ⓡ1 직접 실행): 잠금 구간 = 추가만 → A=2 B2=0(동시 --forget 이 A 의 pending 줄 삭제) · 삭제 열쇠 = 이름(+이름 검사 끔) → B3calls=1 · B3 정리가 A 줄을 이름으로 지움 → A close rc5
+--- 주: «삭제 열쇠 = 이름» 단독 변이는 R1(같은 이름 줄 = rc2)·opened_find 유일성 검사 아래에서 관측 동치 — 이름 검사 끔과 짝으로 감지

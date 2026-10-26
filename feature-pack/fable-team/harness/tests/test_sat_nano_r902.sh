@@ -2,6 +2,7 @@
 # ft-sat-nano 시험 (r902 r7 + DECISION 고침 3) — ssh·tmux·tmuxc·pgrep·lsof·ps·mkdir·mv «대역» 만. 실 mini 0 · 제품 쪽지함 쓰기 0 · 실 tmux 세션 0.
 #   유지 칸: ⓐ ⓑ ⓒ ⓓ ⓖ ⓗ ⓘ ⓙ ⓜ ⓝ ⓞ ⓠ ⓡ ⓢ-1 ⓤ · 바뀌는 칸: ⓐ 표식 · ⓚ · ⓢ-2 · ⓛ · ⓣ · ⓥ
 #   새 칸: Ⓐ Ⓑ Ⓒ Ⓓ Ⓔ Ⓕ Ⓖ Ⓗ①② Ⓘ①② Ⓙ Ⓚ Ⓛ-0~4 Ⓜ Ⓝ Ⓞ Ⓟ Ⓠ + 고침 3(claim_fail 줄 유지 · --why 필수 · has-session rc1 두 꼴)
+#   반송 r5: tmux 대역 = 서버 2개(소켓 A·B) · Ⓙ = 표식(.open.pid) 동기화 · 새 칸 ⓡ1~ⓡ6 · 새 변이 6
 #   변이: 칸 함수를 «변이 사본»으로 다시 돌려 빨강이어야 통과(mut — 바꿀 글자가 정확히 1곳이어야 사본이 만들어진다).
 #   실행: env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE bash tests/test_sat_nano_r902.sh   (bash 3.2 · /bin/bash 로도 돈다)
 set -uo pipefail
@@ -18,7 +19,7 @@ ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=1; }
 call() { O="$("$@" 2>&1)"; RC=$?; }
 instate() { cut -f1 "$SAT_STATE_DIR/opened.tsv" 2>/dev/null | grep -qxF -- "$1"; }
-conf() { awk -F'\t' -v n="$1" '$1==n && $5!="" && $6!="" && $7!=""' "$SAT_STATE_DIR/opened.tsv" 2>/dev/null | grep -q .; }
+conf() { awk -F'\t' -v n="$1" '$1==n && NF==8 && $5!="" && $6!="" && $7!="" && $8!=""' "$SAT_STATE_DIR/opened.tsv" 2>/dev/null | grep -q .; }
 hassess() { grep -qxF -- "$1" "$RSESS"; }
 waitsess() { local _; for _ in 1 2 3 4 5 6 7 8 9 10 11 12; do hassess "$1" && return 0; sleep 1; done; return 1; }
 dropsess() { grep -vxF -- "$1" "$RSESS" >"$RSESS.t"; mv "$RSESS.t" "$RSESS"; awk -F'|' -v n="$1" '$1!=n' "$RSESS.meta" >"$RSESS.t"; mv "$RSESS.t" "$RSESS.meta"; }
@@ -82,7 +83,9 @@ dir="$2"; shift 2; name=""
 while [ $# -gt 0 ]; do case "$1" in --name) name="$2"; shift 2;; --agent|--role|--model|--effort) shift 2;; *) shift;; esac; done
 printf '%s\n' "$name" >>"$FAKE_SESS.calls"
 [ -d "$dir" ] || exit 3
-[ -n "${FAKE_TMUXC_ARM_PS:-}" ] && { sleep 0.5; : >"$FAKE_PS_ALT"; }
+if [ -n "${FAKE_TMUXC_ARM_PS:-}" ]; then   # 표식 동기화(r5): OPEN_BG 가 .open.pid(lstart)를 쓴 «뒤» 에만 pid 재사용을 무장한다
+  n=0; while [ ! -s "$dir/.open.pid" ] && [ "$n" -lt 200 ]; do sleep 0.05; n=$((n + 1)); done; : >"$FAKE_PS_ALT"
+fi
 [ -n "${FAKE_TMUXC_ARM_HAS:-}" ] && { printf '%s\n' "$FAKE_TMUXC_ARM_HAS" >"$FAKE_SESS.hasrc"; exit 0; }
 [ -n "${FAKE_TMUXC_SLEEP:-}" ] && sleep "$FAKE_TMUXC_SLEEP"
 [ -n "${FAKE_TMUXC_NOSESS:-}" ] && { echo "tmuxc: pi 기동 실패(대역)"; exit 3; }
@@ -93,9 +96,14 @@ echo "OPEN ok name=$name pane_pid=4242"
 EOF
 cat >"$FB/tmux" <<'EOF'
 #!/usr/bin/env bash
+# tmux 서버 2개 대역(r5 R3): 소켓 A = $FAKE_SESS · 소켓 B = $FAKE_SESS.B(파일 없음 = 서버 꺼짐) · 기본 소켓 = FAKE_DEFAULT_SOCK(없으면 A)
+sock="${FAKE_DEFAULT_SOCK:-$FAKE_SOCK_A}"
+if [ "$1" = -S ]; then sock="$2"; shift 2; fi
+case "$sock" in "$FAKE_SOCK_A") S="$FAKE_SESS";; "$FAKE_SOCK_B") S="$FAKE_SESS.B";; *) S="";; esac
+if [ -z "$S" ] || [ ! -e "$S" ]; then echo "no server running on $sock" >&2; exit 1; fi
 sub="$1"; shift; tgt=""; fmt=""; args="$*"
 while [ $# -gt 0 ]; do case "$1" in -t) tgt="$2"; shift 2;; '#'*) fmt="$1"; shift;; *) shift;; esac; done
-case "$tgt" in '$'*) tgt="$(awk -F'|' -v i="$tgt" '$2==i{print $1}' "$FAKE_SESS.meta")";; esac
+case "$tgt" in '$'*) tgt="$(awk -F'|' -v i="$tgt" '$2==i{print $1}' "$S.meta")";; esac
 tgt="${tgt#=}"; tgt="${tgt%:}"
 case "$sub" in
   has-session)
@@ -104,17 +112,17 @@ case "$sub" in
     fi
     [ -n "${FAKE_HAS_RC:-}" ] && { echo "lost server" >&2; exit "$FAKE_HAS_RC"; }
     [ -n "${FAKE_HAS_ERR:-}" ] && { echo "$FAKE_HAS_ERR" >&2; exit 1; }
-    grep -qxF -- "$tgt" "$FAKE_SESS" && exit 0
-    if [ -n "${FAKE_NO_SERVER:-}" ]; then echo "no server running on /private/tmp/tmux-501/default" >&2; else echo "can't find session: $tgt" >&2; fi
+    grep -qxF -- "$tgt" "$S" && exit 0
+    if [ -n "${FAKE_NO_SERVER:-}" ]; then echo "no server running on $sock" >&2; else echo "can't find session: $tgt" >&2; fi
     exit 1 ;;
-  display)     grep -qxF -- "$tgt" "$FAKE_SESS" || exit 1
-               case "$fmt" in *session_id*) awk -F'|' -v n="$tgt" '$1==n{print $2" "$3" "$4}' "$FAKE_SESS.meta" ;; *) echo 4242 ;; esac ;;
+  display)     grep -qxF -- "$tgt" "$S" || exit 1
+               case "$fmt" in *session_id*) awk -F'|' -v n="$tgt" -v s="$sock" '$1==n{print $2" "$3" "s" "$4}' "$S.meta" ;; *) echo 4242 ;; esac ;;
   send-keys)   [ -e "${FAKE_SEND_FAIL:-/nonexistent}" ] && exit 1
                n=0; while [ -e "${FAKE_SEND_BARRIER:-/nonexistent}" ] && [ "$n" -lt 100 ]; do sleep 0.1; n=$((n + 1)); done
                echo "$tgt|$args" >>"$FAKE_SEND" ;;
-  kill-session) [ -n "$tgt" ] && grep -qxF -- "$tgt" "$FAKE_SESS" || exit 1
-               grep -vxF -- "$tgt" "$FAKE_SESS" >"$FAKE_SESS.t"; mv "$FAKE_SESS.t" "$FAKE_SESS"
-               awk -F'|' -v n="$tgt" '$1!=n' "$FAKE_SESS.meta" >"$FAKE_SESS.t"; mv "$FAKE_SESS.t" "$FAKE_SESS.meta" ;;
+  kill-session) [ -n "$tgt" ] && grep -qxF -- "$tgt" "$S" || exit 1
+               grep -vxF -- "$tgt" "$S" >"$S.t"; mv "$S.t" "$S"
+               awk -F'|' -v n="$tgt" '$1!=n' "$S.meta" >"$S.t"; mv "$S.t" "$S.meta" ;;
   *) exit 1 ;;
 esac
 EOF
@@ -176,6 +184,7 @@ EOF
 chmod 755 "$FB"/* "$SB"/* "$STUB"
 export FAKE_RHOME="$RH" FAKE_BIN="$FB" FAKE_SESS="$RSESS" FAKE_SEND="$SEND" FAKE_RMBOX="$RMBOX" FAKE_PI_PIDS="$T/pi-pids" FAKE_PI_CWDS="$T/pi-cwds"
 export FAKE_SSHLOG="$T/sshlog" FAKE_PS_ALT="$T/ps-alt" STUB_SENT_DIR="$T/stub-sent" STUB_CALLS="$T/calls"
+export FAKE_SOCK_A="$T/tmux-501/sockA" FAKE_SOCK_B="$T/tmux-501/sockB"
 export SAT_MINI_MBOX_PY="$KIT/ft-mbox.py" SAT_MBOX_SH="$KIT/ft-mbox.sh" SAT_OUT_DIR="$T/out" FT_MBOX_DIR="$MACBOX" PATH="$SB:$PATH"
 export SAT_STATE_DIR="$T/state"
 printf '요약하라. 끝에 SAT-DONE host=x 한 줄.\n' >"$T/card.md"
@@ -187,14 +196,16 @@ pending() { # pending <tool> <run> <name> — open 이 마감(rc5)으로 끝나 
 
 # ══ 유지 칸 ══
 # ⓐ open — 사전점검 · 세션 1 · TASK.md · 기록 신원 · 표식(.sent/TASK.md/sent · .open.claim · .open.pid · claim/t 없음)
-call bash "$TOOL" open "$T/card.md" --run r1; D="$RH/$ROOTR/r1"; SEAT='byz-sat-nano-pi#0'
+call bash "$TOOL" open "$T/card.md" --run r1; D="$RH/$ROOTR/r1"; SEAT='byz-sat-nano-r1#0'
 { [ "$RC" = 0 ] && grep -q "OPEN ok" <<<"$O" && grep -q "3/4 pi 기동 확인" <<<"$O" && [ -s "$D/TASK.md" ] && hassess "$SEAT" && conf "$SEAT" \
   && [ -f "$D/.sent/TASK.md/sent" ] && [ -d "$D/.open.claim" ] && [ -s "$D/.open.pid" ] && [ ! -e "$D/.open.claim/t" ] && grep -q "^$SEAT|.*TASK.md" "$SEND"; } \
   && ok "ⓐ open: 세션 1 · TASK.md · 기록 신원 3칸 · 표식 .sent/TASK.md/sent + .open.claim·.open.pid (claim/t 없음)" || bad "ⓐ open rc=$RC: $O"
-call bash "$TOOL" open "$T/card.md" --run r1 --name 'sat-a2#1'; r2="$RC"; o2="$O"
+b="$(sshn)"; call bash "$TOOL" open "$T/card.md" --run r1 --name 'sat-a2#1'; r2="$RC"; o2="$O"; s2="$(( $(sshn) - b ))"
 call bash "$TOOL" open "$T/card.md" --run r2 --name "$FOREIGN"; r3="$RC"; o3="$O"
-{ [ "$r2$r3" = 22 ] && grep -q "폴더가 이미 있다" <<<"$o2" && grep -q "남의 세션이라 건드리지 않는다" <<<"$o3" && ! instate 'sat-a2#1' && ! instate "$FOREIGN" && [ ! -d "$RH/$ROOTR/r2" ]; } \
-  && ok "ⓐ-2 같은 run = 폴더 REJECT · 남의 이름 세션 = REJECT · 원격 열기 전 거절은 기록도 0" || bad "ⓐ-2 rc=$r2/$r3: $o2 / $o3"
+mkdir -p "$RH/$ROOTR/r2x"; call bash "$TOOL" open "$T/card.md" --run r2x --name 'sat-a2#2'; r4="$RC"; o4="$O"
+{ [ "$r2$r3$r4" = 222 ] && [ "$s2" = 0 ] && grep -q "같은 run" <<<"$o2" && grep -q "남의 세션이라 건드리지 않는다" <<<"$o3" && grep -q "폴더가 이미 있다" <<<"$o4" \
+  && ! instate 'sat-a2#1' && ! instate "$FOREIGN" && ! instate 'sat-a2#2' && [ ! -d "$RH/$ROOTR/r2" ]; } \
+  && ok "ⓐ-2 장부에 같은 run = REJECT(원격 0) · 남의 이름 세션 = REJECT · mini 폴더 있음 = REJECT · R_PRE 만 돈 거절은 기록도 0" || bad "ⓐ-2 rc=$r2/$r3/$r4 ssh=$s2: $o2 / $o3 / $o4"
 
 # ⓑ task — 전달 · 같은 내용 2번 = SKIP · 남의 세션 0
 printf '두번째 작업\n' >"$T/t2.md"
@@ -471,7 +482,7 @@ PY
 cell_I "$TOOL" && ok "Ⓘ ① 남은 시간 0 이하 = 예외 rc5 · ② 경계에서 자식 실행 0" || bad "Ⓘ"
 
 # Ⓙ pid 재사용(lstart 다름) → 표시만 · open rc4 기록 유지 · close rc4
-call env FAKE_TMUXC_ARM_PS=1 FAKE_TMUXC_SLEEP=3 bash "$TOOL" open "$T/card.md" --run jj --name 'sat-jj#1'; j1="$RC"; jo="$O"; rm -f "$FAKE_PS_ALT"
+call env FAKE_TMUXC_ARM_PS=1 FAKE_TMUXC_SLEEP=5 bash "$TOOL" open "$T/card.md" --run jj --name 'sat-jj#1'; j1="$RC"; jo="$O"; rm -f "$FAKE_PS_ALT"
 waitsess 'sat-jj#1'; call bash "$TOOL" close 'sat-jj#1'
 { [ "$j1" = 4 ] && grep -q "열기 불확실" <<<"$jo" && [ "$RC" = 4 ] && instate 'sat-jj#1' && hassess 'sat-jj#1'; } && ok "Ⓙ pid 재사용 → alive 0 = 표시만 · open rc4 · close rc4 · 세션·기록 유지" || bad "Ⓙ $j1 | $RC $O"
 bash "$TOOL" close 'sat-jj#1' --adopt >/dev/null 2>&1
@@ -560,8 +571,8 @@ cell_P() { local t="$1" s="$2" b a1 a2 a3 a4 a5; pending "$t" "p$s" "sat-pp#$s" 
   FT_SEAT="tester#1" bash "$t" close "sat-pp#$s" --forget --why "열기 마감 · 세션 없음 확인" >/dev/null 2>&1; a5=$?; local a6; a6="$(sshn)"
   waitsess "sat-pp#$s"; dropsess "sat-pp#$s"; bash "$TOOL" close "sat-pc#$s" >/dev/null 2>&1
   PD="$a1$a2$a3$a4$a5 ssh ${b}→${a6}"; [ "$a1$a2$a3$a4$a5" = "22250" ] && [ "$a6" = "$b" ] && ! instate "sat-pp#$s" \
-    && awk -F'\t' -v n="sat-pp#$s" 'NF==11 && $2=="tester#1" && $4==n && $11=="열기 마감 · 세션 없음 확인"' "$SAT_STATE_DIR/forgotten.tsv" | grep -q .; }
-cell_P "$TOOL" 1 && ok "Ⓟ --forget: 이유 없음·공백 rc2 · 확인된 줄 rc2 · 없는 이름 rc5 · pending 만 rc0 · ssh 0 · forgotten 1줄" || bad "Ⓟ ${PD:-}"
+    && awk -F'\t' -v n="sat-pp#$s" 'NF==12 && $2=="tester#1" && $4==n && $12=="열기 마감 · 세션 없음 확인"' "$SAT_STATE_DIR/forgotten.tsv" | grep -q .; }
+cell_P "$TOOL" 1 && ok "Ⓟ --forget: 이유 없음·공백 rc2 · 확인된 줄 rc2 · 없는 이름 rc5 · pending 만 rc0 · ssh 0 · forgotten 1줄(12칸)" || bad "Ⓟ ${PD:-}"
 
 # Ⓠ/Ⓔ/ⓥ --adopt — open 마감 rc5 → close rc4 → 세션 생성 뒤에도 rc4 → --adopt(폴더 일치) 신원 채움·닫힘 · 폴더 다름/세션 없음/조회 실패 rc4 삭제 0
 cell_Q() { local t="$1" s="$2" r1 r2 r3 r4 r5; QD="pending"; pending "$t" "qa$s" "sat-qq#$s" || return 1
@@ -577,6 +588,131 @@ cell_Q2() { local t="$1" s="$2"; call env FAKE_TMUXC_NOSESS=1 bash "$t" open "$T
   call bash "$t" close "sat-q2#$s" --adopt; [ "$RC" = 4 ] && instate "sat-q2#$s" || return 1
   bash "$t" close "sat-q2#$s" --forget --why "세션 없음" >/dev/null 2>&1; }
 cell_Q2 "$TOOL" 1 && ok "Ⓠ-2 세션 없음에 --adopt → rc4 삭제 0 → --forget rc0" || bad "Ⓠ-2: $O"
+
+# ══ r5 새 칸 (R1 열쇠 = run · R2 삭제 길 둘 · R3 소켓 고정 · 마감) ══
+# ⓡ1 동시 open 같은 이름(순서 고정 · 함수 직접) — A 가 장부 잠금을 쥔 R_PRE 중에 B1 open·B2 --forget → rc1(또는 B1 rc2) · 원격 0
+#     A 끝난 뒤 B3 open 같은 이름 → rc2 · 원격 0 · A 줄 1개 확인됨 · A close rc0
+cell_r1() { local bd; bd="$(dirname "$1")"; R1D="$(python3 - "$bd" "$T/st-r1-$2" "$T/card.md" 2>/dev/null <<'PY' | tail -1
+import os, sys
+bd, st, card = sys.argv[1:4]
+os.environ["SAT_STATE_DIR"] = st
+sys.path.insert(0, bd)
+import ft_sat_nano as m
+rt = m.rt
+rt.LOCK_WAIT = 0.3
+sess, calls, r = {}, [0], []
+def b_side():
+    n0 = calls[0]
+    r.append("B1=%d" % m.main(["open", card, "--run", "r1b", "--name", "sat-r1#1"]))
+    r.append("B2=%d" % m.main(["close", "sat-r1#1", "--forget", "--why", "동시 forget"]))
+    r.append("Bcalls=%d" % (calls[0] - n0))
+hook = [b_side]
+ID = "$1 100 /tmp/s.sock /home/x"
+def fake(dl, script, *a, **k):
+    calls[0] += 1
+    if script == m.R_PRE:
+        if hook:
+            hook.pop()()
+        return 0, b"tmuxc=ok\npi=ok\nperl=ok\nsess_rc=%d\ndir=absent\n" % (0 if a[1] in sess else 1), ""
+    if script == m.R_OPEN_BG:
+        sess[a[1]] = 1
+        return 0, b"running\n1 x\n", ""
+    if script == m.R_LOOKUP:
+        return 0, ("has=0\ndrc=0\nident=%s\ndirmatch=1\n" % ID).encode(), ""
+    return 0, {m.R_WRITE: b"", m.R_POLL: b"alive=1\ndone=\nsess_rc=0\n", m.R_IDENT: (ID + "\n").encode(),
+               m.R_PIDS: b"1\n", m.R_SEND: b"SENDOK\n", m.R_KILL: m.KILL_OK.encode() + b"\n"}[script], ""
+rt.rcall = fake
+a = m.main(["open", card, "--run", "r1a", "--name", "sat-r1#1"])
+n0 = calls[0]
+b3 = m.main(["open", card, "--run", "r1c", "--name", "sat-r1#1"])
+b3c = calls[0] - n0
+rows = [x for x in rt.read_rows("opened.tsv") if x[0] == "sat-r1#1"]
+conf = int(len(rows) == 1 and rt.confirmed(rows[0]))
+c = m.main(["close", "sat-r1#1"])
+print("A=%d %s B3=%d B3calls=%d conf=%d close=%d left=%d" % (a, " ".join(r), b3, b3c, conf, c, len(rt.read_rows("opened.tsv"))))
+PY
+)"; case "$R1D" in "A=0 B1=1 B2=1 Bcalls=0 B3=2 B3calls=0 conf=1 close=0 left=0"|"A=0 B1=2 B2=1 Bcalls=0 B3=2 B3calls=0 conf=1 close=0 left=0") return 0;; esac; return 1; }
+cell_r1 "$TOOL" 0 && ok "ⓡ1 동시 open 같은 이름: A 잠금 중 B1 open·B2 --forget rc1 원격 0 · 뒤 B3 rc2 원격 0 · A 줄 유지·확인 · A close rc0" || bad "ⓡ1 ${R1D:-}"
+
+# ⓡ2 R_WRITE 실행 뒤 응답 유실 ×2 → open rc4 · 줄 유지 · close rc4 · --forget 뒤에만 삭제
+cell_r2() { local t="$1" s="$2"; echo 2 >"$T/r2lost$s"
+  call env FAKE_SSH_LOST="$T/r2lost$s" FAKE_SSH_PAT='mkdir -p "$d" && cat' bash "$t" open "$T/card.md" --run "r2w$s" --name "sat-r2#$s"
+  [ "$RC" = 4 ] && [ -s "$RH/$ROOTR/r2w$s/TASK.md" ] && instate "sat-r2#$s" && ! conf "sat-r2#$s" && [ "$(opensn "sat-r2#$s")" = 0 ] || return 1
+  call bash "$t" close "sat-r2#$s"; [ "$RC" = 4 ] && instate "sat-r2#$s" || return 1
+  call bash "$t" close "sat-r2#$s" --forget --why "R_WRITE 응답 유실 · 세션 없음"; [ "$RC" = 0 ] && ! instate "sat-r2#$s"; }
+cell_r2 "$TOOL" 1 && ok "ⓡ2 R_WRITE 뒤 응답 유실 ×2 → open rc4 · 줄 유지 · close rc4 · --forget 뒤에만 삭제" || bad "ⓡ2: $O"
+
+# ⓡ3 4칸·9칸 줄 → task·close·fetch·--forget 전부 rc6 · ssh 0 · 입력 0 · 줄 그대로
+cell_r3() { local t="$1" st="$T/st-r3$2" b ns n r=""; mkdir -p "$st"
+  printf 'sat-r3a#1\tr3a\t%s/r3a\tts\n' "$ROOTR" >"$st/opened.tsv"
+  printf 'sat-r3b#1\tr3b\t%s/r3b\tts\t$1\t100\t/x\t/s\textra\n' "$ROOTR" >>"$st/opened.tsv"
+  printf 'x\n' >"$T/r3t.md"; b="$(sshn)"; ns="$(wc -l <"$SEND" | tr -d ' ')"
+  for n in 'sat-r3a#1' 'sat-r3b#1'; do
+    r="$r $(SAT_STATE_DIR="$st" bash "$t" task "$n" "$T/r3t.md" >/dev/null 2>&1; echo $?)"
+    r="$r $(SAT_STATE_DIR="$st" bash "$t" close "$n" >/dev/null 2>&1; echo $?)"
+    r="$r $(SAT_STATE_DIR="$st" bash "$t" fetch "$n" >/dev/null 2>&1; echo $?)"
+    r="$r $(SAT_STATE_DIR="$st" bash "$t" close "$n" --forget --why x >/dev/null 2>&1; echo $?)"
+  done
+  R3D="$r"; [ "$r" = " 6 6 6 6 6 6 6 6" ] && [ "$(sshn)" = "$b" ] && [ "$(wc -l <"$SEND" | tr -d ' ')" = "$ns" ] && [ "$(wc -l <"$st/opened.tsv" | tr -d ' ')" = 2 ]; }
+cell_r3 "$TOOL" 1 && ok "ⓡ3 4칸·9칸 줄 → task·close·fetch·--forget rc6 · ssh 0 · 입력 0 · 줄 그대로" || bad "ⓡ3 rc:${R3D:-}"
+
+# ⓡ4 tmux 서버 2개 — 소켓 A 에서 열고 기본 소켓을 B(꺼짐)로 바꾼 뒤 close → -S A 로 닫거나 rc6 · B 의 «no server» 로 삭제 0
+cell_r4() { local t="$1" s="$2" r; rm -f "$RSESS.B"; mkopen "$t" "r4$s" "sat-r4#$s" || return 1
+  call env FAKE_DEFAULT_SOCK="$FAKE_SOCK_B" bash "$t" close "sat-r4#$s"; r="$RC"
+  if [ "$r" = 0 ] && ! hassess "sat-r4#$s" && ! instate "sat-r4#$s"; then return 0; fi
+  if [ "$r" = 6 ] && instate "sat-r4#$s" && hassess "sat-r4#$s"; then bash "$t" close "sat-r4#$s" >/dev/null 2>&1; return 0; fi
+  instate "sat-r4#$s" || dropsess "sat-r4#$s"; return 1; }
+cell_r4 "$TOOL" 1 && ok "ⓡ4 서버 2개: 기본 소켓 B(꺼짐)여도 close 는 기록 소켓 A 로 닫음 · B 의 «no server» 로 삭제 0" || bad "ⓡ4: $O"
+
+# ⓡ5 SAT_TOTAL=3 · close 중 장부 잠금 4초 점유 → rc4 · 줄 유지 → 그 뒤 close rc0
+#     + 함수 직접(대역 시계): 닫힘 확인(R_KILL) 뒤 마감 넘음 → 삭제 전 검사 rc4 · 줄 유지 → 다시 close = gone 경로 rc0
+cell_r5() { local t="$1" s="$2" hp r1 el s0 bd; mkopen "$t" "r5$s" "sat-r5#$s" || return 1; rm -f "$T/r5mark$s"
+  ( exec 9>>"$SAT_STATE_DIR/opened.flock"; python3 -c 'import fcntl,sys,time;fcntl.flock(9,fcntl.LOCK_EX);open(sys.argv[1],"w").close();time.sleep(4)' "$T/r5mark$s" ) & hp=$!
+  for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do [ -e "$T/r5mark$s" ] && break; sleep 0.1; done
+  s0=$SECONDS; call env SAT_TOTAL=3 bash "$t" close "sat-r5#$s"; r1="$RC"; el=$((SECONDS - s0)); wait "$hp" 2>/dev/null
+  [ "$r1" = 4 ] && [ "$el" -le 4 ] && instate "sat-r5#$s" && hassess "sat-r5#$s" || return 1
+  call bash "$t" close "sat-r5#$s"; [ "$RC" = 0 ] && ! instate "sat-r5#$s" && ! hassess "sat-r5#$s" || return 1
+  bd="$(dirname "$t")"; [ "$(python3 - "$bd" "$T/st-r5b-$s" 2>/dev/null <<'PY' | tail -1
+import os, sys
+bd, st = sys.argv[1:3]
+os.environ["SAT_STATE_DIR"] = st
+os.makedirs(st, exist_ok=True)
+sys.path.insert(0, bd)
+import ft_sat_nano as m
+rt = m.rt
+with open(os.path.join(st, "opened.tsv"), "w") as f:
+    f.write("sat-r5b#1\tr5b\tProject/satellite-nano/r5b\tts\t$9\t100\t/home/x\t/tmp/s.sock\n")
+class C:
+    t = 0.0
+    def __call__(self):
+        return self.t
+clk = C()
+real = rt.Deadline
+rt.Deadline = lambda total, tmo: real(total, tmo, clock=clk)
+st8 = {"has": "0", "slow": True}
+def fake(dl, script, *a, **k):
+    if script == m.R_LOOKUP:
+        return 0, ("has=%s\ndrc=0\nident=$9 100 /tmp/s.sock /home/x\n" % st8["has"]).encode(), ""
+    if script == m.R_KILL:
+        if st8["slow"]:
+            clk.t += 100.0
+        return 0, m.KILL_OK.encode() + b"\n", ""
+    raise SystemExit("unexpected script")
+rt.rcall = fake
+r = ["rc%d" % m.main(["close", "sat-r5b#1"]), "kept" if rt.opened_find("sat-r5b#1") else "gone"]
+st8.update(has="1", slow=False)
+r += ["rc%d" % m.main(["close", "sat-r5b#1"]), "kept" if rt.opened_find("sat-r5b#1") else "gone"]
+print(" ".join(r))
+PY
+)" = "rc4 kept rc0 gone" ]; }
+cell_r5 "$TOOL" 1 && ok "ⓡ5 SAT_TOTAL=3 · 장부 잠금 4초 점유 → close rc4 줄 유지 → 다음 close rc0 · 닫힘 확인 뒤 마감 → 삭제 전 rc4 → 다시 close gone rc0" || bad "ⓡ5: $O"
+
+# ⓡ6 opened.flock 쓰기 불가 → open·close rc2 · ssh 0 · traceback 0
+cell_r6() { local t="$1" st="$T/st-r6$2" b r1 r2 o; mkdir -p "$st"; : >"$st/opened.flock"; chmod 400 "$st/opened.flock"; b="$(sshn)"
+  o="$(SAT_STATE_DIR="$st" bash "$t" open "$T/card.md" --run "r6$2" --name "sat-r6#$2" 2>&1)"; r1=$?
+  o="$o$(SAT_STATE_DIR="$st" bash "$t" close "sat-r6#$2" 2>&1)"; r2=$?; chmod 600 "$st/opened.flock"
+  R6D="$r1$r2"; [ "$r1$r2" = 22 ] && [ "$(sshn)" = "$b" ] && ! grep -q Traceback <<<"$o"; }
+cell_r6 "$TOOL" 1 && ok "ⓡ6 opened.flock 쓰기 불가 → open·close rc2 · ssh 0 · traceback 0" || bad "ⓡ6 rc=${R6D:-}"
 
 # ══ 변이 (전부 빨강이어야 통과) ══
 mcheck "신원 대조 끔" cell_h "$(mut ident nano 'return a == b' 'return True')" 2
@@ -596,16 +732,28 @@ mcheck "rc1 = 없음(open 폴링)" cell_O "$(mut rc1b nano "\"1:can't find sessi
 mcheck "OPEN_BG claim 끔" cell_L0 "$(mut obclaim nano 'if ! mkdir "$d/.open.claim" 2>/dev/null; then' 'if false; then')" 2
 mcheck "claimed→started" cell_L1 "$(mut claimedrun nano 'then echo claimed; exit 0; fi' 'then echo running; exit 0; fi')" 2
 mcheck "claim_fail→started" cell_L2 "$(mut cfrun nano 'echo claim_fail; exit 4' 'echo running; exit 0')" 2
-mcheck "claim_fail 줄 삭제 복귀" cell_L2 "$(mut cfdel nano 'raise Fail(4, unsure(name, d, "상태=claim_fail' 'rt.opened_del(name); raise Fail(4, unsure(name, d, "상태=claim_fail')" 3
-mcheck "폴링 rowdel 복귀" cell_L4 "$(mut pollrow nano 'raise Fail(4, unsure(name, d, f"opener 끝났으나' 'rt.opened_del(name); raise Fail(4, unsure(name, d, f"opener 끝났으나')" 2
+mcheck "claim_fail 줄 삭제 복귀" cell_L2 "$(mut cfdel nano 'raise Fail(4, unsure(name, d, "상태=claim_fail' 'rt.opened_del(run); raise Fail(4, unsure(name, d, "상태=claim_fail')" 3
+mcheck "폴링 rowdel 복귀" cell_L4 "$(mut pollrow nano 'raise Fail(4, unsure(name, d, f"opener 끝났으나' 'rt.opened_del(run); raise Fail(4, unsure(name, d, f"opener 끝났으나')" 2
 mcheck "\$msg 대입 삭제" cell_M "$(mut msgdel nano 'msg="[발주 #1] $f 를 읽고 그대로 수행해라. 결과는 같은 폴더 out.md."
 ' '')" 3
-mcheck "불확실 줄 close 가 지움" cell_N "$(mut closedel nano 'raise Fail(4, f"{unsure(name, row[2],' 'rt.opened_del(name); raise Fail(4, f"{unsure(name, row[2],')" 2
+mcheck "불확실 줄 close 가 지움" cell_N "$(mut closedel nano 'raise Fail(4, f"{unsure(name, row[2],' 'rt.opened_del(row[1]); raise Fail(4, f"{unsure(name, row[2],')" 2
 mcheck "--why 검사 끔" cell_P "$(mut why nano 'if not w or len(why) > 200 or any(c in why for c in "\t\r\n"):' 'if False:')" 2
-mcheck "--forget 확인된 줄도 지움" cell_P "$(mut forgetconf nano '    if confirmed:
+mcheck "--forget 확인된 줄도 지움" cell_P "$(mut forgetconf nano '    if rt.confirmed(row):
         raise Fail(2, "확인된 세션은' '    if False:
         raise Fail(2, "확인된 세션은')" 3
 mcheck "--adopt dirmatch 없이" cell_Q "$(mut adopt nano ' and k.get("dirmatch") == "1"):' '):')" 2
+# r5 변이 6
+mcheck "잠금 구간 = 추가만(r5 ⓡ1)" cell_r1 "$(mut lockadd nano '        reserve(dl, name, run, d)
+        return open_body(' '        reserve(dl, name, run, d)
+    return open_body(')" 2
+mcheck "삭제 열쇠 = 이름(r5 ⓡ1 · 이름 검사 끔과 짝)" cell_r1 "$(mut namekey nano 'r[0] == name or rt.same_run(r, run)' 'rt.same_run(r, run)' 'rt.opened_del(run)  # R2' '[rt.opened_del(r[1]) for r in rt.read_rows("opened.tsv") if r[0] == name]  # R2')" 3
+mcheck "R_WRITE 뒤 자동 삭제(r5 ⓡ2)" cell_r2 "$(mut wdel nano '        pre(dl, name, d)
+' '        pre(dl, name, d)
+        write_task(dl, name, d, data)
+' '    write_task(dl, name, d, data)  # R2' '    pass  # R2')" 2
+mcheck "칸 수 검사 끔(r5 ⓡ3)" cell_r3 "$(mut ncol rt 'if len(hit) != 1 or len(hit[0]) != NCOL or' 'if len(hit) != 1 or')" 2
+mcheck "-S 빼기(r5 ⓡ4)" cell_r4 "$(mut nosock nano 'tmux -S "$SOCK" "$@"' 'tmux "$@"')" 2
+mcheck "삭제 전 dl.check 끔(r5 ⓡ5)" cell_r5 "$(mut delchk nano '    rt.in_time(dl, "삭제 전", "닫힘 확인했으나 마감 초과 — 기록 유지 · 다시 close 하면 gone 경로로 지운다")' '    pass')" 2
 
 # ══ 정적 ══
 python3 -m py_compile "$BIN/ft_sat_nano.py" "$BIN/ft_sat_rt.py" && ok "정적 py_compile" || bad "정적 py_compile"
