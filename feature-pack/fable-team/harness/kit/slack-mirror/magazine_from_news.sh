@@ -11,23 +11,51 @@ REPO="${FT_LEDGER_REPO:-$ROOT/.worktrees/news-ledger-main}"
 REL="${FT_LEDGER_PATH:-design/teams/planner/PLAN-oppa-ledger.md}"
 # 오빠 원장 제목에는 날짜가 없다 — 판 날짜는 발행 시각(FT_NEWS_NOW 또는 지금)의 날짜
 NOW="${FT_NEWS_NOW:-$(date '+%Y-%m-%d %H:%M')}"
-# r707 날짜당 1회: 예약은 08:00·08:10·08:20 세 번 돈다 — --publish 인데 상태 파일에 그 판 날짜 uploaded=True 기록이 있으면 동기화·발행 «전에» skip rc0.
+# r707 날짜당 1회: 예약은 08:00·08:10·08:20 세 번 돈다 — 발행인데 상태 파일에 그 판 날짜 uploaded=True 기록이 있으면 동기화·발행 «전에» skip rc0.
+#   판정은 글자 모양(`case " $* "`)이 아니라 magazine_doc.py 의 parse_args 로 읽는다 — 값 속에 든 «--publish»(D1)·줄임말 «--pub»(D2)·«--state 다른 파일»(D3) 을 사람이 짐작하지 않는다(DA⑥ r1 HOLD 3건).
 #   uploaded=True 는 magazine_doc.publish 가 HTML 업로드 «성공 뒤» 에만 쓴다 — 실패한 회차는 표식이 없어 다음 회차가 다시 돈다.
-#   상태 = FT_MAGAZINE_STATE(기본 magazine_doc --state 기본값과 같은 ~/.hermes/state/magazine-doc.json · 예약은 --state 를 넘기지 않는다) · 깨진 상태 파일 = ERROR rc7
+#   상태 = parse_args 가 고른 args.state(magazine_doc 기본값과 같음 · --state 를 넘기면 그 파일) · 깨진 상태 파일 = ERROR rc7 · 인자가 틀리면 판정 0(뒤 exec 가 같은 오류를 낸다)
 #   사람이 일부러 같은 날 다시 올릴 때만 FT_MAGAZINE_REPUBLISH=1
-case " $* " in *" --publish "*)
-  if [ "${FT_MAGAZINE_REPUBLISH:-}" != 1 ]; then
-    STATE="${FT_MAGAZINE_STATE:-$HOME/.hermes/state/magazine-doc.json}"
-    DONE="$(python3 - "$STATE" "${NOW:0:10}" <<'PY' 2>&1
-import json, os, sys
-path, date = sys.argv[1:]
-state = json.load(open(path, encoding="utf-8")) if os.path.exists(path) else {}
-print(next((f"{k} root_ts={v.get('root_ts')}" for k, v in state.items() if isinstance(v, dict) and v.get("date") == date and v.get("uploaded") is True), ""))
+if [ "${FT_MAGAZINE_REPUBLISH:-}" != 1 ]; then
+  MOD="${FT_MAGAZINE_DOC:-$HERE/magazine_doc.py}"
+  GUARD="$(python3 - "$MOD" "${NOW:0:10}" "$@" <<'PY'
+import importlib.util, json, os, sys
+path, now_date, user = sys.argv[1], sys.argv[2], sys.argv[3:]
+try:
+    sys.path.insert(0, os.path.dirname(os.path.abspath(path)))
+    spec = importlib.util.spec_from_file_location("ft_magazine_doc_guard", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    try:
+        args = mod.parse_args(["--src-repo", "-", "--src-sha", "-", "--src-path", "-"] + user)
+    except SystemExit:  # 인자가 틀림 — 판정 0 으로 보내고 뒤 exec 가 같은 오류를 원문으로 낸다(조용한 skip 0)
+        print("PROCEED")
+        raise SystemExit(0)
+    if not getattr(args, "publish", False):  # --dry-run 등 미리보기 — 가드 무관
+        print("PROCEED")
+        raise SystemExit(0)
+    state_path = os.path.expanduser(args.state)
+    try:
+        state = json.load(open(state_path, encoding="utf-8")) if os.path.exists(state_path) else {}
+    except (OSError, ValueError) as e:
+        print(f"ERROR {state_path}: {type(e).__name__}: {e}")
+        raise SystemExit(2)
+    date = getattr(args, "date", None) or now_date
+    hit = next((f"{k} root_ts={v.get('root_ts')}" for k, v in state.items() if isinstance(v, dict) and v.get("date") == date and v.get("uploaded") is True), "")
+    print(f"SKIP {date} {hit}" if hit else "PROCEED")
+except SystemExit:
+    raise
+except Exception as e:  # 모듈 없음·import 실패 등 — 조용히 통과시키지 않는다
+    print(f"ERROR {type(e).__name__}: {e}")
+    raise SystemExit(3)
 PY
-)" || { echo "ERROR magazine_from_news: 발행 상태 파일 못 읽음 — $STATE: ${DONE##*$'\n'}" >&2; exit 7; }
-    [ -z "$DONE" ] || { echo "skip date=${NOW:0:10} 이미 발행됨 — $DONE (같은 날 재발행 0 · 일부러면 FT_MAGAZINE_REPUBLISH=1)"; exit 0; }
-  fi;;
-esac
+)" || { echo "ERROR magazine_from_news: 발행 상태 파일 못 읽음 — ${GUARD:-python3 rc=$?}" >&2; exit 7; }
+  if [ "${GUARD%% *}" = SKIP ]; then
+    rest="${GUARD#SKIP }"; gdate="${rest%% *}"; gdetail="${rest#* }"
+    echo "skip date=$gdate 이미 발행됨 — $gdetail (같은 날 재발행 0 · 일부러면 FT_MAGAZINE_REPUBLISH=1)"
+    exit 0
+  fi
+fi
 if [ "${FT_LEDGER_SYNCED:-}" != 1 ]; then
   SYNC="${FT_LEDGER_SYNC:-$(cat "$ROOT/.fable-team/LIVE_BIN" 2>/dev/null)/ft-ledger-repo-sync.sh}"
   OUT="$(bash "$SYNC" "$REPO" 2>&1)" || { echo "ERROR magazine_from_news: 원장 사본 갱신 실패 — ${OUT:-$SYNC 실행 실패}" >&2; exit 6; }
