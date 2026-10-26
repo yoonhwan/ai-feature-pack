@@ -15,7 +15,9 @@ r"""ft_da_metrics.py — 하네스 카드별 DA 회차 «전» 값을 한 번에
   미완료(대기·진행) 카드는 빼지 않고 `[미완료]` 표식.
 
 읽기 실패는 0 으로 보이지 않는다(C2) — 카드 폴더 없음·카드 0장이면 `확인 불가` rc3, 개별 카드/파일이 안 읽히면
-그 행을 `확인 불가` 로 적고 요약 끝에 `확인 불가 <k>장` + rc3. 7초 룰: 파일 읽기만 한다(서브프로세스·git 0).
+그 행을 `확인 불가` 로 적고 요약 끝에 `확인 불가 <k>장` + rc3. ★증거 폴더(`evidence/<rNNN>-da*`)가 있는데 못 읽는
+경우도 같다(C2 · DA r2 수용 1) — `glob` 이 빈 목록으로 삼키지 않게 폴더를 «직접» 열어 보고, 못 열면 그 카드 = `확인 불가`
++ rc3, 회차 간격 모집단에서도 빼고 `NOTE 읽기실패 <폴더>` 를 남긴다.★ 7초 룰: 파일 읽기만 한다(서브프로세스·git 0).
 
 인자: [<루트>] [--root R] [--team harness] [--since YYYY-MM-DD]
 카드 = `<루트>/design[/teams]/<팀>/indices/{대기,진행,완성,아카이브}/*.md` · 시험 env FT_DA_METRICS_NOW(30일 창 «오늘»).
@@ -99,6 +101,14 @@ def counter(txt: str, gate) -> dict:
     }
 
 
+def entries(d: str):
+    """폴더 안 이름 목록 — 못 읽으면 None(«읽기 실패» 를 «0건» 으로 보이지 않는다 · glob 은 오류를 빈 목록으로 삼킨다)."""
+    try:
+        return sorted(os.listdir(d))
+    except OSError:
+        return None
+
+
 def outs_of(evroot: str, stem: str, since_tag: str):
     """그 카드의 .out → [(시각|None, 판정, 파일명, 경로)] · 시각 오름차순(시각 없는 것은 뒤). 읽기 실패는 None.
 
@@ -107,7 +117,10 @@ def outs_of(evroot: str, stem: str, since_tag: str):
     got = []
     dirs = set(glob.glob(os.path.join(evroot, stem.split("-")[0] + "-da*"))) | set(glob.glob(os.path.join(evroot, stem + "-da*")))
     for d in sorted(dirs):
-        for o in sorted(glob.glob(os.path.join(d, "da-*.out"))):
+        names = entries(d)
+        if names is None:
+            return None          # 증거 폴더가 있는데 못 읽음 = calls 0 이 아니라 «확인 불가»(C2)
+        for o in [os.path.join(d, n) for n in names if n.startswith("da-") and n.endswith(".out")]:
             m = OUT.match(os.path.basename(o))
             when = None
             if m:
@@ -154,15 +167,19 @@ def median_gap(outs: list) -> str:
 
 def pooled_gaps(evroot: str, since_tag: str) -> list:
     """회차 간격(분) — 증거 폴더 전부의 .out 시각을 폴더 안에서 이어 붙인다(ANALYSIS §1 과 같은 셈)."""
-    gaps = []
+    gaps, unseen = [], []
     for d in sorted(glob.glob(os.path.join(evroot, "r*-da*"))):
+        names = entries(d)
+        if names is None:
+            unseen.append(d)      # 못 읽는 폴더는 모집단에서 빼되 «조용히» 빼지 않는다(NOTE + rc3)
+            continue
         when = []
-        for o in sorted(glob.glob(os.path.join(d, "da-*.out"))):
-            m = OUT.match(os.path.basename(o))
+        for n in names:
+            m = OUT.match(n) if (n.startswith("da-") and n.endswith(".out")) else None
             if m and not (since_tag and m.group(1) < since_tag):
                 when.append(datetime.strptime(m.group(1) + m.group(2), "%Y%m%d%H%M%S"))
         gaps += [(b - a).total_seconds() / 60 for a, b in zip(when, when[1:])]
-    return gaps
+    return gaps, unseen
 
 
 def variant(child: str, parent: str) -> bool:
@@ -294,7 +311,7 @@ def main() -> int:
     roots = [r for r in rows if not r["bad"] and not r["parent"]]   # 쪼갠 카드는 모카드 1장으로 센다(C3)
     live = [(r, union(r, fold.get(r["stem"], []))) for r in roots]
     live = [(r, mo) for r, mo in live if mo]
-    gaps = pooled_gaps(ev, since_tag)
+    gaps, unseen = pooled_gaps(ev, since_tag)
     calls = [len(mo) for _r, mo in live]
     mean_s = f"{stats.mean(calls):.2f}" if calls else "확인 불가"      # 잰 카드가 0장이면 0 이라고 쓰지 않는다
     gap_s = f"{stats.median(gaps):.0f}min" if gaps else "확인 불가"
@@ -307,8 +324,8 @@ def main() -> int:
           f" · since={a.since or '전체'} · scope={len(rows)}장")
     print("# card\tholds\tcalls\tfirst\tgap_med\twall\trespawn\tscope\trevert30")
     print("\n".join(out))
-    print("\n".join(notes))
-    return 3 if bad or not live else 0
+    print("\n".join(notes + [f"NOTE 읽기실패 {os.path.basename(d)}" for d in unseen]))
+    return 3 if bad or unseen or not live else 0
 
 
 if __name__ == "__main__":

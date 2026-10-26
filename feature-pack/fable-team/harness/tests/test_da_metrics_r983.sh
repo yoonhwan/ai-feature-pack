@@ -3,6 +3,7 @@
 #   ⓐ 합성 폴더 기대값 1:1 (반송 2+1 · 호출 3+1 · 첫 판정 · 간격 30분 · 벽시계 104.5h · 재spawn 2 · 범위 3+1 · 되돌림 1)
 #   ⓑ 반례 집합 전수 (카드 폴더 · .out · 상태 줄 · 되돌림) — DA r1 수용 7건(폴더 권한 · 날짜 없는 카드 · 쪼갠 카드 합산 ·
 #      개행 이름 한 행 · `[확인 필요]` 3값 매칭 · 같은 날 되돌림 · 검사식 rc 보존) 각각 칸 1개
+#      + DA r2 수용 1건(증거 폴더를 못 읽으면 calls 0 이 아니라 그 행 «확인 불가» + rc3 + NOTE 읽기실패)
 #   ⓒ 실데이터 대조 = ANALYSIS §1 산식(gap 39분 · first_approve 분수 꼴 · 수를 지어내지 않음) · 7초 룰
 #   ⓓ 변이 3종 KILLED (호출=반송 · 읽기 실패 = 0 · 되돌림 = no)
 #   ⓔ kit 짝 cmp0 · /bin/bash 3.2 · 읽기 전용(카드·증거 mtime 불변)
@@ -96,6 +97,15 @@ ck $? "ⓑ 폴더로 만든 카드 = 그 행 «확인 불가» + 요약 표식 +
 out="$(bash "$SH" "$T/none" 2>/dev/null)"; rc=$?
 [ "$rc" = 3 ] && grep -q '확인 불가: 카드 폴더 없음' <<<"$out"
 ck $? "ⓑ 카드 폴더 없음 = «확인 불가» rc3" "rc=$rc $out"
+V="$T/evperm"; mkdir -p "$V/design/harness/indices/진행" "$V/design/harness/indices/완성"
+cp "$I/진행/r900-a.md" "$V/design/harness/indices/진행/"; cp "$I/완성/r903-new.md" "$V/design/harness/indices/완성/"
+mkdir -p "$V/design/harness/evidence/r900-a-da1" "$V/design/harness/evidence/r903-new-da1"
+printf '판정: HOLD 1\n' > "$V/design/harness/evidence/r900-a-da1/da-20261020-100000-1.out"
+printf '판정: APPROVE\n' > "$V/design/harness/evidence/r903-new-da1/da-20261020-100000-2.out"
+chmod 000 "$V/design/harness/evidence/r900-a-da1"
+out="$(bash "$SH" "$V" 2>/dev/null)"; rc=$?; chmod 755 "$V/design/harness/evidence/r900-a-da1"
+[ "$rc" = 3 ] && grep -qE 'r900-a	확인 불가' <<<"$out" && grep -q '확인 불가 1장' <<<"$out" && grep -q '^NOTE 읽기실패 r900-a-da1$' <<<"$out"
+ck $? "ⓑ 수용 1(DA r2): 증거 폴더를 못 읽으면 그 행 «확인 불가» + rc3(정상 카드가 있어도) + NOTE 1줄" "rc=$rc $(grep -F r900-a <<<"$out" | head -1)"
 mkdir -p "$T/empty/design/harness/indices/진행"; out="$(bash "$SH" "$T/empty" 2>/dev/null)"; rc=$?
 [ "$rc" = 3 ] && grep -q '확인 불가: 카드 0장' <<<"$out"
 ck $? "ⓑ 카드 0장 = «확인 불가» rc3" "rc=$rc $out"
@@ -120,7 +130,21 @@ REAL="${FT_R983_REAL:-/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktre
 if [ -d "$REAL/design/harness/indices" ]; then
   s="$( { /usr/bin/time -p bash "$SH" "$REAL" --since 2026-10-25 2>"$T/time"; } 2>/dev/null | head -1 )"
   sec="$(awk '/^real/{print $2}' "$T/time")"; [ -n "$sec" ] || sec=0
-  grep -q 'gap_median=39min' <<<"$s"; ck $? "ⓒ gap_median = 39분 (ANALYSIS §1)" "$s"
+  py_gap="$(python3 - "$REAL/design/harness/evidence" <<'PY'
+import glob, os, re, statistics as st, sys
+from datetime import datetime
+g = []
+for d in sorted(glob.glob(os.path.join(sys.argv[1], "r*-da*"))):
+    ts = []
+    for n in sorted(os.listdir(d)):
+        m = re.match(r"da-(\d{8})-(\d{6})-\d+\.out$", n)
+        if m and m.group(1) >= "20261025":
+            ts.append(datetime.strptime(m.group(1) + m.group(2), "%Y%m%d%H%M%S"))
+    g += [(b - a).total_seconds() / 60 for a, b in zip(ts, ts[1:])]
+print(f"{st.median(g):.0f}min" if g else "확인 불가")
+PY
+)"
+  grep -q "gap_median=$py_gap" <<<"$s"; ck $? "ⓒ gap_median = 실데이터 산식값($py_gap — ANALYSIS §1 의 39분은 그 시점 값 · 증거가 늘면 이동한다)" "$s"
   grep -qE 'first_approve=[0-9]+/[0-9]+' <<<"$s"; ck $? "ⓒ first_approve = 분수 꼴(지어낸 값 0)" "$s"
   grep -qE 'calls_mean=[0-9]+\.[0-9]{2}' <<<"$s"; ck $? "ⓒ calls_mean = 산식값 2자리(지어낸 값 0)" "$s"
   awk -v x="$sec" 'BEGIN{exit !(x>0 && x<7)}'; ck $? "ⓒ 7초 룰 (실측 ${sec}s < 7s)" ""
@@ -135,9 +159,15 @@ mut() { sed -e "$1" "$PY" > "$T/mut.py"; cp "$BIN/ft_da_hold_gate.py" "$BIN/ft_g
 mut 's/^    return len(r\["outs"\]) if key == "calls" else r\["cnt"\]\[key\]$/    return r["cnt"]["holds"]/'
 out="$(bash "$T/mut.sh" "$R" 2>/dev/null)"; r="$(row '[미완료] r900-a')"; [ "$(cut -f3 <<<"$r")" != '3+1' ]
 ck $? "ⓓ 변이 1(호출 = 반송으로 셈) KILLED — 시험 ⓐ ②의 «3+1» 이 잡는다" "$r"
-mut 's/^    return 3 if bad or not live else 0$/    return 0/'
+mut 's/^    return 3 if bad or unseen or not live else 0$/    return 0/'
 bash "$T/mut.sh" "$T/badrepo" >/dev/null 2>&1; mrc=$?; [ "$mrc" != 3 ]
 ck $? "ⓓ 변이 2(읽기 실패 = 0) KILLED — 시험 ⓑ ②의 rc3 이 잡는다(검사식 rc 보존 확인)" "mut_rc=$mrc"
+mut 's/^        return None$/        return []/'
+chmod 000 "$V/design/harness/evidence/r900-a-da1"
+out="$(bash "$T/mut.sh" "$V" 2>/dev/null)"; mrc2=$?; chmod 755 "$V/design/harness/evidence/r900-a-da1"
+minev="$(grep -F 'r900-a' <<<"$out" | head -1 | cut -f3)"
+[ "$mrc2" != 3 ] && [ "$minev" = 0 ]
+ck $? "ⓓ 변이 2b(증거 폴더 읽기 실패를 0 으로) KILLED — 시험 ⓑ 수용 1 의 «확인 불가» + rc3 이 잡는다" "mut_rc=$mrc2 calls=$minev"
 mut 's/^    return "yes" if any(timedelta(0) < (rv - mv) <= win for mv in due for rv, _ in cnt\["reverts"\]) else "no"$/    return "no"/'
 out="$(bash "$T/mut.sh" "$R" 2>/dev/null)"; [ "$(grep -F 'r905-same-day	' <<<"$out" | cut -f9)" != yes ]
 ck $? "ⓓ 변이 3(되돌림 = 늘 no) KILLED — 시험 ⓐ ④·⑦의 yes 가 잡는다" "$(grep -F 'r905-same-day	' <<<"$out")"
