@@ -24,10 +24,13 @@ cp "$SRC/ft-wt-sweep.sh" "$T/bin/"; bash -n "$T/bin/ft-wt-sweep.sh" && ok "bash 
 cat > "$T/fake/tmux" <<'EOF'
 #!/usr/bin/env bash
 [ -n "${FAKE_TMUX_ERR:-}" ] && { echo "${FAKE_TMUX_ERR_TEXT:-permission denied}"; exit 1; }
-if [ -n "${FAKE_TMUX_CNT:-}" ]; then   # 몇 번째 호출부터 «새 좌석» 이 보이는지 — 재검사 시점을 재는 대역(r880 고침 1)
+if [ -n "${FAKE_TMUX_CNT:-}" ]; then   # 몇 번째 호출부터 «새 좌석»·«오류» 가 보이는지 — 재검사 시점을 재는 대역(r880 고침 1·7)
   c="$(cat "$FAKE_TMUX_CNT" 2>/dev/null || echo 0)"; c=$((c+1)); echo "$c" > "$FAKE_TMUX_CNT"
+  [ "$c" -ge "${FAKE_TMUX_ERR_AT:-999999}" ] && { echo "${FAKE_TMUX_ERR_TEXT:-Permission denied}"; exit 1; }
+  [ "${FAKE_TMUX_ERR_EVEN:-0}" = 1 ] && [ $(( c % 2 )) -eq 0 ] && { echo "${FAKE_TMUX_ERR_TEXT:-Permission denied}"; exit 1; }
   [ "$c" -ge "${FAKE_TMUX_AT:-999}" ] && { echo "$FAKE_LATE_PANE"; exit 0; }
 fi
+[ -n "${FAKE_TMUX_SLEEP:-}" ] && sleep "$FAKE_TMUX_SLEEP"   # 느린 tmux(고침 6)
 [ -s "$FAKE_PANES" ] && { cat "$FAKE_PANES"; exit 0; }
 echo "no server running on /tmp/fake"; exit 1
 EOF
@@ -50,8 +53,21 @@ GIT worktree lock "$W/land-locked"
 NWT() { GIT worktree list --porcelain | grep -c '^worktree '; }
 N0="$(NWT)"
 
+# 사람 승인 진입점(ft-hil)·알림(mbox) 대역 — 기본값으로 물려 준다(등록 실패는 계약 ⑥ 위반이라 시험마다 override)
+cat > "$T/fake/ft-hil" <<'EOF'
+#!/usr/bin/env bash
+[ "${FAKE_HIL_FAIL:-0}" = 1 ] && exit 9
+printf '%s\n' "$*" >> "$FAKE_HIL_LOG"; echo "! bash /tmp/h77"
+EOF
+cat > "$T/fake/mbox.sh" <<'EOF'
+#!/usr/bin/env bash
+[ "${FAKE_MBOX_FAIL:-0}" = 1 ] && exit 1
+printf '%s\n' "$*" >> "$FAKE_MBOX_LOG"
+EOF
+chmod +x "$T/fake/ft-hil" "$T/fake/mbox.sh"; : > "$T/hil.log"; : > "$T/mbox.log"
 lp() { ( cd "$T" && env -i HOME="$HOME" PATH="$T/fake:$PATH" FT_WT_CLEAN_DIR="$T/state/wt-clean" FT_WT_SCAN_ROOT="$REPO" \
-  FT_TMUX_BIN="$T/fake/tmux" FT_LSOF_BIN="$T/fake/lsof" FT_DU_BIN="$T/fake/du" FAKE_PANES="$T/panes" FAKE_CWDS="$T/cwds" "$@" \
+  FT_TMUX_BIN="$T/fake/tmux" FT_LSOF_BIN="$T/fake/lsof" FT_DU_BIN="$T/fake/du" FAKE_PANES="$T/panes" FAKE_CWDS="$T/cwds" \
+  FT_HIL_BIN="$T/fake/ft-hil" FAKE_HIL_LOG="$T/hil.log" "$@" \
   bash "$T/bin/ft-wt-sweep.sh" --land-plan 2>&1 ); }
 PLAN="$T/state/wt-clean/land-copies.sh.hil"
 
@@ -126,18 +142,6 @@ has "$r" "skip $W/land-done2 — 좌석·프로세스 살아 있음" "ⓐ 실행
 chk "ⓐ land-done2 남음" "$(isd "$W/land-done2")" yes
 chk "ⓐ land-done 지워짐" "$(isd "$W/land-done")" no
 
-cat > "$T/fake/ft-hil" <<'EOF'
-#!/usr/bin/env bash
-printf '%s\n' "$*" >> "$FAKE_HIL_LOG"; echo "! bash /tmp/h77"
-EOF
-chmod +x "$T/fake/ft-hil"
-
-cat > "$T/fake/mbox.sh" <<'EOF'
-#!/usr/bin/env bash
-[ "${FAKE_MBOX_FAIL:-0}" = 1 ] && exit 1
-printf '%s\n' "$*" >> "$FAKE_MBOX_LOG"
-EOF
-chmod +x "$T/fake/mbox.sh"
 mkdir -p "$REPO/.fable-team"
 printf '{"_master":"m#1","m#1":{"role":"master"}}\n' > "$REPO/.fable-team/seats.json"
 printf '{"_master":"m#1","m#1":{"role":"master"}}\n' > "$REPO/.fable-team/seats-harness.json"
@@ -169,9 +173,17 @@ has "$(cat "$T/hil.log")" "--add $PLAN" "ⓒ 등록 대상 = 계획 파일"
 has "$o" "! bash /tmp/h77" "ⓒ 알림 줄에 h 진입점 한 줄"
 chk "ⓒ 알림은 1줄" "$(printf '%s\n' "$o" | grep -c '^\[HIL\] seat=byz-harness-wt-land')" 1
 
-# 등록기 자체가 실패해도 계획·알림은 남는다(경로로 후퇴)
-o="$(lp FT_HIL_BIN="$T/fake/없는-hil")"
-has "$o" "스크립트 $PLAN" "ⓒ 등록기 실패 = 경로 안내로 후퇴"
+# 계약 ⑥(DA r2 ⑥): 등록기 실패는 «보냈다» 가 아니다 — rc≠0 · 알림 0 · 표지 0 · 다음 pass 가 등록부터 다시
+rm -f "$PLAN.sent"; : > "$T/hil.log"
+o="$(lp FAKE_HIL_FAIL=1)"; rc=$?
+chk "ⓒ 등록 실패 → rc≠0" "$([ "$rc" -ne 0 ] && echo yes || echo no)" yes
+has "$o" "ERROR ft-hil 등록 실패" "ⓒ 등록 실패 → ERROR 1줄"
+hasnt "$o" "! bash /tmp/h" "ⓒ 등록 실패 → 알림 0"
+chk "ⓒ 등록 실패 → 보냄 표지 0" "$([ -e "$PLAN.sent" ] && echo yes || echo no)" no
+chk "ⓒ 등록 실패여도 계획 파일은 남음" "$([ -f "$PLAN" ] && echo yes || echo no)" yes
+rm -f "$PLAN.sent"; o="$(lp)"
+chk "ⓒ 다음 pass 가 등록 재시도" "$(grep -c . "$T/hil.log")" 1
+has "$o" "! bash /tmp/h77" "ⓒ 재시도 성공 → h 진입점"
 
 # ⓓ 준비: 대상 3곳을 깨끗한 상태로 다시 채운다
 land_reset
@@ -192,6 +204,44 @@ o="$(lrun)"
 chk "ⓓ 실패 뒤 다음 pass 재발송" "$(grep -c . "$T/mbox.log")" 1
 chk "ⓓ 재발송 성공 뒤 표지" "$(sent_is_sig "$PLAN")" yes
 chk "ⓓ 삭제 호출 0 — land-done 살아 있음" "$(isd "$W/land-done")" yes
+
+echo "== ⓔ① DA r2 ①: tmux 가 준 심링크 경로도 «진짜 경로» 로 맞춰 비교한다"
+land_reset; rm -f "$PLAN" "$PLAN.sig" "$PLAN.sent"
+rm -f "$W/alias"; ln -s "$W/land-done" "$W/alias"
+echo "$W/alias" > "$T/panes"; o="$(lp)"
+has "$o" "KEEP land-done — 좌석·프로세스 살아 있음" "ⓔ① 별칭으로 열린 사본 = 목록 밖"
+hasnt "$(grep '^land_rm ' "$PLAN")" "$W/land-done " "ⓔ① land_rm 줄 없음"
+chk "ⓔ① 남은 대상 2곳" "$(grep -c '^land_rm ' "$PLAN")" 2
+: > "$T/panes"; rm -f "$W/alias"
+
+echo "== ⓔ③ DA r2 ③: 계획에 mtime 을 박고, 낡은 계획은 실행하지 않는다"
+land_reset; rm -f "$PLAN" "$PLAN.sig" "$PLAN.sent"
+o="$(lp)"; chk "ⓔ③ 계획 3곳" "$(grep -c '^land_rm ' "$PLAN")" 3
+chk "ⓔ③ 계획 줄에 mtime 3번째 인자" "$(grep -cE '^land_rm .+ [0-9]+  # [0-9]+ KB$' "$PLAN")" 3
+sig0="$(cat "$PLAN.sig")"; cp "$PLAN" "$T/stale.hil"         # ① 낡을 계획을 먼저 떠 둔다
+sleep 1.1; touch "$W/land-done"                                    # mtime 만 바꾼다(HEAD·내용 그대로)
+o2="$(lp)"; chk "ⓔ③ mtime 이 바뀌면 재생성 해시도 달라짐" "$([ "$(cat "$PLAN.sig")" != "$sig0" ] && echo yes || echo no)" yes
+r="$( cd "$T" && env -i HOME="$HOME" PATH="$T/fake:$PATH" FAKE_PANES="$T/panes" FAKE_CWDS="$T/cwds" bash "$T/stale.hil" 2>&1 )"; rc=$?
+chk "ⓔ③ 낡은 계획 실행 rc 0" "$rc" 0
+has "$r" "skip $W/land-done — mtime 바뀜" "ⓔ③ 낡은 계획은 지우지 않고 skip(이유 = mtime)"
+chk "ⓔ③ land-done 남음(낡은 목록으로 지우기 0)" "$(isd "$W/land-done")" yes
+rm -f "$T/stale.hil"
+
+echo "== ⓔ④ DA r2 ④: 목록을 채우는 두 번째 호출의 실패도 검사한다(짝수 호출 실패)"
+land_reset; rm -f "$PLAN" "$PLAN.sig" "$PLAN.sent" "$T/cnt3"
+o="$(lp FAKE_TMUX_CNT="$T/cnt3" FAKE_TMUX_ERR_EVEN=1 FAKE_TMUX_ERR_TEXT='Permission denied')"; rc=$?
+chk "ⓔ④ 두 번째 호출 실패 → rc 1" "$rc" 1
+has "$o" "ERROR land 목록 중단" "ⓔ④ 중단 + ERROR"
+chk "ⓔ④ 계획 0" "$([ -e "$PLAN" ] && echo yes || echo no)" no
+
+echo "== ⓔ⑤ DA r2 ⑤: tmux·lsof 호출에 시간 상한(기본 7초)"
+chk "ⓔ⑤ 기본 상한 = 7초" "$(grep -c 'FT_WT_LIVE_SEC:-7' "$T/bin/ft-wt-sweep.sh")" 1
+land_reset; rm -f "$PLAN" "$PLAN.sig" "$PLAN.sent"
+t0="$(date +%s)"; o="$(lp FAKE_TMUX_SLEEP=5 FT_WT_LIVE_SEC=2)"; rc=$?; el=$(( $(date +%s) - t0 ))
+chk "ⓔ⑤ 느린 tmux → rc 1" "$rc" 1
+has "$o" "ERROR land 목록 건너뜀 — tmux 목록 실패(rc=124)" "ⓔ⑤ 시간 초과 = 못 읽음(좌석 0 아님)"
+chk "ⓔ⑤ 상한에서 끊김(${el}s ≤ 3s)" "$([ "$el" -le 3 ] && echo yes || echo no)" yes
+# 계약 ⑥(h 등록 실패 rc≠0 · 재시도)은 위 ⓒ 칸이 닫는다.
 
 echo
 [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }

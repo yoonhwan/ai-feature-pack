@@ -25,13 +25,13 @@ mut() {
 }
 
 echo "== 변이 1: 사본마다 직전 재검사 제거(고침 1) — ⓐ 가 잡아야 한다"
-cat > "$T/m1.py" <<'PY'
+cat > "$T/m1.py" <<'MPY1'
 import sys
 p = sys.argv[1]; s = open(p, encoding="utf-8").read()
-i = s.index('    w="$(land_live)" || { echo "ERROR land 목록 중단')
-j = s.index("    land_live >/dev/null\n", i) + len("    land_live >/dev/null\n")
-open(p, "w", encoding="utf-8").write(s[:i] + s[j:])
-PY
+old = '    land_live || { echo "ERROR land 목록 중단 — $LAND_ERR(계획 생성 중단 · 모르면 안 지움)" >&2; rm -f "$tmp"; return 1; }'
+assert old in s, "사본별 재검사 줄 없음"
+open(p, "w", encoding="utf-8").write(s.replace(old, "", 1))
+MPY1
 mut refresher "ⓐ" "$T/m1.py"
 
 echo "== 변이 2: tmux 연결 오류를 «좌석 0» 으로(고침 2) — ⓑ 가 잡아야 한다"
@@ -46,13 +46,13 @@ PY
 mut tmuxerr "ⓑ" "$T/m2.py"
 
 echo "== 변이 3: 계획을 ft-hil 에 등록하지 않음(고침 3) — ⓒ 가 잡아야 한다"
-cat > "$T/m3.py" <<'PY'
+cat > "$T/m3.py" <<'MPY3'
 import sys
 p = sys.argv[1]; s = open(p, encoding="utf-8").read()
-old = '$(hilmsg "$out")'
-assert old in s, "고침 3 구간 없음"
-open(p, "w", encoding="utf-8").write(s.replace(old, '$out', 1))
-PY
+old = '  hmsg="$(hil_register "$out")" || { echo "ERROR ft-hil 등록 실패 — 계획 $out · 알림 0(다음 pass 재시도)" >&2; return 1; }'
+assert old in s, "등록 줄 없음"
+open(p, "w", encoding="utf-8").write(s.replace(old, '  hmsg="스크립트 $out"', 1))
+MPY3
 mut nohil "ⓒ" "$T/m3.py"
 
 echo "== 변이 4: 알림 «전»에 보냄 표지(고침 4) — ⓓ 가 잡아야 한다"
@@ -67,6 +67,57 @@ open(p, "w", encoding="utf-8").write(s.replace(old, ins + old, 1))
 PY
 mut earlysent "ⓓ" "$T/m4.py"
 
+echo "== 변이 5: LIVE 정규화 제거(DA r2 ①) — ⓔ① 이 잡아야 한다"
+cat > "$T/m5.py" <<'MPY'
+import sys
+p = sys.argv[1]; s = open(p, encoding="utf-8").read()
+old = '} | realpaths | sort -u)'
+assert old in s, '정규화 구간 없음'
+open(p, "w", encoding="utf-8").write(s.replace(old, '} | sort -u)', 1))
+MPY
+mut norealpath "ⓔ①" "$T/m5.py"
+
+echo "== 변이 6: mtime 대조 제거(DA r2 ③) — ⓔ③ 이 잡아야 한다"
+cat > "$T/m6.py" <<'MPY'
+import sys
+p = sys.argv[1]; s = open(p, encoding="utf-8").read()
+old = '[ "$mt" = "$want_mt" ] || { echo "mtime 바뀜'
+assert old in s, 'mtime 대조 구간 없음'
+open(p, "w", encoding="utf-8").write(s.replace(old, '[ -n "$mt" ] || { echo "mtime 바뀜', 1))
+MPY
+mut nomtime "ⓔ③" "$T/m6.py"
+
+echo "== 변이 7: 사본별 land_live rc 무시(DA r2 ④) — ⓔ④ 이 잡아야 한다"
+cat > "$T/m7.py" <<'MPY7'
+import sys
+p = sys.argv[1]; s = open(p, encoding="utf-8").read()
+old = 'LAND_ERR="tmux 목록 실패(rc=$trc)"; return 1;;'
+assert old in s, "tmux 실패 줄 없음"
+open(p, "w", encoding="utf-8").write(s.replace(old, 'LAND_ERR="tmux 목록 실패(rc=$trc)"; return 0;;', 1))
+MPY7
+mut ignrc "ⓔ④" "$T/m7.py"
+
+echo "== 변이 8: tmux 시간 상한 제거(DA r2 ⑤) — ⓔ⑤ 이 잡아야 한다"
+cat > "$T/m8.py" <<'MPY'
+import sys
+p = sys.argv[1]; s = open(p, encoding="utf-8").read()
+old = 'tp="$(alarmed "$TMUXB"'
+assert old in s, '시간 상한 구간 없음'
+open(p, "w", encoding="utf-8").write(s.replace(old, 'tp="$("$TMUXB"', 1))
+MPY
+mut nocap "ⓔ⑤" "$T/m8.py"
+
+echo "== 변이 9: h 등록 실패를 성공으로(DA r2 ⑥) — ⓒ 가 잡아야 한다"
+cat > "$T/m9.py" <<'MPY9'
+import sys
+p = sys.argv[1]; s = open(p, encoding="utf-8").read()
+old = '  hmsg="$(hil_register "$out")" || { echo "ERROR ft-hil 등록 실패 — 계획 $out · 알림 0(다음 pass 재시도)" >&2; return 1; }'
+assert old in s, "등록 실패 줄 없음"
+new = '  hmsg="$(hil_register "$out")" || hmsg="스크립트 $out"'
+open(p, "w", encoding="utf-8").write(s.replace(old, new, 1))
+MPY9
+mut hilfailok "ⓒ" "$T/m9.py"
+
 echo
-if [ "$fail" -eq 0 ]; then echo "ALL MUTATIONS KILLED (4)"; exit 0; fi
+if [ "$fail" -eq 0 ]; then echo "ALL MUTATIONS KILLED (9)"; exit 0; fi
 echo "MUTATION PROBLEM $fail"; exit 1
