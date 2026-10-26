@@ -45,7 +45,7 @@ PY
 lastst() { awk -F'\t' -v k="mini:$1" '$1==k{s=$2}END{print s}' "$SAT_STATE_DIR/delivered.tsv" 2>/dev/null; }
 mut() { # mut <id> <nano|rt|sh> <옛 글자> <새 글자> [옛 새 ...] → 변이 사본 입구 경로(바꿀 글자가 정확히 1곳 아니면 실패)
   local d="$T/mut-$1" f="$2"; shift 2
-  mkdir -p "$d/bin"; cp "$BIN/ft-sat-nano.sh" "$BIN/ft_sat_nano.py" "$BIN/ft_sat_rt.py" "$d/bin/"
+  mkdir -p "$d/bin"; cp "$BIN/ft-sat-nano.sh" "$BIN/ft_sat_nano.py" "$BIN/ft_sat_rt.py" "$BIN/ft_sat_gate.py" "$BIN/ft-name-lint.sh" "$BIN/ft_secret_shapes.py" "$BIN/ft_secret_targets.py" "$BIN/ft_secret_lex.py" "$BIN/autonomy_scope_secret.py" "$d/bin/"
   case "$f" in nano) f="$d/bin/ft_sat_nano.py";; rt) f="$d/bin/ft_sat_rt.py";; esac
   python3 - "$f" "$@" <<'PY' >&2 || return 1
 import sys
@@ -90,7 +90,7 @@ while [ $# -gt 0 ]; do case "$1" in --name) name="$2"; shift 2;; --agent|--role|
 printf '%s\n' "$name" >>"$FAKE_SESS.calls"
 [ -d "$dir" ] || exit 3
 if [ -n "${FAKE_TMUXC_WAITPOLL:-}" ]; then   # 표식 동기화(r5 확정): 첫 R_POLL 이 끝난 «뒤» 에만 세션을 만든다(파일 대기 · 상한 3초)
-  n=0; while [ ! -e "$dir/.polled" ] && [ "$n" -lt 300 ]; do sleep 0.01; n=$((n + 1)); done
+  while [ ! -e "$dir/.polled" ] && [ "$SECONDS" -lt 4 ]; do sleep 0.01; done   # r949: 벽시계 3~4초(부하 34 에서 sleep 0.01 ×300 = 5.8초 → Ⓙ'' 의 5초 지연을 넘었다)
   [ -e "$dir/.polled" ] || { echo "tmuxc: .polled 표식 없음(대역) — 세션 생성 0" >&2; exit 3; }   # astra r1: 표식 없음 = 생성 0
 fi
 [ -n "${FAKE_TMUXC_ARM_HAS:-}" ] && { printf '%s\n' "$FAKE_TMUXC_ARM_HAS" >"$FAKE_SESS.hasrc"; exit 0; }
@@ -168,6 +168,7 @@ case "${!#}" in */.open.pid) [ -n "${FAKE_MV_FAIL_PID:-}" ] && exit 1;; esac
 exec /bin/mv "$@"
 EOF
 printf '#!/bin/sh\nexit 0\n' >"$FB/pi"
+printf '#!/bin/sh\n[ -n "${FAKE_FREE_RC:-}" ] && exit "$FAKE_FREE_RC"\necho "System-wide memory free percentage: ${FAKE_FREE:-50}%%"\n' >"$FB/memory_pressure"   # r949 free% 대역
 cat >"$STUB" <<'EOF'
 #!/usr/bin/env bash
 [ "$1" = send ] || exit 2
@@ -201,9 +202,9 @@ export FAKE_RHOME="$RH" FAKE_BIN="$FB" FAKE_SESS="$RSESS" FAKE_SEND="$SEND" FAKE
 export FAKE_SSHLOG="$T/sshlog" STUB_SENT_DIR="$T/stub-sent" STUB_CALLS="$T/calls"
 export FAKE_SOCK_A="$T/tmux-501/sockA" FAKE_SOCK_B="$T/tmux-501/sockB"
 export SAT_MINI_MBOX_PY="$KIT/ft-mbox.py" SAT_MBOX_SH="$KIT/ft-mbox.sh" SAT_OUT_DIR="$T/out" FT_MBOX_DIR="$MACBOX" PATH="$SB:$PATH"
-export SAT_STATE_DIR="$T/state"
+export SAT_STATE_DIR="$T/state" SAT_MAX=99   # r949: 이 시험은 세션을 많이 남긴다 — 상한은 test_sat_nano_r949.sh 가 본다
 printf '요약하라. 끝에 SAT-DONE host=x 한 줄.\n' >"$T/card.md"
-FOREIGN='other-tool-nano#0'; printf '%s\n' "$FOREIGN" >>"$RSESS"; printf '%s|$77|7777|/elsewhere\n' "$FOREIGN" >>"$RSESS.meta"
+FOREIGN='other-tool-nano-x#0'; printf '%s\n' "$FOREIGN" >>"$RSESS"; printf '%s|$77|7777|/elsewhere\n' "$FOREIGN" >>"$RSESS.meta"
 mkopen() { call bash "$1" open "$T/card.md" --run "$2" --name "$3"; [ "$RC" = 0 ] || { echo "준비 open $2 rc=$RC: $O" >&2; return 1; }; }
 pending() { # pending <tool> <run> <name> — open 이 마감(rc5)으로 끝나 기록 pending 으로 남은 줄을 만든다
   FAKE_TMUXC_SLEEP=6 SAT_TOTAL=3 bash "$1" open "$T/card.md" --run "$2" --name "$3" >/dev/null 2>&1
@@ -211,15 +212,15 @@ pending() { # pending <tool> <run> <name> — open 이 마감(rc5)으로 끝나 
 
 # ══ 유지 칸 ══
 # ⓐ open — 사전점검 · 세션 1 · TASK.md · 기록 신원 · 표식(.sent/TASK.md/sent · .open.claim · .open.pid · claim/t 없음)
-call bash "$TOOL" open "$T/card.md" --run r1; D="$RH/$ROOTR/r1"; SEAT='byz-sat-nano-r1#0'
+call bash "$TOOL" open "$T/card.md" --run r1; D="$RH/$ROOTR/r1"; SEAT='byz-satnano-nano-r1#0'
 { [ "$RC" = 0 ] && grep -q "OPEN ok" <<<"$O" && grep -q "3/4 pi 기동 확인" <<<"$O" && [ -s "$D/TASK.md" ] && hassess "$SEAT" && conf "$SEAT" \
   && [ -f "$D/.sent/TASK.md/sent" ] && [ -d "$D/.open.claim" ] && [ -s "$D/.open.pid" ] && [ ! -e "$D/.open.claim/t" ] && grep -q "^$SEAT|.*TASK.md" "$SEND"; } \
   && ok "ⓐ open: 세션 1 · TASK.md · 기록 신원 3칸 · 표식 .sent/TASK.md/sent + .open.claim·.open.pid (claim/t 없음)" || bad "ⓐ open rc=$RC: $O"
-b="$(sshn)"; call bash "$TOOL" open "$T/card.md" --run r1 --name 'sat-a2#1'; r2="$RC"; o2="$O"; s2="$(( $(sshn) - b ))"
+b="$(sshn)"; call bash "$TOOL" open "$T/card.md" --run r1 --name 'byz-satnano-nano-a2#1'; r2="$RC"; o2="$O"; s2="$(( $(sshn) - b ))"
 call bash "$TOOL" open "$T/card.md" --run r2 --name "$FOREIGN"; r3="$RC"; o3="$O"
-mkdir -p "$RH/$ROOTR/r2x"; call bash "$TOOL" open "$T/card.md" --run r2x --name 'sat-a2#2'; r4="$RC"; o4="$O"
+mkdir -p "$RH/$ROOTR/r2x"; call bash "$TOOL" open "$T/card.md" --run r2x --name 'byz-satnano-nano-a2#2'; r4="$RC"; o4="$O"
 { [ "$r2$r3$r4" = 222 ] && [ "$s2" = 0 ] && grep -q "같은 run" <<<"$o2" && grep -q "남의 세션이라 건드리지 않는다" <<<"$o3" && grep -q "폴더가 이미 있다" <<<"$o4" \
-  && ! instate 'sat-a2#1' && ! instate "$FOREIGN" && ! instate 'sat-a2#2' && [ ! -d "$RH/$ROOTR/r2" ]; } \
+  && ! instate 'byz-satnano-nano-a2#1' && ! instate "$FOREIGN" && ! instate 'byz-satnano-nano-a2#2' && [ ! -d "$RH/$ROOTR/r2" ]; } \
   && ok "ⓐ-2 장부에 같은 run = REJECT(원격 0) · 남의 이름 세션 = REJECT · mini 폴더 있음 = REJECT · R_PRE 만 돈 거절은 기록도 0" || bad "ⓐ-2 rc=$r2/$r3/$r4 ssh=$s2: $o2 / $o3 / $o4"
 
 # ⓑ task — 전달 · 같은 내용 2번 = SKIP · 남의 세션 0
@@ -249,27 +250,27 @@ call bash "$TOOL" close "$SEAT"; { [ "$RC" = 0 ] && grep -q "session=gone pi_lef
   && ok "ⓓ-4 close: 이 도구가 연 세션만 · 기록 삭제 · 남의 세션 보존" || bad "ⓓ-4 rc=$RC: $O"
 
 # ⓖ close 조회 실패 = rc6 (tmux rc2 · pgrep rc2 · lsof rc1)
-mkopen "$TOOL" g1 'sat-g#1'
-call env FAKE_HAS_RC=2 bash "$TOOL" close 'sat-g#1'
-{ [ "$RC" = 6 ] && grep -q "조회" <<<"$O" && instate 'sat-g#1' && hassess 'sat-g#1'; } && ok "ⓖ-1 tmux 조회 rc2 → rc6 · 기록·세션 유지" || bad "ⓖ-1 rc=$RC: $O"
-printf '4001\n' >"$T/pi-pids"; call env FAKE_PGREP_X_RC=2 bash "$TOOL" close 'sat-g#1'
-{ [ "$RC" = 6 ] && instate 'sat-g#1'; } && ok "ⓖ-2 pgrep rc2 → rc6" || bad "ⓖ-2 rc=$RC: $O"
-mkopen "$TOOL" g2 'sat-g#2'; printf '%s\n' "$$" >"$T/pi-pids"; call env FAKE_LSOF_RC=1 bash "$TOOL" close 'sat-g#2'
-{ [ "$RC" = 6 ] && instate 'sat-g#2'; } && ok "ⓖ-3 lsof rc1 → rc6" || bad "ⓖ-3 rc=$RC: $O"
-: >"$T/pi-pids"; bash "$TOOL" close 'sat-g#2' >/dev/null 2>&1
+mkopen "$TOOL" g1 'byz-satnano-nano-g#1'
+call env FAKE_HAS_RC=2 bash "$TOOL" close 'byz-satnano-nano-g#1'
+{ [ "$RC" = 6 ] && grep -q "조회" <<<"$O" && instate 'byz-satnano-nano-g#1' && hassess 'byz-satnano-nano-g#1'; } && ok "ⓖ-1 tmux 조회 rc2 → rc6 · 기록·세션 유지" || bad "ⓖ-1 rc=$RC: $O"
+printf '4001\n' >"$T/pi-pids"; call env FAKE_PGREP_X_RC=2 bash "$TOOL" close 'byz-satnano-nano-g#1'
+{ [ "$RC" = 6 ] && instate 'byz-satnano-nano-g#1'; } && ok "ⓖ-2 pgrep rc2 → rc6" || bad "ⓖ-2 rc=$RC: $O"
+mkopen "$TOOL" g2 'byz-satnano-nano-g#2'; printf '%s\n' "$$" >"$T/pi-pids"; call env FAKE_LSOF_RC=1 bash "$TOOL" close 'byz-satnano-nano-g#2'
+{ [ "$RC" = 6 ] && instate 'byz-satnano-nano-g#2'; } && ok "ⓖ-3 lsof rc1 → rc6" || bad "ⓖ-3 rc=$RC: $O"
+: >"$T/pi-pids"; bash "$TOOL" close 'byz-satnano-nano-g#2' >/dev/null 2>&1
 
 # ⓗ 같은 이름 다른 세션 — 건드림 0
-cell_h() { mkopen "$1" "h$2" "sat-h#$2" || return 1
-  awk -F'|' -v OFS='|' -v n="sat-h#$2" '$1==n{$2="$99";$3="5555";$4="/some/other/dir"}{print}' "$RSESS.meta" >"$RSESS.t"; mv "$RSESS.t" "$RSESS.meta"
-  call bash "$1" close "sat-h#$2"; [ "$RC" = 3 ] && grep -q "다른 세션" <<<"$O" && hassess "sat-h#$2" && instate "sat-h#$2"; }
+cell_h() { mkopen "$1" "h$2" "byz-satnano-nano-h#$2" || return 1
+  awk -F'|' -v OFS='|' -v n="byz-satnano-nano-h#$2" '$1==n{$2="$99";$3="5555";$4="/some/other/dir"}{print}' "$RSESS.meta" >"$RSESS.t"; mv "$RSESS.t" "$RSESS.meta"
+  call bash "$1" close "byz-satnano-nano-h#$2"; [ "$RC" = 3 ] && grep -q "다른 세션" <<<"$O" && hassess "byz-satnano-nano-h#$2" && instate "byz-satnano-nano-h#$2"; }
 cell_h "$TOOL" 1 && ok "ⓗ 같은 이름 다른 id·폴더 → rc3 · 건드림 0" || bad "ⓗ rc=$RC: $O"
 
 # ⓘ pi 경계 (i1 vs i10 · 하위 폴더)
-mkopen "$TOOL" i1 'sat-i#1'; printf '111\n' >"$T/pi-pids"; printf '111|%s\n' "$RH/$ROOTR/i10" >"$T/pi-cwds"
-call bash "$TOOL" close 'sat-i#1'; { [ "$RC" = 0 ] && grep -q "pi_left=0" <<<"$O"; } && ok "ⓘ-1 이웃 폴더 i10 의 pi 는 안 섞인다" || bad "ⓘ-1 rc=$RC: $O"
-mkopen "$TOOL" i2 'sat-i#2'; printf '222\n' >"$T/pi-pids"; printf '222|%s\n' "$RH/$ROOTR/i2/sub" >"$T/pi-cwds"
-call bash "$TOOL" close 'sat-i#2'; { [ "$RC" = 6 ] && grep -q "pi_left=1" <<<"$O"; } && ok "ⓘ-2 하위 폴더 pi 는 남은 것" || bad "ⓘ-2 rc=$RC: $O"
-: >"$T/pi-pids"; : >"$T/pi-cwds"; bash "$TOOL" close 'sat-i#2' >/dev/null 2>&1
+mkopen "$TOOL" i1 'byz-satnano-nano-i#1'; printf '111\n' >"$T/pi-pids"; printf '111|%s\n' "$RH/$ROOTR/i10" >"$T/pi-cwds"
+call bash "$TOOL" close 'byz-satnano-nano-i#1'; { [ "$RC" = 0 ] && grep -q "pi_left=0" <<<"$O"; } && ok "ⓘ-1 이웃 폴더 i10 의 pi 는 안 섞인다" || bad "ⓘ-1 rc=$RC: $O"
+mkopen "$TOOL" i2 'byz-satnano-nano-i#2'; printf '222\n' >"$T/pi-pids"; printf '222|%s\n' "$RH/$ROOTR/i2/sub" >"$T/pi-cwds"
+call bash "$TOOL" close 'byz-satnano-nano-i#2'; { [ "$RC" = 6 ] && grep -q "pi_left=1" <<<"$O"; } && ok "ⓘ-2 하위 폴더 pi 는 남은 것" || bad "ⓘ-2 rc=$RC: $O"
+: >"$T/pi-pids"; : >"$T/pi-cwds"; bash "$TOOL" close 'byz-satnano-nano-i#2' >/dev/null 2>&1
 
 # ⓙ 동시 pull 2개 = 발신 1
 cell_j() { local t="$1" s="$2" p1 p2; : >"$T/calls"; printf 'j-body\n' >"$T/jb"; seed "$s" "seat-j$s#0" 'mini-j#0' "$T/jb"
@@ -285,7 +286,7 @@ call env SAT_MBOX_SH="$STUB" bash "$TOOL" pull --seats 'seat-m#0'
   && ok "ⓜ 300KB → ERROR · 발신 0 · quarantine/ 보관" || bad "ⓜ rc=$RC: $O"
 cell_n() { local t="$1" b r=""; b="$(sshn)"; rm -f "$T/MARK"
   bash "$t" open "$T/card.md" --run '../x' >/dev/null 2>&1; r="$r $?"
-  bash "$t" open "$T/card.md" --run "a\$(touch $T/MARK)" --name 'sat-n#1' >/dev/null 2>&1; r="$r $?"
+  bash "$t" open "$T/card.md" --run "a\$(touch $T/MARK)" --name 'byz-satnano-nano-n#1' >/dev/null 2>&1; r="$r $?"
   bash "$t" open "$T/card.md" --run r9 --name 'a;b' >/dev/null 2>&1; r="$r $?"
   bash "$t" pull --seats 'a;b' >/dev/null 2>&1; r="$r $?"
   bash "$t" close 'x;y' >/dev/null 2>&1; r="$r $?"
@@ -295,9 +296,9 @@ b="$(sshn)"; c=""; for kvp in SAT_TMO=9 SAT_TOTAL=90 SAT_TMO=abc SAT_TOTAL=0 SAT
 { [ "$(sshn)" = "$b" ] && [ "$c" = " 2 2 2 2 2" ]; } && ok "ⓤ SAT_TMO=9·SAT_TOTAL=90·abc·0 → rc2 · 원격 0" || bad "ⓤ rc:$c"
 
 # ⓞ 7초/70초 — open 쪼개기 · 읽기 재시도 1
-s0=$SECONDS; call env FAKE_TMUXC_SLEEP=8 bash "$TOOL" open "$T/card.md" --run o1 --name 'sat-o#1'; el=$((SECONDS - s0))
-{ [ "$RC" = 0 ] && hassess 'sat-o#1' && [ "$el" -lt 50 ]; } && ok "ⓞ-1 느린 tmuxc(8초) → 백그라운드+폴링으로 열림(${el}초)" || bad "ⓞ-1 rc=$RC ${el}초: $O"
-bash "$TOOL" close 'sat-o#1' >/dev/null 2>&1
+s0=$SECONDS; call env FAKE_TMUXC_SLEEP=8 bash "$TOOL" open "$T/card.md" --run o1 --name 'byz-satnano-nano-o#1'; el=$((SECONDS - s0))
+{ [ "$RC" = 0 ] && hassess 'byz-satnano-nano-o#1' && [ "$el" -lt 50 ]; } && ok "ⓞ-1 느린 tmuxc(8초) → 백그라운드+폴링으로 열림(${el}초)" || bad "ⓞ-1 rc=$RC ${el}초: $O"
+bash "$TOOL" close 'byz-satnano-nano-o#1' >/dev/null 2>&1
 b="$(sshn)"; echo 1 >"$T/ssh-fails"; call env FAKE_SSH_FAILS="$T/ssh-fails" bash "$TOOL" pull --seats 'seat-o#0'
 { [ "$RC" = 0 ] && [ "$(( $(sshn) - b ))" = 2 ]; } && ok "ⓞ-3 연결 실패 1회 → 읽기 재시도로 성공(ssh 2)" || bad "ⓞ-3 rc=$RC: $O"
 b="$(sshn)"; echo 2 >"$T/ssh-fails"; call env FAKE_SSH_FAILS="$T/ssh-fails" bash "$TOOL" pull --seats 'seat-o#0'
@@ -307,9 +308,9 @@ s0=$SECONDS; call env SAT_TMO=1 PATH="$T/hangbin:$PATH" bash "$TOOL" pull --seat
 { [ "$RC" = 5 ] && [ "$el" -le 4 ]; } && ok "ⓞ-5 원격 무응답 → SAT_TMO 에서 끊고 rc5(${el}초)" || bad "ⓞ-5 rc=$RC ${el}초: $O"
 
 # ⓠ lsof rc1 + 사라진 pid → rc6
-mkopen "$TOOL" q1 'sat-q#1'; sleep 0 & dp=$!; wait $dp 2>/dev/null; printf '%s\n' "$dp" >"$T/pi-pids"
-call env FAKE_LSOF_RC=1 bash "$TOOL" close 'sat-q#1'; { [ "$RC" = 6 ] && instate 'sat-q#1'; } && ok "ⓠ lsof rc1 + 사라진 pid → rc6" || bad "ⓠ rc=$RC: $O"
-: >"$T/pi-pids"; bash "$TOOL" close 'sat-q#1' >/dev/null 2>&1
+mkopen "$TOOL" q1 'byz-satnano-nano-q#1'; sleep 0 & dp=$!; wait $dp 2>/dev/null; printf '%s\n' "$dp" >"$T/pi-pids"
+call env FAKE_LSOF_RC=1 bash "$TOOL" close 'byz-satnano-nano-q#1'; { [ "$RC" = 6 ] && instate 'byz-satnano-nano-q#1'; } && ok "ⓠ lsof rc1 + 사라진 pid → rc6" || bad "ⓠ rc=$RC: $O"
+: >"$T/pi-pids"; bash "$TOOL" close 'byz-satnano-nano-q#1' >/dev/null 2>&1
 
 # ⓡ 커널 잠금 — 보유자 SIGKILL 뒤 즉시 · 5초 못 잡으면 rc1
 printf 'r-body\n' >"$T/rb"; seed 905 'seat-r#0' 'mini-r#0' "$T/rb"; : >"$T/calls"
@@ -322,21 +323,21 @@ s0=$SECONDS; call bash "$TOOL" pull --seats 'seat-r#9'; el=$((SECONDS - s0)); wa
 { [ "$RC" = 1 ] && grep -q "다른 pull 진행 중" <<<"$O" && [ "$el" -le 8 ]; } && ok "ⓡ-3 5초 못 잡으면 rc1(${el}초)" || bad "ⓡ-3 rc=$RC: $O"
 
 # ⓢ-1 SENDOK 뒤 255 = 재시도 0 · ⓢ-2(바뀜) SEND 출력 0B 255 = 재시도 0 · rc4
-mkopen "$TOOL" s1 'sat-s#1'; printf '넷\n' >"$T/t4.md"; printf '다섯\n' >"$T/t5.md"
-b="$(sshn)"; echo 1 >"$T/ssh-after"; call env FAKE_SSH_AFTER="$T/ssh-after" bash "$TOOL" task 'sat-s#1' "$T/t4.md"; ns="$(grep -c 's1/TASK-' "$SEND")"
+mkopen "$TOOL" s1 'byz-satnano-nano-s#1'; printf '넷\n' >"$T/t4.md"; printf '다섯\n' >"$T/t5.md"
+b="$(sshn)"; echo 1 >"$T/ssh-after"; call env FAKE_SSH_AFTER="$T/ssh-after" bash "$TOOL" task 'byz-satnano-nano-s#1' "$T/t4.md"; ns="$(grep -c 's1/TASK-' "$SEND")"
 { [ "$RC" = 0 ] && [ "$(( $(sshn) - b ))" = 1 ] && [ "$ns" = 1 ]; } && ok "ⓢ-1 SENDOK 뒤 rc255 → 재시도 0 · 입력 1" || bad "ⓢ-1 rc=$RC: $O"
-b="$(sshn)"; echo 1 >"$T/ssh-lost"; call env FAKE_SSH_LOST="$T/ssh-lost" bash "$TOOL" task 'sat-s#1' "$T/t5.md"
+b="$(sshn)"; echo 1 >"$T/ssh-lost"; call env FAKE_SSH_LOST="$T/ssh-lost" bash "$TOOL" task 'byz-satnano-nano-s#1' "$T/t5.md"
 { [ "$RC" = 4 ] && [ "$(( $(sshn) - b ))" = 1 ] && grep -q "불확실" <<<"$O"; } && ok "ⓢ-2 SEND 출력 0B rc255 → 재시도 0(ssh 1) · rc4 불확실" || bad "ⓢ-2 rc=$RC ssh: $O"
-bash "$TOOL" close 'sat-s#1' >/dev/null 2>&1
+bash "$TOOL" close 'byz-satnano-nano-s#1' >/dev/null 2>&1
 
 # ⓚ(바뀜) send-keys 실패 → rc4 · 같은 명령 = CLAIMED rc4 입력 0 · --retry = 입력 1
-mkopen "$TOOL" k1 'sat-k#1'; printf '셋\n' >"$T/t3.md"; : >"$T/sendfail"
-call env FAKE_SEND_FAIL="$T/sendfail" bash "$TOOL" task 'sat-k#1' "$T/t3.md"; k1="$RC"; rm -f "$T/sendfail"
-call bash "$TOOL" task 'sat-k#1' "$T/t3.md"; k2="$RC"; o2="$O"; n2="$(grep -c 'k1/TASK-' "$SEND")"
-call bash "$TOOL" task 'sat-k#1' "$T/t3.md" --retry; n3="$(grep -c 'k1/TASK-' "$SEND")"
+mkopen "$TOOL" k1 'byz-satnano-nano-k#1'; printf '셋\n' >"$T/t3.md"; : >"$T/sendfail"
+call env FAKE_SEND_FAIL="$T/sendfail" bash "$TOOL" task 'byz-satnano-nano-k#1' "$T/t3.md"; k1="$RC"; rm -f "$T/sendfail"
+call bash "$TOOL" task 'byz-satnano-nano-k#1' "$T/t3.md"; k2="$RC"; o2="$O"; n2="$(grep -c 'k1/TASK-' "$SEND")"
+call bash "$TOOL" task 'byz-satnano-nano-k#1' "$T/t3.md" --retry; n3="$(grep -c 'k1/TASK-' "$SEND")"
 { [ "$k1" = 4 ] && [ "$k2" = 4 ] && grep -q CLAIMED <<<"$o2" && [ "$n2" = 0 ] && [ "$RC" = 0 ] && [ "$n3" = 1 ]; } \
   && ok "ⓚ send-keys 실패 rc4 → 재호출 CLAIMED rc4 입력 0 → --retry 입력 1" || bad "ⓚ rc=$k1/$k2/$RC 입력=$n2/$n3: $o2 | $O"
-bash "$TOOL" close 'sat-k#1' >/dev/null 2>&1
+bash "$TOOL" close 'byz-satnano-nano-k#1' >/dev/null 2>&1
 
 # ⓛ(바뀜) 꼬리표 줄 제거 뒤 바이트 동일(끝 개행 2개)
 rm -rf "$STUB_SENT_DIR"; printf 'a b\n\n' >"$T/exp-l"; seed 902 'seat-l#0' 'mini-l#0' "$T/exp-l"
@@ -415,14 +416,14 @@ PY
 cell_B "$BIN/ft-sat-nano.sh" 0 && ok "Ⓑ 마지막 배달이 마감을 넘으면 rc5(ack 0) · 다음 pull 재발신 0·ack 1 · ack 실패 rc7" || bad "Ⓑ"
 
 # Ⓒ claim 장벽 — claim 뒤·sent 전 재호출 = CLAIMED rc4 입력 0 · sent 뒤 ALREADY · --retry 입력 1
-cell_C() { local t="$1" s="$2" bp n1 n2 rb; mkopen "$t" "c$s" "sat-c#$s" || return 1; printf 'C-%s\n' "$s" >"$T/tc$s.md"; : >"$T/barrier$s"
-  ( FAKE_SEND_BARRIER="$T/barrier$s" bash "$t" task "sat-c#$s" "$T/tc$s.md" >/dev/null 2>&1 ) & bp=$!
+cell_C() { local t="$1" s="$2" bp n1 n2 rb; mkopen "$t" "c$s" "byz-satnano-nano-c#$s" || return 1; printf 'C-%s\n' "$s" >"$T/tc$s.md"; : >"$T/barrier$s"
+  ( FAKE_SEND_BARRIER="$T/barrier$s" bash "$t" task "byz-satnano-nano-c#$s" "$T/tc$s.md" >/dev/null 2>&1 ) & bp=$!
   for _ in 1 2 3 4 5 6 7 8 9 10; do compgen -G "$RH/$ROOTR/c$s/.sent/TASK-*" >/dev/null && break; sleep 0.3; done
-  call bash "$t" task "sat-c#$s" "$T/tc$s.md"; rb="$RC"; rbo="$O"; n1="$(grep -c "c$s/TASK-" "$SEND")"
+  call bash "$t" task "byz-satnano-nano-c#$s" "$T/tc$s.md"; rb="$RC"; rbo="$O"; n1="$(grep -c "c$s/TASK-" "$SEND")"
   rm -f "$T/barrier$s"; wait $bp
-  call bash "$t" task "sat-c#$s" "$T/tc$s.md"; n2="$(grep -c "c$s/TASK-" "$SEND")"; grep -q SKIP <<<"$O" || return 1
-  call bash "$t" task "sat-c#$s" "$T/tc$s.md" --retry
-  bash "$t" close "sat-c#$s" >/dev/null 2>&1
+  call bash "$t" task "byz-satnano-nano-c#$s" "$T/tc$s.md"; n2="$(grep -c "c$s/TASK-" "$SEND")"; grep -q SKIP <<<"$O" || return 1
+  call bash "$t" task "byz-satnano-nano-c#$s" "$T/tc$s.md" --retry
+  bash "$t" close "byz-satnano-nano-c#$s" >/dev/null 2>&1
   [ "$rb" = 4 ] && grep -q CLAIMED <<<"$rbo" && [ "$n1" = 0 ] && [ "$n2" = 1 ] && [ "$RC" = 0 ] && [ "$(grep -c "c$s/TASK-" "$SEND")" = 2 ]; }
 cell_C "$TOOL" 1 && ok "Ⓒ claim 장벽: 진행 중 재호출 CLAIMED rc4 입력 0 · 끝난 뒤 ALREADY · --retry 입력 1" || bad "Ⓒ: $O"
 
@@ -433,16 +434,16 @@ cell_D "$TOOL" && ok "Ⓓ SAT_TOTAL=08·SAT_TMO=07 rc0 · 0x7·7.0·-1 rc2" || b
 
 # Ⓕ 장부 쓰기 실패 = rc2 · ssh 0 (chmod 400 · fsync 예외)
 cell_F() { local st="$T/st-F$2" b r1 r2; mkdir -p "$st"; : >"$st/opened.tsv"; chmod 400 "$st/opened.tsv"; b="$(sshn)"
-  SAT_STATE_DIR="$st" bash "$1" open "$T/card.md" --run "f$2" --name "sat-f#$2" >/dev/null 2>&1; r1=$?; chmod 600 "$st/opened.tsv"
-  SAT_TEST_FSYNC_FAIL=1 PYTHONPATH="$T/fsyncinj" SAT_STATE_DIR="$st" bash "$1" open "$T/card.md" --run "f$2b" --name "sat-f#$2b" >/dev/null 2>&1; r2=$?
+  SAT_STATE_DIR="$st" bash "$1" open "$T/card.md" --run "f$2" --name "byz-satnano-nano-f#$2" >/dev/null 2>&1; r1=$?; chmod 600 "$st/opened.tsv"
+  SAT_TEST_FSYNC_FAIL=1 PYTHONPATH="$T/fsyncinj" SAT_STATE_DIR="$st" bash "$1" open "$T/card.md" --run "f$2b" --name "byz-satnano-nano-f#${2}9" >/dev/null 2>&1; r2=$?
   [ "$r1" = 2 ] && [ "$r2" = 2 ] && [ "$(sshn)" = "$b" ]; }
 cell_F "$TOOL" 1 && ok "Ⓕ 장부 chmod 400 · fsync 예외 → rc2 · 원격 호출 0" || bad "Ⓕ"
 
 # Ⓖ SEND 부모 폴더 실패 = rc4 · ALREADY 아님 · 입력 0
-mkopen "$TOOL" gg 'sat-gg#1'; printf 'G\n' >"$T/tg.md"
-call env FAKE_MKDIR_FAIL_SENT=1 bash "$TOOL" task 'sat-gg#1' "$T/tg.md"
+mkopen "$TOOL" gg 'byz-satnano-nano-gg#1'; printf 'G\n' >"$T/tg.md"
+call env FAKE_MKDIR_FAIL_SENT=1 bash "$TOOL" task 'byz-satnano-nano-gg#1' "$T/tg.md"
 { [ "$RC" = 4 ] && ! grep -q SKIP <<<"$O" && [ "$(grep -c 'gg/TASK-' "$SEND")" = 0 ]; } && ok "Ⓖ .sent 부모 생성 실패 → rc4 · 입력 0" || bad "Ⓖ rc=$RC: $O"
-bash "$TOOL" close 'sat-gg#1' >/dev/null 2>&1
+bash "$TOOL" close 'byz-satnano-nano-gg#1' >/dev/null 2>&1
 
 # Ⓗ ① RATE_LIMIT rc≠0 · ② rc0 비정형(queued ok · seq=abc · 둘째 줄 QUEUED) → done 0 · intent 유지 → 창 뒤 정상 재발신 → done
 cell_H() { local t="$1" s="$2" st="$T/st-H$2" FN k=0 m; : >"$T/calls"; printf 'H\n' >"$T/Hb"; seed "$s" "seat-H$s#0" 'mini-H#0' "$T/Hb"; FN=$(date +%s)
@@ -497,111 +498,111 @@ PY
 cell_I "$TOOL" && ok "Ⓘ ① 남은 시간 0 이하 = 예외 rc5 · ② 경계에서 자식 실행 0" || bad "Ⓘ"
 
 # Ⓙ pid 재사용(lstart 다름) → 표시만 · open rc4 기록 유지 · close rc4
-call env FAKE_TMUXC_ARM_PS=1 FAKE_TMUXC_WAITPOLL=1 bash "$TOOL" open "$T/card.md" --run jj --name 'sat-jj#1'; j1="$RC"; jo="$O"
-waitsess 'sat-jj#1'; call bash "$TOOL" close 'sat-jj#1'
-{ [ "$j1" = 4 ] && grep -q "열기 불확실" <<<"$jo" && [ "$RC" = 4 ] && instate 'sat-jj#1' && hassess 'sat-jj#1'; } && ok "Ⓙ pid 재사용 → alive 0 = 표시만 · open rc4 · close rc4 · 세션·기록 유지" || bad "Ⓙ $j1 | $RC $O"
-bash "$TOOL" close 'sat-jj#1' --adopt >/dev/null 2>&1
+call env FAKE_TMUXC_ARM_PS=1 FAKE_TMUXC_WAITPOLL=1 bash "$TOOL" open "$T/card.md" --run jj --name 'byz-satnano-nano-jj#1'; j1="$RC"; jo="$O"
+waitsess 'byz-satnano-nano-jj#1'; call bash "$TOOL" close 'byz-satnano-nano-jj#1'
+{ [ "$j1" = 4 ] && grep -q "열기 불확실" <<<"$jo" && [ "$RC" = 4 ] && instate 'byz-satnano-nano-jj#1' && hassess 'byz-satnano-nano-jj#1'; } && ok "Ⓙ pid 재사용 → alive 0 = 표시만 · open rc4 · close rc4 · 세션·기록 유지" || bad "Ⓙ $j1 | $RC $O"
+bash "$TOOL" close 'byz-satnano-nano-jj#1' --adopt >/dev/null 2>&1
 
 # Ⓚ 확인된 줄 gone + pi 잔존 / lsof 실패 → rc6 · 고침 3: rc1 다른 글 → rc6 · can't find(신원 참) → gone
-cell_K() { local t="$1" s="$2"; mkopen "$t" "kk$s" "sat-kk#$s" || return 1; dropsess "sat-kk#$s"
-  printf '61\n' >"$T/pi-pids"; printf '61|%s\n' "$RH/$ROOTR/kk$s" >"$T/pi-cwds"; call bash "$t" close "sat-kk#$s"; local a="$RC"
-  : >"$T/pi-cwds"; call env FAKE_LSOF_RC=1 bash "$t" close "sat-kk#$s"; local b="$RC"; : >"$T/pi-pids"
-  instate "sat-kk#$s" && [ "$a" = 6 ] && [ "$b" = 6 ]; }
+cell_K() { local t="$1" s="$2"; mkopen "$t" "kk$s" "byz-satnano-nano-kk#$s" || return 1; dropsess "byz-satnano-nano-kk#$s"
+  printf '61\n' >"$T/pi-pids"; printf '61|%s\n' "$RH/$ROOTR/kk$s" >"$T/pi-cwds"; call bash "$t" close "byz-satnano-nano-kk#$s"; local a="$RC"
+  : >"$T/pi-cwds"; call env FAKE_LSOF_RC=1 bash "$t" close "byz-satnano-nano-kk#$s"; local b="$RC"; : >"$T/pi-pids"
+  instate "byz-satnano-nano-kk#$s" && [ "$a" = 6 ] && [ "$b" = 6 ]; }
 cell_K "$TOOL" 1 && ok "Ⓚ 확인된 줄 gone + pi 잔존 → rc6 · gone + lsof 실패 → rc6 · 기록 유지" || bad "Ⓚ: $O"
-cell_K3() { local t="$1" s="$2"; mkopen "$t" "x$s" "sat-x#$s" || return 1
-  call env FAKE_HAS_ERR="error connecting to /tmp/x (Permission denied)" bash "$t" close "sat-x#$s"; local a="$RC"
-  instate "sat-x#$s" && hassess "sat-x#$s" && [ "$a" = 6 ] || return 1
-  dropsess "sat-x#$s"; call env FAKE_NO_SERVER=1 bash "$t" close "sat-x#$s"; [ "$RC" = 0 ] && ! instate "sat-x#$s"; }
+cell_K3() { local t="$1" s="$2"; mkopen "$t" "x$s" "byz-satnano-nano-x#$s" || return 1
+  call env FAKE_HAS_ERR="error connecting to /tmp/x (Permission denied)" bash "$t" close "byz-satnano-nano-x#$s"; local a="$RC"
+  instate "byz-satnano-nano-x#$s" && hassess "byz-satnano-nano-x#$s" && [ "$a" = 6 ] || return 1
+  dropsess "byz-satnano-nano-x#$s"; call env FAKE_NO_SERVER=1 bash "$t" close "byz-satnano-nano-x#$s"; [ "$RC" = 0 ] && ! instate "byz-satnano-nano-x#$s"; }
 cell_K3 "$TOOL" 1 && ok "고침3 close: has-session rc1 + 다른 글 → rc6(세션·기록 유지) · 정상 «없음»(no server) + 신원 참 → gone rc0" || bad "고침3 close: $O"
 
 # Ⓛ-0 OPEN_BG 재시도 — ⓐ 출력만 잃음 → running · opener 1 · ⓑ pid 기록 실패 + 출력 잃음 → claimed rc4 · opener 1
 cell_L0() { local t="$1" s="$2"; echo 1 >"$T/lost$s"
-  call env FAKE_SSH_LOST="$T/lost$s" FAKE_SSH_PAT=.open.claim bash "$t" open "$T/card.md" --run "l0a$s" --name "sat-l0a#$s"
-  [ "$RC" = 0 ] && [ "$(opensn "sat-l0a#$s")" = 1 ] || return 1; bash "$t" close "sat-l0a#$s" >/dev/null 2>&1; echo 1 >"$T/lost$s"
-  call env FAKE_SSH_LOST="$T/lost$s" FAKE_SSH_PAT=.open.claim FAKE_MV_FAIL_PID=1 bash "$t" open "$T/card.md" --run "l0b$s" --name "sat-l0b#$s"
-  waitsess "sat-l0b#$s"; sleep 1; local r="$RC" o="$O"; bash "$t" close "sat-l0b#$s" --adopt >/dev/null 2>&1
-  [ "$r" = 4 ] && grep -q "상태=claimed" <<<"$o" && [ "$(opensn "sat-l0b#$s")" = 1 ]; }
+  call env FAKE_SSH_LOST="$T/lost$s" FAKE_SSH_PAT=.open.claim bash "$t" open "$T/card.md" --run "l0a$s" --name "byz-satnano-nano-l0a#$s"
+  [ "$RC" = 0 ] && [ "$(opensn "byz-satnano-nano-l0a#$s")" = 1 ] || return 1; bash "$t" close "byz-satnano-nano-l0a#$s" >/dev/null 2>&1; echo 1 >"$T/lost$s"
+  call env FAKE_SSH_LOST="$T/lost$s" FAKE_SSH_PAT=.open.claim FAKE_MV_FAIL_PID=1 bash "$t" open "$T/card.md" --run "l0b$s" --name "byz-satnano-nano-l0b#$s"
+  waitsess "byz-satnano-nano-l0b#$s"; sleep 1; local r="$RC" o="$O"; bash "$t" close "byz-satnano-nano-l0b#$s" --adopt >/dev/null 2>&1
+  [ "$r" = 4 ] && grep -q "상태=claimed" <<<"$o" && [ "$(opensn "byz-satnano-nano-l0b#$s")" = 1 ]; }
 cell_L0 "$TOOL" 1 && ok "Ⓛ-0 OPEN_BG 출력 0B rc255 → 재시도 = 상태 응답(running · opener 1) · pid 전 끊김 → claimed rc4 · opener 1" || bad "Ⓛ-0: $O"
 # Ⓛ-1 claim 직후 종료(+출력 잃음) → 재호출 claimed · open rc4 · opener 0 · close rc4 원격 0 · --forget 뒤에만 삭제
 cell_L1() { local t="$1" s="$2" b r o; echo 1 >"$T/lost1$s"; b="$(sshn)"
-  call env FAKE_SSH_LOST="$T/lost1$s" FAKE_SSH_PAT=.open.claim FAKE_MKDIR_DIE_CLAIM=1 bash "$t" open "$T/card.md" --run "l1$s" --name "sat-l1#$s"; r="$RC"; o="$O"
-  [ "$r" = 4 ] && grep -q "상태=claimed" <<<"$o" && [ "$(( $(sshn) - b ))" = 4 ] && [ "$(opensn "sat-l1#$s")" = 0 ] && instate "sat-l1#$s" || return 1
-  b="$(sshn)"; call bash "$t" close "sat-l1#$s"; [ "$RC" = 4 ] && instate "sat-l1#$s" || return 1
-  call bash "$t" close "sat-l1#$s" --forget --why "claim 뒤 종료 · mini tmux ls 확인 0건"; [ "$RC" = 0 ] && ! instate "sat-l1#$s" && [ "$(sshn)" = "$b" ]; }
+  call env FAKE_SSH_LOST="$T/lost1$s" FAKE_SSH_PAT=.open.claim FAKE_MKDIR_DIE_CLAIM=1 bash "$t" open "$T/card.md" --run "l1$s" --name "byz-satnano-nano-l1#$s"; r="$RC"; o="$O"
+  [ "$r" = 4 ] && grep -q "상태=claimed" <<<"$o" && [ "$(( $(sshn) - b ))" = 4 ] && [ "$(opensn "byz-satnano-nano-l1#$s")" = 0 ] && instate "byz-satnano-nano-l1#$s" || return 1
+  b="$(sshn)"; call bash "$t" close "byz-satnano-nano-l1#$s"; [ "$RC" = 4 ] && instate "byz-satnano-nano-l1#$s" || return 1
+  call bash "$t" close "byz-satnano-nano-l1#$s" --forget --why "claim 뒤 종료 · mini tmux ls 확인 0건"; [ "$RC" = 0 ] && ! instate "byz-satnano-nano-l1#$s" && [ "$(sshn)" = "$b" ]; }
 cell_L1 "$TOOL" 1 && ok "Ⓛ-1 claim 직후 종료 → claimed rc4 · opener 0 · close rc4 · --forget 뒤에만 삭제 · ssh 0" || bad "Ⓛ-1: $O"
 # Ⓛ-2 claim 생성 실패 → claim_fail · 고침 1: rc4 · 줄 유지 · close rc4 · --forget 뒤에만 삭제
-cell_L2() { local t="$1" s="$2" r o; call env FAKE_MKDIR_FAIL_CLAIM=1 bash "$t" open "$T/card.md" --run "l2$s" --name "sat-l2#$s"; r="$RC"; o="$O"
-  [ "$r" = 4 ] && grep -q "claim_fail" <<<"$o" && instate "sat-l2#$s" && [ "$(opensn "sat-l2#$s")" = 0 ] || return 1
-  call bash "$t" close "sat-l2#$s"; [ "$RC" = 4 ] && instate "sat-l2#$s" || return 1
-  call bash "$t" close "sat-l2#$s" --forget --why "claim_fail · 원격 폴더 권한"; [ "$RC" = 0 ] && ! instate "sat-l2#$s"; }
+cell_L2() { local t="$1" s="$2" r o; call env FAKE_MKDIR_FAIL_CLAIM=1 bash "$t" open "$T/card.md" --run "l2$s" --name "byz-satnano-nano-l2#$s"; r="$RC"; o="$O"
+  [ "$r" = 4 ] && grep -q "claim_fail" <<<"$o" && instate "byz-satnano-nano-l2#$s" && [ "$(opensn "byz-satnano-nano-l2#$s")" = 0 ] || return 1
+  call bash "$t" close "byz-satnano-nano-l2#$s"; [ "$RC" = 4 ] && instate "byz-satnano-nano-l2#$s" || return 1
+  call bash "$t" close "byz-satnano-nano-l2#$s" --forget --why "claim_fail · 원격 폴더 권한"; [ "$RC" = 0 ] && ! instate "byz-satnano-nano-l2#$s"; }
 cell_L2 "$TOOL" 1 && ok "Ⓛ-2 claim_fail → rc4 · 줄 유지(고침 1) · close rc4 · --forget 뒤에만 삭제" || bad "Ⓛ-2: $O"
 # Ⓛ-3 nohup 뒤·pid 전 종료 → rc4 · 줄 유지 · 세션이 뒤에 생겨도 close rc4 · --forget 은 기록만(원격 0)
-call env FAKE_MV_FAIL_PID=1 bash "$TOOL" open "$T/card.md" --run l3 --name 'sat-l3#1'; l3="$RC"; l3o="$O"; waitsess 'sat-l3#1'
-call bash "$TOOL" close 'sat-l3#1'; l3b="$RC"; b="$(sshn)"
-call bash "$TOOL" close 'sat-l3#1' --forget --why "pid 기록 실패 · 오빠 h 로 mini kill-session 예정"
-{ [ "$l3" = 4 ] && grep -q "열기 불확실" <<<"$l3o" && [ "$l3b" = 4 ] && [ "$RC" = 0 ] && ! instate 'sat-l3#1' && hassess 'sat-l3#1' && [ "$(sshn)" = "$b" ]; } \
+call env FAKE_MV_FAIL_PID=1 bash "$TOOL" open "$T/card.md" --run l3 --name 'byz-satnano-nano-l3#1'; l3="$RC"; l3o="$O"; waitsess 'byz-satnano-nano-l3#1'
+call bash "$TOOL" close 'byz-satnano-nano-l3#1'; l3b="$RC"; b="$(sshn)"
+call bash "$TOOL" close 'byz-satnano-nano-l3#1' --forget --why "pid 기록 실패 · 오빠 h 로 mini kill-session 예정"
+{ [ "$l3" = 4 ] && grep -q "열기 불확실" <<<"$l3o" && [ "$l3b" = 4 ] && [ "$RC" = 0 ] && ! instate 'byz-satnano-nano-l3#1' && hassess 'byz-satnano-nano-l3#1' && [ "$(sshn)" = "$b" ]; } \
   && ok "Ⓛ-3 pid 전 종료 → rc4 · 뒤늦은 세션에도 close rc4 · --forget = 기록만(세션 그대로 · ssh 0)" || bad "Ⓛ-3 $l3 | $l3b | $RC $O"
-dropsess 'sat-l3#1'
+dropsess 'byz-satnano-nano-l3#1'
 # Ⓛ-4 opener 끝(done)·세션 없음 → rc4 · 줄 유지(폴링 rowdel 0) · --forget
-cell_L4() { local t="$1" s="$2"; call env FAKE_TMUXC_NOSESS=1 bash "$t" open "$T/card.md" --run "l4$s" --name "sat-l4#$s"
-  [ "$RC" = 4 ] && grep -q "세션 없음 done=3" <<<"$O" && instate "sat-l4#$s" || return 1
-  call bash "$t" close "sat-l4#$s" --forget --why "opener 실패 done=3"; [ "$RC" = 0 ] && ! instate "sat-l4#$s"; }
+cell_L4() { local t="$1" s="$2"; call env FAKE_TMUXC_NOSESS=1 bash "$t" open "$T/card.md" --run "l4$s" --name "byz-satnano-nano-l4#$s"
+  [ "$RC" = 4 ] && grep -q "세션 없음 done=3" <<<"$O" && instate "byz-satnano-nano-l4#$s" || return 1
+  call bash "$t" close "byz-satnano-nano-l4#$s" --forget --why "opener 실패 done=3"; [ "$RC" = 0 ] && ! instate "byz-satnano-nano-l4#$s"; }
 cell_L4 "$TOOL" 1 && ok "Ⓛ-4 opener 끝·세션 없음 → rc4 · 줄 유지 · --forget 뒤 삭제" || bad "Ⓛ-4: $O"
 
 # Ⓜ ① 정상 = 지시문 입력 1(대입된 \$msg) · ② 빈 \$msg 주입 → exit 4 · sent 0 · 입력 0 · ③ 빈 파일 → rc4
-cell_M() { local t="$1" s="$2"; mkopen "$t" "m$s" "sat-m#$s" || return 1; printf 'M\n' >"$T/tm$s.md"
-  call bash "$t" task "sat-m#$s" "$T/tm$s.md"; local r="$RC"; bash "$t" close "sat-m#$s" >/dev/null 2>&1
-  [ "$r" = 0 ] && grep -q "sat-m#$s|.*\[발주 #1\] .*m$s/TASK-" "$SEND"; }
+cell_M() { local t="$1" s="$2"; mkopen "$t" "m$s" "byz-satnano-nano-m#$s" || return 1; printf 'M\n' >"$T/tm$s.md"
+  call bash "$t" task "byz-satnano-nano-m#$s" "$T/tm$s.md"; local r="$RC"; bash "$t" close "byz-satnano-nano-m#$s" >/dev/null 2>&1
+  [ "$r" = 0 ] && grep -q "byz-satnano-nano-m#$s|.*\[발주 #1\] .*m$s/TASK-" "$SEND"; }
 cell_M "$TOOL" 1 && ok "Ⓜ-1 정상 task → 지시문([발주 #1] <파일>) 입력 1" || bad "Ⓜ-1: $O"
 MM="$(mut minject nano 'msg="[발주 #1] $f 를 읽고 그대로 수행해라. 결과는 같은 폴더 out.md."' 'msg=""')"
-mkopen "$TOOL" m2 'sat-m#2'; printf 'M2\n' >"$T/tm2.md"; call bash "$MM" task 'sat-m#2' "$T/tm2.md"
+mkopen "$TOOL" m2 'byz-satnano-nano-m#2'; printf 'M2\n' >"$T/tm2.md"; call bash "$MM" task 'byz-satnano-nano-m#2' "$T/tm2.md"
 { [ "$RC" = 4 ] && [ "$(grep -c 'm2/TASK-' "$SEND")" = 0 ] && [ -z "$(find "$RH/$ROOTR/m2/.sent" -name sent -path '*TASK-*')" ]; } && ok "Ⓜ-2 비어 있지 않은 파일 + 빈 \$msg 주입 → rc4 · sent 0 · 입력 0" || bad "Ⓜ-2 rc=$RC: $O"
-: >"$T/empty.md"; call bash "$TOOL" task 'sat-m#2' "$T/empty.md"
+: >"$T/empty.md"; call bash "$TOOL" task 'byz-satnano-nano-m#2' "$T/empty.md"
 { [ "$RC" = 4 ] && [ "$(grep -c 'm2/TASK-' "$SEND")" = 0 ]; } && ok "Ⓜ-3 빈 파일 task → rc4 · 입력 0" || bad "Ⓜ-3 rc=$RC: $O"
-bash "$TOOL" close 'sat-m#2' >/dev/null 2>&1
+bash "$TOOL" close 'byz-satnano-nano-m#2' >/dev/null 2>&1
 
 # Ⓝ 불확실 줄 — 벽시계 전진 · LIMIT 변경 · 뒤늦은 세션 → close 전부 rc4 · 삭제 0 · 원격 0
-cell_N() { local t="$1" s="$2" b r=""; pending "$t" "n$s" "sat-nn#$s" || return 1; b="$(sshn)"
-  r="$r $(SAT_FAKE_NOW=9999999999 bash "$t" close "sat-nn#$s" >/dev/null 2>&1; echo $?)"
-  r="$r $(SAT_OPEN_LIMIT=10 bash "$t" close "sat-nn#$s" >/dev/null 2>&1; echo $?)"
-  waitsess "sat-nn#$s"; r="$r $(bash "$t" close "sat-nn#$s" >/dev/null 2>&1; echo $?)"
-  local okk=1; [ "$r" = " 4 4 4" ] && instate "sat-nn#$s" && hassess "sat-nn#$s" && [ "$(sshn)" = "$b" ] && okk=0
-  bash "$t" close "sat-nn#$s" --adopt >/dev/null 2>&1 || bash "$TOOL" close "sat-nn#$s" --adopt >/dev/null 2>&1; return $okk; }
+cell_N() { local t="$1" s="$2" b r=""; pending "$t" "n$s" "byz-satnano-nano-nn#$s" || return 1; b="$(sshn)"
+  r="$r $(SAT_FAKE_NOW=9999999999 bash "$t" close "byz-satnano-nano-nn#$s" >/dev/null 2>&1; echo $?)"
+  r="$r $(SAT_OPEN_LIMIT=10 bash "$t" close "byz-satnano-nano-nn#$s" >/dev/null 2>&1; echo $?)"
+  waitsess "byz-satnano-nano-nn#$s"; r="$r $(bash "$t" close "byz-satnano-nano-nn#$s" >/dev/null 2>&1; echo $?)"
+  local okk=1; [ "$r" = " 4 4 4" ] && instate "byz-satnano-nano-nn#$s" && hassess "byz-satnano-nano-nn#$s" && [ "$(sshn)" = "$b" ] && okk=0
+  bash "$t" close "byz-satnano-nano-nn#$s" --adopt >/dev/null 2>&1 || bash "$TOOL" close "byz-satnano-nano-nn#$s" --adopt >/dev/null 2>&1; return $okk; }
 cell_N "$TOOL" 1 && ok "Ⓝ 벽시계 전진·LIMIT 변경·뒤늦은 세션 → close rc4 · 삭제 0 · 원격 0" || bad "Ⓝ"
 
 # Ⓞ POLL 조회 실패 → open rc6 · 기록 유지 · IDENT·SEND 0 (has-session rc2 · rc1 + 다른 글 = 고침 3)
 cell_O() { local t="$1" s="$2" c b; for c in 2 1e; do b="$(sshn)"
-    call env FAKE_TMUXC_ARM_HAS="$c" bash "$t" open "$T/card.md" --run "o$s$c" --name "sat-oo#$s$c"; rm -f "$RSESS.hasrc"
-    [ "$RC" = 6 ] && instate "sat-oo#$s$c" && ! tail -n +"$((b + 1))" "$T/sshlog" | grep -q 'session_id\|send-keys' || return 1
-    bash "$t" close "sat-oo#$s$c" --forget --why "시험 정리" >/dev/null 2>&1; done; }
+    call env FAKE_TMUXC_ARM_HAS="$c" bash "$t" open "$T/card.md" --run "o$s$c" --name "byz-satnano-nano-oo#$s${c%e}"; rm -f "$RSESS.hasrc"
+    [ "$RC" = 6 ] && instate "byz-satnano-nano-oo#$s${c%e}" && ! tail -n +"$((b + 1))" "$T/sshlog" | grep -q 'session_id\|send-keys' || return 1
+    bash "$t" close "byz-satnano-nano-oo#$s${c%e}" --forget --why "시험 정리" >/dev/null 2>&1; done; }
 cell_O "$TOOL" 1 && ok "Ⓞ POLL sess_rc=2 · rc1+다른 글 → open rc6 · 기록 유지 · 신원 조회·입력 0" || bad "Ⓞ: $O"
 
 # Ⓟ --forget — pending 만 · 이유 필수(고침 2) · 확인된 줄 rc2 · 없는 이름 rc5 · ssh 0 · forgotten.tsv 1줄(11칸)
-cell_P() { local t="$1" s="$2" b a1 a2 a3 a4 a5; pending "$t" "p$s" "sat-pp#$s" || return 1; mkopen "$t" "pc$s" "sat-pc#$s" || return 1; b="$(sshn)"
-  bash "$t" close "sat-pp#$s" --forget >/dev/null 2>&1; a1=$?
-  bash "$t" close "sat-pp#$s" --forget --why "   " >/dev/null 2>&1; a2=$?
-  bash "$t" close "sat-pc#$s" --forget --why "확인된 줄" >/dev/null 2>&1; a3=$?
-  bash "$t" close "sat-none#$s" --forget --why "없음" >/dev/null 2>&1; a4=$?
-  instate "sat-pp#$s" && instate "sat-pc#$s" || return 1
-  FT_SEAT="tester#1" bash "$t" close "sat-pp#$s" --forget --why "열기 마감 · 세션 없음 확인" >/dev/null 2>&1; a5=$?; local a6; a6="$(sshn)"
-  waitsess "sat-pp#$s"; dropsess "sat-pp#$s"; bash "$TOOL" close "sat-pc#$s" >/dev/null 2>&1
-  PD="$a1$a2$a3$a4$a5 ssh ${b}→${a6}"; [ "$a1$a2$a3$a4$a5" = "22250" ] && [ "$a6" = "$b" ] && ! instate "sat-pp#$s" \
-    && awk -F'\t' -v n="sat-pp#$s" 'NF==12 && $2=="tester#1" && $4==n && $12=="열기 마감 · 세션 없음 확인"' "$SAT_STATE_DIR/forgotten.tsv" | grep -q .; }
+cell_P() { local t="$1" s="$2" b a1 a2 a3 a4 a5; pending "$t" "p$s" "byz-satnano-nano-pp#$s" || return 1; mkopen "$t" "pc$s" "byz-satnano-nano-pc#$s" || return 1; b="$(sshn)"
+  bash "$t" close "byz-satnano-nano-pp#$s" --forget >/dev/null 2>&1; a1=$?
+  bash "$t" close "byz-satnano-nano-pp#$s" --forget --why "   " >/dev/null 2>&1; a2=$?
+  bash "$t" close "byz-satnano-nano-pc#$s" --forget --why "확인된 줄" >/dev/null 2>&1; a3=$?
+  bash "$t" close "byz-satnano-nano-none#$s" --forget --why "없음" >/dev/null 2>&1; a4=$?
+  instate "byz-satnano-nano-pp#$s" && instate "byz-satnano-nano-pc#$s" || return 1
+  FT_SEAT="tester#1" bash "$t" close "byz-satnano-nano-pp#$s" --forget --why "열기 마감 · 세션 없음 확인" >/dev/null 2>&1; a5=$?; local a6; a6="$(sshn)"
+  waitsess "byz-satnano-nano-pp#$s"; dropsess "byz-satnano-nano-pp#$s"; bash "$TOOL" close "byz-satnano-nano-pc#$s" >/dev/null 2>&1
+  PD="$a1$a2$a3$a4$a5 ssh ${b}→${a6}"; [ "$a1$a2$a3$a4$a5" = "22250" ] && [ "$a6" = "$b" ] && ! instate "byz-satnano-nano-pp#$s" \
+    && awk -F'\t' -v n="byz-satnano-nano-pp#$s" 'NF==12 && $2=="tester#1" && $4==n && $12=="열기 마감 · 세션 없음 확인"' "$SAT_STATE_DIR/forgotten.tsv" | grep -q .; }
 cell_P "$TOOL" 1 && ok "Ⓟ --forget: 이유 없음·공백 rc2 · 확인된 줄 rc2 · 없는 이름 rc5 · pending 만 rc0 · ssh 0 · forgotten 1줄(12칸)" || bad "Ⓟ ${PD:-}"
 
 # Ⓠ/Ⓔ/ⓥ --adopt — open 마감 rc5 → close rc4 → 세션 생성 뒤에도 rc4 → --adopt(폴더 일치) 신원 채움·닫힘 · 폴더 다름/세션 없음/조회 실패 rc4 삭제 0
-cell_Q() { local t="$1" s="$2" r1 r2 r3 r4 r5; QD="pending"; pending "$t" "qa$s" "sat-qq#$s" || return 1
-  bash "$t" close "sat-qq#$s" >/dev/null 2>&1; r1=$?; waitsess "sat-qq#$s"; bash "$t" close "sat-qq#$s" >/dev/null 2>&1; r2=$?
-  awk -F'|' -v OFS='|' -v n="sat-qq#$s" '$1==n{$4="/some/other/dir"}{print}' "$RSESS.meta" >"$RSESS.t"; cp "$RSESS.meta" "$T/meta.bak"; mv "$RSESS.t" "$RSESS.meta"
-  bash "$t" close "sat-qq#$s" --adopt >/dev/null 2>&1; r3=$?; mv "$T/meta.bak" "$RSESS.meta"
-  FAKE_HAS_RC=2 bash "$t" close "sat-qq#$s" --adopt >/dev/null 2>&1; r4=$?
-  QD="$r1$r2$r3$r4"; instate "sat-qq#$s" && hassess "sat-qq#$s" && ! conf "sat-qq#$s" || return 1
-  call bash "$t" close "sat-qq#$s" --adopt; r5="$RC"
-  [ "$r1$r2$r3$r4$r5" = "44440" ] && ! instate "sat-qq#$s" && ! hassess "sat-qq#$s" && grep -q "ADOPT 신원 채움" <<<"$O"; }
+cell_Q() { local t="$1" s="$2" r1 r2 r3 r4 r5; QD="pending"; pending "$t" "qa$s" "byz-satnano-nano-qq#$s" || return 1
+  bash "$t" close "byz-satnano-nano-qq#$s" >/dev/null 2>&1; r1=$?; waitsess "byz-satnano-nano-qq#$s"; bash "$t" close "byz-satnano-nano-qq#$s" >/dev/null 2>&1; r2=$?
+  awk -F'|' -v OFS='|' -v n="byz-satnano-nano-qq#$s" '$1==n{$4="/some/other/dir"}{print}' "$RSESS.meta" >"$RSESS.t"; cp "$RSESS.meta" "$T/meta.bak"; mv "$RSESS.t" "$RSESS.meta"
+  bash "$t" close "byz-satnano-nano-qq#$s" --adopt >/dev/null 2>&1; r3=$?; mv "$T/meta.bak" "$RSESS.meta"
+  FAKE_HAS_RC=2 bash "$t" close "byz-satnano-nano-qq#$s" --adopt >/dev/null 2>&1; r4=$?
+  QD="$r1$r2$r3$r4"; instate "byz-satnano-nano-qq#$s" && hassess "byz-satnano-nano-qq#$s" && ! conf "byz-satnano-nano-qq#$s" || return 1
+  call bash "$t" close "byz-satnano-nano-qq#$s" --adopt; r5="$RC"
+  [ "$r1$r2$r3$r4$r5" = "44440" ] && ! instate "byz-satnano-nano-qq#$s" && ! hassess "byz-satnano-nano-qq#$s" && grep -q "ADOPT 신원 채움" <<<"$O"; }
 cell_Q "$TOOL" 1 && ok "Ⓠ·Ⓔ·ⓥ open 마감 → close rc4(전·후) · --adopt 폴더 다름/조회 실패 rc4 삭제 0 · 폴더 일치 → 신원 채움·닫힘 rc0" || bad "Ⓠ ${QD:-}: $O"
-cell_Q2() { local t="$1" s="$2"; call env FAKE_TMUXC_NOSESS=1 bash "$t" open "$T/card.md" --run "q2$s" --name "sat-q2#$s"
-  call bash "$t" close "sat-q2#$s" --adopt; [ "$RC" = 4 ] && instate "sat-q2#$s" || return 1
-  bash "$t" close "sat-q2#$s" --forget --why "세션 없음" >/dev/null 2>&1; }
+cell_Q2() { local t="$1" s="$2"; call env FAKE_TMUXC_NOSESS=1 bash "$t" open "$T/card.md" --run "q2$s" --name "byz-satnano-nano-q2#$s"
+  call bash "$t" close "byz-satnano-nano-q2#$s" --adopt; [ "$RC" = 4 ] && instate "byz-satnano-nano-q2#$s" || return 1
+  bash "$t" close "byz-satnano-nano-q2#$s" --forget --why "세션 없음" >/dev/null 2>&1; }
 cell_Q2 "$TOOL" 1 && ok "Ⓠ-2 세션 없음에 --adopt → rc4 삭제 0 → --forget rc0" || bad "Ⓠ-2: $O"
 
 # ══ r5 새 칸 (R1 열쇠 = run · R2 삭제 길 둘 · R3 소켓 고정 · 마감) ══
@@ -618,8 +619,8 @@ rt.LOCK_WAIT = 0.3
 sess, calls, r = {}, [0], []
 def b_side():
     n0 = calls[0]
-    r.append("B1=%d" % m.main(["open", card, "--run", "r1b", "--name", "sat-r1#1"]))
-    r.append("B2=%d" % m.main(["close", "sat-r1#1", "--forget", "--why", "동시 forget"]))
+    r.append("B1=%d" % m.main(["open", card, "--run", "r1b", "--name", "byz-satnano-nano-r1#1"]))
+    r.append("B2=%d" % m.main(["close", "byz-satnano-nano-r1#1", "--forget", "--why", "동시 forget"]))
     r.append("Bcalls=%d" % (calls[0] - n0))
 hook = [b_side]
 ID = "$1 100 /tmp/s.sock /home/x"
@@ -628,7 +629,7 @@ def fake(dl, script, *a, **k):
     if script == m.R_PRE:
         if hook:
             hook.pop()()
-        return 0, b"tmuxc=ok\npi=ok\nperl=ok\nsess_rc=%d\ndir=absent\n" % (0 if a[1] in sess else 1), ""
+        return 0, b"tmuxc=ok\npi=ok\nperl=ok\nsess_rc=%d\nfree=50\ndir=absent\n" % (0 if a[1] in sess else 1), ""
     if script == m.R_OPEN_BG:
         sess[a[1]] = 1
         return 0, b"running\n1 x\n", ""
@@ -637,13 +638,13 @@ def fake(dl, script, *a, **k):
     return 0, {m.R_WRITE: b"", m.R_POLL: b"alive=1\ndone=\nsess_rc=0\n", m.R_IDENT: (ID + "\n").encode(),
                m.R_PIDS: b"1\n", m.R_SEND: b"SENDOK\n", m.R_KILL: m.KILL_OK.encode() + b"\n"}[script], ""
 rt.rcall = fake
-a = m.main(["open", card, "--run", "r1a", "--name", "sat-r1#1"])
+a = m.main(["open", card, "--run", "r1a", "--name", "byz-satnano-nano-r1#1"])
 n0 = calls[0]
-b3 = m.main(["open", card, "--run", "r1c", "--name", "sat-r1#1"])
+b3 = m.main(["open", card, "--run", "r1c", "--name", "byz-satnano-nano-r1#1"])
 b3c = calls[0] - n0
-rows = [x for x in rt.read_rows("opened.tsv") if x[0] == "sat-r1#1"]
+rows = [x for x in rt.read_rows("opened.tsv") if x[0] == "byz-satnano-nano-r1#1"]
 conf = int(len(rows) == 1 and rt.confirmed(rows[0]))
-c = m.main(["close", "sat-r1#1"])
+c = m.main(["close", "byz-satnano-nano-r1#1"])
 print("A=%d %s B3=%d B3calls=%d conf=%d close=%d left=%d" % (a, " ".join(r), b3, b3c, conf, c, len(rt.read_rows("opened.tsv"))))
 PY
 )"; case "$R1D" in "A=0 B1=1 B2=1 Bcalls=0 B3=2 B3calls=0 conf=1 close=0 left=0"|"A=0 B1=2 B2=1 Bcalls=0 B3=2 B3calls=0 conf=1 close=0 left=0") return 0;; esac; return 1; }
@@ -651,18 +652,18 @@ cell_r1 "$TOOL" 0 && ok "ⓡ1 동시 open 같은 이름: A 잠금 중 B1 open·B
 
 # ⓡ2 R_WRITE 실행 뒤 응답 유실 ×2 → open rc4 · 줄 유지 · close rc4 · --forget 뒤에만 삭제
 cell_r2() { local t="$1" s="$2"; echo 2 >"$T/r2lost$s"
-  call env FAKE_SSH_LOST="$T/r2lost$s" FAKE_SSH_PAT='mkdir -p "$d" && cat' bash "$t" open "$T/card.md" --run "r2w$s" --name "sat-r2#$s"
-  [ "$RC" = 4 ] && [ -s "$RH/$ROOTR/r2w$s/TASK.md" ] && instate "sat-r2#$s" && ! conf "sat-r2#$s" && [ "$(opensn "sat-r2#$s")" = 0 ] || return 1
-  call bash "$t" close "sat-r2#$s"; [ "$RC" = 4 ] && instate "sat-r2#$s" || return 1
-  call bash "$t" close "sat-r2#$s" --forget --why "R_WRITE 응답 유실 · 세션 없음"; [ "$RC" = 0 ] && ! instate "sat-r2#$s"; }
+  call env FAKE_SSH_LOST="$T/r2lost$s" FAKE_SSH_PAT='mkdir -p "$d" && cat' bash "$t" open "$T/card.md" --run "r2w$s" --name "byz-satnano-nano-r2#$s"
+  [ "$RC" = 4 ] && [ -s "$RH/$ROOTR/r2w$s/TASK.md" ] && instate "byz-satnano-nano-r2#$s" && ! conf "byz-satnano-nano-r2#$s" && [ "$(opensn "byz-satnano-nano-r2#$s")" = 0 ] || return 1
+  call bash "$t" close "byz-satnano-nano-r2#$s"; [ "$RC" = 4 ] && instate "byz-satnano-nano-r2#$s" || return 1
+  call bash "$t" close "byz-satnano-nano-r2#$s" --forget --why "R_WRITE 응답 유실 · 세션 없음"; [ "$RC" = 0 ] && ! instate "byz-satnano-nano-r2#$s"; }
 cell_r2 "$TOOL" 1 && ok "ⓡ2 R_WRITE 뒤 응답 유실 ×2 → open rc4 · 줄 유지 · close rc4 · --forget 뒤에만 삭제" || bad "ⓡ2: $O"
 
 # ⓡ3 4칸·9칸 줄 → task·close·fetch·--forget 전부 rc6 · ssh 0 · 입력 0 · 줄 그대로
 cell_r3() { local t="$1" st="$T/st-r3$2" b ns n r=""; mkdir -p "$st"
-  printf 'sat-r3a#1\tr3a\t%s/r3a\tts\n' "$ROOTR" >"$st/opened.tsv"
-  printf 'sat-r3b#1\tr3b\t%s/r3b\tts\t$1\t100\t/x\t/s\textra\n' "$ROOTR" >>"$st/opened.tsv"
+  printf 'byz-satnano-nano-r3a#1\tr3a\t%s/r3a\tts\n' "$ROOTR" >"$st/opened.tsv"
+  printf 'byz-satnano-nano-r3b#1\tr3b\t%s/r3b\tts\t$1\t100\t/x\t/s\textra\n' "$ROOTR" >>"$st/opened.tsv"
   printf 'x\n' >"$T/r3t.md"; b="$(sshn)"; ns="$(wc -l <"$SEND" | tr -d ' ')"
-  for n in 'sat-r3a#1' 'sat-r3b#1'; do
+  for n in 'byz-satnano-nano-r3a#1' 'byz-satnano-nano-r3b#1'; do
     r="$r $(SAT_STATE_DIR="$st" bash "$t" task "$n" "$T/r3t.md" >/dev/null 2>&1; echo $?)"
     r="$r $(SAT_STATE_DIR="$st" bash "$t" close "$n" >/dev/null 2>&1; echo $?)"
     r="$r $(SAT_STATE_DIR="$st" bash "$t" fetch "$n" >/dev/null 2>&1; echo $?)"
@@ -672,21 +673,21 @@ cell_r3() { local t="$1" st="$T/st-r3$2" b ns n r=""; mkdir -p "$st"
 cell_r3 "$TOOL" 1 && ok "ⓡ3 4칸·9칸 줄 → task·close·fetch·--forget rc6 · ssh 0 · 입력 0 · 줄 그대로" || bad "ⓡ3 rc:${R3D:-}"
 
 # ⓡ4 tmux 서버 2개 — 소켓 A 에서 열고 기본 소켓을 B(꺼짐)로 바꾼 뒤 close → -S A 로 닫거나 rc6 · B 의 «no server» 로 삭제 0
-cell_r4() { local t="$1" s="$2" r; rm -f "$RSESS.B"; mkopen "$t" "r4$s" "sat-r4#$s" || return 1
-  call env FAKE_DEFAULT_SOCK="$FAKE_SOCK_B" bash "$t" close "sat-r4#$s"; r="$RC"
-  if [ "$r" = 0 ] && ! hassess "sat-r4#$s" && ! instate "sat-r4#$s"; then return 0; fi
-  if [ "$r" = 6 ] && instate "sat-r4#$s" && hassess "sat-r4#$s"; then bash "$t" close "sat-r4#$s" >/dev/null 2>&1; return 0; fi
-  instate "sat-r4#$s" || dropsess "sat-r4#$s"; return 1; }
+cell_r4() { local t="$1" s="$2" r; rm -f "$RSESS.B"; mkopen "$t" "r4$s" "byz-satnano-nano-r4#$s" || return 1
+  call env FAKE_DEFAULT_SOCK="$FAKE_SOCK_B" bash "$t" close "byz-satnano-nano-r4#$s"; r="$RC"
+  if [ "$r" = 0 ] && ! hassess "byz-satnano-nano-r4#$s" && ! instate "byz-satnano-nano-r4#$s"; then return 0; fi
+  if [ "$r" = 6 ] && instate "byz-satnano-nano-r4#$s" && hassess "byz-satnano-nano-r4#$s"; then bash "$t" close "byz-satnano-nano-r4#$s" >/dev/null 2>&1; return 0; fi
+  instate "byz-satnano-nano-r4#$s" || dropsess "byz-satnano-nano-r4#$s"; return 1; }
 cell_r4 "$TOOL" 1 && ok "ⓡ4 서버 2개: 기본 소켓 B(꺼짐)여도 close 는 기록 소켓 A 로 닫음 · B 의 «no server» 로 삭제 0" || bad "ⓡ4: $O"
 
 # ⓡ5 SAT_TOTAL=3 · close 중 장부 잠금 4초 점유 → rc4 · 줄 유지 → 그 뒤 close rc0
 #     + 함수 직접(대역 시계): 닫힘 확인(R_KILL) 뒤 마감 넘음 → 삭제 전 검사 rc4 · 줄 유지 → 다시 close = gone 경로 rc0
-cell_r5() { local t="$1" s="$2" hp r1 el s0 bd; mkopen "$t" "r5$s" "sat-r5#$s" || return 1; rm -f "$T/r5mark$s"
+cell_r5() { local t="$1" s="$2" hp r1 el s0 bd; mkopen "$t" "r5$s" "byz-satnano-nano-r5#$s" || return 1; rm -f "$T/r5mark$s"
   ( exec 9>>"$SAT_STATE_DIR/opened.flock"; python3 -c 'import fcntl,sys,time;fcntl.flock(9,fcntl.LOCK_EX);open(sys.argv[1],"w").close();time.sleep(4)' "$T/r5mark$s" ) & hp=$!
   for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do [ -e "$T/r5mark$s" ] && break; sleep 0.1; done
-  s0=$SECONDS; call env SAT_TOTAL=3 bash "$t" close "sat-r5#$s"; r1="$RC"; el=$((SECONDS - s0)); wait "$hp" 2>/dev/null
-  [ "$r1" = 4 ] && [ "$el" -le 4 ] && instate "sat-r5#$s" && hassess "sat-r5#$s" || return 1
-  call bash "$t" close "sat-r5#$s"; [ "$RC" = 0 ] && ! instate "sat-r5#$s" && ! hassess "sat-r5#$s" || return 1
+  s0=$SECONDS; call env SAT_TOTAL=3 bash "$t" close "byz-satnano-nano-r5#$s"; r1="$RC"; el=$((SECONDS - s0)); wait "$hp" 2>/dev/null
+  [ "$r1" = 4 ] && [ "$el" -le 4 ] && instate "byz-satnano-nano-r5#$s" && hassess "byz-satnano-nano-r5#$s" || return 1
+  call bash "$t" close "byz-satnano-nano-r5#$s"; [ "$RC" = 0 ] && ! instate "byz-satnano-nano-r5#$s" && ! hassess "byz-satnano-nano-r5#$s" || return 1
   bd="$(dirname "$t")"; [ "$(python3 - "$bd" "$T/st-r5b-$s" 2>/dev/null <<'PY' | tail -1
 import os, sys
 bd, st = sys.argv[1:3]
@@ -696,7 +697,9 @@ sys.path.insert(0, bd)
 import ft_sat_nano as m
 rt = m.rt
 with open(os.path.join(st, "opened.tsv"), "w") as f:
-    f.write("sat-r5b#1\tr5b\tProject/satellite-nano/r5b\tts\t$9\t100\t/home/x\t/tmp/s.sock\n")
+    f.write("byz-satnano-nano-r5b#1\tr5b\tProject/satellite-nano/r5b\tts\t$9\t100\t/home/x\t/tmp/s.sock\n")
+with open(os.path.join(st, "roster.json"), "w") as f:  # r949 — 닫기는 명부 표식 줄만
+    f.write('{"rows":[{"slug":"r5b","name":"byz-satnano-nano-r5b#1","run":"r5b","status":"OPEN","sock":"/tmp/s.sock","by":"ft-sat-nano"}]}')
 class C:
     t = 0.0
     def __call__(self):
@@ -714,9 +717,9 @@ def fake(dl, script, *a, **k):
         return 0, m.KILL_OK.encode() + b"\n", ""
     raise SystemExit("unexpected script")
 rt.rcall = fake
-r = ["rc%d" % m.main(["close", "sat-r5b#1"]), "kept" if rt.opened_find("sat-r5b#1") else "gone"]
+r = ["rc%d" % m.main(["close", "byz-satnano-nano-r5b#1"]), "kept" if rt.opened_find("byz-satnano-nano-r5b#1") else "gone"]
 st8.update(has="1", slow=False)
-r += ["rc%d" % m.main(["close", "sat-r5b#1"]), "kept" if rt.opened_find("sat-r5b#1") else "gone"]
+r += ["rc%d" % m.main(["close", "byz-satnano-nano-r5b#1"]), "kept" if rt.opened_find("byz-satnano-nano-r5b#1") else "gone"]
 print(" ".join(r))
 PY
 )" = "rc4 kept rc0 gone" ]; }
@@ -724,45 +727,45 @@ cell_r5 "$TOOL" 1 && ok "ⓡ5 SAT_TOTAL=3 · 장부 잠금 4초 점유 → close
 
 # ⓡ6 opened.flock 쓰기 불가 → open·close rc2 · ssh 0 · traceback 0
 cell_r6() { local t="$1" st="$T/st-r6$2" b r1 r2 o; mkdir -p "$st"; : >"$st/opened.flock"; chmod 400 "$st/opened.flock"; b="$(sshn)"
-  o="$(SAT_STATE_DIR="$st" bash "$t" open "$T/card.md" --run "r6$2" --name "sat-r6#$2" 2>&1)"; r1=$?
-  o="$o$(SAT_STATE_DIR="$st" bash "$t" close "sat-r6#$2" 2>&1)"; r2=$?; chmod 600 "$st/opened.flock"
+  o="$(SAT_STATE_DIR="$st" bash "$t" open "$T/card.md" --run "r6$2" --name "byz-satnano-nano-r6#$2" 2>&1)"; r1=$?
+  o="$o$(SAT_STATE_DIR="$st" bash "$t" close "byz-satnano-nano-r6#$2" 2>&1)"; r2=$?; chmod 600 "$st/opened.flock"
   R6D="$r1$r2"; [ "$r1$r2" = 22 ] && [ "$(sshn)" = "$b" ] && ! grep -q Traceback <<<"$o"; }
 cell_r6 "$TOOL" 1 && ok "ⓡ6 opened.flock 쓰기 불가 → open·close rc2 · ssh 0 · traceback 0" || bad "ⓡ6 rc=${R6D:-}"
 
 # ══ r5 확정 칸 (DECISION-r902-impl-r5-final) ══
 # ⓢ1(확정) 신원 3칸 참 + 소켓 빔 → close·--forget·task·--adopt·fetch 전부 rc6 · ssh 0 · 입력 0 · 줄 그대로
 cell_s1() { local t="$1" st="$T/st-s1$2" b ns r=""; mkdir -p "$st"
-  printf 'sat-s1#1\ts1\t%s/s1\tts\t$5\t100\t%s/s1\t\n' "$ROOTR" "$RH/$ROOTR" >"$st/opened.tsv"; cp "$st/opened.tsv" "$st/before"
+  printf 'byz-satnano-nano-s1#1\ts1\t%s/s1\tts\t$5\t100\t%s/s1\t\n' "$ROOTR" "$RH/$ROOTR" >"$st/opened.tsv"; cp "$st/opened.tsv" "$st/before"
   printf 'x\n' >"$T/s1t.md"; b="$(sshn)"; ns="$(wc -l <"$SEND" | tr -d ' ')"
-  r="$r $(SAT_STATE_DIR="$st" bash "$t" close 'sat-s1#1' >/dev/null 2>&1; echo $?)"
-  r="$r $(SAT_STATE_DIR="$st" bash "$t" close 'sat-s1#1' --forget --why x >/dev/null 2>&1; echo $?)"
-  r="$r $(SAT_STATE_DIR="$st" bash "$t" task 'sat-s1#1' "$T/s1t.md" >/dev/null 2>&1; echo $?)"
-  r="$r $(SAT_STATE_DIR="$st" bash "$t" close 'sat-s1#1' --adopt >/dev/null 2>&1; echo $?)"
-  r="$r $(SAT_STATE_DIR="$st" bash "$t" fetch 'sat-s1#1' >/dev/null 2>&1; echo $?)"
+  r="$r $(SAT_STATE_DIR="$st" bash "$t" close 'byz-satnano-nano-s1#1' >/dev/null 2>&1; echo $?)"
+  r="$r $(SAT_STATE_DIR="$st" bash "$t" close 'byz-satnano-nano-s1#1' --forget --why x >/dev/null 2>&1; echo $?)"
+  r="$r $(SAT_STATE_DIR="$st" bash "$t" task 'byz-satnano-nano-s1#1' "$T/s1t.md" >/dev/null 2>&1; echo $?)"
+  r="$r $(SAT_STATE_DIR="$st" bash "$t" close 'byz-satnano-nano-s1#1' --adopt >/dev/null 2>&1; echo $?)"
+  r="$r $(SAT_STATE_DIR="$st" bash "$t" fetch 'byz-satnano-nano-s1#1' >/dev/null 2>&1; echo $?)"
   S1D="$r"; [ "$r" = " 6 6 6 6 6" ] && [ "$(sshn)" = "$b" ] && [ "$(wc -l <"$SEND" | tr -d ' ')" = "$ns" ] && cmp -s "$st/before" "$st/opened.tsv"; }
 cell_s1 "$TOOL" 1 && ok "ⓢ1(확정) 신원 3칸 참 + 소켓 빔 → close·--forget·task·--adopt·fetch rc6 · ssh 0 · 입력 0 · 줄 그대로" || bad "ⓢ1(확정) rc:${S1D:-}"
 
 # ⓢ2(확정) SAT_TOTAL=3 · forgotten.tsv fsync 대역 4초 → --forget rc4 · 줄 유지 · 다시 --forget rc0
-cell_s2() { local t="$1" s="$2" r okk=1; pending "$t" "s2$s" "sat-s2#$s" || return 1
-  call env SAT_TOTAL=3 SAT_TEST_FSYNC_SLEEP=4 PYTHONPATH="$T/fsyncinj" bash "$t" close "sat-s2#$s" --forget --why "마감 시험"; r="$RC"; S2D="$r $O"
-  [ "$r" = 4 ] && instate "sat-s2#$s" && grep -q "forget 기록은 남았으나" <<<"$O" && okk=0
-  call bash "$TOOL" close "sat-s2#$s" --forget --why "다시"; { [ "$RC" = 0 ] && ! instate "sat-s2#$s"; } || okk=1
-  waitsess "sat-s2#$s"; dropsess "sat-s2#$s"; return $okk; }
+cell_s2() { local t="$1" s="$2" r okk=1; pending "$t" "s2$s" "byz-satnano-nano-s2#$s" || return 1
+  call env SAT_TOTAL=3 SAT_TEST_FSYNC_SLEEP=4 PYTHONPATH="$T/fsyncinj" bash "$t" close "byz-satnano-nano-s2#$s" --forget --why "마감 시험"; r="$RC"; S2D="$r $O"
+  [ "$r" = 4 ] && instate "byz-satnano-nano-s2#$s" && grep -q "forget 기록은 남았으나" <<<"$O" && okk=0
+  call bash "$TOOL" close "byz-satnano-nano-s2#$s" --forget --why "다시"; { [ "$RC" = 0 ] && ! instate "byz-satnano-nano-s2#$s"; } || okk=1
+  waitsess "byz-satnano-nano-s2#$s"; dropsess "byz-satnano-nano-s2#$s"; return $okk; }
 cell_s2 "$TOOL" 1 && ok "ⓢ2(확정) SAT_TOTAL=3 · forgotten fsync 4초 → --forget rc4 · 줄 유지 → 다시 --forget rc0" || bad "ⓢ2(확정) ${S2D:-}"
 
 # Ⓙ'(확정) DA 재현 입력 FAKE_TMUXC_ARM_PS=1 FAKE_TMUXC_SLEEP=5 → open rc4 · 5회 같은 결과
 cell_Jp() { local t="$1" s="$2" i r=""
-  for i in 1 2 3 4 5; do r="$r $(FAKE_TMUXC_ARM_PS=1 FAKE_TMUXC_SLEEP=5 bash "$t" open "$T/card.md" --run "jp$s$i" --name "sat-jp#$s$i" >/dev/null 2>&1; echo $?)"; done
-  JPD="$r"; for i in 1 2 3 4 5; do waitsess "sat-jp#$s$i"
-    bash "$TOOL" close "sat-jp#$s$i" --adopt >/dev/null 2>&1 || { bash "$TOOL" close "sat-jp#$s$i" --forget --why "시험 정리" >/dev/null 2>&1; dropsess "sat-jp#$s$i"; }; done
+  for i in 1 2 3 4 5; do r="$r $(FAKE_TMUXC_ARM_PS=1 FAKE_TMUXC_SLEEP=5 bash "$t" open "$T/card.md" --run "jp$s$i" --name "byz-satnano-nano-jp#$s$i" >/dev/null 2>&1; echo $?)"; done
+  JPD="$r"; for i in 1 2 3 4 5; do waitsess "byz-satnano-nano-jp#$s$i"
+    bash "$TOOL" close "byz-satnano-nano-jp#$s$i" --adopt >/dev/null 2>&1 || { bash "$TOOL" close "byz-satnano-nano-jp#$s$i" --forget --why "시험 정리" >/dev/null 2>&1; dropsess "byz-satnano-nano-jp#$s$i"; }; done
   [ "$r" = " 4 4 4 4 4" ]; }
 cell_Jp "$TOOL" 1 && ok "Ⓙ'(확정) ARM_PS=1 SLEEP=5 → open rc4 ×5 같은 결과" || bad "Ⓙ'(확정) rc:${JPD:-}"
 
 # Ⓙ''(astra r1) ARM_PS=1 WAITPOLL=1 + 첫 R_POLL 5초 지연 → 표식 없음 = 세션 생성 0 · open rc4 ×5 같은 결과
 cell_Jpp() { local t="$1" s="$2" i r="" okk=0
-  for i in 1 2 3 4 5; do r="$r $(FAKE_TMUXC_ARM_PS=1 FAKE_TMUXC_WAITPOLL=1 FAKE_RPOLL_SLEEP=5 bash "$t" open "$T/card.md" --run "jq$s$i" --name "sat-jq#$s$i" >/dev/null 2>&1; echo $?)"; done
-  JQD="$r"; for i in 1 2 3 4 5; do hassess "sat-jq#$s$i" && { okk=1; JQD="$JQD 세션있음:$i"; dropsess "sat-jq#$s$i"; }
-    bash "$TOOL" close "sat-jq#$s$i" --forget --why "시험 정리" >/dev/null 2>&1; done
+  for i in 1 2 3 4 5; do r="$r $(FAKE_TMUXC_ARM_PS=1 FAKE_TMUXC_WAITPOLL=1 FAKE_RPOLL_SLEEP=5 bash "$t" open "$T/card.md" --run "jq$s$i" --name "byz-satnano-nano-jq#$s$i" >/dev/null 2>&1; echo $?)"; done
+  JQD="$r"; for i in 1 2 3 4 5; do hassess "byz-satnano-nano-jq#$s$i" && { okk=1; JQD="$JQD 세션있음:$i"; dropsess "byz-satnano-nano-jq#$s$i"; }
+    bash "$TOOL" close "byz-satnano-nano-jq#$s$i" --forget --why "시험 정리" >/dev/null 2>&1; done
   [ "$r" = " 4 4 4 4 4" ] && [ "$okk" = 0 ]; }
 cell_Jpp "$TOOL" 1 && ok "Ⓙ''(astra r1) WAITPOLL=1 + 첫 R_POLL 5초 지연 → 표식 없음 = 세션 0 · open rc4 ×5" || bad "Ⓙ''(astra r1) rc:${JQD:-}"
 
@@ -799,8 +802,8 @@ mcheck "잠금 구간 = 추가만(r5 ⓡ1)" cell_r1 "$(mut lockadd nano '       
         return open_body(' '        reserve(dl, name, run, d)
     return open_body(')" 2
 mcheck "삭제 열쇠 = 이름(r5 ⓡ1 · 이름 검사 끔과 짝)" cell_r1 "$(mut namekey nano 'r[0] == name or rt.same_run(r, run)' 'rt.same_run(r, run)' 'rt.opened_del(run)  # R2' '[rt.opened_del(r[1]) for r in rt.read_rows("opened.tsv") if r[0] == name]  # R2')" 3
-mcheck "R_WRITE 뒤 자동 삭제(r5 ⓡ2)" cell_r2 "$(mut wdel nano '        pre(dl, name, d)
-' '        pre(dl, name, d)
+mcheck "R_WRITE 뒤 자동 삭제(r5 ⓡ2)" cell_r2 "$(mut wdel nano '        free, warn = pre(dl, name, run, d)
+' '        free, warn = pre(dl, name, run, d)
         write_task(dl, name, d, data)
 ' '    write_task(dl, name, d, data)  # R2' '    pass  # R2')" 2
 mcheck "칸 수 검사 끔(r5 ⓡ3)" cell_r3 "$(mut ncol rt 'if len(hit) != 1 or len(hit[0]) != NCOL or' 'if len(hit) != 1 or')" 2
