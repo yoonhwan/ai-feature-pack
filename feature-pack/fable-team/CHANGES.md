@@ -1,9 +1,14 @@
-## 2026-10-26 — r939 승계(retire)는 띄운 DA·설치를 죽이지 않고 후계에게 넘긴다 (1.1.245)
+## 2026-10-26 — r939 승계(retire)는 띄운 DA·설치를 죽이지 않고 후계에게 넘긴다 (1.1.246)
 
 - ft-seat-reap.sh `--handover <후계>`: «곧 끝나는 일»(명령줄의 실행 스크립트가 ft-da-codex.sh·install.sh·ft-scratch-repo.sh ∨ `timeout <n>` ∨ env FT_BG_FINITE=1)은 신호 0 으로 넘긴다. 명령줄에 루프 표식(while·until·done·tail -f)이 보이면 넘기지 않는다(허용 목록 «글자» 흉내 차단). 넘긴 뿌리의 자손도 같이 넘긴다. 넘김마다 `reap-handover pid=… cmd=… to=<후계>` · 끝 줄에 `handed=<n>`(닫기 출력 회귀 0).
 - 넘김 목록은 재개 기록(`ZC_RESUME_DIR·기본 ~/.claude/state/seat-resume`)/<좌석>.json 의 "handed" 칸(pid·cmd·started·at)에 남는다 — ft-seat-retire.sh 가 재개 기록을 쓴 뒤 `--handover <후계>` 로 부르므로 후계 부팅 때 보인다. 기록이 없으면 곁파일 `<좌석>.handed.json`(깨진 재개 기록은 덮지 않는다).
 - ft-leak-reap.sh: 넘긴 작업이 retire 시각 + 70분(`FT_HANDOVER_REPORT_MIN`)을 넘게 살아 있으면 `handover-stale …` 1줄 보고 — 죽이지 않고 유출 수·killed·rc 에 안 섬김.
 - 시험 test_seat_handover_r939.sh ALL PASS(ⓐ~ⓔ + 변이 3종) · bash 3.2 · 짝 사본 cmp0 · 인접 10건 PASS.
+
+## 2026-10-26 — r922a 초안 모드 골 표 검증 실패 = planner [긴급] 대신 WARN 1줄 (1.1.245)
+
+- ft_news_post.py 가 초안 모드(무장)에서 골 표 검증에 실패하면 goal_gate.refuse 를 부르지 않고 WARN 1줄만 남긴다. rc·발행 0·기준선은 그대로(초안+무장 rc=3). 게이트 본체 없는 설치도 같은 문을 지난다.
+- 시험 test_r922a_news_draft_gate_warn.sh 35 PASS · 변이 MUTATION-ALL-RED · 회귀 test_news_html.sh rc0 · 외부 DA⑥ r1 APPROVE(BYZ design/harness/evidence/r922a-da6/VERDICT-r922a-da6-r1.md · 승인판 3dd15da0).
 
 ## 2026-10-26 — r926 자율 인터뷰 명부 = $ROOT 기준만 · 쌍둥이 경고는 가지가 main 안 품으면 «이동 0»(1.1.244)
 
