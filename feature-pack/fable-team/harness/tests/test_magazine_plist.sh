@@ -99,7 +99,7 @@ sy() { [ -f "$G/sync.calls" ] && wc -l < "$G/sync.calls" | tr -d ' ' || echo 0; 
 UP='{"aaa:p": {"root_ts": "1.1", "uploaded": true, "date": "2026-10-22"}}'
 DOWN='{"aaa:p": {"root_ts": "1.1", "uploaded": false, "date": "2026-10-22"}}'
 YDAY='{"aaa:p": {"root_ts": "1.1", "uploaded": true, "date": "2026-10-21"}}'
-# guard 칸 10개 — $1 = 스크립트 · 실패 칸 수를 gfail 에 누적 · 상세는 FAIL 줄
+# guard 칸 11개 — $1 = 스크립트 · 실패 칸 수를 gfail 에 누적 · 상세는 FAIL 줄
 guard_check() {
   local S="$1" tag="$2" out rc d s
   gfail=0
@@ -134,22 +134,32 @@ guard_check() {
   rm -f "$G/doc.calls" "$G/sync.calls" "$B"; printf '%s' "$UP" > "$A"
   out="$(FT_ROOT="$G/root" FT_LEDGER_REPO="$G/repo" FT_LEDGER_SYNC="$G/sync.sh" FT_LEDGER_FRESH_GATE=0 FT_MAGAZINE_DOC="$G/doc.py" FT_NEWS_NOW="2026-10-22 08:10" bash "$S" --publish --state "$B" 2>&1)"; rc=$?; d="$(dl)"
   if [ $rc -eq 0 ] && [ "$d" = 1 ]; then echo "PASS D3 --publish --state <다른 파일> 의 표식을 본다(둘 다)"; else echo "FAIL D3b --state B 는 비었는데 건너뜀 rc=$rc docs=$d out=$out"; gfail=$((gfail+1)); fi
+  # ⓛ 판 날짜 = magazine_doc 이 고른 --date (없을 때만 지금 날짜) — 10-21 표식이면 skip · 10-22 표식만 있으면 진행
+  out="$(mfn "$S" "$YDAY" --publish --date 2026-10-21 --state "$A")"; rc=$?; d="$(dl)"
+  [ $rc -eq 0 ] && [ "$d" = 0 ] && printf '%s' "$out" | grep -q '^skip date=2026-10-21 이미 발행됨' \
+    && echo "PASS ⓛ --date 2026-10-21 + 10-21 표식 → skip rc0" || { echo "FAIL ⓛ 앞 rc=$rc docs=$d out=$out"; gfail=$((gfail+1)); }
+  out="$(mfn "$S" "$UP" --publish --date 2026-10-21 --state "$A")"; rc=$?; d="$(dl)"
+  [ $rc -eq 0 ] && [ "$d" = 1 ] \
+    && echo "PASS ⓛ --date 2026-10-21 + 10-22 표식만 → 진행(판 날짜를 따른다)" || { echo "FAIL ⓛ 뒤 rc=$rc docs=$d out=$out"; gfail=$((gfail+1)); }
   echo "CHECK $tag gfail=$gfail"
 }
 guard_check "$MFS" 본판; gn=$gfail
-[ "$gn" = 0 ] && ok "ⓑ~ⓕ·D1~D3 날짜 가드 10칸(본판)" || bad "ⓑ~ⓕ·D1~D3 날짜 가드 본판 실패 ${gn}칸"
-# 변이 3 — 옛 case 꼴(글자 모양 판정) → D1·D2 중 하나 이상 FAIL · 날짜 비교/uploaded 조건 삭제도 그대로
+[ "$gn" = 0 ] && ok "ⓑ~ⓕ·D1~D3·ⓛ 날짜 가드 11칸(본판)" || bad "ⓑ~ⓕ·D1~D3·ⓛ 날짜 가드 본판 실패 ${gn}칸"
+# 변이 4 — 옛 case 꼴(글자 모양) · 판 날짜를 --date 대신 지금 날짜로 · 날짜 비교/uploaded 조건 삭제
 MB="$T/mut"; mkdir -p "$MB"
 perl -0pe 's/if not getattr\(args, "publish", False\):/if " --publish " not in " " + " ".join(user) + " ":/' "$MFS" > "$MB/mut-case.sh"
 sed 's/v.get("date") == date/True/' "$MFS" > "$MB/mut-date.sh"
 sed 's/ and v.get("uploaded") is True//' "$MFS" > "$MB/mut-uploaded.sh"
-for m in case date uploaded; do cmp -s "$MFS" "$MB/mut-$m.sh" && bad "변이 사본이 같다($m)"; done
-ok "변이 사본 3종 생성"
+perl -0pe 's/date = getattr\(args, "date", None\) or now_date/date = now_date/' "$MFS" > "$MB/mut-datesrc.sh"
+for m in case date uploaded datesrc; do cmp -s "$MFS" "$MB/mut-$m.sh" && bad "변이 사본이 같다($m)"; done
+ok "변이 사본 4종 생성"
 guard_check "$MB/mut-case.sh" 변이1-옛case꼴 >/dev/null; gc1=$gfail
 guard_check "$MB/mut-date.sh" 변이2-날짜비교삭제 >/dev/null; gc2=$gfail
 guard_check "$MB/mut-uploaded.sh" 변이3-uploaded조건삭제 >/dev/null; gc3=$gfail
+guard_check "$MB/mut-datesrc.sh" 변이4-판날짜무시 >/dev/null; gc4=$gfail
 [ "$gc1" -ge 1 ] && ok "변이 1 옛 case 꼴(글자 모양) → FAIL ${gc1}칸" || bad "변이 1 안 잡힘"
 [ "$gc2" -ge 1 ] && ok "변이 2 날짜 비교 삭제 → FAIL ${gc2}칸" || bad "변이 2 안 잡힘"
 [ "$gc3" -ge 1 ] && ok "변이 3 uploaded 조건 삭제 → FAIL ${gc3}칸" || bad "변이 3 안 잡힘"
+[ "$gc4" -ge 1 ] && ok "변이 4 가드 날짜를 지금 날짜로 고정 → FAIL ${gc4}칸" || bad "변이 4 안 잡힘"
 
 [ $fail -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }
