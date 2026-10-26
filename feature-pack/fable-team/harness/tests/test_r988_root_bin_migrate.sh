@@ -439,6 +439,27 @@ run "$TMP/mut-restorewb.sh" --apply --root "$W2R" --from-wt "$W2V" --launchagent
 chk "변 15 «원본 wb 되살림» → ⓦ FAIL(원본을 다시 열어 mtime 이 바뀐다)" \
   "$( [ "$(mt "$W2/launchagents/com.byz.ft-tick.plist")" = "$mt1" ] && echo caught || echo leaked)" leaked
 
+# ── ⓧ 심링크 꼴 2 = REPORT · 쓰기 0 (오빠 결정 10-27 07:4x · 알려진 한계) ──
+X="$TMP/x"; XR="$X/root"; XV="$XR/.worktrees/v6-realtime-live"
+mkdir -p "$XR/.fable-team/bin" "$XV/.fable-team/bin" "$X/launchagents"
+python3 - "$X/real-tick.plist" "$XV" <<'PY'
+import plistlib, sys
+plistlib.dump({"Label": "com.byz.ft-tick", "WorkingDirectory": sys.argv[2]}, open(sys.argv[1], "wb"))
+PY
+ln -s "$X/real-tick.plist" "$X/launchagents/com.byz.ft-tick.plist"          # 꼴 1: plist 자체가 심링크
+python3 - "$X/launchagents/com.byz.ft-resource-watch.plist" "$XV" <<'PY'
+import plistlib, sys
+plistlib.dump({"Label": "com.byz.ft-resource-watch", "WorkingDirectory": sys.argv[2]}, open(sys.argv[1], "wb"))
+PY
+printf 'NOT-A-BACKUP\n' > "$X/elsewhere.txt"
+ln -s "$X/elsewhere.txt" "$X/launchagents/com.byz.ft-resource-watch.plist.bak-r962"   # 꼴 2: 백업이 심링크
+xsha() { shasum -a 256 "$X/real-tick.plist" "$X/launchagents/com.byz.ft-resource-watch.plist" "$X/elsewhere.txt" | awk '{print $1}' | sort | shasum -a 256 | awk '{print $1}'; }
+xbefore="$(xsha)"
+o="$(run "$TOOL" --apply --root "$XR" --from-wt "$XV" --launchagents "$X/launchagents" --teams-dir "$XR/.fable-team")"
+chk "ⓧ 심링크 꼴 2(plist 심링크 · 백업 심링크) → REPORT · 쓰기 0 · rc 0" \
+  "$(rc "$o")|$(cnt "$o" MIGRATE)|$(cnt "$o" REPORT)|$(cnt "$o" ERROR)|$( [ "$(xsha)" = "$xbefore" ] && echo same || echo differ)|$( [ -L "$X/launchagents/com.byz.ft-resource-watch.plist.bak-r962" ] && echo symlink || echo plain)|$(printf '%s\n' "$o" | grep -c '심링크')" \
+  "0|0|2|0|same|symlink|2"
+
 echo "fail=$fail"
 [ "$fail" = 0 ] && echo "ALL PASS"
 exit "$fail"

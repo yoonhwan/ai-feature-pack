@@ -210,6 +210,11 @@ if not os.path.isdir(os.path.join(R, ".fable-team")):
 for path in sorted(glob.glob(os.path.join(LA, "*.plist"))):
     fname = os.path.basename(path)[:-6]
     rawb = b""
+    # r988 r2(오빠 결정 10-27 07:4x · 알려진 한계): 심링크 꼴 2 = REPORT · 쓰기 0 (대상 파일 종류를 건드리지 않는다)
+    if os.path.islink(path):
+        emit("REPORT", path, "Label", "심링크 plist — 이전 대상 아님 · 쓰기 0"); C["plist_report"] += 1; continue
+    if os.path.islink(path + ".bak-r962"):
+        emit("REPORT", path, "Label", ".bak-r962 가 심링크 — 이전 대상 아님 · 쓰기 0"); C["plist_report"] += 1; continue
     try:
         rawb = open(path, "rb").read()
         d = plistlib.loads(rawb)

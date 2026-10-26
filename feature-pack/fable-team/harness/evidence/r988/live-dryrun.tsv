@@ -9,7 +9,6 @@ REPORT	/Users/yoonhwan/Library/LaunchAgents/com.byz.cfo-g4-observe.plist	Label	�
 REPORT	/Users/yoonhwan/Library/LaunchAgents/com.byz.colima-periodic-restart-unlock.plist	Label	plistlib 로 못 읽음(ExpatError) · Label=com.byz.colima-periodic-restart-unlock — 쓰기 0
 REPORT	/Users/yoonhwan/Library/LaunchAgents/com.byz.colima-periodic-restart.plist	Label	plistlib 로 못 읽음(ExpatError) · Label=com.byz.colima-periodic-restart — 쓰기 0
 MIGRATE	/Users/yoonhwan/Library/LaunchAgents/com.byz.ft-resource-watch.plist	ProgramArguments/1	/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live/.fable-team/bin/ft-resource-watch.sh	/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/bin/ft-resource-watch.sh
-MIGRATE	/Users/yoonhwan/Library/LaunchAgents/com.byz.ft-tick.plist	WorkingDirectory	/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live	/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents
 MIGRATE	/Users/yoonhwan/Library/LaunchAgents/com.byz.ft-weekly-review.plist	EnvironmentVariables/FT_LIVE_BIN	/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live/.fable-team/bin	/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/bin
 MIGRATE	/Users/yoonhwan/Library/LaunchAgents/com.byz.ft-weekly-review.plist	EnvironmentVariables/FT_PLANNER_REPO	/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live	/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents
 REPORT	/Users/yoonhwan/Library/LaunchAgents/com.byz.gce-guard-check.plist	Label	비관리 Label(파일명=com.byz.gce-guard-check · Label=com.byz.gce-guard-check) — 이전 대상 아님
@@ -34,24 +33,24 @@ REPORT	/Users/yoonhwan/Library/LaunchAgents/com.hermes.vertex-openai-proxy.plist
 REPORT	/Users/yoonhwan/Library/LaunchAgents/com.jetbrains.toolbox.plist	Label	비관리 Label(파일명=com.jetbrains.toolbox · Label=com.jetbrains.toolbox) — 이전 대상 아님
 REPORT	/Users/yoonhwan/Library/LaunchAgents/com.oz.photosync.plist	Label	비관리 Label(파일명=com.oz.photosync · Label=com.oz.photosync) — 이전 대상 아님
 REPORT	/Users/yoonhwan/Library/LaunchAgents/com.stockquant.docs-sync.plist	Label	비관리 Label(파일명=com.stockquant.docs-sync · Label=com.stockquant.docs-sync) — 이전 대상 아님
-REPORT	/Users/yoonhwan/Library/LaunchAgents/com.xclaw.apoc.plist	Label	비관리 Label(파일명=com.xclaw.apoc · Label=com.xclaw.apoc) — 이전 대상 아님
-REPORT	/Users/yoonhwan/Library/LaunchAgents/com.xclaw.architect.plist	Label	비관리 Label(파일명=com.xclaw.architect · Label=com.xclaw.architect) — 이전 대상 아님
-REPORT	/Users/yoonhwan/Library/LaunchAgents/com.xclaw.keymaker.plist	Label	비관리 Label(파일명=com.xclaw.keymaker · Label=com.xclaw.keymaker) — 이전 대상 아님
-REPORT	/Users/yoonhwan/Library/LaunchAgents/com.xclaw.link.plist	Label	비관리 Label(파일명=com.xclaw.link · Label=com.xclaw.link) — 이전 대상 아님
-REPORT	/Users/yoonhwan/Library/LaunchAgents/com.xclaw.merovingian.plist	Label	비관리 Label(파일명=com.xclaw.merovingian · Label=com.xclaw.merovingian) — 이전 대상 아님
-REPORT	/Users/yoonhwan/Library/LaunchAgents/com.xclaw.morpheus.plist	Label	비관리 Label(파일명=com.xclaw.morpheus · Label=com.xclaw.morpheus) — 이전 대상 아님
-REPORT	/Users/yoonhwan/Library/LaunchAgents/com.xclaw.mouse.plist	Label	비관리 Label(파일명=com.xclaw.mouse · Label=com.xclaw.mouse) — 이전 대상 아님
-REPORT	/Users/yoonhwan/Library/LaunchAgents/com.xclaw.neo.plist	Label	비관리 Label(파일명=com.xclaw.neo · Label=com.xclaw.neo) — 이전 대상 아님
-REPORT	/Users/yoonhwan/Library/LaunchAgents/com.xclaw.niobe.plist	Label	비관리 Label(파일명=com.xclaw.niobe · Label=com.xclaw.niobe) — 이전 대상 아님
-REPORT	/Users/yoonhwan/Library/LaunchAgents/com.xclaw.oracle.plist	Label	비관리 Label(파일명=com.xclaw.oracle · Label=com.xclaw.oracle) — 이전 대상 아님
-REPORT	/Users/yoonhwan/Library/LaunchAgents/com.xclaw.persephone.plist	Label	비관리 Label(파일명=com.xclaw.persephone · Label=com.xclaw.persephone) — 이전 대상 아님
-REPORT	/Users/yoonhwan/Library/LaunchAgents/com.xclaw.seraph.plist	Label	비관리 Label(파일명=com.xclaw.seraph · Label=com.xclaw.seraph) — 이전 대상 아님
-REPORT	/Users/yoonhwan/Library/LaunchAgents/com.xclaw.smith.plist	Label	비관리 Label(파일명=com.xclaw.smith · Label=com.xclaw.smith) — 이전 대상 아님
-REPORT	/Users/yoonhwan/Library/LaunchAgents/com.xclaw.stream-router.plist	Label	비관리 Label(파일명=com.xclaw.stream-router · Label=com.xclaw.stream-router) — 이전 대상 아님
-REPORT	/Users/yoonhwan/Library/LaunchAgents/com.xclaw.switch.plist	Label	비관리 Label(파일명=com.xclaw.switch · Label=com.xclaw.switch) — 이전 대상 아님
-REPORT	/Users/yoonhwan/Library/LaunchAgents/com.xclaw.tank.plist	Label	비관리 Label(파일명=com.xclaw.tank · Label=com.xclaw.tank) — 이전 대상 아님
-REPORT	/Users/yoonhwan/Library/LaunchAgents/com.xclaw.trinity.plist	Label	비관리 Label(파일명=com.xclaw.trinity · Label=com.xclaw.trinity) — 이전 대상 아님
-REPORT	/Users/yoonhwan/Library/LaunchAgents/com.xclaw.zee.plist	Label	비관리 Label(파일명=com.xclaw.zee · Label=com.xclaw.zee) — 이전 대상 아님
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.xclaw.apoc.plist	Label	심링크 plist — 이전 대상 아님 · 쓰기 0
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.xclaw.architect.plist	Label	심링크 plist — 이전 대상 아님 · 쓰기 0
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.xclaw.keymaker.plist	Label	심링크 plist — 이전 대상 아님 · 쓰기 0
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.xclaw.link.plist	Label	심링크 plist — 이전 대상 아님 · 쓰기 0
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.xclaw.merovingian.plist	Label	심링크 plist — 이전 대상 아님 · 쓰기 0
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.xclaw.morpheus.plist	Label	심링크 plist — 이전 대상 아님 · 쓰기 0
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.xclaw.mouse.plist	Label	심링크 plist — 이전 대상 아님 · 쓰기 0
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.xclaw.neo.plist	Label	심링크 plist — 이전 대상 아님 · 쓰기 0
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.xclaw.niobe.plist	Label	심링크 plist — 이전 대상 아님 · 쓰기 0
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.xclaw.oracle.plist	Label	심링크 plist — 이전 대상 아님 · 쓰기 0
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.xclaw.persephone.plist	Label	심링크 plist — 이전 대상 아님 · 쓰기 0
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.xclaw.seraph.plist	Label	심링크 plist — 이전 대상 아님 · 쓰기 0
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.xclaw.smith.plist	Label	심링크 plist — 이전 대상 아님 · 쓰기 0
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.xclaw.stream-router.plist	Label	심링크 plist — 이전 대상 아님 · 쓰기 0
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.xclaw.switch.plist	Label	심링크 plist — 이전 대상 아님 · 쓰기 0
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.xclaw.tank.plist	Label	심링크 plist — 이전 대상 아님 · 쓰기 0
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.xclaw.trinity.plist	Label	심링크 plist — 이전 대상 아님 · 쓰기 0
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.xclaw.zee.plist	Label	심링크 plist — 이전 대상 아님 · 쓰기 0
 REPORT	/Users/yoonhwan/Library/LaunchAgents/com.yoonhwan.codex-sol-normalize-reminder.plist	Label	비관리 Label(파일명=com.yoonhwan.codex-sol-normalize-reminder · Label=com.yoonhwan.codex-sol-normalize-reminder) — 이전 대상 아님
 REPORT	/Users/yoonhwan/Library/LaunchAgents/com.yoonhwan.excalidraw-canvas.plist	Label	비관리 Label(파일명=com.yoonhwan.excalidraw-canvas · Label=com.yoonhwan.excalidraw-canvas) — 이전 대상 아님
 REPORT	/Users/yoonhwan/Library/LaunchAgents/com.yoonhwan.oracle-login-reminder.plist	Label	비관리 Label(파일명=com.yoonhwan.oracle-login-reminder · Label=com.yoonhwan.oracle-login-reminder) — 이전 대상 아님
@@ -65,15 +64,4 @@ REPORT	/Users/yoonhwan/Library/LaunchAgents/homebrew.mxcl.postgresql@14.plist	La
 REPORT	/Users/yoonhwan/Library/LaunchAgents/kr.co.iniline.crossex-service.plist	Label	비관리 Label(파일명=kr.co.iniline.crossex-service · Label=kr.co.iniline.crossex-service) — 이전 대상 아님
 REPORT	/Users/yoonhwan/Library/LaunchAgents/net.pulsesecure.SetupClient.plist	Label	plistlib 로 못 읽음(ExpatError) · Label=net.pulsesecure.SetupClient — 쓰기 0
 REPORT	/Users/yoonhwan/Library/LaunchAgents/sh.brew.ollama.plist	Label	비관리 Label(파일명=sh.brew.ollama · Label=sh.brew.ollama) — 이전 대상 아님
-MIGRATE	/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/bin-ccu/ccu-env.sh	FT_BIN	export FT_BIN=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live/.fable-team/bin	export FT_BIN=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/bin
-MIGRATE	/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/bin-cfo/cfo-env.sh	FT_BIN	export FT_BIN=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live/.fable-team/bin	export FT_BIN=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/bin
-MIGRATE	/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/bin-chatbot/chatbot-env.sh	FT_BIN	export FT_BIN=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live/.fable-team/bin	export FT_BIN=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/bin
-MIGRATE	/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/bin-feature/feature-env.sh	FT_BIN	export FT_BIN=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live/.fable-team/bin	export FT_BIN=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/bin
-REPORT	/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/bin-graphics/graphics-env.sh	FT_BIN	정확히 같은 줄이 아니다 — 보고만
-MIGRATE	/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/bin-harness/harness-env.sh	FT_BIN	export FT_BIN=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live/.fable-team/bin	export FT_BIN=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/bin
-MIGRATE	/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/bin-issues/issues-env.sh	FT_BIN	export FT_BIN=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live/.fable-team/bin	export FT_BIN=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/bin
-MIGRATE	/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/bin-kk/kk-env.sh	FT_BIN	export FT_BIN=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live/.fable-team/bin	export FT_BIN=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/bin
-MIGRATE	/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/bin-knowledge/knowledge-env.sh	FT_BIN	export FT_BIN=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live/.fable-team/bin	export FT_BIN=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/bin
-MIGRATE	/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/bin-ops/ops-env.sh	FT_BIN	export FT_BIN=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live/.fable-team/bin	export FT_BIN=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/bin
-MIGRATE	/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/bin-planner/planner-env.sh	FT_BIN	export FT_BIN=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live/.fable-team/bin	export FT_BIN=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/bin
-SUM	mode=dry-run	plist_migrate=6 plist_report=61 plist_error=0 env_migrate=10 env_report=1 env_error=0
+SUM	mode=dry-run	plist_migrate=5 plist_report=61 plist_error=0 env_migrate=0 env_report=0 env_error=0

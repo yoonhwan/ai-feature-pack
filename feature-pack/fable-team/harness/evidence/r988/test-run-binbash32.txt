@@ -80,6 +80,7 @@ PASS 변 14 사본이 실제로 바뀌었다
 PASS 변 14 «백업 대조 끔» → ⓥ FAIL(불완전 백업 재사용해 원본이 바뀜)
 PASS 변 15 사본이 실제로 바뀌었다
 PASS 변 15 «원본 wb 되살림» → ⓦ FAIL(원본을 다시 열어 mtime 이 바뀐다)
+PASS ⓧ 심링크 꼴 2(plist 심링크 · 백업 심링크) → REPORT · 쓰기 0 · rc 0
 fail=0
 ALL PASS
 REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
