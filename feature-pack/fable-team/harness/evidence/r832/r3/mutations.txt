@@ -1,0 +1,108 @@
+== m1 diff:
+252d251
+<     case "$q" in "$p"|"$p"/*|"${rp:-$p}"|"${rp:-$p}"/*) echo "세션 있음(pane $q)"; return 0;; esac
+m1 rc=1
+FAIL ⓐ pane 있는 A 가 경보 목록에 있음 ← SKIP 껍데기 후보 B — 미커밋 2
+FAIL ⓐ SKIP 1줄(세션 있음) — 없음: «SKIP 껍데기 후보 A — 세션 있음» ← SKIP 껍데기 후보 B — 미커밋 2
+FAIL ① pane=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.bEyoiWZTYH/alias → A SKIP «세션 있음» — 없음: «SKIP 껍데기 후보 A — 세션 있음» ← SKIP 껍데기 후보 B — 미커밋 2
+FAIL ① pane=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.bEyoiWZTYH/alias → A 가 경보 목록에 ← SKIP 껍데기 후보 B — 미커밋 2
+FAIL ① pane=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.bEyoiWZTYH/alias/d2 → A SKIP «세션 있음» — 없음: «SKIP 껍데기 후보 A — 세션 있음» ← SKIP 껍데기 후보 B — 미커밋 2
+FAIL ① pane=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.bEyoiWZTYH/alias/d2 → A 가 경보 목록에 ← SKIP 껍데기 후보 B — 미커밋 2
+FAIL ① pane=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.bEyoiWZTYH/repo/.worktrees/A → A SKIP «세션 있음» — 없음: «SKIP 껍데기 후보 A — 세션 있음» ← SKIP 껍데기 후보 B — 미커밋 2
+FAIL ① pane=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.bEyoiWZTYH/repo/.worktrees/A → A 가 경보 목록에 ← SKIP 껍데기 후보 B — 미커밋 2
+FAIL   └ 글자 그대로 pane(A) 은 그대로 맞춤 — 없음: «SKIP 껍데기 후보 A — 세션 있음» ← SKIP 껍데기 후보 B — 미커밋 2
+FAIL ② 2회차 NOTE «판정 못 함 3곳(이전 판정 이어받음)» — 없음: «NOTE 껍데기 판정 못 함 3곳(이전 판정 이어받음)» ← SKIP 껍데기 후보 A — 판정 못 함(git status rc=128)
+FAIL r2b F 에 pane 있음 → SKIP «세션 있음»(세션 검사 먼저) — 없음: «SKIP 껍데기 후보 F — 세션 있음» ← SKIP 껍데기 후보 B — 미커밋 2
+FAIL r2b pane 있는 F 가 경보에
+FAILED 12
+== m2 diff:
+262d261
+<   [ "$n" -eq 0 ] || { echo "미커밋 $n"; return 0; }
+m2 rc=1
+FAIL ⓑ 미커밋 B 가 경보 목록에 있음
+FAIL ⓑ SKIP 1줄(미커밋 2 · 지워짐 줄은 안 셈) — 없음: «SKIP 껍데기 후보 B — 미커밋 2» ← SKIP 껍데기 후보 A — 세션 있음(pane /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.hpIYueqbvn/repo/.worktrees/A/d3)
+FAIL r3 CRLF .git → 연결됨 · SKIP «미커밋 2» — 없음: «SKIP 껍데기 후보 G — 미커밋 2» ← [HIL] seat=byz-harness-wt-shell 반쯤 지워진 워크트리 껍데기 8곳(전체 8곳): A A-r2 B C E.deleting-123 F (git 연결 끊김) G X (git 연결 끊김) — 처리는 오빠 값(바뀐 때만 1줄) (세션 0 · 미커밋 0)
+FAIL r3 CRLF G 가 경보에(«미커밋 0» 으로 읽음)
+FAIL r3 상대경로 .git — git 이 받아들임 → 연결됨 · SKIP «미커밋 1» — 없음: «SKIP 껍데기 후보 H1 — 미커밋 1» ← [HIL] seat=byz-harness-wt-shell 반쯤 지워진 워크트리 껍데기 11곳(전체 11곳): A A-r2 B C E.deleting-123 F (git 연결 끊김) G H1 H2 (git 연결 끊김) H3 (git 연결 끊김) X (git 연결 끊김) — 처리는 오빠 값(바뀐 때만 1줄) (세션 0 · 미커밋 0)
+FAILED 5
+== m3 diff:
+282c282
+<   panes="$(cap 7 "$tb" list-panes -a -F '#{pane_current_path}' 2>/dev/null)" || { echo "NOTE 껍데기 판정 생략 — tmux 목록 못 읽음($tb)"; return 0; }
+---
+>   panes="$(cap 7 "$tb" list-panes -a -F '#{pane_current_path}' 2>/dev/null)" || panes=""
+m3 rc=1
+FAIL ⓓ 경보 0 — 있으면 안 됨: «[HIL]»
+FAIL ⓓ NOTE 1줄 — 없음: «NOTE 껍데기 판정 생략 — tmux 목록 못 읽음» ← SKIP 껍데기 후보 B — 미커밋 2
+FAIL ⓓ 서명 바뀜: harness:A harness:A-r2 harness:C harness:E.deleting-123 
+FAILED 3
+== m4 diff:
+283d282
+<   panes="$(pane_paths "$panes")"
+m4 rc=1
+FAIL ① pane=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.ZAncOa4NUP/alias → A SKIP «세션 있음» — 없음: «SKIP 껍데기 후보 A — 세션 있음» ← SKIP 껍데기 후보 B — 미커밋 2
+FAIL ① pane=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.ZAncOa4NUP/alias → A 가 경보 목록에 ← SKIP 껍데기 후보 B — 미커밋 2
+FAIL ① pane=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.ZAncOa4NUP/alias/d2 → A SKIP «세션 있음» — 없음: «SKIP 껍데기 후보 A — 세션 있음» ← SKIP 껍데기 후보 B — 미커밋 2
+FAIL ① pane=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.ZAncOa4NUP/alias/d2 → A 가 경보 목록에 ← SKIP 껍데기 후보 B — 미커밋 2
+FAIL ① pane=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.ZAncOa4NUP/repo/.worktrees/A → A SKIP «세션 있음» — 없음: «SKIP 껍데기 후보 A — 세션 있음» ← SKIP 껍데기 후보 B — 미커밋 2
+FAIL ① pane=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.ZAncOa4NUP/repo/.worktrees/A → A 가 경보 목록에 ← SKIP 껍데기 후보 B — 미커밋 2
+FAILED 6
+== m5 diff:
+309c309
+<     for k in $unkl; do tr ' ' '\n' 2>/dev/null < "$sigf" | grep -qxF -- "$k" && { list="$list$k "; cnt=$((cnt+1)); }; done
+---
+>     for k in ; do tr ' ' '\n' 2>/dev/null < "$sigf" | grep -qxF -- "$k" && { list="$list$k "; cnt=$((cnt+1)); }; done
+m5 rc=1
+FAIL ② 2회차(git rc128) 경보 0 — 있으면 안 됨: «[HIL]»
+FAIL ② 서명 바뀜: 1«harness:A-r2 harness:C harness:E.deleting-123 » 2«harness:E.deleting-123 »
+FAIL ② 3회차(정상) 경보 0 — 서명 같음 — 있으면 안 됨: «[HIL]»
+FAIL r3 2회차 경보 0(이어받음) — 있으면 안 됨: «[HIL]»
+FAIL r3 서명 바뀜: 1«harness:A harness:A-r2 harness:C harness:E.deleting-123 harness:F harness:H2 harness:H3 harness:X » 2«harness:A harness:A-r2 harness:E.deleting-123 harness:F harness:H2 harness:H3 harness:X »
+FAILED 5
+== m6 diff:
+308c308
+<     echo "NOTE 껍데기 판정 못 함 ${unk}곳(이전 판정 이어받음)"
+---
+>     echo "NOTE 껍데기 판정 못 함 ${unk}곳(이전 판정 이어받음)"; return 0
+m6 rc=1
+FAIL r2b C 경보 없음 ← SKIP 껍데기 후보 A — 세션 있음(pane /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nUE8siFb8r/repo/.worktrees/A/d3)
+FAILED 1
+== m7 diff:
+255c255
+<   [ -e "$p/.git" ] || { echo "git 연결 끊김(.git 없음)"; return 3; }
+---
+>   [ -e "$p/.git" ] || { echo "git 연결 끊김(.git 없음)"; return 2; }
+m7 rc=1
+FAIL r2b F 경보 없음 ← SKIP 껍데기 후보 A — 세션 있음(pane /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.zLHnhXfCwd/repo/.worktrees/A/d3)
+FAIL r2b 경보 줄에 «F (git 연결 끊김)» — 없음: « F (git 연결 끊김) » ← SKIP 껍데기 후보 A — 세션 있음(pane /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.zLHnhXfCwd/repo/.worktrees/A/d3)
+FAILED 2
+== m8 diff:
+255c255,258
+<   [ -e "$p/.git" ] || { echo "git 연결 끊김(.git 없음)"; return 3; }
+---
+>   if [ -f "$p/.git" ]; then
+>     g="$(sed -n 's/^gitdir: //p' "$p/.git" 2>/dev/null | head -1)"; case "$g" in ""|/*) ;; *) g="$p/$g";; esac
+>     [ -n "$g" ] && [ -d "$g" ] || { echo "git 연결 끊김"; return 3; }
+>   elif [ ! -e "$p/.git" ]; then echo "git 연결 끊김"; return 3; fi
+m8 rc=1
+FAIL r3 CRLF .git → 연결됨 · SKIP «미커밋 2» — 없음: «SKIP 껍데기 후보 G — 미커밋 2» ← SKIP 껍데기 후보 B — 미커밋 2
+FAIL r3 CRLF G 가 경보에(«미커밋 0» 으로 읽음)
+FAILED 2
+== m9 diff:
+258c258
+<   [ "$rc" -eq 0 ] || { echo "git 연결 끊김(rev-parse rc=$rc)"; return 3; }
+---
+>   [ "$rc" -eq 0 ] || { echo "git 연결 끊김(rev-parse rc=$rc)"; return 2; }
+m9 rc=1
+FAIL r2b gitdir 가 가리키는 곳 없음 → «X (git 연결 끊김)» — 없음: « X (git 연결 끊김) » ← SKIP 껍데기 후보 B — 미커밋 2
+FAIL r3 gitdir 는 있으나 저장소 아님(git rc≠0) → «X (git 연결 끊김)» — 없음: « X (git 연결 끊김) » ← SKIP 껍데기 후보 B — 미커밋 2
+FAIL r3 끝공백 .git — git 이 «저장소 아님» → «git 연결 끊김» — 없음: « H2 (git 연결 끊김) » ← SKIP 껍데기 후보 B — 미커밋 2
+FAIL r3 앞빈줄 .git — git 이 «저장소 아님» → «git 연결 끊김» — 없음: « H3 (git 연결 끊김) » ← SKIP 껍데기 후보 B — 미커밋 2
+FAILED 4
+== m10 diff:
+257c257
+<   [ "$rc" -ne 124 ] || { echo "판정 못 함(git rev-parse ${SHELL_GIT_SEC}s 초과)"; return 2; }
+---
+>   [ "$rc" -ne 124 ] || { echo "판정 못 함(git rev-parse ${SHELL_GIT_SEC}s 초과)"; return 3; }
+m10 rc=1
+FAIL r3 지연 → C 판정 못 함 — 없음: «SKIP 껍데기 후보 C — 판정 못 함(git rev-parse 7s 초과)» ← SKIP 껍데기 후보 B — 미커밋 2
+FAILED 1
