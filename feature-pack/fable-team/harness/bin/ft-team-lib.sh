@@ -230,3 +230,25 @@ ft_team_has() { local t="$1" p="$2" sub="${3:-}" rel c md
   case "$p" in *"$rel$sub"*) return 0;; esac
   c="$(ft_index_twin "$rel")" && case "$p" in *"$c$sub"*) return 0;; esac
   return 1; }
+# ── r978 고침 2 — «코드 0 문서 카드» 의 완성 인정 판정 «한 곳» (ft-finished-check.sh · ft-index-move-canon.sh 가 같이 부른다)
+#   ft_doc_card_landed <리포> <착지 sha> <카드파일>  → rc0 = 인정(stdout «인정 ref <ref> · 파일 <N>») · rc1 = 불인정(stdout 사유) · rc2 = 판정 불가(stdout 사유)
+#   조건 셋 «전부» 일 때만: ① 카드에 «- 설치: 없음» ② sha 가 문서 가지 ref(FT_DOC_LAND_REF · 기본 origin/ops/main-base)의 조상 ③ sha 가 바꾼 경로가 전부 design/**.md(코드·설정·시험 0)
+#   하나라도 아니면 부르는 쪽은 «origin/main 조상» 만 인정하던 지금 동작으로 돌아간다(동작 불변 · 승인 게이트 확대 0 — r741 ⓑ 안 씀).
+ft_doc_card_landed() { local repo="$1" sha="$2" card="$3" ref="${FT_DOC_LAND_REF:-origin/ops/main-base}" rc=0 p n=0
+  [ -n "$repo" ] && [ -n "$sha" ] && [ -n "$card" ] || { printf '판정 불가 — 인자 없음(리포·sha·카드)\n'; return 2; }
+  [ -f "$card" ] || { printf '판정 불가 — 카드 파일 없음: %s\n' "$card"; return 2; }
+  grep -qE '^[[:space:]]*-[[:space:]]*설치:[[:space:]]*없음[[:space:]]*$' "$card" || { printf '카드가 «- 설치: 없음» 이 아니다\n'; return 1; }   # r978-mut:setup
+  ft_git_capped 7 "$repo" rev-parse --verify -q "${ref}^{commit}" >/dev/null 2>&1 || rc=$?
+  case "$rc" in 0) ;; *) printf '문서 가지 ref 없음·조회 실패(rc=%s): %s\n' "$rc" "$ref"; return 2;; esac
+  ft_git_capped 7 "$repo" merge-base --is-ancestor "$sha" "$ref" >/dev/null 2>&1 || rc=$?
+  case "$rc" in 0) ;; 1) printf '착지 %s 가 %s 조상 아님\n' "${sha:0:12}" "$ref"; return 1;; *) printf '판정 불가 — 조상 검사 실패(rc=%s)\n' "$rc"; return 2;; esac
+  local par; par="$(ft_git_capped 7 "$repo" rev-parse --verify -q "${sha}^1")" || { printf '판정 불가 — %s 첫 부모 없음\n' "${sha:0:12}"; return 2; }
+  local names; names="$(ft_git_capped 7 "$repo" -c diff.ignoreSubmodules=none diff --ignore-submodules=none --no-renames --no-ext-diff --name-only "$par" "$sha")" \
+    || { printf '판정 불가 — 바꾼 경로 조회 실패 %s\n' "${sha:0:12}"; return 2; }
+  [ -n "$names" ] || { printf '바꾼 경로 0 — 문서 착지 아님: %s\n' "${sha:0:12}"; return 1; }
+  while IFS= read -r p; do
+    [ -n "$p" ] || continue
+    case "$p" in design/*.md) ;; *) printf 'design/**.md 밖 경로: %s\n' "$p"; return 1;; esac
+    n=$((n+1))
+  done <<< "$names"
+  printf '인정 ref %s · 파일 %s\n' "$ref" "$n"; return 0; }

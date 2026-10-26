@@ -124,5 +124,78 @@ hasnt "$NEWL" "GIT_DIR=" "ⓖ GIT_DIR env 0"
 
 section_a
 
+section_b() {
+echo "== ⓑ(고침 2) 완성 인정 — «설치: 없음 ∧ 문서 가지 조상 ∧ 바뀜 경로 전부 design/**.md» 셋 다일 때만"
+# ── 완성 게이트 픽스처: R2 = 카드 리포 · origin/main 은 문서 커밋을 «모른다» · origin/ops/main-base 가 문서 가지
+rm -rf "$T/R2"; R2="$T/R2"; mkdir -p "$R2/design/teams/harness/indices/완성" "$R2/.fable-team/state" "$T/fcbin"
+printf '| 팀 | 폴더 | 오케 | 상태 |\n|---|---|---|---|\n| harness | `design/teams/harness/` | h | 현역 |\n' > "$R2/design/TEAMS.md"
+echo r > "$R2/README"
+G2() { git -C "$R2" -c user.name=t -c user.email=t@t "$@"; }
+git -C "$R2" init -q -b main && G2 add design README && G2 commit -qm base
+git -C "$R2" update-ref refs/remotes/origin/main HEAD
+printf '#!/bin/sh\n[ "$1" = list-sessions ] && exit 0\nexit 0\n' > "$T/fcbin/tmux"; chmod 755 "$T/fcbin/tmux"
+mkdir -p "$R2/design/harness/evidence/r978"
+# 문서 커밋 1(design/**.md 만) = 문서 가지 ref 에만 있다(main 은 모름)
+G2 checkout -q -b docs
+printf '# 조사 표\n값 1\n' > "$R2/design/harness/evidence/r978/TABLE-doc1.md"; G2 add -A; G2 commit -qm "문서 산출 1"
+DOCSHA="$(git -C "$R2" rev-parse HEAD)"; git -C "$R2" update-ref refs/remotes/origin/ops/main-base "$DOCSHA"
+# 문서 커밋 2(design/**.md + .sh) = 경로 섬임
+printf '#!/bin/sh\necho x\n' > "$R2/design/harness/evidence/r978/x.sh"; G2 add -A; G2 commit -qm "문서 + 코드"
+DOCSH="$(git -C "$R2" rev-parse HEAD)"; git -C "$R2" update-ref refs/remotes/origin/ops/mixed "$DOCSH"
+G2 checkout -q main
+nb() { TREE="$(git -C "$R2" rev-parse 'main^{tree}')"; C="$(G2 commit-tree "$TREE" -p main -m "$1")"; git -C "$R2" update-ref "refs/heads/nano/$1" "$C"; }
+nb doc1; nb doc2; nb doc3; nb doc4; nb doc5
+fcard() { local n="$1" sha="$2" inst="${3:-없음}"; printf '# 인덱스: %s\n## 상태\n- 설치: %s\n- 정본 영향 없음: 문서 카드라 정본 갱신 없음\n- 착지: %s\n' "$n" "$inst" "$sha" > "$R2/design/teams/harness/indices/완성/$n.md"; }
+fc3() { OUT2="$(cd "$R2" && env FT_DOC_LAND_REF="$2" FT_TMUX_BIN="$T/fcbin/tmux" FT_FINISHED_CARD_ROOTS="$R2" FT_SEATS_DIR="$R2/.fable-team" FT_FINISHED_MAIN=origin/main bash "$T/bin/ft-finished-check.sh" "$1" --repo "$R2" 2>&1)"; RC2=$?; V2="${OUT2%%$'\n'*}"; V2="${V2%% *}"; }
+fc2() { OUT2="$(cd "$R2" && env FT_TMUX_BIN="$T/fcbin/tmux" FT_FINISHED_CARD_ROOTS="$R2" FT_SEATS_DIR="$R2/.fable-team" FT_FINISHED_MAIN=origin/main bash "$T/bin/ft-finished-check.sh" "$1" --repo "$R2" 2>&1)"; RC2=$?; V2="${OUT2%%$'\n'*}"; V2="${V2%% *}"; }
+fcard doc1 "$DOCSHA"; fc2 nano/doc1
+{ [ "$RC2" = 0 ] && [ "$V2" = FINISHED ] && printf '%s' "$OUT2" | grep -q '^E1 ok 착지 .* ⊂ origin/ops/main-base(문서 카드'; } \
+  && ok "ⓑ 설치: 없음 + 문서 가지 조상 + .md 만 → FINISHED(E1 ok … 문서 카드)" || bad "ⓑ 인정 칸 rc=$RC2 [$OUT2]"
+fcard doc2 "$DOCSH"; fc3 nano/doc2 origin/ops/mixed   # 문서 가지 = 그 커밋이 들어 있는 ref(mixed)
+{ [ "$V2" = ACTIVE ] && printf '%s' "$OUT2" | grep -q 'design/\*\*.md 밖 경로: design/harness/evidence/r978/x.sh'; } \
+  && ok "ⓑ .sh 섞임(경로 검사) → 인정 0(ACTIVE · 밖 경로 첫 줄)" || bad "ⓑ .sh 섞임 [$OUT2]"
+fcard doc3 "$DOCSHA" 있음; fc2 nano/doc3
+{ [ "$V2" = ACTIVE ] && printf '%s' "$OUT2" | grep -q 'design/\*\*.md 밖\|설치: 없음.* 아니다'; } \
+  && ok "ⓑ 설치: 있음 + 문서 가지 조상 → 인정 0(ACTIVE)" || bad "ⓑ 설치: 있음 [$OUT2]"
+# origin/main 조상 카드 = 지금과 같음(main 에 착지한 카드)
+LANDS="$(G2 commit-tree "$(git -C "$R2" rev-parse 'main^{tree}')" -p main -m "main 착지")"; G2 update-ref refs/heads/main "$LANDS"; git -C "$R2" update-ref refs/remotes/origin/main "$LANDS"
+fcard doc4 "$LANDS" 있음; fc2 nano/doc4
+{ [ "$V2" = FINISHED ] && printf '%s' "$OUT2" | grep -q '^E1 ok 착지 .* ⊂ origin/main$'; } && ok "ⓑ origin/main 착지 카드는 지금 그대로(FINISHED · E1 ok ⊂ origin/main)" || bad "ⓑ main 착지 [$OUT2]"
+# 문서 가지 ref 없음 → 인정 0(동작 불변 · 판정 불가로 안 끝남)
+fcard doc5 "$DOCSHA"; fc2_2() { OUT2="$(cd "$R2" && env FT_DOC_LAND_REF=origin/ops/none FT_TMUX_BIN="$T/fcbin/tmux" FT_FINISHED_CARD_ROOTS="$R2" FT_SEATS_DIR="$R2/.fable-team" FT_FINISHED_MAIN=origin/main bash "$T/bin/ft-finished-check.sh" "$1" --repo "$R2" 2>&1)"; RC2=$?; V2="${OUT2%%$'\n'*}"; V2="${V2%% *}"; }
+fc2_2 nano/doc5
+{ [ "$RC2" = 0 ] && [ "$V2" = ACTIVE ]; } && ok "ⓑ 문서 가지 ref 없음 → ACTIVE(인정 0 · rc0)" || bad "ⓑ ref 없음 rc=$RC2 [$OUT2]"
+# ft-index-move-canon.sh — 같은 판정 함수를 두 번째 자리에서도 부른다
+imc() { printf '## 상태\n- 정본 영향 없음: 문서 카드라 정본 갱신 없음\n' | ( cd "$R2" && env FT_LAND_REF=origin/main FT_DOC_LAND_REF="$1" bash "$T/bin/ft-index-move-canon.sh" "$R2/design/teams/harness/indices/완성/$2.md" "$R2" "$3" 2>&1 ); }
+fcard doc1 "$DOCSHA"; o="$(imc origin/ops/main-base doc1 "$DOCSHA")"
+{ case "$o" in *"착지 인정 = 인정 ref origin/ops/main-base"*) true;; *) false;; esac; } && ok "ⓑ index-move-canon: 문서 카드 착지 인정 1줄" || bad "ⓑ imc 인정 [$o]"
+o="$(imc origin/ops/main-base doc3 "$DOCSHA")"
+{ case "$o" in REJECT*) true;; *) false;; esac; } && ok "ⓑ index-move-canon: 설치: 있음 카드는 REJECT(동작 불변)" || bad "ⓑ imc 설치: 있음 [$o]"
+}
+echo "== ⓕ(고침 2) 변이 — «설치: 없음» 검사를 빼면 ⓑ 설치: 있음 칸 FAIL · 두 자리 중 한 곳(imc)만 새 함수면 ⓑ imc 인정 칸 FAIL"
+mutate_f() {  # mutate_f <src> <표지> <바꿀 글> <출력이름>
+  python3 - "$1" "$T/bin/$4" "$2" "$3" <<'PY'
+import sys
+src, dst, mark, repl = sys.argv[1:5]
+lines = open(src, encoding="utf-8").read().split("\n")
+hit = [i for i, l in enumerate(lines) if mark in l]
+assert len(hit) == 1, hit
+lines[hit[0]] = repl
+open(dst, "w", encoding="utf-8").write("\n".join(lines))
+PY
+}
+mutate_f "$T/bin/ft-team-lib.sh" '# r978-mut:setup' '  :' ft-team-lib.mut.sh
+cp "$T/bin/ft-team-lib.mut.sh" "$T/bin/ft-team-lib.sh"
+sub="$(section_b)"; case "$sub" in *"FAIL ⓑ 설치: 있음"*) ok "ⓕ 설치: 없음 조건 제거 → ⓑ 설치: 있음 칸 FAIL";; *) bad "ⓕ 설치 조건 제거해도 ⓑ 설치: 있음 칸이 통과";; esac
+cp "$SRC/ft-team-lib.sh" "$T/bin/ft-team-lib.sh"
+mutate_f "$T/bin/ft-index-move-canon.sh" '# r978-mut:imc' '  _drc=1' ft-index-move-canon.mut.sh
+cp "$T/bin/ft-index-move-canon.mut.sh" "$T/bin/ft-index-move-canon.sh"
+sub="$(section_b)"; case "$sub" in *"FAIL ⓑ imc 인정"*) ok "ⓕ imc 한 자리만 판정 함수를 끔 → ⓑ imc 인정 칸 FAIL(두 자리 공유 확인)";; *) bad "ⓕ imc 자리를 꺼도 ⓑ imc 칸이 통과";; esac
+cp "$SRC/ft-index-move-canon.sh" "$T/bin/ft-index-move-canon.sh"
+
+
+section_a
+section_b
+
 echo
 [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }
