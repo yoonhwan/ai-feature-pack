@@ -11,8 +11,10 @@
 #   ⓔ 제외 규칙(.git/info/exclude)에 걸린 이름이 H 인데 디스크에 없음 → 껍데기 0 (실측: 이 필터가 없으면 sparse 125석 중 40석이 .serena 로 오탐)
 #   ⓕ(DA⑥ r2 반례 ① + 보강 1) cone d0 · core.quotePath true/false 둘 다 · 이름에 한글·공백·큰따옴표·줄바꿈 · 최상위 심볼릭 링크 있음 → 껍데기 0 (r2 는 따옴표를 최상위 이름으로 읽어 오탐)
 #   ⓖ(DA⑥ r2 반례 ②) 추적 «파일» keep 삭제 + 폴더 규칙 `keep/` → 껍데기 1 · 추적 «폴더» kdir 삭제 + 파일 규칙 `kdir` → 1 · 폴더 규칙 `kdir2/` → 0
-#   변이 5: skip-worktree 필터 끔(WT_TEST_MUT=1) → ⓐ 빨강 · 판정 불가 «항상» 끔(2) → ⓓ 빨강 · 제외 필터 끔(3) → ⓔ 빨강
-#           · `-z` 빼고 줄 단위(4) → ⓕ 빨강 · 제외 패턴 종류 구분 끔(5) → ⓖ 빨강
+#   ⓗ(DA⑥ r3 반례 1·2) 최상위 이름에 제어문자(줄바꿈·탭·0x01·0x7F) 가 있는 sparse 는 껍데기 판정을 «안 한다» → «판정 불가(제어문자 이름)» 1줄 · 껍데기 0 · 삭제 0
+#   ⓘ(DA⑥ r3 반례 3) 추적 «파일» keep2 삭제 + «파일 규칙» keep2 → 0(파일 규칙 인정) · 반대(폴더 규칙 keep3/ · 파일 부재) → 1
+#   변이 7: skip-worktree 필터 끔(WT_TEST_MUT=1) → ⓐ 빨강 · 판정 불가 «항상» 끔(2) → ⓓ 빨강 · 제외 필터 끔(3) → ⓔ 빨강
+#           · `-z` 빼고 줄 단위(4) → ⓕ 빨강 · 제외 패턴 종류 구분 끔(5) → ⓖ 빨강 · 제어문자 검사 끔(6) → ⓗ 빨강 · 파일에도 `/` 끝만(7) → ⓘ 빨강
 # WT_TEST_BASH=/bin/bash 로 돌리면 도구를 macOS 기본 bash 3.2 로 실행한다(카드 완료 조건). WT_TEST_SRC=<bin> 으로 옛 도구를 물린다.
 # 임시 git 리포 + 임시 워크트리만 쓴다 — 실 리포·워크트리·mbox·tmux 0.
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"
@@ -44,21 +46,26 @@ case "${WT_TEST_MUT:-0}" in
      echo "MUT 1 — skip-worktree(S) 필터 끔";;
   2) MUTP 'if [ "$lrc" -ne 0 ] || [ "$src" -ne 0 ] || [ -s "$err" ] || [ ! -s "$raw" ]; then' 'if false; then'
      echo "MUT 2 — 판정 불가를 «껍데기 아님» 으로";;
-  3) MUTP '    case "$pat" in */) j=$((j+1));; esac' '    : # MUT3 제외 규칙 필터 끔'
+  3) MUTP '      */) case "$pat" in */) j=$((j+1));; esac;;' '      */) :;;  # MUT3 제외 규칙 필터 끔'
+     MUTP '      *) j=$((j+1));;' '      *) :;;  # MUT3 제외 규칙 필터 끔'
      echo "MUT 3 — 제외 규칙(.git/info/exclude) 필터 끔";;
   4) MUTP 'ls-files -z -t -s > "$raw"' 'ls-files -t -s > "$raw"'
      MUTP "  while IFS= read -r -d '' item; do" '  while IFS= read -r item; do'
      echo "MUT 4 — -z 빼고 줄 단위로 읽기";;
-  5) MUTP '    case "$pat" in */) j=$((j+1));; esac' '    j=$((j+1))  # MUT5 패턴 종류 구분 끔'
+  5) MUTP '      */) case "$pat" in */) j=$((j+1));; esac;;' '      */) j=$((j+1));;  # MUT5 패턴 종류 구분 끔'
      echo "MUT 5 — 제외 패턴 종류 구분 끔";;
-  *) echo "usage: WT_TEST_MUT=0|1|2|3|4|5"; exit 2;;
+  6) MUTP '    case "$top" in *[[:cntrl:]]*) rm -f "$raw" "$out"; return 3;; esac' '    : # MUT6 제어문자 검사 끔'
+     echo "MUT 6 — 제어문자 이름 검사 끔";;
+  7) MUTP '      *) j=$((j+1));;' '      *) case "$pat" in */) j=$((j+1));; esac  # MUT7 파일·링크도 / 끝 규칙만'
+     echo "MUT 7 — 파일·링크에도 / 끝 규칙만 인정(r3 동작)";;
+  *) echo "usage: WT_TEST_MUT=0|1|2|3|4|5|6|7"; exit 2;;
 esac
 "${WT_TEST_BASH:-bash}" -n "$T/bin/ft-wt-sweep.sh" && ok "본보기 bash -n(${WT_TEST_BASH:-bash})" || bad "bash -n"
 
 REPO="$T/repo"; mkdir -p "$REPO"; git -C "$REPO" init -q -b main
 GIT() { git -C "$REPO" -c user.email=t@t -c user.name=t "$@"; }
 mkdir -p "$REPO/d0/absent" "$REPO/d1/excluded" "$REPO/d2/absent" "$REPO/d3" "$REPO/kdir" "$REPO/kdir2"
-for f in d0/x d0/absent/f d1/x d1/note.md d1/excluded/g d2/x d2/absent/f d3/x ex/f keep kdir/f kdir2/f; do mkdir -p "$(dirname "$REPO/$f")"; echo "$f" > "$REPO/$f"; done
+for f in d0/x d0/absent/f d1/x d1/note.md d1/excluded/g d2/x d2/absent/f d3/x ex/f keep keep2 keep3 kdir/f kdir2/f; do mkdir -p "$(dirname "$REPO/$f")"; echo "$f" > "$REPO/$f"; done
 # ⓕ 이름 글자 꼴 묶음(DA⑥ r2 반례 ①) — 한글·공백·큰따옴표·줄바꿈이 «하위 경로» 에 들어가면 최상위 이름 추출이 글자 해석에 기대게 된다
 printf 'h\n' > "$REPO/d0/한글 이름.md"
 printf 'q\n' > "$REPO/d0/dq\"name.md"
@@ -66,8 +73,8 @@ printf 'n\n' > "$REPO/d0/nl$(printf '\n')name.md"
 ln -s d3 "$REPO/top-link"                                 # 보강 1 — 최상위 심볼릭 링크(mode 120000) 는 디스크에 링크로 있다 = 정상
 GIT add -A && GIT commit -q -m init
 
-# swp <계획 디렉터리> [quotePath true|false] — sweep 1회(껍데기 스캔 간격 0 = 매번 훑는다)
-swp() { mkdir -p "$1"; ( cd "$T" && env -i HOME="$HOME" PATH="$PATH" ${2:+GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.quotePath GIT_CONFIG_VALUE_0=$2} FT_WT_CLEAN_DIR="$1" FT_WT_SCAN_ROOT="$REPO" FT_WT_SHELL_SCAN_SEC=0 \
+# swp <계획 디렉터리> [quotePath true|false] [스캔루트] — sweep 1회(껍데기 스캔 간격 0 = 매번 훑는다)
+swp() { mkdir -p "$1"; ( cd "$T" && env -i HOME="$HOME" PATH="$PATH" ${2:+GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.quotePath GIT_CONFIG_VALUE_0=$2} FT_WT_CLEAN_DIR="$1" FT_WT_SCAN_ROOT="${3:-$REPO}" FT_WT_SHELL_SCAN_SEC=0 \
   FT_WT_ORPHANS_TSV="$T/state/orphans.tsv" FT_WT_SWEEP_LOG="$T/state/wt-sweep.log" FT_WT_ORPHANS_SCAN_SEC=999999 \
   "${WT_TEST_BASH:-bash}" "$T/bin/ft-wt-sweep.sh" 2>&1 ); }
 # mksparse <이름> <cone|noconc> <패턴…> — --no-checkout + sparse-checkout(문서 워크트리 꼴) → 체크아웃
@@ -94,6 +101,8 @@ mksparse g1 noconc '/*'                                # ⓖ-1 파일 keep 삭�
 mksparse g2 noconc '/*'                                # ⓖ-2 폴더 kdir 삭제 + «파일 규칙» kdir
 mksparse g3 noconc '/*'                                # ⓖ-3 폴더 kdir2 삭제 + «폴더 규칙» kdir2/
 mksparse ln1 noconc '/*'                               # ⓕ-링크 최상위 심볼릭 링크가 있는 정상 sparse(전체 체크아웃)
+mksparse i1 noconc '/*'                                # ⓘ-1 파일 keep2 삭제 + «파일 규칙» keep2 → 0
+mksparse i2 noconc '/*'                                # ⓘ-2 파일 keep3 삭제 + «폴더 규칙» keep3/ → 1
 rm -rf "$REPO/.worktrees/sp2/d0"
 rm -rf "$REPO/.worktrees/n2/d0" "$REPO/.worktrees/n2/d1"   # 최상위 2개 부재
 rm -rf "$REPO/.worktrees/n1/d0"                            # 최상위 1개 부재(껍데기 아님)
@@ -101,7 +110,9 @@ rm -rf "$REPO/.worktrees/da2/d1" "$REPO/.worktrees/da3/d1"
 rm -f "$REPO/.git/worktrees/br1/info/sparse-checkout"      # sparse 표식(core.sparseCheckout=true)만 남김
 rm -rf "$REPO/.worktrees/ig1/ex"; printf 'ex/\n' >> "$REPO/.git/info/exclude"   # H 인데 디스크에 없고 제외 규칙에 걸린 이름(실측 .serena 꼴)
 rm -f "$REPO/.worktrees/g1/keep"; rm -rf "$REPO/.worktrees/g2/kdir" "$REPO/.worktrees/g3/kdir2"
+rm -f "$REPO/.worktrees/i1/keep2" "$REPO/.worktrees/i2/keep3"
 printf 'keep/\nkdir\nkdir2/\n' >> "$REPO/.git/info/exclude"   # ⓖ — 같은 종류 규칙만 부재를 정상으로 본다
+printf 'keep2\nkeep3/\n' >> "$REPO/.git/info/exclude"          # ⓘ — 파일 규칙(keep2) 은 파일 부재를 덮고 · 폴더 규칙(keep3/) 은 파일 부재를 못 덮는다
 G4="$(git -C "$REPO/.worktrees/da4" rev-parse --git-path info/sparse-checkout)"
 rm -f "$G4"; mkdir -p "$G4"                                 # 패턴 파일 자리를 «폴더» 로(반례 ④)
 
@@ -113,10 +124,11 @@ rm -f "$G4"; mkdir -p "$G4"                                 # 패턴 파일 자�
 [ -f "$REPO/d0/한글 이름.md" ] && [ -f "$REPO/d0/dq\"name.md" ] && [ -d "$REPO/.worktrees/sp1/d0" ] && ok "전제: ⓕ 꼴 묶음(한글·공백·따옴표·줄바꿈)이 d0 안에 있고 cone sparse(sp1) 가 그것을 받았다" || bad "전제 실패: ⓕ 꼴 묶음"
 [ ! -e "$REPO/.worktrees/g1/keep" ] && [ ! -e "$REPO/.worktrees/g2/kdir" ] && [ ! -e "$REPO/.worktrees/g3/kdir2" ] && ok "전제: ⓖ g1 파일 keep 부재 · g2 폴더 kdir 부재 · g3 폴더 kdir2 부재" || bad "전제 실패: ⓖ 배치"
 [ -L "$REPO/.worktrees/ln1/top-link" ] && [ "$(git -C "$REPO/.worktrees/ln1" ls-files -s top-link | cut -d' ' -f1)" = 120000 ] && ok "전제: ⓕ ln1 에 최상위 심볼릭 링크(120000) 가 디스크에 있음" || bad "전제 실패: ⓕ 링크"
+[ ! -e "$REPO/.worktrees/i1/keep2" ] && [ ! -e "$REPO/.worktrees/i2/keep3" ] && ok "전제: ⓘ i1 파일 keep2 부재 · i2 파일 keep3 부재" || bad "전제 실패: ⓘ 배치"
 
-echo "== ⓐⓑⓒⓓ + DA⑥ r1 반례 4칸 + r2 반례 ⓕⓖ — 한 번의 스캔"
+echo "== ⓐⓑⓒⓓ + DA⑥ r1·r2·r3 반례 — 한 번의 스캔"
 out="$(swp "$T/scan")"
-has  "$out" "껍데기 6곳(전체 6곳): da2 da3 g1 g2 n2 sp2" "ⓑⓑ2ⓑ3ⓒⓖ 진짜 껍데기만 — sp2(d0 부재) · da2(**/*.md · d1 부재) · da3(/d1/ + ! 제외 · d1 부재) · n2(일반 최상위 2개 부재) · g1(파일 keep + 폴더 규칙) · g2(폴더 kdir + 파일 규칙)"
+has  "$out" "껍데기 7곳(전체 7곳): da2 da3 g1 g2 i2 n2 sp2" "ⓑⓑ2ⓑ3ⓒⓖⓘ 진짜 껍데기만 — sp2(d0 부재) · da2(**/*.md · d1 부재) · da3(/d1/ + ! 제외 · d1 부재) · n2(일반 최상위 2개 부재) · g1(파일 keep + 폴더 규칙) · g2(폴더 kdir + 파일 규칙) · i2(파일 keep3 + 폴더 규칙)"
 hasnt "$out" "sp1"                        "ⓐ cone sparse(d0 있음) → 껍데기 0"
 hasnt "$out" "sp3"                        "보론 비cone(d1/) sparse → 껍데기 0"
 hasnt "$out" "da1"                        "ⓐ2 비cone /d0/absent · /d2/absent · /d1/ → 껍데기 0 (r1 은 하위 경로를 접어 오탐)"
@@ -124,23 +136,52 @@ hasnt "$out" " n1"                        "ⓒ 일반 워크트리 · 최상위 
 hasnt "$out" "ig1"                        "ⓔ 제외 규칙에 걸린 이름(H 인데 디스크에 없음) → 껍데기 0"
 hasnt "$out" "g3"                         "ⓖ-3 추적 «폴더» kdir2 삭제 + 폴더 규칙 kdir2/ → 껍데기 0(같은 종류 규칙)"
 hasnt "$out" "ln1"                        "ⓕ-링크 최상위 심볼릭 링크(120000) 가 디스크에 있음 → 껍데기 0 (보강 1: 종류를 mode 로 받는 자리)"
+hasnt "$out" "i1"                         "ⓘ-1 추적 «파일» keep2 삭제 + 파일 규칙 keep2 → 껍데기 0 (r4: 파일 항목은 파일 규칙 인정)"
 has  "$out" "판정 불가 2곳"                "ⓓⓓ2 패턴을 못 읽은 sparse 2곳 → «판정 불가» 1줄"
 has  "$out" "br1"                         "  └ 판정 불가 줄에 경로(br1 — 패턴 파일 삭제)"
 has  "$out" "da4"                         "  └ 판정 불가 줄에 경로(da4 — 패턴 파일 자리가 폴더)"
-case "$out" in *"[HIL] seat=byz-harness-wt-shell 반쯤 지워진 워크트리 껍데기 6곳(전체 6곳): da2 da3 g1 g2 n2 sp2 —"*) ok "  └ 껍데기 줄 꼴 그대로(팀 미상 = harness · r444)";; *) bad "껍데기 줄 꼴이 달라짐 ← ${out:0:400}";; esac
+case "$out" in *"[HIL] seat=byz-harness-wt-shell 반쯤 지워진 워크트리 껍데기 7곳(전체 7곳): da2 da3 g1 g2 i2 n2 sp2 —"*) ok "  └ 껍데기 줄 꼴 그대로(팀 미상 = harness · r444)";; *) bad "껍데기 줄 꼴이 달라짐 ← ${out:0:400}";; esac
 case "$out" in *"판정 불가 2곳 —"*) ok "  └ 판정 불가 줄 꼴 그대로";; *) bad "판정 불가 줄 꼴이 달라짐 ← ${out:0:400}";; esac
 outq="$(swp "$T/scan-q" false)"
-has  "$outq" "껍데기 6곳(전체 6곳): da2 da3 g1 g2 n2 sp2" "ⓕ core.quotePath=false 로도 같은 목록 — 경로 글자와 상관없이 판정"
+has  "$outq" "껍데기 7곳(전체 7곳): da2 da3 g1 g2 i2 n2 sp2" "ⓕ core.quotePath=false 로도 같은 목록 — 경로 글자와 상관없이 판정"
 hasnt "$outq" "sp1"                        "ⓕ 한글·공백·큰따옴표·줄바꿈 이름이 드는 cone sparse(d0) → 껍데기 0 (기본 scan = quotePath=true 로도 0 · r2 는 따옴표를 최상위 이름으로 읽어 오탐)"
 out2="$(swp "$T/scan")"
 hasnt "$out2" "[HIL]"                     "  └ 바뀐 것 없음 → 같은 목록이면 두 번째 스캔은 경보 0(바뀐 때만)"
 hasnt "$out2" "판정 불가"                  "  └ 판정 불가 목록도 그대로면 다시 0"
 rm -rf "$REPO/.worktrees/n1/d1"           # 일반 워크트리 최상위 2개 부재 → 껍데기
 out3="$(swp "$T/scan")"
-has  "$out3" "껍데기 7곳(전체 7곳): da2 da3 g1 g2 n1 n2 sp2" "ⓒ 일반 워크트리 부재가 2개로 늘면 다시 껍데기(n1 추가)"
+has  "$out3" "껍데기 8곳(전체 8곳): da2 da3 g1 g2 i2 n1 n2 sp2" "ⓒ 일반 워크트리 부재가 2개로 늘면 다시 껍데기(n1 추가)"
 [ -d "$REPO/.worktrees/sp1/d0" ] && [ -d "$REPO/.worktrees/da1" ] && [ -d "$REPO/.worktrees/br1" ] && ok "  └ 경보는 읽기만 — 워크트리 손 0" || bad "경보가 워크트리를 건드림"
 [ -z "$(ls "$T/scan"/.sparse-* 2>/dev/null)" ] && ok "  └ sparse 임시 파일 남김 0" || bad "sparse 임시 파일이 남음"
 [ -z "$(ls -d "$REPO"/.worktrees/*.deleting-* 2>/dev/null)" ] && ok "  └ 삭제·이름 바꿈 0" || bad "스캔이 워크트리를 지움"
+
+echo "== ⓗ 제어문자 이름(DA⑥ r3 반례 1·2) — 판정 불가 1줄 · 껍데기 0 · 삭제 0"
+R2="$T/repo2"; mkdir -p "$R2"; git -C "$R2" init -q -b main
+G2() { git -C "$R2" -c user.email=t@t -c user.name=t "$@"; }
+NL="$(printf 'a\nb')"; TB="$(printf 'tab\there')"; C1="$(printf 'c\001here')"; D7="$(printf 'd\177here')"
+mkdir -p "$R2/d0" "$R2/$NL"; echo x > "$R2/d0/x"; echo n > "$R2/$NL/f"
+printf 't\n' > "$R2/$TB"; printf 'c\n' > "$R2/$C1"; printf 'z\n' > "$R2/$D7"
+G2 add -A && G2 commit -q -m c2
+# g2sp <이름> <cone|noconc> <패턴…> — 같은 꼴의 sparse 워크트리(최상위 이름에 제어문자가 드는 리포)
+g2sp() { local n="$1" mode="$2"; shift 2
+  G2 worktree add -q --no-checkout "$R2/.worktrees/$n" -b "$n"
+  if [ "$mode" = cone ]; then git -C "$R2/.worktrees/$n" sparse-checkout set "$@" >/dev/null 2>&1
+  else git -C "$R2/.worktrees/$n" sparse-checkout set --no-cone "$@" >/dev/null 2>&1; fi
+  git -C "$R2/.worktrees/$n" read-tree -mu HEAD >/dev/null 2>&1; }
+g2sp c1 noconc '/*'        # 이름이 다 있어도 제어문자 이름이 있으면 판정 불가(오탐 0)
+g2sp c2 noconc '/*'        # 줄바꿈 이름 폴더 삭제 → 조용한 누락 0(판정 불가)
+g2sp c3 noconc '/d0/'      # 최상위 제어문자 이름을 «안 받는» sparse → 정상 판정
+g2sp c4 noconc '/d0/'      # d0 삭제 → 지금처럼 껍데기 1
+rm -rf "$R2/.worktrees/c2/$NL" "$R2/.worktrees/c4/d0"
+[ -d "$R2/.worktrees/c1/$NL" ] && [ ! -e "$R2/.worktrees/c2/$NL" ] && [ -d "$R2/.worktrees/c4" ] && ok "전제: ⓗ c1 에 줄바꿈 이름 폴더 있음 · c2 는 삭제 · c4 는 d0 삭제" || bad "전제 실패: ⓗ 배치"
+out7="$(swp "$T/scan-h" '' "$R2")"
+has   "$out7" "판정 불가(제어문자 이름) 2곳" "ⓗ 제어문자(줄바꿈·탭·0x01·0x7F) 이름이 최상위에 있는 sparse 2곳 → «판정 불가» 1줄"
+has   "$out7" "worktrees/c1"             "  └ 판정 불가 줄에 경로(c1 — 이름이 다 있어도 껍데기 판정 안 함 = 오탐 0)"
+has   "$out7" "worktrees/c2"             "  └ 판정 불가 줄에 경로(c2 — 줄바꿈 이름 폴더 삭제 · 조용한 누락 0)"
+hasnt "$out7" "worktrees/c3"             "ⓗ 제어문자 이름을 «안 받는» sparse(c3) → 정상 판정(껍데기 0 · 판정 불가 0)"
+has   "$out7" "껍데기 1곳(전체 1곳): c4" "ⓗ 그 밖의 이름은 지금처럼 — c4(cone d0 삭제) → 껍데기 1"
+[ -d "$R2/.worktrees/c1/d0" ] && [ -d "$R2/.worktrees/c3/d0" ] && ok "  └ 경보는 읽기만 — 워크트리 손 0" || bad "경보가 워크트리를 건드림(r3 ⓗ)"
+[ -z "$(ls "$T/scan-h"/.sparse-* 2>/dev/null)" ] && ok "  └ sparse 임시 파일 남김 0" || bad "sparse 임시 파일이 남음(r3 ⓗ)"
 
 echo "== 결과"
 [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; }

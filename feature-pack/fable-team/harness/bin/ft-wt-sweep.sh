@@ -253,7 +253,8 @@ git7() { perl -e 'setpgrp(0,0); $SIG{ALRM}=sub{ local $SIG{TERM}="IGNORE"; kill 
 # sparse 워크트리 하나에서 «디스크에 있어야 할 항목» 목록 — $2 접두로 "$2.list" 에 «종류<TAB>최상위 이름» 을 쓴다.
 #   입력 = `git ls-files -z -t -s`(NUL 구분 = 따옴표·quotePath 무관 기계 읽기). 태그 «S»(skip-worktree) 는 디스크에 있을 필요가 없으니 뺀다.
 #   종류 = `git ls-files -z -t -s` 가 주는 mode(보강 1) — 100644/100755 = 파일(-f) · 120000 = 링크(-L) · 160000(서브모듈) = 디스크에서 폴더(-d) · 하위 경로 있음 = 폴더.
-#   rc 0 = 정상 판정 · 2 = 판정 불가(패턴·목록을 못 읽음 — 껍데기 «아님» 도 아니다).
+#   rc 0 = 정상 판정 · 2 = 판정 불가(패턴·목록을 못 읽음) · 3 = 판정 불가(최상위 이름에 제어문자 — r4).
+#   ★r4★ 이름에 제어문자(0x00~0x1F · 0x7F — 탭·줄바꿈 포함)가 있으면 껍데기 판정을 «하지 않는다»(조용한 오판·누락 0 · 삭제 0). 목록·탭 구분이 안전한 것은 그 글자가 없을 때뿐이다.
 sparse_required() {
   local p="$1" raw="$2.raw" err="$2.err" out="$2.list" item tag mode path top lrc src
   git7 "$p" ls-files -z -t -s > "$raw" 2>/dev/null; lrc=$?
@@ -266,6 +267,7 @@ sparse_required() {
     mode="${item#* }"; mode="${mode%% *}"
     path="${item#*$'\t'}"; [ "$path" = "$item" ] && continue
     top="${path%%/*}"
+    case "$top" in *[[:cntrl:]]*) rm -f "$raw" "$out"; return 3;; esac   # 제어문자 이름 = 판정 불가(껍데기 아님도·부재도 아님)
     if [ "$top" != "$path" ]; then printf 'd\t%s\n' "$top" >> "$out"; continue; fi   # 하위 경로 → 최상위는 폴더
     case "$mode" in
       160000) printf 'd\t%s\n' "$top" >> "$out";;   # 서브모듈 → 디스크에서는 폴더
@@ -280,7 +282,8 @@ sparse_required() {
 # sparse 워크트리의 «껍데기 부재 개수» — $1 = 워크트리 · $2 = 접두("$2.list" = sparse_required 결과). stdout = 개수 · rc 0 정상 · 2 판정 불가.
 #   디스크 확인은 종류에 맞게(파일 -f/-L · 폴더 -d) — 이름만 같은 다른 종류가 있으면 «없음»(DA⑥ r2 반례 2).
 #   제외 규칙은 «한 꼴» 로만 묻는다(파일 항목 = `<이름>` · 폴더 항목 = `<이름>/`) — 두 꼴을 한 번에 넘겨 «어느 하나라도 맞으면 제외» 로 읽던 길을 없앤다.
-#   `check-ignore -z -v --stdin` = 기계 읽기(출처·줄번호·패턴·경로 4필드 NUL 구분 · 따옴표 0) → 패턴이 `/` 로 끝나는 «같은 종류 규칙» 일 때만 그 부재를 정상으로 센다.
+#   `check-ignore -z -v --stdin` = 기계 읽기(출처·줄번호·패턴·경로 4필드 NUL 구분 · 따옴표 0)
+#   → 묻는 꼴로 종류를 가른다: 폴더(`<이름>/`) 항목은 패턴이 `/` 로 끝나는 «폴더 규칙» 일 때만 · 파일·링크(`<이름>`) 항목은 파일 규칙이면 정상(r4 — r3 는 파일에도 `/` 끝만 인정해 파일 규칙을 놓쳤다).
 sparse_missing() {
   local p="$1" pre="$2" cand="$2.cand" res="$2.ign" kind name cnt=0 j=0 crc src ln pat qp
   : > "$cand"
@@ -299,14 +302,17 @@ sparse_missing() {
   rm -f "$cand"
   case "$crc" in 0|1) ;; *) rm -f "$res"; return 2;; esac   # 1 = 걸린 것 없음(정상) · 그 밖 = 못 읽음 = 판정 불가
   while IFS= read -r -d '' src && IFS= read -r -d '' ln && IFS= read -r -d '' pat && IFS= read -r -d '' qp; do
-    case "$pat" in */) j=$((j+1));; esac   # 폴더 규칙만 «같은 종류» — 파일 규칙은 폴더 부재를 숨기지 못한다
+    case "$qp" in
+      */) case "$pat" in */) j=$((j+1));; esac;;   # 폴더 → 폴더 규칙(`/` 끝)만 같은 종류
+      *) j=$((j+1));;                            # 파일·링크 → 파일 규칙 인정(r4 · `/` 끝 여부 보지 않음)
+    esac
   done < "$res"
   rm -f "$res"
   echo $((cnt - j))
   return 0
 }
 shell_scan() {
-  local stamp="$DIR/.shell-scan.stamp" sigf="$DIR/.shell-sig" now sig="" list="" p sha name missing cnt=0 live tm spx="" und="" ucnt=0 s1 s2
+  local stamp="$DIR/.shell-scan.stamp" sigf="$DIR/.shell-sig" now sig="" list="" p sha name missing cnt=0 live tm spx="" und="" ucnt=0 ctl="" ccnt=0 s1 s2 s3 rrc
   [ "$DRY" != 1 ] && [ -n "$SCAN_ROOT" ] && [ -d "$SCAN_ROOT" ] && [ -d "$DIR" ] || return 0
   now="$(date +%s)"; [ $(( now - $(cat "$stamp" 2>/dev/null || echo 0) )) -ge "$SCAN_SEC" ] || return 0
   echo "$now" > "$stamp"
@@ -319,8 +325,12 @@ shell_scan() {
       *) case "$(git7 "$p" config --bool --get core.sparseCheckout 2>/dev/null)" in
            true)   # sparse — 셈 대상 = git 이 정한 «디스크에 있어야 할 것»(패턴·글자 해석 0 · DA⑥ r1·r2 HOLD 고침)
              spx="$DIR/.sparse-$$"
-             if ! sparse_required "$p" "$spx"; then und="$und$p "; ucnt=$((ucnt+1)); continue; fi   # 판정 불가 — 껍데기 아님도 아님(오빠 판정 0 · 삭제 0)
-             if ! missing="$(sparse_missing "$p" "$spx")"; then und="$und$p "; ucnt=$((ucnt+1)); continue; fi
+             sparse_required "$p" "$spx"; rrc=$?
+             case "$rrc" in
+               0) if ! missing="$(sparse_missing "$p" "$spx")"; then und="$und$p "; ucnt=$((ucnt+1)); continue; fi;;
+               3) ctl="$ctl$p "; ccnt=$((ccnt+1)); continue;;   # 제어문자 이름 — 껍데기 판정 0 · 삭제 0(오빠 판정 0)
+               *) und="$und$p "; ucnt=$((ucnt+1)); continue;;   # 판정 불가 — 껍데기 아님도 아님(오빠 판정 0 · 삭제 0)
+             esac
              [ "$missing" -ge 1 ] || continue;;
            *)      # 일반 — 기존 규칙 그대로(최상위 2개 이상 부재)
              missing=0
@@ -332,7 +342,8 @@ shell_scan() {
   done < <(git7 "$SCAN_ROOT" worktree list --porcelain 2>/dev/null | awk '/^worktree /{p=substr($0,10)} /^HEAD /{print p "\t" substr($0,6)}')
   s1="$(printf '%s' "$list" | tr ' ' '\n' | sed '/^$/d' | sort | tr '\n' ' ')"   # 끝 공백 유지(경보 줄 꼴 원형)
   s2="$(printf '%s' "$und" | tr ' ' '\n' | sed '/^$/d' | sort | tr '\n' ' ')"
-  sig="$(printf '%s %s' "$s1" "$s2" | tr -s ' ' | sed 's/^ //; s/ $//')"
+  s3="$(printf '%s' "$ctl" | tr ' ' '\n' | sed '/^$/d' | sort | tr '\n' ' ')"
+  sig="$(printf '%s %s %s' "$s1" "$s2" "$s3" | tr -s ' ' | sed 's/^ //; s/ $//')"
   if [ -z "$sig" ]; then rm -f "$sigf"; return 0; fi
   [ "$sig" = "$(cat "$sigf" 2>/dev/null)" ] && return 0
   printf '%s' "$sig" > "$sigf"
@@ -341,6 +352,7 @@ shell_scan() {
   done
   # 판정 불가 — 사람 판정 0 · 삭제 대상 0 · master 1줄(sparse 표식은 있는데 패턴을 못 읽은 워크트리)
   [ "$ucnt" -eq 0 ] || echo "판정 불가 ${ucnt}곳 — sparse 패턴을 못 읽어 껍데기 판정 보류(오빠 판정 0 · 삭제 0): $(printf '%s' "$s2" | tr ' ' '\n' | sed '/^$/d' | tr '\n' ' ')"
+  [ "$ccnt" -eq 0 ] || echo "판정 불가(제어문자 이름) ${ccnt}곳 — 껍데기 판정 보류(오빠 판정 0 · 삭제 0): $(printf '%s' "$s3" | tr ' ' '\n' | sed '/^$/d' | tr '\n' ' ')"
 }
 shell_scan
 # r535 등록 없는 폴더 목록 — <SCAN_ROOT>/.worktrees/* 중 git worktree list 에 없는 실폴더(링크 제외) → TSV(이름·mtime·KB). 읽기·목록만(삭제 0) · 간격 ORPH_SEC · du 폴더당 DU_SEC · 합계 60s 넘으면 나머지 크기 ?
