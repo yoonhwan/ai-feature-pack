@@ -34,6 +34,10 @@ mkdir -p "$out_dir" || { echo "ERROR out-dir 만들기 실패: $out_dir" >&2; ex
 out="$out_dir/da-$(date +%Y%m%d-%H%M%S)-$$.out"
 n=0
 while [ -e "$out" ]; do n=$((n+1)); out="$out_dir/da-$(date +%Y%m%d-%H%M%S)-$$-$n.out"; done
+# r939 H1: «곧 끝나는 일» 자기 등록 — 승계(retire)가 이 DA 를 죽이지 않고 후계에게 넘긴다(장부 state/bg-finite.tsv · 상한 70분)
+HERE0="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
+bash "$HERE0/ft-bg-finite.sh" register "${FT_SEAT:--}" "${FT_BG_FINITE_DA_SEC:-4200}" "$$" "ft-da-codex.sh cwd=$cwd" >/dev/null 2>&1 || true   # 등록 실패 = 넘김 대상 아님(오늘과 같은 reap) — 도구 stdout 계약을 흔들지 않는다
+trap 'bash "$HERE0/ft-bg-finite.sh" unregister $$ >/dev/null 2>&1 || true' EXIT
 
 cfg="${CODEX_HOME:-$HOME/.codex}/config.toml"
 bypass=()

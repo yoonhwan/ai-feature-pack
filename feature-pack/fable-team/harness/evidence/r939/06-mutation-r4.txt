@@ -1,0 +1,21 @@
+# r939 r4 변이 원문 — 같은 입력을 원본/변이 사본에 (pid=21192 · 장부는 사본마다 새로 · cat -et: $=줄끝 ^I=탭)
+## ⑥c [orig] register A $'1\n2' <pid> x — stderr+stdout 그대로
+rc=0
+ft-bg-finite: WARN �M-^CM-^A�M-^UM-^\�M-^H «1\n2» �M-^FM-^R 4200 �M-^\ �M-^^M-^P�M-^D(70�M-^D �M-^CM-^A�M-^UM-^\)$
+registered pid=21192 pgid=21175 seat=A until=1792998839 rows=1$
+registered 아닌 줄 = 1
+## ⑥c [c] register A $'1\n2' <pid> x — stderr+stdout 그대로
+rc=0
+ft-bg-finite: WARN �M-^CM-^A�M-^UM-^\�M-^H «1$
+2» �M-^FM-^R 4200 �M-^\ �M-^^M-^P�M-^D(70�M-^D �M-^CM-^A�M-^UM-^\)$
+registered pid=21192 pgid=21175 seat=A until=1792998839 rows=1$
+registered 아닌 줄 = 2
+## ⑥d [orig] register $'S\tX' 4200 <pid> $'a\tb\nc' — 장부 그대로
+rc=0
+S X^I21192^I21175^IMon Oct 26 06:03:59 2026^I1792998839^Iok^Ia b c$
+그 pid 줄/칸 = 1/7
+## ⑥d [d] register $'S\tX' 4200 <pid> $'a\tb\nc' — 장부 그대로
+rc=0
+S^IX^I21192^I21175^IMon Oct 26 06:03:59 2026^I1792998839^Iok^Ia^Ib$
+c$
+그 pid 줄/칸 = 0/0

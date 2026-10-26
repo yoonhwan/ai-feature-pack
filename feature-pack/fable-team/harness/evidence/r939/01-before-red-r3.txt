@@ -1,0 +1,105 @@
+PASS ⓐ픽스처 전제 = ft-bg-finite.sh 있음
+PASS bash -n ft-seat-reap.sh
+PASS bash -n ft-seat-retire.sh
+PASS bash -n ft-leak-reap.sh
+PASS bash -n ft-bg-finite.sh
+== ⓐ 등록 DA 만 넘김 · 미등록(루프·timeout 루프)은 reap · 장부 좌석 칸 = B
+PASS ⓐ픽스처(등록 DA · 미등록 루프 · timeout 루프)
+PASS ⓐretire rc 0
+PASS ⓐ등록 DA 넘김 줄
+PASS ⓐ넘김 대상 = 후계
+PASS ⓐ미등록 루프는 넘기지 않음
+PASS ⓐDA 생존 · 미등록 루프 정지
+PASS ⓐtimeout 999999 루프 정지(글자·시간 판정 0)
+PASS ⓐ끝 줄 = 미등록 루프만 stopped · handed=1 left=0
+PASS ⓐ장부 좌석 칸 = B · 상태 handed
+== ⓑ 등록 DA 의 pgid 자식도 같이 넘김 · 미등록 «install.sh 글자» 부모 아래 루프는 reap
+PASS ⓑ픽스처(등록 부모 · 자식 · 미등록 루프)
+PASS ⓑ등록 부모·자식 생존 · 미등록 루프 정지
+PASS ⓑ등록 뿌리 넘김 줄
+PASS ⓑ끝 줄 handed=1(자식으로 부풀리지 않음)
+== ⓒ 명령줄에 while·install.sh «글자» 가 있어도 등록된 DA 는 넘김(글자 판정 0)
+PASS ⓒ글자 있는 등록 DA 넘김
+PASS ⓒ생존
+== ⓓ 장부 좌석 칸이 후계로 → 다음 승계도 넘김 · 그 좌석 닫기는 이 작업을 reap 하고 장부 줄을 지움
+PASS ⓓ1차 넘김 → 장부 좌석 B
+PASS ⓓB→C 재넘김(장부로 후계가 본다)
+PASS ⓓ장부 좌석 = C
+PASS ⓓ재넘김 뒤 생존
+PASS ⓓ닫기 = 그 작업 reap · 장부 줄 0
+PASS ⓓ닫기엔 넘김 줄 0
+== ⓔ 장부 = 덮어쓰기 0(줄 2개) · leak-reap 은 상한 지난 줄만 보고하고 죽은 줄은 지움
+PASS ⓔ장부 줄 3개(덮어쓰기 0)
+PASS ⓔ상한 지난 줄 1개만 보고
+PASS ⓔ보고 pid = 상한 지난 줄
+PASS ⓔ죽이지 않음 표시
+PASS ⓔ신선한 줄 보고 0
+PASS ⓔ죽은 pid 줄은 지움 · 신선한 줄·상한 지난 줄은 남김 · 살아 있음
+PASS ⓔ상한 지난 줄 상태 = stale
+== ⓕ press 점유 중에도 넘김이 먼저 — 미룸 0 · 그 뒤 digest 에서 reap 0
+PASS ⓕpress 점유 중에도 넘김 줄
+PASS ⓕ미룸 0 · deferred=0 · 생존
+PASS ⓕ그 뒤 reap 0(넘긴 작업은 살아 있다)
+== ⓖ trap EXIT = 자기 줄 지움 · kill -9(trap 0) → 다음 leak-reap 이 죽은 줄 지움
+PASS ⓖtrap EXIT → 자기 줄 지워짐
+PASS ⓖstub 등록됨
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r939-seat-retire-hands-over-bg-jobs-not-/feature-pack/fable-team/harness/tests/test_seat_handover_r939.sh: 줄 188: 87781 Killed: 9                  FT_SEAT="$A" bash "$TMP/stub-tool.sh" 60
+PASS ⓖkill -9 → 줄 남음(trap 0)
+PASS ⓖ다음 leak-reap 이 죽은 줄 지움
+== ⓗ r3 — press 미룸 «뒤» 에 --handover 가 오면 미룬 등록 DA 는 넘김(digest 가 ⑤미룸으로 죽이지 않는다)
+PASS ⓗ전제: 미룸 1 · 생존
+FAIL ⓗ미룬 등록 DA 도 넘김 줄 — 없음: «reap-handover pid=92190» ← reap-kill pid=92190 via=⑤미룸 cmd=/opt/homebrew/bin/bash /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.hCdbYGmwuw/da/ft
+reap-kill pid=92256 via=⑤미룸 cmd=sleep 60
+reap-deferred-done file=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.hCdbYGmwuw/defer/r939a-56098#0.jsonl stopped=2 kept=0
+reap r939a-56098#0 stopped=0 handed=0 left=0 deferred=0 rc=0
+FAIL ⓗhanded=1 · 생존 · reap-kill 0 · 장부 좌석 = B (got=[handed=0 dead 1 ] want=[handed=1 alive 0 r939b-56098#1])
+== ⓘ r3 — register 상한초는 4200(70분)으로 잘린다(더 크거나 정수 아님)
+FAIL ⓘ잘림 stderr 1줄 — 없음: «WARN 상한초 «999999» → 4200» ← registered pid=96717 pgid=96717 seat=r939a-56098#0 until=1793990664 rows=1
+FAIL ⓘ상한 = 지금 + ≤4200 (got=[] want=[ok])
+FAIL ⓘ정수 아님 → 4200 — 없음: «WARN 상한초 «abc» → 4200» ← ft-bg-finite: ERROR 상한초가 숫자가 아님: «abc»
+== ⓙ r3 — leak-reap: pid 재사용(lstart 다름) 줄은 보고 0 · 줄 지움 / TZ 가 달라도 같은 프로세스는 보고
+PASS ⓙ통제: 같은 lstart(UTC 장부 vs 지역 시각 표) → 보고
+FAIL ⓙpid 재사용 줄 보고 0 — 있음: «handover-stale pid=98690» ← leak-reap: handover-stale pid=98690 until=1792990606 age=1m cmd=old job — 죽이지 않음(넘긴 작업 · 사람·후계 판단)
+leak-reap: 유출 0
+FAIL ⓙ재사용 줄 지움 · 프로세스 생존 (got=[1 alive] want=[0 alive])
+== ⓚ r3 — 상한 지난 등록 줄은 넘기지 않고 reap(env 가 남의 좌석이어도) · 신선한 줄은 넘김
+FAIL ⓚ만료 줄 → reap-expired — 없음: «reap-expired pid=1344» ← RETIRED r939a-56098#0 -> r939b-56098#1 file=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.hCdbYGmwuw/seats.json keys=[] files=1 roles=[] routes=[]
+NORECORD r939a-56098#0 조회 불가: pane 식별 조회 불가
+reap-handover pid=2536 cmd=fresh job to=r939b-56098#1
+reap-handover-record /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.hCdbYGmwuw/resume/r939a-56098#0.handed.json handed=1 (resume 기록 없음 — 곁파일 · 후계는 이 파일을 본다)
+reap r939a-56098#0 stopped=0 handed=1 left=0 deferred=0 rc=0
+reap lef
+PASS ⓚ만료 줄은 넘기지 않음
+PASS ⓚ신선한 줄은 넘김
+FAIL ⓚ만료 정지 · 신선 생존 · 장부에 만료 줄 0 (got=[alive alive 1] want=[dead alive 0])
+== 정적 — 도구 3종이 «자기 등록 + trap EXIT» 를 갖는다
+grep: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.6oBAmR40Yf/feature-pack/fable-team/harness/bin/../kit/fable-team/bin/ft-da-codex.sh: No such file or directory
+FAIL 정적 ft-da-codex.sh register+trap (got=[] want=[2])
+grep: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.6oBAmR40Yf/feature-pack/fable-team/harness/bin/../install.sh: No such file or directory
+FAIL 정적 install.sh register+trap (got=[] want=[2])
+PASS 정적 ft-scratch-repo.sh register+trap
+PASS 정적 reap 은 글자 허용 목록을 안 쓴다
+PASS 정적 닫기 3종(seat-close·nano-close) --handover 0
+== 변이 8종(사본에서만) — 고침이 빠지면 그 시험만 빨강이어야 한다 · 각 줄 = «원본 변이» 두 값(같은 조건 · 갈려야 한다)
+PASS 변이①글자 판정 복귀 → ⓐ빨강: 미등록 install.sh 글자 부모 [원본 변이]
+PASS 변이②좌석 칸 갱신 끔 → ⓓ빨강: B→C 재넘김 줄 수 [원본 변이]
+PASS 변이③장부 덮어쓰기 → ⓔ빨강: 줄 수 [원본 변이]
+MUTATE-MISS
+FAIL 변이 앵커 불일치 front (MUTATE-MISS)
+FAIL 변이④넘김 앞단 끔 → ⓕ빨강: press 점유 중 넘김 줄 수 [원본 변이] (got=[1 1] want=[1 0])
+MUTATE-MISS
+FAIL 변이 앵커 불일치 digest (MUTATE-MISS)
+FAIL 변이⑤digest 넘김 건너뜀 끔 → ⓗ빨강: 미룬 등록 DA 생존 [원본 변이] (got=[dead dead] want=[alive dead])
+MUTATE-MISS
+FAIL 변이 앵커 불일치 clamp (MUTATE-MISS)
+FAIL 변이⑥상한 자름 끔 → ⓘ빨강: 999999 가 4200 이하인가 [원본 변이] (got=[big big] want=[cap big])
+MUTATE-MISS
+FAIL 변이 앵커 불일치 lstart (MUTATE-MISS)
+FAIL 변이⑦lstart 비교 끔 → ⓙ빨강: 재사용 pid 줄 보고 수 [원본 변이] (got=[1 1] want=[0 1])
+MUTATE-MISS
+FAIL 변이 앵커 불일치 expire (MUTATE-MISS)
+FAIL 변이⑧만료도 넘김 → ⓚ빨강: 만료 줄 작업 생존(env 가 남의 좌석이라 reap 은 만료 경로뿐) [원본 변이] (got=[alive alive] want=[dead alive])
+
+FAILED 21
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+rc=1
