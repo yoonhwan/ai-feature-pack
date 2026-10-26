@@ -1,3 +1,9 @@
+## 2026-10-26 — r937 카드 이동 게이트가 착지 sha 를 «그 sha 가 있는 리포» 로 판정 · 모든 git 조회 7초 상한 (1.1.246)
+
+- ft-index-move 의 설치·정본·close-landed·DA 보류 가드 네 게이트가 공용 판정 ft_landed_repo 하나로 BYZ·팩 리포를 고른다. 판정문 «main / main(팩)» 표식과 어긋나면 REJECT. 조회 실패는 «없음» 이 아니라 REJECT.
+- git 조회는 ft_git_capped.py(새 프로세스 그룹 · TERM→0.5초→KILL · 재시도 1회 실수행 · 7초 상한) 하나로 돈다.
+- 시험 test_index_move_landed_repo.sh 32 PASS(기본 셸 ×3 · /bin/bash 3.2) · 변이 7종 빨강 · arch 확정 APPROVE(BYZ design/harness/evidence/r937-da6/VERDICT-r937-arch-confirm.md · 승인판 26281b7b).
+
 ## 2026-10-26 — r922a 초안 모드 골 표 검증 실패 = planner [긴급] 대신 WARN 1줄 (1.1.245)
 
 - ft_news_post.py 가 초안 모드(무장)에서 골 표 검증에 실패하면 goal_gate.refuse 를 부르지 않고 WARN 1줄만 남긴다. rc·발행 0·기준선은 그대로(초안+무장 rc=3). 게이트 본체 없는 설치도 같은 문을 지난다.
