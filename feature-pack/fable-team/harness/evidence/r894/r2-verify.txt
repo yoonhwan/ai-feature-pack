@@ -1,0 +1,36 @@
+# r894 재설계 r2 — 보존 세트(ebccdf5418)를 팩 origin/main 위로 rebase 한 뒤 재검증 (새 구현 0)
+base: feature-pack origin/main = 44aa6978 · 보존 세트 = ebccdf5418(구 base 247b8ae6)
+rebase: 충돌 0 (247b8ae6..origin/main 사이에 kit/slack-mirror 변경 커밋 0 — `git rev-list --count 247b8ae6..origin/main -- feature-pack/fable-team/harness/kit/slack-mirror/` = 0)
+
+## 1. 기존 매거진 시험 (r2 브랜치 · rebase 뒤)
+env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE python -m pytest tests/scripts/test_magazine*.py -q
+415 passed, 1 skipped in 51.25s · rc=0
+
+## 2. r894 시험 단독
+pytest tests/scripts/test_magazine_slack_root_eli5_retry_r894.py -q
+10 passed in 2.83s · rc=0
+
+## 3. 변이 재확인 (rebase 뒤 · 매번 git checkout 복원 cmp0)
+M1a 뿌리 글에 골 표 블록 되살림 (root_text 반환 끝에 "| 골 | 팀 |\n|---|---|\n| A6 | 하네스 |" 덧붙임)
+  FAILED test_root_has_no_table_or_goal_block_but_the_html_does
+  FAILED test_root_without_conclusion_keeps_title_and_pointer_only
+  2 failed, 8 passed
+M2 차단 낱말 다시 쓰기 게이트 제거 (magazine_celebrate_eli5.py:156 · magazine_eli5_batches.py:123 의 `        if hits:` → `        if False:`)
+  FAILED test_celebrate_blocked_word_is_rewritten_once_naming_the_word
+  FAILED test_celebrate_second_failure_drops_only_that_unit[또 배포했어요]
+  FAILED test_celebrate_second_failure_drops_only_that_unit[second1]
+  FAILED test_celebrate_rewrite_is_skipped_when_the_total_deadline_cannot_fit
+  FAILED test_batches_blocked_word_is_rewritten_once
+  5 failed, 5 passed
+복원: git checkout -- kit/slack-mirror/{magazine_doc,magazine_celebrate_eli5,magazine_eli5_batches}.py · cmp 3/3 0 · 트리 clean
+
+## 4. 실 함수 확인 (mock 0 · 대역 0)
+root_text("2026-10-27", "**결론** 아침 판 요약 — 팀 세 개가 카드 두 장씩 끝냈습니다. ")
+--- 슬랙 뿌리 글 (3줄) ---
+매거진 2026-10-27 · 오빠 확인판
+결론 아침 판 요약 — 팀 세 개가 카드 두 장씩 끝냈습니다.
+윗부분은 끝낸 일 축하, 아랫부분은 남은 일 풀 설명 — 한 쪽짜리 HTML 이 스레드에 붙어 있어요.
+표줄(| 시작 또는 ---) 0 · 첫 줄 = «매거진 <날짜> · 오빠 확인판» (첫 줄 정확 일치 탐색 유지)
+root_text("2026-10-27") (결론 없음) = 첫 줄 + HTML 안내 2줄 · 표줄 0
+
+press 필요: 없음(오디오 경로 무관) · 실 게시 0 · 실 LLM 0 · 실사건 = 다음 08:00 매거진 뿌리 글 1건(master/DA 몫)
