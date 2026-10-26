@@ -1,21 +1,32 @@
-# r960 ⓕ 변이 — 고친 갈래를 끄면 그 축의 시험이 무너지는가(사본에 글자만 바꿔 넣고 같은 섹션 재실행)
+# r5 변이 4종 · 2026-10-26 23:09:05 — 각 변이가 대응 시험을 실제로 무너뜨리는지(변이 적용 → 그 시험 칸이 기대와 반대)
+# 실행 = bash tests/test_seat_close_pi_resume_r960.sh (변이는 시험 안에서 임시 사본에 적용 — 작업트리 원본 불변)
 
-== nano_close_card_branch: # r960-mut:branchcard → ':' 로 끄면 ⓐ 가 REJECT 카드 못 찾음
-== pi_resume: # r960-mut:pi → 'pass' 로 끄면 ⓒ 가 rc 3 HELD
-== claude_norec: '0:0 NORECORD "*"pi 세션 없음"' → '0:0 NORECORD "*' 로 넓히면 ⓓ 의 claude 칸이 rc 0(닫힘)
-(실행 결과 = 위 test-green.txt 의 각 시험 ⓕ 줄 — 세 변이 모두 FAIL 을 냈다)
+1) ft_roster_lib.py: cand = [arg] if arg else [env] if env else files  →  cand = files   (확정 되살림 = 루트 글롭)
+   결과: ⓦr5-1 불일치 REJECT 0 (기대 1) → ⓦr5-1 FAIL
 
-# r2 추가 변이 (DA HOLD1·HOLD2 축)
-== close_norec_quiet: ft-seat-close.sh 의 `echo "$NOLINE"` → ':' 로 끄면 ⓡ 이 NORECORD 줄 0 으로 FAIL
-== pi_model_firstline: ft_roster_lib.py 의 `# r960-mut:firstline` 줄을 옛 판(머리 modelId 만)으로 되돌리면 ⓢ 가 `model 못 읽음` 으로 FAIL
-(두 변이 다 사본에 글자만 바꿔 테스트 안에서 재실행 — 원문 = test-green.txt 의 ⓡ/ⓢ 변이 줄)
+2) ft_roster_lib.py: if (a, r) != (a2, r2):  →  if False and ...   (불일치 무시 = 확정 파일로 진행)
+   결과: ⓦr5-1 불일치 REJECT 0 (기대 1) → ⓦr5-1 FAIL
 
-# r3 추가 변이 (재설계 축 — 출력 함수 하나)
-== dead_branch_exit_first: ft-seat-close.sh 의 죽은 갈래 줄을 «직접 echo + exit 0»(finish 앞)으로 바꾸면 ⓣ 가 NORECORD 줄 0 으로 FAIL
-== finish_norec_quiet: finish() 의 NORECORD 출력 줄을 ':' 로 끄면 ⓡ 이 FAIL (r2 변이 자리 이동)
-(문자열 안전망 칸 = ⓤ — finish 밖 exit 0 / 직접 echo 를 세므로 갈래가 늘어도 잡는다)
+3) ft-seat-close.sh: ${SEATS_FILE:+--seats "$SEATS_FILE"}  →  ${ARG:+--seats "$ARG"}   (자식에 조건부)
+   결과: 스텁이 받은 --seats 0 (기대 1) → ⓦr5-3 FAIL
 
-# r4 추가 변이 (DA r3 HOLD1 축 — pi 판정을 명부 agent 칸으로만)
-== agent_cell_cond: ft-seat-close.sh 의 `[ "$AGENT" = pi ] && RK=NORECORD || held` 를 `RK=NORECORD` 로 되돌리면(출력 글자 판정으로 복귀) ⓥ 가 rc 0 · kill 1 · role stop-ready 로 FAIL
-== pi_branch_off(r4 갱신): retire 의 `# r960-mut:pi` 를 `pass` 로 끄면 ⓒ 의 재개 기록 파일이 안 생긴다(ⓒ FAIL) · 그래도 명부 agent=pi 이므로 close 는 NORECORD 줄 1 + 닫힘 rc 0(계약 ①) — r3 까지 rc 3 HELD 기대였던 칸을 계약대로 바꿨다
-(실행 결과 = test-green.txt 의 ⓕ 줄 3개 — 세 변이 다 기대대로 뒤집혔다)
+4) ft-seat-close.sh: rec="$RECF"  →  rec="$HOME/.claude/state/seat-resume/$SEAT.json"   (lineage 경로 자체 계산)
+   결과: ZC_RESUME_DIR 기록을 못 봐 kill=held (기대 kill=ok rc 0) → ⓦr5-4 FAIL
+
+## 시험 출력 원문(변이 칸 · 전부 PASS = 변이가 실제로 시험을 깨뜨렸다)
+PASS 변이 표지 r960-mut:pi 1줄
+PASS 변이 표지 agent 칸 판정 1줄
+PASS 변이 표지 finish NORECORD 줄 1줄
+PASS ⓡ 변이 «수용 뒤 출력 생략» → NORECORD 줄 0 (ⓡ FAIL)
+PASS 변이 표지 r960-mut:firstline 1줄
+PASS ⓢ 변이 «첫 줄만» → model 못 읽음(ⓢ FAIL)
+PASS 변이 표지 죽은 갈래 finish 앞 exit 1줄
+PASS ⓣ 변이 «죽은 갈래 exit 를 함수 앞에» → NORECORD 줄 0 (ⓣ FAIL)
+PASS 변이 표지 확정 되살림(루트 글롭) 1줄
+PASS ⓦr5-1 변이 «루트 글롭 되살림» → 불일치 REJECT 0 (ⓦr5-1 FAIL)
+PASS 변이 표지 불일치 무시 1줄
+PASS ⓦr5-1 변이 «불일치 때 확정으로 진행» → 불일치 REJECT 0 (ⓦr5-1 FAIL)
+PASS 변이 표지 자식 --seats 조건부 1줄
+PASS ⓦr5-3 변이 «자식에 조건부» → 스텁이 받은 --seats 0 (ⓦr5-3 FAIL)
+PASS 변이 표지 lineage 경로 자체 계산 1줄
+PASS ⓦr5-4 변이 «경로 자체 계산» → kill=held (ⓦr5-4 FAIL)

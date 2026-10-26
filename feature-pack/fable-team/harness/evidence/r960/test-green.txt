@@ -1,21 +1,28 @@
-# r960 r4 시험 — 신규 2 + 기존 회귀 (2026-10-26 · bash 5(PATH) · 신규 2종은 /bin/bash 3.2.57 로도 0 FAIL)
-== test_nano_close_card_branch_r960.sh rc=0 21 PASS · 0 FAIL
-== test_seat_close_pi_resume_r960.sh rc=0 57 PASS · 0 FAIL
-== test_seat_close.sh rc=0 81 PASS · 0 FAIL
-== test_seat_retire.sh rc=0 172 PASS · 0 FAIL
-== test_seat_retire_keep.sh rc=0 13 PASS · 0 FAIL
-== test_seat_retire_rosters.sh rc=0 46 PASS · 0 FAIL
-== test_seat_retire_defer_press_r690.sh rc=1 34 PASS · 1 FAIL
-== test_seat_retire_old_name_lint.sh rc=0 17 PASS · 0 FAIL
-== test_seat_resume_binding.sh rc=0 92 PASS · 0 FAIL
-== test_nano_close_suspended.sh rc=0 92 PASS · 0 FAIL
-== test_nano_close_superseded_by.sh rc=1 139 PASS · 1 FAIL
-== test_nano_close_rerun_early.sh rc=0 37 PASS · 0 FAIL
-== test_nano_close_pack_wt.sh rc=0 37 PASS · 0 FAIL
-== test_nano_close_research_r888.sh rc=0 101 PASS · 0 FAIL
-== test_nano_close_step_timing_r938.sh rc=0 115 PASS · 0 FAIL
-== test_kit_bin_sync.sh rc=0 7 PASS · 0 FAIL
-== 합계 1061 PASS · 2 FAIL
-# FAIL 2종 = 착수 전부터 빨간 그대로(superseded_by = 시험 대역 누락 · defer_press_r690 = reap 미룸 경쟁 · 둘 다 ft-seat-close 를 쓰지 않는다 · DA r3 격리에서도 같은 건수 · 기준판보다 나쁘지 않음)
-# kit 짝 cmp0 4: ft-seat-close.sh · ft-seat-retire.sh · ft_roster_lib.py · ft-nano-close.sh
-# 줄 수: ft-seat-close.sh      120 ≤ 120 · ft-seat-retire.sh      200 ≤ 200 · ft_roster_lib.py      112
+# r5 test-green — 2026-10-26 23:02:02 · 맥 기본 bash 3.2.57 · python3 3.14.8
+# 기준 = 보존 세트 806dc49a 위 작업트리(r5 고침 적용)
+### test_seat_close_pi_resume_r960.sh rc=0 PASS=83 FAIL=0
+### test_nano_close_card_branch_r960.sh rc=0 PASS=21 FAIL=0
+### test_seat_close.sh rc=0 PASS=81 FAIL=0
+### test_seat_retire.sh rc=0 PASS=172 FAIL=0
+### test_seat_retire_keep.sh rc=0 PASS=13 FAIL=0
+### test_seat_retire_rosters.sh rc=0 PASS=46 FAIL=0
+### test_seat_retire_defer_press_r690.sh rc=0 PASS=35 FAIL=0
+### test_seat_retire_old_name_lint.sh rc=0 PASS=17 FAIL=0
+### test_seat_resume_binding.sh rc=0 PASS=92 FAIL=0
+### test_nano_close_suspended.sh rc=0 PASS=92 FAIL=0
+### test_nano_close_superseded_by.sh rc=1 PASS=139 FAIL=2
+FAIL 기존 --cherry-override 사유는 그대로(⑥ 은 별개 REJECT: 증거 줄 없음) — 없음: «reason=사람 사유» ← 
+FAILED 1
+### test_nano_close_rerun_early.sh rc=0 PASS=37 FAIL=0
+### test_nano_close_pack_wt.sh rc=0 PASS=37 FAIL=0
+### test_nano_close_research_r888.sh rc=0 PASS=101 FAIL=0
+### test_nano_close_step_timing_r938.sh rc=0 PASS=115 FAIL=0
+### test_kit_bin_sync.sh rc=0 PASS=7 FAIL=0
+### /bin/bash 3.2.57 5종
+### 3.2 test_seat_close_pi_resume_r960.sh rc=0 PASS=83 FAIL=0
+### 3.2 test_nano_close_card_branch_r960.sh rc=0 PASS=21 FAIL=0
+### 3.2 test_seat_close.sh rc=1 PASS=79 FAIL=2
+FAIL ③M#1 REJECT 에 --verdict 경로 1줄(r413) (got=[ echo has;; *) echo none;; esac)] want=[has])
+FAIL ③P#1 REJECT 에 --verdict 경로 1줄(r413) (got=[ echo has;; *) echo none;; esac)] want=[has])
+### 3.2 test_seat_retire.sh rc=0 PASS=172 FAIL=0
+### 3.2 test_nano_close_suspended.sh rc=0 PASS=92 FAIL=0

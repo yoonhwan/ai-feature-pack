@@ -85,3 +85,21 @@
 - ⓕ 칸 하나를 계약대로 바꿨다: r3 까지 «pi 갈래 끄면 close rc 3 HELD» 를 기대했는데, 판정이 명부 agent 칸이 된 뒤로는 pi 좌석이 **어느 갈래든** NORECORD 줄 + 닫기 진행(계약 ①)이 맞다 → 기대값을 «기록 파일 0(ⓒ FAIL) + NORECORD 줄 1 + rc 0» 으로 고쳤다
 - 시험: `test_seat_close_pi_resume_r960.sh` 51 → **57 PASS**(ⓥ3 ⓦ2 + 변이 칸) · 기존 회귀 = `test-green.txt`(16종 · 1061 PASS · 2 FAIL = 착수 전부터 빨간 그대로)
 - `/bin/bash` 3.2.57 로 신규 2종 0 FAIL · kit 짝 cmp0 4 · press 필요 없음(단위·기존 시험만 — 나노는 press 를 쏘지 않는다)
+
+## r5 (DA⑥ r4 HOLD 반송 · 하드 룰 14 세트① 재설계 · 설계서 = `design/harness/evidence/r960-da6/REWORK-r960-r5.md` · 리서치 표 `TABLE-r960-r5-seat-facts-once.md` 안1)
+
+축을 바꿨다. r1~r4 는 «판정 근거» 를 출력 글자 → 출력 글자 → 출력 글자 → 루트 명부로 옮겨 다녔고, 자리는 늘 `ft-seat-close.sh:32~33` 이었다. 원천이 여러 곳이면 하나를 고칠 때마다 다음 원천이 어긋난다. r5 는 **좌석 사실(명부 경로·행·agent·role·재개 기록 경로)을 입구에서 한 번 확정해 값으로 넘긴다**(표 3 선례 `ft-nano-spawn:259→:556` 꼴).
+
+| 고침 | 값 | 시험 칸 |
+|---|---|---|
+| ① 명부 경로 1개 확정 | `ft_roster_lib.seat_facts(arg, env, root, seat, rd)` — `--seats` > `FT_SEATS_JSON` > 루트 글롭 «좌석 키를 가진 파일 정확히 1개»(0개 = 빈 값 → 부르는 쪽 NOROW/NORECORD 갈래 그대로 · 2개+ = REJECT) | ⓦr5-1 ⓦr5-2 |
+| ② 사실 구조 1개 | 같은 호출이 `(명부파일, agent, role, 재개기록경로)` 를 돌려준다 — `ft-seat-close.sh` 의 인라인 `python3 -c`(옛 :33) 삭제, `AGENT` 1줄 = 확정 값, `lineage_ok` 의 재개 기록 경로도 같은 값(`RECF`) | ⓦr5-4 |
+| ③ 자식에 값으로 | `ft-seat-retire.sh --record-only` 호출에 `--seats "$SEATS_FILE"` 을 **ARG 유무와 무관하게** 넘긴다(자식의 재해석 0) | ⓦr5-3 |
+| ④ 불일치 = 판정 아님 | 확정 밖 명부(루트 글롭)에 같은 좌석이 다른 agent/role 로 있으면 `REJECT <좌석> 명부 불일치 … — 명부 쓰기 0 · kill 0` rc 1(finish 경유) · 같으면 진행(중복 등록 경고 1줄) · `--seats` 는 확정이 이긴다(FT_SEATS_JSON·루트 안 봄) | ⓦr5-1 ⓦr5-2 |
+| 유지(r2~r4) | `finish()` 하나 · `_pi_model` · 죽은 갈래 `CLOSED-DEAD` · 수용 근거 = 명부 agent 칸 · 결과 줄 형식 · `ft-seat-close.sh` 120줄(상한 120) | ⓤ ⓥ ⓓ |
+
+- 시험: `test_seat_close_pi_resume_r960.sh` 59 → **83 PASS**(ⓦr5-1·2·2b·3·4·5 + 변이 4) · `test_nano_close_card_branch_r960.sh` 21 PASS · 기존 14종 = `test-green.txt`(16종 **1088 PASS · 2 FAIL** = 착수 전부터 빨간 `superseded_by` 그대로)
+- 빨강 먼저: 고치기 전 판(806dc49a)으로 새 시험 → **14 FAIL**(ⓦr5-1 이 rc 0 · kill 1 로 «claude 좌석을 닫아버림» · 불일치 REJECT 0 · 스텁 `--seats` 0) = `red-first-r5.txt`
+- 변이 4종 = `mutation.txt` · kit 짝 cmp0 3(`ft-seat-close.sh` · `ft_roster_lib.py` · `ft-seat-retire.sh`) · `/bin/bash` 3.2.57 신규 2종 0 FAIL
+- 이슈: FE Next.js 해당 없음(하네스 CLI 단위 시험만) · press 필요 없음(나노는 press 를 쏘지 않는다)
+- 기준선 대조 = `pre-existing-fail.txt` r5 절(806dc49a 도 같은 칸이 빨감 — 내 변경 탓 아님)

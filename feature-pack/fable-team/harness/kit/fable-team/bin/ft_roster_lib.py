@@ -1,7 +1,8 @@
 """ft_roster_lib.py — 명부(seats*.json) 읽기·원자 쓰기·라우팅 칸 쓸기 공용 (ft-seat-retire.sh · ft-seat-close.sh 가 같은 폴더에서 import).
 r429 묶음: 두 도구에 같은 글자로 있던 load/쓰기와 retire 의 라우팅 칸 쓸기를 한 곳으로 옮겼다(동작 불변 · 줄 수 상한).
+r5(seat_facts): 명부 경로·행·agent·role·재개 기록 경로를 입구에서 1회 확정(닫기 도구의 갈래·자식 재해석 0).
 r960: pi 좌석 재개 기록(pi_seat_resume)도 여기 — ft-seat-retire.sh 는 200줄 상한이라 파일 안에 못 넣는다(시험 ⓔ 가 줄 수를 잰다)."""
-import collections, datetime, glob, json, os, shutil, subprocess
+import collections, datetime, glob, json, os, shutil, subprocess, sys
 
 ROUTE = ("_hil_route", "_planner", "_desk_route")   # r429 라우팅 칸(+ 이름이 _route 로 끝나는 칸) · r465 부터 은퇴는 남의 명부 역할 칸도 바꾼다(scan_cells) — 이 표는 출력 roles/routes 구분용
 
@@ -91,6 +92,26 @@ def _pi_model(path, head):   # r960 ⓢ model 은 세션 파일 «전체» 에�
     except OSError: return None
     if last: return last
     return head.get("modelId") if isinstance(head.get("modelId"), str) and head.get("modelId") else None
+
+
+def seat_facts(arg, env, root, seat, rd):   # r5 — 명부 경로·좌석 행·agent·role·재개 기록 경로를 «입구에서 1회» 확정한다(닫기 도구가 갈래마다·자식이 다시 읽지 않는다) → (명부파일, agent, role, 재개기록경로) · 판정 불가 = print + exit 1
+    files = sorted(glob.glob(root + "/.fable-team/seats*.json"))
+    cand = [arg] if arg else [env] if env else files
+    cand = [f for f in cand if isinstance(load(f), dict) and isinstance(load(f).get(seat), dict)]
+    if len(cand) > 1:   # r5 ① — 후보 2개+ = 어느 행이 사실인지 모른다(판정 아님 · 명부 쓰기 0 · kill 0)
+        print(f"REJECT 판정 안 함 — 명부 후보 {len(cand)}개 (키 {seat}) · --seats 로 지정"); raise SystemExit(1)
+    if not cand: return ("", "", "", rd + "/" + seat + ".json")   # 행 없음 = 부르는 쪽의 NOROW/NORECORD 갈래 그대로
+    p = cand[0]; o = load(p)[seat]; a, r = o.get("agent") or "", o.get("role") or ""
+    seen = [] if arg else files   # r5 ⓦ2 — --seats 는 확정이 이긴다(FT_SEATS_JSON·루트 글롭을 보지 않는다)
+    for f in seen:   # r5 ④ — 확정 밖 명부의 같은 좌석이 다른 agent/role 이면 판정 아님(REJECT · 명부 쓰기 0 · kill 0)
+        o2 = load(f).get(seat) if f != p and isinstance(load(f), dict) else None
+        if not isinstance(o2, dict): continue
+        a2, r2 = o2.get("agent") or "", o2.get("role") or ""
+        if (a, r) != (a2, r2):
+            print(f"REJECT {seat} 명부 불일치 {p}={a or '-'}/{r or '-'} ≠ {f}={a2 or '-'}/{r2 or '-'} — 명부 쓰기 0 · kill 0"); raise SystemExit(1)
+    if len([f for f in seen if isinstance(load(f), dict) and isinstance(load(f).get(seat), dict)]) > 1:
+        print(f"WARN {seat} 명부 중복 등록 — 확정 {p} 로 진행", file=sys.stderr)   # r5 — 같으면 진행(중복 등록 정리는 범위 밖 · 경고 1줄)
+    return (p, a, r, rd + "/" + seat + ".json")
 
 
 def pi_seat_resume(seat, model, retired_by):   # r960 ⓒ — pi 좌석 재개 기록 = 그 pane cwd 의 pi 세션 파일(가장 최근 1개 · 첫 줄 cwd 가 pane cwd 와 같고 timestamp ≥ 좌석 프로세스 시작) → (record|None, 이유)

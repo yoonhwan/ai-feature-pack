@@ -9,6 +9,7 @@
 #    ⓕ 변이: pi 갈래 끔 → ⓒ FAIL · 수용 조건을 출력 글자로 되돌림 → ⓥ FAIL · ⓖ 키트 짝 cmp0 · bash -n · 줄 수 상한 · 600/300·외부 호출 0
 #    ⓡ r2 HOLD1: pi 세션 파일 0 → 수용한 NORECORD 원문 줄(`NORECORD <좌석> <사유>`)이 출력된다(변이 «수용 뒤 출력 생략» → FAIL)
 #    ⓢ r2 HOLD2: 머리 줄 `session` + 뒤 줄 `model_change.modelId` → 재개 기록 ok · model = 마지막 model_change(변이 «첫 줄만» → FAIL)
+#    ⓦr5-1 두 명부 불일치 = 판정 아님(REJECT rc 1 · 명부 쓰기 0 · kill 0 · 반대로 두어도 같음) · ⓦr5-2 --seats 는 확정이 이김(FT_SEATS_JSON·루트 안 본다) · ⓦr5-3 자식(ft-seat-retire)에 확정 경로를 항상 넘긴다 · ⓦr5-4 재개 기록 경로를 입구에서 1번만(lineage_ok 과 자식이 같은 값) · ⓦr5-5 회귀 꼴(pi=NORECORD 줄 1 · claude=HELD rc 3 · kill 0)
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
@@ -39,6 +40,7 @@ case "$1" in
   has-session) [ "${FAKE_SESSION:-1}" = 1 ];;                                  # 살아 있는 좌석인가
   display) printf '%s %s\n' "${FAKE_PANE_PID:-1}" "${FAKE_PANE_CWD:-/tmp}" ;;  # ft_roster_lib.pi_seat_resume 의 결속 조회
   show-options) exit 0;;                                                       # @zc_v65_active 없음
+  list-sessions) printf '%s\n' ${FAKE_SESSIONS:-} ;;                            # ⓦr5-4 lineage_ok 의 같은 계보 더 큰 번호 생존
   set-option|kill-session) exit 0;;
   display-message) echo caller#0;;
 esac
@@ -56,7 +58,7 @@ pifile() {  # pifile <시각 문자열> [cwd] — pi 세션 파일 1개(첫 줄 
   printf '{"type":"session","version":3,"id":"aaaa-1111","timestamp":"%s","cwd":"%s"}\n{"type":"session_info","name":"pi#0"}\n' "${1:-$NOW}" "${2:-$PDIR}" > "$SESS"; }
 seats_pi() { printf '{"_master":"M#1","M#1":{"role":"master","tick":"t"},"%s":{"role":"nano","agent":"%s","model":"m","tick":null,"index":"x.md"}}\n' "${1:-pi#0}" "${2:-pi}" > "$REPO/.fable-team/seats.json"; }
 run() { ( cd "$REPO" && env PATH="$T/bin:$PATH" TMUX_LOG="$TMUX_LOG" FT_ROOT="$FT_ROOT" ZC_RESUME_DIR="$ZC_RESUME_DIR" FT_PI_SESSIONS="$FT_PI_SESSIONS" HOME="$HOME" FT_SEAT_RETIRE_BIN="${RT_BIN:-$T/bin/ft-seat-retire.sh}" \
-  FAKE_SESSION="${FAKE_SESSION:-1}" FAKE_PANE_PID="$$" FAKE_PANE_CWD="${FAKE_PANE_CWD:-$PDIR}" ZC_RESUME_DIR="${RDIR:-$ZC_RESUME_DIR}" "$@" 2>&1 ); }
+  FAKE_SESSION="${FAKE_SESSION:-1}" FAKE_PANE_PID="$$" FAKE_PANE_CWD="${FAKE_PANE_CWD:-$PDIR}" ZC_RESUME_DIR="${RDIR:-$ZC_RESUME_DIR}" FT_SEATS_JSON="${SEATS_ENV:-}" "$@" 2>&1 ); }
 close() { run bash "$T/bin/${CLOSE_BIN:-ft-seat-close.sh}" "$@"; }
 retire_rec() { run bash "$T/bin/${RETIRE_BIN:-ft-seat-retire.sh}" "$1" --record-only --verdict 2400 --seats "$REPO/.fable-team/seats.json"; }
 
@@ -200,11 +202,93 @@ out="$(close 'no#w' --reason "r4 agent 칸 없음" --seats "$REPO/.fable-team/se
 chk "ⓦ rc 3 · HELD" "$rc $(printf '%s' "$out" | head -1 | cut -d' ' -f1)" "3 HELD"
 chk "ⓦ 명부 role 불변(nano) · kill 0" "$(J "$REPO/.fable-team/seats.json" '.["no#w"].role') $(grep -c '^kill-session' "$TMUX_LOG" || true)" "nano 0"
 
-echo "== ⓤ 안전망 — 갈래가 늘어도 잡는 문자열 검사(finish 밖 exit 0 = 0 · 결과 줄 직접 echo = 0 · finish 호출 ≥ 5)"
+echo "== ⓦr5 — 좌석 사실(명부 경로·행·agent·role·재개 기록 경로)을 입구에서 1회 확정 · 불일치 = 판정 아님(REJECT · 명부 쓰기 0 · kill 0)"
+sel() { printf '{"%s":{"role":"%s","agent":"%s","tick":null,"index":"x.md"}}\n' "$1" "$2" "$3" > "$REPO/.fable-team/selected.json"; }
+# ⓦr5-1 — 확정(FT_SEATS_JSON) agent=claude ≠ 루트 agent=pi → 어느 행이 사실인지 모른다 = REJECT(닫기·HELD 둘 다 아님)
+seats_pi cl#1 pi; sel cl#1 nano claude; rm -f "$SESS"; : > "$TMUX_LOG"
+out="$(SEATS_ENV="$REPO/.fable-team/selected.json" close 'cl#1' --reason "r5 불일치" --verdict 2400)"; rc=$?
+chk "ⓦr5-1 rc 1 · REJECT" "$rc $(printf '%s' "$out" | head -1 | cut -d' ' -f1)" "1 REJECT"
+has "$out" "REJECT cl#1 명부 불일치" "  └ REJECT 줄에 좌석·불일치"
+chk "ⓦr5-1 명부 쓰기 0 · kill 0" "$(J "$REPO/.fable-team/seats.json" '.["cl#1"].role') $(grep -c '^kill-session' "$TMUX_LOG" || true)" "nano 0"
+seats_pi cl#1r claude; sel cl#1r nano pi   # 반대로 두어도 같다(pi 좌석이면 HELD 로 새지 않는다)
+out="$(SEATS_ENV="$REPO/.fable-team/selected.json" close 'cl#1r' --reason "r5 불일치 반대" --verdict 2400)"; rc=$?
+chk "ⓦr5-1 반대 배치도 rc 1 · REJECT" "$rc $(printf '%s' "$out" | head -1 | cut -d' ' -f1)" "1 REJECT"
+chk "ⓦr5-1 반대 배치 명부 쓰기 0 · kill 0" "$(J "$REPO/.fable-team/seats.json" '.["cl#1r"].role') $(grep -c '^kill-session' "$TMUX_LOG" || true)" "nano 0"
+# ⓦr5-2 — --seats 는 확정이 이김: 루트에 그 좌석 없음 · FT_SEATS_JSON 은 다른 agent → --seats 로 닫힌다
+printf '{"_master":"M#1","M#1":{"role":"master","tick":"t"}}\n' > "$REPO/.fable-team/seats.json"; sel o#2 nano pi; printf '{"o#2":{"role":"nano","agent":"claude"}}\n' > "$REPO/.fable-team/other.json"; pifile "$NOW"
+out="$(SEATS_ENV="$REPO/.fable-team/other.json" close 'o#2' --reason "r5 확정이 이김" --seats "$REPO/.fable-team/selected.json" --verdict 2400)"; rc=$?
+chk "ⓦr5-2 --seats 확정 → 정상 닫기 rc 0" "$rc $(printf '%s' "$out" | grep -o '^CLOSED-ROLE o#2' | head -1)" "0 CLOSED-ROLE o#2"
+chk "ⓦr5-2 확정 파일만 닫힘(다른 명부 쓰기 0)" "$(J "$REPO/.fable-team/selected.json" '.["o#2"].role') $(J "$REPO/.fable-team/other.json" '.["o#2"].role')" "stop-ready nano"
+# ⓦr5-2b — 값이 «같은» 중복 등록은 막지 않고 경고 1줄(중복 등록 정리는 범위 밖)
+seats_pi dup#1 pi; printf '{"dup#1":{"role":"nano","agent":"pi","tick":null,"index":"x.md"}}\n' > "$REPO/.fable-team/seats-x.json"; pifile "$NOW"
+out="$(SEATS_ENV="$REPO/.fable-team/seats.json" close 'dup#1' --reason "r5 중복 등록" --verdict 2400)"; rc=$?
+chk "ⓦr5-2b 같은 값 중복 → 경고 1줄 + 닫힘 rc 0" "$rc $(printf '%s\n' "$out" | grep -c '^WARN dup#1 명부 중복 등록')" "0 1"
+rm -f "$REPO/.fable-team/seats-x.json"
+# ⓦr5-3 — 자식(ft-seat-retire)에 확정 경로를 «항상» 넘긴다(ARG 없을 때 포함)
+cat > "$T/bin/stub-retire.sh" <<EOF
+#!/usr/bin/env bash
+printf '%s\n' "\$@" > "$T/retire-args.txt"
+echo "RESUME ok \$ZC_RESUME_DIR/\$1.json"
+EOF
+chmod +x "$T/bin/stub-retire.sh"; seats_pi pi#s3 pi; pifile "$NOW"
+out="$(RT_BIN="$T/bin/stub-retire.sh" SEATS_ENV="" close 'pi#s3' --reason "r5 자식 인자" --verdict 2400)"; rc=$?
+chk "ⓦr5-3 ARG 없이도 rc 0" "$rc $(printf '%s' "$out" | grep -o '^CLOSED-ROLE pi#s3' | head -1)" "0 CLOSED-ROLE pi#s3"
+chk "ⓦr5-3 스텁이 받은 --seats = 확정 경로" "$(grep -A1 '^--seats$' "$T/retire-args.txt" | tail -1)" "$REPO/.fable-team/seats.json"
+out="$(RT_BIN="$T/bin/stub-retire.sh" close 'pi#s3' --reason "r5 자식 인자2" --seats "$REPO/.fable-team/seats.json" --verdict 2400)"
+chk "ⓦr5-3 --seats 로 줘도 같은 경로 1번" "$(grep -c '^--seats$' "$T/retire-args.txt") $(grep -A1 '^--seats$' "$T/retire-args.txt" | tail -1)" "1 $REPO/.fable-team/seats.json"
+RT_BIN=""
+# ⓦr5-4 — 재개 기록 경로는 입구에서 1번: lineage_ok 이 ZC_RESUME_DIR 규칙의 «그 값»을 본다(kill 판정이 그 파일 실재로 갈린다)
+RD5="$T/r5rd"; mkdir -p "$RD5"; seats_pi lg#5 claude; printf '{"engine":"claude"}\n' > "$RD5/lg#5.json"
+out="$(RDIR="$RD5" FAKE_SESSIONS="lg#6" close 'lg#5' --reason "r5 경로 한 번" --seats "$REPO/.fable-team/seats.json")"; rc=$?
+chk "ⓦr5-4 기록 있음 → kill=ok rc 0" "$rc $(printf '%s' "$out" | grep -o 'kill=[a-z]*')" "0 kill=ok"
+RM="$RD5/lg#5.json"; mv "$RM" "$RD5/hold.json"
+out="$(RDIR="$RD5" FAKE_SESSIONS="lg#6" close 'lg#5' --reason "r5 경로 한 번2" --seats "$REPO/.fable-team/seats.json")"; rc=$?
+chk "ⓦr5-4 기록 없음 → kill=held rc 3(같은 경로를 본다)" "$rc $(printf '%s' "$out" | grep -o 'kill=held')" "3 kill=held"
+# ⓦr5-5 — 회귀 꼴: 세션 파일 없음 + pi → NORECORD 1줄 + 닫힘 · claude → HELD rc 3 · kill 0
+seats_pi pi#r5 pi; rm -f "$SESS"; : > "$TMUX_LOG"
+out="$(close 'pi#r5' --reason "r5 회귀 pi" --seats "$REPO/.fable-team/seats.json" --verdict 2400)"; rc=$?
+chk "ⓦr5-5 pi rc 0 · NORECORD 줄 1" "$rc $(printf '%s\n' "$out" | grep -c '^NORECORD ')" "0 1"
+seats_pi cl#r5 claude; : > "$TMUX_LOG"
+out="$(close 'cl#r5' --reason "r5 회귀 claude" --seats "$REPO/.fable-team/seats.json" --verdict 2400)"; rc=$?
+chk "ⓦr5-5 claude rc 3 HELD · kill 0" "$rc $(printf '%s' "$out" | head -1 | cut -d' ' -f1) $(grep -c '^kill-session' "$TMUX_LOG" || true)" "3 HELD 0"
+# 변이 4종 — 각각 ⓦ 하나를 무너뜨린다
+cp "$T/bin/ft_roster_lib.py" "$T/bin/ft_roster_lib.py.r5"
+CLIB="$T/bin/ft_roster_lib.py"
+n="$(mutate "$T/bin/ft_roster_lib.py.r5" "$CLIB" '    cand = [arg] if arg else [env] if env else files' '    cand = files')"
+chk "변이 표지 확정 되살림(루트 글롭) 1줄" "$n" 1
+seats_pi cl#m1 pi; sel cl#m1 nano claude; rm -f "$SESS"
+out="$(SEATS_ENV="$REPO/.fable-team/selected.json" close 'cl#m1' --reason "변이" --verdict 2400)"
+chk "ⓦr5-1 변이 «루트 글롭 되살림» → 불일치 REJECT 0 (ⓦr5-1 FAIL)" "$(printf '%s\n' "$out" | grep -c '^REJECT cl#m1 명부 불일치')" 0
+cp "$T/bin/ft_roster_lib.py.r5" "$CLIB"
+n="$(mutate "$T/bin/ft_roster_lib.py.r5" "$CLIB" '        if (a, r) != (a2, r2):' '        if False and (a, r) != (a2, r2):')"
+chk "변이 표지 불일치 무시 1줄" "$n" 1
+seats_pi cl#m2 pi; sel cl#m2 nano claude; rm -f "$SESS"
+out="$(SEATS_ENV="$REPO/.fable-team/selected.json" close 'cl#m2' --reason "변이" --verdict 2400)"
+chk "ⓦr5-1 변이 «불일치 때 확정으로 진행» → 불일치 REJECT 0 (ⓦr5-1 FAIL)" "$(printf '%s\n' "$out" | grep -c '^REJECT cl#m2 명부 불일치')" 0
+cp "$T/bin/ft_roster_lib.py.r5" "$CLIB"
+n="$(mutate "$T/bin/ft-seat-close.sh" "$T/bin/ft-seat-close.mut4.sh" '${SEATS_FILE:+--seats "$SEATS_FILE"}' '${ARG:+--seats "$ARG"}' sub)"
+chk "변이 표지 자식 --seats 조건부 1줄" "$n" 1
+seats_pi pi#m3 pi; pifile "$NOW"; CLOSE_BIN=ft-seat-close.mut4.sh
+out="$(RT_BIN="$T/bin/stub-retire.sh" SEATS_ENV="" close 'pi#m3' --reason "변이" --verdict 2400)"
+chk "ⓦr5-3 변이 «자식에 조건부» → 스텁이 받은 --seats 0 (ⓦr5-3 FAIL)" "$(grep -c '^--seats$' "$T/retire-args.txt" || true)" 0
+CLOSE_BIN=""
+RD5="$T/r5rd"
+mv "$RD5/hold.json" "$RD5/lg#5.json"
+n="$(mutate "$T/bin/ft-seat-close.sh" "$T/bin/ft-seat-close.mut5.sh" 's rec="$RECF"' 's rec="$HOME/.claude/state/seat-resume/$SEAT.json"' sub)"
+chk "변이 표지 lineage 경로 자체 계산 1줄" "$n" 1
+seats_pi lg#5 claude; CLOSE_BIN=ft-seat-close.mut5.sh
+out="$(RDIR="$RD5" FAKE_SESSIONS="lg#6" close 'lg#5' --reason "변이" --seats "$REPO/.fable-team/seats.json")"; rc=$?
+chk "ⓦr5-4 변이 «경로 자체 계산» → kill=held (ⓦr5-4 FAIL)" "$rc $(printf '%s' "$out" | grep -o 'kill=held')" "3 kill=held"
+CLOSE_BIN=""
+
+
 NOFIN="$(awk '/^finish\(\)/{f=1} f&&/^}/{f=0;next} !f' "$BIN/ft-seat-close.sh" | grep -v '^[[:space:]]*#')"
 chk "finish() 밖 exit 0 = 0" "$(printf '%s\n' "$NOFIN" | grep -c 'exit 0')" 0
 chk "finish() 밖 결과 줄 직접 echo = 0" "$(printf '%s\n' "$NOFIN" | grep -cE 'echo "(CLOSED|HELD|FAIL|CLOSE-FAIL)')" 0
 chk "finish() 갈래 호출 ≥ 5" "$([ "$(grep -c 'finish [0-9]' "$BIN/ft-seat-close.sh")" -ge 5 ] && echo yes || echo no)" yes
+chk "r5 좌석 사실 확정 python 호출 1곳" "$(grep -c 'from ft_roster_lib import seat_facts' "$BIN/ft-seat-close.sh")" 1
+chk "r5 본문 인라인 명부 재해석 0(python3 -c 1줄 = facts)" "$(grep -c 'python3 -c' "$BIN/ft-seat-close.sh")" 1
+chk "r5 seat_facts 정의 1곳" "$(grep -c 'def seat_facts' "$BIN/ft_roster_lib.py")" 1
 
 echo "== ⓖ 600/300 s · 외부 호출 0 (r960 새 줄)"
 NEWL="$(grep 'r960\|pi_seat_resume\|PI_NOREC' "$BIN/ft-seat-retire.sh" "$BIN/ft-seat-close.sh" "$BIN/ft_roster_lib.py")"
