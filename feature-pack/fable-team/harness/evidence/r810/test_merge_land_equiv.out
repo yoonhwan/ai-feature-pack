@@ -1,0 +1,44 @@
+PASS bash -n equiv
+PASS ft-approval-equiv.sh ≤ 80줄
+PASS ft_approval_equiv.py ≤ 200줄(R281 rebase 경로 추가로 120 → 200)
+PASS 정적: equiv 쓰기·네트워크 동사 0(읽기 전용 · merge-tree·merge-base 만)
+PASS usage → rc2
+PASS 저장소 못 읽음 → ERROR rc3(통과 0)
+PASS ⓐ main 병합 1번 → EQUIV 착지
+PASS ⓐ 결속 기록에 approve=A head=S 둘 다
+PASS ⓐ PR 코멘트에 «동일승인 대조 EQUIV»
+PASS ⓑ main 병합 2번 → EQUIV 착지
+PASS ⓒ A 뒤 일반 커밋 → NOT-EQUIV · 착지 0
+PASS ⓓ 충돌 해소가 자기 변경을 바꿈 → 착지 0(줄 계약 게이트가 먼저 막음)
+PASS ⓓ 같은 입력을 equiv 에 직접 → NOT-EQUIV rc1
+PASS ⓓ 병합 커밋에 새 파일 끼워넣기 → NOT-EQUIV
+PASS ⓓ 같은 줄을 위치만 옮김(+/- 목록 같음) → NOT-EQUIV
+PASS ⓔ main 아닌 브랜치 병합 → NOT-EQUIV
+PASS ⓕ A 가 조상 아님 + 내용이 다름(force-push) → NOT-EQUIV  (R281: 내용 같은 rebase 는 ⓜ 에서 EQUIV)
+PASS ⓖ 같은 파일 다른 곳만 변경 → EQUIV 착지
+PASS ⓗ head==A → 대조 줄 0 · 착지 · approve=A
+PASS ⓙ git(--merges) 실패 주입 → ERROR · 착지 0
+PASS ⓙ git(merge-tree) 실패 주입 → ERROR · 착지 0
+PASS ⓙ 주입 뒤 정상 환경 → 같은 PR EQUIV 착지(주입이 원인)
+PASS ⓚ 게이트 뒤 main 전진(M1) → REJECT · 착지 0 · M1 새 파일 main 에 보존
+PASS ⓚ 최신화한 세트는 착지 · M1 보존
+PASS ⓛ 남은 시간 < 7 s → push 시작 0 · REJECT
+PASS ⓛ 총 마감 주입은 줄이기만(999 → 70 s 로 간주) · 정상 착지
+PASS ⓜ rebase 동일(손 편집 0) → EQUIV mode=rebase 착지
+PASS ⓜ 결속 기록에 equiv=rebase overlap=0
+PASS ⓜ PR 코멘트에 equiv=rebase
+PASS ⓜ main 이 같은 파일 다른 곳을 바꾼 rebase → EQUIV overlap=1(막지 않음)
+PASS ⓜ rebase 하며 한 줄(파일) 추가 → NOT-EQUIV · 착지 0
+PASS ⓜ 들여쓰기(공백)만 바꾼 rebase → NOT-EQUIV · 착지 0
+PASS ⓜ 파일 하나 빠진 rebase → NOT-EQUIV · 착지 0
+PASS ⓜ r560: 옛 main 위 rebase 도 기준 main = merge-base(S,main)=옛 main → EQUIV(옛 판 = 지금 main 요구라 NOT-EQUIV)
+PASS ⓜ r560: 옛 main 위 head 는 착지 게이트가 막는다(«현재 main 을 포함하지 않음») — 판정 완화가 착지 틈이 아니다
+PASS ⓜ 충돌을 손으로 푼 rebase → NOT-EQUIV rc1
+PASS ⓜ A 와 전혀 다른 변경을 가진 S(main 위) → NOT-EQUIV rc1
+PASS ⓜ A 객체가 로컬에 없음 → ERROR rc3(통과 0)
+PASS ⓘ 자율 ON · A 승인 파일 없음 → rc2
+PASS ⓘ S 만 승인(A 아님) → 여전히 rc2
+PASS ⓘ A 승인 파일 → EQUIV 착지
+PASS core.bare 오염 0
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

@@ -1,0 +1,28 @@
+PASS ⓑ 기본 사본에 bin·tests·feature-pack·design/harness(증거 txt) 있음
+FAIL ⓑ sparse 아님: design/harness/evidence/r1/a.wav design/harness/evidence/r1/a.txt design/harness/h.md design/teams/a/evidence/x/s.wav design/teams/a/big.md design/teams/b/c.md 
+PASS ⓑ sparse 사본 git status 깨끗
+PASS ⓑ 같은 sha·주인·규칙 = 재사용
+FAIL ⓑ --full rc=0 [/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.bIfSklgZ6r/scratch/repo-67989b0c-1792890992-64632][]
+FAIL ⓑ --with rc=0 [/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.bIfSklgZ6r/scratch/repo-e787eb31-1792890993-64845][]
+fatal: --worktree cannot be used with multiple working trees unless the config
+extension worktreeConfig is enabled. Please read "CONFIGURATION FILE"
+section in "git help worktree" for details
+FAIL ⓑ sparseCheckout=1 재사용됨 [/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.bIfSklgZ6r/scratch/repo-59b47a62-1792890993-64944][/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.bIfSklgZ6r/scratch/repo-59b47a62-1792890993-64944][]
+fatal: --worktree cannot be used with multiple working trees unless the config
+extension worktreeConfig is enabled. Please read "CONFIGURATION FILE"
+section in "git help worktree" for details
+FAIL ⓑ sparseCheckout=yes 재사용됨 [/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.bIfSklgZ6r/scratch/repo-59b47a62-1792890993-65038][/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.bIfSklgZ6r/scratch/repo-59b47a62-1792890993-65038][]
+PASS ⓩ 판정 끝난 같은 주인 사본(--judged rc0) = 새 사본 생성 때 지우기 0 · AUTO-DONE 줄 0
+PASS ⓖ' 다른 저장소(.fable-team 있음) 사본 = ROOT 등록부에 1줄
+PASS ⓖ' ROOT --done = rc0 · 사본 0 · 등록 줄 0
+PASS ⓩ' addfail = rc4 · 지운 것 0 · 등록 줄 0 · 그 자리 폴더 그대로
+FAIL ⓩ' cofail rc=0 등록 6→7 D=[/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.bIfSklgZ6r/scratch/repo-59b47a62-1792890994-66061] rm=[] []
+FAIL ⓡ rc=0 D=[/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.bIfSklgZ6r/scratch/repo-e787eb31-1792890994-66194] 등록 7→8
+FAIL ⓘ [][]
+FAIL ⓘ 못 읽음 줄 []
+PASS ⓘ 등록된 사본(ROOT · 옛 판이 적은 원 저장소 등록부)은 표에 없음
+PASS ⓘ --orphans 는 삭제 0
+FAIL ⓘ 반쯤 만든 폴더 안 보임 [/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.bIfSklgZ6r/scratch/repo-59b47a62-1792890994-66061]
+FAIL ⓘ 부분 읽기 [][]
+(11 failed)
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

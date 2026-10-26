@@ -1,0 +1,3 @@
+ft-head-sync.sh cmp=0
+ft_head_lag.py cmp=0
+     130 bin/ft-head-sync.sh

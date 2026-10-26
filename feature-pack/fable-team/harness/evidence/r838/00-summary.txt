@@ -1,0 +1,35 @@
+r838 — 자동 모델 교대: 계정 전체 한도 = 교대 0 · 보류 1통 / 좌석 교대 불가 = (계보 · 이유) 1통 / 머리 [HIL] 0 / 열기 실패 이유 남김
+나노: byz-harness-nano-r838-model-swap-account-outage-and-open-#0 · 팩 base origin/main f1cbd005 · 1.1.229
+
+바뀐 것
+- kit/fable-team/bin/ft_model_swap.py (짝 bin/ cmp0 · 200줄): run() 이 후보를 고르기 전 account() 판정
+  (가) state/api-outage/seats*.json 중 status=OUTAGE 의 since 최소 ∧ 그 뒤 정상(oks) 0 → HOLD · 교대 0 · 발신 0
+  (나) 최근 10분 안 역할 좌석 rate_limit 정지 ≥2 ∧ 그 첫 정지 뒤 정상 0 → HOLD · 교대 0 · «[자동 교대 보류] …» 장애당 1통
+       state outage_open(= 첫 정지 시각 · 정상 1 이 오거나 정지 후보 0 이면 0) · outage_notified(최근 20)
+  hil(): 키 = «계보(#N 뗌)|이유» · state blocked · 그 계보가 정지 후보에서 빠지면 삭제 · 머리 [자동 교대 불가] · 본문 «필요한 결정: …»
+- kit/fable-team/bin/ft-successor-open.sh (짝 bin/ cmp0): tmuxc open 출력 → mktemp · 실패 때 마지막 3줄(200자) «이유:» · token=/key=/secret=/password=·sk-·xox?-·ghp_ 꼴 가림 · 성공 때 버림
+- tests/scripts/test_model_swap_account_outage_r838.py(새 7) · test_model_swap.py(ⓖ 머리 · 줄 상한 180→200) · test_successor_open.sh(ⓕ-2 · tmuxc 스텁 TMUXC_ERR)
+
+카드 시험 입력 ↔ 시험
+ ⓐ test_a_account_limit_one_hold_note_no_swap_no_per_seat — 역할 3좌석 모델 3종 정지 → 보류 1통(받는 곳 _hil_route) · 같은 장애 새 uuid 2회차 0통 · 교대 0
+ ⓑ test_b_two_limited_but_normal_after_is_regular_swap — 정지 2 + 그 뒤 정상 → 지금 규칙(sonnet 으로 교대) · 기존 test_model_swap 그대로 PASS
+ ⓒ test_c_recovery_closes_then_new_outage_new_note · test_j3_api_outage_ok_state_is_regular_rule
+ ⓓ test_successor_open.sh ⓕ-2 — «REJECT tmuxc open 실패 (<좌석>) — 송신 0 · 이유: 줄2 token=*** 줄3 tmux: server exited unexpectedly» · 송신 0
+ ⓔ green-pytest.txt(43 passed · r838·model_swap·api_outage 3 파일) · green-successor_open.txt(ALL PASS 44 · ⓕ 는 grep 비교라 꼬리 허용 — 고쳐 쓸 칸 0)
+ ⓕⓘ mutations.txt — 6개 모두 rc=1(계정 한도 갈래 삭제→ⓐ · «정상 0» 삭제→ⓑ · 키 uuid→ⓖ · 머리 [HIL]→ⓖⓗ · 장애 중 발신 0 삭제→ⓙ · 출력 버리기 되살림→ⓓ)
+ ⓖ test_g_same_seat_no_fallback_one_note_per_block_key — 새 uuid 2회차 0통 · 풀림 뒤 다시 막힘 = 새 1통
+ ⓗ ⓐ·ⓖ 시험에서 [HIL] 머리 0 단언
+ ⓙ test_j_api_outage_on_sends_nothing — OUTAGE + 3좌석 정지 2회차 모두 발신 0 · 교대 0
+ 빨강(기준판): red-base-model_swap_r838.txt 4 failed(ⓐⓒⓖⓙ) 3 passed(ⓑ·j2·j3 = 회귀 칸) · red-base-successor_open.txt FAIL ⓕ-2
+
+카드와 다르게 정한 것(arch·DA 확인 요청)
+ 1. (가) 를 «OUTAGE 단독» 이 아니라 «OUTAGE ∧ 그 시작 뒤 정상 0» 으로 — ft_api_outage 는 모델 하나 한도(좌석 1개 rate_limit)에도 OUTAGE 를 켠다(오류 최근 10분 = 시작 · 끝 = 같은 모델 정상). 단독이면 r497 교대가 전부 막힌다. 시험 test_j2(OUTAGE + 다른 모델 정상 → 교대).
+ 2. (나) «최근 10분 정상 0» 을 «최근 10분 첫 정지 시각 뒤 정상 0» 으로 — 장애 직전(같은 10분 안) 정상 턴이 판정을 깨지 않게.
+ 3. 장애 지속 = outage_open 키가 정상 1 을 볼 때까지 유지(정지 좌석의 오류 시각은 10분 넘게 그대로라 «최근 10분» 만 보면 10분 뒤 다시 좌석별 쪽지가 나간다).
+ 4. 시험 파일 = 카드의 .sh 이름 대신 pytest(.py) — 기존 model_swap 시험 틀(Fx) 재사용. 열기 실패 시험은 기존 test_successor_open.sh 에 칸 추가.
+ 5. stdout HOLD 줄은 ft-tick 로그 grep(^(PLAN|HIL|BUSY)) 밖 — ft-tick 변경 0(범위 밖). 필요하면 별 카드.
+
+남은 위험(DA 질문 그대로)
+ - 좌석 하나 한도인데 계정 한도로 보는 길: 역할 2좌석이 같은 모델(fable)에 동시에 걸리고 다른 claude 좌석이 10분 넘게 다 놀면(정상 0) 계정 한도로 본다 → 교대 0 · 보류 1통 · 모델이 풀리면 ft_api_outage 재개.
+ - api-outage 상태 파일 손상 = json 오류 raise → ERROR · 교대 0(fail-closed · 다음 틱 재시도).
+ - press 필요: 없음(오디오 경로 무관).

@@ -1,0 +1,12 @@
+test_index_move_install_harness_repo rc=0 ::  ALL PASS
+test_index_move_landed_repo rc=0 ::  ALL PASS
+test_live_install_check rc=0 ::  REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+test_live_install_check_shim rc=0 ::  ALL PASS
+test_live_install_check_bin_row_shim rc=0 ::  ALL PASS
+test_live_install_check_tip rc=0 ::  ALL PASS
+test_live_install_check_plist_env rc=0 ::  ALL PASS
+test_iap_tunnels rc=0 ::  ALL PASS
+test_install_launchd_render rc=0 ::  REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+test_plist_workdir_exist_r544 rc=0 ::  ALL PASS
+test_team_scaffold_empty_template rc=1 :: FAIL ⓐ VERSION 만 → dry-run REJECT + 후보 2 경로 rc1 :: rc=1 out=REJECT 틀 파일 0: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.9gAeY2s5XB/live/bin/../templates/team (후보: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.9gAeY2s5XB/live/bin/../templates/team · <하네스 루트 못 풂>) fail=1
+※ test_team_scaffold_empty_template rc=1 = 원래 있던 실패 — 팩 origin/main 66340101 사본에서 같은 ⓐ FAIL(이 가지 변경과 무관)

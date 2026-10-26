@@ -1,0 +1,83 @@
+# ⓕ 기존 시험 — 기준판(pack f1cbd005 git archive 사본) vs 새 판(이 가지) · 요약 줄
+== base
+base-out-py: 92 passed in 102.94s (0:01:42)
+base-out-py: rc=0
+base-out-test_ledger_repo_sync: ALL PASS
+base-out-test_ledger_repo_sync: rc=0
+base-out-test_merge_gate: FAIL 정적: gate·lines·lib 에 reset·rebase·force·push 호출 0 :: rc=2 out=usage: <scratch>/base/feature-pack/fable-team/harness/tests/../../harness/bin/ft-merge-gate.s
+base-out-test_merge_gate: FAILED 1
+base-out-test_merge_gate: rc=1
+base-x-test_kit_bin_sync: ALL PASS
+base-x-test_kit_bin_sync: rc=0
+base-x-test_kit_exec_modes: FAIL ft-merge-land.sh 의 기본 쓰기 도구 이름을 읽음()
+base-x-test_kit_exec_modes: FAIL scripts/fable-team-bin/ 모드 100755
+base-x-test_kit_exec_modes: FAIL scripts/harness-install/fable-team/bin/ 모드 100755
+base-x-test_kit_exec_modes: FAIL plist 에서 직접 실행 도구를 1개 이상 찾음(0)
+base-x-test_kit_exec_modes: FAILED 4
+base-x-test_kit_exec_modes: rc=1
+base-x-test_news_html: 39 passed in 21.90s
+base-x-test_news_html: rc=0
+== new
+new-py: 99 passed in 93.68s (0:01:33)
+new-py: rc=0
+new-test_ledger_repo_sync: ALL PASS
+new-test_ledger_repo_sync: rc=0
+new-test_merge_gate: FAIL 정적: gate·lines·lib 에 reset·rebase·force·push 호출 0 :: rc=2 out=usage: <wt>/feature-pack/fable-team/harness/tests/../../harness/bin/ft-merge-gate.sh <sha> [--base-head-file <경로>] [--repo <dir>] [-
+new-test_merge_gate: FAILED 1
+new-test_merge_gate: rc=1
+new-x-test_kit_bin_sync: ALL PASS
+new-x-test_kit_bin_sync: rc=0
+new-x-test_kit_exec_modes: FAIL ft-merge-land.sh 의 기본 쓰기 도구 이름을 읽음()
+new-x-test_kit_exec_modes: FAIL scripts/fable-team-bin/ 모드 100755
+new-x-test_kit_exec_modes: FAIL scripts/harness-install/fable-team/bin/ 모드 100755
+new-x-test_kit_exec_modes: FAIL plist 에서 직접 실행 도구를 1개 이상 찾음(0)
+new-x-test_kit_exec_modes: FAILED 4
+new-x-test_kit_exec_modes: rc=1
+new-x-test_news_html: 39 passed in 23.36s
+new-x-test_news_html: rc=0
+# 파이썬 묶음 = test_news_fetch_cap · test_r809_news_default_repo_fetch · test_news_direct_api · test_ft_news_ledger · test_ft_news_html (+새 판 test_r706_news_fetch_stamp 7 = 92+7=99)
+# merge_gate FAIL 1 · kit_exec_modes FAIL 4 = 기준판과 같은 줄(이 카드 무관)
+
+== r2 (DA r1 HOLD 반송 뒤 · 같은 묶음 재실행)
+r2-py: 99 passed in 81.90s (0:01:21)
+r2-py: rc=0
+r2-test_ledger_repo_sync: ALL PASS
+r2-test_ledger_repo_sync: rc=0
+r2-test_merge_gate: FAIL 정적: gate·lines·lib 에 reset·rebase·force·push 호출 0 :: rc=2 out=usage: <wt>/feature-pack/fable-team/harness/tests/../../harness/bin/ft-merge-gate.sh <sha> [--base-head-file <경로>] [--repo <dir>] [--
+r2-test_merge_gate: FAILED 1
+r2-test_merge_gate: rc=1
+r2-test_news_html: 39 passed in 24.90s
+r2-test_news_html: rc=0
+
+== r3 (DA r2 HOLD → 재설계 «실패 구간당 1통» 뒤 같은 묶음 재실행 · ft_news_html.py 변경 0)
+r3-py: 99 passed in 120.99s (0:02:00)
+r3-py: rc=0
+r3-test_ledger_repo_sync: ALL PASS
+r3-test_ledger_repo_sync: rc=0
+r3-test_merge_gate: FAIL 정적: gate·lines·lib 에 reset·rebase·force·push 호출 0 :: rc=2 out=usage: <wt>/feature-pack/fable-team/harness/tests/../../harness/bin/ft-merge-gate.sh <sha> [--base-head-file <경로>] [--repo <dir>] [--
+r3-test_merge_gate: FAILED 1
+r3-test_merge_gate: rc=1
+r3-test_news_html: 39 passed in 23.66s
+r3-test_news_html: rc=0
+
+== r4 (DA r3 HOLD → 재설계 «원자 쓰기 + 실패 = 지도 0» 뒤 같은 묶음 · test_ft_news_html r503 칸 · test_r809 ⓑ·ⓖ② 이유 문구 개정)
+r4-py: 99 passed in 90.95s (0:01:30)
+r4-py: rc=0
+r4-test_ledger_repo_sync: ALL PASS
+r4-test_ledger_repo_sync: rc=0
+r4-test_merge_gate: FAIL 정적: gate·lines·lib 에 reset·rebase·force·push 호출 0 :: rc=2 out=usage: <wt>/feature-pack/fable-team/harness/tests/../../harness/bin/ft-merge-gate.sh <sha> [--base-head-file <경로>] [--repo <dir>] [--
+r4-test_merge_gate: FAILED 1
+r4-test_merge_gate: rc=1
+r4-test_news_html: 39 passed in 30.49s
+r4-test_news_html: rc=0
+
+== r5 (DA r4 HOLD → retry_attach 1줄을 받기 실패 분기 뒤로 · 기존 시험 개정 0)
+r5-py: 99 passed in 60.37s (0:01:00)
+r5-py: rc=0
+r5-test_ledger_repo_sync: ALL PASS
+r5-test_ledger_repo_sync: rc=0
+r5-test_merge_gate: FAIL 정적: gate·lines·lib 에 reset·rebase·force·push 호출 0 :: rc=2 out=usage: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r847-news-ledger-fetch-lsremote-30s/feature-pack/fable-team/harness/tests/.
+r5-test_merge_gate: FAILED 1
+r5-test_merge_gate: rc=1
+r5-test_news_html: 39 passed in 20.17s
+r5-test_news_html: rc=0

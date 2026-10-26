@@ -141,8 +141,17 @@ _apply_env_override() {
   print "$want_hr $want_cp"
 }
 
-_headroom_up() { curl -sf -m1 "$HEADROOM_URL/health" >/dev/null 2>&1; }
-_cliproxy_up() { curl -sf -m2 "$CLIPROXY_URL/v1/models" >/dev/null 2>&1; }
+# ── 살아 있음 탐침 — 7초 룰(전역 하드 룰 12): 시도당 7초 + 재시도 1 · 총 16초 안.
+# 부하가 높으면 살아 있는 프록시도 2초를 넘긴다 — 짧은 상한은 «죽었다» 오판 → claude 미기동(r829).
+_probe_up() {
+  local attempt
+  for attempt in 1 2; do
+    curl -sf -m7 "$1" >/dev/null 2>&1 && return 0
+  done
+  return 1
+}
+_headroom_up() { _probe_up "$HEADROOM_URL/health"; }
+_cliproxy_up() { _probe_up "$CLIPROXY_URL/v1/models"; }
 
 # ── 요청 모델이 cliproxy 카탈로그에 있는지 (없으면 경고만, 차단 안 함)
 _warn_unknown_model() {

@@ -1,0 +1,74 @@
+# 리허설: 실 명부·nano-card-base «사본»(scratchpad) 에 계획→실행→verify→되살림 (실 명부 쓰기 0)
+PLAN-OUT /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r899-team-move-cleanup-stale-paths/571e4bd5-e6c3-4a8d-ac17-5def42fc8a8b/scratchpad/reh-113901/plan/plan.sh 실행 대상 2316 · 보고만 472 · LIVE-OK=12 LIVE-FIX=0 LIVE-HAND=11 ARCHIVE=2302 KEEP-FIX=14 KEEP-LINEAGE=16 CODE-RUN=14 CODE-NOTE=391 CODE-RECORD=21 CODE-FIXTURE=0 CODE-FIXTURE-UNLISTED=7
+rc=0
+# r899 팀 이동 뒷정리 계획 20261025T114107 · LIVE-OK=12 LIVE-FIX=0 LIVE-HAND=11 ARCHIVE=2302 KEEP-FIX=14 KEEP-LINEAGE=16 CODE-RUN=14 CODE-NOTE=391 CODE-RECORD=21 CODE-FIXTURE=0 CODE-FIXTURE-UNLISTED=7
+# 실행 = master/오빠 · 보관(지우기 0) · 실행 시점에 tmux 세션 재확인(살아 있으면 건너뜀) · 행이 바뀌었으면 건너뜀
+run rc=0
+CLEANUP-RUN ARCHIVED=2302 REWROTE=14 SKIPPED=0 archive=<사본>
+verify-after rc=1
+VERIFY ERR=46 WARN=877
+# 남은 ERR 묶음(사본 기준)
+  18 v65 코드
+  11 v65 명부
+   3 knowledge 명부
+   2 room 명부
+   2 room nano-card-base
+   2 harness 코드
+   1 planner 명부
+   1 planner nano-card-base
+   1 ops 코드
+   1 lecture 명부
+   1 feature 명부
+   1 feature map-lint:
+   1 chatbot 명부
+   1 chatbot nano-card-base
+# 남은 ERR 전부
+ERR harness 코드 옛 경로 design/harness/ : tests/fixtures/issue_close/closed-partial-two-sha.json:1 (CODE-FIXTURE-UNLISTED)
+ERR harness 코드 옛 경로 design/harness/ : tests/fixtures/issue_close/closed-with-6items-canon.json:1 (CODE-FIXTURE-UNLISTED)
+ERR planner 명부 byz-planner-nano-r-ops-arch-balancing-research#0 index 실재 안 함: design/teams/planner/indices/진행/R-ops-arch-balancing-research.md (기준 planner-main)
+ERR planner nano-card-base byz-planner-nano-r-ops-arch-balancing-research#0.json card_path 실재 안 함: design/teams/planner/indices/진행/R-ops-arch-balancing-research.md
+ERR ops 코드 옛 경로 design/ops/ : .claude/skills/byz-keys/scripts/keys_usage.py:59 (CODE-RUN)
+ERR feature map-lint: ERR errs=1 warns=258
+ERR feature 명부 byz-feature-master-claude#47 index 실재 안 함: design/teams/feature/indices/inbox/master/ (기준 feature-lead)
+ERR v65 명부 ft-v65-mr-track#0 index 실재 안 함: design/v65/indices/대기/M3-mr-lst-v65-wiring-plan.md (기준 v65-master-main)
+ERR v65 명부 CFO_SEC_AUTH#1 index 실재 안 함: design/cfo/indices/진행/admin-routes-unauth.md (기준 c-level-planning)
+ERR v65 명부 CFO_OPS_GUIDE#1 index 실재 안 함: design/cfo/indices/진행/ops-console.md (기준 c-level-planning)
+ERR v65 명부 CFO_F_ARCH#14 index 실재 안 함: design/cfo/indices/진행/credit-durability.md (기준 c-level-planning)
+ERR v65 명부 CFO_LOOM_DEPLOY#0 index 실재 안 함: design/cfo/orders/ORDER-166-loom-deploy-lane-fork-20261001.md (기준 loom-suwon-ye-dental)
+ERR v65 명부 CFO_SA_ARCH#1 index 실재 안 함: design/cfo/HANDOFF-CFO_SA_ARCH0-20261002.md (기준 c-level-planning)
+ERR v65 명부 FB_ARCHDOC-DA#1 index 실재 안 함: design/arch-canon/GOAL-arch-canon-track-20261001.md (기준 arch-canon)
+ERR v65 명부 CFO_OPS_ARCH#14 index 실재 안 함: design/cfo/orders/ORDER-succession-CFO_OPS_ARCH-14-20261002.md (기준 c-level-planning)
+ERR v65 명부 CFO_F_NANO#46 index 실재 안 함: design/cfo/orders/ORDER-succession-CFO_F_NANO-46-pr3b-size-split-20261003.md (기준 ops-sa-repair-pr3b)
+ERR v65 명부 FB_ARCHDOC#11 index 실재 안 함: design/arch-canon/GOAL-arch-canon-track-20261001.md (기준 arch-canon)
+ERR v65 명부 FB_CFO#52 index 실재 안 함: design/cfo/orders/ORDER-succession-FB_CFO-52-20261003.md (기준 c-level-planning)
+ERR v65 코드 옛 경로 design/v65/ : clients/web/__tests__/fixtures/main-6c22cefe01/v65-owner-source-join.ts:2 (CODE-FIXTURE-UNLISTED)
+ERR v65 코드 옛 경로 design/v65/ : scripts/debug/m6_gpu0_live_contrast.py:43 (CODE-RUN)
+ERR v65 코드 옛 경로 design/v65/ : scripts/git-hooks/v65-goal-commit-msg.sh:33 (CODE-RUN)
+ERR v65 코드 옛 경로 design/v65/ : scripts/git-hooks/v65-goal-commit-msg.sh:34 (CODE-RUN)
+ERR v65 코드 옛 경로 design/v65/ : scripts/git-hooks/v65-goal-commit-msg.sh:35 (CODE-RUN)
+ERR v65 코드 옛 경로 design/v65/ : scripts/vad_offline/autovad_sim_fixtures.py:35 (CODE-RUN)
+ERR v65 코드 옛 경로 design/v65/ : scripts/vad_offline/live_snr_gap.py:26 (CODE-RUN)
+ERR v65 코드 옛 경로 design/v65/ : scripts/vad_offline/rejudge_table.py:80 (CODE-RUN)
+ERR v65 코드 옛 경로 design/v65/ : scripts/vad_offline/shape_rarity_table.py:32 (CODE-RUN)
+ERR v65 코드 옛 경로 design/v65/ : scripts/vad_offline/spectrum_band_fixture.py:23 (CODE-RUN)
+ERR v65 코드 옛 경로 design/v65/ : scripts/vad_offline/spectrum_v14_browser.py:8 (CODE-RUN)
+ERR v65 코드 옛 경로 design/v65/ : scripts/vad_offline/spectrum_v14_input.py:39 (CODE-RUN)
+ERR v65 코드 옛 경로 design/v65/ : scripts/vad_offline/water_v15_browser.py:10 (CODE-RUN)
+ERR v65 코드 옛 경로 design/v65/ : scripts/vad_offline/water_v17_product.py:84 (CODE-RUN)
+ERR v65 코드 옛 경로 design/v65/ : tests/fixtures/issue_close/closed-partial-two-sha.json:1 (CODE-FIXTURE-UNLISTED)
+ERR v65 코드 옛 경로 design/v65/ : tests/fixtures/issue_close/closed-with-5items.json:1 (CODE-FIXTURE-UNLISTED)
+ERR v65 코드 옛 경로 design/v65/ : tests/fixtures/issue_close/closed-with-6items-canon.json:1 (CODE-FIXTURE-UNLISTED)
+ERR v65 코드 옛 경로 design/v65/ : tests/fixtures/issue_close/closed-with-6items-no-impact.json:1 (CODE-FIXTURE-UNLISTED)
+ERR knowledge 명부 byz-loom-tester-claude#0 index 실재 안 함: design/teams/loom/indices/inbox/tester/ (기준 knowledge-lead)
+ERR knowledge 명부 byz-loom-da-codex#0 index 실재 안 함: design/teams/loom/GOAL-loom.md (기준 loom-main)
+ERR knowledge 명부 byz-knowledge-master-claude#58 index 실재 안 함: design/teams/knowledge/indices/inbox/master/ (기준 knowledge-lead)
+ERR lecture 명부 byz-lecture-nano-l55-mle-host-reset-expire-recording-rele#0 index 실재 안 함: design/teams/lecture/indices/진행/L55-mle-host-reset-expire-recording-release.md (기준 reh-113901)
+ERR room 명부 byz-room-nano-r-room-guest-restore-after-grace-rejoins#0 index 실재 안 함: design/teams/room/indices/진행/R-room-guest-restore-after-grace-rejoins.md (기준 reh-113901)
+ERR room 명부 byz-room-nano-r-room-guest-leave-button-sends-leave#0 index 실재 안 함: design/teams/room/indices/진행/R-room-guest-leave-button-sends-leave.md (기준 reh-113901)
+ERR room nano-card-base byz-room-nano-r-room-guest-leave-button-sends-leave#0.json card_path 실재 안 함: design/teams/room/indices/진행/R-room-guest-leave-button-sends-leave.md
+ERR room nano-card-base byz-room-nano-r-room-guest-restore-after-grace-rejoins#0.json card_path 실재 안 함: design/teams/room/indices/진행/R-room-guest-restore-after-grace-rejoins.md
+ERR chatbot 명부 byz-chatbot-nano-c-brain-k12-wire-plan-provider#0 index 실재 안 함: design/teams/chatbot/indices/진행/C-brain-k12-wire-plan-provider.md (기준 chatbot-lead)
+ERR chatbot nano-card-base byz-chatbot-nano-c-brain-k12-wire-plan-provider#0.json card_path 실재 안 함: design/teams/chatbot/indices/진행/C-brain-k12-wire-plan-provider.md
+CLEANUP-RESTORE RESTORED=2316 SKIPPED=0
+restore rc=0
+되살림 뒤 사본 vs 실 원본 대조 끝

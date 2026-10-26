@@ -264,7 +264,9 @@ def cmd_plan(ctx: Ctx, arg: str) -> int:
 
 
 def cmd_verify(ctx: Ctx, arg: str) -> int:
-    err = warn = 0
+    import ft_team_move_classify as cl
+    err = warn = allowed = 0
+    allow, cache = cl.allow_list(ctx.root), {}
     env = {"FT_REPO_ROOT": str(ctx.root)}
     for team in pick(ctx, arg):
         rel = ctx.rows[team]
@@ -282,11 +284,17 @@ def cmd_verify(ctx: Ctx, arg: str) -> int:
         if m.returncode != 0:
             print(f"ERR {team} map-lint: {last}")
             err += 1
-        err += check_stores(ctx, team)
-        crefs = code_refs(ctx, team)   # r587: 코드·시험 안 옛 경로 = ERR(기록은 셈 밖)
-        for path, no in crefs:
-            print(f"ERR {team} 코드 옛 경로 design/{team}/ : {path}:{no}")
-        err += len(crefs)
+        err += check_stores(ctx, team, Path(str(folder).rsplit("/design/", 1)[0]))
+        for path, no in code_refs(ctx, team):   # r587 → r899: 실행 글자 = ERR · 주석·독스트링 = WARN · 허용 목록(사유) 픽스처 = 셈 밖
+            cls, why = cl.code_class(ctx.root, path, no, allow, cache, team)
+            if cls in ("CODE-RUN", "CODE-FIXTURE-UNLISTED"):
+                print(f"ERR {team} 코드 옛 경로 design/{team}/ : {path}:{no} ({cls})")
+                err += 1
+            elif cls in ("CODE-NOTE", "CODE-RECORD"):
+                print(f"WARN {team} {'기록' if cls == 'CODE-RECORD' else '주석'} 옛 경로 design/{team}/ : {path}:{no}")
+                warn += 1
+            else:
+                allowed += 1
         left = [p for p in folder.rglob("*") if p.is_file() and hits(p, team)
                 and not (p.is_relative_to(ctx.root) and is_record(str(p.relative_to(ctx.root)), team))]
         for p in left:
@@ -301,13 +309,18 @@ def cmd_verify(ctx: Ctx, arg: str) -> int:
     if up.returncode != 0:
         print(f"ERR 팀 집합: {up.stdout.strip()}")
         err += 1
+    if allowed:
+        print(f"INFO 허용 목록(TEAM-MOVE-ALLOW.tsv · 사유 있음) 픽스처 옛 경로 {allowed}곳 셈 밖")
     print(f"VERIFY ERR={err} WARN={warn}")
     return 1 if err else 0
 
 
-def check_stores(ctx: Ctx, team: str) -> int:
+def check_stores(ctx: Ctx, team: str, team_repo: Path | None = None) -> int:
+    """명부 index · nano-card-base card_path 실재 — r899: 행 worktree 만이 아니라 카드 워크트리(_cards_wt)·팀 루트 리포·프로젝트 루트 중 한 곳에 있으면 실재."""
+    from ft_team_move_classify import bases_for
     err = 0
     ros = ctx.roster(team)
+    data: dict = {}
     if ros.is_file():
         try:
             data = json.loads(ros.read_text(encoding="utf-8"))
@@ -318,7 +331,7 @@ def check_stores(ctx: Ctx, team: str) -> int:
             if seat.startswith("_") or not isinstance(row, dict) or not str(row.get("index", "")).startswith("design/"):
                 continue
             base = store_base(ctx, data, row)
-            if not (base / row["index"]).exists() and not (row.get("_move_pending") and (base / row["index"]).exists()):
+            if not any((b / row["index"]).exists() for b in bases_for(ctx, data, row, team_repo, store_base)):
                 print(f"ERR {team} 명부 {seat} index 실재 안 함: {row['index']} (기준 {base.name})")
                 err += 1
     cb = ctx.project / ".fable-team" / "state" / "nano-card-base"
@@ -328,17 +341,51 @@ def check_stores(ctx: Ctx, team: str) -> int:
         except ValueError:
             continue
         cp = str(row.get("card_path", ""))
-        if (cp.startswith(f"design/teams/{team}/") or cp.startswith(f"design/{team}/")) and not (Path(row.get("worktree") or ctx.project) / cp).exists():
+        bases = [Path(row.get("worktree") or ctx.project), *bases_for(ctx, data, row, team_repo, store_base)]
+        if (cp.startswith(f"design/teams/{team}/") or cp.startswith(f"design/{team}/")) and not any((b / cp).exists() for b in bases):
             print(f"ERR {team} nano-card-base {p.name} card_path 실재 안 함: {cp}")
             err += 1
     return err
 
 
+CLEANUP = ("--classify", "--cleanup-plan", "--cleanup-run", "--cleanup-restore")
+
+
+def cleanup_main(argv: list[str]) -> int:
+    """r899 뒷정리 — 분류(읽기) · 계획(쓰기 0) · 실행(plan.sh 경유) · 되살리기. 몸통은 ft_team_move_cleanup.py."""
+    import ft_team_move_cleanup as cu
+    try:   # cu 는 ft_team_move 를 모듈로 다시 읽는다 — 그쪽 MoveError(다른 클래스 객체)를 여기서 받는다
+        return cleanup_cmd(cu, argv)
+    except cu.tm.MoveError as e:
+        print(str(e) if str(e).startswith(("ERROR", "REJECT")) else f"ERROR {e}")
+        return 1
+
+
+def cleanup_cmd(cu, argv: list[str]) -> int:
+    opt = dict(zip(argv[2::2], argv[3::2]))
+    if argv[0] == "--classify":
+        return cu.cmd_classify(make_ctx(), argv[1])
+    if argv[0] == "--cleanup-plan":
+        if "--out" not in opt:
+            print("usage: ft-team-move.sh --cleanup-plan (<팀>|--all) --out <폴더>", file=sys.stderr)
+            return 2
+        return cu.cmd_plan(make_ctx(), argv[1], Path(opt["--out"]))
+    if argv[0] == "--cleanup-run":
+        if "--plan-sha" not in opt:
+            print("REJECT --cleanup-run 은 plan.sh 가 --plan-sha 와 함께 부른다")
+            return 1
+        return cu.cmd_run(make_ctx(), Path(argv[1]), opt["--plan-sha"])
+    return cu.cmd_restore(make_ctx(), Path(argv[1]))
+
+
 def main(argv: list[str]) -> int:
-    if len(argv) < 2 or argv[0] not in ("--plan", "--verify", "--apply", "--revert"):
-        print("usage: ft-team-move.sh (--plan|--apply|--verify) (<팀>|--all) [--sync-worktrees] | --revert <스냅샷.json>", file=sys.stderr)
+    if len(argv) < 2 or argv[0] not in ("--plan", "--verify", "--apply", "--revert", *CLEANUP):
+        print("usage: ft-team-move.sh (--plan|--apply|--verify|--classify) (<팀>|--all) [--sync-worktrees] | --revert <스냅샷.json>"
+              " | --cleanup-plan (<팀>|--all) --out <폴더> | --cleanup-run <plan.json> --plan-sha <sha> | --cleanup-restore <archive.json>", file=sys.stderr)
         return 2
     try:
+        if argv[0] in CLEANUP:
+            return cleanup_main(argv)
         if argv[0] in ("--apply", "--revert"):
             import ft_team_move_apply as ap
             return ap.main(argv, make_ctx())

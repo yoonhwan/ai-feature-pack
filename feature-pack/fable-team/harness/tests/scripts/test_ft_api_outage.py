@@ -377,3 +377,14 @@ def test_tick_survives_outage_tool_failure_with_one_error_line(tmp_path):  # 2 �
     assert len(errs) == 1, r.stderr
     assert "no active seat" in r.stdout  # 틱의 나머지(pass 끝)까지 계속 돌았다
 
+
+
+def test_r838_summary_or_meta_record_is_not_recovery(tmp_path):  # r838 r3 ① ⓡ8' — 정상 턴 = is_normal 하나 · 요약·메타 = 장애 끝·재개 0
+    for flag, model in (("isCompactSummary", None), ("isMeta", "claude-sonnet-5-5")):
+        (tmp_path / flag).mkdir()
+        fx = _outage_fx(tmp_path / flag)
+        fx.run(T0)
+        msg = {"content": [{"type": "text", "text": "요약"}], **({"model": model} if model else {})}
+        fx.add("t-c#1", [{"type": "assistant", "uuid": "c-x", "timestamp": _iso(T0 + 300), flag: True, "message": msg}])
+        assert fx.run(T0 + 330).returncode == 0
+        assert not any(b.startswith("[API 장애 끝") for b in fx.to(PLANNER)) and fx.to("t-a#1") == [] and fx.to("t-b#1") == [], flag

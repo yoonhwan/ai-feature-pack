@@ -1,0 +1,23 @@
+R882 — ft-head-sync 동시 폭주 제거 (Issue #3230 · master#108 #162149 · arch 138)
+기준값: 동시 14개 · 최장 30분 45초 (master 실측 02:5x)
+
+바뀐 것
+- bin/ft-head-sync.sh (+kit 짝 사본 cmp=0 · 130줄 ≤130):
+  ⓐ --apply(--all 없음) = 워크트리 목록(메타)만 읽고 cwd 워크트리 1줄만 스캔·병합 — 남의 워크트리 git 호출 0
+  ⓑ 전수 표 = --table(인자 없음과 같음) · --table --apply = usage rc2
+  ⓒ 동시 1개 잠금 = 심링크 «pid lstart» · 전수(표·--all) = 공용 git 폴더 · 1곳 = 그 워크트리 git 폴더
+     살아 있는 주인 → «이미 실행 중 pid N · 시작 HH:MM» 1줄 rc0 · pid 없음/시작시각 다름 = 고아 회수 · EXIT(INT·TERM 포함)에 자기 잠금만 해제
+- bin/ft_head_lag.py (+kit cmp=0): ⓓ 조치문 실행 지시 0 — «앉은 좌석이 스스로 merge --no-edit <main sha> · 팩 작업 폴더 무관»
+
+시험 (01-red-base.txt = 수정 전 빨강 12 FAIL · ⓐ 남의 워크트리 git 호출 50회)
+- 03-regression-summary.txt · t-*.txt 원문
+- test_head_lag ⓐ «착지 성공» 1 FAIL = 수정 전 판도 같은 FAIL(base-test_head_lag.txt · remote URL 픽스처 · ft-merge-land 쪽) — 범위 밖
+- ⓕ 변이: 잠금 줄 제거 → 겹친 3개가 표 3개 · cwd 한정 줄 제거 → 남의 워크트리 git 호출 50 (test_head_sync_lock_r882 안)
+
+기존 시험 갱신(새 요구와 정면 충돌한 단언만)
+- apply_scope ⓑ «B·C = 다른 워크트리 — 그 자리에서» → «B·C 줄 0» · ⓖ «--apply (그 워크트리만» → «스스로 받는다» · 변이 sed 대상 줄 → «R882 cwd 한정»
+- head_lag ⓑ 'ft-head-sync.sh --apply' → 'merge --no-edit'
+- r836 ⓓ 기준판(origin/main) 글자 대조에서 «~조치:» 꼬리 제외(그 줄만 R882 가 바꿈)
+
+범위 밖: 쌓인 14개 프로세스 정리(kill = 오빠 [HIL]) · head-lag 경보 주기(r774) · ft_team_move_apply.sync_worktrees 가 루트에서 --apply(r749 관찰 그대로)
+press 필요: 없음

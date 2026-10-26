@@ -1,0 +1,22 @@
+r846 r5 — 보드 갱신의 명부 읽기 1곳 안전 읽기 (REWORK-r846-r5.md · DA⑥ r4 HOLD 반례 seats-planner.json = 1,500겹 중첩 배열)
+
+변경 (kit/slack-mirror/mirror_share.py live_planner · 89행 근처 1곳)
+- json.loads 예외: ValueError → (ValueError · RecursionError · MemoryError)
+- 잡으면 ERROR 1줄 «ERROR: 명부 못 읽음 · <파일 이름> · <예외 이름>» (stderr) + (None, 사유) 반환 · 조용한 대체 0
+- 사유: ValueError = «JSON 오류» 그대로(기존 시험 ④ 사유 정확 일치 유지) · RecursionError/MemoryError = «JSON 오류 <예외 이름>»
+- 호출 쪽(byz_mbox_slack_mirror.py:75 보드 갱신 · mirror_lib decision_line) 변경 0 — 예외 전파 0 → 보드에 «확인 불가(JSON 오류 RecursionError)» 표시 · 카드 게시 그대로
+- 나머지 명부 JSON 읽는 곳 = 별 카드 r854 (이 카드 범위 밖)
+
+시험 (tests/scripts/test_mirror_question_cap_r846.py · 새 2칸)
+- test_r5_da_r4_counterexample_… : 정상 명부 src#1(seats-fixture.json) + seats-planner.json 1,500겹 중첩 + from src#1 [HIL] → rc0 · Traceback 0 · 카드 1(#822) · ERROR «seats-planner.json · RecursionError» · 보드 «확인 불가(JSON 오류 RecursionError)» · 질문 0 + WARN «명부 못 읽음»(r4 규칙: seats*.json 하나라도 못 읽으면 질문 0)
+- test_r5_live_planner_reports_recursion_error_with_error_log : live_planner 직접 → (None, «JSON 오류 RecursionError») + ERROR 1줄
+
+결과
+- red-r4code.txt: r4 코드(15850e0d) 위 새 2칸 2 failed (RecursionError 전파 · 미러 rc1)
+- green.txt: 29 passed rc=0
+- mut-widen-reverted.txt: 예외 넓힘 되돌림(except ValueError) → 새 2칸 2 failed · 복원 확인
+- regress.txt: 슬랙·미러·매거진 요약·제안 게시 14파일 247 passed 1 skipped rc=0 (큐 고장 본체 r1~r4 칸 포함)
+- ruff.txt: All checks passed
+- counterexample-stderr.txt: 반례 1회 실행 stderr — ERROR 2줄(카드의 결정 자리 줄 1 · 보드 1 = live_planner 호출마다 1줄) · WARN 1
+편차 1: 설계 «ERROR 로그 1줄» → 한 패스에 명부 읽기 호출이 2번(카드 결정 자리 줄 · 보드)이라 2줄. 호출마다 보이게 남김(중복 억제 상태를 새로 만들지 않음 — 범위 1곳 유지). 시험 단정 = ≥1.
+- press 필요: 없음(슬랙 라우터 · 오디오 무관)

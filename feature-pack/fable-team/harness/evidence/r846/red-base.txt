@@ -1,0 +1,261 @@
+FFFFFFFFF....FFFFFF                                                      [100%]
+=================================== FAILURES ===================================
+________ test_a_tool_alarms_open_no_question_so_oppa_post_is_not_stuck _________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-566/test_a_tool_alarms_open_no_que0')
+
+    def test_a_tool_alarms_open_no_question_so_oppa_post_is_not_stuck(tmp_path: Path):
+        qp = tmp_path / "byz_slack_questions.C1.json"
+>       assert not any(ask(qp, 100 + i, "ft-model-swap", f"[HIL] 자동 교대 불가 좌석{i}") for i in range(50))
+E       assert not True
+E        +  where True = any(<generator object test_a_tool_alarms_open_no_question_so_oppa_post_is_not_stuck.<locals>.<genexpr> at 0x107e1f740>)
+
+tests/scripts/test_mirror_question_cap_r846.py:40: AssertionError
+_________ test_a_tool_hil_row_still_posts_its_card_without_a_question __________
+
+env = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-566/test_a_tool_hil_row_still_post0')
+slack = <_slack_fakes.FakeSlack object at 0x107e64090>
+
+    def test_a_tool_hil_row_still_posts_its_card_without_a_question(env: Path, slack: FakeSlack):
+        start(env, slack)
+        with open(env / "mailbox.log.jsonl", "a", encoding="utf-8") as f:
+            f.write(json.dumps({"seq": 2, "ts": "t", "to": TO, "from": "ft-model-swap", "body": "[HIL] #820 자동 교대 불가 — 어느 쪽?\n1) a\n2) b"}, ensure_ascii=False) + "\n")
+        assert run(env, slack).returncode == 0
+        assert "자동 교대 불가" in slack.replies(slack.roots[0])[0]["text"]
+>       assert json.loads((env / "st" / "byz_slack_questions.C1.json").read_text(encoding="utf-8"))["open"] == {}
+E       AssertionError: assert {'2': {'asked...l-swap', ...}} == {}
+E         
+E         Left contains 1 more item:
+E         {'2': {'asked_at': 1792817324,
+E                'key': '#820',
+E                'options': ['a', 'b'],
+E                'seat': 'ft-model-swap',
+E                'state': 'open',...
+E         
+E         ...Full output truncated (3 lines hidden), use '-vv' to show
+
+tests/scripts/test_mirror_question_cap_r846.py:52: AssertionError
+__ test_b_only_seat_names_with_a_lineage_number_open_questions[ft-model-swap] __
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-566/test_b_only_seat_names_with_a_0')
+seat = 'ft-model-swap'
+
+    @pytest.mark.parametrize("seat", ["ft-model-swap", "", "slack-oppa", "ft-hil", "byz-cfo-master-claude", "a#", "#3"])
+    def test_b_only_seat_names_with_a_lineage_number_open_questions(tmp_path: Path, seat: str):
+        qp = tmp_path / "q.json"
+>       assert not ask(qp, 1, seat) and mq.load(qp)["open"] == {}
+E       AssertionError: assert (not True)
+E        +  where True = ask(PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-566/test_b_only_seat_names_with_a_0/q.json'), 1, 'ft-model-swap')
+
+tests/scripts/test_mirror_question_cap_r846.py:58: AssertionError
+________ test_b_only_seat_names_with_a_lineage_number_open_questions[] _________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-566/test_b_only_seat_names_with_a_1')
+seat = ''
+
+    @pytest.mark.parametrize("seat", ["ft-model-swap", "", "slack-oppa", "ft-hil", "byz-cfo-master-claude", "a#", "#3"])
+    def test_b_only_seat_names_with_a_lineage_number_open_questions(tmp_path: Path, seat: str):
+        qp = tmp_path / "q.json"
+>       assert not ask(qp, 1, seat) and mq.load(qp)["open"] == {}
+E       AssertionError: assert (not True)
+E        +  where True = ask(PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-566/test_b_only_seat_names_with_a_1/q.json'), 1, '')
+
+tests/scripts/test_mirror_question_cap_r846.py:58: AssertionError
+___ test_b_only_seat_names_with_a_lineage_number_open_questions[slack-oppa] ____
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-566/test_b_only_seat_names_with_a_2')
+seat = 'slack-oppa'
+
+    @pytest.mark.parametrize("seat", ["ft-model-swap", "", "slack-oppa", "ft-hil", "byz-cfo-master-claude", "a#", "#3"])
+    def test_b_only_seat_names_with_a_lineage_number_open_questions(tmp_path: Path, seat: str):
+        qp = tmp_path / "q.json"
+>       assert not ask(qp, 1, seat) and mq.load(qp)["open"] == {}
+E       AssertionError: assert (not True)
+E        +  where True = ask(PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-566/test_b_only_seat_names_with_a_2/q.json'), 1, 'slack-oppa')
+
+tests/scripts/test_mirror_question_cap_r846.py:58: AssertionError
+_____ test_b_only_seat_names_with_a_lineage_number_open_questions[ft-hil] ______
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-566/test_b_only_seat_names_with_a_3')
+seat = 'ft-hil'
+
+    @pytest.mark.parametrize("seat", ["ft-model-swap", "", "slack-oppa", "ft-hil", "byz-cfo-master-claude", "a#", "#3"])
+    def test_b_only_seat_names_with_a_lineage_number_open_questions(tmp_path: Path, seat: str):
+        qp = tmp_path / "q.json"
+>       assert not ask(qp, 1, seat) and mq.load(qp)["open"] == {}
+E       AssertionError: assert (not True)
+E        +  where True = ask(PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-566/test_b_only_seat_names_with_a_3/q.json'), 1, 'ft-hil')
+
+tests/scripts/test_mirror_question_cap_r846.py:58: AssertionError
+_ test_b_only_seat_names_with_a_lineage_number_open_questions[byz-cfo-master-claude] _
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-566/test_b_only_seat_names_with_a_4')
+seat = 'byz-cfo-master-claude'
+
+    @pytest.mark.parametrize("seat", ["ft-model-swap", "", "slack-oppa", "ft-hil", "byz-cfo-master-claude", "a#", "#3"])
+    def test_b_only_seat_names_with_a_lineage_number_open_questions(tmp_path: Path, seat: str):
+        qp = tmp_path / "q.json"
+>       assert not ask(qp, 1, seat) and mq.load(qp)["open"] == {}
+E       AssertionError: assert (not True)
+E        +  where True = ask(PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-566/test_b_only_seat_names_with_a_4/q.json'), 1, 'byz-cfo-master-claude')
+
+tests/scripts/test_mirror_question_cap_r846.py:58: AssertionError
+_______ test_b_only_seat_names_with_a_lineage_number_open_questions[a#] ________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-566/test_b_only_seat_names_with_a_5')
+seat = 'a#'
+
+    @pytest.mark.parametrize("seat", ["ft-model-swap", "", "slack-oppa", "ft-hil", "byz-cfo-master-claude", "a#", "#3"])
+    def test_b_only_seat_names_with_a_lineage_number_open_questions(tmp_path: Path, seat: str):
+        qp = tmp_path / "q.json"
+>       assert not ask(qp, 1, seat) and mq.load(qp)["open"] == {}
+E       AssertionError: assert (not True)
+E        +  where True = ask(PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-566/test_b_only_seat_names_with_a_5/q.json'), 1, 'a#')
+
+tests/scripts/test_mirror_question_cap_r846.py:58: AssertionError
+_______ test_b_only_seat_names_with_a_lineage_number_open_questions[#3] ________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-566/test_b_only_seat_names_with_a_6')
+seat = '#3'
+
+    @pytest.mark.parametrize("seat", ["ft-model-swap", "", "slack-oppa", "ft-hil", "byz-cfo-master-claude", "a#", "#3"])
+    def test_b_only_seat_names_with_a_lineage_number_open_questions(tmp_path: Path, seat: str):
+        qp = tmp_path / "q.json"
+>       assert not ask(qp, 1, seat) and mq.load(qp)["open"] == {}
+E       AssertionError: assert (not True)
+E        +  where True = ask(PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-566/test_b_only_seat_names_with_a_6/q.json'), 1, '#3')
+
+tests/scripts/test_mirror_question_cap_r846.py:58: AssertionError
+_______ test_c_same_seat_same_thread_new_question_supersedes_the_old_one _______
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-566/test_c_same_seat_same_thread_n0')
+
+    def test_c_same_seat_same_thread_new_question_supersedes_the_old_one(tmp_path: Path):
+        qp = tmp_path / "byz_slack_questions.C1.json"
+        assert ask(qp, 10, S1, "첫 질문") and ask(qp, 11, S1, "둘째 질문")
+        data = mq.load(qp)
+>       assert list(data["open"]) == ["11"] and data["resolved"]["10"]["why"] == "superseded"
+E       AssertionError: assert (['10', '11'] == ['11']
+E         
+E         At index 0 diff: '10' != '11'
+E         Left contains one more item: '11'
+E         Use -v to get more diff)
+
+tests/scripts/test_mirror_question_cap_r846.py:70: AssertionError
+_ test_c_delivered_question_is_superseded_too_but_other_threads_and_seats_stay _
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-566/test_c_delivered_question_is_s0')
+
+    def test_c_delivered_question_is_superseded_too_but_other_threads_and_seats_stay(tmp_path: Path):
+        qp = tmp_path / "q.json"
+        ask(qp, 10, S1)
+        mq.set_delivered(qp, 10, "1.0", 50)
+        ask(qp, 12, S1, thread="other.1")
+        ask(qp, 13, S2)
+        ask(qp, 14, S1)
+>       assert sorted(mq.load(qp)["open"]) == ["12", "13", "14"]
+E       AssertionError: assert ['10', '12', '13', '14'] == ['12', '13', '14']
+E         
+E         At index 0 diff: '10' != '12'
+E         Left contains one more item: '14'
+E         Use -v to get more diff
+
+tests/scripts/test_mirror_question_cap_r846.py:85: AssertionError
+_____ test_c_an_older_seq_arriving_late_does_not_close_the_newer_question ______
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-566/test_c_an_older_seq_arriving_l0')
+
+    def test_c_an_older_seq_arriving_late_does_not_close_the_newer_question(tmp_path: Path):
+        qp = tmp_path / "q.json"
+        ask(qp, 20, S1, "새 질문")
+>       assert not ask(qp, 19, S1, "옛 질문")
+E       AssertionError: assert not True
+E        +  where True = ask(PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-566/test_c_an_older_seq_arriving_l0/q.json'), 19, 'byz-cfo-master-claude#112', '옛 질문')
+
+tests/scripts/test_mirror_question_cap_r846.py:91: AssertionError
+____________ test_d_several_seats_planner_body_lists_open_questions ____________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-566/test_d_several_seats_planner_b0')
+
+    def test_d_several_seats_planner_body_lists_open_questions(tmp_path: Path):
+        qp = tmp_path / "byz_slack_questions.C1.json"
+        ask(qp, 30, S1, "결제 라이브 전환을 지금 할까요?\n세부 설명")
+        ask(qp, 31, S2, "x" * 80)
+        p = plan(tmp_path, "그냥 진행해")
+        assert p["recips"] == ["@planner"] and p["q"] is None
+        lines = p["text"].splitlines()
+        assert "질문이 2개라 좌석을 정하지 못했어요" in lines[0] and "그냥 진행해" in p["text"]
+>       assert f"Q30 · {S1} · 결제 라이브 전환을 지금 할까요?" in lines and f"Q31 · {S2} · {'x' * 60}" in lines
+E       AssertionError: assert ('Q30 · byz-cfo-master-claude#112 · 결제 라이브 전환을 지금 할까요?' in ['오빠(Slack) 글인데 질문이 2개라 좌석을 정하지 못했어요 — 원문:', '그냥 진행해'])
+
+tests/scripts/test_mirror_question_cap_r846.py:104: AssertionError
+_____________________ test_d_list_is_capped_at_five_lines ______________________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-566/test_d_list_is_capped_at_five_0')
+
+    def test_d_list_is_capped_at_five_lines(tmp_path: Path):
+        qp = tmp_path / "byz_slack_questions.C1.json"
+        for i in range(7):
+            ask(qp, 40 + i, f"byz-t{i}-master-claude#1")
+        text = plan(tmp_path, "아무거나")["text"]
+>       assert sum(ln.startswith("Q4") for ln in text.splitlines()) == 5 and "외 2개" in text
+E       assert (0 == 5)
+E        +  where 0 = sum(<generator object test_d_list_is_capped_at_five_lines.<locals>.<genexpr> at 0x107eb6340>)
+
+tests/scripts/test_mirror_question_cap_r846.py:112: AssertionError
+____________ test_e_single_numbered_team_and_fixed_modes_unchanged _____________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-566/test_e_single_numbered_team_an0')
+
+    def test_e_single_numbered_team_and_fixed_modes_unchanged(tmp_path: Path):
+        qp = tmp_path / "byz_slack_questions.C1.json"
+        ask(qp, 50, S1)
+        assert plan(tmp_path, "1번")["recips"] == [S1, "@planner"]
+        ask(qp, 51, S2)
+        p = plan(tmp_path, "Q51 그걸로")
+        assert p["recips"] == [S2, "@planner"] and p["q"] == 51
+        (tmp_path / "byz_slack_threads.C1.json").write_text(json.dumps({"team:cfo": "900.1"}), encoding="utf-8")
+>       assert plan(tmp_path, "팀 글", thread="900.1")["recips"] == ["@planner"]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/scripts/test_mirror_question_cap_r846.py:123: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/scripts/test_mirror_question_cap_r846.py:33: in plan
+    return mirror_plan.plan(a, "tok", tmp / "byz_slack_questions.C1.json", {"text": text, "thread_ts": thread})
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+kit/slack-mirror/mirror_plan.py:35: in plan
+    p = _plan(a, token, qpath, m)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^
+kit/slack-mirror/mirror_plan.py:70: in _plan
+    seat = ib.inferred_seat(lib.paged(a.api_base, token, "conversations.replies", {"channel": a.channel, "ts": thread, "limit": 200}))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+thread_msgs = <list_iterator object at 0x107e56cb0>
+
+    def inferred_seat(thread_msgs: list[dict[str, object]]) -> str | None:
+        """열린 질문이 없을 때만 쓰는 추정 — 스레드 루트와 «같은 봇» 이 올린 글의 꼬리 줄(= 3째 줄)만 믿는다."""
+        if not thread_msgs:
+            return None
+>       trusted = thread_msgs[0].get("bot_id")
+                  ^^^^^^^^^^^^^^
+E       TypeError: 'list_iterator' object is not subscriptable
+
+kit/slack-mirror/mirror_inbound.py:61: TypeError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_mirror_question_cap_r846.py::test_a_tool_alarms_open_no_question_so_oppa_post_is_not_stuck
+FAILED tests/scripts/test_mirror_question_cap_r846.py::test_a_tool_hil_row_still_posts_its_card_without_a_question
+FAILED tests/scripts/test_mirror_question_cap_r846.py::test_b_only_seat_names_with_a_lineage_number_open_questions[ft-model-swap]
+FAILED tests/scripts/test_mirror_question_cap_r846.py::test_b_only_seat_names_with_a_lineage_number_open_questions[]
+FAILED tests/scripts/test_mirror_question_cap_r846.py::test_b_only_seat_names_with_a_lineage_number_open_questions[slack-oppa]
+FAILED tests/scripts/test_mirror_question_cap_r846.py::test_b_only_seat_names_with_a_lineage_number_open_questions[ft-hil]
+FAILED tests/scripts/test_mirror_question_cap_r846.py::test_b_only_seat_names_with_a_lineage_number_open_questions[byz-cfo-master-claude]
+FAILED tests/scripts/test_mirror_question_cap_r846.py::test_b_only_seat_names_with_a_lineage_number_open_questions[a#]
+FAILED tests/scripts/test_mirror_question_cap_r846.py::test_b_only_seat_names_with_a_lineage_number_open_questions[#3]
+FAILED tests/scripts/test_mirror_question_cap_r846.py::test_c_same_seat_same_thread_new_question_supersedes_the_old_one
+FAILED tests/scripts/test_mirror_question_cap_r846.py::test_c_delivered_question_is_superseded_too_but_other_threads_and_seats_stay
+FAILED tests/scripts/test_mirror_question_cap_r846.py::test_c_an_older_seq_arriving_late_does_not_close_the_newer_question
+FAILED tests/scripts/test_mirror_question_cap_r846.py::test_d_several_seats_planner_body_lists_open_questions
+FAILED tests/scripts/test_mirror_question_cap_r846.py::test_d_list_is_capped_at_five_lines
+FAILED tests/scripts/test_mirror_question_cap_r846.py::test_e_single_numbered_team_and_fixed_modes_unchanged
+15 failed, 4 passed in 2.00s

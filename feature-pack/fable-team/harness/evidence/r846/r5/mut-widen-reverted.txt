@@ -1,0 +1,7 @@
+## 변이: except (ValueError, RecursionError, MemoryError) → except ValueError
+91:    except ValueError as e:  # r846 r5: 깊은 중첩·거대 명부도 «못 읽음» — 보이게(ERROR) 사유로 돌려준다
+FAILED tests/scripts/test_mirror_question_cap_r846.py::test_r5_da_r4_counterexample_deeply_nested_planner_roster_marks_board_and_card_still_posts
+FAILED tests/scripts/test_mirror_question_cap_r846.py::test_r5_live_planner_reports_recursion_error_with_error_log
+2 failed, 27 deselected in 1.12s
+restore: 작업본 = r5 고침 (diff vs HEAD 있음 · 정상)
+1

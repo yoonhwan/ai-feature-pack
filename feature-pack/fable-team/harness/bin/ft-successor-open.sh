@@ -26,6 +26,9 @@ if [ -f "$HERE/ft-spawn-hold.sh" ]; then
   _hold="$(bash "$HERE/ft-spawn-hold.sh" status 2>&1)" || echo "WARN spawn 정지 중이나 승계는 막지 않는다 — $_hold" >&2
 fi
 # ★자원 게이트 (Res-1014)★: 디스크·스왑·메모리·에이전트 수가 한계를 넘으면 열지 않는다(부작용 전). 우회 플래그 없음 — 조정은 env 문턱만.
+# ★W3(DA⑥ r1)★ 회수 호출은 «7초 상한» — 넘으면 `WARN 회수 시간 초과 — 진행` 1줄 남기고 그대로 간다.
+[ -f "$HERE/ft-reclaim-capped.sh" ] || { echo "REJECT ft-reclaim-capped.sh 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
+. "$HERE/ft-reclaim-capped.sh"
 [ -f "$HERE/ft-resource-gate.sh" ] || { echo "REJECT ft-resource-gate.sh 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
 # R213 DA⑥ H3(r2): agents 면제(--succession)는 «실제 1석 교대» 일 때만 — ①NAME == OLD 계보 베이스#(N+1) ②OLD 가 팀 명부(seats*.json)의 역할 키(_master·_arch 등 `_` 시작 키) 값 ③OLD tmux 세션 생존. 하나라도 아니면 일반 새 좌석 문턱.
 _rgroot="${FT_RES_ROOT:-$(. "$HERE/ft-harness-root.sh" && ft_repo_root "$HERE" 2>/dev/null)}"; _rgsucc=""   # r385b: 옛 설치 꼴 · cwd 리포 공용 루트
@@ -43,12 +46,20 @@ _asr="${FT_ROOT:-$(. "$HERE/ft-harness-root.sh" && ft_repo_root "$HERE" 2>/dev/n
 _agout="$(python3 "$HERE/ft_teamset.py" arch-live --root "$_rgroot" --md "${FT_TEAMSET_MD:-gitref:origin/main:design/TEAMSET.md}" --seat "$OLD" 2>&1)"; _agrc=$?
 [ "$_agrc" = 0 ] || { [ "$_agrc" = 3 ] && echo "REJECT 그 팀 arch 좌석 없음 — 먼저 arch 를 열어라(아래 «→ 열기» 명령 · R437) · $_agout" || echo "REJECT arch 판정 실패(rc=$_agrc) · $_agout"; exit 1; }
 _rgout="$(bash "$HERE/ft-resource-gate.sh" check $_rgsucc 2>&1)"; _rgrc=$?
-# R198(판정 1767): 에이전트 수로 막혔을 때만 — 기존 표준승인 범위 안의 유휴·완료 좌석을 자동 정리한 뒤 문지기 재검(FT_RECLAIM=0 으로 끔)
-if [ "$_rgrc" != 0 ] && [ "${FT_RECLAIM:-1}" != 0 ] && [ -f "$HERE/ft-resource-reclaim.sh" ]; then
-  _rgout="$(bash "$HERE/ft-resource-reclaim.sh" --on-reject "$_rgout" --gate "$HERE/ft-resource-gate.sh" 2>&1)"; _rgrc=$?
-  [ "$_rgrc" = 0 ] && printf '%s\n' "$_rgout" >&2
+# ★r921★ 넘으면(WARN) «회수 1회 → 다시 재고 → 그래도 넘으면 WARN 1줄 + 진행» — 멈추는 것은 REJECT(디스크 하드 하한·디스크 측정 실패)뿐(오빠 2026-10-25).
+# R198(판정 1767): 좌석을 닫아 풀릴 수 있는 축(agents·swap·memfree·level·rate)일 때만 회수를 부른다(FT_RECLAIM=0 으로 끔)
+_WARN_AXES="$(printf '%s\n' "$_rgout" | sed -n 's/^WARN resource //p' | tr ';' '\n')"   # W3: «;» 로 이은 모든 항목을 본다
+if [ "$_rgrc" = 0 ] && [ -n "$_WARN_AXES" ] && printf '%s\n' "$_WARN_AXES" | grep -Eq '(agents|swap|memfree|level)=[0-9]|rate=-?[0-9]'; then
+  if [ "${FT_RECLAIM:-1}" != 0 ] && [ -f "$HERE/ft-resource-reclaim.sh" ]; then
+    _rl_out="$(mktemp "${TMPDIR:-/tmp}/ft-r921-reclaim.XXXXXX")"
+    ft_reclaim_capped "$_rl_out" bash "$HERE/ft-resource-reclaim.sh" --on-reject "$_rgout" --gate "$HERE/ft-resource-gate.sh"; _rlrc=$?
+    sed -n '1,40p' "$_rl_out" >&2; rm -f "$_rl_out"
+    [ "$_rlrc" != 124 ] || echo "WARN 회수 시간 초과(${FT_RECLAIM_TIMEOUT_SEC:-7}초) — 진행" >&2
+    _rgout="$(bash "$HERE/ft-resource-gate.sh" check $_rgsucc 2>&1)"; _rgrc=$?
+  fi
 fi
-[ "$_rgrc" != 0 ] && { printf '%s\n' "$_rgout"; exit "$_rgrc"; }
+[ "$_rgrc" = 0 ] || { printf '%s\n' "$_rgout"; exit "$_rgrc"; }
+printf '%s\n' "$_rgout" | grep '^WARN ' >&2 || true
 SEND="${FT_SEND_VERIFIED:-$HERE/ft-send-verified.sh}"; REACH="${FT_REACH_CHECK:-$HERE/ft-reach-check.sh}"
 WAIT_MAX="${FT_SO_WAIT_MAX:-60}"; POLL="${FT_SO_POLL:-1}"
 # 형제 도구 2개(env 로 바뀐 «최종 경로» 기준)는 설치 폴더에만 있다 — 원본 폴더에서 돌리면 좌석을 연 «뒤» 송신에서 죽는다. 열기 «전»에 거절한다(R134).
@@ -93,25 +104,34 @@ hil() { echo "[HIL] 후계 $NAME 도달 미확인 — 구 좌석 닫기 0 (구=$
 [ "$(sed -n '1,3p' "$BODY" | grep -c '[^[:space:]]')" = 3 ] || { echo "REJECT 본문 첫 3줄(골 원문)이 비었다: $BODY"; exit 1; }
 # ⓐ' (r414) desk·planner 승계 본문의 슬랙 뿌리 ts 손 복사 = 열지 않는다 — 보고 스레드 뿌리는 등록부(slack-threads.json)가 소유
 case "$NAME" in *-desk-*|*-planner-*) grep -qE -- '--ts [0-9]{10}\.[0-9]{6}' "$BODY" && { echo "REJECT 본문에 슬랙 ts 손 복사(--ts …) — 방 글 = post --to <이름> · 오빠 글 답 = reply --to-slack <ts>"; exit 1; };; esac
-# ⓐ'' (r660) desk 승계 본문 — ① 첫 10줄에 planner 안내서 27줄 원문 구절 없으면 열지 않는다 ② 팀 직발 예시(send·relay 뒤 byz-<planner 아닌 팀>-… · 따옴표 유무 무관) 있으면 열지 않는다(부작용 전 · 지침 = GUIDE-planner.md:27 «desk 는 인터뷰·응대·요청 정리만 … master 에 1통»).
+# ⓐ'' (r660) desk 승계 본문 — ① 첫 10줄에 planner 안내서 desk 구절(r826: 줄 번호 아님 · 안내서 전체에서 정확히 1줄) 원문 없으면 열지 않는다 ② 팀 직발 예시(send·relay 뒤 byz-<planner 아닌 팀>-… · 따옴표 유무 무관) 있으면 열지 않는다(부작용 전 · 지침 = GUIDE-planner.md:27 «desk 는 인터뷰·응대·요청 정리만 … master 에 1통»).
 #   원문은 «origin/main» 에서 읽는다(못 읽으면 REJECT · fail-closed) · 판정기 하나 = python 인라인 · planner·다른 역할 승계는 이 문 밖.
 if [ "${NAME#*-desk-}" != "$NAME" ]; then
-  _gref="${FT_GUIDE_REF:-origin/main}"; _gline="${FT_GUIDE_LINE:-27}"; _gpath="${FT_GUIDE_PATH:-}"
+  _gref="${FT_GUIDE_REF:-origin/main}"; _gpath="${FT_GUIDE_PATH:-}"
+  # r826: 줄 번호 고정(27) 폐지 — 안내서 앞에 줄이 더해지면 엉뚱한 줄을 읽었다(PR 2793 뒤 30줄 · desk 53번 REJECT). 안내서 전체에서 구절 줄을 찾는다.
+  [ -n "${FT_GUIDE_LINE:-}" ] && echo "WARN FT_GUIDE_LINE=$FT_GUIDE_LINE 더 쓰지 않음 — 안내서 전체에서 구절을 찾는다(r826)"
   # r688: planner 폴더 = 명단(<ref>:design/TEAMS.md)의 planner 칸(ft_team_cands_ref 첫 후보) — 팀 폴더 글자 0 · 못 풀면 아래 «못 읽었다» REJECT 로 닫힌다(fail-closed)
   if [ -z "$_gpath" ]; then _gdir="$(. "$HERE/ft-team-lib.sh" && ft_team_cands_ref "$WT" planner "$_gref")" && _gdir="${_gdir%%$'\n'*}" && _gpath="${_gdir#"$WT"/}/GUIDE-planner.md"; fi
-  _gd="$([ -n "$_gpath" ] && git -C "$WT" show "$_gref:$_gpath" 2>/dev/null | sed -n "${_gline}p")"
-  [ -n "${_gd//[[:space:]]/}" ] || { echo "REJECT desk 승계 본문 검사 — $_gref:$_gpath ${_gline}줄을 읽지 못했다(못 읽으면 열지 않는다 · fail-closed)"; exit 1; }
-  _gchk="$(python3 - "$BODY" "$_gd" "$_gline" <<'PYGUIDE'
+  _gd="$([ -n "$_gpath" ] && git -C "$WT" show "$_gref:$_gpath" 2>/dev/null)"
+  [ -n "${_gd//[[:space:]]/}" ] || { echo "REJECT desk 승계 본문 검사 — $_gref:$_gpath 안내서 줄을 읽지 못했다(못 읽으면 열지 않는다 · fail-closed)"; exit 1; }
+  _gchk="$(python3 - "$BODY" "$_gd" <<'PYGUIDE'
 import re, sys
-body, guide, ln = sys.argv[1], sys.argv[2], sys.argv[3]
+body, guide = sys.argv[1], sys.argv[2]
 lines = open(body, encoding="utf-8").read().splitlines()
-m = re.search(r"desk 는 .*?1통\)", guide)
-if not m:
-    print("REJECT GUIDE %s줄 모양이 바뀌었다 — 「desk 는 … 1통)」 구절을 못 찾음(사람이 확인해야 한다)" % ln); sys.exit(3)
+# r826 r3: 마크다운 해석 0 — «고르기» 대신 «세기». 안내서 «모든» 줄에서 desk 구절(N통) 줄을 센다(인용·울타리·들여쓰기·주석 구분 0)
+#   정확히 1줄 + 그 줄이 맨 앞 «- **desk 좌석» 일 때만 쓴다 · 예시·옛 사본이 하나라도 있으면 사람이 정리할 상태(DA r1·r2 반례)
+hits = [(i, m) for i, g in enumerate(guide.splitlines(), 1) for m in [re.search(r"desk 는 .*?\d+통\)", g)] if m]
+if not hits:
+    print("REJECT GUIDE 에서 「desk 는 … N통)」 구절을 못 찾음(사람이 확인해야 한다)"); sys.exit(3)
+if len(hits) > 1:
+    print("REJECT GUIDE 에 「desk 는 … N통)」 구절이 여러 줄(%s줄) — 예시·옛 문구를 지우거나 고쳐 한 줄만 남겨라(사람이 확인해야 한다)" % ",".join(str(i) for i, _ in hits)); sys.exit(3)
+ln, m = hits[0]
+if not guide.splitlines()[ln - 1].startswith("- **desk 좌석"):
+    print("REJECT GUIDE %s줄 정본 줄 모양 바뀜 — 줄 맨 앞이 «- **desk 좌석» 이 아니다(사람이 확인해야 한다)" % ln); sys.exit(3)
 core = " ".join(m.group(0).split())
 if core not in " ".join(" ".join(lines[:10]).split()):
     print("REJECT desk 승계 본문 첫 10줄에 planner 안내서 %s줄 원문 구절이 없다 — 이 줄을 그대로 옮겨 적어라: 「%s」" % (ln, core)); sys.exit(3)
-bad = sorted({x.group(1) for x in re.finditer(r"(?:send|relay)\s+['\"`]?((?:byz|ft)-([a-z0-9]+)-[A-Za-z0-9._#-]*)", "\n".join(lines)) if x.group(2) != "planner"})
+bad = sorted({x.group(1) for x in re.finditer(r"(?:send|relay)\s+['\"\x60]?((?:byz|ft)-([a-z0-9]+)-[A-Za-z0-9._#-]*)", "\n".join(lines)) if x.group(2) != "planner"})
 if bad:
     print("REJECT desk 승계 본문에 팀 직발 예시가 있다(%s) — desk 는 planner 에게만 보낸다: 그 줄을 지우고 planner 주소로 바꿔라" % ", ".join(bad)); sys.exit(3)
 sys.exit(0)
@@ -144,7 +164,14 @@ if [ "$RESUMED" = 0 ]; then
 OPEN=(tmuxc open "$WT" --name "$NAME" --agent "$AGENT" --model "$MODEL")
 [ "$AGENT" = claude ] && [ -n "$CTX" ] && OPEN+=(--ctx "$CTX")
 case "$AGENT" in claude|cmd|codex|pi) [ -n "$EFFORT" ] && OPEN+=(--effort "$EFFORT");; esac
-"${OPEN[@]}" >/dev/null 2>&1 || { echo "REJECT tmuxc open 실패 ($NAME) — 송신 0"; exit 1; }
+# r838: 실패 이유를 버리지 않는다 — 출력 마지막 3줄(200자 · 토큰꼴 가림)을 REJECT 줄 끝에 · 성공 때 출력은 버림(그대로)
+OPEN_OUT="$(mktemp "${TMPDIR:-/tmp}/ft-so-open.XXXXXX")" || { echo "REJECT tmuxc open 출력 임시 파일 실패 ($NAME) — 송신 0"; exit 1; }
+if ! "${OPEN[@]}" > "$OPEN_OUT" 2>&1; then
+  # r838 r3 ③ 가림 = 줄 단위(값 꼴에 기대지 않음): 토큰꼴 낱말(sk-·ghp_·github_pat_·xox?-·AKIA·eyJ) → *** · 민감 낱말 뒤 첫 =·:·공백부터 «줄 끝까지» *** · 가린 «뒤» 200자
+  WHY="$(tail -n 3 "$OPEN_OUT" | perl -pe 's/\b(?:sk-|ghp_|github_pat_|xox[abprs]-|AKIA|eyJ)[\w.-]*/***/g; s/((?:authorization|bearer|basic|token|secret|key|passw(?:or)?d|cookie|credential)[^=:\s]*[=:\s]).*/$1***/i' | tr '\n' ' ')"
+  rm -f "$OPEN_OUT"; echo "REJECT tmuxc open 실패 ($NAME) — 송신 0 · 이유: ${WHY:0:200}"; exit 1
+fi
+rm -f "$OPEN_OUT"
 tmux has-session -t "=$NAME" 2>/dev/null || { echo "REJECT 세션이 안 떴다: $NAME — 송신 0"; exit 1; }
 fi
 
@@ -153,6 +180,17 @@ PID="$(tmux list-panes -t "=$NAME" -F '#{pane_pid}' 2>/dev/null | head -1)"
 up=0; i=0
 while [ "$i" -lt "$WAIT_MAX" ]; do i=$((i+1)); pgrep -P "$PID" >/dev/null 2>&1 && { up=1; break; }; sleep "$POLL"; done
 [ "$up" = 1 ] || { echo "REJECT $NAME 에서 에이전트 프로세스 기동 미확인(pgrep ${WAIT_MAX}회) — 송신 0"; hil "새 pane 을 사람이 확인"; exit 1; }
+
+# ⓒ-1 이어가기 모드의 미제출 부팅 문장 (r925 r3) — 재실행으로 이어갈 때 tmuxc 가 넣은 부팅 문장이 입력줄에 남아 있어
+#   jsonl 이 안 생긴다(ops #56→#57 3회 정지). 판정은 tmuxc 한 곳(`tmuxc boot-enter`)이 한다 — 근거 = 그 좌석 세션 env 의
+#   발급 --session-id(기록 «한 파일» · 전수 판독 0) + 넣은 전문(완전 일치만 Enter 1회 · 접두·색 판정 0 · 하드 룰 10·17).
+#   rc0 = 제출 확인 → 송신으로 잇는다 · 그 밖(입력줄 판독 불가 · 다른 글자 · 기록 없음 · 근거 없음) = HIL exit 5.
+#   claude 만 — 다른 에이전트 이어가기는 종전 그대로(Enter 0).
+if [ "$RESUMED" = 1 ] && [ "$AGENT" = claude ]; then
+  BE_OUT="$(tmuxc boot-enter "$NAME" 2>&1)"; BE_RC=$?
+  [ -n "$BE_OUT" ] && printf '%s\n' "$BE_OUT"
+  [ "$BE_RC" = 0 ] || { hil "이어가기 부팅 문장 판정 rc=$BE_RC — $(printf '%s' "$BE_OUT" | tail -n 1)"; exit 5; }
+fi
 
 # ⓒ-2 새 좌석 jsonl 의 SessionStart — 실측 꼴(SessionStart 뒤 16초 Enter 미제출)을 줄이려 기다린다. 못 봐도 «미관측» 을 드러내고 송신(도달 판정은 아래 send-verified 몫).
 CWD="$(tmux display-message -p -t "=$NAME:" '#{pane_current_path}' 2>/dev/null)"   # r622: «=이름:» — «=이름» 은 창 대상에서 빈 값(새 좌석 jsonl 폴더가 엉뚱해진다)

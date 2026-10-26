@@ -1,0 +1,52 @@
+R836 — ft_head_lag 재발송 막기 기록 키 = 워크트리 하나(main sha 무관)
+시험: bash feature-pack/fable-team/harness/tests/test_head_lag_remind_per_wt_r836.sh
+
+red-base.txt   기준판(origin/main 4b3a6a9e ft_head_lag.py · R836_PY) rc=1 · FAIL 10 (ⓐ3 ⓑ2 ⓒ2 ⓔ3 · ⓓⓕ 통과)
+green.txt      새 판 rc=0 · ALL PASS (ⓐ~ⓕ + 줄 수 ≤150 + 짝 사본 cmp0)
+mut1-key-msha.txt          키에 msha 되살림(rec = st.get(f"{real}@{msha}")) → ⓐ FAIL (rc=1 · FAIL 9)
+mut2-no-catchup-delete.txt 따라잡음 때 기록 삭제 빼기(in live → or True) → ⓒ FAIL (rc=1 · FAIL 2)
+mut3-no-oldkey-merge.txt   옛 키 합치기 빼기(re.sub → k) → ⓔ FAIL (rc=1 · FAIL 3)
+existing-test_head_lag.txt       새 판 기존 시험 rc=1 · FAIL 1 = ⓐ 착지 성공(ft-merge-land «remote URL 해석 실패» — 로컬 픽스처 origin)
+existing-base-test_head_lag.txt  기준판 기존 시험 rc=1 · 같은 FAIL 1 → 이 카드 이전부터 있던 실패(R836 무관 · 범위 밖)
+
+기존 시험 수정 1곳(test_head_lag.sh ⓔ): 옛 단언 «새 main sha → 다시 1» 이 R836 이 없애는 동작 그 자체 →
+  «새 main sha → 이미 알린 워크트리 재발송 0(R836)» + 기록 삭제 뒤 «기록 없음 → 다시 1 · 문턱» 으로 바꿈(문턱 시험 유지).
+주석 1줄(ft-head-lag.sh 6행 «같은 main sha 는 워크트리당 1회») → 새 동작으로 갱신(짝 사본 cmp0). 알림 문구·뒤처짐 계산 변경 0.
+정적: py_compile 0 · bash -n 0 · ruff E,F,W(E501 제외) 0 · ft_head_lag.py 150줄(상한 150).
+
+DA 볼 곳(카드 §완료 조건 질문):
+- 영영 안 나가는 길: n ≥ 2(첫 알림 + 6시간 뒤 1회) 뒤엔 따라잡기 전까지 재알림 0 — 카드 «n 규칙 그대로» 의도. 다른 팀 좌석이 뒤에 앉아도 같은 워크트리면 알림 0.
+- 새 사건 놓침: 기록 삭제 = «이번 회차 뒤처짐 목록(stale)에 없음». rev-list 실패·skip 브랜치·브랜치 없음도 목록 밖 → 기록 삭제 → 다음 회차 재발송(놓침 아닌 과발송 쪽).
+- 옛 상태 파일: 키 끝 `@<40~64 hex>` 만 떼어 합침 · ts 오름차순 정렬로 마지막 = 최근 ts(seq·ts) · n = 최대. 레코드에 ts·n 없으면 KeyError(옛 판도 rec["n"] 에서 같음).
+- --summary 는 상태 파일 읽기·쓰기 0(그대로).
+press 필요: 없음.
+
+── r2 (외부 DA r1 HOLD 반송 · design/harness/evidence/r836-da6/da-20261024-080539-66496.out · 반례 = ts 없는 옛 기록 1줄 → KeyError · 발송 0)
+고침: 상태 읽기를 ft_head_lag_seats.py load_state() 로 옮김(ft_head_lag.py 150줄 상한) · 순서 = 기록별 꼴 검사 → 옛 키 합침 → 따라잡음 삭제 → 발송 판정
+  꼴 = 값 dict · ts·n 정수(bool 아님) · seq 정수 또는 없음 — 아니면 그 기록만 버림 + stderr «WARN head-lag 상태 기록 꼴 오류 — <키 앞 80자> 버림»
+  파일 없음 = 빈 상태(WARN 0) · JSON 아님·최상위 dict 아님 = 빈 상태 + «WARN head-lag 상태 파일 꼴 오류 …» 1줄 · 버린 기록은 저장 때 빠짐(다음 실행 WARN 0)
+r2-green.txt   rc=0 · 28 PASS · ALL PASS (r1 18 + r2 10)
+r2-r1.txt      r1 판(ad9cc002) rc=1 · r2 칸 8 FAIL(Traceback KeyError 포함)
+r2-base.txt    기준판(4b3a6a9e) rc=1 · 19 FAIL(r1 10 + r2 WARN 칸)
+r2-mutA-no-rec-check.txt  기록별 검사 삭제 → DA 반례 칸 FAIL(KeyError) 외 6 FAIL
+r2-mutB-no-warn.txt       기록 WARN 삭제 → WARN 칸 FAIL 외 6 FAIL
+r2-mut1/2/3               r1 변이 3종(새 위치) → ⓐ / ⓒ / ⓔ 각각 FAIL
+r2-existing-test_head_lag.txt  기존 시험 = 기준판과 같은 착지 ⓐ 1건만(무관)
+정적: py_compile 0 · ruff E,F,W 0 · ft_head_lag.py 143줄 · ft_head_lag_seats.py 87줄 · 짝 사본 3파일 cmp0
+
+── r3 재설계 (외부 DA r2 HOLD 2번째 · da-20261024-082056-60121.out · 반례 = 이름 끝 @<40hex> 실제 워크트리를 옛 키로 오인 → 매번 재발송 · 하드 룰 14)
+뿌리 = 키 글자 꼴로 새·옛 추정 → 상태 파일 판 번호로 가름:
+  쓰기 = 항상 {"v": 2, "seats": {<워크트리 실제 경로>: {seq, ts, n}}} (ft_head_lag.py 저장 1줄)
+  읽기(ft_head_lag_seats.load_state) — dict + v 정수 2 + seats 있음 = 새 판: 키 글자 그대로(rpartition·정규식 0)
+    · dict + v 없음 = 옛 판(<경로>@<msha>): 마지막 @ 앞을 경로로 합침(최근 ts · n 최대) — 다음 저장에서 새 판
+    · v 가 2 아님(문자열·bool·3)·seats 없음/dict 아님·JSON 아님·최상위 dict 아님 = 빈 상태 + WARN 1줄
+    · 기록별 꼴 검사·따라잡음 삭제·발송 판정·rc = r2 그대로
+r3-green.txt  rc=0 · 36 PASS · ALL PASS (r2 28 + r3 8 · 상태 파일을 만드는 칸은 새 판 꼴 · 옛 판 칸은 v 없는 꼴 그대로)
+r3-r2.txt     r2 판(c7f0e2ea) rc=1 · DA r2 반례 칸·v=2 칸 포함 FAIL
+r3-base.txt   기준판(4b3a6a9e) rc=1
+r3-mutA-split-in-new.txt  새 판에서도 마지막 @ 나누기 → DA r2 반례 칸 FAIL(외 ⓐⓑⓒ…)
+r3-mutB-save-old.txt      저장을 옛 꼴(v 없음)로 → v=2 칸 FAIL(외 다수)
+r3-mutC/D                 r2 변이(기록 검사 삭제 → KeyError · WARN 삭제) 각각 FAIL
+r3-mut1/2/3               r1 변이(msha 키 · 따라잡음 삭제 빼기 · 옛 판 합침 빼기) → ⓐ / ⓒ / ⓔ FAIL
+r3-existing-test_head_lag.txt  기존 시험 = 기준판과 같은 착지 ⓐ 1건만(무관)
+정적: py_compile 0 · ruff E,F,W 0 · ft_head_lag.py 143줄 · ft_head_lag_seats.py 91줄 · 짝 사본 3파일 cmp0

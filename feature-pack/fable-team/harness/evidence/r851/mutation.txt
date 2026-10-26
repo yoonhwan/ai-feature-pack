@@ -1,0 +1,15 @@
+PASS 무변이 기준(전부)
+KILLED ①결론보호삭제
+KILLED ②신선도게이트삭제
+KILLED ③15개상한되살림
+KILLED ④발행성공조건삭제
+KILLED ⑤push대상을main으로(r2)
+KILLED ⓡ1브랜치이름검사삭제
+KILLED ⓡ2quotepath끄기삭제
+KILLED ⓡ3뉴스사본브랜치받기삭제
+KILLED ⓡ4표블록한정삭제
+KILLED ⓡ5정확일치를포함비교로
+KILLED ⓡ6모양검사삭제
+KILLED ⓡ7불일치줄버림(걸러내기되살림)
+KILLED ⓡ7'원천오류때last-ok기록되살림
+KILLED ⓡ9앞1바이트검사삭제(무조건첫줄버림)

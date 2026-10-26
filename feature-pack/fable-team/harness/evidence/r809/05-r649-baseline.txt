@@ -1,0 +1,5 @@
+## test_r649 1칸 기준판(고치기 전) — 같은 FAIL 인지 대조
+tests/scripts/test_r649_news_team_lines_isolate_error.py:165: AssertionError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_r649_news_team_lines_isolate_error.py::test_slow_inbox_is_bounded_and_only_that_team_errors
+1 failed, 7 passed in 14.45s

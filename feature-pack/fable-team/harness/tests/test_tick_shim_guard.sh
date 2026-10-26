@@ -25,6 +25,8 @@ R="$T/repo"; mkdir -p "$R/.fable-team/comm"; git -C "$R" init -q -b main; git -C
 git -C "$R" worktree add -q "$T/wt" -b wt 2>/dev/null
 printf '#!/bin/sh\necho "$@" >> "%s/mbox.log"\n' "$T" > "$R/.fable-team/comm/mbox.sh"; chmod 755 "$R/.fable-team/comm/mbox.sh"
 printf '{}\n' > "$T/seats.json"
+# r962: 설치 «시작 경로» 는 공용 루트 .fable-team/bin 아래만 — 픽스처 리포의 라이브 bin
+mkdir -p "$R/.fable-team/bin"; cp -p "$KBIN/ft-tick.sh" "$R/.fable-team/bin/"
 ENVX=(FT_TICK_LAUNCHD=0 FT_TICK_MAGAZINE=0 FT_TICK_IDLE_ENABLED=0 FT_TICK_WT_SWEEP=0 FT_TICK_HIL=0 FT_TICK_DRIFT=0 FT_TICK_RAISED=0
       FT_TICK_SEATS="$T/seats.json" FT_TICK_PIDFILE="$T/tick.pid" FT_TICK_STAMP_PREFIX="$T/p-" FT_TICK_STATE_DIR="$T/state")
 
@@ -48,7 +50,7 @@ for f in ft-tick.sh ft-tick-team.sh; do
 done
 
 # ── ⓒ 메인 plist 렌더(dry-run) = 공용 루트 자리 ──
-out="$(cd "$T/wt" && FT_TICK_PRINT_PLIST=1 bash "$KBIN/ft-tick-install.sh" --worktree "$T/wt" --script "$LB/ft-tick.sh" --dry-run 2>&1)"; rc=$?
+out="$(cd "$T/wt" && FT_TICK_PRINT_PLIST=1 bash "$KBIN/ft-tick-install.sh" --worktree "$T/wt" --script "$R/.fable-team/bin/ft-tick.sh" --dry-run 2>&1)"; rc=$?
 eq "$rc" 0 "ⓒ ft-tick-install --dry-run rc0"
 has "$out" "cwd=$R · comm=$R/.fable-team/comm" "ⓒ PLAN 줄 cwd = 공용 루트(워크트리 아님)"
 PL="$(printf '%s\n' "$out" | sed -n '/^<?xml/,/<\/plist>/p')"
@@ -58,7 +60,7 @@ eq "$(val EnvironmentVariables.FT_TICK_MBOX)" "$R/.fable-team/comm/mbox.sh" "ⓒ
 eq "$(val EnvironmentVariables.FT_MBOX_DIR)" "$R/.fable-team/comm" "ⓒ FT_MBOX_DIR = 공용 루트 comm"
 eq "$(val EnvironmentVariables.FT_TICK_AGENT_ALIVE)" "$R/.fable-team/comm/ft-agent-alive.sh" "ⓒ FT_TICK_AGENT_ALIVE = 공용 루트 comm"
 R2="$T/nocomm"; mkdir -p "$R2"; git -C "$R2" init -q -b main
-out="$(FT_TICK_PRINT_PLIST=1 bash "$KBIN/ft-tick-install.sh" --worktree "$R2" --script "$LB/ft-tick.sh" --dry-run 2>&1)"; rc=$?
+out="$(FT_TICK_PRINT_PLIST=1 bash "$KBIN/ft-tick-install.sh" --worktree "$R2" --script "$R/.fable-team/bin/ft-tick.sh" --dry-run 2>&1)"; rc=$?
 [ "$rc" != 0 ] && has "$out" "REJECT 공용 루트 comm 없음" "ⓒ 공용 루트 comm 없음 → REJECT" || bad "ⓒ comm 없음 rc=$rc «$out»"
 ! grep -nE '\b(600|300)\b' "$KBIN/ft-tick.plist" >/dev/null && ok "ⓒ plist 600/300 0" || bad "ⓒ plist 600/300"
 

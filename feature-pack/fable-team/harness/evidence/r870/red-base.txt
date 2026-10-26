@@ -1,0 +1,9 @@
+FAILED fable-team/harness/tests/scripts/test_ledger_fill_r870.py::test_a_branch_holds_main_same_render_no_change_push_zero
+FAILED fable-team/harness/tests/scripts/test_ledger_fill_r870.py::test_a3_raced_same_render_no_change_returns_winner_to_news
+FAILED fable-team/harness/tests/scripts/test_ledger_fill_r870.py::test_b_push_cap_no_hook_retry_once_on_silent_timeout
+FAILED fable-team/harness/tests/scripts/test_ledger_fill_r870.py::test_c_push_failure_error_once_then_warning_and_same_commit_next_tick
+FAILED fable-team/harness/tests/scripts/test_ledger_fill_r870.py::test_d_push_skips_hook_only_for_ledger_refspec
+FAILED fable-team/harness/tests/scripts/test_ledger_fill_r870.py::test_h_read_tree_timeout_is_fill_error_news_tick_survives
+FAILED fable-team/harness/tests/scripts/test_ledger_fill_r870.py::test_h2_ref_probe_timeout_is_fill_error
+FAILED fable-team/harness/tests/scripts/test_ledger_fill_r870.py::test_1b_card_log_cap_scales_with_commits_in_window
+8 failed, 2 passed in 41.82s

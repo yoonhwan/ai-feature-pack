@@ -1,0 +1,19 @@
+PASS bash -n head-sync
+PASS ⓐ wt-a 안 --apply rc0 · A 최신화
+PASS ⓐ 남의 워크트리(wt-b·wt-c) git 호출 0 (실측 0)
+PASS ⓐ 표에 B·C 줄 0 · B HEAD 불변
+PASS ⓑ --table = 전 워크트리 표(A·B·C) rc0
+PASS ⓑ --table --apply → usage rc2
+PASS ⓒ 겹친 3개 → 표 1 · «이미 실행 중 pid N · 시작 HH:MM» 2 · rc 전부 0 (표 1 · 대기 2)
+PASS ⓒ 끝나면 잠금 해제
+PASS ⓒ 고아(주인 pid 없음) 회수 → 정상 실행 · 끝나고 해제
+PASS ⓒ 고아(pid 재사용 — 시작 시각 다름) 회수
+PASS ⓒ 살아 있는 주인 → 1줄 rc0 · 남의 잠금 그대로
+PASS ⓒ 전수 잠금 중에도 자기 워크트리 --apply 는 돈다(잠금 범위 = 그 워크트리)
+PASS ⓓ 쪽지에 --apply 0
+PASS ⓓ 쪽지 = 자기 워크트리 스스로(merge 만 · main sha 고정) · 팩 작업 무관
+PASS ⓕ 변이1 이 실제로 줄을 바꿨다
+PASS ⓕ 변이(잠금 제거) → 겹친 실행이 표 3 개 = ⓒ 단언이 잡는다
+PASS ⓕ 변이2 가 실제로 줄을 바꿨다
+PASS ⓕ 변이(cwd 제한 제거) → 남의 워크트리 git 호출 50 = ⓐ 단언이 잡는다
+ALL PASS

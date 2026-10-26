@@ -1,0 +1,76 @@
+F.FFF..                                                                  [100%]
+=================================== FAILURES ===================================
+____________ test_a_account_limit_one_hold_note_no_swap_no_per_seat ____________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-990/test_a_account_limit_one_hold_0')
+
+    def test_a_account_limit_one_hold_note_no_swap_no_per_seat(tmp_path):  # ⓐ ⓗ
+        fx = _fx(tmp_path)
+        _all_limited(fx, "1", N - 240)
+        r = fx.run()
+        assert r.returncode == 0, r.stderr
+>       assert "HOLD" in r.stdout and "PLAN" not in r.stdout and not fx.argv.exists()
+E       AssertionError: assert ('HOLD' in 'SKIP byz-x-nano-a#0 역할 좌석 아님\nSKIP byz-x-nano-b#0 역할 좌석 아님\nSKIP byz-x-da-codex#2 역할 좌석 아님\nSKIP byz-x-nano-oc#0 역할 좌...음(claude-fable-5-1 · model-fallback.tsv 끝)\nHIL byz-x-pm-claude#4 대체 모델 없음(claude-sonnet-5-5 · model-fallback.tsv 끝)\n')
+E        +  where 'SKIP byz-x-nano-a#0 역할 좌석 아님\nSKIP byz-x-nano-b#0 역할 좌석 아님\nSKIP byz-x-da-codex#2 역할 좌석 아님\nSKIP byz-x-nano-oc#0 역할 좌...음(claude-fable-5-1 · model-fallback.tsv 끝)\nHIL byz-x-pm-claude#4 대체 모델 없음(claude-sonnet-5-5 · model-fallback.tsv 끝)\n' = CompletedProcess(args=['/opt/homebrew/opt/python@3.11/bin/python3.11', '-I', '/Users/yoonhwan/Project/ai-feature-pack/...le-5-1 · model-fallback.tsv 끝)\nHIL byz-x-pm-claude#4 대체 모델 없음(claude-sonnet-5-5 · model-fallback.tsv 끝)\n', stderr='').stdout
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r838-model-swap-account-outage-and-open-/feature-pack/fable-team/harness/tests/scripts/test_model_swap_account_outage_r838.py:44: AssertionError
+_______________ test_c_recovery_closes_then_new_outage_new_note ________________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-990/test_c_recovery_closes_then_ne0')
+
+    def test_c_recovery_closes_then_new_outage_new_note(tmp_path):  # ⓒ
+        fx = _fx(tmp_path)
+        _all_limited(fx, "1", N - 240)
+        assert fx.run().returncode == 0 and fx.run(N + 60).returncode == 0
+>       assert _heads(fx) == [HOLD_HEAD]
+E       AssertionError: assert ['[HIL] 자동 교대... 0 — 손 교대 판단'] == ['[자동 교대 보류] ...pi_outage 재개']
+E         
+E         At index 0 diff: '[HIL] 자동 교대 불가 byz-x-master-claude#3 · 대체 모델 없음(claude-opus-5-5 · model-fallback.tsv 끝) · 교대 0 — 손 교대 판단' != '[자동 교대 보류] 계정 전체 한도 — 정지 좌석 3 · 교대 0 · 풀리면 ft_api_outage 재개'
+E         Left contains 2 more items, first extra item: '[HIL] 자동 교대 불가 byz-x-arch-claude#7 · 대체 모델 없음(claude-fable-5-1 · model-fallback.tsv 끝) · 교대 0 — 손 교대 판단'
+E         Use -v to get more diff
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r838-model-swap-account-outage-and-open-/feature-pack/fable-team/harness/tests/scripts/test_model_swap_account_outage_r838.py:66: AssertionError
+_____________ test_g_same_seat_no_fallback_one_note_per_block_key ______________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-990/test_g_same_seat_no_fallback_o0')
+
+    def test_g_same_seat_no_fallback_one_note_per_block_key(tmp_path):  # ⓖ ⓗ
+        fx = Fx(tmp_path)
+    
+        def block(tag: str, at: int) -> None:  # 대체 모델(opus·sonnet)도 나노에서 한도 · 역할 정지 = ARCH 1
+            fx.add(ARCH, _err(f"a{tag}", at, _limit()))
+            fx.add("byz-x-nano-a#0", _err(f"o{tag}", at - 10, _limit("claude-opus-5-5")))
+            fx.add("byz-x-nano-b#0", _err(f"s{tag}", at - 20, _limit("claude-sonnet-5-5")))
+    
+        block("1", N - 240)
+        assert f"HIL {ARCH} 대체 모델 없음" in fx.run().stdout
+        block("2", N + 50)  # 같은 막힘 · 새 uuid
+        assert f"HIL {ARCH} 대체 모델 없음" in fx.run(N + 300).stdout
+        stuck = [h for h in _heads(fx) if h.startswith("[자동 교대 불가]")]
+>       assert len(stuck) == 1 and stuck[0].startswith(f"[자동 교대 불가] {ARCH} · 대체 모델 없음") and "필요한 결정" in stuck[0]
+E       assert (0 == 1)
+E        +  where 0 = len([])
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r838-model-swap-account-outage-and-open-/feature-pack/fable-team/harness/tests/scripts/test_model_swap_account_outage_r838.py:89: AssertionError
+______________________ test_j_api_outage_on_sends_nothing ______________________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-990/test_j_api_outage_on_sends_not0')
+
+    def test_j_api_outage_on_sends_nothing(tmp_path):  # ⓙ
+        fx = _fx(tmp_path)
+        _outage_state(fx, "OUTAGE", N - 260)
+        _all_limited(fx, "1", N - 240)
+        for now in (N, N + 300):
+            r = fx.run(now)
+>           assert r.returncode == 0 and "HOLD" in r.stdout and "PLAN" not in r.stdout
+E           AssertionError: assert (0 == 0 and 'HOLD' in 'SKIP byz-x-nano-a#0 역할 좌석 아님\nSKIP byz-x-nano-b#0 역할 좌석 아님\nSKIP byz-x-da-codex#2 역할 좌석 아님\nSKIP byz-x-nano-oc#0 역할 좌...음(claude-fable-5-1 · model-fallback.tsv 끝)\nHIL byz-x-pm-claude#4 대체 모델 없음(claude-sonnet-5-5 · model-fallback.tsv 끝)\n')
+E            +  where 0 = CompletedProcess(args=['/opt/homebrew/opt/python@3.11/bin/python3.11', '-I', '/Users/yoonhwan/Project/ai-feature-pack/...le-5-1 · model-fallback.tsv 끝)\nHIL byz-x-pm-claude#4 대체 모델 없음(claude-sonnet-5-5 · model-fallback.tsv 끝)\n', stderr='').returncode
+E            +  and   'SKIP byz-x-nano-a#0 역할 좌석 아님\nSKIP byz-x-nano-b#0 역할 좌석 아님\nSKIP byz-x-da-codex#2 역할 좌석 아님\nSKIP byz-x-nano-oc#0 역할 좌...음(claude-fable-5-1 · model-fallback.tsv 끝)\nHIL byz-x-pm-claude#4 대체 모델 없음(claude-sonnet-5-5 · model-fallback.tsv 끝)\n' = CompletedProcess(args=['/opt/homebrew/opt/python@3.11/bin/python3.11', '-I', '/Users/yoonhwan/Project/ai-feature-pack/...le-5-1 · model-fallback.tsv 끝)\nHIL byz-x-pm-claude#4 대체 모델 없음(claude-sonnet-5-5 · model-fallback.tsv 끝)\n', stderr='').stdout
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r838-model-swap-account-outage-and-open-/feature-pack/fable-team/harness/tests/scripts/test_model_swap_account_outage_r838.py:104: AssertionError
+=========================== short test summary info ============================
+FAILED test_model_swap_account_outage_r838.py::test_a_account_limit_one_hold_note_no_swap_no_per_seat
+FAILED test_model_swap_account_outage_r838.py::test_c_recovery_closes_then_new_outage_new_note
+FAILED test_model_swap_account_outage_r838.py::test_g_same_seat_no_fallback_one_note_per_block_key
+FAILED test_model_swap_account_outage_r838.py::test_j_api_outage_on_sends_nothing
+4 failed, 3 passed in 5.23s

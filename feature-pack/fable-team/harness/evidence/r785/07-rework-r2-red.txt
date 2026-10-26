@@ -1,0 +1,55 @@
+PASS bash -n ft-sheet-publish.sh
+PASS python 문법 ft-board.py · ft_sheet_publish.py
+PASS 짝 사본 cmp0 ft-board.py
+PASS 짝 사본 cmp0 ft_board_teams.py
+PASS 짝 사본 cmp0 ft_sheet_publish.py
+PASS 짝 사본 cmp0 ft-sheet-publish.sh
+PASS ⓑ 머리 «👥 팀별 지금» 가 첫 줄 다음 · 팀 줄 3개 그대로 · 트리가 그 뒤 · 끝줄 마지막
+PASS ⓑ collect 1회(teams 는 같은 collect 파일 --from)
+PASS ⓐⓘ 변이 복사본 생성(마커 실재)
+PASS ⓐ 변이(팀 절 삽입 삭제) → 뿌리 글에 «👥 팀별 지금» 0줄(검사가 실패를 잡는다)
+PASS ⓑ teams --from 수집 파일 == 직접 collect 출력(바이트 동일)
+PASS ⓒ 열린 좌석 0 팀 → «빈팀 | 열린 좌석 0 | 진행 0»
+PASS ⓓ 오류 팀 → «확인 못 함: <오류>» 그대로
+PASS ⓗ teams --from 없는 파일 → rc≠0
+PASS ⓗ teams --from 깨진 파일 → rc≠0
+PASS ⓕ 같은 rev · 팀 줄 일함→정지 → 뿌리 글 update 1회 · PDF 0
+PASS ⓕ 같은 rev · 정지 분 숫자만 바뀜 → update 0(same() 정규화 «정지 N분»)
+PASS ⓘ 변이(«정지 N분» 정규화 삭제) → 분 숫자로 update 발행(검사가 실패를 잡는다)
+PASS ⓖ 상한(NEED_PDF=0) → PDF 0 · 뿌리 글에 팀 절 그대로
+PASS ⓗ teams 실패 → rc 1 · 슬랙 호출 0(update·attach 0)
+PASS ⓔ TREE_FOLD
+PASS ⓔ TEAMS_KEPT
+PASS ⓔ FOOT_LAST
+PASS ⓔ BYTES_OK
+PASS ⓔ TEAM_MORE
+PASS ⓔ HEAD_KEPT
+PASS ⓔ FOOT2_LAST
+PASS ⓔ BYTES2_OK
+PASS ⓚ 경계 픽스처 생성(BOUNDARY pad=610 raw9=3500 raw10=3501)
+PASS ⓚ 같은 rev · 정지 9→10분(상한 경계 넘김) → update 0(접는 자리 고정)
+PASS ⓚ 변이(길이 판정 정규화 삭제) → 9분/10분 접는 자리가 달라짐(검사가 실패를 잡는다)
+PASS ⓛ 오류 문장 줄바꿈 3줄 → 팀 줄 1줄(«⏎» 접힘)
+PASS ⓛ 접힘 표시 «⏎» 실재(문장 유실 0)
+PASS ⓛ 40팀 뿌리 글 → 접힘 표시가 «… 외 N팀»(줄 아님)
+PASS ⓛ 팀 40 = teams 출력 40줄
+PASS ⓛ 변이(한 줄 접기 삭제) → 팀 줄이 여러 줄(검사가 실패를 잡는다)
+PASS ⓜ 3회 실패 → «⚠ PDF 발행 실패 3회» 가 ❓ 바로 다음 줄
+PASS ⓜ 변이(⚠ 를 끝에 붙임) → 위치 검사 FAIL(검사가 잡는다)
+PASS ⓙ 발행 원장·기록은 임시 폴더에만(FT_ROOT=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.ZGttF5xS4Y/ft · 실 명부·실 슬랙 0)
+PASS ⓝ 경계 픽스처 생성(PAD 778 57 raw9999=3500 raw10000=3501)
+PASS ⓝ 정지 9999분 = 3500B 꼭 맞음(접힘 0)
+FAIL ⓝ 정지 9999→10000분에 상한 초과(3501B) — 자리만 재고 실제 바이트를 안 쟀다
+PASS ⓝ 정지 9999분 발행 update 1
+FAIL ⓝ 9999→10000분 rc=0 update=0 b=3500B — 접는 자리가 안 바뀌었다(전판: 숫자만 달라 update 0)
+PASS ⓞ 같은 rev · 정지 9998→9999분 → update 0(same() 정규화)
+PASS ⓞ 같은 rev · 정지 10000→10001분 → update 0(접는 자리 고정)
+FAIL ⓟ 전각 숫자에서 상한 초과: P_BYTES 3727 P_OVER P_NO_TEAM_FOLD 
+FAIL ⓟ 접힘 표시 없음: P_BYTES 3727 P_OVER P_NO_TEAM_FOLD 
+FAIL ⓠ 변이 생성 실패: Traceback (most recent call last):   File "<stdin>", line 11, in <module> AssertionError 
+PASS ⓠ 변이 A(전각 정규화만 되돌림) = base 와 같은 -1B — 실제 바이트 판정과 «겹침»(단독으로는 안 뚫린다 · 실측)
+FAIL ⓠ 변이 A2 무력: -1B
+FAIL ⓠ 변이 B 무력: -1B
+PASS ⓠ base ⓟ = -1B(전판 3727B)
+fail=7
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

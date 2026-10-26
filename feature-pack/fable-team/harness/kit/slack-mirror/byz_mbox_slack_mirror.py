@@ -70,7 +70,8 @@ class Mirror:
         q = item.get("question")
         if isinstance(q, dict):  # 루트 확보 → 질문 등록 → 카드 게시: 카드 직후 답해도 열린 질문이 이미 있다
             ts = self.deliv.thread_ts(item, resume)
-            mq.add(self.qpath, int(str(item["seq"])), {**q, "thread_ts": ts})
+            if mq.on_roster(str(q.get("seat", "")), Path(self.planner_seats).parent):  # r846 r2: 명부 좌석만 질문을 연다 · 못 읽으면 0(카드는 게시)
+                mq.add(self.qpath, int(str(item["seq"])), {**q, "thread_ts": ts})
             mq.update_board(self.qpath, self.a.api_base, self.token, self.a.channel, self.planner_seats)
         self.deliv.send(item, resume)
 
