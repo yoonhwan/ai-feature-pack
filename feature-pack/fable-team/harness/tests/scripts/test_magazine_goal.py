@@ -37,13 +37,13 @@ def arm(root: Path) -> None:
     (root / ".fable-team" / "state" / "goal-gate.armed").write_text("", encoding="utf-8")
 
 
-def test_root_text_has_the_block_right_after_the_first_line_and_html_has_the_section(env):
+def test_root_text_has_no_block_and_html_has_the_section(env):
     (mag, root) = env
     arm(root)
     slack = FakeMagazineSlack()
     assert md.main(argv(mag, "--publish", slack)) == 0
     lines = slack.roots[0]["text"].splitlines()
-    assert lines[0] == TITLE and lines[1].startswith("★골 표 A6 (") and "★/골 표★" in lines
+    assert lines[0] == TITLE and "★골 표" not in slack.roots[0]["text"]  # r894 — 골 표는 HTML 에만(슬랙은 표를 못 그린다)
     page = next((mag[0] / "out").glob("*.html")).read_text(encoding="utf-8")
     assert "<h2>자율 골 표</h2>" in page and page.index("자율 골 표") < page.index("오빠 할 일")
 
@@ -73,11 +73,12 @@ def test_unarmed_gate_failure_publishes_without_block_and_logs_would_reject(env,
     assert "WOULD-REJECT magazine" in (root / ".fable-team" / "state" / "mbox-guard-goal.log").read_text(encoding="utf-8")
 
 
-def test_dry_run_prints_the_block_in_the_slack_text(env, capsys):
+def test_dry_run_slack_text_has_no_block_but_the_html_does(env, capsys):
     (mag, root) = env
     assert md.main(argv(mag, "--dry-run")) == 0
     out = capsys.readouterr().out
-    assert "--- 슬랙 뿌리 글 ---" in out and "★골 표 A6 (" in out
+    assert "--- 슬랙 뿌리 글 ---" in out and "★골 표" not in out.split("--- 슬랙 뿌리 글 ---", 1)[1]  # r894
+    assert "★골 표 A6 (" in next((mag[0] / "out").glob("*.html")).read_text(encoding="utf-8")
 
 
 KIT = ROOT / "harness" / "kit" / "slack-mirror"

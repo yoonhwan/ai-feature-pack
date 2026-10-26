@@ -1,0 +1,8 @@
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r977-secret-shapes-one-boundary-all-copi/feature-pack/fable-team/harness/tests/scripts/test_ft_secret_shapes.py:376: AssertionError
+--------------------------- Captured stderr teardown ---------------------------
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+=========================== short test summary info ============================
+FAILED tests/scripts/test_ft_secret_shapes.py::test_f_reverse_case1_is_byte_identical_to_base
+FAILED tests/scripts/test_ft_secret_shapes.py::test_f_token_prefix_does_not_swallow_name_tail
+2 failed, 1 passed, 145 deselected in 2.52s

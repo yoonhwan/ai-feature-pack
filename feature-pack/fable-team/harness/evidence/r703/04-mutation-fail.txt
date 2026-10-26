@@ -1,0 +1,42 @@
+# 변이: BYZ origin/main 훅에서 master 판별 줄(return len(parts) >= 3 and parts[2] == "master") 삭제 사본 · 임시 리포 origin/main
+# 삭제 줄 수 = 1
+$ FT_BYZ_REPO=<임시 리포> OLD_HOOK_REV=<임시 리포 구 커밋> bash harness/tests/test_orch_gate_master.sh
+FAIL byz-v65-master-claude#143 .worktrees ts Write → 기대 2 · 실제 0
+FAIL byz-v65-master-claude#143 .worktrees html Edit → 기대 2 · 실제 0
+FAIL byz-v65-master-claude#143 카드 진행 md Edit → 기대 2 · 실제 0
+FAIL byz-v65-master-claude#143 카드 완성 md Edit → 기대 2 · 실제 0
+ok   byz-v65-master-claude#143 판정 문서 md Edit → 0
+ok   byz-v65-master-claude#143 카드 대기 md Write → 0
+ok   byz-v65-master-claude#143 seats.json Edit → 0
+FAIL byz-v65-master-claude#143 Bash sed -i 코드 → 기대 2 · 실제 0
+ok   byz-v65-master-claude#143 Bash cp 훅 설치 → 0
+FAIL ft-v65-master-claude#142 .worktrees ts Write → 기대 2 · 실제 0
+FAIL ft-v65-master-claude#142 .worktrees html Edit → 기대 2 · 실제 0
+FAIL ft-v65-master-claude#142 카드 진행 md Edit → 기대 2 · 실제 0
+FAIL ft-v65-master-claude#142 카드 완성 md Edit → 기대 2 · 실제 0
+ok   ft-v65-master-claude#142 판정 문서 md Edit → 0
+ok   ft-v65-master-claude#142 카드 대기 md Write → 0
+ok   ft-v65-master-claude#142 seats.json Edit → 0
+FAIL ft-v65-master-claude#142 Bash sed -i 코드 → 기대 2 · 실제 0
+ok   ft-v65-master-claude#142 Bash cp 훅 설치 → 0
+--- 회귀 대조표 (구 훅 = 0ab766708e65485e0490ce77b1c04dbaac52e680) ---
+ok   회귀 arch html Edit (구=0 신=0) → 0
+ok   회귀 arch html Edit 구=신 → 0
+ok   회귀 arch ts Edit (구=0 신=0) → 0
+ok   회귀 arch ts Edit 구=신 → 0
+ok   회귀 nano ts Edit (구=0 신=0) → 0
+ok   회귀 nano ts Edit 구=신 → 0
+ok   회귀 TMUX_PANE 없음 ts Edit (구=0 신=0) → 0
+ok   회귀 TMUX_PANE 없음 ts Edit 구=신 → 0
+ok   회귀 agent_id 있는 ts Edit (구=0 신=0) → 0
+ok   회귀 agent_id 있는 ts Edit 구=신 → 0
+ok   회귀 TOP 모델 html Edit (구=0 신=0) → 0
+ok   회귀 TOP 모델 html Edit 구=신 → 0
+ok   회귀 TOP 모델 .worktrees ts (구=0 신=0) → 0
+ok   회귀 TOP 모델 .worktrees ts 구=신 → 0
+ok   회귀 TOP 모델 코드 한도 0 deny (구=2 신=2) → 2
+ok   회귀 TOP 모델 코드 한도 0 deny 구=신 → 2
+ok   회귀 TOP 모델 Bash sed -i deny (구=2 신=2) → 2
+ok   회귀 TOP 모델 Bash sed -i deny 구=신 → 2
+pass=26 fail=10
+rc=1
