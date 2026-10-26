@@ -1,0 +1,10 @@
+$ cmp kit/fable-team/bin/ft-root-bin-migrate.sh bin/ft-root-bin-migrate.sh
+cmp rc=0 (identical)
+
+$ shasum -a 256 둘
+bd688b3be1ec47b055769b31e3e8c17e9bb240c6107bd73cac06ad6f186b62a6  kit/fable-team/bin/ft-root-bin-migrate.sh
+bd688b3be1ec47b055769b31e3e8c17e9bb240c6107bd73cac06ad6f186b62a6  bin/ft-root-bin-migrate.sh
+
+# 세트 d2cb5dc5 대비 바뀐 곳 (r1 고침 3 + 안전 가드 2줄)
+ .../kit/fable-team/bin/ft-root-bin-migrate.sh      | 48 +++++++++++++++++++---
+ 1 file changed, 43 insertions(+), 5 deletions(-)
