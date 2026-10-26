@@ -8,7 +8,8 @@
 #   ⓔ 등록 줄 두 개 차례로 → 장부에 둘 다 남음(덮어쓰기 0) · 상한 지난 줄 1 + 신선한 줄 1 + 죽은 pid 줄 1 → leak-reap: 상한 지난 것만 보고 · 죽은 줄 지움
 #   ⓕ `--handover B --defer-press` + press 점유 → DA 넘김(미룸 0) · 그 뒤 digest 에서 reap 0
 #   ⓖ 도구 끝남(trap EXIT) → 자기 줄 지워짐 · kill -9 로 끝남(trap 0) → 다음 leak-reap 이 죽은 pid 줄 지움
-#   변이 4(사본에서만): 글자 판정 복귀 → ⓐ · 좌석 칸 갱신 끔 → ⓓ · 장부 덮어쓰기 복귀 → ⓔ · 미룸 먼저 복귀 → ⓕ
+#   r3: ⓗ press 미룸 뒤 --handover → 미룬 등록 DA 넘김(digest 가 안 죽임) · ⓘ register 상한 4200 으로 잘림 · ⓙ leak-reap lstart 다른 pid 줄 지움·보고 0 · ⓚ 상한 지난 등록 줄 = reap(넘김 0)
+#   변이 8(사본에서만 · 원본/변이를 같은 조건으로 돌려 기대값이 갈리는지 본다): 글자 판정 복귀 → ⓐ · 좌석 칸 갱신 끔 → ⓓ · 장부 덮어쓰기 → ⓔ · 넘김 앞단 끔 → ⓕ · digest 넘김 건너뜀 끔 → ⓗ · 상한 자름 끔 → ⓘ · lstart 비교 끔 → ⓙ · 만료도 넘김 → ⓚ
 # 실프로세스 픽스처 = 표식 r939fx-<pid> 를 argv 에 단 ppid 1 고아(좌석 이름 가짜 · tmux 세션 없음 → env FT_SEAT 경로) — trap 이 정리. 상태 폴더·장부는 전부 임시.
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"
 set -uo pipefail
@@ -189,6 +190,65 @@ LC_ALL=C ps -o pid=,ppid=,lstart=,time=,command= -p $$ | sed 's/^ *//' > "$TMP/s
 bash "$LEAK" --dry-run > "$TMP/g_out.txt" 2>&1; FT_PS_SNAPSHOT="$TMP/snap2" bash "$LEAK" --dry-run >/dev/null 2>&1
 chk "ⓖ다음 leak-reap 이 죽은 줄 지움" "$(rows | wc -l | tr -d ' ')" 0
 
+echo "== ⓗ r3 — press 미룸 «뒤» 에 --handover 가 오면 미룬 등록 DA 는 넘김(digest 가 ⑤미룸으로 죽이지 않는다)"
+fresh
+seats "$A"
+DH="$(spawn "h1-$MK" "" "$BASH_X" "$TMP/da/ft-da-codex.sh" --tag "h1-$MK")"
+reg "$A" 4200 "$DH" "bash ft-da-codex.sh"
+printf '{"held":true,"member":"r939"}\n' > "$TMP/permits/device.json"
+out="$(bash "$REAP" "$A" --orphans-only --defer-press 2>&1)"   # 승계 아닌 정리가 press 점유로 먼저 «미룬다»
+chk "ⓗ전제: 미룸 1 · 생존" "$(grep -c "reap-defer pid=$DH" <<< "$out") $(alive "$DH")" "1 alive"
+rm -f "$TMP/permits/device.json"
+out="$(bash "$REAP" "$A" --orphans-only --defer-press --handover "$B" 2>&1)"   # press 끝난 뒤 승계
+has "$out" "reap-handover pid=$DH" "ⓗ미룬 등록 DA 도 넘김 줄"
+chk "ⓗhanded=1 · 생존 · reap-kill 0 · 장부 좌석 = B" "$(grep -oE 'handed=[0-9]+' <<< "$out" | tail -1) $(alive "$DH") $(grep -c "reap-kill pid=$DH" <<< "$out") $(rows | awk -F'\t' -v p="$DH" '$2==p{print $1}')" "handed=1 alive 0 $B"
+kill "$DH" 2>/dev/null
+
+echo "== ⓘ r3 — register 상한초는 4200(70분)으로 잘린다(더 크거나 정수 아님)"
+fresh
+IS="$(spawn "i1-$MK" "" "$BASH_X" "$TMP/da/ft-da-codex.sh" --tag "i1-$MK")"
+o1="$(FT_BG_FINITE_LEDGER="$TMP/bg-finite.tsv" bash "$BGF" register "$A" 999999 "$IS" big 2>&1)"
+has "$o1" "WARN 상한초 «999999» → 4200" "ⓘ잘림 stderr 1줄"
+d1="$(rows | awk -F'\t' -v p="$IS" -v n="$(date +%s)" '$2==p{print $5-n}')"
+chk "ⓘ상한 = 지금 + ≤4200" "$([ "${d1:-0}" -gt 4100 ] && [ "${d1:-0}" -le 4200 ] && echo ok)" ok
+o2="$(FT_BG_FINITE_LEDGER="$TMP/bg-finite.tsv" bash "$BGF" register "$A" abc "$IS" nan 2>&1)"
+has "$o2" "WARN 상한초 «abc» → 4200" "ⓘ정수 아님 → 4200"
+kill "$IS" 2>/dev/null
+
+echo "== ⓙ r3 — leak-reap: pid 재사용(lstart 다름) 줄은 보고 0 · 줄 지움 / TZ 가 달라도 같은 프로세스는 보고"
+fresh
+JS="$(spawn "j1-$MK" "" "$BASH_X" "$TMP/da/ft-da-codex.sh" --tag "j1-$MK")"
+reg "$A" "-60" "$JS" "old job"
+TZ=Asia/Seoul LC_ALL=C ps -o pid=,ppid=,lstart=,time=,command= -p "$JS" | sed 's/^ *//' > "$TMP/snapj"
+out="$(TZ=Asia/Seoul FT_PS_SNAPSHOT="$TMP/snapj" bash "$LEAK" --dry-run 2>&1)"
+has "$out" "handover-stale pid=$JS" "ⓙ통제: 같은 lstart(UTC 장부 vs 지역 시각 표) → 보고"
+python3 - "$TMP/bg-finite.tsv" <<'PY'
+import sys
+p = sys.argv[1]; ls = open(p, encoding="utf-8").read().splitlines()
+out = []
+for ln in ls:
+    f = ln.split("\t"); f[3] = "Mon Jan 1 00:00:00 2001"; out.append("\t".join(f))
+open(p, "w", encoding="utf-8").write("\n".join(out) + "\n")
+PY
+out="$(TZ=Asia/Seoul FT_PS_SNAPSHOT="$TMP/snapj" bash "$LEAK" --dry-run 2>&1)"
+hasnt "$out" "handover-stale pid=$JS" "ⓙpid 재사용 줄 보고 0"
+chk "ⓙ재사용 줄 지움 · 프로세스 생존" "$(rows | grep -c .) $(alive "$JS")" "0 alive"
+kill "$JS" 2>/dev/null
+
+echo "== ⓚ r3 — 상한 지난 등록 줄은 넘기지 않고 reap(env 가 남의 좌석이어도) · 신선한 줄은 넘김"
+fresh
+seats "$A"
+KE="$(spawn "k1-$MK" "FT_SEAT=zzz-$$" "$BASH_X" "$TMP/da/ft-da-codex.sh" --tag "k1-$MK")"   # env 짐작으로는 이 좌석 것이 아님
+KF="$(spawn "k2-$MK" "" "$BASH_X" "$TMP/da/ft-da-codex.sh" --tag "k2-$MK")"
+reg "$A" "-60" "$KE" "expired job"
+reg "$A" 4200 "$KF" "fresh job"
+out="$(ret "$A" "$B")"
+has "$out" "reap-expired pid=$KE" "ⓚ만료 줄 → reap-expired"
+hasnt "$out" "reap-handover pid=$KE" "ⓚ만료 줄은 넘기지 않음"
+has "$out" "reap-handover pid=$KF" "ⓚ신선한 줄은 넘김"
+chk "ⓚ만료 정지 · 신선 생존 · 장부에 만료 줄 0" "$(alive "$KE") $(alive "$KF") $(rows | awk -F'\t' -v p="$KE" '$2==p' | wc -l | tr -d ' ')" "dead alive 0"
+kill "$KF" 2>/dev/null
+
 echo "== 정적 — 도구 3종이 «자기 등록 + trap EXIT» 를 갖는다"
 for f in "$BIN/install.sh ../install.sh" "$BIN/../../kit/fable-team/bin/ft-da-codex.sh"; do :; done
 DAC="$BIN/../kit/fable-team/bin/ft-da-codex.sh"; INS="$BIN/../install.sh"; SCR="$BIN/ft-scratch-repo.sh"
@@ -198,10 +258,10 @@ chk "정적 ft-scratch-repo.sh register+trap" "$(grep -c 'ft-bg-finite.sh" regis
 chk "정적 reap 은 글자 허용 목록을 안 쓴다" "$(grep -c 'FINITE_SHELL\|LOOPRE\|def finite(' "$REAP")" 0
 chk "정적 닫기 3종(seat-close·nano-close) --handover 0" "$(grep -c -- '--handover' "$BIN/ft-seat-close.sh" "$BIN/ft-nano-close.sh" 2>/dev/null | awk -F: '{s+=$2} END{print s+0}')" 0
 
-echo "== 변이 4종(사본에서만) — 고침이 빠지면 그 시험만 빨강이어야 한다"
-mut() {  # mut <이름> <파일> <바꿀 줄> <새 줄>
+echo "== 변이 8종(사본에서만) — 고침이 빠지면 그 시험만 빨강이어야 한다 · 각 줄 = «원본 변이» 두 값(같은 조건 · 갈려야 한다)"
+mut() {  # mut <이름> <파일> <바꿀 글자> <새 글자>
   rm -rf "$TMP/bin-$1"; mkdir -p "$TMP/bin-$1"; cp -R "$BIN"/. "$TMP/bin-$1/"
-  python3 - "$TMP/bin-$1/$2" "$3" "$4" <<'PY'
+  python3 - "$TMP/bin-$1/$2" "$3" "$4" <<'PY' || bad "변이 앵커 불일치 $1 (MUTATE-MISS)"
 import sys
 p, old, new = sys.argv[1:4]
 s = open(p, encoding="utf-8").read()
@@ -210,48 +270,59 @@ if old not in s:
 open(p, "w", encoding="utf-8").write(s.replace(old, new, 1))
 PY
 }
-mut letter ft-seat-reap.sh '        if r["pid"] not in t or t[r["pid"]][3] != r["lstart"]: continue   # 죽었거나 pid 재사용' \
-  '        if r["pid"] not in t or t[r["pid"]][3] != r["lstart"]: continue
-        if "install.sh" in r["cmd"] or "ft-da-codex.sh" in r["cmd"]: out[r["pid"]] = r["cmd"]'
-chk "변이①글자 판정 복귀 → ⓐ빨강(미등록 install.sh 글자 부모가 넘김)" \
-  "$( rm -f "$TMP/bg-finite.tsv"*
-      m="$(spawn "m1-$MK" "" "$BASH_X" "$TMP/gu/install.sh/../loop.sh" --tag "m1-$MK")"
-      reg "$A" 4200 "$m" "bash install.sh"
-      o="$(bash "$TMP/bin-letter/ft-seat-reap.sh" "$A" --orphans-only --handover "$B" 2>&1)"
-      echo "$(alive "$m")"; killtag "m1-$MK" )" "alive"
-mut seat ft-seat-reap.sh '        bgf("handover", HAND, *[str(r["pid"]) for r in roots])   # H2 장부 좌석 칸 → 후계(다른 줄 보존)' \
-  '        pass   # H2 좌석 칸 갱신 끔(변이)'
-chk "변이②좌석 칸 갱신 끔 → ⓓ빨강(B→C 재넘김 0)" \
-  "$( rm -f "$TMP/bg-finite.tsv"*
-      m="$(spawn "m2-$MK" "" "$BASH_X" "$TMP/da/ft-da-codex.sh" --tag "m2-$MK")"
-      seats "$A"; FT_BG_FINITE_LEDGER="$TMP/bg-finite.tsv" bash "$TMP/bin-seat/ft-seat-reap.sh" "$A" --orphans-only --handover "$B" >/dev/null 2>&1
-      o="$(FT_BG_FINITE_LEDGER="$TMP/bg-finite.tsv" bash "$TMP/bin-seat/ft-seat-reap.sh" "$B" --orphans-only --handover "$C" 2>&1)"
-      echo "$(grep -c "reap-handover pid=$m" <<< "$o")"; kill "$m" 2>/dev/null )" 0
-mut overwrite ft-bg-finite.sh '        L.rows = [r for r in L.rows if not (r[1] == pid and r[3] == lst)] + [row]   # 같은 작업 재등록 = 교체(다른 줄 보존)' \
-  '        L.rows = [row]   # 덮어쓰기(변이)'
-chk "변이③장부 덮어쓰기 복귀 → ⓔ빨강(줄 2개가 1개)" \
-  "$( rm -f "$TMP/bg-finite.tsv"*
-      a="$(spawn "m3a-$MK" "" "$BASH_X" "$TMP/da/ft-da-codex.sh" --tag "m3a-$MK")"
-      b="$(spawn "m3b-$MK" "" "$BASH_X" "$TMP/da/ft-da-codex.sh" --tag "m3b-$MK")"
-      FT_BG_FINITE_LEDGER="$TMP/bg-finite.tsv" bash "$TMP/bin-overwrite/ft-bg-finite.sh" register "$A" 4200 "$a" x >/dev/null 2>&1
-      FT_BG_FINITE_LEDGER="$TMP/bg-finite.tsv" bash "$TMP/bin-overwrite/ft-bg-finite.sh" register "$A" 4200 "$b" y >/dev/null 2>&1
-      echo "$(FT_BG_FINITE_LEDGER="$TMP/bg-finite.tsv" bash "$TMP/bin-overwrite/ft-bg-finite.sh" rows | wc -l | tr -d ' ')"; kill "$a" "$b" 2>/dev/null )" 1
-mut defer_first ft-seat-reap.sh 'hn = 0
-if HAND:   # H3 — 넘김 분리를 press 미룸보다 «먼저»(미룸이 먼저면 press 끝 뒤 digest 가 DA 를 reap = 원래 결함)' \
-  'hn = 0
-if defer and cand and press() and HAND:   # 변이: 미룸 먼저(넘김 뒤로)
-    os.makedirs(ddir, exist_ok=True)
-    print(f"reap-defer pid={sorted(cand)[0]} why=press-active cmd=변이")
-    print(f"reap {seat} stopped=0 left=0 deferred={len(cand)} rc=0"); sys.exit(0)
-if HAND:   # H3 — 넘김 분리를 press 미룸보다 «먼저»(미룸이 먼저면 press 끝 뒤 digest 가 DA 를 reap = 원래 결함)'
-chk "변이④미룸 먼저 복귀 → ⓕ빨강(넘김 줄 0)" \
-  "$( rm -f "$TMP/bg-finite.tsv"* "$TMP/defer/"*
-      m="$(spawn "m4-$MK" "" "$BASH_X" "$TMP/da/ft-da-codex.sh" --tag "m4-$MK")"
-      reg "$A" 4200 "$m" "bash ft-da-codex.sh"
-      printf '{"held":true,"member":"r939"}\n' > "$TMP/permits/device.json"
-      o="$(bash "$TMP/bin-defer_first/ft-seat-reap.sh" "$A" --orphans-only --defer-press --handover "$B" 2>&1)"
-      rm -f "$TMP/permits/device.json"
-      echo "$(grep -c 'reap-handover' <<< "$o")"; kill "$m" 2>/dev/null )" 0
+sp() { spawn "$1-$MK" "${2:-}" "$BASH_X" "$TMP/da/ft-da-codex.sh" --tag "$1-$MK"; }   # sp <표식> [env]
+# 시나리오 함수 — 인자 = bin 폴더 · 출력 한 토큰
+scen_letter() { fresh; local m; m="$(spawn "m1-$MK" "" "$BASH_X" "$TMP/gu/install.sh/../loop.sh" --tag "m1-$MK")"   # 미등록 + 명령줄에 install.sh 글자
+  bash "$1/ft-seat-reap.sh" "$A" --orphans-only --handover "$B" >/dev/null 2>&1; alive "$m"; killtag "m1-$MK"; }
+scen_seat() { fresh; seats "$A"; local m o; m="$(sp m2)"; reg "$A" 4200 "$m" "bash ft-da-codex.sh"
+  bash "$1/ft-seat-reap.sh" "$A" --orphans-only --handover "$B" >/dev/null 2>&1
+  o="$(bash "$1/ft-seat-reap.sh" "$B" --orphans-only --handover "$C" 2>&1)"; grep -c "reap-handover pid=$m" <<< "$o"; kill "$m" 2>/dev/null; }
+scen_over() { fresh; local a b; a="$(sp m3a)"; b="$(sp m3b)"
+  bash "$1/ft-bg-finite.sh" register "$A" 4200 "$a" x >/dev/null 2>&1; bash "$1/ft-bg-finite.sh" register "$A" 4200 "$b" y >/dev/null 2>&1
+  rows | wc -l | tr -d ' '; kill "$a" "$b" 2>/dev/null; }
+scen_front() { fresh; seats "$A"; local m o; m="$(sp m4)"; reg "$A" 4200 "$m" "bash ft-da-codex.sh"
+  printf '{"held":true,"member":"r939"}\n' > "$TMP/permits/device.json"
+  o="$(bash "$1/ft-seat-reap.sh" "$A" --orphans-only --defer-press --handover "$B" 2>&1)"; rm -f "$TMP/permits/device.json"
+  grep -c 'reap-handover pid=' <<< "$o"; kill "$m" 2>/dev/null; }
+scen_digest() { fresh; seats "$A"; local m; m="$(sp m5)"; reg "$A" 4200 "$m" "bash ft-da-codex.sh"
+  printf '{"held":true,"member":"r939"}\n' > "$TMP/permits/device.json"
+  bash "$1/ft-seat-reap.sh" "$A" --orphans-only --defer-press >/dev/null 2>&1; rm -f "$TMP/permits/device.json"
+  bash "$1/ft-seat-reap.sh" "$A" --orphans-only --defer-press --handover "$B" >/dev/null 2>&1; alive "$m"; kill "$m" 2>/dev/null; }
+scen_clamp() { fresh; local m d; m="$(sp m6)"
+  bash "$1/ft-bg-finite.sh" register "$A" 999999 "$m" x >/dev/null 2>&1
+  d="$(rows | awk -F'\t' -v n="$(date +%s)" '{print $5-n}')"; [ "${d:-0}" -le 4200 ] && echo cap || echo big; kill "$m" 2>/dev/null; }
+scen_lstart() { fresh; local m; m="$(sp m7)"; reg "$A" "-60" "$m" "old job"
+  python3 - "$TMP/bg-finite.tsv" <<'PY2'
+import sys
+p = sys.argv[1]; out = []
+for ln in open(p, encoding="utf-8").read().splitlines():
+    f = ln.split("\t"); f[3] = "Mon Jan 1 00:00:00 2001"; out.append("\t".join(f))
+open(p, "w", encoding="utf-8").write("\n".join(out) + "\n")
+PY2
+  LC_ALL=C ps -o pid=,ppid=,lstart=,time=,command= -p "$m" | sed 's/^ *//' > "$TMP/snapm"
+  FT_PS_SNAPSHOT="$TMP/snapm" bash "$1/ft-leak-reap.sh" --dry-run 2>&1 | grep -c "handover-stale pid=$m"; kill "$m" 2>/dev/null; }
+scen_expire() { fresh; seats "$A"; local m o; m="$(sp m8 "FT_SEAT=zzz-$$")"; reg "$A" "-60" "$m" "expired job"
+  bash "$1/ft-seat-reap.sh" "$A" --orphans-only --handover "$B" >/dev/null 2>&1; alive "$m"; kill "$m" 2>/dev/null; }
+
+mut letter ft-seat-reap.sh '    kids, stack = {}, [(p, v[0], v[1]) for p, v in list(out.items())]' \
+  '    for p, row in t.items():
+        if not expired and row[2] == me and ("install.sh" in row[4] or "ft-da-codex.sh" in row[4]): out.setdefault(p, (want or seat, row[4]))
+    kids, stack = {}, [(p, v[0], v[1]) for p, v in list(out.items())]'
+chk "변이①글자 판정 복귀 → ⓐ빨강: 미등록 install.sh 글자 부모 [원본 변이]" "$(scen_letter "$BIN") $(scen_letter "$TMP/bin-letter")" "dead alive"
+mut seat ft-seat-reap.sh '        bgf("handover", HAND, *[str(r["pid"]) for r in roots])' '        pass'
+chk "변이②좌석 칸 갱신 끔 → ⓓ빨강: B→C 재넘김 줄 수 [원본 변이]" "$(scen_seat "$BIN") $(scen_seat "$TMP/bin-seat")" "1 0"
+mut overwrite ft-bg-finite.sh '        L.rows = [r for r in L.rows if not (r[1] == pid and r[3] == lst)] + [row]' '        L.rows = [row]'
+chk "변이③장부 덮어쓰기 → ⓔ빨강: 줄 수 [원본 변이]" "$(scen_over "$BIN") $(scen_over "$TMP/bin-overwrite")" "2 1"
+mut front ft-seat-reap.sh 'if HAND and not dry:' 'if False and HAND and not dry:'
+chk "변이④넘김 앞단 끔 → ⓕ빨강: press 점유 중 넘김 줄 수 [원본 변이]" "$(scen_front "$BIN") $(scen_front "$TMP/bin-front")" "1 0"
+mut digest ft-seat-reap.sh '"handover" if p in handed else ' ''
+chk "변이⑤digest 넘김 건너뜀 끔 → ⓗ빨강: 미룬 등록 DA 생존 [원본 변이]" "$(scen_digest "$BIN") $(scen_digest "$TMP/bin-digest")" "alive dead"
+mut clamp ft-bg-finite.sh 'if not secs.lstrip("-").isdigit() or int(secs) > CAP_SEC:' 'if not secs.lstrip("-").isdigit():'
+chk "변이⑥상한 자름 끔 → ⓘ빨강: 999999 가 4200 이하인가 [원본 변이]" "$(scen_clamp "$BIN") $(scen_clamp "$TMP/bin-clamp")" "cap big"
+mut lstart ft-leak-reap.sh '        if a != b: dead.append(pid); continue' '        pass'
+chk "변이⑦lstart 비교 끔 → ⓙ빨강: 재사용 pid 줄 보고 수 [원본 변이]" "$(scen_lstart "$BIN") $(scen_lstart "$TMP/bin-lstart")" "0 1"
+mut expire ft-seat-reap.sh '        if (r["until"] <= now) != expired: continue' '        if expired: continue   # 변이: 상한 지난 줄도 «상한 전» 으로 센다(넘김 집합에 들어감)'
+chk "변이⑧만료도 넘김 → ⓚ빨강: 만료 줄 작업 생존(env 가 남의 좌석이라 reap 은 만료 경로뿐) [원본 변이]" "$(scen_expire "$BIN") $(scen_expire "$TMP/bin-expire")" "dead alive"
 
 echo
 [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }

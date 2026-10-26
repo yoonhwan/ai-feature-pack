@@ -41,7 +41,7 @@ if [ -z "$LDG0" ] && [ -f "$HERE0/ft-harness-root.sh" ]; then DR="$(. "$HERE0/ft
 
 # → stdout: 후보 TSV(pid \t lstart \t cpu초 \t 명령 앞 160자) + 끝줄 «#fp <8자>». 조사 실패 = exit 20(stderr 1줄).
 found="$("$PY" - "$MIN_CPU" "$SNAP_OUT" "$LDG0" "$BGF0" <<'PY'
-import datetime, glob, hashlib, json, os, re, shlex, subprocess, sys, time
+import calendar, datetime, glob, hashlib, json, os, re, shlex, subprocess, sys, time
 
 snap_out, LEDGER, BGF = sys.argv[2], sys.argv[3], sys.argv[4]
 DEFAULT_PS = "ps -axo pid=,ppid=,lstart=,time=,command="   # r670: 판정에 쓰는 필드만(pgid·stat 제거) — 부하 꼭대기의 ps 비용을 줄인다
@@ -175,13 +175,21 @@ def stale_handed():   # r939 H3 — 장부의 «상한 지난 등록 줄» 보�
     try: lines = open(LEDGER, encoding="utf-8").read().splitlines() if os.path.exists(LEDGER) else []
     except OSError as e:
         print(f"ft-leak-reap: WARN 장부 못 읽음 {LEDGER}: {e}", file=sys.stderr); return 0
-    now, n, live, dead = time.time(), 0, {r[0] for r in table}, []
+    now, n, live, dead = time.time(), 0, {r[0]: r[2] for r in table}, []
     stale = []
+    def started(s, utc):   # r3 고침 3 — 장부 lstart(LC_ALL=C TZ=UTC)와 이 표 lstart(지역 시각)를 같은 epoch 로 맞춰 비교 · 못 읽으면 None
+        try: tm = time.strptime(s, "%a %b %d %H:%M:%S %Y")
+        except ValueError: return None
+        return calendar.timegm(tm) if utc else int(time.mktime(tm))
     for ln in lines:
         f = ln.split("\t")
         try: pid, until = int(f[1]), int(f[4])
         except (IndexError, ValueError): continue
         if pid not in live: dead.append(pid); continue      # 끝난 작업 — 줄을 지운다(영원히 남기지 않음)
+        a, b = started(f[3], True) if len(f) > 3 else None, started(live[pid], False)
+        if a is None or b is None:
+            print(f"ft-leak-reap: WARN 장부 lstart 비교 불가 pid={pid} «{f[3] if len(f) > 3 else ''}» vs «{live[pid]}» — 이 줄은 건너뜀", file=sys.stderr); continue
+        if a != b: dead.append(pid); continue               # pid 재사용(다른 프로세스) — 줄을 지우고 보고 0(prune 도 lstart 로 한 번 더 확인)
         if until > now: continue                            # 상한 전 — 보고 0
         stale.append(pid)
         print(f"#handover-stale pid={pid} until={until} age={int((now - until) / 60)}m cmd={(f[6] if len(f) > 6 else '')[:100]}"); n += 1
@@ -206,7 +214,7 @@ hst="$(printf '%s\n' "$found" | sed -n 's/^#handover-stale //p')"; hst="$(printf
 found="$(printf '%s\n' "$found" | grep -v '^#' || true)"
 hn=0; [ -z "$hst" ] || hn="$(printf '%s\n' "$hst" | grep -c .)"
 if [ -n "$hst" ]; then   # r939 ⓔ — 보고만(신호 0) · 유출 수·killed·left·rc 에 안 섬김
-  printf '%s\n' "$hst" | while IFS= read -r l; do echo "leak-reap: handover-stale $l — 죽이지 않음(넘긴 작업 · 사람·후계 판단)"; done
+  printf '%s\n' "$hst" | while IFS= read -r l; do echo "leak-reap: handover-stale $l — 죽이지 않음(상한 지난 등록 작업 · 그 좌석의 다음 승계·닫기가 reap)"; done
 fi
 if [ -z "$found" ]; then
   [ "$JSON" = 1 ] && echo "{\"leaked\":0,\"killed\":0,\"left\":0,\"handover_stale\":$hn}" || { [ "$QUIET" = 1 ] || echo "leak-reap: 유출 0"; }

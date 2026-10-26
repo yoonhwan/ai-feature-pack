@@ -110,11 +110,11 @@ def ledger_rows():   # 장부 읽기 — 좌석<TAB>pid<TAB>pgid<TAB>lstart<TAB>
         try: out.append({"seat": f[0], "pid": int(f[1]), "pgid": int(f[2]), "lstart": f[3], "until": int(f[4]), "state": f[5], "cmd": f[6] if len(f) > 6 else ""})
         except (IndexError, ValueError): continue
     return out
-def registered(t, me, now, want=None):   # r939 H1 — «pid 살아 있음 ∧ lstart 같음 ∧ 상한 전» 줄의 pgid 전체 + 자손 → {pid: (좌석, cmd)}
-    out = {}
+def registered(t, me, now, want=None, expired=False):   # r939 H1 — «pid 살아 있음 ∧ lstart 같음 ∧ 상한 전» 줄의 pgid 전체 + 자손 → {pid: (좌석, cmd)}
+    out = {}                                              # expired=True = 상한 «지난» 줄(r3: 넘기지 않고 일반 reap 후보 — 멈춘 일이다)
     for r in ledger_rows():
         if want is not None and r["seat"] != want: continue   # want=None = 전 좌석(남의 등록 작업 판별용)
-        if r["until"] <= now: continue   # 상한 지난 줄(보고는 ft-leak-reap 몫 — 자동 사살·넘김 0)
+        if (r["until"] <= now) != expired: continue
         if r["pid"] not in t or t[r["pid"]][3] != r["lstart"]: continue   # 죽었거나 pid 재사용
         out[r["pid"]] = (r["seat"], r["cmd"])
         for p, row in t.items():   # 같은 pgid = 그 작업의 일꾼(자식·손자)
@@ -129,8 +129,8 @@ def registered(t, me, now, want=None):   # r939 H1 — «pid 살아 있음 ∧ l
     return out
 def ledger_roots(now):   # 넘김 보고·장부 갱신은 «등록한 뿌리» 만 — 넘김 수를 자식 수로 부풀리지 않는다
     return [r for r in ledger_rows() if r["seat"] == seat and r["until"] > now]
-def record_handover(rows):   # r939 H2 — resume 파일 "handed" 칸은 «보기용 사본»(판정 근거 아님 · 판정은 장부)
-    ent = [{"pid": p, "cmd": c[:200], "started": (tbl[p][3] if p in tbl else ""), "at": time.strftime("%Y-%m-%dT%H:%M:%S")}
+def record_handover(rows, t):   # r939 H2 — resume 파일 "handed" 칸은 «보기용 사본»(판정 근거 아님 · 판정은 장부)
+    ent = [{"pid": p, "cmd": c[:200], "started": (t[p][3] if p in t else ""), "at": time.strftime("%Y-%m-%dT%H:%M:%S")}
            for p, c in sorted(rows.items())]
     if not ent: return
     rd = os.environ.get("ZC_RESUME_DIR") or os.path.expanduser("~/.claude/state/seat-resume")
@@ -296,11 +296,12 @@ def digest():   # 미룸 소화(닫는 사건) — lstart 같은 내 pid 만 · 
             open(bf, "w", encoding="utf-8").write("".join(l + "\n" for l in bad))
             print(f"reap-deferred-broken file={bf} lines={len(bad)}"); print(f"ft-seat-reap: ERROR 미룸 파일 깨진 줄 {len(bad)} — {bf} 로 원문 보존(사람 판단)", file=sys.stderr)
         t = ps_table(); anc, svc, live = ancestors(t), services(t), {}   # 파일마다 새 표 — TERM 직전 lstart 재확인
+        handed = registered(t, me, time.time(), want=HAND) if HAND else {}   # r3 — 방금 후계에게 넘긴 작업(장부 좌석 = 후계)은 미룸 소화로 죽이지 않는다
         for r in rows:
             p = r["pid"]
             if p not in t or t[p][2] != me or t[p][3] != r["lstart"]: continue   # 죽었거나 pid 재사용 — 신호 0
             exe = os.path.basename(t[p][4].split()[0]) if t[p][4].split() else ""
-            why = "self" if p in anc else "protect-exe" if exe in PROTECT else svc.get(p, "")
+            why = "self" if p in anc else "handover" if p in handed else "protect-exe" if exe in PROTECT else svc.get(p, "")
             if why: print(f"reap-skip pid={p} why={why} cmd={t[p][4][:100]}"); continue
             live[p] = ("⑤미룸", r["lstart"], t[p][4])
         if live: stop(live)
@@ -308,6 +309,16 @@ def digest():   # 미룸 소화(닫는 사건) — lstart 같은 내 pid 만 · 
         if kept: open(f, "w", encoding="utf-8").write("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows if r.get("pid") in kept))
         else: os.remove(f)
         print(f"reap-deferred-done file={f} stopped={len(live) - len(kept)} kept={len(kept)}")
+hn, HANDED = 0, set()
+if HAND and not dry:   # r3 고침 1 — 넘김 분리를 digest(미룸 소화)·reap 보다 «먼저»(press 가 끝난 뒤 digest 가 미룬 등록 DA 를 ⑤미룸으로 죽이는 길 0)
+    t0 = ps_table(); now0 = time.time()
+    HANDED = set(registered(t0, os.getuid(), now0, want=seat))   # 이 좌석의 «상한 전 ∧ 살아 있음 ∧ lstart 같음» 등록 작업 + 자손 — 넘김 장부 갱신이 실패해도 reap 하지 않는다
+    roots = [r for r in ledger_roots(now0) if r["pid"] in HANDED]   # 죽었거나 pid 재사용·lstart 불일치·상한 지난 줄 = 넘김 0
+    for r in roots:
+        print(f"reap-handover pid={r['pid']} cmd={r['cmd'][:80]} to={HAND}"); hn += 1
+    if hn:
+        bgf("handover", HAND, *[str(r["pid"]) for r in roots])   # H2 장부 좌석 칸 → 후계(다른 줄 보존)
+        record_handover({r["pid"]: r["cmd"] for r in roots}, t0)  # 보기용 사본(판정 근거 아님)
 if not dry: digest()
 cand, tbl, shared, skip = survey()
 for p, (w, c) in sorted(skip.items()): print(f"reap-skip pid={p} why={w} cmd={c[:100]}")
@@ -318,22 +329,18 @@ if dry:
     print(f"reap {seat} found={len(cand)} dry-run rc=0{tail}"); sys.exit(0)
 now = time.time()
 allreg = registered(tbl, os.getuid(), now)                                  # r939 H1 — 전 좌석 등록 장부(짐작 0)
-reg = {p: v for p, v in allreg.items() if v[0] == seat}                      # 이 좌석의 작업
-other = {p for p, v in allreg.items() if v[0] != seat}                       # 넘겨받은(남의 좌석) 작업 — env FT_SEAT 가 옛 이름이어도 건드리지 않는다
-cand = {p: v for p, v in cand.items() if p not in other}
+reg = {p: v for p, v in allreg.items() if v[0] == seat}                      # 이 좌석의 작업(--handover 면 위에서 이미 후계 칸으로 넘어가 비어 있다)
+other = {p for p, v in allreg.items() if v[0] != seat}                       # 넘겨받은·넘긴(남의 좌석) 작업 — env FT_SEAT 가 옛 이름이어도 건드리지 않는다
+cand = {p: v for p, v in cand.items() if p not in other and p not in HANDED}
+exp = registered(tbl, os.getuid(), now, want=seat, expired=True)             # r3 고침 2 — 상한 지난 등록 줄 = 넘기지 않고 일반 reap 후보(멈춘 일 · 자기등록 루프의 끝)
+anc = ancestors(tbl)
+for p, (s, c) in sorted(exp.items()):
+    if p in tbl and p not in cand and p not in anc and os.path.basename((tbl[p][4].split() or [""])[0]) not in PROTECT:
+        cand[p] = ("만료", tbl[p][3], tbl[p][4]); print(f"reap-expired pid={p} cmd={c[:80]} (등록 상한 지남 — 넘기지 않고 reap)")
 for p, (v, lst, c) in sorted(cand.items()):   # 등록 안 한 «끝나는 일» 도구 → 넘기지 않는다는 것을 보이게(영구 참김)·알림 1줄 — 조용한 손실 0
-    if p not in allreg and any(os.path.basename(a) in FINITE_EXE for a in c.split()) and v != "자손":
+    if p not in allreg and p not in exp and any(os.path.basename(a) in FINITE_EXE for a in c.split()) and v != "자손":
         print(f"reap-unregistered pid={p} cmd={c[:80]} (등록 장부에 줄 없음 — 넘김 대상 아님")
-hn = 0
-if HAND:   # H3 — 넘김 분리를 press 미룸보다 «먼저»(미룸이 먼저면 press 끝 뒤 digest 가 DA 를 reap = 원래 결함)
-    roots = [r for r in ledger_roots(now) if r["pid"] in reg]   # 죽었거나 pid 재사용·lstart 불일치 = 넘김 0
-    for r in roots:
-        print(f"reap-handover pid={r['pid']} cmd={r['cmd'][:80]} to={HAND}"); hn += 1
-    if hn:
-        bgf("handover", HAND, *[str(r["pid"]) for r in roots])   # H2 장부 좌석 칸 → 후계(다른 줄 보존)
-        record_handover({r["pid"]: r["cmd"] for r in roots})     # 보기용 사본(판정 근거 아님)
-    cand = {p: v for p, v in cand.items() if p not in reg}
-else:   # 닫기·일반 reap — 이 좌석의 등록 작업은 «이 좌석의 일» 이므로 후보에 넣고, 남의(넘겨받은) 등록 작업은 건드리지 않는다
+if not HAND:   # 닫기·일반 reap — 이 좌석의 등록 작업은 «이 좌석의 일» 이므로 후보에 넣고, 남의(넘겨받은) 등록 작업은 건드리지 않는다
     for p, v in reg.items():
         if p in tbl and p not in cand: cand[p] = ("등록", tbl[p][3], tbl[p][4])
 if defer and cand and press():
@@ -350,7 +357,7 @@ seen, again = set(), cand
 for _ in range(2):   # 2회전 — 1회전 사이에 새로 드러난 것(부모를 잃은 자식 등)까지
     if not again: break
     seen |= {p for p, x in again.items() if x[0] != "자손"}; stop(again); again, _, _, _ = survey()
-    if HAND: again = {p: v for p, v in again.items() if p not in reg}   # 넘긴 것은 살아 있는 것이 정상 — 후보로 다시 세지 않는다
+    again = {p: v for p, v in again.items() if p not in other and p not in HANDED}   # 넘긴 것은 살아 있는 것이 정상 — 후보로 다시 세지 않는다
 left = sum(1 for x in again.values() if x[0] != "자손"); rc = 1 if left else 0
 for p, (v, _, c) in sorted(again.items()): print(f"reap-left pid={p} via={v} cmd={c[:100]}")
 bgf("prune")   # 끝난(죽은) 작업 줄 정리 — 넘긴 작업의 줄은 살아 있으니 그대로(후계·다음 retire 가 본다)

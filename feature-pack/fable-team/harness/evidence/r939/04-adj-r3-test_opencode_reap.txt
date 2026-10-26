@@ -1,0 +1,61 @@
+PASS bash -n ft-opencode-reap.sh
+PASS bash -n opencode-reap-check.sh
+PASS 인자 없음 → rc 2(usage)
+== 남의 opencode 셋 + 좌석 나무 + 좌석 워크트리 cwd 의 부모 잃은 serve
+PASS 조사: 좌석 나무 run(①)
+PASS 조사: 좌석 나무 serve(①)
+PASS 조사: 부모 잃은 serve · cwd ⊂ 워크트리(③)
+PASS 조사: 남의 opencode(x1) 후보 0
+PASS 조사: 남의 opencode(x2) 후보 0
+PASS 조사: 남의 opencode(other-run) 후보 0
+PASS 조사: 남의 opencode(other-serve) 후보 0
+PASS 조사는 kill 0
+== ⓐ --apply → REAPED left=0 · ⓑ 남의 것 생존
+PASS ⓐ REAPED n=3 left=0 rc 0
+PASS ⓐ seat-run 소멸
+PASS ⓐ seat-serve 소멸
+PASS ⓐ o1 소멸
+PASS ⓑ 남의 opencode x1 생존
+PASS ⓑ 남의 opencode x2 생존
+PASS ⓑ 남의 opencode other-run 생존
+PASS ⓑ 남의 opencode other-serve 생존
+PASS ⓐ pane 셸(opencode 아님) 은 kill-session 몫 — 신호 0
+== ⓒ TERM 무시 스텁 → KILL 로 left=0
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.jdaOl2OFKO/stub/opencode: 줄 1:  3842 Killed: 9                  OC_PIDOUT="$1-run" "$0" run
+PASS ⓒ TERM 무시 → left=0 rc 0
+PASS ⓒ TERM 무시 serve 소멸(KILL)
+== ⓓ 못 멈추면 rc 1 + oc-left 줄(FT_REAP_NOSIGNAL) · 닫기 FAIL 은 test_nano_close_fail_closed ⓗ
+PASS ⓓ left=2 rc 1
+PASS ⓓ oc-left 줄
+PASS ⓓ 신호 켜고 다시 → left=0
+== pid 파일: 스폰 기록 → 세션 사라짐(pane 셸 소멸 · cwd 밖) → 기록으로 회수 · 시작 시각 다르면 0
+PASS 기록 n=2
+PASS pane 셸 소멸 → serve 부모 잃음(ppid 1)
+PASS pid 파일로 회수 left=0
+PASS 기록된 serve 소멸
+PASS left=0 → pid 파일 삭제
+PASS 시작 시각 다른 기록 → 대상 0
+PASS ⓑ pid 재사용 가드 — x1 생존
+== new: --since 뒤 뜬 부모 잃은 serve(cwd 밖) 는 기록되지만, 다른 opencode 가 살아 있으면 회수 때 건너뜀(공유)
+PASS new 기록
+PASS new 기록 줄(n1)
+PASS 다른 opencode 생존 → oc-skip
+PASS 공유 의심 serve 생존
+== ⓔ 훅: opencode 실행 뒤 고아 → 알림(kill 0) · 글자로만 든 opencode → 출력 0
+PASS ⓔ opencode run → 알림
+PASS ⓔ 알림에 고아 pid
+PASS ⓔ 회수 명령 = --pid-file
+PASS ⓔ 훅은 kill 0
+PASS ⓔ 출력 0: echo opencode
+PASS ⓔ 출력 0: grep -n opencode notes.txt
+PASS ⓔ 출력 0: git log --grep "opencode serve"
+PASS ⓔ 출력 0: cat <<EOF
+PASS ⓔ 실행 자리 인식: cd /tmp && opencode run x
+PASS ⓔ 실행 자리 인식: timeout 7 opencode run x
+PASS ⓔ 실행 자리 인식: FOO=1 nohup opencode serve &
+PASS ⓔ 실행 자리 인식: bash -c 'opencode run x'
+PASS ⓔ Bash 아닌 도구 → 출력 0
+PASS ⓔ 깨진 입력 → rc 1 + ERROR(조용한 통과 0)
+
+ALL PASS
+rc=0

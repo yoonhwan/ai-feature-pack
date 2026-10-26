@@ -8,7 +8,8 @@
 #   register <좌석|-> <상한초> <pid> [명령…]   등록(같은 pid+lstart 줄은 교체 · pid 없으면 rc 3) · 좌석 "-" = 좌석 모름(넘김 대상 아님)
 #   unregister <pid>                            trap EXIT 용 — 그 pid 줄을 지운다(끝났으므로)
 #   handover <후계> <pid>…                      넘김 — 그 pid 줄의 좌석 칸을 후계로(덮어쓰기 0 · 다른 줄 보존)
-#   prune [<pid>…]                              죽은 pid 줄 지움(인자 없으면 전부 — reap·leak-reap 이 부른다)
+#   prune [<pid>…]                              끝난 줄 지움 = pid 죽음 또는 pid 재사용(lstart 다름) — 인자 없으면 전부(reap·leak-reap 이 부른다)
+#   register 상한초는 4200(70분)으로 잘린다(더 크거나 정수 아님 = 4200 · stderr 1줄)
 #   stale <pid>…                                상한 지난 줄을 상태=stale 로 표시(자동 사살·넘김 0 · leak-reap 보고와 함께)
 #   rows                                        장부 그대로 출력(시험·디버그)
 #   rc 0 = ok · 2 = usage · 3 = pid 없음(register) · 20 = 장부 읽기·쓰기 실패
@@ -27,6 +28,7 @@ exec python3 - "$MODE" "$LDG" "$@" <<'PY'
 import fcntl, os, subprocess, sys, time
 mode, ldg, args = sys.argv[1], sys.argv[2], sys.argv[3:]
 SEPS = "\t"
+CAP_SEC = 4200   # register 상한 70분
 def die(msg):
     print(f"ft-bg-finite: ERROR {msg}", file=sys.stderr); sys.exit(20)
 def lstart(pid):   # reap 과 같은 꼴(LC_ALL=C TZ=UTC · 5토큰 공백 1칸) — 좌석마다 TZ 가 달라도 같은 글자
@@ -80,8 +82,9 @@ if mode == "rows":
 if mode == "register":
     if len(args) < 3: print("usage: register <좌석|-> <상한초> <pid> [명령…]", file=sys.stderr); sys.exit(2)
     seat, secs, pid = args[0], args[1], args[2]
-    if not secs.lstrip("-").isdigit(): die(f"상한초가 숫자가 아님: «{secs}»")
     if not pid.isdigit(): die(f"pid 가 숫자가 아님: «{pid}»")
+    if not secs.lstrip("-").isdigit() or int(secs) > CAP_SEC:   # r939 r3 — 자기등록 루프도 최대 70분 뒤 «만료» → 다음 승계·닫기가 reap(받아들인 위험의 상한)
+        print(f"ft-bg-finite: WARN 상한초 «{secs}» → {CAP_SEC} 로 자름(70분 상한)", file=sys.stderr); secs = str(CAP_SEC)
     pid = int(pid)
     if not alive(pid): print(f"ft-bg-finite: ERROR pid {pid} 없음 — 등록 0", file=sys.stderr); sys.exit(3)
     try: pgid = os.getpgid(pid)
@@ -123,8 +126,10 @@ if mode == "stale":
     print(f"stale marked={n}"); sys.exit(0)
 if mode == "prune":
     want = set(pids(args)) if args else None
+    def gone_row(r):   # r939 r3 — 죽었거나 pid 재사용(lstart 다름)인 줄만 «끝난 작업» · 살아 있고 lstart 같은 줄은 인자에 든 pid 여도 지키지 않는다(재사용 pid 의 새 줄 오삭제 0)
+        return (want is None or r[1] in want) and (not alive(r[1]) or lstart(r[1]) != r[3])
     with Ledger() as L:
-        keep = [r for r in L.rows if (r[1] not in want if want is not None else alive(r[1]))]
+        keep = [r for r in L.rows if not gone_row(r)]
         gone = len(L.rows) - len(keep)
         if gone: L.rows = keep; L.save()
     print(f"prune removed={gone}"); sys.exit(0)
