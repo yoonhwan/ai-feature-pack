@@ -1,0 +1,4 @@
+MUT M1-foreground-pass: «pass & CHILD=$!; t0="$(now)"» → «pass; CHILD=""; t0="$(now)"» · rc=1 · FAIL ⓐ TERM 뒤 5초 넘게 살아 있음 (launchd 라면 SIGKILL = -9)|FAIL ⓐ 자식 남음 sweep=살아있음 sleep=살아있음|FAIL ⓐ stopped 줄 없음|FAIL ⓐ pidfile 남음|FAIL ⓐ2 5초 넘게 살아 있음|FAIL ⓐ2 TERM 무시 자식 남음 sweep=살아있음 sleep=살아있음|FAIL ⓑ 다음 바퀴 없음 (runs=1 · 바퀴가 묶임)|FAIL ⓑ ERROR 줄 0 (조용한 끊김/묶임)|FAIL ⓑ 끊긴 sweep 살아 있음 (5245)|FAIL ⓑ 정리 TERM 5초 초과|FAIL ⓒ 정리 TERM 5초 초과|
+MUT M2-no-pass-cap: «-ge "$PASS_MAX" ]; then» → «-ge 999999 ]; then» · rc=1 · FAIL ⓑ 다음 바퀴 없음 (runs=1 · 바퀴가 묶임)|FAIL ⓑ ERROR 줄 0 (조용한 끊김/묶임)|FAIL ⓑ 끊긴 sweep 살아 있음 (25355)|
+MUT M3-no-kill-fallback: «kill -KILL $alive 2>/dev/null; return 0» → «: $alive; return 0» · rc=1 · FAIL ⓐ2 TERM 무시 자식 남음 sweep=살아있음 sleep=살아있음|
+MUT M4-foreground-sleep: «sleep "$LOOP_SEC" & CHILD=$!; wait "$CHILD"; CHILD=""» → «sleep "$LOOP_SEC"; CHILD=""» · rc=1 · FAIL ⓐ3 쉼 중 TERM 5초 넘게 살아 있음|
