@@ -4,18 +4,22 @@ FAIL ⓑ rc=0 enters=2 transcript=[[byz-t-old-claude#1→byz-t-new-claude#2] 통
 PASS ⓓ capture 정상 모양 + rc1 → rc=1 · 주입 0 · Enter 0
 PASS ⓗ 입력줄 «통 신표준»(공백 위치만 다름) → 우리 글자 아님 · Enter 0 · rc=4
 PASS ⓘ 마지막 조회 직후 기록 생김 → 재전송 0(Enter 1) · rc=0
-PASS ⓙ 조회 지연 0.04초 + WAIT=7 → 7.39s(<9) 에 rc=1 · 벽시계 마감
-PASS ⓙ2 inject 조회 1.4초가 마감(1초)을 넘겨 찾은 새 기록 → rc=0 · Enter 1 · 1.76s(<2.9)
-PASS ⓙ2 boot 조회 1.4초가 마감(1초)을 넘겨 찾은 새 기록 → rc=0 · Enter 1 · 1.55s(<2.9)
-PASS ⓙ3 inject 기록이 마감+조회 뒤(3초) → rc=1 · Enter 1 · 1.75s(<1+1.4+0.2+0.5) · 기록은 그 뒤 생김
-PASS ⓙ3 boot 기록이 마감+조회 뒤(3초) → rc=1 · Enter 1 · 1.6s(<1+1.4+0.2+0.5) · 기록은 그 뒤 생김
-PASS ⓙ4 inject 조회 0.85초 · 기록 1.1초 → rc=0 · Enter 1 · 새 기록 1 · 2.31s(<2.55)
-PASS ⓙ4 boot 조회 0.85초 · 기록 1.1초 → rc=0 · Enter 1 · 새 기록 1 · 2.09s(<2.55)
-PASS ⓙ5 재전송 판정이 마감 뒤 → 두 번째 Enter 0 · rc=1 «제출 실패» · Enter 1 · 기록 0 · 2.42s(<3.8)
-PASS g1 준비 6초 늦음 → 준비 확인 뒤 제출 1(기록) · 입력줄 빔 (6.58s)
-PASS g2 첫 Enter 유실 → 재전송 1회 제출 · 글자 1회 (1.31s)
+PASS ⓙ 조회 지연 0.04초 + WAIT=7 → 7.59s(<9) 에 rc=1 · 벽시계 마감
+PASS ⓙ2 inject 조회 1.4초가 마감(1초)을 넘겨 찾은 새 기록 → rc=0 · Enter 1 · 1.99s(<2.9)
+PASS ⓙ2 boot 조회 1.4초가 마감(1초)을 넘겨 찾은 새 기록 → rc=0 · Enter 1 · 1.71s(<2.9)
+PASS ⓙ3 inject 기록이 마감+조회 뒤(3초) → rc=1 · Enter 1 · 1.79s(<1+1.4+0.2+0.5) · 기록은 그 뒤 생김
+PASS ⓙ3 boot 기록이 마감+조회 뒤(3초) → rc=1 · Enter 1 · 1.69s(<1+1.4+0.2+0.5) · 기록은 그 뒤 생김
+FAIL ⓙ4 inject rc=0 enters=1 rec=1 secs=2.55 out=state=no-resend session=sess — 입력줄이 전문이 아니다, 재전송 0 · 마감까지 늦은 기록만 본다 state=submitted session=sess enters=1 
+PASS ⓙ4 boot 조회 0.85초 · 기록 1.1초 → rc=0 · Enter 1 · 새 기록 1 · 2.32s(<2.55)
+PASS ⓙ5 재전송 판정이 마감 뒤 → 두 번째 Enter 0 · rc=1 «제출 실패» · Enter 1 · 기록 0 · 2.68s(<3.8)
+PASS ⓙ6 inject 첫 Enter 3초 · 기록 0 → 마감 뒤 Enter 0 · rc=1 · Enter 1 · 3.47s(<11.5)
+PASS ⓙ6 boot 첫 Enter 3초 · 기록 0 → 마감 뒤 Enter 0 · rc=1 · Enter 1 · 3.42s(<11.5)
+PASS ⓙ6b inject 첫 Enter 3초 · 기록 생김 → rc=0 · Enter 1 · 3.69s(<11.5)
+PASS ⓙ6b boot 첫 Enter 3초 · 기록 생김 → rc=0 · Enter 1 · 3.62s(<11.5)
+PASS g1 준비 6초 늦음 → 준비 확인 뒤 제출 1(기록) · 입력줄 빔 (6.59s)
+PASS g2 첫 Enter 유실 → 재전송 1회 제출 · 글자 1회 (1.57s)
 PASS g3 Enter 전부 유실 → rc=1 «제출 실패» · Enter 2(재전송 1) · 글자 1회
-PASS g4 준비 빠름 → 제출 1 · 추가 대기 0.13s (≤0.9)
+PASS g4 준비 빠름 → 제출 1 · 추가 대기 0.09s (≤0.9)
 PASS g5 자리표시 «Try …» 입력줄 → 주입·제출 1 (rc=0)
 PASS g6 사람 글자 위 → 전문 아님 · Enter 0 · rc=1 · 사람 글자 제출 0
 PASS g7 id 없음 → rc=1 · 주입 0
@@ -31,8 +35,8 @@ PASS ⓖ'' env·resume·명부 모두 없음 → rc=3 · Enter 0
 PASS g9 옛 기록 + 자리표시 → rc=4 · Enter 0
 PASS ⓛ plain·인자 없음(send·restore) → 기준 커밋 cbe218a5 과 tmux 호출·결과 바이트 같음 · 캡처 0
 PASS ⓝ cmd_open 판독 실패 → rc=1 «부팅 문장 제출 실패» · «session created» 성공 문구 0
-PASS ⓞ cmd_open claude → --session-id 발급(04104ef7-6f5e-4203-a2ef-96c5222156c9) = 세션 env 같은 값 · 호출자 env 값 안 씀 · TMUXC_BOOT_TEXT 기록
+PASS ⓞ cmd_open claude → --session-id 발급(df696498-2bd2-4145-b595-51b383e86bfb) = 세션 env 같은 값 · 호출자 env 값 안 씀 · TMUXC_BOOT_TEXT 기록
 PASS ⓞ' codex open → --session-id·TMUXC_CLAUDE 0(P3)
 ----
-FAILED 1 (mutate=P)
+FAILED 2 (mutate=P)
 rc=1

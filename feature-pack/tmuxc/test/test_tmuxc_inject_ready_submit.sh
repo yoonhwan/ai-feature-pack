@@ -20,6 +20,7 @@
 #     ⓙ2/ⓙ3 (r5 계약) WAIT=1 · 조회 1.4초 — 기록 1.2초 = 마감 뒤에 찾아도 rc0 / 기록 3초 = rc≠0 · 둘 다 Enter 1
 #     ⓙ4 (r6 결과 계약) WAIT=1 · 조회 0.85초 · 기록 1.1초 → rc0 · Enter 1 · 총 < WAIT + 조회 + 0.2 + 0.5초
 #     ⓙ5 (r7 계약 ①) 첫 Enter 먹힘·화면·기록 그대로 · 조회 0.6초 → 재전송 판정이 마감 뒤 → Enter 1 · rc≠0
+#     ⓙ6/ⓙ6b (r8) 첫 Enter 처리만 3초 · WAIT=1 → 마감 기준 = Enter 앞 · 기록 0 → Enter 1 rc≠0 / 기록 생김 → rc0
 #   시험 상한 숫자는 구현에 맞춘 값이라 계약 상한보다 빡빡하다 = 의도 · SECS 는 호출 전부터 잰다(계약은 첫 Enter 부터).
 #   이어 온 시험: g1 준비 6초 늦음 · g2 첫 Enter 유실 → 재전송 1 · g3 Enter 전부 유실 → 실패 · g4 준비 빠름 ·
 #     g5 새 claude 자리표시 «Try "…"» → 주입·제출 · g6 사람 글자 위 → Enter 0 · g7 id 없는 agent 주입 → rc≠0 ·
@@ -29,6 +30,7 @@
 #   시험 대상 = env FT_TMUXC_PATH (기본 = 이 저장소 사본) — 옛 사본으로 돌리면 빨강이어야 한다.
 #   변이(FT_MUTATE): J = 기록 판정 → 화면 판정 복귀 · P = 재전송 판정에 접두 인정 복귀 · C = capture rc 무시 ·
 #                    E = boot-enter 판독 불가 rc0 복귀 · D = 재전송 직전 마감 검사 삭제(→ ⓙ5 빨강)
+#                    F = r8 고침 1 되돌림(inject 마감 기준점을 첫 Enter 뒤로 → ⓙ6 inject 빨강 · 결정문의 «변이 E» · E 는 이미 있어 F)
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 TMUXC="${FT_TMUXC_PATH:-$HERE/../core/bin/tmuxc}"
@@ -99,6 +101,7 @@ print("❯ "+ls[0]); [print("  "+l) for l in ls[1:]]' "$buf" "$(cat "$D/wrap")"
     if [ "$lit" = 1 ]; then printf '%s' "$arg" >> "$D/buffer"; exit 0; fi   # pty 는 준비 전에도 글자를 받아 둔다
     [ "$arg" = Enter ] || exit 0
     [ -f "$D/ready" ] || exit 0                                            # 준비 전 Enter = 유실
+    if [ -f "$D/enter_slow" ]; then dl="$(cat "$D/enter_slow")"; rm -f "$D/enter_slow"; sleep "$dl"; fi   # 첫 Enter 처리만 N초
     n="$(cat "$D/enters_lost" 2>/dev/null || echo 0)"
     if [ "$n" -gt 0 ]; then printf '%s\n' "$((n - 1))" > "$D/enters_lost"; exit 0; fi
     if [ -f "$D/enter_deferred" ]; then rm -f "$D/enter_deferred"; exit 0; fi   # 먹혔지만 화면·기록이 아직 안 바뀜
@@ -218,6 +221,16 @@ old = '''          now="$(now_ms)"
 new = '''          tmux send-keys -t "$pane" Enter; enters=2 ;;  # MUTATE D'''
 assert old in s, "MUTATE D 대체 실패"
 open(p, "w", encoding="utf-8").write(s.replace(old, new, 1))
+PY
+     ;;
+  F) # r8 고침 1 되돌림 — inject 마감 기준점을 첫 Enter 호출 «뒤» 로
+     python3 - "$SHIM" <<'PY'
+import sys
+p = sys.argv[1]; s = open(p, encoding="utf-8").read()
+nl = '''  now="$(now_ms)"; t_end=$(( now + wait_s * 1000 )); t_mid=$(( now + wait_s * 500 ))\n'''
+en = '''  tmux send-keys -t "$pane" Enter; enters=1\n'''
+assert (nl + en) in s, "MUTATE F 대체 실패"
+open(p, "w", encoding="utf-8").write(s.replace(nl + en, en + nl.rstrip("\n") + "  # MUTATE F\n", 1))
 PY
      ;;
   0) ;;
@@ -342,6 +355,37 @@ LOOKUP_DELAY=0.6 TMUXC_SUBMIT_WAIT=1 call_limited inject_message sess "$MSG" age
     && python3 -c "import sys; sys.exit(0 if ${SECS} < 3.8 else 1)"; } \
   && ok "ⓙ5 재전송 판정이 마감 뒤 → 두 번째 Enter 0 · rc=${RC} «제출 실패» · Enter 1 · 기록 0 · ${SECS}s(<3.8)" \
   || bad "ⓙ5 rc=${RC} enters=$(enters) rec=$(rec_count) secs=${SECS} out=$(outline)"
+
+# ⓙ6 (r8 · sol r7 반례) 첫 Enter 처리만 3초 · WAIT=1 · 첫 Enter 뒤 기록 0(enter_deferred) → 마감은 Enter «앞» 시각 기준
+#   → inject 두 번째 Enter 0 · rc≠0 «제출 실패» / boot rc≠0 · 둘 다 < 1 + 3×3 + 1 + 0.5 = 11.5초
+for who in inject boot; do
+  fresh; : > "$D/ready"; : > "$D/enter_deferred"; printf '3\n' > "$D/enter_slow"
+  if [ "$who" = inject ]; then
+    TMUXC_SUBMIT_WAIT=1 call_limited inject_message sess "$MSG" agent "$SID"
+  else
+    boot_env; printf '%s' "$BOOT" > "$D/buffer"
+    TMUXC_SUBMIT_WAIT=1 call_limited cmd_boot_enter sess
+  fi
+  { [ "$RC" != 0 ] && [ "$RC" != 124 ] && grep -q '제출.*실패' "$T/out" && [ "$(enters)" = 1 ] && [ "$(rec_count)" = 0 ] \
+      && python3 -c "import sys; sys.exit(0 if ${SECS} < 11.5 else 1)"; } \
+    && ok "ⓙ6 ${who} 첫 Enter 3초 · 기록 0 → 마감 뒤 Enter 0 · rc=${RC} · Enter 1 · ${SECS}s(<11.5)" \
+    || bad "ⓙ6 ${who} rc=${RC} enters=$(enters) rec=$(rec_count) secs=${SECS} out=$(outline)"
+done
+
+# ⓙ6b 같은 3초 · 첫 Enter 가 기록됨 → rc0 · Enter 1
+for who in inject boot; do
+  fresh; : > "$D/ready"; printf '3\n' > "$D/enter_slow"
+  if [ "$who" = inject ]; then
+    TMUXC_SUBMIT_WAIT=1 call_limited inject_message sess "$MSG" agent "$SID"
+  else
+    boot_env; printf '%s' "$BOOT" > "$D/buffer"
+    TMUXC_SUBMIT_WAIT=1 call_limited cmd_boot_enter sess
+  fi
+  { [ "$RC" = 0 ] && grep -q 'state=submitted' "$T/out" && [ "$(enters)" = 1 ] && [ "$(rec_count)" = 1 ] \
+      && python3 -c "import sys; sys.exit(0 if ${SECS} < 11.5 else 1)"; } \
+    && ok "ⓙ6b ${who} 첫 Enter 3초 · 기록 생김 → rc=0 · Enter 1 · ${SECS}s(<11.5)" \
+    || bad "ⓙ6b ${who} rc=${RC} enters=$(enters) rec=$(rec_count) secs=${SECS} out=$(outline)"
+done
 
 # g1 준비 6초 늦음 → 준비 확인 뒤 주입 · 기록으로 제출 확인 · 입력줄 빔
 fresh; ( sleep 6; : > "$D/ready" ) & bg=$!

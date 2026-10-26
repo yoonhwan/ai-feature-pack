@@ -696,14 +696,14 @@ agent_inject() {
     2) printf 'state=unreadable session=%s — 입력줄 판독 불가, Enter 0\n' "$session" >&2; return 1 ;;
     *) printf 'state=input-mismatch session=%s — 입력줄이 이번 메시지 전문이 아니다(다른 글자·잘림), Enter 0\n' "$session" >&2; return 1 ;;
   esac
+  local now t_end t_mid resent=0 sub
+  now="$(now_ms)"; t_end=$(( now + wait_s * 1000 )); t_mid=$(( now + wait_s * 500 ))
   tmux send-keys -t "$pane" Enter; enters=1
   # r925 r4: 마감 = 첫 Enter 시각 + TMUXC_SUBMIT_WAIT초 «벽시계»(조회 횟수 아님 · 조회가 느려도 늘지 않는다).
   #   재전송 판정은 그 절반 시점에 1회(R3) — 기록 없음 ∧ 입력줄 = 전문 ∧ «두 번째 Enter 직전 기록 다시 읽기» 도 없음일 때만.
   #   r7 결과 계약 ① Enter = 첫 1 + 재전송 ≤1 · 재전송은 마감 전에만 · 마감 뒤 Enter 0 (Enter 시각 = send-keys 직전 판정 시각)
   #   ② 증거 없는 rc0 = 0: 기준 위치(inject = 글자 넣기 직전 · boot-enter = Enter 직전 기록 끝) 뒤 우리 글자(공백 뺀 앞 30자) 새 user 레코드만
-  #   ③ 총(첫 Enter → rc) ≤ WAIT + 3×D + 1초 · D = 가장 느린 기록 조회·화면 읽기 1회 (내부 순서·횟수·쉼 값은 계약 아님)
-  local now t_end t_mid resent=0 sub
-  now="$(now_ms)"; t_end=$(( now + wait_s * 1000 )); t_mid=$(( now + wait_s * 500 ))
+  #   ③ 총(첫 Enter → rc) ≤ WAIT + 3×D + 1초 · D = 가장 느린 외부 호출 1회(기록 조회·화면 읽기·tmux 입력) (내부 순서·횟수·쉼 값은 계약 아님)
   while :; do
     st=0; claude_submitted_since "$sid" "$off" "$message" || st=$?
     case "$st" in
@@ -838,8 +838,8 @@ cmd_boot_enter() {
     return 4
   fi
   off="$(claude_jsonl_size "$sid")" || { printf '[HIL] 세션 기록 판정 불가 — %s · Enter 0\n' "$name" >&2; return 2; }
-  tmux send-keys -t "$pane" Enter
   now="$(now_ms)"; t_end=$(( now + wait_s * 1000 ))
+  tmux send-keys -t "$pane" Enter
   while :; do
     sub=0; claude_submitted_since "$sid" "$off" "$text" || sub=$?
     case "$sub" in

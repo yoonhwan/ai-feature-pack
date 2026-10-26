@@ -1,5 +1,7 @@
-r925 r7 — tmuxc 주입 «제출 확인» + 승계 이어가기 Enter (팩 브랜치 nano/r925-tmuxc-inject-submit-verify-and-succ-r2 · Issue #3586)
-  ★이 파일은 r7 판이다 — r6(1ee9c2d8) 위 1커밋 · fable 검토 수용 DECISION-r925-r7-final.md(계약 ②③ 문장 · 시험 ⓙ5 · 변이 D · 실행 코드 0).
+r925 r8 — tmuxc 주입 «제출 확인» + 승계 이어가기 Enter (팩 브랜치 nano/r925-tmuxc-inject-submit-verify-and-succ-r2 · Issue #3586)
+  ★이 파일은 r8 판이다 — r7(1fe26c05) 위 1커밋 · sol high r7 HOLD 1건 = 진짜 결함(마감 기준점이 첫 Enter «호출 뒤») → DECISION-r925-r8-final.md
+    (실행 줄 이동 2곳 · 계약 ③ D 정의에 tmux 입력 · 시험 ⓙ6·ⓙ6b · 변이 F · tmuxc 0.4.7).
+    r7 판 = r6(1ee9c2d8) 위 · fable 검토 수용 DECISION-r925-r7-final.md(계약 ②③ 문장 · 시험 ⓙ5 · 변이 D · 실행 코드 0).
     r6 판 = r5(904eea0d) 위 · 마감 계약 보류 2회(astra r4·r5) → 하드 룰 14 재설계 DECISION-r925-r6-outcome-contract.md
     (결과 계약 1~3 · 실행 코드 0 · 주석 1줄 · 시험 ⓙ4 + ⓙ3 시간 단언). r5 판 = DECISION-r925-r5-contract.md(시험 ⓙ2·ⓙ3).
     r4 판 = DA⑥ r3(xhigh) HOLD 좁은 4곳 → DECISION-r925-r4-final.md 고침 4 + 선행 결함 1.
@@ -22,14 +24,17 @@ r925 r7 — tmuxc 주입 «제출 확인» + 승계 이어가기 Enter (팩 브�
   r7 결과 계약(r6 ①~④ 대체 · tmuxc 주석 3줄): ① Enter = 첫 1 + 재전송 ≤1 · 재전송은 마감 전에만 · 마감 뒤 Enter 0(Enter 시각 = send-keys 직전 판정 시각)
          ② 증거 없는 rc0 = 0: 기준 위치(inject = 글자 넣기 직전 · boot-enter = Enter 직전 기록 끝) 뒤 우리 글자(공백 뺀 앞 30자) 새 user 레코드만
          ③ 총(첫 Enter → rc) ≤ WAIT + 3×D + 1초 · D = 가장 느린 기록 조회·화면 읽기 1회 · 내부 순서·횟수·쉼 값은 계약 아님.
-         실행 줄 변경 0(git diff a81aaf8f HEAD -- tmuxc = 주석 -1 +3).
+         r8: ③ 의 D = «가장 느린 외부 호출 1회(기록 조회·화면 읽기·tmux 입력)».
+  r8 고침(실행 줄 · 판 0.4.7): agent_inject 의 `local now t_end t_mid …` + `now=…; t_end=…; t_mid=…` 을 첫 `send-keys … Enter` 앞으로
+         (local 줄도 함께 — 남겨 두면 뒤의 local 이 값을 지운다) · cmd_boot_enter 의 `now=…; t_end=…` 을 `send-keys … Enter` 앞으로.
+         git diff a81aaf8f HEAD -- tmuxc 실행 줄 = 이 이동뿐(나머지 주석).
   선행 ft-successor-open.sh:123 `/bin/bash -n` rc2(heredoc 를 품은 $( ) 안 python 정규식의 백틱 · 기준판도 같음) → 백틱을 \x60 으로(같은 뜻) · kit 짝 cmp0.
 
 ■ 실측(제출 0 · 토큰 0 · claude 2.1.310 · tmux 세션은 timeout 으로 스스로 끝남) — live-capture.txt
   probe4: 실제 부팅 문장이 3줄로 감김 → 새 input_is_message rc=0 · «통 신표준» 으로 바꾼 글 vs 같은 화면 rc=1 · 자리표시 rc=1 · 기록 파일 0
 
 ■ 시험 (전부 rc0 · /bin/bash 3.2 도 rc0 — green-*.txt)
-  feature-pack/tmuxc/test/test_tmuxc_inject_ready_submit.sh — 34 PASS · 가짜 tmux + 가짜 기록 폴더(<uuid>.jsonl) · 실 세션 0
+  feature-pack/tmuxc/test/test_tmuxc_inject_ready_submit.sh — 38 PASS · 가짜 tmux + 가짜 기록 폴더(<uuid>.jsonl) · 실 세션 0
     r3 ⓐ 옛 출력·옛 기록 + 새 제출 0 → rc=1 · ⓑ 늦은 기록 + 사람 접두 25자 → 재전송 0 · rc0 · ⓒ/ⓒ' RGB 전문 → Enter 1 / 회색 앞부분 → rc4 ·
        ⓓ capture 정상 모양 + rc1 → rc1 · ⓔ 권한 프롬프트 → rc2 «[HIL] 입력줄 판독 불가»
     r4 ⓕ 옛 기록 + 새 문장 → Enter 1 · 새 레코드 뒤 rc0 · «이미 제출» 0 / ⓕ' 옛 기록 + 새 기록 0 → rc1
@@ -43,7 +48,10 @@ r925 r7 — tmuxc 주입 «제출 확인» + 승계 이어가기 Enter (팩 브�
        (실측 inject 2.23~2.43 · boot 2.08~2.09 · 부하 12 에서 4회 · 걸린 시간 = 호출 전체(Enter 앞 준비 포함) 라 inject 여유 ≈0.12~0.3초)
     r7 ⓙ5 첫 Enter 먹힘·입력줄·기록 그대로 · 조회 0.6초 · WAIT=1 → 재전송 판정이 마감 뒤 → 두 번째 Enter 0 · rc1 «제출 실패» · Enter 1 · 기록 0 · 2.43초(<3.8)
        시험 상한 숫자는 구현에 맞춘 값이라 계약 상한보다 빡빡하다 = 의도 · SECS 는 호출 전부터 잰다(계약은 첫 Enter 부터).
-    r7 시험 실행 = arch r938 격리·DA 와 겹침 0 확인 뒤 혼자(17:41~17:51 · 시작·끝 pgrep 0).
+    r8 ⓙ6 가짜 tmux «첫 Enter 처리만 3초»(enter_slow) · WAIT=1 · 기록 0 → inject·boot 둘 다 rc1 · Enter 1(마감 뒤 Enter 0) · 3.2~3.5초(<11.5)
+       ⓙ6b 같은 3초 · 기록 생김 → inject·boot rc0 · Enter 1 · 3.4초
+    r8 시험 실행 = pgrep 'test_nano_close_step_timing|mutate_r938' 0 확인 뒤 혼자(18:35~18:50 · 시작·끝 0 · 부하 20~35).
+       (첫 회 18:29 는 겹침 6 · 부하 31 이라 버림 — 그 회 변이 F 에서 ⓙ4 둘이 타이밍으로 함께 빨강)
     이어 온 g1 준비 6초 늦음 · g2 첫 Enter 유실 → 재전송 1 · g3 전부 유실 → Enter 2 rc1 · g4 추가 대기 ≤0.9초 · g5 자리표시 → 제출 ·
        g6 사람 글자 위 → Enter 0 · g7 id 없음 → 주입 0 · g8 폭 40 줄 감김 → 전문 일치 · 제출 · g9 옛 기록 + 자리표시 → rc4 ·
        ⓛ plain·인자 없음 = cbe218a5 바이트 같음 · ⓝ cmd_open 판독 실패 문구 · ⓞ/ⓞ' id 발급·TMUXC_BOOT_TEXT / codex 0
@@ -52,7 +60,7 @@ r925 r7 — tmuxc 주입 «제출 확인» + 승계 이어가기 Enter (팩 브�
 
 ■ 빨강 (red-*.txt)
   origin/main · r2 8d6a4756 tmuxc : 판정 함수 없음 → 옛 판 ⓐ rc0(새 기록 0) · r2 는 g5 자리표시를 «input-busy» 로 거절
-  r3 48070359 tmuxc : FAILED 14 — ⓙ5(마감 뒤 재전송 · enters=2 · 5.02초)·ⓙ2 boot·ⓙ3 inject·ⓙ3 boot·ⓙ4 boot(2.88초)(횟수 마감 → 늦은 기록까지 기다려 rc0 · 2.92~6.14초) · ⓕ·ⓕ'·g9(옛 기록을 «already-submitted» 로 읽음) · ⓖ·ⓖ'(resume·명부 없음 → rc3) · ⓗ(공백 지운 비교 → Enter)
+  r3 48070359 tmuxc : FAILED 15 — ⓙ6 inject(마감 기준점 Enter 뒤 → enters=2)·ⓙ5(마감 뒤 재전송 · enters=2 · 5.02초)·ⓙ2 boot·ⓙ3 inject·ⓙ3 boot·ⓙ4 boot(2.88초)(횟수 마감 → 늦은 기록까지 기다려 rc0 · 2.92~6.14초) · ⓕ·ⓕ'·g9(옛 기록을 «already-submitted» 로 읽음) · ⓖ·ⓖ'(resume·명부 없음 → rc3) · ⓗ(공백 지운 비교 → Enter)
        · ⓘ(재조회 없이 재전송 → Enter 2) · ⓙ(횟수 마감 18.07초) · ⓑ(r3 는 창 길이가 달라 사람 입력 시점 전에 기록을 봄 — 판정 순서 차이, 결함 아님)
   origin/main · r2 · r3 ft-successor-open : ⓡ5·ⓡ5'·ⓡ5'' FAIL(/bin/bash 3.2 구문 오류 rc2) · origin/main·r2 는 ⓡ2·ⓡ2'·ⓡ3 도 FAIL
 
@@ -61,6 +69,8 @@ r925 r7 — tmuxc 주입 «제출 확인» + 승계 이어가기 Enter (팩 브�
   변이 E boot-enter 판독 불가 rc0     → ⓔ 만 FAIL
   변이 P 재전송 판정에 접두 인정       → ⓑ 만 FAIL
   변이 D 재전송 직전 마감 검사 삭제   → ⓙ5 만 FAIL(enters=2 · rc0)
+  변이 F r8 고침 1 되돌림(마감 기준점 Enter 뒤)  → ⓙ6 inject 만 FAIL(enters=2 · rc0) · 결정문의 «변이 E»(이름 E 는 이미 있어 F)
+  ★부하 20~35 회차 주의: 변이 P 에 ⓙ4 inject(2.55초 = 상한 경계) · 변이 J 에 ⓙ4 inject·ⓙ5 가 더 빨강 — ⓙ4 시간 상한이 빡빡해 부하에 흔들린다(r6 참고 줄)★
   변이 S successor 가 boot-enter rc 무시 → ⓡ2'·ⓡ3·ⓡ5'' FAIL(3칸 · 셋 다 boot-enter rc≠0 칸)
   변이 J 기록 판정 → 화면 판정 복귀    → ⓐ·ⓑ·ⓘ·ⓙ3 inject·ⓙ3 boot·g5 6칸 FAIL — ★«그 시험만» 아님★(ⓙ3 = 기록 0 인데 화면만 보고 rc0)
 
