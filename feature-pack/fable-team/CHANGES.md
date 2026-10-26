@@ -1,3 +1,9 @@
+## 2026-10-26 — r928 planner 감시 재걸기 틈 유예 · 표본기 실패 뒤 옛 파일 안 믿음 (1.1.247)
+
+- ft-mbox.sh 감시 경보가 planner 감시를 다시 거는 틈(끝 표식 5분 · 60초 표본기의 «처음 없음»)에는 긴급을 늦추고, 대기 몇 분인지 근거 줄을 남긴다. 300초 넘는 공백은 긴급 1통 그대로.
+- 표본 파일 쓰기·지우기 실패면 .broken 표식 + 긴급 1 · 첫 칸이 epoch 아님·미래면 표본 rc1 + 파일 삭제 + 긴급 1(깨진 표본으로 유예 0).
+- 시험 test_r928_watch_rearm_grace.sh 205 PASS ×3 · /bin/bash 3.2 · 변이 10 모두 검출 · 외부 DA astra APPROVE(BYZ design/harness/evidence/r928-da6/VERDICT-r928-astra-approve.md · 승인판 f72ebd12). 1.1.246 은 열린 PR #326·#327 몫이라 건너뜀.
+
 ## 2026-10-26 — r922a 초안 모드 골 표 검증 실패 = planner [긴급] 대신 WARN 1줄 (1.1.245)
 
 - ft_news_post.py 가 초안 모드(무장)에서 골 표 검증에 실패하면 goal_gate.refuse 를 부르지 않고 WARN 1줄만 남긴다. rc·발행 0·기준선은 그대로(초안+무장 rc=3). 게이트 본체 없는 설치도 같은 문을 지난다.
