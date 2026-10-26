@@ -3,6 +3,8 @@
 #   왜: 장수 가지에 push 안 된 커밋이 수천 개 디스크 한 곳에만 쌓였는데 아무도 세지 않는다(r963 실측: 5073).
 #   ★원격에 묻지 않는다★ — 각 워크트리 가지의 «로컬 추적 ref»(refs/remotes/origin/<가지>)만 본다. ls-remote·fetch·@{upstream} 0.
 #     로컬 추적 ref 있음 = `rev-list --count refs/remotes/origin/<가지>..HEAD` · 없음 = `<base>..HEAD` 를 «원격 가지 없음 · main 에 없는 커밋» 으로.
+#   ★«없음» 과 «못 봄» 을 종료값으로 가른다(r2)★ — ref 확인 = `show-ref --verify --quiet` 0=있음 · 1=없음(정상) · 그 밖(124 시간 초과 포함)=실패.
+#     rev-list 는 종료값 0 + 출력이 숫자일 때만 셈. 실패가 하나라도 있으면 표식 0 + ERROR(«없음» 으로 셈 0 하지 않는다).
 #     HEAD 분리 워크트리 = 셈 0 · «HEAD 분리 M곳» 에만 센다. 문턱(기본 50) 미만은 뺀다.
 #   ★표식은 «한 바퀴를 다 본 날» 만★ — <state>/<YYYY-MM-DD>.done. 한 워크트리라도 시간 초과·실패면 표식 0 + ERROR 1줄(다음 틱 재시도 · «문제없음» 발신 0).
 #   본문 고정 꼴: «미push N곳 · HEAD 분리 M곳 · 상위 3곳 = 이름(커밋 수) … · 전체 = unpushed/<날짜>.txt»
@@ -50,6 +52,10 @@ gq() {  # gq <git 인자…> — 남은 예산으로 상한을 줄인 git 한 �
 }
 bad=0; badwhy=""
 markbad() { bad=$((bad+1)); [ -n "$badwhy" ] || badwhy="$*"; }
+refstate() {  # ★0=있음 · 1=없음(정상) · 2=실패(시간 초과·그 밖의 종료값)★ — «덜 봄» 을 «없음» 으로 접지 않는다
+  gq -C "$REPO" show-ref --verify --quiet "$1"
+  case "$?" in 0) return 0;; 1) return 1;; *) return 2;; esac
+}
 fail_round() {  # ★r963 계약 ② — 덜 본 날은 표식 0 + ERROR 1줄★(빈 목록·«문턱 넘는 곳 없음» 으로 «문제없음» 을 만들지 않는다)
   err "ERROR r963 미완주 — ${bad}곳 확인 못 함(예: ${badwhy:-모름}) — 표식 0 · 발신 0(다음 틱 재시도)"
   exit 4
@@ -65,17 +71,24 @@ while IFS=$'\t' read -r p br; do
     HEAD) detached=$((detached + 1)); continue;;            # HEAD 분리 = 셈 0·«HEAD 분리 M곳» 에만 센다
     '') markbad "$(name_of "$p") 가지 이름 빈 값"; continue;;
   esac
-  if [ -d "$p" ]; then HEADREF=HEAD; G="-C $p"; else HEADREF="refs/heads/$br"; G="-C $REPO"; fi   # 폴더가 사라진 등록은 공용 repo 의 가지 ref 로 센다
-  if gq -C "$REPO" rev-parse --verify -q "refs/remotes/origin/$br" >/dev/null 2>&1; then
-    kind="로컬 추적 ref"
-    # shellcheck disable=SC2086
-    n="$(gq $G rev-list --count "refs/remotes/origin/$br..$HEADREF" 2>/dev/null)"
-  else
-    kind="원격 가지 없음 · main 에 없는 커밋"
-    # shellcheck disable=SC2086
-    n="$(gq $G rev-list --count "${BASE}..$HEADREF" 2>/dev/null)"
+  if [ -d "$p" ]; then HEADREF=HEAD; G="-C $p"; else   # 폴더가 사라진 등록은 공용 repo 의 가지 ref 로 센다
+    refstate "refs/heads/$br"
+    case "$?" in
+      0) HEADREF="refs/heads/$br"; G="-C $REPO";;
+      1) nosub=$((nosub + 1)); continue;;   # 폴더·가지 ref 둘 다 없음 = 이미 사라진 등록(실패 아님)
+      *) markbad "$(name_of "$p") 가지 ref 확인 실패"; continue;;
+    esac
   fi
-  case "$n" in ''|*[!0-9]*) [ -d "$p" ] && { markbad "$(name_of "$p") rev-list 실패"; continue; }; nosub=$((nosub + 1)); continue;; esac
+  refstate "refs/remotes/origin/$br"
+  case "$?" in
+    0) kind="로컬 추적 ref"; rev="refs/remotes/origin/$br";;
+    1) kind="원격 가지 없음 · main 에 없는 커밋"; rev="$BASE";;
+    *) markbad "$(name_of "$p") 추적 ref 확인 실패"; continue;;
+  esac
+  # shellcheck disable=SC2086
+  n="$(gq $G rev-list --count "$rev..$HEADREF" 2>/dev/null)"; nrc=$?
+  case "$n" in ''|*[!0-9]*) nrc=x;; esac
+  [ "$nrc" = 0 ] || { markbad "$(name_of "$p") rev-list 실패(rc=$nrc)"; continue; }
   [ "$DRY" = 1 ] && err "LIST $(name_of "$p") · $br · $kind=$n"
   [ "$n" -ge "$MIN" ] && lines+=("$n"$'\t'"$(name_of "$p")")
 done <<< "$(printf '%s\n' "$wlist" | awk '/^worktree /{p=substr($0,10)} /^branch refs\/heads\//{print p"\t"substr($0,19)} /^detached/{print p"\tHEAD"}')"

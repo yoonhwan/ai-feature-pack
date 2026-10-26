@@ -3,7 +3,8 @@
 # 전부 mktemp 임시 리포 + 가짜 git(PATH 선두 · 추적 + 원격 접촉 차단 + 지정 호출 sleep) — 실 루트·실 명부·실 mbox·실 원격 0 · press 0.
 # 케이스: ⓐ 있음/없음/HEAD 분리 셈·꼴 · ⓑ 한 워크트리 rev-list sleep 8 → 표식 0 + ERROR 1줄 + 발신 0 · ⓒ 루트 700자+ → 본문 ≤700 · 절대경로 0
 #        ⓓ 로그 경로가 디렉터리 → 잠금 잔류 0 · rc0 · ⓔ FT_TICK_TEAM 있으면 ft-tick 이 부르지 않음 · ⓕ 원격 접촉 0(ls-remote·fetch·pull·push 0)
-# 변이 3종이 각 케이스를 FAIL 시키는지도 본다: «시간 초과도 표식» → ⓑ · «절대 경로 본문» → ⓒ · «ls-remote 로 upstream 확인» → ⓕ
+#        ⓖ ref 확인만 sleep 8 → 표식 0 + ERROR(시간 초과 ≠ 없음) · ⓗ rev-list «0» + rc128 → 표식 0 + ERROR · ⓘ ref 정말 없음(rc1) → 정상 진행 · 표식 1
+# 변이 5종이 각 케이스를 FAIL 시키는지도 본다: «시간 초과도 표식» → ⓑ · «절대 경로 본문» → ⓒ · «ls-remote 로 upstream 확인» → ⓕ · «시간 초과 = 없음» → ⓖ · «종료값 안 봄» → ⓗ
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 BIN="$HERE/../../harness/bin"; MIR="$HERE/../../harness/kit/fable-team/bin"
@@ -37,6 +38,7 @@ cat > "$T/fakebin/git" <<EOF
 #!/bin/sh
 printf '%s\n' "\$*" >> "\$TRACE"
 if [ -n "\${FAKE_SLEEP_ARG:-}" ]; then case "\$*" in *"\$FAKE_SLEEP_ARG"*) sleep 8;; esac; fi
+if [ -n "\${FAKE_BADRC_ARG:-}" ]; then case "\$*" in *"\$FAKE_BADRC_ARG"*) printf '%s\n' "\${FAKE_BADRC_OUT:-0}"; exit "\${FAKE_BADRC:-128}";; esac; fi
 for a in "\$@"; do case "\$a" in ls-remote|fetch|pull|push) exit 128;; esac; done
 exec "$REALGIT" "\$@"
 EOF
@@ -132,7 +134,42 @@ case_f() {
   env PATH="$T/fakebin:$PATH" TRACE="$T/trace" FT_ROOT="$T/root-a" FT_UNPUSHED_STATE_DIR="$(newst)" FT_UNPUSHED_NOW="$NOW" \
       FT_UNPUSHED_MIN=1 bash "$SCRIPT" --repo "$T/repo" >/dev/null 2>&1
   if remote_calls; then f "ⓕ 원격 접촉 0 (원격 호출 있음: $(grep -E '(^| )(ls-remote|fetch|pull|push)( |$)' "$T/trace" | head -1))"; else p 'ⓕ 원격 접촉 0'; fi
-  has 'ⓕ 로컬 ref 만 씀' "$(cat "$T/trace")" 'rev-parse --verify -q refs/remotes/origin/brA'
+  has 'ⓕ 로컬 ref 만 씀' "$(cat "$T/trace")" 'show-ref --verify --quiet refs/remotes/origin/brA'
+  return $cfail
+}
+# ── ⓖ 추적 ref 확인만 sleep 8 → 시간 초과를 «없음» 으로 접지 않는다(표식 0 · ERROR · 발신 0) ──
+case_g() {
+  cfail=0; local err n0 SG; SG="$(newst)"
+  n0="$(cnt "$T/mbox.calls")"
+  runs "$SCRIPT" "$T/root-a" "$SG" "$T/g.err" FAKE_SLEEP_ARG='show-ref --verify --quiet refs/remotes/origin/brA' >/dev/null
+  err="$(cat "$T/g.err")"; RRC="$(cat "$T/rc")"
+  eqv 'ⓖ rc=4(미완주)' "$RRC" 4
+  has 'ⓖ ERROR 1줄' "$err" 'ERROR r963 미완주'
+  has 'ⓖ 까닭에 ref 확인 실패' "$err" '추적 ref 확인 실패'
+  lacks 'ⓖ 표식 0' "$(ls "$SG" 2>/dev/null)" "$MARKNAME"
+  eqv 'ⓖ 발신 0' "$(cnt "$T/mbox.calls")" "$n0"
+  return $cfail
+}
+# ── ⓗ rev-list 가 «0» 을 찍고 rc128 → 정상 0 으로 받지 않는다(표식 0 · ERROR) ──
+case_h() {
+  cfail=0; local err SH; SH="$(newst)"
+  runs "$SCRIPT" "$T/root-a" "$SH" "$T/h.err" FAKE_BADRC_ARG='rev-list --count refs/remotes/origin/brA..HEAD' FAKE_BADRC_OUT=0 >/dev/null
+  err="$(cat "$T/h.err")"; RRC="$(cat "$T/rc")"
+  eqv 'ⓗ rc=4(미완주)' "$RRC" 4
+  has 'ⓗ ERROR 1줄' "$err" 'ERROR r963 미완주'
+  has 'ⓗ 까닭에 rev-list 실패' "$err" 'rev-list 실패'
+  lacks 'ⓗ 표식 0' "$(ls "$SH" 2>/dev/null)" "$MARKNAME"
+  return $cfail
+}
+# ── ⒤ 추적 ref 가 «정말 없음»(rc1) → 실패가 아니다(정상 진행 · 표식 1 · ERROR 0) ──
+case_i() {
+  cfail=0; local err SI; SI="$(newst)"
+  : > "$T/trace"
+  runs "$SCRIPT" "$T/root-a" "$SI" "$T/i.err" >/dev/null; err="$(cat "$T/i.err")"; RRC="$(cat "$T/rc")"
+  eqv '⒤ rc=0(없음은 정상)' "$RRC" 0
+  lacks '⒤ ERROR 0' "$err" 'ERROR'
+  has '⒤ ref 없음도 확인함(종료값 사용)' "$(cat "$T/trace")" 'show-ref --verify --quiet refs/remotes/origin/brB'
+  eqv '⒤ 표식 1' "$([ -e "$SI/$MARKNAME" ] && echo 있음 || echo 없음)" 있음
   return $cfail
 }
 run_case() { local out; out="$( SCRIPT="${2:-$SCRIPT}" "case_$1" 2>&1 )"; local rc=$?; [ "${3:-}" = q ] || printf '%s\n' "$out"; return $rc; }
@@ -155,16 +192,20 @@ bash -n "$SCRIPT" && ok 'bash -n' || bad 'bash -n'
 [ "$(wc -l < "$SCRIPT")" -le 200 ] && ok '≤200줄' || bad '200줄 초과'
 cmp -s "$SCRIPT" "$MIR/ft-unpushed-summary.sh" && ok 'kit 짝 cmp0' || bad 'kit 짝 불일치'
 cmp -s "$TICK" "$MIR/ft-tick.sh" && ok 'ft-tick 짝 cmp0' || bad 'ft-tick 짝 불일치'
-for c in a b c d e f; do run_case "$c" >/dev/null 2>&1 && ok "케이스 $c" || bad "케이스 $c"; done
-run_case a; run_case b; run_case c; run_case d; run_case e; run_case f
+for c in a b c d e f g h i; do run_case "$c" >/dev/null 2>&1 && ok "케이스 $c" || bad "케이스 $c"; done
+run_case a; run_case b; run_case c; run_case d; run_case e; run_case f; run_case g; run_case h; run_case i
 # ── 변이 3종이 각각 잡히는가 ──
 if mut m1 '  err "ERROR r963 미완주' '  : > "$MARK" 2>/dev/null; err "ERROR r963 미완주' &&
    mut m2 'name_of() { local b; b="$(basename "$1")"; printf '"'"'%s'"'"' "${b:0:60}"; }' 'name_of() { printf '"'"'%s'"'"' "$1"; }' &&
    mut m3 '  [ -n "${p:-}" ] || continue' '  [ -n "${p:-}" ] || continue
-  gq -C "$REPO" ls-remote origin >/dev/null 2>&1'; then
+  gq -C "$REPO" ls-remote origin >/dev/null 2>&1' &&
+   mut m4 '  case "$?" in 0) return 0;; 1) return 1;; *) return 2;; esac' '  case "$?" in 0) return 0;; *) return 1;; esac' &&
+   mut m5 '  [ "$nrc" = 0 ] || { markbad "$(name_of "$p") rev-list 실패(rc=$nrc)"; continue; }' '  :'; then
   run_case b "$T/mut-m1.sh" q && bad '변이 ① «시간 초과도 표식» → ⓑ FAIL 해야 함' || ok '변이 ① «시간 초과도 표식» → ⓑ FAIL(잡음)'
   run_case c "$T/mut-m2.sh" q && bad '변이 ② «절대 경로 본문» → ⓒ FAIL 해야 함' || ok '변이 ② «절대 경로 본문» → ⓒ FAIL(잡음)'
   run_case f "$T/mut-m3.sh" q && bad '변이 ③ «ls-remote 로 upstream 확인» → ⓕ FAIL 해야 함' || ok '변이 ③ «ls-remote 확인» → ⓕ FAIL(잡음)'
+  run_case g "$T/mut-m4.sh" q && bad '변이 ④ «시간 초과 = 없음» → ⓖ FAIL 해야 함' || ok '변이 ④ «시간 초과 = 없음» → ⓖ FAIL(잡음)'
+  run_case h "$T/mut-m5.sh" q && bad '변이 ⑤ «종료값 안 봄» → ⓗ FAIL 해야 함' || ok '변이 ⑤ «종료값 안 봄» → ⓗ FAIL(잡음)'
 else bad '변이본 생성 실패'; fi
 echo "── r963 결과: fail=$fail"
 [ "$fail" = 0 ] || exit 1
