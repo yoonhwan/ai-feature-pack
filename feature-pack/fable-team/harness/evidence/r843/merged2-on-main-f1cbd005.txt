@@ -1,0 +1,8 @@
+cmp0 ft-wt-mode-stamp.sh
+cmp0 ft-wt-add.sh
+cmp0 ft-nano-spawn.sh
+cmp0 ft-team-lib.sh
+test_post_checkout_sparse_r835 rc=0 PASS=45 FAIL=0
+test_worktree_add_gate_r835 rc=0 PASS= FAIL=
+test_wt_add_r835 rc=0 PASS=27 FAIL=0
+test_head_lag_remind_per_wt_r836 rc=0 PASS=37 FAIL=0

@@ -1,0 +1,7 @@
+# 기준판 4b3a6a9e21f767fa2880968fb5d5cd7e5aac8ac0 (구현 0 · 새 시험 2개만 복사)
+$ bash tests/test_worktree_add_gate_r835.sh
+cp: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.O7qm5CKwGn/feature-pack/fable-team/harness/tests/../kit/fable-team/githooks/post-checkout: No such file or directory
+chmod: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.BJzfigp75x/hooks/post-checkout: No such file or directory
+FAIL 훅 파일 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.O7qm5CKwGn/feature-pack/fable-team/harness/tests/../kit/hooks/worktree-add-gate.sh
+== 결과: FAIL=1
+rc=1

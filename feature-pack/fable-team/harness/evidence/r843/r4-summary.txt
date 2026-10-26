@@ -1,0 +1,35 @@
+r843 r4 — 재설계 r4 (arch 151) 구현 요약 · 좌석 byz-harness-nano-r843-wt-sparse-mark-write-verify#0 · 2026-10-27
+팩 가지 nano/r843-wt-sparse-mark-write-verify-r2 · 기준판 origin/main aad778cf 위 squash 1
+
+■ 구현 (3항목 · 계약 = «표식 자리 있음/없음» 판별)
+1. kit/fable-team/githooks/post-checkout
+   - 표식 «있음» = [ -e ] 또는 [ -L ](끊긴 심링크 포함) — 있으면 읽어 정상 값(sparse · legacy-full · full <사유 10자+>)일 때만 그대로 둔다.
+   - 있음인데 못 읽음(권한 0200 등)·값 아님·심링크·폴더 = stderr `ERROR ft-wt-mode 표식 자리 이상 <표식> — <이유> · 체크아웃 상태 그대로(다음 checkout 마다 같은 ERROR · 손으로 고치거나 지워라)` + rc 1 · 체크아웃 상태 변경 0(sparse set 안 함).
+   - «없음» = ENOENT 하나뿐 · 그때만 sparse 적용 · sparse 적용 «전» 별도 이름 시험 파일(<표식>.probe.<pid>)로 표식 자리 쓰기 시험 · 쓰기 실패 = 적용 전 ERROR.
+   - 표식 쓰기 = 쓰고 다시 읽어 값 대조(존재만 아님) · 다르면 `ERROR ft-wt-mode 쓰기 실패` + rc 1.
+2. kit/fable-team/bin/ft-wt-mode-stamp.sh (짝 사본 harness/bin/ft-wt-mode-stamp.sh cmp0)
+   - 같은 판별 · --apply 는 «없음» 에만 쓴다 · 있음인데 정상 값 아님 = 경로마다 `ERROR 표식 자리 이상: <표식> — <이유> · <워크트리>` 줄 · 쓰기 0 · 나머지 계속 · 끝 rc 1.
+   - --unmarked 읽기 실패 = 경로별 ERROR 줄 + 끝 rc≠0 · design/teams 를 못 읽는 워크트리 = `ERROR 팀 폴더 못 읽음` (전에는 0 팀으로 조용히 넘어감).
+3. 시험 = 기존 r835 시험 3종에 칸 추가(새 파일 0) — r843 r1·r2 칸은 r4 계약으로 기대값 조정.
+
+■ 계약 ↔ 시험 대응
+- «표식 자리 있음 = 손대지 않음(정상 값 아니면 ERROR · 상태 변경 0)» = R1 ⓡ7·ⓡ8·ⓡ9(0200) · R2 ⓡ10·ⓡ11(끊긴 심링크) · 폴더 ⓐ1·ⓐ2·ⓑ1·ⓑ2 · 값 아님 ⓡ1·ⓡ5
+- «없음(ENOENT)만 sparse 적용 · 쓰기 실패 = 적용 전 ERROR» = 기존 r835 칸(빠짐 4꼴·반례①·반례③·FT_WT_FULL·도구 경로) + ⓡ2
+- «--unmarked 읽기 실패 = ERROR rc≠0» = R3 ⓡ12(design/teams 000) + ⓡ4(표식 값 아님)
+- «쓰기 확인 = 쓴 뒤 다시 읽어 값 대조» = ⓓ1(훅)·ⓓ2(stamp) — PATH 앞 가짜 cat 이 표식 경로만 다른 값을 돌려줌
+- «정상 길 동작 변화 0 · kit 짝 cmp0» = 기존 3종 ALL PASS · cmp 4건 rc0
+
+■ 변이(r4 요구 3 + 기존 유지 · 18종 전부 빨강 = PASS 변이)
+- r843r4-exist-only(있음 = -e 로 되돌림 → ⓡ10 FAIL) · r843r4-stamp-read-absent(읽기 실패 = 없음 → ⓡ9 FAIL) · r843r4-unm-swallow(unmarked 오류 삼킴 → ⓡ12 FAIL)
+- r843r4-valid-exist-only(값 판별을 존재로 → ⓡ7 FAIL) · r843r4-no-dir-check(폴더 검사 삭제 → ⓐ1 FAIL)
+- 기존 13종(글자 꼴·sparse set 삭제·legacy 무시·nano FT_WT_FULL·쓰기 확인 3종·시험 파일·팀 수·rc0 3종) 그대로 빨강
+
+■ 값
+- green: test_post_checkout_sparse_r835.sh 69 PASS 0 FAIL(변이 포함) rc=0 ×1 · test_worktree_add_gate_r835.sh 47 PASS rc=0 · test_wt_add_r835.sh 27 PASS rc=0 · test_disk_alarm.sh 37 PASS rc=0 · test_evidence_log_gate.sh ALL PASS
+- red: 새 시험을 r843 r2 판(730e2886)에 돌리면 FAIL 17 — ⓡ7 «sparse=true» 가 DA r2 반례 1(못 읽는 full 표식을 없음으로 보고 sparse 로 덮음) 그대로 재현 · a7feee9b 판(재설계 r3) FAIL 21
+- lint: sh -n 1 · bash -n 4 · shellcheck -S warning 4파일 rc=0 · cmp 짝 4건 rc=0
+- 파일: post-checkout · ft-wt-mode-stamp.sh(키트+bin 1벌) · 시험 1 · 증거 8 · CHANGES/manifest(1.1.256)
+
+■ 범위 밖 확인
+- 글자 꼴·의도적 훅 우회·이미 있는 풀 워크트리 정리·r835 기존 칸: 손대지 않음. ft-team-lib.sh ft_sparse_patterns 변경 0.
+- press 필요: 없음(단위 시험·임시 리포만 · 라이브 오디오 0).

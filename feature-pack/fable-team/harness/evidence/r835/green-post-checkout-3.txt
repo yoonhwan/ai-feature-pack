@@ -1,0 +1,44 @@
+$ bash tests/test_post_checkout_sparse_r835.sh  (반복 3)
+== 빠짐 4꼴(DA r1) → sparse + 표식
+PASS 빠짐1 cwd=P · git --git-dir=<B>/.git worktree add
+PASS beads 위임 1회(빠짐1)
+PASS 빠짐2 W=<B>; git -C "$W" worktree add
+PASS 빠짐3 bash <스크립트 파일> 속 worktree add
+PASS 빠짐4 git -c alias.wa='worktree add' wa
+PASS 안내 2번째 줄 원문
+PASS 패턴 2줄(팀 폴더 0 · 추측 0)
+== DA r2 반례 ① --no-checkout 뒤 checkout -q
+PASS 반례① --no-checkout + checkout -q → sparse · 표식 sparse
+== DA r2 반례 ③ ft-nano-spawn 풀 경로(실제 줄 eval · FT_WT_FULL)
+PASS ft-nano-spawn 풀 경로 줄 찾음
+PASS 반례③ FT_NANO_SPARSE=0 nano 풀 경로 → 풀 · 표식 full
+PASS 반례③ 다음 checkout 에도 풀 유지
+== 표식 있으면 손대지 않음
+PASS stamp --dry-run(기본) → 목록만 · 표식 0
+PASS stamp --apply → legacy-full 표식 · 체크아웃 그대로
+PASS stamp 2회째 new=0(멱등)
+PASS stamp 팩 꼴 리포 = SKIP
+PASS 표식 legacy-full 워크트리에서 git switch → sparse 0
+PASS 표식 sparse + 사람이 disable 뒤 checkout → 다시 켜지 않음
+== FT_WT_FULL 예외
+PASS FULL 사유 13자 → 풀 · 표식 full <사유>
+PASS FULL 로그 1줄
+PASS FULL 사유 9자 → 무시하고 sparse
+PASS «사유 짧음» stderr · 로그 0
+== 동작 0 / 도구 경로
+PASS 무동작 .worktrees 밖(ft-scratch-repo 꼴) · beads 1회
+PASS 무동작 팩 꼴 리포(design/teams 없음)
+PASS ft-wt-add --team → 팀 a 패턴 그대로 · 표식 sparse
+PASS ft-wt-add --full → 풀 · 표식 full
+PASS ft-wt-add --full 로그 1줄(훅·도구 겹침 0)
+PASS ft-nano-spawn sparse 꼴(428~429행 명령) → 팀 b 패턴 그대로 · 표식 sparse
+PASS 무동작 merge(풀 워크트리)
+PASS 주 워크트리 자신은 표식 0(.worktrees 밖)
+== 결과: FAIL=0
+== 변이(사본 한 줄 · 그 칸이 FAIL 이어야)
+PASS 변이 mark-to-zero-prev → FAIL 반례① --no-checkout + checkout -q → sparse · 표식 sparse — sparse= a=있음 mark= r835=0 · e=작업 트
+PASS 변이 no-sparse-set → FAIL 빠짐1 cwd=P · git --git-dir=<B>/.git worktree add — sparse= a=있음 mark=sparse r835=1 · e=작업 트리 준
+PASS 변이 legacy-ignored → FAIL 표식 legacy-full 워크트리에서 git switch → sparse 0 — b= sparse=true mark=sparse · e=[r835] 팀 워크
+PASS 변이 nano-no-full-env → FAIL 반례③ FT_NANO_SPARSE=0 nano 풀 경로 → 풀 · 표식 full — b= sparse=true mark=sparse · e=작업 트리
+== 결과(변이 포함): FAIL=0
+rc=0

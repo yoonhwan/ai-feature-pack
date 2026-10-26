@@ -1,0 +1,40 @@
+# 기준판 4b3a6a9e21f767fa2880968fb5d5cd7e5aac8ac0 (구현 0 · 새 시험 2개만 복사)
+$ bash tests/test_wt_add_r835.sh
+== ⓐ --team a -b docs/x --base main → sparse
+FAIL ⓐ rc=127 · bash: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.O7qm5CKwGn/feature-pack/fable-team/harness/tests/../kit/fable-team/bin/ft-wt-add.sh: No such file or directory
+FAIL ⓐ 패턴: fatal: cannot change to '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.RW4HJhcNkV/r/.worktrees/land-x': No such file or directory
+FAIL ⓐ a 없음
+PASS ⓐ design/teams/b·c 디스크 0
+FAIL ⓐ harness/루트 없음
+Traceback (most recent call last):
+  File "<stdin>", line 2, in <module>
+FileNotFoundError: [Errno 2] No such file or directory: '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.RW4HJhcNkV/r/.worktrees/land-x/.worktree-info.json'
+FAIL ⓐ info: cat: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.RW4HJhcNkV/r/.worktrees/land-x/.worktree-info.json: No such file or directory
+FAIL ⓐ 링크 없음
+FAIL ⓐ 끝줄: bash: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.O7qm5CKwGn/feature-pack/fable-team/harness/tests/../kit/fable-team/bin/ft-wt-add.sh: No such file or directory
+== ⓑ --branch <기존 가지>
+FAIL ⓑ rc=127 · bash: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.O7qm5CKwGn/feature-pack/fable-team/harness/tests/../kit/fable-team/bin/ft-wt-add.sh: No such file or directory
+FAIL ⓑ dup rc=127 · bash: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.O7qm5CKwGn/feature-pack/fable-team/harness/tests/../kit/fable-team/bin/ft-wt-add.sh: No such file or directory
+PASS ⓑ 거절 때 폴더 0
+== ⓒ --also (여러 번) · 없는 경로 REJECT
+FAIL ⓒ rc=127 · bash: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.O7qm5CKwGn/feature-pack/fable-team/harness/tests/../kit/fable-team/bin/ft-wt-add.sh: No such file or directory
+FAIL ⓒ bad rc=127 · bash: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.O7qm5CKwGn/feature-pack/fable-team/harness/tests/../kit/fable-team/bin/ft-wt-add.sh: No such file or directory
+== ⓓ --full <사유> · 사유 없음/짧음 · 둘 다 없음
+FAIL ⓓ full rc=127 · bash: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.O7qm5CKwGn/feature-pack/fable-team/harness/tests/../kit/fable-team/bin/ft-wt-add.sh: No such file or directory
+FAIL ⓓ 끝줄: bash: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.O7qm5CKwGn/feature-pack/fable-team/harness/tests/../kit/fable-team/bin/ft-wt-add.sh: No such file or directory
+tests/test_wt_add_r835.sh: 줄 62: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.RW4HJhcNkV/r/.fable-team/state/wt-add-full.log: No such file or directory
+FAIL ⓓ 로그: cat: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.RW4HJhcNkV/r/.fable-team/state/wt-add-full.log: No such file or directory
+FAIL ⓓ none rc=127 · bash: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.O7qm5CKwGn/feature-pack/fable-team/harness/tests/../kit/fable-team/bin/ft-wt-add.sh: No such file or directory
+FAIL ⓓ short rc=127 · bash: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.O7qm5CKwGn/feature-pack/fable-team/harness/tests/../kit/fable-team/bin/ft-wt-add.sh: No such file or directory
+FAIL ⓓ guess rc=127 · bash: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.O7qm5CKwGn/feature-pack/fable-team/harness/tests/../kit/fable-team/bin/ft-wt-add.sh: No such file or directory
+tests/test_wt_add_r835.sh: 줄 69: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.RW4HJhcNkV/r/.fable-team/state/wt-add-full.log: No such file or directory
+FAIL ⓓ 거절인데 폴더/로그 생김
+== ⓔ 체크아웃 실패 → 2 s 뒤 재시도(최대 3회)
+FAIL ⓔ once rc=127 · bash: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.O7qm5CKwGn/feature-pack/fable-team/harness/tests/../kit/fable-team/bin/ft-wt-add.sh: No such file or directory
+FAIL ⓔ fail rc=127 · count=cat: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.RW4HJhcNkV/co.count: No such file or directory · bash: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.O7qm5CKwGn/feature-pack/fable-team/harness/tests/../kit/fable-team/bin/ft-wt-add.sh: No such file or directory
+== ⓗ sparse 워크트리에서 git merge origin/main
+FAIL ⓗ merge rc=128 · fatal: cannot change to '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.RW4HJhcNkV/r/.worktrees/h-ok': No such file or directory
+PASS ⓗ 충돌 전 b 디스크 0
+FAIL ⓗ conflict rc=128 · fatal: cannot change to '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.RW4HJhcNkV/r/.worktrees/h-conf': No such file or directory
+== 결과: FAIL=22
+rc=1

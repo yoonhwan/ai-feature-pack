@@ -1,3 +1,11 @@
+## 2026-10-27 — r843 r4 팀 워크트리 표식 «자리 있음/없음» 판별 — 못 읽는·심링크·폴더 표식은 ERROR(1.1.256)
+
+- 외부 DA r843 r2 HOLD 3건(표식 0200 을 «없음» 으로 보고 full 을 sparse 로 덮음 · 끊긴 심링크 표식 자리에 sparse 적용 · `--unmarked` 읽기 오류 묻힘)을 재설계 r4 로 닫는다. 계약 = «표식 자리 있음/없음» 하나.
+- `kit/fable-team/githooks/post-checkout`: 표식 «있음» = `-e` 또는 `-L`(끊긴 심링크 포함). 있으면 읽어 정상 값(`sparse` · `legacy-full` · `full <사유 10자+>`)일 때만 그대로 두고, 못 읽음·값 아님·심링크·폴더는 `ERROR ft-wt-mode 표식 자리 이상 <표식>` + rc 1 + 체크아웃 상태 변경 0. «없음» = ENOENT 하나뿐이며 그때만 sparse 를 적용하고, 적용 «전» 별도 이름 시험 파일로 표식 자리 쓰기를 먼저 확인한다.
+- `kit/fable-team/bin/ft-wt-mode-stamp.sh`(+`harness/bin` 짝 cmp0): 같은 판별 · `--apply` 는 «없음» 에만 씀 · 있음인데 정상 값 아니면 경로마다 ERROR 줄 + 쓰기 0 + 끝 rc 1 · `--unmarked` 는 표식·design/teams 읽기 실패를 묻지 않고 경로별 ERROR + rc≠0.
+- 시험은 기존 r835 시험 3종에 칸 추가(새 파일 0): R1(0200) ⓡ7·ⓡ8·ⓡ9 · R2(끊긴 심링크) ⓡ10·ⓡ11 · R3(design/teams 000) ⓡ12 · 쓰기 확인 ⓓ1·ⓓ2 · r843 r1·r2 칸은 r4 계약으로 기대값 조정. 변이 18종 전부 빨강(r4 요구 3 = 있음 `-e` 되돌림 · 읽기 실패를 없음으로 · unmarked 오류 삼킴).
+- 값: post-checkout 69 PASS ×1 rc=0 · worktree-add-gate 47 PASS · wt-add 27 PASS · disk-alarm 37 PASS · evidence-log-gate ALL PASS · red = r843 r2 판 FAIL 17(ⓡ7 `sparse=true` 로 DA 반례 1 재현) · a7feee9b 판 FAIL 21 · lint(shellcheck 4파일) rc=0. 증거 `harness/evidence/r843/r4-*`.
+
 ## 2026-10-26 — r765 승인 도구가 게이트와 같은 원장 줄 꼴(줄머리∨표 행)을 읽는다 (1.1.255)
 
 - 제안 승인 도구가 원장 표 행도 승인 줄로 읽어 게이트(ft-proposal-gate)와 판정이 같아진다. 승인판 dc01df8c(팩 origin/main 병합) · 외부 DA sol high r1 APPROVE(BYZ design/harness/evidence/r765-da6/VERDICT-r765-sol-approve.md).

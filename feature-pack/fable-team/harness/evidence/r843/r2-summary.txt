@@ -1,0 +1,24 @@
+r843 r2 (반송 REWORK-r843-r2 · 외부 DA r843 r1 HOLD da-20261024-102451-37284.out) — 나노 byz-harness-nano-r843-wt-sparse-mark-write-verify#0 · 2026-10-24
+base: 팩 origin/main f1cbd005 · 이전 산출 cb0b9db0(r835+r843 r1) 위 amend = squash 1커밋 유지 · 버전 1.1.229 그대로
+
+반례 1(시험 표식 probe 가 영구 표식으로 남음) 처리:
+  - post-checkout _ftw_valid: 표식 «있음» = 첫 줄이 sparse · legacy-full · full <사유> 중 하나 — 그 밖(probe·빈 값·깨짐·폴더) = 없음 → 다시 판단
+  - post-checkout _ftw_slot: 쓰기 시험 = 별도 이름 <표식>.probe.<pid> + 표식 자리(없음 | 쓸 수 있는 일반 파일) 확인 · 시험 파일 못 지우면 WARN 1줄(표식으로 안 읽힘)
+  - ft-wt-mode-stamp.sh: 같은 값 판별(깨진 값 = 다시 찍음)
+  - 시험 주입: gitdir ACL(delete_child 거부)은 git 자체가 index.lock 을 못 지워 rc128(훅 전 단계) → PATH 앞 가짜 rm(ft-wt-mode* 인자만 실패)으로 «시험 파일 지우기 실패»만 주입
+  - 빨강(cb0b9db0 판): ⓡ2 rc=1 표식=probe (DA 반례 1 그대로) · ⓡ1 표식 probe 그대로 sparse 0 · ⓡ5 stamp HAS probe
+반례 2(--no-checkout + reset --hard → post-checkout 미호출) 처리 = 범위 재평가(하드 룰 14 · REWORK 안 2):
+  - 훅 보장은 checkout·switch·worktree add 길만. 저수준 길(reset·read-tree·checkout-index)은 탐지로 닫음
+  - ft-wt-mode-stamp.sh --unmarked(쓰기 0): 표식 없음 ∧ sparse 꺼짐 ∧ design/teams/ 폴더 ≥2 → UNMARKED <경로> teams=<n> kib=<n>
+  - ft-disk-alarm.sh wtscan: 하루 1회 --unmarked → planner 1통([표식 없는 풀 팀 워크트리] N곳 · 합 GiB · 앞 5 · 전체 목록 state/wt-unmarked.txt) · 지우기 0 · 탐지 실패 rc≠0 도 쪽지
+  - 시험 ⓡ4: 반례 2 꼴 워크트리 x 가 목록에 오름 · sparse/표식 있는 것 0 · 쓰기 0
+
+시험(초록):
+  test_post_checkout_sparse_r835.sh rc=0 · 58 PASS (변이 15 전부 잡힘 · 새 변이 5: exist-valid·rm-fail-blocks·no-slot·stamp-exist·unm-teams) → r2-test_post_checkout_sparse_r835.txt
+  test_disk_alarm.sh rc=0 · ALL PASS (ⓦ1~ⓦ4 신규) → r2-test_disk_alarm.txt
+  test_worktree_add_gate_r835.sh rc=0 · 47 PASS · test_wt_add_r835.sh rc=0 · 27 PASS (정상 길 회귀 0)
+  빨강: 새 시험을 cb0b9db0 판 훅·stamp 로 → FAIL 7 → r2-red-cb0b9db0.txt
+짝 사본 cmp0: ft-disk-alarm.sh · ft-wt-mode-stamp.sh · ft-wt-add.sh · ft-team-lib.sh (kit/fable-team/bin ↔ harness/bin)
+설치 추가: ft-disk-alarm.sh 도 LIVE_BIN 키트 설치 대상(r2 에서 바뀜)
+남은 것(범위 밖 · DA 판단): ft-disk-alarm wtscan 은 변이 시험 없음(SUT 경로 고정) — ⓦ1~ⓦ4 로만 확인
+press 필요: 없음

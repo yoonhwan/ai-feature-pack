@@ -1,0 +1,15 @@
+cmp0 ft-wt-mode-stamp.sh
+cmp0 ft-wt-add.sh
+cmp0 ft-nano-spawn.sh
+cmp0 ft-team-lib.sh
+cmp0 ft-spawn-issue-gate.sh
+test_post_checkout_sparse_r835 rc=0 PASS=45 FAIL-lines=0
+test_worktree_add_gate_r835 rc=0 PASS=47 FAIL-lines=0
+test_wt_add_r835 rc=0 PASS=27 FAIL-lines=0
+test_spawn_issue_gate_r823 rc=1 PASS=80 FAIL-lines=2
+test_planner_nano_path rc=1 PASS=33 FAIL-lines=0
+test_dead_seat_resume rc=124 PASS=78 FAIL-lines=6
+test_spawn_proxy_probe_r669 rc=4 PASS=18 FAIL-lines=5
+test_team_literal_paths2 rc=1 PASS=324 FAIL-lines=6
+test_evidence_log_gate.sh rc=1 REAL-STATE-GUARD FAIL 우편함 가짜 이름 새 줄: ['byz-knowledge-master-claude#54', 'byz-knowledge-nano-loom-main-guards-g1-terminal-rows-proven#0'] :: {"seq": 156068, "ts": "2026-10-24T09:36:56", "to": "byz-knowledge-master-claude#54", "from": "byz-knowledge-nano-loom-main-guards-g1-terminal-rows-proven#0", "b
+DONE
