@@ -4,6 +4,8 @@
 #   ⓑ 같은 입력에서 판정 결과(차단·WARN 목록·사유 토큰·stdout 전문)가 지금 판과 같다.  ⓒ 1회가 상한을 넘으면 반으로 쪼개 재시도 1, 그래도 넘으면 사유 있는 REJECT.
 #   ⓓ 진행 파일로 다시 부르면 끝난 묶음은 건너뛴다(같은 결과).  ⓔ 기존 시험 ALL PASS · /bin/bash 3.2.  ⓕ 변이 2종이 각각 ⓑ·ⓒ 단언을 깨뜨린다.
 #   ⓖ(r2) rename 무변경 이동 = base 판과 같은 REJECT(+ 변이 «rename 검출 켬» → FAIL) · ⓗ(r2) cherry 1회 상한 초과 = 단계 이름 «cherry» 있는 REJECT(+ 변이 «cherry 도우미 밖» → FAIL).
+#   ⓘ~ⓚ(r3 · DA⑥ r2 HOLD 2 재설계): ⓘ따옴표·공백·탭·한글·rename 경로 = base 판과 stdout 전문 동일 · ⓙ동사 5종(rev-parse·merge-base·cherry·diff-tree·log) 각각 상한 초과 = 그 동사 이름 REJECT ·
+#   ⓚ안전망(통로 밖 맨 호출 0 · 경로 출력 -z 빠짐 0) · 변이 2종(rev-parse 통로 밖 → ⓙ·ⓚ FAIL · -z 뺌 → ⓘ FAIL).
 # mktemp 리포만 쓴다 — 실 브랜치·루트 .fable-team/·원장 쓰기 0. press(라이브 오디오) 없음.
 set -uo pipefail
 export FT_TEAMSET=0 FT_ALLOW_TRACKED_BIN=1
@@ -98,7 +100,7 @@ n_b="$(wc -l < "$T/calls-b" | tr -d ' ')"
 # ⓒ 1회 상한 초과 → 반 쪼개기 재시도 1 → 그래도 넘으면 사유 있는 REJECT (항목 1개까지 쪼갠다 = «묶음 1»)
 mksmall s2
 OUT="$(FT_CHERRY_LIM_S=1 PATH="$T/bin:$PATH" REAL_GIT="$REAL_GIT" FT_SLOW_WHEN="--no-walk" FT_SLOW_SLEEP=2 bash "$G" main nano/x --repo "$R" 2>&1)"; RC=$?
-[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'REJECT cherry 게이트 — 커밋 1초 초과(묶음 1 · 마지막 ' && ok "ⓒ상한 초과 = 사유 있는 REJECT(쪼개도 넘음)" \
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'REJECT cherry 게이트 — 커밋(log) 1초 초과(묶음 1 · 마지막 ' && ok "ⓒ상한 초과 = 사유 있는 REJECT(쪼개도 넘음)" \
   || bad "ⓒ시간 초과 REJECT 가 아니다(rc=$RC) :: ${OUT:0:400}"
 
 # ⓓ 진행 파일 — 끝난 묶음은 다시 묻지 않는다(같은 결과 · 그 묶음 git 호출 0)
@@ -143,12 +145,14 @@ run "$G";   new_out="$OUT" new_rc="$RC"
 [ "$old_rc" -eq 1 ] && ok "ⓖbase 판은 rename 무변경 이동을 REJECT 한다(rc=1)" || bad "ⓖbase 판 기준값이 REJECT 가 아니다(rc=${old_rc}) — 픽스처 확인"
 [ "$new_rc" -eq 1 ] && same_block "$old_out" "$new_out" && ok "ⓖrename 무변경 이동 = base 와 같이 REJECT(rc=1 · 차단·WARN 목록 같음)" \
   || bad "ⓖrename 무변경 이동을 통과시켰다(rc=${new_rc} · base rc=${old_rc}) :: ${new_out:0:400}"
+#   r3: 경로가 NUL 프레임이라 rename 을 켜도 «없는 이름» 이 안 생긴다(구조가 닫음 — 그게 r3 의 요점). 그래서 변이는 «경로 대조를 끄는» 쪽으로 둔다
+#   = need(미반영) 를 sup(반영됨) 로 바꿔 치면 미랜딩 이동이 통과한다 → ⓖ 단언이 깨진다(판정 규칙이 실제로 값을 잡는지의 증거).
 cp "$KIT/ft_git_capped.py" "$T/" 2>/dev/null   # 변이본은 $T 에 살아 도우미를 못 찾는다 — 변이 1개만 다르게 둔다
-sed 's/--root --no-renames --format/--root --format/' "$G" > "$T/gate-renameon.sh"
-grep -q -- '--root --format' "$T/gate-renameon.sh" && ok "ⓖ변이본 생성(rename 검출 켬 = 종전 판)" || bad "ⓖ변이본 생성 실패"
-OUT="$(bash "$T/gate-renameon.sh" main nano/x --repo "$R" 2>&1)"; MRC=$?
-[ "$MRC" -eq 1 ] && bad "ⓖrename 검출 켠 변이가 ⓖ 단언을 못 깨뜨린다(rc=1)" \
-  || ok "ⓖrename 검출 켠 변이 → rc=${MRC} 통과로 ⓖ 단언 FAIL(«없는 경로 하나» 가 sup 로 새는 자리)"
+sed -e 's/emit("need", p, t\[0\], t\[1\])/emit("sup", p)/' -e 's/emit("miss", p, "(tip 삭제/emit("sup", p, "(tip 삭제/' "$G" > "$T/gate-needoff.sh"
+grep -q 'emit("sup", p)$' "$T/gate-needoff.sh" && ok "ⓖ변이본 생성(경로 대조 끔 = need·miss 를 sup 로)" || bad "ⓖ변이본 생성 실패"
+OUT="$(bash "$T/gate-needoff.sh" main nano/x --repo "$R" 2>&1)"; MRC=$?
+[ "$MRC" -eq 1 ] && bad "ⓖ경로 대조를 끈 변이가 ⓖ 단언을 못 깨뜨린다(rc=1)" \
+  || ok "ⓖ경로 대조를 끈 변이 → rc=${MRC} 통과로 ⓖ 단언 FAIL(미반영 경로가 sup 로 새는 자리)"
 
 # ── ⓗ cherry 1회 상한 초과 → 단계 이름 있는 REJECT (r958 r2 · DA⑥ r1 반례 2) ──────────────────
 #   `git cherry` 만 상한 도우미 밖이면 «cherry 1회가 8초» 인 입력에서 9.22초 뒤 rc0 OK(+ 0) = 조용한 통과(계약 ② 위반).
@@ -157,10 +161,117 @@ OUT="$(FT_CHERRY_LIM_S=1 PATH="$T/bin:$PATH" REAL_GIT="$REAL_GIT" FT_SLOW_WHEN="
 [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'REJECT cherry 게이트 — cherry 1초 초과(묶음 1 · 마지막 ' \
   && ok "ⓗcherry 1회 상한 초과 = 단계 이름 «cherry» 있는 REJECT(조용한 통과 0)" \
   || bad "ⓗcherry 상한 초과가 사유 있는 REJECT 가 아니다(rc=$RC) :: ${OUT:0:400}"
-sed 's/cg_git "\$CG_LIM" cherry/git -C "\$REPO" cherry/' "$G" > "$T/gate-nocherrycap.sh"
-grep -q 'git -C "\$REPO" cherry' "$T/gate-nocherrycap.sh" && ok "ⓗ변이본 생성(cherry 를 도우미 밖으로)" || bad "ⓗ변이본 생성 실패"
+sed 's/G cherry "\$CG_TMPV" cherry/git -C "\$REPO" cherry/' "$G" > "$T/gate-nocherrycap.sh"
+grep -q 'git -C "\$REPO" cherry' "$T/gate-nocherrycap.sh" && ok "ⓗ변이본 생성(cherry 를 통로 밖으로)" || bad "ⓗ변이본 생성 실패"
 OUT="$(FT_CHERRY_LIM_S=1 PATH="$T/bin:$PATH" REAL_GIT="$REAL_GIT" FT_SLOW_WHEN="cherry" FT_SLOW_SLEEP=2 bash "$T/gate-nocherrycap.sh" main nano/x --repo "$R" 2>&1)"; MRC=$?
 printf '%s' "$OUT" | grep -q 'cherry 1초 초과' && bad "ⓗcherry 도우미 밖 변이가 ⓗ 단언을 못 깨뜨린다 :: ${OUT:0:200}" \
   || ok "ⓗcherry 도우미 밖 변이 → «cherry 초과» REJECT 없음 = ⓗ 단언 FAIL(rc=${MRC})"
+
+# ── ⓘ(r3) DA⑥ r2 반례 1 + 꼴 묶음 — 따옴표·공백·탭·한글·rename 경로가 base 판과 «stdout 전문» 같다 ────────────
+#   r2 판은 경로를 줄 단위로 파싱해 `a"b.py` 가 git 의 따옴표 표기(`"a\"b.py"`)로 들어와 트리의 실제 이름과 안 맞았고, 그래서 미랜딩 코드가 `sup` 로 통과했다.
+mkweird() {  # <이름> → $R : 코드 경로 5종(따옴표·공백·탭·한글·rename 따옴표) → base 판도 REJECT
+  R="$T/$1"; git init -q -b main "$R"
+  w app/a.py a0; w design/card.md c0; cm base
+  git -C "$R" checkout -q -b nano/x
+  w 'app/a"b.py' q1; w 'app/c d.py' sp; w "app/e	f.py" tab; w 'app/g한글.py' kr; w 'app/r"q.py' rq
+  cm "weird add"
+  git -C "$R" mv 'app/r"q.py' 'app/s"q.py'; git -C "$R" commit -qm "weird rename"
+  git -C "$R" checkout -q main; w app/m.py m; cm "feat moved"
+}
+mkweirdpass() {  # 통과 쪽 꼴 — nano 가 넣은 따옴표 경로 내용이 feat 에 이미 같은 채로 들어가 있음
+  R="$T/$1"; git init -q -b main "$R"
+  w app/a.py a0; cm base
+  git -C "$R" checkout -q -b nano/x; w 'app/x"y.py' C1; w 'design/d"oc.md' D1; cm "nano weird"
+  git -C "$R" checkout -q main; w 'app/x"y.py' C1; cm "feat same"; w 'design/z"z.md' z; cm "feat doc"
+}
+for f in mkweird mkweirdpass; do
+  "$f" "${f}1"
+  run "$OLD"; old_out="$OUT" old_rc="$RC"
+  run "$G";   new_out="$OUT" new_rc="$RC"
+  [ "$old_rc" = "$new_rc" ] && [ "$old_out" = "$new_out" ] && ok "ⓘ${f} 판정 전문 동일(rc=${new_rc})" \
+    || bad "ⓘ${f} 판정이 다르다(rc ${old_rc}≠${new_rc}) :: $(diff <(printf '%s\n' "$old_out") <(printf '%s\n' "$new_out") | head -6 | tr '\n' ' ')"
+done
+printf '%s' "$new_out" >/dev/null
+run "$G" 2>/dev/null   # 마지막 픽스처(mkweirdpass) 기준
+mkweird mkweirdchk; run "$G"
+printf '%s' "$OUT" | grep -qF 'app/a"b.py' && ok "ⓘ따옴표 경로가 목록에 «원문 그대로» 나온다" || bad "ⓘ따옴표 경로가 목록에 없다 :: ${OUT:0:300}"
+
+# ── ⓙ(r3) 동사마다 상한 초과 → 그 동사 이름 있는 REJECT (계약 ②: 조용한 통과 0) ───────────────────────
+#   r1 은 cherry, r2 는 rev-parse 만 상한 밖이었다. r3 는 «전부 한 통로» 라 동사 5종이 각각 잡혀야 한다(상한은 시험용으로 1초로 줄인다).
+mkplain() {  # 충돌 없이 merge-tree delta 가 생기는 최소 꼴 — diff-tree·merge-base 까지 닿는다
+  R="$T/$1"; git init -q -b main "$R"
+  w app/a.py a0; w design/card.md c0; cm base
+  git -C "$R" checkout -q -b nano/x; w app/n.py n; cm "nano code"
+  git -C "$R" checkout -q main; w app/f.py f; cm "feat code"
+}
+#   ★픽스처 폴더 이름에 동사 이름을 넣지 않는다★ — 가짜 git 이 «명령줄 전체» 를 패턴 대조하므로 경로에 그 글자가 있으면 모든 호출이 느려진다(실측).
+_n=0
+for v in rev-parse merge-base cherry diff-tree log; do
+  _n=$((_n + 1)); mkplain "slow$_n"
+  OUT="$(FT_CHERRY_LIM_S=1 PATH="$T/bin:$PATH" REAL_GIT="$REAL_GIT" FT_SLOW_WHEN="$v" FT_SLOW_SLEEP=2 bash "$G" main nano/x --repo "$R" 2>&1)"; RC=$?
+  [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -qE "^REJECT cherry 게이트 — .*${v}.*1초 초과" \
+    && ok "ⓙ${v} 상한 초과 = «${v}» 이름 있는 REJECT" \
+    || bad "ⓙ${v} 상한 초과가 «${v}» 이름 있는 REJECT 가 아니다(rc=$RC) :: ${OUT:0:300}"
+done
+
+# ── ⓚ(r3) 안전망 — 본문(주석 제외 · 따옴표 글자 제외)에서 «통로 밖 맨 호출 0 · 경로 호출 -z 빠짐 0» ─────────
+netsafe() {  # <파일> → 위반 줄들 + 마지막 줄 «N=<위반 수>» · 허용 = cg_git 정의 안의 전달 1줄뿐
+  python3 - "$1" <<'PY'
+import re, sys
+path = sys.argv[1]
+lines = open(path, encoding="utf-8").read().split("\n")
+def strip_q(s):
+    out, q, i = [], None, 0
+    while i < len(s):
+        c = s[i]
+        if q:
+            if c == q: q = None
+            out.append(" ")
+        elif c in "\"'":
+            q = c; out.append(" ")
+        else:
+            out.append(c)
+        i += 1
+    return "".join(out)
+wrap = end = -1
+for i, l in enumerate(lines):
+    if wrap < 0 and re.match(r"\s*cg_git\(\)\s*\{", l): wrap = i
+    elif wrap >= 0 and end < 0 and re.match(r"\}\s*$", l): end = i
+bad = allowed = 0
+for no, raw in enumerate(lines, 1):
+    if raw.lstrip().startswith("#"):
+        continue
+    s = strip_q(raw)
+    if re.search(r"(?<![A-Za-z0-9_./-])git[ \t]", s):
+        if wrap < no <= end:
+            allowed += 1
+        else:
+            print("BARE %d: %s" % (no, raw.strip())); bad += 1
+    if re.search(r"--raw|--name-only|\bdiff-tree\b|\bls-tree\b", s) and " -z" not in s:
+        print("NOZ %d: %s" % (no, raw.strip())); bad += 1
+if allowed != 1:
+    print("WRAP 허용된 전달 줄이 %d개(정확히 1 이어야 한다)" % allowed); bad += 1
+print("N=%d" % bad)
+PY
+}
+outn="$(netsafe "$G")"; [ "$(printf '%s\n' "$outn" | tail -1)" = "N=0" ] && ok "ⓚ통로 밖 맨 호출 0 · 경로 호출 -z 빠짐 0 · 통로 정의 안 전달 1" \
+  || bad "ⓚ안전망 위반 :: $(printf '%s\n' "$outn" | grep -v '^N=' | head -4 | tr '\n' ' ')"
+
+# ── 변이(r3) — ①rev-parse 하나를 통로 밖으로 → ⓙrev-parse · ⓚ FAIL ②경로 출력 -z 빼기 → ⓘ FAIL ──────────────
+sed 's|G rev-parse /dev/null rev-parse|git -C "$REPO" rev-parse|g' "$G" > "$T/gate-baregit.sh"
+grep -q 'git -C "$REPO" rev-parse' "$T/gate-baregit.sh" && ok "변이본 생성(rev-parse 를 통로 밖으로)" || bad "변이본 생성 실패(rev-parse)"
+outn="$(netsafe "$T/gate-baregit.sh")"; [ "$(printf '%s\n' "$outn" | tail -1)" = "N=0" ] \
+  && bad "변이 «rev-parse 통로 밖» 이 ⓚ 를 못 깨뜨린다" || ok "변이 «rev-parse 통로 밖» → ⓚ 위반 검출(ⓚ 단언 FAIL)"
+mkplain s_mut; R="$T/s_mut"
+OUT="$(FT_CHERRY_LIM_S=1 PATH="$T/bin:$PATH" REAL_GIT="$REAL_GIT" FT_SLOW_WHEN=rev-parse FT_SLOW_SLEEP=2 bash "$T/gate-baregit.sh" main nano/x --repo "$R" 2>&1)"; MRC=$?
+printf '%s' "$OUT" | grep -qE 'rev-parse.*1초 초과' && bad "변이 «rev-parse 통로 밖» 이 ⓙrev-parse 를 못 깨뜨린다" \
+  || ok "변이 «rev-parse 통로 밖» → ⓙrev-parse 단언 FAIL(rc=${MRC} · 상한 초과 REJECT 없음)"
+sed 's/ -z "\$@"; }/ "\$@"; }/' "$G" > "$T/gate-noz.sh"
+grep -q -- '-z "\$@"' "$T/gate-noz.sh" && bad "변이본 생성 실패(-z 가 그대로)" || ok "변이본 생성(커밋 묶음 -z 뺌)"
+mkweird nz1; R="$T/nz1"
+OUT="$(bash "$T/gate-noz.sh" main nano/x --repo "$R" 2>&1)"; MRC=$?
+$( bash "$OLD" main nano/x --repo "$R" >/dev/null 2>&1 ); ORC=$?
+[ "$MRC" = "$ORC" ] && bad "변이 «-z 뺌» 이 ⓘ 단언을 못 깨뜨린다(둘 다 rc=$MRC)" \
+  || ok "변이 «-z 뺌» → rc=${MRC}(base rc=${ORC}) 로 ⓘ 단언 FAIL(따옴표 경로가 새는 자리)"
 
 echo "---"; [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED=$fail"; exit 1; }

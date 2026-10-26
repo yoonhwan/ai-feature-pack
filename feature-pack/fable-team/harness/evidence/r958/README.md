@@ -12,7 +12,7 @@
 | `harness/bin/ft-nano-cherry-gate.sh` | 새 도구 `cg_git`·`cg_fail`·`cg_prog_get/put`·`cg_fetch`·`cg_cmd_commits`·`cg_cmd_hist`·`cg_py`(해석기) · 바뀐 본체 = «+» 커밋 분류 1블록(종전 커밋 루프) + 경로 분류·이력 대조 2블록(종전 경로 루프, `cg_maps` 포함) |
 | `harness/bin/ft-nano-close.sh` | `nf_mult_batches()` 신설(121~127행) · ⑤ 호출부 배수 = 묶음 수(1139행, 종전 `nf_mult_commits`) |
 | `harness/kit/fable-team/bin/…` | 위 두 파일 짝 사본 cmp0 |
-| `tests/test_cherry_gate_batch_r958.sh` (신규) | ⓐ~ⓗ (ⓖ·ⓗ = r2 반송 고침 · rename 무변경 · cherry 상한) |
+| `tests/test_cherry_gate_batch_r958.sh` (신규) | ⓐ~ⓗ (ⓖ·ⓗ = r2 반송 고침 · rename 무변경 · cherry 상한) · **ⓘ~ⓚ = r3(꼴 경로 · 동사별 상한 · 안전망)** |
 | `tests/test_cherry_gate_identical_head.sh` · `tests/test_nano_close_step_timing_r938.sh` | 줄 수 상한 200→340(게이트가 329줄) · ⓘ 대역을 «커밋당 1초» → «묶음당 1초»(r958 계약 = 작업량 ∝ 묶음 수) |
 
 ### 묶음 호출 규칙
@@ -60,8 +60,31 @@
 | 기존 시험 재확인 | identical_head · squash · r938 step_timing · kit_bin_sync · **nano_close_suspended · nano_close_fail_closed 모두 rc=0** (fail_closed 4F 없음 — HEAD·base 같은 판) |
 | 페어 사본 | `harness/kit/fable-team/bin/ft-nano-cherry-gate.sh` cmp0 · 게이트 337줄 ≤ 340 |
 
+
+## r3 반송 고침 (DA⑥ r2 HOLD 2 · 반송서 `design/harness/evidence/r958-da6/REWORK-r958-r3.md` · 같은 축 보류 2회 = 재설계)
+
+축 = «git 호출·출력을 자리마다 따로 다룬다». r1 은 cherry·rename, r2 는 rev-parse·따옴표 경로를 하나씩 고쳤고 그래서 남은 자리(`merge-base` · `diff-tree` · `ls-tree` · 로그 줄)가 또 샜다. r3 는 **구조로 닫는다**.
+
+| 반례 | 자리(고침 전 HEAD `88bbabb3`) | 고침(구조) |
+|---|---|---|
+| 1. 따옴표 경로(`a"b.py`) — base 판 REJECT 를 r2 판이 통과(`content_landed_then_superseded` rc0) | 경로를 **줄 단위**로 파싱 → 따옴표로 감싼 이름(`"a\"b.py"`)이 트리의 실제 이름과 안 맞아 «어디에도 없는 이름» 이 되고 그게 `sup` 로 샘 | 경로를 내는 출력은 전부 **`-z`(NUL)**: `log --raw -z`·`ls-tree -z`·`diff-tree --name-only -z`. 해석기는 NUL 프레임을 그대로 읽는다(따옴표 풀기 의존 0) |
+| 2. `rev-parse` 1회가 7초 상한 밖 → 17초 뒤 rc0 `OK(+ 0)` **조용한 통과** | `git -C "$REPO" rev-parse` 들이 상한 도우미 밖 | **모든 호출이 한 함수 `G <단계> <출력목적지> <인자…>` 를 지난다** — 맨 호출은 `cg_git` 정의 안 1줄뿐(안전망 ⓚ). 시간 초과 = 그 동사 이름 있는 REJECT |
+
+`G` 의 출력 목적지를 인자로 받는 이유 = 리다이렉트 사고 방지. `G … > 파일` 꼴이면 상한 초과 REJECT 가 그 파일로 새어 «사유 없는 종료» 가 된다.
+
+### 실측 (이 맥 · 2026-10-26 · `rework-r3-repro.sh`)
+| 축 | 값 |
+|---|---|
+| 반례 1 · base 판(`origin/main`) / r2 판(`88bbabb3`) / r3 판 | rc=1 REJECT / **rc=0 통과(누출)** / **rc=1 · base 판과 stdout 전문 동일** |
+| 반례 2 · r2 판 | **rc=0 · 16초 — `OK cherry 게이트 — … (+ 0)`** (DA 실측과 같은 꼴) |
+| 반례 2 · r3 판 | **rc=1 · `REJECT cherry 게이트 — rev-parse 7초 초과(묶음 1 · 마지막 refs/heads/main)`** |
+| 성능 · «+» 300 커밋 · 경로 2000 · git 1회 0.08초 | base 판 **100초** → r3 판 **2초 · 외부 호출 6회** |
+| 시험 ⓐ~ⓚ (단언 36 PASS) | ALL PASS · `/bin/bash` 3.2 도 ALL PASS — `rework-r3-test.txt` · `rework-r3-test-bash32.txt` |
+| 변이 2종 | «rev-parse 통로 밖» → ⓙrev-parse·ⓚ FAIL · «커밋 묶음 `-z` 뺌» → ⓘ FAIL(rc 0 vs base 1) |
+| 페어 사본 | `harness/kit/fable-team/bin/ft-nano-cherry-gate.sh` cmp0 · 게이트 399줄 ≤ 400 |
+
 ## 알려진 한계·범위 밖 (DA 판정용)
-1. 경로는 **줄 단위**로 해석한다(탭·개행이 든 파일명은 종전의 비-z `paths` 파싱과 같은 한계). 모자라면 «차단» 쪽으로 떨어져 조용한 통과는 없다.
+1. ~~경로는 줄 단위로 해석한다~~ → **r3 에서 닫힘**: 경로를 내는 출력은 전부 `-z`(NUL)로 받는다. 따옴표·공백·탭·한글·rename 경로가 «없는 이름» 으로 새지 않는다(시험 ⓘ · 안전망 ⓚ).
 2. `nmiss` 상한 20 에서 멈추는 규칙은 유지했지만, 경로 분류와 이력 대조를 나눠 돌리므로 **미스 20개를 넘는 입력**에서는 WARN·INFO 줄의 «개수 숫자» 가 종전과 다를 수 있다. **판정(REJECT/PASS)과 차단·WARN 커밋 목록은 같다**(시험 ⓑ 가 전문 대조).
 3. `--squashed-pr` 경로가 쓰는 `ft-nano-cherry-pr.sh` 는 아직 경로마다 git 을 부른다 — 이 카드 범위 밖(카드 §구현범위 4).
 4. 게이트가 `ft_git_capped.py` 를 같은 폴더에서 찾는다(없으면 `WARN` 1줄 + 상한 없이 1회). 런타임 bin 에는 함께 설치된다.
@@ -71,4 +94,5 @@
 bash feature-pack/fable-team/harness/evidence/r958/red-70s.sh        # ⓐ (약 75초 · 옛 판 70초 대기)
 bash feature-pack/fable-team/harness/tests/test_cherry_gate_batch_r958.sh   # ⓐ~ⓗ (약 80초)
 bash feature-pack/fable-team/harness/evidence/r958/rework-r2-repro.sh         # r2 반례 2건 재현+고침+변이 (약 30초)
+bash feature-pack/fable-team/harness/evidence/r958/rework-r3-repro.sh         # r3 반례 2건(r2 판 대조) + 성능 (약 130초)
 ```
