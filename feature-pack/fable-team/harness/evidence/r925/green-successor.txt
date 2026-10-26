@@ -25,13 +25,10 @@ PASS ⓟ r609 ⓒ 남의 세션 → REJECT · 열기·송신 0 · 도달 파일 
 PASS ⓠ r622 같은 폴더 → 이어감 · 열기 건너뜀 · 송신 1
 PASS ⓠ' r622 다른 폴더 → REJECT · 실제 경로(pane=) 찍힘
 PASS ⓡ r622 못 읽음 → 판정 불가 REJECT · «다르다» 0 · 송신 0
-PASS ⓡ2 r925 이어가기 + 내 부팅 문장 남음 → Enter 1회 제출 · 송신 1
-PASS ⓡ2' 이어가기 + 남의 글자 → Enter 0 · HIL rc5 · 송신 0
-PASS ⓡ2'' 이어가기 + 입력줄 빔 → Enter 0 · 송신 1
-PASS ⓡ2''' 입력 상자를 못 읽음 → Enter 0(추측 0)
-PASS ⓡ3 흐린 글자(자동완성 제안) → Enter 0 · 빈 줄로 봄 · 송신 1
-PASS ⓡ4 입력줄 줄바꿈 → -J 로 합쳐 Enter 1 · 송신 1
-PASS ⓡ5 제출 증거 없음(유실) → Enter 재전송 0 · HIL rc5 · 송신 0
+PASS ⓡ2 r925 r3 이어가기 → boot-enter 1회(후계 이름) · 이 도구 Enter 0 · 제출 확인 → 송신 1
+PASS ⓡ2' 이어가기 + 입력줄 ≠ 전문(boot-enter rc4) → HIL rc5 · 송신 0 · 도달 파일 0
+PASS ⓡ3 이어가기 + 입력줄 판독 불가 → rc5 «[HIL] 입력줄 판독 불가» · 송신 0
+PASS ⓡ4 새로 열기 → boot-enter 0 · tmuxc open 1 · 송신 1
 PASS ⓢ r622 새 좌석 CWD 실제 경로 → JDIR 그 워크트리 · SessionStart 관측
 PASS ⓣ r660 desk 본문에 GUIDE 27줄 없음 → 열기 전 REJECT · open·송신 0
 PASS ⓣ r660 desk 본문에 팀 직발 예시 → 열기 전 REJECT · open·송신 0

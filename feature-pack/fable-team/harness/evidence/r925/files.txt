@@ -1,5 +1,5 @@
-# r925 파일 — 짝 사본 cmp0
+# r925 r3 파일 — 짝 사본 cmp0
 cmp0 OK feature-pack/fable-team/harness/bin/ft-successor-open.sh ≡ kit/fable-team/bin/ft-successor-open.sh
-8ac1480f3afef6b560ab444f22bba424f61fcc73cb344a12a3978995064beee9  feature-pack/tmuxc/core/bin/tmuxc
-2a2ed0cdb96ba9a883107ebb79714f14d269815355a193bdbed406f9ced1cc54  feature-pack/fable-team/harness/bin/ft-successor-open.sh
+ef2cc4452080f312f806bafc43f6cf7ee7f873c8bd4bd02e90757d4d1fe60672  feature-pack/tmuxc/core/bin/tmuxc
+389dbf481dc847b154b09e31b795bd21e4eda2c12758dfd792f1b3a57e43e2af  feature-pack/fable-team/harness/bin/ft-successor-open.sh
 # 바뀐 파일: feature-pack/tmuxc/core/bin/tmuxc · feature-pack/fable-team/harness/bin/ft-successor-open.sh(+kit 짝) · 시험 2개 · 증거

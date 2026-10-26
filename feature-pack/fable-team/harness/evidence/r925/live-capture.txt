@@ -1,0 +1,35 @@
+# r925 r3 실측 — 실제 claude 2.1.310 화면 캡처 3회(제출 0 · Enter 0 · 토큰 0) · 2026-10-26 · 나노 byz-harness-nano-r925-tmuxc-inject-submit-verify-and-succ#0
+# 세션 = tmux new-session -d -s r925probe*-<pid> -c <팩 워크트리> "timeout 30~45 claude --bare --dangerously-skip-permissions --session-id <uuid>"
+#        (timeout 으로 스스로 끝남 · kill 0)
+
+## probe1 — 새 claude 의 빈 입력줄 (capture-pane -p · 160x40)
+ready_after=1s
+────────────────────────────── (줄임)
+❯ Try "how does cairn.py work?"
+────────────────────────────── (줄임)
+  ctx:?% | Opus 5.5 high | r925probe-5822
+  'abc' 입력 → «❯ abc»(자리표시 사라짐) · C-u → 자리표시가 돌아옴(자리표시 = 버퍼 아님) · 자리표시 색 SGR 은 이번에 확정하지 않았다(r3 는 색을 안 본다)
+
+## probe2 — 커서·긴 문장·여러 줄 (120x40)
+placeholder: cx=2 cy=36          ← 자리표시일 때 커서는 «❯ » 바로 뒤
+typed abc:   cx=5 cy=36
+부팅 문장(실제 guide 꼴 · 300자 안팎) 입력 → TUI 가 4줄로 감아 그림(이어지는 줄 들여쓰기 2칸):
+❯ [byz-harness-master-claude#114→byz-harness-nano-r925-tmuxc-inject-submit-verify-and-succ#0] 통신 표준:
+  ~/.claude/skills/tmuxc/COMM-GUIDE-BOOT.md(12줄)를 지금 Read하고 그대로 따를 것 — 전문 COMM-GUIDE.md 는 열지
+  않는다(훅 차단), 필요한 절만 BOOT 매핑표의 줄 범위로 offset/limit Read. 너의
+  세션명(me)=byz-harness-nano-r925-tmuxc-inject-submit-verify-and-succ#0. 세션간 메시지는 검증 송신 프로토콜 준수.
+여러 줄 글자(\n 포함) → 붙여넣기 접힘 없이 줄마다 그려짐
+
+## probe3 — 고친 tmuxc 의 함수(pane_id_of · capture_input_line · squash_ws · input_is_message)를 실제 pane 에
+pane=%356
+before rc=0 [Try "write a test for cairn.py"]      ← 자리표시가 입력줄 글자로 읽힌다
+before match rc=1                                  ← 자리표시 ≠ 전문
+after match rc=0                                   ← 부팅 문장 입력 뒤 = 전문 완전 일치(4줄 감김을 공백 제거로 맞춤)
+extra-char match rc=1                              ← 한 글자 더하면 불일치(접두 인정 0)
+~/.claude/projects/*/<uuid>.jsonl : 없음            ← 제출 0 이면 기록 파일 0(리서치 1-3 과 같음)
+
+## claude 플래그 조합
+$ claude --resume <u1> --session-id <u2> -p hi
+Error: --session-id can only be used with --continue or --resume if --fork-session is also specified.
+$ claude --resume <u1> --fork-session --session-id <u2> -p hi
+No conversation found with session ID: <u1>        ← 조합은 받아들이고 원본 찾기로 넘어감(fork 경로 근거)

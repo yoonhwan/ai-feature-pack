@@ -1,5 +1,0 @@
-### RED — 고치기 전(origin/main) tmuxc inject_message
-$ FT_TMUXC_PATH=<base> bash /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r925-tmuxc-inject-submit-verify-and-succ/feature-pack/tmuxc/test/test_tmuxc_inject_ready_submit.sh
-FAIL 고치기 전 사본 — 준비·제출 확인 함수(wait_input_box·submit_state)가 없다: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.gLUMCwlS5n/tmuxc
-옛 판 ⓐ(준비 1초 늦음) 결과: rc=0 제출=[] 입력줄에 남은 글자=[[byz-t-old-claude#1→byz-t-new-claude#2] 통신 표준: 지금 read로 읽고 그대로 따를 것]
-rc=1

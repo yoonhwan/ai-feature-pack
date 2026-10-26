@@ -1,4 +1,27 @@
-### 변이 5 — «흐린 글자» 검사 끔 → ⓡ3 빨강이어야 한다(DA⑥ r1 반례 1)
+### GREEN — /bin/bash 3.2 (macOS 기본 셸)
+GNU bash, version 3.2.57(1)-release (arm64-apple-darwin24)
+PASS ⓐ 옛 출력·옛 기록에 같은 메시지 + 새 제출 0 → rc=1 «제출 실패» · submitted 0 · Enter 1(재전송 0)
+PASS ⓑ 늦은 기록 + 사람 접두 25자 → 재전송 0(Enter 1) · 사람 글자 제출 0 · 기록으로 rc=0 (3.85s)
+PASS ⓓ capture 정상 모양 + rc1 → rc=1 · 주입 0 · Enter 0
+PASS g1 준비 6초 늦음 → 준비 확인 뒤 제출 1(기록) · 입력줄 빔 (6.61s)
+PASS g2 첫 Enter 유실 → 재전송 1회 제출 · 글자 1회 (1.46s)
+PASS g3 Enter 전부 유실 → rc=1 «제출 실패» · Enter 2(재전송 1) · 글자 1회
+PASS g4 준비 빠름 → 제출 1 · 추가 대기 0.03s (≤0.9)
+PASS ⓕ 자리표시 «Try …» 입력줄 → 주입·제출 1 (rc=0)
+PASS ⓖ 사람 글자 위 → 전문 아님 · Enter 0 · rc=1 · 사람 글자 제출 0
+PASS ⓗ id 없음 → rc=1 · 주입 0
+PASS ⓒ 입력줄 = 전문(RGB 흰색) → Enter 1 · 기록 확인 rc=0
+PASS ⓒ' 입력줄 = 회색 앞부분만 → Enter 0 · rc=4
+PASS ⓔ 권한 프롬프트 → rc=2 «[HIL] 입력줄 판독 불가» · Enter 0
+PASS ⓘ 이미 기록됨 → Enter 0 · rc=0
+PASS ⓙ 근거 없음 → rc=3 · Enter 0
+PASS ⓛ plain·인자 없음(send·restore) → 기준 커밋 cbe218a5 과 tmux 호출·결과 바이트 같음 · 캡처 0
+PASS ⓝ cmd_open 판독 실패 → rc=1 «부팅 문장 제출 실패» · «session created» 성공 문구 0
+PASS ⓞ cmd_open claude → --session-id 발급(0b7d39bf-a1a6-4603-bb7c-bfa039f66088) = 세션 env 같은 값 · 호출자 env 값 안 씀 · TMUXC_BOOT_TEXT 기록
+PASS ⓞ' codex open → --session-id·TMUXC_CLAUDE 0(P3)
+----
+ALL PASS (mutate=0)
+inject rc=0
 PASS bash -n
 PASS ⓐ 첫 3줄 빈 값 → REJECT · open·송신 0
 PASS ⓑ 기동 확인(pgrep 3) → 송신 1회 · 도달 파일
@@ -25,17 +48,10 @@ PASS ⓟ r609 ⓒ 남의 세션 → REJECT · 열기·송신 0 · 도달 파일 
 PASS ⓠ r622 같은 폴더 → 이어감 · 열기 건너뜀 · 송신 1
 PASS ⓠ' r622 다른 폴더 → REJECT · 실제 경로(pane=) 찍힘
 PASS ⓡ r622 못 읽음 → 판정 불가 REJECT · «다르다» 0 · 송신 0
-PASS ⓡ2 r925 이어가기 + 내 부팅 문장 남음 → Enter 1회 제출 · 송신 1
-PASS ⓡ2' 이어가기 + 남의 글자 → Enter 0 · HIL rc5 · 송신 0
-PASS ⓡ2'' 이어가기 + 입력줄 빔 → Enter 0 · 송신 1
-PASS ⓡ2''' 입력 상자를 못 읽음 → Enter 0(추측 0)
-FAIL ⓡ3 rc=0 enter=1 out=이어감: 세션 있음 byz-t-new-claude#2 — 열기 건너뜀
-이어가기 부팅 문장 제출 확인 — Enter 1회 · 양성 증거(입력줄 빔 + 위 화면에 문장)
-SessionStart 미관측 byz-t-new-claude#2 (5회) — 송신 후 도달 판정으로 확인
-QUEUED seq=777 to=byz-t-new-claude#2 pending=1 doorbell=sent
-OK successor=byz-t-new-claude#2 seq=777 file=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.CoadiUHHmx/repo/.fable-team/state/successor/byz-t-old-claude#1.json mbox=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.CoadiUHHmx/fakebin/mbox
-PASS ⓡ4 입력줄 줄바꿈 → -J 로 합쳐 Enter 1 · 송신 1
-PASS ⓡ5 제출 증거 없음(유실) → Enter 재전송 0 · HIL rc5 · 송신 0
+PASS ⓡ2 r925 r3 이어가기 → boot-enter 1회(후계 이름) · 이 도구 Enter 0 · 제출 확인 → 송신 1
+PASS ⓡ2' 이어가기 + 입력줄 ≠ 전문(boot-enter rc4) → HIL rc5 · 송신 0 · 도달 파일 0
+PASS ⓡ3 이어가기 + 입력줄 판독 불가 → rc5 «[HIL] 입력줄 판독 불가» · 송신 0
+PASS ⓡ4 새로 열기 → boot-enter 0 · tmuxc open 1 · 송신 1
 PASS ⓢ r622 새 좌석 CWD 실제 경로 → JDIR 그 워크트리 · SessionStart 관측
 PASS ⓣ r660 desk 본문에 GUIDE 27줄 없음 → 열기 전 REJECT · open·송신 0
 PASS ⓣ r660 desk 본문에 팀 직발 예시 → 열기 전 REJECT · open·송신 0
@@ -57,6 +73,7 @@ PASS ⓥ 4칸 들여쓰기 속 옛 1통 → «여러 줄» REJECT · open·송�
 PASS ⓥ 정본 1줄만(main 꼴 · 30행) → 통과 · 송신 1
 PASS ⓥ 정본이 들여쓰기로만 → «모양 바뀜» REJECT
 PASS ⓥ 정본이 > 인용으로만 → «모양 바뀜» REJECT
-FAILED 1
+ALL PASS
+REAL-STATE-GUARD WARN 번호표 늘었으나 실 좌석 계획(동시 실행): /private/tmp/h219 ← /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/state/dev-membership-dsyoon-byz-20261026.sh
 REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
-rc=1
+successor rc=0
