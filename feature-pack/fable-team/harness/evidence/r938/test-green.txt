@@ -80,14 +80,21 @@ PASS [ⓖ]   └ 그 묶음 생존 0
 PASS [ⓖ] setsid 손자 대역 · 상한 1초 → rc 124
 PASS [ⓖ]   └ 2초에 반환(≤3초 · 손자가 출력 fd 를 물고 있어도)
 PASS [ⓖ]   └ 반환 뒤 5초 손자 쓰기 0
-PASS [ⓖ]   └ 손자 pid 35855 생존 0
+PASS [ⓖ]   └ 손자 pid 99505 생존 0
+PASS [ⓖ] ⓖ2 ps 대역(ps07) · nf_bound 1 /bin/sleep 10 → rc 124
+PASS [ⓖ]   └ ⓖ2 3.641초 ≤ 4.9초(상한 1 + 3.5 + 측정 여유 0.4)
+PASS [ⓖ]   └ ⓖ2 대상 /bin/sleep 10 생존 0
+PASS [ⓖ] ⓖ3 ps 대역(ps5) · nf_bound 1 /bin/sleep 10 → rc 124
+PASS [ⓖ]   └ ⓖ3 4.053초 ≤ 4.9초(상한 1 + 3.5 + 측정 여유 0.4)
+PASS [ⓖ]   └ ⓖ3 대상 /bin/sleep 10 생존 0
+PASS [ⓖ]   └ ⓖ3 대역 ps(sleep 5) 생존 0(조회 상한 1초에 잘림)
 == ⓗ TERM 무시 대역 · 상한 1초 → 3초 안에 끝남(KILL 유예 1초)
 PASS [ⓗ] TERM 무시 대역 · 상한 1초 → rc 124
 PASS [ⓗ]   └ 상한+유예 = 2초(≤3초 · KILL 유예 1초)
 PASS [ⓗ]   └ 그 묶음 생존 0
 == ⓘ 배수 = 커밋 수 — 커밋 12 · 커밋당 1초 대역은 «정상 느림» 이라 통과(거짓 거절 0)
 PASS [ⓘ] 커밋 12 · 커밋당 1초 → 배수 12 상한 안 → 통과(rc0)
-PASS [ⓘ]   └ 대역이 실제로 13초 걸렸다(느림 재현)
+PASS [ⓘ]   └ 대역이 실제로 14초 걸렸다(느림 재현)
 == ⓙ 원격 없음 + 캐시 origin/main → fetch 실패 REJECT · cherry 통과 줄 0(DA⑥ r1 반례 3)
 PASS [ⓙ] fetch 실패 → 그 자리 REJECT
 PASS [ⓙ]   └ cherry 통과 줄 0

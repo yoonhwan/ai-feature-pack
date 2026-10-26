@@ -246,7 +246,7 @@ out="$(FT_NANO_CAP_S=1 close)"; rc=$?; sleep 3
 [ "$rc" -eq 1 ] && has "$out" "⑥증거 검사 시간 초과" "$(card ⓖ '상한 → REJECT')" || bad "$(card ⓖ "rc=$rc ← ${out:0:400}")"
 [ ! -e "$REPO/late-write.txt" ] && ok "$(card ⓖ '  └ REJECT 뒤 3초 자식 쓰기 0')" || bad "$(card ⓖ '  └ 자식이 늦게 씀(묶음째 kill 실패)')"
 pgrep -f "sleep 90" >/dev/null 2>&1 && bad "$(card ⓖ '  └ 상한 뒤 살아 있는 대역 프로세스 있음')" || ok "$(card ⓖ '  └ 그 묶음 생존 0')"
-# ⓖ2(r3 · astra r2 반례 N2): 자식이 setsid 로 새 세션 손자를 띄우고(출력 fd 물려받음) 4초 뒤 쓰기 → nf_bound 1 은 ≤ 3초 반환 · 반환 뒤 5초 쓰기 0 · 손자 생존 0
+# ⓖ-손자(r3 · astra r2 반례 N2): 자식이 setsid 로 새 세션 손자를 띄우고(출력 fd 물려받음) 4초 뒤 쓰기 → nf_bound 1 은 ≤ 3초 반환 · 반환 뒤 5초 쓰기 0 · 손자 생존 0
 awk '/^nf_fixed\(\) \{/{p=1} /^if \[ "\$REPLAN" -eq 0 \]/{p=0} p' "$T/bin/ft-nano-close.sh" > "$T/fn.sh"
 GC="$T/gc"; rm -f "$GC.pid" "$GC.late"
 cat > "$T/gc.sh" <<'EOF'
@@ -268,6 +268,22 @@ sleep 5
 [ ! -e "$GC.late" ] && ok "$(card ⓖ '  └ 반환 뒤 5초 손자 쓰기 0')" || bad "$(card ⓖ '  └ 손자가 반환 뒤에 씀(새 세션 손자 회수 실패)')"
 gpid="$(cat "$GC.pid" 2>/dev/null)"
 [ -n "$gpid" ] && ! kill -0 "$gpid" 2>/dev/null && ok "$(card ⓖ "  └ 손자 pid ${gpid} 생존 0")" || { bad "$(card ⓖ "  └ 손자 pid ${gpid:-<없음>} 살아 있음/기록 없음")"; [ -z "$gpid" ] || kill -9 "$gpid" 2>/dev/null; }
+# ⓖ2·ⓖ3(r4 계약 · astra r3 반례): 총 ≤ 상한 + 3.5초(자손 조회 2회 각 ≤1초 + 유예 1 + 회수 0.5) · 측정 여유 0.4초 → 상한 1초면 ≤ 4.9초
+#   PATH 앞 ps 대역 — ⓖ2 는 0.7초 잠든 뒤 진짜 ps · ⓖ3 는 5초 잠듦(조회 상한 1초에 잘림 · exec 로 대역 = 한 프로세스 = 진짜 ps 가 멈춘 꼴)
+timed() {  # timed <ps 대역 폴더> — nf_bound 1 /bin/sleep 10 의 «rc 걸린초» (소수 3자리)
+  PATH="$1:$PATH" python3 -c 'import subprocess,sys,time
+t=time.time(); r=subprocess.run(["bash","-c",". \"$1\"; nf_bound 1 /bin/sleep 10","_",sys.argv[1]])
+print(r.returncode, "%.3f" % (time.time()-t))' "$T/fn.sh"
+}
+mkdir -p "$T/ps07" "$T/ps5"
+printf '#!/bin/sh\nsleep 0.7\nexec /bin/ps "$@"\n' > "$T/ps07/ps"; printf '#!/bin/sh\nexec /bin/sleep 5\n' > "$T/ps5/ps"; chmod +x "$T/ps07/ps" "$T/ps5/ps"
+for g in ⓖ2:ps07 ⓖ3:ps5; do
+  nm="${g%%:*}"; r="$(timed "$T/${g#*:}")"; rrc="${r%% *}"; sec="${r#* }"
+  [ "$rrc" = "124" ] && ok "$(card ⓖ "$nm ps 대역(${g#*:}) · nf_bound 1 /bin/sleep 10 → rc 124")" || bad "$(card ⓖ "$nm rc=$rrc ← $r")"
+  awk -v s="$sec" 'BEGIN{exit !(s <= 4.9)}' && ok "$(card ⓖ "  └ $nm ${sec}초 ≤ 4.9초(상한 1 + 3.5 + 측정 여유 0.4)")" || bad "$(card ⓖ "  └ $nm ${sec}초 > 4.9초(계약 밖)")"
+  pgrep -f '^/bin/sleep 10$' >/dev/null 2>&1 && bad "$(card ⓖ "  └ $nm 대상 /bin/sleep 10 살아 있음")" || ok "$(card ⓖ "  └ $nm 대상 /bin/sleep 10 생존 0")"
+done
+pgrep -f '^/bin/sleep 5$' >/dev/null 2>&1 && bad "$(card ⓖ '  └ ⓖ3 대역 ps(sleep 5) 살아 있음')" || ok "$(card ⓖ '  └ ⓖ3 대역 ps(sleep 5) 생존 0(조회 상한 1초에 잘림)')"
 
 echo "== ⓗ TERM 무시 대역 · 상한 1초 → 3초 안에 끝남(KILL 유예 1초)"
 setup
