@@ -66,14 +66,15 @@ PY
 #   감시 없음 → db 꼬리 `(WATCH 없음)`(quiet → `quiet(WATCH 없음)`) + 하네스 master(seats-harness.json `_master`) 긴급 1통(같은 좌석 10분 1회 · 표식 <루트>/.fable-team/state/planner-watch-missing.<좌석> · 본문에 계기 쪽지 번호 = 같은 본문 재발신 가드에 재알림이 막히지 않게).
 #   ★r928 r3 유예★: 표본 파일(state/planner-watch-absent-since.<좌석> = «<표본 epoch>\t<처음 없음 epoch | 0=감시 있음>» · 쓰는 쪽 = ft-tick 60초 표본기 `bin/ft-mbox.sh watch-sample` 하나 · 감시는 쓰기 0)을 읽기만 한다.
 #     표본 180초(FT_WATCH_SAMPLE_STALE_SEC) 안 ∧ 처음 없음 300초(FT_WATCH_REARM_GRACE_SEC) 안 → 긴급 0 · stderr `WATCH-REARM 대기 <분>` 1줄 — Monitor 30분 한도 뒤 «다시 거는 틈»(판정 1125).
-#     이상은 모두 긴급 쪽 — 표본 없음·멈춤·심링크·폴더·state 쓰기 불가·읽기 실패·정수 두 칸 아님·미래 값 → stderr `WATCH-ABSENT 표본 멈춤(<사유>)`/`WATCH-ABSENT 이상(<사유>)` 1줄. 판정 본문은 bin/ft-mbox.sh 와 같은 함수(_absent_grace).
+#     이상은 모두 긴급 쪽 — 표본기 실패 표식(<표본 파일>.broken · r4)·표본 없음·멈춤·심링크·폴더·state 쓰기 불가·읽기 실패·정수 두 칸 아님·미래 값 → stderr `WATCH-ABSENT 표본 멈춤(<사유>)`/`WATCH-ABSENT 이상(<사유>)` 1줄. 판정 본문은 bin/ft-mbox.sh 와 같은 함수(_absent_grace).
 #     긴급 본문 근거 줄 = `감시 프로세스 0(pgrep) · <처음 없음 HH:MM(N분) | 표본 이상(<사유>)>`.
 #   판정 불가 = 꼬리 `(WATCH 판정 불가)` + stderr(조용한 통과 0) · 적재 실패·master 없음 = stderr 1줄(표식 0 → 다음 send 재시도).
 _ep_hhmm() { date -r "$1" +%H:%M 2>/dev/null || date -d "@$1" +%H:%M 2>/dev/null || printf '?'; }
 _absent_grace() {
   local f="$1" grace="$2" stale="$3" line s="" a="" now why=""
   now="$(date +%s)"
-  if [ -L "$f" ]; then why="심링크"
+  if [ -e "$f.broken" ] || [ -L "$f.broken" ]; then why="표본기 실패 표식"
+  elif [ -L "$f" ]; then why="심링크"
   elif [ -e "$f" ] && [ ! -f "$f" ]; then why="일반 파일 아님"
   elif [ ! -e "$f" ]; then why="표본 없음"
   elif [ ! -w "$(dirname "$f")" ]; then why="state 쓰기 불가"
