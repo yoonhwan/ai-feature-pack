@@ -1,0 +1,16 @@
+=== 변이: 초안 분기 끔(옛 판 복귀 = 초안도 [긴급] 통지) → rc=1 fail=4
+   FAIL ⓐ mbox 송신 1건 ← CALL send
+   FAIL ⓐ WARN 줄 :: 
+   FAIL ⓐ' mbox 1건 ← CALL send
+   FAIL ⓐ' WARN :: ERROR 골 표 문 REJECT: 골 표 문 모듈 없음 — 설치 순서(No module named 'ft_goal_gate') (bundle aaaaaaaaaa)
+=== 변이: 모든 모드 WARN(발행 모드 통지 끔) → rc=1 fail=9
+   FAIL ⓑ html mbox 0건
+   FAIL ⓑ 쪽지 머리 «[긴급] 뉴스 발행 거절 — 골 표» — 없음: «[긴급] 뉴스 발행 거절 — 골 표» ← 
+   FAIL ⓑ html → draft WARN 0 — 있으면 안 됨: «WARN draft 묶음 검증 실패»
+   FAIL ⓑ' mbox 0건
+   FAIL ⓑ' 쪽지 머리 «[긴급] …» — 없음: «[긴급] 뉴스 발행 거절 — 골 표» ← 
+   FAIL ⓓ 'drafts' mbox 0건
+   FAIL ⓓ 'drafts' → draft WARN 0 — 있으면 안 됨: «WARN draft 묶음 검증 실패»
+   FAIL ⓓ '' mbox 0건
+   FAIL ⓓ '' → draft WARN 0 — 있으면 안 됨: «WARN draft 묶음 검증 실패»
+MUTATION-ALL-RED
