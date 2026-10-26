@@ -7,6 +7,7 @@
 # 헤드룸 경로가 꺼진 설정에서 그 머리만 남으면 codex 가 «provider name must not be empty» 로 설정 로드 거부(rc1).
 # 절이 없으면 머리 0 + stderr INFO 1줄(출력 파일엔 안 섞임).
 # 출력 = <out-dir>/da-<YYYYmmdd-HHMMSS>-<pid>.out (실행마다 새 이름 · 덮어쓰기 0) · 끝줄 `OUT <경로> rc=<n>` · rc = codex rc.
+# r947: 출력 옆 `<out>.meta` 1줄 `head=<40hex|none> model=<M> effort=<E> rc=<n> start=<epoch> end=<epoch>` — head = codex «전» git -C <cwd> rev-parse HEAD(실패 = none · 상시 승인이 거절)
 set -uo pipefail
 
 PREAMBLE='[DA 머리말] 파일은 sed -n 으로 400줄 이하씩 나눠 읽는다 · 본문을 못 봤으면 HOLD 대신 «검증 불가 — <파일:줄>» 로 적는다.'
@@ -47,11 +48,14 @@ else
   echo "INFO 헤드룸 provider 없음($cfg) → 건너뛰기 머리 0" >&2
 fi
 
+head="$(git -C "$cwd" rev-parse --verify -q HEAD 2>/dev/null)"; [[ "$head" =~ ^[0-9a-f]{40}$ ]] || head=none   # DA 가 «본» sha — codex 가 cwd 에 커밋해도 바뀌지 않게 먼저 잰다
+start="$(date +%s)"
 prompt="$PREAMBLE
 $(cat "$prompt_file")"
 codex exec --skip-git-repo-check -C "$cwd" \
   -c "model=\"$model\"" -c "model_reasoning_effort=\"$effort\"" ${bypass[@]+"${bypass[@]}"} \
   "$prompt" < /dev/null > "$out" 2>&1
 rc=$?
+printf 'head=%s model=%s effort=%s rc=%s start=%s end=%s\n' "$head" "${model//[[:space:]]/_}" "${effort//[[:space:]]/_}" "$rc" "$start" "$(date +%s)" > "$out.meta" || echo "WARN .meta 쓰기 실패: $out.meta" >&2
 echo "OUT $out rc=$rc"
 exit "$rc"

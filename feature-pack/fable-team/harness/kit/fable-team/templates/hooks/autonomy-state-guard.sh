@@ -2,7 +2,7 @@
 # fable-team autonomy-state-guard — PreToolUse:Bash|Write|Edit|NotebookEdit (r-autonomy-hooks 훅② · 판정 1322·1355 · DESIGN-autonomy-proxy-decision r3 §1)
 # 왜: 좌석이 자율 모드를 스스로 켜고 끄거나 상태 파일을 고치면 모드 전체가 무의미하다. ON/OFF 는 오빠 `!` 한 줄(ft-hil.sh 계획 파일)로만.
 # 막는 것(모드 ON/OFF 무관 · BYZ 리포 안): `autonomy.json`·`autonomy.log`(+`.tmp`)·`autonomy-merge-ok/`·`autonomy-merge-approved/`·`autonomy-scope/`·`autonomy-digest/`·`seat-resume-attempts/` 경로를 «쓰는» 호출,
-#   `ft-autonomy.sh on|off|approve-merge|approve-scope|forget-kind`·`ft-queue-digest.sh issue`·`ft-resume-attempt.sh allow` 실행(판정 1675 · 뒤 두 도구는 r163·r165 가 만든다).
+#   `ft-autonomy.sh on|off|approve-merge|approve-scope|approve-standing(r947)|forget-kind`·`ft-queue-digest.sh issue`·`ft-resume-attempt.sh allow` 실행(판정 1675 · 뒤 두 도구는 r163·r165 가 만든다).
 #   r466 5c: 인자에 오빠 진입 파일(`/tmp/h<N>`·$HIL_DIR/h<N>)·계획 파일(`*.sh.hil`)이 있으면 그 본문(진입 파일의 `plan=` 이 가리키는 계획 파일까지 1단)에 같은 판정 —
 #     단 approve-merge 는 자율 ON(ft-autonomy.sh mode = on)이면 허용 + 로그 `hN-approve seat=<tmux 세션|unknown> file=<경로>`(자율 중 병합 승인 = desk 실행) · OFF·못 읽음 = deny · on|off|forget-kind|approve-scope = 늘 deny · 파일 못 읽음 = 허용 + 로그.
 #   Write/Edit/NotebookEdit 는 file_path·notebook_path. Bash 는 «양성 일치»만: 리다이렉트 `>`/`>>`/`>|` 대상 · tee · cp(마지막 인자=대상) · mv/rm/ln/install/touch/truncate 인자 · dd of= · sed/perl -i.
@@ -25,8 +25,8 @@ sys.path.insert(0, os.environ["ASG_DIR"])
 from merge_cmd import env_split  # r546: 사본 삭제 전 이 훅 안에 있던 그 함수(글자 그대로 옮겼다)
 
 LOG = os.environ.get("FT_AUTONOMY_HOOK_LOG") or os.path.expanduser("~/.claude/logs/autonomy-hooks.log")
-PROT = re.compile(r"(^|/)(autonomy\.(json|log)(\.tmp)?|(autonomy-merge-ok|autonomy-merge-approved|autonomy-scope|autonomy-digest|seat-resume-attempts)(/|$))")
-DENY_EXEC = {"ft-autonomy.sh": ("on", "off", "approve-merge", "approve-scope", "forget-kind"), "ft-queue-digest.sh": ("issue",), "ft-resume-attempt.sh": ("allow",)}  # 뒤 두 도구는 r163·r165 가 만든다 — 이름만 먼저 막는다
+PROT = re.compile(r"(^|/)(autonomy\.(json|log)(\.tmp)?|(autonomy-merge-ok|autonomy-merge-approved|autonomy-scope|autonomy-standing|autonomy-digest|seat-resume-attempts)(/|$))")
+DENY_EXEC = {"ft-autonomy.sh": ("on", "off", "approve-merge", "approve-scope", "approve-standing", "forget-kind"), "ft-queue-digest.sh": ("issue",), "ft-resume-attempt.sh": ("allow",)}  # 뒤 두 도구는 r163·r165 가 만든다 — 이름만 먼저 막는다
 HFILE = re.compile(r"(^|/)h[0-9]+$|\.sh\.hil$")
 WRAP = {"sudo", "env", "command", "exec", "nohup", "time", "timeout", "nice"}
 SHELLS = {"bash", "sh", "zsh", "dash"}

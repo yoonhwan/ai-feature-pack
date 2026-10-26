@@ -1,3 +1,11 @@
+## 2026-10-26 — r947 외부 DA 가 APPROVE 한 팩 PR 은 «상시 승인» D1 으로 planner 가 바로 착지한다 (1.1.252)
+
+- 오빠 D1(mbox 169402) 을 돌리는 장치. 오빠 h 한 번(`ft-autonomy.sh approve-standing D1 --repos pack --classes code,docs`)으로 켜고, 슬랙 «켜짐 알림» 1글을 먼저 올린다. 자율 모드 ON·OFF 와 무관하고 끝 시각이 없다. 멈춤은 `standing-stop D1 "<사유>"`(누구나).
+- planner master 좌석만 `standing-approve <head> --pr <N> --repo pack --verdict <판정문>` 을 부른다. 좌석 판정은 문서 전용 예외와 같은 함수(ft_doc_exempt.py --mode planner-seat · 실제 좌석 · 명부 루트 출처)다. 검사: D1 켜짐 → 팩 분류표 forbid 0 → 판정문이 BYZ origin/main 에 있음(값도 origin/main 에서 읽음) → 판정문 4줄과 DA 원문 sha256 일치 → DA 원문 마지막 codex 블록 첫 줄·끝 판정 줄 APPROVE + .meta head=A rc=0 · claude 계열 아님 → head=A 또는 EQUIV. 통과하면 기존 꼴 승인 파일(`approve-merge <head> D1 <epoch>`)을 쓴다. 착지 검사(ft-merge-land)는 그대로다.
+- ft-da-codex.sh 가 출력 옆 `<out>.meta`(head=codex 실행 «전» cwd HEAD)를 쓴다. ft-merge-land 는 D1 착지면 D1 원장(state/autonomy-standing/D1.ledger.tsv)에 착지 sha·되돌림 명령을 적고 merge-gate.log 줄 끝에 `standing=D1` 을 붙인다. `standing-status --since <epoch>` 가 착지 묶음을 사람 말 1덩이로 낸다.
+- autonomy-state-guard 훅: 좌석의 `approve-standing` 실행과 `autonomy-standing/` 쓰기를 막는다(오빠 `!` 전용).
+- 시험 test_autonomy_standing_r947.sh 64 PASS(/bin/bash 3.2 · 변이 6/6 · 그중 기존 시험 11개 묶음 ALL PASS). 외부 DA 는 arch 몫.
+
 ## 2026-10-26 — r921 자원 조건으로 멈추지 않는다 — 회수 먼저 → 그래도 넘으면 WARN 1줄 + 진행 (1.1.251)
 
 - 정지는 디스크 하한과 측정 실패 둘뿐이다. 스왑·메모리·압력·에이전트 수가 넘으면 회수(ft-reclaim-capped.sh · 7초 상한) 1회 뒤 WARN 1줄을 남기고 spawn·재개를 계속한다. 리서치 1석 고정 상한은 지웠다.
