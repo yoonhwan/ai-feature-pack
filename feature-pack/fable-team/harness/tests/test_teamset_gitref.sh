@@ -36,7 +36,10 @@ mkdir -p "$T/repo/design"; cat > "$T/repo/design/TEAMSET.md" <<'EOF'
 EOF
 G add design/TEAMSET.md; G commit -q -m "표 착지"; C2="$(G rev-parse HEAD)"; SHA10="$(G rev-parse --short=10 "$C2")"
 G update-ref refs/remotes/origin/main "$C2"
-mkdir -p "$T/repo/.fable-team/comm"; echo '{"_name":"alpha","_master":"byz-alpha-master-claude#1","_arch":"byz-alpha-arch-claude#1"}' > "$T/repo/.fable-team/seats-alpha.json"
+# r921: all-stop 판정이 state 폴더+원장 init 줄을 요구한다(픽스처 구멍 — 사전 결함)
+mkdir -p "$T/repo/.fable-team/comm" "$T/repo/.fable-team/state"
+printf '2026-10-21T00:00:00\toff\tinstall\tinit\n' > "$T/repo/.fable-team/state/all-stop.log"
+echo '{"_name":"alpha","_master":"byz-alpha-master-claude#1","_arch":"byz-alpha-arch-claude#1"}' > "$T/repo/.fable-team/seats-alpha.json"
 G worktree add -q --detach "$T/wt" "$C1"   # 표 없는 커밋의 워크트리 = 팀 워크트리 상황
 [ ! -f "$T/wt/design/TEAMSET.md" ] && ok "전제: 워크트리에 표 파일 없음" || bad "전제 어긋남"
 mkdir -p "$T/wt/design/alpha/indices/대기"; echo "# 카드" > "$T/wt/design/alpha/indices/대기/x.md"
@@ -51,10 +54,10 @@ o="$(chk --all)"; rc=$?
 { [ "$rc" = 0 ] && [ "$(head -1 <<<"$o")" = "md=origin/main:design/TEAMSET.md@$SHA10" ] && [[ "$o" == *"alpha OK "*"나노 2/2"* ]] && [[ "$o" != *ERROR* ]]; } \
   && ok "ⓐ 워크트리(표 없음)에서 check --all → rc0 · 머리줄 md=…@$SHA10 · 나노 2/2" || bad "ⓐ rc=$rc $o"
 
-# ⓑ 같은 cwd 에서 nano-spawn → origin/main 의 상한(2)으로 AT-CAP rc7 · WARN 통과 0
+# ⓑ 같은 cwd 에서 nano-spawn → origin/main 의 상한(2)으로 AT-CAP — ★r921★ rc7(순번 큐) 아님: WARN 1줄 + 진행 · 큐 적재 0
 o="$(sp)"; rc=$?
-{ [ "$rc" = 7 ] && [[ "$o" == *"AT-CAP alpha live=2 cap=2"* ]] && [[ "$o" != *"WARN TEAMSET.md 없음"* ]]; } \
-  && ok "ⓑ nano-spawn → origin/main 표로 AT-CAP rc7 (WARN 통과 0)" || bad "ⓑ rc=$rc $o"
+{ [ "$rc" != 7 ] && [[ "$o" == *"AT-CAP alpha live=2 cap=2"* ]] && [[ "$o" == *"WARN resource teamset"* ]] && [[ "$o" != *QUEUED* ]] && [[ "$o" != *"WARN TEAMSET.md 없음"* ]]; } \
+  && ok "r921 ⓑ nano-spawn → origin/main 표로 AT-CAP = WARN + 진행(rc7 아님 · 큐 0)" || bad "ⓑ rc=$rc $o"
 
 # ⓒ FT_TEAMSET_MD 주입 → 파일 우선(상한 4 → CAP) · 머리줄 없음
 printf '%s\n' "$(sed 's/| alpha | 2 |/| alpha | 4 |/' "$T/repo/design/TEAMSET.md")" > "$T/inj.md"

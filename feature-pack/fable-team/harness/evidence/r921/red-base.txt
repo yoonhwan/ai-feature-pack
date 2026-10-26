@@ -1,0 +1,43 @@
+# base(origin/main) 코드 + 이 브랜치의 새 시험 — «멈춤» 코드에서는 새 시험이 빨강이어야 한다
+# 명령: bash tests/test_resource_warn_proceed_r921.sh (임시 사본 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.lnGq3F741s/base)
+FAIL ⓐ swap rc=3 REJECT resource swap=13000MiB level=2 memfree=20% limit=12288MiB@level>=2&memfree<30
+FAIL ⓐ memfree rc=3 REJECT resource memfree=9% limit=15%
+FAIL ⓐ level rc=3 REJECT resource level=4 limit=2
+FAIL ⓐ rate rc=3 REJECT resource rate=900MiB/min limit=512MiB/min
+FAIL ⓐ agents rc=3 REJECT resource agents=99 limit=65
+FAIL ⓐ spawn agents 넘김 calls=1 rc=1 hold=none
+RECLAIMED 0
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.zsAZAdLeYB/bin
+WARN FT_SEND_FROM 현역 해석 못 함 — 명부 없음: /.fable-team/seats.json (값 그대로: dispatch)
+REJECT 대기/ 에 있는 인덱스만 연다: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.zsAZAdLeYB/card.md
+PASS ⓑ spawn 회수가 풀어냄 → 회수 1회로 문턱 아래 → WARN 0 + 진행
+FAIL ⓒ 디스크 하드 하한 rc=3 REJECT resource disk=0GiB limit=30GiB
+FAIL ⓒ 디스크 소프트 rc=3 REJECT resource disk=4GiB limit=30GiB
+FAIL ⓒ 디스크 측정 실패 rc=4 ERROR resource measure disk df rc≠0
+FAIL ⓒ spawn 디스크 rc=1 hold=none
+RECLAIMED 1
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.zsAZAdLeYB/bin
+WARN FT_SEND_FROM 현역 해석 못 함 — 명부 없음: /.fable-team/seats.json (값 그대로: dispatch)
+REJECT 대기/ 에 있는 인덱스만 연다: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.zsAZAdLeYB/card.md
+FAIL ⓓ swap rc=4 ERROR resource measure swap sysctl rc≠0
+FAIL ⓓ level rc=4 ERROR resource measure level sysctl rc≠0
+FAIL ⓓ memfree rc=4 ERROR resource measure memfree memory_pressure rc≠0
+FAIL ⓓ agents rc=4 ERROR resource measure agents pgrep-claude rc=2
+FAIL ⓓ spawn 측정 실패 rc=1 hold=none
+RECLAIMED 1
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.zsAZAdLeYB/bin
+WARN FT_SEND_FROM 현역 해석 못 함 — 명부 없음: /.fable-team/seats.json (값 그대로: dispatch)
+REJECT 대기/ 에 있는 인덱스만 연다: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.zsAZAdLeYB/card.md
+FAIL ⓔ 동결(일반) rc=3 REJECT resource freeze=시험 동결 limit=0
+FAIL ⓔ 동결(--succession) rc=0 WARN resource freeze=시험 동결 — 승계는 동결 중에도 통과(다른 축은 그대로 · r672)
+OK disk=100GiB swap=100MiB memfree=66% level=1 rate=0 agents=5
+FAIL ⓔ 동결(--research) rc=0 WARN resource freeze=시험 동결 — 리서치는 동결 중에도 통과(다른 축은 그대로 · r672)
+OK disk=100GiB swap=100MiB memfree=66% level=1 rate=0 agents=5
+PASS ⓕ-1 회수(--team) 1회로 자리가 나면 CAP 로 열린다(AT-CAP·WARN 0)
+PASS ⓕ-1 회수 호출 = --caller + 1회
+FAIL ⓕ-2 rc=7 hold=none
+AT-CAP alpha live=2 cap=2
+PASS ⓕ-3 쌓인 큐 → 맨 앞 카드를 master 에게 알린다(AT-CAP 이어도)
+/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.lnGq3F741s/base/harness/tests/test_resource_warn_proceed_r921.sh: 줄 234: OUT�: 바인딩 해제한 변수
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+---- base rc=1

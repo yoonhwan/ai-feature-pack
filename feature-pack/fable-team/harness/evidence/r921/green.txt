@@ -1,0 +1,51 @@
+# 이 브랜치 코드 + 이 브랜치 시험 — 초록(카드 ⓐ~ⓖ + 변이 4종)
+# 명령: bash tests/test_resource_warn_proceed_r921.sh (임시 사본 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.lnGq3F741s/branch)
+PASS ⓐ swap → WARN 1줄 + rc0(진행)
+PASS ⓐ memfree → WARN 1줄 + rc0(진행)
+PASS ⓐ level → WARN 1줄 + rc0(진행)
+PASS ⓐ rate → WARN 1줄 + rc0(진행)
+PASS ⓐ agents → WARN 1줄 + rc0(진행)
+PASS ⓐ spawn agents 넘김 → 회수 1회 → WARN 1줄 + 진행(REJECT 아님)
+PASS ⓑ spawn 회수가 풀어냄 → 회수 1회로 문턱 아래 → WARN 0 + 진행
+PASS ⓒ 디스크 500MiB < 1024MiB → REJECT(exit 3)
+PASS ⓒ 디스크 4GiB(하드 하한 위·소프트 아래) → WARN + 진행
+PASS ⓒ 디스크 측정 실패(df rc42) → REJECT
+PASS ⓒ spawn 디스크 REJECT → rc3 · 회수 0(회수로 안 풀린다)
+PASS ⓓ swap 측정 실패 → WARN + 진행(rc0)
+PASS ⓓ level 측정 실패 → WARN + 진행(rc0)
+PASS ⓓ memfree 측정 실패 → WARN + 진행(rc0)
+PASS ⓓ agents 측정 실패 → WARN + 진행(rc0)
+PASS ⓓ spawn: level 측정 실패 → WARN + 진행(못 잰 축은 회수 대상 아님 — 회수 0)
+PASS ⓔ 동결(일반) → WARN + 진행
+PASS ⓔ 동결(--succession) → WARN + 진행
+PASS ⓔ 동결(--research) → WARN + 진행
+PASS ⓕ-1 회수(--team) 1회로 자리가 나면 CAP 로 열린다(AT-CAP·WARN 0)
+PASS ⓕ-1 회수 호출 = --caller + 1회
+PASS ⓕ-2 AT-CAP + 회수 0 → WARN + 연다(큐 적재 0)
+PASS ⓕ-3 쌓인 큐 → 맨 앞 카드를 master 에게 알린다(AT-CAP 이어도)
+PASS ⓕ-4 free=-1(초과) 여도 큐 알림이 나간다(r921)
+PASS ⓖ tick 재개 경로가 «WARN + 진행» 갈래를 갖는다
+PASS ⓖ tick 이 문지기 WARN 줄을 읽는다
+PASS ⓖ 재개 전 문지기 판정 = WARN rc0(멈춤 아님)
+PASS 변이1(WARN→REJECT 복귀) → ⓐ 빨강(rc3)
+PASS 변이2(동결 REJECT 복귀) → ⓔ 빨강(rc3)
+PASS 변이3(AT-CAP→순번 큐 복귀) → ⓕ 빨강(QUEUED/rc7)
+PASS 변이4(디스크 하한 끔) → ⓒ 빨강(거절 사라짐)
+PASS 키트 cmp 0 ft-resource-gate.sh
+PASS 키트 cmp 0 ft-nano-spawn.sh
+PASS 키트 cmp 0 ft-role-spawn.sh
+PASS 키트 cmp 0 ft-tick.sh
+PASS 키트 cmp 0 ft-research-seat-lib.sh
+PASS 키트 cmp 0 ft-resource-reclaim.sh
+PASS 키트 cmp 0 ft-successor-open.sh
+PASS 키트 cmp 0 ft_spawn_queue.py
+PASS bash -n ft-resource-gate.sh
+PASS bash -n ft-nano-spawn.sh
+PASS bash -n ft-role-spawn.sh
+PASS bash -n ft-tick.sh
+PASS bash -n ft-research-seat-lib.sh
+PASS bash -n ft-resource-reclaim.sh
+PASS bash -n ft-successor-open.sh
+fail=0
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+---- branch rc=0

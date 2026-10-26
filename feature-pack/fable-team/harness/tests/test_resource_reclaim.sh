@@ -124,7 +124,7 @@ suite() {   # $1=시험할 스크립트 경로 — 한 묶음 단언 (실물이�
   # ── ⓔ 디스크 등 다른 사유는 정리 0 ──
   setup; touch "$ST/disk.mode"
   out="$(run "$S" --on-reject "REJECT resource disk=1GiB limit=30GiB" --gate "$F/gate.sh")"; rc=$?
-  eq "$rc" 3 "ⓔ 디스크 REJECT = rc3 그대로"
+  eq "$rc" 0 "r921 ⓔ 디스크 REJECT = 정리 0 · 원문 그대로 돌려줌(rc0 — 부르는 쪽이 세운다)"
   eq "$(cat "$ST/kill.log" "$ST/nc.log" | wc -l | tr -d ' ')" 0 "ⓔ 디스크 사유엔 정리 0"
   has "$out" "REJECT resource disk=1GiB limit=30GiB" "ⓔ 원문 통과"
 
@@ -159,16 +159,23 @@ real_fail=$fail
 
 # ── 호출처: FT_RECLAIM=0 이면 정리 도구를 부르지 않는다 / 기본이면 1번 ──
 CB="$T/callbin"; mkdir -p "$CB"; cp "$BIN/ft-nano-spawn.sh" "$CB/"
-printf '#!/bin/bash\necho "REJECT resource agents=41 limit=40"; exit 3\n' > "$CB/ft-resource-gate.sh"
+printf '#!/bin/bash\necho "WARN resource agents=41 limit=40"; exit 0\n' > "$CB/ft-resource-gate.sh"""
 printf '#!/bin/bash\necho "$*" >> "%s"; printf "%%s\\n" "$2"; exit 3\n' "$T/reclaim.calls" > "$CB/ft-resource-reclaim.sh"
 : > "$T/reclaim.calls"
 o0="$(FT_RECLAIM=0 bash "$CB/ft-nano-spawn.sh" x.md 2>&1)"; r0=$?
 eq "$(wc -l < "$T/reclaim.calls" | tr -d ' ')" 0 "FT_RECLAIM=0 → 정리 도구 호출 0"
-has "$o0" "REJECT resource agents=41 limit=40" "FT_RECLAIM=0 → 원래 REJECT"
+has "$o0" "WARN resource agents=41 limit=40" "FT_RECLAIM=0 → 원래 WARN 그대로"
 o1="$(bash "$CB/ft-nano-spawn.sh" x.md 2>&1)"; r1=$?
-eq "$(wc -l < "$T/reclaim.calls" | tr -d ' ')" 1 "기본 → 문지기 REJECT 때만 정리 도구 1번"
-has "$(cat "$T/reclaim.calls")" "--on-reject REJECT resource agents=41 limit=40" "문지기 출력 그대로 전달"
-eq "$r1" 3 "정리 실패 → 기존 REJECT rc 유지"
+eq "$(wc -l < "$T/reclaim.calls" | tr -d ' ')" 1 "r921 기본 → 문지기 WARN 때 정리 도구 1번"
+has "$(cat "$T/reclaim.calls")" "--on-reject WARN resource agents=41 limit=40" "문지기 출력 그대로 전달"
+# r921: 디스크 REJECT = 유일한 거절 — 회수해도 안 풀리므로 정리 도구를 부르지 않고 그대로 세운다
+printf '#!/bin/bash\necho "REJECT resource disk=500MiB limit=1024MiB"; exit 3\n' > "$CB/ft-resource-gate.sh"
+: > "$T/reclaim.calls"
+o2="$(bash "$CB/ft-nano-spawn.sh" x.md 2>&1)"; r2=$?
+eq "$(wc -l < "$T/reclaim.calls" | tr -d ' ')" 0 "r921 디스크 REJECT → 정리 도구 0"
+has "$o2" "REJECT resource disk=500MiB limit=1024MiB" "r921 디스크 REJECT 문구 그대로"
+eq "$r2" 3 "r921 디스크 REJECT → rc3 유지"
+printf '#!/bin/bash\necho "WARN resource agents=41 limit=40"; exit 0\n' > "$CB/ft-resource-gate.sh"""
 
 # ── R320: swap·메모리·압력·속도 사유도 정리한다 (병합 끝 나노 idle 문턱 5분 · 모자라면 [HIL] + 재부팅 계획 1줄) ──
 swapworld; echo "$SWAP_REJ" > "$ST/rej.text"; touch "$ST/rej.once"
@@ -199,9 +206,9 @@ swapworld; touch "$ST/rej.hard"; echo "$SWAP_REJ" > "$ST/rej.text"
 out="$(run "$BIN/$SCRIPT_NAME" --dry-run --on-reject "$SWAP_REJ" --gate "$F/gate-res.sh")"
 has "$out" "WOULD-CLOSE(nano-close)" "R320 dry-run 표시"; eq "$(cat "$ST/kill.log" "$ST/nc.log" "$ST/mbox.log" | wc -l | tr -d ' ')" 0 "R320 dry-run kill·close·mbox 0"
 swapworld; out="$(run "$BIN/$SCRIPT_NAME" --on-reject "ERROR resource measure swap rc≠0" --gate "$F/gate-res.sh")"; rc=$?
-eq "$rc" 4 "R320 측정 실패 ERROR rc4 유지"; eq "$(cat "$ST/kill.log" "$ST/nc.log" | wc -l | tr -d ' ')" 0 "R320 측정 실패엔 정리 0"
+eq "$rc" 4 "R320 측정 실패 ERROR rc4 유지(옛 입력 호환)"; eq "$(cat "$ST/kill.log" "$ST/nc.log" | wc -l | tr -d ' ')" 0 "R320 측정 실패엔 정리 0"
 swapworld; out="$(run "$BIN/$SCRIPT_NAME" --on-reject "REJECT resource freeze=FREEZE x limit=0" --gate "$F/gate-res.sh")"; rc=$?
-eq "$rc" 3 "R320 동결 REJECT rc3 유지"; eq "$(cat "$ST/kill.log" "$ST/nc.log" | wc -l | tr -d ' ')" 0 "R320 동결엔 정리 0"
+eq "$rc" 0 "r921 동결은 정리 대상 아님 → 원문 그대로(rc0)"; eq "$(cat "$ST/kill.log" "$ST/nc.log" | wc -l | tr -d ' ')" 0 "R320 동결엔 정리 0"
 swapworld; echo "$SWAP_REJ" > "$ST/rej.text"; touch "$ST/rej.once"
 out="$(FT_RECLAIM_DONE_IDLE_MIN=2 run "$BIN/$SCRIPT_NAME" --on-reject "$SWAP_REJ" --gate "$F/gate-res.sh")"
 has "$(awk '{print $1}' "$ST/nc.log")" "byz-t-nano-g#0" "R320 FT_RECLAIM_DONE_IDLE_MIN=2 → 3분 쉰 완성 나노도 닫음"

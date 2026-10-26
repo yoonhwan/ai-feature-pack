@@ -1,0 +1,58 @@
+r921 — 자원·상한 «정지» 를 «회수 먼저 → WARN 1줄 + 진행» 으로 (팩 브랜치 nano/r921-resource-stop-to-warn-and-proceed · BYZ Issue #3569)
+
+오빠 원문(2026-10-25 21:5x · master#112 전달): «이런 제약하지마라. 컴퓨터가 죽어버려도 개발은해야지 멈춰있으면 머할건데. 더 스마트하게 움직여라.»
+
+■ 한 규칙
+  넘으면 ① 회수 먼저(ft-resource-reclaim · 기존 표준승인 범위 그대로) → ② 다시 재고 → ③ 그래도 넘으면 «WARN 1줄(무엇이 · 얼마 · 문턱) + 진행»(정지 0 · rc0).
+  예외 = «진짜 못 쓰는 것» 만 거절: 디스크 여유 < FT_DISK_HARD_MIN_MIB(기본 1024 MiB) · 디스크 측정 실패. 그 밖 측정 실패는 «못 재면 멈출 근거도 없다» 로 WARN + 진행.
+
+■ 멈춤 지점 6 — 전 / 후
+  ① 문지기 ft-resource-gate.sh check
+     전: disk·swap·memfree·level·rate·agents 중 하나라도 넘으면 `REJECT resource …` exit 3 · 동결 파일 = REJECT · 측정 실패 = `ERROR resource measure` exit 4
+     후: 갈래 3개 — OK(exit 0) / WARN(`WARN resource …` 1줄 + exit 0) / REJECT(디스크 하드 하한·디스크 측정 실패만 exit 3). 동결은 «알림용» WARN 으로 강등(오빠 10-19 «동결 표식이 머냐고 또 막고 앉았네»). exit 4 폐기.
+  ② ft-nano-spawn.sh 문지기 호출
+     전: rc≠0 이면 reclaim 1회 → rc≠0 이면 spawn 0
+     후: WARN 이면 reclaim 1회 → 재검 → 그래도 WARN 이면 WARN 1줄 남기고 진행. REJECT(디스크)만 회수 호출 0 으로 즉시 정지.
+  ③ ft-role-spawn.sh — ②와 같은 꼴(같은 문구·같은 순서). ft-successor-open.sh(승계)도 같은 규칙으로 맞췄다(--succession 문턱은 그대로).
+  ④ ft-tick.sh:703 죽은 좌석 재개
+     전: 문지기 rc≠0 = «재개 0»
+     후: REJECT 만 재개 0 · WARN 은 `lines` 에 «자원 WARN — 재개 진행: …» 1조각 남기고 재개(회수는 부르지 않는다 — 재개 대상은 이미 죽어 라이브 목록에 없고, 회수는 살아 있는 유휴·완료 좌석만 닫는다).
+  ⑤ 리서치 나노 1석 상한(ft-research-seat-lib.sh · ft-nano-spawn.sh:36–42)
+     전: 살아 있는 리서치 좌석 >= 1 이면 REJECT exit 3 · 셈 실패도 REJECT · FT_RESEARCH_SEAT_MAX 주입은 WARN 후 1 고정
+     후: 상한 삭제(일반 나노와 같은 규칙) — 잠금만 남긴다(동시 개설 직렬화). 셈 실패는 WARN 1줄 + 진행.
+  ⑥ 팀 나노 상한 ft_teamset.py cap → ft-nano-spawn.sh:105–109
+     전: AT-CAP(rc4) → 끝난 나노 회수 1회 → 그래도 AT-CAP 이면 순번 큐 적재 + exit 7(QUEUED)
+     후: 회수 1회 → 그래도 AT-CAP 이면 `WARN resource teamset AT-CAP …` 1줄 + 그대로 연다(live=cap+1) · 순번 큐 적재 0.
+         이미 쌓인 큐는 ft_spawn_queue.notify_master 의 «빈 석 <= 0 이면 침묵» 조건을 없애 «큐가 비지 않으면 맨 앞 카드를 현역 master 에게 알린다» 로 바꿨다(r921) — 다음 tick 의 그 알림이 앞에서부터 연다.
+
+■ 시험 (증거 스크립트: bash evidence/r921/run.sh → red-base.txt · green.txt)
+  전(base = origin/main 코드 + 이 브랜치의 새 시험) → red-base.txt : 19 FAIL / rc=1
+     ⓐ 5축 전부 rc=3(REJECT) · ⓐ spawn 회수 뒤에도 정지 · ⓒ 디스크 하드 하한이 없어 문턱이 0GiB/30GiB 로만 · ⓓ 측정 실패가 rc=4 · ⓔ 동결이 일반 spawn 을 REJECT · ⓕ-2 AT-CAP 이 rc=7(순번 큐)
+  후(this branch) → green.txt : 46 PASS / 0 FAIL / rc=0
+     ⓐ 축 5개 + spawn(회수 1회 → WARN → 진행) · ⓑ 회수로 문턱 아래 → WARN 0 · ⓒ 디스크 500MiB=REJECT / 4GiB=WARN / disk df rc42=REJECT / spawn 디스크 REJECT=회수 0 · ⓓ 4축 측정 실패 = WARN+진행 · ⓔ 동결 3갈래 WARN · ⓕ-1 회수로 자리 남 → CAP(AT-CAP·WARN 0) / ⓕ-2 AT-CAP+회수 0 → WARN+연다 큐 0 / ⓕ-3·4 쌓인 큐 알림(빈 석 무관) · ⓖ tick WARN 갈래
+  변이(같은 green.txt 안) — 고침을 되돌리면 그 칸이 빨강:
+     변이1 WARN→REJECT 복귀 → ⓐ 빨강(rc3) · 변이2 동결 REJECT 복귀 → ⓔ 빨강(rc3) · 변이3 AT-CAP→순번 큐 복귀 → ⓕ 빨강(QUEUED/rc7) · 변이4 디스크 하한 끔 → ⓒ 빨강(거절 사라짐)
+
+■ 기존 시험 갱신(기대값을 «경고 + 진행» 으로)
+  tests/test_resource_gate.sh            45 PASS rc0   (ⓑ 디스크 소프트=WARN / 하드=REJECT 분리 · ⓒ 동결 WARN · ⓗⓘⓙⓜ 센서 오류 WARN · ⓟⓠ 상한 초과 WARN · 변이2 = 동결 warn_add 삭제로 변경)
+  tests/test_resource_gate_pressure.sh   90 PASS rc0   (level/rate/swap/memfree/agents 넘김 = WARN+진행 · disk df rc42 = REJECT · corrupt/clock-skew = WARN rate · H3 승계 면제는 «WARN 줄 유무» 로 판정)
+  tests/test_resource_freeze_exempt.sh   57 PASS rc0   (동결 3갈래 WARN · 리서치 상한 삭제 · 동시 리서치 둘 다 개설 · 셈 실패 WARN · 변이3 = 상한 부활 검출)
+  tests/test_resource_reclaim.sh        109 PASS rc0   (WARN 입력 수용 · 회수 뒤에도 넘으면 RECLAIM partial + rc0 · 디스크 REJECT 는 회수 0 · ERROR 입력은 rc4 유지)
+  tests/test_resource_reclaim_preventive.sh 87 PASS rc0
+  tests/test_nano_spawn_teamset_cap.sh   17 PASS 1 사전결함(core.bare)  (AT-CAP = WARN + 진행 · 큐 적재 0)
+  tests/test_teamset_check.sh            37 PASS rc0   (큐 알림은 빈 석 수 무관 · 멱등·실패·stuck 칸 재구성)
+  tests/test_teamset_gitref.sh           20 PASS 1 사전결함(core.bare)  (ⓑ AT-CAP = WARN + 진행)
+  tests/test_resource_watch.sh           74 PASS rc0   (ⓔ 측정 오류 경로: tick rc 는 이제 0 — 보는 값은 «예방 호출 1회»)
+  tests/test_dead_seat_resume.sh 85 PASS · _r615 25 PASS · test_spawn_hold 56 · test_spawn_issue_gate_r823 81 · test_spawn_proxy_probe_r669 22 · test_role_spawn_team 18 · test_raised_seat 119 · test_planner_nano_path 32 · test_nano_team_env 43 — 전부 rc0
+
+■ 사전 결함(내 변경과 무관 · base 에서도 같음 — 손대지 않고 적어만 둔다)
+  1) tests/test_teamset_gitref.sh:101 · tests/test_nano_spawn_teamset_cap.sh:86 — `git config --get core.bare` 를 guard 재실행 뒤 git 밖 cwd 에서 부른다 → 항상 «core.bare != false». (r541 guard 도입 때부터)
+  2) tests/test_inbox_watch.sh ⓔ-1·ⓔ-2 — `ERROR ft-live-entry: LIVE_BIN 이 없거나 비었다: <팩 루트>/.fable-team/LIVE_BIN` = 이 워크트리 환경(마스터 설치 shim 부재) 문제. 문지기·모집단과 무관.
+  3) 픽스처 구멍(이번에 보충): ft-resource-swap-lib.sh · ft-research-seat-lib.sh · ft-spawn-issue-gate.sh 가 spawn 짝 사본에서 빠져 있었고(test_role_spawn_team · test_raised_seat), all-stop 판정이 요구하는 `state/` 폴더 + 원장 init 줄이 픽스처에 없었다(test_nano_spawn_teamset_cap · test_teamset_gitref). 4) tests/lib/fake_reclaim_world.sh 의 NOW 가 «파일 로드 시각» 고정이라 시험이 길어지면 idle 분이 흘러 헛빨강(«5» ≠ «3») — setup 시점 재앵커로 고정.
+
+■ 실 spawn 1회 (카드 완성 조건) — master 집행 몫
+  이 나노는 press·실 spawn 을 쏘지 않는다(오빠 10-07 · ft-press-gate ⑦). 착지 뒤 master 가 AT-CAP 상태에서 `bash ft-nano-spawn.sh <대기 카드>` 1회로 «WARN 1줄 + 열림(live=cap+1)» 을 확인하면 카드 완성 조건이 닫힌다.
+  press 필요: 없음 — 이 카드는 라이브 오디오·UI 를 건드리지 않는다(시험은 단위·캡처·기존 로그만).
+
+■ 범위 밖(그대로 둠)
+  회수 대상·조건(R198 · nano-close 표준승인) · zombie-clean · 감시자(ft-resource-watch.sh) 알림 문구 · 문턱 값(에이전트 65 = 오빠 판정 1883·1885) · design/ 문서(변경 0).

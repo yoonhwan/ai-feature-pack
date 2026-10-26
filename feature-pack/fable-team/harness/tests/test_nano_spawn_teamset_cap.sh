@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # test_nano_spawn_teamset_cap.sh — r-teamset-standard(판정 2170): ft-nano-spawn.sh 팀셋 나노 상한 칸 + ft-resource-reclaim.sh --only-prefix.
+# ★r921 — AT-CAP 은 «순번 큐» 가 아니라 «회수 1회 → 그래도 AT-CAP 이면 WARN 1줄 + 연다»(오빠 2026-10-25 «멈추지 마라»). 큐 적재 0.
 # 전부 mktemp — 임시 저장소·가짜 tmux(PATH)·가짜 TEAMSET·가짜 회수(FT_RECLAIM_SH)·가짜 센서. 실 좌석·실 워크트리·실 kill 0.
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
@@ -28,7 +29,8 @@ cat > "$MD" <<'EOF'
 | alpha | 2 | 0 | 상시 |
 EOF
 git init -q "$T/repo" && git -C "$T/repo" -c user.name=t -c user.email=t@t commit -q --allow-empty -m init
-mkdir -p "$T/repo/.fable-team/comm" && echo '{"_name":"alpha"}' > "$T/repo/.fable-team/seats-alpha.json"
+mkdir -p "$T/repo/.fable-team/comm" "$T/repo/.fable-team/state"   # r921: all-stop 판정이 state 폴더+원장 init 줄을 요구한다(픽스처 구멍 — 사전 결함)
+printf '2026-10-21T00:00:00\toff\tinstall\tinit\n' > "$T/repo/.fable-team/state/all-stop.log" && echo '{"_name":"alpha"}' > "$T/repo/.fable-team/seats-alpha.json"
 mkdir -p "$T/repo/design/alpha/indices/대기" && echo "# 카드" > "$T/repo/design/alpha/indices/대기/x.md"
 Q="$T/repo/.fable-team/state/spawn-queue-alpha.tsv"
 # 가짜 회수: 인자를 기록하고 FREE 파일이 있으면 alpha 나노 1개를 목록에서 뺀다(= 끝난 나노를 닫았다)
@@ -55,19 +57,19 @@ o="$(sp)"; c="$(cat "$T/reclaim.calls" 2>/dev/null)"
 { [[ "$c" == *"--caller byz-alpha-master-claude#1"* ]] && [[ "$c" == *"--need 1"* ]] && [[ "$c" == *"--team alpha"* ]] && [[ "$o" != *QUEUED* ]] && [ "$(grep -c . "$T/reclaim.calls")" = 1 ]; } \
   && ok "ⓑ 상한 도달 → --team 으로 회수 1회 → 통과" || bad "ⓑ calls=«${c}» $o"
 
-# ⓒ 상한 도달 + 회수 0 → QUEUED 순번=1 rc7 · 큐 1줄 · 워크트리·명부 변화 0
+# ⓒ 상한 도달 + 회수 0 → r921: WARN 1줄 + 진행 · 순번 큐 적재 0 · rc7 아님
 sess "byz-alpha-nano-a#0" "byz-alpha-nano-b#0"; rm -f "$T/reclaim.free" "$T/reclaim.calls" "$Q"
 o="$(sp)"; rc=$?
-{ [ "$rc" = 7 ] && [[ "$o" == *"QUEUED alpha 순번=1"* ]] && [ "$(grep -c . "$Q")" = 1 ] && [ "$(wts)" = 1 ] && [ ! -d "$T/repo/.worktrees" ]; } \
-  && ok "ⓒ 회수 0 → QUEUED 순번=1 rc7 · 부작용 0" || bad "ⓒ rc=$rc $o"
-o="$(sp)"; [[ "$o" == *"순번=1"* ]] && [ "$(grep -c . "$Q")" = 1 ] && ok "ⓒ 같은 카드 재시도 → 순번 그대로 · 중복 0" || bad "ⓒ-2 $o"
+{ [ "$rc" != 7 ] && [[ "$o" == *"AT-CAP alpha live=2 cap=2"* ]] && [[ "$o" == *"WARN resource teamset"* ]] && [[ "$o" != *QUEUED* ]] && [ ! -f "$Q" ] && [ "$(grep -c . "$T/reclaim.calls")" = 1 ]; } \
+  && ok "ⓒ 회수 1회 뒤에도 AT-CAP → WARN + 진행 · 큐 적재 0 · rc7 아님" || bad "ⓒ rc=$rc $o"
+o="$(sp --dry-run)"; rc=$?; { [ "$rc" != 7 ] && [[ "$o" == *"WARN resource teamset"* ]] && [ ! -f "$Q" ]; } && ok "ⓒ-2 재시도도 WARN + 진행(큐 0 유지)" || bad "ⓒ-2 rc=$rc $o"
 
 # ⓓ 다른 팀은 영향 0 — beta(상한 기본 3 · 라이브 0) 는 alpha 큐와 무관하게 통과
 o="$(PFX_TEAM=beta sp --dry-run)"; [[ "$o" == *"CAP beta live=0 cap=3"* ]] && [[ "$o" != *QUEUED* ]] && ok "ⓓ 다른 팀(beta) 통과 — 일괄 정지 0" || bad "ⓓ $o"
 
-# ⓔ --dry-run + 상한 도달 → rc7 · 큐 파일 불변 · 회수 호출 0
+# ⓔ --dry-run + 상한 도달 → r921: WARN + rc0 · 큐 파일 불변 · 회수 호출 0
 rm -f "$Q" "$T/reclaim.calls"; o="$(sp --dry-run)"; rc=$?
-{ [ "$rc" = 7 ] && [[ "$o" == *"AT-CAP"* ]] && [ ! -f "$Q" ] && [ ! -f "$T/reclaim.calls" ]; } && ok "ⓔ dry-run 상한 도달 → rc7 · 큐·회수 0" || bad "ⓔ rc=$rc $o"
+{ [ "$rc" != 7 ] && [[ "$o" == *"AT-CAP"* ]] && [[ "$o" == *"WARN resource teamset"* ]] && [ ! -f "$Q" ] && [ ! -f "$T/reclaim.calls" ]; } && ok "ⓔ dry-run 상한 도달 → WARN + 진행(rc7 아님) · 큐·회수 0" || bad "ⓔ rc=$rc $o"
 
 # ⓕ TEAMSET.md 파일 없음 → REJECT rc1(R351: «표 착지 전 호환» WARN 통과 분기 제거 — 조용한 통과 0) · 표가 깨졌으면 REJECT
 o="$(MDX="$T/없는파일.md" sp --dry-run)"; rc=$?; { [ "$rc" = 1 ] && [[ "$o" == *REJECT* ]] && [[ "$o" != *WARN* ]] && [[ "$o" != *QUEUED* ]]; } && ok "ⓕ 표 파일 없음 → REJECT rc1(WARN 통과 0)" || bad "ⓕ-1 rc=$rc $o"

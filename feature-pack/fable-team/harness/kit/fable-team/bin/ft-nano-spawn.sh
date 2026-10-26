@@ -28,7 +28,7 @@ fi
 RG_ARGS=(check); [ "$RESEARCH" = 1 ] && RG_ARGS+=(--research)
 _rgout="$(bash "$HERE/ft-resource-gate.sh" "${RG_ARGS[@]}" 2>&1)"; _rgrc=$?
 # R198(판정 1767) + r921: 넘었으면(WARN) — 기존 표준승인 범위 안의 유휴·완료 좌석을 자동 정리한 뒤 문지기 재검(FT_RECLAIM=0 으로 끔). 좌석을 닫아 풀릴 수 있는 축(agents·swap·memfree·level·rate)일 때만 부른다.
-if [ "$_rgrc" = 0 ] && printf '%s\n' "$_rgout" | grep -Eq '^WARN resource .*(agents|swap|memfree|level)=|rate=[0-9]'; then
+if [ "$_rgrc" = 0 ] && printf '%s\n' "$_rgout" | grep -q '^WARN resource' && printf '%s\n' "$_rgout" | grep -Eq '(agents|swap|memfree|level|rate)=[0-9]'; then
   if [ "${FT_RECLAIM:-1}" != 0 ] && [ -f "$HERE/ft-resource-reclaim.sh" ]; then
     bash "$HERE/ft-resource-reclaim.sh" --on-reject "$_rgout" --gate "$HERE/ft-resource-gate.sh" >&2 || true
     _rgout="$(bash "$HERE/ft-resource-gate.sh" "${RG_ARGS[@]}" 2>&1)"; _rgrc=$?

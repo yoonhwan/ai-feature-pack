@@ -14,7 +14,7 @@
 #     직전 세대 좌석 : 같은 계보에 더 새 #N 현역 · 검증된 재개 기록(zombie-clean resume_record_check 와 같은 규칙 + pid) · idle·attached·라이브서버·V65 active 가드 → tmux kill-session
 #   그 밖(현역 역할 좌석·기록 없는 직전 세대·codex DA 등)은 닫지 않고 표의 «승인 범위 밖» 으로만 올린다.
 #   제외(후보 아님): 부르는 쪽 세션과 그 조상 pane · 명부 `_*` 상위 오케 · attached · jsonl WORKING/PENDING/UNKNOWN · mbox pending>0 · press 허가 보유.
-#   --on-reject: 출력이 `REJECT resource agents=A limit=L` 이면 need=A−L+1 로 1번 → 문지기 재검 OK 면 rc0 · 아니면 원래 REJECT + 표 + [HIL] 1통 후 rc3.
+#   --on-reject: 출력이 `REJECT|WARN resource agents=A limit=L` 이면 need=A−L+1 로 1번(r921: WARN 도 받는다) → 문지기 재검 OK 면 rc0 · 아니면 원래 REJECT + 표 + [HIL] 1통 후 rc3.
 #     R320: `REJECT resource swap|memfree|level|rate=…` 도 받는다 — 필요 개수가 없으므로 승인 두 행의 후보를 «전부» 닫고 재검 · 그래도 REJECT 면 [HIL] 1통에 재부팅 계획(`ft-hil.sh --add` 가 돌려주는 `! bash /tmp/h<N>` 1줄 · 안내만 · 재부팅은 사람 손).
 #     병합 끝 나노(카드가 indices/완성/ 에 있음 · 또는 r500 압력 = swap 사용률 ≥ FT_RECLAIM_PRESSURE_SWAP_PCT(기본 85))는 idle 문턱 FT_RECLAIM_DONE_IDLE_MIN(기본 5분) · 그 밖 후보는 FT_RECLAIM_IDLE_MIN(기본 30분).
 #     표 끝 요약 줄(RECLAIMED · PREVENTIVE)에 `pressure=0|1 swap=<pct>%` · swap 측정 실패 = 압력 아님 + `WARN swap 측정 실패` 1줄.
@@ -34,9 +34,10 @@ while [ $# -gt 0 ]; do case "$1" in
   --team) TEAM="${2:-}"; shift 2 2>/dev/null || shift;; --preventive) PREV=1; shift;;
   *) echo "usage: $0 [--dry-run] (--preventive | --caller <세션명> --need <n> | --on-reject \"<문지기 출력>\" [--caller <세션명>] [--gate <path>])" >&2; exit 2;; esac; done
 [ "$PREV" = 0 ] || [ "$HAVE_ONREJ" = 0 ] || { echo "usage: --preventive 는 --on-reject 와 함께 쓰지 않는다" >&2; exit 2; }
-# R213·R320: 좌석을 닫아 풀리는 사유(에이전트 수·스왑·메모리·압력·속도)가 아니면 정리할 것이 없다 — 시작 작업(tmux·명부)·exit 코드 변질 전에 그대로 돌려준다(측정 실패 ERROR 는 rc 4 유지).
-if [ "$HAVE_ONREJ" = 1 ] && ! printf '%s\n' "$ONREJ" | grep -Eq '^REJECT resource (agents|swap|memfree|level|rate)='; then
-  printf '%s\n' "$ONREJ"; printf '%s\n' "$ONREJ" | grep -q '^ERROR ' && exit 4; exit 3
+# R213·R320·r921: 좌석을 닫아 풀리는 사유(에이전트 수·스왑·메모리·압력·속도)가 아니면 정리할 것이 없다 — 시작 작업(tmux·명부)·exit 코드 변질 전에 그대로 돌려준다.
+#   r921: 문지기가 WARN + 진행으로 바뀌어서 «REJECT» 뿐 아니라 «WARN resource agents=…» 도 같은 경로로 받는다(넘은 채 여는 대신 회수를 한 번 해 보는 자리). 좌석을 닫아 풀릴 수 없는 사유(디스크·동결)는 그대로 통과(rc0).
+if [ "$HAVE_ONREJ" = 1 ] && ! printf '%s\n' "$ONREJ" | grep -Eq '^(REJECT|WARN) resource (agents|swap|memfree|level|rate)='; then
+  printf '%s\n' "$ONREJ"; printf '%s\n' "$ONREJ" | grep -q '^ERROR ' && exit 4; exit 0
 fi
 # r502: launchd 기본 PATH(/usr/bin:/bin:…)엔 홈브루 tmux 가 없다 — 끝에 덧붙여 어디서 불려도 같은 tmux 를 찾는다(앞쪽 PATH·시험 대역 우선순위는 그대로) · 못 찾으면 «세션 0» 이 아니라 ERROR
 PATH="$PATH:${FT_RECLAIM_EXTRA_PATH:-/opt/homebrew/bin:/usr/local/bin}"; export PATH
@@ -430,9 +431,9 @@ fi
 
 if [ "$HAVE_ONREJ" = 1 ]; then
   GATE="${GATE:-$HERE/ft-resource-gate.sh}"
-  WHY="$(printf '%s\n' "$ONREJ" | sed -nE 's/^REJECT resource ((agents|swap|memfree|level|rate)=[^ ]*).*/\1/p' | head -1)"; _kind="${WHY%%=*}"
-  _a="$(printf '%s' "$ONREJ" | sed -n 's/^REJECT resource agents=\([0-9][0-9]*\) limit=\([0-9][0-9]*\).*/\1/p' | head -1)"
-  _l="$(printf '%s' "$ONREJ" | sed -n 's/^REJECT resource agents=\([0-9][0-9]*\) limit=\([0-9][0-9]*\).*/\2/p' | head -1)"
+  WHY="$(printf '%s\n' "$ONREJ" | sed -nE 's/^(REJECT|WARN) resource ((agents|swap|memfree|level|rate)=[^ ;]*).*/\2/p' | head -1)"; _kind="${WHY%%=*}"
+  _a="$(printf '%s\n' "$ONREJ" | sed -nE 's/^(REJECT|WARN) resource agents=([0-9]+) limit=([0-9]+).*/\2/p' | head -1)"
+  _l="$(printf '%s\n' "$ONREJ" | sed -nE 's/^(REJECT|WARN) resource agents=([0-9]+) limit=([0-9]+).*/\3/p' | head -1)"
   if [ "$_kind" = agents ]; then
     if [ -z "$_a" ] || [ -z "$_l" ] || [ "$_a" -le "$_l" ]; then printf '%s\n' "$ONREJ"; exit 3; fi
     NEED=$((_a - _l + 1))
@@ -442,7 +443,9 @@ if [ "$HAVE_ONREJ" = 1 ]; then
   log_table "$NEED"
   if [ "$DRY" = 1 ]; then printf '%s\n' "$ONREJ"; emit_table; echo "dry-run: 로그·[HIL]·kill 0"; exit 3; fi
   _gout="$(bash "$GATE" check 2>&1)"; _grc=$?
-  if [ "$_grc" = 0 ]; then { echo "RECLAIM ok need=$NEED"; emit_table; echo "$_gout"; }; exit 0; fi
+  if [ "$_grc" = 0 ] && ! printf '%s\n' "$_gout" | grep -q '^WARN resource'; then { echo "RECLAIM ok need=$NEED"; emit_table; echo "$_gout"; }; exit 0; fi
+  # r921: 회수 뒤에도 넘으면 — 멈추지 않는다. 회수분을 적고 WARN 줄 그대로 진행(exit 0 · 부르는 쪽이 WARN 1줄을 남긴다)
+  if [ "$_grc" = 0 ]; then { echo "RECLAIM partial need=$NEED closed=$CLOSED_N — 회수 뒤에도 넘음 · 진행"; emit_table; echo "$_gout"; }; exit 0; fi
   # 여전히 REJECT — 원래 문구 + 표 + HIL 1통(같은 날 같은 후보 묶음이면 재발신 0)
   printf '%s\n' "$ONREJ"; emit_table
   _n="$(printf '%s' "$OOS" | grep -c .)"

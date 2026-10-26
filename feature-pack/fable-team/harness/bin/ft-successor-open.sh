@@ -43,12 +43,16 @@ _asr="${FT_ROOT:-$(. "$HERE/ft-harness-root.sh" && ft_repo_root "$HERE" 2>/dev/n
 _agout="$(python3 "$HERE/ft_teamset.py" arch-live --root "$_rgroot" --md "${FT_TEAMSET_MD:-gitref:origin/main:design/TEAMSET.md}" --seat "$OLD" 2>&1)"; _agrc=$?
 [ "$_agrc" = 0 ] || { [ "$_agrc" = 3 ] && echo "REJECT 그 팀 arch 좌석 없음 — 먼저 arch 를 열어라(아래 «→ 열기» 명령 · R437) · $_agout" || echo "REJECT arch 판정 실패(rc=$_agrc) · $_agout"; exit 1; }
 _rgout="$(bash "$HERE/ft-resource-gate.sh" check $_rgsucc 2>&1)"; _rgrc=$?
-# R198(판정 1767): 에이전트 수로 막혔을 때만 — 기존 표준승인 범위 안의 유휴·완료 좌석을 자동 정리한 뒤 문지기 재검(FT_RECLAIM=0 으로 끔)
-if [ "$_rgrc" != 0 ] && [ "${FT_RECLAIM:-1}" != 0 ] && [ -f "$HERE/ft-resource-reclaim.sh" ]; then
-  _rgout="$(bash "$HERE/ft-resource-reclaim.sh" --on-reject "$_rgout" --gate "$HERE/ft-resource-gate.sh" 2>&1)"; _rgrc=$?
-  [ "$_rgrc" = 0 ] && printf '%s\n' "$_rgout" >&2
+# ★r921★ 넘으면(WARN) «회수 1회 → 다시 재고 → 그래도 넘으면 WARN 1줄 + 진행» — 멈추는 것은 REJECT(디스크 하드 하한·디스크 측정 실패)뿐(오빠 2026-10-25).
+# R198(판정 1767): 좌석을 닫아 풀릴 수 있는 축(agents·swap·memfree·level·rate)일 때만 회수를 부른다(FT_RECLAIM=0 으로 끔)
+if [ "$_rgrc" = 0 ] && printf '%s\n' "$_rgout" | grep -q '^WARN resource' && printf '%s\n' "$_rgout" | grep -Eq '(agents|swap|memfree|level|rate)=[0-9]'; then
+  if [ "${FT_RECLAIM:-1}" != 0 ] && [ -f "$HERE/ft-resource-reclaim.sh" ]; then
+    bash "$HERE/ft-resource-reclaim.sh" --on-reject "$_rgout" --gate "$HERE/ft-resource-gate.sh" >&2 || true
+    _rgout="$(bash "$HERE/ft-resource-gate.sh" check $_rgsucc 2>&1)"; _rgrc=$?
+  fi
 fi
-[ "$_rgrc" != 0 ] && { printf '%s\n' "$_rgout"; exit "$_rgrc"; }
+[ "$_rgrc" = 0 ] || { printf '%s\n' "$_rgout"; exit "$_rgrc"; }
+printf '%s\n' "$_rgout" | grep '^WARN ' >&2 || true
 SEND="${FT_SEND_VERIFIED:-$HERE/ft-send-verified.sh}"; REACH="${FT_REACH_CHECK:-$HERE/ft-reach-check.sh}"
 WAIT_MAX="${FT_SO_WAIT_MAX:-60}"; POLL="${FT_SO_POLL:-1}"
 # 형제 도구 2개(env 로 바뀐 «최종 경로» 기준)는 설치 폴더에만 있다 — 원본 폴더에서 돌리면 좌석을 연 «뒤» 송신에서 죽는다. 열기 «전»에 거절한다(R134).
