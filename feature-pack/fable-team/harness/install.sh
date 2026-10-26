@@ -52,8 +52,10 @@ done
 
 # r777: 팩 리포 갈래 — 팩 리포 훅 자리(.git/hooks)에는 공용 훅 판정식(bin)이 없어 키트 githooks 판을 쓰지 않는다.
 #   거절 범위 = «공용 루트 체크아웃 + 가지 main» 하나. 작업 폴더(.worktrees/<slug>)·다른 가지·표지 FT_PACK_ROOT_COMMIT=1 은 통과.
+#   r1(DA⑥ HOLD): 훅 자리 판단은 `git rev-parse --path-format=absolute --git-path hooks` 하나 — git 이 실제로 보는 곳(포함·전역 설정 반영).
+#   실재하는 «다른» 훅 폴더는 덮지도 지우지도 않고 rc1 · 없는 폴더가 로컬 밖(포함·전역)에서 와서 못 지우면 rc1(«HEALED» 0 · 쓰기 0).
 pack_hooks() {
-  local P="$1" src="$KIT/githooks/pack/pack-pre-commit" top common hp hpd dst hpbad=0
+  local P="$1" src="$KIT/githooks/pack/pack-pre-commit" top common dh origin dst hpd now healed=0
   [ -d "$P" ] || { echo "REJECT 팩 리포 폴더 없음: $P (쓰기 0)" >&2; exit 2; }
   P="$(cd "$P" && pwd -P)"
   [ "$(git -C "$P" rev-parse --is-inside-work-tree 2>/dev/null || true)" = true ] || { echo "REJECT git 리포 아님: $P (쓰기 0)" >&2; exit 2; }
@@ -63,27 +65,29 @@ pack_hooks() {
   common="$(cd "$common" && pwd -P)"; common="${common%/.git}"
   [ -f "$src" ] || { echo "ERROR: 키트 팩 훅 없음: $src" >&2; exit 1; }
   [ "$top" = "$common" ] || echo "WARN --pack-hooks 인자가 팩 루트 체크아웃이 아니다(top=$top root=$common) — 훅은 $common/.git/hooks 에 쓴다"
-  hp="$(git -C "$common" config --get core.hooksPath 2>/dev/null || true)"
-  dst="$common/.git/hooks/pre-commit"; hpd=""
-  if [ -n "$hp" ]; then
-    case "$hp" in /*) hpd="$hp" ;; *) hpd="$common/$hp" ;; esac
-    if [ -d "$hpd" ]; then dst="$hpd/pre-commit"; echo "PLAN pack-hooks core.hooksPath=$hp 실재 — 훅 자리 = $dst"
-    else hpbad=1; echo "ERROR core.hooksPath=$hp 폴더 없음 — 이 리포 훅이 전부 꺼져 있다(설치가 .git/hooks 로 되돌린다)"; fi
+  dh="$(cd "$common/.git" 2>/dev/null && pwd -P)/hooks"
+  origin="$(git -C "$common" config --show-origin --get-all core.hooksPath 2>/dev/null | tr '\t' ' ' | tr '\n' ';' || true)"
+  hpd="$(git -C "$common" rev-parse --path-format=absolute --git-path hooks 2>/dev/null || echo "$dh")"
+  if [ "$hpd" != "$dh" ] && [ -d "$hpd" ]; then
+    echo "ERROR core.hooksPath=$hpd ($origin) 실재 — 그 폴더의 훅을 끄지 않으려면 사람이 정한다(쓰기 0)" >&2
+    exit 1
   fi
+  dst="$dh/pre-commit"
+  if [ "$hpd" != "$dh" ]; then echo "ERROR core.hooksPath 폴더 없음 — git 이 보는 훅 자리 = $hpd · 이 리포 훅이 전부 꺼져 있다(설치가 .git/hooks 로 되돌린다 · 출처 $origin)"; healed=1; fi
   echo "PACK-HOOKS $dst <- $src ($([ "$APPLY" = 1 ] && echo apply || echo 'dry-run · 쓰기 0'))"
   if [ "$APPLY" != 1 ]; then
-    if [ "$hpbad" = 1 ]; then echo "(dry-run: 쓰지 않았다 — 고치려면 --apply)" >&2; exit 1; fi
+    if [ "$healed" = 1 ]; then echo "(dry-run: 쓰지 않았다 — 고치려면 --apply)" >&2; exit 1; fi
     exit 0
   fi
-  if [ "$hpbad" = 1 ]; then
-    git -C "$common" config --unset-all core.hooksPath || true
-    echo "HEALED core.hooksPath 해제 — 훅 자리 = .git/hooks"
-  fi
-  mkdir -p "$(dirname "$dst")"
+  if [ "$healed" = 1 ]; then git -C "$common" config --unset-all core.hooksPath >/dev/null 2>&1 || true; fi
+  mkdir -p "$dh"
   [ ! -f "$dst" ] || cp -p "$dst" "$dst.bak-r777"
   cp -p "$src" "$dst"
   cmp -s "$src" "$dst" || { echo "ERROR: 팩 훅 복사 불일치: $dst" >&2; exit 1; }
   [ -x "$dst" ] || chmod +x "$dst"
+  now="$(git -C "$common" rev-parse --path-format=absolute --git-path hooks 2>/dev/null || echo unknown)"
+  [ "$now" = "$dh" ] && cmp -s "$src" "$dh/pre-commit" || { echo "ERROR PACK-HOOKS 자리불일치 now=$now 기대=$dh 출처=$(git -C "$common" config --show-origin --get-all core.hooksPath 2>/dev/null | tr '\t' ' ' | tr '\n' ';') — 훅이 실제로 돌지 않는다(사람: 출처 파일을 고치거나 폴더를 만든다)" >&2; exit 1; }
+  [ "$healed" = 0 ] || echo "HEALED core.hooksPath 해제 — 훅 자리 = .git/hooks"
   echo "PACK-HOOKS installed cmp=0 exec=$([ -x "$dst" ] && echo yes || echo no) hooksPath=$(git -C "$common" config --get core.hooksPath 2>/dev/null || echo unset)"
   exit 0
 }

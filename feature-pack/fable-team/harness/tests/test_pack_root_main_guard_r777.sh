@@ -2,7 +2,8 @@
 # test_pack_root_main_guard_r777.sh — 팩 루트 main 직접 커밋 거절 훅 + 설치 갈래(--pack-hooks) 시험 (r777)
 # 임시 «팩» 리포 + 워크트리만 쓴다 — 머신의 실제 팩 리포·실 git config 접촉 0(GIT_CONFIG_GLOBAL/SYSTEM 격리 · ⓘ 가 실 경로 0 을 확인).
 # 대응표: ① 작업 폴더 커밋 통과 = ⓓ · ② 루트 main 거절·표지 통과·다른 가지 통과 = ⓒ ⓔ ⓛ · ③ 없는 hooksPath = ERROR 1줄 = ⓕ
-#         ④ 설치 = .git/hooks/pre-commit cmp0 · 기존 훅 불변 · dry-run 쓰기 0 = ⓐ ⓑ · ⑤ 변이 2 = ⓙ(ⓛ 이 잡음) ⓚ(ⓔ 가 잡음)
+#         ④ 설치 = .git/hooks/pre-commit cmp0 · 기존 훅 불변 · dry-run 쓰기 0 = ⓐ ⓑ · ⑤ 변이 3 = ⓙ(ⓛ)·ⓚ(ⓔ)·ⓜ(G2)
+#   r1 추가(DA⑥ HOLD): G1 실재 다른 훅 폴더 = rc1 쓰기 0 · G2 포함 설정 없는 폴더 = rc1·HEALED 0 · G3 전역 설정 없는 폴더 = rc1
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 HROOT="$(cd "$HERE/.." && pwd -P)"
@@ -17,7 +18,7 @@ bash -n "$INSTALL" && ok "bash -n install.sh" || bad "bash -n install.sh"
 bash -n "$HOOK" && ok "bash -n pack-pre-commit" || bad "bash -n pack-pre-commit"
 [ -x "$HOOK" ] && ok "키트 팩 훅 실행 비트" || bad "키트 팩 훅 실행 비트 없음"
 
-T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
+T="$(mktemp -d)"; MUT_INST="$HROOT/.mut-r777.sh"; trap 'rm -rf "$T"; rm -f "$MUT_INST"' EXIT
 export HOME="$T/home"; mkdir -p "$HOME"
 export GIT_CONFIG_GLOBAL="$T/gitconfig" GIT_CONFIG_SYSTEM=/dev/null GIT_CONFIG_NOSYSTEM=1
 : > "$GIT_CONFIG_GLOBAL"
@@ -78,7 +79,7 @@ printf 'a\n' > "$P2/a.txt"; git -C "$P2" add a.txt; git -C "$P2" "${GC[@]}" comm
 git -C "$P2" config core.hooksPath /githooks
 OUT="$(bash "$INSTALL" --pack-hooks "$P2" 2>&1)"; rc=$?
 [ "$rc" = 1 ] && ok "ⓕ dry-run: 없는 hooksPath → rc=1" || bad "ⓕ dry-run rc=$rc :: $OUT"
-printf '%s\n' "$OUT" | grep -qF "ERROR core.hooksPath=/githooks 폴더 없음" && ok "ⓕ ERROR 1줄(조용히 꺼진 채 두지 않음)" || bad "ⓕ ERROR 줄 없음 :: $OUT"
+printf '%s\n' "$OUT" | grep -qF "ERROR core.hooksPath 폴더 없음 — git 이 보는 훅 자리 = /githooks" && ok "ⓕ ERROR 1줄(조용히 꺼진 채 두지 않음)" || bad "ⓕ ERROR 줄 없음 :: $OUT"
 [ ! -f "$P2/.git/hooks/pre-commit" ] && [ "$(git -C "$P2" config --get core.hooksPath)" = /githooks ] && ok "ⓕ dry-run 쓰기 0" || bad "ⓕ dry-run 이 고쳤다"
 OUT="$(bash "$INSTALL" --apply --pack-hooks "$P2" 2>&1)"; rc=$?
 [ "$rc" = 0 ] && printf '%s\n' "$OUT" | grep -qF "HEALED core.hooksPath 해제" && ok "ⓕ apply = HEALED rc=0" || bad "ⓕ apply :: rc=$rc $OUT"
@@ -129,6 +130,52 @@ git -C "$P" reset -q --hard "$head0"
 # 되돌림: 키트 판 재설치 = 원상(연속 시험 안전)
 cp "$HOOK" "$P/.git/hooks/pre-commit"; chmod +x "$P/.git/hooks/pre-commit"
 cmp -s "$HOOK" "$P/.git/hooks/pre-commit" && ok "끝: 키트 판 복원 cmp0" || bad "끝: 복원 실패"
+
+
+# ══ r1(DA⑥ HOLD) 칸 3: 훅 자리 판단 = `git rev-parse --path-format=absolute --git-path hooks` ══
+newpack() { local d="$1"; git init -q -b main "$d"; printf 'a\n' > "$d/a.txt"; git -C "$d" add a.txt; git -C "$d" "${GC[@]}" commit -qm init; }
+apk() { OUT="$(bash "$INSTALL" --apply --pack-hooks "$1" 2>&1)"; rc=$?; }
+
+# G1 실재하는 다른 훅 폴더(core.hooksPath=.custom-hooks) = 덮지도 지우지도 않고 rc1 · 쓰기 0 · 그 폴더 파일 불변
+G1="$T/packG1"; newpack "$G1"; mkdir -p "$G1/.custom-hooks"
+printf '#!/bin/sh\nexit 0\n' > "$G1/.custom-hooks/pre-commit"; chmod 755 "$G1/.custom-hooks/pre-commit"
+g1_before="$(cat "$G1/.custom-hooks/pre-commit" | shasum | cut -d' ' -f1)"
+git -C "$G1" config core.hooksPath .custom-hooks
+apk "$G1"
+[ "$rc" = 1 ] && ok "G1 실재 다른 훅 폴더 → rc=1" || bad "G1 rc=$rc :: $OUT"
+printf '%s\n' "$OUT" | grep -qF "실재 — 그 폴더의 훅을 끄지 않으려면 사람이 정한다(쓰기 0)" && ok "G1 사람 판정 안내 1줄" || bad "G1 안내 줄 없음 :: $OUT"
+[ ! -f "$G1/.git/hooks/pre-commit" ] && ok "G1 .git/hooks/pre-commit 미생성(쓰기 0)" || bad "G1 이 .git/hooks 에 썼다"
+[ "$(cat "$G1/.custom-hooks/pre-commit" | shasum | cut -d' ' -f1)" = "$g1_before" ] && ok "G1 그 폴더 파일 불변" || bad "G1 그 폴더 파일을 덮었다"
+[ "$(git -C "$G1" config --get core.hooksPath)" = .custom-hooks ] && ok "G1 core.hooksPath 불변" || bad "G1 config 를 건드렸다"
+
+# G2 포함 설정(include.path)이 «없는 폴더» 를 가리킴 = unset 으로 못 지움 → rc1 · HEALED 0 · installed 보고 0
+G2="$T/packG2"; newpack "$G2"; printf '[core]\n\thooksPath = /no-such-hooks-r777\n' > "$T/inc.cfg"
+git -C "$G2" config include.path "$T/inc.cfg"
+apk "$G2"
+[ "$rc" = 1 ] && ok "G2 포함 설정 → rc=1" || bad "G2 rc=$rc :: $OUT"
+printf '%s\n' "$OUT" | grep -qF "PACK-HOOKS 자리불일치 now=/no-such-hooks-r777" && ok "G2 자리불일치 ERROR(출처 포함)" || bad "G2 자리불일치 줄 없음 :: $OUT"
+printf '%s\n' "$OUT" | grep -qF "$T/inc.cfg" && ok "G2 ERROR 에 출처 파일 원문" || bad "G2 출처 파일 표기 없음 :: $OUT"
+printf '%s\n' "$OUT" | grep -q "HEALED" && bad "G2 «HEALED» 를 찍었다" || ok "G2 «HEALED» 0"
+printf '%s\n' "$OUT" | grep -q "PACK-HOOKS installed" && bad "G2 설치됐다고 보고했다" || ok "G2 installed 보고 0(조용한 통과 0)"
+run_commit "$G2"
+[ "$rc" = 0 ] && ok "G2 그 리포의 루트 main 커밋은 여전히 통과(= rc1 이 옳다)" || bad "G2 커밋 rc=$rc — 전제가 달라졌다"
+
+# G3 전역 설정(GIT_CONFIG_GLOBAL)이 «없는 폴더» 를 가리킴 = 로컬 unset 으로 못 지움 → rc1 · HEALED 0
+git config --global core.hooksPath /no-such-global-hooks-r777
+G3="$T/packG3"; newpack "$G3"; apk "$G3"
+[ "$rc" = 1 ] && ok "G3 전역 설정 → rc=1" || bad "G3 rc=$rc :: $OUT"
+printf '%s\n' "$OUT" | grep -qF "PACK-HOOKS 자리불일치 now=/no-such-global-hooks-r777" && ok "G3 자리불일치 ERROR(출처 전역)" || bad "G3 자리불일치 줄 없음 :: $OUT"
+printf '%s\n' "$OUT" | grep -q "HEALED" && bad "G3 «HEALED» 를 찍었다" || ok "G3 «HEALED» 0"
+git config --global --unset core.hooksPath
+
+# ⓜ 변이 3: 설치 «뒤» --git-path hooks 검사 줄 삭제 → 포함 설정(G2) 리포가 rc0·installed 로 조용히 통과 = G2 FAIL
+grep -vF 'PACK-HOOKS 자리불일치' "$INSTALL" > "$MUT_INST"
+[ "$(grep -c . "$MUT_INST")" -lt "$(grep -c . "$INSTALL")" ] && ok "ⓜ 변이 3 생성(자리 검사 삭제)" || bad "ⓜ 변이 3 미생성"
+bash -n "$MUT_INST" || bad "ⓜ 변이 3 bash -n"
+G2M="$T/packG2m"; newpack "$G2M"; git -C "$G2M" config include.path "$T/inc.cfg"
+OUT="$(bash "$MUT_INST" --apply --pack-hooks "$G2M" 2>&1)"; rc=$?
+[ "$rc" = 0 ] && printf '%s\n' "$OUT" | grep -q "PACK-HOOKS installed" && ok "ⓜ 변이 3 = 못 도는 자리에 installed rc0 → G2 FAIL(변이 잡힘)" || bad "ⓜ 변이 3 인데도 rc=$rc :: $OUT"
+rm -f "$MUT_INST"
 
 echo "---"
 [ "$fail" = 0 ] && echo "ALL PASS" || echo "FAILED=$fail"
