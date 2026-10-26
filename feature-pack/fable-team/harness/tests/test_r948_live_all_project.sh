@@ -61,14 +61,15 @@ mkdir -p "$T/noproj"
 t_f() { STUB_LOADED="com.byz.iap-tunnel-18703 com.byz.iap-tunnel-18712 com.byz.ft-idle-wake" chk "$1"
   [ "$rc" = 0 ] && [[ "$out" == "OK n="* ]] && [[ "$out" != *"templates/scope-"* ]]; }
 t_g() { STUB_LOADED="com.byz.iap-tunnel-18703 com.byz.iap-tunnel-18712 com.byz.ft-idle-wake" chk "$1"; [ "$rc" = 0 ] && [[ "$out" != *"iap-tunnel"* ]]; }
-t_g0() { STUB_LOADED="com.byz.iap-tunnel com.byz.iap-tunnel-x1 com.byz.ft-idle-wake" chk "$1"
-  [ "$rc" = 1 ] && [[ "$out" == *"NOTLOADED com.byz.iap-tunnel-<숫자> (인스턴스 적재 0)"* ]]; }
+t_g0() { STUB_LOADED="com.byz.iap-tunnel-x1 com.byz.iap-tunnel-llm com.byz.iap-tunnelx com.byz.ft-idle-wake" chk "$1"
+  [ "$rc" = 1 ] && [[ "$out" == *"NOTLOADED com.byz.iap-tunnel · com.byz.iap-tunnel-<숫자> (적재 0)"* ]]; }
+t_ge() { STUB_LOADED="com.byz.iap-tunnel com.byz.ft-idle-wake" chk "$1"; [ "$rc" = 0 ] && [[ "$out" != *"iap-tunnel"* ]]; }   # r948 r2: 정확 라벨만 적재 = LOADED
 t_g3() { STUB_LIST_FAIL=1 STUB_LOADED="" chk "$1"; [ "$rc" = 3 ] && [[ "$out" == *"launchctl list 실패"* ]]; }
 t_h() { STUB_LOADED="com.byz.iap-tunnel-18703" chk "$1"
   [ "$rc" = 1 ] && [[ "$out" != *"ft-head-lag"* ]] && [[ "$out" == *"NOTLOADED com.byz.ft-idle-wake"* ]]; }
 
 run_all() {   # $1 = bin 폴더 · 결과 = 이름별 0/1 줄
-  for t in t_a t_b t_c t_f t_g t_g0 t_g3 t_h; do "$t" "$1"; echo "$t $?"; done; }
+  for t in t_a t_b t_c t_f t_g t_g0 t_ge t_g3 t_h; do "$t" "$1"; echo "$t $?"; done; }
 BIN="$T/bin"; mkbin "$SRC" "$BIN"
 res="$(run_all "$BIN")"
 r() { printf '%s\n' "$res" | awk -v k="$1" '$1==k{print $2}'; }
@@ -77,7 +78,8 @@ ck "ⓑ 팩 리포 sha → 인자 «--range A..B» 그대로(--project 추가 0)
 ck "ⓒ 카드가 워크트리 안 → --project = 리포 공용 루트(워크트리 경로 아님)" "$(r t_c)"
 ck "ⓕ templates/scope-*.tsv 원래 이름 그대로 설치 → MISSING 0 · OK" "$(r t_f)"
 ck "ⓖ «접두-숫자» 라벨 2개 적재 → LOADED(iap-tunnel 줄 0)" "$(r t_g)"
-ck "ⓖ 숫자 아닌 접미·접두만 적재 → NOTLOADED com.byz.iap-tunnel-<숫자>" "$(r t_g0)"
+ck "ⓖ 숫자 아닌 접미(-x1·-llm·붙은 x)만 적재 → NOTLOADED" "$(r t_g0)"
+ck "ⓖ 정확 라벨(com.byz.iap-tunnel)만 적재 → LOADED(iap-tunnel 줄 0)" "$(r t_ge)"
 ck "ⓖ launchctl 목록 실패 → ERROR rc3(NOTLOADED 로 숨김 0)" "$(r t_g3)"
 ck "ⓗ ft-head-lag = 지도 skip(줄 0) · ft-idle-wake 는 NOTLOADED 그대로(실제 어긋남 숨김 0)" "$(r t_h)"
 
@@ -96,6 +98,7 @@ mut project-off ft-index-move-install.sh 'CARG=(--all --project "$CROOT")' 'CARG
 mut worktree-path ft-index-move-install.sh 'CROOT="$(dirname "$CROOT")"' 'CROOT="$WT"' t_c
 mut name-strip ft_live_install_check.py '    pre = pre[: pre.rfind("/") + 1]' '    pass' t_f
 mut exact-label ft_live_install_check.py '    if not inst:' '    if True:' t_g
+mut exact-off ft_live_install_check.py 're.escape(prefix[:-1]) + r"(?:-\d+)?"' 're.escape(prefix) + r"\d+"' t_ge
 # 지도 변이는 픽스처 리포의 지도에서(실 키트 무변경)
 grep -v '^launchd/com.byz.ft-head-lag' "$R/$K/LIVE-MAP.tsv" > "$T/map2"; cp "$T/map2" "$R/$K/LIVE-MAP.tsv"
 g "$R" commit -qam map-mut; g "$R" update-ref refs/remotes/origin/main HEAD

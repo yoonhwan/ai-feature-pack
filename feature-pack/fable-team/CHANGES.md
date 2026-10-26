@@ -2,9 +2,9 @@
 
 - ft-index-move-install.sh: 착지 리포가 카드 리포면 `--all --project <카드 리포 공용 루트>` 로 부른다(git-common-dir 의 부모 · ft_git_capped 7초 · 워크트리 안 카드도 루트). 전엔 --project 가 없어 검사기가 팩 리포를 프로젝트로 보고 «LIVE_BIN 없음» ERROR rc3 → 일괄 닫기가 첫 장부터 막혔다. 팩 착지(--range) 갈래는 그대로.
 - ft_live_install_check.py live_path: 지도 패턴 접두는 폴더(마지막 /)까지만 — `templates/scope-*.tsv` 를 «scope-» 뗀 이름(classes-pack.tsv)으로 찾던 MISSING 2 가 사라진다.
-- plist Label 이 «접두-__자리표시__» 꼴(iap-tunnel-__PORT__)이면 적재 목록에서 «접두-<숫자>» 인스턴스를 찾아 각각 대조한다. 0개 = NOTLOADED <접두><숫자> · launchctl list 실패 = ERROR(숨김 0).
+- plist Label 이 «접두-__자리표시__» 꼴(iap-tunnel-__PORT__)이면 적재 목록에서 정확 라벨 또는 «접두-<숫자>» 인스턴스를 찾아 각각 대조한다(다른 접미는 안 셈). 0개 = NOTLOADED · launchctl list 실패 = ERROR(숨김 0).
 - LIVE-MAP: launchd/com.byz.ft-head-lag.plist.template = skip(install.sh 는 새 launchd 를 깔지 않고 ft-head-lag.sh 는 ft-news-tick·ft-merge-land 가 직접 부른다). ft-idle-wake 는 부르는 곳이 launchd 하나뿐이라 NOTLOADED 그대로 둔다(10-25 07:12 이후 실제로 안 돎 = 진짜 어긋남).
-- 시험 test_r948_live_all_project.sh 13 PASS(ⓐ~ⓗ + 변이 5종 · /bin/bash 3.2) · 인접 시험 rc0 · 짝 사본 cmp0(bin 2 + kit).
+- 시험 test_r948_live_all_project.sh 15 PASS(ⓐ~ⓗ + 변이 6종 · /bin/bash 3.2 · r2 = DA⑥ r1 HOLD 1 정확 라벨 반영) · 인접 시험 rc0 · 짝 사본 cmp0(bin 2 + kit).
 
 ## 2026-10-26 — r921 자원 조건으로 멈추지 않는다 — 회수 먼저 → 그래도 넘으면 WARN 1줄 + 진행 (1.1.251)
 

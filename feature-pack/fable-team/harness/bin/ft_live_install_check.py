@@ -169,15 +169,15 @@ def plist_items(repo, path, blob):
     if not inst:
         return label_items(path, body, label)
     found = loaded_instances(inst.group(1))
-    return [x for lb in found for x in label_items(path, body, lb)] if found else ["NOTLOADED %s<숫자> (인스턴스 적재 0)" % inst.group(1)]
+    return [x for lb in found for x in label_items(path, body, lb)] if found else ["NOTLOADED %s · %s<숫자> (적재 0)" % (inst.group(1)[:-1], inst.group(1))]
 
 
 def loaded_instances(prefix):
-    """r948: 적재 목록에서 «접두 + 숫자» 라벨 — 목록 조회 실패는 ERROR(NOTLOADED 로 숨기지 않는다)."""
+    """r948: 적재 목록에서 정확 라벨(접두 끝 «-» 뗀 것) 또는 «접두 + 숫자» 라벨 — 다른 접미는 안 센다 · 목록 조회 실패는 ERROR(NOTLOADED 로 숨기지 않는다)."""
     r = run([os.environ.get("FT_LAUNCHCTL", "launchctl"), "list"])
     if r.returncode:
         die("launchctl list 실패(rc=%d) — 인스턴스 라벨 %s<숫자> 적재를 못 잰다" % (r.returncode, prefix))
-    pat = re.compile(re.escape(prefix) + r"\d+")
+    pat = re.compile(re.escape(prefix[:-1]) + r"(?:-\d+)?")
     return sorted({c[-1] for c in (ln.split() for ln in r.stdout.splitlines()) if c and pat.fullmatch(c[-1])})
 
 

@@ -8,7 +8,7 @@
 |---|---|---|
 | 1 | ft-index-move-install.sh | 카드 리포 착지 갈래 `CARG=(--all --project <카드 리포 공용 루트>)` · 루트 = `git rev-parse --path-format=absolute --git-common-dir` 의 부모(ft_git_capped 7초 · 실패 = REJECT) |
 | 4 | ft_live_install_check.py `live_path` | 지도 패턴 접두를 폴더(마지막 /)까지만 자른다 — `fable-team/templates/scope-*.tsv` 가 `classes-pack.tsv`·`ddl-record.tsv` 로 풀리던 오류 |
-| 5 | ft_live_install_check.py `plist_items` → `loaded_instances`·`label_items` | Label `접두-__X__` = 적재 목록의 `접두-<숫자>` 인스턴스 전부 대조 · 0개 = `NOTLOADED 접두<숫자>` · `launchctl list` 실패 = ERROR |
+| 5 | ft_live_install_check.py `plist_items` → `loaded_instances`·`label_items` | Label `접두-__X__` = 적재 목록의 정확 라벨(`com.byz.iap-tunnel`) 또는 `접두-<숫자>` 인스턴스 전부 대조(r2 · DA⑥ r1 HOLD 1) · 다른 접미(-llm·-x1)는 안 셈 · 0개 = `NOTLOADED 라벨 · 라벨-<숫자> (적재 0)` · `launchctl list` 실패 = ERROR |
 | 6 | kit/LIVE-MAP.tsv | `launchd/com.byz.ft-head-lag.plist.template` skip 행 |
 
 ## 6 판정 (실측 2026-10-26)
@@ -29,5 +29,5 @@ STALE-COPY 3 은 이 시각 실측에 안 나왔다(카드 밖 · planner 통지
 
 ## 시험
 
-- `test_r948_live_all_project.sh` — ⓐⓑⓒ(게이트 인자) · ⓕ(이름 그대로) · ⓖ(접두-숫자 2개 LOADED · 0개 NOTLOADED · 목록 실패 ERROR) · ⓗ(head-lag skip · idle-wake NOTLOADED 유지) · 변이 5(project-off→ⓐ · worktree-path→ⓒ · name-strip→ⓕ · exact-label→ⓖ · skip 행 삭제→ⓗ) = 13 PASS · 원문 `test_r948_live_all_project.sh.txt`
+- `test_r948_live_all_project.sh` — ⓐⓑⓒ(게이트 인자) · ⓕ(이름 그대로) · ⓖ(접두-숫자 2개 LOADED · 정확 라벨만 LOADED · 다른 접미만 NOTLOADED · 목록 실패 ERROR) · ⓗ(head-lag skip · idle-wake NOTLOADED 유지) · 변이 6(project-off→ⓐ · worktree-path→ⓒ · name-strip→ⓕ · exact-label→ⓖ · exact-off→정확 라벨 칸 · skip 행 삭제→ⓗ) = 15 PASS · 원문 `test_r948_live_all_project.sh.txt`
 - 인접: `adjacent.txt`
