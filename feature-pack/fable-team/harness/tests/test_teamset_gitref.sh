@@ -36,7 +36,10 @@ mkdir -p "$T/repo/design"; cat > "$T/repo/design/TEAMSET.md" <<'EOF'
 EOF
 G add design/TEAMSET.md; G commit -q -m "표 착지"; C2="$(G rev-parse HEAD)"; SHA10="$(G rev-parse --short=10 "$C2")"
 G update-ref refs/remotes/origin/main "$C2"
-mkdir -p "$T/repo/.fable-team/comm"; echo '{"_name":"alpha","_master":"byz-alpha-master-claude#1","_arch":"byz-alpha-arch-claude#1"}' > "$T/repo/.fable-team/seats-alpha.json"
+# r921: all-stop 판정이 state 폴더+원장 init 줄을 요구한다(픽스처 구멍 — 사전 결함)
+mkdir -p "$T/repo/.fable-team/comm" "$T/repo/.fable-team/state"
+printf '2026-10-21T00:00:00\toff\tinstall\tinit\n' > "$T/repo/.fable-team/state/all-stop.log"
+echo '{"_name":"alpha","_master":"byz-alpha-master-claude#1","_arch":"byz-alpha-arch-claude#1"}' > "$T/repo/.fable-team/seats-alpha.json"
 G worktree add -q --detach "$T/wt" "$C1"   # 표 없는 커밋의 워크트리 = 팀 워크트리 상황
 [ ! -f "$T/wt/design/TEAMSET.md" ] && ok "전제: 워크트리에 표 파일 없음" || bad "전제 어긋남"
 mkdir -p "$T/wt/design/alpha/indices/대기"; echo "# 카드" > "$T/wt/design/alpha/indices/대기/x.md"
@@ -51,10 +54,10 @@ o="$(chk --all)"; rc=$?
 { [ "$rc" = 0 ] && [ "$(head -1 <<<"$o")" = "md=origin/main:design/TEAMSET.md@$SHA10" ] && [[ "$o" == *"alpha OK "*"나노 2/2"* ]] && [[ "$o" != *ERROR* ]]; } \
   && ok "ⓐ 워크트리(표 없음)에서 check --all → rc0 · 머리줄 md=…@$SHA10 · 나노 2/2" || bad "ⓐ rc=$rc $o"
 
-# ⓑ 같은 cwd 에서 nano-spawn → origin/main 의 상한(2)으로 AT-CAP rc7 · WARN 통과 0
+# ⓑ 같은 cwd 에서 nano-spawn → origin/main 의 상한(2)으로 AT-CAP — ★r921★ rc7(순번 큐) 아님: WARN 1줄 + 진행 · 큐 적재 0
 o="$(sp)"; rc=$?
-{ [ "$rc" = 7 ] && [[ "$o" == *"AT-CAP alpha live=2 cap=2"* ]] && [[ "$o" != *"WARN TEAMSET.md 없음"* ]]; } \
-  && ok "ⓑ nano-spawn → origin/main 표로 AT-CAP rc7 (WARN 통과 0)" || bad "ⓑ rc=$rc $o"
+{ [ "$rc" != 7 ] && [[ "$o" == *"AT-CAP alpha live=2 cap=2"* ]] && [[ "$o" == *"WARN resource teamset"* ]] && [[ "$o" != *QUEUED* ]] && [[ "$o" != *"WARN TEAMSET.md 없음"* ]]; } \
+  && ok "r921 ⓑ nano-spawn → origin/main 표로 AT-CAP = WARN + 진행(rc7 아님 · 큐 0)" || bad "ⓑ rc=$rc $o"
 
 # ⓒ FT_TEAMSET_MD 주입 → 파일 우선(상한 4 → CAP) · 머리줄 없음
 printf '%s\n' "$(sed 's/| alpha | 2 |/| alpha | 4 |/' "$T/repo/design/TEAMSET.md")" > "$T/inj.md"
@@ -85,16 +88,16 @@ o="$(PATH="$T/fakegit:$PATH" chk --all)"; rc=$?
   && ok "ⓖ ref 가 읽는 도중 B 로 이동 → 판정(2/2)·머리줄 모두 A($SHA10) · B 아님" || bad "ⓖ rc=$rc moved=$([ -f "$T/moved" ] && echo y || echo n) $o"
 G update-ref refs/remotes/origin/main "$C2"; rm -f "$T/moved"
 
-# ⓔ origin/main 에 표 없음 → ERROR rc1 · nano-spawn REJECT rc1 · 조용한 통과 0
+# ⓔ origin/main 에 표 없음 → check ERROR rc1(읽기 전용 판정) · ★r921 W1★ nano-spawn 은 «WARN 팀셋 측정 실패 + 진행»(정지는 디스크 하한·디스크 측정 실패 둘뿐)
 G update-ref refs/remotes/origin/main "$C1"
 o="$(chk --all)"; rc=$?; { [ "$rc" = 1 ] && [[ "$o" == *ERROR* ]]; } && ok "ⓔ origin/main 에 표 없음 → check ERROR rc1" || bad "ⓔ-1 rc=$rc $o"
-o="$(sp)"; rc=$?; { [ "$rc" = 1 ] && [[ "$o" == *REJECT* ]] && [[ "$o" != *WARN* ]]; } && ok "ⓔ nano-spawn → REJECT rc1 · WARN 통과 0" || bad "ⓔ-2 rc=$rc $o"
+o="$(sp)"; rc=$?; { [[ "$o" == *"WARN 팀셋 측정 실패"* ]] && [[ "$o" != *"REJECT 팀셋"* ]]; } && ok "r921 ⓔ-2 nano-spawn → WARN 팀셋 측정 실패 + 진행(정지 아님)" || bad "ⓔ-2 rc=$rc $o"
 G update-ref -d refs/remotes/origin/main
 o="$(chk --all)"; rc=$?; { [ "$rc" = 1 ] && [[ "$o" == *ERROR* ]]; } && ok "ⓔ origin/main ref 자체가 없음 → ERROR rc1" || bad "ⓔ-3 rc=$rc $o"
 grep -q '표 착지 전 호환' "$BIN/ft-nano-spawn.sh" && bad "ⓔ WARN «표 착지 전 호환» 분기 잔존" || ok "ⓔ nano-spawn WARN 분기 제거"
 
 # ⓕ 키트 사본 cmp 0
 for f in ft_teamset.py ft-teamset-check.sh ft-nano-spawn.sh ft-successor-open.sh ft-autonomy.sh; do cmp -s "$BIN/$f" "$KIT/$f" && ok "키트 사본 cmp 0 $f" || bad "키트 사본 불일치 $f"; done
-[ "$(git config --get core.bare)" = false ] && ok "core.bare=false" || bad "core.bare != false"
+[ "$(git -C "$REPO" config --get core.bare)" = false ]   # guard 재실행은 git 밖 cwd 로 간다 — 저장소를 명시한다(사전 결함 정정) && ok "core.bare=false" || bad "core.bare != false"
 [ "$fail" = 0 ] && echo "ALL PASS" || echo "FAILED $fail"
 exit $fail

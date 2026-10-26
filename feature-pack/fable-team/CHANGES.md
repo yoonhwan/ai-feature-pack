@@ -1,3 +1,10 @@
+## 2026-10-26 — r921 자원 조건으로 멈추지 않는다 — 회수 먼저 → 그래도 넘으면 WARN 1줄 + 진행 (1.1.251)
+
+- 정지는 디스크 하한과 측정 실패 둘뿐이다. 스왑·메모리·압력·에이전트 수가 넘으면 회수(ft-reclaim-capped.sh · 7초 상한) 1회 뒤 WARN 1줄을 남기고 spawn·재개를 계속한다. 리서치 1석 고정 상한은 지웠다.
+- 디스크 하한 FT_DISK_HARD_MIN_MIB 는 양의 정수만 받는다(이상 값 = ERROR + exit 3 · 기본값으로 문을 열지 않는다). WARN 줄은 모든 항목을 평가한다.
+- 팀 나노 상한은 cap+1 까지 열고, 그 위는 유휴·끝난 나노 회수 1회 → 재검 → 그래도면 순번 큐 + master 알림(정지 아니라 순서 바꿈). «좌석 셈~개설» 은 nano-cap 잠금으로 직렬화한다.
+- 시험 test_resource_warn_proceed_r921.sh 71 PASS(/bin/bash 3.2) · 변이 8/8 · 외부 DA astra r3 APPROVE(BYZ design/harness/evidence/r921-da6/VERDICT-r921-astra-approve.md · 승인판 3960cd25 · 보류 2회 뒤 하드 룰 14 로 Opus 재spawn). 1.1.246~1.1.250 은 열린 PR #326~#329 몫.
+
 ## 2026-10-26 — r922a 초안 모드 골 표 검증 실패 = planner [긴급] 대신 WARN 1줄 (1.1.245)
 
 - ft_news_post.py 가 초안 모드(무장)에서 골 표 검증에 실패하면 goal_gate.refuse 를 부르지 않고 WARN 1줄만 남긴다. rc·발행 0·기준선은 그대로(초안+무장 rc=3). 게이트 본체 없는 설치도 같은 문을 지난다.

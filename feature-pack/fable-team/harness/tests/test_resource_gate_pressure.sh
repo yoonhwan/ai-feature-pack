@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # test_resource_gate_pressure.sh — R213 자원 문지기 황금값(커널 압력 단계 · 메모리 여유 % · 스왑 증가 속도 · 스왑 상한 · 승계 별 한도) + 샘플러 시험.
+# ★r921 — 넘으면 REJECT(exit 3)가 아니라 «WARN 1줄 + exit 0(진행)» 이다. 거절은 디스크 하드 하한·디스크 측정 실패 두 가지뿐(오빠 2026-10-25 «멈추지 마라»).
 # 측정 명령은 PATH 앞 가짜 sysctl·vm_stat·memory_pressure·df·pgrep 만 쓴다 — 실 측정·실 동결 파일·실 launchd 0 · 임시 FT_RES_ROOT.
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
@@ -55,74 +56,75 @@ g "check --succession"; expect "ⓐ 승계 OK" 0 '^OK '
 g check FAKE_LEVEL=2;              expect "ⓑ level2 새 좌석 OK" 0 '^OK .*level=2 '
 g "check --succession" FAKE_LEVEL=2; expect "ⓑ level2 승계 OK" 0 '^OK .*level=2 '
 # ⓒ level 4 → 둘 다 REJECT
-g check FAKE_LEVEL=4;              expect "ⓒ level4 새 좌석 REJECT" 3 '^REJECT resource level=4 limit=2$'
-g "check --succession" FAKE_LEVEL=4; expect "ⓒ level4 승계 REJECT" 3 '^REJECT resource level=4 limit=3$'
+g check FAKE_LEVEL=4;              expect "r921 ⓒ level4 새 좌석 WARN+진행" 0 '^WARN resource level=4 limit=2$'
+g "check --succession" FAKE_LEVEL=4; expect "r921 ⓒ level4 승계 WARN+진행" 0 '^WARN resource level=4 limit=3$'
 # ⓓ rate 400 → 둘 다 OK(관측 최대 347 통과) · rate 600 → 새 좌석 REJECT·승계 OK · rate 1100 → 둘 다 REJECT
 mk_tsv 6000 400
 g check;              expect "ⓓ rate400 새 좌석 OK" 0 '^OK .*rate=400 '
 g "check --succession"; expect "ⓓ rate400 승계 OK" 0 '^OK .*rate=400 '
 mk_tsv 6000 600
-g check;              expect "ⓓ rate600 새 좌석 REJECT" 3 '^REJECT resource rate=600MiB/min limit=512MiB/min$'
+g check;              expect "r921 ⓓ rate600 새 좌석 WARN+진행" 0 '^WARN resource rate=600MiB/min limit=512MiB/min$'
 g "check --succession"; expect "ⓓ rate600 승계 OK" 0 '^OK .*rate=600 '
 mk_tsv 6000 1100
-g check;              expect "ⓓ rate1100 새 좌석 REJECT" 3 '^REJECT resource rate=1100MiB/min '
-g "check --succession"; expect "ⓓ rate1100 승계 REJECT" 3 '^REJECT resource rate=1100MiB/min limit=1024MiB/min$'
+g check;              expect "r921 ⓓ rate1100 새 좌석 WARN+진행" 0 '^WARN resource rate=1100MiB/min '
+g "check --succession"; expect "r921 ⓓ rate1100 승계 WARN+진행" 0 '^WARN resource rate=1100MiB/min limit=1024MiB/min$'
 # ⓔ swap 12289 → (R357: level 결합) · swap 9000(옛 8192 초과) level1 rate≤0 → OK(후행 구간)
 mk_tsv 12289 0
 # R357: swap 절대량 단독 거절 폐기(카드 r357 — 교체 근거) — swap>12288 은 level>=2 와 결합할 때만 새 좌석 REJECT · 승계는 swap 축 면제
 g check FAKE_SWAP=12289;              expect "ⓔ R357 swap12289·level1 새 좌석 OK(swap 단독 거절 폐기)" 0 '^OK .*swap=12289MiB '
 g "check --succession" FAKE_SWAP=12289; expect "ⓔ R357 swap12289·level1 승계 OK" 0 '^OK .*swap=12289MiB '
 g check FAKE_SWAP=12289 FAKE_LEVEL=2;              expect "r672 swap12289·level2·memfree51(>=30) 새 좌석 OK(빈 메모리 AND)" 0 '^OK .*swap=12289MiB '
-g check FAKE_SWAP=12289 FAKE_LEVEL=2 FAKE_MEMFREE=20; expect "ⓔ R357 swap12289·level2·memfree20 새 좌석 REJECT" 3 '^REJECT resource swap=12289MiB level=2 memfree=20% limit=12288MiB@level>=2&memfree<30$'
+g check FAKE_SWAP=12289 FAKE_LEVEL=2 FAKE_MEMFREE=20; expect "r921 ⓔ R357 swap12289·level2·memfree20 새 좌석 WARN+진행" 0 '^WARN resource swap=12289MiB level=2 memfree=20% limit=12288MiB@level>=2&memfree<30$'
 g "check --succession" FAKE_SWAP=12289 FAKE_LEVEL=2; expect "ⓔ R357 swap12289·level2 승계 OK(swap 축 면제)" 0 '^OK .*swap=12289MiB '
 mk_tsv 9500 -100
 g check FAKE_SWAP=9000;              expect "ⓔ swap9000·rate≤0 새 좌석 OK(후행 구간)" 0 '^OK .*swap=9000MiB .*rate=-'
 # ⓕ agents 65 → 새 좌석 OK · 66 → 새 좌석 REJECT · 승계 OK
 mk_tsv 6133 0
 g check FAKE_AGENTS=65;              expect "ⓕ agents65 새 좌석 OK" 0 '^OK .*agents=65$'
-g check FAKE_AGENTS=66;              expect "ⓕ agents66 새 좌석 REJECT" 3 '^REJECT resource agents=66 limit=65$'
+g check FAKE_AGENTS=66;              expect "r921 ⓕ agents66 새 좌석 WARN+진행" 0 '^WARN resource agents=66 limit=65$'
 g "check --succession" FAKE_AGENTS=66; expect "ⓕ agents66 승계 OK" 0 '^OK .*agents=66$'
 # ⓖ memfree 12 → 새 좌석 REJECT · 승계 OK · memfree 9 → 둘 다 REJECT
-g check FAKE_MEMFREE=12;              expect "ⓖ memfree12 새 좌석 REJECT" 3 '^REJECT resource memfree=12% limit=15%$'
+g check FAKE_MEMFREE=12;              expect "r921 ⓖ memfree12 새 좌석 WARN+진행" 0 '^WARN resource memfree=12% limit=15%$'
 g "check --succession" FAKE_MEMFREE=12; expect "ⓖ memfree12 승계 OK" 0 '^OK '
-g check FAKE_MEMFREE=9;              expect "ⓖ memfree9 새 좌석 REJECT" 3 '^REJECT resource memfree=9% '
-g "check --succession" FAKE_MEMFREE=9; expect "ⓖ memfree9 승계 REJECT" 3 '^REJECT resource memfree=9% limit=10%$'
+g check FAKE_MEMFREE=9;              expect "r921 ⓖ memfree9 새 좌석 WARN+진행" 0 '^WARN resource memfree=9% '
+g "check --succession" FAKE_MEMFREE=9; expect "r921 ⓖ memfree9 승계 WARN+진행" 0 '^WARN resource memfree=9% limit=10%$'
 # ⓗ 표본 낡음(마지막 표본 400초 전) → 문지기가 샘플러를 1회 직접 돌려 잰다(rc0+WARN) · 샘플러가 못 쓰면 rc4
 n=$(now); printf '%s\t6133\t50\t1\t1\n%s\t6133\t50\t1\t1\n' $((n-460)) $((n-400)) > "$TSV"
 g check; { [ "$RC" -eq 0 ] && echo "$OUT" | grep -q '^WARN resource pressure.tsv 없음/낡음' && [ "$(wc -l < "$TSV" | tr -d ' ')" = 3 ]; } && ok "ⓗ 표본 낡음 → 문지기 직접 1회 측정(3줄)" || bad "ⓗ rc=$RC $OUT"
 printf '%s\t6133\t50\t1\t1\n%s\t6133\t50\t1\t1\n' $((n-460)) $((n-400)) > "$TSV"; chmod 444 "$TSV"
-g check; expect "ⓗ 낡음+샘플러 기록 실패 → rc4" 4 '^ERROR resource measure pressure sample 실패'
-g "check --succession"; expect "ⓗ 승계도 rc4" 4 '^ERROR resource measure pressure sample 실패'
+g check; expect "r921 ⓗ 낡음+샘플러 기록 실패 → WARN rate + 진행" 0 '^WARN resource rate 측정실패\(pressure sample 실패'
+g "check --succession"; expect "r921 ⓗ 승계도 WARN rate + 진행" 0 '^WARN resource rate 측정실패\(pressure sample 실패'
 chmod 644 "$TSV"
 # ⓘ 표본 1줄·0줄 → rate=na + WARN + 나머지 신호로 판정
 printf '%s\t6133\t50\t1\t1\n' "$(now)" > "$TSV"
 g check; { [ "$RC" -eq 0 ] && echo "$OUT" | grep -q '^WARN resource rate=na' && echo "$OUT" | grep -q '^OK .*rate=na '; } && ok "ⓘ 표본 1줄 rate=na+WARN OK" || bad "ⓘ rc=$RC $OUT"
-g check FAKE_LEVEL=4; expect "ⓘ rate=na 여도 level4 새 좌석 REJECT" 3 'REJECT resource level=4'
+g check FAKE_LEVEL=4; expect "r921 ⓘ rate=na 여도 level4 새 좌석 WARN+진행" 0 'WARN resource level=4'
 rm -f "$TSV"
 g check; { [ "$RC" -eq 0 ] && echo "$OUT" | grep -q 'rate=na'; } && ok "ⓘ 표본 파일 없음 → 문지기 1회 측정 + rate=na" || bad "ⓘ(없음) rc=$RC $OUT"
 # ⓙ 동결 파일 → 둘 다 REJECT(현행)
 mk_tsv 6133 0; echo "시험 동결" > "$FREEZE"
-g check;              expect "ⓙ 동결 새 좌석 REJECT" 3 '^REJECT resource freeze='
-g "check --succession"; expect "r672 동결 승계 WARN 통과(동결은 승계를 막지 않는다)" 0 '^WARN resource freeze=.*승계'
-g "check --research"; expect "r672 동결 리서치 WARN 통과" 0 '^WARN resource freeze=.*리서치'
+g check;              expect "r921 ⓙ 동결 새 좌석도 WARN+진행(동결은 알림용으로 강등)" 0 '^WARN resource freeze=시험 동결 limit=0$'
+g "check --succession"; expect "r921 동결 승계 WARN+진행" 0 '^WARN resource freeze=시험 동결 limit=0$'
+g "check --research"; expect "r921 동결 리서치 WARN+진행" 0 '^WARN resource freeze=시험 동결 limit=0$'
 rm_freeze
 # status 한 줄 + level 측정 실패 = ERROR exit 4 + 옛 env 폐기
 g status; { [ "$RC" -eq 0 ] && [ "$(echo "$OUT" | grep -c '^disk=')" = 1 ] && echo "$OUT" | grep -q '^disk=.* level=1 rate=0 agents=35 freeze=0$'; } && ok "status 한 줄 level·rate 칸" || bad "status rc=$RC $OUT"
-g check FAKE_LEVEL_FAIL=1; expect "level 측정 실패 exit 4" 4 '^ERROR resource measure level '
+g check FAKE_LEVEL_FAIL=1; expect "r921 level 측정 실패 → WARN level + 진행" 0 '^WARN resource level 측정실패\(sysctl '
 g check FT_SWAP_MAX_MIB=100; expect "옛 FT_SWAP_MAX_MIB 는 읽지 않는다" 0 '^OK '
 g "check --bogus"; expect "알 수 없는 2번째 인자 exit 2" 2 'usage:'
 
 # H1 — 측정 명령 rc≠0 이면 출력이 숫자여도 rc4(gate·sampler · 표본 줄 0) · 깨진 TSV 줄도 rc4
 mk_tsv 6133 0
-for v in LEVEL SWAP MEM DF; do g check FAKE_RC_$v=42; expect "H1 gate $v 명령 rc42+유효 출력 → rc4" 4 '^ERROR resource measure .* rc≠0$'; done
+g check FAKE_RC_DF=42; expect "H1(r921) disk 측정 실패 → REJECT(유일한 거절) rc3" 3 '^REJECT resource disk-measure df rc≠0'
+for v in LEVEL SWAP MEM; do g check FAKE_RC_$v=42; expect "H1(r921) gate $v 명령 rc42+유효 출력 → WARN+진행" 0 '^WARN resource .* 측정실패\(.* rc≠0\)$'; done
 n=$(now); printf '%s\toops\t50\t1\t1\n%s\toops\t50\t1\t1\n' $((n-60)) "$n" > "$TSV"
-g check; expect "H1 swap 칸 oops 두 줄 → rc4 corrupt" 4 '^ERROR resource measure pressure.tsv corrupt'
+g check; expect "H1 swap 칸 oops 두 줄 → rc4 corrupt → r921 WARN rate + 진행" 0 '^WARN resource rate 측정실패\(pressure.tsv corrupt'
 printf '%s\t6133\t50\t1\n%s\t6133\t50\t1\n' $((n-60)) "$n" > "$TSV"
-g check; expect "H1 4칸 줄 → rc4 corrupt" 4 'pressure.tsv corrupt'
+g check; expect "H1 4칸 줄 → rc4 corrupt → r921 WARN rate + 진행" 0 '^WARN resource rate 측정실패\(pressure.tsv corrupt'
 printf '%s\t6133\t50\t1\t1\n%s\t6133\t50\t1\t1\n' "$n" $((n-60)) > "$TSV"
-g check; expect "H1 시각 내림차순 → rc4 corrupt" 4 'pressure.tsv corrupt'
+g check; expect "H1 시각 내림차순 → rc4 corrupt → r921 WARN rate + 진행" 0 '^WARN resource rate 측정실패\(pressure.tsv corrupt'
 printf '%s\t6133\t50\t1\t1\n%s\t6133\t50\t1\t1\n' "$n" "$n" > "$TSV"
-g check; expect "H1 시각 차 0(두 줄 같은 시각) → rc4 corrupt" 4 'pressure.tsv corrupt'
+g check; expect "H1 시각 차 0(두 줄 같은 시각) → rc4 corrupt → r921 WARN rate + 진행" 0 '^WARN resource rate 측정실패\(pressure.tsv corrupt'
 SAMP="$REPO/harness/bin/ft-resource-sample.sh"
 sm() { OUT="$(env FT_RES_ROOT="$R" PATH="$S:$PATH" FAKE_SWAP=6133 FAKE_LEVEL=1 FAKE_MEMFREE=51 "$@" bash "$SAMP" 2>&1)"; RC=$?; }
 for v in LEVEL SWAP MEM VM; do
@@ -141,15 +143,15 @@ g check; { echo "$OUT" | grep -q 'rate=[0-9-]' && [ "$RC" -eq 0 ]; } && ok "H2 �
 [ "$RC" -eq 0 ] && ok "H2 ready 표식은 무시(있어도 없어도 같음)" || bad "H2 ready rc=$RC $OUT"
 rm -f "$R/.fable-team/state/pressure.ready"
 n=$(now); printf '%s\t6133\t50\t1\t1\n%s\t6133\t50\t1\t1\n' $((n+3600)) $((n+3660)) > "$TSV"
-g check; expect "H2 미래 시각 두 줄 → rc4 clock-skew" 4 'pressure.tsv clock-skew'
+g check; expect "H2 미래 시각 두 줄 → rc4 clock-skew → r921 WARN rate + 진행" 0 '^WARN resource rate 측정실패\(pressure.tsv clock-skew'
 printf '%s\t6133\t50\t1\t1\n' $((n+3600)) > "$TSV"
-g check; expect "H2 미래 시각 1줄 → rc4 clock-skew" 4 'pressure.tsv clock-skew'
+g check; expect "H2 미래 시각 1줄 → rc4 clock-skew → r921 WARN rate + 진행" 0 '^WARN resource rate 측정실패\(pressure.tsv clock-skew'
 printf '%s\toops\tbad\t1\t1\n' "$n" > "$TSV"
-g check; expect "H1(r2) 1줄 숫자 칸 oops → rc4 corrupt" 4 'pressure.tsv corrupt'
+g check; expect "H1(r2) 1줄 숫자 칸 oops → rc4 corrupt → r921 WARN rate + 진행" 0 '^WARN resource rate 측정실패\(pressure.tsv corrupt'
 printf '%s\t6133\t50\t1\t1\n%s\t6133\t50\t1\t1\n' "$n" $((n-60)) > "$TSV"
-g check; expect "H2 시각 역행 → rc4 corrupt" 4 'pressure.tsv corrupt'
+g check; expect "H2 시각 역행 → rc4 corrupt → r921 WARN rate + 진행" 0 '^WARN resource rate 측정실패\(pressure.tsv corrupt'
 rm -f "$TSV"
-mk_tsv 6133 0; g check FAKE_AGENTS=99; expect "probe 일반 agents99 gate rc3" 3 '^REJECT resource agents=99 limit=65$'
+mk_tsv 6133 0; g check FAKE_AGENTS=99; expect "r921 probe 일반 agents99 gate WARN+진행" 0 '^WARN resource agents=99 limit=65$'
 # H3(r2) — 승계 면제 = NAME==OLD 계보 베이스#(N+1) ∧ OLD 가 명부 역할 키(_master 등) 값 ∧ OLD tmux 생존 (agents 99 로 일반 REJECT 되는 상황)
 mk_tsv 6133 0
 SUC="$REPO/harness/bin/ft-successor-open.sh"; mkdir -p "$T/cwd" "$T/home"; echo 본문 > "$T/body.txt"
@@ -159,10 +161,10 @@ mkdir -p "$R/design" && printf '# 시험 팀셋\n## 표 1 — 역할 표준\n| �
 . "$HERE/lib/fake_resource_env.sh"; fake_comm_root "$T/root" || bad "fake_comm_root"   # r537: spawn-hold 가 comm 을 푼다(r459) — 못 풀면 WARN 이 섞인다
 # R361: R351 이후 --md 기본값은 gitref:origin/main:… 이라 git 저장소가 아닌 임시 루트 $R 에선 못 읽는다 — 복사해 둔 정본 파일을 FT_TEAMSET_MD 로 직접 가리킨다.
 so() { OUT="$(cd "$T/cwd" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR -u GIT_OBJECT_DIRECTORY HOME="$T/home" FT_RES_ROOT="$R" FT_TEAMSET_MD="$R/design/TEAMSET.md" PATH="$S:$PATH" FAKE_SWAP=6133 FAKE_LEVEL=1 FAKE_MEMFREE=51 FAKE_AGENTS=99 FT_RECLAIM=0 "$@" bash "${SUCX:-$SUC}" "$OLDN" "$T/cwd" --name "$NEWN" --agent claude --model m --body-file "$T/body.txt" 2>&1)"; RC=$?; }
-agents_rej() { { [ "$RC" -eq 3 ] && echo "$OUT" | grep -q 'REJECT resource agents=99 limit=65'; }; }
+agents_rej() { echo "$OUT" | grep -q 'WARN resource agents=99 limit=65'; }   # r921: 넘으면 WARN + 진행 — 면제 여부는 이 줄의 유무로 본다
 printf '{"_master":"alive-old#1","other#2":{"role":"nano"}}\n' > "$R/.fable-team/seats-t.json"
 OLDN='alive-old#1'; NEWN='alive-old#2'; so FAKE_HAS=0
-echo "$OUT" | grep -q 'REJECT resource' && bad "H3 계보·역할 키·생존 → 면제돼야 함: $OUT" || ok "H3 계보 O·역할 키 O·세션 O → agents 면제"
+echo "$OUT" | grep -q 'WARN resource agents=' && bad "H3 계보·역할 키·생존 → 면제돼야 함: $OUT" || ok "H3 계보 O·역할 키 O·세션 O → agents 면제"
 NEWN='alive-old#2'; so FAKE_HAS=1
 agents_rej && ok "H3 세션 없음 → 일반 기준" || bad "H3 세션 없음 rc=$RC $OUT"
 NEWN='unrelated-new#9'; so FAKE_HAS=0
@@ -189,7 +191,7 @@ MUT="$T/mut"; mkdir -p "$MUT"; cp "$REPO"/harness/bin/ft-*.sh "$MUT"/
 sed 's/\[ "\$NAME" = "\${BASH_REMATCH\[1\]}#\$((BASH_REMATCH\[2\]+1))" \]/true/' "$SUC" > "$MUT/ft-successor-open.sh"
 cmp -s "$MUT/ft-successor-open.sh" "$SUC" && bad "H3 변이 준비 실패(치환 0)" || {
   OLDN='alive-old#1'; NEWN='unrelated-new#9'; SUCX="$MUT/ft-successor-open.sh" so FAKE_HAS=0
-  echo "$OUT" | grep -q 'REJECT resource' && bad "H3 변이: 계보 검사 삭제가 검출되지 않음" || ok "H3 변이(계보 검사 삭제) 검출"; }
+  echo "$OUT" | grep -q 'WARN resource agents=' && bad "H3 변이: 계보 검사 삭제가 검출되지 않음" || ok "H3 변이(계보 검사 삭제) 검출"; }
 rm -f "$R/.fable-team/seats-t.json" "$R/.fable-team/seats-other.json"
 
 # ⓚ 샘플러 — 1줄 추가 · 3일 회전 · 측정 실패 rc 4 줄 0
