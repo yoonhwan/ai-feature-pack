@@ -106,6 +106,16 @@ claude 가 실경로(`~/.local/share/claude/versions/2.1.308`)로 돌면 이름�
 순수 셸 좌석은 종전대로 `shell`(회귀 0).
 시험 = `test/test_agent_probe_claude_path.sh`(ps/pgrep/tmux 스텁 · 실 tmux 서버 0).
 
+### 부팅 주입의 준비 확인·제출 확인 (0.4.6 · r925)
+
+`inject_message` 가 `send-keys -l 글자 → sleep 0.3 → Enter 1번` 이라, 컴퓨터가 바쁘면 claude TUI 가 아직 입력을
+받지 못한 채 글자만 입력줄에 남고 Enter 가 사라졌다 → jsonl `SessionStart` 0 → 승계 도구가 끝없이 기다렸다
+(ops #56→#57 3회 정지). `open`/`fork` 의 «고정 sleep 4» 도 같은 이유로 빗나갔다.
+⇒ 주입을 종류로 나눈다: `shell`(에이전트 기동 명령 — 종전 그대로) · `agent`(Claude TUI — ① 입력 상자가 그려질
+때까지 기다린다(상한 30초 · 넘으면 rc≠0) ② 글자 ③ Enter ④ 입력줄이 그 문장에서 벗어났는지 최대 3초 확인
+⑤ 안 비었으면 Enter «만» 다시(글자 재입력 0) 최대 2회 → 그래도 안 되면 rc≠0 «제출 실패») · `plain`(pi·codex·cmd
+TUI — 종전 그대로) · `auto`(세션 에이전트를 재서 고른다). 시험 = `test/test_tmuxc_inject_ready_submit.sh`(가짜 tmux).
+
 ## BYZ 권장 패턴
 
 ```bash

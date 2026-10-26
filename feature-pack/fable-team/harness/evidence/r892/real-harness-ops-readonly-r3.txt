@@ -1,0 +1,3 @@
+top /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-ops sha 7bea0b1922 rels {'harness': 'design/harness/'}
+진행 178 대기 279 착지 3
+r892 in 진행: True

@@ -74,7 +74,7 @@ card c-hold 진행 '- DA⑥ r1 HOLD 4' '- DA⑥ r2 HOLD 1' '- DA⑥ r3 발주' "
 [[ "$e1" != *LANDED* ]] && ok "ⓔ --entry 출력에 LANDED 0" || bad "ⓔ LANDED 섞임 $e1"
 
 # ── ⓕ ft-index-move 거절 문구 + 일괄 도구 ──
-TB="$T/bin"; mkdir -p "$TB"; cp "$KIT"/ft-index-move.sh "$KIT"/ft-index-move-canon.sh "$KIT"/ft-index-move-install.sh "$KIT"/ft_da_hold_gate.py "$KIT"/ft-team-lib.sh "$KIT"/ft-index-close-landed.sh "$TB/"
+TB="$T/bin"; mkdir -p "$TB"; cp "$KIT"/ft-index-move.sh "$KIT"/ft-index-move-canon.sh "$KIT"/ft-index-move-install.sh "$KIT"/ft_da_hold_gate.py "$KIT"/ft_git_capped.py "$KIT"/ft-team-lib.sh "$KIT"/ft-index-close-landed.sh "$TB/"
 printf '#!/usr/bin/env bash\nexit 0\n' > "$TB/ft-index-lint.sh"; printf '#!/usr/bin/env bash\necho "$*" >> "$MBOX_LOG"\nexit 0\n' > "$T/fake-mbox.sh"; chmod 755 "$T/fake-mbox.sh"
 mkdir -p "$T/state" "$T/stub"; printf '#!/bin/sh\nexit 1\n' > "$T/stub/tmux"; chmod +x "$T/stub/tmux"
 export FT_MBOX="$T/fake-mbox.sh" MBOX_LOG="$T/mbox.log" FT_INDEX_STATE_DIR="$T/state" FT_SEATS_JSON="$T/none.json" FT_THREAD_POST="$T/none.py" FT_ROOT="$R"

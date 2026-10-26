@@ -1,0 +1,63 @@
+== 2026-10-25 창 10-24 00:00 ~ 10-25 08:00 · 축하 48건 (원장 0 · 카드 48) · 근거 sha 원본 저장소 = BYZ origin/main
+  - teams 팀 · 카드 완성 | (설명 문장은 근거 표에) | ebdd252539 완성 이동 · 카드 C-brain-k12-wire-record (chatbot 팀 · 챗
+  - teams 팀 · 카드 완성 | R-room-expired-stops-member-fetch — m.room 방 만료·삭제를 «멤버 목록 조 | 7508f31355 완성 이동 · 카드 R-room-expired-stops-member-fetch — m.
+  - teams 팀 · 카드 완성 | ops-sched-agent-thread-retry-zero (ops 팀 · 스케줄 통일 후속 · `agen | cc97ba5b76 완성 이동 · 카드 ops-sched-agent-thread-retry-zero (ops
+  - teams 팀 · 카드 완성 | (설명 문장은 근거 표에) · (설명 문장은 근거 표에) | d03fcefecf 완성 이동 · 카드 F-brain-files-generalization (feature 
+  - teams 팀 · 카드 완성 | (설명 문장은 근거 표에) | 6435c9297c 완성 이동 · 카드 M5-ja-source-script-contract-unify-imp
+  - teams 팀 · 카드 완성 | ops-research-worktree-disk-300mb (ops 팀 · 워크트리 1개가 왜 ~300 MB | 2770ad008a 완성 이동 · 카드 ops-research-worktree-disk-300mb (ops 
+  - teams 팀 · 카드 완성 | (설명 문장은 근거 표에) · (설명 문장은 근거 표에) | e4fdf4ac6d 완성 이동 · 카드 L41-lecture-30min-press-settle-growth 
+  - teams 팀 · 카드 완성 | (설명 문장은 근거 표에) · (설명 문장은 근거 표에) · (설명 문장은 근거 표에) · (설명 문장은 근 | e291372d70 완성 이동 · 카드 L11-lecture-room-ja-target-dropped-loc
+  - teams 팀 · 카드 완성 | (설명 문장은 근거 표에) | 18a1c38d34 완성 이동 · 카드 M7-runner-sets-source-lang-then-reads-
+  - teams 팀 · 카드 완성 | (설명 문장은 근거 표에) | 7842b8b4d5 완성 이동 · 카드 ops-sched-registry-sync (ops 팀 · 스케줄 통
+  - teams 팀 · 카드 완성 | (설명 문장은 근거 표에) | 7dac5f3361 완성 이동 · 카드 C-brain-k12-wire-prod (chatbot 팀 · 챗봇 
+  - teams 팀 · 카드 완성 | (설명 문장은 근거 표에) | 020d2471d0 완성 이동 · 카드 L54-calibration-sentences-image-data-a
+  - teams 팀 · 카드 완성 | (설명 문장은 근거 표에) | 3870ad6be0 완성 이동 · 카드 L49-lecture-calibration-intro-node — 음
+  - teams 팀 · 카드 완성 | (설명 문장은 근거 표에) | e5fd82dffe 완성 이동 · 카드 F-canon-1550-chat-knowledge-modes-a8 (
+  - teams 팀 · 카드 완성 | (설명 문장은 근거 표에) | 4e3aae01f2 완성 이동 · 카드 LC3-lecture-canon-row-merge-absorbed-s
+  - teams 팀 · 카드 완성 | ops-kb-profile-update-request (ops 팀 · 지식·지침 발주서 카드 8 분할 B · | ef2be356ae 완성 이동 · 카드 ops-kb-profile-update-request (ops 팀 ·
+  - teams 팀 · 카드 완성 | (설명 문장은 근거 표에) | 6432b98f68 완성 이동 · 카드 M5-corpus-sentence-count-abbrev-decima
+  - teams 팀 · 카드 완성 | (설명 문장은 근거 표에) | 3116fb1044 완성 이동 · 카드 L23-lecture-row-merge-absorbed-text-re
+  - teams 팀 · 카드 완성 | F-mode-start-settings-r2-pre-da (feature 팀 · 출시 계획 단계 ⑤ «모드  | 8faaa338d5 완성 이동 · 카드 F-mode-start-settings-r2-pre-da (featu
+  - teams 팀 · 카드 완성 | ops-kb-delete-routes (ops 팀 · 지식·지침 발주서 카드 8 분할 A · DELETE 2 | 3a8da8be88 완성 이동 · 카드 ops-kb-delete-routes (ops 팀 · 지식·지침 발주
+  - teams 팀 · 카드 완성 | loom-1295-residual-9-resolved-to-customer (knowledge 팀 · 잔여  | 2cb872c147 완성 이동 · 카드 loom-1295-residual-9-resolved-to-custo
+  - teams 팀 · 카드 완성 | (설명 문장은 근거 표에) | cc17a205fc 완성 이동 · 카드 M5-corpus-chunk-only-on-main-impl — 말뭉
+  - teams 팀 · 카드 완성 | F-1550-experiment-run-tester (feature 팀 · 안 한 실험 카드 초안 · 하이브 | e2f25eebeb 완성 이동 · 카드 F-1550-experiment-run-tester (feature 
+  - teams 팀 · 카드 완성 | ops-brain-agent-threads-sweep (ops 팀 · 챗봇 브레인 카드 4 후속 · `age | 2a7b585997 완성 이동 · 카드 ops-brain-agent-threads-sweep (ops 팀 ·
+  - teams 팀 · 카드 완성 | (설명 문장은 근거 표에) | 0063a0cf8b 완성 이동 · 카드 F-1550-t3t4-single-account (feature 팀 
+  - teams 팀 · 카드 완성 | (설명 문장은 근거 표에) | 5e99a69b6c 완성 이동 · 카드 F-gateway-text-to-guidance-impl (featu
+  - teams 팀 · 카드 완성 | ops-kb-guidance-kinds-ddl (ops 팀 · 지식·지침 발주서 카드 3 · kind 등록표 | 8a76be9208 완성 이동 · 카드 ops-kb-guidance-kinds-ddl (ops 팀 · 지식·
+  - teams 팀 · 카드 완성 | (설명 문장은 근거 표에) | 88eca68260 완성 이동 · 카드 F-x1a-reindex-step1-run (feature 팀 · X
+  - teams 팀 · 카드 완성 | (설명 문장은 근거 표에) · (설명 문장은 근거 표에) · (설명 문장은 근거 표에) | ccf6ff9923 완성 이동 · 카드 C-brain-e2-chat-assemble-budget-tool (
+  - teams 팀 · 카드 완성 | 문서 삭제 뒤 직전 세대에 벡터·본문 조각이 남는다 → 삭제가 들어간 승격이면 그 직전 세대를 바로 정리 ( | 1bb010db26 완성 이동 · 카드 #1441 — 문서 삭제 뒤 직전 세대에 벡터·본문 조각이 남는다 →
+  - teams 팀 · 카드 완성 | (설명 문장은 근거 표에) | 347af3d294 완성 이동 · 카드 C-brain-e2-relift-image-canon-doc (cha
+  - teams 팀 · 카드 완성 | ops-ci-cost-breakdown-research (ops 팀 · GitHub Actions 비용 분해 | 88290ad374 완성 이동 · 카드 ops-ci-cost-breakdown-research (ops 팀 
+  - teams 팀 · 카드 완성 | (설명 문장은 근거 표에) · (설명 문장은 근거 표에) · F-canon-brain-13-contracts | cc90575b74 완성 이동 · 카드 F-a1-chat-contracts-impl-c3-knowledge-
+  - teams 팀 · 카드 완성 | (설명 문장은 근거 표에) | aca458a167 완성 이동 · 카드 loom-main-guards-g1-terminal-rows-prov
+  - teams 팀 · 카드 완성 | ops-schema-drift-guidance-ext-evidence (ops 팀 · CD(Dev) sche | dfc9638b86 완성 이동 · 카드 ops-schema-drift-guidance-ext-evidence
+  - teams 팀 · 카드 완성 | (설명 문장은 근거 표에) | 822f464bda 완성 이동 · 카드 ops-exp-j1-vllm-argv-pg-extensions-rea
+  - teams 팀 · 카드 완성 | C-fix-worker-uvicorn-encoder-preload (chatbot 팀 · 로컬 worker  | c377f42fd0 완성 이동 · 카드 C-fix-worker-uvicorn-encoder-preload (
+  - teams 팀 · 카드 완성 | R-room-left-user-explicit-leave — m.room 방 화면을 닫으면 즉시 퇴장 처리( | 03ae1dafb1 완성 이동 · 카드 R-room-left-user-explicit-leave — m.ro
+  - teams 팀 · 카드 완성 | loom-exp-m-ctx-7-chunk-bytes-overhead (knowledge 팀 · 측정 카드 M | b03d3a981d 완성 이동 · 카드 loom-exp-m-ctx-7-chunk-bytes-overhead 
+  - teams 팀 · 카드 완성 | C-fix-answer-collection-date (chatbot 팀 · 지식 답 끝에 «수집 기준일» 붙 | 0ee4c94c0a 완성 이동 · 카드 C-fix-answer-collection-date (chatbot 
+  - teams 팀 · 카드 완성 | (설명 문장은 근거 표에) | 2391961272 완성 이동 · 카드 loom-chatbot-pack-test-materials (loom
+  - teams 팀 · 카드 완성 | R-room-lifecycle-mr-fe-released-open-press — 화면 회귀 세트(Jest ` | e10db73410 완성 이동 · 카드 R-room-lifecycle-mr-fe-released-open-p
+  - teams 팀 · 카드 완성 | b 치과 2방(dental_snudh · suwon_ye_dental) 다듬기에서 도메인 층까지 통째 탈락  | d7ee875807 완성 이동 · 카드 #1434-b 치과 2방(dental_snudh · suwon_ye_
+  - teams 팀 · 카드 완성 | loom-reserved-domain-key-coord-block (knowledge 팀 · 예약 지식 키  | e88e09d6fa 완성 이동 · 카드 loom-reserved-domain-key-coord-block (
+  - teams 팀 · 카드 완성 | (설명 문장은 근거 표에) · loom-choices-c2c-fe-display-polish (loom 팀  | 2d17c33cc5 완성 이동 · 카드 D1 도메인 소유 판정 읽기 + S5-ⓑ 판정 코어 — authori
+  - teams 팀 · 카드 완성 | C-brain-t1-thread-persist (chatbot 팀 · 챗봇 브레인 발주서 카드 3 · 결론  | f8f3f6c7ae 완성 이동 · 카드 C-brain-t1-thread-persist (chatbot 팀 ·
+  - teams 팀 · 카드 완성 | R-room-lifecycle-mr-fixture-frozen-press — 세션 생명주기 회귀 세트에 «방 | 383258efcf 완성 이동 · 카드 R-room-lifecycle-mr-fixture-frozen-pre
+  - teams 팀 · 카드 완성 | (설명 문장은 근거 표에) | 147c3dbc96 완성 이동 · 카드 L3 옛 loom 승인·버전 교체 — 초안→발행 = «승인 적용» ·
+== 2026-10-26 창 10-25 00:00 ~ 10-26 08:00 · 축하 11건 (원장 0 · 카드 11) · 근거 sha 원본 저장소 = BYZ origin/main
+  - teams 팀 · 카드 완성 | (설명 문장은 근거 표에) | ebdd252539 완성 이동 · 카드 C-brain-k12-wire-record (chatbot 팀 · 챗
+  - teams 팀 · 카드 완성 | R-room-expired-stops-member-fetch — m.room 방 만료·삭제를 «멤버 목록 조 | 7508f31355 완성 이동 · 카드 R-room-expired-stops-member-fetch — m.
+  - teams 팀 · 카드 완성 | ops-sched-agent-thread-retry-zero (ops 팀 · 스케줄 통일 후속 · `agen | cc97ba5b76 완성 이동 · 카드 ops-sched-agent-thread-retry-zero (ops
+  - teams 팀 · 카드 완성 | (설명 문장은 근거 표에) · (설명 문장은 근거 표에) | d03fcefecf 완성 이동 · 카드 F-brain-files-generalization (feature 
+  - teams 팀 · 카드 완성 | (설명 문장은 근거 표에) | 6435c9297c 완성 이동 · 카드 M5-ja-source-script-contract-unify-imp
+  - teams 팀 · 카드 완성 | ops-research-worktree-disk-300mb (ops 팀 · 워크트리 1개가 왜 ~300 MB | 2770ad008a 완성 이동 · 카드 ops-research-worktree-disk-300mb (ops 
+  - teams 팀 · 카드 완성 | (설명 문장은 근거 표에) · (설명 문장은 근거 표에) | e4fdf4ac6d 완성 이동 · 카드 L41-lecture-30min-press-settle-growth 
+  - teams 팀 · 카드 완성 | (설명 문장은 근거 표에) · (설명 문장은 근거 표에) · (설명 문장은 근거 표에) · (설명 문장은 근 | e291372d70 완성 이동 · 카드 L11-lecture-room-ja-target-dropped-loc
+  - teams 팀 · 카드 완성 | (설명 문장은 근거 표에) | 18a1c38d34 완성 이동 · 카드 M7-runner-sets-source-lang-then-reads-
+  - teams 팀 · 카드 완성 | (설명 문장은 근거 표에) | 7842b8b4d5 완성 이동 · 카드 ops-sched-registry-sync (ops 팀 · 스케줄 통
+  - teams 팀 · 카드 완성 | (설명 문장은 근거 표에) | 7dac5f3361 완성 이동 · 카드 C-brain-k12-wire-prod (chatbot 팀 · 챗봇 
+
+# 메모: 실 원장(BYZ origin/main PLAN-oppa-ledger.md) 창 끝 완료 행 22 중 근거 커밋 sha 있는 행 2(둘 다 창 밖) → r3 규칙상 원장 축하 0 · 카드 축하만. 원장 행에 착지 sha 를 적는 습관이 없으면 원장 쪽 축하는 계속 0.

@@ -1,0 +1,26 @@
+등록부 후보:
+  /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/state/scratch-repos.tsv (     260줄 · 실폴더)
+  /Users/yoonhwan/Project/ai-feature-pack/.fable-team/state/scratch-repos.tsv (       3줄 · 실폴더)
+BYZ 워크트리 .fable-team 꼴:
+uniq: invalid option -- w
+usage: uniq [-c | -d | -D | -u] [-i] [-f fields] [-s chars] [input [output]]
+ | 못읽음 | - | 생성 22:28 | 등록부: BYZ-Agents ai-feature-pack | wt목록 0
+repo-0c53b832-1792866739-54443 | /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.git | 0c53b8325c6a | 생성 03:32 | 등록부: 0 | wt목록 1
+repo-20ebdf5c-1792866350-28846 | /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.git | 20ebdf5cb665 | 생성 03:25 | 등록부: 0 | wt목록 1
+repo-20ebdf5c-1792866386-47449 | /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.git | 20ebdf5cb665 | 생성 03:26 | 등록부: 0 | wt목록 1
+repo-20ebdf5c-1792866431-67073 | /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.git | 20ebdf5cb665 | 생성 03:27 | 등록부: 0 | wt목록 1
+repo-290ccda7-1792862856-58924 | 없음(이미 지워짐)
+repo-2d0b5ae2-1792862232-45329 | 없음(이미 지워짐)
+repo-35b0fc13-1792857907-5242 | /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.git | 35b0fc13c85c | 생성 01:05 | 등록부: 0 | wt목록 1
+repo-4955e29e-1792862853-55771 | 없음(이미 지워짐)
+repo-71ba9834-1792867815-17362 | /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.git | 71ba98346c3b | 생성 03:50 | 등록부: 0 | wt목록 1
+repo-7f6ae7d4-1792862234-46831 | 없음(이미 지워짐)
+repo-875b0eea-1792868520-26430 | 못읽음 | - | 생성 04:02 | 등록부: 0 | wt목록 0
+repo-8f5ba64e-1792869186-84484 | /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.git | 8f5ba64e764d | 생성 04:13 | 등록부: 0 | wt목록 1
+repo-8f91ff1b-1792863962-68658 | 없음(이미 지워짐)
+repo-af9c5bfd-1792863334-33943 | /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.git | af9c5bfdb163 | 생성 02:35 | 등록부: 0 | wt목록 1
+repo-c74e9a11-1792864824-90918 | 없음(이미 지워짐)
+repo-d4696a18-1792865124-50421 | 없음(이미 지워짐)
+repo-d902ac5b-1792864841-395 | 없음(이미 지워짐)
+repo-f847e157-1792859153-23666 | /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.git | f847e15761fa | 생성 01:25 | 등록부: 0 | wt목록 1
+repo-ff7d9eae-1792862205-20699 | /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.git | ff7d9eae0e3e | 생성 02:16 | 등록부: 0 | wt목록 1

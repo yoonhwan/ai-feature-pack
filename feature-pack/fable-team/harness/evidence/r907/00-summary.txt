@@ -1,0 +1,33 @@
+r907 r4 — DA⑥ r3 HOLD 2 반송(재설계 · 하드 룰 14) · 이어받은 가지 08d1dc76 위 4번째 커밋 · 골좌표: 1 — 하네스팀 랜딩부터
+
+닫힘 유지(변경 0): r2 반례 3 · ERROR 구간당 1줄 · 판정 불가 = 게시 0 · 유한성 · 회복 초기화 · 정지 경보 중복 방지
+
+r4 에서 고친 것
+1. 판정 키 교체(글자 빼기 폐기) — ft_news_html._human_key = `git log -1 --format=%H --fixed-strings --invert-grep --grep=<ft_ledger_fill.MSG 머리> <ref> -- <원장>` 1회(7초 상한).
+   · 채움 커밋만 쌓이면 키 그대로(닫힌 행 내리기 포함) · 사람 커밋 1개면 키 바뀜 · 글자 파싱 0 → 채움이 하는 일이 늘어도 따라갈 것 없음
+   · 못 구하면(채움 모듈 없음·rc≠0·시간 초과·빈 출력) None = 모름 = «바뀜» 쪽(옛 판정 base≠cur · 게시 후보 · 간격 10분이 상한)
+   · 삭제: _fill_free · _blank_goal_state · FILL_SENTINEL · FILL_STAMP · _ledger_blob(hash-object)
+   · 상태 칸 last.blob 이름 유지 — 값이 블롭 sha → 사람 커밋 sha. 옛 값이면 설치 뒤 첫 틱 «바뀜» 1회 = 수용(간격 상한)
+   · 같은 커밋에 사람 수정과 채움이 섞이는 경로: 채움(ft_ledger_fill)은 commit-tree 로 «채움만» 담은 커밋을 따로 만든다(MSG) · 사람 도구(planner)는 자기 메시지로 커밋 → 섞인 커밋 «없음». 섞이면 메시지가 MSG 가 아니라 «사람» 으로 센다(게시 쪽 = 안전 방향)
+   · 실측(읽기 전용): BYZ origin/ledger/auto 의 원장 경로 커밋 중 «[docs] 원장 표 기계 채움» 218건 · 키 = fad05fef3b = origin/main 의 마지막 사람 커밋과 같다(채움 218건이 키를 안 움직임)
+2. 간격 상태 읽기 — _load_last/_since: html.json 이 객체 아님·깨진 JSON → {} · at/map_at/fail_at 이 문자열 아님 → 그 칸 버림 · 전부 WARN 1줄 + 게시 가능 · 예외 0
+3. 예외여도 정지 감시 항상 — ft_news_html.tick 이 _tick 의 어떤 예외든 잡아 ERROR 1줄 + rc1 · ft_news_ledger.run 이 try/except/finally 로 check_stale 을 항상 부른다(DA⑥ r3 반례 ②: map_at 숫자 → TypeError → check_stale 0회)
+4. 남은 git 호출 7초 상한 — ft_news_html._git(show 포함) timeout=GIT_S(7) · 초과 = RuntimeError(지도 만들기 실패 경로)
+5. kit 짝 사본 2개 cmp0 · sync_repo 갈래 변경 0
+
+시험 (test_r907_news_stale_head.py · 45건 · ⓐ~ⓝ)
+- ⓙ' 채움 커밋 3개 연속 = 게시 0(키 = 직전 사람 커밋) · 사람 커밋 = 게시 1 · 채움 구간만 고친 «사람» 커밋도 게시 1 · 실제 ft_ledger_fill.fill 3회(닫힌 행 내리기 «내림 1» 실제 발생) = 키 그대로 · git log 실패·시간 초과·없는 ref = None · 키 모름이어도 간격 10분 상한
+- ⓚ' html.json = [] · {"map_at":123} · {"at":null} · 칸 형 모두 틀림 · 깨진 JSON · "문자열" · null → 예외 0 · WARN · 게시 1 · nl.run 이 check_stale 정확히 1회
+- ⓝ _tick 안 임의 예외 = 잡힘 · ERROR 1줄 · rc1 · run() 이 _run 예외에도 check_stale 1회 · _git(show) 7초 상한
+- 새 계약으로 갱신한 기존 칸(왜 = 판정 키가 «글자(블롭)» → «채움 아닌 마지막 커밋 sha»): test_r656 ⓒ(last.blob == c5) · ⓓ(되돌림 A→B→A = 사람 커밋이라 지도 1 · 옛 계약 0) · ⓕ(재기록 값 = c1) · test_r809 ⓓ(상태 시딩 값 = c1 커밋) · test_ledger_fill_r851(_ledger_blob → _human_key 이름만)
+
+결과
+- red-r3.txt: r3(08d1dc76 두 파일)에서 새 시험 12 failed + 1 error · 33 passed rc=1
+- green.txt: 45 passed rc=0
+- green-bundle.txt: 뉴스 묶음 373 passed · 1 failed rc=1 — test_r649_news_team_lines_isolate_error(부하 때 inbox «7초 초과 · 재시도» 문구 — r3 때도 base 판도 같은 실패 · 이 카드 밖)
+- mutation.txt: 7종 전부 빨강(M1 유한성 끔→ⓖ · M2 판정 불가 게시 복귀→ⓗ · M3 invert-grep 뺌→ⓙ' · M4 최소 간격 끔→ⓘ·ⓙ' · M5 상태 칸 형 검사 끔→ⓚ' · M6 틱 예외 잡기 끔→ⓝ · M7 run() r3 꼴→ⓝ) · 복원 sha 일치 · 변이 뒤 pyc 삭제 후 새 바이트코드로 52 passed 재확인
+- ruff = All checks passed(두 파일 + 시험 4파일)
+
+DA 범위 밖(다음 질문지로): 키 형이 바뀐 첫 틱 1회 게시(설치 뒤) · 간격 상태 손상 때 한 번 더 게시(상한 10분 1회) · main 착지(PR squash) 커밋은 메시지가 MSG 와 달라 «사람» 으로 셈 = 게시 1(지금 BYZ main 에 채움 착지 0건 · 안전 방향) · ft_news_watch.py:67 정지 경보 발송 시간 상한 · r649 문구 시험 · fetch 상한 숫자 · 뉴스 본문 문구
+
+press 필요: 없음(라이브 확인 = master 설치 뒤 /tmp/byz-ft-news-planner.log 에서 ①채움 커밋만 쌓이는 동안 게시 0 ②사람 커밋 1개 = 게시 1 ③받기 실패 틱 «원장 N분 전 판» 1회 ④나이 밖 틱 = 게시 0 · rc1 · ERROR 1줄)

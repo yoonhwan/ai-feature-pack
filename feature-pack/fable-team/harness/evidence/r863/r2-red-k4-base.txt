@@ -1,0 +1,32 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_______________ test_k4_unencodable_value_keeps_state_file_bytes _______________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-56/test_k4_unencodable_value_keep0')
+
+    def test_k4_unencodable_value_keeps_state_file_bytes(tmp_path):  # r863 r2 — 단독 surrogate 값 → 저장 실패여도 state.json 바이트 그대로(자르고 쓰기 0)
+        fx = _fx(tmp_path)
+        _all_limited(fx, "1", N - 240)
+        assert fx.run().returncode == 0 and _heads(fx) == [HOLD_HEAD]
+        _corrupt(fx, "outage_open", "", "\ud800")
+        _corrupt(fx, "blocked", "byz-y-arch-claude|대체 모델 없음(x)", "\ud800")
+        path = fx.ft / "state" / "model-swap" / "state.json"
+        before = path.read_bytes()
+        fx.sessions.clear()  # 생존 좌석 0
+        r = fx.run(N + 300)
+>       assert path.read_bytes() == before and "ERROR model_swap" in r.stderr, (r.returncode, r.stderr)
+E       AssertionError: (1, "ERROR model_swap: 알림 키 값 깨짐 outage_open=\\ud800 — 키 그대로 · 이번 실행 그 계보 알림 0
+E         ERROR model_swap: 알림 키 값 깨짐 byz-y-arch... 그 계보 알림 0
+E         ERROR model_swap: 'utf-8' codec can't encode character '\\ud800' in position 85: surrogates not allowed
+E         ")
+E       assert (b'' == b'{"swapped":...[1760399740]}'
+E         
+E         Use -v to get more diff)
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r863-model-swap-corrupt-key-value/feature-pack/fable-team/harness/tests/scripts/test_model_swap_account_outage_r838.py:343: AssertionError
+--------------------------- Captured stderr teardown ---------------------------
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+=========================== short test summary info ============================
+FAILED tests/scripts/test_model_swap_account_outage_r838.py::test_k4_unencodable_value_keeps_state_file_bytes
+1 failed, 18 deselected in 0.86s
+rc=1

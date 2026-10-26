@@ -1,0 +1,46 @@
+PASS py_compile classify
+PASS ⓐ .py set(tags)·set(LIVE_GPUS) → FORBID secret 0
+PASS ⓐ design/*.py(확장자 .py = code) set( → FORBID secret 0
+PASS ⓑ .sh 의 set 단독 → FORBID secret
+PASS ⓑ 문서 bash 울타리 안 set 단독 → FORBID secret
+PASS ⓑ h 계획(set 단독) → reject rc1
+PASS ⓒ .sh set -euo pipefail → FORBID 0
+PASS ⓒ .sh set -x → FORBID secret(값 추적 출력)
+PASS ⓒ 문서 python 울타리 안 set( → FORBID secret 0
+PASS ⓓ __tests__/*.test.ts credential → key FORBID 0
+PASS ⓓ tests/test_credential_x.py → key FORBID 0
+PASS ⓔ shared/credential_store.py(시험 아님) → FORBID key
+PASS ⓔ tests/.env(경로 금지 규칙이 먼저) → FORBID key
+PASS ⓕ 시험 파일 내용의 키 원문 → FORBID secret
+PASS ⓖ .env.example 이름만(빈 칸·자리표) → FORBID key 0
+PASS ⓖ .env.example 실값 → FORBID key
+PASS ⓖ .env.sample 이름만 → FORBID key 0
+PASS ⓖ .env.template 이름만 → FORBID key 0
+PASS ⓗ echo $OP_SECRET_ITEM_NAME → FORBID secret 0
+PASS ⓗ echo $TOSS_SECRET_KEY → FORBID secret
+PASS ⓗ 이름표+실값 섞임 → FORBID secret
+PASS 반례1 ⓐ 확장자 없는 셔뱅 파일의 set 단독 → FORBID secret
+PASS 반례1 ⓑ yaml run: 블록 안 set 단독 → FORBID secret
+PASS 반례1 ⓒ .py 문자열 리터럴 속 set → FORBID secret
+PASS 반례1 ⓓ .py 라도 셔뱅 있으면 셸 문맥(set( 도 판정) → FORBID secret
+PASS 반례2 ⓓ tests/credential.json 실값 → FORBID key
+PASS 반례2 ⓔ tests/secrets/credential.json → FORBID key(secrets/ 규칙 넓힘)
+PASS 반례2 ⓕ 시험 꼴 이름이라도 .json 이면 FORBID key
+PASS 반례2 ⓖ 시험 꼴 이름이라도 secrets/ 경로면 FORBID key
+PASS 반례3 ⓗ 따옴표 값 «안» 에 끼어든 줄 하나(추가 줄 = 그 #줄뿐) → FORBID key
+PASS 반례3 ⓘ 여러 줄 따옴표에 실값 → FORBID key
+PASS 반례3 ⓙ 여러 줄 따옴표가 자리표뿐이면 → FORBID key 0
+PASS 반례4 ⓚ $…_ID 이름표 목록에서 뺐다 → FORBID secret
+PASS 반례4 ⓛ 비밀 낱말 없는 파생 변수 echo → FORBID secret
+PASS 반례4 ⓜ 이름표 변수에 값이 들어간 줄이 있으면 → FORBID secret
+PASS 반례4 ⓝ 대입 없는 이름표 변수는 종전대로 통과 → FORBID secret 0
+PASS 변이: 칸1 좁힘 끔(set( 가리기 끔) → ⓐ 빨강(FORBID secret)
+PASS 변이: 셔뱅 문맥 판정 끔 → 반례1 ⓓ 빨강(셸 판정 밖)
+PASS 변이: 칸3 따옴표 값 안 판정 끔 → 반례3 ⓗ 빨강(key 0)
+PASS 변이: 칸4 좁힘 끔(_ID 되살림) → 반례4 ⓚ 빨강
+PASS 변이: 칸4 대입 추적 끔 → 반례4 ⓜ 빨강
+PASS 변이: 파생 변수 추적 끔 → 반례4 ⓛ 빨강
+PASS 변이: 시험 경로 제외 끔 → ⓓ 빨강(FORBID key)
+PASS 변이: 시험 경로 줄을 r1 의 넓은 꼴로 → 반례2 ⓓ 빨강(tests/credential.json 통과)
+PASS 칸 파일 4개 kit 사본 cmp0
+ALL PASS

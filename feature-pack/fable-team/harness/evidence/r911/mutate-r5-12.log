@@ -1,0 +1,125 @@
+PASS ⓐ 내용 같음(squash 착지·카드 착지 줄 없음) → FINISHED · E1f ok files=3 · WARN 1줄
+FAIL ⓑ [ACTIVE nano/b1-part
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+E1f no files=1 first=p3.txt
+branch=nano/b1-part sha=f1db8b034fe5fc9f487d90239ffe532a166529da ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.mUimaLVAAQ/R/design/teams/lecture/indices/진행/b1-part.md dir=<없음>]
+PASS ⓒ 가지가 지운 파일을 main 도 지움 → 같음(FINISHED)
+FAIL ⓒ2 [ACTIVE nano/c2-del-diff
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+E1f no files=1 first=h.txt
+branch=nano/c2-del-diff sha=ebea856d828a58fd1c9bfea7ff69cb33bc44e3c7 ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.mUimaLVAAQ/R/design/teams/lecture/indices/진행/c2-del-diff.md dir=<없음>]
+FAIL ⓓ 좌석 [ACTIVE nano/d1-eq
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 no tmux byz-lecture-nano-d1-eq#0
+E1f ok files=1
+branch=nano/d1-eq sha=a751174c61a45f8030b579a0ad2f32054bb06a9e ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.mUimaLVAAQ/R/design/teams/lecture/indices/진행/d1-eq.md dir=<없음>]
+FAIL ⓓ 미커밋 [ACTIVE nano/d2-eq
+E0 no 미커밋 있음 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.mUimaLVAAQ/wt-d2-eq
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+E1f ok files=1
+branch=nano/d2-eq sha=b86bb8fa369be8290577493261a7e701e1e299d8 ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.mUimaLVAAQ/R/design/teams/lecture/indices/진행/d2-eq.md dir=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.mUimaLVAAQ/wt-d2-eq]
+PASS ⓔ blob 조회 rc≠0 → rc2 판정 불가(FINISHED 0)
+PASS ⓔ 7초 룰(시험값 0.3s) 초과 → rc2 판정 불가(FINISHED 0)
+FAIL ⓓ' [ACTIVE nano/h1-empty
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+E1f no files=0 (바꾼 파일 없음 — E1f 대상 아님 · 카드 규칙으로)
+branch=nano/h1-empty sha=818adff008b7a6900c54103729dc6d0464a8e40f ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.mUimaLVAAQ/R/design/teams/lecture/indices/진행/h1-empty.md dir=<없음>]
+PASS ⓕ E1f FINISHED → refs/archive 생성 · 폴더 쓰는 중이라 가지 유지 · 폴더 그대로
+PASS ⓕ 폴더 정리 뒤 같은 판정으로 가지 목록에서 뺌(보관 ref 유지)
+PASS ⓕ `git branch -D` 호출 0
+PASS ⓕ ACTIVE(E1f no) 가지 → 이동 0
+PASS ⓖ wt-sweep --launchd: E1f 끝난 가지 이동(archived=5 archive_skip=3 replanned=0 hil_files=0 orphans=0 freed_kb=0) · ACTIVE 가지는 그대로(정리 도구 코드 변경 0)
+FAIL ⓗ [ACTIVE nano/h1-sub
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+E1f no files=1 first=sub
+branch=nano/h1-sub sha=57e546b09e630071038468bba707228806d7f93f ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.mUimaLVAAQ/R/design/teams/lecture/indices/진행/h1-sub.md dir=<없음>]
+PASS ⓘ (500 이하) 가지가 파일 tr2 삭제 · main 은 tr2 폴더 → «파일 tr2 = 양쪽 없음» = 같음(FINISHED · DA⑥ r3 §2 파일 단위 정의)
+PASS ⓘ (501 경로) bulk 500 같고 tr 은 «폴더 자체의 차이» → 파일 단위로는 같음(FINISHED · files=501)
+PASS ⓘ 501 경로 가지를 지난 뒤에도 «내용 같음» 판정 그대로(FINISHED · files=3)
+PASS ⓙ criss-cross(merge-base 2개) → rc2 판정 불가(FINISHED 0)
+FAIL ⓚ [ACTIVE nano/k1-magic
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+E1f no files=5 first=*
+branch=nano/k1-magic sha=a3fd0c104b14a6addf377b36d9e39c73003b1d7d ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.mUimaLVAAQ/R/design/teams/lecture/indices/진행/k1-magic.md dir=<없음>]
+PASS ⓚ magic 꼴 이름이 main 과 같은 내용 → FINISHED(E1f ok files=3)
+PASS ⓛ 5,000 경로 · git 대역 각 4초 → 호출 3회 · 13초(<70) · FINISHED(ok files=5000)
+PASS ⓛ 전체 마감(시험값 3s) 초과 → rc2 판정 불가(남은 시간으로 호출을 줄이다 마감 · FINISHED 0)
+PASS ⓛ 기본 전체 마감 = 70초(하드 룰 12)
+FAIL ⓜ mode [ACTIVE nano/m1-mode
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+E1f no files=1 first=sh.txt
+branch=nano/m1-mode sha=d7428af78857d446f527ae7bc133ac489e7e6ef0 ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.mUimaLVAAQ/R/design/teams/lecture/indices/진행/m1-mode.md dir=<없음>]
+FAIL ⓜ link [ACTIVE nano/m2-link
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+E1f no files=1 first=ln.txt
+branch=nano/m2-link sha=2d3e823238ebcb5c226c95999c44c15935ea04fe ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.mUimaLVAAQ/R/design/teams/lecture/indices/진행/m2-link.md dir=<없음>]
+FAIL ⓞ ACTIVE rc=1 [ACTIVE nano/o1-diff
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+E1f no files=1 first=o1.txt
+branch=nano/o1-diff sha=c563ebf0d6bb43efb20529e4c32cf231398d31c2 ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.mUimaLVAAQ/R/design/teams/lecture/indices/진행/o1-diff.md dir=<없음>]
+FAIL ⓞ ORPHAN rc=1 [ORPHAN nano/o2-orphan
+E0 ok 폴더 없음
+E1 no 카드 없음
+E2 no 카드 없음
+E3 ok 좌석 0
+E1f no files=1 first=o2.txt
+branch=nano/o2-orphan sha=6a6a1a71228a9635803f6de4f8300d59f04e4b7c ahead=1 main=origin/main card=<0개> dir=<없음>]
+FAIL ⓞ EMPTY rc=1 [EMPTY nano/o3-empty
+E0 ok 폴더 없음
+E1 no 카드 없음
+E2 no 카드 없음
+E3 ok 좌석 0
+E1f no files=0 (ahead=0 — E1f 대상 아님)
+branch=nano/o3-empty sha=d1707e744e1be4c915c0d816328f275c04e219dd ahead=0 main=origin/main card=<0개> dir=<없음>]
+PASS ⓞ E1f 로 끝난 가지(FINISHED) → rc0
+PASS ⓞ 판정기 rc 값역 = {0,2}(rc=0 · rc1 0)
+FAIL ⓞ exit 0 줄 없음(rc 계약 미고정)
+FAIL ⓞ 옛 159줄 && 사슬 남음 — E1f no 인 정상 판정이 rc1 로 끝난다
+PASS ⓟ 판정기 rc1 + 1행 ACTIVE → 이동 0(SKIP rc1 · 호출자는 rc 를 안 읽는다)
+PASS ⓟ 판정기 rc2 + 1행 ERROR → 이동 0(«판정 불가 = 안 끝남» 계약과 일치)
+PASS ⓟ 호출자 ft-branch-archive.sh 판정기 호출 줄에 rc 읽기 0(1행 판정 이름만)
+FAIL ⓝ differ rc=1 [ACTIVE nano/n1-raw
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+E1f no files=1 first=raw-\xff
+branch=nano/n1-raw sha=1c2dee197bd339662d2868831c9007b27e1903a1 ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.mUimaLVAAQ/R/design/teams/lecture/indices/진행/n1-raw.md dir=<없음>]
+PASS ⓝ 비 UTF-8 이름이 main 과 같은 내용 → rc0 FINISHED(E1f ok files=1 · UnicodeEncodeError 0)
+FAIL ⓝ newline rc=1 [ACTIVE nano/n3-nl
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+E1f no files=1 first=nl-\n-x
+branch=nano/n3-nl sha=9f0581a6e2fa3b1ea337d3363ef3f11475fe3993 ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.mUimaLVAAQ/R/design/teams/lecture/indices/진행/n3-nl.md dir=<없음>]
+(16 failed)
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

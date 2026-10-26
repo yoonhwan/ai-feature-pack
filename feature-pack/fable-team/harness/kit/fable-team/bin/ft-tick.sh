@@ -723,8 +723,10 @@ dead_seat_watch() {
       *) lines+="$seat(자동 재개 소진: $can · 오빠 재허용 = ft-resume-attempt.sh allow '$seat' $uuid) "; continue;;
     esac
     if [ "$DRY" = 1 ]; then echo "DRY kind=dead-seat seat=$seat can=$can mode=on"; tried=1; continue; fi
-    why="$(bash "$RESOURCE_GATE" check 2>&1)"; rc=$?; why="$(printf '%s\n' "$why" | tail -1)"
+    why="$(bash "$RESOURCE_GATE" check 2>&1)"; rc=$?; why="$(printf '%s\n' "$why" | grep -E '^(REJECT|WARN) resource' | tail -1)"
+    # r921: 죽은 좌석 재개도 «멈추지 않는다» — REJECT(디스크 하드 하한)만 재개 0 · WARN 은 1줄 남기고 재개한다(회수는 부르지 않는다: 재개 대상은 이미 죽어 라이브 목록에 없다)
     [ "$rc" = 0 ] || { lines+="$seat(자원 문지기 REJECT — 재개 0: ${why:0:100}) "; tried=1; continue; }
+    case "$why" in WARN*) lines+="$seat(자원 WARN — 재개 진행: ${why:0:100}) ";; esac
     [ "$can" = allowed ] && { bash "$RESUME_ATTEMPT" consume-allow "$seat" "$uuid" >/dev/null 2>&1 || { lines+="$seat(오빠 토큰 소비 실패 — 재개 0) "; tried=1; continue; }; }
     bash "$RESUME_ATTEMPT" claim "$seat" "$uuid" >/dev/null 2>&1 || { log "dead_seat_watch: $seat — 원장 선점 실패(이미 시도됨), 건너뜀"; continue; }
     tried=1
@@ -820,8 +822,38 @@ leak_watch() {
   return 0
 }
 
+# ★r928 r3 planner 감시 표본★ — 매 루프(60s) 오빠 대면 좌석(seats-planner.json `_master`)의 감시 생존을 `ft-mbox.sh watch-sample` 로 표본한다.
+#   표본 파일(state/planner-watch-absent-since.<좌석>)의 유일한 쓰는 쪽 · 송신 쪽 watch_alarm 은 읽기만(«처음 없음» 300초 유예 · 표본 180초 넘으면 표본 멈춤 = 바로 긴급).
+#   끄는 스위치 FT_TICK_WATCH_SAMPLE=0(끄면 표본이 멈춰 송신 쪽은 유예 없이 긴급 — 옛 동작) · 대역 FT_TICK_FTMBOX(시험).
+watch_sample_tick() {
+  local pj p fm out rc=0
+  [ "${FT_TICK_WATCH_SAMPLE:-1}" = 1 ] || return 0
+  pj="$(dirname "$SEATS")/seats-planner.json"; [ -f "$pj" ] || return 0
+  p="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1],encoding="utf-8")).get("_master") or "")' "$pj" 2>/dev/null)" || p=""
+  [ -n "$p" ] || { echo "$(date '+%F %T') watch_sample: no _master in $pj" >&2; return 0; }
+  fm="${FT_TICK_FTMBOX:-$HERE/ft-mbox.sh}"
+  [ -f "$fm" ] || { echo "$(date '+%F %T') watch_sample: missing $fm" >&2; return 0; }
+  if [ "$DRY" = 1 ]; then echo "DRY kind=watch-sample seat=$p bin=$fm comm=$(dirname "$MBOX")"; return 0; fi
+  out="$(bash "$fm" watch-sample "$p" "$(dirname "$MBOX")" 2>&1)" || rc=$?
+  [ "$rc" = 0 ] || echo "$(date '+%F %T') watch_sample: rc=$rc ${out//$'\n'/ | }" >&2
+  return 0
+}
+
+# ★r963 미push 하루 요약★ — harness 메인 틱에서만 «하루 1회», 각 워크트리 가지의 로컬 추적 ref 만 세어 master 에 1통(원격 접촉 0 · 표식은 다 본 날만).
+#   팀 틱(FT_TICK_TEAM 있음)은 부르지 않는다 · 백그라운드 + 즉시 반환(틱 루프를 막지 않는다) · FT_TICK_UNPUSHED=0 으로 끔.
+UNPUSHED_SUMMARY="${FT_TICK_UNPUSHED_BIN:-$HERE/ft-unpushed-summary.sh}"
+unpushed_daily() {
+  [ "${FT_TICK_UNPUSHED:-1}" = 1 ] || return 0
+  [ -z "${FT_TICK_TEAM:-}" ] || return 0
+  [ -f "$UNPUSHED_SUMMARY" ] || { echo "$(date '+%F %T') unpushed_daily: missing $UNPUSHED_SUMMARY" >&2; return 0; }
+  if [ "$DRY" = 1 ]; then echo "DRY kind=unpushed-daily bin=$UNPUSHED_SUMMARY"; return 0; fi
+  ( FT_ROOT="${ROOT:-$WT}" FT_TICK_MBOX="$MBOX" bash "$UNPUSHED_SUMMARY" >>"${FT_TICK_UNPUSHED_LOG:-/tmp/ft-unpushed-summary.log}" 2>&1 & ) >/dev/null 2>&1
+  return 0
+}
+
 pass() {
   local rows seat tick role report_to master mok
+  watch_sample_tick
   autonomy_expire
   leak_watch
   hil_watch
@@ -839,6 +871,7 @@ pass() {
   queue_full_watch
   queue_watch
   launchd_watch
+  unpushed_daily
   news_ledger
   rows="$(read_seats 2>&1)" || { echo "$(date '+%F %T') seats.json unreadable ($SEATS): ${rows//$'\n'/ | }" >&2; return 1; }
   [ -n "$rows" ] || { log "no active seat with tick in $SEATS"; return 0; }

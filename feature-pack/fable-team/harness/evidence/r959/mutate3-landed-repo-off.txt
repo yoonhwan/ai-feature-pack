@@ -1,0 +1,18 @@
+PASS ⓐ git mv 실패 → REJECT 줄 «안»에 git 원문 사유(«destination exists») 포함
+PASS ⓐ mv(untracked) 실패 → REJECT 줄 «안»에 원문 사유(«Permission denied») :: REJECT 이동 실패: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.hmugmGnser/byz/design/harness/indices/진행/kmv2.md → /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.hmugmGnser/byz/design/harness/indices/대기/kmv2.md — fatal: renaming 'design/harness/indices/진행/kmv2.md' failed: Permission denied
+PASS ⓐ 정상 이동은 그대로 MOVED rc0(회귀 0)
+FAIL ⓑ 팩 착지(두 리포) → OK :: rc=0 out=REJECT	판정문 표식 main(팩) 인데 팩 리포에 그 sha 가 없다 — 표식 오기(숨김 0): 5ea8aef9d16e65770ae9a9abb2c6cdc8de4453ce
+FAIL ⓑ 팩에만 있는 sha → OK :: rc=0 out=REJECT	착지 sha 를 어느 리포에서도 못 찾음: a8a995d5a5243bbc19c9204ba8116435ba96daf9 (카드 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.hmugmGnser/byz · 팩 <못 풂>)
+PASS ⓑ 두 리포 어디에도 없는 sha → 지금처럼 REJECT
+FAIL ⓒ 표식 오기(팩) → WARN + 통과 ::  :: rc=0 out=REJECT	착지 sha 를 어느 리포에서도 못 찾음: a8a995d5a5243bbc19c9204ba8116435ba96daf9 (카드 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.hmugmGnser/byz · 팩 <못 풂>)
+PASS ⓒ 표식 main(팩) 인데 sha 가 카드 리포에만 → REJECT(숨김 0 · 회귀 0)
+PASS ⓒ 표식 main + 카드 리포 착지 → OK(정상 길 회귀 0)
+FAIL ⓑ 진행→완성 이동 :: REJECT 정본 게이트 — 판정문 표식 main(팩) 인데 팩 리포에 그 sha 가 없다 — 표식 오기(숨김 0): 5ea8aef9d16e65770ae9a9abb2c6cdc8de4453ce (이동 0 · 카드에 줄을 쓰고 다시 이동) :: rc=1 out=REJECT 정본 게이트 — 판정문 표식 main(팩) 인데 팩 리포에 그 sha 가 없다 — 표식 오기(숨김 0): 5ea8aef9d16e65770ae9a9abb2c6cdc8de4453ce (이동 0 · 카드에 줄을 쓰고 다시 이동)
+FAIL ⓒ2 두 게이트 같은 판정 :: REJECT 정본 게이트 — 착지 sha 를 어느 리포에서도 못 찾음: a8a995d5a5243bbc19c9204ba8116435ba96daf9 (카드 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.hmugmGnser/byz · 팩 <못 풂>) (이동 0 · 카드에 줄을 쓰고 다시 이동) :: rc=1 out=REJECT 정본 게이트 — 착지 sha 를 어느 리포에서도 못 찾음: a8a995d5a5243bbc19c9204ba8116435ba96daf9 (카드 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.hmugmGnser/byz · 팩 <못 풂>) (이동 0 · 카드에 줄을 쓰고 다시 이동)
+FAIL ⓒ3 보류 이력 카드 :: REJECT 정본 게이트 — 착지 sha 를 어느 리포에서도 못 찾음: a8a995d5a5243bbc19c9204ba8116435ba96daf9 (카드 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.hmugmGnser/byz · 팩 <못 풂>) (이동 0 · 카드에 줄을 쓰고 다시 이동) :: rc=1 out=REJECT 정본 게이트 — 착지 sha 를 어느 리포에서도 못 찾음: a8a995d5a5243bbc19c9204ba8116435ba96daf9 (카드 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.hmugmGnser/byz · 팩 <못 풂>) (이동 0 · 카드에 줄을 쓰고 다시 이동)
+PASS ⓒ4 close-landed(네 번째 호출)도 표식 오기 보정 → 조상 ok
+PASS ⓒ5 호출 4곳 모두 기본 함수 · 보정은 ft_landed_repo 안 · 별칭 잔재 0
+PASS ⓕ 팩 착지 + plist 템플릿을 바꾼 범위 → --project 를 넘겨 plist-env ERROR 0 · rc0
+PASS ⓓ 팩 리포 변경 0
+PASS ⓔ bash 3.2(/bin/bash) -n rc0 — 고친 두 파일 + lib
+FAILED 6

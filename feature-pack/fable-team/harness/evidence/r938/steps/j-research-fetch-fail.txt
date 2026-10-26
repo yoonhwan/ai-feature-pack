@@ -1,0 +1,8 @@
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: <TMP>/bin
+WARN ④checkpoint 면제 — 나노 브랜치에 press 산출 0(poller_dom.jsonl 없음)
+OK cherry 게이트 — nano/ns 의 모든 커밋이 main 에 patch 단위로 존재(+ 0)
+REJECT byz-planner-nano-ns#0
+  - ⑥리서치 origin/main fetch 실패 — 옛 ref 대조 0(R22) · 7초+재시도 1 상한 · 다시: 같은 명령(일시 장애면)
+STEP ⑥증거검사 +1s
+STEP fetch +1s
+STEP ⑤cherry +1s

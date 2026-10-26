@@ -77,7 +77,7 @@ def test_b_two_timeouts_bounded_and_warn_with_age(tmp_path, monkeypatch, caplog)
     assert elapsed <= 8.5  # 시도당 2 × 2 + TERM→KILL 유예 1 × 2 + 여유(총 마감 70 안)
     assert err.startswith("원장 ref fetch 실패 — ") and "origin/main = 40분 전 받은 판" in err
     assert os.environ["FT_LEDGER_SYNC_ERROR"] == err  # 머리 줄과 로그가 같은 문구
-    assert err in [r.message for r in caplog.records if r.levelname == "ERROR"]
+    assert err in [r.message for r in caplog.records if r.levelname == "WARNING"]  # r907 r3 — ERROR 는 뉴스 틱이 구간당 1줄
 
 
 # ── ⓒ fetch 표식 없음 = «받은 시각 모름» ──

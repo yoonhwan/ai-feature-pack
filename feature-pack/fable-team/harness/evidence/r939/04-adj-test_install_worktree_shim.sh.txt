@@ -1,0 +1,35 @@
+PASS bash -n install.sh
+PASS 픽스처 W1 = shim bin · LIVE_BIN = A · 새 이름 없음
+PASS ⓒ dry-run (rc=0)
+PASS ⓒ PLAN wt-shim W1 (옛 판 -> 새 판)
+PASS ⓒ PLAN wt-shim 1줄
+PASS ⓒ dry-run W2 SKIP 줄
+PASS ⓒ 쓰기 0(W1·W2·C 바이트 불변)
+PASS ⓐ apply 공용 루트 (rc=0)
+PASS ⓐ 공용 루트 LIVE_BIN = B
+PASS ⓐ W1 LIVE_BIN = B
+PASS ⓐ W1 새 이름 연결 1(ft-index-move.sh)
+PASS ⓐ W1 LIVE_ROOT 보존(= C)
+PASS ⓐ WT-SHIM refreshed=1 skip=1 fail=0
+PASS ⓐ 끝줄 INSTALLED
+PASS ⓑ SKIP wt-shim W2 (shim 아님)
+PASS ⓑ W2 바이트 그대로(LIVE_BIN 포함)
+PASS ⓑ W2 bin.stale-* 0
+PASS ⓑ W3 변화 0(.fable-team 없음 그대로)
+PASS ⓑ W3 는 대상 아님(줄 0)
+PASS ⓔ 두 번째 apply (rc=0)
+PASS ⓔ refreshed=0(멱등)
+PASS ⓔ W1 쓰기 0
+PASS ⓔ --project W1 apply (rc=0)
+PASS ⓔ 워크트리 설치 = 순회 0(WT-SHIM 줄 0)
+PASS ⓔ 워크트리 설치 = wt-shim 줄 0
+PASS ⓕ prunable 있어도 apply (rc=0)
+PASS ⓕ SKIP wt-shim W3 (폴더 없음)
+PASS ⓕ skip=2
+PASS ⓓ W1 실패 → 설치 끝 rc1 (rc=1)
+PASS ⓓ ERROR wt-shim W1 rc=3
+PASS ⓓ WT-SHIM fail=1
+PASS ⓓ «LIVE_BIN 전환은 끝났다» 문구
+PASS ⓓ 공용 루트 LIVE_BIN = B(전환 끝)
+PASS ⓓ 조용한 통과 0(성공 끝줄 없음)
+fail=0

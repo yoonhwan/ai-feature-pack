@@ -175,7 +175,8 @@ ptick() { env FT_RES_ROOT="$R" PATH="$S:$PATH" FT_RES_SNAP_SEC=9999999999 FT_WOR
 pstate; ptick; eq "$(rcalls)" 1 "R332 ⓔ 정상 tick → 예방 호출 1"
 [ -f "$ST/.preventive-last" ] && ok "R332 ⓔ 완료 stamp 기록" || bad "R332 ⓔ 완료 stamp 없음"
 pstate; ptick PATH="$T/badsys:$S:$PATH"; prc=$?
-{ [ "$prc" -ne 0 ] && [ "$(rcalls)" = 1 ]; } && ok "R332 ⓔ gate 측정 오류(tick rc=$prc)에서도 예방 호출 1" || bad "R332 ⓔ 측정 오류 경로 rc=$prc 호출=$(rcalls)"
+# r921: 문지기가 «못 잰 축 = WARN + 진행» 으로 바뀌어 tick rc 는 «성공(0)» 이다 — 반환값 단언은 그대로 살린다(DA⑥ r1: 단언 삭제 금지)
+{ [ "$prc" -eq 0 ] && [ "$(rcalls)" = 1 ]; } && ok "R332 ⓔ gate 측정 오류(이제 WARN · tick rc=0)에서도 예방 호출 1" || bad "R332 ⓔ 측정 오류 경로 rc=$prc 호출=$(rcalls)"
 pstate; ptick FAKE_SWAP=13000 FAKE_LEVEL=2 FAKE_MEMFREE=22
 { [ -f "$FREEZE" ] && [ "$(rcalls)" = 1 ]; } && ok "R332 ⓔ 새 freeze 생성 tick 에서도 예방 호출 1 · 동결은 그대로 생성" || bad "R332 ⓔ freeze 경로 호출=$(rcalls) freeze=$([ -f "$FREEZE" ] && echo 있음 || echo 없음)"
 # ⓑ stamp 오래됨 + 동시 두 tick → 호출 1 (실행권 mkdir 1회 · 경합이면 즉시 포기)

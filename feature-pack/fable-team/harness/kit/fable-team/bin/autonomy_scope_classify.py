@@ -106,8 +106,10 @@ def classify(repo, remote, target, scope, sha, table=None, records=None, learned
     blocks = secret_lines.parse_added(git, repo, base, sha)   # diff 상태 기계(파일마다 git 호출 0) · added = ddl 기록 대조용 전문
     added = "\n".join(t for _p, items, _n in blocks for _no, t in items)
     ddl_ok = lambda p: rules.ddl_recorded(records or [], p, added, show_at(repo, sha))  # noqa: E731
+    full = secret_lines.read_new(repo, sha, [p for p, _i, _n in blocks if p and rules.ENV_TEMPLATE.search(p)])   # .env 견본 = 바뀐 뒤 전문(따옴표 값 «안» 줄 판별 · 칸 3)
+    env_ok = lambda p: rules.env_added_values_ok(full.get(p), [(n, t) for q, items, _n in blocks if q == p for n, t in items])  # noqa: E731
     table = table or rules.BYZ_TABLE   # D+A 짝 맞추기(카드 이동)를 먼저 · 판정은 행마다
-    judged = [rules.judge_row(table, r, ddl_ok) for r in rules.pair_card_moves(table, rows)]
+    judged = [rules.judge_row(table, r, ddl_ok, env_ok) for r in rules.pair_card_moves(table, rows)]
     secret = secret_lines.reason(blocks, lambda p: rules.path_class(table, p), repo, sha)   # code 전문 · 문서는 실행 줄만(r559)
     if secret:
         judged.append(("forbid", "secret", secret))

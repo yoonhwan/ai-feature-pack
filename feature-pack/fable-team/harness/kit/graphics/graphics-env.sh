@@ -10,7 +10,7 @@ export FT_NANO_LEDGER=design/graphics/NANO-LEDGER-graphics.md
 export FT_GOAL_LEDGER=design/graphics/GOAL-graphics.md
 # FT_IMPL_MODEL 은 일부러 넣지 않는다 — spawn 기본 agent 는 claude 이고 env 로 agent 를 못 바꾼다. graphics 나노는 발주에서 항상 --agent codex --model gpt-6.1-sol 명시.
 export FT_SEND_FROM='byz-graphics-master-claude#0'   # 그래픽스 팀장 — 팀장 승계 때 seats-graphics.json _master 와 같이 고친다
-export FT_BIN=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live/.fable-team/bin   # harness-env.sh 와 같은 값
+export FT_BIN="$_GR_ROOT/.fable-team/bin"   # r962: 공용 루트 bin(옛 v6-realtime-live 워크트리 bin 0)
 export FT_NANO_FEAT=origin/main
 export FT_GOAL_LINES_FILE="$_GR_ROOT/.fable-team/bin-graphics/goal-lines-graphics.txt"
 export FT_MBOX_SH="$_GR_ROOT/.fable-team/comm/mbox.sh"   # 추적 사본(harness/kit)에서 spawn 을 돌려도 mbox 를 찾게 한다

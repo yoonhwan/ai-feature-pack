@@ -1,0 +1,23 @@
+r907 r6 — DA⑥ r5 HOLD 2 반송(arch 143 · 하드 룰 14 · 보류 5회) · 이어받은 가지 f7034906 위 6번째 커밋 · 골좌표: 1 — 하네스팀 랜딩부터
+
+문제 다시 보기: 남은 두 건은 같은 뿌리 = «모름/실패» 를 조용히 정상으로 넘기는 기본값 하나씩(required=False · except Exception). 경로를 더 쪼개지 않고 기본값을 뒤집었다.
+
+r6 에서 고친 것
+1. 시각 칸 기본값 뒤집기 — ft_news_html._since(..., required=True) 가 기본 · «없어도 정상» 인 fail_at 만 required=False. 상태 파일은 있는데 `at`·`map_at` 칸 없음 = 대기 0 + WARN 1줄(상태 파일 자체가 없음 = 첫 판 = WARN 0). _tick 의 since 람다 기본 required=True · _gap_ok 도 기본값 사용.
+2. 알림용 git show 를 try 밖으로 — ft_news_ledger._run: `ledger_text = _git(repo, "show", ...)` 를 try 밖에, try 는 notify() 호출만(알림 «자체» 실패만 «알림 건너뜀»). git 시간 초과·실패는 판정 불가 갈래(게시 0 · rc1 · run() finally check_stale).
+3. ERROR 구간당 1줄 — ft_news_ledger._error_once(html, msg, err): 이미 있는 fail_announced/mark_fail_announced 장치 그대로(새 장치 0). html 모드에서 구간 안 다음 틱 = WARN «구간 계속». _run 의 «원장 뉴스 실패»·run() 의 «뉴스 실행 예외» 둘 다 이 함수. html 아님 = 옛 꼴(매번 ERROR).
+4. 격리 재현: 시험 실행 줄에 `--basetemp=<스크래치 폴더>`(conftest 기본 그대로 · 실행 줄만) — 이 라운드 시험을 전부 그 줄로 돌림.
+5. kit 짝 사본 2개 cmp0 · sync_repo 갈래 변경 0
+
+시험 (test_r907_news_stale_head.py · 57건 · 새 3건)
+- ⓩ1 `at` 없는 html.json(map_at 오늘 · 키 같음) → 변화 없음 줄 1회 · WARN 정확히 1줄(at 칸 없음) · fail_at 칸 없음 = WARN 0
+- ⓩ2 rev-parse 성공 · `git show` 만 시간 초과(대역) → 게시(tick) 0 · rc1 · check_stale 매 틱 · 3틱 연속 ERROR 정확히 1줄 + WARN «구간 계속» 2줄 · «알림 건너뜀» 0
+- ⓩ3 notify 자체 예외 → «알림 건너뜀» ERROR 1줄 · 게시 진행(기존 행동 유지)
+
+결과
+- green.txt: 57 passed rc=0 (PYTHONPYCACHEPREFIX 새 바이트코드 · --basetemp 스크래치)
+- green-bundle.txt: 뉴스 묶음 385 passed · 1 failed rc=1 — test_r649_news_team_lines_isolate_error(부하 때 inbox «7초 초과 · 재시도» 문구 · base 판도 같은 실패 · 이 카드 밖)
+- mutation.txt: 14종 전부 빨강(r5 의 11종 유지 + M12 시각 칸 기본값 required=False 복귀→ⓩ1 · M13 git show 를 알림 try 안으로 복귀→ⓩ2 · M14 ERROR 구간당 1줄 끔→ⓩ2) · 복원 sha 일치 · M7 변이 원문은 _error_once 꼴로 갱신
+- ruff = All checks passed
+
+press 필요: 없음(라이브 확인 = master 설치 뒤 /tmp/byz-ft-news-planner.log 에서 r5 4항 + ⑤ 원장 git 이 느릴 때 «원장 뉴스 실패» ERROR 구간당 1줄 · 게시 0)

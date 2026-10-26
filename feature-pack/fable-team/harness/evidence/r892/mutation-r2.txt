@@ -1,0 +1,10 @@
+PASS 무변이 기준(전부)
+KILLED ①건너뛰기제거
+KILLED ②OSError전부삼키기
+KILLED ③새로보인이름재대조제거
+KILLED ④폴더사라짐검사제거
+KILLED ⑤다시훑기제거
+KILLED ⑥팀작업표꼬리제거
+KILLED ⑦메인골표꼬리제거(r2)
+KILLED ⑧못찾은이름조용히버림(r2)
+KILLED ⑨scandir를glob로(r2)

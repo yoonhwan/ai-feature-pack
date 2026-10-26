@@ -1,0 +1,472 @@
+.........................F.FFFF...F...FFFFFFE.                           [100%]
+==================================== ERRORS ====================================
+_______ ERROR at teardown of test_n_git_show_timeout_is_a_runtime_error ________
+
+cmd = ['/opt/homebrew/bin/git', 'config', '--file', '/Users/yoonhwan/Project/ai-feature-pack/.git/config', '--get-regexp', '^(core\\.bare|user\\.name|user\\.email)$']
+a = ()
+kw = {'capture_output': True, 'env': {'ACO_HOME': '/Users/yoonhwan/.aco', 'AI_AGENT': 'claude-code_2-1-310_agent', 'ANTHROPIC_BASE_URL': 'http://127.0.0.1:8317', 'BASH_MAX_OUTPUT_LENGTH': '30000', ...}, 'text': True}
+@py_assert1 = <built-in method get of dict object at 0x10918b480>
+@py_assert3 = 'timeout', @py_assert5 = None
+
+    def slow(cmd, *a, **kw):
+>       assert kw.get("timeout") == fh.GIT_S == 7
+                                    ^^^^^^^^
+E       AttributeError: module 'ft_news_html' has no attribute 'GIT_S'
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/tests/scripts/test_r907_news_stale_head.py:519: AttributeError
+=================================== FAILURES ===================================
+___________ test_i_fill_only_changes_are_not_a_change_and_gap_is_10 ____________
+
+fillenv = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-590/test_i_fill_only_ch...etime.datetime(2026, 10, 25, 12, 0), datetime.datetime(2026, 10, 25, 12, 10), datetime.datetime(2026, 10, 25, 12, 25)])
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-590/test_i_fill_only_changes_are_n0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x109229810>
+
+    def test_i_fill_only_changes_are_not_a_change_and_gap_is_10(fillenv, tmp_path, monkeypatch):
+        """채움 커밋만 쌓인 3틱 = 게시 0 · 사람 글줄 1줄 = 게시 1 · 그 뒤 5분 변화 = 게시 0(간격) · 10분 변화 = 게시 1."""
+        repo, rel, state, made = fillenv
+        news = tmp_path / "news"
+        base_f = state / "last.sha"
+        stamp = {"v": ""}
+    
+        def tick(cur: str, at: str):
+            monkeypatch.setenv("FT_NEWS_NOW", at)
+            base = base_f.read_text(encoding="utf-8").strip() if base_f.is_file() else ""
+            return fh.tick(tmp_path, state, repo, rel, news, base, cur)
+    
+        c1 = _commit_ledger(repo, rel, LEDGER_FILLED.format(human="A", n=1, mins=5, cards=1))
+        stamp["v"] = c1
+        assert tick(c1, "2026-10-25 12:00") == (0, "지도 발행") and len(made) == 1
+        for i, (n, mins, cards) in enumerate([(2, 6, 2), (3, 7, 3), (4, 8, 4)], start=1):
+            c = _fill_commit(repo, rel, LEDGER_FILLED.format(human="A", n=n, mins=mins, cards=cards))
+            assert tick(c, f"2026-10-25 12:0{i}") == (0, "원장 커밋 0") and len(made) == 1  # 채움 커밋만 = 변화 0
+        c_human = _commit_ledger(repo, rel, LEDGER_FILLED.format(human="B — 사람이 쓴 새 줄", n=5, mins=9, cards=5))
+        assert tick(c_human, "2026-10-25 12:10") == (0, "지도 발행") and len(made) == 2  # 사람 칸 1줄 = 게시 1
+        c_5 = _commit_ledger(repo, rel, LEDGER_FILLED.format(human="C", n=6, mins=10, cards=6))
+        assert tick(c_5, "2026-10-25 12:15") == (0, "게시 간격 안") and len(made) == 2  # 5분 뒤 = 간격
+        c_10 = _commit_ledger(repo, rel, LEDGER_FILLED.format(human="D", n=7, mins=11, cards=7))
+        assert tick(c_10, "2026-10-25 12:25") == (0, "지도 발행") and len(made) == 3  # 10분 뒤 = 게시
+>       assert (state / "last.blob").read_text(encoding="utf-8").strip() == c_10  # 판정 키 = 채움 아닌 마지막 커밋 sha(r4)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: assert 'd2d315f37a6d...991dd02318cf9' == '73a9993bdbf0...628d9059df194'
+E         
+E         - 73a9993bdbf07d116330195db92628d9059df194
+E         + d2d315f37a6df1d095ddb5e019e991dd02318cf9
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/tests/scripts/test_r907_news_stale_head.py:342: AssertionError
+------------------------------ Captured log call -------------------------------
+ERROR    ft_news_html:ft_news_html.py:421 골 정본 못 읽음 — 정본 sha 판정 0: ERROR 골 표 기본 출처: LIVE_BIN 이 없거나 무효 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-590/ft_root25/.fable-team/LIVE_BIN = '' (절대경로 · 실재 폴더 필요 — ft-root-bin-shim.sh 가 설치 때 만든다 · env FT_GOAL_A6_MD·FT_GOAL_A6_LEDGER 로 직접 지정 가능)
+ERROR    ft_news_html:ft_news_html.py:421 골 정본 못 읽음 — 정본 sha 판정 0: ERROR 골 표 기본 출처: LIVE_BIN 이 없거나 무효 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-590/ft_root25/.fable-team/LIVE_BIN = '' (절대경로 · 실재 폴더 필요 — ft-root-bin-shim.sh 가 설치 때 만든다 · env FT_GOAL_A6_MD·FT_GOAL_A6_LEDGER 로 직접 지정 가능)
+ERROR    ft_news_html:ft_news_html.py:421 골 정본 못 읽음 — 정본 sha 판정 0: ERROR 골 표 기본 출처: LIVE_BIN 이 없거나 무효 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-590/ft_root25/.fable-team/LIVE_BIN = '' (절대경로 · 실재 폴더 필요 — ft-root-bin-shim.sh 가 설치 때 만든다 · env FT_GOAL_A6_MD·FT_GOAL_A6_LEDGER 로 직접 지정 가능)
+ERROR    ft_news_html:ft_news_html.py:421 골 정본 못 읽음 — 정본 sha 판정 0: ERROR 골 표 기본 출처: LIVE_BIN 이 없거나 무효 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-590/ft_root25/.fable-team/LIVE_BIN = '' (절대경로 · 실재 폴더 필요 — ft-root-bin-shim.sh 가 설치 때 만든다 · env FT_GOAL_A6_MD·FT_GOAL_A6_LEDGER 로 직접 지정 가능)
+ERROR    ft_news_html:ft_news_html.py:421 골 정본 못 읽음 — 정본 sha 판정 0: ERROR 골 표 기본 출처: LIVE_BIN 이 없거나 무효 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-590/ft_root25/.fable-team/LIVE_BIN = '' (절대경로 · 실재 폴더 필요 — ft-root-bin-shim.sh 가 설치 때 만든다 · env FT_GOAL_A6_MD·FT_GOAL_A6_LEDGER 로 직접 지정 가능)
+ERROR    ft_news_html:ft_news_html.py:421 골 정본 못 읽음 — 정본 sha 판정 0: ERROR 골 표 기본 출처: LIVE_BIN 이 없거나 무효 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-590/ft_root25/.fable-team/LIVE_BIN = '' (절대경로 · 실재 폴더 필요 — ft-root-bin-shim.sh 가 설치 때 만든다 · env FT_GOAL_A6_MD·FT_GOAL_A6_LEDGER 로 직접 지정 가능)
+ERROR    ft_news_html:ft_news_html.py:421 골 정본 못 읽음 — 정본 sha 판정 0: ERROR 골 표 기본 출처: LIVE_BIN 이 없거나 무효 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-590/ft_root25/.fable-team/LIVE_BIN = '' (절대경로 · 실재 폴더 필요 — ft-root-bin-shim.sh 가 설치 때 만든다 · env FT_GOAL_A6_MD·FT_GOAL_A6_LEDGER 로 직접 지정 가능)
+______________________ test_j_key_is_last_non_fill_commit ______________________
+
+fillenv = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-590/test_j_key_is_last_...00gn/T/pytest-of-yoonhwan/pytest-590/test_j_key_is_last_non_fill_co0/state'), [datetime.datetime(2026, 10, 25, 12, 0)])
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-590/test_j_key_is_last_non_fill_co0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x108d677d0>
+
+    def test_j_key_is_last_non_fill_commit(fillenv, tmp_path, monkeypatch):
+        """ⓙ' 채움 커밋(§3 표 변경 · §2 줄 변경) 연속 = 게시 0 · 사람 커밋 1(§4 칸) = 게시 1 · 사람이 채움 구간을 고친 커밋도 «사람» = 게시 1(글자 파싱 0)."""
+        repo, rel, state, made = fillenv
+        news = tmp_path / "news"
+        base_f = state / "last.sha"
+    
+        def tick(cur: str, at: str):
+            monkeypatch.setenv("FT_NEWS_NOW", at)
+            base = base_f.read_text(encoding="utf-8").strip() if base_f.is_file() else ""
+            return fh.tick(tmp_path, state, repo, rel, news, base, cur)
+    
+        c1 = _commit_ledger(repo, rel, LEDGER_TABLES.format(human="A", cards=1, issue="a"))
+        assert tick(c1, "2026-10-25 12:00") == (0, "지도 발행") and len(made) == 1
+        for i, cards in enumerate((2, 3, 4), start=1):  # 채움 커밋 3개
+            f = _fill_commit(repo, rel, LEDGER_TABLES.format(human="A", cards=cards, issue="a"))
+>           assert fh._human_key(repo, rel, f) == c1  # 키 = 채움 아닌 마지막 커밋 = c1 그대로
+                   ^^^^^^^^^^^^^
+E           AttributeError: module 'ft_news_html' has no attribute '_human_key'
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/tests/scripts/test_r907_news_stale_head.py:382: AttributeError
+------------------------------ Captured log call -------------------------------
+ERROR    ft_news_html:ft_news_html.py:421 골 정본 못 읽음 — 정본 sha 판정 0: ERROR 골 표 기본 출처: LIVE_BIN 이 없거나 무효 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-590/ft_root27/.fable-team/LIVE_BIN = '' (절대경로 · 실재 폴더 필요 — ft-root-bin-shim.sh 가 설치 때 만든다 · env FT_GOAL_A6_MD·FT_GOAL_A6_LEDGER 로 직접 지정 가능)
+_______ test_j_real_fill_commits_do_not_move_key_including_row_lowering ________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-590/test_j_real_fill_commits_do_no0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1091c3550>
+world = {'mag': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-590/test_j_real_...53wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-590/test_j_real_fill_commits_do_no0/byz_slack_questions.C1.json'), ...}
+
+    def test_j_real_fill_commits_do_not_move_key_including_row_lowering(tmp_path, monkeypatch, world):  # noqa: F811
+        """ⓙ' 실제 ft_ledger_fill.fill 로 만든 채움 커밋(닫힌 행 내리기 포함) 3개 = 키 그대로(DA⑥ r3 반례 ①) · 사람 커밋 위에서는 키 = 그 커밋."""
+        w = world
+        repo = w["repo"]
+        head = lambda ref: fh._human_key(repo, REL, ref)  # noqa: E731
+>       base_key = head("origin/main")
+                   ^^^^^^^^^^^^^^^^^^^
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/tests/scripts/test_r907_news_stale_head.py:396: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+ref = 'origin/main'
+
+>   head = lambda ref: fh._human_key(repo, REL, ref)  # noqa: E731
+                       ^^^^^^^^^^^^^
+E   AttributeError: module 'ft_news_html' has no attribute '_human_key'
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/tests/scripts/test_r907_news_stale_head.py:395: AttributeError
+______________ test_j_key_unknown_when_git_log_fails_or_times_out ______________
+
+fillenv = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-590/test_j_key_unknown_.../folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-590/test_j_key_unknown_when_git_lo0/state'), [])
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1091eef50>
+caplog = <_pytest.logging.LogCaptureFixture object at 0x1091eea10>
+
+    def test_j_key_unknown_when_git_log_fails_or_times_out(fillenv, monkeypatch, caplog):
+        """ⓙ' git log 실패(없는 ref) · 시간 초과 · 채움 모듈 없음 = 키 None(모름 = «바뀜» 쪽) · WARN."""
+        repo, rel, _state, _made = fillenv
+        c = _commit_ledger(repo, rel, "# 원장\n사람 A\n")
+>       assert fh._human_key(repo, rel, c) == c and fh._human_key(repo, rel, "no-such-ref") is None
+               ^^^^^^^^^^^^^
+E       AttributeError: module 'ft_news_html' has no attribute '_human_key'
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/tests/scripts/test_r907_news_stale_head.py:420: AttributeError
+_______________ test_j_unknown_key_publishes_but_gap_still_caps ________________
+
+fillenv = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-590/test_j_unknown_key_.../folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-590/test_j_unknown_key_publishes_b0/state'), [])
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-590/test_j_unknown_key_publishes_b0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1091ecc50>
+
+    def test_j_unknown_key_publishes_but_gap_still_caps(fillenv, tmp_path, monkeypatch):
+        """키 모름 = «바뀜» → 게시 후보 · 최소 간격 10분이 상한(채움 커밋이 매 틱 와도 하루 235회가 아님)."""
+        repo, rel, state, made = fillenv
+>       monkeypatch.setattr(fh, "_human_key", lambda *a: None)
+E       AttributeError: <module 'ft_news_html' from '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/bin/ft_news_html.py'> has no attribute '_human_key'
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/tests/scripts/test_r907_news_stale_head.py:436: AttributeError
+_____ test_k_garbage_state_file_no_exception_warn_and_check_stale_once[[]] _____
+
+fillenv = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-590/test_k_garbage_stat.../folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-590/test_k_garbage_state_file_no_e0/state'), [])
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-590/test_k_garbage_state_file_no_e0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x108edd4d0>
+caplog = <_pytest.logging.LogCaptureFixture object at 0x108edd6d0>, raw = '[]'
+
+    @pytest.mark.parametrize("raw", ["[]", '{"map_at": 123}', '{"at": null}', '{"at": 5, "map_at": ["x"], "fail_at": {}}', "{깨진 json", '"문자열"', "null"])
+    def test_k_garbage_state_file_no_exception_warn_and_check_stale_once(fillenv, tmp_path, monkeypatch, caplog, raw):
+        """ⓚ' html.json 이 객체 아님·칸 형 틀림·깨진 JSON → 예외 0 · WARN · 게시 가능 · nl.run 이 check_stale 을 정확히 1회(DA⑥ r3 반례 ②)."""
+        repo, rel, state, made = fillenv
+        state.mkdir(parents=True, exist_ok=True)
+        (state / "html.json").write_text(raw, encoding="utf-8")
+        c = _commit_ledger(repo, rel, "# 원장\n사람 A\n")
+        (state / "last.blob").write_text(c + "\n", encoding="utf-8")  # 키 그대로 = «변화 없음» 갈래(오늘 지도 있음 판정이 상태 칸을 읽는 자리)까지 탄다
+        monkeypatch.setenv("FT_NEWS_NOW", "2026-10-25 12:05")
+        monkeypatch.setenv("FT_ROOT", str(tmp_path / "root"))
+        stale: list = []
+        monkeypatch.setattr(nl, "interval_s", lambda: 1)
+        monkeypatch.setattr(nl, "check_stale", lambda *a: stale.append(a))
+        monkeypatch.setattr(nl, "_run", lambda root, st: fh.tick(root, state, repo, rel, tmp_path / "news", "", c))
+        caplog.set_level(logging.WARNING)
+>       assert nl.run() == 0 and len(made) == 1 and len(stale) == 1
+               ^^^^^^^^
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/tests/scripts/test_r907_news_stale_head.py:477: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/bin/ft_news_ledger.py:105: in run
+    rc, why = _run(root, state)
+              ^^^^^^^^^^^^^^^^^
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/tests/scripts/test_r907_news_stale_head.py:475: in <lambda>
+    monkeypatch.setattr(nl, "_run", lambda root, st: fh.tick(root, state, repo, rel, tmp_path / "news", "", c))
+                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/bin/ft_news_html.py:452: in tick
+    rc, why = _tick(root, state, repo, rel, news, base, cur)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/bin/ft_news_html.py:474: in _tick
+    if since("fail_at") < timedelta(minutes=int(os.environ.get("FT_NEWS_RETRY_MIN", "5"))):
+       ^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+k = 'fail_at'
+
+>   since = lambda k: now - datetime.strptime(last[k], "%Y-%m-%d %H:%M") if last.get(k) else timedelta.max  # noqa: E731
+                                                                            ^^^^^^^^
+E   AttributeError: 'list' object has no attribute 'get'
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/bin/ft_news_html.py:463: AttributeError
+_ test_k_garbage_state_file_no_exception_warn_and_check_stale_once[{\uae68\uc9c4 json] _
+
+fillenv = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-590/test_k_garbage_stat.../folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-590/test_k_garbage_state_file_no_e4/state'), [])
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-590/test_k_garbage_state_file_no_e4')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x108db6c10>
+caplog = <_pytest.logging.LogCaptureFixture object at 0x108db7190>
+raw = '{깨진 json'
+
+    @pytest.mark.parametrize("raw", ["[]", '{"map_at": 123}', '{"at": null}', '{"at": 5, "map_at": ["x"], "fail_at": {}}', "{깨진 json", '"문자열"', "null"])
+    def test_k_garbage_state_file_no_exception_warn_and_check_stale_once(fillenv, tmp_path, monkeypatch, caplog, raw):
+        """ⓚ' html.json 이 객체 아님·칸 형 틀림·깨진 JSON → 예외 0 · WARN · 게시 가능 · nl.run 이 check_stale 을 정확히 1회(DA⑥ r3 반례 ②)."""
+        repo, rel, state, made = fillenv
+        state.mkdir(parents=True, exist_ok=True)
+        (state / "html.json").write_text(raw, encoding="utf-8")
+        c = _commit_ledger(repo, rel, "# 원장\n사람 A\n")
+        (state / "last.blob").write_text(c + "\n", encoding="utf-8")  # 키 그대로 = «변화 없음» 갈래(오늘 지도 있음 판정이 상태 칸을 읽는 자리)까지 탄다
+        monkeypatch.setenv("FT_NEWS_NOW", "2026-10-25 12:05")
+        monkeypatch.setenv("FT_ROOT", str(tmp_path / "root"))
+        stale: list = []
+        monkeypatch.setattr(nl, "interval_s", lambda: 1)
+        monkeypatch.setattr(nl, "check_stale", lambda *a: stale.append(a))
+        monkeypatch.setattr(nl, "_run", lambda root, st: fh.tick(root, state, repo, rel, tmp_path / "news", "", c))
+        caplog.set_level(logging.WARNING)
+>       assert nl.run() == 0 and len(made) == 1 and len(stale) == 1
+               ^^^^^^^^
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/tests/scripts/test_r907_news_stale_head.py:477: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/bin/ft_news_ledger.py:105: in run
+    rc, why = _run(root, state)
+              ^^^^^^^^^^^^^^^^^
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/tests/scripts/test_r907_news_stale_head.py:475: in <lambda>
+    monkeypatch.setattr(nl, "_run", lambda root, st: fh.tick(root, state, repo, rel, tmp_path / "news", "", c))
+                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/bin/ft_news_html.py:452: in tick
+    rc, why = _tick(root, state, repo, rel, news, base, cur)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/bin/ft_news_html.py:462: in _tick
+    last, stamp = (json.loads(hs.read_text(encoding="utf-8")) if hs.is_file() else {}), f"{now:%Y-%m-%d %H:%M}"
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/json/__init__.py:346: in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/json/decoder.py:337: in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <json.decoder.JSONDecoder object at 0x10683d2d0>, s = '{깨진 json', idx = 0
+
+    def raw_decode(self, s, idx=0):
+        """Decode a JSON document from ``s`` (a ``str`` beginning with
+        a JSON document) and return a 2-tuple of the Python
+        representation and the index in ``s`` where the document ended.
+    
+        This can be used to decode a JSON document from a string that may
+        have extraneous data at the end.
+    
+        """
+        try:
+>           obj, end = self.scan_once(s, idx)
+                       ^^^^^^^^^^^^^^^^^^^^^^
+E           json.decoder.JSONDecodeError: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)
+
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/json/decoder.py:353: JSONDecodeError
+_ test_k_garbage_state_file_no_exception_warn_and_check_stale_once["\ubb38\uc790\uc5f4"] _
+
+fillenv = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-590/test_k_garbage_stat.../folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-590/test_k_garbage_state_file_no_e5/state'), [])
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-590/test_k_garbage_state_file_no_e5')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10918afd0>
+caplog = <_pytest.logging.LogCaptureFixture object at 0x10918b210>
+raw = '"문자열"'
+
+    @pytest.mark.parametrize("raw", ["[]", '{"map_at": 123}', '{"at": null}', '{"at": 5, "map_at": ["x"], "fail_at": {}}', "{깨진 json", '"문자열"', "null"])
+    def test_k_garbage_state_file_no_exception_warn_and_check_stale_once(fillenv, tmp_path, monkeypatch, caplog, raw):
+        """ⓚ' html.json 이 객체 아님·칸 형 틀림·깨진 JSON → 예외 0 · WARN · 게시 가능 · nl.run 이 check_stale 을 정확히 1회(DA⑥ r3 반례 ②)."""
+        repo, rel, state, made = fillenv
+        state.mkdir(parents=True, exist_ok=True)
+        (state / "html.json").write_text(raw, encoding="utf-8")
+        c = _commit_ledger(repo, rel, "# 원장\n사람 A\n")
+        (state / "last.blob").write_text(c + "\n", encoding="utf-8")  # 키 그대로 = «변화 없음» 갈래(오늘 지도 있음 판정이 상태 칸을 읽는 자리)까지 탄다
+        monkeypatch.setenv("FT_NEWS_NOW", "2026-10-25 12:05")
+        monkeypatch.setenv("FT_ROOT", str(tmp_path / "root"))
+        stale: list = []
+        monkeypatch.setattr(nl, "interval_s", lambda: 1)
+        monkeypatch.setattr(nl, "check_stale", lambda *a: stale.append(a))
+        monkeypatch.setattr(nl, "_run", lambda root, st: fh.tick(root, state, repo, rel, tmp_path / "news", "", c))
+        caplog.set_level(logging.WARNING)
+>       assert nl.run() == 0 and len(made) == 1 and len(stale) == 1
+               ^^^^^^^^
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/tests/scripts/test_r907_news_stale_head.py:477: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/bin/ft_news_ledger.py:105: in run
+    rc, why = _run(root, state)
+              ^^^^^^^^^^^^^^^^^
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/tests/scripts/test_r907_news_stale_head.py:475: in <lambda>
+    monkeypatch.setattr(nl, "_run", lambda root, st: fh.tick(root, state, repo, rel, tmp_path / "news", "", c))
+                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/bin/ft_news_html.py:452: in tick
+    rc, why = _tick(root, state, repo, rel, news, base, cur)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/bin/ft_news_html.py:474: in _tick
+    if since("fail_at") < timedelta(minutes=int(os.environ.get("FT_NEWS_RETRY_MIN", "5"))):
+       ^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+k = 'fail_at'
+
+>   since = lambda k: now - datetime.strptime(last[k], "%Y-%m-%d %H:%M") if last.get(k) else timedelta.max  # noqa: E731
+                                                                            ^^^^^^^^
+E   AttributeError: 'str' object has no attribute 'get'
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/bin/ft_news_html.py:463: AttributeError
+____ test_k_garbage_state_file_no_exception_warn_and_check_stale_once[null] ____
+
+fillenv = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-590/test_k_garbage_stat.../folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-590/test_k_garbage_state_file_no_e6/state'), [])
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-590/test_k_garbage_state_file_no_e6')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x108dc5890>
+caplog = <_pytest.logging.LogCaptureFixture object at 0x108dc4810>, raw = 'null'
+
+    @pytest.mark.parametrize("raw", ["[]", '{"map_at": 123}', '{"at": null}', '{"at": 5, "map_at": ["x"], "fail_at": {}}', "{깨진 json", '"문자열"', "null"])
+    def test_k_garbage_state_file_no_exception_warn_and_check_stale_once(fillenv, tmp_path, monkeypatch, caplog, raw):
+        """ⓚ' html.json 이 객체 아님·칸 형 틀림·깨진 JSON → 예외 0 · WARN · 게시 가능 · nl.run 이 check_stale 을 정확히 1회(DA⑥ r3 반례 ②)."""
+        repo, rel, state, made = fillenv
+        state.mkdir(parents=True, exist_ok=True)
+        (state / "html.json").write_text(raw, encoding="utf-8")
+        c = _commit_ledger(repo, rel, "# 원장\n사람 A\n")
+        (state / "last.blob").write_text(c + "\n", encoding="utf-8")  # 키 그대로 = «변화 없음» 갈래(오늘 지도 있음 판정이 상태 칸을 읽는 자리)까지 탄다
+        monkeypatch.setenv("FT_NEWS_NOW", "2026-10-25 12:05")
+        monkeypatch.setenv("FT_ROOT", str(tmp_path / "root"))
+        stale: list = []
+        monkeypatch.setattr(nl, "interval_s", lambda: 1)
+        monkeypatch.setattr(nl, "check_stale", lambda *a: stale.append(a))
+        monkeypatch.setattr(nl, "_run", lambda root, st: fh.tick(root, state, repo, rel, tmp_path / "news", "", c))
+        caplog.set_level(logging.WARNING)
+>       assert nl.run() == 0 and len(made) == 1 and len(stale) == 1
+               ^^^^^^^^
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/tests/scripts/test_r907_news_stale_head.py:477: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/bin/ft_news_ledger.py:105: in run
+    rc, why = _run(root, state)
+              ^^^^^^^^^^^^^^^^^
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/tests/scripts/test_r907_news_stale_head.py:475: in <lambda>
+    monkeypatch.setattr(nl, "_run", lambda root, st: fh.tick(root, state, repo, rel, tmp_path / "news", "", c))
+                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/bin/ft_news_html.py:452: in tick
+    rc, why = _tick(root, state, repo, rel, news, base, cur)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/bin/ft_news_html.py:474: in _tick
+    if since("fail_at") < timedelta(minutes=int(os.environ.get("FT_NEWS_RETRY_MIN", "5"))):
+       ^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+k = 'fail_at'
+
+>   since = lambda k: now - datetime.strptime(last[k], "%Y-%m-%d %H:%M") if last.get(k) else timedelta.max  # noqa: E731
+                                                                            ^^^^^^^^
+E   AttributeError: 'NoneType' object has no attribute 'get'
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/bin/ft_news_html.py:463: AttributeError
+________________ test_n_tick_exception_is_caught_error_once_rc1 ________________
+
+fillenv = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-590/test_n_tick_excepti.../folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-590/test_n_tick_exception_is_caugh0/state'), [])
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-590/test_n_tick_exception_is_caugh0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10908e050>
+caplog = <_pytest.logging.LogCaptureFixture object at 0x10908d7d0>
+
+    def test_n_tick_exception_is_caught_error_once_rc1(fillenv, tmp_path, monkeypatch, caplog):
+        repo, rel, state, _made = fillenv
+        c = _commit_ledger(repo, rel, "# 원장\nA\n")
+    
+        def boom(*a):
+            raise TypeError("임의 예외")
+        monkeypatch.setattr(fh, "_tick", boom)
+        caplog.set_level(logging.ERROR)
+>       rc, why = fh.tick(tmp_path, state, repo, rel, tmp_path / "news", "", c)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/tests/scripts/test_r907_news_stale_head.py:490: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/bin/ft_news_html.py:452: in tick
+    rc, why = _tick(root, state, repo, rel, news, base, cur)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+a = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-590/test_n_tick_excepti...ders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-590/test_n_tick_exception_is_caugh0/news'), '', ...)
+
+    def boom(*a):
+>       raise TypeError("임의 예외")
+E       TypeError: 임의 예외
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/tests/scripts/test_r907_news_stale_head.py:487: TypeError
+______________ test_n_run_calls_check_stale_even_when_run_raises _______________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-590/test_n_run_calls_check_stale_e0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1090a9550>
+caplog = <_pytest.logging.LogCaptureFixture object at 0x1090aa910>
+
+    def test_n_run_calls_check_stale_even_when_run_raises(tmp_path, monkeypatch, caplog):
+        monkeypatch.setenv("FT_ROOT", str(tmp_path))
+        stale: list = []
+        monkeypatch.setattr(nl, "interval_s", lambda: 1)
+        monkeypatch.setattr(nl, "check_stale", lambda *a: stale.append(a))
+    
+        def boom(root, state):
+            raise TypeError("임의 예외")
+        monkeypatch.setattr(nl, "_run", boom)
+        caplog.set_level(logging.ERROR)
+>       assert nl.run() == 1 and len(stale) == 1
+               ^^^^^^^^
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/tests/scripts/test_r907_news_stale_head.py:506: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/bin/ft_news_ledger.py:105: in run
+    rc, why = _run(root, state)
+              ^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+root = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-590/test_n_run_calls_check_stale_e0')
+state = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-590/test_n_run_calls_check_stale_e0/.fable-team/state/news-ledger')
+
+    def boom(root, state):
+>       raise TypeError("임의 예외")
+E       TypeError: 임의 예외
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/tests/scripts/test_r907_news_stale_head.py:503: TypeError
+__________________ test_n_git_show_timeout_is_a_runtime_error __________________
+
+fillenv = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-590/test_n_git_show_tim.../folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-590/test_n_git_show_timeout_is_a_r0/state'), [])
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x108e06190>
+
+    def test_n_git_show_timeout_is_a_runtime_error(fillenv, monkeypatch):
+        """남은 git 호출(show 포함) 7초 상한 — 넘으면 RuntimeError(= 지도 만들기 실패 경로 · 무한 대기 0)."""
+        repo, rel, _state, _made = fillenv
+        c = _commit_ledger(repo, rel, "# 원장\nA\n")
+        assert fh._git(repo, "show", f"{c}:{rel}").startswith("# 원장")
+        real = subprocess.run
+    
+        def slow(cmd, *a, **kw):
+            assert kw.get("timeout") == fh.GIT_S == 7
+            raise subprocess.TimeoutExpired(cmd, kw["timeout"])
+        monkeypatch.setattr(fh.subprocess, "run", slow)
+        with pytest.raises(RuntimeError, match="시간 초과"):
+>           fh._git(repo, "show", f"{c}:{rel}")
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/tests/scripts/test_r907_news_stale_head.py:523: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/bin/ft_news_html.py:40: in _git
+    done = subprocess.run(["git", "-C", str(repo), *a], capture_output=True, text=True, encoding="utf-8", check=False)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+cmd = ['git', '-C', '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-590/test_n_git_show_timeout_is_a_r0/repo', 'show', 'ce0b46b18966f5c99f0b1767d622a15342def2a5:design/planner/PLAN.md']
+a = ()
+kw = {'capture_output': True, 'check': False, 'encoding': 'utf-8', 'text': True}
+@py_assert1 = <built-in method get of dict object at 0x10918a800>
+@py_assert3 = 'timeout', @py_assert5 = None
+
+    def slow(cmd, *a, **kw):
+>       assert kw.get("timeout") == fh.GIT_S == 7
+                                    ^^^^^^^^
+E       AttributeError: module 'ft_news_html' has no attribute 'GIT_S'
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/tests/scripts/test_r907_news_stale_head.py:519: AttributeError
+=========================== short test summary info ============================
+FAILED harness/tests/scripts/test_r907_news_stale_head.py::test_i_fill_only_changes_are_not_a_change_and_gap_is_10
+FAILED harness/tests/scripts/test_r907_news_stale_head.py::test_j_key_is_last_non_fill_commit
+FAILED harness/tests/scripts/test_r907_news_stale_head.py::test_j_real_fill_commits_do_not_move_key_including_row_lowering
+FAILED harness/tests/scripts/test_r907_news_stale_head.py::test_j_key_unknown_when_git_log_fails_or_times_out
+FAILED harness/tests/scripts/test_r907_news_stale_head.py::test_j_unknown_key_publishes_but_gap_still_caps
+FAILED harness/tests/scripts/test_r907_news_stale_head.py::test_k_garbage_state_file_no_exception_warn_and_check_stale_once[[]]
+FAILED harness/tests/scripts/test_r907_news_stale_head.py::test_k_garbage_state_file_no_exception_warn_and_check_stale_once[{\uae68\uc9c4 json]
+FAILED harness/tests/scripts/test_r907_news_stale_head.py::test_k_garbage_state_file_no_exception_warn_and_check_stale_once["\ubb38\uc790\uc5f4"]
+FAILED harness/tests/scripts/test_r907_news_stale_head.py::test_k_garbage_state_file_no_exception_warn_and_check_stale_once[null]
+FAILED harness/tests/scripts/test_r907_news_stale_head.py::test_n_tick_exception_is_caught_error_once_rc1
+FAILED harness/tests/scripts/test_r907_news_stale_head.py::test_n_run_calls_check_stale_even_when_run_raises
+FAILED harness/tests/scripts/test_r907_news_stale_head.py::test_n_git_show_timeout_is_a_runtime_error
+ERROR harness/tests/scripts/test_r907_news_stale_head.py::test_n_git_show_timeout_is_a_runtime_error
+12 failed, 33 passed, 1 error in 226.05s (0:03:46)

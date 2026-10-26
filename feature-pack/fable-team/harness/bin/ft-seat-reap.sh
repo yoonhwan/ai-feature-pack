@@ -27,18 +27,29 @@
 #     · 파일마다 `reap-deferred-done file=<f> stopped=<n> kept=<n>` · kept 0 = 파일 삭제(못 멈춘 행만 남김) · left 에 안 셈
 #     · 깨진 줄 = 버리지 않는다: `<f>.broken-<시각>-<pid>` 로 원문 보존 + `reap-deferred-broken file=… lines=<n>`(stdout) + ERROR(stderr) · 읽기 오류 = rc 20
 #     · 미룸 폴더를 못 풀면 소화 생략 + stderr WARN 1줄 · lstart 는 LC_ALL=C TZ=UTC 로 잰다(좌석마다 TZ 가 달라도 같은 글자)
+#   --handover <후계> (r939 · ft-seat-retire — 승계는 닫기가 아니다): «곧 끝나는 일»(외부 DA·설치·격리 사본)은 죽이지 않고 후계에게 넘긴다.
+#     ★H1 넘김 = «스스로 등록한 작업» 만★ — 장부 = <데이터 루트>/.fable-team/state/bg-finite.tsv(env FT_BG_FINITE_LEDGER) · 쓰기는 ft-bg-finite.sh 하나.
+#       등록한 도구(ft-da-codex.sh·install.sh·ft-scratch-repo.sh)가 시작 때 자기 pid·pgid·lstart·상한을 적고 trap EXIT 에서 지운다.
+#       넘김 판정 = 「이 좌석 ∧ pid 살아 있음 ∧ lstart 같음 ∧ 상한 전」→ 그 줄의 pgid 전체 + 자손. ★명령줄 글자·env 판정은 없다★(짐작 0 · DA⑥ r1 반례).
+#       상한 지난 줄 = 자동 사살·넘김 0(보고만 — ft-leak-reap 가 stale 표시·보고한다) · lstart 다른 pid(재사용) = 넘김 0.
+#     H3 순서 = 넘김 분리가 press 미룸보다 «먼저»(미룸 먼저면 press 끝 뒤 digest 가 DA 를 reap = 원래 결함 재발) · 넘김 줄 `reap-handover pid=<n> cmd=<앞 80자> to=<후계>`
+#       · 끝 줄 `reap <좌석> stopped=<n> handed=<n> left=<n> rc=<n>`(handed 칸은 --handover 일 때만 — 닫기 출력 회귀 0) · 넘긴 것은 신호 0 이라 left 에 안 센다
+#     H2 넘김 = 장부 좌석 칸 갱신(잠금+읽기-병합-원자 교체 · 다른 줄 보존) → 후계의 다음 retire·닫기·leak-reap 이 같은 장부로 그 작업을 본다.
+#       resume 파일(ZC_RESUME_DIR)/<좌석>.json "handed" 칸은 «보기용 사본»(판정 근거 아님).
+#     ├ 닫기·일반 reap 은 반대로 «등록한 작업도 이 좌석의 일» 로 후보에 넣어 정리하고, 끝나면 죽은 줄을 prune 한다(장부 줄이 영원히 남지 않는다).
 set -uo pipefail
-USAGE="usage: $0 <좌석> [--dry-run] [--wt <워크트리>] [--orphans-only] [--defer-press]"
+USAGE="usage: $0 <좌석> [--dry-run] [--wt <워크트리>] [--orphans-only] [--defer-press] [--handover <후계>]"
 SEAT="${1:-}"; case "$SEAT" in ""|--*) echo "$USAGE" >&2; exit 2;; esac
-shift; DRY=0; WT=""; ORPH=0; DEFER=0
-while [ $# -gt 0 ]; do case "$1" in --dry-run) DRY=1; shift;; --orphans-only) ORPH=1; shift;; --defer-press) DEFER=1; shift;; --wt) WT="${2:-}"; [ -n "$WT" ] || { echo "$USAGE" >&2; exit 2; }; shift 2;; *) echo "$USAGE" >&2; exit 2;; esac; done
+shift; DRY=0; WT=""; ORPH=0; DEFER=0; HAND=""
+while [ $# -gt 0 ]; do case "$1" in --dry-run) DRY=1; shift;; --orphans-only) ORPH=1; shift;; --defer-press) DEFER=1; shift;; --handover) HAND="${2:-}"; [ -n "$HAND" ] || { echo "$USAGE" >&2; exit 2; }; shift 2;; --wt) WT="${2:-}"; [ -n "$WT" ] || { echo "$USAGE" >&2; exit 2; }; shift 2;; *) echo "$USAGE" >&2; exit 2;; esac; done
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-DDIR="${FT_REAP_DEFER_DIR:-}"; PDIR="${FT_PERMIT_DIR:-}"   # 못 풀면 빈 값 — 미룸이 실제로 필요할 때만 python 이 rc 20
-if [ -z "$DDIR" ] || [ -z "$PDIR" ]; then DR="$(. "$HERE/ft-harness-root.sh" && ft_data_root "$HERE" 2>/dev/null)" || DR=""; DDIR="${DDIR:-${DR:+$DR/.fable-team/state/reap-deferred}}"; PDIR="${PDIR:-${DR:+$DR/.fable-team/state/permits}}"; fi
-exec python3 - "$SEAT" "$DRY" "$WT" "$ORPH" "$HERE/ft-leak-reap.sh" "$DEFER" "$DDIR" "$PDIR" <<'PY'
+DDIR="${FT_REAP_DEFER_DIR:-}"; PDIR="${FT_PERMIT_DIR:-}"; LDG="${FT_BG_FINITE_LEDGER:-}"   # 못 풀면 빈 값 — 미룸이 실제로 필요할 때만 python 이 rc 20
+if [ -z "$DDIR" ] || [ -z "$PDIR" ] || [ -z "$LDG" ]; then DR="$(. "$HERE/ft-harness-root.sh" && ft_data_root "$HERE" 2>/dev/null)" || DR=""; DDIR="${DDIR:-${DR:+$DR/.fable-team/state/reap-deferred}}"; PDIR="${PDIR:-${DR:+$DR/.fable-team/state/permits}}"; LDG="${LDG:-${DR:+$DR/.fable-team/state/bg-finite.tsv}}"; fi
+exec python3 - "$SEAT" "$DRY" "$WT" "$ORPH" "$HERE/ft-leak-reap.sh" "$DEFER" "$DDIR" "$PDIR" "$HAND" "$LDG" <<'PY'
 import ast, json, os, re, signal, subprocess, sys, time
 seat, dry, wt_arg, orph, leak = sys.argv[1], sys.argv[2] == "1", sys.argv[3], sys.argv[4] == "1", sys.argv[5]
-defer, ddir, pdir = sys.argv[6] == "1", sys.argv[7], sys.argv[8]
+defer, ddir, pdir, HAND = sys.argv[6] == "1", sys.argv[7], sys.argv[8], sys.argv[9]
+LEDGER_ARG = sys.argv[10]
 LINUX = sys.platform.startswith("linux")
 def die(msg):
     print(f"ft-seat-reap: ERROR {msg}", file=sys.stderr); print(f"reap {seat} stopped=0 left=? rc=20"); sys.exit(20)
@@ -55,18 +66,22 @@ except re.error as e: die(f"FT_REAP_SERVICE_RE 정규식 오류: {e}")
 PRESS_RE = r"tests/e2e/\S*press\S*\.py|realtime_multi_e2e\.py"
 try: PRESS = re.compile(os.environ.get("FT_PRESS_RUNNER_RE") or PRESS_RE)
 except re.error as e: die(f"FT_PRESS_RUNNER_RE 정규식 오류: {e}")
+FINITE_EXE = {"ft-da-codex.sh", "install.sh", "ft-scratch-repo.sh"}   # r939 H1 — 이 세 도구가 «자기 등록» 한다(장부 = state/bg-finite.tsv · 쓰기는 ft-bg-finite.sh 하나)
+LDG = os.environ.get("FT_BG_FINITE_LEDGER") or LEDGER_ARG   # 빈 값 = bash 가 데이터 루트로 품아 넘긴다(argv 10)
+BGF = os.path.join(os.path.dirname(os.path.abspath(leak)), "ft-bg-finite.sh")
 def ps_table():   # pid → (ppid, pgid, uid, lstart, cmd, ft_seat|None)
     t = {}
     for ln in run(["ps", "-axww", "-o", "pid=,ppid=,pgid=,uid=,lstart=,command="]).splitlines():
         f = ln.split(None, 9)
         if len(f) < 10 or not f[0].isdigit(): continue
-        t[int(f[0])] = [int(f[1]), int(f[2]), int(f[3]), " ".join(f[4:9]), f[9], None]
+        t[int(f[0])] = [int(f[1]), int(f[2]), int(f[3]), " ".join(f[4:9]), f[9], None, None]
     if not t: die("ps 표가 비어 있음")
     for pid, row in t.items():
         if LINUX:
             try: env = open(f"/proc/{pid}/environ", "rb").read().decode("utf-8", "replace").split("\0")
             except OSError: continue
             row[5] = next((e[8:] for e in env if e.startswith("FT_SEAT=")), None)
+            row[6] = next((e[13:] for e in env if e.startswith("FT_BG_FINITE=")), None)
     if not LINUX:   # macOS: -E 는 command 뒤에 env 를 붙인다 — 앞의 command 를 떼고 env 부분에서만 찾는다(인자 속 글자 오인 0)
         for ln in run(["ps", "-axEww", "-o", "pid=,command="]).splitlines():
             f = ln.strip().split(None, 1)
@@ -74,7 +89,67 @@ def ps_table():   # pid → (ppid, pgid, uid, lstart, cmd, ft_seat|None)
             c = t[int(f[0])][4]; env = f[1][len(c):] if f[1].startswith(c) else ""
             m = re.findall(r"(?:^|\s)FT_SEAT=(\S+)", env)
             if m: t[int(f[0])][5] = m[-1]
+            q = re.findall(r"(?:^|\s)FT_BG_FINITE=(\S+)", env)   # 옛 판 호환용(이제 판정에 안 쓴다)
+            if q: t[int(f[0])][6] = q[-1]
     return t
+def bgf(*a):   # 장부 쓰기는 ft-bg-finite.sh 하나(읽기만 여기서 한다) — 실패는 WARN 1줄(조용한 실패 0)
+    env = {**os.environ}
+    if LDG: env["FT_BG_FINITE_LEDGER"] = LDG
+    try: r = subprocess.run(["bash", BGF, *a], capture_output=True, text=True, timeout=7, env=env)
+    except (OSError, subprocess.SubprocessError) as e:
+        print(f"ft-seat-reap: WARN 장부 {a[0]} 실행 실패: {e}", file=sys.stderr); return ""
+    if r.returncode != 0: print(f"ft-seat-reap: WARN 장부 {a[0]} rc={r.returncode}: {r.stderr.strip()[:160]}", file=sys.stderr)
+    return r.stdout if r.returncode == 0 else ""
+def ledger_rows():   # 장부 읽기 — 좌석<TAB>pid<TAB>pgid<TAB>lstart<TAB>상한<TAB>상태<TAB>명령
+    if not LDG or not os.path.exists(LDG): return []
+    try: lines = open(LDG, encoding="utf-8").read().splitlines()
+    except OSError as e: print(f"ft-seat-reap: WARN 장부를 못 읽음 {LDG}: {e}", file=sys.stderr); return []
+    out = []
+    for ln in lines:
+        f = ln.split("\t")
+        try: out.append({"seat": f[0], "pid": int(f[1]), "pgid": int(f[2]), "lstart": f[3], "until": int(f[4]), "state": f[5], "cmd": f[6] if len(f) > 6 else ""})
+        except (IndexError, ValueError): continue
+    return out
+def registered(t, me, now, want=None, expired=False):   # r939 H1 — «pid 살아 있음 ∧ lstart 같음 ∧ 상한 전» 줄의 pgid 전체 + 자손 → {pid: (좌석, cmd)}
+    out = {}                                              # expired=True = 상한 «지난» 줄(r3: 넘기지 않고 일반 reap 후보 — 멈춘 일이다)
+    for r in ledger_rows():
+        if want is not None and r["seat"] != want: continue   # want=None = 전 좌석(남의 등록 작업 판별용)
+        if (r["until"] <= now) != expired: continue
+        if r["pid"] not in t or t[r["pid"]][3] != r["lstart"]: continue   # 죽었거나 pid 재사용
+        out[r["pid"]] = (r["seat"], r["cmd"])
+        for p, row in t.items():   # 같은 pgid = 그 작업의 일꾼(자식·손자)
+            if row[1] == r["pgid"] and row[2] == me: out.setdefault(p, (r["seat"], r["cmd"]))
+    kids, stack = {}, [(p, v[0], v[1]) for p, v in list(out.items())]   # 자손도 같은 좌석·같은 작업으로(반쪽만 죽이면 DA·설치가 깨진다)
+    for p, row in t.items(): kids.setdefault(row[0], []).append(p)
+    while stack:
+        p, s, c = stack.pop()
+        for k in kids.get(p, []):
+            if k in t and t[k][2] == me and k not in out:
+                out[k] = (s, c); stack.append((k, s, c))
+    return out
+def ledger_roots(now):   # 넘김 보고·장부 갱신은 «등록한 뿌리» 만 — 넘김 수를 자식 수로 부풀리지 않는다
+    return [r for r in ledger_rows() if r["seat"] == seat and r["until"] > now]
+def record_handover(rows, t):   # r939 H2 — resume 파일 "handed" 칸은 «보기용 사본»(판정 근거 아님 · 판정은 장부)
+    ent = [{"pid": p, "cmd": c[:200], "started": (t[p][3] if p in t else ""), "at": time.strftime("%Y-%m-%dT%H:%M:%S")}
+           for p, c in sorted(rows.items())]
+    if not ent: return
+    rd = os.environ.get("ZC_RESUME_DIR") or os.path.expanduser("~/.claude/state/seat-resume")
+    try: os.makedirs(rd, exist_ok=True)
+    except OSError as e: die(f"넘김 목록 폴더를 못 만듦 {rd}: {e.strerror}")
+    rp, rec, side = os.path.join(rd, f"{seat}.json"), None, False
+    if os.path.exists(rp):
+        try: rec = json.load(open(rp, encoding="utf-8"))
+        except (OSError, ValueError) as e: print(f"ft-seat-reap: WARN 재개 기록을 못 읽음 {rp} — 곁파일에 적는다: {e}", file=sys.stderr)
+        if not isinstance(rec, dict): rec = None   # 깨진 기록은 덮지 않는다(닫기 근거) — 곁파일
+    if rec is None: rp, rec, side = os.path.join(rd, f"{seat}.handed.json"), {"name": seat}, True
+    prev = [e for e in rec.get("handed") if isinstance(e, dict)] if isinstance(rec.get("handed"), list) else []
+    new = {(e["pid"], e["started"]) for e in ent}
+    rec["handed"] = ([e for e in prev if (e.get("pid"), e.get("started")) not in new] + ent)[-50:]
+    try:
+        open(rp + f".tmp{os.getpid()}", "w", encoding="utf-8").write(json.dumps(rec, ensure_ascii=False, indent=2) + "\n")
+        os.replace(rp + f".tmp{os.getpid()}", rp)
+    except OSError as e: die(f"넘김 목록을 못 씀 {rp}: {e.strerror}")
+    print(f"reap-handover-record {rp} handed={len(rec['handed'])}" + (" (resume 기록 없음 — 곁파일 · 후계는 이 파일을 본다)" if side else ""))
 def panes():   # [(세션, pane_pid, 현재 경로, 세션 경로)] — tmux 서버 없음 = 빈 목록
     out = run(["tmux", "list-panes", "-a", "-F", "#{session_name}\t#{pane_pid}\t#{pane_current_path}\t#{session_path}"], ok_err=("no server running", "error connecting", "No such file"))
     return [l.split("\t") for l in out.splitlines() if l.count("\t") == 3 and l.split("\t")[1].isdigit()]
@@ -135,7 +210,7 @@ def survey():
     cw = cwds() if wt and not shared else {}
     bg = {p for p, r in t.items() if re.search(r"ft-bg-loop\.sh .*--seat " + re.escape(seat) + r"(\s|$)", r[4])}
     cand, tree, svc, skip = {}, desc(t, mine), services(t), {}
-    for pid, (ppid, pgid, uid, lst, cmd, fs) in t.items():
+    for pid, (ppid, pgid, uid, lst, cmd, fs, fb) in t.items():
         if uid != me or pid in anc or pid in mine or (orph and ppid != 1): continue
         if fs is not None and fs != seat and pid not in bg: continue   # 남의 좌석(래퍼 argv --seat 가 env 보다 우선 — 래퍼는 띄운 좌석의 env 를 물려받는다)
         exe = os.path.basename(cmd.split()[0]) if cmd.split() else ""
@@ -221,11 +296,12 @@ def digest():   # 미룸 소화(닫는 사건) — lstart 같은 내 pid 만 · 
             open(bf, "w", encoding="utf-8").write("".join(l + "\n" for l in bad))
             print(f"reap-deferred-broken file={bf} lines={len(bad)}"); print(f"ft-seat-reap: ERROR 미룸 파일 깨진 줄 {len(bad)} — {bf} 로 원문 보존(사람 판단)", file=sys.stderr)
         t = ps_table(); anc, svc, live = ancestors(t), services(t), {}   # 파일마다 새 표 — TERM 직전 lstart 재확인
+        handed = registered(t, me, time.time(), want=HAND) if HAND else {}   # r3 — 방금 후계에게 넘긴 작업(장부 좌석 = 후계)은 미룸 소화로 죽이지 않는다
         for r in rows:
             p = r["pid"]
             if p not in t or t[p][2] != me or t[p][3] != r["lstart"]: continue   # 죽었거나 pid 재사용 — 신호 0
             exe = os.path.basename(t[p][4].split()[0]) if t[p][4].split() else ""
-            why = "self" if p in anc else "protect-exe" if exe in PROTECT else svc.get(p, "")
+            why = "self" if p in anc else "handover" if p in handed else "protect-exe" if exe in PROTECT else svc.get(p, "")
             if why: print(f"reap-skip pid={p} why={why} cmd={t[p][4][:100]}"); continue
             live[p] = ("⑤미룸", r["lstart"], t[p][4])
         if live: stop(live)
@@ -233,14 +309,40 @@ def digest():   # 미룸 소화(닫는 사건) — lstart 같은 내 pid 만 · 
         if kept: open(f, "w", encoding="utf-8").write("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows if r.get("pid") in kept))
         else: os.remove(f)
         print(f"reap-deferred-done file={f} stopped={len(live) - len(kept)} kept={len(kept)}")
+hn, HANDED = 0, set()
+if HAND and not dry:   # r3 고침 1 — 넘김 분리를 digest(미룸 소화)·reap 보다 «먼저»(press 가 끝난 뒤 digest 가 미룬 등록 DA 를 ⑤미룸으로 죽이는 길 0)
+    t0 = ps_table(); now0 = time.time()
+    HANDED = set(registered(t0, os.getuid(), now0, want=seat))   # 이 좌석의 «상한 전 ∧ 살아 있음 ∧ lstart 같음» 등록 작업 + 자손 — 넘김 장부 갱신이 실패해도 reap 하지 않는다
+    roots = [r for r in ledger_roots(now0) if r["pid"] in HANDED]   # 죽었거나 pid 재사용·lstart 불일치·상한 지난 줄 = 넘김 0
+    for r in roots:
+        print(f"reap-handover pid={r['pid']} cmd={r['cmd'][:80]} to={HAND}"); hn += 1
+    if hn:
+        bgf("handover", HAND, *[str(r["pid"]) for r in roots])   # H2 장부 좌석 칸 → 후계(다른 줄 보존)
+        record_handover({r["pid"]: r["cmd"] for r in roots}, t0)  # 보기용 사본(판정 근거 아님)
 if not dry: digest()
-cand, _, shared, skip = survey()
+cand, tbl, shared, skip = survey()
 for p, (w, c) in sorted(skip.items()): print(f"reap-skip pid={p} why={w} cmd={c[:100]}")
 tail = " cwd=shared" if shared else ""
 dtail = " deferred=0" if defer else ""
 if dry:
     for p, (v, _, c) in sorted(cand.items()): print(f"reap-cand pid={p} via={v} cmd={c[:100]}")
     print(f"reap {seat} found={len(cand)} dry-run rc=0{tail}"); sys.exit(0)
+now = time.time()
+allreg = registered(tbl, os.getuid(), now)                                  # r939 H1 — 전 좌석 등록 장부(짐작 0)
+reg = {p: v for p, v in allreg.items() if v[0] == seat}                      # 이 좌석의 작업(--handover 면 위에서 이미 후계 칸으로 넘어가 비어 있다)
+other = {p for p, v in allreg.items() if v[0] != seat}                       # 넘겨받은·넘긴(남의 좌석) 작업 — env FT_SEAT 가 옛 이름이어도 건드리지 않는다
+cand = {p: v for p, v in cand.items() if p not in other and p not in HANDED}
+exp = registered(tbl, os.getuid(), now, want=seat, expired=True)             # r3 고침 2 — 상한 지난 등록 줄 = 넘기지 않고 일반 reap 후보(멈춘 일 · 자기등록 루프의 끝)
+anc = ancestors(tbl)
+for p, (s, c) in sorted(exp.items()):
+    if p in tbl and p not in cand and p not in anc and os.path.basename((tbl[p][4].split() or [""])[0]) not in PROTECT:
+        cand[p] = ("만료", tbl[p][3], tbl[p][4]); print(f"reap-expired pid={p} cmd={c[:80]} (등록 상한 지남 — 넘기지 않고 reap)")
+for p, (v, lst, c) in sorted(cand.items()):   # 등록 안 한 «끝나는 일» 도구 → 넘기지 않는다는 것을 보이게(영구 참김)·알림 1줄 — 조용한 손실 0
+    if p not in allreg and p not in exp and any(os.path.basename(a) in FINITE_EXE for a in c.split()) and v != "자손":
+        print(f"reap-unregistered pid={p} cmd={c[:80]} (등록 장부에 줄 없음 — 넘김 대상 아님")
+if not HAND:   # 닫기·일반 reap — 이 좌석의 등록 작업은 «이 좌석의 일» 이므로 후보에 넣고, 남의(넘겨받은) 등록 작업은 건드리지 않는다
+    for p, v in reg.items():
+        if p in tbl and p not in cand: cand[p] = ("등록", tbl[p][3], tbl[p][4])
 if defer and cand and press():
     if not ddir: die("미룸 파일 경로를 못 풂 — FT_REAP_DEFER_DIR 없음 · 데이터 루트 못 풂(미룸을 적을 곳이 없으면 닫는 사건도 없다)")
     os.makedirs(ddir, exist_ok=True)
@@ -250,11 +352,14 @@ if defer and cand and press():
             print(f"reap-defer pid={p} why=press-active cmd={c[:100]}")
             fh.write(json.dumps({"pid": p, "lstart": lst, "cmd": c[:200], "via": v}, ensure_ascii=False) + "\n")
     print(f"reap {seat} stopped=0 left=0 deferred={sum(1 for x in cand.values() if x[0] != '자손')} rc=0{tail}"); sys.exit(0)
+ht = f" handed={hn}" if HAND else ""
 seen, again = set(), cand
 for _ in range(2):   # 2회전 — 1회전 사이에 새로 드러난 것(부모를 잃은 자식 등)까지
     if not again: break
     seen |= {p for p, x in again.items() if x[0] != "자손"}; stop(again); again, _, _, _ = survey()
+    again = {p: v for p, v in again.items() if p not in other and p not in HANDED}   # 넘긴 것은 살아 있는 것이 정상 — 후보로 다시 세지 않는다
 left = sum(1 for x in again.values() if x[0] != "자손"); rc = 1 if left else 0
 for p, (v, _, c) in sorted(again.items()): print(f"reap-left pid={p} via={v} cmd={c[:100]}")
-print(f"reap {seat} stopped={len(seen - set(again))} left={left}{dtail} rc={rc}{tail}"); sys.exit(rc)   # stopped = 뿌리 수(자손 sleep 등은 reap-kill 줄에만)
+bgf("prune")   # 끝난(죽은) 작업 줄 정리 — 넘긴 작업의 줄은 살아 있으니 그대로(후계·다음 retire 가 본다)
+print(f"reap {seat} stopped={len(seen - set(again))}{ht} left={left}{dtail} rc={rc}{tail}"); sys.exit(rc)   # stopped = 뿌리 수(자손 sleep 등은 reap-kill 줄에만)
 PY

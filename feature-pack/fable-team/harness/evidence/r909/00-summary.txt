@@ -1,0 +1,43 @@
+# r909 — 범위 분류기 오탐 다섯 칸 (칸1~4 구현 · 칸5 원문 없음)
+
+브랜치 nano/r909-scope-classifier-false-forbid-py-se (push 0)
+세트(코드+시험 커밋): c2357be8cb7472cf14e3e85d56394ab954007e50 — 이 증거 파일들은 그 위 «증거 커밋» 하나로만 뒤따르고 코드·시험은 0줄 변경이다.
+(카드 증거 줄의 세트 = 증거 커밋까지 포함한 최종 HEAD · 같은 시험을 최종 HEAD 에서 한 번 더 돌려 rc=0 확인)
+base = 팩 origin/main 3330d7ff (카드 base_sha 7d7fdb69 는 그 사이 전진 · 지시대로 origin/main 기준)
+
+## 무엇을 고쳤나 (원칙: «실제 값 출력 · 셸 set 단독 · 키 파일 실값» 만 막는다)
+| 칸 | 사건 | 고침 | 커밋 |
+|---|---|---|---|
+| 1 | ccu PR 3394·3410 — .py 의 set(tags)·set(LIVE_GPUS) 를 셸 «set»(환경변수 통째 출력)으로 오탐 | autonomy_scope_secret.py 입구 한 곳 — 셸 판정기로 넘기는 줄을 «셸 문맥»(셸 확장자 · 확장자 없는 실행 파일 · 문서 sh/bash 울타리)으로 한정. 판정 자체(ft_secret_targets.py:181)는 그대로 | 77037425 |
+| 2 | room PR 3395 — tests/…/credential-cookie-lifecycle.test.ts 가 «credential» 낱말 금지에 걸림 | 분류표에 (code, test-file) 한 줄, key 경로 규칙(.env·secrets/·.cred) «아래» | b55e6ee4 |
+| 3 | .env.example 에 이름만 추가해도 key FORBID | .env.example·.sample·.template 의 추가 줄이 전부 이름만(KEY= · KEY=<…>)이면 key FORBID 0 · 실값 한 줄이라도 있으면 종전대로 FORBID | 97acb2c2 |
+| 4 | cfo u3u6 198행 — echo "$OP_SECRET_ITEM_NAME" 이 «비밀 변수 출력» | 변수 «이름 전체» 가 _NAME·_ITEM·_REF·_PATH·_FILE·_VAULT·_FIELD·_ID 면 이름표 = 통과 · 진짜 값 변수는 그대로 FORBID | 51224d1f |
+| 5 | 카드 증거 줄 틀 문장(graphics) | **착수 0 — 재현 원문 없음** (아래 «원문 필요») | — |
+
+## 시험
+- 새 시험: `bash tests/test_autonomy_scope_fp_r909.sh` → **ALL PASS rc=0** (26 체크 · 02-after.txt)
+- 변이 3: 문맥 한정 끔 → ⓐ 빨강 · 시험 경로 제외 끔 → ⓓ 빨강 · 제외를 .env 규칙 위로 → ⓔ 빨강 (03-mutation.txt)
+- 기존 묶음: pack 13 PASS rc0 · plain3 27 PASS rc0 · secret_output_mask 15 PASS rc0 · classify 67 PASS + **5 FAIL(내 변경 전에도 같은 5 = 픽스처 remote URL 해석 실패)** · r559 40 PASS + 2 FAIL(같은 원인) (04-tests.txt)
+- pytest test_ft_secret_judge + test_ft_secret_shapes: 433 passed · 1 failed = 7초 벽시계 예산 시험의 부하 flake(load 32.66 · 실행마다 다른 시험 · 내 diff 가 닿지 않는 ft-secret-lib.sh) (04-tests.txt 말미)
+- ruff(바뀐 .py 4개) rc0. 짝 사본 cmp0 — kit/bin 4개 · kit/templates/hooks/ft_secret_targets.py (시험 + test_kit_copies_are_byte_identical 통과)
+
+## 원문 필요 (칸 5 · 추측 고침 0)
+카드가 지정한 세 출처를 뒤졌으나 «카드 증거 줄 틀 문장» 의 재현 원문을 못 찾았다:
+- planner #165763(mailbox.log.jsonl seq 165763) = 요약 1줄에 «카드 증거 줄 틀 문장(graphics)» 만 있고 원문·재현 없음
+- byz-planner→harness master#110 #165771 = 같은 요약(원문 없음)
+- graphics 팀 카드 서식은 여러 꼴이 병존(`세트: <40hex> · 시험: … rc=0 · 이슈: …` / `… · 시안: … · 랜딩: …`) → 어느 문장이 오탐인지 특정 불가
+→ master 는 planner/graphics 에 «어떤 증거 줄 틀 문장이 어느 판정기에서 막혔는지(원문 1줄 + FORBID 문구)» 를 요청해 주십시오. 받으면 칸 5를 이 카드에 이어 붙입니다.
+
+## press
+press 필요 없음 (단위·캡처·기존 로그만 · 라이브 오디오 0).
+
+## master 로 넘기는 것 (내 소관 아님)
+- 설치 cmp0(LIVE_BIN) · 실 PR 3394·3410·3395 재판정 원문(FORBID 0) · 격리 재대조/외부 DA⑥ · 커밋 착지
+
+## 재개 재검 (2026-10-25 20:1x · 이어받기 세션)
+origin/main 이 4커밋 앞서 있어(3dee6dbf·3aabc339·759aeeda·cbe218a5) `git rebase origin/main` — 충돌 0(겹친 파일 = CHANGES.md 하나, 내 diff 는 CHANGES.md 미변경). rebase 뒤 재실행:
+- 새 시험 `bash tests/test_autonomy_scope_fp_r909.sh` → ALL PASS rc=0 (26 체크 · 변이 3 빨강 유지)
+- 기존 묶음 pack rc=0(fail=0) · plain3 rc=0(fail=0) · secret 434 passed(pytest test_ft_secret_judge+test_ft_secret_shapes · 이전 회차의 1 flake 소멸)
+- `test_autonomy_scope_classify.sh` rc=1 · FAIL 5 — **회귀 아님**: 같은 시험을 origin/main 사본(/tmp/r909-base, 임시 워크트리)에서 돌려도 FAIL 5 동일(원인 = 픽스처 remote URL 해석 실패). 임시 워크트리 제거함
+- ruff(바뀐 .py 6개) All checks passed
+- 칸 5 는 여전히 «재현 원문 없음» — 추측 고침 0 유지(아래 「원문 필요」 절 그대로 유효)
