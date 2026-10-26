@@ -1,3 +1,10 @@
+## 2026-10-26 — r902 위성 mini 나노 도구 ft-sat-nano (1.1.248)
+
+- 위성 머신에서 mini 나노를 여는·일 맡기는·결과 받는·닫는 도구 ft-sat-nano(open·task·fetch·close). 소켓 칸 빈 확인 줄 rc6 · --forget 뒤 마감 재검사 · 시험 시간 의존 제거(r5 확정).
+- 시험 test_sat_nano_r902.sh 106 PASS(기본 셸 ×5 · /bin/bash 3.2 ×2) · 변이 8종 감지 · kit cmp0 · arch 확정 APPROVE(BYZ design/harness/evidence/r902-da6/VERDICT-r902-arch-confirm.md · 승인판 a2680569).
+- astra r1 반송 1곳(시험 대역 tmuxc 표식 없으면 세션 0 · 새 칸 Ⓙ'') 고침 → 107 PASS · 외부 DA astra r2 APPROVE(BYZ design/harness/evidence/r902-da6/VERDICT-r902-astra-approve.md · 승인판 4e72b51b).
+- 1.1.247 은 r928(PR #328) 몫. #328 이 먼저 착지하면 이 PR 은 main 병합 뒤 착지한다.
+
 ## 2026-10-26 — r922a 초안 모드 골 표 검증 실패 = planner [긴급] 대신 WARN 1줄 (1.1.245)
 
 - ft_news_post.py 가 초안 모드(무장)에서 골 표 검증에 실패하면 goal_gate.refuse 를 부르지 않고 WARN 1줄만 남긴다. rc·발행 0·기준선은 그대로(초안+무장 rc=3). 게이트 본체 없는 설치도 같은 문을 지난다.
