@@ -30,7 +30,7 @@ if [ "$DRY" = "1" ]; then say "DRY — 쓰기 0 · 키 사용 0. 조건 OK. 실�
 
 # 키는 «600 임시 파일 → ssh stdin» 으로만(화면·명령줄 0). 끝나면 삭제.
 KF="$(mktemp "${TMPDIR:-/tmp}/h-ocihm.XXXXXX")"; chmod 600 "$KF"; trap 'rm -f "$KF" "$KF.s" "$KF.t"' EXIT
-security find-generic-password -ws opengateway 2>/dev/null | tr -d '\r\n' > "$KF"
+security find-generic-password -ws opengateway > "$KF" 2>/dev/null   # 직접 리다이렉트(파이프·화면 0) — 끝 개행은 원격 read -r 이 처리
 [ -s "$KF" ] || die 2 "키체인에서 키를 읽지 못했다"
 
 say "2/4 OCI 에서 opengateway 직접 호출 시험(값 출력 0)"
