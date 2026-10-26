@@ -1,0 +1,5 @@
+tmp_dot_count=895
+tmp_dot_kib=905780
+claude_scratch_kib=6295976
+claude_scratch_git_copies=324
+tmux_ok=0

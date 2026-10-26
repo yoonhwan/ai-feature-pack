@@ -1,0 +1,61 @@
+# /Users/yoonhwan/Project/ai-feature-pack  (base=origin/main)
+## du .git
+735364	/Users/yoonhwan/Project/ai-feature-pack/.git
+## count-objects -vH
+warning: garbage found: .git/objects/03/tmp_obj_CMeeeB
+warning: garbage found: .git/objects/0d/tmp_obj_6E0wjG
+warning: garbage found: .git/objects/19/tmp_obj_Q5so7B
+warning: garbage found: .git/objects/2d/tmp_obj_EWuwlF
+warning: garbage found: .git/objects/43/tmp_obj_IVFM3z
+warning: garbage found: .git/objects/4b/tmp_obj_Yd5oWA
+warning: garbage found: .git/objects/4d/tmp_obj_ETJQcA
+warning: garbage found: .git/objects/57/tmp_obj_e6YvJA
+warning: garbage found: .git/objects/5e/tmp_obj_ErXYrB
+warning: garbage found: .git/objects/6c/tmp_obj_qtprBF
+warning: garbage found: .git/objects/6f/tmp_obj_SyrWAA
+warning: garbage found: .git/objects/79/tmp_obj_2MLo4F
+warning: garbage found: .git/objects/83/tmp_obj_0LdjsF
+warning: garbage found: .git/objects/90/tmp_obj_ObGnPF
+warning: garbage found: .git/objects/a0/tmp_obj_agBuYA
+warning: garbage found: .git/objects/a8/tmp_obj_MBQJkE
+warning: garbage found: .git/objects/bb/tmp_obj_SThGSE
+warning: garbage found: .git/objects/c3/tmp_obj_02sUuA
+warning: garbage found: .git/objects/cc/tmp_obj_ydtsUI
+warning: garbage found: .git/objects/cf/tmp_obj_oBcamA
+warning: garbage found: .git/objects/e5/tmp_obj_YIwV8F
+warning: garbage found: .git/objects/fe/tmp_obj_m1NSpF
+warning: garbage found: .git/objects/ff/tmp_obj_Cc83lB
+count: 32784
+size: 345.87 MiB
+in-pack: 18351
+packs: 4
+size-pack: 27.18 MiB
+prune-packable: 68
+garbage: 23
+size-garbage: 24.49 KiB
+## pack 파일 수
+4
+## 잔재(tmp_pack·tmp_obj) — 크기KiB·수정시각·쥔 프로세스
+/Users/yoonhwan/Project/ai-feature-pack/.git/objects/0d/tmp_obj_6E0wjG	4	2026-06-16T12:59:34	없음
+/Users/yoonhwan/Project/ai-feature-pack/.git/objects/57/tmp_obj_e6YvJA	4	2026-06-16T12:59:34	없음
+/Users/yoonhwan/Project/ai-feature-pack/.git/objects/6f/tmp_obj_SyrWAA	4	2026-06-16T12:59:34	없음
+/Users/yoonhwan/Project/ai-feature-pack/.git/objects/03/tmp_obj_CMeeeB	4	2026-06-16T12:59:34	없음
+/Users/yoonhwan/Project/ai-feature-pack/.git/objects/bb/tmp_obj_SThGSE	4	2026-06-16T12:59:34	없음
+/Users/yoonhwan/Project/ai-feature-pack/.git/objects/e5/tmp_obj_YIwV8F	4	2026-06-16T13:17:39	없음
+/Users/yoonhwan/Project/ai-feature-pack/.git/objects/cf/tmp_obj_oBcamA	4	2026-10-20T10:45:29	없음
+/Users/yoonhwan/Project/ai-feature-pack/.git/objects/fe/tmp_obj_m1NSpF	4	2026-06-16T12:59:34	없음
+/Users/yoonhwan/Project/ai-feature-pack/.git/objects/4b/tmp_obj_Yd5oWA	4	2026-06-30T11:07:55	없음
+/Users/yoonhwan/Project/ai-feature-pack/.git/objects/19/tmp_obj_Q5so7B	4	2026-06-16T12:59:34	없음
+/Users/yoonhwan/Project/ai-feature-pack/.git/objects/4d/tmp_obj_ETJQcA	4	2026-10-20T10:45:29	없음
+/Users/yoonhwan/Project/ai-feature-pack/.git/objects/43/tmp_obj_IVFM3z	4	2026-06-30T11:07:55	없음
+/Users/yoonhwan/Project/ai-feature-pack/.git/objects/5e/tmp_obj_ErXYrB	4	2026-06-16T12:59:34	없음
+/Users/yoonhwan/Project/ai-feature-pack/.git/objects/6c/tmp_obj_qtprBF	4	2026-06-16T12:59:34	없음
+/Users/yoonhwan/Project/ai-feature-pack/.git/objects/90/tmp_obj_ObGnPF	4	2026-06-16T12:59:34	없음
+/Users/yoonhwan/Project/ai-feature-pack/.git/objects/a0/tmp_obj_agBuYA	8	2026-06-16T12:59:34	없음
+/Users/yoonhwan/Project/ai-feature-pack/.git/objects/a8/tmp_obj_MBQJkE	4	2026-06-16T12:59:34	없음
+/Users/yoonhwan/Project/ai-feature-pack/.git/objects/c3/tmp_obj_02sUuA	4	2026-06-16T13:17:39	없음
+/Users/yoonhwan/Project/ai-feature-pack/.git/objects/cc/tmp_obj_ydtsUI	4	2026-06-16T12:59:34	없음
+/Users/yoonhwan/Project/ai-feature-pack/.git/objects/ff/tmp_obj_Cc83lB	4	2026-06-16T12:59:34	없음
+/Users/yoonhwan/Project/ai-feature-pack/.git/objects/79/tmp_obj_2MLo4F	4	2026-06-16T12:59:34	없음
+/Users/yoonhwan/Project/ai-feature-pack/.git/objects/2d/tmp_obj_EWuwlF	4	2026-06-16T12:59:34	없음
+/Users/yoonhwan/Project/ai-feature-pack/.git/objects/83/tmp_obj_0LdjsF	4	2026-06-16T12:59:34	없음
