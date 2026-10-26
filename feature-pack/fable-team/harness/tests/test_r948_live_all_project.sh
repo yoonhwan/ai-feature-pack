@@ -5,6 +5,7 @@
 #     iap-tunnel 인스턴스 라벨(-18703·-18712)을 정확 라벨로 찾음 · ft-head-lag 는 launchd 설치 대상이 아닌데 NOTLOADED.
 #   임시 리포(팩 꼴·카드 꼴)·임시 HOME·가짜 launchctl/ps·가짜 검사기(받은 인자 기록)만 — 실 라이브·실 launchd·실 원격 0.
 #   SRC=<bin 폴더> 로 변이 판을 같은 시험으로 돌린다(끝의 «변이» 절이 스스로 만든다).
+#   r959 ④: ⓑ 의 기대를 «--range A..B --project <카드 리포 공용 루트>» 로 고쳤다 — 팩 착지 카드의 plist-env 렌더에도 프로젝트 루트가 필요하다(r426 rc3).
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 SRC="${SRC:-$(cd "$HERE/../bin" && pwd -P)}"; KIT="$(cd "$HERE/../kit" && pwd -P)"
@@ -33,7 +34,8 @@ printf '#!/bin/bash\nprintf "%%s\\n" "$*" >> "%s"\necho "OK n=0 skip=0"\n' "$ARG
 gate() { : > "$ARGS"; out="$(FT_INSTALL_CHECK="$FAKE" FT_INSTALL_PENDING_DIR="$T/pd" FT_HARNESS_ROOT="$KD" bash "$1/ft-index-move-install.sh" "$2" --landed "$3" 2>&1)"; rc=$?; got="$(cat "$ARGS")"; }
 
 t_a() { gate "$1" "$IDX/k.md" "$C0"; [ "$rc" = 0 ] && [ "$got" = "--all --project $CR" ]; }
-t_b() { gate "$1" "$IDX/k.md" "$P0..$P1"; [ "$rc" = 0 ] && [ "$got" = "--range $P0..$P1" ]; }
+# r959 ④: 팩 리포 착지 sha 의 --range 갈래도 --project 를 넘는다(plist-env 렌더가 프로젝트 루트를 못 받아 r426 카드가 rc3 로 막혔다) — r948 당시 «--project 추가 0» 기대를 고침
+t_b() { gate "$1" "$IDX/k.md" "$P0..$P1"; [ "$rc" = 0 ] && [ "$got" = "--range $P0..$P1 --project $CR" ]; }
 t_c() { gate "$1" "$CR/.worktrees/w/design/harness/indices/진행/k.md" "$C0"; [ "$rc" = 0 ] && [ "$got" = "--all --project $CR" ]; }
 
 # ── 검사기 픽스처: 키트 리포(templates·plist 템플릿 실물 복사) + 라이브(FT_BIN·templates) + 가짜 launchctl(목록·라벨 조회)
@@ -74,7 +76,7 @@ BIN="$T/bin"; mkbin "$SRC" "$BIN"
 res="$(run_all "$BIN")"
 r() { printf '%s\n' "$res" | awk -v k="$1" '$1==k{print $2}'; }
 ck "ⓐ 카드 리포에만 있는 sha → 검사기 인자 «--all --project <카드 리포 공용 루트>»" "$(r t_a)"
-ck "ⓑ 팩 리포 sha → 인자 «--range A..B» 그대로(--project 추가 0)" "$(r t_b)"
+ck "ⓑ 팩 리포 sha → 인자 «--range A..B --project <카드 리포 공용 루트>»(r959 ④)" "$(r t_b)"
 ck "ⓒ 카드가 워크트리 안 → --project = 리포 공용 루트(워크트리 경로 아님)" "$(r t_c)"
 ck "ⓕ templates/scope-*.tsv 원래 이름 그대로 설치 → MISSING 0 · OK" "$(r t_f)"
 ck "ⓖ «접두-숫자» 라벨 2개 적재 → LOADED(iap-tunnel 줄 0)" "$(r t_g)"
