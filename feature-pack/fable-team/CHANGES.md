@@ -1,3 +1,7 @@
+## 2026-10-27 — 오케스트레이션 게이트 시험(`test_orch_gate_top_models.sh`)의 «프로젝트 사본» 자리(`<팩>/.claude/hooks/…`)가 1.1.0 재배치(3b25f81d) 뒤 없어 PROJ 5칸이 «파일 없음»(127)으로 빨갰고, 팩 안 같은 훅 사본 2벌(kit/templates · skill/templates)이 서로 달랐다 → PROJ = 팩 안 두 번째 사본(skill/templates · `ORCH_GATE_PROJ` 로 바꿀 수 있음) · skill 사본을 정본(kit/templates)과 같게 복사 · 팩 안 사본 전부 = 정본 cmp0 단언 추가 (r699 · 1.1.256 · 시험·사본 정리 · 훅 동작 변경 0)
+
+- 증거 `harness/evidence/r699/`(고치기 전 5/5 FAIL · 후판 12/0 · 변이 cmp FAIL) · skill 사본은 manifest `template-only` 항목이라 지우지 않고 맞춤 · 설치: kit 판 불변 → 전역 훅 그대로(cmp0 확인만) · 되돌림 = 이전 판.
+
 ## 2026-10-26 — r765 승인 도구가 게이트와 같은 원장 줄 꼴(줄머리∨표 행)을 읽는다 (1.1.255)
 
 - 제안 승인 도구가 원장 표 행도 승인 줄로 읽어 게이트(ft-proposal-gate)와 판정이 같아진다. 승인판 dc01df8c(팩 origin/main 병합) · 외부 DA sol high r1 APPROVE(BYZ design/harness/evidence/r765-da6/VERDICT-r765-sol-approve.md).
