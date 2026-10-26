@@ -66,7 +66,7 @@ grep -q "^pr-close 11 --comment .*--apply :: 착지 sha $L" "$STUB_LOG" && ! gre
 grep -q "head=$P11 method=ft-merge-land .*landed=$L pr=11" "$T/state/merge-gate.log"; ck "결속 기록 1줄(main·head·방법·트리·착지)" $?
 
 # R271: PR head fetch 가 auto gc 실패로 rc≠0 이어도 «fetch 실패» 로 오판하지 않는다 — 프로세스 한정 -c gc.auto=0 이 없으면 rc1 을 내는 shim
-mkdir -p "$T/shim3"; printf '#!/bin/bash\nsaw=0; gc=0; for a in "$@"; do case "$a" in pull/*/head) saw=1;; gc.auto=0) gc=1;; esac; done\n"%s" "$@"; r=$?\n[ "$saw" = 1 ] && [ "$gc" = 0 ] && exit 1\nexit $r\n' "$REAL_GIT" > "$T/shim3/git"; chmod +x "$T/shim3/git"
+mkdir -p "$T/shim3"; printf '#!/bin/bash\nsaw=0; gc=0; for a in "$@"; do case "$a" in *pull/*/head*) saw=1;; gc.auto=0) gc=1;; esac; done\n"%s" "$@"; r=$?\n[ "$saw" = 1 ] && [ "$gc" = 0 ] && exit 1\nexit $r\n' "$REAL_GIT" > "$T/shim3/git"; chmod +x "$T/shim3/git"
 git -C "$W" fetch -q origin; mkpr 12 pr12 origin/main; P12="$PRSHA"
 apv --approve-sha "$P12"; out="$(PATH="$T/shim3:$PATH" bash "$LAND" 12 --approve-sha "$P12" --repo "$W" 2>&1)"; rc=$?
 [ "$rc" = 0 ] && [[ "$out" == LANDED* ]]; ck "fetch 에 -c gc.auto=0 — gc 실패 rc≠0 이어도 착지(R271)" $?
@@ -170,6 +170,54 @@ fland 41 head FF_RACE=1; [ "$rc" = 1 ] && [[ "$out" == *"ff 불가"* ]] && [ "$(
 : > "$PLOG"; MF="$(omain)"; fland 42 head PATH="$SP:$SF:$PATH" STUB_OBJECTS=1 PUSH_MODES="reject"
 [ "$rc" = 1 ] && [[ "$out" == *"non-FF"* ]] && [ "$(wc -l < "$PLOG" | tr -d ' ')" = 1 ] && [ "$(omain)" = "$MF" ]; ck "ⓘff② 서버 non-FF 거절 스텁 → REJECT · 재시도 0 · main 불변" $?
 MF="$(omain)"; fland 43 "$M1"; [ "$rc" = 1 ] && [[ "$out" == *"ff 는 승인 sha == PR head 만"* ]] && [[ "$out" != *EQUIV* ]] && ! grep -q '^push' "$FLOG" && [ "$(omain)" = "$MF" ]; ck "ⓘff③ 승인 sha != PR head → REJECT(equiv 경로 0) · push 0 · main 불변" $?
+# ── r706 H4: PR head 는 개인 ref refs/ft-land/<PR> 로 받고 그 ref 를 읽는다 — 공용 FETCH_HEAD 읽기 0(다른 좌석 fetch 가 덮어도 남의 sha 를 읽지 않음) ──
+refs() { git -C "$W" for-each-ref --format='%(refname)' refs/ft-land 2>/dev/null | tr '\n' ' '; }
+git -C "$W" update-ref -d refs/ft-land/99 2>/dev/null   # 앞 칸(R271)에서 남은 다른 좌석 ref 정리 — 이 칸은 «다른 좌석 ref 99 만 있는» 상태로 시작
+SX="$T/shimR"; mkdir -p "$SX"
+intr() {  # intr() — 받는 중에 다른 좌석이 FETCH_HEAD 를 덮는 대역 git(끼어들 PR 번호 a b)
+  cat > "$SX/git" <<EOF
+#!/bin/bash
+"$REAL_GIT" "\$@"; r=\$?
+for a in "\$@"; do case "\$a" in *pull/$1/head*) "$REAL_GIT" -C "$W" fetch -q origin pull/$2/head; "$REAL_GIT" -C "$W" rev-parse FETCH_HEAD > "$T/fh.r706";; esac; done
+exit \$r
+EOF
+  chmod +x "$SX/git"
+}
+! sed 's/#.*//' "$LAND" | grep -q 'FETCH_HEAD'; ck "① 착지 도구가 FETCH_HEAD 를 읽는 줄 0(grep)" $?
+git -C "$W" fetch -q origin; mkpr 51 pr51 origin/main; P51="$PRSHA"; mkpr 50 pr50 origin/main; P50="$PRSHA"; intr 50 51
+git -C "$W" update-ref refs/ft-land/99 "$P51"   # 다른 좌석의 개인 ref(지우면 안 됨)
+apv --approve-sha "$P50"; out="$(PATH="$SX:$PATH" bash "$LAND" 50 --approve-sha "$P50" --repo "$W" 2>&1)"; rc=$?
+[ "$rc" = 0 ] && [[ "$out" == LANDED* ]]; ck "① 다른 좌석 fetch 가 FETCH_HEAD 를 덮어도 자기 PR head(개인 ref)로 착지" $?
+[ "$(cat "$T/fh.r706" 2>/dev/null)" = "$P51" ]; ck "① (전제) PR 50 fetch 직후 공용 FETCH_HEAD = 남의 sha(PR 51)" $?
+L50="$(omain)"; [ "$(sha "$ORIGIN" "$L50^{tree}")" = "$(sha "$W" "$P50^{tree}")" ]; ck "① 착지 트리 == PR 50 head 트리(남의 sha 섞임 0)" $?
+[ "$(refs)" = "refs/ft-land/99 " ]; ck "② 성공 착지 뒤 개인 ref 잔여 0 · 다른 좌석 ref 99 는 그대로" $?
+git -C "$W" fetch -q origin; mkpr 52 pr52 "$M0"; P52="$PRSHA"   # 옛 main 기준 → 게이트 거절
+apv --approve-sha "$P52"; out="$(bash "$LAND" 52 --approve-sha "$P52" --repo "$W" 2>&1)"; rc=$?
+[ "$rc" = 1 ] && [ "$(refs)" = "refs/ft-land/99 " ]; ck "② 거절(게이트) 뒤 개인 ref 잔여 0" $?
+cat > "$SX/git" <<EOF
+#!/bin/bash
+for a in "\$@"; do case "\$a" in *pull/53/head*) "$REAL_GIT" "\$@"; exit 128;; esac; done
+exec "$REAL_GIT" "\$@"
+EOF
+chmod +x "$SX/git"   # ref 를 쓴 «뒤» 실패 — 부분 쓰기 잔여를 남기는 대역
+git -C "$W" fetch -q origin; mkpr 53 pr53 origin/main; P53="$PRSHA"; apv --approve-sha "$P53"
+out="$(PATH="$SX:$PATH" bash "$LAND" 53 --approve-sha "$P53" --repo "$W" 2>&1)"; rc=$?
+[ "$rc" = 1 ] && [[ "$out" == *"PR head fetch 실패"* ]]; ck "③ fetch 실패 → «PR head fetch 실패» 거절 그대로(R3)" $?
+[ "$(refs)" = "refs/ft-land/99 " ]; ck "② fetch 실패 뒤 개인 ref 잔여 0(부분 쓰기 남김 0 · R3)" $?
+git -C "$W" fetch -q origin; mkpr 54 pr54 origin/main; P54="$PRSHA"
+git -C "$W" update-ref refs/ft-land/54 "$P51"   # 옛 실행 잔여(다른 sha)
+apv --approve-sha "$P54"; out="$(bash "$LAND" 54 --approve-sha "$P54" --repo "$W" 2>&1)"; rc=$?
+[ "$rc" = 0 ] && [[ "$out" == LANDED* ]] && [ "$(sha "$ORIGIN" "$(omain)^{tree}")" = "$(sha "$W" "$P54^{tree}")" ]; ck "③ 옛 잔여 refs/ft-land/54 를 강제 갱신(+)으로 새 head 로 — 옛 sha 비교 0(R4)" $?
+[ "$(refs)" = "refs/ft-land/99 " ]; ck "② R4 착지 뒤에도 잔여 0" $?
+# 변이: 개인 ref 읽기를 FETCH_HEAD 로 되돌리면 ① 칸이 FAIL(시험의 검출력)
+MB="$T/mutbin"; mkdir -p "$MB"; cp "$LAND" "$MB/ft-merge-land.sh"
+for f in "$BIN"/*; do [ "$(basename "$f")" = ft-merge-land.sh ] || ln -sf "$f" "$MB/"; done
+sed -i '' 's|refs/ft-land/\$PR^{commit}|FETCH_HEAD^{commit}|' "$MB/ft-merge-land.sh"
+! cmp -s "$LAND" "$MB/ft-merge-land.sh"; ck "④ 변이본 적용(sed — 원본과 다름)" $?
+git -C "$W" fetch -q origin; mkpr 57 pr57 origin/main; mkpr 56 pr56 origin/main; P56="$PRSHA"; intr 56 57   # 57 먼저(끼어들 좌석) · 56 마지막(STUB_JSON = PR 56)
+apv --approve-sha "$P56"; out="$(PATH="$SX:$PATH" bash "$MB/ft-merge-land.sh" 56 --approve-sha "$P56" --repo "$W" 2>&1)"; rc=$?
+[ "$rc" = 1 ] && [[ "$out" == *"fetch 한 head"* ]]; ck "④ 변이(FETCH_HEAD 읽기)는 ① 칸에서 FAIL — 시험 검출력" $?
+
 ! grep -vE '^\s*#' "$BIN/ft-merge-land.sh" "$BIN/ft-merge-lib.sh" | grep -qE '\b(600|300)\b'; ck "600·300 글자 0" $?
 cmp -s "$BIN/ft-merge-land.sh" "$BIN/../kit/fable-team/bin/ft-merge-land.sh" && cmp -s "$BIN/ft-merge-lib.sh" "$BIN/../kit/fable-team/bin/ft-merge-lib.sh"; ck "키트 사본 2 cmp0" $?
 
