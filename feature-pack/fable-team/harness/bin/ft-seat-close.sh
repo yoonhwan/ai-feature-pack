@@ -30,7 +30,7 @@ if [ -n "$VERDICT" ]; then   # R400 ⓪① — 원장 루트를 먼저 풀고(�
   . "$HERE/ft-harness-root.sh" && DATA="$(ft_data_root "$HERE")" || { echo "REJECT 원장 루트를 못 풂 — FT_ROOT=<설치본 루트> 를 주고 --seats <그 루트>/.fable-team/seats.json 로 (쓰기 0 · kill 0)"; exit 1; }
   tmux has-session -t "=$SEAT" 2>/dev/null || DEAD=1   # r427 — 세션 없음 = pane 결속 불가 → 기존 기록 보존 · 없으면 대화 기록 탐색(살아 있는 좌석 경로는 그대로)
   ROUT="$(bash "${FT_SEAT_RETIRE_BIN:-$HERE/ft-seat-retire.sh}" "$SEAT" --record-only --verdict "$VERDICT" ${ARG:+--seats "$ARG"} $([ "$DEAD" = 0 ] || echo --keep-existing) 2>&1)"; rrc=$?
-  case "$DEAD:$rrc $ROUT" in ?":0 RESUME ok "*) RK=new;; "1:0 RESUME kept "*) RK=kept;; "1:0 NORECORD "*) RK=NORECORD;; *) echo "HELD $SEAT 재개 기록 실패 — 명부 쓰기 0 · kill 0 · rc=$rrc $(printf '%s' "$ROUT" | head -1)"; exit 3;; esac
+  case "$DEAD:$rrc $ROUT" in ?":0 RESUME ok "*) RK=new;; "1:0 RESUME kept "*) RK=kept;; "1:0 NORECORD "*) RK=NORECORD;; "0:0 NORECORD "*"pi 세션 없음"*) RK=NORECORD;; *) echo "HELD $SEAT 재개 기록 실패 — 명부 쓰기 0 · kill 0 · rc=$rrc $(printf '%s' "$ROUT" | head -1)"; exit 3;; esac   # r960 ⓓ: 살아 있는 pi 좌석의 NORECORD «pi 세션 없음 — 산출 커밋 보존» 은 닫기 진행(산출 커밋은 브랜치 보존 · claude 좌석 NORECORD 는 그대로 HELD rc 3)
   REC="${ROUT#RESUME * }"; REC="${REC%%[[:space:]]*}"; [ "$RK" != NORECORD ] || REC=NORECORD
 fi
 OUT="$(python3 - "${ARG:-${FT_SEATS_JSON:-}}" "${ROOT:-.}" "$SEAT" "$REASON" "$BY" "$VERDICT" "$REC" "$HERE/ft-seat-close.sh" "$DEAD" "$REOPEN" <<'PY'

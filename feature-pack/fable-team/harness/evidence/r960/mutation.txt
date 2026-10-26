@@ -1,0 +1,6 @@
+# r960 ⓕ 변이 — 고친 갈래를 끄면 그 축의 시험이 무너지는가(사본에 글자만 바꿔 넣고 같은 섹션 재실행)
+
+== nano_close_card_branch: # r960-mut:branchcard → ':' 로 끄면 ⓐ 가 REJECT 카드 못 찾음
+== pi_resume: # r960-mut:pi → 'pass' 로 끄면 ⓒ 가 rc 3 HELD
+== claude_norec: '0:0 NORECORD "*"pi 세션 없음"' → '0:0 NORECORD "*' 로 넓히면 ⓓ 의 claude 칸이 rc 0(닫힘)
+(실행 결과 = 위 test-green.txt 의 각 시험 ⓕ 줄 — 세 변이 모두 FAIL 을 냈다)

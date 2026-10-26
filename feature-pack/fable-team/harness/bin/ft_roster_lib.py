@@ -1,6 +1,7 @@
 """ft_roster_lib.py — 명부(seats*.json) 읽기·원자 쓰기·라우팅 칸 쓸기 공용 (ft-seat-retire.sh · ft-seat-close.sh 가 같은 폴더에서 import).
-r429 묶음: 두 도구에 같은 글자로 있던 load/쓰기와 retire 의 라우팅 칸 쓸기를 한 곳으로 옮겼다(동작 불변 · 줄 수 상한)."""
-import collections, glob, json, os, shutil
+r429 묶음: 두 도구에 같은 글자로 있던 load/쓰기와 retire 의 라우팅 칸 쓸기를 한 곳으로 옮겼다(동작 불변 · 줄 수 상한).
+r960: pi 좌석 재개 기록(pi_seat_resume)도 여기 — ft-seat-retire.sh 는 200줄 상한이라 파일 안에 못 넣는다(시험 ⓔ 가 줄 수를 잰다)."""
+import collections, datetime, glob, json, os, shutil, subprocess
 
 ROUTE = ("_hil_route", "_planner", "_desk_route")   # r429 라우팅 칸(+ 이름이 _route 로 끝나는 칸) · r465 부터 은퇴는 남의 명부 역할 칸도 바꾼다(scan_cells) — 이 표는 출력 roles/routes 구분용
 
@@ -70,3 +71,30 @@ def scan_cells(p, old):   # r465 같은 폴더 다른 명부 전부 — 최상�
 def apply_cells(others, cells, new, ts):   # r465 = apply_routes 와 같은 쓰기(파일마다 .bak-retire-<ts> · tmp→교체) → (roles[파일:칸…], routes[파일:칸…]) 출력용
     out = apply_routes(others, cells, new, ts)
     return [c for c in out if not is_route(c.split(":", 1)[1])], [c for c in out if is_route(c.split(":", 1)[1])]
+
+
+PI_NOREC = "pi 세션 없음 — 산출 커밋 보존"   # r960 ⓓ: ft-seat-close 가 이 글자를 보고 «살아 있는 pi 좌석»도 닫는다(사유가 곧 근거) · claude 좌석은 지금처럼 HELD
+
+
+def _pi_sh(*a):   # 외부 조회 7초 상한 · 실행 불가·시간 초과 = "" (ft-seat-retire 의 sh 와 같은 규율)
+    try: return subprocess.run(a, capture_output=True, text=True, timeout=7, env={**os.environ, "LC_ALL": "C"}).stdout
+    except (OSError, subprocess.SubprocessError): return ""
+
+
+def pi_seat_resume(seat, model, retired_by):   # r960 ⓒ — pi 좌석 재개 기록 = 그 pane cwd 의 pi 세션 파일(가장 최근 1개 · 첫 줄 cwd 가 pane cwd 와 같고 timestamp ≥ 좌석 프로세스 시작) → (record|None, 이유)
+    #   폴더 이름 인코딩 추측 0 — 세션 파일 첫 줄(type=session)의 cwd 로 고른다. 뿌리는 FT_PI_SESSIONS(시험) 아니면 ~/.pi/agent/sessions.
+    pid, _, cwd = _pi_sh("tmux", "display", "-p", "-t", "=" + seat + ":", "#{pane_pid} #{pane_current_path}").strip().partition(" ")   # cwd 에 공백이 있어도 살린다(첫 칸 = pid)
+    pid = pid if pid.isdigit() else ""; cwd = cwd if pid else ""
+    if not cwd or not os.path.isdir(cwd): return None, PI_NOREC + " · pane cwd 못 읽음(tmux 좌석 없음·경로 아님)"
+    try: since = datetime.datetime.utcfromtimestamp(datetime.datetime.strptime(" ".join(_pi_sh("ps", "-o", "lstart=", "-p", pid).split()), "%a %b %d %H:%M:%S %Y").timestamp()).strftime("%Y-%m-%dT%H:%M:%S")
+    except ValueError: since = ""
+    best = None
+    for f in glob.glob(os.path.expanduser(os.environ.get("FT_PI_SESSIONS") or "~/.pi/agent/sessions") + "/*/*.jsonl"):
+        try: h = json.loads(open(f, encoding="utf-8").readline() or "{}")
+        except (OSError, ValueError): continue
+        if isinstance(h, dict) and h.get("type") == "session" and h.get("cwd") == cwd and str(h.get("timestamp") or "") >= since and (best is None or os.path.getmtime(f) > best[0]): best = (os.path.getmtime(f), f, h)
+    if not best: return None, PI_NOREC + f" · {cwd} 세션 파일 0"
+    use = model if isinstance(model, str) and model else (best[2].get("modelId") if isinstance(best[2].get("modelId"), str) else None)
+    if not use: return None, "pi 좌석 · model 못 읽음(세션 파일·명부)"
+    return collections.OrderedDict(name=seat, engine="pi", pid=int(pid), uuid=best[2].get("id"), jsonl=best[1], cwd=cwd, model=use, retired_by=retired_by,
+                                   at=datetime.datetime.now().isoformat(timespec="seconds"), binding=dict(source="pi-session", session=cwd)), ""

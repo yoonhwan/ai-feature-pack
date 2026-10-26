@@ -1,0 +1,19 @@
+# r960 시험 — 신규 2 + 기존 회귀
+== test_nano_close_card_branch_r960.sh rc=0 21 PASS · 0 FAIL
+== test_seat_close_pi_resume_r960.sh rc=0 25 PASS · 0 FAIL
+== test_seat_close.sh rc=0 81 PASS · 0 FAIL
+== test_seat_retire.sh rc=0 172 PASS · 0 FAIL
+== test_seat_retire_keep.sh rc=0 13 PASS · 0 FAIL
+== test_seat_retire_rosters.sh rc=0 46 PASS · 0 FAIL
+== test_seat_retire_defer_press_r690.sh rc=0 35 PASS · 0 FAIL
+== test_seat_retire_old_name_lint.sh rc=0 17 PASS · 0 FAIL
+== test_seat_resume_binding.sh rc=0 92 PASS · 0 FAIL
+== test_nano_close_suspended.sh rc=0 92 PASS · 0 FAIL
+== test_nano_close_superseded_by.sh rc=1 139 PASS · 2 FAIL
+FAIL 기존 --cherry-override 사유는 그대로(⑥ 은 별개 REJECT: 증거 줄 없음) — 없음: «reason=사람 사유» ← 
+FAILED 1
+== test_nano_close_rerun_early.sh rc=0 37 PASS · 0 FAIL
+== test_nano_close_pack_wt.sh rc=0 37 PASS · 0 FAIL
+== test_nano_close_research_r888.sh rc=0 101 PASS · 0 FAIL
+== test_nano_close_step_timing_r938.sh rc=0 115 PASS · 0 FAIL
+== test_kit_bin_sync.sh rc=0 7 PASS · 0 FAIL

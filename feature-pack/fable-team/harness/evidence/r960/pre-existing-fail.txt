@@ -1,0 +1,10 @@
+# r960 착수 전(HEAD = origin/main a1fccaf7) — 같은 두 시험이 같은 수로 실패한다(내 변경 탓 아님)
+== HEAD test_nano_close_superseded_by.sh rc=1 139 PASS · 2 FAIL
+FAIL 기존 --cherry-override 사유는 그대로(⑥ 은 별개 REJECT: 증거 줄 없음) — 없음: «reason=사람 사유» ← 
+FAILED 1
+== HEAD test_nano_close_cwd_holders_skip_self_r680.sh rc=1 5 PASS · 5 FAIL
+FAIL ⓑ 계획 생성 실패 ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.kq2fAP51jF/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+FAIL ⓒ 계획 생성 실패 ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.kq2fAP51jF/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+FAIL ⓓ 계획 생성 실패 ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.kq2fAP51jF/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+FAIL ⓔ 계획 생성 실패 ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.kq2fAP51jF/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+FAILED 4

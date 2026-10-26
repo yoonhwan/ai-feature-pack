@@ -18,6 +18,7 @@
 #     하나라도 아니면 REJECT «리서치 아님 · 구현 닫기 경로로» · 셀 수 없으면 REJECT · ①--result 실재 ∧ 비어 있지 않음(0바이트 = REJECT) · ②·③·⑤ 그대로 · 원장 행·출력 꼬리 research=1 · --never-started·--superseded-by·--suspended·--cherry-override·--shared-wt 와 동시 = usage 2 · 인자 없으면 동작 불변.
 #   카드 읽기(r888): 명부 index 의 카드는 FT_CARD_REF(기본 origin/main · 닫기 직전 그 ref 하나만 fetch)의 indices/{진행,완성,대기}/<파일> 판을 먼저 «읽는다»(INFO 카드 위치 ← <ref>:<경로>).
 #     ref 에 없으면 기존 후보(작업 트리) 그대로 · fetch 실패면 옛 ref 판을 믿지 않는다(WARN 1줄 · 작업 트리 후보) · 쓰기(리서치 닫힘·중단 줄)는 작업 트리 사본 그대로.
+#   카드 찾기(r960): 위 후보(WT·ROOT·LEDGER_WT·형제 폴더)에 카드가 없으면 «좌석 가지»에서 찾는다 — 좌석 워크트리(가지 체크아웃) 인덱스 폴더 먼저(읽기·쓰기), 없으면 가지 tip 의 ref 판(읽기 전용). 정보 = «INFO 카드 위치 ← <가지>:<경로>» 1줄. 가지에도 없으면 지금처럼 ⑥카드 못 찾음 REJECT.
 #   --wt <경로> --branch <이름> = 전용 워크트리는 있는데 «이름이 표준(.worktrees/<접두><키> · nano/<키>)이 아닌» 좌석 닫기(원장 R8 보강) — 둘 «모두» 명시해야만 이 모드(하나만 · --shared-wt 와 동시 = usage 2 · 자동 판별 0).
 #     확인 ⓐ등록된 .worktrees/ 아래 워크트리 ⓑ그 워크트리 체크아웃 브랜치 == --branch ⓒ세션이 살아 있으면 pane cwd toplevel == --wt ⓓ다른 pane 이 --wt 안 cwd 0 ⓔ미커밋 0 ⓕ기존 종료조건 3·증거 줄 ⓖcherry 는 --branch 기준(우회는 기존 --cherry-override 뿐).
 #     통과해도 WIP 자동 커밋·wt-clean 실행·브랜치 삭제 0 — 정리 계획만 <wt-clean>/<seat>.sh.hil 로 생성(sweep 순회 밖 · 사람 ! 실행).
@@ -933,6 +934,27 @@ if [ -z "$CARD" ] && [[ "$IDX" =~ ^(.*/indices)/[^/]+/[^/]+$ ]]; then
     [ -z "$_hit" ] || { _sibn=$((_sibn+1)); _sib1="$_hit"; }; done
   [ "$_sibn" = 1 ] && { CARD="$_sib1"; echo "INFO 카드 위치 ← $CARD"; }
 fi
+# r960 ⓐ 나노 가지 카드 — 카드가 아직 origin/main 에 없고 «좌석 가지»에만 있으면 그 가지에서 찾는다(닫기 길 막힘 해소).
+#   먼저 좌석 워크트리(그 가지 체크아웃)의 같은 indices/{진행,완성,대기}/<파일> — 있으면 쓰기(card 줄)도 그 판에 한다.
+#   워크트리에 없으면 가지 tip 의 ref 판을 임시 파일로 꺼내 CARD_READ 로만 쓴다. 가지에도 없으면 아래 ⑥ 이 지금처럼 REJECT.
+_CB_TMP=""
+if [ -z "$CARD" ] && [ -n "$IDX" ] && [ -n "$SEAT_WT" ] && [[ "$IDX" =~ ^(.*/indices)/[^/]+/([^/]+)$ ]]; then
+  _cb_root="${BASH_REMATCH[1]}"; _cb_name="${BASH_REMATCH[2]}"; _cb_rel=""
+  for _rel in "$IDX" ${_tw:+"$_tw"}; do [[ "$_rel" =~ ^(.*/indices)/[^/]+/([^/]+)$ ]] || continue
+    for _d in 진행 완성 대기; do [ -z "$_cb_rel" ] && [ -f "$SEAT_WT/${BASH_REMATCH[1]}/$_d/${BASH_REMATCH[2]}" ] && _cb_rel="${BASH_REMATCH[1]}/$_d/${BASH_REMATCH[2]}"; done; done
+  if [ -n "$_cb_rel" ]; then
+    CARD="$SEAT_WT/$_cb_rel"; echo "INFO 카드 위치 ← ${SEAT_BR:-<좌석 가지>}:$_cb_rel (가지 체크아웃 · 읽기·쓰기)"   # r960-mut:branchcard
+  else
+    _cb_ref="${SEAT_BR:-nano/$_KEY}"; _cb_hit=""
+    for _d in 진행 완성 대기; do [ -z "$_cb_hit" ] && git -C "$SEAT_REPO" cat-file -e "$_cb_ref:$_cb_root/$_d/$_cb_name" 2>/dev/null && _cb_hit="$_cb_root/$_d/$_cb_name"; done
+    if [ -n "$_cb_hit" ]; then
+      _CB_TMP="$(mktemp)" || { _CB_TMP=""; echo "WARN 카드 임시 파일 생성 실패 — 가지 판 읽기 0"; }   # r960-mut:branchref
+      if [ -n "$_CB_TMP" ] && git -C "$SEAT_REPO" show "$_cb_ref:$_cb_hit" > "$_CB_TMP" 2>/dev/null; then
+        echo "INFO 카드 위치 ← $_cb_ref:$_cb_hit (읽기 전용 · 가지 tip)"
+      else rm -f "$_CB_TMP"; _CB_TMP=""; fi
+    fi
+  fi
+fi
 # ★r888 카드 «읽기» = ref 판 먼저★ — 루트 로컬 체크아웃이 뒤처지면(실측 69커밋 · 대기/ 옛 사본) 위 후보가 옛 판을 집는다. 읽기(증거 줄·리서치 줄·표지·checkpoint)는
 #   FT_CARD_REF(기본 origin/main)의 <IDX>·쌍둥이 indices/{진행,완성,대기}/<파일> 첫 판을 임시 파일로 꺼낸 CARD_READ · 쓰기(리서치 닫힘·중단 줄)는 위 CARD(작업 트리) 그대로.
 #   원격 ref 는 그 ref 하나만 fetch — 실패면 옛 ref 판을 믿지 않는다(WARN · CARD_READ=CARD) · ref 에 없으면 CARD_READ=CARD(기존 순서 그대로).
@@ -953,8 +975,9 @@ _card_ref_read() {
   git -C "$ROOT" show "$ref:$hit" > "$_CR_TMP" 2>/dev/null || { echo "WARN 카드 꺼내기 실패($ref:$hit) — 작업 트리 후보로"; return 0; }
   CARD_READ="$_CR_TMP"; echo "INFO 카드 위치 ← $ref:$hit (읽기 · 쓰기 = ${CARD:-작업 트리 사본 없음})"
 }
-trap 'rm -f "${_CR_TMP:-}"' EXIT
+trap 'rm -f "${_CR_TMP:-}" "${_CB_TMP:-}"' EXIT   # r960: 가지 판 임시 파일도 같이
 _card_ref_read   # r888-mut:cardref
+[ -z "$CARD_READ" ] && [ -n "${_CB_TMP:-}" ] && { CARD_READ="$_CB_TMP"; echo "INFO 카드 읽기 ← 가지 판(읽기 전용)"; }   # r960 ⓐ: ref·작업 트리에 없으면 가지 tip 판
 # r888: 증거 줄 검사 = 읽기 판 먼저 · 거절이고 작업 트리 판이 따로 있으면 그 판도 — 증거 줄은 «세트 = 지금 HEAD» 로 스스로 검증돼 옛 판이 거짓 통과하지 못한다(작업 트리에 막 쓴 미착지 줄 · RED 판정의 git 이력 보존)
 _ev_run() {  # r938 ⓒ(r2 N2·N3): 증거 검사도 상한 안에서 — 상한 = min(고정비 + 7초 × «그 검사가 보는 커밋 수», 70) · 넘으면 rc 124 → 닫지 않음
   local o r
@@ -1221,7 +1244,7 @@ step sheet
 _SHCAP="$(nf_cap "$(nf_fixed sheet)" 1)"   # r938 ⓒ: 사건 원장 호출도 상한 안에서(key·prepare·commit 각 1회)
 _SK="$(nf_bound "$_SHCAP" bash "$HERE/ft-sheet-events.sh" key nano-close "$SEAT" "${RESULT:-none}")"
 # r938 r2 N1: abort trap 을 prepare «호출 전» 에 건다 — prepare 뒤에 등록하면 prepare 가 상한에 잘릴 때 .prepared 가 남는다(DA⑥ r1 반례 1).
-trap 'if [ -n "${_SK:-}" ]; then bash "$HERE/ft-sheet-events.sh" abort "$_SK" 2>/dev/null; fi; rm -f "${_CR_TMP:-}"' EXIT   # r888: 꺼낸 카드 임시 파일도 같이
+trap 'if [ -n "${_SK:-}" ]; then bash "$HERE/ft-sheet-events.sh" abort "$_SK" 2>/dev/null; fi; rm -f "${_CR_TMP:-}" "${_CB_TMP:-}"' EXIT   # r888: 꺼낸 카드 임시 파일도 같이(r960: 가지 판도)
 nf_bound "$_SHCAP" bash "$HERE/ft-sheet-events.sh" prepare "$_SK" "$(python3 -c 'import json,sys;print(json.dumps(dict(zip(("ev","team","id","seat","ref","by"),sys.argv[1:]))))' nano-close "" "$SEAT" "$SEAT" "세트 ${RESULT:0:60}" nano-close)" >/dev/null || { _shr=$?; echo "REJECT $SEAT"; echo "  - 사건 원장 prepared 실패$([ "$_shr" -eq 124 ] && echo " — 시간 초과(${_SHCAP}s 상한)") — 닫기 거절(PLAN §3-1)"; exit 1; }
 # 명부 삭제 + 원장 append (pm 만 원장을 쓴다는 §2-7 의 예외 = 이 스크립트의 append 1줄)
 step ledger
