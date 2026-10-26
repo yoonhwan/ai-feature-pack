@@ -5,15 +5,16 @@ FAIL ⓑ rc=0 enters=1 transcript=[[byz-t-old-claude#1→byz-t-new-claude#2] 통
 PASS ⓓ capture 정상 모양 + rc1 → rc=1 · 주입 0 · Enter 0
 FAIL ⓗ rc=0 enters=1 out=state=submitted session=sess enters=1 
 FAIL ⓘ rc=0 enters=2 rec=2 out=state=submitted session=sess enters=2 
-FAIL ⓙ rc=1 secs=18.24 out=state=submit-failed session=sess enters=2 — 제출 실패: 세션 기록에 우리 글자가 없다(글자 재입력 0) 
-PASS ⓙ2 inject 조회 1.4초가 마감(1초)을 넘겨 찾은 새 기록 → rc=0 · Enter 1 · 1.72s(<2.9)
-FAIL ⓙ2 boot rc=0 enters=1 rec=1 secs=2.98 out=state=submitted session=sess enters=1 
+FAIL ⓙ rc=1 secs=17.91 out=state=submit-failed session=sess enters=2 — 제출 실패: 세션 기록에 우리 글자가 없다(글자 재입력 0) 
+PASS ⓙ2 inject 조회 1.4초가 마감(1초)을 넘겨 찾은 새 기록 → rc=0 · Enter 1 · 1.71s(<2.9)
+FAIL ⓙ2 boot rc=0 enters=1 rec=1 secs=2.93 out=state=submitted session=sess enters=1 
 FAIL ⓙ3 inject rc=0 enters=1→1 rec=1→1 secs=3.33 out=state=submitted session=sess enters=1 
-FAIL ⓙ3 boot rc=0 enters=1→1 rec=1→1 secs=4.54 out=state=submitted session=sess enters=1 
+FAIL ⓙ3 boot rc=0 enters=1→1 rec=1→1 secs=4.55 out=state=submitted session=sess enters=1 
 PASS ⓙ4 inject 조회 0.85초 · 기록 1.1초 → rc=0 · Enter 1 · 새 기록 1 · 2.23s(<2.55)
-FAIL ⓙ4 boot rc=0 enters=1 rec=1 secs=2.88 out=state=submitted session=sess enters=1 
-PASS g1 준비 6초 늦음 → 준비 확인 뒤 제출 1(기록) · 입력줄 빔 (6.6s)
-PASS g2 첫 Enter 유실 → 재전송 1회 제출 · 글자 1회 (1.39s)
+FAIL ⓙ4 boot rc=0 enters=1 rec=1 secs=2.9 out=state=submitted session=sess enters=1 
+FAIL ⓙ5 rc=0 enters=2 rec=1 secs=5.05 out=state=submitted session=sess enters=2 
+PASS g1 준비 6초 늦음 → 준비 확인 뒤 제출 1(기록) · 입력줄 빔 (6.63s)
+PASS g2 첫 Enter 유실 → 재전송 1회 제출 · 글자 1회 (1.53s)
 PASS g3 Enter 전부 유실 → rc=1 «제출 실패» · Enter 2(재전송 1) · 글자 1회
 PASS g4 준비 빠름 → 제출 1 · 추가 대기 0.03s (≤0.9)
 PASS g5 자리표시 «Try …» 입력줄 → 주입·제출 1 (rc=0)
@@ -31,8 +32,8 @@ PASS ⓖ'' env·resume·명부 모두 없음 → rc=3 · Enter 0
 FAIL g9 rc=0 enters=0 out=state=already-submitted session=sess — 부팅 문장이 이미 기록에 있다 · Enter 0 
 PASS ⓛ plain·인자 없음(send·restore) → 기준 커밋 cbe218a5 과 tmux 호출·결과 바이트 같음 · 캡처 0
 PASS ⓝ cmd_open 판독 실패 → rc=1 «부팅 문장 제출 실패» · «session created» 성공 문구 0
-PASS ⓞ cmd_open claude → --session-id 발급(ed233bef-8510-4e3d-9422-22cd5f3f8527) = 세션 env 같은 값 · 호출자 env 값 안 씀 · TMUXC_BOOT_TEXT 기록
+PASS ⓞ cmd_open claude → --session-id 발급(6a33b55c-bcab-4cef-a70f-f350101e7d32) = 세션 env 같은 값 · 호출자 env 값 안 씀 · TMUXC_BOOT_TEXT 기록
 PASS ⓞ' codex open → --session-id·TMUXC_CLAUDE 0(P3)
 ----
-FAILED 13 (mutate=0)
+FAILED 14 (mutate=0)
 rc=1

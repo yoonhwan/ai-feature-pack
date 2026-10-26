@@ -34,6 +34,7 @@ done
 { echo "### 변이 P — 재전송 판정에 접두 인정 복귀 → ⓑ 빨강이어야 한다"; FT_MUTATE=P bash "$INJ"; echo "rc=$?"; } > "$OUT/mutate-P-prefix-accept.txt" 2>&1
 { echo "### 변이 C — capture-pane rc 무시 → ⓓ 빨강이어야 한다"; FT_MUTATE=C bash "$INJ"; echo "rc=$?"; } > "$OUT/mutate-C-capture-rc-ignored.txt" 2>&1
 { echo "### 변이 E — boot-enter 판독 불가 rc0 복귀 → ⓔ 빨강이어야 한다"; FT_MUTATE=E bash "$INJ"; echo "rc=$?"; } > "$OUT/mutate-E-unreadable-rc0.txt" 2>&1
+{ echo "### 변이 D — 재전송 직전 마감 검사 삭제 → ⓙ5 빨강이어야 한다(enters=2 · rc0)"; FT_MUTATE=D bash "$INJ"; echo "rc=$?"; } > "$OUT/mutate-D-resend-after-deadline.txt" 2>&1
 { echo "### 변이 S — ft-successor-open 이 boot-enter rc≠0 를 무시 → ⓡ2'·ⓡ3 빨강이어야 한다"; FT_SO_MUTATE=S bash "$SO"; echo "rc=$?"; } > "$OUT/mutate-S-successor-ignores-rc.txt" 2>&1
 
 {

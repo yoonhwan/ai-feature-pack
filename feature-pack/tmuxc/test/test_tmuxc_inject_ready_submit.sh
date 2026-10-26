@@ -19,6 +19,8 @@
 #     ⓙ 조회 지연 0.04초 × 많음 + WAIT=7 → 9초 전에 끝남(벽시계 마감)
 #     ⓙ2/ⓙ3 (r5 계약) WAIT=1 · 조회 1.4초 — 기록 1.2초 = 마감 뒤에 찾아도 rc0 / 기록 3초 = rc≠0 · 둘 다 Enter 1
 #     ⓙ4 (r6 결과 계약) WAIT=1 · 조회 0.85초 · 기록 1.1초 → rc0 · Enter 1 · 총 < WAIT + 조회 + 0.2 + 0.5초
+#     ⓙ5 (r7 계약 ①) 첫 Enter 먹힘·화면·기록 그대로 · 조회 0.6초 → 재전송 판정이 마감 뒤 → Enter 1 · rc≠0
+#   시험 상한 숫자는 구현에 맞춘 값이라 계약 상한보다 빡빡하다 = 의도 · SECS 는 호출 전부터 잰다(계약은 첫 Enter 부터).
 #   이어 온 시험: g1 준비 6초 늦음 · g2 첫 Enter 유실 → 재전송 1 · g3 Enter 전부 유실 → 실패 · g4 준비 빠름 ·
 #     g5 새 claude 자리표시 «Try "…"» → 주입·제출 · g6 사람 글자 위 → Enter 0 · g7 id 없는 agent 주입 → rc≠0 ·
 #     g8 TUI 가 긴 문장을 여러 줄로 감음(실측 꼴) → 전문 일치 · 제출 · g9 boot-enter 옛 기록만 + 자리표시 → rc4 ·
@@ -26,7 +28,7 @@
 #   픽스처 = 가짜 tmux(상태 폴더 파일) + 가짜 기록 폴더(<id>.jsonl) — 실 tmux 서버·실 에이전트·홈 쓰기 0.
 #   시험 대상 = env FT_TMUXC_PATH (기본 = 이 저장소 사본) — 옛 사본으로 돌리면 빨강이어야 한다.
 #   변이(FT_MUTATE): J = 기록 판정 → 화면 판정 복귀 · P = 재전송 판정에 접두 인정 복귀 · C = capture rc 무시 ·
-#                    E = boot-enter 판독 불가 rc0 복귀
+#                    E = boot-enter 판독 불가 rc0 복귀 · D = 재전송 직전 마감 검사 삭제(→ ⓙ5 빨강)
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 TMUXC="${FT_TMUXC_PATH:-$HERE/../core/bin/tmuxc}"
@@ -207,6 +209,17 @@ assert old in s, "MUTATE E 대체 실패"
 open(p, "w", encoding="utf-8").write(s.replace(old, new, 1))
 PY
      ;;
+  D) # 재전송 직전 마감 검사 삭제(마감 뒤에도 두 번째 Enter)
+     python3 - "$SHIM" <<'PY'
+import sys
+p = sys.argv[1]; s = open(p, encoding="utf-8").read()
+old = '''          now="$(now_ms)"
+          if (( now < t_end )); then tmux send-keys -t "$pane" Enter; enters=2; fi ;;'''
+new = '''          tmux send-keys -t "$pane" Enter; enters=2 ;;  # MUTATE D'''
+assert old in s, "MUTATE D 대체 실패"
+open(p, "w", encoding="utf-8").write(s.replace(old, new, 1))
+PY
+     ;;
   0) ;;
   *) echo "FAIL 모르는 변이: $MUTATE"; exit 1 ;;
 esac
@@ -320,6 +333,15 @@ for who in inject boot; do
     && ok "ⓙ4 ${who} 조회 0.85초 · 기록 1.1초 → rc=0 · Enter 1 · 새 기록 1 · ${SECS}s(<2.55)" \
     || bad "ⓙ4 ${who} rc=${RC} enters=$(enters) rec=$(rec_count) secs=${SECS} out=$(outline)"
 done
+
+# ⓙ5 (r7 계약 ①) 첫 Enter 를 먹고 입력줄·기록 그대로 · 조회 0.6초 · WAIT=1 → 재전송 판정이 마감 뒤에 끝남
+#   → 마감 뒤 Enter 0: rc≠0 «제출 실패» · Enter 1 · 기록 0 · < 1+3×0.6+1 = 3.8초 (inject 만 · boot-enter 는 재전송 없음)
+fresh; : > "$D/ready"; : > "$D/enter_deferred"
+LOOKUP_DELAY=0.6 TMUXC_SUBMIT_WAIT=1 call_limited inject_message sess "$MSG" agent "$SID"
+{ [ "$RC" != 0 ] && [ "$RC" != 124 ] && grep -q '제출 실패' "$T/out" && [ "$(enters)" = 1 ] && [ "$(rec_count)" = 0 ] \
+    && python3 -c "import sys; sys.exit(0 if ${SECS} < 3.8 else 1)"; } \
+  && ok "ⓙ5 재전송 판정이 마감 뒤 → 두 번째 Enter 0 · rc=${RC} «제출 실패» · Enter 1 · 기록 0 · ${SECS}s(<3.8)" \
+  || bad "ⓙ5 rc=${RC} enters=$(enters) rec=$(rec_count) secs=${SECS} out=$(outline)"
 
 # g1 준비 6초 늦음 → 준비 확인 뒤 주입 · 기록으로 제출 확인 · 입력줄 빔
 fresh; ( sleep 6; : > "$D/ready" ) & bg=$!

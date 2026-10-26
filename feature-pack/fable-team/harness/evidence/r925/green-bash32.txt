@@ -1,21 +1,22 @@
 ### GREEN — /bin/bash 3.2 (macOS 기본 셸)
 GNU bash, version 3.2.57(1)-release (arm64-apple-darwin24)
 PASS ⓐ 옛 출력·옛 기록에 같은 메시지 + 새 제출 0 → rc=1 «제출 실패» · submitted 0 · Enter 1(재전송 0)
-PASS ⓑ 늦은 기록 + 사람 접두 25자 → 재전송 0(Enter 1) · 사람 글자 제출 0 · 기록으로 rc=0 (3.34s)
+PASS ⓑ 늦은 기록 + 사람 접두 25자 → 재전송 0(Enter 1) · 사람 글자 제출 0 · 기록으로 rc=0 (3.37s)
 PASS ⓓ capture 정상 모양 + rc1 → rc=1 · 주입 0 · Enter 0
 PASS ⓗ 입력줄 «통 신표준»(공백 위치만 다름) → 우리 글자 아님 · Enter 0 · rc=4
 PASS ⓘ 마지막 조회 직후 기록 생김 → 재전송 0(Enter 1) · rc=0
-PASS ⓙ 조회 지연 0.04초 + WAIT=7 → 7.58s(<9) 에 rc=1 · 벽시계 마감
-PASS ⓙ2 inject 조회 1.4초가 마감(1초)을 넘겨 찾은 새 기록 → rc=0 · Enter 1 · 1.75s(<2.9)
-PASS ⓙ2 boot 조회 1.4초가 마감(1초)을 넘겨 찾은 새 기록 → rc=0 · Enter 1 · 1.59s(<2.9)
-PASS ⓙ3 inject 기록이 마감+조회 뒤(3초) → rc=1 · Enter 1 · 1.95s(<1+1.4+0.2+0.5) · 기록은 그 뒤 생김
-PASS ⓙ3 boot 기록이 마감+조회 뒤(3초) → rc=1 · Enter 1 · 1.57s(<1+1.4+0.2+0.5) · 기록은 그 뒤 생김
-PASS ⓙ4 inject 조회 0.85초 · 기록 1.1초 → rc=0 · Enter 1 · 새 기록 1 · 2.41s(<2.55)
-PASS ⓙ4 boot 조회 0.85초 · 기록 1.1초 → rc=0 · Enter 1 · 새 기록 1 · 2.17s(<2.55)
+PASS ⓙ 조회 지연 0.04초 + WAIT=7 → 7.52s(<9) 에 rc=1 · 벽시계 마감
+PASS ⓙ2 inject 조회 1.4초가 마감(1초)을 넘겨 찾은 새 기록 → rc=0 · Enter 1 · 1.76s(<2.9)
+PASS ⓙ2 boot 조회 1.4초가 마감(1초)을 넘겨 찾은 새 기록 → rc=0 · Enter 1 · 1.55s(<2.9)
+PASS ⓙ3 inject 기록이 마감+조회 뒤(3초) → rc=1 · Enter 1 · 1.76s(<1+1.4+0.2+0.5) · 기록은 그 뒤 생김
+PASS ⓙ3 boot 기록이 마감+조회 뒤(3초) → rc=1 · Enter 1 · 1.55s(<1+1.4+0.2+0.5) · 기록은 그 뒤 생김
+PASS ⓙ4 inject 조회 0.85초 · 기록 1.1초 → rc=0 · Enter 1 · 새 기록 1 · 2.32s(<2.55)
+PASS ⓙ4 boot 조회 0.85초 · 기록 1.1초 → rc=0 · Enter 1 · 새 기록 1 · 2.08s(<2.55)
+PASS ⓙ5 재전송 판정이 마감 뒤 → 두 번째 Enter 0 · rc=1 «제출 실패» · Enter 1 · 기록 0 · 2.45s(<3.8)
 PASS g1 준비 6초 늦음 → 준비 확인 뒤 제출 1(기록) · 입력줄 빔 (6.63s)
-PASS g2 첫 Enter 유실 → 재전송 1회 제출 · 글자 1회 (1.44s)
+PASS g2 첫 Enter 유실 → 재전송 1회 제출 · 글자 1회 (1.33s)
 PASS g3 Enter 전부 유실 → rc=1 «제출 실패» · Enter 2(재전송 1) · 글자 1회
-PASS g4 준비 빠름 → 제출 1 · 추가 대기 0.25s (≤0.9)
+PASS g4 준비 빠름 → 제출 1 · 추가 대기 0.06s (≤0.9)
 PASS g5 자리표시 «Try …» 입력줄 → 주입·제출 1 (rc=0)
 PASS g6 사람 글자 위 → 전문 아님 · Enter 0 · rc=1 · 사람 글자 제출 0
 PASS g7 id 없음 → rc=1 · 주입 0
@@ -31,7 +32,7 @@ PASS ⓖ'' env·resume·명부 모두 없음 → rc=3 · Enter 0
 PASS g9 옛 기록 + 자리표시 → rc=4 · Enter 0
 PASS ⓛ plain·인자 없음(send·restore) → 기준 커밋 cbe218a5 과 tmux 호출·결과 바이트 같음 · 캡처 0
 PASS ⓝ cmd_open 판독 실패 → rc=1 «부팅 문장 제출 실패» · «session created» 성공 문구 0
-PASS ⓞ cmd_open claude → --session-id 발급(b7f187fb-7f87-4e0d-87b7-014af2cc0471) = 세션 env 같은 값 · 호출자 env 값 안 씀 · TMUXC_BOOT_TEXT 기록
+PASS ⓞ cmd_open claude → --session-id 발급(e5ec2f69-5b8f-4ba2-8bd2-1f3031c42abb) = 세션 env 같은 값 · 호출자 env 값 안 씀 · TMUXC_BOOT_TEXT 기록
 PASS ⓞ' codex open → --session-id·TMUXC_CLAUDE 0(P3)
 ----
 ALL PASS (mutate=0)
