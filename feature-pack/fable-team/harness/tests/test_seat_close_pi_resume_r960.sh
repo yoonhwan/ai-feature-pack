@@ -5,6 +5,8 @@
 #    ⓒ2 세션 파일이 좌석 프로세스 시작 «전» → 그 파일은 이 좌석 것이 아니다(NORECORD)
 #    ⓓ agent=pi 세션 파일 0 → NORECORD «pi 세션 없음 — 산출 커밋 보존» 인데도 닫기 진행(rc 0) · claude 좌석 같은 상황은 HELD rc 3(동작 불변)
 #    ⓕ 변이: pi 갈래 끔 → ⓒ FAIL · claude NORECORD 수용으로 넓히면 ⓓ 의 claude 칸 FAIL ⓖ 키트 짝 cmp0 · bash -n · 줄 수 상한 · 600/300·외부 호출 0
+#    ⓡ r2 HOLD1: pi 세션 파일 0 → 수용한 NORECORD 원문 줄(`NORECORD <좌석> <사유>`)이 출력된다(변이 «수용 뒤 출력 생략» → FAIL)
+#    ⓢ r2 HOLD2: 머리 줄 `session` + 뒤 줄 `model_change.modelId` → 재개 기록 ok · model = 마지막 model_change(변이 «첫 줄만» → FAIL)
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
@@ -113,6 +115,41 @@ seats_pi cl#6 claude; CLOSE_BIN=ft-seat-close.mut.sh
 out="$(close 'cl#6' --reason "변이" --seats "$REPO/.fable-team/seats.json" --verdict 2400)"; rc=$?
 chk "ⓕ claude NORECORD 도 통과로 → rc 0 (ⓓ claude 칸 FAIL)" "$rc" 0
 CLOSE_BIN=""
+
+echo "== ⓡ r2 DA HOLD1 — pi 세션 파일 0: 수용한 NORECORD 원문 줄(좌석·사유)이 출력된다(조용한 통과 0)"
+seats_pi pi#7 pi; rm -f "$SESS"
+out="$(close 'pi#7' --reason "r960 NORECORD 줄" --seats "$REPO/.fable-team/seats.json" --verdict 2400)"; rc=$?
+nl="$(printf '%s\n' "$out" | grep '^NORECORD ' | head -1)"
+chk "ⓡ rc 0 · CLOSED-ROLE record=NORECORD" "$rc $(printf '%s' "$out" | grep -o 'record=[^ ]*')" "0 record=NORECORD"
+chk "ⓡ NORECORD 줄 1개" "$(printf '%s\n' "$out" | grep -c '^NORECORD ')" 1
+has "$nl" "NORECORD pi#7 " "  └ NORECORD 줄에 좌석 이름"
+has "$nl" "pi 세션 없음 — 산출 커밋 보존" "  └ NORECORD 줄에 산출 보존 사유"
+
+echo "== ⓢ r2 DA HOLD2 — 머리 줄 session + 뒤 줄 model_change.modelId → 재개 기록 ok · model = 마지막 model_change"
+pifile_mc() { printf '{"type":"session","version":3,"id":"aaaa-1111","timestamp":"%s","cwd":"%s"}\n{"type":"model_change","id":"b","modelId":"first/model"}\n{"type":"message","id":"c","message":{"role":"user"}}\n{"type":"model_change","id":"d","modelId":"opengateway/deepseek/last-model"}\n' "$NOW" "$PDIR" > "$SESS"; }
+pifile_mc
+printf '{"_master":"M#1","M#1":{"role":"master","tick":"t"},"pi#8":{"role":"nano","agent":"pi","tick":null,"index":"x.md"}}\n' > "$REPO/.fable-team/seats.json"
+out="$(retire_rec 'pi#8')"; rc=$?
+chk "ⓢ retire rc 0 · RESUME ok" "$rc $(printf '%s' "$out" | head -1 | cut -d' ' -f1-2)" "0 RESUME ok"
+chk "ⓢ model = 마지막 model_change.modelId" "$(J "$ZC_RESUME_DIR/pi#8.json" '.model')" "opengateway/deepseek/last-model"
+out="$(close 'pi#8' --reason "r960 model_change" --seats "$REPO/.fable-team/seats.json" --verdict 2400)"; rc=$?
+chk "ⓢ close rc 0 · 기록 경로 출력" "$rc $(printf '%s' "$out" | grep -o "record=[^ ]*")" "0 record=$ZC_RESUME_DIR/pi#8.json"
+
+n="$(mutate "$T/bin/ft-seat-close.sh" "$T/bin/ft-seat-close.mut2.sh" 'echo "$NOLINE"' ':' sub)"
+chk "변이 표지 NOLINE 출력 1줄" "$n" 1
+seats_pi pi#9 pi; rm -f "$SESS"; CLOSE_BIN=ft-seat-close.mut2.sh
+out="$(close 'pi#9' --reason "변이" --seats "$REPO/.fable-team/seats.json" --verdict 2400)"
+chk "ⓡ 변이 «수용 뒤 출력 생략» → NORECORD 줄 0 (ⓡ FAIL)" "$(printf '%s\n' "$out" | grep -c '^NORECORD ')" 0
+CLOSE_BIN=""
+cp "$T/bin/ft_roster_lib.py" "$T/bin/ft_roster_lib.py.orig"
+n="$(mutate "$T/bin/ft_roster_lib.py.orig" "$T/bin/ft_roster_lib.py" "# r960-mut:firstline" '    use = model if isinstance(model, str) and model else best[2].get("modelId")')"
+chk "변이 표지 r960-mut:firstline 1줄" "$n" 1
+pifile_mc
+printf '{"_master":"M#1","M#1":{"role":"master","tick":"t"},"pi#10":{"role":"nano","agent":"pi","tick":null,"index":"x.md"}}\n' > "$REPO/.fable-team/seats.json"
+out="$(retire_rec 'pi#10')"; rc=$?
+has "$out" "model 못 읽음" "ⓢ 변이 «첫 줄만» → model 못 읽음(ⓢ FAIL)"
+chk "ⓢ 변이 기록 파일 0" "$([ -f "$ZC_RESUME_DIR/pi#10.json" ] && echo yes || echo no)" no
+cp "$T/bin/ft_roster_lib.py.orig" "$T/bin/ft_roster_lib.py"
 
 echo "== ⓖ 600/300 s · 외부 호출 0 (r960 새 줄)"
 NEWL="$(grep 'r960\|pi_seat_resume\|PI_NOREC' "$BIN/ft-seat-retire.sh" "$BIN/ft-seat-close.sh" "$BIN/ft_roster_lib.py")"

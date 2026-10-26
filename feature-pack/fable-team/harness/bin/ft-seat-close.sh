@@ -9,7 +9,7 @@
 #   rc 0 = CLOSED-SESSION · 1 = REJECT/FAIL(사유 stdout) · 2 = usage · 3 = kill=held. kill 근거: 전역 「tmux 세션 정리 표준승인 2026-07-11」(kill-server 아님).
 #   R400 «역할 좌석 닫기» `--verdict <번호>`(판정 2304 — 사람 승인 1건의 번호): ⓪실행 세션 == 좌석 → REJECT ①재개 기록(ft-seat-retire --record-only --verdict · env FT_SEAT_RETIRE_BIN) 실패 = HELD rc 3(명부 쓰기 0 · kill 0)
 #   ②행 있음 → 위 표기 + _closed.verdict + 어느 명부든 값 == 좌석인 최상위 `_*` 문자열 칸 "" (파일마다 .bak-close-<ts> · tmp→mv) · 행 없음 = NOROW rc 3(kill 0 · 그 리포 루트에서) ③lineage_ok 건너뜀 → 태그 해제 → kill
-#   출력 `CLOSED-ROLE <좌석> verdict=<번호> record=<경로> cells=<파일:_칸,…;…> kill=ok|none` · 원장 <ft_data_root>/.fable-team/state/seat-close-verdict.log 1행/좌석. --verdict 없는 호출은 위 동작 그대로.
+#   출력 `CLOSED-ROLE <좌석> verdict=<번호> record=<경로> cells=<파일:_칸,…;…> kill=ok|none` · 원장 <ft_data_root>/.fable-team/state/seat-close-verdict.log 1행/좌석. --verdict 없는 호출은 위 동작 그대로. r960 ⓡ record=NORECORD 로 닫을 때는 그 다음 줄에 수용한 `NORECORD <좌석> <사유>` 원문 1줄을 그대로 출력한다(조용한 통과 0).
 #   r427 죽은 좌석(--verdict · tmux 세션 없음): 재개 기록 = ft-seat-retire --keep-existing(기존 보존 · 없으면 대화 기록 탐색 · 둘 다 없으면 NORECORD 도 진행) → 위 ② 표기 + _closed.dead · kill 0
 #     출력 `CLOSED-DEAD <좌석> record=<kept|new|NORECORD> handoff=<칸들|->` rc 0 · 비운 칸이 있으면 «교대 0 · planner 1줄» 안내. 비운 칸은 행 `_closed_from`(파일:칸) 에 남긴다.
 #   r427 `--reopen <좌석>` — zombie-clean resume 으로 되살린 좌석(세션 있어야 함): role=_closed_role(없으면 active)·tick 복원 · _closed* 제거 · `_closed_from` 칸이 "" 면 다시 그 좌석으로 → `REOPENED <좌석> roles=<칸들>`.
@@ -17,7 +17,7 @@ set -uo pipefail
 USAGE="usage: $0 <좌석> --reason \"<1줄>\" [--seats <파일>] [--verdict <번호>] | $0 --reopen <좌석> [--seats <파일>]"
 REOPEN=0; [ "${1:-}" != --reopen ] || { REOPEN=1; shift; }
 SEAT="${1:-}"; case "$SEAT" in ""|--*) echo "$USAGE" >&2; exit 2;; esac
-shift; REASON=""; ARG=""; VERDICT=""; REC=""; DEAD=0
+shift; REASON=""; ARG=""; VERDICT=""; REC=""; NOLINE=""; DEAD=0
 while [ $# -gt 0 ]; do case "$1" in --reason) REASON="${2:-}"; shift 2;; --seats) ARG="${2:-}"; shift 2;; --reopen) REOPEN=1; shift;; --verdict) VERDICT="${2:-}"; [[ "$VERDICT" =~ ^[0-9][0-9A-Za-z._-]*$ ]] || { echo "$USAGE — --verdict <번호>" >&2; exit 2; }; shift 2;; *) echo "unknown $1" >&2; echo "$USAGE" >&2; exit 2;; esac; done
 [ "$REOPEN" = 1 ] || [ -n "${REASON//[[:space:]]/}" ] || { echo "$USAGE — --reason 필요" >&2; exit 2; }
 [ "$REOPEN" = 0 ] || [ -z "$VERDICT" ] || { echo "$USAGE — --reopen 과 --verdict 는 같이 쓰지 않는다" >&2; exit 2; }
@@ -31,7 +31,7 @@ if [ -n "$VERDICT" ]; then   # R400 ⓪① — 원장 루트를 먼저 풀고(�
   tmux has-session -t "=$SEAT" 2>/dev/null || DEAD=1   # r427 — 세션 없음 = pane 결속 불가 → 기존 기록 보존 · 없으면 대화 기록 탐색(살아 있는 좌석 경로는 그대로)
   ROUT="$(bash "${FT_SEAT_RETIRE_BIN:-$HERE/ft-seat-retire.sh}" "$SEAT" --record-only --verdict "$VERDICT" ${ARG:+--seats "$ARG"} $([ "$DEAD" = 0 ] || echo --keep-existing) 2>&1)"; rrc=$?
   case "$DEAD:$rrc $ROUT" in ?":0 RESUME ok "*) RK=new;; "1:0 RESUME kept "*) RK=kept;; "1:0 NORECORD "*) RK=NORECORD;; "0:0 NORECORD "*"pi 세션 없음"*) RK=NORECORD;; *) echo "HELD $SEAT 재개 기록 실패 — 명부 쓰기 0 · kill 0 · rc=$rrc $(printf '%s' "$ROUT" | head -1)"; exit 3;; esac   # r960 ⓓ: 살아 있는 pi 좌석의 NORECORD «pi 세션 없음 — 산출 커밋 보존» 은 닫기 진행(산출 커밋은 브랜치 보존 · claude 좌석 NORECORD 는 그대로 HELD rc 3)
-  REC="${ROUT#RESUME * }"; REC="${REC%%[[:space:]]*}"; [ "$RK" != NORECORD ] || REC=NORECORD
+  REC="${ROUT#RESUME * }"; REC="${REC%%[[:space:]]*}"; [ "$RK" != NORECORD ] || { REC=NORECORD; NOLINE="$(printf '%s\n' "$ROUT" | head -1)"; }   # r960 ⓡ 수용한 NORECORD 원문 줄(좌석·사유)을 아래에서 그대로 출력한다(조용한 통과 0)
 fi
 OUT="$(python3 - "${ARG:-${FT_SEATS_JSON:-}}" "${ROOT:-.}" "$SEAT" "$REASON" "$BY" "$VERDICT" "$REC" "$HERE/ft-seat-close.sh" "$DEAD" "$REOPEN" <<'PY'
 import json, glob, shutil, shlex, datetime, collections, os, sys
@@ -116,5 +116,5 @@ if tmux has-session -t "=$SEAT" 2>/dev/null; then
   tmux kill-session -t "=$SEAT" || { vlog fail-kill; echo "FAIL kill $SEAT — kill-session 실패(세션 잔존 · 명부 표기는 남음 file=$FILE)"; exit 1; }
   KILL=ok
 else reap; KILL=none; fi
-[ -z "$VERDICT" ] || { vlog "$KILL"; echo "CLOSED-ROLE $SEAT verdict=$VERDICT record=$REC cells=$CELLS kill=$KILL reap left=0 rc=0"; exit 0; }
+[ -z "$VERDICT" ] || { vlog "$KILL"; echo "CLOSED-ROLE $SEAT verdict=$VERDICT record=$REC cells=$CELLS kill=$KILL reap left=0 rc=0"; [ -z "$NOLINE" ] || echo "$NOLINE"; exit 0; }
 echo "CLOSED-SESSION $SEAT file=$FILE role_was=$WAS kill=$KILL reap left=0 rc=0"

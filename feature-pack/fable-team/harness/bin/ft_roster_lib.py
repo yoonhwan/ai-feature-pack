@@ -81,6 +81,18 @@ def _pi_sh(*a):   # 외부 조회 7초 상한 · 실행 불가·시간 초과 = 
     except (OSError, subprocess.SubprocessError): return ""
 
 
+def _pi_model(path, head):   # r960 ⓢ model 은 세션 파일 «전체» 에서 마지막 model_change.modelId(pi 머리 줄에는 modelId 가 없다) → 없으면 머리 modelId
+    last = None
+    try:
+        for ln in open(path, encoding="utf-8"):
+            try: d = json.loads(ln)
+            except ValueError: continue
+            if isinstance(d, dict) and d.get("type") == "model_change" and isinstance(d.get("modelId"), str) and d["modelId"]: last = d["modelId"]
+    except OSError: return None
+    if last: return last
+    return head.get("modelId") if isinstance(head.get("modelId"), str) and head.get("modelId") else None
+
+
 def pi_seat_resume(seat, model, retired_by):   # r960 ⓒ — pi 좌석 재개 기록 = 그 pane cwd 의 pi 세션 파일(가장 최근 1개 · 첫 줄 cwd 가 pane cwd 와 같고 timestamp ≥ 좌석 프로세스 시작) → (record|None, 이유)
     #   폴더 이름 인코딩 추측 0 — 세션 파일 첫 줄(type=session)의 cwd 로 고른다. 뿌리는 FT_PI_SESSIONS(시험) 아니면 ~/.pi/agent/sessions.
     pid, _, cwd = _pi_sh("tmux", "display", "-p", "-t", "=" + seat + ":", "#{pane_pid} #{pane_current_path}").strip().partition(" ")   # cwd 에 공백이 있어도 살린다(첫 칸 = pid)
@@ -94,7 +106,7 @@ def pi_seat_resume(seat, model, retired_by):   # r960 ⓒ — pi 좌석 재개 �
         except (OSError, ValueError): continue
         if isinstance(h, dict) and h.get("type") == "session" and h.get("cwd") == cwd and str(h.get("timestamp") or "") >= since and (best is None or os.path.getmtime(f) > best[0]): best = (os.path.getmtime(f), f, h)
     if not best: return None, PI_NOREC + f" · {cwd} 세션 파일 0"
-    use = model if isinstance(model, str) and model else (best[2].get("modelId") if isinstance(best[2].get("modelId"), str) else None)
+    use = model if isinstance(model, str) and model else _pi_model(best[1], best[2])   # r960-mut:firstline
     if not use: return None, "pi 좌석 · model 못 읽음(세션 파일·명부)"
     return collections.OrderedDict(name=seat, engine="pi", pid=int(pid), uuid=best[2].get("id"), jsonl=best[1], cwd=cwd, model=use, retired_by=retired_by,
                                    at=datetime.datetime.now().isoformat(timespec="seconds"), binding=dict(source="pi-session", session=cwd)), ""

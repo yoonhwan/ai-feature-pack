@@ -42,3 +42,14 @@
 
 ## press 필요
 없음(단위·캡처·기존 시험만 — 나노는 press 를 쏘지 않는다). 실사건(실제 pi 나노 1석을 이 두 길로 닫기)은 master+DA 소관.
+
+## r2 (DA⑥ r1 HOLD 2 반송 고침 · 반송서 = `design/harness/evidence/r960-da6/REWORK-r960-r2.md` 58cff41f85)
+| 반례 | 자리 | 고친 것 | 시험 칸 |
+|---|---|---|---|
+| ① 계약 ② — pi 세션 없음이 «조용한 통과» | `bin/ft-seat-close.sh:34`(수용)·`:119`(출력) | 수용한 `NORECORD` 원문 줄(좌석·사유)을 `CLOSED-ROLE` 줄 **다음 줄**에 그대로 출력(`NOLINE`). 첫 줄은 지금처럼 `CLOSED-ROLE`(다른 좌석·시험이 `head -1` 로 읽는다) · 줄 수 120 그대로 | ⓡ (세션 파일 0 → `NORECORD pi#7 pi 세션 없음 — 산출 커밋 보존…` 1줄 + 좌석·사유) |
+| ② 계약 ② — 세션 파일이 있는데 `model 못 읽음` | `bin/ft_roster_lib.py` `_pi_model` 신규 · `pi_seat_resume` 의 model 줄 | model 은 세션 파일 **전체**에서 마지막 `model_change.modelId`(pi 머리 줄에는 modelId 가 없다 — 실측 `~/.pi/agent/sessions/*/*.jsonl` 첫 줄 = `type=session` 만) → 없으면 머리 `modelId` | ⓢ (머리 `session` + 뒤 줄 `model_change` → `RESUME ok` · `model=opengateway/deepseek/last-model`) |
+
+- 빨강 먼저: 고치기 전 판(HEAD 350cd4b6)으로 같은 시험 → ⓡ 3 · ⓢ 3 FAIL(`red-first-r2.txt`) · 고친 판 = ALL PASS
+- 변이 2종 추가: «수용 뒤 출력 생략» → ⓡ FAIL · `_pi_model` 을 «첫 줄만» 로 되돌림 → ⓢ FAIL(`mutation.txt` · 시험 안에서 사본에 글자만 바꿔 재실행)
+- 시험: `test_seat_close_pi_resume_r960.sh` 25 → 37 PASS · 기존 회귀 = `test-green.txt`(16종 · 1042 PASS · 2 FAIL = 착수 전부터 빨간 2종 그대로)
+- kit 짝 cmp0 = `{ft-seat-close.sh,ft_roster_lib.py}` (줄 수 상한: close 120 ≤ 120 · retire 200 그대로)
