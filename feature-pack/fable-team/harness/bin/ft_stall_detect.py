@@ -111,22 +111,6 @@ def agent_sessions(tmux: list[str], ps: list[str]) -> set[str]:
     return set(_pane_agents(tmux, ps))
 
 
-def agent_starts(tmux: list[str], ps: list[str], sessions: Path) -> dict[str, str]:
-    """r849 — 세션 이름 → 그 좌석 claude|codex 프로세스 «시작» 표식 `<pid>@<startedAt>` (~/.claude/sessions/<pid>.json · 없으면 ps lstart · 둘 다 없으면 `<pid>@?`).
-    프로세스를 다시 띄우면 바뀌고, 같은 프로세스 안에서는 jsonl 이 얼마나 길어져도 그대로다(로그아웃 쪽지 중복 키)."""
-    out: dict[str, str] = {}
-    for name, pid in _pane_agents(tmux, ps).items():
-        try:
-            v = json.loads((sessions / f"{pid}.json").read_text(encoding="utf-8")).get("startedAt")
-        except (OSError, ValueError, AttributeError):
-            v = None
-        if not v:
-            rc, o = run([*ps, "-o", "lstart=", "-p", pid])
-            v = o.strip() if rc == 0 and o.strip() else "?"
-        out[name] = f"{pid}@{v}"
-    return out
-
-
 def ctx_pct(ctx_cmd: str, seat: str) -> int | None:
     """ft-claude-context.sh <좌석> → 사용률 % · 7초 상한 · 실패·숫자 아님 = None(추측 0)."""
     rc, out = run(["bash", ctx_cmd, seat], timeout=7)

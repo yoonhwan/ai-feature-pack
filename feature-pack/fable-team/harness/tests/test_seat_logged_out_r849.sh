@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# test_seat_logged_out_r849.sh — r849 로그아웃 좌석: ⓐ~ⓔ + DA⑥ r1 반례 3 = tests/scripts/test_seat_logged_out_r849.py · ⓕ 변이 9종(사본 bin 에서 한 곳씩 지우면 그 시험이 FAIL)
+# test_seat_logged_out_r849.sh — r849 로그아웃 좌석: ⓐ~ⓔ + DA⑥ r1 반례 3 + 재설계 r4 칸(ⓡ1·ⓡ1b·ⓡ3) = tests/scripts/test_seat_logged_out_r849.py · ⓕ 변이 10종(사본 bin 에서 한 곳씩 지우면 그 시험이 FAIL)
 # 격리: 합성 jsonl · 가짜 명부·tmux·mbox·seat-status(임시 폴더) — 실 좌석 깨우기·ring·쪽지 0.
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
@@ -29,14 +29,17 @@ PY
 mutate "LOGGEDOUT 분기 삭제" ft_seat_turn.py '        if n:
             return "LOGGEDOUT"' '        if False:
             return "LOGGEDOUT"' test_a_logged_out
-mutate "쪽지 중복 키 삭제" ft_stall_scan.py 'if sigs.get(seat) == sig:' 'if False:' test_c_tick_notifies_team_master_once
+mutate "칸 있으면 0통 삭제" ft_stall_scan.py 'if self.cell(seat).exists():' 'if False:' test_c_tick_notifies_team_master_once
 mutate "ring 제외(로그아웃) 삭제" ft-idle-wake.sh 'if state == "LOGGEDOUT":' 'if False:' test_d_idle_wake_skips_logged_out_and_rested
 mutate "ring 제외(닫기 대기) 삭제" ft-idle-wake.sh '"ft_card_rest.py"), seat]).returncode == 0:' '"ft_card_rest.py"), seat]).returncode == 99:' test_d_idle_wake_skips_logged_out_and_rested
 # DA⑥ r1 반례 3 — 고친 자리를 r1 꼴로 되돌리면 그 반례 시험이 FAIL
-mutate "키에 첫 실패 시각 되살림" ft_stall_scan.py 'sig = starts.get(seat, "?")' 'sig = str(end)' test_c_long_streak_over_tail_cap_one_notice
+# (r1 변이 «키에 첫 실패 시각 되살림» 은 대상 줄이 재설계 r4 에서 사라짐 — 같은 사건-식별자 부류는 아래 «키에 시작 시각 되살림» 이 잡는다)
 mutate "글자 찾기 되살림" ft-idle-wake.sh 'if run(["python3", os.path.join(HERE, "ft_card_rest.py"), seat]).returncode == 0:' 'if (j := run(["bash", STATUS, "jsonl", seat])).returncode == 0 and run(["bash", os.path.join(HERE, "ft-resume-attempt.sh"), "rested", j.stdout.strip()]).returncode == 0:' test_d_idle_wake_skips_logged_out_and_rested
-mutate "서명 먼저 저장" ft_stall_scan.py '                    log.append(f"{stamp} act=l ERROR 발신 실패' '                    sigs[seat] = sig
-                    log.append(f"{stamp} act=l ERROR 발신 실패' test_c_send_failure_retries_next_scan
+mutate "칸 먼저 기록" ft_stall_scan.py '                log.append(f"{stamp} act=l ERROR 발신 실패' '                _ = self.cell(seat).write_text("x")
+                log.append(f"{stamp} act=l ERROR 발신 실패' test_c_send_failure_retries_next_scan
+# 재설계 r4 — 칸(로그아웃 구간당 1통)을 r2 꼴(키에 시작 시각)로 되돌리거나 지움을 지우면 그 시험이 FAIL
+mutate "키에 시작 시각 되살림" ft_stall_scan.py 'f"logged-out.{seat}"' 'f"logged-out.{seat}.{int(self.now)}"' test_r1_unreadable_process_start_one_notice
+mutate "칸 지움 삭제" ft_stall_scan.py 'self.cell(s).unlink(missing_ok=True)' 'pass' test_r1b_relogin_then_logout_two_notices_and_unreadable_scan_keeps_cell
 mutate "③ 면제 삭제" ft-nano-close.sh '"$f" --skip-logged-out 2>&1' '"$f" 2>&1' test_e_nano_close_gate
 mutate "[재개] 제외 삭제" ft_api_outage.py 'c is not None and c.cause != "logged_out"}' 'c is not None}' test_api_outage_never_resumes_logged_out
 

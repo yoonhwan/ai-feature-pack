@@ -9,7 +9,8 @@
 a·b·d 를 «처리한 뒤 다음 실행에도» 또 보면 ft-penalty.sh on (c 제외 · FT_STALL_PENALTY_AUTO=0 으로 끔 · 복구 팀 harness·planner 는 정지 대상 아님).
 r525 e = 명부 루프가 안 본 tmux 라이브 좌석(교대 표시·명부 밖) ∧ claude|codex ∧ IDLE ≥ FT_STALL_E_IDLE_MIN(30) ∧ (ctx ≥ 90 ∨ [완료·휴식] 없음)
 → planner + 계보 현역 master 에 [정지] 1통 · 같은 서명(좌석·IDLE 시작 시각) 재알림 0 · 깨우기·kill 0 · 요약 줄 d= 뒤 e= 칸.
-env(시험): FT_ROOT · FT_NOW · FT_SEAT_STATUS · FT_TMUX · FT_MBOX_SH · FT_INDEX_LINT · FT_MBOX_DIR · FT_STALL_STATE_DIR · FT_PS · FT_CTX_CMD · FT_CLAUDE_SESSIONS(r849 · 기본 ~/.claude/sessions).
+r849(재설계 r4) l = 로그아웃 좌석 — 쪽지는 «로그아웃 구간당 1통», 키 = 칸(state/stall/logged-out.<좌석 계보>) 하나(프로세스 시작 시각·첫 실패 시각·pid 를 키에 안 쓴다 · DA⑥ r2 반례 1).
+env(시험): FT_ROOT · FT_NOW · FT_SEAT_STATUS · FT_TMUX · FT_MBOX_SH · FT_INDEX_LINT · FT_MBOX_DIR · FT_STALL_STATE_DIR · FT_PS · FT_CTX_CMD.
 """
 import json
 import os
@@ -18,7 +19,7 @@ import time
 from pathlib import Path
 
 import ft_penalty
-from ft_stall_detect import IDLE_MIN, agent_sessions, agent_starts, ctx_pct, load_teams, off_roster_live, pending_mail, policy_stop, run, spawn_capacity, waiting_cards
+from ft_stall_detect import IDLE_MIN, agent_sessions, ctx_pct, load_teams, off_roster_live, pending_mail, policy_stop, run, spawn_capacity, waiting_cards
 from ft_stall_seats import Seats
 import ft_stall_state as stm
 
@@ -44,8 +45,7 @@ class Scan:
         self.e_min = float(os.environ.get("FT_STALL_E_IDLE_MIN") or 30)
         self.notes: list[str] = []
         self.loggedout: list[tuple[str, str | None, float | None]] = []  # r849 (좌석, 팀 _master, 첫 실패 epoch)
-        self.recovered: set[str] = set()  # r849 — 이번 scan 에 IDLE 로 본 좌석(로그아웃 서명 지움)
-        self.claude_sessions = Path(os.environ.get("FT_CLAUDE_SESSIONS") or Path.home() / ".claude/sessions")
+        self.recovered: set[str] = set()  # r849 — 이번 scan 에 정상 턴(IDLE·WORKING)으로 읽힌 좌석(로그아웃 칸 지움)
         self.st = stm.load(self.state_dir)
         self.seats = Seats(self.status, self.now, self.st.setdefault("seats", {}))
 
@@ -111,7 +111,7 @@ class Scan:
                 if state == "LOGGEDOUT":  # r849 — 쉬는 좌석 아님(a·b·d 0) · 팀장 1통은 act_l
                     self.loggedout.append((s, t["master"], end))
                     continue
-                if state == "IDLE":
+                if state in ("IDLE", "WORKING"):  # r849 — 정상 턴 = 로그아웃 아님(칸 지움) · UNKNOWN 은 칸 그대로
                     self.recovered.add(s)
                 if state == "UNKNOWN" or end is None and state == "IDLE":
                     unknown += 1
@@ -146,7 +146,7 @@ class Scan:
             if s in agents and self.turn(s)[0] == "LOGGEDOUT":  # r849 — 교대 표시·명부 밖 좌석도 로그아웃이면 계보 현역 master 1통(act_l)
                 self.loggedout.append((s, lineage, self.turn(s)[1]))
                 continue
-            if s in agents and self.turn(s)[0] == "IDLE":
+            if s in agents and self.turn(s)[0] in ("IDLE", "WORKING"):
                 self.recovered.add(s)
             age = self.idle_age(s) if s in agents else None
             if age is None or age < self.e_min:
@@ -178,39 +178,54 @@ class Scan:
         _ = path.write_text(json.dumps({s: v for s, v in sigs.items() if s in self.live}), encoding="utf-8")
         return log
 
-    def act_l(self, stamp: str) -> list[str]:
-        """r849 로그아웃 좌석 — 팀 _master 1통 · 서명 = 그 좌석 claude 프로세스 시작(agent_starts) — 같은 프로세스 재알림 0 · 다시 띄우면 새 서명
-        (첫 실패 시각은 jsonl 창 상한에 따라 밀리므로 서명에서 뺀다 · DA⑥ r1) · 좌석이 IDLE(로그인 복구)로 보이면 서명을 지운다 · 서명 저장은 발신 rc0 뒤에만
-        (서명 파일 state/stall-scan.l.json) · 팀장 없음·자기 자신·명부 못 읽음 = 로그 1줄."""
-        path = self.state_dir / "stall-scan.l.json"
+    def cell_dir(self) -> Path:
+        return self.state_dir / "stall"
+
+    def cell(self, seat: str) -> Path:
+        """r849(재설계 r4) — 로그아웃 구간 칸 = state/stall/logged-out.<좌석 계보> · 실재하면 «이미 알렸다»(구간당 1통).
+        키에 프로세스 시작 시각·첫 실패 시각·pid 를 안 쓴다(그것들이 바뀌어 쪽지가 2통 되던 길 · DA⑥ r2 반례 1)."""
+        return self.cell_dir() / f"logged-out.{seat}"
+
+    def cells_clear(self, stamp: str) -> str | None:
+        """r849 — 칸 폴더 준비 + 이번 scan 에 정상 턴(IDLE·WORKING)으로 읽힌 좌석의 칸 지움(상태 못 읽은 scan = 칸 그대로).
+        쓰기·지우기 실패 = ERROR 1줄 돌려주고 그 scan 은 «아무것도 안 보낸다»(다음 scan 재시도) — 지울 수 없는 칸에 기대어 또 보내지 않는다."""
+        d = self.cell_dir()
         try:
-            sigs = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            sigs = {}
-        for s in self.recovered:
-            sigs.pop(s, None)
+            d.mkdir(parents=True, exist_ok=True)
+            probe = d / ".probe"
+            _ = probe.write_text("", encoding="utf-8")
+            probe.unlink()
+            for s in sorted(self.recovered):
+                self.cell(s).unlink(missing_ok=True)
+        except OSError as e:
+            return f"{stamp} act=l ERROR 상태 칸 {d} 쓰기·지우기 실패 {e.__class__.__name__} — 이번 scan 발신 0 · 다음 scan 재시도"
+        return None
+
+    def act_l(self, stamp: str) -> list[str]:
+        """r849 로그아웃 좌석 — 팀 _master 1통 · 칸 없음 → 발신 · rc0 뒤에만 칸 기록 · 칸 있음 → 0통(로그아웃 구간당 1통).
+        팀장 없음·자기 자신·명부 못 읽음 = 로그 1줄(칸 0 — 알린 것이 없다)."""
         log: list[str] = []
         for f in sorted((self.root / ".fable-team").glob("seats*.json")):  # load_teams 는 깨진 명부를 조용히 건너뛴다 — 그 좌석은 로그아웃 판정을 못 받는다
             try:
                 _ = json.loads(f.read_text(encoding="utf-8"))
             except (OSError, ValueError):
                 log.append(f"{stamp} act=l ERROR 명부 못 읽음 {f.name} — 그 명부 좌석 로그아웃 판정 0")
-        starts = agent_starts(self.tmux, self.ps, self.claude_sessions) if self.loggedout else {}
         for seat, master, end in self.loggedout:
-            sig = starts.get(seat, "?")
-            if sigs.get(seat) == sig:
-                continue
             first = time.strftime("%m-%d %H:%M", time.localtime(end)) if end else "?"
-            if master and master != seat:
-                rc = self.send(master, f"[로그아웃 좌석] {seat} · 첫 실패(보이는 범위 최초) {first} · 재개 = 재시작(zombie-clean resume / claude-hr.sh --resume) · 깨우기 0 (ft-stall-scan r849)")
-                if rc != 0:
-                    log.append(f"{stamp} act=l ERROR 발신 실패 rc={rc} to={master} seat={seat} — 서명 0 · 다음 scan 재시도")
-                    continue
-                log.append(f"{stamp} act=l to={master} seat={seat} first={first} proc={sig}")
-            else:
+            if not (master and master != seat):
                 log.append(f"{stamp} act=l seat={seat} first={first} — 알릴 팀장 없음(_master {master or '없음'})")
-            sigs[seat] = sig
-        _ = path.write_text(json.dumps({s: v for s, v in sigs.items() if s in self.live}), encoding="utf-8")
+                continue
+            if self.cell(seat).exists():
+                continue
+            rc = self.send(master, f"[로그아웃 좌석] {seat} · 첫 실패(보이는 범위 최초) {first} · 재개 = 재시작(zombie-clean resume / claude-hr.sh --resume) · 깨우기 0 (ft-stall-scan r849)")
+            if rc != 0:
+                log.append(f"{stamp} act=l ERROR 발신 실패 rc={rc} to={master} seat={seat} — 칸 0 · 다음 scan 재시도")
+                continue
+            try:
+                _ = self.cell(seat).write_text(f"first={first} master={master}\n", encoding="utf-8")
+            except OSError as e:
+                log.append(f"{stamp} act=l ERROR 칸 쓰기 실패 {self.cell(seat)} {e.__class__.__name__} — 다음 scan 재시도")
+            log.append(f"{stamp} act=l to={master} seat={seat} first={first}")
         return log
 
     def send(self, to: str, body: str, urgent: bool = True) -> int:
@@ -275,11 +290,15 @@ class Scan:
             return 0
         stamp = time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(self.now))
         log: list[str] = []
+        cell_err = self.cells_clear(stamp) if (self.loggedout or self.recovered) else None  # r849 — 칸이 안 써지면 이번 scan 발신 0
+        if cell_err:
+            log.append(cell_err)
         d_seats = {f["seat"] for f in found if f["kind"] == "d"}
-        log += self.act_e(found, stamp)  # e 는 알림만 — attached·페널티·10분 창과 무관, 서명으로만 1회
-        log += self.act_l(stamp)  # r849 — 로그아웃 좌석 팀장 1통 · 서명(좌석, 첫 실패)으로만 1회
+        if not cell_err:
+            log += self.act_e(found, stamp)  # e 는 알림만 — attached·페널티·10분 창과 무관, 서명으로만 1회
+            log += self.act_l(stamp)  # r849 — 로그아웃 좌석 팀장 1통 · 칸(좌석 계보)으로만 1회
         for f in found:
-            if f["kind"] == "e" or f["kind"] == "b" and f["seat"] in d_seats:  # b+d 동시 = d 한 번(가장 오래된 pending seq ring · 새 send 생략)
+            if cell_err or f["kind"] == "e" or f["kind"] == "b" and f["seat"] in d_seats:  # b+d 동시 = d 한 번(가장 오래된 pending seq ring · 새 send 생략)
                 continue
             if f["attached"] or f["held"] or self.now - float(handled.get(f["seat"], 0)) < REPEAT_S or stm.recent_in_log(self.state_dir, f["seat"], self.now):
                 continue

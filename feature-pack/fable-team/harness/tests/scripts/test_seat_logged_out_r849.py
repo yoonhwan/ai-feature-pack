@@ -2,6 +2,7 @@
 
 합성 jsonl(실 좌석 기록 복사 0) · 가짜 명부·tmux·mbox·seat-status 만 쓴다 — 실 좌석 깨우기·ring·쪽지 0.
 R849_BIN = 시험할 bin 폴더(기본 kit · 셸 짝 tests/test_seat_logged_out_r849.sh 가 변이 사본을 넣어 ⓕ 를 본다).
+재설계 r4 — 쪽지 키 = 로그아웃 구간 칸(state/stall/logged-out.<좌석>) 하나: ⓡ1 · ⓡ1b · ⓡ3.
 """
 import json
 import os
@@ -270,14 +271,20 @@ def test_c_long_streak_over_tail_cap_one_notice(tmp_path):
     assert turn(j)[1] != first[1]  # 창 상한 때문에 «보이는 첫 실패» 가 밀렸다(DA 반례 그대로)
     w.advance(900)
     assert scan(w).returncode == 0 and len(sends(w)) == 1  # 같은 프로세스 = 0통 더
-    (w.stub / "ps").write_text("600 %2 claude --resume x\n")  # 다시 띄움(새 pid · 새 startedAt)
+    (w.stub / "ps").write_text("600 %2 claude --resume x\n")  # 다시 띄움(새 pid)
     (sess / "600.json").write_text(json.dumps({"pid": 600, "startedAt": 1792900000000}))
     write(j, error_turn(NOW - 60000, pad=2400))
+    w.advance(900)
+    assert scan(w).returncode == 0 and len(sends(w)) == 1  # 재설계 r4 — 프로세스를 다시 띄운 것만으로는 구간이 안 끊긴다(키에 시작 시각 0)
+    write(j, normal_turn(NOW - 300))  # 정상 턴(로그인 복구) = 구간 끝 → 칸 지움
+    w.advance(900)
+    assert scan(w).returncode == 0 and len(sends(w)) == 1
+    write(j, error_turn(NOW - 60, pad=2400))  # 다시 로그아웃 = 새 구간 = 2통째
     w.advance(900)
     assert scan(w).returncode == 0 and len(sends(w)) == 2
 
 
-# DA⑥ r1 ③ — 첫 발신 rc1 → 서명 0 + 로그 1줄 → 다음 scan 에 1통
+# DA⑥ r1 ③ — 첫 발신 rc1 → 칸 0 + 로그 1줄 → 다음 scan 에 1통
 def test_c_send_failure_retries_next_scan(tmp_path):
     w = World(tmp_path)
     w.state("t1-master#1", "WORKING", 0)
@@ -289,5 +296,50 @@ def test_c_send_failure_retries_next_scan(tmp_path):
     assert any("act=l ERROR 발신 실패 rc=1" in x for x in w.scan_log())
     w.advance(900)
     assert scan(w).returncode == 0 and len(sends(w)) == 1
+    w.advance(900)
+    assert scan(w).returncode == 0 and len(sends(w)) == 1
+
+
+# ── 재설계 r4 — 쪽지 키 = 로그아웃 구간 칸 하나(프로세스 시작 시각·첫 실패 시각·pid 를 키에 안 씀 · DA⑥ r2 반례 1)
+def test_r1_unreadable_process_start_one_notice(tmp_path):
+    """ⓡ1 — DA⑥ r2 반례 1: 메타 {} ∧ ps lstart rc1(키 `500@?`) 뒤에 startedAt 이 복구돼도(키 `500@1792800000000`) 같은 로그아웃 = 쪽지 합 1통."""
+    w, sess = real_world(tmp_path)
+    (sess / "500.json").write_text("{}", encoding="utf-8")  # 세션 메타 못 읽음 ∧ ps lstart rc1(stub)
+    assert scan(w).returncode == 0 and len(sends(w)) == 1
+    (sess / "500.json").write_text(json.dumps({"pid": 500, "startedAt": 1792800000000}))  # 시작 시각이 «나중에 읽힘»
+    w.advance(900)
+    assert scan(w).returncode == 0 and len(sends(w)) == 1
+
+
+def test_r1b_relogin_then_logout_two_notices_and_unreadable_scan_keeps_cell(tmp_path):
+    """ⓡ1b — 로그아웃→정상→로그아웃 = 2통 · 사이에 못 읽은 scan 이 끼어도 그 구간은 1통."""
+    w = World(tmp_path)
+    w.state("t1-master#1", "WORKING", 0)
+    w.state("t1-nano#0", "LOGGEDOUT", 30)
+    assert scan(w).returncode == 0 and len(sends(w)) == 1
+    w.state("t1-nano#0", "UNKNOWN", 0)  # 상태 못 읽은 scan = 칸 그대로
+    w.advance(900)
+    assert scan(w).returncode == 0 and len(sends(w)) == 1
+    w.state("t1-nano#0", "WORKING", 1)  # 정상 턴 = 칸 지움
+    w.advance(900)
+    assert scan(w).returncode == 0 and len(sends(w)) == 1
+    w.state("t1-nano#0", "LOGGEDOUT", 1)  # 다시 로그아웃 = 새 구간 = 2통째
+    w.advance(900)
+    assert scan(w).returncode == 0 and len(sends(w)) == 2
+
+
+def test_r3_cell_dir_unwritable_errors_then_retries(tmp_path):
+    """ⓡ3 — 칸 폴더에 못 쓰면 ERROR 1줄 · 발신 0 · 풀린 뒤 다음 scan 에 1통."""
+    w = World(tmp_path)
+    w.state("t1-master#1", "WORKING", 0)
+    w.state("t1-nano#0", "LOGGEDOUT", 30)
+    d = w.root / ".fable-team/state/stall"
+    d.mkdir(parents=True)
+    d.chmod(0o555)
+    try:
+        assert scan(w).returncode == 0 and not sends(w)
+        assert any("act=l ERROR 상태 칸" in x for x in w.scan_log()), w.scan_log()
+    finally:
+        d.chmod(0o755)
     w.advance(900)
     assert scan(w).returncode == 0 and len(sends(w)) == 1
