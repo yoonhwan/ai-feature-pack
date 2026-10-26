@@ -1,0 +1,7 @@
+ACTIVE nano/g2309-stt-selector-no-external-names
+E0 ok /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/graphics-nano-g2309-stt-selector-no-external-names
+E1 no 카드 없음
+E2 no 카드 없음
+E3 no tmux byz-graphics-nano-g2309-stt-selector-no-external-names#0
+E1f ok files=8
+branch=nano/g2309-stt-selector-no-external-names sha=a5f0e9d02c8144269ef370e86e265b999e80333b ahead=4 main=origin/main card=<0개> dir=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/graphics-nano-g2309-stt-selector-no-external-names

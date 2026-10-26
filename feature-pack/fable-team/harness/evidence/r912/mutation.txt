@@ -1,0 +1,11 @@
+PASS 무변이 기준(전부)
+KILLED ①사람보존끔
+KILLED ②넘침ERROR끔
+KILLED ③머리우선복귀
+KILLED ④kit자르기옛동작
+KILLED ⑤NOTIFY_WIN아주큼
+KILLED ⑥blocked검사끔
+KILLED ⑦옛가드끔
+KILLED ⑧저장을send앞으로
+KILLED ⑨창안저장실패무시
+KILLED ⑩이름판정넓힘

@@ -1,0 +1,32 @@
+PASS ⓐ wt-sweep --launchd: 계획 3장 실행(기본 MAX 20) · 로그 cleaned=3
+PASS ⓑ 좌석 살아 있음 → WAIT · 계획 제자리 · 로그 wait=1
+PASS ⓐ' --launchd FT_ROOT 없음 → ERROR rc2
+PASS ⓒ 같은 sha·같은 주인 사본은 재사용(새로 안 만듦)
+PASS ⓒ tmux 못 읽음 → stdout ERROR tmux unreadable 1줄 + 삭제 0
+FAIL ⓒ swept [] 2026-10-25 ERROR tmux unreadable — 삭제 0 (tmux=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.bwENFt4RMs/bin/tmux)
+PASS ⓓ E0~E3 전부 참 → FINISHED
+PASS ⓓ 착지 sha 가 origin/main 조상 아님 → ACTIVE(E1 no)
+PASS ⓓ 카드 없음 → ORPHAN
+PASS ⓓ main 대비 변경 0 → EMPTY
+PASS ⓓ 좌석(tmux) 살아 있음 → ACTIVE(E3 no)
+PASS ⓓ tmux 못 읽음 → ACTIVE(«세션 0» 으로 안 셈)
+PASS ⓔ FINISHED → refs/archive 생성 + refs/heads 제거(squash 착지 가지) + 되살림 명령 로그
+PASS ⓔ 커밋은 남음(보관 ref 가 쥠)
+PASS ⓔ ACTIVE → 이동 0
+PASS ⓔ ORPHAN → 이동 0
+PASS ⓔ EMPTY(빈 가지) → 이동·삭제 0
+PASS ⓔ' --launchd 재확인: FINISHED 가지 1 이동 · 로그 archived=1
+PASS ⓕ branch -D 호출 0
+PASS ⓖ sparse: 남의 팀(v65) design 없음 · 자기 팀 indices·증거·루트·코드 있음
+PASS ⓖ 자기 팀 새 증거 파일 git add 가능
+PASS ⓖ spawn 배선(--no-checkout → sparse set → checkout)
+PASS ⓗ 여유 38Gi → spawn 0 + REJECT [HIL] 1줄
+PASS ⓗ 측정 실패 → REJECT(여유 미상 ≠ 충분)
+PASS ⓗ 여유 50Gi → 통과
+PASS ⓘ ⑥ 카드 = design/teams/lecture/indices/진행 (옛 대기 사본 아님)
+PASS ⓙ 600/300 숫자 0 · 외부 호출 0(새 파일 + 추가 줄)
+PASS ⓚ update-ref 실패 → 폴더 제거 0 · 있던 보관 ref 덮기 0 · 로그 SKIP update-ref-failed
+PASS ⓚ 성공 = refs/archive/detached/a_b (공백 → _) · 폴더는 그대로
+PASS ⓛ 껍데기 경보: lecture 폴더 → lecture master · 팀 미상 → harness master · v65 로 0
+(1 failed)
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

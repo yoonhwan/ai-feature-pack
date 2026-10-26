@@ -1,0 +1,89 @@
+FAIL ⓐ rc=1 [ACTIVE nano/a1-eq
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+E1f no files=3 first=f1.txt
+branch=nano/a1-eq sha=1abb5622bc3bee378811fc12db4d1e70a607ae12 ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.xUzLlBQLY4/R/design/teams/lecture/indices/진행/a1-eq.md dir=<없음>]
+FAIL ⓑ [ACTIVE nano/b1-part
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+E1f no files=3 first=p1.txt
+branch=nano/b1-part sha=5d1fe4ef01720b5158aeb2df5c91ed9f793578a2 ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.xUzLlBQLY4/R/design/teams/lecture/indices/진행/b1-part.md dir=<없음>]
+FAIL ⓒ1 [ACTIVE nano/c1-del-same
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+E1f no files=1 first=g.txt
+branch=nano/c1-del-same sha=aacac6c6d4a78c78775d43500413e47902a8753e ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.xUzLlBQLY4/R/design/teams/lecture/indices/진행/c1-del-same.md dir=<없음>]
+PASS ⓒ 가지가 지웠는데 main 에 있음 → 다름(ACTIVE)
+FAIL ⓓ 좌석 [ACTIVE nano/d1-eq
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 no tmux byz-lecture-nano-d1-eq#0
+E1f no files=1 first=d1.txt
+branch=nano/d1-eq sha=54c27ee9ba11b0a18a9ae14f3c5420b15053395f ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.xUzLlBQLY4/R/design/teams/lecture/indices/진행/d1-eq.md dir=<없음>]
+PASS ⓓ E1f 참 + 미커밋 → ACTIVE(E0 no)
+PASS ⓔ blob 조회 rc≠0 → rc2 판정 불가(FINISHED 0)
+PASS ⓔ 7초 룰(시험값 0.3s) 초과 → rc2 판정 불가(FINISHED 0)
+PASS ⓓ' 빈 커밋만 가지 → E1f 대상 아님(ACTIVE · 카드 규칙)
+FAIL ⓕ rc=1 [SKIP nano/f1-eq ACTIVE — 이동 0 (E1 no 착지 줄 없음)]
+FAIL ⓕ2 rc=1 [SKIP nano/f1-eq ACTIVE — 이동 0 (E1 no 착지 줄 없음)]
+PASS ⓕ `git branch -D` 호출 0
+PASS ⓕ ACTIVE(E1f no) 가지 → 이동 0
+FAIL ⓖ rc=0 log=[2026-10-25 15:47:52 rc=0 cleaned=0 wait=0 hil=0 stale=0 carry=0 resume=0 routed=0 route_fail=0 archived=0 archive_skip=9 replanned=0 hil_files=0 orphans=0 freed_kb=0] out=sweep 계획 0 · cleaned/none 0 · wait 0 · hil 0
+2026-10-25 15:47:52 rc=0 cleaned=0 wait=0 hil=0 stale=0 carry=0 resume=0 routed=0 route_fail=0 archived=0 archive_skip=9 replanned=0 hil_files=0 orphans=0 freed_kb=0
+PASS ⓗ diff.ignoreSubmodules=all 이어도 gitlink 다름 → ACTIVE(E1f no files=1 first=sub)
+FAIL ⓘ small [ACTIVE nano/i1-small
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+E1f no files=3 first=s1.txt
+branch=nano/i1-small sha=0809eca9933d71a874f877b049d6663104a7bb8b ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.xUzLlBQLY4/R/design/teams/lecture/indices/진행/i1-small.md dir=<없음>]
+FAIL ⓘ bulk [ACTIVE nano/i2-bulk
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+E1f no files=501 first=bulk/f000.txt
+branch=nano/i2-bulk sha=3ab1b94ff04d7e7f2db5fda45bafe0e28e66e7b6 ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.xUzLlBQLY4/R/design/teams/lecture/indices/진행/i2-bulk.md dir=<없음>]
+FAIL ⓘ 재확인 [ACTIVE nano/i3-eq
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+E1f no files=3 first=z1.txt
+branch=nano/i3-eq sha=b8ee567c361d47e05ee417fdf5c78145fb72e76b ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.xUzLlBQLY4/R/design/teams/lecture/indices/진행/i3-eq.md dir=<없음>]
+PASS ⓙ criss-cross(merge-base 2개) → rc2 판정 불가(FINISHED 0)
+PASS ⓚ :(literal)x·:(glob)*·*·[ab]·-x 5개가 main≠tip → ACTIVE(E1f no files=5)
+FAIL ⓚ ok [ACTIVE nano/k2-magic
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+E1f no files=3 first=:(glob)?
+branch=nano/k2-magic sha=0875d861f0569dbf13cb933e596d4341ace0b026 ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.xUzLlBQLY4/R/design/teams/lecture/indices/진행/k2-magic.md dir=<없음>]
+FAIL ⓛ rc=1 calls=3 el=13s [ACTIVE nano/l1-many
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+E1f no files=5000 first=many/f0000.txt
+branch=nano/l1-many sha=f695152f4653e84eedd5a7a8e10eedf417a93bf0 ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.xUzLlBQLY4/R/design/teams/lecture/indices/진행/l1-many.md dir=<없음>]
+PASS ⓛ 전체 마감(시험값 3s) 초과 → rc2 판정 불가(남은 시간으로 호출을 줄이다 마감 · FINISHED 0)
+PASS ⓛ 기본 전체 마감 = 70초(하드 룰 12)
+PASS ⓜ 모드(실행권한)만 다름 → ACTIVE(E1f no files=1 first=sh.txt)
+FAIL ⓜ link [ACTIVE nano/m2-link
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+E1f no files=2 first=ln.txt
+branch=nano/m2-link sha=5d60493db7be5d38887abdfb36939bd68d9b0100 ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.xUzLlBQLY4/R/design/teams/lecture/indices/진행/m2-link.md dir=<없음>]
+(13 failed)
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

@@ -1,3 +1,42 @@
+## 2026-10-26 — r926 자율 인터뷰 명부 = $ROOT 기준만 · 쌍둥이 경고는 가지가 main 안 품으면 «이동 0»(1.1.244)
+
+- ft-autonomy-level.sh 가 명부(seats-planner.json)를 $ROOT 와 $ROOT 리포의 공용 루트 2곳에서만 찾는다. cwd·설치 위치는 보지 않는다. 둘 다 없으면 WARN + rc1(조용한 건너뜀 0).
+- ft-team-lib.sh 쌍둥이 경고가 루트 가지의 origin/main 포함 여부를 먼저 본다(7초 상한). 안 품으면 «이동 0 · 원장은 ref 정본», timeout 도구가 없으면 git 호출 0 = unknown.
+- 시험 test_r926_root_roster_twin_warn.sh 16 PASS ×3 · bash 3.2 · kit cmp0 · 외부 DA⑥ r2 APPROVE(VERDICT-r926-da6-r2.md · 승인판 ea937601).
+
+## 2026-10-26 — r909 자율 범위 분류기 오탐 고침 — 셸 set 문맥 · 시험 파일 credential 경로 · .env 견본 (1.1.243)
+
+- 분류기(autonomy_scope_secret·rules·classify · ft_secret_targets)가 셸 «식별자 set(» 문맥과 시험 경로의 credential 이름을 비밀로 오판해 범위 밖(FORBID)으로 막던 것을 고침. 시험 경로 예외는 좁히고 secrets/ 는 넓힘 · .env 견본은 dotenv 로 전문 파싱 · 따옴표 값 안 줄 판별 복원.
+- 판정은 «양성 증거만»(하드 룰 14 재설계 r3) — 대입 없는 이름표 변수의 echo 판정(칸4)은 정적 분석으로 증명 불가라 범위에서 뺌(그 꼴은 오빠 h 1줄 · 별 카드 후보).
+- 시험 test_autonomy_scope_fp_r909.sh ALL PASS · 비밀 판정 6사본 기준판 바이트 같음 · 외부 DA⑥ r5 APPROVE(VERDICT-r909-da6-r5.md · 승인판 f6641cec).
+
+## 2026-10-25 — r907 뉴스 원장 받기 실패·정지 판정 — 판정 불가면 게시 0 · 채움 칸 제외 판정 키 · 게시 최소 간격 10분(1.1.242)
+
+- 뉴스 원장(ft_news_ledger.py)을 못 받아도 직전 판(15분 안)으로 게시하되 «원장 N분 전 판» 경고를 붙인다. 판정 불가(시각 칸 모름·실패)는 게시 0 — 옛 원장을 «변화 없음» 으로 게시하던 틀린 게시를 막는다.
+- 판정 키 = 원장 경로의 «채움 아닌» 마지막 커밋(채움 커미터 이메일 · 메시지 거름 0) · 시각 칸은 한 함수 · ledger git 은 7초 상한 · 간격 상태 손상 = 게시 가능 + WARN · 시각 칸 required=True 기본 · ERROR 는 구간당 1줄.
+- 시험 test_r907_news_stale_head.py 57 PASS ×3 · 뉴스 묶음 385 passed(r649 부하 1 = 기준판 같음) · 외부 DA⑥ r7 APPROVE(VERDICT-r907-da6-r7.md · 승인판 5948ab22 · gpt-6.1-sol).
+
+## 2026-10-25 — r911 끝난 가지 판정 «main 과 파일 단위 같음» 갈래(E1f) 추가(1.1.241)
+
+- ft-finished-check.sh 에 E1f 갈래: 가지가 바꾼 파일마다 main 의 blob 이 같으면(내용이 main 에 이미 있음) 끝난 가지로 본다. FINISHED = E0 ∧ E3 ∧ ((E1 ∧ E2) ∨ E1f). 판정은 C(merge-base..tip 바꾼 경로) ≠ ∅ ∧ C∩D(main..tip 다른 경로) = ∅ — 경로를 git 에 넘기지 않아 pathspec 매직 오판이 없고 git 호출은 3회 고정(5천 경로 12초 · 호출 7초 + 전체 마감 70초).
+- 비교 단위는 파일(blob·심링크·gitlink)이며 폴더 자체의 존재 차이는 정의 밖이다. 종료코드 계약: 정상 rc0 · 판정 불가 rc2 · rc1 없음. 비 UTF-8 경로 이름은 예외 없이 처리한다.
+- 시험 test_finished_e1f_r911.sh 39 PASS ×3 · 변이 13종 빨강 · kit cmp0 · 외부 DA⑥ r5 APPROVE(VERDICT-r911-da6-r5.md · 승인판 80e5fd14).
+
+## 2026-10-25 — r899 팀 폴더 이동 뒷정리 — 분류·보관 계획·실행 경로 옛 경로 고침(1.1.240)
+
+- `ft-team-move.sh --classify` (읽기 전용): 남은 옛 경로를 살아 있는 좌석(LIVE-OK·LIVE-FIX·LIVE-HAND) · 닫힌 좌석(ARCHIVE · 역할 계보 최댓값 행은 KEEP-LINEAGE/KEEP-FIX — ft-role-spawn 번호 기준이라 빼지 않음) · 코드(CODE-RUN·NOTE·RECORD·FIXTURE) 로 가른다. tmux 목록을 못 읽으면 분류 전체 ERROR(보관 판정 0). 상태 폴더만 다른 후보는 자동으로 따라가지 않는다(spawn 경쟁 실측 · LIVE-HAND).
+- `--cleanup-plan --out <폴더>` = plan.json·plan.tsv·plan.sh 만(쓰기 0) · plan.sh(master/오빠) → `--cleanup-run`(계획 sha 고정 · 실행 시점 tmux 재확인 · 행 바뀌면 SKIP · 보관 = 지우기 0) · `--cleanup-restore <archive.json>` 되살림(명부 키 순서까지).
+- `--verify`: 좌석 칸이 행 worktree 뿐 아니라 카드 워크트리(_cards_wt)·팀 루트 리포도 본다 · 코드 칸은 실행 글자·허용 목록 밖 픽스처 = ERR · 주석·독스트링·기록 폴더 = WARN · `design/TEAM-MOVE-ALLOW.tsv`(사유 필수 · 데이터 파일만) = 셈 밖.
+- 실 리포 리허설(사본): ERR 2753 → 보관 2302·다시 씀 14 뒤 46 → BYZ 가지(실행 경로 12파일 + 허용 목록) 착지 뒤 25(표 evidence/r899/README.md). 시험 test_team_move_cleanup_r899.sh · 변이(분류 반전) 빨강.
+
+
+## 2026-10-25 — r912 우편함 넘칠 때 사람 글 보존 · 교대 불가 알림 10분 묶기(1.1.239)
+
+- mbox 큐가 넘칠 때 시스템 알림(ft-tick·뉴스의 자동 [HIL]/[긴급] 포함)부터 버리고 사람 글(slack-oppa·[HIL]·[긴급])은 보존한다. 자르는 곳 셋(comm·kit ft-mbox.py·skill ft-mbox.py)은 같은 공유 블록(바이트 동일)이다. 보낸 이 이름은 ft-name-lint 문법으로 판정한다(byz-tool#0 같은 이름은 일반).
+- ft_model_swap «교대 불가» 알림은 같은 좌석·같은 사유로 10분에 1통만 보낸다. 보낸 시각은 send rc0 뒤에만 저장하고, 창 안에서 저장이 실패하면 그냥 보낸다. hil() 옛 r838 가드(blocked·mute·dry_run·수신자 없음)는 그대로 복원했다.
+- r838 ⓡ2 픽스처는 «창 안 300초 = 1통 · 창 밖 700초 = 2통» 으로 화해(DA 승인 — 창 뒤에도 정지면 반드시 1통).
+- 시험: pytest 113 passed · shell mbox 6종 · test_mbox_keep_human_mail 9/9 · 변이 10/10 KILLED · 외부 DA⑥ r3 APPROVE(VERDICT-r912-da6-r3.md · 승인판 9aa1af56).
+
 ## 2026-10-25 — r908 자율 범위 --max 상한 30 → 100 · 수 인자 산술 전 자릿수 거름(1.1.238)
 
 - ft-autonomy-scope.sh 의 범위 승인 --max 상한을 30 에서 100 으로 올린다(자율 ON 중 병합 승인 묶음 한도).

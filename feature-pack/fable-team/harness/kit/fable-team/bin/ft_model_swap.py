@@ -164,10 +164,11 @@ class Swap(Account):
     def hil(self, seat: str, d: dict[str, object], cut: Cut, why: str) -> None:
         print(f"HIL {seat} {why}")
         to, key = d.get("_hil_route") or d.get("_master"), f"{seat.rsplit('#', 1)[0]}|{why}"  # r838 ⓖ: 키 = (계보 · 이유) — 정지 uuid 는 회차마다 바뀐다
-        if key in self.st["blocked"] or self.mute(key) or not isinstance(to, str) or self.a.dry_run:  # pyright: ignore[reportOperatorIssue] · 닫힘 = close_keys 하나(r838 r3 ②) · r863 손상 계보 알림 0
-            return
-        self.send(to, f"[자동 교대 불가] {seat} · {why} · 교대 0 — 필요한 결정: 손 교대 여부(planner 인터뷰)")  # ⓗ 머리 [HIL] 0(슬랙 질문 적체)
-        self.st["blocked"][key] = {"at": self.now, "seen": self.now}  # pyright: ignore[reportIndexIssue] · r4 값 {at, seen} · 저장 = main 끝
+        ok, tail = self.hil_gate(key, to)  # r912 — 옛 r838 가드 그대로(안 보냄) + 시도 카운터/꼬리
+        if ok:
+            self.send(to, f"[자동 교대 불가] {seat} · {why} · 교대 0 — 필요한 결정: 손 교대 여부(planner 인터뷰){tail}")  # ⓗ 머리 [HIL] 0(슬랙 질문 적체)
+            self.notify_sent(key)  # ★rc0 뒤에만★ 보낸 시각·횟수 저장(반송 r4 ②)
+            self.st["blocked"][key] = {"at": self.now, "seen": self.now}  # pyright: ignore[reportIndexIssue] · r4 값 {at, seen} · 저장 = main 끝
 
 
 def main() -> int:

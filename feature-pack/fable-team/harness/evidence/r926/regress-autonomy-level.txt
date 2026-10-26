@@ -1,0 +1,67 @@
+PASS bash -n(3.2) ft-autonomy.sh
+PASS 키트 짝 cmp0 ft-autonomy.sh
+PASS bash -n(3.2) ft-autonomy-level.sh
+PASS 키트 짝 cmp0 ft-autonomy-level.sh
+PASS bash -n(3.2) ft-autonomy-scope.sh
+PASS 키트 짝 cmp0 ft-autonomy-scope.sh
+PASS bash -n(3.2) ft-autonomy-interview.sh
+PASS 키트 짝 cmp0 ft-autonomy-interview.sh
+PASS 200줄 이하 ft-autonomy.sh
+PASS 200줄 이하 ft-autonomy-level.sh
+PASS 200줄 이하 ft-autonomy-interview.sh
+PASS ft-tick expire 뒤 interview-note 호출 · 짝 cmp0
+PASS ⓐ on --for 12h → approve-scope S1 A1 … level=full 1줄(until 같음)
+PASS ⓐ 순서 = 모드 줄 → 범위 승인 줄
+PASS ⓐ json level 칸 · 위변조 아님(mode=on)
+PASS ⓐ status 에 «레벨 풀자동 · 범위 S1»
+PASS ⓐ 슬랙 3줄 · 1줄 = 자율 켜짐(풀자동)(r658)
+PASS ⓐ --audit OK(새 칸 repos·level)
+PASS ⓐ 슬랙 게시 실패 → on 전체 쓰기 0 · rc 1
+PASS ⓐ 끝 없는 ON → 범위 until = 24h
+PASS ⓑ mid → classes=docs,ff,revert · codemax·repos 칸 0 · level=mid
+PASS ⓑ 인터뷰 값 덮어쓰기(--max 5 --daily 3)
+PASS ⓑ --code-max > max → REJECT rc 2 · 쓰기 0
+PASS ⓑ 모르는 레벨 → REJECT rc 2 · 쓰기 0
+PASS ⓒ each → 범위 승인 줄 0 · 슬랙 0 · json level=each
+PASS ⓒ scope-status [범위 승인 없음 · 건마다 확인]
+PASS ⓒ each + --max → REJECT
+PASS ⓓ off → on(A2) = on 이 S2 A2 를 같이 건다 → scope-approve OK
+PASS ⓓ 픽스처(옛 판 on A2 · level full) 정합
+PASS ⓓ 마지막 줄 level=full ∧ 지금 full → SCOPE-RENEWED S2 A2(AUTOSTOP 0)
+PASS ⓓ 재발급 줄 = 같은 값 · until = 지금 ON 끝
+PASS ⓓ 재발급 뒤 --audit OK(슬랙 1줄 + audit)
+PASS ⓓ 지금 레벨 each → 기존 AUTOSTOP
+PASS ⓓ scope-stop 뒤 재발급 0
+PASS ⓓ 옛 꼴 줄(level 칸 없음) → 기존 AUTOSTOP(역호환)
+PASS ⓔ expire → EXPIRED A1
+PASS ⓔ interview-note → SENT
+PASS ⓔ 쪽지 머리 + 골 표 블록 · 받는 이 = desk
+PASS ⓔ expire 뒤에도 레벨 기록 유지
+PASS ⓔ 10분 안 두 번째 = DUP(쪽지 0)
+PASS ⓔ off → [자율 인터뷰] A1 OFF 1통
+PASS ⓔ mbox 실패 → WARN rc≠0(조용한 통과 0)
+PASS ⓕ → ! bash <HIL_DIR>/h<N> 1줄(60자 이하)
+PASS ⓕ 계획 파일 = ft-autonomy.sh on --for 12h --level full 1줄
+PASS ⓕ 인터뷰 도구는 상태 쓰기 0(ON 은 오빠 h)
+PASS ⓕ 틀린 레벨 → REJECT rc 2 · 계획 파일 0
+PASS ⓕ 기간 없음 → REJECT
+PASS ⓕ 범위 값 틀림(--max 101 · 상한 100 r908) → REJECT
+PASS ⓖ 승인 줄만 → mode off
+PASS ⓖ → scope-approve REJECT(재발급 0)
+PASS ⓖ level=turbo 줄 → tamper(꼴 밖)
+PASS ⓚ FORBID kind=X → REJECT + denied.tsv 1행
+PASS ⓚ 오빠 approve-merge → learned-kinds 1행(레벨 full)
+PASS ⓚ 같은 종류 두 번째 sha → SCOPE-OK learned
+PASS ⓚ 분류기에 --learned · log scope-use … learned= · 위변조 아님
+PASS ⓚ 다른 종류 → FORBID 그대로
+PASS ⓚ 같은 종류 재저장 0
+PASS ⓚ --audit OK
+PASS ⓚ 손 추가 학습 행 → AUDIT-MISMATCH
+PASS ⓚ 레벨 mid → 학습 0
+PASS ⓚ secret → 학습 불가
+PASS ⓚ scope-stop·OFF 는 학습표를 지우지 않는다
+PASS ⓚ forget-kind → FORGOT · 표에서 빠짐
+PASS ⓚ 없는 종류 forget → REJECT rc 2
+PASS 600/300 상한 0
+fail=0
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
