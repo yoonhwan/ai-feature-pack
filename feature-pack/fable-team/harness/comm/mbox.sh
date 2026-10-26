@@ -64,55 +64,58 @@ PY
 }
 # ★user_facing 좌석의 quiet = 세션 안 감시와 한 쌍(r408)★ — 판정기는 bin/ft-mbox.sh watch-alive 하나(팩 키트 send 와 같은 판정). 오빠 pane 주입 0(876 불변).
 #   감시 없음 → db 꼬리 `(WATCH 없음)`(quiet → `quiet(WATCH 없음)`) + 하네스 master(seats-harness.json `_master`) 긴급 1통(같은 좌석 10분 1회 · 표식 <루트>/.fable-team/state/planner-watch-missing.<좌석> · 본문에 계기 쪽지 번호 = 같은 본문 재발신 가드에 재알림이 막히지 않게).
-#   ★r928 유예★: 끝 표식(planner-watch-last.<좌석> = ft-inbox-watch.sh 가 끝날 때 쓰는 «<좌석>\t<epoch>» 1줄)의 mtime 이 유예(FT_WATCH_REARM_GRACE, 기본 5분) 안이고 본문 좌석이 같을 때만 긴급 0 · stderr `WATCH-REARM 대기 <분>` 1줄
-#     — Monitor 30분 한도 뒤 «다시 거는 틈»을 오탐 긴급으로 보내지 않는다(판정 1125). 표식이 심링크·폴더·미래 mtime·깨진 본문이면 유예 0(긴급 그대로) + stderr `WATCH-MARK 이상(<사유>)` 1줄(DA⑥ r1 반례 1·2).
-#     긴급 본문 근거 줄 = `감시 프로세스 0(pgrep) · 마지막 감시 끝 <HH:MM|기록 없음>`.
+#   ★r928 r3 유예★: 표본 파일(state/planner-watch-absent-since.<좌석> = «<표본 epoch>\t<처음 없음 epoch | 0=감시 있음>» · 쓰는 쪽 = ft-tick 60초 표본기 `bin/ft-mbox.sh watch-sample` 하나 · 감시는 쓰기 0)을 읽기만 한다.
+#     표본 180초(FT_WATCH_SAMPLE_STALE_SEC) 안 ∧ 처음 없음 300초(FT_WATCH_REARM_GRACE_SEC) 안 → 긴급 0 · stderr `WATCH-REARM 대기 <분>` 1줄 — Monitor 30분 한도 뒤 «다시 거는 틈»(판정 1125).
+#     이상은 모두 긴급 쪽 — 표본 없음·멈춤·심링크·폴더·state 쓰기 불가·읽기 실패·정수 두 칸 아님·미래 값 → stderr `WATCH-ABSENT 표본 멈춤(<사유>)`/`WATCH-ABSENT 이상(<사유>)` 1줄. 판정 본문은 bin/ft-mbox.sh 와 같은 함수(_absent_grace).
+#     긴급 본문 근거 줄 = `감시 프로세스 0(pgrep) · <처음 없음 HH:MM(N분) | 표본 이상(<사유>)>`.
 #   판정 불가 = 꼬리 `(WATCH 판정 불가)` + stderr(조용한 통과 0) · 적재 실패·master 없음 = stderr 1줄(표식 0 → 다음 send 재시도).
-#   _mark_hhmm <표식> → "HH:MM" 또는 "기록 없음" (긴급 본문 근거 줄용)
-#   _mark_grace <표식> <좌석> <유예분> → rc0 유예(stdout 경과 분) · rc1 유예 밖 · rc2 표식 없음 · rc3 이상(유예 0 + stderr `WATCH-MARK 이상(<사유>)` 1줄)
-_mark_hhmm() {
-  local m; m="$(stat -f %m "$1" 2>/dev/null || stat -c %Y "$1" 2>/dev/null || true)"
-  case "$m" in ''|*[!0-9]*) printf '기록 없음'; return 0 ;; esac
-  date -r "$m" +%H:%M 2>/dev/null || date -d "@$m" +%H:%M 2>/dev/null || printf '기록 없음'
-}
-_mark_grace() {
-  local f="$1" want="$2" grace="$3" m n line seat now
-  if [ -L "$f" ]; then echo "WATCH-MARK 이상(심링크) $f" >&2; return 3; fi
-  if [ -e "$f" ] && [ ! -f "$f" ]; then echo "WATCH-MARK 이상(일반 파일 아님) $f" >&2; return 3; fi
-  if [ ! -f "$f" ]; then return 2; fi
-  m="$(stat -f %m "$f" 2>/dev/null || stat -c %Y "$f" 2>/dev/null || true)"
-  case "$m" in ''|*[!0-9]*) echo "WATCH-MARK 이상(mtime 읽기 실패) $f" >&2; return 3 ;; esac
-  line="$(head -1 "$f" 2>/dev/null || true)"
-  case "$line" in
-    *$'\t'*) seat="${line%%$'\t'*}" ;;
-    *) echo "WATCH-MARK 이상(본문 깨짐) $f" >&2; return 3 ;;
-  esac
-  if [ "$seat" != "$want" ]; then echo "WATCH-MARK 이상(본문 좌석 다름) $f" >&2; return 3; fi
+_ep_hhmm() { date -r "$1" +%H:%M 2>/dev/null || date -d "@$1" +%H:%M 2>/dev/null || printf '?'; }
+_absent_grace() {
+  local f="$1" grace="$2" stale="$3" line s="" a="" now why=""
   now="$(date +%s)"
-  if [ "$m" -gt "$now" ]; then echo "WATCH-MARK 이상(미래 mtime) $f" >&2; return 3; fi
-  n=$(( (now - m) / 60 ))
-  if [ "$n" -lt "$grace" ]; then printf '%s' "$n"; return 0; fi
-  return 1
+  if [ -L "$f" ]; then why="심링크"
+  elif [ -e "$f" ] && [ ! -f "$f" ]; then why="일반 파일 아님"
+  elif [ ! -e "$f" ]; then why="표본 없음"
+  elif [ ! -w "$(dirname "$f")" ]; then why="state 쓰기 불가"
+  elif ! line="$(head -1 "$f" 2>/dev/null)"; then why="읽기 실패"
+  else
+    case "$line" in *$'\t'*) s="${line%%$'\t'*}"; a="${line#*$'\t'}" ;; esac
+    case "$s" in ''|*[!0-9]*) why="본문 깨짐" ;; esac
+    case "$a" in ''|*[!0-9]*) why="본문 깨짐" ;; esac
+    if [ -z "$why" ] && { [ "${#s}" -gt 12 ] || [ "${#a}" -gt 12 ]; }; then why="본문 깨짐"; fi
+    if [ -z "$why" ]; then
+      s=$((10#$s)); a=$((10#$a))
+      if [ "$s" -gt "$now" ]; then why="미래 표본"
+      elif [ $((now - s)) -gt "$stale" ]; then why="표본 멈춤 $((now - s))초 전"
+      elif [ "$a" -gt "$s" ]; then why="미래 처음 없음"
+      fi
+    fi
+  fi
+  if [ -n "$why" ]; then
+    case "$why" in 표본\ 없음|표본\ 멈춤*) echo "WATCH-ABSENT 표본 멈춤($why) $f" >&2 ;; *) echo "WATCH-ABSENT 이상($why) $f" >&2 ;; esac
+    printf '표본 이상(%s)' "$why"; return 3
+  fi
+  if [ "$a" = 0 ]; then printf '0분 · 처음 없음 표본 전(마지막 표본 %s 감시 있음)' "$(_ep_hhmm "$s")"; return 0; fi
+  if [ $((now - a)) -lt "$grace" ]; then printf '%s분 · 처음 없음 %s' "$(( (now - a) / 60 ))" "$(_ep_hhmm "$a")"; return 0; fi
+  printf '처음 없음 %s(%s분)' "$(_ep_hhmm "$a")" "$(( (now - a) / 60 ))"; return 1
 }
 uf_watch() {  # <to> <계기 쪽지 seq>
-  local to="$1" ft="$DIR/.." o rc=0 hm mk q lm emin ld grace sfx grc=0
+  local to="$1" ft="$DIR/.." o rc=0 hm mk af ev q grc=0
   o="$(bash "${FT_BIN:-$DIR/../bin}/ft-mbox.sh" watch-alive "$to" 2>/dev/null)" || rc=$?
   [ "$rc" = 0 ] && return 0
   case "$rc:$o" in 3:"NO watch"*) ;; *) db="${db}(WATCH 판정 불가)"; echo "WARN planner watch 판정 불가 rc=$rc $to: ${o:0:80}" >&2; return 0;; esac
-  db="${db}(WATCH 없음)"; sfx="$(printf '%s' "$to" | tr -c 'A-Za-z0-9._#-' '_')"
-  mk="$ft/state/planner-watch-missing.$sfx"; lm="$ft/state/planner-watch-last.$sfx"
+  db="${db}(WATCH 없음)"
+  mk="$ft/state/planner-watch-missing.$(printf '%s' "$to" | tr -c 'A-Za-z0-9._#-' '_')"
+  af="$ft/state/planner-watch-absent-since.$(printf '%s' "$to" | tr -c 'A-Za-z0-9._#-' '_')"
   [ -n "$(find "$mk" -mmin -10 2>/dev/null)" ] && return 0
-  grace="${FT_WATCH_REARM_GRACE:-5}"
-  emin="$(_mark_grace "$lm" "$to" "$grace")" || grc=$?
+  ev="$(_absent_grace "$af" "${FT_WATCH_REARM_GRACE_SEC:-300}" "${FT_WATCH_SAMPLE_STALE_SEC:-180}")" || grc=$?
   if [ "$grc" = 0 ]; then
-    echo "WATCH-REARM 대기 ${emin}분 — $to 감시가 ${grace}분 안에 끝남($lm) · 다시 거는 틈이라 긴급 0통" >&2
+    echo "WATCH-REARM 대기 $ev — $to 다시 거는 틈이라 긴급 0통($af)" >&2
     return 0
   fi
-  ld="$(_mark_hhmm "$lm")"
   hm="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1],encoding="utf-8")).get("_master") or "")' "${FT_HARNESS_SEATS_JSON:-$ft/seats-harness.json}" 2>/dev/null)" || hm=""
   [ -n "$hm" ] || { echo "WARN planner watch 없음 $to — 하네스 master 를 못 찾음 · 긴급 0통" >&2; return 0; }
-  [ -n "$ld" ] || ld="기록 없음"
-  q="$(python3 "$MBOXPY" send "$hm" ft-watch-alarm "[긴급 · planner watch 없음] $to · 감지 $(date +%H:%M) · 계기 쪽지 #${2:-?} · 감시 프로세스 0(pgrep) · 마지막 감시 끝 $ld · 시작: Monitor → bash $(cd "$ft" && pwd)/bin/ft-inbox-watch.sh $to")" \
+  q="$(python3 "$MBOXPY" send "$hm" ft-watch-alarm "[긴급 · planner watch 없음] $to · 감지 $(date +%H:%M) · 계기 쪽지 #${2:-?} · 감시 프로세스 0(pgrep) · $ev · 시작: Monitor → bash $(cd "$ft" && pwd)/bin/ft-inbox-watch.sh $to")" \
     || { echo "WARN planner watch 없음 $to — 긴급 적재 실패(다음 send 재시도)" >&2; return 0; }
   mkdir -p "$ft/state" && : > "$mk"
   echo "WARN planner watch 없음 $to — 하네스 master $hm 긴급 $(seq_of "$q" || true)" >&2
