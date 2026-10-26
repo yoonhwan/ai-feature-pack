@@ -30,7 +30,7 @@ cat > "$MD" <<'EOF'
 EOF
 git init -q "$T/repo" && git -C "$T/repo" -c user.name=t -c user.email=t@t commit -q --allow-empty -m init
 mkdir -p "$T/repo/.fable-team/comm" "$T/repo/.fable-team/state"   # r921: all-stop 판정이 state 폴더+원장 init 줄을 요구한다(픽스처 구멍 — 사전 결함)
-printf '2026-10-21T00:00:00\toff\tinstall\tinit\n' > "$T/repo/.fable-team/state/all-stop.log" && echo '{"_name":"alpha"}' > "$T/repo/.fable-team/seats-alpha.json"
+printf '2026-10-21T00:00:00\toff\tinstall\tinit\n' > "$T/repo/.fable-team/state/all-stop.log" && echo '{"_name":"alpha","_master":"byz-alpha-master-claude#1","byz-alpha-master-claude#1":{"role":"master"}}' > "$T/repo/.fable-team/seats-alpha.json"   # r975 반송 r1: 회신 대상 = 고정 명부의 현역 _master
 mkdir -p "$T/repo/design/alpha/indices/대기" && echo "# 카드" > "$T/repo/design/alpha/indices/대기/x.md"
 Q="$T/repo/.fable-team/state/spawn-queue-alpha.tsv"
 # 가짜 회수: 인자를 기록하고 FREE 파일이 있으면 alpha 나노 1개를 목록에서 뺀다(= 끝난 나노를 닫았다)
