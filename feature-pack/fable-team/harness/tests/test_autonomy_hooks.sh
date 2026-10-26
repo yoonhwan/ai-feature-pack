@@ -29,6 +29,7 @@ al() { run "$1" "$2"; [ "$rc" = 0 ] && [ -z "$out" ]; ck "$3" $?; }
 dn() { run "$1" "$2"; [ "$rc" = 0 ] && grep -q 'permissionDecision": "deny"' <<<"$out"; ck "$3" $?; }
 bal() { al "$1" "$(mkbash "$2" "${4:-$T}")" "$3"; }
 bdn() { dn "$1" "$(mkbash "$2" "${4:-$T}")" "$3"; }
+bw() { run "$1" "$(mkbash "$2" "${4:-$T}")"; [ "$rc" = 0 ] && [ -z "$out" ] && ! grep -q permissionDecision <<<"$out" && grep -q '^WARN autonomy-state-guard' "$T/err"; ck "$3" $?; }   # r947 r5: approve-standing = allow + WARN 1줄
 
 for f in "$IG" "$SG" "$MG"; do bash -n "$f" 2>/dev/null; ck "bash -n $(basename "$f")" $?; done
 
@@ -84,24 +85,77 @@ al "$SG" "$(mkfile Write /tmp/x.md)" "ⓒ2 Write 본문에 경로 글자만 → 
 al "$SG" "$(mkfile Edit "$T/design.md")" "ⓒ2b Edit 다른 파일 → allow"
 outside bal "$SG" "echo x > autonomy.json" "ⓑ3 BYZ 밖에서는 allow" "$T/outside"
 # ⓑ-source (r947 r2 · DA 반례 1) — source·. 경유도 «같은 파일을 실행»이다: 좌석이 approve-standing·on/off 를 source 로 부르면 deny
-for c in "source $BIN/ft-autonomy.sh approve-standing D1 --repos pack --classes code,docs" ". $BIN/ft-autonomy.sh approve-standing D1 --repos pack --classes code,docs" \
-         "source $BIN/ft-autonomy.sh on" ". $BIN/ft-autonomy.sh off" "bash -c 'source $BIN/ft-autonomy.sh approve-standing D1 --repos pack --classes code,docs'" \
+for c in "source $BIN/ft-autonomy.sh on" ". $BIN/ft-autonomy.sh off" \
          "cd /x && source ../y/ft-autonomy.sh approve-merge 1111111111111111111111111111111111111111"; do
   bdn "$SG" "$c" "ⓑ-source source·. 경유 실행 deny: ${c:0:70}"
 done
 for c in "source /tmp/other.sh" ". $T/plan.sh" "source $BIN/ft-autonomy.sh status" "bash -c 'source /tmp/other.sh'"; do
   bal "$SG" "$c" "ⓑ-source2 다른 파일·읽기(하위명령 없음) allow: ${c:0:70}"
 done
-# ⓑ-source변 변이 — «source 처리 끔» 이면 ⓑ-source 칸이 allow 로 뒤집힌다(= 그 칸이 그 검사를 잡는다)
-MH="$T/mhook"; mkdir -p "$MH"; cp "$IH"/autonomy-*.sh "$IH/merge_cmd.py" "$MH"/
-python3 - "$IH/autonomy-state-guard.sh" "$MH/autonomy-state-guard.sh" <<'PY' || { echo "FAIL 변이 source 못 만듦"; fail=$((fail+1)); }
+# ⓧ5 (r947 r5 · arch 149 안1) — approve-standing 은 «글자 검사» 가 게이트가 아니다: 셸 꼴·경유와 무관하게 allow + WARN 1줄.
+#   게이트는 도구 안 «쓰기 자리» 좌석 판정(ft-autonomy-standing.sh std_seat_probe) 하나 — 짝 시험 = r947 시험 파일 ⓧ1~ⓧ4.
+SA_ARGS="approve-standing D1 --repos pack --classes code,docs"
+for c in "source $BIN/ft-autonomy.sh $SA_ARGS" ". $BIN/ft-autonomy.sh $SA_ARGS" \
+         "source -- $BIN/ft-autonomy.sh $SA_ARGS" ". -- $BIN/ft-autonomy.sh $SA_ARGS" \
+         "command source $BIN/ft-autonomy.sh $SA_ARGS" "builtin . $BIN/ft-autonomy.sh $SA_ARGS" \
+         "eval \"source $BIN/ft-autonomy.sh $SA_ARGS\"" "bash -c 'source $BIN/ft-autonomy.sh $SA_ARGS'" \
+         "bash -c 'source -- $BIN/ft-autonomy.sh $SA_ARGS'" "\"$BIN/ft-autonomy.sh\" \"approve-standing\" D1 --repos pack --classes code,docs" \
+         $'source '"$BIN"$'/ft-autonomy.sh\napprove-standing D1 --repos pack --classes code,docs' \
+         "$BIN/ft-autonomy.sh approve-stand''ing D1 --repos pack --classes code,docs" \
+         "$BIN/ft-autonomy.sh approve-stand\\ing D1 --repos pack --classes code,docs" \
+         "$BIN/ft-auto""nomy.sh approve-standing D1 --repos pack --classes code,docs" \
+         "grep -n approve-standing $BIN/ft-autonomy.sh" "git log -S approve-standing -- $BIN/ft-autonomy.sh" \
+         "sed -n '/approve-standing/p' $BIN/ft-autonomy.sh" \
+         "awk 'BEGIN { system(\"bash $BIN/ft-autonomy.sh approve-standing D1 --repos pack --classes code,docs\") }'" \
+         "sed 'e bash $BIN/ft-autonomy.sh approve-standing D1 --repos pack --classes code,docs' /dev/null" \
+         "find . -exec $BIN/ft-autonomy.sh approve-standing D1 --repos pack --classes code,docs ;" \
+         "printf x | xargs -I{} $BIN/ft-autonomy.sh approve-standing D1 --repos pack --classes code,docs" \
+         "perl -e 'system(\"bash $BIN/ft-autonomy.sh approve-standing D1 --repos pack --classes code,docs\")'" \
+         "python3 -c 'import os;os.system(\"bash $BIN/ft-autonomy.sh approve-standing D1 --repos pack --classes code,docs\")'" \
+         "env -i bash $BIN/ft-autonomy.sh approve-standing D1 --repos pack --classes code,docs"; do
+  bw "$SG" "$c" "ⓧ5 approve-standing 글자 경유 = allow + WARN: ${c:0:60}"
+done
+# ⓧ5b 진입 파일(계획 본문)·heredoc 본문 안 approve-standing — 본문은 «글자» 지만 경고는 낸다(막지 않는다)
+HSA="$T/h94711"; printf '#!/usr/bin/env bash\nset -euo pipefail\nbash "%s/ft-autonomy.sh" approve-standing D1 --repos pack --classes code,docs\n' "$BIN" > "$HSA"; chmod +x "$HSA"
+bw "$SG" "bash $HSA" "ⓧ5b 좌석의 bash <진입 파일>(계획 본문에 approve-standing) → allow + WARN"
+bw "$SG" "$(printf '/bin/bash <<%sEOF%s\nbash %s/ft-autonomy.sh approve-standing D1\nEOF' "'" "'" "$BIN")" "ⓧ5c heredoc 본문 승인 명령 → allow + WARN"
+outside bal "$SG" "bash $HSA" "ⓧ5d 대조: BYZ 밖 cwd(오빠 실행 자리) → 훅 판정 0" "$T/outside"
+# ⓧ5변 변이 2 — ⓵ deny 되살림이면 ⓧ5 칸이 deny 로 뒤집힌다 ⓶ WARN print 를 지우면 ⓧ5 칸이 준다(칸이 그 코드를 잡는다)
+MH="$T/mhook5"; mkdir -p "$MH"; cp "$IH"/autonomy-*.sh "$IH/merge_cmd.py" "$MH"/
+python3 - "$IH/autonomy-state-guard.sh" "$MH/autonomy-state-guard.sh" <<'PY' || { echo "FAIL 변이 deny 되살림 못 만듦"; fail=$((fail+1)); }
 import sys
 s = open(sys.argv[1], encoding="utf-8").read()
-old = "elif b in SOURCE and len(w) > 1:"
-assert s.count(old) == 1, old
-open(sys.argv[2], "w", encoding="utf-8").write(s.replace(old, "elif False:"))
+for old, new in (("""            if prog == "ft-autonomy.sh" and plain[0] == "approve-standing":
+                STAND_HIT[0] = True   # r947 r5: 글자 검사는 보조 — 쓰기 자리 좌석 판정이 게이트
+            else:
+                return True""", """            return True"""),
+                 ("""    if word_pair(toks) or raw_pair(toks):
+        STAND_HIT[0] = True   # r947 r5: approve-standing 낱말 쌍 = 경고만(막지 않는다)
+    return False""", """    return word_pair(toks) or raw_pair(toks)""")):
+    assert s.count(old) == 1, old
+    s = s.replace(old, new)
+open(sys.argv[2], "w", encoding="utf-8").write(s)
 PY
-run "$MH/autonomy-state-guard.sh" "$(mkbash "source $BIN/ft-autonomy.sh approve-standing D1 --repos pack --classes code,docs")"; [ "$rc" = 0 ] && [ -z "$out" ]; ck "ⓑ-source변 변이(source 처리 끔) → ⓑ-source 칸 빨강" $?
+flip=0
+for c in "source -- $BIN/ft-autonomy.sh $SA_ARGS" "grep -n approve-standing $BIN/ft-autonomy.sh" "env -i bash $BIN/ft-autonomy.sh $SA_ARGS"; do
+  run "$MH/autonomy-state-guard.sh" "$(mkbash "$c")"; grep -q 'permissionDecision": "deny"' <<<"$out" && flip=$((flip+1))
+done
+[ "$flip" = 3 ]; ck "ⓧ5변1 변이(훅 deny 되살림) → ⓧ5 칸 빨강($flip/3 deny)" $?
+MH2="$T/mhook6"; mkdir -p "$MH2"; cp "$IH"/autonomy-*.sh "$IH/merge_cmd.py" "$MH2"/
+python3 - "$IH/autonomy-state-guard.sh" "$MH2/autonomy-state-guard.sh" <<'PY' || { echo "FAIL 변이 경고끔 못 만듦"; fail=$((fail+1)); }
+import sys
+s = open(sys.argv[1], encoding="utf-8").read()
+old = """if STAND_HIT[0] and not hit:
+    print(STAND_WARN, file=sys.stderr)   # r947 r5: 막지 않고 경고만(게이트는 도구 안 좌석 판정)"""
+assert s.count(old) == 1, old
+open(sys.argv[2], "w", encoding="utf-8").write(s.replace(old, "pass"))
+PY
+nwarn=0
+for c in "source -- $BIN/ft-autonomy.sh $SA_ARGS" "grep -n approve-standing $BIN/ft-autonomy.sh" "eval \"source $BIN/ft-autonomy.sh $SA_ARGS\""; do
+  run "$MH2/autonomy-state-guard.sh" "$(mkbash "$c")"; grep -q 'WARN autonomy-state-guard' "$T/err" || nwarn=$((nwarn+1))
+done
+[ "$nwarn" = 3 ]; ck "ⓧ5변2 변이(경고 줄 지움) → ⓧ5 WARN 칸 빨강($nwarn/3 WARN 없음)" $?
+mode_off
 
 run "$SG" '{깨진'; [ "$rc" = 0 ] && [ -z "$out" ]; ck "ⓑ4 깨진 JSON → allow" $?
 # ⓛ r466 5c — 진입 파일(h<N>) · 계획 파일(*.sh.hil) 안 명령도 같은 판정 · approve-merge 는 자율 ON 이면 허용 + 로그

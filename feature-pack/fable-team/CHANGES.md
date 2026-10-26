@@ -1,8 +1,18 @@
-## 2026-10-26 — r947 r2 반송 고친 것 — source 경유 차단 · DA 블록 «마지막 비어 있지 않은 줄» 검사 (1.1.253)
+## 2026-10-26 — r947 r5 — D1 켜기의 게이트를 «훅 글자 검사» 에서 «쓰기 자리 좌석 판정» 으로 옮긴다 (1.1.256)
 
-- DA⑥ r1 HOLD 2(design/harness/evidence/r947-da6) 고침. 계약 ②: autonomy-state-guard 훅의 실행 판정에 `source`·`.` 경유를 넣었다 — 같은 파일이면 직접 실행과 같은 판정이다(`bash -c` 안의 source 도 같다). 좌석이 `source <bin>/ft-autonomy.sh approve-standing …` 로 D1 을 켜는 길이 막혔다.
-- 계약 ①: `standing-approve` 가 DA 원문 마지막 codex 블록의 «마지막 비어 있지 않은 줄» 이 정확히 `판정: APPROVE` 인지 본다. 앞서는 마지막 `판정:` 줄만 봐서, APPROVE 뒤에 판정 아닌 줄을 붙인 원문도 통과했다.
-- 시험 두 칸 + 변이 둘: ⓑ-source(source·.·bash -c 경유 deny · 변이 «source 처리 끔» 이면 그 칸 빨강) · ⓐ-tail(끝에 판정 아닌 줄 = 거절 · 빈 줄만이면 통과 · 변이 «끝줄 검사 끔» 이면 그 칸 빨강).
+- DA⑥ r4 HOLD(보류 4회 · 하드 룰 14 재설계 · arch 149 안1 · 표 `design/harness/evidence/r947-da6/TABLE-r947-r5-gate-inside-tool.md`) 고침. r1~r4 네 번이 전부 «훅이 명령 글자를 읽어 막는» 자리에서 났고 갈래(source · `source --` · 읽기 프로그램 · heredoc 본문)마다 하나씩 샜다. 글자에는 «누가 치는가» 가 없으므로, 게이트를 «쓰는 자리» 로 옮긴다.
+- `ft-autonomy-standing.sh`: `approve-standing` 첫머리에서 `std_seat_probe` 로 «실제 좌석 = planner 명부 `_master`» 를 판정한다(문서 전용 예외와 같은 함수 `ft_doc_exempt.py --mode planner-seat` · 실제 좌석 TMUX_PANE · 명부 루트 출처 · 이름 lint · `env -u FT_DOC_EXEMPT_SELFTEST -u FT_DOC_EXEMPT_SEAT`). 실패 = rc2 `STANDING-REJECT approve-standing D1 — 호출 좌석 <값> ≠ planner master · 쓰기 0`(상태·원장·슬랙 쓰기 0). SELFTEST env 가 켜진 채 부르면 rc3(승인 0). 호출 경유(heredoc·eval·변수 조립·사본·source)와 무관하게 같은 한 곳에서 막힌다.
+- `autonomy-state-guard.sh`: `approve-standing` 의 글자 판정(낱말 쌍 · shlex 실패 보조 · 진입 파일 본문)은 **경고만** — stderr `WARN autonomy-state-guard — approve-standing 은 도구 안 좌석 판정이 막는다(훅 글자 검사는 보조)` 1줄 남기고 허용한다. 다른 갈래(`on|off|approve-merge|approve-scope|forget-kind` · ft-all-stop · 상태 파일 쓰기)의 deny 는 그대로다.
+- 남는 구멍 2개는 계약에 적었다(지어내지 않음): TMUX_PANE 과 FT_SEAT 를 **함께** 위조하면 planner 행세가 된다(`actual_seat` 가 자기 신고와 대조하므로 두 값을 같이 바꿔야 한다) · 도구를 안 거치고 상태 파일을 직접 쓰는 길(기존 훅·autonomy-merge-guard 몫).
+- 시험: r947 ⓧ1(heredoc 경유 → 훅 allow+WARN · 도구 rc2 · 쓰기 0) · ⓧ2(eval·변수 조립·사본 3꼴 같은 결과) · ⓧ3(planner 좌석 = rc0 GRANTED · 원장 1줄) · ⓧ4(SELFTEST = rc3) · 훅 시험 ⓧ5(글자 경유 24꼴 allow+WARN · 진입 파일 본문 · heredoc 본문) · 변이 3(std_seat_probe 호출 끔 · env -u 삭제 · FT_SEAT 자기 신고만) + 훅 변이 2(deny 되살림 · WARN 줄 지움).
+- 증거: `harness/evidence/r947/14`(전체 시험 77칸 ALL PASS · 기존 11 묶음 포함) · `15`(훅 시험 220 PASS) · `16`(r4 반례 + ⓧ2 세 꼴 재현 — 사본은 훅이 이름으로 못 본다).
+
+## 2026-10-26 — r947 반송 r2·r3·r4 — 승인 판정은 «블록 첫 줄과 끝줄 둘 다», D1 켜기는 «낱말 쌍» 으로 좌석에서 막는다 (1.1.255)
+
+- DA⑥ r1·r2 HOLD 고침(design/harness/evidence/r947-da6). 승인 계약: `standing-approve` 는 DA 원문 마지막 codex 블록의 첫 비어 있지 않은 줄과 마지막 비어 있지 않은 줄이 «둘 다» `판정: APPROVE` 일 때만 승인 파일·`approve-merge … D1` 줄을 쓴다. 앞서는 마지막 `판정:` 줄만 봐서 APPROVE 뒤에 판정 아닌 줄을 붙인 원문도 통과했다(r2).
+- 좌석 차단 계약(r3 · 꼴 맞히기를 버리고 구조로 닫음): autonomy-state-guard 훅은 Bash 명령의 «낱말 쌍» 을 본다 — shlex 낱말(모든 segment · `-c` 재귀 · 따옴표·역슬래시로 쪼갠 낱말 포함)에 `ft-autonomy` 와 `approve-standing` 이 함께 있으면 deny, 보조로 원문 글자 쌍(shlex 가 못 쪼갠 `eval "…"` 꼴). r1 은 `source <파일>`, r2 는 `source -- <파일>` 로 뚫렸고, 꼴 목록을 늘리는 고침은 세 번째 꼴에 또 진다.
+- 오빠 h 계획 본문 경유(`bash /tmp/h<N>` 안에 approve-standing)도 deny 다(훅 계약 ⓛ3 과 같은 방향). 오빠 `!` 실행은 훅을 거치지 않으므로 영향 0. r4(DA r3 반례): «읽기 프로그램 예외» 를 없앴다 — awk `system()`·`sed e`·`find -exec`·`xargs`·`perl -e`·`python3 -c` 도 명령을 실행하므로 프로그램 예외를 두지 않는다. 대가로 Bash 로 `grep approve-standing …/ft-autonomy.sh` 도 막히고, deny 문구가 «읽기는 Bash 대신 Read 도구로» 를 안내한다(훅은 Bash 만 본다). 위협 모델 밖: 변수 간접·이름 바꾼 사본(판정 2078 ⓐ — 슬랙 1글·grants.audit 로 들린다).
+- 시험: ⓐ-tail(끝 판정 아닌 줄 = 거절 · 빈 줄만이면 통과) · ⓑ-source(source·.·bash -c 경유 deny) · ⓚ(DA r2 반례 두 꼴) · ⓛ(꼴 묶음 9 + 낱말 안쪽 쪼개기 3) · ⓝ(awk system·sed e·find -exec·xargs·perl -e·python3 -c·env 경유 deny) · ⓛ읽기a(두 낱말 함께 = deny + «Read 도구로» 안내) · ⓛ읽기b(낱말 하나 = allow) · ⓜ(좌석의 h 경유 = deny · BYZ 밖 cwd 대조 = allow) · 변이 4(끝줄 검사·source 처리·낱말 쌍·읽기 예외 되살림).
 
 ## 2026-10-26 — r947 외부 DA 가 APPROVE 한 팩 PR 은 «상시 승인» D1 으로 planner 가 바로 착지한다 (1.1.252)
 

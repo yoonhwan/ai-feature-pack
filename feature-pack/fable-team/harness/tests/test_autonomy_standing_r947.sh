@@ -149,6 +149,35 @@ git -C "$B" reset -q --hard "$HB0"
 out="$(HOME="$T/home" CODEX_HOME="$T/home" PATH="$T/codexbin:$PATH" bash "$DAC" --cwd "$T/home" --prompt-file "$T/p.txt" --out-dir "$T/dac" 2>/dev/null)"; DF="${out#OUT }"; DF="${DF% rc=*}"
 grep -q '^head=none ' "$DF.meta"; ck "da-codex cwd 가 git 아님 → head=none(상시 승인 거절 쪽)" $?
 
+# ══ ⓧ r5 (arch 149 안1) — D1 켜기는 «쓰기 자리» 좌석 판정: 경유(heredoc·eval·변수 조립·사본)와 무관하게 planner master 만
+HKIT="$(cd "$HERE/../kit" && pwd -P)"; mkdir -p "$T/hk"; cp "$HKIT/fable-team/templates/hooks/autonomy-"*.sh "$HKIT/hooks/merge_cmd.py" "$T/hk"/
+snap() { if [ -f "$LOG" ]; then shasum -a 256 "$LOG" | awk '{print $1}'; else echo none; fi; }
+hok() {  # hok <명령> <이름> — 훅 판정 = allow(stdout 0줄) + WARN 1줄(막지 않는다)
+  local j; j="$(python3 -c 'import json,sys;print(json.dumps({"tool_name":"Bash","cwd":sys.argv[2],"tool_input":{"command":sys.argv[1]}}))' "$1" "$B")"
+  out="$(printf '%s' "$j" | FT_AUTONOMY_HOOK_LOG="$T/hk.log" "$BASH" "$T/hk/autonomy-state-guard.sh" 2>"$T/hk.err")"; rc=$?
+  [ "$rc" = 0 ] && [ -z "$out" ] && ! grep -q permissionDecision <<<"$out" && grep -q '^WARN autonomy-state-guard' "$T/hk.err"; ck "$2" $?; }
+HCMD="\"$BASH\" \"$BIN/ft-autonomy.sh\" approve-standing D1 --repos pack --classes code,docs"
+HDOC="$(printf '/bin/bash <<%sEOF%s\n%s\nEOF' "'" "'" "$HCMD")"
+sta() { out="$(FT_SEAT="$SEAT" FT_NOW="$T0" "$BASH" -c "$1" 2>&1)"; rc=$?; }
+SREJ='STANDING-REJECT approve-standing D1 — 호출 좌석 byz-harness-nano-r947-x#0 ≠ planner master · 쓰기 0'
+NANO='byz-harness-nano-r947-x#0'
+fresh; seat_set "$NANO"; N0="$(snap)"
+hok "$HDOC" "ⓧ1a 훅: 좌석의 heredoc approve-standing → allow + WARN(글자 검사는 보조)"
+sta "$HDOC"
+[ "$rc" = 2 ] && has "$SREJ" && [ "$(snap)" = "$N0" ] && [ ! -e "$S/autonomy-standing" ]; ck "ⓧ1 도구 안 좌석 판정: r4 반례 heredoc 경유 → rc2 · 상태·원장·슬랙 쓰기 0" $?
+mkdir -p "$T/r5bin"; for f in "$BIN"/*; do ln -s "$f" "$T/r5bin/$(basename "$f")"; done; cp "$BIN/ft-autonomy.sh" "$T/r5bin/x.sh"
+for c in "eval '$HCMD'" "T=\"$BIN/ft-autonomy.sh\"; \"\$T\" approve-standing D1 --repos pack --classes code,docs" "bash \"$T/r5bin/x.sh\" approve-standing D1 --repos pack --classes code,docs"; do
+  sta "$c"
+  [ "$rc" = 2 ] && has "$SREJ" && [ "$(snap)" = "$N0" ]; ck "ⓧ2 경유 묶음(eval·변수 조립·사본) → rc2 · 쓰기 0: ${c:0:36}" $?
+done
+seat_set "$SEAT"; fresh
+sta "$HDOC"
+[ "$rc" = 0 ] && has '^STANDING-GRANTED D1 repos=pack classes=code,docs slack_ts=1800000000.000100$' && grep -qx "approve-standing D1 $T0 repos=pack classes=code,docs da=external" "$LOG"; ck "ⓧ3 정상 경로: 실제 좌석 = planner 명부 _master → rc0 GRANTED · 원장 줄 1" $?
+fresh
+out="$(FT_DOC_EXEMPT_SELFTEST=1 FT_DOC_EXEMPT_SEAT="$SEAT" FT_SEAT="$SEAT" FT_NOW="$T0" "$BASH" "$BIN/ft-autonomy.sh" approve-standing D1 --repos pack --classes code,docs 2>&1)"; rc=$?
+[ "$rc" = 3 ] && has 'SELFTEST' && [ ! -e "$S/autonomy-standing" ] && [ ! -e "$LOG" ]; ck "ⓧ4 SELFTEST env 켜짐 → rc3 · 승인 0(설계된 방어 그대로)" $?
+seat_set "$SEAT"
+
 # ══ ⓘ 변이 — 변이마다 «빨강이어야 할 칸» 이 변이 판에서 통과해 버리는지(= 그 칸이 그 검사를 실제로 잡는다)
 mut() {  # mut <이름> <파일> <원문> <바꿀 글> [<원문2> <바꿀 글2>] → MB
   MB="$T/mut-$1"; mkdir -p "$MB"; for f in "$BIN"/*; do ln -s "$f" "$MB/$(basename "$f")"; done; rm -f "$MB/$2"
@@ -183,8 +212,21 @@ FT_AUTONOMY_STATE_DIR="$T/ms-m5" FT_NOW="$T0" "$BASH" "$MB/ft-autonomy.sh" appro
 [ "$(FT_AUTONOMY_STATE_DIR="$T/ms-m5" "$BASH" "$MB/ft-autonomy.sh" mode)" = tamper ]; ck "ⓘ5 변이(log 새 꼴 등록 끔) → ⓔ1 칸 빨강(tamper)" $?
 mut m6 "$SD" '  std_seat
   lock;' '  STD_BY=mut
-  lock;'; msa m6 "$A9" 9 "$V9" 'byz-harness-nano-r947-x#0'
+  lock;' 'STD_SEAT_ERR=""; STD_SEAT_ACTUAL="unknown"' 'STD_SEAT_ERR=""; STD_SEAT_ACTUAL="unknown"; STD_BY=mut; return 0'; msa m6 "$A9" 9 "$V9" 'byz-harness-nano-r947-x#0'
 [ "$rc" = 0 ]; ck "ⓘ6 변이(좌석 검사 끔) → ⓓ 칸 빨강" $?
+mut m8 "$SD" '  std_seat_probe || {' '  true || {'
+st="$T/ms-m8"; rm -rf "$st"; mkdir -p "$st"; seat_set "$NANO"
+out="$(FT_SEAT="$SEAT" FT_AUTONOMY_STATE_DIR="$st" FT_NOW="$T0" "$BASH" "$MB/ft-autonomy.sh" approve-standing D1 --repos pack --classes code,docs 2>&1)"; rc=$?; seat_set "$SEAT"
+[ "$rc" = 0 ] && has 'STANDING-GRANTED'; ck "ⓘ8 변이(approve-standing 좌석 판정 호출 끔) → ⓧ1·ⓧ2 칸 빨강(좌석 위조로 승인됨)" $?
+mut m9 "$SD" 'std_t7 env -u FT_DOC_EXEMPT_SELFTEST -u FT_DOC_EXEMPT_SEAT python3' 'std_t7 python3'
+st="$T/ms-m9"; rm -rf "$st"; mkdir -p "$st"
+out="$(FT_DOC_EXEMPT_SELFTEST=1 FT_DOC_EXEMPT_SEAT="$SEAT" FT_SEAT="$SEAT" FT_AUTONOMY_STATE_DIR="$st" FT_NOW="$T0" "$BASH" "$MB/ft-autonomy.sh" approve-standing D1 --repos pack --classes code,docs 2>&1)"; rc=$?
+[ "$rc" = 2 ] && has 'STANDING-REJECT approve-standing'; ck "ⓘ9 변이(env -u 삭제) → ⓧ4 칸 빨강(SELFTEST 가 rc3 이어야 할 자리가 rc2)" $?
+mut m10 "$SD" '  std_t7 env -u FT_DOC_EXEMPT_SELFTEST -u FT_DOC_EXEMPT_SEAT python3 "$dx" --mode planner-seat --repo "$ROOT" --root "$ROOT"
+  if [ "$RC" = 0 ] && [[ "$FIRST" =~ ^PLANNER-SEAT\ ([A-Za-z0-9#_-]+)$ ]]; then STD_BY="${BASH_REMATCH[1]}"; return 0; fi' '  if [ -n "${FT_SEAT:-}" ]; then STD_BY="$FT_SEAT"; return 0; fi'
+st="$T/ms-m10"; rm -rf "$st"; mkdir -p "$st"; seat_set "$NANO"
+out="$(FT_SEAT="$SEAT" FT_AUTONOMY_STATE_DIR="$st" FT_NOW="$T0" "$BASH" "$MB/ft-autonomy.sh" approve-standing D1 --repos pack --classes code,docs 2>&1)"; rc=$?; seat_set "$SEAT"
+[ "$rc" = 0 ] && has 'STANDING-GRANTED'; ck "ⓘ10 변이(planner-seat 대신 FT_SEAT 자기 신고만) → ⓧ1 칸 빨강" $?
 
 # ══ ⓗ 기존 시험(autonomy·scope·merge-land·da-codex·doc-exempt·훅) · 키트 사본 · 줄 수
 for f in ft-autonomy.sh ft-autonomy-standing.sh ft-merge-land.sh ft_doc_exempt.py; do cmp -s "$BIN/$f" "$BIN/../kit/fable-team/bin/$f"; ck "키트 사본 cmp0 $f" $?; done

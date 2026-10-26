@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ft-autonomy-standing.sh — 외부 DA APPROVE 팩 PR «상시 승인» D1 4명령 (r947 · 오빠 D1 mbox 169402) — ft-autonomy.sh 가 source 한다(단독 실행 금지)
-#   approve-standing D1 --repos pack --classes code,docs   오빠 `!` 전용(autonomy-state-guard 가 좌석 실행을 막는다) · 자율 모드 무관 · 끝 시각 없음(멈춤 = standing-stop)
+#   approve-standing D1 --repos pack --classes code,docs   오빠 `!` 전용 — r947 r5: «쓰기 자리» 에서 호출 좌석 = planner master 판정(std_seat_probe · 경유 무관) · 자율 모드 무관 · 끝 시각 없음(멈춤 = standing-stop)
 #       슬랙 «켜짐 알림» 1글(사람 말 3줄 · scope_slack_post 재사용) 게시 «먼저» → grants.audit(+슬랙 ts) → log `approve-standing D1 <epoch> repos=pack classes=<…> da=external`
 #   standing-approve <head40> --pr <N> --repo pack --verdict <판정문.md>   planner master 좌석만(ft_doc_exempt.py --mode planner-seat = 문서 전용 예외와 같은 좌석 함수)
 #       ①D1 켜짐(마지막 approve-standing 이 마지막 standing-stop 뒤) ②팩 분류표 forbid 0 ∧ 종류 ∈ classes ③판정문이 BYZ origin/main 에 있음 — 읽는 값도 origin/main 의 blob
@@ -42,6 +42,10 @@ cmd_approve_standing() {
   [ "$rp" = pack ] || std_usage "--repos 는 pack 만(D1 = 팩 PR · 받은 값: ${rp:-없음})"
   [[ "$cl" =~ ^(code|docs)(,(code|docs))?$ ]] || std_usage "--classes 는 code·docs 중 1~2개(받은 값: ${cl:-없음})"
   for c in ${cl//,/ }; do case "$seen" in *",$c,"*) std_usage "종류 중복: $c" ;; esac; seen="$seen$c,"; done
+  std_seat_probe || {   # r5: 쓰기 «한 곳» 에서 호출자를 판정 — heredoc·eval·변수 조립·사본·source 경유 무관
+    echo "STANDING-REJECT approve-standing D1 — 호출 좌석 $STD_SEAT_ACTUAL ≠ planner master · 쓰기 0" >&2
+    echo "  ($STD_SEAT_ERR · D1 켜기는 planner master 좌석 몫 — 다른 좌석은 오빠 h(approve-merge) 로)" >&2; exit 2; }
+  [ -z "${FT_DOC_EXEMPT_SELFTEST:-}${FT_DOC_EXEMPT_SEAT:-}" ] || { echo "STANDING-REJECT approve-standing D1 — 시험 판정(SELFTEST env)으로는 승인 0" >&2; exit 3; }
   lock; [ "$(mode)" = tamper ] && std_usage "자율 상태 위변조(tamper) — 상시 승인 기록 없음"
   if std_on; then unlock; echo "STANDING-NOOP D1 이미 켜짐($STD_LINE)"; return 0; fi
   now="$(now_epoch)"; line="approve-standing D1 $now repos=pack classes=$cl da=external"
@@ -54,12 +58,18 @@ cmd_approve_standing() {
   unlock; echo "STANDING-GRANTED D1 repos=pack classes=$cl slack_ts=$ts"
 }
 
-std_seat() {  # ⓓ planner master 좌석만 — 실제 좌석(TMUX_PANE) · 명부 루트 출처 · 이름 lint (SELFTEST env 는 env -u 로 지운다)
-  local dx="$HERE/ft_doc_exempt.py"; [ -f "$dx" ] || std_err "좌석 판정 모듈 없음: $dx"
+std_seat_probe() {  # r5: 실제 좌석(TMUX_PANE) · 명부 루트 출처 · 이름 lint = planner 명부 _master 인가(SELFTEST env 는 env -u 로 지운다)
+  local dx="$HERE/ft_doc_exempt.py"; STD_SEAT_ERR=""; STD_SEAT_ACTUAL="unknown"
+  [ -f "$dx" ] || { STD_SEAT_ERR="좌석 판정 모듈 없음: $dx"; return 2; }
   std_t7 env -u FT_DOC_EXEMPT_SELFTEST -u FT_DOC_EXEMPT_SEAT python3 "$dx" --mode planner-seat --repo "$ROOT" --root "$ROOT"
-  [ "$RC" = 0 ] && [[ "$FIRST" =~ ^PLANNER-SEAT\ ([A-Za-z0-9#_-]+)$ ]] || std_err "ⓓ planner master 좌석만 rc=$RC: ${FIRST:-출력 없음(시간 초과 7초 포함)}"
-  STD_BY="${BASH_REMATCH[1]}"
+  if [ "$RC" = 0 ] && [[ "$FIRST" =~ ^PLANNER-SEAT\ ([A-Za-z0-9#_-]+)$ ]]; then STD_BY="${BASH_REMATCH[1]}"; return 0; fi
+  STD_SEAT_ERR="rc=$RC ${FIRST:-출력 없음(시간 초과 7초 포함)}"
+  if [[ "$FIRST" =~ 실제\ 좌석\(([^\)]+)\) ]]; then STD_SEAT_ACTUAL="${BASH_REMATCH[1]}"
+  elif [[ "$FIRST" =~ 부른\ 좌석\(([^\)]+)\) ]]; then STD_SEAT_ACTUAL="${BASH_REMATCH[1]}"
+  fi
+  return 2
 }
+std_seat() { std_seat_probe || std_err "ⓓ planner master 좌석만 $STD_SEAT_ERR"; }
 
 std_classify() {  # ② <head> — 팩 분류표(scope 와 같은 분류기·표) · FORBID·실패 = 거절 · 종류 ∈ 승인 줄 classes
   local cls="${FT_SCOPE_CLASSIFY:-$HERE/autonomy_scope_classify.py}" t k runner h
