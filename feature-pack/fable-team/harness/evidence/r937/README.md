@@ -77,3 +77,13 @@ r3 에서 시험 사본 목록에 `ft_git_capped.py` 를 더했다(실행기가 
 
 회귀(r3 뒤 다시 돌린 기존 시험): `test_index_move_{canon_landed,install_harness_repo,canon_route,canonize,rule_line}` · `test_da_hold_gate_landed` · `test_live_install_check(_tip)` · `test_install_check_repo_outside` · `test_nano_close_{pack_wt,rerun_early}` · `test_evidence_inject_scan` · `test_baseline_lint` · `test_tracked_bin_call_gate` · `test_old_team_path_deny` · `test_root_bin_shim` rc0.
 기준판(`34a7f8e1`)과 같은 선행 결함(변화 0): `test_da_hold_gate.sh` 7 FAIL · `test_index_move_slack.sh` 1 FAIL · `test_team_lib_twin.py` rc1 · `test_team_literal_paths(2).sh` (기준판 13 → 4, 트리 위치 의존). 병렬 부하에서 `canon_landed`/`canon_route` 가 한 번씩 흔들렸고 단독 재실행은 둘 다 rc0.
+
+## astra DA r1 HOLD 1곳 → r3b — 보류 가드 바깥 상한 (REWORK-r937-astra-r1.md)
+
+| 반례 | 고침 | 시험 |
+|---|---|---|
+| `ft_da_hold_gate.py` `landed_repo()` 바깥 `timeout=20` 이 안쪽 조회 재시도 합(조회 1개 최악 ≈15초 × 3회)보다 짧아 먼저 끊고, 그 순간 안쪽 자식이 남음 | 바깥 상한 = `min(2 + 15 × 조회 수(3), 70)` = 47초(하드 룰 12). 바깥 실행은 `ft_git_capped.run_cmd`(새 프로세스 그룹 · 초과 시 그룹 SIGTERM→SIGKILL). 안쪽 실행기는 SIGTERM 을 받으면 자기 git 그룹에 즉시 SIGKILL 하고 종료 → 바깥이 끊어도 자식 생존 0 | ⓞ(세 조회 첫 호출 모두 TERM 무시 자식 + 8초 지연, 재시도 정상 → LANDED-CLOSE · 소요 30초(20 초과 ≤ 70) · 자식 생존 0) · ⓞ2(바깥이 끊으면 rc124 · 안쪽 git 그룹 정리) |
+
+- `after-r3b.txt` 34/34 PASS · `after-r3b-bin-bash32.txt` `/bin/bash` 3.2 로 34/34 PASS
+- `mutate8-outer-timeout-20.txt` 바깥 20초 복귀 → ⓞ 빨강(소요 20초에 끊김) · `mutate9-term-cleanup-off.txt` 안쪽 SIGTERM 정리 끔 → ⓞ2 빨강(자식 생존 1)
+- 부수: `subprocess` import 가 안 쓰여 ruff F401 → 제거(`test_da_hold_gate_landed` ruff 칸 통과) · 회귀 `test_da_hold_gate` 7 FAIL(기준판과 같음) · 나머지 기존 시험 rc0

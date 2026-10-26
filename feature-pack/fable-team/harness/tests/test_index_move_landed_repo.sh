@@ -171,6 +171,27 @@ getrc j4; [ "$rc" = 1 ] && [[ "$out" == "REJECT 팩 리포"*"루트 조회 실�
 getrc k1; mb="$(wc -l < "$T/mbcalls" | tr -d ' ')"
 [ "$rc" = 0 ] && [[ "$out" == "OK"$'\t'* ]] && [ "$mb" = 2 ] && [ "$el" -le 16 ] && ck "ⓚ 첫 merge-base 만 8초 → 재시도로 OK(호출 ${mb}회 · 소요 ${el}초 ≤ 16)" 0 || ck "ⓚ 재시도 :: rc=$rc mb=$mb el=$el $out" 1
 
+# ⓞ 바깥 상한(astra r1) — 보류 가드 바깥 timeout 이 안쪽 재시도 합보다 짧아 먼저 끊던 결함. 세 조회(팩 루트·카드·팩)의 «첫 호출» 이 전부 SIGTERM 무시 자식 + 8초 지연,
+#    재시도는 정상 → 바깥(47초)이 먼저 끊지 않고 LANDED-CLOSE · 20초를 넘겨 걸려도 통과 · 반환 순간 자식 생존 0 · 소요 ≤ 70초
+FO="$T/fakegit-first"; mkfake "$FO" 'case " $* " in *" rev-parse "*) k="$(printf %s "$*" | cksum | cut -d" " -f1)"; if [ ! -e "'"$T"'/seen.$k" ]; then : > "'"$T"'/seen.$k"; trap "" TERM; sleep 60 & echo $! >> "'"$T"'/firstpids"; wait; fi;; esac'
+: > "$T/firstpids"
+t0=$SECONDS
+out="$(PATH="$FO:$PATH" FT_HARNESS_ROOT="$KD" python3 "$GATE" "$cpk" --root "$CR" --seats-dir "$T/none" --comm "$T/none" --closing --da "$CR/design/harness/DA-row.md#§1" --landed "$P1" 2>&1)"; rc=$?
+el=$((SECONDS - t0)); sleep 0.5
+alive=0; n=0; while read -r cp; do n=$((n+1)); kill -0 "$cp" 2>/dev/null && alive=$((alive+1)); done < "$T/firstpids"
+[ "$rc" = 0 ] && [[ "${out%%$'\n'*}" == "LANDED-CLOSE sha=$P1"* ]] && [ "$n" -ge 3 ] && [ "$el" -gt 20 ] && [ "$el" -le 70 ] && [ "$alive" = 0 ] \
+  && ck "ⓞ 보류 가드: 세 조회 첫 호출 모두 지연(자식 ${n}개) → 바깥이 먼저 끊지 않고 LANDED-CLOSE · 소요 ${el}초(20 초과 ≤ 70) · 자식 생존 ${alive}" 0 || ck "ⓞ 바깥 상한 :: rc=$rc n=$n el=$el alive=$alive out=${out:0:200}" 1
+# ⓞ2 바깥이 끊을 때: 실행기에 SIGTERM → 안쪽 git 그룹(SIGTERM 무시 자식 포함)까지 정리 — 반환 순간 자식 생존 0
+FO2="$T/fakegit-hang"; mkfake "$FO2" 'case " $* " in *" rev-parse "*) trap "" TERM; sleep 60 & echo $! >> "'"$T"'/hangpids"; wait;; esac'
+: > "$T/hangpids"
+out="$(PATH="$FO2:$PATH" python3 -c '
+import sys; sys.path.insert(0, sys.argv[1])
+from ft_git_capped import run_cmd
+rc, _ = run_cmd(["python3", sys.argv[1] + "/ft_git_capped.py", "30", sys.argv[2], "rev-parse", "HEAD"], 2)
+print(rc)' "$BIN" "$CR" 2>&1)"; sleep 0.5
+alive=0; n=0; while read -r cp; do n=$((n+1)); kill -0 "$cp" 2>/dev/null && alive=$((alive+1)); done < "$T/hangpids"
+[ "$out" = 124 ] && [ "$n" -ge 1 ] && [ "$alive" = 0 ] && ck "ⓞ2 바깥 상한이 끊으면 rc124 · 안쪽 실행기가 git 그룹까지 정리(자식 ${n}개 중 생존 ${alive})" 0 || ck "ⓞ2 바깥 끊김 정리 :: out=$out n=$n alive=$alive" 1
+
 # ⓘ bash 3.2(/bin/bash) 문법 — 이 카드가 고친 파일 전부 + 이 시험을 /bin/bash 로 1회
 b32=0
 for f in ft-team-lib.sh ft-index-move.sh ft-index-move-install.sh ft-index-move-canon.sh ft-index-close-landed.sh; do /bin/bash -n "$BIN/$f" 2>/dev/null || b32=1; done

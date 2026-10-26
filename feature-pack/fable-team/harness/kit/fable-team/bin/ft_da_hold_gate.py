@@ -23,11 +23,10 @@ import datetime
 import json
 import os
 import re
-import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from ft_git_capped import run as _run_capped  # noqa: E402  (r937 r3 · git 조회 실행기 단일 출처)
+from ft_git_capped import run as _run_capped, run_cmd as _run_cmd  # noqa: E402  (r937 r3 · git 조회 실행기 단일 출처)
 
 EVENT = re.compile(r"DA([②⑥])((?:(?![②⑥]|DA|발주|CLOSE|APPROVE).){0,40}?)HOLD")
 BARE = re.compile(r"(?<![A-Za-z])DA(?![②⑥A-Za-z\-]).{0,40}?HOLD")
@@ -35,6 +34,7 @@ ORDER = re.compile(r"DA([②⑥])\s*r(\d+)\s*발주")
 CLOSEV = re.compile(r"DA([②⑥])\s*r(\d+)\s*CLOSE")
 ENTRY = re.compile(r"^- DA 입장:\s*([②⑥])r(\d+)")
 SEAT = re.compile(r"^(.*)#(\d+)$")
+LANDED_LOOKUPS = 3   # landed_repo 의 bash 쪽 git 조회 수: 팩 루트 · 카드 리포 rev-parse · 팩 리포 rev-parse
 LANDED = re.compile(r"^- 착지:\s*`?([0-9a-f]{7,40})\b")
 
 
@@ -165,15 +165,17 @@ def landed_repo(sha: str, card_repo: str, marker: str) -> tuple[str, str, str]:
     script = ('d="$(dirname "$1")"; . "$1" || exit 9; hr=""; [ -f "$d/ft-harness-root.sh" ] && hr="$(. "$d/ft-harness-root.sh" && ft_harness_root "$d" 2>/dev/null)"'
               '; pk=""; if [ -n "$hr" ]; then pk="$(ft_git_capped 7 "$hr" rev-parse --show-toplevel)" || { printf "REJECT 팩 리포(%s) 루트 조회 실패(rc=%s) — 통과 0\\n" "$hr" "$?"; exit 1; }; fi'
               '; ft_landed_repo "$2" "$3" "$pk" "$4"')
-    try:  # bash 쪽 조회 1단계가 7초×2(+정리 0.5초)까지 걸려 실패하면 거기서 끝난다 — 바깥 상한은 그 합 + 여유
-        r = subprocess.run(["bash", "-c", script, "x", lib, sha, card_repo, marker], capture_output=True, text=True, timeout=20)
-    except subprocess.TimeoutExpired:
-        return "", "", "LANDED-INVALID lookup-failed 리포 판정 시간 초과(20초) — 통과 0"
-    except OSError as e:
-        return "", "", "LANDED-INVALID resolve-failed " + str(e)[:80]
-    lines = r.stdout.strip().splitlines()
+    # 바깥 상한 = 안쪽 상한의 합 + 여유(하드 룰 12: min(고정비 + 7초×배수, 70)) — 안쪽 조회 1개 최악 ≈ 15초(7+0.5+7+정리) × 조회 3회(팩 루트·카드·팩).
+    # 바깥이 안쪽보다 먼저 끊는 일 0 · 끊더라도 run_cmd 가 그룹에 SIGTERM → 안쪽 실행기가 자기 git 그룹까지 정리한다.
+    outer = min(2 + 15 * LANDED_LOOKUPS, 70)
+    rc, raw = _run_cmd(["bash", "-c", script, "x", lib, sha, card_repo, marker], outer)
+    if rc == 124:
+        return "", "", "LANDED-INVALID lookup-failed 리포 판정 시간 초과(%d초) — 통과 0" % outer
+    if rc == 128:
+        return "", "", "LANDED-INVALID resolve-failed bash 실행 실패"
+    lines = raw.decode("utf-8", "replace").strip().splitlines()
     out = lines[-1] if lines else ""
-    if r.returncode != 0 or out.startswith("REJECT"):
+    if rc != 0 or out.startswith("REJECT"):
         why = ("lookup-failed" if "조회 실패" in out else "not-found" if "못 찾음" in out
                else "marker-mismatch" if "표식" in out else "resolve-failed")
         return "", "", f"LANDED-INVALID {why} " + out.replace("REJECT ", "")
