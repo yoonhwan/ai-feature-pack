@@ -431,9 +431,12 @@ fi
 
 if [ "$HAVE_ONREJ" = 1 ]; then
   GATE="${GATE:-$HERE/ft-resource-gate.sh}"
-  WHY="$(printf '%s\n' "$ONREJ" | sed -nE 's/^(REJECT|WARN) resource ((agents|swap|memfree|level|rate)=[^ ;]*).*/\2/p' | head -1)"; _kind="${WHY%%=*}"
-  _a="$(printf '%s\n' "$ONREJ" | sed -nE 's/^(REJECT|WARN) resource agents=([0-9]+) limit=([0-9]+).*/\2/p' | head -1)"
-  _l="$(printf '%s\n' "$ONREJ" | sed -nE 's/^(REJECT|WARN) resource agents=([0-9]+) limit=([0-9]+).*/\3/p' | head -1)"
+  # ★W3(DA⑥ r1)★ WARN 줄은 «항목; 항목; …» 로 여러 축을 담는다 — «;» 로 나눠 «모든» 항목을 보고 첫 좌석-풀림 축을 고른다(첫 항목만 읽으면 두 번째 축을 놓친다)
+  _items="$(printf '%s\n' "$ONREJ" | sed -nE 's/^(REJECT|WARN) resource //p' | tr ';' '\n' | sed 's/^[[:space:]]*//')"
+  WHY="$(printf '%s\n' "$_items" | grep -E '^(agents|swap|memfree|level|rate)=' | head -1)"; _kind="${WHY%%=*}"
+  _a="$(printf '%s\n' "$_items" | sed -nE 's/^agents=([0-9]+) limit=([0-9]+).*/\1/p' | head -1)"
+  _l="$(printf '%s\n' "$_items" | sed -nE 's/^agents=([0-9]+) limit=([0-9]+).*/\2/p' | head -1)"
+  [ -n "$_a" ] && [ -n "$_l" ] && _kind=agents   # agents 항목이 «어느 위치에 있든» 필요 개수를 계산한다(W3)
   if [ "$_kind" = agents ]; then
     if [ -z "$_a" ] || [ -z "$_l" ] || [ "$_a" -le "$_l" ]; then printf '%s\n' "$ONREJ"; exit 3; fi
     NEED=$((_a - _l + 1))

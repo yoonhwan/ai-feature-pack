@@ -9,7 +9,7 @@ PKG="$R/feature-pack/fable-team/harness"                        # git 경로 접
 OUT="${1:-$H/evidence/r921}"; mkdir -p "$OUT"
 BASE="${BASE_REF:-origin/main}"
 # 이 카드가 바꾼 파일 — base 모드에서만 이 8개를 origin/main 판으로 되돌린다(나머지는 그대로)
-CHANGED="ft-resource-gate.sh ft-nano-spawn.sh ft-role-spawn.sh ft-tick.sh ft-research-seat-lib.sh ft-resource-reclaim.sh ft-successor-open.sh ft_spawn_queue.py"
+CHANGED="ft-resource-gate.sh ft-nano-spawn.sh ft-role-spawn.sh ft-tick.sh ft-research-seat-lib.sh ft-resource-reclaim.sh ft-successor-open.sh ft_spawn_queue.py ft-reclaim-capped.sh"   # r2: ft-reclaim-capped.sh 신규 = base 에 없다(되돌리면 «없음» REJECT 로 빨강)
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 
 stage() { # stage <dst> <base|branch>
@@ -18,6 +18,7 @@ stage() { # stage <dst> <base|branch>
   cp -R "$H/bin" "$dst/" && cp -R "$H/kit" "$dst/" && cp -R "$H/tests" "$dst/" || return 1
   [ "$mode" = base ] || return 0
   for f in $CHANGED; do
+    git -C "$R" cat-file -e "$BASE:feature-pack/fable-team/harness/bin/$f" 2>/dev/null || { rm -f "$dst/bin/$f" "$dst/kit/fable-team/bin/$f"; continue; }   # base 에 없던 신규 파일 = 전 상태에선 «없음»
     git -C "$R" show "$BASE:feature-pack/fable-team/harness/bin/$f" > "$dst/bin/$f" || { echo "STAGE ERR base $f"; return 1; }
     if [ -f "$dst/kit/fable-team/bin/$f" ]; then git -C "$R" show "$BASE:feature-pack/fable-team/harness/kit/fable-team/bin/$f" > "$dst/kit/fable-team/bin/$f" || return 1; fi
   done

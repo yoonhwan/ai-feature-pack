@@ -25,12 +25,20 @@ if [ -f "$HERE/ft-spawn-hold.sh" ]; then
 fi
 # ★자원 게이트 (Res-1014 · r921 개정)★: 넘으면 «회수 먼저 → 다시 재고 → 그래도 넘으면 WARN 1줄 + 진행» — 멈추는 것은 문지기의 REJECT(디스크 하드 하한·디스크 측정 실패)뿐이다(오빠 2026-10-25 «컴퓨터가 죽어도 개발은 해야지»). 우회 플래그 없음 — 조정은 env 문턱만.
 [ -f "$HERE/ft-resource-gate.sh" ] || { echo "REJECT ft-resource-gate.sh 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
+# ★W3(DA⑥ r1)★ 회수 호출은 «7초 상한» 안에서만 — 넘으면 `WARN 회수 시간 초과 — 진행` 1줄 남기고 그대로 간다(spawn 이 회수에 묶여 멈추지 않는다).
+[ -f "$HERE/ft-reclaim-capped.sh" ] || { echo "REJECT ft-reclaim-capped.sh 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
+. "$HERE/ft-reclaim-capped.sh"
 RG_ARGS=(check); [ "$RESEARCH" = 1 ] && RG_ARGS+=(--research)
 _rgout="$(bash "$HERE/ft-resource-gate.sh" "${RG_ARGS[@]}" 2>&1)"; _rgrc=$?
 # R198(판정 1767) + r921: 넘었으면(WARN) — 기존 표준승인 범위 안의 유휴·완료 좌석을 자동 정리한 뒤 문지기 재검(FT_RECLAIM=0 으로 끔). 좌석을 닫아 풀릴 수 있는 축(agents·swap·memfree·level·rate)일 때만 부른다.
-if [ "$_rgrc" = 0 ] && printf '%s\n' "$_rgout" | grep -q '^WARN resource' && printf '%s\n' "$_rgout" | grep -Eq '(agents|swap|memfree|level|rate)=[0-9]'; then
+#   W3: WARN 줄의 «모든» 항목을 본다(«;» 로 이어 붙인 여러 축) — 하나라도 좌석을 닫아 풀리는 축이면 회수 1회(7초 상한 · 넘으면 WARN 1줄 + 진행)
+_WARN_AXES="$(printf '%s\n' "$_rgout" | sed -n 's/^WARN resource //p' | tr ';' '\n')"
+if [ "$_rgrc" = 0 ] && [ -n "$_WARN_AXES" ] && printf '%s\n' "$_WARN_AXES" | grep -Eq '(agents|swap|memfree|level)=[0-9]|rate=-?[0-9]'; then
   if [ "${FT_RECLAIM:-1}" != 0 ] && [ -f "$HERE/ft-resource-reclaim.sh" ]; then
-    bash "$HERE/ft-resource-reclaim.sh" --on-reject "$_rgout" --gate "$HERE/ft-resource-gate.sh" >&2 || true
+    _rl_out="$(mktemp "${TMPDIR:-/tmp}/ft-r921-reclaim.XXXXXX")"
+    ft_reclaim_capped "$_rl_out" bash "$HERE/ft-resource-reclaim.sh" --on-reject "$_rgout" --gate "$HERE/ft-resource-gate.sh"; _rlrc=$?
+    sed -n '1,40p' "$_rl_out" >&2; rm -f "$_rl_out"
+    [ "$_rlrc" != 124 ] || echo "WARN 회수 시간 초과(${FT_RECLAIM_TIMEOUT_SEC:-7}초) — 진행" >&2
     _rgout="$(bash "$HERE/ft-resource-gate.sh" "${RG_ARGS[@]}" 2>&1)"; _rgrc=$?
   fi
 fi
@@ -97,21 +105,78 @@ if [ -n "${FT_TEAM_SEAT_CAP:-}${FT_GROUP_SEAT_CAP:-}" ]; then
     [ "$_caprc" = 0 ] || { printf '%s\n' "$_cap"; exit 1; }
   fi
 fi
-# ★팀셋 나노 상한 (r-teamset-standard · 판정 2170 · r921 개정)★: design/TEAMSET.md 표의 팀 상한 — 부작용 0 지점. 넘으면 그 팀 끝난 나노 회수 1회(--team 필수) → 그래도 넘으면 «WARN 1줄 + 연다»(순번 큐 적재 0 · r921: 상한은 좌석을 세우는 근거가 아니다). FT_TEAMSET=0 으로 끔.
+# ★팀셋 나노 상한 (r-teamset-standard · 판정 2170 · ★r921 r2 개정 = DA⑥ r1 W1·W4★)★
+#   W4: 좌석 셈과 개설을 «같은 잠금»(state/nano-cap.lock.d · 7초) 안에서 한다 — 동시 두 spawn 이 둘 다 «cap-1» 을 읽고 둘 다 여는 길 0.
+#   상한은 «cap+1» 까지: live < cap+1 → WARN 1줄 + 개설(넘긴 채 연다) · live >= cap+1 → 그 팀 유휴·끝난 나노 회수 1회(7초 상한) → 재검
+#     → 그래도 live >= cap+1 이면 순번 큐 + master 알림(«정지» 아니라 «순서 바꿈» · 오빠 «idle 좌석 닫고 순서 바꿈»).
+#     잠금을 7초 안에 못 잡으면 WARN + 순번 큐(이중 개설 0).
+#   W1: 팀셋 측정 실패(표 못 읽음·cap rc1 등)는 «정지» 가 아니다 — `WARN 팀셋 측정 실패 — 진행` 1줄 남기고 연다(정지는 디스크 하한·디스크 측정 실패 둘뿐).
+#   FT_TEAMSET=0 으로 끔 · --dry-run 은 잠금·회수·큐 없이 지금처럼 판정만 한다.
+TS_LOCK=""
+_ts_lock_free() { [ -z "${TS_LOCK:-}" ] || { rm -rf "$TS_LOCK" 2>/dev/null; TS_LOCK=""; }; return 0; }
+_ts_lock_take() { # <잠금 경로> — 7초 안에 못 잡으면 rc1(부르는 쪽이 WARN + 큐)
+  local d="$1" i=0 p
+  while [ "$i" -lt 70 ]; do
+    if mkdir "$d" 2>/dev/null; then printf '%s\n' "$$" > "$d/pid" 2>/dev/null; TS_LOCK="$d"; return 0; fi
+    p="$(cat "$d/pid" 2>/dev/null)"
+    if [ -z "$p" ]; then [ "$i" -gt 30 ] && rm -rf "$d" 2>/dev/null
+    else case "$p" in *[!0-9]*) rm -rf "$d" 2>/dev/null;; *) kill -0 "$p" 2>/dev/null || rm -rf "$d" 2>/dev/null;; esac; fi
+    sleep 0.1; i=$((i+1))
+  done
+  return 1
+}
+_ts_fields() { # <cap 출력> → "live cap" (못 읽으면 빈 값)
+  local l c
+  l="$(printf '%s' "$1" | sed -n 's/.*live=\([0-9][0-9]*\).*/\1/p' | head -1)"
+  c="$(printf '%s' "$1" | sed -n 's/.*cap=\([0-9][0-9]*\).*/\1/p' | head -1)"
+  printf '%s %s' "${l:-}" "${c:-}"
+}
+_ts_queue() { # <사유> — 순번 큐에 넣고 master 알림(있으면) · rc7
+  echo "QUEUED $2 — $1" >&2
+  [ "$DRY" = 1 ] || python3 "$HERE/ft_spawn_queue.py" add --root "$ROOT" --prefix "$_tsp" --card "$IDX" --from "$FROM" || true
+  exit 7
+}
 if [ "${FT_TEAMSET:-1}" != 0 ]; then
   [ -f "$HERE/ft_teamset.py" ] && [ -f "$HERE/ft_spawn_queue.py" ] || { echo "REJECT ft_teamset.py·ft_spawn_queue.py 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
-  _tsp="$FT_NANO_PREFIX"; _tsmd="${FT_TEAMSET_MD:-gitref:origin/main:design/TEAMSET.md}"   # R351: 표 정본 = $ROOT 의 origin/main · 못 읽으면 REJECT(조용한 통과 0)
+  _tsp="$FT_NANO_PREFIX"; _tsmd="${FT_TEAMSET_MD:-gitref:origin/main:design/TEAMSET.md}"   # R351: 표 정본 = $ROOT 의 origin/main
+  _tst=""; _tslive=""; _tscap=""
+  if [ "$DRY" != 1 ]; then
+    mkdir -p "$ROOT/.fable-team/state" 2>/dev/null || true
+    _ts_lock_take "$ROOT/.fable-team/state/nano-cap.lock.d" || _ts_lock_fail=1
+    if [ "${_ts_lock_fail:-0}" = 1 ]; then
+      echo "WARN resource teamset 잠금 대기 초과(7초) — 순번 큐로 보낸다(이중 개설 0)" >&2
+      _ts_queue "잠금 대기 초과" "$_tsp"
+    fi
+    trap '_ts_lock_free' EXIT
+  fi
   _tso="$(python3 "$HERE/ft_teamset.py" cap --root "$ROOT" --md "$_tsmd" --prefix "$_tsp" 2>&1)"; _tsrc=$?
   _tst="$(printf '%s' "$_tso" | awk '{print $2}')"
-  if [ "$_tsrc" = 4 ] && [ "$DRY" != 1 ]; then
-    bash "${FT_RECLAIM_SH:-$HERE/ft-resource-reclaim.sh}" --caller "$FROM" --need 1 --team "$_tst" >&2 || true
-    _tso="$(python3 "$HERE/ft_teamset.py" cap --root "$ROOT" --md "$_tsmd" --prefix "$_tsp" 2>&1)"; _tsrc=$?
-  fi
   printf '%s\n' "$_tso"
+  read -r _tslive _tscap <<<"$(_ts_fields "$_tso")"
   case "$_tsrc" in
-    0) ;;
-    4) echo "WARN resource teamset $(printf '%s' "$_tso" | head -1) — 팀 나노 상한을 넘긴 채 연다(r921: 회수 1회 뒤에도 AT-CAP · 순번 큐 적재 0)" >&2;;
-    *) echo "REJECT 팀셋 표 판정 실패(rc=$_tsrc) — 부작용 0"; exit 1;;
+    0) ;;   # live < cap
+    4)       # AT-CAP — cap+1 까지는 연다 · 그 위는 회수 1회 → 큐
+      if [ -z "$_tslive" ] || [ -z "$_tscap" ]; then
+        echo "WARN resource teamset live/cap 못 읽음(${_tso%%$'\n'*}) — 진행" >&2
+      elif [ "$_tslive" -lt "$((_tscap + 1))" ]; then
+        echo "WARN resource teamset AT-CAP $_tst live=$_tslive cap=$_tscap — cap+1 까지 열어 준다(r921 · 순번 큐 적재 0)" >&2
+      elif [ "$DRY" = 1 ]; then
+        echo "DRY AT-CAP $_tst live=$_tslive cap=$_tscap — 회수·큐는 실제 실행에서만" >&2
+      else
+        _tr_out="$(mktemp "${TMPDIR:-/tmp}/ft-r921-tsreclaim.XXXXXX")"
+        ft_reclaim_capped "$_tr_out" bash "${FT_RECLAIM_SH:-$HERE/ft-resource-reclaim.sh}" --caller "$FROM" --need 1 --team "$_tst"; _trrc=$?
+        sed -n '1,40p' "$_tr_out" >&2; rm -f "$_tr_out"
+        [ "$_trrc" != 124 ] || echo "WARN 회수 시간 초과(${FT_RECLAIM_TIMEOUT_SEC:-7}초) — 진행" >&2
+        _tso="$(python3 "$HERE/ft_teamset.py" cap --root "$ROOT" --md "$_tsmd" --prefix "$_tsp" 2>&1)"; _tsrc=$?
+        printf '%s\n' "$_tso"
+        read -r _tslive _tscap <<<"$(_ts_fields "$_tso")"
+        if [ "$_tsrc" = 4 ] && [ -n "$_tslive" ] && [ "$_tslive" -ge "$((_tscap + 1))" ]; then
+          _ts_queue "cap+1 포화(${_tst:-?} live=${_tslive} cap=${_tscap})" "$_tsp"
+        fi
+        echo "WARN resource teamset AT-CAP 뒤 회수 1회 — live=${_tslive:-?} cap=${_tscap:-?} · 순서 바꿈(정지 아님)" >&2
+      fi ;;
+    *)       # W1: 측정 실패 = 정지 아님
+      echo "WARN 팀셋 측정 실패(rc=$_tsrc) — 진행(r921: 정지는 디스크 하한·디스크 측정 실패 둘뿐)" >&2;;
   esac
 fi
 # ★라이브 bin 드리프트 입구 검사 (카드 live-bin-drift-check · Issue 816 ③)★: 설치 꼴(*/.fable-team/bin)에서 돌 때만 — 라이브 도구가 origin/main 키트와 다르면 열지 않는다(--dry-run 도 같다).
@@ -484,6 +549,7 @@ fi
 "${OPEN[@]}" >/dev/null 2>&1; _orc=$?
 tmux has-session -t "=$NAME" 2>/dev/null || { [ "$_orc" -eq 0 ] && echo "REJECT 세션이 안 떴다: $NAME" || echo "REJECT tmuxc open 실패 ($NAME)"; exit 1; }
 ft_research_unlock "$RESEARCH_LOCK"   # r672 H1: 개설 확인 직후 잠금 해제 — 조회~개설 구간만 잡는다
+_ts_lock_free   # r921 W4: 좌석 셈~개설 구간 잠금 해제(이 시점부터 다른 spawn 이 새 live 수를 본다 · 실패 경로는 trap 이 푼다)
 IFS='|' read -r PANE _cr < <(tmux list-panes -a -F '#{session_name}|#{pane_id}|#{session_created}' | awk -F'|' -v s="$NAME" '$1==s{print $2"|"$3; exit}'); OWNED=""; [ -n "$PANE" ] && [ -n "$_cr" ] && OWNED="$PANE:$_cr"
 [ "$_orc" -eq 0 ] || fail_rb "REJECT tmuxc open 실패 ($NAME)"
 # R251 ⓑ 에이전트 본체 확인 — 명부·카드 이동 «전». 없으면 이 실행이 연 pane 에 기동 명령 1회 재입력, 그래도 없으면 롤백(카드는 대기 그대로)

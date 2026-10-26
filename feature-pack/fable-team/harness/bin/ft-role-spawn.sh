@@ -36,12 +36,19 @@ if [ -f "$HERE/ft-spawn-hold.sh" ]; then
   printf '%s\n' "$_hold"
 fi
 # ★자원 게이트 (Res-1014 · r921 개정)★: 넘으면 «회수 먼저 → 다시 재고 → 그래도 넘으면 WARN 1줄 + 진행» — 멈추는 것은문지기의 REJECT(디스크 하드 하한·디스크 측정 실패)뿐이다(오빠 2026-10-25). 우회 플래그 없음 — 조정은 env 문턱만.
+# ★W3(DA⑥ r1)★ 회수 호출은 «7초 상한» — 넘으면 `WARN 회수 시간 초과 — 진행` 1줄 남기고 그대로 간다.
+[ -f "$HERE/ft-reclaim-capped.sh" ] || { echo "REJECT ft-reclaim-capped.sh 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
+. "$HERE/ft-reclaim-capped.sh"
 [ -f "$HERE/ft-resource-gate.sh" ] || { echo "REJECT ft-resource-gate.sh 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
 _rgout="$(bash "$HERE/ft-resource-gate.sh" check 2>&1)"; _rgrc=$?
 # R198 + r921: 넘었으면(WARN) 기존 표준승인 범위 안의 유휴·완료 좌석 회수 1회 뒤 재검(FT_RECLAIM=0 으로 끔) · 좌석을 닫아 풀릴 수 있는 축일 때만
-if [ "$_rgrc" = 0 ] && printf '%s\n' "$_rgout" | grep -q '^WARN resource' && printf '%s\n' "$_rgout" | grep -Eq '(agents|swap|memfree|level|rate)=[0-9]'; then
+_WARN_AXES="$(printf '%s\n' "$_rgout" | sed -n 's/^WARN resource //p' | tr ';' '\n')"   # W3: «;» 로 이은 모든 항목
+if [ "$_rgrc" = 0 ] && [ -n "$_WARN_AXES" ] && printf '%s\n' "$_WARN_AXES" | grep -Eq '(agents|swap|memfree|level)=[0-9]|rate=-?[0-9]'; then
   if [ "${FT_RECLAIM:-1}" != 0 ] && [ -f "$HERE/ft-resource-reclaim.sh" ]; then
-    bash "$HERE/ft-resource-reclaim.sh" --on-reject "$_rgout" --gate "$HERE/ft-resource-gate.sh" >&2 || true
+    _rl_out="$(mktemp "${TMPDIR:-/tmp}/ft-r921-reclaim.XXXXXX")"
+    ft_reclaim_capped "$_rl_out" bash "$HERE/ft-resource-reclaim.sh" --on-reject "$_rgout" --gate "$HERE/ft-resource-gate.sh"; _rlrc=$?
+    sed -n '1,40p' "$_rl_out" >&2; rm -f "$_rl_out"
+    [ "$_rlrc" != 124 ] || echo "WARN 회수 시간 초과(${FT_RECLAIM_TIMEOUT_SEC:-7}초) — 진행" >&2
     _rgout="$(bash "$HERE/ft-resource-gate.sh" check 2>&1)"; _rgrc=$?
   fi
 fi

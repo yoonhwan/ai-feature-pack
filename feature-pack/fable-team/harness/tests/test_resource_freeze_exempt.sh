@@ -55,7 +55,7 @@ hasline() { printf '%s\n' "$1" | grep -q -- "$2"; }
 spawnrun() { local tool="$1"; shift; local envs=(); while [ "$1" != "--" ]; do envs+=("$1"); shift; done; shift
   OUT="$(cd "$T/root" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR -u GIT_OBJECT_DIRECTORY \
     HOME="$T/home" PATH="$S:$T/stub:$PATH" FT_ROOT="$T/root" FT_TEAMSET=0 FT_RES_ROOT="$R" FT_RECLAIM=0 \
-    FT_DISK_MIN_GIB=0 FT_DISK_HARD_MIN_MIB=0 FT_SWAP_HARD_MIB=999999999 FT_PRESSURE_MAX=99 FT_SWAP_RATE_MAX=999999999 FT_MEM_FREE_MIN_PCT=0 FT_AGENT_MAX=999999 \
+    FT_DISK_MIN_GIB=0 FT_DISK_HARD_MIN_MIB=1 FT_SWAP_HARD_MIB=999999999 FT_PRESSURE_MAX=99 FT_SWAP_RATE_MAX=999999999 FT_MEM_FREE_MIN_PCT=0 FT_AGENT_MAX=999999 \
     ${envs[@]+"${envs[@]}"} bash "$BIN/$tool" "$@" 2>&1)"; RC=$?; }
 
 [ -x "$BIN/ft-resource-gate.sh" ] && [ -x "$BIN/ft-resource-watch.sh" ] || { echo "FAIL 설치본 없음"; exit 1; }

@@ -1,5 +1,5 @@
 # 이 브랜치 코드 + 이 브랜치 시험 — 초록(카드 ⓐ~ⓖ + 변이 4종)
-# 명령: bash tests/test_resource_warn_proceed_r921.sh (임시 사본 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.lnGq3F741s/branch)
+# 명령: bash tests/test_resource_warn_proceed_r921.sh (임시 사본 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.hzPn3eV8V8/branch)
 PASS ⓐ swap → WARN 1줄 + rc0(진행)
 PASS ⓐ memfree → WARN 1줄 + rc0(진행)
 PASS ⓐ level → WARN 1줄 + rc0(진행)
@@ -19,18 +19,29 @@ PASS ⓓ spawn: level 측정 실패 → WARN + 진행(못 잰 축은 회수 대�
 PASS ⓔ 동결(일반) → WARN + 진행
 PASS ⓔ 동결(--succession) → WARN + 진행
 PASS ⓔ 동결(--research) → WARN + 진행
-PASS ⓕ-1 회수(--team) 1회로 자리가 나면 CAP 로 열린다(AT-CAP·WARN 0)
-PASS ⓕ-1 회수 호출 = --caller + 1회
-PASS ⓕ-2 AT-CAP + 회수 0 → WARN + 연다(큐 적재 0)
-PASS ⓕ-3 쌓인 큐 → 맨 앞 카드를 master 에게 알린다(AT-CAP 이어도)
-PASS ⓕ-4 free=-1(초과) 여도 큐 알림이 나간다(r921)
+PASS ⓕ-1 live=cap → WARN(cap+1 까지) + 진행 · 회수 0 · 큐 0
+PASS ⓕ-2 cap+1 → 회수 1회(--caller)로 자리가 나서 진행 · 큐 0
+PASS ⓕ-2 회수 호출 인자 = --caller <나>
+PASS ⓕ-3 cap+1 포화 + 회수 0 → 순번 큐 rc7(순서 바꿈)
+PASS ⓕ-4 쌓인 큐 → 맨 앞 카드를 master 에게 알린다(AT-CAP 이어도)
+PASS ⓕ-5 free=-1(초과) 여도 큐 알림이 나간다
 PASS ⓖ tick 재개 경로가 «WARN + 진행» 갈래를 갖는다
 PASS ⓖ tick 이 문지기 WARN 줄을 읽는다
 PASS ⓖ 재개 전 문지기 판정 = WARN rc0(멈춤 아님)
-PASS 변이1(WARN→REJECT 복귀) → ⓐ 빨강(rc3)
-PASS 변이2(동결 REJECT 복귀) → ⓔ 빨강(rc3)
-PASS 변이3(AT-CAP→순번 큐 복귀) → ⓕ 빨강(QUEUED/rc7)
-PASS 변이4(디스크 하한 끔) → ⓒ 빨강(거절 사라짐)
+PASS ⓐ' 자원 넘김 + 회수 rc42 → 개설 1(개설 기록) · WARN 1줄 · 문지기 REJECT 0
+PASS ⓐ'' 정상 자원 → 개설 1 · 넘김 WARN 0
+PASS ⓗ cap=4·live=4 → cap+1 개설(총 5석) · WARN 1줄
+PASS ⓘ 팀셋 측정 실패 → WARN + 개설 1(rc=0)
+PASS ⓙ FT_DISK_HARD_MIN_MIB=abc → REJECT(개설 0)
+PASS ⓙ FT_DISK_HARD_MIN_MIB=-1 → REJECT(개설 0)
+PASS ⓙ FT_DISK_HARD_MIN_MIB=0 → REJECT(개설 0)
+PASS ⓚ 회수 9초 대역 → 7초에 끊고 WARN 1줄 + 개설 1
+PASS ⓛ 동시 2 spawn(live=cap=2) → 개설 1(총 3=cap+1) · 큐 1 · cap+2 0
+PASS ⓛ' live=cap+1 직렬 → 회수 1회 뒤에도 포화 → 순번 큐 rc7 · 개설 0
+PASS 변이 WARN→REJECT 복귀(문지기) → «ⓐ swap» 만 빨강(대조 «ⓙ FT_DISK_HARD_MIN_MIB=abc» 초록 · 전체 재실행)
+PASS 변이 하한 값 검증 끔 → «ⓙ abc» 만 빨강(대조 «ⓒ 디스크 4GiB» 초록 · 전체 재실행)
+PASS 변이 회수 7초 상한 끔 → «ⓚ dt=» 만 빨강(대조 «ⓐ' 자원 넘김» 초록 · 전체 재실행)
+PASS 변이 cap 잠금 끔 → «ⓛ 세션=» 만 빨강(대조 «ⓗ cap=4» 초록 · 전체 재실행)
 PASS 키트 cmp 0 ft-resource-gate.sh
 PASS 키트 cmp 0 ft-nano-spawn.sh
 PASS 키트 cmp 0 ft-role-spawn.sh

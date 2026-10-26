@@ -51,29 +51,35 @@ for f in ft-nano-spawn.sh ft-resource-reclaim.sh ft-nano-close.sh; do bash -n "$
 sess "byz-alpha-nano-a#0"; rm -f "$T/reclaim.calls"
 o="$(sp --dry-run)"; { [[ "$o" == *"CAP alpha live=1 cap=2"* ]] && [[ "$o" != *QUEUED* ]] && [ ! -f "$T/reclaim.calls" ]; } && ok "ⓐ 상한 미만 → CAP 줄 · 회수 0 · QUEUED 0" || bad "ⓐ $o"
 
-# ⓑ 상한 도달 + 회수가 1석 비움 → 회수 인자 확인(--caller·--need 1·--only-prefix) · 통과
-sess "byz-alpha-nano-a#0" "byz-alpha-nano-b#0"; touch "$T/reclaim.free"; rm -f "$T/reclaim.calls"
+# ⓑ live=cap+1(3/2) + 회수가 1석 비움 → CAP 로 내려와 진행(QUEUED 0) · 회수 1회(--team)
+sess "byz-alpha-nano-a#0" "byz-alpha-nano-b#0" "byz-alpha-nano-c#0"; touch "$T/reclaim.free"; rm -f "$T/reclaim.calls" "$Q"
 o="$(sp)"; c="$(cat "$T/reclaim.calls" 2>/dev/null)"
 { [[ "$c" == *"--caller byz-alpha-master-claude#1"* ]] && [[ "$c" == *"--need 1"* ]] && [[ "$c" == *"--team alpha"* ]] && [[ "$o" != *QUEUED* ]] && [ "$(grep -c . "$T/reclaim.calls")" = 1 ]; } \
-  && ok "ⓑ 상한 도달 → --team 으로 회수 1회 → 통과" || bad "ⓑ calls=«${c}» $o"
+  && ok "ⓑ cap+1 → --team 으로 회수 1회 → CAP 로 내려와 진행" || bad "ⓑ calls=«${c}» $o"
 
-# ⓒ 상한 도달 + 회수 0 → r921: WARN 1줄 + 진행 · 순번 큐 적재 0 · rc7 아님
+# ⓒ live=cap(2/2) → 회수 없이 WARN + 진행(cap+1 까지 · 순번 큐 적재 0)
 sess "byz-alpha-nano-a#0" "byz-alpha-nano-b#0"; rm -f "$T/reclaim.free" "$T/reclaim.calls" "$Q"
+o="$(sp --dry-run)"; rc=$?
+{ [[ "$o" == *"WARN resource teamset"*"cap+1"* ]] && [[ "$o" != *QUEUED* ]] && [ ! -f "$T/reclaim.calls" ] && [ ! -f "$Q" ]; } \
+  && ok "ⓒ live=cap → WARN(cap+1) + 진행 · 회수·큐 0" || bad "ⓒ rc=$rc $o"
+
+# ⓒ-2 live=cap+1 + 회수 0 → 순번 큐(QUEUED 순번=1 rc7) · 워크트리·명부 변화 0
+sess "byz-alpha-nano-a#0" "byz-alpha-nano-b#0" "byz-alpha-nano-c#0"; rm -f "$T/reclaim.free" "$T/reclaim.calls" "$Q"
 o="$(sp)"; rc=$?
-{ [ "$rc" != 7 ] && [[ "$o" == *"AT-CAP alpha live=2 cap=2"* ]] && [[ "$o" == *"WARN resource teamset"* ]] && [[ "$o" != *QUEUED* ]] && [ ! -f "$Q" ] && [ "$(grep -c . "$T/reclaim.calls")" = 1 ]; } \
-  && ok "ⓒ 회수 1회 뒤에도 AT-CAP → WARN + 진행 · 큐 적재 0 · rc7 아님" || bad "ⓒ rc=$rc $o"
-o="$(sp --dry-run)"; rc=$?; { [ "$rc" != 7 ] && [[ "$o" == *"WARN resource teamset"* ]] && [ ! -f "$Q" ]; } && ok "ⓒ-2 재시도도 WARN + 진행(큐 0 유지)" || bad "ⓒ-2 rc=$rc $o"
+{ [ "$rc" = 7 ] && [[ "$o" == *"QUEUED alpha 순번=1"* ]] && [ "$(grep -c . "$Q")" = 1 ] && [ "$(wts)" = 1 ] && [ ! -d "$T/repo/.worktrees" ]; } \
+  && ok "ⓒ-2 cap+1 포화 → QUEUED 순번=1 rc7 · 부작용 0" || bad "ⓒ-2 rc=$rc $o"
+o="$(sp)"; [[ "$o" == *"순번=1"* ]] && [ "$(grep -c . "$Q")" = 1 ] && ok "ⓒ-3 같은 카드 재시도 → 순번 그대로 · 중복 0" || bad "ⓒ-3 $o"
 
 # ⓓ 다른 팀은 영향 0 — beta(상한 기본 3 · 라이브 0) 는 alpha 큐와 무관하게 통과
 o="$(PFX_TEAM=beta sp --dry-run)"; [[ "$o" == *"CAP beta live=0 cap=3"* ]] && [[ "$o" != *QUEUED* ]] && ok "ⓓ 다른 팀(beta) 통과 — 일괄 정지 0" || bad "ⓓ $o"
 
-# ⓔ --dry-run + 상한 도달 → r921: WARN + rc0 · 큐 파일 불변 · 회수 호출 0
-rm -f "$Q" "$T/reclaim.calls"; o="$(sp --dry-run)"; rc=$?
-{ [ "$rc" != 7 ] && [[ "$o" == *"AT-CAP"* ]] && [[ "$o" == *"WARN resource teamset"* ]] && [ ! -f "$Q" ] && [ ! -f "$T/reclaim.calls" ]; } && ok "ⓔ dry-run 상한 도달 → WARN + 진행(rc7 아님) · 큐·회수 0" || bad "ⓔ rc=$rc $o"
+# ⓔ --dry-run + cap+1 포화 → 계획만(DRY 줄) · 회수·큐 0
+sess "byz-alpha-nano-a#0" "byz-alpha-nano-b#0" "byz-alpha-nano-c#0"; rm -f "$Q" "$T/reclaim.calls"; o="$(sp --dry-run)"; rc=$?
+{ [[ "$o" == *"AT-CAP"* ]] && [[ "$o" == *"DRY AT-CAP"* ]] && [ ! -f "$Q" ] && [ ! -f "$T/reclaim.calls" ]; } && ok "ⓔ dry-run cap+1 → DRY 줄 · 회수·큐 0" || bad "ⓔ rc=$rc $o"
 
 # ⓕ TEAMSET.md 파일 없음 → REJECT rc1(R351: «표 착지 전 호환» WARN 통과 분기 제거 — 조용한 통과 0) · 표가 깨졌으면 REJECT
-o="$(MDX="$T/없는파일.md" sp --dry-run)"; rc=$?; { [ "$rc" = 1 ] && [[ "$o" == *REJECT* ]] && [[ "$o" != *WARN* ]] && [[ "$o" != *QUEUED* ]]; } && ok "ⓕ 표 파일 없음 → REJECT rc1(WARN 통과 0)" || bad "ⓕ-1 rc=$rc $o"
-printf '# 표 없음\n' > "$T/bad.md"; o="$(MDX="$T/bad.md" sp --dry-run)"; rc=$?; { [ "$rc" = 1 ] && [[ "$o" == *REJECT* ]]; } && ok "ⓕ 표 깨짐 → REJECT rc1" || bad "ⓕ-2 rc=$rc $o"
+o="$(MDX="$T/없는파일.md" sp --dry-run)"; rc=$?; { [[ "$o" == *"WARN 팀셋 측정 실패"* ]] && [[ "$o" != *"REJECT 팀셋"* ]] && [[ "$o" != *QUEUED* ]]; } && ok "r921 ⓕ-1 표 파일 없음 → WARN + 진행(정지 아님)" || bad "ⓕ-1 rc=$rc $o"
+printf '# 표 없음\n' > "$T/bad.md"; o="$(MDX="$T/bad.md" sp --dry-run)"; rc=$?; { [[ "$o" == *"WARN 팀셋 측정 실패"* ]] && [[ "$o" != *"REJECT 팀셋"* ]]; } && ok "r921 ⓕ-2 표 깨짐 → WARN + 진행" || bad "ⓕ-2 rc=$rc $o"
 
 # ⓖ FT_TEAMSET=0 → 칸 건너뜀(출력 0)
 o="$(FT_TEAMSET=0 sp --dry-run)"; [[ "$o" != *"alpha live="* ]] && ok "ⓖ FT_TEAMSET=0 → 상한 칸 건너뜀" || bad "ⓖ $o"
@@ -83,6 +89,6 @@ grep -q -- '--team' "$BIN/ft-resource-reclaim.sh" && ok "ⓗ reclaim 에 --team 
 o="$(PATH="$FAKE:$PATH" FT_ROOT="$T/repo" FT_RES_ROOT="$T/rr" bash "$BIN/ft-resource-reclaim.sh" --dry-run --caller x --need 1 --team alpha 2>&1)"; rc=$?
 { [ "$rc" = 0 ] && [[ "$o" == *"RECLAIMED 0"* ]]; } && ok "ⓗ --team dry-run rc0 · 후보 0(가짜 tmux 에 활동 시각 없음)" || bad "ⓗ rc=$rc $o"
 
-[ "$(git config --get core.bare)" = false ] && ok "core.bare=false" || bad "core.bare != false"
+[ "$(git -C "$REPO" config --get core.bare)" = false ]   # guard 재실행은 git 밖 cwd 로 간다 — 저장소를 명시한다(사전 결함 정정) && ok "core.bare=false" || bad "core.bare != false"
 [ "$fail" = 0 ] && echo "ALL PASS" || echo "FAILED $fail"
 exit $fail

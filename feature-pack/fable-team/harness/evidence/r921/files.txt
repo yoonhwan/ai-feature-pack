@@ -15,6 +15,8 @@ bin/ft-successor-open.sh
 kit/fable-team/bin/ft-successor-open.sh
 bin/ft_spawn_queue.py
 kit/fable-team/bin/ft_spawn_queue.py
+bin/ft-reclaim-capped.sh
+kit/fable-team/bin/ft-reclaim-capped.sh
 # 이 카드가 바꾼·추가한 시험
 tests/test_resource_warn_proceed_r921.sh (신규 ⓐ~ⓖ + 변이 4종)
 tests/test_resource_gate.sh · tests/test_resource_gate_pressure.sh · tests/test_resource_freeze_exempt.sh (기대값을 WARN+진행으로 갱신)

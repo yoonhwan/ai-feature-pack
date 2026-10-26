@@ -108,6 +108,12 @@ suite() {   # $1=시험할 스크립트 경로 — 한 묶음 단언 (실물이�
   eq "$(cat "$ST/kill.log" "$ST/nc.log" | wc -l | tr -d ' ')" 3 "ⓒ need=3 만큼만 닫음"
   hasnt "$(cat "$ST/kill.log")" "erole" "ⓐ 재개 기록 없는 직전 세대 kill 0"
 
+  # ── ⓓ' r921 W3: WARN 줄의 «두 항목» 을 모두 평가 — level 이 먼저 와도 agents(17-15+1=3) 로 need 를 잡는다 ──
+  setup
+  out="$(FT_TEST_LIMIT=15 run "$S" --on-reject "WARN resource level=4 limit=2; agents=17 limit=15" --gate "$F/gate.sh")"; rc=$?
+  eq "$rc" 0 "ⓓ' 두 항목 WARN → 정리 뒤 rc0"
+  has "$out" "RECLAIM ok need=3" "ⓓ' 첫 항목(level)이 아니라 agents 로 need=3"
+
   # ── ⓓ 모자라면 원래 REJECT + 표 + HIL 1통, 같은 날 같은 묶음 재발신 0 ──
   setup
   out="$(FT_TEST_LIMIT=3 run "$S" --on-reject "REJECT resource agents=17 limit=3" --gate "$F/gate.sh")"; rc=$?
@@ -158,7 +164,7 @@ suite "$BIN/$SCRIPT_NAME"
 real_fail=$fail
 
 # ── 호출처: FT_RECLAIM=0 이면 정리 도구를 부르지 않는다 / 기본이면 1번 ──
-CB="$T/callbin"; mkdir -p "$CB"; cp "$BIN/ft-nano-spawn.sh" "$CB/"
+CB="$T/callbin"; mkdir -p "$CB"; cp "$BIN/ft-nano-spawn.sh" "$CB/"; cp "$BIN/ft-reclaim-capped.sh" "$CB/"   # r921: spawn 이 회수 상한 lib 를 source 한다
 printf '#!/bin/bash\necho "WARN resource agents=41 limit=40"; exit 0\n' > "$CB/ft-resource-gate.sh"""
 printf '#!/bin/bash\necho "$*" >> "%s"; printf "%%s\\n" "$2"; exit 3\n' "$T/reclaim.calls" > "$CB/ft-resource-reclaim.sh"
 : > "$T/reclaim.calls"

@@ -25,10 +25,22 @@ r921 — 자원·상한 «정지» 를 «회수 먼저 → WARN 1줄 + 진행» 
      후: 회수 1회 → 그래도 AT-CAP 이면 `WARN resource teamset AT-CAP …` 1줄 + 그대로 연다(live=cap+1) · 순번 큐 적재 0.
          이미 쌓인 큐는 ft_spawn_queue.notify_master 의 «빈 석 <= 0 이면 침묵» 조건을 없애 «큐가 비지 않으면 맨 앞 카드를 현역 master 에게 알린다» 로 바꿨다(r921) — 다음 tick 의 그 알림이 앞에서부터 연다.
 
+
+■★ r2 — DA⑥ r1 HOLD 반송(arch 145 · REWORK-r921-r2.md) 고침 4건 ★
+  W1 «정지는 디스크 둘뿐» — 팀 나노 cap(AT-CAP)은 정지가 아니라 «cap+1 까지 열고 그 위는 회수 → 순번 큐» · 팀셋 측정 실패(표 못 읽음·cap rc1 등)는 `WARN 팀셋 측정 실패 — 진행`(옛 «REJECT 팀셋 표 판정 실패 rc1» 삭제 · ft-nano-spawn.sh).
+  W2 «하한 값 검증» — FT_DISK_HARD_MIN_MIB 는 양의 정수만 · 빈 값 = 1024 · 그 밖(abc·0·-1)은 기본으로 떨어뜨리지 않고 `ERROR 하한 값 이상(<값>)` + exit 3(설정 오류를 «여유 있음» 으로 읽지 않는다 · ft-resource-gate.sh).
+  W3 «회수 = 7초 상한 + 모든 항목» — 신규 `bin/ft-reclaim-capped.sh`(FT_RECLAIM_TIMEOUT_SEC=7 · timeout/gtimeout 없으면 직접 재어 TERM→KILL) · 문지기·팀셋 회수를 모두 이 상한 안에서 부르고 넘으면 `WARN 회수 시간 초과 — 진행` · WARN 줄은 «;» 로 나눠 «모든» 항목을 평가(첫 항목만 읽던 sed head -1 제거 · agents 가 어느 위치에 있어도 need 계산).
+  W4 «cap+1 + 잠금» — 좌석 셈~개설을 `state/nano-cap.lock.d`(7초 · mkdir 원자 · 죽은 pid 회수)로 직렬화. live<cap+1 → WARN+개설 · live>=cap+1 → 그 팀 유휴·끝난 나노 회수 1회(7초) → 재검 → 그래도면 순번 큐 + master 알림(정지 아니라 순서 바꿈) · 잠금 못 잡으면 WARN + 큐(이중 개설 0) · `ft_spawn_queue.notify_master` 의 «빈 석<=0 침묵» 제거 → 쌓인 큐가 다음 알림에 맨 앞부터 열린다.
+  시험(진행을 «결과» 로) — ⓐ' 자원 넘김+회수 rc42 → **개설 기록 1** · ⓐ'' 정상 → 개설 1·넘김 WARN 0 · ⓗ cap=4·live=4 → cap+1 개설(총 5석) · ⓘ 팀셋 측정 실패 → WARN + 개설 · ⓙ 하한 값 abc/-1/0 → REJECT·개설 0 · ⓚ 회수 9초 대역 → 8초에 끊고 WARN + 개설 · ⓛ 동시 spawn 2(live=cap) → 개설 1 + 큐 1(cap+2 0) · ⓛ' live=cap+1 직렬 → 회수 1회 → 큐 rc7 · ⓜ 실 tick 재개 경로(tests/test_dead_seat_resume.sh ④') → 문지기 WARN 이어도 «재개 실행 기록» 1회 · 대조군은 문자열 검사 대신 개설/실행 기록.
+  변이 — ★각 변이는 «전체 시험 재실행»★(R921_NO_MUT=1 로 변이 절만 끈 사본): WARN→REJECT 복귀 → ⓐ 빨강/ⓙ 초록 · 하한 값 검증 끔 → ⓙ 빨강/ⓒ 초록 · 회수 상한 끔 → ⓚ 빨강/ⓐ' 초록 · cap 잠금 끔 → ⓛ 빨강/ⓗ 초록. 문법 오류·rc 만 보는 검출은 인정하지 않는다.
+  단언 되살림 — tests/test_resource_watch.sh:179 반환값 단언 복원(tick rc=0 ∧ 예방 호출 1) · 지운 단언 0(시험 diff = evidence/r921/tests-diff.txt · r1 분은 commit 1ac7a64a).
+  고친 픽스처(사전 결함) — core.bare 단언을 `git -C "$REPO"` 로(2파일) · spawn 짝 사본에 ft-reclaim-capped.sh 추가(role_spawn_team·raised_seat) · FT_DISK_HARD_MIN_MIB=0 을 쓰던 시험들을 «유효한 1» 로(0 은 이제 설정 오류).
+  결과 — red-base 20 FAIL/rc1 → green 57 PASS/rc0 (evidence/r921/green.txt) · 인접 시험 전부 rc0(아래 «시험» 절 목록 + reclaim_preventive·teamset_check·inbox_watch).
+
 ■ 시험 (증거 스크립트: bash evidence/r921/run.sh → red-base.txt · green.txt)
-  전(base = origin/main 코드 + 이 브랜치의 새 시험) → red-base.txt : 19 FAIL / rc=1
+  전(base = origin/main 코드 + 이 브랜치의 새 시험) → red-base.txt : 20 FAIL / rc=1
      ⓐ 5축 전부 rc=3(REJECT) · ⓐ spawn 회수 뒤에도 정지 · ⓒ 디스크 하드 하한이 없어 문턱이 0GiB/30GiB 로만 · ⓓ 측정 실패가 rc=4 · ⓔ 동결이 일반 spawn 을 REJECT · ⓕ-2 AT-CAP 이 rc=7(순번 큐)
-  후(this branch) → green.txt : 46 PASS / 0 FAIL / rc=0
+  후(this branch) → green.txt : 57 PASS / 0 FAIL / rc=0
      ⓐ 축 5개 + spawn(회수 1회 → WARN → 진행) · ⓑ 회수로 문턱 아래 → WARN 0 · ⓒ 디스크 500MiB=REJECT / 4GiB=WARN / disk df rc42=REJECT / spawn 디스크 REJECT=회수 0 · ⓓ 4축 측정 실패 = WARN+진행 · ⓔ 동결 3갈래 WARN · ⓕ-1 회수로 자리 남 → CAP(AT-CAP·WARN 0) / ⓕ-2 AT-CAP+회수 0 → WARN+연다 큐 0 / ⓕ-3·4 쌓인 큐 알림(빈 석 무관) · ⓖ tick WARN 갈래
   변이(같은 green.txt 안) — 고침을 되돌리면 그 칸이 빨강:
      변이1 WARN→REJECT 복귀 → ⓐ 빨강(rc3) · 변이2 동결 REJECT 복귀 → ⓔ 빨강(rc3) · 변이3 AT-CAP→순번 큐 복귀 → ⓕ 빨강(QUEUED/rc7) · 변이4 디스크 하한 끔 → ⓒ 빨강(거절 사라짐)
