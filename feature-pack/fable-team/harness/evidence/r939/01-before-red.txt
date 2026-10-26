@@ -1,0 +1,78 @@
+PASS bash -n ft-seat-reap.sh
+PASS bash -n ft-seat-retire.sh
+PASS bash -n ft-leak-reap.sh
+== ⓐ retire A→B — DA·설치는 넘김 · 감시 루프만 reap
+PASS ⓐ픽스처 3개(ppid 1)
+PASS ⓐretire rc 0
+FAIL ⓐDA 넘김 줄 — 없음: «reap-handover pid=43929 cmd=» ← RETIRED r939t-42449#0 -> r939t-42449#1 file=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.UXqwIgd1bg/seats.json keys=[] files=1 roles=[] routes=[]
+NORECORD r939t-42449#0 조회 불가: pane 식별 조회 불가
+reap-kill pid=43929 via=② cmd=/opt/homebrew/bin/bash /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.UXqwIgd1bg/da/ft
+reap-kill pid=44020 via=자손 cmd=sleep 60
+reap-kill pid=45749 via=② cmd=/opt/homebrew/bin/timeout 60 /opt/homebrew/bin/bash /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh
+reap-kill pid=45754 via=자손 cmd=/opt/homebrew/bin/bash /private/var/folders/vm/j7_jw8050t553w
+FAIL ⓐ설치 넘김 줄 — 없음: «reap-handover pid=45749 cmd=» ← RETIRED r939t-42449#0 -> r939t-42449#1 file=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.UXqwIgd1bg/seats.json keys=[] files=1 roles=[] routes=[]
+NORECORD r939t-42449#0 조회 불가: pane 식별 조회 불가
+reap-kill pid=43929 via=② cmd=/opt/homebrew/bin/bash /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.UXqwIgd1bg/da/ft
+reap-kill pid=44020 via=자손 cmd=sleep 60
+reap-kill pid=45749 via=② cmd=/opt/homebrew/bin/timeout 60 /opt/homebrew/bin/bash /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh
+reap-kill pid=45754 via=자손 cmd=/opt/homebrew/bin/bash /private/var/folders/vm/j7_jw8050t553w
+PASS ⓐ감시 루프는 넘기지 않음
+FAIL ⓐ넘김 대상 = 후계 — 없음: « to=r939t-42449#1» ← RETIRED r939t-42449#0 -> r939t-42449#1 file=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.UXqwIgd1bg/seats.json keys=[] files=1 roles=[] routes=[]
+NORECORD r939t-42449#0 조회 불가: pane 식별 조회 불가
+reap-kill pid=43929 via=② cmd=/opt/homebrew/bin/bash /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.UXqwIgd1bg/da/ft
+reap-kill pid=44020 via=자손 cmd=sleep 60
+reap-kill pid=45749 via=② cmd=/opt/homebrew/bin/timeout 60 /opt/homebrew/bin/bash /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh
+reap-kill pid=45754 via=자손 cmd=/opt/homebrew/bin/bash /private/var/folders/vm/j7_jw8050t553w
+FAIL ⓐDA·설치 생존 · 감시 루프 정지 (got=[dead dead dead] want=[alive alive dead])
+FAIL ⓐ끝 줄 = stopped=1 handed=2 left=0 (got=[] want=[stopped=1 handed=2 left=0])
+PASS ⓐCLOSE-FAIL 0 · reap left=0 rc=0
+== ⓑ 넘김 목록 — resume 「handed」 칸(pid·cmd·시작 시각) · retire 가 --handover 를 넘김
+FAIL ⓑretire → reap 인자 (got=[ARGV r939t-42449#0 --orphans-only --defer-press] want=[ARGV r939t-42449#0 --orphans-only --defer-press --handover r939t-42449#1])
+FAIL ⓑresume handed 기록 줄 — 없음: «reap-handover-record /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.UXqwIgd1bg/resume/r939t-42449#0.json handed=2» ← usage: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r939-seat-retire-hands-over-bg-jobs-not-/feature-pack/fable-team/harness/tests/../../harness/bin/ft-seat-reap.sh <좌석> [--dry-run] [--wt <워크트리>] [--orphans-only] [--defer-press]
+FAIL ⓑhanded 2건 · 기존 칸 보존 (got=[0 u-1 m] want=[2 u-1 m])
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import json,sys; e=(json.load(open(sys.argv[1])).get("handed") or [])[0]; print(" ".join(sorted(e)))
+                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^
+IndexError: list index out of range
+FAIL ⓑ항목 칸 = pid·cmd·started·at (got=[] want=[at cmd pid started])
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import json,sys; print(" ".join(str(e["pid"]) for e in json.load(open(sys.argv[1]))["handed"]))
+                                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+KeyError: 'handed'
+FAIL ⓑ기록된 pid = 살아 있는 넘김 pid (got=[] want=[48432 49854])
+FAIL ⓑ넘긴 pid 생존 · stopped 0 (got=[alive alive ] want=[alive alive stopped=0 handed=2])
+FAIL ⓑ기록 없으면 곁파일 — 없음: «reap-handover-record /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.UXqwIgd1bg/resume/r939t-42449#0.handed.json handed=1 (resume 기록 없음» ← usage: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r939-seat-retire-hands-over-bg-jobs-not-/feature-pack/fable-team/harness/tests/../../harness/bin/ft-seat-reap.sh <좌석> [--dry-run] [--wt <워크트리>] [--orphans-only] [--defer-press]
+FAIL ⓑ곁파일 handed 1건 (got=[] want=[1])
+== ⓒ 닫기(후계 없음) = 지금 그대로 전부 reap · 닫기 3종은 --handover 0
+PASS ⓒ닫기 = 셋 다 정지 · rc 0
+PASS ⓒ닫기엔 넘김 줄 0
+PASS ⓒ끝 줄 = 회귀 0(stopped=3 left=0 rc=0 · handed 칸 없음)
+PASS ⓒ닫기 3종 •재ap• 에 --handover 0
+== ⓓ «곧 끝나는 일» 판정 — 허용 목록 · timeout · FT_BG_FINITE (글자 흉내·루프·그 밖은 reap)
+FAIL ⓓ①허용 목록 ft-da-codex.sh → 넘김 (got=[unknown(55858:usage: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r939-seat-retire-hands-over-bg-jobs-not-/feature-pack/fable-team/harness/tests/../../harness/bin/ft-seat-reap.sh <좌석> [--dry-run] [--wt <워크트리>] [--orphans-only] [--defer-press])] want=[handover])
+FAIL ⓓ②허용 목록 install.sh → 넘김 (got=[unknown(57268:usage: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r939-seat-retire-hands-over-bg-jobs-not-/feature-pack/fable-team/harness/tests/../../harness/bin/ft-seat-reap.sh <좌석> [--dry-run] [--wt <워크트리>] [--orphans-only] [--defer-press])] want=[handover])
+FAIL ⓓ③timeout <n> 으로 묶임 → 넘김 (got=[unknown(58616:usage: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r939-seat-retire-hands-over-bg-jobs-not-/feature-pack/fable-team/harness/tests/../../harness/bin/ft-seat-reap.sh <좌석> [--dry-run] [--wt <워크트리>] [--orphans-only] [--defer-press])] want=[handover])
+FAIL ⓓ④FT_BG_FINITE=1 → 넘김 (got=[unknown(59713:usage: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r939-seat-retire-hands-over-bg-jobs-not-/feature-pack/fable-team/harness/tests/../../harness/bin/ft-seat-reap.sh <좌석> [--dry-run] [--wt <워크트리>] [--orphans-only] [--defer-press])] want=[handover])
+FAIL ⓓ⑤글자 흉내(인자로만 이름) → reap (got=[unknown(60727:usage: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r939-seat-retire-hands-over-bg-jobs-not-/feature-pack/fable-team/harness/tests/../../harness/bin/ft-seat-reap.sh <좌석> [--dry-run] [--wt <워크트리>] [--orphans-only] [--defer-press])] want=[kill])
+FAIL ⓓ⑥명령줄에 루프(while) → reap (got=[unknown(62049:usage: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r939-seat-retire-hands-over-bg-jobs-not-/feature-pack/fable-team/harness/tests/../../harness/bin/ft-seat-reap.sh <좌석> [--dry-run] [--wt <워크트리>] [--orphans-only] [--defer-press])] want=[kill])
+FAIL ⓓ⑦FT_BG_FINITE=1 + 루프 → reap(루프 우선) (got=[unknown(63925:usage: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r939-seat-retire-hands-over-bg-jobs-not-/feature-pack/fable-team/harness/tests/../../harness/bin/ft-seat-reap.sh <좌석> [--dry-run] [--wt <워크트리>] [--orphans-only] [--defer-press])] want=[kill])
+FAIL ⓓ⑧목록 밖 장기 작업(python) → reap (got=[unknown(64830:usage: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r939-seat-retire-hands-over-bg-jobs-not-/feature-pack/fable-team/harness/tests/../../harness/bin/ft-seat-reap.sh <좌석> [--dry-run] [--wt <워크트리>] [--orphans-only] [--defer-press])] want=[kill])
+FAIL ⓓ⑨목록 밖 스크립트(sleep 60) → reap (got=[unknown(66411:usage: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r939-seat-retire-hands-over-bg-jobs-not-/feature-pack/fable-team/harness/tests/../../harness/bin/ft-seat-reap.sh <좌석> [--dry-run] [--wt <워크트리>] [--orphans-only] [--defer-press])] want=[kill])
+== ⓔ ft-leak-reap — 넘긴 pid 70분 초과 보고(죽이지 않음) · 신선한 넘김은 0
+FAIL ⓔhandover-stale = 70분 초과 + 살아 있음 1건 (got=[0] want=[1])
+FAIL ⓔ넘긴 pid 보고 — 없음: «handover-stale pid=67981» ← leak-reap: 유출 0
+FAIL ⓔ죽이지 않음 표시 — 없음: «죽이지 않음» ← leak-reap: 유출 0
+PASS ⓔ신선한 넘김은 보고 0
+PASS ⓔ죽은 pid 는 보고 0
+PASS ⓔ보고는 유출 수에 안 섞임 · 프로세스 생존
+== 변이 3종(사본에서만) — 고침이 없으면 빨강이어야 한다
+MUTATE-MISS
+FAIL 변이①넘김 끔 → ⓐ빨강(reap-handover 0 · 전부 정지) (got=[0 alive] want=[0 dead])
+MUTATE-MISS
+FAIL 변이②허용 목록 «글자» 넓힘 → ⓓ빨강(글자 흉내가 넘김) (got=[0] want=[1])
+PASS 변이③닫기에도 넘김 → ⓒ빨강(닫기 3종 --handover 0 실패)
+
+FAILED 27
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

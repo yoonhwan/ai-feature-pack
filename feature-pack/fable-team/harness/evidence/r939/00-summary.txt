@@ -1,0 +1,39 @@
+# r939 — 승계(retire)는 띄운 DA·설치를 죽이지 않고 후계에게 넘긴다
+
+카드: design/harness/indices/진행/r939-seat-retire-hands-over-bg-jobs-not-reap.md (arch 145 · master#114 #169165)
+브랜치: nano/r939-seat-retire-hands-over-bg-jobs-not- (팩 worktree · push 금지)
+
+## 무엇이 틀렸나 (기준값)
+ft-seat-retire.sh 가 승계 때 `ft-seat-reap.sh <옛> --orphans-only` 로 옛 좌석이 띄운 백그라운드 일을 전부 죽였다.
+그 표식(`FT_SEAT=<좌석>`, tmuxc `-e`)은 감시 루프뿐 아니라 nohup 으로 띄운 외부 DA(ft-da-codex.sh)·설치(install.sh)에도 붙는다.
+실측 2건(2026-10-26): arch145 부팅이 r928 DA⑥을 죽임(da-20261026-120453-15057.out «exited 1») · master#114 부팅이 #113 의 install.sh 를 죽임.
+
+## 고침 (구현 범위 1~4 그대로 · 범위 밖 손대지 않음)
+| 파일 | 바뀐 것 |
+|---|---|
+| ft-seat-reap.sh | `--handover <후계>` — ⓓ 판정(허용 목록 ft-da-codex.sh·install.sh·ft-scratch-repo.sh ∨ `timeout <n>` ∨ env FT_BG_FINITE=1, 루프 표식 있으면 제외)으로 넘김/reap 분리 · 넘김마다 `reap-handover pid=… cmd=… to=<후계>` · 끝 줄 `handed=<n>`(닫기 출력은 그대로 — 회귀 0) · 넘긴 뿌리의 자손도 같이 넘김 |
+| ft-seat-reap.sh | ⓑ 넘김 목록을 재개 기록(`ZC_RESUME_DIR`)/`<좌석>.json` 의 "handed" 칸에 pid·cmd·started·at 로 남김(기존 칸 보존 · 최근 50건 · 깨진 기록은 덮지 않고 곁파일) |
+| ft-seat-retire.sh | reap 호출을 `--handover <후계>` 로(재개 기록을 쓴 «뒤» 부르므로 후계가 본다) |
+| ft-leak-reap.sh | ⓔ 넘긴 pid 가 retire 시각 + 70분(`FT_HANDOVER_REPORT_MIN`) 넘게 살아 있으면 `handover-stale …` 1줄 보고 — 죽이지 않고 유출 수·killed·rc 에 안 섬김 |
+| 짝 사본 | harness/bin 3 + kit/fable-team/bin 3 = cmp0 · 실행 비트 동일 |
+
+## 시험 (tests/test_seat_handover_r939.sh)
+- ⓐ retire A→B: ft-da-codex.sh 꼴 · `timeout 60 bash install.sh` 꼴 생존(넘김) + 감시 루프만 reap + `구=1 handed=2 left=0`
+- ⓑ 넘김 목록 = 재개 기록 "handed" 칸(pid·cmd·started·at · 기존 uuid/model 보존) · retire 가 `--handover <후계>` 를 넘김 · 기록 없으면 곁파일
+- ⓒ 닫기(후계 없음)는 지금 그대로 셋 다 reap · 끝 줄에 handed 칸 없음 · 닫기 3종(ft-seat-close·ft-nano-close) `--handover` 0
+- ⓓ 판정 9종 — 허용 목록 2 · timeout · FT_BG_FINITE=1 = 넘김 / 글자 흉내 · 루프 · env+루프 · python · 목록 밖 스크립트 = reap
+- ⓔ 70분 초과 + 살아 있음 1건만 보고(신선한 넘김·죽은 pid 0) · 프로세스 생존 · 유출 수 0 그대로 rc 0
+
+## 증거 파일
+- `01-before-red.txt` — 구현 전(origin/main 판 3파일) 시험: FAILED 27
+- `02-after-green.txt` — 구현 뒤: ALL PASS(변이 3종 포함)
+- `03-bash32.txt` — /bin/bash 3.2.57 로 같은 시험: ALL PASS (rc=0)
+- `04-adj-*.txt` — 인접 13건 전부 rc=0(닫기·reap·retire·leak·kit cmp)
+- `05-r690-preexisting-flake.txt` — test_seat_retire_defer_press_r690.sh ⓓ 는 **origin/main 판 바이너리에서도 같은 FAIL**(회귀 아님 · 시험 자체의 타이밍 플레이크)
+- `06-mutation.txt` — 변이 3종(넘김 끔 → ⓐ 빨강 · 허용 목록 글자 넓힘 → ⓓ 빨강 · 닫기에도 넘김 → ⓒ 빨강)
+
+## press
+press 필요 없음 — 이 카드는 프로세스 정지/넘김 판정이라 단위·실프로세스 픽스처로 닫힌다. 라이브 오디오 관측 0.
+
+## 실 승계 1회 확인(남은 일 = master)
+다음 실 승계 출력에서 `reap-handover pid=… to=<후계>` + 끝 줄 `stopped=… handed=… left=0` 이 보이는지가 master 몫이다(카드 완료 조건).

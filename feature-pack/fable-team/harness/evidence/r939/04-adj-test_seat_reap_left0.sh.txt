@@ -1,0 +1,64 @@
+PASS bash -n ft-seat-reap.sh
+PASS bash -n ft-bg-loop.sh
+PASS bash -n ft-bg-loop-lint.sh
+PASS bash -n ft-seat-close.sh
+PASS bash -n ft-seat-retire.sh
+PASS bash -n ft-nano-close.sh
+PASS bash -n ft-merge-land.sh
+PASS bash -n tmuxc
+PASS 짝 cmp0 ft-seat-reap.sh
+PASS 짝 cmp0 ft-bg-loop.sh
+PASS 짝 cmp0 ft-bg-loop-lint.sh
+PASS 짝 cmp0 ft-seat-close.sh
+PASS 짝 cmp0 ft-nano-close.sh
+PASS 짝 cmp0 ft-seat-retire.sh
+PASS 짝 cmp0 ft-merge-land.sh
+PASS env 노출 확인(/opt/homebrew/bin/bash)
+== ⓐ ft-seat-reap — ① pane 자손 · ② FT_SEAT 고아 2 · ③ cwd 고아 1 정지 · 남의 좌석·보호 exe 생존
+PASS ⓐ픽스처 고아 5(ppid 1)
+PASS ⓐdry-run rc 0 · 정지 0
+PASS ⓐdry ③ cwd 고아
+PASS ⓐdry ① pane 자손
+PASS ⓐdry ② L1
+PASS ⓐdry ② L2
+PASS ⓐdry 남의 좌석·보호 exe 후보 0
+PASS ⓐ끝 줄 stopped≥5 left=0 rc=0
+PASS ⓐA 루프 2 · cwd 고아 정지
+PASS ⓐ남의 좌석 B · 보호 exe 생존
+PASS ⓐpane 자손 0 · 세션 생존
+== ⓑ 못 멈춤 → left=1 rc=1 · ft-seat-close CLOSE-FAIL(세션 생존) → 신호 켜면 CLOSED-SESSION … reap left=0 rc=0
+PASS ⓑNOSIGNAL rc 1 · left=1
+PASS ⓑclose rc 1
+PASS ⓑCLOSE-FAIL reap left=1 rc=1
+PASS ⓑ세션 생존 · 루프 생존
+PASS ⓑ신호 켬 → rc 0 · CLOSED-SESSION … kill=ok reap left=0 rc=0
+PASS ⓑ세션 없음 · 루프 정지 · FT_SEAT=r448t-98657#0 잔존 0
+== ⓒ ft-seat-retire --orphans-only — 고아만 정지 · 살아 있는 좌석 세션 그대로 · 못 멈춤 = CLOSE-FAIL rc 1
+PASS ⓒRETIRED · reap left=0 rc=0 · rc 0
+PASS ⓒ고아 정지 · 세션 생존
+PASS ⓒ못 멈춤 rc 1
+PASS ⓒCLOSE-FAIL reap left=1 rc=1
+== ⓓ ft-bg-loop 래퍼 — max-sec · stop-file · cmd-exit · usage
+PASS ⓓmax-sec 3 → 5 s 안 · reason=max-sec
+PASS ⓓ래퍼 끝난 뒤 자식 0
+PASS ⓓstop-file → 1주기 안 · reason=stop-file
+PASS ⓓcmd-exit → rc 3 · reason=cmd-exit rc=3
+PASS ⓓ--max-sec 없음 → usage rc 2
+PASS ⓓ--stop-file 없음 → usage rc 2
+PASS ⓓreap 이 래퍼(②b argv --seat) 찾아 정지 · 자식 0
+== ⓓ ft-bg-loop-lint — 래퍼 밖 루프 ERR(줄 번호) · 래퍼 안 OK · --range = 가지가 추가·수정한 design/·tests/e2e/ 만
+PASS ⓓguard.sh 꼴 → ERR :3 · rc 1
+PASS ⓓ한 줄 루프 → ERR :2
+PASS ⓓ래퍼 안(같은 줄·\ 이음) · 주석·sleep/>> 한쪽만 → OK rc 0
+PASS ⓓ폴더 재귀 → ERR 2
+PASS ⓓ인자 없음 usage rc 2
+PASS ⓓ--range → 새 design/ 파일만 ERR(옛 guard.sh·kit/·래퍼 쓴 tests/e2e 0)
+PASS ⓓ--range 변경 0 → OK
+PASS ⓓft-merge-land 착지 게이트 1줄
+== ⓔ 7초 룰 · tmuxc -e 상속 · GIT_* 0
+PASS ⓔ새 도구 600/300 0
+PASS ⓔ시험 env GIT_DIR 류 0(R121)
+PASS ⓔtmuxc create_tmux_session → 첫 셸 FT_SEAT=<세션명>
+
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

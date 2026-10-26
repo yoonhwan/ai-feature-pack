@@ -1,3 +1,10 @@
+## 2026-10-26 — r939 승계(retire)는 띄운 DA·설치를 죽이지 않고 후계에게 넘긴다 (1.1.245)
+
+- ft-seat-reap.sh `--handover <후계>`: «곧 끝나는 일»(명령줄의 실행 스크립트가 ft-da-codex.sh·install.sh·ft-scratch-repo.sh ∨ `timeout <n>` ∨ env FT_BG_FINITE=1)은 신호 0 으로 넘긴다. 명령줄에 루프 표식(while·until·done·tail -f)이 보이면 넘기지 않는다(허용 목록 «글자» 흉내 차단). 넘긴 뿌리의 자손도 같이 넘긴다. 넘김마다 `reap-handover pid=… cmd=… to=<후계>` · 끝 줄에 `handed=<n>`(닫기 출력 회귀 0).
+- 넘김 목록은 재개 기록(`ZC_RESUME_DIR·기본 ~/.claude/state/seat-resume`)/<좌석>.json 의 "handed" 칸(pid·cmd·started·at)에 남는다 — ft-seat-retire.sh 가 재개 기록을 쓴 뒤 `--handover <후계>` 로 부르므로 후계 부팅 때 보인다. 기록이 없으면 곁파일 `<좌석>.handed.json`(깨진 재개 기록은 덮지 않는다).
+- ft-leak-reap.sh: 넘긴 작업이 retire 시각 + 70분(`FT_HANDOVER_REPORT_MIN`)을 넘게 살아 있으면 `handover-stale …` 1줄 보고 — 죽이지 않고 유출 수·killed·rc 에 안 섬김.
+- 시험 test_seat_handover_r939.sh ALL PASS(ⓐ~ⓔ + 변이 3종) · bash 3.2 · 짝 사본 cmp0 · 인접 10건 PASS.
+
 ## 2026-10-26 — r926 자율 인터뷰 명부 = $ROOT 기준만 · 쌍둥이 경고는 가지가 main 안 품으면 «이동 0»(1.1.244)
 
 - ft-autonomy-level.sh 가 명부(seats-planner.json)를 $ROOT 와 $ROOT 리포의 공용 루트 2곳에서만 찾는다. cwd·설치 위치는 보지 않는다. 둘 다 없으면 WARN + rc1(조용한 건너뜀 0).

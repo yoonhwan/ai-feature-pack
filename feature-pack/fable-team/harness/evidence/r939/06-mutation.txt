@@ -1,0 +1,25 @@
+# r939 변이 3종 — 고침이 없으면 해당 시험이 빨강이어야 한다(사본에서만 · 리포 파일 쓰기 0)
+
+## 변이① ft-seat-reap.sh: «넘김 끔» — `if HAND:` → `if False and HAND:`  ⇒ ⓐ 빨강
+```diff
+-if HAND:   # r939 — 곧 끝나는 일은 넘긴다
++if False and HAND:
+```
+관측(시험 02-after-green.txt «변이①넘김 끔» 줄):
+PASS 변이①넘김 끔 → ⓐ빨강(reap-handover 0 · 전부 정지)
+
+## 변이② ft-seat-reap.sh: 허용 목록 «글자» 넓힘 — 위치 판정 → 토큰 아무 데나 이름 있으면 넘김  ⇒ ⓓ 빨강(ⓓ⑤ 글자 흉내가 넘김)
+```diff
+-    if prog in FINITE_EXE: return "exe"
++    if any(os.path.basename(a) in FINITE_EXE for a in tok): return "exe"
+```
+관측:
+PASS 변이②허용 목록 «글자» 넓힘 → ⓓ빨강(글자 흉내가 넘김)
+
+## 변이③ ft-seat-close.sh: 닫기에도 넘김 — reap 호출에 `--handover x` 추가  ⇒ ⓒ 빨강
+```diff
+-o="$(bash "${FT_SEAT_REAP_BIN:-$HERE/ft-seat-reap.sh}" "$SEAT" 2>&1)"
++o="$(bash "${FT_SEAT_REAP_BIN:-$HERE/ft-seat-reap.sh}" "$SEAT" --handover x 2>&1)"
+```
+관측:
+PASS 변이③닫기에도 넘김 → ⓒ빨강(닫기 3종 --handover 0 실패)

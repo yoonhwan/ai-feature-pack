@@ -10,6 +10,9 @@
 #   ③ ps 호출 timeout 7초 — FT_PS_TIMEOUT 은 7 이하만(초과 주입 = 7 로 제한 + stderr WARN 1줄) · 대역 주입 FT_PS_CMD(시험 전용)
 #      ★r670: 부하 꼭대기(load 98~122)에서 ps 1회가 7초를 넘겨 «조사 못 함»이 두 번 났다 — «첫 출력 전» 실패(timeout·출력 없는 rc≠0·실행 실패)만 1회 재시도한다(총 마감 2×7=14초 · 출력이 나온 뒤 실패는 재시도 0 — 같은 표를 두 번 읽는 것은 부하만 늘린다)★
 #   ④ 사건 지문 fp = 후보 (pid|lstart) 집합 sha1 앞 8자 — 틱 경보 중복 억제 단위 · 신규 --snapshot 발행 동작
+#   ⑤ r939 ⓔ — 승계(retire)가 «넘긴 작업»(ft-seat-reap --handover)이 영원히 남는 길을 본다: 재개 기록(ZC_RESUME_DIR · 기본 ~/.claude/state/seat-resume)/*.json 의
+#      "handed" 칸에서 `at`(retire 시각) + FT_HANDOVER_REPORT_MIN(기본 70)분 초과 ∧ 그 pid 가 아직 살아 있으면 `handover-stale …` 1줄 보고.
+#      ★죽이지 않는다(넘김은 머리 나쁜 게 아니다 — 사람·후계 판단) · 유출 수·killed·left·종료코드에 안 섬김(보고만)★
 # 판정이 좁은 이유: «고아 + 누적 CPU» 만으로 찾으면 launchd 데몬(logd·mds…)이 전부 PPID=1 이라 오탐 사살 — 시그니처 필수.
 #
 # Usage: ft-leak-reap.sh [--kill] [--dry-run] [--min-cpu=N] [--quiet] [--json] | --snapshot=<파일>
@@ -35,7 +38,7 @@ PY="$(command -v python3 2>/dev/null || true)"
 
 # → stdout: 후보 TSV(pid \t lstart \t cpu초 \t 명령 앞 160자) + 끝줄 «#fp <8자>». 조사 실패 = exit 20(stderr 1줄).
 found="$("$PY" - "$MIN_CPU" "$SNAP_OUT" <<'PY'
-import hashlib, os, re, shlex, subprocess, sys, time
+import datetime, glob, hashlib, json, os, re, shlex, subprocess, sys, time
 
 snap_out = sys.argv[2]
 DEFAULT_PS = "ps -axo pid=,ppid=,lstart=,time=,command="   # r670: 판정에 쓰는 필드만(pgid·stat 제거) — 부하 꼭대기의 ps 비용을 줄인다
@@ -163,15 +166,40 @@ for pid, lstart, cpu, cmd in rows:
     print(f"{pid}\t{lstart}\t{int(cpu)}\t{cmd}")
 if rows:
     print("#fp " + hashlib.sha1("\n".join(sorted(f"{p}|{s}" for p, s, _, _ in rows)).encode()).hexdigest()[:8])
+
+def stale_handed():   # r939 ⓔ — 넘긴 작업이 retire 뒤 이만큼 넘게 살아 있으면 보고(죽이지 않음 · 줄 1)
+    try: minho = float(os.environ.get("FT_HANDOVER_REPORT_MIN", "70"))
+    except ValueError: minho = 70.0
+    rd = os.environ.get("ZC_RESUME_DIR") or os.path.expanduser("~/.claude/state/seat-resume")
+    now, n, live = time.time(), 0, {r[0] for r in table}
+    for f in sorted(glob.glob(os.path.join(rd, "*.json"))):
+        try: rec = json.load(open(f, encoding="utf-8"))
+        except (OSError, ValueError) as e:
+            print(f"ft-leak-reap: WARN 넘김 목록 못 읽음 {f}: {e}", file=sys.stderr); continue
+        ents = rec.get("handed") if isinstance(rec, dict) else None
+        for e in (ents if isinstance(ents, list) else []):
+            if not (isinstance(e, dict) and isinstance(e.get("pid"), int)): continue
+            try: at = datetime.datetime.fromisoformat(str(e.get("at") or ""))
+            except ValueError: continue
+            age = (now - at.timestamp()) / 60
+            if age < minho or e["pid"] not in live: continue   # 이만큼 안 됐거나 이미 끝났다 — 보고 0
+            print(f"#handover-stale pid={e['pid']} at={e['at']} age={int(age)}m cmd={str(e.get('cmd') or '')[:100]}"); n += 1
+    return n
+stale_handed()
 PY
 )"; prc=$?
 [ "$prc" = 0 ] || exit 20
 [ -z "$SNAP_OUT" ] || exit 0
 
 fp="$(printf '%s\n' "$found" | sed -n 's/^#fp //p' | tail -1)"
-found="$(printf '%s\n' "$found" | grep -v '^#fp ' || true)"
+hst="$(printf '%s\n' "$found" | sed -n 's/^#handover-stale //p')"; hst="$(printf '%s\n' "$hst" | grep -v '^$' || true)"
+found="$(printf '%s\n' "$found" | grep -v '^#' || true)"
+hn=0; [ -z "$hst" ] || hn="$(printf '%s\n' "$hst" | grep -c .)"
+if [ -n "$hst" ]; then   # r939 ⓔ — 보고만(신호 0) · 유출 수·killed·left·rc 에 안 섬김
+  printf '%s\n' "$hst" | while IFS= read -r l; do echo "leak-reap: handover-stale $l — 죽이지 않음(넘긴 작업 · 사람·후계 판단)"; done
+fi
 if [ -z "$found" ]; then
-  [ "$JSON" = 1 ] && echo '{"leaked":0,"killed":0,"left":0}' || { [ "$QUIET" = 1 ] || echo "leak-reap: 유출 0"; }
+  [ "$JSON" = 1 ] && echo "{\"leaked\":0,\"killed\":0,\"left\":0,\"handover_stale\":$hn}" || { [ "$QUIET" = 1 ] || echo "leak-reap: 유출 0"; }
   exit 0
 fi
 n="$(printf '%s\n' "$found" | grep -c .)"
@@ -180,7 +208,7 @@ if [ "$MODE" = dry ]; then
   if [ "$JSON" = 1 ]; then
     printf '%s\n' "$found" | "$PY" -c 'import json,sys
 rows=[l.rstrip("\n").split("\t",3) for l in sys.stdin if l.strip()]
-print(json.dumps({"leaked":len(rows),"killed":0,"rows":[{"pid":int(r[0]),"lstart":r[1],"cpu_s":int(r[2]),"cmd":r[3]} for r in rows]},ensure_ascii=False))'
+print(json.dumps({"leaked":len(rows),"killed":0,"rows":[{"pid":int(r[0]),"lstart":r[1],"cpu_s":int(r[2]),"cmd":r[3]} for r in rows],"handover_stale":int(sys.argv[1])},ensure_ascii=False))' "$hn"
   else
     printf '%s\n' "$found" | while IFS=$'\t' read -r pid lstart cpu cmd; do
       echo "leak-reap: [dry] 유출 후보 pid=$pid start=\"$lstart\" cpu=${cpu}s cmd=${cmd}"
@@ -210,5 +238,5 @@ for pid in $pids; do
 done
 echo "leak-reap: 정리 ${killed}건 · 잔여 ${left}건 (대상 ${n}건)"
 
-[ "$JSON" = 1 ] && echo "{\"leaked\":$n,\"killed\":$killed,\"left\":$left}" || true
+[ "$JSON" = 1 ] && echo "{\"leaked\":$n,\"killed\":$killed,\"left\":$left,\"handover_stale\":$hn}" || true
 exit 0
