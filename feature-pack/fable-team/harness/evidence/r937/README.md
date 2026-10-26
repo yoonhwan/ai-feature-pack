@@ -64,13 +64,13 @@ r3 에서 시험 사본 목록에 `ft_git_capped.py` 를 더했다(실행기가 
 
 | 파일 | 무엇 | rc |
 |---|---|---|
-| `before-r3.txt` | r2 판(`34a7f8e1` bin)으로 r3 시험 → **8 빨강**(ⓙ 4 · ⓚ · ⓛ · ⓝ · ⓖ/ⓗ 일부) · 25 초록 | 1 |
+| `before-r3.txt` | r2 판(`34a7f8e1` bin)으로 r3 시험 → **7 빨강**(ⓙ 4 · ⓚ · ⓛ · ⓝ) · 25 초록 | 1 |
 | `after-r3.txt` | 고친 판 → **32/32 PASS** `ALL PASS` (ⓐ~ⓜ · 병렬 시험 ≈ 75초) | 0 |
 | `after-r3-bin-bash32.txt` | 같은 시험을 `/bin/bash`(3.2)로 통째 → **32/32 PASS** | 0 |
-| `mutate1-landed-repo-off.txt` | 변이 1 = 리포 판정 끔 → 16 빨강(ⓐⓑⓒⓔⓗⓚ…) | 1 |
-| `mutate2-marker-off.txt` | 변이 2 = 표식 대조 끔 → 9 빨강(ⓐⓑⓒⓔ) | 1 |
-| `mutate3-git-cap-off.txt` | 변이 3 = 상한 우회(7초 없는 git) → 7 빨강(ⓕⓖⓗⓚⓛ) | 1 |
-| `mutate4-lookup-fail-as-absent.txt` | 변이 4 = 조회 실패를 «없음» 으로 복귀 → 3 빨강(ⓖⓗ) | 1 |
+| `mutate1-landed-repo-off.txt` | 변이 1 = 리포 판정 끔 → 15 빨강(ⓐⓑⓒⓔⓗⓚ…) | 1 |
+| `mutate2-marker-off.txt` | 변이 2 = 표식 대조 끔 → 8 빨강(ⓐⓑⓒⓔ) | 1 |
+| `mutate3-git-cap-off.txt` | 변이 3 = 상한 우회(7초 없는 git) → 6 빨강(ⓕⓖⓗⓚⓛ) | 1 |
+| `mutate4-lookup-fail-as-absent.txt` | 변이 4 = 조회 실패를 «없음» 으로 복귀 → 2 빨강(ⓖⓗ) | 1 |
 | `mutate5-retry-off.txt` | **변이 5 = 실행기 재시도 끔** → ⓚ·ⓛ 빨강 | 1 |
 | `mutate6-group-kill-off.txt` | **변이 6 = 자식 정리 끔(그룹 kill → 본 프로세스만)** → ⓛ 빨강(자식 생존 2) | 1 |
 | `mutate7-root-lookup-ignored.txt` | **변이 7 = 루트 조회 실패를 빈 값으로 넘김** → ⓙ 4칸 빨강 | 1 |
