@@ -1,0 +1,19 @@
+=== MUTATION reported-생략 — FAIL 5 줄 · rc=1
+FAIL 술어: mark 만인데 show 에서 사라짐
+FAIL ⓐ reported 안 찍힘(mark 만)
+FAIL ⓐ close 뒤 show 에 남음(닫힘 아님)
+FAIL ⓐ close 뒤 archive 거부
+FAIL test_kit_bin_sync.sh FAIL
+DETECTED reported-생략
+=== MUTATION NOTFOUND-rc0 — FAIL 3 줄 · rc=1
+FAIL ⓑ NOTFOUND 인데 rc 0
+FAIL 남의 큐 seq 를 닫음
+FAIL test_kit_bin_sync.sh FAIL
+DETECTED NOTFOUND-rc0
+=== MUTATION usage-검사-삭제 — FAIL 3 줄 · rc=1
+FAIL ⓒ 사유 빈 값 rc
+FAIL ⓒ close usage 문구 아님: NOTFOUND 803
+FAIL test_kit_bin_sync.sh FAIL
+DETECTED usage-검사-삭제
+원복 뒤 kit 짝 cmp0
+MUTATION RESULT fail=0
