@@ -1,0 +1,26 @@
+== ⓐ-1 지금 판(origin/main ft-nano-cherry-gate.sh) · 바깥 상한 70초
+gate=old rc=124 took=70.0s 외부 호출=658회 (커밋 300)
+REJECT ⑤cherry 게이트 시간 초과 70s/70s · 배수 300 — 다시: 같은 명령(일시 부하면) · 계속이면 arch 에 cherry 게이트·70s 보고 (실사건과 같은 꼴)
+
+
+== ⓐ-2 새 판(현재 ft-nano-cherry-gate.sh) · 같은 리포 · 같은 느린 git
+gate=new rc=0 took=1.1s 외부 호출=6회 (커밋 300)
+WARN cherry 게이트 — nano/x 의 design/ 문서 커밋 300개가 main 에 없음(코드 0 · 브랜치 보존으로 복구 가능) — 통과:
+  + 41b9d57 nano 1
+  + 7889adc nano 2
+  + 80dc200 nano 3
+  + d182b27 nano 4
+  + 85ecd50 nano 5
+  + 0c89d4f nano 6
+  + 1538bc4 nano 7
+  + 9e64f3f nano 8
+  + ee875e3 nano 9
+  + c0e184f nano 10
+  + dfac7cc nano 11
+  + d4f5eeb nano 12
+  + 41d3ceb nano 13
+  + d992864 nano 14
+  + ed2ce12 nano 15
+  + 3a1322c nano 16
+  +
+EXIT=0

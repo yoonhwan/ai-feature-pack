@@ -301,24 +301,26 @@ has "$out" "rc=124" "$(card ⓗ 'TERM 무시 대역 · 상한 1초 → rc 124')"
 [ "$took" -le 3 ] && ok "$(card ⓗ "  └ 상한+유예 = ${took}초(≤3초 · KILL 유예 1초)")" || bad "ⓗ took=${took}s > 3초 ← $out"
 pgrep -f "sleep 90" >/dev/null 2>&1 && bad "ⓗ TERM 무시 대역이 살아 있음" || ok "$(card ⓗ '  └ 그 묶음 생존 0')"
 
-echo "== ⓘ 배수 = 커밋 수 — 커밋 12 · 커밋당 1초 대역은 «정상 느림» 이라 통과(거짓 거절 0)"
+echo "== ⓘ 배수 = 묶음 수(r958) — 커밋 12(묶음 1) · 묶음당 1초 대역은 «정상 느림» 이라 통과(거짓 거절 0)"
 setup
 for i in 1 2 3 4 5 6 7 8 9 10 11 12; do echo "$i" > "$NW/c$i.txt"; git -C "$NW" add "c$i.txt"; git -C "$NW" commit -q -m "c$i"; done
 HEAD12="$(git -C "$NW" rev-parse HEAD)"
 printf '# 인덱스: ns\n## 상태\n- 세트: %s · 시험: bash tests/x.sh (1 passing) rc=0 · 이슈: 0\n' "$HEAD12" > "$CARD"
 git -C "$REPO" add -A >/dev/null 2>&1; git -C "$REPO" -c user.email=t@t -c user.name=t commit -q -m card12 >/dev/null 2>&1 || true
+# r958: 게이트가 커밋·경로를 «묶음» 으로 부르므로 작업량 = 묶음 수(ceil(커밋/FT_CHERRY_BATCH)) — 대역도 묶음당 1초로 잰다(커밋당 1초는 r958 이 없앤 꼴).
 cat > "$T/bin/ft-nano-cherry-gate.sh" <<'EOF'
 #!/bin/sh
 n=$(git -C "$REPO_DIR" rev-list --count "feat/x..nano/ns" 2>/dev/null || echo 0)
-echo "CALL cherry-gate commits=$n" >> "$CALLS"
-sleep "$n"
-echo "OK cherry 게이트 대역 commits=$n"
+b="${FT_CHERRY_BATCH:-100}"; m=$(( (n + b - 1) / b )); [ "$m" -ge 1 ] || m=1
+echo "CALL cherry-gate commits=$n batches=$m" >> "$CALLS"
+sleep "$m"
+echo "OK cherry 게이트 대역 commits=$n batches=$m"
 exit 0
 EOF
 chmod +x "$T/bin/ft-nano-cherry-gate.sh"
 _now="$(date +%s)"; out="$(FEAT=feat/x close)"; rc=$?; took="$(elapsed "$_now")"
-[ "$rc" -eq 0 ] && has "$out" "commits=12" "$(card ⓘ '커밋 12 · 커밋당 1초 → 배수 12 상한 안 → 통과(rc0)')" || bad "$(card ⓘ "rc=$rc ← ${out:0:600}")"
-[ "$took" -ge 10 ] && ok "$(card ⓘ "  └ 대역이 실제로 ${took}초 걸렸다(느림 재현)")" || bad "$(card ⓘ "  └ 대역이 ${took}s — 느림 재현 실패")"
+[ "$rc" -eq 0 ] && has "$out" "commits=12" "$(card ⓘ '커밋 12(묶음 1) · 묶음당 1초 → 상한 안 → 통과(rc0)')" || bad "$(card ⓘ "rc=$rc ← ${out:0:600}")"
+[ "$took" -ge 1 ] && ok "$(card ⓘ "  └ 대역이 실제로 ${took}초 걸렸다(느림 재현)")" || bad "$(card ⓘ "  └ 대역이 ${took}s — 느림 재현 실패")"
 
 echo "== ⓙ 원격 없음 + 캐시 origin/main → fetch 실패 REJECT · cherry 통과 줄 0(DA⑥ r1 반례 3)"
 setup; FEAT=origin/main

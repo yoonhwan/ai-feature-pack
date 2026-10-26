@@ -12,6 +12,10 @@ set -uo pipefail
 #   squash 랜딩 전용 = `--squashed-pr <N> --reason "<사유>"`(R29 · 둘 다 필요 · --override 와 동시 사용 불가): PR 사실(gh) + 경로 분류(ft-nano-cherry-pr.sh) 뒤
 #   «PR 안에서 고쳐짐» 만 사유로 통과(되돌림·제거·PR 에 없음 = 플래그로도 REJECT) · 원장 kind=squashed-pr 1행. 플래그 없으면 위 동작 그대로.
 #   superseded 검사에서 WARN 으로 낮추는 경로 = design/ 아래 문서 종류(md html png jpg jpeg svg pdf)만 — 그 밖은 코드 경로.
+#   ★r958 묶음 호출(하드 룰 12 · 외부 호출 7초 룰)★ — «+» 커밋마다 log·diff-tree 2회, 경로마다 ls-tree·log 3회 부르면 커밋·경로 수에 비례해 늘어난다
+#   (실사건: 커밋 많은 나노가 닫기 ⑤ 에서 70초 초과 REJECT 2회 · planner #170097). 묶음 1회로 묻고, 1회 상한 FT_CHERRY_LIM_S(기본 7초)를 넘으면
+#   그 묶음을 반으로 쪼개 «재시도 1»(ⓒ) · 항목 하나까지 쪼개도 넘으면 사유 있는 REJECT · 끝난 묶음은 FT_CHERRY_PROGRESS 파일에 남겨 다시 부르면 건너뛴다(ⓓ).
+#   FT_CHERRY_BATCH(기본 100) = 한 묶음의 최대 항목 수(닫기 쪽 상한 계산과 같은 값이어야 한다 · ft-nano-close.sh nf_mult_batches).
 USAGE="usage: $0 <feat-branch> <nano-branch> [--repo <dir>] [--mode land|close] [--override <사유>] [--squashed-pr <N> --reason <사유>]"
 FEAT="${1:-}"; NANO="${2:-}"; shift 2 2>/dev/null || { echo "$USAGE" >&2; exit 2; }
 REPO="."; HAVE_OVERRIDE=0; OVERRIDE=""; MODE="close"; SQUASHED_PR=""; HAVE_REASON=0; REASON=""
@@ -40,7 +44,144 @@ fi
 if [ -n "$SQUASHED_PR" ]; then
   . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/ft-nano-cherry-pr.sh" || { echo "REJECT cherry 게이트 — --squashed-pr: ft-nano-cherry-pr.sh 를 못 읽음(같은 디렉터리에 있어야 함)"; exit 1; }
 fi
-# design/ 아래 문서 종류(md html png jpg jpeg svg pdf)만 0 — 그 밖(sql·sh·py·json·확장자 없음 …)은 코드 경로. superseded 검사에서 WARN 으로 낮추는 경로를 이것만 허용(R29).
+# ★r958 묶음 호출 도구★ — CG_LIM = 외부 호출 1회 상한(초 · 시험은 FT_CHERRY_LIM_S 로 줄인다) · CG_BATCH = 한 묶음 항목 수 · CG_PROG = 진행 파일(없으면 매번 새로 잰다).
+CG_LIM="${FT_CHERRY_LIM_S:-7}"; CG_BATCH="${FT_CHERRY_BATCH:-100}"; CG_PROG="${FT_CHERRY_PROGRESS:-}"
+case "$CG_LIM" in ''|0|*[!0-9]*) CG_LIM=7;; esac
+case "$CG_BATCH" in ''|0|*[!0-9]*) CG_BATCH=100;; esac
+CG_PYDIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
+# cg_git <초> <git 인자…> — 리포는 $REPO · stdout 만 넘긴다 · 시간 초과 rc 124(자식 프로세스 그룹까지 정리 · 재시도 1 은 ft_git_capped.py 안)
+cg_git() { local lim="$1"; shift
+  if [ -f "$CG_PYDIR/ft_git_capped.py" ]; then python3 "$CG_PYDIR/ft_git_capped.py" "$lim" "$REPO" "$@"; return $?; fi
+  echo "WARN cherry 게이트 — $CG_PYDIR/ft_git_capped.py 없음: ${lim}초 상한 없이 git 1회(설치 누락 의심)" >&2
+  git -C "$REPO" "$@"
+}
+# cg_fail <단계> <rc> <묶음 n> <마지막 항목> — rc 124 = 상한 초과(쪼개도 넘음) · 그 밖 = git 실패. 둘 다 사유 있는 REJECT(조용한 통과 0).
+cg_fail() {
+  if [ "$2" -eq 124 ]; then echo "REJECT cherry 게이트 — $1 ${CG_LIM}초 초과(묶음 $3 · 마지막 $4) — 쪼개도 넘어 판정 불가(조용한 통과 0)"
+  else echo "REJECT cherry 게이트 — $1 git 실패(rc=$2) 마지막 $4 — 판정 불가(조용한 통과 0)"; fi
+  exit 1
+}
+# 진행 파일 한 묶음 = 헤더 1줄 `#B<TAB>단계<TAB>첫 항목<TAB>개수<TAB>출력 줄 수` + 그 줄 수만큼의 출력 줄(ⓓ).
+cg_prog_get() {  # <단계> <첫 항목> <개수> → CG_PGOUT · CG_PG=1 이면 «저장된 묶음이 있었다»(서브셸 없이 전역으로 돌려준다 — command substitution 은 변수를 못 물려준다)
+  CG_PG=0; CG_PGOUT=""
+  [ -n "$CG_PROG" ] && [ -f "$CG_PROG" ] || return 0
+  local rc
+  CG_PGOUT="$(awk -F'\t' -v st="$1" -v fi="$2" -v n="$3" '$1=="#B"&&$2==st&&$3==fi&&$4==n{f=NR+1;e=NR+$5;h=1} f&&NR>=f&&NR<=e{print} END{exit(h?0:3)}' "$CG_PROG")"; rc=$?
+  [ "$rc" -eq 0 ] || { CG_PGOUT=""; return 0; }
+  CG_PG=1
+}
+cg_prog_put() {  # <단계> <첫 항목> <개수> <출력>
+  [ -n "$CG_PROG" ] || return 0
+  local n=0
+  [ -z "$4" ] || n="$(printf '%s\n' "$4" | wc -l | tr -d ' ')"
+  { printf '#B\t%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$n"; [ "$n" -eq 0 ] || printf '%s\n' "$4"; } >> "$CG_PROG" \
+    || echo "WARN cherry 게이트 — 진행 파일 기록 실패($CG_PROG) — 이번 판정은 그대로 쓴다" >&2
+}
+# cg_fetch <단계> <시작> <끝> <쪼갠 횟수> — CG_ITEMS[시작..끝) 을 CG_CMD 한 번으로 묻고 stdout 을 CG_OUT 에 잇는다. 상한 초과면 반으로 쪼개 재시도 1(ⓒ).
+cg_fetch() {
+  local st="$1" a="$2" b="$3" d="$4" n out rc
+  n=$(( b - a )); [ "$n" -gt 0 ] || return 0
+  cg_prog_get "$st" "${CG_ITEMS[$a]}" "$n"
+  if [ "$CG_PG" -eq 1 ]; then CG_OUT="$CG_OUT$CG_PGOUT"$'\n'; return 0; fi
+  if [ "$n" -gt "$CG_BATCH" ]; then
+    cg_fetch "$st" "$a" $(( a + CG_BATCH )) "$d"; cg_fetch "$st" $(( a + CG_BATCH )) "$b" "$d"; return 0
+  fi
+  out="$("$CG_CMD" "${CG_ITEMS[@]:$a:$n}")"; rc=$?
+  if [ "$rc" -eq 124 ] && [ "$n" -gt 1 ] && [ "$d" -lt 1 ]; then   # 쪼개서 «재시도 1» — 반씩 두 번
+    cg_fetch "$st" "$a" $(( a + n / 2 )) 1; cg_fetch "$st" $(( a + n / 2 )) "$b" 1; return 0
+  fi
+  [ "$rc" -eq 0 ] || cg_fail "$st" "$rc" "$n" "${CG_ITEMS[$(( b - 1 ))]}"
+  CG_OUT="$CG_OUT$out"$'\n'; cg_prog_put "$st" "${CG_ITEMS[$a]}" "$n" "$out"
+}
+# cg_cmd_commits <sha…> — 커밋 묶음: 로그 줄(`C <full><TAB><abbrev> <subject>`) + 건드린 경로(원시 줄 `:mode mode old new STATUS<TAB>path`) 를 한 번에.
+#   --no-walk=unsorted = 인자 순서 보존 · -m = 머지 커밋은 부모별 delta · --root = 첫 커밋도 · blob 은 기본 축약형(앞자리로 대조 — --no-abbrev 를 걸면 %h 까지 40자가 되어 종전 로그 줄과 달라진다).
+cg_cmd_commits() { cg_git "$CG_LIM" -c core.quotepath=false log --no-walk=unsorted --raw -m --root --format='C %H	%h %s' "$@"; }
+# cg_cmd_hist <경로…> — 경로 묶음: 분기 뒤 feat 역사의 원시 delta(경로별 «새 blob 이 있었나» 를 한 번에 본다).
+cg_cmd_hist() { cg_git "$CG_LIM" -c core.quotepath=false --literal-pathspecs log "$CG_MBASE..$FEAT" --no-renames --format='C %h' --raw -- "$@"; }
+# cg_py <모드> <인자…> — 묶음 출력 해석(커밋 분류·경로 분류·이력 대조). 판정 규칙은 종전 루프와 같다.
+cg_py() {
+  python3 - "$@" <<'PY'
+import re, sys
+mode = sys.argv[1]
+DOC = re.compile(r"^design/.*\.(md|html|png|jpg|jpeg|svg|pdf)$")
+def slurp(path):
+    with open(path, "rb") as f:
+        return f.read().decode("utf-8", "surrogateescape")
+def tabmap(path):
+    m = {}
+    for ln in slurp(path).split("\n"):
+        if ln:
+            parts = ln.split("\t", 2)
+            if len(parts) == 3:
+                m[parts[2]] = (parts[0], parts[1])
+    return m
+if mode == "commits":   # 커밋 묶음 → B(차단)·W(WARN)·P(경로)
+    block, warn, paths = [], [], []
+    cur = None; line = ""; outside = False
+    def flush():
+        if cur is None:
+            return
+        (block if outside else warn).append(line)
+    for ln in slurp(sys.argv[2]).split("\n"):
+        if ln.startswith("C "):
+            head, _, rest = ln[2:].partition("\t")
+            if head != cur:
+                flush(); cur = head; line = ("  + " + rest)[:120]; outside = False
+            continue
+        if ln.startswith(":") and "\t" in ln:
+            p = ln.split("\t", 1)[1]
+            paths.append(p)
+            if not p.startswith("design/"):
+                outside = True
+    flush()
+    for x in block: print("B\t" + x)
+    for x in warn: print("W\t" + x)
+    for p in paths: print("P\t" + p)
+elif mode == "paths":   # 경로 분류: «경로목록 · tip 트리 · feat HEAD 트리» 대조 → sup/nid/doc/miss/need (nmiss 상한 20 은 종전 루프와 같다)
+    feat_name, base = sys.argv[5], sys.argv[6]
+    tip, feat = tabmap(sys.argv[3]), tabmap(sys.argv[4])
+    nmiss = 0
+    for p in slurp(sys.argv[2]).split("\n"):
+        if not p or nmiss >= 20:
+            break
+        t, f = tip.get(p), feat.get(p)
+        if t is None:
+            if f is None: print("sup\t" + p)
+            elif DOC.match(p): print("doc\t" + p)
+            else: nmiss += 1; print("miss\t%s\t(tip 삭제 · %s 에는 존재)" % (p, feat_name))
+            continue
+        if f is not None and f == t: print("nid\t" + p); continue
+        print("need\t%s\t%s\t%s" % (p, t[0], t[1]))
+elif mode == "hist":   # 이력 대조: need 경로마다 «분기 뒤 feat 구간에 그 blob 이 있었나» — 첫(=최신) 일치가 sup
+    feat_name, base = sys.argv[4], sys.argv[5]
+    need = []
+    for ln in slurp(sys.argv[2]).split("\n"):
+        if ln:
+            p, m, s = ln.split("\t")[:3]
+            need.append((p, m, s))
+    pend = {}   # 모드로만 묶는다 — blob 은 앞자리 대조(startswith)라 축약 길이가 달라도 맞는다
+    for i, (p, m, s) in enumerate(need):
+        pend.setdefault(m, []).append(i)
+    hit = {}; cur = ""
+    for ln in slurp(sys.argv[3]).split("\n"):
+        if ln.startswith("C "):
+            cur = ln[2:]; continue
+        if not ln.startswith(":") or "\t" not in ln:
+            continue
+        meta, path = ln[1:].split("\t", 1)[:2]
+        f = meta.split(" ")
+        if len(f) < 5 or not f[4][:1].isupper():
+            continue
+        for i in pend.get(f[1], []):
+            if need[i][0] == path and i not in hit and need[i][2].startswith(f[3]):
+                hit[i] = cur
+    for i, (p, m, s) in enumerate(need):
+        if i in hit: print("sup\t%s\t%s" % (p, hit[i]))
+        elif DOC.match(p): print("doc\t" + p)
+        else: print("miss\t%s\t(tip %s %s 가 분기 뒤 %s 구간(%s..)에 새 blob 으로 없음)" % (p, m, s[:9], feat_name, base[:9]))
+PY
+}
+# design/ 아래 문서 종류(md html png jpg jpeg svg pdf)만 0 — 그 밖(sql·sh·py·json·확장자 없음 …)은 코드 경로(ft-nano-cherry-pr.sh 가 이 함수를 쓴다 — gate 가 source 하는 같은 셸).
 is_doc_path() {
   case "$1" in design/*.md|design/*.html|design/*.png|design/*.jpg|design/*.jpeg|design/*.svg|design/*.pdf) return 0 ;; esac
   return 1
@@ -60,23 +201,20 @@ plus="$(printf '%s\n' "$out" | grep '^+' || true)"
 # «+» 커밋을 둘로 가른다 — design/ 밖 경로(코드·시험·스크립트)를 건드린 것 = 차단 · design/ 만 건드린 것 = WARN 통과(브랜치가 남아 복구 가능 · arch#137)
 #   ★경로 목록은 변수로 «완독» 한 뒤 분류한다(DA 575 H2: `diff-tree | grep -qv` 는 grep 조기 종료 → SIGPIPE → 큰 혼합 커밋이 «design/ 만» 으로 판정) · diff-tree·log 각 rc 를 따로 본다(H1: 실패가 WARN 통과)★
 block=""; warn=""
-delta_file="$(mktemp)"; plus_file="$(mktemp)"; trap 'rm -f "$delta_file" "$plus_file"' EXIT
-while read -r _ sha; do
-  [ -n "$sha" ] || continue
-  line="$(git -C "$REPO" log -1 --format='  + %h %s' "$sha")"; lrc=$?
-  [ "$lrc" -eq 0 ] && [ -n "$line" ] || { echo "REJECT cherry 게이트 — git log 실패(rc=$lrc) 커밋 ${sha:0:9}"; exit 1; }
-  line="${line:0:120}"
-  paths="$(git -C "$REPO" -c core.quotepath=off diff-tree --no-commit-id --name-only -r -m --root "$sha")"; prc=$?
-  [ "$prc" -eq 0 ] || { echo "REJECT cherry 게이트 — git diff-tree 실패(rc=$prc) 커밋 ${sha:0:9} — 경로를 못 읽어 분류 불가"; exit 1; }
-  git -C "$REPO" -c core.quotepath=false diff-tree --no-commit-id --name-only -r -m --root -z "$sha" >> "$plus_file"; zrc=$?
-  [ "$zrc" -eq 0 ] || { echo "REJECT cherry 게이트 — git diff-tree -z 실패(rc=$zrc) 커밋 ${sha:0:9}"; exit 1; }
-  outside=0
-  while IFS= read -r p; do
-    [ -n "$p" ] || continue
-    case "$p" in design/*) ;; *) outside=1; break ;; esac
-  done <<< "$paths"
-  if [ "$outside" -eq 1 ]; then block="${block}${line}"$'\n'; else warn="${warn}${line}"$'\n'; fi
-done <<< "$plus"
+delta_file="$(mktemp)"; plus_file="$(mktemp)"; cg_out="$(mktemp)"; tip_map="$(mktemp)"; feat_map="$(mktemp)"; paths_file="$(mktemp)"; need_file="$(mktemp)"; hist_file="$(mktemp)"
+trap 'rm -f "$delta_file" "$plus_file" "$cg_out" "$tip_map" "$feat_map" "$paths_file" "$need_file" "$hist_file"' EXIT
+# ①커밋 분류 = 묶음 1회(종전: 커밋마다 log 1 + diff-tree 2) — 줄 단위라 탭·개행이 든 경로는 종전의 비-z 파싱과 같은 한계(모자라면 차단 쪽으로 떨어진다).
+CG_ITEMS=(); while read -r _ sha; do [ -n "$sha" ] || continue; CG_ITEMS+=("$sha"); done <<< "$plus"
+CG_CMD=cg_cmd_commits; CG_OUT=""; cg_fetch 커밋 0 "${#CG_ITEMS[@]}" 0
+printf '%s\n' "$CG_OUT" > "$cg_out"
+_cgp="$(cg_py commits "$cg_out")" || { echo "REJECT cherry 게이트 — 커밋 묶음 해석 실패(«+» 커밋 ${#CG_ITEMS[@]}개) — 판정 불가"; exit 1; }
+while IFS= read -r _l; do
+  case "$_l" in
+    B$'\t'*) block="${block}${_l:2}"$'\n';;
+    W$'\t'*) warn="${warn}${_l:2}"$'\n';;
+    P$'\t'*) printf '%s\0' "${_l:2}" >> "$plus_file";;
+  esac
+done <<< "$_cgp"
 nb="$(printf '%s' "$block" | grep -c . || true)"; nw="$(printf '%s' "$warn" | grep -c . || true)"
 if [ "$nb" -gt 0 ]; then
   # G4c: patch-id 는 «같은 변경» 의 충분조건일 뿐(cherry-pick 이 다른 문맥 base 에 앉으면 «+» 로 남는다). 정본은 «머지하면 무엇이 바뀌나» = merge-tree.
@@ -106,33 +244,38 @@ if [ "$nb" -gt 0 ]; then
   # ★superseded 증거 = merge-base(NANO,FEAT)..FEAT 구간의 «새 blob» 뿐(DA 599 H1)★ — 분기 전 역사의 옛 blob 으로 rollback 한 브랜치를 PASS 시키지 않는다.
   mbase="$(git -C "$REPO" merge-base "$NANO" "$FEAT")"; mbrc=$?
   [[ "$mbrc" -eq 0 && "$mbase" =~ ^[0-9a-f]{40,64}$ ]] || { echo "REJECT cherry 게이트 — git merge-base 실패(rc=$mbrc) — superseded 증거 구간을 못 정함"; exit 1; }
-  sort -z -u -o "$plus_file" "$plus_file"
+  # ②경로 분류 = 트리 2회(종전: 경로마다 ls-tree 2~3회) — tip·feat HEAD 의 (mode,blob) 를 한 번씩 받아 경로별로 대조한다.
+  # ③이력 대조 = 경로 묶음 1회(종전: 경로마다 git log 1회) — 분기 뒤 feat 구간의 원시 delta 를 경로 묶음으로 한 번에 받는다.
+  cg_maps() {  # <ref> <map 파일> — ls-tree -r -t -z(NUL) → «mode<TAB>sha<TAB>경로» 줄(탭·개행 든 경로는 줄 단위 한계)
+    cg_git "$CG_LIM" -c core.quotepath=false ls-tree -r -t -z --full-tree "$1" > "$2.z"; local mrc2=$?
+    [ "$mrc2" -eq 0 ] || cg_fail "트리($1)" "$mrc2" 1 "$1"
+    tr '\0' '\n' < "$2.z" | awk '{ i=index($0,"\t"); if (!i) next; n=split(substr($0,1,i-1),a," "); if (n<3) next; print a[1] "\t" a[3] "\t" substr($0,i+1) }' > "$2" \
+      || { echo "REJECT cherry 게이트 — 트리($1) 해석 실패 — 판정 불가"; exit 1; }
+    rm -f "$2.z"
+  }
+  cg_maps "$NANO" "$tip_map"; cg_maps "$FEAT" "$feat_map"
+  tr '\0' '\n' < "$plus_file" | sort -u > "$paths_file"
+  CG_MBASE="$mbase"
+  _recs="$(cg_py paths "$paths_file" "$tip_map" "$feat_map" "$FEAT" "$mbase")" || { echo "REJECT cherry 게이트 — 경로 분류 해석 실패 — 판정 불가"; exit 1; }
+  CG_ITEMS=(); : > "$need_file"
+  while IFS=$'\t' read -r _k _p _m _s; do
+    [ "$_k" = need ] || continue
+    CG_ITEMS+=("$_p"); printf '%s\t%s\t%s\n' "$_p" "$_m" "$_s" >> "$need_file"
+  done <<< "$_recs"
+  CG_CMD=cg_cmd_hist; CG_OUT=""; cg_fetch 경로이력 0 "${#CG_ITEMS[@]}" 0
+  printf '%s\n' "$CG_OUT" > "$hist_file"
+  _hrecs="$(cg_py hist "$need_file" "$hist_file" "$FEAT" "$mbase")" || { echo "REJECT cherry 게이트 — 이력 대조 해석 실패 — 판정 불가"; exit 1; }
   nsup=0; nid=0; nmiss=0; ndoc=0; missing=""; sup_commit=""   # nid = tip 내용이 feat HEAD 와 같은 경로(R70) · ndoc = design/ 문서 종류 경로 중 feat 역사에 없는 것(WARN 만 · 코드 종류는 nmiss)
-  while IFS= read -r -d '' p; do
-    [ -n "$p" ] || continue
-    [ "$nmiss" -lt 20 ] || break   # REJECT 확정 + 목록 상한 20 — 나머지는 안 돈다(경로 수천 개 혼합 커밋에서 git log 수천 번 방지)
-    entry="$(git --literal-pathspecs -C "$REPO" ls-tree "$NANO" -- "$p")"; erc=$?
-    [ "$erc" -eq 0 ] || { echo "REJECT cherry 게이트 — git ls-tree 실패(rc=$erc) 경로 $p"; exit 1; }
-    if [ -z "$entry" ]; then
-      fe="$(git --literal-pathspecs -C "$REPO" ls-tree "$FEAT" -- "$p")"; frc=$?
-      [ "$frc" -eq 0 ] || { echo "REJECT cherry 게이트 — git ls-tree($FEAT) 실패(rc=$frc) 경로 $p"; exit 1; }
-      if [ -z "$fe" ]; then nsup=$((nsup + 1)); elif is_doc_path "$p"; then ndoc=$((ndoc + 1)); else nmiss=$((nmiss + 1)); missing="${missing}  ${p} (tip 삭제 · $FEAT 에는 존재)"$'\n'; fi
-      continue
-    fi
-    meta="${entry%%$'\t'*}"; mode="${meta%% *}"; sha1="${meta##* }"
-    # R70: tip 의 (mode,blob) 이 feat HEAD 의 같은 경로와 «같으면» 머지해도 그 경로는 안 바뀐다(나노가 바꿨다 되돌림) — 잃을 코드 0 · 로그 조회 전에 통과로 센다(DA 599 H1 은 tip ≠ feat HEAD 라 그대로 아래로 간다).
-    fe2="$(git --literal-pathspecs -C "$REPO" ls-tree "$FEAT" -- "$p")"; f2rc=$?
-    [ "$f2rc" -eq 0 ] || { echo "REJECT cherry 게이트 — git ls-tree($FEAT) 실패(rc=$f2rc) 경로 $p"; exit 1; }
-    if [ "${fe2%%$'\t'*}" = "$meta" ] && [ -n "$fe2" ]; then nid=$((nid + 1)); continue; fi
-    raw="$(git --literal-pathspecs -C "$REPO" -c core.quotepath=false log "$mbase..$FEAT" --no-renames --format='commit %h' --raw --no-abbrev -- "$p")"; lrc2=$?
-    [ "$lrc2" -eq 0 ] || { echo "REJECT cherry 게이트 — git log($FEAT) 실패(rc=$lrc2) 경로 $p"; exit 1; }
-    hit=""; cur=""
-    while IFS= read -r ln; do
-      case "$ln" in commit\ *) cur="${ln#commit }" ;; esac
-      if [[ "$ln" =~ ^:[0-7]{6}\ $mode\ [0-9a-f]+\ $sha1\ [A-Z] ]]; then hit="$cur"; break; fi
-    done <<< "$raw"
-    if [ -n "$hit" ]; then nsup=$((nsup + 1)); sup_commit="$hit"; elif is_doc_path "$p"; then ndoc=$((ndoc + 1)); else nmiss=$((nmiss + 1)); missing="${missing}  ${p} (tip ${mode} ${sha1:0:9} 가 분기 뒤 $FEAT 구간(${mbase:0:9}..)에 새 blob 으로 없음)"$'\n'; fi
-  done < "$plus_file"
+  while IFS=$'\t' read -r _k _p _x; do
+    [ -n "$_k" ] || continue
+    [ "$nmiss" -lt 20 ] || break   # REJECT 확정 + 목록 상한 20 — 종전 루프와 같은 상한
+    case "$_k" in
+      sup) nsup=$((nsup + 1)); [ -z "$_x" ] || sup_commit="$_x";;
+      nid) nid=$((nid + 1));;
+      doc) ndoc=$((ndoc + 1));;
+      miss) nmiss=$((nmiss + 1)); missing="${missing}  ${_p} ${_x}"$'\n';;
+    esac
+  done <<< "${_recs}"$'\n'"${_hrecs}"
   docwarn="WARN cherry 게이트 — design/ 문서 종류 경로 ${ndoc}개가 $FEAT 역사에 없음(코드 0 · 브랜치 보존으로 복구 가능)"   # 첫 줄은 INFO·REJECT 로 둔다(WARN 은 뒤에)
   if [ -z "$missing" ] && [ $((nsup + nid)) -gt 0 ]; then
     reason="content_landed_then_superseded"; [ "$nsup" -gt 0 ] || reason="content_identical_to_feat_head"; [ "$nsup" -eq 0 ] || [ "$nid" -eq 0 ] || reason="${reason}+content_identical_to_feat_head"
