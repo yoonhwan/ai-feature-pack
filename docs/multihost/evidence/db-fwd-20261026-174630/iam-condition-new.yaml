@@ -1,0 +1,3 @@
+title: "tunnel-byz-mini-tunnel-only"
+description: "llm-dev 8000 and stt-tts-dev 8000 8100 and byz-db-fwd 38309 (h1 2026-10-26)"
+expression: "(destination.ip == \"10.0.0.8\" && destination.port == 8000) || (destination.ip == \"10.0.0.9\" && (destination.port == 8000 || destination.port == 8100)) || (destination.ip == \"10.0.0.15\" && destination.port == 38309)"

@@ -1,0 +1,1 @@
+(destination.ip == "10.0.0.8" && destination.port == 8000) || (destination.ip == "10.0.0.9" && (destination.port == 8000 || destination.port == 8100)) || (destination.ip == "10.0.0.15" && destination.port == 38309)

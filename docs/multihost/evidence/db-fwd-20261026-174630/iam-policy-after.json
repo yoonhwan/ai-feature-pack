@@ -1,0 +1,321 @@
+{
+  "auditConfigs": [
+    {
+      "auditLogConfigs": [
+        {
+          "logType": "DATA_READ"
+        }
+      ],
+      "service": "aiplatform.googleapis.com"
+    }
+  ],
+  "bindings": [
+    {
+      "members": [
+        "serviceAccount:1024379410733-compute@developer.gserviceaccount.com",
+        "serviceAccount:byz-agents-gateway-dev-run@byz-agents-484214.iam.gserviceaccount.com"
+      ],
+      "role": "projects/byz-agents-484214/roles/byzGceVmControl"
+    },
+    {
+      "members": [
+        "serviceAccount:byz-agents-gateway-dev-run@byz-agents-484214.iam.gserviceaccount.com"
+      ],
+      "role": "projects/byz-agents-484214/roles/byzOpsSecretMetaReader"
+    },
+    {
+      "members": [
+        "serviceAccount:hermes-gemini-api@byz-agents-484214.iam.gserviceaccount.com",
+        "serviceAccount:service-1024379410733@gcp-sa-aiplatform.iam.gserviceaccount.com"
+      ],
+      "role": "roles/aiplatform.serviceAgent"
+    },
+    {
+      "members": [
+        "serviceAccount:1024379410733-compute@developer.gserviceaccount.com",
+        "serviceAccount:byz-agents-cloud-run@byz-agents-484214.iam.gserviceaccount.com",
+        "serviceAccount:byz-agents-gateway-dev-run@byz-agents-484214.iam.gserviceaccount.com",
+        "serviceAccount:hermes-gemini-api@byz-agents-484214.iam.gserviceaccount.com"
+      ],
+      "role": "roles/aiplatform.user"
+    },
+    {
+      "members": [
+        "serviceAccount:byz-local-dev@byz-agents-484214.iam.gserviceaccount.com"
+      ],
+      "role": "roles/artifactregistry.reader"
+    },
+    {
+      "members": [
+        "serviceAccount:service-1024379410733@gcp-sa-artifactregistry.iam.gserviceaccount.com"
+      ],
+      "role": "roles/artifactregistry.serviceAgent"
+    },
+    {
+      "members": [
+        "serviceAccount:1024379410733-compute@developer.gserviceaccount.com",
+        "serviceAccount:byz-agents-cloud-run@byz-agents-484214.iam.gserviceaccount.com",
+        "serviceAccount:github-actions-sa@byz-agents-484214.iam.gserviceaccount.com"
+      ],
+      "role": "roles/artifactregistry.writer"
+    },
+    {
+      "members": [
+        "serviceAccount:1024379410733@cloudbuild.gserviceaccount.com"
+      ],
+      "role": "roles/cloudbuild.builds.builder"
+    },
+    {
+      "members": [
+        "serviceAccount:service-1024379410733@gcp-sa-cloudbuild.iam.gserviceaccount.com"
+      ],
+      "role": "roles/cloudbuild.serviceAgent"
+    },
+    {
+      "members": [
+        "serviceAccount:service-1024379410733@gcp-sa-cloudscheduler.iam.gserviceaccount.com"
+      ],
+      "role": "roles/cloudscheduler.serviceAgent"
+    },
+    {
+      "members": [
+        "serviceAccount:hermes-gemini-api@byz-agents-484214.iam.gserviceaccount.com"
+      ],
+      "role": "roles/cloudtranslate.user"
+    },
+    {
+      "members": [
+        "serviceAccount:byz-local-dev@byz-agents-484214.iam.gserviceaccount.com"
+      ],
+      "role": "roles/compute.instanceAdmin.v1"
+    },
+    {
+      "members": [
+        "serviceAccount:1024379410733@cloudservices.gserviceaccount.com"
+      ],
+      "role": "roles/compute.instanceGroupManagerServiceAgent"
+    },
+    {
+      "members": [
+        "serviceAccount:byz-local-dev@byz-agents-484214.iam.gserviceaccount.com"
+      ],
+      "role": "roles/compute.securityAdmin"
+    },
+    {
+      "members": [
+        "serviceAccount:service-1024379410733@compute-system.iam.gserviceaccount.com"
+      ],
+      "role": "roles/compute.serviceAgent"
+    },
+    {
+      "members": [
+        "serviceAccount:service-1024379410733@container-engine-robot.iam.gserviceaccount.com"
+      ],
+      "role": "roles/container.serviceAgent"
+    },
+    {
+      "members": [
+        "serviceAccount:service-1024379410733@containerregistry.iam.gserviceaccount.com"
+      ],
+      "role": "roles/containerregistry.ServiceAgent"
+    },
+    {
+      "members": [
+        "serviceAccount:1024379410733@cloudservices.gserviceaccount.com"
+      ],
+      "role": "roles/editor"
+    },
+    {
+      "members": [
+        "user:developer.ts@byourz.com"
+      ],
+      "role": "roles/iam.securityAuditor"
+    },
+    {
+      "members": [
+        "serviceAccount:byz-agents-cloud-run@byz-agents-484214.iam.gserviceaccount.com",
+        "serviceAccount:byz-local-dev@byz-agents-484214.iam.gserviceaccount.com",
+        "serviceAccount:github-actions-sa@byz-agents-484214.iam.gserviceaccount.com"
+      ],
+      "role": "roles/iam.serviceAccountUser"
+    },
+    {
+      "members": [
+        "serviceAccount:byz-local-dev@byz-agents-484214.iam.gserviceaccount.com"
+      ],
+      "role": "roles/iap.tunnelResourceAccessor"
+    },
+    {
+      "condition": {
+        "description": "llm-dev 8000 and stt-tts-dev 8000 8100 only",
+        "expression": "(destination.ip == \"10.0.0.8\" && destination.port == 8000) || (destination.ip == \"10.0.0.9\" && (destination.port == 8000 || destination.port == 8100))",
+        "title": "tunnel-byz-oci-tunnel-only"
+      },
+      "members": [
+        "serviceAccount:byz-oci-tunnel@byz-agents-484214.iam.gserviceaccount.com"
+      ],
+      "role": "roles/iap.tunnelResourceAccessor"
+    },
+    {
+      "condition": {
+        "description": "llm-dev 8000 and stt-tts-dev 8000 8100 and byz-db-fwd 38309 (h1 2026-10-26)",
+        "expression": "(destination.ip == \"10.0.0.8\" && destination.port == 8000) || (destination.ip == \"10.0.0.9\" && (destination.port == 8000 || destination.port == 8100)) || (destination.ip == \"10.0.0.15\" && destination.port == 38309)",
+        "title": "tunnel-byz-mini-tunnel-only"
+      },
+      "members": [
+        "serviceAccount:byz-mini-tunnel@byz-agents-484214.iam.gserviceaccount.com"
+      ],
+      "role": "roles/iap.tunnelResourceAccessor"
+    },
+    {
+      "members": [
+        "serviceAccount:1024379410733-compute@developer.gserviceaccount.com",
+        "serviceAccount:byz-local-dev@byz-agents-484214.iam.gserviceaccount.com"
+      ],
+      "role": "roles/logging.logWriter"
+    },
+    {
+      "members": [
+        "serviceAccount:byz-local-dev@byz-agents-484214.iam.gserviceaccount.com"
+      ],
+      "role": "roles/logging.viewer"
+    },
+    {
+      "members": [
+        "serviceAccount:service-1024379410733@gcp-sa-monitoring-notification.iam.gserviceaccount.com"
+      ],
+      "role": "roles/monitoring.notificationServiceAgent"
+    },
+    {
+      "members": [
+        "serviceAccount:byz-agents-cloud-run@byz-agents-484214.iam.gserviceaccount.com"
+      ],
+      "role": "roles/monitoring.viewer"
+    },
+    {
+      "members": [
+        "user:developer.ts@byourz.com"
+      ],
+      "role": "roles/owner"
+    },
+    {
+      "members": [
+        "serviceAccount:service-1024379410733@gcp-sa-pubsub.iam.gserviceaccount.com"
+      ],
+      "role": "roles/pubsub.serviceAgent"
+    },
+    {
+      "members": [
+        "user:developer.ts@byourz.com"
+      ],
+      "role": "roles/recommender.billingAccountCudViewer"
+    },
+    {
+      "members": [
+        "serviceAccount:byz-agents-cloud-run@byz-agents-484214.iam.gserviceaccount.com"
+      ],
+      "role": "roles/redis.editor"
+    },
+    {
+      "members": [
+        "serviceAccount:service-1024379410733@cloud-redis.iam.gserviceaccount.com"
+      ],
+      "role": "roles/redis.serviceAgent"
+    },
+    {
+      "members": [
+        "user:developer.ts@byourz.com"
+      ],
+      "role": "roles/resourcemanager.organizationAdmin"
+    },
+    {
+      "members": [
+        "serviceAccount:github-actions-sa@byz-agents-484214.iam.gserviceaccount.com"
+      ],
+      "role": "roles/resourcemanager.projectIamAdmin"
+    },
+    {
+      "members": [
+        "serviceAccount:byz-agents-cloud-run@byz-agents-484214.iam.gserviceaccount.com"
+      ],
+      "role": "roles/run.admin"
+    },
+    {
+      "members": [
+        "serviceAccount:github-actions-sa@byz-agents-484214.iam.gserviceaccount.com"
+      ],
+      "role": "roles/run.developer"
+    },
+    {
+      "members": [
+        "serviceAccount:service-1024379410733@serverless-robot-prod.iam.gserviceaccount.com"
+      ],
+      "role": "roles/run.serviceAgent"
+    },
+    {
+      "members": [
+        "serviceAccount:byz-local-dev@byz-agents-484214.iam.gserviceaccount.com"
+      ],
+      "role": "roles/run.viewer"
+    },
+    {
+      "members": [
+        "serviceAccount:github-actions-sa@byz-agents-484214.iam.gserviceaccount.com"
+      ],
+      "role": "roles/secretmanager.admin"
+    },
+    {
+      "members": [
+        "serviceAccount:1024379410733-compute@developer.gserviceaccount.com",
+        "serviceAccount:byz-agents-cloud-run@byz-agents-484214.iam.gserviceaccount.com",
+        "serviceAccount:byz-local-dev@byz-agents-484214.iam.gserviceaccount.com"
+      ],
+      "role": "roles/secretmanager.secretAccessor"
+    },
+    {
+      "members": [
+        "serviceAccount:service-1024379410733@service-networking.iam.gserviceaccount.com"
+      ],
+      "role": "roles/servicenetworking.serviceAgent"
+    },
+    {
+      "members": [
+        "serviceAccount:hermes-gemini-api@byz-agents-484214.iam.gserviceaccount.com"
+      ],
+      "role": "roles/speech.client"
+    },
+    {
+      "members": [
+        "serviceAccount:hermes-gemini-api@byz-agents-484214.iam.gserviceaccount.com"
+      ],
+      "role": "roles/speech.serviceAgent"
+    },
+    {
+      "members": [
+        "serviceAccount:1024379410733-compute@developer.gserviceaccount.com"
+      ],
+      "role": "roles/storage.objectUser"
+    },
+    {
+      "members": [
+        "serviceAccount:byz-local-dev@byz-agents-484214.iam.gserviceaccount.com",
+        "serviceAccount:github-actions-sa@byz-agents-484214.iam.gserviceaccount.com"
+      ],
+      "role": "roles/viewer"
+    },
+    {
+      "members": [
+        "serviceAccount:service-1024379410733@gcp-sa-vpcaccess.iam.gserviceaccount.com"
+      ],
+      "role": "roles/vpcaccess.serviceAgent"
+    },
+    {
+      "members": [
+        "serviceAccount:byz-agents-cloud-run@byz-agents-484214.iam.gserviceaccount.com"
+      ],
+      "role": "roles/vpcaccess.user"
+    }
+  ],
+  "etag": "BwZeumA6_iI=",
+  "version": 3
+}

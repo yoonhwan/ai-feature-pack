@@ -1,0 +1,4 @@
+WARNING: You have selected a disk size of under [200GB]. This may result in poor I/O performance. For more information, see: https://developers.google.com/compute/docs/disks#performance.
+NOTE: The users will be charged for public IPs when VMs are created.
+Instance creation in progress for [byz-db-fwd]: https://www.googleapis.com/compute/v1/projects/byz-agents-484214/zones/asia-northeast3-a/operations/operation-1793004405384-65eba5ea9e714-3a6fccd9-6274d1b5
+Use [gcloud compute operations describe URI] command to check the status of the operation(s).

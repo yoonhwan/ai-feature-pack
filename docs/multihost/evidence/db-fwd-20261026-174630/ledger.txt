@@ -1,0 +1,7 @@
+address byz-db-fwd-ip asia-northeast3 10.0.0.15
+instance byz-db-fwd asia-northeast3-a made=1 status=RUNNING
+scheduling maxRunDuration=50400 action=STOP autoRestart=False lastStart=2026-10-26T01:46:56.446-07:00
+firewall byz-agents-allow-iap-db-fwd
+iam byz-mini-tunnel@byz-agents-484214.iam.gserviceaccount.com condition /Users/yoonhwan/Project/ai-feature-pack/.worktrees/multihost-plan/docs/multihost/evidence/db-fwd-20261026-174630/iam-condition-new.yaml (old=/Users/yoonhwan/Project/ai-feature-pack/.worktrees/multihost-plan/docs/multihost/evidence/db-fwd-20261026-174630/iam-condition-old.yaml) state=new=1 old=0 n=1
+reach FAIL
+reach OK (재확인 17:5x KST · 이 맥 start-iap-tunnel byz-db-fwd 38309 -> 127.0.0.1:49309 pg_isready accepting connections · startup-script exit 0 · 첫 시도 FAIL 은 IAP lookup 전파 지연)
