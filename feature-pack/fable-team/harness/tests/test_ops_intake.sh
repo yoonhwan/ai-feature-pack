@@ -18,7 +18,7 @@ done
 python3 "$HERE/test_ops_intake.py" || bad "cases ⓐ~ⓖ"
 [ "${1:-}" = "--no-mutate" ] && exit "$fail"
 
-for m in mask-off rescan-off declared-off guard-ts ledger-off notice-off; do
+for m in mask-off rescan-off declared-off guard-ts ledger-off notice-off header-block-off path-rule-off queue-recount-off timeout-off poster-secrets-off ledger-after-post-off lock-off cr-after-mask-off own-rules-off lock-scope-off own-mask-regex-off read-only-timeout; do
   python3 "$HERE/test_ops_intake.py" --mutate "$m" >/dev/null 2>&1 && ok "mutate $m" || bad "mutate $m"
 done
 [ "$fail" = 0 ] && echo "ALL PASS" || echo "FAIL count=$fail"

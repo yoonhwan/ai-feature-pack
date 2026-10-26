@@ -13,9 +13,17 @@ env: OPS_INTAKE_ROOT · OPS_MBOX_SH/OPS_MBOX_PY · OPS_SLACK_LIB(정본 slack-mi
 """
 from __future__ import annotations
 
+import fcntl
 import hashlib
+import json
 import re
+import socket
 import sys
+import threading
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
 from pathlib import Path
 
 import ops_intake_common as c
@@ -25,7 +33,13 @@ TS_RX = re.compile(r"^\s*thread_ts:\s*(\S+)\s*$", re.M)
 CHAN_RX = re.compile(r"^\s*channel:\s*(\S+)\s*$", re.M)
 OPS_RX = re.compile(r"\[OPS-REPLY\]\s*(OPS-\d{8}-\d{3})")
 SHA_RX = re.compile(r"(?<![0-9A-Za-z])[0-9a-f]{7,40}(?![0-9A-Za-z])")  # 커밋 sha 꼴 — 사람 글에 나갈 이유가 없다
+# DA⑥ r1 반례: «/etc/service/config.yaml» 같은 시스템 절대경로와 «토큰 ***» 같은 «비밀 종류 + 가림 표시» 는
+# 사용자 글에 나갈 이유가 없다(내부 구조 노출 · 우리가 무엇을 가렸는지 알려 주는 것).
+PATH_RX = re.compile(r"(?<![\w.~/-])(?:~|/[\w.@-]+)/(?:[\w.@-]+/)*[\w.@-]*")  # /a/b 이상 · ~/a
+SECRET_WORD_RX = re.compile(r"(?i)(토큰|비밀번호|비번|키|dsn|token|secret|password|api[ _-]?key)")
+MASK_MARK_RX = re.compile(r"\*\*\*|마스킹")
 MAX_LINES = 3
+WALL_LIMIT = 7.0  # ★호출 «전체» 벽시계★ — 소켓 timeout 은 1바이트씩 흘리면 매번 되살아난다(DA r3 반례 4)
 
 
 def slack_lib():
@@ -41,13 +55,25 @@ def slack_lib():
     return mirror_lib, post_guard
 
 
+def secrets(text: str) -> None:
+    """★비밀 검출기는 하나★ — 카드 쓰기·재검사와 «같은 함수»(c.mask_text)를 게시 직전에 한 번 더 돌린다.
+    검출 1건 이상이면 게시 0. 두 쪽 판정이 갈리면 그 차이가 곧 구멍이다(DA⑥ r2 반례 1)."""
+    kinds = c.mask_text(text)[1]
+    if kinds:
+        raise c.IntakeError(f"게시 거부 — 비밀 꼴 검출({c.kind_summary(kinds)}) · 카드 검출기와 같은 판정 · 게시 0", 4)
+
+
 def guard(text: str) -> None:
-    """게시 전 문장 검사 — 정본 규칙표(post_guard)를 «사람 채널» 기준으로 전부 건다."""
+    """게시 전 문장 검사 — ① 비밀 = 카드와 같은 검출기 ② 내부어 = 정본 규칙표(post_guard) + 이 폴더 3규칙."""
+    secrets(text)
     _ml, pg = slack_lib()
-    hits = [f"묶음1:{n}" for n, p in pg.SECRETS.items() if re.search(p, text)]
-    hits += [f"묶음2:{n}" for n, p in pg.INTERNAL.items() if re.search(p, text)]
+    hits = [f"묶음2:{n}" for n, p in pg.INTERNAL.items() if re.search(p, text)]
     if SHA_RX.search(text):
         hits.append("묶음2:sha")
+    if PATH_RX.search(text):
+        hits.append("묶음2:abs-path")
+    if MASK_MARK_RX.search(text) and SECRET_WORD_RX.search(text):
+        hits.append("묶음2:secret-with-mask-mark")
     if hits:
         raise c.IntakeError(f"게시 거부(post_guard) — {', '.join(hits)} · 게시 0", 4)
 
@@ -94,11 +120,104 @@ def ledger_key(ops_id: str, ts: str, text: str) -> str:
     return hashlib.sha1(f"{ops_id}|{ts}|{text}".encode()).hexdigest()[:16]
 
 
+def marker(key: str) -> str:
+    """본문 끝 표식 — 자기 검사(SHA_RX·PATH_RX·NAMED)에 안 걸리는 꼴: base36 5자(hex 7자 미만) · 콜론·슬래시 0."""
+    n = int(key, 16)
+    digits, out = "0123456789abcdefghijklmnopqrstuvwxyz", ""
+    while n:
+        n, r = divmod(n, 36)
+        out = digits[r] + out
+    return "ops-" + (out or "0").rjust(5, "0")[-5:]
+
+
+def final_text(text: str, tag: str) -> str:
+    return f"{text}\n· {tag}"
+
+
+def _call(base: str, tok: str, method: str, params: dict, *, get: bool = False, limit: float = WALL_LIMIT) -> dict:
+    """슬랙 1회 호출 — ★연결·읽기·종료 전부 포함 «전체 벽시계» 상한 하나★(DA⑥ r4 반례 3).
+    소켓 timeout 만 걸면 4초에 성공 청크를 주고 8초에 끝내는 흘림에 안 걸린다 — 감시 타이머가
+    마감에 응답을 닫고, 읽기가 끝난 뒤에도 한 번 더 마감을 본다."""
+    end = time.monotonic() + limit
+
+    def left() -> float:
+        return end - time.monotonic()
+
+    headers = {"Authorization": f"Bearer {tok}"}
+    if get:
+        req = urllib.request.Request(f"{base}/{method}?{urllib.parse.urlencode(params)}", headers=headers)
+    else:
+        headers["Content-Type"] = "application/json; charset=utf-8"
+        req = urllib.request.Request(f"{base}/{method}", data=json.dumps(params).encode("utf-8"), headers=headers)
+    resp = urllib.request.urlopen(req, timeout=max(0.1, left()))
+    timer: threading.Timer | None = None
+    try:
+        def _abort() -> None:  # 마감 순간 읽기를 깨운다 — 소켓 shutdown 이 막힌 recv 를 끊는다(흘림 차단)
+            sock = getattr(getattr(getattr(resp, "fp", None), "raw", None), "_sock", None)
+            try:
+                if sock is not None:
+                    sock.shutdown(socket.SHUT_RDWR)
+            except Exception:
+                pass
+            try:
+                resp.close()
+            except Exception:
+                pass
+
+        timer = threading.Timer(max(0.0, left()), _abort)
+        timer.daemon = True
+        timer.start()
+        chunks: list[bytes] = []
+        while True:
+            if left() <= 0:
+                raise TimeoutError(f"{method} 벽시계 {limit:.0f}초 초과")
+            chunk = resp.read1(4096)
+            if not chunk:
+                break
+            chunks.append(chunk)
+    finally:
+        if timer is not None:
+            timer.cancel()
+        try:
+            resp.close()
+        except Exception:
+            pass
+    if left() <= 0:  # 읽기가 마감을 넘겨 끝난 경우(4초 청크 + 8초 종료)
+        raise TimeoutError(f"{method} 벽시계 {limit:.0f}초 초과")
+    body = json.loads(b"".join(chunks).decode("utf-8"))
+    if not body.get("ok"):
+        raise RuntimeError(f"{method} ok=false")
+    return body
+
+
+def post_bounded(base: str, tok: str, channel: str, text: str, ts: str) -> str:
+    body = _call(base, tok, "chat.postMessage", {"channel": channel, "text": text, "thread_ts": ts})
+    return str(body.get("ts"))
+
+
+def thread_has(ml, base: str, tok: str, entry: dict) -> bool | None:
+    """이 스레드에 표식이 이미 있나 — True 있음 · False 없음 · None 확인 불가(조회 실패).
+    조회가 실패하면 «없다» 로 단정하지 않는다(그 단정이 재게시를 만든다)."""
+    try:
+        body = _call(base, tok, "conversations.replies", {"channel": entry["channel"], "ts": entry["ts"], "limit": 100}, get=True)
+    except Exception:
+        return None
+    tag = marker(entry.get("key") or "")
+    return any(tag in str(m.get("text", "")) for m in body.get("messages") or [])
+
+
+def lock_ledger():
+    """원장 단일 실행 잠금 — 두 프로세스가 같이 돌면 둘 다 «보내는 중 없음» 을 보고 둘 다 보낸다.
+    잠금 파일을 열어 LOCK_EX 로 잡고, 그 핸들을 돌려준다(닫으면 풀린다)."""
+    path = c.sub("state") / "posted.lock"
+    fh = open(path, "w")
+    fcntl.flock(fh, fcntl.LOCK_EX)
+    return fh
+
+
 def main() -> int:
     seat = c.env_path("OPS_TOOL_SEAT", "byz-opsintake-tool-cmd#0")
     ledger_path = c.sub("state") / "posted.json"
-    ledger = c.read_json(ledger_path, [])
-    done = set(map(str, ledger))
     rows = [r for r in c.mbox_rows(seat) if str(r.get("body", "")).startswith(HEADS)]
     if not rows:
         print("POST idle n=0")
@@ -106,32 +225,70 @@ def main() -> int:
     ml, _pg = slack_lib()
     tok = token(Path(c.env_path("OPS_HERMES_ENV", str(c.home() / ".hermes/.env"))))
     base = c.env_path("OPS_SLACK_BASE", "https://slack.com/api/")
-    ok, acked = 0, []
+    lock = lock_ledger()  # ★여기서부터 원장은 한 프로세스만 본다★
+    ledger: dict = c.read_json(ledger_path, {})
+    if not isinstance(ledger, dict):
+        ledger = {}
+    ok, acked, stuck, sent = 0, [], 0, 0
     try:
         for row in rows:
-            key = ledger_key(*parse(str(row.get("body", ""))))
-            if key in done:
+            ops_id, ts, text = parse(str(row.get("body", "")))
+            key = ledger_key(ops_id, ts, text)
+            entry = ledger.get(key) or {}
+            if entry.get("state") == "sent":
                 acked.append(row.get("seq"))
                 continue
-            ops_id, ts, text = parse(str(row.get("body", "")))
-            guard(text)
-            ch = channel_of(str(row.get("body", "")), ops_id)
-            posted = ml.post(base, tok, ch, text, ts)
-            done.add(key)
-            ledger.append(key)
-            c.write_json(ledger_path, sorted(done))
+            ch = channel_of(str(row.get("body", "")), ops_id) if not entry else entry.get("channel", "")
+            tag = marker(key)
+            body_text = final_text(text, tag)
+            guard(body_text)  # ★표식 붙인 최종 본문★ 에 검사를 건다(자기 표식에 자기가 안 걸리는지도 여기서 증명된다)
+            if entry.get("state") in ("sending", "failed"):  # 보내는 중·실패 = 재게시 금지 · 스레드 표식으로만 확인
+                found = thread_has(ml, base, tok, dict(entry, key=key))
+                if found is True:
+                    ledger[key] = dict(entry, state="sent")
+                    c.write_json(ledger_path, ledger)
+                    acked.append(row.get("seq"))
+                    ok += 1
+                    print(f"POST recovered {ops_id} ts={ts} — 이미 나간 글을 표식으로 확인하고 원장을 맞췄다")
+                    continue
+                stuck += 1
+                why = "스레드 조회 실패" if found is None else "스레드에 그 표식 없음"
+                print(f"ERROR 확인 불가 {ops_id} key={key} · {why} · 재게시 0 · 이 쪽지는 건너뛰고 다음 쪽지로 간다 · "
+                      f"사람이 풀려면 {ledger_path} 에서 키 {key} 항목을 지우고 그 쪽지를 다시 보내세요", file=sys.stderr)
+                continue
+            ledger[key] = {"state": "sending", "channel": ch, "ts": ts, "ops_id": ops_id, "key": key}  # 본문은 원장에 남기지 않는다
+            c.write_json(ledger_path, ledger)  # ★기록 먼저★ — 보내는 중에 죽어도 «모르는 게시» 가 안 생긴다
+            try:
+                post_bounded(base, tok, ch, body_text, ts)
+            except BaseException:  # 전체 벽시계 초과·깨진 응답 = sent 0 · 원장 failed(카드 r5)
+                ledger[key] = dict(ledger[key], state="failed")
+                c.write_json(ledger_path, ledger)
+                raise
+            ledger[key] = dict(ledger[key], state="sent")
+            c.write_json(ledger_path, ledger)
             acked.append(row.get("seq"))
             ok += 1
-            print(f"POST ok {ops_id} ts={ts} posted={posted}")
+            sent += 1
+            print(f"POST ok {ops_id} ts={ts} tag={tag}")
     except c.IntakeError as e:
         if acked:
             c.mbox_ack(acked)
         print(f"STOP {e}", file=sys.stderr)
         return e.rc
+    except Exception as e:  # 슬랙 응답 깨짐·벽시계 초과 — 원장은 «실패» 로 남는다(다음 실행이 스레드 표식으로 확인한다)
+        if acked:
+            c.mbox_ack(acked)
+        print(f"ERROR 게시 응답 불확실({type(e).__name__}) · 원장=failed · 다음 실행이 스레드 표식으로 확인한다", file=sys.stderr)
+        return 5
+    finally:
+        try:
+            lock.close()  # 닫으면 flock 해제
+        except OSError:
+            pass
     if acked:
         c.mbox_ack(acked)
-    print(f"POST done n={ok}")
-    return 0
+    print(f"POST done n={ok} sent={sent} stuck={stuck}")
+    return 5 if stuck else 0
 
 
 if __name__ == "__main__":

@@ -31,18 +31,48 @@ NOTICE = "[사용자 공지]"
 ISSUE_RX = re.compile(r"^issue:\s*(\d+)\s*$", re.M)
 THREAD_RX = re.compile(r"^thread_ts:\s*(\S+)\s*$", re.M)
 CHAN_RX = re.compile(r"^slack_channel:\s*(\S+)\s*$", re.M)
-MASKED_RX = re.compile(r"^secrets_masked:\s*(\d+)\s*$", re.M)
 OPS_RX = re.compile(r"^ops_id:\s*(OPS-\d{8}-\d{3})\s*$", re.M)
 
 
+def head_lines(text: str) -> list[str]:
+    """머리 블록 = 첫 `---` 줄 «앞» 전부. 그 뒤는 본문 — 머리로 승격되지 않는다."""
+    out = []
+    for ln in text.splitlines():
+        if ln.strip() == "---":
+            return out
+        out.append(ln)
+    return out
+
+
 def header(text: str) -> dict:
-    """카드 머리(`key: value` 줄)만 — 본문은 보지 않는다."""
-    out, body = {}, text.split("\n---", 1)[0]
-    for ln in body.splitlines():
+    """카드 머리(`key: value` 줄)만 — 키는 왼쪽 첫 콜론 기준."""
+    out = {}
+    for ln in head_lines(text):
         m = HDR_RX.match(ln.strip())
-        if m:
+        if m and m.group(1) not in out:  # 같은 키 두 번 = 앞값만(뒤값으로 덮지 않는다)
             out[m.group(1)] = m.group(2).strip()
     return out
+
+
+def declared_masked(text: str) -> int | None:
+    """`secrets_masked` 판독 — 머리 블록에 그 키 줄이 «정확히 1개» 이고 «0 이상 정수» 일 때만 값. 아니면 None(판정 불가)."""
+    hits = [ln for ln in head_lines(text) if ln.split(":", 1)[0].strip() == "secrets_masked"]
+    if len(hits) != 1:
+        return None
+    val = hits[0].split(":", 1)[1].strip()
+    return int(val) if re.fullmatch(r"\d+", val) else None
+
+
+def body_forges_mask(text: str) -> bool:
+    """본문 쪽에 같은 키를 심어 «머리 판독» 을 흔들려는 카드 — 판정 불가로 본다."""
+    seen = False
+    for ln in text.splitlines():
+        if not seen:
+            seen = ln.strip() == "---"
+            continue
+        if ln.split(":", 1)[0].strip() == "secrets_masked":
+            return True
+    return False
 
 
 def run(cmd: list[str], stdin_text: str | None = None) -> tuple[int, str, str]:
@@ -78,10 +108,9 @@ def gh_dupe(title: str) -> str:
 
 def quarantine(card: Path, text: str, kinds: list[str]) -> Path:
     """걸린 자리를 «[제거: 종류]» 로 바꾼 사본만 남긴다 — 값 0."""
-    masked, _hits = c.masker()(text)
-    for kind, rx, ph in (("email", c.EMAIL_RX, "<이메일>"), ("phone", c.PHONE_RX, "<전화번호>")):
-        masked = rx.sub(ph, masked)
-    masked = re.sub(r"\*\*\*", "[제거]", masked)
+    masked = c.mask_text(text)[0]  # 카드·게시와 «같은» 검출기 — 정규화·마스킹이 끝난 한 줄 사본
+    masked = re.sub(r"\*\*\*", "[제거: 비밀]", masked)
+    masked = masked.replace("<이메일>", "[제거: 이메일]").replace("<전화번호>", "[제거: 전화번호]")
     qdir = c.sub("quarantine")
     q = qdir / card.name
     q.write_text(masked, encoding="utf-8")
@@ -110,12 +139,12 @@ def intake_one(card: Path) -> str:
     tmp = c.tmp_file()
     tmp.write_text(text, encoding="utf-8")
     try:
-        if "secrets_masked" not in head:
+        declared = None if body_forges_mask(text) else declared_masked(text)
+        if declared is None:
             card.unlink(missing_ok=True)  # 판정 불가 — 이슈 0 · 카드도 이 맥에 남기지 않는다
             _reply(ops_id, head, "접수 카드 양식을 확인할 수 없어 등록을 멈췄어요 · 판정 불가")
-            print(f"BLOCK {ops_id} secrets_masked 칸 없음")
+            print(f"BLOCK {ops_id} secrets_masked 칸 판독 불가(0개·2개 이상·정수 아님·본문 위조)")
             return "block"
-        declared = int(MASKED_RX.search(text).group(1))
         _masked, kinds = c.mask_text(tmp.read_text(encoding="utf-8"))
     finally:
         tmp.unlink(missing_ok=True)

@@ -80,41 +80,46 @@ def card_text(ops_id: str, doc: dict, masked: dict, kinds: list[str]) -> str:
     return "\n".join(rows)
 
 
-def main() -> int:
-    raw = sys.stdin.read()
+def _write_locked(doc: dict) -> int:
+    """잠금 안에서: 한도 확인 → 번호 → 카드 → 쪽지 → 원장. 하나라도 실패하면 카드 0."""
+    today = c.now_iso()[:10].replace("-", "")
+    st, path, now = check_limits(doc["user_id"], doc["slack_channel"])
+    fields = {k: doc.get(k, "") for k in ("product", "urgency", "title", "symptom", "repro", "expect")}
+    masked: dict = {}
+    kinds: list[str] = []
+    for k, v in fields.items():
+        masked[k], hit = c.mask_text(v or "")
+        kinds += hit
+    masked["attachments"] = []
+    for a in doc.get("attachments") or []:
+        m, hit = c.mask_text(a)
+        masked["attachments"].append(m)
+        kinds += hit
+    ops_id = next_id(today)
+    card = c.sub("inbox") / f"{ops_id}.md"
+    card.write_text(card_text(ops_id, doc, masked, kinds), encoding="utf-8")
+    body = "\n".join([
+        f"[OPS-NEW] {ops_id} · kind={doc['kind']} product={masked['product']}",
+        f"카드(mini): {card}",
+        f"제목: {masked['title'][:120]}",
+        f"마스킹 {len(kinds)}건: {c.kind_summary(kinds)}",
+        f"스레드 ts: {doc['thread_ts']} · 채널 {doc['slack_channel']}",
+    ])
     try:
-        doc = c.validate(json.loads(raw or "null"))
-        today = c.now_iso()[:10].replace("-", "")
-        st, path, now = check_limits(doc["user_id"], doc["slack_channel"])
-        fields = {k: doc.get(k, "") for k in ("product", "urgency", "title", "symptom", "repro", "expect")}
-        masked: dict = {}
-        kinds: list[str] = []
-        for k, v in fields.items():
-            masked[k], hit = c.mask_text(v or "")
-            kinds += hit
-        masked["attachments"] = []
-        for a in doc.get("attachments") or []:
-            m, hit = c.mask_text(a)
-            masked["attachments"].append(m)
-            kinds += hit
-        ops_id = next_id(today)
-        card = c.sub("inbox") / f"{ops_id}.md"
-        card.write_text(card_text(ops_id, doc, masked, kinds), encoding="utf-8")
-        body = "\n".join([
-            f"[OPS-NEW] {ops_id} · kind={doc['kind']} product={masked['product']}",
-            f"카드(mini): {card}",
-            f"제목: {masked['title'][:120]}",
-            f"마스킹 {len(kinds)}건: {c.kind_summary(kinds)}",
-            f"스레드 ts: {doc['thread_ts']} · 채널 {doc['slack_channel']}",
-        ])
-        try:
-            c.mbox_send(c.env_path("OPS_MASTER_SEAT", "byz-opsintake-master-claude#0"), c.env_path("OPS_TOOL_SEAT", "byz-opsintake-tool-cmd#0"), body)
-        except c.IntakeError:
-            card.unlink(missing_ok=True)  # 쪽지 0 이면 카드도 0 — 다시 오면 같은 번호로 새로 쓴다
-            raise
-        record(path, st, doc["user_id"], doc["slack_channel"], now)
-        print(f"CARD {ops_id} {card} masked={len(kinds)}")
-        return 0
+        c.mbox_send(c.env_path("OPS_MASTER_SEAT", "byz-opsintake-master-claude#0"), c.env_path("OPS_TOOL_SEAT", "byz-opsintake-tool-cmd#0"), body)
+    except c.IntakeError:
+        card.unlink(missing_ok=True)  # 쪽지 0 이면 카드도 0 — 다시 오면 같은 번호로 새로 쓴다
+        raise
+    record(path, st, doc["user_id"], doc["slack_channel"], now)
+    print(f"CARD {ops_id} {card} masked={len(kinds)}")
+    return 0
+
+
+def main() -> int:
+    try:
+        doc = c.validate(json.loads(sys.stdin.read() or "null"))
+        with c.locked("ops-intake"):  # ★한도 확인부터 쪽지 예약까지 한 잠금★ (DA r3 반례 3)
+            return _write_locked(doc)
     except c.IntakeError as e:
         print(f"STOP {e}", file=sys.stderr)
         return e.rc

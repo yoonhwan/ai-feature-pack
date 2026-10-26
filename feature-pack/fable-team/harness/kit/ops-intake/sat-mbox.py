@@ -23,6 +23,7 @@ import os
 import subprocess
 import sys
 
+CALL_TIMEOUT = 7  # 하드 룰 12 — 외부 호출 1회 7초. 넘으면 실패(기다리지 않는다)
 MINI = os.environ.get("MINI", "mini")
 MINI_DIR = os.environ.get("SAT_MINI_MBOX_DIR", "$HOME/.fable-team/comm")
 MINI_PY = os.environ.get("SAT_MINI_PY", "$HOME/.claude/skills/fable-team/scripts/ft-mbox.py")
@@ -52,8 +53,21 @@ SSH = os.environ.get("SAT_SSH", "").split() or ["ssh", "-o", "BatchMode=yes", "-
 PRE = "export PATH=/opt/homebrew/bin:$HOME/.local/bin:$PATH; export FT_MBOX_DIR=" + MINI_DIR + "; mkdir -p \"$FT_MBOX_DIR\"; "
 
 
-def mini(cmd, stdin=None, t=25):
-    r = subprocess.run(SSH + [PRE + cmd], input=stdin, capture_output=True, text=True, timeout=t)
+def mini(cmd, stdin=None, t=CALL_TIMEOUT):
+    try:
+        r = subprocess.run(SSH + [PRE + cmd], input=stdin, capture_output=True, text=True, timeout=t)
+    except subprocess.TimeoutExpired:
+        return 7, "", "7초 초과(ssh)"
+    return r.returncode, r.stdout, r.stderr
+
+
+def remote(py_code, arg, step):
+    """원격 파이썬 조각 1회 — argv 인용 사고 0, 7초 상한."""
+    try:
+        r = subprocess.run(SSH + [PRE + "python3 -c \"$(cat)\" '" + arg + "'"], input=py_code,
+                           capture_output=True, text=True, timeout=CALL_TIMEOUT)
+    except subprocess.TimeoutExpired:
+        return 7, "", "7초 초과(%s)" % step
     return r.returncode, r.stdout, r.stderr
 
 
@@ -112,22 +126,28 @@ def push(to, frm, body):
 
 
 def pull(seats):
-    r = subprocess.run(SSH + [PRE + "python3 -c \"$(cat)\" '" + ",".join(seats) + "'"], input=READ_PY,
-                       capture_output=True, text=True, timeout=25)
-    if r.returncode != 0:
-        print("PULL_FAIL read rc=%s %s" % (r.returncode, r.stderr.strip()[:200]))
+    rc, out, err = remote(READ_PY, ",".join(seats), "read")
+    if rc != 0:
+        print("PULL_FAIL read rc=%s %s" % (rc, err.strip()[:200]))
         return 3
-    rows = json.loads(r.stdout.strip() or "[]")
-    if queue_len() >= QUEUE_CAP:
-        print("PULL defer — 이 맥 쪽지함 큐 %d ≥ %d · 이번 패스는 보내지 않는다(버리지 않음)" % (queue_len(), QUEUE_CAP))
-        return 5
+    rows = json.loads(out.strip() or "[]")
     done, ok = load_state(), []
-    for row in rows:
+    held = 0
+    for idx, row in enumerate(rows):
+        q = queue_len()  # ★쪽지 1건마다 다시 센다★ — 패스 시작에 한 번 재면 그 사이 늘어난 큐를 놓친다
+        if q >= QUEUE_CAP:
+            held = len(rows) - idx
+            print("HOLD queue=%d remaining=%d — 이번 패스는 여기서 멈춘다(원격 ack 0 · 버리지 않음)" % (q, held))
+            break
         key = "mini:%s:%s" % (row.get("seq"), row.get("ts"))
         if key not in done:
             env = dict(os.environ, FT_MBOX_DIR=MAC_DIR)
-            p = subprocess.run(["bash", MAC_SH, "send", row["to"], row["from"], row["body"]],
-                               capture_output=True, text=True, env=env, timeout=30)
+            try:
+                p = subprocess.run(["bash", MAC_SH, "send", row["to"], row["from"], row["body"]],
+                                   capture_output=True, text=True, env=env, timeout=CALL_TIMEOUT)
+            except subprocess.TimeoutExpired:
+                print("DELIVER_FAIL seq=%s 7초 초과(전달)" % row.get("seq"))
+                continue
             if "QUEUED" not in p.stdout:
                 print("DELIVER_FAIL seq=%s %s" % (row.get("seq"), (p.stdout + p.stderr).strip()[-200:]))
                 continue
@@ -135,13 +155,12 @@ def pull(seats):
             save_state(done)
         ok.append(row["seq"])
     if ok:
-        a = subprocess.run(SSH + [PRE + "python3 -c \"$(cat)\" '" + json.dumps(ok) + "'"], input=ACK_PY,
-                           capture_output=True, text=True, timeout=25)
-        if a.returncode != 0:
-            print("ACK_FAIL rc=%s %s (다음 pull 에서 중복 없이 재시도)" % (a.returncode, a.stderr.strip()[:200]))
+        arc, _aout, aerr = remote(ACK_PY, json.dumps(ok), "ack")
+        if arc != 0:
+            print("ACK_FAIL rc=%s %s (다음 pull 에서 중복 없이 재시도)" % (arc, aerr.strip()[:200]))
             return 3
-    print("PULL ok delivered=%d seen=%d" % (len(ok), len(rows)))
-    return 0
+    print("PULL ok delivered=%d seen=%d held=%d" % (len(ok), len(rows), held))
+    return 5 if held else 0
 
 
 def seats_of(a):
@@ -174,10 +193,9 @@ def scp_card(remote, out_dir):
 
 
 def status():
-    r = subprocess.run(SSH + [PRE + "python3 -c \"$(cat)\" ''"], input=LOAD + "rows=m._locked(m.CANON,lambda:m._load(m.CANON));print(len(rows))",
-                       capture_output=True, text=True, timeout=25)
-    print("mini_pending=" + r.stdout.strip() if r.returncode == 0 else "STATUS_FAIL " + r.stderr.strip()[:200])
-    return r.returncode
+    rc, out, err = remote(LOAD + "rows=m._locked(m.CANON,lambda:m._load(m.CANON));print(len(rows))", "", "status")
+    print("mini_pending=" + out.strip() if rc == 0 else "STATUS_FAIL " + err.strip()[:200])
+    return rc
 
 
 if __name__ == "__main__":

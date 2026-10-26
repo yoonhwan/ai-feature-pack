@@ -1,18 +1,22 @@
 """ops_intake_common — #howto-talk-ops 접수 도구 공용 (경로·스키마·마스킹·쪽지·시각).
 
 경로는 전부 env 로 옮길 수 있다(시험 = 임시 HOME). 기본값은 mini 기준 `~/.fable-team/ops-intake/`.
-비밀 마스킹은 하네스 정본 규칙(`ft_secret_shapes.mask`)을 그대로 부른다 — 규칙 복제 0.
+비밀 가림은 하네스 공용 함수(`ft_secret_shapes.mask`) 하나만 부른다 — 규칙 복제 0. 공용 규칙표
+(`post_guard.SECRETS`)는 판정과 «머리표» 가림에만 쓴다(값 꼴은 이 파일에 없다). 개인키는 BEGIN~END 블록을
+통째로 지우고, 가림 뒤 공용 판정을 한 번 더 돌려 남으면 접수 거절(`mask_for_card`).
 규칙 모듈을 못 찾으면 «판정 불가 = 차단»(IntakeError rc2) — 조용히 통과하지 않는다.
 개인정보(전화·이메일)만 이 파일에 정규식 2줄로 더한다(하네스 스캔에 없는 축).
 """
 from __future__ import annotations
 
+import fcntl
 import json
 import os
 import re
 import subprocess
 import sys
 import tempfile
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -26,6 +30,12 @@ USER_RX = re.compile(r"^U[A-Z0-9]{4,}$")
 EMAIL_RX = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 PHONE_RX = re.compile(r"(?<!\d)0\d{1,2}[-. ]?\d{3,4}[-. ]?\d{4}(?!\d)")
 SECRET_MODULE = "ft_secret_shapes.py"
+SEP_TAIL = "=:/"  # 규칙표에서 «이름+구분자» 로 끝난 머리표 — 값은 뒤 덩어리
+RUN_MIN, RUN_MAX = 2, 4  # 공백으로 쪼갠 값을 붙여 보는 이웃 덩어리 수
+PEM_BEGIN = re.compile(r"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----")
+PEM_END = re.compile(r"-----END [A-Z0-9 ]*PRIVATE KEY-----")
+# 제어문자·폭 0 문자 — 검출 전에 지운다(이것들이 끼면 토큰이 쪼개져 검출을 빠져나간다 · DA r3 반례 1)
+CTRL_RX = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f\u00ad\u200b-\u200f\u2028\u2029\ufeff]")
 
 
 class IntakeError(RuntimeError):
@@ -76,10 +86,29 @@ def read_json(path: Path, default):
 
 
 def write_json(path: Path, data) -> None:
+    """임시 파일 이름은 프로세스마다 다르다 — 같은 .tmp 를 둘이 쓰면 한쪽이 깨진다(DA r3 반례 3)."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
-    os.replace(tmp, path)
+    fd, tmp = tempfile.mkstemp(prefix=path.name + ".", suffix=".tmp", dir=str(path.parent))
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(json.dumps(data, ensure_ascii=False, indent=1))
+        os.replace(tmp, path)
+    except BaseException:
+        Path(tmp).unlink(missing_ok=True)
+        raise
+
+
+@contextmanager
+def locked(name: str):
+    """한 덩어리를 한 프로세스만 — flock. 한도 확인 → 카드 쓰기 → 원장 → 쪽지 예약을 같이 감싼다."""
+    path = sub("state") / f"{name}.lock"
+    fh = open(path, "w")
+    fcntl.flock(fh, fcntl.LOCK_EX)
+    try:
+        yield
+    finally:
+        fcntl.flock(fh, fcntl.LOCK_UN)
+        fh.close()
 
 
 def _secret_dirs() -> list[Path]:
@@ -91,8 +120,8 @@ def _secret_dirs() -> list[Path]:
     return [Path(c) for c in cands if c]
 
 
-def masker():
-    """ft_secret_shapes.mask 를 돌려준다. 없으면 IntakeError(차단)."""
+def _ft_mask():
+    """정본 1 = 하네스 출력 가림 규칙(ft_secret_shapes.RULES)."""
     for d in _secret_dirs():
         if (d / SECRET_MODULE).is_file():
             if str(d) not in sys.path:
@@ -105,15 +134,136 @@ def masker():
     raise IntakeError("비밀 규칙 모듈 없음(ft_secret_shapes.py) · 판정 불가 · 카드 0", 2)
 
 
+def _pg_secrets() -> dict:
+    """정본 2 = 슬랙 게시 검사 규칙(post_guard.SECRETS) — 판정(r5 검출)과 머리표 가림에 그대로 쓴다."""
+    here = Path(__file__).resolve().parent
+    d = Path(env_path("OPS_SLACK_LIB", str(here.parent / "slack-mirror")))
+    if not (d / "post_guard.py").is_file():
+        raise IntakeError(f"공용 비밀 꼴 모듈 없음: {d}/post_guard.py · 판정 불가 · 카드 0", 2)
+    if str(d) not in sys.path:
+        sys.path.insert(0, str(d))
+    try:
+        import post_guard
+        return dict(post_guard.SECRETS)
+    except Exception as e:
+        raise IntakeError(f"공용 비밀 꼴 적재 실패: {type(e).__name__} · 판정 불가", 2) from e
+
+
+def normalize(text: str) -> str:
+    """★검출·마스킹 «전» 한 번만★ — 제어문자·폭 0 제거 · 탭·개행 → 공백 1개 · 앞뒤 정리(한 칸 = 한 줄).
+    정규화 뒤에만 검출하고, 가린 뒤에는 글자를 더 바꾸지 않는다(바꾸면 쪼갠 토큰이 다시 붙는다)."""
+    t = text.replace("\r\n", "\n").replace("\r", "\n").replace("\t", " ")
+    return " ".join(CTRL_RX.sub("", t).split())
+
+
+def detect_raw(text: str) -> list[str]:
+    """공용 판정 — 공용 규칙 두 정본(ft_secret_shapes.RULES · post_guard.SECRETS)만 본다. 값은 돌려주지 않는다.
+    가림 «뒤» 이 함수를 한 번 더 돌려 남는 것이 있으면 접수 거절(카드 r5 · mask_for_card)."""
+    kinds = [k for k, _ln in _ft_mask()(text)[1]]
+    for name, pat in _pg_secrets().items():
+        if re.search(pat, text):
+            kinds.append(name)
+    return kinds
+
+
+def detect(text: str) -> list[str]:
+    """정규화한 글에 대한 공용 판정."""
+    return detect_raw(normalize(text))
+
+
+def drop_pem_blocks(text: str) -> tuple[str, int]:
+    """개인키는 BEGIN~END 블록을 «통째» 지운다 — 줄 단위로 남기면 키 본문이 그대로 남는다(DA⑥ r4 반례 2).
+    END 가 없으면 BEGIN 부터 끝까지 지운다(안전한 쪽)."""
+    keep: list[str] = []
+    dropped, inside = 0, False
+    for ln in text.split("\n"):
+        if inside or PEM_BEGIN.search(ln):
+            dropped += 1
+            inside = not PEM_END.search(ln)
+            continue
+        keep.append(ln)
+    return "\n".join(keep), dropped
+
+
+def _mask_shared_heads(text: str) -> tuple[str, list[str]]:
+    """공용 게시 검사 규칙표(post_guard.SECRETS)가 잡은 자리를 «머리표 + 바로 뒤 값 덩어리» 로 가린다.
+    규칙표는 값 «꼴» 을 모른다(그래서 이 파일에 값 꼴을 만들지 않는다). 이름+구분자에서 끝난 규칙은
+    뒤 첫 덩어리를 통째로 *** 로 바꾼다 — 머리표만 가리면 값이 남는다(DA⑥ r4 반례 1)."""
+    kinds: list[str] = []
+    spans: list[tuple[int, int]] = []
+    for name, pat in _pg_secrets().items():
+        for m in re.finditer(pat, text):
+            kinds.append(name)
+            end = m.end()
+            if m.group(0)[-1:] in SEP_TAIL:  # 이름+구분자(password= · postgres:// …) — 값은 «뒤» 덩어리
+                while end < len(text) and text[end] == " ":
+                    end += 1
+            while end < len(text) and text[end] != " ":  # 값이 같은 덩어리에 붙어 있으면 덩어리 끝까지
+                end += 1
+            spans.append((m.start(), end))
+    if not spans:
+        return text, kinds
+    out: list[str] = []
+    cur = 0
+    for s, e in sorted(spans):
+        if e <= cur:
+            continue
+        out.append(text[cur:max(s, cur)] + "***")
+        cur = e
+    out.append(text[cur:])
+    return "".join(out), kinds
+
+
+def _mask_split_runs(text: str) -> tuple[str, list[str]]:
+    """공백으로 쪼갠 비밀 — 이웃 덩어리를 붙여 보고, 붙여야만 보이면 그 덩어리들을 통째로 가린다.
+    정규화가 개행·제어문자를 «한 칸» 으로 바꾸므로 값이 쪼개진 채 남을 수 있다."""
+    toks = text.split(" ")
+    kinds: list[str] = []
+    out: list[str] = []
+    i = 0
+    while i < len(toks):
+        for n in range(RUN_MAX, RUN_MIN - 1, -1):
+            if i + n <= len(toks):
+                hits = detect_raw("".join(toks[i:i + n]))
+                if hits:
+                    kinds += hits
+                    out.append("***")
+                    i += n
+                    break
+        else:
+            out.append(toks[i])
+            i += 1
+    return " ".join(out), kinds
+
+
 def mask_text(text: str) -> tuple[str, list[str]]:
-    """(가린 글, 종류별 건수 목록). 비밀은 ***, 개인정보는 자리표시자."""
+    """(가린 글, 종류 목록) — 비밀은 ***, 개인정보는 자리표시자.
+    ★비밀 «꼴» 은 이 파일에 없다★ — ③은 공용 규칙표(post_guard.SECRETS)의 머리표만, ④는 공용 가림 함수
+    (ft_secret_shapes.mask)만 쓴다. ⑥ 개인정보 두 줄은 공용 가림 함수에 없는 축(비밀 아님)이라 여기 남긴다."""
     if not text:
         return "", []
-    masked, hits = masker()(text)
-    kinds = [k for k, _ln in hits]
+    body, dropped = drop_pem_blocks(text)  # ① 개인키 블록 통째 삭제
+    kinds = ["private-key"] * dropped
+    n = normalize(body)  # ② 정규화 먼저
+    n, pg = _mask_shared_heads(n)  # ③ 공용 규칙표 머리표 + 값 덩어리
+    masked, hits = _ft_mask()(n)  # ④ 공용 가림 함수 하나
+    kinds += pg + [k for k, _ln in hits]
+    masked, split = _mask_split_runs(masked)  # ⑤ 공백으로 쪼갠 값
+    kinds += split
     for kind, rx, ph in (("email", EMAIL_RX, "<이메일>"), ("phone", PHONE_RX, "<전화번호>")):
-        masked, n = rx.subn(ph, masked)
-        kinds += [kind] * n
+        masked, cnt = rx.subn(ph, masked)  # ⑥ 개인정보
+        kinds += [kind] * cnt
+    return masked, kinds
+
+
+def mask_for_card(text: str) -> tuple[str, list[str]]:
+    """카드에 쓸 값 — 가림 «뒤» 공용 판정을 한 번 더 돌려 남으면 접수 거절(rc2 · 카드 0).
+    공백을 지운 판도 같이 본다 — 여러 조각으로 쪼개져 가림이 끝내 못 붙인 비밀이 남을 수 있다.
+    조용히 통과하는 길을 만들지 않는다(카드 r5 · DA⑥ r4)."""
+    masked, kinds = mask_text(text)
+    left = detect_raw(masked) or detect_raw(masked.replace(" ", ""))
+    if left:
+        raise IntakeError(f"가림 뒤 비밀 잔여({kind_summary(left)}) · 판정 불가 · 카드 0", 2)
     return masked, kinds
 
 
