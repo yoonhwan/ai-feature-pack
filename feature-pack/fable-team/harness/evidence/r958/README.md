@@ -129,3 +129,45 @@ bash feature-pack/fable-team/harness/evidence/r958/rework-r4-mutation.sh       #
 1. `--branch` 값이 정본 줄기(base)일 때 막는 자리(825행)는 여전히 `FT_NANO_FEAT` 를 본다 — r4 는 base 정합 블록 한 자리만 고쳤다(카드 §구현범위 1).
 2. 7초 쪼개기 가지(`a921dfe4`)는 **보존만** — 되살리지 않았다(반례 R1~R3 미해결).
 3. `test_nano_close_step_timing_r938.sh` 의 ⓗ(상한+유예 ≤3초)는 이 맥에서 가끔 4초로 흔들린다(2회 재실행 ALL PASS · 이 변경과 무관한 시각 경계).
+
+---
+
+# r5 — 오빠 결정 1번(구현만 한 번 더 · 반례 집합·계약 동결) · «쪼개기 접음» (2026-10-27)
+
+## 무엇이 어긋나 있었나
+r4 세트(`93bf3f06`)는 r3 쪼개기 커밋(`a921dfe4`) **위에** 쌓여 있었다. 카드 r4 절은 «쪼개기는 접고 비교 기준 한 자리만 · `a921dfe4` 는 보존만» 인데, 그대로 착지하면 쪼개기 코드가 같이 랜딩한다.
+DA⑥ r3 반례 1(여러 경로를 한 번에 조회하면 git history simplification 이 판정을 바꾼다)은 **쪼개기 자체의 성질**이라, 쪼개기가 착지물에 남아 있는 한 동결된 반례 집합을 닫을 수 없다. 그래서 r5 는 r1~r3 의 게이트 변경을 되돌린다(커밋은 r4 세트 위 1개 · 가지·폴더 보존).
+
+## 고친 자리 (되돌림 = 기준판 `a1fccaf7` 과 같게)
+| 파일 | r5 뒤 |
+|---|---|
+| `bin/ft-nano-cherry-gate.sh` · `kit/fable-team/bin/ft-nano-cherry-gate.sh` | 기준판 그대로(차이 0) — 묶음 조회·`G` 통로·NUL 프레임 전부 제거 |
+| `tests/test_cherry_gate_identical_head.sh` | 기준판 그대로(게이트 줄 수 상한 400 → 200) |
+| `tests/test_cherry_gate_batch_r958.sh` | 삭제(쪼개기 전용 시험 · 기준판에 없는 파일) |
+| `tests/test_nano_close_step_timing_r938.sh` | ⓘ «배수 = 커밋 수» 로 되돌리고 r4 `setbase()` 만 남김 |
+| `bin/ft-nano-close.sh` · `kit` 사본 | `nf_mult_batches()` 삭제 · ⑤ 배수 = `nf_mult_commits()`(r938 그대로) |
+
+남긴 것 = 카드 r4 §구현 범위 1~2: base 정합(좌석 `.worktree-info` base «먼저» · `FT_NANO_FEAT` 는 base 없을 때만 · 다르면 WARN 1줄) + 시험 ⓐ/ⓑ/ⓐ-2.
+
+## 실측 (이 맥 · 2026-10-27)
+| 무엇 | 값 |
+|---|---|
+| 게이트 2벌 · identical_head 시험 vs 기준판 | `git diff` 출력 0 (바이트 동일) |
+| `cmp` bin ↔ kit (close · cherry-gate) | 둘 다 cmp0 |
+| `grep -c nf_mult_batches` | 0 |
+| 시험 6종(`rework-r5-test.txt`) | suspended · step_timing(115단언) · identical_head · squash · kit_bin_sync · fail_closed **전부 rc=0** |
+| `/bin/bash` 3.2 판(`rework-r5-test-bash32.txt`) | 같음 — 전부 rc=0 |
+| 변이 «묶음 수 배수 되살림»(`rework-r5-mut.txt`) | rc=1 · `FAIL [ⓘ]` = 시험이 «배수 = 커밋 수» 계약을 문다 |
+| 실사건 입력(chatbot 나노 `origin/main` ← base · 읽기만) | `rc=0` · `0초` · `INFO … «+» 5개 … merge-tree delta design/ 밖 0 … 통과`(`rework-r5-realcase.txt`) |
+
+## 재현
+```bash
+bash feature-pack/fable-team/harness/tests/test_nano_close_step_timing_r938.sh   # ⓘ 포함 115단언 (약 25초)
+bash feature-pack/fable-team/harness/tests/test_nano_close_suspended.sh          # ⓐ·ⓑ·ⓐ-2 (약 40초)
+bash feature-pack/fable-team/harness/tests/test_kit_bin_sync.sh                  # 짝 cmp0
+```
+
+## 알려진 한계 (DA 판정용 · 정직 고지)
+1. 이 맥에서 `test_nano_close_step_timing_r938.sh` 가 부하가 높을 때 1회 `FAILED 2`(rc=1)로 흔들렸다. 곧바로 4회 재실행 = **115 PASS · FAIL 0 · rc=0**(3회 연속 포함). 흔들린 2단언의 이름은 그 실행의 꼬리 출력만 남아 확정하지 못했다 — 시각 경계(ⓗ ≤3초) 흔들림으로 본다(카드 r4 절 «알려진 한계 3» 과 같은 자리). 재현 스크립트는 위 6종 그대로다.
+2. 쪼개기(큰 나노의 70초 초과)는 이 카드가 닫지 않는다 — 카드 r4 절대로 **별 카드 후보**다. 이 카드가 닫는 것은 «비교 기준을 잘못 골라 1,722커밋을 비교하던 것» 이다.
+3. `--branch` 가 정본 줄기일 때 막는 자리(825행)는 여전히 `FT_NANO_FEAT` 를 본다(카드 §구현범위 1 범위 밖 · r4 기록 그대로).

@@ -75,6 +75,6 @@ if [ -z "${FT_TEST_GATE:-}" ]; then
     cmp -s "$KIT/$f" "$INST/$f" && ok "⑧cmp $f" || bad "⑧cmp $f 불일치"
     bash -n "$KIT/$f" && bash -n "$INST/$f" && ok "⑧bash -n $f" || bad "⑧bash -n $f"
   done
-  n="$(wc -l < "$KIT/ft-nano-cherry-gate.sh")"; [ "$n" -le 400 ] && ok "⑧게이트 ${n}줄 ≤ 400" || bad "⑧게이트 ${n}줄 > 400"   # r958: 묶음 호출·7초 상한·진행 파일·해석기로 186 → ≤340 · r3(단일 호출 통로 G·NUL 경로)로 399 → ≤400
+  n="$(wc -l < "$KIT/ft-nano-cherry-gate.sh")"; [ "$n" -le 200 ] && ok "⑧게이트 ${n}줄 ≤ 200" || bad "⑧게이트 ${n}줄 > 200"
 fi
 echo "---"; [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED=$fail"; exit 1; }

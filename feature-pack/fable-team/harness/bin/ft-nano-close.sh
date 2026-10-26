@@ -118,12 +118,6 @@ nf_mult_commits() {  # <repo> <feat> <branch> → 그 검사가 보는 커밋 �
   case "$n" in ''|*[!0-9]*|0) n=1;; esac
   printf '%s\n' "$n"
 }
-nf_mult_batches() {  # <repo> <feat> <branch> → 그 검사가 보는 «묶음 수» = ceil(커밋 수 / FT_CHERRY_BATCH) · 최소 1 (r958: 게이트가 커밋·경로를 묶어 부르므로 작업량 = 묶음 수)
-  local n b
-  n="$(nf_mult_commits "$1" "$2" "$3")"
-  b="${FT_CHERRY_BATCH:-100}"; case "$b" in ''|*[!0-9]*|0) b=100;; esac
-  awk -v n="$n" -v b="$b" 'BEGIN{m=int((n+b-1)/b); if(m<1)m=1; printf "%d\n", m}'
-}
 nf_cap() {  # <고정비> <배수> → min(고정비 + 7 × 배수, 70) · FT_NANO_CAP_S(시험) 가 있으면 그 값
   local f="${1:-1}" m="${2:-1}"
   case "${FT_NANO_CAP_S:-}" in ''|0|*[!0-9]*) ;; *) printf '%s\n' "$FT_NANO_CAP_S"; return 0;; esac
@@ -1142,8 +1136,8 @@ elif [ -x "$HERE/ft-nano-cherry-gate.sh" ]; then
   [ "$SUPER" -eq 0 ] || _gate_args+=(--override "superseded-by $SUPERSEDED")   # R171: 대체 나노는 산출을 랜딩하지 않는다 — cherry REJECT 일 때만 원장 1행(사유 = 대체 카드)
   [ "$SUSP" -eq 0 ] || _gate_args+=(--override "suspended: $SUSP_REASON")   # r450: 중단 나노도 미완 산출을 랜딩하지 않는다(브랜치 보존) — 같은 자리 · 같은 원장
   fi
-  # r958: 배수 = «묶음 수»(ceil(커밋 수 / FT_CHERRY_BATCH)) — 게이트가 커밋·경로를 묶어 부르므로 커밋 수가 아니라 묶음 수에 비례한다(카드 r958 §구현범위 2).
-  _gate_mult="$(nf_mult_batches "$SEAT_REPO" "$_FEAT" "$_gate_br")"; _gate_cap="$(nf_cap "$(nf_fixed cherry)" "$_gate_mult")"
+  # r938 r2 N3: 배수 = 그 검사가 보는 커밋 수(feat..가지) — 커밋 12개짜리 가지가 정상 동작인데 11초에 잘리는 거짓 거절을 막는다.
+  _gate_mult="$(nf_mult_commits "$SEAT_REPO" "$_FEAT" "$_gate_br")"; _gate_cap="$(nf_cap "$(nf_fixed cherry)" "$_gate_mult")"
   _gate_t0="$(nf_now)"
   _gate_out="$(FT_SEAT="$SEAT" nf_bound "$_gate_cap" "$HERE/ft-nano-cherry-gate.sh" "$_FEAT" "$_gate_br" "${_gate_args[@]}" 2>&1)"; _gate_rc=$?
   if [ "$_gate_rc" -eq 124 ]; then
