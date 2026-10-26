@@ -82,6 +82,7 @@ async def main():
             tid = t["id"]
             _urls[tid] = t["url"]
             if tid not in tasks or tasks[tid].done():
+                _w(tid, "rec_attach %s" % t["url"].split("?")[0])  # 탭이 붙은 사실을 남긴다 — 로그 파일이 없을 때 «안 붙음» 과 «출력 0» 을 가른다
                 tasks[tid] = asyncio.create_task(_watch(tid, t["webSocketDebuggerUrl"]))
         await asyncio.sleep(0.5)
     for tk in tasks.values():

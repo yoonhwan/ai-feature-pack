@@ -18,11 +18,11 @@
 | Tailscale·CLI 운용·OCI headroom/cliproxy/pi·tmm | ✅ |
 | hermes OCI·mini·이 맥 | ✅ (mini 슬랙 #talk-aina @aina 응답 오빠 확인 10-25) |
 | mini 자체 IAP 터널(LLM·STT)·옛 키 폐기 | ✅ |
-| 시험 이관 — 러너 1회차 | ✅ 오빠 «통과 인정»(10-25 16:29 · baseline-ko-en 1/1 · **개발 레인 우회** 로 통과) · ★그러나 v65 수정(main `3c250223d1` · M5 release legacy seam_store 배선)을 올리고 우회를 걷으면(flag-off) **말풍선 0(host_empty)** — v65 arch 가 «설계상 정상 아님» 판정 · FE 렌더/러너 판독 쪽 · 가르기 실험 중(아래 §2) |
+| 시험 이관 — 러너 1회차 | ✅ 오빠 «통과 인정»(10-25 16:29 · baseline-ko-en 1/1 · **개발 레인 우회** 로 통과) · ★그러나 v65 수정(main `3c250223d1` · M5 release legacy seam_store 배선)을 올리고 우회를 걷으면(flag-off) **말풍선 0(host_empty)** — v65 arch 가 «설계상 정상 아님» 판정 · FE 렌더/러너 판독 쪽 · 가르기 실험: ★10-26 11:15 같은 코드+dev 레인 회차 통과(ok 1/1 · cer 0 · 호스트 콘솔 653줄 V65-OWNER:accepted 있음 · 쪽지 168947) → v65 arch#313 판정(168955) «층 = flag-off 레인 쪽 · 새 코드 FE 회귀 아님» · 미분리: gateway 가 안 보냄 vs FE 가 안 그림 → flag-off 재회차 요청(h189 → h191 · 기록기에 rec_attach 줄 추가)★ |
 | 위성 나노 «열기→작업→회수→닫기» + 쪽지 왕복 | ✅ h13 rc=0 · h16 rc=0 (sat-mbox.py · 새 키 0 · 이 맥이 ssh 로 pull) |
 | 위성 나노 도구화(하네스) | ⏳ 카드 r902(이슈 3363) · 하네스 마스터 #112 · pi 나노 spawn 됨·진행 중(발주서 `docs/multihost/satellite/ORDER-harness-sat-nano-20261025.md`) · r673~r678 은 r902 착지 뒤 연속 |
 | DB 경로(mini → dev DB) | ⏳ 읽기 전용 검증 끝(`VERIFY-db-path-20261025.md`) · 변경 3개(새 VM `byz-db-fwd`·방화벽 1·IAP 조건 1)는 ★오빠 승인 대기★(이 맥 터널도 옮길지 질문 미답) |
-| OCI hermes 403(OpenRouter 뒤 GMICloud Cloudflare) | 🟡 오빠 요청 «opengateway deepseek ultrafast 넣어주자» → 계획 h 준비됨(§2) |
+| OCI hermes 403(OpenRouter 뒤 GMICloud Cloudflare) | ✅ h211 rc=0 · jarvis 가 opengateway 로 답함(오빠 확인) · 8토큰 빈 답은 추론 토큰 때문(512 에선 정상) |
 | 하네스 카드 r673~r678 | ⏳ |
 
 ## 2. 오빠 손 대기 — 순서대로 한 줄씩(겹쳐 치면 서로 막는다 · 10-26 실측)
