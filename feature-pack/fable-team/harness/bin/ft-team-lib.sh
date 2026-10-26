@@ -32,7 +32,7 @@ ft_team_root() { local t="$1" alt=0 rel root out; [ "${2:-}" = --alt ] && alt=1
         [ -f "$d/ft-harness-root.sh" ] && hr="$(. "$d/ft-harness-root.sh" && ft_harness_root "$d")"; fi
       [ -n "$hr" ] && [ -d "$hr" ] || { echo "ERROR $t 폴더가 \$FT_HARNESS_ROOT 꼴인데 env 가 없거나 폴더가 아니다: ${FT_HARNESS_ROOT:-<없음>}" >&2; return 1; }
       out="${hr%/}/${rel#*/}";;
-    design/teams/*) if [ "$alt" = 1 ]; then out="$root/${rel/design\/teams\//design/}"; else out="$root/$rel"; _ft_team_twin_warn "$root/${rel/design\/teams\//design/}" "$t"; fi;;
+    design/teams/*) if [ "$alt" = 1 ]; then out="$root/${rel/design\/teams\//design/}"; else out="$root/$rel"; _ft_team_twin_warn "$root/${rel/design\/teams\//design/}" "$t" "$root"; fi;;
     design/*)       if [ "$alt" = 1 ]; then out="$root/design/teams/$t/"; else out="$root/$rel"; fi;;
     *) echo "ERROR $t 폴더 칸을 풀지 못했다: $rel" >&2; return 1;;
   esac
@@ -45,10 +45,24 @@ _ft_team_sparse_check() { [ "${FT_TEAM_SPARSE_CHECK:-1}" != 0 ] && [ ! -e "$1/$2
   git -C "$1" ls-files --error-unmatch -- "$2" >/dev/null 2>&1 || return 0
   echo "SPARSE-HIDDEN $2 — 이 워크트리는 자기 팀 폴더만 체크아웃(r444) · 전체 사본 = ft-scratch-repo.sh <base> 에서 돌려라" >&2; return 1; }
 # r447: 명단 새 꼴인데 옛 꼴 폴더에 파일이 남았으면(쌍둥이 공존) 새 꼴을 돌려주고 stderr WARN 1줄 — 옛 꼴로 되돌아가지 않는다
+#   r926: 루트 가지가 origin/main 을 품는지 먼저 본다(rev-list --count HEAD..origin/main 1회 · 7초 상한) — 안 품으면(데이터 루트 = 한참 뒤진 작업 폴더) «이동하라» 대신 «이동 0 · 원장은 ref 정본» 이라고 말한다(그 안내대로 하면 뒤진 가지에 이동 커밋이 생긴다)
 #   FT_TEAM_TWIN_WARN=0 = 끔 — 쌍둥이를 일부러 둘 다 세는 ft_team_cands* 와 stderr 를 값으로 받는 호출처(map-lint)만
-_ft_team_twin_warn() { local old="${1%/}" n; [ "${FT_TEAM_TWIN_WARN:-1}" != 0 ] && [ -d "$old" ] || return 0
+#   _ft_team_branch_state <루트> → stdout `contains|behind:<N>|unknown` rc0 — git 조회 1회 · 7초 상한(넘김·git 실패 = unknown = 가지를 못 물어봤다)
+#     `rev-list --count HEAD..origin/main` 한 번으로 둘 다 된다(0 = main 을 품었다 · N>0 = N 뒤 · 실패 = 못 물어봄) — 7초 상한도 한 번에 건다
+#     r926 r2: timeout·gtimeout 이 둘 다 없으면 git 을 부르지 않고 unknown — 7초 상한 없는 git 호출 금지(DA⑥ r1 반례 2)
+_ft_team_branch_state() { local r="$1" to n
+  to="$(command -v timeout || command -v gtimeout || true)"
+  [ -n "$to" ] || { echo unknown; return 0; }
+  n="$("$to" 7 git -C "$r" rev-list --count HEAD..origin/main 2>/dev/null)"
+  case "$n" in ''|*[!0-9]*) echo unknown;; 0) echo contains;; *) echo "behind:$n";; esac; }
+_ft_team_twin_warn() { local old="${1%/}" t="${2:-}" root="${3:-${FT_REPO_ROOT:-}}" n st; [ "${FT_TEAM_TWIN_WARN:-1}" != 0 ] && [ -d "$old" ] || return 0
   n="$(find "$old" -type f 2>/dev/null | wc -l | tr -d ' ')"; [ "$n" -gt 0 ] || return 0
-  echo "WARN 옛 꼴 잔존 ${n}파일 — ft-team-move.sh --apply $2 (옛 폴더 $old)" >&2; }
+  st=unknown; [ -n "$root" ] && st="$(_ft_team_branch_state "$root")"
+  case "$st" in
+    behind:*) echo "WARN 옛 꼴 잔존 ${n}파일 — 데이터 루트 가지가 main 보다 ${st#behind:} 뒤 · 이동 0 · 원장은 ref 정본 (옛 폴더 $old)" >&2;;
+    contains) echo "WARN 옛 꼴 잔존 ${n}파일 — ft-team-move.sh --apply $t (옛 폴더 $old)" >&2;;
+    *) echo "WARN 옛 꼴 잔존 ${n}파일 — ft-team-move.sh --apply $t (옛 폴더 $old) · 가지 확인 못 함" >&2;;
+  esac; }
 #   ft_old_form_team <경로>         : 경로의 첫 `design/<이름>/` 구간(teams 아님)이 «명단 새 꼴(design/teams/<팀>/) 팀» 이면 팀 이름 출력 rc0 · 옛 꼴 팀·꼴3·명단 밖·design 밖 = rc1 · 명단 못 읽음 = rc2 (r447)
 ft_old_form_team() { local t rel
   [[ "$1" =~ (^|/)design/([a-z0-9][a-z0-9_-]*)/ ]] || return 1; t="${BASH_REMATCH[2]}"; [ "$t" != teams ] || return 1

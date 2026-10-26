@@ -138,6 +138,16 @@ def is_draft() -> bool:
     return os.environ.get("FT_NEWS_MODE") == "draft"
 
 
+def _refuse(state_dir: Path, who: str, why: str) -> bool:
+    """묶음 검증 실패 거절(r922a) — 초안 모드는 발행 0 이 이미 정해진 판이라 planner [긴급] 대신 WARN 1줄만 · 발행 모드는 지금 그대로(무장 = [긴급] 1통).
+
+    armed 판정만 여기서 따로 보는 이유: 통지는 goal_gate.refuse 안에 있어 «로그만 남기는» 길이 없다 — 그 문을 건너뛰고 같은 값을 돌려준다."""
+    if not is_draft() or not goal_gate.armed(state_dir):
+        return goal_gate.refuse(state_dir, who, why)
+    LOG.warning("WARN draft 묶음 검증 실패(긴급 0 — 발행 0 모드) %s", why[:200])
+    return True
+
+
 def _receipt(out: str) -> Receipt | None:
     """발행 도구 stdout → 마지막 «결과 줄» 1개만 해석 — 새 글/채택 {ts, channel, permalink|None} · 같은 내용 {} · 해석 실패 None (R217).
 
@@ -156,8 +166,10 @@ def publish(news: Path, state: Path, parts: list[str], now: datetime, cur: str) 
     news.mkdir(parents=True, exist_ok=True)
     # R362 — 판 묶음 «전체» 를 보내기 전에 검증(초안 모드 포함) + 묶음별 검증 영수증 열기(이미 완료·다른 본문이면 문제) · 무장이면 전체 발행 0 + planner [긴급] 1통 · 기준선·처리 기록 불변
     if why := goal_gate.verify_bundle(parts) or goal_gate.write_receipt(state.parent, parts):
-        if goal_gate.refuse(state.parent, f"bundle {cur[:10]}", why):
+        blocked = _refuse(state.parent, f"bundle {cur[:10]}", why)
+        if blocked and not is_draft():  # 초안 모드 = _refuse 가 WARN 1줄만 남긴다(발행 0 은 모드가 이미 정했다)
             LOG.error("REJECT 골 표 없음 — %s · 발행 0", why)
+        if blocked:
             return 3, []
     cmd = shlex.split(os.environ.get("FT_NEWS_PUBLISH") or f"bash {HERE / 'ft-news-publish.sh'}")
     posts: list[Receipt | None] = []
