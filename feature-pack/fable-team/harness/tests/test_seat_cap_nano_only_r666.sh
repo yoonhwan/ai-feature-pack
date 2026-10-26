@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # test_seat_cap_nano_only_r666.sh — r666: 위성팀 좌석 한도가 팀장·은퇴 팀장 화면까지 세어 나노 자리가 1개 · 거절이 rc1 로 조용히 끝남
 #   → ⓐ ft_seat_cap.py count = byz-<팀>-nano- 만(위성 합 한도도) ⓑ 나노 3개면 한도 그대로(숫자 유지)
-#   ⓒ 한도면 ft-resource-reclaim.sh --team 회수 1회 → 재판정 → 그래도 차면 ft_spawn_queue.py add → exit 7 ⓔ tmux 실패 = ERROR rc1 그대로
+#   ⓒ 한도면 ft-resource-reclaim.sh --team 회수 1회 → 재판정 → ★r921 W1★ live=cap 이면 WARN + 진행 · live>=cap+1 이면 ft_spawn_queue.py add → exit 7
+#   ⓔ 판정기 단독 tmux 실패 = ERROR rc1 그대로 · 스폰 경로는 ERROR 줄 + WARN 측정 실패 + 진행(r921)
 # 전부 mktemp — 가짜 tmux·임시 리포·가짜 센서. 실 tmux·실 명부·실 좌석·실 회수 0.
 set -uo pipefail
 export FT_ALLOW_TRACKED_BIN=1
@@ -71,13 +72,20 @@ spawn() { ( cd "$T/repo" && . "$ROOT/.fable-team/seats-lecture.json" 2>/dev/null
   FT_RECLAIM_SH="$T/reclaim.sh" PATH="$FAKE:$PATH" bash "$KIT/ft-nano-spawn.sh" "$CARD" "$@" 2>&1 ); }
 sess byz-lecture-master-claude#10 byz-lecture-master-claude#9 byz-lecture-nano-a#0 byz-lecture-nano-b#0 byz-lecture-nano-c#0
 
-# ⓒ 한도(나노 3/3) → 회수 1회(닫은 것 0) → 재판정 한도 → 순번 큐 + exit 7 · 카드 1줄
+# ⓒ 한도(나노 3/3 = cap) → 회수 1회(닫은 것 0) → 재판정 한도 → ★r921 W1★ cap+1 까지 연다(WARN 1줄 · 큐 0 · 다음 단계로)
 rm -f "$T/reclaim.calls" "$Q"
 o="$(spawn)"; rc=$?
-{ [ "$rc" = 7 ] && grep -q '^REJECT 좌석 상한 lecture 3/3' <<<"$o" && grep -q '^QUEUED lecture 순번=1' <<<"$o" \
-  && [ "$(grep -c . "$T/reclaim.calls" 2>/dev/null || echo 0)" = 1 ] && grep -q -- '--need 1 --team lecture' "$T/reclaim.calls" \
-  && [ -f "$Q" ] && [ "$(grep -c . "$Q")" = 1 ] && grep -q 'x.md' "$Q"; } \
-  && ok "ⓒ 한도 → 회수 1회(--team lecture · --need 1) → 재판정 한도 → QUEUED lecture 순번=1 · rc7 · 큐 1줄" || bad "ⓒ rc=$rc o=$o / calls=$(cat "$T/reclaim.calls" 2>/dev/null)"
+{ [ "$rc" != 7 ] && grep -q 'WARN resource seat-cap REJECT 좌석 상한 lecture 3/3' <<<"$o" && ! grep -q '^QUEUED' <<<"$o" \
+  && [ "$(grep -c . "$T/reclaim.calls" 2>/dev/null || echo 0)" = 1 ] && grep -q -- '--need 1 --team lecture' "$T/reclaim.calls" && [ ! -f "$Q" ]; } \
+  && ok "ⓒ 한도(cap) → 회수 1회(--team lecture · --need 1) → WARN 1줄 + 진행(rc=$rc · 큐 0 · r921)" || bad "ⓒ rc=$rc o=$o / calls=$(cat "$T/reclaim.calls" 2>/dev/null)"
+# ⓒ+ 나노 4/3(cap+1) → 회수 1회(닫은 것 0) → 그래도 포화 → 순번 큐 + exit 7 · 카드 1줄
+sess byz-lecture-master-claude#10 byz-lecture-nano-a#0 byz-lecture-nano-b#0 byz-lecture-nano-c#0 byz-lecture-nano-d#0
+rm -f "$T/reclaim.calls" "$Q"
+o="$(spawn)"; rc=$?
+{ [ "$rc" = 7 ] && grep -q '^REJECT 좌석 상한 lecture 4/3' <<<"$o" && grep -q '^QUEUED lecture 순번=1' <<<"$o" \
+  && [ "$(grep -c . "$T/reclaim.calls" 2>/dev/null || echo 0)" = 1 ] && [ -f "$Q" ] && [ "$(grep -c . "$Q")" = 1 ] && grep -q 'x.md' "$Q"; } \
+  && ok "ⓒ+ cap+1(4/3) → 회수 1회 → 재판정 포화 → QUEUED lecture 순번=1 · rc7 · 큐 1줄" || bad "ⓒ+ rc=$rc o=$o"
+sess byz-lecture-master-claude#10 byz-lecture-master-claude#9 byz-lecture-nano-a#0 byz-lecture-nano-b#0 byz-lecture-nano-c#0
 
 # ⓒ' --dry-run 은 회수·큐 0 · 옛 rc1 그대로 (부작용 0 지점 시험)
 rm -f "$T/reclaim.calls" "$Q"
@@ -95,10 +103,11 @@ o="$(spawn)"; rc=$?
 { grep -q -- '--team lecture' "$T/reclaim.calls" && ! grep -q -- '--preventive' "$T/reclaim.calls"; } \
   && ok "ⓓ 회수 호출 = --team lecture(팀 한정 · 전좌석 선제 회수 아님)" || bad "ⓓ calls=$(cat "$T/reclaim.calls")"
 
-# ⓔ' 스폰 경로에서도 tmux 실패 = ERROR rc1 (큐 0 · 조용한 통과 0)
+# ⓔ' 스폰 경로의 tmux 실패 = ERROR 줄 + ★r921 W1★ «측정 실패 WARN + 진행»(정지 0 · 큐 0 · 조용한 통과 0)
 printf '#!/bin/sh\necho "tmux: boom" >&2; exit 1\n' > "$FAKE/tmux"; rm -f "$T/reclaim.calls" "$Q"
 o="$(spawn)"; rc=$?
-{ [ "$rc" = 1 ] && grep -q '^ERROR' <<<"$o" && [ ! -f "$Q" ]; } && ok "ⓔ' 스폰: tmux 실패 = ERROR rc1 · 큐 0" || bad "ⓔ' rc=$rc o=$o"
+{ [ "$rc" != 7 ] && grep -q '^ERROR' <<<"$o" && grep -q 'WARN 좌석 상한 측정 실패' <<<"$o" && [ ! -f "$Q" ] && [ ! -f "$T/reclaim.calls" ]; } \
+  && ok "ⓔ' 스폰: tmux 실패 = ERROR 줄 + WARN 측정 실패 · 진행(rc=$rc · 다음 단계가 막은 것) · 큐 0" || bad "ⓔ' rc=$rc o=$o"
 
 [ "$fail" = 0 ] && echo "ALL PASS" || echo "FAILED ($fail)"
 exit "$fail"

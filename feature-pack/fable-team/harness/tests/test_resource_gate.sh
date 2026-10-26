@@ -52,8 +52,8 @@ gate_checks() {
   [ $RC -eq 0 ] && echo "$OUT" | grep -q '^OK ' || { echo "ⓐ rc=$RC $OUT"; e=1; }
   OUT="$(env FT_RES_ROOT="$R" $LOW FT_DISK_MIN_GIB=999999 bash "$d/ft-resource-gate.sh" check 2>&1)"; RC=$?
   { [ $RC -eq 0 ] && echo "$OUT" | grep -q '^WARN resource disk='; } || { echo "r921 ⓑ 디스크 소프트 문턱 = WARN+진행 rc=$RC $OUT"; e=1; }
-  OUT="$(env FT_RES_ROOT="$R" $LOW FT_DISK_HARD_MIN_MIB=999999999 bash "$d/ft-resource-gate.sh" check 2>&1)"; RC=$?
-  { [ $RC -eq 3 ] && echo "$OUT" | grep -q '^REJECT resource disk=.*MiB limit=999999999MiB$'; } || { echo "r921 ⓑ' 디스크 하드 하한 = 유일한 REJECT rc=$RC $OUT"; e=1; }
+  OUT="$(env FT_RES_ROOT="$R" $LOW FT_DISK_HARD_MIN_MIB=9999999 bash "$d/ft-resource-gate.sh" check 2>&1)"; RC=$?
+  { [ $RC -eq 3 ] && echo "$OUT" | grep -q '^REJECT resource disk=.*MiB limit=9999999MiB$'; } || { echo "r921 ⓑ' 디스크 하드 하한 = 유일한 REJECT rc=$RC $OUT"; e=1; }
   mk_freeze
   OUT="$(env FT_RES_ROOT="$R" $LOW bash "$d/ft-resource-gate.sh" check 2>&1)"; RC=$?
   { [ $RC -eq 0 ] && echo "$OUT" | grep -q '^WARN resource freeze=시험 동결 limit=0$'; } || { echo "r921 ⓒ 동결 = WARN+진행 rc=$RC $OUT"; e=1; }

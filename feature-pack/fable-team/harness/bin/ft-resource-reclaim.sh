@@ -36,8 +36,12 @@ while [ $# -gt 0 ]; do case "$1" in
 [ "$PREV" = 0 ] || [ "$HAVE_ONREJ" = 0 ] || { echo "usage: --preventive 는 --on-reject 와 함께 쓰지 않는다" >&2; exit 2; }
 # R213·R320·r921: 좌석을 닫아 풀리는 사유(에이전트 수·스왑·메모리·압력·속도)가 아니면 정리할 것이 없다 — 시작 작업(tmux·명부)·exit 코드 변질 전에 그대로 돌려준다.
 #   r921: 문지기가 WARN + 진행으로 바뀌어서 «REJECT» 뿐 아니라 «WARN resource agents=…» 도 같은 경로로 받는다(넘은 채 여는 대신 회수를 한 번 해 보는 자리). 좌석을 닫아 풀릴 수 없는 사유(디스크·동결)는 그대로 통과(rc0).
-if [ "$HAVE_ONREJ" = 1 ] && ! printf '%s\n' "$ONREJ" | grep -Eq '^(REJECT|WARN) resource (agents|swap|memfree|level|rate)='; then
-  printf '%s\n' "$ONREJ"; printf '%s\n' "$ONREJ" | grep -q '^ERROR ' && exit 4; exit 0
+#   W3(DA⑥ r2): 줄을 «;» 로 나눠 «모든» 항목을 본 뒤 조기 종료를 정한다 — 첫 항목만 보던 정규식은 `freeze=…; agents=99 limit=65` 의 agents 를 놓쳤다.
+if [ "$HAVE_ONREJ" = 1 ]; then
+  _items0="$(printf '%s\n' "$ONREJ" | sed -nE 's/^(REJECT|WARN) resource //p' | tr ';' '\n' | sed 's/^[[:space:]]*//')"
+  if ! printf '%s\n' "$_items0" | grep -Eq '^(agents|swap|memfree|level)=[0-9]|^rate=-?[0-9]'; then
+    printf '%s\n' "$ONREJ"; printf '%s\n' "$ONREJ" | grep -q '^ERROR ' && exit 4; exit 0
+  fi
 fi
 # r502: launchd 기본 PATH(/usr/bin:/bin:…)엔 홈브루 tmux 가 없다 — 끝에 덧붙여 어디서 불려도 같은 tmux 를 찾는다(앞쪽 PATH·시험 대역 우선순위는 그대로) · 못 찾으면 «세션 0» 이 아니라 ERROR
 PATH="$PATH:${FT_RECLAIM_EXTRA_PATH:-/opt/homebrew/bin:/usr/local/bin}"; export PATH

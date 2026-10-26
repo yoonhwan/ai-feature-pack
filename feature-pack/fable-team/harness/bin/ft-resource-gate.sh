@@ -10,7 +10,8 @@
 #                    부르는 쪽(spawn·tick)이 WARN 을 받으면 회수(ft-resource-reclaim) 1회 → 다시 check → 그래도 WARN 이면 그대로 진행한다.
 #            REJECT = 새 파일을 못 쓰는 «진짜 못 쓰는» 두 경우만 → `REJECT resource …` + exit 3
 #                    ⓐ 디스크 여유 < FT_DISK_HARD_MIN_MIB(기본 1024 MiB) ⓑ 디스크 측정 실패(못 재면 새 파일 쓸 수 있는지도 모른다)
-#            하한 env(FT_DISK_HARD_MIN_MIB)가 양의 정수가 아니면(문자·0·음수) «ERROR 하한 값 이상(<값>)» + exit 3 — 기본값으로 떨어뜨리지 않는다(W2).
+#            하한 env(FT_DISK_HARD_MIN_MIB)가 1~7자리 양의 정수가 아니면(문자·0·음수·큰 수) «ERROR 하한 값 이상(<값>)» + exit 3 — 기본값으로 떨어뜨리지 않는다(W2).
+#            디스크 비교에서 정수 비교 오류가 나면(측정값·문턱 이상) «디스크 측정 실패» REJECT + exit 3(W2 r2).
 #            그 밖의 측정 실패(swap·level·memfree·rate·agents)는 REJECT 가 아니라 WARN + 그 축만 건너뛴다(rc0 · BYZ #0 은 «조용한 통과» 만 금지 — 낼 수 없는 판정으로 팀을 세우지 않는다 · 오빠 21:5x).
 #            ★exit 4 는 없어졌다★ — 옛 호출자(tick·reclaim)의 «ERROR resource measure» 갈래는 이제 WARN rc0 이다.
 #            --succession = 승계(1석 교대 · 순증 0)용 별 한도(에이전트 수 면제 · 압력 4 만 넘음 · 메모리 10% · 속도 1024).
@@ -33,12 +34,12 @@ case "${2:-}" in "") ;; --succession) [ "$CMD" = check ] && SUCC=1 || SUCC=x;; -
 [ "$SUCC" != x ] || { echo "usage: $0 <check [--succession|--research]|status>" >&2; exit 2; }
 
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-resource-swap-lib.sh" || { echo "ERROR resource ft-resource-swap-lib.sh 없음(r672: swap 축 판정 한 곳)"; exit 4; }   # r672 H2: 문지기·감시자가 같은 함수를 쓴다
-# ★W2(DA⑥ r1)★ 하한 값 검증 — 빈 값 = 1024 · 양의 정수만 유효 · 그 밖(문자·0·음수)은 «기본으로 떨어뜨리지 않고» ERROR + REJECT(설정 오류를 «여유 있음» 으로 읽으면 문이 열린다 · BYZ #0 NO SILENT FALLBACK)
+# ★W2(DA⑥ r1 · r2)★ 하한 값 검증 — 빈 값 = 1024 · 유효 = 숫자 1~7자리(최대 9,999,999 MiB) ∧ 1 이상 · 그 밖(문자·0·음수·큰 수)은 «기본으로 떨어뜨리지 않고» ERROR + rc3
+#   (큰 수는 산술 넘침으로 작은 값이 된다 — 18446744073709551617 → 1 · 설정 오류를 «여유 있음» 으로 읽으면 문이 열린다 · BYZ #0 NO SILENT FALLBACK)
 DISK_HARD_MIB="${FT_DISK_HARD_MIN_MIB:-1024}"
-case "$DISK_HARD_MIB" in
-  ''|*[!0-9]*) echo "ERROR 하한 값 이상(${FT_DISK_HARD_MIN_MIB:-}) — FT_DISK_HARD_MIN_MIB 는 양의 정수(기본 1024)"; exit 3;;
-  *) [ "$((10#$DISK_HARD_MIB))" -ge 1 ] || { echo "ERROR 하한 값 이상(${FT_DISK_HARD_MIN_MIB:-}) — FT_DISK_HARD_MIN_MIB 는 양의 정수(기본 1024)"; exit 3; } ;;
-esac
+_dh_ok=0; [[ "$DISK_HARD_MIB" =~ ^[0-9]{1,7}$ ]] && [ "$((10#$DISK_HARD_MIB))" -ge 1 ] && _dh_ok=1
+[ "$_dh_ok" = 1 ] || { echo "ERROR 하한 값 이상(${FT_DISK_HARD_MIN_MIB:-}) — FT_DISK_HARD_MIN_MIB 는 1~9999999 MiB 정수(기본 1024)"; exit 3; }
+[ "$_dh_ok" != 1 ] || DISK_HARD_MIB="$((10#$DISK_HARD_MIB))"
 DISK_MIN="${FT_DISK_MIN_GIB:-30}"
 SWAP_HARD="${FT_SWAP_HARD_MIB:-12288}"
 AGENT_MAX="${FT_AGENT_MAX:-65}"
@@ -187,8 +188,15 @@ fi
 
 # check — ★r921★ 넘으면 WARN 1줄 + exit 0(진행) · 디스크 하드 하한·디스크 측정 실패만 REJECT
 [ "$FREEZE_FLAG" = 1 ] && warn_add "freeze=$(sed -n '1p' "$FREEZE" 2>/dev/null) limit=0"
-if [ "$DISK_MIB" != na ] && [ "$DISK_MIB" -lt "$DISK_HARD_MIB" ]; then echo "REJECT resource disk=${DISK_MIB}MiB limit=${DISK_HARD_MIB}MiB"; exit 3; fi
-if [ "$DISK_GIB" != na ] && [ "$DISK_GIB" -lt "$DISK_MIN" ]; then warn_add "disk=${DISK_GIB}GiB limit=${DISK_MIN}GiB"; fi
+# W2(r2): 디스크 비교의 정수 비교 오류(rc≥2 · 측정값·문턱 이상)는 «안 넘음» 이 아니다 — 디스크 측정 실패 REJECT rc3(WARN + rc0 으로 새는 길 0)
+if [ "$DISK_MIB" != na ]; then
+  [ "$DISK_MIB" -lt "$DISK_HARD_MIB" ] 2>/dev/null; _dc=$?
+  case "$_dc" in 0) echo "REJECT resource disk=${DISK_MIB}MiB limit=${DISK_HARD_MIB}MiB"; exit 3;; 1) ;; *) mf disk "디스크 측정 실패(비교 오류 disk=${DISK_MIB}MiB limit=${DISK_HARD_MIB}MiB)";; esac
+fi
+if [ "$DISK_GIB" != na ]; then
+  [ "$DISK_GIB" -lt "$DISK_MIN" ] 2>/dev/null; _dc=$?
+  case "$_dc" in 0) warn_add "disk=${DISK_GIB}GiB limit=${DISK_MIN}GiB";; 1) ;; *) mf disk "디스크 측정 실패(비교 오류 disk=${DISK_GIB}GiB limit=${DISK_MIN}GiB)";; esac
+fi
 if [ "$LEVEL" != na ] && [ "$LEVEL" -gt "$LEVEL_MAX" ]; then warn_add "level=$LEVEL limit=$LEVEL_MAX"; fi
 # R357: swap 절대량은 커널이 경고(level>=SWAP_LEVEL_MIN)라 말할 때만 넘음 · 승계(순증 0)는 swap 축 면제 — level·memfree·rate 는 그대로
 if [ "$SUCC" != 1 ] && [ "$SWAP_MIB" != na ] && [ "$LEVEL" != na ] && [ "$MEMFREE" != na ] && ft_swap_axis_hit "$SWAP_MIB" "$LEVEL" "$MEMFREE" "$SWAP_HARD" "$SWAP_LEVEL_MIN" "$SWAP_MEMFREE_MAX"; then

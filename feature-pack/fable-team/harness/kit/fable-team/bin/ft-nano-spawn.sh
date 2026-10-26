@@ -78,8 +78,16 @@ if [ -z "${FT_NANO_PREFIX:-}" ]; then
 fi
 # ★v65 기본 접두 = 공용 규칙(ft_teamset.py)★ — 이름 규칙을 스크립트마다 복사하지 않는다(두 벌 규칙 0). 규칙을 못 읽으면 추측 없이 REJECT.
 [ -n "${FT_NANO_PREFIX:-}" ] || FT_NANO_PREFIX="$DEF_NANO_PREFIX"
-# ★좌석 상한 (R252 · 판정 1949)★: 팀 env 에 FT_TEAM_SEAT_CAP·FT_GROUP_SEAT_CAP 가 있는 팀(위성)만 — 부작용 0 지점(워크트리·세션·명부 «전»)에서 센다. env 가 없는 팀은 검사 0.
-#   r666: 한도면 «끝난·유휴 나노 회수 1회 → 다시 셈 → 그래도 차면 순번 큐(exit 7)» — 팀셋 나노 상한과 같은 꼴(조용한 rc1 0). --dry-run 은 회수·큐 0(옛 rc1 그대로).
+# ★EXIT 정리 목록 (r921 r3 · DA⑥ r2 W4)★: trap 을 «덮어쓰지» 않는다 — 정리 함수를 _ON_EXIT 에 이어 붙이고 trap 은 _on_exit 하나만 건다(잠금 해제·사건 원장 abort 가 둘 다 돈다).
+_ON_EXIT=()
+_on_exit() { local f; for f in ${_ON_EXIT[@]+"${_ON_EXIT[@]}"}; do "$f" || true; done; }
+trap _on_exit EXIT
+# ★좌석 상한 (R252 · 판정 1949 · ★r921 r3 = DA⑥ r2 W1★)★: 팀 env 에 FT_TEAM_SEAT_CAP·FT_GROUP_SEAT_CAP 가 있는 팀(위성)만 — 부작용 0 지점(워크트리·세션·명부 «전»)에서 센다. env 가 없는 팀은 검사 0.
+#   팀셋 상한과 같은 W4 규칙: 판정기 REJECT(live >= cap) = 회수 1회(ft_reclaim_capped · 7초 상한) → 다시 셈 → live < cap+1 이면 WARN 1줄 + 개설 · 그래도 live >= cap+1 이면 순번 큐(exit 7).
+#   W1: 상한 측정 실패(ERROR · `N/M` 꼴 못 읽음)는 정지가 아니다 — `WARN 좌석 상한 측정 실패 — 진행` 1줄. --dry-run 은 회수·큐 0(REJECT 면 옛 rc1 그대로).
+_cap_fields() { # <판정기 출력> → "live cap" (`REJECT … N/M` 꼴 · 못 읽으면 빈 값)
+  printf '%s\n' "$1" | sed -n 's/^REJECT .* \([0-9][0-9]*\)\/\([0-9][0-9]*\)$/\1 \2/p' | head -1
+}
 if [ -n "${FT_TEAM_SEAT_CAP:-}${FT_GROUP_SEAT_CAP:-}" ]; then
   [ -f "$HERE/ft_seat_cap.py" ] || { echo "REJECT ft_seat_cap.py 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
   _capt="$(printf '%s' "${FT_NANO_PREFIX:-}" | sed -n 's/^byz-\([a-z0-9]*\)-nano-$/\1/p')"
@@ -87,22 +95,30 @@ if [ -n "${FT_TEAM_SEAT_CAP:-}${FT_GROUP_SEAT_CAP:-}" ]; then
   if [ "$_caprc" != 0 ]; then
     case "$_cap" in
       REJECT*)
-        if [ "$DRY" != 1 ]; then
-          [ -n "$_capt" ] || { printf '%s\n' "$_cap"; echo "REJECT 좌석 상한 — FT_NANO_PREFIX 에서 팀 이름을 못 읽어 회수·큐 불가"; exit 1; }
-          bash "${FT_RECLAIM_SH:-$HERE/ft-resource-reclaim.sh}" --caller "$FROM" --need 1 --team "$_capt" >&2
+        [ "$DRY" != 1 ] || { printf '%s\n' "$_cap"; exit 1; }   # --dry-run: 회수·큐 0 · 옛 rc1 그대로(판정만)
+        if [ -n "$_capt" ]; then
+          _cr_out="$(mktemp "${TMPDIR:-/tmp}/ft-r921-capreclaim.XXXXXX")"
+          ft_reclaim_capped "$_cr_out" bash "${FT_RECLAIM_SH:-$HERE/ft-resource-reclaim.sh}" --caller "$FROM" --need 1 --team "$_capt"; _crrc=$?
+          sed -n '1,40p' "$_cr_out" >&2; rm -f "$_cr_out"
+          [ "$_crrc" != 124 ] || echo "WARN 회수 시간 초과(${FT_RECLAIM_TIMEOUT_SEC:-7}초) — 진행" >&2
           _cap="$(python3 "$HERE/ft_seat_cap.py" --root "$ROOT" 2>&1)"; _caprc=$?
-          if [ "$_caprc" != 0 ]; then
-            case "$_cap" in
-              REJECT*)
-                printf '%s\n' "$_cap"
-                [ -f "$HERE/ft_spawn_queue.py" ] || { echo "REJECT ft_spawn_queue.py 없음: $HERE (순번 큐를 쓸 수 없다)"; exit 1; }
-                python3 "$HERE/ft_spawn_queue.py" add --root "$ROOT" --prefix "${FT_NANO_PREFIX:-ft-v65-temp-}" --card "$IDX" --from "$FROM"
-                exit 7;;
-            esac
+        else echo "WARN 좌석 상한 — FT_NANO_PREFIX 에서 팀 이름을 못 읽어 회수 0 — 진행" >&2; fi
+        if [ "$_caprc" != 0 ]; then
+          read -r _cl _cc <<<"$(_cap_fields "$_cap")"
+          if [ -z "${_cl:-}" ] || [ -z "${_cc:-}" ]; then
+            printf '%s\n' "$_cap"
+            echo "WARN 좌석 상한 측정 실패(재검 ${_cap%%$'\n'*}) — 진행(r921: 정지는 디스크 하한·디스크 측정 실패 둘뿐)" >&2
+          elif [ "$_cl" -ge "$((_cc + 1))" ]; then
+            printf '%s\n' "$_cap"
+            [ -f "$HERE/ft_spawn_queue.py" ] || { echo "REJECT ft_spawn_queue.py 없음: $HERE (순번 큐를 쓸 수 없다)"; exit 1; }
+            python3 "$HERE/ft_spawn_queue.py" add --root "$ROOT" --prefix "${FT_NANO_PREFIX:-ft-v65-temp-}" --card "$IDX" --from "$FROM"
+            exit 7
+          else
+            echo "WARN resource seat-cap ${_cap%%$'\n'*} — 회수 1회 뒤 cap+1 까지 열어 준다(r921 · 순번 큐 적재 0)" >&2
           fi
         fi;;
+      *) printf '%s\n' "$_cap"; echo "WARN 좌석 상한 측정 실패(rc=$_caprc) — 진행(r921: 정지는 디스크 하한·디스크 측정 실패 둘뿐)" >&2;;
     esac
-    [ "$_caprc" = 0 ] || { printf '%s\n' "$_cap"; exit 1; }
   fi
 fi
 # ★팀셋 나노 상한 (r-teamset-standard · 판정 2170 · ★r921 r2 개정 = DA⑥ r1 W1·W4★)★
@@ -147,7 +163,7 @@ if [ "${FT_TEAMSET:-1}" != 0 ]; then
       echo "WARN resource teamset 잠금 대기 초과(7초) — 순번 큐로 보낸다(이중 개설 0)" >&2
       _ts_queue "잠금 대기 초과" "$_tsp"
     fi
-    trap '_ts_lock_free' EXIT
+    _ON_EXIT+=(_ts_lock_free)   # W4: 덮어쓰기 0 — 정리 목록에 이어 붙인다
   fi
   _tso="$(python3 "$HERE/ft_teamset.py" cap --root "$ROOT" --md "$_tsmd" --prefix "$_tsp" 2>&1)"; _tsrc=$?
   _tst="$(printf '%s' "$_tso" | awk '{print $2}')"
@@ -458,7 +474,8 @@ fi
 # 사건 원장 훅(PLAN-status-sheet §3-1 · 근원 ⑥): prepared 를 «먼저» — 못 쓰면 착수 거절 · 성공(⑥ 끝)에 committed · 그 밖의 종료는 abort(trap)
 _SK="$(bash "$HERE/ft-sheet-events.sh" key spawn "$SLUG" "$NAME")"; _ST="$(printf '%s' "$IDX_REL" | sed -n 's#^design/\(teams/\)\{0,1\}\([a-z0-9]*\)/indices/.*#\2#p')"
 bash "$HERE/ft-sheet-events.sh" prepare "$_SK" "$(python3 -c 'import json,sys;print(json.dumps(dict(zip(("ev","team","id","seat","ref","by"),sys.argv[1:]))))' spawn "${_ST:-v65}" "$SLUG" "$NAME" "$IDX_REL" "$FROM")" >/dev/null || { echo "REJECT 사건 원장 prepared 실패 — 착수 거절(부작용 0)"; exit 1; }
-trap 'bash "$HERE/ft-sheet-events.sh" abort "$_SK" 2>/dev/null' EXIT
+_sheet_abort() { bash "$HERE/ft-sheet-events.sh" abort "$_SK" 2>/dev/null; }
+_ON_EXIT+=(_sheet_abort)   # W4: trap 덮어쓰기 0 — 잠금 해제(_ts_lock_free)와 abort 가 둘 다 돈다
 if [ "$STAMP_BASE" = 1 ]; then
   python3 - "$IDX" "$CUR_HEAD" <<'PY' || { echo "REJECT 카드 base_sha 기록 실패($IDX)"; exit 1; }
 import re, sys, datetime

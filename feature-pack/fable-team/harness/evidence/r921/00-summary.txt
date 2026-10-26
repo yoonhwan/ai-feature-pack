@@ -68,3 +68,19 @@ r921 — 자원·상한 «정지» 를 «회수 먼저 → WARN 1줄 + 진행» 
 
 ■ 범위 밖(그대로 둠)
   회수 대상·조건(R198 · nano-close 표준승인) · zombie-clean · 감시자(ft-resource-watch.sh) 알림 문구 · 문턱 값(에이전트 65 = 오빠 판정 1883·1885) · design/ 문서(변경 0).
+
+■ r3 (DA⑥ r2 astra HOLD = 보류 2회 → 하드 룰 14 · DECISION-r921-r3-final 고침 5 그대로 · claude-opus-5-5 · base ae0ced38)
+  고침 1 W1 팀 좌석 cap 길(ft-nano-spawn.sh 좌석 상한 블록) — REJECT(live>=cap) = 회수 1회(ft_reclaim_capped) → 재검 → live<cap+1 이면 WARN + 개설 · live>=cap+1 이면 큐 rc7 · 판정기 ERROR(측정 실패) = WARN + 진행 · --dry-run 은 옛 rc1 그대로
+  고침 2 W2 큰 수(ft-resource-gate.sh) — 하한 = ^[0-9]{1,7}$ ∧ >=1(그 밖 ERROR rc3) · 디스크 비교 정수 오류 = REJECT disk-measure «디스크 측정 실패» rc3(두 비교 모두)
+  고침 3 W3 입구(ft-resource-reclaim.sh) — --on-reject 줄을 «;» 로 나눠 모든 항목을 본 뒤 조기 종료 · spawn 의 회수 호출 3곳 전부 ft_reclaim_capped 경유(직접 호출 0 · ⓟ'' grep)
+  고침 4 W4 잠금 정리(ft-nano-spawn.sh) — EXIT trap = _on_exit 하나 · _ON_EXIT 목록에 _ts_lock_free·_sheet_abort 를 이어 붙임(덮어쓰기 0)
+  고침 5 ⓐ' = «rc0 ∧ 개설 기록 1» 둘 다
+  시험 추가: ⓝ·ⓝ' · ⓞ·ⓞ'·ⓞ''·ⓞ''' · ⓟ·ⓟ'·ⓟ'' · ⓠ · 변이 5~8(W1~W4 각각 복귀 → 그 칸만 빨강) · 머리 주석에 «git 쓰기 = mktemp 임시 리포 안에서만»
+  결과: r3-green-default.txt(bash 5.3) 71 PASS 0 FAIL rc0 · r3-green-bash32.txt(/bin/bash 3.2.57) 71 PASS 0 FAIL rc0 · 변이 8/8
+        r3-red-ae0ced38.txt — r2 코드 + 새 시험 = 12 FAIL rc1(ⓝ rc7 큐 · ⓞ 넘침 통과 · ⓞ''' 비교 오류 rc0 · ⓟ 조기 종료 · ⓟ'' 직접 호출 1 · ⓠ 잠금 남음 · 새 변이 5개 치환 0)
+  새 규칙 때문에 기대값을 바꾼 인접 시험 2개(범위 = 위 고침의 직접 결과):
+    tests/test_seat_cap_nano_only_r666.sh — ⓒ 3/3 = WARN + 진행(큐 0) · ⓒ+ 4/3 = 큐 rc7 신설 · ⓔ' 스폰 tmux 실패 = ERROR 줄 + WARN 측정 실패 + 진행 → ALL PASS
+    tests/test_resource_gate.sh — ⓑ' 하한 999999999(9자리 = 이제 ERROR) → 9999999(7자리 최대) → rc0
+  인접 rc0: test_resource_gate_pressure · test_resource_reclaim · test_resource_reclaim_pressure · test_resource_freeze_exempt · test_satellite_rosters · test_nano_spawn_teamset_cap · test_nano_spawn_reuse_info · test_nano_spawn_tier · test_role_spawn_team · test_raised_seat · test_spawn_queue_folder_done_r681 · test_teamset_check · test_teamset_gitref
+  범위 밖(그대로): 문턱 값 · ft-successor-open.sh:134 bash 3.2 문법(r925) · ft-nano-spawn.sh:36 spawn 쪽 축 정규식(이미 모든 항목을 본다)
+  press 필요: 없음

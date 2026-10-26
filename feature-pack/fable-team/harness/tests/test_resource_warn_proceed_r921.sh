@@ -9,7 +9,12 @@
 #   ⓔ 동결 파일 → WARN + 진행(일반·승계·리서치 모두)
 #   ⓕ 팀 AT-CAP: 끝난 나노 1 → 회수 후 열림 · 끝난 나노 0 → WARN + 열림(큐 적재 0) · 쌓인 큐는 다음 알림에 맨 앞부터
 #   ⓖ tick 죽은 좌석 재개: 자원 넘음 → WARN + 재개 진행
+#   ⓝ 팀 좌석 상한(FT_TEAM_SEAT_CAP) cap=4·live=4·회수 rc42 → 개설 1 · rc0 · WARN · live=cap+1 → 회수 1회 → 큐 rc7
+#   ⓞ 하한 큰 수(18446744073709551617) → rc3 · 디스크 비교 오류 → rc3 «디스크 측정 실패»
+#   ⓟ 회수 입구가 «;» 뒤 항목까지 본다(freeze=…; agents=99 limit=65 → agents 후보 평가) · 회수 직접 호출 0(grep)
+#   ⓠ 잠금 + abort 등록 → exit 1 → 잠금 폴더 0 · abort 1회(EXIT 정리 목록)
 # 가짜 센서(PATH 앞)·가짜 tmux·가짜 회수·임시 FT_RES_ROOT 만 쓴다 — 실 좌석·실 회수·실 spawn 0.
+# ★git 쓰기(git init·add·commit·update-ref·worktree add)는 전부 mktemp 임시 리포($T/world) 안에서만 한다 — 실 리포·실 ref 쓰기 0(DA 는 «임시 리포 git 쓰기 허용» 으로 전체를 돌려도 된다).★
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 export FT_ALLOW_TRACKED_BIN=1
@@ -260,7 +265,8 @@ cat > "$WF/tmuxc" <<'X'
 #!/bin/sh
 echo "tmuxc $*" >> "$CALL_LOG"
 case "$1" in
-  open) n=""; while [ $# -gt 0 ]; do [ "$1" = --name ] && n="$2"; shift; done; : > "$SESSD/$n"; echo "OPEN $n" >> "$T/open.log"; exit 0;;
+  open) [ -z "${FAKE_OPEN_FAIL:-}" ] || exit 1   # ⓠ: 열기 실패(세션 0) → spawn exit 1
+    n=""; while [ $# -gt 0 ]; do [ "$1" = --name ] && n="$2"; shift; done; : > "$SESSD/$n"; echo "OPEN $n" >> "$T/open.log"; exit 0;;
   *) exit 1;;
 esac
 X
@@ -300,8 +306,8 @@ reclaim_exit() { printf '#!/bin/sh\necho "reclaim $*" >> "${CALL_LOG:-/dev/null}
 # ⓐ' 넘김(WARN)인데 회수가 rc42 로 죽어도 → 개설 1 · WARN 1줄
 reclaim_exit 42
 runspawn "" FAKE_AGENTS=99 FT_AGENT_MAX=65 FT_TEAMSET=0
-{ [ "$(opened)" = 1 ] && case "$OUT" in *"WARN resource agents=99"*) true;; *) false;; esac && ! case "$OUT" in *"REJECT resource"*) true;; *) false;; esac; } \
-  && ok "ⓐ' 자원 넘김 + 회수 rc42 → 개설 1(개설 기록) · WARN 1줄 · 문지기 REJECT 0" || bad "ⓐ' opened=$(opened) rc=$RC $OUT"
+{ [ "$RC" = 0 ] && [ "$(opened)" = 1 ] && case "$OUT" in *"WARN resource agents=99"*) true;; *) false;; esac && ! case "$OUT" in *"REJECT resource"*) true;; *) false;; esac; } \
+  && ok "ⓐ' 자원 넘김 + 회수 rc42 → rc0 ∧ 개설 1(개설 기록) · WARN 1줄 · 문지기 REJECT 0" || bad "ⓐ' opened=$(opened) rc=$RC $OUT"
 # ⓐ'' 정상 자원 → 개설 1 · WARN 0 (대조군: 개설 기록이 «진행» 을 실제로 뜻한다)
 reclaim_exit 0
 runspawn "" FT_TEAMSET=0
@@ -373,6 +379,60 @@ for s in a b c; do : > "$SESSD/byz-alpha-nano-$s#0"; done
   && [ "$(grep -c '^reclaim ' "$CALL_LOG")" = 1 ]; } \
   && ok "ⓛ' live=cap+1 직렬 → 회수 1회 뒤에도 포화 → 순번 큐 rc7 · 개설 0" || bad "ⓛ' rc=$(cat "$T/ser.rc") 세션=$(ls "$SESSD" | grep -c '^byz-alpha-nano-') $(tail -2 "$T/ser.out")"
 
+# ══ ⓝ 팀 좌석 상한 길(FT_TEAM_SEAT_CAP · W1 r2) — 판정기 REJECT 여도 큐로 가지 않는다(cap+1 까지 연다) ══
+QA="$W/.fable-team/state/spawn-queue-alpha.tsv"
+reclaim_exit 42; rm -f "$QA"
+runspawn "byz-alpha-nano-a#0 byz-alpha-nano-b#0 byz-alpha-nano-c#0 byz-alpha-nano-d#0" FT_TEAMSET=0 FT_TEAM_SEAT_CAP=4
+{ [ "$RC" = 0 ] && [ "$(opened)" = 5 ] && [ ! -f "$QA" ] && [ "$(grep -c '^reclaim .*--team alpha' "$CALL_LOG")" = 1 ] \
+  && case "$OUT" in *"REJECT 좌석 상한 alpha 4/4"*) true;; *) false;; esac && case "$OUT" in *"WARN resource seat-cap"*) true;; *) false;; esac \
+  && ! case "$OUT" in *QUEUED*) true;; *) false;; esac; } \
+  && ok "ⓝ cap=4·live=4 · 회수 rc42 → 회수 1회 · rc0 · 개설 1(총 5) · WARN 1줄 · 큐 0" || bad "ⓝ cap=4·live=4 rc=$RC opened=$(opened) q=$([ -f "$QA" ] && echo 1 || echo 0) $OUT"
+reclaim_exit 0; rm -f "$QA"
+runspawn "byz-alpha-nano-a#0 byz-alpha-nano-b#0 byz-alpha-nano-c#0 byz-alpha-nano-d#0 byz-alpha-nano-e#0" FT_TEAMSET=0 FT_TEAM_SEAT_CAP=4
+{ [ "$RC" = 7 ] && [ "$(opened)" = 5 ] && [ "$(grep -c . "$QA" 2>/dev/null || echo 0)" = 1 ] && [ "$(grep -c '^reclaim .*--team alpha' "$CALL_LOG")" = 1 ]; } \
+  && ok "ⓝ' cap=4·live=5(cap+1) → 회수 1회 뒤에도 포화 → 순번 큐 rc7 · 개설 0" || bad "ⓝ' rc=$RC opened=$(opened) $OUT"
+
+# ══ ⓞ 하한 큰 수 · 디스크 비교 오류(W2 r2) ══
+reclaim_exit 0
+runspawn "" FT_TEAMSET=0 FT_DISK_HARD_MIN_MIB=18446744073709551617
+{ [ "$RC" = 3 ] && [ "$(opened)" = 0 ] && case "$OUT" in *"하한 값 이상(18446744073709551617)"*) true;; *) false;; esac; } \
+  && ok "ⓞ 큰 수 하한 18446744073709551617 → rc3 «하한 값 이상» · 개설 0" || bad "ⓞ 큰 수 rc=$RC opened=$(opened) $OUT"
+g check FT_DISK_HARD_MIN_MIB=10000000
+{ [ "$RC" = 3 ] && case "$OUT" in *"하한 값 이상(10000000)"*) true;; *) false;; esac; } && ok "ⓞ' 8자리 하한 10000000 → rc3 «하한 값 이상»" || bad "ⓞ' rc=$RC $OUT"
+g check FT_DISK_HARD_MIN_MIB=9999999
+{ [ "$RC" = 3 ] && case "$OUT" in *"REJECT resource disk="*"limit=9999999MiB"*) true;; *) false;; esac; } && ok "ⓞ'' 7자리 하한 9999999 = 유효(디스크 비교 REJECT)" || bad "ⓞ'' rc=$RC $OUT"
+g check FT_DISK_MIN_GIB=abc
+{ [ "$RC" = 3 ] && case "$OUT" in *"REJECT resource disk-measure"*"디스크 측정 실패"*) true;; *) false;; esac; } && ok "ⓞ''' 디스크 비교 오류(FT_DISK_MIN_GIB=abc) → rc3 «디스크 측정 실패»(WARN rc0 새는 길 0)" || bad "ⓞ''' rc=$RC $OUT"
+
+# ══ ⓟ 회수 입구가 «모든» 항목을 본다(W3 r2) — 진짜 ft-resource-reclaim.sh · --dry-run(kill·로그·mbox 0) ══
+PB="$T/pbin"; bash "$HERE/lib/kit_bin_copy.sh" "$PB" >/dev/null || bad "ⓟ kit_bin_copy"
+printf '{}\n' > "$R/.fable-team/seats.json"; printf '#!/bin/sh\nexit 0\n' > "$R/.fable-team/comm/mbox.sh"; chmod 755 "$R/.fable-team/comm/mbox.sh"
+pr() { OUT="$(env FT_RES_ROOT="$R" FT_SEATS_JSON="$R/.fable-team/seats.json" FT_MBOX_SH="$R/.fable-team/comm/mbox.sh" ZC_RESUME_DIR="$T/resume" FT_PRESS_PERMIT_DIR="$T/permits" \
+  PATH="$S:$PATH" bash "$PB/ft-resource-reclaim.sh" --dry-run --caller byz-test-nano-x#0 --on-reject "$1" --gate "$PB/ft-resource-gate.sh" 2>&1)"; RC=$?; }
+pr "WARN resource freeze=시험 동결 limit=0; agents=99 limit=65"
+{ [ "$RC" = 3 ] && case "$OUT" in *"dry-run:"*) true;; *) false;; esac; } \
+  && ok "ⓟ freeze 뒤 agents → 조기 종료 0 · agents 후보 평가(dry-run 표 · rc3)" || bad "ⓟ freeze 뒤 agents rc=$RC $OUT"
+pr "WARN resource freeze=시험 동결 limit=0; disk=12GiB limit=30GiB"
+{ [ "$RC" = 0 ] && ! case "$OUT" in *"dry-run:"*) true;; *) false;; esac; } \
+  && ok "ⓟ' 좌석으로 안 풀리는 항목뿐(freeze·disk) → 그대로 통과 rc0(대조군)" || bad "ⓟ' rc=$RC $OUT"
+_dcall=0
+for f in ft-nano-spawn.sh ft-role-spawn.sh ft-successor-open.sh ft-tick.sh; do
+  _n="$(grep -E 'bash +"[^"]*ft-resource-reclaim\.sh' "$BIN/$f" | grep -vc ft_reclaim_capped)"; _dcall=$((_dcall + _n))
+done
+{ [ "$_dcall" = 0 ] && [ "$(grep -c 'ft_reclaim_capped .*ft-resource-reclaim\.sh' "$BIN/ft-nano-spawn.sh")" = 3 ]; } \
+  && ok "ⓟ'' 회수 직접 호출 0(spawn·role·successor·tick) · spawn 의 회수 3곳 전부 ft_reclaim_capped 경유" || bad "ⓟ'' 직접 호출 $_dcall"
+
+# ══ ⓠ EXIT 정리 목록(W4 r2) — 잠금 → abort 등록 → exit 1 → 잠금 폴더 0 · abort 1회 ══
+reclaim_exit 0; rm -f "$QA"; rm -rf "$W/.fable-team/state/nano-cap.lock.d"
+mv "$WB/ft-sheet-events.sh" "$WB/ft-sheet-events.real.sh"
+printf '#!/bin/sh\necho "sheet $1" >> "$CALL_LOG"\nexec bash "%s" "$@"\n' "$WB/ft-sheet-events.real.sh" > "$WB/ft-sheet-events.sh"; chmod 755 "$WB/ft-sheet-events.sh"
+runspawn "" FT_TEAMSET=1 FT_TEAMSET_MD="$T/TS4.md" FAKE_OPEN_FAIL=1
+{ [ "$RC" = 1 ] && [ "$(opened)" = 0 ] && [ ! -e "$W/.fable-team/state/nano-cap.lock.d" ] \
+  && [ "$(grep -c '^sheet prepare' "$CALL_LOG")" = 1 ] && [ "$(grep -c '^sheet abort' "$CALL_LOG")" = 1 ]; } \
+  && ok "ⓠ 잠금+abort+exit1 → 잠금 폴더 0 · abort 1회 · 개설 0" \
+  || bad "ⓠ 잠금+abort+exit1 rc=$RC lock=$([ -e "$W/.fable-team/state/nano-cap.lock.d" ] && echo 남음 || echo 0) sheet=$(grep '^sheet' "$CALL_LOG" | tr '\n' ' ') $(printf '%s' "$OUT" | tail -2)"
+mv -f "$WB/ft-sheet-events.real.sh" "$WB/ft-sheet-events.sh"
+
 # ══ 변이 대조 — ★DA⑥ r1★ 각 변이는 «전체 시험 재실행» 으로 판정한다(단일 칸·문법 오류·rc 만 보는 검출은 인정 0) ══
 #   판정 = 변이 사본에서 «그 칸은 FAIL» ∧ «대조 칸은 PASS» ∧ «문법 오류 없음». 재실행 사본은 R921_NO_MUT=1 로 변이 절을 끈다.
 if [ "${R921_NO_MUT:-0}" = 1 ]; then
@@ -413,8 +473,8 @@ mutcase "WARN→REJECT 복귀(문지기)" "bin/ft-resource-gate.sh" \
   "ⓐ swap" "ⓙ FT_DISK_HARD_MIN_MIB=abc"
 # 변이2 «하한 값 검증 끔» → ⓙ 빨강 · 대조 ⓒ 디스크 소프트 초록
 mutcase "하한 값 검증 끔" "bin/ft-resource-gate.sh" \
-  '  '"''"'|*[!0-9]*) echo "ERROR 하한 값 이상(${FT_DISK_HARD_MIN_MIB:-}) — FT_DISK_HARD_MIN_MIB 는 양의 정수(기본 1024)"; exit 3;;' \
-  '  '"''"'|*[!0-9]*) DISK_HARD_MIB=1024;;' \
+  '[ "$_dh_ok" = 1 ] || { echo "ERROR 하한 값 이상' \
+  '[ "$_dh_ok" = 1 ] || [ -n x ] || { echo "ERROR 하한 값 이상' \
   "ⓙ abc" "ⓒ 디스크 4GiB"
 # 변이3 «회수 상한 끔» → ⓚ 빨강 · 대조 ⓐ' 초록
 mutcase "회수 7초 상한 끔" "bin/ft-reclaim-capped.sh" \
@@ -426,6 +486,26 @@ mutcase "cap 잠금 끔" "bin/ft-nano-spawn.sh" \
   '    _ts_lock_take "$ROOT/.fable-team/state/nano-cap.lock.d" || _ts_lock_fail=1' \
   '    true' \
   "ⓛ 세션=" "ⓗ cap=4"
+# 변이5 «좌석 상한 = cap 에서 큐»(W1 복귀) → ⓝ 빨강 · 대조 ⓗ 초록
+mutcase "좌석 상한 cap 에서 큐" "bin/ft-nano-spawn.sh" \
+  '          elif [ "$_cl" -ge "$((_cc + 1))" ]; then' \
+  '          elif [ "$_cl" -ge "$_cc" ]; then' \
+  "ⓝ cap=4·live=4" "ⓗ cap=4"
+# 변이6 «하한 자릿수 검사 끔»(W2 큰 수) → ⓞ 빨강 · 대조 ⓙ abc 초록
+mutcase "하한 7자리 검사 끔" "bin/ft-resource-gate.sh" \
+  '=~ ^[0-9]{1,7}$ ]]' \
+  '=~ ^[0-9]+$ ]]' \
+  "ⓞ 큰 수" "ⓙ FT_DISK_HARD_MIN_MIB=abc"
+# 변이7 «회수 입구 첫 항목만»(W3 복귀) → ⓟ 빨강 · 대조 ⓐ' 초록
+mutcase "회수 입구 첫 항목만" "bin/ft-resource-reclaim.sh" \
+  "_items0=\"\$(printf '%s\\n' \"\$ONREJ\" | sed -nE 's/^(REJECT|WARN) resource //p' | tr ';' '\\n'" \
+  "_items0=\"\$(printf '%s\\n' \"\$ONREJ\" | sed -nE 's/^(REJECT|WARN) resource //p' | sed 's/;.*//'" \
+  "ⓟ freeze 뒤 agents" "ⓐ' 자원 넘김"
+# 변이8 «abort trap 덮어쓰기»(W4 복귀) → ⓠ 빨강 · 대조 ⓗ 초록
+mutcase "abort trap 덮어쓰기" "bin/ft-nano-spawn.sh" \
+  '_ON_EXIT+=(_sheet_abort)' \
+  'trap _sheet_abort EXIT' \
+  "ⓠ 잠금+abort+exit1" "ⓗ cap=4"
 fi
 
 # ── 키트 짝 · 문법 ──
