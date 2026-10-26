@@ -100,27 +100,38 @@ PACK=""; [ -f "$HERE/ft-harness-root.sh" ] && PACK="$(. "$HERE/ft-harness-root.s
 [ -n "$PACK" ] && PACK="$(git -C "$PACK" rev-parse --show-toplevel 2>/dev/null)"
 LR="$(ft_landed_repo "$S" "$WT" "$PACK" "$MARKER")" || rej "${LR#REJECT }"
 REPO_LANDED="${LR%%$'\t'*}"; SFULL="${LR##*$'\t'}"
-g() { git -C "$REPO_LANDED" "$@"; }
-g rev-parse --verify -q "${REF}^{commit}" >/dev/null 2>&1 || rej "랜딩 브랜치 ref 없음: $REF ($REPO_LANDED)"
-g merge-base --is-ancestor "$SFULL" "$REF" 2>/dev/null || rej "랜딩 안 됨 — $S 가 $REF 의 조상이 아니다 ($REPO_LANDED)"
+# r937 r2 (T1·T2): 모든 git 조회 = ft_git_capped(7초 · 재시도 1) · 허용 rc 를 넘은 값(124 시간 초과 · 128 실행 실패)은 «조회 실패» = REJECT(«없음» 으로 읽지 않는다)
+#   gq <허용 rc> <사유> <git 인자…> → GQ_OUT = 출력 · rc 그대로. 허용 rc 초과 = «조회 실패» = REJECT (rej 는 이 셸에서 돌아야 하므로 $( ) 안에서 부르지 않는다)
+gq() { local max="$1" why="$2"; shift 2
+  GQ_OUT="$(ft_git_capped 7 "$REPO_LANDED" "$@")"; GQ_RC=$?
+  [ "$GQ_RC" -le "$max" ] || rej "$why — $REPO_LANDED 조회 실패(rc=$GQ_RC · 시간 초과 포함) 통과 0"
+  return "$GQ_RC"; }
+gq 1 "랜딩 브랜치 ref($REF)" rev-parse --verify -q "${REF}^{commit}" \
+  || rej "랜딩 브랜치 ref 없음: $REF ($REPO_LANDED)"
+gq 1 "조상 검사($REF)" merge-base --is-ancestor "$SFULL" "$REF" \
+  || rej "랜딩 안 됨 — $S 가 $REF 의 조상이 아니다 ($REPO_LANDED)"
 if [ -z "$UPDS" ]; then printf '%s\n' "$LAST"; exit 0; fi
 if [ -n "$T" ]; then
-  TFULL="$(g rev-parse --verify -q "${T}^{commit}" 2>/dev/null)" || rej "T 없음 — git fetch 후 다시: $T"
+  gq 1 "T($T)" rev-parse --verify -q "${T}^{commit}" || rej "T 없음 — git fetch 후 다시: $T"
+  TFULL="$GQ_OUT"
   RANGE="$TFULL..$SFULL"
 else
-  g rev-parse --verify -q "${SFULL}^1" >/dev/null 2>&1 || rej "S 에 첫 부모가 없다: $S"
+  gq 1 "S 첫 부모($S)" rev-parse --verify -q "${SFULL}^1" || rej "S 에 첫 부모가 없다: $S"
   RANGE="${SFULL}^1..$SFULL"
 fi
-CHANGED="$(g diff --name-only "$RANGE" 2>/dev/null)"
+gq 0 "랜딩 구간 변경 목록($RANGE)" diff --name-only "$RANGE" || rej "랜딩 구간 변경 목록을 못 읽었다($RANGE)"
+CHANGED="$GQ_OUT"
 while IFS= read -r X; do
   [ -n "$X" ] || continue
   grep -Fxq -- "$X" <<<"$CHANGED" || rej "랜딩 commit 에 정본 $X 없음 — 로컬에만 고친 것($RANGE)"
   xre="$(printf '%s' "$X" | sed 's/[][\.*^$/]/\\&/g')"
   CS="$(printf '%s\n' "$BODY" | grep -oE "정본 diff 확인:[[:space:]]*${xre}[[:space:]]+§[^@]*@[0-9a-fA-F]{7,40}" | sed 's/.*@//')"
   [ -n "$CS" ] || rej "판정문 절에 「정본 diff 확인: $X §Y @<sha>」 줄 없음 — arch 검토 기록 필요"
-  SB="$(g rev-parse -q --verify "$SFULL:$X" 2>/dev/null)" || rej "S 에 $X 없음"
+  gq 1 "$X @$S" rev-parse -q --verify "$SFULL:$X" || rej "S 에 $X 없음"
+  SB="$GQ_OUT"
   while IFS= read -r C; do
-    CB="$(g rev-parse -q --verify "$C:$X" 2>/dev/null)" || rej "정본 diff 확인 줄의 @$C 에서 $X 를 읽을 수 없음 — 재검토"
+    gq 1 "$X @$C" rev-parse -q --verify "$C:$X" || rej "정본 diff 확인 줄의 @$C 에서 $X 를 읽을 수 없음 — 재검토"
+    CB="$GQ_OUT"
     [ "$CB" = "$SB" ] || rej "검토 뒤 정본이 바뀜 — 재검토($X @$C ≠ S)"
   done <<<"$CS"
 done <<<"$UPDS"

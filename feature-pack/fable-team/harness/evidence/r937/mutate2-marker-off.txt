@@ -1,26 +1,44 @@
 PASS ⓐ 카드 리포에만 → 카드 리포
 PASS ⓐ 팩 리포에만 → 팩 리포(카드 리포가 fetch 해 둬도)
-FAIL ⓐ 둘 다 + 표식 main → 카드 리포 :: rc=0 out=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.BVF7DysYUa/pack	c12146f45c396d4f7d6e45077526aae1c8cd0d8d
+FAIL ⓐ 둘 다 + 표식 main → 카드 리포 :: rc=0 out=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.QSmFuSs9vx/pack	c6f715691be1e89379ce6bf658026f373c7623dd
 PASS ⓐ 둘 다 + 표식 main(팩) → 팩 리포
 PASS ⓐ 둘 다 + 표식 없음 → 팩(카드 리포 fetch 관례 · r581)
 PASS ⓐ 둘 다 없음 → REJECT «어느 리포에서도 못 찾음»
-FAIL ⓐ 표식 오기(팩) → REJECT :: rc=0 out=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.BVF7DysYUa/byz	f789a0be8d6858384d3f2e4aa50fe47cb848bbee
-FAIL ⓐ 표식 오기(카드) → REJECT :: rc=0 out=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.BVF7DysYUa/pack	a28b10cc54a929b8ab19902139102a8b60ba32af
+FAIL ⓐ 표식 오기(팩) → REJECT :: rc=0 out=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.QSmFuSs9vx/byz	0f588bea14e1d3fe40e85a85ec94bebb01188f28
+FAIL ⓐ 표식 오기(카드) → REJECT :: rc=0 out=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.QSmFuSs9vx/pack	187f8430a9f31e5ec8cabad4ecb3252efab512b8
 PASS ⓑ 카드 착지 + 설치: 있음 → 라이브 전수 대조 통과 rc0
 PASS ⓑ 팩 착지 + 정본 영향 없음 → 정본 게이트 OK(팩 origin/main 조상)
 FAIL ⓑ 표식 main → 랜딩 안 됨 :: rc=0 out=OK	정본 영향 없음: 하네스 도구만 바뀐 카드 — 제품 정본 없음
 FAIL ⓑ close-landed 조상 검사 리포 :: rc=0 out=| § | 카드 | 위치 | 조상 | 착지 줄 | 예상 |
 |---|---|---|---|---|---|
-| §1 | kpack | 진행 | ok | 무 | LANDED-CLOSE sha=c12146f45c396d4f7d6e45077526aae1c8cd0d8d da=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.BVF7DysYUa/byz/design/harness/DA-row.md#§1 |
+| §1 | kpack | 진행 | ok | 무 | LANDED-CLOSE sha=c6f715691be1e89379ce6bf658026f373c7623dd da=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.QSmFuSs9vx/byz/design/harness/DA-row.md#§1 |
 | §2 | cside | 진행 | no | 무 | REJECT LANDED-INVALID not-ancestor |
-| §3 | kbyz2 | 진행 | ok | 무 | LANDED-CLOSE sha=f789a0be8d6858384d3f2e4aa50fe47cb848bbee da=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.BVF7DysYUa/byz/design/harness/DA-row.md#§3 |
+| §3 | kbyz2 | 진행 | ok | 무 | LANDED-CLOSE sha=0f588bea14e1d3fe40e85a85ec94bebb01188f28 da=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.QSmFuSs9vx/byz/design/harness/DA-row.md#§3 |
 | §4 | kbyzh | 없음 | ok | 무 | SKIP 카드 없음 |
 DRY rows=4 (쓰기 0)
 FAIL ⓒ 표식 어긋남 → REJECT :: rc=0 out=OK	정본 영향 없음: 하네스 도구만 바뀐 카드 — 제품 정본 없음
 PASS ⓓ 카드 착지 + 설치: 없음 → 통과 rc0(회귀 0)
 PASS ⓔ 팩 착지 카드(main(팩) 행) → 보류 가드 LANDED-CLOSE rc0
-FAIL ⓔ 표식 오기 → marker-mismatch :: rc=0 out=LANDED-CLOSE sha=f789a0be8d6858384d3f2e4aa50fe47cb848bbee da=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.BVF7DysYUa/byz/design/harness/DA-row.md#§4
+FAIL ⓔ 표식 오기 → marker-mismatch :: rc=0 out=LANDED-CLOSE sha=0f588bea14e1d3fe40e85a85ec94bebb01188f28 da=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.QSmFuSs9vx/byz/design/harness/DA-row.md#§4
 HOLD events=2 reviews=2 releases=0/0 budget_left=0
 PASS ⓔ 어느 리포에도 없는 sha → LANDED-INVALID not-found rc3
-PASS ⓕ 리포 오염 0(design/harness 픽스처 밖 변경 0 · 팩 무변경)
-FAILED 7
+PASS ⓕ 정본 게이트: merge-base 8초 지연 → 조회 실패 REJECT · 소요 8초 ≤ 16
+PASS ⓕ 보류 가드: merge-base 8초 지연 → LANDED-INVALID lookup-failed · 소요 14초 ≤ 16
+FAIL ⓕ close-landed 시간 초과(소요 28초) :: | § | 카드 | 위치 | 조상 | 착지 줄 | 예상 |
+|---|---|---|---|---|---|
+| §1 | kpack | 진행 | no | 무 | REJECT LANDED-INVALID lookup-failed |
+| §2 | cside | 진행 | no | 무 | REJECT LANDED-INVALID lookup-failed |
+| §3 | kbyz2 | 진행 | no | 무 | REJECT LANDED-INVALID lookup-failed |
+| §4 | kbyzh | 진행 | no | 무 | REJECT LANDED-INVALID lookup-failed |
+DRY rows=4 (쓰기 0) :: rc=0 out=| § | 카드 | 위치 | 조상 | 착지 줄 | 예상 |
+|---|---|---|---|---|---|
+| §1 | kpack | 진행 | no | 무 | REJECT LANDED-INVALID lookup-failed |
+| §2 | cside | 진행 | no | 무 | REJECT LANDED-INVALID lookup-failed |
+| §3 | kbyz2 | 진행 | no | 무 | REJECT LANDED-INVALID lookup-failed |
+| §4 | kbyzh | 진행 | no | 무 | REJECT LANDED-INVALID lookup-failed |
+DRY rows=4 (쓰기 0)
+PASS ⓖ timeout·gtimeout 없는 경로: rev-parse 8초 → REJECT · 소요 7초 ≤ 16
+FAIL ⓗ 한 리포 조회 실패 → REJECT :: REJECT 착지 sha 를 어느 리포에서도 못 찾음: c6f715691be1e89379ce6bf658026f373c7623dd :: rc=1 out=REJECT 착지 sha 를 어느 리포에서도 못 찾음: c6f715691be1e89379ce6bf658026f373c7623dd
+PASS ⓘ bash 3.2(/bin/bash): 고친 파일 -n rc0 · ft_landed_repo 실행 ok
+PASS ⓙ 리포 오염 0(design/harness 픽스처 밖 변경 0 · 팩 무변경)
+FAILED 9

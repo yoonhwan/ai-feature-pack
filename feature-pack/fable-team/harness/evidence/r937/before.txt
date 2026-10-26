@@ -16,7 +16,7 @@ feature-pack/fable-team/harness/tests/test_index_move_landed_repo.sh: 줄 70: ft
 FAIL ⓐ 표식 오기(카드) → REJECT :: rc=127 out=
 FAIL ⓑ 카드 착지 + 설치: 있음 → 통과 :: rc=1 out=ERROR git rev-parse --verify 실패: 
 REJECT 라이브 설치 어긋남(rc=3) — master 설치 뒤 다시 이동 (이동 0)
-FAIL ⓑ 팩 착지 + 정본 영향 없음 → OK :: rc=0 out=REJECT	랜딩 안 됨 — d5e6f6c2e1c3ed11f848af762050573c00123b1b 가 origin/main 의 조상이 아니다
+FAIL ⓑ 팩 착지 + 정본 영향 없음 → OK :: rc=0 out=REJECT	랜딩 안 됨 — 4774d62e6ebd3dfad5c718d09f01e296031ae164 가 origin/main 의 조상이 아니다
 PASS ⓑ 표식 main + 두 리포에 있는 sha → 카드 리포로 풀려 «랜딩 안 됨»(표식이 리포를 가른다)
 FAIL ⓑ close-landed 조상 검사 리포 :: rc=0 out=| § | 카드 | 위치 | 조상 | 착지 줄 | 예상 |
 |---|---|---|---|---|---|
@@ -25,10 +25,25 @@ DRY rows=1 (쓰기 0)
 FAIL ⓒ 표식 어긋남 → REJECT :: rc=0 out=OK	정본 영향 없음: 하네스 도구만 바뀐 카드 — 제품 정본 없음
 PASS ⓓ 카드 착지 + 설치: 없음 → 통과 rc0(회귀 0)
 FAIL ⓔ 팩 착지 카드 → LANDED-CLOSE :: rc=0 out=HOLD events=0 reviews=0 releases=0/0 budget_left=2
-LANDED-INVALID not-ancestor d5e6f6c2e1c3ed11f848af762050573c00123b1b
+LANDED-INVALID not-ancestor 4774d62e6ebd3dfad5c718d09f01e296031ae164
 FAIL ⓔ 표식 오기 → marker-mismatch :: rc=3 out=HOLD events=2 reviews=2 releases=0/0 budget_left=0
-LANDED-INVALID no-da-row «닫힘 — kbyzh — main `dbaadfe740…`» 없음 (/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.df2DryTxbK/byz/design/harness/DA-row.md#§4)
+LANDED-INVALID no-da-row «닫힘 — kbyzh — main `d911f42a05…`» 없음 (/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.SEjBMX1I63/byz/design/harness/DA-row.md#§4)
 FAIL ⓔ not-found → rc3 :: rc=3 out=HOLD events=2 reviews=2 releases=0/0 budget_left=0
 LANDED-INVALID unknown-sha 0000000000000000000000000000000000000000
-PASS ⓕ 리포 오염 0(design/harness 픽스처 밖 변경 0 · 팩 무변경)
-FAILED 15
+FAIL ⓕ 정본 게이트 시간 초과 → REJECT(소요 8초) :: rc=0 out=REJECT	랜딩 안 됨 — 4774d62e6ebd3dfad5c718d09f01e296031ae164 가 origin/main 의 조상이 아니다
+FAIL ⓕ 보류 가드 시간 초과(소요 8초) :: HOLD events=0 reviews=0 releases=0/0 budget_left=2
+LANDED-INVALID not-ancestor 4774d62e6ebd3dfad5c718d09f01e296031ae164 :: rc=0 out=HOLD events=0 reviews=0 releases=0/0 budget_left=2
+LANDED-INVALID not-ancestor 4774d62e6ebd3dfad5c718d09f01e296031ae164
+FAIL ⓕ close-landed 시간 초과(소요 8초) :: | § | 카드 | 위치 | 조상 | 착지 줄 | 예상 |
+|---|---|---|---|---|---|
+| §2 | cside | 진행 | no | 무 | REJECT LANDED-INVALID not-ancestor |
+DRY rows=1 (쓰기 0) :: rc=0 out=| § | 카드 | 위치 | 조상 | 착지 줄 | 예상 |
+|---|---|---|---|---|---|
+| §2 | cside | 진행 | no | 무 | REJECT LANDED-INVALID not-ancestor |
+DRY rows=1 (쓰기 0)
+FAIL ⓖ 내장 상한 경로(소요 8초) :: rc=0 out=REJECT	랜딩 안 됨 — 4774d62e6ebd3dfad5c718d09f01e296031ae164 가 origin/main 의 조상이 아니다
+feature-pack/fable-team/harness/tests/test_index_move_landed_repo.sh: 줄 140: ft_landed_repo: 명령을 찾을 수 없음
+FAIL ⓗ 한 리포 조회 실패 → REJECT ::  :: rc=127 out=
+FAIL ⓘ bash 3.2 :: b32=1 rc=127 out=x: ft_landed_repo: command not found :: rc=127 out=x: ft_landed_repo: command not found
+PASS ⓙ 리포 오염 0(design/harness 픽스처 밖 변경 0 · 팩 무변경)
+FAILED 21

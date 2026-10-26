@@ -1,0 +1,25 @@
+PASS ⓐ 카드 리포에만 → 카드 리포
+PASS ⓐ 팩 리포에만 → 팩 리포(카드 리포가 fetch 해 둬도)
+PASS ⓐ 둘 다 + 표식 main → 카드 리포
+PASS ⓐ 둘 다 + 표식 main(팩) → 팩 리포
+PASS ⓐ 둘 다 + 표식 없음 → 팩(카드 리포 fetch 관례 · r581)
+PASS ⓐ 둘 다 없음 → REJECT «어느 리포에서도 못 찾음»
+PASS ⓐ 표식 main(팩) 인데 팩에 없음 → REJECT(표식 오기 숨김 0)
+PASS ⓐ 표식 main 인데 카드 리포에 없음 → REJECT(표식 오기 숨김 0)
+PASS ⓑ 카드 착지 + 설치: 있음 → 라이브 전수 대조 통과 rc0
+PASS ⓑ 팩 착지 + 정본 영향 없음 → 정본 게이트 OK(팩 origin/main 조상)
+PASS ⓑ 표식 main + 두 리포에 있는 sha → 카드 리포로 풀려 «랜딩 안 됨»(표식이 리포를 가른다)
+PASS ⓑ close-landed: 팩 행 = 팩 ref(ok) · 카드 행 = 카드 ref(no) · 표식 어긋남 = not-found
+PASS ⓒ 표식 main(팩) ↔ 실제 카드 리포 → REJECT
+PASS ⓓ 카드 착지 + 설치: 없음 → 통과 rc0(회귀 0)
+PASS ⓔ 팩 착지 카드(main(팩) 행) → 보류 가드 LANDED-CLOSE rc0
+PASS ⓔ 표식 main(팩) 인데 sha 가 카드 리포에만 → LANDED-INVALID marker-mismatch rc3
+PASS ⓔ 어느 리포에도 없는 sha → LANDED-INVALID not-found rc3
+PASS ⓕ 정본 게이트: merge-base 8초 지연 → 조회 실패 REJECT · 소요 7초 ≤ 16
+PASS ⓕ 보류 가드: merge-base 8초 지연 → LANDED-INVALID lookup-failed · 소요 14초 ≤ 16
+PASS ⓕ close-landed: merge-base 8초 지연 → lookup-failed · 소요 14초 ≤ 16
+PASS ⓖ timeout·gtimeout 없는 경로: rev-parse 8초 → REJECT · 소요 7초 ≤ 16
+FAIL ⓗ 한 리포 조회 실패 → REJECT :: REJECT 착지 sha 를 어느 리포에서도 못 찾음: e17b2e0b8e4328f1e8e7f7cf3da3e089577ce999 (카드 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.UUfAgOMDpl/byz · 팩 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.UUfAgOMDpl/pack) :: rc=1 out=REJECT 착지 sha 를 어느 리포에서도 못 찾음: e17b2e0b8e4328f1e8e7f7cf3da3e089577ce999 (카드 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.UUfAgOMDpl/byz · 팩 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.UUfAgOMDpl/pack)
+PASS ⓘ bash 3.2(/bin/bash): 고친 파일 -n rc0 · ft_landed_repo 실행 ok
+PASS ⓙ 리포 오염 0(design/harness 픽스처 밖 변경 0 · 팩 무변경)
+FAILED 1

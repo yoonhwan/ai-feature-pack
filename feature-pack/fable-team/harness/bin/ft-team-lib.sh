@@ -182,16 +182,39 @@ ft_from_current() { local v="${1:-}" seats="${2:-}" m d lint r
 #     순서: ①두 리포 rev-parse(7초 상한) ②한 곳에만 = 그 리포 ③둘 다 = 표식 줄(main(팩) = 팩 · main = 카드 리포 · 표식 없으면 팩 — 카드 리포가 팩 객체를 fetch 해 두는 실사건 · r581)
 #           ④둘 다 없음 = REJECT «어느 리포에서도 못 찾음» · 표식과 실제가 어긋나면 REJECT(표식 오기 숨김 0 · ⓒ)
 #     앞자리(7~39자)는 그 리포에서 유일해야 인정 · 같은 앞자리가 두 리포의 «다른» 커밋이면 표식 필수(없으면 REJECT) · 팩 리포가 빈 값이면 카드 리포만 본다
-_ft_landed_git() { local to
-  to="$(command -v timeout || command -v gtimeout || true)"
-  if [ -n "$to" ]; then "$to" 7 git -C "$1" rev-parse --verify -q "${2}^{commit}" 2>/dev/null
-  else git -C "$1" rev-parse --verify -q "${2}^{commit}" 2>/dev/null; fi; }
+#   ft_git_capped <초> <리포> <git 인자…> : git 조회 1회를 «초» 상한으로 감싼다(r937 r2 T1 · 7초 상한 없는 git 호출 금지).
+#     timeout/gtimeout 이 있으면 그것 · 없거나 FT_GIT_CAP_BUILTIN=1 이면 bash 내장(백그라운드 + «초» 뒤 kill -9 · bash 3.2 호환) —
+#     bash 내장 경로에서 kill 된 경우 rc 137 → 124 로 정규화(시간 초과 표시) · stdout = git 출력 · 지연 재시도는 _ft_git_retry 몫
+ft_git_capped() { local lim="$1" repo="$2"; shift 2; local to tf pid wd rc
+  if [ "${FT_GIT_CAP_BUILTIN:-0}" = 1 ]; then to=""
+  else to="$(command -v timeout || command -v gtimeout || true)"; fi
+  if [ -n "$to" ]; then "$to" "$lim" git -C "$repo" "$@" 2>/dev/null; return $?; fi
+  tf="$(mktemp "${TMPDIR:-/tmp}/ft-gitcap.XXXXXX")" || return 128
+  git -C "$repo" "$@" >"$tf" 2>/dev/null & pid=$!
+  ( sleep "$lim"; kill -9 "$pid" 2>/dev/null ) >/dev/null 2>&1 & wd=$!   # 감시자의 stdio 를 닫는다 — $( ) 파이프를 붙잡아 호출이 늦어지지 않게
+  wait "$pid"; rc=$?
+  kill "$wd" 2>/dev/null; wait "$wd" 2>/dev/null
+  cat "$tf" 2>/dev/null; rm -f "$tf"
+  [ "$rc" = 137 ] && rc=124
+  return "$rc"; }
+#   _ft_git_retry <초> <리포> <git 인자…> : ft_git_capped + «시간 초과(124)만» 재시도 1 (외부 호출 7초 룰 · 총 ≤ 2회)
+_ft_git_retry() { local rc; ft_git_capped "$@" && return 0; rc=$?
+  [ "$rc" = 124 ] || return "$rc"
+  ft_git_capped "$@"; }
+#   rc 규약(r937 r2 T2): 0 = 있음 · 1 = «그 리포에 없음» · 그 밖(124 시간 초과 · 128 실행 실패) = «조회 실패» — 없음으로 읽지 않는다
+_ft_landed_git() { _ft_git_retry 7 "$1" rev-parse --verify -q "${2}^{commit}"; }
 ft_landed_repo() { local sha="$1" cr="${2:-}" pr="${3:-}" mk="${4:-}" cs="" ps="" want=""
   case "$sha" in ''|*[!0-9a-f]*) printf 'REJECT 착지 sha 가 40/앞자리 hex 가 아니다: %s\n' "$sha"; return 1;; esac
   [ "${#sha}" -ge 7 ] || { printf 'REJECT 착지 sha 가 7자 미만이다: %s\n' "$sha"; return 1; }
   [ -n "$cr" ] && [ -d "$cr" ] || { printf 'REJECT 카드 리포가 폴더가 아니다: %s\n' "${cr:-<없음>}"; return 1; }
-  cs="$(_ft_landed_git "$cr" "$sha")"
-  [ -n "$pr" ] && [ -d "$pr" ] && ps="$(_ft_landed_git "$pr" "$sha")"
+  local rc=0
+  cs="$(_ft_landed_git "$cr" "$sha")" || rc=$?
+  case "$rc" in 0) rc=0;; 1) cs="";; *) printf 'REJECT %s 조회 실패(rc=%s · 시간 초과 포함) — 리포 판정 안 함(통과 0)\n' "$cr" "$rc"; return 1;; esac
+  if [ -n "$pr" ] && [ -d "$pr" ]; then
+    rc=0
+    ps="$(_ft_landed_git "$pr" "$sha")" || rc=$?
+    case "$rc" in 0) rc=0;; 1) ps="";; *) printf 'REJECT %s 조회 실패(rc=%s · 시간 초과 포함) — 리포 판정 안 함(통과 0)\n' "$pr" "$rc"; return 1;; esac
+  fi
   case "$mk" in *닫힘*|*CLOSE*)
     if printf '%s' "$mk" | grep -qE 'main[[:space:]]*\([[:space:]]*팩[[:space:]]*\)'; then want=pack
     elif printf '%s' "$mk" | grep -qE 'main'; then want=card; fi;; esac

@@ -15,5 +15,11 @@ PASS ⓓ 카드 착지 + 설치: 없음 → 통과 rc0(회귀 0)
 PASS ⓔ 팩 착지 카드(main(팩) 행) → 보류 가드 LANDED-CLOSE rc0
 PASS ⓔ 표식 main(팩) 인데 sha 가 카드 리포에만 → LANDED-INVALID marker-mismatch rc3
 PASS ⓔ 어느 리포에도 없는 sha → LANDED-INVALID not-found rc3
-PASS ⓕ 리포 오염 0(design/harness 픽스처 밖 변경 0 · 팩 무변경)
+PASS ⓕ 정본 게이트: merge-base 8초 지연 → 조회 실패 REJECT · 소요 8초 ≤ 16
+PASS ⓕ 보류 가드: merge-base 8초 지연 → LANDED-INVALID lookup-failed · 소요 14초 ≤ 16
+PASS ⓕ close-landed: merge-base 8초 지연 → lookup-failed · 소요 14초 ≤ 16
+PASS ⓖ timeout·gtimeout 없는 경로: rev-parse 8초 → REJECT · 소요 7초 ≤ 16
+PASS ⓗ 팩 조회 시간 초과 → REJECT «조회 실패»(카드 리포로 넘어가 OK 0)
+PASS ⓘ bash 3.2(/bin/bash): 고친 파일 -n rc0 · ft_landed_repo 실행 ok
+PASS ⓙ 리포 오염 0(design/harness 픽스처 밖 변경 0 · 팩 무변경)
 ALL PASS

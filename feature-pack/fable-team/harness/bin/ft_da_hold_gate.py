@@ -149,15 +149,32 @@ def da_section(path: str, sec: str) -> str:
     return "\n".join(out)
 
 
+def git_capped(repo: str, *args: str) -> tuple[int, str]:
+    """(rc, stdout) — git 조회 1회 = 7초 상한 + 재시도 1 (r937 r2 T1 · 시간 초과 = rc 124 · 실행 실패 = rc 128).
+    T2: 0 = 있음 · 1 = «없음» · 그 밖은 «조회 실패» — 부르는 쪽이 없음으로 읽지 않는다."""
+    rc = 128
+    for attempt in (1, 2):
+        try:
+            r = subprocess.run(["git", "-C", repo, *args], capture_output=True, text=True, timeout=7)
+            return r.returncode, r.stdout
+        except subprocess.TimeoutExpired:
+            rc = 124
+        except OSError:
+            return 128, ""
+    return rc, ""
+
+
 def landed_repo(sha: str, card_repo: str, marker: str) -> tuple[str, str, str]:
     """(리포 절대경로, full sha, LANDED-INVALID 사유) — 리포 판정 단일 출처 = ft-team-lib.sh 의 ft_landed_repo(bash · r937 ⓐ).
     팩 리포 = ft-harness-root.sh 가 푸는 하네스 코드 루트의 리포(못 풀면 빈 값 = 카드 리포만 본다) · 7초 상한 · 쓰기 0."""
     lib = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ft-team-lib.sh")
     script = ('d="$(dirname "$1")"; . "$1" || exit 9; hr=""; [ -f "$d/ft-harness-root.sh" ] && hr="$(. "$d/ft-harness-root.sh" && ft_harness_root "$d" 2>/dev/null)"'
               '; pk=""; [ -n "$hr" ] && pk="$(git -C "$hr" rev-parse --show-toplevel 2>/dev/null)"; ft_landed_repo "$2" "$3" "$pk" "$4"')
-    try:
-        r = subprocess.run(["bash", "-c", script, "x", lib, sha, card_repo, marker], capture_output=True, text=True, timeout=7)
-    except (subprocess.TimeoutExpired, OSError) as e:
+    try:  # bash 쪽이 rev-parse 를 7초×2 로 감싼다 — 바깥 상한은 그 합(14초) + 여유
+        r = subprocess.run(["bash", "-c", script, "x", lib, sha, card_repo, marker], capture_output=True, text=True, timeout=16)
+    except subprocess.TimeoutExpired:
+        return "", "", "LANDED-INVALID lookup-failed 리포 판정 시간 초과(16초) — 통과 0"
+    except OSError as e:
         return "", "", "LANDED-INVALID resolve-failed " + str(e)[:80]
     lines = r.stdout.strip().splitlines()
     out = lines[-1] if lines else ""
@@ -191,7 +208,16 @@ def landed_check(card: str, lines: list[str], root: str, landed: str, da: str) -
         for c in claims:
             if landed_repo(c, root, marker)[1] != sha:
                 return "", "LANDED-INVALID mismatch 카드 착지 줄 ≠ --landed"
-    if subprocess.run(["git", "-C", repo, "merge-base", "--is-ancestor", sha, os.environ.get("FT_LAND_REF") or "origin/main"], capture_output=True).returncode != 0:
+    ref = os.environ.get("FT_LAND_REF") or "origin/main"
+    rrc, _ = git_capped(repo, "rev-parse", "--verify", "-q", ref + "^{commit}")
+    if rrc > 1:
+        return "", "LANDED-INVALID lookup-failed %s ref(%s) 조회 실패 rc=%s (통과 0)" % (repo, ref, rrc)
+    if rrc != 0:   # 착지 ref 가 없다 = 그 리포에 랜딩 자체가 없다(«없음» 이지 조회 실패가 아니다)
+        return "", "LANDED-INVALID not-ancestor " + sha
+    arc, _ = git_capped(repo, "merge-base", "--is-ancestor", sha, ref)
+    if arc > 1:
+        return "", "LANDED-INVALID lookup-failed %s merge-base rc=%s (시간 초과 포함 · 통과 0)" % (repo, arc)
+    if arc != 0:
         return "", "LANDED-INVALID not-ancestor " + sha
     if not da:
         return "", "LANDED-INVALID no-da (--da <판정문#§N> 없음)"

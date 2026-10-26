@@ -15,6 +15,7 @@ while [ $# -gt 0 ]; do case "$1" in --team) TEAM="${2:-}"; shift 2;; --dry-run) 
 DAF="$(cd -- "$(dirname -- "$DAF")" && pwd)/$(basename -- "$DAF")"
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO="$(git -C "$(dirname "$DAF")" rev-parse --show-toplevel 2>/dev/null)" || { echo "ERROR 판정문이 git 리포 밖: $DAF" >&2; exit 2; }
+# r937 r2 (T1·T2): 아래 git 조회는 ft-team-lib.sh 의 ft_git_capped(7초 · 재시도 1) — 허용 rc 를 넘은 값은 «조회 실패»(없음으로 읽지 않는다)
 . "$HERE/ft-team-lib.sh" || { echo "ERROR ft-team-lib.sh 를 못 읽었다: $HERE" >&2; exit 2; }
 if [ -n "$TEAM" ]; then
   TROOT="$(FT_REPO_ROOT="$REPO" ft_team_root "$TEAM")" || { echo "ERROR 팀 폴더를 못 풀었다: $TEAM (design/TEAMS.md)" >&2; exit 2; }
@@ -23,7 +24,7 @@ else
 fi
 # r937: 착지 리포 후보 2곳 — 카드 리포(=판정문 리포) · 팩 리포(하네스 루트 리포 · 못 품으면 빈 값 = 카드 리포만 본다)
 PACKH=""; [ -f "$HERE/ft-harness-root.sh" ] && PACKH="$(. "$HERE/ft-harness-root.sh" && ft_harness_root "$HERE" 2>/dev/null)"
-PACK=""; [ -n "$PACKH" ] && PACK="$(git -C "$PACKH" rev-parse --show-toplevel 2>/dev/null)"
+PACK=""; [ -n "$PACKH" ] && PACK="$(ft_git_capped 7 "$PACKH" rev-parse --show-toplevel)"
 [ -d "$TROOT/indices" ] || { echo "ERROR 팀 폴더에 indices/ 없음: $TROOT (--team <팀>)" >&2; exit 2; }
 ROWS="$(python3 -I - "$DAF" <<'PY'
 import re, sys
@@ -32,7 +33,7 @@ for ln in open(sys.argv[1], encoding="utf-8", errors="replace"):
     h = re.match(r"^## .*?(§\d+)(?!\d)", ln)
     if ln.startswith("## "):
         sec = h.group(1) if h else ""
-    m = re.search(r"닫힘\s*—\s*(\S+)\s*—\s*main\s*(\(\s*팩\s*\))?\s*`?([0-9a-f]{40})\b", ln)
+    m = re.search(r"닫힘\s*—\s*(\S+)\s*—\s*main\s*(\(\s*팩\s*\))?\s*\x60?([0-9a-f]{40})\b", ln)
     if m and sec:
         print(f"{sec}\t{m.group(1)}\t{m.group(3)}\t{'pack' if m.group(2) else 'card'}")
 PY
@@ -47,7 +48,9 @@ while IFS=$'\t' read -r sec stem sha mkr; do n=$((n+1))
   anc=no; ancwhy=not-ancestor
   MK="닫힘 — $stem — main$([ "$mkr" = pack ] && printf '(팩)') \`$sha\`"
   if LR="$(ft_landed_repo "$sha" "$REPO" "$PACK" "$MK")"; then
-    git -C "${LR%%$'\t'*}" merge-base --is-ancestor "$sha" "${FT_LAND_REF:-origin/main}" 2>/dev/null && anc=ok
+    LREPO="${LR%%$'\t'*}"; _lrc=0
+    ft_git_capped 7 "$LREPO" merge-base --is-ancestor "$sha" "${FT_LAND_REF:-origin/main}" >/dev/null 2>&1 || _lrc=$?
+    case "$_lrc" in 0) anc=ok;; 1) ancwhy=not-ancestor;; *) ancwhy=lookup-failed;; esac
   else ancwhy=not-found; fi
   has=무; [ -n "$card" ] && grep -qE "^- 착지:[[:space:]]*\`?$sha" "$card" && has=유
   if [ "$DRY" = 1 ]; then

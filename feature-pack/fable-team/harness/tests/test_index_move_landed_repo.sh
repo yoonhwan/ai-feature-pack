@@ -109,7 +109,44 @@ out="$(gate "$IDX/진행/kbyzh.md" --closing --da "$CR/design/harness/DA-row.md#
 out="$(gate "$IDX/진행/kbyzh.md" --closing --da "$CR/design/harness/DA-row.md#§4" --landed "$(printf '0%.0s' {1..40})")"; rc=$?
 [ "$rc" = 3 ] && [[ "$out" == *"LANDED-INVALID not-found"* ]] && ck "ⓔ 어느 리포에도 없는 sha → LANDED-INVALID not-found rc3" 0 || ck "ⓔ not-found → rc3" 1
 
-# ⓕ 오염 0 — 두 리포 변경 없음
-[ -z "$(g "$CR" status --porcelain | grep -v 'design/harness/')" ] && [ -z "$(g "$PR" status --porcelain)" ] && ck "ⓕ 리포 오염 0(design/harness 픽스처 밖 변경 0 · 팩 무변경)" 0 || ck "ⓕ 리포 오염 0 :: $(g "$CR" status --porcelain | grep -v 'design/harness/' | head -3)" 1
+# ⓕ~ⓘ DA⑥ r1 반송(r2 · 7초 상한 · bash 3.2) — git 조회 상한·조회 실패 구분·bash 3.2 문법
+#   느린 git 대역: merge-base 만 8초 자고 실패(상한 7초 × 재시도 1 = 14초 안에 REJECT)
+FG="$T/fakegit"; mkdir -p "$FG"
+printf '#!/bin/bash\nfor a in "$@"; do [ "$a" = merge-base ] && { sleep 8; exit 1; }; done\nexec %s "$@"\n' "$(command -v git)" > "$FG/git"
+chmod 755 "$FG/git"
+t0="$(date +%s)"
+out="$(printf '## §1 닫힘: kpack\n- 닫힘 — kpack — main(팩) \`%s\`\n' "$P1" | PATH="$FG:$PATH" bash "$BIN/ft-index-move-canon.sh" "$cpk" "$CR" "$P1")"; rc=$?
+el=$(( $(date +%s) - t0 ))
+[ "$rc" = 0 ] && [[ "$out" == "REJECT"$'\t'*"조회 실패"* ]] && [ "$el" -le 16 ] && ck "ⓕ 정본 게이트: merge-base 8초 지연 → 조회 실패 REJECT · 소요 ${el}초 ≤ 16" 0 || ck "ⓕ 정본 게이트 시간 초과 → REJECT(소요 ${el}초)" 1
+t0="$(date +%s)"
+out="$(PATH="$FG:$PATH" FT_HARNESS_ROOT="$KD" python3 "$GATE" "$cpk" --root "$CR" --seats-dir "$T/none" --comm "$T/none" --closing --da "$CR/design/harness/DA-row.md#§1" --landed "$P1" 2>&1)"; rc=$?
+el=$(( $(date +%s) - t0 ))
+[ "$rc" = 0 ] && [[ "$out" == *"LANDED-INVALID lookup-failed"* ]] && [ "$el" -le 16 ] && ck "ⓕ 보류 가드: merge-base 8초 지연 → LANDED-INVALID lookup-failed · 소요 ${el}초 ≤ 16" 0 || ck "ⓕ 보류 가드 시간 초과(소요 ${el}초) :: $out" 1
+t0="$(date +%s)"
+out="$(PATH="$FG:$PATH" FT_HARNESS_ROOT="$KD" bash "$BIN/ft-index-close-landed.sh" "$CR/design/harness/DA-row.md" --dry-run 2>&1)"; rc=$?
+el=$(( $(date +%s) - t0 ))
+[ "$rc" = 0 ] && [[ "$out" == *"| §1 | kpack | 진행 | no |"*"lookup-failed"* ]] && [ "$el" -le 16 ] && ck "ⓕ close-landed: merge-base 8초 지연 → lookup-failed · 소요 ${el}초 ≤ 16" 0 || ck "ⓕ close-landed 시간 초과(소요 ${el}초) :: $out" 1
+
+# ⓖ timeout·gtimeout 이 없는 경로(FT_GIT_CAP_BUILTIN=1 = bash 내장 백그라운드+kill)에서도 상한이 걸린다
+t0="$(date +%s)"
+out="$(printf '## §1 닫힘: kpack\n' | FT_GIT_CAP_BUILTIN=1 PATH="$FG:$PATH" bash "$BIN/ft-index-move-canon.sh" "$cpk" "$CR" "$P1")"; rc=$?
+el=$(( $(date +%s) - t0 ))
+[ "$rc" = 0 ] && [[ "$out" == "REJECT"$'\t'*"조회 실패"* ]] && [ "$el" -le 16 ] && ck "ⓖ timeout·gtimeout 없는 경로: rev-parse 8초 → REJECT · 소요 ${el}초 ≤ 16" 0 || ck "ⓖ 내장 상한 경로(소요 ${el}초)" 1
+
+# ⓗ 한 리포 조회가 rc124(시간 초과)면 «다른 리포로 넘어가 OK» 0 — 조회 실패로 REJECT(카드 리포·팩 리포 양쪽에 있는 sha)
+FH="$T/fakegit124"; mkdir -p "$FH"
+printf '#!/bin/bash\ncase "$*" in *"%s"*) for a in "$@"; do [ "$a" = rev-parse ] && { sleep 8; exit 1; }; done;; esac\nexec %s "$@"\n' "$P1" "$(command -v git)" > "$FH/git"
+chmod 755 "$FH/git"
+out="$(PATH="$FH:$PATH" ft_landed_repo "$P1" "$CR" "$PR" "닫힘 — kpack — main \`$P1\`")"; rc=$?
+[ "$rc" = 1 ] && [[ "$out" == "REJECT"*"조회 실패"* ]] && ck "ⓗ 팩 조회 시간 초과 → REJECT «조회 실패»(카드 리포로 넘어가 OK 0)" 0 || ck "ⓗ 한 리포 조회 실패 → REJECT :: $out" 1
+
+# ⓘ bash 3.2(/bin/bash) 문법 — 이 카드가 고친 파일 전부 + 이 시험을 /bin/bash 로 1회
+b32=0
+for f in ft-team-lib.sh ft-index-move.sh ft-index-move-install.sh ft-index-move-canon.sh ft-index-close-landed.sh; do /bin/bash -n "$BIN/$f" 2>/dev/null || b32=1; done
+out="$(/bin/bash -c '. "$1" && ft_landed_repo "$2" "$3" "$4" ""' x "$BIN/ft-team-lib.sh" "$C0" "$CR" "$PR" 2>&1)"; rc=$?
+[ "$b32" = 0 ] && [ "$rc" = 0 ] && [ "${out%%$'\t'*}" = "$CR" ] && ck "ⓘ bash 3.2(/bin/bash): 고친 파일 -n rc0 · ft_landed_repo 실행 ok" 0 || ck "ⓘ bash 3.2 :: b32=$b32 rc=$rc out=$out" 1
+
+# ⓙ 오염 0 — 두 리포 변경 없음
+[ -z "$(g "$CR" status --porcelain | grep -v 'design/harness/')" ] && [ -z "$(g "$PR" status --porcelain)" ] && ck "ⓙ 리포 오염 0(design/harness 픽스처 밖 변경 0 · 팩 무변경)" 0 || ck "ⓙ 리포 오염 0 :: $(g "$CR" status --porcelain | grep -v 'design/harness/' | head -3)" 1
 
 [ "$fail" = 0 ] && echo "ALL PASS" || { echo "FAILED $fail"; exit 1; }

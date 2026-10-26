@@ -14,7 +14,7 @@ CARD="${1:-}"; LANDED=""; shift 2>/dev/null || { echo "usage: $0 <카드> [--lan
 [ -f "$CARD" ] || { echo "REJECT 카드 없음: $CARD"; exit 1; }
 . "$HERE/ft-team-lib.sh" || { echo "REJECT ft-team-lib.sh 를 못 읽었다: $HERE (이동 0)"; exit 1; }
 # R383: 하네스 팀 카드 판정 = 팀 폴더 명단(ft_team_has · 쌍둥이 둘 다) · 명단은 카드가 있는 워크트리의 것 · 못 읽으면 «통과» 로 후퇴하지 않고 REJECT
-FT_REPO_ROOT="$(git -C "$(dirname "$CARD")" rev-parse --show-toplevel 2>/dev/null)" ft_team_has harness "$(cd "$(dirname "$CARD")" && pwd)/$(basename "$CARD")" indices/; _hrc=$?
+FT_REPO_ROOT="$(_ft_git_retry 7 "$(dirname "$CARD")" rev-parse --show-toplevel 2>/dev/null)" ft_team_has harness "$(cd "$(dirname "$CARD")" && pwd)/$(basename "$CARD")" indices/; _hrc=$?
 case "$_hrc" in 0) ;; 1) exit 0;; *) echo "REJECT 하네스 팀 폴더를 못 풀었다(design/TEAMS.md) — 카드 종류를 못 정한다 (이동 0)"; exit 1;; esac
 rej() { echo "REJECT $* (이동 0)"; exit 1; }
 USE="쓰는 법: 카드에 「- 설치: 있음|없음」 줄 (하네스 키트·도구·훅·데몬을 바꾸면 있음)"
@@ -22,13 +22,13 @@ LINE="$(grep -m1 -E '^[[:space:]]*-[[:space:]]*설치:' "$CARD")"
 [ -n "$LINE" ] || rej "카드에 「- 설치:」 줄 없음 — $USE"
 case "$LINE" in *"설치: 없음"*) echo "INFO 설치: 없음 — 라이브 대조 0"; exit 0;; *"설치: 있음"*) ;; *) rej "「- 설치:」 값은 있음|없음 — $USE";; esac
 [ -n "$LANDED" ] || rej "설치: 있음 카드는 --landed <A..B|sha> 필수 — 병합 범위를 라이브와 대조한다"
-WT="$(git -C "$(dirname "$CARD")" rev-parse --show-toplevel 2>/dev/null || dirname "$CARD")"
+WT="$(_ft_git_retry 7 "$(dirname "$CARD")" rev-parse --show-toplevel 2>/dev/null || dirname "$CARD")"
 case "$LANDED" in *..*) RANGE="$LANDED";; *) RANGE="${LANDED}^..$LANDED";; esac
 CHK="${FT_INSTALL_CHECK:-$HERE/ft-live-install-check.sh}"
 # r581: 하네스 파일 대조는 하네스 루트 리포 — 카드 워크트리 아님(도구 기본값 · 카드 리포에 팩 객체가 있으면 outside_repo 가 막는다)
 # r937: 착지 리포가 카드 리포면 대조 대상을 범위로 못 정한다(그 sha 가 팩에 없다) → 라이브 전수(--all)로 «설치 파일 = 라이브»만 본다
 PACKH=""; [ -f "$HERE/ft-harness-root.sh" ] && PACKH="$(. "$HERE/ft-harness-root.sh" && ft_harness_root "$HERE" 2>/dev/null)"
-PACK=""; [ -n "$PACKH" ] && PACK="$(git -C "$PACKH" rev-parse --show-toplevel 2>/dev/null)"
+PACK=""; [ -n "$PACKH" ] && PACK="$(_ft_git_retry 7 "$PACKH" rev-parse --show-toplevel 2>/dev/null)"
 [ -n "$PACK" ] || rej "하네스 루트를 못 풂 — 설치 대조 리포를 못 정한다(FT_HARNESS_ROOT · ../HARNESS_ROOT)"
 LR="$(ft_landed_repo "${LANDED##*..}" "$WT" "$PACK" "${FT_LANDED_MARKER:-}")" || { printf '%s\n' "$LR"; exit 1; }
 LRREPO="${LR%%$'\t'*}"
@@ -39,7 +39,7 @@ COUT="$(bash "$CHK" "${CARG[@]}" 2>&1)"; crc=$?
 EV="$(grep -m1 -E '^[[:space:]]*-[[:space:]]*실사건:' "$CARD")"
 [ -n "$EV" ] || rej "카드에 「- 실사건: <무엇> · <증거>」 줄 없음 — 설치 뒤 실사건 1회 실측 증거(mbox #N | 경로:줄 | ledger 키)"
 printf '%s' "$EV" | grep -qE '#[0-9]+|[A-Za-z0-9_./-]+\.[A-Za-z0-9]+:[0-9]+|ledger[:=][^[:space:]]+' || rej "「- 실사건:」 줄에 증거 토큰 없음(mbox #N · 경로:줄 · ledger 키)"
-ROOT="$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')"
+ROOT="$(_ft_git_retry 7 "$WT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')"
 PD="${FT_INSTALL_PENDING_DIR:-${ROOT:-$WT}/.fable-team/state/install-pending}"
-for s in $(git -C "$WT" rev-list "$RANGE" 2>/dev/null); do rm -f "$PD/$s.txt"; done
+for s in $(_ft_git_retry 7 "$WT" rev-list "$RANGE" 2>/dev/null); do rm -f "$PD/$s.txt"; done
 echo "OK 설치 확인 — $COUT"
