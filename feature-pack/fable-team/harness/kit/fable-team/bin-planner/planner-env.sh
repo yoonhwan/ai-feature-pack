@@ -1,4 +1,4 @@
-# source 해서 쓴다 — v6-realtime-live/.fable-team/bin 의 Seatbelt 스크립트를 planner 트랙 값으로 돌린다 (byz-planner-arch#0 · 2026-10-04 · kk-env.sh 꼴)
+# source 해서 쓴다 — 공용 루트 .fable-team/bin 의 Seatbelt 스크립트를 planner 트랙 값으로 돌린다 (r962: 옛 v6-realtime-live 워크트리 bin 0) (byz-planner-arch#0 · 2026-10-04 · kk-env.sh 꼴)
 export FT_SEATS_JSON=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/seats-planner.json
 export FT_NANO_PREFIX=byz-planner-nano-
 export FT_NANO_WT_PREFIX=planner-
@@ -11,7 +11,7 @@ export FT_SEATBELT_README=design/planner/README.md
 export FT_IMPL_MODEL='claude-sonnet-5-5[1m]'
 export FT_SEND_FROM='byz-planner-arch#0'
 export FT_NEWS_TREE=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live/design/planner/NEWS-TREE.md
-export FT_BIN=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live/.fable-team/bin
+export FT_BIN=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/bin   # r962: 공용 루트 bin(옛 v6-realtime-live 워크트리 bin 0 — 그 폴더가 사라지면 데몬·도구가 전부 멈춘다)
 export FT_NANO_FEAT=feat/v6-realtime-live
 # planner 는 나노를 열지 않는다(문서만) — 위 나노 변수는 공용 스크립트 호출 호환용 기본값.
 export FT_MBOX_SH=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/comm/mbox.sh   # 추적 사본(harness/kit)에서 spawn 을 돌려도 mbox 를 찾게 한다 (R20)

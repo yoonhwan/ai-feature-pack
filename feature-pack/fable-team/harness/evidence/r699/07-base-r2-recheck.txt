@@ -1,0 +1,43 @@
+# r2 기반(팩 origin/main aad778cf554f93c3aa452190a03f1be56dff8e32) 재측정 — 2026-10-27
+# ⓐ 고치기 전(origin/main 판 시험): PROJ 5칸 FAIL(pass=5 fail=5 rc=1)
+ok   KIT bash -n → 0
+ok   KIT Sonnet 5 3번째 Edit → 2
+ok   KIT Sonnet 5.5 3번째 Edit → 0
+ok   KIT Fable 3번째 Edit → 2
+ok   KIT agent_id 있음 3번째 Edit → 0
+bash: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r699-orch-gate-tests-proj-copy-after-rel/feature-pack/fable-team/.claude/hooks/orchestration-gate.sh: No such file or directory
+FAIL PROJ bash -n → 기대 0 · 실제 1
+Exception ignored while flushing sys.stdout:
+BrokenPipeError: [Errno 32] Broken pipe
+Exception ignored while flushing sys.stdout:
+BrokenPipeError: [Errno 32] Broken pipe
+Exception ignored while flushing sys.stdout:
+BrokenPipeError: [Errno 32] Broken pipe
+FAIL PROJ Sonnet 5 3번째 Edit → 기대 2 · 실제 127
+Exception ignored while flushing sys.stdout:
+BrokenPipeError: [Errno 32] Broken pipe
+Exception ignored while flushing sys.stdout:
+BrokenPipeError: [Errno 32] Broken pipe
+Exception ignored while flushing sys.stdout:
+BrokenPipeError: [Errno 32] Broken pipe
+FAIL PROJ Sonnet 5.5 3번째 Edit → 기대 0 · 실제 127
+Exception ignored while flushing sys.stdout:
+BrokenPipeError: [Errno 32] Broken pipe
+Exception ignored while flushing sys.stdout:
+
+# ⓑ 후판: pass=12 fail=0 rc=0
+ok   KIT bash -n → 0
+ok   KIT Sonnet 5 3번째 Edit → 2
+ok   KIT Sonnet 5.5 3번째 Edit → 0
+ok   KIT Fable 3번째 Edit → 2
+ok   KIT agent_id 있음 3번째 Edit → 0
+ok   PROJ bash -n → 0
+ok   PROJ Sonnet 5 3번째 Edit → 2
+ok   PROJ Sonnet 5.5 3번째 Edit → 0
+ok   PROJ Fable 3번째 Edit → 2
+ok   PROJ agent_id 있음 3번째 Edit → 0
+ok   사본 수 ≥ 2 → yes
+ok   팩 안 사본 전부 = 정본 cmp0 → 
+LIVE 정본과 cmp0 — /Users/yoonhwan/.claude/hooks/orchestration-gate.sh
+pass=12 fail=0
+after rc=0

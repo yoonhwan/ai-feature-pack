@@ -226,6 +226,37 @@ except RuntimeError as e:
 PY
 )" "[7.0, 7.0] True"
 
+# 9e) ★close — r916★ 한 잠금 안에서 mark(처리·사유) + reported · 없는 대상은 NOTFOUND rc≠0 · 사유 빈 값 usage rc2 · 남의 큐 보존
+ing 801 "[a#1->$ME] 판정 요청: close 시험 하나"
+ing 802 "[a#1->$ME] 판정 요청: close 시험 둘"
+bash "$INBOX" close 801 "close 한 줄 시험" --seat "$ME" > "$T/close1.out" 2>&1; eq "ⓐ close rc 0" "$?" "0"
+grep -q "^CLOSED 801 seq=801$" "$T/close1.out" && ok "ⓐ close 출력 CLOSED 801" || bad "ⓐ close 출력: $(cat "$T/close1.out")"
+[ "$(field "$Q/$M.jsonl" 801 reported)" = "True" ] && ok "ⓐ close 가 mark 와 reported 를 같이 찍음" || bad "ⓐ reported 안 찍힘(mark 만)"
+eq "ⓐ close 사유가 mark.note 에" "$(python3 -c 'import json,sys
+for l in open(sys.argv[1]):
+    x=json.loads(l)
+    if x["seq"]==int(sys.argv[2]): print(x["mark"]["kind"], x["mark"]["note"])' "$Q/$M.jsonl" 801)" "처리 close 한 줄 시험"
+bash "$INBOX" show "$ME" | grep -q "seq=801" && bad "ⓐ close 뒤 show 에 남음(닫힘 아님)" || ok "ⓐ close 뒤 show 에서 닫힘(정본 술어 참)"
+bash "$INBOX" archive "$ME" | grep -q "ARCHIVED [1-9]" && [ -z "$(field "$Q/$M.jsonl" 801 seq)" ] && ok "ⓐ close 뒤 archive 이동" || bad "ⓐ close 뒤 archive 거부"
+H9="$(md5 -q "$Q/$M.jsonl")"
+bash "$INBOX" close 802 999999 "일부 없는 대상" --seat "$ME" > "$T/close2.out" 2>&1; [ $? -ne 0 ] && ok "ⓑ 없는 대상 NOTFOUND → rc≠0" || bad "ⓑ NOTFOUND 인데 rc 0"
+grep -q "NOTFOUND 999999" "$T/close2.out" && ok "ⓑ NOTFOUND 줄 출력" || bad "ⓑ NOTFOUND 줄 없음: $(cat "$T/close2.out")"
+grep -q "CLOSED 802" "$T/close2.out" && ok "ⓑ 나머지 대상은 닫음(부분 성공)" || bad "ⓑ 802 안 닫힘"
+H10="$(md5 -q "$Q/$M.jsonl")"
+bash "$INBOX" close 803 "" --seat "$ME" > "$T/close4.out" 2>&1; [ $? -eq 2 ] && ok "ⓒ 사유 빈 값 → usage rc 2" || bad "ⓒ 사유 빈 값 rc"
+grep -q "usage: close" "$T/close4.out" && ok "ⓒ close 전용 usage 문구" || bad "ⓒ close usage 문구 아님: $(cat "$T/close4.out")"
+eq "ⓒ 사유 빈 값은 큐 무변경" "$(md5 -q "$Q/$M.jsonl")" "$H10"
+ing 811 "[a#1->$ME] [발주 #70001] 닫기 묶음 시험 10:00 a" "$ME" z#1
+ing 812 "[a#1->$ME] [발주 #70002] 닫기 묶음 시험 10:00 a" "$ME" z#1
+GZ="$(g 811)"; [ "$GZ" = "$(g 812)" ] && ok "close 묶음 구성(811·812)" || bad "close 묶음 구성"
+bash "$INBOX" close "$GZ" "묶음 통째 닫기" --seat "$ME" >/dev/null 2>&1
+bash "$INBOX" show "$ME" | grep -q "$GZ" && bad "묶음 close 뒤 show 에 남음" || ok "묶음 close = 그 묶음 전부 닫힘"
+ing 821 "[a#1->other-x#1] 판정 요청: 남의 큐 줄" "other-x#1" a#1
+HB="$(md5 -q "$Q/other-x.jsonl")"
+bash "$INBOX" close 821 "남의 큐 시험" --seat "$ME" > "$T/close5.out" 2>&1; [ $? -ne 0 ] && ok "내 좌석에 없는 seq → NOTFOUND rc≠0" || bad "남의 큐 seq 를 닫음"
+grep -q "NOTFOUND 821" "$T/close5.out" && ok "남의 큐 seq 는 NOTFOUND 줄" || bad "남의 큐 seq NOTFOUND 줄 없음: $(cat "$T/close5.out")"
+eq "남의 좌석 큐 보존" "$(md5 -q "$Q/other-x.jsonl")" "$HB"
+
 # 10) 키트 사본 동기
 bash "$HERE/test_kit_bin_sync.sh" >/dev/null 2>&1 && ok "test_kit_bin_sync.sh PASS" || bad "test_kit_bin_sync.sh FAIL"
 

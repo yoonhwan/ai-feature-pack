@@ -14,15 +14,21 @@ from ft_secret_targets import NAME
 
 PH = r"(?![*<$])(?!x{3,}\b)"  # 값 첫머리가 자리표시자면 맞지 않는다
 TOKEN_PREFIX = r"(?:ghp_|gho_|github_pat_|sk-|xox[bp]-|AIza|ya29\.)"
-NOT_IN_CHUNK = r"(?<![A-Za-z0-9_-])"  # 매칭은 «덩어리 첫 글자»에서만 시작 — 덩어리 안 모든 위치에서 다시 시작하면 제곱 시간
+EDGE_CHARS = "A-Za-z0-9_"  # ★비밀 «경계» 를 정하는 유일한 글자 집합★ 경계가 아닌 글자 = ASCII 영숫자·_ (하이픈·한글·문장부호는 경계)
+EDGE_L = "(?<![" + EDGE_CHARS + "])"  # r977 r4(오빠 결정 1번): «왼쪽» 경계만 한 벌 — «오른쪽» 경계는 base 와 같다(값 뒤 경계 없음)
+# 덩어리형 규칙(jwt)의 «시작 제한» — 비밀 경계 정의가 아니라 성능 장치다: 덩어리 안 모든 위치에서
+# 다시 시작하면 제곱 시간(1MB 적대 입력 >200ms). 하이픈도 덩어리 안으로 보므로 `-eyJ…` 는 잡지 않는다(base 동일).
+NOT_IN_CHUNK = r"(?<![A-Za-z0-9_-])"
 RULES = (  # (종류, 정규식 — 가릴 값은 그룹 val, 앞은 그룹 pre)
     ("url-cred", re.compile(r"(?P<pre>(?<![A-Za-z0-9+.-])[A-Za-z][A-Za-z0-9+.-]*://[^\s:/@*<>$]+:)" + PH + r"(?P<val>[^\s@/]{3,})(?=@)")),
     ("pgpassword", re.compile(r"(?P<pre>\bPGPASSWORD=)" + PH + r"(?P<val>[^\s'\"]+)")),
-    ("token-prefix", re.compile(r"(?P<pre>)\b" + PH + r"(?P<val>" + TOKEN_PREFIX + r"[A-Za-z0-9_.\-]{16,})")),
+    # r977 r4: 값 뒤 앞보기 없음 = base 와 같은 자리(끝 밸줄·끝 하이픈 토큰도 잡힌다).
+    ("token-prefix", re.compile(r"(?P<pre>)" + EDGE_L + PH + r"(?P<val>" + TOKEN_PREFIX + r"[A-Za-z0-9_.\-]{16,})")),
     ("slack-webhook", re.compile(r"(?P<pre>(?i:https://hooks\.slack\.com/services/))" + PH + r"(?P<val>[A-Za-z0-9_%-]+/[A-Za-z0-9_%-]+/[A-Za-z0-9_%-]+)")),  # 앞이 고정 글자 — 선형 · R307 범위 2
     ("jwt", re.compile(r"(?P<pre>)" + NOT_IN_CHUNK + r"(?P<val>eyJ[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]{4,})")),
 )
 # named-secret: «이름+구분자»만 소비하고 값은 앞보기로 본다 — 앞 이름이 비밀 이름이 아니면 아무것도 안 먹고 다음 후보로 넘어가 뒤의 진짜 이름을 놓치지 않는다(DA⑥ r3 H4)
+# r977 r4(오빠 결정 1번): 이름은 `[A-Za-z_]+` 만(r3 의 «과 이미 가려진 *** 도 이름» 되돌림 — 그것이 이름을 값으로 삼켜 값 가림을 잃었다 · DA⑥ r2 반례 ①).
 NAMED = re.compile(r"(?<![A-Za-z_])(?P<name>[A-Za-z_]+)\s*[=:]\s*[\"']?(?=" + PH + r"(?![/.~])(?P<val>[A-Za-z0-9_\-./+]{20,}))")  # 경로 값(…_FILE=/run/…)은 비밀이 아니다
 _PLACEHOLDER_ONLY = re.compile(r"x{3,}", re.I)
 _PREFIX = re.compile(TOKEN_PREFIX)
@@ -44,6 +50,10 @@ def _named(line: str) -> tuple[str, bool]:
 
 
 def _line(line: str, no: int, hits: list[tuple[str, int]]) -> str:
+    # r977 r4b(arch 판단): 이름=값(_named)을 «먼저» 돈다 — 토큰 꼴이 `_API_TOKEN=` 이름 꼬리를 삼키면 base 가 가리던 값이 남으므로, 값부터 가린 뒤 토큰 꼴을 돈다.
+    line, found = _named(line)
+    if found:
+        hits.append(("named-secret", no))
     for kind, rx in RULES:
         found = False
 
@@ -57,9 +67,6 @@ def _line(line: str, no: int, hits: list[tuple[str, int]]) -> str:
         line = rx.sub(sub, line)
         if found:
             hits.append((kind, no))
-    line, found = _named(line)
-    if found:
-        hits.append(("named-secret", no))
     return line
 
 
