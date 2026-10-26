@@ -103,15 +103,15 @@ chmod 755 "$B"/*
 mkdir -p "$T/repo/.fable-team/state" "$T/repo/.fable-team/comm" "$T/repo/design/harness/indices/대기"
 env -u GIT_DIR -u GIT_WORK_TREE git init -q "$T/repo"
 git -C "$T/repo" -c user.name=t -c user.email=t@t commit -q --allow-empty -m init
-printf '{"_parent":null}\n' > "$T/repo/.fable-team/seats.json"
-printf '{"_parent":null}\n' > "$T/repo/.fable-team/seats-harness.json"   # 순번 큐가 그 팀 명부를 읽는다
+printf '{"_master":"byz-harness-master-claude#1","byz-harness-master-claude#1":{"role":"master"}}\n' > "$T/repo/.fable-team/seats.json"   # r975: 회신 대상 = 명부 _master
+printf '{"_master":"byz-harness-master-claude#1","byz-harness-master-claude#1":{"role":"master"}}\n' > "$T/repo/.fable-team/seats-harness.json"   # 순번 큐가 그 팀 명부를 읽는다
 printf '2026-10-22T00:00:00\toff\tinstall\tinit\n' > "$T/repo/.fable-team/state/all-stop.log"
 printf '#!/bin/sh\necho "SENT stub"\n' > "$T/repo/.fable-team/comm/mbox.sh"; chmod 755 "$T/repo/.fable-team/comm/mbox.sh"
 CARD="$T/repo/design/harness/indices/대기/x.md"; printf '# 카드\n- Issue: #1\n' > "$CARD"
 Q="$T/repo/.fable-team/state/spawn-queue-harness.tsv"
 spawn() { ( cd "$T/repo" && FT_SEATS_JSON="$T/repo/.fable-team/seats.json" FT_NANO_PREFIX=byz-harness-nano- \
   FT_TEAMSET=0 FT_ROUTE_STATUS_CMD="$ROUTE" FT_PROXY_PROBE_URL="$1" FT_GH_READ="$B/gh-open" \
-  env -u FT_PROXY_PROBE_MAX bash "$B/ft-nano-spawn.sh" "$CARD" --from dispatch 2>&1 ); }
+  env -u FT_PROXY_PROBE_MAX bash "$B/ft-nano-spawn.sh" "$CARD" --from byz-harness-master-claude#1 2>&1 ); }
 S=$SECONDS; o="$(spawn "$PURL")"; rc=$?; el=$((SECONDS - S))
 { [ "$rc" = 7 ] && ok "ⓔ 진짜 장애 → exit 7 (옛 판: exit 1 · 큐 0)"; } || bad "ⓔ exit=$rc (옛 판 1) ← $(printf '%s' "$o" | tail -2 | tr '\n' '|')"
 has "$o" "QUEUED" "ⓔ 순번 큐에 남는다(QUEUED)"

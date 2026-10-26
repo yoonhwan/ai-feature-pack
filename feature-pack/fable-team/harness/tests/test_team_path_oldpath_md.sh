@@ -57,7 +57,8 @@ out="$(cd "$R" && bash "$KIT/ft-index-lint.sh" "$OLDC" 2>&1)"; rc=$?
 [ "$rc" = 1 ] && has "$out" "REJECT 카드 위치 옛 경로 — ft-team-move.sh --apply alpha 뒤 다시" "ⓑ index-lint 옛 꼴 위치 → REJECT rc1" || bad "ⓑ index-lint rc=$rc $out"
 out="$(cd "$R" && bash "$KIT/ft-index-lint.sh" "$NEWC" 2>&1)"; hasnt "$out" "카드 위치 옛 경로" "ⓑ index-lint 새 꼴 위치 → 위치 REJECT 0"
 out="$(cd "$R" && bash "$KIT/ft-index-lint.sh" "$BETAC" 2>&1)"; hasnt "$out" "카드 위치 옛 경로" "ⓑ index-lint 전환 중 팀(beta) 옛 꼴 → 위치 REJECT 0(변경 0)"
-echo '{}' > "$R/.fable-team.seats.json"; mkdir -p "$T/sbin" "$T/sheet/.fable-team/state"   # spawn 은 임시 bin 사본(설치 폴더 밖 · test_nano_team_env 와 같은 묶음) — 라이브 루트·정지 파일 0
+echo '{"_master":"byz-harness-master-claude#1","byz-harness-master-claude#1":{"role":"master"}}' > "$R/.fable-team.seats.json"   # r975: 회신 대상 = 명부 _master
+mkdir -p "$T/sbin" "$T/sheet/.fable-team/state"   # spawn 은 임시 bin 사본(설치 폴더 밖 · test_nano_team_env 와 같은 묶음) — 라이브 루트·정지 파일 0
 cp "$KIT/ft-nano-spawn.sh" "$KIT/ft-proposal-gate.sh" "$KIT/ft-team-lib.sh" "$KIT/ft-resource-gate.sh" "$KIT/ft_raised.py" "$KIT/ft_teamset.py" "$KIT/ft_spawn_queue.py" \
   "$KIT/ft-sheet-events.sh" "$KIT/ft_sheet_events.py" "$KIT/ft_sheet_confirm.py" "$KIT/ft_sheet_key.py" "$KIT/ft_board_env.py" "$KIT/ft_board_mail.py" "$T/sbin/"
 . "$HERE/lib/bin_source_deps.sh"; copy_source_deps "$KIT" "$T/sbin" || bad "r686 사본 source 대상 채우기"   # r686: 고른 도구가 source 하는 같은 폴더 lib(r672 swap · research-seat …)

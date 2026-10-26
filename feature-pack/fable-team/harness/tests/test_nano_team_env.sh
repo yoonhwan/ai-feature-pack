@@ -54,7 +54,7 @@ export FT_NANO_WT_PREFIX=planner-
 export FT_NANO_LEDGER=$T/ledger.md
 export FT_IMPL_MODEL='claude-sonnet-5-5[1m]'
 EOF
-echo '{}' > "$REPO/.fable-team/seats-planner.json"; echo '{}' > "$REPO/.fable-team/seats.json"
+echo '{"_master":"byz-planner-master-claude#1","byz-planner-master-claude#1":{"role":"master"}}' > "$REPO/.fable-team/seats-planner.json"; echo '{"_master":"byz-harness-master-claude#1","byz-harness-master-claude#1":{"role":"master"}}' > "$REPO/.fable-team/seats.json"   # r975: 회신 대상 = 명부 _master
 : > "$T/ledger.md"   # R400 r3 ②: 원장은 «이미 있는» 파일만 쓴다(없으면 입구 REJECT · 첫 append 로 만들지 않는다)
 echo card > "$REPO/design/planner/indices/대기/c.md"; echo card > "$REPO/design/v65/indices/대기/c.md"
 echo seq > "$T/comm/bodies/1.txt"

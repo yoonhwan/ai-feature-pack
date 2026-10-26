@@ -51,7 +51,8 @@ cp "$TXT" "$REPO/.fable-team/bin-planner/goal-lines-planner.txt"
 sed "s#/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents#$REPO#g" "$ENVSRC" > "$REPO/.fable-team/bin-planner/planner-env.sh"
 mkdir -p "$REPO/.fable-team/bin-harness"   # 하네스 팀 env — 골 줄·원장은 planner 시험 카드와 같은 값(⑤ 가 «유일한» REJECT 사유가 되도록)
 printf 'export FT_SEATS_JSON=%s/.fable-team/seats-harness.json\nexport FT_NANO_PREFIX=byz-harness-nano-\nexport FT_NANO_WT_PREFIX=harness-\nexport FT_GOAL_LEDGER=design/planner/GOAL-planner.md\nexport FT_GOAL_LINES_FILE=%s/.fable-team/bin-planner/goal-lines-planner.txt\n' "$REPO" "$REPO" > "$REPO/.fable-team/bin-harness/harness-env.sh"; echo '{}' > "$REPO/.fable-team/seats-harness.json"
-echo '{}' > "$REPO/.fable-team/seats-planner.json"; echo '{}' > "$REPO/.fable-team/seats.json"; echo x > "$REPO/scripts/real.sh"
+echo '{"_master":"byz-planner-master-claude#1","byz-planner-master-claude#1":{"role":"master"}}' > "$REPO/.fable-team/seats-planner.json"; echo '{"_master":"byz-harness-master-claude#1","byz-harness-master-claude#1":{"role":"master"}}' > "$REPO/.fable-team/seats.json"   # r975: 회신 대상 = 명부 _master
+echo x > "$REPO/scripts/real.sh"
 # 정본(GOAL-planner.md) — 제목줄·빈 줄·머리줄이 1~3행(옛 env 가 파일 전체를 골 3줄로 읽던 꼴) + 골좌표 닫는 증거 문구
 printf '# GOAL — planner 제목줄\n\n## 원문 1 머리줄\n> 정본 문구 닫는증거는스무자이상이어야합니다 가나다라마바사\n' > "$REPO/design/planner/GOAL-planner.md"
 CLOSE='정본 문구 닫는증거는스무자이상이어야합니다 가나다라마바사'
