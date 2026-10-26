@@ -28,13 +28,14 @@ def normal_turn(t: float, text: str = "ok") -> list[dict]:
             {"type": "system", "subtype": "turn_duration", "timestamp": iso(t), "durationMs": 5000}]
 
 
-def error_turn(t: float, error: str = "authentication_failed", text: str = "Not logged in · Please run /login", pad: int = 0) -> list[dict]:
+def error_turn(t: float, error: str = "authentication_failed", text: str = "Not logged in · Please run /login", pad: int = 0,
+               duration_ms: int = 142) -> list[dict]:
     """실측 꼴(arch 136 · tester#90 805행): 합성 오류 assistant + turn_duration 142ms."""
     return [{"type": "api-request", "timestamp": iso(t)},
             {"type": "user", "timestamp": iso(t), "message": {"content": "[발주 #1] recv" + "x" * pad}},
             {"type": "assistant", "timestamp": iso(t), "isApiErrorMessage": True, "error": error,
              "message": {"model": "<synthetic>", "content": [{"type": "text", "text": text}]}},
-            {"type": "system", "subtype": "turn_duration", "timestamp": iso(t), "durationMs": 142},
+            {"type": "system", "subtype": "turn_duration", "timestamp": iso(t), "durationMs": duration_ms},
             {"type": "last-prompt", "lastPrompt": "x"}]
 
 
@@ -341,5 +342,73 @@ def test_r3_cell_dir_unwritable_errors_then_retries(tmp_path):
         assert any("act=l ERROR 상태 칸" in x for x in w.scan_log()), w.scan_log()
     finally:
         d.chmod(0o755)
+    w.advance(900)
+    assert scan(w).returncode == 0 and len(sends(w)) == 1
+
+
+# ── 재설개 r3 — DA⑥ r3 HOLD 4건(소요 시간 검사 · 미완 턴 · 칸 폴더 · 기록 실패 2통)
+def test_r4_slow_auth_failure_turn_is_not_logged_out(tmp_path):
+    """ⓡ4 — DA⑥ r3 반례 1: 마지막 인증 실패 턴이 120초(durationMs=120000)면 «0초 실패» 가 아니다 → IDLE · nano-close ③ 은 최근 기록이라 반송."""
+    ok = write(tmp_path / "quick.jsonl", normal_turn(NOW - 3600) + error_turn(NOW - 60))
+    assert turn(ok)[0] == "LOGGEDOUT"  # 142ms 실측 꼴 = 그대로 로그아웃
+    slow = write(tmp_path / "slow.jsonl", normal_turn(NOW - 3600) + error_turn(NOW - 60, duration_ms=120000))
+    assert turn(slow)[0] == "IDLE"  # 일한 턴 — 로그아웃 아님
+    assert "③jsonl 마지막 기록" in gate(tmp_path, slow)  # 활동으로 센다(최근 = 반송)
+    assert gate(tmp_path, ok) == "|"  # 0초 실패만 있는 좌석은 지금처럼 면제
+
+
+def test_r5_unfinished_turn_counts_as_activity(tmp_path):
+    """ⓡ5 — DA⑥ r3 반례 2: 정상 턴 10분 전 + 30초 전 새 user·인증 실패 assistant(turn_duration 아직 없음) → 좌석 WORKING · nano-close ③ 반송."""
+    recs = normal_turn(NOW - 600) + error_turn(NOW - 30)[:3]  # api-request·user·assistant 뿐(turn_duration 0)
+    f = write(tmp_path / "wip.jsonl", recs)
+    assert turn(f)[0] == "WORKING"
+    assert "③jsonl 마지막 기록" in gate(tmp_path, f)  # 끝나지 않은 턴을 빼지 않는다
+
+
+def test_r6_cell_is_folder_errors_not_silent(tmp_path):
+    """ⓡ6 — DA⑥ r3 반례 3: 칸 자리가 폴더면 «이미 알렸다» 로 삼키지 않는다 — ERROR 1줄 · 발신 0 · 폴더를 치우면 다음 scan 1통."""
+    w = World(tmp_path)
+    w.state("t1-master#1", "WORKING", 0)
+    w.state("t1-nano#0", "LOGGEDOUT", 30)
+    cell = w.root / ".fable-team/state/stall/logged-out.t1-nano#0"
+    cell.mkdir(parents=True)
+    assert scan(w).returncode == 0 and not sends(w)
+    assert any("act=l ERROR 칸" in x and "파일이 아님" in x for x in w.scan_log()), w.scan_log()
+    cell.rmdir()
+    w.advance(900)
+    assert scan(w).returncode == 0 and len(sends(w)) == 1
+
+
+CELLNOW = ('#!/bin/sh\nfor a; do last="$a"; done\ncase "$1" in\n'
+           '  send) n=$(ls "$FT_ROOT/.fable-team/state/stall" 2>/dev/null | grep -c "^logged-out[.]")\n'
+           '    echo "send|$2|$3|$last|$4|cell=$n" >> "$FT_STUB/mbox.log";;\n  ring) echo "ring|$2|${3:-}" >> "$FT_STUB/mbox.log";;\nesac\n')
+
+
+def test_r7_cell_written_before_send_one_notice(tmp_path):
+    """ⓡ7 — DA⑥ r3 반례 4: 칸은 발신 «전»에 있다(발신 뒤 기록 실패로 같은 구간 2통 0) · 발신 성공 뒤 같은 구간은 0통."""
+    w = World(tmp_path)
+    w.state("t1-master#1", "WORKING", 0)
+    w.state("t1-nano#0", "LOGGEDOUT", 30)
+    (w.stub / "mbox.sh").write_text(CELLNOW)
+    assert scan(w).returncode == 0
+    got = sends(w)
+    assert len(got) == 1 and got[0].endswith("cell=1"), got  # 발신 시점에 칸이 이미 서 있다(발신 뒤 기록 = 0)
+    w.advance(900)
+    assert scan(w).returncode == 0 and len(sends(w)) == 1  # 같은 구간 = 0통 더
+    assert not any("act=l ERROR" in x for x in w.scan_log()), w.scan_log()
+
+
+def test_r7b_claim_write_failure_no_send(tmp_path):
+    """ⓡ7b — 칸을 못 세우면(발신 전) 발신 0 + ERROR 1줄 · 자리가 풀리면 다음 scan 1통(중복 0)."""
+    w = World(tmp_path)
+    w.state("t1-master#1", "WORKING", 0)
+    w.state("t1-nano#0", "LOGGEDOUT", 30)
+    d = w.root / ".fable-team/state/stall"
+    d.mkdir(parents=True)
+    cell = d / "logged-out.t1-nano#0"
+    cell.mkdir()  # 자리에 폴더 = 칸을 못 세운다
+    assert scan(w).returncode == 0 and not sends(w)
+    assert any("act=l ERROR 칸" in x for x in w.scan_log())
+    cell.rmdir()
     w.advance(900)
     assert scan(w).returncode == 0 and len(sends(w)) == 1

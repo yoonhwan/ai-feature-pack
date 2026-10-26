@@ -9,7 +9,8 @@
 a·b·d 를 «처리한 뒤 다음 실행에도» 또 보면 ft-penalty.sh on (c 제외 · FT_STALL_PENALTY_AUTO=0 으로 끔 · 복구 팀 harness·planner 는 정지 대상 아님).
 r525 e = 명부 루프가 안 본 tmux 라이브 좌석(교대 표시·명부 밖) ∧ claude|codex ∧ IDLE ≥ FT_STALL_E_IDLE_MIN(30) ∧ (ctx ≥ 90 ∨ [완료·휴식] 없음)
 → planner + 계보 현역 master 에 [정지] 1통 · 같은 서명(좌석·IDLE 시작 시각) 재알림 0 · 깨우기·kill 0 · 요약 줄 d= 뒤 e= 칸.
-r849(재설계 r4) l = 로그아웃 좌석 — 쪽지는 «로그아웃 구간당 1통», 키 = 칸(state/stall/logged-out.<좌석 계보>) 하나(프로세스 시작 시각·첫 실패 시각·pid 를 키에 안 쓴다 · DA⑥ r2 반례 1).
+r849(재설계 r4 · r3) l = 로그아웃 좌석 — 쪽지는 «로그아웃 구간당 1통», 키 = 칸(state/stall/logged-out.<좌석 계보>) 하나(프로세스 시작 시각·첫 실패 시각·pid 를 키에 안 쓴다 · DA⑥ r2 반례 1).
+  r3(DA⑥ r3 반례 3·4): 칸은 «발신 전에» 세우고 발신 rc≠0 이면 지운다 · 칸 자리가 파일이 아니면(폴더 등) ERROR 1줄 + 그 좌석 발신 0.
 env(시험): FT_ROOT · FT_NOW · FT_SEAT_STATUS · FT_TMUX · FT_MBOX_SH · FT_INDEX_LINT · FT_MBOX_DIR · FT_STALL_STATE_DIR · FT_PS · FT_CTX_CMD.
 """
 import json
@@ -202,7 +203,9 @@ class Scan:
         return None
 
     def act_l(self, stamp: str) -> list[str]:
-        """r849 로그아웃 좌석 — 팀 _master 1통 · 칸 없음 → 발신 · rc0 뒤에만 칸 기록 · 칸 있음 → 0통(로그아웃 구간당 1통).
+        """r849 로그아웃 좌석 — 팀 _master 1통 · 칸 없음 → 발신 · 칸 있음 → 0통(로그아웃 구간당 1통).
+        재설계 r3(DA⑥ r3 반례 3·4): 칸은 «발신 전에» 세우고 발신 rc≠0 이면 지운다 — 발신 뒤 기록 실패로 같은 구간이 2통이 되지 않는다
+        · 칸 자리가 파일이 아니면(폴더·특수) «이미 알렸다» 로 읽지 않고 ERROR 1줄 + 이번 scan 발신 0.
         팀장 없음·자기 자신·명부 못 읽음 = 로그 1줄(칸 0 — 알린 것이 없다)."""
         log: list[str] = []
         for f in sorted((self.root / ".fable-team").glob("seats*.json")):  # load_teams 는 깨진 명부를 조용히 건너뛴다 — 그 좌석은 로그아웃 판정을 못 받는다
@@ -215,18 +218,32 @@ class Scan:
             if not (master and master != seat):
                 log.append(f"{stamp} act=l seat={seat} first={first} — 알릴 팀장 없음(_master {master or '없음'})")
                 continue
-            if self.cell(seat).exists():
+            cell = self.cell(seat)
+            if cell.exists() and not cell.is_file():  # 폴더·특수 파일 = 칸이 아니다 — «이미 알림» 으로 삼키지 않는다(조용한 통과 0)
+                log.append(f"{stamp} act=l ERROR 칸 {cell} 가 파일이 아님({self.cell_kind(cell)}) — 이번 scan 발신 0 · 다음 scan 재시도")
+                continue
+            if cell.is_file():
+                continue
+            try:  # 발신 전에 칸을 세운다 — 이 기록이 안 되면 발신 0(같은 구간 2통 방지)
+                _ = cell.write_text(f"first={first} master={master}\n", encoding="utf-8")
+            except OSError as e:
+                log.append(f"{stamp} act=l ERROR 칸 쓰기 실패 {cell} {e.__class__.__name__} — 이번 scan 발신 0 · 다음 scan 재시도")
                 continue
             rc = self.send(master, f"[로그아웃 좌석] {seat} · 첫 실패(보이는 범위 최초) {first} · 재개 = 재시작(zombie-clean resume / claude-hr.sh --resume) · 깨우기 0 (ft-stall-scan r849)")
-            if rc != 0:
-                log.append(f"{stamp} act=l ERROR 발신 실패 rc={rc} to={master} seat={seat} — 칸 0 · 다음 scan 재시도")
+            if rc != 0:  # 발신 실패 = 칸을 지워 다음 scan 재시도(칸을 남기면 그 구간은 영영 0통)
+                try:
+                    cell.unlink(missing_ok=True)
+                except OSError as e:
+                    log.append(f"{stamp} act=l ERROR 칸 지우기 실패 {cell} {e.__class__.__name__} — 다음 scan 발신 0")
+                    continue
+                log.append(f"{stamp} act=l ERROR 발신 실패 rc={rc} to={master} seat={seat} — 칸 지움 · 다음 scan 재시도")
                 continue
-            try:
-                _ = self.cell(seat).write_text(f"first={first} master={master}\n", encoding="utf-8")
-            except OSError as e:
-                log.append(f"{stamp} act=l ERROR 칸 쓰기 실패 {self.cell(seat)} {e.__class__.__name__} — 다음 scan 재시도")
             log.append(f"{stamp} act=l to={master} seat={seat} first={first}")
         return log
+
+    @staticmethod
+    def cell_kind(path: Path) -> str:
+        return "폴더" if path.is_dir() else "특수 파일" if path.exists() else "없음"
 
     def send(self, to: str, body: str, urgent: bool = True) -> int:
         return run(["bash", self.mbox, "send", to, self.sender, body] + (["--urgent"] if urgent else []))[0]

@@ -11,7 +11,7 @@ from collections.abc import Iterator
 from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # 형제 모듈 — r849 로그아웃 판정은 한 곳(ft_api_outage_util)
-from ft_api_outage_util import is_logged_out, is_normal  # noqa: E402
+from ft_api_outage_util import is_logged_out, is_normal, is_quick_turn  # noqa: E402
 
 CHUNK = 1 << 16
 
@@ -42,11 +42,13 @@ def last_timestamped(path: str) -> tuple[int, str] | None:
 
 
 def last_active(path: str) -> tuple[int, str] | None:
-    """r849 --skip-logged-out — 인증 실패 0초 턴(인증 실패 기록이 있고 정상 assistant 가 없는 턴 · 끝 turn_duration 포함)을 뺀 마지막 기록."""
+    """r849 --skip-logged-out — «끝난» 인증 실패 0초 턴(소요 5초 이하 ∧ 인증 실패 기록이 있고 정상 assistant 가 없는 턴 ∧ 끝 turn_duration 있음)을 뺀 마지막 기록.
+    아직 안 끝난 턴(turn_duration 없음)은 «활동» 이다(DA⑥ r3 반례 2) — 끝나지 않은 턴을 빼면 일하는 좌석이 nano-close ③ 을 통과한다."""
     seg: list[dict[str, object]] = []  # 뒤에서부터 모은 «한 턴»(turn_duration 다음 ~ 다음 turn_duration) — 첫 원소가 가장 늦은 기록
 
     def pick() -> tuple[int, str] | None:
-        if any(is_logged_out(r) for r in seg) and not any(is_normal(r) for r in seg):
+        end = seg[0] if seg and seg[0].get("type") == "system" and seg[0].get("subtype") == "turn_duration" else None
+        if end is not None and is_quick_turn(end.get("durationMs")) and any(is_logged_out(r) for r in seg) and not any(is_normal(r) for r in seg):
             return None
         for rec in seg:
             try:

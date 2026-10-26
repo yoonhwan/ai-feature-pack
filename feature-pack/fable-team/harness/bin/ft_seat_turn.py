@@ -5,7 +5,7 @@
   STATE = 마지막 turn_duration 뒤에 user/assistant 있으면 WORKING · 없으면 IDLE · 뒤에 queue-operation enqueue 만 있으면 PENDING
           · 창(최대 tail_bytes)에 turn_duration 이 없어도 user/assistant 가 있으면 WORKING · 둘 다 없으면 UNKNOWN
           · 압축 요약 user(isCompactSummary)·compact_boundary 는 턴 시작으로 세지 않는다(r527 · 쉬는 동안 자동 압축)
-          · r849: IDLE·PENDING 인데 끝난 턴이 인증 실패 0초 턴(ft_api_outage_util.is_logged_out)이면 LOGGEDOUT — 2·3칸 = 첫 실패 시각 · 연속 실패 턴 수
+          · r849: IDLE·PENDING 인데 끝난 턴이 인증 실패 0초 턴(ft_api_outage_util.is_logged_out ∧ is_quick_turn — 소요 5초 이하만)이면 LOGGEDOUT — 2·3칸 = 첫 실패 시각 · 연속 실패 턴 수
             (둘 다 «보이는 범위» 값 — 창 상한(tail_bytes) 앞의 실패는 못 본다 · 근사 · 쪽지 중복 키로 쓰지 않는다)
   REPORTED = 그 턴의 assistant tool_use 입력에 `mbox.sh send <master>` 문자열 실재(yes/no) · master 미상이면 '-'
 쓰는 곳: 셸 도구(`ft-seat-status.sh turn`) = CLI · 뉴스 HTML·지도 = turns() — 좌석 → 최신 jsonl 을 한 번에(find_jsonls) 찾고 같은 프로세스에서 꼬리만 읽는다
@@ -21,7 +21,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-from ft_api_outage_util import find_jsonls, is_logged_out, is_normal  # noqa: E402
+from ft_api_outage_util import find_jsonls, is_logged_out, is_normal, is_quick_turn  # noqa: E402
 
 TAIL_BYTES, TAIL_START = 1 << 20, 1 << 16
 Row = tuple[str, str, str, str, int]
@@ -108,12 +108,13 @@ def turn_of_file(path: str, tail_bytes: int = TAIL_BYTES, tail_start: int = TAIL
 
 
 def _logged_out(recs: list[dict], ends: list[int]) -> tuple[int, str, bool]:
-    """끝난 턴들을 뒤에서부터 — 인증 실패 기록이 있고 정상 assistant 가 없는 턴이 연달아 몇 개인가 → (턴 수, 첫 실패 시각, 창 앞끝 닿음)."""
+    """끝난 턴들을 뒤에서부터 — «인증 실패 ∧ 정상 assistant 없음 ∧ 소요 5초 이하» 인 턴이 연달아 몇 개인가 → (턴 수, 첫 실패 시각, 창 앞끝 닿음).
+    소요 시간 검사(r849 r3 · DA⑥ r3 반례 1): 120초 걸린 인증 실패 턴은 «일한 턴» 이다 — 로그아웃으로 읽으면 일하는 좌석을 안 깨운다."""
     n, first = 0, "-"
     for j in range(len(ends) - 1, -1, -1):
         seg = recs[(ends[j - 1] + 1 if j else 0):ends[j]]
         fails = [r for r in seg if is_logged_out(r)]
-        if not fails or any(is_normal(r) for r in seg):
+        if not fails or any(is_normal(r) for r in seg) or not is_quick_turn(recs[ends[j]].get("durationMs")):
             return n, first, False
         n, first = n + 1, str(fails[0].get("timestamp", "-"))
     return n, first, True

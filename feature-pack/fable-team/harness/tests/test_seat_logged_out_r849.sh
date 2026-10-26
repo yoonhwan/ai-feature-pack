@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# test_seat_logged_out_r849.sh — r849 로그아웃 좌석: ⓐ~ⓔ + DA⑥ r1 반례 3 + 재설계 r4 칸(ⓡ1·ⓡ1b·ⓡ3) = tests/scripts/test_seat_logged_out_r849.py · ⓕ 변이 10종(사본 bin 에서 한 곳씩 지우면 그 시험이 FAIL)
+# test_seat_logged_out_r849.sh — r849 로그아웃 좌석: ⓐ~ⓔ + DA⑥ r1 반례 3 + 재설계 r4 칸(ⓡ1·ⓡ1b·ⓡ3) + 재설계 r3 DA⑥ r3 반례 4(ⓡ4·ⓡ5·ⓡ6·ⓡ7·ⓡ7b) = tests/scripts/test_seat_logged_out_r849.py · ⓕ 변이 15종(사본 bin 에서 한 곳씩 지우면 그 시험이 FAIL)
 # 격리: 합성 jsonl · 가짜 명부·tmux·mbox·seat-status(임시 폴더) — 실 좌석 깨우기·ring·쪽지 0.
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
@@ -29,7 +29,7 @@ PY
 mutate "LOGGEDOUT 분기 삭제" ft_seat_turn.py '        if n:
             return "LOGGEDOUT"' '        if False:
             return "LOGGEDOUT"' test_a_logged_out
-mutate "칸 있으면 0통 삭제" ft_stall_scan.py 'if self.cell(seat).exists():' 'if False:' test_c_tick_notifies_team_master_once
+mutate "칸 있으면 0통 삭제" ft_stall_scan.py 'if cell.is_file():' 'if False:' test_c_tick_notifies_team_master_once
 mutate "ring 제외(로그아웃) 삭제" ft-idle-wake.sh 'if state == "LOGGEDOUT":' 'if False:' test_d_idle_wake_skips_logged_out_and_rested
 mutate "ring 제외(닫기 대기) 삭제" ft-idle-wake.sh '"ft_card_rest.py"), seat]).returncode == 0:' '"ft_card_rest.py"), seat]).returncode == 99:' test_d_idle_wake_skips_logged_out_and_rested
 # DA⑥ r1 반례 3 — 고친 자리를 r1 꼴로 되돌리면 그 반례 시험이 FAIL
@@ -42,6 +42,11 @@ mutate "키에 시작 시각 되살림" ft_stall_scan.py 'f"logged-out.{seat}"' 
 mutate "칸 지움 삭제" ft_stall_scan.py 'self.cell(s).unlink(missing_ok=True)' 'pass' test_r1b_relogin_then_logout_two_notices_and_unreadable_scan_keeps_cell
 mutate "③ 면제 삭제" ft-nano-close.sh '"$f" --skip-logged-out 2>&1' '"$f" 2>&1' test_e_nano_close_gate
 mutate "[재개] 제외 삭제" ft_api_outage.py 'c is not None and c.cause != "logged_out"}' 'c is not None}' test_api_outage_never_resumes_logged_out
+# 재설계 r3(DA⑥ r3 반례 4건) — 고정한 자리를 r2 꼴로 되돌리면 그 반례 시험이 FAIL
+mutate "소요 시간 검사 삭제" ft_seat_turn.py ' or not is_quick_turn(recs[ends[j]].get("durationMs"))' '' test_r4_slow_auth_failure_turn_is_not_logged_out
+mutate "미완 턴 활동 제외 되살림" ft-jsonl-last-ts.py '        if end is not None and is_quick_turn(end.get("durationMs")) and any(is_logged_out(r) for r in seg) and not any(is_normal(r) for r in seg):' '        if any(is_logged_out(r) for r in seg) and not any(is_normal(r) for r in seg):' test_r5_unfinished_turn_counts_as_activity
+mutate "칸 폴더 조용한 통과 되살림" ft_stall_scan.py 'if cell.exists() and not cell.is_file():' 'if False:' test_r6_cell_is_folder_errors_not_silent
+mutate "칸 발신 전 기록 삭제" ft_stall_scan.py '                _ = cell.write_text(f"first={first} master={master}\n", encoding="utf-8")' '                _ = None' test_r7_cell_written_before_send_one_notice
 
 # 짝 사본(harness/bin ↔ kit) 바이트·실행 비트 동일
 for n in ft_api_outage_util.py ft_api_outage.py ft_seat_turn.py ft-seat-status.sh ft_stall_scan.py ft_stall_detect.py ft_card_rest.py ft-idle-wake.sh ft-jsonl-last-ts.py ft-nano-close.sh; do
