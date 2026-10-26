@@ -9,7 +9,8 @@
 #   ⓕ `--handover B --defer-press` + press 점유 → DA 넘김(미룸 0) · 그 뒤 digest 에서 reap 0
 #   ⓖ 도구 끝남(trap EXIT) → 자기 줄 지워짐 · kill -9 로 끝남(trap 0) → 다음 leak-reap 이 죽은 pid 줄 지움
 #   r3: ⓗ press 미룸 뒤 --handover → 미룬 등록 DA 넘김(digest 가 안 죽임) · ⓘ register 상한 4200 으로 잘림 · ⓙ leak-reap lstart 다른 pid 줄 지움·보고 0 · ⓚ 상한 지난 등록 줄 = reap(넘김 0)
-#   변이 8(사본에서만 · 원본/변이를 같은 조건으로 돌려 기대값이 갈리는지 본다): 글자 판정 복귀 → ⓐ · 좌석 칸 갱신 끔 → ⓓ · 장부 덮어쓰기 → ⓔ · 넘김 앞단 끔 → ⓕ · digest 넘김 건너뜀 끔 → ⓗ · 상한 자름 끔 → ⓘ · lstart 비교 끔 → ⓙ · 만료도 넘김 → ⓚ
+#   r4: ⓘ2 상한초 칸 줄바꿈 → 경고 1줄(이스케이프) · ⓘ3 seat·cmd 칸 속 탭·줄바꿈 → 장부 한 줄 칸 7
+#   변이 8(사본에서만 · 원본/변이를 같은 조건으로 돌려 기대값이 갈리는지 본다): 글자 판정 복귀 → ⓐ · 좌석 칸 갱신 끔 → ⓓ · 장부 덮어쓰기 → ⓔ · 넘김 앞단 끔 → ⓕ · digest 넘김 건너뜀 끔 → ⓗ · 상한 자름 끔 → ⓘ · lstart 비교 끔 → ⓙ · 만료도 넘김 → ⓚ (+ r4 ⑥c 경고 이스케이프 끔 → ⓘ2 · ⑥d 칸 공백화 끔 → ⓘ3)
 # 실프로세스 픽스처 = 표식 r939fx-<pid> 를 argv 에 단 ppid 1 고아(좌석 이름 가짜 · tmux 세션 없음 → env FT_SEAT 경로) — trap 이 정리. 상태 폴더·장부는 전부 임시.
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"
 set -uo pipefail
@@ -219,6 +220,12 @@ for v in "--1" "-1" "+5" "1e3" "" "$LONG9"; do   # astra r1 반례: «--1» 이 
   d3="$(rows | awk -F'\t' -v p="$IS" -v n="$(date +%s)" '$2==p{print $5-n}')"
   chk "ⓘ입력 «${v:0:12}» → rc0 · 경고 1줄 · 4200 이하" "$rc3 $(grep -c "WARN 상한초" <<< "$o3") $([ "${d3:-0}" -gt 4100 ] && [ "${d3:-0}" -le 4200 ] && echo ok)" "0 1 ok"
 done
+o4="$(FT_BG_FINITE_LEDGER="$TMP/bg-finite.tsv" bash "$BGF" register "$A" $'1\n2' "$IS" nl 2>&1)"; rc4=$?   # astra r3 반례: 상한초 칸 줄바꿈 → 경고 2줄
+d4="$(rows | awk -F'\t' -v p="$IS" -v n="$(date +%s)" '$2==p{print $5-n}')"
+chk "ⓘ2 상한초 «1\\n2» → rc0 · 4200 이하 · registered 아닌 줄 1" "$rc4 $([ "${d4:-0}" -gt 4100 ] && [ "${d4:-0}" -le 4200 ] && echo ok) $(grep -vc '^registered' <<< "$o4")" "0 ok 1"
+has "$o4" '«1\n2»' "ⓘ2 경고 줄에 «1\\n2»(글자 그대로 백슬래시 n)"
+o5="$(FT_BG_FINITE_LEDGER="$TMP/bg-finite.tsv" bash "$BGF" register $'S\tX' 4200 "$IS" $'a\tb\nc' 2>&1)"; rc5=$?   # 같은 부류: 장부 칸(seat·cmd) 속 탭·줄바꿈
+chk "ⓘ3 seat «S\\tX» · cmd «a\\tb\\nc» → rc0 · 그 pid 줄 1 · 칸 7" "$rc5 $(rows | awk -F'\t' -v p="$IS" '$2==p{n++; nf=NF} END{print n+0, nf+0}')" "0 1 7"
 kill "$IS" 2>/dev/null
 
 echo "== ⓙ r3 — leak-reap: pid 재사용(lstart 다름) 줄은 보고 0 · 줄 지움 / TZ 가 달라도 같은 프로세스는 보고"
@@ -265,15 +272,15 @@ chk "정적 reap 은 글자 허용 목록을 안 쓴다" "$(grep -c 'FINITE_SHEL
 chk "정적 닫기 3종(seat-close·nano-close) --handover 0" "$(grep -c -- '--handover' "$BIN/ft-seat-close.sh" "$BIN/ft-nano-close.sh" 2>/dev/null | awk -F: '{s+=$2} END{print s+0}')" 0
 
 echo "== 변이 8종(사본에서만) — 고침이 빠지면 그 시험만 빨강이어야 한다 · 각 줄 = «원본 변이» 두 값(같은 조건 · 갈려야 한다)"
-mut() {  # mut <이름> <파일> <바꿀 글자> <새 글자>
+mut() {  # mut <이름> <파일> <바꿀 글자> <새 글자> [all] — all = 모든 자리를 바꾼다(기본 첫 자리 1곳)
   rm -rf "$TMP/bin-$1"; mkdir -p "$TMP/bin-$1"; cp -R "$BIN"/. "$TMP/bin-$1/"
-  python3 - "$TMP/bin-$1/$2" "$3" "$4" <<'PY' || bad "변이 앵커 불일치 $1 (MUTATE-MISS)"
+  python3 - "$TMP/bin-$1/$2" "$3" "$4" "${5:-}" <<'PY' || bad "변이 앵커 불일치 $1 (MUTATE-MISS)"
 import sys
-p, old, new = sys.argv[1:4]
+p, old, new, every = sys.argv[1:5]
 s = open(p, encoding="utf-8").read()
 if old not in s:
     print("MUTATE-MISS"); sys.exit(3)
-open(p, "w", encoding="utf-8").write(s.replace(old, new, 1))
+open(p, "w", encoding="utf-8").write(s.replace(old, new, -1 if every == "all" else 1))
 PY
 }
 sp() { spawn "$1-$MK" "${2:-}" "$BASH_X" "$TMP/da/ft-da-codex.sh" --tag "$1-$MK"; }   # sp <표식> [env]
@@ -328,6 +335,13 @@ mut clamp ft-bg-finite.sh ' or int(secs) > CAP_SEC:' ':'
 chk "변이⑥상한 자름 끔 → ⓘ빨강: 999999 가 4200 이하인가 [원본 변이]" "$(scen_clamp "$BIN") $(scen_clamp "$TMP/bin-clamp")" "cap big"
 mut edge ft-bg-finite.sh 'not re.fullmatch(r"[0-9]{1,6}", secs)' 'not secs.lstrip("-").isdigit()'
 chk "변이⑥b 옛 lstrip 판정 복귀 → ⓘ빨강: «--1» 입력 rc [원본 변이]" "$(scen_edge "$BIN") $(scen_edge "$TMP/bin-edge")" "rc0 rc1"
+scen_nl() { fresh; local m o; m="$(sp m10)"; o="$(bash "$1/ft-bg-finite.sh" register "$A" $'1\n2' "$m" x 2>&1)"; grep -vc '^registered' <<< "$o"; kill "$m" 2>/dev/null; }
+mut esc ft-bg-finite.sh 'WARN 상한초 «{shown}»' 'WARN 상한초 «{secs}»'
+chk "변이⑥c 경고 이스케이프 끔 → ⓘ2빨강: registered 아닌 줄 수 [원본 변이]" "$(scen_nl "$BIN") $(scen_nl "$TMP/bin-esc")" "1 2"
+scen_tab() { fresh; local m; m="$(sp m11)"; bash "$1/ft-bg-finite.sh" register $'S\tX' 4200 "$m" $'a\tb\nc' >/dev/null 2>&1
+  rows | awk -F'\t' -v p="$m" '$2==p{n++; nf=NF} END{printf "%d/%d", n+0, nf+0}'; kill "$m" 2>/dev/null; }
+mut tab ft-bg-finite.sh 'r"[\t\r\n]"' 'r"(?!)"' all
+chk "변이⑥d 장부 칸 공백화 끔 → ⓘ3빨강: 그 pid 줄 수/칸 수 [원본 변이]" "$(scen_tab "$BIN") $(scen_tab "$TMP/bin-tab")" "1/7 0/0"
 mut lstart ft-leak-reap.sh '        if a != b: dead.append(pid); continue' '        pass'
 chk "변이⑦lstart 비교 끔 → ⓙ빨강: 재사용 pid 줄 보고 수 [원본 변이]" "$(scen_lstart "$BIN") $(scen_lstart "$TMP/bin-lstart")" "0 1"
 mut expire ft-seat-reap.sh '        if (r["until"] <= now) != expired: continue' '        if expired: continue   # 변이: 상한 지난 줄도 «상한 전» 으로 센다(넘김 집합에 들어감)'
