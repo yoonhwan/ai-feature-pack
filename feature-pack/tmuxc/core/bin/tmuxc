@@ -699,7 +699,7 @@ agent_inject() {
   tmux send-keys -t "$pane" Enter; enters=1
   # r925 r4: 마감 = 첫 Enter 시각 + TMUXC_SUBMIT_WAIT초 «벽시계»(조회 횟수 아님 · 조회가 느려도 늘지 않는다).
   #   재전송 판정은 그 절반 시점에 1회(R3) — 기록 없음 ∧ 입력줄 = 전문 ∧ «두 번째 Enter 직전 기록 다시 읽기» 도 없음일 때만.
-  #   r5 계약: 마감 전에 시작한 조회가 찾은 새 레코드는 마감을 넘겨도 rc0 · 재전송·새 Enter 는 마감 전에만 · 증거 없이 마감 = rc≠0 · 총 시간 ≤ WAIT + 조회 1회.
+  #   r6 결과 계약: ①Enter = 첫 1 + 재전송 ≤1 · 마감 뒤 Enter 0 ②rc0 ⇔ Enter 직전 위치 뒤 새 user 레코드(증거 없이 rc0 0) ③총 ≤ WAIT + 조회 1회 + 0.2초 (내부 순서는 계약 아님).
   local now t_end t_mid resent=0 sub
   now="$(now_ms)"; t_end=$(( now + wait_s * 1000 )); t_mid=$(( now + wait_s * 500 ))
   while :; do

@@ -18,6 +18,7 @@
 #     ⓘ 마지막 조회 직후 첫 Enter 기록 생김 → 재전송 0 · rc0
 #     ⓙ 조회 지연 0.04초 × 많음 + WAIT=7 → 9초 전에 끝남(벽시계 마감)
 #     ⓙ2/ⓙ3 (r5 계약) WAIT=1 · 조회 1.4초 — 기록 1.2초 = 마감 뒤에 찾아도 rc0 / 기록 3초 = rc≠0 · 둘 다 Enter 1
+#     ⓙ4 (r6 결과 계약) WAIT=1 · 조회 0.85초 · 기록 1.1초 → rc0 · Enter 1 · 총 < WAIT + 조회 + 0.2 + 0.5초
 #   이어 온 시험: g1 준비 6초 늦음 · g2 첫 Enter 유실 → 재전송 1 · g3 Enter 전부 유실 → 실패 · g4 준비 빠름 ·
 #     g5 새 claude 자리표시 «Try "…"» → 주입·제출 · g6 사람 글자 위 → Enter 0 · g7 id 없는 agent 주입 → rc≠0 ·
 #     g8 TUI 가 긴 문장을 여러 줄로 감음(실측 꼴) → 전문 일치 · 제출 · g9 boot-enter 옛 기록만 + 자리표시 → rc4 ·
@@ -299,9 +300,25 @@ for who in inject boot; do
   R3RC=$RC; R3OUT="$(outline)"; R3SECS=$SECS; R3EN="$(enters)"; R3REC="$(rec_count)"
   sleep 2   # 늦은 기록이 다음 칸으로 새지 않게 기다린 뒤, 정말 생겼는지 본다
   { [ "$R3RC" != 0 ] && [ "$R3RC" != 124 ] && [ "$R3EN" = 1 ] && [ "$(enters)" = 1 ] && [ "$R3REC" = 0 ] && [ "$(rec_count)" = 1 ] \
-      && grep -q '제출.*실패' "$T/out"; } \
-    && ok "ⓙ3 $who 기록이 마감+조회 뒤(3초) → rc=$R3RC · Enter 1 · ${R3SECS}s · 기록은 그 뒤 생김" \
+      && grep -q '제출.*실패' "$T/out" && python3 -c "import sys; sys.exit(0 if ${R3SECS} < 3.1 else 1)"; } \
+    && ok "ⓙ3 $who 기록이 마감+조회 뒤(3초) → rc=$R3RC · Enter 1 · ${R3SECS}s(<1+1.4+0.2+0.5) · 기록은 그 뒤 생김" \
     || bad "ⓙ3 ${who} rc=${R3RC} enters=${R3EN}→$(enters) rec=${R3REC}→$(rec_count) secs=${R3SECS} out=${R3OUT}"
+done
+
+# ⓙ4 (r6 결과 계약 · astra r5 반례 꼴) WAIT=1 · 조회 0.85초 · 기록 1.1초 늦게 → 쉼 뒤 마감을 넘겨 시작한 조회가 찾음
+#   → inject·boot 둘 다 rc0 · Enter 1 · 새 기록 1 · < 1+0.85+0.2+0.5초 (조회를 언제 시작했는지는 계약 아님)
+for who in inject boot; do
+  fresh; : > "$D/ready"; printf '1.1\n' > "$D/jsonl_delay"
+  if [ "$who" = inject ]; then
+    LOOKUP_DELAY=0.85 TMUXC_SUBMIT_WAIT=1 call_limited inject_message sess "$MSG" agent "$SID"
+  else
+    boot_env; printf '%s' "$BOOT" > "$D/buffer"
+    LOOKUP_DELAY=0.85 TMUXC_SUBMIT_WAIT=1 call_limited cmd_boot_enter sess
+  fi
+  { [ "$RC" = 0 ] && grep -q 'state=submitted' "$T/out" && [ "$(enters)" = 1 ] && [ "$(rec_count)" = 1 ] \
+      && python3 -c "import sys; sys.exit(0 if ${SECS} < 2.55 else 1)"; } \
+    && ok "ⓙ4 ${who} 조회 0.85초 · 기록 1.1초 → rc=0 · Enter 1 · 새 기록 1 · ${SECS}s(<2.55)" \
+    || bad "ⓙ4 ${who} rc=${RC} enters=$(enters) rec=$(rec_count) secs=${SECS} out=$(outline)"
 done
 
 # g1 준비 6초 늦음 → 준비 확인 뒤 주입 · 기록으로 제출 확인 · 입력줄 빔

@@ -1,5 +1,6 @@
-r925 r5 — tmuxc 주입 «제출 확인» + 승계 이어가기 Enter (팩 브랜치 nano/r925-tmuxc-inject-submit-verify-and-succ-r2 · Issue #3586)
-  ★이 파일은 r5 판이다 — r4(a81aaf8f) 위 1커밋 · astra r4 HOLD 1건 = 결정문 문장 오류 → DECISION-r925-r5-contract.md(실행 코드 0 · 주석 1줄 · 시험 ⓙ2·ⓙ3).
+r925 r6 — tmuxc 주입 «제출 확인» + 승계 이어가기 Enter (팩 브랜치 nano/r925-tmuxc-inject-submit-verify-and-succ-r2 · Issue #3586)
+  ★이 파일은 r6 판이다 — r5(904eea0d) 위 1커밋 · 마감 계약 보류 2회(astra r4·r5) → 하드 룰 14 재설계 DECISION-r925-r6-outcome-contract.md
+    (결과 계약 1~3 · 실행 코드 0 · 주석 1줄 · 시험 ⓙ4 + ⓙ3 시간 단언). r5 판 = DECISION-r925-r5-contract.md(시험 ⓙ2·ⓙ3).
     r4 판 = DA⑥ r3(xhigh) HOLD 좁은 4곳 → DECISION-r925-r4-final.md 고침 4 + 선행 결함 1.
     재DA 0 · 끝내는 조건 = arch 확정 VERDICT. r3 판(48070359)이 무엇을 틀렸는지는 red-r3-*.txt 에 실제 실행 결과로 남겼다.★
 
@@ -17,15 +18,16 @@ r925 r5 — tmuxc 주입 «제출 확인» + 승계 이어가기 Enter (팩 브�
   고침 3 재전송 직전 기록 다시 읽기 — 두 번째 Enter 직전에 <uuid>.jsonl 을 한 번 더 읽어 제출이 생겼으면 재전송 0 · rc0.
   고침 4 7초 = 벽시계 마감 — 마감 = 첫 Enter 시각 + TMUXC_SUBMIT_WAIT(기본 7)초(밀리초 · 조회 횟수 아님). 재전송 판정 = 절반 시점 1회 ·
          boot-enter 도 같은 마감.
-  r5 계약(고침 4 마지막 문장 대체 · tmuxc 주석 1줄): 마감 전에 시작한 조회가 찾은 새 레코드는 마감을 넘겨도 rc0 · 재전송·새 Enter 는
-         마감 전에만 · 증거 없이 마감 = rc≠0 · 총 시간 ≤ WAIT + 조회 1회. 실행 줄 변경 0(git diff a81aaf8f HEAD -- tmuxc = 주석 1줄).
+  r6 결과 계약(r4 고침 4 마지막 문장 · r5 계약 둘 다 대체 · tmuxc 주석 1줄): ①Enter = 첫 1 + 재전송 ≤1 · 마감 뒤 Enter 0
+         ②rc0 ⇔ Enter 직전 위치 뒤 새 user 레코드(증거 없이 rc0 0) ③총 ≤ WAIT + 조회 1회 + 0.2초 · 내부 순서(조회·쉼·마감 검사 차례)는 계약 아님.
+         실행 줄 변경 0(git diff a81aaf8f HEAD -- tmuxc = 주석 1줄).
   선행 ft-successor-open.sh:123 `/bin/bash -n` rc2(heredoc 를 품은 $( ) 안 python 정규식의 백틱 · 기준판도 같음) → 백틱을 \x60 으로(같은 뜻) · kit 짝 cmp0.
 
 ■ 실측(제출 0 · 토큰 0 · claude 2.1.310 · tmux 세션은 timeout 으로 스스로 끝남) — live-capture.txt
   probe4: 실제 부팅 문장이 3줄로 감김 → 새 input_is_message rc=0 · «통 신표준» 으로 바꾼 글 vs 같은 화면 rc=1 · 자리표시 rc=1 · 기록 파일 0
 
 ■ 시험 (전부 rc0 · /bin/bash 3.2 도 rc0 — green-*.txt)
-  feature-pack/tmuxc/test/test_tmuxc_inject_ready_submit.sh — 31 PASS · 가짜 tmux + 가짜 기록 폴더(<uuid>.jsonl) · 실 세션 0
+  feature-pack/tmuxc/test/test_tmuxc_inject_ready_submit.sh — 33 PASS · 가짜 tmux + 가짜 기록 폴더(<uuid>.jsonl) · 실 세션 0
     r3 ⓐ 옛 출력·옛 기록 + 새 제출 0 → rc=1 · ⓑ 늦은 기록 + 사람 접두 25자 → 재전송 0 · rc0 · ⓒ/ⓒ' RGB 전문 → Enter 1 / 회색 앞부분 → rc4 ·
        ⓓ capture 정상 모양 + rc1 → rc1 · ⓔ 권한 프롬프트 → rc2 «[HIL] 입력줄 판독 불가»
     r4 ⓕ 옛 기록 + 새 문장 → Enter 1 · 새 레코드 뒤 rc0 · «이미 제출» 0 / ⓕ' 옛 기록 + 새 기록 0 → rc1
@@ -34,6 +36,9 @@ r925 r5 — tmuxc 주입 «제출 확인» + 승계 이어가기 Enter (팩 브�
        ⓙ 조회 지연 0.04초 + WAIT=7 · Enter 전부 유실 → 7.x초(<9) rc1
     r5 ⓙ2 WAIT=1 · 기록 1.2초 늦게 · 조회 1.4초 → inject·boot 둘 다 rc0 · Enter 1 · 1.75·1.55초(<2.9)
        ⓙ3 같은 지연 · 기록 3초 늦게 → inject·boot 둘 다 rc1 · Enter 1(마감 뒤 Enter 0) · 기록은 그 뒤 실제로 생김(다음 칸으로 새지 않게 2초 기다림)
+          r6: 시간 상한 단언 추가 < 1+1.4+0.2+0.5 = 3.1초(실측 1.75·1.56)
+    r6 ⓙ4 (astra r5 반례 꼴) WAIT=1 · 조회 0.85초 · 기록 1.1초 → inject·boot 둘 다 rc0 · Enter 1 · 새 기록 1 · < 2.55초
+       (실측 inject 2.23~2.43 · boot 2.08~2.09 · 부하 12 에서 4회 · 걸린 시간 = 호출 전체(Enter 앞 준비 포함) 라 inject 여유 ≈0.12~0.3초)
     이어 온 g1 준비 6초 늦음 · g2 첫 Enter 유실 → 재전송 1 · g3 전부 유실 → Enter 2 rc1 · g4 추가 대기 ≤0.9초 · g5 자리표시 → 제출 ·
        g6 사람 글자 위 → Enter 0 · g7 id 없음 → 주입 0 · g8 폭 40 줄 감김 → 전문 일치 · 제출 · g9 옛 기록 + 자리표시 → rc4 ·
        ⓛ plain·인자 없음 = cbe218a5 바이트 같음 · ⓝ cmd_open 판독 실패 문구 · ⓞ/ⓞ' id 발급·TMUXC_BOOT_TEXT / codex 0
@@ -42,7 +47,7 @@ r925 r5 — tmuxc 주입 «제출 확인» + 승계 이어가기 Enter (팩 브�
 
 ■ 빨강 (red-*.txt)
   origin/main · r2 8d6a4756 tmuxc : 판정 함수 없음 → 옛 판 ⓐ rc0(새 기록 0) · r2 는 g5 자리표시를 «input-busy» 로 거절
-  r3 48070359 tmuxc : FAILED 12 — ⓙ2 boot·ⓙ3 inject·ⓙ3 boot(횟수 마감 → 늦은 기록까지 기다려 rc0 · 2.92~6.14초) · ⓕ·ⓕ'·g9(옛 기록을 «already-submitted» 로 읽음) · ⓖ·ⓖ'(resume·명부 없음 → rc3) · ⓗ(공백 지운 비교 → Enter)
+  r3 48070359 tmuxc : FAILED 13 — ⓙ2 boot·ⓙ3 inject·ⓙ3 boot·ⓙ4 boot(2.88초)(횟수 마감 → 늦은 기록까지 기다려 rc0 · 2.92~6.14초) · ⓕ·ⓕ'·g9(옛 기록을 «already-submitted» 로 읽음) · ⓖ·ⓖ'(resume·명부 없음 → rc3) · ⓗ(공백 지운 비교 → Enter)
        · ⓘ(재조회 없이 재전송 → Enter 2) · ⓙ(횟수 마감 18.07초) · ⓑ(r3 는 창 길이가 달라 사람 입력 시점 전에 기록을 봄 — 판정 순서 차이, 결함 아님)
   origin/main · r2 · r3 ft-successor-open : ⓡ5·ⓡ5'·ⓡ5'' FAIL(/bin/bash 3.2 구문 오류 rc2) · origin/main·r2 는 ⓡ2·ⓡ2'·ⓡ3 도 FAIL
 
