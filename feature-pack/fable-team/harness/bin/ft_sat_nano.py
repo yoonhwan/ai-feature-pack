@@ -543,8 +543,9 @@ def forget(dl, row, why):
         raise Fail(2, "--forget 은 --why '<1~200자 한 줄>' 필수 — 기록 그대로 · 원격 0")
     if rt.confirmed(row):
         raise Fail(2, "확인된 세션은 close 로 닫는다(--forget 불가) — 기록 그대로")
-    rt.in_time(dl, "삭제 전", "--forget 마감 — 기록 그대로 · 원격 0")
+    rt.in_time(dl, "forget 기록 전", "--forget 마감 — 기록 그대로 · 원격 0")
     rt.forgotten_add(row, w)
+    rt.in_time(dl, "삭제 전(forget 기록 뒤)", "forget 기록은 남았으나 마감 초과 — 줄 유지 · 다시 --forget")
     rt.opened_del(row[1])
     say(f"FORGET ok {row[0]} — 기록만 지움 · 원격 세션은 손대지 않음 · forgotten.tsv 1줄")
     return 0

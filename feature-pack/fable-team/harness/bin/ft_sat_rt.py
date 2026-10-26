@@ -201,7 +201,7 @@ def read_rows(name):
 
 
 # opened.tsv = name run dir ts session_id created pane_path socket — 정확히 8칸 · 열쇠 = run(R1)
-# 신원 3칸·소켓 칸이 모두 차면 confirmed · 하나라도 비면 pending «열기 불확실»
+# 신원 3칸·소켓 칸 4칸이 모두 차면 confirmed · 모두 비면 pending «열기 불확실» · 일부만 참 = 장부 손상(rc6)
 NCOL = 8
 
 
@@ -217,6 +217,8 @@ def opened_find(name):
         return None
     if len(hit) != 1 or len(hit[0]) != NCOL or sum(1 for r in rows if same_run(r, hit[0][1])) != 1:
         raise Fail(6, f"장부 손상 — 건드림 0(같은 이름 줄 {len(hit)}개 · 칸 {len(hit[0])}개 · 정확히 1줄·{NCOL}칸이어야): {name}")
+    if any(hit[0][4:NCOL]) and not confirmed(hit[0]):
+        raise Fail(6, f"장부 손상 — 건드림 0(신원·소켓 4칸이 일부만 찼다 · 전부 참 = 확인됨 · 전부 빔 = pending 만): {name}")
     return hit[0]
 
 

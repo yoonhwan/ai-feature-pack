@@ -2,7 +2,8 @@
 # ft-sat-nano 시험 (r902 r7 + DECISION 고침 3) — ssh·tmux·tmuxc·pgrep·lsof·ps·mkdir·mv «대역» 만. 실 mini 0 · 제품 쪽지함 쓰기 0 · 실 tmux 세션 0.
 #   유지 칸: ⓐ ⓑ ⓒ ⓓ ⓖ ⓗ ⓘ ⓙ ⓜ ⓝ ⓞ ⓠ ⓡ ⓢ-1 ⓤ · 바뀌는 칸: ⓐ 표식 · ⓚ · ⓢ-2 · ⓛ · ⓣ · ⓥ
 #   새 칸: Ⓐ Ⓑ Ⓒ Ⓓ Ⓔ Ⓕ Ⓖ Ⓗ①② Ⓘ①② Ⓙ Ⓚ Ⓛ-0~4 Ⓜ Ⓝ Ⓞ Ⓟ Ⓠ + 고침 3(claim_fail 줄 유지 · --why 필수 · has-session rc1 두 꼴)
-#   반송 r5: tmux 대역 = 서버 2개(소켓 A·B) · Ⓙ = 표식(.open.pid) 동기화 · 새 칸 ⓡ1~ⓡ6 · 새 변이 6
+#   반송 r5: tmux 대역 = 서버 2개(소켓 A·B) · 새 칸 ⓡ1~ⓡ6 · 새 변이 6
+#   r5 확정: Ⓙ = 첫 R_POLL 표식(.polled) 뒤 세션 생성 · pid 재사용 = cwd 판정(시각 경쟁 0) · 원격 대역 지연 ≤ 3.5초 · 새 칸 ⓢ1·ⓢ2·Ⓙ'(확정) · 새 변이 2
 #   변이: 칸 함수를 «변이 사본»으로 다시 돌려 빨강이어야 통과(mut — 바꿀 글자가 정확히 1곳이어야 사본이 만들어진다).
 #   실행: env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE bash tests/test_sat_nano_r902.sh   (bash 3.2 · /bin/bash 로도 돈다)
 set -uo pipefail
@@ -74,6 +75,9 @@ if take "${FAKE_SSH_FAILS:-}"; then echo "ssh: connect to host mini port 22: Ope
 export HOME="$FAKE_RHOME" PATH="$FAKE_BIN:$PATH" FT_MBOX_DIR="$FAKE_RMBOX"
 if take "${FAKE_SSH_LOST:-}"; then bash -c "${cmd#"$pf"}" >/dev/null 2>&1; exit 255; fi   # 원격은 돌았고 출력만 잃음(0바이트)
 if take "${FAKE_SSH_AFTER:-}"; then bash -c "${cmd#"$pf"}"; exit 255; fi                 # 출력까지 낸 뒤 255
+case "$cmd" in *'echo "alive=$a"'*)   # R_POLL — 끝난 «뒤» 작업 폴더에 .polled 표식(대역 세션 생성의 동기화 · sleep 0)
+  bash -c "${cmd#"$pf"}"; rc=$?; last="${cmd##* }"; last="${last#\'}"; last="${last%\'}"; : >"$FAKE_RHOME/$last/.polled" 2>/dev/null; exit "$rc" ;;
+esac
 exec bash -c "${cmd#"$pf"}"
 EOF
 cat >"$FB/tmuxc" <<'EOF'
@@ -83,8 +87,8 @@ dir="$2"; shift 2; name=""
 while [ $# -gt 0 ]; do case "$1" in --name) name="$2"; shift 2;; --agent|--role|--model|--effort) shift 2;; *) shift;; esac; done
 printf '%s\n' "$name" >>"$FAKE_SESS.calls"
 [ -d "$dir" ] || exit 3
-if [ -n "${FAKE_TMUXC_ARM_PS:-}" ]; then   # 표식 동기화(r5): OPEN_BG 가 .open.pid(lstart)를 쓴 «뒤» 에만 pid 재사용을 무장한다
-  n=0; while [ ! -s "$dir/.open.pid" ] && [ "$n" -lt 200 ]; do sleep 0.05; n=$((n + 1)); done; : >"$FAKE_PS_ALT"
+if [ -n "${FAKE_TMUXC_WAITPOLL:-}" ]; then   # 표식 동기화(r5 확정): 첫 R_POLL 이 끝난 «뒤» 에만 세션을 만든다(파일 대기 · 상한 3초)
+  n=0; while [ ! -e "$dir/.polled" ] && [ "$n" -lt 300 ]; do sleep 0.01; n=$((n + 1)); done
 fi
 [ -n "${FAKE_TMUXC_ARM_HAS:-}" ] && { printf '%s\n' "$FAKE_TMUXC_ARM_HAS" >"$FAKE_SESS.hasrc"; exit 0; }
 [ -n "${FAKE_TMUXC_SLEEP:-}" ] && sleep "$FAKE_TMUXC_SLEEP"
@@ -118,7 +122,7 @@ case "$sub" in
   display)     grep -qxF -- "$tgt" "$S" || exit 1
                case "$fmt" in *session_id*) awk -F'|' -v n="$tgt" -v s="$sock" '$1==n{print $2" "$3" "s" "$4}' "$S.meta" ;; *) echo 4242 ;; esac ;;
   send-keys)   [ -e "${FAKE_SEND_FAIL:-/nonexistent}" ] && exit 1
-               n=0; while [ -e "${FAKE_SEND_BARRIER:-/nonexistent}" ] && [ "$n" -lt 100 ]; do sleep 0.1; n=$((n + 1)); done
+               n=0; while [ -e "${FAKE_SEND_BARRIER:-/nonexistent}" ] && [ "$n" -lt 35 ]; do sleep 0.1; n=$((n + 1)); done
                echo "$tgt|$args" >>"$FAKE_SEND" ;;
   kill-session) [ -n "$tgt" ] && grep -qxF -- "$tgt" "$S" || exit 1
                grep -vxF -- "$tgt" "$S" >"$S.t"; mv "$S.t" "$S"
@@ -141,7 +145,8 @@ awk -F'|' -v p="$pid" '$1==p{print "n"$2}' "$FAKE_PI_CWDS"; exit 0
 EOF
 cat >"$FB/ps" <<'EOF'
 #!/usr/bin/env bash
-case " $* " in *" lstart= "*) [ -e "$FAKE_PS_ALT" ] && { echo "Thu Jan  1 00:00:00 1970"; exit 0; };; esac
+# pid 재사용 대역(r5 확정): FAKE_TMUXC_ARM_PS 면 OPEN_BG 밖(.open.claim 없는 cwd = R_POLL)의 lstart 는 늘 다른 값 — 시각 경쟁 0
+case " $* " in *" lstart= "*) [ -n "${FAKE_TMUXC_ARM_PS:-}" ] && [ ! -d "$PWD/.open.claim" ] && { echo "Thu Jan  1 00:00:00 1970"; exit 0; };; esac
 exec /bin/ps "$@"
 EOF
 cat >"$FB/mkdir" <<'EOF'
@@ -180,10 +185,17 @@ if os.environ.get("SAT_TEST_FSYNC_FAIL"):
     def _fsync(fd):
         raise OSError(5, "fsync 실패(시험 주입)")
     os.fsync = _fsync
+if os.environ.get("SAT_TEST_FSYNC_SLEEP"):
+    import time
+    _real_fsync = os.fsync
+    def _slow_fsync(fd):
+        time.sleep(float(os.environ["SAT_TEST_FSYNC_SLEEP"]))
+        _real_fsync(fd)
+    os.fsync = _slow_fsync
 EOF
 chmod 755 "$FB"/* "$SB"/* "$STUB"
 export FAKE_RHOME="$RH" FAKE_BIN="$FB" FAKE_SESS="$RSESS" FAKE_SEND="$SEND" FAKE_RMBOX="$RMBOX" FAKE_PI_PIDS="$T/pi-pids" FAKE_PI_CWDS="$T/pi-cwds"
-export FAKE_SSHLOG="$T/sshlog" FAKE_PS_ALT="$T/ps-alt" STUB_SENT_DIR="$T/stub-sent" STUB_CALLS="$T/calls"
+export FAKE_SSHLOG="$T/sshlog" STUB_SENT_DIR="$T/stub-sent" STUB_CALLS="$T/calls"
 export FAKE_SOCK_A="$T/tmux-501/sockA" FAKE_SOCK_B="$T/tmux-501/sockB"
 export SAT_MINI_MBOX_PY="$KIT/ft-mbox.py" SAT_MBOX_SH="$KIT/ft-mbox.sh" SAT_OUT_DIR="$T/out" FT_MBOX_DIR="$MACBOX" PATH="$SB:$PATH"
 export SAT_STATE_DIR="$T/state"
@@ -298,7 +310,7 @@ call env FAKE_LSOF_RC=1 bash "$TOOL" close 'sat-q#1'; { [ "$RC" = 6 ] && instate
 
 # ⓡ 커널 잠금 — 보유자 SIGKILL 뒤 즉시 · 5초 못 잡으면 rc1
 printf 'r-body\n' >"$T/rb"; seed 905 'seat-r#0' 'mini-r#0' "$T/rb"; : >"$T/calls"
-( exec env STUB_MBOX_SLEEP=6 SAT_MBOX_SH="$STUB" bash "$TOOL" pull --seats 'seat-r#0' >/dev/null 2>&1 ) & rk=$!
+( exec env STUB_MBOX_SLEEP=3 SAT_MBOX_SH="$STUB" bash "$TOOL" pull --seats 'seat-r#0' >/dev/null 2>&1 ) & rk=$!
 for _ in 1 2 3 4 5 6 7 8 9 10; do [ "$(callsn)" -ge 1 ] && break; sleep 0.3; done; kill -9 "$rk" 2>/dev/null; wait "$rk" 2>/dev/null
 s0=$SECONDS; call env SAT_MBOX_SH="$STUB" bash "$TOOL" pull --seats 'seat-r#0'; el=$((SECONDS - s0))
 { [ "$RC" != 1 ] && grep -q "PULL" <<<"$O" && [ "$el" -le 3 ]; } && ok "ⓡ-1 잠금 보유자 SIGKILL → 다음 pull 즉시 잠금(${el}초 · rc=$RC)" || bad "ⓡ-1 rc=$RC ${el}초: $O"
@@ -340,7 +352,7 @@ call env SAT_FAKE_NOW=$(( $(date +%s) + 100 )) SAT_MBOX_SH="$STUB" bash "$TOOL" 
 # ══ 새 칸 ══
 # Ⓐ 고아 배달 상한 — 보유자 SIGKILL → 즉시 pull 발신 0 · 창 뒤 발신 1(꼬리표 동일) · 재발신 상한 넘으면 dead·격리
 cell_A() { local t="$1" s="$2" st="$T/st-A$2" hk FN c1 r1; : >"$T/calls"; printf 'A-body\n' >"$T/Ab"; seed "$s" "seat-A$s#0" 'mini-A#0' "$T/Ab"
-  ( exec env STUB_MBOX_SLEEP=5 SAT_STATE_DIR="$st" SAT_MBOX_SH="$STUB" bash "$t" pull --seats "seat-A$s#0" >/dev/null 2>&1 ) & hk=$!
+  ( exec env STUB_MBOX_SLEEP=3 SAT_STATE_DIR="$st" SAT_MBOX_SH="$STUB" bash "$t" pull --seats "seat-A$s#0" >/dev/null 2>&1 ) & hk=$!
   for _ in 1 2 3 4 5 6 7 8 9 10; do [ "$(callsn)" -ge 1 ] && break; sleep 0.3; done; kill -9 "$hk" 2>/dev/null; wait "$hk" 2>/dev/null
   call env SAT_STATE_DIR="$st" SAT_MBOX_SH="$STUB" bash "$t" pull --seats "seat-A$s#0"; c1="$(callsn)"; r1="$RC"
   FN=$(( $(date +%s) + 100 )); call env SAT_FAKE_NOW="$FN" SAT_STATE_DIR="$st" SAT_MBOX_SH="$STUB" bash "$t" pull --seats "seat-A$s#0"
@@ -482,7 +494,7 @@ PY
 cell_I "$TOOL" && ok "Ⓘ ① 남은 시간 0 이하 = 예외 rc5 · ② 경계에서 자식 실행 0" || bad "Ⓘ"
 
 # Ⓙ pid 재사용(lstart 다름) → 표시만 · open rc4 기록 유지 · close rc4
-call env FAKE_TMUXC_ARM_PS=1 FAKE_TMUXC_SLEEP=5 bash "$TOOL" open "$T/card.md" --run jj --name 'sat-jj#1'; j1="$RC"; jo="$O"; rm -f "$FAKE_PS_ALT"
+call env FAKE_TMUXC_ARM_PS=1 FAKE_TMUXC_WAITPOLL=1 bash "$TOOL" open "$T/card.md" --run jj --name 'sat-jj#1'; j1="$RC"; jo="$O"
 waitsess 'sat-jj#1'; call bash "$TOOL" close 'sat-jj#1'
 { [ "$j1" = 4 ] && grep -q "열기 불확실" <<<"$jo" && [ "$RC" = 4 ] && instate 'sat-jj#1' && hassess 'sat-jj#1'; } && ok "Ⓙ pid 재사용 → alive 0 = 표시만 · open rc4 · close rc4 · 세션·기록 유지" || bad "Ⓙ $j1 | $RC $O"
 bash "$TOOL" close 'sat-jj#1' --adopt >/dev/null 2>&1
@@ -714,6 +726,35 @@ cell_r6() { local t="$1" st="$T/st-r6$2" b r1 r2 o; mkdir -p "$st"; : >"$st/open
   R6D="$r1$r2"; [ "$r1$r2" = 22 ] && [ "$(sshn)" = "$b" ] && ! grep -q Traceback <<<"$o"; }
 cell_r6 "$TOOL" 1 && ok "ⓡ6 opened.flock 쓰기 불가 → open·close rc2 · ssh 0 · traceback 0" || bad "ⓡ6 rc=${R6D:-}"
 
+# ══ r5 확정 칸 (DECISION-r902-impl-r5-final) ══
+# ⓢ1(확정) 신원 3칸 참 + 소켓 빔 → close·--forget·task·--adopt·fetch 전부 rc6 · ssh 0 · 입력 0 · 줄 그대로
+cell_s1() { local t="$1" st="$T/st-s1$2" b ns r=""; mkdir -p "$st"
+  printf 'sat-s1#1\ts1\t%s/s1\tts\t$5\t100\t%s/s1\t\n' "$ROOTR" "$RH/$ROOTR" >"$st/opened.tsv"; cp "$st/opened.tsv" "$st/before"
+  printf 'x\n' >"$T/s1t.md"; b="$(sshn)"; ns="$(wc -l <"$SEND" | tr -d ' ')"
+  r="$r $(SAT_STATE_DIR="$st" bash "$t" close 'sat-s1#1' >/dev/null 2>&1; echo $?)"
+  r="$r $(SAT_STATE_DIR="$st" bash "$t" close 'sat-s1#1' --forget --why x >/dev/null 2>&1; echo $?)"
+  r="$r $(SAT_STATE_DIR="$st" bash "$t" task 'sat-s1#1' "$T/s1t.md" >/dev/null 2>&1; echo $?)"
+  r="$r $(SAT_STATE_DIR="$st" bash "$t" close 'sat-s1#1' --adopt >/dev/null 2>&1; echo $?)"
+  r="$r $(SAT_STATE_DIR="$st" bash "$t" fetch 'sat-s1#1' >/dev/null 2>&1; echo $?)"
+  S1D="$r"; [ "$r" = " 6 6 6 6 6" ] && [ "$(sshn)" = "$b" ] && [ "$(wc -l <"$SEND" | tr -d ' ')" = "$ns" ] && cmp -s "$st/before" "$st/opened.tsv"; }
+cell_s1 "$TOOL" 1 && ok "ⓢ1(확정) 신원 3칸 참 + 소켓 빔 → close·--forget·task·--adopt·fetch rc6 · ssh 0 · 입력 0 · 줄 그대로" || bad "ⓢ1(확정) rc:${S1D:-}"
+
+# ⓢ2(확정) SAT_TOTAL=3 · forgotten.tsv fsync 대역 4초 → --forget rc4 · 줄 유지 · 다시 --forget rc0
+cell_s2() { local t="$1" s="$2" r okk=1; pending "$t" "s2$s" "sat-s2#$s" || return 1
+  call env SAT_TOTAL=3 SAT_TEST_FSYNC_SLEEP=4 PYTHONPATH="$T/fsyncinj" bash "$t" close "sat-s2#$s" --forget --why "마감 시험"; r="$RC"; S2D="$r $O"
+  [ "$r" = 4 ] && instate "sat-s2#$s" && grep -q "forget 기록은 남았으나" <<<"$O" && okk=0
+  call bash "$TOOL" close "sat-s2#$s" --forget --why "다시"; { [ "$RC" = 0 ] && ! instate "sat-s2#$s"; } || okk=1
+  waitsess "sat-s2#$s"; dropsess "sat-s2#$s"; return $okk; }
+cell_s2 "$TOOL" 1 && ok "ⓢ2(확정) SAT_TOTAL=3 · forgotten fsync 4초 → --forget rc4 · 줄 유지 → 다시 --forget rc0" || bad "ⓢ2(확정) ${S2D:-}"
+
+# Ⓙ'(확정) DA 재현 입력 FAKE_TMUXC_ARM_PS=1 FAKE_TMUXC_SLEEP=5 → open rc4 · 5회 같은 결과
+cell_Jp() { local t="$1" s="$2" i r=""
+  for i in 1 2 3 4 5; do r="$r $(FAKE_TMUXC_ARM_PS=1 FAKE_TMUXC_SLEEP=5 bash "$t" open "$T/card.md" --run "jp$s$i" --name "sat-jp#$s$i" >/dev/null 2>&1; echo $?)"; done
+  JPD="$r"; for i in 1 2 3 4 5; do waitsess "sat-jp#$s$i"
+    bash "$TOOL" close "sat-jp#$s$i" --adopt >/dev/null 2>&1 || { bash "$TOOL" close "sat-jp#$s$i" --forget --why "시험 정리" >/dev/null 2>&1; dropsess "sat-jp#$s$i"; }; done
+  [ "$r" = " 4 4 4 4 4" ]; }
+cell_Jp "$TOOL" 1 && ok "Ⓙ'(확정) ARM_PS=1 SLEEP=5 → open rc4 ×5 같은 결과" || bad "Ⓙ'(확정) rc:${JPD:-}"
+
 # ══ 변이 (전부 빨강이어야 통과) ══
 mcheck "신원 대조 끔" cell_h "$(mut ident nano 'return a == b' 'return True')" 2
 mcheck "값 검사 끔" cell_n "$(mut valid rt 'return re.fullmatch(RE[kind], v or "") is not None and (kind == "seats" or ".." not in v)' 'return True')"
@@ -753,6 +794,8 @@ mcheck "R_WRITE 뒤 자동 삭제(r5 ⓡ2)" cell_r2 "$(mut wdel nano '        pr
 ' '    write_task(dl, name, d, data)  # R2' '    pass  # R2')" 2
 mcheck "칸 수 검사 끔(r5 ⓡ3)" cell_r3 "$(mut ncol rt 'if len(hit) != 1 or len(hit[0]) != NCOL or' 'if len(hit) != 1 or')" 2
 mcheck "-S 빼기(r5 ⓡ4)" cell_r4 "$(mut nosock nano 'tmux -S "$SOCK" "$@"' 'tmux "$@"')" 2
+mcheck "confirmed = 신원 3칸만(확정 ⓢ1)" cell_s1 "$(mut conf3 rt 'all(row[4:NCOL])' 'all(row[4:7])')" 2
+mcheck "삭제 전 dl.check 끔(--forget · 확정 ⓢ2)" cell_s2 "$(mut fgchk nano '    rt.in_time(dl, "삭제 전(forget 기록 뒤)", "forget 기록은 남았으나 마감 초과 — 줄 유지 · 다시 --forget")' '    pass')" 2
 mcheck "삭제 전 dl.check 끔(r5 ⓡ5)" cell_r5 "$(mut delchk nano '    rt.in_time(dl, "삭제 전", "닫힘 확인했으나 마감 초과 — 기록 유지 · 다시 close 하면 gone 경로로 지운다")' '    pass')" 2
 
 # ══ 정적 ══
