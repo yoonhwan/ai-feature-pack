@@ -59,3 +59,48 @@ echo "REPO=$REPO seen=$seen detached=$detached noref=$noref slow=$slow counted=$
 
 - 워크트리 1,005곳에서 19초. 워크트리가 몇 배로 늘면 70초 마감을 넘겨 «미완주» 가 잦아질 수 있다. 그때는 그날 표식이 안 서고 ERROR 1줄만 남는다(«문제없음» 오보는 안 난다).
 - 폴더가 사라진 등록(`git worktree prune` 대상)은 공용 repo 의 가지 ref 로 센다. 가지 ref 까지 사라졌으면 «이미 사라진 등록 N곳» WARN 으로만 남기고 셈에서 뺐다.
+
+## r4 실측 — 재설계 2차(고침 2건) · 2026-10-27
+
+고침 1(순서 고정) = 맨 처음 하는 일이 «실행기로 루트 탐색». 실패(종료값 ≠ 0 · 시간 초과 · 빈 출력)면 오늘 표식 유무를 보지 않고 바로 finish_round 로 간다. r3 는 표식 검사를 먼저 해서, 표식이 있는 날 루트 탐색이 rc128 로 깨져도 rc0 으로 빠져나갔다(DA r3 반례 ①).
+
+고침 2(상한 = nf_bound 꼴) = `timeout` 도구 대신 r938 의 `nf_bound`(새 프로세스 묶음 · 자손 전부 TERM → 1초 → KILL → 회수 0.5초 · rc 124)를 쓴다. `timeout` 은 TERM 만 보내므로 TERM 을 무시하는 대상에서 9.1초까지 늘었다(DA r3 반례 ②).
+
+## nf_bound 를 팩 lib 로 옮기는 안을 접은 까닭 (실측)
+
+재설계서 안은 «`nf_bound` 를 lib 로 옮겨 두 도구가 source» 였다. 먼저 그대로 해 봤고, 측정 결과 이랬다.
+
+| 시험 | 결과 |
+|---|---|
+| `test_nano_close_named_wt.sh` | FAILED 35 (원인 1줄 = `ERROR ft-bound-lib.sh 없음(…/bin) — 시간 상한을 걸 수 없어 실행 거절`) |
+| lib 를 복사하는 시험 파일 | 28파일 · 복사 자리 33곳 (전부 `ft-nano-close.sh` 만 `$T/bin` 으로 복사한다) |
+
+그래서 «정의는 한 곳(`ft-nano-close.sh`)» 을 그대로 두고, 이 도구가 그 함수 본문을 읽어 쓴다(`sed -n '/^nf_bound() {/,/^}$/p'`). 정의 복사 0 · 두 도구가 같은 정의 · 기존 시험 0 변경(계약 ④ «nano_close 시험도 base 와 같음» = `ft-nano-close.sh` diff 0). 실패하면 «못 가져왔다» ERROR 로 실행 거절(조용한 무상한 0).
+
+## r4 시험 (tests/test_r963_unpushed_local_refs.sh · 150 PASS · rc0)
+
+| 케이스 | 무엇을 보나 | 값 |
+|---|---|---|
+| ⓙ | 오늘 표식 있음 + 루트 탐색 rc128 | rc4 · ERROR «확인 불가 1곳: 루트 탐색 rc=128» · 발신 1통 · 표식 그대로 |
+| ⓙ2 | 루트 탐색이 rc0 + 빈 출력 | rc4 · 사유 «루트 탐색 빈 출력» · 표식 0 |
+| ⓚ | 루트 탐색 대역이 `trap '' TERM; while :; do sleep 0.2; done` | 총 ≤ 상한(2)+4초 · rc4 · 대역 pid 생존 0(KILL 승격) |
+| ⓛ | git 호출 자리 5종(루트 · worktree 목록 · 추적 ref · rev-list · 가지 ref) × (rc128 · TERM 무시) | 10/10 표식 0 + «확인 불가» 발신 |
+
+변이 2종이 각각 잡힌다 — «표식 검사를 루트 탐색 앞으로» → ⓙ FAIL · «KILL 승격 제거» → ⓚ FAIL(대역 pid 생존).
+
+## 회귀 (base = 8e3a0ff6)
+
+| 시험 | 결과 |
+|---|---|
+| `test_r963_unpushed_local_refs.sh` | 150 PASS · 0 FAIL · rc0 |
+| `test_ft_tick_master_seat.sh` | 62 PASS · rc0 |
+| `test_team_tick_unify.sh` | 58 PASS · rc0 |
+| `test_install_team_tick_live.sh` | 48 PASS · rc0 |
+| `test_tick_shim_guard.sh` | 26 PASS · rc0 |
+| `test_board_publish_tick.sh` | 14 PASS · rc0 |
+| `test_harness_root.sh` | 73 PASS · 1 FAIL(ⓔ 600/300 · `install.sh:53`) — base 와 같은 FAIL(내 변경 줄 아님) |
+| `test_nano_close_step_timing_r938.sh` | base 와 같은 파일(diff 0 · 미실행 비교 대상) |
+
+## 실 경로 dry-run (팩 루트 · 읽기만 · 원격 접촉 0)
+
+`FT_UNPUSHED_DRY=1 FT_ROOT=<팩> ft-unpushed-summary.sh --repo <팩>` → 목록은 나오고 마감(70초)에서 `ERROR r963 미완주 — 확인 불가 1곳: 마감 초과(남은 예산 0)` rc4. 1,005 워크트리 규모에서 마감이 짧다는 것은 r3 실측과 같다(«문제없음» 으로 접지 않는 동작 확인).

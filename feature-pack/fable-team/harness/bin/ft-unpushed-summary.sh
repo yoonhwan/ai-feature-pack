@@ -28,13 +28,19 @@ case "$MIN" in ''|*[!0-9]*) echo "WARN FT_UNPUSHED_MIN=$MIN 는 양의 정수가
 START="$(date +%s)"; FAILS=(); GQ_RC=0; GQ_OUT=""
 err() { echo "$*" >&2; }
 left_s() { echo $(( DEADLINE - ( $(date +%s) - START ) )); }
-TB="$(command -v timeout || command -v gtimeout)"
-[ -n "$TB" ] || { err "ERROR 실행기 없음(timeout/gtimeout) — 시간 상한을 못 걸어 실행 거절"; exit 4; }
+# ★r4 고침 2 — 상한은 r938 의 nf_bound(자손 전부 TERM → 1초 → KILL · 총 ≤ 상한 + 4초)★ 정의 복사 0 — nano-close.sh 의 함수 본문을 그대로 가져온다.
+#   재설계서는 «lib 로 옮기고 둘이 source» 를 적었지만, 실측에서 다른 카드 시험 28파일이 ft-nano-close.sh 만 복사해 돌려 35+ 단언이 깨졌다(r4 측정 = lib 없음 ERROR).
+#   그래서 «정의는 한 곳(ft-nano-close.sh)» 을 그대로 두고 이 도구가 그 본문을 읽어 쓴다 — 복사 0 · 두 도구가 같은 정의 · 기존 시험 0 변경.
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
+_NB="$(sed -n '/^nf_bound() {/,/^}$/p' "$HERE/ft-nano-close.sh" 2>/dev/null)"
+[ -n "$_NB" ] && eval "$_NB"
+declare -F nf_bound >/dev/null || { err "ERROR nf_bound 를 ft-nano-close.sh 에서 못 가져왔다($HERE) — 시간 상한 없이 돌 수 없어 실행 거절"; exit 4; }
+command -v python3 >/dev/null 2>&1 || { err "ERROR python3 없음 — 시간 상한을 못 걸어 실행 거절"; exit 4; }
 # gq <허용 rc 집합(쉼표)> <사유> <git 인자…> → GQ_OUT·GQ_RC
 gq() {  # ★git호출을 띄우는 유일한 자리★
   local allow="$1" why="$2" left out rc hard; shift 2   # ★stdout 이 아니라 GQ_OUT★ — `$(gq)` 는 하위 셸이라 FAILS 기록이 사라진다
   left="$(left_s)"; [ "$left" -gt "$CALL_MAX" ] && left="$CALL_MAX"; [ "$left" -lt 1 ] && left=1
-  out="$("$TB" "$left" git -c gc.auto=0 "$@" 2>/dev/null)"; rc=$?
+  out="$(nf_bound "$left" git -c gc.auto=0 "$@" 2>/dev/null)"; rc=$?
   GQ_RC="$rc"; GQ_OUT=""
   case "$rc" in 124|128) hard=1;; *) hard=0;; esac
   if [ "$hard" = 0 ]; then case ",$allow," in *",$rc,"*) GQ_OUT="$out"; return 0;; esac; fi
@@ -45,11 +51,17 @@ refstate() {  # <사유> <ref> → 0=있음 · 1=없음(정상) · 2=실패(시�
   case "$GQ_RC" in 0) return 0;; 1) return 1;; *) return 2;; esac
 }
 name_of() { local b; b="$(basename "$1")"; printf '%s' "${b:0:60}"; }  # ★바닥 이름 60자★ — 루트 경로가 728자여도 본문은 그대로
-[ -n "$REPO" ] || { gq 0 "루트 탐색" rev-parse --show-toplevel && REPO="$GQ_OUT"; }
+# ★r4 고침 1 — 맨 처음 하는 일 = 실행기로 루트 탐색★ 실패(종료값 ≠ 0 · 시간 초과 · 빈 출력)면 «오늘 표식» 유무를 보지 않고 바로 finish_round.
+#   r3 반례: 표식 있는 날 재실행이 루트 탐색 **전** 에 exit 0 하면서 루트 탐색 rc128 을 삼켰다.
+if [ -z "$REPO" ]; then
+  gq 0 "루트 탐색" rev-parse --show-toplevel && REPO="$GQ_OUT"
+  [ -n "$REPO" ] || [ "$GQ_RC" != 0 ] || FAILS+=("루트 탐색 빈 출력")   # rc≠0 은 gq 가 이미 기록 — 한 번만 센다
+fi
 ROOT="${FT_ROOT:-}"
 if [ -z "$ROOT" ]; then
   gq 0 "루트 탐색" -C "${REPO:-.}" rev-parse --path-format=absolute --git-common-dir
   ROOT="${GQ_OUT%/.git}"   # ★파이프 대신 셸 치환★ — `| sed` 는 실행기 종료값을 덮는다
+  [ -n "$ROOT" ] || [ "$GQ_RC" != 0 ] || FAILS+=("루트 탐색 빈 출력")
 fi
 ROOT_BASE="${FT_ROOT:-${ROOT:-$REPO}}"
 BASE="${FT_UNPUSHED_BASE:-origin/main}"
@@ -58,6 +70,39 @@ TODAY="${FT_UNPUSHED_NOW:-$(date +%F)}"
 MARK="$STATE/$TODAY.done"; FULL="$STATE/$TODAY.txt"; LOCK="$STATE/lock"
 LOGF="${FT_UNPUSHED_LOG:-}"
 note() { [ -n "$LOGF" ] || return 0; printf '%s\n' "$*" >> "$LOGF" 2>/dev/null || err "WARN 로그 쓰기 실패(잠금·표식과 분리): $LOGF"; }
+lines=(); total=0   # r4: 루트 탐색 실패가 finish_round 로 바로 갈 수 있게 미리 초기화
+finish_round() {  # ★모든 갈래가 끝나는 «한 곳»★ — 표식·발신은 실패 기록 0 일 때만(계약 ②)
+  local why joined=""
+  [ "$DRY" = 1 ] || [ "${#FAILS[@]}" != 0 ] || {
+    { printf '%s\n' "[r963 push 안 된 로컬 커밋 $TODAY · 문턱 $MIN · 로컬 ref 만(원격 접촉 0)]"
+      [ "$total" = 0 ] || printf '%s\n' "${lines[@]}" | sort -t$'\t' -k1,1nr | awk -F'\t' '{printf "%s\t%s\n", $2, $1}'
+      echo "되돌림 = 그 가지 주인이 push(가지 병합·main 이동은 소유자 + 오빠 승인)"; } > "$FULL" 2>/dev/null \
+      || FAILS+=("전체 목록 저장 실패 $FULL")
+  }
+  if [ "$DRY" != 1 ]; then
+    SEATS="${FT_UNPUSHED_SEATS:-$ROOT_BASE/.fable-team/seats-harness.json}"; [ -f "$SEATS" ] || SEATS="$ROOT_BASE/.fable-team/seats.json"
+    MASTER="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1],encoding="utf-8")).get("_master") or "")' "$SEATS" 2>/dev/null)"
+    [ -n "$MASTER" ] || FAILS+=("명부에서 _master 를 못 읽음 $SEATS")
+    MBOX="${FT_TICK_MBOX:-$ROOT_BASE/.fable-team/comm/mbox.sh}"
+    [ -f "$MBOX" ] || { FAILS+=("mbox 없음 $MBOX"); MBOX=""; }
+    if [ "${#FAILS[@]}" = 0 ]; then
+      bash "$MBOX" send "$MASTER" ft-unpushed-summary "$body" >/dev/null 2>&1 || FAILS+=("mbox 발신 실패(to=$MASTER)")
+    fi
+    if [ "${#FAILS[@]}" = 0 ]; then
+      : > "$MARK" 2>/dev/null || FAILS+=("표식 못 씀 $MARK")
+      [ "${#FAILS[@]}" = 0 ] && { echo "$body"; note "SENT to=$MASTER · 표식 $MARK · 전체 $FULL(${total}곳 · HEAD 분리 ${detached}곳)"; exit 0; }
+    fi
+  fi
+  if [ "${#FAILS[@]}" = 0 ]; then echo "$body"; exit 0; fi
+  for why in "${FAILS[@]}"; do joined="${joined:+$joined; }$why"; done
+  err "ERROR r963 미완주 — 확인 불가 ${#FAILS[@]}곳: $joined — 표식 0 · 다음 틱 재시도"
+  if [ "$DRY" != 1 ] && [ -n "${MBOX:-}" ] && [ -n "${MASTER:-}" ]; then
+    bash "$MBOX" send "$MASTER" ft-unpushed-summary \
+      "확인 불가 ${#FAILS[@]}곳(사유 첫 1: ${FAILS[0]}) — 표식 0 · 다음 틱 재시도" >/dev/null 2>&1
+  fi
+  exit 4
+}
+[ "${#FAILS[@]}" = 0 ] || finish_round   # ★r4 순서 고정 — 루트 탐색 실패 = «오늘 표식» 검사 없이 바로 끝(표식 0 · ERROR 1줄 · 확인 불가 발신)★
 if [ "$DRY" != 1 ]; then
   [ ! -e "$MARK" ] || { note "SKIP 오늘($TODAY) 이미 했다: $MARK"; exit 0; }
   if ! mkdir -p "$STATE" 2>/dev/null; then
@@ -119,35 +164,4 @@ else
   done <<< "$(printf '%s\n' "${lines[@]}" | sort -t$'\t' -k1,1nr)"
   body="$fixed · 상위 ${TOP}곳 = ${top_list} · $taily"
 fi
-finish_round() {  # ★모든 갈래가 끝나는 «한 곳»★ — 표식·발신은 실패 기록 0 일 때만(계약 ②)
-  local why joined=""
-  [ "$DRY" = 1 ] || [ "${#FAILS[@]}" != 0 ] || {
-    { printf '%s\n' "[r963 push 안 된 로컬 커밋 $TODAY · 문턱 $MIN · 로컬 ref 만(원격 접촉 0)]"
-      [ "$total" = 0 ] || printf '%s\n' "${lines[@]}" | sort -t$'\t' -k1,1nr | awk -F'\t' '{printf "%s\t%s\n", $2, $1}'
-      echo "되돌림 = 그 가지 주인이 push(가지 병합·main 이동은 소유자 + 오빠 승인)"; } > "$FULL" 2>/dev/null \
-      || FAILS+=("전체 목록 저장 실패 $FULL")
-  }
-  if [ "$DRY" != 1 ]; then
-    SEATS="${FT_UNPUSHED_SEATS:-$ROOT_BASE/.fable-team/seats-harness.json}"; [ -f "$SEATS" ] || SEATS="$ROOT_BASE/.fable-team/seats.json"
-    MASTER="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1],encoding="utf-8")).get("_master") or "")' "$SEATS" 2>/dev/null)"
-    [ -n "$MASTER" ] || FAILS+=("명부에서 _master 를 못 읽음 $SEATS")
-    MBOX="${FT_TICK_MBOX:-$ROOT_BASE/.fable-team/comm/mbox.sh}"
-    [ -f "$MBOX" ] || { FAILS+=("mbox 없음 $MBOX"); MBOX=""; }
-    if [ "${#FAILS[@]}" = 0 ]; then
-      bash "$MBOX" send "$MASTER" ft-unpushed-summary "$body" >/dev/null 2>&1 || FAILS+=("mbox 발신 실패(to=$MASTER)")
-    fi
-    if [ "${#FAILS[@]}" = 0 ]; then
-      : > "$MARK" 2>/dev/null || FAILS+=("표식 못 씀 $MARK")
-      [ "${#FAILS[@]}" = 0 ] && { echo "$body"; note "SENT to=$MASTER · 표식 $MARK · 전체 $FULL(${total}곳 · HEAD 분리 ${detached}곳)"; exit 0; }
-    fi
-  fi
-  if [ "${#FAILS[@]}" = 0 ]; then echo "$body"; exit 0; fi
-  for why in "${FAILS[@]}"; do joined="${joined:+$joined; }$why"; done
-  err "ERROR r963 미완주 — 확인 불가 ${#FAILS[@]}곳: $joined — 표식 0 · 다음 틱 재시도"
-  if [ "$DRY" != 1 ] && [ -n "${MBOX:-}" ] && [ -n "${MASTER:-}" ]; then
-    bash "$MBOX" send "$MASTER" ft-unpushed-summary \
-      "확인 불가 ${#FAILS[@]}곳(사유 첫 1: ${FAILS[0]}) — 표식 0 · 다음 틱 재시도" >/dev/null 2>&1
-  fi
-  exit 4
-}
 finish_round
