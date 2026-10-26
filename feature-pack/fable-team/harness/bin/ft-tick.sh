@@ -797,8 +797,26 @@ leak_watch() {
   return 0
 }
 
+# ★r928 r3 planner 감시 표본★ — 매 루프(60s) 오빠 대면 좌석(seats-planner.json `_master`)의 감시 생존을 `ft-mbox.sh watch-sample` 로 표본한다.
+#   표본 파일(state/planner-watch-absent-since.<좌석>)의 유일한 쓰는 쪽 · 송신 쪽 watch_alarm 은 읽기만(«처음 없음» 300초 유예 · 표본 180초 넘으면 표본 멈춤 = 바로 긴급).
+#   끄는 스위치 FT_TICK_WATCH_SAMPLE=0(끄면 표본이 멈춰 송신 쪽은 유예 없이 긴급 — 옛 동작) · 대역 FT_TICK_FTMBOX(시험).
+watch_sample_tick() {
+  local pj p fm out rc=0
+  [ "${FT_TICK_WATCH_SAMPLE:-1}" = 1 ] || return 0
+  pj="$(dirname "$SEATS")/seats-planner.json"; [ -f "$pj" ] || return 0
+  p="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1],encoding="utf-8")).get("_master") or "")' "$pj" 2>/dev/null)" || p=""
+  [ -n "$p" ] || { echo "$(date '+%F %T') watch_sample: no _master in $pj" >&2; return 0; }
+  fm="${FT_TICK_FTMBOX:-$HERE/ft-mbox.sh}"
+  [ -f "$fm" ] || { echo "$(date '+%F %T') watch_sample: missing $fm" >&2; return 0; }
+  if [ "$DRY" = 1 ]; then echo "DRY kind=watch-sample seat=$p bin=$fm comm=$(dirname "$MBOX")"; return 0; fi
+  out="$(bash "$fm" watch-sample "$p" "$(dirname "$MBOX")" 2>&1)" || rc=$?
+  [ "$rc" = 0 ] || echo "$(date '+%F %T') watch_sample: rc=$rc ${out//$'\n'/ | }" >&2
+  return 0
+}
+
 pass() {
   local rows seat tick role report_to master mok
+  watch_sample_tick
   autonomy_expire
   leak_watch
   hil_watch
