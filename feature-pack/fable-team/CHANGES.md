@@ -1,3 +1,9 @@
+## 2026-10-26 — r926 자율 인터뷰 명부 = $ROOT 기준만 · 쌍둥이 경고는 가지가 main 안 품으면 «이동 0»(1.1.244)
+
+- ft-autonomy-level.sh 가 명부(seats-planner.json)를 $ROOT 와 $ROOT 리포의 공용 루트 2곳에서만 찾는다. cwd·설치 위치는 보지 않는다. 둘 다 없으면 WARN + rc1(조용한 건너뜀 0).
+- ft-team-lib.sh 쌍둥이 경고가 루트 가지의 origin/main 포함 여부를 먼저 본다(7초 상한). 안 품으면 «이동 0 · 원장은 ref 정본», timeout 도구가 없으면 git 호출 0 = unknown.
+- 시험 test_r926_root_roster_twin_warn.sh 16 PASS ×3 · bash 3.2 · kit cmp0 · 외부 DA⑥ r2 APPROVE(VERDICT-r926-da6-r2.md · 승인판 ea937601).
+
 ## 2026-10-26 — r909 자율 범위 분류기 오탐 고침 — 셸 set 문맥 · 시험 파일 credential 경로 · .env 견본 (1.1.243)
 
 - 분류기(autonomy_scope_secret·rules·classify · ft_secret_targets)가 셸 «식별자 set(» 문맥과 시험 경로의 credential 이름을 비밀로 오판해 범위 밖(FORBID)으로 막던 것을 고침. 시험 경로 예외는 좁히고 secrets/ 는 넓힘 · .env 견본은 dotenv 로 전문 파싱 · 따옴표 값 안 줄 판별 복원.

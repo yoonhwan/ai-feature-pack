@@ -1,0 +1,17 @@
+PASS bash -n(3.2) ft-autonomy.sh
+PASS bash -n(3.2) ft-autonomy-level.sh
+PASS bash -n(3.2) ft-team-lib.sh
+PASS ⓐ' FT_ROOT=A · cwd=B → A 명부(desk-A)로 보낸다(cwd 명부 0)
+PASS ⓐ'' FT_ROOT=A 작업 폴더(명부 없음) → A 의 리포 공용 루트 명부
+PASS ⓐ''' cwd 명부는 안 본다(FT_ROOT 없음 · 데이터 루트 명부 0) → WARN rc1
+PASS ⓑ 명부가 어디에도 없음 → WARN + rc1(조용한 건너뜀 0)
+PASS ⓑ 명부가 $ROOT 에만 있으면 옛 꼴 그대로(역호환)
+PASS ⓒ 가지가 main 을 품음 → 지금 문구 그대로(--apply) · stdout = 경로 1줄
+PASS ⓓ 가지가 main 을 안 품음 → «이동 0 · 원장은 ref 정본»(--apply 0) · stdout = 경로 1줄
+PASS ⓔ origin/main 없음 → 지금 문구 + «가지 확인 못 함» · stdout = 경로 1줄
+PASS ⓔ 파일 수는 그대로 센다(2파일)
+PASS ⓓ' timeout 도구 없음 → 1초 안 «가지 확인 못 함» · rev-list 호출 0(0s)
+PASS 키트 짝 cmp0 ft-autonomy-level.sh
+PASS 키트 짝 cmp0 ft-team-lib.sh
+── r926 fail=0
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

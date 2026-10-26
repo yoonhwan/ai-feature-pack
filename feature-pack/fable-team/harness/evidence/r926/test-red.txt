@@ -1,0 +1,18 @@
+PASS bash -n(3.2) ft-autonomy.sh
+PASS bash -n(3.2) ft-autonomy-level.sh
+PASS bash -n(3.2) ft-team-lib.sh
+FAIL ⓐ' FT_ROOT=A · cwd=B → A 명부(desk-A)로 보낸다(cwd 명부 0) :: rc=0 out=INTERVIEW-SENT A1 expire → desk-B
+FAIL ⓐ'' FT_ROOT=A 작업 폴더(명부 없음) → A 의 리포 공용 루트 명부 :: rc=0 out=INTERVIEW-SENT A1 expire → desk-B
+PASS ⓐ''' cwd 명부는 안 본다(FT_ROOT 없음 · 데이터 루트 명부 0) → WARN rc1
+FAIL ⓑ 명부가 어디에도 없음 → WARN + rc1(조용한 건너뜀 0) :: rc=1 out=WARN 자율 인터뷰 쪽지 못 보냄: planner 명부 못 찾음(찾은 자리 2곳: <리포 공용 루트 못 풂>/.fable-team/seats-planner.json · /tmp/r926.bNlnQu/a3/.fable-team/seats-planner.json)
+FAIL ⓑ 명부가 $ROOT 에만 있으면 옛 꼴 그대로(역호환) :: rc=0 out=INTERVIEW-SENT A1 expire → desk-B
+PASS ⓒ 가지가 main 을 품음 → 지금 문구 그대로(--apply) · stdout = 경로 1줄
+PASS ⓓ 가지가 main 을 안 품음 → «이동 0 · 원장은 ref 정본»(--apply 0) · stdout = 경로 1줄
+PASS ⓔ origin/main 없음 → 지금 문구 + «가지 확인 못 함» · stdout = 경로 1줄
+PASS ⓔ 파일 수는 그대로 센다(2파일)
+FAIL ⓓ' timeout 도구 없음 → 1초 안 «가지 확인 못 함» · rev-list 호출 0(9s) :: rc=0 out=/tmp/r926.bNlnQu/w/design/teams/planner
+WARN 옛 꼴 잔존 1파일 — ft-team-move.sh --apply planner (옛 폴더 /tmp/r926.bNlnQu/w/design/planner) · 가지 확인 못 함
+PASS 키트 짝 cmp0 ft-autonomy-level.sh
+PASS 키트 짝 cmp0 ft-team-lib.sh
+── r926 fail=5
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

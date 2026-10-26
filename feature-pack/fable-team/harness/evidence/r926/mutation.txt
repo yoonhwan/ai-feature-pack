@@ -1,0 +1,14 @@
+=== 변이: 명부 후보 = cwd 리포 공용 루트 먼저(옛 판) 복귀 → rc=1 fail=3
+   FAIL ⓐ' FT_ROOT=A · cwd=B → A 명부(desk-A)로 보낸다(cwd 명부 0) :: rc=0 out=INTERVIEW-SENT A1 expire → desk-B
+   FAIL ⓐ'' FT_ROOT=A 작업 폴더(명부 없음) → A 의 리포 공용 루트 명부 :: rc=0 out=INTERVIEW-SENT A1 expire → desk-B
+   FAIL ⓑ 명부가 $ROOT 에만 있으면 옛 꼴 그대로(역호환) :: rc=0 out=INTERVIEW-SENT A1 expire → desk-B
+=== 변이: 못 찾음 rc1 → rc0(조용한 통과) → rc=1 fail=2
+   FAIL ⓐ''' cwd 명부는 안 본다(FT_ROOT 없음 · 데이터 루트 명부 0) → WARN rc1 :: rc=0 out=WARN 자율 인터뷰 쪽지 못 보냄: planner 명부 못 찾음(찾은 자리 2곳: /tmp/r926.ntkg2e/d/.fable-team/seats-plan
+   FAIL ⓑ 명부가 어디에도 없음 → WARN + rc1(조용한 건너뜀 0) :: rc=0 out=WARN 자율 인터뷰 쪽지 못 보냄: planner 명부 못 찾음(찾은 자리 2곳: /tmp/r926.ntkg2e/a3/.fable-team/seats-planner.json · <공용 루
+=== 변이: timeout 없으면 git 직접(옛 판) 복귀 → rc=1 fail=1
+   FAIL ⓓ' timeout 도구 없음 → 1초 안 «가지 확인 못 함» · rev-list 호출 0(9s) :: rc=0 out=/tmp/r926.zQqxzr/w/design/teams/planner
+=== 변이: 가지 검사 끔(언제나 contains) → rc=1 fail=3
+   FAIL ⓓ 가지가 main 을 안 품음 → «이동 0 · 원장은 ref 정본»(--apply 0) · stdout = 경로 1줄 :: rc=0 out=/tmp/r926.uukLa4/w/design/teams/planner
+   FAIL ⓔ origin/main 없음 → 지금 문구 + «가지 확인 못 함» · stdout = 경로 1줄 :: rc=0 out=/tmp/r926.uukLa4/w/design/teams/planner
+   FAIL ⓓ' timeout 도구 없음 → 1초 안 «가지 확인 못 함» · rev-list 호출 0(0s) :: rc=0 out=/tmp/r926.uukLa4/w/design/teams/planner
+MUTATION-ALL-RED
