@@ -120,7 +120,7 @@ if not guide.splitlines()[ln - 1].startswith("- **desk 좌석"):
 core = " ".join(m.group(0).split())
 if core not in " ".join(" ".join(lines[:10]).split()):
     print("REJECT desk 승계 본문 첫 10줄에 planner 안내서 %s줄 원문 구절이 없다 — 이 줄을 그대로 옮겨 적어라: 「%s」" % (ln, core)); sys.exit(3)
-bad = sorted({x.group(1) for x in re.finditer(r"(?:send|relay)\s+['\"`]?((?:byz|ft)-([a-z0-9]+)-[A-Za-z0-9._#-]*)", "\n".join(lines)) if x.group(2) != "planner"})
+bad = sorted({x.group(1) for x in re.finditer(r"(?:send|relay)\s+['\"\x60]?((?:byz|ft)-([a-z0-9]+)-[A-Za-z0-9._#-]*)", "\n".join(lines)) if x.group(2) != "planner"})
 if bad:
     print("REJECT desk 승계 본문에 팀 직발 예시가 있다(%s) — desk 는 planner 에게만 보낸다: 그 줄을 지우고 planner 주소로 바꿔라" % ", ".join(bad)); sys.exit(3)
 sys.exit(0)

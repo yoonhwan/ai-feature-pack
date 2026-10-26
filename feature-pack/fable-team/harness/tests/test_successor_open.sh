@@ -59,7 +59,7 @@ run() { # run <환경 KEY=VAL…> — 호출마다 로그·카운터·도달 파
       BE_RC="${BE_RC:-0}" BE_OUT="${BE_OUT:-}" \
       FT_RES_ROOT="$RES" SENSORS="$SENSORS" \
       FT_SEND_VERIFIED="$FAKE/send" FT_MBOX_SH="$FAKE/mbox" FT_REACH_CHECK="$FAKE/reach" "$@" \
-      bash "$SO" "$OLD" "$REPO" --name "$NEW" --agent claude --model 'claude-opus-5-5[1m]' --ctx 1m --effort high --body-file "$BODY_USE" > "$TMP/out" 2>&1
+      "${SOBASH:-bash}" "$SO" "$OLD" "$REPO" --name "$NEW" --agent claude --model 'claude-opus-5-5[1m]' --ctx 1m --effort high --body-file "$BODY_USE" > "$TMP/out" 2>&1
   RC=$?
 }
 count() { grep -c "^$1" "$LOG"; }
@@ -236,6 +236,15 @@ EXISTS="$NEW" PANE_CWD_OVERRIDE="$REPO" run SEND_RC=0 BE_RC=4 BE_OUT="[HIL] 입�
 EXISTS="$NEW" PANE_CWD_OVERRIDE="$REPO" run SEND_RC=0 BE_RC=2 BE_OUT="[HIL] 입력줄 판독 불가 — $NEW (권한 프롬프트·화면 못 읽음) · Enter 0"
 { [ "$RC" -eq 5 ] && [ "$(count enter)" = 0 ] && grep -q '\[HIL\] 입력줄 판독 불가' "$TMP/out" && [ "$(count send)" = 0 ] && [ ! -e "$STATE/$OLD.json" ]; } \
   && ok "ⓡ3 이어가기 + 입력줄 판독 불가 → rc5 «[HIL] 입력줄 판독 불가» · 송신 0" || bad "ⓡ3 rc=$RC out=$(cat "$TMP/out")"
+
+# ⓡ5 r925 r4 — macOS 기본 셸 /bin/bash 3.2 로 «명시» 실행: 구문(-n) rc0(옛 판 = :123 백틱으로 rc2) · 새로 열기 1회 · 이어가기 판독 불가 1회
+/bin/bash -n "$SO" 2>"$TMP/bash32.err" && ok "ⓡ5 /bin/bash 3.2 -n rc0" || bad "ⓡ5 /bin/bash 3.2 -n 실패: $(cat "$TMP/bash32.err")"
+SOBASH=/bin/bash run SEND_RC=0
+{ [ "$RC" -eq 0 ] && [ "$(count send)" = 1 ] && [ -f "$STATE/$OLD.json" ]; } \
+  && ok "ⓡ5' /bin/bash 3.2 새로 열기 → 송신 1 · 도달 파일" || bad "ⓡ5' rc=$RC out=$(cat "$TMP/out")"
+SOBASH=/bin/bash EXISTS="$NEW" PANE_CWD_OVERRIDE="$REPO" run SEND_RC=0 BE_RC=2 BE_OUT="[HIL] 입력줄 판독 불가 — $NEW · Enter 0"
+{ [ "$RC" -eq 5 ] && grep -q '\[HIL\] 입력줄 판독 불가' "$TMP/out" && [ "$(count send)" = 0 ]; } \
+  && ok "ⓡ5'' /bin/bash 3.2 이어가기 판독 불가 → rc5 · 송신 0" || bad "ⓡ5'' rc=$RC out=$(cat "$TMP/out")"
 
 # ⓡ4 r925 r3 — 새로 여는 판(이어가기 아님)은 boot-enter 를 부르지 않는다(제출 확인은 tmuxc open 안에서 끝난다)
 run SEND_RC=0 BE_RC=4

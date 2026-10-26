@@ -1,79 +1,63 @@
-r925 r3 — tmuxc 주입 «제출 확인» + 승계 이어가기 Enter (팩 브랜치 nano/r925-tmuxc-inject-submit-verify-and-succ-r2 · Issue #3586)
-  ★이 파일은 r3(DA⑥ r2 HOLD = 보류 2회 → 하드 룰 14 재설계) 판이다. 설계 = BYZ design/harness/evidence/r925-da6/DECISION-r925-redesign-r3.md
-    (+ RESEARCH-r925-…-2026-10-26.md). r2 판(8d6a4756)이 무엇을 틀렸는지는 red-r2-*.txt 에 실제 실행 결과로 남겼다.★
+r925 r4 — tmuxc 주입 «제출 확인» + 승계 이어가기 Enter (팩 브랜치 nano/r925-tmuxc-inject-submit-verify-and-succ-r2 · Issue #3586)
+  ★이 파일은 r4 판이다 — DA⑥ r3(xhigh) HOLD 좁은 4곳 → BYZ design/harness/evidence/r925-da6/DECISION-r925-r4-final.md 고침 4 + 선행 결함 1.
+    재DA 0 · 끝내는 조건 = arch 확정 VERDICT. r3 판(48070359)이 무엇을 틀렸는지는 red-r3-*.txt 에 실제 실행 결과로 남겼다.★
 
-■ 원칙(R1~R4 · 예외 0)
-  R1 제출 판정 = 세션 기록. tmuxc 가 claude 를 열 때(open·fork) --session-id <uuid> 를 발급하고
-     (호출자 env 값은 안 씀 · 세션 env TMUXC_CLAUDE_SESSION_ID 에도 심음), 제출 = 그 <uuid>.jsonl «한 파일» 에서
-     «넣기 직전 바이트 위치 뒤» 에 쓰인 type=="user" 레코드가 우리 글자 앞 30자(공백 제거)를 담음.
-     화면(입력 상자 «위») 판정은 지웠다 · ft-reach-check 는 부르지 않는다(팩 밖 런타임 · 전수 판독 0.6~8.1초).
-     판독 1회 = python3 1번(파일 1개 seek+read) · 창 TMUXC_SUBMIT_WAIT 7초 + 재시도 1(하드 룰 12).
-  R2 우리 글자 = 입력줄(-J 합침 · SGR 전부 벗김)이 «이번 메시지 전문» 과 공백만 지우고 완전 일치. 접두·잘림 인정 0 · 색·흐림 판정 0.
-     넣은 뒤 입력줄이 전문이 됐을 때만 첫 Enter(상한 3초) — 아니면 Enter 0 · rc≠0.
-  R3 재전송 Enter = 창 안에 기록 없음 ∧ 입력줄 = 전문일 때만 1회. 그 밖(빈 줄·다른 글자)은 재전송 0, 늦은 기록만 한 창 더 본다.
-  R4 판독 불가 = 실패. capture-pane rc≠0(정상 모양 출력이 와도) · 입력줄 못 찾음(권한 프롬프트) · 기록 판정 불가 = rc≠0.
-  P3 유지: codex·cmd·pi 와 send·restore 는 기준 커밋 cbe218a5 와 tmux 호출 바이트 같음(r2 가 바꿨던 restore 의 agent 주입은 되돌림).
-
-■ 고친 자리
-  feature-pack/tmuxc/core/bin/tmuxc
-    · agent_inject · inject_message(kind=agent 는 4번째 인자 = 발급 id 필수) · claude_jsonl_of/size · claude_submitted_since · input_is_message
-    · capture_input_line: capture rc≠0 → rc2 · SGR 벗김
-    · cmd_open·cmd_fork(claude): --session-id 발급 + TMUXC_CLAUDE_SESSION_ID(세션 env) + TMUXC_BOOT_TEXT(넣은 전문 · set-environment)
-      · 부팅 문장 주입 실패면 --prompt 주입 0 · «부팅 문장 제출 실패 rc=N» + rc≠0(r2 그대로)
-    · 새 명령 `tmuxc boot-enter <세션>` — 이어가기 판정 «한 곳»: 근거(세션 env 둘) 없으면 rc3 · 입력줄 판독 불가 rc2 ·
-      이미 기록에 있으면 Enter 0 rc0 · 입력줄 = 전문이면 Enter 1회 → 기록 확인 rc0 / 기록 없음 rc1 · 그 밖 Enter 0 rc4
-  feature-pack/fable-team/harness/bin/ft-successor-open.sh (+ kit 짝 cmp0)
-    · 이어가기(claude)는 `tmuxc boot-enter <후계>` 만 부른다 — 이 도구는 Enter 를 직접 누르지 않는다.
-      rc0 → 송신으로 잇는다 · rc≠0 → [HIL] exit 5(송신 0 · 도달 파일 0). 화면·흐림 판정 함수 3개(so_*) 삭제.
-    · 다른 에이전트 이어가기 = 기준 커밋과 같음(Enter 0).
+■ 원칙(r3 R1~R4 · 그대로) + r4 고침
+  R1 제출 판정 = 세션 기록 «한 파일». tmuxc 가 open·fork 때 --session-id <uuid> 를 발급(호출자 env 무시 · 세션 env 에도 심음),
+     <uuid>.jsonl 에서 «기준 위치 뒤» 에 쓰인 type=="user" 레코드가 우리 글자 앞 30자를 담으면 제출.
+  R2 우리 글자 = 입력줄이 «이번 메시지 전문» 과 완전 일치 · R3 재전송 1회 · R4 판독 불가 = rc≠0 · P3 codex·cmd·pi·send·restore = cbe218a5 바이트 같음.
+  고침 1 boot-enter 기준 위치 = Enter 누르기 «직전» 파일 끝. 옛 레코드(앞 30자 같음)는 증거 아님 — r3 의 «already-submitted(위치 0)» 갈래를 지웠다.
+         세션 env 에 id 가 없으면 resume 파일(~/.claude/state/seat-resume/<좌석>.json 의 uuid · name 일치) → 명부(seats*.json 그 행의 uuid) ·
+         둘 다 없음 = rc3 «[HIL] 세션 기록 못 찾음»(전수 스캔 0 · 명부 폴더 = TMUXC_SEATS_DIR 또는 pane 리포의 .fable-team).
+  고침 2 전문 비교에서 공백 지우기 0 — 정규화 = SGR 벗김 + -J + 줄 끝 공백 제거. «통신 표준» ≠ «통 신표준».
+         ★단 claude TUI 는 긴 글을 스스로 여러 줄로 감는다(실측 · 공백이 사라지고 이어지는 줄은 들여 씀)★ → 화면 줄 하나하나는 원문의 그 자리와
+         바이트까지 같아야 하고, «화면 줄 경계» 에서만 원문의 공백·줄바꿈 0개 이상을 건너뛴다(줄 안 공백은 그대로 비교). 이게 없으면 실제 좌석에서
+         긴 부팅 문장이 늘 «전문 아님» 이 된다(live-capture.txt probe4).
+  고침 3 재전송 직전 기록 다시 읽기 — 두 번째 Enter 직전에 <uuid>.jsonl 을 한 번 더 읽어 제출이 생겼으면 재전송 0 · rc0.
+  고침 4 7초 = 벽시계 마감 — 마감 = 첫 Enter 시각 + TMUXC_SUBMIT_WAIT(기본 7)초(밀리초 · 조회 횟수 아님). 재전송 판정 = 절반 시점 1회 ·
+         마감 넘으면 재전송 0 · rc≠0. boot-enter 도 같은 마감.
+  선행 ft-successor-open.sh:123 `/bin/bash -n` rc2(heredoc 를 품은 $( ) 안 python 정규식의 백틱 · 기준판도 같음) → 백틱을 \x60 으로(같은 뜻) · kit 짝 cmp0.
 
 ■ 실측(제출 0 · 토큰 0 · claude 2.1.310 · tmux 세션은 timeout 으로 스스로 끝남) — live-capture.txt
-  · 새 claude 의 빈 입력줄 = 자리표시 «❯ Try "how does cairn.py work?"»(커서 x=2 · 버퍼 아님 — 한 글자 치면 사라진다). ★r2 의 «빈 입력줄에만 넣는다» 는
-    이 자리표시를 «다른 글자» 로 읽어 실제 좌석에서 부팅 문장을 항상 거절한다★(red-r2-inject.txt ⓕ = state=input-busy) → r3 는
-    «방금 만든 세션(사람 입력 0)» 에만 agent 주입을 쓰고, 안전 문은 «넣은 뒤 입력줄 = 전문» 하나로 둔다.
-  · 실제 부팅 문장(4줄로 감김) 입력 뒤 input_is_message rc=0 · 한 글자 더하면 rc=1 · 자리표시 상태 rc=1.
-  · claude --resume X --fork-session --session-id Y 조합 수용(--fork-session 없으면 «--session-id can only be used with
-    --continue or --resume if --fork-session is also specified» 거절) — fork 경로 근거.
+  probe4: 실제 부팅 문장이 3줄로 감김 → 새 input_is_message rc=0 · «통 신표준» 으로 바꾼 글 vs 같은 화면 rc=1 · 자리표시 rc=1 · 기록 파일 0
 
 ■ 시험 (전부 rc0 · /bin/bash 3.2 도 rc0 — green-*.txt)
-  feature-pack/tmuxc/test/test_tmuxc_inject_ready_submit.sh — 19 PASS · 가짜 tmux + 가짜 기록 폴더(<uuid>.jsonl) · 실 세션 0
-    DECISION ⓐ 옛 출력·옛 기록에 같은 메시지 + 새 제출 0 → rc=1 «제출 실패» · submitted 0 · Enter 1(재전송 0)
-             ⓑ 늦은 기록(3.5초) + 사람 접두 25자 → 재전송 0(Enter 1) · 사람 글자 제출 0 · 기록으로 rc=0
-             ⓒ boot-enter 입력줄 = 전문(RGB 38;2;255;255;255) → Enter 1 · rc=0 / ⓒ' 회색 앞부분만 → Enter 0 · rc=4
-             ⓓ capture 정상 모양 출력 + rc1 → rc=1 · 주입 0 · Enter 0
-             ⓔ boot-enter 권한 프롬프트 → rc=2 «[HIL] 입력줄 판독 불가» · Enter 0
-    이어 온 계약 g1 준비 6초 늦음 → 제출 1 · g2 첫 Enter 유실 → 재전송 1 · g3 Enter 전부 유실 → rc=1 · Enter 2 · 글자 1회 ·
-             g4 준비 빠름 → 추가 대기 ≤0.9초 · ⓕ 자리표시 → 주입·제출 1 · ⓖ 사람 글자 위 → Enter 0 · ⓗ id 없음 → 주입 0 ·
-             ⓘ boot-enter 이미 기록 → Enter 0 rc0 · ⓙ 근거 없음 → rc3 · ⓛ plain·인자 없음 = cbe218a5 바이트 같음 ·
-             ⓝ cmd_open 판독 실패 → «부팅 문장 제출 실패» · ⓞ open 이 id 발급(호출자 env 무시)·TMUXC_BOOT_TEXT · ⓞ' codex 0
-  feature-pack/fable-team/harness/tests/test_successor_open.sh — 51 PASS(기존 47 + r3 4)
-    ⓡ2 이어가기 → boot-enter 1회(후계 이름) · 이 도구 Enter 0 · 송신 1 · ⓡ2' boot-enter rc4 → HIL rc5 · 송신 0 ·
-    ⓡ3(R4 · 옛 «판독 불가 = 전체 rc0» 기대를 바꿈) → rc5 «[HIL] 입력줄 판독 불가» · ⓡ4 새로 열기 → boot-enter 0
+  feature-pack/tmuxc/test/test_tmuxc_inject_ready_submit.sh — 27 PASS · 가짜 tmux + 가짜 기록 폴더(<uuid>.jsonl) · 실 세션 0
+    r3 ⓐ 옛 출력·옛 기록 + 새 제출 0 → rc=1 · ⓑ 늦은 기록 + 사람 접두 25자 → 재전송 0 · rc0 · ⓒ/ⓒ' RGB 전문 → Enter 1 / 회색 앞부분 → rc4 ·
+       ⓓ capture 정상 모양 + rc1 → rc1 · ⓔ 권한 프롬프트 → rc2 «[HIL] 입력줄 판독 불가»
+    r4 ⓕ 옛 기록 + 새 문장 → Enter 1 · 새 레코드 뒤 rc0 · «이미 제출» 0 / ⓕ' 옛 기록 + 새 기록 0 → rc1
+       ⓖ env id 없음 + resume 파일 id → rc0 / ⓖ' 명부 행 uuid → rc0 / ⓖ'' 셋 다 없음 → rc3
+       ⓗ 입력줄 «통 신표준» → rc4 · Enter 0 · ⓘ 마지막 조회 직후 기록 생김 → 재전송 0 · rc0
+       ⓙ 조회 지연 0.04초 + WAIT=7 · Enter 전부 유실 → 7.x초(<9) rc1
+    이어 온 g1 준비 6초 늦음 · g2 첫 Enter 유실 → 재전송 1 · g3 전부 유실 → Enter 2 rc1 · g4 추가 대기 ≤0.9초 · g5 자리표시 → 제출 ·
+       g6 사람 글자 위 → Enter 0 · g7 id 없음 → 주입 0 · g8 폭 40 줄 감김 → 전문 일치 · 제출 · g9 옛 기록 + 자리표시 → rc4 ·
+       ⓛ plain·인자 없음 = cbe218a5 바이트 같음 · ⓝ cmd_open 판독 실패 문구 · ⓞ/ⓞ' id 발급·TMUXC_BOOT_TEXT / codex 0
+  feature-pack/fable-team/harness/tests/test_successor_open.sh — 54 PASS(기존 47 + r3 4 + r4 ⓡ5 3)
+    ⓡ5 /bin/bash 3.2 «명시» 실행: -n rc0 · 새로 열기 → 송신 1 · 이어가기 판독 불가 → rc5
 
 ■ 빨강 (red-*.txt)
-  origin/main tmuxc : 판정 함수 없음 → 옛 판 ⓐ rc=0(새 기록 0 인데 성공) · ⓕ rc=0(확인 없이 Enter)
-  r2 8d6a4756 tmuxc : 옛 판 ⓐ rc=0 «state=submitted» · 새 기록 0(옛 출력이 거짓 증거) · ⓕ rc=1 «input-busy»(자리표시를 사람 글자로 읽어 주입 거절)
-  origin/main · r2 ft-successor-open : ⓡ2·ⓡ2'·ⓡ3 FAIL(boot-enter 0회 · 판독 불가·다른 글자도 rc0 송신) → FAILED 3
+  origin/main · r2 8d6a4756 tmuxc : 판정 함수 없음 → 옛 판 ⓐ rc0(새 기록 0) · r2 는 g5 자리표시를 «input-busy» 로 거절
+  r3 48070359 tmuxc : FAILED 9 — ⓕ·ⓕ'·g9(옛 기록을 «already-submitted» 로 읽음) · ⓖ·ⓖ'(resume·명부 없음 → rc3) · ⓗ(공백 지운 비교 → Enter)
+       · ⓘ(재조회 없이 재전송 → Enter 2) · ⓙ(횟수 마감 18.07초) · ⓑ(r3 는 창 길이가 달라 사람 입력 시점 전에 기록을 봄 — 판정 순서 차이, 결함 아님)
+  origin/main · r2 · r3 ft-successor-open : ⓡ5·ⓡ5'·ⓡ5'' FAIL(/bin/bash 3.2 구문 오류 rc2) · origin/main·r2 는 ⓡ2·ⓡ2'·ⓡ3 도 FAIL
 
 ■ 변이 (mutate-*.txt) — 결과 그대로
   변이 C capture rc 무시            → ⓓ 만 FAIL
   변이 E boot-enter 판독 불가 rc0     → ⓔ 만 FAIL
-  변이 P 재전송 판정에 접두 인정       → ⓑ 만 FAIL(Enter 2 · 사람 접두 25자가 제출됨)
-  변이 S successor 가 boot-enter rc 무시 → ⓡ2'·ⓡ3 FAIL
-  변이 J 기록 판정 → 화면 판정(r2) 복귀 → ⓐ·ⓑ·ⓕ·ⓘ 4개 FAIL — ★«그 시험만» 이 아니다★: ⓐ 옛 출력 거짓 증거 · ⓕ·ⓘ 자리표시를
-         «빈 줄 아님» 으로 읽어 제출을 못 봄 · ⓑ 화면 판정이 입력줄을 한 번 더 읽어 사람 입력 시점이 앞당겨짐(판정 순서 차이)
+  변이 P 재전송 판정에 접두 인정       → ⓑ 만 FAIL
+  변이 S successor 가 boot-enter rc 무시 → ⓡ2'·ⓡ3·ⓡ5'' FAIL(3칸 · 셋 다 boot-enter rc≠0 칸)
+  변이 J 기록 판정 → 화면 판정 복귀    → ⓐ·ⓑ·ⓘ·g5 4칸 FAIL — ★«그 시험만» 아님★
 
 ■ 이슈(카드 밖 · 고치지 않음)
-  · claude 좌석 argv 에 --session-id 가 생겨 `tmuxc probe`·save 가 그 id 를 sid 로 읽는다(파일 이름과 같은 값). 첫 제출 전에
-    save → restore 하면 --resume <id> 가 «대화 없음» 으로 실패할 수 있다(제출 전 좌석은 기록 파일이 없다).
-  · ft-successor-open :174~ SessionStart 대기는 새 세션에서 첫 제출 전엔 늘 미관측(리서치 ③) — r3 뒤엔 tmuxc open 이 제출을
-    확인한 뒤 돌아오므로 파일이 이미 있다. 대기 자체 정리는 별 카드 후보(완성 전).
-  · feature-pack/tmuxc/test/verify.sh 는 실 머신(세션 45개)에서 `tmuxc restore --go` 단계에 멈춘다(base 도 같음 · r2 기록) — 손대지 않음.
+  · r609 이어가기 중 «부팅 문장은 이미 제출됐고 송신만 못 한» 좌석은 이제 입력줄 = 자리표시라 boot-enter rc4 → HIL exit 5 로 멈춘다
+    (고침 1 이 위치 0 갈래를 지웠기 때문 · 옛 기록을 증거로 안 쓰는 대가). 사람이 pane 을 보고 ft-send-verified 로 잇는다.
+  · claude argv 에 --session-id 가 생겨 probe·save 가 그 id 를 읽는다 — 첫 제출 전 save→restore 면 «대화 없음» 가능.
+  · ft-successor-open SessionStart 대기 WAIT_MAX 소진 · verify.sh restore --go 멈춤 = 완성 후 카드(결정문 «범위 밖»).
 
 ■ 사람이 볼 것(나노 몫 아님)
-  · press 필요: 없음 — 라이브 오디오 시험이 아니다. 실 승계 1회(master 몫)에서 «tmuxc open 출력 state=submitted + 도달 파일» 을 본다.
-  · master 몫: 착지 sha → tmuxc 0.4.6 설치 + LIVE_BIN ft-successor-open.sh cmp0 → 다음 실 승계 1회 도달 파일 확인.
-  · arch 몫: 격리 재대조 + DA⑥ r3(xhigh · 범위 = R1~R4 · ⓐ~ⓔ).
+  · press 필요: 없음.
+  · arch 몫: 격리(기본 셸 ×3 + /bin/bash 3.2 ×2 · ft-successor-open.sh `/bin/bash -n` rc0) + DA r3 반례 4곳 직접 재현 → VERDICT «arch 확정».
+  · master 몫: PR·h → tmuxc 0.4.6 설치 + LIVE_BIN ft-successor-open.sh cmp0 → 다음 실 승계 1회 «state=submitted + 도달 파일».
 
 ■ 재현
   bash feature-pack/fable-team/harness/evidence/r925/run.sh

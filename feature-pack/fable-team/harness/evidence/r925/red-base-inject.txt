@@ -1,6 +1,6 @@
 ### RED — 고치기 전(origin/main) tmuxc
 $ FT_TMUXC_PATH=<origin/main> bash /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r925-tmuxc-inject-submit-verify-and-succ/feature-pack/tmuxc/test/test_tmuxc_inject_ready_submit.sh
-FAIL 고치기 전 사본 — 세션 기록 판정(claude_submitted_since)이 없다: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.K3RWOVW1Rm/base/tmuxc
+FAIL 고치기 전 사본 — 세션 기록 판정(claude_submitted_since)이 없다: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.cWd7ZI6nz9/base/tmuxc
 옛 판 ⓐ(옛 출력 + 새 제출 0): rc=0 out=[] 새 기록=0
-옛 판 ⓕ(자리표시): rc=0 out=[] 제출=[[byz-t-old-claude#1→byz-t-new-claude#2] 통신 표준: 지금 read로 읽고 그대로 따를 것]
+옛 판 g5(자리표시): rc=0 out=[] 제출=[[byz-t-old-claude#1→byz-t-new-claude#2] 통신 표준: 지금 read로 읽고 그대로 따를 것]
 rc=1

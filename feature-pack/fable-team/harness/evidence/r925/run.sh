@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# r925 r3 증거 재현 — 빨강(origin/main · r2 8d6a4756) → 초록 → 변이 5종(J·P·C·E·S) → /bin/bash 3.2 → 짝 사본 cmp0.
+# r925 r4 증거 재현 — 빨강(origin/main · r2 8d6a4756 · r3 48070359) → 초록 → 변이 5종(J·P·C·E·S) → /bin/bash 3.2 → 짝 사본 cmp0.
 #   사용: bash feature-pack/fable-team/harness/evidence/r925/run.sh   (팩 워크트리 루트에서)
 #   옛 사본 = git show 로 임시 폴더에(siblings 필요 → kit bin 폴더를 통째로 복사한 뒤 그 파일만 갈아 끼운다).
 set -uo pipefail
@@ -8,17 +8,17 @@ OUT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 INJ="$R/tmuxc/test/test_tmuxc_inject_ready_submit.sh"
 SO="$R/fable-team/harness/tests/test_successor_open.sh"
-R2=8d6a4756
+R2=8d6a4756; R3=48070359
 
 old_copies() { # old_copies <ref> <폴더>
   mkdir -p "$2/bin"; cp -R "$R/fable-team/harness/kit/fable-team/bin/." "$2/bin/"
   git -C "$R/.." show "$1:feature-pack/fable-team/harness/bin/ft-successor-open.sh" > "$2/bin/ft-successor-open.sh"
   git -C "$R/.." show "$1:feature-pack/tmuxc/core/bin/tmuxc" > "$2/tmuxc"
 }
-old_copies origin/main "$T/base"; old_copies "$R2" "$T/r2"
+old_copies origin/main "$T/base"; old_copies "$R2" "$T/r2"; old_copies "$R3" "$T/r3"
 
-for v in base r2; do
-  ref="origin/main"; [ "$v" = r2 ] && ref="$R2"
+for v in base r2 r3; do
+  case "$v" in base) ref="origin/main" ;; r2) ref="$R2" ;; r3) ref="$R3" ;; esac
   { echo "### RED — 고치기 전($ref) tmuxc"; echo "\$ FT_TMUXC_PATH=<$ref> bash $INJ"
     FT_TMUXC_PATH="$T/$v/tmuxc" bash "$INJ"; echo "rc=$?"; } > "$OUT/red-$v-inject.txt" 2>&1
   { echo "### RED — 고치기 전($ref) ft-successor-open.sh 이어가기"; echo "\$ FT_SO_PATH=<$ref> bash $SO"
@@ -37,7 +37,7 @@ done
 { echo "### 변이 S — ft-successor-open 이 boot-enter rc≠0 를 무시 → ⓡ2'·ⓡ3 빨강이어야 한다"; FT_SO_MUTATE=S bash "$SO"; echo "rc=$?"; } > "$OUT/mutate-S-successor-ignores-rc.txt" 2>&1
 
 {
-  echo "# r925 r3 파일 — 짝 사본 cmp0"
+  echo "# r925 r4 파일 — 짝 사본 cmp0"
   cmp "$R/fable-team/harness/bin/ft-successor-open.sh" "$R/fable-team/harness/kit/fable-team/bin/ft-successor-open.sh" && echo "cmp0 OK feature-pack/fable-team/harness/bin/ft-successor-open.sh ≡ kit/fable-team/bin/ft-successor-open.sh"
   shasum -a 256 "$R/tmuxc/core/bin/tmuxc" "$R/fable-team/harness/bin/ft-successor-open.sh" | sed 's|'"$R"'/|feature-pack/|'
   echo "# 바뀐 파일: feature-pack/tmuxc/core/bin/tmuxc · feature-pack/fable-team/harness/bin/ft-successor-open.sh(+kit 짝) · 시험 2개 · 증거"

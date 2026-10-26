@@ -1,23 +1,31 @@
 ### GREEN — /bin/bash 3.2 (macOS 기본 셸)
 GNU bash, version 3.2.57(1)-release (arm64-apple-darwin24)
 PASS ⓐ 옛 출력·옛 기록에 같은 메시지 + 새 제출 0 → rc=1 «제출 실패» · submitted 0 · Enter 1(재전송 0)
-PASS ⓑ 늦은 기록 + 사람 접두 25자 → 재전송 0(Enter 1) · 사람 글자 제출 0 · 기록으로 rc=0 (3.85s)
+PASS ⓑ 늦은 기록 + 사람 접두 25자 → 재전송 0(Enter 1) · 사람 글자 제출 0 · 기록으로 rc=0 (3.65s)
 PASS ⓓ capture 정상 모양 + rc1 → rc=1 · 주입 0 · Enter 0
-PASS g1 준비 6초 늦음 → 준비 확인 뒤 제출 1(기록) · 입력줄 빔 (6.61s)
-PASS g2 첫 Enter 유실 → 재전송 1회 제출 · 글자 1회 (1.46s)
+PASS ⓗ 입력줄 «통 신표준»(공백 위치만 다름) → 우리 글자 아님 · Enter 0 · rc=4
+PASS ⓘ 마지막 조회 직후 기록 생김 → 재전송 0(Enter 1) · rc=0
+PASS ⓙ 조회 지연 0.04초 + WAIT=7 → 7.56s(<9) 에 rc=1 · 벽시계 마감
+PASS g1 준비 6초 늦음 → 준비 확인 뒤 제출 1(기록) · 입력줄 빔 (6.59s)
+PASS g2 첫 Enter 유실 → 재전송 1회 제출 · 글자 1회 (1.32s)
 PASS g3 Enter 전부 유실 → rc=1 «제출 실패» · Enter 2(재전송 1) · 글자 1회
-PASS g4 준비 빠름 → 제출 1 · 추가 대기 0.03s (≤0.9)
-PASS ⓕ 자리표시 «Try …» 입력줄 → 주입·제출 1 (rc=0)
-PASS ⓖ 사람 글자 위 → 전문 아님 · Enter 0 · rc=1 · 사람 글자 제출 0
-PASS ⓗ id 없음 → rc=1 · 주입 0
+PASS g4 준비 빠름 → 제출 1 · 추가 대기 0.14s (≤0.9)
+PASS g5 자리표시 «Try …» 입력줄 → 주입·제출 1 (rc=0)
+PASS g6 사람 글자 위 → 전문 아님 · Enter 0 · rc=1 · 사람 글자 제출 0
+PASS g7 id 없음 → rc=1 · 주입 0
+PASS g8 긴 문장 TUI 줄 감김 → 전문 일치 · 제출 1 (rc=0)
 PASS ⓒ 입력줄 = 전문(RGB 흰색) → Enter 1 · 기록 확인 rc=0
 PASS ⓒ' 입력줄 = 회색 앞부분만 → Enter 0 · rc=4
 PASS ⓔ 권한 프롬프트 → rc=2 «[HIL] 입력줄 판독 불가» · Enter 0
-PASS ⓘ 이미 기록됨 → Enter 0 · rc=0
-PASS ⓙ 근거 없음 → rc=3 · Enter 0
+PASS ⓕ 옛 기록 + 새 문장 → Enter 1 · 새 레코드 뒤 rc=0 · «이미 제출» 0
+PASS ⓕ' 옛 기록 + 새 기록 0 → rc=1 «제출 확인 실패»
+PASS ⓖ env id 없음 + resume 파일 id → 그 기록으로 판정 · rc=0
+PASS ⓖ' env·resume 없음 + 명부 행 uuid → 그 기록으로 판정 · rc=0
+PASS ⓖ'' env·resume·명부 모두 없음 → rc=3 · Enter 0
+PASS g9 옛 기록 + 자리표시 → rc=4 · Enter 0
 PASS ⓛ plain·인자 없음(send·restore) → 기준 커밋 cbe218a5 과 tmux 호출·결과 바이트 같음 · 캡처 0
 PASS ⓝ cmd_open 판독 실패 → rc=1 «부팅 문장 제출 실패» · «session created» 성공 문구 0
-PASS ⓞ cmd_open claude → --session-id 발급(0b7d39bf-a1a6-4603-bb7c-bfa039f66088) = 세션 env 같은 값 · 호출자 env 값 안 씀 · TMUXC_BOOT_TEXT 기록
+PASS ⓞ cmd_open claude → --session-id 발급(021caa7c-b931-4c2f-bf2f-52f48badf951) = 세션 env 같은 값 · 호출자 env 값 안 씀 · TMUXC_BOOT_TEXT 기록
 PASS ⓞ' codex open → --session-id·TMUXC_CLAUDE 0(P3)
 ----
 ALL PASS (mutate=0)
@@ -51,6 +59,9 @@ PASS ⓡ r622 못 읽음 → 판정 불가 REJECT · «다르다» 0 · 송신 0
 PASS ⓡ2 r925 r3 이어가기 → boot-enter 1회(후계 이름) · 이 도구 Enter 0 · 제출 확인 → 송신 1
 PASS ⓡ2' 이어가기 + 입력줄 ≠ 전문(boot-enter rc4) → HIL rc5 · 송신 0 · 도달 파일 0
 PASS ⓡ3 이어가기 + 입력줄 판독 불가 → rc5 «[HIL] 입력줄 판독 불가» · 송신 0
+PASS ⓡ5 /bin/bash 3.2 -n rc0
+PASS ⓡ5' /bin/bash 3.2 새로 열기 → 송신 1 · 도달 파일
+PASS ⓡ5'' /bin/bash 3.2 이어가기 판독 불가 → rc5 · 송신 0
 PASS ⓡ4 새로 열기 → boot-enter 0 · tmuxc open 1 · 송신 1
 PASS ⓢ r622 새 좌석 CWD 실제 경로 → JDIR 그 워크트리 · SessionStart 관측
 PASS ⓣ r660 desk 본문에 GUIDE 27줄 없음 → 열기 전 REJECT · open·송신 0
@@ -74,6 +85,5 @@ PASS ⓥ 정본 1줄만(main 꼴 · 30행) → 통과 · 송신 1
 PASS ⓥ 정본이 들여쓰기로만 → «모양 바뀜» REJECT
 PASS ⓥ 정본이 > 인용으로만 → «모양 바뀜» REJECT
 ALL PASS
-REAL-STATE-GUARD WARN 번호표 늘었으나 실 좌석 계획(동시 실행): /private/tmp/h219 ← /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/state/dev-membership-dsyoon-byz-20261026.sh
 REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
 successor rc=0
