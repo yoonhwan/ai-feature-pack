@@ -1,3 +1,10 @@
+## 2026-10-26 — r902 위성 mini 나노 도구 ft-sat-nano (1.1.248)
+
+- 위성 머신에서 mini 나노를 여는·일 맡기는·결과 받는·닫는 도구 ft-sat-nano(open·task·fetch·close). 소켓 칸 빈 확인 줄 rc6 · --forget 뒤 마감 재검사 · 시험 시간 의존 제거(r5 확정).
+- 시험 test_sat_nano_r902.sh 106 PASS(기본 셸 ×5 · /bin/bash 3.2 ×2) · 변이 8종 감지 · kit cmp0 · arch 확정 APPROVE(BYZ design/harness/evidence/r902-da6/VERDICT-r902-arch-confirm.md · 승인판 a2680569).
+- astra r1 반송 1곳(시험 대역 tmuxc 표식 없으면 세션 0 · 새 칸 Ⓙ'') 고침 → 107 PASS · 외부 DA astra r2 APPROVE(BYZ design/harness/evidence/r902-da6/VERDICT-r902-astra-approve.md · 승인판 4e72b51b).
+- 1.1.247 은 r928(PR #328) 몫. #328 이 먼저 착지하면 이 PR 은 main 병합 뒤 착지한다.
+
 ## 2026-10-26 — r928 planner 감시 재걸기 틈 유예 · 표본기 실패 뒤 옛 파일 안 믿음 (1.1.247)
 
 - ft-mbox.sh 감시 경보가 planner 감시를 다시 거는 틈(끝 표식 5분 · 60초 표본기의 «처음 없음»)에는 긴급을 늦추고, 대기 몇 분인지 근거 줄을 남긴다. 300초 넘는 공백은 긴급 1통 그대로.
