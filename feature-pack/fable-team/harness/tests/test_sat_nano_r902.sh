@@ -4,6 +4,7 @@
 #   새 칸: Ⓐ Ⓑ Ⓒ Ⓓ Ⓔ Ⓕ Ⓖ Ⓗ①② Ⓘ①② Ⓙ Ⓚ Ⓛ-0~4 Ⓜ Ⓝ Ⓞ Ⓟ Ⓠ + 고침 3(claim_fail 줄 유지 · --why 필수 · has-session rc1 두 꼴)
 #   반송 r5: tmux 대역 = 서버 2개(소켓 A·B) · 새 칸 ⓡ1~ⓡ6 · 새 변이 6
 #   r5 확정: Ⓙ = 첫 R_POLL 표식(.polled) 뒤 세션 생성 · pid 재사용 = cwd 판정(시각 경쟁 0) · 원격 대역 지연 ≤ 3.5초 · 새 칸 ⓢ1·ⓢ2·Ⓙ'(확정) · 새 변이 2
+#   astra r1: 대역 tmuxc = 기다림 끝에 .polled 없으면 세션 생성 0(rc3) · 새 칸 Ⓙ''(첫 R_POLL 5초 지연 → rc4 · 세션 0)
 #   변이: 칸 함수를 «변이 사본»으로 다시 돌려 빨강이어야 통과(mut — 바꿀 글자가 정확히 1곳이어야 사본이 만들어진다).
 #   실행: env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE bash tests/test_sat_nano_r902.sh   (bash 3.2 · /bin/bash 로도 돈다)
 set -uo pipefail
@@ -75,7 +76,8 @@ if take "${FAKE_SSH_FAILS:-}"; then echo "ssh: connect to host mini port 22: Ope
 export HOME="$FAKE_RHOME" PATH="$FAKE_BIN:$PATH" FT_MBOX_DIR="$FAKE_RMBOX"
 if take "${FAKE_SSH_LOST:-}"; then bash -c "${cmd#"$pf"}" >/dev/null 2>&1; exit 255; fi   # 원격은 돌았고 출력만 잃음(0바이트)
 if take "${FAKE_SSH_AFTER:-}"; then bash -c "${cmd#"$pf"}"; exit 255; fi                 # 출력까지 낸 뒤 255
-case "$cmd" in *'echo "alive=$a"'*)   # R_POLL — 끝난 «뒤» 작업 폴더에 .polled 표식(대역 세션 생성의 동기화 · sleep 0)
+case "$cmd" in *'echo "alive=$a"'*)   # R_POLL — 끝난 «뒤» 작업 폴더에 .polled 표식(대역 세션 생성의 동기화) · FAKE_RPOLL_SLEEP = 첫 R_POLL 만 늦춤
+  last="${cmd##* }"; last="${last#\'}"; last="${last%\'}"; [ -n "${FAKE_RPOLL_SLEEP:-}" ] && [ ! -e "$FAKE_RHOME/$last/.polled" ] && sleep "$FAKE_RPOLL_SLEEP"
   bash -c "${cmd#"$pf"}"; rc=$?; last="${cmd##* }"; last="${last#\'}"; last="${last%\'}"; : >"$FAKE_RHOME/$last/.polled" 2>/dev/null; exit "$rc" ;;
 esac
 exec bash -c "${cmd#"$pf"}"
@@ -89,6 +91,7 @@ printf '%s\n' "$name" >>"$FAKE_SESS.calls"
 [ -d "$dir" ] || exit 3
 if [ -n "${FAKE_TMUXC_WAITPOLL:-}" ]; then   # 표식 동기화(r5 확정): 첫 R_POLL 이 끝난 «뒤» 에만 세션을 만든다(파일 대기 · 상한 3초)
   n=0; while [ ! -e "$dir/.polled" ] && [ "$n" -lt 300 ]; do sleep 0.01; n=$((n + 1)); done
+  [ -e "$dir/.polled" ] || { echo "tmuxc: .polled 표식 없음(대역) — 세션 생성 0" >&2; exit 3; }   # astra r1: 표식 없음 = 생성 0
 fi
 [ -n "${FAKE_TMUXC_ARM_HAS:-}" ] && { printf '%s\n' "$FAKE_TMUXC_ARM_HAS" >"$FAKE_SESS.hasrc"; exit 0; }
 [ -n "${FAKE_TMUXC_SLEEP:-}" ] && sleep "$FAKE_TMUXC_SLEEP"
@@ -754,6 +757,14 @@ cell_Jp() { local t="$1" s="$2" i r=""
     bash "$TOOL" close "sat-jp#$s$i" --adopt >/dev/null 2>&1 || { bash "$TOOL" close "sat-jp#$s$i" --forget --why "시험 정리" >/dev/null 2>&1; dropsess "sat-jp#$s$i"; }; done
   [ "$r" = " 4 4 4 4 4" ]; }
 cell_Jp "$TOOL" 1 && ok "Ⓙ'(확정) ARM_PS=1 SLEEP=5 → open rc4 ×5 같은 결과" || bad "Ⓙ'(확정) rc:${JPD:-}"
+
+# Ⓙ''(astra r1) ARM_PS=1 WAITPOLL=1 + 첫 R_POLL 5초 지연 → 표식 없음 = 세션 생성 0 · open rc4 ×5 같은 결과
+cell_Jpp() { local t="$1" s="$2" i r="" okk=0
+  for i in 1 2 3 4 5; do r="$r $(FAKE_TMUXC_ARM_PS=1 FAKE_TMUXC_WAITPOLL=1 FAKE_RPOLL_SLEEP=5 bash "$t" open "$T/card.md" --run "jq$s$i" --name "sat-jq#$s$i" >/dev/null 2>&1; echo $?)"; done
+  JQD="$r"; for i in 1 2 3 4 5; do hassess "sat-jq#$s$i" && { okk=1; JQD="$JQD 세션있음:$i"; dropsess "sat-jq#$s$i"; }
+    bash "$TOOL" close "sat-jq#$s$i" --forget --why "시험 정리" >/dev/null 2>&1; done
+  [ "$r" = " 4 4 4 4 4" ] && [ "$okk" = 0 ]; }
+cell_Jpp "$TOOL" 1 && ok "Ⓙ''(astra r1) WAITPOLL=1 + 첫 R_POLL 5초 지연 → 표식 없음 = 세션 0 · open rc4 ×5" || bad "Ⓙ''(astra r1) rc:${JQD:-}"
 
 # ══ 변이 (전부 빨강이어야 통과) ══
 mcheck "신원 대조 끔" cell_h "$(mut ident nano 'return a == b' 'return True')" 2
