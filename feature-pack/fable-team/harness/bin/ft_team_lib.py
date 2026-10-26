@@ -179,17 +179,27 @@ def team_cands_ref(root: Path | str, team: str, ref: str = "origin/main") -> lis
     return [c for c in _cands_ref(root, team, ref) if c.is_dir()]
 
 
+def _git_out_retry_empty(base: Path, *args: str) -> subprocess.CompletedProcess[str]:
+    """r839: rc0 · «출력 0» 이면 같은 조회를 1회 재시도(셸 ft_ref_git_out 과 같은 규칙) — 시간 초과·rc≠0 은 재시도 0(7초 룰).
+    빈 응답을 «없음(0건)» 으로 읽어 버리는 길을 줄인다(DA⑥ r2 반례 ① · ft_team_lib.py:189)."""
+    out = _git_out(base, *args)
+    if out.returncode == 0 and not out.stdout.strip():
+        out = _git_out(base, *args)
+    return out
+
+
 def team_doc_ref(root: Path | str, team: str, name: str, ref: str = "origin/main") -> str | None:
     """r517: 정본 문서 «읽기» 본문 = ref 판(셸 ft_team_doc_ref 의 ref 쪽 · 임시 파일 0 · 체크아웃 명단·디스크 0) — ref 명단 후보(_cands_ref · 명단 꼴 먼저)마다
-    `<ref>:<후보>/<name>` 이 ref 트리에 있으면 그 본문 · 모두 없음 = None · 명단 못 읽음·팀 없음·git 실패·리포 밖 후보(꼴3) = TeamPathError(조용한 None 0)."""
+    `<ref>:<후보>/<name>` 이 ref 트리에 있으면 그 본문 · 모두 없음 = None · 명단 못 읽음·팀 없음·git 실패·리포 밖 후보(꼴3) = TeamPathError(조용한 None 0).
+    r839: ls-tree·show 가 rc0·«출력 0» 이면 같은 조회 1회 재시도(_git_out_retry_empty · DA⑥ r2 반례 ①)."""
     base = Path(root)
     for c in _cands_ref(base, team, ref):
         try:
             path = f"{c.relative_to(base)}/{name}"
-            ls = _git_out(base, "ls-tree", "--name-only", ref, "--", path)
+            ls = _git_out_retry_empty(base, "ls-tree", "--name-only", ref, "--", path)
             if ls.returncode == 0 and not ls.stdout.strip():
                 continue
-            out = _git_out(base, "show", f"{ref}:{path}") if ls.returncode == 0 else ls
+            out = _git_out_retry_empty(base, "show", f"{ref}:{path}") if ls.returncode == 0 else ls
         except ValueError:
             raise TeamPathError(f"ERROR {team} 폴더가 리포 밖({c}) — ref 문서 읽기 대상 아님") from None
         except (OSError, subprocess.SubprocessError) as e:

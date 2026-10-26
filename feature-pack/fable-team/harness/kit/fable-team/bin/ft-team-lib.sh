@@ -165,8 +165,8 @@ PY
 )"; rc=$?; printf '%s' "$out"; return "$rc"; }
 #   _ft_ref_cands <루트> <팀> [<ref>] : ref 명단(design/TEAMS.md) 으로 푼 그 팀 폴더 후보 줄마다(명단 꼴 먼저 · 쌍둥이 뒤 · 꼴3 은 쌍둥이 0 · 실재 여부 무관) — 명단 = «ref 본문»(디스크 0 · 상한 7초)
 #     명단 못 읽음·상한 초과·팀 없음 = stderr ERROR rc1 — ft_team_cands_ref(디스크 본문 읽기 · 상한 0)를 데몬 경로가 쓰지 않게 하는 짝
-_ft_ref_cands() { local r="$1" t="$2" ref="${3:-${FT_TEAMS_REF:-origin/main}}" md body grc rc
-  body="$(ft_ref_git_out "$r" show "$ref:design/TEAMS.md")" || { grc=$?; echo "ERROR $t 명단($ref:design/TEAMS.md)을 못 읽음 — 상한 ${FT_REF_GIT_SEC:-7}s 초과 또는 ref 없음(rc=$grc · 디스크 본문 후퇴 0): $r" >&2; return 1; }
+_ft_ref_cands() { local r="$1" t="$2" ref="${3:-${FT_TEAMS_REF:-origin/main}}" md body rc
+  body="$(ft_ref_git_out "$r" show "$ref:design/TEAMS.md")" || { echo "ERROR $t 명단($ref:design/TEAMS.md)을 못 읽음: $r" >&2; return 1; }
   md="$(mktemp "$(_ft_team_doc_dir)/ft-team-ref.XXXXXX")" || return 1
   printf '%s\n' "$body" > "$md"
   ( unset FT_TEAMS_MD; export FT_TEAMS_MD="$md" FT_REPO_ROOT="$r" FT_TEAM_TWIN_WARN=0 FT_TEAM_SPARSE_CHECK=0
@@ -187,11 +187,11 @@ ft_team_doc_ref_only() { local r="$1" t="$2" f="$3" ref="${4:-${FT_TEAMS_REF:-or
 #   ft_planner_queue_ref <루트>     : 오빠 큐 «읽기» 본문(r557 ft-queue.sh ft_queue_ref 를 옮김 · r839) — ref(FT_TEAMS_REF · 기본 origin/main) 명단 꼴 planner 후보의
 #                                    `git show <ref>:<후보>/AUTONOMY-QUEUE.md` 를 임시 파일로(정리 = 부르는 쪽) · 읽을 리포 = FT_LEDGER_REPO(기본 루트) · 디스크 0 · git 호출마다 시도당 7초 상한 ·
 #                                    못 읽음·ref 에 없음·상한 초과 = stderr ERROR rc1(빈 본문도 ERROR — 조용한 0 후퇴 금지)
-ft_planner_queue_ref() { local r="$1" ref="${FT_TEAMS_REF:-origin/main}" repo="${FT_LEDGER_REPO:-$1}" c rel t body grc
+ft_planner_queue_ref() { local r="$1" ref="${FT_TEAMS_REF:-origin/main}" repo="${FT_LEDGER_REPO:-$1}" c rel t body
   c="$(_ft_ref_cands "$r" planner "$ref")" || return 1; c="${c%%$'\n'*}"
   case "$c" in "$r"/*) rel="${c#"$r"/}/AUTONOMY-QUEUE.md";; *) rel="${c%/}/AUTONOMY-QUEUE.md";; esac
-  body="$(ft_ref_git_out "$repo" show "$ref:$rel")" || { grc=$?; echo "ERROR 오빠 큐 origin/main 판을 못 읽음: $ref:$rel (상한 ${FT_REF_GIT_SEC:-7}s 초과 또는 ref 없음 · rc=$grc · 디스크 후퇴 0)" >&2; return 1; }
-  [ -n "$body" ] || { echo "ERROR 오빠 큐 origin/main 판이 비었다: $ref:$rel" >&2; return 1; }
+  body="$(ft_ref_git_out "$repo" show "$ref:$rel")" || { echo "ERROR 오빠 큐 origin/main 판을 못 읽음: $ref:$rel" >&2; return 1; }
+  [ -n "$body" ] || { echo "ERROR 오빠 큐 origin/main 판을 못 읽음: $ref:$rel" >&2; return 1; }
   t="$(mktemp "${TMPDIR:-/tmp}/ft-queue-ref.XXXXXX")" || return 1
   printf '%s\n' "$body" > "$t"; printf '%s\n' "$t"; }
 #   ft_team_has_ref <루트> <팀> <경로> [<하위>] [<ref>] : ft_team_has 를 «ref 명단» 으로(R406) — rc 는 ft_team_has 와 같다(ref 못 읽음 = rc2)

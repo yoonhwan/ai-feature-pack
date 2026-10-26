@@ -4,13 +4,23 @@ FAIL ⓐ 결정 셈 = origin/main 판 큐 3줄(디스크 옛 1줄 아님) :: rc=
 PASS ⓐ 루트 작업 폴더·index·HEAD·MERGE_HEAD 변경 0
   ⓑ 원문(파일 없음): 결정 인터뷰 1건 · 스크립트 0건 · 팀 대기 0건 (MERGE-QUEUE 파일 없음)
 FAIL ⓑ ref 판에 큐 없음 → 결정 셈 0(파일 없음 = 0 · 디스크 1줄로 후퇴 0) :: rc=0 out=결정 인터뷰 1건 · 스크립트 0건 · 팀 대기 0건 (MERGE-QUEUE 파일 없음)
-  ⓑ 원문(ref 없음): ERROR ft-decision-count: MERGE-QUEUE.md 위치를 못 풀었다: ERROR 명단 ref 못 읽음(origin/nope:design/TEAMS.md): /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.suD3ZJO6lF/root
+  ⓑ 원문(ref 없음): ERROR ft-decision-count: MERGE-QUEUE.md 위치를 못 풀었다: ERROR 명단 ref 못 읽음(origin/nope:design/TEAMS.md): /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Oa5ccZJYrd/root
 PASS ⓑ ref 못 읽음 → ERROR 1줄 + rc4 · 숫자 0
   ⓒ 원문: /tmp/r839base/feature-pack/fable-team/harness/bin: 줄 1: ft_team_doc_ref_only: 명령을 찾을 수 없음
 FAIL ⓒ ft_team_doc_ref_only = origin/main 판 본문(디스크 옛 본문 0 · 임시 파일) :: rc=1 out=/tmp/r839base/feature-pack/fable-team/harness/bin: 줄 1: ft_team_doc_ref_only: 명령을 찾을 수 없음
   ⓒ 원문(없음): /tmp/r839base/feature-pack/fable-team/harness/bin: 줄 1: ft_team_doc_ref_only: 명령을 찾을 수 없음
 FAIL ⓒ ref 판에 없음 → ERROR rc1(디스크 옛 본문 후퇴 0) :: rc=127 out=/tmp/r839base/feature-pack/fable-team/harness/bin: 줄 1: ft_team_doc_ref_only: 명령을 찾을 수 없음
 PASS ⓒ 임시 본문 정리(TMPDIR 비어 있음)
+  ⓖ 원문(큐 판 없음): /tmp/r839base/feature-pack/fable-team/harness/bin: 줄 1: ft_planner_queue_ref: 명령을 찾을 수 없음
+FAIL ⓖ 큐 판 없음 → 기준판 문구 바이트 그대로 · rc1 :: rc=127 out=/tmp/r839base/feature-pack/fable-team/harness/bin: 줄 1: ft_planner_queue_ref: 명령을 찾을 수 없음
+  ⓖ 원문(빈 큐 판): /tmp/r839base/feature-pack/fable-team/harness/bin: 줄 1: ft_planner_queue_ref: 명령을 찾을 수 없음
+FAIL ⓖ 빈 큐 판 → 기준판 문구 그대로(«판이 비었다» 0) :: rc=127 out=/tmp/r839base/feature-pack/fable-team/harness/bin: 줄 1: ft_planner_queue_ref: 명령을 찾을 수 없음
+  ⓖ 원문(없는 ref): /tmp/r839base/feature-pack/fable-team/harness/bin: 줄 1: ft_planner_queue_ref: 명령을 찾을 수 없음
+FAIL ⓖ 없는 ref → 기준판 명단 문구 바이트 그대로 :: rc=127 out=/tmp/r839base/feature-pack/fable-team/harness/bin: 줄 1: ft_planner_queue_ref: 명령을 찾을 수 없음
+  ⓖ 원문(빈 ls-tree): 결정 인터뷰 1건 · 스크립트 0건 · 팀 대기 0건 (MERGE-QUEUE 파일 없음)
+FAIL ⓖ 첫 ls-tree 출력 0 → 재시도 1회로 3건(0건 아님) :: rc=0 out=결정 인터뷰 1건 · 스크립트 0건 · 팀 대기 0건 (MERGE-QUEUE 파일 없음)
+  ⓖ 원문(빈 show): 결정 인터뷰 1건 · 스크립트 0건 · 팀 대기 0건 (MERGE-QUEUE 파일 없음)
+FAIL ⓖ 첫 show 출력 0 → 재시도 1회로 3건(«표가 없다» rc4 아님) :: rc=0 out=결정 인터뷰 1건 · 스크립트 0건 · 팀 대기 0건 (MERGE-QUEUE 파일 없음)
 PASS ⓔ FT_DECISION_AUTONOMY_QUEUE = 그 파일(2)
 PASS ⓔ FT_PLANNER_DIR = 그 폴더(4)
   ⓣ 원문(느린 큐): /tmp/r839base/feature-pack/fable-team/harness/bin: 줄 1: ft_planner_queue_ref: 명령을 찾을 수 없음
@@ -25,5 +35,5 @@ FAIL ⓣ 느린 git show → 결정 셈 ERROR rc4 · 경과 ≤9초(디스크 �
   ⓣ 원문(첫 시도 빈 응답): /tmp/r839base/feature-pack/fable-team/harness/bin: 줄 1: ft_planner_queue_ref: 명령을 찾을 수 없음
 FAIL ⓣ 첫 시도 «출력 0» → 재시도 1회로 정상(rc0 · ref 본문) :: rc=127 out=/tmp/r839base/feature-pack/fable-team/harness/bin: 줄 1: ft_planner_queue_ref: 명령을 찾을 수 없음
 PASS ⓣ 임시 본문 정리 · 루트 변경 0
-== FAIL 9
+== FAIL 14
 REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
