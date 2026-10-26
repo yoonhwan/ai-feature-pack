@@ -23,24 +23,23 @@ if [ -f "$HERE/ft-spawn-hold.sh" ]; then
   [ "$_hrc" = 0 ] || { printf '%s\n' "$_hold"; exit "$_hrc"; }
   printf '%s\n' "$_hold"
 fi
-# ★자원 게이트 (Res-1014)★: 디스크·스왑·메모리·에이전트 수가 한계를 넘으면 열지 않는다(부작용 전). 우회 플래그 없음 — 조정은 env 문턱만.
+# ★자원 게이트 (Res-1014 · r921 개정)★: 넘으면 «회수 먼저 → 다시 재고 → 그래도 넘으면 WARN 1줄 + 진행» — 멈추는 것은 문지기의 REJECT(디스크 하드 하한·디스크 측정 실패)뿐이다(오빠 2026-10-25 «컴퓨터가 죽어도 개발은 해야지»). 우회 플래그 없음 — 조정은 env 문턱만.
 [ -f "$HERE/ft-resource-gate.sh" ] || { echo "REJECT ft-resource-gate.sh 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
-_rgout="$(bash "$HERE/ft-resource-gate.sh" check $([ "$RESEARCH" = 1 ] && echo --research) 2>&1)"; _rgrc=$?   # r672: 리서치 나노(--research)는 동결 중에도 문지기 WARN 통과(1석 한도는 아래)
-# R198(판정 1767): 에이전트 수로 막혔을 때만 — 기존 표준승인 범위 안의 유휴·완료 좌석을 자동 정리한 뒤 문지기 재검(FT_RECLAIM=0 으로 끔)
-if [ "$_rgrc" != 0 ] && [ "${FT_RECLAIM:-1}" != 0 ] && [ -f "$HERE/ft-resource-reclaim.sh" ]; then
-  _rgout="$(bash "$HERE/ft-resource-reclaim.sh" --on-reject "$_rgout" --gate "$HERE/ft-resource-gate.sh" 2>&1)"; _rgrc=$?
-  [ "$_rgrc" = 0 ] && printf '%s\n' "$_rgout" >&2
+RG_ARGS=(check); [ "$RESEARCH" = 1 ] && RG_ARGS+=(--research)
+_rgout="$(bash "$HERE/ft-resource-gate.sh" "${RG_ARGS[@]}" 2>&1)"; _rgrc=$?
+# R198(판정 1767) + r921: 넘었으면(WARN) — 기존 표준승인 범위 안의 유휴·완료 좌석을 자동 정리한 뒤 문지기 재검(FT_RECLAIM=0 으로 끔). 좌석을 닫아 풀릴 수 있는 축(agents·swap·memfree·level·rate)일 때만 부른다.
+if [ "$_rgrc" = 0 ] && printf '%s\n' "$_rgout" | grep -Eq '^WARN resource .*(agents|swap|memfree|level)=|rate=[0-9]'; then
+  if [ "${FT_RECLAIM:-1}" != 0 ] && [ -f "$HERE/ft-resource-reclaim.sh" ]; then
+    bash "$HERE/ft-resource-reclaim.sh" --on-reject "$_rgout" --gate "$HERE/ft-resource-gate.sh" >&2 || true
+    _rgout="$(bash "$HERE/ft-resource-gate.sh" "${RG_ARGS[@]}" 2>&1)"; _rgrc=$?
+  fi
 fi
-[ "$_rgrc" != 0 ] && { printf '%s\n' "$_rgout"; exit "$_rgrc"; }
-case "$_rgout" in *WARN*) printf '%s\n' "$_rgout" | grep '^WARN ' >&2 || true;; esac   # r672: 동결 면제로 통과했다는 사실(WARN)을 숨기지 않는다
-# ★r672 리서치 나노 1석 상한 (DA⑥ r1 H1)★: 판정·잠금·셈 = ft-research-seat-lib.sh 한 곳. 여기서는 «빠른 거절»만(셈 실패 = REJECT · 0석 취급 0), 진짜 상한 판정은 개설 직전에 잠금 안에서 다시 한다(③ 열기 위).
+[ "$_rgrc" = 0 ] || { printf '%s\n' "$_rgout"; exit "$_rgrc"; }
+printf '%s\n' "$_rgout" | grep '^WARN ' >&2 || true   # r672: 넘은 채 진행한다는 사실(WARN)을 숨기지 않는다 · r921: 진행은 한다
+# ★r921 리서치 좌석 상한 삭제★: 리서치는 일반 나노와 같은 규칙으로 열린다(옛 r672 «1석 고정» 은 오빠 «멈추지 마라» 로 폐기). 잠금만 아래 ③ 열기 직전에 잡는다.
 [ -f "$HERE/ft-research-seat-lib.sh" ] || { echo "REJECT ft-research-seat-lib.sh 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
 . "$HERE/ft-research-seat-lib.sh"
 RESEARCH_LOCK=""
-if [ "$RESEARCH" = 1 ]; then
-  _rslive="$(ft_research_live_count)" || { echo "REJECT 리서치 좌석 수 조회 실패(tmux list-sessions) — 셈 못 하면 열지 않는다(r672 H1)"; exit 3; }
-  [ "$_rslive" -lt "$FT_RESEARCH_SEAT_LIMIT" ] || { echo "REJECT 리서치 나노 상한 — 살아 있는 리서치 좌석 ${_rslive}석(한도 ${FT_RESEARCH_SEAT_LIMIT} 고정 · r672: 동결 면제는 1석만)"; exit 3; }
-fi
 WT="$(git rev-parse --show-toplevel)"                       # 호출 워크트리(기준 브랜치의 자리)
 ROOT="$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||')"   # 리포 루트
 # ★페널티 게이트 (R320b · 오빠 판정 2170)★: 전 세션 정지(PENALTY_STOP 파일) 중이면 재개 전 팀은 열지 않는다(부작용 전 · successor 는 대상 아님). 우회 플래그 없음 — 풀기는 ft-penalty.sh resume <팀>. 파일이 있는데 판정기가 없으면 REJECT(조용한 통과 0).
@@ -98,20 +97,20 @@ if [ -n "${FT_TEAM_SEAT_CAP:-}${FT_GROUP_SEAT_CAP:-}" ]; then
     [ "$_caprc" = 0 ] || { printf '%s\n' "$_cap"; exit 1; }
   fi
 fi
-# ★팀셋 나노 상한 (r-teamset-standard · 판정 2170)★: design/TEAMSET.md 표의 팀 상한 — 부작용 0 지점. 넘으면 «전 팀 정지» 대신 그 팀 끝난 나노 회수 1회(--team 필수) → 그래도 넘으면 순번 큐(QUEUED · rc 7). FT_TEAMSET=0 으로 끔.
+# ★팀셋 나노 상한 (r-teamset-standard · 판정 2170 · r921 개정)★: design/TEAMSET.md 표의 팀 상한 — 부작용 0 지점. 넘으면 그 팀 끝난 나노 회수 1회(--team 필수) → 그래도 넘으면 «WARN 1줄 + 연다»(순번 큐 적재 0 · r921: 상한은 좌석을 세우는 근거가 아니다). FT_TEAMSET=0 으로 끔.
 if [ "${FT_TEAMSET:-1}" != 0 ]; then
   [ -f "$HERE/ft_teamset.py" ] && [ -f "$HERE/ft_spawn_queue.py" ] || { echo "REJECT ft_teamset.py·ft_spawn_queue.py 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
   _tsp="$FT_NANO_PREFIX"; _tsmd="${FT_TEAMSET_MD:-gitref:origin/main:design/TEAMSET.md}"   # R351: 표 정본 = $ROOT 의 origin/main · 못 읽으면 REJECT(조용한 통과 0)
   _tso="$(python3 "$HERE/ft_teamset.py" cap --root "$ROOT" --md "$_tsmd" --prefix "$_tsp" 2>&1)"; _tsrc=$?
   _tst="$(printf '%s' "$_tso" | awk '{print $2}')"
   if [ "$_tsrc" = 4 ] && [ "$DRY" != 1 ]; then
-    bash "${FT_RECLAIM_SH:-$HERE/ft-resource-reclaim.sh}" --caller "$FROM" --need 1 --team "$_tst" >&2
+    bash "${FT_RECLAIM_SH:-$HERE/ft-resource-reclaim.sh}" --caller "$FROM" --need 1 --team "$_tst" >&2 || true
     _tso="$(python3 "$HERE/ft_teamset.py" cap --root "$ROOT" --md "$_tsmd" --prefix "$_tsp" 2>&1)"; _tsrc=$?
   fi
   printf '%s\n' "$_tso"
   case "$_tsrc" in
     0) ;;
-    4) [ "$DRY" = 1 ] || python3 "$HERE/ft_spawn_queue.py" add --root "$ROOT" --prefix "$_tsp" --card "$IDX" --from "$FROM"; exit 7;;
+    4) echo "WARN resource teamset $(printf '%s' "$_tso" | head -1) — 팀 나노 상한을 넘긴 채 연다(r921: 회수 1회 뒤에도 AT-CAP · 순번 큐 적재 0)" >&2;;
     *) echo "REJECT 팀셋 표 판정 실패(rc=$_tsrc) — 부작용 0"; exit 1;;
   esac
 fi
@@ -479,10 +478,8 @@ _OC_SINCE="$(date +%s)"   # r286: opencode 좌석이 띄운 serve(부모 잃음)
 if [ "$RESEARCH" = 1 ]; then
   _rlk="$(git -C "$HERE" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')"   # 잠금은 리포 state 안(설치 폴더 오염 0 · 모든 spawn 이 같은 자리)
   RESEARCH_LOCK="${_rlk:-${TMPDIR:-/tmp}}/.fable-team/state/research-spawn.lock.d"; mkdir -p "$(dirname "$RESEARCH_LOCK")" 2>/dev/null || true
-  _rcap="$(ft_research_cap_check "$RESEARCH_LOCK")"; _rcarc=$?
-  case "$_rcarc" in
-    0) ;; 3) echo "$_rcap"; exit 3;; *) echo "$_rcap"; exit 3;;
-  esac
+  _rcap="$(ft_research_cap_check "$RESEARCH_LOCK")"; _rcarc=$?   # r921: 상한 판정 0 · 잠금만 잡는다
+  [ "$_rcarc" = 0 ] || { echo "$_rcap"; rm -rf "$RESEARCH_LOCK" 2>/dev/null; exit 3; }
 fi
 "${OPEN[@]}" >/dev/null 2>&1; _orc=$?
 tmux has-session -t "=$NAME" 2>/dev/null || { [ "$_orc" -eq 0 ] && echo "REJECT 세션이 안 떴다: $NAME" || echo "REJECT tmuxc open 실패 ($NAME)"; exit 1; }

@@ -700,8 +700,10 @@ dead_seat_watch() {
       *) lines+="$seat(자동 재개 소진: $can · 오빠 재허용 = ft-resume-attempt.sh allow '$seat' $uuid) "; continue;;
     esac
     if [ "$DRY" = 1 ]; then echo "DRY kind=dead-seat seat=$seat can=$can mode=on"; tried=1; continue; fi
-    why="$(bash "$RESOURCE_GATE" check 2>&1)"; rc=$?; why="$(printf '%s\n' "$why" | tail -1)"
+    why="$(bash "$RESOURCE_GATE" check 2>&1)"; rc=$?; why="$(printf '%s\n' "$why" | grep -E '^(REJECT|WARN) resource' | tail -1)"
+    # r921: 죽은 좌석 재개도 «멈추지 않는다» — REJECT(디스크 하드 하한)만 재개 0 · WARN 은 1줄 남기고 재개한다(회수는 부르지 않는다: 재개 대상은 이미 죽어 라이브 목록에 없다)
     [ "$rc" = 0 ] || { lines+="$seat(자원 문지기 REJECT — 재개 0: ${why:0:100}) "; tried=1; continue; }
+    case "$why" in WARN*) lines+="$seat(자원 WARN — 재개 진행: ${why:0:100}) ";; esac
     [ "$can" = allowed ] && { bash "$RESUME_ATTEMPT" consume-allow "$seat" "$uuid" >/dev/null 2>&1 || { lines+="$seat(오빠 토큰 소비 실패 — 재개 0) "; tried=1; continue; }; }
     bash "$RESUME_ATTEMPT" claim "$seat" "$uuid" >/dev/null 2>&1 || { log "dead_seat_watch: $seat — 원장 선점 실패(이미 시도됨), 건너뜀"; continue; }
     tried=1

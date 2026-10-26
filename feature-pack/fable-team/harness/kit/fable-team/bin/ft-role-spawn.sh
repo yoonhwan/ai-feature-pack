@@ -35,15 +35,18 @@ if [ -f "$HERE/ft-spawn-hold.sh" ]; then
   [ "$_hrc" = 0 ] || { printf '%s\n' "$_hold"; exit "$_hrc"; }
   printf '%s\n' "$_hold"
 fi
-# ★자원 게이트 (Res-1014)★: 디스크·스왑·메모리·에이전트 수가 한계를 넘으면 열지 않는다(부작용 전). 우회 플래그 없음 — 조정은 env 문턱만.
+# ★자원 게이트 (Res-1014 · r921 개정)★: 넘으면 «회수 먼저 → 다시 재고 → 그래도 넘으면 WARN 1줄 + 진행» — 멈추는 것은문지기의 REJECT(디스크 하드 하한·디스크 측정 실패)뿐이다(오빠 2026-10-25). 우회 플래그 없음 — 조정은 env 문턱만.
 [ -f "$HERE/ft-resource-gate.sh" ] || { echo "REJECT ft-resource-gate.sh 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
 _rgout="$(bash "$HERE/ft-resource-gate.sh" check 2>&1)"; _rgrc=$?
-# R198(판정 1767): 에이전트 수로 막혔을 때만 — 기존 표준승인 범위 안의 유휴·완료 좌석을 자동 정리한 뒤 문지기 재검(FT_RECLAIM=0 으로 끔)
-if [ "$_rgrc" != 0 ] && [ "${FT_RECLAIM:-1}" != 0 ] && [ -f "$HERE/ft-resource-reclaim.sh" ]; then
-  _rgout="$(bash "$HERE/ft-resource-reclaim.sh" --on-reject "$_rgout" --gate "$HERE/ft-resource-gate.sh" 2>&1)"; _rgrc=$?
-  [ "$_rgrc" = 0 ] && printf '%s\n' "$_rgout" >&2
+# R198 + r921: 넘었으면(WARN) 기존 표준승인 범위 안의 유휴·완료 좌석 회수 1회 뒤 재검(FT_RECLAIM=0 으로 끔) · 좌석을 닫아 풀릴 수 있는 축일 때만
+if [ "$_rgrc" = 0 ] && printf '%s\n' "$_rgout" | grep -Eq '^WARN resource .*(agents|swap|memfree|level)=|rate=[0-9]'; then
+  if [ "${FT_RECLAIM:-1}" != 0 ] && [ -f "$HERE/ft-resource-reclaim.sh" ]; then
+    bash "$HERE/ft-resource-reclaim.sh" --on-reject "$_rgout" --gate "$HERE/ft-resource-gate.sh" >&2 || true
+    _rgout="$(bash "$HERE/ft-resource-gate.sh" check 2>&1)"; _rgrc=$?
+  fi
 fi
-[ "$_rgrc" != 0 ] && { printf '%s\n' "$_rgout"; exit "$_rgrc"; }
+[ "$_rgrc" = 0 ] || { printf '%s\n' "$_rgout"; exit "$_rgrc"; }
+printf '%s\n' "$_rgout" | grep '^WARN ' >&2 || true
 # R149(판정 1641): 상향 모델은 사유 + 닫는 단위 카드 필수 — 해석이 끝난 실제 MODEL 로 판정, 부작용(tmux·명부) «전». rc 0=상향 1=기본 그 밖=도구 고장(조용히 기본 취급 0)
 python3 "$HERE/ft_raised.py" is-raised "$MODEL"; _rrc=$?
 case "$_rrc" in
