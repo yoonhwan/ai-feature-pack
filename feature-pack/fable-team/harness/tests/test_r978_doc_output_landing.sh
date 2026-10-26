@@ -3,10 +3,12 @@
 #   고침 1(ft-nano-close.sh --research) — 커밋·미커밋이 있어도 그 경로 «전부» 가 --result 1개뿐이면 통과(r976 꼴) · 그 밖 경로 1개라도 있으면 REJECT
 #   고침 2(ft-finished-check.sh · ft-index-move-canon.sh) — «설치: 없음 ∧ 문서 가지 조상 ∧ 바꾼 경로 전부 design/**.md» 셋 다일 때만 문서 가지 착지 인정
 #   고침 3(r2 반송 r1 · DA HOLD 3) — «바뀐 경로 목록» 읽기 도우미 1개(ft-team-lib.sh ft_changed_paths/ft_changed_paths_wt)를 세 자리가 같이 쓴다:
-#     이름 변경 = 삭제+추가 둘 다(--no-renames · 미커밋 R/C 는 원경로·새경로 둘 다) · 경로 인용 끔(-c core.quotePath=false)
+#     이름 변경 = 삭제+추가 둘 다(--no-renames · 미커밋 R/C 는 원경로·새경로 둘 다)
+#   고침 4(r2 반송 r2 · DA r2 HOLD 3) — `-c core.quotePath=false` 로도 git 은 «따옴표·역슬래시·공백(미추적)» 경로를 인용한다 → 경로 목록은 -z(NUL)로 받아 자른다(mktemp + RETURN trap 정리)
 # 임시 git 리포 + bare origin + 가짜 tmux(PATH 앞)만 쓴다 — 실제 리포·명부·tmux 세션은 건드리지 않는다. GIT_* 환경 변수는 쓰지 않는다.
 #   변이: 경로 검사 빼고 커밋 수만 0 허용 → ⓐ 다른 파일 칸 FAIL · 설치: 없음 조건 제거 → ⓑ 설치: 있음 칸 FAIL · 한 자리만 새 함수 → ⓑ 한쪽 FAIL
-#         --no-renames 제거 → ⓒ 이름 변경 칸 FAIL · quotePath 끄기 제거 → ⓒ 한글 경로 칸 FAIL
+#         --no-renames 제거 → ⓒ 도우미 단위 FAIL · R/C 확장 제거 → ⓒ 미커밋 R 칸 FAIL · -z 제거 → ⓒ 반례 4·5·6 칸 FAIL
+#         (quotePath 끄기 제거 변이는 -z 가 인용을 없애 «뜻이 없는 변이» 가 되므로 폐기 — 통과해도 당연한 것을 綠 로 세지 않는다)
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
@@ -197,8 +199,23 @@ cp "$T/bin/ft-index-move-canon.mut.sh" "$T/bin/ft-index-move-canon.sh"
 sub="$(section_b)"; case "$sub" in *"FAIL ⓑ imc 인정"*) ok "ⓕ imc 한 자리만 판정 함수를 끔 → ⓑ imc 인정 칸 FAIL(두 자리 공유 확인)";; *) bad "ⓕ imc 자리를 꺼도 ⓑ imc 칸이 통과";; esac
 cp "$SRC/ft-index-move-canon.sh" "$T/bin/ft-index-move-canon.sh"
 
+doc_land() {  # doc_land <리포> <문서파일이름> — «공통 함수 rc» · «imc 출력» 두 줄(문서 카드 픽스쳐 새로 만든다)
+  local R="$1" nm="$2" G3 DOC3 CARD3 o
+  rm -rf "$R"; mkdir -p "$R/design/teams/harness/indices/완성" "$R/.fable-team/state" "$R/design/harness/evidence/r978"
+  printf '| 팀 | 폴더 | 오케 | 상태 |\n|---|---|---|---|\n| harness | `design/teams/harness/` | h | 현역 |\n' > "$R/design/TEAMS.md"
+  G3() { git -C "$R" -c user.name=t -c user.email=t@t "$@"; }
+  git -C "$R" init -q -b main && G3 add design && G3 commit -qm base && git -C "$R" config core.quotePath true
+  git -C "$R" update-ref refs/remotes/origin/main HEAD
+  G3 checkout -q -b docs; printf '# 조사 표\n값 1\n' > "$R/design/harness/evidence/r978/$nm"; G3 add -A; G3 commit -qm "문서 산출 1"
+  DOC3="$(git -C "$R" rev-parse HEAD)"; git -C "$R" update-ref refs/remotes/origin/ops/main-base "$DOC3"
+  CARD3="$R/design/teams/harness/indices/완성/doc-land.md"
+  printf '# 인덱스: doc\n## 상태\n- 설치: 없음\n- 정본 영향 없음: 문서 카드라 정본 갱신 없음\n- 착지: %s\n' "$DOC3" > "$CARD3"
+  o="$( cd "$R" && bash -c '. "$1/ft-team-lib.sh"; ft_doc_card_landed "$2" "$3" "$4"' _ "$T/bin" "$R" "$DOC3" "$CARD3" 2>&1 )"; echo "①$? · ${o//$'\n'/ }"
+  o="$( printf '## 상태\n- 정본 영향 없음: 문서 카드라 정본 갱신 없음\n' | ( cd "$R" && env FT_LAND_REF=origin/main FT_DOC_LAND_REF=origin/ops/main-base bash "$T/bin/ft-index-move-canon.sh" "$CARD3" "$R" "$DOC3" 2>&1 ) )"; echo "②${o//$'\n'/ }"
+}
+
 section_c() {
-echo "== ⓒ(r2 반송 r1) «바뀐 경로 목록» — 이름 변경은 삭제+추가 둘 다 · 한글 경로 인용 끔"
+echo "== ⓒ(r2 반송 r1·r2) «바뀐 경로 목록» — 이름 변경은 삭제+추가 둘 다 · 한글·공백·따옴표·역슬래시 경로 인용 끔(-z)"
 KO='design/harness/evidence/r978/조사.md'
 # ① 반례 1(커밋) — 코드 경로를 문서 이름으로 git mv 한 커밋 → 옛 코드 경로가 «밖 경로»
 setup; mkdir -p "$NW/design/harness/evidence/r978"; git -C "$NW" mv scripts/x.py "$OUT"; git -C "$NW" commit -q -m "코드→문서 이름 변경"
@@ -218,20 +235,9 @@ out="$(close --result "$NW/$KO" --recv 1 --research)"; rc=$?
 [ "$rc" -eq 0 ] && has "$out" "RESEARCH-OK" "ⓒ 반례 2 한글 경로(미커밋 · quotePath=true) → rc0" || bad "ⓒ 반례 2 미커밋 rc=$rc ← ${out:0:600}"
 git -C "$REPO" config --unset-all core.quotePath 2>/dev/null
 # ③ 반례 3 — 같은 한글 .md 커밋을 문서 가지가 가리키고 카드 «설치: 없음» → 공통 함수도 imc 도 인정
-rm -rf "$T/R3"; R3="$T/R3"; mkdir -p "$R3/design/teams/harness/indices/완성" "$R3/.fable-team/state" "$R3/design/harness/evidence/r978"
-printf '| 팀 | 폴더 | 오케 | 상태 |\n|---|---|---|---|\n| harness | `design/teams/harness/` | h | 현역 |\n' > "$R3/design/TEAMS.md"
-G3() { git -C "$R3" -c user.name=t -c user.email=t@t "$@"; }
-git -C "$R3" init -q -b main && G3 add design && G3 commit -qm base && git -C "$R3" config core.quotePath true
-git -C "$R3" update-ref refs/remotes/origin/main HEAD
-G3 checkout -q -b docs; printf '# 조사 표\n값 1\n' > "$R3/$KO"; G3 add -A; G3 commit -qm "한글 문서 산출 1"
-DOC3="$(git -C "$R3" rev-parse HEAD)"; git -C "$R3" update-ref refs/remotes/origin/ops/main-base "$DOC3"
-CARD3="$R3/design/teams/harness/indices/완성/doc-ko.md"
-printf '# 인덱스: doc-ko\n## 상태\n- 설치: 없음\n- 정본 영향 없음: 문서 카드라 정본 갱신 없음\n- 착지: %s\n' "$DOC3" > "$CARD3"
-o3="$( cd "$R3" && bash -c '. "$1/ft-team-lib.sh"; ft_doc_card_landed "$2" "$3" "$4"' _ "$T/bin" "$R3" "$DOC3" "$CARD3" 2>&1 )"; r3=$?
-{ [ "$r3" -eq 0 ] && case "$o3" in *"인정 ref origin/ops/main-base"*) true;; *) false;; esac; } \
-  && ok "ⓒ 반례 3 공통 함수: 한글 .md + 설치: 없음 + 문서 가지 조상 → 인정 rc0" || bad "ⓒ 반례 3 함수 rc=$r3 [$o3]"
-o3="$( printf '## 상태\n- 정본 영향 없음: 문서 카드라 정본 갱신 없음\n' | ( cd "$R3" && env FT_LAND_REF=origin/main FT_DOC_LAND_REF=origin/ops/main-base bash "$T/bin/ft-index-move-canon.sh" "$CARD3" "$R3" "$DOC3" 2>&1 ) )"
-case "$o3" in *"착지 인정 = 인정 ref origin/ops/main-base"*) ok "ⓒ 반례 3 index-move-canon: «착지 인정 = … origin/ops/main-base» 1줄";; *) bad "ⓒ 반례 3 imc [$o3]";; esac
+D1="$(doc_land "$T/R3" '조사.md')"; o3="$D1"
+case "$o3" in "①0"*"인정 ref origin/ops/main-base"*) ok "ⓒ 반례 3 공통 함수: 한글 .md + 설치: 없음 + 문서 가지 조상 → 인정 rc0";; *) bad "ⓒ 반례 3 함수 [$o3]";; esac
+case "$o3" in *"②착지 인정 = 인정 ref origin/ops/main-base"*) ok "ⓒ 반례 3 index-move-canon: «착지 인정 = … origin/ops/main-base» 1줄";; *) bad "ⓒ 반례 3 imc [$o3]";; esac
 # ④ 도우미 단위 — /bin/bash 3.2 로 1회 고정(커밋 목록 = 삭제+추가 2줄 · 미커밋 R = 원경로·새경로 2줄)
 setup; mkdir -p "$NW/design/harness/evidence/r978"; git -C "$NW" mv scripts/x.py "$OUT"; git -C "$NW" commit -q -m "이름 변경"
 u1="$( cd "$NW" && /bin/bash -c '. "$1/ft-team-lib.sh"; ft_changed_paths "$2" "$3" HEAD; echo "rc=$?"' _ "$T/bin" "$NW" "$SHA_A" 2>&1 )"
@@ -241,20 +247,48 @@ U1="$( printf '%s\n' "$u1" | grep -v '^rc=' | sort | tr '\n' ' ')"; U2="$( print
 { [ "$U1" = "$( printf '%s\n%s\n' "$OUT" scripts/x.py | sort | tr '\n' ' ')" ] && [ "$U2" = "$U1" ] \
     && printf '%s\n' "$u1" | grep -qx 'rc=0' && printf '%s\n' "$u2" | grep -qx 'rc=0'; } \
   && ok "ⓒ 도우미 단위(/bin/bash 3.2): 커밋 = 삭제+추가 2줄 · 미커밋 R = 원경로+새경로 2줄" || bad "ⓒ 도우미 단위 ← [$U1] / [$U2]"
+# ⑤ 반례 4·5(DA r2) — 공백·따옴표·역슬래시 경로: git 은 quotePath=false 에서도 따옴표로 감싼다 → -z 로 받아야 «산출» 로 읽힌다
+SP='design/harness/evidence/r978/my report.md'; QQ='design/harness/evidence/r978/a"b.md'; BS='design/harness/evidence/r978/a\b.md'
+setup; mkdir -p "$NW/design/harness/evidence/r978"; printf '# 표\n값 1\n' > "$NW/$SP"
+out="$(close --result "$NW/$SP" --recv 1 --research)"; rc=$?
+[ "$rc" -eq 0 ] && has "$out" "RESEARCH-OK" "ⓒ 반례 4 공백 경로(미추적) → rc0" || bad "ⓒ 반례 4 미추적 rc=$rc ← ${out:0:600}"
+setup; mkdir -p "$NW/design/harness/evidence/r978"; printf '# 표\n값 1\n' > "$NW/$SP"; git -C "$NW" add -A
+out="$(close --result "$NW/$SP" --recv 1 --research)"; rc=$?
+[ "$rc" -eq 0 ] && has "$out" "RESEARCH-OK" "ⓒ 반례 4 공백 경로(staged) → rc0" || bad "ⓒ 반례 4 staged rc=$rc ← ${out:0:600}"
+setup; mkdir -p "$NW/design/harness/evidence/r978"; printf '# 표\n값 1\n' > "$NW/$QQ"; git -C "$NW" add -A; git -C "$NW" commit -q -m "따옴표 문서"
+out="$(close --result "$NW/$QQ" --recv 1 --research)"; rc=$?
+[ "$rc" -eq 0 ] && has "$out" "RESEARCH-OK" "ⓒ 반례 5 따옴표 든 경로(커밋) → rc0" || bad "ⓒ 반례 5 따옴표 rc=$rc ← ${out:0:600}"
+setup; mkdir -p "$NW/design/harness/evidence/r978"; printf '# 표\n값 1\n' > "$NW/$BS"; git -C "$NW" add -A; git -C "$NW" commit -q -m "역슬래시 문서"
+out="$(close --result "$NW/$BS" --recv 1 --research)"; rc=$?
+[ "$rc" -eq 0 ] && has "$out" "RESEARCH-OK" "ⓒ 반례 5 역슬래시 든 경로(커밋) → rc0" || bad "ⓒ 반례 5 역슬래시 rc=$rc ← ${out:0:600}"
+setup; mkdir -p "$NW/design/harness/evidence/r978"; printf '# 표\n값 1\n' > "$NW/$QQ"
+out="$(close --result "$NW/$QQ" --recv 1 --research)"; rc=$?
+[ "$rc" -eq 0 ] && has "$out" "RESEARCH-OK" "ⓒ 반례 5 따옴표 든 경로(미커밋) → rc0" || bad "ⓒ 반례 5 미커밋 rc=$rc ← ${out:0:600}"
+# ⑥ 반례 6(DA r2) — 따옴표 든 문서 커밋이 문서 가지 조상 + 카드 «설치: 없음» → 공통 함수 인정 + imc 인정 줄
+D6="$(doc_land "$T/R6" 'a"b.md')"
+case "$D6" in "①0"*"인정 ref origin/ops/main-base"*) ok "ⓒ 반례 6 공통 함수: 따옴표 든 .md + 설치: 없음 + 문서 가지 조상 → 인정 rc0";; *) bad "ⓒ 반례 6 함수 [$D6]";; esac
+case "$D6" in *"②착지 인정 = 인정 ref origin/ops/main-base"*) ok "ⓒ 반례 6 index-move-canon: «착지 인정 = … origin/ops/main-base» 1줄";; *) bad "ⓒ 반례 6 imc [$D6]";; esac
+# ⑦ 임시 파일 0 — mktemp 는 RETURN trap 으로 지운다(정상 길·오류 길 둘 다)
+ZT="$T/ztmp"; rm -rf "$ZT"; mkdir -p "$ZT"
+zt="$( cd "$NW" && env TMPDIR="$ZT" /bin/bash -c '. "$1/ft-team-lib.sh"; ft_changed_paths "$2" "$3" HEAD >/dev/null; echo "a=$?"; ft_changed_paths_wt "$2" >/dev/null; echo "b=$?"; ft_changed_paths "/없는리포" "$3" HEAD >/dev/null; echo "c=$?"' _ "$T/bin" "$NW" "$SHA_A" 2>&1 )"
+{ [ -z "$(ls -A "$ZT" 2>/dev/null)" ] && printf '%s\n' "$zt" | grep -qx 'a=0'; } \
+  && ok "ⓒ 남는 임시 파일 0(mktemp + trap · 정상·오류 두 길)" || bad "ⓒ 임시 파일 잔여 [$(ls -A "$ZT" 2>/dev/null)] ← $zt"
 }
 
-echo "== ⓕ(r2) 변이 — «--no-renames» 를 빼면 ⓒ 이름 변경 칸 FAIL · «quotePath 끄기» 를 빼면 ⓒ 한글 경로 칸 FAIL"
+echo "== ⓕ(r2) 변이 — --no-renames · -z · R/C 확장을 하나씩 빼면 그 ⓒ 칸이 FAIL(quotePath 변이는 -z 도입으로 뜻이 없어 폐기)"
 mutate_f "$T/bin/ft-team-lib.sh" '# r978-mut:norenames' '_FT_GIT_NOREN=(--no-color)' ft-team-lib.mut.sh
 cp "$T/bin/ft-team-lib.mut.sh" "$T/bin/ft-team-lib.sh"
-sub="$(section_c)"; case "$sub" in *"FAIL ⓒ 반례 1 이름 변경(커밋)"*|*"FAIL ⓒ 반례 1 커밋 rc="*) ok "ⓕ --no-renames 제거 → ⓒ 이름 변경(커밋) 칸 FAIL";; *) bad "ⓕ --no-renames 를 빼도 ⓒ 이름 변경 칸이 통과";; esac
+sub="$(section_c)"; case "$sub" in *"FAIL ⓒ 반례 1 이름 변경(커밋)"*|*"FAIL ⓒ 반례 1 커밋 rc="*|*"FAIL ⓒ 도우미 단위"*) ok "ⓕ --no-renames 제거 → ⓒ 도우미 단위 칸 FAIL";; *) bad "ⓕ --no-renames 를 빼도 ⓒ 이름 변경 칸이 통과";; esac
 cp "$SRC/ft-team-lib.sh" "$T/bin/ft-team-lib.sh"
-mutate_f "$T/bin/ft-team-lib.sh" '# r978-mut:quotepath' '_FT_GIT_QP=(-c core.quotePath=true)' ft-team-lib.mut.sh
-cp "$T/bin/ft-team-lib.mut.sh" "$T/bin/ft-team-lib.sh"
-sub="$(section_c)"; case "$sub" in *"FAIL ⓒ 반례 2 커밋 rc="*|*"FAIL ⓒ 반례 3 imc"*) ok "ⓕ quotePath 끄기 제거 → ⓒ 한글 경로(반례 2·3) 칸 FAIL";; *) bad "ⓕ quotePath 를 다시 켜도 ⓒ 한글 경로 칸이 통과";; esac
-cp "$SRC/ft-team-lib.sh" "$T/bin/ft-team-lib.sh"
-mutate_f "$T/bin/ft-team-lib.sh" '# r978-mut:renames' '    case "$xy" in *R*|*C*) :;;' ft-team-lib.mut.sh
+# quotePath 변이는 r2 에서 뜻이 없어짐 — -z 는 경로를 인용하지 않으므로 `-c core.quotePath=false` 를 빼도 ⓒ 한글 칸이 그대로 통과한다.
+#   통과해도 당연한 것을 綠 로 세면 측정 조작이 되므로 목록에서 빼고, 그 자리는 -z 변이가 맡는다.
+mutate_f "$T/bin/ft-team-lib.sh" '# r978-mut:renames' "      case \"\${e:0:2}\" in *R*|*C*) IFS= read -r -d '' p;; esac" ft-team-lib.mut.sh
 cp "$T/bin/ft-team-lib.mut.sh" "$T/bin/ft-team-lib.sh"
 sub="$(section_c)"; case "$sub" in *"FAIL ⓒ 반례 1 미커밋 R rc="*) ok "ⓕ 미커밋 R 확장 제거 → ⓒ 이름 변경(미커밋 R) 칸 FAIL";; *) bad "ⓕ 미커밋 R 확장을 빼도 ⓒ 칸이 통과";; esac
+cp "$SRC/ft-team-lib.sh" "$T/bin/ft-team-lib.sh"
+mutate_f "$T/bin/ft-team-lib.sh" '# r978-mut:zsep' '_FT_GIT_Z=(--no-color)' ft-team-lib.mut.sh
+cp "$T/bin/ft-team-lib.mut.sh" "$T/bin/ft-team-lib.sh"
+sub="$(section_c)"; case "$sub" in *"FAIL ⓒ 반례 4"*|*"FAIL ⓒ 반례 5"*|*"FAIL ⓒ 반례 6"*) ok "ⓕ -z 제거 → ⓒ 반례 4·5·6(공백·따옴표·역슬래시) 칸 FAIL";; *) bad "ⓕ -z 를 빼도 ⓒ 공백·따옴표 칸이 통과";; esac
 cp "$SRC/ft-team-lib.sh" "$T/bin/ft-team-lib.sh"
 
 section_a
