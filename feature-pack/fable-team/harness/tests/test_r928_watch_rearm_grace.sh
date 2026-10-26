@@ -3,6 +3,8 @@
 #   ⓐ 끝 표식 5분 안 + 프로세스 0 → 긴급 0 · stderr `WATCH-REARM 대기 <분>` 1줄
 #   ⓑ 끝 표식 5분 넘음/없음 + 프로세스 0 → 긴급 1통 · 본문에 «감시 프로세스 0(pgrep) · 마지막 감시 끝 HH:MM(또는 기록 없음)»
 #   ⓒ 프로세스 있음 → 긴급 0 (기존 그대로) · ⓓ 같은 좌석 10분 1회 제한 회귀 0
+#   ⓔ 미래 mtime → 유예 0 · 긴급 1 · WATCH-MARK 1줄 · ⓕ 표식이 폴더 → 유예 0 · ⓖ 본문 좌석 다름/깨짐 → 유예 0
+#   ⓗ 첫 읽기 중 TERM 에도 끝 표식 있음 · ⓘ 감시 시작 → 옛 표식 삭제 · 표식 본문 = «<좌석>\t<epoch>»(DA⑥ r1 반례 1·2·3)
 #   격리 FT_ROOT · 가짜 pgrep(FT_PGREP) · 가짜 tmux · 실 tmux·홈·BYZ 쓰기 0.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
@@ -14,6 +16,7 @@ fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }
 eq()  { [ "$2" = "$3" ] && ok "$1" || bad "$1 (기대 '$3' 실제 '$2')"; }
+mkmark() { printf '%s\t%s\n' "$2" "$(date +%s)" > "$1"; }  # <표식> <좌석> — 실제 끝 표식과 같은 본문
 
 # ── ① 감시 스크립트가 끝날 때 상태 표식을 남긴다 (ⓐ 의 입력)
 W="$T/w1"; mkdir -p "$W/.fable-team/state/inbox"
@@ -22,7 +25,7 @@ bash "$WATCH" planner-y#7 >/dev/null 2>"$T/werr" & WP=$!
 sleep 0.8; kill -TERM "$WP" 2>/dev/null; wait "$WP" 2>/dev/null
 LM1="$W/.fable-team/state/planner-watch-last.planner-y#7"
 [ -f "$LM1" ] && ok "① SIGTERM 뒤 끝 표식 생성" || bad "① 끝 표식 없음 ($LM1) · stderr=$(cat "$T/werr")"
-grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}' "$LM1" 2>/dev/null && ok "① 표식 첫 칸 = «YYYY-MM-DD HH:MM:SS» 시각" || bad "① 표식 시각 형식: $(cat "$LM1" 2>/dev/null)"
+[ "$(cut -f1 "$LM1" 2>/dev/null)" = 'planner-y#7' ] && [ -n "$(cut -f2 "$LM1" 2>/dev/null | grep -E '^[0-9]{9,}$')" ] && ok "① 표식 첫 칸 = 좌석 · 둘째 칸 = epoch(r928 새 본문 꼴)" || bad "① 표식 본문: $(cat "$LM1" 2>/dev/null)"
 [ -n "$(find "$LM1" -mmin -1 2>/dev/null)" ] && ok "① 표식 mtime = 끝난 시각(1분 안)" || bad "① 표식 mtime 이 오래됨"
 # 짝 사본 = 같은 내용(설치 cmp0 의 근거)
 cmp -s "$REPO/harness/bin/ft-inbox-watch.sh" "$KIT/ft-inbox-watch.sh" && ok "① 짝 cmp0 ft-inbox-watch.sh(bin ↔ kit)" || bad "① 짝 불일치 ft-inbox-watch.sh"
@@ -65,7 +68,7 @@ for S in comm kit; do
   if [ "$S" = comm ]; then snd() { env928 bash "$C/mbox.sh" send "$P" "t$1#1" "[결정] r928 시험 $S $1" 2>"$T/err928"; }
   else snd() { env928 bash "$KIT/ft-mbox.sh" send "$P" "t$1#1" "[결정] r928 시험 $S $1" 2>"$T/err928"; }; fi
   # ⓐ 끝 표식 5분 안 + 프로세스 0 → 긴급 0 · stderr 1줄 · 표식(10분 제한) 안 남김
-  procs_none; : > "$LM"; b="$(alarms)"; o="$(snd 1)"
+  procs_none; mkmark "$LM" "$P"; b="$(alarms)"; o="$(snd 1)"
   eq "ⓐ[$S] 유예 중 → 긴급 0통" "$(alarms)" "$b"
   grep -q 'WATCH-REARM 대기 [0-9]*분' "$T/err928" && ok "ⓐ[$S] stderr «WATCH-REARM 대기 <분>»: $(grep -o 'WATCH-REARM 대기 [0-9]*분' "$T/err928" | head -1)" || bad "ⓐ[$S] stderr: $(cat "$T/err928")"
   eq "ⓐ[$S] 유예 중에도 db 꼬리는 (WATCH 없음) 그대로" "$(dbv "$o")" "quiet(WATCH 없음)"
@@ -89,11 +92,51 @@ for S in comm kit; do
   eq "ⓓ[$S] 표식 11분 경과 → 다시 1통" "$(( $(alarms) - b ))" "2"
 done
 # 유예 폭 환경값(FT_WATCH_REARM_GRACE) — 0 이면 유예 없음 · 60 이면 11분 끝 표식도 유예
-procs_none; rm -f "$MK"; : > "$LM"; b="$(alarms)"
+procs_none; rm -f "$MK"; mkmark "$LM" "$P"; b="$(alarms)"
 env928 env FT_WATCH_REARM_GRACE=0 bash "$KIT/ft-mbox.sh" send "$P" t8#1 "[결정] r928 유예 0" >/dev/null 2>&1
 eq "유예 0 → 끝 표식이 방금이어도 긴급 1통" "$(( $(alarms) - b ))" "1"
 rm -f "$MK"; ELD "$LM"; b="$(alarms)"
 env928 env FT_WATCH_REARM_GRACE=60 bash "$KIT/ft-mbox.sh" send "$P" t9#1 "[결정] r928 유예 60" >/dev/null 2>&1
 eq "유예 60 → 11분 끝 표식도 긴급 0통" "$(alarms)" "$b"
+
+# ── ③ DA⑥ r1 반례 1·2 — 표식 이상(미래·폴더·본문 불일치/깨짐)이면 유예 0(긴급 그대로) · stderr WATCH-MARK 1줄
+for S in comm kit; do
+  if [ "$S" = comm ]; then snd3() { env928 bash "$C/mbox.sh" send "$P" "u$1#1" "[결정] r928 r2 $S $1" 2>"$T/err928"; }
+  else snd3() { env928 bash "$KIT/ft-mbox.sh" send "$P" "u$1#1" "[결정] r928 r2 $S $1" 2>"$T/err928"; }; fi
+  fresh() { rm -f "$C/mailbox.jsonl" "$MK" "$LM"; rm -rf "$LM"; procs_none; }  # 우편함 포화(ring=10 DROPPED)로 건마다 결과가 흔들리지 않게 초기화
+  # ⓔ 미래 mtime(+60분) → 유예 0 · 긴급 1통 · WATCH-MARK 1줄
+  fresh; mkmark "$LM" "$P"; touch -t "$(date -v+60M +%Y%m%d%H%M)" "$LM"; snd3 1 >/dev/null
+  eq "ⓔ[$S] 미래 표식 → 긴급 1통(유예 0)" "$(alarms)" "1"
+  grep -q 'WATCH-MARK 이상(미래 mtime)' "$T/err928" && ok "ⓔ[$S] stderr «WATCH-MARK 이상(미래 mtime)»" || bad "ⓔ[$S] stderr: $(cat "$T/err928")"
+  grep -q 'WATCH-REARM 대기' "$T/err928" && bad "ⓔ[$S] 미래 표식인데 유예가 켜짐" || ok "ⓔ[$S] 유예 문구 없음"
+  # ⓕ 표식 자리가 폴더(쓰기 실패 모양) → 유예 0 · 긴급 1통 · WATCH-MARK 1줄
+  fresh; mkdir -p "$LM"; snd3 2 >/dev/null
+  eq "ⓕ[$S] 표식=폴더 → 긴급 1통" "$(alarms)" "1"
+  grep -q 'WATCH-MARK 이상(일반 파일 아님)' "$T/err928" && ok "ⓕ[$S] stderr «일반 파일 아님»" || bad "ⓕ[$S] stderr: $(cat "$T/err928")"
+  rm -rf "$LM"
+  # ⓖ 본문 좌석 다름 · 깨진 본문 → 유예 0 (다른 좌석 감시가 내 틈을 가리면 안 된다)
+  fresh; printf 'other-seat#1\t%s\n' "$(date +%s)" > "$LM"; snd3 3 >/dev/null
+  eq "ⓖ[$S] 본문 좌석 다름 → 긴급 1통" "$(alarms)" "1"
+  grep -q 'WATCH-MARK 이상(본문 좌석 다름)' "$T/err928" && ok "ⓖ[$S] stderr «본문 좌석 다름»" || bad "ⓖ[$S] stderr: $(cat "$T/err928")"
+  fresh; printf 'no tab here\n' > "$LM"; snd3 4 >/dev/null
+  eq "ⓖ'[$S] 깨진 본문 → 긴급 1통" "$(alarms)" "1"
+  grep -q 'WATCH-MARK 이상(본문 깨짐)' "$T/err928" && ok "ⓖ'[$S] stderr «본문 깨짐»" || bad "ⓖ'[$S] stderr: $(cat "$T/err928")"
+done
+rm -f "$MK" "$LM"
+
+# ── ④ DA⑥ r1 반례 3 — ⓗ 첫 읽기 중 TERM 에도 끝 표식 · ⓘ 시작 시 옛 표식 삭제 · 표식 본문 = «좌석\tepoch»
+W2="$T/w2"; mkdir -p "$W2/.fable-team/state/inbox"; mkfifo "$W2/.fable-team/state/inbox/planner-h.jsonl"
+FT_ROOT="$W2" FT_INBOX_WATCH_POLL=0.1 bash "$WATCH" 'planner-h#7' >/dev/null 2>"$T/werr2" & WPH=$!
+sleep 0.8; kill -TERM "$WPH" 2>/dev/null; wait "$WPH" 2>/dev/null
+LM2="$W2/.fable-team/state/planner-watch-last.planner-h#7"
+[ -f "$LM2" ] && ok "ⓗ 첫 읽기(FIFO 대기) 중 TERM → 끝 표식 있음" || bad "ⓗ 첫 읽기 중 TERM → 끝 표식 없음 · stderr=$(cat "$T/werr2")"
+W3="$T/w3"; mkdir -p "$W3/.fable-team/state/inbox"; : > "$W3/.fable-team/state/inbox/planner-g.jsonl"
+LM3="$W3/.fable-team/state/planner-watch-last.planner-g#7"; printf 'planner-g#7\t1\n' > "$LM3"
+FT_ROOT="$W3" FT_INBOX_WATCH_POLL=0.1 bash "$WATCH" 'planner-g#7' >/dev/null 2>"$T/werr3" & WPG=$!
+sleep 0.8
+[ ! -e "$LM3" ] && ok "ⓘ 감시 시작 → 옛 끝 표식 삭제(감시 중 유예 근거 0)" || bad "ⓘ 옛 표식이 남음"
+kill -TERM "$WPG" 2>/dev/null; wait "$WPG" 2>/dev/null
+[ "$(cut -f1 "$LM3" 2>/dev/null)" = 'planner-g#7' ] && ok "ⓘ' 끝 표식 첫 칸 = 좌석" || bad "ⓘ' 첫 칸: $(cut -f1 "$LM3" 2>/dev/null)"
+[ -n "$(cut -f2 "$LM3" 2>/dev/null | grep -E '^[0-9]{9,}$')" ] && ok "ⓘ' 끝 표식 둘째 칸 = epoch" || bad "ⓘ' 둘째 칸: $(cut -f2 "$LM3" 2>/dev/null)"
 
 echo "---"; [ "$fail" = 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }

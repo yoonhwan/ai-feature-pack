@@ -64,19 +64,38 @@ PY
 }
 # ★user_facing 좌석의 quiet = 세션 안 감시와 한 쌍(r408)★ — 판정기는 bin/ft-mbox.sh watch-alive 하나(팩 키트 send 와 같은 판정). 오빠 pane 주입 0(876 불변).
 #   감시 없음 → db 꼬리 `(WATCH 없음)`(quiet → `quiet(WATCH 없음)`) + 하네스 master(seats-harness.json `_master`) 긴급 1통(같은 좌석 10분 1회 · 표식 <루트>/.fable-team/state/planner-watch-missing.<좌석> · 본문에 계기 쪽지 번호 = 같은 본문 재발신 가드에 재알림이 막히지 않게).
-#   ★r928 유예★: 끝 표식(planner-watch-last.<좌석> = ft-inbox-watch.sh 가 끝날 때 쓰는 시각 1줄) mtime 이 유예(FT_WATCH_REARM_GRACE, 기본 5분) 안이면 긴급 0 · stderr `WATCH-REARM 대기 <분>` 1줄
-#     — Monitor 30분 한도 뒤 «다시 거는 틈»을 오탐 긴급으로 보내지 않는다(판정 1125). 긴급 본문 근거 줄 = `감시 프로세스 0(pgrep) · 마지막 감시 끝 <HH:MM|기록 없음>`.
+#   ★r928 유예★: 끝 표식(planner-watch-last.<좌석> = ft-inbox-watch.sh 가 끝날 때 쓰는 «<좌석>\t<epoch>» 1줄)의 mtime 이 유예(FT_WATCH_REARM_GRACE, 기본 5분) 안이고 본문 좌석이 같을 때만 긴급 0 · stderr `WATCH-REARM 대기 <분>` 1줄
+#     — Monitor 30분 한도 뒤 «다시 거는 틈»을 오탐 긴급으로 보내지 않는다(판정 1125). 표식이 심링크·폴더·미래 mtime·깨진 본문이면 유예 0(긴급 그대로) + stderr `WATCH-MARK 이상(<사유>)` 1줄(DA⑥ r1 반례 1·2).
+#     긴급 본문 근거 줄 = `감시 프로세스 0(pgrep) · 마지막 감시 끝 <HH:MM|기록 없음>`.
 #   판정 불가 = 꼬리 `(WATCH 판정 불가)` + stderr(조용한 통과 0) · 적재 실패·master 없음 = stderr 1줄(표식 0 → 다음 send 재시도).
-#   _mark_meta <표식> → "<경과 분> <HH:MM>" · 파일 없음·stat 실패 = 빈 값(유예 0 = 기존처럼 바로 긴급).
-_mark_meta() {
-  local m n
-  m="$(stat -f %m "$1" 2>/dev/null || stat -c %Y "$1" 2>/dev/null || true)"
-  case "$m" in ''|*[!0-9]*) printf ''; return 0 ;; esac
-  n=$(( ( $(date +%s) - m ) / 60 )); [ "$n" -lt 0 ] && n=0
-  printf '%s %s' "$n" "$(date -r "$m" +%H:%M 2>/dev/null || date -d "@$m" +%H:%M 2>/dev/null || true)"
+#   _mark_hhmm <표식> → "HH:MM" 또는 "기록 없음" (긴급 본문 근거 줄용)
+#   _mark_grace <표식> <좌석> <유예분> → rc0 유예(stdout 경과 분) · rc1 유예 밖 · rc2 표식 없음 · rc3 이상(유예 0 + stderr `WATCH-MARK 이상(<사유>)` 1줄)
+_mark_hhmm() {
+  local m; m="$(stat -f %m "$1" 2>/dev/null || stat -c %Y "$1" 2>/dev/null || true)"
+  case "$m" in ''|*[!0-9]*) printf '기록 없음'; return 0 ;; esac
+  date -r "$m" +%H:%M 2>/dev/null || date -d "@$m" +%H:%M 2>/dev/null || printf '기록 없음'
+}
+_mark_grace() {
+  local f="$1" want="$2" grace="$3" m n line seat now
+  if [ -L "$f" ]; then echo "WATCH-MARK 이상(심링크) $f" >&2; return 3; fi
+  if [ -e "$f" ] && [ ! -f "$f" ]; then echo "WATCH-MARK 이상(일반 파일 아님) $f" >&2; return 3; fi
+  if [ ! -f "$f" ]; then return 2; fi
+  m="$(stat -f %m "$f" 2>/dev/null || stat -c %Y "$f" 2>/dev/null || true)"
+  case "$m" in ''|*[!0-9]*) echo "WATCH-MARK 이상(mtime 읽기 실패) $f" >&2; return 3 ;; esac
+  line="$(head -1 "$f" 2>/dev/null || true)"
+  case "$line" in
+    *$'\t'*) seat="${line%%$'\t'*}" ;;
+    *) echo "WATCH-MARK 이상(본문 깨짐) $f" >&2; return 3 ;;
+  esac
+  if [ "$seat" != "$want" ]; then echo "WATCH-MARK 이상(본문 좌석 다름) $f" >&2; return 3; fi
+  now="$(date +%s)"
+  if [ "$m" -gt "$now" ]; then echo "WATCH-MARK 이상(미래 mtime) $f" >&2; return 3; fi
+  n=$(( (now - m) / 60 ))
+  if [ "$n" -lt "$grace" ]; then printf '%s' "$n"; return 0; fi
+  return 1
 }
 uf_watch() {  # <to> <계기 쪽지 seq>
-  local to="$1" ft="$DIR/.." o rc=0 hm mk q lm meta emin ld grace sfx
+  local to="$1" ft="$DIR/.." o rc=0 hm mk q lm emin ld grace sfx grc=0
   o="$(bash "${FT_BIN:-$DIR/../bin}/ft-mbox.sh" watch-alive "$to" 2>/dev/null)" || rc=$?
   [ "$rc" = 0 ] && return 0
   case "$rc:$o" in 3:"NO watch"*) ;; *) db="${db}(WATCH 판정 불가)"; echo "WARN planner watch 판정 불가 rc=$rc $to: ${o:0:80}" >&2; return 0;; esac
@@ -84,11 +103,12 @@ uf_watch() {  # <to> <계기 쪽지 seq>
   mk="$ft/state/planner-watch-missing.$sfx"; lm="$ft/state/planner-watch-last.$sfx"
   [ -n "$(find "$mk" -mmin -10 2>/dev/null)" ] && return 0
   grace="${FT_WATCH_REARM_GRACE:-5}"
-  meta="$(_mark_meta "$lm" 2>/dev/null || true)"; emin="${meta%% *}"; ld="${meta#* }"
-  if [ -n "$emin" ] && [ "$emin" -lt "$grace" ]; then
+  emin="$(_mark_grace "$lm" "$to" "$grace")" || grc=$?
+  if [ "$grc" = 0 ]; then
     echo "WATCH-REARM 대기 ${emin}분 — $to 감시가 ${grace}분 안에 끝남($lm) · 다시 거는 틈이라 긴급 0통" >&2
     return 0
   fi
+  ld="$(_mark_hhmm "$lm")"
   hm="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1],encoding="utf-8")).get("_master") or "")' "${FT_HARNESS_SEATS_JSON:-$ft/seats-harness.json}" 2>/dev/null)" || hm=""
   [ -n "$hm" ] || { echo "WARN planner watch 없음 $to — 하네스 master 를 못 찾음 · 긴급 0통" >&2; return 0; }
   [ -n "$ld" ] || ld="기록 없음"
