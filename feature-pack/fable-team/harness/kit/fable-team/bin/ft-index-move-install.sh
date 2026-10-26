@@ -33,8 +33,13 @@ PACK=""; [ -n "$PACKH" ] && { PACK="$(ft_git_capped 7 "$PACKH" rev-parse --show-
 [ -n "$PACK" ] || rej "하네스 루트를 못 풂 — 설치 대조 리포를 못 정한다(FT_HARNESS_ROOT · ../HARNESS_ROOT)"
 LR="$(ft_landed_repo "${LANDED##*..}" "$WT" "$PACK" "${FT_LANDED_MARKER:-}")" || { printf '%s\n' "$LR"; exit 1; }
 LRREPO="${LR%%$'\t'*}"
+# r948: --all 은 «어느 프로젝트의 라이브» 인지 같이 넘긴다 = 카드 리포의 공용 루트(워크트리 안 카드도 루트) — 안 넘기면 검사기가 팩 리포를 프로젝트로 본다(LIVE_BIN 없음 ERROR)
 if [ "$LRREPO" = "$PACK" ]; then CARG=(--range "$RANGE")
-else CARG=(--all); printf 'INFO 착지 리포 = 카드 리포(%s) — 설치 대조 = 라이브 전수(--all)\n' "$LRREPO"; fi
+else
+  CROOT="$(ft_git_capped 7 "$WT" rev-parse --path-format=absolute --git-common-dir)" || rej "카드 리포($WT) 공용 루트 조회 실패(rc=$?) — 통과 0"
+  CROOT="$(dirname "$CROOT")"; CARG=(--all --project "$CROOT")
+  printf 'INFO 착지 리포 = 카드 리포(%s) — 설치 대조 = 라이브 전수(--all --project %s)\n' "$LRREPO" "$CROOT"
+fi
 COUT="$(bash "$CHK" "${CARG[@]}" 2>&1)"; crc=$?
 [ "$crc" -eq 0 ] || { printf '%s\n' "$COUT"; rej "라이브 설치 어긋남(rc=$crc) — master 설치 뒤 다시 이동"; }
 EV="$(grep -m1 -E '^[[:space:]]*-[[:space:]]*실사건:' "$CARD")"
