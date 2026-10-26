@@ -1,0 +1,21 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+____________ test_d_several_seats_planner_body_lists_open_questions ____________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-644/test_d_several_seats_planner_b0')
+
+    def test_d_several_seats_planner_body_lists_open_questions(tmp_path: Path):
+        qp = tmp_path / "byz_slack_questions.C1.json"
+        ask(qp, 30, S1, "결제 라이브 전환을 지금 할까요?\n세부 설명")
+        ask(qp, 31, S2, "x" * 80)
+        p = plan(tmp_path, "그냥 진행해")
+        assert p["recips"] == ["@planner"] and p["q"] is None
+        lines = p["text"].splitlines()
+        assert "질문이 2개라 좌석을 정하지 못했어요" in lines[0] and "그냥 진행해" in p["text"]
+>       assert f"Q30 · {S1} · 결제 라이브 전환을 지금 할까요?" in lines and f"Q31 · {S2} · {'x' * 60}" in lines
+E       AssertionError: assert ('Q30 · byz-cfo-master-claude#112 · 결제 라이브 전환을 지금 할까요?' in ['오빠(Slack) 글인데 질문이 2개라 좌석을 정하지 못했어요 — 원문:', '그냥 진행해'])
+
+tests/scripts/test_mirror_question_cap_r846.py:149: AssertionError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_mirror_question_cap_r846.py::test_d_several_seats_planner_body_lists_open_questions
+1 failed, 22 deselected in 0.13s

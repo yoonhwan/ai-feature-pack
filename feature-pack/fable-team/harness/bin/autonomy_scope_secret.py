@@ -8,6 +8,11 @@ H2(DA⑥ r1): 문서는 «평범한 산문» 만 plan() 밖 — 그 파일의 «
   들여쓰기(4칸·탭) · 백틱 포함 · «! »·«$ »·«> » 시작 · 표 행(백틱 있을 때) 은 plan() · 전문을 못 읽으면 그 문서 추가 줄 전부 plan().
 H3(DA⑥ r1): code 로 분류된 파일은 추가 줄 «전문» 을 plan() 에 넘긴다(변수 추적 보존 · 덩어리 = 파일 경계로만).
 SECRET_SHAPE(키 원문 모양)는 이 상태 기계가 뽑은 «모든 추가 줄» 을 본다(줄이지 않음).
+H4(r909 r3 · 하드 룰 14 「추적 대신 예외를 좁힌다」): 셸 판정 밖으로 빼는 예외는 «하나» 뿐 —
+  코드 확장자(.py·.ts·.js·.go·.rs …) 파일의 추가 줄에서 문자열 리터럴 «밖» 의 식별자 «set(» 를 «set_(» 로 바꾸는 것.
+  자료 확장자(.json·.txt·.sql …) 제외는 없다(DA⑥ r2 반례 1 — ci/task.txt 의 printf 비밀). 문서(.md)는 셔뱅이 «없을» 때만 doc_cmds(반례 3).
+  셔뱅 있는 파일은 확장자 무관 전 줄 판정. YAML 은 추가 줄만 보고 run:/script: 값·목록 항목의 명령을 뽑아 판정한다(기준판처럼 전문 블록 재검사 0 — 오탐 2).
+  키 원문 모양(SECRET_SHAPE)은 종전대로 모든 추가 줄을 본다(줄이지 않음).
 """
 import re
 import subprocess
@@ -15,7 +20,11 @@ import subprocess
 class ImportErr(Exception):
     pass
 
-SECRET_SHAPE = re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----|\bAKIA[0-9A-Z]{16}\b|\bgh[pousr]_[A-Za-z0-9]{30,}|\bsk-[A-Za-z0-9_-]{20,}|\bxox[abprs]-[A-Za-z0-9-]{10,}")
+EDGE_CHARS = "A-Za-z0-9_"  # ★비밀 «경계» 를 정하는 글자 집합 — ft_secret_shapes.py 와 «같아야» 한다(정의 중복은 남기되 집합은 한 벌)
+EDGE_L = "(?<![" + EDGE_CHARS + "])"  # r977 r4(오빠 결정 1번): «왼쪽» 경계만 한 벌 — «오른쪽» 경계는 base 와 같다(AKIA 만 `\b` · 나머지 꼴은 값 뒤 경계 없음)
+# r977 r2(DA⑥ r1 반례 2): PEM 머리말은 «경계 없이»(base 그대로) — 앞에 ASCII 글자가 붙은 `note-----BEGIN …` 를 놓치면 안 된다. 나머지 4꼴만 EDGE 묶음 안.
+# r977 r4: 오른쪽 경계를 base 꼴로 — 끝 밸줄·끝 하이픈 토큰(`ghs_AAAA…_`)도 base 처럼 잡힌다(DA⑥ r2 반례 ②).
+SECRET_SHAPE = re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----|" + EDGE_L + r"(?:AKIA[0-9A-Z]{16}\b|gh[pousr]_[A-Za-z0-9]{30,}|sk-[A-Za-z0-9_-]{20,}|xox[abprs]-[A-Za-z0-9-]{10,})")
 HUNK = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@")
 
 
@@ -83,25 +92,150 @@ def _batch(repo, sha, paths):
     return got
 
 
+SHELL_LANG = {"", "bash", "sh", "shell", "zsh", "console", "sh-session", "shell-session"}   # 울타리 언어 — 표시가 없으면 셸로 본다
+CODE_LANG = {"python", "py", "python3", "js", "javascript", "jsx", "ts", "typescript", "tsx", "go", "rust", "rs", "ruby", "rb",
+             "java", "kotlin", "kt", "c", "cpp", "c++", "cs", "csharp", "php", "swift", "scala", "lua", "dart", "perl", "pl",
+             "elixir", "ex"}   # 코드 언어 울타리 — 코드 파일과 같은 규칙(식별자 set( 만 가린다 · r909 r5)
+
+
+def _fence_lang(s, mark):   # ```bash → "bash" · ``` → ""
+    rest = s[len(mark):].strip()
+    return rest.split()[0].lower() if rest else ""
+
+
+def _shield_fence(body):   # {줄 번호: 글} 코드 울타리 본문 — 문자열 리터럴 밖 식별자 set( 만 가린 글(os.system("set") 속 set 은 그대로)
+    nums = [n for n, _t in body]
+    out = shield_set_call("\n".join(t for _n, t in body)).split("\n")
+    return dict(zip(nums, out))
+
+
 def doc_cmds(full, items):   # 문서: plan() 에 넘길 «실행될 수 있는» 줄 — full = 바뀐 뒤 전문(없으면 전부)
     if full is None:
         return "\n".join(t for _n, t in items)
-    ctx, fence = set(), ""
+    ctx, fence, code, body, shield = set(), "", False, [], {}
     for i, ln in enumerate(full.split("\n"), 1):
         s = ln.strip()
         if s.startswith("```") or s.startswith("~~~"):
             mark = s[:3]
+            if fence == mark:   # 닫는 울타리
+                if code:
+                    shield.update(_shield_fence(body))
+                fence, code, body = "", False, []
+            elif not fence:     # 여는 울타리 — 코드 언어면 본문에 set( 가리기
+                fence, code, body = mark, _fence_lang(s, mark) in CODE_LANG, []
             ctx.add(i)
-            fence = "" if fence == mark else (fence or mark)
             continue
         if fence or ln.startswith(("    ", "\t")) or "`" in ln or ln.lstrip().startswith(("! ", "$ ", "> ")):
             ctx.add(i)
-    return "\n".join(_promptless(t) for n, t in items if n in ctx)
+            if fence and code:
+                body.append((i, ln))
+    if fence and code:   # 닫히지 않은 울타리도 같은 규칙
+        shield.update(_shield_fence(body))
+    return "\n".join(_promptless(shield.get(n, t)) for n, t in items if n in ctx)
 
 
 def _promptless(t):   # «$ »·«! » 는 셸 프롬프트 표시 — 판정기에는 명령만 넘긴다
     head = t.lstrip()
     return head[2:] if head.startswith(("! ", "$ ")) else t
+
+
+SHELL_EXT = (".sh", ".bash", ".zsh", ".ksh", ".dash", ".command", ".bats")
+YAML_EXT = (".yml", ".yaml")
+# 코드 확장자 — «식별자 set(» 만 셸 판정에서 뺀다(H5 · DA⑥ 반례 1)
+CODE_EXT = (".py", ".pyi", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".go", ".rb", ".java", ".kt", ".kts",
+             ".rs", ".c", ".h", ".cc", ".cpp", ".hpp", ".cs", ".php", ".swift", ".scala", ".pl", ".lua", ".dart",
+             ".ex", ".exs", ".vue", ".svelte")
+SET_CALL = re.compile(r"(?<![\w$])set(?=\()")   # 식별자 «set(» — 괄호 바로 앞
+YAML_RUN = re.compile(r"""^\s*(?:-\s+)?["']?(?:run|script)["']?\s*:\s*(.*)$""")
+YAML_BLOCK = re.compile(r"^[|>][-+]?\s*(?:#.*)?$")
+DOC_EXT = (".md", ".markdown", ".rst")   # 문서 = 종전처럼 «실행될 수 있는 줄» 만 판정(셔뱅 없을 때)
+
+
+def ext_of(path):   # 경로 → 소문자 확장자(".py") · 없으면 ""
+    base = path.rsplit("/", 1)[-1].lower()
+    return base[base.rfind("."):] if "." in base else ""
+
+
+def _in_literals(text):   # 글자마다 «문자열 리터럴 안» 인가 — 여러 줄 따옴표·백틱 추적(주석은 리터럴로 보지 않는다)
+    mask, i, n, q, triple = [False] * len(text), 0, len(text), "", False
+    while i < n:
+        c = text[i]
+        if q:
+            mask[i] = True
+            if triple:
+                if text.startswith(q * 3, i):
+                    mask[i:i + 3] = [True, True, True]
+                    i += 3
+                    q, triple = "", False
+                    continue
+                i += 1
+                continue
+            if c == "\\" and i + 1 < n:
+                mask[i + 1] = True
+                i += 2
+                continue
+            q = "" if c == q or c == "\n" else q   # 한 줄 따옴표는 줄 끝에서 끝난다
+            i += 1
+            continue
+        if text.startswith('"""', i) or text.startswith("'''", i):
+            q, triple = text[i], True
+            mask[i:i + 3] = [True, True, True]
+            i += 3
+            continue
+        if c in "\"'`":
+            q, triple = c, False
+            mask[i] = True
+        i += 1
+    return mask
+
+
+def shield_set_call(text):   # 코드 확장자의 «식별자 set(» 만 «set_(» 로 — 문자열 리터럴 안의 set·다른 낱말은 그대로(DA⑥ 반례 1)
+    mask, out, i = _in_literals(text), [], 0
+    for m in SET_CALL.finditer(text):
+        if mask[m.start()]:
+            continue
+        out.append(text[i:m.end()])
+        out.append("_")
+        i = m.end()
+    out.append(text[i:])
+    return "".join(out)
+
+
+def yaml_added(items):   # yaml: «추가 줄만» — run:/script: 값과 목록 항목의 명령을 뽑아 판정(기준판 동작 유지 · 블록 재검사 0)
+    out = []
+    for _n, t in items:
+        m = YAML_RUN.match(t)
+        if m:
+            s = m.group(1).strip()
+            if YAML_BLOCK.match(s):
+                continue            # `run: |-` 류 — 본문 줄이 따로 추가 줄로 온다
+        else:
+            s = t.strip()
+            if s.startswith("- "):
+                s = s[2:].strip()
+        s = s.strip().strip("[]").strip().strip("\"'")
+        if s:
+            out.append(s)
+    return "\n".join(out)
+
+
+def shell_text(path, is_doc, items, full):   # plan() 에 넘길 글 · "" = 이 파일은 셸 판정 밖
+    text = "\n".join(t for _n, t in items)
+    if path is None:   # 경로를 못 풀면 전부 판정(닫힌 쪽)
+        return text
+    ext = ext_of(path)
+    if ext in SHELL_EXT or not ext:
+        return text   # 셸 확장자 · 확장자 없는 실행 스크립트
+    if full and full.split("\n", 1)[0].startswith("#!"):
+        return text   # 셔뱅 있는 파일 = 셸 문맥(확장자 무관 · DA⑥ r3 반례 3)
+    if is_doc or ext in DOC_EXT:
+        return doc_cmds(full, items)   # 문서는 «셔뱅 없는» 파일만(실행될 수 있는 줄)
+    if ext in YAML_EXT:
+        return yaml_added(items)       # 기준판 동작 + 추가 줄만
+    if ext in CODE_EXT and full is not None:
+        shielded = shield_set_call(full).split("\n")   # 줄 번호는 그대로(글자만 바뀐다)
+        return "\n".join(shielded[n - 1] if 0 < n <= len(shielded) else t for n, t in items)
+    return text   # 그 밖 = 판정한다(닫힌 쪽)
 
 
 def reason(blocks, class_of, repo, sha):   # 이유 글자 꼴은 종전 그대로 · 덩어리 = 파일 경계
@@ -113,12 +247,9 @@ def reason(blocks, class_of, repo, sha):   # 이유 글자 꼴은 종전 그대�
     except SystemExit:
         raise ImportErr("ft_secret_judge 를 불러오지 못함")
     full = {p: "\n".join(t for _no, t in items) for p, items, new in blocks if new}
-    full.update(read_new(repo, sha, [p for p, _i, new in blocks if p and not new and class_of(p)[0] != "code"]))
+    full.update(read_new(repo, sha, [p for p, _i, new in blocks if p and not new]))
     for path, items, _new in blocks:
-        if path is None or class_of(path)[0] == "code":   # 경로를 못 푼 파일은 code 로 본다
-            text = "\n".join(t for _n, t in items)
-        else:
-            text = doc_cmds(full.get(path), items)
+        text = shell_text(path, path is not None and class_of(path)[0] == "docs", items, full.get(path) if path else None)
         found = ft_secret_judge.plan(text) if text.strip() else []
         if found:
             return "추가 줄: " + found[0][1]

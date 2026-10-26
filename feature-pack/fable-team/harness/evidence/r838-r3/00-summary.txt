@@ -1,0 +1,15 @@
+r838 r3 — DA⑥ r2 HOLD 3 재설계(REWORK-r838-r3.md · 하드 룰 14) · 가지 nano/r838-model-swap-account-outage-and-open- · base 팩 origin/main c91bee89 · 기준판 = r2 031cb7a6
+
+세 정의 = 함수 하나씩
+① 정상 턴 = ft_api_outage_util.is_normal 하나 — assistant ∧ message dict ∧ model 있음·<synthetic> 아님 ∧ isApiErrorMessage·isCompactSummary·isMeta·isSidechain 아님. ft_api_outage.analyze 가 이 함수로 oks 를 만들고 ft_model_swap·ft_model_swap_account 는 그 oks 만 씀(자체 판정 0).
+② 알림 키 닫기 = Swap.close_keys 하나 — outage_open·blocked 둘 다 «키 값 = 알린 시각» · 닫힘 = 그 뒤 정상 턴(장애 키 = 살아 있는 claude 좌석 아무나 · blocked = 그 계보 좌석) · 계보가 사라지면 24시간 뒤 · «정지 아님»·후보 없음·사용자 재시도 = 유지. account() 의 after(was) 닫기·run() 의 «정지 아님» 삭제·hil() 의 again 판정 제거.
+   바뀐 값: outage_open = 첫 정지 시각 → 알린 시각(outage_notified 중복 막기는 첫 정지 시각 그대로).
+③ 가림 = 줄 단위 — 토큰꼴 낱말(sk-·ghp_·github_pat_·xox?-·AKIA·eyJ) → *** · authorization|bearer|basic|token|secret|key|passw(or)d|cookie|credential 낱말 뒤 첫 =·:·공백부터 줄 끝까지 *** · 가린 뒤 200자(ft-successor-open.sh).
+
+시험
+- 기준판(r2) 빨강: red-base-pytest.txt(ⓡ6 · ⓡ8 · ⓡ8'(ft_api_outage) FAILED + 짝 사본 2 = 5) · red-base-successor_open.txt(ⓡ7 두 꼴 FAIL)
+- 초록: green-pytest.txt(3파일 50 passed) · green-successor_open.txt(ALL PASS) · test_tick_line.sh·test_tick_team_msg.sh rc 0 · test_kit_bin_sync.sh ALL PASS · kit↔bin cmp0 4파일
+- 변이: mutations.txt 7 모두 RED(r3 지정 3 + r2 회귀 4)
+- 줄 수: ft_model_swap.py 196 · ft_api_outage_util.py 196 · ft_model_swap_account.py 45
+- 범위 밖(손대지 않음): 계보 사라짐 24시간 정리는 구현만 · 전용 시험 없음
+press 필요: 없음

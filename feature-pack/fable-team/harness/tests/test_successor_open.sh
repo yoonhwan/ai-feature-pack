@@ -13,6 +13,17 @@ bad() { echo "FAIL $1"; fail=$((fail+1)); }
 [ -f "$SO" ] && bash -n "$SO" && ok "bash -n" || { bad "ft-successor-open.sh 없음·구문 오류: $SO"; echo "FAILED $fail"; exit 1; }
 
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
+# r925 r3 변이 S: 이어가기 판정(tmuxc boot-enter) rc≠0 를 무시하고 송신으로 잇는 판 — ⓡ2'·ⓡ3 이 빨강이어야 한다.
+if [ "${FT_SO_MUTATE:-0}" != 0 ]; then
+  MUTBIN="$TMP/mutbin"; mkdir -p "$MUTBIN"; cp -R "$(dirname -- "$SO")/." "$MUTBIN/"
+  MUT="$MUTBIN/$(basename -- "$SO")"
+  case "$FT_SO_MUTATE" in
+    S) sed 's/\[ "$BE_RC" = 0 \] || {/true || {/' "$SO" > "$MUT.tmp" && mv "$MUT.tmp" "$MUT"
+       grep -q 'true || { hil "이어가기' "$MUT" || { echo "FAIL 변이S 적용 실패"; exit 1; } ;;
+    *) echo "FAIL 모르는 변이: $FT_SO_MUTATE"; exit 1 ;;
+  esac
+  SO="$MUT"
+fi
 REPO="$TMP/repo"; FAKE="$TMP/fakebin"; LOG="$TMP/calls.log"; CNT="$TMP/pgrep.cnt"; BODY="$TMP/body.txt"
 mkdir -p "$REPO" "$FAKE"; git -C "$REPO" init -q
 STATE="$REPO/.fable-team/state/successor"; OLD="byz-t-old-claude#1"; NEW="byz-t-new-claude#2"
@@ -22,10 +33,12 @@ mkstub() { printf '#!/usr/bin/env bash\n%s\n' "$2" > "$FAKE/$1"; chmod +x "$FAKE
 mkstub tmux   'case "$1" in
   has-session) [ -n "${EXISTS:-}" ] && case "$*" in *"=$EXISTS"*) exit 0;; esac; [ -f "$OPENED" ] && exit 0; exit 1;;
   list-panes) echo 4242;;
+  send-keys) echo enter >> "$LOG";;
   display-message) t=""; while [ $# -gt 0 ]; do [ "$1" = "-t" ] && { t="${2:-}"; break; }; shift; done
     case "$t" in "") :;; *:) [ -z "${PANE_CWD_UNREADABLE:-}" ] && echo "${PANE_CWD_OVERRIDE:-$PANE_CWD}";; *) :;; esac;;   # r622: 실제 tmux 꼴 — «=이름»(콜론 없음) 은 창 대상에서 빈 값, «=이름:» 만 pane 을 고른다
 esac; exit 0'
-mkstub tmuxc  'echo "tmuxc $*" >> "$LOG"; [ "${TMUXC_RC:-0}" = 0 ] && : > "$OPENED"; exit "${TMUXC_RC:-0}"'
+mkstub tmuxc  'if [ "$1" = boot-enter ]; then echo "bootenter $2" >> "$LOG"; [ -n "${BE_OUT:-}" ] && printf "%s\n" "$BE_OUT" >&2; exit "${BE_RC:-0}"; fi   # r925 r3: 이어가기 판정 대역(로그 줄은 «tmuxc» 로 세지 않는다)
+  echo "tmuxc $*" >> "$LOG"; [ -n "${TMUXC_ERR:-}" ] && printf "%s\n" "$TMUXC_ERR" >&2; [ "${TMUXC_RC:-0}" = 0 ] && : > "$OPENED"; exit "${TMUXC_RC:-0}"'
 mkstub pgrep  'case "$*" in "-a -x claude"|"-a -x codex") exec "$SENSORS/pgrep" "$@";; esac; echo pgrep >> "$LOG"; n=$(cat "$CNT" 2>/dev/null || echo 0); n=$((n+1)); echo $n > "$CNT"; [ "$n" -ge "${PGREP_UP_AT:-3}" ] && { echo 5555; exit 0; }; exit 1'
 mkstub send   'echo send >> "$LOG"; echo "QUEUED seq=777 to=$1 pending=1 doorbell=sent"; exit "${SEND_RC:-0}"'
 mkstub mbox   'echo "mbox $1" >> "$LOG"; echo "RING seq=$3 doorbell=sent"; exit 0'
@@ -43,9 +56,10 @@ run() { # run <환경 KEY=VAL…> — 호출마다 로그·카운터·도달 파
   [ -n "${SEED_REACHED:-}" ] && mkdir -p "$STATE" && printf '{"successor":"%s","seq":777,"reached_at":"t","rc":0,"model":"m"}\n' "$NEW" > "$STATE/$OLD.json"
   env HOME="$TMP/home" PANE_CWD="$TMP/pane" PATH="$FAKE:$PATH" LOG="$LOG" CNT="$CNT" OPENED="$OPENED" EXISTS="${EXISTS:-}" \
       PANE_CWD_OVERRIDE="${PANE_CWD_OVERRIDE:-}" FT_SO_POLL=0 FT_SO_WAIT_MAX=5 \
+      BE_RC="${BE_RC:-0}" BE_OUT="${BE_OUT:-}" \
       FT_RES_ROOT="$RES" SENSORS="$SENSORS" \
       FT_SEND_VERIFIED="$FAKE/send" FT_MBOX_SH="$FAKE/mbox" FT_REACH_CHECK="$FAKE/reach" "$@" \
-      bash "$SO" "$OLD" "$REPO" --name "$NEW" --agent claude --model 'claude-opus-5-5[1m]' --ctx 1m --effort high --body-file "$BODY_USE" > "$TMP/out" 2>&1
+      "${SOBASH:-bash}" "$SO" "$OLD" "$REPO" --name "$NEW" --agent claude --model 'claude-opus-5-5[1m]' --ctx 1m --effort high --body-file "$BODY_USE" > "$TMP/out" 2>&1
   RC=$?
 }
 count() { grep -c "^$1" "$LOG"; }
@@ -85,6 +99,23 @@ run SEND_RC=2 REACH_RC=0
 run TMUXC_RC=1
 { [ "$RC" -ne 0 ] && grep -q 'REJECT' "$TMP/out" && [ "$(count pgrep)" = 0 ] && [ "$(count send)" = 0 ]; } \
   && ok "ⓕ open 실패 → REJECT · 기동 확인·송신 0" || bad "ⓕ rc=$RC log=$(tr '\n' ' ' < "$LOG") out=$(cat "$TMP/out")"
+# ⓕ-2 r838 ⓓ — 열기 실패 이유(출력 마지막 3줄 · 200자) = REJECT 줄 끝 «이유:» · 토큰꼴 가림 · 송신 0 그대로(ⓕ 의 REJECT 비교는 grep 이라 꼬리 허용)
+run TMUXC_RC=1 TMUXC_ERR=$'줄1 버려짐\n줄2 token=abc123SECRET\n줄3\ntmux: server exited unexpectedly'
+{ [ "$RC" -ne 0 ] && grep -q "^REJECT tmuxc open 실패 ($NEW) — 송신 0 · 이유: 줄2 token=\*\*\* 줄3 tmux: server exited unexpectedly" "$TMP/out" \
+  && ! grep -q '줄1\|abc123' "$TMP/out" && [ "$(count send)" = 0 ]; } \
+  && ok "ⓕ-2 r838 열기 실패 → REJECT 줄에 «이유: 마지막 3줄» · 토큰 가림 · 송신 0" || bad "ⓕ-2 rc=$RC out=$(cat "$TMP/out")"
+# ⓡ5 r838 r2 (DA⑥ r1 반례 5) — 이유 줄 비밀값 두 꼴(Authorization: Bearer · AWS_ACCESS_KEY_ID=AKIA…) + sk- 낱말 → 원값 0 · ***
+run TMUXC_RC=1 TMUXC_ERR=$'Authorization: Bearer abcSECRET1\nAWS_ACCESS_KEY_ID=AKIAXYZSECRET2 x\nsee sk-liveSECRET3 tmux: fail'
+{ [ "$RC" -ne 0 ] && grep -q "^REJECT tmuxc open 실패 ($NEW) — 송신 0 · 이유: .*\*\*\*" "$TMP/out" \
+  && ! grep -q 'SECRET1\|SECRET2\|SECRET3\|AKIAXYZ' "$TMP/out" && [ "$(count send)" = 0 ]; } \
+  && ok "ⓡ5 r838 r2 이유 줄 비밀값(Bearer · KEY_ID= · sk-) 가림 · 송신 0" || bad "ⓡ5 rc=$RC out=$(cat "$TMP/out")"
+# ⓡ7 r838 r3 (DA⑥ r2 반례 2) — 값 꼴(Basic base64 · 따옴표 안 공백 · Cookie 의 a=b · JWT)에 기대지 않는 줄 단위 가림 → 원값 조각 0
+for ERR in $'Authorization: Basic ZmFrZTpTRUNSRVQ=\npassword="fake secret words"\nCookie: sid=abc' $'x\ny\nsee eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ4In0.c2ln tmux: fail'; do
+  run TMUXC_RC=1 TMUXC_ERR="$ERR"
+  { [ "$RC" -ne 0 ] && grep -q "^REJECT tmuxc open 실패 ($NEW) — 송신 0 · 이유: .*\*\*\*" "$TMP/out" \
+    && ! grep -q 'ZmFrZTpTRUNSRVQ\|fake\|words\|sid=abc\|eyJhbGci\|eyJzdWIi' "$TMP/out" && [ "$(count send)" = 0 ]; } \
+    && ok "ⓡ7 r838 r3 줄 단위 가림(Basic · 따옴표 · Cookie · JWT) · 송신 0" || bad "ⓡ7 rc=$RC out=$(cat "$TMP/out")"
+done
 
 # ⓖ 새 좌석 jsonl 에 SessionStart 가 있으면 «관측», 없으면 상한까지 기다린 뒤 «미관측» 을 드러내고 송신(도달 판정은 send-verified 몫)
 mkdir -p "$JDIR"
@@ -191,6 +222,35 @@ EXISTS="$NEW" PANE_CWD_OVERRIDE="$REPO" PANE_CWD_UNREADABLE=1 run SEND_RC=0
   && [ "$(count tmuxc)" = 0 ] && [ "$(count send)" = 0 ] && [ ! -e "$STATE/$OLD.json" ]; } \
   && ok "ⓡ r622 못 읽음 → 판정 불가 REJECT · «다르다» 0 · 송신 0" || bad "ⓡ rc=$RC out=$(cat "$TMP/out")"
 
+# ⓡ2 r925 r3(카드 ⓓ) — 이어가기 판정은 tmuxc 한 곳(`tmuxc boot-enter <후계>`) · 이 도구는 Enter 를 직접 누르지 않는다.
+#   boot-enter rc0(제출 확인) → 송신으로 잇는다 · rc≠0(다른 글자·판독 불가·기록 없음·근거 없음) → HIL rc5 · 송신 0 (하드 룰 10·17).
+EXISTS="$NEW" PANE_CWD_OVERRIDE="$REPO" run SEND_RC=0 BE_RC=0 BE_OUT="state=submitted session=$NEW enters=1"
+{ [ "$RC" -eq 0 ] && [ "$(count bootenter)" = 1 ] && grep -qxF "bootenter $NEW" "$LOG" && [ "$(count enter)" = 0 ] \
+  && grep -q 'state=submitted' "$TMP/out" && [ "$(count send)" = 1 ] && [ -f "$STATE/$OLD.json" ]; } \
+  && ok "ⓡ2 r925 r3 이어가기 → boot-enter 1회(후계 이름) · 이 도구 Enter 0 · 제출 확인 → 송신 1" || bad "ⓡ2 rc=$RC log=$(tr '\n' ' ' < "$LOG") out=$(cat "$TMP/out")"
+EXISTS="$NEW" PANE_CWD_OVERRIDE="$REPO" run SEND_RC=0 BE_RC=4 BE_OUT="[HIL] 입력줄이 부팅 문장 전문이 아니다 — $NEW · Enter 0"
+{ [ "$RC" -eq 5 ] && [ "$(count enter)" = 0 ] && grep -q '\[HIL\]' "$TMP/out" && grep -q '판정 rc=4' "$TMP/out" && [ "$(count send)" = 0 ] && [ ! -e "$STATE/$OLD.json" ]; } \
+  && ok "ⓡ2' 이어가기 + 입력줄 ≠ 전문(boot-enter rc4) → HIL rc5 · 송신 0 · 도달 파일 0" || bad "ⓡ2' rc=$RC out=$(cat "$TMP/out")"
+
+# ⓡ3 r925 r3 R4(DECISION ⓔ · 옛 «판독 불가 = 전체 rc0» 기대를 바꿈) — 권한 프롬프트 등 입력줄 판독 불가 → rc5 «[HIL] 입력줄 판독 불가» · 송신 0
+EXISTS="$NEW" PANE_CWD_OVERRIDE="$REPO" run SEND_RC=0 BE_RC=2 BE_OUT="[HIL] 입력줄 판독 불가 — $NEW (권한 프롬프트·화면 못 읽음) · Enter 0"
+{ [ "$RC" -eq 5 ] && [ "$(count enter)" = 0 ] && grep -q '\[HIL\] 입력줄 판독 불가' "$TMP/out" && [ "$(count send)" = 0 ] && [ ! -e "$STATE/$OLD.json" ]; } \
+  && ok "ⓡ3 이어가기 + 입력줄 판독 불가 → rc5 «[HIL] 입력줄 판독 불가» · 송신 0" || bad "ⓡ3 rc=$RC out=$(cat "$TMP/out")"
+
+# ⓡ5 r925 r4 — macOS 기본 셸 /bin/bash 3.2 로 «명시» 실행: 구문(-n) rc0(옛 판 = :123 백틱으로 rc2) · 새로 열기 1회 · 이어가기 판독 불가 1회
+/bin/bash -n "$SO" 2>"$TMP/bash32.err" && ok "ⓡ5 /bin/bash 3.2 -n rc0" || bad "ⓡ5 /bin/bash 3.2 -n 실패: $(cat "$TMP/bash32.err")"
+SOBASH=/bin/bash run SEND_RC=0
+{ [ "$RC" -eq 0 ] && [ "$(count send)" = 1 ] && [ -f "$STATE/$OLD.json" ]; } \
+  && ok "ⓡ5' /bin/bash 3.2 새로 열기 → 송신 1 · 도달 파일" || bad "ⓡ5' rc=$RC out=$(cat "$TMP/out")"
+SOBASH=/bin/bash EXISTS="$NEW" PANE_CWD_OVERRIDE="$REPO" run SEND_RC=0 BE_RC=2 BE_OUT="[HIL] 입력줄 판독 불가 — $NEW · Enter 0"
+{ [ "$RC" -eq 5 ] && grep -q '\[HIL\] 입력줄 판독 불가' "$TMP/out" && [ "$(count send)" = 0 ]; } \
+  && ok "ⓡ5'' /bin/bash 3.2 이어가기 판독 불가 → rc5 · 송신 0" || bad "ⓡ5'' rc=$RC out=$(cat "$TMP/out")"
+
+# ⓡ4 r925 r3 — 새로 여는 판(이어가기 아님)은 boot-enter 를 부르지 않는다(제출 확인은 tmuxc open 안에서 끝난다)
+run SEND_RC=0 BE_RC=4
+{ [ "$RC" -eq 0 ] && [ "$(count bootenter)" = 0 ] && [ "$(count tmuxc)" = 1 ] && [ "$(count send)" = 1 ]; } \
+  && ok "ⓡ4 새로 열기 → boot-enter 0 · tmuxc open 1 · 송신 1" || bad "ⓡ4 rc=$RC log=$(tr '\n' ' ' < "$LOG")"
+
 # ⓢ r622(카드 ⓓ) — 새로 연 좌석의 CWD 를 «실제 경로» 로 읽어 JDIR 이 그 워크트리 jsonl 폴더 → SessionStart 관측(옛 판 = «=이름» 빈 값 → 엉뚱한 폴더 → 미관측)
 JDIR_WT="$TMP/home/.claude/projects/$(printf '%s' "$REPO" | LC_ALL=C sed 's|[^A-Za-z0-9]|-|g')"
 mkdir -p "$JDIR_WT"; printf '{"type":"agent-name","agentName":"%s"}\n{"hookEvent":"SessionStart"}\n' "$NEW" > "$JDIR_WT/s.jsonl"
@@ -237,5 +297,49 @@ run FT_GUIDE_PATH=design/teams/planner/NOPE.md SEND_RC=0
 run FT_GUIDE_REF=HEAD~1 SEND_RC=0
 { [ "$RC" -ne 0 ] && grep -q '명단(HEAD~1:design/TEAMS.md)을 못 읽음' "$TMP/out" && grep -q '줄을 읽지 못했다' "$TMP/out" && [ "$(count tmuxc)" = 0 ] && [ "$(count send)" = 0 ]; } \
   && ok "ⓣ r688 planner 폴더 = 명단 칸 · 명단 못 읽음 → REJECT · open·송신 0(트리 목록으로 통과 0)" || bad "ⓣ r688 명단없음 rc=$RC out=$(cat "$TMP/out")"
+
+# ⓤ r826 — 안내서 구절을 «줄 번호» 가 아니라 안내서 전체에서 찾는다(정확히 1줄일 때만) · 옛 판 = 27줄 고정 → 구절이 30줄로 밀리면 REJECT
+guide_commit() { # guide_commit <앞 줄 수> <구절 반복 수> — 안내서를 다시 써 origin/main 으로 올린다
+  { for i in $(seq 1 "$1"); do echo "- 안내서 $i 줄"; done; for ((k = 0; k < $2; k++)); do echo "$GUIDE_LINE"; done; echo "- 꼬리 줄"; } > "$GDIR/GUIDE-planner.md"   # 반복 = 산술 루프(seq 1 0 = BSD 거꾸로 2줄)
+  git -C "$REPO" add -A && git -C "$REPO" -c user.name=t -c user.email=t@t commit -q -m "guide $1+$2"
+  git -C "$REPO" update-ref refs/remotes/origin/main HEAD
+}
+guide_commit 29 1; BODY_USE="$TMP/desk_ok.txt"; run SEND_RC=0
+{ [ "$RC" -eq 0 ] && [ "$(count send)" = 1 ] && grep -q "successor=$DESK_NEW" "$TMP/out"; } \
+  && ok "ⓤ-ⓐ r826 구절 30줄로 밀림 → 전체에서 찾아 통과 · 송신 1" || bad "ⓤ-ⓐ rc=$RC out=$(cat "$TMP/out")"
+guide_commit 29 0; run SEND_RC=0
+{ [ "$RC" -ne 0 ] && grep -q '구절을 못 찾음' "$TMP/out" && [ "$(count tmuxc)" = 0 ] && [ "$(count send)" = 0 ]; } \
+  && ok "ⓤ-ⓑ r826 안내서에 구절 0줄 → REJECT · open·송신 0" || bad "ⓤ-ⓑ0 rc=$RC out=$(cat "$TMP/out")"
+guide_commit 29 2; run SEND_RC=0
+{ [ "$RC" -ne 0 ] && grep -q '구절이 여러 줄' "$TMP/out" && grep -q '사람이 확인' "$TMP/out" && [ "$(count tmuxc)" = 0 ] && [ "$(count send)" = 0 ]; } \
+  && ok "ⓤ-ⓑ r826 안내서에 구절 2줄 → REJECT «여러 줄» · open·송신 0" || bad "ⓤ-ⓑ2 rc=$RC out=$(cat "$TMP/out")"
+guide_commit 29 1; BODY_USE="$TMP/desk_noguide.txt"; run SEND_RC=0
+{ [ "$RC" -ne 0 ] && grep -q '30줄 원문 구절이 없다' "$TMP/out" && [ "$(count tmuxc)" = 0 ] && [ "$(count send)" = 0 ]; } \
+  && ok "ⓤ-ⓒ r826 본문 첫 10줄에 구절 없음 → REJECT · 찾은 줄 번호(30) 표시" || bad "ⓤ-ⓒ rc=$RC out=$(cat "$TMP/out")"
+BODY_USE="$TMP/desk_ok.txt"; run FT_GUIDE_LINE=27 SEND_RC=0
+{ [ "$RC" -eq 0 ] && [ "$(count send)" = 1 ] && grep -q 'WARN FT_GUIDE_LINE' "$TMP/out" && grep -q '더 쓰지 않음' "$TMP/out"; } \
+  && ok "ⓤ-ⓓ r826 FT_GUIDE_LINE=27 줘도 판정에 안 씀 · WARN 1줄" || bad "ⓤ-ⓓ rc=$RC out=$(cat "$TMP/out")"
+
+# ⓥ r826 r3(재설계 · DA r1·r2 반례) — 마크다운 해석 0: 안내서 «모든» 줄에서 desk 구절(N통) 줄을 센다 · 정확히 1줄 + 맨 앞 «- **desk 좌석» 일 때만 통과
+guide_raw() { printf '%s\n' "$@" > "$GDIR/GUIDE-planner.md"; git -C "$REPO" add -A && git -C "$REPO" -c user.name=t -c user.email=t@t commit -q -m 'guide raw'; git -C "$REPO" update-ref refs/remotes/origin/main HEAD; }
+GUIDE_NEW="${GUIDE_LINE/1통)/2통)}"; OLD_CORE='desk 는 인터뷰·응대·요청 정리만(코드·커밋 0 · 팀 직접 발주 0 · 정리한 요청은 master 에 1통)'
+rejected0() { [ "$RC" -ne 0 ] && grep -q 'REJECT' "$TMP/out" && [ "$(count tmuxc)" = 0 ] && [ "$(count send)" = 0 ] && [ ! -e "$STATE/$OLD.json" ]; }
+BODY_USE="$TMP/desk_ok.txt"   # 본문 = 옛 «1통)» 구절
+vmany() { # vmany <이름> <안내서 줄…> — 정본 2통 + 옛 1통 사본 = 후보 2줄 → «여러 줄» REJECT · open·송신·도달 파일 0
+  local n="$1"; shift; guide_raw "$@"; run SEND_RC=0
+  rejected0 && grep -q '구절이 여러 줄' "$TMP/out" && ok "ⓥ $n → «여러 줄» REJECT · open·송신·도달 파일 0" || bad "ⓥ $n rc=$RC out=$(cat "$TMP/out")"
+}
+vmany "r1 반례(정본 2통 + > 인용 1통)" "- 안내서 1 줄" "$GUIDE_NEW" "## 폐기된 안내 문구 예시" "> $OLD_CORE"
+vmany "r2 반례(백틱 4개 울타리 속 백틱 3개 + 옛 1통)" "$GUIDE_NEW" '````markdown' '```markdown' "$GUIDE_LINE" '```' '````'
+vmany "~~~ 울타리 속 옛 1통" "$GUIDE_NEW" '~~~' "$GUIDE_LINE" '~~~'
+vmany "HTML 주석 속 옛 1통" "$GUIDE_NEW" '<!--' "$GUIDE_LINE" '-->'
+vmany "4칸 들여쓰기 속 옛 1통" "$GUIDE_NEW" '' "    $GUIDE_LINE"
+guide_commit 29 1; run SEND_RC=0
+{ [ "$RC" -eq 0 ] && [ "$(count send)" = 1 ] && grep -q "successor=$DESK_NEW" "$TMP/out"; } \
+  && ok "ⓥ 정본 1줄만(main 꼴 · 30행) → 통과 · 송신 1" || bad "ⓥ 정본만 rc=$RC out=$(cat "$TMP/out")"
+guide_raw "- 안내서 1 줄" "  $GUIDE_LINE"; run SEND_RC=0
+rejected0 && grep -q '정본 줄 모양 바뀜' "$TMP/out" && ok "ⓥ 정본이 들여쓰기로만 → «모양 바뀜» REJECT" || bad "ⓥ 들여쓰기만 rc=$RC out=$(cat "$TMP/out")"
+guide_raw "- 안내서 1 줄" "> $GUIDE_LINE"; run SEND_RC=0
+rejected0 && grep -q '정본 줄 모양 바뀜' "$TMP/out" && ok "ⓥ 정본이 > 인용으로만 → «모양 바뀜» REJECT" || bad "ⓥ 인용만 rc=$RC out=$(cat "$TMP/out")"
 
 [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }

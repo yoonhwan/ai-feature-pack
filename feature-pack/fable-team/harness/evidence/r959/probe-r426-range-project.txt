@@ -1,0 +1,8 @@
+=== r959 ④(r426 rc3) 실사건 — ft-live-install-check --range 갈래의 --project (FT_BIN = 라이브 1.1.252)
+$ --range f7b77800^..f7b77800                     (--project 없음 = 옛 판이 부르던 꼴)
+  ERROR plist-env com.hermes.byz-mbox-slack-mirror: LIVE_BIN 없음(/Users/yoonhwan/Project/ai-feature-pack/.fable-team/LIVE_BIN) — 렌더본을 못 만든다 · --project <프로젝트 루트> 를 준다
+  ↑ r426 rc3 로 막던 그 줄 (팩을 프로젝트로 봐서 LIVE_BIN 없음 = ERROR rc3)
+$ --range f7b77800^..f7b77800 --project /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents   (r959 판이 부르는 꼴)
+  PENDING n=1
+  DIFF feature-pack/fable-team/harness/kit/fable-team/bin/ft_live_install_check.py -> /Users/yoonhwan/.claude/fable-team/live/1.1.252/bin/ft_live_install_check.py live=6121a30a38 tip=392f0e5c33 landed=f7b77800
+  plist-env ERROR 0 (남은 PENDING 1행은 이 워크트리 검사기 vs 라이브 1.1.252 판 차이 = 버전 드리프트 · r959 랜딩 뒤 사라진다)

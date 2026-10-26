@@ -1,0 +1,5 @@
+FAILED test_model_swap_account_outage_r838.py::test_r1_user_retry_only_keeps_outage_key_one_note
+FAILED test_model_swap_account_outage_r838.py::test_r2_normal_then_restuck_between_checks_new_note
+FAILED test_model_swap_account_outage_r838.py::test_r3_same_model_two_role_seats_is_single_model_swap
+FAILED test_model_swap_account_outage_r838.py::test_r4_bad_api_outage_state_error_no_swap
+4 failed, 7 passed in 8.47s

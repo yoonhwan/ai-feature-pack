@@ -1,0 +1,23 @@
+# 후(green) — 이 브랜치 파일 그대로
+## shell: bash tests/test_mbox_keep_human_mail.sh
+PASS ⓐ 사람 1 + 시스템 12 → 큐 10(사람 1 · 시스템 9) · DROPPED 3회
+PASS ⓑ 사람 글 11통 보존(버리기 0) + ERROR 1줄
+PASS ⓒ 보낸 이 먼저 분류(사람 3·일반 2·시스템머리 1·시스템 0) · 자동 먼저 버림 · 사람은 버리기 0
+PASS ⓕ kit 경로 사람 1 보존 · 시스템 3통 버림
+PASS ⓕ skill 경로 사람 1 보존 · 시스템 3통 버림
+PASS ⓖ 자동 [HIL]/[긴급] 25통 = 시스템(사람 칸 0) · 16통 버림 · 큐 10
+PASS ⓗ 좌석 [HIL] → 사람(보존) · 시스템 3통 버림
+PASS ⓘ 세 사본 동일(4640바이트)
+PASS ⓚ byz-tool#0·byz-x#1 = 좌석 아님(일반) · 실 좌석 4개 = 사람 · 정본 부재 = 좌석 아님 · 큐에서 일반으로 버려지고 사람 글은 남는다
+--- 변이 대조(빨강이어야 정상)
+RED-OK mut_nohuman
+RED-OK mut_noerror
+RED-OK mut_headfirst
+RED-OK mut_kitold
+RED-OK mut_skillold
+RED-OK mut_wide
+결과: fail=0
+rc=0
+## py: pytest tests/scripts/test_model_swap_notify_coalesce.py
+15 passed in 4.53s
+rc=0

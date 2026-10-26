@@ -12,13 +12,16 @@ LABEL = {"ddl": "DDL", "deploy": "배포·인프라", "key": "키", "billing": "
 BYZ_TABLE = [(c, k, re.compile(rx, re.I)) for c, k, rx in [
     ("forbid", "ddl", r"(^|/)migrations/|\.sql$|^alembic/"),
     ("forbid", "deploy", r"^\.github/workflows/|^infra/|^terraform/|cloudbuild|(^|/)Dockerfile|^deploy/|^scripts/deploy"),
-    ("forbid", "key", r"^secrets/|(^|/)[^/]*\.env[^/]*$|\.cred$"),
+    ("forbid", "key", r"(^|/)secrets/|(^|/)[^/]*\.env[^/]*$|\.cred$"),
     ("forbid", "billing", r"^docs/architect/COST_BASE_TABLE\.md$"),
     ("forbid", "deps", r"(^|/)(package\.json|pyproject\.toml|requirements[^/]*\.txt)$|(^|/)[^/]*[-.]lock[^/]*$"),
     ("forbid", "global-rule", r"(^|/)CLAUDE\.md$|(^|/)\.claude/|COMM-GUIDE|(^|/)harness/kit/|(^|/)scripts/harness-install/"),
     ("docs", "docs", r"^(design|docs)/.*\.md$"),   # 확장자만으로 문서 판정 0 — design/ 아래 .py·.sh 는 code, 루트 .md 는 docs 아님
     # 낱말 금지는 문서 줄 아래 — 경로로 지정한 문서 금지만 문서 줄 위(r514)
     ("forbid", "billing", r"billing|credit|payment|pricing|toss|subscription"),
+    # 시험 파일 경로는 «credential» 낱말 금지 밖(r909 칸 2 · room 3395 · DA⑥ 반례 2 로 좁힘): 파일 이름이 *.test.*·*_test.*·test_*.* 인
+    # 코드 파일(.py .ts .tsx .js .sh)만 — 경로 어디든 .json·.pem·.key·.env·secrets/ 가 있으면 예외 0(실값 파일은 그대로 막는다)
+    ("code", "test-file", r"(?i)^(?!.*(?:\.json|\.pem|\.key|\.env|(?:^|/)secrets/))(?:.*/)?(?:[^/]*\.(?:test|spec)|[^/]*_test|test_[^/]*)\.(?:py|ts|tsx|js|sh)$"),
     ("forbid", "key", r"credential"),
     # 팀 폴더 첫 문서 착지(r559) — 낱말 금지 «아래»(팀 폴더 안이라도 결제 낱말 경로는 금지 유지 · ⓗ)
     ("code", "pytest", r"^design/teams/[^/]+/(.*/)?(test_[^/]*\.py|[^/]*_test\.py|conftest\.py)$"),   # 시험 도구가 모으는 파일 = 계속 코드
@@ -60,6 +63,73 @@ def forbid_text(kind, path):
     return "%s 경로: %s" % (LABEL.get(kind, kind), path)
 
 
+ENV_TEMPLATE = re.compile(r"\.env\.(?:example|sample|template)$")   # 값 없는 견본 파일(r909 칸 3)
+DOTENV_LINE = re.compile(r"^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=(.*)$")
+ENV_PLACEHOLDER = re.compile(r"^<[^>]*>$")
+
+
+def dotenv_value(rest):   # 한 줄의 «값» 을 dotenv 규칙으로 — 따옴표·뒤 #주석 · 닫는 따옴표 없음 = None(파싱 실패)
+    rest = rest.lstrip()
+    q = rest[:1]
+    if q in ("'", '"'):
+        j = 1
+        while j < len(rest):
+            if rest[j] == "\\" and q == '"':
+                j += 2
+                continue
+            if rest[j] == q:
+                tail = rest[j + 1:].strip()
+                return None if tail and not tail.startswith("#") else rest[1:j]
+            j += 1
+        return None   # 닫는 따옴표 없음(여러 줄 값 = 줄 단위 규칙 위반 · 닫힌 쪽)
+    return re.split(r"\s+#", rest, 1)[0].strip()
+
+
+def _closes(s, q, start=0):   # s[start:] 에 q 를 닫는 따옴표가 있나(큰따옴표는 \ 이스케이프)
+    j = start
+    while j < len(s):
+        if s[j] == "\\" and q == '"':
+            j += 2
+            continue
+        if s[j] == q:
+            return True
+        j += 1
+    return False
+
+
+def quoted_continuation_lines(full):   # 바뀐 뒤 전문에서 «여러 줄 따옴표 값의 둘째 줄 이후» 줄 번호 — 그 줄은 값의 일부다
+    inside, q = set(), ""
+    for n, ln in enumerate(full.split("\n"), 1):
+        if q:
+            inside.add(n)
+            q = "" if _closes(ln, q) else q
+            continue
+        m = DOTENV_LINE.match(ln)
+        rest = m.group(2).lstrip() if m else ""
+        if rest[:1] in ("'", '"') and not _closes(rest, rest[0], 1):
+            q = rest[0]
+    return inside
+
+
+def env_added_values_ok(full, items):   # .env.example 류: «추가된 대입 줄 각각» 의 값이 빈 값 또는 <…> 자리표시일 때만(r909 r3) · 전문 = 따옴표 값 «안» 줄 판별용(없으면 FORBID)
+    if full is None:
+        return False
+    inside = quoted_continuation_lines(full)
+    for lineno, text in items:
+        if lineno in inside:
+            return False   # 여러 줄 따옴표 값의 안쪽 줄 = 값의 일부(주석처럼 보여도 값)
+        s = text.strip()
+        if not s or s.startswith("#"):
+            continue
+        m = DOTENV_LINE.match(text)
+        if not m:
+            return False   # 대입 줄이 아닌 추가 줄 = 해석 실패(닫힌 쪽)
+        v = dotenv_value(m.group(2))
+        if v is None or (v and not ENV_PLACEHOLDER.match(v)):
+            return False
+    return True
+
+
 STATUS_KIND = {"D": "delete", "C": "copy", "T": "type"}
 TEAM_CARD = re.compile(r"^(design/teams/[^/]+)/indices/(?:대기|진행|완성|보류)/[^/]+$")   # 팀 카드 폴더 = 같은 팀의 네 상태 폴더(r559)
 
@@ -86,9 +156,14 @@ def pair_card_moves(table, rows):   # D+A 로 잡힌 같은 카드 이동(유사
     return out
 
 
-def judge_row(table, row, ddl_ok):   # (옛 모드, 새 모드, 상태, [경로…]) → (종류, 키, 사유|None) · ddl_ok(경로) = 적용 기록 있는 새 sql
+def kind_of(table, path, env_ok):   # 분류표 판정 + .env.example 류 «이름만» 예외(r909 칸 3) — 실값이 있으면 예외 없음(닫힌 쪽)
+    cls, kind = path_class(table, path)
+    return ("code", "code") if cls == "forbid" and kind == "key" and ENV_TEMPLATE.search(path) and env_ok(path) else (cls, kind)
+
+
+def judge_row(table, row, ddl_ok, env_ok=lambda p: False):   # (옛 모드, 새 모드, 상태, [경로…]) → (종류, 키, 사유|None) · ddl_ok(경로) = 적용 기록 있는 새 sql · env_ok(경로) = .env.example 류에 «이름만» 추가
     om, nm, st, paths = row
-    classes = [path_class(table, p) for p in paths]
+    classes = [kind_of(table, p, env_ok) for p in paths]
     bad = next(((k, p) for (c, k), p in zip(classes, paths) if c == "forbid"), None)
     if st[0] == "R":   # 카드 상태 폴더 이동 = 같은 팀 카드 폴더 사이 같은 이름/모드/양쪽 docs(유사도 무관) 또는 내용 동일(R100)
         same = os.path.basename(paths[0]) == os.path.basename(paths[1])

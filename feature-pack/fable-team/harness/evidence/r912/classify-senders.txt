@@ -1,0 +1,28 @@
+# r912 ⓒ 분류 근거 — 실 mailbox.log.jsonl 보낸 이(좌석 이름 제외) 상위 · 읽기 전용(쓰기 0)
+# 사람 = slack-oppa(오빠 슬랙) · 본문 머리 [HIL]/[긴급] · 시스템 = 아래 자동 도구 이름 · 그 밖 = 일반(좌석↔좌석)
+# 보낸 이(좌석 이름 제외) 건수:
+    474  ft-tick
+    134  ft-head-lag
+     68  ft-model-swap
+     43  ft-api-outage
+     32  slack-oppa
+     21  ft-decision-count
+     17  ft-stall-scan
+     15  ft-watch-alarm
+     13  os-goal-tick
+      6  ft-ledger-fill
+      4  ft-launchd-check
+      3  ft-index-move
+      3  ft-resource-watch
+      2  ft-issue-manager#0
+      2  ft-disk-alarm
+      1  ft-news-ledger
+      1  ft-secret-scan
+      1  aifp-multihost-master-claude#4
+      1  dispatch
+# 사람 글 판정 예 — slack-oppa 발신 최근 3건:
+  2026-10-25T08:06:24 163997 to=byz-planner-desk-claude#60 | [slack-oppa->byz-planner-desk-claude#60] 오빠(Slack) 발화 (추정: 열린 질문 없음) —
+  2026-10-25T08:10:29 164023 to=byz-planner-desk-claude#60 | [slack-oppa->byz-planner-desk-claude#60] 오빠 새 글 (Slack) — 원문: <https:/
+  2026-10-25T08:12:01 164028 to=byz-planner-desk-claude#60 | [slack-oppa->byz-planner-desk-claude#60] 오빠 새 글 (Slack) — 원문: 이전에 말풍전.
+# 큐 포화 실측 — ft-model-swap 이 desk#61 큐에 보낸 «교대 불가» 건수/시각(카드 배경):
+  건수 = 15 · 처음 2026-10-25T13:20:19 · 마지막 2026-10-25T13:26:50

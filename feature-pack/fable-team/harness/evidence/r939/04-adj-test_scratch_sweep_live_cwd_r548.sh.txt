@@ -1,0 +1,20 @@
+PASS ⓕ 첫 --sweep = 목록 보고만 · 붙잡은 A 는 목록에 없고 «장비 정리» 줄로 따로
+PASS ⓕ armed 표식 생김(다음부터 자동)
+PASS ⓐ cwd 로 쓰이는 등록 사본 A = 삭제 0 · stdout [장비 정리] 1줄
+PASS ⓑ 로그 «붙잡음 …» 줄(경로·pid·명령·주인)
+PASS ⓑ 요약 줄에 held=1
+PASS ⓒ 주인 살아 있는 사본 P 는 그대로(동작 유지)
+PASS ⓒ --report 도 붙잡음을 «붙잡음» 칸으로 보임
+PASS ⓓ lsof rc=1 → 등록·tmp 삭제 0 + 로그·stdout ERROR 1줄
+PASS ⓓ lsof 출력 0줄 → 삭제 0 + ERROR
+PASS ⓔ tmp.ab 만 삭제 · tmp.abc(cwd) 붙잡음 — 앞부분 글자 비교 아님(폴더 경계)
+PASS ⓗ 1시간 전 등록 = 후보 아님(삭제 0)
+PASS ⓗ 1시간 전 등록 사본 = --sweep 이 안 지움
+PASS ⓗ 25시간 지남 = 후보
+PASS ⓗ env FT_SCRATCH_AGE_MIN=60 이면 1시간 전도 후보
+PASS ⓗ 3열 나이 모름 = 후보 아님 + ERROR(삭제 0)
+PASS ⓗ 나이 모르는 사본 = --sweep 이 안 지움
+PASS ⓖ 기존 test_scratch_repo.sh = ALL PASS
+PASS ⓖ 기존 test_scratch_repo_census.py = 통과
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

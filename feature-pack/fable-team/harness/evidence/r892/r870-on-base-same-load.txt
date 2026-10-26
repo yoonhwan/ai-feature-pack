@@ -1,0 +1,152 @@
+..F...F...                                                               [100%]
+=================================== FAILURES ===================================
+_______ test_a2_same_tree_but_branch_misses_main_still_merges_and_pushes _______
+
+repo = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-602/test_a2_same_tree_but_branch_m0/repo')
+a = ('fetch', '--quiet', 'origin', 'main')
+
+    def _remote(repo: Path, *a: str) -> subprocess.CompletedProcess[str]:
+        try:
+>           return subprocess.run(["git", "-C", str(repo), *a], capture_output=True, text=True, timeout=REMOTE_S, check=False)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r892-news-disk-cards-skip-moved-card/a4827776-1115-43af-a743-a1931f42d8b4/scratchpad/base870/fable-team/harness/bin/ft_ledger_fill.py:240: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/subprocess.py:550: in run
+    stdout, stderr = process.communicate(input, timeout=timeout)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/subprocess.py:1209: in communicate
+    stdout, stderr = self._communicate(input, endtime, timeout)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/subprocess.py:2116: in _communicate
+    self._check_timeout(endtime, orig_timeout, stdout, stderr)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <Popen: returncode: -9 args: ['git', '-C', '/private/var/folders/vm/j7_jw805...>
+endtime = 21039.952691125, orig_timeout = 2.0, stdout_seq = [], stderr_seq = []
+skip_check_and_raise = False
+
+    def _check_timeout(self, endtime, orig_timeout, stdout_seq, stderr_seq,
+                       skip_check_and_raise=False):
+        """Convenience for checking if a timeout has expired."""
+        if endtime is None:
+            return
+        if skip_check_and_raise or _time() > endtime:
+>           raise TimeoutExpired(
+                    self.args, orig_timeout,
+                    output=b''.join(stdout_seq) if stdout_seq else None,
+                    stderr=b''.join(stderr_seq) if stderr_seq else None)
+E           subprocess.TimeoutExpired: Command '['git', '-C', '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-602/test_a2_same_tree_but_branch_m0/repo', 'fetch', '--quiet', 'origin', 'main']' timed out after 2.0 seconds
+
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/subprocess.py:1253: TimeoutExpired
+
+The above exception was the direct cause of the following exception:
+
+wrap = {'mag': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-602/test_a2_same...test-602/test_a2_same_tree_but_branch_m0/origin.git'), 'pushes': <function wrap.<locals>.<lambda> at 0x108724180>, ...}
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x108c1cc10>
+capsys = <_pytest.capture.CaptureFixture object at 0x108581650>
+
+    def test_a2_same_tree_but_branch_misses_main_still_merges_and_pushes(wrap, monkeypatch, capsys):
+        from test_ledger_fill_r851 import _clone, run
+        real_read_ref = src.read_ref
+        monkeypatch.setattr(src, "read_ref", lambda repo, ref="origin/main": f"refs/remotes/origin/{BR}")  # fetch 경쟁 대역(DA⑥ r2 — 검사 사이 사본이 C(⊇M) 로 전진) · r3 = 그래도 병합 push
+>       rc, b = fill(wrap)  # 공통 부모 A · ledger/auto = B(채움 커밋)
+                ^^^^^^^^^^
+
+/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r892-news-disk-cards-skip-moved-card/a4827776-1115-43af-a743-a1931f42d8b4/scratchpad/base870/fable-team/harness/tests/scripts/test_ledger_fill_r870.py:84: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r892-news-disk-cards-skip-moved-card/a4827776-1115-43af-a743-a1931f42d8b4/scratchpad/base870/fable-team/harness/tests/scripts/test_ledger_fill_r851.py:133: in fill
+    return lf.fill(w["root"], w["repo"], REL, "origin/main", at, do_fetch=True, push=True)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r892-news-disk-cards-skip-moved-card/a4827776-1115-43af-a743-a1931f42d8b4/scratchpad/base870/fable-team/harness/bin/ft_ledger_fill.py:260: in fill
+    fetch(repo)
+/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r892-news-disk-cards-skip-moved-card/a4827776-1115-43af-a743-a1931f42d8b4/scratchpad/base870/fable-team/harness/bin/ft_ledger_fill.py:249: in fetch
+    if (r := _remote(repo, "fetch", "--quiet", "origin", spec)).returncode == 0 or (spec != "main" and "couldn't find remote ref" in r.stderr):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+repo = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-602/test_a2_same_tree_but_branch_m0/repo')
+a = ('fetch', '--quiet', 'origin', 'main')
+
+    def _remote(repo: Path, *a: str) -> subprocess.CompletedProcess[str]:
+        try:
+            return subprocess.run(["git", "-C", str(repo), *a], capture_output=True, text=True, timeout=REMOTE_S, check=False)
+        except (OSError, subprocess.TimeoutExpired) as e:
+>           raise FillError(f"git {a[0]} 실행 실패: {e}") from e
+E           ft_ledger_fill_src.FillError: git fetch 실행 실패: Command '['git', '-C', '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-602/test_a2_same_tree_but_branch_m0/repo', 'fetch', '--quiet', 'origin', 'main']' timed out after 2.0 seconds
+
+/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r892-news-disk-cards-skip-moved-card/a4827776-1115-43af-a743-a1931f42d8b4/scratchpad/base870/fable-team/harness/bin/ft_ledger_fill.py:242: FillError
+________________ test_d_push_skips_hook_only_for_ledger_refspec ________________
+
+repo = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-602/test_d_push_skips_hook_only_fo0/repo')
+a = ('fetch', '--quiet', 'origin', 'main')
+
+    def _remote(repo: Path, *a: str) -> subprocess.CompletedProcess[str]:
+        try:
+>           return subprocess.run(["git", "-C", str(repo), *a], capture_output=True, text=True, timeout=REMOTE_S, check=False)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r892-news-disk-cards-skip-moved-card/a4827776-1115-43af-a743-a1931f42d8b4/scratchpad/base870/fable-team/harness/bin/ft_ledger_fill.py:240: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/subprocess.py:550: in run
+    stdout, stderr = process.communicate(input, timeout=timeout)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/subprocess.py:1209: in communicate
+    stdout, stderr = self._communicate(input, endtime, timeout)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/subprocess.py:2116: in _communicate
+    self._check_timeout(endtime, orig_timeout, stdout, stderr)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <Popen: returncode: -9 args: ['git', '-C', '/private/var/folders/vm/j7_jw805...>
+endtime = 21069.709811583, orig_timeout = 2.0, stdout_seq = [], stderr_seq = []
+skip_check_and_raise = False
+
+    def _check_timeout(self, endtime, orig_timeout, stdout_seq, stderr_seq,
+                       skip_check_and_raise=False):
+        """Convenience for checking if a timeout has expired."""
+        if endtime is None:
+            return
+        if skip_check_and_raise or _time() > endtime:
+>           raise TimeoutExpired(
+                    self.args, orig_timeout,
+                    output=b''.join(stdout_seq) if stdout_seq else None,
+                    stderr=b''.join(stderr_seq) if stderr_seq else None)
+E           subprocess.TimeoutExpired: Command '['git', '-C', '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-602/test_d_push_skips_hook_only_fo0/repo', 'fetch', '--quiet', 'origin', 'main']' timed out after 2.0 seconds
+
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/subprocess.py:1253: TimeoutExpired
+
+The above exception was the direct cause of the following exception:
+
+wrap = {'mag': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-602/test_d_push_...test-602/test_d_push_skips_hook_only_fo0/origin.git'), 'pushes': <function wrap.<locals>.<lambda> at 0x108b513a0>, ...}
+
+    def test_d_push_skips_hook_only_for_ledger_refspec(wrap):
+>       fill(wrap)
+
+/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r892-news-disk-cards-skip-moved-card/a4827776-1115-43af-a743-a1931f42d8b4/scratchpad/base870/fable-team/harness/tests/scripts/test_ledger_fill_r870.py:135: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r892-news-disk-cards-skip-moved-card/a4827776-1115-43af-a743-a1931f42d8b4/scratchpad/base870/fable-team/harness/tests/scripts/test_ledger_fill_r851.py:133: in fill
+    return lf.fill(w["root"], w["repo"], REL, "origin/main", at, do_fetch=True, push=True)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r892-news-disk-cards-skip-moved-card/a4827776-1115-43af-a743-a1931f42d8b4/scratchpad/base870/fable-team/harness/bin/ft_ledger_fill.py:260: in fill
+    fetch(repo)
+/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r892-news-disk-cards-skip-moved-card/a4827776-1115-43af-a743-a1931f42d8b4/scratchpad/base870/fable-team/harness/bin/ft_ledger_fill.py:249: in fetch
+    if (r := _remote(repo, "fetch", "--quiet", "origin", spec)).returncode == 0 or (spec != "main" and "couldn't find remote ref" in r.stderr):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+repo = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-602/test_d_push_skips_hook_only_fo0/repo')
+a = ('fetch', '--quiet', 'origin', 'main')
+
+    def _remote(repo: Path, *a: str) -> subprocess.CompletedProcess[str]:
+        try:
+            return subprocess.run(["git", "-C", str(repo), *a], capture_output=True, text=True, timeout=REMOTE_S, check=False)
+        except (OSError, subprocess.TimeoutExpired) as e:
+>           raise FillError(f"git {a[0]} 실행 실패: {e}") from e
+E           ft_ledger_fill_src.FillError: git fetch 실행 실패: Command '['git', '-C', '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-602/test_d_push_skips_hook_only_fo0/repo', 'fetch', '--quiet', 'origin', 'main']' timed out after 2.0 seconds
+
+/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r892-news-disk-cards-skip-moved-card/a4827776-1115-43af-a743-a1931f42d8b4/scratchpad/base870/fable-team/harness/bin/ft_ledger_fill.py:242: FillError
+=========================== short test summary info ============================
+FAILED fable-team/harness/tests/scripts/test_ledger_fill_r870.py::test_a2_same_tree_but_branch_misses_main_still_merges_and_pushes
+FAILED fable-team/harness/tests/scripts/test_ledger_fill_r870.py::test_d_push_skips_hook_only_for_ledger_refspec
+2 failed, 8 passed in 67.94s (0:01:07)

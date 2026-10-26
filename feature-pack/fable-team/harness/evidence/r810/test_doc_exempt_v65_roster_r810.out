@@ -1,0 +1,13 @@
+PASS py 문법
+PASS ⓐ 빨강: v65 문서 PR · seats.json 만 있음 → 옛 판 rc2 «v65 명부에 _master 없음» (seats-v65.json 을 찾아 빈 값)
+PASS ⓐ 초록: 같은 PR · v65 팀장 → DOC-EXEMPT team=v65 rc0
+PASS ⓑ 다른 팀(seats-lecture.json) 판정 그대로
+PASS ⓒ planner 명부 판정 그대로
+PASS ⓒ2 다른 팀 팀장이 v65 폴더 PR → rc2 «v65 팀 master(<seats.json 의 값>)도 planner 도 아님»
+PASS ⓓ seats.json 없음 → rc2 (면제 0)
+PASS ⓓ2 required 경로 문구 경로 = seats.json
+PASS ⓔ seats.json 에 _master 없음 → rc2
+PASS ⓖ 변이(옛 조립 복원) → v65 판정 rc2 로 깨짐
+PASS ⓖ 변이 뒤 정판 복귀 → rc0
+FAIL=0
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

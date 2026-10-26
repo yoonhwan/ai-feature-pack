@@ -1,0 +1,24 @@
+# r785 r1 (DA⑥ HOLD 반례 3) 증거 — 2026-10-23 · 나노 byz-harness-nano-r785-sheet-root-team-status-table#0
+
+## 05 빨강 먼저 — 전판 69483719 + r1 새 시험 ⓚⓛⓜ / 복구한 «❓ 바로 다음 줄» 위치 검사
+## 05 빨강 먼저 — 69483719(전판) + r1 새 시험 ⓚⓛⓜ · 복구한 위치 검사
+PASS ⓚ 경계 픽스처 생성(BOUNDARY pad=610 raw9=3500 raw10=3501)
+FAIL ⓚ rc=0 update=1 — 분 자릿수로 접는 자리가 흔들림
+PASS ⓚ 변이(길이 판정 정규화 삭제) → 9분/10분 접는 자리가 달라짐(검사가 실패를 잡는다)
+FAIL ⓛ 실제: MULTI NO_ARROW TEAM_COUNT_40 FOLD_TEAM RAW_NEWLINE 
+FAIL ⓛ «⏎» 없음
+PASS ⓛ 40팀 뿌리 글 → 접힘 표시가 «… 외 N팀»(줄 아님)
+PASS ⓛ 팀 40 = teams 출력 40줄
+PASS ⓛ 변이(한 줄 접기 삭제) → 팀 줄이 여러 줄(검사가 실패를 잡는다)
+PASS ⓜ 3회 실패 → «⚠ PDF 발행 실패 3회» 가 ❓ 바로 다음 줄
+PASS ⓜ 변이(⚠ 를 끝에 붙임) → 위치 검사 FAIL(검사가 잡는다)
+fail=3
+
+--- test_sheet_publish.sh (복구한 «❓ 바로 다음 줄» 위치 검사)
+PASS 3회 연속 실패 → ❓ 줄 «바로 다음» 줄이 「⚠ PDF 발행 실패 3회」
+PASS ⓖⓐ 쪽지함만 늦은 팀 → rc 0 · 끝줄 PARTIAL inbox-fail=느린팀
+fail=0
+
+## 06 위치 검사 강도 — ⚠ 를 «끝에 붙인» 변이본으로 test_sheet_publish.sh
+FAIL 3회 실패 줄 위치(❓ 4 다음): 🔄 지금 진행 중 (끝나면 멈춤)  ← 변이를 잡는다(복구 전 검사는 rc0 이었다)
+

@@ -1,0 +1,459 @@
+branch	head	card	card_path
+nano/r-mirror-handled-install	4658ab01a2	완성카드	r-mirror-handled-install
+nano/r-sheet-install	2365c0455f	완성카드	r-sheet-install
+nano/r-team-cap-install	ae272bfdc1	완성카드	r-team-cap-install
+nano/r-tmm-081-install	b8a6e9f5e6	완성카드	r-tmm-081-install
+nano/r106c-install	cd7a927814	완성카드	r106c-install
+nano/r107-install	8100df3f11	완성카드	r107-install
+nano/r286-roster-opencode-nano-close	8afad0efb8	완성카드	r286-roster-opencode-nano-close
+nano/r337-decision-count-truth	6c22cefe01	완성카드	r337-decision-count-truth
+nano/r360-r332-merge-conflict-resolve	2c3058e4ae	완성카드	r360-r332-merge-conflict-resolve
+nano/r384-harness-pack-subtree-merge-ai-featu	711199fd62	완성카드	r384-harness-pack-subtree-merge-ai-feature-pack
+nano/r407-freeze-gate-merge-head-blob-exclude	5d188dcf13	완성카드	r407-freeze-gate-merge-head-blob-exclude
+nano/r412-scope-classify-forbid-old-install-p	abc990572f	완성카드	r412-scope-classify-forbid-old-install-path
+nano/r413-worktree-stale-bin-copy-shim-instal	abc990572f	완성카드	r413-worktree-stale-bin-copy-shim-install-and-plain-error
+nano/r414-desk-slack-thread-ts-owned-by-tool-	abc990572f	완성카드	r414-desk-slack-thread-ts-owned-by-tool-not-handoff
+nano/r416-nano-slots-roster-from-ref-not-cwd-	abc990572f	완성카드	r416-nano-slots-roster-from-ref-not-cwd-teams-md
+nano/r426-installer-updates-launchd-plist-env	abc990572f	완성카드	r426-installer-updates-launchd-plist-env-and-install-check-row
+nano/r427-seat-close-dead-seat-roster-row-and	abc990572f	완성카드	r427-seat-close-dead-seat-roster-row-and-resume-record-keep
+nano/r428-stall-scan-reads-spawn-hold-file-be	abc990572f	완성카드	r428-stall-scan-reads-spawn-hold-file-before-spawn-nag
+nano/r429-seat-retire-updates-hil-route-in-al	1d2768074c	완성카드	r429-seat-retire-updates-hil-route-in-all-rosters
+nano/r430-inbox-mark-finds-seq-in-rotated-mai	1d2768074c	완성카드	r430-inbox-mark-finds-seq-in-rotated-mailbox
+nano/r437-role-spawn-team-flag-and-arch-live-	abc990572f	완성카드	r437-role-spawn-team-flag-and-arch-live-reject-names-exit
+nano/r443-baton-archive-patch-range-and-size-	abc990572f	완성카드	r443-baton-archive-patch-range-and-size-cap-and-prune-standalone
+nano/r444-finished-cleanup-auto-sweep-refs-ar	abc990572f	완성카드	r444-finished-cleanup-auto-sweep-refs-archive-and-sparse-worktree
+nano/r448-seat-close-reaps-background-loops-l	643bf03512	완성카드	r448-seat-close-reaps-background-loops-left0
+nano/r449-evidence-log-commit-gate-and-untrac	1d2768074c	완성카드	r449-evidence-log-commit-gate-and-untrack-955
+nano/r450-nano-close-suspended-flag-unfinishe	643bf03512	완성카드	r450-nano-close-suspended-flag-unfinished-nano
+nano/r453-nano-close-worktree-list-pipe-sigpi	f587b3e393	완성카드	r453-nano-close-worktree-list-pipe-sigpipe-pipefail
+nano/r455a-harness-tests-red-root-resolver-fi	1d2768074c	완성카드	r455a-harness-tests-red-root-resolver-fixtures
+nano/r456-landed-card-close-path-da-hold-gate	f587b3e393	완성카드	r456-landed-card-close-path-da-hold-gate-conditional
+nano/r457-install-plist-sync-only-at-git-comm	f587b3e393	완성카드	r457-install-plist-sync-only-at-git-common-root
+nano/r458-news-magazine-stall-recovery-and-te	fac8f8b8ba	완성카드	r458-news-magazine-stall-recovery-and-team-progress-block
+nano/r459-tick-daemon-comm-at-common-root-shi	d8c9f7acf2	완성카드	r459-tick-daemon-comm-at-common-root-shim-guard-goal-ref
+nano/r461-merge-lines-gate-moved-file-is-not-	d8c9f7acf2	완성카드	r461-merge-lines-gate-moved-file-is-not-loss
+nano/r462-approve-merge-equiv-head-with-main-	d8c9f7acf2	완성카드	r462-approve-merge-equiv-head-with-main-merge-only
+nano/r464-install-plist-swap-bootstrap-retry-	d8c9f7acf2	완성카드	r464-install-plist-swap-bootstrap-retry-and-live-bin-switch-isolation
+nano/r465-seat-retire-sync-role-cells-across-	0d0d932399	완성카드	r465-seat-retire-sync-role-cells-across-all-rosters
+nano/r466-autonomy-on-off-interview-period-an	7dc7225776	완성카드	r466-autonomy-on-off-interview-period-and-level-with-scope-grant
+nano/r468-team-rename-tool-concierge-to-chatb	7f6d27e020	완성카드	r468-team-rename-tool-concierge-to-chatbot
+nano/r474-thread-post-args-reply-set-defaults	67e5a0d76a	완성카드	r474-thread-post-args-reply-set-defaults-leaks-channel-none-to-all-subcommands
+nano/r476-opencode-seat-model-via-config-env-	3a58f8ba74	완성카드	r476-opencode-seat-model-via-config-env-not-flag
+nano/r477-merge-lines-gate-pathsubst-team-fol	44c43c338c	완성카드	r477-merge-lines-gate-pathsubst-team-folder-rewrite-is-same-line
+nano/r479-goal-tick-check-table-roster-from-r	03938047ab	완성카드	r479-goal-tick-check-table-roster-from-ref-and-folder-twin-in-root
+nano/r484-news-tick-tree-caller-runs-worktree	b51594a165	완성카드	r484-news-tick-tree-caller-runs-worktree-shim-with-python
+nano/r485-goal-check-ledger-key-and-state-sin	b51594a165	완성카드	r485-goal-check-ledger-key-and-state-single-root-ref
+nano/r487-index-move-canon-note-routes-to-def	efe4b065a0	완성카드	r487-index-move-canon-note-routes-to-default-roster-arch-not-card-team
+nano/r488-ft-mbox-live-send-skips-sent-log-re	3915b3ad27	완성카드	r488-ft-mbox-live-send-skips-sent-log-record-lost-after-recv
+nano/r489-news-tree-repo-root-from-tree-paren	690b649e6b	완성카드	r489-news-tree-repo-root-from-tree-parent-breaks-on-ref-temp-file
+nano/r490-news-html-unknown-turn-is-not-resti	690b649e6b	완성카드	r490-news-html-unknown-turn-is-not-resting-and-seat-turn-retry
+nano/r491-install-home-hooks-chmod-x-and-regi	16cff2c23c	완성카드	r491-install-home-hooks-chmod-x-and-registered-hooks-exec-audit
+nano/r492-proposal-gate-ledger-from-ref-main-	0d0d932399	완성카드	r492-proposal-gate-ledger-from-ref-main-and-table-row-interview-match
+nano/r494-root-bin-shim-init-creates-bin-for-	e24d663c25	완성카드	r494-root-bin-shim-init-creates-bin-for-new-worktree-and-gate-hint
+nano/r495-team-twin-folders-resolve-by-ref-no	fccdf7b71a	완성카드	r495-team-twin-folders-resolve-by-ref-not-error
+nano/r497-model-limit-auto-successor-swap	a11465a932	완성카드	r497-model-limit-auto-successor-swap
+nano/r498-news-lint-unknown-team-negated-rest	a11465a932	완성카드	r498-news-lint-unknown-team-negated-rest-sentence-allow
+nano/r499-seat-retire-successor-row-inherits-	a11465a932	완성카드	r499-seat-retire-successor-row-inherits-stop-ready-role
+nano/r500-reclaim-pressure-tier-landed-nano-i	c251017221	완성카드	r500-reclaim-pressure-tier-landed-nano-idle-5min
+nano/r502-preventive-reclaim-launchd-path-no-	ea46082db8	완성카드	r502-preventive-reclaim-launchd-path-no-tmux-silent-zero
+nano/r503-ledger-copy-self-refresh-news-and-m	77b7c3a292	완성카드	r503-ledger-copy-self-refresh-news-and-magazine
+nano/r504-news-seat-turn-batch-jsonl-no-per-s	d2c0052387	완성카드	r504-news-seat-turn-batch-jsonl-no-per-seat-subprocess
+nano/r505-retire-reap-orphans-spares-services	da5688e78e	완성카드	r505-retire-reap-orphans-spares-services
+nano/r506-nano-close-never-started-path	7e4ab67c3d	완성카드	r506-nano-close-never-started-path
+nano/r507-ft-tick-shellcheck-sc2046-seats-glo	37482e20ba	완성카드	r507-ft-tick-shellcheck-sc2046-seats-glob
+nano/r508-nano-close-pack-nano-evidence-again	a0eda57204	완성카드	r508-nano-close-pack-nano-evidence-against-pack-worktree
+nano/r509-harness-tests-red-batch-2-classifie	ea9430cf13	완성카드	r509-harness-tests-red-batch-2-classified
+nano/r510-news-part-cap-fixed-cost-measured-u	a0eda57204	완성카드	r510-news-part-cap-fixed-cost-measured-under-load
+nano/r512-install-refreshes-worktree-shim-liv	8e11eae437	완성카드	r512-install-refreshes-worktree-shim-live-bin
+nano/r513-codex-da-headroom-bypass-no-ccr-fol	49c7585b7b	완성카드	r513-codex-da-headroom-bypass-no-ccr-fold
+nano/r514-scope-classify-keyword-forbid-after	0b63d4129d	완성카드	r514-scope-classify-keyword-forbid-after-docs-row
+nano/r515-proxy-decide-queue-state-and-card-r	56b604c02a	완성카드	r515-proxy-decide-queue-state-and-card-ref-resolve
+nano/r517-decision-count-planner-tables-from-	6c22cefe01	완성카드	r517-decision-count-planner-tables-from-ref
+nano/r518-raised-watch-card-state-data-root-a	6c22cefe01	완성카드	r518-raised-watch-card-state-data-root-and-ref
+nano/r519-harness-pack-nano-worktree-standard	6c22cefe01	완성카드	r519-harness-pack-nano-worktree-standard-place
+nano/r520-nano-close-rerun-before-card-checks	6c22cefe01	완성카드	r520-nano-close-rerun-before-card-checks
+nano/r521-hil-pending-single-pass	6918b827c6	완성카드	r521-hil-pending-single-pass
+nano/r522-resource-watch-runaway-cpu-owner-li	6918b827c6	완성카드	r522-resource-watch-runaway-cpu-owner-line
+nano/r523-bash-bg-cpu-burner-reject-hook	6918b827c6	완성카드	r523-bash-bg-cpu-burner-reject-hook
+nano/r524-seat-resume-via-headroom-wrapper	c9136ad1ca	완성카드	r524-seat-resume-via-headroom-wrapper
+nano/r525-stall-scan-off-roster-live-seats	c9136ad1ca	완성카드	r525-stall-scan-off-roster-live-seats
+nano/r527-seat-turn-ignores-idle-compact-summ	404e878ee4	완성카드	r527-seat-turn-ignores-idle-compact-summary
+nano/r528-queue-state-column-four-states-stop	c9136ad1ca	완성카드	r528-queue-state-column-four-states-stop-kinds
+nano/r529-queue-shown-at-hourly-reask-take-re	c9136ad1ca	완성카드	r529-queue-shown-at-hourly-reask-take-resume
+nano/r530-bulk-hold-reject-gate	c9136ad1ca	완성카드	r530-bulk-hold-reject-gate
+nano/r534-disk-attrib-worktrees-incremental-s	0124275224	완성카드	r534-disk-attrib-worktrees-incremental-scan
+nano/r535-nano-worktree-cleanup-backlog-stale	0124275224	완성카드	r535-nano-worktree-cleanup-backlog-stale-plans
+nano/r536-tests-temp-bin-sibling-copy-bucket6	404e878ee4	완성카드	r536-tests-temp-bin-sibling-copy-bucket6
+nano/r537-tests-temp-root-comm-bucket3	404e878ee4	완성카드	r537-tests-temp-root-comm-bucket3
+nano/r538-installer-renders-launchd-templates	404e878ee4	완성카드	r538-installer-renders-launchd-templates
+nano/r540-name-lint-allow-pi-agent-tail	404e878ee4	완성카드	r540-name-lint-allow-pi-agent-tail
+nano/r541-tests-real-state-cwd-guard	404e878ee4	완성카드	r541-tests-real-state-cwd-guard
+nano/r541-tests-real-state-cwd-guard-r2	ea465817ee	완성카드	r541-tests-real-state-cwd-guard
+nano/r542-pi-nano-close-reap-shared-judge	87d3ac2cb3	완성카드	r542-pi-nano-close-reap-shared-judge
+nano/r543-pi-nano-spawn-search-tier-docs	87d3ac2cb3	완성카드	r543-pi-nano-spawn-search-tier-docs
+nano/r544-broken-daemons-plist-root-and-exist	87d3ac2cb3	완성카드	r544-broken-daemons-plist-root-and-exist-check
+nano/r545-goal-table-reads-origin-main-gitref	a3ff68451f	완성카드	r545-goal-table-reads-origin-main-gitref
+nano/r546-hook-cmd-split-shared-module	8d625bba2a	완성카드	r546-hook-cmd-split-shared-module
+nano/r548-scratch-sweep-skip-live-cwd-copies	63fd1b57dc	완성카드	r548-scratch-sweep-skip-live-cwd-copies
+nano/r549-head-skip-shared-live-root-branch	e9f2c20fb7	완성카드	r549-head-skip-shared-live-root-branch
+nano/r549-head-skip-shared-live-root-branch-r2	1ddbe9f881	완성카드	r549-head-skip-shared-live-root-branch
+nano/r550-stale-tests-old-install-layout	6fea074af0	완성카드	r550-stale-tests-old-install-layout
+nano/r551-weekly-review-planner-reads-origin-	6fea074af0	완성카드	r551-weekly-review-planner-reads-origin-main
+nano/r554-board-publish-one-team-error-not-al	0119b10930	완성카드	r554-board-publish-one-team-error-not-all-zero
+nano/r556-pi-nano-open-args-effort-low-and-se	ef1792352a	완성카드	r556-pi-nano-open-args-effort-low-and-serena
+nano/r557-queue-remind-reads-origin-main	ef1792352a	완성카드	r557-queue-remind-reads-origin-main
+nano/r558-desk-slack-reply-goes-to-oppa-post-	de8c56761b	완성카드	r558-desk-slack-reply-goes-to-oppa-post-thread
+nano/r559-scope-classifier-team-folder-docs-a	7790d747d1	완성카드	r559-scope-classifier-team-folder-docs-and-speed
+nano/r560-approval-equiv-main-moves-and-hook-	e15cbb100c	완성카드	r560-approval-equiv-main-moves-and-hook-candidates
+nano/r561-desk-room-post-vs-topic-thread	2bd00945f0	완성카드	r561-desk-room-post-vs-topic-thread
+nano/r563-news-summary-direct-api-not-cli	22af03949e	완성카드	r563-news-summary-direct-api-not-cli
+nano/r566-nano-close-rerun-cleans-worktree	1fa188317b	완성카드	r566-nano-close-rerun-cleans-worktree
+nano/r569-news-ref-fetch-cap-cli-fixed-cost-a	295dc3b114	완성카드	r569-news-ref-fetch-cap-cli-fixed-cost-and-age
+nano/r570-nano-spawn-body-no-repo-wide-search	ff9edea721	완성카드	r570-nano-spawn-body-no-repo-wide-search-no-roster-edit
+nano/r571-seat-status-jsonl-index-not-full-he	5855cbcd29	완성카드	r571-seat-status-jsonl-index-not-full-head-scan
+nano/r572-nano-close-rerun-named-args-equal-s	be0693e751	완성카드	r572-nano-close-rerun-named-args-equal-standard-cleans
+nano/r573-seat-retire-old-name-lint-exempt-us	525f506d08	완성카드	r573-seat-retire-old-name-lint-exempt-use-successor
+nano/r574-wt-clean-plan-accepts-same-key-rn-s	525f506d08	완성카드	r574-wt-clean-plan-accepts-same-key-rn-sibling-head
+nano/r575-news-summary-http-opengateway-deeps	9b410eb61d	완성카드	r575-news-summary-http-opengateway-deepseek
+nano/r576-noise-only-worktrees-archive-then-c	9b410eb61d	완성카드	r576-noise-only-worktrees-archive-then-clean
+nano/r577-boot-report-lint-fires-with-prefix-	6185fc6805	완성카드	r577-boot-report-lint-fires-with-prefix-and-variants
+nano/r578-hil-route-follows-sender-team-roste	19d14632c2	완성카드	r578-hil-route-follows-sender-team-roster
+nano/r581-index-move-install-check-uses-harne	4208997b5f	완성카드	r581-index-move-install-check-uses-harness-repo
+nano/r582-news-http-truncated-answer-names-ca	295dc3b114	완성카드	r582-news-http-truncated-answer-names-cause-no-reasoning-budget
+nano/r583-install-check-bin-row-follows-root-	8f109c770f	완성카드	r583-install-check-bin-row-follows-root-shim-to-live-bin
+nano/r584-news-tests-ledger-sync-env-isolated	18a97e6a7e	완성카드	r584-news-tests-ledger-sync-env-isolated
+nano/r585-slack-reply-to-oppa-must-read-root-	eecc0b5c13	완성카드	r585-slack-reply-to-oppa-must-read-root-and-count-asks
+nano/r587-team-move-verify-old-path-in-code-a	eecc0b5c13	완성카드	r587-team-move-verify-old-path-in-code-and-tests
+nano/r588-news-team-status-line-from-code-and	00b0500e56	완성카드	r588-news-team-status-line-from-code-and-clause-lint
+nano/r589-root-node-modules-self-link-watch	9e9824a766	완성카드	r589-root-node-modules-self-link-watch
+nano/r590-news-summary-schema-lines-follow-st	9e9824a766	완성카드	r590-news-summary-schema-lines-follow-status-line
+nano/r591-block-destructive-push-f-needs-opti	19d14632c2	완성카드	r591-block-destructive-push-f-needs-option-space
+nano/r592-news-stream-read-total-deadline-and	2114211ead	완성카드	r592-news-stream-read-total-deadline-and-idle-gap
+nano/r593-inbox-mark-says-still-open-on-must-	1d67735cba	완성카드	r593-inbox-mark-says-still-open-on-must-report-line
+nano/r594-news-lint-approval-wait-quote-sente	1d67735cba	완성카드	r594-news-lint-approval-wait-quote-sentence-and-source
+nano/r595-merge-land-push-reject-shows-hook-a	f537bd6b83	완성카드	r595-merge-land-push-reject-shows-hook-and-remote-lines
+nano/r596-news-summary-byte-budget-minus-stat	cac4a78587	완성카드	r596-news-summary-byte-budget-minus-status-line
+nano/r597-tick-master-idle-reason-live-nano	e79b228004	완성카드	r597-tick-master-idle-reason-live-nano
+nano/r598-news-summary-budget-in-chars-with-m	360b6821b6	완성카드	r598-news-summary-budget-in-chars-with-margin
+nano/r599-nano-close-seat-wt-path-with-other-	7182267d61	완성카드	r599-nano-close-seat-wt-path-with-other-nano-branch
+nano/r600-goal-guard-rejects-stale-pasted-tab	e42e5ea7ef	완성카드	r600-goal-guard-rejects-stale-pasted-table
+nano/r601-news-prompt-approval-ban-from-lint-	4b062987b8	완성카드	r601-news-prompt-approval-ban-from-lint-pattern
+nano/r602-news-lint-rest-question-form-not-as	74ca87ea86	완성카드	r602-news-lint-rest-question-form-not-assertion
+nano/r603-news-drop-violating-line-and-publis	74ca87ea86	완성카드	r603-news-drop-violating-line-and-publish
+nano/r604-hil-secret-lint-test-fixture-uses-p	224e27a769	완성카드	r604-hil-secret-lint-test-fixture-uses-plan-tpl
+nano/r605-op-token-init-from-op-vault-develop	224e27a769	완성카드	r605-op-token-init-from-op-vault-develop
+nano/r606-nano-slots-cards-from-team-card-wor	888877affc	완성카드	r606-nano-slots-cards-from-team-card-worktree
+nano/r607-successor-open-mbox-from-repo-root-	888877affc	완성카드	r607-successor-open-mbox-from-repo-root-not-worktree-copy
+nano/r608-wt-clean-plan-single-runner-lock	645dff4998	완성카드	r608-wt-clean-plan-single-runner-lock
+nano/r609-successor-open-rerun-continues-afte	c920b0faab	완성카드	r609-successor-open-rerun-continues-after-cut
+nano/r610-tmuxc-agent-seat-git-editor-noninte	c920b0faab	완성카드	r610-tmuxc-agent-seat-git-editor-noninteractive
+nano/r611-op-token-init-from-op-adds-table-ro	c920b0faab	완성카드	r611-op-token-init-from-op-adds-table-row
+nano/r612-launchd-check-dead-daemon-missing-t	645dff4998	완성카드	r612-launchd-check-dead-daemon-missing-target
+nano/r613-root-bin-shim-keeps-tracked-and-dae	645dff4998	완성카드	r613-root-bin-shim-keeps-tracked-and-daemon-targets
+nano/r614-op-token-table-row-lock-tsv-ctrl-ke	eef013da5f	완성카드	r614-op-token-table-row-lock-tsv-ctrl-keep-newline
+nano/r615-dead-seat-resume-skips-nano-and-rec	c73497943a	완성카드	r615-dead-seat-resume-skips-nano-and-rechecks-roster
+nano/r616-root-bin-shim-keeps-daemon-script-d	c73497943a	완성카드	r616-root-bin-shim-keeps-daemon-script-deps
+nano/r617-slack-topic-thread-only-topic-repli	784bf24763	완성카드	r617-slack-topic-thread-only-topic-replies
+nano/r618-thread-room-post-test-registry-date	293b7c7766	완성카드	r618-thread-room-post-test-registry-date-today
+nano/r619-install-magazine-worktree-existing-	293b7c7766	완성카드	r619-install-magazine-worktree-existing-branch
+nano/r620-file-guard-md-content-type-explicit	bdf9d9cde1	완성카드	r620-file-guard-md-content-type-explicit
+nano/r621-nano-close-pack-wt-harness-card-by-	3f31e6a71d	완성카드	r621-nano-close-pack-wt-harness-card-by-ledger-not-install-line
+nano/r622-successor-open-pane-path-target-col	121fc19af3	완성카드	r622-successor-open-pane-path-target-colon
+nano/r623-block-destructive-redis-stdin-read-	5a3e095f0d	완성카드	r623-block-destructive-redis-stdin-read-only-file
+nano/r634-press-gate-dev-target-branch	97f2b476ca	완성카드	r634-press-gate-dev-target-branch
+nano/r644-goal-table-procedure-goals-from-goa	6775d5b1ed	완성카드	r644-goal-table-procedure-goals-from-goal-files
+nano/r645-scratch-judged-no-pickaxe-bounded-g	a1eb7abdeb	완성카드	r645-scratch-judged-no-pickaxe-bounded-grep
+nano/r648-merge-land-pack-repo-mode	a1eb7abdeb	완성카드	r648-merge-land-pack-repo-mode
+nano/r649-news-team-lines-isolate-error-team-	31bc5d3aca	완성카드	r649-news-team-lines-isolate-error-team-and-inbox-7s
+nano/r655-v65-nano-name-byz-prefix-and-kit-de	125646d301	완성카드	r655-v65-nano-name-byz-prefix-and-kit-defaults
+nano/r656-news-change-judged-by-ledger-blob-n	c286b523de	완성카드	r656-news-change-judged-by-ledger-blob-not-main-head
+nano/r657-root-shim-keeps-bash-p-for-privileg	5b3d75068a	완성카드	r657-root-shim-keeps-bash-p-for-privileged-tools
+nano/r658-autonomy-slack-post-plain-three-lin	125646d301	완성카드	r658-autonomy-slack-post-plain-three-lines
+nano/r659-desk-doorbell-only-oppa-urgent-hil	125646d301	완성카드	r659-desk-doorbell-only-oppa-urgent-hil
+nano/r661-slack-reply-no-n-of-m-header	360d3398b2	완성카드	r661-slack-reply-no-n-of-m-header
+nano/r666-satellite-seat-cap-counts-nano-only	f586411fd5	완성카드	r666-satellite-seat-cap-counts-nano-only-queue
+nano/r667-idle-team-empty-seat-auto-fill	eb63b49570	완성카드	r667-idle-team-empty-seat-auto-fill
+nano/r668-goal-count-follows-canon-rows	756dfad032	완성카드	r668-goal-count-follows-canon-rows
+nano/r669-spawn-proxy-probe-first-response-7s	52e5034ebf	완성카드	r669-spawn-proxy-probe-first-response-7s
+nano/r670-leak-reap-ps-under-load-niced-retry	52e5034ebf	완성카드	r670-leak-reap-ps-under-load-niced-retry
+nano/r672-freeze-rule-swap-and-memfree-succes	cb5e0c55a3	완성카드	r672-freeze-rule-swap-and-memfree-succession-research-pass
+nano/r677-inbox-show-view-linear-not-quadrati	ae23c3514a	완성카드	r677-inbox-show-view-linear-not-quadratic
+nano/r679-superseded-check-accepts-team-folde	0c13b5caa9	완성카드	r679-superseded-check-accepts-team-folder-cards
+nano/r680-nano-close-cwd-holders-skip-self-an	8b62652e0a	완성카드	r680-nano-close-cwd-holders-skip-self-and-ancestors
+nano/r681-spawn-queue-drops-cards-left-waitin	e1cd075000	완성카드	r681-spawn-queue-drops-cards-left-waiting
+nano/r682-teamset-check-test-real-table-path-	798111bcd5	완성카드	r682-teamset-check-test-real-table-path-in-pack
+nano/r683-board-publish-launchd-throttle-inbo	5ef352e65f	완성카드	r683-board-publish-launchd-throttle-inbox-timeout
+nano/r684-tests-leak-real-hil-entries-hil-dir	f884fdaf5a	완성카드	r684-tests-leak-real-hil-entries-hil-dir-guard
+nano/r685-press-gate-dev-health-per-service-b	ded9656892	완성카드	r685-press-gate-dev-health-per-service-body-check
+nano/r686-all-stop-test-copy-bin-misses-new-l	1869db3741	완성카드	r686-all-stop-test-copy-bin-misses-new-libs
+nano/r687-test-fixtures-lag-landed-r655-r607-	8b6d12df65	완성카드	r687-test-fixtures-lag-landed-r655-r607-prefix-doorbell
+nano/r688-team-path-lint-flags-nano-close-led	a5e67ebe72	완성카드	r688-team-path-lint-flags-nano-close-ledger-marker
+nano/r689-nano-spawn-teamset-read-reject-miss	e3773ea837	완성카드	r689-nano-spawn-teamset-read-reject-misses-install-hint
+nano/r690-seat-retire-reap-kills-live-press-o	4d44d476a9	완성카드	r690-seat-retire-reap-kills-live-press-observer
+nano/r691-tick-tests-need-temp-comm-dir	9c0bc2c440	완성카드	r691-tick-tests-need-temp-comm-dir
+nano/r699-orch-gate-tests-proj-copy-after-rel	25f2a41998	완성카드	r699-orch-gate-tests-proj-copy-after-relocation
+nano/r699-orch-gate-tests-proj-copy-after-rel-r2	c43bbb9893	완성카드	r699-orch-gate-tests-proj-copy-after-relocation
+nano/r714a-goal-readjust-round-collector	33335c7a35	완성카드	r714a-goal-readjust-round-collector
+nano/r718-hil-entry-notify-seat-marker	33335c7a35	완성카드	r718-hil-entry-notify-seat-marker
+nano/r719-research-goal-readjust-redesign-inp	33335c7a35	완성카드	r719-research-goal-readjust-redesign-inputs
+nano/r725-doc-only-pr-lands-without-approve-h	352e50eda4	완성카드	r725-doc-only-pr-lands-without-approve-h
+nano/r726-goal-coord-grace-after-canon-renumb	352e50eda4	완성카드	r726-goal-coord-grace-after-canon-renumber
+nano/r727-magazine-goal-fixture-readjust-modu	e8296a81db	완성카드	r727-magazine-goal-fixture-readjust-module
+nano/r728-goal-render-draft-no-renumber-notic	5d16e706ba	완성카드	r728-goal-render-draft-no-renumber-notice
+nano/r730-send-from-follows-roster-master	e8296a81db	완성카드	r730-send-from-follows-roster-master
+nano/r731-goal-table-budget-shrink-cells	e0dce4a610	완성카드	r731-goal-table-budget-shrink-cells
+nano/r733-r731-test-pin-red-base	e0dce4a610	완성카드	r733-r731-test-pin-red-base
+nano/r736-tmuxc-save-agent-probe-claude-path	7931580449	완성카드	r736-tmuxc-save-agent-probe-claude-path
+nano/r737-news-map-canon-sha-change-trigger	7931580449	완성카드	r737-news-map-canon-sha-change-trigger
+nano/r738-decision-count-missing-body-rows-co	7931580449	완성카드	r738-decision-count-missing-body-rows-continue
+nano/r739-mbox-slack-mirror-backlog-skip-summ	52b7e8a288	완성카드	r739-mbox-slack-mirror-backlog-skip-summary
+nano/r741-doc-exempt-team-subfolders	7931580449	완성카드	r741-doc-exempt-team-subfolders
+nano/r742-news-lint-skip-goal-canon-text	7931580449	완성카드	r742-news-lint-skip-goal-canon-text
+nano/r745-mbox-lineage-renamed-team-alias	f694374c9d	완성카드	r745-mbox-lineage-renamed-team-alias
+nano/r746-root-bin-shim-py-as-python	d70cd7cebe	완성카드	r746-root-bin-shim-py-as-python
+nano/r749-head-sync-apply-own-worktree-only	eac8008d18	완성카드	r749-head-sync-apply-own-worktree-only
+nano/r755-merge-land-deny-stale-giant-branche	78eb368197	완성카드	r755-merge-land-deny-stale-giant-branches
+nano/r756-desk-planner-seat-on-main-based-wor	a8d90acd98	완성카드	r756-desk-planner-seat-on-main-based-worktree
+nano/r785-sheet-root-team-status-table	df2d7676c6	완성카드	r785-sheet-root-team-status-table
+nano/r785-sheet-root-team-status-table-r2	ea4b2babd2	완성카드	r785-sheet-root-team-status-table
+nano/r804-doc-exempt-waiting-card-add-only	a4ae21f74a	완성카드	r804-doc-exempt-waiting-card-add-only
+nano/r809-news-default-repo-fetch-then-unknow	1fde6ef456	완성카드	r809-news-default-repo-fetch-then-unknown-line
+nano/r810-doc-exempt-v65-roster-path	1fde6ef456	완성카드	r810-doc-exempt-v65-roster-path
+nano/r823-spawn-requires-open-issue	03c677ad8c	완성카드	r823-spawn-requires-open-issue
+nano/r826-successor-open-desk-guide-search-no	b195d841a1	완성카드	r826-successor-open-desk-guide-search-not-line
+nano/r836-head-lag-remind-per-worktree	87a397ea5f	완성카드	r836-head-lag-remind-per-worktree
+nano/r838-model-swap-account-outage-and-open-	cc17a205fc	완성카드	r838-model-swap-account-outage-and-open-reason
+nano/r846-slack-router-question-cap	72726d4764	완성카드	r846-slack-router-question-cap
+nano/r847-news-ledger-fetch-lsremote-30s	0288a8eef8	완성카드	r847-news-ledger-fetch-lsremote-30s
+nano/r851-ledger-auto-fill	c075b040f1	완성카드	r851-ledger-auto-fill
+nano/r863-model-swap-corrupt-key-value	249d361661	완성카드	r863-model-swap-corrupt-key-value
+nano/r870-ledger-fill-push-timeout	def2abd406	완성카드	r870-ledger-fill-push-timeout
+nano/r882-head-sync-apply-cwd-only-and-lock	a6b51a54b4	완성카드	r882-head-sync-apply-cwd-only-and-lock
+nano/r886-head-lag-note-drop-apply-instructio	a6b51a54b4	완성카드	r886-head-lag-note-drop-apply-instruction
+nano/r888-nano-close-research-seat-evidence-e	0351700d03	완성카드	r888-nano-close-research-seat-evidence-exempt-card-origin-main
+nano/r891-scratch-repo-sparse-default-auto-do	51ace0e8d1	완성카드	r891-scratch-repo-sparse-default-auto-done-judged
+nano/r892-news-disk-cards-skip-moved-card	93fc0edb79	완성카드	r892-news-disk-cards-skip-moved-card
+nano/r907-news-ledger-fetch-timeout-post-last	00f0b572ef	완성카드	r907-news-ledger-fetch-timeout-post-last-ref-with-age
+nano/r908-autonomy-scope-max-30-to-50	e9fabeab64	완성카드	r908-autonomy-scope-max-30-to-50
+nano/r909-scope-classifier-false-forbid-py-se	7d7fdb69cb	완성카드	r909-scope-classifier-false-forbid-py-set-and-test-credential-path
+nano/r912-mbox-queue-keep-human-mail-coalesce	984f39a2b2	완성카드	r912-mbox-queue-keep-human-mail-coalesce-model-swap
+nano/r925-tmuxc-inject-submit-verify-and-succ	a9fe0223a9	완성카드	r925-tmuxc-inject-submit-verify-and-successor-resume-enter
+nano/r925-tmuxc-inject-submit-verify-and-succ-r2	a9fe0223a9	완성카드	r925-tmuxc-inject-submit-verify-and-successor-resume-enter
+nano/r928-watch-alarm-rearm-grace-and-evidenc	b8089a3587	완성카드	r928-watch-alarm-rearm-grace-and-evidence-line
+nano/r938-nano-close-step-timing-and-7s-caps	fbbef1eb2a	완성카드	r938-nano-close-step-timing-and-7s-caps
+nano/r948-index-move-install-all-project-is-c	49aa211738	완성카드	r948-index-move-install-all-project-is-card-repo
+nano/r959-index-move-mv-fail-reason-and-lande	b79c465468	완성카드	r959-index-move-mv-fail-reason-and-landed-repo
+nano/r989-role-spawn-add-second-seat	5e1b510925	완성카드	r989-role-spawn-add-second-seat
+nano/r641-reboot-restore-seats-parallel-hr-re	fa9e6fcfc3	진행카드	r641-reboot-restore-seats-parallel-hr-resume
+nano/r703-orch-gate-master-test-targets-byz-h	d8a1c178e4	진행카드	r703-orch-gate-master-test-targets-byz-hook
+nano/r703-orch-gate-master-test-targets-byz-h-r2	793bd3222c	진행카드	r703-orch-gate-master-test-targets-byz-hook
+nano/r706-fetch-stamp-fixed-cost-and-merge-la	3ef5a9001d	진행카드	r706-fetch-stamp-fixed-cost-and-merge-land-private-ref
+nano/r707-magazine-retry-once-per-date-and-le	3ef5a9001d	진행카드	r707-magazine-retry-once-per-date-and-ledger-lint-calls
+nano/r707-magazine-retry-once-per-date-and-le-r2	52dbc9910e	진행카드	r707-magazine-retry-once-per-date-and-ledger-lint-calls
+nano/r783-board-partial-error-alarm	df2d7676c6	진행카드	r783-board-partial-error-alarm
+nano/r794-doc-exempt-static-mockup-add-only	7e99ae4ab8	진행카드	r794-doc-exempt-static-mockup-add-only
+nano/r839-daemon-reads-ref-not-root-checkout	a3c4c5f74b	진행카드	r839-daemon-reads-ref-not-root-checkout
+nano/r842-nano-close-card-stage-from-ref	8da504aec3	진행카드	r842-nano-close-card-stage-from-ref
+nano/r842-nano-close-card-stage-from-ref-r2	b79c465468	진행카드	r842-nano-close-card-stage-from-ref
+nano/r843-wt-sparse-mark-write-verify	a3c4c5f74b	진행카드	r843-wt-sparse-mark-write-verify
+nano/r843-wt-sparse-mark-write-verify-r2	68c437368a	진행카드	r843-wt-sparse-mark-write-verify
+nano/r844-wt-sweep-git-env-and-error-kind	aa3b849835	진행카드	r844-wt-sweep-git-env-and-error-kind
+nano/r844-wt-sweep-git-env-and-error-kind-r2	bae828af10	진행카드	r844-wt-sweep-git-env-and-error-kind
+nano/r845-scratch-repo-register-before-hook-f	aa3b849835	진행카드	r845-scratch-repo-register-before-hook-fail
+nano/r845-scratch-repo-register-before-hook-f-r2	52dbc9910e	진행카드	r845-scratch-repo-register-before-hook-fail
+nano/r849-logged-out-seat-detect	c88223614f	진행카드	r849-logged-out-seat-detect
+nano/r849-logged-out-seat-detect-r2	52dbc9910e	진행카드	r849-logged-out-seat-detect
+nano/r850-news-team-map-three-states	818595c544	진행카드	r850-news-team-map-three-states
+nano/r850-news-team-map-three-states-r2	46959959ae	진행카드	r850-news-team-map-three-states
+nano/r874-ft-tick-six-daemons-load	0d8734edf1	진행카드	r874-ft-tick-six-daemons-load
+nano/r879-nano-spawn-sparse-exclude-evidence-	5a5f5ddd13	진행카드	r879-nano-spawn-sparse-exclude-evidence-media
+nano/r879-nano-spawn-sparse-exclude-evidence--r2	46959959ae	진행카드	r879-nano-spawn-sparse-exclude-evidence-media
+nano/r879-nano-spawn-sparse-exclude-evidence--r3	46959959ae	진행카드	r879-nano-spawn-sparse-exclude-evidence-media
+nano/r879-nano-spawn-sparse-exclude-evidence--r4	46959959ae	진행카드	r879-nano-spawn-sparse-exclude-evidence-media
+nano/r879-nano-spawn-sparse-exclude-evidence--r5	86d5c2a8aa	진행카드	r879-nano-spawn-sparse-exclude-evidence-media
+nano/r880-land-copy-tool-sparse-and-cleanup-p	5a5f5ddd13	진행카드	r880-land-copy-tool-sparse-and-cleanup-plan
+nano/r894-magazine-slack-simple-root-eli5-blo	00220f3987	진행카드	r894-magazine-slack-simple-root-eli5-blocked-word-retry
+nano/r895-disk-survey-worktrees-branches-scra	00220f3987	진행카드	r895-disk-survey-worktrees-branches-scratch-git-pack
+nano/r895-disk-survey-worktrees-branches-scra-r2	c43bbb9893	진행카드	r895-disk-survey-worktrees-branches-scratch-git-pack
+nano/r897-scratch-repo-auto-done-single-fail-	eb7ee4a747	진행카드	r897-scratch-repo-auto-done-single-fail-gate
+nano/r898-ghostty-appdata-prompt-op-cli-to-sd	ff807b126a	진행카드	r898-ghostty-appdata-prompt-op-cli-to-sdk
+nano/r916-decision-count-ref-read-and-inbox-c	97d07b810c	진행카드	r916-decision-count-ref-read-and-inbox-close-one-line
+nano/r947-d1-standing-approve-external-da-pac	ce1361312d	진행카드	r947-d1-standing-approve-external-da-pack-land
+nano/r947-d1-standing-approve-external-da-pac-r2	b79c465468	진행카드	r947-d1-standing-approve-external-da-pack-land
+nano/r947-d1-standing-approve-external-da-pac-r3	86d5c2a8aa	진행카드	r947-d1-standing-approve-external-da-pack-land
+nano/r949-sat-nano-roster-name-ledger-guard	8da504aec3	진행카드	r949-sat-nano-roster-name-ledger-guard
+nano/r949-sat-nano-roster-name-ledger-guard-r2	46959959ae	진행카드	r949-sat-nano-roster-name-ledger-guard
+nano/r949-sat-nano-roster-name-ledger-guard-r3	46959959ae	진행카드	r949-sat-nano-roster-name-ledger-guard
+nano/r954-card-flow-tick-line-and-spawn-move-	7af40ed45a	진행카드	r954-card-flow-tick-line-and-spawn-move-first
+nano/r954-card-flow-tick-line-and-spawn-move--r2	534b12e936	진행카드	r954-card-flow-tick-line-and-spawn-move-first
+nano/r955-ops-intake-scripts-kit	b79c465468	진행카드	r955-ops-intake-scripts-kit
+nano/r957-spawn-tests-leak-real-tmux-sessions	b79c465468	진행카드	r957-spawn-tests-leak-real-tmux-sessions
+nano/r958-nano-close-cherry-gate-7s-split	b79c465468	진행카드	r958-nano-close-cherry-gate-7s-split
+nano/r960-pi-nano-close-two-paths	b79c465468	진행카드	r960-pi-nano-close-two-paths
+nano/r960-pi-nano-close-two-paths-r2	46959959ae	진행카드	r960-pi-nano-close-two-paths
+nano/r960-pi-nano-close-two-paths-r3	295c573a3a	진행카드	r960-pi-nano-close-two-paths
+nano/r961-install-check-kit-path-from-harness	46959959ae	진행카드	r961-install-check-kit-path-from-harness-toplevel
+nano/r961-install-check-kit-path-from-harness-r2	46959959ae	진행카드	r961-install-check-kit-path-from-harness-toplevel
+nano/r961-install-check-kit-path-from-harness-r3	61d833c7bd	진행카드	r961-install-check-kit-path-from-harness-toplevel
+nano/r962-daemon-start-path-root-bin-realpath	46959959ae	진행카드	r962-daemon-start-path-root-bin-realpath-reject
+nano/r962-daemon-start-path-root-bin-realpath-r2	46959959ae	진행카드	r962-daemon-start-path-root-bin-realpath-reject
+nano/r962-daemon-start-path-root-bin-realpath-r3	52a2f4e9d5	진행카드	r962-daemon-start-path-root-bin-realpath-reject
+nano/r962-daemon-start-path-root-bin-realpath-r4	61d833c7bd	진행카드	r962-daemon-start-path-root-bin-realpath-reject
+nano/r963-unpushed-daily-summary-local-refs-o	46959959ae	진행카드	r963-unpushed-daily-summary-local-refs-only
+nano/r963-unpushed-daily-summary-local-refs-o-r2	46959959ae	진행카드	r963-unpushed-daily-summary-local-refs-only
+nano/r963-unpushed-daily-summary-local-refs-o-r3	52a2f4e9d5	진행카드	r963-unpushed-daily-summary-local-refs-only
+nano/r964-move-install-gate-passes-ft-bin	46959959ae	진행카드	r964-move-install-gate-passes-ft-bin
+nano/r977-secret-shapes-one-boundary-all-copi	61d833c7bd	진행카드	r977-secret-shapes-one-boundary-all-copies
+nano/r983-da-metrics-read-only	5e1b510925	진행카드	r983-da-metrics-read-only
+nano/c-k3c-answer-language-vs-knowl-research	76e92843dc	확인불가	
+nano/c-research-tour-oliveyoung-public-data	87d3ac2cb3	확인불가	
+nano/cfo-canon-f1-f5-admin-credit	43d3555ce3	확인불가	
+nano/cfo-concierge-fixture-open-pool-1580t	bd446df7e2	확인불가	
+nano/cfo-loom-interim-pg-pool-old-shape-1580f	4755f0d1b6	확인불가	
+nano/cfo-main-red-sub-refund-notify-budget	f694374c9d	확인불가	
+nano/cfo-org-flow-fixture-open-operator-pool-	67a0c8f025	확인불가	
+nano/f-856-toolbar-shared-structure	6f542bfd77	확인불가	
+nano/f-exp-m-ctx-8-ops-measured-four-cells	29299021f9	확인불가	
+nano/fix-test-da333-cartesia-cost-key	79f5f2caf2	확인불가	
+nano/g1-k4-vanish-reappear-r-unit	5c4d3a9166	확인불가	
+nano/k2-polisher-deletes-spoken-content-trans	251043d3b5	확인불가	
+nano/k4-polish-owner-window-cap-10s-experimen	ec7ada1b04	확인불가	
+nano/k4-press-status-final-requires-all-shown	302f59fbfd	확인불가	
+nano/k4-seam-not-reconfirmed-temporary-duplic-r2	a73f6b5074	확인불가	
+nano/knowledge-e1-chat-axis-plan-doc-sync	2fe98d5bee	확인불가	
+nano/knowledge-sb1-ddl-base-registr-research	4d58f1f819	확인불가	
+nano/l10-lecture-main-bubble-key-st-research	63e2dc94de	확인불가	
+nano/l10-lecture-main-bubble-key-st-research-r2	6be00a3d02	확인불가	
+nano/l9-lecture-runner-guest-verify-tab-by-la	1aba464f84	확인불가	
+nano/lc2-lecture-canon-pip-live-close-s7-s9	4da6417eb7	확인불가	
+nano/m3-le-lst-v65-wiring-plan	2573e366ca	확인불가	
+nano/m3-mr-lst-v65-wiring-plan	2573e366ca	확인불가	
+nano/m5-1922-2-ptt-spectrum-press-trace-impl-main2	3be59140e8	확인불가	
+nano/m5-cer-sweep-runner-vad-shape-tab-check	915e39bdb4	확인불가	
+nano/m5-corpus-sentence-count-abbrev-decimal-r2	0063a0cf8b	확인불가	
+nano/m5-g1-contract-c-call-site-map-research	1c08996248	확인불가	
+nano/m5-gate3-a-adoption-hidden-empty-seal-bl	514ef05428	확인불가	
+nano/m5-owner-cap-evidence-trace-row	5281128436	확인불가	
+nano/m5-polished-failed-partial-source-group-	5a430b6583	확인불가	
+nano/m5-reuse-loom-mid-press-drift-guard-test	c4a7f5461f	확인불가	
+nano/m5-room-chunk-translation-participant-la-main	d83ed530f9	확인불가	
+nano/m5-seam-join-boundary-syllable-dedupe	2af57f4961	확인불가	
+nano/m5-struct3-lst-lane-failure-log-warning	1b71951d32	확인불가	
+nano/m5-tail-reopen-vad106-unbound-intent-not	6ce7117826	확인불가	
+nano/m5-vad-grid-runner-evid-copy-per-run	b8fd5c4e56	확인불가	
+nano/m6-card1-replay-test	c642257f32	확인불가	
+nano/m6-compose-db-source-pool-ab-live	7dfb8ac622	확인불가	
+nano/m6-ellipsis-residual-fallback-drops-unte	7cdcceac28	확인불가	
+nano/m6-preview-pre-tag-piece-hold-impl	7fc09c6abc	확인불가	
+nano/m6-psid-authority-persist	67d4e7632e	확인불가	
+nano/m6-r4-data-corpus-impl	3871126842	확인불가	
+nano/m6-repeated-source-sentence-record-span-	c4e78d18d8	확인불가	
+nano/m6-row-cell-cas-and-seal-version-impl	b251698561	확인불가	
+nano/m6-translate-result-token-same-text-coll	6a7c43ba7e	확인불가	
+nano/m7-1792b-tts-cache-hit-format-empty-meas	d83ed530f9	확인불가	
+nano/m7-billing-1-close-emit-protocol	cf2fbda615	확인불가	
+nano/m7-billing-completion-index	6a18071b1d	확인불가	
+nano/m7-c1b-enqueue-seam-runtime-argv	7cc7bc7336	확인불가	
+nano/m7-corner-toolbar-lst-strike-buttons	84b117e574	확인불가	
+nano/m7-corpus-press-kind-ttl-reader-align	4439fe372a	확인불가	
+nano/m7-diffusion-anchor-is-displayed-cursor-	bce20e7b64	확인불가	
+nano/m7-diffusion-owner-lane-pacing-supply	f862ae9d58	확인불가	
+nano/m7-fanout-w1-multi-bubble-script-impl	9838d9352c	확인불가	
+nano/m7-fe-terminal-error-psid-mismatch-clear	28b55f562f	확인불가	
+nano/m7-landing-handoff-tail-v2	564015f200	확인불가	
+nano/m7-landing-m6-r1-session-ttl-rebase	56f561e60e	확인불가	
+nano/m7-lst-leaf-real-redis-fixture-owner-ses	62140e12c2	확인불가	
+nano/m7-lst-on-off-diffusion-predictive-pacin	b838c16eae	확인불가	
+nano/m7-main-into-feat-merge-conflict-36-reso	8d76c9e327	확인불가	
+nano/m7-merge-s10-usage-history-test	b3ac11333b	확인불가	
+nano/m7-merge-s9-stt-chunk-log-off	5dafac482f	확인불가	
+nano/m7-polish-number-postcheck-offline	a888f1fc85	확인불가	
+nano/m7-polish-number-reversal-declared-offli	ffd0b9006a	확인불가	
+nano/m7-polish-number-reversal-r6-adjacency-s	51771d8eef	확인불가	
+nano/m7-port-mic-track-ended-f16d0a0522-to-ma-main	83ba89bb37	확인불가	
+nano/m7-press-gate-e1-press-epoch-subsecond-a	290ee2f099	확인불가	
+nano/m7-press-gate-h3-pel-redelivery-and-mark	65674d1377	확인불가	
+nano/m7-ptt-gate-llm-prefix-readiness-design	b0dbaf71b3	확인불가	
+nano/m7-ptt-gate-llm-prefix-readiness-impl-ba	89cfbdee80	확인불가	
+nano/m7-ptt-gate-llm-prefix-readiness-impl-fe	1959163d5d	확인불가	
+nano/m7-r1-custody-receipts-read-age-instrume	a44ffe927e	확인불가	
+nano/m7-r1-redis-usage-alert-and-local-maxmem	f1021ef363	확인불가	
+nano/m7-r4-gcs-live-upload-check	62fa61534a	확인불가	
+nano/m7-r5-lane-b-default-on-landing	58b2cc3cb8	확인불가	
+nano/m7-room-1066-runner-self-count	a6d8665653	확인불가	
+nano/m7-room-legacy-utterance-subscription-cl	a6d8665653	확인불가	
+nano/m7-rtgeneration-exhaustive-exempt-knowle	246187e0be	확인불가	
+nano/m7-runner-e4-e5-capture	a9b90f8c28	확인불가	
+nano/m7-runner-hide-after-seg-and-press-gate-	dbfcfb4948	확인불가	
+nano/m7-runner-hide-after-seg-live-press-and-	fc3d96f782	확인불가	
+nano/m7-runner-remote-mode-prod-dev-real-acco	4821396f37	확인불가	
+nano/m7-runner-sid-key-real-account-prefix-sc	fd6d12b5c0	확인불가	
+nano/m7-sse-auth-url-structure-split-200loc-r2	97f2b476ca	확인불가	
+nano/m7-test-k5-preview-stop-read-error-order-main2	ffd8f9d340	확인불가	
+nano/m7-test-open-wait-dl-retire-b1-flake-und-main2	7eb95cb22e	확인불가	
+nano/m7-test-order-dependent-hang-google-443	80892c0ceb	확인불가	
+nano/m7-test-schema-drift-endpoint-unobservab-main2	256b99d27f	확인불가	
+nano/m7-timeaxis-table-press-regression-1002	abb5c0e747	확인불가	
+nano/m7-u-n1-polish-partial-strike-check	2f24b2d591	확인불가	
+nano/m7-vadrow-e1c-double-translate-same-row-r2	a73f6b5074	확인불가	
+nano/m7-waiting-cards-stale-audit-main-r2	97f2b476ca	확인불가	
+nano/m7-web-tsc-account-searchparams-null-172	4755f0d1b6	확인불가	
+nano/m7-worker-pulse-tests-20min-slow-diag	d2dba2c493	확인불가	
+nano/m7-zero-audio-press-release-binding-abse-r4	201e3c194c	확인불가	
+nano/mainmerge-blocker-audio-saved-envelope-r	98e3f33cf6	확인불가	
+nano/mainmerge-v65-rt-main-sync-20260923	e9e6c274ff	확인불가	
+nano/ops-canon-console-ai-reply-requests	ea46082db8	확인불가	
+nano/ops-ci-cost-breakdown-research	3ef5a9001d	확인불가	
+nano/ops-o7-dev-click-check	e42e5ea7ef	확인불가	
+nano/ops-plan-o5-demo-orgs-split	f587b3e393	확인불가	
+nano/ops-plan-o5b-move-tour-accounts	d8c9f7acf2	확인불가	
+nano/ops-qwen-stt-registry-row-or-c-research	ec94aadb63	확인불가	
+nano/r-ctx-512k-research	52a2f4e9d5	확인불가	
+nano/r-home-org-lookup-503-origin-and-fix	a0eda57204	확인불가	
+nano/r-ops-arch-balancing-research	d85e0f0254	확인불가	
+nano/r-ops-arch-lua-multikey-table	a12aa4d209	확인불가	
+nano/r511-pre-push-new-branch-range-merge-bas	7149a81c54	확인불가	
+nano/r516-harness-tests-red-batch-3-classify-	bb5f9e6199	확인불가	
+nano/r532-hooks-devices-audit-and-overlap-rul	ea465817ee	확인불가	
+nano/r553-mbox-log-keep-rotations-for-magazin	0119b10930	확인불가	
+nano/r555-serena-boot-ensure-right-port-survi	ef1792352a	확인불가	
+nano/r580-spawn-recheck-cited-files-exact-not	c1954d099b	확인불가	
+nano/r660-desk-route-planner-only-guard	5c3577c37d	확인불가	
+nano/r692-desk-slack-file-fetch-images	289609f4f8	확인불가	
+nano/r693-goal-table-state-from-closing-evide	25f2a41998	확인불가	
+nano/r695-orchestration-gate-allows-kit-cmp0-	b93ff6e8e8	확인불가	
+nano/r698-morning-magazine-mbox-rotation-and-	d78bbe019c	확인불가	
+nano/r708-live-version-machine-filled-in-goal	3ef5a9001d	확인불가	
+nano/r748-scope-count-code-only	88e03c450c	확인불가	
+nano/r754-news-fetch-fail-not-no-ch-research	a4ae21f74a	확인불가	
+nano/r754-news-fetch-fail-not-no-change	6894f4b5ba	확인불가	
+nano/r754-news-fetch-fail-not-no-change-r2	a4ae21f74a	확인불가	
+nano/r784-daemon-paths-root-bin-and-unpushed-	df2d7676c6	확인불가	
+nano/r785-sheet-root-team-status-ta-research	ea4b2babd2	확인불가	
+nano/r790-doc-exempt-v65-roster-and-doc-land-	ea4b2babd2	확인불가	
+nano/r790-doc-exempt-v65-roster-and-doc-land--r2	902f220ec6	확인불가	
+nano/r790-doc-exempt-v65-roster-and-research	902f220ec6	확인불가	
+nano/r795-verdict-bump-and-handwritten-number	902f220ec6	확인불가	
+nano/r797-tick-install-script-root-bin-only	902f220ec6	확인불가	
+nano/r806-hil-gcloud-account-developer-ts-onl	8839256a34	확인불가	
+nano/r812-index-lint-issue-number-required	2fe98d5bee	확인불가	
+nano/r816-daily-issue-tidy-launchd	2fe98d5bee	확인불가	
+nano/r817-doc-exempt-card-move-between-state-	8839256a34	확인불가	
+nano/r818-merge-land-auto-remerge-and-exempt-	58c64d4767	확인불가	
+nano/r821-daily-close-candidate-list-to-plann	fabdc033f3	확인불가	
+nano/r822-zombie-clean-lock-owner-and-sweep-b	45cd3a99af	확인불가	
+nano/r828-not-logged-in-seat-no-resume-and-cl	77f9ad483d	확인불가	
+nano/r829-claude-hr-cliproxy-probe-7s-rule	b06a8118df	확인불가	
+nano/r830-successor-open-agent-process-check	62822faa11	확인불가	
+nano/r831-nano-spawn-sparse-fail-resume	2391961272	확인불가	
+nano/r832-wt-shell-scan-live-seat-guard	57c622ccdf	확인불가	
+nano/r833-hold-gate-retire-path	cf6f1dcb36	확인불가	
+nano/r835-land-spawn-worktree-sparse	b03d3a981d	확인불가	
+nano/r875-inbox-classify-haiku-storm-breaker	1d2cd3b798	확인불가	
+nano/r925-tmuxc-inject-submit-verif-research	fbbef1eb2a	확인불가	
+nano/r926-data-root-vs-repo-root-roster-and-t	a9fe0223a9	확인불가	
+nano/r928-watch-alarm-rearm-grace-a-research	fbbef1eb2a	확인불가	
+nano/sb-harness-0-5-row2-wt-clean	0c4a2be969	확인불가	
+nano/seoul-migration	465d4bb94b	확인불가	
+nano/subscription-ops-research	ce7fa8c8c6	확인불가	
+nano/unit-tests-reach-real-redis-1395e	18caeef7e8	확인불가	

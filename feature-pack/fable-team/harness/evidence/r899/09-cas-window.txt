@@ -1,0 +1,6 @@
+# r899 r4 — «남는 창»(교체 직전 B2 읽기 → os.replace) 실측 — run 이 «실제로 부르는» 경로(cmd_run → run_file → cas_replace)
+# 측정 = 시험 ⓙ 의 window 모드를 새 임시 리포 20개에서 1회씩(Path.read_bytes/os.replace 를 감싸 B2 읽기~교체 사이 시간) · macOS · python3.14
+# (r3 의 200회 값은 run 이 부르지 않는 cas_write 단독이라 폐기 — DA⑥ r3 반례 1)
+WINDOW20 runs=20 med_us=11 p95_us=19 max_us=19
+# r4 순서: B1 → tmux → 계산 → tmp·fsync·copymode → B2 → os.replace(바로 다음 줄) — 사이 호출 0(ⓚ 시험 + 변이9 가 잡는다)
+# 이 창은 «범위 밖 · 수용» — 완전한 닫기 = spawn 계열이 같은 잠금을 잡는 별 카드

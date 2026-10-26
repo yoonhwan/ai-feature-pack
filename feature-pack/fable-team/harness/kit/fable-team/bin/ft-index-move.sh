@@ -52,6 +52,9 @@ if [ "$DST" = 완성 ]; then
   printf '%s' "$body" | grep -Fq -- "$CARDID" || { echo "REJECT $DA 은 $CARDID 를 닫은 절이 아니다(절에 카드 이름 없음) — 그 판정 절에 「대상 카드: ${CARDID}」 줄을 넣고 다시. 이동 0"; exit 1; }
   # 정본 게이트 + 랜딩 commit 사실 검사(ft-index-move-canon.sh · 판정 440 r2 §6-1) — 이동 «전»에 검사한다.
   WT="$(git -C "$IDX_ROOT" rev-parse --show-toplevel 2>/dev/null || echo "$IDX_ROOT")"
+  # r937: 착지 리포 표식 = 이 카드의 «닫힘 — <카드> — main|main(팩) `<sha>`» 줄 — 정본·설치 게이트가 같은 리포를 골라 쓰게 넘기는 값
+  # r959: 표식 줄 = «닫힘 — <카드> — main…» 정확한 모양만 — 절 헤더 «## §32 <카드> — 닫힘 (CLOSE)» 를 표식으로 오인하지 않는다(카드 이름에 «main» 이 들면 카드 리포로 잘못 풀린다 · r462·r560·r756)
+  FT_LANDED_MARKER="$(printf '%s\n' "$body" | awk -v s="$(basename "$SRC" .md)" 'BEGIN{p="(닫힘|CLOSE)[[:space:]]*—[[:space:]]*" s "[[:space:]]*—[[:space:]]*main"} $0 ~ p{print;exit}')"; export FT_LANDED_MARKER
   CANON_RES="$(printf '%s\n' "$body" | bash "$HERE/ft-index-move-canon.sh" "$SRC" "$WT" "$LANDED")"
   CANON_KIND="$(printf '%s' "$CANON_RES" | cut -f1)"; CANON_NOTE="$(printf '%s' "$CANON_RES" | cut -f2-)"
   case "$CANON_KIND" in
@@ -115,7 +118,9 @@ fi
 mkdir -p "$IDX_ROOT/$DST"
 NEW="$IDX_ROOT/$DST/$(basename "$SRC")"
 TRACKED=0; git -C "$IDX_ROOT" ls-files --error-unmatch "$SRC" >/dev/null 2>&1 && TRACKED=1
-if [ "$TRACKED" = 1 ]; then git mv "$SRC" "$NEW"; else mv "$SRC" "$NEW"; fi || { echo "REJECT 이동 실패: $SRC → $NEW"; exit 1; }
+# r959: 실패 사유를 버리지 않는다 — git·mv 의 stderr 첫 줄을 REJECT 줄 «안»에 붙인다(«REJECT 이동 실패» 한마디로는 무엇을 고칠지 알 수 없다 · r737·r847)
+if [ "$TRACKED" = 1 ]; then _mv_out="$(git -C "$IDX_ROOT" mv "$SRC" "$NEW" 2>&1)"; _mv_rc=$?; else _mv_out="$(mv "$SRC" "$NEW" 2>&1)"; _mv_rc=$?; fi
+[ "$_mv_rc" = 0 ] || { _mv1="${_mv_out%%$'\n'*}"; echo "REJECT 이동 실패: $SRC → $NEW${_mv1:+ — $_mv1}"; exit 1; }
 if [ "$DST" = 완성 ]; then
   # 하네스 0.5 행 3 — «완성 이동»이 원장 close 의 유일한 기록자. 원장 없는 완성은 없다(#0 RULE).
   #   트랙 = FT_TRACK(기본 default · 카드가 design/v65/indices 아래면 v65) · $ROOT/STATE_DIR 은 ft-index-gate.sh 와 같은 규약.
@@ -132,7 +137,7 @@ if [ "$DST" = 완성 ]; then
   row="{\"ts\":\"$(date '+%Y-%m-%dT%H:%M:%S%z')\",\"ev\":\"close\",\"id\":\"$ID\",\"da\":\"$DA\",\"seat\":\"${SEAT:--}\",\"via\":\"index-move\"}"
   if ! printf '%s\n' "$row" >> "$LEDGER" 2>/dev/null; then
     # 되돌리기도 실패할 수 있다(DA r1 R1) — 성공 문구는 되돌리기가 «실제로» 성공했을 때만.
-    if { [ "$TRACKED" = 1 ] && git mv "$NEW" "$SRC"; } || { [ "$TRACKED" != 1 ] && mv "$NEW" "$SRC"; }; then
+    if { [ "$TRACKED" = 1 ] && git -C "$IDX_ROOT" mv "$NEW" "$SRC"; } || { [ "$TRACKED" != 1 ] && mv "$NEW" "$SRC"; }; then
       echo "REJECT 원장에 못 썼다: $LEDGER — 이동을 되돌렸다"; exit 1
     fi
     echo "REJECT 원장에 못 썼다: $LEDGER" >&2

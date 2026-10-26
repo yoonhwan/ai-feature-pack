@@ -1,0 +1,6 @@
+계정 한도 갈래 삭제: rc=1 1 failed, 6 deselected in 1.94s
+(나) 정상 0 삭제: rc=1 1 failed, 6 deselected in 1.07s
+키 uuid 로: rc=1 1 failed, 6 deselected in 5.09s
+머리 [HIL] 로: rc=1 1 failed, 6 deselected in 1.56s
+장애 중 발신 0 삭제: rc=1 1 failed, 6 deselected in 1.29s
+출력 버리기 되살림: rc=1 FAIL ⓕ-2 rc=1 out=REJECT tmuxc open 실패 (byz-t-new-claude#2) — 송신 0 · 이유:  FAILED 1

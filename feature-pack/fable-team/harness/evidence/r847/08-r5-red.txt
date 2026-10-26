@@ -1,0 +1,37 @@
+# r4 코드(275e4bf2 ft_news_html.py) × r5 시험 — R847_BIN=<r4 bin 사본>
+PASS ⓐ 표식 60초 전 = fetch 0 · 표식 깨짐 = WARN + fetch 1 · ValueError 0
+PASS ⓑ ls-remote 같음 = fetch 0 · 다름 = fetch 1 · 묻기 실패 = fetch 로 진행 + 로그 1줄
+PASS ⓒ 25초 fetch = 성공(30초 상한)
+  (35초 칸 경과 66초 · 시도 2)
+PASS ⓒ 35초·TERM 무시 = 30초 TERM→KILL · 재시도 1 · 70초 안 · 남은 자식 0 · 출력 있는 실패 = 재시도 0
+PASS ⓓ sync: ls-remote 같음 = fetch 0 · 25초 fetch 성공 · 공용 fm_t7 7초 그대로
+PASS ⓔ 실패 구간당 «판정 불가» 1통 · 실패→성공→실패 = 2통 · fetch-last = fail
+PASS r3 사유가 바뀌어도 같은 실패 구간 = 1통(r1 반례)
+PASS r3 pid 바뀌는 같은 장애 3틱 = 1통(r2 DA 반례)
+PASS r3 게시 실패 틱 → 다음 틱 다시 1통 · 그 뒤 0
+PASS ⓗ 받기 실패 ∧ 블롭 바뀜 = 지도 0 · 30분 창 안 첫 틱도 «판정 불가» 1통 · 2·3틱 게시 0
+PASS ⓘ fetch-last 000 · offline 3틱 = 1통 · ERROR 1줄 · 뒤에 읽힘(DA r3 반례 1)
+PASS ⓙ 실패 1통 → 444 → 성공 → 재실패 2틱 = 둘째 구간 1통(DA r3 반례 2)
+PASS ⓚ 상태 폴더 555 = tick rc 1 · «상태 파일 fetch-last 쓰기 실패» · ERROR 줄
+FAIL ⓛ SEED 3 True 09:00 (0, '원장 ref fetch 실패') ["[뉴스 09:00] 판정 불가 — 원장 ref fetch 실패 — fatal: offline · origin/main = 받은 시각 모름 · 지도 http://x/0"] 09:01 (0, '원장 ref fetch 실패 계속') [] 09:02 (0, '원장 커밋 0') [] UNJUDGEABLE 09:00 MAPS 0 ATTACH 09:00 PENDING False LAST ok 
+  (총 마감 칸 elapsed=69.507 · 시도 2)
+PASS r2② ls-remote·로컬 ref 각 6초 + TERM 무시 fetch = 총 ≤ 70.0초 · 시도 2 · 남은 자식 0
+  (셸 칸 rc=4 시도 1 · ERROR ledger 사본 fetch 실패: fatal: stdout 오류 주입)
+PASS r2③ 셸 fetch stdout 오류 = 시도 1 · 오류 = 출력 첫 줄
+PASS ⓖ 표식→FETCH_HEAD 본문 읽기 → ⓐ FAIL
+PASS ⓖ ls-remote 생략 삭제 → ⓑ FAIL
+PASS ⓖ 30→10.5초 → ⓒ 25초 FAIL
+PASS ⓖ 구간 판정 삭제 → ⓔ FAIL
+PASS ⓖ 구간 판정 = 출력 글자 비교 → pid 칸 FAIL
+PASS ⓖ os.replace → write_text → ⓘ FAIL
+PASS ⓖ os.replace → write_text → ⓙ FAIL
+PASS ⓖ ⓗ 게시 막음 삭제 → ⓗ FAIL
+PASS ⓖ 30분 대기 우회 삭제 → ⓗ «첫 실패 1통» FAIL
+PASS ⓖ retry_attach 를 실패 분기 앞으로 → ⓛ FAIL(ATTACH 09:00)
+  (총 마감 칸 elapsed=71.011 · 시도 2)
+PASS ⓖ 유예 빼기 삭제 → r2② FAIL
+  (셸 칸 rc=4 시도 2 · ERROR ledger 사본 fetch 실패: fatal: stdout 오류 주입)
+PASS ⓖ 셸 재시도 조건 = rc 만 → r2③ FAIL
+PASS 남은 자식 0
+FAILED 1
+rc=1

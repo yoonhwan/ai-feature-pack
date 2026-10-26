@@ -1,0 +1,19 @@
+변이 1 (keep 이 손상 값에 CLOSE = 지우기 되살림):
+FAILED tests/scripts/test_model_swap_account_outage_r838.py::test_k1_corrupt_blocked_value_kept_one_note
+FAILED tests/scripts/test_model_swap_account_outage_r838.py::test_k2_corrupt_outage_open_value_kept_one_hold_note
+FAILED tests/scripts/test_model_swap_account_outage_r838.py::test_k3_corrupt_key_isolated_other_key_closes_and_notes
+3 failed, 15 deselected in 2.59s
+rc=1
+변이 2 (account 보내기 조건 = 옛 not was = 손상 outage_open 덮어쓰기 되살림):
+FAILED tests/scripts/test_model_swap_account_outage_r838.py::test_k2_corrupt_outage_open_value_kept_one_hold_note
+1 failed, 2 passed, 15 deselected in 4.29s
+rc=1
+## r2 변이 ③ save() 를 write_text(자르고 쓰기) 로 되살림 → k4 RED (k1·k2·k3 그대로 초록)
+        assert fx.run().returncode == 0 and _heads(fx) == [HOLD_HEAD]
+>       assert path.read_bytes() == before and "ERROR model_swap" in r.stderr, (r.returncode, r.stderr)
+E       AssertionError: (1, "ERROR model_swap: 알림 키 값 깨짐 outage_open=\\ud800 — 키 그대로 · 이번 실행 그 계보 알림 0
+E       assert (b'' == b'{"swapped":...[1760399740]}'
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r863-model-swap-corrupt-key-value/feature-pack/fable-team/harness/tests/scripts/test_model_swap_account_outage_r838.py:343: AssertionError
+FAILED tests/scripts/test_model_swap_account_outage_r838.py::test_k4_unencodable_value_keeps_state_file_bytes
+1 failed, 3 passed, 15 deselected in 4.34s
+rc=1

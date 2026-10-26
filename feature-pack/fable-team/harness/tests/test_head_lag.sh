@@ -68,7 +68,8 @@ mkwt lagD nano/lagD "$C1"; mkwt lagR release/x "$L" 'byz-teama-nano-claude#3'
 lag --event
 A="$(grep -c '^byz-teama-master-claude#1' "$MBOX_LOG")"; B="$(grep -c '^byz-teamb-master-claude#2' "$MBOX_LOG")"
 [ "$rc" = 0 ] && [ "$(msgs)" = 2 ] && [ "$A" = 1 ] && [ "$B" = 1 ]; ck "ⓑ 뒤처진 팀 A·B master 에 각 1통(팀당 1통)" $?
-grep '^byz-teama' "$MBOX_LOG" | grep -q '베이스 뒤처짐' && grep '^byz-teama' "$MBOX_LOG" | grep -q 'lagA(nano/lagA)' && grep '^byz-teama' "$MBOX_LOG" | grep -q '2커밋' && grep '^byz-teama' "$MBOX_LOG" | grep -q '5시간' && grep '^byz-teama' "$MBOX_LOG" | grep -q 'ft-head-sync.sh --apply'; ck "ⓑ 알림에 워크트리·브랜치·N커밋·N시간·명령 줄" $?
+grep '^byz-teama' "$MBOX_LOG" | grep -q '베이스 뒤처짐' && grep '^byz-teama' "$MBOX_LOG" | grep -q 'lagA(nano/lagA)' && grep '^byz-teama' "$MBOX_LOG" | grep -q '2커밋' && grep '^byz-teama' "$MBOX_LOG" | grep -q '5시간' && grep '^byz-teama' "$MBOX_LOG" | grep -q 'merge --no-edit'; ck "ⓑ 알림에 워크트리·브랜치·N커밋·N시간·조치 줄(R882 — 자기 워크트리 merge)" $?
+! grep -qE 'ft-head-sync|--apply' "$MBOX_LOG"; ck "ⓐ R886 알림에 실행 지시(ft-head-sync·--apply) 0 — 쪽지 1통이 실행 1개를 낳지 않음" $?
 ! grep -E 'lagC|lagD|lagR' "$MBOX_LOG" | grep -q '^byz-teama'; ck "ⓑ A 알림에 남의 워크트리·최신(lagC)·좌석 없는 곳(lagD)·release 브랜치(lagR) 없음" $?
 grep '^byz-teamb' "$MBOX_LOG" | grep -q 'lagB' && ! grep -q 'lagD' "$MBOX_LOG"; ck "ⓑ B 알림 = lagB · 좌석 없는 lagD 알림 0" $?
 # ── ⓒ 같은 main sha → 0통
@@ -81,9 +82,11 @@ export FT_HEAD_LAG_NOW="$(( $(date +%s) + 6*3600 + 60 ))"; lag --cron
 [ "$(msgs)" = 4 ]; ck "ⓓ 6시간 뒤에도 그대로 → 재알림 1(팀당)" $?
 export FT_HEAD_LAG_NOW="$(( $(date +%s) + 13*3600 ))"; lag --cron; [ "$(msgs)" = 4 ]; ck "ⓓ 그 뒤 0(재촉 상한 1)" $?
 unset FT_HEAD_LAG_NOW
-# ── ⓔ 새 main sha → 다시 1 · 문턱(--cron 60분)
+# ── ⓔ 새 main sha → 같은 워크트리 재발송 0(R836 · 기록 키 = 워크트리) · 기록 없으면 다시 1 · 문턱(--cron 60분)
 mainc c3 600; : > "$MBOX_LOG"
-lag --cron; [ "$(msgs)" = 2 ] && ! grep -q 'lagC' "$MBOX_LOG"; ck "ⓔ 새 main sha → 다시 1(팀당) · 문턱 미만(lagC 10분)은 제외" $?
+lag --cron; [ "$(msgs)" = 0 ]; ck "ⓔ 새 main sha → 이미 알린 워크트리 재발송 0(R836)" $?
+rm -f "$T/.fable-team/state/head-lag.json"
+lag --cron; [ "$(msgs)" = 2 ] && ! grep -q 'lagC' "$MBOX_LOG"; ck "ⓔ 기록 없음 → 다시 1(팀당) · 문턱 미만(lagC 10분)은 제외" $?
 FT_HEAD_LAG_MIN=5 lag --cron; [ "$(msgs)" = 3 ] && tail -n1 "$MBOX_LOG" | grep -q 'lagC'; ck "ⓔ 문턱 5분이면 lagC 알림 1" $?
 # ── ⓖ fetch 실패 → ERROR + rc 4 + 알림 0(지어내기 0)
 rm -f "$T/.fable-team/state/head-lag.json"; n0="$(msgs)"; ORIG_URL="$(git -C "$W" remote get-url origin)"; git -C "$W" remote set-url origin "$T/nonexistent.git"

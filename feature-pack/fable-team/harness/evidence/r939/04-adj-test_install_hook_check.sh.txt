@@ -1,0 +1,46 @@
+PASS bash -n install.sh
+PASS a rc=0
+PASS a home=absent settings=absent
+PASS a 기존 출력 줄(machine=·files=·kit_sha=) 유지
+PASS a 요약 줄
+PASS b rc=0
+PASS b same/registered
+PASS b 요약 줄
+PASS c rc=0
+PASS c diff
+PASS c 요약 줄
+PASS d settings.json 없음 → settings=absent
+PASS dry-run: dest 미생성
+PASS 홈 .claude 미생성(복사·등록 0)
+PASS block-destructive 템플릿 존재
+PASS block-destructive 실행 비트
+PASS block-destructive 템플릿 == 홈 파일
+PASS block-destructive-judge 템플릿 존재
+PASS block-destructive-judge 템플릿 == 홈 파일
+PASS r491 bash -n harness/install.sh
+PASS r491ⓐ apply rc0
+PASS r491ⓐ 홈 훅 11/11 cmp0 + 실행 비트
+PASS r491ⓐ .py 도 실행 비트
+PASS r491ⓐ HOOKS copied=11
+PASS r491ⓐ 등록 1 ok
+PASS r491ⓐ 2회째 멱등(copied=0 chmod=0)
+PASS r491ⓑ apply rc0 (settings 없음 → registered=0)
+PASS r491ⓑ 644 → 755
+PASS r491ⓑ HOOK … chmod +x 1줄
+PASS r491ⓑ settings 없음 = registered=0
+PASS r491ⓒ dry-run PENDING HOOK-EXEC rc0
+PASS r491ⓒ dry-run 홈 훅 쓰기 0
+PASS r491ⓒ dry-run HOOK 줄 (exec) 표기
+PASS r491ⓒ apply ERROR HOOK-EXEC rc1
+PASS r491ⓒ registered=3 ok=2 bad=1
+PASS r491ⓒ bash <경로> 644 = 실재만(과차단 0)
+PASS r491ⓒ 키트 밖 훅 모드 불변(chmod 는 키트 훅만)
+PASS r491ⓒ settings 쓰기 0
+PASS r491ⓓ 없는 경로 → ERROR HOOK-EXEC 없음 rc1
+PASS r491ⓓ 전부 정상 → registered=3 ok=3 bad=0 rc0
+PASS r491ⓓ settings JSON 깨짐 → rc1(조용한 통과 0)
+PASS r491ⓔ 라이브 홈 훅 644 → EXEC-BIT rc1
+PASS r491ⓔ 755 → OK
+PASS r491ⓔ bin/kit 짝 cmp0
+---
+ALL PASS

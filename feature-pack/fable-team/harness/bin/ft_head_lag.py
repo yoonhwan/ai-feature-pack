@@ -11,7 +11,7 @@ import sys
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # python -I 은 스크립트 폴더를 path 에 넣지 않는다
-from ft_head_lag_seats import master_of, seats_by_wt, skip_regex, team_of, warn
+from ft_head_lag_seats import load_state, master_of, seats_by_wt, skip_regex, team_of, warn
 
 
 def git(repo, *a):
@@ -47,14 +47,15 @@ def fmt(secs):
     return f"{secs // 3600}시간" if secs >= 3600 else f"{secs // 60}분"
 
 
-def build(items, msha, bin_dir):
+def build(items, msha):
     items = sorted(items, key=lambda s: -s["secs"])
     out = [f"[베이스 뒤처짐] main {msha[:10]} 위에 있지 않은 워크트리 {len(items)}곳 (이 팀 좌석이 앉은 곳):"]
     out += [f"- {os.path.basename(s['path'])}({s['branch']}) {s['path']} · main 보다 {s['n']}커밋 · {fmt(s['secs'])}" for s in items[:8]]   # R749: 절대 경로 — 어디서 쳐야 하는지
     if len(items) > 8:
         out.append(f"- 외 {len(items) - 8}곳")
     where = items[0]["path"] if len(items) == 1 else "위 각 줄의 경로"
-    out.append(f"조치: 그 워크트리 안에서(cd {where}) 미커밋 0 이면 bash {bin_dir}/ft-head-sync.sh --apply (그 워크트리만 · merge 만 · rebase·force 0) · 충돌이면 그 팀 arch 에 · 옛 베이스 병합은 병합 게이트가 거절한다(R243/R749)")
+    # R882: 실행 지시 0 — 이 쪽지가 좌석마다 도구 실행을 낳으면 전수 스캔이 겹쳐 폭주한다(02:5x 14개). 앉은 좌석이 자기 워크트리만 스스로
+    out.append(f"조치: 그 워크트리 안에서(cd {where}) 앉은 좌석이 자기 일 사이에 스스로 받는다 — 미커밋 0 이면 그 자리에서 merge --no-edit {msha} (merge 만 · rebase·force 0 · 남의 워크트리 대신 맞추기 0) · 팩(ai-feature-pack) 작업 폴더는 이 알림과 무관 · 충돌이면 그 팀 arch 에 · 옛 베이스 병합은 병합 게이트가 거절한다(R243/R749/R882)")
     return "\n".join(out)
 
 
@@ -112,14 +113,11 @@ def main():
     remind = int(os.environ.get("FT_HEAD_LAG_REMIND_H", "6")) * 3600
     with open(sf + ".lock", "w") as lk:
         fcntl.flock(lk, fcntl.LOCK_EX)
-        try:
-            st = {k: v for k, v in json.load(open(sf)).items() if k.endswith("@" + msha)}
-        except (OSError, ValueError):
-            st = {}
-        by = seats_by_wt([os.path.realpath(w["path"]) for w in wts])
+        st = load_state(sf, {s["real"] for s in stale})   # R836: 키 = 워크트리 하나(main sha 무관)
+        by =seats_by_wt([os.path.realpath(w["path"]) for w in wts])
         groups, failed = {}, set()
         for s in stale:
-            rec = st.get(f"{s['real']}@{msha}")
+            rec = st.get(s["real"])
             if s["secs"] < minutes * 60 or (rec and (rec["n"] >= 2 or now - rec["ts"] < remind)):
                 continue
             for team in sorted({t for t in map(team_of, by[s["real"]]) if t}):
@@ -128,18 +126,16 @@ def main():
                     groups.setdefault(m, []).append(s)
         sent = {}
         for m, items in groups.items():
-            seq = send(root, m, build(items, msha, a.bin))
+            seq = send(root, m, build(items, msha))
             for s in items:
                 if seq:
                     sent[s["real"]] = seq
                 else:
                     failed.add(s["real"])
-        for real, seq in sent.items():
-            if real not in failed:
-                key = f"{real}@{msha}"
-                st[key] = {"seq": seq, "ts": now, "n": st.get(key, {}).get("n", 0) + 1}
+        for real in sent.keys() - failed:
+            st[real] = {"seq": sent[real], "ts": now, "n": st.get(real, {}).get("n", 0) + 1}
         tmp = f"{sf}.{os.getpid()}"
-        json.dump(st, open(tmp, "w"), ensure_ascii=False)
+        json.dump({"v": 2, "seats": st}, open(tmp, "w"), ensure_ascii=False)   # R836 r3: 판 번호로 새·옛을 가른다(키 글자 해석 0)
         os.replace(tmp, sf)
     return 5 if failed else 0
 

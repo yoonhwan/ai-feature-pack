@@ -1,0 +1,16 @@
+PASS bash -n land
+PASS ft-merge-land.sh ≤ 120줄
+PASS ⓐ1 훅 거부 → REJECT 줄에 PUSH_DENIED 원문
+PASS ⓐ2 REJECT 줄에 전문=<파일> 1개(그 경로 실재)
+PASS ⓐ3 전문 파일에 훅 stderr 전 줄
+PASS ⓐ4 main 불변(착지 0)
+PASS ⓑ1 REJECT 에 remote: 사유 줄 최대 3줄(앞에서부터)
+PASS ⓑ2 앞 3줄만(1~4번째 줄 0)
+PASS ⓑ3 전문 파일에 5줄 전부
+PASS ⓑ4 main 불변
+PASS ⓒ1 연결 실패 → 재시도 1회(2시도) 그대로 · 착지 rc0
+PASS ⓒ2 성공 경로는 전문 파일 0
+PASS ⓓ1 성공 착지 LANDED + push ok 줄 불변
+PASS ⓓ2 성공 시 전문 파일 0
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# ft-ledger-fill fill|fresh [옵션] — 원장 자동 채움(r851) 얇은 입구 · 본체·옵션 설명 = ft_ledger_fill.py
+set -uo pipefail
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
+exec python3 "$HERE/ft_ledger_fill.py" "$@"

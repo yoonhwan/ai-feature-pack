@@ -1,0 +1,15 @@
+r846 r3 — 질문 여는 보낸 이 = 명부 좌석 이름 «정확 일치» 하나 (REWORK-r846-r3.md · DA⑥ r2 HOLD 반례)
+
+변경
+- kit/slack-mirror/mirror_questions.py on_roster: 계보(#N 뗀 이름) 허용 삭제 → `return seat in names` · 명부 못 읽음 = False + WARN(r2 그대로)
+- byz_mbox_slack_mirror.py 등록 조건 = 같은 함수(on_roster) · 코드 변경 0
+- tests/scripts/test_mirror_question_cap_r846.py
+  · test_r2_on_roster_exact_or_same_lineage_only → test_r3_on_roster_exact_match_only — 단정 뒤집기(명부에 없는 같은 계보 번호 byz-cfo-master-claude#113 · ft-harness-ops#0 = 질문 0)
+  · 새 test_r3_da_r2_counterexample_… — DA r2 반례 그대로: 명부 src#1 · from src#999 [HIL] → 질문 0 · 카드 1(#822 게시) · 이어 src#1 Q3 → 열림 ["3"] · 오빠 답 «진행해» → recips ["src#1","@planner"] q=3
+
+결과
+- green.txt: 24 passed rc=0
+- mut-lineage-revived.txt: 계보 허용 되살림(= r2 코드) → 2 failed(반례 칸: opened == {} 단정 · on_roster 정확 일치 단정)
+- regress.txt: 슬랙·미러 시험 12파일 186 passed rc=0
+- ruff.txt: All checks passed
+- press 필요: 없음(슬랙 라우터 · 오디오 무관)

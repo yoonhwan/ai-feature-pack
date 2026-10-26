@@ -1,0 +1,41 @@
+== DA⑥ r1 반례 4묶음 — 고친 뒤(기준판은 FORBID · 새 판은 통과였던 것) ==
+시험 파일: tests/test_autonomy_scope_fp_r909.sh (반려 4묶음 ⓐ~ⓝ + 변이 8)
+
+== 반례 1 (칸1) — 셸 문맥 예외를 «식별자 set(» 하나로 좁힘 ==
+· tools/env.dump (셔뱅 #!/bin/sh, 확장자 없음) 의 set 단독 → FORBID secret (이전 r1: FORBID 였으나 «확장자 없음 = 셸» 한 줄로만 잡힘 · 셔뱅 판정 신설)
+· ci/pipeline.yml 의 run: 블록 안 set → FORBID secret (r1: yaml 은 통째 예외 → 통과였음)
+· app/run.py 의 os.system("set") — 문자열 리터럴 속 set → FORBID secret (r1: .py 통째 예외 → 통과였음)
+· pkg/pack.py 에 셔뱅 + set(tags) → FORBID secret (셔뱅 있는 파일은 set( 도 판정) · 변이로 셔뱅 판정 끄면 통과(빨강)
+· app/gpu.py set(tags)·set(LIVE_GPUS) 는 종전대로 통과(오탐 고침 유지)
+
+== 반례 2 (칸2) — 시험 경로 예외 축소 ==
+· tests/credential.json 실값 → FORBID key (r1: tests/ 폴더 전체 예외 → 통과였음)
+· tests/secrets/credential.json → FORBID key (secrets 규칙을 (^|/)secrets/ 로 넓힘)
+· tests/credential_test.json → FORBID key (이름이 시험 꼴이어도 .json 이면 예외 0)
+· tests/secrets/credential.test.py → FORBID key (secrets/ 경로면 예외 0)
+· clients/web/__tests__/auth/credential-cookie-lifecycle.test.ts · tests/test_credential_x.py → key FORBID 0 (오탐 고침 유지)
+
+== 반례 3 (칸3) — .env 견본은 바뀐 뒤 «전문» dotenv 파싱 ==
+· main 의 기존 .env.example 따옴표 값 «안» 에 #줄 하나 추가 → FORBID key (r1: 추가 줄만 보고 주석으로 오인 → 통과였음)
+· 여러 줄 따옴표에 실값 → FORBID key · 여러 줄 따옴표가 자리표(<…>)뿐이면 → 통과
+· .env.example 이름만(빈 칸·자리표) 4건 → 통과 유지 · 실값 → FORBID 유지
+
+== 반례 4 (칸4) — 이름표 통과 축소 ==
+· printf "$API_SECRET_ID" (대입 줄 없음) → FORBID secret (_ID 를 이름표 목록에서 삭제 · 변이로 _ID 되살리면 통과=빨강)
+· DEFERRED=$TOSS_SECRET_KEY 뒤 echo "$DEFERRED" → FORBID secret (비밀 낱말이 없는 파생 변수도 비밀 취급)
+· OP_SECRET_ITEM_NAME=$TOSS_SECRET_KEY 뒤 echo → FORBID secret (이름표라도 값을 넣는 줄이 같은 파일에 있으면 통과 0)
+· echo "$OP_SECRET_ITEM_NAME" 단독 → 통과 유지(오탐 고침 유지)
+· cat "$X_FILE" 류(이름에 비밀 낱말 + _FILE) → FORBID(파일 내용 출력)
+
+== 회귀 0 (기존 묶음) ==
+test_autonomy_scope_fp_r909.sh rc=0 fails=0
+test_autonomy_scope_pack.sh rc=0 fails=0
+test_autonomy_scope_plain3_r658.sh rc=0 fails=0
+test_autonomy_scope.sh rc=0 fails=0
+test_scope_classify_keyword_docs.sh rc=0 fails=0
+test_secret_output_mask.sh rc=0 fails=0
+test_secret_scan.sh rc=0 fails=0
+test_autonomy_kinds_1675.sh rc=0 fails=0
+- test_autonomy_scope_classify.sh rc=1 FAIL 5 = base(origin/main 사본)와 동일(픽스처 remote URL 해석 실패 · 회귀 아님)
+- pytest test_ft_secret_judge + test_ft_secret_shapes + test_ft_hil_secret_lint = 447 passed rc0
+- ruff(바뀐 5 .py) All checks passed · kit 사본 cmp0(4파일 + ft_secret_judge + templates/hooks 2파일)

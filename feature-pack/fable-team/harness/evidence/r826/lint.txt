@@ -1,0 +1,10 @@
+# r826 lint
+## bash -n
+OK kit/fable-team/bin/ft-successor-open.sh
+OK bin/ft-successor-open.sh
+OK tests/test_successor_open.sh
+## shellcheck (변경 파일 · 경고 수 base 대비)
+new: 0
+base: 0
+## 짝 사본
+cmp0

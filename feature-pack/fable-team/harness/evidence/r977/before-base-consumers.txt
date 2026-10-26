@@ -1,0 +1,13 @@
+### base 1545012e (고침 전) — 소비자 4종
+=== test_secret_scan rc=0
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+=== test_secret_output_mask rc=0
+PASS 변이 placeholder → 오탐 축 FAIL 확인
+ALL PASS
+=== test_evidence_inject_scan rc=0
+PASS 11 변이(ⓒ 제거) → #3 SUSPECT 안 나옴(음성 대조)
+ALL PASS
+=== test_flag_off_scan rc=0
+
+ALL PASS

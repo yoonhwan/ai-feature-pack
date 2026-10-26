@@ -1,0 +1,28 @@
+# r911 구현 범위 4 — 정리 계획 생성 도구에 E1f 가 «자동 반영» 되는지 (코드 변경 0 확인 · 반송 r2 뒤 재확인)
+
+## 1. ft-wt-sweep.sh 는 판정기를 직접 안 부르고 ft-branch-archive.sh 를 부른다
+20:#     → 끝난 가지 재확인(refs/heads/nano/* 최신순 FT_WT_ARCHIVE_MAX 기본 200 · ft-branch-archive.sh · FINISHED 만 refs/archive 로) → 로그 <FT_ROOT>/.fable-team/state/wt-sweep.log 1줄 `cleaned=N wait=N hil=N … archived=N`.
+98:  AR="$(dirname "$SELF")/ft-branch-archive.sh"; ar=0; ask=0
+
+## 2. ft-branch-archive.sh 는 판정기를 FT_FINISHED_CHECK(기본 동일 폴더)로 부른다 — E1f 는 판정기 안에 있으므로 호출자 수정 0
+23:CHK="${FT_FINISHED_CHECK:-$HERE/ft-finished-check.sh}"
+24:out="$(bash "$CHK" "$T" --repo "$R" 2>&1)"; v="${out%%$'\n'*}"; v="${v%% *}"
+
+## 3. 이 카드(r2)에서 바꾼 «도구» 파일 — ft-wt-sweep.sh·ft-scratch-repo.sh·ft-branch-archive.sh 변경 0
+  (git status 를 bin/·tests/ 로 좁혀 본 결과 — 증거 로그 파일은 빼고)
+   M feature-pack/fable-team/harness/bin/ft-finished-check.sh
+   M feature-pack/fable-team/harness/kit/fable-team/bin/ft-finished-check.sh
+   M feature-pack/fable-team/harness/tests/test_finished_e1f_r911.sh
+  → 정리 도구(ft-wt-sweep·ft-scratch-repo·ft-branch-archive)는 목록에 없다 = 코드 변경 0
+
+## 4. 시험 ⓖ — ft-wt-sweep --launchd 가 E1f 로 끝난 nano 가지를 실제로 refs/archive 로 옮겼다
+PASS ⓖ wt-sweep --launchd: E1f 끝난 가지 이동(archived=5 archive_skip=3 replanned=0 hil_files=0 orphans=0 freed_kb=0) · ACTIVE 가지는 그대로(정리 도구 코드 변경 0)
+
+## 5. 실 리포: 새 판정기가 새로 «끝남» 으로 돌린 가지(표본 12)
+E0 ok 폴더 없음
+E1 no 카드 없음
+E2 no 카드 없음
+E3 ok 좌석 0
+E1f ok files=4
+branch=nano/m7-lst-runtime-cleanup-under-outer-cance sha=d5fe5dcb794c7f19c65c85cbf071cf72966d5b23 ahead=12 main=origin/main card=<0개> dir=<없음>
+WARN card 없음 — E1f ok 로 끝 처리(착지 줄·완성/ 불일치) · 카드 이동은 이 도구 몫 아님

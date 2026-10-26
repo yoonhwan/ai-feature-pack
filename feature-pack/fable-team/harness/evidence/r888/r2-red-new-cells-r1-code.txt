@@ -1,0 +1,21 @@
+# r2 red — 새 칸 ⓖⓗ · r1 판(c698f71b) ft-nano-close.sh · rc=1 FAILED 7 (r1 은 좌석 브랜치 기준·빈 결과를 CLOSED 로 통과시킴)
+== ⓖ 키트 2곳 같은 바이트 + bash -n
+== ⓐ --research: 증거 줄 없음 · cherry +0 · 미커밋 0 · --result 실재 → CLOSED rc0
+== ⓑ --research 인데 코드 커밋(cherry +1) · 미커밋 → REJECT «리서치 아님» (면제 0)
+== ⓒ --research 인데 --result 없음 → REJECT ①
+== ⓖ(r2) FT_NANO_FEAT=좌석 브랜치 + 구현 커밋 1 + --research → REJECT (기준 = origin/main 대비 고유 커밋)
+FAIL ⓖ rc=0 ← WARN ft-team-lib.sh 없음(<T>/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+FAIL   └ 사유에 «기준 브랜치가 좌석 자신» — 없음: «기준 브랜치가 좌석 자신» ← WARN ft-team-lib.sh 없음(<T>/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+FAIL ⓖ: 명부 삭제
+FAIL ⓖ: 원장 행 생김
+== ⓗ(r2) 0바이트 --result + --research → REJECT ①
+FAIL ⓗ rc=0 ← WARN ft-team-lib.sh 없음(<T>/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+FAIL ⓗ: 명부 삭제
+FAIL ⓗ: 원장 행 생김
+== ⓤ 다른 ⑥ 면제·우회 인자와 동시 → usage 2
+== ⓓ 로컬 루트 = 대기/ 옛 판 · origin/main = 진행/ 새 판 → origin/main 판을 읽는다
+== ⓓ origin/main 에 카드 없음 → 기존 후보 순서 그대로
+== ⓓ origin fetch 실패 → 옛 origin/main ref 를 최신으로 믿지 않는다(기존 순서 · 증거 줄 없음 REJECT)
+== ⓕ 변이 — 면제 제거 → ⓐ FAIL · origin/main 후보 제거 → ⓓ FAIL
+== ⓖ 600/300 s · 외부 호출 · GIT_* env 0 (r888 줄)
+FAILED 7

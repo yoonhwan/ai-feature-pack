@@ -1,0 +1,16 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+________ test_a_tool_alarms_open_no_question_so_oppa_post_is_not_stuck _________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-569/test_a_tool_alarms_open_no_que0')
+
+    def test_a_tool_alarms_open_no_question_so_oppa_post_is_not_stuck(tmp_path: Path):
+        qp = tmp_path / "byz_slack_questions.C1.json"
+>       assert not any(ask(qp, 100 + i, "ft-model-swap", f"[HIL] 자동 교대 불가 좌석{i}") for i in range(50))
+E       assert not True
+E        +  where True = any(<generator object test_a_tool_alarms_open_no_question_so_oppa_post_is_not_stuck.<locals>.<genexpr> at 0x10938b340>)
+
+tests/scripts/test_mirror_question_cap_r846.py:40: AssertionError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_mirror_question_cap_r846.py::test_a_tool_alarms_open_no_question_so_oppa_post_is_not_stuck
+1 failed, 18 deselected in 0.33s

@@ -38,7 +38,7 @@ EOF
 printf '#!/bin/bash\n[ "$1" = -P ] && awk -v p="$2" '"'"'$1==p{print $2}'"'"' "%s"\n' "$KIDF" > "$F/pgrep"
 printf '#!/bin/bash\ncase "$1" in\n send) echo "$*" >> "%s";;\n peek) f="%s/pend.${2//#/_}"; echo "pending=$( [ -f "$f" ] && cat "$f" || echo 0 ) scanned=1";;\nesac\n' "$MLOG" "$T" > "$F/mbox.sh"
 printf '#!/bin/bash\ncat "%s/auto.mode" 2>/dev/null || echo off\n' "$T" > "$F/autonomy.sh"
-printf '#!/bin/bash\nrc=$(cat "%s/gate.rc" 2>/dev/null || echo 0)\n[ "$rc" = 0 ] && echo "OK disk=99" || echo "REJECT resource swap=99999 limit=8192"\nexit "$rc"\n' "$T" > "$F/gate.sh"
+printf '#!/bin/bash\n[ -f "%s/gate.warn" ] && { cat "%s/gate.warn"; exit 0; }\nrc=$(cat "%s/gate.rc" 2>/dev/null || echo 0)\n[ "$rc" = 0 ] && echo "OK disk=99" || echo "REJECT resource swap=99999 limit=8192"\nexit "$rc"\n' "$T" "$T" "$T" > "$F/gate.sh"
 printf '#!/bin/bash\necho "$*" >> "%s"\nexit $(cat "%s/zc.rc" 2>/dev/null || echo 0)\n' "$ZLOG" "$T" > "$F/zc.sh"
 cat > "$F/seat-status.sh" <<EOF
 #!/bin/bash
@@ -160,6 +160,13 @@ TICK >/dev/null; eq "$(wc -l < "$ZLOG" | tr -d ' ')" 0 "④ 자원 REJECT 면 zo
 has "$(cat "$MLOG")" "자원 문지기 REJECT" "④ REJECT 사유는 planner 에게"
 echo 0 > "$T/gate.rc"; TICK >/dev/null; eq "$(wc -l < "$ZLOG" | tr -d ' ')" 1 "④ 자원이 풀리면 1회(REJECT 때 원장을 태우지 않았다)"
 
+# ── ④' ★r921★ 문지기 WARN 은 «멈춤» 이 아니다 — 판정은 «재개 실행 기록»(ZLOG)으로(문자열 검사 아님) ──
+reset; roster "$M:master:claude"; live "$M" %1 100 1001 uuid-m; TICK >/dev/null; echo on > "$T/auto.mode"; die_seat "$M"
+printf 'WARN resource agents=99 limit=65\n' > "$T/gate.warn"
+TICK >/dev/null; eq "$(grep -c 'resume ' "$ZLOG")" 1 "④' r921 자원 WARN 이어도 재개 1회 «실행»(기록)"
+has "$(cat "$MLOG")" "자원 WARN — 재개 진행" "④' WARN 사실은 planner 에게 1줄(조용한 진행 0)"
+rm -f "$T/gate.warn"; reset; roster "$M:master:claude"
+
 # ── 재개 명령 실패 = 즉시 failed · ok 경로 · 새 uuid 만 새 원장 ──
 reset; roster "$M:master:claude"; live "$M" %1 100 1001 uuid-m; TICK >/dev/null; echo on > "$T/auto.mode"; die_seat "$M"; echo 1 > "$T/zc.rc"
 TICK >/dev/null; eq "$(RA state "$M" uuid-m)" failed "ⓔ resume 명령이 실패하면 그 자리에서 failed"; has "$(cat "$MLOG")" "[재개 실패]" "ⓔ 실패 알림"
@@ -192,16 +199,17 @@ printf 'IDLE %s 5000 yes jsonl\n' "$(ago 11)" > "$T/turn.${N//#/_}"; TICK >/dev/
 R="$T/repo"; B="$T/sbin"; SS="$R/.fable-team/seats.json"; CARD="design/v65/indices/대기/r163x.md"; SF="$T/sfake"; mkdir -p "$R/.fable-team" "$R/design/v65/indices/대기" "$R/design/v65/indices/진행" "$B" "$T/sess" "$SF"
 mkdir -p "$R/design"; printf '| 팀 | 폴더 | x | y |\n|---|---|---|---|\n| harness | `design/harness/` | h | 현역 |\n| planner | `design/planner/` | p | 현역 |\n| v65 | `design/v65/` | v | 현역 |\n' > "$R/design/TEAMS.md"   # R383: spawn 이 팀 폴더 명단을 읽는다
 git -C "$R" init -q -b main && : > "$R/.gitkeep" && git -C "$R" add -A && git -C "$R" -c user.email=t@t -c user.name=t commit -q -m init
-printf '# 인덱스: r163x\n## 상태\n' > "$R/$CARD"; printf 'x\n' > "$R/design/v65/SEATBELT-README.md"; export FT_TEAMS_REF=HEAD   # R406: 명단 = ref — 픽스처는 origin/main ref 0 · 명단은 init 커밋(HEAD)에 있다
-cp -p "$BIN/ft-nano-spawn.sh" "$KIT/ft_raised.py" "$KIT/ft_teamset.py" "$KIT/ft_spawn_queue.py" "$KIT/ft-team-lib.sh" "$B/"
+printf '# 인덱스: r163x\n- Issue: #1\n## 상태\n' > "$R/$CARD"; printf 'x\n' > "$R/design/v65/SEATBELT-README.md"; export FT_TEAMS_REF=HEAD   # R406: 명단 = ref — 픽스처는 origin/main ref 0 · 명단은 init 커밋(HEAD)에 있다
+cp -p "$BIN/ft-nano-spawn.sh" "$KIT/ft-spawn-issue-gate.sh" "$KIT/ft_raised.py" "$KIT/ft_teamset.py" "$KIT/ft_spawn_queue.py" "$KIT/ft-team-lib.sh" "$B/"
 for f in ft-index-lint.sh ft-proposal-gate.sh ft-send-verified.sh ft-resource-gate.sh ft-agent-ready.sh ft-all-stop.sh; do printf '#!/bin/bash\nexit 0\n' > "$B/$f"; done   # r686: ft-all-stop.sh = spawn 이 늘 부르는 전팀 정지 check(r626) — 이 시험은 기준선만 본다
 . "$HERE/lib/bin_source_deps.sh"; copy_source_deps "$BIN" "$B" || bad "r686 사본 source 대상 채우기"   # r686: spawn 이 source 하는 같은 폴더 lib(r672 research-seat …)
 printf '#!/bin/bash\nsrc="$1"; dst="${src/\\/대기\\//\\/진행\\/}"; mkdir -p "$(dirname "$dst")"; mv "$src" "$dst"\n' > "$B/ft-index-move.sh"
 printf '#!/bin/bash\n[ "$1" = key ] && { echo k; exit 0; }\nexit 0\n' > "$B/ft-sheet-events.sh"
+printf '#!/bin/bash\necho "{\\"number\\":1,\\"state\\":\\"OPEN\\",\\"url\\":\\"https://github.com/o/r/issues/1\\"}"\n' > "$SF/gh-open"   # r823: 착수 게이트 = 픽스처 카드 #1 열린 이슈(가짜 gh)
 printf '#!/bin/bash\nif [ "$1" = open ]; then n=""; dry=0; while [ $# -gt 0 ]; do [ "$1" = --name ] && n="$2"; [ "$1" = --dry-run ] && dry=1; shift; done; [ $dry = 1 ] && echo "TMUXC-DRY $n" || : > "%s/sess/$n"; fi\n' "$T" > "$SF/tmuxc"
 printf '#!/bin/bash\ncase "$1" in\n has-session) [ -e "%s/sess/${3#=}" ];;\n list-panes) for s in "%s"/sess/*; do [ -e "$s" ] && echo "$(basename "$s")|%%1|1700000000"; done; exit 0;;\n show-option) echo 1;;\n *) exit 0;;\nesac\n' "$T" "$T" > "$SF/tmux"
-chmod +x "$B"/*.sh "$SF/tmuxc" "$SF/tmux"; printf '{"_master":"m#1","m#1":{"role":"master","agent":"claude","tick":null}}\n' > "$SS"
-SP() { (cd "$R" && env PATH="$SF:$PATH" FT_SEATS_JSON="$SS" "$@" bash "$B/ft-nano-spawn.sh" "$R/${CARDX:-$CARD}" --from m#1 2>"$T/sp.err"); }
+chmod +x "$B"/*.sh "$SF/tmuxc" "$SF/tmux" "$SF/gh-open"; printf '{"_master":"m#1","m#1":{"role":"master","agent":"claude","tick":null}}\n' > "$SS"
+SP() { (cd "$R" && env PATH="$SF:$PATH" FT_GH_READ="$SF/gh-open" FT_SEATS_JSON="$SS" "$@" bash "$B/ft-nano-spawn.sh" "$R/${CARDX:-$CARD}" --from m#1 2>"$T/sp.err"); }
 o="$(SP FT_NANO_CARD_BASE_DIR="$T/cb")"; has "$o" "SPAWNED " "ⓕ spawn 성공 출력 그대로"
 NM="$(ls "$T/sess" | head -1)"; CBF="$T/cb/$NM.json"
 [ -f "$CBF" ] && ok "ⓕ 기준선 파일 생김" || bad "ⓕ 기준선 파일 없음"
@@ -209,7 +217,7 @@ eq "$(python3 -c 'import json,sys;d=json.load(open(sys.argv[1]));print(d["card_p
 eq "$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["card_blob"])' "$CBF")" "$(git -C "$R" hash-object "$R/design/v65/indices/진행/r163x.md")" "ⓕ card_blob = git hash-object"
 has "$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["worktree"])' "$CBF")" "/.worktrees/v65-r163x" "ⓕ worktree"
 eq "$(ls "$T/cb" | grep -c tmp)" 0 "ⓕ tmp 잔존 0"
-printf '# 인덱스: r163y\n## 상태\n' > "$R/design/v65/indices/대기/r163y.md"; CARDX="design/v65/indices/대기/r163y.md"
+printf '# 인덱스: r163y\n- Issue: #1\n## 상태\n' > "$R/design/v65/indices/대기/r163y.md"; CARDX="design/v65/indices/대기/r163y.md"
 : > "$T/blocker"; o="$(SP FT_NANO_CARD_BASE_DIR="$T/blocker/x")"; has "$o" "SPAWNED " "ⓕ 기준선 쓰기 실패여도 spawn 결과 그대로"; has "$(cat "$T/sp.err")" "WARN spawn 카드 기준선 쓰기 실패" "ⓕ 쓰기 실패 = stderr 1줄"
 
 # ── 변이 3 (정본 실행에서만): 원장 선점 삭제 → ⓔ실패 · log 대조 삭제 → ②실패 · 문지기 검사 삭제 → ④실패 ──

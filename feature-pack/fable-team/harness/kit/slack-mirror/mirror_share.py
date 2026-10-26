@@ -10,6 +10,7 @@ import os
 import re
 import shlex
 import subprocess
+import sys
 from pathlib import Path
 
 HEADS = ("작업상황", "이슈보고", "변경내용", "상태")
@@ -77,7 +78,7 @@ def share_lines(what: str | None, todo: str | None, text: str, label: str) -> tu
 
 def live_planner(seats: str | Path | None = None, key: str = "_master") -> tuple[str | None, str]:
     """(현역 세션 이름 | None, 사유). 명부 `key`(기본 `_master` · desk 수신은 `_desk`)를 읽고 tmux 로 살아 있는지 확인한다 — `_hil_route` 는 읽지 않는다.
-    사유 5종: 명부 없음 · JSON 오류 · <key> 없음 · tmux 실행 실패 · 세션 없음. 명부 경로 = 인자 → env MIRROR_PLANNER_SEATS · tmux = env MIRROR_TMUX."""
+    사유 5종: 명부 없음 · JSON 오류(깊은 중첩·메모리 부족은 뒤에 예외 이름) · <key> 없음 · tmux 실행 실패 · 세션 없음. 명부 경로 = 인자 → env MIRROR_PLANNER_SEATS · tmux = env MIRROR_TMUX."""
     path = seats or os.environ.get("MIRROR_PLANNER_SEATS")
     if not path:
         return None, "명부 없음"
@@ -87,8 +88,9 @@ def live_planner(seats: str | Path | None = None, key: str = "_master") -> tuple
         return None, "명부 없음"
     try:
         data = json.loads(raw)
-    except ValueError:
-        return None, "JSON 오류"
+    except (ValueError, RecursionError, MemoryError) as e:  # r846 r5: 깊은 중첩·거대 명부도 «못 읽음» — 보이게(ERROR) 사유로 돌려준다
+        print(f"ERROR: 명부 못 읽음 · {Path(path).name} · {type(e).__name__}", file=sys.stderr)
+        return None, "JSON 오류" if isinstance(e, ValueError) else f"JSON 오류 {type(e).__name__}"
     name = data.get(key) if isinstance(data, dict) else None
     if not isinstance(name, str) or not name:
         return None, f"{key} 없음"

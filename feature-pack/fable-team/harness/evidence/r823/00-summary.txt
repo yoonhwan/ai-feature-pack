@@ -1,0 +1,15 @@
+r823 착수 = 열린 깃 이슈 — 증거 요약 (나노 byz-harness-nano-r823-spawn-requires-open-issue#0 · 2026-10-24)
+
+바뀐 것
+- kit/fable-team/bin/ft-nano-spawn.sh: 제안서 게이트(①-0) 바로 뒤 · ①b 카드 base_sha 쓰기 «전» · --research·--dry-run 아닐 때 ft-spawn-issue-gate.sh 호출 1곳(+5줄).
+- kit/fable-team/bin/ft-spawn-issue-gate.sh (새): 머리 `- Issue:` 첫 #숫자 → gh issue view 1회(timeout -s KILL 7 · 출력 0 일 때만 재시도 1) → OPEN 만 rc0.
+- 짝 사본 harness/bin/ 두 파일 cmp0 · 시험 tests/test_spawn_issue_gate_r823.sh.
+
+시험
+- red-before-spawn-wiring.txt: 게이트 스크립트만 있고 spawn 호출 없는 판 → FAIL 20(ⓐ Issue 없음 카드가 PLAN 까지 착수 등).
+- green.txt · green-x3.txt: 48 PASS · 반복 3회 rc0 (ⓒ 시간 초과 경과 14 s ≤ 15).
+- existing-spawn-tests.md: ft-nano-spawn 을 부르는 기존 시험 49개 — PASS 40 · 기존 실패 9(원본 spawn 도 같은 FAIL 줄 집합 · 변경 무관).
+- 변이 3(시험 안 ⓘ): 호출 삭제 → ⓐ PLAN · 열림 확인 삭제 → CLOSED 통과 · 출력 확인 삭제 → 불완전 JSON 재시도.
+
+press 필요: 없음(라이브 오디오 무관).
+남은 것(나노 소관 밖): 외부 DA 1회(arch) · 착지 · 설치 cmp0 · 실사건 1(master). 순서표상 r818·r821 착지 뒤 착지 — 이 가지 base(4b3a6a9e)에는 r818·r821 착지 커밋 없음.

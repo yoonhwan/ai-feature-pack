@@ -1,0 +1,47 @@
+# ⓖ 변이1: 시도당 상한 7→2 (ⓐ 가 FAIL 해야)
+149c149
+<     curl -sf -m7 "$1" >/dev/null 2>&1 && return 0
+---
+>     curl -sf -m2 "$1" >/dev/null 2>&1 && return 0
+test_a_slow_but_alive_proxy_launches_claude (feature-pack.headroom.tests.test_claude_hr_probe_timeout_r829.ClaudeHrProbeSevenSecondRule.test_a_slow_but_alive_proxy_launches_claude) ... 
+  test_a_slow_but_alive_proxy_launches_claude (feature-pack.headroom.tests.test_claude_hr_probe_timeout_r829.ClaudeHrProbeSevenSecondRule.test_a_slow_but_alive_proxy_launches_claude) (layer='cliproxy') ... FAIL
+  test_a_slow_but_alive_proxy_launches_claude (feature-pack.headroom.tests.test_claude_hr_probe_timeout_r829.ClaudeHrProbeSevenSecondRule.test_a_slow_but_alive_proxy_launches_claude) (layer='headroom') ... FAIL
+test_b_first_attempt_hangs_retry_succeeds (feature-pack.headroom.tests.test_claude_hr_probe_timeout_r829.ClaudeHrProbeSevenSecondRule.test_b_first_attempt_hangs_retry_succeeds) ... ok
+test_c_both_attempts_hang_refuses_within_deadline (feature-pack.headroom.tests.test_claude_hr_probe_timeout_r829.ClaudeHrProbeSevenSecondRule.test_c_both_attempts_hang_refuses_within_deadline) ... ok
+test_d_connection_refused_fails_fast_twice (feature-pack.headroom.tests.test_claude_hr_probe_timeout_r829.ClaudeHrProbeSevenSecondRule.test_d_connection_refused_fails_fast_twice) ... ok
+
+======================================================================
+FAIL: test_a_slow_but_alive_proxy_launches_claude (feature-pack.headroom.tests.test_claude_hr_probe_timeout_r829.ClaudeHrProbeSevenSecondRule.test_a_slow_but_alive_proxy_launches_claude) (layer='cliproxy')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r829-claude-hr-cliproxy-probe-7s-rule/feature-pack/headroom/tests/test_claude_hr_probe_timeout_r829.py", line 170, in test_a_slow_but_alive_proxy_launches_claude
+    self.assertEqual(result.returncode, 0, msg)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 69 != 0 : R829 a layer=cliproxy rc=69 claude=0 attempts=2 elapsed=4.33s
+claude-hr: cliproxy 경유가 요청됐지만 :8317 /v1/models 실패 — 직결 폴백을 거부한다
+
+
+======================================================================
+FAIL: test_a_slow_but_alive_proxy_launches_claude (feature-pack.headroom.tests.test_claude_hr_probe_timeout_r829.ClaudeHrProbeSevenSecondRule.test_a_slow_but_alive_proxy_launches_claude) (layer='headroom')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r829-claude-hr-cliproxy-probe-7s-rule/feature-pack/headroom/tests/test_claude_hr_probe_timeout_r829.py", line 170, in test_a_slow_but_alive_proxy_launches_claude
+    self.assertEqual(result.returncode, 0, msg)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 69 != 0 : R829 a layer=headroom rc=69 claude=0 attempts=2 elapsed=4.26s
+claude-hr: headroom 경유가 요청됐지만 :8790 health 실패 — 직결 폴백을 거부한다
+
+
+----------------------------------------------------------------------
+Ran 4 tests in 27.439s
+
+FAILED (failures=2)
+R829 a layer=cliproxy rc=69 claude=0 attempts=2 elapsed=4.33s
+R829 a layer=headroom rc=69 claude=0 attempts=2 elapsed=4.26s
+R829 b layer=cliproxy rc=0 claude=1 attempts=2 elapsed=3.42s
+R829 b layer=headroom rc=0 claude=1 attempts=2 elapsed=3.41s
+R829 c layer=cliproxy rc=69 claude=0 attempts=2 elapsed=4.34s
+R829 c layer=headroom rc=69 claude=0 attempts=2 elapsed=4.26s
+R829 d layer=cliproxy rc=69 claude=0 attempts=2 elapsed=0.33s
+R829 d layer=headroom rc=69 claude=0 attempts=2 elapsed=0.30s
+rc=1

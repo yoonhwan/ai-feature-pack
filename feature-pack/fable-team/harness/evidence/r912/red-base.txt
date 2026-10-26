@@ -1,0 +1,45 @@
+# 전(red) — base=origin/main (3330d7ff) 의 comm/mbox_ops.py · bin/ft_model_swap*.py · kit/skill ft-mbox.py + mbox_keep.py 없음
+# 새 시험이 «실패»해야 정상(고치기 전 결함을 시험이 실제로 잡는지).
+## shell: bash tests/test_mbox_keep_human_mail.sh
+FAIL ⓐ rows_to=10 human=0 system=10 drops=3
+FAIL ⓑ rows_to=10 err=WARN desk 경로 판정기 없음(?) — 설치 순서 · desk 무관 쪽지 통과 WARN desk 경로 판정기 없음(?) — 설치 순서 · desk 무관 쪽지 통과 WARN desk 경로 판정기 없음(?) — 설치 순서 · desk 무관 쪽지 통과 WARN desk 경로 판정기 없음(?) — 설치 순서 · desk 무관 쪽지 통과 WARN desk 경로 판정기 없음(?) — 설치 순서 · desk 무관 쪽지 통과 WARN desk 경로 판정기 없음(?) — 설치 순서 · desk 무관 쪽지 통과 WARN desk 경로 판정기 없음(?) — 설치 순서 · desk 무관 쪽지 통과 WARN desk 경로 판정기 없음(?) — 설치 순서 · desk 무관 쪽지 통과 WARN desk 경로 판정기 없음(?) — 설치 순서 · desk 무관 쪽지 통과 WARN desk 경로 판정기 없음(?) — 설치 순서 · desk 무관 쪽지 통과 WARN desk 경로 판정기 없음(?) — 설치 순서 · desk 무관 쪽지 통과 DROPPED 1 oldest to=R2 (ring=10 포화) — 이 좌석이 10건을 안 읽고 쌓아뒀다. 가장 오래된 1건은 «영구 유실»이다. 좌석 상태를 보고, 급하면 pane 으로 직접 보낸다. 
+Traceback (most recent call last):
+  File "<stdin>", line 3, in <module>
+ModuleNotFoundError: No module named 'mbox_keep'
+FAIL ⓒ  
+FAIL ⓕ kit rows_to=10 human=0 drops=3
+FAIL ⓖ rows_to=10 human=0 tick=0 news=5 sec=5 drops=16
+FAIL ⓗ rows_to=10 seat=0 sys=10
+Traceback (most recent call last):
+  File "<stdin>", line 5, in <module>
+FileNotFoundError: [Errno 2] No such file or directory: '/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DrkEoVrXid/red/fable-team/harness/tests/../../harness/comm/mbox_keep.py'
+FAIL ⓘ  
+Traceback (most recent call last):
+  File "<stdin>", line 3, in <module>
+ModuleNotFoundError: No module named 'mbox_keep'
+Traceback (most recent call last):
+  File "<stdin>", line 3, in <module>
+ModuleNotFoundError: No module named 'mbox_keep'
+FAIL ⓚ     human=0 tool=10 drops=2
+--- 변이 대조(빨강이어야 정상)
+RED-OK mut_nohuman
+RED-OK mut_noerror
+RED-OK mut_headfirst
+RED-OK mut_kitold
+RED-OK mut_skillold
+RED-OK mut_wide
+결과: fail=8
+rc=1
+## py: pytest tests/scripts/test_model_swap_notify_coalesce.py
+FAILED tests/scripts/test_model_swap_notify_coalesce.py::test_d_same_seat_same_reason_three_times_in_ten_minutes_is_one_mail
+FAILED tests/scripts/test_model_swap_notify_coalesce.py::test_d2_recovery_then_restuck_window_boundary
+FAILED tests/scripts/test_model_swap_notify_coalesce.py::test_i_r912_counter_counts_attempts_that_were_suppressed
+FAILED tests/scripts/test_model_swap_notify_coalesce.py::test_state_file_broken_sends_anyway_with_warn
+FAILED tests/scripts/test_model_swap_notify_coalesce.py::test_state_file_unreadable_sends_anyway_with_warn
+FAILED tests/scripts/test_model_swap_notify_coalesce.py::test_i_first_send_fails_then_next_tick_sends_again
+FAILED tests/scripts/test_model_swap_notify_coalesce.py::test_j_window_save_failure_sends_anyway_with_warn
+FAILED tests/scripts/test_model_swap_notify_coalesce.py::test_j2_send_ok_then_save_failure_still_counts_as_sent
+FAILED tests/scripts/test_model_swap_notify_coalesce.py::test_kit_pair_identical[ft_model_swap.py]
+FAILED tests/scripts/test_model_swap_notify_coalesce.py::test_kit_pair_identical[ft_model_swap_account.py]
+10 failed, 5 passed in 5.63s
+rc=1

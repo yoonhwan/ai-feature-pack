@@ -1,0 +1,14 @@
+ERROR magazine_doc: 쉬운 풀이 생략 key=카드:design/teams/room/indices/완성/R-room-session-bar-participants-popover.md 사유=지침
+ERROR magazine_doc: 쉬운 풀이 생략 key=카드:design/teams/knowledge/indices/완성/loom-789-u2-org-admin-press.md 사유=차단 단어
+ERROR magazine_doc: 쉬운 풀이 생략 key=카드:design/teams/chatbot/indices/완성/C-brain-t1-thread-persist.md 사유=차단 단어
+WARNING magazine_goal: 골 표 없이 진행(비무장): FT_ROOT 없음 — 골 표 판정기 위치를 알 수 없다
+WARNING magazine_goal: 팀별 완성 진행 없이 진행: FT_ROOT 없음 — 골 표 판정기 위치를 알 수 없다
+WARNING magazine_goal: 표준절차 골 없이 진행: FT_ROOT 없음 — 골 표 판정기 위치를 알 수 없다
+DRY-RUN warn=0 elapsed=0.0s html=/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r867-morning-magazine-celebration-eli5-r/feature-pack/fable-team/harness/evidence/r867/dryrun/MAGAZINE-DOC-2026-10-25-ef5de4e021.html
+--- 슬랙 뿌리 글 ---
+매거진 2026-10-25 · 오빠 확인판
+윗부분은 끝낸 일 축하, 아랫부분은 남은 일 풀 설명 — 한 쪽짜리 HTML 이 스레드에 붙어 있어요.
+SLACK 링크 없음(드라이런)
+real 11.93
+user 0.41
+sys 0.48
