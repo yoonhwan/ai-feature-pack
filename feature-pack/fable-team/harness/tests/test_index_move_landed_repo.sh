@@ -157,7 +157,7 @@ bg k1 bash -c 'printf "## §1 닫힘: kpack\n" | PATH="$1:$PATH" bash "$2/ft-ind
 # ⓛ git 대역이 SIGTERM 을 무시하는 자식 sleep 을 띄운다 → 시간 초과(rc124 · 재시도 1회 = 2번 띄움) 뒤 그 자식 생존 0
 FL="$T/fakegit-child"; mkfake "$FL" 'case " $* " in *" rev-parse HEAD "*) echo c >> "'"$T"'/childcalls"; trap "" TERM; sleep 60 & echo $! >> "'"$T"'/childpids"; wait;; esac'
 : > "$T/childpids"; : > "$T/childcalls"
-t0=$SECONDS; out="$(export PATH="$FL:$PATH"; ft_git_capped 3 "$CR" rev-parse HEAD)"; rc=$?; el=$((SECONDS - t0)); sleep 0.5
+t0=$SECONDS; out="$(export PATH="$FL:$PATH"; ft_git_capped 3 "$CR" rev-parse HEAD)"; rc=$?; el=$((SECONDS - t0))
 alive=0; n=0; while read -r cp; do n=$((n+1)); kill -0 "$cp" 2>/dev/null && alive=$((alive+1)); done < "$T/childpids"
 calls="$(wc -l < "$T/childcalls" | tr -d ' ')"
 [ "$rc" = 124 ] && [ "$calls" = 2 ] && [ "$n" -ge 1 ] && [ "$alive" = 0 ] && [ "$el" -le 10 ] && ck "ⓛ 시간 초과 rc124 · 재시도 1회 실제 수행(git ${calls}회 기동 · 자식 ${n}개) · 자식 sleep 생존 ${alive} · 소요 ${el}초" 0 || ck "ⓛ 자식 정리 :: rc=$rc calls=$calls n=$n alive=$alive el=$el" 1
@@ -177,7 +177,7 @@ FO="$T/fakegit-first"; mkfake "$FO" 'case " $* " in *" rev-parse "*) k="$(printf
 : > "$T/firstpids"
 t0=$SECONDS
 out="$(PATH="$FO:$PATH" FT_HARNESS_ROOT="$KD" python3 "$GATE" "$cpk" --root "$CR" --seats-dir "$T/none" --comm "$T/none" --closing --da "$CR/design/harness/DA-row.md#§1" --landed "$P1" 2>&1)"; rc=$?
-el=$((SECONDS - t0)); sleep 0.5
+el=$((SECONDS - t0))
 alive=0; n=0; while read -r cp; do n=$((n+1)); kill -0 "$cp" 2>/dev/null && alive=$((alive+1)); done < "$T/firstpids"
 [ "$rc" = 0 ] && [[ "${out%%$'\n'*}" == "LANDED-CLOSE sha=$P1"* ]] && [ "$n" -ge 3 ] && [ "$el" -gt 20 ] && [ "$el" -le 70 ] && [ "$alive" = 0 ] \
   && ck "ⓞ 보류 가드: 세 조회 첫 호출 모두 지연(자식 ${n}개) → 바깥이 먼저 끊지 않고 LANDED-CLOSE · 소요 ${el}초(20 초과 ≤ 70) · 자식 생존 ${alive}" 0 || ck "ⓞ 바깥 상한 :: rc=$rc n=$n el=$el alive=$alive out=${out:0:200}" 1
@@ -188,9 +188,21 @@ out="$(PATH="$FO2:$PATH" python3 -c '
 import sys; sys.path.insert(0, sys.argv[1])
 from ft_git_capped import run_cmd
 rc, _ = run_cmd(["python3", sys.argv[1] + "/ft_git_capped.py", "30", sys.argv[2], "rev-parse", "HEAD"], 2)
-print(rc)' "$BIN" "$CR" 2>&1)"; sleep 0.5
+print(rc)' "$BIN" "$CR" 2>&1)"
 alive=0; n=0; while read -r cp; do n=$((n+1)); kill -0 "$cp" 2>/dev/null && alive=$((alive+1)); done < "$T/hangpids"
 [ "$out" = 124 ] && [ "$n" -ge 1 ] && [ "$alive" = 0 ] && ck "ⓞ2 바깥 상한이 끊으면 rc124 · 안쪽 실행기가 git 그룹까지 정리(자식 ${n}개 중 생존 ${alive})" 0 || ck "ⓞ2 바깥 끊김 정리 :: out=$out n=$n alive=$alive" 1
+
+# ⓟ git 자신의 종료 코드 124(시간 초과 아님)는 재시도 없이 그대로 · 출력 보존 / 첫 호출 rc124+출력 → 그대로 rc124(둘째 호출 0)
+FP="$T/fakegit-rc124"; mkfake "$FP" 'case " $* " in *" rev-parse "*) echo c >> "'"$T"'/rc124calls"; echo SENTINEL; exit 124;; esac'
+: > "$T/rc124calls"
+out="$(export PATH="$FP:$PATH"; ft_git_capped 7 "$CR" rev-parse HEAD)"; rc=$?
+calls="$(wc -l < "$T/rc124calls" | tr -d ' ')"
+[ "$rc" = 124 ] && [ "$out" = SENTINEL ] && [ "$calls" = 1 ] && ck "ⓟ git 자신의 rc124(지연 0): 호출 ${calls}회 · rc124 · 출력 SENTINEL 보존(재시도·출력 버림 0)" 0 || ck "ⓟ git rc124 :: rc=$rc calls=$calls out=$out" 1
+FP2="$T/fakegit-rc124-then0"; mkfake "$FP2" 'case " $* " in *" rev-parse "*) echo c >> "'"$T"'/rc124calls2"; if [ "$(wc -l < "'"$T"'/rc124calls2")" -le 1 ]; then echo FIRST; exit 124; fi;; esac'
+: > "$T/rc124calls2"
+out="$(export PATH="$FP2:$PATH"; ft_git_capped 7 "$CR" rev-parse HEAD 2>/dev/null | head -1)"
+calls="$(wc -l < "$T/rc124calls2" | tr -d ' ')"
+[ "$out" = FIRST ] && [ "$calls" = 1 ] && ck "ⓟ 첫 호출 rc124+출력 FIRST → 둘째 호출로 성공 출력을 만들지 않는다(호출 ${calls}회)" 0 || ck "ⓟ 첫 호출 rc124 :: out=$out calls=$calls" 1
 
 # ⓘ bash 3.2(/bin/bash) 문법 — 이 카드가 고친 파일 전부 + 이 시험을 /bin/bash 로 1회
 b32=0

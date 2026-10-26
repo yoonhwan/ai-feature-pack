@@ -87,3 +87,13 @@ r3 에서 시험 사본 목록에 `ft_git_capped.py` 를 더했다(실행기가 
 - `after-r3b.txt` 34/34 PASS · `after-r3b-bin-bash32.txt` `/bin/bash` 3.2 로 34/34 PASS
 - `mutate8-outer-timeout-20.txt` 바깥 20초 복귀 → ⓞ 빨강(소요 20초에 끊김) · `mutate9-term-cleanup-off.txt` 안쪽 SIGTERM 정리 끔 → ⓞ2 빨강(자식 생존 1)
 - 부수: `subprocess` import 가 안 쓰여 ruff F401 → 제거(`test_da_hold_gate_landed` ruff 칸 통과) · 회귀 `test_da_hold_gate` 7 FAIL(기준판과 같음) · 나머지 기존 시험 rc0
+
+## astra DA r2 HOLD 1곳 → r3c — 재시도는 «실제 시간 초과» 만 (REWORK-r937-astra-r2.md)
+
+| 반례 | 고침 | 시험 |
+|---|---|---|
+| `ft_git_capped.py` 가 git 이 스스로 낸 rc124(시간 초과 아님)도 재시도하고 출력을 버림 → «sentinel + exit 124» 가 1회·출력 보존에서 2회·출력 소실로 바뀜 | `_once` 가 `(rc, 출력, 실제 시간 초과 여부)` 를 돌려주고 `run` 은 세 번째 값이 참일 때만 재시도. git 자신의 종료 코드(124 포함)와 출력은 그대로. 부수로 SIGKILL 뒤 그룹이 빌 때까지(최대 1초) 확인해 반환 직후 자식 생존 0 을 보장 | ⓟ(git 대역 «SENTINEL + exit 124» 지연 0 → 호출 1회 · rc124 · 출력 보존 / 첫 호출 rc124+출력 → 둘째 호출로 성공 출력을 만들지 않음) · ⓛⓞⓞ2 의 자식 검사 앞 `sleep 0.5` 제거(반환 직후 검사) |
+
+- `after-r3c.txt` 36/36 PASS · `after-r3c-bin-bash32.txt` `/bin/bash` 3.2 로 36/36 PASS
+- `mutate10-retry-any-rc124.txt` 재시도를 rc124 전부로 복귀 → ⓟ 2건 빨강(호출 2회)
+- 회귀: `test_da_hold_gate` 7 FAIL(기준판과 같음) · 나머지 기존 시험 rc0 · 사본 cmp0 7개

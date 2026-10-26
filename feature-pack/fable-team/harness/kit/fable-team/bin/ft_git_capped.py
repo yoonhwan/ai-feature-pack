@@ -9,6 +9,7 @@ import os
 import signal
 import subprocess
 import sys
+import time
 
 RETRIES = 1
 GRACE = 0.5
@@ -29,41 +30,54 @@ def _kill_group(p: "subprocess.Popen[bytes]") -> None:
         p.communicate(timeout=2)
     except (subprocess.TimeoutExpired, ValueError):
         pass
+    _wait_group_gone(p.pid)
+
+
+def _wait_group_gone(pgid: int) -> None:
+    """SIGKILL 직후 그룹의 프로세스가 사라질 때까지 최대 1초 확인 — 반환 순간 자식 생존 0 을 보장한다."""
+    for _ in range(100):
+        try:
+            os.killpg(pgid, 0)
+        except (ProcessLookupError, PermissionError):
+            return
+        time.sleep(0.01)
 
 
 _CUR: "subprocess.Popen[bytes] | None" = None   # 지금 도는 자식 — 바깥이 SIGTERM 으로 끊으면 핸들러가 이 그룹까지 정리한다
 
 
-def _once(cmd: list[str], lim: float) -> tuple[int, bytes]:
+def _once(cmd: list[str], lim: float) -> tuple[int, bytes, bool]:
+    """(rc, stdout, 실제 시간 초과 여부) — 시간 초과 표시는 세 번째 값뿐이다(git 자신이 낸 rc124 와 섞이지 않는다)."""
     global _CUR
     try:
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL, start_new_session=True)
     except OSError:
-        return 128, b""
+        return 128, b"", False
     _CUR = p
     try:
         out, _e = p.communicate(timeout=lim)
-        return p.returncode, out or b""
+        return p.returncode, out or b"", False
     except subprocess.TimeoutExpired:
         _kill_group(p)
-        return 124, b""
+        return 124, b"", True
     finally:
         _CUR = None
 
 
 def run(repo: str, args: list[str] | tuple[str, ...], lim: float = 7.0) -> tuple[int, bytes]:
-    """git 1회 = lim 초 상한 · 시간 초과(rc124)만 재시도 RETRIES 회 · 그 밖 rc·stdout 은 git 그대로."""
+    """git 1회 = lim 초 상한 · 실제 시간 초과만 재시도 RETRIES 회(총 ≤ 2회) · 그 밖 rc·stdout 은 git 그대로(git 의 rc124 도)."""
     rc = 128
     for _ in range(RETRIES + 1):
-        rc, out = _once(["git", "-C", repo, *args], lim)
-        if rc != 124:
+        rc, out, timed_out = _once(["git", "-C", repo, *args], lim)
+        if not timed_out:   # git 자신의 종료 코드(124 포함)는 그대로 · 출력도 보존 — 재시도는 «실제 시간 초과» 만
             return rc, out
     return rc, b""
 
 
 def run_cmd(cmd: list[str], lim: float) -> tuple[int, bytes]:
     """아무 명령 1회 = lim 초 상한(재시도 없음) · 초과면 그 명령의 프로세스 그룹까지 정리하고 rc124 (r937 astra r1 · 바깥 상한용)."""
-    return _once(cmd, lim)
+    rc, out, _to = _once(cmd, lim)
+    return rc, out
 
 
 def _on_term(signum: int, _frame: object) -> None:
