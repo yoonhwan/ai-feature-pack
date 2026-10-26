@@ -1,3 +1,7 @@
+## 2026-10-27 — r894 매거진 슬랙 뿌리 글 단순화 · 쉬운 풀이 차단 낱말 다시 쓰기 1회 · explain 총 마감 (1.1.257)
+
+- 뿌리 글에 표 꼴 결론을 싣지 않고 warn 1(HTML 첫 절 유지) · 쉬운 풀이 차단 낱말이 나오면 다시 쓰기 1회 · explain 호출 총 마감(마감 뒤 새 호출 0 · 못 끝난 칸 «시간 초과»). 승인판 7dd860fd(squash) · 외부 DA⑥ r2 APPROVE(BYZ design/harness/VERDICT-arch155-r894-close-20261027.md · cc0d57a7ce) · 설치: LIVE_BIN·슬랙 미러 cmp0 → 매거진 재생성.
+
 ## 2026-10-27 — 오케스트레이션 게이트 시험(`test_orch_gate_top_models.sh`)의 «프로젝트 사본» 자리(`<팩>/.claude/hooks/…`)가 1.1.0 재배치(3b25f81d) 뒤 없어 PROJ 5칸이 «파일 없음»(127)으로 빨갰고, 팩 안 같은 훅 사본 2벌(kit/templates · skill/templates)이 서로 달랐다 → PROJ = 팩 안 두 번째 사본(skill/templates · `ORCH_GATE_PROJ` 로 바꿀 수 있음) · skill 사본을 정본(kit/templates)과 같게 복사 · 팩 안 사본 전부 = 정본 cmp0 단언 추가 (r699 · 1.1.256 · 시험·사본 정리 · 훅 동작 변경 0)
 
 - 증거 `harness/evidence/r699/`(고치기 전 5/5 FAIL · 후판 12/0 · 변이 cmp FAIL) · skill 사본은 manifest `template-only` 항목이라 지우지 않고 맞춤 · 설치: kit 판 불변 → 전역 훅 그대로(cmp0 확인만) · 되돌림 = 이전 판.

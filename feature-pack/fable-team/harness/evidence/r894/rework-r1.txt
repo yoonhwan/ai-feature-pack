@@ -1,0 +1,26 @@
+# r894 반송 r1 (DA⑥ r1 HOLD 2건) — F1 표 꼴 결론 누출 · F2 explain 총 마감 미강제
+직전 세트: e62d3e50 (DA 검토 대상) · 고침 2파일 + 시험 1 · 같은 가지 nano/r894-magazine-slack-simple-root-eli5-blo-r2 위 1커밋 · push 0
+
+## F1 [계약 ①] 원장 결론이 표 꼴이면 뿌리 글로 샘
+- 고침: magazine_doc.py — `table_ish()`(«|---|» 또는 «|» 2개 이상) + `conclusion_line()` · 표 꼴 결론 = 뿌리 글 2번째 줄을 «결론은 HTML 첫 절에 있어요(표 꼴이라 슬랙엔 싣지 않음)» 1줄로 바꾸고 WARNING 1줄 · 결과 줄 `warn=` 에 1을 더한다(숨김 0). 게시 거절은 아니다(gate 는 지침 검사값 그대로). HTML 첫 절(<h1>) 결론·골 표는 그대로.
+- 시험: test_table_shaped_conclusion_stays_out_of_the_root_and_warns — DA 입력 그대로(GOOD 원장의 결론 한 줄만 `**결론**: | 골 | 팀 | |---|---| | 진행 | 하네스 |`) · 무장 골 게이트 run 전체(md.main --publish) → 뿌리 글에 «|» 0 · 안내 줄 실림 · 첫 줄 TITLE 그대로 · `warn=` ≥1 · HTML 에 «| 골 | 팀 |» 와 «자율 골 표» 유지 · 뿌리 글 1개
+- 변이 M3(표 꼴 검사 삭제 · `if line and table_ish(line):` → `if False:`) → 위 시험 FAIL(1 failed, 11 passed)
+
+## F2 [계약 ③] magazine_eli5_batches.explain 총 마감 미강제
+- 고침: `explain` — `pool.map`(마감 모름) → submit + `wait(futures, timeout=남은 시간)` + `shutdown(wait=False, cancel_futures=True)` · 마감에 못 끝난 묶음의 칸 = «시간 초과» 생략 + ERROR 사유 · `_batch` 시작 때 남은 시간 검사(마감 뒤 새 호출 0 · 그 칸 «시간 초과»). 축하 칸 magazine_celebrate_eli5 와 같은 꼴.
+- 시험: test_batches_total_deadline_stops_new_calls_and_marks_timeout — DA 1/100 배율 그대로(25칸 · BATCH_SIZE 2 · MAX_WORKERS 3 · TIMEOUT 0.07 · DEADLINE_S 0.7 · 대역 호출당 0.13초 · 첫 답 «결정이 났어요» · 재작성 답 «길이 정해졌어요») → elapsed ≤ 0.7+0.1 · 마감 뒤 시작한 호출 0(maxstart ≤ 0.72) · «시간 초과» 칸 ≥2 + 로그 사유 · 성공한 칸 유지
+- 변이 M4(wait 마감 제거 · `wait(futures, timeout=남은 시간)` → `wait(futures)`) → 위 시험 FAIL(1 failed, 11 passed)
+- 참고(변이 아님): `_batch` 시작 검사만 제거하면 시험은 통과한다 — cancel_futures + wait 가 같은 일을 이미 막는 중복 방어이기 때문. 그래서 변이는 M4 하나로 둔다(제거 = F2 FAIL).
+
+## 시험 결과
+- r894 시험 단독: 12 passed (정상) · 변이 M3 1 failed/11 passed · M4 1 failed/11 passed · 복원 cmp 2/2 0
+- 매거진 전체: 417 passed, 1 skipped in 57.62s · rc=0
+  `env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE python -m pytest tests/scripts/test_magazine*.py -q`
+
+## 실 함수 확인 (mock 0)
+root_text("2026-10-16", "**결론**: | 골 | 팀 | |---|---| | 진행 | 하네스 |") →
+  매거진 2026-10-16 · 오빠 확인판
+  결론은 HTML 첫 절에 있어요(표 꼴이라 슬랙엔 싣지 않음)
+  윗부분은 끝낸 일 축하, … (3줄 · «|» 0)
+
+press 필요: 없음(오디오 경로 무관) · 실 게시 0 · 실 LLM 0

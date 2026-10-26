@@ -1,0 +1,5 @@
+heads=4150
+nano=2351
+archive=652
+worktree_list=512
+worktrees_dirs=417

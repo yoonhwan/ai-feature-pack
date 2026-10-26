@@ -1,0 +1,14 @@
+# 변이 시험 (r894 ⓕ) — 매번 원본 복원 cmp 0
+## M1a dry-run 뿌리 글에 골 블록 다시 붙임(root_text(date, goal))
+FAILED tests/scripts/test_magazine_slack_root_eli5_retry_r894.py::test_dry_run_root_is_the_same_short_text
+1 failed, 9 passed in 1.48s
+## M1b 게시 뿌리 글에 골 블록 다시 붙임(publish(..., goal))
+FAILED tests/scripts/test_magazine_slack_root_eli5_retry_r894.py::test_root_has_no_table_or_goal_block_but_the_html_does
+1 failed, 9 passed in 3.50s
+## M2 차단 낱말 다시 쓰기 제거(if hits: → if False: · 두 모듈)
+FAILED tests/scripts/test_magazine_slack_root_eli5_retry_r894.py::test_celebrate_blocked_word_is_rewritten_once_naming_the_word
+FAILED tests/scripts/test_magazine_slack_root_eli5_retry_r894.py::test_celebrate_second_failure_drops_only_that_unit[\ub610 \ubc30\ud3ec\ud588\uc5b4\uc694]
+FAILED tests/scripts/test_magazine_slack_root_eli5_retry_r894.py::test_celebrate_second_failure_drops_only_that_unit[second1]
+FAILED tests/scripts/test_magazine_slack_root_eli5_retry_r894.py::test_celebrate_rewrite_is_skipped_when_the_total_deadline_cannot_fit
+FAILED tests/scripts/test_magazine_slack_root_eli5_retry_r894.py::test_batches_blocked_word_is_rewritten_once
+5 failed, 5 passed in 1.22s

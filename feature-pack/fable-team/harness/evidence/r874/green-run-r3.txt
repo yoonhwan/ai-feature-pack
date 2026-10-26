@@ -1,0 +1,89 @@
+# r874 r3 — stamp 원자 쓰기·빈값 0·pass rc ERROR · 2026-10-27 02:52:50
+# tick = bin/ft-tick.sh (kit 짝 cmp0) · base = c74e9a11 (ba445cce 위)
+== run1
+PASS bash -n
+PASS ⓐ TERM 뒤 5초 안 종료 (0s)
+PASS ⓐ 자식 묶음 0 (sweep·sleep 종료)
+PASS ⓐ stopped 줄(trap 이 돎)
+PASS ⓐ pidfile 지움
+PASS ⓐ2 TERM 무시 자식이 있어도 5초 안 종료 (2s)
+PASS ⓐ2 TERM 무시 자식도 정리(KILL)
+PASS ⓐ3 쉼 중 TERM 5초 안 종료 (0s)
+PASS ⓑ 상한 뒤 다음 바퀴 시작 (runs=2)
+PASS ⓑ ERROR 줄 1개
+PASS ⓑ 끊긴 바퀴의 sweep 종료(이어 돌기 0)
+PASS ⓒ 다른 데몬 바퀴 계속 (c2 runs=3 · c1 runs=1)
+PASS ⓒ 묶인 데몬은 살아 있음(죽지 않고 상한까지 대기)
+PASS ⓓ0 stamp 쓰기 전부 write_stamp 경유(리다이렉션 직접 0)
+PASS ⓓ1 한 바퀴 종료
+PASS ⓓ1 빈 stamp 바퀴도 stall 뒤 wt-sweep 까지 도달 (runs=1)
+PASS ⓓ1 WARN 1줄(빈값 → 0 으로 읽음)
+PASS ⓓ1 산술 오류 0
+PASS ⓓ1 바퀴 뒤 stamp = 숫자(1793037186) — 다음 바퀴 정상
+PASS ⓓ2 한 바퀴 종료
+PASS ⓓ2 빈 stamp 바퀴도 stall 뒤 wt-sweep 까지 도달 (runs=1)
+PASS ⓓ2 WARN 1줄(빈값 → 0 으로 읽음)
+PASS ⓓ2 산술 오류 0
+PASS ⓓ2 바퀴 뒤 stamp = 숫자(1793037188) — 다음 바퀴 정상
+PASS ⓔ 배경 바퀴 rc≠0 → 부모 ERROR 줄
+PASS ⓔ 같은 원인(rc=1) 연속 = ERROR 1통 (바퀴 여러 번 · 줄 1)
+PASS ⓔ 부모는 계속 돈다(죽지 않음)
+RESULT fail=0
+== run2
+PASS bash -n
+PASS ⓐ TERM 뒤 5초 안 종료 (0s)
+PASS ⓐ 자식 묶음 0 (sweep·sleep 종료)
+PASS ⓐ stopped 줄(trap 이 돎)
+PASS ⓐ pidfile 지움
+PASS ⓐ2 TERM 무시 자식이 있어도 5초 안 종료 (3s)
+PASS ⓐ2 TERM 무시 자식도 정리(KILL)
+PASS ⓐ3 쉼 중 TERM 5초 안 종료 (0s)
+PASS ⓑ 상한 뒤 다음 바퀴 시작 (runs=2)
+PASS ⓑ ERROR 줄 1개
+PASS ⓑ 끊긴 바퀴의 sweep 종료(이어 돌기 0)
+PASS ⓒ 다른 데몬 바퀴 계속 (c2 runs=3 · c1 runs=1)
+PASS ⓒ 묶인 데몬은 살아 있음(죽지 않고 상한까지 대기)
+PASS ⓓ0 stamp 쓰기 전부 write_stamp 경유(리다이렉션 직접 0)
+PASS ⓓ1 한 바퀴 종료
+PASS ⓓ1 빈 stamp 바퀴도 stall 뒤 wt-sweep 까지 도달 (runs=1)
+PASS ⓓ1 WARN 1줄(빈값 → 0 으로 읽음)
+PASS ⓓ1 산술 오류 0
+PASS ⓓ1 바퀴 뒤 stamp = 숫자(1793037210) — 다음 바퀴 정상
+PASS ⓓ2 한 바퀴 종료
+PASS ⓓ2 빈 stamp 바퀴도 stall 뒤 wt-sweep 까지 도달 (runs=1)
+PASS ⓓ2 WARN 1줄(빈값 → 0 으로 읽음)
+PASS ⓓ2 산술 오류 0
+PASS ⓓ2 바퀴 뒤 stamp = 숫자(1793037211) — 다음 바퀴 정상
+PASS ⓔ 배경 바퀴 rc≠0 → 부모 ERROR 줄
+PASS ⓔ 같은 원인(rc=1) 연속 = ERROR 1통 (바퀴 여러 번 · 줄 1)
+PASS ⓔ 부모는 계속 돈다(죽지 않음)
+RESULT fail=0
+== run3
+PASS bash -n
+PASS ⓐ TERM 뒤 5초 안 종료 (1s)
+PASS ⓐ 자식 묶음 0 (sweep·sleep 종료)
+PASS ⓐ stopped 줄(trap 이 돎)
+PASS ⓐ pidfile 지움
+PASS ⓐ2 TERM 무시 자식이 있어도 5초 안 종료 (2s)
+PASS ⓐ2 TERM 무시 자식도 정리(KILL)
+PASS ⓐ3 쉼 중 TERM 5초 안 종료 (1s)
+PASS ⓑ 상한 뒤 다음 바퀴 시작 (runs=2)
+PASS ⓑ ERROR 줄 1개
+PASS ⓑ 끊긴 바퀴의 sweep 종료(이어 돌기 0)
+PASS ⓒ 다른 데몬 바퀴 계속 (c2 runs=3 · c1 runs=1)
+PASS ⓒ 묶인 데몬은 살아 있음(죽지 않고 상한까지 대기)
+PASS ⓓ0 stamp 쓰기 전부 write_stamp 경유(리다이렉션 직접 0)
+PASS ⓓ1 한 바퀴 종료
+PASS ⓓ1 빈 stamp 바퀴도 stall 뒤 wt-sweep 까지 도달 (runs=1)
+PASS ⓓ1 WARN 1줄(빈값 → 0 으로 읽음)
+PASS ⓓ1 산술 오류 0
+PASS ⓓ1 바퀴 뒤 stamp = 숫자(1793037232) — 다음 바퀴 정상
+PASS ⓓ2 한 바퀴 종료
+PASS ⓓ2 빈 stamp 바퀴도 stall 뒤 wt-sweep 까지 도달 (runs=1)
+PASS ⓓ2 WARN 1줄(빈값 → 0 으로 읽음)
+PASS ⓓ2 산술 오류 0
+PASS ⓓ2 바퀴 뒤 stamp = 숫자(1793037233) — 다음 바퀴 정상
+PASS ⓔ 배경 바퀴 rc≠0 → 부모 ERROR 줄
+PASS ⓔ 같은 원인(rc=1) 연속 = ERROR 1통 (바퀴 여러 번 · 줄 1)
+PASS ⓔ 부모는 계속 돈다(죽지 않음)
+RESULT fail=0
