@@ -1,0 +1,15 @@
+PASS bash -n ft-seat-retire.sh
+PASS ①rc 0 · RESUME kept <경로>
+PASS ①바이트 불변 · 파일 1
+PASS ②rc 0 · RESUME ok
+PASS ②기록 칸
+PASS ③rc 0 · NORECORD … 0개 · 파일 0
+PASS ④NORECORD 2개 · 파일 0
+PASS ⑤살아 있는 좌석 → pane 결속(binding=tmux 칸 아님 legacy-name · pid 7001)
+PASS ⑥rc 0 · NORECORD · 기존 기록 보존 안내
+PASS ⑥옛 기록 바이트 불변 · 파일 1
+PASS ⑦rc 0 · RESUME ok · 이전 기록 <prev>
+PASS ⑦새 uuid · prev 내용 = 옛 uuid
+PASS ⑧승계 경로 + --keep-existing rc 2
+fail=0
+rc=0

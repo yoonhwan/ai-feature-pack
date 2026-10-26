@@ -1,0 +1,30 @@
+# r939 r2 변이 4종 — 고침이 빠지면 «그 시험만» 빨강(사본에서만 · 리포 파일 쓰기 0)
+
+## 변이① 글자 판정 복귀 — 장부 판정 줄에 «명령줄에 install.sh/ft-da-codex.sh 글자가 있으면 넘김»을 덧붙인다 ⇒ ⓐ 빨강(미등록 install.sh 글자 부모가 넘어감)
+```diff
+      if r["pid"] not in t or t[r["pid"]][3] != r["lstart"]: continue
++     if "install.sh" in r["cmd"] or "ft-da-codex.sh" in r["cmd"]: out[r["pid"]] = r["cmd"]
+```
+PASS 변이①글자 판정 복귀 → ⓐ빨강(미등록 install.sh 글자 부모가 넘김)
+
+## 변이② 좌석 칸 갱신 끔 — bgf("handover", …) 를 pass 로 ⇒ ⓓ 빨강(B→C 재넘김 0)
+```diff
+-     bgf("handover", HAND, *[str(r["pid"]) for r in roots])
++     pass   # H2 좌석 칸 갱신 끔(변이)
+```
+PASS 변이②좌석 칸 갱신 끔 → ⓓ빨강(B→C 재넘김 0)
+
+## 변이③ 장부 덮어쓰기 복귀 — register 가 기존 줄을 버리고 [row] 만 쓴다 ⇒ ⓔ 빨강(줄 2개가 1개)
+```diff
+-     L.rows = [r for r in L.rows if not (r[1] == pid and r[3] == lst)] + [row]
++     L.rows = [row]
+```
+PASS 변이③장부 덮어쓰기 복귀 → ⓔ빨강(줄 2개가 1개)
+
+## 변이④ 미룸 먼저 복귀 — 넘김 분리 앞에 press 미룸 조기 반환을 넣는다 ⇒ ⓕ 빨강(넘김 줄 0)
+```diff
++ if defer and cand and press() and HAND:   # 변이: 미룸 먼저
++     … reap-defer … sys.exit(0)
+ if HAND:   # H3 — 넘김 분리를 press 미룸보다 «먼저»
+```
+PASS 변이④미룸 먼저 복귀 → ⓕ빨강(넘김 줄 0)

@@ -49,6 +49,9 @@ done
 [ -n "$PROJECT" ] || { echo "REJECT --project <프로젝트 루트> 필수 — cwd 로 추론하지 않는다 (쓰기 0)" >&2; exit 2; }
 [ -d "$PROJECT" ] || { echo "REJECT 프로젝트 폴더 없음: $PROJECT (쓰기 0)" >&2; exit 2; }
 PROJECT="$(cd "$PROJECT" && pwd -P)"
+# r939 H1: «곧 끝나는 일» 자기 등록 — 승계(retire)가 이 설치를 죽이지 않고 후계에게 넘긴다(장부 state/bg-finite.tsv · 상한 10분)
+bash "$HARNESS/bin/ft-bg-finite.sh" register "${FT_SEAT:--}" "${FT_BG_FINITE_INSTALL_SEC:-600}" "$$" "install.sh --project $PROJECT" >/dev/null 2>&1 || true   # 등록 실패 = 넘김 대상 아님(오늘과 같은 reap) — 도구 stdout 계약을 흔들지 않는다
+trap 'bash "$HARNESS/bin/ft-bg-finite.sh" unregister $$ >/dev/null 2>&1 || true' EXIT
 # r457: launchd plist 는 git 공용 루트 설치에서만 — 워크트리 --project(r413 shim 설치)는 plist 를 건드리지 않는다
 COMMON="$(git -C "$PROJECT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"; COMMON="${COMMON%/.git}"
 [ -z "$COMMON" ] || [ ! -d "$COMMON" ] || COMMON="$(cd "$COMMON" && pwd -P)"

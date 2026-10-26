@@ -1,3 +1,12 @@
+## 2026-10-26 — r939 승계(retire)는 «스스로 등록한 곧 끝나는 일»을 죽이지 않고 후계에게 넘긴다 (1.1.250)
+
+- **판정을 «짐작»에서 «등록» 으로 (DA⑥ r1 반송 H1)** — ft-bg-finite.sh 신규: 끝나는 작업을 띄우는 도구(ft-da-codex.sh · install.sh · ft-scratch-repo.sh)가 시작할 때 자기 pid·pgid·lstart·상한을 장부 `<데이터 루트>/.fable-team/state/bg-finite.tsv` 에 한 줄 적고 trap EXIT 에서 지운다. 명령줄 허용 목록·env 판정은 지웠다.
+- ft-seat-reap.sh `--handover <후계>`: 장부에서 «이 좌석 ∧ pid 살아 있음 ∧ lstart 같음 ∧ 상한 전» 줄의 pgid 전체 + 자손만 넘긴다. 글자·인자 속 while·`timeout 999999` 로는 넘지 않고, 반대로 명령줄에 while·install.sh 글자가 있어도 등록된 작업은 넘는다. 등록 안 한 도구는 `reap-unregistered` 1줄로 보이게 남기고 지금처럼 정지.
+- **H2** 넘김은 장부의 좌석 칸을 후계로 바꾸는 것(flock + 읽기-병합-원자 교체 · 다른 줄 보존) — 후계의 다음 retire·닫기가 같은 장부로 그 작업을 본다. 재개 기록의 "handed" 칸은 보기용 사본으로만 남는다. 닫기(후계 없음)는 이 좌석의 등록 작업을 정리하고 죽은 줄을 prune 한다.
+- **H3** 넘김 분리를 press 미룸보다 먼저 — press 점유 중 retire 도 DA 를 넘기고, 그 뒤 정리에서 reap 0. 상한 지난 장부 줄은 ft-leak-reap 이 `handover-stale` 로 보고만 하고(죽이지 않음) 상태를 stale 로 표시, 죽은 pid 줄은 지운다.
+- 시험 test_seat_handover_r939.sh ALL PASS(ⓐ~ⓖ + 변이 4종) · /bin/bash 3.2 ALL PASS · 인접 20건 rc0 · 짝 사본 cmp0(bin 5 + kit) · 등록 실패는 도구 stdout 계약을 흔들지 않는다(넘김 대상 아님 = 오늘과 같은 reap).
+- 외부 DA 반송 고침: register 상한초는 ^[0-9]{1,6}$ 만(그 밖·4200 초과 = 4200 + 경고 1줄) · 경고 값 이스케이프 · 장부 seat·cmd 칸 탭·줄바꿈 공백화. 시험 78 PASS · 외부 DA astra r4 APPROVE(BYZ design/harness/evidence/r939-da6/VERDICT-r939-astra-approve.md · 승인판 c2662666). 1.1.247~1.1.249 는 #328·#326·#327 몫.
+
 ## 2026-10-26 — r937 카드 이동 게이트가 착지 sha 를 «그 sha 가 있는 리포» 로 판정 · 모든 git 조회 7초 상한 (1.1.249)
 
 - ft-index-move 의 설치·정본·close-landed·DA 보류 가드 네 게이트가 공용 판정 ft_landed_repo 하나로 BYZ·팩 리포를 고른다. 판정문 «main / main(팩)» 표식과 어긋나면 REJECT. 조회 실패는 «없음» 이 아니라 REJECT.
