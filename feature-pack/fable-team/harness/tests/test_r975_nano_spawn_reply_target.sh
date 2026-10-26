@@ -50,20 +50,23 @@ chmod +x "$BINX/"*.sh
 
 # ── 고정 픽스처: 임시 리포 + 명부(팀=harness) + 카드 + 팀 env ──
 #   mkfix <디렉터리> <_master 값> [<루트 seats.json 의 _master>|none]
+TEAMX="harness"                 # 픽스처 팀 이름(DA r2 ③: 공백·한글 팀 폴더도 같은 길로 간다)
+CARDX="design/harness/indices/대기/x.md"
+setteam() { TEAMX="$1"; CARDX="design/$1/indices/대기/x.md"; }
 mkfix() {
   local d="$1" master="$2" rootm="${3:-}"
-  rm -rf "$d"; mkdir -p "$d/.fable-team/state" "$d/.fable-team/comm" "$d/.fable-team/bin-harness" \
-    "$d/design/harness/indices/대기" "$d/design/harness/indices/진행" "$d/scripts"
+  rm -rf "$d"; mkdir -p "$d/.fable-team/state" "$d/.fable-team/comm" "$d/.fable-team/bin-$TEAMX" \
+    "$d/design/$TEAMX/indices/대기" "$d/design/$TEAMX/indices/진행" "$d/scripts"
   printf '#!/bin/sh\nexit 0\n' > "$d/scripts/real.sh"
   printf '2026-10-21T00:00:00\toff\tinstall\tinit\n' > "$d/.fable-team/state/all-stop.log"
-  printf '| 팀 | 폴더 | 오케 | 상태 |\n|---|---|---|---|\n| harness | `design/harness/` | h | 현역 |\n| v65 | `design/v65/` | v | 현역 |\n' > "$d/design/TEAMS.md"
+  printf '| 팀 | 폴더 | 오케 | 상태 |\n|---|---|---|---|\n| %s | `design/%s/` | h | 현역 |\n| v65 | `design/v65/` | v | 현역 |\n' "$TEAMX" "$TEAMX" > "$d/design/TEAMS.md"
   mkdir -p "$d/design/v65"; echo x > "$d/design/v65/SEATBELT-README.md"   # R406: 발주 본문 README = v65 폴더에 실재 1개
-  printf '%s\n%s\n%s\n' "$G1" "$G2" "$G3" > "$d/.fable-team/bin-harness/goal-lines-harness.txt"
-  printf '# GOAL — harness 제목줄\n\n## 원문 1 머리줄\n> %s\n' "$CLOSE" > "$d/design/harness/GOAL-harness.md"
+  printf '%s\n%s\n%s\n' "$G1" "$G2" "$G3" > "$d/.fable-team/bin-$TEAMX/goal-lines.txt"
+  printf '# GOAL — harness 제목줄\n\n## 원문 1 머리줄\n> %s\n' "$CLOSE" > "$d/design/$TEAMX/GOAL-harness.md"
   # 카드: 머리 6줄 + 골 3줄 + 골좌표 + 배경·구현범위·완료조건·상태 (ft-index-lint 6절)
   printf '# 인덱스: x\n- Issue: #1\n- 제안서: 없음 — 시험용 카드\n- 상태: 대기\n- 선행: 없음\n- 시험 입력: 없음\n- 기준값: 없음 → 대체 축 시험\n- 설치: 없음\n<!-- ledger: design/harness/GOAL-harness.md -->\n\n## 골 원문 (항상 이 3줄)\n%s\n%s\n%s\n\n## 골좌표\n닫는 증거: 「%s」\n\n## 배경\n시험.\n\n## 구현 범위\n1. `scripts/real.sh` 를 고친다.\n\n## 완료 조건\n- 시험 rc=0\n\n## 상태\n- 대기\n' \
-    "$G1" "$G2" "$G3" "$CLOSE" > "$d/design/harness/indices/대기/x.md"
-  python3 - "$d/.fable-team/seats-harness.json" "$master" <<'PY'
+    "$G1" "$G2" "$G3" "$CLOSE" > "$d/design/$TEAMX/indices/대기/x.md"
+  python3 - "$d/.fable-team/seats-$TEAMX.json" "$master" <<'PY'
 import json, sys
 p, m = sys.argv[1], sys.argv[2]
 d = {"_version": "1.0.0"}
@@ -74,7 +77,7 @@ json.dump(d, open(p, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
 PY
   [ "$rootm" = none ] || printf '{"_master":"%s","%s":{"role":"master","agent":"claude"}}\n' "${rootm:-byz-v65-master-claude#2}" "${rootm:-byz-v65-master-claude#2}" > "$d/.fable-team/seats.json"
   # 팀 env = 카드 경로로 로드되는 파일(FT_SEATS_JSON·goal 줄) — FT_SEND_FROM 은 부르는 쪽이 덧붙인다
-  printf 'export FT_SEATS_JSON=%s/.fable-team/seats-harness.json\nexport FT_NANO_PREFIX=byz-harness-nano-\nexport FT_NANO_WT_PREFIX=harness-\nexport FT_GOAL_LEDGER=design/harness/GOAL-harness.md\nexport FT_GOAL_LINES_FILE=%s/.fable-team/bin-harness/goal-lines-harness.txt\n' "$d" "$d" > "$d/.fable-team/bin-harness/harness-env.sh"
+  printf "export FT_SEATS_JSON='%s/.fable-team/seats-%s.json'\nexport FT_NANO_PREFIX=byz-harness-nano-\nexport FT_NANO_WT_PREFIX=harness-\nexport FT_GOAL_LEDGER='design/harness/GOAL-harness.md'\nexport FT_GOAL_LINES_FILE='%s/.fable-team/bin-%s/goal-lines.txt'\n" "$d" "$TEAMX" "$d" "$TEAMX" > "$d/.fable-team/bin-$TEAMX/$TEAMX-env.sh"
   git init -q -b main "$d" && git -C "$d" -c user.name=t -c user.email=t@t add -A >/dev/null \
     && git -C "$d" -c user.name=t -c user.email=t@t commit -q -m init && git -C "$d" update-ref refs/remotes/origin/main HEAD
 }
@@ -88,7 +91,7 @@ sp() {
       FT_GH_READ="$T/fake/gh-open" GH_REPO=o/r FT_TEAMSET=0 FT_RES_ROOT="$T/res" FT_SHEET_ROOT="$FT_SHEET_ROOT" \
       FT_ROOT="$d" FT_RECLAIM_SH="$T/reclaim.sh" FAKE_OPENED="$T/opened" FAKE_PANES="$T/panes" \
       ${EXTRA_ENV[@]+"${EXTRA_ENV[@]}"} \
-      bash "$bd/ft-nano-spawn.sh" design/harness/indices/대기/x.md "$@" 2>&1 )
+      bash "$bd/ft-nano-spawn.sh" "$CARDX" "$@" 2>&1 )
 }
 run1() { local d="$1"; shift; rm -f "$T/opened" "$T/body.txt"; mkpanes; sp "$d" "$BINX" "$@"; }
 mkpanes() { printf 'byz-harness-nano-x#0|%%1|1\n' > "$T/panes"; }   # 가짜 tmux list-panes 응답(좌석 pane 1개)
@@ -200,7 +203,49 @@ for badv in dispatch 'BAD NAME'; do
   [ "$n" = 1 ] && [ "$t" = 1 ] && ok "반례6 --from '$badv' → REJECT 1줄(들여쓴 둘째 줄 0)" || bad "반례6 --from '$badv' REJECT ${n}줄 / REJECT+들여쓰기 ${t}줄: $o"
 done
 
-# ── 변이 3종 — «실행 가능한» 꼴(분기 본문 치환) + 각 bash -n rc0 을 «먼저» 단언 ──
+# ── 반례 7(DA r2 ①): 송신 단계 — spawn 이 판정한 발신자를 ft-send-verified 가 «그대로» 쓴다 ──
+#   옛 판은 send-verified:84 의 재해석이 `--from #4` 를 루트 `_master`(#3)로 되돌렸다. 계약 = rc 와 무관하게 «발신자 = #4».
+D="$T/r7"; mkfix "$D" "$MATS"
+python3 - "$D/.fable-team/seats-harness.json" <<'PY'
+import json, sys
+p = sys.argv[1]; d = json.load(open(p, encoding="utf-8"))
+d["byz-harness-master-claude#4"] = {"role": "master", "agent": "claude"}
+json.dump(d, open(p, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+PY
+printf '#!/usr/bin/env bash\nprintf "%%s\n" "$3" > "%s/sent-from.txt"\nexit 1\n' "$T" > "$T/fake-mbox.sh"   # 발신자를 기록하고 즉시 실패 — 도달 대기(20초×2) 없이 «누가 보냈나» 만 본다
+SENDX="$T/sendbin"; cp -R "$KIT" "$SENDX"   # 실 ft-send-verified(temp 사본 · BINX 는 발주 본문 스텁이라 여기 못 쓴다)
+printf '#!/usr/bin/env bash\necho 0\n' > "$SENDX/ft-reach-check.sh"   # jsonl 층 스텁 — 이 칸은 발신자 축만 본다
+chmod +x "$T/fake-mbox.sh" "$SENDX/ft-reach-check.sh"
+rm -f "$T/sent-from.txt"
+sv="$( cd "$D" && env -i HOME="$HOME" LC_ALL=en_US.UTF-8 PATH="$T/fake:$PATH" FT_MBOX_SH="$T/fake-mbox.sh" \
+    FT_SEATS_JSON="$D/.fable-team/seats-harness.json" FT_SEND_FROM=byz-harness-master-claude#4 bash "$SENDX/ft-send-verified.sh" byz-harness-nano-x#0 "본문" 2>&1 )"
+sent="$(cat "$T/sent-from.txt" 2>/dev/null)"
+[ "$sent" = "byz-harness-master-claude#4" ] && ok "반례7 확정 발신자 그대로 송신(#4 · 재해석 0)" || bad "반례7 송신 발신자 = '${sent}' (기대 #4 — 재해석이 되돌렸다) ← ${sv}"
+o="$(run1 "$D" --dry-run --from byz-harness-master-claude#4)"
+{ [[ "$o" == *"INFO 회신 대상 = byz-harness-master-claude#4"* ]] && [[ "$o" != *"회신 대상 = byz-harness-master-claude#3"* ]]; } \
+  && ok "반례7 spawn 판정도 #4(은퇴 #3 으로 안 되돌림)" || bad "반례7 spawn $o"
+
+# ── 반례 8(DA r2 ②): FT_SEATS_JSON 이 «폴더» → 조용히 건너뛰지 않고 ERROR rc≠0 · 개설 0 ──
+D="$T/r8"; mkfix "$D" "$MATS"; mkdir -p "$D/.fable-team/selected.json"   # 폴더(파일 아님)
+printf "export FT_SEATS_JSON='%s'\n" "$D/.fable-team/selected.json" >> "$D/.fable-team/bin-$TEAMX/$TEAMX-env.sh"   # 팀 env 가 지정한 «폴더»
+for mode in --dry-run ""; do
+  mkpanes; o="$(run1 "$D" $mode)"; rc=$?
+  n="$(printf '%s\n' "$o" | grep -c '^REJECT')"
+  { [ "$rc" != 0 ] && [ "$n" = 1 ] && [[ "$o" == *"명부 경로가 폴더다"* ]] && [ "$(wts "$D")" = 1 ] && [ ! -f "$T/opened" ]; } \
+    && ok "반례8 명부가 폴더(${mode:-실행}) → REJECT 1줄 rc=$rc · 개설 0" || bad "반례8 ${mode:-실행} rc=$rc n=$n $o"
+done
+
+# ── 반례 9(DA r2 ③): 팀 폴더 이름에 공백·한글이어도 팀 env 를 읽고 그 명부 `_master` 로 푼다 ──
+i=0
+for tn in '하네스' 'harness team'; do
+  i=$((i+1)); setteam "$tn"; D="$T/r9-$i"; mkfix "$D" "$MATS"
+  mkpanes; o="$(run1 "$D" --dry-run)"
+  { [[ "$o" == *"ENV team=$tn "* ]] && [[ "$o" == *"INFO 회신 대상 = $MATS"* ]]; } \
+    && ok "반례9 팀 '$tn' → 팀 env 로드 + 그 명부 _master" || bad "반례9 팀 '$tn' $o"
+done
+setteam harness
+
+# ── 변이 4종 — «계약 위반» 을 단언한다(문구 차이는 계약이 아니다 · DA r2 ④). 각 변이는 bash -n rc0 먼저 ──
 mk_mut() { cp -R "$BINX" "$1"; python3 - "$1/ft-nano-spawn.sh" "$2" "$3" <<'PY'
 import sys
 p, old, new = sys.argv[1:4]
@@ -209,31 +254,49 @@ assert old in s, "변이 대상 없음: " + old[:60]
 open(p, "w", encoding="utf-8").write(s.replace(old, new, 1))
 PY
 }
-# ⓐ 변이 = 회신 대상을 명부 밖 별칭으로 되돌림(옛 기본값 부활)
-M1="$T/mut1"; mk_mut "$M1" 'if not v: v = str(d.get("_master") or "").strip()' 'if True: v = "dispatch"'
-bash -n "$M1/ft-nano-spawn.sh" && ok "변이 ⓐ bash -n rc0(실행 가능)" || bad "변이 ⓐ bash -n 실패"
-D="$T/ma"; mkfix "$D" "$MATS"
+# 변이 ① = 명부 후보를 «전부 훑어 루트 명부 우선»(r1 결함 부활) → 계약 위반: 회신 대상 ≠ 팀 `_master`
+M1="$T/mut1"; mk_mut "$M1" '  for cand in "${FT_SEATS_JSON:-}" "$ROOT/.fable-team/seats-$(_nano_team).json" "$ROOT/.fable-team/seats.json"; do' '  for cand in "$ROOT/.fable-team/seats.json" "${FT_SEATS_JSON:-}" "$ROOT/.fable-team/seats-$(_nano_team).json"; do'
+bash -n "$M1/ft-nano-spawn.sh" && ok "변이① bash -n rc0(실행 가능)" || bad "변이① bash -n 실패"
+D="$T/m1"; mkfix "$D" "$MATS" byz-v65-master-claude#2
 mkpanes; o="$(sp "$D" "$M1" --dry-run)"
-{ [[ "$o" != *"INFO 회신 대상 = $MATS"* ]]; } && ok "변이 ⓐ: 기본값 되살림 → ⓐ FAIL(검출)" || bad "변이 ⓐ: 옛 기본값인데 ⓐ 통과"
-# ⓑ 변이 = «못 풀면 빈 값으로 진행» — 빈 값 REJECT 분기의 본문만 `:` 로
-M2="$T/mut2"; mk_mut "$M2" 'if not v:
-    print("REJECT 회신 대상을 못 풀었다 — --from · FT_SEND_FROM · 명부 _master(%s) 가 전부 비었다" % seats); sys.exit(1)' 'if not v:
-    pass'
-bash -n "$M2/ft-nano-spawn.sh" && ok "변이 ⓑ bash -n rc0(실행 가능)" || bad "변이 ⓑ bash -n 실패"
-D="$T/mb"; mkfix "$D" ""
-mkpanes; o="$(sp "$D" "$M2" --dry-run)"
-{ [[ "$o" != *"REJECT 회신 대상을 못 풀었다 — --from · FT_SEND_FROM"* ]]; } && ok "변이 ⓑ: 못 풀면 빈 값 진행 → ⓑ FAIL(검출)" || bad "변이 ⓑ: 빈 값인데도 REJECT"
-# ⓒ 변이 = 이름 lint 칸만 제거(1줄 삭제 · 분기 구조는 그대로라 bash -n rc0)
-M3="$T/mut3"; mk_mut "$M3" 'r = subprocess.run(["bash", lint, v], capture_output=True, text=True)' 'r = subprocess.run(["bash", lint, v], capture_output=True, text=True) if False else type("R", (), {"returncode": 0, "stdout": "", "stderr": ""})()'
-bash -n "$M3/ft-nano-spawn.sh" && ok "변이 ⓒ bash -n rc0(실행 가능)" || bad "변이 ⓒ bash -n 실패"
-D="$T/mc"; mkfix "$D" "$MATS"
-mkpanes; o="$(sp "$D" "$M3" --dry-run --from dispatch)"
-{ [[ "$o" != *"REJECT 회신 대상 이름 lint 실패"* ]]; } && ok "변이 ⓒ: lint 칸 삭제 → ⓒ FAIL(검출)" || bad "변이 ⓒ: 칸을 지웠는데도 REJECT"
+[[ "$o" == *"INFO 회신 대상 = byz-v65-master-claude#2"* ]] \
+  && ok "변이① 루트 명부 우선 → 계약 위반(다른 팀 팀장) 검출" || bad "변이① 계약을 안 깼다: $o"
+# 변이 ② = «존재하는데 폴더면 조용히 건너뛴다»(반례 8 부활) → 계약 위반: rc0 으로 진행
+M2="$T/mut2"; mk_mut "$M2" '    [ -n "$cand" ] || continue; [ -e "$cand" ] || continue
+    if [ -f "$cand" ]; then SEATS="$cand"; return 0; fi' '    [ -n "$cand" ] || continue; [ -f "$cand" ] || continue
+    SEATS="$cand"; return 0'
+bash -n "$M2/ft-nano-spawn.sh" && ok "변이② bash -n rc0(실행 가능)" || bad "변이② bash -n 실패"
+D="$T/m2"; mkfix "$D" "$MATS"; mkdir -p "$D/.fable-team/selected.json"
+printf "export FT_SEATS_JSON='%s'\n" "$D/.fable-team/selected.json" >> "$D/.fable-team/bin-$TEAMX/$TEAMX-env.sh"
+mkpanes; o="$(sp "$D" "$M2" --dry-run)"; rc=$?
+{ [ "$rc" = 0 ] && [[ "$o" != *"명부 경로가 폴더다"* ]]; } \
+  && ok "변이② 폴더 건너뛰기 → 계약 위반(rc0 으로 진행) 검출" || bad "변이② 계약을 안 깼다(rc=$rc): $o"
+# 변이 ③ = `_replaced_by` 사슬 추적 제거 → 계약 위반: 은퇴 좌석이 회신 대상
+M3="$T/mut3"; mk_mut "$M3" '    nx = str(row.get("_replaced_by") or "").strip() if isinstance(row, dict) else ""' '    nx = ""'
+bash -n "$M3/ft-nano-spawn.sh" && ok "변이③ bash -n rc0(실행 가능)" || bad "변이③ bash -n 실패"
+D="$T/m3"; mkfix "$D" "$MATS"
+python3 - "$D/.fable-team/seats-harness.json" <<'PY'
+import json, sys
+p = sys.argv[1]; d = json.load(open(p, encoding="utf-8"))
+d["byz-harness-master-claude#3"]["_replaced_by"] = "byz-harness-master-claude#4"
+d["byz-harness-master-claude#4"] = {"role": "master", "agent": "claude"}
+json.dump(d, open(p, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+PY
+mkpanes; o="$(sp "$D" "$M3" --dry-run)"
+[[ "$o" == *"INFO 회신 대상 = $MATS "* ]] \
+  && ok "변이③ 현역 추적 제거 → 계약 위반(은퇴 #3 이 회신 대상) 검출" || bad "변이③ 계약을 안 깼다: $o"
+# 변이 ④ = 명부 실재 검사 1줄 제거 + 명부 밖 좌석 → 계약 위반: 발주문 머리에 명부 밖 좌석
+M4="$T/mut4"; mk_mut "$M4" 'if v not in d:' 'if False:'
+bash -n "$M4/ft-nano-spawn.sh" && ok "변이④ bash -n rc0(실행 가능)" || bad "변이④ bash -n 실패"
+D="$T/m4"; mkfix "$D" "$MATS"
+mkpanes; o="$(sp "$D" "$M4" --dry-run --from byz-harness-da-claude#9)"
+[[ "$o" == *"[byz-harness-da-claude#9->"* ]] \
+  && ok "변이④ 명부 실재 검사 제거 → 계약 위반(명부 밖 좌석이 머리에) 검출" || bad "변이④ 계약을 안 깼다: $o"
 
 # ── /bin/bash 3.2.57 에서도 같은 판정 1회 ──
 if [ -x /bin/bash ] && /bin/bash --version | head -1 | grep -q '3\.2'; then
   D="$T/b32"; mkfix "$D" "$MATS" byz-v65-master-claude#2
-  o="$( cd "$D" && env -i HOME="$HOME" LC_ALL=en_US.UTF-8 PATH="$T/fake:$PATH" FT_GH_READ="$T/fake/gh-open" GH_REPO=o/r FT_TEAMSET=0 FT_RES_ROOT="$T/res" FT_SHEET_ROOT="$FT_SHEET_ROOT" FT_ROOT="$D" FT_RECLAIM_SH="$T/reclaim.sh" FAKE_OPENED="$T/opened" FAKE_PANES="$T/panes" /bin/bash "$BINX/ft-nano-spawn.sh" design/harness/indices/대기/x.md --dry-run 2>&1 )"
+  o="$( cd "$D" && env -i HOME="$HOME" LC_ALL=en_US.UTF-8 PATH="$T/fake:$PATH" FT_GH_READ="$T/fake/gh-open" GH_REPO=o/r FT_TEAMSET=0 FT_RES_ROOT="$T/res" FT_SHEET_ROOT="$FT_SHEET_ROOT" FT_ROOT="$D" FT_RECLAIM_SH="$T/reclaim.sh" FAKE_OPENED="$T/opened" FAKE_PANES="$T/panes" /bin/bash "$BINX/ft-nano-spawn.sh" "$CARDX" --dry-run 2>&1 )"
   [[ "$o" == *"INFO 회신 대상 = $MATS"* ]] && ok "/bin/bash 3.2: 팀 명부 _master 로 해석" || bad "/bin/bash 3.2: $o"
 else echo "SKIP /bin/bash 3.2 칸 — 이 머신의 /bin/bash 가 3.2 가 아니다"; fi
 

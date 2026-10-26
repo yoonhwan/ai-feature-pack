@@ -77,9 +77,10 @@ REACH="$HERE/ft-reach-check.sh"
 # 본문 큐. 경로는 이 리포의 정본이고, 테스트·다른 설치가 갈아끼울 수 있게 env 를 먼저 본다.
 MBOX="${FT_MBOX_SH:-}"; [ -n "$MBOX" ] || { . "$HERE/ft-harness-root.sh"; _CM="$(ft_comm_dir "$HERE")" || exit 1; MBOX="$_CM/mbox.sh"; }   # r385 r3: 설치본엔 형제 comm 폴더가 없다 — 데이터 루트의 comm
 # 발신자 이름 — mbox 의 세션명 allowlist(`[A-Za-z0-9._#-]+`)를 통과해야 한다.
+# ★r975 r2(DA② ①) — 여기서 «다시 해석하지 않는다»★: 이 도구는 부르는 쪽(spawn·role-spawn·successor-open)이
+#   이미 명부 현역으로 해석해 넘긴 발신자를 «그대로» 썬다. 예전엔 :84 에서 ft_from_current 로 한 번 더 해석해
+#   `--from #4` 같은 «명시값» 이 루트 `_master`(#3)로 되돌려졌다 — 명시가 진다(판정: 반례 ①).
 FROM="${FT_SEND_FROM:-dispatch}"
-# r730 ★보내는 사람 = 명부 현역★: FT_SEND_FROM 이 승계로 옛 세대가 됐으면 명부 `_master` 로(같은 계보일 때만 · 못 풀면 지금 값). 해석 함수 = ft-team-lib.sh 한 곳.
-[ ! -f "$HERE/ft-team-lib.sh" ] || FROM="$( . "$HERE/ft-team-lib.sh" && ft_from_current "$FROM" )"
 
 # 마커는 발주 «후»에 정해진다 — 번호를 발급하는 것은 큐다.
 MARKER=""

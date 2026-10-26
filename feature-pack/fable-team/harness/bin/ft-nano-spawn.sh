@@ -63,11 +63,13 @@ fi
 [ -e "$ROOT/.fable-team" ] && { _aout="$(FT_ROOT="$ROOT" bash "$HERE/ft-all-stop.sh" check 2>&1)" || { printf '%s\n' "$_aout"; exit 1; }; }
 # ★팀 env 자동 로드 (카드 nano-spawn-close-team-env §1)★: FT_NANO_PREFIX 가 이미 있으면 «명시가 이긴다» — 아무것도 안 한다.
 #   없으면 카드 경로 design/<팀>/indices/ 의 팀(v65 포함)으로 $ROOT/.fable-team/bin-<팀>/<팀>-env.sh 를 source. ★v65 도 예외 없이 읽다(r655)★ — 파일이 없는 다른 팀은 지금처럼 REJECT, v65 는 파일이 없으면 기본값(아래 공용 규칙 = byz-v65-nano-)으로 간다.
+# ★r975 r2(DA② ③)★ 팀 추출은 «정귀식» 이 아니라 마지막 조각 잘라내기 — 폴더 이름에 공백·한글이 들어가도 팀 env 를 읽는다(옛 `[a-z0-9]+` 정규식은 그 꼴을 v65 로 밀어 버렸다).
+_nano_team() { local t="${FT_TEAM:-}" seg; [ -n "$t" ] || { case "$IDX" in */indices/*) seg="${IDX%/indices/*}"; t="${seg##*/}" ;; esac; }; printf '%s\n' "${t:-v65}"; }
 [ -f "$HERE/ft_teamset.py" ] || { echo "REJECT ft_teamset.py·ft_spawn_queue.py 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }   # r689: 이름 규칙 읽기 «전» 존재·안내 검사(:102 와 같은 글자) — 있는데 못 읽으면 아래 문구
 DEF_NANO_PREFIX="$(python3 "$HERE/ft_teamset.py" prefix --team v65 2>/dev/null)"
 [ -n "$DEF_NANO_PREFIX" ] || { echo "REJECT 나노 이름 규칙(ft_teamset.py prefix --team v65) 못 읽음: $HERE"; exit 1; }
 if [ -z "${FT_NANO_PREFIX:-}" ]; then
-  _team=""; [[ "$IDX" =~ design/(teams/)?([a-z0-9]+)/indices/ ]] && _team="${BASH_REMATCH[2]}"
+  _team="$(_nano_team)"
   if [ -n "$_team" ] && [ "$_team" != v65 ]; then
     _tenv="$ROOT/.fable-team/bin-$_team/$_team-env.sh"
     [ -f "$_tenv" ] || { echo "REJECT 팀 env 없음: $_tenv"; exit 1; }
@@ -85,12 +87,16 @@ fi
 #   고정한 명부는 $SEATS 전역 — 명부 등록(⑤)도 «그 파일» 에 한다(팀 파일이 있으면 루트 seats.json 부재는 REJECT 사유 아님).
 _nano_team() { local t="${FT_TEAM:-}"; [ -n "$t" ] || { [[ "$IDX" =~ design/(teams/)?([a-z0-9]+)/indices/ ]] && t="${BASH_REMATCH[2]}"; }; printf '%s\n' "${t:-v65}"; }
 _nano_roster_fix() {  # ②명부 후보 1개 고정 — «처음 존재하는 것» 하나만(서브셰 0: $SEATS 전역에 남긴다)
+  #   rc0 = $SEATS 고정(없으면 빈 값) · rc1 = 존재하는데 «파일이 아니다» → $SEATS_ERR 에 REJECT 1줄(조용한 건너뛰기 0 · DA r2 ②)
   local cand
-  SEATS=""
+  SEATS=""; SEATS_ERR=""
   for cand in "${FT_SEATS_JSON:-}" "$ROOT/.fable-team/seats-$(_nano_team).json" "$ROOT/.fable-team/seats.json"; do
-    [ -n "$cand" ] && [ -f "$cand" ] && { SEATS="$cand"; break; }
+    [ -n "$cand" ] || continue; [ -e "$cand" ] || continue
+    if [ -f "$cand" ]; then SEATS="$cand"; return 0; fi
+    SEATS_ERR="REJECT 회신 대상을 못 풀었다 — 명부 경로가 폴더다(파일이 아니다): $cand"
+    return 1
   done
-  printf '%s\n' "$SEATS"
+  return 0
 }
 _nano_reply_target() {  # rc0 = stdout 회신 대상 1줄 · rc1 = stdout REJECT 1줄(부작용 0 — 워크트리·tmux·명부 등록 전부 앞)
   python3 - "${SEATS:-}" "$FROM_SET" "$FROM" "$HERE" <<'PY'
@@ -131,7 +137,7 @@ print(v)
 PY
 }
 # ①-0 회신 대상 = lint 첫 칸 (dry-run·실행 같은 칸 · 워크트리·tmux·명부 등록 전부 앞)
-_nano_roster_fix >/dev/null   # ②③명부 1개 고정($SEATS) · 팀 env 로드 «뒤» 라 FT_SEATS_JSON·FT_TEAM 이 확정된 값이다
+_nano_roster_fix || { printf '%s\n' "$SEATS_ERR"; exit 1; }   # ②③명부 1개 고정($SEATS · 폴더면 열기 0) · 팀 env 로드 «뒤» 라 FT_SEATS_JSON·FT_TEAM 이 확정된 값이다
 # r730 가드 그대로: --from 명시는 해석하지 않는다 — env FT_SEND_FROM 만 «고정한 그 명부» 의 현역으로 해석(팀장 승계 추적)
 [ "$FROM_SET" = 1 ] || FROM="$( . "$HERE/ft-team-lib.sh" 2>/dev/null && ft_from_current "${FT_SEND_FROM:-$FROM}" "$SEATS" )"
 _nano_rt="$(_nano_reply_target)"; _nano_rtrc=$?

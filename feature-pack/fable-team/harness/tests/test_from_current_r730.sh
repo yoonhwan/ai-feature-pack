@@ -61,9 +61,15 @@ run_guard() { bash -c 'HERE="$1"; FROM="$2"; FROM_SET="$3"; SEATS="$4"; '"$guard
   && ok "ⓔ --from 명시 → 그대로" || bad "ⓔ --from 명시인데 해석됨"
 [ "$(FT_SEATS_JSON="$TMP/seats-x.json" run_guard 'byz-x-master-claude#2' 0 "$TMP/seats-x.json")" = 'byz-x-master-claude#5' ] \
   && ok "ⓔ --from 없으면 해석" || bad "ⓔ --from 없는데 해석 안 됨"
-for f in ft-nano-spawn.sh ft-role-spawn.sh ft-send-verified.sh; do
+# r975 반송 r2(DA⑥ r2 ①): ft-send-verified 는 «부르는 쪽이 확정해 넘긴 발신자» 를 그대로 쓴다 — 재해석 0.
+#   (예전엔 spawn 이 `--from #4` 로 판정한 값을 :84 재해석이 루트 `_master` #3 로 되돌렸다.)
+#   해석은 spawn·role-spawn 두 곳(= 해석할 «인자·env» 를 받는 곳)에서 1회씩만 한다.
+for f in ft-nano-spawn.sh ft-role-spawn.sh; do
   [ "$(grep -c 'ft_from_current' "$KIT/$f")" = 1 ] && ok "ⓕ $f 가 함수 1회 호출" || bad "ⓕ $f 호출 $(grep -c 'ft_from_current' "$KIT/$f")회 (기대 1)"
 done
+[ "$(grep -cE '^[^#]*ft_from_current' "$KIT/ft-send-verified.sh")" = 0 ] \
+  && ok "ⓕ ft-send-verified.sh 는 재해석 0(확정 발신자 그대로 · r975 r2)" \
+  || bad "ⓕ ft-send-verified.sh 가 발신자를 다시 해석한다($(grep -cE '^[^#]*ft_from_current' "$KIT/ft-send-verified.sh")회) — 명시 --from 이 되돌려진다"
 [ "$(grep -c '^ft_from_current()' "$KIT/ft-team-lib.sh")" = 1 ] && ok "ⓕ 정의는 ft-team-lib.sh 한 곳" || bad "ⓕ ft-team-lib.sh 의 ft_from_current 정의 $(grep -c '^ft_from_current()' "$KIT/ft-team-lib.sh")회 (기대 1)"
 
 # ── ⓖ 변이 2종 — 지우면 ⓑ·ⓒ 가 무너진다
