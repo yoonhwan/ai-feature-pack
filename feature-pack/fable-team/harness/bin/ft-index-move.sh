@@ -52,6 +52,8 @@ if [ "$DST" = 완성 ]; then
   printf '%s' "$body" | grep -Fq -- "$CARDID" || { echo "REJECT $DA 은 $CARDID 를 닫은 절이 아니다(절에 카드 이름 없음) — 그 판정 절에 「대상 카드: ${CARDID}」 줄을 넣고 다시. 이동 0"; exit 1; }
   # 정본 게이트 + 랜딩 commit 사실 검사(ft-index-move-canon.sh · 판정 440 r2 §6-1) — 이동 «전»에 검사한다.
   WT="$(git -C "$IDX_ROOT" rev-parse --show-toplevel 2>/dev/null || echo "$IDX_ROOT")"
+  # r937: 착지 리포 표식 = 이 카드의 «닫힘 — <카드> — main|main(팩) `<sha>`» 줄 — 정본·설치 게이트가 같은 리포를 골라 쓰게 넘기는 값
+  FT_LANDED_MARKER="$(printf '%s\n' "$body" | awk -v s="$(basename "$SRC" .md)" 'index($0,"닫힘")&&index($0,s)&&index($0,"main"){print;exit}')"; export FT_LANDED_MARKER
   CANON_RES="$(printf '%s\n' "$body" | bash "$HERE/ft-index-move-canon.sh" "$SRC" "$WT" "$LANDED")"
   CANON_KIND="$(printf '%s' "$CANON_RES" | cut -f1)"; CANON_NOTE="$(printf '%s' "$CANON_RES" | cut -f2-)"
   case "$CANON_KIND" in

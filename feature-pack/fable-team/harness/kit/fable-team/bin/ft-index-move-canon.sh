@@ -3,10 +3,14 @@
 #   ft-index-move.sh 진행→완성의 정본 게이트 + 랜딩 commit 사실 검사 (판정 440 설계 r2 §6-1 · 판정 444).
 #   출력 한 줄: `OK<TAB>정본 <경로> §<절>[ · 정본 …]` 또는 `OK<TAB>정본 영향 없음: <이유>` 또는 `REJECT<TAB><사유>` · 항상 exit 0.
 #   랜딩 브랜치 ref = env FT_LAND_REF(기본 origin/main) · 검사 전 fetch 하지 않는다 · 검사를 끄는 값 없음.
+#   r937: 착지 리포 판정 = ft_landed_repo(ft-team-lib.sh) — sha 가 실제로 있는 리포(카드 리포·팩 리포)와 그 리포의 ref 를 쓴다.
+#     표식 = 판정문 §절의 «닫힘 — <카드> — main|main(팩) `<sha>`» 줄(main(팩) = 팩 리포 · main = 카드 리포).
 set -uo pipefail
 CARD="${1:-}"; WT="${2:-}"; LANDED="${3:-}"
 BODY="$(cat)"
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 rej() { printf 'REJECT\t%s\n' "$1"; exit 0; }
+. "$HERE/ft-team-lib.sh" 2>/dev/null || rej "ft-team-lib.sh 를 못 읽었다: $HERE (착지 리포를 못 정한다)"
 
 # ① 카드 줄 검사 — 「정본 갱신:」 줄 «전부» 파일·절 실재 · 없으면 「정본 영향 없음」 · 출력 UPD 줄들 + 마지막 OK/REJECT
 RES="$(python3 - "$CARD" "$WT" <<'PY'
@@ -89,28 +93,46 @@ if [ -z "$LANDED" ]; then
 fi
 case "$LANDED" in *..*) T="${LANDED%%..*}"; S="${LANDED##*..}";; *) T=""; S="$LANDED";; esac
 REF="${FT_LAND_REF:-origin/main}"
-g() { git -C "$WT" "$@"; }
-SFULL="$(g rev-parse --verify -q "${S}^{commit}" 2>/dev/null)" || rej "S 없음 — git fetch 후 다시: $S"
-g rev-parse --verify -q "${REF}^{commit}" >/dev/null 2>&1 || rej "랜딩 브랜치 ref 없음: $REF"
-g merge-base --is-ancestor "$SFULL" "$REF" 2>/dev/null || rej "랜딩 안 됨 — $S 가 $REF 의 조상이 아니다"
+# r937: 착지 리포 = sha 가 실제로 있는 리포(ft_landed_repo) — 표식 줄 = 이 카드의 «닫힘 — <카드> — main…» 줄(§절 본문에서)
+STEM="$(basename "$CARD" .md)"
+MARKER="$(printf '%s\n' "$BODY" | awk -v s="$STEM" 'index($0,"닫힘")&&index($0,s)&&index($0,"main"){print;exit}')"
+PACK=""; [ -f "$HERE/ft-harness-root.sh" ] && PACK="$(. "$HERE/ft-harness-root.sh" && ft_harness_root "$HERE" 2>/dev/null)"
+# r937 r3: 루트 조회도 ft_git_capped — 한 후보의 루트 조회가 실패(rc≠0 · 시간 초과 포함)면 그 후보를 빈 값으로 넘기지 않고 REJECT
+if [ -n "$PACK" ]; then PACK_H="$PACK"; PACK="$(ft_git_capped 7 "$PACK_H" rev-parse --show-toplevel)" || rej "팩 리포($PACK_H) 루트 조회 실패(rc=$?) — 통과 0"; fi
+LR="$(ft_landed_repo "$S" "$WT" "$PACK" "$MARKER")" || rej "${LR#REJECT }"
+REPO_LANDED="${LR%%$'\t'*}"; SFULL="${LR##*$'\t'}"
+# r937 r2 (T1·T2): 모든 git 조회 = ft_git_capped(7초 · 재시도 1) · 허용 rc 를 넘은 값(124 시간 초과 · 128 실행 실패)은 «조회 실패» = REJECT(«없음» 으로 읽지 않는다)
+#   gq <허용 rc> <사유> <git 인자…> → GQ_OUT = 출력 · rc 그대로. 허용 rc 초과 = «조회 실패» = REJECT (rej 는 이 셸에서 돌아야 하므로 $( ) 안에서 부르지 않는다)
+gq() { local max="$1" why="$2"; shift 2
+  GQ_OUT="$(ft_git_capped 7 "$REPO_LANDED" "$@")"; GQ_RC=$?
+  [ "$GQ_RC" -le "$max" ] || rej "$why — $REPO_LANDED 조회 실패(rc=$GQ_RC · 시간 초과 포함) 통과 0"
+  return "$GQ_RC"; }
+gq 1 "랜딩 브랜치 ref($REF)" rev-parse --verify -q "${REF}^{commit}" \
+  || rej "랜딩 브랜치 ref 없음: $REF ($REPO_LANDED)"
+gq 1 "조상 검사($REF)" merge-base --is-ancestor "$SFULL" "$REF" \
+  || rej "랜딩 안 됨 — $S 가 $REF 의 조상이 아니다 ($REPO_LANDED)"
 if [ -z "$UPDS" ]; then printf '%s\n' "$LAST"; exit 0; fi
 if [ -n "$T" ]; then
-  TFULL="$(g rev-parse --verify -q "${T}^{commit}" 2>/dev/null)" || rej "T 없음 — git fetch 후 다시: $T"
+  gq 1 "T($T)" rev-parse --verify -q "${T}^{commit}" || rej "T 없음 — git fetch 후 다시: $T"
+  TFULL="$GQ_OUT"
   RANGE="$TFULL..$SFULL"
 else
-  g rev-parse --verify -q "${SFULL}^1" >/dev/null 2>&1 || rej "S 에 첫 부모가 없다: $S"
+  gq 1 "S 첫 부모($S)" rev-parse --verify -q "${SFULL}^1" || rej "S 에 첫 부모가 없다: $S"
   RANGE="${SFULL}^1..$SFULL"
 fi
-CHANGED="$(g diff --name-only "$RANGE" 2>/dev/null)"
+gq 0 "랜딩 구간 변경 목록($RANGE)" diff --name-only "$RANGE" || rej "랜딩 구간 변경 목록을 못 읽었다($RANGE)"
+CHANGED="$GQ_OUT"
 while IFS= read -r X; do
   [ -n "$X" ] || continue
   grep -Fxq -- "$X" <<<"$CHANGED" || rej "랜딩 commit 에 정본 $X 없음 — 로컬에만 고친 것($RANGE)"
   xre="$(printf '%s' "$X" | sed 's/[][\.*^$/]/\\&/g')"
   CS="$(printf '%s\n' "$BODY" | grep -oE "정본 diff 확인:[[:space:]]*${xre}[[:space:]]+§[^@]*@[0-9a-fA-F]{7,40}" | sed 's/.*@//')"
   [ -n "$CS" ] || rej "판정문 절에 「정본 diff 확인: $X §Y @<sha>」 줄 없음 — arch 검토 기록 필요"
-  SB="$(g rev-parse -q --verify "$SFULL:$X" 2>/dev/null)" || rej "S 에 $X 없음"
+  gq 1 "$X @$S" rev-parse -q --verify "$SFULL:$X" || rej "S 에 $X 없음"
+  SB="$GQ_OUT"
   while IFS= read -r C; do
-    CB="$(g rev-parse -q --verify "$C:$X" 2>/dev/null)" || rej "정본 diff 확인 줄의 @$C 에서 $X 를 읽을 수 없음 — 재검토"
+    gq 1 "$X @$C" rev-parse -q --verify "$C:$X" || rej "정본 diff 확인 줄의 @$C 에서 $X 를 읽을 수 없음 — 재검토"
+    CB="$GQ_OUT"
     [ "$CB" = "$SB" ] || rej "검토 뒤 정본이 바뀜 — 재검토($X @$C ≠ S)"
   done <<<"$CS"
 done <<<"$UPDS"
