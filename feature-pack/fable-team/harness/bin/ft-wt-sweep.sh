@@ -237,46 +237,29 @@ owner_team() {
   local t; t="$(sed -nE 's#.*design/(teams/)?([a-z0-9][a-z0-9_-]*)/indices/.*#\2#p' "$1/.worktree-info.json" 2>/dev/null | head -1)"
   if [ -n "$t" ] && [ -f "$(dirname "$SELF")/ft-team-lib.sh" ] && ( . "$(dirname "$SELF")/ft-team-lib.sh"; FT_REPO_ROOT="$SCAN_ROOT" ft_team_names 2>/dev/null ) | grep -qxF -- "$t"; then echo "$t"; else echo harness; fi
 }
-# ★r945★ sparse 워크트리 판정 — 문서·카드 작업 공간은 `--no-checkout + sparse-checkout` 으로 만들어져 최상위 항목 대부분이 «원래» 디스크에 없다.
+# ★r945★ sparse 워크트리 판정(r2) — 문서·카드 작업 공간은 `--no-checkout + sparse-checkout` 으로 만들어져 최상위 항목 대부분이 «원래» 디스크에 없다.
 #   옛 셈(HEAD 트리 최상위 중 2개 이상 부재 = 껍데기)은 그 정상 상태를 «반쯤 지워진 껍데기» 로 올려 오빠 HIL 목록을 오염시켰다(진행 중 PR 작업 공간 삭제 위험).
-#   ⇒ sparse 면 셈 대상 = sparse 패턴이 덮는 최상위 항목만 · 판정 실패 = «판정 불가 <경로>» 1줄(오빠 판정 0 · 삭제 대상 0).
-#   ★공용 config 주의★ 옛 방식으로 core.sparseCheckout 이 «공용» config 에 있으면 모든 워크트리가 판정 불가로 간다 — 껍데기로 «오인하지 않는» 쪽(안전)이고 목록에 눈에 보인다.
+#   ★패턴을 «직접 해석하지 않는다»★ (DA⑥ r1 HOLD): cone·비cone(`**/*.md`·`/d1/`·`!` 제외)·워크트리별/공용 config 를 손으로 풀면 오탐·놓침이 난다.
+#     대신 «디스크에 있어야 할 것» = `git ls-files -t` 중 skip-worktree(`S`) 가 아닌 파일의 최상위 이름 = git 이 이미 패턴을 적용한 결과.
+#   ⇒ sparse 껍데기 = 그 집합 중 디스크에 없는 것 ≥ 1 · 판정 실패(rc≠0 · sparse 패턴 경고 · 목록 0) = «판정 불가 <경로>» 1줄(오빠 판정 0 · 삭제 0) — sparse 면 «항상» 본다.
+#   ★실측★ 실 스캔루트 sparse 125석: 제외 규칙(.git/info/exclude 의 `.serena/` 등)에 걸린 이름은 «없어도 정상» 으로 빼지 않으면 40석이 오탐이 된다(0 → 40).
 # 외부 호출 7초 상한 — perl alarm 으로 그룹 TERM(macOS 기본엔 timeout(1) 이 없다 · run_plan 과 같은 꼴).
 git7() { perl -e 'setpgrp(0,0); $SIG{ALRM}=sub{ local $SIG{TERM}="IGNORE"; kill "TERM", -$$; exit 124 }; alarm shift; my $r=system(@ARGV); exit(($r>>8) || (($r&127) ? 128+($r&127) : 0));' "${FT_WT_GIT_SEC:-7}" git -C "$1" "${@:2}"; }
-# 패턴 $1 파일이 최상위 항목 $2 를 덮는가 — 0 = 덮는다(sparse 안). 마지막 일치가 이긴다(gitignore 꼴 · `!` 부정).
-#   cone(`d0` · `d0/sub`)·비cone(`d0/` · `*.md`)·`**/x` 를 첫 경로 조각으로 접어 대조한다 — 조각이 겹치면 «덮는다»(부분 포함은 디스크에 있으니 부재로 안 세므로 안전).
-sparse_covers() {
-  local f="$1" name="$2" line neg hit=0 seg
-  [ -f "$f" ] || return 1
-  while IFS= read -r line || [ -n "$line" ]; do
-    case "$line" in ''|'#'*) continue;; esac
-    neg=0; case "$line" in '!'*) neg=1; line="${line#!}";; esac
-    seg="${line#/}"
-    while :; do case "$seg" in '**/'*) seg="${seg#\*\*/}";; *) break;; esac; done
-    seg="${seg%%/*}"; [ -n "$seg" ] || seg='*'
-    # shellcheck disable=SC2254
-    case "$name" in
-      $seg) if [ "$neg" = 1 ]; then hit=0; else hit=1; fi;;
-    esac
-  done < "$f"
-  [ "$hit" = 1 ]
-}
-# 워크트리 하나의 sparse 여부 — rc 0 = 비sparse · 1 = sparse(stdout = 패턴 파일 경로) · 2 = 판정 불가.
-#   ①`core.sparseCheckout` 의 워크트리 config 값이 true 가 아니면 비sparse(호출 1회 — 대부분이 이쪽)
-#   ②true 인데 `sparse-checkout list` 가 실패하거나 비어 있으면 = 판정 불가(패턴 파일 깨짐·표식만 남음) ③성공+비어 있지 않음 = sparse.
-sparse_scope() {
-  local p="$1" f="$DIR/.sparse-scan.$$" rc
-  case "$(git7 "$p" config --bool --get core.sparseCheckout 2>/dev/null)" in
-    true) ;;
-    *) rm -f "$f"; return 0;;
-  esac
-  : > "$f"
-  git7 "$p" sparse-checkout list > "$f" 2>/dev/null; rc=$?
-  if [ "$rc" -eq 0 ] && [ -s "$f" ]; then echo "$f"; return 1; fi
-  echo "$f"; return 2
+# sparse 워크트리 하나를 본다 — stdout = «있어야 할 최상위 이름» 한 줄씩 · rc 0 = 정상 판정 · 2 = 판정 불가.
+#   $2 = 임시 파일 접두(워크트리마다 .raw · .err 두 개를 만들고 지운다).
+sparse_expected() {
+  local p="$1" raw="$2.raw" err="$2.err" lrc src
+  git7 "$p" ls-files -t > "$raw" 2>/dev/null; lrc=$?
+  git7 "$p" sparse-checkout list > /dev/null 2> "$err"; src=$?
+  if [ "$lrc" -ne 0 ] || [ "$src" -ne 0 ] || [ -s "$err" ] || [ ! -s "$raw" ]; then rm -f "$raw" "$err"; return 2; fi
+  rm -f "$err"
+  # 태그 «S»(skip-worktree) 를 빼고 최상위 이름만 — 정렬·중복 제거
+  awk 'substr($0,1,1)!="S"{s=substr($0,3); split(s,a,"/"); print a[1]}' "$raw" | sort -u
+  rm -f "$raw"
+  return 0
 }
 shell_scan() {
-  local stamp="$DIR/.shell-scan.stamp" sigf="$DIR/.shell-sig" now sig="" list="" p sha name missing cnt=0 live tm spf="" sprc=0 sdir=0 smissdir=0 mode und="" ucnt=0 s1 s2
+  local stamp="$DIR/.shell-scan.stamp" sigf="$DIR/.shell-sig" now sig="" list="" p sha name missing cnt=0 live tm spx="" und="" ucnt=0 s1 s2
   [ "$DRY" != 1 ] && [ -n "$SCAN_ROOT" ] && [ -d "$SCAN_ROOT" ] && [ -d "$DIR" ] || return 0
   now="$(date +%s)"; [ $(( now - $(cat "$stamp" 2>/dev/null || echo 0) )) -ge "$SCAN_SEC" ] || return 0
   echo "$now" > "$stamp"
@@ -286,25 +269,26 @@ shell_scan() {
     [ -d "$p" ] || continue
     case "${p##*/}" in
       *.deleting-[0-9]*) printf '%s\n' "$live" | grep -qxF -- "$p" && continue; missing=9;;
-      *) missing=0
-         while IFS= read -r name; do [ -e "$p/$name" ] || missing=$((missing+1)); done < <(git7 "$SCAN_ROOT" ls-tree --name-only "$sha" 2>/dev/null)
-         [ "$missing" -ge 2 ] || continue
-         # r945: 부재 2개 이상일 때만 sparse 를 본다 — 멀쩡한 워크트리는 git 호출 1회로 끝나(실 루트 272석 39s → 31s).
-         spf="$(sparse_scope "$p")"; sprc=$?
-         if [ "$sprc" -eq 2 ]; then und="$und$p "; ucnt=$((ucnt+1)); rm -f "$DIR/.sparse-scan.$$"; continue; fi   # 판정 불가 — 껍데기 아님도 아님(오빠 판정 0 · 삭제 0)
-         if [ "$sprc" -eq 1 ]; then   # sparse = «패턴이 덮는 최상위 항목» 만 다시 센다(밖에 없는 것은 정상)
-           missing=0; sdir=0; smissdir=0
-           while IFS=$'\t' read -r mode name; do
-             [ -n "$name" ] || continue
-             sparse_covers "$spf" "$name" || continue
-             [ "$mode" = 040000 ] && sdir=$((sdir+1))
-             [ -e "$p/$name" ] && continue
-             missing=$((missing+1)); [ "$mode" = 040000 ] && smissdir=$((smissdir+1))
-           done < <(git7 "$SCAN_ROOT" ls-tree "$sha" 2>/dev/null | awk -F'\t' 'NF>1{split($1,a," "); print a[1] "\t" $2}')
-           rm -f "$DIR/.sparse-scan.$$"
-           # sparse 껍데기 = 셈 대상 최상위 2개 이상 부재 또는 «셈 대상 디렉터리 전부 부재»(작업 공간의 목적이 사라짐 · r945 ⓑ)
-           [ "$missing" -ge 2 ] || { [ "$sdir" -gt 0 ] && [ "$smissdir" -ge "$sdir" ]; } || continue
-         fi;;
+      *) case "$(git7 "$p" config --bool --get core.sparseCheckout 2>/dev/null)" in
+           true)   # sparse — 셈 대상 = git 이 정한 «디스크에 있어야 할 것»(패턴 해석 0 · DA⑥ r1 HOLD 고침)
+             spx="$DIR/.sparse-$$"
+             if ! expected="$(sparse_expected "$p" "$spx")"; then und="$und$p "; ucnt=$((ucnt+1)); continue; fi   # 판정 불가 — 껍데기 아님도 아님(오빠 판정 0 · 삭제 0)
+             missing=0
+             while IFS= read -r name; do
+               [ -n "$name" ] || continue
+               [ -e "$p/$name" ] && continue
+               # 제외 규칙(.git/info/exclude·.gitignore 의 `.serena/` 등)에 걸린 이름 = 디스크에 없어도 정상(실측 40석 오탐 → 0)
+               git7 "$p" check-ignore --no-index -- "$name/" "$name" >/dev/null 2>&1 && continue
+               missing=$((missing+1))
+             done <<EOF
+$expected
+EOF
+             [ "$missing" -ge 1 ] || continue;;
+           *)      # 일반 — 기존 규칙 그대로(최상위 2개 이상 부재)
+             missing=0
+             while IFS= read -r name; do [ -e "$p/$name" ] || missing=$((missing+1)); done < <(git7 "$SCAN_ROOT" ls-tree --name-only "$sha" 2>/dev/null)
+             [ "$missing" -ge 2 ] || continue;;
+         esac;;
     esac
     tm="$(owner_team "$p")"; list="$list$tm:${p##*/} "; cnt=$((cnt+1))
   done < <(git7 "$SCAN_ROOT" worktree list --porcelain 2>/dev/null | awk '/^worktree /{p=substr($0,10)} /^HEAD /{print p "\t" substr($0,6)}')

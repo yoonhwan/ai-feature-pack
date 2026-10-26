@@ -1,19 +1,24 @@
 PASS 본보기 bash -n(/bin/bash)
-PASS 전제: sp1 은 sparse(cone) — d0 만 있고 d1~d3 없음
-PASS 전제: sp1 에 d2 없음(sparse 밖 = 정상)
+PASS 전제: sp1 은 sparse(cone d0) — d0 만 있고 d1~d3 없음
 PASS 전제: sp1 core.sparseCheckout=true
-PASS 전제: sp3 은 비cone(d1/) — d1 만
-== ⓐⓑⓒⓓ 한 번의 스캔
-PASS ⓑⓒ sparse(d0 만) + d0 부재 = 껍데기(sp2) · 일반 워크트리 최상위 2개 부재 = 껍데기(n2) — 그 둘뿐
-PASS ⓐ sparse(d0 만) + d0 있음 → 껍데기 0 (지금은 sparse 밖 부재를 세서 껍데기로 오판)
-PASS 보론 비cone(d1/) sparse 도 껍데기 0
+PASS 전제: da1 은 비cone 3패턴 — d0·d1·d2 있고 d3 없음
+PASS 전제: da3 d1 삭제 · da4 는 전체 체크아웃(패턴 /*)
+PASS 전제: ig1 은 ex 가 H 인데 디스크에 없고 제외 규칙(ex/)에 걸림
+== ⓐⓑⓒⓓ + DA⑥ 반례 4칸 — 한 번의 스캔
+PASS ⓑⓑ2ⓑ3ⓒ 진짜 껍데기 4곳만 — sp2(d0 부재) · da2(**/*.md · d1 부재) · da3(/d1/ + ! 제외 · d1 부재) · n2(일반 최상위 2개 부재)
+PASS ⓐ cone sparse(d0 있음) → 껍데기 0
+PASS 보론 비cone(d1/) sparse → 껍데기 0
+PASS ⓐ2 비cone /d0/absent · /d2/absent · /d1/ → 껍데기 0 (r1 은 하위 경로를 접어 오탐)
 PASS ⓒ 일반 워크트리 · 최상위 1개 부재 → 껍데기 아님(회귀 0)
-PASS ⓓ sparse 표식만 있고 패턴 못 읽음 → «판정 불가» 1줄
-PASS   └ 판정 불가 줄에 경로(br1)
+PASS ⓔ 제외 규칙에 걸린 이름(H 인데 디스크에 없음) → 껍데기 0
+PASS ⓓⓓ2 패턴을 못 읽은 sparse 2곳 → «판정 불가» 1줄
+PASS   └ 판정 불가 줄에 경로(br1 — 패턴 파일 삭제)
+PASS   └ 판정 불가 줄에 경로(da4 — 패턴 파일 자리가 폴더)
 PASS   └ 껍데기 줄 꼴 그대로(팀 미상 = harness · r444)
+PASS   └ 판정 불가 줄 꼴 그대로
 PASS   └ 바뀐 것 없음 → 같은 목록이면 두 번째 스캔은 경보 0(바뀐 때만)
 PASS   └ 판정 불가 목록도 그대로면 다시 0
-PASS ⓒ 일반 워크트리 · 최상위 2개 부재로 늘면 다시 껍데기(n1 추가)
+PASS ⓒ 일반 워크트리 부재가 2개로 늘면 다시 껍데기(n1 추가)
 PASS   └ 경보는 읽기만 — 워크트리 손 0
 PASS   └ sparse 임시 파일 남김 0
 PASS   └ 삭제·이름 바꿈 0

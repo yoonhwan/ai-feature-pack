@@ -3,7 +3,7 @@ PASS ⓑ 좌석 살아 있음 → WAIT · 계획 제자리 · 로그 wait=1
 PASS ⓐ' --launchd FT_ROOT 없음 → ERROR rc2
 PASS ⓒ 같은 sha·같은 주인 사본은 재사용(새로 안 만듦)
 PASS ⓒ tmux 못 읽음 → stdout ERROR tmux unreadable 1줄 + 삭제 0
-FAIL ⓒ swept [] 2026-10-26 ERROR tmux unreadable — 삭제 0 (tmux=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.UUUBxDUYlC/bin/tmux)
+FAIL ⓒ swept [] 2026-10-26 ERROR tmux unreadable — 삭제 0 (tmux=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.LkfUp45KMN/bin/tmux)
 PASS ⓓ E0~E3 전부 참 → FINISHED
 PASS ⓓ 착지 sha 가 origin/main 조상 아님 → ACTIVE(E1 no)
 PASS ⓓ 카드 없음 → ORPHAN

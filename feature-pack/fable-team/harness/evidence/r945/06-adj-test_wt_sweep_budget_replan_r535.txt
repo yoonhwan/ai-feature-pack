@@ -58,5 +58,4 @@ PASS sweep 에 브랜치 삭제 코드 0
 PASS core.bare=false
 
 ALL PASS
-REAL-STATE-GUARD WARN 우편함 줄어듦/없음(회전?): /Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm/mailbox.jsonl
 REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

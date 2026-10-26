@@ -54,7 +54,7 @@ PASS ⓕ 계획 2단 블록에 브랜치 삭제 코드 0
 == ⓖ 보관 tar 없는 삭제 0 — 잔여 삭제는 검증된 tar 가 있을 때만(marker 무관)
 PASS ⓖ①② marker 없음·tar 없음 + 보관 실패 → 삭제 0 · 원래 경로 없음 · .deleting·포인터·파일 유지 · 다음 sweep 재시도
 PASS   └ 재시도 경로(RESUME) 작동
-/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r945-wt-shell-scan-skip-sparse-outside/feature-pack/fable-team/harness/tests/test_wt_clean_two_stage.sh: line 220: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.zP2EowilFC/repo/.baton/archive/INDEX.jsonl: No such file or directory
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r945-wt-shell-scan-skip-sparse-outside/feature-pack/fable-team/harness/tests/test_wt_clean_two_stage.sh: line 220: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.pS82xzbtFH/repo/.baton/archive/INDEX.jsonl: No such file or directory
 PASS ⓖ③ 검증된 tar 있음 → 이어정리(RESUME)
 PASS ⓖ③ 검증된 tar 가 있으면 baton 실패와 무관하게 잔여 정리
 PASS ⓖ 0바이트 tar 는 증거 아님 → 삭제 0
@@ -63,7 +63,7 @@ PASS ⓖ④ tar 실재(.baton/archive/*.tar.gz)
 PASS ⓖ④ INDEX 행이 이름 바뀐 경로를 가리킴
 == 변이 시험 — 검사가 정말 결함을 잡는가
 PASS 변이 1 적용(move 줄 제거)
-PASS 변이 1(move 제거) → ⓐ 실패 검출: 계획이 cleaned 로 안 끝남 ← [HIL] seat=byz-planner-nano-del#0 move 뒤에도 원래 경로 남음 · ! bash /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.zP2EowilFC/hil/h1
+PASS 변이 1(move 제거) → ⓐ 실패 검출: 계획이 cleaned 로 안 끝남 ← [HIL] seat=byz-planner-nano-del#0 move 뒤에도 원래 경로 남음 · ! bash /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.pS82xzbtFH/hil/h1
 sweep 계획 1 · cleaned/none 0 · wait 0 · hil 1 · hil_files 1
 PASS 변이 2 적용(plan-ver 대조 무력화)
 PASS 변이 2(plan-ver 대조 제거) → ⓓ 실패 검출: REPLAN 줄 없음 ← [HIL] seat=byz-planner-nano-del#0 실행 실패(rc=3: STALE byz-planner-nano-del#0 — 옛 생성기 계획 실행 거부(plan-ver=27de886ba1a26ceb430538ff09e5ff9510d809da ≠ 라이브 생성기=7ff1372a21670c2b86bb2b875fa056fa86b2347c) · 재생성: ft-nano-close.sh byz-planner-nano-del#0 를 다시 돌려 새 계획을 만든다) · ! bash /private/var/folders/vm/j7_jw80
