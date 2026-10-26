@@ -96,3 +96,36 @@ bash feature-pack/fable-team/harness/tests/test_cherry_gate_batch_r958.sh   # �
 bash feature-pack/fable-team/harness/evidence/r958/rework-r2-repro.sh         # r2 반례 2건 재현+고침+변이 (약 30초)
 bash feature-pack/fable-team/harness/evidence/r958/rework-r3-repro.sh         # r3 반례 2건(r2 판 대조) + 성능 (약 130초)
 ```
+
+---
+
+# r4 재설계 (arch 151 · 2026-10-27) — 7초 쪼개기는 접고 «비교 기준» 한 자리만 고친다
+
+r3(`a921dfe4`)는 DA⑥ HOLD 3 으로 멈췄다(묶음 조회가 git 이력을 바꿈 = 반례 R1~R3). 원인 실측(arch 149)이 뿌리를 바꿨다: ⑤ 시간 초과의 진짜 원인은 **비교 기준(feat)을 잘못 고른 것**이다 — `ft-nano-close.sh` 가 팀 env `FT_NANO_FEAT` 를 나노 자신의 `.worktree-info.json` base 보다 먼저 썼다.
+
+## 고친 자리 (파일 2 = ft-nano-close.sh 짝 2 + 시험 2)
+| 파일 | 고친 자리 |
+|---|---|
+| `harness/kit/fable-team/bin/ft-nano-close.sh` · `harness/bin/ft-nano-close.sh`(짝 cmp0) | base 정합 블록(856~875행): `_ENV_FEAT` 보관 → `.worktree-info.json` 의 base 를 **먼저** → base 가 있으면 env 는 안 쓴다 → 둘 다 있고 다르면 `WARN 비교 기준 = 좌석 .worktree-info base(<base>) · FT_NANO_FEAT=<env> 무시(둘 다 있고 다름)` **1줄**. base 가 없을 때만 env. R42(base 가 sha 면 랜딩 브랜치 정보 없음) 판정은 info 에서 온 값에만 걸고, 그때 env 가 있으면 env 로 후퇴(옛 규칙 유지) |
+| `tests/test_nano_close_suspended.sh` | 시험 1칸 추가 — **ⓐ** base(`origin/main`)+env(`feat/old`, 뒤진 가지) → ⑤ 기준 `origin/main` · WARN 1줄(두 값) · `INFO feat=origin/main @`(fetch 도 base 하나) · «기준 REJECT» 0 / **ⓑ** base 없음 → env 그대로(회귀 0) · WARN 0 / **ⓐ-2** base == env → WARN 0 |
+| `tests/test_nano_close_step_timing_r938.sh` | **계약 갱신(DA 판정용)**: 시나리오의 «기준 브랜치» 를 env(`FT_NANO_FEAT`)가 아니라 `.worktree-info.json` base 에 쓴다(`setbase()` 도우미 · 그 파일은 git exclude). 종전에는 `base:"main"` 고정 + env `feat/x` 로 ⑤ fetch 경로를 탔는데, r4 계약에서는 base 가 이기므로 같은 의도를 base 쪽으로 옮겼다 — 단언·기대값은 그대로 |
+
+## 실측 (이 맥 · 2026-10-27)
+| 축 | 값 | 파일 |
+|---|---|---|
+| 새 시험 1칸 (ⓐ·ⓑ·ⓐ-2 + 기존 ⓐ~ⓖ) | **ALL PASS** (100 PASS) · `/bin/bash` 3.2 도 ALL PASS | `rework-r4-test.txt` · `rework-r4-test-bash32.txt` |
+| 변이 «env 우선 되살림»(= info base 안 읽음) | 변이판 **rc=1 · FAIL 4** — 「WARN 1줄」·「fetch 도 base ref」·「WARN 줄 수」가 죽는다 = 시험이 순서를 실제로 문다 | `rework-r4-mutation.sh` / `.txt` |
+| 실사건 입력(chatbot 나노 c-fix-k12) | base `origin/main` → 11커밋·«+» **5** ↔ 팀 env `feat/chatbot-main` → 854커밋·«+» **848** (읽기만 · 쓰기 0) | `rework-r4-real-case.txt` |
+| 기존 시험 회귀 | `test_cherry_gate_batch_r958` · `identical_head` · `squash` · `step_timing_r938` · `kit_bin_sync` · `nano_close_fail_closed` · `nano_close_suspended` 전부 rc=0 | 아래 재현 절 |
+
+## 재현
+```bash
+bash feature-pack/fable-team/harness/tests/test_nano_close_suspended.sh        # ⓐ·ⓑ·ⓐ-2 포함 (약 40초)
+/bin/bash feature-pack/fable-team/harness/tests/test_nano_close_suspended.sh   # bash 3.2 판
+bash feature-pack/fable-team/harness/evidence/r958/rework-r4-mutation.sh       # 변이 — ⓐ 3단언 FAIL (약 40초)
+```
+
+## 범위 밖 (DA 판정용)
+1. `--branch` 값이 정본 줄기(base)일 때 막는 자리(825행)는 여전히 `FT_NANO_FEAT` 를 본다 — r4 는 base 정합 블록 한 자리만 고쳤다(카드 §구현범위 1).
+2. 7초 쪼개기 가지(`a921dfe4`)는 **보존만** — 되살리지 않았다(반례 R1~R3 미해결).
+3. `test_nano_close_step_timing_r938.sh` 의 ⓗ(상한+유예 ≤3초)는 이 맥에서 가끔 4초로 흔들린다(2회 재실행 ALL PASS · 이 변경과 무관한 시각 경계).

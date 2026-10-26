@@ -853,16 +853,23 @@ if [ "$NAMED" = 1 ]; then
   fi
 fi
 [ -z "$SEAT_WT_ERR" ] || bad+=("③$SEAT_WT_ERR")
-# base 정합 (카드 §3): FT_NANO_FEAT «명시» → 그 값 · 아니면 좌석 워크트리 .worktree-info.json 의 base · 그것도 없으면 지금 기본값.
-_FEAT="${FT_NANO_FEAT:-}"
-[ -n "$_FEAT" ] || [ -z "$SEAT_WT" ] || _FEAT="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("base",""))' "$SEAT_WT/.worktree-info.json" 2>/dev/null)"
-# R42: info.base 가 ref 가 아니고 commit(sha)이면 «랜딩 브랜치 정보 없음» — 기본 사슬로 랜딩 브랜치를 정한다(FT_NANO_FEAT 명시값은 그대로 우선). 조상 확인은 fetch 뒤.
+# base 정합 (카드 §3 · r958 r4): 좌석 워크트리 .worktree-info.json 의 base «먼저» · FT_NANO_FEAT 는 base 가 없을 때만 · 둘 다 있고 다르면 WARN 1줄(조용한 선택 0).
+_ENV_FEAT="${FT_NANO_FEAT:-}"
+_FEAT=""
+[ -z "$SEAT_WT" ] || _FEAT="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("base",""))' "$SEAT_WT/.worktree-info.json" 2>/dev/null)"
+_INFO_FEAT="$_FEAT"   # R42 판정 대상 = info 에서 온 값뿐 — env «명시» 값은 sha 로 되읽지 않는다(옛 규칙 그대로)
+if [ -n "$_INFO_FEAT" ]; then
+  [ -z "$_ENV_FEAT" ] || [ "$_ENV_FEAT" = "$_INFO_FEAT" ] || echo "WARN 비교 기준 = 좌석 .worktree-info base($_INFO_FEAT) · FT_NANO_FEAT=$_ENV_FEAT 무시(둘 다 있고 다름)"
+else
+  _FEAT="$_ENV_FEAT"
+fi
+# R42: info.base 가 ref 가 아니고 commit(sha)이면 «랜딩 브랜치 정보 없음» — 기본 사슬로 랜딩 브랜치를 정한다(env 명시값은 그대로). 조상 확인은 fetch 뒤.
 _BASE_SHA=""
-if [ -z "${FT_NANO_FEAT:-}" ] && [ -n "$_FEAT" ] \
+if [ -n "$_INFO_FEAT" ] && [ "$_FEAT" = "$_INFO_FEAT" ] \
    && ! git -C "$SEAT_REPO" rev-parse --verify -q "refs/heads/$_FEAT" >/dev/null \
    && ! git -C "$SEAT_REPO" rev-parse --verify -q "refs/remotes/$_FEAT" >/dev/null \
    && git -C "$SEAT_REPO" rev-parse --verify -q "$_FEAT^{commit}" >/dev/null; then
-  _BASE_SHA="$_FEAT"; _FEAT=""
+  _BASE_SHA="$_FEAT"; _FEAT="$_ENV_FEAT"
 fi
 [ "$PACK_WT" != 1 ] || _FEAT="${_FEAT:-origin/main}"   # r508: 팩 리포에는 feat/v6-realtime-live 가 없다 — 팩 착지 줄기
 _FEAT="${_FEAT:-feat/v6-realtime-live}"

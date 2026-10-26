@@ -1,0 +1,34 @@
+MUTATED /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.dBoqKBBFLY/harness/kit/fable-team/bin/ft-nano-close.sh
+MUTATED /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.dBoqKBBFLY/harness/bin/ft-nano-close.sh
+변이본 kit·bin 같은 바이트(cmp0 — 시험의 cmp 단언은 통과시킨다)
+  변이본: # base 정합 (카드 §3 · r958 r4): 좌석 워크트리 .worktree-info.json 의 base «먼저» · FT_NANO_FEAT 는 base 가 없을 때만 · 둘 다 있고 다르면 WARN 1줄(조용한 선택 0).
+  변이본: _ENV_FEAT="${FT_NANO_FEAT:-}"
+  변이본: _FEAT="${_ENV_FEAT}"
+  변이본: : # 변이 — info base 를 읽지 않는다(옛 규칙 = env 우선)
+  변이본: _INFO_FEAT="$_FEAT"   # R42 판정 대상 = info 에서 온 값뿐 — env «명시» 값은 sha 로 되읽지 않는다(옛 규칙 그대로)
+  변이본: if [ -n "$_INFO_FEAT" ]; then
+  변이본:   [ -z "$_ENV_FEAT" ] || [ "$_ENV_FEAT" = "$_INFO_FEAT" ] || echo "WARN 비교 기준 = 좌석 .worktree-info base($_INFO_FEAT) · FT_NANO_FEAT=$_ENV_FEAT 무시(둘 다 있고 다름)"
+
+================ 변이본으로 새 시험 1칸(ⓐ) 실행 — ⓐ 가 FAIL 해야 한다 ================
+== ⓐ r958 r4 — ⑤ 비교 기준은 좌석 .worktree-info base «먼저» · env 는 base 없을 때만 · 다르면 WARN 1줄
+PASS ⓐ base(origin/main) 우선 → 닫힘 rc=0(env feat/old 로 판정했으면 ⑤ REJECT)
+FAIL   └ 조용한 선택 0 — WARN 1줄에 두 값 — 없음: «WARN 비교 기준 = 좌석 .worktree-info base(origin/main) · FT_NANO_FEAT=feat/old 무시» ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.37nB2iZiNS/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+INFO ft-merge-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.37nB2iZiNS/bin) — 단계 상한은 python3 직접으로 건다
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.37nB2iZiNS/bin
+WARN ④checkpoint 면제 — 나노 브랜치에 press 산출 0(poller_dom.jsonl 없음)
+STEP ⑥증거검사 +1s
+STEP ⑤cherry +1s
+REJECT cherry 게이트 — nano/sus
+PASS   └ ⑤ 가 base 하나로 판정(env 기준 재시도 0)
+FAIL   └ fetch 도 base ref(origin/main) 하나 — 없음: «INFO feat=origin/main @» ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.37nB2iZiNS/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+INFO ft-merge-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.37nB2iZiNS/bin) — 단계 상한은 python3 직접으로 건다
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.37nB2iZiNS/bin
+WARN ④checkpoint 면제 — 나노 브랜치에 press 산출 0(poller_dom.jsonl 없음)
+STEP ⑥증거검사 +1s
+STEP ⑤cherry +1s
+REJECT cherry 게이트 — nano/sus
+FAIL   └ WARN 줄 수 0
+PASS ⓑ base 없음 → env(FT_NANO_FEAT=main) 그대로 · rc=0
+PASS   └ base 없으면 WARN 0(조용한 비교 0)
+PASS ⓐ base 와 env 가 같으면 WARN 0 · rc=0
+==> 변이판 rc=1 (기대 1) · FAIL 줄 수 = 4
