@@ -11,6 +11,13 @@
 - 원격 받아오기(fetch) 네 곳(카드 ref·연구 origin main·cherry 재대조·feat ref)이 7초 + 재시도 1 상한을 거치고, fetch 가 실패하면 그 뒤 origin/main 을 쓰는 검사(cherry 재검사·freshness)를 돌리지 않고 그 자리 REJECT 한다(«origin/main fetch 실패 — 옛 ref 대조 0(R22)»).
 - 하위 검사(증거 검사·cherry 게이트·freshness·사건 원장·slots)는 min(고정비 + 7초 × 작업량(커밋·리포 수), 70초) 상한. 넘으면 프로세스 묶음째 TERM → 1초 → KILL 하고 REJECT «<단계> 시간 초과 <걸린>/<상한>s · 배수 <n> — 다시: 같은 명령 · 계속이면 arch 보고». 상한 걸리는 검사는 모든 쓰기보다 먼저 끝나고(사건 원장 abort trap 은 prepare 전), 상한 REJECT 시 명부·원장·세션·카드·.prepared 변경 0.
 - 시험 test_nano_close_step_timing_r938.sh 80 PASS(ⓐ~ⓚ · /bin/bash 3.2) · 변이 6종 각축 ALL-RED(빨강이어야 할 칸 이름 단언) · kit cmp0 · 기존 닫기·시트 시험 12종 초록.
+## 2026-10-26 — r948 카드 리포 착지 카드의 라이브 전수 대조가 프로젝트를 넘긴다 + --all 거짓 PENDING 3종 (1.1.253)
+
+- ft-index-move-install.sh: 착지 리포가 카드 리포면 `--all --project <카드 리포 공용 루트>` 로 부른다(git-common-dir 의 부모 · ft_git_capped 7초 · 워크트리 안 카드도 루트). 전엔 --project 가 없어 검사기가 팩 리포를 프로젝트로 보고 «LIVE_BIN 없음» ERROR rc3 → 일괄 닫기가 첫 장부터 막혔다. 팩 착지(--range) 갈래는 그대로.
+- ft_live_install_check.py live_path: 지도 패턴 접두는 폴더(마지막 /)까지만 — `templates/scope-*.tsv` 를 «scope-» 뗀 이름(classes-pack.tsv)으로 찾던 MISSING 2 가 사라진다.
+- plist Label 이 «접두-__자리표시__» 꼴(iap-tunnel-__PORT__)이면 적재 목록에서 정확 라벨 또는 «접두-<숫자>» 인스턴스를 찾아 각각 대조한다(다른 접미는 안 셈). 0개 = NOTLOADED · launchctl list 실패 = ERROR(숨김 0).
+- LIVE-MAP: launchd/com.byz.ft-head-lag.plist.template = skip(install.sh 는 새 launchd 를 깔지 않고 ft-head-lag.sh 는 ft-news-tick·ft-merge-land 가 직접 부른다). ft-idle-wake 는 부르는 곳이 launchd 하나뿐이라 NOTLOADED 그대로 둔다(10-25 07:12 이후 실제로 안 돎 = 진짜 어긋남).
+- 시험 test_r948_live_all_project.sh 15 PASS(ⓐ~ⓗ + 변이 6종 · /bin/bash 3.2 · r2 = DA⑥ r1 HOLD 1 정확 라벨 반영) · 인접 시험 rc0 · 짝 사본 cmp0(bin 2 + kit).
 
 ## 2026-10-26 — r921 자원 조건으로 멈추지 않는다 — 회수 먼저 → 그래도 넘으면 WARN 1줄 + 진행 (1.1.251)
 

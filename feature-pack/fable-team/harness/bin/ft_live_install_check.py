@@ -130,8 +130,10 @@ def subst(p):
 
 
 def live_path(row, f):
-    """라이브 파일 경로 = 라이브 폴더 + 지도 패턴의 «첫 와일드카드 앞» 이후 상대 경로(중첩 폴더 보존). 와일드카드 없으면 파일 이름만 (R377)."""
+    """라이브 파일 경로 = 라이브 폴더 + 지도 패턴의 «첫 와일드카드 앞 폴더» 이후 상대 경로(중첩 폴더 보존). 와일드카드 없으면 파일 이름만 (R377).
+    r948: 접두는 폴더(마지막 /)까지만 — `templates/scope-*.tsv` 의 `scope-` 는 파일 이름 일부라 자르지 않는다(설치본 = 원래 이름)."""
     pre = row[0].split("*")[0]
+    pre = pre[: pre.rfind("/") + 1]
     rel = f[len(KD):]
     sub = rel[len(pre):] if pre and rel.startswith(pre) else ""
     return os.path.join(subst(row[2]), sub or os.path.basename(f))
@@ -163,6 +165,24 @@ def plist_items(repo, path, blob):
     # r385: 하네스 bin 을 부르는 데몬은 데이터 루트를 cwd·env 로만 푼다(설치본이 git 밖) — 둘 다 없으면 PENDING
     if re.search(r"__FT_BIN__|/\.fable-team/bin/", body) and not re.search(r"<key>WorkingDirectory</key>|<key>FT_(RES_)?ROOT</key>", body):
         return ["NOROOT %s (하네스 bin 데몬에 WorkingDirectory·FT_ROOT 없음 — 설치본 위치로 루트를 못 푼다)" % label]
+    inst = re.fullmatch(r"(.+-)__[A-Z_]+__", m.group(1)) if m else None  # r948: «접두-__PORT__» = 인스턴스 라벨 «접두-<숫자>» (iap-tunnel-18703·-18712)
+    if not inst:
+        return label_items(path, body, label)
+    found = loaded_instances(inst.group(1))
+    return [x for lb in found for x in label_items(path, body, lb)] if found else ["NOTLOADED %s · %s<숫자> (적재 0)" % (inst.group(1)[:-1], inst.group(1))]
+
+
+def loaded_instances(prefix):
+    """r948: 적재 목록에서 정확 라벨(접두 끝 «-» 뗀 것) 또는 «접두 + 숫자» 라벨 — 다른 접미는 안 센다 · 목록 조회 실패는 ERROR(NOTLOADED 로 숨기지 않는다)."""
+    r = run([os.environ.get("FT_LAUNCHCTL", "launchctl"), "list"])
+    if r.returncode:
+        die("launchctl list 실패(rc=%d) — 인스턴스 라벨 %s<숫자> 적재를 못 잰다" % (r.returncode, prefix))
+    pat = re.compile(re.escape(prefix[:-1]) + r"(?:-\d+)?")
+    return sorted({c[-1] for c in (ln.split() for ln in r.stdout.splitlines()) if c and pat.fullmatch(c[-1])})
+
+
+def label_items(path, body, label):
+    """라벨 1개: 적재 여부 + PID 있으면 시작 시각 < 스크립트 mtime → RESTART."""
     r = run([os.environ.get("FT_LAUNCHCTL", "launchctl"), "list", label])
     if r.returncode:
         return ["NOTLOADED " + label]
