@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # ft-da-codex.sh — DA(적대검증) 용 codex exec 호출 1곳 (r513).
+# r990: 머리말 둘째 줄 [DA 전수] — DA 는 1회차에 기준 «전체» 를 훑어 반례를 한 묶음으로 낸다(한 건 왕복 금지).
 # 사용: ft-da-codex.sh --cwd <폴더> --prompt-file <파일> --out-dir <폴더> [--model gpt-6.1-sol] [--effort high]
 # 헤드룸 «건너뛰기» 헤더(x-headroom-bypass)를 provider 요청 머리에 싣는다 — 경로(8790→8317)·계정 회전·모델은 그대로,
 # 본문 접힘(캐시 참조)만 0. DA 는 승인 정책 never 라 headroom_retrieve 로 원문을 다시 못 받기 때문.
@@ -9,7 +10,8 @@
 # 출력 = <out-dir>/da-<YYYYmmdd-HHMMSS>-<pid>.out (실행마다 새 이름 · 덮어쓰기 0) · 끝줄 `OUT <경로> rc=<n>` · rc = codex rc.
 set -uo pipefail
 
-PREAMBLE='[DA 머리말] 파일은 sed -n 으로 400줄 이하씩 나눠 읽는다 · 본문을 못 봤으면 HOLD 대신 «검증 불가 — <파일:줄>» 로 적는다.'
+PREAMBLE='[DA 머리말] 파일은 sed -n 으로 400줄 이하씩 나눠 읽는다 · 본문을 못 봤으면 HOLD 대신 «검증 불가 — <파일:줄>» 로 적는다.
+[DA 전수] 1회차에 질문지의 결과 계약·기준 «전체» 를 훑어 반례를 한 묶음으로 낸다 · 한 건을 찾았다고 멈추지 않는다 · 이미 처리된 지난 반례는 다시 내지 않는다 · 기준 밖 지적은 범위 밖 메모로만 적는다.'
 BYPASS='model_providers.headroom.http_headers={"x-headroom-bypass"="true"}'
 usage() { echo "usage: ft-da-codex.sh --cwd <폴더> --prompt-file <파일> --out-dir <폴더> [--model M] [--effort E]" >&2; exit 2; }
 

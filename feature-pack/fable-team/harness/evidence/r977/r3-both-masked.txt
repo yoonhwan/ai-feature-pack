@@ -1,0 +1,10 @@
+입력 : DA⑥ r1 반례 1(한글 앞)
+base : [('named-secret', 1)] 한ghp_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA_API_TOKEN=***
+r3   : [('token-prefix', 1), ('named-secret', 1)] 한***=***
+B 잔여 base = False · r3 = False · ghp 잔여 r3 = False
+
+입력 : r2 판단 요청(공백 앞)
+base : [('token-prefix', 1)]  ***=BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+r3   : [('token-prefix', 1), ('named-secret', 1)]  ***=***
+B 잔여 base = True · r3 = False · ghp 잔여 r3 = False
+
