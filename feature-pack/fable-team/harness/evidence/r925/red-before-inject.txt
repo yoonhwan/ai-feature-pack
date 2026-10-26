@@ -1,0 +1,11 @@
+### RED — 고치기 전(origin/main) tmuxc inject_message
+$ FT_TMUXC_PATH=<base> bash /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r925-tmuxc-inject-submit-verify-and-succ/feature-pack/tmuxc/test/test_tmuxc_inject_ready_submit.sh
+FAIL wait_input_box 없음(고치기 전 사본)
+FAIL ⓐ rc=0 submitted=[] buffer=[[byz-t-old-claude#1→byz-t-new-claude#2] 통신 표준: 지금 read로 읽고 그대로 따를 것]
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r925-tmuxc-inject-submit-verify-and-succ/feature-pack/tmuxc/test/test_tmuxc_inject_ready_submit.sh: 줄 147: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.HJMXgIjHWw/state/submitted: No such file or directory
+FAIL ⓑ rc=0 lines= lit=1 buffer=[[byz-t-old-claude#1→byz-t-new-claude#2] 통신 표준: 지금 read로 읽고 그대로 따를 것]
+FAIL ⓒ rc=0 lit=1 out=[]
+PASS ⓔ 준비 빠름 → 제출 1 · 확인 추가 대기 0.06s (≤0.9)
+----
+FAILED 3 (mutate=0)
+rc=1

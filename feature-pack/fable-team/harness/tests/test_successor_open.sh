@@ -13,6 +13,15 @@ bad() { echo "FAIL $1"; fail=$((fail+1)); }
 [ -f "$SO" ] && bash -n "$SO" && ok "bash -n" || { bad "ft-successor-open.sh 없음·구문 오류: $SO"; echo "FAILED $fail"; exit 1; }
 
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
+# r925 변이: 이어가기 Enter 를 «아무 글자에나» 누르는 판 — 카드 ⓓ 가 빨강이어야 한다.
+if [ "${FT_SO_MUTATE:-0}" = 1 ]; then
+  MUTBIN="$TMP/mutbin"; mkdir -p "$MUTBIN"; cp -R "$(dirname -- "$SO")/." "$MUTBIN/"
+  MUT="$MUTBIN/$(basename -- "$SO")"
+  sed 's/^      "\$SOTEXT"\*)$/      *)/' "$SO" > "$MUT.tmp" && mv "$MUT.tmp" "$MUT"
+  grep -q '^      \*)$' "$MUT" || { echo "FAIL 변이 적용 실패(MUTATE)"; exit 1; }
+  SO="$MUT"
+fi
+SO_ENTER_MARK="${SO_ENTER_MARK:-}"; SO_INPUT="${SO_INPUT:-}"; SO_PANE_UNREADABLE="${SO_PANE_UNREADABLE:-}"
 REPO="$TMP/repo"; FAKE="$TMP/fakebin"; LOG="$TMP/calls.log"; CNT="$TMP/pgrep.cnt"; BODY="$TMP/body.txt"
 mkdir -p "$REPO" "$FAKE"; git -C "$REPO" init -q
 STATE="$REPO/.fable-team/state/successor"; OLD="byz-t-old-claude#1"; NEW="byz-t-new-claude#2"
@@ -22,6 +31,10 @@ mkstub() { printf '#!/usr/bin/env bash\n%s\n' "$2" > "$FAKE/$1"; chmod +x "$FAKE
 mkstub tmux   'case "$1" in
   has-session) [ -n "${EXISTS:-}" ] && case "$*" in *"=$EXISTS"*) exit 0;; esac; [ -f "$OPENED" ] && exit 0; exit 1;;
   list-panes) echo 4242;;
+  capture-pane) [ -n "${SO_PANE_UNREADABLE:-}" ] && exit 0
+    in="${SO_INPUT:-}"; [ -n "${SO_ENTER_MARK:-}" ] && [ -f "$SO_ENTER_MARK" ] && in=""   # Enter 로 제출되면 입력줄이 빈다
+    printf "──────────\n❯ %s\n──────────\n  status\n" "$in";;   # r925: 이어가기 모드의 입력줄 판독
+  send-keys) echo enter >> "$LOG"; [ -n "${SO_ENTER_MARK:-}" ] && : > "$SO_ENTER_MARK";;
   display-message) t=""; while [ $# -gt 0 ]; do [ "$1" = "-t" ] && { t="${2:-}"; break; }; shift; done
     case "$t" in "") :;; *:) [ -z "${PANE_CWD_UNREADABLE:-}" ] && echo "${PANE_CWD_OVERRIDE:-$PANE_CWD}";; *) :;; esac;;   # r622: 실제 tmux 꼴 — «=이름»(콜론 없음) 은 창 대상에서 빈 값, «=이름:» 만 pane 을 고른다
 esac; exit 0'
@@ -38,11 +51,12 @@ mkdir -p "$REPO/.fable-team" "$TMP/live-root"; printf '%s\n' "$TMP/live-root" > 
 
 JDIR="$TMP/home/.claude/projects/$(printf '%s' "$TMP/pane" | LC_ALL=C sed 's|[^A-Za-z0-9]|-|g')"
 run() { # run <환경 KEY=VAL…> — 호출마다 로그·카운터·도달 파일 초기화. 출력은 $TMP/out, rc 는 $RC
-  rm -f "$LOG" "$CNT" "$OPENED"; rm -rf "$STATE"; : > "$LOG"
+  rm -f "$LOG" "$CNT" "$OPENED" "$SO_ENTER_MARK"; rm -rf "$STATE"; : > "$LOG"
   # r609 ⓞ: 도달 파일을 미리 심는다(«이미 도달» 갈래) — run 이 STATE 를 비우므로 환경 플래그로 심는다
   [ -n "${SEED_REACHED:-}" ] && mkdir -p "$STATE" && printf '{"successor":"%s","seq":777,"reached_at":"t","rc":0,"model":"m"}\n' "$NEW" > "$STATE/$OLD.json"
   env HOME="$TMP/home" PANE_CWD="$TMP/pane" PATH="$FAKE:$PATH" LOG="$LOG" CNT="$CNT" OPENED="$OPENED" EXISTS="${EXISTS:-}" \
       PANE_CWD_OVERRIDE="${PANE_CWD_OVERRIDE:-}" FT_SO_POLL=0 FT_SO_WAIT_MAX=5 \
+      SO_INPUT="${SO_INPUT:-}" SO_ENTER_MARK="${SO_ENTER_MARK:-}" SO_PANE_UNREADABLE="${SO_PANE_UNREADABLE:-}" \
       FT_RES_ROOT="$RES" SENSORS="$SENSORS" \
       FT_SEND_VERIFIED="$FAKE/send" FT_MBOX_SH="$FAKE/mbox" FT_REACH_CHECK="$FAKE/reach" "$@" \
       bash "$SO" "$OLD" "$REPO" --name "$NEW" --agent claude --model 'claude-opus-5-5[1m]' --ctx 1m --effort high --body-file "$BODY_USE" > "$TMP/out" 2>&1
@@ -121,9 +135,10 @@ printf '#!/usr/bin/env bash\necho "mbox-target $1" >> "$LOG"; echo "RING seq=$3 
 : > "$REPO/.fable-team/comm/mbox_doorbell.sh"
 mkstub send   'echo send >> "$LOG"; echo "mboxenv $(cd -- "$(dirname -- "${FT_MBOX_SH:-.}")" && pwd -P)/$(basename -- "${FT_MBOX_SH:-.}")" >> "$LOG"; echo "QUEUED seq=777 to=$1 pending=1 doorbell=sent"; exit "${SEND_RC:-0}"'   # r607: 경로 꼴(/var vs /private) 무관하게 실제 폴더로 비교
 runx() { # runx <설치 사본> <대상 워크트리> <환경 KEY=VAL…> — FT_MBOX_SH 를 걸지 않는다
-  local sox="$1" wt="$2"; shift 2; rm -f "$LOG" "$CNT" "$OPENED"; rm -rf "$STATE"; : > "$LOG"
+  local sox="$1" wt="$2"; shift 2; rm -f "$LOG" "$CNT" "$OPENED" "$SO_ENTER_MARK"; rm -rf "$STATE"; : > "$LOG"
   env -u FT_MBOX_SH HOME="$TMP/home" PANE_CWD="$TMP/pane" PATH="$FAKE:$PATH" LOG="$LOG" CNT="$CNT" OPENED="$OPENED" EXISTS="${EXISTS:-}" \
       PANE_CWD_OVERRIDE="${PANE_CWD_OVERRIDE:-}" FT_SO_POLL=0 FT_SO_WAIT_MAX=5 \
+      SO_INPUT="${SO_INPUT:-}" SO_ENTER_MARK="${SO_ENTER_MARK:-}" SO_PANE_UNREADABLE="${SO_PANE_UNREADABLE:-}" \
       FT_RES_ROOT="$RES" SENSORS="$SENSORS" FT_SEND_VERIFIED="$FAKE/send" FT_REACH_CHECK="$FAKE/reach" "$@" \
       bash "$sox" "$OLD" "$wt" --name "$NEW" --agent claude --model 'claude-opus-5-5[1m]' --ctx 1m --effort high --body-file "$BODY" > "$TMP/out" 2>&1
   RC=$?
@@ -207,6 +222,23 @@ EXISTS="$NEW" PANE_CWD_OVERRIDE="$REPO" PANE_CWD_UNREADABLE=1 run SEND_RC=0
 { [ "$RC" -ne 0 ] && grep -q '작업 폴더를 못 읽음(판정 불가' "$TMP/out" && ! grep -q '작업 폴더가 다르다' "$TMP/out" \
   && [ "$(count tmuxc)" = 0 ] && [ "$(count send)" = 0 ] && [ ! -e "$STATE/$OLD.json" ]; } \
   && ok "ⓡ r622 못 읽음 → 판정 불가 REJECT · «다르다» 0 · 송신 0" || bad "ⓡ rc=$RC out=$(cat "$TMP/out")"
+
+# ⓡ2 r925(카드 ⓓ) — 이어가기 모드의 미제출 부팅 문장: 입력줄이 «[<구>→<후계>] 통신 표준» 이면 Enter 1회로 제출,
+#   «남의 글자»(자동완성 제안·다른 입력)면 Enter 0 · HIL rc5 · 송신 0 (하드 룰 10·17).
+SO_ENTER_MARK="$TMP/so_enter.mark"
+BOOT_LINE="[${OLD}→${NEW}] 통신 표준: ~/.claude/skills/tmuxc/COMM-GUIDE-BOOT.md(12줄)를 지금 Read하고 그대로 따를 것"
+EXISTS="$NEW" PANE_CWD_OVERRIDE="$REPO" SO_INPUT="$BOOT_LINE" run SEND_RC=0
+{ [ "$RC" -eq 0 ] && [ "$(count enter)" = 1 ] && grep -q '이어가기 부팅 문장 제출 확인' "$TMP/out" && [ "$(count send)" = 1 ]; } \
+  && ok "ⓡ2 r925 이어가기 + 내 부팅 문장 남음 → Enter 1회 제출 · 송신 1" || bad "ⓡ2 rc=$RC enter=$(count enter) out=$(cat "$TMP/out")"
+EXISTS="$NEW" PANE_CWD_OVERRIDE="$REPO" SO_INPUT="다른 작업자가 남긴 글자 — 내 문장이 아니다" run SEND_RC=0
+{ [ "$RC" -eq 5 ] && [ "$(count enter)" = 0 ] && grep -q '\[HIL\]' "$TMP/out" && [ "$(count send)" = 0 ] && [ ! -e "$STATE/$OLD.json" ]; } \
+  && ok "ⓡ2' 이어가기 + 남의 글자 → Enter 0 · HIL rc5 · 송신 0" || bad "ⓡ2' rc=$RC enter=$(count enter) out=$(cat "$TMP/out")"
+EXISTS="$NEW" PANE_CWD_OVERRIDE="$REPO" SO_INPUT="" run SEND_RC=0
+{ [ "$RC" -eq 0 ] && [ "$(count enter)" = 0 ] && grep -q '이어가기 입력줄 빔' "$TMP/out" && [ "$(count send)" = 1 ]; } \
+  && ok "ⓡ2'' 이어가기 + 입력줄 빔 → Enter 0 · 송신 1" || bad "ⓡ2'' rc=$RC enter=$(count enter) out=$(cat "$TMP/out")"
+EXISTS="$NEW" PANE_CWD_OVERRIDE="$REPO" SO_PANE_UNREADABLE=1 run SEND_RC=0
+{ [ "$RC" -eq 0 ] && [ "$(count enter)" = 0 ] && grep -q '입력줄을 못 읽었다' "$TMP/out"; } \
+  && ok "ⓡ2''' 입력 상자를 못 읽음 → Enter 0(추측 0)" || bad "ⓡ2''' rc=$RC enter=$(count enter) out=$(cat "$TMP/out")"
 
 # ⓢ r622(카드 ⓓ) — 새로 연 좌석의 CWD 를 «실제 경로» 로 읽어 JDIR 이 그 워크트리 jsonl 폴더 → SessionStart 관측(옛 판 = «=이름» 빈 값 → 엉뚱한 폴더 → 미관측)
 JDIR_WT="$TMP/home/.claude/projects/$(printf '%s' "$REPO" | LC_ALL=C sed 's|[^A-Za-z0-9]|-|g')"

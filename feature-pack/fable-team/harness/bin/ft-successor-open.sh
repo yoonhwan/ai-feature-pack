@@ -170,6 +170,50 @@ up=0; i=0
 while [ "$i" -lt "$WAIT_MAX" ]; do i=$((i+1)); pgrep -P "$PID" >/dev/null 2>&1 && { up=1; break; }; sleep "$POLL"; done
 [ "$up" = 1 ] || { echo "REJECT $NAME 에서 에이전트 프로세스 기동 미확인(pgrep ${WAIT_MAX}회) — 송신 0"; hil "새 pane 을 사람이 확인"; exit 1; }
 
+# ⓒ-1 이어가기 모드의 미제출 부팅 문장 (r925) — 재실행으로 이어갈 때 tmuxc 가 넣은 부팅 문장이 입력줄에 남아 있어
+#   jsonl SessionStart 가 안 생긴다(ops #56→#57 3회 정지). ★그 문장일 때만 Enter 1회★ — 자동완성 제안·남의 입력에
+#   Enter 를 누르면 남의 글자가 제출된다(하드 룰 10·17). 다른 글자면 Enter 0 · HIL. 확인 못 하면 아무것도 안 한다.
+so_input_line() {   # Claude TUI 입력 박스 내용 — 구조가 안 맞으면 rc1(추측 0)
+  local pane="$1"
+  tmux capture-pane -t "$pane" -p 2>/dev/null | awk '
+    { l[NR] = $0 }
+    END {
+      for (i = NR; i >= 1; i--)
+        if (l[i] ~ /^─────/) { if (!b) { b = i } else { a = i; break } }
+      if (!a || !b) exit 1
+      out = ""
+      for (i = a + 1; i < b; i++) {
+        s = l[i]
+        sub(/^[[:space:]]*❯[[:space:]]?/, "", s)
+        sub(/[[:space:]]+$/, "", s)
+        if (s != "") out = (out == "" ? s : out " " s)
+      }
+      print out
+    }'
+}
+if [ "$RESUMED" = 1 ]; then
+  SOTEXT="[${OLD}→${NAME}] 통신 표준"
+  CUR="$(so_input_line "=$NAME:")"; CUR_RC=$?
+  if [ "$CUR_RC" != 0 ]; then
+    echo "이어가기 입력줄을 못 읽었다(입력 상자 구조 미확인) — Enter 0" >&2
+  else
+    case "$CUR" in
+      "$SOTEXT"*)
+        tmux send-keys -t "=$NAME:" Enter
+        ok_enter=0; _i=0
+        while [ "$_i" -lt 6 ]; do _i=$((_i+1)); sleep 0.5
+          _now="$(so_input_line "=$NAME:")" || _now=""
+          [ "$_now" != "$CUR" ] && { ok_enter=1; break; }
+        done
+        if [ "$ok_enter" = 1 ]; then echo "이어가기 부팅 문장 제출 확인 — Enter 1회"
+        else echo "이어가기 부팅 문장이 Enter 1회에도 그대로" >&2; hil "이어가기 Enter 1회 무효 — 사람이 pane 을 봐야 한다"; exit 5; fi
+        ;;
+      "") echo "이어가기 입력줄 빔 — Enter 0" ;;
+      *) echo "이어가기 입력줄이 내 문장이 아니다(남의 입력·자동완성 제안) — Enter 0 · HIL: ${CUR:0:60}" >&2; hil "이어가기 입력줄에 다른 글자 — Enter 0 (${CUR:0:60})"; exit 5 ;;
+    esac
+  fi
+fi
+
 # ⓒ-2 새 좌석 jsonl 의 SessionStart — 실측 꼴(SessionStart 뒤 16초 Enter 미제출)을 줄이려 기다린다. 못 봐도 «미관측» 을 드러내고 송신(도달 판정은 아래 send-verified 몫).
 CWD="$(tmux display-message -p -t "=$NAME:" '#{pane_current_path}' 2>/dev/null)"   # r622: «=이름:» — «=이름» 은 창 대상에서 빈 값(새 좌석 jsonl 폴더가 엉뚱해진다)
 JDIR="$HOME/.claude/projects/$(printf '%s' "$CWD" | LC_ALL=C sed 's|[^A-Za-z0-9]|-|g')"

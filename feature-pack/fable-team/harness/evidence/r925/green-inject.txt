@@ -1,0 +1,8 @@
+### GREEN — 고친 뒤 tmuxc
+PASS ⓐ 준비 6초 늦음 → 준비 확인 뒤 제출 1 · 입력줄 빔 (rc=0 7.39s)
+PASS ⓑ 첫 Enter 유실 → Enter 재전송 1회 제출 · 글자 1회(중복 0) (rc=0 4.01s)
+PASS ⓒ Enter 전부 유실 → rc=1 «제출 실패» · 글자 재입력 0
+PASS ⓔ 준비 빠름 → 제출 1 · 확인 추가 대기 0.57s (≤0.9)
+----
+ALL PASS (mutate=0)
+rc=0
