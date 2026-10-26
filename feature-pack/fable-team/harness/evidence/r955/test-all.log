@@ -1,0 +1,39 @@
+PASS py_compile ops_intake_common.py
+PASS py_compile ops_intake_poster.py
+PASS py_compile ops_intake_sync.py
+PASS py_compile ops_intake_write.py
+PASS py_compile sat-mbox.py
+PASS plutil com.byz.ops-intake-sync.plist.template
+PASS plutil com.byz.sat-pull.plist.template
+PASS plutil com.hermes.ops-intake-poster.plist.template
+test_b2_rescan_quarantines_masked_copy (__main__.TestIntake.test_b2_rescan_quarantines_masked_copy) ... ok
+test_b3_declared_masked_blocks (__main__.TestIntake.test_b3_declared_masked_blocks) ... ok
+test_b3_missing_field_blocks (__main__.TestIntake.test_b3_missing_field_blocks) ... ok
+test_clean_card_sends_issue_req (__main__.TestIntake.test_clean_card_sends_issue_req) ... ok
+test_d_internal_words_and_secrets_blocked (__main__.TestPoster.test_d_internal_words_and_secrets_blocked) ... ok
+test_d_missing_thread_ts_posts_nothing (__main__.TestPoster.test_d_missing_thread_ts_posts_nothing) ... ok
+test_d_posts_once_in_thread (__main__.TestPoster.test_d_posts_once_in_thread) ... ok
+test_d_same_seq_twice_posts_once (__main__.TestPoster.test_d_same_seq_twice_posts_once) ... ok
+test_f_only_listed_seats (__main__.TestPull.test_f_only_listed_seats) ... ok
+test_f_queue_cap_defers (__main__.TestPull.test_f_queue_cap_defers) ... ok
+test_f_scp_card_only_result_dir (__main__.TestPull.test_f_scp_card_only_result_dir) ... ok
+test_g_shell_and_python (__main__.TestShell.test_g_shell_and_python) ... ok
+test_e_only_three_kinds_of_change (__main__.TestSync.test_e_only_three_kinds_of_change) ... ok
+test_e_pack_20_per_pass (__main__.TestSync.test_e_pack_20_per_pass) ... ok
+test_a_bad_schema_writes_nothing (__main__.TestWrite.test_a_bad_schema_writes_nothing) ... ok
+test_a_valid_creates_card_and_note (__main__.TestWrite.test_a_valid_creates_card_and_note) ... ok
+test_b_secrets_and_pii_masked (__main__.TestWrite.test_b_secrets_and_pii_masked) ... ok
+test_c_channel_limit_blocks_31st (__main__.TestWrite.test_c_channel_limit_blocks_31st) ... ok
+test_c_user_limit_blocks_sixth (__main__.TestWrite.test_c_user_limit_blocks_sixth) ... ok
+
+----------------------------------------------------------------------
+Ran 19 tests in 16.607s
+
+OK
+PASS mutate mask-off
+PASS mutate rescan-off
+PASS mutate declared-off
+PASS mutate guard-ts
+PASS mutate ledger-off
+PASS mutate notice-off
+ALL PASS
