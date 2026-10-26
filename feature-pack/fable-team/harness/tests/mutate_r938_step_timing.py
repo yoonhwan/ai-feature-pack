@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""r938 변이 시험 — 고친 사본을 3가지로 망가뜨려 새 시험이 «빨강» 이 되는지 본다(증거 harness/evidence/r938/mutation.txt).
+"""r938 r2 변이 시험 — 고친 사본을 6가지로 망가뜨려 «빨강이어야 할 칸» 이 정말 빨강이 되는지 본다(증거 harness/evidence/r938/mutation.txt).
 
-ⓐ 시각 줄 끔 · ⓑ fetch 상한 끔(옛 판 무상한 git fetch) · ⓒ 하위 검사 상한 끔 — 각각 그 축의 PASS 줄이 FAIL 로 바뀌어야 한다.
+DA⑥ r1 지적 4(«변이 실행기는 전체 rc≠0 만 봄») 반영: 변이마다 그 축의 시험 카드 이름을 적고, 그 카드가 FAIL 인지 단언한다.
 """
 import shutil
 import subprocess
@@ -14,31 +14,37 @@ BIN = "bin/ft-nano-close.sh"
 KIT = "kit/fable-team/bin/ft-nano-close.sh"
 
 STEP_OLD = """step() { printf 'STEP %s +%ss\\n' "$1" "$(( $(date +%s) - T0 ))" >&2; }"""
-FETCH_OLD = """  local tb rc=0 i\n  if command -v fm_fetch >/dev/null 2>&1; then fm_fetch "$@"; return $?; fi\n  tb="$(nf_tb)" || { echo "WARN timeout/gtimeout 없음 — fetch 거절(옛 ref 로 대조하지 않는다)" >&2; return 127; }\n  for i in 1 2; do "$tb" 7 git -c gc.auto=0 -C "$1" fetch --quiet "$2" "$3" && return 0; rc=$?; done\n  return "$rc"\n}"""
-BOUND_OLD = """  "$tb" "$sec" "$@"\n}"""
+FETCH_OLD = """  local rc=0 i
+  if command -v fm_fetch >/dev/null 2>&1; then fm_fetch "$@"; return $?; fi
+  for i in 1 2; do nf_bound 7 git -c gc.auto=0 -C "$1" fetch --quiet "$2" "$3" && return 0; rc=$?; done
+  return "$rc"
+}"""
+BOUND_OLD = """  command -v python3 >/dev/null 2>&1 || { echo "WARN python3 없음 — ${sec}초 상한을 걸 수 없어 호출 거절" >&2; return 127; }"""
+MULT_OLD = '  _gate_mult="$(nf_mult_commits "$SEAT_REPO" "$_FEAT" "$_gate_br")"; _gate_cap="$(nf_cap "$(nf_fixed cherry)" "$_gate_mult")"' 
+TRAP_OLD = """trap 'if [ -n "${_SK:-}" ]; then bash "$HERE/ft-sheet-events.sh" abort "$_SK" 2>/dev/null; fi; rm -f "${_CR_TMP:-}"' EXIT   # r888: 꺼낸 카드 임시 파일도 같이
+nf_bound "$_SHCAP" bash "$HERE/ft-sheet-events.sh" prepare "$_SK" "$(python3 -c 'import json,sys;print(json.dumps(dict(zip(("ev","team","id","seat","ref","by"),sys.argv[1:]))))' nano-close "" "$SEAT" "$SEAT" "세트 ${RESULT:0:60}" nano-close)" >/dev/null"""
+TRAP_NEW = """nf_bound "$_SHCAP" bash "$HERE/ft-sheet-events.sh" prepare "$_SK" "$(python3 -c 'import json,sys;print(json.dumps(dict(zip(("ev","team","id","seat","ref","by"),sys.argv[1:]))))' nano-close "" "$SEAT" "$SEAT" "세트 ${RESULT:0:60}" nano-close)" >/dev/null
+trap 'if [ -n "${_SK:-}" ]; then bash "$HERE/ft-sheet-events.sh" abort "$_SK" 2>/dev/null; fi; rm -f "${_CR_TMP:-}"' EXIT   # r888: 꺼낸 카드 임시 파일도 같이"""
 
 MUT = [
-    ("ⓐ 시각 줄 끔(step 무출력)", [
-        (STEP_OLD, "step() { :; }"),
-    ]),
-    ("ⓑ fetch 상한 끔(옛 판 무상한 git fetch)", [
-        (FETCH_OLD, """  git -C "$1" fetch -q "$2" "$3"\n}"""),
-    ]),
-    ("ⓒ 하위 검사 상한 끔(nf_bound = 그대로 실행)", [
-        (BOUND_OLD, """  "$@"\n}"""),
-    ]),
+    ("ⓐ 시각 줄 끔(step 무출력)", [(STEP_OLD, "step() { :; }")], ["[ⓐ]"]),
+    ("ⓐ 시각 줄을 stdout 으로(자리 바뀜)", [(STEP_OLD, STEP_OLD.replace(" >&2; }", "; }"))], ["[ⓐ]"]),
+    ("ⓑ fetch 상한 끔(옛 판 무상한 git fetch)", [(FETCH_OLD, '  git -C "$1" fetch -q "$2" "$3"\n}')], ["[ⓑ]"]),
+    ("ⓒ 하위 상한 끔(nf_bound = 그대로 실행)", [(BOUND_OLD, '  "$@"; return $?')], ["[ⓒ]", "[ⓕ]", "[ⓖ]", "[ⓗ]"]),
+    ("ⓘ 배수 고정 1(작업량 무시)", [(MULT_OLD, '  _gate_mult=1; _gate_cap="$(nf_cap "$(nf_fixed cherry)" "$_gate_mult")"')], ["[ⓘ]"]),
+    ("ⓕ abort trap 을 prepare 뒤로", [(TRAP_OLD, TRAP_NEW)], ["[ⓕ]"]),
 ]
 
 
 def run(copy: Path):
     r = subprocess.run(["/bin/bash", str(copy / "tests/test_nano_close_step_timing_r938.sh")],
-                       capture_output=True, text=True, timeout=1800)
+                       capture_output=True, text=True, timeout=2400)
     return r.returncode, r.stdout + r.stderr
 
 
 bad = 0
-for name, pairs in MUT:
-    tmp = Path(tempfile.mkdtemp()) / "fable-team" / "harness"   # 시험이 $HERE/../../harness/kit 를 보므로 부모 폴더 이름(fable-team/harness)을 지킨다
+for name, pairs, want in MUT:
+    tmp = Path(tempfile.mkdtemp()) / "fable-team" / "harness"   # 시험이 $HERE/../../harness/kit 를 보므로 부모 폴더 이름을 지킨다
     shutil.copytree(H, tmp)
     p = tmp / BIN
     s = p.read_text(encoding="utf-8")
@@ -53,11 +59,18 @@ for name, pairs in MUT:
     shutil.copy2(p, tmp / KIT)
     rc, out = run(tmp)
     fails = [ln for ln in out.splitlines() if ln.startswith("FAIL ")]
-    print(f"=== 변이: {name} → rc={rc} fail={len(fails)}")
+    print(f"=== 변이: {name} → rc={rc} fail={len(fails)} (기대 칸: {' '.join(want)})")
     for ln in fails:
-        print("   " + ln[:160])
+        print("   " + ln[:170])
     if rc == 0:
         bad += 1
         print("   !! 변이가 초록 = 시험이 안 잡는다")
+        continue
+    hit = [w for w in want if any(ln.startswith("FAIL " + w) for ln in fails)]
+    if len(hit) == len(want):
+        print(f"   OK 기대 칸 전부 빨강: {' '.join(want)}")
+    else:
+        bad += 1
+        print(f"   !! 기대 칸이 안 빨강: 없음 {' '.join(w for w in want if w not in hit)}")
 print("MUTATION-ALL-RED" if bad == 0 else f"MUTATION-WEAK {bad}")
 sys.exit(0 if bad == 0 else 1)

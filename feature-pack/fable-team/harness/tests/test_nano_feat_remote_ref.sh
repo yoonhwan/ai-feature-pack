@@ -60,7 +60,7 @@ git -C "$W" remote set-url origin "$T/gone.git"
 out="$(run_fn main 2>&1)"; echo "  $out" | head -3
 printf '%s' "$out" | grep -q 'bad_n=0' && ! printf '%s' "$out" | grep -q INFO && ok "로컬 브랜치 값 → fetch 0" || bad "로컬 브랜치 값 fetch 발생"
 out="$(run_fn origin/main 2>&1)"; echo "  $out" | head -3
-printf '%s' "$out" | grep -q 'bad_n=1' && printf '%s' "$out" | grep -q 'fetch 실패: origin/main' && ok "fetch 실패 → bad 1건(REJECT 사유)" || bad "fetch 실패가 REJECT 로 안 이어짐"
+printf '%s' "$out" | grep -q 'bad_n=1' && printf '%s' "$out" | grep -q 'origin/main fetch 실패' && ok "fetch 실패 → bad 1건(REJECT 사유 · r938 r2 N4 문구)" || bad "fetch 실패가 REJECT 로 안 이어짐"
 
 echo "RESULT fail=$fail"
 [ "$fail" -eq 0 ]

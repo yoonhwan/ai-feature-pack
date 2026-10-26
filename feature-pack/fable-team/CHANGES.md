@@ -1,9 +1,14 @@
-## 2026-10-26 — r938 나노 닫기 단계 시각 줄 + 외부 호출 7초 상한 — 멈춤 대신 «어느 단계 시간 초과»(1.1.245)
+## 2026-10-26 — r938 나노 닫기 단계 시각 줄 + 외부 호출 상한 — 멈춤 대신 «어느 단계 시간 초과»(r2 · 1.1.246)
 
-- ft-nano-close.sh 가 ④checkpoint 면제 WARN 뒤 단계마다 stderr 로 `STEP <이름> +<초>s` 를 찍는다(⑥증거검사·⑤cherry·fetch·freshness·sheet·ledger·slots). 그 단계들의 출력은 끝에 한꺼번에 나와 «어느 단계에서 멈췄는지» 알 수 없었다(라이브 1.1.244 실 census 닫기 3회 70초+ 무출력). stdout 은 0줄 바뀐다.
-- 원격 받아오기(fetch) 네 곳(카드 ref·연구 origin main·cherry 재대조·feat ref)이 모두 7초 + 재시도 1 상한(nf_fetch · 공용 fm_fetch)을 거친다. 넘으면 «origin/main fetch 시간 초과 — 옛 ref 로 대조하지 않는다(R22)».
-- 하위 검사(증거 검사·cherry 게이트·freshness·사건 원장·slots)는 min(고정비 4.5초 + 7초 × 배수, 70초) 상한(nf_bound) 뒤 rc 124 = REJECT «<단계> 시간 초과(11s 상한) — 닫지 않음». 명부·원장·세션은 그대로 남는다.
-- 시험 test_nano_close_step_timing_r938.sh ALL PASS(ⓐ~ⓕ · /bin/bash 3.2) · 변이 3종(시각 줄·fetch 상한·하위 상한 끔) ALL-RED · kit cmp0 · 기존 닫기 시험 7종 초록.
+- ft-nano-close.sh 가 ④checkpoint 면제 WARN 뒤 단계마다 stderr 로 `STEP <이름> +<초>s` 를 찍는다(⑥증거검사·⑤cherry·fetch·freshness·sheet·ledger·slots). 그 단계들의 출력은 끝에 한꺼번에 나와 «어느 단계에서 멈췄는지» 알 수 없었다(라이브 1.1.244 실 census 닫기 3회 70초+ 무출력). stdout 은 0줄 바뀐다(사본 대조 시험).
+- 원격 받아오기(fetch) 네 곳(카드 ref·연구 origin main·cherry 재대조·feat ref)이 7초 + 재시도 1 상한을 거치고, fetch 가 실패하면 그 뒤 origin/main 을 쓰는 검사(cherry 재검사·freshness)를 돌리지 않고 그 자리 REJECT 한다(«origin/main fetch 실패 — 옛 ref 대조 0(R22)»).
+- 하위 검사(증거 검사·cherry 게이트·freshness·사건 원장·slots)는 min(고정비 + 7초 × 작업량(커밋·리포 수), 70초) 상한. 넘으면 프로세스 묶음째 TERM → 1초 → KILL 하고 REJECT «<단계> 시간 초과 <걸린>/<상한>s · 배수 <n> — 다시: 같은 명령 · 계속이면 arch 보고». 상한 걸리는 검사는 모든 쓰기보다 먼저 끝나고(사건 원장 abort trap 은 prepare 전), 상한 REJECT 시 명부·원장·세션·카드·.prepared 변경 0.
+- 시험 test_nano_close_step_timing_r938.sh 80 PASS(ⓐ~ⓚ · /bin/bash 3.2) · 변이 6종 각축 ALL-RED(빨강이어야 할 칸 이름 단언) · kit cmp0 · 기존 닫기·시트 시험 12종 초록.
+
+## 2026-10-26 — r922a 초안 모드 골 표 검증 실패 = planner [긴급] 대신 WARN 1줄 (1.1.245)
+
+- ft_news_post.py 가 초안 모드(무장)에서 골 표 검증에 실패하면 goal_gate.refuse 를 부르지 않고 WARN 1줄만 남긴다. rc·발행 0·기준선은 그대로(초안+무장 rc=3). 게이트 본체 없는 설치도 같은 문을 지난다.
+- 시험 test_r922a_news_draft_gate_warn.sh 35 PASS · 변이 MUTATION-ALL-RED · 회귀 test_news_html.sh rc0 · 외부 DA⑥ r1 APPROVE(BYZ design/harness/evidence/r922a-da6/VERDICT-r922a-da6-r1.md · 승인판 3dd15da0).
 
 ## 2026-10-26 — r926 자율 인터뷰 명부 = $ROOT 기준만 · 쌍둥이 경고는 가지가 main 안 품으면 «이동 0»(1.1.244)
 
