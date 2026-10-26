@@ -15,7 +15,9 @@
 #   ⓐ분리 정리 = `--finish <계획>.deleting`(포인터: 1행 이름 바뀐 경로 · 2행 리포 루트) — baton 보관+삭제 → prune. 끝나지 않은 포인터는 매 pass 가 이어서 다시 건다(⓶ 이어정리 · 실패 FT_WT_FINISH_MAX=3 회면 HIL).
 #   ⓑ계획 머리 `# plan-ver:` ≠ 옆의 라이브 생성기(ft-nano-close.sh blob sha) = 실행 거부(.stale 로 이동 + STALE 1줄). 머리 표식이 없어도 생성기 계획(`# wt-clean 계획 — ft-nano-close.sh`)이면 옛 판으로 거부. 생성기 계획이 아닌 것(수동·스텁)은 대상 아님.
 #   ⓒ껍데기 경보 = 반쯤 지워진 워크트리(tracked 최상위 항목 2개 이상 부재 · 포인터 없는 .deleting-*)의 목록을 «바뀐 때만» [HIL] 1줄(FT_WT_SHELL_SCAN_SEC 간격 · 기본 600s).
-#     ★r945★ sparse 워크트리(core.sparseCheckout)는 «sparse 가 덮는 최상위 항목» 만 셈 — sparse 밖 부재는 정상 · 판정 실패 = 껍데기 아님이 아니라 «판정 불가 <경로>» 줄 1(master 통보 · 오빠 판정 0 · 삭제 0).
+#     경보는 읽기 전용 «후보 목록»(워크트리 손 0 · 삭제 0) — 삭제 판단은 r166 경로가 한다. 추적 항목을 작업으로 지운 좌석도 후보에 오를 수 있다.
+#     ★r945★ sparse 워크트리(core.sparseCheckout)는 «디스크에 있어야 할 최상위 항목» 만 셈 — sparse 밖 부재는 정상 · 판정 실패 = 껍데기 아님이 아니라 «판정 불가 <경로>» 줄 1(master 통보 · 오빠 판정 0 · 삭제 0).
+#     ★r945 r3★ git 출력은 «기계 읽기»(-z · check-ignore -z -v --stdin)만 쓰고, 항목마다 «종류» 를 들고 다니며 같은 종류 규칙일 때만 부재를 정상으로 본다(DA⑥ r2 HOLD 2).
 #   실행 위치 무관(원장·워크트리는 계획에 절대경로로 박혀 있다). FT_WT_AUTOCLEAN=0 이면 아무것도 실행하지 않는다.
 #   ★r444 --launchd★(com.byz.ft-wt-sweep · 일 1회 — 사람 h 0): FT_ROOT 필수 · 그 루트에서 sweep 1회(FT_WT_SWEEP_MAX 기본 20) → [HIL] 줄을 팀 master 우편함으로(ft-tick sweep_wt 와 같은 규칙)
 #     → 끝난 가지 재확인(refs/heads/nano/* 최신순 FT_WT_ARCHIVE_MAX 기본 200 · ft-branch-archive.sh · FINISHED 만 refs/archive 로) → 로그 <FT_ROOT>/.fable-team/state/wt-sweep.log 1줄 `cleaned=N wait=N hil=N … archived=N`.
@@ -237,25 +239,70 @@ owner_team() {
   local t; t="$(sed -nE 's#.*design/(teams/)?([a-z0-9][a-z0-9_-]*)/indices/.*#\2#p' "$1/.worktree-info.json" 2>/dev/null | head -1)"
   if [ -n "$t" ] && [ -f "$(dirname "$SELF")/ft-team-lib.sh" ] && ( . "$(dirname "$SELF")/ft-team-lib.sh"; FT_REPO_ROOT="$SCAN_ROOT" ft_team_names 2>/dev/null ) | grep -qxF -- "$t"; then echo "$t"; else echo harness; fi
 }
-# ★r945★ sparse 워크트리 판정(r2) — 문서·카드 작업 공간은 `--no-checkout + sparse-checkout` 으로 만들어져 최상위 항목 대부분이 «원래» 디스크에 없다.
+# ★r945★ sparse 워크트리 판정(r3) — 문서·카드 작업 공간은 `--no-checkout + sparse-checkout` 으로 만들어져 최상위 항목 대부분이 «원래» 디스크에 없다.
 #   옛 셈(HEAD 트리 최상위 중 2개 이상 부재 = 껍데기)은 그 정상 상태를 «반쯤 지워진 껍데기» 로 올려 오빠 HIL 목록을 오염시켰다(진행 중 PR 작업 공간 삭제 위험).
 #   ★패턴을 «직접 해석하지 않는다»★ (DA⑥ r1 HOLD): cone·비cone(`**/*.md`·`/d1/`·`!` 제외)·워크트리별/공용 config 를 손으로 풀면 오탐·놓침이 난다.
-#     대신 «디스크에 있어야 할 것» = `git ls-files -t` 중 skip-worktree(`S`) 가 아닌 파일의 최상위 이름 = git 이 이미 패턴을 적용한 결과.
-#   ⇒ sparse 껍데기 = 그 집합 중 디스크에 없는 것 ≥ 1 · 판정 실패(rc≠0 · sparse 패턴 경고 · 목록 0) = «판정 불가 <경로>» 1줄(오빠 판정 0 · 삭제 0) — sparse 면 «항상» 본다.
-#   ★실측★ 실 스캔루트 sparse 125석: 제외 규칙(.git/info/exclude 의 `.serena/` 등)에 걸린 이름은 «없어도 정상» 으로 빼지 않으면 40석이 오탐이 된다(0 → 40).
+#     대신 «디스크에 있어야 할 것» = `git ls-files` 중 skip-worktree(`S`) 가 아닌 항목의 최상위 이름 = git 이 이미 패턴을 적용한 결과.
+#   ★사람 읽기용 글자를 «다시 해석하지 않는다»★ (DA⑥ r2 HOLD 2): git 출력은 «기계 읽기» 꼴만 쓴다 — `-z`(NUL 구분 · 따옴표·quotePath 무관)로 읽고,
+#     항목마다 «최상위 이름 + 종류(파일/폴더)» 를 함께 들고 다니며, 제외 규칙도 그 종류에 맞는 «한 꼴» 로만 묻는다(`check-ignore -z -v --stdin`).
+#     같은 종류(폴더 규칙 = 패턴 끝 `/`)의 규칙일 때만 부재를 «정상» 으로 본다 — 파일 규칙이 폴더 부재를, 폴더 규칙이 파일 부재를 숨기지 못한다.
+#   ⇒ sparse 껍데기 = 그 집합 중 디스크에 없는 것 ≥ 1 · 판정 실패(rc≠0 · sparse 패턴 경고 · 목록 0 · 제외 규칙 못 읽음) = «판정 불가 <경로>» 1줄(오빠 판정 0 · 삭제 0) — sparse 면 «항상» 본다.
+#   ★실측★ 실 스캔루트 sparse 125석: 제외 규칙(.git/info/exclude 의 `.serena/` 등 폴더 규칙)에 걸린 이름은 «없어도 정상» 으로 빼지 않으면 40석이 오탐이 된다(0 → 40).
 # 외부 호출 7초 상한 — perl alarm 으로 그룹 TERM(macOS 기본엔 timeout(1) 이 없다 · run_plan 과 같은 꼴).
 git7() { perl -e 'setpgrp(0,0); $SIG{ALRM}=sub{ local $SIG{TERM}="IGNORE"; kill "TERM", -$$; exit 124 }; alarm shift; my $r=system(@ARGV); exit(($r>>8) || (($r&127) ? 128+($r&127) : 0));' "${FT_WT_GIT_SEC:-7}" git -C "$1" "${@:2}"; }
-# sparse 워크트리 하나를 본다 — stdout = «있어야 할 최상위 이름» 한 줄씩 · rc 0 = 정상 판정 · 2 = 판정 불가.
-#   $2 = 임시 파일 접두(워크트리마다 .raw · .err 두 개를 만들고 지운다).
-sparse_expected() {
-  local p="$1" raw="$2.raw" err="$2.err" lrc src
-  git7 "$p" ls-files -t > "$raw" 2>/dev/null; lrc=$?
+# sparse 워크트리 하나에서 «디스크에 있어야 할 항목» 목록 — $2 접두로 "$2.list" 에 «종류<TAB>최상위 이름» 을 쓴다.
+#   입력 = `git ls-files -z -t -s`(NUL 구분 = 따옴표·quotePath 무관 기계 읽기). 태그 «S»(skip-worktree) 는 디스크에 있을 필요가 없으니 뺀다.
+#   종류 = `git ls-files -z -t -s` 가 주는 mode(보강 1) — 100644/100755 = 파일(-f) · 120000 = 링크(-L) · 160000(서브모듈) = 디스크에서 폴더(-d) · 하위 경로 있음 = 폴더.
+#   rc 0 = 정상 판정 · 2 = 판정 불가(패턴·목록을 못 읽음 — 껍데기 «아님» 도 아니다).
+sparse_required() {
+  local p="$1" raw="$2.raw" err="$2.err" out="$2.list" item tag mode path top lrc src
+  git7 "$p" ls-files -z -t -s > "$raw" 2>/dev/null; lrc=$?
   git7 "$p" sparse-checkout list > /dev/null 2> "$err"; src=$?
-  if [ "$lrc" -ne 0 ] || [ "$src" -ne 0 ] || [ -s "$err" ] || [ ! -s "$raw" ]; then rm -f "$raw" "$err"; return 2; fi
+  if [ "$lrc" -ne 0 ] || [ "$src" -ne 0 ] || [ -s "$err" ] || [ ! -s "$raw" ]; then rm -f "$raw" "$err" "$out"; return 2; fi
   rm -f "$err"
-  # 태그 «S»(skip-worktree) 를 빼고 최상위 이름만 — 정렬·중복 제거
-  awk 'substr($0,1,1)!="S"{s=substr($0,3); split(s,a,"/"); print a[1]}' "$raw" | sort -u
+  : > "$out"
+  while IFS= read -r -d '' item; do
+    tag="${item%% *}"; [ "$tag" = S ] && continue
+    mode="${item#* }"; mode="${mode%% *}"
+    path="${item#*$'\t'}"; [ "$path" = "$item" ] && continue
+    top="${path%%/*}"
+    if [ "$top" != "$path" ]; then printf 'd\t%s\n' "$top" >> "$out"; continue; fi   # 하위 경로 → 최상위는 폴더
+    case "$mode" in
+      160000) printf 'd\t%s\n' "$top" >> "$out";;   # 서브모듈 → 디스크에서는 폴더
+      120000) printf 'l\t%s\n' "$top" >> "$out";;   # 심볼릭 링크
+      *) printf 'f\t%s\n' "$top" >> "$out";;
+    esac
+  done < "$raw"
   rm -f "$raw"
+  sort -u -o "$out" "$out"
+  return 0
+}
+# sparse 워크트리의 «껍데기 부재 개수» — $1 = 워크트리 · $2 = 접두("$2.list" = sparse_required 결과). stdout = 개수 · rc 0 정상 · 2 판정 불가.
+#   디스크 확인은 종류에 맞게(파일 -f/-L · 폴더 -d) — 이름만 같은 다른 종류가 있으면 «없음»(DA⑥ r2 반례 2).
+#   제외 규칙은 «한 꼴» 로만 묻는다(파일 항목 = `<이름>` · 폴더 항목 = `<이름>/`) — 두 꼴을 한 번에 넘겨 «어느 하나라도 맞으면 제외» 로 읽던 길을 없앤다.
+#   `check-ignore -z -v --stdin` = 기계 읽기(출처·줄번호·패턴·경로 4필드 NUL 구분 · 따옴표 0) → 패턴이 `/` 로 끝나는 «같은 종류 규칙» 일 때만 그 부재를 정상으로 센다.
+sparse_missing() {
+  local p="$1" pre="$2" cand="$2.cand" res="$2.ign" kind name cnt=0 j=0 crc src ln pat qp
+  : > "$cand"
+  while IFS=$'\t' read -r kind name; do
+    [ -n "$name" ] || continue
+    case "$kind" in
+      d) [ -d "$p/$name" ] && continue; printf '%s/\0' "$name" >> "$cand";;   # 폴더 — 같은 종류 규칙은 폴더 규칙(/)
+      l) [ -L "$p/$name" ] && continue; printf '%s\0' "$name" >> "$cand";;  # 링크 — 링크는 폴더가 아니다
+      *) [ -f "$p/$name" ] && continue; printf '%s\0' "$name" >> "$cand";;
+    esac
+    cnt=$((cnt+1))
+  done < "$pre.list"
+  rm -f "$pre.list"
+  if [ "$cnt" -eq 0 ]; then rm -f "$cand"; echo 0; return 0; fi
+  git7 "$p" check-ignore -z -v --no-index --stdin < "$cand" > "$res" 2>/dev/null; crc=$?
+  rm -f "$cand"
+  case "$crc" in 0|1) ;; *) rm -f "$res"; return 2;; esac   # 1 = 걸린 것 없음(정상) · 그 밖 = 못 읽음 = 판정 불가
+  while IFS= read -r -d '' src && IFS= read -r -d '' ln && IFS= read -r -d '' pat && IFS= read -r -d '' qp; do
+    case "$pat" in */) j=$((j+1));; esac   # 폴더 규칙만 «같은 종류» — 파일 규칙은 폴더 부재를 숨기지 못한다
+  done < "$res"
+  rm -f "$res"
+  echo $((cnt - j))
   return 0
 }
 shell_scan() {
@@ -270,19 +317,10 @@ shell_scan() {
     case "${p##*/}" in
       *.deleting-[0-9]*) printf '%s\n' "$live" | grep -qxF -- "$p" && continue; missing=9;;
       *) case "$(git7 "$p" config --bool --get core.sparseCheckout 2>/dev/null)" in
-           true)   # sparse — 셈 대상 = git 이 정한 «디스크에 있어야 할 것»(패턴 해석 0 · DA⑥ r1 HOLD 고침)
+           true)   # sparse — 셈 대상 = git 이 정한 «디스크에 있어야 할 것»(패턴·글자 해석 0 · DA⑥ r1·r2 HOLD 고침)
              spx="$DIR/.sparse-$$"
-             if ! expected="$(sparse_expected "$p" "$spx")"; then und="$und$p "; ucnt=$((ucnt+1)); continue; fi   # 판정 불가 — 껍데기 아님도 아님(오빠 판정 0 · 삭제 0)
-             missing=0
-             while IFS= read -r name; do
-               [ -n "$name" ] || continue
-               [ -e "$p/$name" ] && continue
-               # 제외 규칙(.git/info/exclude·.gitignore 의 `.serena/` 등)에 걸린 이름 = 디스크에 없어도 정상(실측 40석 오탐 → 0)
-               git7 "$p" check-ignore --no-index -- "$name/" "$name" >/dev/null 2>&1 && continue
-               missing=$((missing+1))
-             done <<EOF
-$expected
-EOF
+             if ! sparse_required "$p" "$spx"; then und="$und$p "; ucnt=$((ucnt+1)); continue; fi   # 판정 불가 — 껍데기 아님도 아님(오빠 판정 0 · 삭제 0)
+             if ! missing="$(sparse_missing "$p" "$spx")"; then und="$und$p "; ucnt=$((ucnt+1)); continue; fi
              [ "$missing" -ge 1 ] || continue;;
            *)      # 일반 — 기존 규칙 그대로(최상위 2개 이상 부재)
              missing=0
