@@ -1,6 +1,6 @@
 """magazine_goal — 아침 매거진(오빠 확인판)에 자율 골 표(A6)를 싣는 문 (R362 · magazine_doc.py 가 부른다).
 
-골 표 = ft-goal-table.sh render 출력(마커 2줄 사이 표) — 뿌리 글 첫 줄 바로 뒤 + HTML 맨 위 절. 판정은 ft-goal-table.sh check --block-only(판정기 하나).
+골 표 = ft-goal-table.sh render 출력(마커 2줄 사이 표) — HTML 맨 위 절(r894 · 슬랙 뿌리 글엔 0 — 슬랙은 표를 못 그린다). 판정은 ft-goal-table.sh check --block-only(판정기 하나).
 팀별 완성 진행 = ft-goal-table.sh teams 출력(R458) — 골 표 바로 뒤 · 없거나 실패 = WARN + 빈 글(무장이어도 거절 0 · 골 표 게이트만 그대로).
 표준절차 골 = ft-goal-table.sh procs 출력(r644) — 팀별 완성 진행 바로 뒤 · 없거나 실패 = WARN + 빈 글.
 무장 표식 = <FT_ROOT>/.fable-team/state/goal-gate.armed — 있으면 렌더·판정 실패 = GoalGateError(MirrorError 계열 → magazine_doc.main 의 «발행 실패» 경로 1개 · 게시·상태 쓰기 0) ·
@@ -102,12 +102,6 @@ def _log(line: str) -> None:
             f.write(f"{datetime.now(timezone.utc):%Y-%m-%dT%H:%M:%SZ} {line}\n")
     except OSError as e:
         LOG.warning("골 표 문 로그 쓰기 실패: %s", e)
-
-
-def with_root(first_line_rest: str, goal: str) -> str:
-    """뿌리 글 본문 — 첫 줄은 그대로(find_root 가 첫 줄 «정확 일치» 로 찾는다) · 골 표는 그 바로 뒤."""
-    head, _, rest = first_line_rest.partition("\n")
-    return "\n".join(x for x in (head, goal, rest) if x)
 
 
 def html_section(goal: str) -> str:
