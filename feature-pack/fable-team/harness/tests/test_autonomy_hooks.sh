@@ -83,6 +83,26 @@ done
 al "$SG" "$(mkfile Write /tmp/x.md)" "ⓒ2 Write 본문에 경로 글자만 → allow"
 al "$SG" "$(mkfile Edit "$T/design.md")" "ⓒ2b Edit 다른 파일 → allow"
 outside bal "$SG" "echo x > autonomy.json" "ⓑ3 BYZ 밖에서는 allow" "$T/outside"
+# ⓑ-source (r947 r2 · DA 반례 1) — source·. 경유도 «같은 파일을 실행»이다: 좌석이 approve-standing·on/off 를 source 로 부르면 deny
+for c in "source $BIN/ft-autonomy.sh approve-standing D1 --repos pack --classes code,docs" ". $BIN/ft-autonomy.sh approve-standing D1 --repos pack --classes code,docs" \
+         "source $BIN/ft-autonomy.sh on" ". $BIN/ft-autonomy.sh off" "bash -c 'source $BIN/ft-autonomy.sh approve-standing D1 --repos pack --classes code,docs'" \
+         "cd /x && source ../y/ft-autonomy.sh approve-merge 1111111111111111111111111111111111111111"; do
+  bdn "$SG" "$c" "ⓑ-source source·. 경유 실행 deny: ${c:0:70}"
+done
+for c in "source /tmp/other.sh" ". $T/plan.sh" "source $BIN/ft-autonomy.sh status" "bash -c 'source /tmp/other.sh'"; do
+  bal "$SG" "$c" "ⓑ-source2 다른 파일·읽기(하위명령 없음) allow: ${c:0:70}"
+done
+# ⓑ-source변 변이 — «source 처리 끔» 이면 ⓑ-source 칸이 allow 로 뒤집힌다(= 그 칸이 그 검사를 잡는다)
+MH="$T/mhook"; mkdir -p "$MH"; cp "$IH"/autonomy-*.sh "$IH/merge_cmd.py" "$MH"/
+python3 - "$IH/autonomy-state-guard.sh" "$MH/autonomy-state-guard.sh" <<'PY' || { echo "FAIL 변이 source 못 만듦"; fail=$((fail+1)); }
+import sys
+s = open(sys.argv[1], encoding="utf-8").read()
+old = "elif b in SOURCE and len(w) > 1:"
+assert s.count(old) == 1, old
+open(sys.argv[2], "w", encoding="utf-8").write(s.replace(old, "elif False:"))
+PY
+run "$MH/autonomy-state-guard.sh" "$(mkbash "source $BIN/ft-autonomy.sh approve-standing D1 --repos pack --classes code,docs")"; [ "$rc" = 0 ] && [ -z "$out" ]; ck "ⓑ-source변 변이(source 처리 끔) → ⓑ-source 칸 빨강" $?
+
 run "$SG" '{깨진'; [ "$rc" = 0 ] && [ -z "$out" ]; ck "ⓑ4 깨진 JSON → allow" $?
 # ⓛ r466 5c — 진입 파일(h<N>) · 계획 파일(*.sh.hil) 안 명령도 같은 판정 · approve-merge 는 자율 ON 이면 허용 + 로그
 HP="$T/plan-am.sh.hil"; HE="$T/h9999"; HSH=1111111111111111111111111111111111111111

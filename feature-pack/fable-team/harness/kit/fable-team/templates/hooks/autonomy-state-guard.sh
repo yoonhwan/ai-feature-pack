@@ -5,6 +5,7 @@
 #   `ft-autonomy.sh on|off|approve-merge|approve-scope|approve-standing(r947)|forget-kind`·`ft-queue-digest.sh issue`·`ft-resume-attempt.sh allow` 실행(판정 1675 · 뒤 두 도구는 r163·r165 가 만든다).
 #   r466 5c: 인자에 오빠 진입 파일(`/tmp/h<N>`·$HIL_DIR/h<N>)·계획 파일(`*.sh.hil`)이 있으면 그 본문(진입 파일의 `plan=` 이 가리키는 계획 파일까지 1단)에 같은 판정 —
 #     단 approve-merge 는 자율 ON(ft-autonomy.sh mode = on)이면 허용 + 로그 `hN-approve seat=<tmux 세션|unknown> file=<경로>`(자율 중 병합 승인 = desk 실행) · OFF·못 읽음 = deny · on|off|forget-kind|approve-scope = 늘 deny · 파일 못 읽음 = 허용 + 로그.
+#   r947 r2: 실행 판정은 `bash|sh` 직접 호출뿐 아니라 `source`·`.` 경유도 같은 파일이면 같다(DA 반례 1).
 #   Write/Edit/NotebookEdit 는 file_path·notebook_path. Bash 는 «양성 일치»만: 리다이렉트 `>`/`>>`/`>|` 대상 · tee · cp(마지막 인자=대상) · mv/rm/ln/install/touch/truncate 인자 · dd of= · sed/perl -i.
 #   r626: `ALL_STOP.json`·`ALL_STOP.released-*` 쓰기(누구든) · `ft-all-stop.sh`/`ft_all_stop.py` on|off 실행(어느 꼴이든 · planner 명부 `_master` 좌석만 예외 · hN 본문도 같다) ·
 #     `all-stop.log`(원장 · DA⑥ r2) 쓰기 · `.fable-team`·`.fable-team/state` 폴더 자체 mv·rm · 인터프리터 코드 안 ALL_STOP 쓰기·지우기·옮기기(heredoc 포함) — 사유 문구는 r626 것. 변수 간접·glob 은 위협 모델 밖(카드 DA⑥ r1).
@@ -30,6 +31,7 @@ DENY_EXEC = {"ft-autonomy.sh": ("on", "off", "approve-merge", "approve-scope", "
 HFILE = re.compile(r"(^|/)h[0-9]+$|\.sh\.hil$")
 WRAP = {"sudo", "env", "command", "exec", "nohup", "time", "timeout", "nice"}
 SHELLS = {"bash", "sh", "zsh", "dash"}
+SOURCE = {"source", "."}   # r947 r2(DA 반례 1): source·. 경유도 «같은 파일을 실행»이다 — 대상 파일이 프로그램 자리로 올라온다
 VALOPTS = {"-u", "-C", "-S", "-P", "-k", "-s", "-n"}  # 값을 하나 더 먹는 래퍼 옵션(env -u NAME · timeout -k N · nice -n N)
 ANY_ARG = {"tee", "touch", "rm", "truncate", "ln", "install", "shred", "unlink", "mv"}
 REASON = ("자율 모드 상태 파일(autonomy.json·autonomy.log)·병합 승인(autonomy-merge-approved/·옛 autonomy-merge-ok/)·범위 승인 폴더(autonomy-scope/)·묶음 발급(autonomy-digest/)·재개 원장(seat-resume-attempts/) 쓰기와 "
@@ -145,6 +147,8 @@ def resolve(words):
                     w = split
                     break
                 del w[:2 if w[0] in VALOPTS else 1]
+        elif b in SOURCE and len(w) > 1:
+            w = w[1:]   # r947 r2: `source <파일> <하위명령>` · `. <파일> <하위명령>` = 그 파일 실행과 같은 판정
         elif b in SHELLS:
             w.pop(0)
             while w and w[0].startswith("-") and not re.fullmatch(r"-[a-zA-Z]*c[a-zA-Z]*", w[0]):

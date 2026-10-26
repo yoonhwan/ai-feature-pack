@@ -92,6 +92,7 @@ sa "$A6" 6 "$V6"; rej "ⓑ2 standing-stop 뒤 → ① 거절" "$A6" '① 상시 
 grant; run a standing-status; has '켜짐'; ck "ⓑ2b stop 뒤 새 approve-standing = 다시 켜짐" $?
 mkda hold6 "$A6" HOLD APPROVE; mkv hold6 "$A6" "$DAO"; VH="$VF"; sa "$A6" 6 "$VH"; rej "ⓑ3 DA 마지막 블록 HOLD(앞 블록 APPROVE 섞음) → 거절" "$A6" '⑤ DA 마지막 codex 블록이 APPROVE 아님'
 mkda tail6 "$A6" APPROVE; printf '판정: HOLD\n' >> "$DAO"; mkv tail6 "$A6" "$DAO"; sa "$A6" 6 "$VF"; rej "ⓑ3b 블록 첫 줄 APPROVE · 끝 판정 줄 HOLD → 거절" "$A6" '⑤ DA 마지막'
+mkda tailc6 "$A6" APPROVE; printf '최종 검토가 완료되지 않았습니다.\n' >> "$DAO"; mkv tailc6 "$A6" "$DAO"; VT="$VF"; sa "$A6" 6 "$VF"; rej "ⓐ-tail APPROVE 원문 끝에 판정 아닌 줄 1줄 추가 → 거절(마지막 비어 있지 않은 줄 검사 · DA 반례 2)" "$A6" '⑤ DA 마지막 codex 블록이 APPROVE 아님'
 mkda nometa6 nometa APPROVE; mkv nometa6 "$A6" "$DAO"; sa "$A6" 6 "$VF"; rej "ⓑ4 .meta 없음 → 거절" "$A6" '⑤ DA 원문 \.meta 없음'
 mkda mh6 "$(sha "$P" origin/main)" APPROVE; mkv mh6 "$A6" "$DAO"; VMH="$VF"; sa "$A6" 6 "$VMH"; rej "ⓑ4b .meta head ≠ A → 거절" "$A6" '⑤ \.meta head'
 mkda cl6 "$A6" APPROVE "" claude-opus-5-5; mkv cl6 "$A6" "$DAO"; sa "$A6" 6 "$VF"; rej "ⓑ4c DA 모델 claude 계열 → 거절" "$A6" 'claude 계열'
@@ -103,6 +104,8 @@ fresh; grant code; mkpr 8 feature-pack/fable-team/NOTES.md; A8="$PRSHA"; mkda ok
 fresh; grant; sa "$A8" 8 "$VF"; [ "$rc" = 0 ] && has "^STANDING-OK $A8 "; ck "ⓑ8b 대조: 문서만 PR(분류기 ff = docs) · classes=code,docs → 통과" $?
 fresh; grant; sa "$A6" 6 "$V6"; [ "$rc" = 0 ] && has "^STANDING-OK $A6 "; ck "ⓑ0 대조: 같은 PR·좋은 판정문 = 통과(거절 사유가 그 칸 하나뿐)" $?
 sa "$A6" 6 "$V6"; [ "$rc" = 0 ] && has "^STANDING-NOOP $A6" && [ "$(nlog)" = "$L0" ]; ck "ⓑ0b 같은 head 두 번 = NOOP(쓰기 0)" $?
+mkpr 10 "$PF"; A10="$PRSHA"; mkda taild10 "$A10" APPROVE; printf '\n\n  \n' >> "$DAO"; mkv taild10 "$A10" "$DAO"; sa "$A10" 10 "$VF"
+[ "$rc" = 0 ] && has "^STANDING-OK $A10 "; ck "ⓐ-tail2 끝의 빈 줄만 = 통과(마지막 «비어 있지 않은» 줄)" $?
 
 # ══ ⓒ head ≠ A: main 병합만이면 EQUIV 통과(use 줄 da=A) · 자기 변경이 다르면 거절
 git -C "$P" checkout -q -B mv origin/main; echo moved > "$P/feature-pack/fable-team/harness/bin/other.sh"; cm "$P" "main moves"; git -C "$P" push -q origin mv:main
@@ -164,6 +167,8 @@ msa() {  # msa <변이 이름> <head> <PR> <판정문> [좌석] — 새 상태 �
 SD=ft-autonomy-standing.sh
 mut m1 "$SD" '[ "$r" = $'"'"'판정: APPROVE\t판정: APPROVE'"'"' ] ||' 'grep -q "^판정: APPROVE" "$f" ||'; msa m1 "$A6" 6 "$VH"
 [ "$rc" = 0 ]; ck "ⓘ1 변이(마지막 블록 대신 아무 «판정: APPROVE» 줄) → ⓑ3 HOLD 섞음 칸 빨강" $?
+mut m7 "$SD" 'c && NF {last=$0}' 'c && /^판정:/ {last=$0}'; msa m7 "$A6" 6 "$VT"
+[ "$rc" = 0 ]; ck "ⓘ7 변이(끝줄 검사 끔 = 마지막 «판정:» 줄만) → ⓐ-tail 칸 빨강" $?
 mut m2 "$SD" '[ "${BASH_REMATCH[1]}" = "$2" ] || std_err "⑤ .meta head' 'true || std_err "⑤ .meta head'; msa m2 "$A6" 6 "$VMH"
 [ "$rc" = 0 ]; ck "ⓘ2 변이(.meta head 대조 끔) → ⓑ4b 칸 빨강" $?
 mkv loc6 "$A6" "$T/da/loc6.out" "" local; VL="$VF"

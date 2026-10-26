@@ -5,7 +5,7 @@
 #   standing-approve <head40> --pr <N> --repo pack --verdict <판정문.md>   planner master 좌석만(ft_doc_exempt.py --mode planner-seat = 문서 전용 예외와 같은 좌석 함수)
 #       ①D1 켜짐(마지막 approve-standing 이 마지막 standing-stop 뒤) ②팩 분류표 forbid 0 ∧ 종류 ∈ classes ③판정문이 BYZ origin/main 에 있음 — 읽는 값도 origin/main 의 blob
 #       ④판정문 4줄 `승인 sha: <A>` · `DA 원문: <절대경로>` · `DA 원문 sha256: <64hex>` · `격리: 세트 <A> · rc=0` (각 정확히 1줄) ∧ 로컬 DA 원문 sha256 = 판정문 값
-#       ⑤DA 원문 마지막 `codex` 블록 첫 줄 ∧ 그 블록의 마지막 `판정:` 줄 = `판정: APPROVE` · <원문>.meta head=A rc=0 · model 이 claude 계열 아님 ⑥head=A 또는 ft-approval-equiv A head EQUIV
+#       ⑤DA 원문 마지막 `codex` 블록 첫 줄 ∧ 그 블록의 «마지막 비어 있지 않은 줄» = `판정: APPROVE`(r2 · DA 반례 2) · <원문>.meta head=A rc=0 · model 이 claude 계열 아님 ⑥head=A 또는 ft-approval-equiv A head EQUIV
 #       통과 = log `standing-use D1 <head> <epoch> pr=<N> repo=pack da=<A>` → `approve-merge <head> D1 <epoch>` → 승인 파일 → 원장 1행 · 거절 = rc2 · 쓰기 0 · 끝줄 «다시: 오빠 h(approve-merge)»
 #   standing-stop D1 "<사유>"   누구나 · standing-status [--since <epoch>]   읽기(켜짐 여부 + 그 뒤 원장 행을 사람 말 1덩이로)
 # 원장 $STATE/autonomy-standing/D1.ledger.tsv 7칸 = 시각·head·PR·da=<A>·DA 원문 경로·착지 sha·되돌림 명령(뒤 둘 = ft-merge-land 가 채운다 · scope 원장과 같은 칸 번호)
@@ -102,11 +102,11 @@ std_verdict() {  # ③④ <판정문> → V_A V_OUT
   [ "$got" = "$sum" ] || std_err "④ DA 원문 sha256(${got:0:12}) ≠ 판정문 값(${sum:0:12}) — 판정 뒤 원문이 바뀜"
 }
 
-std_da_out() {  # ⑤ <원문> <A> — 마지막 codex 블록만 본다(앞 블록·입력 파일 메아리의 APPROVE 는 안 센다)
+std_da_out() {  # ⑤ <원문> <A> — 마지막 codex 블록만 본다(앞 블록·입력 파일 메아리의 APPROVE 는 안 센다) · 끝줄 = 그 블록의 마지막 «비어 있지 않은» 줄(r2)
   local f="$1" r m line lm
-  r="$(awk '/^codex[[:space:]]*$/ {c=NR; first=""; last=""; next} c && first=="" && NF {first=$0} c && /^판정:/ {last=$0}
+  r="$(awk '/^codex[[:space:]]*$/ {c=NR; first=""; last=""; next} c && first=="" && NF {first=$0} c && NF {last=$0}
     END {if (!c) exit 3; sub(/[ \t\r]+$/, "", first); sub(/[ \t\r]+$/, "", last); print first "\t" last}' "$f")" || std_err "⑤ DA 원문에 codex 블록 없음: $f"
-  [ "$r" = $'판정: APPROVE\t판정: APPROVE' ] || std_err "⑤ DA 마지막 codex 블록이 APPROVE 아님(첫 줄·끝 판정 줄: ${r//$'\t'/ | })"
+  [ "$r" = $'판정: APPROVE\t판정: APPROVE' ] || std_err "⑤ DA 마지막 codex 블록이 APPROVE 아님(첫 줄·마지막 줄: ${r//$'\t'/ | })"
   m="$f.meta"; line="$(head -n1 "$m" 2>/dev/null)"
   [[ "$line" =~ ^head=([0-9a-f]{40}|none)\ model=([^[:space:]]+)\ effort=[^[:space:]]+\ rc=([0-9]+)\ start=[0-9]+\ end=[0-9]+$ ]] || std_err "⑤ DA 원문 .meta 없음·꼴 틀림: $m"
   [ "${BASH_REMATCH[1]}" = "$2" ] || std_err "⑤ .meta head(${BASH_REMATCH[1]:0:10}) ≠ 승인 sha(${2:0:10}) — DA 가 본 sha 가 다르다"

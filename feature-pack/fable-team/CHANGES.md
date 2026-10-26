@@ -1,3 +1,9 @@
+## 2026-10-26 — r947 r2 반송 고친 것 — source 경유 차단 · DA 블록 «마지막 비어 있지 않은 줄» 검사 (1.1.253)
+
+- DA⑥ r1 HOLD 2(design/harness/evidence/r947-da6) 고침. 계약 ②: autonomy-state-guard 훅의 실행 판정에 `source`·`.` 경유를 넣었다 — 같은 파일이면 직접 실행과 같은 판정이다(`bash -c` 안의 source 도 같다). 좌석이 `source <bin>/ft-autonomy.sh approve-standing …` 로 D1 을 켜는 길이 막혔다.
+- 계약 ①: `standing-approve` 가 DA 원문 마지막 codex 블록의 «마지막 비어 있지 않은 줄» 이 정확히 `판정: APPROVE` 인지 본다. 앞서는 마지막 `판정:` 줄만 봐서, APPROVE 뒤에 판정 아닌 줄을 붙인 원문도 통과했다.
+- 시험 두 칸 + 변이 둘: ⓑ-source(source·.·bash -c 경유 deny · 변이 «source 처리 끔» 이면 그 칸 빨강) · ⓐ-tail(끝에 판정 아닌 줄 = 거절 · 빈 줄만이면 통과 · 변이 «끝줄 검사 끔» 이면 그 칸 빨강).
+
 ## 2026-10-26 — r947 외부 DA 가 APPROVE 한 팩 PR 은 «상시 승인» D1 으로 planner 가 바로 착지한다 (1.1.252)
 
 - 오빠 D1(mbox 169402) 을 돌리는 장치. 오빠 h 한 번(`ft-autonomy.sh approve-standing D1 --repos pack --classes code,docs`)으로 켜고, 슬랙 «켜짐 알림» 1글을 먼저 올린다. 자율 모드 ON·OFF 와 무관하고 끝 시각이 없다. 멈춤은 `standing-stop D1 "<사유>"`(누구나).
