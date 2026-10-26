@@ -1,3 +1,10 @@
+## 2026-10-26 — r938 나노 닫기 단계 시각 줄 + 외부 호출 7초 상한 — 멈춤 대신 «어느 단계 시간 초과»(1.1.245)
+
+- ft-nano-close.sh 가 ④checkpoint 면제 WARN 뒤 단계마다 stderr 로 `STEP <이름> +<초>s` 를 찍는다(⑥증거검사·⑤cherry·fetch·freshness·sheet·ledger·slots). 그 단계들의 출력은 끝에 한꺼번에 나와 «어느 단계에서 멈췄는지» 알 수 없었다(라이브 1.1.244 실 census 닫기 3회 70초+ 무출력). stdout 은 0줄 바뀐다.
+- 원격 받아오기(fetch) 네 곳(카드 ref·연구 origin main·cherry 재대조·feat ref)이 모두 7초 + 재시도 1 상한(nf_fetch · 공용 fm_fetch)을 거친다. 넘으면 «origin/main fetch 시간 초과 — 옛 ref 로 대조하지 않는다(R22)».
+- 하위 검사(증거 검사·cherry 게이트·freshness·사건 원장·slots)는 min(고정비 4.5초 + 7초 × 배수, 70초) 상한(nf_bound) 뒤 rc 124 = REJECT «<단계> 시간 초과(11s 상한) — 닫지 않음». 명부·원장·세션은 그대로 남는다.
+- 시험 test_nano_close_step_timing_r938.sh ALL PASS(ⓐ~ⓕ · /bin/bash 3.2) · 변이 3종(시각 줄·fetch 상한·하위 상한 끔) ALL-RED · kit cmp0 · 기존 닫기 시험 7종 초록.
+
 ## 2026-10-26 — r926 자율 인터뷰 명부 = $ROOT 기준만 · 쌍둥이 경고는 가지가 main 안 품으면 «이동 0»(1.1.244)
 
 - ft-autonomy-level.sh 가 명부(seats-planner.json)를 $ROOT 와 $ROOT 리포의 공용 루트 2곳에서만 찾는다. cwd·설치 위치는 보지 않는다. 둘 다 없으면 WARN + rc1(조용한 건너뜀 0).

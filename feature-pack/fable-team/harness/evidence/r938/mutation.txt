@@ -1,0 +1,34 @@
+=== 변이: ⓐ 시각 줄 끔(step 무출력) → rc=1 fail=8
+   FAIL   └ STEP ⑥증거검사 줄 없음 ← 
+   FAIL   └ STEP ⑤cherry 줄 없음 ← 
+   FAIL   └ STEP sheet 줄 없음 ← 
+   FAIL   └ STEP ledger 줄 없음 ← 
+   FAIL   └ STEP slots 줄 없음 ← 
+   FAIL   └ 첫 단계: 
+   FAIL   └ 정상 대역 STEP 5줄(⑥·⑤·sheet·ledger·slots) — 없음: «5» ← 0
+   FAIL   └ STEP 줄 0개 ← 
+=== 변이: ⓑ fetch 상한 끔(옛 판 무상한 git fetch) → rc=1 fail=7
+   FAIL ⓑ REJECT + «origin/main fetch 시간 초과» — 없음: «origin/main fetch 시간 초과» ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlv
+   FAIL   └ 옛 ref 대조 0 문구 — 없음: «옛 ref 로 대조하지 않는다» ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.atfkSdqqy
+   FAIL   └ 게이트 호출 2회(1 이어야)
+   FAIL   └ 총 소요 32s > 20초
+   FAIL   └ 카드 ref fetch 도 7초+재시도 1(옛 판 안 읽음) — 없음: «WARN 카드 ref fetch 실패/시간 초과(origin/main · 7초+재시도 1)» ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/fol
+   FAIL   └ 카드 ref fetch 31s > 20초
+   FAIL   └ fetch -q 잔존 1줄
+=== 변이: ⓒ 하위 검사 상한 끔(nf_bound = 그대로 실행) → rc=1 fail=15
+   FAIL ⓒ rc=0 ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.83OaoyKDs3/bin
+   FAIL   └ «닫지 않음» 문구 — 없음: «— 닫지 않음» ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.83OaoyKDs3/bin
+   FAIL   └ 총 소요 92s — 상한이 안 걸렸다
+   FAIL   └ CLOSED 0 — 있으면 안 됨: «CLOSED»
+   FAIL ⓒ⑥: tmux 변경
+   FAIL ⓒ⑥: 명부 삭제
+   FAIL ⓒ⑥: 원장 행 생김
+   FAIL ⓒ' rc=0 ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.83OaoyKDs3/bin
+   FAIL   └ 총 소요 92s — 상한이 안 걸렸다
+   FAIL   └ CLOSED 0 — 있으면 안 됨: «CLOSED»
+   FAIL ⓒ⑤: tmux 변경
+   FAIL ⓒ⑤: 명부 삭제
+   FAIL ⓒ⑤: 원장 행 생김
+   FAIL ⓒ freshness 상한 → REJECT — 없음: «⑤-생애 freshness 시간 초과» ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp
+   FAIL   └ 총 소요 92s — 상한이 안 걸렸다
+MUTATION-ALL-RED

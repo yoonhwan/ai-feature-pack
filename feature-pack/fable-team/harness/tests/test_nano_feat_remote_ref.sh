@@ -47,6 +47,8 @@ expect "evidence --feat nope/main → REJECT" 1 "refs/remotes/" -- bash "$BIN/ft
 
 # close 의 fetch 블록 — 함수만 떼어 직접 호출
 sed -n '/^_fetch_remote_feat() {/,/^}/p' "$BIN/ft-nano-close.sh" > "$T/fn.sh"
+# r938: _fetch_remote_feat 는 이제 nf_fetch(7초+재시도 1 상한)를 쓴다 — 그 도우미도 같이 떼어 온다(없으면 호출 실패로 «fetch 실패» 오판)
+awk '/^nf_cap\(\) \{/{p=1} /^if \[ "\$REPLAN" -eq 0 \]/{p=0} p' "$BIN/ft-nano-close.sh" >> "$T/fn.sh"
 [ -s "$T/fn.sh" ] && ok "close 에 _fetch_remote_feat 정의 존재" || bad "close 에 _fetch_remote_feat 없음"
 ( cd "$T/seed" && git pull -q --ff-only origin main && echo n > src/n.txt && git add -A && git commit -qm "[feature] newer" && git push -q origin main )
 new="$(git -C "$T/seed" rev-parse --short HEAD)"
