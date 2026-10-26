@@ -574,60 +574,128 @@ wait_input_box() {
   done
 }
 
-# Enter 1번의 결과 — 입력줄이 그 문장에서 벗어났으면 제출된 것이다(최대 3초 · 0.5초 간격).
-box_cleared() {
-  local pane="$1" text="$2" i cur
-  for i in 1 2 3 4 5 6; do
-    sleep 0.5
-    cur="$(capture_input_line "$pane")" || cur=""
-    [[ "$cur" != "$text" ]] && return 0
-  done
+# 우리 글자의 «첫 줄 앞 30자» 에서 공백을 모두 지운 것 — 제출의 양성 증거로 쓴다(r925 P2).
+#   여러 줄 작업문은 첫 줄로 판정한다. 줄바꿈·폭 때문에 화면에 공백이 끼어도 같은 글로 보이도록 공백은 지운다.
+text_head() {
+  printf '%s' "$1" | python3 -c 'import sys
+s = sys.stdin.read()
+line = next((l for l in s.split("\n") if l.strip()), "")
+print("".join(line.split())[:30])' 2>/dev/null
+}
+
+# 입력 상자 «위»(처리 이력) 화면을 한 줄로 편 것 — 공백 제거 후 부분 문자열 비교(r925 P2).
+screen_flat() {
+  tmux capture-pane -t "$1" -p 2>/dev/null | awk '
+    { l[NR] = $0 }
+    END {
+      for (i = NR; i >= 1; i--)
+        if (l[i] ~ /^─────/) { if (!b) { b = i } else { a = i; break } }
+      if (!a) a = NR + 1
+      for (i = 1; i < a; i++) { s = l[i]; gsub(/[[:space:]]+/, "", s); printf "%s", s }
+    }'
+}
+
+# 입력줄이 «아직 우리 글자» 인가 — 공백을 지우고 비교한다(폭 때문에 줄이 갈라져도 같은 글로 본다).
+#   ★앞부분 일치만으로 «우리 글자» 라 하지 않는다★ — 사람이 뒤에 이어 쓴 경우 그 글자까지 제출된다(DA⑥ r1 반례 2).
+#   그래서 «같다» 또는 «화면이 좁아 잘린 우리 글자»(앞/뒤가 잘린 꼴)만 우리 것으로 본다. 짧은 조각은 잘림으로 안 본다.
+buffer_is_ours() {
+  local cur text
+  cur="$(printf '%s' "$1" | tr -d '[:space:]')"
+  text="$(printf '%s' "$2" | tr -d '[:space:]')"
+  [[ -n "$cur" ]] || return 1
+  [[ "$cur" = "$text" ]] && return 0
+  (( ${#cur} >= 20 )) || return 1
+  [[ "${text:0:${#cur}}" = "$cur" ]] && return 0                                   # 뒤가 잘림
+  [[ "${text:$(( ${#text} - ${#cur} )):${#cur}}" = "$cur" ]] && return 0            # 앞이 잘림
   return 1
 }
 
-# kind = shell(셸 명령 — 확인 없음) · agent(Claude TUI — 준비 확인 + 제출 확인 + Enter 재전송 2회)
-#        plain(다른 에이전트 TUI — 지금 그대로) · auto(세션에서 에이전트를 재서 고른다)
+# 제출 증거 = 입력줄 빔 ∧ 우리 글자 앞 30자가 입력 상자 «위» 화면에 보임(양성 증거 · r925 P2).
+#   rc0 제출됨 · rc1 아직 우리 글자(재전송 가능) · rc2 판정 불가(화면 판독 실패) ·
+#   rc3 입력줄이 다른 글자(재전송 0) · rc4 입력줄은 빈데 증거가 안 보인다(재전송 0)
+submit_state() {
+  local pane="$1" text="$2" head="$3" i cur blank=0
+  for i in 1 2 3 4 5 6; do
+    cur="$(capture_input_line "$pane" join)" || return 2
+    if [[ -n "$cur" ]]; then
+      buffer_is_ours "$cur" "$text" || return 3
+    else
+      # set -e 안전: «&&» 사슬로 두면 grep 실패가 스크립트를 끝낸다 — 조건문 안에서만 판정한다.
+      if [[ -n "$head" ]] && screen_flat "$pane" | LC_ALL=C grep -qF -- "$head"; then return 0; fi
+      blank=1
+    fi
+    sleep 0.5
+  done
+  [[ "$blank" -eq 1 ]] && return 4
+  return 1
+}
+
+# Claude TUI 주입(r925) — ① 빈 입력줄에만 넣는다 ② 제출은 양성 증거로만 인정한다.
+agent_inject() {
+  local session="$1" pane="$2" message="$3"
+  local ready_max="${TMUXC_READY_MAX:-30}" cur head st try
+  # 준비 확인 — 고정 sleep 대신 «입력 상자가 그려졌나» 를 본다. 상한 30초.
+  if ! wait_input_box "$pane" "$ready_max"; then
+    printf 'state=not-ready session=%s — 입력 상자가 %s초 안에 안 떴다, 주입 0\n' "$session" "$ready_max" >&2
+    return 1
+  fi
+  # ★빈 입력줄에만 넣는다★ — 사람이 쓰던 글자 뒤에 붙여 함께 제출하지 않는다.
+  if ! cur="$(capture_input_line "$pane" join)"; then
+    printf 'state=unreadable session=%s — 입력줄 판독 실패(화면 못 읽음), 주입 0\n' "$session" >&2
+    return 1
+  fi
+  if [[ -n "$cur" ]]; then
+    printf 'state=input-busy session=%s — 입력줄에 다른 글자가 있어 주입 0: %s\n' "$session" "${cur:0:40}" >&2
+    return 1
+  fi
+  head="$(text_head "$message")"
+  tmux send-keys -t "$pane" -l "$message"
+  sleep 0.3
+  for try in 1 2 3; do
+    # 재전송 Enter 직전에 «입력줄 = 아직 우리 글자» 를 다시 확인한다(비었거나 다른 글자면 재전송 0).
+    if [[ "$try" -gt 1 ]]; then
+      if ! cur="$(capture_input_line "$pane" join)"; then
+        printf 'state=unreadable session=%s try=%s — 재전송 전 판독 실패, Enter 0\n' "$session" "$try" >&2
+        return 1
+      fi
+      buffer_is_ours "$cur" "$message" || {
+        printf 'state=input-changed session=%s try=%s — 재전송 0: 입력줄에 다른 글자가 들어왔다\n' "$session" "$try" >&2
+        break
+      }
+    fi
+    tmux send-keys -t "$pane" Enter
+    st=0; submit_state "$pane" "$message" "$head" || st=$?
+    case "$st" in
+      0) printf 'state=submitted session=%s try=%s\n' "$session" "$try"; return 0 ;;
+      2) printf 'state=unreadable session=%s try=%s — 화면 판독 실패, 제출 판정 불가\n' "$session" "$try" >&2; return 1 ;;
+      3) printf 'state=input-changed session=%s try=%s — 입력줄에 다른 글자가 들어왔다, 재전송 0\n' "$session" "$try" >&2; break ;;
+      4) printf 'state=no-proof session=%s try=%s — 입력줄은 비었는데 제출 증거가 안 보인다\n' "$session" "$try" >&2; return 1 ;;
+    esac
+  done
+  printf 'state=submit-failed session=%s — 제출 실패: 제출 증거가 없다(글자 재입력 0)\n' "$session" >&2
+  return 1
+}
+
+# kind = shell(셸 명령 — 확인 없음) · agent(Claude TUI — 준비·빈 줄·제출 증거 확인 + Enter 재전송 2회)
+#        plain(다른 에이전트 TUI — 종전 그대로) · auto(세션에서 에이전트를 재서 고른다)
 inject_message() {
   local session="$1"
   local message="$2"
   local kind="${3:-auto}"
-  local pane
-  pane="$(pane_id_of "$session")"
-  [[ -n "$pane" ]] || pane="$session"
   if [[ "$kind" == "auto" ]]; then
     if session_agent_probe "$session" 2>/dev/null | grep -qx 'agent=claude'; then kind="agent"; else kind="plain"; fi
   fi
-  if [[ "$kind" == "shell" ]]; then
-    tmux send-keys -t "$pane" -l "$message"
-    sleep 0.3
-    tmux send-keys -t "$pane" Enter
-    return 0
-  fi
-  if [[ "$kind" == "agent" ]]; then
-    # 준비 확인 — 고정 sleep 대신 «입력 상자가 그려졌나» 를 본다. 상한 30초(r925).
-    local ready_max="${TMUXC_READY_MAX:-30}"
-    if ! wait_input_box "$pane" "$ready_max"; then
-      printf 'state=not-ready session=%s — 입력 상자가 %s초 안에 안 떴다, 주입 0\n' "$session" "$ready_max" >&2
-      return 1
-    fi
-  fi
-  tmux send-keys -t "$pane" -l "$message"
-  sleep 0.3
   if [[ "$kind" != "agent" ]]; then
-    tmux send-keys -t "$pane" Enter
+    # shell · plain — 종전 그대로(r925 P3: claude 경로만 바꾼다 · 다른 에이전트 회귀 0)
+    tmux send-keys -t "$session" -l "$message"
+    sleep 0.3
+    tmux send-keys -t "$session" Enter
     return 0
   fi
-  # 제출 확인 — Enter 뒤 입력줄이 비었나. 아니면 Enter «만» 다시(글자 재입력 0) 최대 2회(r925).
-  local try
-  for try in 1 2 3; do
-    tmux send-keys -t "$pane" Enter
-    if box_cleared "$pane" "$message"; then
-      printf 'state=submitted session=%s try=%s\n' "$session" "$try"
-      return 0
-    fi
-  done
-  printf 'state=submit-failed session=%s — 제출 실패: Enter 3회에도 입력줄이 그대로다\n' "$session" >&2
-  return 1
+  local pane
+  pane="$(pane_id_of "$session")"
+  [[ -n "$pane" ]] || pane="$session"
+  agent_inject "$session" "$pane" "$message"
 }
 
 cmd_open() {
@@ -763,7 +831,9 @@ cmd_open() {
   ensure_serena "$root"   # UC1-7: serena 공유서버 선기동 (미구성 프로젝트 no-op)
   create_tmux_session "$name" "$root" ${seat_env[@]+"${seat_env[@]}"}
   inject_message "$name" "$run_cmd" shell
-  # r925: 고정 sleep 4 삭제 — 아래 guide 주입이 «입력 상자가 그려졌나» 로 스스로 기다린다.
+  # r925: claude 경로는 아래 guide 주입이 «입력 상자가 그려졌나» 로 스스로 기다린다(고정 sleep 삭제).
+  #        다른 에이전트(codex·cmd·pi) 경로는 종전과 같이 고정 sleep 4 를 둔다(P3 · 회귀 0).
+  [[ "$agent" == "claude" ]] || sleep 4
 
   local guide
   if [[ "$agent" == "claude" ]]; then
@@ -775,10 +845,13 @@ cmd_open() {
   else
     guide="[$(tmux display-message -p '#S' 2>/dev/null || printf 'orch')→$name] tmuxc Codex 세션. 통신 표준: ~/.claude/skills/tmuxc/COMM-GUIDE-BOOT.md(12줄)를 참고하되(전문 COMM-GUIDE.md 는 열지 말 것), Codex에는 --remote-control이 없으므로 tmux verified-send/capture-pane 방식으로 보고할 것. 너의 세션명(me)=$name."
   fi
-  inject_message "$name" "$guide" "$([[ "$agent" == "claude" ]] && printf agent || printf plain)"
+  local guide_kind="plain"
+  [[ "$agent" == "claude" ]] && guide_kind="agent"
+  local inj_rc=0
+  inject_message "$name" "$guide" "$guide_kind" || inj_rc=$?
   if [[ -n "$prompt" ]]; then
     sleep 0.8
-    inject_message "$name" "$prompt" "$([[ "$agent" == "claude" ]] && printf agent || printf plain)"
+    inject_message "$name" "$prompt" "$guide_kind" || inj_rc=$?
   fi
 
   # [2026-07-16] headroom 프록시 경유 검증 (claude 전용 — 토큰낭비·계정리밋 방어).
@@ -794,6 +867,12 @@ cmd_open() {
     fi
   fi
 
+  # r925 P2: 주입 rc≠0 이면 «session created» 로 성공 보고하지 않는다 — 반쪽 열림을 성공으로 읽으면 좌석이 빈손이 된다.
+  if [[ "$inj_rc" -ne 0 ]]; then
+    printf 'tmuxc session created · 부팅 문장 제출 실패 rc=%s\nsession=%s\nroot=%s\nagent=%s\nrole=%s\nattach=tmux attach -t %q\n' \
+      "$inj_rc" "$name" "$root" "$agent" "$role" "$name"
+    return "$inj_rc"
+  fi
   printf 'tmuxc session created\nsession=%s\nroot=%s\nagent=%s\nrole=%s\nattach=tmux attach -t %q\n' "$name" "$root" "$agent" "$role" "$name"
 }
 
@@ -948,6 +1027,7 @@ cmd_fork() {
   ensure_serena "$root"
   create_tmux_session "$name" "$root" ${seat_env[@]+"${seat_env[@]}"}
   inject_message "$name" "$run_cmd" shell
+  [[ "$agent" == "claude" ]] || sleep 4   # r925 P3: claude 외 경로는 종전 그대로
 
   local parent_hint="${from:-source=$source_id}"
   # 뒤이어 --prompt 가 올 수도, 안 올 수도 있다 — "아래 작업만 수행하라"처럼 작업이
@@ -964,12 +1044,20 @@ cmd_fork() {
   else
     guide="[$(tmux display-message -p '#S' 2>/dev/null || printf 'orch')→$name] tmuxc ${agent} FORK 세션(부모: $parent_hint). Codex/opencode 에는 --remote-control 이 없으므로 tmux verified-send/capture-pane 방식으로 보고할 것. 너의 세션명(me)=$name. 부모의 조율자 역할을 이어받지 않는다 — $task_hint"
   fi
-  inject_message "$name" "$guide" "$([[ "$agent" == "claude" ]] && printf agent || printf plain)"
+  local guide_kind="plain"
+  [[ "$agent" == "claude" ]] && guide_kind="agent"
+  local inj_rc=0
+  inject_message "$name" "$guide" "$guide_kind" || inj_rc=$?
   if [[ -n "$prompt" ]]; then
     sleep 0.8
-    inject_message "$name" "$prompt" "$([[ "$agent" == "claude" ]] && printf agent || printf plain)"
+    inject_message "$name" "$prompt" "$guide_kind" || inj_rc=$?
   fi
 
+  if [[ "$inj_rc" -ne 0 ]]; then
+    printf 'tmuxc fork created · 부팅 문장 제출 실패 rc=%s\nsession=%s\nroot=%s\nagent=%s\nrole=%s\nsource_agent=%s\nsource_id=%s\nattach=tmux attach -t %q\n' \
+      "$inj_rc" "$name" "$root" "$agent" "$role" "$src_agent" "$src_id" "$name"
+    return "$inj_rc"
+  fi
   printf 'tmuxc fork created\nsession=%s\nroot=%s\nagent=%s\nrole=%s\nsource_agent=%s\nsource_id=%s\nattach=tmux attach -t %q\n' \
     "$name" "$root" "$agent" "$role" "$src_agent" "$src_id" "$name"
 }
@@ -1631,7 +1719,7 @@ restore_one() {
         inject_message "$name" "/baton:resume" agent
         sleep 1
       fi
-      inject_message "$name" "[restore→$name] tmux 서버 사망 후 tmuxc restore로 복원된 세션이다. 통신 표준: ~/.claude/skills/tmuxc/COMM-GUIDE-BOOT.md(12줄)를 Read하고 준수 — 전문 COMM-GUIDE.md 는 열지 않는다. 너의 세션명(me)=$name. 직전 작업 컨텍스트를 확인하고 이어가라."
+      inject_message "$name" "[restore→$name] tmux 서버 사망 후 tmuxc restore로 복원된 세션이다. 통신 표준: ~/.claude/skills/tmuxc/COMM-GUIDE-BOOT.md(12줄)를 Read하고 준수 — 전문 COMM-GUIDE.md 는 열지 않는다. 너의 세션명(me)=$name. 직전 작업 컨텍스트를 확인하고 이어가라." agent
     fi
     if [[ "$soft" -eq 1 ]]; then
       printf '  ✅ [#%s] %s (%s) 복원 완료 (프로세스 확인, UI 마커 지연)\n' "$idx" "$name" "$agent"
@@ -1788,8 +1876,14 @@ pane_id_of() {
 # 구조라, 아래에서부터 구분선 두 개를 찾아 그 사이를 입력줄로 본다.
 # 구조가 안 맞으면(codex 등 다른 UI) 비-0 으로 끝낸다 — 추측해서 제출하지 않는다.
 capture_input_line() {
-  local pane="$1"
-  tmux capture-pane -t "$pane" -p 2>/dev/null | awk '
+  local pane="$1" cap
+  # r925 P1: 둘째 인자 "join" = -J 로 감긴 줄을 합쳐 읽는다(긴 글자가 폭에 걸려도 한 줄로 본다).
+  if [[ "${2:-}" == "join" ]]; then
+    cap="$(tmux capture-pane -J -t "$pane" -p 2>/dev/null)"
+  else
+    cap="$(tmux capture-pane -t "$pane" -p 2>/dev/null)"
+  fi
+  printf '%s\n' "$cap" | awk '
     { l[NR] = $0 }
     END {
       for (i = NR; i >= 1; i--)

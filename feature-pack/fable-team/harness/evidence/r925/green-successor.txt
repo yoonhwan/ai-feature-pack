@@ -29,6 +29,9 @@ PASS ⓡ2 r925 이어가기 + 내 부팅 문장 남음 → Enter 1회 제출 · 
 PASS ⓡ2' 이어가기 + 남의 글자 → Enter 0 · HIL rc5 · 송신 0
 PASS ⓡ2'' 이어가기 + 입력줄 빔 → Enter 0 · 송신 1
 PASS ⓡ2''' 입력 상자를 못 읽음 → Enter 0(추측 0)
+PASS ⓡ3 흐린 글자(자동완성 제안) → Enter 0 · 빈 줄로 봄 · 송신 1
+PASS ⓡ4 입력줄 줄바꿈 → -J 로 합쳐 Enter 1 · 송신 1
+PASS ⓡ5 제출 증거 없음(유실) → Enter 재전송 0 · HIL rc5 · 송신 0
 PASS ⓢ r622 새 좌석 CWD 실제 경로 → JDIR 그 워크트리 · SessionStart 관측
 PASS ⓣ r660 desk 본문에 GUIDE 27줄 없음 → 열기 전 REJECT · open·송신 0
 PASS ⓣ r660 desk 본문에 팀 직발 예시 → 열기 전 REJECT · open·송신 0

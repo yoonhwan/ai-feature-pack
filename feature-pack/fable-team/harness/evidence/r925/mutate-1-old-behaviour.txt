@@ -1,9 +1,15 @@
 ### 변이 1 — 옛 거동(준비 확인 0 + 확인 없는 Enter 1번) → ⓐ 빨강이어야 한다
-FAIL ⓐ rc=0 submitted=[] buffer=[[byz-t-old-claude#1→byz-t-new-claude#2] 통신 표준: 지금 read로 읽고 그대로 따를 것]
-/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r925-tmuxc-inject-submit-verify-and-succ/feature-pack/tmuxc/test/test_tmuxc_inject_ready_submit.sh: 줄 147: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.LBmN91lGnJ/state/submitted: No such file or directory
+FAIL ⓐ rc=1 transcript=[] buffer=[] out=state=unreadable session=sess — 입력줄 판독 실패(화면 못 읽음), 주입 0 
 FAIL ⓑ rc=0 lines= lit=1 buffer=[[byz-t-old-claude#1→byz-t-new-claude#2] 통신 표준: 지금 read로 읽고 그대로 따를 것]
 FAIL ⓒ rc=0 lit=1 out=[state=submitted session=sess try=1 ]
-PASS ⓔ 준비 빠름 → 제출 1 · 확인 추가 대기 0.05s (≤0.9)
+PASS ⓔ 준비 빠름 → 제출 1 · 확인 추가 대기 0.32s (≤0.9)
+PASS ⓕ 입력줄에 사람 글자 → 주입 0 · rc=1 «입력줄에 다른 글자» · 사람 글자 보존
+FAIL ⓘ rc=0 enters=1 transcript=[] out=state=submitted session=sess try=1 
+FAIL ⓙ rc=0 out=state=submitted session=sess try=1 
+FAIL ⓚ rc=1 out=state=unreadable session=sess — 입력줄 판독 실패(화면 못 읽음), 주입 0 
+FAIL ⓜ rc=0 enters=1 out=state=submitted session=sess try=1 
+PASS ⓛ codex·pi(plain) → 기준 커밋 cbe218a5 과 tmux 호출·결과 바이트 같음 · 캡처 0
+PASS ⓝ cmd_open 판독 실패 → rc=1 «부팅 문장 제출 실패» · «session created» 성공 문구 0
 ----
-FAILED 3 (mutate=1)
+FAILED 7 (mutate=1)
 rc=1

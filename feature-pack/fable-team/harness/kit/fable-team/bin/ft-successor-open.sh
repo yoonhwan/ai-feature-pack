@@ -173,44 +173,108 @@ while [ "$i" -lt "$WAIT_MAX" ]; do i=$((i+1)); pgrep -P "$PID" >/dev/null 2>&1 &
 # ⓒ-1 이어가기 모드의 미제출 부팅 문장 (r925) — 재실행으로 이어갈 때 tmuxc 가 넣은 부팅 문장이 입력줄에 남아 있어
 #   jsonl SessionStart 가 안 생긴다(ops #56→#57 3회 정지). ★그 문장일 때만 Enter 1회★ — 자동완성 제안·남의 입력에
 #   Enter 를 누르면 남의 글자가 제출된다(하드 룰 10·17). 다른 글자면 Enter 0 · HIL. 확인 못 하면 아무것도 안 한다.
-so_input_line() {   # Claude TUI 입력 박스 내용 — 구조가 안 맞으면 rc1(추측 0)
-  local pane="$1"
-  tmux capture-pane -t "$pane" -p 2>/dev/null | awk '
+# r925 P1·P2: 입력 박스를 -e·-J 로 읽어 «흐린 글자»(자동완성 제안)와 «판독 실패»를 빈 줄과 가른다.
+#   so_read_input <판형> — rc0 = 읽음(SO_FLAG = faint|solid · SO_TEXT = 글자) · rc1 = 판독 실패(빈 화면·구조 미확인).
+#   흐린 글자 = SGR 2(dim) · 37·90(회색) · 256색 240 이상(회색) → 우리 글자가 아니다(하드 룰 10).
+so_read_input() {
+  local pane="$1" raw out
+  SO_FLAG=""; SO_TEXT=""
+  raw="$(tmux capture-pane -e -J -t "$pane" -p 2>/dev/null)" || return 1
+  [ -n "$raw" ] || return 1                       # 빈 화면 = 판독 실패(빈 입력줄이 아니다)
+  out="$(printf '%s\n' "$raw" | awk '
+    function faint(s,   p, code, parts, n, i) {
+      p = index(s, "❯"); if (p) s = substr(s, p + length("❯"))       # 프롬프트 색은 보지 않는다(글자만 본다)
+      while (match(s, /\033\[[0-9;]*m/)) {
+        code = substr(s, RSTART + 2, RLENGTH - 3); s = substr(s, RSTART + RLENGTH)
+        n = split(code, parts, ";")
+        for (i = 1; i <= n; i++) {
+          if (parts[i] == "2") return 1
+          if (parts[i] == "37" || parts[i] == "90") return 1
+          if (parts[i] == "38" && parts[i+1] == "5" && parts[i+2] >= 240) return 1
+        }
+      }
+      return 0
+    }
     { l[NR] = $0 }
     END {
       for (i = NR; i >= 1; i--)
         if (l[i] ~ /^─────/) { if (!b) { b = i } else { a = i; break } }
       if (!a || !b) exit 1
-      out = ""
+      out = ""; f = 0
       for (i = a + 1; i < b; i++) {
         s = l[i]
+        if (faint(s)) f = 1
+        gsub(/\033\[[0-9;]*m/, "", s)
         sub(/^[[:space:]]*❯[[:space:]]?/, "", s)
         sub(/[[:space:]]+$/, "", s)
         if (s != "") out = (out == "" ? s : out " " s)
       }
-      print out
+      printf "%s\n%s\n", (f ? "faint" : "solid"), out
+    }')" || return 1
+  SO_FLAG="${out%%$'\n'*}"
+  case "$out" in *$'\n'*) SO_TEXT="${out#*$'\n'}";; *) SO_TEXT="";; esac
+  return 0
+}
+
+# 내 문장의 «앞 30자»(공백 제거) — 제출의 양성 증거 비교용(r925 P2).
+so_head() {
+  if command -v python3 >/dev/null 2>&1; then
+    printf '%s' "$1" | python3 -c 'import sys;print("".join(sys.stdin.read().split())[:30])'
+  else
+    printf '%s' "$1" | tr -d '[:space:]' | cut -c1-30
+  fi
+}
+
+# 입력 상자 «위»(처리 이력) 화면을 공백 없이 한 줄로 — 제출의 양성 증거(r925 P2).
+so_screen_flat() {
+  tmux capture-pane -t "$1" -p 2>/dev/null | awk '
+    { l[NR] = $0 }
+    END {
+      for (i = NR; i >= 1; i--)
+        if (l[i] ~ /^─────/) { if (!b) { b = i } else { a = i; break } }
+      if (!a) a = NR + 1
+      for (i = 1; i < a; i++) { s = l[i]; gsub(/[[:space:]]+/, "", s); printf "%s", s }
     }'
 }
+
 if [ "$RESUMED" = 1 ]; then
   SOTEXT="[${OLD}→${NAME}] 통신 표준"
-  CUR="$(so_input_line "=$NAME:")"; CUR_RC=$?
-  if [ "$CUR_RC" != 0 ]; then
-    echo "이어가기 입력줄을 못 읽었다(입력 상자 구조 미확인) — Enter 0" >&2
+  SOHEAD="$(so_head "$SOTEXT")"; [ -n "$SOHEAD" ] || SOHEAD="$SOTEXT"
+  if ! so_read_input "=$NAME:"; then
+    echo "이어가기 입력줄을 못 읽었다(화면 판독 실패) — Enter 0 · 제출 판정 불가" >&2
+  elif [ -z "$SO_TEXT" ]; then
+    echo "이어가기 입력줄 빔 — Enter 0"
+  elif [ "${SO_TEXT:0:${#SOTEXT}}" != "$SOTEXT" ]; then
+    echo "이어가기 입력줄이 내 문장이 아니다(남의 입력) — Enter 0 · HIL: ${SO_TEXT:0:60}" >&2
+    hil "이어가기 입력줄에 다른 글자 — Enter 0 (${SO_TEXT:0:60})"; exit 5
+  elif [ "$SO_FLAG" = "faint" ]; then
+    # 흐린 글자 = 자동완성 제안(하드 룰 10) — 버퍼는 비어 있다. Enter 0 · 제출할 것 없음.
+    echo "이어가기 입력줄 = 자동완성 제안(흐린 글자) — 빈 줄로 본다 · Enter 0"
   else
-    case "$CUR" in
-      "$SOTEXT"*)
-        tmux send-keys -t "=$NAME:" Enter
-        ok_enter=0; _i=0
-        while [ "$_i" -lt 6 ]; do _i=$((_i+1)); sleep 0.5
-          _now="$(so_input_line "=$NAME:")" || _now=""
-          [ "$_now" != "$CUR" ] && { ok_enter=1; break; }
-        done
-        if [ "$ok_enter" = 1 ]; then echo "이어가기 부팅 문장 제출 확인 — Enter 1회"
-        else echo "이어가기 부팅 문장이 Enter 1회에도 그대로" >&2; hil "이어가기 Enter 1회 무효 — 사람이 pane 을 봐야 한다"; exit 5; fi
-        ;;
-      "") echo "이어가기 입력줄 빔 — Enter 0" ;;
-      *) echo "이어가기 입력줄이 내 문장이 아니다(남의 입력·자동완성 제안) — Enter 0 · HIL: ${CUR:0:60}" >&2; hil "이어가기 입력줄에 다른 글자 — Enter 0 (${CUR:0:60})"; exit 5 ;;
-    esac
+    # 내 문장(진한 글자) → Enter. 제출 증거 = 입력줄 빔 ∧ 내 문장 앞 30자가 위 화면에 보임(r925 P2).
+    #   재전송 직전에 «아직 내 문장» 인지 다시 확인한다 — 비었거나 다른 글자면 재전송 0.
+    ok_enter=0; why=""; tries=0
+    while [ "$tries" -lt 3 ]; do
+      tries=$((tries + 1))
+      if [ "$tries" -gt 1 ]; then
+        if ! so_read_input "=$NAME:"; then why="재전송 전 판독 실패"; break; fi
+        [ "${SO_TEXT:0:${#SOTEXT}}" = "$SOTEXT" ] && [ "$SO_FLAG" != "faint" ] || { why="입력줄이 내 문장이 아니다"; break; }
+      fi
+      tmux send-keys -t "=$NAME:" Enter
+      _i=0
+      while [ "$_i" -lt 6 ]; do _i=$((_i+1)); sleep 0.5
+        if ! so_read_input "=$NAME:"; then why="판독 실패(제출 판정 불가)"; break; fi
+        if [ -z "$SO_TEXT" ]; then
+          so_screen_flat "=$NAME:" | LC_ALL=C grep -qF -- "$SOHEAD" && { ok_enter=1; break; }
+        fi
+      done
+      [ "$ok_enter" = 1 ] && break
+      [ -n "$why" ] && break
+    done
+    if [ "$ok_enter" = 1 ]; then echo "이어가기 부팅 문장 제출 확인 — Enter ${tries}회 · 양성 증거(입력줄 빔 + 위 화면에 문장)"
+    else echo "이어가기 부팅 문장 제출 확인 실패(Enter ${tries}회 · ${why:-증거 없음}) — 글자 재입력 0" >&2
+      hil "이어가기 Enter 무효 — 사람이 pane 을 봐야 한다"; exit 5
+    fi
   fi
 fi
 

@@ -1,0 +1,15 @@
+### 변이 7 — 판독 실패를 «제출됨» 으로 되돌림 → ⓙ 빨강이어야 한다(DA⑥ r1 반례 3)
+PASS ⓐ 준비 6초 늦음 → 준비 확인 뒤 제출 1 · 입력줄 빔 (rc=0 6.51s)
+PASS ⓑ 첫 Enter 유실 → Enter 재전송 1회 제출 · 글자 1회(중복 0) (rc=0 3.85s)
+PASS ⓒ Enter 전부 유실 → rc=1 «제출 실패» · 글자 재입력 0
+PASS ⓔ 준비 빠름 → 제출 1 · 확인 추가 대기 0.2s (≤0.9)
+PASS ⓕ 입력줄에 사람 글자 → 주입 0 · rc=1 «입력줄에 다른 글자» · 사람 글자 보존
+PASS ⓘ 첫 Enter 유실 + 사람 입력 → 재전송 0(Enter 1회) · 사람 글자 제출 0 · rc=1
+FAIL ⓙ rc=0 out=state=submitted session=%0 try=1 state=submitted session=sess try=1 
+PASS ⓚ 권한 프롬프트(입력줄 없음) → rc=1 «입력 상자 안 뜸» · 주입·Enter 0
+PASS ⓜ 여러 줄 작업문 유실 → rc=1 «증거 없음» · Enter 1회(재전송 0)
+PASS ⓛ codex·pi(plain) → 기준 커밋 cbe218a5 과 tmux 호출·결과 바이트 같음 · 캡처 0
+PASS ⓝ cmd_open 판독 실패 → rc=1 «부팅 문장 제출 실패» · «session created» 성공 문구 0
+----
+FAILED 1 (mutate=7)
+rc=1
