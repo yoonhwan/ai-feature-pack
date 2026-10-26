@@ -1,0 +1,25 @@
+MUT 2 — 판정 불가를 «껍데기 아님» 으로
+PASS 본보기 bash -n(/bin/bash)
+PASS 전제: sp1 은 sparse(cone) — d0 만 있고 d1~d3 없음
+PASS 전제: sp1 에 d2 없음(sparse 밖 = 정상)
+PASS 전제: sp1 core.sparseCheckout=true
+PASS 전제: sp3 은 비cone(d1/) — d1 만
+== ⓐⓑⓒⓓ 한 번의 스캔
+PASS ⓑⓒ sparse(d0 만) + d0 부재 = 껍데기(sp2) · 일반 워크트리 최상위 2개 부재 = 껍데기(n2) — 그 둘뿐
+PASS ⓐ sparse(d0 만) + d0 있음 → 껍데기 0 (지금은 sparse 밖 부재를 세서 껍데기로 오판)
+PASS 보론 비cone(d1/) sparse 도 껍데기 0
+PASS ⓒ 일반 워크트리 · 최상위 1개 부재 → 껍데기 아님(회귀 0)
+FAIL ⓓ sparse 표식만 있고 패턴 못 읽음 → «판정 불가» 1줄 — 없음: «판정 불가 1곳» ← [HIL] seat=byz-harness-wt-shell 반쯤 지워진 워크트리 껍데기 2곳(전체 2곳): n2 sp2 — 처리는 오빠 값(바뀐 때만 1줄)
+sweep 계획 0 · cleaned/none 0 · wait 0 · hil 0
+FAIL   └ 판정 불가 줄에 경로(br1) — 없음: «br1» ← [HIL] seat=byz-harness-wt-shell 반쯤 지워진 워크트리 껍데기 2곳(전체 2곳): n2 sp2 — 처리는 오빠 값(바뀐 때만 1줄)
+sweep 계획 0 · cleaned/none 0 · wait 0 · hil 0
+PASS   └ 껍데기 줄 꼴 그대로(팀 미상 = harness · r444)
+PASS   └ 바뀐 것 없음 → 같은 목록이면 두 번째 스캔은 경보 0(바뀐 때만)
+PASS   └ 판정 불가 목록도 그대로면 다시 0
+PASS ⓒ 일반 워크트리 · 최상위 2개 부재로 늘면 다시 껍데기(n1 추가)
+PASS   └ 경보는 읽기만 — 워크트리 손 0
+PASS   └ sparse 임시 파일 남김 0
+PASS   └ 삭제·이름 바꿈 0
+== 결과
+FAIL 2
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

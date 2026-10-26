@@ -1,0 +1,34 @@
+# r945 증거 요약 — ft-wt-sweep.sh shell_scan 의 sparse 워크트리 껍데기 오판 제거
+날짜: 2026-10-26 18:33:43 · 좌석: byz-harness-nano-r945-wt-shell-scan-skip-sparse-outside#0 · 브랜치: nano/r945-wt-shell-scan-skip-sparse-outside
+팩 작업 폴더: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r945-wt-shell-scan-skip-sparse-outside
+
+## rc (시험 = tests/test_wt_shell_scan_sparse_r945.sh · 도구는 /bin/bash 3.2.57 로 실행)
+- 01-before-red.txt : pass=12 fail=7 rc-file=ok
+- 02-after-green.txt : pass=18 fail=0 rc-file=ok
+- 03-bash32.txt : pass=18 fail=0 rc-file=ok
+- 04-mut1-sparse-off.txt : pass=12 fail=7 rc-file=ok
+- 05-mut2-und-as-clean.txt : pass=16 fail=3 rc-file=ok
+- 06-adj-test_finished_cleanup_auto.txt : pass=29 fail=1 rc-file=ok
+- 06-adj-test_ft_wt_sweep_route_timeout.txt : pass=38 fail=0 rc-file=ok
+- 06-adj-test_kit_bin_sync.txt : pass=7 fail=0 rc-file=ok
+- 06-adj-test_wt_clean_two_stage.txt : pass=62 fail=0 rc-file=ok
+- 06-adj-test_wt_sweep_budget_replan_r535.txt : pass=50 fail=0 rc-file=ok
+- 07-adj-baseline-test_finished_cleanup_auto-stash.txt : (옛 코드 기준선 — 아래 06-adj 설명 참조)
+- 08-kit-cmp0.txt : pass=0 fail=0 rc-file=ok
+- 10-live-real-root-new.txt : pass=0 fail=0 rc-file=ok
+
+## 읽는 법
+- 01-before-red.txt = 옛 도구(HEAD 66340101) + 새 시험 → ⓐ·ⓓ 빨강(rc=1 · 결함 재현: sparse 워크트리 5곳이 전부 껍데기로)
+- 02-after-green.txt = 고친 도구 + 새 시험 → ALL PASS
+- 03-bash32.txt = 도구를 macOS 기본 /bin/bash 3.2.57 로 실행 → ALL PASS
+- 04-mut1-sparse-off.txt = 변이 1(sparse 재셈 분기 끔) → ⓐ 빨강(rc=1)
+- 05-mut2-und-as-clean.txt = 변이 2(판정 불가를 «껍데기 아님» 으로) → ⓓ 빨강(rc=1)
+- 06-adj-* = 인접 회귀. test_wt_clean_two_stage(=ⓔ 껍데기 경보 축) · r535 예산/replan · 라우팅 timeout · kit bin sync · finished_cleanup_auto
+  test_finished_cleanup_auto rc=1 은 기존 빨강(가짜 tmux 'tmux unreadable') — 07-adj-baseline(내 변경 stash 후 같은 실패)으로 무관 확인
+- 08-kit-cmp0.txt = bin/ft-wt-sweep.sh ↔ kit/fable-team/bin/ft-wt-sweep.sh cmp 0
+- 09-live-real-root-old.txt = 실 스캔 루트(BYZ-Agents 272 워크트리) 옛 도구 → 껍데기 38곳(전부 sparse 문서 워크트리) · 16.4s
+- 10-live-real-root-new.txt = 같은 루트 고친 도구 → 껍데기 0곳 · 판정 불가 0 · rc 0 · 31.5s (sparse 119곳에 git 2~3회 추가 = 10분 주기 스캔에서 +15s)
+
+## 알려진 한계(DA 질문 대비)
+- 부정 패턴(!)이 최상위 이름과 같으면 그 이름은 «셈 제외» 다(예: 실측 패턴 '/*' + '!/design/teams/*/' → 이름 design). 놓침 방향이고 오탐(오빠 HIL 오염) 0 쪽으로 기운다.
+- 옛 방식처럼 core.sparseCheckout 이 «공용» config 에 들어간 리포는 모든 워크트리가 «판정 불가» 로 간다(껍데기로 오인 0 · 목록에 눈에 보임). 현행 git 2.52 는 워크트리별 config.worktree 에 쓴다(실측).

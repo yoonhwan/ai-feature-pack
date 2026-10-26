@@ -1,0 +1,33 @@
+MUT 1 — sparse 검사 끔(spc=0 고정)
+PASS 본보기 bash -n(/bin/bash)
+PASS 전제: sp1 은 sparse(cone) — d0 만 있고 d1~d3 없음
+PASS 전제: sp1 에 d2 없음(sparse 밖 = 정상)
+PASS 전제: sp1 core.sparseCheckout=true
+PASS 전제: sp3 은 비cone(d1/) — d1 만
+== ⓐⓑⓒⓓ 한 번의 스캔
+FAIL ⓑⓒ sparse(d0 만) + d0 부재 = 껍데기(sp2) · 일반 워크트리 최상위 2개 부재 = 껍데기(n2) — 그 둘뿐 — 없음: «껍데기 2곳(전체 2곳): n2 sp2» ← [HIL] seat=byz-harness-wt-shell 반쯤 지워진 워크트리 껍데기 4곳(전체 4곳): n2 sp1 sp2 sp3 — 처리는 오빠 값(바뀐 때만 1줄)
+판정 불가 1곳 — sparse 패턴을 못 읽어 껍데기 판정 보류(오빠 판정 0 · 삭제 0): /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.E165ki0D7J/repo/.worktrees/br1 
+sweep 계획 0 · cleaned/none 0 · wait 0 · hil 0
+FAIL ⓐ sparse(d0 만) + d0 있음 → 껍데기 0 (지금은 sparse 밖 부재를 세서 껍데기로 오판) — 있으면 안 됨: «sp1» ← [HIL] seat=byz-harness-wt-shell 반쯤 지워진 워크트리 껍데기 4곳(전체 4곳): n2 sp1 sp2 sp3 — 처리는 오빠 값(바뀐 때만 1줄)
+판정 불가 1곳 — sparse 패턴을 못 읽어 껍데기 판정 보류(오빠 판정 0 · 삭제 0): /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.E165ki0D7J/repo/.worktrees/br1 
+sweep 계획 0 · cleaned/none 0 · wait 0 · hil 0
+FAIL 보론 비cone(d1/) sparse 도 껍데기 0 — 있으면 안 됨: «sp3» ← [HIL] seat=byz-harness-wt-shell 반쯤 지워진 워크트리 껍데기 4곳(전체 4곳): n2 sp1 sp2 sp3 — 처리는 오빠 값(바뀐 때만 1줄)
+판정 불가 1곳 — sparse 패턴을 못 읽어 껍데기 판정 보류(오빠 판정 0 · 삭제 0): /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.E165ki0D7J/repo/.worktrees/br1 
+sweep 계획 0 · cleaned/none 0 · wait 0 · hil 0
+PASS ⓒ 일반 워크트리 · 최상위 1개 부재 → 껍데기 아님(회귀 0)
+PASS ⓓ sparse 표식만 있고 패턴 못 읽음 → «판정 불가» 1줄
+PASS   └ 판정 불가 줄에 경로(br1)
+FAIL 껍데기 줄 꼴이 달라짐 ← [HIL] seat=byz-harness-wt-shell 반쯤 지워진 워크트리 껍데기 4곳(전체 4곳): n2 sp1 sp2 sp3 — 처리는 오빠 값(바뀐 때만 1줄)
+판정 불가 1곳 — sparse 패턴을 못 읽어 껍데기 판정 보류(오빠 판정 0 · 삭제 0): /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.E165ki0D7J/repo/.worktrees/br1 
+sweep 계획 0 · cleaned/none 0 · wait 0 · hil 0
+PASS   └ 바뀐 것 없음 → 같은 목록이면 두 번째 스캔은 경보 0(바뀐 때만)
+PASS   └ 판정 불가 목록도 그대로면 다시 0
+FAIL ⓒ 일반 워크트리 · 최상위 2개 부재로 늘면 다시 껍데기(n1 추가) — 없음: «껍데기 3곳(전체 3곳): n1 n2 sp2» ← [HIL] seat=byz-harness-wt-shell 반쯤 지워진 워크트리 껍데기 5곳(전체 5곳): n1 n2 sp1 sp2 sp3 — 처리는 오빠 값(바뀐 때만 1줄)
+판정 불가 1곳 — sparse 패턴을 못 읽어 껍데기 판정 보류(오빠 판정 0 · 삭제 0): /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.E165ki0D7J/repo/.worktrees/br1 
+sweep 계획 0 · cleaned/none 0 · wait 0 · hil 0
+PASS   └ 경보는 읽기만 — 워크트리 손 0
+FAIL sparse 임시 파일이 남음
+PASS   └ 삭제·이름 바꿈 0
+== 결과
+FAIL 6
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
