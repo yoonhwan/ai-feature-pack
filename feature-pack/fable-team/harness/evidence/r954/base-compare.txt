@@ -1,0 +1,3 @@
+# base(a1fccaf7 git archive) 대조 — 내 변경 밖 기존 실패
+test_news_ledger_fetch_lsremote_r847.sh: base FAIL=12 · 내 가지 FAIL=12 (같음 → 범위 밖)
+test_harness_root.sh: 내 가지 FAIL=1(ⓔ 600/300 · 내가 안 건드린 파일) · base 는 git 밖 archive 라 비교 불가
