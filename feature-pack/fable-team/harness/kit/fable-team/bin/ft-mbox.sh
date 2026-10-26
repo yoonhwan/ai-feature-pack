@@ -249,16 +249,36 @@ watch_alive() {
   return 1
 }
 # 감시 없음 → 하네스 master(seats-harness.json `_master`)에 긴급 1통 · 같은 좌석 10분 1회(표식 <루트>/.fable-team/state/planner-watch-missing.<좌석> mtime).
+#   ★r928 유예★: 끝 표식(planner-watch-last.<좌석> = ft-inbox-watch.sh 가 끝날 때 쓰는 시각 1줄)의 mtime 이 유예(FT_WATCH_REARM_GRACE, 기본 5분) 안이면 긴급 0 · stderr `WATCH-REARM 대기 <분>` 1줄.
+#     Monitor 는 최대 30분이면 꺼지고 다시 거는 틈이 생긴다 — 그 틈을 «감시 없음» 긴급으로 보내면 받는 쪽이 오탐으로 의심한다(판정 1125). 진짜 없음(표식 없음/낡음)은 그대로 긴급.
 #   큐 직접 적재(py send · 이 래퍼 send 재귀 0 · 발신자 = 도구 이름이라 FANOUT·RATE 면제 · 본문에 계기 쪽지 번호 = 같은 본문 재발신 가드(RESEND_COOLDOWN)에 10분 뒤 재알림이 막히지 않게) · 실패·master 없음 = stderr 1줄(표식 0 → 다음 send 재시도). 오빠 pane 주입 0(876 불변).
+#   긴급 본문의 근거 줄 = `감시 프로세스 0(pgrep) · 마지막 감시 끝 <HH:MM|기록 없음>` — 받는 쪽이 오탐·진짜를 바로 가른다.
+#   _mark_meta <표식> → "<경과 분> <HH:MM>" · 파일 없음·stat 실패 = 빈 값(유예 0 = 기존처럼 바로 긴급).
+_mark_meta() {
+  local m n
+  m="$(stat -f %m "$1" 2>/dev/null || stat -c %Y "$1" 2>/dev/null || true)"
+  case "$m" in ''|*[!0-9]*) printf ''; return 0 ;; esac
+  n=$(( ( $(date +%s) - m ) / 60 )); [ "$n" -lt 0 ] && n=0
+  printf '%s %s' "$n" "$(date -r "$m" +%H:%M 2>/dev/null || date -d "@$m" +%H:%M 2>/dev/null || true)"
+}
 watch_alarm() {  # <to> <우편함 comm 절대경로(빈 값 → _mbox_dir)> <계기 쪽지 seq>
-  local to="$1" ft hs hm mk q
+  local to="$1" ft hs hm mk lm meta emin ld q grace sfx
   ft="$(dirname "${2:-$(_mbox_dir)}")"
-  mk="$ft/state/planner-watch-missing.$(printf '%s' "$to" | tr -c 'A-Za-z0-9._#-' '_')"
+  sfx="$(printf '%s' "$to" | tr -c 'A-Za-z0-9._#-' '_')"
+  mk="$ft/state/planner-watch-missing.$sfx"
+  lm="$ft/state/planner-watch-last.$sfx"
   [ -n "$(find "$mk" -mmin -10 2>/dev/null)" ] && return 0
+  grace="${FT_WATCH_REARM_GRACE:-5}"
+  meta="$(_mark_meta "$lm" 2>/dev/null || true)"; emin="${meta%% *}"; ld="${meta#* }"
+  if [ -n "$emin" ] && [ "$emin" -lt "$grace" ]; then
+    echo "WATCH-REARM 대기 ${emin}분 — $to 감시가 ${grace}분 안에 끝남($lm) · 다시 거는 틈이라 긴급 0통" >&2
+    return 0
+  fi
   hs="${FT_HARNESS_SEATS_JSON:-$ft/seats-harness.json}"
   hm="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1],encoding="utf-8")).get("_master") or "")' "$hs" 2>/dev/null)"
   [ -n "$hm" ] || { echo "WARN planner watch 없음 $to — 하네스 master 를 못 찾음($hs) · 긴급 0통" >&2; return 0; }
-  q="$(python3 "$MBOXPY" send "$hm" ft-watch-alarm "[긴급 · planner watch 없음] $to · 감지 $(date +%H:%M) · 계기 쪽지 #${3:-?} · 시작: Monitor → bash $ft/bin/ft-inbox-watch.sh $to")" \
+  [ -n "$ld" ] || ld="기록 없음"
+  q="$(python3 "$MBOXPY" send "$hm" ft-watch-alarm "[긴급 · planner watch 없음] $to · 감지 $(date +%H:%M) · 계기 쪽지 #${3:-?} · 감시 프로세스 0(pgrep) · 마지막 감시 끝 $ld · 시작: Monitor → bash $ft/bin/ft-inbox-watch.sh $to")" \
     || { echo "WARN planner watch 없음 $to — 긴급 적재 실패(다음 send 재시도)" >&2; return 0; }
   mkdir -p "$ft/state" && : > "$mk"
   echo "WARN planner watch 없음 $to — 하네스 master $hm 긴급 seq=$(seq_of "$q")" >&2
