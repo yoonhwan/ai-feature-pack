@@ -1,0 +1,38 @@
+cp: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r937-index-move-landed-sha-repo-resolve-//tmp/r937mut/before/ft-team-lib.sh: No such file or directory
+cp: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r937-index-move-landed-sha-repo-resolve-//tmp/r937mut/before/ft-harness-root.sh: No such file or directory
+cp: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r937-index-move-landed-sha-repo-resolve-//tmp/r937mut/before/ft-index-move.sh: No such file or directory
+cp: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r937-index-move-landed-sha-repo-resolve-//tmp/r937mut/before/ft-index-move-install.sh: No such file or directory
+cp: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r937-index-move-landed-sha-repo-resolve-//tmp/r937mut/before/ft-index-move-canon.sh: No such file or directory
+cp: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r937-index-move-landed-sha-repo-resolve-//tmp/r937mut/before/ft-index-close-landed.sh: No such file or directory
+cp: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r937-index-move-landed-sha-repo-resolve-//tmp/r937mut/before/ft_da_hold_gate.py: No such file or directory
+cp: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r937-index-move-landed-sha-repo-resolve-//tmp/r937mut/before/ft-live-install-check.sh: No such file or directory
+cp: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r937-index-move-landed-sha-repo-resolve-//tmp/r937mut/before/ft_live_install_check.py: No such file or directory
+cp: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r937-index-move-landed-sha-repo-resolve-//tmp/r937mut/before/ft_plist_env.py: No such file or directory
+feature-pack/fable-team/harness/tests/test_index_move_landed_repo.sh: 줄 21: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.LFu6aD5rNe/bin/ft-team-lib.sh: No such file or directory
+feature-pack/fable-team/harness/tests/test_index_move_landed_repo.sh: 줄 56: ft_landed_repo: 명령을 찾을 수 없음
+FAIL ⓐ 카드 리포에만 → 카드 리포 :: rc=127 out=
+feature-pack/fable-team/harness/tests/test_index_move_landed_repo.sh: 줄 58: ft_landed_repo: 명령을 찾을 수 없음
+FAIL ⓐ 팩 리포에만 → 팩 리포 :: rc=127 out=
+feature-pack/fable-team/harness/tests/test_index_move_landed_repo.sh: 줄 60: ft_landed_repo: 명령을 찾을 수 없음
+FAIL ⓐ 둘 다 + 표식 main → 카드 리포 :: rc=127 out=
+feature-pack/fable-team/harness/tests/test_index_move_landed_repo.sh: 줄 62: ft_landed_repo: 명령을 찾을 수 없음
+FAIL ⓐ 둘 다 + 표식 main(팩) → 팩 리포 :: rc=127 out=
+feature-pack/fable-team/harness/tests/test_index_move_landed_repo.sh: 줄 64: ft_landed_repo: 명령을 찾을 수 없음
+FAIL ⓐ 둘 다 + 표식 없음 → 팩 :: rc=127 out=
+feature-pack/fable-team/harness/tests/test_index_move_landed_repo.sh: 줄 66: ft_landed_repo: 명령을 찾을 수 없음
+FAIL ⓐ 둘 다 없음 → REJECT :: rc=127 out=
+feature-pack/fable-team/harness/tests/test_index_move_landed_repo.sh: 줄 68: ft_landed_repo: 명령을 찾을 수 없음
+FAIL ⓐ 표식 오기(팩) → REJECT :: rc=127 out=
+feature-pack/fable-team/harness/tests/test_index_move_landed_repo.sh: 줄 70: ft_landed_repo: 명령을 찾을 수 없음
+FAIL ⓐ 표식 오기(카드) → REJECT :: rc=127 out=
+FAIL ⓑ 카드 착지 + 설치: 있음 → 통과 :: rc=127 out=bash: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.LFu6aD5rNe/bin/ft-index-move-install.sh: No such file or directory
+bash: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.LFu6aD5rNe/bin/ft-index-move-canon.sh: No such file or directory
+FAIL ⓑ 팩 착지 + 정본 영향 없음 → OK :: rc=127 out=
+bash: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.LFu6aD5rNe/bin/ft-index-move-canon.sh: No such file or directory
+FAIL ⓑ 표식 main → 랜딩 안 됨 :: rc=127 out=
+FAIL ⓑ close-landed 조상 검사 리포 :: rc=127 out=bash: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.LFu6aD5rNe/bin/ft-index-close-landed.sh: No such file or directory
+bash: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.LFu6aD5rNe/bin/ft-index-move-canon.sh: No such file or directory
+FAIL ⓒ 표식 어긋남 → REJECT :: rc=127 out=
+FAIL ⓓ 카드 착지 + 설치: 없음 → 통과 :: rc=127 out=bash: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.LFu6aD5rNe/bin/ft-index-move-install.sh: No such file or directory
+PASS ⓔ 리포 오염 0(design/harness 픽스처 밖 변경 0 · 팩 무변경)
+FAILED 14

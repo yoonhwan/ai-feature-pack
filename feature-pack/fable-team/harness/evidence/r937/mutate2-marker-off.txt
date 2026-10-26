@@ -1,0 +1,21 @@
+PASS ⓐ 카드 리포에만 → 카드 리포
+PASS ⓐ 팩 리포에만 → 팩 리포(카드 리포가 fetch 해 둬도)
+FAIL ⓐ 둘 다 + 표식 main → 카드 리포 :: rc=0 out=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.3xsGQG1s0h/pack	e36eda26bd3c6a3a2debc2532fbbde4c62011d5c
+PASS ⓐ 둘 다 + 표식 main(팩) → 팩 리포
+PASS ⓐ 둘 다 + 표식 없음 → 팩(카드 리포 fetch 관례 · r581)
+PASS ⓐ 둘 다 없음 → REJECT «어느 리포에서도 못 찾음»
+FAIL ⓐ 표식 오기(팩) → REJECT :: rc=0 out=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.3xsGQG1s0h/byz	a0783f3f8ec99c64f23bd4073878e7811b3be4e6
+FAIL ⓐ 표식 오기(카드) → REJECT :: rc=0 out=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.3xsGQG1s0h/pack	80ab2652fa8135d3c153d6deb38eef4e7da9f611
+PASS ⓑ 카드 착지 + 설치: 있음 → 라이브 전수 대조 통과 rc0
+PASS ⓑ 팩 착지 + 정본 영향 없음 → 정본 게이트 OK(팩 origin/main 조상)
+FAIL ⓑ 표식 main → 랜딩 안 됨 :: rc=0 out=OK	정본 영향 없음: 하네스 도구만 바뀐 카드 — 제품 정본 없음
+FAIL ⓑ close-landed 조상 검사 리포 :: rc=0 out=| § | 카드 | 위치 | 조상 | 착지 줄 | 예상 |
+|---|---|---|---|---|---|
+| §1 | kpack | 진행 | ok | 무 | HOLD events=0 reviews=0 releases=0/0 budget_left=2 |
+| §2 | cside | 진행 | no | 무 | REJECT LANDED-INVALID not-ancestor |
+| §3 | kbyz2 | 진행 | ok | 무 | HOLD events=0 reviews=0 releases=0/0 budget_left=2 |
+DRY rows=3 (쓰기 0)
+FAIL ⓒ 표식 어긋남 → REJECT :: rc=0 out=OK	정본 영향 없음: 하네스 도구만 바뀐 카드 — 제품 정본 없음
+PASS ⓓ 카드 착지 + 설치: 없음 → 통과 rc0(회귀 0)
+PASS ⓔ 리포 오염 0(design/harness 픽스처 밖 변경 0 · 팩 무변경)
+FAILED 6

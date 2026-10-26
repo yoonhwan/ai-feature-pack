@@ -3,10 +3,14 @@
 #   ft-index-move.sh 진행→완성의 정본 게이트 + 랜딩 commit 사실 검사 (판정 440 설계 r2 §6-1 · 판정 444).
 #   출력 한 줄: `OK<TAB>정본 <경로> §<절>[ · 정본 …]` 또는 `OK<TAB>정본 영향 없음: <이유>` 또는 `REJECT<TAB><사유>` · 항상 exit 0.
 #   랜딩 브랜치 ref = env FT_LAND_REF(기본 origin/main) · 검사 전 fetch 하지 않는다 · 검사를 끄는 값 없음.
+#   r937: 착지 리포 판정 = ft_landed_repo(ft-team-lib.sh) — sha 가 실제로 있는 리포(카드 리포·팩 리포)와 그 리포의 ref 를 쓴다.
+#     표식 = 판정문 §절의 «닫힘 — <카드> — main|main(팩) `<sha>`» 줄(main(팩) = 팩 리포 · main = 카드 리포).
 set -uo pipefail
 CARD="${1:-}"; WT="${2:-}"; LANDED="${3:-}"
 BODY="$(cat)"
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 rej() { printf 'REJECT\t%s\n' "$1"; exit 0; }
+. "$HERE/ft-team-lib.sh" 2>/dev/null || rej "ft-team-lib.sh 를 못 읽었다: $HERE (착지 리포를 못 정한다)"
 
 # ① 카드 줄 검사 — 「정본 갱신:」 줄 «전부» 파일·절 실재 · 없으면 「정본 영향 없음」 · 출력 UPD 줄들 + 마지막 OK/REJECT
 RES="$(python3 - "$CARD" "$WT" <<'PY'
@@ -89,10 +93,16 @@ if [ -z "$LANDED" ]; then
 fi
 case "$LANDED" in *..*) T="${LANDED%%..*}"; S="${LANDED##*..}";; *) T=""; S="$LANDED";; esac
 REF="${FT_LAND_REF:-origin/main}"
-g() { git -C "$WT" "$@"; }
-SFULL="$(g rev-parse --verify -q "${S}^{commit}" 2>/dev/null)" || rej "S 없음 — git fetch 후 다시: $S"
-g rev-parse --verify -q "${REF}^{commit}" >/dev/null 2>&1 || rej "랜딩 브랜치 ref 없음: $REF"
-g merge-base --is-ancestor "$SFULL" "$REF" 2>/dev/null || rej "랜딩 안 됨 — $S 가 $REF 의 조상이 아니다"
+# r937: 착지 리포 = sha 가 실제로 있는 리포(ft_landed_repo) — 표식 줄 = 이 카드의 «닫힘 — <카드> — main…» 줄(§절 본문에서)
+STEM="$(basename "$CARD" .md)"
+MARKER="$(printf '%s\n' "$BODY" | awk -v s="$STEM" 'index($0,"닫힘")&&index($0,s)&&index($0,"main"){print;exit}')"
+PACK=""; [ -f "$HERE/ft-harness-root.sh" ] && PACK="$(. "$HERE/ft-harness-root.sh" && ft_harness_root "$HERE" 2>/dev/null)"
+[ -n "$PACK" ] && PACK="$(git -C "$PACK" rev-parse --show-toplevel 2>/dev/null)"
+LR="$(ft_landed_repo "$S" "$WT" "$PACK" "$MARKER")" || rej "${LR#REJECT }"
+REPO_LANDED="${LR%%$'\t'*}"; SFULL="${LR##*$'\t'}"
+g() { git -C "$REPO_LANDED" "$@"; }
+g rev-parse --verify -q "${REF}^{commit}" >/dev/null 2>&1 || rej "랜딩 브랜치 ref 없음: $REF ($REPO_LANDED)"
+g merge-base --is-ancestor "$SFULL" "$REF" 2>/dev/null || rej "랜딩 안 됨 — $S 가 $REF 의 조상이 아니다 ($REPO_LANDED)"
 if [ -z "$UPDS" ]; then printf '%s\n' "$LAST"; exit 0; fi
 if [ -n "$T" ]; then
   TFULL="$(g rev-parse --verify -q "${T}^{commit}" 2>/dev/null)" || rej "T 없음 — git fetch 후 다시: $T"

@@ -16,7 +16,7 @@ unset FT_HARNESS_ROOT FT_INSTALL_CHECK FT_INSTALL_PENDING_DIR
 
 # ── 도구 사본 1벌(게이트 + 대조 도구) · 회수 불가 루트 시험용 사본 1벌(ⓓ)
 mkbin() { local d="$1"; mkdir -p "$d"; cp -p "$SRC/ft-index-move-install.sh" "$SRC/ft-team-lib.sh" "$SRC/ft_plist_env.py" \
-  "$SRC/ft-live-install-check.sh" "$SRC/ft_live_install_check.py" "$d/"; }
+  "$SRC/ft-harness-root.sh" "$SRC/ft-live-install-check.sh" "$SRC/ft_live_install_check.py" "$d/"; }
 BIN="$T/bin"; mkbin "$BIN"
 GATE="$BIN/ft-index-move-install.sh"
 g() { git -C "$1" -c user.name=t -c user.email=t@t "${@:2}"; }
