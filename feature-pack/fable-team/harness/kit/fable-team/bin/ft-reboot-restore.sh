@@ -3,7 +3,8 @@
 #   ft-reboot-restore.sh [--from latest|<스냅샷 경로>] [--since <시간>] [--dry-run]
 #   목록: ①스냅샷(기본 ~/.tmuxc/snapshots/latest.json · agent=shell 행 제외) ②없음·깨짐·빈 것이면 ZC_LIVE_DIR(~/.claude/state/seat-live)
 #         engine=claude · 파일 시각 --since(24)시간 안 · 같은 이름은 at 최신 1개 · 출처를 1줄 · 둘 다 없음 = ERROR rc 2.
-#   좌석마다(FT_RR_PAR=4 병렬): ①같은 이름 tmux 세션 있음 = SKIP 살아 있음 ②claude 아님 = FAIL 엔진 밖 ③uuid·cwd·model·대화 파일 없음 = FAIL
+#   좌석마다(FT_RR_PAR=4 병렬): ①같은 이름 tmux 세션 있음 = SKIP 살아 있음 ②claude 아님 = FAIL 엔진 밖 ③uuid·cwd·대화 파일 없음 = FAIL
+#     ④이름에 -nano- + `ft-resume-attempt.sh rested <jsonl>` rc 0 = SKIP 끝난 나노 ⑤model 없음 = FAIL(새 세션을 열 때만 필요 — 끝난 나노·살아 있음은 model 없어도 SKIP)
 #     ④이름에 -nano- + `ft-resume-attempt.sh rested <jsonl>` rc 0 = SKIP 끝난 나노
 #     ⑤`tmux new-session -d -s <이름> -c <cwd> -e FT_SEAT=<이름> 'zsh -l'` → send-keys -l <줄> 과 Enter 별도 호출
 #       줄 = FT_SEAT=<이름> <FT_RR_HR(~/.headroom/claude-hr.sh)> --dangerously-skip-permissions --model <m> --effort <e|high> --resume <uuid> --name <이름>
@@ -66,9 +67,10 @@ def precheck(r):   # (결과, 사유) · None = 연다
     if not n: return "FAIL", "이름 없음"
     if alive(n): return "SKIP", "살아 있음"
     if r["engine"] != "claude": return "FAIL", f"엔진 밖({r['engine'] or '-'})"
-    if not (r["uuid"] and r["model"] and os.path.isdir(r["cwd"])): return "FAIL", "uuid·model·cwd 없음"
+    if not (r["uuid"] and os.path.isdir(r["cwd"])): return "FAIL", "uuid·cwd 없음"
     if not os.path.isfile(r["jsonl"]): return "FAIL", "대화 파일 없음"
     if "-nano-" in n and run("bash", f"{here}/ft-resume-attempt.sh", "rested", r["jsonl"])[0] == 0: return "SKIP", "끝난 나노"
+    if not r["model"]: return "FAIL", "model 없음"   # model 은 새 세션을 열 때만 필요 — 끝난 나노·살아 있음 판정을 막지 않는다(H2)
     return None
 def line_for(r):
     q = shlex.quote
@@ -117,7 +119,8 @@ for r, (k, why, pid, px) in zip(rows, res):
 fails = [(r["name"], w) for r, (k, w, _, _) in zip(rows, res) if k == "FAIL"]
 if fails: print("FAIL 목록:"); [print(f"- {n} — {w}") for n, w in fails]
 cnt = lambda k: sum(1 for x in res if x[0] == k)
-x = sum(1 for x in res if x[3] == "X"); rc = 0 if dry or not (fails or x) else 3
+x = 0 if dry else sum(1 for x in res if x[3] == "X")   # dry-run 은 8317 확인이 없다 — FAIL 은 dry-run 에서도 rc 3(H1)
+rc = 0 if not (fails or x) else 3
 tail = f"REBOOT-RESTORE {'dry-run ' if dry else ''}ok={cnt('OK')} plan={cnt('PLAN')} skip={cnt('SKIP')} fail={len(fails)} x8317={x} rc={rc} 원장={'- (dry-run 기록 0)' if dry else LOG}"
 log(tail); print(tail); sys.exit(rc)
 PY

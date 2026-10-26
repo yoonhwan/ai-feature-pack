@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# test_reboot_restore_r641.sh — r641: 재부팅 뒤 좌석 복구 1줄 도구 ft-reboot-restore.sh 시험 ⓐ~ⓘ.
+# test_reboot_restore_r641.sh — r641: 재부팅 뒤 좌석 복구 1줄 도구 ft-reboot-restore.sh 시험 ⓐ~ⓚ.
 #   ⓐ 스냅샷 2석 → tmux 세션 2개 · 래퍼 인자·세션 환경 FT_SEAT·시작 셸 zsh -l·cwd ⓑ 확인표(이름·결과·pid·8317 O/X·uuid) · X 면 rc 3
 #   ⓒ 살아 있는 세션 = SKIP(열기·보내기 0) ⓓ 대화 파일 없음 = FAIL 1줄 · 다른 좌석은 계속 ⓔ 끝난 나노(rested rc 0) = SKIP
 #   ⓕ 스냅샷 없음·깨짐 → seat-live(effort 기본 high) · 둘 다 없음 = ERROR rc 2 ⓖ 병렬 상한 4 · 기동 확인 상한 넘으면 FAIL · 원장 줄
 #   ⓗ --dry-run = 세션 0 · tmuxc restore 계획 모드 출력 맨 위 안내 1줄
 #   ⓘ r626 전팀 정지 켜짐 = 세션 0 · rc 1 · 그 REJECT 줄 그대로(변이: 검사 줄 삭제 → 이 칸 FAIL)
+#   ⓙ dry-run 에도 FAIL 있으면 rc 3 ⓚ 끝난 나노 + model null = SKIP · 끝나지 않은 나노 + model null = FAIL model 없음
 # 전부 mktemp 안 — 임시 HOME(스냅샷·seat-live·projects·가짜 claude-hr.sh) · 임시 FT_ROOT ·
 #   ★tmux 는 격리 소켓(-L ftrr-test-<pid>) 셔임을 PATH 앞에 — 사용자 tmux 서버의 세션은 보지도 건드리지도 않는다(실좌석 kill·send-keys 0)★.
 # base 대조: R641_BIN=<origin/main 판 키트 bin 폴더> bash <이 파일> — 그 폴더에 ft-reboot-restore.sh 가 없으면 전부 FAIL.
@@ -176,6 +177,43 @@ alive $A || alive $B && bad "ⓘ 정지인데 세션 열림" || ok "ⓘ 정지 �
 rm -f "$FT_ROOT/.fable-team/state/ALL_STOP.json"
 run --dry-run
 eq "$RC" 0 "ⓘ 정지 끄면 --dry-run 다시 rc 0"
+
+# ⓙ dry-run 에도 FAIL 이 있으면 rc 3 (H1 · x8317 은 실행 모드에서만 썸)
+reset_tmux; rm -f "$T"/args.*; mkseat $A $UA; mkdir -p "$T/cwd-ftrr-test-cx"
+python3 - "$H/.tmuxc/snapshots/latest.json" "$T" "$A" "$UA" <<'PY'
+import json, sys
+out, t, n, u = sys.argv[1:]
+ss = [dict(name=n, cwd=f"{t}/cwd-{n}", agent="claude", model="claude-opus-5-5[1m]", effort="xhigh", session_id=u),
+      dict(name="ftrr-test-cx", cwd=f"{t}/cwd-ftrr-test-cx", agent="codex", model="gpt-5", effort="high", session_id="55555555-eeee-4000-8000-000000000005")]
+json.dump(dict(schema=1, created_at="2026-10-27T00:00:00Z", host="t", session_count=len(ss), sessions=ss), open(out, "w"))
+PY
+run --dry-run
+eq "$RC" 3 "ⓙ dry-run + codex FAIL → rc 3"
+has "$OUT" "ftrr-test-cx · FAIL 엔진 밖" "ⓙ 엔진 밖 FAIL 줄"
+has "$OUT" "rc=3" "ⓙ 꼬리 줄 rc=3"
+alive ftrr-test-cx 2>/dev/null && bad "ⓙ dry-run 이 세션을 열었다" || ok "ⓙ dry-run 세션 0(codex)"
+snap "$A:$UA"
+run --dry-run
+eq "$RC" 0 "ⓙ claude 정상 1석만이면 dry-run rc 0 그대로"
+has "$OUT" "rc=0" "ⓙ 꼬리 줄 rc=0"
+# ⓚ 끝난 나노 + model 없음 = SKIP 끝난 나노(H2) · 끝나지 않은 나노 + model 없음 = FAIL model 없음
+reset_tmux; N=ftrr-test-nano-m; UN=66666666-ffff-4000-8000-000000000006; mkseat $N $UN
+python3 -c 'import json,sys
+f=open(sys.argv[1],"w")
+for r in ({"type":"assistant","message":{"content":"[완료·휴식] 끝"}},{"type":"system","subtype":"turn_duration"}): f.write(json.dumps(r,ensure_ascii=False)+"\n")' "$(jsonl_of $N $UN)"
+python3 - "$H/.tmuxc/snapshots/latest.json" "$T" "$N" "$UN" <<'PY'
+import json, sys
+out, t, n, u = sys.argv[1:]
+ss = [dict(name=n, cwd=f"{t}/cwd-{n}", agent="claude", model=None, effort="high", session_id=u)]
+json.dump(dict(schema=1, created_at="2026-10-27T00:00:00Z", host="t", session_count=1, sessions=ss), open(out, "w"))
+PY
+run --dry-run
+eq "$RC" 0 "ⓚ 끝난 나노 + model null → rc 0"
+has "$OUT" "$N · SKIP 끝난 나노" "ⓚ 끝난 나노 SKIP(model 없어도)"
+printf '{"type":"user"}\n' > "$(jsonl_of $N $UN)"
+run --dry-run
+eq "$RC" 3 "ⓚ 끝나지 않은 나노 + model null → rc 3"
+has "$OUT" "$N · FAIL model 없음" "ⓚ model 없음 FAIL"
 
 echo "== r641 fail=$fail"
 [ "$fail" -eq 0 ] && echo "ALL PASS" || exit 1

@@ -8,6 +8,7 @@
 - 기존 시험(인접 · 광역 0): `test_kit_bin_sync.sh` ALL PASS rc=0 · `test_all_stop_r626.sh` 116 PASS ALL PASS rc=0 · `evidence/r641/03-existing-tests.txt`.
 - 설치: 있음 — 키트 1(`ft-reboot-restore.sh` → LIVE_BIN 새 판 cmp0) · `tmuxc/core/bin/tmuxc` → `~/.tmuxc/current/core/bin/tmuxc` cmp0 · manifest 1.1.256 · tmuxc 0.4.8(manifest + core/VERSION). **설치·실사건 1(다음 재부팅 또는 오빠 승인 1회 시험 때 이 도구 1줄 복구 확인표 원문)은 master 소관 — 미실행.** 되돌림 = 새 도구 삭제 + tmuxc 안내 줄 원복.
 - press 필요: 없음 — 하네스 좌석 복구(제품 키·말풍선·음성 경로 무관).
+- 반송 r1(외부 DA⑥ r1 HOLD 2건) 고침 — ① `--dry-run` 에도 FAIL 이 1건이라도 있으면 rc 3(전엔 dry-run 이면 무조건 rc 0 · 8317 X 는 실행 모드에서만 셈) ② 좌석 판정 순서를 «이름 → 살아 있음 → 엔진 → uuid·cwd·대화 파일 → 끝난 나노(rested) → model» 로 바꿔, 끝난 나노는 스냅샷 model 이 null 이어도 SKIP(model 은 새 세션을 열 때만 필요). 시험 칸 ⓙ(dry-run + codex → rc 3 · claude 정상 1석이면 rc 0) · ⓚ(끝난 나노 + model null = SKIP · 끝나지 않은 나노 + model null = FAIL model 없음) · 변이 2종 각각 그 칸 빨강 · 증거 `harness/evidence/r641/06-rework-r1.txt`.
 
 ## 2026-10-26 — r765 승인 도구가 게이트와 같은 원장 줄 꼴(줄머리∨표 행)을 읽는다 (1.1.255)
 
