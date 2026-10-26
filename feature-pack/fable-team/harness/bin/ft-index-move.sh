@@ -9,7 +9,8 @@
 #               정본 줄 세 꼴 중 하나: 「정본 갱신: docs/architect/….md §절」 · 「정본화: <경로>[, …]」(허용 뿌리 4곳 · R318a) · 「정본 영향 없음: <이유>」.
 #               하네스 카드는 `- 설치: 있음|없음` 필수 · 있음 = 라이브 설치 대조 OK + `- 실사건:` 증거(ft-index-move-install.sh · R245).
 #               (DA 가 안 쓴 「닫힘」은 없다 — pm·master 가 대신 쓸 길을 두지 않는다.)
-#   대기|진행→아카이브 (r1000) : --da · --seat 필수. 판정문 §N 절에 «닫힘 — <카드> — 버림» 또는 «닫힘 — <카드> — 쓸모 없음» 으로 시작하는 줄 +
+#   대기|진행→아카이브 (r1000) : --da · --seat 필수. 판정 종류는 «절 전체» 로 본다 — «(닫힘|CLOSE) — <카드> — main …» 줄이 하나라도 있으면 착지 카드 = REJECT(완성 갈래로),
+#               아니면 «(닫힘|CLOSE) — <카드> — 버림» 또는 «… — 쓸모 없음» 로 시작하는 줄 +
 #               카드에 `- 정본 영향 없음:` 줄 + DA 보류 가드(ft_da_hold_gate.py --closing) 통과 → indices/아카이브/<YYYY-MM>/ 로 이동.
 #               착지 sha·설치 대조·실사건 검사는 이 갈래에서 하지 않는다(착지 카드는 완성 갈래로 닫는다).
 #   기타 방향 : 되돌리기(진행→대기 등)는 --seat 로 사유만 남기고 허용.
@@ -23,6 +24,9 @@ case "$DST" in 대기|진행|완성|아카이브) ;; *) echo "REJECT dst 는 대
 [ -f "$SRC" ] || { echo "REJECT 없음: $SRC"; exit 1; }
 SRC="$(cd -- "$(dirname -- "$SRC")" && pwd)/$(basename -- "$SRC")"   # 절대경로 — 상대경로면 아래 git -C ls-files 추적 판정이 untracked 로 떨어져 mv 가 된다(DA r1 R5)
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
+# 착지 표식 정규식 «단일 출처» — 완성 갈래(FT_LANDED_MARKER)와 아카이브 갈래가 같이 쓴다(두 벌 금지 · r1000 r1 F2).
+# «닫힘|CLOSE» 둘 다 인정 · 카드 이름은 «정확» 일치 · 세 번째 칸이 main 으로 시작해야 착지.
+landed_marker_re() { printf '(닫힘|CLOSE)[[:space:]]*—[[:space:]]*%s[[:space:]]*—[[:space:]]*main' "$1"; }
 [ ! -f "$HERE/ft-team-lib.sh" ] || ( . "$HERE/ft-team-lib.sh" && ft_card_location_ok "$SRC" ) || exit 1   # r447: 명단 새 꼴 팀 카드가 옛 꼴 폴더면 REJECT(이동 0)
 IDX_ROOT="$(cd "$(dirname "$SRC")/.." && pwd)"
 FROM="$(basename "$(dirname "$SRC")")"
@@ -57,7 +61,7 @@ if [ "$DST" = 완성 ]; then
   WT="$(git -C "$IDX_ROOT" rev-parse --show-toplevel 2>/dev/null || echo "$IDX_ROOT")"
   # r937: 착지 리포 표식 = 이 카드의 «닫힘 — <카드> — main|main(팩) `<sha>`» 줄 — 정본·설치 게이트가 같은 리포를 골라 쓰게 넘기는 값
   # r959: 표식 줄 = «닫힘 — <카드> — main…» 정확한 모양만 — 절 헤더 «## §32 <카드> — 닫힘 (CLOSE)» 를 표식으로 오인하지 않는다(카드 이름에 «main» 이 들면 카드 리포로 잘못 풀린다 · r462·r560·r756)
-  FT_LANDED_MARKER="$(printf '%s\n' "$body" | awk -v s="$(basename "$SRC" .md)" 'BEGIN{p="(닫힘|CLOSE)[[:space:]]*—[[:space:]]*" s "[[:space:]]*—[[:space:]]*main"} $0 ~ p{print;exit}')"; export FT_LANDED_MARKER
+  FT_LANDED_MARKER="$(printf '%s\n' "$body" | awk -v p="$(landed_marker_re "$(basename "$SRC" .md)")" '$0 ~ p{print;exit}')"; export FT_LANDED_MARKER
   CANON_RES="$(printf '%s\n' "$body" | bash "$HERE/ft-index-move-canon.sh" "$SRC" "$WT" "$LANDED")"
   CANON_KIND="$(printf '%s' "$CANON_RES" | cut -f1)"; CANON_NOTE="$(printf '%s' "$CANON_RES" | cut -f2-)"
   case "$CANON_KIND" in
@@ -95,17 +99,19 @@ if [ "$DST" = 아카이브 ]; then
   body="$(awk -v s="$SEC" 'index($0,"## ")==1{f=0; r=$0; while((i=index(r,s))>0){n=substr(r,i+length(s),1); if(index(s,"§")==0||n!~/[0-9]/){f=1;break}; r=substr(r,i+length(s))} if(f){print;next}} f' "$DAF")"
   [ -n "$body" ] || { echo "REJECT $DAF 에 절 «${SEC}» 없음"; exit 1; }
   CARDID="$(basename "$SRC" .md)"
-  # 판정 종류 = 절 안에서 «닫힘 — <카드> — …» 로 «시작»하는 줄의 세 번째 칸(이름 «정확» 일치)
-  _verdict="$(printf '%s\n' "$body" | awk -v c="$CARDID" '
+  # 판정 종류 = «절 전체» 로 본다(r1000 r1 F1·F2) — 착지 줄이 «하나라도» 있으면 착지(뒤에 있거나 CLOSE 표기여도 잡는다).
+  #   착지 = 완성 갈래와 같은 정규식(landed_marker_re) · 버림·쓸모 없음 = 줄 «사두리» 에서 «닫힘|CLOSE — <카드> — …»(이름 정확 일치).
+  _verdict="$(printf '%s\n' "$body" | awk -v c="$CARDID" -v mk="$(landed_marker_re "$CARDID")" '
     { s=$0; gsub(/[[:space:]]+/," ",s); sub(/^ /,"",s); sub(/ $/,"",s) }
-    { p1="닫힘 — " c " — 버림"; p2="닫힘 — " c " — 쓸모 없음"; p3="닫힘 — " c " — main"
-      if (substr(s,1,length(p1))==p1) { print "버림"; exit }
-      if (substr(s,1,length(p2))==p2) { print "쓸모 없음"; exit }
-      if (substr(s,1,length(p3))==p3) { print "착지"; exit } }')"
+    { if ($0 ~ mk) { land=1 }
+      for (i=1;i<=2;i++) { pre=((i==1)?"닫힘":"CLOSE") " — " c " — "
+        if (substr(s,1,length(pre "버림"))==pre "버림") { if (v=="") v="버림" }
+        if (substr(s,1,length(pre "쓸모 없음"))==pre "쓸모 없음") { if (v=="") v="쓸모 없음" } } }
+    END { if (land) print "착지"; else if (v!="") print v }')"
   case "$_verdict" in
     버림|"쓸모 없음") ;;
-    착지) echo "REJECT $CARDID 는 착지한 카드다 — $DAF $SEC 에 «닫힘 — $CARDID — main …» 줄이 있다. 착지 카드는 완성 갈래로 닫는다(설치 대조 우회 금지 · R1) (이동 0)"; exit 1;;
-    *) echo "REJECT $DAF $SEC 에 «닫힘 — $CARDID — 버림»·«닫힘 — $CARDID — 쓸모 없음» 으로 시작하는 줄 없음 — 카드 이름 정확 일치여야 한다(R2) (이동 0)"; exit 1;;
+    착지) echo "REJECT $CARDID 는 착지한 카드다 — $DAF $SEC 에 «(닫힘|CLOSE) — $CARDID — main …» 줄이 있다. 착지 카드는 완성 갈래로 닫는다(설치 대조 우회 금지 · R1) (이동 0)"; exit 1;;
+    *) echo "REJECT $DAF $SEC 에 «(닫힘|CLOSE) — $CARDID — 버림»·«… — 쓸모 없음» 으로 시작하는 줄 없음 — 카드 이름 정확 일치여야 한다(R2) (이동 0)"; exit 1;;
   esac
   grep -qE '^- 정본 영향 없음:' "$SRC" || { echo "REJECT 카드에 «- 정본 영향 없음:» 줄 없음 — 아카이브 카드도 정본 줄은 있어야 한다(R4) (이동 0)"; exit 1; }
   [ -f "$HERE/ft_da_hold_gate.py" ] || { echo "REJECT ft_da_hold_gate.py 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }

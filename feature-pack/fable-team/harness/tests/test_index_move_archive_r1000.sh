@@ -50,6 +50,12 @@ cat > "$DA" <<'EOF'
 닫힘 — kre — 버림
 ## §9 kmut2 — 닫힘 (CLOSE)
 닫힘 — kmut2-old — 버림
+## §10 kf1 — 닫힘 (CLOSE)
+닫힘 — kf1 — 버림
+닫힘 — kf1 — main `0123456789abcdef0123456789abcdef01234567`
+## §11 kf2 — 닫힘 (CLOSE)
+닫힘 — kf2 — 버림
+CLOSE — kf2 — main `0123456789abcdef0123456789abcdef01234567`
 EOF
 MON="$(date '+%Y-%m')"
 mv0() { bash "$BIN/ft-index-move.sh" "$@" 2>&1; }
@@ -70,9 +76,18 @@ out="$(mv0 "$IDX/진행/klanded.md" 아카이브 --da "$DA#§8" --seat s2)"; rc=
 
 # ── ② ⓒ 착지한 카드(R1) — «닫힘 — <카드> — main <sha>» 는 완성 갈래로만 닫는다
 card klanded "$IDX/진행/klanded.md"
+card kf1 "$IDX/대기/kf1.md"; card kf2 "$IDX/대기/kf2.md"
 out="$(mv0 "$IDX/진행/klanded.md" 아카이브 --da "$DA#§3" --seat s3)"; rc=$?
 [ "$rc" = 1 ] && [ -f "$IDX/진행/klanded.md" ] && [[ "$out" == *"착지한 카드"* ]] \
   && ck "ⓒ 착지 카드(«닫힘 — … — main …») → REJECT(완성 갈래로) · 설치 대조 우회 0" 0 || ck "ⓒ 착지 카드 REJECT :: $out" 1
+# r1 F1/A — 판정 종류는 «절 전체»: 버림 줄 «뒤» 에 착지 줄이 있어도 잡는다(첫 매치 exit = 옛 판)·
+out="$(mv0 "$IDX/대기/kf1.md" 아카이브 --da "$DA#§10" --seat f1)"; rc=$?
+[ "$rc" = 1 ] && [ -f "$IDX/대기/kf1.md" ] && [[ "$out" == *"착지한 카드"* ]] \
+  && ck "F1 버림 줄 «뒤» 착지 줄 — 절 전체 판정 → REJECT · 파일 제자리" 0 || ck "F1 버림 뒤 착지 :: $out" 1
+# r1 F2 — 착지 표식 «CLOSE — <카드> — main …» 도 닫힘 표기(완성 갈래와 같은 정규식) → 같이 잡힌다
+out="$(mv0 "$IDX/대기/kf2.md" 아카이브 --da "$DA#§11" --seat f2)"; rc=$?
+[ "$rc" = 1 ] && [ -f "$IDX/대기/kf2.md" ] && [[ "$out" == *"착지한 카드"* ]] \
+  && ck "F2 버림 + «CLOSE — <카드> — main …» → REJECT(«닫힘|CLOSE» 둘 다)" 0 || ck "F2 CLOSE 착지 :: $out" 1
 
 # ── ③ ⓓ 이름 불일치 · 정본 줄 없음(R2·R4)
 out="$(mv0 "$IDX/대기/karchs.md" 아카이브 --da "$DA#§2" --seat s4)"; rc=$?
@@ -122,14 +137,25 @@ out="$(bash "$d/ft-index-move.sh" "$K2" 아카이브 --da "$DA#§9" --seat s10 2
 d="$(mut substr)"; python3 - "$d/ft-index-move.sh" <<'PY'
 import sys
 p = sys.argv[1]; t = open(p, encoding='utf-8').read()
-old = 'if (substr(s,1,length(p1))==p1) { print "버림"; exit }'
+old = 'if (substr(s,1,length(pre "버림"))==pre "버림") { if (v=="") v="버림" }'
 assert t.count(old) == 1
-open(p, 'w', encoding='utf-8').write(t.replace(old, 'if (index(s,c)>0 && index(s,"버림")>0) { print "버림"; exit }'))
+open(p, 'w', encoding='utf-8').write(t.replace(old, 'if (index(s,c)>0 && index(s,"버림")>0) { v="버림" }'))
 PY
 card kmut2 "$K2"
 out="$(bash "$d/ft-index-move.sh" "$K2" 아카이브 --da "$DA#§9" --seat s11 2>&1)"; rc=$?
 [ "$rc" = 0 ] && [ -f "$IDX/아카이브/$MON/kmut2.md" ] \
   && ck "변이② 이름 정확 일치 → 부분 일치로 → 다른 이름 카드가 통과해 버린다(ⓓ 가 잡는 자리)" 0 || ck "변이② 부분 일치 :: $out" 1
+d="$(mut firstmatch)"; python3 - "$d/ft-index-move.sh" <<'PY'
+import sys
+p = sys.argv[1]; t = open(p, encoding='utf-8').read()
+old = 'END { if (land) print "착지"; else if (v!="") print v }'
+assert t.count(old) == 1
+open(p, 'w', encoding='utf-8').write(t.replace(old, 'END { if (v!="") print v; else if (land) print "착지" }'))
+PY
+card kf1 "$IDX/대기/kf1.md"
+out="$(bash "$d/ft-index-move.sh" "$IDX/대기/kf1.md" 아카이브 --da "$DA#§10" --seat f3 2>&1)"; rc=$?
+[ "$rc" = 0 ] && [ -f "$IDX/아카이브/$MON/kf1.md" ] \
+  && ck "변이③ 착지 우선 → 첫 매치(버림) 우선으로 → F1 카드가 통과해 버린다(F1 이 잡는 자리)" 0 || ck "변이③ 첫 매치 우선 :: $out" 1
 
 # ── 오염 0 · bash 3.2 문법
 [ -z "$(g "$CR" status --porcelain | grep -v '^?? ' | grep -v 'design/harness/indices/' | grep -v 'design/harness/DA-r1000')" ] \
