@@ -25,7 +25,7 @@ if [ -z "$LDG" ]; then
   LDG="$DR/.fable-team/state/bg-finite.tsv"
 fi
 exec python3 - "$MODE" "$LDG" "$@" <<'PY'
-import fcntl, os, subprocess, sys, time
+import fcntl, os, re, subprocess, sys, time
 mode, ldg, args = sys.argv[1], sys.argv[2], sys.argv[3:]
 SEPS = "\t"
 CAP_SEC = 4200   # register 상한 70분
@@ -83,7 +83,7 @@ if mode == "register":
     if len(args) < 3: print("usage: register <좌석|-> <상한초> <pid> [명령…]", file=sys.stderr); sys.exit(2)
     seat, secs, pid = args[0], args[1], args[2]
     if not pid.isdigit(): die(f"pid 가 숫자가 아님: «{pid}»")
-    if not secs.lstrip("-").isdigit() or int(secs) > CAP_SEC:   # r939 r3 — 자기등록 루프도 최대 70분 뒤 «만료» → 다음 승계·닫기가 reap(받아들인 위험의 상한)
+    if not re.fullmatch(r"[0-9]+", secs) or int(secs) > CAP_SEC:   # r939 r3 — 양의 정수(ASCII 숫자만 · «-»·부호·공백·지수 0)가 아니거나 4200 초과 = 4200 (자기등록 루프도 최대 70분 뒤 «만료» → 다음 승계·닫기가 reap)
         print(f"ft-bg-finite: WARN 상한초 «{secs}» → {CAP_SEC} 로 자름(70분 상한)", file=sys.stderr); secs = str(CAP_SEC)
     pid = int(pid)
     if not alive(pid): print(f"ft-bg-finite: ERROR pid {pid} 없음 — 등록 0", file=sys.stderr); sys.exit(3)

@@ -146,7 +146,7 @@ echo "== ⓔ 장부 = 덮어쓰기 0(줄 2개) · leak-reap 은 상한 지난 �
 fresh
 S1="$(spawn "e1-$MK" "" "$BASH_X" "$TMP/da/ft-da-codex.sh" --tag "e1-$MK")"
 S2="$(spawn "e2-$MK" "" "$BASH_X" "$TMP/da/ft-da-codex.sh" --tag "e2-$MK")"
-reg "$A" "-60" "$S1" "old job"      # 상한 지난 줄
+reg "$A" 0 "$S1" "old job"          # 상한 지난 줄(상한 0초 = 등록 즉시 만료)
 reg "$A" 4200 "$S2" "fresh job"     # 신선한 줄
 GD="$(spawn "e3-$MK" "" "$BASH_X" "$TMP/da/ft-da-codex.sh" --tag "e3-$MK")"
 reg "$A" 4200 "$GD" "dead job"      # 곧 죽일 pid 줄
@@ -213,12 +213,17 @@ d1="$(rows | awk -F'\t' -v p="$IS" -v n="$(date +%s)" '$2==p{print $5-n}')"
 chk "ⓘ상한 = 지금 + ≤4200" "$([ "${d1:-0}" -gt 4100 ] && [ "${d1:-0}" -le 4200 ] && echo ok)" ok
 o2="$(FT_BG_FINITE_LEDGER="$TMP/bg-finite.tsv" bash "$BGF" register "$A" abc "$IS" nan 2>&1)"
 has "$o2" "WARN 상한초 «abc» → 4200" "ⓘ정수 아님 → 4200"
+for v in "--1" "-1" "+5" "1e3" ""; do   # astra r1 반례: «--1» 이 ValueError 로 죽던 입력들 — 전부 rc0 · 경고 1줄 · 4200
+  o3="$(FT_BG_FINITE_LEDGER="$TMP/bg-finite.tsv" bash "$BGF" register "$A" "$v" "$IS" edge 2>&1)"; rc3=$?
+  d3="$(rows | awk -F'\t' -v p="$IS" -v n="$(date +%s)" '$2==p{print $5-n}')"
+  chk "ⓘ입력 «${v}» → rc0 · 경고 1줄 · 4200 이하" "$rc3 $(grep -c "WARN 상한초" <<< "$o3") $([ "${d3:-0}" -gt 4100 ] && [ "${d3:-0}" -le 4200 ] && echo ok)" "0 1 ok"
+done
 kill "$IS" 2>/dev/null
 
 echo "== ⓙ r3 — leak-reap: pid 재사용(lstart 다름) 줄은 보고 0 · 줄 지움 / TZ 가 달라도 같은 프로세스는 보고"
 fresh
 JS="$(spawn "j1-$MK" "" "$BASH_X" "$TMP/da/ft-da-codex.sh" --tag "j1-$MK")"
-reg "$A" "-60" "$JS" "old job"
+reg "$A" 0 "$JS" "old job"
 TZ=Asia/Seoul LC_ALL=C ps -o pid=,ppid=,lstart=,time=,command= -p "$JS" | sed 's/^ *//' > "$TMP/snapj"
 out="$(TZ=Asia/Seoul FT_PS_SNAPSHOT="$TMP/snapj" bash "$LEAK" --dry-run 2>&1)"
 has "$out" "handover-stale pid=$JS" "ⓙ통제: 같은 lstart(UTC 장부 vs 지역 시각 표) → 보고"
@@ -240,7 +245,7 @@ fresh
 seats "$A"
 KE="$(spawn "k1-$MK" "FT_SEAT=zzz-$$" "$BASH_X" "$TMP/da/ft-da-codex.sh" --tag "k1-$MK")"   # env 짐작으로는 이 좌석 것이 아님
 KF="$(spawn "k2-$MK" "" "$BASH_X" "$TMP/da/ft-da-codex.sh" --tag "k2-$MK")"
-reg "$A" "-60" "$KE" "expired job"
+reg "$A" 0 "$KE" "expired job"
 reg "$A" 4200 "$KF" "fresh job"
 out="$(ret "$A" "$B")"
 has "$out" "reap-expired pid=$KE" "ⓚ만료 줄 → reap-expired"
@@ -291,7 +296,7 @@ scen_digest() { fresh; seats "$A"; local m; m="$(sp m5)"; reg "$A" 4200 "$m" "ba
 scen_clamp() { fresh; local m d; m="$(sp m6)"
   bash "$1/ft-bg-finite.sh" register "$A" 999999 "$m" x >/dev/null 2>&1
   d="$(rows | awk -F'\t' -v n="$(date +%s)" '{print $5-n}')"; [ "${d:-0}" -le 4200 ] && echo cap || echo big; kill "$m" 2>/dev/null; }
-scen_lstart() { fresh; local m; m="$(sp m7)"; reg "$A" "-60" "$m" "old job"
+scen_lstart() { fresh; local m; m="$(sp m7)"; reg "$A" 0 "$m" "old job"
   python3 - "$TMP/bg-finite.tsv" <<'PY2'
 import sys
 p = sys.argv[1]; out = []
@@ -301,7 +306,7 @@ open(p, "w", encoding="utf-8").write("\n".join(out) + "\n")
 PY2
   LC_ALL=C ps -o pid=,ppid=,lstart=,time=,command= -p "$m" | sed 's/^ *//' > "$TMP/snapm"
   FT_PS_SNAPSHOT="$TMP/snapm" bash "$1/ft-leak-reap.sh" --dry-run 2>&1 | grep -c "handover-stale pid=$m"; kill "$m" 2>/dev/null; }
-scen_expire() { fresh; seats "$A"; local m o; m="$(sp m8 "FT_SEAT=zzz-$$")"; reg "$A" "-60" "$m" "expired job"
+scen_expire() { fresh; seats "$A"; local m o; m="$(sp m8 "FT_SEAT=zzz-$$")"; reg "$A" 0 "$m" "expired job"
   bash "$1/ft-seat-reap.sh" "$A" --orphans-only --handover "$B" >/dev/null 2>&1; alive "$m"; kill "$m" 2>/dev/null; }
 
 mut letter ft-seat-reap.sh '    kids, stack = {}, [(p, v[0], v[1]) for p, v in list(out.items())]' \
@@ -317,8 +322,11 @@ mut front ft-seat-reap.sh 'if HAND and not dry:' 'if False and HAND and not dry:
 chk "변이④넘김 앞단 끔 → ⓕ빨강: press 점유 중 넘김 줄 수 [원본 변이]" "$(scen_front "$BIN") $(scen_front "$TMP/bin-front")" "1 0"
 mut digest ft-seat-reap.sh '"handover" if p in handed else ' ''
 chk "변이⑤digest 넘김 건너뜀 끔 → ⓗ빨강: 미룬 등록 DA 생존 [원본 변이]" "$(scen_digest "$BIN") $(scen_digest "$TMP/bin-digest")" "alive dead"
-mut clamp ft-bg-finite.sh 'if not secs.lstrip("-").isdigit() or int(secs) > CAP_SEC:' 'if not secs.lstrip("-").isdigit():'
+scen_edge() { fresh; local m; m="$(sp m9)"; bash "$1/ft-bg-finite.sh" register "$A" "--1" "$m" x >/dev/null 2>&1; echo "rc$?"; kill "$m" 2>/dev/null; }
+mut clamp ft-bg-finite.sh ' or int(secs) > CAP_SEC:' ':'
 chk "변이⑥상한 자름 끔 → ⓘ빨강: 999999 가 4200 이하인가 [원본 변이]" "$(scen_clamp "$BIN") $(scen_clamp "$TMP/bin-clamp")" "cap big"
+mut edge ft-bg-finite.sh 'not re.fullmatch(r"[0-9]+", secs)' 'not secs.lstrip("-").isdigit()'
+chk "변이⑥b 옛 lstrip 판정 복귀 → ⓘ빨강: «--1» 입력 rc [원본 변이]" "$(scen_edge "$BIN") $(scen_edge "$TMP/bin-edge")" "rc0 rc1"
 mut lstart ft-leak-reap.sh '        if a != b: dead.append(pid); continue' '        pass'
 chk "변이⑦lstart 비교 끔 → ⓙ빨강: 재사용 pid 줄 보고 수 [원본 변이]" "$(scen_lstart "$BIN") $(scen_lstart "$TMP/bin-lstart")" "0 1"
 mut expire ft-seat-reap.sh '        if (r["until"] <= now) != expired: continue' '        if expired: continue   # 변이: 상한 지난 줄도 «상한 전» 으로 센다(넘김 집합에 들어감)'
