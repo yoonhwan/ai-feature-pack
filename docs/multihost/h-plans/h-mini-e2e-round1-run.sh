@@ -103,6 +103,9 @@ EOF
   say "2/6 러너 시작 (mini 백그라운드 · 상한 ${RUN_MAX}s · 시크릿 stdin)"
   JWT="$(grep -m1 -E '^BYZ_E2E_JWT_SECRET=' "$SRC/.env" | sed "s/^BYZ_E2E_JWT_SECRET=//; s/^[\"']//; s/[\"']\$//" | tr -d '\r')"
   [ -n "$JWT" ] || say "        ⚠ BYZ_E2E_JWT_SECRET 이 .env 에 없다 — 크레딧 경로가 None 이 될 수 있다(러너는 계속 돈다)"
+  # 2026-10-26 v65 arch#313(쪽지 168691) 필수 칸 ①: 호스트·게스트 탭 콘솔·SSE 를 «필터 없이» 파일로 — 별도 읽기 전용 기록기(console_rec.py)를 mini 에 올린다(러너 자체 캡처는 warning/error+표식 줄만 남김)
+  REC_SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../satellite/console_rec.py"
+  if [ -f "$REC_SRC" ]; then timeout 20 ssh "${SO[@]}" "$MINI" 'cat > $HOME/Project/BYZ-Agents/.h-console-rec.py' < "$REC_SRC" 2>/dev/null && say "        콘솔 기록기 mini 에 배치(.h-console-rec.py)" || say "        ⚠ 콘솔 기록기 배치 실패 — 러너만 돈다"; fi
   # 시크릿은 600 임시 파일 → ssh stdin 으로만(h-mini-byz-server.sh 와 같은 꼴 · 화면 출력 0 · 끝나면 삭제)
   ENVF="$(mktemp "${TMPDIR:-/tmp}/h-run1-env.XXXXXX")"; chmod 600 "$ENVF"; trap 'rm -f "$ENVF"' EXIT
   printf 'export BYZ_E2E_JWT_SECRET=%q\n' "$JWT" > "$ENVF"
@@ -113,6 +116,8 @@ cd "\$HOME/Project/BYZ-Agents" || exit 1
 export BYZ_WEB_BASE=http://127.0.0.1:$P_WEB BYZ_GATEWAY_BASE=http://127.0.0.1:$P_GW CDP_PORT=$CDP BYZ_WORKER_LOG=/tmp/h-byz-worker.log
 A="\$HOME/Project/BYZ-Agents/.venv/bin/python"; B="\$HOME/Project/BYZ-e2e/.venv/bin/python"
 if [ -x "\$A" ] && "\$A" -c 'import websockets, jwt' 2>/dev/null; then PY="\$A"; else PY="\$B"; fi
+date +%s > .h-run1.t0
+if [ -f .h-console-rec.py ]; then CD=".h-console-\$(date +%Y%m%d-%H%M%S)"; mkdir -p "\$CD"; echo "\$CD" > .h-console.dir; nohup "\$PY" .h-console-rec.py "\$CD" $((RUN_MAX+30)) $CDP </dev/null >"\$CD/rec.out" 2>&1 & echo \$! > .h-console.pid; fi
 rm -f .h-run1.rc; LOG=".h-run1-\$(date +%Y%m%d-%H%M%S).log"; echo "\$LOG" > .h-run1.logpath; : > "\$LOG"; chmod 600 "\$LOG"
 nohup bash -c 'timeout $RUN_MAX "\$0" tests/e2e/realtime_multi_e2e.py --mr-scenario $SCEN --mr-turn-limit $TURNS --engine say > "\$1" 2>&1; echo \$? > .h-run1.rc' "\$PY" "\$LOG" </dev/null >/dev/null 2>&1 &
 echo \$! > .h-run1.pid
@@ -151,6 +156,32 @@ say "5/6 증거 3줄"
 say "        · runner_rc=${RC:-?} · 성공줄: ${OK_LINE:-없음}"
 say "        · hostname=${HOST:-?}  (BYZs-Mac-mini 여야 mini)"
 ms 20 'cd $HOME/Project/BYZ-Agents; tot=0; while read -r pid; do r=$(ps -o rss= -p "$pid" 2>/dev/null | tr -d " "); [ -n "$r" ] || continue; tot=$((tot+r/1024)); done < .h-pids 2>/dev/null; echo "total_rss=${tot}MB"' 2>&1 | sed 's/^/        · 서버 /'
+# 2026-10-26 v65 필수 칸 ①② — 탭 콘솔·SSE 요약 + gateway live_forward 종류별 수(이번 회차 창) · 기록기는 «이 h 가 연 pid» 만 정지
+say "        ── 콘솔·SSE 기록(호스트/게스트 · 필터 없음) + gateway live_forward 종류별 수(이 회차 창) ──"
+cat <<'REMOTE_SUMMARY' | timeout 40 ssh "${SO[@]}" "$MINI" "export PATH=/opt/homebrew/bin:\$HOME/.local/bin:\$PATH; bash -s" 2>&1 | sed 's/^/        /'
+cd "$HOME/Project/BYZ-Agents" || exit 0
+D=$(cat .h-console.dir 2>/dev/null)
+if [ -n "$D" ] && [ -d "$D" ]; then
+  for L in host guest; do
+    F="$D/$L.log"
+    if [ ! -f "$F" ]; then echo "$L: 파일 없음(탭에 못 붙음)"; continue; fi
+    echo "$L: 줄=$(wc -l < "$F" | tr -d ' ') console=$(grep -c ' console\.' "$F") sse=$(grep -c ' sse event=' "$F") exception=$(grep -c ' exception ' "$F")"
+    echo "  sse 종류: $(grep -oE ' sse event=[A-Za-z_.]*' "$F" | sort | uniq -c | tr '\n' ';' | cut -c1-220)"
+  done
+  echo "폴더=$D"
+else
+  echo "콘솔 기록 폴더 없음"
+fi
+T0=$(cat .h-run1.t0 2>/dev/null)
+if [ -n "$T0" ]; then
+  S=$(date -r "$T0" "+%Y-%m-%d %H:%M:%S")
+  echo "gateway live_forward (창 시작 $S 이후):"
+  grep live_forward /tmp/h-byz-gateway.log | awk -v s="$S" '$0 >= s' | grep -oE 'event_type":"[a-z_.]+' | sed 's/event_type":"//' | sort | uniq -c | sed 's/^/  /'
+else
+  echo "t0 없음"
+fi
+P=$(cat .h-console.pid 2>/dev/null); [ -n "$P" ] && kill "$P" 2>/dev/null; echo "recorder_stop_rc=$?"
+REMOTE_SUMMARY
 if [ -n "$OK_LINE" ] && [ "${RC:-1}" = "0" ]; then say "6/6 성공 — STT 최종본 1건 확인"; exit 0; fi
 say "6/6 실패 — 전체 로그: ssh $MINI 'tail -100 ~/Project/BYZ-Agents/$LOGP'"
 exit 5
