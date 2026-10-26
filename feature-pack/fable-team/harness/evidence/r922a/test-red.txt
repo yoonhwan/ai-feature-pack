@@ -1,0 +1,38 @@
+PASS 픽스처: 정상 골 표 블록 렌더 rc0
+PASS ⓐ 구동기 정상 종료 (rc=0)
+PASS ⓐ rc = 지금과 같다(3 · 발행 0)
+FAIL ⓐ mbox 송신 1건 ← CALL send
+FAIL ⓐ WARN 줄 :: ERROR REJECT 골 표 없음 — 1/1판: 골 없음 — 골 표 블록(★골 표 A6 … ★/골 표★ 마커 2줄)이 없다 · bash <루트>/.fable-team/bin/ft-goal-table.sh 출력을 머리 줄 아래에 · 발행 0
+FAIL ⓐ ERROR «REJECT 골 표 없음» 0(초안 모드는 로그 경고 1줄로만) — 있으면 안 됨: «REJECT 골 표 없음»
+PASS ⓐ Traceback 0
+PASS ⓐ 발행 도구 호출 0
+PASS ⓐ 기준선(last.sha) 안 옮김
+PASS ⓐ' 본체 없음 + draft rc 3(발행 0 그대로)
+FAIL ⓐ' mbox 1건 ← CALL send
+FAIL ⓐ' WARN :: ERROR 골 표 문 REJECT: 골 표 문 모듈 없음 — 설치 순서(No module named 'ft_goal_gate') (bundle aaaaaaaaaa)
+ERROR REJECT 골 표 없음 — 골 표 문 모듈 없음 — 설치 순서(No module named 'ft_goal_gate') · 발행 0
+PASS ⓐ' Traceback 0
+PASS ⓑ html rc 3
+PASS ⓑ html → planner [긴급] 1통
+PASS ⓑ 쪽지 머리 «[긴급] 뉴스 발행 거절 — 골 표»
+PASS ⓑ html → ERROR «REJECT 골 표 없음» 1줄(지금 그대로)
+PASS ⓑ html → draft WARN 0
+PASS ⓑ html 검증 실패 = 발행 0
+PASS ⓑ' 본체 없음 + html → 최소 통지 1통
+PASS ⓑ' 쪽지 머리 «[긴급] …»
+PASS ⓒ draft + 정상 묶음 rc 0
+PASS ⓒ WARN 0
+PASS ⓒ REJECT 0
+PASS ⓒ 통지 0
+PASS ⓒ 초안 모드 = 발행 도구 0
+PASS ⓒ 초안 파일은 남는다
+PASS ⓓ FT_NEWS_MODE='drafts' → draft 아님([긴급] 1통)
+PASS ⓓ 'drafts' → draft WARN 0
+PASS ⓓ FT_NEWS_MODE='' → draft 아님([긴급] 1통)
+PASS ⓓ '' → draft WARN 0
+PASS ⓔ draft + 비무장 rc 0(지금 그대로)
+PASS ⓔ WOULD-REJECT 로그 남음
+PASS ⓔ 비무장 통지 0
+PASS 짝 사본 kit cmp0
+== fail=5
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
