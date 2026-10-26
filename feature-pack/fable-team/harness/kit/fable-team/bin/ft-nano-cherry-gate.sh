@@ -95,7 +95,10 @@ cg_fetch() {
 }
 # cg_cmd_commits <sha…> — 커밋 묶음: 로그 줄(`C <full><TAB><abbrev> <subject>`) + 건드린 경로(원시 줄 `:mode mode old new STATUS<TAB>path`) 를 한 번에.
 #   --no-walk=unsorted = 인자 순서 보존 · -m = 머지 커밋은 부모별 delta · --root = 첫 커밋도 · blob 은 기본 축약형(앞자리로 대조 — --no-abbrev 를 걸면 %h 까지 40자가 되어 종전 로그 줄과 달라진다).
-cg_cmd_commits() { cg_git "$CG_LIM" -c core.quotepath=false log --no-walk=unsorted --raw -m --root --format='C %H	%h %s' "$@"; }
+#   ★--no-renames 필수(r958 r2 · DA⑥ r1 반례 1)★ — rename 을 켜면 원시 줄이 `:…R100\t옛경로\t새경로` 로 «두 경로가 한 칸» 에 실려 경로 하나가 «옛\t새» 라는 없는 이름이 되고,
+#   그 이름은 tip·feat 어디에도 없어 «sup» 로 통과한다(무변경 이동이 미랜딩인데 통과 — base 판은 diff-tree --name-only 로 두 경로를 따로 봐 REJECT).
+#   --no-renames 면 D 옛경로 + A 새경로 두 줄 = base 판과 같은 «경로 목록» 이 된다(cg_cmd_hist 도 같은 이유로 --no-renames).
+cg_cmd_commits() { cg_git "$CG_LIM" -c core.quotepath=false log --no-walk=unsorted --raw -m --root --no-renames --format='C %H	%h %s' "$@"; }
 # cg_cmd_hist <경로…> — 경로 묶음: 분기 뒤 feat 역사의 원시 delta(경로별 «새 blob 이 있었나» 를 한 번에 본다).
 cg_cmd_hist() { cg_git "$CG_LIM" -c core.quotepath=false --literal-pathspecs log "$CG_MBASE..$FEAT" --no-renames --format='C %h' --raw -- "$@"; }
 # cg_py <모드> <인자…> — 묶음 출력 해석(커밋 분류·경로 분류·이력 대조). 판정 규칙은 종전 루프와 같다.
@@ -195,7 +198,9 @@ if [ "$MODE" = land ] && ! git -C "$REPO" merge-base --is-ancestor "$FEAT" "$NAN
   echo "REJECT cherry 게이트 — land: $NANO 가 feat HEAD($(git -C "$REPO" rev-parse --short "$FEAT"))를 포함하지 않음(merge-base ${_mb:0:7}) — 최신 루트를 병합한 뒤 다시 랜딩 요청 (docs/rules/single_set_testing.md §3 ②)"
   exit 1
 fi
-out="$(git -C "$REPO" cherry "$FEAT" "$NANO" 2>&1)"; rc=$?
+# ★`git cherry` 도 같은 7초 도우미로(r958 r2 · DA⑥ r1 반례 2)★ — 여기만 상한 밖이면 «cherry 1회가 8초» 인 입력에서 조용히 통과한다(계약 ②: 조용한 통과 0).
+out="$(cg_git "$CG_LIM" cherry "$FEAT" "$NANO")"; rc=$?
+[ "$rc" -ne 124 ] || cg_fail "cherry" "$rc" 1 "$FEAT..$NANO"
 [ "$rc" -eq 0 ] || { echo "REJECT cherry 게이트 — git cherry 실패(rc=$rc): ${out:0:120}"; exit 1; }
 plus="$(printf '%s\n' "$out" | grep '^+' || true)"
 # «+» 커밋을 둘로 가른다 — design/ 밖 경로(코드·시험·스크립트)를 건드린 것 = 차단 · design/ 만 건드린 것 = WARN 통과(브랜치가 남아 복구 가능 · arch#137)
@@ -221,7 +226,8 @@ if [ "$nb" -gt 0 ]; then
   # ★«+» 경로와의 교집합이 아니라 «실제 merge delta»(merge-tree 결과 트리 vs feat HEAD 트리)를 본다 — rename·경로 인코딩 불일치가 교집합을 비우는 누출(DA 597 H1)★
   # design/ 밖 delta 가 하나라도 있으면 REJECT · 없으면 PASS. 종료코드는 1행 OID 와 따로 본다(5c). 경로는 -z 로 완독(quotepath 무관).
   conflict=0
-  mt="$(git -C "$REPO" merge-tree --write-tree "$FEAT" "$NANO")"; mrc=$?
+  mt="$(cg_git "$CG_LIM" merge-tree --write-tree "$FEAT" "$NANO")"; mrc=$?
+  [ "$mrc" -ne 124 ] || cg_fail "merge-tree" "$mrc" 1 "$FEAT $NANO"
   if [ "$mrc" -eq 1 ]; then conflict=1
   elif [ "$mrc" -ne 0 ]; then
     echo "REJECT cherry 게이트 — git merge-tree 실패(rc=$mrc): ${mt:0:120}"; exit 1
@@ -229,7 +235,8 @@ if [ "$nb" -gt 0 ]; then
   differ=""; ndesign=0
   if [ "$conflict" -eq 0 ]; then
     tree="${mt%%$'\n'*}"
-    git -C "$REPO" -c core.quotepath=false diff-tree -r --name-only -z --no-commit-id "$FEAT^{tree}" "$tree" > "$delta_file"; drc=$?
+    cg_git "$CG_LIM" -c core.quotepath=false diff-tree -r --name-only -z --no-commit-id "$FEAT^{tree}" "$tree" > "$delta_file"; drc=$?
+    [ "$drc" -ne 124 ] || cg_fail "merge-tree delta" "$drc" 1 "$FEAT^{tree} $tree"
     [ "$drc" -eq 0 ] || { echo "REJECT cherry 게이트 — git diff-tree(merge-tree 결과 대조) 실패(rc=$drc)"; exit 1; }
     while IFS= read -r -d '' p; do
       case "$p" in design/*) ndesign=$((ndesign + 1)) ;; *) differ="${differ}  ${p}"$'\n' ;; esac
@@ -242,7 +249,8 @@ if [ "$nb" -gt 0 ]; then
   # G4c r3: 반영 «뒤» feat 가 같은 파일을 더 고치면 merge-tree 는 충돌/delta 가 된다(G4b 실가동). 판정 단순화 = «이 브랜치 내용이 feat 역사에 한 번이라도 있었나».
   # «+» 커밋이 건드린 경로 P 전부(NUL 완독)에 대해 tip 의 (mode,blob) 이 feat 역사의 P 에 존재 → 전부 있으면 PASS. tip 에서 P 가 삭제됐으면 feat HEAD 에도 없을 때만 존재로 친다.
   # ★superseded 증거 = merge-base(NANO,FEAT)..FEAT 구간의 «새 blob» 뿐(DA 599 H1)★ — 분기 전 역사의 옛 blob 으로 rollback 한 브랜치를 PASS 시키지 않는다.
-  mbase="$(git -C "$REPO" merge-base "$NANO" "$FEAT")"; mbrc=$?
+  mbase="$(cg_git "$CG_LIM" merge-base "$NANO" "$FEAT")"; mbrc=$?
+  [ "$mbrc" -ne 124 ] || cg_fail "merge-base" "$mbrc" 1 "$NANO $FEAT"
   [[ "$mbrc" -eq 0 && "$mbase" =~ ^[0-9a-f]{40,64}$ ]] || { echo "REJECT cherry 게이트 — git merge-base 실패(rc=$mbrc) — superseded 증거 구간을 못 정함"; exit 1; }
   # ②경로 분류 = 트리 2회(종전: 경로마다 ls-tree 2~3회) — tip·feat HEAD 의 (mode,blob) 를 한 번씩 받아 경로별로 대조한다.
   # ③이력 대조 = 경로 묶음 1회(종전: 경로마다 git log 1회) — 분기 뒤 feat 구간의 원시 delta 를 경로 묶음으로 한 번에 받는다.

@@ -3,6 +3,7 @@
 #   ⓐ(빨강 먼저) «+» 커밋 300개에서 지금 판은 커밋마다 git 을 3회 부른다(외부 호출 수 ∝ 커밋 수 = 70초 초과 REJECT 의 원인) — 새 판은 묶음 상수 회.
 #   ⓑ 같은 입력에서 판정 결과(차단·WARN 목록·사유 토큰·stdout 전문)가 지금 판과 같다.  ⓒ 1회가 상한을 넘으면 반으로 쪼개 재시도 1, 그래도 넘으면 사유 있는 REJECT.
 #   ⓓ 진행 파일로 다시 부르면 끝난 묶음은 건너뛴다(같은 결과).  ⓔ 기존 시험 ALL PASS · /bin/bash 3.2.  ⓕ 변이 2종이 각각 ⓑ·ⓒ 단언을 깨뜨린다.
+#   ⓖ(r2) rename 무변경 이동 = base 판과 같은 REJECT(+ 변이 «rename 검출 켬» → FAIL) · ⓗ(r2) cherry 1회 상한 초과 = 단계 이름 «cherry» 있는 REJECT(+ 변이 «cherry 도우미 밖» → FAIL).
 # mktemp 리포만 쓴다 — 실 브랜치·루트 .fable-team/·원장 쓰기 0. press(라이브 오디오) 없음.
 set -uo pipefail
 export FT_TEAMSET=0 FT_ALLOW_TRACKED_BIN=1
@@ -127,5 +128,39 @@ grep -q '"\$d" -lt 0' "$T/gate-nosplit.sh" && ok "ⓕ변이본 생성(쪼개기 
 OUT="$(FT_CHERRY_LIM_S=1 PATH="$T/bin:$PATH" REAL_GIT="$REAL_GIT" FT_SLOW_WHEN="--no-walk" FT_SLOW_SLEEP=2 bash "$T/gate-nosplit.sh" main nano/x --repo "$R" 2>&1)"; RC=$?
 printf '%s' "$OUT" | grep -q '묶음 1 ·' && bad "ⓕ쪼개기 끈 변이가 ⓒ 단언을 못 깨뜨린다 :: ${OUT:0:200}" \
   || ok "ⓕ쪼개기 끈 변이 → «묶음 1» 이 아니라 ⓒ 단언 FAIL(rc=$RC)"
+
+# ── ⓖ rename 무변경 이동 → REJECT (r958 r2 · DA⑥ r1 반례 1: base 판과 같은 차단 목록) ──────────────
+#   rename 을 켜면 원시 줄이 `:…R100\t옛경로\t새경로` = «두 경로가 한 칸» → 없는 이름 하나가 «sup» 로 통과했다(HEAD b948b3a4 실측).
+mkrename() {  # <이름> → $R : feat=main 에서 app/a.py 만 있고, 나노는 내용 그대로 app/b.py 로 옮긴 커밋 1개
+  R="$T/$1"; git init -q -b main "$R"
+  mkdir -p "$R/app"; printf 'A0\n' > "$R/app/a.py"; git -C "$R" add -A; git -C "$R" commit -qm base
+  git -C "$R" checkout -q -b nano/x; git -C "$R" mv app/a.py app/b.py; git -C "$R" commit -qm "rename no content"
+  git -C "$R" checkout -q main; printf 'x\n' > "$R/app/m.py"; git -C "$R" add -A; git -C "$R" commit -qm "feat moved"
+}
+mkrename ren1
+run "$OLD"; old_out="$OUT" old_rc="$RC"
+run "$G";   new_out="$OUT" new_rc="$RC"
+[ "$old_rc" -eq 1 ] && ok "ⓖbase 판은 rename 무변경 이동을 REJECT 한다(rc=1)" || bad "ⓖbase 판 기준값이 REJECT 가 아니다(rc=${old_rc}) — 픽스처 확인"
+[ "$new_rc" -eq 1 ] && same_block "$old_out" "$new_out" && ok "ⓖrename 무변경 이동 = base 와 같이 REJECT(rc=1 · 차단·WARN 목록 같음)" \
+  || bad "ⓖrename 무변경 이동을 통과시켰다(rc=${new_rc} · base rc=${old_rc}) :: ${new_out:0:400}"
+cp "$KIT/ft_git_capped.py" "$T/" 2>/dev/null   # 변이본은 $T 에 살아 도우미를 못 찾는다 — 변이 1개만 다르게 둔다
+sed 's/--root --no-renames --format/--root --format/' "$G" > "$T/gate-renameon.sh"
+grep -q -- '--root --format' "$T/gate-renameon.sh" && ok "ⓖ변이본 생성(rename 검출 켬 = 종전 판)" || bad "ⓖ변이본 생성 실패"
+OUT="$(bash "$T/gate-renameon.sh" main nano/x --repo "$R" 2>&1)"; MRC=$?
+[ "$MRC" -eq 1 ] && bad "ⓖrename 검출 켠 변이가 ⓖ 단언을 못 깨뜨린다(rc=1)" \
+  || ok "ⓖrename 검출 켠 변이 → rc=${MRC} 통과로 ⓖ 단언 FAIL(«없는 경로 하나» 가 sup 로 새는 자리)"
+
+# ── ⓗ cherry 1회 상한 초과 → 단계 이름 있는 REJECT (r958 r2 · DA⑥ r1 반례 2) ──────────────────
+#   `git cherry` 만 상한 도우미 밖이면 «cherry 1회가 8초» 인 입력에서 9.22초 뒤 rc0 OK(+ 0) = 조용한 통과(계약 ② 위반).
+mksmall s3
+OUT="$(FT_CHERRY_LIM_S=1 PATH="$T/bin:$PATH" REAL_GIT="$REAL_GIT" FT_SLOW_WHEN="cherry" FT_SLOW_SLEEP=2 bash "$G" main nano/x --repo "$R" 2>&1)"; RC=$?
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'REJECT cherry 게이트 — cherry 1초 초과(묶음 1 · 마지막 ' \
+  && ok "ⓗcherry 1회 상한 초과 = 단계 이름 «cherry» 있는 REJECT(조용한 통과 0)" \
+  || bad "ⓗcherry 상한 초과가 사유 있는 REJECT 가 아니다(rc=$RC) :: ${OUT:0:400}"
+sed 's/cg_git "\$CG_LIM" cherry/git -C "\$REPO" cherry/' "$G" > "$T/gate-nocherrycap.sh"
+grep -q 'git -C "\$REPO" cherry' "$T/gate-nocherrycap.sh" && ok "ⓗ변이본 생성(cherry 를 도우미 밖으로)" || bad "ⓗ변이본 생성 실패"
+OUT="$(FT_CHERRY_LIM_S=1 PATH="$T/bin:$PATH" REAL_GIT="$REAL_GIT" FT_SLOW_WHEN="cherry" FT_SLOW_SLEEP=2 bash "$T/gate-nocherrycap.sh" main nano/x --repo "$R" 2>&1)"; MRC=$?
+printf '%s' "$OUT" | grep -q 'cherry 1초 초과' && bad "ⓗcherry 도우미 밖 변이가 ⓗ 단언을 못 깨뜨린다 :: ${OUT:0:200}" \
+  || ok "ⓗcherry 도우미 밖 변이 → «cherry 초과» REJECT 없음 = ⓗ 단언 FAIL(rc=${MRC})"
 
 echo "---"; [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED=$fail"; exit 1; }
