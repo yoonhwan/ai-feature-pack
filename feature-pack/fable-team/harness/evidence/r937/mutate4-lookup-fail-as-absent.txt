@@ -15,11 +15,20 @@ PASS ⓓ 카드 착지 + 설치: 없음 → 통과 rc0(회귀 0)
 PASS ⓔ 팩 착지 카드(main(팩) 행) → 보류 가드 LANDED-CLOSE rc0
 PASS ⓔ 표식 main(팩) 인데 sha 가 카드 리포에만 → LANDED-INVALID marker-mismatch rc3
 PASS ⓔ 어느 리포에도 없는 sha → LANDED-INVALID not-found rc3
-PASS ⓕ 정본 게이트: merge-base 8초 지연 → 조회 실패 REJECT · 소요 7초 ≤ 16
-PASS ⓕ 보류 가드: merge-base 8초 지연 → LANDED-INVALID lookup-failed · 소요 14초 ≤ 16
-PASS ⓕ close-landed: merge-base 8초 지연 → lookup-failed · 소요 14초 ≤ 16
-PASS ⓖ timeout·gtimeout 없는 경로: rev-parse 8초 → REJECT · 소요 7초 ≤ 16
-FAIL ⓗ 한 리포 조회 실패 → REJECT :: REJECT 착지 sha 를 어느 리포에서도 못 찾음: e17b2e0b8e4328f1e8e7f7cf3da3e089577ce999 (카드 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.UUfAgOMDpl/byz · 팩 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.UUfAgOMDpl/pack) :: rc=1 out=REJECT 착지 sha 를 어느 리포에서도 못 찾음: e17b2e0b8e4328f1e8e7f7cf3da3e089577ce999 (카드 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.UUfAgOMDpl/byz · 팩 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.UUfAgOMDpl/pack)
+PASS ⓕ 정본 게이트: merge-base 8초 지연 → 조회 실패 REJECT · 소요 14초 ≤ 16
+PASS ⓕ 보류 가드: merge-base 8초 지연 → LANDED-INVALID lookup-failed · 소요 15초 ≤ 16
+PASS ⓕ close-landed: merge-base 8초 지연 → lookup-failed · 느린 행 2개(행당 ≤ 16초) 소요 28초 ≤ 34
+PASS ⓛ 시간 초과 rc124 · 재시도 1회 실제 수행(git 2회 기동 · 자식 2개) · 자식 sleep 생존 0 · 소요 7초
+FAIL ⓖ timeout 없는 PATH (NOTO=1 소요 30초) :: rc=0 out=REJECT	착지 sha 를 어느 리포에서도 못 찾음: 2aa53877cca85f53dbef72fa2ed434b81ffafec2 (카드 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.CljqGC7kNM/byz · 팩 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.CljqGC7kNM/pack)
+FAIL ⓗ 팩 조회만 실패 :: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.CljqGC7kNM/byz	2aa53877cca85f53dbef72fa2ed434b81ffafec2 :: rc=0 out=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.CljqGC7kNM/byz	2aa53877cca85f53dbef72fa2ed434b81ffafec2
+PASS ⓙ 정본 게이트: 팩 루트 조회(--show-toplevel)만 시간 초과 → REJECT «루트 조회 실패» · 소요 14초
+PASS ⓙ 보류 가드: 팩 루트 조회만 시간 초과 → LANDED-INVALID lookup-failed(루트 조회 실패) · 소요 14초
+PASS ⓙ close-landed: 팩 루트 조회만 시간 초과 → ERROR rc2(루트 조회 실패)
+PASS ⓙ 설치 게이트: 팩 루트 조회만 시간 초과 → REJECT «루트 조회 실패»
+PASS ⓚ 첫 merge-base 만 8초 → 재시도로 OK(호출 2회 · 소요 9초 ≤ 16)
 PASS ⓘ bash 3.2(/bin/bash): 고친 파일 -n rc0 · ft_landed_repo 실행 ok
-PASS ⓙ 리포 오염 0(design/harness 픽스처 밖 변경 0 · 팩 무변경)
-FAILED 1
+PASS ⓘ /bin/bash 3.2: ft_git_capped(python 실행기) rc·stdout git 그대로
+PASS ⓝ 게이트 4파일에서 ft_git_capped 밖 git 호출 줄 0
+PASS ⓜ 리포 오염 0(design/harness 픽스처 밖 변경 0 · 팩 무변경)
+FAILED 2
+rc=1

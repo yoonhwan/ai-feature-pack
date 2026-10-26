@@ -14,9 +14,9 @@ while [ $# -gt 0 ]; do case "$1" in --team) TEAM="${2:-}"; shift 2;; --dry-run) 
 [ -f "$DAF" ] || { echo "usage: $0 <판정문> [--team <팀>] [--dry-run] — 판정문 없음: ${DAF:-(빈 값)}" >&2; exit 2; }
 DAF="$(cd -- "$(dirname -- "$DAF")" && pwd)/$(basename -- "$DAF")"
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-REPO="$(git -C "$(dirname "$DAF")" rev-parse --show-toplevel 2>/dev/null)" || { echo "ERROR 판정문이 git 리포 밖: $DAF" >&2; exit 2; }
-# r937 r2 (T1·T2): 아래 git 조회는 ft-team-lib.sh 의 ft_git_capped(7초 · 재시도 1) — 허용 rc 를 넘은 값은 «조회 실패»(없음으로 읽지 않는다)
+# r937 r2 (T1·T2) · r3: 아래 git 조회는 전부 ft-team-lib.sh 의 ft_git_capped(7초 · 재시도 1 · 루트 조회 포함) — 허용 rc 를 넘은 값은 «조회 실패»(없음으로 읽지 않는다)
 . "$HERE/ft-team-lib.sh" || { echo "ERROR ft-team-lib.sh 를 못 읽었다: $HERE" >&2; exit 2; }
+REPO="$(ft_git_capped 7 "$(dirname "$DAF")" rev-parse --show-toplevel)" || { echo "ERROR 판정문이 git 리포 밖이거나 루트 조회 실패(rc=$?): $DAF" >&2; exit 2; }
 if [ -n "$TEAM" ]; then
   TROOT="$(FT_REPO_ROOT="$REPO" ft_team_root "$TEAM")" || { echo "ERROR 팀 폴더를 못 풀었다: $TEAM (design/TEAMS.md)" >&2; exit 2; }
 else
@@ -24,7 +24,7 @@ else
 fi
 # r937: 착지 리포 후보 2곳 — 카드 리포(=판정문 리포) · 팩 리포(하네스 루트 리포 · 못 품으면 빈 값 = 카드 리포만 본다)
 PACKH=""; [ -f "$HERE/ft-harness-root.sh" ] && PACKH="$(. "$HERE/ft-harness-root.sh" && ft_harness_root "$HERE" 2>/dev/null)"
-PACK=""; [ -n "$PACKH" ] && PACK="$(ft_git_capped 7 "$PACKH" rev-parse --show-toplevel)"
+PACK=""; [ -n "$PACKH" ] && { PACK="$(ft_git_capped 7 "$PACKH" rev-parse --show-toplevel)" || { echo "ERROR 팩 리포($PACKH) 루트 조회 실패(rc=$?) — 통과 0" >&2; exit 2; }; }
 [ -d "$TROOT/indices" ] || { echo "ERROR 팀 폴더에 indices/ 없음: $TROOT (--team <팀>)" >&2; exit 2; }
 ROWS="$(python3 -I - "$DAF" <<'PY'
 import re, sys

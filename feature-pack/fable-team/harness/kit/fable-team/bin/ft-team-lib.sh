@@ -183,24 +183,11 @@ ft_from_current() { local v="${1:-}" seats="${2:-}" m d lint r
 #           ④둘 다 없음 = REJECT «어느 리포에서도 못 찾음» · 표식과 실제가 어긋나면 REJECT(표식 오기 숨김 0 · ⓒ)
 #     앞자리(7~39자)는 그 리포에서 유일해야 인정 · 같은 앞자리가 두 리포의 «다른» 커밋이면 표식 필수(없으면 REJECT) · 팩 리포가 빈 값이면 카드 리포만 본다
 #   ft_git_capped <초> <리포> <git 인자…> : git 조회 1회를 «초» 상한으로 감싼다(r937 r2 T1 · 7초 상한 없는 git 호출 금지).
-#     timeout/gtimeout 이 있으면 그것 · 없거나 FT_GIT_CAP_BUILTIN=1 이면 bash 내장(백그라운드 + «초» 뒤 kill -9 · bash 3.2 호환) —
-#     bash 내장 경로에서 kill 된 경우 rc 137 → 124 로 정규화(시간 초과 표시) · stdout = git 출력 · 지연 재시도는 _ft_git_retry 몫
-ft_git_capped() { local lim="$1" repo="$2"; shift 2; local to tf pid wd rc
-  if [ "${FT_GIT_CAP_BUILTIN:-0}" = 1 ]; then to=""
-  else to="$(command -v timeout || command -v gtimeout || true)"; fi
-  if [ -n "$to" ]; then "$to" "$lim" git -C "$repo" "$@" 2>/dev/null; return $?; fi
-  tf="$(mktemp "${TMPDIR:-/tmp}/ft-gitcap.XXXXXX")" || return 128
-  git -C "$repo" "$@" >"$tf" 2>/dev/null & pid=$!
-  ( sleep "$lim"; kill -9 "$pid" 2>/dev/null ) >/dev/null 2>&1 & wd=$!   # 감시자의 stdio 를 닫는다 — $( ) 파이프를 붙잡아 호출이 늦어지지 않게
-  wait "$pid"; rc=$?
-  kill "$wd" 2>/dev/null; wait "$wd" 2>/dev/null
-  cat "$tf" 2>/dev/null; rm -f "$tf"
-  [ "$rc" = 137 ] && rc=124
-  return "$rc"; }
-#   _ft_git_retry <초> <리포> <git 인자…> : ft_git_capped + «시간 초과(124)만» 재시도 1 (외부 호출 7초 룰 · 총 ≤ 2회)
-_ft_git_retry() { local rc; ft_git_capped "$@" && return 0; rc=$?
-  [ "$rc" = 124 ] || return "$rc"
-  ft_git_capped "$@"; }
+#     r3: python 실행기 1개(ft_git_capped.py) — git 을 새 프로세스 그룹에서 돌리고 시간 초과면 그룹 SIGTERM → 0.5초 뒤 SIGKILL(자식까지) → 재시도 1회 실제 수행 →
+#     또 초과면 rc 124. timeout/gtimeout·bash 버전과 무관 · rc·stdout 은 git 그대로 · 실행 실패 rc 128 · 총 ≤ 2회(재시도는 실행기 안에서 끝난다 — 부르는 쪽이 또 감싸지 않는다)
+_FT_GITCAP_PY="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)/ft_git_capped.py"
+ft_git_capped() { python3 "$_FT_GITCAP_PY" "$@" 2>/dev/null; }
+_ft_git_retry() { ft_git_capped "$@"; }   # 옛 이름 — 재시도가 실행기로 들어갔다(r937 r3)
 #   rc 규약(r937 r2 T2): 0 = 있음 · 1 = «그 리포에 없음» · 그 밖(124 시간 초과 · 128 실행 실패) = «조회 실패» — 없음으로 읽지 않는다
 _ft_landed_git() { _ft_git_retry 7 "$1" rev-parse --verify -q "${2}^{commit}"; }
 ft_landed_repo() { local sha="$1" cr="${2:-}" pr="${3:-}" mk="${4:-}" cs="" ps="" want=""

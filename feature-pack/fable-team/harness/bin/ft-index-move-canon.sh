@@ -97,7 +97,8 @@ REF="${FT_LAND_REF:-origin/main}"
 STEM="$(basename "$CARD" .md)"
 MARKER="$(printf '%s\n' "$BODY" | awk -v s="$STEM" 'index($0,"닫힘")&&index($0,s)&&index($0,"main"){print;exit}')"
 PACK=""; [ -f "$HERE/ft-harness-root.sh" ] && PACK="$(. "$HERE/ft-harness-root.sh" && ft_harness_root "$HERE" 2>/dev/null)"
-[ -n "$PACK" ] && PACK="$(git -C "$PACK" rev-parse --show-toplevel 2>/dev/null)"
+# r937 r3: 루트 조회도 ft_git_capped — 한 후보의 루트 조회가 실패(rc≠0 · 시간 초과 포함)면 그 후보를 빈 값으로 넘기지 않고 REJECT
+if [ -n "$PACK" ]; then PACK_H="$PACK"; PACK="$(ft_git_capped 7 "$PACK_H" rev-parse --show-toplevel)" || rej "팩 리포($PACK_H) 루트 조회 실패(rc=$?) — 통과 0"; fi
 LR="$(ft_landed_repo "$S" "$WT" "$PACK" "$MARKER")" || rej "${LR#REJECT }"
 REPO_LANDED="${LR%%$'\t'*}"; SFULL="${LR##*$'\t'}"
 # r937 r2 (T1·T2): 모든 git 조회 = ft_git_capped(7초 · 재시도 1) · 허용 rc 를 넘은 값(124 시간 초과 · 128 실행 실패)은 «조회 실패» = REJECT(«없음» 으로 읽지 않는다)

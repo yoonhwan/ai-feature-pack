@@ -119,7 +119,7 @@ o="$(hg)"; [[ "$o" == *"RELEASE-INVALID"* ]] && ok "계보: 현역보다 번호�
 
 # ── 5. 쪽지 가드(mbox.sh send · 격리 큐) ──
 new_env() { ENV="$(mktemp -d "$T/env.XXXXXX")"; mkdir -p "$ENV/.fable-team/comm" "$ENV/.fable-team/bin" "$ENV/.fable-team/state" "$ENV/seats" "$ENV/design/alpha/indices/진행"
-  cp "$SRC"/mbox*.py "$SRC"/mbox*.sh "$SRC"/bang_command_check.py "$ENV/.fable-team/comm/"; cp "$GATE" "$ENV/.fable-team/bin/"; git -C "$ENV" init -q
+  cp "$SRC"/mbox*.py "$SRC"/mbox*.sh "$SRC"/bang_command_check.py "$ENV/.fable-team/comm/"; cp "$GATE" "$KIT/ft_git_capped.py" "$ENV/.fable-team/bin/"; git -C "$ENV" init -q
   echo '{}' > "$ENV/seats/seats.json"; cp "$T/s/seats-alpha.json" "$ENV/seats/"; : > "$ENV/.fable-team/comm/mailbox.log.jsonl"
   mkdir -p "$T/stub"; printf '#!/bin/sh\nexit 1\n' > "$T/stub/tmux"; chmod +x "$T/stub/tmux"; }
 gcard() { GC="$ENV/design/alpha/indices/진행/$1.md"; shift; { echo "# c"; echo "## 상태"; printf '%s\n' "$@"; } > "$GC"; }
@@ -148,7 +148,7 @@ send_da "$DA" "$(printf '[DA⑥ r1 발주] x\n- 카드: %s' "$GC")"; { [ "$RC" =
 send_da "byz-alpha-arch-claude#3" "$(printf '[DA⑥ r3 발주] DA 가 아닌 수신자\n- 카드: %s' "$ENV/nowhere.md")"; [ "$RC" = 0 ] && ok "가드: DA 수신자가 아니면 검사 0" || bad "가드 비DA rc=$RC $OUT"
 send_da "$DA" '[HIL] 안전 보고는 DA 발주 머리가 아니다'; [ "$RC" = 0 ] && ok "가드: [HIL] 은 대상 밖" || bad "가드 HIL rc=$RC $OUT"
 # R389 ⓒ: 판정기 자리가 bash shim(루트 .fable-team/bin 꼴 · exec python3 <실파일>)이어도 판정기가 돈다
-gcard shim '- DA⑥ r1 HOLD 4' '- DA⑥ r2 발주'; mkdir -p "$ENV/real"; mv "$ENV/.fable-team/bin/ft_da_hold_gate.py" "$ENV/real/"
+gcard shim '- DA⑥ r1 HOLD 4' '- DA⑥ r2 발주'; mkdir -p "$ENV/real"; mv "$ENV/.fable-team/bin/ft_da_hold_gate.py" "$ENV/real/"; cp "$KIT/ft_git_capped.py" "$ENV/real/"
 printf '#!/usr/bin/env bash\nexec python3 "%s/real/ft_da_hold_gate.py" "$@"\n' "$ENV" > "$ENV/.fable-team/bin/ft_da_hold_gate.py"; chmod +x "$ENV/.fable-team/bin/ft_da_hold_gate.py"
 Q0="$(queued)"; send_da "$DA" "$(printf '[DA⑥ r2 발주] shim 판정기\n- 카드: %s' "$GC")"
 { [ "$RC" = 0 ] && [ "$(queued)" = $((Q0+1)) ] && grep -q '^- DA 입장: ⑥r2' "$GC"; } && ok "가드: 판정기 bash shim → 큐 적재 1 · «- DA 입장:» 줄(R389 ⓒ)" || bad "가드 shim rc=$RC $OUT"

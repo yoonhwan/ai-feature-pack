@@ -15,7 +15,7 @@ PASS ⓓ 카드 착지 + 설치: 없음 → 통과 rc0(회귀 0)
 PASS ⓔ 팩 착지 카드(main(팩) 행) → 보류 가드 LANDED-CLOSE rc0
 PASS ⓔ 표식 main(팩) 인데 sha 가 카드 리포에만 → LANDED-INVALID marker-mismatch rc3
 PASS ⓔ 어느 리포에도 없는 sha → LANDED-INVALID not-found rc3
-FAIL ⓕ 정본 게이트 시간 초과 → REJECT(소요 8초) :: rc=0 out=REJECT	랜딩 안 됨 — 566fff7668043564af5b243bc5c9ac7dcc010e05 가 origin/main 의 조상이 아니다 (/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.qVhzW7l6y3/pack)
+FAIL ⓕ 정본 게이트 시간 초과 → REJECT(소요 9초) :: rc=0 out=REJECT	랜딩 안 됨 — 2aa53877cca85f53dbef72fa2ed434b81ffafec2 가 origin/main 의 조상이 아니다 (/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.8YbV33XRIk/pack)
 PASS ⓕ 보류 가드: merge-base 8초 지연 → LANDED-INVALID lookup-failed · 소요 14초 ≤ 16
 FAIL ⓕ close-landed 시간 초과(소요 16초) :: | § | 카드 | 위치 | 조상 | 착지 줄 | 예상 |
 |---|---|---|---|---|---|
@@ -30,8 +30,17 @@ DRY rows=4 (쓰기 0) :: rc=0 out=| § | 카드 | 위치 | 조상 | 착지 줄 |
 | §3 | kbyz2 | 진행 | no | 무 | REJECT LANDED-INVALID not-found |
 | §4 | kbyzh | 진행 | no | 무 | REJECT LANDED-INVALID not-found |
 DRY rows=4 (쓰기 0)
-FAIL ⓖ 내장 상한 경로(소요 8초) :: rc=0 out=REJECT	랜딩 안 됨 — 566fff7668043564af5b243bc5c9ac7dcc010e05 가 origin/main 의 조상이 아니다 (/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.qVhzW7l6y3/pack)
-FAIL ⓗ 한 리포 조회 실패 → REJECT :: REJECT 착지 sha 를 어느 리포에서도 못 찾음: 566fff7668043564af5b243bc5c9ac7dcc010e05 (카드 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.qVhzW7l6y3/byz · 팩 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.qVhzW7l6y3/pack) :: rc=1 out=REJECT 착지 sha 를 어느 리포에서도 못 찾음: 566fff7668043564af5b243bc5c9ac7dcc010e05 (카드 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.qVhzW7l6y3/byz · 팩 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.qVhzW7l6y3/pack)
+FAIL ⓛ 자식 정리 :: rc=0 calls=1 n=1 alive=0 el=61 :: rc=0 out=4144a84ac9fe1d003ece1aec14d0c963d6dd97cc
+FAIL ⓖ timeout 없는 PATH (NOTO=1 소요 17초) :: rc=0 out=REJECT	착지 sha 를 어느 리포에서도 못 찾음: 2aa53877cca85f53dbef72fa2ed434b81ffafec2 (카드 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.8YbV33XRIk/byz · 팩 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.8YbV33XRIk/pack)
+FAIL ⓗ 팩 조회만 실패 :: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.8YbV33XRIk/byz	2aa53877cca85f53dbef72fa2ed434b81ffafec2 :: rc=0 out=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.8YbV33XRIk/byz	2aa53877cca85f53dbef72fa2ed434b81ffafec2
+PASS ⓙ 정본 게이트: 팩 루트 조회(--show-toplevel)만 시간 초과 → REJECT «루트 조회 실패» · 소요 9초
+PASS ⓙ 보류 가드: 팩 루트 조회만 시간 초과 → LANDED-INVALID lookup-failed(루트 조회 실패) · 소요 9초
+PASS ⓙ close-landed: 팩 루트 조회만 시간 초과 → ERROR rc2(루트 조회 실패)
+PASS ⓙ 설치 게이트: 팩 루트 조회만 시간 초과 → REJECT «루트 조회 실패»
+FAIL ⓚ 재시도 :: rc=0 mb=1 el=9 REJECT	랜딩 안 됨 — 2aa53877cca85f53dbef72fa2ed434b81ffafec2 가 origin/main 의 조상이 아니다 (/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.8YbV33XRIk/pack) :: rc=0 out=REJECT	랜딩 안 됨 — 2aa53877cca85f53dbef72fa2ed434b81ffafec2 가 origin/main 의 조상이 아니다 (/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.8YbV33XRIk/pack)
 PASS ⓘ bash 3.2(/bin/bash): 고친 파일 -n rc0 · ft_landed_repo 실행 ok
-PASS ⓙ 리포 오염 0(design/harness 픽스처 밖 변경 0 · 팩 무변경)
-FAILED 4
+PASS ⓘ /bin/bash 3.2: ft_git_capped(python 실행기) rc·stdout git 그대로
+PASS ⓝ 게이트 4파일에서 ft_git_capped 밖 git 호출 줄 0
+PASS ⓜ 리포 오염 0(design/harness 픽스처 밖 변경 0 · 팩 무변경)
+FAILED 6
+rc=1

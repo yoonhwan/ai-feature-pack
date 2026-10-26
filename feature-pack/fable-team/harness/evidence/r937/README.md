@@ -51,3 +51,29 @@ cd feature-pack/fable-team/harness && bash tests/test_index_move_landed_repo.sh
 
 `ft_da_hold_gate.py` 의 착지 검사도 같은 판정을 쓴다(arch 145 · master#114 #169175) — 팩 착지 카드는 이제 `ft-index-move.sh` 보류 가드에서 `LANDED-CLOSE` 로 통과하고,
 표식이 실제와 어긋나면 `LANDED-INVALID marker-mismatch` 로 막힌다(시험 ⓔ 3건). 이 카드로 설치·정본·close-landed·보류 가드 **네 게이트가 한 값을 본다**.
+
+## DA⑥ r2 HOLD(보류 2회째) → r3 — 7초 상한 남은 3곳 · 범위 고정 · 재DA 0 (arch 145 DECISION-r937-r3-final.md)
+
+| 반례(DA r2 원문) | 고침 | 시험 |
+|---|---|---|
+| ① 루트 조회 `rev-parse --show-toplevel` 이 상한 밖(canon·close-landed·install·보류 가드 스크립트) | 전부 `ft_git_capped` 로 · **후보 리포 루트 조회가 rc≠0(시간 초과 포함)이면 빈 값으로 넘기지 않고 REJECT «<리포> 루트 조회 실패 — 통과 0»**(canon `REJECT` · 보류 가드 `LANDED-INVALID lookup-failed` · close-landed `ERROR` rc2 · install `REJECT`) · 카드 리포 루트도 같다(옛 `|| dirname "$CARD"` 후퇴 제거) | ⓙ 4칸(팩 루트 조회 `--show-toplevel` 만 8초) · ⓝ 게이트 4파일에 ft_git_capped 밖 git 호출 줄 0 (grep 으로 센다) |
+| ② 재시도 1회가 실제로 안 돎(bash 3.2 내장 경로는 재시도 없음) · 시간 초과 때 자식 git 이 남음 | **`ft_git_capped` = python 실행기 1개(`bin/ft_git_capped.py`)**: `Popen(start_new_session=True)` → 7초 초과 시 그룹 `SIGTERM` → 0.5초 뒤 `SIGKILL`(자식까지) → 재시도 1회 → 또 초과면 rc124. `timeout`/`gtimeout`·bash 버전과 무관. bash `ft_git_capped`·`_ft_git_retry` 는 이 실행기를 부르는 얇은 껍질 · `ft_da_hold_gate.py` 도 같은 모듈을 import(단일 출처) · `FT_GIT_CAP_BUILTIN` 제거 | ⓚ(첫 merge-base 만 8초·둘째 정상 → 재시도로 OK, 호출 2회, ≤16초) · ⓛ(SIGTERM 무시하는 자식 sleep 을 띄우는 git 대역 → rc124 · git 2회 기동 · 자식 생존 0) · ⓘ2(/bin/bash 3.2 에서 실행기 경로) |
+| ③ 시험 ⓖⓗ 가 반송서 뜻과 달랐다 | ⓖ = `rev-parse --verify` 만 8초 지연 + PATH 에서 timeout·gtimeout 을 «실제로 뺀» 디렉터리(그 사실을 시험이 `command -v` 로 확인) · ⓗ = **리포 경로로 구별**해 «팩 객체 조회만» 8초(카드 리포는 정상) → REJECT | ⓖ · ⓗ |
+
+r3 에서 시험 사본 목록에 `ft_git_capped.py` 를 더했다(실행기가 형제 짝이므로): `test_da_hold_gate.sh`(2곳) · `test_da_hold_gate_landed` · `test_index_move_{canon_landed,canon_route,canonize,rule_line,slack,install_harness_repo}`. 시험 이름 정리: 옛 «ⓙ 오염 0» → ⓜ.
+
+| 파일 | 무엇 | rc |
+|---|---|---|
+| `before-r3.txt` | r2 판(`34a7f8e1` bin)으로 r3 시험 → **8 빨강**(ⓙ 4 · ⓚ · ⓛ · ⓝ · ⓖ/ⓗ 일부) · 25 초록 | 1 |
+| `after-r3.txt` | 고친 판 → **32/32 PASS** `ALL PASS` (ⓐ~ⓜ · 병렬 시험 ≈ 75초) | 0 |
+| `after-r3-bin-bash32.txt` | 같은 시험을 `/bin/bash`(3.2)로 통째 → **32/32 PASS** | 0 |
+| `mutate1-landed-repo-off.txt` | 변이 1 = 리포 판정 끔 → 16 빨강(ⓐⓑⓒⓔⓗⓚ…) | 1 |
+| `mutate2-marker-off.txt` | 변이 2 = 표식 대조 끔 → 9 빨강(ⓐⓑⓒⓔ) | 1 |
+| `mutate3-git-cap-off.txt` | 변이 3 = 상한 우회(7초 없는 git) → 7 빨강(ⓕⓖⓗⓚⓛ) | 1 |
+| `mutate4-lookup-fail-as-absent.txt` | 변이 4 = 조회 실패를 «없음» 으로 복귀 → 3 빨강(ⓖⓗ) | 1 |
+| `mutate5-retry-off.txt` | **변이 5 = 실행기 재시도 끔** → ⓚ·ⓛ 빨강 | 1 |
+| `mutate6-group-kill-off.txt` | **변이 6 = 자식 정리 끔(그룹 kill → 본 프로세스만)** → ⓛ 빨강(자식 생존 2) | 1 |
+| `mutate7-root-lookup-ignored.txt` | **변이 7 = 루트 조회 실패를 빈 값으로 넘김** → ⓙ 4칸 빨강 | 1 |
+
+회귀(r3 뒤 다시 돌린 기존 시험): `test_index_move_{canon_landed,install_harness_repo,canon_route,canonize,rule_line}` · `test_da_hold_gate_landed` · `test_live_install_check(_tip)` · `test_install_check_repo_outside` · `test_nano_close_{pack_wt,rerun_early}` · `test_evidence_inject_scan` · `test_baseline_lint` · `test_tracked_bin_call_gate` · `test_old_team_path_deny` · `test_root_bin_shim` rc0.
+기준판(`34a7f8e1`)과 같은 선행 결함(변화 0): `test_da_hold_gate.sh` 7 FAIL · `test_index_move_slack.sh` 1 FAIL · `test_team_lib_twin.py` rc1 · `test_team_literal_paths(2).sh` (기준판 13 → 4, 트리 위치 의존). 병렬 부하에서 `canon_landed`/`canon_route` 가 한 번씩 흔들렸고 단독 재실행은 둘 다 rc0.

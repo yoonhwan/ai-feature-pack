@@ -17,7 +17,7 @@ unset FT_HARNESS_ROOT FT_INSTALL_CHECK FT_INSTALL_PENDING_DIR FT_LANDED_MARKER F
 BIN="$T/bin"; mkdir -p "$BIN"
 cp -p "$SRC"/ft-team-lib.sh "$SRC"/ft-harness-root.sh "$SRC"/ft-index-move.sh "$SRC"/ft-index-move-install.sh \
       "$SRC"/ft-index-move-canon.sh "$SRC"/ft-index-close-landed.sh "$SRC"/ft_da_hold_gate.py \
-      "$SRC"/ft-live-install-check.sh "$SRC"/ft_live_install_check.py "$SRC"/ft_plist_env.py "$BIN/"
+      "$SRC"/ft-live-install-check.sh "$SRC"/ft_live_install_check.py "$SRC"/ft_plist_env.py "$SRC"/ft_git_capped.py "$BIN/"
 . "$BIN/ft-team-lib.sh"
 g() { git -C "$1" -c user.name=t -c user.email=t@t "${@:2}"; }
 
@@ -125,28 +125,69 @@ el=$(( $(date +%s) - t0 ))
 t0="$(date +%s)"
 out="$(PATH="$FG:$PATH" FT_HARNESS_ROOT="$KD" bash "$BIN/ft-index-close-landed.sh" "$CR/design/harness/DA-row.md" --dry-run 2>&1)"; rc=$?
 el=$(( $(date +%s) - t0 ))
-[ "$rc" = 0 ] && [[ "$out" == *"| §1 | kpack | 진행 | no |"*"lookup-failed"* ]] && [ "$el" -le 16 ] && ck "ⓕ close-landed: merge-base 8초 지연 → lookup-failed · 소요 ${el}초 ≤ 16" 0 || ck "ⓕ close-landed 시간 초과(소요 ${el}초) :: $out" 1
+[ "$rc" = 0 ] && [[ "$out" == *"| §1 | kpack | 진행 | no |"*"lookup-failed"* ]] && [ "$el" -le 34 ] && ck "ⓕ close-landed: merge-base 8초 지연 → lookup-failed · 느린 행 2개(행당 ≤ 16초) 소요 ${el}초 ≤ 34" 0 || ck "ⓕ close-landed 시간 초과(소요 ${el}초) :: $out" 1
 
-# ⓖ timeout·gtimeout 이 없는 경로(FT_GIT_CAP_BUILTIN=1 = bash 내장 백그라운드+kill)에서도 상한이 걸린다
-t0="$(date +%s)"
-out="$(printf '## §1 닫힘: kpack\n' | FT_GIT_CAP_BUILTIN=1 PATH="$FG:$PATH" bash "$BIN/ft-index-move-canon.sh" "$cpk" "$CR" "$P1")"; rc=$?
-el=$(( $(date +%s) - t0 ))
-[ "$rc" = 0 ] && [[ "$out" == "REJECT"$'\t'*"조회 실패"* ]] && [ "$el" -le 16 ] && ck "ⓖ timeout·gtimeout 없는 경로: rev-parse 8초 → REJECT · 소요 ${el}초 ≤ 16" 0 || ck "ⓖ 내장 상한 경로(소요 ${el}초)" 1
-
-# ⓗ 한 리포 조회가 rc124(시간 초과)면 «다른 리포로 넘어가 OK» 0 — 조회 실패로 REJECT(카드 리포·팩 리포 양쪽에 있는 sha)
-FH="$T/fakegit124"; mkdir -p "$FH"
-printf '#!/bin/bash\ncase "$*" in *"%s"*) for a in "$@"; do [ "$a" = rev-parse ] && { sleep 8; exit 1; }; done;; esac\nexec %s "$@"\n' "$P1" "$(command -v git)" > "$FH/git"
-chmod 755 "$FH/git"
-out="$(PATH="$FH:$PATH" ft_landed_repo "$P1" "$CR" "$PR" "닫힘 — kpack — main \`$P1\`")"; rc=$?
-[ "$rc" = 1 ] && [[ "$out" == "REJECT"*"조회 실패"* ]] && ck "ⓗ 팩 조회 시간 초과 → REJECT «조회 실패»(카드 리포로 넘어가 OK 0)" 0 || ck "ⓗ 한 리포 조회 실패 → REJECT :: $out" 1
+# ⓖ~ⓛ DA⑥ r2 반송(r3 · 7초 상한 남은 3곳) — 실행기 ft_git_capped.py: 재시도 실제 수행 · 자식까지 정리 · 루트 조회 포함 · timeout 도구 불요
+REALGIT="$(command -v git)"
+mkfake() { local d="$1" body="$2"; mkdir -p "$d"; printf '#!/bin/bash\n%s\nexec %s "$@"\n' "$body" "$REALGIT" > "$d/git"; chmod 755 "$d/git"; }
+#   느린 걸 병렬로 돌린다(각 ≈15초) — 작업마다 출력·소요를 파일로
+bg() { local n="$1"; shift; ( s0=$SECONDS; o="$("$@" 2>&1)"; r=$?; printf '%s' "$o" > "$T/$n.out"; echo "$r $((SECONDS - s0))" > "$T/$n.rc" ) & }
+getrc() { read -r rc el < "$T/$1.rc"; out="$(cat "$T/$1.out")"; }
+# ⓖ timeout·gtimeout 이 PATH 에 «실제로 없다» — rev-parse --verify 만 8초 지연
+NT="$T/nopath"; mkdir -p "$NT"
+for t in bash python3 awk sed grep cut head tail tr mktemp cat rm dirname basename date sleep sort wc env uniq xargs ls find mv cp printf pwd ln readlink; do
+  tp="$(command -v "$t" 2>/dev/null)"; [ -n "$tp" ] && [ "${tp#/}" != "$tp" ] && ln -sf "$tp" "$NT/$t"; done
+mkfake "$NT" 'case " $* " in *" rev-parse "*--verify*) sleep 8; exit 1;; esac'
+NOTO=1; PATH="$NT" command -v timeout >/dev/null 2>&1 && NOTO=0; PATH="$NT" command -v gtimeout >/dev/null 2>&1 && NOTO=0
+BASHBIN="$(command -v bash)"
+bg g1 bash -c 'printf "## §1 닫힘: kpack\n" | PATH="$1" "$2" "$3/ft-index-move-canon.sh" "$4" "$5" "$6"' x "$NT" "$BASHBIN" "$BIN" "$cpk" "$CR" "$P1"
+# ⓗ «팩 객체 조회만» 시간 초과(리포 경로로 구별 · 카드 리포는 정상) → 다른 리포로 넘어가 OK 0 — REJECT «조회 실패»
+FH="$T/fakegit-pack"; mkfake "$FH" '[ "$2" = "'"$PR"'" ] && case " $* " in *" rev-parse "*) sleep 8; exit 1;; esac'
+bg h1 bash -c 'PATH="$1:$PATH"; . "$2/ft-team-lib.sh"; ft_landed_repo "$3" "$4" "$5" "닫힘 — kpack — main \`$3\`"' x "$FH" "$BIN" "$P1" "$CR" "$PR"
+# ⓙ 후보 리포 «루트 조회»(rev-parse --show-toplevel) 만 시간 초과 → 빈 값으로 넘기지 않고 REJECT — 정본 게이트·보류 가드·close-landed·설치 게이트
+FJ="$T/fakegit-root"; mkfake "$FJ" 'case "$2" in */feature-pack/fable-team/harness) case " $* " in *" --show-toplevel"*) sleep 8; exit 1;; esac;; esac'
+bg j1 bash -c 'printf "## §1 닫힘: kpack\n" | PATH="$1:$PATH" FT_HARNESS_ROOT="$2" bash "$3/ft-index-move-canon.sh" "$4" "$5" "$6"' x "$FJ" "$KD" "$BIN" "$cpk" "$CR" "$P1"
+bg j2 bash -c 'PATH="$1:$PATH" FT_HARNESS_ROOT="$2" python3 "$3" "$4" --root "$5" --seats-dir "$6" --comm "$6" --closing --da "$5/design/harness/DA-row.md#§1" --landed "$7"' x "$FJ" "$KD" "$GATE" "$cpk" "$CR" "$T/none" "$P1"
+bg j3 bash -c 'PATH="$1:$PATH" FT_HARNESS_ROOT="$2" bash "$3/ft-index-close-landed.sh" "$4/design/harness/DA-row.md" --dry-run' x "$FJ" "$KD" "$BIN" "$CR"
+bg j4 bash -c 'PATH="$1:$PATH" FT_HARNESS_ROOT="$2" bash "$3/ft-index-move-install.sh" "$4" --landed "$5"' x "$FJ" "$KD" "$BIN" "$cning" "$C0"
+# ⓚ 첫 merge-base 만 8초 지연 · 둘째는 정상 → 재시도로 OK (호출 2회 · 소요 ≤ 16초)
+FK="$T/fakegit-once"; mkfake "$FK" 'case " $* " in *" merge-base "*) echo mb >> "'"$T"'/mbcalls"; [ "$(wc -l < "'"$T"'/mbcalls")" -le 1 ] && { sleep 8; exit 1; };; esac'
+: > "$T/mbcalls"
+bg k1 bash -c 'printf "## §1 닫힘: kpack\n" | PATH="$1:$PATH" bash "$2/ft-index-move-canon.sh" "$3" "$4" "$5"' x "$FK" "$BIN" "$cpk" "$CR" "$P1"
+# ⓛ git 대역이 SIGTERM 을 무시하는 자식 sleep 을 띄운다 → 시간 초과(rc124 · 재시도 1회 = 2번 띄움) 뒤 그 자식 생존 0
+FL="$T/fakegit-child"; mkfake "$FL" 'case " $* " in *" rev-parse HEAD "*) echo c >> "'"$T"'/childcalls"; trap "" TERM; sleep 60 & echo $! >> "'"$T"'/childpids"; wait;; esac'
+: > "$T/childpids"; : > "$T/childcalls"
+t0=$SECONDS; out="$(export PATH="$FL:$PATH"; ft_git_capped 3 "$CR" rev-parse HEAD)"; rc=$?; el=$((SECONDS - t0)); sleep 0.5
+alive=0; n=0; while read -r cp; do n=$((n+1)); kill -0 "$cp" 2>/dev/null && alive=$((alive+1)); done < "$T/childpids"
+calls="$(wc -l < "$T/childcalls" | tr -d ' ')"
+[ "$rc" = 124 ] && [ "$calls" = 2 ] && [ "$n" -ge 1 ] && [ "$alive" = 0 ] && [ "$el" -le 10 ] && ck "ⓛ 시간 초과 rc124 · 재시도 1회 실제 수행(git ${calls}회 기동 · 자식 ${n}개) · 자식 sleep 생존 ${alive} · 소요 ${el}초" 0 || ck "ⓛ 자식 정리 :: rc=$rc calls=$calls n=$n alive=$alive el=$el" 1
+wait
+getrc g1; [ "$NOTO" = 1 ] && [ "$rc" = 0 ] && [[ "$out" == "REJECT"$'\t'*"조회 실패"* ]] && [ "$el" -le 18 ] && ck "ⓖ timeout·gtimeout 실제로 없는 PATH: rev-parse 8초 → REJECT «조회 실패» · 소요 ${el}초 ≤ 18" 0 || ck "ⓖ timeout 없는 PATH (NOTO=$NOTO 소요 ${el}초)" 1
+getrc h1; [ "$rc" = 1 ] && [[ "$out" == "REJECT $PR"*"조회 실패"* ]] && ck "ⓗ 팩 객체 조회만 rc124(카드 리포 정상) → REJECT «조회 실패»(다른 리포로 넘어가 OK 0)" 0 || ck "ⓗ 팩 조회만 실패 :: $out" 1
+getrc j1; [ "$rc" = 0 ] && [[ "$out" == "REJECT"$'\t'*"팩 리포"*"루트 조회 실패"* ]] && [ "$el" -le 18 ] && ck "ⓙ 정본 게이트: 팩 루트 조회(--show-toplevel)만 시간 초과 → REJECT «루트 조회 실패» · 소요 ${el}초" 0 || ck "ⓙ 정본 게이트 루트 조회 :: rc=$rc el=$el $out" 1
+getrc j2; [ "$rc" = 0 ] && [[ "$out" == *"LANDED-INVALID lookup-failed"*"루트 조회 실패"* ]] && [ "$el" -le 18 ] && ck "ⓙ 보류 가드: 팩 루트 조회만 시간 초과 → LANDED-INVALID lookup-failed(루트 조회 실패) · 소요 ${el}초" 0 || ck "ⓙ 보류 가드 루트 조회 :: rc=$rc el=$el $out" 1
+getrc j3; [ "$rc" = 2 ] && [[ "$out" == *"팩 리포"*"루트 조회 실패"* ]] && ck "ⓙ close-landed: 팩 루트 조회만 시간 초과 → ERROR rc2(루트 조회 실패)" 0 || ck "ⓙ close-landed 루트 조회 :: rc=$rc $out" 1
+getrc j4; [ "$rc" = 1 ] && [[ "$out" == "REJECT 팩 리포"*"루트 조회 실패"* ]] && ck "ⓙ 설치 게이트: 팩 루트 조회만 시간 초과 → REJECT «루트 조회 실패»" 0 || ck "ⓙ 설치 게이트 루트 조회 :: rc=$rc $out" 1
+getrc k1; mb="$(wc -l < "$T/mbcalls" | tr -d ' ')"
+[ "$rc" = 0 ] && [[ "$out" == "OK"$'\t'* ]] && [ "$mb" = 2 ] && [ "$el" -le 16 ] && ck "ⓚ 첫 merge-base 만 8초 → 재시도로 OK(호출 ${mb}회 · 소요 ${el}초 ≤ 16)" 0 || ck "ⓚ 재시도 :: rc=$rc mb=$mb el=$el $out" 1
 
 # ⓘ bash 3.2(/bin/bash) 문법 — 이 카드가 고친 파일 전부 + 이 시험을 /bin/bash 로 1회
 b32=0
 for f in ft-team-lib.sh ft-index-move.sh ft-index-move-install.sh ft-index-move-canon.sh ft-index-close-landed.sh; do /bin/bash -n "$BIN/$f" 2>/dev/null || b32=1; done
 out="$(/bin/bash -c '. "$1" && ft_landed_repo "$2" "$3" "$4" ""' x "$BIN/ft-team-lib.sh" "$C0" "$CR" "$PR" 2>&1)"; rc=$?
 [ "$b32" = 0 ] && [ "$rc" = 0 ] && [ "${out%%$'\t'*}" = "$CR" ] && ck "ⓘ bash 3.2(/bin/bash): 고친 파일 -n rc0 · ft_landed_repo 실행 ok" 0 || ck "ⓘ bash 3.2 :: b32=$b32 rc=$rc out=$out" 1
+# ⓘ2 /bin/bash 3.2 로 ft_git_capped 실행기 경로(timeout 도구 불요) 실제 호출
+out="$(/bin/bash -c '. "$1" && ft_git_capped 7 "$2" rev-parse --verify -q "$3^{commit}"' x "$BIN/ft-team-lib.sh" "$CR" "$C0" 2>&1)"; rc=$?
+[ "$rc" = 0 ] && [ "$out" = "$C0" ] && ck "ⓘ /bin/bash 3.2: ft_git_capped(python 실행기) rc·stdout git 그대로" 0 || ck "ⓘ /bin/bash 3.2 실행기 :: rc=$rc out=$out" 1
 
-# ⓙ 오염 0 — 두 리포 변경 없음
-[ -z "$(g "$CR" status --porcelain | grep -v 'design/harness/')" ] && [ -z "$(g "$PR" status --porcelain)" ] && ck "ⓙ 리포 오염 0(design/harness 픽스처 밖 변경 0 · 팩 무변경)" 0 || ck "ⓙ 리포 오염 0 :: $(g "$CR" status --porcelain | grep -v 'design/harness/' | head -3)" 1
+# ⓝ 이 카드가 고친 게이트 파일에서 git 을 ft_git_capped 밖에서 부르는 줄 = 0 (실행기 ft_git_capped.py 만 예외)
+raw=0
+for f in ft-index-move-install.sh ft-index-move-canon.sh ft-index-close-landed.sh ft_da_hold_gate.py; do
+  n="$(grep -nE 'git -C|\["git"|(^|[^A-Za-z_./-])git (rev-parse|merge-base|diff|show|rev-list|ls-files|log|cat-file)' "$BIN/$f" | grep -vE '^[0-9]+:[[:space:]]*#|ft_git_capped|_run_capped|git_capped\(|gq ' | wc -l | tr -d ' ')"
+  [ "$n" = 0 ] || { raw=$((raw+n)); echo "  raw git: $f ×$n"; }; done
+[ "$raw" = 0 ] && ck "ⓝ 게이트 4파일에서 ft_git_capped 밖 git 호출 줄 0" 0 || ck "ⓝ 캡 밖 git 호출 줄 ${raw}" 1
+
+# ⓜ 오염 0 — 두 리포 변경 없음
+[ -z "$(g "$CR" status --porcelain | grep -v 'design/harness/')" ] && [ -z "$(g "$PR" status --porcelain)" ] && ck "ⓜ 리포 오염 0(design/harness 픽스처 밖 변경 0 · 팩 무변경)" 0 || ck "ⓜ 리포 오염 0 :: $(g "$CR" status --porcelain | grep -v 'design/harness/' | head -3)" 1
 
 [ "$fail" = 0 ] && echo "ALL PASS" || { echo "FAILED $fail"; exit 1; }

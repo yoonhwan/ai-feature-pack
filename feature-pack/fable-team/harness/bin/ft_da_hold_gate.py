@@ -26,6 +26,9 @@ import re
 import subprocess
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from ft_git_capped import run as _run_capped  # noqa: E402  (r937 r3 · git 조회 실행기 단일 출처)
+
 EVENT = re.compile(r"DA([②⑥])((?:(?![②⑥]|DA|발주|CLOSE|APPROVE).){0,40}?)HOLD")
 BARE = re.compile(r"(?<![A-Za-z])DA(?![②⑥A-Za-z\-]).{0,40}?HOLD")
 ORDER = re.compile(r"DA([②⑥])\s*r(\d+)\s*발주")
@@ -38,9 +41,8 @@ LANDED = re.compile(r"^- 착지:\s*`?([0-9a-f]{7,40})\b")
 def root_of(card: str) -> str:
     if os.environ.get("FT_ROOT"):
         return os.environ["FT_ROOT"]
-    cmd = ["git", "-C", os.path.dirname(card), "rev-parse", "--path-format=absolute", "--git-common-dir"]
-    out = subprocess.run(cmd, capture_output=True, text=True)
-    return re.sub(r"/\.git$", "", out.stdout.strip()) if out.returncode == 0 else ""
+    rc, out = git_capped(os.path.dirname(card), "rev-parse", "--path-format=absolute", "--git-common-dir")
+    return re.sub(r"/\.git$", "", out.strip()) if rc == 0 else ""
 
 
 def state_span(txt: str) -> tuple[int, int]:
@@ -150,18 +152,10 @@ def da_section(path: str, sec: str) -> str:
 
 
 def git_capped(repo: str, *args: str) -> tuple[int, str]:
-    """(rc, stdout) — git 조회 1회 = 7초 상한 + 재시도 1 (r937 r2 T1 · 시간 초과 = rc 124 · 실행 실패 = rc 128).
+    """(rc, stdout) — git 조회 1회 = 7초 상한 + 재시도 1 + 자식까지 정리 (r937 r3 · 실행기 = ft_git_capped.py · 시간 초과 = rc 124 · 실행 실패 = rc 128).
     T2: 0 = 있음 · 1 = «없음» · 그 밖은 «조회 실패» — 부르는 쪽이 없음으로 읽지 않는다."""
-    rc = 128
-    for attempt in (1, 2):
-        try:
-            r = subprocess.run(["git", "-C", repo, *args], capture_output=True, text=True, timeout=7)
-            return r.returncode, r.stdout
-        except subprocess.TimeoutExpired:
-            rc = 124
-        except OSError:
-            return 128, ""
-    return rc, ""
+    rc, out = _run_capped(repo, args)
+    return rc, out.decode("utf-8", "replace")
 
 
 def landed_repo(sha: str, card_repo: str, marker: str) -> tuple[str, str, str]:
@@ -169,17 +163,19 @@ def landed_repo(sha: str, card_repo: str, marker: str) -> tuple[str, str, str]:
     팩 리포 = ft-harness-root.sh 가 푸는 하네스 코드 루트의 리포(못 풀면 빈 값 = 카드 리포만 본다) · 7초 상한 · 쓰기 0."""
     lib = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ft-team-lib.sh")
     script = ('d="$(dirname "$1")"; . "$1" || exit 9; hr=""; [ -f "$d/ft-harness-root.sh" ] && hr="$(. "$d/ft-harness-root.sh" && ft_harness_root "$d" 2>/dev/null)"'
-              '; pk=""; [ -n "$hr" ] && pk="$(git -C "$hr" rev-parse --show-toplevel 2>/dev/null)"; ft_landed_repo "$2" "$3" "$pk" "$4"')
-    try:  # bash 쪽이 rev-parse 를 7초×2 로 감싼다 — 바깥 상한은 그 합(14초) + 여유
-        r = subprocess.run(["bash", "-c", script, "x", lib, sha, card_repo, marker], capture_output=True, text=True, timeout=16)
+              '; pk=""; if [ -n "$hr" ]; then pk="$(ft_git_capped 7 "$hr" rev-parse --show-toplevel)" || { printf "REJECT 팩 리포(%s) 루트 조회 실패(rc=%s) — 통과 0\\n" "$hr" "$?"; exit 1; }; fi'
+              '; ft_landed_repo "$2" "$3" "$pk" "$4"')
+    try:  # bash 쪽 조회 1단계가 7초×2(+정리 0.5초)까지 걸려 실패하면 거기서 끝난다 — 바깥 상한은 그 합 + 여유
+        r = subprocess.run(["bash", "-c", script, "x", lib, sha, card_repo, marker], capture_output=True, text=True, timeout=20)
     except subprocess.TimeoutExpired:
-        return "", "", "LANDED-INVALID lookup-failed 리포 판정 시간 초과(16초) — 통과 0"
+        return "", "", "LANDED-INVALID lookup-failed 리포 판정 시간 초과(20초) — 통과 0"
     except OSError as e:
         return "", "", "LANDED-INVALID resolve-failed " + str(e)[:80]
     lines = r.stdout.strip().splitlines()
     out = lines[-1] if lines else ""
     if r.returncode != 0 or out.startswith("REJECT"):
-        why = "not-found" if "못 찾음" in out else ("marker-mismatch" if "표식" in out else "resolve-failed")
+        why = ("lookup-failed" if "조회 실패" in out else "not-found" if "못 찾음" in out
+               else "marker-mismatch" if "표식" in out else "resolve-failed")
         return "", "", f"LANDED-INVALID {why} " + out.replace("REJECT ", "")
     repo, _, full = out.partition("\t")
     return repo, full, ""
