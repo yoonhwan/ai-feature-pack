@@ -85,7 +85,7 @@ out="$(printf '## §1 닫힘: kpack\n- 닫힘 — kpack — main \`%s\`\n' "$P1"
 # ⓑ3 close-landed 조상 검사도 같은 리포 — 팩 행(main(팩)) 은 팩 origin/main 으로 · 카드 행(main) 은 카드 origin/main 으로
 cp "$cnno" "$IDX/진행/cside.md"
 echo y >> "$CR/docs/architect/X.md"; g "$CR" commit -qam c-side; CSIDE="$(g "$CR" rev-parse HEAD)"; g "$CR" reset -q --hard HEAD~1   # 가지에만 있는 커밋 = origin/main 조상 아님
-printf '# 판정문\n## §1 닫힘: kpack\n- 닫힘 — kpack — main(팩) `%s`\n## §2 닫힘: cside\n- 닫힘 — cside — main `%s`\n## §3 닫힘: kbyz2\n- 닫힘 — kbyz2 — main(팩) `%s`\n' "$P1" "$CSIDE" "$C0" > "$CR/design/harness/DA-row.md"
+printf '# 판정문\n## §1 닫힘: kpack\n- 닫힘 — kpack — main(팩) `%s`\n## §2 닫힘: cside\n- 닫힘 — cside — main `%s`\n## §3 닫힘: kbyz2\n- 닫힘 — kbyz2 — main(팩) `%s`\n## §4 닫힘: kbyzh\n- 닫힘 — kbyzh — main(팩) `%s`\n' "$P1" "$CSIDE" "$C0" "$C0" > "$CR/design/harness/DA-row.md"
 out="$(bash "$BIN/ft-index-close-landed.sh" "$CR/design/harness/DA-row.md" --dry-run 2>&1)"; rc=$?
 [ "$rc" = 0 ] && [[ "$out" == *"| §1 | kpack | 진행 | ok |"* ]] && [[ "$out" == *"| §2 | cside | 진행 | no |"*"not-ancestor"* ]] && [[ "$out" == *"| §3 | kbyz2 | 진행 | no |"*"not-found"* ]] \
   && ck "ⓑ close-landed: 팩 행 = 팩 ref(ok) · 카드 행 = 카드 ref(no) · 표식 어긋남 = not-found" 0 || ck "ⓑ close-landed 조상 검사 리포" 1
@@ -98,7 +98,18 @@ out="$(printf '## §1 닫힘: kbyz2\n- 닫힘 — kbyz2 — main(팩) \`%s\`\n' 
 out="$(bash "$BIN/ft-index-move-install.sh" "$cnno" --landed "$C0" 2>&1)"; rc=$?
 [ "$rc" = 0 ] && [[ "$out" == *"설치: 없음"* ]] && ck "ⓓ 카드 착지 + 설치: 없음 → 통과 rc0(회귀 0)" 0 || ck "ⓓ 카드 착지 + 설치: 없음 → 통과" 1
 
-# ⓔ 오염 0 — 두 리포 변경 없음
-[ -z "$(g "$CR" status --porcelain | grep -v 'design/harness/')" ] && [ -z "$(g "$PR" status --porcelain)" ] && ck "ⓔ 리포 오염 0(design/harness 픽스처 밖 변경 0 · 팩 무변경)" 0 || ck "ⓔ 리포 오염 0 :: $(g "$CR" status --porcelain | grep -v 'design/harness/' | head -3)" 1
+# ⓔ DA 보류 가드(ft_da_hold_gate.py landed_check)도 같은 리포 판정 — 팩 착지 카드 통과 · 표식 오기 REJECT
+GATE="$BIN/ft_da_hold_gate.py"
+gate() { local c="$1"; shift; FT_HARNESS_ROOT="$KD" python3 "$GATE" "$c" --root "$CR" --seats-dir "$T/none" --comm "$T/none" "$@" 2>&1; }
+out="$(gate "$cpk" --closing --da "$CR/design/harness/DA-row.md#§1" --landed "$P1")"; rc=$?
+[ "$rc" = 0 ] && [[ "${out%%$'\n'*}" == "LANDED-CLOSE sha=$P1"* ]] && ck "ⓔ 팩 착지 카드(main(팩) 행) → 보류 가드 LANDED-CLOSE rc0" 0 || ck "ⓔ 팩 착지 카드 → LANDED-CLOSE" 1
+printf '# 인덱스: kbyzh\n## 상태\n- DA⑥ r1 HOLD 4\n- DA⑥ r2 HOLD 1\n' > "$IDX/진행/kbyzh.md"
+out="$(gate "$IDX/진행/kbyzh.md" --closing --da "$CR/design/harness/DA-row.md#§4" --landed "$C0")"; rc=$?
+[ "$rc" = 3 ] && [[ "$out" == *"LANDED-INVALID marker-mismatch"*"표식 오기"* ]] && ck "ⓔ 표식 main(팩) 인데 sha 가 카드 리포에만 → LANDED-INVALID marker-mismatch rc3" 0 || ck "ⓔ 표식 오기 → marker-mismatch" 1
+out="$(gate "$IDX/진행/kbyzh.md" --closing --da "$CR/design/harness/DA-row.md#§4" --landed "$(printf '0%.0s' {1..40})")"; rc=$?
+[ "$rc" = 3 ] && [[ "$out" == *"LANDED-INVALID not-found"* ]] && ck "ⓔ 어느 리포에도 없는 sha → LANDED-INVALID not-found rc3" 0 || ck "ⓔ not-found → rc3" 1
+
+# ⓕ 오염 0 — 두 리포 변경 없음
+[ -z "$(g "$CR" status --porcelain | grep -v 'design/harness/')" ] && [ -z "$(g "$PR" status --porcelain)" ] && ck "ⓕ 리포 오염 0(design/harness 픽스처 밖 변경 0 · 팩 무변경)" 0 || ck "ⓕ 리포 오염 0 :: $(g "$CR" status --porcelain | grep -v 'design/harness/' | head -3)" 1
 
 [ "$fail" = 0 ] && echo "ALL PASS" || { echo "FAILED $fail"; exit 1; }

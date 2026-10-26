@@ -13,6 +13,8 @@
 rc 0 = 통과 · 3 = 막음 · 2 = 인자·파일 오류. --closing = 완성 이동 검사(사건 ≥ 2 인데 유효 해제 0 이면 막음) · --lint = ft-index-lint 용 `INFO`/`BAD` 줄(항상 rc 0).
   착지(r456 · --closing 만) = 카드 «## 상태» `- 착지: <sha>`(또는 --landed · 둘 다면 일치) ∧ sha 가 착지 ref 조상(env FT_LAND_REF · 기본 origin/main) ∧ --da 판정문(§N 절)에
     «닫힘 — <카드 stem> — main `<같은 sha>`» 행 → 첫 줄 `LANDED-CLOSE sha=<sha> da=<--da>` rc0. 하나라도 빠지면 기존 판정 불변 + `LANDED-INVALID <사유>` 줄.
+  r937: 착지 리포는 ft-team-lib.sh 의 ft_landed_repo(bash · 리포 판정 단일 출처)가 정한다 — sha 가 카드 리포에 없고 팩(하네스 코드 루트) 리포에 있으면 그 리포 ·
+    판정문 행 «닫힘 — <카드> — main(팩) `<40hex>`» = 팩 리포 표식 · 표식과 실제가 어긋나면 `LANDED-INVALID marker-mismatch` · 어느 리포에도 없으면 `LANDED-INVALID not-found`.
 """
 from __future__ import annotations
 
@@ -147,32 +149,55 @@ def da_section(path: str, sec: str) -> str:
     return "\n".join(out)
 
 
+def landed_repo(sha: str, card_repo: str, marker: str) -> tuple[str, str, str]:
+    """(리포 절대경로, full sha, LANDED-INVALID 사유) — 리포 판정 단일 출처 = ft-team-lib.sh 의 ft_landed_repo(bash · r937 ⓐ).
+    팩 리포 = ft-harness-root.sh 가 푸는 하네스 코드 루트의 리포(못 풀면 빈 값 = 카드 리포만 본다) · 7초 상한 · 쓰기 0."""
+    lib = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ft-team-lib.sh")
+    script = ('d="$(dirname "$1")"; . "$1" || exit 9; hr=""; [ -f "$d/ft-harness-root.sh" ] && hr="$(. "$d/ft-harness-root.sh" && ft_harness_root "$d" 2>/dev/null)"'
+              '; pk=""; [ -n "$hr" ] && pk="$(git -C "$hr" rev-parse --show-toplevel 2>/dev/null)"; ft_landed_repo "$2" "$3" "$pk" "$4"')
+    try:
+        r = subprocess.run(["bash", "-c", script, "x", lib, sha, card_repo, marker], capture_output=True, text=True, timeout=7)
+    except (subprocess.TimeoutExpired, OSError) as e:
+        return "", "", "LANDED-INVALID resolve-failed " + str(e)[:80]
+    lines = r.stdout.strip().splitlines()
+    out = lines[-1] if lines else ""
+    if r.returncode != 0 or out.startswith("REJECT"):
+        why = "not-found" if "못 찾음" in out else ("marker-mismatch" if "표식" in out else "resolve-failed")
+        return "", "", f"LANDED-INVALID {why} " + out.replace("REJECT ", "")
+    repo, _, full = out.partition("\t")
+    return repo, full, ""
+
+
 def landed_check(card: str, lines: list[str], root: str, landed: str, da: str) -> tuple[str, str]:
     """(LANDED-CLOSE 첫 줄 | "", LANDED-INVALID 사유 | "") — 착지 주장(카드 줄·--landed)이 없으면 둘 다 ""."""
     claims = [m.group(1) for m in (LANDED.match(ln.strip()) for ln in lines) if m]
     if not claims and not landed:
         return "", ""
-
-    def full(s: str) -> str:
-        out = subprocess.run(["git", "-C", root, "rev-parse", "--verify", "--quiet", s + "^{commit}"], capture_output=True, text=True)
-        return out.stdout.strip() if out.returncode == 0 else ""
-
-    sha = full(landed or claims[0])
-    if not sha:
-        return "", "LANDED-INVALID unknown-sha " + (landed or claims[0])
-    if landed and claims and sha not in {full(c) for c in claims}:
-        return "", "LANDED-INVALID mismatch 카드 착지 줄 ≠ --landed"
-    if subprocess.run(["git", "-C", root, "merge-base", "--is-ancestor", sha, os.environ.get("FT_LAND_REF") or "origin/main"], capture_output=True).returncode != 0:
+    stem = os.path.splitext(os.path.basename(card))[0]
+    path = ""
+    sec_txt = ""
+    if da:
+        path, _, sec = da.partition("#")
+        path = path if os.path.isfile(path) or not root else os.path.join(root, path)
+        if os.path.isfile(path):
+            sec_txt = da_section(path, sec)
+    # 표식 = 이 카드의 «닫힘 — <카드> — main|main(팩) `<40hex>`» 행 — 리포 선택자(main(팩) = 팩 리포 · r937)
+    m = re.search(r"닫힘\s*—\s*" + re.escape(stem) + r"\s*—\s*main\s*(\(\s*팩\s*\))?\s*`?([0-9a-f]{40})\b", sec_txt)
+    marker = "" if not m else "닫힘 — %s — main%s `%s`" % (stem, "(팩)" if m.group(1) else "", m.group(2))
+    repo, sha, why = landed_repo(landed or claims[0], root, marker)
+    if why:
+        return "", why
+    if landed and claims:
+        for c in claims:
+            if landed_repo(c, root, marker)[1] != sha:
+                return "", "LANDED-INVALID mismatch 카드 착지 줄 ≠ --landed"
+    if subprocess.run(["git", "-C", repo, "merge-base", "--is-ancestor", sha, os.environ.get("FT_LAND_REF") or "origin/main"], capture_output=True).returncode != 0:
         return "", "LANDED-INVALID not-ancestor " + sha
     if not da:
         return "", "LANDED-INVALID no-da (--da <판정문#§N> 없음)"
-    path, _, sec = da.partition("#")
-    path = path if os.path.isfile(path) or not root else os.path.join(root, path)
     if not os.path.isfile(path):
         return "", "LANDED-INVALID da-missing " + path
-    stem = os.path.splitext(os.path.basename(card))[0]
-    row = re.compile(r"닫힘\s*—\s*" + re.escape(stem) + r"\s*—\s*main\s*`?" + sha + r"\b")
-    if not row.search(da_section(path, sec)):
+    if not m or m.group(2) != sha:
         return "", f"LANDED-INVALID no-da-row «닫힘 — {stem} — main `{sha[:10]}…`» 없음 ({da})"
     return f"LANDED-CLOSE sha={sha} da={da}", ""
 

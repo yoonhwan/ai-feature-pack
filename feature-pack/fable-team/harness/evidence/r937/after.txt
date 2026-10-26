@@ -12,5 +12,8 @@ PASS ⓑ 표식 main + 두 리포에 있는 sha → 카드 리포로 풀려 «�
 PASS ⓑ close-landed: 팩 행 = 팩 ref(ok) · 카드 행 = 카드 ref(no) · 표식 어긋남 = not-found
 PASS ⓒ 표식 main(팩) ↔ 실제 카드 리포 → REJECT
 PASS ⓓ 카드 착지 + 설치: 없음 → 통과 rc0(회귀 0)
-PASS ⓔ 리포 오염 0(design/harness 픽스처 밖 변경 0 · 팩 무변경)
+PASS ⓔ 팩 착지 카드(main(팩) 행) → 보류 가드 LANDED-CLOSE rc0
+PASS ⓔ 표식 main(팩) 인데 sha 가 카드 리포에만 → LANDED-INVALID marker-mismatch rc3
+PASS ⓔ 어느 리포에도 없는 sha → LANDED-INVALID not-found rc3
+PASS ⓕ 리포 오염 0(design/harness 픽스처 밖 변경 0 · 팩 무변경)
 ALL PASS
