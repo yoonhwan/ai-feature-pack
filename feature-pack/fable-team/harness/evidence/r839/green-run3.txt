@@ -1,0 +1,43 @@
+PASS 준비: 루트 = 원격보다 뒤 · UU 1 · 디스크 옛 큐(1줄)
+  ⓐ 원문: 결정 인터뷰 3건 · 스크립트 0건 · 팀 대기 0건 (MERGE-QUEUE 파일 없음)
+PASS ⓐ 결정 셈 = origin/main 판 큐 3줄(디스크 옛 1줄 아님)
+PASS ⓐ 루트 작업 폴더·index·HEAD·MERGE_HEAD 변경 0
+  ⓑ 원문(파일 없음): 결정 인터뷰 0건 · 스크립트 0건 · 팀 대기 0건 (MERGE-QUEUE 파일 없음)
+PASS ⓑ ref 판에 큐 없음 → 결정 셈 0(파일 없음 = 0 · 디스크 1줄로 후퇴 0)
+  ⓑ 원문(ref 없음): ERROR ft-decision-count: MERGE-QUEUE.md 위치를 못 풀었다: ERROR 명단 ref 못 읽음(origin/nope:design/TEAMS.md): /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.1tZ7V6ee96/root
+PASS ⓑ ref 못 읽음 → ERROR 1줄 + rc4 · 숫자 0
+  ⓒ 원문: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.1tZ7V6ee96/tmp/ft-team-doc.Yrs9Cx
+PASS ⓒ ft_team_doc_ref_only = origin/main 판 본문(디스크 옛 본문 0 · 임시 파일)
+  ⓒ 원문(없음): ERROR planner AUTONOMY-QUEUE.md 가 origin/noq 에 없거나 못 읽었다(상한 7s · 디스크 0 · 명단 origin/noq:design/TEAMS.md · 후보 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.1tZ7V6ee96/root/design/teams/planner /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.1tZ7V6ee96/root/design/planner )
+PASS ⓒ ref 판에 없음 → ERROR rc1(디스크 옛 본문 후퇴 0)
+PASS ⓒ 임시 본문 정리(TMPDIR 비어 있음)
+PASS ⓔ FT_DECISION_AUTONOMY_QUEUE = 그 파일(2)
+PASS ⓔ FT_PLANNER_DIR = 그 폴더(4)
+  ⓣ 원문(느린 큐): ERROR 오빠 큐 origin/main 판을 못 읽음: origin/main:design/teams/planner/AUTONOMY-QUEUE.md (상한 7s 초과 또는 ref 없음 · rc=124 · 디스크 후퇴 0)
+PASS ⓣ 느린 git show → ft_planner_queue_ref ERROR rc1 · 경과 ≤9초
+PASS ⓣ 상한 초과 뒤 남은 자식 0(프로세스 그룹 KILL)
+  ⓣ 원문(느린 문서): ERROR planner AUTONOMY-QUEUE.md 못 읽음 — 상한 7s 초과(origin/main:design/teams/planner/AUTONOMY-QUEUE.md · 디스크 후퇴 0)
+PASS ⓣ 느린 git show → ft_team_doc_ref_only ERROR rc1 · 경과 ≤9초
+  ⓣ 원문(TERM 무시): ERROR planner AUTONOMY-QUEUE.md 못 읽음 — 상한 7s 초과(origin/main:design/teams/planner/AUTONOMY-QUEUE.md · 디스크 후퇴 0)
+PASS ⓣ TERM 무시 래퍼도 ≤9초(KILL 이 끊는다)
+  ⓣ 원문(느린 결정 셈): ERROR ft-decision-count: AUTONOMY-QUEUE.md 위치를 못 풀었다: ERROR origin/main:/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.1tZ7V6ee96/root/design/teams/planner/AUTONOMY-QUEUE.md 못 읽음: Command '['git', '-C', '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.1tZ7V6ee96/root', 'ls-tree', '--name-only', 'origin/main', '--', 'design/teams/planner/AUTONOMY-QUEUE.md']' timed out after 7 seconds
+PASS ⓣ 느린 git show → 결정 셈 ERROR rc4 · 경과 ≤9초(디스크 셈 0)
+  ⓣ 원문(첫 시도 빈 응답): /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.1tZ7V6ee96/tmp/ft-queue-ref.45Tx00
+PASS ⓣ 첫 시도 «출력 0» → 재시도 1회로 정상(rc0 · ref 본문)
+PASS ⓣ 임시 본문 정리 · 루트 변경 0
+PASS ⓕ 키트 미러 cmp 0: ft_decision_count.py
+PASS ⓕ 키트 미러 cmp 0: ft-team-lib.sh
+PASS ⓕ 키트 미러 cmp 0: ft-queue.sh
+PASS ⓕ bash -n ft-team-lib.sh
+PASS ⓕ bash -n ft-queue.sh
+PASS ⓕ ft_decision_count.py ≤ 200줄
+PASS ⓓ ft-queue.sh = 공용 ft_planner_queue_ref 호출(자체 정의 0)
+PASS ⓓ 기존 ft_team_doc_ref 본문 그대로(변경 0)
+PASS ⓓ r557 시험 PASS(remind·due·shown·take·add · ⓖ 가지 범위 가드 1줄 제외)
+PASS 변이 결정 셈을 디스크 읽기로 → «ⓐ 결정 셈» FAIL
+PASS 변이 큐 ref 상한 삭제 → «ⓣ 느린 git show → ft_planner_queue_ref» FAIL
+PASS 변이 문서 ref 상한 삭제 → «ⓣ 느린 git show → ft_team_doc_ref_only» FAIL
+PASS 변이 ref 에 없을 때 디스크로 후퇴 → «ⓑ ref 판에 큐 없음» FAIL
+== FAIL 0
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

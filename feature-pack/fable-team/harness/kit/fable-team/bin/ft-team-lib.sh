@@ -147,6 +147,53 @@ ft_team_doc_ref() { local r="$1" t="$2" f="$3" ref="${4:-${FT_TEAMS_REF:-origin/
 #   ft_team_doc_tmp <경로>          : ft_team_doc_ref 가 만든 임시 본문이면 rc0(부르는 쪽이 rm) · 루트 실재 파일이면 rc1
 _ft_team_doc_dir() { local d="${TMPDIR:-/tmp}"; printf '%s\n' "${d%/}"; }
 ft_team_doc_tmp() { case "$1" in "$(_ft_team_doc_dir)"/ft-team-doc.*) return 0;; esac; return 1; }
+#   ft_ref_git_out <리포> <git 인자…> : ref 읽기 전용 git 1회 — «시도당 7초»(FT_REF_GIT_SEC · 시험 전용) 상한. 넘으면 프로세스 그룹 TERM → 0.5초 뒤 KILL(자식까지 · ft_git_capped.run_cmd 재사용) 후
+#     rc 124 = «판정 불가» — 재시도 0(시간 초과는 다시 걸지 않는다 · 7초 룰 · DA⑥ r1 반례 «8초 지연 git show 가 9초 넘게 진행»). 재시도는 첫 시도가 «출력 0»(rc0 · 빈 본문) 일 때만 1회.
+#     stdout = git stdout 그대로 · rc = git 종료코드(상한 초과 124 · 실행 실패 128) — 부르는 쪽이 «디스크 본문으로 후퇴» 하지 않는다(#0 RULE)
+ft_ref_git_out() { local repo="$1" lim="${FT_REF_GIT_SEC:-7}" out rc
+  out="$(PYTHONPATH="$(dirname -- "${_FT_GITCAP_PY:-$_FT_GITCAP_PY_DEFAULT}")" python3 - "$repo" "$lim" "${@:2}" <<'PY'
+import sys
+import ft_git_capped as g
+repo, lim, args = sys.argv[1], float(sys.argv[2]), sys.argv[3:]
+cmd = ["git", "-C", repo, *args]
+rc, out = g.run_cmd(cmd, lim)          # 시도 1 — 재시도 0
+if rc == 0 and not out.strip():        # 첫 시도 «출력 0» 만 1회
+    rc, out = g.run_cmd(cmd, lim)
+sys.stdout.buffer.write(out)
+sys.exit(rc)
+PY
+)"; rc=$?; printf '%s' "$out"; return "$rc"; }
+#   _ft_ref_cands <루트> <팀> [<ref>] : ref 명단(design/TEAMS.md) 으로 푼 그 팀 폴더 후보 줄마다(명단 꼴 먼저 · 쌍둥이 뒤 · 꼴3 은 쌍둥이 0 · 실재 여부 무관) — 명단 = «ref 본문»(디스크 0 · 상한 7초)
+#     명단 못 읽음·상한 초과·팀 없음 = stderr ERROR rc1 — ft_team_cands_ref(디스크 본문 읽기 · 상한 0)를 데몬 경로가 쓰지 않게 하는 짝
+_ft_ref_cands() { local r="$1" t="$2" ref="${3:-${FT_TEAMS_REF:-origin/main}}" md body grc rc
+  body="$(ft_ref_git_out "$r" show "$ref:design/TEAMS.md")" || { grc=$?; echo "ERROR $t 명단($ref:design/TEAMS.md)을 못 읽음 — 상한 ${FT_REF_GIT_SEC:-7}s 초과 또는 ref 없음(rc=$grc · 디스크 본문 후퇴 0): $r" >&2; return 1; }
+  md="$(mktemp "$(_ft_team_doc_dir)/ft-team-ref.XXXXXX")" || return 1
+  printf '%s\n' "$body" > "$md"
+  ( unset FT_TEAMS_MD; export FT_TEAMS_MD="$md" FT_REPO_ROOT="$r" FT_TEAM_TWIN_WARN=0 FT_TEAM_SPARSE_CHECK=0
+    ft_team_root "$t" || exit 1; ft_team_root "$t" --alt 2>/dev/null; exit 0 ); rc=$?
+  rm -f "$md"; return "$rc"; }
+#   ft_team_doc_ref_only <루트> <팀> <파일> [<ref>] : 정본 문서 «ref 본문만»(r839 · 데몬용 — 루트 체크아웃이 뒤처지거나 더러워도 옛 본문 0) — ref 명단 후보(명단 꼴 먼저)마다
+#                                    `<ref>:<후보>/<파일>` 이 ref 트리에 있으면 그 본문을 임시 파일로 쓰고 경로(ft_team_doc_tmp 로 판별 · 정리 = 부르는 쪽) · 디스크 0 · git 호출마다 시도당 7초 상한 ·
+#                                    명단 못 읽음·팀 없음·리포 밖 후보·ref 에 없음·show 실패·상한 초과 = stderr ERROR rc1 — 나노 워크트리 안 호출자(자기 디스크가 맞음)는 ft_team_doc_ref 그대로
+ft_team_doc_ref_only() { local r="$1" t="$2" f="$3" ref="${4:-${FT_TEAMS_REF:-origin/main}}" cands c rel tmp body
+  cands="$(_ft_ref_cands "$r" "$t" "$ref")" || return 1
+  while IFS= read -r c; do [ -n "$c" ] || continue
+    case "$c" in "$r"/*) rel="${c#"$r"/}";; *) echo "ERROR $t 폴더가 리포 밖($c) — ref 문서 읽기 대상 아님" >&2; return 1;; esac
+    body="$(ft_ref_git_out "$r" show "$ref:$rel/$f")" && [ -n "$body" ] || { grc=$?; [ "$grc" = 124 ] && { echo "ERROR $t $f 못 읽음 — 상한 ${FT_REF_GIT_SEC:-7}s 초과($ref:$rel/$f · 디스크 후퇴 0)" >&2; return 1; }; continue; }
+    tmp="$(mktemp "$(_ft_team_doc_dir)/ft-team-doc.XXXXXX")" || return 1
+    printf '%s\n' "$body" > "$tmp"; printf '%s\n' "$tmp"; return 0
+  done <<< "$cands"
+  echo "ERROR $t $f 가 $ref 에 없거나 못 읽었다(상한 ${FT_REF_GIT_SEC:-7}s · 디스크 0 · 명단 $ref:design/TEAMS.md · 후보 $(printf '%s ' $cands))" >&2; return 1; }
+#   ft_planner_queue_ref <루트>     : 오빠 큐 «읽기» 본문(r557 ft-queue.sh ft_queue_ref 를 옮김 · r839) — ref(FT_TEAMS_REF · 기본 origin/main) 명단 꼴 planner 후보의
+#                                    `git show <ref>:<후보>/AUTONOMY-QUEUE.md` 를 임시 파일로(정리 = 부르는 쪽) · 읽을 리포 = FT_LEDGER_REPO(기본 루트) · 디스크 0 · git 호출마다 시도당 7초 상한 ·
+#                                    못 읽음·ref 에 없음·상한 초과 = stderr ERROR rc1(빈 본문도 ERROR — 조용한 0 후퇴 금지)
+ft_planner_queue_ref() { local r="$1" ref="${FT_TEAMS_REF:-origin/main}" repo="${FT_LEDGER_REPO:-$1}" c rel t body grc
+  c="$(_ft_ref_cands "$r" planner "$ref")" || return 1; c="${c%%$'\n'*}"
+  case "$c" in "$r"/*) rel="${c#"$r"/}/AUTONOMY-QUEUE.md";; *) rel="${c%/}/AUTONOMY-QUEUE.md";; esac
+  body="$(ft_ref_git_out "$repo" show "$ref:$rel")" || { grc=$?; echo "ERROR 오빠 큐 origin/main 판을 못 읽음: $ref:$rel (상한 ${FT_REF_GIT_SEC:-7}s 초과 또는 ref 없음 · rc=$grc · 디스크 후퇴 0)" >&2; return 1; }
+  [ -n "$body" ] || { echo "ERROR 오빠 큐 origin/main 판이 비었다: $ref:$rel" >&2; return 1; }
+  t="$(mktemp "${TMPDIR:-/tmp}/ft-queue-ref.XXXXXX")" || return 1
+  printf '%s\n' "$body" > "$t"; printf '%s\n' "$t"; }
 #   ft_team_has_ref <루트> <팀> <경로> [<하위>] [<ref>] : ft_team_has 를 «ref 명단» 으로(R406) — rc 는 ft_team_has 와 같다(ref 못 읽음 = rc2)
 ft_team_has_ref() { ( r="$1"; ref="${5:-${FT_TEAMS_REF:-origin/main}}"; md="$(mktemp)" || exit 2; trap 'rm -f "$md"' EXIT
   git -C "$r" show "$ref:design/TEAMS.md" > "$md" 2>/dev/null || { echo "ERROR 명단($ref:design/TEAMS.md)을 못 읽음: $r" >&2; exit 2; }
@@ -186,7 +233,8 @@ ft_from_current() { local v="${1:-}" seats="${2:-}" m d lint r
 #   ft_git_capped <초> <리포> <git 인자…> : git 조회 1회를 «초» 상한으로 감싼다(r937 r2 T1 · 7초 상한 없는 git 호출 금지).
 #     r3: python 실행기 1개(ft_git_capped.py) — git 을 새 프로세스 그룹에서 돌리고 시간 초과면 그룹 SIGTERM → 0.5초 뒤 SIGKILL(자식까지) → 재시도 1회 실제 수행 →
 #     또 초과면 rc 124. timeout/gtimeout·bash 버전과 무관 · rc·stdout 은 git 그대로 · 실행 실패 rc 128 · 총 ≤ 2회(재시도는 실행기 안에서 끝난다 — 부르는 쪽이 또 감싸지 않는다)
-_FT_GITCAP_PY="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)/ft_git_capped.py"
+_FT_GITCAP_PY_DEFAULT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)/ft_git_capped.py"
+_FT_GITCAP_PY="$_FT_GITCAP_PY_DEFAULT"
 ft_git_capped() { python3 "$_FT_GITCAP_PY" "$@" 2>/dev/null; }
 _ft_git_retry() { ft_git_capped "$@"; }   # 옛 이름 — 재시도가 실행기로 들어갔다(r937 r3)
 #   rc 규약(r937 r2 T2): 0 = 있음 · 1 = «그 리포에 없음» · 그 밖(124 시간 초과 · 128 실행 실패) = «조회 실패» — 없음으로 읽지 않는다

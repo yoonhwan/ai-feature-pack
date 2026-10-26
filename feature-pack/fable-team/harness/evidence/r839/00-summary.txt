@@ -1,0 +1,31 @@
+r839 재설계 r2 (arch 151) — 데몬 읽기 = origin/main 판 본문(ref) · 루트 체크아웃 디스크 0 · ref 읽기 git 호출 7초 상한
+base = 팩 origin/main 44aa697891383893eec0c916285877fde82288b4 (2026-10-27)
+브랜치 = nano/r839-daemon-reads-ref-not-root-checkout-r2 (push 0 · master 집행)
+
+## 바뀐 파일 (4 · 짝 사본 cmp0)
+1. kit/fable-team/bin/ft_decision_count.py + bin/ 사본 — table(ref_at=) 추가 · AUTONOMY-QUEUE 본문 = team_doc_ref(데이터 루트) (ref 판 · 루트 디스크 0) · FT_PLANNER_DIR 지정이면 종전 자리 그대로(ⓔ) · ref 판에 파일 없음 = 0 · 못 읽음/상한 초과 = ERROR rc4
+2. kit/fable-team/bin/ft-team-lib.sh + bin/ 사본 — ①ft_ref_git_out (ref 읽기 git 1회 · 시도당 7초(FT_REF_GIT_SEC) · 시간 초과 = 그룹 TERM → 0.5초 뒤 KILL(자식까지 · ft_git_capped.run_cmd 재사용) · 시간 초과 재시도 0 · «출력 0» 첫 시도만 1회 재시도) ②_ft_ref_cands (ref 명단 본문으로 후보 · 디스크 0) ③ft_team_doc_ref_only (ref 본문만 · 디스크 0 · 실패 ERROR rc1) ④ft_planner_queue_ref (ft-queue.sh ft_queue_ref 를 옮김 · 디스크 0 · 상한 · 실패 ERROR rc1). 기존 ft_team_doc_ref 변경 0.
+3. kit/fable-team/bin/ft-queue.sh + bin/ 사본 — 자체 ft_queue_ref 삭제 · ft_planner_queue_ref "$ROOT" 호출 1줄 (동작 같음 · r557 시험 그대로 PASS)
+4. tests/test_daemon_reads_ref_r839.sh (신규 · 30칸)
+
+## 계약 ↔ 시험
+«본문 = ref 판 · 루트 디스크 0» = ⓐ(결정 셈 3줄 · 루트 status/index/HEAD 불변) · ⓒ(doc_ref_only 본문)
+«없음 = 0 · 경로 오류/상한 = ERROR» = ⓑ(rc0 0건 · rc4 ERROR) · ⓒ(rc1) · ⓣ(rc1/rc4)
+«env 지정 우선» = ⓔ(FT_DECISION_AUTONOMY_QUEUE 2 · FT_PLANNER_DIR 4)
+«ft_queue_ref 이동 뒤 ft-queue 동작 같음» = ⓓ(자체 정의 0 · 호출 1줄) + r557 시험 27 PASS 그대로
+«상한 7초 · KILL · 재시도 규칙» = ⓣ 6칸(느린 git show 12초 → 경과 ≤9초 · 남은 자식 0 · TERM 무시 래퍼도 ≤9초 · «출력 0» 재시도 1회 정상)
+«kit cmp0·bash -n·200줄» = ⓕ 6칸
+
+## 결과 (evidence/r839/)
+red-base-origin-main.txt : 기준판(origin/main 44aa6978) = FAIL 9 (ⓐ 디스크 옛 1줄 셈 · ⓑ 디스크 후퇴 · ⓒⓓ 함수 없음 rc127 · ⓣ 상한 0)
+green-run1~3.txt : 3회 연속 PASS 30 · FAIL 0 · ALL PASS (rc0)
+
+## 관련 시험 회귀 (기준판 대조)
+test_queue_state_r528 · test_queue_reask_r529 · test_queue_remind_origin_main_r557 · test_decision_count_tables_ref · test_decision_count_missing_body_r738 · test_root_bin_shim = rc0 FAIL 0
+test_team_literal_paths(FAIL 4 vs 기준판 13) · test_team_literal_paths2(2 vs 2) · test_harness_root(1 vs 16) · test_team_roster_ref(10 vs 10) = 새 FAIL 0 (전부 기준판에도 있는 기존 실패 · 실환경 의존)
+ruff check ft_decision_count.py = All checks passed
+
+## 남는 것 (범위 밖 · 정직 고지)
+- 파이썬 쪽 ft_team_lib._git_out 은 이미 timeout=7 (선행 r517/r937 · 이 카드 변경 0). 다만 subprocess.run 은 «직계 자식» 만 SIGKILL 해 손자 프로세스가 잠깐 남을 수 있다(셸 경로는 그룹 KILL 로 0). 고치려면 ft_team_lib.py(5번째 파일) — 이 카드 파일 게이트(4) 밖.
+- 호출자 2곳(ft-autonomy count_queue · ft-goal-tick 프롬프트)은 r994 로 분리됨 — 이 카드 미변경.
+- press 필요 없음(제품 런타임 무관 · 단위 시험만). 설치 반영 = master(설치 cmp0 + launchd kickstart exit 0).
