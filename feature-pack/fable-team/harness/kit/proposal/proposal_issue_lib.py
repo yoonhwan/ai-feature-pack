@@ -103,9 +103,9 @@ def cmd_labels(a: argparse.Namespace) -> int:
 def cmd_ledger(a: argparse.Namespace) -> int:
     for f in sorted(glob.glob(os.path.join(a.dir, "VERDICTS-planner-*.md"))):
         for ln in Path(f).read_text(encoding="utf-8", errors="replace").splitlines():
-            if re.match(rf"^{re.escape(a.verdict)} 오빠 인터뷰", ln) and re.search(rf"(?<![\w.\-])github\.com/{re.escape(a.repo)}/issues/{re.escape(a.issue)}(?![0-9])", ln, re.I):
+            if re.match(rf"^(?:{re.escape(a.verdict)} 오빠 인터뷰|\|\s*{re.escape(a.verdict)}\s*\|.*?\(오빠 인터뷰)", ln) and re.search(rf"(?<![\w.\-])github\.com/{re.escape(a.repo)}/issues/{re.escape(a.issue)}(?![0-9])", ln, re.I):
                 return 0
-    print(f"planner 원장 「{a.verdict} 오빠 인터뷰」 줄에 {a.repo} issues/{a.issue} 없음({a.dir})")
+    print(f"planner 원장 「{a.verdict} 오빠 인터뷰」 줄(줄머리 또는 표 행)에 {a.repo} issues/{a.issue} 없음({a.dir})")
     return 1
 
 

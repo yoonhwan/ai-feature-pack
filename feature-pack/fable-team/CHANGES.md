@@ -1,3 +1,7 @@
+## 2026-10-26 — r765 승인 도구가 게이트와 같은 원장 줄 꼴(줄머리∨표 행)을 읽는다 (1.1.255)
+
+- 제안 승인 도구가 원장 표 행도 승인 줄로 읽어 게이트(ft-proposal-gate)와 판정이 같아진다. 승인판 dc01df8c(팩 origin/main 병합) · 외부 DA sol high r1 APPROVE(BYZ design/harness/evidence/r765-da6/VERDICT-r765-sol-approve.md).
+
 ## 2026-10-26 — r959 인덱스 이동 실패 사유를 REJECT 에 · 정본 게이트 착지 리포 판정(팩 sha 를 팩 리포에서) (1.1.254)
 
 - ft-index-move 가 git mv 실패 stderr 를 REJECT 줄에 싣고, 정본 게이트(ft-index-move-canon)가 착지 sha 를 실제로 있는 리포(BYZ·팩)에서 조상 판정한다. 승인판 81562c34 · 외부 DA sol high r3 APPROVE(BYZ design/harness/evidence/r959-da6/VERDICT-r959-sol-approve.md).
