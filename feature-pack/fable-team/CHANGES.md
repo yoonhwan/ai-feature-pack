@@ -1,3 +1,7 @@
+## 2026-10-26 — r959 인덱스 이동 실패 사유를 REJECT 에 · 정본 게이트 착지 리포 판정(팩 sha 를 팩 리포에서) (1.1.254)
+
+- ft-index-move 가 git mv 실패 stderr 를 REJECT 줄에 싣고, 정본 게이트(ft-index-move-canon)가 착지 sha 를 실제로 있는 리포(BYZ·팩)에서 조상 판정한다. 승인판 81562c34 · 외부 DA sol high r3 APPROVE(BYZ design/harness/evidence/r959-da6/VERDICT-r959-sol-approve.md).
+
 ## 2026-10-26 — r938 r3 상한 «전 자리» — 자손 전부 회수 · bad 뒤 우회 원장 0 · 둘째 cherry·리서치 fetch 그 자리 REJECT (1.1.252)
 
 - 상한 함수(nf_bound)가 출력을 파이프 대신 임시 파일로 받고, 상한이면 죽이기 전에 ps 로 자손 나무(새 세션 손자 포함)를 모아 TERM → 1초 → KILL · 회수 0.5초(총 ≤ 상한 + 2초). 손자가 출력 fd 를 물고 있어도 기다림 0.
