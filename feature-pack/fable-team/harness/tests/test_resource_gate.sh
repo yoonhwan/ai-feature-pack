@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 # test_resource_gate.sh — 자원 문지기(ft-resource-gate.sh) + spawn 3종의 문지기 호출 + 키트 두 곳 일치 시험 (R161).
+# ★r921(오빠 2026-10-25 «컴퓨터가 죽어버려도 개발은 해야지 멈춰 있으면 머할건데») — 갈래가 3개다:
+#   OK = exit 0 · WARN = 넘음/못 잼 → `WARN resource …` 1줄 + exit 0(진행) · REJECT = 디스크 하드 하한(FT_DISK_HARD_MIN_MIB)·디스크 측정 실패만 exit 3.
+#   옛 «REJECT resource agents|swap|memfree|level|rate|freeze» 와 «ERROR resource measure» 는 이제 WARN 이다 — 그 기대값을 이 파일이 고정한다.
 # 임시 루트·임시 HOME·git/tmux/tmuxc 스텁만 쓴다 — 실 동결 파일·라이브 bin·실 tmux 세션 0.
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
@@ -48,10 +51,12 @@ gate_checks() {
   OUT="$(env FT_RES_ROOT="$R" $LOW bash "$d/ft-resource-gate.sh" check 2>&1)"; RC=$?
   [ $RC -eq 0 ] && echo "$OUT" | grep -q '^OK ' || { echo "ⓐ rc=$RC $OUT"; e=1; }
   OUT="$(env FT_RES_ROOT="$R" $LOW FT_DISK_MIN_GIB=999999 bash "$d/ft-resource-gate.sh" check 2>&1)"; RC=$?
-  [ $RC -eq 3 ] && echo "$OUT" | grep -q '^REJECT resource disk' || { echo "ⓑ rc=$RC $OUT"; e=1; }
+  { [ $RC -eq 0 ] && echo "$OUT" | grep -q '^WARN resource disk='; } || { echo "r921 ⓑ 디스크 소프트 문턱 = WARN+진행 rc=$RC $OUT"; e=1; }
+  OUT="$(env FT_RES_ROOT="$R" $LOW FT_DISK_HARD_MIN_MIB=9999999 bash "$d/ft-resource-gate.sh" check 2>&1)"; RC=$?
+  { [ $RC -eq 3 ] && echo "$OUT" | grep -q '^REJECT resource disk=.*MiB limit=9999999MiB$'; } || { echo "r921 ⓑ' 디스크 하드 하한 = 유일한 REJECT rc=$RC $OUT"; e=1; }
   mk_freeze
   OUT="$(env FT_RES_ROOT="$R" $LOW bash "$d/ft-resource-gate.sh" check 2>&1)"; RC=$?
-  [ $RC -eq 3 ] && echo "$OUT" | grep -q '^REJECT resource freeze' || { echo "ⓒ rc=$RC $OUT"; e=1; }
+  { [ $RC -eq 0 ] && echo "$OUT" | grep -q '^WARN resource freeze=시험 동결 limit=0$'; } || { echo "r921 ⓒ 동결 = WARN+진행 rc=$RC $OUT"; e=1; }
   OUT="$(env FT_RES_ROOT="$R" $LOW bash "$d/ft-resource-gate.sh" status 2>&1)"; RC=$?
   [ $RC -eq 0 ] && [ "$(echo "$OUT" | grep -c '^disk=')" = 1 ] && echo "$OUT" | grep -q '^disk=.* freeze=1$' || { echo "ⓓ rc=$RC $OUT"; e=1; }
   rm_freeze
@@ -67,13 +72,13 @@ pgrep_checks() {
   local d="$1" e=0
   rm_freeze
   pg "$d" PG_CLAUDE_RC=2 PG_CODEX_RC=2
-  { [ $RC -eq 4 ] && echo "$OUT" | grep -q '^ERROR resource measure' && ! echo "$OUT" | grep -q '^OK'; } || { echo "ⓗ rc=$RC $OUT"; e=1; }
+  { [ $RC -eq 0 ] && echo "$OUT" | grep -q '^WARN resource agents 측정실패(' && ! echo "$OUT" | grep -q '^OK'; } || { echo "r921 ⓗ 센서 오류 = WARN+진행 rc=$RC $OUT"; e=1; }
   pg "$d" PG_CLAUDE_RC=0 PG_CLAUDE_OUT=sensor-error PG_CODEX_RC=1
-  { [ $RC -eq 4 ] && echo "$OUT" | grep -q '^ERROR resource measure'; } || { echo "ⓘ rc=$RC $OUT"; e=1; }
+  { [ $RC -eq 0 ] && echo "$OUT" | grep -q '^WARN resource agents 측정실패('; } || { echo "r921 ⓘ rc=$RC $OUT"; e=1; }
   pg "$d" PG_CLAUDE_RC=0 PG_CLAUDE_OUT=111 PG_CODEX_RC=2
-  { [ $RC -eq 4 ] && echo "$OUT" | grep -q '^ERROR resource measure'; } || { echo "ⓙ(codex) rc=$RC $OUT"; e=1; }
+  { [ $RC -eq 0 ] && echo "$OUT" | grep -q '^WARN resource agents 측정실패('; } || { echo "r921 ⓙ(codex) rc=$RC $OUT"; e=1; }
   pg "$d" PG_CLAUDE_RC=2 PG_CODEX_RC=0 PG_CODEX_OUT=222
-  { [ $RC -eq 4 ] && echo "$OUT" | grep -q '^ERROR resource measure'; } || { echo "ⓙ(claude) rc=$RC $OUT"; e=1; }
+  { [ $RC -eq 0 ] && echo "$OUT" | grep -q '^WARN resource agents 측정실패('; } || { echo "r921 ⓙ(claude) rc=$RC $OUT"; e=1; }
   pg "$d" PG_CLAUDE_RC=1 PG_CODEX_RC=1
   { [ $RC -eq 0 ] && echo "$OUT" | grep -q '^OK .* agents=0$'; } || { echo "ⓚ rc=$RC $OUT"; e=1; }
   pg "$d" PG_CLAUDE_RC=0 PG_CLAUDE_OUT=111 PG_CODEX_RC=0 PG_CODEX_OUT=111
@@ -91,16 +96,17 @@ max_checks() {
   OUT="$(env -u FT_AGENT_MAX FT_RES_ROOT="$R" $L PATH="$T/pg:$PATH" PG_CLAUDE_RC=0 PG_CLAUDE_OUT="$(seq 101 165)" PG_CODEX_RC=1 bash "$d/ft-resource-gate.sh" check 2>&1)"; RC=$?
   { [ $RC -eq 0 ] && echo "$OUT" | grep -q '^OK .* agents=65$'; } || { echo "ⓟ(65) rc=$RC $OUT"; e=1; }
   OUT="$(env -u FT_AGENT_MAX FT_RES_ROOT="$R" $L PATH="$T/pg:$PATH" PG_CLAUDE_RC=0 PG_CLAUDE_OUT="$(seq 101 166)" PG_CODEX_RC=1 bash "$d/ft-resource-gate.sh" check 2>&1)"; RC=$?
-  { [ $RC -eq 3 ] && echo "$OUT" | grep -qx 'REJECT resource agents=66 limit=65' ; } || { echo "ⓟ(66) rc=$RC $OUT"; e=1; }
+  { [ $RC -eq 0 ] && echo "$OUT" | grep -qx 'WARN resource agents=66 limit=65' ; } || { echo "r921 ⓟ(66) = WARN+진행 rc=$RC $OUT"; e=1; }
   OUT="$(env FT_RES_ROOT="$R" $LOW FT_AGENT_MAX=5 PATH="$T/pg:$PATH" PG_CLAUDE_RC=0 PG_CLAUDE_OUT="$(seq 101 106)" PG_CODEX_RC=1 bash "$d/ft-resource-gate.sh" check 2>&1)"; RC=$?
-  { [ $RC -eq 3 ] && echo "$OUT" | grep -qx 'REJECT resource agents=6 limit=5' ; } || { echo "ⓠ rc=$RC $OUT"; e=1; }
+  { [ $RC -eq 0 ] && echo "$OUT" | grep -qx 'WARN resource agents=6 limit=5' ; } || { echo "r921 ⓠ = WARN+진행 rc=$RC $OUT"; e=1; }
   return $e
 }
 
-# spawn_checks <bin 폴더> — ⓕ 동결 상태에서 spawn 3종 모두 REJECT resource rc=3 · 스텁 호출 0 · 임시 HOME 비어 있음.
+# spawn_checks <bin 폴더> — ⓕ r921: 동결 상태에서 spawn 3종이 «WARN resource freeze=… 를 남기고 진행» 한다(문지기가 세우지 않는다).
+#   진행한 뒤의 실패는 정상이다(스텁 git·tmux 가 즉시 실패) — 이 시험이 보는 것은 «문지기가 WARN 을 남겼나 · REJECT 로 세웠나» 다.
 spawn_checks() {
   local d="$1" e=0 n s out rc
-  mk_freeze; : > "$LOG"
+  mk_freeze
   for n in nano role succ; do
     case "$n" in
       nano) s=ft-nano-spawn.sh;      set -- "$CARD";;
@@ -108,19 +114,17 @@ spawn_checks() {
       succ) s=ft-successor-open.sh;  set -- old "$T/cwd" --name x#1 --agent claude --model m --body-file "$BODY";;
     esac
     out="$(cd "$T/cwd" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR -u GIT_OBJECT_DIRECTORY \
-      HOME="$T/home" PATH="$T/stub:$PATH" FT_RES_ROOT="$R" $LOW bash "$d/$s" "$@" 2>&1)"; rc=$?
-    { [ $rc -eq 3 ] && echo "$out" | grep -q 'REJECT resource'; } || { echo "ⓕ $s rc=$rc $out"; e=1; }
+      HOME="$T/home" PATH="$T/stub:$PATH" FT_RES_ROOT="$R" $LOW FT_RECLAIM=0 bash "$d/$s" "$@" 2>&1)"; rc=$?
+    { echo "$out" | grep -q '^WARN resource freeze=시험 동결 limit=0$' && ! echo "$out" | grep -q '^REJECT resource'; } || { echo "r921 ⓕ $s 동결 WARN 미출력/REJECT rc=$rc $out"; e=1; }
   done
-  [ ! -s "$LOG" ] || { echo "ⓕ 부작용(스텁 호출): $(cat "$LOG")"; e=1; }
-  [ -z "$(ls -A "$T/home")" ] || { echo "ⓕ 임시 HOME 변화"; e=1; }
   rm_freeze
   return $e
 }
 
-# spawn_pgrep_err <bin 폴더> — ⓜ pgrep 오류(rc 2) → spawn 3종 stdout ERROR resource measure · rc 4 · 부작용 0.
+# spawn_pgrep_err <bin 폴더> — ⓜ r921: pgrep 오류(rc 2)도 «WARN resource agents 측정실패 …» 로 남고 spawn 은 진행한다(exit 4 폐기).
 spawn_pgrep_err() {
   local d="$1" e=0 n s out rc
-  rm_freeze; : > "$LOG"
+  rm_freeze
   for n in nano role succ; do
     case "$n" in
       nano) s=ft-nano-spawn.sh;      set -- "$CARD";;
@@ -128,11 +132,9 @@ spawn_pgrep_err() {
       succ) s=ft-successor-open.sh;  set -- old "$T/cwd" --name x#1 --agent claude --model m --body-file "$BODY";;
     esac
     out="$(cd "$T/cwd" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR -u GIT_OBJECT_DIRECTORY \
-      HOME="$T/home" PATH="$T/pg:$T/stub:$PATH" PG_CLAUDE_RC=2 PG_CODEX_RC=2 FT_RES_ROOT="$R" $LOW bash "$d/$s" "$@" 2>&1)"; rc=$?
-    { [ $rc -eq 4 ] && echo "$out" | grep -q 'ERROR resource measure'; } || { echo "ⓜ $s rc=$rc $out"; e=1; }
+      HOME="$T/home" PATH="$T/pg:$T/stub:$PATH" PG_CLAUDE_RC=2 PG_CODEX_RC=2 FT_RES_ROOT="$R" $LOW FT_RECLAIM=0 bash "$d/$s" "$@" 2>&1)"; rc=$?
+    { echo "$out" | grep -q '^WARN resource agents 측정실패(' && ! echo "$out" | grep -q 'ERROR resource measure'; } || { echo "r921 ⓜ $s rc=$rc $out"; e=1; }
   done
-  [ ! -s "$LOG" ] || { echo "ⓜ 부작용(스텁 호출): $(cat "$LOG")"; e=1; }
-  [ -z "$(ls -A "$T/home")" ] || { echo "ⓜ 임시 HOME 변화"; e=1; }
   return $e
 }
 
@@ -160,30 +162,30 @@ swap_checks() {
   sw "$d" 13500 2 55 check   # r672: memfree 55(>=30) → swap 축 통과(빈 메모리 AND 결함)
   { [ $RC -eq 0 ] && echo "$OUT" | grep -q '^OK '; } || { echo "r672ⓑ swap13500·level2·memfree55 → OK rc=$RC $OUT"; e=1; }
   sw "$d" 13500 2 20 check
-  { [ $RC -eq 3 ] && echo "$OUT" | grep -qx 'REJECT resource swap=13500MiB level=2 memfree=20% limit=12288MiB@level>=2&memfree<30'; } || { echo "R357ⓑ rc=$RC $OUT"; e=1; }
+  { [ $RC -eq 0 ] && echo "$OUT" | grep -qx 'WARN resource swap=13500MiB level=2 memfree=20% limit=12288MiB@level>=2&memfree<30'; } || { echo "r921 R357ⓑ swap 넘음 = WARN+진행 rc=$RC $OUT"; e=1; }
   sw "$d" 13500 2 55 "check --succession"
   { [ $RC -eq 0 ] && echo "$OUT" | grep -q '^OK '; } || { echo "R357ⓒ 승계 swap 면제 rc=$RC $OUT"; e=1; }
   sw "$d" 13500 4 55 check
-  { [ $RC -eq 3 ] && echo "$OUT" | grep -q '^REJECT resource level=4 limit=2'; } || { echo "R357ⓓ level4 → REJECT level rc=$RC $OUT"; e=1; }
+  { [ $RC -eq 0 ] && echo "$OUT" | grep -q '^WARN resource level=4 limit=2'; } || { echo "r921 R357ⓓ level4 → WARN level rc=$RC $OUT"; e=1; }
   sw "$d" 13500 4 55 "check --succession"
-  { [ $RC -eq 3 ] && echo "$OUT" | grep -q '^REJECT resource level=4 limit=3'; } || { echo "R357ⓓ' 승계도 level4 는 REJECT rc=$RC $OUT"; e=1; }
+  { [ $RC -eq 0 ] && echo "$OUT" | grep -q '^WARN resource level=4 limit=3'; } || { echo "r921 R357ⓓ' 승계도 level4 는 WARN rc=$RC $OUT"; e=1; }
   sw "$d" 9000 2 55 check
   { [ $RC -eq 0 ] && echo "$OUT" | grep -q '^OK '; } || { echo "R357ⓔ swap9000·level2 → OK(level2 단독은 거절 아님) rc=$RC $OUT"; e=1; }
   sw "$d" 13500 1 20 check FT_SWAP_LEVEL_MIN=1
-  { [ $RC -eq 3 ] && echo "$OUT" | grep -q '^REJECT resource swap=13500MiB level=1 memfree=20% limit=12288MiB@level>=1'; } || { echo "R357ⓕ FT_SWAP_LEVEL_MIN=1 주입 rc=$RC $OUT"; e=1; }
+  { [ $RC -eq 0 ] && echo "$OUT" | grep -q '^WARN resource swap=13500MiB level=1 memfree=20% limit=12288MiB@level>=1'; } || { echo "r921 R357ⓕ FT_SWAP_LEVEL_MIN=1 주입 rc=$RC $OUT"; e=1; }
   for v in 0 -1 abc; do
     sw "$d" 13500 1 55 check FT_SWAP_LEVEL_MIN="$v"
     { [ $RC -eq 0 ] && echo "$OUT" | grep -q '^OK ' && echo "$OUT" | grep -q '^WARN resource FT_SWAP_LEVEL_MIN'; } || { echo "R357ⓕ' 무효값 «${v}» →기본 2 + WARN rc=$RC $OUT"; e=1; }
   done
   # R357 ⓛ — 10-14 03:31 원 사고 입력 보존: disk 748MiB(=0GiB)·level 4·swap 13500 — swap 파일 23개는 센서 아님(환산 0)
   sw "$d" 13500 4 30 check FAKE_DISK_KIB=$((748*1024))
-  { [ $RC -eq 3 ] && echo "$OUT" | grep -qx 'REJECT resource disk=0GiB limit=30GiB'; } || { echo "R357ⓛ1 rc=$RC $OUT"; e=1; }
+  { [ $RC -eq 3 ] && echo "$OUT" | grep -qx 'REJECT resource disk=748MiB limit=1024MiB'; } || { echo "r921 R357ⓛ1 디스크 748MiB = 하드 하한 REJECT rc=$RC $OUT"; e=1; }
   sw "$d" 13500 4 30 "check --succession" FAKE_DISK_KIB=$((748*1024))
-  { [ $RC -eq 3 ] && echo "$OUT" | grep -qx 'REJECT resource disk=0GiB limit=30GiB'; } || { echo "R357ⓛ2 rc=$RC $OUT"; e=1; }
+  { [ $RC -eq 3 ] && echo "$OUT" | grep -qx 'REJECT resource disk=748MiB limit=1024MiB'; } || { echo "r921 R357ⓛ2 승계도 디스크 하드 하한 REJECT rc=$RC $OUT"; e=1; }
   sw "$d" 13500 4 30 check
-  { [ $RC -eq 3 ] && echo "$OUT" | grep -qx 'REJECT resource level=4 limit=2'; } || { echo "R357ⓛ3 일반 rc=$RC $OUT"; e=1; }
+  { [ $RC -eq 0 ] && echo "$OUT" | grep -qx 'WARN resource level=4 limit=2'; } || { echo "r921 R357ⓛ3 일반(디스크만 통과시키고) WARN rc=$RC $OUT"; e=1; }
   sw "$d" 13500 4 30 "check --succession"
-  { [ $RC -eq 3 ] && echo "$OUT" | grep -qx 'REJECT resource level=4 limit=3'; } || { echo "R357ⓛ3 승계 rc=$RC $OUT"; e=1; }
+  { [ $RC -eq 0 ] && echo "$OUT" | grep -qx 'WARN resource level=4 limit=3'; } || { echo "r921 R357ⓛ3 승계 WARN rc=$RC $OUT"; e=1; }
   return $e
 }
 
@@ -216,8 +218,8 @@ done
 
 # 변이 2 — gate 의 동결 검사 삭제 → ⓒ 가 «실패»해야 한다
 M="$T/mut-gate"; mkdir -p "$M"; cp "$K1"/ft-*.sh "$M"/
-awk '/^if \[ "\$FREEZE_FLAG" = 1 \]/{skip=1} skip{ if ($0=="fi") {skip=0}; next } {print}' "$K1/ft-resource-gate.sh" > "$M/ft-resource-gate.sh"
-grep -q 'REJECT resource freeze' "$M/ft-resource-gate.sh" && bad "변이2 준비 실패(동결 검사가 남음)" || {
+grep -v '^\[ "\$FREEZE_FLAG" = 1 \] && warn_add' "$K1/ft-resource-gate.sh" > "$M/ft-resource-gate.sh"
+grep -q 'warn_add .*freeze=' "$M/ft-resource-gate.sh" && bad "변이2 준비 실패(동결 검사가 남음)" || {
   gate_checks "$M" >/dev/null 2>&1 && bad "변이2: 동결 검사 삭제가 검출되지 않음" || ok "변이2 검출"; }
 
 # 변이 3 — gate 에서 pgrep rc 검사 제거(rc 를 0 으로 취급) → ⓗ 가 «실패»해야 한다
@@ -228,13 +230,13 @@ cmp -s "$M/ft-resource-gate.sh" "$K1/ft-resource-gate.sh" && bad "변이3 준비
 
 # 변이 5 — gate 의 두 센서에서 `-a`(조상 포함) 제거 → ⓝ 이 «실패»해야 한다
 M="$T/mut-noa"; mkdir -p "$M"; cp "$K1"/ft-*.sh "$M"/
-sed 's/^agent_scan \([a-z]*\) -a -x /agent_scan \1 -x /' "$K1/ft-resource-gate.sh" > "$M/ft-resource-gate.sh"
+sed 's/^\([[:space:]]*\)agent_scan \([a-z]*\) -a -x /\1agent_scan \2 -x /' "$K1/ft-resource-gate.sh" > "$M/ft-resource-gate.sh"
 cmp -s "$M/ft-resource-gate.sh" "$K1/ft-resource-gate.sh" && bad "변이5 준비 실패(치환 0)" || {
   pgrep_checks "$M" >/dev/null 2>&1 && bad "변이5: -a 제거가 검출되지 않음" || ok "변이5 검출"; }
 
 # 변이 4 — gate 의 codex 센서를 옛 `-f 'codex( |$)'` 로 되돌림 → ⓝ 이 «실패»해야 한다
 M="$T/mut-codexf"; mkdir -p "$M"; cp "$K1"/ft-*.sh "$M"/
-sed "s/^agent_scan codex -a -x codex\$/agent_scan codex -f 'codex( |\$)'/" "$K1/ft-resource-gate.sh" > "$M/ft-resource-gate.sh"
+sed "s/^\([[:space:]]*\)agent_scan codex -a -x codex\$/\1agent_scan codex -f 'codex( |\$)'/" "$K1/ft-resource-gate.sh" > "$M/ft-resource-gate.sh"
 cmp -s "$M/ft-resource-gate.sh" "$K1/ft-resource-gate.sh" && bad "변이4 준비 실패(치환 0)" || {
   pgrep_checks "$M" >/dev/null 2>&1 && bad "변이4: codex -f 복귀가 검출되지 않음" || ok "변이4 검출"; }
 

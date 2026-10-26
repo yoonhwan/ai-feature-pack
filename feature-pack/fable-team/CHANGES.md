@@ -1,3 +1,10 @@
+## 2026-10-26 — r921 자원 조건으로 멈추지 않는다 — 회수 먼저 → 그래도 넘으면 WARN 1줄 + 진행 (1.1.251)
+
+- 정지는 디스크 하한과 측정 실패 둘뿐이다. 스왑·메모리·압력·에이전트 수가 넘으면 회수(ft-reclaim-capped.sh · 7초 상한) 1회 뒤 WARN 1줄을 남기고 spawn·재개를 계속한다. 리서치 1석 고정 상한은 지웠다.
+- 디스크 하한 FT_DISK_HARD_MIN_MIB 는 양의 정수만 받는다(이상 값 = ERROR + exit 3 · 기본값으로 문을 열지 않는다). WARN 줄은 모든 항목을 평가한다.
+- 팀 나노 상한은 cap+1 까지 열고, 그 위는 유휴·끝난 나노 회수 1회 → 재검 → 그래도면 순번 큐 + master 알림(정지 아니라 순서 바꿈). «좌석 셈~개설» 은 nano-cap 잠금으로 직렬화한다.
+- 시험 test_resource_warn_proceed_r921.sh 71 PASS(/bin/bash 3.2) · 변이 8/8 · 외부 DA astra r3 APPROVE(BYZ design/harness/evidence/r921-da6/VERDICT-r921-astra-approve.md · 승인판 3960cd25 · 보류 2회 뒤 하드 룰 14 로 Opus 재spawn). 1.1.246~1.1.250 은 열린 PR #326~#329 몫.
+
 ## 2026-10-26 — r939 승계(retire)는 «스스로 등록한 곧 끝나는 일»을 죽이지 않고 후계에게 넘긴다 (1.1.250)
 
 - **판정을 «짐작»에서 «등록» 으로 (DA⑥ r1 반송 H1)** — ft-bg-finite.sh 신규: 끝나는 작업을 띄우는 도구(ft-da-codex.sh · install.sh · ft-scratch-repo.sh)가 시작할 때 자기 pid·pgid·lstart·상한을 장부 `<데이터 루트>/.fable-team/state/bg-finite.tsv` 에 한 줄 적고 trap EXIT 에서 지운다. 명령줄 허용 목록·env 판정은 지웠다.
