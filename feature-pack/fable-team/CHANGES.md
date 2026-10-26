@@ -1,8 +1,9 @@
-## 2026-10-26 — r902 위성 mini 나노 도구 ft-sat-nano (1.1.246)
+## 2026-10-26 — r902 위성 mini 나노 도구 ft-sat-nano (1.1.248)
 
 - 위성 머신에서 mini 나노를 여는·일 맡기는·결과 받는·닫는 도구 ft-sat-nano(open·task·fetch·close). 소켓 칸 빈 확인 줄 rc6 · --forget 뒤 마감 재검사 · 시험 시간 의존 제거(r5 확정).
 - 시험 test_sat_nano_r902.sh 106 PASS(기본 셸 ×5 · /bin/bash 3.2 ×2) · 변이 8종 감지 · kit cmp0 · arch 확정 APPROVE(BYZ design/harness/evidence/r902-da6/VERDICT-r902-arch-confirm.md · 승인판 a2680569).
-- 이 PR 은 r922a(PR #325 · 1.1.245) 위에 쌓였다. #325 가 먼저 착지한다.
+- astra r1 반송 1곳(시험 대역 tmuxc 표식 없으면 세션 0 · 새 칸 Ⓙ'') 고침 → 107 PASS · 외부 DA astra r2 APPROVE(BYZ design/harness/evidence/r902-da6/VERDICT-r902-astra-approve.md · 승인판 4e72b51b).
+- 1.1.247 은 r928(PR #328) 몫. #328 이 먼저 착지하면 이 PR 은 main 병합 뒤 착지한다.
 
 ## 2026-10-26 — r922a 초안 모드 골 표 검증 실패 = planner [긴급] 대신 WARN 1줄 (1.1.245)
 
