@@ -5,10 +5,9 @@
 #   ⓔ --done = 주인 자신·정확 대조·lsof 실패 rc4·탭/개행 rc2
 #   ⓤ 빠른 길의 «못 읽음» = 빠른 길 아님(symbolic-ref rc128) · ⓥ 재확인 예산(tmux 8초 멈춤 = 7초 상한·호출 뒤 마감 검사)
 #   ⓦ 빠른 길 호출 나무 전수 rc 검사(judged 안 merge-base·git log 포함) — 출력은 있으나 rc128 = 못 읽음 = 지우기 0(DA⑥ r2 반례 1)
-#   ⓧ r10.5(DA⑥ r3 반송 r4): 지우는 길이 부르는 «모든 외부 명령»(git·date·awk·tmux·lsof · cut 은 호출 0) 각 호출에 «정상 출력 + rc128» / «빈 출력 + rc128» 주입 = 지우기 0
-#      — 호출 자리마다 «N번째 맞는 호출만» 실패(카운터 파일)로 judged 안 재호출까지 따로 본다 · 대조(주입 0) = 지운다 · origin/main 확인 rc128 = main 으로 후퇴 0 · 이름 «-extra» = 0
-#   ⓨ 기계 검사(손 전수 표 대체): 지우는 길 함수 범위에서 `$(`·백틱·파이프 0 · cap 호출 목록 = CALLTREE 자동 생성(FT_CALLTREE_OUT)
-#   ⓕ 기존 시험 4종 + kit cmp0 · 변이 15 — 변이는 «기대한 칸 이름» 의 FAIL 만 있을 때 검출로 센다(다른 FAIL 섞이면 검출 아님)
+#   ⓨ 기계 검사(손 전수 표 대체): 지우는 길 함수(출구 게이트 delete_copy 포함) 범위에서 `$(`·`<(`·백틱·파이프 0 · 삭제 명령은 delete_copy 안에만 · CALLTREE 자동 생성(FT_CALLTREE_OUT)
+#   ⓕ 기존 시험 4종 + 출구 게이트 시험(test_scratch_exit_gate_r897.sh — 이웃 생존 · --gate · 주입 전수 · 변이) + kit cmp0 · 변이 9 — «기대한 칸 이름» 의 FAIL 만 있을 때 검출
+#   (r10.5 의 ⓧ 주입 칸은 r5 에서 이웃 생존 단언과 함께 test_scratch_exit_gate_r897.sh 로 옮겼다)
 # 임시 git 저장소·가짜 tmux/lsof/date·임시 TMPDIR 만 쓴다 — 실 저장소·실 세션·실 삭제 0(임시 폴더 안만).
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
@@ -209,11 +208,11 @@ if want ⓥ; then
     && ok "ⓥ tmux 8초 멈춤 = ${EL}초에 끝남(예산 7초) · 지우기 0 + WARN" || bad "ⓥ el=${EL}s [$OUT] V1=$([ -d "$V1" ] && echo 남음 || echo 지움)"
   # ⓥ2 호출 «뒤» 마감 검사: tmux·lsof 는 빨리 끝나고 시계가 호출 직후에 마감을 넘은 상황
   rm -f "$ARMED"; : > "$TSV"
-  PR="$SCR/repo-probe-1-1"; mkdir -p "$PR"; reg_add "$PR" gone-pr 90000
-  sc --sweep; DSKEW_AT=999999 sc --sweep >/dev/null 2>&1; ND="$(cat "$T/date.n" 2>/dev/null || echo 0)"   # '+%s' 호출 수 계측(마지막 = 마감 검사)
+  P0="$(mk gone-v0)"; age_reg "$P0" 90000   # r5: 같은 꼴 실사본으로 «+%s» 호출 수를 잰다(마지막 = 삭제 직전 마감 검사)
+  sc --sweep; DSKEW_AT=999999 sc --sweep >/dev/null 2>&1; ND="$(cat "$T/date.n" 2>/dev/null || echo 0)"
   rm -f "$TSV"; V2="$(mk gone-v2)"; age_reg "$V2" 90000
   DSKEW_AT="$ND" sc --sweep
-  { [ -d "$V2" ] && printf '%s' "$OUT" | grep -q '재확인 마감 초과'; } \
+  { [ -d "$V2" ] && printf '%s' "$OUT" | grep -q '삭제 직전 마감 초과'; } \
     && ok "ⓥ 호출 뒤 마감 초과(ND=$ND) = 그 항목 지우기 0 + WARN" || bad "ⓥ 마감 [$OUT] V2=$([ -d "$V2" ] && echo 남음 || echo 지움)"
 fi
 
@@ -255,103 +254,35 @@ EOF2
   rm -f "$BIN/git"
 fi
 
-# ── ⓧ 지우는 길의 «모든 외부 명령» 주입 — 출력 있음/없음 + rc128 = 못 읽음 = 지우기 0 (DA⑥ r3 반례 1~4 · r10.5) ─────
-if want ⓧ; then
-  # 판정 기준 트리에 «사본 sha8 이 적힌 옛 design 문서» — judged 가 merge-base(rc1) → git grep → git log → date 를 «전부» 지나게
-  git -C "$G" checkout -q --orphan xbranch; echo x > "$G/x.txt"; git -C "$G" add x.txt; cm "$G" cx
-  XSHA="$(git -C "$G" rev-parse HEAD)"; X8="$(printf '%.8s' "$XSHA")"; git -C "$G" checkout -q main
-  git -C "$R" fetch -q origin
-  mkdir -p "$R/design/x"; printf 'verdict %s\n' "$X8" > "$R/design/x/VERDICT.md"; git -C "$R" add design/x/VERDICT.md
-  GIT_COMMITTER_DATE='2020-01-01T00:00:00' GIT_AUTHOR_DATE='2020-01-01T00:00:00' cm "$R" xdoc; XMAIN="$(git -C "$R" rev-parse HEAD)"
-  IBIN="$T/ibin"; mkdir -p "$IBIN"
-  RG="$(command -v git)"; RA="$(command -v awk)"; RC="$(command -v cut)"
-  # 주입 대역 하나를 명령 이름 6개로 깐다: INJ_CMD 가 내 이름이고 인자에 INJ_SPOT 이 있으면 그 «N번째 맞는 호출» 만 INJ_OUT(real=진짜 출력 · empty=빈 출력) + rc128
-  cat > "$IBIN/inj" <<EOF
-#!/bin/sh
-me=\${0##*/}
-case "\$me" in git) real="$RG";; date) real=/bin/date;; awk) real="$RA";; cut) real="$RC";; *) real="$BIN/\$me";; esac
-printf '%s %s\n' "\$me" "\$*" >> "$T/inj.calls"
-if [ "\$me" = "\${INJ_CMD:-}" ]; then
-  case " \$* " in *"\${INJ_SPOT:-}"*)
-    n=\$(( \$(cat "$T/inj.n" 2>/dev/null || echo 0) + 1 )); echo "\$n" > "$T/inj.n"
-    if [ "\$n" = "\${INJ_N:-1}" ]; then
-      printf '%s %s\n' "\$me" "\$*" >> "$T/inj.fired"
-      [ "\${INJ_OUT:-real}" != real ] || "\$real" "\$@"
-      exit 128
-    fi;;
-  esac
-fi
-exec "\$real" "\$@"
-EOF
-  chmod 755 "$IBIN/inj"; for c in git date awk cut tmux lsof; do ln -sf inj "$IBIN/$c"; done
-  xsc() { : > "$T/tmux.n"; : > "$T/lsof.n"; rm -f "$T/inj.n" "$T/inj.fired"; : > "$T/inj.calls"
-    OUT="$(env PATH="$IBIN:$BIN:$PATH" FT_RES_ROOT="$R" FT_SCRATCH_DIR="$SCR" TMPDIR="$TMPD" FT_SCRATCH_OWNER=live-owner \
-      FT_SCRATCH_MAIN="${XM-$XMAIN}" FT_SCRATCH_JUDGE_BUDGET=20 INJ_CMD="${INJ_CMD:-}" INJ_SPOT="${INJ_SPOT:-}" INJ_N="${INJ_N:-1}" INJ_OUT="${INJ_OUT:-real}" \
-      bash "$SUT" "$@" 2>&1)"; RC=$?; }
-  xi=0
-  xmk() { xi=$((xi+1)); : > "$TSV"; : > "$ARMED"; : > "$SLOG"; cwd_rows / 1 zsh
-    MAIN="${XM-$XMAIN}" OWN="gone-x$xi" sc "$XSHA" --repo "$G"; CP="$OUT"; }
-  xcell() { # <명령> <자리> <N> <real|empty> <칸 이름>
-    xmk; [ -d "$CP" ] || { bad "ⓧ $5 사본 생성 실패 [$CP]"; return; }
-    INJ_CMD="$1" INJ_SPOT="$2" INJ_N="$3" INJ_OUT="$4" xsc --sweep
-    if [ ! -s "$T/inj.fired" ]; then bad "ⓧ $5 주입이 안 걸림(빈 칸)"; return; fi
-    { [ -d "$CP" ] && ! grep -qF "삭제 $CP" "$SLOG"; } && ok "ⓧ $5 = 못 읽음 = 지우기 0" || bad "ⓧ $5 지움 [$OUT]"
-  }
-  # 대조: 주입 0 이면 같은 사본을 지운다(빠른 길 끝까지) — 아래 칸의 «지우기 0» 이 다른 이유가 아님 + 호출 자리 수를 잰다
-  xmk; xsc --sweep
-  { [ -n "$CP" ] && [ ! -d "$CP" ] && grep -q "judged" "$SLOG"; } && ok "ⓧ 대조(주입 0) = 빠른 길로 지운다" || bad "ⓧ 대조 [$OUT] CP=$CP"
-  cp "$T/inj.calls" "$T/inj.calls.ctl"
-  cnt() { awk -v c="$1" -v s="$2" '$1==c && (s=="" || index(" " substr($0, length(c)+2) " ", s)){n++} END{print n+0}' "$T/inj.calls.ctl"; }
-  [ "$(cnt cut "")" = 0 ] && ok "ⓧ cut = 지우는 길에서 호출 0(이름꼴은 셸 정규식)" || bad "ⓧ cut 호출 $(cnt cut "")회"
-  for row in "git|rev-parse HEAD" "git|symbolic-ref" "git|--git-dir" "git|merge-base" "git|grep -F" "git|log -1" \
-             "date|+%s" "tmux|list-sessions" "lsof|-d cwd" "awk|/^p/"; do
-    c="${row%%|*}"; s="${row#*|}"; k="$(cnt "$c" "$s")"
-    [ "$k" -gt 0 ] || { bad "ⓧ $c:$s 대조에서 호출 0(시험 자리 틀림)"; continue; }
-    n=1; while [ "$n" -le "$k" ]; do
-      for mode in real empty; do xcell "$c" "$s" "$n" "$mode" "$c:$s#$n $mode"; done
-      n=$((n+1))
-    done
-  done
-  # 이름 «-extra»: 이름꼴이 아니면 빠른 길 아님(옛 cut 판은 빈 출력 + rc128 에 통과) — 같은 sha·판정 끝·주인 없음·1분 사본
-  : > "$TSV"; : > "$ARMED"; : > "$SLOG"; XE="$SCR/repo-$X8-1-1-extra"
-  git -C "$G" worktree add -q --detach "$XE" "$XSHA" >/dev/null 2>&1; reg_add "$XE" gone-xe 60
-  xsc --sweep
-  { [ -d "$XE" ] && ! grep -qF "삭제 $XE" "$SLOG"; } && ok "ⓧ 이름 repo-<sha8>-1-1-extra = 빠른 길 아님 · 지우기 0" || bad "ⓧ 이름 -extra 지움 [$OUT]"
-  # origin/main 확인: rc1(정말 없음)일 때만 main 으로 — rc128 은 못 읽음 = 판정 안 끝남(DA⑥ r3 반례 3)
-  git -C "$R" update-ref -d refs/remotes/origin/main
-  XM="" xmk; XM="" xsc --sweep
-  { [ ! -d "$CP" ] && grep -q "judged" "$SLOG"; } && ok "ⓧ verify 대조(origin/main 없음 rc1) = main 기준으로 지운다" || bad "ⓧ verify 대조 [$OUT]"
-  for mode in real empty; do
-    XM="" xmk; [ -d "$CP" ] || { bad "ⓧ verify $mode 사본 생성 실패"; continue; }
-    XM="" INJ_CMD=git INJ_SPOT="--verify origin/main" INJ_N=1 INJ_OUT="$mode" xsc --sweep
-    { [ -s "$T/inj.fired" ] && [ -d "$CP" ] && ! grep -qF "삭제 $CP" "$SLOG"; } && ok "ⓧ verify origin/main rc128 $mode = main 으로 후퇴 0 · 지우기 0" || bad "ⓧ verify $mode 지움 [$OUT]"
-  done
-fi
-
 # ── ⓨ 기계 검사 — 지우는 길 함수 범위에 `$(`·백틱·파이프 0 (손 전수 표 대체 · CALLTREE 자동 생성) ─────
 if want ⓨ; then
   # 지우는 길 함수 + 그 함수들이 부르는 도우미(표시 전용 kb·gib·first_paths 와 cap 자신은 밖 · cwd_parse 는 파이프 1개를 pipefail 로 rc 전달 — 아래 따로 본다)
-  RANGE="fast judged main_ref orphans cwd_holder recheck remtmo overbudget sweep_run done_run has_line has_ctl phys reg_owner tmux_sessions tmux_sessions_tmo bounded rm_copy drop_reg held_report"
+  RANGE="delete_copy gate_rows gate_base gfail gok past_deadline phys_tmo gq fast judged main_ref orphans cwd_holder remtmo sweep_run done_run has_line has_ctl phys reg_owner tmux_sessions tmux_sessions_tmo bounded drop_reg held_report"
   body() { awk -v f="$1" '$0 ~ "^"f"\\(\\) \\{" {on=1; s=NR} on{printf "%d\t%s\n", NR, $0} on && (/^}/ || (NR==s && /;[[:space:]]*}[[:space:]]*(#.*)?$/)) {exit}' "$SUT"; }
   code() { sed -E 's/^([0-9]+\t)[[:space:]]*#.*$/\1/; s/[[:space:]]+# .*$//'; }   # 주석 줄·줄 끝 주석(« # ») 빼고 코드만
   : > "$T/range"; miss=""
   for f in $RANGE; do b="$(body "$f")"; [ -n "$b" ] || miss="$miss $f"; printf '%s\n' "$b" | sed "s/^/$f\t/" >> "$T/range"; done
   [ -z "$miss" ] && ok "ⓨ 지우는 길 함수·도우미 ${RANGE// /·} 전부 찾음" || bad "ⓨ 함수 못 찾음:$miss"
   [ "$(body cwd_parse | code | grep -c ' | ')" = 1 ] && [ "$(body cwd_parse | code | grep -cE '\$\([^(]|`')" = 0 ] && ok "ⓨ cwd_parse = 파이프 1개(pipefail 로 rc 전달 · cap 으로 받는 곳 전부 rc 검사)" || bad "ⓨ cwd_parse 꼴 바뀜"
-  HITS="$(cut -f2- "$T/range" | code | grep -E '\$\([^(]|`| \| ')"
-  [ -z "$HITS" ] && ok "ⓨ 범위 안 \`\$(\`·백틱·파이프 = 0" || bad "ⓨ 범위 안 rc 안 보는 꼴: $(printf '%s' "$HITS" | head -3 | tr '\n' ' ')"
+  HITS="$(cut -f2- "$T/range" | code | grep -E '\$\([^(]|<\(|`| \| ')"
+  [ -z "$HITS" ] && ok "ⓨ 범위 안 \`\$(\`·\`<(\`·백틱·파이프 = 0" || bad "ⓨ 범위 안 rc 안 보는 꼴: $(printf '%s' "$HITS" | head -3 | tr '\n' ' ')"
+  # r5: 삭제 명령(rm -r · worktree remove)은 delete_copy 안에만 · 옛 삭제 함수 이름 0
+  ALLC="$(awk '{printf "%d\t%s\n", NR, $0}' "$SUT" | code)"; DC="$(body delete_copy | cut -f1)"
+  OUTSIDE="$(printf '%s\n' "$ALLC" | grep -E 'rm -r|worktree remove' | while IFS="$(printf '\t')" read -r n rest; do printf '%s\n' "$DC" | grep -qx "$n" || printf '%s\t%s\n' "$n" "$rest"; done)"
+  [ -z "$OUTSIDE" ] && [ "$(printf '%s\n' "$ALLC" | grep -cE 'rm -r|worktree remove')" -gt 0 ] && ok "ⓨ 삭제 명령은 delete_copy 안에만" || bad "ⓨ delete_copy 밖 삭제 명령: $(printf '%s' "$OUTSIDE" | head -2 | tr '\n' ' ')"
+  printf '%s\n' "$ALLC" | grep -qE '(^|[^_a-z])(rm_copy|recheck)([^_a-z]|$)' && bad "ⓨ 옛 삭제 함수 이름(rm_copy·recheck) 남음" || ok "ⓨ rm_copy·recheck 이름 0"
   NCAP="$(cut -f2- "$T/range" | code | grep -c 'cap ')"
   grep -q '^set -uo pipefail' "$SUT" && [ "$NCAP" -gt 0 ] && ok "ⓨ 전역 pipefail · cap 호출 ${NCAP}곳" || bad "ⓨ pipefail/cap 없음(cap=$NCAP)"
   if [ -n "${FT_CALLTREE_OUT:-}" ]; then
-    { echo "# CALLTREE r897 r10.5 — 지우는 길 함수의 외부 출력 받기(cap) 전수 · 자동 생성(test ⓨ · 손 표 0)"; echo
+    { echo "# CALLTREE r897 r5 — 지우는 길(출구 게이트 delete_copy 포함) 함수의 외부 출력 받기(cap·gq) 전수 · 자동 생성(test ⓨ · 손 표 0)"; echo
       echo "| 함수 | 줄 | 코드 |"; echo "|---|---|---|"
-      awk -F'\t' 'index($3, "cap "){c=$3; sub(/^[[:space:]]+/, "", c); gsub(/\|/, "\\|", c); printf "| %s | %s | `%s` |\n", $1, $2, c}' "$T/range"; } > "$FT_CALLTREE_OUT"
+      awk -F'\t' 'index($3, "cap ") || index($3, "gq "){c=$3; sub(/^[[:space:]]+/, "", c); gsub(/\|/, "\\|", c); printf "| %s | %s | `%s` |\n", $1, $2, c}' "$T/range"; } > "$FT_CALLTREE_OUT"
   fi
 fi
 
 # ── ⓕ 기존 시험 4종 + kit cmp0 ────────────────────────────────────────────────────────
 if want ⓕ; then
-  for t in test_scratch_repo.sh test_scratch_judged_r645.sh test_scratch_sweep_live_cwd_r548.sh test_scratch_repo_sparse_auto_done_r891.sh; do
+  for t in test_scratch_repo.sh test_scratch_judged_r645.sh test_scratch_sweep_live_cwd_r548.sh test_scratch_repo_sparse_auto_done_r891.sh test_scratch_exit_gate_r897.sh; do
     ( cd "$HERE" && bash "./$t" ) > "$T/$t.log" 2>&1; r=$?
     { [ "$r" = 0 ] && grep -q '^ALL PASS' "$T/$t.log"; } && ok "ⓕ 기존 $t = ALL PASS" || bad "ⓕ 기존 $t rc=$r ($(grep -c '^FAIL' "$T/$t.log") FAIL)"
   done
@@ -373,20 +304,14 @@ if want M; then
   }
   mut 1-pwd 's#pwd -P#pwd#' V0 'V0 '
   mut 2-hasline 's#^has_line() {.*#has_line() { return 1; }#' 'ⓑ' 'ⓑ '
-  mut 3-symbolic 's#\[ "\$r" = 1 \] || return 1#:#' 'ⓒ' 'ⓒ C2='
-  mut 4-recheck 's#recheck "\$p" "\${own:--}"; rc=\$?#rc=0#' 'ⓓ' 'ⓓ '
+  # 변이 3-symbolic·6-rc128(빠른 길 ③ detached 검사)은 r5 에서 뺐다 — 출구 게이트 G7 이 같은 조건을 다시 재서 «그 조건 하나만» 거짓인 입력을 만들 수 없다(고침 11) · 삭제 쪽 증거 = 게이트 시험 변이 g7-detached
+  mut 4-gate-owner 's#has_line "\$S" "\$own" \&\& { gfail G6 1#false \&\& { gfail G6 1#' 'ⓓ' 'ⓓ '
   mut 5-owner 's#\[ "\$REG_OWN" = "\$ME" \] || die "주인 아님.*#:#' 'ⓔ' 'ⓔ '   # 첫 칸이 남의 사본을 지우면 뒤 ⓔ 칸이 연쇄로 빨강 — ⓔ 밖 FAIL 은 검출 아님
-  mut 6-rc128 's#\[ "\$r" = 1 \] || return 1#git -C "\$p" symbolic-ref -q HEAD >/dev/null 2>\&1 \&\& return 1#' 'ⓤ' 'ⓤ rc128'
   mut 7-overbudget 's#^  \[ \$(( now - RBUD )) -gt 0 \]#  return 1#' 'ⓥ' 'ⓥ 마감'
-  mut 8-tmo 's#cap S tmux_sessions_tmo "\$t"#cap S tmux_sessions#' 'ⓥ' 'ⓥ el='
+  mut 8-tmo 's#cap S tmux_sessions_tmo "\$r"#cap S tmux_sessions#' 'ⓥ' 'ⓥ el='
   # r10.5 변이: «rc 검사 하나 지우기»(문법 유지) → 그 주입 칸만 빨강(다른 FAIL 섞이면 검출 아님)
   mut 9-mergebase 's#  case "\$rc" in 0) return 0;; 1) ;; \*) echo "WARN ft-scratch-repo judged — merge-base 실패.*#  case "$rc" in 0) return 0;; esac#' 'ⓦ' 'ⓦ mergebase'
   mut 10-logrc 's#\[ "\$rc" = 0 \] || { echo "WARN ft-scratch-repo judged — git log 실패.*#:#' 'ⓦ' 'ⓦ log'
-  mut 11-judged-sha 's#cap sha git -C "\$1" rev-parse HEAD 2>/dev/null || return 1; h8=#cap sha git -C "$1" rev-parse HEAD 2>/dev/null; h8=#' 'ⓧ' 'ⓧ git:rev-parse HEAD#2 real'
-  mut 12-judged-date 's#cap now date +%s || { echo "WARN ft-scratch-repo judged — 시계(date) 실패.*#cap now date +%s#' 'ⓧ' 'ⓧ date:\+%s#[0-9]+ real'
-  mut 13-mainref 's#\*) echo "WARN ft-scratch-repo judged — origin/main 확인 실패.*#*) printf -v "$1" "%s" main;;#' 'ⓧ' 'ⓧ verify '
-  mut 14-name 's#\[0123456789\]+\$'"'"'#[0123456789]+'"'"'#' 'ⓧ' 'ⓧ 이름'
-  mut 15-awk 's#cap CWDROWS cwd_parse "\$RAW" || LSOF_OK=0#cap CWDROWS cwd_parse "$RAW"#' 'ⓧ' 'ⓧ awk:/\^p/#1 '
   mut 16-subst 's#^  h="\${BASH_REMATCH\[1\]}"#  h="$(printf %s "${BASH_REMATCH[1]}")"#' 'ⓨ' 'ⓨ 범위 안'
 fi
 

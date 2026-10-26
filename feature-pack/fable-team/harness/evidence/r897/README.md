@@ -59,3 +59,24 @@ DA⑥ r3 반례 4건(cut rc 미검사 · date rc 미검사 · origin/main 확인
 
 - ⓧ = 대역 하나(`inj`)를 git·date·awk·cut·tmux·lsof 이름으로 깔고, 대조(주입 0) 실행에서 호출 자리별 횟수를 잰 뒤 «N번째 맞는 호출만» 실패시킨다 — 자리마다 «진짜 출력 + rc128» / «빈 출력 + rc128» 두 꼴 · 주입이 실제로 걸렸는지(`inj.fired`)도 본다(빈 칸 = FAIL). judged 안 `rev-parse HEAD` 재호출은 #2 로 따로 검증.
 - 대조: 주입 0 = 같은 사본을 빠른 길로 지운다 · origin/main 없음(rc1) = main 기준으로 지운다 — «지우기 0» 이 다른 이유가 아님.
+
+## r5 (DA⑥ r4 HOLD 3 → fable 설계 «삭제 직전 출구 게이트 하나» + arch 확정 고침 11 · Opus 나노)
+
+r4 반례(`< <(cat TSV)` rc 버림 · 무시된 `cap kbv kb` 로 열 밀림 → `reg/` 삭제 · `worktree remove` 실패 → `rm` 후퇴 · 시험이 이웃 오삭제를 못 봄)는 «입력값 하나가 조용히 틀리면 지운다» 의 네 번째 꼴이다. 입력을 전수로 막지 않고 **출구에서** 막았다.
+
+- **`delete_copy <경로> <reg|tmp> <주인|-> [sweep|done]`** — `rm`·`worktree remove` 를 부르는 유일한 함수(시험 ⓨ 가 파일 전체에서 센다). 조건은 전부 그 자리에서 다시 읽는다: G0 경로 글자(빈·탭·개행·상대·`.`/`..`·`/`·HOME·ROOT·베이스 자체) · G1 베이스 «바로 아래»(등록 줄 4칸 = 생성 당시 베이스 · 옛 3칸 줄은 기본 TMPDIR·지금 FT_SCRATCH_DIR) · G2 이름꼴 · G5 등록부를 지금 읽어 «물리 경로 == P» 정확히 1줄(주인·시각 칸) · G3 시계·70초 마감 · G4 자기 lsof(인자로 넘김) · G6 주인 없음 · 자격 재계산(나이 ≥ 24시간 또는 빠른 길) · G7 사본 루트 = toplevel · git-dir = `<공용>/worktrees/<이름>`(bare 원 저장소 포함) · detached(rc1 만) · tmp 는 G5′ `.git` 없음 · G6′ 내 uid ∧ 나이 재측정 · G8 장치·inode.
+- **후퇴 없는 삭제** — 등록 사본: 제거 직전 toplevel·git-dir·inode 재확인 → 마감 재검사 → `worktree remove` 하나(실패 = rc4 · 등록 줄 유지 · ERROR · 다음 sweep 재시도) → 폴더 없음 확인 → `drop_reg <원문 경로>`(0줄 = rc≠0). tmp: `<베이스>/.reaping/` 로 이동 → inode 대조(다르면 원위치 · rc2) → 제거(실패 = 원위치 · rc4).
+- **rc** 0 삭제 · 1 붙잡음 · 2 못 읽음 = 남은 항목 전부 0 · 3 대상 아님 = 그 항목만 건너뜀(WARN `gate refused <경로> (<조건>)`) · 4 삭제 명령 실패. 진단 입구 `--gate <경로> [--kind] [--owner]`(조건 줄 + rc · 삭제 0).
+- 상류: 등록부 읽기 `cap … cat` rc 검사(`<(…)` 0) · 크기 칸 숫자 아니면 `?`(빈 칸 0 = 열 밀림 0) · 판정 예산 시계 못 읽음도 그 실행 삭제 0.
+- 의도된 변화: 가지(branch) 워크트리 등록 줄(census 사후 등록)은 이제 지우지 않고 `REFUSED (G7 가지 워크트리)` 로 드러난다(설계 §8 · 별 카드 HIL).
+
+| 증거 파일 | 무엇 |
+|---|---|
+| `after-green-r5.txt` | `test_scratch_repo_r897_r10.sh` 전체 원문 51 PASS · ALL PASS (ⓕ 안에서 기존 4종 + `test_scratch_exit_gate_r897.sh` 전체 ALL PASS · kit cmp0 · 변이 9) — 2026-10-27 08:xx 재실행(오빠 결정 2번 뒤 마무리 확인) |
+| `gate-r5.txt` | `test_scratch_exit_gate_r897.sh` 전체 원문 — 모든 칸 끝 이웃 8 생존 · 주입 전수 · 변이 14 |
+| `bash32-r5.txt` | 같은 게이트 시험(변이 제외)을 `/bin/bash 3.2` 로 돌린 원문 |
+| `before-red-r5.txt` | 새 게이트 시험을 «고치기 전 판(21641b2e)» 에 돌린 원문 = 빨강 |
+| `CALLTREE-r897-r5.md` | 지우는 길(delete_copy 포함)의 cap·gq 호출 전수 — 시험 ⓨ 자동 생성 |
+
+## 알려진 한계 1줄 (오빠 결정 2번 · 10-27 07:4x · 범위 줄여 지금 착지)
+판정 끝 사본 «자동 삭제(AUTO-DONE)» 는 이 카드에서 넣지 않는다(만들기 길 접음 — 자동 삭제는 별 카드). 지금 사본을 지우는 길은 둘뿐이다 — 수동 `--done`(주인 자신) 과 `--sweep`(주인 죽음 ∧ 24시간 ∧ detached ∧ 판정 끝). 둘 다 출구 게이트 `delete_copy` 하나를 지난다.
