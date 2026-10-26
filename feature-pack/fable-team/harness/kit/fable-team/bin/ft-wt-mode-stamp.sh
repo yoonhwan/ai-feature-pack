@@ -6,8 +6,8 @@
 #   기본 = --dry-run(목록만 · 쓰기 0) · --apply = 표식 파일 1개씩 쓰기(체크아웃 변경 0 · 되돌림 = 그 파일 삭제) · --apply 는 master 손
 #   대상 밖: 표식 있는 것(그대로) · 디스크에 없는 워크트리 · .worktrees 밖 · design/teams/ 없는 리포(= SKIP · 팩 꼴)
 #   출력: 줄마다 `DRY|STAMP <경로> <값>` · `HAS <경로> <값>` · 끝줄 `TOTAL worktrees=<n> new=<n> has=<n> err=<n> mode=dry|apply`
-#   r843 r4: 표식 «있음» = -e 또는 -L(끊긴 심링크 포함) · 있으면 읽어 정상 값(sparse · legacy-full · full <사유 10자+>)일 때만 그대로
-#     못 읽음·값 아님·심링크·폴더 = 경로마다 `ERROR 표식 자리 이상: <표식> — <이유> · <워크트리>` 줄 + 끝 rc 1 (--apply 는 이런 자리에 쓰기 0)
+#   r843 r4: 표식 «있음» = -e 또는 -L(끊긴 심링크 포함) · 못 읽음·심링크·폴더 = 경로마다 `ERROR 표식 자리 이상: <표식> — <이유> · <워크트리>` 줄 + 끝 rc 1 (--apply 는 이런 자리에 쓰기 0)
+#   r843 r5(외부 DA r3 반례 ④): 값 글자 꼴 해석 0 — 읽을 수 있는 일반 파일이면 값이 무엇이든 있음(`HAS <워크트리> <값>`) = 쓰기 0
 #   --apply 는 «없음(ENOENT)» 에만 쓴다 · 쓰기 뒤 다시 읽어 값 대조 — 다르면 `ERROR 표식 쓰기 실패: <표식>` · 끝 rc 1
 #   --unmarked 도 읽기 실패(표식 자리·design/teams)를 묻지 않는다 — 경로마다 ERROR 줄 + 끝 rc 1
 #   --unmarked = 탐지만(쓰기 0 · 지우기 0): 표식 없음 ∧ sparse 꺼짐 ∧ design/teams/ 아래 폴더 2개 이상(남의 팀 폴더 있음)
@@ -41,16 +41,11 @@ while IFS= read -r line; do
   gd="$(git -C "$w" rev-parse --path-format=absolute --git-dir 2>/dev/null)" || { echo "WARN gitdir 못 읽음: $w"; continue; }
   mark="$gd/ft-wt-mode"
   cur=""; slot=absent; why=""
-  if [ -L "$mark" ]; then slot=bad; why="심링크 표식 자리"
+  if [ -L "$mark" ]; then slot=bad; why="심링크 표식 자리(일반 파일 아님)"
   elif [ -d "$mark" ]; then slot=bad; why="폴더(일반 파일 아님)"
   elif [ -e "$mark" ]; then
-    if [ -f "$mark" ] && [ -r "$mark" ] && cur="$(head -n 1 "$mark" 2>/dev/null)"; then
-      case "$cur" in
-        sparse|legacy-full) slot=ok;;
-        "full "*) if [ "$(python3 -c 'import sys; print(len(sys.argv[1].strip()))' "${cur#full }" 2>/dev/null || echo 0)" -ge 10 ]; then slot=ok; else slot=bad; why="full 사유 10자 미만"; fi;;
-        *) slot=bad; why="정상 값 아님(sparse · legacy-full · full <사유 10자+> 아님)";;
-      esac
-    else slot=bad; why="못 읽음"; fi
+    if [ -f "$mark" ] && [ -r "$mark" ] && cur="$(head -n 1 "$mark" 2>/dev/null)"; then slot=ok
+    else slot=bad; why="못 읽음(일반 파일 아님 또는 권한)"; fi
   fi
   if [ "$slot" = bad ]; then err=$((err+1)); echo "ERROR 표식 자리 이상: $mark — $why · $w"; continue; fi
   if [ "$slot" = ok ]; then has=$((has+1)); [ "$UNM" = 1 ] || echo "HAS $w $cur"; continue; fi

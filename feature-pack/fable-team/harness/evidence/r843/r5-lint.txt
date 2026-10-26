@@ -1,0 +1,6 @@
+sh -n rc=0
+bash -n post-checkout rc=0
+bash -n stamp rc=0
+bash -n stamp(bin) rc=0
+bash -n test rc=0
+cmp stamp pair rc=0
