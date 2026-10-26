@@ -4,7 +4,8 @@
 #   ⓒ같은 HEAD 사본 묶음(dup) ⓓtmp_pack 잔재 행 ⓔ등록 사본 실재·주인 칸 · 등록 안 된 repo-* 행
 #   ⓕlanded.sh: squash 착지 = 내용착지 · 미착지(다른/바꾼) · 경로만 넣으면 사본 HEAD 를 읽음
 #   ⓖsparse.sh: core.sparseCheckout 칸 · info/sparse-checkout 실재 ⓗcandidates.py: classified+sparse 를 «한 줄=한 후보» 로 합친다 (r2 신규 2종)
-#   ⓘ정적 검사: 스크립트 8개에 지우기·되쓰기 호출(rm -rf · mv · git gc/repack · --prune · worktree remove/prune · branch -d|-D)이 원문에 없다
+#   ⓘ정적 검사: 스크립트 8개에 지우기·되쓰기 호출(rm · mv · git gc/repack · --prune · worktree remove/prune · branch -d|-D)이 원문에 없다 — 옵션 없는 `rm x` · 줄 머리 공백이 든 `  mv x y` 까지 잡는다
+#     알려진 한계 1줄: 이 검사는 원문 문자열만 본다 — 별칭·변수(`$RM`)·`find -delete`·`git clean`·`sh -c "…"` 안에 숨긴 호출은 못 잡는다(그 꼴은 픽스처의 «바뀐 파일 0» 이 잡는다).
 #   ⓙclassify.py --replay: 등록 사본이라도 detached 아님 → 밖:나노 밖 워크트리 · 미커밋 >0 → 밖:미커밋 · 조건충족(주인 없음 ∧ 24h) 수를 따로 센다 (DA r1 #1·#2)
 #   ⓚlanded.sh --branches: 끝난 가지 후보 = 착지 ∧ 워크트리 없음 ∧ 카드가 완성/·아카이브/ 에 있음 · 카드 진행 중·없음은 확정하지 않는다 (DA r1 #3)
 #   변이 1: GIT_OPTIONAL_LOCKS=0 제거 → git status 가 index 를 다시 써 ⓐ 실패. 변이 2: orphans.sh 에 `git gc --prune=now` 한 줄을 넣으면 ⓘ 가 잡는다.
@@ -108,7 +109,7 @@ scan_ro() {  # $1 = 폴더 → 0 = 깨끗 · 1 = 금지 호출 있음
   local f hits rc=0
   for f in "$1"/*.sh "$1"/*.py; do
     [ -f "$f" ] || continue
-    hits="$(sed -e 's/[[:space:]]*#.*$//' "$f" | grep -nE '(^|[;&|(][[:space:]]*)(rm[[:space:]]+-[rf]|mv[[:space:]])|git[^|;]*[[:space:]](gc|repack)([[:space:]]|$)|--prune|worktree[[:space:]]+(remove|prune)|branch[[:space:]]+-[dD]([[:space:]]|$)')" || true
+    hits="$(sed -e 's/[[:space:]]*#.*$//' "$f" | grep -nE '(^|[;&|(])[[:space:]]*(rm([[:space:]]|$)|mv([[:space:]]|$))|git[^|;]*[[:space:]](gc|repack)([[:space:]]|$)|--prune|worktree[[:space:]]+(remove|prune)|branch[[:space:]]+-[dD]([[:space:]]|$)')" || true
     [ -z "$hits" ] || { echo "  $f: $hits"; rc=1; }
   done
   return $rc
@@ -118,6 +119,10 @@ n8="$(ls "$SRC"/*.sh "$SRC"/*.py | wc -l | tr -d ' ')"
 if scan_ro "$SRC"; then ok "ⓘ 스크립트 8개에 지우기·되쓰기 호출 0"; else bad "ⓘ 지우기·되쓰기 호출이 있다"; fi
 mkdir -p "$T/mut2"; cp "$SRC"/orphans.sh "$T/mut2/"; printf 'git -C "$1" gc --prune=now\n' >> "$T/mut2/orphans.sh"
 if scan_ro "$T/mut2"; then bad "변이 2(git gc --prune=now) 를 못 잡음"; else ok "변이 2(git gc --prune=now) 정적 검사가 잡음"; fi
+mkdir -p "$T/mut3" "$T/mut4"; cp "$SRC"/orphans.sh "$T/mut3/"; printf '  mv "$1" x\n' >> "$T/mut3/orphans.sh"
+cp "$SRC"/orphans.sh "$T/mut4/"; printf 'rm x\n' >> "$T/mut4/orphans.sh"
+if scan_ro "$T/mut3"; then bad "변이 3(줄 머리 공백 든 mv) 를 못 잡음"; else ok "변이 3(줄 머리 공백 든 mv) 정적 검사가 잡음"; fi
+if scan_ro "$T/mut4"; then bad "변이 4(옵션 없는 rm 단독) 를 못 잡음"; else ok "변이 4(옵션 없는 rm 단독) 정적 검사가 잡음"; fi
 
 # ⓙclassify.py --replay: 등록 사본의 ①detached ∧ 미커밋 0 만 «안» ②가지 붙음 → 밖 ③미커밋 >0 → 밖 ④조건충족(주인 없음 ∧ 24h) 수
 M="$T/mini2"; mkdir -p "$M" "$T/T/repo-a" "$T/T/repo-b" "$T/T/repo-c" "$T/T/repo-d"

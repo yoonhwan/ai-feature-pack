@@ -143,5 +143,6 @@ done
 ## 7. 원본
 
 - 측정 스크립트(읽기 전용): `evidence/r895/measure.sh` · `scratch.sh` · `landed.sh`(r3 에 `--branches` 추가) · `orphans.sh` · `sparse.sh`(r2 신규) · `classify.py`(r3 에 `--replay` 추가) · `dupstem.py` · `candidates.py`(r2 신규 · 표를 손으로 만들지 않게)
-- 시험: `tests/test_r895_disk_survey_readonly.sh` (픽스처 리포에서 «바뀐 파일 0» + 칸 값 + 변이 2 · r2 에서 sparse·candidates 칸, r3 에서 정적 검사·분류 조건·가지 카드 대조를 더했다)
+- 시험: `tests/test_r895_disk_survey_readonly.sh` (픽스처 리포에서 «바뀐 파일 0» + 칸 값 + 변이 4 · r2 에서 sparse·candidates 칸, r3 에서 정적 검사·분류 조건·가지 카드 대조를 더했다 · r3+ 에서 검사식이 «옵션 없는 `rm x` · 줄 머리 공백이 든 `  mv x y`» 까지 잡는다)
+- **알려진 한계 1줄**: 정적 검사는 스크립트 **원문 문자열만** 본다 — 별칭·변수(`$RM`)·`find -delete`·`git clean`·`sh -c "…"` 안에 숨긴 지우기·되쓰기 호출은 못 잡는다(그 꼴은 픽스처의 «바뀐 파일 0» 칸이 잡는다 · 오빠 결정 10-27 07:4x = 2번 · DA 0).
 - 원 자료: `evidence/r895/raw/` (BYZ·팩 각각 git.txt · branches.txt · **branches-cards.tsv(r3 신규 · 끝난 가지 후보와 카드 대조)** · worktrees.tsv · landed2.tsv · sparse.tsv · classified.tsv(r3 재분류) · candidates.tsv · classified-summary.txt · dup.tsv · dupstem.tsv · orphans.tsv + scratch-registered/unregistered/summary · scratch-safety.tsv · scratch-owner.txt · extra.txt · stats.txt)
