@@ -816,6 +816,18 @@ watch_sample_tick() {
   return 0
 }
 
+# ★r963 미push 하루 요약★ — harness 메인 틱에서만 «하루 1회», 각 워크트리 가지의 로컬 추적 ref 만 세어 master 에 1통(원격 접촉 0 · 표식은 다 본 날만).
+#   팀 틱(FT_TICK_TEAM 있음)은 부르지 않는다 · 백그라운드 + 즉시 반환(틱 루프를 막지 않는다) · FT_TICK_UNPUSHED=0 으로 끔.
+UNPUSHED_SUMMARY="${FT_TICK_UNPUSHED_BIN:-$HERE/ft-unpushed-summary.sh}"
+unpushed_daily() {
+  [ "${FT_TICK_UNPUSHED:-1}" = 1 ] || return 0
+  [ -z "${FT_TICK_TEAM:-}" ] || return 0
+  [ -f "$UNPUSHED_SUMMARY" ] || { echo "$(date '+%F %T') unpushed_daily: missing $UNPUSHED_SUMMARY" >&2; return 0; }
+  if [ "$DRY" = 1 ]; then echo "DRY kind=unpushed-daily bin=$UNPUSHED_SUMMARY"; return 0; fi
+  ( FT_ROOT="${ROOT:-$WT}" FT_TICK_MBOX="$MBOX" bash "$UNPUSHED_SUMMARY" >>"${FT_TICK_UNPUSHED_LOG:-/tmp/ft-unpushed-summary.log}" 2>&1 & ) >/dev/null 2>&1
+  return 0
+}
+
 pass() {
   local rows seat tick role report_to master mok
   watch_sample_tick
@@ -836,6 +848,7 @@ pass() {
   queue_full_watch
   queue_watch
   launchd_watch
+  unpushed_daily
   news_ledger
   rows="$(read_seats 2>&1)" || { echo "$(date '+%F %T') seats.json unreadable ($SEATS): ${rows//$'\n'/ | }" >&2; return 1; }
   [ -n "$rows" ] || { log "no active seat with tick in $SEATS"; return 0; }
