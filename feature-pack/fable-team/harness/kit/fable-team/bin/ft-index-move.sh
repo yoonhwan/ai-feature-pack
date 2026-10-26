@@ -183,6 +183,8 @@ if [ "$DST" = 완성 ]; then
     echo "★되돌리기 실패 — 카드 ${NEW} · 원장 0 · 복구: git mv ${NEW} ${SRC}★" >&2; exit 3
   fi
 fi
+# r1000 r2 (DA⑥ r2 반례 1): 카드 끝 바이트가 줄바꿈이 아니면 덧붙인 기록이 «앞 줄 끝» 에 붙는다 — 기록을 쓰기 전에 줄바꿈 1개를 보장한다(이동 길 전부).
+if [ -s "$NEW" ] && [ -n "$(tail -c 1 "$NEW")" ]; then printf '\n' >> "$NEW"; fi
 if [ "$DST" = 아카이브 ]; then
   printf -- '- %s — %s→아카이브 · 좌석 %s · 판정 %s\n' "$(date '+%Y-%m-%d %H:%M')" "$FROM" "$SEAT" "$DA" >> "$NEW"
 else

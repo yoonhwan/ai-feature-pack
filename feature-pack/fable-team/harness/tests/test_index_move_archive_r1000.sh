@@ -122,7 +122,47 @@ out="$(mv0 "$IDX/대기/kplain.md" 어딘가 2>&1)"; rc=$?
 [ "$rc" = 2 ] && [[ "$out" == *"대기|진행|완성|아카이브"* ]] \
   && ck "⑤ 목적지 오타 → usage 에 네 목적지가 다 보인다" 0 || ck "⑤ usage 목적지 목록 :: $out" 1
 
-# ── 변이 2 — 검사가 «짐»을 지고 있는지: ⓐ 판정 검사 삭제 · 이름 정확 일치를 부분 일치로
+# ── ⑥ DA⑥ r2 반례 1 (오빠 결정 10-27 07:4x «추천대로» = 구현만 고침) — 카드 끝 줄바꿈 없음 × 대기/진행 × 버림/쓸모 없음 4조합
+#   입력은 DA 재현 그대로: 마지막 줄 «- 재설계 해제: #9» 에 줄바꿈 0. 기록은 «독립된 한 줄» 이어야 하고 앞 줄 원문은 불변.
+nonl() { { echo "# 인덱스: $1"; echo "## 상태"; echo "- 정본 영향 없음: 하네스 도구만 바뀐 카드 — 제품 정본 없음"; printf -- '- 재설계 해제: #9'; } > "$2"; }
+one_rec() { [ "$(grep -c '→아카이브' "$1")" = 1 ] && [ "$(tail -2 "$1" | head -1)" = "- 재설계 해제: #9" ] \
+  && tail -1 "$1" | grep -Eq '^- [0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2} — (대기|진행)→아카이브 · 좌석 .+ · 판정 .+$'; }
+cat >> "$DA" <<'EOF'
+## §12 kda1 — 닫힘 (CLOSE)
+닫힘 — kda1 — 버림
+## §13 kda2 — 닫힘 (CLOSE)
+닫힘 — kda2 — 쓸모 없음
+## §14 kda3 — 닫힘 (CLOSE)
+닫힘 — kda3 — 버림
+## §15 kda4 — 닫힘 (CLOSE)
+닫힘 — kda4 — 쓸모 없음
+## §16 kmut4 — 닫힘 (CLOSE)
+닫힘 — kmut4 — 버림
+## §17 knl — 닫힘 (CLOSE)
+닫힘 — knl — 버림
+EOF
+nonl kda1 "$IDX/대기/kda1.md"
+out="$(mv0 "$IDX/대기/kda1.md" 아카이브 --da "$DA#§12" --seat d1)"; rc=$?
+[ "$rc" = 0 ] && one_rec "$IDX/아카이브/$MON/kda1.md" \
+  && ck "반례1 ⓐ 대기 출발 × 버림 · 끝 줄바꿈 없음 → 이동 rc0 · 독립된 기록 정확히 1줄 · 앞 줄 불변" 0 || ck "반례1 ⓐ :: $out" 1
+nonl kda2 "$IDX/대기/kda2.md"
+out="$(mv0 "$IDX/대기/kda2.md" 아카이브 --da "$DA#§13" --seat d2)"; rc=$?
+[ "$rc" = 0 ] && one_rec "$IDX/아카이브/$MON/kda2.md" \
+  && ck "반례1 ⓑ 대기 출발 × 쓸모 없음 · 끝 줄바꿈 없음 → 독립된 기록 1줄" 0 || ck "반례1 ⓑ :: $out" 1
+nonl kda3 "$IDX/진행/kda3.md"
+out="$(mv0 "$IDX/진행/kda3.md" 아카이브 --da "$DA#§14" --seat d3)"; rc=$?
+[ "$rc" = 0 ] && one_rec "$IDX/아카이브/$MON/kda3.md" \
+  && ck "반례1 ⓒ 진행 출발 × 버림 · 끝 줄바꿈 없음 → 독립된 기록 1줄" 0 || ck "반례1 ⓒ :: $out" 1
+nonl kda4 "$IDX/진행/kda4.md"
+out="$(mv0 "$IDX/진행/kda4.md" 아카이브 --da "$DA#§15" --seat d4)"; rc=$?
+[ "$rc" = 0 ] && one_rec "$IDX/아카이브/$MON/kda4.md" \
+  && ck "반례1 ⓓ 진행 출발 × 쓸모 없음 · 끝 줄바꿈 없음 → 독립된 기록 1줄" 0 || ck "반례1 ⓓ :: $out" 1
+card knl "$IDX/대기/knl.md"; printf -- '- 재설계 해제: #9\n' >> "$IDX/대기/knl.md"   # 대조 칸: 끝 줄바꿈이 «있는» 입력은 지금과 같은 결과
+out="$(mv0 "$IDX/대기/knl.md" 아카이브 --da "$DA#§17" --seat d5)"; rc=$?
+[ "$rc" = 0 ] && one_rec "$IDX/아카이브/$MON/knl.md" \
+  && ck "반례1 대조 끝 줄바꿈 있는 입력 → 결과 불변(기록 1줄 · 앞 줄 불변)" 0 || ck "반례1 대조 :: $out" 1
+
+# ── 변이 3 — 검사가 «짐»을 지고 있는지: ⓐ 판정 검사 삭제 · 이름 정확 일치를 부분 일치로
 mut() { local d="$T/mut-$1"; mkdir -p "$d"; cp -p "$BIN"/ft-index-move.sh "$BIN"/ft-index-lint.sh "$BIN"/ft_da_hold_gate.py "$BIN"/ft_git_capped.py "$d/"; echo "$d"; }
 d="$(mut verdict)"; python3 - "$d/ft-index-move.sh" <<'PY'
 import sys
@@ -156,6 +196,17 @@ card kf1 "$IDX/대기/kf1.md"
 out="$(bash "$d/ft-index-move.sh" "$IDX/대기/kf1.md" 아카이브 --da "$DA#§10" --seat f3 2>&1)"; rc=$?
 [ "$rc" = 0 ] && [ -f "$IDX/아카이브/$MON/kf1.md" ] \
   && ck "변이③ 착지 우선 → 첫 매치(버림) 우선으로 → F1 카드가 통과해 버린다(F1 이 잡는 자리)" 0 || ck "변이③ 첫 매치 우선 :: $out" 1
+d="$(mut newline)"; python3 - "$d/ft-index-move.sh" <<'PY'
+import sys
+p = sys.argv[1]; t = open(p, encoding='utf-8').read()
+old = 'if [ -s "$NEW" ] && [ -n "$(tail -c 1 "$NEW")" ]; then'
+assert t.count(old) == 1
+open(p, 'w', encoding='utf-8').write(t.replace(old, 'if false; then'))
+PY
+nonl kmut4 "$IDX/대기/kmut4.md"
+out="$(bash "$d/ft-index-move.sh" "$IDX/대기/kmut4.md" 아카이브 --da "$DA#§16" --seat m4 2>&1)"; rc=$?
+[ "$rc" = 0 ] && ! one_rec "$IDX/아카이브/$MON/kmut4.md" \
+  && ck "변이④ 줄바꿈 보장 삭제 → 기록이 앞 줄 끝에 붙는다(반례1 4칸이 잡는 자리)" 0 || ck "변이④ 줄바꿈 보장 삭제 :: $out" 1
 
 # ── 오염 0 · bash 3.2 문법
 [ -z "$(g "$CR" status --porcelain | grep -v '^?? ' | grep -v 'design/harness/indices/' | grep -v 'design/harness/DA-r1000')" ] \
