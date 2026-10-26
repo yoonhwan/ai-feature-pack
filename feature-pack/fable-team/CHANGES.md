@@ -1,3 +1,10 @@
+## 2026-10-26 — r938 r3 상한 «전 자리» — 자손 전부 회수 · bad 뒤 우회 원장 0 · 둘째 cherry·리서치 fetch 그 자리 REJECT (1.1.247)
+
+- 상한 함수(nf_bound)가 출력을 파이프 대신 임시 파일로 받고, 상한이면 죽이기 전에 ps 로 자손 나무(새 세션 손자 포함)를 모아 TERM → 1초 → KILL · 회수 0.5초(총 ≤ 상한 + 2초). 손자가 출력 fd 를 물고 있어도 기다림 0.
+- 앞 검사가 이미 거절이면 첫 cherry 게이트에서 --override 3종(cherry-override·superseded·suspended)을 빼고 읽기 전용 판정만 — 우회 원장 쓰기 0.
+- 둘째 cherry(origin/main) 상한 = «cherry 게이트(origin/main) 시간 초과 …» REJECT · freshness 0. 리서치 origin/main fetch 실패 = «⑥리서치 origin/main fetch 실패 — 옛 ref 대조 0(R22)» REJECT · 병합 대조 0.
+- 시험 108 PASS(ⓕⓖⓙⓛ 보강·추가 · /bin/bash 3.2) · 고치기 전 판 ⓕⓖⓙⓛ 빨강 · 변이 10종 · kit cmp0. 근거 BYZ design/harness/evidence/r938-da6/DECISION-r938-r3-final.md.
+
 ## 2026-10-26 — r938 나노 닫기 단계 시각 줄 + 외부 호출 상한 — 멈춤 대신 «어느 단계 시간 초과»(r2 · 1.1.246)
 
 - ft-nano-close.sh 가 ④checkpoint 면제 WARN 뒤 단계마다 stderr 로 `STEP <이름> +<초>s` 를 찍는다(⑥증거검사·⑤cherry·fetch·freshness·sheet·ledger·slots). 그 단계들의 출력은 끝에 한꺼번에 나와 «어느 단계에서 멈췄는지» 알 수 없었다(라이브 1.1.244 실 census 닫기 3회 70초+ 무출력). stdout 은 0줄 바뀐다(사본 대조 시험).

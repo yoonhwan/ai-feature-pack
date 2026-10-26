@@ -59,5 +59,25 @@ r2 근거: DA⑥ r1 HOLD → 반송문 `design/harness/evidence/r938-da6/REWORK-
 | test_nano_feat_remote_ref.sh | fail=0 (r938: `_fetch_remote_feat` 가 `nf_fetch` 를 쓰므로 도우미 추출 2줄 + 실패 문구 단언을 «origin/main fetch 실패» 로) |
 | test_r655_nano_name_prefix.sh · test_nano_spawn_teamset_cap.sh · test_da_hold_gate.sh | **선행 빨강** — origin/main 판에서도 같은 FAIL 수(내 변경과 무관) |
 
+## r3 (1.1.247 · 하드 룰 14 재spawn claude-opus-5-5 · 근거 BYZ `design/harness/evidence/r938-da6/DECISION-r938-r3-final.md`)
+astra r2 HOLD(N1~N4)의 «같은 원칙 다른 자리» 를 결정 문서 표의 굵은 3자리 + nf_bound 로 닫았다. 표 밖 변경 0.
+
+| 자리 | 고침 | 시험 |
+|---|---|---|
+| nf_bound (N2) | 출력 = 임시 파일 2개 · 상한이면 죽이기 전에 `ps -A -o pid=,ppid=` 로 자손 나무 수집 → 각 pgid + pid 에 TERM → 1초 → 재수집 합집합 KILL → `p.wait(0.5)` · 한계(상한 전 부모가 끝난 이중 fork 손자) 주석 | ⓖ2: setsid 손자(출력 fd 물림·4초 뒤 쓰기) → 반환 ≤3초 · 반환 뒤 5초 쓰기 0 · 손자 pid 생존 0 |
+| ⑤ cherry 첫째 (N1) | 앞 검사가 bad 면 `--override` 3종을 안 넘긴다 = 읽기 전용 판정 · 우회 원장 쓰기 0 | ⓕ3: 증거 검사 상한 + `--cherry-override dummy` → rc1 · 우회 원장 0행 · 대조군(bad 0) → 원장 1행·CLOSED |
+| ⑤ cherry 둘째 origin/main (N3) | `_om_rc=124` → `⑤cherry 게이트(origin/main) 시간 초과 <초>s/<상한>s · 배수 <n> — 다시: …` · `_om_fetch_fail=1` 로 freshness 0 | ⓛ: 첫째 즉시 REJECT · fetch 성공 · 둘째 6초 · 상한 1초 → rc1 · 그 줄 1줄 · 빈 «origin/main 기준:» 0 · freshness STEP 0 |
+| ⑥ 리서치 fetch (N4) | 실패 = `⑥리서치 origin/main fetch 실패 — 옛 ref 대조 0(R22)` bad · 아래 병합 대조 0 | ⓙ2: `--research` · 원격 없음 + 캐시 origin/main · FEAT=main → rc1 · 그 줄 1줄 · RESEARCH-OK 0 · CLOSED 0 · 대조군(원격 있음) → RESEARCH-OK rc0 |
+
+| 값 | 결과 · 파일 |
+|---|---|
+| 고친 판 | 108 PASS · rc0 · /bin/bash 3.2 · `test-green.txt` |
+| 고치기 전 판(ac19f20e) + 새 시험 | rc1 · FAIL 14 = ⓕ 2 · ⓖ 2 · ⓙ 7(옛 판은 실제로 CLOSED rc0) · ⓛ 3 · `test-red-r3-pre.txt` |
+| 변이 10종(r2 6 + r3 4) | MUTATION-ALL-RED · 각 변이의 기대 칸 이름 단언 · `mutation.txt` |
+| 인접 회귀 | feat_remote_ref 10 · research_r888 101 · suspended 92 · never_started 155 — 전부 rc0 · `regress-r3.txt` |
+| kit | bin == kit cmp0 |
+
+r3 변이 4: ⓕ bad 있을 때 override 빼기 끔 → [ⓕ] · ⓖ 자손 모으기 끔(killpg 만) → [ⓖ] · ⓙ 리서치 fetch 실패를 WARN 로 복귀 → [ⓙ] · ⓛ 둘째 cherry rc124 분기 끔 → [ⓛ].
+
 ## press
 - 필요 없음 — 이 카드는 라이브 오디오 시험 대상이 아니다(press 0). 실 좌석 1회 닫기는 master 몫(설치 뒤 STEP 줄 확인).

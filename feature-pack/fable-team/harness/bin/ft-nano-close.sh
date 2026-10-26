@@ -124,31 +124,64 @@ nf_cap() {  # <고정비> <배수> → min(고정비 + 7 × 배수, 70) · FT_NA
   case "$m" in ''|*[!0-9]*|0) m=1;; esac
   awk -v f="$f" -v m="$m" 'BEGIN{t=f+7*m; if(t>70)t=70; if(t<7)t=7; printf "%d\n", t}'
 }
-nf_bound() {  # <초> <명령…> — 상한 초과 = 프로세스 «묶음째»  TERM → 1초 → KILL → 회수 대기 · rc 124 (= 상한 + 1초 안에 끝난다)
+nf_bound() {  # <초> <명령…> — 상한 초과 = 자손 «전부»(새 세션 손자 포함) TERM → 1초 → KILL → 회수 0.5초 · rc 124 (총 ≤ 상한 + 2초)
+  # r938 r3(astra r2 N2): 출력은 파이프 대신 임시 파일(손자가 물려받아도 기다림 0 · 끝나면 지워짐) · 죽이기 «전» 에 ps 로 자손 나무를 모은다.
+  #   한계(받아들임): 상한 «전» 에 부모가 끝나 launchd 로 넘어간 이중 fork 손자는 나무가 끊겨 못 잡는다 — 이 도구들(증거 검사·cherry·freshness·sheet)은 그런 fork 를 안 한다.
   local sec="$1"; shift || true
   command -v python3 >/dev/null 2>&1 || { echo "WARN python3 없음 — ${sec}초 상한을 걸 수 없어 호출 거절" >&2; return 127; }
   python3 -c '
-import os, signal, subprocess, sys, time
+import os, signal, subprocess, sys, tempfile, time
 cap = float(sys.argv[1]); cmd = sys.argv[2:]
-p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
-try:
-    out, err = p.communicate(timeout=cap); rc = p.returncode
-except subprocess.TimeoutExpired:
-    out = b""; err = b""
-    for sig, grace in ((signal.SIGTERM, 1.0), (signal.SIGKILL, 0.0)):
+def tree(root):  # root 아래 자손 pid 전부(ps 한 장 · ppid 로 잇는다)
+    try:
+        ps = subprocess.run(["ps", "-A", "-o", "pid=,ppid="], capture_output=True, text=True, timeout=1).stdout
+    except Exception:
+        ps = ""
+    kids = {}
+    for ln in ps.splitlines():
+        a = ln.split()
+        if len(a) == 2 and a[0].isdigit() and a[1].isdigit():
+            kids.setdefault(int(a[1]), []).append(int(a[0]))
+    seen, todo = set(), [root]
+    while todo:
+        for c in kids.get(todo.pop(), []):
+            if c not in seen:
+                seen.add(c); todo.append(c)
+    return seen
+def hit(pids, sig):  # 각 pid 의 묶음(pgid) + pid 자신 — 우리 묶음·1 이하는 건드리지 않는다
+    me = os.getpgrp(); groups = set()
+    for q in pids:
         try:
-            os.killpg(p.pid, sig)
+            groups.add(os.getpgid(q))
         except (ProcessLookupError, PermissionError):
             pass
-        if grace:
-            time.sleep(grace)
+    for g in groups:
+        if g > 1 and g != me:
+            try:
+                os.killpg(g, sig)
+            except (ProcessLookupError, PermissionError):
+                pass
+    for q in pids:
+        try:
+            os.kill(q, sig)
+        except (ProcessLookupError, PermissionError):
+            pass
+fo = tempfile.TemporaryFile(); fe = tempfile.TemporaryFile()
+p = subprocess.Popen(cmd, stdout=fo, stderr=fe, start_new_session=True)
+try:
+    rc = p.wait(timeout=cap)
+except subprocess.TimeoutExpired:
+    pids = tree(p.pid) | {p.pid}
+    hit(pids, signal.SIGTERM); time.sleep(1.0)
+    pids |= tree(p.pid)
+    hit(pids, signal.SIGKILL)
     try:
-        out, err = p.communicate(timeout=5)
+        p.wait(timeout=0.5)
     except subprocess.TimeoutExpired:
         pass
     rc = 124
-sys.stdout.buffer.write(out); sys.stdout.buffer.flush()
-sys.stderr.buffer.write(err); sys.stderr.buffer.flush()
+for f, o in ((fo, sys.stdout), (fe, sys.stderr)):
+    f.seek(0); o.buffer.write(f.read()); o.buffer.flush(); f.close()
 sys.exit(rc if 0 <= rc < 256 else 1)
 ' "$sec" "$@"
 }
@@ -1012,7 +1045,9 @@ elif [ "$RESEARCH" = 1 ]; then   # r888-mut:research
       bad+=("⑥리서치 기준 판 없음(reflog) — 좌석 브랜치 ${_rs_hb:-<detached>} 의 reflog 맨 처음 줄이 «branch: Created from» 이 아니거나 없음·그 sha 를 못 읽음(${_rs_base:-빈 값}) · «코드 0» 을 셀 수 없다")
     else
       step fetch
-      nf_fetch "$SEAT_REPO" origin main >/dev/null 2>&1 || echo "WARN 리서치 — origin main fetch 실패/시간 초과(7초+재시도 1) · 머리 맞춤 병합 대조는 로컬 origin/main(옛 ref = 끌어온 쪽을 더 막는다 · 거짓 통과 0)"
+      if ! nf_fetch "$SEAT_REPO" origin main >/dev/null 2>&1; then   # r938 r3(astra r2 N4): 실패 = 그 자리 REJECT · 아래 병합 대조 0
+        bad+=("⑥리서치 origin/main fetch 실패 — 옛 ref 대조 0(R22) · 7초+재시도 1 상한 · 다시: 같은 명령(일시 장애면)")
+      else
       _rs_n="$(git -C "$SEAT_WT" rev-list --count --no-merges --first-parent "$_rs_base..HEAD" 2>&1)"; _rs_nrc=$?   # r888-mut:uniq
       _rs_mg="$(git -C "$SEAT_WT" rev-list --merges --first-parent --parents "$_rs_base..HEAD" 2>&1)"; _rs_mrc=$?; _rs_side=0
       while read -r _m _p1 _ps; do [ -n "$_m" ] || continue
@@ -1030,6 +1065,7 @@ elif [ "$RESEARCH" = 1 ]; then   # r888-mut:research
       elif [ "$_rs_n" -gt 0 ] || [ "$_rs_side" -gt 0 ] || [ "$_rs_dirty" -gt 0 ] || [ -n "$_rs_self" ]; then
         bad+=("⑥리서치 아님 — 기준 판 ${_rs_base:0:9}($_rs_bsrc) 뒤 구현 커밋 ${_rs_n} · main 밖 곁가지 병합 ${_rs_side} · 미커밋 ${_rs_dirty}건${_rs_self} · 구현 닫기 경로로(--research 없이 · 카드 증거 줄)")
       else echo "RESEARCH-OK 기준 판 ${_rs_base:0:9}($_rs_bsrc) 뒤 구현 커밋 0 · 미커밋 0 · 결과 $RESULT (⑥ 증거 줄 면제)"; fi
+      fi
     fi
   fi
 elif [ "$_role" = nano ] && [ -z "$CARD_READ" ]; then
@@ -1083,9 +1119,13 @@ elif [ "$SHARED" = 1 ]; then
   fi
 elif [ -x "$HERE/ft-nano-cherry-gate.sh" ]; then
   # --cherry-override 는 ⑤ 에만 전달한다(①~④·⑥ 영향 0). FT_SEAT 로 원장 행 seat 칸이 좌석명이 된다.
-  _gate_args=(--repo "$SEAT_REPO" --mode close); [ "$HAVE_CHERRY_OVERRIDE" -eq 0 ] || _gate_args+=(--override "$CHERRY_OVERRIDE")
+  _gate_args=(--repo "$SEAT_REPO" --mode close)
+  # r938 r3(astra r2 N1): 앞 검사가 이미 bad 면 이 닫기는 어차피 REJECT — --override 3종을 빼고 «읽기 전용 판정» 만(우회 원장 쓰기 0).
+  if [ "${#bad[@]}" -eq 0 ]; then
+  [ "$HAVE_CHERRY_OVERRIDE" -eq 0 ] || _gate_args+=(--override "$CHERRY_OVERRIDE")
   [ "$SUPER" -eq 0 ] || _gate_args+=(--override "superseded-by $SUPERSEDED")   # R171: 대체 나노는 산출을 랜딩하지 않는다 — cherry REJECT 일 때만 원장 1행(사유 = 대체 카드)
   [ "$SUSP" -eq 0 ] || _gate_args+=(--override "suspended: $SUSP_REASON")   # r450: 중단 나노도 미완 산출을 랜딩하지 않는다(브랜치 보존) — 같은 자리 · 같은 원장
+  fi
   # r938 r2 N3: 배수 = 그 검사가 보는 커밋 수(feat..가지) — 커밋 12개짜리 가지가 정상 동작인데 11초에 잘리는 거짓 거절을 막는다.
   _gate_mult="$(nf_mult_commits "$SEAT_REPO" "$_FEAT" "$_gate_br")"; _gate_cap="$(nf_cap "$(nf_fixed cherry)" "$_gate_mult")"
   _gate_t0="$(nf_now)"
@@ -1100,8 +1140,11 @@ elif [ -x "$HERE/ft-nano-cherry-gate.sh" ]; then
   if [ "$_gate_rc" -ne 0 ] && [ "$_FEAT" != origin/main ] && [ "$_FEAT" != main ]; then
     step fetch
     if nf_fetch "$SEAT_REPO" origin main >/dev/null 2>&1; then
+      _om_t0="$(nf_now)"
       _om_out="$(FT_SEAT="$SEAT" nf_bound "$_gate_cap" "$HERE/ft-nano-cherry-gate.sh" origin/main "$_gate_br" --repo "$SEAT_REPO" --mode close 2>&1)"; _om_rc=$?
-      if [ "$_om_rc" -eq 0 ]; then _gate_rc=0; _gate_out="INFO cherry 게이트 — $_FEAT 기준 REJECT(${_gate_out%%$'\n'*}) · origin/main 기준 통과(${_om_out%%$'\n'*}) (사유 content_on_origin_main)"
+      if [ "$_om_rc" -eq 124 ]; then   # r938 r3(astra r2 N3): 둘째 cherry 상한 = 그 자리 REJECT · freshness 0(fetch 실패와 같은 표식)
+        _om_fetch_fail=1; bad+=("⑤$(nf_again "cherry 게이트(origin/main)" "$(( $(nf_now) - _om_t0 ))" "$_gate_cap" "$_gate_mult") — 닫지 않음")
+      elif [ "$_om_rc" -eq 0 ]; then _gate_rc=0; _gate_out="INFO cherry 게이트 — $_FEAT 기준 REJECT(${_gate_out%%$'\n'*}) · origin/main 기준 통과(${_om_out%%$'\n'*}) (사유 content_on_origin_main)"
       else _gate_out="$_gate_out"$'\n'"origin/main 기준: ${_om_out%%$'\n'*}"; fi
     else _om_fetch_fail=1; _gate_out="$_gate_out"$'\n'"origin/main fetch 실패(7초+재시도 1 상한) — 옛 ref 대조 0(R22) · cherry 재검사·freshness 0"; fi
   fi

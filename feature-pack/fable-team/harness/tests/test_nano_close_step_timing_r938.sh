@@ -216,6 +216,21 @@ out="$(FT_NANO_CAP_S=1 close)"; rc=$?
 [ "$rc" -eq 1 ] && has "$out" "사건 원장 prepared 실패" "$(card ⓕ 'prepare 상한 → REJECT')" || bad "ⓕ2 rc=$rc ← ${out:0:500}"
 has "$out" "시간 초과" "$(card ⓕ '  └ «시간 초과» 표기')"
 [ -z "$(ls -A "$PEND" 2>/dev/null)" ] && ok "$(card ⓕ '  └ prepare 잘린 뒤 .prepared 0(trap 이 prepare 전)')" || bad "ⓕ2 .prepared 남음: $(ls -A "$PEND" 2>/dev/null | tr '\n' ' ')"
+# ⓕ3(r3 · astra r2 반례 N1): 앞 검사가 이미 bad(증거 검사 상한) + --cherry-override → 우회 원장 쓰기 0 · 대조군: bad 0 이면 override 그대로(원장 1행)
+codecommit() {   # 코드 «+» 커밋 1개(cherry REJECT 거리) + 카드 증거 줄을 새 HEAD 로
+  echo x > "$NW/code.sh"; git -C "$NW" add code.sh; git -C "$NW" commit -q -m code
+  printf '# 인덱스: ns\n## 상태\n- 세트: %s · 시험: bash tests/x.sh (1 passing) rc=0 · 이슈: 0\n' "$(git -C "$NW" rev-parse HEAD)" > "$CARD"
+  git -C "$REPO" add -A >/dev/null 2>&1; git -C "$REPO" -c user.email=t@t -c user.name=t commit -q -m cardc >/dev/null 2>&1 || true
+}
+setup; codecommit; slow evidence-check; : > "$T/cherry.log"
+out="$(close --cherry-override dummy)"; rc=$?
+[ "$rc" -eq 1 ] && has "$out" "⑥증거 검사 시간 초과" "$(card ⓕ 'bad(증거 검사 상한) + --cherry-override → REJECT')" || bad "$(card ⓕ "override rc=$rc ← ${out:0:500}")"
+[ ! -s "$T/cherry.log" ] && ok "$(card ⓕ '  └ 우회 원장(cherry override) 행 0')" || bad "$(card ⓕ "  └ 우회 원장에 행 생김: $(head -1 "$T/cherry.log")")"
+has "$out" "⑤REJECT cherry 게이트" "$(card ⓕ '  └ cherry 는 읽기 전용 판정(REJECT 줄)')"
+untouched ⓕ
+setup; codecommit; : > "$T/cherry.log"
+out="$(close --cherry-override dummy)"; rc=$?
+[ "$rc" -eq 0 ] && [ "$(grep -c . "$T/cherry.log")" = "1" ] && ok "$(card ⓕ '  └ 대조군: bad 0 이면 override 전달 · 원장 1행 · CLOSED')" || bad "$(card ⓕ "  └ 대조군 rc=$rc 원장 $(grep -c . "$T/cherry.log")행 ← ${out:0:500}")"
 
 echo "== ⓖ 상한이 프로세스 묶음째 끝냄 — 자식이 분리돼도 REJECT 뒤 자식 쓰기 0"
 setup
@@ -231,6 +246,28 @@ out="$(FT_NANO_CAP_S=1 close)"; rc=$?; sleep 3
 [ "$rc" -eq 1 ] && has "$out" "⑥증거 검사 시간 초과" "$(card ⓖ '상한 → REJECT')" || bad "$(card ⓖ "rc=$rc ← ${out:0:400}")"
 [ ! -e "$REPO/late-write.txt" ] && ok "$(card ⓖ '  └ REJECT 뒤 3초 자식 쓰기 0')" || bad "$(card ⓖ '  └ 자식이 늦게 씀(묶음째 kill 실패)')"
 pgrep -f "sleep 90" >/dev/null 2>&1 && bad "$(card ⓖ '  └ 상한 뒤 살아 있는 대역 프로세스 있음')" || ok "$(card ⓖ '  └ 그 묶음 생존 0')"
+# ⓖ2(r3 · astra r2 반례 N2): 자식이 setsid 로 새 세션 손자를 띄우고(출력 fd 물려받음) 4초 뒤 쓰기 → nf_bound 1 은 ≤ 3초 반환 · 반환 뒤 5초 쓰기 0 · 손자 생존 0
+awk '/^nf_fixed\(\) \{/{p=1} /^if \[ "\$REPLAN" -eq 0 \]/{p=0} p' "$T/bin/ft-nano-close.sh" > "$T/fn.sh"
+GC="$T/gc"; rm -f "$GC.pid" "$GC.late"
+cat > "$T/gc.sh" <<'EOF'
+#!/bin/sh
+python3 - "$1" <<'PY' &
+import os, sys, time
+os.setsid()
+open(sys.argv[1] + ".pid", "w").write(str(os.getpid()))
+time.sleep(4)
+open(sys.argv[1] + ".late", "w").write("late")
+PY
+echo started
+sleep 90
+EOF
+_now="$(date +%s)"; out="$(bash -c '. "$1"; nf_bound 1 sh "$2" "$3"; echo "rc=$?"' _ "$T/fn.sh" "$T/gc.sh" "$GC")"; took="$(elapsed "$_now")"
+has "$out" "rc=124" "$(card ⓖ 'setsid 손자 대역 · 상한 1초 → rc 124')"
+[ "$took" -le 3 ] && ok "$(card ⓖ "  └ ${took}초에 반환(≤3초 · 손자가 출력 fd 를 물고 있어도)")" || bad "$(card ⓖ "  └ 반환 ${took}s > 3초(손자 fd 기다림)")"
+sleep 5
+[ ! -e "$GC.late" ] && ok "$(card ⓖ '  └ 반환 뒤 5초 손자 쓰기 0')" || bad "$(card ⓖ '  └ 손자가 반환 뒤에 씀(새 세션 손자 회수 실패)')"
+gpid="$(cat "$GC.pid" 2>/dev/null)"
+[ -n "$gpid" ] && ! kill -0 "$gpid" 2>/dev/null && ok "$(card ⓖ "  └ 손자 pid ${gpid} 생존 0")" || { bad "$(card ⓖ "  └ 손자 pid ${gpid:-<없음>} 살아 있음/기록 없음")"; [ -z "$gpid" ] || kill -9 "$gpid" 2>/dev/null; }
 
 echo "== ⓗ TERM 무시 대역 · 상한 1초 → 3초 안에 끝남(KILL 유예 1초)"
 setup
@@ -275,6 +312,24 @@ hasnt "$out" "전부 origin/main 에 있" "$(card ⓙ '  └ cherry 통과 줄 0
 has "$out" "옛 ref 대조 0" "$(card ⓙ '  └ 옛 ref 대조 0 문구')"
 git -C "$REPO" remote add origin "$T/origin.git"
 untouched ⓙ
+# ⓙ2(r3 · astra r2 반례 N4): --research · 원격 없음 + 캐시 origin/main · FT_NANO_FEAT=main → 리서치 fetch 실패 = 그 자리 REJECT(병합 대조 0)
+#   리서치 «미커밋 0» 을 맞추려고 대역 .worktree-info.json 을 제외 목록에 둔다(아래 대조군 뒤 원복) — 거절 사유가 fetch 하나뿐이게
+EXCL="$(git -C "$REPO" rev-parse --path-format=absolute --git-common-dir)/info/exclude"; mkdir -p "$(dirname "$EXCL")"; cp "$EXCL" "$T/exclude.bak" 2>/dev/null || : > "$T/exclude.bak"
+echo ".worktree-info.json" >> "$EXCL"
+setup
+git -C "$REPO" remote remove origin; git -C "$REPO" update-ref refs/remotes/origin/main "$BASE"
+out="$(FEAT=main close --research)"; rc=$?
+[ "$rc" -eq 1 ] && ok "$(card ⓙ '--research fetch 실패 → rc1')" || bad "$(card ⓙ "--research rc=$rc ← ${out:0:700}")"
+[ "$(printf '%s\n' "$out" | grep -c '⑥리서치 origin/main fetch 실패')" = "1" ] && ok "$(card ⓙ '  └ «⑥리서치 origin/main fetch 실패» 1줄')" || bad "$(card ⓙ "  └ 리서치 fetch 실패 줄 $(printf '%s\n' "$out" | grep -c '⑥리서치 origin/main fetch 실패')개")"
+hasnt "$out" "RESEARCH-OK" "$(card ⓙ '  └ 리서치 통과 줄 0(옛 ref 병합 대조 0)')"
+hasnt "$out" "CLOSED" "$(card ⓙ '  └ CLOSED 0')"
+evi j-research-fetch-fail "$out"
+git -C "$REPO" remote add origin "$T/origin.git"
+untouched ⓙ
+setup; out="$(FEAT=main close --research)"; rc=$?   # 대조군: 원격 있음 → 같은 인자 꼴이 리서치 통과(거절 사유가 fetch 하나뿐임을 보인다)
+evi j-research-control "$out"
+[ "$rc" -eq 0 ] && has "$out" "RESEARCH-OK" "$(card ⓙ '  └ 대조군: 원격 있음 → RESEARCH-OK · rc0')" || bad "$(card ⓙ "  └ 대조군 rc=$rc ← ${out:0:700}")"
+cp "$T/exclude.bak" "$EXCL"
 
 echo "== ⓚ 상한식 = min(고정비 + 7×배수, 70) · 600/300초 0 · 무상한 fetch 0"
 CA="$(bash -c 'nf_cap(){ f="${1:-1}"; m="${2:-1}"; awk -v f="$f" -v m="$m" "BEGIN{t=f+7*m; if(t>70)t=70; if(t<7)t=7; printf \"%d\\n\", t}"; }; nf_cap 1 1; nf_cap 1 2; nf_cap 2 12; nf_cap 1 20')"
@@ -285,6 +340,23 @@ hasnt "$(printf '%s\n' "$NEWL" | grep -E 'curl|wget|https?://|nc ')" ":" "$(card
 [ "$(grep -c 'fetch -q' "$SRC/ft-nano-close.sh")" = "0" ] && ok "$(card ⓚ '무상한 git fetch 0(전부 nf_fetch 경유)')" || bad "fetch -q 잔존 $(grep -c 'fetch -q' "$SRC/ft-nano-close.sh")줄"
 awk '/ft-sheet-events.sh" key/{k=NR} /^trap .*abort/{a=NR} /^nf_bound .*ft-sheet-events.sh" prepare/{p=NR} END{exit !(a>k && a<p)}' "$SRC/ft-nano-close.sh" \
   && ok "$(card ⓚ 'abort trap 이 prepare 전에 등록(N1)')" || bad "trap 위치가 prepare 뒤"
+
+echo "== ⓛ 첫 cherry 즉시 REJECT · fetch 성공 · 둘째 cherry(origin/main) 6초 · 상한 1초 → 그 자리 REJECT · freshness 0(astra r2 반례 N3)"
+setup
+cat > "$T/bin/ft-nano-cherry-gate.sh" <<'EOF'
+#!/bin/sh
+echo "CALL cherry-gate $1" >> "$CALLS"
+case "$1" in origin/main) sleep 6; echo "OK 늦은 통과"; exit 0;; esac
+echo "REJECT cherry 게이트 대역($1)"; exit 1
+EOF
+chmod +x "$T/bin/ft-nano-cherry-gate.sh"
+out="$(FEAT=feat/x FT_NANO_CAP_S=1 close)"; rc=$?
+[ "$rc" -eq 1 ] && ok "$(card ⓛ 'rc1')" || bad "$(card ⓛ "rc=$rc ← ${out:0:700}")"
+[ "$(grep -c 'CALL cherry-gate origin/main' "$V")" = "1" ] && ok "$(card ⓛ '  └ 둘째 cherry(origin/main) 호출 1회(fetch 성공 경로)')" || bad "$(card ⓛ "  └ 둘째 cherry 호출 $(grep -c 'CALL cherry-gate origin/main' "$V")회")"
+[ "$(printf '%s\n' "$out" | grep -cE 'cherry 게이트\(origin/main\) 시간 초과 [0-9]+s/1s · 배수 [0-9]+ — 다시:')" = "1" ] && ok "$(card ⓛ '  └ «cherry 게이트(origin/main) 시간 초과 <초>s/<상한>s · 배수 <n> — 다시:» 1줄')" || bad "$(card ⓛ "  └ 둘째 cherry 상한 줄 없음 ← ${out:0:700}")"
+hasnt "$out" "origin/main 기준: " "$(card ⓛ '  └ 빈 «origin/main 기준:» 줄 0')"
+case "$(steps_of "$(cat "$T/err")")" in *freshness*) bad "$(card ⓛ '  └ 상한 초과인데 freshness STEP 줄 있음')";; *) ok "$(card ⓛ '  └ freshness STEP 줄 0')";; esac
+hasnt "$out" "CLOSED" "$(card ⓛ '  └ CLOSED 0')"; untouched ⓛ
 
 echo
 [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }

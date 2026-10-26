@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""r938 r2 변이 시험 — 고친 사본을 6가지로 망가뜨려 «빨강이어야 할 칸» 이 정말 빨강이 되는지 본다(증거 harness/evidence/r938/mutation.txt).
+"""r938 r3 변이 시험 — 고친 사본을 10가지(r2 6 + r3 4)로 망가뜨려 «빨강이어야 할 칸» 이 정말 빨강이 되는지 본다(증거 harness/evidence/r938/mutation.txt).
 
 DA⑥ r1 지적 4(«변이 실행기는 전체 rc≠0 만 봄») 반영: 변이마다 그 축의 시험 카드 이름을 적고, 그 카드가 FAIL 인지 단언한다.
 """
@@ -25,6 +25,17 @@ TRAP_OLD = """trap 'if [ -n "${_SK:-}" ]; then bash "$HERE/ft-sheet-events.sh" a
 nf_bound "$_SHCAP" bash "$HERE/ft-sheet-events.sh" prepare "$_SK" "$(python3 -c 'import json,sys;print(json.dumps(dict(zip(("ev","team","id","seat","ref","by"),sys.argv[1:]))))' nano-close "" "$SEAT" "$SEAT" "세트 ${RESULT:0:60}" nano-close)" >/dev/null"""
 TRAP_NEW = """nf_bound "$_SHCAP" bash "$HERE/ft-sheet-events.sh" prepare "$_SK" "$(python3 -c 'import json,sys;print(json.dumps(dict(zip(("ev","team","id","seat","ref","by"),sys.argv[1:]))))' nano-close "" "$SEAT" "$SEAT" "세트 ${RESULT:0:60}" nano-close)" >/dev/null
 trap 'if [ -n "${_SK:-}" ]; then bash "$HERE/ft-sheet-events.sh" abort "$_SK" 2>/dev/null; fi; rm -f "${_CR_TMP:-}"' EXIT   # r888: 꺼낸 카드 임시 파일도 같이"""
+OVR_OLD = '  if [ "${#bad[@]}" -eq 0 ]; then'
+TREE1_OLD = "    pids = tree(p.pid) | {p.pid}"
+TREE2_OLD = "    pids |= tree(p.pid)"
+RS_OLD = """        bad+=("⑥리서치 origin/main fetch 실패 — 옛 ref 대조 0(R22) · 7초+재시도 1 상한 · 다시: 같은 명령(일시 장애면)")
+      else
+"""
+RS_NEW = """        echo "WARN 리서치 — origin main fetch 실패(로컬 origin/main 로 대조)"
+      fi
+      if :; then
+"""
+OM_OLD = '      if [ "$_om_rc" -eq 124 ]; then'
 
 MUT = [
     ("ⓐ 시각 줄 끔(step 무출력)", [(STEP_OLD, "step() { :; }")], ["[ⓐ]"]),
@@ -33,6 +44,11 @@ MUT = [
     ("ⓒ 하위 상한 끔(nf_bound = 그대로 실행)", [(BOUND_OLD, '  "$@"; return $?')], ["[ⓒ]", "[ⓕ]", "[ⓖ]", "[ⓗ]"]),
     ("ⓘ 배수 고정 1(작업량 무시)", [(MULT_OLD, '  _gate_mult=1; _gate_cap="$(nf_cap "$(nf_fixed cherry)" "$_gate_mult")"')], ["[ⓘ]"]),
     ("ⓕ abort trap 을 prepare 뒤로", [(TRAP_OLD, TRAP_NEW)], ["[ⓕ]"]),
+    # r3(astra r2 N1~N4 · DECISION-r938-r3-final): 굵은 3자리 + nf_bound 자손 회수
+    ("ⓕ bad 있을 때 override 빼기 끔", [(OVR_OLD, "  if :; then")], ["[ⓕ]"]),
+    ("ⓖ 자손 모으기 끔(killpg 만)", [(TREE1_OLD, "    pids = {p.pid}"), (TREE2_OLD, "    pass")], ["[ⓖ]"]),
+    ("ⓙ 리서치 fetch 실패를 WARN 로 복귀", [(RS_OLD, RS_NEW)], ["[ⓙ]"]),
+    ("ⓛ 둘째 cherry rc124 분기 끔", [(OM_OLD, '      if false; then')], ["[ⓛ]"]),
 ]
 
 
