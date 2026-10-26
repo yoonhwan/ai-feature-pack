@@ -1,0 +1,968 @@
+Reading additional input from stdin...
+OpenAI Codex v0.163.0
+--------
+workdir: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/multihost-plan
+model: gpt-6.1-sol
+provider: cliproxy
+approval: never
+sandbox: danger-full-access
+reasoning effort: high
+reasoning summaries: none
+session id: 01a1769d-6ffd-7e32-808e-66d9064c83ab
+--------
+user
+[DA 머리말] 파일은 sed -n 으로 400줄 이하씩 나눠 읽는다 · 본문을 못 봤으면 HOLD 대신 «검증 불가 — <파일:줄>» 로 적는다.
+당신은 DA(적대검증) 게이트다. 이번은 **델타 r2** — 델타 r1 에서 HOLD(차단 1 · 중요 5 · 경미 1)를 냈고, 설계자가 h1·h1b 스크립트를 고쳤다. 7건이 «실제로 고쳐졌는지» 항목별로 대조하고, 고치면서 새로 들어온 결함을 찾는다. 바뀌지 않은 설계(열쇠 창·stop/start 절차·IAM 조건식·방화벽)는 다시 심사하지 않는다. 읽기 전용 — 파일 수정·명령 실행 0. 한국어.
+
+## 읽을 파일 (sed -n 으로 400줄 이하씩)
+1. docs/multihost/h-plans/h-db-fwd-create.sh (h1 r2 · 약 215줄)
+2. docs/multihost/h-plans/h-db-fwd-start.sh (h1b r2 · 약 50줄)
+3. docs/multihost/da/da-20261026-140217-6839.out 의 «tokens used» 줄 뒤부터 끝까지(델타 r1 판정 원문 · 앞부분은 읽기 기록)
+4. 최신 docs/multihost/evidence/db-fwd-*/startup-script.sh (DRY 가 만든 실제 스크립트 · 가장 최근 폴더)
+
+## 델타 r1 발견 7건(대조 대상)
+1 차단 h1b UNKNOWN 조건부 합격 → 2 startup-script 실패 무시·applied 오기록 → 3 pg_isready 없으면 nc 로 합격 → 4 timeout 뒤 MADE_* 누락·작업 ID 미보존 → 5 폴링 제한 시간 산술(단조 시계) → 6 7초 룰 상한 근거·터널 120초 → 7 DRY «쓰기 0» 표현.
+
+## 반드시 할 것
+1. 7건 각각 «해소/부분/미해소» + 근거(파일:줄) + 부분·미해소는 최소 수정.
+2. 새 결함: do_write 의 rc 판정 논리(성공 반환 뒤 조회 실패 · 124 뒤 조회 성공) · exists_* 가 --filter 로 쓰는 인자(`--regions`·`--zones` 플래그 실재 여부) · `--async --format='value(name)'` 가 정말 작업 이름을 주는가(공식/추정 표기) · startup-script 의 `set -u` + `iptables -w 10` + 재검사 순서 · MASQUERADE 가 FORWARD ACCEPT 보다 뒤에 와도 되는가 · IAM remove 가 124 일 때 뒤 검증이 «1 True» 를 통과하는 경로 · h1b 가 start 뒤 RUNNING 폴링 마감 40초 안에 조회 1회 11초가 들어가는 산술.
+3. 질문 1개 재답(2~3줄): iptables DNAT 포워더 변경이 r3 승인 설계의 보안 성질(VM TERMINATED = 길 끊김 · mini 가 시계를 못 만짐 · VM 자격 0)을 유지하는가.
+
+## 출력 형식(엄수)
+첫 줄: `판정: APPROVE` 또는 `판정: HOLD` 또는 `판정: REJECT`
+둘째 줄: 한 줄 이유.
+`## r1 대조` 표(해소/부분/미해소 · 근거 파일:줄 · 최소 수정).
+`## 새 발견` 번호 목록(심각도 차단/중요/경미 · 파일:줄 · 오류 · 근거(공식/추정) · 최소 수정).
+`## 보안 성질 답`.
+HOLD 는 «차단» 이 있을 때만 · 중요만이면 «APPROVE(조건: …)». 본문을 못 읽었으면 «검증 불가 — <파일:줄>».
+warning: Codex is ignoring 1 unrecognized configuration setting. Check for typos or deprecated settings.
+  user (/Users/yoonhwan/.codex/config.toml): `network_access` is ignored.
+warning: Codex is ignoring 1 unrecognized configuration setting. Check for typos or deprecated settings.
+  user (/Users/yoonhwan/.codex/config.toml): `network_access` is ignored.
+hook: UserPromptSubmit
+hook: UserPromptSubmit
+hook: UserPromptSubmit
+hook: UserPromptSubmit Completed
+hook: UserPromptSubmit Completed
+hook: UserPromptSubmit Completed
+codex
+yoonhwan 오빠, 수정된 스크립트와 r1 판정 원문을 읽고 7건의 해소 여부와 새 결함만 대조하겠습니다. 파일 변경이나 스크립트 실행 없이 확인하겠습니다.
+exec
+/bin/zsh -lc "sed -n '1,400{=;p;}' docs/multihost/evidence/db-fwd-*(/om[1])/startup-script.sh" in /Users/yoonhwan/Project/ai-feature-pack/.worktrees/multihost-plan
+ exited 1 in 0ms:
+zsh:1: bad pattern: docs/multihost/evidence/db-fwd-*(/om[1])/startup-script.sh
+
+exec
+/bin/zsh -lc "sed -n '1,300{=;p;}' docs/multihost/h-plans/h-db-fwd-create.sh" in /Users/yoonhwan/Project/ai-feature-pack/.worktrees/multihost-plan
+exec
+/bin/zsh -lc "sed -n '1,200{=;p;}' docs/multihost/h-plans/h-db-fwd-start.sh" in /Users/yoonhwan/Project/ai-feature-pack/.worktrees/multihost-plan
+exec
+/bin/zsh -lc "sed -n '/tokens used/=' docs/multihost/da/da-20261026-140217-6839.out" in /Users/yoonhwan/Project/ai-feature-pack/.worktrees/multihost-plan
+ succeeded in 0ms:
+1
+#!/usr/bin/env bash
+2
+# h-db-fwd-start.sh — h1b: 14시간 격리 관찰이 끝난 뒤 포워더 VM byz-db-fwd 를 1회 켜서 길을 복구한다 (카드 하나 §6 h1b)
+3
+#   (2026-10-26 · aifp-multihost-arch-claude#2 초안 r2 · 발주 #3313/#3315 · DA 델타 r1 #1·#5 반영 · 실행은 오빠 `! bash /tmp/h<N>` · DRY=1 기본 = 읽기만)
+4
+#   하는 일: ① 상태가 TERMINATED 인지(= Google 이 스스로 꺼 줬는지) · 꺼진 시각이 «마지막 기동 + 14시간 ±10분» 안인지 판정(관찰 합격)
+5
+#              ★기동·정지 시각 중 하나라도 없으면 합격이 아니다(rc 3 · 켜지 않는다) — TERMINATED 만으로는 조기 정지와 정상 만료를 못 가른다★
+6
+#           ② DRY=0 이면 instances start --async → RUNNING 폴링(마감 40초) → 새 lastStartTimestamp · 다음 만료 예상 출력
+7
+#   바꾸지 않는 것: IAM · 방화벽 · 주소 · 다른 VM. 비밀 0.
+8
+# rc: 0 성공 · 2 사전점검 · 3 관찰 불합격(RUNNING 그대로 = 만료가 강제되지 않았다 → ★도입 중단★ · 시각 누락도 3 · 켜지 않는다) · 4 기동 실패
+9
+set -uo pipefail
+10
+P="${P:-byz-agents-484214}"; A="${A:-developer.ts@byourz.com}"; Z="${Z:-asia-northeast3-a}"
+11
+VM="${VM:-byz-db-fwd}"; MAXRUN_SEC="${MAXRUN_SEC:-50400}"; TOL_SEC="${TOL_SEC:-600}"
+12
+DRY="${DRY:-1}"
+13
+say() { printf '[h1b-db-fwd-start] %s\n' "$*"; }
+14
+die() { printf '[h1b-db-fwd-start] REJECT rc=%s %s\n' "$1" "$2" >&2; exit "$1"; }
+15
+GT="${GT:-11}"; G() { timeout "$GT" gcloud --account="$A" --project="$P" --quiet "$@"; }
+16
+export CLOUDSDK_CORE_DISABLE_PROMPTS=1
+17
+
+18
+say "1/3 상태 조회 (DRY=$DRY)"
+19
+command -v gcloud >/dev/null || die 2 "gcloud 없음"
+20
+ROW="$(G compute instances describe "$VM" --zone="$Z" --format='value(status,lastStartTimestamp,lastStopTimestamp,scheduling.maxRunDuration.seconds,scheduling.instanceTerminationAction)' 2>/dev/null)" || die 2 "$VM 조회 실패(h1 이 아직 안 돌았나)"
+21
+ST="$(printf '%s' "$ROW" | cut -f1)"; LST="$(printf '%s' "$ROW" | cut -f2)"; LSP="$(printf '%s' "$ROW" | cut -f3)"; MR="$(printf '%s' "$ROW" | cut -f4)"; TA="$(printf '%s' "$ROW" | cut -f5)"
+22
+say "        status=$ST lastStart=$LST lastStop=$LSP maxRun=$MR action=$TA"
+23
+[ "$MR" = "$MAXRUN_SEC" ] && [ "$TA" = STOP ] || die 2 "만료 설정이 기대와 다르다(maxRun=$MR action=$TA)"
+24
+
+25
+say "2/3 관찰 판정: 꺼진 시각 − 마지막 기동 = 14시간 ±$((TOL_SEC/60))분 인가"
+26
+case "$ST" in
+27
+  TERMINATED|STOPPED) ;;
+28
+  RUNNING) die 3 "★도입 중단★ VM 이 아직 RUNNING — Google 만료가 강제되지 않았다(관찰 시작 뒤 14시간이 안 지났으면 기다렸다 다시 · 지났으면 설계 재검토 · 되돌림은 h1 끝 줄)" ;;
+29
+  *) die 2 "예상 밖 상태 $ST(STOPPING·STAGING 이면 1~2분 뒤 다시)" ;;
+30
+esac
+31
+[ -n "$LST" ] && [ -n "$LSP" ] || die 3 "관찰 증거 부족 — 기동/정지 시각이 비어 있다(lastStart='$LST' lastStop='$LSP') · TERMINATED 만으로는 합격이 아니다 · 켜지 않는다"
+32
+VERDICT="$(python3 -I - "$LST" "$LSP" "$MAXRUN_SEC" "$TOL_SEC" <<'PY'
+33
+import sys, datetime as d
+34
+st, sp, mr, tol = sys.argv[1:5]
+35
+p = lambda s: d.datetime.fromisoformat(s.replace("Z","+00:00"))
+36
+dur = (p(sp)-p(st)).total_seconds(); dev = dur-int(mr)
+37
+print(("PASS" if abs(dev) <= int(tol) else "FAIL") + f" 가동 {dur/3600:.2f}h 편차 {dev/60:+.1f}분")
+38
+PY
+39
+)" || die 3 "시각 해석 실패('$LST' / '$LSP')"
+40
+say "        관찰 = $VERDICT"
+41
+case "$VERDICT" in PASS*) ;; *) die 3 "관찰 불합격 — 손으로 꺼졌거나(h1 뒤 누가 stop 했나) 만료 시계가 기대와 다르다. 켜지 않는다";; esac
+42
+
+43
+say "3/3 기동"
+44
+if [ "$DRY" = 1 ]; then say "DRY — 할 예정: gcloud compute instances start $VM --zone=$Z --async → RUNNING 폴링(마감 40초 + 조회 1회) → 새 lastStart·다음 만료 출력"; exit 0; fi
+45
+OPN="$(G compute instances start "$VM" --zone="$Z" --async --format='value(name)' 2>/dev/null)" || die 4 "start 요청 실패"
+46
+say "        작업 이름: ${OPN:-(없음)}"
+47
+T=$SECONDS; ST2=""
+48
+while [ $((SECONDS-T)) -lt 40 ]; do sleep 5; ST2="$(G compute instances describe "$VM" --zone="$Z" --format='value(status)' 2>/dev/null)"; [ "$ST2" = RUNNING ] && break; done
+49
+[ "$ST2" = RUNNING ] || die 4 "40초 안에 RUNNING 이 아니다(status=$ST2 · 작업 $OPN)"
+50
+LST2="$(G compute instances describe "$VM" --zone="$Z" --format='value(lastStartTimestamp)' 2>/dev/null)"
+51
+EXP="$(python3 -I -c 'import sys,datetime as d; t=d.datetime.fromisoformat(sys.argv[1].replace("Z","+00:00")); print((t+d.timedelta(seconds=int(sys.argv[2]))).astimezone().strftime("%Y-%m-%d %H:%M %Z"))' "$LST2" "$MAXRUN_SEC" 2>/dev/null || echo '?')"
+52
+say "        RUNNING · lastStart=$LST2 · 다음 자동 만료 예상 $EXP"
+53
+say "닫는 증거 2줄: 관찰 $VERDICT · 재기동 OK(lastStart $LST2). 다음 = h2(mini 터널·역방향 포워딩 제거·fail-closed 시험)"
+54
+exit 0
+
+ succeeded in 0ms:
+1090
+
+ succeeded in 0ms:
+1
+#!/usr/bin/env bash
+2
+# h-db-fwd-create.sh — h1: mini 의 DB 길 «열쇠 구멍» 포워더 VM 만들기 (카드 하나 · DESIGN-db-key-vm-cycle-20261026.md §3·§6)
+3
+#   (2026-10-26 · aifp-multihost-arch-claude#2 초안 r2 · 발주 #3313/#3315 · DA r3 APPROVE 조건부 + DA 델타 r1 HOLD 7건 반영 · 실행은 오빠 `! bash /tmp/h<N>` 로만)
+4
+#   먼저 계획만: `bash /tmp/h<N>` (DRY=1 기본 · gcloud 읽기 명령만 · ★클라우드 변경 0 · 로컬 증거 파일(백업·startup-script)은 만든다★). 실제 적용: `DRY=0 bash /tmp/h<N>`.
+5
+#
+6
+# 만드는 것 4개(순서대로 · 각 단계 실패 = 거기서 멈춤 · 뒤 단계 안 함):
+7
+#   ① 내부 고정 IP 예약  byz-db-fwd-ip  (서브넷 byz-agents-subnet-dev 10.0.0.0/24 · IAP 조건식의 destination.ip 가 흔들리지 않게)
+8
+#   ② VM byz-db-fwd  e2-micro · COS stable · 외부 IP 없음 · ★서비스 계정 없음★(자격 0) · 태그 db-fwd
+9
+#        --max-run-duration=14h --instance-termination-action=STOP --no-restart-on-failure   ← Google 이 14시간 뒤 스스로 끈다(열쇠)
+10
+#        포워딩 = startup-script 의 iptables DNAT(VM:38309 → 10.2.0.10:5432). ★컨테이너(socat) 대신 iptables 인 이유★:
+11
+#        읽기 전용 실측(10-26) — vpc-dev 에 Cloud NAT 0 · VM 외부 IP 0 → Docker Hub 에서 이미지를 받을 길이 없다.
+12
+#        iptables 는 COS 에 내장이라 받아올 것이 0 이고, 서비스 계정도 필요 없다. 매 부팅 startup-script 가 다시 적용(COS 루트 읽기 전용).
+13
+#        startup-script 는 실패 즉시 중단(한 줄이라도 실패하면 applied 를 남기지 않는다) · iptables -w 10(잠금 대기) · 끝에 재검사 뒤에만 applied(DA 델타 #2).
+14
+#   ③ 방화벽 1줄  byz-agents-allow-iap-db-fwd : 35.235.240.0/20(IAP) → tcp:38309 · 대상 태그 db-fwd 만 (VPC 방화벽은 DNAT 전 목적지 VM:38309 를 본다)
+15
+#   ④ byz-mini-tunnel 의 IAP 조건식 1줄 확장: 기존 식 || (destination.ip == "<①의 IP>" && destination.port == 38309)
+16
+#        방법 = 새 조건 바인딩 add → 옛 조건 바인딩 remove (둘 다 --condition-from-file · 옛 조건 원문은 파일로 백업)
+17
+#   ⑤ 확인: describe 의 scheduling.maxRunDuration.seconds == 50400 ∧ instanceTerminationAction == STOP — ★아니면 도입 중단(rc 6)★
+18
+#        (게스트 shutdown 타이머로 대체하지 않는다 — «Google 이 강제» 전제 · DA r1 #12). 이 맥(developer.ts · 무조건 IAP 권한)에서
+19
+#        start-iap-tunnel byz-db-fwd 38309 → ★pg_isready 필수★(«포트 열림» 이 아니라 «Postgres 응답» · DA 델타 #3).
+20
+#   ⑥ 끝: 자원 원장 + 되돌림 명령 + ★14시간 격리 관찰 안내★(lastStartTimestamp+14h ±10분에 손 없이 TERMINATED 가 되는지 · 그동안 재기동 0)
+21
+#
+22
+# 쓰기 호출의 «미확정» 처리(DA 델타 #4): 쓰기 명령이 timeout(rc 124)으로 끝나면 «실패» 가 아니라 «미확정» 이다 → 읽기 조회로 실재를 확인해
+23
+#   원장·되돌림에 넣는다. VM 생성은 --async 로 작업 이름을 받아 보존한다(err-vm-op.txt).
+24
+# 외부 호출 상한(하드 룰 12 · DA 델타 #6): 읽기 1회 GT=11(7초 + gcloud 기동 고정비 4) · 쪼갤 수 없는 쓰기 1회 = min(4 + 7×배수, 70):
+25
+#   주소 예약 25(배수 3) · IAM add/remove 32(배수 4) · 방화벽 39(배수 5) · IAP 터널 시험은 «호출» 이 아니라 백그라운드 리스너(상한 70) + 7초 회차.
+26
+# 단조 시계(DA 델타 #5): 각 폴링은 SECONDS 기준 마감 안에서만 돈다 — RUNNING 대기 ≤ 60초(+조회 1회 ≤ 11) · 도달 시험 ≤ 63초(조회 포함).
+27
+# 바꾸지 않는 것: 기존 VM 2대 · 기존 방화벽 · byz-local-dev 권한 · mini 의 무엇도(mini 쪽은 h2) · 이 맥 터널(오빠 결정 2)
+28
+# 비밀: 키·DSN 값 0 — 이 h 는 자격을 만들지도 읽지도 않는다. 출력은 이름·IP·rc·시각만.
+29
+# rc: 0 성공 · 2 사전점검 · 3 ① 실패 · 4 ② 실패 · 5 ③/④ 실패 · 6 만료 설정 미확인(도입 중단) · 7 ⑤ 도달 확인 실패(자원은 남김 · 되돌림 출력)
+30
+set -uo pipefail
+31
+
+32
+P="${P:-byz-agents-484214}"
+33
+A="${A:-developer.ts@byourz.com}"                 # 고정(오빠 10-25) · 바꾸지 않는다
+34
+REGION="${REGION:-asia-northeast3}"; Z="${Z:-asia-northeast3-a}"
+35
+NET="${NET:-byz-agents-vpc-dev}"; SUBNET="${SUBNET:-byz-agents-subnet-dev}"
+36
+VM="${VM:-byz-db-fwd}"; ADDR="${ADDR:-byz-db-fwd-ip}"; FW="${FW:-byz-agents-allow-iap-db-fwd}"; TAG="${TAG:-db-fwd}"
+37
+FWD_PORT="${FWD_PORT:-38309}"; DB_IP="${DB_IP:-10.2.0.10}"; DB_PORT="${DB_PORT:-5432}"
+38
+MAXRUN="${MAXRUN:-14h}"; MAXRUN_SEC="${MAXRUN_SEC:-50400}"
+39
+IAP_RANGE="35.235.240.0/20"
+40
+MINI_SA="byz-mini-tunnel@$P.iam.gserviceaccount.com"
+41
+COND_TITLE="${COND_TITLE:-tunnel-byz-mini-tunnel-only}"
+42
+EXPECT_EXPR_PART='destination.ip == "10.0.0.9"'    # 기존 조건식에 반드시 있어야 하는 조각(엉뚱한 바인딩을 고치지 않게)
+43
+DRY="${DRY:-1}"
+44
+TEST_LPORT="${TEST_LPORT:-49309}"                # ⑤ 이 맥 시험용 로컬 포트(운영 38309·18703·18712 와 겹치지 않음)
+45
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+46
+BK="${BK:-$ROOT/docs/multihost/evidence/db-fwd-$(date +%Y%m%d-%H%M%S)}"   # 백업·원장(tracked 경로 · 비밀 0)
+47
+
+48
+say() { printf '[h1-db-fwd] %s\n' "$*"; }
+49
+die() { printf '[h1-db-fwd] REJECT rc=%s %s\n' "$1" "$2" >&2; print_rollback; exit "$1"; }
+50
+GT="${GT:-11}"
+51
+G()  { timeout "$GT" gcloud --account="$A" --project="$P" --quiet "$@"; }
+52
+GL() { timeout "${1}" gcloud --account="$A" --project="$P" --quiet "${@:2}"; }   # 쪼갤 수 없는 쓰기 1회(상한은 위 공식)
+53
+export CLOUDSDK_CORE_DISABLE_PROMPTS=1
+54
+
+55
+MADE_ADDR=0; MADE_VM=0; MADE_FW=0; MADE_IAM=0; ADDR_IP=""; UNSURE=""
+56
+TEST_PID=""
+57
+cleanup() { [ -n "$TEST_PID" ] && kill "$TEST_PID" 2>/dev/null; return 0; }
+58
+trap cleanup EXIT
+59
+
+60
+print_rollback() {
+61
+  say "── 되돌림(아직 만든 것만 · VM·주소·방화벽 삭제는 HIL → 오빠 승인 뒤 별도 h) ──"
+62
+  [ "$MADE_IAM" = 1 ]  && say "  IAM : gcloud projects add-iam-policy-binding $P --member=serviceAccount:$MINI_SA --role=roles/iap.tunnelResourceAccessor --condition-from-file=$BK/iam-condition-old.yaml && gcloud projects remove-iam-policy-binding $P --member=serviceAccount:$MINI_SA --role=roles/iap.tunnelResourceAccessor --condition-from-file=$BK/iam-condition-new.yaml"
+63
+  [ "$MADE_FW" = 1 ]   && say "  방화벽: gcloud compute firewall-rules delete $FW --project=$P   (HIL)"
+64
+  [ "$MADE_VM" = 1 ]   && say "  VM  : gcloud compute instances delete $VM --zone=$Z --project=$P   (HIL)"
+65
+  [ "$MADE_ADDR" = 1 ] && say "  주소 : gcloud compute addresses delete $ADDR --region=$REGION --project=$P   (HIL · VM 삭제 뒤)"
+66
+  [ -n "$UNSURE" ]     && say "  ★미확정(timeout 뒤 조회로도 확인 못 함 — 손으로 확인): $UNSURE"
+67
+  [ "$MADE_IAM$MADE_FW$MADE_VM$MADE_ADDR" = 0000 ] && [ -z "$UNSURE" ] && say "  (만든 것 없음 — 되돌릴 것 없음)"
+68
+}
+69
+# 쓰기 뒤 실재 확인(«성공 반환» 이 아니라 «조회로 보임» 을 기준으로 MADE_* 를 세운다)
+70
+exists_addr() { [ -n "$(G compute addresses list --filter="name=$ADDR" --regions="$REGION" --format='value(name)' 2>/dev/null)" ]; }
+71
+exists_vm()   { [ -n "$(G compute instances list --filter="name=$VM" --zones="$Z" --format='value(name)' 2>/dev/null)" ]; }
+72
+exists_fw()   { [ -n "$(G compute firewall-rules list --filter="name=$FW" --format='value(name)' 2>/dev/null)" ]; }
+73
+# 쓰기 1회 실행: rc 0 → 확인 · rc 124(timeout) → «미확정» → 조회로 판정 · 그 밖 → 실패
+74
+do_write() { # $1=상한초 $2=이름(원장) $3=exists함수 $4=err파일 $5...=gcloud 인자
+75
+  local lim="$1" nm="$2" ex="$3" ef="$4"; shift 4
+76
+  GL "$lim" "$@" >/dev/null 2>"$ef"; local rc=$?
+77
+  if [ "$rc" = 0 ]; then "$ex" && return 0; say "        ⚠ 명령은 성공 반환했으나 조회에 아직 안 보임($nm) — 5초 뒤 재조회"; sleep 5; "$ex" && return 0; UNSURE="$UNSURE $nm"; return 1; fi
+78
+  if [ "$rc" = 124 ]; then say "        ⚠ ${lim}초 안에 안 끝남($nm) — 미확정 → 조회로 판정"; sleep 5; if "$ex"; then say "        조회됨 → 만들어진 것으로 기록"; return 0; fi; UNSURE="$UNSURE $nm"; return 1; fi
+79
+  tail -2 "$ef" | sed 's/^/        /'; return 1
+80
+}
+81
+
+82
+# ── 0) 사전점검 (전부 읽기) ─────────────────────────────────────────────────
+83
+say "0/6 사전점검 (DRY=$DRY · 계정 $A · 프로젝트 $P)"
+84
+command -v gcloud >/dev/null || die 2 "gcloud 없음"
+85
+command -v python3 >/dev/null || die 2 "python3 없음"
+86
+command -v pg_isready >/dev/null 2>&1 || die 2 "이 맥에 pg_isready 없음(brew libpq) — ⑤ 는 Postgres 응답으로만 합격이라 필수"
+87
+mkdir -p "$BK" || die 2 "백업 폴더 생성 실패: $BK"
+88
+say "        백업·원장 폴더: $BK (DRY 에서도 로컬 증거 파일은 만든다 · 클라우드 변경 0)"
+89
+ACC="$(G auth list --filter="account:$A" --format='value(account)' 2>/dev/null)"; [ "$ACC" = "$A" ] || die 2 "gcloud 에 $A 자격이 없다(gcloud auth login $A)"
+90
+exists_vm   && die 2 "이미 있다: VM $VM — 이 h 는 새로 만들기만 한다"
+91
+exists_addr && die 2 "이미 있다: 주소 $ADDR"
+92
+exists_fw   && die 2 "이미 있다: 방화벽 $FW"
+93
+say "        이름 3개($VM · $ADDR · $FW) 비어 있음"
+94
+SN="$(G compute networks subnets describe "$SUBNET" --region="$REGION" --format='value(ipCidrRange,network.basename(),privateIpGoogleAccess)' 2>/dev/null)" || die 2 "서브넷 $SUBNET 조회 실패"
+95
+say "        서브넷 $SUBNET = $SN"
+96
+case "$SN" in *"$NET"*) ;; *) die 2 "서브넷의 네트워크가 $NET 가 아니다";; esac
+97
+NATN="$(G compute routers list --filter="network:$NET" --format='value(name)' 2>/dev/null | wc -l | tr -d ' ')"
+98
+say "        vpc-dev Cloud Router 수 = ${NATN:-?} (0 이면 외부 이미지 pull 불가 → iptables 포워더가 맞다)"
+99
+G projects get-iam-policy "$P" --format=json > "$BK/iam-policy-before.json" 2>/dev/null || die 2 "IAM 정책 조회 실패"
+100
+python3 -I - "$BK/iam-policy-before.json" "$MINI_SA" "$COND_TITLE" "$EXPECT_EXPR_PART" "$BK" <<'PY' || die 2 "mini SA 의 IAP 조건부 바인딩이 «정확히 1개 · 제목 일치 · 10.0.0.9 포함 · 구성원 1» 이 아니다 — 손으로 확인"
+101
+import json, sys
+102
+pol, sa, title, part, bk = sys.argv[1:6]
+103
+d = json.load(open(pol))
+104
+hits = [b for b in d.get("bindings", []) if b.get("role") == "roles/iap.tunnelResourceAccessor"
+105
+        and ("serviceAccount:" + sa) in b.get("members", []) and b.get("condition")]
+106
+if len(hits) != 1: print(f"bindings={len(hits)}", file=sys.stderr); sys.exit(1)
+107
+c = hits[0]["condition"]
+108
+if c.get("title") != title or part not in c.get("expression", ""): print("title/expr mismatch", file=sys.stderr); sys.exit(1)
+109
+if len(hits[0]["members"]) != 1: print("binding has other members", file=sys.stderr); sys.exit(1)
+110
+def yq(s): return json.dumps(s, ensure_ascii=False)
+111
+open(f"{bk}/iam-condition-old.yaml", "w").write(f"title: {yq(c['title'])}\ndescription: {yq(c.get('description',''))}\nexpression: {yq(c['expression'])}\n")
+112
+open(f"{bk}/iam-expression-old.txt", "w").write(c["expression"] + "\n")
+113
+print("OK")
+114
+PY
+115
+say "        mini SA 조건부 바인딩 1개 확인 · 옛 조건 원문 백업 → $BK/iam-condition-old.yaml"
+116
+lsof -nP -iTCP:"$TEST_LPORT" -sTCP:LISTEN -t >/dev/null 2>&1 && die 2 "이 맥 127.0.0.1:$TEST_LPORT 가 사용 중(시험 포트) — TEST_LPORT 로 다른 490xx"
+117
+
+118
+# startup-script 본문(비밀 0 · 매 부팅 재적용 · 실패 즉시 중단 · 끝에 재검사 뒤에만 applied)
+119
+SS="$BK/startup-script.sh"
+120
+cat > "$SS" <<EOS
+121
+#!/bin/bash
+122
+# byz-db-fwd startup-script — VM:$FWD_PORT → $DB_IP:$DB_PORT (iptables DNAT · COS 내장 · 외부 pull 0)
+123
+# 한 줄이라도 실패하면 즉시 끝나고 «applied» 를 남기지 않는다(journal: byz-db-fwd FAIL <단계>).
+124
+set -u
+125
+fail() { logger -t byz-db-fwd "FAIL \$1"; exit 1; }
+126
+sysctl -w net.ipv4.ip_forward=1 >/dev/null || fail sysctl
+127
+IPT="iptables -w 10"
+128
+\$IPT -t nat -C PREROUTING -p tcp --dport $FWD_PORT -j DNAT --to-destination $DB_IP:$DB_PORT 2>/dev/null || \$IPT -t nat -A PREROUTING -p tcp --dport $FWD_PORT -j DNAT --to-destination $DB_IP:$DB_PORT || fail dnat
+129
+\$IPT -t nat -C POSTROUTING -d $DB_IP -p tcp --dport $DB_PORT -j MASQUERADE 2>/dev/null || \$IPT -t nat -A POSTROUTING -d $DB_IP -p tcp --dport $DB_PORT -j MASQUERADE || fail masq
+130
+\$IPT -C FORWARD -d $DB_IP -p tcp --dport $DB_PORT -j ACCEPT 2>/dev/null || \$IPT -I FORWARD 1 -d $DB_IP -p tcp --dport $DB_PORT -j ACCEPT || fail fwd-out
+131
+\$IPT -C FORWARD -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT 2>/dev/null || \$IPT -I FORWARD 1 -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT || fail fwd-est
+132
+# 재검사(DNAT 된 패킷은 INPUT 이 아니라 FORWARD 를 탄다 — INPUT 규칙은 두지 않는다)
+133
+[ "\$(sysctl -n net.ipv4.ip_forward)" = 1 ] || fail verify-sysctl
+134
+\$IPT -t nat -C PREROUTING -p tcp --dport $FWD_PORT -j DNAT --to-destination $DB_IP:$DB_PORT || fail verify-dnat
+135
+\$IPT -t nat -C POSTROUTING -d $DB_IP -p tcp --dport $DB_PORT -j MASQUERADE || fail verify-masq
+136
+\$IPT -C FORWARD -d $DB_IP -p tcp --dport $DB_PORT -j ACCEPT || fail verify-fwd
+137
+logger -t byz-db-fwd "applied $FWD_PORT -> $DB_IP:$DB_PORT"
+138
+EOS
+139
+bash -n "$SS" || die 2 "startup-script 구문 오류"
+140
+say "        startup-script → $SS ($(wc -l < "$SS" | tr -d ' ')줄 · iptables DNAT · 실패 즉시 중단 · 재검사)"
+141
+
+142
+CREATE_CMD=(compute instances create "$VM" --zone="$Z" --machine-type=e2-micro
+143
+  --image-family=cos-stable --image-project=cos-cloud --boot-disk-size=10GB
+144
+  --network="$NET" --subnet="$SUBNET" --private-network-ip="$ADDR" --no-address
+145
+  --tags="$TAG" --no-service-account --no-scopes --shielded-secure-boot
+146
+  --max-run-duration="$MAXRUN" --instance-termination-action=STOP --no-restart-on-failure
+147
+  --metadata-from-file=startup-script="$SS" --async --format='value(name)')
+148
+FW_CMD=(compute firewall-rules create "$FW" --network="$NET" --direction=INGRESS --priority=1000
+149
+  --source-ranges="$IAP_RANGE" --rules="tcp:$FWD_PORT" --action=ALLOW --target-tags="$TAG"
+150
+  --description="IAP -> byz-db-fwd $FWD_PORT (mini DB path · h1 2026-10-26)")
+151
+
+152
+if [ "$DRY" = 1 ]; then
+153
+  say "DRY — 아래를 «할 예정» (클라우드 변경 0 · 로컬 증거 파일만 생성):"
+154
+  say "  ① gcloud compute addresses create $ADDR --region=$REGION --subnet=$SUBNET   (IP 는 GCP 가 고름 · 이후 고정 · 상한 25초)"
+155
+  say "  ② gcloud ${CREATE_CMD[*]}   (작업 이름 보존 · RUNNING 폴링 ≤ 60초)"
+156
+  say "  ③ gcloud ${FW_CMD[*]}   (상한 39초)"
+157
+  say "  ④ IAM: add-iam-policy-binding(새 조건 = 옛 식 || (destination.ip == \"<①IP>\" && destination.port == $FWD_PORT)) → remove-iam-policy-binding(옛 조건)   (각 32초)"
+158
+  say "  ⑤ describe 로 maxRunDuration.seconds==$MAXRUN_SEC ∧ STOP 확인(아니면 rc 6 중단) · 이 맥 start-iap-tunnel $VM $FWD_PORT → 127.0.0.1:$TEST_LPORT pg_isready(≤ 63초)"
+159
+  say "  ⑥ 원장 + 되돌림 + 14시간 격리 관찰 안내"
+160
+  say "DRY 끝 — 실제 적용은 DRY=0 (오빠 승인 3가지: VM 생성 · 방화벽 1 · IAM 조건 1)"
+161
+  exit 0
+162
+fi
+163
+
+164
+# ── 1) 고정 IP 예약 ───────────────────────────────────────────────────────
+165
+say "1/6 내부 고정 IP 예약 $ADDR"
+166
+do_write 25 "주소 $ADDR" exists_addr "$BK/err-addr.txt" compute addresses create "$ADDR" --region="$REGION" --subnet="$SUBNET" --description="byz-db-fwd internal (h1 2026-10-26)" || die 3 "주소 예약 실패/미확정"
+167
+MADE_ADDR=1
+168
+ADDR_IP="$(G compute addresses describe "$ADDR" --region="$REGION" --format='value(address)' 2>/dev/null)"
+169
+case "$ADDR_IP" in 10.0.0.*) ;; *) die 3 "예약 IP 가 10.0.0.x 가 아니다: '$ADDR_IP'";; esac
+170
+say "        $ADDR = $ADDR_IP"
+171
+printf 'address %s %s %s\n' "$ADDR" "$REGION" "$ADDR_IP" >> "$BK/ledger.txt"
+172
+
+173
+# ── 2) VM 생성(--async · 작업 이름 보존) → RUNNING 폴링(마감 60초) ───────────
+174
+say "2/6 VM 생성 $VM (e2-micro · COS · 자격 0 · 외부 IP 0 · max-run $MAXRUN · STOP)"
+175
+OPN="$(GL 25 "${CREATE_CMD[@]}" 2>"$BK/err-vm.txt")"; rc=$?
+176
+printf '%s\n' "$OPN" > "$BK/err-vm-op.txt"
+177
+if [ "$rc" != 0 ] && [ "$rc" != 124 ]; then tail -3 "$BK/err-vm.txt" | sed 's/^/        /'; die 4 "VM 생성 요청 실패(플래그 조합·조직 정책 확인)"; fi
+178
+[ "$rc" = 124 ] && say "        ⚠ 생성 요청이 25초 안에 안 돌아옴 — 미확정 → 조회로 판정"
+179
+say "        작업 이름: ${OPN:-(없음 · err-vm-op.txt)} — 오류 추적: gcloud compute operations describe <작업> --zone=$Z"
+180
+T=$SECONDS; ST=""
+181
+while [ $((SECONDS-T)) -lt 60 ]; do
+182
+  sleep 5
+183
+  ST="$(G compute instances describe "$VM" --zone="$Z" --format='value(status)' 2>/dev/null)" && [ -n "$ST" ] && MADE_VM=1
+184
+  [ "$ST" = RUNNING ] && break
+185
+done
+186
+printf 'instance %s %s\n' "$VM" "$Z" >> "$BK/ledger.txt"
+187
+if [ "$MADE_VM" != 1 ]; then UNSURE="$UNSURE VM:$VM(작업 $OPN)"; die 4 "VM 이 60초 안에 조회되지 않는다 — 작업 이름으로 확인"; fi
+188
+[ "$ST" = RUNNING ] || die 4 "VM 이 60초 안에 RUNNING 이 아니다(status=$ST)"
+189
+say "        RUNNING"
+190
+
+191
+# ── 3) 만료 설정 확인 — 여기서 틀리면 도입 중단 ─────────────────────────────
+192
+say "3/6 만료 설정 확인(핵심)"
+193
+SCHED="$(G compute instances describe "$VM" --zone="$Z" --format='value(scheduling.maxRunDuration.seconds,scheduling.instanceTerminationAction,scheduling.automaticRestart,lastStartTimestamp,networkInterfaces[0].networkIP)' 2>/dev/null)"
+194
+MR="$(printf '%s' "$SCHED" | cut -f1)"; TA="$(printf '%s' "$SCHED" | cut -f2)"; AR="$(printf '%s' "$SCHED" | cut -f3)"; LST="$(printf '%s' "$SCHED" | cut -f4)"; NIP="$(printf '%s' "$SCHED" | cut -f5)"
+195
+say "        maxRunDuration.seconds=$MR terminationAction=$TA automaticRestart=$AR lastStart=$LST ip=$NIP"
+196
+printf 'scheduling maxRunDuration=%s action=%s autoRestart=%s lastStart=%s\n' "$MR" "$TA" "$AR" "$LST" >> "$BK/ledger.txt"
+197
+[ "$MR" = "$MAXRUN_SEC" ] && [ "$TA" = STOP ] || die 6 "★도입 중단★ Google 쪽 만료 설정이 확인되지 않는다(maxRunDuration=$MR action=$TA) — 게스트 타이머로 대체하지 않는다. VM·주소는 되돌림(HIL)"
+198
+[ "$NIP" = "$ADDR_IP" ] || die 6 "VM 내부 IP($NIP)가 예약 IP($ADDR_IP)와 다르다"
+199
+G compute instances describe "$VM" --zone="$Z" --format=json > "$BK/instance-after-create.json" 2>/dev/null
+200
+TT="$(python3 -I -c 'import json,sys;print(json.load(open(sys.argv[1])).get("scheduling",{}).get("terminationTime","(없음 · 필수 아님)"))' "$BK/instance-after-create.json" 2>/dev/null)"
+201
+say "        terminationTime=$TT (기록만)"
+202
+
+203
+# ── 4) 방화벽 ─────────────────────────────────────────────────────────────
+204
+say "4/6 방화벽 $FW ($IAP_RANGE → tcp:$FWD_PORT · 태그 $TAG)"
+205
+do_write 39 "방화벽 $FW" exists_fw "$BK/err-fw.txt" "${FW_CMD[@]}" || die 5 "방화벽 생성 실패/미확정"
+206
+MADE_FW=1; printf 'firewall %s\n' "$FW" >> "$BK/ledger.txt"
+207
+
+208
+# ── 5) IAM 조건식 1줄 확장 (add 새 → remove 옛) ───────────────────────────
+209
+say "5/6 IAM: $MINI_SA 조건식에 ($ADDR_IP:$FWD_PORT) 추가"
+210
+OLD_EXPR="$(cat "$BK/iam-expression-old.txt")"
+211
+NEW_EXPR="$OLD_EXPR || (destination.ip == \"$ADDR_IP\" && destination.port == $FWD_PORT)"
+212
+python3 -I - "$BK" "$COND_TITLE" "$NEW_EXPR" <<'PY'
+213
+import json, sys
+214
+bk, title, expr = sys.argv[1:4]
+215
+desc = "llm-dev 8000 and stt-tts-dev 8000 8100 and byz-db-fwd 38309 (h1 2026-10-26)"
+216
+open(f"{bk}/iam-condition-new.yaml","w").write(f"title: {json.dumps(title)}\ndescription: {json.dumps(desc)}\nexpression: {json.dumps(expr)}\n")
+217
+PY
+218
+iam_has_new() { G projects get-iam-policy "$P" --format=json 2>/dev/null | python3 -I -c '
+219
+import json,sys; d=json.load(sys.stdin); sa="serviceAccount:"+sys.argv[1]
+220
+h=[b for b in d["bindings"] if b["role"]=="roles/iap.tunnelResourceAccessor" and sa in b["members"] and sys.argv[2] in (b.get("condition") or {}).get("expression","")]
+221
+sys.exit(0 if h else 1)' "$MINI_SA" "$ADDR_IP"; }
+222
+GL 32 projects add-iam-policy-binding "$P" --member="serviceAccount:$MINI_SA" --role=roles/iap.tunnelResourceAccessor --condition-from-file="$BK/iam-condition-new.yaml" >/dev/null 2>"$BK/err-iam-add.txt"; rc=$?
+223
+if [ "$rc" = 0 ] || { [ "$rc" = 124 ] && sleep 5 && iam_has_new; }; then MADE_IAM=1; else tail -2 "$BK/err-iam-add.txt" | sed 's/^/        /'; die 5 "IAM 새 조건 추가 실패/미확정"; fi
+224
+GL 32 projects remove-iam-policy-binding "$P" --member="serviceAccount:$MINI_SA" --role=roles/iap.tunnelResourceAccessor --condition-from-file="$BK/iam-condition-old.yaml" >/dev/null 2>"$BK/err-iam-rm.txt"; rc=$?
+225
+[ "$rc" = 0 ] || [ "$rc" = 124 ] || { tail -2 "$BK/err-iam-rm.txt" | sed 's/^/        /'; die 5 "IAM 옛 조건 제거 실패 — 지금 바인딩이 2개(옛+새)다 · 되돌림 줄 참고"; }
+226
+G projects get-iam-policy "$P" --format=json > "$BK/iam-policy-after.json" 2>/dev/null
+227
+NB="$(python3 -I -c '
+228
+import json,sys; d=json.load(open(sys.argv[1])); sa="serviceAccount:"+sys.argv[2]
+229
+h=[b for b in d["bindings"] if b["role"]=="roles/iap.tunnelResourceAccessor" and sa in b["members"]]
+230
+print(len(h), all(sys.argv[3] in (b.get("condition") or {}).get("expression","") for b in h))' "$BK/iam-policy-after.json" "$MINI_SA" "$ADDR_IP" 2>/dev/null)"
+231
+[ "$NB" = "1 True" ] || die 5 "IAM 결과가 «바인딩 1개 · 새 IP 포함» 이 아니다: $NB (옛 제거가 미확정이면 잠시 뒤 get-iam-policy 재확인)"
+232
+printf 'iam %s condition %s (old=%s)\n' "$MINI_SA" "$BK/iam-condition-new.yaml" "$BK/iam-condition-old.yaml" >> "$BK/ledger.txt"
+233
+say "        바인딩 1개 · 새 조건식 적용 · 전/후 정책 JSON 백업됨"
+234
+
+235
+# ── 6) 이 맥에서 도달 확인(developer.ts · 시험 포트 · Postgres 응답만 합격 · 마감 63초) ──
+236
+say "6/6 도달 확인: start-iap-tunnel $VM $FWD_PORT → 127.0.0.1:$TEST_LPORT → pg_isready"
+237
+timeout 70 gcloud --account="$A" --project="$P" compute start-iap-tunnel "$VM" "$FWD_PORT" --zone="$Z" --local-host-port="127.0.0.1:$TEST_LPORT" >"$BK/iap-test.log" 2>&1 &
+238
+TEST_PID=$!
+239
+OK=0; T=$SECONDS
+240
+while [ $((SECONDS-T)) -lt 56 ]; do
+241
+  sleep 7
+242
+  pg_isready -h 127.0.0.1 -p "$TEST_LPORT" -t 5 -q 2>/dev/null && { OK=1; break; }   # 회차 ≤ 12초 · 전체 ≤ 63초
+243
+done
+244
+kill "$TEST_PID" 2>/dev/null; TEST_PID=""
+245
+if [ "$OK" = 1 ]; then say "        ✓ Postgres 응답(pg_isready · IAP → VM DNAT → $DB_IP:$DB_PORT)"; printf 'reach OK via iap test port %s\n' "$TEST_LPORT" >> "$BK/ledger.txt"
+246
+else tail -3 "$BK/iap-test.log" | sed 's/^/        /'; say "        ✗ 63초 안에 Postgres 응답 없음(VM 첫 부팅·startup-script 진행 중일 수 있음 — 2분 뒤 h2 ③ 에서 재확인 · journal 에 byz-db-fwd FAIL 이 있으면 iptables 단계 실패)"; printf 'reach FAIL\n' >> "$BK/ledger.txt"; fi
+247
+
+248
+# ── 끝 ───────────────────────────────────────────────────────────────────
+249
+EXP="$(python3 -I -c '
+250
+import sys,datetime as d; s=sys.argv[1]
+251
+t=d.datetime.fromisoformat(s.replace("Z","+00:00")); print((t+d.timedelta(seconds=int(sys.argv[2]))).astimezone().strftime("%Y-%m-%d %H:%M %Z"))' "$LST" "$MAXRUN_SEC" 2>/dev/null || echo '?')"
+252
+say "── 자원 원장($BK/ledger.txt) ──"; sed 's/^/  /' "$BK/ledger.txt"
+253
+print_rollback
+254
+cat <<EOF
+255
+[h1-db-fwd] ★14시간 격리 관찰(DA r3 조건 5)★ — 지금부터 $VM 을 «아무도» 재기동·정지하지 않는다(h2 의 stop/start 시험 · h3 설치는 관찰 뒤).
+256
+            마지막 기동 $LST → 만료 예상 $EXP (±10분). 그 시각 뒤 확인:
+257
+              gcloud compute instances describe $VM --zone=$Z --project=$P --account=$A --format='value(status,lastStopTimestamp)'
+258
+            TERMINATED 이면 합격 → h1b(h-db-fwd-start.sh · 기동·정지 시각 둘 다 있어야 켠다)로 길 복구 → h2. RUNNING 그대로면 ★도입 중단★(되돌림 HIL).
+259
+            로그: VM 에 서비스 계정이 없어 Cloud Logging 전송 0 — startup-script 결과는 게스트 journal(byz-db-fwd applied|FAIL)에만 남는다(수용 · 합격 증거는 pg_isready 응답).
+260
+            닫는 증거 3줄: maxRunDuration=$MR action=$TA · IAM 바인딩 1개(새 IP $ADDR_IP) · 도달=$( [ "$OK" = 1 ] && echo OK || echo 재확인 )
+261
+EOF
+262
+[ "$OK" = 1 ] || exit 7
+263
+exit 0
+
+exec
+/bin/zsh -lc "sed -n '1090,1400{=;p;}' docs/multihost/da/da-20261026-140217-6839.out" in /Users/yoonhwan/Project/ai-feature-pack/.worktrees/multihost-plan
+ succeeded in 0ms:
+1090
+tokens used
+1091
+33,131
+1092
+판정: HOLD
+1093
+yoonhwan 오빠, 만료 관찰 증거가 없어도 합격 처리하고 VM을 켜는 차단 결함이 있습니다.
+1094
+
+1095
+## 질문 4개 답
+1096
+
+1097
+1. **규칙 재적용**
+1098
+   [공식] 부팅 때 startup-script가 다시 실행되므로 sysctl을 매번 설정하는 방식은 타당합니다.  
+1099
+   [추정] `-C || -A/-I`는 순차 재실행에서 중복을 막지만, 현재는 명령 실패 후에도 성공 로그를 남깁니다.  
+1100
+   COS 기본 정책과 Docker 체인의 실제 순서, 재부팅 뒤 규칙 유지 여부는 지정 증거로 확인되지 않았습니다.
+1101
+
+1102
+2. **Cloud SQL 도달과 정지 성질**
+1103
+   [공식] GCE의 주소 검사는 NIC를 통과하는 패킷에 적용됩니다.  
+1104
+   [추정] 들어올 때 목적지는 VM이고, 나갈 때 MASQUERADE가 출발지를 VM으로 바꾸므로 `--can-ip-forward` 누락 자체를 차단으로 보지는 않습니다.  
+1105
+   같은 VPC의 사설 서비스 연결 경로가 있다면 전달 구조는 성립합니다. 실제 피어링 경로와 도달 증거는 없습니다.  
+1106
+   TERMINATED 뒤 전달 중단은 같습니다. 기존 소켓의 즉시 종료나 실행 중 쿼리 취소까지 보장하지는 않습니다.
+1107
+
+1108
+3. **INPUT과 FORWARD**
+1109
+   [공식] PREROUTING에서 DNAT된 패킷은 INPUT 대신 FORWARD를 통과합니다. VPC 방화벽은 게스트 DNAT 전의 VM:38309를 봅니다.  
+1110
+   [추정] 현재 FORWARD 규칙은 DB 방향과 응답 방향을 허용합니다. INPUT 허용은 정상 전달에 불필요합니다.  
+1111
+   규칙 설치가 성공하고 앞선 체인에서 차단하지 않는다는 조건에서 충분합니다.
+1112
+
+1113
+4. **서비스 계정과 로그**
+1114
+   [공식] startup-script 메타데이터 조회에는 VM 서비스 계정이 필요하지 않습니다. 서비스 계정 없음이 스크립트 실행을 막지는 않습니다.  
+1115
+   [추정] `logger` 출력은 게스트 journal에 남습니다. 그 메시지가 직렬 콘솔에도 남는다고 보장할 수는 없습니다.  
+1116
+   Cloud Logging 전송 자격은 없으므로 중앙 로그를 합격 증거로 기대하면 안 됩니다. 로컬 로그만으로 수용한다는 명시는 없습니다.
+1117
+
+1118
+## 발견
+1119
+
+1120
+1. **차단 · `docs/multihost/h-plans/h-db-fwd-start.sh:34`, `:40`**  
+1121
+   **오류:** 기동·정지 시각이 없으면 `UNKNOWN`을 출력하고 조건부 합격시킵니다. `DRY=0`이면 이어서 VM을 켭니다.  
+1122
+   **근거:** §3·§6의 필수 증거는 실제 기동 시각부터 14시간 ±10분 뒤 정지입니다. TERMINATED 상태만으로는 조기 정지와 정상 만료를 구분하지 못합니다. 정상 시각의 `abs(dev) <= tol` 산술 자체는 맞습니다.  
+1123
+   **최소 수정:** `UNKNOWN`도 rc 3으로 중단하고, 관찰 증거를 확보하기 전에는 start하지 않습니다.
+1124
+
+1125
+2. **중요 · `docs/multihost/h-plans/h-db-fwd-create.sh:111`, `:113`–`:119` · `docs/multihost/evidence/db-fwd-20261026-135959/startup-script.sh:3`–`:9`**  
+1126
+   **오류:** sysctl이나 iptables 적용이 실패해도 다음 줄을 실행하고 `applied`를 기록합니다.  
+1127
+   **근거:** 생성된 스크립트에 실패 중단 설정과 명시적 오류 처리가 없습니다. xtables 잠금 경합도 기다리지 않습니다. 마지막 `logger`가 성공하면 전체 실행도 성공으로 끝날 수 있습니다.  
+1128
+   **최소 수정:** 실패 시 즉시 종료하고, iptables 잠금 대기를 제한적으로 적용합니다. 마지막에 sysctl과 필수 규칙을 재검사한 뒤 성공을 기록합니다.
+1129
+
+1130
+3. **중요 · `docs/multihost/h-plans/h-db-fwd-create.sh:105`–`:106`, `:209`–`:213`**  
+1131
+   **오류:** `pg_isready`가 없으면 로컬 IAP 리스너에 대한 `nc -z` 성공을 도달 합격으로 기록합니다.  
+1132
+   **근거:** 이 검사는 PostgreSQL 응답을 확인하지 않습니다. 로컬 연결 수락과 해당 연결의 원격 전달 성공도 구분하지 못합니다. IAP의 초기 연결 점검이 있더라도 PostgreSQL 검증을 대신하지는 못합니다.  
+1133
+   **최소 수정:** `pg_isready`를 필수 사전조건으로 삼거나, 실제 PostgreSQL 응답을 확인하는 검사로 대체합니다.
+1134
+
+1135
+4. **중요 · `docs/multihost/h-plans/h-db-fwd-create.sh:147`–`:148`, `:156`–`:157`, `:177`–`:178`, `:190`–`:191`**  
+1136
+   **오류:** 쓰기 요청이 서버에서 수락된 뒤 클라이언트가 timeout되면, 만들어진 자원을 되돌림 목록에서 누락할 수 있습니다.  
+1137
+   **근거:** `MADE_*`는 명령이 성공 반환한 뒤에만 설정됩니다. VM 생성의 비동기 작업 출력도 버리므로 최종 오류를 추적하기 어렵습니다.  
+1138
+   **최소 수정:** 작업 ID를 보존하고, timeout은 결과 미확정으로 처리합니다. 읽기 조회로 존재 여부를 확인한 뒤 원장과 되돌림을 출력합니다. `die` 호출 전 변수·함수 초기화 순서에는 결함이 없습니다.
+1139
+
+1140
+5. **중요 · `docs/multihost/h-plans/h-db-fwd-create.sh:159`–`:160`, `:207`–`:214` · `docs/multihost/h-plans/h-db-fwd-start.sh:45`–`:46`**  
+1141
+   **오류:** 안내한 제한 시간에서 조회·검사 소요를 빠뜨렸습니다.  
+1142
+   **근거:** 기본 GT 기준으로 h1 폴링은 최대 약 160초, h1b는 약 128초가 될 수 있습니다. 도달 검사는 최대 약 96초인데 각각 50초·40초·56초라고 보고합니다.  
+1143
+   **최소 수정:** 단조 시계의 전체 마감을 두고, 각 조회와 검사에 남은 시간만 배정합니다.
+1144
+
+1145
+6. **중요 · `docs/multihost/h-plans/h-db-fwd-create.sh:46`, `:147`, `:177`, `:190`, `:192`, `:204`**  
+1146
+   **오류:** 외부 호출 7초 규칙의 분할·상한 근거가 부족합니다. 특히 터널에 지정한 120초는 최대 70초 상한을 넘습니다.  
+1147
+   **근거:** 일반 호출의 11초는 주석의 기동 고정비 약 4초와 연결되지만, 25·30·40초 호출에는 배수 산정 근거가 없습니다.  
+1148
+   **최소 수정:** 수락 요청과 완료 관찰을 분리합니다. 터널 검사는 70초 이내의 제한된 회차로 구성합니다.
+1149
+
+1150
+7. **경미 · `docs/multihost/h-plans/h-db-fwd-create.sh:67`, `:85`, `:98`–`:99`, `:110`, `:134`**  
+1151
+   **오류:** DRY의 “쓰기 0”은 범위가 부정확합니다.  
+1152
+   **근거:** `DRY=1`에서는 클라우드 변경 분기로 들어가지 않지만, 로컬 디렉터리·정책 백업·startup-script는 생성합니다.  
+1153
+   **최소 수정:** “클라우드 변경 0, 로컬 증거 파일 생성”으로 표현합니다.
+
+exec
+/bin/zsh -lc 'for f in docs/multihost/evidence/db-fwd-*(/om[1]); do sed -n "1s|''^|$f/startup-script.sh: |; 1,400{=;p;}" "$f/startup-script.sh"; done' in /Users/yoonhwan/Project/ai-feature-pack/.worktrees/multihost-plan
+ succeeded in 0ms:
+1
+docs/multihost/evidence/db-fwd-20261026-140848/startup-script.sh: #!/bin/bash
+2
+# byz-db-fwd startup-script — VM:38309 → 10.2.0.10:5432 (iptables DNAT · COS 내장 · 외부 pull 0)
+3
+# 한 줄이라도 실패하면 즉시 끝나고 «applied» 를 남기지 않는다(journal: byz-db-fwd FAIL <단계>).
+4
+set -u
+5
+fail() { logger -t byz-db-fwd "FAIL $1"; exit 1; }
+6
+sysctl -w net.ipv4.ip_forward=1 >/dev/null || fail sysctl
+7
+IPT="iptables -w 10"
+8
+$IPT -t nat -C PREROUTING -p tcp --dport 38309 -j DNAT --to-destination 10.2.0.10:5432 2>/dev/null || $IPT -t nat -A PREROUTING -p tcp --dport 38309 -j DNAT --to-destination 10.2.0.10:5432 || fail dnat
+9
+$IPT -t nat -C POSTROUTING -d 10.2.0.10 -p tcp --dport 5432 -j MASQUERADE 2>/dev/null || $IPT -t nat -A POSTROUTING -d 10.2.0.10 -p tcp --dport 5432 -j MASQUERADE || fail masq
+10
+$IPT -C FORWARD -d 10.2.0.10 -p tcp --dport 5432 -j ACCEPT 2>/dev/null || $IPT -I FORWARD 1 -d 10.2.0.10 -p tcp --dport 5432 -j ACCEPT || fail fwd-out
+11
+$IPT -C FORWARD -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT 2>/dev/null || $IPT -I FORWARD 1 -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT || fail fwd-est
+12
+# 재검사(DNAT 된 패킷은 INPUT 이 아니라 FORWARD 를 탄다 — INPUT 규칙은 두지 않는다)
+13
+[ "$(sysctl -n net.ipv4.ip_forward)" = 1 ] || fail verify-sysctl
+14
+$IPT -t nat -C PREROUTING -p tcp --dport 38309 -j DNAT --to-destination 10.2.0.10:5432 || fail verify-dnat
+15
+$IPT -t nat -C POSTROUTING -d 10.2.0.10 -p tcp --dport 5432 -j MASQUERADE || fail verify-masq
+16
+$IPT -C FORWARD -d 10.2.0.10 -p tcp --dport 5432 -j ACCEPT || fail verify-fwd
+17
+logger -t byz-db-fwd "applied 38309 -> 10.2.0.10:5432"
+
+codex
+yoonhwan 오빠, 시각이 없으면 기동을 막는 수정과 PostgreSQL 응답 검사는 반영됐습니다. 다만 성공한 생성의 조회가 실패하면 되돌림에서 빠지는 경로가 남았고, 폴링 시간도 sleep과 마지막 조회를 합치면 안내한 상한을 넘습니다.
+codex
+판정: APPROVE
+yoonhwan 오빠, r1의 차단 결함은 해소됐습니다. 조건은 아래 중요 결함을 실제 적용 전에 수정하는 것입니다.
+
+## r1 대조
+
+| 항목 | 결과 | 근거 파일:줄 | 최소 수정 |
+|---|---|---|---|
+| 1. h1b UNKNOWN 합격 | 해소 | `h-db-fwd-start.sh:31`, `:39`, `:41`에서 시각 누락·해석 실패·PASS 이외 결과를 차단합니다. start는 `:45`에 있습니다. | 없음 |
+| 2. startup 실패 무시·applied 오기록 | 부분 | `h-db-fwd-create.sh:124`~`:137`, 실제 생성본 `docs/multihost/evidence/db-fwd-20261026-140848/startup-script.sh:4`~`:17`. 주요 명령에 실패 종료와 잠금 대기를 넣었습니다. 마지막 재검사에는 응답 방향 규칙이 빠졌습니다. | `ESTABLISHED,RELATED` 규칙도 재검사한 뒤 applied를 기록합니다. |
+| 3. nc로 도달 합격 | 해소 | `h-db-fwd-create.sh:86`에서 pg_isready를 필수로 요구합니다. `:242`, `:245`에서 PostgreSQL 응답으로만 합격합니다. | 없음 |
+| 4. timeout 뒤 자원·작업 ID 누락 | 부분 | `h-db-fwd-create.sh:77`~`:78`, `:175`~`:187`, `:223`. 조회 성공 때 자원을 기록하지만, 성공 반환 후 조회 실패와 IAM 추가 미확정은 여전히 누락될 수 있습니다. 작업 파일에는 반환 stdout을 저장합니다. | 성공 반환 즉시 소유 자원을 기록합니다. 미확정 IAM도 표시합니다. 작업 이름 반환은 아래 검증 한계를 해소합니다. |
+| 5. 폴링 시간 산술·단조 시계 | 부분 | `h-db-fwd-create.sh:181`~`:184`, `:240`~`:242`; `h-db-fwd-start.sh:48`. 경과 시간 조건은 넣었지만 sleep과 마지막 조회에 남은 시간을 배정하지 않습니다. | 실제 단조 시계로 마감을 잡고 sleep·조회·검사를 남은 시간으로 제한합니다. |
+| 6. 7초 규칙 근거·터널 120초 | 부분 | `h-db-fwd-create.sh:24`~`:26`, `:237`. 터널은 70초로 줄였습니다. 쓰기 상한에 배수는 붙였지만 분할 불가 사유와 배수 산정 근거는 없습니다. | 요청과 완료 관찰을 분리하고, 남는 긴 호출에만 분할 불가 사유와 상한 근거를 적습니다. |
+| 7. DRY “쓰기 0” | 해소 | `h-db-fwd-create.sh:4`, `:88`, `:153`에서 클라우드 변경과 로컬 증거 생성을 구분합니다. | 없음 |
+
+## 새 발견
+
+1. **중요 · `h-db-fwd-create.sh:70`~`:78`, `:90`~`:93` · 조회 오류를 부재로 취급합니다.**  
+   **근거(코드 확정):** `exists_*`는 조회 명령의 종료값을 버리고 stdout의 비어 있음만 검사합니다. 권한 오류나 timeout도 “이름이 비어 있음”으로 통과합니다. 이후 쓰기가 rc 0이어도 두 조회가 실패하면 `MADE_*`를 세우지 않아, 생성이 확인된 자원이 되돌림에서 빠집니다. rc 124 뒤 조회 성공은 사전 부재가 확인됐을 때만 생성 확인으로 해석할 수 있습니다.  
+   **최소 수정:** 존재·부재·조회 오류를 구분하고, 사전 조회 오류에서는 중단합니다. 쓰기 rc 0이면 즉시 `MADE_*`를 기록하고 후속 검증 실패를 별도로 처리합니다.
+
+2. **중요 · `h-db-fwd-create.sh:218`~`:231` · IAM 완료 검사가 새 바인딩의 정확한 일치를 증명하지 않습니다.**  
+   **근거(코드 확정, 오합격 경로는 조건부 추정):** 추가 확인과 최종 확인 모두 IP 문자열 포함 여부를 검사합니다. 기존 식에 예약 IP 문자열이 이미 포함돼 있다면, add와 remove가 모두 124로 끝나고 실제로 미적용돼도 기존 바인딩 하나로 `1 True`가 가능합니다. 추가가 미확정이고 확인 조회도 실패하면 `:223`은 `UNSURE` 없이 종료합니다.  
+   **최소 수정:** 새 조건 전체의 정확한 일치와 옛 조건 부재를 검사합니다. 추가가 미확정이면 확인 실패 때도 원장·되돌림 안내에 남깁니다.  
+   정상 경로에서는 remove가 124여도 서버에서 제거가 완료됐다면 `1 True` 통과가 맞습니다. 옛것과 새것이 모두 남으면 개수가 2여서 차단됩니다.
+
+3. **중요 · `h-db-fwd-create.sh:181`, `:240`; `h-db-fwd-start.sh:48` · 마감 직전에도 한 회차 전체를 실행합니다.**  
+   **근거(코드 확정, 각 호출이 지정 상한을 지킨다는 전제):** h1b는 경과 39초에 진입해 sleep 5초와 조회 11초를 실행할 수 있습니다. 따라서 40초 안에 끝나지 않으며, “40초 + 조회 1회” 안내도 sleep을 빠뜨렸습니다. 같은 방식으로 h1 생성 관찰은 약 76초, 도달 검사는 약 68초까지 늘어날 수 있습니다. Bash `SECONDS`도 단조 시계를 보장하는 인터페이스는 아닙니다.  
+   **최소 수정:** 회차마다 남은 시간을 계산해 sleep과 timeout에 배정합니다. 마감 뒤 받은 RUNNING·도달 응답은 해당 마감의 합격으로 처리하지 않습니다.
+
+4. **경미 · 실제 생성본 `docs/multihost/evidence/db-fwd-20261026-140848/startup-script.sh:11`, `:13`~`:17` · 마지막 재검사가 불완전합니다.**  
+   **근거(코드 확정):** 응답 방향의 `ESTABLISHED,RELATED` 규칙은 설치하지만 마지막에는 검사하지 않습니다. `set -u`는 명령 실패를 자동 차단하지 않으나, 현재 주요 적용 명령의 `|| fail`은 실패를 차단합니다. `iptables -w 10`도 들어 있습니다.  
+   **최소 수정:** applied 직전에 응답 방향 규칙의 `-C` 검사를 추가합니다.
+
+나머지 필수 확인 결과는 다음과 같습니다.
+
+- **존재 조회 플래그:** [공식 규격] [`addresses list --regions`](https://cloud.google.com/sdk/gcloud/reference/compute/addresses/list)와 [`instances list --zones`](https://cloud.google.com/sdk/gcloud/reference/compute/instances/list)는 실제 플래그입니다. `--filter="name=…"`와 함께 쓰는 형태 자체는 결함이 아닙니다.
+- **작업 이름:** 검증 불가 — `docs/multihost/h-plans/h-db-fwd-create.sh:147`, `:175` 및 `h-db-fwd-start.sh:45`. 공식 `--async` 의미는 완료 대기 생략입니다. 지정 자료에는 반환 객체를 확인한 증거가 없으므로, `value(name)`이 작업 이름이라는 판단은 추정입니다. 반환 JSON의 객체 종류·작업 이름을 확인하고 보존해야 합니다.
+- **MASQUERADE 순서:** [공식 Netfilter 처리 순서] 패킷은 FORWARD 이후 POSTROUTING을 통과합니다. FORWARD의 ACCEPT가 POSTROUTING을 생략하지 않으므로 MASQUERADE는 작동할 수 있습니다. 두 규칙을 스크립트에서 설치하는 순서도 이 처리 순서를 바꾸지 않습니다.
+
+## 보안 성질 답
+
+설계상 유지됩니다. VM이 TERMINATED면 DNAT 전달도 멈춥니다.  
+기존 권한 전제에서 mini는 Google 만료 시계를 못 바꾸며, VM은 `--no-service-account --no-scopes`로 자격을 갖지 않습니다.  
+이번 정적 검토는 실제 자동 정지와 경로 단절의 실행 증거를 추가하지는 않았습니다.
+hook: Stop
+hook: Stop Completed
+tokens used
+26,952
+판정: APPROVE
+yoonhwan 오빠, r1의 차단 결함은 해소됐습니다. 조건은 아래 중요 결함을 실제 적용 전에 수정하는 것입니다.
+
+## r1 대조
+
+| 항목 | 결과 | 근거 파일:줄 | 최소 수정 |
+|---|---|---|---|
+| 1. h1b UNKNOWN 합격 | 해소 | `h-db-fwd-start.sh:31`, `:39`, `:41`에서 시각 누락·해석 실패·PASS 이외 결과를 차단합니다. start는 `:45`에 있습니다. | 없음 |
+| 2. startup 실패 무시·applied 오기록 | 부분 | `h-db-fwd-create.sh:124`~`:137`, 실제 생성본 `docs/multihost/evidence/db-fwd-20261026-140848/startup-script.sh:4`~`:17`. 주요 명령에 실패 종료와 잠금 대기를 넣었습니다. 마지막 재검사에는 응답 방향 규칙이 빠졌습니다. | `ESTABLISHED,RELATED` 규칙도 재검사한 뒤 applied를 기록합니다. |
+| 3. nc로 도달 합격 | 해소 | `h-db-fwd-create.sh:86`에서 pg_isready를 필수로 요구합니다. `:242`, `:245`에서 PostgreSQL 응답으로만 합격합니다. | 없음 |
+| 4. timeout 뒤 자원·작업 ID 누락 | 부분 | `h-db-fwd-create.sh:77`~`:78`, `:175`~`:187`, `:223`. 조회 성공 때 자원을 기록하지만, 성공 반환 후 조회 실패와 IAM 추가 미확정은 여전히 누락될 수 있습니다. 작업 파일에는 반환 stdout을 저장합니다. | 성공 반환 즉시 소유 자원을 기록합니다. 미확정 IAM도 표시합니다. 작업 이름 반환은 아래 검증 한계를 해소합니다. |
+| 5. 폴링 시간 산술·단조 시계 | 부분 | `h-db-fwd-create.sh:181`~`:184`, `:240`~`:242`; `h-db-fwd-start.sh:48`. 경과 시간 조건은 넣었지만 sleep과 마지막 조회에 남은 시간을 배정하지 않습니다. | 실제 단조 시계로 마감을 잡고 sleep·조회·검사를 남은 시간으로 제한합니다. |
+| 6. 7초 규칙 근거·터널 120초 | 부분 | `h-db-fwd-create.sh:24`~`:26`, `:237`. 터널은 70초로 줄였습니다. 쓰기 상한에 배수는 붙였지만 분할 불가 사유와 배수 산정 근거는 없습니다. | 요청과 완료 관찰을 분리하고, 남는 긴 호출에만 분할 불가 사유와 상한 근거를 적습니다. |
+| 7. DRY “쓰기 0” | 해소 | `h-db-fwd-create.sh:4`, `:88`, `:153`에서 클라우드 변경과 로컬 증거 생성을 구분합니다. | 없음 |
+
+## 새 발견
+
+1. **중요 · `h-db-fwd-create.sh:70`~`:78`, `:90`~`:93` · 조회 오류를 부재로 취급합니다.**  
+   **근거(코드 확정):** `exists_*`는 조회 명령의 종료값을 버리고 stdout의 비어 있음만 검사합니다. 권한 오류나 timeout도 “이름이 비어 있음”으로 통과합니다. 이후 쓰기가 rc 0이어도 두 조회가 실패하면 `MADE_*`를 세우지 않아, 생성이 확인된 자원이 되돌림에서 빠집니다. rc 124 뒤 조회 성공은 사전 부재가 확인됐을 때만 생성 확인으로 해석할 수 있습니다.  
+   **최소 수정:** 존재·부재·조회 오류를 구분하고, 사전 조회 오류에서는 중단합니다. 쓰기 rc 0이면 즉시 `MADE_*`를 기록하고 후속 검증 실패를 별도로 처리합니다.
+
+2. **중요 · `h-db-fwd-create.sh:218`~`:231` · IAM 완료 검사가 새 바인딩의 정확한 일치를 증명하지 않습니다.**  
+   **근거(코드 확정, 오합격 경로는 조건부 추정):** 추가 확인과 최종 확인 모두 IP 문자열 포함 여부를 검사합니다. 기존 식에 예약 IP 문자열이 이미 포함돼 있다면, add와 remove가 모두 124로 끝나고 실제로 미적용돼도 기존 바인딩 하나로 `1 True`가 가능합니다. 추가가 미확정이고 확인 조회도 실패하면 `:223`은 `UNSURE` 없이 종료합니다.  
+   **최소 수정:** 새 조건 전체의 정확한 일치와 옛 조건 부재를 검사합니다. 추가가 미확정이면 확인 실패 때도 원장·되돌림 안내에 남깁니다.  
+   정상 경로에서는 remove가 124여도 서버에서 제거가 완료됐다면 `1 True` 통과가 맞습니다. 옛것과 새것이 모두 남으면 개수가 2여서 차단됩니다.
+
+3. **중요 · `h-db-fwd-create.sh:181`, `:240`; `h-db-fwd-start.sh:48` · 마감 직전에도 한 회차 전체를 실행합니다.**  
+   **근거(코드 확정, 각 호출이 지정 상한을 지킨다는 전제):** h1b는 경과 39초에 진입해 sleep 5초와 조회 11초를 실행할 수 있습니다. 따라서 40초 안에 끝나지 않으며, “40초 + 조회 1회” 안내도 sleep을 빠뜨렸습니다. 같은 방식으로 h1 생성 관찰은 약 76초, 도달 검사는 약 68초까지 늘어날 수 있습니다. Bash `SECONDS`도 단조 시계를 보장하는 인터페이스는 아닙니다.  
+   **최소 수정:** 회차마다 남은 시간을 계산해 sleep과 timeout에 배정합니다. 마감 뒤 받은 RUNNING·도달 응답은 해당 마감의 합격으로 처리하지 않습니다.
+
+4. **경미 · 실제 생성본 `docs/multihost/evidence/db-fwd-20261026-140848/startup-script.sh:11`, `:13`~`:17` · 마지막 재검사가 불완전합니다.**  
+   **근거(코드 확정):** 응답 방향의 `ESTABLISHED,RELATED` 규칙은 설치하지만 마지막에는 검사하지 않습니다. `set -u`는 명령 실패를 자동 차단하지 않으나, 현재 주요 적용 명령의 `|| fail`은 실패를 차단합니다. `iptables -w 10`도 들어 있습니다.  
+   **최소 수정:** applied 직전에 응답 방향 규칙의 `-C` 검사를 추가합니다.
+
+나머지 필수 확인 결과는 다음과 같습니다.
+
+- **존재 조회 플래그:** [공식 규격] [`addresses list --regions`](https://cloud.google.com/sdk/gcloud/reference/compute/addresses/list)와 [`instances list --zones`](https://cloud.google.com/sdk/gcloud/reference/compute/instances/list)는 실제 플래그입니다. `--filter="name=…"`와 함께 쓰는 형태 자체는 결함이 아닙니다.
+- **작업 이름:** 검증 불가 — `docs/multihost/h-plans/h-db-fwd-create.sh:147`, `:175` 및 `h-db-fwd-start.sh:45`. 공식 `--async` 의미는 완료 대기 생략입니다. 지정 자료에는 반환 객체를 확인한 증거가 없으므로, `value(name)`이 작업 이름이라는 판단은 추정입니다. 반환 JSON의 객체 종류·작업 이름을 확인하고 보존해야 합니다.
+- **MASQUERADE 순서:** [공식 Netfilter 처리 순서] 패킷은 FORWARD 이후 POSTROUTING을 통과합니다. FORWARD의 ACCEPT가 POSTROUTING을 생략하지 않으므로 MASQUERADE는 작동할 수 있습니다. 두 규칙을 스크립트에서 설치하는 순서도 이 처리 순서를 바꾸지 않습니다.
+
+## 보안 성질 답
+
+설계상 유지됩니다. VM이 TERMINATED면 DNAT 전달도 멈춥니다.  
+기존 권한 전제에서 mini는 Google 만료 시계를 못 바꾸며, VM은 `--no-service-account --no-scopes`로 자격을 갖지 않습니다.  
+이번 정적 검토는 실제 자동 정지와 경로 단절의 실행 증거를 추가하지는 않았습니다.
