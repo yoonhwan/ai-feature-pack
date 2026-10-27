@@ -1,0 +1,33 @@
+=== PLAN 두 꼴 ===
+--- (1) ft-role-spawn.sh arch --team feat --add --dry-run
+PLAN seat=byz-feat-arch-claude#4 role=arch agent=claude model=claude-opus-5-5[1m] wt=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.pKs3MgDeBP/repo inbox=design/teams/feat/indices/inbox/arch replaces=[<없음>] mode=add (구 좌석 kill 안 함)
+TMUXC-DRY byz-feat-arch-claude#4
+--- (2) ft-role-spawn.sh arch --team feat --dry-run  (--add 없음)
+PLAN seat=byz-feat-arch-claude#4 role=arch agent=claude model=claude-opus-5-5[1m] wt=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.pKs3MgDeBP/repo inbox=design/teams/feat/indices/inbox/arch replaces=[byz-feat-arch-claude#3] (구 좌석 kill 안 함)
+TMUXC-DRY byz-feat-arch-claude#4
+
+=== 명부 전후: (1) --add ===
+--- 전
+_name
+_master
+_arch
+byz-feat-arch-claude#3 role=arch tick=None _replaced_by=None _replaces=None
+--- 후
+_name
+_master
+_arch
+byz-feat-arch-claude#3 role=arch tick=None _replaced_by=None _replaces=None
+byz-feat-arch-claude#4 role=arch tick=None _replaced_by=None _replaces=[]
+
+=== 명부 전후: (2) --add 없음(교체) ===
+--- 전
+_name
+_master
+_arch
+byz-feat-arch-claude#3 role=arch tick=None _replaced_by=None _replaces=None
+--- 후
+_name
+_master
+_arch
+byz-feat-arch-claude#3 role=stop-ready tick=None _replaced_by=byz-feat-arch-claude#4 _replaces=None
+byz-feat-arch-claude#4 role=arch tick=None _replaced_by=None _replaces=['byz-feat-arch-claude#3']

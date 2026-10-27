@@ -1,0 +1,34 @@
+================ 반례 1 — rename 무변경 이동 ================
+--- base(origin/main) 판:
+REJECT cherry 게이트 — nano/x 머지 시 main 에 design/ 밖 변경 2개가 생김(내용 미랜딩 · merge-tree 실제 delta):
+  app/a.py
+  app/b.py
+  tip 내용이 main 역사에 없는 경로:
+  app/a.py (tip 삭제 · main 에는 존재)
+  app/b.py (tip 100644 23238d3f3 가 분기 뒤 main 구간(888c0318e..)에 새 blob 으로 없음)
+REJECT cherry 게이트 — nano/x 에 main 로 안 들어온 코드·시험·스크립트 커밋 1개 (git cherry '+' · design/ 밖 경로):
+  + 6bdf825 rename no content
+  → cherry-pick -x 로 main 에 반영하거나 폐기 사유를 값으로 적은 뒤 닫는다 (사람 우회: --override "<사유>")
+rc=1
+--- 고침 판(HEAD):
+REJECT cherry 게이트 — nano/x 머지 시 main 에 design/ 밖 변경 2개가 생김(내용 미랜딩 · merge-tree 실제 delta):
+  app/a.py
+  app/b.py
+  tip 내용이 main 역사에 없는 경로:
+  app/a.py (tip 삭제 · main 에는 존재)
+  app/b.py (tip 100644 23238d3f3 가 분기 뒤 main 구간(888c0318e..)에 새 blob 으로 없음)
+REJECT cherry 게이트 — nano/x 에 main 로 안 들어온 코드·시험·스크립트 커밋 1개 (git cherry '+' · design/ 밖 경로):
+  + 6bdf825 rename no content
+  → cherry-pick -x 로 main 에 반영하거나 폐기 사유를 값으로 적은 뒤 닫는다 (사람 우회: --override "<사유>")
+rc=1
+--- 변이(rename 검출 켬 = 고침 전 자리):
+INFO cherry 게이트 — nano/x 의 «+» 커밋 1개: 경로 1개 tip 내용이 분기 뒤 main 구간에 새 blob 으로 있음(예 app/b.py) · feat HEAD 와 동일 0개 — 통과 (사유 content_landed_then_superseded)
+rc=0
+
+================ 반례 2 — git cherry 가 7초 상한 밖 ================
+--- 변이(cherry 도우미 밖 = 고침 전 자리):
+OK cherry 게이트 — nano/x 의 모든 커밋이 main 에 patch 단위로 존재(+ 0)
+rc=0 · 9초
+--- 고침 판(HEAD):
+REJECT cherry 게이트 — cherry 7초 초과(묶음 1 · 마지막 main..nano/x) — 쪼개도 넘어 판정 불가(조용한 통과 0)
+rc=1 · 14초

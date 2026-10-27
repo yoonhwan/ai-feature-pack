@@ -1,0 +1,64 @@
+### RED — 고치기 전(origin/main) ft-successor-open.sh 이어가기
+$ FT_SO_PATH=<origin/main> bash /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r925-tmuxc-inject-submit-verify-and-succ/feature-pack/fable-team/harness/tests/test_successor_open.sh
+PASS bash -n
+PASS ⓐ 첫 3줄 빈 값 → REJECT · open·송신 0
+FAIL ⓑ rc=1 order= file=ls: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Q39vRiUKH6/repo/.fable-team/state/successor: No such file or directory
+FAIL ⓑ-2 cat: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Q39vRiUKH6/repo/.fable-team/state/successor/byz-t-old-claude#1.json: No such file or directory
+FAIL ⓒ rc=1 log= out=REJECT ft-reclaim-capped.sh 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.HuA3XXjkuX/base/bin (런타임 .fable-team/bin/ 에서 실행하라)
+FAIL ⓓ rc=1 log= out=REJECT ft-reclaim-capped.sh 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.HuA3XXjkuX/base/bin (런타임 .fable-team/bin/ 에서 실행하라)
+FAIL ⓔ rc=1 log= out=REJECT ft-reclaim-capped.sh 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.HuA3XXjkuX/base/bin (런타임 .fable-team/bin/ 에서 실행하라)
+PASS ⓕ open 실패 → REJECT · 기동 확인·송신 0
+FAIL ⓕ-2 rc=1 out=REJECT ft-reclaim-capped.sh 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.HuA3XXjkuX/base/bin (런타임 .fable-team/bin/ 에서 실행하라)
+FAIL ⓡ5 rc=1 out=REJECT ft-reclaim-capped.sh 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.HuA3XXjkuX/base/bin (런타임 .fable-team/bin/ 에서 실행하라)
+FAIL ⓡ7 rc=1 out=REJECT ft-reclaim-capped.sh 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.HuA3XXjkuX/base/bin (런타임 .fable-team/bin/ 에서 실행하라)
+FAIL ⓡ7 rc=1 out=REJECT ft-reclaim-capped.sh 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.HuA3XXjkuX/base/bin (런타임 .fable-team/bin/ 에서 실행하라)
+FAIL ⓖ rc=1 out=REJECT ft-reclaim-capped.sh 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.HuA3XXjkuX/base/bin (런타임 .fable-team/bin/ 에서 실행하라)
+FAIL ⓖ' rc=1 out=REJECT ft-reclaim-capped.sh 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.HuA3XXjkuX/base/bin (런타임 .fable-team/bin/ 에서 실행하라)
+FAIL ⓗ rc=1 log= out=WARN spawn 정지 중이나 승계는 막지 않는다 — ERROR comm 폴더를 못 풂 — FT_MBOX_DIR·FT_ROOT 없음 · cwd(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.oHYnChlgEB) 가 git 리포 아님 · 옛 설치 꼴 아님(/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Q39vRiUKH6/callerA/bin)
+REJECT ft-reclaim-capped.sh 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Q39vRiUKH6/callerA/bin (런타임 .fable-team/bin/ 에서 실행하라)
+FAIL ⓘ rc=1 log= out=REJECT ft-reclaim-capped.sh 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Q39vRiUKH6/repo/.fable-team/bin (런타임 .fable-team/bin/ 에서 실행하라)
+FAIL ⓙ rc=1 log= out=WARN spawn 정지 중이나 승계는 막지 않는다 — ERROR comm 폴더를 못 풂 — FT_MBOX_DIR·FT_ROOT 없음 · cwd(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.oHYnChlgEB) 가 git 리포 아님 · 옛 설치 꼴 아님(/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Q39vRiUKH6/callerA/bin)
+REJECT ft-reclaim-capped.sh 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Q39vRiUKH6/callerA/bin (런타임 .fable-team/bin/ 에서 실행하라)
+FAIL ⓚ rc=1 log= out=WARN spawn 정지 중이나 승계는 막지 않는다 — ERROR comm 폴더를 못 풂 — FT_MBOX_DIR·FT_ROOT 없음 · cwd(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.oHYnChlgEB) 가 git 리포 아님 · 옛 설치 꼴 아님(/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Q39vRiUKH6/callerA/bin)
+REJECT ft-reclaim-capped.sh 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Q39vRiUKH6/callerA/bin (런타임 .fable-team/bin/ 에서 실행하라)
+FAIL ⓛ rc=1 log= out=WARN spawn 정지 중이나 승계는 막지 않는다 — ERROR comm 폴더를 못 풂 — FT_MBOX_DIR·FT_ROOT 없음 · cwd(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.oHYnChlgEB) 가 git 리포 아님 · 옛 설치 꼴 아님(/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Q39vRiUKH6/callerA/bin)
+REJECT ft-reclaim-capped.sh 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Q39vRiUKH6/callerA/bin (런타임 .fable-team/bin/ 에서 실행하라)
+FAIL ⓜ rc=1 log=
+FAIL ⓝ rc=1 log= out=REJECT ft-reclaim-capped.sh 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.HuA3XXjkuX/base/bin (런타임 .fable-team/bin/ 에서 실행하라)
+FAIL ⓞ rc=1 log= out=REJECT ft-reclaim-capped.sh 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.HuA3XXjkuX/base/bin (런타임 .fable-team/bin/ 에서 실행하라)
+FAIL ⓟ rc=1 log= out=REJECT ft-reclaim-capped.sh 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.HuA3XXjkuX/base/bin (런타임 .fable-team/bin/ 에서 실행하라)
+FAIL ⓠ rc=1 log= out=REJECT ft-reclaim-capped.sh 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.HuA3XXjkuX/base/bin (런타임 .fable-team/bin/ 에서 실행하라)
+FAIL ⓠ' rc=1 out=REJECT ft-reclaim-capped.sh 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.HuA3XXjkuX/base/bin (런타임 .fable-team/bin/ 에서 실행하라)
+FAIL ⓡ rc=1 out=REJECT ft-reclaim-capped.sh 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.HuA3XXjkuX/base/bin (런타임 .fable-team/bin/ 에서 실행하라)
+FAIL ⓡ2 rc=1 log= out=REJECT ft-reclaim-capped.sh 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.HuA3XXjkuX/base/bin (런타임 .fable-team/bin/ 에서 실행하라)
+FAIL ⓡ2' rc=1 out=REJECT ft-reclaim-capped.sh 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.HuA3XXjkuX/base/bin (런타임 .fable-team/bin/ 에서 실행하라)
+FAIL ⓡ3 rc=1 out=REJECT ft-reclaim-capped.sh 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.HuA3XXjkuX/base/bin (런타임 .fable-team/bin/ 에서 실행하라)
+FAIL ⓡ5 /bin/bash 3.2 -n 실패: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.HuA3XXjkuX/base/bin/ft-successor-open.sh: line 134: unexpected EOF while looking for matching ``'
+/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.HuA3XXjkuX/base/bin/ft-successor-open.sh: line 210: syntax error: unexpected end of file
+FAIL ⓡ5' rc=1 out=REJECT ft-reclaim-capped.sh 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.HuA3XXjkuX/base/bin (런타임 .fable-team/bin/ 에서 실행하라)
+FAIL ⓡ5'' rc=1 out=REJECT ft-reclaim-capped.sh 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.HuA3XXjkuX/base/bin (런타임 .fable-team/bin/ 에서 실행하라)
+FAIL ⓡ4 rc=1 log=
+FAIL ⓢ rc=1 out=REJECT ft-reclaim-capped.sh 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.HuA3XXjkuX/base/bin (런타임 .fable-team/bin/ 에서 실행하라)
+FAIL ⓣ rc=1 out=REJECT ft-reclaim-capped.sh 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.HuA3XXjkuX/base/bin (런타임 .fable-team/bin/ 에서 실행하라)
+FAIL ⓣ 직발 rc=1 out=REJECT ft-reclaim-capped.sh 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.HuA3XXjkuX/base/bin (런타임 .fable-team/bin/ 에서 실행하라)
+FAIL ⓣ 따옴표 rc=1 out=REJECT ft-reclaim-capped.sh 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.HuA3XXjkuX/base/bin (런타임 .fable-team/bin/ 에서 실행하라)
+FAIL ⓣ ok rc=1 out=REJECT ft-reclaim-capped.sh 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.HuA3XXjkuX/base/bin (런타임 .fable-team/bin/ 에서 실행하라)
+FAIL ⓣ planner rc=1 out=REJECT ft-reclaim-capped.sh 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.HuA3XXjkuX/base/bin (런타임 .fable-team/bin/ 에서 실행하라)
+FAIL ⓣ guide없음 rc=1 out=REJECT ft-reclaim-capped.sh 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.HuA3XXjkuX/base/bin (런타임 .fable-team/bin/ 에서 실행하라)
+FAIL ⓣ r688 명단없음 rc=1 out=REJECT ft-reclaim-capped.sh 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.HuA3XXjkuX/base/bin (런타임 .fable-team/bin/ 에서 실행하라)
+FAIL ⓤ-ⓐ rc=1 out=REJECT ft-reclaim-capped.sh 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.HuA3XXjkuX/base/bin (런타임 .fable-team/bin/ 에서 실행하라)
+FAIL ⓤ-ⓑ0 rc=1 out=REJECT ft-reclaim-capped.sh 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.HuA3XXjkuX/base/bin (런타임 .fable-team/bin/ 에서 실행하라)
+FAIL ⓤ-ⓑ2 rc=1 out=REJECT ft-reclaim-capped.sh 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.HuA3XXjkuX/base/bin (런타임 .fable-team/bin/ 에서 실행하라)
+FAIL ⓤ-ⓒ rc=1 out=REJECT ft-reclaim-capped.sh 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.HuA3XXjkuX/base/bin (런타임 .fable-team/bin/ 에서 실행하라)
+FAIL ⓤ-ⓓ rc=1 out=REJECT ft-reclaim-capped.sh 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.HuA3XXjkuX/base/bin (런타임 .fable-team/bin/ 에서 실행하라)
+FAIL ⓥ r1 반례(정본 2통 + > 인용 1통) rc=1 out=REJECT ft-reclaim-capped.sh 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.HuA3XXjkuX/base/bin (런타임 .fable-team/bin/ 에서 실행하라)
+FAIL ⓥ r2 반례(백틱 4개 울타리 속 백틱 3개 + 옛 1통) rc=1 out=REJECT ft-reclaim-capped.sh 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.HuA3XXjkuX/base/bin (런타임 .fable-team/bin/ 에서 실행하라)
+FAIL ⓥ ~~~ 울타리 속 옛 1통 rc=1 out=REJECT ft-reclaim-capped.sh 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.HuA3XXjkuX/base/bin (런타임 .fable-team/bin/ 에서 실행하라)
+FAIL ⓥ HTML 주석 속 옛 1통 rc=1 out=REJECT ft-reclaim-capped.sh 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.HuA3XXjkuX/base/bin (런타임 .fable-team/bin/ 에서 실행하라)
+FAIL ⓥ 4칸 들여쓰기 속 옛 1통 rc=1 out=REJECT ft-reclaim-capped.sh 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.HuA3XXjkuX/base/bin (런타임 .fable-team/bin/ 에서 실행하라)
+FAIL ⓥ 정본만 rc=1 out=REJECT ft-reclaim-capped.sh 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.HuA3XXjkuX/base/bin (런타임 .fable-team/bin/ 에서 실행하라)
+FAIL ⓥ 들여쓰기만 rc=1 out=REJECT ft-reclaim-capped.sh 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.HuA3XXjkuX/base/bin (런타임 .fable-team/bin/ 에서 실행하라)
+FAIL ⓥ 인용만 rc=1 out=REJECT ft-reclaim-capped.sh 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.HuA3XXjkuX/base/bin (런타임 .fable-team/bin/ 에서 실행하라)
+FAILED 51
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+rc=1
