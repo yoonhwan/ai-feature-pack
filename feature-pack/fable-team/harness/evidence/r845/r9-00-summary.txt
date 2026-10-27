@@ -1,19 +1,20 @@
-r845 r9 = origin/main(74459363) 병합 반송 (arch#162 #174666) — 나노 산출
-같은 가지 nano/r845-scratch-repo-register-before-hook-f-r3 · 병합 커밋 = 가지 끝 · base = 팩 origin/main 74459363 · push 0(master 몫)
+r845 r9 = origin/main 병합 (arch#162 #174666 반송 → arch#164 #175513 «닫는 데 남은 것 1개») — 나노 산출
+같은 가지 nano/r845-scratch-repo-register-before-hook-f-r3 · 병합 커밋 = 가지의 «merge origin/main(d4ec9ef6)» 커밋(sha 는 쪽지·git log) · main 3회 병합(74459363 → 00648126 → d4ec9ef6) · push 0(master 몫)
 
-## 무엇이 충돌했나
-CHANGES.md · harness/bin/ft-scratch-repo.sh · kit/fable-team/bin/ft-scratch-repo.sh — r8 세트(7608422f · 6f354dbf 기반)가 그 사이 main 이 크게 앞선 r897/r1019 위에 얹혀야 했다.
+## 충돌 3파일
+CHANGES.md · harness/bin/ft-scratch-repo.sh · kit/fable-team/bin/ft-scratch-repo.sh — r8 세트(7608422f · 6f354dbf 기반)를 main 이 크게 앞선 r897/r1019 위에 얹었다.
 
 ## 해소 요지 3줄
-1. 본문 = main 의 r897 판(삭제는 delete_copy 한 곳 · 4칸 장부 · cap/gq · --gate) 그대로 — 삭제 판단 로직은 main 것을 지우지 않고 그 위에 얹었다.
-2. r845 델타 재적용: ① 기본 생성 자리 $TMPDIR/ft-scratch/<주인>/ ② 장부 «있으면 참고»(등록 실패 = WARN · die 0) ③ 훅 실패여도 «요청 sha + status 깨끗» 이면 WARN + rc0, 아니면 die 4 ④ 온전성 확인은 훅 rc 와 무관하게 항상 ⑤ 재사용도 온전한 사본만 ⑥ 제어 문자 입구 거절(has_ctl_all) ⑦ --report --orphans 가 $TMPDIR/ft-scratch/<주인>/ 도 본다.
-3. delete_copy G5 에 «주인 사본 자리 아래»(owner_base·under_base · cap 만 사용) 1줄 — main 의 «베이스 바로 아래»(G1)와 겹겹. 옛 3칸 장부 줄은 main 후퇴 규칙으로 계속 인정(«옛 줄 해석 0» 은 r897 정본으로 대체).
+1. 본문 = main 의 r897 판(삭제는 delete_copy 한 곳 · 4칸 장부 · cap/gq · --gate) 그대로 — 삭제 판단 로직은 main 것을 지우거나 바꾸지 않고 그 위에 얹었다(출구 게이트 시험 실패 목록 = origin/main 과 완전히 동일).
+2. r845 델타 재적용: ① 기본 생성 자리 $TMPDIR/ft-scratch/<주인>/(owner_base 하나로 생성·조회 공용) ② 장부 «있으면 참고»(등록 실패 = WARN · die 0) ③ 훅 실패여도 «요청 sha + status 깨끗» 이면 WARN + rc0, 아니면 die 4 ④ 온전성 확인은 훅 rc 와 무관하게 항상 ⑤ 재사용도 온전한 사본만(더러운 사본 = 건너뜀 + WARN + 새 사본) ⑥ 제어 문자 입구 거절(has_ctl_all — main 의 has_ctl 은 탭·개행 그대로 보존) ⑦ --report --orphans 가 $TMPDIR/ft-scratch/<주인>/ 도 본다.
+3. r7 의 «주인 사본 자리 밖 = 삭제 0» 은 main 게이트 G1(베이스 바로 아래 · 옛 3칸 줄은 TMPDIR·FT_SCRATCH_DIR 만 인정)이 그대로 지킨다 — 새 검사를 게이트에 더하면 main 의 출구 게이트 시험이 무너져서(호출 자리 번호 어긋남) 중복 검사 0 으로 두고 시험 ⓗ 가 G1 거절을 잡는다.
 
-## main 이 더한 줄 보존 확인 (ft_merge_lines.py)
-DENY main 이 더한 줄을 지움(옛 브랜치 F=6f354dbf5a) — main 에서 새 브랜치로 따라: feature-pack/fable-team/harness/bin/ft-index-move-install.sh: main 이 더한 줄 9 개가 S 에서 사라짐; feature-pack/fable-team/harness/bin/ft-nano-spawn.sh: main 이 더한 줄 19 개가 S 에서 사라짐; feature-pack/fable-team/harness/bin/ft-wt-sweep.sh: main 이 더한 줄 35 개가 S 에서 사라짐; feature-pack/fable-team/harness/kit/fable-team/bin/ft-index-move-install.sh: main 이 더한 줄 9 개가 S 에서 사라짐; feature-pack/fable-team/harness/kit/fable-team/bin/ft-nano-spawn.sh: main 이 더한 줄 19 개가 S 에서 사라짐; feature-pack/fable-team/harness/kit/fable-team/bin/ft-wt-sweep.sh: main 이 더한 줄 35 개가 S 에서 사라짐; feature-pack/fable-team/harness/tests/test_nano_spawn_body_press.sh: main 이 더한 줄 48 개가 S 에서 사라짐; feature-pack/fable-team/harness/tests/test_nano_spawn_body_search_roster.sh: main 이 더한 줄 12 개가 S 에서 사라짐
+## main 이 더한 줄 보존 (ft_merge_lines.py)
+DENY main 이 더한 줄을 지움(옛 브랜치 F=6f354dbf5a) — main 에서 새 브랜치로 따라: feature-pack/fable-team/harness/bin/ft-nano-close.sh: main 이 더한 줄 64 개가 S 에서 사라짐; feature-pack/fable-team/harness/kit/fable-team/bin/ft-nano-close.sh: main 이 더한 줄 64 개가 S 에서 사라짐; feature-pack/fable-team/harness/tests/test_nano_close_landed_pr_r1011.sh: main 이 더한 줄 143 개가 S 에서 사라짐
 rc=1
 
-## 시험 — 34 PASS ×3 rc=0 (원문 r9-02-green-run1..3 · bash 3.2 포함 · 변이 6 전부 빨강)
+## 시험 (원문 r9-02-green-run1..3)
+r845 = 34 PASS ×3 rc=0 · bash 3.2 포함 · 변이 6 전부 빨강
 PASS ⓐ 훅 exit 4 → 사본은 그 sha 로 생김 · WARN 1줄 · 경로 rc0 · 장부 1줄
 PASS ⓑ 훅 SIGSEGV(rc139) → ⓐ 와 같음(사본 쓸 수 있음 · WARN · rc0)
 PASS ⓒ 장부 쓰기 불가 → WARN 1줄 · rc0 · 사본 그대로(장부 0줄)
@@ -25,10 +26,10 @@ PASS ⓓ --sweep 도 이름꼴 아닌 줄은 삭제 0
 PASS ⓔ 제어 문자 경로( / v a r / f o l d e r s…) → rc2 · 사본 0 · 장부 0
 PASS ⓔ 제어 문자 경로( / v a r / f o l d e r s…) → rc2 · 사본 0 · 장부 0
 PASS ⓕ FT_SCRATCH_DIR 없으면 $TMPDIR/ft-scratch/<주인>/ 아래에 만든다(재부팅 정리 자리)
-PASS ⓗ 남의 owner 폴더 등록 사본 --done → rc2 · WARN · 삭제 0 · 장부 유지
-PASS ⓗ 사본 자리 밖 등록 사본 --done → rc2 · WARN · 삭제 0 · 장부 유지
+PASS ⓗ 남의 owner 폴더 등록 사본(옛 3칸 줄) --done → rc2 · 거절 · 삭제 0 · 장부 유지
+PASS ⓗ 사본 자리 밖 등록 사본 --done → rc2 · 거절 · 삭제 0 · 장부 유지
 PASS ⓗ --sweep 은 자리 밖·주인 다른 줄을 지우지 않는다(삭제 0 · 장부 유지 · WARN)
-PASS ⓗ 경계 안 정상 사본은 --sweep 이 지운다(경계 검사가 «항상 거절» 이 아님)
+PASS ⓗ 자리 안 정상 사본(4칸)은 --sweep 이 지운다(검사가 «항상 거절» 이 아님)
 PASS ⓘ 훅 rc0 + move (--full) → rc4 · 등록 0
 PASS ⓘ 훅 rc0 + head (--full) → rc4 · 등록 0
 PASS ⓘ 훅 rc0 + move (--sparse) → rc4 · 등록 0
@@ -45,17 +46,14 @@ PASS ⓖ /bin/bash(bash 3.2) 로 같은 시험 ALL PASS
 PASS 변이1(장부 실패 경고 삭제) → ⓒ FAIL
 PASS 변이2(출구 게이트 이름꼴 검사 끔) → ⓓ FAIL
 PASS 변이3(입구 거절 삭제) → ⓔ FAIL
-PASS 변이4(owner 경계 제거) → ⓗ FAIL
+PASS 변이4(게이트 G1 베이스 검사 제거) → ⓗ FAIL
 PASS 변이5(rc0 훅 완전성 건너뜀) → ⓘ FAIL
 PASS 변이6(재사용 완전성 확인 끔) → ⓚ FAIL
 ALL PASS
 
-## kit↔bin cmp0 · kit_bin_sync
-ALL PASS
-rc=0
-kit ↔ harness/bin cmp0 OK
+## 기존 시험
+scratch 4종(test_scratch_repo · judged_r645 · sweep_live_cwd_r548 · sparse_auto_done_r891) ALL PASS rc=0 · test_kit_bin_sync ALL PASS rc=0 · kit↔bin cmp0
+test_scratch_exit_gate_r897 = rc=4 이고 실패 목록이 origin/main 판과 «완전히 동일»(기존 실패 · 이 병합이 더한 실패 0)
 
-## 환경 흔들림 1건(기록용)
-# 이 회차(try3)만 lsof 환경 실패로 자식 시험 2칸 FAIL — 같은 시험 단독 재실행 8/8 PASS · r548 단독 3/3 PASS (기록용)
-FAIL ⓖ 기존 test_scratch_repo.sh rc=1 FAIL ⓒ ERROR lsof 실패 — 삭제 0 (cwd 판정 불가) 
-FAIL ⓖ 기존 test_scratch_sweep_live_cwd_r548.sh rc=1 FAIL ⓖ 기존 셸 시험 rc=2 (2 FAIL) 
+## 환경 흔들림(기록용 · try2 1회)
+lsof 가 부하에서 rc≠0 → main 계약대로 «삭제 0» 으로 끝나 자식 시험 칸이 FAIL. 같은 시험 단독 재실행은 8/8 PASS, r548 단독 3/3 PASS.

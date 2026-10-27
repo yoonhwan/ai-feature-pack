@@ -9,10 +9,10 @@ PASS ⓓ --sweep 도 이름꼴 아닌 줄은 삭제 0
 PASS ⓔ 제어 문자 경로( / v a r / f o l d e r s…) → rc2 · 사본 0 · 장부 0
 PASS ⓔ 제어 문자 경로( / v a r / f o l d e r s…) → rc2 · 사본 0 · 장부 0
 PASS ⓕ FT_SCRATCH_DIR 없으면 $TMPDIR/ft-scratch/<주인>/ 아래에 만든다(재부팅 정리 자리)
-PASS ⓗ 남의 owner 폴더 등록 사본 --done → rc2 · WARN · 삭제 0 · 장부 유지
-PASS ⓗ 사본 자리 밖 등록 사본 --done → rc2 · WARN · 삭제 0 · 장부 유지
+PASS ⓗ 남의 owner 폴더 등록 사본(옛 3칸 줄) --done → rc2 · 거절 · 삭제 0 · 장부 유지
+PASS ⓗ 사본 자리 밖 등록 사본 --done → rc2 · 거절 · 삭제 0 · 장부 유지
 PASS ⓗ --sweep 은 자리 밖·주인 다른 줄을 지우지 않는다(삭제 0 · 장부 유지 · WARN)
-PASS ⓗ 경계 안 정상 사본은 --sweep 이 지운다(경계 검사가 «항상 거절» 이 아님)
+PASS ⓗ 자리 안 정상 사본(4칸)은 --sweep 이 지운다(검사가 «항상 거절» 이 아님)
 PASS ⓘ 훅 rc0 + move (--full) → rc4 · 등록 0
 PASS ⓘ 훅 rc0 + head (--full) → rc4 · 등록 0
 PASS ⓘ 훅 rc0 + move (--sparse) → rc4 · 등록 0
@@ -29,7 +29,7 @@ PASS ⓖ /bin/bash(bash 3.2) 로 같은 시험 ALL PASS
 PASS 변이1(장부 실패 경고 삭제) → ⓒ FAIL
 PASS 변이2(출구 게이트 이름꼴 검사 끔) → ⓓ FAIL
 PASS 변이3(입구 거절 삭제) → ⓔ FAIL
-PASS 변이4(owner 경계 제거) → ⓗ FAIL
+PASS 변이4(게이트 G1 베이스 검사 제거) → ⓗ FAIL
 PASS 변이5(rc0 훅 완전성 건너뜀) → ⓘ FAIL
 PASS 변이6(재사용 완전성 확인 끔) → ⓚ FAIL
 ALL PASS
