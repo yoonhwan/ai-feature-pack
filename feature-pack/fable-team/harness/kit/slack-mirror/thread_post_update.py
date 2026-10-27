@@ -164,7 +164,7 @@ def cmd_update(a: argparse.Namespace, target: Callable[[argparse.Namespace], Tar
     rec = lg.get(ledger, a.key)
     if rec is None:
         root = post(t.base, t.token, a.channel, body)
-        readback(Post(t.base, t.token, a.channel, root, a.key))  # r1004 — 게시 직후 되읽기(<|place_holder_mm_span_0394|>부에 남길 글만 산다)
+        readback(Post(t.base, t.token, a.channel, root, a.key))  # r1004 — 게시 직후 되읽기(장부에 남길 글만 산다)
         lg.create(ledger, a.key, channel=a.channel, root_ts=root, kind="report", card_path="없음")
         print(f"created {a.key} root_ts={root}")
         pending = None

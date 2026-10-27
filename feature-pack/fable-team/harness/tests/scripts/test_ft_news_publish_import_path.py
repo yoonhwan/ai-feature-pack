@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[3]
 BIN = ROOT / "harness" / "bin"
 FAKE_MAGAZINE = "def post_root(*a, **k):\n    raise SystemExit('fake')\n\n\ndef permalink(*a, **k):\n    raise SystemExit('fake')\n"  # R217: 발행기가 permalink 도 가져온다
 FAKE_MIRROR = "class MirrorError(Exception):\n    pass\n\n\ndef paged(*a, **k):\n    return []\n"
-FAKE_GUARD = "class ReadbackError(Exception):\n    pass\n\n\nclass Post:\n    pass\n\n\ndef readback(*a, **k):\n    return None\n"  # r1004 되읽기 가드도 설치 폴더에 있다
+FAKE_GUARD = "class ReadbackError(Exception):\n    pass\n\n\nclass Post:\n    pass\n\n\ndef readback(*a, **k):\n    return None\n\n\ndef fail(*a, **k):\n    raise ReadbackError(a[-1] if a else 'fail')\n"  # r1004 되읽기 가드도 설치 폴더에 있다
 
 
 def _fake_modules(folder: Path) -> Path:

@@ -29,7 +29,7 @@ from ft_news_post import goal_gate  # noqa: E402 — 문 모듈 누락(설치 �
 try:
     from magazine_slack import permalink, post_root  # noqa: E402
     from mirror_lib import MirrorError, paged  # noqa: E402
-    from root_readback_guard import Post, readback  # noqa: E402 — r1004 되읽기 가드(설치본·키트 같은 폴더)
+    from root_readback_guard import Post, fail, readback  # noqa: E402 — r1004 되읽기 가드(설치본·키트 같은 폴더)
 except ImportError as e:
     raise ImportError(f"magazine_slack·mirror_lib·root_readback_guard 를 못 찾음 — 찾은 곳: {_HERMES} (FT_HERMES_SCRIPTS) · {_KIT} ({e})") from e
 
@@ -183,6 +183,13 @@ def html_post_text(summary: str, now: datetime) -> str:
     return "\n".join([f"[뉴스 {now:%H:%M}] {os.environ.get('FT_NEWS_HEAD') or '팀 지도'} — {lines[0]}", *lines[1:3]])
 
 
+def _posted_ts(t, ts: str, day: str) -> str:
+    """게시 뒤 그 글 번호 — 못 얻었으면 되읽기 실패로 본다(올렸는데 조회 0 = 읽을 수 없는 글 · 조용한 성공 0)."""
+    if not ts:
+        raise fail(f"news:{day}", "뉴스 지도 글 번호 없음 — 되읽기 실패 · 확인 필요(올린 글 조회 0)")
+    return ts
+
+
 def publish_html(html_p: Path, summary: str, now: datetime) -> tuple[int, dict | None]:
     """(rc, 영수증 {ts, channel, permalink}) — 채널 최상위 글 1개에 HTML 첨부(files.completeUploadExternal initial_comment · 스레드 0).
     그날 같은 글이 이미 있으면 채택(응답 유실 재실행 중복 0). 첨부 실패 = 글만 올리고 «미첨부» 끝줄 · rc3 · 다음 틱 retry_attach 가 그 글 스레드에 첨부.
@@ -205,8 +212,8 @@ def publish_html(html_p: Path, summary: str, now: datetime) -> tuple[int, dict |
                 state = _paths()[1]
                 state.mkdir(parents=True, exist_ok=True)
                 (state / "pending-attach.json").write_text(json.dumps({"day": day, "ts": ts, "html": str(html_p)}), encoding="utf-8")
-        if ts:
-            readback(Post(t.base, t.token, t.channel, ts, f"news:{day}"))  # r1004 — HTML 모드 글도 게시 직후 되읽기(채택한 글 포함)
+        ts = _posted_ts(t, ts, day)  # r1004 — 게시 뒤 글 번호를 못 얻으면 되읽기 실패(조용한 통과 0)
+        readback(Post(t.base, t.token, t.channel, ts, f"news:{day}"))  # r1004 — HTML 모드 글도 게시 직후 되읽기(채택한 글 포함)
     except MirrorError as e:
         LOG.error("뉴스 지도 발행 실패: %s", e)
         return 1, None

@@ -4,8 +4,8 @@
 위반 3꼴(예외 0 — 골 표·각주 표도 위반이다) =
   ① 표 줄(파이프 2개 이상 · 슬랙 링크 `<주소|글자>` 안 파이프는 셈 0) 또는 구분 줄 `--- | ---`
   ② «…» 3개 이상(1~2개는 사람이 쓴 정상 글에도 있다)
-  ③ 첫 줄이 결론 문장이 아님(목록 표지 `-`·`*`·`•`·`1.` · `##` 이하 제목 · 표 줄 · 빈 글)
-부르는 쪽 계약: check(text) = 판정만(정상이면 None) · readback(post) = 게시 직후 되읽기 → 위반이면 그 글을 지우고 ReadbackError 를 raise 한다(부르는 쪽 발행 rc1).
+  ③ 첫 줄이 결론 문장이 아님(목록 표지 `-`·`*`·`•`·`1.` · `##` 이하 제목 · 표 줄 · 빈 글 · 앞 빈 줄)
+부르는 쪽 계약: check(text) = 판정만(정상이면 None · «첫 줄» 은 원문 첫 줄 그대로) · readback(post) = 게시 직후 되읽기 → 위반이면 그 글을 지우고 ReadbackError 를 raise 한다(부르는 쪽 발행 rc1) · fail(event, why) = 되읽기 자체를 못 한 자리(글 번호 0)도 같은 실패 길(쪽지 1통 + raise).
   ERROR 로그는 부르는 쪽 «한 곳»에서 1줄만 남긴다(가드는 로그 0 — 사건당 ERROR 2줄 금지).
   planner [긴급] 쪽지는 사건 키 하나당 1통 — 오류 종류(조회·삭제·위반) 무관 · 표식을 O_CREAT|O_EXCL 로 원자 생성(동시 처리도 1통) · 전송 실패면 표식 되돌림.
 env: FT_ROOT(명부·쪽지함·표식 뿌리 · 없으면 고정 기본값) · FT_READBACK_MBOX · FT_READBACK_STATE · FT_READBACK_TO · FT_READBACK_GUARD=0 = 끔(되돌림)
@@ -51,10 +51,10 @@ def _table_row(line: str) -> bool:
 
 
 def check(text: str) -> str | None:
-    """사람이 읽을 수 없는 이유 — 정상이면 None."""
-    lines = [ln for ln in text.splitlines() if ln.strip()]
-    if not lines:
-        return "빈 글"
+    """사람이 읽을 수 없는 이유 — 정상이면 None. «첫 줄» = 원본 첫 줄 그대로(앞 빈 줄을 건너뛰지 않는다)."""
+    lines = text.splitlines()
+    if not lines or not lines[0].strip():
+        return "첫 줄이 결론 문장이 아님"  # 빈 글·앞 빈 줄 — 첫 줄이 결론이 아니다
     bad: list[str] = []
     if rows := sum(1 for ln in lines if _table_row(ln)):
         bad.append(f"표 줄 {rows}개")
@@ -113,6 +113,12 @@ def alarm(event: str, text: str) -> None:
     if done.returncode != 0:
         LOG.warning("planner 쪽지 실패 rc=%s — 표식 지움(다음 발행에 다시)", done.returncode)
         mark.unlink(missing_ok=True)
+
+
+def fail(event: str, why: str) -> ReadbackError:
+    """되읽기 자싸를 못 한 자리(글 번호 0 등) — planner 쪽지 1통 + 부르는 쪽이 받을 오류(ERROR 1줄은 부르는 쪽)."""
+    alarm(event, why)
+    return ReadbackError(why)
 
 
 def readback(post: Post) -> None:

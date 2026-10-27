@@ -61,6 +61,7 @@ class FakeSlack:
         self.fail_delete = False
         self.deleted: list[str] = []
         self.history_calls = 0
+        self.hide_uploads = False  # 업로드는 되는데 히스토리 조회가 0(글 번호를 못 얻는 자리 · ⓒ)
         self._seq = 0
         outer = self
 
@@ -114,7 +115,8 @@ class FakeSlack:
                 if u.path.endswith("files.completeUploadExternal"):
                     outer._seq += 1
                     ts = f"{1_900_000_000 + outer._seq}.000000"
-                    outer.msgs.append({"ts": ts, "text": q.get("initial_comment", ""), "bot_id": "B1", "thread_ts": ""})
+                    if not outer.hide_uploads:
+                        outer.msgs.append({"ts": ts, "text": q.get("initial_comment", ""), "bot_id": "B1", "thread_ts": ""})
                     return self._reply({"ok": True})
                 return self._reply({"ok": True, "permalink": f"https://fake.slack/archives/{q.get('channel', 'C1')}/p1"})
 
@@ -176,8 +178,20 @@ def test_c1_heading_rules(mail: Path) -> None:
     assert g.check("# 뉴스 — 2026-10-27 09:15\n- 오빠 할 일: 없음") is None
 
 
+def test_c1_blank_first_line_is_violation(mail: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """ⓐ 새 칸 — 앞 빈 줄을 건너뛰지 않는다: «첫 줄» = 원문 첫 줄 그대로."""
+    assert g.check("\n결론: 발행을 마쳤어요") == "첫 줄이 결론 문장이 아님"
+    assert g.check("   \n결론: 발행을 마쳤어요") is not None
+    slack = FakeSlack()
+    _news_target(monkeypatch, slack, tmp_path)
+    assert np.publish_line("\n결론: 발행을 마쳤어요", NOW) == 1  # 지움 + rc1
+    assert slack.deleted and slack.msgs == []
+    assert len(_sends(mail)) == 1  # 쪽지 1통
+    assert np.publish_line("결론: 발행을 마쳤어요\n둘째 줄", NOW) == 0  # 빈 줄이 없으면 그대로 통과
+
+
 def test_c1_empty_text_is_violation() -> None:
-    assert g.check("   \n\n") == "빈 글"
+    assert g.check("   \n\n") == "첫 줄이 결론 문장이 아님"
 
 
 # ── C2 ⓑ 정상 글은 그대로 ───────────────────────────────────
@@ -227,6 +241,20 @@ def test_c3_one_error_line_per_call_site(mail: Path, tmp_path: Path, monkeypatch
         assert np.publish_line(GOOD, NOW) == 1
     assert len([r for r in caplog.records if r.levelname == "ERROR"]) == 1
     assert len(_sends(mail)) == 1
+
+
+def test_c3_publish_html_without_ts_is_a_readback_failure(mail: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+    """ⓒ 새 칸 — 게시 뒤 글 번호 조회가 [] 면 되읽기 실패: 조용한 성공 0 · ERROR 1줄 · 쪽지 1 · rc≠0."""
+    slack = FakeSlack()
+    slack.hide_uploads = True  # 올렸는데 조회 0
+    html = tmp_path / "m.html"
+    html.write_text("<html></html>", encoding="utf-8")
+    _news_target(monkeypatch, slack, tmp_path)
+    with caplog.at_level("WARNING"):
+        rc, receipt = np.publish_html(html, GOOD, NOW)  # type: ignore[arg-type]
+    assert rc != 0 and receipt is None
+    assert len([r for r in caplog.records if r.levelname == "ERROR"]) == 1
+    assert len(_sends(mail)) == 1 and "[긴급]" in _sends(mail)[0]
 
 
 # ── C5 ⓔ 쪽지 = 사건 키당 1통 · 장부 ───────────────────────
@@ -400,3 +428,26 @@ def test_c4_mutation_each_site_is_load_bearing(mail: Path, tmp_path: Path, monke
     assert md.main(mag_argv(bag, "--publish", mag)) == 0, "매거진 자리 변이"
     assert [m["text"] for m in mag.roots] == [TABLE_TEXT]
     assert _sends(mail) == []
+
+
+def test_mutation_blank_first_line_rule_is_load_bearing(mail: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """변이 — «앞 빈 줄을 버리는» 옛 판정으로 되돌리면 ⓐ 새 칸은 FAIL(발행이 통과한다)."""
+    slack = FakeSlack()
+    _news_target(monkeypatch, slack, tmp_path)
+    real = g.check
+    monkeypatch.setattr(g, "check", lambda text: real(text.lstrip("\n")))  # 되돌린 판
+    assert np.publish_line("\n결론: 발행을 마쳤어요", NOW) == 0
+    assert slack.deleted == [] and _sends(mail) == []
+
+
+def test_mutation_posted_ts_fix_is_load_bearing(mail: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """변이 — 글 번호 0 을 그냥 넘기면(옛 판) ⓒ 새 칸은 FAIL(rc0 · 쪽지 0)."""
+    slack = FakeSlack()
+    slack.hide_uploads = True
+    html = tmp_path / "m.html"
+    html.write_text("<html></html>", encoding="utf-8")
+    _news_target(monkeypatch, slack, tmp_path)
+    monkeypatch.setattr(np, "_posted_ts", lambda t, ts, day: ts)  # 되돌린 판(글 번호 0 을 그냥 넘긴다)
+    monkeypatch.setattr(np, "readback", lambda *a, **k: None)  # 되돌린 판(글 번호가 없으면 가드를 건너뛴다)
+    rc, receipt = np.publish_html(html, GOOD, NOW)  # type: ignore[arg-type]
+    assert rc == 0 and receipt is not None and receipt["ts"] == "" and _sends(mail) == []
