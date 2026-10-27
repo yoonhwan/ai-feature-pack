@@ -1,0 +1,3 @@
++ bash -n bin/ft-scratch-repo.sh
++ /bin/bash -n bin/ft-scratch-repo.sh
++ cmp bin/ft-scratch-repo.sh kit/fable-team/bin/ft-scratch-repo.sh

@@ -1,0 +1,12 @@
+=== test_scratch_repo.sh ===
+rc=0 PASS=23 FAIL=0
+ALL PASS
+=== test_scratch_judged_r645.sh ===
+rc=0 PASS=10 FAIL=0
+ALL PASS
+=== test_scratch_sweep_live_cwd_r548.sh ===
+rc=0 PASS=18 FAIL=0
+ALL PASS
+=== test_scratch_repo_sparse_auto_done_r891.sh ===
+rc=0 PASS=27 FAIL=0
+ALL PASS
