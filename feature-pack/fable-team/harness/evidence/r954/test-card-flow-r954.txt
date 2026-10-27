@@ -1,0 +1,68 @@
+PASS bash -n ft-card-flow.sh
+PASS 키트 사본 cmp 0 ft-card-flow.sh
+PASS bash -n ft-news-tick.sh
+PASS 키트 사본 cmp 0 ft-news-tick.sh
+PASS bash -n ft-nano-spawn.sh
+PASS 키트 사본 cmp 0 ft-nano-spawn.sh
+PASS ⓐ 숫자 1줄 꼴 · rc0
+PASS ⓑ 근거 없는 카드·비조상 sha → K 0
+PASS ⓑ-2 기본(옵션 없음)은 가지 판정을 안 한다 → K 1
+PASS ⓑ-2 finished-check FINISHED 1건 + 착지 sha 1건 = K 2 (ACTIVE 는 안 셈)
+PASS ⓑ2 41자(40자+1) → K 0
+PASS ⓑ2 40자+비16진수 글자 → K 0
+PASS ⓑ2 6자 → K 0
+PASS ⓑ2 40자 전체 → K 1
+PASS ⓑ2 7자 약식 sha → 착지 인정 K 1 (r4 보강 ①)
+PASS ⓑ2 8자 약식 sha → K 1
+PASS ⓝ 40자+«-invalid» → K 0
+PASS ⓝ 40자+«-x» → K 0
+PASS ⓝ 40자+«.» → K 0
+PASS ⓝ 40자+«/» → K 0
+PASS ⓝ 40자+«가» → K 0
+PASS ⓝ 40자+«,x» → K 0
+PASS ⓝ 40자+«:» → K 0
+PASS ⓝ 40자+«_» → K 0
+PASS ⓝ 대문자 hex → K 0
+PASS ⓝ 백틱 한 쌍 + 뒤 설명 → K 1
+PASS ⓝ 백틱 한쪽만 → K 0
+PASS ⓝ 둘째 낱말이 40hex(첫 낱말 아님) → K 0 (r4 보강 ①)
+PASS ⓝ 백틱 벗긴 7자 → K 1
+PASS ⓒ 서버 없음 → 좌석 0
+PASS ⓒ tmux 실패 → rc1 + FAIL 줄
+PASS ⓓ 시간 초과 → 확인 불가 줄 rc3
+PASS ⓓ news-tick 에 팀 숫자 줄 1개
+PASS ⓓ 팀당 정확히 1줄
+PASS ⓓ news-tick 시간 초과 = 확인 불가 줄(빈칸 0)
+PASS ⓓ2 판정 시간 초과 → 확인 불가 1 줄 (3초 · 대역 12초를 기다리지 않음)
+PASS ⓓ2 판정 rc≠0 → 확인 불가 1(실패)
+PASS ⓓ2 제때 FINISHED → K 1 · 확인 불가 줄 0
+PASS ⓞ 모드«일반» × slow2 → 확인 불가 줄 (3초)
+PASS ⓞ 모드«일반» × rc2 → 확인 불가 줄 (0초)
+PASS ⓞ 모드«일반» × empty → 확인 불가 줄 (0초)
+PASS ⓞ 모드«--warn» × slow2 → 확인 불가 줄 (3초)
+PASS ⓞ 모드«--warn» × rc2 → 확인 불가 줄 (0초)
+PASS ⓞ 모드«--warn» × empty → 확인 불가 줄 (0초)
+PASS ⓞ-2 건강 + 시간 초과 → --warn 경보 1줄(빈 출력 0)
+PASS ⓟ 권한 000 모드«일반» → 확인 불가 줄 rc3
+PASS ⓟ 권한 000 모드«--warn» → 확인 불가 줄 rc3
+PASS ⓟ-2 판정 스크립트 없음 모드«일반» → 확인 불가 줄
+PASS ⓟ-2 판정 스크립트 없음 모드«--warn» → 확인 불가 줄
+PASS ⓟ-3 show-ref rc2 → 확인 불가 줄(건너뛰지 않음)
+PASS ⓟ-3 가지 없음(show-ref rc1) → 확인 불가 0(대상 아님)
+PASS ⓟ-4 카드 파일 권한 000 → 확인 불가 줄 rc3
+PASS ⓔ K>0 → WARN 이동 먼저(착지 카드 지목)
+PASS ⓔ WARN 정확히 1줄
+PASS ⓔ rc 불변(경보 1 = 끔 1)
+PASS ⓔ FT_CARD_FLOW=0 → 경보 0
+PASS ⓔ 건강(진행 2 ≤ 좌석 2+2 · K 0) → 경보 0
+PASS ⓔ 진행 > 좌석+2 → WARN
+PASS ⓕ test_nano_spawn_body_press.sh rc0 (/bin/bash 3.2)
+PASS ⓕ test_nano_spawn_body_search_roster.sh rc0 (/bin/bash 3.2)
+PASS ⓕ test_nano_spawn_pi_effort_kind_r631.sh rc0 (/bin/bash 3.2)
+PASS ⓕ test_nano_spawn_pi_effort_serena.sh rc0 (/bin/bash 3.2)
+PASS ⓕ test_nano_spawn_recheck_cited.sh rc0 (/bin/bash 3.2)
+PASS ⓕ test_nano_spawn_reuse_info.sh rc0 (/bin/bash 3.2)
+PASS ⓕ test_nano_spawn_teamset_cap.sh rc0 (/bin/bash 3.2)
+PASS ⓕ test_nano_spawn_tier.sh rc0 (/bin/bash 3.2)
+PASS ⓕ test_news_tree_root.sh rc0 (/bin/bash 3.2)
+ALL PASS
