@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # test_nano_spawn_body_press.sh — ft-nano-spawn.sh 의 첫 발주문(BODY)에 press 금지 문장이 있는가 (정적 · 실행·네트워크·tmux 0).
+#   r1025 칸 1: BODY 에 은퇴 도구(serena) 0 + 송신 직전 최종 본문 검사(REJECT 1줄 · 송신 0).
 # 두 사본(추적본·키트)의 ^BODY= 줄을 읽는다. spawn 의 --dry-run 은 BODY 를 출력하지 않아 정적 grep 이 유일한 관측점이다.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
@@ -18,6 +19,7 @@ check_body() {
   case "$line" in *"press(라이브 오디오 시험) 금지"*) ok "$label press 금지 문장";; *) bad "$label BODY 에 'press(라이브 오디오 시험) 금지' 없음";; esac
   case "$line" in *"ft-press-gate ⑦"*) ok "$label ft-press-gate ⑦ 근거";; *) bad "$label BODY 에 'ft-press-gate ⑦' 없음";; esac
   case "$line" in *"측정 조작 금지"*"/dev/bubble-replay"*"BOOT 20"*) ok "$label 측정 조작 금지 문장";; *) bad "$label BODY 에 '측정 조작 금지' 문장 없음";; esac
+  case "$line" in *serena*|*Serena*|*find_symbol*) bad "$label BODY 에 은퇴 도구 지시(serena·find_symbol) 남음";; *) ok "$label BODY 에 Serena 0";; esac
   case "$line" in *"증거 줄"*"완료 턴에 네가 인덱스 «상태» 절에 직접"*"master 는 커밋만"*) ok "$label 증거 줄 직접 기록 문장";; *) bad "$label BODY 에 '증거 줄 직접 기록' 문장 없음";; esac
 }
 
@@ -51,6 +53,38 @@ before="$fail"
 neg3="$(check_body "음성복사본3" "$TMP/stripped3.sh")"
 fail="$before"
 echo "$neg3" | grep -q '^FAIL 음성복사본3 BODY 에 .증거 줄' && ok "음성 대조 3: 문장 제거 시 FAIL 발생" || bad "음성 대조 3: 문장을 지웠는데 FAIL 이 안 남"
+
+# ── r1025 칸 1 — 송신 직전 최종 본문 검사(은퇴 도구 serena) : REJECT 1줄 · 송신 0 ──
+# 잔문을 ci 로 바꿔도(_SRX·BODY) 나중에 덧붙는 본문이나 다른 글자에서 다시 섮일 수 있다 — 보내기 «전» 한 곳에서 본문 전문을 본다.
+check_retired() {
+  local label="$1" f="$2" n ln sl
+  n="$(grep -c 'REJECT 발주문에 은퇴 도구 지시(serena)' "$f")"
+  [ "$n" = "1" ] && ok "$label 최종 본문 검사 줄 1개" || { bad "$label 최종 본문 검사 줄 ${n}개 (기대 1)"; return; }
+  ln="$(grep -n 'REJECT 발주문에 은퇴 도구 지시(serena)' "$f" | cut -d: -f1)"
+  sl="$(grep -n '^FT_SEND_FROM="\$FROM" bash' "$f" | head -1 | cut -d: -f1)"
+  [ -n "$sl" ] && [ "$ln" -lt "$sl" ] && ok "$label 검사 줄이 송신 줄보다 앞(송신 0)" || bad "$label 검사 줄이 송신 줄 뒤이거나 송신 줄 없음(ln=$ln sl=${sl:-없음})"
+}
+check_retired "추적본" "$TRACKED"
+check_retired "키트" "$KIT"
+RFN="$(awk '/^retired_line\(\) \{/,/^\}/' "$TRACKED")"
+[ -n "$RFN" ] && ok "retired_line 함수 추출" || bad "retired_line 함수 없음"
+eval "$RFN"
+[ -z "$(retired_line '평법한 발주문 · ci sym/refs/outline/search · 명부 금지')" ] && ok "검사: 깨끗한 본문 → 일치 0" || bad "검사: 깨끗한 본문인데 일치"
+[ "$(retired_line '★편집은 Edit 절대경로만★ serena 먼저')" = "serena" ] && ok "검사: serena → serena" || bad "검사: serena 를 못 잡음"
+[ "$(retired_line 'Serena 는 읽기만')" = "Serena" ] && ok "검사: Serena → Serena" || bad "검사: Serena 를 못 잡음"
+BLINE="$(grep '^BODY=' "$TRACKED")"
+BEBN="$(sed -n 's/.*_EBN="\([^"]*\)".*/_EBN="\1"/p' "$TRACKED" | head -1)"
+[ -n "$BEBN" ] && ok "_EBN 정의 추출" || bad "_EBN 정의 추출 실패"
+eval "$BEBN" 2>/dev/null || true
+[ -z "$(retired_line "$BLINE")" ] && ok "검사: 실제 BODY 줄 → 일치 0" || bad "검사: 실제 BODY 줄에서 은퇴 도구 글자 발견"
+[ "$(retired_line "$BLINE$_EBN serena")" = "serena" ] && ok "검사: _EBN 뒤에 serena 를 넣으면 걸린다(REJECT 1줄)" || bad "검사: _EBN 뒤 serena 를 못 잡음"
+[ "$(retired_line "$BLINE$_EBN find_symbol")" = "find_symbol" ] && ok "검사: _EBN 뒤 find_symbol 도 걸린다" || bad "검사: _EBN 뒤 find_symbol 을 못 잡음"
+unset _EBN
+# 변이 — 검사 줄을 지운 사본은 check_retired 가 FAIL
+grep -v 'REJECT 발주문에 은퇴 도구 지시(serena)' "$TRACKED" > "$TMP/stripped4.sh"
+cmp -s "$TRACKED" "$TMP/stripped4.sh" && bad "변이: sed 가 검사 줄을 지우지 못함"
+before="$fail"; neg4="$(check_retired "음성복사본4" "$TMP/stripped4.sh")"; fail="$before"
+echo "$neg4" | grep -q '^FAIL 음성복사본4 최종 본문 검사 줄 0개' && ok "변이: 검사 줄 삭제 → FAIL" || bad "변이: 검사 줄을 지웠는데 FAIL 이 안 남"
 
 # ── R181 · link_web_node_modules (임시 git 저장소 + 워크트리 · 라이브 bin·실 node_modules 0) ──
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
