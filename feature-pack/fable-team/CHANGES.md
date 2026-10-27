@@ -1,3 +1,7 @@
+## 2026-10-27 — 워크트리 정리 도구(`ft-wt-sweep.sh`)의 껍데기 경보가 «일시 실패» 를 «끊김» 으로 읽어 일하는 폴더를 올리고, 밖에서 물려받은 git 설정 때문에 남의 저장소를 판정했다 → ① 스크립트 시작(자동 스캔 루트 결정 전)에서 GIT_DIR·GIT_WORK_TREE·GIT_INDEX_FILE·GIT_COMMON_DIR 지움 + LC_ALL=C ② worktree list·ls-tree 실패(rc≠0 · 시간 초과 · SHA 0) = 그 폴더 «판정 못 함»(이전 판정 이어받기 · 후보에서 빼지 않음 · 서명 유지 · NOTE 1줄) (r844 r5 · 1.1.259 · 껍데기 경보만 · 정리 경로 변경 0)
+
+- 외부 DA r3 HOLD 2의 마지막 두 줄. 증거 `harness/evidence/r844/r5/`(초록 144 passed ×4 · r3 판 FAIL 10 · 변이 1 FAIL 3 · 변이 2 FAIL 5 · 기존 시험 FAIL 0(1건은 r3 판과 같은 줄)) · 짝 사본 cmp0 · 되돌림 = revert 1커밋.
+
 ## 2026-10-27 — 재부팅 뒤 좌석 복구가 손일이었다(`tmuxc restore` 는 기본이 계획 모드 · 좌석을 하나씩 열며 좌석당 최대 60초를 기다려 45석이면 한 호출 시간 제한에 잘림(추정) → planner 가 26석을 손으로 엶) → 새 도구 `ft-reboot-restore.sh` 1줄: 스냅샷(없으면 seat-live)에서 claude 좌석 목록 → 4석씩 병렬로 tmux 세션 + 헤드룸 래퍼 `--resume` → 좌석별 확인표(8317 O/X) + FAIL 목록 + 원장 · 맨 앞에 r626 전팀 정지 검사 · `tmuxc restore` 계획 모드 안내를 출력 맨 위로 (r641 · 1.1.258 · tmuxc 0.4.8 · 새 도구 + 안내 1줄 · tmuxc restore 동작·`ft-resume-attempt.sh`·`ft-resume-cmd.sh`·zombie-clean resume·명부 무변경)
 
 - 사건(이슈 2341 → harness master 91 쪽지 129714·129722 · arch 116 실측 읽기 전용): `~/.tmuxc/snapshots/latest.json` 좌석 45 · 행 = name·cwd·model·effort·session_id · `~/.claude/state/seat-live/*.json` 930 · tmuxc restore 계획 모드 안내는 출력 «끝» 에만(:1669·:1679).
