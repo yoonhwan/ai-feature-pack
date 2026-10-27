@@ -1,0 +1,7 @@
+FAILED tests/scripts/test_ledger_fill_r851.py::test_c_magazine_stale_ledger_publishes_zero_rc6
+FAILED tests/scripts/test_ledger_fill_r851.py::test_r7_hil_broken_line_rc0_whole_source_error_last_ok_kept_magazine_stale
+2 failed, 178 passed, 1 skipped in 162.14s (0:02:42)
+--- 기준판(origin/main) 같은 2건 실측:
+FAILED tests/scripts/test_ledger_fill_r851.py::test_c_magazine_stale_ledger_publishes_zero_rc6
+FAILED tests/scripts/test_ledger_fill_r851.py::test_r7_hil_broken_line_rc0_whole_source_error_last_ok_kept_magazine_stale
+2 failed, 36 deselected in 2.41s
