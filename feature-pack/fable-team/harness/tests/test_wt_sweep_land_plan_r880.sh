@@ -31,10 +31,11 @@ if [ -n "${FAKE_TMUX_CNT:-}" ]; then   # 몇 번째 호출부터 «새 좌석»�
   [ "$c" -ge "${FAKE_TMUX_AT:-999}" ] && { echo "$FAKE_LATE_PANE"; exit 0; }
 fi
 [ -n "${FAKE_TMUX_SLEEP:-}" ] && sleep "$FAKE_TMUX_SLEEP"   # 느린 tmux(고침 6)
+[ -n "${FAKE_TMUX_NS_SLEEP:-}" ] && { echo "no server running on /tmp/fake"; sleep "$FAKE_TMUX_NS_SLEEP"; exit 1; }
 [ -s "$FAKE_PANES" ] && { cat "$FAKE_PANES"; exit 0; }
-echo "no server running on /tmp/fake"; exit 1
+exit 0   # 서버는 있고 pane 0 = 정상 rc0 빈 출력(문구 면제 0 이라 rc≠0 은 실패다)
 EOF
-printf '#!/usr/bin/env bash\necho p1; sed "s/^/n/" "$FAKE_CWDS"\n' > "$T/fake/lsof"
+printf '#!/usr/bin/env bash\necho p1; sed "s/^/n/" "$FAKE_CWDS"\n[ "${FAKE_LSOF_RC:-0}" = 0 ] || exit "${FAKE_LSOF_RC}"\n' > "$T/fake/lsof"
 printf '#!/usr/bin/env bash\nprintf "%%s\\t%%s\\n" 1000 "$2"\n' > "$T/fake/du"
 chmod +x "$T/fake/"*; : > "$T/panes"; echo /usr > "$T/cwds"
 
@@ -56,7 +57,9 @@ N0="$(NWT)"
 # 사람 승인 진입점(ft-hil)·알림(mbox) 대역 — 기본값으로 물려 준다(등록 실패는 계약 ⑥ 위반이라 시험마다 override)
 cat > "$T/fake/ft-hil" <<'EOF'
 #!/usr/bin/env bash
+[ -n "${FAKE_HIL_TEXT:-}" ] && echo "$FAKE_HIL_TEXT"
 [ "${FAKE_HIL_FAIL:-0}" = 1 ] && exit 9
+[ "${FAKE_HIL_RC:-0}" != 0 ] && exit "${FAKE_HIL_RC}"
 printf '%s\n' "$*" >> "$FAKE_HIL_LOG"; echo "! bash /tmp/h77"
 EOF
 cat > "$T/fake/mbox.sh" <<'EOF'
@@ -98,7 +101,7 @@ has "$o" "[HIL]" "ⓒ 목록이 바뀌면 [HIL] 다시 1줄"
 : > "$T/panes"
 mv "$PLAN" "$T/plan.keep"; o="$(lp FAKE_TMUX_ERR=1)"; rc=$?
 chk "ⓒ 좌석 못 읽음 → rc 1" "$rc" 1
-has "$o" "ERROR land 목록 건너뜀 — tmux 목록 실패" "ⓒ 좌석 못 읽음 → 이유"
+has "$o" "ERROR land 목록 건너뜀 — tmux pane 실패(rc=1)" "ⓒ 좌석 못 읽음 → 이유"
 chk "ⓒ 좌석 못 읽음 → 계획 0" "$([ -e "$PLAN" ] && echo yes || echo no)" no
 
 echo "== ⓕ 계획 실행 순간 다시 잰다(= 오빠 h)"
@@ -116,13 +119,13 @@ chk "ⓕ land-done3 남음" "$(isd "$W/land-done3")" yes
 for n in land-dirty land-alive land-locked land-unlanded nano-x; do chk "ⓕ $n 남음" "$(isd "$W/$n")" yes; done
 r="$( cd "$T" && env -i HOME="$HOME" PATH="$T/fake:$PATH" FAKE_PANES="$T/panes" FAKE_CWDS="$T/cwds" FAKE_TMUX_ERR=1 bash "$PLAN" 2>&1 )"; rc=$?
 chk "ⓕ 실행 때 좌석 못 읽음 → 중단 rc 1" "$rc" 1
-has "$r" "중단 — tmux 목록 실패(rc=1)(지우기 0)" "ⓕ 중단 이유"
+has "$r" "중단 — tmux pane 실패(rc=1)(지우기 0)" "ⓕ 중단 이유"
 
 echo "== ⓐ 재설계 r3-1: 사본마다 직전에 좌석 목록을 새로 읽는다(처리 중 열린 좌석 skip)"
-land_reset() {   # ⓕ 가 남긴 얼룩(land-done2 미커밋 · land-done/done3 삭제·HEAD 이동)을 대상 3곳 깨끗한 상태로 되돌린다
+land_reset() {   # 앞선 칸이 남긴 얼룩(미커밋·삭제·HEAD 이동)을 대상 3곳 깨끗한 상태로 되돌린다
   rm -f "$W/land-done2/late"
-  for n in land-done land-done3; do
-    if [ -d "$W/$n" ]; then git -C "$W/$n" checkout -q --detach "$C2"; else GIT worktree add -q --detach "$W/$n" "$C2"; fi
+  for n in land-done land-done2 land-done3; do
+    if [ -d "$W/$n" ]; then git -C "$W/$n" checkout -q --detach "$C2" 2>/dev/null; else GIT worktree add -q --detach "$W/$n" "$C2"; fi
   done
 }
 land_reset
@@ -158,8 +161,8 @@ echo "== ⓑ 재설계 r3-1: tmux 오류 글자를 «좌석 0» 으로 읽지 �
 mv "$PLAN" "$T/plan.keep2" 2>/dev/null; rm -f "$PLAN.sig" "$PLAN.sent"
 o="$(lp FAKE_TMUX_ERR=1 FAKE_TMUX_ERR_TEXT='error connecting to /tmp/tmux-501/default (Permission denied)')"; rc=$?
 chk "ⓑ tmux 연결 오류 → rc 1" "$rc" 1
-has "$o" "ERROR land 목록 건너뜀 — tmux 목록 실패(rc=1)" "ⓑ 중단 + ERROR"
-has "$o" "error connecting to /tmp/tmux-501/default (Permission denied)" "ⓑ 오류 글자 그대로"
+has "$o" "ERROR land 목록 건너뜀 — tmux pane 실패(rc=1)" "ⓑ 중단 + ERROR"
+hasnt "$o" "^LAND land-done" "ⓑ 실패 출력은 쓰지 않는다(성공일 때만)"
 chk "ⓑ 계획 0" "$([ -e "$PLAN" ] && echo yes || echo no)" no
 
 # 대상 3곳 목록으로 되돌린다(ⓐ 실행에서 land-done 이 지워졌으므로 다시 만든다)
@@ -227,21 +230,68 @@ has "$r" "skip $W/land-done — mtime 바뀜" "ⓔ③ 낡은 계획은 지우지
 chk "ⓔ③ land-done 남음(낡은 목록으로 지우기 0)" "$(isd "$W/land-done")" yes
 rm -f "$T/stale.hil"
 
-echo "== ⓔ④ DA r2 ④: 목록을 채우는 두 번째 호출의 실패도 검사한다(짝수 호출 실패)"
+echo "== ⓔ④ DA r2 ④: 목록을 채우는 두 번째 호출의 실패도 검사한다(짝수 호출 실패 = 판정 불가)"
 land_reset; rm -f "$PLAN" "$PLAN.sig" "$PLAN.sent" "$T/cnt3"
 o="$(lp FAKE_TMUX_CNT="$T/cnt3" FAKE_TMUX_ERR_EVEN=1 FAKE_TMUX_ERR_TEXT='Permission denied')"; rc=$?
-chk "ⓔ④ 두 번째 호출 실패 → rc 1" "$rc" 1
-has "$o" "ERROR land 목록 중단" "ⓔ④ 중단 + ERROR"
-chk "ⓔ④ 계획 0" "$([ -e "$PLAN" ] && echo yes || echo no)" no
+chk "ⓔ④ 실패한 사본이 있으면 rc 1" "$rc" 1
+has "$o" "ERROR 판정 불가 — land-done: tmux pane 실패(rc=1)(계획 제외 · 삭제 0)" "ⓔ④ 판정 불가 = 계획 제외 + ERROR 1줄"
+hasnt "$(grep '^land_rm ' "$PLAN")" "$W/land-done " "ⓔ④ 판정 불가 사본은 계획 밖"
+chk "ⓔ④ land-done 남음" "$(isd "$W/land-done")" yes
 
 echo "== ⓔ⑤ DA r2 ⑤: tmux·lsof 호출에 시간 상한(기본 7초)"
 chk "ⓔ⑤ 기본 상한 = 7초" "$(grep -c 'FT_WT_LIVE_SEC:-7' "$T/bin/ft-wt-sweep.sh")" 1
 land_reset; rm -f "$PLAN" "$PLAN.sig" "$PLAN.sent"
 t0="$(date +%s)"; o="$(lp FAKE_TMUX_SLEEP=5 FT_WT_LIVE_SEC=2)"; rc=$?; el=$(( $(date +%s) - t0 ))
 chk "ⓔ⑤ 느린 tmux → rc 1" "$rc" 1
-has "$o" "ERROR land 목록 건너뜀 — tmux 목록 실패(rc=124)" "ⓔ⑤ 시간 초과 = 못 읽음(좌석 0 아님)"
+has "$o" "ERROR land 목록 건너뜀 — tmux pane 실패(rc=124)" "ⓔ⑤ 시간 초과 = 못 읽음(좌석 0 아님)"
 chk "ⓔ⑤ 상한에서 끊김(${el}s ≤ 3s)" "$([ "$el" -le 3 ] && echo yes || echo no)" yes
 # 계약 ⑥(h 등록 실패 rc≠0 · 재시도)은 위 ⓒ 칸이 닫는다.
+
+echo "== ⓐ DA r3 ①: 경로는 바이트 그대로 — 뒤 공백·수직탭 들어간 별칭이 가리키는 사본은 «사용 중»"
+land_reset; rm -f "$PLAN" "$PLAN.sig" "$PLAN.sent"
+SP=" " ; VT="$(printf '\013')"
+rm -f "$W/alias$SP" "$W/al${VT}ias"
+ln -s "$W/land-done" "$W/alias$SP"; ln -s "$W/land-done2" "$W/al${VT}ias"
+printf '%s\n%s\n' "$W/alias$SP" "$W/al${VT}ias" > "$T/panes"; o="$(lp)"
+has "$o" "KEEP land-done — 좌석·프로세스 살아 있음" "ⓐ 뒤 공백 별칭 = 사용 중"
+has "$o" "KEEP land-done2 — 좌석·프로세스 살아 있음" "ⓐ 수직탭 별칭 = 사용 중"
+chk "ⓐ 남은 대상 1곳" "$(grep -c '^land_rm ' "$PLAN")" 1
+: > "$T/panes"; rm -f "$W/alias$SP" "$W/al${VT}ias"
+
+echo "== ⓑ DA r3 ④: lsof 가 부분 출력을 내고 rc≠0 이면 중단(계획 0)"
+land_reset; rm -f "$PLAN" "$PLAN.sig" "$PLAN.sent"
+o="$(lp FAKE_LSOF_RC=1)"; rc=$?
+chk "ⓑ rc 1" "$rc" 1
+has "$o" "ERROR land 목록 건너뜀 — lsof cwd 실패(rc=1)" "ⓑ 출력이 있어도 실패 = 중단"
+chk "ⓑ 계획 0" "$([ -e "$PLAN" ] && echo yes || echo no)" no
+
+echo "== ⓒ DA r3 ④: «no server running» 도 면제 0 — 지연이면 시간 초과 실패"
+chk "ⓒ 시간 상한 기본 = 7초" "$(grep -c 'FT_WT_LIVE_SEC:-7' "$T/bin/ft-wt-sweep.sh")" 1
+land_reset; rm -f "$PLAN" "$PLAN.sig" "$PLAN.sent"
+t0="$(date +%s)"; o="$(lp FAKE_TMUX_NS_SLEEP=10 FT_WT_RUN_SEC=2)"; rc=$?; el=$(( $(date +%s) - t0 ))
+chk "ⓒ 시간 초과 → rc 1" "$rc" 1
+has "$o" "ERROR land 목록 건너뜀 — tmux pane 실패(rc=124)" "ⓒ 문구로 면제하지 않는다"
+chk "ⓒ 계획 0" "$([ -e "$PLAN" ] && echo yes || echo no)" no
+chk "ⓒ 상한에서 끊김(${el}s ≤ 3s)" "$([ "$el" -le 3 ] && echo yes || echo no)" yes
+
+echo "== ⓓ DA r3 ⑤: 등록 rc≠0 에 오류 문구가 있어도 «성공» 이 아니다"
+land_reset; rm -f "$PLAN" "$PLAN.sig" "$PLAN.sent" "$T/hil.log"
+o="$(lp FAKE_HIL_RC=9 FAKE_HIL_TEXT='번호 충돌: h77 사용 중')"; rc=$?
+chk "ⓓ rc≠0" "$([ "$rc" -ne 0 ] && echo yes || echo no)" yes
+has "$o" "ERROR ft-hil 등록 실패" "ⓓ rc≠0 = 등록 실패"
+chk "ⓓ .sent 0" "$([ -e "$PLAN.sent" ] && echo yes || echo no)" no
+hasnt "$o" "! bash /tmp/h" "ⓓ 알림 0"
+rm -f "$PLAN.sent"; o="$(lp)"
+chk "ⓓ 다음 실행이 등록 재시도" "$(grep -c . "$T/hil.log")" 1
+
+echo "== ⓔ DA r3 미종결 ⑥: --launchd 가 land-plan 의 rc 를 그대로 반영"
+land_reset; rm -f "$PLAN" "$PLAN.sig" "$PLAN.sent" "$T/hil.log" "$T/mbox.log"
+o="$(lrun FAKE_HIL_RC=17)"; rc=$?
+chk "ⓔ 등록 실패면 --launchd rc≠0" "$([ "$rc" -ne 0 ] && echo yes || echo no)" yes
+chk "ⓔ 표지 0" "$([ -e "$PLAN.sent" ] && echo yes || echo no)" no
+rm -f "$PLAN.sent"; o="$(lrun)"; rc=$?
+chk "ⓔ 정상이면 --launchd rc 0" "$rc" 0
+chk "ⓔ 정상이면 표지 생김" "$(sent_is_sig "$PLAN")" yes
 
 echo
 [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }

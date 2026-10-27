@@ -76,7 +76,10 @@ if [ "${1:-}" = "--launchd" ]; then
   cd "$FT_ROOT" || exit 2
   LST="$FT_ROOT/.fable-team/state"; mkdir -p "$LST"
   out="$(FT_WT_SWEEP_BUDGET_SEC="${FT_WT_SWEEP_BUDGET_SEC:-300}" bash "$SELF" 2>&1)"; rc=$?
-  [ "${FT_WT_LAND_PLAN:-1}" = 0 ] || out="$out"$'\n'"$(bash "$SELF" --land-plan 2>&1)"   # r880: 착지 끝난 land 사본 정리 계획(삭제 0) · [HIL] 은 목록 바뀐 때만
+  if [ "${FT_WT_LAND_PLAN:-1}" != 0 ]; then   # r880: 착지 끝난 land 사본 정리 계획(삭제 0) · [HIL] 은 목록 바뀐 때만
+    lpo="$(bash "$SELF" --land-plan 2>&1)"; lprc=$?; out="$out"$'\n'"$lpo"
+    [ "$lprc" -ne 0 ] && rc="$lprc"   # ★r880 재설계 r5★ land-plan 의 rc 를 최종 rc 에 반영(rc0 으로 덮던 길 0 · DA r3 미종결 ⑥)
+  fi
   printf '%s\n' "$out"
   sm="$(printf '%s\n' "$out" | grep '^sweep 계획 ' | tail -1)"
   num() { local v; v="$(printf '%s' "$sm" | sed -nE "s#.*$1 ([0-9]+).*#\\1#p")"; echo "${v:-0}"; }
@@ -188,26 +191,40 @@ size_kb() {
 #   계획은 같은 검사 함수(declare -f)를 품고 지우기 직전 다시 잰다(HEAD = 만든 때 sha 여야 · 낡은 목록으로 지우는 길 0) · 지우기 = git worktree remove(--force 0).
 LAND_REF="${FT_WT_LAND_REF:-origin/main}"; LAND_GLOB="${FT_WT_LAND_GLOB:-land-*}"
 LSOFB="${FT_LSOF_BIN:-/usr/sbin/lsof}"; TMUXB="${FT_TMUX_BIN:-$(command -v tmux 2>/dev/null || echo /opt/homebrew/bin/tmux)}"
-# land_live — 살아 있는 cwd·pane 경로 → LIVE(모두 «진짜 경로» 로 정규화) · 못 읽으면 1 — LIVE 는 비우고 이유는 LAND_ERR 에.
-#   ★r880 고침 6(DA r2 ⑤)★ tmux·lsof 호출에 시간 상한(FT_WT_LIVE_SEC 기본 7초) — 느린 tmux 하나가 pass 전체를 붙잡지 않는다 · 124 = 실패(못 읽음)로 본다.
-LIVE_SEC="${FT_WT_LIVE_SEC:-7}"
-alarmed() { perl -e 'setpgrp(0,0); $SIG{ALRM}=sub{ local $SIG{TERM}="IGNORE"; kill "TERM", -$$; exit 124 }; alarm shift; my $r=system(@ARGV); exit(($r>>8) || (($r&127) ? 128+($r&127) : 0));' "$LIVE_SEC" "$@"; }
-# 정규화(DA r2 ①) — tmux 가 돌려준 심링크 경로와 lsof 의 실제 경로를 같은 자로 재기 위해 «양쪽 다» 진짜 경로로 만든다.
-realpaths() { python3 -c 'import os,sys
-for l in sys.stdin.read().splitlines():
-    l=l.strip()
-    if l: print(os.path.realpath(l))' ; }
+# ★r880 재설계 r5(오빠 결정 3 · arch 157 반송서)★ 외부 명령 호출은 «run7» 한 함수로 모은다:
+#   성공 = rc0 «만»(출력 유무로 판단 0) · 7초 상한(시간 초과 = rc124 = 실패) · 단계 이름 + rc 로 실패를 알린다(문구로 면제 0) · 출력은 성공일 때만 쓴다(바이트 그대로 · strip/splitlines 0).
+RUN7_SEC="${FT_WT_RUN_SEC:-${FT_WT_LIVE_SEC:-7}}"
+RUN7_OUT=""; RUN7_MSG=""
+run7() {   # run7 <단계> <명령…> — 0 = 성공(stdout 은 RUN7_OUT) · 1 = 실패(RUN7_MSG · 출력은 쓰지 않는다)
+  local step="$1"; shift
+  local o rc
+  o="$(perl -e 'setpgrp(0,0); $SIG{ALRM}=sub{ local $SIG{TERM}="IGNORE"; kill "TERM", -$$; exit 124 }; alarm shift; my $r=system(@ARGV); exit(($r>>8) || (($r&127) ? 128+($r&127) : 0));' "$RUN7_SEC" "$@")"; rc=$?
+  RUN7_OUT=""; RUN7_MSG=""
+  [ "$rc" -eq 0 ] && { RUN7_OUT="$o"; return 0; }
+  RUN7_MSG="$step 실패(rc=$rc)"
+  return 1
+}
+# land_live — 살아 있는 cwd·pane 경로 → LIVE(진짜 경로 정규화) · 못 읽으면 1(LIVE 비움 · 이유는 LAND_ERR).
+#   경로는 «바이트 그대로» 다룬다 — 뒤 공백을 지우거나 splitlines 로 쪼개면 이름이 바뀌어 «쓰는 사본» 이 계획에 들어온다(DA r3 ①).
 land_live() {
-  local lo lrc tp trc
+  local lo tp raw
   LAND_ERR=""; LIVE=""
   [ -x "$LSOFB" ] || { LAND_ERR="lsof 실행 불가($LSOFB)"; return 1; }
-  lo="$(cd / && alarmed "$LSOFB" -Fn -d cwd 2>/dev/null)"; lrc=$?
-  [ -n "$lo" ] || [ "$lrc" -eq 0 ] || { LAND_ERR="lsof 실패(rc=$lrc)"; return 1; }
-  tp="$(alarmed "$TMUXB" list-panes -a -F '#{pane_current_path}' 2>&1)"; trc=$?
-  # ★r880 고침 2(DA r1 반례 2)★ rc≠0 에서 «좌석 0» 으로 읽는 것은 «no server running» 하나뿐 — 권한·연결·시간 초과는 «모르는 상태» 라 호출자가 계획 생성을 중단한다(모르면 안 지움). 오류 글자는 stderr 로 그대로 남긴다.
-  if [ "$trc" -ne 0 ]; then case "$tp" in *'no server running'*) tp="";; *) printf '%s\n' "$tp" >&2; LAND_ERR="tmux 목록 실패(rc=$trc)"; return 1;; esac; fi
-  LIVE="$( { printf '%s\n' "$lo" | sed -n 's/^n//p'; printf '%s\n' "$tp"; } | realpaths | sort -u)"
-  # ★r880 고침 7(DA r2 ④)★ 목록을 채우는 이 한 번의 호출이 곧 «검사» 다 — 호출자가 rc 를 보고 중단한다(실패한 두 번째 호출을 무시하던 길 0).
+  run7 "lsof cwd" "$LSOFB" -Fn -d cwd || { LAND_ERR="$RUN7_MSG"; return 1; }     # 출력이 있어도 rc≠0 = 실패(DA r3 ④)
+  lo="$RUN7_OUT"
+  run7 "tmux pane" "$TMUXB" list-panes -a -F '#{pane_current_path}' || { LAND_ERR="$RUN7_MSG"; return 1; }   # «no server running» 도 실패 — 문구 면제 0(DA r3 ④)
+  tp="$RUN7_OUT"
+  raw="$( { printf '%s\n' "$lo" | sed -n 's/^n//p'; printf '%s\n' "$tp"; } )"
+  run7 "경로 정규화" python3 -c '
+import os, sys
+out = []
+for l in sys.stdin.buffer.read().split(b"\n"):      # 개행 하나만 자른다 — strip·splitlines 금지
+    if not l: continue
+    r = os.path.realpath(l.decode("utf-8", "surrogateescape"))
+    if r not in out: out.append(r)
+for r in out: sys.stdout.write(r + "\n")
+' <<< "$raw" || { LAND_ERR="$RUN7_MSG"; return 1; }
+  LIVE="$RUN7_OUT"
   return 0
 }
 # land_check <리포> <사본> <만든 때 sha|빈 값> — 0 = 지워도 됨(stdout HEAD sha) · 1 = 남김(stdout 이유 1줄). LIVE·LAND_REF 를 쓴다.
@@ -228,9 +245,9 @@ land_check() {
   fi
   echo "$h"
 }
-hil_register() { local m; m="$("$HB" --add "$1" 2>/dev/null | tail -1)"; [ -n "$m" ] && { echo "$m"; return 0; }; return 1; }
+hil_register() { run7 "h 등록" "$HB" --add "$1" || return 1; printf '%s\n' "$RUN7_OUT" | tail -1; }   # 성공 = rc0 만(출력 유무로 판단 0 · DA r3 ⑤)
 land_plan() {
-  local out="$DIR/land-copies.sh.hil" tmp wl p lk h kb mt n=0 tk=0 new sig hmsg
+  local out="$DIR/land-copies.sh.hil" tmp wl p lk h kb mt n=0 tk=0 bad=0 new sig hmsg
   [ -n "$SCAN_ROOT" ] && [ -d "$SCAN_ROOT" ] || { echo "ERROR --land-plan 리포 루트 없음: ${SCAN_ROOT:-<빈 값>}" >&2; return 2; }
   land_live || { echo "ERROR land 목록 건너뜀 — $LAND_ERR(살아 있는 좌석을 못 읽으면 목록 0)" >&2; return 1; }
   wl="$(git -C "$SCAN_ROOT" worktree list --porcelain 2>/dev/null)" || { echo "ERROR git worktree list 실패" >&2; return 1; }
@@ -238,8 +255,8 @@ land_plan() {
   { echo '#!/usr/bin/env bash'
     echo "# land 사본 정리 계획 — ft-wt-sweep.sh --land-plan (r880) · 만든 때 $(date '+%F %T') · 실행 = 오빠 h · 지우기 직전 같은 검사를 다시 잰다"
     echo 'set -uo pipefail'
-    printf 'LAND_REF=%q; LSOFB=%q; TMUXB=%q; ROOT=%q; LIVE_SEC=%q\n' "$LAND_REF" "$LSOFB" "$TMUXB" "$SCAN_ROOT" "$LIVE_SEC"
-    declare -f alarmed realpaths land_live land_check
+    printf 'LAND_REF=%q; LSOFB=%q; TMUXB=%q; ROOT=%q; RUN7_SEC=%q\n' "$LAND_REF" "$LSOFB" "$TMUXB" "$SCAN_ROOT" "$RUN7_SEC"
+    declare -f run7 land_live land_check
     echo 'land_live || { echo "중단 — $LAND_ERR(지우기 0)"; exit 1; }'
     # ★r880 고침 1(DA r1 반례 1)★ 지우기 직전마다 좌석 목록을 «그 사본 직전에» 새로 읽는다 — 실행 중 새로 열린 좌석을 놓친 목록으로 지우는 길 0. 못 읽으면 그 사본만 남긴다.
     echo 'land_rm() { local why; if [ ! -d "$1" ]; then echo "skip $1 — 이미 없음"; return 0; fi
@@ -251,8 +268,8 @@ land_plan() {
     case "${p##*/}" in $LAND_GLOB) ;; *) continue;; esac
     [ -d "$p" ] || continue
     [ -z "$lk" ] || { echo "KEEP ${p##*/} — 잠김(locked)"; continue; }
-    # ★r880 고침 1(DA r1 반례 1)·고침 7(DA r2 ④)★ 사본마다 «직전에» 좌석 목록을 새로 읽고 그 rc 를 본다 — 앞 사본을 처리하는 사이 열린 좌석을 시작 때 목록으로 통과시키지 않는다. 못 읽으면 계획 생성 중단(모르면 안 지움).
-    land_live || { echo "ERROR land 목록 중단 — $LAND_ERR(계획 생성 중단 · 모르면 안 지움)" >&2; rm -f "$tmp"; return 1; }
+    # ★r880 재설계 r5★ 사본마다 «직전에» 새로 읽고(r1 반례 1), 실패 처리는 이 한 자리 — 판정 불가 = 그 사본 계획 제외 · 삭제 0 · ERROR 1줄(run7 실패를 문구로 넘기지 않는다).
+    if ! land_live; then echo "ERROR 판정 불가 — ${p##*/}: $LAND_ERR(계획 제외 · 삭제 0)" >&2; bad=$((bad+1)); continue; fi
     h="$(land_check "$SCAN_ROOT" "$p" "")" || { echo "KEEP ${p##*/} — $h"; continue; }
     kb="$(perl -e 'setpgrp(0,0); $SIG{ALRM}=sub{ local $SIG{TERM}="IGNORE"; kill "TERM", -$$; exit 124 }; alarm shift; exit(system(@ARGV)>>8)' "$DU_SEC" "$DU" -sk "$p" 2>/dev/null | awk 'NR==1{print $1}')"
     case "$kb" in ''|*[!0-9]*) kb='?';; *) tk=$((tk+kb));; esac
@@ -260,7 +277,7 @@ land_plan() {
     printf 'land_rm %q %q %q  # %s KB\n' "$p" "$h" "$mt" "$kb" >> "$tmp"; n=$((n+1)); echo "LAND ${p##*/} sha=${h:0:12} kb=$kb"
   done < <(printf '%s\n' "$wl" | awk '/^worktree /{if(p!="")print p"\t"l; p=substr($0,10); l=""} /^locked/{l="y"} END{if(p!="")print p"\t"l}')
   new="$(grep '^land_rm ' "$tmp" | sed 's/  #.*//' | sort)"; sig="$(printf '%s' "$new" | cksum | awk '{print $1"-"$2}')"
-  if [ "$n" -eq 0 ]; then rm -f "$tmp" "$out" "$out.sig" "$out.sent"; echo "LAND-PLAN 0곳"; return 0; fi
+  if [ "$n" -eq 0 ]; then rm -f "$tmp" "$out" "$out.sig" "$out.sent"; echo "LAND-PLAN 0곳$([ "$bad" -gt 0 ] && echo " · 판정 불가 $bad곳")"; return "$([ "$bad" -gt 0 ] && echo 1 || echo 0)"; fi
   mv "$tmp" "$out"; printf '%s\n' "$sig" > "$out.sig"; echo "LAND-PLAN ${n}곳 ${tk}KB → $out"
   # ★r880 고침 4(DA r1 반례 4)★ «보냄» 판정은 목록 비교가 아니라 표지(.sent = 실제로 나간 목록 해시)다 — 첫 알림이 실패했으면 목록이 그대로여도 다시 알린다.
   if [ -f "$out.sent" ] && [ "$(cat "$out.sent" 2>/dev/null)" = "$sig" ]; then
@@ -269,6 +286,9 @@ land_plan() {
   # ★r880 고침 5(DA r2 ⑥)★ h 등록(사람 승인 진입점)이 실패했으면 «보냈다» 고 치지 않는다 — rc≠0 · 알림 0 · 표지 0 → 다음 pass 가 등록부터 다시 한다.
   hmsg="$(hil_register "$out")" || { echo "ERROR ft-hil 등록 실패 — 계획 $out · 알림 0(다음 pass 재시도)" >&2; return 1; }
   echo "[HIL] seat=byz-harness-wt-land 착지 끝난 land 사본 ${n}곳(${tk}KB) · $hmsg · 계획 $out — 지우기는 오빠 h(목록 바뀐 때만 1줄)"
+  # 판정 불가 사본이 있었으면 계획은 «확정된 것만» 이지만 rc≠0 으로 알린다(--launchd 가 그대로 최종 rc 에 반영).
+  [ "$bad" -gt 0 ] && { echo "ERROR land 사본 $bad곳 판정 불가 — 계획은 확정분 ${n}곳만" >&2; return 1; }
+  return 0
 }
 if [ "${1:-}" = "--land-plan" ]; then land_plan; exit $?; fi
 n=0; c=0; w=0; h=0; d=0; ran=0; st=0; rs=0; rp=0; freed=0; T0="$(date +%s)"
