@@ -41,6 +41,15 @@ for W in "$ROOT"/.worktrees/v65-*; do
   N=$(git -C "$W" log --oneline feat/v6-realtime-live..HEAD 2>/dev/null | wc -l | tr -d ' ')
   [ "${N:-0}" != "0" ] && printf "%-46s 미랜딩=%s\n" "$(basename "$W")" "$N"
 done
+# r954: 카드 흐름 숫자 줄 — 팀마다 1줄(대기·진행(좌석)·착지됐는데 진행). 계산 실패/7초 초과는 «확인 불가» 줄(빈칸·0 금지). 팀 명단 = FT_CARD_FLOW_TEAMS(시험) → TEAMS.md
+echo; echo "════ ④-b 카드 흐름 (K>0 이면 이 틱에 완성으로 옮긴다 · 진행 > 좌석+2 면 이동이 첫 일) ════"
+. "$HERE/ft-team-lib.sh"
+CFT="${FT_CARD_FLOW_TEAMS:-$(FT_REPO_ROOT="$ROOT" ft_team_names 2>/dev/null | tr '\n' ' ')}"
+CFD="$(mktemp -d "${TMPDIR:-/tmp}/ft-cardflow.XXXXXX")"; _cfn=0
+for T in $CFT; do _cfn=$((_cfn+1)); ( bash "$HERE/ft-card-flow.sh" --team "$T" --root "$ROOT" > "$CFD/$(printf '%02d' $_cfn)-$T" 2>&1 || true ) & done; wait
+for f in "$CFD"/*; do [ -f "$f" ] || continue; printf '%s: %s\n' "$(basename "$f" | sed 's/^[0-9]*-//')" "$(head -1 "$f")"; done
+[ "$_cfn" -gt 0 ] || echo "카드 숫자 확인 불가(팀 명단 못 읽음)"
+rm -r -- "$CFD"
 HL=$(bash "$HERE/ft-head-lag.sh" --summary --repo "$WT" 2>/dev/null); [ -z "$HL" ] || { echo; echo "$HL"; }   # R243: 베이스 뒤처짐 1줄(0곳이면 줄 0)
 IPN=$(bash "$HERE/ft-install-pending.sh" --root "$ROOT" 2>/dev/null); [ -z "$IPN" ] || { echo; echo "$IPN"; }   # R245: 설치 대기 병합 1줄(0건이면 줄 0)
 echo; echo "════ ⑤ 라이브 값 ════"

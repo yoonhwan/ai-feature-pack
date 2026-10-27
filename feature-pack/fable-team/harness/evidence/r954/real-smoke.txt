@@ -1,0 +1,6 @@
+# 실데이터 읽기 전용 스모크 (harness 팀 폴더 · 10-26 19:14)
+카드 대기 301 · 진행 133(좌석 3) · 착지됐는데 진행 0
+bash bin/ft-card-flow.sh --team harness --root $R --dir   0.14s user 0.10s system 63% cpu 0.381 total
+WARN 카드 흐름 — harness 진행 133(좌석 3) · 착지됐는데 진행 0 · 이동 먼저: r426-installer-updates-launchd-plist-env-and-install-check-row.md r437-role-spawn-team-flag-and-arch-live-reject-names-exit.md r447-team-path-oldpath-lint-md-and-twin-resolver-prefers-new.md r448-seat-clo
+카드 대기 292 · 진행 111(좌석 5) · 착지됐는데 진행 0
+bash bin/ft-card-flow.sh --team harness --root $R --dir   0.10s user 0.10s system 91% cpu 0.219 total
