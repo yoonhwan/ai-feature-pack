@@ -2,7 +2,8 @@
 # ft-idle-wake — 유휴 좌석 깨우기 (R241c · DESIGN-r241-desk-never-stall §9) · launchd StartInterval 60 · 판정 876(오빠 입력 절단 0) 유지
 # 왜: 받는 쪽이 «스스로 읽는다» 는 전제(틱 좌석 quiet · planner 는 doorbell 0)가 깨지면(Monitor 꺼짐·유휴) 쪽지가 영구 대기한다.
 # 매 실행, mbox 큐에서 pending 이 있는 좌석마다 — 넷이 모두 «확인됨» 일 때만 `mbox.sh ring <좌석> <seq>` 1회:
-#   ① 가장 오래된 미읽음 ≥ FT_IDLE_WAKE_SEC(180)  ② 좌석 jsonl 턴 상태 = IDLE(ft-seat-status.sh turn · 스피너 0)
+#   ① 가장 오래된 미읽음 ≥ FT_IDLE_WAKE_SEC(180)  ② 좌석 jsonl 턴 상태 = IDLE(ft-seat-status.sh turn · 스피너 0) ∧ 닫기 대기 아님(ft_card_rest.py — 카드 상태 끝 줄)
+#      (r849: LOGGEDOUT·닫기 대기 = 깨우기 0 + 로그 1줄 — 로그아웃은 좌석 당 1회 · 풀렸다 다시 로그아웃이면 1회 더)
 #   ③ 그 세션에 붙은 tmux 클라이언트 중 now−client_activity ≤ FT_IDLE_CLIENT_SEC(120) 없음(오빠가 그 화면에서 치는 중이면 깨우지 않는다)
 #   ④ 같은 (좌석, 가장 오래된 seq) 로 이미 깨운 적 없음(상태 .fable-team/state/idle-wake.json · 선점 기록 attempt → ring → done|failed|unsure)
 # 조회가 하나라도 «모름»(상태 조회 실패·세션 없음·tmux 실패) = 깨우지 않음 + 로그 1줄(좌석·seq 당 1회) — 오입력보다 지연. ring 은 큐에 안 쌓는다.
@@ -75,11 +76,16 @@ def typing_recently(seat):
 def idle_and_unwatched(seat):
     """(깨워도 되나, 사유) — 모름은 False + 사유."""
     p = run(["bash", STATUS, "turn", seat])
-    state = p.stdout.split()[0] if p.returncode == 0 and p.stdout.split() else ""
+    cols = p.stdout.split() if p.returncode == 0 else []
+    state = cols[0] if cols else ""
     if not state or state == "UNKNOWN":
         return False, f"좌석 상태 조회 실패/UNKNOWN rc={p.returncode}"
+    if state == "LOGGEDOUT":  # r849 — 깨우면 0초 실패 턴만 또 생긴다 · 팀장 알림은 ft-stall-scan
+        return False, f"로그아웃 좌석(첫 실패 {cols[1] if len(cols) > 1 else '?'}) — 깨우기 0 · 재개 = 재시작"
     if state != "IDLE":
         return False, None  # 바쁨·대기 중 — 조용히 다음 실행
+    if run(["python3", os.path.join(HERE, "ft_card_rest.py"), seat]).returncode == 0:  # r849 — 닫기 대기 = 카드 «## 상태» 마지막 줄(증거 줄·중단 줄) · jsonl 글자 0 · 못 찾음 = 지금처럼
+        return False, "닫기 대기(카드 상태 끝 = 증거·중단 줄) — 깨우기 0"
     typing, why = typing_recently(seat)
     return (not typing), why  # 오빠가 그 화면에서 치는 중이면 why 없이 False — 절단 0
 
@@ -115,9 +121,13 @@ for seat, (seq, age) in sorted(oldest_per_seat().items()):
         ok, why = idle_and_unwatched(seat)
     except (subprocess.SubprocessError, OSError, ValueError) as e:
         ok, why = False, f"조회 예외 {type(e).__name__}"
-    if why and st.get(seat + "!") != f"{seq}:{why}":
+    lo = (why or "").startswith("로그아웃")
+    mark = "로그아웃" if lo else f"{seq}:{why}"  # r849 — 로그아웃은 좌석 당 1줄(첫 실패 시각은 jsonl 창에 따라 밀리므로 키에서 뺀다) · 그 밖은 (좌석, seq, 사유) 당 1줄
+    if not lo and st.get(seat + "!") == "로그아웃":
+        del st[seat + "!"]  # 로그아웃이 풀렸다 — 다시 로그아웃되면 1줄 더
+    if why and st.get(seat + "!") != mark:
         log(f"{seat} seq={seq} 깨우지 않음 — {why}")
-        st[seat + "!"] = f"{seq}:{why}"
+        st[seat + "!"] = mark
     if not ok:
         continue
     typing, why = typing_recently(seat)  # ring 직전 재확인(H3) — 조회 뒤에 키가 들어왔으면 보류, 다음 실행에 다시 본다
@@ -135,6 +145,7 @@ for seat, (seq, age) in sorted(oldest_per_seat().items()):
     if st[seat]["result"] == "failed":
         del st[seat]  # 명시 실패 — 다음 실행에 재시도
     save(st)
+save(st)  # r849 — ring 0 인 실행의 «깨우지 않음» 로그 표식도 남긴다(로그아웃 좌석 매 실행 로그 반복 0)
 PYEOF
 _pyrc=$?   # 깨우기(ring) 판정 rc — 아래 빈 석 장치가 이를 바꾸지 않는다(상태 손상 = 4 보존)
 # ★빈 석 채우기 (r667)★ — 유휴 팀장에게 «빈 석 쪽지»(1단계) → 그래도 그대로면 자동 spawn(2단계). 별도 도구·별도 상태·별도 로그 — 이 장치의 실패가 깨우기(ring)를 되돌리지 않는다.

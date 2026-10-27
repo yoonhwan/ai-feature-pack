@@ -1,0 +1,9 @@
+.........                                                                [100%]
+9 passed in 2.81s
+run1 rc=0
+.........                                                                [100%]
+9 passed in 3.38s
+run2 rc=0
+.........                                                                [100%]
+9 passed in 2.60s
+run3 rc=0

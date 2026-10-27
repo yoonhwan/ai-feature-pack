@@ -1,0 +1,3 @@
+FAIL V0 phys=1 old=0 row=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.mDEvudPTvi/tmpdir/tmp.held out=[0.00	/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.mDEvudPTvi/tmpdir/tmp.held	TMPDIR tmp.* 0분 지남]
+(1 failed)
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

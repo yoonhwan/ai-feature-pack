@@ -1,0 +1,36 @@
+=== r945 r3 — 후 초록: /bin/bash 3.2
+GNU bash, version 3.2.57(1)-release (arm64-apple-darwin24)
+PASS 본보기 bash -n(/bin/bash)
+PASS 전제: sp1 은 sparse(cone d0) — d0 만 있고 d1~d3 없음
+PASS 전제: sp1 core.sparseCheckout=true
+PASS 전제: da1 은 비cone 3패턴 — d0·d1·d2 있고 d3 없음
+PASS 전제: da3 d1 삭제 · da4 는 전체 체크아웃(패턴 /*)
+PASS 전제: ig1 은 ex 가 H 인데 디스크에 없고 제외 규칙(ex/)에 걸림
+PASS 전제: ⓕ 꼴 묶음(한글·공백·따옴표·줄바꿈)이 d0 안에 있고 cone sparse(sp1) 가 그것을 받았다
+PASS 전제: ⓖ g1 파일 keep 부재 · g2 폴더 kdir 부재 · g3 폴더 kdir2 부재
+PASS 전제: ⓕ ln1 에 최상위 심볼릭 링크(120000) 가 디스크에 있음
+== ⓐⓑⓒⓓ + DA⑥ r1 반례 4칸 + r2 반례 ⓕⓖ — 한 번의 스캔
+PASS ⓑⓑ2ⓑ3ⓒⓖ 진짜 껍데기만 — sp2(d0 부재) · da2(**/*.md · d1 부재) · da3(/d1/ + ! 제외 · d1 부재) · n2(일반 최상위 2개 부재) · g1(파일 keep + 폴더 규칙) · g2(폴더 kdir + 파일 규칙)
+PASS ⓐ cone sparse(d0 있음) → 껍데기 0
+PASS 보론 비cone(d1/) sparse → 껍데기 0
+PASS ⓐ2 비cone /d0/absent · /d2/absent · /d1/ → 껍데기 0 (r1 은 하위 경로를 접어 오탐)
+PASS ⓒ 일반 워크트리 · 최상위 1개 부재 → 껍데기 아님(회귀 0)
+PASS ⓔ 제외 규칙에 걸린 이름(H 인데 디스크에 없음) → 껍데기 0
+PASS ⓖ-3 추적 «폴더» kdir2 삭제 + 폴더 규칙 kdir2/ → 껍데기 0(같은 종류 규칙)
+PASS ⓕ-링크 최상위 심볼릭 링크(120000) 가 디스크에 있음 → 껍데기 0 (보강 1: 종류를 mode 로 받는 자리)
+PASS ⓓⓓ2 패턴을 못 읽은 sparse 2곳 → «판정 불가» 1줄
+PASS   └ 판정 불가 줄에 경로(br1 — 패턴 파일 삭제)
+PASS   └ 판정 불가 줄에 경로(da4 — 패턴 파일 자리가 폴더)
+PASS   └ 껍데기 줄 꼴 그대로(팀 미상 = harness · r444)
+PASS   └ 판정 불가 줄 꼴 그대로
+PASS ⓕ core.quotePath=false 로도 같은 목록 — 경로 글자와 상관없이 판정
+PASS ⓕ 한글·공백·큰따옴표·줄바꿈 이름이 드는 cone sparse(d0) → 껍데기 0 (기본 scan = quotePath=true 로도 0 · r2 는 따옴표를 최상위 이름으로 읽어 오탐)
+PASS   └ 바뀐 것 없음 → 같은 목록이면 두 번째 스캔은 경보 0(바뀐 때만)
+PASS   └ 판정 불가 목록도 그대로면 다시 0
+PASS ⓒ 일반 워크트리 부재가 2개로 늘면 다시 껍데기(n1 추가)
+PASS   └ 경보는 읽기만 — 워크트리 손 0
+PASS   └ sparse 임시 파일 남김 0
+PASS   └ 삭제·이름 바꿈 0
+== 결과
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

@@ -102,7 +102,7 @@ here "$P/.worktrees/p1/README.md" && ! sparse_on "$P/.worktrees/p1" && [ -z "$(m
 n0="$(logn)"; (cd "$B" && FT_SEAT=seat-t bash "$WT_ADD" wtfull --full "판정용 전체 사본이 필요함" -b wtfull --base main) >"$T/o" 2>"$T/e"
 full_cell "ft-wt-add --full → 풀 · 표식 full" "$B/.worktrees/wtfull" "full 판정용 전체 사본이 필요함"
 [ "$(logn)" = $((n0+1)) ] && ok "ft-wt-add --full 로그 1줄(훅·도구 겹침 0)" || bad "wtfull 로그 $(logn) (전 $n0)"
-NSP="$(grep -E 'sparse_patterns "\$_SPT" \| git -C "\$WTDIR" sparse-checkout set' "$NANO" | head -1)"
+NSP="$(grep -E 'sparse_patterns "\$_SPT".*\| git -C "\$WTDIR" sparse-checkout set' "$NANO" | head -1)"
 git -C "$B" worktree add --no-checkout "$B/.worktrees/nano" -b nano/x main >/dev/null 2>"$T/e"
 printf '/*\n!/design/teams/*/\n/design/teams/b/\n' | git -C "$B/.worktrees/nano" sparse-checkout set --no-cone --stdin >/dev/null 2>>"$T/e" && git -C "$B/.worktrees/nano" checkout -q 2>>"$T/e"
 [ -n "$NSP" ] && [ "$(r835_n)" = 0 ] && here "$B/.worktrees/nano/design/teams/b/f.md" && ! here "$B/.worktrees/nano/design/teams/a" && [ "$(mark "$B/.worktrees/nano")" = sparse ] \
@@ -334,6 +334,20 @@ rm -f "$K1GD/info"
 git -C "$B3/.worktrees/k1" checkout -q -b k1b >"$T/o" 2>"$T/e"; rc=$?
 [ "$rc" = 0 ] && sparse_on "$B3/.worktrees/k1" && [ "$(cat "$K1M" 2>/dev/null)" = sparse ] && grep -q '\[r835\]' "$T/e" && ! here "$B3/.worktrees/k1/design/teams/b" \
   && ok "ⓚb 다음 실행 = 처음부터(설정 0 에서 표식 없음 → sparse 적용 · 안내 1회)" || bad "ⓚb rc=$rc 표식=$(cat "$K1M" 2>/dev/null) · $(head -c 200 "$T/e")"
+# ⓚc arch ① — «실패가 패턴 파일을 남긴 경우»: 새 리포(설정 0)에서 설정은 성공했는데 표식 mv 가 실패 → 원복이 패턴 파일·worktreeConfig·설정을 모두 «없음» 으로 지우고 파일도 복원
+B4="$T/byz4"; git init -q -b main "$B4"; git -C "$B4" config user.name t; git -C "$B4" config user.email t@t; git -C "$B4" config core.hooksPath "$T/hooks"
+mkdir -p "$B4/.beads/hooks"; printf '#!/bin/sh\nexit 0\n' > "$B4/.beads/hooks/post-checkout"; chmod +x "$B4/.beads/hooks/post-checkout"
+echo x > "$B4/README.md"; for t in a b c; do mkdir -p "$B4/design/teams/$t"; echo "$t" > "$B4/design/teams/$t/f.md"; done; git -C "$B4" add -A; git -C "$B4" commit -qm init
+git -C "$B4" -c core.hooksPath=/dev/null worktree add -q "$B4/.worktrees/k2" -b k2 main 2>/dev/null
+K2GD="$(git -C "$B4/.worktrees/k2" rev-parse --path-format=absolute --git-dir)"; K2M="$K2GD/ft-wt-mode"
+(cd "$B4/.worktrees/k2" && "$DENY" -p "$(deny_at "$K2M")" git checkout -q -b k2a) >"$T/o" 2>"$T/e"; rc=$?
+[ "$rc" != 0 ] && [ "$(grep -c '^ERROR ft-wt-mode' "$T/e")" = 1 ] && [ ! -e "$K2M" ] && [ ! -e "$K2GD/info/sparse-checkout" ] \
+  && [ "$(git -C "$B4" config --get extensions.worktreeConfig 2>/dev/null; echo rc=$?)" = "rc=1" ] && [ "$(git -C "$B4" config --local --get core.sparseCheckout 2>/dev/null; echo rc=$?)" = "rc=1" ] \
+  && here "$B4/.worktrees/k2/design/teams/b/f.md" \
+  && ok "ⓚc 설정 성공 + 표식 mv 실패 → 패턴 파일 0 · worktreeConfig/설정 «없음» · 파일 복원(실패가 패턴 파일을 남기지 않음)" || bad "ⓚc rc=$rc 패턴파일=$([ -e "$K2GD/info/sparse-checkout" ] && echo 있음 || echo 0) wtcfg=$(git -C "$B4" config --get extensions.worktreeConfig 2>&1) b=$(here "$B4/.worktrees/k2/design/teams/b/f.md" && echo 있음) · $(head -c 200 "$T/e")"
+git -C "$B4/.worktrees/k2" checkout -q -b k2b >"$T/o" 2>"$T/e"; rc=$?
+[ "$rc" = 0 ] && sparse_on "$B4/.worktrees/k2" && [ "$(cat "$K2M" 2>/dev/null)" = sparse ] && ! here "$B4/.worktrees/k2/design/teams/b" \
+  && ok "ⓚc2 그 다음 실행도 처음부터(sparse 적용 · 표식 sparse)" || bad "ⓚc2 rc=$rc 표식=$(cat "$K2M" 2>/dev/null) · $(head -c 200 "$T/e")"
 # ⓛ DA(r9) ② — 설정 값이 true 인데 파일은 풀 상태(표식·패턴 파일 없음) → 읽어서 건너뛰는 길 0 · 항상 set
 nohook_wt l1; L1M="$(gd "$B/.worktrees/l1")/ft-wt-mode"; git -C "$B" config core.sparseCheckout true
 here "$B/.worktrees/l1/design/teams/b/f.md" && [ ! -e "$(gd "$B/.worktrees/l1")/info/sparse-checkout" ] && [ -z "$(mark "$B/.worktrees/l1")" ] \

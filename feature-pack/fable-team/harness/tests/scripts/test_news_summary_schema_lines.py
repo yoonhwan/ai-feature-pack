@@ -83,5 +83,5 @@ def test_r590_c_model_three_lines_is_an_error_not_a_cut(tmp_path, oc):
 def test_r590_d_model_two_lines_plus_status_line_publishes(tmp_path, oc):
     html_p, sum_p = fh.run_files(DATA, tmp_path / "d", NOW)
     lines = sum_p.read_text(encoding="utf-8").splitlines()
-    assert len(lines) == fr.SUMMARY_LINES and lines[0].startswith("일하는 팀")
+    assert len(lines) == fr.SUMMARY_LINES and lines[0].startswith("진행 팀")  # r850 «진행 팀»
     assert lint.problems(html_p.read_text(encoding="utf-8"), "\n".join(lines)) == []

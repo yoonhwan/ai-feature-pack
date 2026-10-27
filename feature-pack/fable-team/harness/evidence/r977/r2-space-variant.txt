@@ -1,0 +1,5 @@
+입력 : 공백 뒤 ghp_ + A*30 + _API_TOKEN= + B*30  (DA⑥ r1 «같은 꼴 확인» 지적 입력)
+base : [('token-prefix', 1)]  ***=BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+현재판: [('named-secret', 1)]  ghp_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA_API_TOKEN=***
+B 잔여 base= True 현재판= False
+base 가린 글자 잔존(현재판): True

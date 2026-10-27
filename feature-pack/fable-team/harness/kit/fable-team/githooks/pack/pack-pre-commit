@@ -1,0 +1,20 @@
+#!/usr/bin/env sh
+# 팩 리포 루트 main 직접 커밋 거절 (r777 · 설치 = bash harness/install.sh --pack-hooks <팩 리포> --apply)
+# 왜: r769 나노가 자기 작업 폴더(.worktrees/r769-…)가 있는데도 팩 «루트» 체크아웃 main 에 커밋 6개를 쌓았다
+#     (origin/main 70e392cb → b10966c6 · 정본 카드 줄이 루트 절대경로 · 막는 장치 0).
+# 어떻게: 커밋하는 곳이 공용 루트(팩 루트 체크아웃)이고 가지가 main 이면 거절한다.
+#         작업 폴더(.worktrees/<slug>)·다른 가지·표지 FT_PACK_ROOT_COMMIT=1 은 통과(정상 착지 도구의 길).
+_top="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+[ -n "$_top" ] || exit 0
+_common="$(git rev-parse --git-common-dir 2>/dev/null)" || exit 0
+[ -n "$_common" ] || exit 0
+case "$_common" in /*) : ;; *) _common="$PWD/$_common" ;; esac
+_common="${_common%/.git}"
+_top="$(cd "$_top" 2>/dev/null && pwd -P)" || exit 0
+_common="$(cd "$_common" 2>/dev/null && pwd -P)" || exit 0
+[ "$_top" = "$_common" ] || exit 0
+_br="$(git symbolic-ref --quiet --short HEAD 2>/dev/null)" || exit 0
+[ "$_br" = main ] || exit 0
+[ "${FT_PACK_ROOT_COMMIT:-0}" = 1 ] && exit 0
+echo "REJECT 팩 루트 main 직접 커밋 — 작업 폴더(.worktrees/<slug>)에서 커밋하세요 (정상 착지 도구면 FT_PACK_ROOT_COMMIT=1)" >&2
+exit 1

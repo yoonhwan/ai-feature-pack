@@ -1,0 +1,381 @@
+# r958 r5 — 접은 판 · /bin/bash 3.2 판 (macOS 기본)
+
+########## test_nano_close_suspended.sh
+== ⓖ 키트 2곳 같은 바이트 + bash -n
+PASS cmp ft-nano-close.sh (bin == kit)
+PASS bash -n ft-nano-close.sh
+PASS cmp ft-nano-suspended-check.sh (bin == kit)
+PASS bash -n ft-nano-suspended-check.sh
+== ⓐ 빈 사유 → usage rc2 · 닫힘 0
+PASS ⓐ --suspended "" → usage rc=2
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS   └ 카드 중단 줄 0
+PASS ⓐ --suspended "   "(공백) → usage rc=2
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS   └ 카드 중단 줄 0
+PASS ⓐ --suspended 값 누락 → usage rc=2
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS   └ 카드 중단 줄 0
+PASS ⓐ 여러 줄 사유 → usage rc=2
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS   └ 카드 중단 줄 0
+== ⓓ 다른 우회 인자와 동시 → usage rc2
+PASS ⓓ --suspended + --superseded-by → usage rc=2
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS   └ 카드 중단 줄 0
+PASS ⓓ --superseded-by + --suspended(순서 바꿈) → usage rc=2
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS   └ 카드 중단 줄 0
+PASS ⓓ --suspended + --cherry-override → usage rc=2
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS   └ 카드 중단 줄 0
+PASS ⓓ --cherry-override + --suspended(순서 바꿈) → usage rc=2
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS   └ 카드 중단 줄 0
+== ⓕ 인자 없으면 지금 동작 그대로 — rc=1 증거 줄은 ⑥ REJECT
+PASS ⓕ 인자 없음 + 시험 rc=1 증거 줄 → REJECT
+PASS   └ 사유 = 증거 줄 rc=1
+PASS   └ 출력에 suspended 표식 없음
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS   └ 카드 중단 줄 0
+== ⓑ --suspended 통과 (세션 없음) → CLOSED-ABSENT suspended=1 · 카드 중단 끝줄 · 원장 · cherry override · 브랜치 보존
+PASS ⓑ 통과 rc=0 · CLOSED-ABSENT <좌석> suspended=1 reason=<사유> set=<HEAD>
+PASS   └ ⑥ 자리 = 중단 검사 통과 줄
+PASS   └ ⑥ 증거 줄 검사 면제
+PASS   └ 카드 «## 상태» 맨 끝줄 = 중단: <사유> · 세트 <HEAD> · <날짜> · 재개 …
+PASS   └ 세트 40hex · 날짜 YYYY-MM-DD HH:MM
+PASS   └ 뒤 절(## 정본)은 그대로 · 중단 줄은 상태 절 안
+PASS   └ 닫힘 원장 행에 suspended=1 reason=<사유> set=<HEAD>
+PASS   └ ⑤ cherry override 원장 1행 · 사유 = suspended: <사유>
+PASS   └ 명부 삭제(기존 CLOSED 경로)
+PASS   └ 브랜치 실재(삭제 0)
+PASS   └ 미커밋 0 이면 HEAD 그대로([wip] 0)
+== ⓑ 세션이 살아 있는 좌석 → CLOSED suspended=1 + kill (브랜치 보존)
+PASS 살아 있는 좌석 → CLOSED <좌석> suspended=1 reason=<사유> set=<HEAD>
+PASS   └ 세션 kill(표준승인 경로)
+PASS   └ 브랜치 삭제 0
+== ⓒ 미커밋 있음 → [wip] 커밋 먼저 · 그 HEAD 로 중단
+PASS ⓒ 미커밋 → rc=0 · HEAD 이동([wip] 커밋)
+PASS   └ 커밋 메시지 [wip] nano close <좌석>
+PASS   └ 미커밋 0(새 파일·수정 전부 커밋)
+PASS   └ CLOSED 의 set = [wip] 뒤 HEAD
+PASS   └ 카드 중단 줄 세트 = [wip] 뒤 HEAD
+PASS ⓒ [wip] 커밋 실패 → REJECT
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS   └ 카드 중단 줄 0
+PASS   └ HEAD 그대로
+== ⓐ r958 r4 — ⑤ 비교 기준은 좌석 .worktree-info base «먼저» · env 는 base 없을 때만 · 다르면 WARN 1줄
+PASS ⓐ base(origin/main) 우선 → 닫힘 rc=0(env feat/old 로 판정했으면 ⑤ REJECT)
+PASS   └ 조용한 선택 0 — WARN 1줄에 두 값
+PASS   └ ⑤ 가 base 하나로 판정(env 기준 재시도 0)
+PASS   └ fetch 도 base ref(origin/main) 하나
+PASS   └ WARN 은 정확히 1줄
+PASS ⓑ base 없음 → env(FT_NANO_FEAT=main) 그대로 · rc=0
+PASS   └ base 없으면 WARN 0(조용한 비교 0)
+PASS ⓐ base 와 env 가 같으면 WARN 0 · rc=0
+PASS ⓔ 같은 세트로 다시 닫기 → rc=0 · 기록=이미 있음
+PASS   └ 카드 중단 줄 1개(중복 append 0)
+PASS ⓔ 검사 단독 --apply 2회 → 두 번째 이미 있음
+PASS   └ 중단 줄 1개
+== 검사 단독 REJECT/usage — detached · 미커밋 · 상태 절 없음 · 빈 사유 · --apply 없으면 쓰기 0
+PASS --apply 없음 → 통과 · 기록=검사만
+PASS   └ 카드 쓰기 0
+PASS 미커밋 → REJECT «[wip] 먼저»
+PASS   └ 카드 쓰기 0
+PASS detached HEAD → REJECT
+PASS 상태 절 없음 → REJECT
+PASS 빈 사유 → usage 2
+PASS --reason 누락 → usage 2
+== ⓖ 600/300 s · 외부 호출 · GIT_* env 0 (새 검사 스크립트 + close 의 r450 줄)
+PASS ⓖ 600/300 숫자 0
+PASS ⓖ 외부 호출 0
+PASS ⓖ GIT_DIR env 0
+PASS ⓖ GIT_WORK_TREE env 0
+
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+RC=0
+
+########## test_nano_close_step_timing_r938.sh
+== 키트 2곳 같은 바이트 + bash -n(3.2)
+PASS cmp ft-nano-close.sh (bin == kit)
+PASS /bin/bash -n ft-nano-close.sh (3.2)
+PASS cmp ft-merge-lib.sh (bin == kit)
+PASS /bin/bash -n ft-merge-lib.sh (3.2)
+PASS 기준판 사본에 step 줄 0(기계적 제거)
+== ⓐ 정상 대역 → CLOSED · STEP 줄은 stderr 에만 · stdout 은 기준판과 cmp0
+PASS [ⓐ] rc=0 · CLOSED(새 판)
+PASS [ⓐ]   └ STEP ⑥증거검사 줄이 stderr 에 있음
+PASS [ⓐ]   └ STEP ⑤cherry 줄이 stderr 에 있음
+PASS [ⓐ]   └ STEP sheet 줄이 stderr 에 있음
+PASS [ⓐ]   └ STEP ledger 줄이 stderr 에 있음
+PASS [ⓐ]   └ STEP slots 줄이 stderr 에 있음
+PASS [ⓐ]   └ stdout 에 STEP 0줄
+PASS [ⓐ]   └ stdout 기준판 cmp0(사람 출력 회귀 0)
+PASS [ⓐ]   └ 기준판 stderr 에는 STEP 0줄(대조군 확인)
+== ⓑ fetch 대역 30초 → 7초 + 재시도 1 뒤 «origin/main fetch 실패» · 옛 ref 대조 0 · 총 ≤ 20초
+PASS [ⓑ] REJECT + «origin/main fetch 실패»
+PASS [ⓑ]   └ 옛 ref 대조 0 문구
+PASS [ⓑ]   └ 두 번째 게이트 호출 0(옛 ref 대조 0)
+PASS [ⓑ]   └ 게이트 대역 1회만
+PASS [ⓑ]   └ 총 소요 ≤ 20초(7초 + 재시도 1)
+PASS [ⓑ]   └ CLOSED 0
+PASS [ⓑ]   └ kill·태그 해제 0
+PASS [ⓑ]   └ 명부 그대로
+PASS [ⓑ]   └ 닫힘 원장 행 0
+PASS [ⓑ]   └ 카드 ref fetch 도 7초+재시도 1
+PASS [ⓑ]   └ 카드 ref fetch 총 소요 ≤ 20초
+== ⓒ 검사 대역 90초 → 상한 뒤 REJECT(걸린/상한 초·배수·다시 하는 길) · 명부·원장·세션 변경 0
+PASS [ⓒ] ⑥ 증거 검사 상한 → REJECT
+PASS [ⓒ]   └ 배수·다시 하는 길 1줄
+PASS [ⓒ]   └ 계속이면 arch 보고 안내
+PASS [ⓒ]   └ 총 소요 ≤ 25초(상한 8초 · 멈춤 0)
+PASS [ⓒ]   └ CLOSED 0
+PASS [ⓒ⑥]   └ kill·태그 해제 0
+PASS [ⓒ⑥]   └ 명부 그대로
+PASS [ⓒ⑥]   └ 닫힘 원장 행 0
+PASS [ⓒ] ⑤ cherry 상한 → REJECT
+PASS [ⓒ]   └ 상한 초과 → freshness 단계 0
+PASS [ⓒ]   └ 총 소요 ≤ 25초
+PASS [ⓒ]   └ CLOSED 0
+PASS [ⓒ⑤]   └ kill·태그 해제 0
+PASS [ⓒ⑤]   └ 명부 그대로
+PASS [ⓒ⑤]   └ 닫힘 원장 행 0
+PASS [ⓒ] freshness 상한 → REJECT
+PASS [ⓒ]   └ 총 소요 ≤ 35초
+PASS [ⓒ]   └ CLOSED 0
+PASS [ⓒfr]   └ kill·태그 해제 0
+PASS [ⓒfr]   └ 명부 그대로
+PASS [ⓒfr]   └ 닫힘 원장 행 0
+== ⓓ 정상 대역(모두 즉시) → 지금과 같은 결과(닫힘)
+PASS [ⓓ] 즉시 대역 → CLOSED
+PASS [ⓓ]   └ 마지막 slots 단계까지 감
+PASS [ⓓ]   └ 시간 초과 0
+PASS [ⓓ]   └ 원장 닫힘 행 1줄
+PASS [ⓓ]   └ 세션 kill
+== ⓔ 실측 재현 — 카드 인자 꼴(--result · --recv · role=nano · press 산출 0)에서 STEP 줄이 끝까지
+PASS [ⓔ]   └ press 산출 0(나노 좌석)
+PASS [ⓔ] ④ 면제 자리(실측 마지막 줄) 재현
+PASS [ⓔ]   └ STEP 5줄 끝까지(slots 포함)
+== ⓕ 상한 REJECT 시 쓰기 0 — .prepared 0 · 명부·원장 바이트 불변(DA⑥ r1 반례 1)
+PASS [ⓕ] 상한 REJECT(증거 검사 대역)
+PASS [ⓕ]   └ .prepared 0
+PASS [ⓕ]   └ 명부 바이트 불변
+PASS [ⓕ]   └ 원장 바이트 불변
+PASS [ⓕ] prepare 상한 → REJECT
+PASS [ⓕ]   └ «시간 초과» 표기
+PASS [ⓕ]   └ prepare 잘린 뒤 .prepared 0(trap 이 prepare 전)
+PASS [ⓕ] bad(증거 검사 상한) + --cherry-override → REJECT
+PASS [ⓕ]   └ 우회 원장(cherry override) 행 0
+PASS [ⓕ]   └ cherry 는 읽기 전용 판정(REJECT 줄)
+PASS [ⓕ]   └ kill·태그 해제 0
+PASS [ⓕ]   └ 명부 그대로
+PASS [ⓕ]   └ 닫힘 원장 행 0
+PASS [ⓕ]   └ 대조군: bad 0 이면 override 전달 · 원장 1행 · CLOSED
+== ⓖ 상한이 프로세스 묶음째 끝냄 — 자식이 분리돼도 REJECT 뒤 자식 쓰기 0
+PASS [ⓖ] 상한 → REJECT
+PASS [ⓖ]   └ REJECT 뒤 3초 자식 쓰기 0
+PASS [ⓖ]   └ 그 묶음 생존 0
+PASS [ⓖ] setsid 손자 대역 · 상한 1초 → rc 124
+PASS [ⓖ]   └ 3초에 반환(≤3초 · 손자가 출력 fd 를 물고 있어도)
+PASS [ⓖ]   └ 반환 뒤 5초 손자 쓰기 0
+PASS [ⓖ]   └ 손자 pid 70423 생존 0
+PASS [ⓖ] ⓖ2 ps 대역(ps07) · nf_bound 1 /bin/sleep 10 → rc 124
+PASS [ⓖ]   └ ⓖ2 3.789초 ≤ 4.9초(시험 단언 · 계약 상한 1 + 4 = 5.0초)
+PASS [ⓖ]   └ ⓖ2 대상 /bin/sleep 10 생존 0
+PASS [ⓖ] ⓖ3 ps 대역(ps5) · nf_bound 1 /bin/sleep 10 → rc 124
+PASS [ⓖ]   └ ⓖ3 4.134초 ≤ 4.9초(시험 단언 · 계약 상한 1 + 4 = 5.0초)
+PASS [ⓖ]   └ ⓖ3 대상 /bin/sleep 10 생존 0
+PASS [ⓖ]   └ ⓖ3 대역 ps(sleep 5) 생존 0(조회 상한 1초에 잘림)
+== ⓗ TERM 무시 대역 · 상한 1초 → 3초 안에 끝남(KILL 유예 1초)
+PASS [ⓗ] TERM 무시 대역 · 상한 1초 → rc 124
+PASS [ⓗ]   └ 상한+유예 = 2초(≤3초 · KILL 유예 1초)
+PASS [ⓗ]   └ 그 묶음 생존 0
+== ⓘ 배수 = 커밋 수 — 커밋 12 · 커밋당 1초 대역은 «정상 느림» 이라 통과(거짓 거절 0)
+PASS [ⓘ] 커밋 12 · 커밋당 1초 → 배수 12 상한 안 → 통과(rc0)
+PASS [ⓘ]   └ 대역이 실제로 16초 걸렸다(느림 재현)
+== ⓙ 원격 없음 + 캐시 origin/main → fetch 실패 REJECT · cherry 통과 줄 0(DA⑥ r1 반례 3)
+PASS [ⓙ] fetch 실패 → 그 자리 REJECT
+PASS [ⓙ]   └ cherry 통과 줄 0
+PASS [ⓙ]   └ 옛 ref 대조 0 문구
+PASS [ⓙ]   └ kill·태그 해제 0
+PASS [ⓙ]   └ 명부 그대로
+PASS [ⓙ]   └ 닫힘 원장 행 0
+PASS [ⓙ] --research fetch 실패 → rc1
+PASS [ⓙ]   └ «⑥리서치 origin/main fetch 실패» 1줄
+PASS [ⓙ]   └ 리서치 통과 줄 0(옛 ref 병합 대조 0)
+PASS [ⓙ]   └ CLOSED 0
+PASS [ⓙ]   └ kill·태그 해제 0
+PASS [ⓙ]   └ 명부 그대로
+PASS [ⓙ]   └ 닫힘 원장 행 0
+PASS [ⓙ]   └ 대조군: 원격 있음 → RESEARCH-OK · rc0
+== ⓚ 상한식 = min(고정비 + 7×배수, 70) · 600/300초 0 · 무상한 fetch 0
+PASS [ⓚ] 배수 1→8 · 2→15 · 12→70(상한)
+PASS [ⓚ] 600/300 숫자 0
+PASS [ⓚ] 외부 호출 0
+PASS [ⓚ] 무상한 git fetch 0(전부 nf_fetch 경유)
+PASS [ⓚ] abort trap 이 prepare 전에 등록(N1)
+== ⓛ 첫 cherry 즉시 REJECT · fetch 성공 · 둘째 cherry(origin/main) 6초 · 상한 1초 → 그 자리 REJECT · freshness 0(astra r2 반례 N3)
+PASS [ⓛ] rc1
+PASS [ⓛ]   └ 둘째 cherry(origin/main) 호출 1회(fetch 성공 경로)
+PASS [ⓛ]   └ «cherry 게이트(origin/main) 시간 초과 <초>s/<상한>s · 배수 <n> — 다시:» 1줄
+PASS [ⓛ]   └ 빈 «origin/main 기준:» 줄 0
+PASS [ⓛ]   └ freshness STEP 줄 0
+PASS [ⓛ]   └ CLOSED 0
+PASS [ⓛ]   └ kill·태그 해제 0
+PASS [ⓛ]   └ 명부 그대로
+PASS [ⓛ]   └ 닫힘 원장 행 0
+
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+RC=0
+
+########## test_cherry_gate_identical_head.sh
+PASS ①오탐 재현 → PASS
+PASS ②옛 blob 롤백 → REJECT
+PASS ②사유 토큰 없음
+PASS ③superseded → PASS
+PASS ③동일 토큰 없음
+PASS ④새 내용 → REJECT
+PASS ⑤mode 만 다름 → REJECT
+PASS ⑥빈 사유 → exit 2
+PASS ⑥공백 사유 → exit 2
+PASS ⑥사유 있음 → 파싱 통과
+PASS ⑥인자 없음 → 현행 그대로
+PASS ⑥게이트 호출에 CO_ARGS 패스스루
+PASS ⑥FT_SEAT=$FROM 지정
+PASS ⑥--override 사유 전달
+PASS ⑦squash 시험 rc=0
+PASS ⑧cmp ft-nano-cherry-gate.sh
+PASS ⑧bash -n ft-nano-cherry-gate.sh
+PASS ⑧cmp ft-nano-spawn.sh
+PASS ⑧bash -n ft-nano-spawn.sh
+PASS ⑧게이트      186줄 ≤ 200
+---
+ALL PASS
+RC=0
+
+########## test_cherry_gate_squash.sh
+PASS ① 플래그 없음 → REJECT(지금과 같음)
+PASS ① 플래그 없으면 PASS --squashed-pr 문구 없음
+PASS ② 플래그 PASS
+PASS ② 원장 1행(kind·pr·head·squash·paths·reason)
+PASS ② 원장 정확히 1행
+PASS ⑤ state CLOSED → REJECT
+PASS ⑤ mergeCommit 이 구간 밖 → REJECT
+PASS ⑤ PR head 를 못 구함 → REJECT
+PASS ⑤ gh 실패 → REJECT
+PASS ⑤ REJECT 들은 원장 0행
+PASS ⑥ 사유 빈 문자열 → REJECT
+PASS ⑥ --reason 없음 → usage 2
+PASS ⑥ --squashed-pr 없는 --reason → usage 2
+PASS ⑥ --override 동시 → usage 2
+PASS ⑥ PR 번호 비숫자 → usage 2
+PASS ③ 되돌림: 플래그 없음 REJECT
+PASS ③ 되돌림(P1→P0) 플래그로도 REJECT
+PASS ③ 되돌림은 PASS 아님
+PASS ③ 원장 0행
+PASS ④ PR 에서 경로 제거 → REJECT
+PASS ④ 원장 0행
+PASS ⑦ mode 만 다름 → 같음 아님(REJECT)
+PASS ⑧ 혼합 커밋 design/x.md 미랜딩 → WARN 통과
+PASS ⑧ design/rag/sql/x.sql 미랜딩 → REJECT
+PASS ⑧ design/x/run.sh 미랜딩 → REJECT
+PASS 도우미 없이 · 플래그 없음 → 기존 동작 그대로 통과
+PASS 도우미 없이 · 플래그 → REJECT(사유 명시)
+fail=0
+RC=0
+
+########## test_kit_bin_sync.sh
+PASS dirs exist
+PASS tracked bin ⊂ kit bin (bytes+mode)
+PASS shim-exec lint: OK 0건
+PASS control: identical → 0
+PASS control: missing detected
+PASS control: byte diff detected
+PASS control: mode diff detected
+ALL PASS
+RC=0
+
+########## test_nano_close_fail_closed.sh
+PASS bash -n ft-nano-close.sh
+PASS bash -n ft-team-lib.sh
+== ⓐ 명단 = origin/main(작업 트리 사본은 옛 명단) · 원장 = 쌍둥이(design/v65) 1곳에만 → CLOSED
+PASS ⓐ CLOSED(rc=0)
+PASS   └ INFO 원장 ← <쌍둥이 경로> (명단 origin/main)
+PASS   └ 원장에 닫힘 행 1
+== ⓑ 두 쌍둥이 모두 원장 → REJECT 후보 2개
+PASS ⓑ → rc 1
+PASS   └ «CLOSED» 0
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 좌석 그대로
+PASS   └ 사유(명단 꼴 먼저 · 쌍둥이 뒤 · r459 헬퍼 ERROR 꼴)
+== ⓑ2 (r495) 두 쌍둥이 모두 원장 ∧ origin/main 트리엔 새 꼴(design/teams/v65)만 → ft_team_in_ref 로 가름 · 새 꼴 원장에 CLOSED + WARN TWIN-STALE
+PASS ⓑ2 CLOSED(rc=0)
+PASS   └ INFO 원장 ← 새 꼴(ref 트리에 있는 쪽)
+PASS   └ WARN TWIN-STALE <옛 꼴>
+PASS   └ 새 꼴 원장에만 닫힘 행 1
+== ⓒ 어느 쪽에도 원장 없음 → REJECT 못 찾았다(후보 목록)
+PASS ⓒ → rc 1
+PASS   └ «CLOSED» 0
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 좌석 그대로
+PASS   └ 사유 + 후보 2(r459 헬퍼 ERROR 꼴)
+== ⓓ origin/main ref 없음 → REJECT 명단 못 읽음(작업 트리 사본으로 후퇴 0)
+PASS ⓓ → rc 1
+PASS   └ «CLOSED» 0
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 좌석 그대로
+PASS   └ 사유
+== ⓔ 명부 파일 없음 → REJECT 명부 없음(입구 · 원장 쓰기 0)
+PASS ⓔ → rc 1
+PASS   └ «CLOSED» 0
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 좌석 그대로
+PASS   └ 사유
+PASS   └ 원장 행 0
+== ⓕ 명부 쓰기 실패(chmod 444) → REJECT 명부 쓰기 실패 · 원장 행 0
+PASS ⓕ → rc 1
+PASS   └ «CLOSED» 0
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 좌석 그대로
+PASS   └ 사유
+PASS   └ 원장 행 0
+== ⓖ r448: 닫기 출력 reap 줄 · reap left≠0 → CLOSE-FAIL rc 1 · kill 0(reap 은 kill «앞» · --wt 좌석 워크트리 전달)
+PASS ⓖ 성공 출력에 reap left=0 rc=0
+PASS ⓖ CLOSE-FAIL reap left=1 rc=1 (rc 1)
+PASS   └ kill-session 0
+PASS   └ reap 인자 = 좌석 + --wt 좌석 워크트리
+== ⓗ r286: opencode 좌석 = 명부 지우기 앞 기록(--record) · 세션 kill 뒤 회수(--apply) · left≠0 → CLOSE-FAIL rc 1 · 재실행은 pid 파일로 판정
+PASS ⓗ opencode 좌석 → OC-REAPED left=0 (rc 0)
+PASS   └ 1번째 = --record(좌석 워크트리)
+PASS   └ 2번째 = --apply
+PASS   └ 회수는 세션 kill 뒤(kill-session 실행됨)
+PASS ⓗ left=1 → CLOSE-FAIL rc 1
+PASS   └ OC-REAPED 0
+PASS ⓗ claude 좌석 · pid 파일 없음 → opencode 회수 호출 0
+PASS ⓗ 명부에 opencode 없어도 pid 파일 있으면 회수(재실행 경로)
+
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+RC=0

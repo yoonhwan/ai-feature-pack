@@ -29,6 +29,7 @@ from file_guard import check_files
 from magazine_slack import Target, upload_file
 from mirror_lib import MirrorError, api_call, esc
 from post_guard import DEFAULT_ROOT, ROOT_ENV, check, guarded_post as post
+from root_readback_guard import Post, ReadbackError, readback
 
 KEY = re.compile(r"board:\d{4}-\d{2}-\d{2}")
 TS = re.compile(r"\d+\.\d+")
@@ -163,12 +164,18 @@ def cmd_update(a: argparse.Namespace, target: Callable[[argparse.Namespace], Tar
     rec = lg.get(ledger, a.key)
     if rec is None:
         root = post(t.base, t.token, a.channel, body)
+        readback(Post(t.base, t.token, a.channel, root, a.key))  # r1004 — 게시 직후 되읽기(장부에 남길 글만 산다)
         lg.create(ledger, a.key, channel=a.channel, root_ts=root, kind="report", card_path="없음")
         print(f"created {a.key} root_ts={root}")
         pending = None
     else:
         check(body, rec["channel"])
         api_call(t.base, t.token, "chat.update", {"channel": rec["channel"], "ts": rec["root_ts"], "text": body})
+        try:
+            readback(Post(t.base, t.token, rec["channel"], str(rec["root_ts"]), a.key))  # r1004 — 같은 가드(시트·보드 뿌리 글)
+        except ReadbackError:
+            lg.drop(ledger, a.key)  # 지운 글 번호를 장부에 남기지 않는다(다음 갱신이 새 글)
+            raise
         print(f"updated {a.key} root_ts={rec['root_ts']}")
         pending = rec.get("reply_pending")
     lines = ([f"직전 답글 누락 — {pending}"] if pending else []) + ([esc(a.reply)] if a.reply else [])

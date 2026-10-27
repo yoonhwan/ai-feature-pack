@@ -1,0 +1,18 @@
+== ruff ==
+All checks passed!
+rc=0
+== 200줄 ==
+     200 bin/ft-inbox.py
+     200 kit/fable-team/bin/ft-inbox.py
+     199 bin/ft_inbox_core.py
+     599 total
+== kit 짝 cmp ==
+ft-inbox.py cmp0
+ft_inbox_core.py cmp0
+ft-inbox.sh cmp0
+== bash -n ==
+ok
+== ft-inbox.sh usage(core 1줄) ==
+4:명령: ingest <seq> | show <좌석> [--compact] | mark <seq|group> 처리|위임|보류 "<1줄>" [--seat <좌석>] | report <seq|group…> [--seat <좌석>] | close <seq|group…> "<사유>" [--seat <좌석>] | waive <좌석> --before <ISO ts> "<판정 N 사유>" | archive <좌석>
+126:        die('usage: close <seq|group…> "<사유>" [--seat <좌석>]', 2)
+196:    die("usage: ft-inbox.sh ingest <seq> | show <좌석> [--compact] | mark <seq|group> 처리|위임|보류 \"<1줄>\" [--seat <좌석>] | report <seq|group…> [--seat <좌석>] | close <seq|group…> \"<사유>\" [--seat <좌석>] | waive <좌석> --before <ISO ts> \"<판정 N 사유>\" | archive <좌석>", 2)

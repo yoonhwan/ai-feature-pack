@@ -1,0 +1,86 @@
+PASS bash -n ft-root-bin-migrate.sh
+PASS kit·bin 짝 cmp0
+PASS ⓜ dry-run rc
+PASS ⓜ MIGRATE = plist 6 + env 11
+PASS ⓜ REPORT = 4 (사람 글 1 · 비대상 라벨 3)
+PASS ⓜ ERROR 0
+PASS ⓜ SUM 칸
+PASS ⓜ plist 값 줄(ft-tick WorkingDirectory)
+PASS ⓜ bin 파일 값 줄(resource-watch)
+PASS ⓜ 비대상 라벨은 REPORT(파일명·내부 Label 병기)
+PASS ⓜ dry-run 파일 바이트 불변
+PASS ⓜ dry-run .bak 0
+PASS ⓝ apply rc
+PASS ⓝ apply MIGRATE = 17
+PASS ⓝ ft-tick WorkingDirectory = 공용 루트
+PASS ⓝ resource-watch ProgramArguments[1] = 공용 bin
+PASS ⓝ weekly-review FT_LIVE_BIN = 공용 bin
+PASS ⓝ weekly-review FT_PLANNER_REPO = 공용 루트
+PASS ⓝ slack-talk ProgramArguments[12] = 공용 bin
+PASS ⓝ slack-mbox ProgramArguments[11] = 공용 bin
+PASS ⓝ 보고만(사람 글) 바이트 불변
+PASS ⓝ 보고만(비대상 serena) 바이트 불변
+PASS ⓝ 보고만(비대상 dev 2) 바이트 불변
+PASS ⓝ env FT_BIN = 공용 bin (전 11)
+PASS ⓝ env 다른 줄 불변(FT_OTHER 는 v6 그대로)
+PASS ⓝ env 주석 줄 불변
+PASS ⓝ .bak-r962 = plist 5 + env 11
+PASS ⓝ 값 바뀐 plist lint
+PASS ⓝ 재실행 rc·MIGRATE 0(멱등)
+PASS ⓝ 재실행 .bak 16 그대로
+PASS 변 9 사본이 실제로 바뀌었다
+PASS 변 9 «값 부분 일치로 이전» → ⓝ FAIL(사람 글 바뀜)
+PASS 변 10 사본이 실제로 바뀌었다
+PASS 변 10 «.bak 없이 쓰기» → ⓝ FAIL(.bak 0)
+PASS ⓞ 새 값 없음 → rc≠0
+PASS ⓞ ERROR 1줄(그 칸)
+PASS ⓞ 그 파일 바이트 불변
+PASS ⓞ 다른 파일은 진행(ft-tick)
+PASS ⓞ env 도 진행(11)
+PASS ⓞ 그 파일 .bak 0(안 건드렸다)
+PASS 루트 해석(기존 함수) rc
+PASS 루트 해석(기존 함수) = git 공용 루트
+PASS ⓠ 비관리 Label(파일명은 관리) → 그 파일은 이전 0(이전은 alias 1건뿐)
+PASS ⓠ 비관리 Label → REPORT 병기(파일명·Label 둘 다)
+PASS ⓠ 비관리 Label → 그 파일 바이트 불변
+PASS ⓠ Label 없음 → ERROR 1줄
+PASS ⓠ Label 없음 → 그 파일 바이트 불변
+PASS ⓠ 파일명≠Label(둘 다 관리) → 이전한다
+PASS ⓠ 파일명≠Label → REPORT 병기 1줄
+PASS ⓠ ERROR 가 있으면 rc≠0
+PASS ⓠ RELOAD_NEEDED = 내부 Label(weekly-review)
+PASS ⓠ RELOAD_NEEDED 에 파일명(alias) 0
+PASS ⓠ2 못 읽는 옛 꼴 → REPORT(Label 병기)·ERROR 0
+PASS ⓠ2 ERROR 0 · rc 0
+PASS ⓠ2 그 파일 바이트 불변
+PASS 변 11 사본이 실제로 바뀌었다
+PASS 변 11 «파일명 판정 되살림» → ⓠ FAIL(비관리 라벨이 이전됨)
+PASS ⓡ env MIGRATE 1
+PASS ⓡ 바꾼 줄만 · CRLF·주석 바이트 보존
+PASS ⓡ CRLF 3줄 유지
+PASS 변 12 사본이 실제로 바뀌었다
+PASS 변 12 «text mode 읽기» → ⓡ FAIL(CRLF 소실)
+PASS ⓢ apply rc
+PASS ⓢ 주석 보존
+PASS ⓢ 값 줄만 바뀜(diff 2줄 = 값 한 줄)
+PASS ⓢ 파일 안 값 = &amp; 로 이스케이프
+PASS ⓢ 재해석 값 = 실제 경로
+PASS ⓢ 재해석 dict 는 바꼈 key 만 다르다
+PASS ⓢ plutil -lint
+PASS 변 13 사본이 실제로 바뀌었다
+PASS 변 13 «plistlib dumps 되살림» → ⓢ FAIL(주석 소실)
+PASS ⓣ 대상 key 만 바뀜
+PASS ⓣ 같은 값을 품은 다른 key 는 불변
+PASS ⓣ 다른 key 는 REPORT(이전 0)
+PASS ⓤ 주석 속 태그 → 치환 성공 · 주석 바이트 보존(2줄) · 다른 값 그대로
+PASS ⓥ 불완전 백업 → 2회차 재사용 0 · 원본 바이트 불변 · 백업 덮어쓰기 0
+PASS ⓥ 1회차(백업 쓰기 실패)도 원본 그대로 · rc≠0
+PASS ⓦ plutil 실패 → 원본 바이트·mtime 불변(복원 쓰기 0) · rc≠0 · «.bak 복원» 문구 0
+PASS 변 14 사본이 실제로 바뀌었다
+PASS 변 14 «백업 대조 끔» → ⓥ FAIL(불완전 백업 재사용해 원본이 바뀜)
+PASS 변 15 사본이 실제로 바뀌었다
+PASS 변 15 «원본 wb 되살림» → ⓦ FAIL(원본을 다시 열어 mtime 이 바뀐다)
+PASS ⓧ 심링크 꼴 2(plist 심링크 · 백업 심링크) → REPORT · 쓰기 0 · rc 0
+fail=0
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

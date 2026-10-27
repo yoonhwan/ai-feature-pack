@@ -2,7 +2,7 @@
 # ft-tick.sh — Seatbelt 0.4 통합 틱 (ft-master-tick.sh · ft-pm-tick.sh · ft-goal-tick.sh 를 한 프로세스로)
 #   한 루프마다 <리포루트>/.fable-team/seats.json 을 «다시 읽어» tick != null 이고 _replaced_by 없는 좌석마다
 #   그 tick 종류의 간격·프롬프트를 적용한다. 승계 = seats.json 한 줄 교체(env 재기동 0회).
-#   생존은 launchd KeepAlive (ft-tick.plist · ft-tick-install.sh) — 이 스크립트는 워치독을 갖지 않는다.
+#   생존은 launchd KeepAlive (ft-tick.plist · ft-tick-install.sh) — 이 스크립트의 장치는 바퀴 상한(r874 · FT_TICK_PASS_MAX_SEC)뿐이다.
 #
 #   tick 종류: ft-master-tick(900s) · ft-pm-tick(600s · REPORT_TO = seats.json 의 현역 master)
 #              + master 좌석엔 goal-tick(240s · ft-goal-tick.sh 를 그대로 호출 — rc=0 GOAL-OK 면 조용)
@@ -71,6 +71,29 @@ log() { echo "$(date '+%F %T') $*"; }
 now() { date +%s; }
 STAMP_PREFIX="${FT_TICK_STAMP_PREFIX:-/tmp/ft-tick-}"   # R27: 시험이 scratch 로 돌릴 수 있게(기본값=원본 동작)
 stamp_of() { echo "${STAMP_PREFIX}$1${2:+.$2}.last"; }
+# ★r874 r3 stamp 쓰기·읽기 — 끊김(TERM→SIGKILL) 뒤에도 stamp 는 «옛 값» 이거나 «새 값» 이다(빈 파일 0)★
+#   쓰기 = write_stamp 하나(같은 폴더 임시 파일에 쓰고 mv 로 원자 교체). 리다이렉션 직접 쓰기(`now > "$stamp"`) 0 — 그 꼴이 트렁케이트 도중
+#   끊기면 빈 stamp 가 남고, 빈 stamp 는 다음 바퀴 `$(( now - ))` 산술 오류로 «바퀴 전체» 를 죽여 wt-sweep·뉴스가 영영 안 돌았다(DA⑥ r1 HOLD R1).
+write_stamp() {   # $1 = stamp 경로 · $2 = 값(기본 now)
+  local f="$1" v="${2:-$(now)}" d t
+  d="$(dirname -- "$f")"; [ -d "$d" ] || mkdir -p "$d" 2>/dev/null
+  t="$f.tmp.$$"
+  if printf '%s\n' "$v" > "$t" 2>/dev/null && mv -f "$t" "$f" 2>/dev/null; then return 0; fi
+  rm -f "$t" 2>/dev/null
+  echo "$(date '+%F %T') WARN stamp 쓰기 실패 $f — 이번 바퀴는 계속(다음 바퀴에 다시 씀)" >&2; return 1
+}
+#   읽기 = read_stamp 하나 — 숫자가 아니면(빈 파일 포함) 0 으로 읽고 WARN 1줄을 남긴 뒤 «그 바퀴를 계속한다»(조용한 중단 0).
+#   파일 «없음» 은 첫 바퀴라 정상 — 0 만 쓰고 조용히 간다(경고 없음). 경고는 stderr 로만(값이 stdout 으로 갈 때 섞이지 않게).
+read_stamp() {   # $1 = stamp 경로 → stdout 에 정수
+  local v=''
+  [ -e "$1" ] || { echo 0; return 0; }
+  v="$(cat "$1" 2>/dev/null)"
+  case "$v" in
+    ''|*[!0-9]*) echo "$(date '+%F %T') WARN stamp 숫자 아님 — 0 으로 읽고 바퀴 진행: $1 = '${v}'" >&2; echo 0;;
+    *) echo "$v";;
+  esac
+}
+stamp_gap() { echo $(( $(now) - $(read_stamp "$1") )); }   # $1 = stamp 경로 → 경과초
 pane_of() { tmux list-panes -a -F '#{session_name} #{pane_id}' 2>/dev/null | awk -v s="$1" '$1==s{print $2; exit}'; }
 
 # seats.json → "seat<TAB>tick<TAB>role" (현역만: _ 키 제외 · tick != null · _replaced_by 없음). 실패면 rc≠0.
@@ -99,7 +122,7 @@ master_news_ok() {
   news="$(awk -F'\t' '$2=="ft-master-tick"{print $1}' <<< "$1" | paste -sd, -)"
   if [ -z "$news" ] || { [ -n "$2" ] && [[ ",$news," == *",$2,"* ]]; }; then rm -f "$sf"; return 0; fi
   sig="_master=${2:-none}|$news"; [ "$(cat "$sf" 2>/dev/null)" = "$sig" ] && return 1
-  echo "$sig" > "$sf"; log "ERROR master news row invalid (_master=${2:-none} · news rows=$news) — master news 0"
+  write_stamp "$sf" "$sig"; log "ERROR master news row invalid (_master=${2:-none} · news rows=$news) — master news 0"
   printf '%s master news row invalid (_master=%s · news rows=%s) in %s\n' "$(date '+%F %T')" "${2:-none}" "$news" "$SEATS" >> "${STAMP_PREFIX}DEAD-SEATS.alert"; return 1
 }
 
@@ -137,7 +160,7 @@ _gate_step() {   # $1 seat $2 kind $3 mark — 잠금 안에서만 부른다
     1) fg="$(sed -n 's/.* fg=\([^ ]*\).*/\1/p' <<< "$line")"
        if [ ! -f "$mark" ]; then
          if printf '%s agent absent %s fg=%s (session alive) — kind=%s · claude 꺼짐/정지 — 재기동·재개 필요\n' "$(date '+%F %T')" "$seat" "$fg" "$kind" 2>/dev/null >> "${STAMP_PREFIX}DEAD-SEATS.alert"; then
-           now > "$mark"; log "NOAGENT $seat/$kind — fg=$fg (session alive) · alert written once (further skips silent)"
+           write_stamp "$mark"; log "NOAGENT $seat/$kind — fg=$fg (session alive) · alert written once (further skips silent)"
          else log "ERROR NOAGENT $seat/$kind — alert 쓰기 실패 (${STAMP_PREFIX}DEAD-SEATS.alert) · 표식 저장 0 → 다음 틱 재시도"; fi
        fi
        return 1;;
@@ -153,7 +176,7 @@ agent_gate() {   # $1 seat $2 kind → rc 0 발사 가능 · 1 발사 0
 fire() {
   local seat="$1" kind="$2" interval="$3" min_gap="$4" msg="$5" stamp gap pane tail tailn=3 busy='esc to interrupt|Working|Thinking' sub='^[›❯] +\[cron-tick\]' subn=2
   [ "$FIRE_V2" = 1 ] && { tailn=14; busy="$busy|↓ [0-9,]+ tokens|\| *thinking"; sub='^[›❯] +[^ ]'; subn=6; }
-  stamp="$(stamp_of "$seat" "$kind")"; gap=$(( $(now) - $(cat "$stamp" 2>/dev/null || echo 0) ))
+  stamp="$(stamp_of "$seat" "$kind")"; gap=$(stamp_gap "$stamp")
   if [ "$DRY" = 1 ]; then echo "DRY seat=$seat kind=$kind interval=${interval}s gap=${gap}s msg=${msg:0:80}"; return 0; fi
   [ "$gap" -ge "$interval" ] || return 0                                   # 아직 차례 아님(조용)
   [ "$gap" -ge "$min_gap" ] || { log "skip $seat/$kind — debounce (${gap}s < ${min_gap}s)"; return 0; }
@@ -163,7 +186,7 @@ fire() {
   if printf '%s' "$tail" | LC_ALL=C grep -qaE "$busy"; then log "skip $seat/$kind — pane busy (working)"; return 0; fi
   if printf '%s' "$tail" | LC_ALL=C grep -qaE '^[›❯] +[^ ]'; then log "skip $seat/$kind — pane has unsubmitted input"; return 0; fi
   tmux send-keys -t "$pane" -l "$msg"; sleep 0.3; tmux send-keys -t "$pane" Enter
-  now > "$stamp"
+  write_stamp "$stamp"
   sleep 1.5
   if tmux capture-pane -t "$pane" -p 2>/dev/null | grep -vE '^\s*$' | tail -"$subn" | LC_ALL=C grep -qaE "$sub"; then
     log "$seat/$kind not submitted — sending Enter once more"; tmux send-keys -t "$pane" Enter
@@ -174,14 +197,14 @@ fire() {
 # goal-tick: 기존 ft-goal-tick.sh 를 좌석 대상으로 «그대로» 실행(내부에서 ft-goal-check → rc=0 이면 조용, rc≠0 relay).
 goal() {
   local seat="$1" stamp gap
-  stamp="$(stamp_of "$seat" goal)"; gap=$(( $(now) - $(cat "$stamp" 2>/dev/null || echo 0) ))
+  stamp="$(stamp_of "$seat" goal)"; gap=$(stamp_gap "$stamp")
   [ -x "$GOAL_TICK" ] || [ -f "$GOAL_TICK" ] || { echo "$(date '+%F %T') goal-tick script missing: $GOAL_TICK" >&2; return 0; }
   if [ "$DRY" = 1 ]; then
     echo "DRY seat=$seat kind=goal-tick interval=${GOAL_INTERVAL}s gap=${gap}s msg=(ft-goal-tick.sh 결과 → rc≠0 일 때만 relay)"; return 0
   fi
   [ "$gap" -ge "$GOAL_INTERVAL" ] || return 0
   FT_GOAL_TICK_TARGET="$seat" bash "$GOAL_TICK" | sed "s/^/goal-tick[$seat] /"
-  now > "$stamp"
+  write_stamp "$stamp"
 }
 
 # seats.json 현역 전부(tick 유무 무관) → "seat<TAB>role". stop-ready·_replaced_by·tester 제외.
@@ -202,10 +225,10 @@ PY
 
 stall() {
   local stamp gap rows seat role line pane age thr p wstamp wgap cnt msg master
-  stamp="$(stamp_of _all stall)"; gap=$(( $(now) - $(cat "$stamp" 2>/dev/null || echo 0) ))
+  stamp="$(stamp_of _all stall)"; gap=$(stamp_gap "$stamp")
   if [ "$DRY" = 1 ]; then echo "DRY kind=stall interval=${STALL_INTERVAL}s min=${STALL_MIN}m seats=$(active_seats 2>/dev/null | cut -f1 | tr '\n' ' ')"; return 0; fi
   [ "$gap" -ge "$STALL_INTERVAL" ] || return 0
-  now > "$stamp"
+  write_stamp "$stamp"
   [ -f "$SEAT_STATUS" ] || { echo "$(date '+%F %T') stall: seat-status missing $SEAT_STATUS" >&2; return 0; }
   rows="$(active_seats 2>/dev/null)" || { echo "$(date '+%F %T') stall: seats.json unreadable" >&2; return 0; }
   master="$(master_seat)"
@@ -222,12 +245,12 @@ stall() {
         [ -n "$master" ] && [ "$seat" != "$master" ] && bash "$MBOX" send "$master" ft-tick "[stall] $seat 가 사람 입력(옵션 모드) 대기 ${age}s — 깨우지 않았다. 오빠 개입 필요" --urgent >/dev/null 2>&1
         log "stall $seat — option mode (age=${age}s), escalated to ${master:-none}"; continue
       fi
-      wstamp="$(stamp_of "$seat" stall)"; wgap=$(( $(now) - $(cat "$wstamp" 2>/dev/null || echo 0) ))
+      wstamp="$(stamp_of "$seat" stall)"; wgap=$(stamp_gap "$wstamp")
       [ "$wgap" -ge "$STALL_WAKE_GAP" ] || continue
-      cnt=$(( $(cat "$wstamp.count" 2>/dev/null || echo 0) + 1 )); echo "$cnt" > "$wstamp.count"
+      cnt=$(( $(read_stamp "$wstamp.count") + 1 )); write_stamp "$wstamp.count" "$cnt"
       msg="[stall-wake $((age/60))분 정지 · ${cnt}회] 멈춰 있지 마라. ① bash $MBOX recv $seat ② $SEATS 의 내 행 index/inbox 를 열어 다음 단위 착수 ③ 정말 할 일이 없으면 ${master:-master} 에 mbox 로 «정지 레디» 1줄 보고 후 대기. 판단이 갈리면 묻지 말고 값과 함께 ${master:-master} 에."
       tmux send-keys -t "$p" -l "$msg"; sleep 0.3; tmux send-keys -t "$p" Enter
-      now > "$wstamp"; log "stall-wake sent to $seat (age=${age}s pane=$pane cnt=$cnt)"
+      write_stamp "$wstamp"; log "stall-wake sent to $seat (age=${age}s pane=$pane cnt=$cnt)"
       if [ "$cnt" -ge 2 ] && [ -n "$master" ] && [ "$seat" != "$master" ]; then
         bash "$MBOX" send "$master" ft-tick "[stall] $seat ${age}s 정지 · 깨움 ${cnt}회 무응답(pane=$pane, role=$role) — 좌석 교체(ft-role-spawn/ft-nano-spawn) 또는 오빠 개입 판단" --urgent >/dev/null 2>&1
       fi
@@ -324,7 +347,7 @@ idle_watch() {
       if [ -n "$t_pst" ]; then echo "$t_pst $t_pend ${t_pnot:--}" > "$STATE_DIR/$t_seat.turn"; else rm -f "$STATE_DIR/$t_seat.turn"; fi
     fi
   done <<< "$targets"
-  [ "$rc" = 0 ] && [ "$DRY" != 1 ] && { now > "$(stamp_of _all idle-sent)"; log "idle-detected ×$n sent to $master"; }
+  [ "$rc" = 0 ] && [ "$DRY" != 1 ] && { write_stamp "$(stamp_of _all idle-sent)"; log "idle-detected ×$n sent to $master"; }
   return 0
 }
 
@@ -402,14 +425,14 @@ drift_watch() {
   [ "$DRIFT_ENABLED" = 1 ] || return 0
   case "$HERE" in */.fable-team/bin|*/.fable-team/*/bin|*/fable-team/live/*/bin) ;; *) return 0;; esac
   stamp="$(stamp_of _all drift)"
-  if [ "$DRY" != 1 ] && [ $(( $(now) - $(cat "$stamp" 2>/dev/null || echo 0) )) -lt "$DRIFT_INTERVAL" ]; then return 0; fi
+  if [ "$DRY" != 1 ] && [ "$(stamp_gap "$stamp")" -lt "$DRIFT_INTERVAL" ]; then return 0; fi
   [ -f "$DRIFT_CHECK" ] || { echo "$(date '+%F %T') drift_watch: missing $DRIFT_CHECK" >&2; return 0; }
   # stdout 만 머리글·항목·서명 — stderr(locale 경고 등)가 머리글이 되면 로그·알림·서명이 오염된다. stderr 는 rc≥2 원인 줄로만 쓴다.
   errf="$(mktemp)" && [ -n "$errf" ] || { echo "$(date '+%F %T') drift_watch: ERROR mktemp failed — check not run" >&2; return 0; }
   out="$(bash "$DRIFT_CHECK" --bin "$HERE" 2>"$errf")"; rc=$?   # 키트 리포·경로 = 하네스 코드 루트(r385 · 프로젝트 리포 전제 0)
   err="$(cat "$errf" 2>/dev/null)"; rm -f "$errf"
   if [ "$DRY" = 1 ]; then echo "DRY kind=drift bin=$HERE rc=$rc"; return 0; fi
-  now > "$stamp"; sigf="$STATE_DIR/drift.sig"; mkdir -p "$STATE_DIR"
+  write_stamp "$stamp"; sigf="$STATE_DIR/drift.sig"; mkdir -p "$STATE_DIR"
   case "$rc" in
     0) [ -f "$sigf" ] && { rm -f "$sigf"; log "drift: OK"; };;
     1)
@@ -451,9 +474,9 @@ renamed_watch() {   # r468 — 옛 계보 우편 «있음» 을 새 명부 _mast
   [ "${FT_TICK_RENAMED:-1}" = 1 ] || return 0
   if [ "$DRY" = 1 ]; then echo "DRY kind=renamed bin=$RENAMED"; return 0; fi
   mkdir -p "$STATE_DIR"; stamp="$STATE_DIR/renamed.last"; sigf="$STATE_DIR/renamed.sig"
-  last="$(cat "$stamp" 2>/dev/null || echo 0)"; case "$last" in ''|*[!0-9]*) last=0;; esac
+  last="$(read_stamp "$stamp")"
   [ $(( $(now) - last )) -ge "${FT_TICK_RENAMED_SEC:-3600}" ] || return 0
-  now > "$stamp"
+  write_stamp "$stamp"
   for f in "$(dirname "$SEATS")"/seats-*.json; do [ -e "$f" ] && seatfiles+=("$f"); done   # r507: ls 파싱 0 — 공백 이름·0개 안전
   out="$(python3 -I "$RENAMED" watch "$MBOX" "$SEATS" ${seatfiles[@]+"${seatfiles[@]}"} 2>&1)" \
     || { echo "$(date '+%F %T') renamed_watch: ERROR rc=$?: $(printf '%s\n' "$out" | head -1 | cut -c1-200)" >&2; return 0; }
@@ -514,6 +537,7 @@ for k, v in d.items():
     if k.startswith("_") or not isinstance(v, dict): continue
     if isinstance(m, str) and v.get("role") == "master" and k != m: continue
     if v.get("_replaced_by") or v.get("role") == "stop-ready": continue
+    if v.get("agent") == "desktop": continue   # r1015: tmux 밖 Claude Desktop 좌석 = 살아 있어도 tmux 세션이 없다 → 죽음 아님
     print("\t".join([k, v.get("role") or "-", v.get("agent") or "claude", v.get("model") or "-"]))
 PY
 }
@@ -605,7 +629,7 @@ live_snapshot() {   # ① claude 좌석의 대화 스냅샷 — jsonl 이 바뀐
   local rows seat role agent model out roster seen=" " sweep sstamp last
   [ "${FT_TICK_LIVE_SNAPSHOT:-1}" = 1 ] || return 0
   [ -f "$RESUME_ATTEMPT" ] || { echo "$(date '+%F %T') live_snapshot: missing $RESUME_ATTEMPT" >&2; return 0; }
-  sweep=0; sstamp="$STATE_DIR/live-sweep"; last="$(cat "$sstamp" 2>/dev/null || echo 0)"; case "$last" in ''|*[!0-9]*) last=0;; esac
+  sweep=0; sstamp="$STATE_DIR/live-sweep"; last="$(read_stamp "$sstamp")"
   [ $(( $(now) - last )) -ge "${FT_TICK_LIVE_SWEEP_SEC:-300}" ] && sweep=1
   for roster in "$SEATS" $([ "$sweep" = 1 ] && ls "$(dirname "$SEATS")"/seats.json "$(dirname "$SEATS")"/seats-*.json 2>/dev/null); do
     [ -f "$roster" ] || continue
@@ -618,7 +642,7 @@ live_snapshot() {   # ① claude 좌석의 대화 스냅샷 — jsonl 이 바뀐
       out="$(bash "$RESUME_ATTEMPT" snapshot "$seat" --agent "$agent" --model "$model" 2>&1)" || echo "$(date '+%F %T') live_snapshot: ERROR $seat: $(printf '%s\n' "$out" | tail -1 | cut -c1-200)" >&2
     done <<< "$rows"
   done
-  if [ "$sweep" = 1 ] && [ "$DRY" != 1 ]; then mkdir -p "$STATE_DIR" && now > "$sstamp"; fi
+  if [ "$sweep" = 1 ] && [ "$DRY" != 1 ]; then mkdir -p "$STATE_DIR" && write_stamp "$sstamp"; fi
   return 0
 }
 
@@ -858,12 +882,12 @@ pass() {
     case "$tick" in
       ft-master-tick)
         if [ "$mok" != 0 ]; then continue; fi   # ERROR 는 master_news_ok 가 기록(서명당 1회) — master news 0
-        if [ "$seat" != "$master" ]; then [ -f "$(stamp_of "$seat" mtwarn)" ] || { now > "$(stamp_of "$seat" mtwarn)"; log "WARN master-tick row $seat ≠ _master $master — skipped"; }; continue; fi
+        if [ "$seat" != "$master" ]; then [ -f "$(stamp_of "$seat" mtwarn)" ] || { write_stamp "$(stamp_of "$seat" mtwarn)"; log "WARN master-tick row $seat ≠ _master $master — skipped"; }; continue; fi
         # ★2026-09-14 오빠 「중간 뉴스랑 크론 메세지 … 너무 중복」★ — idle-detected 가 방금 master 에 갔으면 뉴스 틱은 그 턴에 겹치지 않는다
         #   (master 는 이미 행동할 이벤트를 받았다). 실측 18:24~19:31: 뉴스 15회 + idle 14회 = 4.4분마다 1건이 pane 에 꽂혔다.
-        igap=$(( $(now) - $(cat "$(stamp_of _all idle-sent)" 2>/dev/null || echo 0) ))
+        igap=$(stamp_gap "$(stamp_of _all idle-sent)")
         # ★2026-09-28 master#69 실측: idle-detected 가 1~2분마다 와서 17:01 뒤 뉴스 0회(굶음) — 연기는 최대 FT_TICK_NEWS_MAX_DEFER 까지만★
-        ngap=$(( $(now) - $(cat "$(stamp_of "$seat" master)" 2>/dev/null || echo 0) ))
+        ngap=$(stamp_gap "$(stamp_of "$seat" master)")
         if [ "$igap" -lt "${FT_TICK_IDLE_QUIET_SEC:-$MASTER_MIN_GAP}" ] && [ "$ngap" -lt "${FT_TICK_NEWS_MAX_DEFER:-900}" ] && [ "$DRY" != 1 ]; then log "skip $seat/master — idle-detected ${igap}s ago (news deferred · last news ${ngap}s)"
         else fire "$seat" master "$MASTER_INTERVAL" "$MASTER_MIN_GAP" "$MASTER_MSG"; fi
         goal "$seat";;
@@ -885,10 +909,52 @@ while :; do
   fi
   echo "$$" > "$PIDFILE"; break
 done
-trap 'rm -f "$PIDFILE"; log "ft-tick stopped"; exit 0' INT TERM
-log "ft-tick started pid=$$ seats=$SEATS loop=${LOOP_SEC}s master=${MASTER_INTERVAL}s pm=${PM_INTERVAL}s goal=${GOAL_INTERVAL}s"
+# ★r874 TERM 즉시 응답★ — launchctl kickstart -k 는 SIGTERM 뒤 5초면 SIGKILL(-9 · 2026-10-25 launchd 로그 실측). bash 는 앞단 자식(wt-sweep 등)이
+#   도는 동안 trap 을 미루므로 바퀴(pass)·쉼(sleep)을 배경 자식으로 돌리고 wait 한다(wait 은 trap 이 끼어든다).
+#   trap = 자식 묶음 TERM → FT_TICK_TERM_GRACE(2초) 안에 안 죽은 것 KILL → 종료. 바퀴 사이 상태는 전부 파일(stamp·STATE_DIR)이라 subshell 로 돌려도 같다.
+#   바퀴 상한 FT_TICK_PASS_MAX_SEC(70 · 하드 룰 12 천장) 넘으면 ERROR 1줄 + 묶음 끊고 다음 바퀴(끊긴 wt-sweep 은 다음 바퀴가 처음부터 · 계획은 재실행 안전).
+PASS_MAX="${FT_TICK_PASS_MAX_SEC:-70}"; TERM_GRACE="${FT_TICK_TERM_GRACE:-2}"; CHILD=""; POLL=""
+tree_of() {   # $1 pid → 자신 + 자손 pid (ps 1회 — pgrep 은 시험 가짜 PATH 에 가려질 수 있어 쓰지 않는다)
+  ps -axo pid=,ppid= 2>/dev/null | awk -v r="$1" '{p[$1]=$2} END {s[r]=1; do {n=0; for (k in p) if (!(k in s) && (p[k] in s)) {s[k]=1; n=1}} while (n); for (k in s) print k}'
+}
+kill_tree() {   # $1 pid — 묶음을 TERM 전에 한 번 떠 둔다(부모가 먼저 죽으면 자식이 launchd 로 넘어가 안 보인다) · TERM 무시(perl alarm 등)는 KILL
+  local pids alive p i
+  [ -n "$1" ] || return 0
+  pids="$(tree_of "$1")"; [ -n "$pids" ] || return 0
+  # shellcheck disable=SC2086  # pid 목록 단어 분리가 의도
+  kill -TERM $pids 2>/dev/null
+  for ((i = 0; i < TERM_GRACE * 10; i++)); do
+    alive=""; for p in $pids; do kill -0 "$p" 2>/dev/null && alive="$alive $p"; done
+    [ -n "$alive" ] || return 0
+    sleep 0.1
+  done
+  # shellcheck disable=SC2086
+  kill -KILL $alive 2>/dev/null; return 0
+}
+on_term() { kill_tree "$POLL"; kill_tree "$CHILD"; rm -f "$PIDFILE"; log "ft-tick stopped"; exit 0; }
+trap on_term INT TERM
+log "ft-tick started pid=$$ seats=$SEATS loop=${LOOP_SEC}s master=${MASTER_INTERVAL}s pm=${PM_INTERVAL}s goal=${GOAL_INTERVAL}s pass_max=${PASS_MAX}s"
 while :; do
-  pass
+  pass & CHILD=$!; t0="$(now)"; over=0
+  while kill -0 "$CHILD" 2>/dev/null; do
+    if [ $(( $(now) - t0 )) -ge "$PASS_MAX" ]; then
+      echo "$(date '+%F %T') ERROR pass over ${PASS_MAX}s — 바퀴 끊음(자식 묶음 정리 · 다음 바퀴 처음부터)" >&2
+      kill_tree "$CHILD"; over=1; break
+    fi
+    sleep 1 & POLL=$!; wait "$POLL"; POLL=""
+  done
+  wait "$CHILD" 2>/dev/null; prc=$?; CHILD=""
+  # ★r874 r3★ 배경 바퀴(pass) rc≠0 → 부모가 ERROR 1줄. 조용한 계속 0 · 같은 원인(rc) 연속은 1통(서명 = rc).
+  #   바퀴 상한으로 끊은 바퀴(over=1)는 위에서 이미 ERROR 를 냈다 — 여기서 겹쳐 쓰지 않는다.
+  if [ "$over" = 0 ]; then
+    if [ "$prc" = 0 ]; then rm -f "$STATE_DIR/pass.err.sig" 2>/dev/null
+    else
+      if [ "$(cat "$STATE_DIR/pass.err.sig" 2>/dev/null)" != "rc=$prc" ]; then
+        log "ERROR pass failed rc=$prc — 바퀴가 중간에 실패(성공 0) · 다음 바퀴 계속(같은 원인 연속은 이 1줄)"
+        write_stamp "$STATE_DIR/pass.err.sig" "rc=$prc"
+      fi
+    fi
+  fi
   [ "$ONCE" = 1 ] && { rm -f "$PIDFILE"; exit 0; }
-  sleep "$LOOP_SEC"
+  sleep "$LOOP_SEC" & CHILD=$!; wait "$CHILD"; CHILD=""
 done

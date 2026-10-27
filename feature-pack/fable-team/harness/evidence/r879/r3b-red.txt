@@ -1,0 +1,11 @@
+PASS ⓐ 남의 카드 증거 폴더 미디어(wav·MP4·png·zip)·자기 팀 notes/wav 0 · 남의 팀 0
+PASS ⓑ 남의 카드 증거 폴더의 md·txt·json · 공백·괄호 파일명 · evidence 바로 아래 파일 = IN
+PASS ⓒ 카드 글자 0 이어도 같은 결과(md IN · 미디어 OUT · 카드 글자 파싱 없음)
+PASS ⓓ 자기 stem 폴더(evidence/r9-sparse-card/)의 wav·md 있음 + 새 wav·md git add rc0
+PASS ⓔ fixtures/ 아래 wav·mp4 IN(기존 그대로) · 팀 밖 tests/fixtures 도 IN
+PASS ⓓ' 남의 카드 증거 폴더 새 wav add 는 막힘(sparse 밖)
+PASS ⓑ' 남의 카드 증거 폴더 새 md add rc0(글자는 받음)
+FAIL ⓗ 남의 result.json·jsonl 남음[ design/teams/lecture/evidence/other/result.json design/teams/lecture/evidence/other/x.jsonl design/teams/lecture/evidence/other/y.JSONL design/teams/lecture/evidence/arch1/result.json] summary.json 있음=yes (!/design/teams/lecture/**/*.TGZ /design/teams/lecture/**/fixtures/** /design/teams/lecture/evidence/r9-sparse-card/** )
+PASS ⓘ 자기 stem 폴더 result.json·x.jsonl IN + 새 result.json·jsonl git add rc0
+PASS ⓖ FT_NANO_SPARSE=0 → 전체 체크아웃
+FAILED 1

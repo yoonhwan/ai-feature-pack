@@ -1,0 +1,240 @@
+PASS bash -n autonomy-interview-gate.sh
+PASS bash -n autonomy-state-guard.sh
+PASS bash -n autonomy-merge-guard.sh
+PASS ⓐ1 ON → deny
+PASS ⓐ1b deny 사유 = status 1줄 + ft-proxy-decide + 오빠 큐
+PASS ⓐ2 OFF + 머리 없음 → deny
+PASS ⓐ2b deny 사유에 status 붙이라는 안내
+PASS ⓐ3 OFF + header 머리 → allow
+PASS ⓐ3b OFF + question 첫머리 → allow
+PASS ⓐ3c 머리 아닌 중간에 있으면 → deny
+PASS ⓐ4 상태 파일만 지움(log 남음 → OFF 취급) + 머리 없음 → deny
+PASS ⓐ5 위변조 + 머리 없음 → deny
+PASS ⓐ5b 위변조 + 머리 있음 → allow
+PASS ⓐ5c 끝 도달 status 꼴 ([자율 OFF · A1 끝 도달 18:00])
+PASS ⓐ5d 끝 도달 머리(status 그대로) → allow
+PASS ⓐ5e 끝 도달 상태 + 머리 없음 → deny 그대로
+PASS ⓐ5f 끝 도달 상태 + [자율 ON 머리 → deny 그대로
+PASS ⓐ6 BYZ 밖(FT_ROOT 없음·git 아님) → allow
+PASS ⓐ7 깨진 JSON → allow + 로그
+PASS ⓐ7b 빈 stdin → allow
+PASS ⓐ7c AskUserQuestion 아닌 도구 → allow
+PASS ⓐ8 ft-autonomy.sh 못 찾음 → allow + 화면 경고(stderr·systemMessage) + 로그 (R176 · 판정 1675 ①)
+PASS ⓑ1 쓰기 꼴 deny: echo x > /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.h2GUX7Ou6v/state/autonomy.json
+PASS ⓑ1 쓰기 꼴 deny: echo x >> "/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.h2GUX7Ou6v/state/autonomy.log"
+PASS ⓑ1 쓰기 꼴 deny: cat f >/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.h2GUX7Ou6v/state/autonomy.json
+PASS ⓑ1 쓰기 꼴 deny: printf a | tee /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.h2GUX7Ou6v/state/autonomy.log
+PASS ⓑ1 쓰기 꼴 deny: echo a | tee -a /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.h2GUX7Ou6v/state/autonomy.log
+PASS ⓑ1 쓰기 꼴 deny: cp /tmp/x /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.h2GUX7Ou6v/state/autonomy.json
+PASS ⓑ1 쓰기 꼴 deny: mv /tmp/x /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.h2GUX7Ou6v/state/autonomy.json
+PASS ⓑ1 쓰기 꼴 deny: mv /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.h2GUX7Ou6v/state/autonomy.json /tmp/x
+PASS ⓑ1 쓰기 꼴 deny: rm /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.h2GUX7Ou6v/state/autonomy.json
+PASS ⓑ1 쓰기 꼴 deny: : > /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.h2GUX7Ou6v/state/autonomy.log
+PASS ⓑ1 쓰기 꼴 deny: sed -i s/a/b/ /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.h2GUX7Ou6v/state/autonomy.json
+PASS ⓑ1 쓰기 꼴 deny: bash /x/ft-autonomy.sh on
+PASS ⓑ1 쓰기 꼴 deny: ft-autonomy.sh off
+PASS ⓑ1 쓰기 꼴 deny: FT_ROOT=/x bash -c 'ft-autonomy.sh on'
+PASS ⓑ1 쓰기 꼴 deny: echo hi > /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.h2GUX7Ou6v/state/autonomy-merge-ok/1111111111111111111111111111111111111111
+PASS ⓑ1 쓰기 꼴 deny: touch /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.h2GUX7Ou6v/state/autonomy-merge-ok/abc
+PASS ⓑ1 쓰기 꼴 deny: cd /x && echo > autonomy.json
+PASS ⓑ1 쓰기 꼴 deny: true; echo x > $STATE/autonomy.json
+PASS ⓑ1h(DA H2) env -S 안의 쓰기·토글 deny: env -S 'cp /tmp/x /var/folders/vm/j7_jw8050t553wj5wqlvnmmh00
+PASS ⓑ1h(DA H2) env -S 안의 쓰기·토글 deny: env -S 'bash /x/ft-autonomy.sh off'
+PASS ⓑ1h(DA H2) env -S 안의 쓰기·토글 deny: env --split-string='ft-autonomy.sh on'
+PASS ⓑ1h(DA H2) env -S 안의 쓰기·토글 deny: env -S 'bash -c "echo a > /var/folders/vm/j7_jw8050t553wj5wq
+PASS ⓑ1h(DA H2) env -S 안의 쓰기·토글 deny: env -S 'sh -c "touch /var/folders/vm/j7_jw8050t553wj5wqlvnmm
+PASS ⓑ1h(DA H2) env -S 안의 쓰기·토글 deny: sudo env -i -S 'rm /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0
+PASS ⓑ1h(DA H2) env -S 안의 쓰기·토글 deny: env -S"cp /tmp/x /var/folders/vm/j7_jw8050t553wj5wqlvnmmh000
+PASS ⓑ1h(DA H2) env -S 안의 쓰기·토글 deny: env -u FOO -S 'mv /tmp/x /var/folders/vm/j7_jw8050t553wj5wql
+PASS ⓒ1h(DA H2) env -S 읽기·글자만 allow: env -S 'cat /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T
+PASS ⓒ1h(DA H2) env -S 읽기·글자만 allow: env -S 'ft-autonomy.sh status'
+PASS ⓒ1h(DA H2) env -S 읽기·글자만 allow: env FOO=1 -S 'tail -n1 /var/folders/vm/j7_jw8050t553wj5wqlvn
+PASS ⓒ1h(DA H2) env -S 읽기·글자만 allow: env -S 'echo a > /var/folders/vm/j7_jw8050t553wj5wqlvnmmh000
+PASS ⓒ1h(DA H2) env -S 읽기·글자만 allow: env -S 'echo a >> /var/folders/vm/j7_jw8050t553wj5wqlvnmmh00
+PASS ⓒ1h(DA H2) env -S 읽기·글자만 allow: echo "env -S 'cp x autonomy.json'"
+PASS ⓒ1h(DA H2) env -S 읽기·글자만 allow: mbox.sh send x y "env -S 'ft-autonomy.sh off' 는 막힌다"
+PASS ⓑ2 Write autonomy.json → deny
+PASS ⓑ2b Edit autonomy.log → deny
+PASS ⓑ2c NotebookEdit ok 파일 → deny
+PASS ⓑ2d Write ok 디렉터리 → deny
+PASS ⓒ1 읽기·글자만 allow: cat /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.h2G
+PASS ⓒ1 읽기·글자만 allow: jq . /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.h2
+PASS ⓒ1 읽기·글자만 allow: tail -n1 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tm
+PASS ⓒ1 읽기·글자만 allow: grep on /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp
+PASS ⓒ1 읽기·글자만 allow: ft-autonomy.sh status
+PASS ⓒ1 읽기·글자만 allow: bash ft-autonomy.sh mode
+PASS ⓒ1 읽기·글자만 allow: bash ft-autonomy.sh event
+PASS ⓒ1 읽기·글자만 allow: cp /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.h2GU
+PASS ⓒ1 읽기·글자만 allow: ls /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.h2GU
+PASS ⓒ1 읽기·글자만 allow: cat /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.h2G
+PASS ⓒ1 읽기·글자만 allow: echo x > /tmp/other.json
+PASS ⓒ1 읽기·글자만 allow: git commit -m 'autonomy.json fix'
+PASS ⓒ1 읽기·글자만 allow: mbox.sh send x y "autonomy.json 에 쓰지 마라 ft-autonomy.sh off >
+PASS ⓒ1 읽기·글자만 allow: echo "ft-autonomy.sh off"
+PASS ⓒ1 읽기·글자만 allow: echo ft-autonomy.sh off
+PASS ⓒ1 읽기·글자만 allow: ft-proxy-decide.sh --kind press-order --q q --choice c --why
+PASS ⓒ1 읽기·글자만 allow: cat > /tmp/note.md <<'EOF'
+ft-autonomy.sh off
+echo x > auton
+PASS ⓒ2 Write 본문에 경로 글자만 → allow
+PASS ⓒ2b Edit 다른 파일 → allow
+PASS ⓑ3 BYZ 밖에서는 allow
+PASS ⓑ-source source·. 경유 실행 deny: source /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r947-d1-stan
+PASS ⓑ-source source·. 경유 실행 deny: . /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r947-d1-standing-
+PASS ⓑ-source source·. 경유 실행 deny: source /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r947-d1-stan
+PASS ⓑ-source source·. 경유 실행 deny: . /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r947-d1-standing-
+PASS ⓑ-source source·. 경유 실행 deny: bash -c 'source /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r94
+PASS ⓑ-source source·. 경유 실행 deny: cd /x && source ../y/ft-autonomy.sh approve-merge 11111111111111111111
+PASS ⓑ-source2 다른 파일·읽기(하위명령 없음) allow: source /tmp/other.sh
+PASS ⓑ-source2 다른 파일·읽기(하위명령 없음) allow: . /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.h2GUX7Ou6v/plan
+PASS ⓑ-source2 다른 파일·읽기(하위명령 없음) allow: source /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r947-d1-stan
+PASS ⓑ-source2 다른 파일·읽기(하위명령 없음) allow: bash -c 'source /tmp/other.sh'
+PASS ⓑ-source변 변이(source 처리 끔) → ⓑ-source 칸 빨강
+PASS ⓚ DA r2 반례 꼴 deny: source -- /Users/yoonhwan/Project/ai-feature-pack/.worktrees
+PASS ⓚ DA r2 반례 꼴 deny: . -- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r947
+PASS ⓛ 꼴 묶음 deny(낱말 안쪽 쪼개기 포함): command source /Users/yoonhwan/Project/ai-feature-pack/.work
+PASS ⓛ 꼴 묶음 deny(낱말 안쪽 쪼개기 포함): builtin . /Users/yoonhwan/Project/ai-feature-pack/.worktrees
+PASS ⓛ 꼴 묶음 deny(낱말 안쪽 쪼개기 포함): eval "source /Users/yoonhwan/Project/ai-feature-pack/.worktr
+PASS ⓛ 꼴 묶음 deny(낱말 안쪽 쪼개기 포함): bash -c 'source -- /Users/yoonhwan/Project/ai-feature-pack/.
+PASS ⓛ 꼴 묶음 deny(낱말 안쪽 쪼개기 포함): "/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r947-d1-
+PASS ⓛ 꼴 묶음 deny(낱말 안쪽 쪼개기 포함): source /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r9
+PASS ⓛ 꼴 묶음 deny(낱말 안쪽 쪼개기 포함): /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r947-d1-s
+PASS ⓛ 꼴 묶음 deny(낱말 안쪽 쪼개기 포함): /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r947-d1-s
+PASS ⓛ 꼴 묶음 deny(낱말 안쪽 쪼개기 포함): /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r947-d1-s
+PASS ⓜ 좌석의 bash <진입 파일>(계획 본문에 approve-standing) → deny(보강 2 · 오빠 경로는 훅을 안 거친다)
+PASS ⓜ2 대조: 같은 명령이라도 BYZ 밖 cwd(오빠 실행 자리) → 훅 판정 0(allow)
+PASS ⓛ읽기 읽기 명령 allow: grep -n approve-standing /Users/yoonhwan/Project/ai-feature-
+PASS ⓛ읽기 읽기 명령 allow: rg approve-standing fable-team/harness/bin/
+PASS ⓛ읽기 읽기 명령 allow: git log -S approve-standing -- /Users/yoonhwan/Project/ai-fe
+PASS ⓛ읽기 읽기 명령 allow: sed -n '/approve-standing/p' /Users/yoonhwan/Project/ai-feat
+PASS ⓛ읽기 읽기 명령 allow: cat /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r947-
+PASS ⓛ읽기 읽기 명령 allow: head -5 /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r
+PASS ⓚⓛ변 변이(낱말 쌍 검사 끔) → ⓚ·ⓛ 칸 빨강(5/5 allow 로 뒤집힘)
+PASS ⓛ읽기변 변이(읽기 예외 끔) → ⓛ읽기 칸 빨강
+PASS ⓑ4 깨진 JSON → allow
+PASS ⓛ1 ON + 진입 파일 → 계획 approve-merge → allow
+PASS ⓛ1b allow 로그 hN-approve seat=… file=… (r466)
+PASS ⓛ1c ON + 계획 파일 직접 → allow
+PASS ⓛ2 OFF + 진입 파일 approve-merge → deny
+PASS ⓛ2b deny 사유에 진입 파일·계획 경로
+PASS ⓛ3 ON + 계획에 ft-autonomy.sh on → deny
+PASS ⓛ3b OFF + 계획에 ft-autonomy.sh on → deny
+PASS ⓛ3 ON + 계획에 ft-autonomy.sh off → deny
+PASS ⓛ3b OFF + 계획에 ft-autonomy.sh off → deny
+PASS ⓛ3 ON + 계획에 ft-autonomy.sh forget-kind → deny
+PASS ⓛ3b OFF + 계획에 ft-autonomy.sh forget-kind → deny
+PASS ⓛ3 ON + 계획에 ft-autonomy.sh approve-scope → deny
+PASS ⓛ3b OFF + 계획에 ft-autonomy.sh approve-scope → deny
+PASS ⓛ4 계획 안 상태 파일 쓰기 → deny
+PASS ⓛ5 계획에 자율 명령 없음 → allow
+PASS ⓛ6 진입 파일 없음 → allow(fail-open)
+PASS ⓛ6b 못 읽음 로그
+PASS ⓛ7 계획 파일 없음 → allow + 로그
+PASS ⓛ8 좌석 forget-kind 직접 → deny
+EQUIV 허용 범위: 이 승인은 같은 변경 집합(승인 sha 위에 main 병합만 더한 head)에도 유효 — 병합 훅이 ft_approval_equiv 로 대조(r462)
+PASS ⓔ1 ON + 오빠 승인(approve-merge)된 sha → allow: gh pr merge 7 --squash --match-head-commit 28fe6f32b68072e71550ded8739
+PASS ⓔ1 ON + 오빠 승인(approve-merge)된 sha → allow: gh pr merge 7 --squash --match-head-commit=28fe6f32b68072e71550ded8739
+PASS ⓔ1 ON + 오빠 승인(approve-merge)된 sha → allow: ft-gh-as-tank.sh pr merge 7 --squash --match-head-commit 28fe6f32b6807
+PASS ⓔ1 ON + 오빠 승인(approve-merge)된 sha → allow: bash /x/ft-gh-as-tank.sh pr merge 7 --match-head-commit 28fe6f32b68072
+PASS ⓔ1 ON + 오빠 승인(approve-merge)된 sha → allow: env -u GH_TOKEN gh pr merge 7 --match-head-commit 28fe6f32b68072e71550
+PASS ⓔ1 ON + 오빠 승인(approve-merge)된 sha → allow: gh api -X PUT repos/o/r/pulls/7/merge -f sha=28fe6f32b68072e71550ded87
+PASS ⓔ2 ON + 플래그 없음/다른 sha/옛 ok 파일만 있는 sha/승인 없음 → deny: gh pr merge 7 --squash
+PASS ⓔ2 ON + 플래그 없음/다른 sha/옛 ok 파일만 있는 sha/승인 없음 → deny: gh pr merge 7 --squash --match-head-commit ee2cad15246bb4e076aa1cb6fdb
+PASS ⓔ2 ON + 플래그 없음/다른 sha/옛 ok 파일만 있는 sha/승인 없음 → deny: gh pr merge 7 --squash --match-head-commit abc123
+PASS ⓔ2 ON + 플래그 없음/다른 sha/옛 ok 파일만 있는 sha/승인 없음 → deny: ft-gh-as-tank.sh pr merge 7 --squash
+PASS ⓔ2 ON + 플래그 없음/다른 sha/옛 ok 파일만 있는 sha/승인 없음 → deny: bash -c 'gh pr merge 7'
+PASS ⓔ2 ON + 플래그 없음/다른 sha/옛 ok 파일만 있는 sha/승인 없음 → deny: gh api -X PUT repos/o/r/pulls/7/merge
+PASS ⓔ2 ON + 플래그 없음/다른 sha/옛 ok 파일만 있는 sha/승인 없음 → deny: ft-gh-as-tank.sh pr merge 7 --match-head-commit ee2cad15246bb4e076aa1c
+PASS ⓔ2 ON + 플래그 없음/다른 sha/옛 ok 파일만 있는 sha/승인 없음 → deny: gh pr merge 7 --auto --squash
+PASS ⓔ3 main push + ok sha → allow: git push origin HEAD:main
+PASS ⓔ3 main push + ok sha → allow: git push origin main
+PASS ⓔ3 main push + ok sha → allow: git push origin refs/heads/main
+PASS ⓔ3 main push + ok sha → allow: git push origin topic:main
+PASS ⓔ3 main push + ok sha → allow: git push
+PASS ⓔ3 main push + ok sha → allow: git push -u origin HEAD:refs/heads/main
+PASS ⓔ3 main push + ok sha → allow: cd /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.h2GUX7Ou6v/r1 
+PASS ⓔ3 main push + ok sha → allow: git -C /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.h2GUX7Ou6v
+PASS ⓔ4 main push + ok 없음/삭제/전체 → deny: git push origin topic2:main
+PASS ⓔ4 main push + ok 없음/삭제/전체 → deny: git push origin +topic2:main
+PASS ⓔ4 main push + ok 없음/삭제/전체 → deny: git push origin :main
+PASS ⓔ4 main push + ok 없음/삭제/전체 → deny: git push --all origin
+PASS ⓔ4 main push + ok 없음/삭제/전체 → deny: git push --mirror
+PASS ⓔ4 main push + ok 없음/삭제/전체 → deny: cd /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.h2GUX7Ou6v/r2 
+PASS ⓔ4 main push + ok 없음/삭제/전체 → deny: git -C /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.h2GUX7Ou6v
+PASS ⓔ4 main push + ok 없음/삭제/전체 → deny: git push origin nosuchref:main
+PASS ⓔ4h(DA H1·H2) --repo·--delete·env -S main 병합/push → deny: git push --repo origin topic2:main
+PASS ⓔ4h(DA H1·H2) --repo·--delete·env -S main 병합/push → deny: git push --repo=origin topic2:main
+PASS ⓔ4h(DA H1·H2) --repo·--delete·env -S main 병합/push → deny: git push --delete origin main
+PASS ⓔ4h(DA H1·H2) --repo·--delete·env -S main 병합/push → deny: git push -d origin main
+PASS ⓔ4h(DA H1·H2) --repo·--delete·env -S main 병합/push → deny: git push origin --delete main
+PASS ⓔ4h(DA H1·H2) --repo·--delete·env -S main 병합/push → deny: git push --delete --repo origin main
+PASS ⓔ4h(DA H1·H2) --repo·--delete·env -S main 병합/push → deny: env -S 'gh pr merge 7 --squash'
+PASS ⓔ4h(DA H1·H2) --repo·--delete·env -S main 병합/push → deny: env -S 'git push origin topic2:main'
+PASS ⓔ4h(DA H1·H2) --repo·--delete·env -S main 병합/push → deny: env --split-string='gh pr merge 7'
+PASS ⓔ4h(DA H1·H2) --repo·--delete·env -S main 병합/push → deny: env -S 'gh pr merge 7 --match-head-commit ee2cad15246bb4e076aa1cb6fdb2
+PASS ⓔ4h2 --repo + HEAD:main(ok 없음) → deny
+PASS ⓔ4h3 --repo= + HEAD:main(ok 없음) → deny
+PASS ⓔ3h(DA H1·H2) 양성 대조 ok sha → allow: git push --repo origin HEAD:main
+PASS ⓔ3h(DA H1·H2) 양성 대조 ok sha → allow: git push --repo=origin HEAD:main
+PASS ⓔ3h(DA H1·H2) 양성 대조 ok sha → allow: env -S 'gh pr merge 7 --match-head-commit 28fe6f32b68072e71550ded8739c
+PASS ⓔ3h(DA H1·H2) 양성 대조 ok sha → allow: env -S 'git push origin HEAD:main'
+PASS ⓔ5h(DA H1·H2) 다른 브랜치·읽기·글자만 allow: git push --repo origin topic2
+PASS ⓔ5h(DA H1·H2) 다른 브랜치·읽기·글자만 allow: git push --delete origin topic
+PASS ⓔ5h(DA H1·H2) 다른 브랜치·읽기·글자만 allow: git push -d origin feat/x
+PASS ⓔ5h(DA H1·H2) 다른 브랜치·읽기·글자만 allow: git push --repo=origin HEAD:feat/x
+PASS ⓔ5h(DA H1·H2) 다른 브랜치·읽기·글자만 allow: env -S 'gh pr view 7'
+PASS ⓔ5h(DA H1·H2) 다른 브랜치·읽기·글자만 allow: env -S 'git status'
+PASS ⓔ5h(DA H1·H2) 다른 브랜치·읽기·글자만 allow: echo "env -S 'gh pr merge 7'"
+PASS ⓔ5h(DA H1·H2) 다른 브랜치·읽기·글자만 allow: mbox.sh send x y "git push --delete origin main 은 막힌다"
+PASS ⓔ4b 맨 push + main 위 HEAD 의 ok 없음 → deny
+PASS ⓔ4c HEAD(F) ok 없음 → deny
+PASS ⓔ5 다른 브랜치·읽기·dry-run·글자만 → allow: git push origin topic
+PASS ⓔ5 다른 브랜치·읽기·dry-run·글자만 → allow: git push origin HEAD:feat/x
+PASS ⓔ5 다른 브랜치·읽기·dry-run·글자만 → allow: git push origin HEAD:main-fix
+PASS ⓔ5 다른 브랜치·읽기·dry-run·글자만 → allow: git push --dry-run origin topic2:main
+PASS ⓔ5 다른 브랜치·읽기·dry-run·글자만 → allow: git push -n origin main
+PASS ⓔ5 다른 브랜치·읽기·dry-run·글자만 → allow: git log main
+PASS ⓔ5 다른 브랜치·읽기·dry-run·글자만 → allow: git status
+PASS ⓔ5 다른 브랜치·읽기·dry-run·글자만 → allow: gh pr view 7
+PASS ⓔ5 다른 브랜치·읽기·dry-run·글자만 → allow: gh pr checks 7
+PASS ⓔ5 다른 브랜치·읽기·dry-run·글자만 → allow: gh pr create --base main
+PASS ⓔ5 다른 브랜치·읽기·dry-run·글자만 → allow: echo "gh pr merge 7"
+PASS ⓔ5 다른 브랜치·읽기·dry-run·글자만 → allow: mbox.sh send x y "gh pr merge 7 와 git push origin main 은 막힌다"
+PASS ⓔ5 다른 브랜치·읽기·dry-run·글자만 → allow: cat > /tmp/n.md <<'EOF'
+gh pr merge 7
+git push origin main
+EOF
+PASS ⓔ5b 맨 push + 다른 브랜치(topic) → allow
+PASS ⓔ6 OFF → allow
+PASS ⓔ6b 위변조 → allow
+PASS ⓔ6c BYZ 밖 → allow
+PASS ⓔ7 깨진 JSON → allow
+PASS ⓔ8 도구 못 찾음 → 병합 deny (승인 sha 여도 · R176 · 판정 1675 ①)
+PASS ⓔ8b deny 사유 + 로그에 못 읽음
+PASS ⓔ8c 도구 못 찾음 + main 아닌 push → allow
+PASS ⓔ8d 도구 못 찾음 + 병합 아닌 명령 → allow
+Traceback (most recent call last):
+  File "<stdin>", line 2, in <module>
+  File "/opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/lib/python3.14/json/__init__.py", line 298, in load
+    return loads(fp.read(),
+        cls=cls, object_hook=object_hook,
+        parse_float=parse_float, parse_int=parse_int,
+        parse_constant=parse_constant, object_pairs_hook=object_pairs_hook, **kw)
+  File "/opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/lib/python3.14/json/__init__.py", line 352, in loads
+    return _default_decoder.decode(s)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/lib/python3.14/json/decoder.py", line 345, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/lib/python3.14/json/decoder.py", line 363, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+PASS ⓕ1 PR head·DA⑥·checks 전부 맞아도 push-merge = QUEUE rc 2
+PASS ⓕ2 QUEUE → ok·approved 폴더 쓰기 0
+PASS ⓕ3 다른 sha 도 QUEUE · ok 파일 0
+PASS ⓕ4 push-merge 아닌 PROXY → ok 폴더 안 생김
+PASS ⓕ6 OFF → rc 3 · ok 파일 0
+PASS ⓕ7 ft-proxy-decide 미러 cmp 0
+PASS ⓓ1 test_proposal_interview_gate.sh 회귀 0
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

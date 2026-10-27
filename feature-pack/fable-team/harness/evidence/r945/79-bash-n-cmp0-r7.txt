@@ -1,0 +1,5 @@
+bash3.2 -n rc=0
+bash5 -n rc=0
+kit cmp0
+직접 git 호출(주석 제외) 잔존:
+       0
