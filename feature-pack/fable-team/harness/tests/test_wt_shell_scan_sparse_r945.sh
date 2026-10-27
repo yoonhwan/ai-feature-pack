@@ -12,6 +12,7 @@
 #   ⓦ(결정 5 · r8 → r1017 «명령별») 가짜 git «전 명령 rc128» 전수 실패 — 루트 미지정 = «:init» 1줄 · u=1 / 루트 지정 = init+worktree-list+orphan-list · u=3 · 껍데기 0 · HIL 0 · 삭제 0 · git7 자리 수 == 시험이 아는 자리 수(새 자리 = FAIL)
 #   ⓦ(r1017 결정 1 · 3) 가짜 git 이 `FT_FAKE_GIT_FAIL=<하위 명령>` 인 명령만 rc128(또는 FT_FAKE_GIT_RC=124) → 스캔 밖 5자리(common-dir · hash-object · worktree-remove · worktree-prune · for-each-ref)포함 «모든 git 자리» 가
 #     «판정 불가 <경로:단계>» 1줄 · u=N · 결과값 0(FINISH OK 0 · STALE 판정 0 · archived 셈 0) · rc≠0 · HIL 0 을 낸다. 자리 수 가드 = git7 + cap(r844 몫) = 12.
+#   ⓦ(r2 · DA⑥ r1 동작 1) remove 를 «불렀으면» 폴더 유무와 무관하게 rc 로 판정 — «지우고 rc128» · «지우고 rc124» 두 칸(FT_FAKE_GIT_DEL=1) → 판정 불가 1줄 · FINISH OK 0 · rc≠0.
 #   ⓣ(결정 4 ①) sparse 안 «하위 파일 1개» 만 부재(d0/a · d0 폴더는 디스크에 있음) → 껍데기 0(최상위로 접는다) · 폴더가 통째로 사라지면 1
 #   ⓤ(결정 4 ②) 판정 불가가 있으면 요약 줄에 «u=N» 이 붙는다
 #   ⓥ(결정 4 ③) 공용 config 가 깨져도 orphan 검사는 git7 을 지난다(«:orphan-list» 1줄 · python 이 git 을 직접 부르지 않는다 · 직접 호출 정적 검사 0)
@@ -22,7 +23,7 @@
 #   ⓘ(DA⑥ r3 반례 3) 추적 «파일» keep2 삭제(파일 규칙 keep2) → 1 · 추적 «파일» keep3 삭제(폴더 규칙 keep3/) → 1 (r5: 제외 규칙은 판정에 안 들어온다)
 #   ⓕ core.quotePath=false 로도 같은 목록 · 한글·공백·큰따옴표·줄바꿈 이름이 든 cone sparse → 0 (따옴표를 경로로 읽지 않는다)
 #   변이 8: 판정 불가를 «껍데기 아님» 으로(1) → ⓓ 빨강 · 개수 ≥1 → ≥2(2) → ⓑ 빨강 · sparse 분기 끔(3) → ⓑ 빨강 · 개수 ≥1 → ≥0(4) → ⓐ 빨강 · gitfail 의 «판정 불가» 기록 끔(5) → ⓓⓓ2ⓠⓡⓢ 빨강 · 접기(최상위 존재 확인) 끔(6) → ⓣ 빨강 · SCAN_U 올리기 제거(7) → ⓦ 빨강 · || pwd 부활(8) → ⓦ 빨강
-#   변이 9~13(r1017): 스캔 밖 5자리 중 하나의 rc 받기 부활 → ⓦ 빨강(9 worktree remove · 10 prune · 11 for-each-ref · 12 common-dir · 13 hash-object)
+#   변이 9~14(r1017): 스캔 밖 5자리 중 하나의 rc 받기 부활 → ⓦ 빨강(9 worktree remove · 10 prune · 11 for-each-ref · 12 common-dir · 13 hash-object) · 14 remove 를 폴더 유무로만 판정(«지우고 rc≠0» 두 칸) → ⓦ 빨강
 # WT_TEST_BASH=/bin/bash 로 돌리면 도구를 macOS 기본 bash 3.2 로 실행한다(카드 완료 조건). WT_TEST_SRC=<bin> 으로 옛 도구를 물린다.
 # 임시 git 리포 + 임시 워크트리만 쓴다 — 실 리포·워크트리·mbox·tmux 0.
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"
@@ -78,7 +79,9 @@ case "${WT_TEST_MUT:-0}" in
      echo "MUT 12 — common-dir 실패를 안 셈(판정 불가 0줄 · u 누락)";;
   13) MUTP '  [ "$rc" -eq 0 ] || { echo "판정 불가 $PWD:hash-object' '  [ 0 -eq 0 ] || { echo "판정 불가 $PWD:hash-object   # MUT13 hash-object 실패를 안 셈'
      echo "MUT 13 — hash-object 실패를 안 셈(STALE 오분류 부활)";;
-  *) echo "usage: WT_TEST_MUT=0|1|2|3|4|5|6|7|8|9|10|11|12|13"; exit 2;;
+  14) MUTP '    [ "$rc" -eq 0 ] || { gitfail1 "$root" worktree-remove "$rc"; gfail=1; }' '    [ ! -d "$del" ] || [ "$rc" -eq 0 ] || { gitfail1 "$root" worktree-remove "$rc"; gfail=1; }   # MUT14 옛 줄 복원(폴더가 없어지면 rc 확인 건너뜀)'
+     echo "MUT 14 — remove 판정을 폴더 유무에 머리 묶음(옛 줄 복원 · DA⑥ r1 동작 1)";;
+  *) echo "usage: WT_TEST_MUT=0|1|2|3|4|5|6|7|8|9|10|11|12|13|14"; exit 2;;
 esac
 "${WT_TEST_BASH:-bash}" -n "$T/bin/ft-wt-sweep.sh" && ok "본보기 bash -n(${WT_TEST_BASH:-bash})" || bad "bash -n"
 
@@ -276,7 +279,11 @@ cat > "$T/fakegit/git" <<FAKE
 want="\${FT_FAKE_GIT_FAIL:-}"; wrc="\${FT_FAKE_GIT_RC:-128}"; a=("\$@"); i=0; sub=()
 while [ "\$i" -lt "\${#a[@]}" ]; do case "\${a[\$i]}" in -C) i=\$((i+2));; *) sub+=("\${a[\$i]}"); i=\$((i+1));; esac; done
 j="\${sub[*]:-}"
-if [ -n "\$want" ] && [ "\${j#\$want}" != "\$j" ]; then exit "\$wrc"; fi
+if [ -n "\$want" ] && [ "\${j#\$want}" != "\$j" ]; then
+  # FT_FAKE_GIT_DEL=1 — «지우고 나서 실패» 대역(DA⑥ r1 동작 1: 폴더는 없고 rc≠0)
+  if [ -n "\${FT_FAKE_GIT_DEL:-}" ] && [ "\${#a[@]}" -gt 0 ]; then rm -rf -- "\${a[\$(( \${#a[@]} - 1 ))]}"; fi
+  exit "\$wrc"
+fi
 exec "$REAL_GIT" "\$@"
 FAKE
 chmod +x "$T/fakegit/git"
@@ -356,7 +363,7 @@ printf '%s\n%s\n' "$DEL1" "$FR" > "$T/finish1.deleting"
 [ -d "$DEL1" ] && [ -f "$FR/.baton/archive/t1.tar.gz" ] && ok "전제: ⓦ 보관 tar + 이름 바뀐 워크트리 + 유효 포인터" || bad "전제 실패: ⓦ --finish 배치"
 o="$(ffin "$T/finish1.deleting" 'FT_FAKE_GIT_FAIL=worktree remove')"
 sitep "ⓦ worktree-remove — --finish 보관 마무리(r1017 반례 R3)" "$o" worktree-remove
-[ -f "$T/finish1.deleting" ] && ok "  └ 포인터 유지(다음 pass 재시도)" || bad "git 호출 실패 회차가 포인터를 지움"
+[ ! -f "$T/finish1.deleting" ] && ok "  └ 포인터 접힘(폴더가 사라져 재시도할 것이 없음) · rc≠0 은 그대로" || bad "폴더가 사라졌는데 포인터가 남아 매 pass 재시도로 돈다"
 # rc124(7초 초과)도 rc128 과 같은 처리 — 반례 R7
 GF worktree add -q "$FR/.worktrees/fin2" -b fin2
 mv "$FR/.worktrees/fin2" "$FR/.worktrees/fin2.deleting-1750000002"
@@ -367,12 +374,32 @@ printf '%s\n%s\n' "$DEL2" "$FR" > "$T/finish2.deleting"
 o="$(ffin "$T/finish2.deleting" 'FT_FAKE_GIT_FAIL=worktree remove' FT_FAKE_GIT_RC=124)"
 sitep "ⓦ worktree-remove rc124(상한 초과) — rc128 과 같은 처리" "$o" worktree-remove
 has "$o" "rc=124" "  └ 판정 불가 줄에 rc=124 원문"
+# «지우고 나서 실패» — DA⑥ r1 동작 1: 폴더는 없어졌는데 rc128/124 → 판정 불가 1줄 · FINISH OK 0 · rc≠0
+GF worktree add -q "$FR/.worktrees/fin4" -b fin4
+mv "$FR/.worktrees/fin4" "$FR/.worktrees/fin4.deleting-1750000004"
+DEL4="$FR/.worktrees/fin4.deleting-1750000004"
+tar -czf "$FR/.baton/archive/t4.tar.gz" -C "$FR" d0
+printf '{"id":"t4","worktree":"%s"}\n' "$DEL4" >> "$FR/.baton/archive/INDEX.jsonl"
+printf '%s\n%s\n' "$DEL4" "$FR" > "$T/finish4.deleting"
+o="$(ffin "$T/finish4.deleting" 'FT_FAKE_GIT_FAIL=worktree remove' FT_FAKE_GIT_DEL=1)"
+sitep "ⓦ worktree-remove — 폴더는 지우고 rc128(DA⑥ r1 동작 1)" "$o" worktree-remove
+[ ! -d "$DEL4" ] && ok "  └ 잔여 rm -rf 는 지금대로 — 폴더는 사라짐" || bad "잔여 삭제가 안 돌았다"
+[ ! -f "$T/finish4.deleting" ] && ok "  └ 포인터 접힘(폴더가 지워졌음 — FINISH OK 는 안 낸다)" || bad "폴더가 사라졌는데 포인터가 남음"
+GF worktree add -q "$FR/.worktrees/fin5" -b fin5
+mv "$FR/.worktrees/fin5" "$FR/.worktrees/fin5.deleting-1750000005"
+DEL5="$FR/.worktrees/fin5.deleting-1750000005"
+tar -czf "$FR/.baton/archive/t5.tar.gz" -C "$FR" d0
+printf '{"id":"t5","worktree":"%s"}\n' "$DEL5" >> "$FR/.baton/archive/INDEX.jsonl"
+printf '%s\n%s\n' "$DEL5" "$FR" > "$T/finish5.deleting"
+o="$(ffin "$T/finish5.deleting" 'FT_FAKE_GIT_FAIL=worktree remove' FT_FAKE_GIT_DEL=1 FT_FAKE_GIT_RC=124)"
+sitep "ⓦ worktree-remove — 폴더는 지우고 rc124(7초 상한 · R7)" "$o" worktree-remove
+has "$o" "rc=124" "  └ 판정 불가 줄에 rc=124 원문"
 # prune — 대상 폴더가 이미 없고 prune 만 실패(반례 R4)
 DEL3="$FR/.worktrees/gone.deleting-1750000003"
 printf '%s\n%s\n' "$DEL3" "$FR" > "$T/finish3.deleting"
 o="$(ffin "$T/finish3.deleting" 'FT_FAKE_GIT_FAIL=worktree prune')"
 sitep "ⓦ worktree-prune — --finish 보관 마무리(r1017 반례 R4)" "$o" worktree-prune
-[ -f "$T/finish3.deleting" ] && ok "  └ 포인터 유지(다음 pass 재시도)" || bad "prune 실패 회차가 포인터를 지움"
+[ ! -f "$T/finish3.deleting" ] && ok "  └ 포인터 접힘(폴더가 없어 재시도할 것이 없음) · rc≠0 은 그대로" || bad "prune 실패 회차가 포인터를 남겨 매 pass 재시도로 돈다"
 # for-each-ref — --launchd 보관 조회 실패 → archived 셈 0 · rc≠0(반례 R5)
 FL="$T/repo-l"; mkdir -p "$FL"; git -C "$FL" init -q -b main
 GL() { git -C "$FL" -c user.email=t@t -c user.name=t "$@"; }

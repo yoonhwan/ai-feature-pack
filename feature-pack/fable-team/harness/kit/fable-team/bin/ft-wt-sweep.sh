@@ -75,20 +75,21 @@ finish_one() {
         f=$(( $(cat "$ptr.fail" 2>/dev/null || echo 0) + 1 )); echo "$f" > "$ptr.fail"; rm -f "$ptr.pid"; return 1; fi
     fi
     # 여기 도달 = 검증된 보관 있음(또는 baton 이 이미 지움). baton 이 남긴 잔여·반쯤 지워진 껍데기: git 이 알면 git 으로, 아니면 직접 마무리.
-    # ★r1017★ remove 실패를 «삼키지 않는다» — «판정 불가 <루트:worktree-remove>» 1줄 + u=1 + FINISH OK 0 · rc≠0(잔여 삭제는 그대로 rm -rf 가 마무리 · 다음 pass 재시도)
-    [ ! -d "$del" ] || { git7 "$root" worktree remove --force "$del" 2>/dev/null; rc=$?; }
-    [ ! -d "$del" ] || [ "${rc:-0}" -eq 0 ] || { gitfail1 "$root" worktree-remove "$rc"; gfail=1; }
-    [ ! -d "$del" ] || rm -rf -- "$del"
+    # ★r1017 r2★ remove 를 «불렀으면» 폴더 유무와 무관하게 rc 로 판정한다(DA⑥ r1 동작 1) — git 이 폴더를 지운 뒤 rc128/124 로 끝나는 경우가 R3·R7 이다.
+    #   rc≠0 = «판정 불가 <루트:worktree-remove>» 1줄 + u=1 + FINISH OK 0 · rc≠0. 잔여 삭제는 rm -rf 가 마무리하고, 폴더가 남으면 아래 «정리 후에도 남음» 이 다음 pass 로 넘긴다(폴더가 사라졌으면 포인터를 접고 rc≠0 만 남긴다). 폴더가 처음부터 없어 remove 를 «안 부른» 경우(R4 입구)는 아래 prune 이 본다.
+    git7 "$root" worktree remove --force "$del" 2>/dev/null; rc=$?
+    [ "$rc" -eq 0 ] || { gitfail1 "$root" worktree-remove "$rc"; gfail=1; }
+    rm -rf -- "$del"
   fi
   git7 "$root" worktree prune 2>/dev/null || { rc=$?; gitfail1 "$root" worktree-prune "$rc"; gfail=1; }   # ★r1017★ prune 실패 = 판정 불가 + FINISH OK 0 · rc≠0
   rm -f "$ptr.pid"
-  if [ "$gfail" = 1 ]; then   # ★r1017★ git 호출이 실패한 회차는 «끝났다» 고 말하지 않는다(포인터·실패 횟수 유지 → 다음 pass)
-    f=$(( $(cat "$ptr.fail" 2>/dev/null || echo 0) + 1 )); echo "$f" > "$ptr.fail"; return 1
-  fi
   if [ -d "$del" ]; then
     f=$(( $(cat "$ptr.fail" 2>/dev/null || echo 0) + 1 )); echo "$f" > "$ptr.fail"; echo "정리 후에도 남음: $del" >&2; return 1
   fi
-  rm -f "$ptr" "$ptr.fail"; echo "FINISH OK ${del##*/}"
+  rm -f "$ptr" "$ptr.fail"
+  # ★r1017 r2★ git 호출이 실패한 회차는 «끝났다»(FINISH OK) 고 말하지 않는다 — 폴더가 사라졌으므로 포인터는 접고 rc≠0 으로만 남긴다(재시도할 것이 없다).
+  [ "$gfail" = 0 ] || return 1
+  echo "FINISH OK ${del##*/}"
 }
 if [ "${1:-}" = "--finish" ]; then [ -n "${2:-}" ] && [ -f "$2" ] || { echo "usage: $0 --finish <포인터 파일>" >&2; exit 2; }; finish_one "$2"; exit $?; fi
 # --launchd — 일 1회 진입. 본체는 같은 스크립트 1회(출력 캡처) · 이 블록은 라우팅·보관 재확인·로그만.
