@@ -190,6 +190,22 @@ if [ "$DST" = 아카이브 ]; then
 else
   printf -- '- %s — %s→%s%s%s\n' "$(date '+%Y-%m-%d %H:%M')" "$FROM" "$DST" "${SEAT:+ · 좌석 $SEAT}" "${DA:+ · DA $DA}" >> "$NEW"
 fi
+# r1009 — 완성 이동이면 머리의 `- 상태:` 줄을 «완성 · 시각 · 좌석» 으로 바꾼다(매거진이 머리 «대기» 를 실어 «대기» 로 보이던 자리).
+#   머리 = 첫 `## ` 절 «앞» 구역 · 그 줄이 없으면 0(새 줄을 만들지 않는다) · 다른 갈래는 손대지 않는다.
+if [ "$DST" = 완성 ]; then
+  python3 - "$NEW" "$(date '+%Y-%m-%d %H:%M')" "${SEAT:--}" <<'PY'
+import sys
+path, at, seat = sys.argv[1], sys.argv[2], sys.argv[3]
+lines = open(path, encoding="utf-8").read().split("\n")
+head_end = next((i for i, ln in enumerate(lines) if ln.startswith("## ")), len(lines))
+for i in range(head_end):
+    if lines[i].startswith("- 상태:"):
+        lines[i] = f"- 상태: 완성 · {at} · {seat}"
+        open(path, "w", encoding="utf-8").write("\n".join(lines))
+        print("HEAD-STATE 완성")
+        break
+PY
+fi
 # r444: 완성 + --landed = 카드에 `- 착지: <sha>`(판정기 ft-finished-check E1 이 읽는 줄) → 끝난 가지 refs/archive 이동 1회(FINISHED 만 · 삭제 0). 실패·SKIP 은 출력만 — 이동 종료코드 불변.
 if [ "$DST" = 완성 ] && [ -n "$LANDED" ]; then
   grep -qF -- "- 착지: ${LANDED##*..}" "$NEW" || printf -- '- 착지: %s\n' "${LANDED##*..}" >> "$NEW"   # r456: 일괄 닫기 도구가 먼저 쓴 같은 줄은 두 번 쓰지 않는다

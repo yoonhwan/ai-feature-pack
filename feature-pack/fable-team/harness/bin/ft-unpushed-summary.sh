@@ -13,6 +13,9 @@
 #     «미push N곳 · HEAD 분리 M곳 · 상위 3곳 = 이름(커밋 수) … · 전체 = unpushed/<날짜>.txt»
 #     이름 = 워크트리 «바닥 이름»(60자 자름) — 루트 경로 길이와 무관 · 본문 ≤ FT_UNPUSHED_BODY_MAX(700).
 #   잠금: <state>/lock(mkdir) — ★trap 을 잠금 «직후» 에 건다★(로그 쓰기보다 먼저 — 로그 경로가 디렉터리여도 잔류 0). 2시간 넘은 잠금 = 죽은 실행.
+#   ★r1021 호출 묶음★ 워크트리마다 git 을 부르지 않는다 — worktree list 1 + for-each-ref 2 = 3회, 추적 ref 있는 가지만 rev-list 1회.
+#     «미push 수» 는 그대로: 추적 ref 있음 = origin/<br>..<br> · 없음 = <base>..<br>(묶음의 ahead 값) · HEAD 분리 = 0 · 폴더별 -C 호출 0.
+#   ★r1021 확인 불가 쪽지 = 날짜당 1통★ <state>/<날짜>.failmail 이 있으면 쪽지 0 — ERROR 로그 줄은 회차마다 그대로 남긴다.
 #   env: FT_UNPUSHED_MIN(50) · FT_UNPUSHED_TOP(3) · FT_UNPUSHED_BODY_MAX(700) · FT_UNPUSHED_DEADLINE(70) · FT_UNPUSHED_CALL_MAX(7)
 #        FT_UNPUSHED_STATE_DIR(<루트>/.fable-team/state/unpushed) · FT_UNPUSHED_BASE(origin/main) · FT_UNPUSHED_SEATS · FT_TICK_MBOX
 #        FT_UNPUSHED_LOG(요약 1줄 append · 실패해도 표식은 산다) · FT_UNPUSHED_NOW(YYYY-MM-DD · 시험용) · FT_UNPUSHED_DRY=1(출력만)
@@ -45,10 +48,6 @@ gq() {  # ★git호출을 띄우는 유일한 자리★
   case "$rc" in 124|128) hard=1;; *) hard=0;; esac
   if [ "$hard" = 0 ]; then case ",$allow," in *",$rc,"*) GQ_OUT="$out"; return 0;; esac; fi
   FAILS+=("$why rc=$rc"); return 1
-}
-refstate() {  # <사유> <ref> → 0=있음 · 1=없음(정상) · 2=실패(시간 초과·그 밖의 종료값) — «덜 봄» 을 «없음» 으로 접지 않는다
-  gq "0,1" "$1" -C "${REPO:-.}" show-ref --verify --quiet "$2" || return 2
-  case "$GQ_RC" in 0) return 0;; 1) return 1;; *) return 2;; esac
 }
 name_of() { local b; b="$(basename "$1")"; printf '%s' "${b:0:60}"; }  # ★바닥 이름 60자★ — 루트 경로가 728자여도 본문은 그대로
 # ★r4 고침 1 — 맨 처음 하는 일 = 실행기로 루트 탐색★ 실패(종료값 ≠ 0 · 시간 초과 · 빈 출력)면 «오늘 표식» 유무를 보지 않고 바로 finish_round.
@@ -96,9 +95,12 @@ finish_round() {  # ★모든 갈래가 끝나는 «한 곳»★ — 표식·발
   if [ "${#FAILS[@]}" = 0 ]; then echo "$body"; exit 0; fi
   for why in "${FAILS[@]}"; do joined="${joined:+$joined; }$why"; done
   err "ERROR r963 미완주 — 확인 불가 ${#FAILS[@]}곳: $joined — 표식 0 · 다음 틱 재시도"
-  if [ "$DRY" != 1 ] && [ -n "${MBOX:-}" ] && [ -n "${MASTER:-}" ]; then
-    bash "$MBOX" send "$MASTER" ft-unpushed-summary \
-      "확인 불가 ${#FAILS[@]}곳(사유 첫 1: ${FAILS[0]}) — 표식 0 · 다음 틱 재시도" >/dev/null 2>&1
+  # ★r1021 — «확인 불가» 쪽지는 날짜당 1통★ ERROR 로그 줄은 회차마다 그대로 남긴다(계약 ④).
+  if [ "$DRY" != 1 ] && [ -n "${MBOX:-}" ] && [ -n "${MASTER:-}" ] && [ ! -e "$STATE/$TODAY.failmail" ]; then
+    if bash "$MBOX" send "$MASTER" ft-unpushed-summary \
+      "확인 불가 ${#FAILS[@]}곳(사유 첫 1: ${FAILS[0]}) — 표식 0 · 다음 틱 재시도" >/dev/null 2>&1; then
+      : > "$STATE/$TODAY.failmail" 2>/dev/null
+    fi
   fi
   exit 4
 }
@@ -117,36 +119,41 @@ if [ "$DRY" != 1 ]; then
   fi
 fi
 gq 0 "worktree 목록" -C "${REPO:-.}" worktree list --porcelain; wlist="$GQ_OUT"
+# ★r1021 — 워크트리마다 git 을 부르지 않는다★ 가지 ref·추적 ref·«main 에 없는 커밋 수» 는 공용 리포 한 곳에서 묶음 2회로 읽는다.
+#   호출 = 3 + (추적 ref 있는 가지 수) · 폴더별 -C 호출 0. 묶음이 실패하면 «덜 봄» 이므로 FAILS 에 남기고 셈하지 않는다(계약 ①·③).
+gq 0 "가지 묶음 조회 실패" -C "${REPO:-.}" for-each-ref refs/heads --format="%(refname:lstrip=2)%09%(ahead-behind:$BASE)"; htab="$GQ_OUT"
+gq 0 "추적 ref 묶음 조회 실패" -C "${REPO:-.}" for-each-ref refs/remotes/origin --format='%(refname:lstrip=3)'; ttab="$GQ_OUT"
+[ "${#FAILS[@]}" = 0 ] || finish_round   # 묶음을 못 읽으면 «덜 봄» — 워크트리를 짚지 않고 바로 끝(가짜 «표에 없음» 을 안 만든다)
 lines=(); detached=0; nosub=0
-while IFS=$'\t' read -r p br; do
+plan="$(printf '%s\n%s\n' \
+  "$(printf '%s\n' "$htab" | awk -F'\t' -v OFS='\t' 'NF{print "H",$1,$2}')" \
+  "$(printf '%s\n' "$ttab" | awk -v OFS='\t' 'NF{print "T",$1}')" \
+  "$(printf '%s\n' "$wlist" | awk -v OFS='\t' '/^worktree /{p=substr($0,10)} /^branch refs\/heads\//{print "W",p,substr($0,19)} /^detached/{print "W",p,"HEAD"}')" \
+  | awk -F'\t' -v OFS='\t' '
+      $1=="H"{ ah[$2]=$3; has[$2]=1; next }
+      $1=="T"{ trk[$2]=1; next }
+      $1=="W"{ if($3=="HEAD"){print $2,$3,"detached"; next}
+        if($3==""){print $2,$3,"empty"; next}
+        if(!($3 in has)){print $2,$3,"noref"; next}
+        split(ah[$3],ab," "); print $2,$3,(($3 in trk)?"track":"base"),ab[1] }')"
+while IFS=$'\t' read -r p br kind n; do
   [ -n "${p:-}" ] || continue
   if [ "$(left_s)" -lt 1 ]; then FAILS+=("마감 초과(남은 예산 0)"); break; fi
-  case "$br" in
-    HEAD) detached=$((detached + 1)); continue;;            # HEAD 분리 = 셈 0·«HEAD 분리 M곳» 에만 센다
-    '') FAILS+=("$(name_of "$p") 가지 이름 빈 값"); continue;;
-  esac
-  if [ -d "$p" ]; then HEADREF=HEAD; G="-C $p"; else   # 폴더가 사라진 등록은 공용 repo 의 가지 ref 로 센다
-    refstate "$(name_of "$p") 가지 ref 확인 실패" "refs/heads/$br"
-    case "$?" in
-      0) HEADREF="refs/heads/$br"; G="-C ${REPO:-.}";;
-      1) nosub=$((nosub + 1)); continue;;   # 폴더·가지 ref 둘 다 없음 = 이미 사라진 등록(실패 아님)
-      *) continue;;
-    esac
-  fi
-  refstate "$(name_of "$p") 추적 ref 확인 실패" "refs/remotes/origin/$br"
-  case "$?" in
-    0) kind="로컬 추적 ref"; rev="refs/remotes/origin/$br";;
-    1) kind="원격 가지 없음 · main 에 없는 커밋"; rev="$BASE";;
-    *) continue;;
-  esac
-  # shellcheck disable=SC2086
-  gq 0 "$(name_of "$p") rev-list 실패" $G rev-list --count "$rev..$HEADREF" || continue
-  n="$GQ_OUT"
+  case "$kind" in
+    detached) detached=$((detached + 1)); continue;;            # HEAD 분리 = 셈 0·«HEAD 분리 M곳» 에만 센다
+    empty) FAILS+=("$(name_of "$p") 가지 이름 빈 값"); continue;;
+    noref) if [ -d "$p" ]; then FAILS+=("$(name_of "$p") 가지 ref 표에 없음"); else nosub=$((nosub + 1)); fi; continue;;
+  esac                                                    # 폴더·가지 ref 둘 다 없음 = 사라진 등록(실패 아님)
+  if [ "$kind" = track ]; then   # 추적 ref 있음 = 로컬 추적 ref 와 견준다(공용 리포에서 1회)
+    kind="로컬 추적 ref"
+    gq 0 "$(name_of "$p") rev-list 실패" -C "${REPO:-.}" rev-list --count "refs/remotes/origin/$br..refs/heads/$br" || continue
+    n="$GQ_OUT"
+  else kind="원격 가지 없음 · main 에 없는 커밋"; fi        # 추적 ref 없음 = 묶음의 ahead 값(=$BASE..$br)
   case "$n" in ''|*[!0-9]*) FAILS+=("$(name_of "$p") rev-list 출력이 숫자가 아님"); continue;; esac
   [ "$DRY" = 1 ] && err "LIST $(name_of "$p") · $br · $kind=$n"
   [ "$n" -ge "$MIN" ] && lines+=("$n"$'\t'"$(name_of "$p")")
-done <<< "$(printf '%s\n' "$wlist" | awk '/^worktree /{p=substr($0,10)} /^branch refs\/heads\//{print p"\t"substr($0,19)} /^detached/{print p"\tHEAD"}')"
-[ "$nosub" = 0 ] || err "WARN 이미 사라진 등록 $nosub곳(폴더·가지 ref 없음 · 셈 밖 — git worktree prune 대상)"
+done <<< "$plan"
+[ "$nosub" = 0 ] || err "WARN 이미 사라진 등록 ${nosub}곳(폴더·가지 ref 없음 · 셈 밖 — git worktree prune 대상)"
 [ "$(left_s)" -lt 0 ] && FAILS+=("마감 초과(반복 끝)")
 total="${#lines[@]}"
 fixed="미push ${total}곳 · HEAD 분리 ${detached}곳"; taily="전체 = unpushed/$TODAY.txt"

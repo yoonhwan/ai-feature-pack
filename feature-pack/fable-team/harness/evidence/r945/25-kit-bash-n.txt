@@ -1,0 +1,4 @@
+=== kit 짝 cmp
+cmp0 OK
+=== /bin/bash -n
+bash -n OK rc=0

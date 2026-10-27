@@ -1,0 +1,19 @@
+test_doc_exempt_guard_r741 rc=1 PASS=8 FAIL=3
+test_doc_exempt_v65_roster_r810 rc=0 PASS=11 FAIL=1
+test_doc_exempt_waiting_card_r804 rc=0 PASS=43 FAIL=0
+test_autonomy_hooks_layout rc=0 PASS=17 FAIL=0
+test_autonomy_scope_classify rc=1 PASS=67 FAIL=6
+All checks passed!
+# base(66340101) 대조 — 같은 시험을 base 사본에서:
+BASE test_doc_exempt_guard_r741 PASS=8 FAIL=3
+FAIL ⓘ② 키트가 이름으로 부르는 .md 토큰 ⊆ EXCLUDE_NAMES (빠진 이름=out.md, task.md) :: rc=0 out=out.md, task.md
+FAIL ⓘ⑥ --emit 출력 = 모듈 EXCLUDE_NAMES 블록(목록 갱신 경로가 실제로 맞다) :: rc=0 out="-yyyymmdd.md", "4-and-816-20261007.md", "4-fable.md", "a.md",
+FAILED 2
+BASE test_autonomy_scope_classify PASS=67 FAIL=6
+FAIL 원장 행 있음 → 착지 rc0 · LANDED :: rc=1 out=REJECT 대상 리포 remote URL 해석 실패(fetch·push URL 이 같은 github owner/name 이어야) — 어느 리포 PR 인지 몰라 착지 0 (착지 0)
+FAIL 원장 착지 sha 칸 = 착지 sha :: rc=1 out=REJECT 대상 리포 remote URL 해석 실패(fetch·push URL 이 같은 github owner/name 이어야) — 어느 리포 PR 인지 몰라 착지 0 (착지 0)
+FAIL 원장 되돌림 명령 칸 = git revert --no-edit <착지 sha> :: rc=1 out=REJECT 대상 리포 remote URL 해석 실패(fetch·push URL 이 같은 github owner/name 이어야) — 어느 리포 PR 인지 몰라 착지 0 (착지 0)
+FAIL 원장 없음 → 출력 변화 0 · 착지 rc0 :: rc=1 out=REJECT 대상 리포 remote URL 해석 실패(fetch·push URL 이 같은 github owner/name 이어야) — 어느 리포 PR 인지 몰라 착지 0 (착지 0)
+FAIL 원장 쓰기 실패 → WARN 1줄 · 착지 rc0 · 행 불변 :: rc=1 out=REJECT 대상 리포 remote URL 해석 실패(fetch·push URL 이 같은 github owner/name 이어야) — 어느 리포 PR 인지 몰라 착지 0 (착지 0)
+FAILED 5
+# 결론: r741 3 FAIL · scope_classify 6 FAIL 은 base 에서도 같다(기존 결함 · 이 카드 변경 무관). r810 «FAIL=1» 은 그 시험 끝줄 «FAIL=0» 을 grep 이 센 것(rc0).

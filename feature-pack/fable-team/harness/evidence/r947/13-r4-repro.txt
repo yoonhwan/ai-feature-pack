@@ -1,0 +1,27 @@
+# r947 r4 — DA⑥ r3 반례(awk system) + «읽기 예외 삭제» 고침 뒤 직접 재현 (2026-10-26 · /bin/bash · 가지 6af18d5e 위)
+# 고침 = autonomy-state-guard.sh 의 «읽기 프로그램 segment 예외» 삭제(1곳) — 낱말 쌍 판정에 프로그램 예외 0.
+# 훅 = kit/fable-team/templates/hooks/autonomy-state-guard.sh (설치 꼴: 훅 폴더에 merge_cmd.py 함께)
+
+## DA r3 반례: awk 'BEGIN { system("bash <bin>/ft-autonomy.sh approve-standing …") }'
+{"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", …}}
+## sed 'e bash <bin>/ft-autonomy.sh approve-standing …'
+deny
+## find . -exec <bin>/ft-autonomy.sh approve-standing … ;
+deny
+## printf x | xargs -I{} <bin>/ft-autonomy.sh approve-standing …
+deny
+## perl -e 'system("bash <bin>/ft-autonomy.sh approve-standing …")'
+deny
+## python3 -c 'os.system("bash <bin>/ft-autonomy.sh approve-standing …")'
+deny
+## env -i bash <bin>/ft-autonomy.sh approve-standing …   (래퍼 경유)
+deny
+
+## 읽기(두 낱말 함께) — r4 뒤로는 deny + 안내
+grep -n approve-standing <bin>/ft-autonomy.sh → deny · 사유 끝에 «읽기는 Bash 대신 Read 도구로 하세요(r947 r4)»
+## 읽기(낱말 하나) — 그대로 allow
+cat <bin>/ft-autonomy.sh → allow(출력 0) · head -5 <bin>/ft-autonomy-standing.sh → allow
+
+# 시험 칸 대응(tests/test_autonomy_hooks.sh)
+- ⓝ 7꼴(awk·sed e·find -exec·xargs·perl -e·python3 -c·env) deny · ⓛ읽기a 3꼴 deny + «Read 도구로» 안내 · ⓛ읽기b 3꼴 allow
+- 변이 ⓝ변(읽기 예외 되살림 = grep·rg·cat·awk·sed·find·xargs·perl·python3 를 낱말 검사에서 뺌) → ⓝ·ⓛ읽기a 칸 7/7 allow 로 뒤집힘(빨강)

@@ -54,14 +54,14 @@ def planner():
         raise ReadError(f"planner 좌석표 {type(e).__name__} {e}")
 
 
-def table(env, name, wt, at=None):
-    """(데이터 행 목록, 머리 칸 목록) — 표가 없으면 None. 자리 = env 파일 → at(r515 큐 고정 자리) → 카드 워크트리 디스크(명단 있을 때 · 미착지 최신 행) → ref 정본 본문(r517)."""
+def table(env, name, wt, at=None, ref_at=None):
+    """(데이터 행 목록, 머리 칸 목록) — 표가 없으면 None. 자리 = env 파일 → at(r515 큐 고정 자리) → 카드 워크트리 디스크(명단 있을 때 · 미착지 최신 행 · ref_at 이면 건너뜀) → ref 정본 본문(r517 · ref_at = 그 루트 · r839)."""
     try:  # r517: 루트 자리 = ref(FT_TEAMS_REF·origin/main) 명단 + ref 본문 — 공용 루트 체크아웃이 옛 main(명단 없음)이어도 읽힌다 · 체크아웃 명단 0
         cand = [os.environ[env]] if os.environ.get(env) else [str(at())] if at else []
-        if not cand and os.path.isfile(f"{R}/.worktrees/{wt}/design/TEAMS.md"):
+        if not cand and not ref_at and os.path.isfile(f"{R}/.worktrees/{wt}/design/TEAMS.md"):
             cand.append(str(team_in(f"{R}/.worktrees/{wt}", "planner") / name))
         path = next((c for c in cand if os.path.isfile(c)), None)
-        text = Path(path).read_text(encoding="utf-8") if path else None if os.environ.get(env) or at else team_doc_ref(R, "planner", name, os.environ.get("FT_TEAMS_REF") or "origin/main")
+        text = Path(path).read_text(encoding="utf-8") if path else None if os.environ.get(env) or at else team_doc_ref(ref_at() if ref_at else R, "planner", name, os.environ.get("FT_TEAMS_REF") or "origin/main")
     except TeamPathError as e:
         raise ReadError(f"{name} 위치를 못 풀었다: {e}")
     except (OSError, ValueError) as e:
@@ -160,7 +160,7 @@ def flag_off(wt):
 def summary(now):
     me, wt = planner()
     box = inbox(me, now)
-    mq, aq = table("FT_DECISION_MERGE_QUEUE", "MERGE-QUEUE.md", wt), table("FT_DECISION_AUTONOMY_QUEUE", "AUTONOMY-QUEUE.md", wt, lambda: planner_queue(data_root(R)))
+    mq, aq = table("FT_DECISION_MERGE_QUEUE", "MERGE-QUEUE.md", wt), table("FT_DECISION_AUTONOMY_QUEUE", "AUTONOMY-QUEUE.md", wt, (lambda: planner_queue(data_root(R))) if os.environ.get("FT_PLANNER_DIR") else None, lambda: data_root(R))  # r839: 큐 본문 = origin/main 판(루트 체크아웃 디스크 0)
     a, note = autonomy_open(aq) if aq else (0, "")  # 리졸버가 낸 자리에 파일 없음 = 큐 0행(메모 0 · r2 ㉡) — 리졸버 실패만 ReadError
     f, fnote = flag_off(wt)
     notes = " ".join(x for x in (f"(옛 좌석 미닫힘 {box['old']})" if box["old"] else "", fnote, note, "" if mq else "(MERGE-QUEUE 파일 없음)") if x)

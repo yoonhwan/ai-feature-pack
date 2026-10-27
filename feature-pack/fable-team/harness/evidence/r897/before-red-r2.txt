@@ -1,0 +1,9 @@
+# r897 r10.3 — DA⑥ r1 반송 r2(REWORK-r897-r2) 반영: 새 케이스 ⓤ·ⓥ 를 «고치기 전 판(f365f4ba)» 에 돌린 결과 = 빨강(반례 실재)
+
+## ⓤ symbolic-ref rc128 (이전 판: detached 로 오독 → 삭제)
+FAIL ⓤ rc128 을 detached 로 읽고 지움 [[임시 사본 자동 삭제] 주인 없는 사본 1개 0.00 GiB 삭제(되살릴 수 있는 사본만) — 목록: .fable-team/state/scratch-sweep.log]
+PASS ⓤ 대조(정상 symbolic-ref rc1) = 같은 사본은 지운다
+
+## ⓥ 재확인 예산 (이전 판: tmux 8초 멈춤 → 그대로 삭제 · 마감 검사 다름)
+FAIL ⓥ el=8s [[임시 사본 자동 삭제] 주인 없는 사본 1개 0.00 GiB 삭제(되살릴 수 있는 사본만) — 목록: .fable-team/state/scratch-sweep.log] V1=지움
+FAIL ⓥ 마감 [WARN ft-scratch-repo — 재확인 70초 초과 · 남은 항목은 다음 정리로] V2=남음

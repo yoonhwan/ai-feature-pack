@@ -58,7 +58,7 @@ export FT_ROOT="$T/ft" FT_BOARD_BIN="$S/fake-board" FT_THREAD_POST="$S/fake-tp" 
 printf '<html><pre>트리</pre></html>' > "$S/sheet.html"; printf '# 시트\n' > "$S/sheet.md"
 printf '확인 중 0 · 소유자 미확인 0\n❓ 오빠가 정할 것 (0건) — 오늘 질문 없음\n🔄 지금 진행 중 (끝나면 멈춤)\n  · 카드A — 착수\n⏳ 완성 후 (1건)\n' > "$S/tree.txt"
 teams() { printf '%s\n' "$@" > "$S/teams.txt"; }
-teams 'harness | 일함 h-nano#0 | 진행 1(카드A)' 'cfo | 정지 5분 · 기다리는 것 = 회신 대기 | 진행 0' 'plan | 열린 좌석 0 | 진행 2(카드B)'
+teams 'harness · 일함 h-nano#0 · 진행 1(카드A)' 'cfo · 정지 5분 · 기다리는 것 = 회신 대기 · 진행 0' 'plan · 열린 좌석 0 · 진행 2(카드B)'
 setrev() { printf '{"structure":"%s","publish":"%s"}' "$1" "$2" > "$S/rev.json"; }
 pub() { bash "$PUB" >"$T/out.txt" 2>"$T/err.txt"; echo $?; }
 n_of() { grep -c "$1" "$S/tp.log" || true; }
@@ -73,9 +73,9 @@ done
 # ── ⓑ 후판 — 뿌리 글 = 첫 줄 · «👥 팀별 지금» · 팀 줄 그대로 · 나머지 트리 · 끝줄 / 수집 1회 ──
 setrev $S1 $P1; : > "$S/collects"; rc="$(pub)"
 [ "$(sed -n 1p "$S/root.last")" = '확인 중 0 · 소유자 미확인 0' ] && [ "$(sed -n 2p "$S/root.last")" = '👥 팀별 지금' ] \
-  && [ "$(sed -n 3p "$S/root.last")" = 'harness | 일함 h-nano#0 | 진행 1(카드A)' ] \
-  && [ "$(sed -n 4p "$S/root.last")" = 'cfo | 정지 5분 · 기다리는 것 = 회신 대기 | 진행 0' ] \
-  && [ "$(sed -n 5p "$S/root.last")" = 'plan | 열린 좌석 0 | 진행 2(카드B)' ] \
+  && [ "$(sed -n 3p "$S/root.last")" = 'harness · 일함 h-nano#0 · 진행 1(카드A)' ] \
+  && [ "$(sed -n 4p "$S/root.last")" = 'cfo · 정지 5분 · 기다리는 것 = 회신 대기 · 진행 0' ] \
+  && [ "$(sed -n 5p "$S/root.last")" = 'plan · 열린 좌석 0 · 진행 2(카드B)' ] \
   && [ "$(sed -n 6p "$S/root.last")" = '❓ 오빠가 정할 것 (0건) — 오늘 질문 없음' ] \
   && tail -1 "$S/root.last" | grep -q "^📄 최신 PDF rev $P1 09:00 https://slack.test/pdf-[0-9]*\$" \
   && ok "ⓑ 머리 «👥 팀별 지금» 가 첫 줄 다음 · 팀 줄 3개 그대로 · 트리가 그 뒤 · 끝줄 마지막" \
@@ -108,8 +108,18 @@ U="$T"
   cmp -s "$U/t-direct.txt" "$U/t-from.txt" && echo SAME || echo DIFF
 ) > "$T/u.txt" 2>&1
 grep -q "^SAME$" "$T/u.txt" && ok "ⓑ teams --from 수집 파일 == 직접 collect 출력(바이트 동일)" || bad "teams --from 불일치: $(tr '\n' ' ' < "$T/u.txt" | cut -c1-200)"
-grep -qx '빈팀 | 열린 좌석 0 | 진행 0' "$T/t-from.txt" && ok "ⓒ 열린 좌석 0 팀 → «빈팀 | 열린 좌석 0 | 진행 0»" || bad "ⓒ 실제: $(grep 빈팀 "$T/t-from.txt")"
-grep -q '^사라진팀 | 확인 못 함: 카드 폴더 없음 — ' "$T/t-from.txt" && ok "ⓓ 오류 팀 → «확인 못 함: <오류>» 그대로" || bad "ⓓ 실제: $(grep 사라진팀 "$T/t-from.txt")"
+grep -qx '빈팀 · 쉼 · 열린 좌석 0 · 진행 0' "$T/t-from.txt" && ok "ⓒ 열린 좌석 0 팀 → «빈팀 · 쉼 · 열린 좌석 0 · 진행 0»(r850 팀 상태 글자)" || bad "ⓒ 실제: $(grep 빈팀 "$T/t-from.txt")"
+grep -q '^사라진팀 · 확인 못 함: 카드 폴더 없음 — ' "$T/t-from.txt" && ok "ⓓ 오류 팀 → «확인 못 함: <오류>» 그대로" || bad "ⓓ 실제: $(grep 사라진팀 "$T/t-from.txt")"
+# r1024 — 팀 줄 칸 구분 « · »: 뿌리 글 전체가 되읽기 가드(r1004)를 통과한다(«표 줄 N개» 회귀 0)
+r1024="$(python3 - "$S/root.last" "$ROOT" <<'PY'
+import sys
+sys.path.insert(0, sys.argv[2] + "/kit/slack-mirror")
+import root_readback_guard as g
+why = g.check(open(sys.argv[1], encoding="utf-8").read())
+print("OK" if why is None else f"FAIL {why}")
+PY
+)"
+case "$r1024" in OK) ok "ⓑⓡ 뿌리 글 전체 되읽기 가드 check() == None (팀 줄 표 줄 0)" ;; *) bad "ⓑⓡ 뿌리 글 가드: $r1024" ;; esac
 "$BOARD" teams --from "$T/없는파일.json" >/dev/null 2>&1 && bad "ⓗ 없는 --from 인데 rc 0(조용한 생략)" || ok "ⓗ teams --from 없는 파일 → rc≠0"
 printf '{깨짐' > "$T/bad.json"; "$BOARD" teams --from "$T/bad.json" >/dev/null 2>&1 && bad "ⓗ 깨진 --from 인데 rc 0" || ok "ⓗ teams --from 깨진 파일 → rc≠0"
 
@@ -257,9 +267,9 @@ old = '    for nl in ("\\r\\n", "\\r", "\\n"):\n        text = text.replace(nl, 
 assert old in s
 open(p, "w", encoding="utf-8").write(s.replace(old, "    return text", 1))
 PY
-python3 - "$T/mut3" > "$T/l2.txt" 2>&1 <<'PY'
+python3 - "$T/mut3" "$ROOT/bin" > "$T/l2.txt" 2>&1 <<'PY'
 import sys
-sys.path.insert(0, sys.argv[1])
+sys.path[:0] = [sys.argv[1], sys.argv[2]]  # 변이 사본 먼저 · 판정 모듈(ft_team_state · r850)은 원본 bin
 from ft_board_teams import team_line
 line = team_line({"label": "끊긴팀", "error": "카드 폴더 없음 — /x\nTraceback (most recent call last):\n  File \"a.py\", line 1"})
 print("MUT_MULTI" if "\n" in line else "MUT_ONE_LINE")

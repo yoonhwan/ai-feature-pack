@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.byz.ops-intake-sync</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>__PY__</string>
+    <string>__KIT__/ops_intake_sync.py</string>
+    <string>status</string>
+  </array>
+  <key>WorkingDirectory</key><string>__ROOT__</string>
+  <key>StartInterval</key><integer>300</integer>
+  <key>RunAtLoad</key><false/>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key><string>/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <key>OPS_INTAKE_ROOT</key><string>__OPS_ROOT__</string>
+    <key>OPS_INTAKE_SECRET_DIR</key><string>__BIN__</string>
+    <key>OPS_SLACK_LIB</key><string>__KIT__/../slack-mirror</string>
+  </dict>
+  <key>StandardOutPath</key><string>/tmp/byz-ops-intake-sync.log</string>
+  <key>StandardErrorPath</key><string>/tmp/byz-ops-intake-sync.log</string>
+</dict>
+</plist>

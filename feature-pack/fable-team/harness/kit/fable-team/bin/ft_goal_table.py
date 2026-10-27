@@ -52,10 +52,18 @@ COORD = re.compile(r"^골좌표:\s*(\d+)\s*[—-]\s*(.+?)\s*$")
 STALE_FP_MAX = 12  # r600: 마커 판이 지금 ref 첫 부모 줄기에서 이만큼(약 2시간 · 시간당 약 6커밋) 넘게 뒤면 «골 표 낡음»
 STALE_OLD = "REJECT 골 표 낡음"  # r726: 이 문구만 «직전 판 유예» 가 넘길 수 있다(줄기에 없음·확인 실패는 그대로 REJECT)
 TEAMS_SECTION = re.compile(r"^##\s+팀별 완성 진행")
+TEAMS_HEAD = "★팀별 완성 진행 ("
 TEAMS_TAIL = "★/팀별 완성 진행★"
 TEAMS_NOW_CELLS = (24, 16, 8)  # «지금 하는 것» 칸 — 예산(1600B)에 들 때까지 줄인다 · 팀·끝선·착지 칸은 12자
 PROCS_SECTION = re.compile(r"^##\s+표준절차 골 진행표")  # r644: 원장의 표준절차 골 진행표(골 | 골 파일 | 지금 단계 | 다음 · 담당 열은 있을 때만)
+PROCS_HEAD = "★표준절차 골 ("
 PROCS_TAIL = "★/표준절차 골★"
+# r1006: 뉴스 본문에 실리면 안 되는 블록 3종의 마커 목록 — 머리 정규식 + 꼬리 글자(문을 보는 쪽이 이 한 곳에서 가져간다 · 문자열 두 벌 0)
+BLOCK_MARKS: tuple[tuple[str, re.Pattern[str], str], ...] = (
+    ("골 표", HEAD, TAIL),
+    ("팀별 완성 진행", re.compile("^" + re.escape(TEAMS_HEAD) + r"[0-9a-f]{10}\)★$"), TEAMS_TAIL),
+    ("표준절차 골", re.compile("^" + re.escape(PROCS_HEAD) + r"[0-9a-f]{10}\)★$"), PROCS_TAIL),
+)
 PROCS_NAME_CELLS = (40, 24, 12)  # «지금 단계» 칸 — 예산(1600B)에 들 때까지 줄인다(teams 와 같은 꼴)
 PROCS_FILE = re.compile(r"^GOAL-.+-[0-9]{8}\.md$")  # 날짜 붙은 골 파일만(AUTONOMY-GOAL-A6·GOAL-planner.md·날짜 없는 파일 제외)
 PROCS_TITLE = re.compile(r"^#\s*골\s*[—–-]\s*(.+?)\s*$")
@@ -442,7 +450,7 @@ def render_teams() -> str:
     out = ""
     for width in TEAMS_NOW_CELLS:
         body = [f"| {_clip(r[0], 12)} | {_clip(_at(r, 1), 12)} | {_clip(_at(r, 2), 12)} | {_clip(_at(r, 3), width)} |" for r in rows]
-        out = "\n".join([f"★팀별 완성 진행 ({sha})★", "| 팀 | 끝선 N/M | 마지막 착지 | 지금 하는 것 |", "|---|---|---|---|", *body, TEAMS_TAIL])
+        out = "\n".join([f"{TEAMS_HEAD}{sha})★", "| 팀 | 끝선 N/M | 마지막 착지 | 지금 하는 것 |", "|---|---|---|---|", *body, TEAMS_TAIL])
         if len(out.encode("utf-8")) <= BUDGET:
             return out + "\n"
     print(f"WARN 팀별 완성 진행 예산 초과 {len(out.encode('utf-8'))}B > {BUDGET}B ({len(rows)}행) — 블록 없이 발행", file=sys.stderr)
@@ -553,12 +561,12 @@ def render_procs() -> str:
     sha = _git(_repo(), "rev-parse", "--verify", spec.split(":", 2)[1]).strip()[:10] if spec.startswith("gitref:") else hashlib.sha256(text.encode("utf-8")).hexdigest()[:10]
     items = _procs_lines(rows, head)
     if not items:
-        return "\n".join([f"★표준절차 골 ({sha})★", "표준절차 골 0", PROCS_TAIL]) + "\n"
+        return "\n".join([f"{PROCS_HEAD}{sha})★", "표준절차 골 0", PROCS_TAIL]) + "\n"
     done = [i for i in items if i["done"]]
     late = [i for i in items if i["late"] and not i["done"]]
     for width in PROCS_NAME_CELLS:
         body = [f"- {i['name']} · {i['owner']} · {_clip(i['stage'], width)}" + (f" ⚠ {i['stale']}시간 정지" if i["late"] else "") for i in items if not i["done"]]
-        out = "\n".join([f"★표준절차 골 ({sha})★", *([f"완성 {len(done)}: " + ", ".join(i["name"] for i in done)] if done else []), *body,
+        out = "\n".join([f"{PROCS_HEAD}{sha})★", *([f"완성 {len(done)}: " + ", ".join(i["name"] for i in done)] if done else []), *body,
                          *([f"정지 골 {len(late)}: " + ", ".join(i["name"] for i in late)] if late else []), PROCS_TAIL])
         if len(out.encode("utf-8")) <= BUDGET:
             return out + "\n"

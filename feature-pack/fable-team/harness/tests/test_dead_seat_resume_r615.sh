@@ -172,6 +172,18 @@ live "$L5" %1 100 1001 uuid-l5; TICK >/dev/null
 echo on > "$T/auto.mode"; die_seat "$L5"; echo "byz-x-arch-claude#4 %8 800" >> "$SESSF"; echo "byz-y-arch-claude#9 %7 700" >> "$SESSF"
 TICK >/dev/null; eq "$(zc)" 1 "ⓖ 더 작은 번호·다른 계보만 생존 → 재개 호출 1"; has "$(cat "$ZLOG")" "resume $L5 --from-live" "ⓖ 재개 대상 = $L5"
 
+# ── ⓗ r1015: 명부 agent=desktop 행(tmux 밖 Claude Desktop 좌석)은 재개 행·죽은 좌석 경보에서 빠진다(살아 있는데 tmux 세션이 없을 뿐) ──
+D="byz-t-desk-claude#0"
+reset; roster "$M:master:claude" "$D:desk:desktop"
+live "$M" %1 100 1001 uuid-m; echo on > "$T/auto.mode"
+o="$(TICK)"; eq "$(zc)" 0 "ⓗ agent=desktop 좌석(세션 없음) → 재개 호출 0"
+eq "$(cnt "$MLOG" "$D(")" 0 "ⓗ 죽은 좌석 경보에 desktop 좌석 안 실림"
+eq "$(cnt "$MLOG" "[죽은 좌석")" 0 "ⓗ desktop 만 세션 없으면 죽음 목록 알림 자체가 없다"
+# ── ⓘ 대조: 같은 자리·같은 «세션 없음» 이지만 agent=claude 면 지금처럼 죽은 좌석 경보다 ──
+reset; roster "$M:master:claude" "$D:desk:claude"
+live "$M" %1 100 1001 uuid-m; echo on > "$T/auto.mode"
+o="$(TICK)"; has "$(cat "$MLOG")" "[죽은 좌석 1]" "ⓘ agent=claude 같은 행은 지금처럼 죽은 좌석 경보"
+
 # ── ⓔ 기존 시험 회귀 0 ──
 if [ -z "${R615_BIN:-}" ]; then
   o="$(bash "$HERE/test_dead_seat_resume.sh" 2>&1 | tail -1)"

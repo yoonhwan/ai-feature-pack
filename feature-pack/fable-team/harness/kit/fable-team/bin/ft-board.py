@@ -28,6 +28,7 @@ from ft_board_sheet import render_cli  # noqa: E402
 from ft_board_sheet_notes import lint_notes  # noqa: E402
 from ft_board_teams import team_lines  # noqa: E402
 from ft_board_snapshot import prune, snapshot  # noqa: E402
+from ft_team_state import grade  # noqa: E402
 
 
 def _stalled(args: list[str]) -> str:
@@ -44,7 +45,11 @@ def _teams(args: list[str], load, cached: bool) -> str:
         print(__doc__, file=sys.stderr)
         raise SystemExit(2)
     files = [Path(args[1])] if args else None
-    return "\n".join(team_lines(load() if cached else collect(files)))
+    data = load() if cached else collect(files)
+    g = grade({t["key"]: t["team_state"] for t in data["teams"] if isinstance(t.get("team_state"), dict)})  # r6 고침 4: 뉴스와 같은 등급 글자
+    if g:
+        print(f"ft-board teams: {g} — 확인 불가 팀이 있다(발행은 계속)", file=sys.stderr)
+    return "\n".join(team_lines(data))
 
 
 def _opt(args: list[str], name: str) -> tuple[str | None, list[str]]:

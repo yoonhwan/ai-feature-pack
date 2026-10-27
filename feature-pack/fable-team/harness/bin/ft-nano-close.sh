@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ft-nano-close.sh <좌석> --result <산출경로> --recv <master seq> [--kill] [--cherry-override "<사유>" | --superseded-by <대체 카드 경로> | --suspended "<사유>"] [--shared-wt | --wt <경로> --branch <이름>]
+# ft-nano-close.sh <좌석> --result <산출경로> --recv <master seq> [--kill] [--cherry-override "<사유>" | --superseded-by <대체 카드 경로> | --suspended "<사유>" | --landed-pr <PR 번호>] [--shared-wt | --wt <경로> --branch <이름>]
 # ft-nano-close.sh <좌석> --never-started "<사유>" [--wt <경로> --branch <이름>]
 #   --never-started "<사유>" = 발주를 한 번도 처리하지 못한 나노(산출 0)를 닫는다(r506). ①--result ②--recv ⑥증거 줄을 면제하는 대신 ft-nano-never-started-check.sh 가
 #     «한 일 0» 을 값 4개(대화 기록 assistant 턴 0 · base 위 커밋 0 · 워크트리 미커밋 0 · 좌석 발신 쪽지 0)로 센다 — 하나라도 0 이 아니거나 셀 수 없으면 REJECT.
@@ -31,6 +31,14 @@
 #   --superseded-by <카드> = 다른 카드로 «대체된» 나노(세트를 랜딩하지 않아 ⑥ rc=0 증거 줄이 영원히 없다)를 닫는다(R171). 이 인자가 있으면 ⑥ 의 rc=0 증거 줄 대신 ft-nano-superseded-check.sh 가
 #     «카드 ## 상태 맨 끝 줄 = 대체됨: <카드> · 사유: <글>» + 대체 카드(design/[teams/]<팀>/indices/{대기,진행,완성,완료}/*.md) 실재 + 자기 자신 아님을 요구하고, ⑤ cherry 게이트엔 --override "superseded-by <카드>"(원장 1행)를 넘긴다.
 #     --cherry-override 와 동시 = usage 2 · 인자 없으면 동작 불변 · 브랜치 삭제 0 · 명부는 기존 CLOSED 경로가 갱신(손 편집 불필요) · 출력 `CLOSED <좌석> superseded-by=<카드> …`.
+#   --landed-pr <PR 번호> = 「이미 착지(squash)가 끝난」 나노 좌석을 닫는다(r1011). ⑤ cherry(가지 «+» 커밋 0)와 ⑥ 증거 줄 세트 대조(«세트 == 지금 HEAD»)를
+#     «gh pr view <N> --json state,mergeCommit,headRefOid 가 MERGED ∧ headRefOid == 카드 «## 상태» 절 «안» 의 마지막 «세트:» sha(40-hex 정확 일치) ∧ 카드에 «- 착지:» 줄 실재» 로「대체»한다.
+#     ★r2(DA⑥ HOLD ①): 세트 줄은 «## 상태» 절 안에서만 고른다(절 경계 = 다음 `## ` 머리) — 파일 뒤 «## 참고» 절의 세트 줄을 집으면 거짓 통과·거짓 거절이 난다 · 상태 절에 세트 줄 0 = REJECT.
+#     ★r2(DA⑥ HOLD ②): PR 검증은 «명부 부재·조기 재실행» 경로보다 «먼저» 돈다 — gh 1회 · 실패·시간 초과·MERGED 아님 = 그 자리 REJECT 1줄(닫기 0 · kill·명부·원장 손 0). 명부에 행이 없어 카드 index 를 모르면 같은 자리 REJECT.
+#     착지가 squash 면 세트 sha 는 main 의 조상이 아니고 워크트리 HEAD 도 움직여 기존 ⑤⑥ 이 전부 어긋난다 — 그 자리를 PR 하나로 바꾼다.
+#     나머지(①②③④ · 세션 kill · 워크트리 정리 계획 · 명부 CLOSED · 원장 행)는 기존 경로 그대로 · 원장 행·출력 꼬리에 `landed-pr=<N>`.
+#     gh 호출은 «1회 · 7초 상한»(FT_NANO_LANDED_PR_CAP_S 로만 줄인다) — 시간 초과·rc≠0 = REJECT 1줄(닫기 0 · 조용한 통과 0). 브랜치 삭제 0.
+#     다른 모드(--never-started·--superseded-by·--suspended·--research·--cherry-override·--shared-wt·--wt/--branch·--plan-only·--replan)와 동시 = usage 2 · 인자 없으면 동작 불변.
 #   --plan-only <워크트리 경로> = 이미 좌석이 사라졌는데 정리 계획이 없는 나노 워크트리의 «계획만» 만든다(r-disk-drop-worktree-scratch-census · ft-disk-census.sh --plan 이 부른다). ①②③ 종료조건·cherry 게이트·명부·원장 행·kill 전부 건너뛰고
 #     확인: 좌석 세션 0(tmux 조회 성공) · 그 경로가 이 리포 .worktrees/ 아래 등록 워크트리 · 가지가 nano/<좌석 키>[-rN]. 통과하면 <wt-clean>/<seat>.sh 생성 + `PLANNED <경로>` + exit 0 — 실행은 기존 ft-wt-sweep.sh. 착지 판정은 호출자(census) 몫이고, 원장에 닫힘 행이 없어도 계획은 표식 실패로 멈추지 않는다.
 #   --replan <옛 계획 파일> = 옛 판(plan-ver ≠ 이 생성기) 계획을 같은 좌석·같은 WT 로 다시 만든다(r535 · ft-wt-sweep.sh 가 부른다). 굽힌 값(SEAT·KEY·WT·PREFIX·LEDGER·FT_NANO_WIP·PLAN_ONLY·MAINREF)만 옛 계획에서 읽고
@@ -56,7 +64,7 @@ set -uo pipefail
 T0="$(date +%s)"
 step() { printf 'STEP %s +%ss\n' "$1" "$(( $(date +%s) - T0 ))" >&2; }
 SEAT="${1:-}"; shift || { echo "usage: $0 <seat> --result <path> --recv <seq> [--kill]" >&2; exit 2; }
-RESULT=""; RECV=""; PLAN_ONLY=0; PO_WT=""; KILL=1; IDLE_MIN="${FT_NANO_IDLE_MIN:-3}"; CHERRY_OVERRIDE=""; HAVE_CHERRY_OVERRIDE=0; SUPER=0; SUPERSEDED=""; SHARED=0; HAVE_NWT=0; HAVE_NBR=0; NWT=""; NBR=""; SUSP=0; SUSP_REASON=""; SUSP_SET=""; NEVER=0; NEVER_REASON=""; NS_SUCC=""; NS_LAND=""; REPLAN=0; RP_OLD=""; RESEARCH=0
+RESULT=""; RECV=""; PLAN_ONLY=0; PO_WT=""; KILL=1; IDLE_MIN="${FT_NANO_IDLE_MIN:-3}"; CHERRY_OVERRIDE=""; HAVE_CHERRY_OVERRIDE=0; SUPER=0; SUPERSEDED=""; SHARED=0; HAVE_NWT=0; HAVE_NBR=0; NWT=""; NBR=""; SUSP=0; SUSP_REASON=""; SUSP_SET=""; NEVER=0; NEVER_REASON=""; NS_SUCC=""; NS_LAND=""; REPLAN=0; RP_OLD=""; RESEARCH=0; LANDED_PR=""; HAVE_LPR=0
 while [ $# -gt 0 ]; do case "$1" in --result) RESULT="$2"; shift 2;; --recv) RECV="$2"; shift 2;; --kill) KILL=1; shift;; --research) RESEARCH=1; shift;;
   --replan) [ $# -ge 2 ] && [ -f "$2" ] || { echo "usage: --replan <옛 계획 파일> (인자 누락·파일 없음)" >&2; exit 2; }; REPLAN=1; RP_OLD="$2"; shift 2;;
   --plan-only) [ $# -ge 2 ] || { echo "usage: --plan-only <워크트리 경로> (경로 인자 누락)" >&2; exit 2; }; PLAN_ONLY=1; PO_WT="$2"; shift 2;; --shared-wt) SHARED=1; shift;;
@@ -66,6 +74,7 @@ while [ $# -gt 0 ]; do case "$1" in --result) RESULT="$2"; shift 2;; --recv) REC
   --superseded-by) [ $# -ge 2 ] || { echo "usage: --superseded-by <대체 카드 경로> (경로 인자 누락)" >&2; exit 2; }; SUPER=1; SUPERSEDED="$2"; shift 2;;
   --suspended) [ $# -ge 2 ] || { echo "usage: --suspended <사유> (사유 인자 누락)" >&2; exit 2; }; SUSP=1; SUSP_REASON="$2"; shift 2;;
   --never-started) [ $# -ge 2 ] || { echo "usage: --never-started <사유> (사유 인자 누락)" >&2; exit 2; }; NEVER=1; NEVER_REASON="$2"; shift 2;;
+  --landed-pr) [ $# -ge 2 ] || { echo "usage: --landed-pr <PR 번호> (번호 인자 누락)" >&2; exit 2; }; HAVE_LPR=1; LANDED_PR="$2"; shift 2;;
   *) echo "unknown $1" >&2; exit 2;; esac; done
 # --never-started(r506): 빈·여러 줄 사유 · 다른 ⑥ 면제 모드(--superseded-by·--suspended)·--shared-wt(전용 워크트리가 없어 «한 일 0» 을 셀 수 없다)와 동시 = usage(2)
 if [ "$NEVER" -eq 1 ]; then
@@ -97,6 +106,12 @@ if [ "$HAVE_NWT" -eq 1 ]; then
   { [ -n "$NWT" ] && [ -n "$NBR" ]; } || { echo "usage: --wt/--branch 값이 비어 있음" >&2; exit 2; }
   [ "$SHARED" -eq 0 ] || { echo "usage: --shared-wt 와 --wt/--branch 는 같이 쓰지 못한다" >&2; exit 2; }
   NAMED=1
+fi
+# --landed-pr(r1011): 착지 끝 좌석 — ⑤ cherry·⑥ 세트 대조를 PR 로 대체한다. 빈 값 · 다른 모드와 동시 = usage(2) — 닫기 경로·우회 사유가 둘이 되면 원장이 갈린다.
+if [ "$HAVE_LPR" -eq 1 ]; then
+  [ -n "${LANDED_PR//[[:space:]]/}" ] || { echo "usage: --landed-pr 번호가 비어 있음(빈 번호로 닫지 않는다)" >&2; exit 2; }
+  [ "$NEVER" -eq 0 ] && [ "$SUPER" -eq 0 ] && [ "$SUSP" -eq 0 ] && [ "$RESEARCH" -eq 0 ] && [ "$HAVE_CHERRY_OVERRIDE" -eq 0 ] && [ "$SHARED" -eq 0 ] && [ "$HAVE_NWT" -eq 0 ] && [ "$PLAN_ONLY" -eq 0 ] && [ "$REPLAN" -eq 0 ] \
+    || { echo "usage: --landed-pr 는 다른 모드(--never-started·--superseded-by·--suspended·--research·--cherry-override·--shared-wt·--wt/--branch·--plan-only·--replan)와 동시에 못 쓴다(닫기 경로가 둘이 된다)" >&2; exit 2; }
 fi
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 if [ -f "$HERE/ft-team-lib.sh" ]; then . "$HERE/ft-team-lib.sh"; else echo "WARN ft-team-lib.sh 없음($HERE) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)" >&2; fi
@@ -649,12 +664,62 @@ _seat_reap() {
   done
   return 1
 }
-# ★r520 조기 재실행★ — reap CLOSE-FAIL 뒤 같은 close 재호출은 명부 행이 이미 지워져 아래 카드 찾기(명부 index)에서 REJECT 되던 자리.
-#   명부에 행 없음(jq has = false · rc 1 만) ∧ 원장에 이 좌석 닫힘 행 1개 이상 = 1차에서 검사를 통과한 증거 → 카드·증거·cherry 검사 0 · 남은 정리(reap·회수·태그·kill)만 · 원장 append 0 · 명부 쓰기 0.
+# ★r520 조기 재실행★ — reap CLOSE-FAIL 뒤 같은 close 재호출은 명부 행이 이미 지워져 아래 카드 찾기(명부 index)에서 REJECT 되던 자리.#   명부에 행 없음(jq has = false · rc 1 만) ∧ 원장에 이 좌석 닫힘 행 1개 이상 = 1차에서 검사를 통과한 증거 → 카드·증거·cherry 검사 0 · 남은 정리(reap·회수·태그·kill)만 · 원장 append 0 · 명부 쓰기 0.
 #   원장 행이 없으면(처음 보는 좌석) 이 길로 오지 않는다 — 아래 기존 검사 그대로. --plan-only 는 대상 아님. 워크트리 = --wt › 원장 행 wt=<절대경로>(pack-wt·named-wt 꼴) › 없음(reap 은 세션 경로).
 _lrow=""; [ "$PLAN_ONLY" = 1 ] || _lrow="$(grep -F "\`$SEAT\` 닫힘(ft-nano-close)" "$LEDGER" 2>/dev/null | tail -1)"
 jq -e --arg s "$SEAT" 'has($s)' "$SEATS" >/dev/null 2>&1; _hrc=$?
+# ★r1011 r2(DA⑥ HOLD ②)★ --landed-pr 검증은 «명부 부재·조기 재실행» 경로보다 먼저 — gh 1회 · 실패·시간 초과·MERGED 아님 = 그 자리 REJECT(닫기 0 · kill·명부·원장 손 0).
+#   결과(_lp_state·_lp_head·_lp_mrg)는 ⑥ 이 그대로 쓰다 — 두 번 부르지 않는다(호출 1회 · 7초 상한).
+_lp_state=""; _lp_head=""; _lp_mrg=""; _lp_pr_err=""
+_lp_fetch_pr() {
+  local cap out rc
+  cap="${FT_NANO_LANDED_PR_CAP_S:-7}"; case "$cap" in ''|*[!0-9]*|0) cap=7;; esac
+  step landed-pr
+  out="$(nf_bound "$cap" gh pr view "$LANDED_PR" --json state,mergeCommit,headRefOid 2>&1)"; rc=$?
+  if [ "$rc" -eq 124 ]; then _lp_pr_err="⑥--landed-pr gh 시간 초과(${cap}초 상한 · 하드 룰 12) — 닫지 않음(R22: 옛 값 대조 0)"; return 1; fi
+  if [ "$rc" -ne 0 ]; then _lp_pr_err="⑥--landed-pr gh pr view $LANDED_PR 실패(rc=$rc: $(printf '%s' "$out" | head -1 | cut -c1-160)) — 닫지 않음"; return 1; fi
+  _lp_state="$(printf '%s' "$out" | jq -r '.state // empty' 2>/dev/null)"
+  _lp_head="$(printf '%s' "$out" | jq -r '.headRefOid // empty' 2>/dev/null)"
+  _lp_mrg="$(printf '%s' "$out" | jq -r 'if (.mergeCommit|type)=="object" then (.mergeCommit.oid // "") else (.mergeCommit // "") end' 2>/dev/null)"
+  if [ -z "$_lp_state" ] || [ -z "$_lp_head" ]; then _lp_pr_err="⑥--landed-pr gh 응답을 못 읽음(state·headRefOid 없음): $(printf '%s' "$out" | head -1 | cut -c1-160)"; return 1; fi
+  if [ "$_lp_state" != MERGED ]; then _lp_pr_err="⑥--landed-pr #$LANDED_PR state=$_lp_state — MERGED 만 닫는다(OPEN·CLOSED 미병합 = 산출이 main 에 없다)"; return 1; fi
+  return 0
+}
+# ★r1019★ ⑥ «세트 대조» 를 «세트 + main 병합뿐» 까지 넓힌다 — ft-merge-land 는 main 이 앞서 있으면 승인판 위에 합침 커밋 1개를 올려 합치므로 PR head 는 «언제나» 카드 세트가 아니다(r1011 경로가 오늘 착지 6건을 0/6 으로 막았다).
+#   판정기는 승인 h 쪽이 이미 쓰는 ft-approval-equiv.sh(R247 · 판정 1917) 그대로 — 규칙 변경 0 · 호출 1곳만. rc0 만 통과 · rc1/rc3/rc2 는 사유 첫 줄 그대로 REJECT(조용한 통과 0 · #0 RULE).
+#   head 객체는 호출 전에 fetch 1회(하드 룰 12 = nf_fetch: 시도당 7초 + 재시도 1). 실패 = «판정 불가» 한 줄 REJECT(하드 룰 20).
+_lp_equiv_merges=""; _lp_equiv_mode=""; _lp_equiv_err=""
+_lp_equiv_gate() {
+  local repo cap out rc first
+  repo="${SEAT_REPO:-$ROOT}"
+  _lp_equiv_merges=""; _lp_equiv_mode=""
+  step landed-pr-equiv
+  if ! nf_fetch "$repo" origin "$_lp_head" >/dev/null 2>&1; then
+    _lp_equiv_err="⑥--landed-pr head ${_lp_head:0:9} 객체를 받지 못했다(fetch origin 실패 · 7초 상한) — 판정 불가로 닫지 않는다"; return 1
+  fi
+  # r1019 r2(DA 1/2 동작②): head 가 이미 origin/main 안 = «머지 커밋 PR». 우리 착지 도구(ft-merge-land)는 squash 만 만들므로 이 경로 밖 — 판정기를 부르지 않고 1줄로 끝낸다(하드 룰 20 · 틀린 사유 NOT-EQUIV 0).
+  if git -C "$repo" merge-base --is-ancestor "$_lp_head" refs/remotes/origin/main 2>/dev/null; then
+    _lp_equiv_err="⑥--landed-pr head ${_lp_head:0:9} 가 origin/main 조상 = 머지 커밋 PR(squash 착지 아님) — 이 경로 밖 · 수동 닫기(기존 경로)"; return 1
+  fi
+  cap="$(nf_cap "$(nf_fixed equiv)" 1)"
+  out="$(nf_bound "$cap" bash "$HERE/ft-approval-equiv.sh" "$_lp_set" "$_lp_head" --repo "$repo" 2>&1)"; rc=$?
+  first="$(printf '%s' "$out" | head -1 | cut -c1-200)"
+  if [ "$rc" -eq 0 ]; then
+    _lp_equiv_mode="$(printf '%s' "$out" | grep -oE 'mode=[a-z]+' | tail -1 | cut -d= -f2)"
+    _lp_equiv_merges="$(printf '%s' "$out" | grep -oE 'merges=[0-9]+' | tail -1 | cut -d= -f2)"
+    case "$_lp_equiv_merges" in ''|*[!0-9]*) _lp_equiv_merges=0;; esac
+    # r1019 r2(DA 1/2 동작①): rc0 이어도 «세트 위 main 병합(mode=merge ∧ merges≥1)» 만 통과 — rebase 머리는 이 경로의 증거가 아니다.
+    if [ "$_lp_equiv_mode" = merge ] && [ "$_lp_equiv_merges" -ge 1 ]; then return 0; fi
+    _lp_equiv_err="⑥--landed-pr head ${_lp_head:0:9} 가 세트 위 main 병합이 아니라 rebase 머리(mode=${_lp_equiv_mode:-없음} merges=$_lp_equiv_merges) — 세트 줄을 고치거나 새 카드"; return 1
+  fi
+  if [ "$rc" -eq 124 ]; then _lp_equiv_err="⑥--landed-pr 판정기 시간 초과(${cap}초 상한 · 하드 룰 12) — ${first:-출력 없음}"; return 1; fi
+  _lp_equiv_err="⑥--landed-pr #$LANDED_PR head ${_lp_head:0:9} ≠ 카드 세트 ${_lp_set:0:9} · «세트 + main 병합뿐» 도 아님(판정기 rc=$rc) — ${first:-출력 없음}"
+  return 1
+}
+if [ -n "$LANDED_PR" ]; then _lp_fetch_pr || { echo "REJECT $SEAT"; echo "  - $_lp_pr_err"; exit 1; }; fi
 if [ "$_hrc" -eq 1 ] && [ -n "$_lrow" ]; then
+  # r1011 r2: 명부에 행이 없으면 카드 index 를 알 수 없다 — 착지 검증(세트·«- 착지:»)을 건너 뛰고 닫는 대신 그 자리 REJECT(조용한 통과 0).
+  [ -z "$LANDED_PR" ] || { echo "REJECT $SEAT"; echo "  - ⑥--landed-pr: 명부에 좌석 행이 없어 카드 index 를 알 수 없다 — «세트»·«- 착지:» 대조 불가(닫기 0 · kill 0 · 원장 append 0) · 명부 행을 복구하거나 카드 경로를 확인해라"; exit 1; }
   echo "재실행 — 명부에 없고 원장 닫힘 행 있음: 검사 건너뛰고 남은 정리(reap·회수·태그·kill)만"
   SEAT_WT=""; SEAT_BR=""; _RERUN_STD=0; _RERUN_INFOED=0; _RERUN_ZERO_WHY="표준 좌석 해석 밖"
   if [ "$NAMED" = 1 ]; then
@@ -1120,6 +1185,21 @@ elif [ "$RESEARCH" = 1 ]; then   # r888-mut:research
       fi
     fi
   fi
+elif [ -n "$LANDED_PR" ]; then
+  # r1011 착지 끝 나노: ⑥ «세트 == 지금 HEAD» 대신 «PR #N 이 MERGED ∧ PR head == 카드 «## 상태» 절 «안» 의 마지막 «세트:» sha ∧ 카드 «- 착지:» 줄» — ⑤ cherry 도 이 한 값이 대신한다(아래 ⑤ INFO).
+  #   PR 값은 위 _lp_fetch_pr 이 이미 받았다(호출 1회 · 7초 상한 · 재실행 경로보다 먼저) — 여기서 다시 부르지 않는다. 세트·착지 줄은 카드(읽기 판 CARD_READ 먼저)에서만 읽는다(추론 0).
+  if [ -z "$CARD_READ" ] || [ ! -f "$CARD_READ" ]; then bad+=("⑥카드 못 찾음: seats.json index=${IDX:-<빈 값>} — 착지 대조(«세트:» sha·«- 착지:» 줄)를 할 카드가 없다")
+  else
+    # 「## 상태」 절 «안» 의 마지막 «세트:» 만 — 절 경계 = 다음 `## ` 머리(DA⑥ r2 HOLD ①: 파일 뒤 절의 세트 줄을 집으면 거짓 통과)
+    _lp_set="$(awk '/^##[[:space:]]/{inb = ($0 ~ /^##[[:space:]]*상태[[:space:]]*$/)} inb && /세트:/{l=$0} END{if (l!="") print l}' "$CARD_READ" 2>/dev/null | sed -nE 's/.*세트:[[:space:]]*([0-9a-f]{40}).*/\1/p')"   # r1011-mut:set
+    _lp_land=""; grep -qE '^[[:space:]]*-[[:space:]]*착지:' "$CARD_READ" 2>/dev/null && _lp_land=1   # r1011-mut:land
+    if [ -z "$_lp_set" ]; then bad+=("⑥--landed-pr 카드 «## 상태» 절에 «세트:» 40-hex 줄이 없다: $CARD_READ — 대조할 세트가 없으면 닫지 않는다")
+    elif [ -z "$_lp_land" ]; then bad+=("⑥--landed-pr 카드에 «- 착지:» 줄이 없다: $CARD_READ — 착지 기록 없는 좌석은 이 경로로 닫지 않는다")
+    elif [ "$_lp_head" != "$_lp_set" ]; then   # r1019: head ≠ 세트 = 판정기 1회 — EQUIV(세트 + main 병합뿐)만 통과   # r1011-mut:head
+      if _lp_equiv_gate; then echo "LANDED-PR-OK #$LANDED_PR merged=${_lp_mrg:0:9} state=MERGED head=${_lp_head:0:9} ≡ 카드 세트 ${_lp_set:0:9} + main 병합 ${_lp_equiv_merges} equiv=${_lp_equiv_merges} · «- 착지:» 줄 있음 (⑤ cherry·⑥ 증거 줄 면제)"
+      else bad+=("$_lp_equiv_err"); fi
+    else echo "LANDED-PR-OK #$LANDED_PR merged=${_lp_mrg:0:9} state=MERGED head=${_lp_head:0:9} == 카드 세트 · «- 착지:» 줄 있음 (⑤ cherry·⑥ 증거 줄 면제)"; fi
+  fi
 elif [ "$_role" = nano ] && [ -z "$CARD_READ" ]; then
   # 카드를 못 찾으면 증거를 대조할 수 없다 — 건너뛰고 CLOSED 하면 무음 통과(#0 RULE · DA⑥ 관측 A3). grandfather 와 무관하게 REJECT.
   bad+=("⑥카드 못 찾음: seats.json index=${IDX:-<빈 값>} (후보 $WT/·$ROOT/·$LEDGER_WT/ 아래 어디에도 없음) — 증거 줄을 대조할 카드가 없다${_sibn:+ · 형제 ${_sibn}개}")
@@ -1156,6 +1236,9 @@ _gate_br=""; [ -z "$SEAT_WT" ] || _gate_br="$(python3 -c 'import json,sys;print(
 [ -n "$_gate_br" ] || _gate_br="${SEAT_BR:-nano/$_KEY}"
 [ "$NAMED" != 1 ] || _gate_br="$NBR"   # --wt/--branch: cherry 게이트는 «--branch 기준»(ⓖ) — info 파일 값이 아니다. 우회는 기존 --cherry-override 뿐.
 if [ "$_FEAT_FETCH_FAIL" = 1 ]; then :   # r938 r2 N4: fetch 실패 = cherry·freshness 0(옛 origin/main 대조 0)
+elif [ -n "$LANDED_PR" ]; then
+  # r1011: 착지 끝 좌석은 가지 비교(git cherry)가 뜻이 없다 — ⑥ LANDED-PR-OK 하나가 ⑤ 를 대신한다(브랜치·워크트리 손대기 0).
+  echo "INFO ⑤ cherry 건너뜀 — 착지 끝 좌석(PR #$LANDED_PR): 산출은 이미 main 에 있다(가지 비교 0 · 브랜치 보존)"
 elif [ -n "$NS_LAND" ]; then
   echo "INFO ⑤ cherry 건너뜀 — never-started 착지 가지($NS_LAND): 산출은 이미 main 에 있다(워크트리·브랜치 손대기 0)"
 elif [ -n "${NS_SUCC:-}" ]; then
@@ -1235,6 +1318,7 @@ _su_tag=""; [ "$SUSP" -eq 0 ] || _su_tag=" suspended=1 reason=$SUSP_REASON set=$
 [ -z "$NS_SUCC" ] || _su_tag=" never-started (공유 워크트리 → 후계 $NS_SUCC · 워크트리 정리 0)"
 [ -z "$NS_LAND" ] || _su_tag=" never-started (착지 가지 $NS_LAND · 워크트리 정리 0)"   # 개정 r3 규칙 2b   # r506 r2 규칙 2 출력 꼴(사유는 원장 행 wt= 칸)
 [ "$RESEARCH" -eq 0 ] || _su_tag=" research=1"   # r888: 원장 행·출력 꼬리(⑥ 증거 줄 면제 표기)
+[ -z "$LANDED_PR" ] || _su_tag=" landed-pr=$LANDED_PR${_lp_equiv_merges:+ equiv=$_lp_equiv_merges}"   # r1011: 원장 행·출력 꼬리(⑤⑥ 을 PR 이 대신했다는 표기) · r1019: head ≠ 세트로 통과했으면 equiv=<병합 수>
 # R387 판정 2282 §7-2 — 리서치 좌석(카드 `- 리서치: <좌석> base=<sha> 허용=<경로 패턴>`): 허용 밖 변경(base..HEAD + 작업트리)이 있으면 카드에 `- 리서치 위반:` 1줄 — 기록만(닫기·WIP 보존·회수는 막지 않는다 · 새 sandbox 0)
 RS_LINE=""; RS_AGENT="$(jq -r --arg s "$SEAT" '.[$s].agent // empty' "$SEATS" 2>/dev/null)"   # r286: 에이전트는 카드 유무와 무관(opencode 회수)
 RC_AG=""; case "$RS_AGENT" in opencode|pi) RC_AG="$RS_AGENT";; esac   # r542: 회수 대상 에이전트(명부 값 그대로 · 그 밖·빈 값 = 판정기 기본 opencode)
