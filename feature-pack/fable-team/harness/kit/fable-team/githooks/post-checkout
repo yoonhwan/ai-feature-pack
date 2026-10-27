@@ -1,0 +1,117 @@
+#!/usr/bin/env sh
+# 위임 shim — core.hooksPath 가 .fable-team/githooks 로 전환되면서
+# .beads/hooks/post-checkout 가 실행되지 않게 되는 것을 막는다(push 게이트 부작용 방지).
+# 키트 정본 = 하네스 kit/fable-team/githooks/post-checkout · 설치 = harness/install.sh --apply --project <루트> (r449)
+#
+# ── r1030 표식층 (r835 계약 유지 · r843 «되돌리기» 대체): 팀 워크트리(.worktrees/*)의 sparse 상태는 «표식이 곧 목표» 다.
+#     매 checkout 은 지금 상태가 목표와 같은지만 보고, 다르면 목표로 다시 적용(수렴)한다. 되돌리기(원값 적어 두기·복원) 코드는 없다.
+#     실패 = ERROR 1줄 + rc1 이고, 표식은 이미 목표를 담고 있으므로 다음 checkout 이 같은 목표를 마저 적용한다
+#     (성공 전에는 표식 `sparse` 와 실제 풀 상태가 공존할 수 있고, 그 공존은 다음 checkout 에 닫힌다. full 을 원하면 표식을 손으로 바꾼다).
+# 표식 = $(git rev-parse --git-dir)/ft-wt-mode (워크트리별 gitdir · 리포 추적 밖) · 값 `sparse` | `full <사유>` | `legacy-full`
+# 조건(r835 그대로) = top 이 <주 워크트리>/.worktrees/ 아래 ∧ 주 워크트리에 design/teams/
+#   1) 표식 없음 → 목표 정하기: FT_WT_FULL(10자 이상) → `full <사유>` + <주 워크트리>/.fable-team/state/wt-add-full.log 1줄 · 아니면 `sparse`
+#      정한 값을 «먼저» 표식에 쓴다 — pending 에 쓰고 다시 읽어 대조한 뒤 mv 1회(성공 전 최종 자리 노출 0 · 임시 자리 잔존 0)
+#   2) 표식 `full …`·`legacy-full`·그 밖의 값(custom · 빈 파일) → 아무것도 안 함(사람 상태 존중 · 값 해석 0)
+#   3) 표식 `sparse` → 수렴 1회: 패턴 파일이 있고 비어 있지 않으면 도구(ft-wt-add --team · ft-nano-spawn)가 고른 패턴 = 덮지 않음(설정만 확인)
+#      없거나 0바이트 → `/*` `!/design/teams/*/` 로 git sparse-checkout set --no-cone --stdin(멱등: 같은 상태면 다시 해도 같다)
+#   4) git 명령(rev-parse · config --get · sparse-checkout set)이 rc≠0 이면 한 함수 _ftw_unavail = ERROR 1줄 + rc1 + 그 턴 상태 변경 0(하드 룰 20)
+# 표식 자리가 일반 파일이 아니면(심링크·폴더) 읽지 않고 ERROR + rc1 · 상태 변경 0.
+# 훅이 닫는 길 = checkout·switch·worktree add 뿐. reset·read-tree 같은 저수준 길은 ft-disk-alarm 하루 1회 탐지(ft-wt-mode-stamp --unmarked).
+# 기존 워크트리는 설치 때 ft-wt-mode-stamp.sh --apply 로 표식을 먼저 찍는다(다음 checkout 에 갑자기 sparse 되는 길 차단).
+_ftw_rc=0; _ftw_pend=""; _ftw_out=""
+_ftw_read() {  # <파일> — rc 와 출력을 «둘 다» 본다(rc≠0 = 실패)
+  _ftw_out="$(cat "$1" 2>/dev/null)"; [ "$?" = 0 ]
+}
+_ftw_same() { [ "$_ftw_out" = "$1" ]; }
+_ftw_unavail() {  # <명령> <rc> — 판정 불가 = 한 함수에서 끝낸다(그 턴 상태 변경 0 · 다음 checkout 이 같은 목표 재적용)
+  echo "ERROR ft-wt-mode 판정 불가 — $1 rc=$2 · 상태 변경 0 · 다음 checkout 이 같은 목표를 다시 적용" >&2
+  _ftw_rc=1; return 1
+}
+_ftw_slot() {  # <사유> — 표식 자리·쓰기 문제 = ERROR 1줄 + rc1 · 상태 변경 0
+  echo "ERROR ft-wt-mode 표식 $1 · 최종 자리 $_mark" >&2
+  _ftw_rc=1; return 1
+}
+_ftw_write() {  # <값> — pending 쓰기 → 다시 읽어 대조 → mv 1회 · 임시 자리는 성공·실패 모두 남기지 않는다
+  _ftw_pend="$_mark.pending.$$"
+  rm -rf "$_ftw_pend" 2>/dev/null
+  mkdir -p "$_ftw_pend" 2>/dev/null || { _ftw_slot "쓰기 실패 — pending 폴더를 못 만듬 $_ftw_pend"; return 1; }
+  { printf '%s\n' "$1" > "$_ftw_pend/ft-wt-mode"; } 2>/dev/null \
+    || { rm -rf "$_ftw_pend" 2>/dev/null; _ftw_slot "쓰기 실패 — «$1» 를 pending 에 못 씀"; return 1; }
+  _ftw_read "$_ftw_pend/ft-wt-mode" && _ftw_same "$1" \
+    || { rm -rf "$_ftw_pend" 2>/dev/null; _ftw_slot "쓰기 실패 — «$1» 쓰고 다시 읽은 값이 다름(또는 읽기 rc≠0)"; return 1; }
+  mv "$_ftw_pend/ft-wt-mode" "$_mark" 2>/dev/null \
+    || { rm -rf "$_ftw_pend" 2>/dev/null; _ftw_slot "이동 실패 — pending → $_mark mv 실패"; return 1; }
+  rm -rf "$_ftw_pend" 2>/dev/null
+  _ftw_read "$_mark" && _ftw_same "$1" \
+    || { _ftw_slot "쓰기 실패 — «$1» 옮긴 뒤 다시 읽은 값이 다름(또는 읽기 rc≠0)"; return 1; }
+  return 0
+}
+_ftw_len() { python3 -c 'import sys; print(len(sys.argv[1].strip()))' "$1" 2>/dev/null || echo 0; }
+_ftw_mark() {  # 표식 판정 — 0 = 있음(값 무관 · _ftw_out) · 2 = 없음 · 1 = 일반 파일 아님·읽기 실패(ERROR 기록)
+  if [ -L "$_mark" ]; then _ftw_slot "자리 이상 $_mark — 심링크(일반 파일 아님) · 체크아웃 상태 그대로"; return 1; fi
+  if [ -d "$_mark" ]; then _ftw_slot "자리 이상 $_mark — 폴더(일반 파일 아님) · 체크아웃 상태 그대로"; return 1; fi
+  [ -e "$_mark" ] || return 2
+  _ftw_read "$_mark" && return 0
+  _ftw_slot "읽기 실패 — 표식 자리 있음인데 못 읽음(읽기 rc≠0) · 체크아웃 상태 그대로"; return 1
+}
+_ftw_patterns() {  # 패턴 파일 판정 — 0 = 있음·내용 있음(도구가 고른 패턴) · 2 = 없음·0바이트 · 1 = 읽기 실패(ERROR 기록)
+  [ -e "$_gd/info/sparse-checkout" ] || return 2
+  _ftw_read "$_gd/info/sparse-checkout" || { _ftw_unavail "패턴 파일 읽기 $_gd/info/sparse-checkout" 1; return 1; }
+  [ -n "$_ftw_out" ] || return 2
+  return 0
+}
+_ftw_converge() {  # 표식 `sparse` 의 목표로 수렴 1회 — 패턴 파일에 내용이 있으면 덮지 않는다(설정만 확인) · set 은 멱등
+  _ftw_patterns; _tp=$?
+  [ "$_tp" = 1 ] && return 1
+  if [ "$_tp" = 0 ]; then
+    git config --get core.sparseCheckout >/dev/null 2>&1; _tc=$?
+    [ "$_tc" = 0 ] || [ "$_tc" = 1 ] || { _ftw_unavail "git config --get core.sparseCheckout" "$_tc"; return 1; }
+    return 0
+  fi
+  printf '/*\n!/design/teams/*/\n' | git sparse-checkout set --no-cone --stdin >/dev/null 2>&1; _tc=$?
+  [ "$_tc" = 0 ] || { echo "ERROR ft-wt-mode sparse 설정 실패 — git sparse-checkout set rc=$_tc · 판정 불가 · 표식은 목표 그대로 · 다음 checkout 이 같은 목표를 다시 적용" >&2; _ftw_rc=1; return 1; }
+  echo "[r835] 팀 워크트리를 sparse 로 정함(남의 팀 폴더 0) · $_topr" >&2
+  echo "  자기 팀 폴더 = git -C $_topr sparse-checkout add /design/teams/<팀>/ · 다음부터 ft-wt-add.sh <이름> --team <팀>" >&2
+  return 0
+}
+_top="$(git rev-parse --show-toplevel 2>/dev/null)"; _trc=$?
+if [ "$_trc" != 0 ] || [ -z "$_top" ]; then
+  _ftw_unavail "git rev-parse --show-toplevel" "$_trc"
+else
+  _gcd="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || { _ftw_unavail "git rev-parse --git-common-dir" 1; _gcd=""; }
+  _gd="$(git rev-parse --path-format=absolute --git-dir 2>/dev/null)" || { _ftw_unavail "git rev-parse --git-dir" 1; _gd=""; }
+  if [ -n "$_gcd" ] && [ -n "$_gd" ]; then
+    _root="$(cd "$_gcd/.." 2>/dev/null && pwd -P)"
+    _topr="$(cd "$_top" 2>/dev/null && pwd -P)"
+    _mark="$_gd/ft-wt-mode"
+    case "$_topr" in
+      "$_root"/.worktrees/*)
+        if [ -n "$_root" ] && [ -d "$_root/design/teams" ]; then
+          _ftw_mark; _ms=$?
+          if [ "$_ms" = 0 ]; then      # 표식 있음 — 값 무관 «있음» 이면 손대지 않고, sparse 일 때만 수렴한다
+            [ "$_ftw_out" = sparse ] && _ftw_converge
+          elif [ "$_ms" = 2 ]; then    # 표식 없음 — 목표를 정해 «먼저» 쓴다(그 뒤에만 상태를 바꾼다)
+            _n=0; [ -z "${FT_WT_FULL:-}" ] || _n="$(_ftw_len "$FT_WT_FULL")"
+            if [ "$_n" -ge 10 ]; then
+              if _ftw_write "full $FT_WT_FULL"; then
+                _seat="${FT_SEAT:-$(tmux display-message -p '#S' 2>/dev/null)}"
+                mkdir -p "$_root/.fable-team/state" \
+                  && printf '%s · %s · %s · %s\n' "$(date '+%F %T')" "${_seat:-?}" "$_topr" "$FT_WT_FULL" >> "$_root/.fable-team/state/wt-add-full.log"
+                echo "[r835] FT_WT_FULL — 풀 체크아웃 유지 · 표식 $_mark" >&2
+              fi
+            else
+              [ -z "${FT_WT_FULL:-}" ] || echo "  FT_WT_FULL 사유 짧음(${_n}자 · 10자 이상) — 무시하고 sparse" >&2
+              _ftw_write sparse && _ftw_converge
+            fi
+          fi
+        fi;;
+    esac
+  fi
+fi
+# ────────────────────────────────────────────────────────────────────────────────
+
+if [ -x "$_top/.beads/hooks/post-checkout" ]; then
+  [ "$_ftw_rc" != 0 ] || exec "$_top/.beads/hooks/post-checkout" "$@"
+  "$_top/.beads/hooks/post-checkout" "$@"
+fi
+exit "$_ftw_rc"

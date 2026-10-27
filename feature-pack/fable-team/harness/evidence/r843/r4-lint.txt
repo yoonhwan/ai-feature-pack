@@ -1,0 +1,10 @@
+bash -n kit/fable-team/bin/ft-wt-add.sh rc=0
+bash -n kit/fable-team/bin/ft-wt-mode-stamp.sh rc=0
+bash -n kit/fable-team/bin/ft-team-lib.sh rc=0
+sh -n kit/fable-team/githooks/post-checkout rc=0
+shellcheck -S warning (4 파일) rc=0
+cmp bin/ft-wt-add.sh kit/fable-team/bin/ft-wt-add.sh rc=0
+cmp bin/ft-wt-mode-stamp.sh kit/fable-team/bin/ft-wt-mode-stamp.sh rc=0
+cmp bin/ft-nano-spawn.sh kit/fable-team/bin/ft-nano-spawn.sh rc=0
+cmp bin/ft-team-lib.sh kit/fable-team/bin/ft-team-lib.sh rc=0
+bash -n tests/test_post_checkout_sparse_r835.sh rc=0

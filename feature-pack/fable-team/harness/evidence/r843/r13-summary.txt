@@ -1,0 +1,30 @@
+# r843 r13 — DA r12 반례 1 닫기 (base = d795527e 위 커밋 1 · 가지 nano/r843-wt-sparse-mark-write-verify-r3 · 나노 byz-harness-nano-r843-wt-sparse-mark-write-verify#0 · 2026-10-27)
+
+회차 요약(단계별 초): base 1벌(89칸) 34초 · FT_TEST_ONLY ⓞⓜⓝⓚc + 변이 1 = 1분 17초 · red(d795527e 판) ⓞⓜⓝⓚc 33초 · gate 3초 · wt_add 4초 · disk_alarm 2초 · kit_bin_sync 1초 — 회차 합계 약 2분 34초(7분 안) · 1벌 전체 0회.
+
+## 반례 → 고침 (약 3줄 · 되돌리기 자리 밖 0)
+
+| # | DA r12 반례 | 고침 |
+|---|---|---|
+| ① 동작 | 캡처 함수가 패턴 사본 `cp` 실패로 ERROR·rc1 을 내도 호출 자리(`:120`)가 반환값을 안 봐 훅이 계속 → 표식이 미리 있으면 그대로 → 다음 실행이 ERROR 없이 rc0 (`:42`·`:120`·`:127`) | `_ftw_pre_capture` 호출을 **«표식 없음(ENOENT) 갈래 안»** 으로 옮기고 `if ! _ftw_pre_capture; then _ftw_fail "캐처" "$_ftw_why"` 로 받는다 → 캐처 실패 = `_ftw_fail` 한 길(ERROR 1줄 · rc≠0 · 상태 변경 0). 표식이 미리 있으면 캐처 호출 **0**(사용자 표식 보존 · 읽기 노이즈 0) |
+| 비동작(같이 지움) | 정상 종료 뒤 캡처 임시 사본(`ft-wt-mode.info.<pid>`)이 남음 | `_ftw_restore` 끝에서 항상 삭제(성공·실패 공통) + 캐처 실패 시점에도 사본 즉시 삭제 |
+
+캐처 값이 비어 있을 때의 복원은 `_ftw_captured` 가드 1줄로 «쓰기 0»(캐처 전에는 아무것도 바꾸지 않았으므로 되돌릴 것 없음).
+
+## 시험(칸 1 ⓞ = 3단언 + 변이 1)
+
+- **ⓞ** 표식 없음 + 패턴 파일 있음 + 사본 `cp` 만 실패(가짜 cp) → `ERROR ft-wt-mode 캐처 실패` 1줄 · rc≠0 · 설정(공용·워크트리) 변경 0 · 패턴 파일 체크섬 그대로 · 표식·pending 0 · 임시 사본 0 · b 팀 파일 복원
+- **ⓞb** 다음 실행 = 표식 저장 · ERROR 0 (패턴 파일이 미리 있으므로 «도구 패턴» 갈래 → 설정 변경 0)
+- **ⓞc** 표식 있음(custom-marker) + 같은 주입 → 캐처 호출 0 · 표식 그대로 · ERROR 0 · rc0
+- 변이 1 `r843r13-capture-rc`(캐처 rc 무시 `if false; then`) → ⓞ FAIL
+
+## 값
+
+- green: `test_post_checkout_sparse_r835.sh` **89 PASS** 0 FAIL rc=0(base 34초) · FT_TEST_ONLY 회차 1분 17초 전부 PASS · gate 47 · wt_add 27 · disk_alarm 37 · kit_bin_sync 7 PASS
+- red: **d795527e**(직전 세트) ⓞ = FAIL 3 — ⓞ«표식 있음인데 캐처 ERROR·rc1» · ⓞb«사본 1 잔존» · ⓞc«표식 있음인데 캐처 실패» = DA 반례 그대로 재현
+- lint: `sh -n` 1 · `/bin/bash 3.2.57 -n` 2파일 rc=0 · stamp 짝 cmp0 · ft-team-lib 짝 cmp0
+- 바뀐 파일: `kit/fable-team/githooks/post-checkout` · `tests/test_post_checkout_sparse_r835.sh` · 증거 `evidence/r843/r13-*`
+- press 필요: 없음(임시 리포 단위 시험만)
+
+## 고치지 않은 것(알려진 한계 1줄)
+- 실패 자리 수 가드(5자리)는 «기존 표식 읽기·패턴 파일 읽기» 2자리를 세지 않는다 · 권한 000/0444·심링크·제어문자 이름 [범위 밖] · 1벌 1158초 분할은 착지 뒤 별건.

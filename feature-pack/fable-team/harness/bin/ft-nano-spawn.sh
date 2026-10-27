@@ -642,7 +642,7 @@ if [ ! -d "$WTDIR" ]; then
       || { echo "REJECT sparse 체크아웃 실패($WTDIR · 브랜치 $BRANCH · 워크트리는 남김 — 사람 판정)"; exit 1; }
     echo "SPARSE team=$_SPT 남의 팀 design·자기 팀 안 미디어(wav·mp4·png·zip 등)·큰 글자(result.json·jsonl) 제외 · 글자 파일은 남김 · 새 증거 = design/teams/$_SPT/evidence/$SLUG/ (다른 미디어가 필요하면 git sparse-checkout add <경로> · 되돌림: git -C $WTDIR sparse-checkout disable)"
   else
-    git -C "$ROOT" worktree add "$WTDIR" -b "$BRANCH" "$BASE_BRANCH" >/dev/null || { echo "REJECT worktree add 실패"; exit 1; }
+    FT_WT_FULL="nano full(FT_NANO_SPARSE=${FT_NANO_SPARSE:-1} · team=${_SPT:-?}) $IDX_REL" git -C "$ROOT" worktree add "$WTDIR" -b "$BRANCH" "$BASE_BRANCH" >/dev/null || { echo "REJECT worktree add 실패"; exit 1; }   # r835: 풀 선택을 post-checkout 에 알림(표식 full)
   fi
   # r494: 새 워크트리에 하네스 입구(.fable-team/bin 연결 파일 + LIVE_BIN·LIVE_ROOT) — 실패해도 spawn 은 계속 · 조용한 통과 0(NOTE 줄)
   _shim_out="$(bash "$HERE/ft-root-bin-shim.sh" --root "$WTDIR" --live "$(sed -n 1p "$ROOT/.fable-team/LIVE_BIN" 2>/dev/null)" --init 2>&1)" \
