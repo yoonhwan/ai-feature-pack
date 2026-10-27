@@ -22,30 +22,51 @@
 #   - 훅이 닫는 길 = checkout·switch·worktree add 뿐. reset·read-tree 같은 저수준 길은 ft-disk-alarm 하루 1회 탐지(ft-wt-mode-stamp --unmarked)
 # 기존 워크트리는 설치 때 ft-wt-mode-stamp.sh --apply 로 표식을 먼저 찍는다(다음 checkout 에 갑자기 sparse 되는 길 차단).
 _ftw_rc=0
-_ftw_pend=""; _ftw_moved=0; _ftw_pre_sc=unset; _ftw_pre_info=0; _ftw_out=""
+_ftw_pend=""; _ftw_moved=0; _ftw_drop=0; _ftw_sc_changed=0; _ftw_out=""; _ftw_wtcfg=0; _ftw_pre_wt=unset; _ftw_pre_local=unset; _ftw_pre_info=0
 _ftw_read() {  # <파일> — rc 와 출력을 «둘 다» 본다(rc≠0 = 실패) · _ftw_out 에 값을 남긴다
   _ftw_out="$(cat "$1" 2>/dev/null)"; [ "$?" = 0 ]
 }
-_ftw_fail() {  # <단계> <사유> — 반쪽 상태를 남기지 않는 «한 자리»: pending 삭제 · 표식 삭제 · sparse 설정 원복 · rc1 + ERROR 1줄
-  [ -z "$_ftw_pend" ] || rm -rf "$_ftw_pend" 2>/dev/null
-  [ "$_ftw_moved" = 0 ] || rm -f "$_mark" 2>/dev/null
-  case "$_ftw_pre_sc" in
-    true) :;;   # 원래 sparse 였다 — 되돌릴 것 없음
-    unset) for _f in --worktree --local; do git config $_f --unset core.sparseCheckout 2>/dev/null; done;;
-    *) for _f in --worktree --local; do git config $_f --bool core.sparseCheckout "$_ftw_pre_sc" 2>/dev/null; done;;
-  esac
+_ftw_pre_capture() {  # 설정 전 값 — «스코프별»(워크트리·공용) 로 읽는다 · 공용 설정 쓰기 0 을 지키려면 섞으면 안 된다
+  _ftw_wtcfg=0
+  [ "$(git config --bool extensions.worktreeConfig 2>/dev/null)" = true ] && _ftw_wtcfg=1
+  if [ "$_ftw_wtcfg" = 1 ]; then
+    _ftw_pre_wt="$(git config --worktree --bool core.sparseCheckout 2>/dev/null)"; [ -n "$_ftw_pre_wt" ] || _ftw_pre_wt=unset
+  fi
+  _ftw_pre_local="$(git config --local --bool core.sparseCheckout 2>/dev/null)"; [ -n "$_ftw_pre_local" ] || _ftw_pre_local=unset
+  _ftw_pre_info=0; [ ! -e "$_gd/info/sparse-checkout" ] || _ftw_pre_info=1
+}
+_ftw_restore() {  # 원복은 «값이 달라진 스코프» 만 — 워크트리 값만 되돌리고 공용(local) 값이 그대로면 쓰기 0
+  if [ "$_ftw_sc_changed" = 1 ]; then  # sparse 로 바뀌었으면 git 자신의 되돌림(파일 복원 + 설정 제거) 을 먼저 — config 만 되돌리면 파일이 빠진 반쪽
+    _fc="$(git config --bool core.sparseCheckout 2>/dev/null)"; [ "$_fc" = true ] && git sparse-checkout disable >/dev/null 2>&1
+  fi
+  for _fp in worktree local; do
+    if [ "$_fp" = worktree ]; then [ "$_ftw_wtcfg" = 1 ] || continue; _fv="$_ftw_pre_wt"
+    else _fv="$_ftw_pre_local"; fi
+    _fc="$(git config --"$_fp" --bool core.sparseCheckout 2>/dev/null)"; [ -n "$_fc" ] || _fc=unset
+    [ "$_fc" = "$_fv" ] && continue
+    if [ "$_fv" = unset ]; then git config --"$_fp" --unset core.sparseCheckout 2>/dev/null
+    else git config --"$_fp" --bool core.sparseCheckout "$_fv" 2>/dev/null; fi
+  done
   [ "$_ftw_pre_info" = 1 ] || rm -f "$_gd/info/sparse-checkout" 2>/dev/null
-  echo "ERROR ft-wt-mode $1 실패 — $2 · 표식·sparse 설정 원복(pending 0) · 체크아웃 상태 그대로 · 다음 checkout 에 처음부터" >&2
+}
+_ftw_fail() {  # <단계> <사유> — 반쪽 상태를 남기지 않는 «한 자리»: pending 삭제 · (옮겼거나 읽기 실패한) 표식 삭제 · 설정 원복 · rc1 + ERROR 1줄
+  [ -z "$_ftw_pend" ] || rm -rf "$_ftw_pend" 2>/dev/null
+  if [ "$_ftw_moved" = 1 ] || [ "$_ftw_drop" = 1 ]; then rm -f "$_mark" 2>/dev/null; fi
+  _ftw_restore
+  echo "ERROR ft-wt-mode $1 실패 — $2 · 표식·sparse 설정 원복(임시 자리 0) · 체크아웃 상태 그대로 · 다음 checkout 에 처음부터" >&2
   _ftw_rc=1; return 1
 }
-_ftw_stage() {  # <값> — pending 쓰기 → 다시 읽어 rc+값 확인 → mv 1회 → 진짜 자리에서 다시 확인 · 실패는 전부 _ftw_fail
+_ftw_pending() {  # <값> — 이동 «전» 임시 자리에 쓰고 다시 읽어 rc+값 확인 · 최종 자리는 아직 0(설정이 rc0 이기 전엔 노출 0)
   _ftw_pend="$_mark.pending.$$"
   rm -rf "$_ftw_pend" 2>/dev/null
-  mkdir -p "$_ftw_pend" 2>/dev/null || { _ftw_fail "표식 자리" "pending 폴더를 못 만둠 $_ftw_pend"; return 1; }
+  mkdir -p "$_ftw_pend" 2>/dev/null || { _ftw_fail "표식 자리" "pending 폴더를 못 만듬 $_ftw_pend"; return 1; }
   ( printf '%s\n' "$1" > "$_ftw_pend/ft-wt-mode" ) 2>/dev/null \
     || { _ftw_fail "표식 쓰기" "«$1» 를 pending 에 못 쓺(쓰기 실패)"; return 1; }
   _ftw_read "$_ftw_pend/ft-wt-mode" && [ "$_ftw_out" = "$1" ] \
     || { _ftw_fail "표식 쓰기" "«$1» 쓰고 다시 읽은 값이 다름 또는 읽기 rc≠0 $_ftw_pend/ft-wt-mode"; return 1; }
+  return 0
+}
+_ftw_commit() {  # <값> — 설정이 rc0 인 «뒤» 최종 자리로 mv 1회 · 실패는 전부 _ftw_fail
   mv "$_ftw_pend/ft-wt-mode" "$_mark" 2>/dev/null \
     || { _ftw_fail "표식 이동" "pending → $_mark mv 실패"; return 1; }
   _ftw_moved=1
@@ -55,16 +76,16 @@ _ftw_stage() {  # <값> — pending 쓰기 → 다시 읽어 rc+값 확인 → m
   return 0
 }
 _ftw_len() { python3 -c 'import sys; print(len(sys.argv[1].strip()))' "$1" 2>/dev/null || echo 0; }
-_ftw_slot_bad() {  # <이유> — 표식 자리가 «있음» 인데 믿을 수 없음 = ERROR + rc1 · 체크아웃 상태 변경 0
+_ftw_slot_bad() {  # <이유> — 표식이 «일반 파일이 아님»(심링크·폴더) = ERROR + rc1 · 상태 변경 0 · 값·읽기 문제는 _ftw_fail 로 간다
   echo "ERROR ft-wt-mode 표식 자리 이상 $_mark — $1 · 체크아웃 상태 그대로(다음 checkout 마다 같은 ERROR · 손으로 고치거나 지워라)" >&2
   _ftw_rc=1
 }
-_ftw_has() {  # 표식 자리 있음 판별(값 해석 0 · r843 r5) — 0 = 읽을 수 있는 일반 파일 · 2 = 없음 · 1 = 있으나 믿을 수 없음(ERROR 기록)
+_ftw_has() {  # 표식 자리 있음 판별(값 해석 0) — 0 = 읽힘(손대지 않음) · 2 = 없음 · 1 = 일반 파일 아님/읽기 실패(ERROR 기록)
   if [ -L "$_mark" ]; then _ftw_slot_bad "심링크 표식 자리(일반 파일 아님)"; return 1; fi
   if [ -d "$_mark" ]; then _ftw_slot_bad "폴더(일반 파일 아님)"; return 1; fi
   [ -e "$_mark" ] || return 2
-  if [ -f "$_mark" ] && [ -r "$_mark" ] && head -n 1 "$_mark" >/dev/null 2>&1; then return 0; fi
-  _ftw_slot_bad "못 읽음(일반 파일 아님 또는 권한)"; return 1
+  if [ -f "$_mark" ] && [ -r "$_mark" ] && _ftw_read "$_mark"; then return 0; fi
+  _ftw_drop=1; _ftw_fail "표식 읽기" "표식 자리 있음인데 못 읽음(rc≠0 또는 일반 파일 아님) $_mark"; return 1
 }
 _top="$(git rev-parse --show-toplevel 2>/dev/null)"
 if [ "${FT_R835_SPARSE_HOOK:-0}" != 1 ] && [ -n "$_top" ]; then
@@ -73,6 +94,7 @@ if [ "${FT_R835_SPARSE_HOOK:-0}" != 1 ] && [ -n "$_top" ]; then
   _topr="$(cd "$_top" 2>/dev/null && pwd -P)"
   _gd="$(git rev-parse --path-format=absolute --git-dir 2>/dev/null)"
   _mark="$_gd/ft-wt-mode"
+  _ftw_pre_capture
   _ftw_pre_sc="$(git config --bool core.sparseCheckout 2>/dev/null)"; [ -n "$_ftw_pre_sc" ] || _ftw_pre_sc=unset
   [ ! -e "$_gd/info/sparse-checkout" ] || _ftw_pre_info=1
   case "$_topr" in
@@ -85,20 +107,23 @@ if [ "${FT_R835_SPARSE_HOOK:-0}" != 1 ] && [ -n "$_top" ]; then
           *)         # 없음(ENOENT) — 표식을 «먼저» 쓰고 확인한 뒤에만 상태를 바꾼다(r843 r5 · DA ①②)
             _n=0; [ -z "${FT_WT_FULL:-}" ] || _n="$(_ftw_len "$FT_WT_FULL")"
             if [ "$_n" -ge 10 ]; then
-              if _ftw_stage "full $FT_WT_FULL"; then
+              if _ftw_pending "full $FT_WT_FULL" && _ftw_commit "full $FT_WT_FULL"; then
                 _seat="${FT_SEAT:-$(tmux display-message -p '#S' 2>/dev/null)}"
                 mkdir -p "$_root/.fable-team/state" \
                   && printf '%s · %s · %s · %s\n' "$(date '+%F %T')" "${_seat:-?}" "$_topr" "$FT_WT_FULL" >> "$_root/.fable-team/state/wt-add-full.log"
                 echo "[r835] FT_WT_FULL — 풀 체크아웃 유지 · 표식 $_mark" >&2
               fi
             elif [ "$(git config --bool core.sparseCheckout 2>/dev/null)" = true ]; then
-              _ftw_stage sparse
+              _ftw_pending sparse && _ftw_commit sparse
             else
               [ -z "${FT_WT_FULL:-}" ] || echo "  FT_WT_FULL 사유 짧음(${_n}자 · 10자 이상) — 무시하고 sparse" >&2
-              if _ftw_stage sparse; then
+              if _ftw_pending sparse; then
                 if printf '/*\n!/design/teams/*/\n' | git sparse-checkout set --no-cone --stdin >/dev/null 2>&1; then
-                  echo "[r835] 팀 워크트리를 sparse 로 정함(남의 팀 폴더 0) · $_topr" >&2
-                  echo "  자기 팀 폴더 = git -C $_topr sparse-checkout add /design/teams/<팀>/ · 다음부터 ft-wt-add.sh <이름> --team <팀>" >&2
+                  _ftw_sc_changed=1
+                  if _ftw_commit sparse; then
+                    echo "[r835] 팀 워크트리를 sparse 로 정함(남의 팀 폴더 0) · $_topr" >&2
+                    echo "  자기 팀 폴더 = git -C $_topr sparse-checkout add /design/teams/<팀>/ · 다음부터 ft-wt-add.sh <이름> --team <팀>" >&2
+                  fi
                 else
                   _ftw_fail "sparse 설정" "sparse-checkout set 실패(체크아웃 그대로) $_topr"
                 fi
