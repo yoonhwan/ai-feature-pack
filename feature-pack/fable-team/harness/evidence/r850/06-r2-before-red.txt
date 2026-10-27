@@ -1,0 +1,8 @@
+FAILED tests/scripts/test_news_team_state_r850.py::test_b_quiet_over_window_with_card_is_waiting_with_wait_line
+FAILED tests/scripts/test_news_team_state_r850.py::test_g_no_card_with_open_turn_is_progress_marked_no_card
+FAILED tests/scripts/test_news_team_state_r850.py::test_h_rescan_value_read_after_deadline_is_discarded
+FAILED tests/scripts/test_news_team_state_r850.py::test_i_retired_generation_is_not_collected_news_map_sheet_same
+FAILED tests/scripts/test_news_team_state_r850.py::test_j_no_live_seat_branch_keeps_wait_line
+FAILED tests/scripts/test_news_team_state_r850.py::test_r2_mutations_are_caught
+FAILED tests/scripts/test_news_team_state_r850.py::test_r2_mutation_prefix_collection_is_caught
+7 failed, 8 passed in 3.04s

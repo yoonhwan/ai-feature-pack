@@ -20,8 +20,10 @@ import ft_news_html_render as fr  # noqa: E402
 REAL = ("지금은 다섯 팀(chatbot·loom·planner·ops·v65)이 일하고, 다섯 팀(cfo·issues·kk·lecture·room)이 쉬며, "
         "세 팀(feature·graphics·harness)은 상태 확인 불가다")
 UNK = ["feature", "graphics", "harness"]
-LIVE_UNK = [{"team": t, "live": 2, "working": 0, "unknown": 2, "unknown_reason": "jsonl 없음 2석"} for t in UNK] + [
-    {"team": "chatbot", "live": 3, "working": 2, "unknown": 0, "unknown_reason": ""}]
+from _news_live import with_state  # noqa: E402  r850: live 팀 상태(state·label) = ft_team_state.judge 값
+
+LIVE_UNK = with_state([{"team": t, "live": 2, "working": 0, "unknown": 2, "unknown_reason": "jsonl 없음 2석"} for t in UNK] + [
+    {"team": "chatbot", "live": 3, "working": 2, "unknown": 0, "unknown_reason": ""}])
 NEW = {**CONTENT, "summary": ["통역 고침 시험 중", "하네스 설치 끝"]}  # 모델 줄은 1~2줄(첫 줄은 코드가 넣는다)
 
 
@@ -62,7 +64,7 @@ def test_r588_c_status_line_is_the_first_summary_line_and_lints_clean(tmp_path, 
     html_p, sum_p = fh.run_files({**DATA, "live": LIVE_UNK}, tmp_path / "o", NOW)
     page, summary = html_p.read_text(encoding="utf-8"), sum_p.read_text(encoding="utf-8")
     lines = summary.splitlines()
-    assert lines[0] == "일하는 팀 1개: chatbot. 상태 확인 불가 3개: feature, graphics, harness"
+    assert lines[0] == "진행 팀 1개: chatbot. 상태 확인 불가 3개: feature, graphics, harness"  # r850 «진행 팀»
     assert lines[1:] == NEW["summary"]  # 모델 줄은 상태 줄 «뒤» 그대로
     assert lint.problems(page, summary) == []
     assert "0개" not in lines[0]  # 0개 칸은 생략
@@ -87,10 +89,10 @@ def test_r588_d_model_all_stop_still_rejected(tmp_path, oc):
 
 # ⓔ facts 의 팀 수 = 상태 줄의 수(일하는 6 = 줄의 6) 와 이름 그대로
 def test_r588_e_status_line_counts_match_facts(tmp_path, oc):
-    live = [{"team": f"t{i}", "live": 1, "working": 1, "unknown": 0, "unknown_reason": ""} for i in range(6)]
-    live += [{"team": "rest", "live": 1, "working": 0, "unknown": 0, "unknown_reason": ""}]
+    live = with_state([{"team": f"t{i}", "live": 1, "working": 1, "unknown": 0, "unknown_reason": ""} for i in range(6)]
+                      + [{"team": "rest", "live": 1, "working": 0, "unknown": 0, "unknown_reason": ""}])
     sum_p = fh.run_files({**DATA, "live": live}, tmp_path / "e", NOW)[1]
     first = sum_p.read_text(encoding="utf-8").splitlines()[0]
-    facts = fh.facts(live, "모름")
-    assert first.startswith(f"일하는 팀 {len(facts['일하는 팀'])}개: {', '.join(facts['일하는 팀'])}.") and "일하는 팀 6개" in first
-    assert first.endswith(f"쉬는 팀 {len(facts['쉬는 팀'])}개: {', '.join(facts['쉬는 팀'])}") and "확인 불가" not in first
+    facts = fh.facts(live, "모름")  # r850: facts 칸 = 진행·대기·쉼·확인 불가
+    assert first.startswith(f"진행 팀 {len(facts['진행'])}개: {', '.join(facts['진행'])}.") and "진행 팀 6개" in first
+    assert first.endswith(f"쉬는 팀 {len(facts['쉼'])}개: {', '.join(facts['쉼'])}") and "확인 불가" not in first

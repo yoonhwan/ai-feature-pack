@@ -1,0 +1,3 @@
+# 새 판(r850 bin) — 같은 입력
+live = [{"team": "f", "live": 1, "working": 0, "unknown": 0, "unknown_reason": "", "state": "진행", "label": "진행 · 20분 전 턴"}, {"team": "x", "live": 2, "working": 0, "unknown": 0, "unknown_reason": "", "state": "진행", "label": "진행 · 9분 전 턴"}]
+facts = {"진행": ["f", "x"], "대기": [], "쉼": [], "확인 불가": [], "자율": "모름"}

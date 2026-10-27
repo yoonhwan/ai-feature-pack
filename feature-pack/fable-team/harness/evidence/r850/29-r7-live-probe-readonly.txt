@@ -1,0 +1,22 @@
+2026-10-26 22:20:05
+== r7 판(부모 = 얇은 감독자 · 판정 전체는 하위 · 반환 지점 1) · 읽기 전용 · root=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents
+팀 cfo 기다림 원천 모양 오류 — master='' · seats={}
+팀 feature 기다림 원천 모양 오류 — master='' · seats={}
+팀 graphics 기다림 원천 모양 오류 — master='' · seats={}
+팀 kk 기다림 원천 모양 오류 — master='FB_KK#4' · seats={}
+secs=5.86
+{"team": "ccu", "working": 0, "live": 1, "unknown": 0, "unknown_reason": "", "state": "진행", "label": "진행 · 12분 전 턴"}
+{"team": "cfo", "working": 0, "live": 11, "unknown": 11, "unknown_reason": "명부 현역 세션 없음 11석", "state": "확인 불가", "label": "확인 불가(명부 현역 세션 없음 11석)"}
+{"team": "chatbot", "working": 0, "live": 1, "unknown": 0, "unknown_reason": "", "state": "진행", "label": "진행 · 3분 전 턴"}
+{"team": "feature", "working": 0, "live": 5, "unknown": 5, "unknown_reason": "명부 현역 세션 없음 5석", "state": "확인 불가", "label": "확인 불가(명부 현역 세션 없음 5석)"}
+{"team": "graphics", "working": 0, "live": 19, "unknown": 19, "unknown_reason": "명부 현역 세션 없음 19석", "state": "확인 불가", "label": "확인 불가(명부 현역 세션 없음 19석)"}
+{"team": "harness", "working": 2, "live": 5, "unknown": 3, "unknown_reason": "jsonl 없음 3석", "state": "진행", "label": "진행 · 일하는 좌석 2/5"}
+{"team": "issues", "working": 0, "live": 1, "unknown": 0, "unknown_reason": "", "state": "진행", "label": "진행 · 5분 전 턴"}
+{"team": "kk", "working": 0, "live": 6, "unknown": 6, "unknown_reason": "명부 현역 세션 없음 6석", "state": "확인 불가", "label": "확인 불가(명부 현역 세션 없음 6석)"}
+{"team": "knowledge", "working": 0, "live": 1, "unknown": 0, "unknown_reason": "", "state": "진행", "label": "진행 · 2분 전 턴"}
+{"team": "lecture", "working": 0, "live": 1, "unknown": 0, "unknown_reason": "", "state": "진행", "label": "진행 · 29분 전 턴"}
+{"team": "ops", "working": 1, "live": 1, "unknown": 0, "unknown_reason": "", "state": "진행", "label": "진행 · 일하는 좌석 1/1"}
+{"team": "planner", "working": 1, "live": 5, "unknown": 2, "unknown_reason": "jsonl 없음 2석", "state": "진행", "label": "진행 · 일하는 좌석 1/5"}
+{"team": "room", "working": 0, "live": 1, "unknown": 0, "unknown_reason": "", "state": "진행", "label": "진행 · 0분 전 턴"}
+{"team": "v65", "working": 0, "live": 1, "unknown": 0, "unknown_reason": "", "state": "진행", "label": "진행 · 1분 전 턴"}
+grade= PARTIAL 4팀

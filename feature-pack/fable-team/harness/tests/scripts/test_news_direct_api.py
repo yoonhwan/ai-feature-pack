@@ -219,7 +219,7 @@ def test_i_ledger_read_from_origin_main_not_checkout_head(tmp_path, monkeypatch)
     repo, root, rel, old, new = _stale_copy(tmp_path)
     for k, v in {"FT_ROOT": root, "FT_LEDGER_REPO": repo, "FT_LEDGER_PATH": rel, "FT_NEWS_FETCH_MIN": "0"}.items():
         monkeypatch.setenv(k, str(v))
-    monkeypatch.setattr(fh, "live_teams", lambda r: [{"team": "t", "live": 0, "working": 0, "unknown": 0}])
+    monkeypatch.setattr(fh, "live_teams", lambda r: [{"team": "t", "live": 0, "working": 0, "unknown": 0, "state": "쉼", "label": "쉼 · 30분 안 턴 0"}])  # r850 state·label
     monkeypatch.setattr(fh, "goals", lambda: [{"n": i, "goal": f"골 {i}", "team": f"t{i}", "state": "지금"} for i in range(1, 7)])
     monkeypatch.setattr(fh, "autonomy", lambda r: "ON")
     monkeypatch.setattr(fh, "teams", lambda r: [])
