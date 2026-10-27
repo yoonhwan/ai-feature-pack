@@ -1,0 +1,58 @@
+# r641 증거 06 — 반송 r1(DA⑥ r1 HOLD 2건) 고침: H1 dry-run FAIL → rc 3 · H2 끝난 나노 판정을 model 검사 앞으로 · 2026-10-27 · nano
+# 고치기 전 판 = 6dd80da2 (직전 커밋 키트 bin 전체를 R641_BIN 으로)
+
+## (1) 빨강 먼저 — 6dd80da2 판으로 새 칸 ⓙⓚ
+$ R641_BIN=<6dd80da2 kit/fable-team/bin 전체> bash feature-pack/fable-team/harness/tests/test_reboot_restore_r641.sh
+FAIL ⓙ dry-run + codex FAIL → rc 3 — «0» ≠ «3»
+FAIL ⓙ 꼬리 줄 rc=3 — 없음: «rc=3» ← 출처=snapshot /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.NnwIVGQKYI/home/.tmuxc/snapshots/latest.json
+FAIL ⓚ 끝난 나노 SKIP(model 없어도) — 없음: «ftrr-test-nano-m · SKIP 끝난 나노» ← 출처=snapshot /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.NnwIVGQKYI/home/.tmuxc/snapshots/latest.json
+FAIL ⓚ 끝나지 않은 나노 + model null → rc 3 — «0» ≠ «3»
+FAIL ⓚ model 없음 FAIL — 없음: «ftrr-test-nano-m · FAIL model 없음» ← 출처=snapshot /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.NnwIVGQKYI/home/.tmuxc/snapshots/latest.json
+== r641 fail=5
+합계: PASS 55 · FAIL 8 · rc=1
+
+## (2) 변이 A — rc 줄을 옛 꼴(dry-run 이면 rc 0)로 → ⓙ 빨강
+FAIL ⓙ dry-run + codex FAIL → rc 3 — «0» ≠ «3»
+FAIL ⓙ 꼬리 줄 rc=3 — 없음: «rc=3» ← 출처=snapshot /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Ww7yvVfT9K/home/.tmuxc/snapshots/latest.json
+== r641 fail=4
+
+## (3) 변이 B — model 검사를 rested 판정 앞으로 되돌림 → ⓚ 빨강
+FAIL ⓚ 끝난 나노 + model null → rc 0 — «3» ≠ «0»
+FAIL ⓚ 끝난 나노 SKIP(model 없어도) — 없음: «ftrr-test-nano-m · SKIP 끝난 나노» ← 출처=snapshot /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.vle4n9NGsU/home/.tmuxc/snapshots/latest.json
+== r641 fail=3
+
+## (4) 고친 뒤 — 두 변이 원복(cmp0) → 전량 초록
+PASS ⓙ dry-run + codex FAIL → rc 3
+PASS ⓙ 엔진 밖 FAIL 줄
+PASS ⓙ 꼬리 줄 rc=3
+PASS ⓙ dry-run 세션 0(codex)
+PASS ⓙ claude 정상 1석만이면 dry-run rc 0 그대로
+PASS ⓙ 꼬리 줄 rc=0
+PASS ⓚ 끝난 나노 + model null → rc 0
+PASS ⓚ 끝난 나노 SKIP(model 없어도)
+PASS ⓚ 끝나지 않은 나노 + model null → rc 3
+PASS ⓚ model 없음 FAIL
+== r641 fail=0
+ALL PASS
+합계: PASS 61 · FAIL 0 · rc=0
+
+## (5) 고친 자리(도구)
+$ grep -n 'rc = 0 if' feature-pack/fable-team/harness/kit/fable-team/bin/ft-reboot-restore.sh
+122:x = 0 if dry else sum(1 for x in res if x[3] == "X")   # dry-run 은 8317 확인이 없다 — FAIL 은 dry-run 에서도 rc 3(H1)
+123:rc = 0 if not (fails or x) else 3
+$ sed -n '/^def precheck/,/^def line_for/p' …
+def precheck(r):   # (결과, 사유) · None = 연다
+    n = r["name"]
+    if not n: return "FAIL", "이름 없음"
+    if alive(n): return "SKIP", "살아 있음"
+    if r["engine"] != "claude": return "FAIL", f"엔진 밖({r['engine'] or '-'})"
+    if not (r["uuid"] and os.path.isdir(r["cwd"])): return "FAIL", "uuid·cwd 없음"
+    if not os.path.isfile(r["jsonl"]): return "FAIL", "대화 파일 없음"
+    if "-nano-" in n and run("bash", f"{here}/ft-resume-attempt.sh", "rested", r["jsonl"])[0] == 0: return "SKIP", "끝난 나노"
+    if not r["model"]: return "FAIL", "model 없음"   # model 은 새 세션을 열 때만 필요 — 끝난 나노·살아 있음 판정을 막지 않는다(H2)
+    return None
+
+## (6) 정적 검사
+bash -n kit rc=0
+shellcheck rc=0
+kit ↔ 추적본 cmp 0

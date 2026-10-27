@@ -1,3 +1,30 @@
+## 2026-10-27 — 재부팅 뒤 좌석 복구가 손일이었다(`tmuxc restore` 는 기본이 계획 모드 · 좌석을 하나씩 열며 좌석당 최대 60초를 기다려 45석이면 한 호출 시간 제한에 잘림(추정) → planner 가 26석을 손으로 엶) → 새 도구 `ft-reboot-restore.sh` 1줄: 스냅샷(없으면 seat-live)에서 claude 좌석 목록 → 4석씩 병렬로 tmux 세션 + 헤드룸 래퍼 `--resume` → 좌석별 확인표(8317 O/X) + FAIL 목록 + 원장 · 맨 앞에 r626 전팀 정지 검사 · `tmuxc restore` 계획 모드 안내를 출력 맨 위로 (r641 · 1.1.258 · tmuxc 0.4.8 · 새 도구 + 안내 1줄 · tmuxc restore 동작·`ft-resume-attempt.sh`·`ft-resume-cmd.sh`·zombie-clean resume·명부 무변경)
+
+- 사건(이슈 2341 → harness master 91 쪽지 129714·129722 · arch 116 실측 읽기 전용): `~/.tmuxc/snapshots/latest.json` 좌석 45 · 행 = name·cwd·model·effort·session_id · `~/.claude/state/seat-live/*.json` 930 · tmuxc restore 계획 모드 안내는 출력 «끝» 에만(:1669·:1679).
+- 새 도구(키트 `kit/fable-team/bin/ft-reboot-restore.sh` + 추적본 `bin/` cmp0): `[--from latest|<경로>] [--since 24] [--dry-run]` · 목록 = 스냅샷(agent=shell 제외) → 없음·깨짐·0석이면 seat-live(engine=claude · 파일 시각 since 시간 안 · 같은 이름 at 최신 1 · effort 기본 high) · 출처 1줄 · 둘 다 없음 ERROR rc 2. 좌석마다(`FT_RR_PAR`=4 병렬): ①같은 이름 세션 있음 SKIP 살아 있음(보기만 · kill·send-keys 0) ②claude 아님 FAIL 엔진 밖 ③uuid·model·cwd·대화 파일 없음 FAIL ④이름에 `-nano-` + `ft-resume-attempt.sh rested` rc 0 = SKIP 끝난 나노 ⑤`tmux new-session -d -s <이름> -c <cwd> -e FT_SEAT=<이름> 'zsh -l'` → `send-keys -l <줄>` 과 `Enter` 별도 호출 · 줄 = `FT_SEAT=<이름> ~/.headroom/claude-hr.sh --dangerously-skip-permissions --model … --effort … --resume <uuid> --name <이름>`(shlex 따옴표) ⑥`FT_RR_WAIT`(60)초 안 pane 자손 중 `ANTHROPIC_BASE_URL` 있는 프로세스(또는 exec 된 claude) = OK · 8317 O/X · 못 보면 FAIL 기동 확인 없음. 출력 = «이름 · 결과 · pid · 8317 · uuid» 표 + FAIL 목록 + 맨 끝 `REBOOT-RESTORE ok=… skip=… fail=… x8317=… rc=…` · 원장 `<루트>/.fable-team/state/reboot-restore.log`(좌석이 끝날 때마다 1줄 — 중간에 끊겨도 남음) · rc 0 / 3(FAIL 또는 X) / 2(ERROR).
+- 전팀 정지 겹침 해소(r626 착지 뒤): 도구 맨 앞에서 `ft-all-stop.sh check` 를 `FT_ROOT` 로 부르고, rc≠0 이면 그 `REJECT 전팀 정지 중(…)` 줄을 **그대로** 내고 rc 1 · 좌석 목록·tmux 세션·send-keys 0(정지 우회 금지 · 반례 R1). 같은 폴더에 `ft-all-stop.sh` 가 없으면 stderr `WARN … 전팀 정지 검사 0` 1줄. r626 은 «상태 폴더만 있고 원장(all-stop.log) 없음 = 정지» 로 보므로, 시험 setup 이 `ft-all-stop.sh init` 으로 꺼짐 증거(원장 첫 줄)를 남긴다.
+- tmuxc(`tmuxc/core/bin/tmuxc` cmd_restore): `--go` 없고 대화형 선택 프롬프트가 아닐 때 출력 맨 위 1줄 «(계획 모드 — 실행은 `tmuxc restore --select all --go` · 많으면 `ft-reboot-restore.sh`)» · 끝의 기존 안내·동작 그대로.
+- 시험 `harness/tests/test_reboot_restore_r641.sh`(새 51 · 임시 HOME·FT_ROOT · 가짜 claude-hr.sh(인자·cwd 기록 후 `ANTHROPIC_BASE_URL` 붙인 python 자식) · ★tmux 는 격리 소켓 `-L ftrr-test-<pid>` 셔임 — 사용자 tmux 서버 접근 0★ · 세션 이름 `ftrr-test-*`): ⓐ~ⓗ + ⓘ(정지 켜짐 = rc 1 · 그 REJECT 줄 · 세션 0 · 래퍼 0 · 표 0 · 끄면 다시 rc 0). 실측 함정: macOS 는 시스템 바이너리(`/bin/sleep`)의 환경을 `ps eww` 로 안 보여 준다 — 가짜 자식은 python(사용자 바이너리 · 실 claude 와 같은 조건). **전(base = origin/main 키트 bin · 도구 없음: PASS 20 · FAIL 31 · ⓘ 5칸 빨강 rc=1 · `evidence/r641/05-stop-guard.txt`) → 후(ALL PASS 51 rc=0)** · 변이(정지 검사 1줄 삭제) = ⓘ 5칸 전부 FAIL · 원복 cmp0.
+- 기존 시험(인접 · 광역 0): `test_kit_bin_sync.sh` ALL PASS rc=0 · `test_all_stop_r626.sh` 116 PASS ALL PASS rc=0 · `evidence/r641/03-existing-tests.txt`.
+- 설치: 있음 — 키트 1(`ft-reboot-restore.sh` → LIVE_BIN 새 판 cmp0) · `tmuxc/core/bin/tmuxc` → `~/.tmuxc/current/core/bin/tmuxc` cmp0 · manifest 1.1.258 · tmuxc 0.4.8(manifest + core/VERSION). **설치·실사건 1(다음 재부팅 또는 오빠 승인 1회 시험 때 이 도구 1줄 복구 확인표 원문)은 master 소관 — 미실행.** 되돌림 = 새 도구 삭제 + tmuxc 안내 줄 원복.
+- press 필요: 없음 — 하네스 좌석 복구(제품 키·말풍선·음성 경로 무관).
+
+## 2026-10-27 — r894 매거진 슬랙 뿌리 글 단순화 · 쉬운 풀이 차단 낱말 다시 쓰기 1회 · explain 총 마감 (1.1.257)
+
+- 뿌리 글에 표 꼴 결론을 싣지 않고 warn 1(HTML 첫 절 유지) · 쉬운 풀이 차단 낱말이 나오면 다시 쓰기 1회 · explain 호출 총 마감(마감 뒤 새 호출 0 · 못 끝난 칸 «시간 초과»). 승인판 7dd860fd(squash) · 외부 DA⑥ r2 APPROVE(BYZ design/harness/VERDICT-arch155-r894-close-20261027.md · cc0d57a7ce) · 설치: LIVE_BIN·슬랙 미러 cmp0 → 매거진 재생성.
+
+## 2026-10-27 — 오케스트레이션 게이트 시험(`test_orch_gate_top_models.sh`)의 «프로젝트 사본» 자리(`<팩>/.claude/hooks/…`)가 1.1.0 재배치(3b25f81d) 뒤 없어 PROJ 5칸이 «파일 없음»(127)으로 빨갰고, 팩 안 같은 훅 사본 2벌(kit/templates · skill/templates)이 서로 달랐다 → PROJ = 팩 안 두 번째 사본(skill/templates · `ORCH_GATE_PROJ` 로 바꿀 수 있음) · skill 사본을 정본(kit/templates)과 같게 복사 · 팩 안 사본 전부 = 정본 cmp0 단언 추가 (r699 · 1.1.256 · 시험·사본 정리 · 훅 동작 변경 0)
+
+- 증거 `harness/evidence/r699/`(고치기 전 5/5 FAIL · 후판 12/0 · 변이 cmp FAIL) · skill 사본은 manifest `template-only` 항목이라 지우지 않고 맞춤 · 설치: kit 판 불변 → 전역 훅 그대로(cmp0 확인만) · 되돌림 = 이전 판.
+
+## 2026-10-26 — r765 승인 도구가 게이트와 같은 원장 줄 꼴(줄머리∨표 행)을 읽는다 (1.1.255)
+
+- 제안 승인 도구가 원장 표 행도 승인 줄로 읽어 게이트(ft-proposal-gate)와 판정이 같아진다. 승인판 dc01df8c(팩 origin/main 병합) · 외부 DA sol high r1 APPROVE(BYZ design/harness/evidence/r765-da6/VERDICT-r765-sol-approve.md).
+
+## 2026-10-26 — r959 인덱스 이동 실패 사유를 REJECT 에 · 정본 게이트 착지 리포 판정(팩 sha 를 팩 리포에서) (1.1.254)
+
+- ft-index-move 가 git mv 실패 stderr 를 REJECT 줄에 싣고, 정본 게이트(ft-index-move-canon)가 착지 sha 를 실제로 있는 리포(BYZ·팩)에서 조상 판정한다. 승인판 81562c34 · 외부 DA sol high r3 APPROVE(BYZ design/harness/evidence/r959-da6/VERDICT-r959-sol-approve.md).
+
 ## 2026-10-26 — r938 r3 상한 «전 자리» — 자손 전부 회수 · bad 뒤 우회 원장 0 · 둘째 cherry·리서치 fetch 그 자리 REJECT (1.1.252)
 
 - 상한 함수(nf_bound)가 출력을 파이프 대신 임시 파일로 받고, 상한이면 죽이기 전에 ps 로 자손 나무(새 세션 손자 포함)를 모아 TERM → 1초 → KILL · 회수 0.5초(총 ≤ 상한 + 2초). 손자가 출력 fd 를 물고 있어도 기다림 0.
@@ -11,6 +38,13 @@
 - 원격 받아오기(fetch) 네 곳(카드 ref·연구 origin main·cherry 재대조·feat ref)이 7초 + 재시도 1 상한을 거치고, fetch 가 실패하면 그 뒤 origin/main 을 쓰는 검사(cherry 재검사·freshness)를 돌리지 않고 그 자리 REJECT 한다(«origin/main fetch 실패 — 옛 ref 대조 0(R22)»).
 - 하위 검사(증거 검사·cherry 게이트·freshness·사건 원장·slots)는 min(고정비 + 7초 × 작업량(커밋·리포 수), 70초) 상한. 넘으면 프로세스 묶음째 TERM → 1초 → KILL 하고 REJECT «<단계> 시간 초과 <걸린>/<상한>s · 배수 <n> — 다시: 같은 명령 · 계속이면 arch 보고». 상한 걸리는 검사는 모든 쓰기보다 먼저 끝나고(사건 원장 abort trap 은 prepare 전), 상한 REJECT 시 명부·원장·세션·카드·.prepared 변경 0.
 - 시험 test_nano_close_step_timing_r938.sh 80 PASS(ⓐ~ⓚ · /bin/bash 3.2) · 변이 6종 각축 ALL-RED(빨강이어야 할 칸 이름 단언) · kit cmp0 · 기존 닫기·시트 시험 12종 초록.
+## 2026-10-26 — r948 카드 리포 착지 카드의 라이브 전수 대조가 프로젝트를 넘긴다 + --all 거짓 PENDING 3종 (1.1.253)
+
+- ft-index-move-install.sh: 착지 리포가 카드 리포면 `--all --project <카드 리포 공용 루트>` 로 부른다(git-common-dir 의 부모 · ft_git_capped 7초 · 워크트리 안 카드도 루트). 전엔 --project 가 없어 검사기가 팩 리포를 프로젝트로 보고 «LIVE_BIN 없음» ERROR rc3 → 일괄 닫기가 첫 장부터 막혔다. 팩 착지(--range) 갈래는 그대로.
+- ft_live_install_check.py live_path: 지도 패턴 접두는 폴더(마지막 /)까지만 — `templates/scope-*.tsv` 를 «scope-» 뗀 이름(classes-pack.tsv)으로 찾던 MISSING 2 가 사라진다.
+- plist Label 이 «접두-__자리표시__» 꼴(iap-tunnel-__PORT__)이면 적재 목록에서 정확 라벨 또는 «접두-<숫자>» 인스턴스를 찾아 각각 대조한다(다른 접미는 안 셈). 0개 = NOTLOADED · launchctl list 실패 = ERROR(숨김 0).
+- LIVE-MAP: launchd/com.byz.ft-head-lag.plist.template = skip(install.sh 는 새 launchd 를 깔지 않고 ft-head-lag.sh 는 ft-news-tick·ft-merge-land 가 직접 부른다). ft-idle-wake 는 부르는 곳이 launchd 하나뿐이라 NOTLOADED 그대로 둔다(10-25 07:12 이후 실제로 안 돎 = 진짜 어긋남).
+- 시험 test_r948_live_all_project.sh 15 PASS(ⓐ~ⓗ + 변이 6종 · /bin/bash 3.2 · r2 = DA⑥ r1 HOLD 1 정확 라벨 반영) · 인접 시험 rc0 · 짝 사본 cmp0(bin 2 + kit).
 
 ## 2026-10-26 — r921 자원 조건으로 멈추지 않는다 — 회수 먼저 → 그래도 넘으면 WARN 1줄 + 진행 (1.1.251)
 

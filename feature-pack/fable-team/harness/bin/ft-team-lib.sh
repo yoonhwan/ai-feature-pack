@@ -182,6 +182,7 @@ ft_from_current() { local v="${1:-}" seats="${2:-}" m d lint r
 #     순서: ①두 리포 rev-parse(7초 상한) ②한 곳에만 = 그 리포 ③둘 다 = 표식 줄(main(팩) = 팩 · main = 카드 리포 · 표식 없으면 팩 — 카드 리포가 팩 객체를 fetch 해 두는 실사건 · r581)
 #           ④둘 다 없음 = REJECT «어느 리포에서도 못 찾음» · 표식과 실제가 어긋나면 REJECT(표식 오기 숨김 0 · ⓒ)
 #     앞자리(7~39자)는 그 리포에서 유일해야 인정 · 같은 앞자리가 두 리포의 «다른» 커밋이면 표식 필수(없으면 REJECT) · 팩 리포가 빈 값이면 카드 리포만 본다
+#   r959: 표식 «main» 인데 sha 가 팩에만 있으면 «표식 오기(팩 착지)» WARN 1줄 + 팩 리포 결과(기본 동작 — 부르는 쪽마다 따로 보정하지 않는다). 표식 «main(팩)» 어긋남은 보정하지 않는다(숨김 0)
 #   ft_git_capped <초> <리포> <git 인자…> : git 조회 1회를 «초» 상한으로 감싼다(r937 r2 T1 · 7초 상한 없는 git 호출 금지).
 #     r3: python 실행기 1개(ft_git_capped.py) — git 을 새 프로세스 그룹에서 돌리고 시간 초과면 그룹 SIGTERM → 0.5초 뒤 SIGKILL(자식까지) → 재시도 1회 실제 수행 →
 #     또 초과면 rc 124. timeout/gtimeout·bash 버전과 무관 · rc·stdout 은 git 그대로 · 실행 실패 rc 128 · 총 ≤ 2회(재시도는 실행기 안에서 끝난다 — 부르는 쪽이 또 감싸지 않는다)
@@ -213,7 +214,9 @@ ft_landed_repo() { local sha="$1" cr="${2:-}" pr="${3:-}" mk="${4:-}" cs="" ps="
   case "$want" in
     pack) [ -n "$ps" ] || { printf 'REJECT 판정문 표식 main(팩) 인데 팩 리포에 그 sha 가 없다 — 표식 오기(숨김 0): %s\n' "$sha"; return 1; }
           printf '%s\t%s\n' "$pr" "$ps"; return 0;;
-    card) [ -n "$cs" ] || { printf 'REJECT 판정문 표식 main 인데 카드 리포에 그 sha 가 없다 — 표식 오기(숨김 0): %s\n' "$sha"; return 1; }
+    card) [ -n "$cs" ] || {   # r959: 표식 «main» 인데 sha 가 팩에만 = 표식 오기(팩 착지) → WARN 1줄 + 팩 리포. 보정은 «이 함수의 기본 동작» — 정본·설치·DA 보류 가드·close-landed 네 호출이 부르는 쪽마다 보정을 붙이다 두 번 샜다(DA⑥ r1·r2)
+            printf 'WARN\t표식 오기(팩 착지) — 판정문 표식 «main» 인데 sha 가 팩 리포에만 있다 — 팩 리포로 검사한다(카드에 «main(팩)» 로 적으면 이 경고가 사라진다): %s\n' "$sha" >&2
+            printf '%s\t%s\n' "$pr" "$ps"; return 0; }
           printf '%s\t%s\n' "$cr" "$cs"; return 0;;
   esac
   if [ -n "$ps" ]; then printf '%s\t%s\n' "$pr" "$ps"; else printf '%s\t%s\n' "$cr" "$cs"; fi; }

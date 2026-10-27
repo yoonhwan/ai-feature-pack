@@ -1,0 +1,2 @@
+FAILED tests/scripts/test_ft_secret_shapes.py::test_g_pem_header_with_leading_ascii_is_secret_shape
+1 failed, 149 deselected in 0.27s

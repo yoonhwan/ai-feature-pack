@@ -1,0 +1,4 @@
+FAILED tests/scripts/test_ft_secret_shapes.py::test_i_space_variant_masks_both
+FAILED tests/scripts/test_ft_secret_shapes.py::test_i_r4_diff_first_input_masks_both
+FAILED tests/scripts/test_ft_secret_shapes.py::test_h_no_base_masked_value_survives
+3 failed, 147 deselected in 0.55s

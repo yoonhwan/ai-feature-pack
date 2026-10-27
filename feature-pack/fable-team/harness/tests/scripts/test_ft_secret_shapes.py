@@ -1,6 +1,8 @@
 """R135b 출력 모양 가림 ft_secret_shapes — 텍스트 → (가린 텍스트, [(종류, 줄 번호)]).
 값은 전부 가짜(FAKE…) — 실제 비밀 조회 0 · 시험 출력·단언 메시지에 가짜 값 원문을 다시 쓰지 않는다."""
 import importlib.util
+import subprocess
+import tempfile
 import time
 from pathlib import Path
 
@@ -9,7 +11,10 @@ from real_state_guard import guard_begin_module  # noqa: E402,F401  r541: 실 �
 
 ROOT = Path(__file__).resolve().parents[3]
 SHAPES = ROOT / "harness/bin/ft_secret_shapes.py"
+KIT_BIN_SHAPES = ROOT / "harness/kit/fable-team/bin/ft_secret_shapes.py"
 KIT_HOOKS = ROOT / "harness/kit/fable-team/templates/hooks/ft_secret_shapes.py"
+SCOPE = ROOT / "harness/bin/autonomy_scope_secret.py"
+KIT_BIN_SCOPE = ROOT / "harness/kit/fable-team/bin/autonomy_scope_secret.py"
 
 
 def _load():
@@ -258,3 +263,187 @@ def test_webhook_id_named_secret_is_masked():  # NAME 에 WEBHOOK 이 들어가 
 
 def test_kit_copy_is_byte_identical():
     assert KIT_HOOKS.read_bytes() == SHAPES.read_bytes()
+
+
+# ── r977: 비밀 «경계» 한 벌 — 앞뒤 경계는 ASCII 영숫자·_ 아님(하이픈·한글·문장부호는 경계) ──────────
+# 위치 4종 × 꼴 5종. base 는 한글 바로 뒤 토큰을 놓쳤고(r949 r3 는 하이픈 뒤 토큰도 놓쳤다).
+POS = {"space": "x ", "korean": "토큰은", "paren": "(", "hyphen": "-"}
+TOKENS = ["ghp_", "gho_", "github_pat_", "xoxb-", "sk-", "AIza"]  # TOKEN_PREFIX 가 아는 꼴(목록 확장 0)
+
+
+@pytest.mark.parametrize("prefix", TOKENS)
+@pytest.mark.parametrize("pos", list(POS), ids=list(POS))
+def test_a_token_prefix_masked_at_all_four_positions(prefix, pos):  # ⓐ 4위치 전부 잡힘(회귀 0 포함)
+    src = POS[pos] + prefix + PAD + " end"
+    out, hits = S.mask(src)
+    assert [h[0] for h in hits] == ["token-prefix"], (pos, prefix, hits)
+    assert PAD not in out and prefix not in out
+
+
+def _load_scope():
+    spec = importlib.util.spec_from_file_location("autonomy_scope_secret_t", SCOPE)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+SC = _load_scope()
+SHAPE_SAMPLES = {  # SECRET_SHAPE 가 아는 꼴(목록 확장 0 — github_pat_ 는 별 카드)
+    "ghp": "ghp_" + "A" * 30,
+    "xoxb": "xoxb-" + "1" * 12,
+    "sk": "sk-" + "A" * 20,
+    "AKIA": "AKIA" + "A" * 16,
+    "pem": "-----BEGIN RSA PRIVATE KEY-----",
+}
+
+
+@pytest.mark.parametrize("kind", list(SHAPE_SAMPLES), ids=list(SHAPE_SAMPLES))
+@pytest.mark.parametrize("pos", list(POS), ids=list(POS))
+def test_b_secret_shape_true_at_all_four_positions(kind, pos):  # ⓑ 두 lib 이 같은 경계를 쓴다
+    assert SC.SECRET_SHAPE.search(POS[pos] + SHAPE_SAMPLES[kind]), (pos, kind)
+
+
+def test_b_edge_char_sets_are_equal_between_libs():  # ⓑ 글자 집합 비교 — 한쪽만 고치면 FAIL
+    assert S.EDGE_CHARS == SC.EDGE_CHARS
+    assert S.EDGE_L == "(?<![" + S.EDGE_CHARS + "])" and SC.EDGE_L == "(?<![" + SC.EDGE_CHARS + "])"
+    # r977 r4(오빠 결정 1번): «오른쪽» 경계는 base 와 같다 — 두 lib 다 오른쪽 경계 상수를 두지 않는다
+    assert not hasattr(S, "EDGE_R") and not hasattr(SC, "EDGE_R")
+    assert "(?P<val>" + S.TOKEN_PREFIX + r"[A-Za-z0-9_.\-]{16,})" in S.RULES[2][1].pattern  # 값 뒤 앞보기 0
+    assert "AKIA[0-9A-Z]{16}\\b" in SC.SECRET_SHAPE.pattern  # AKIA 만 base 꼴 `\b`(나머지 꼴은 값 뒤 경계 없음)
+
+
+@pytest.mark.parametrize("family", ["shapes", "autonomy"])
+def test_c_five_copies_byte_identical(family):  # ⓒ 사본 5벌(3 + 2) 같은 커밋 · cmp0
+    paths = [SHAPES, KIT_BIN_SHAPES, KIT_HOOKS] if family == "shapes" else [SCOPE, KIT_BIN_SCOPE]
+    blobs = {p.read_bytes() for p in paths}
+    assert len(blobs) == 1, [str(p) for p in paths]
+
+
+HARNESS = ROOT / "harness"
+CONSUMERS = ["tests/test_secret_scan.sh", "tests/test_secret_output_mask.sh",
+             "tests/test_evidence_inject_scan.sh", "tests/test_flag_off_scan.sh"]
+
+
+@pytest.mark.parametrize("script", CONSUMERS, ids=[Path(x).stem for x in CONSUMERS])
+def test_d_consumer_suites_still_pass(script):  # ⓓ 소비자 4종 — 경계 재정의 0(공용 판정 그대로 호출)
+    p = subprocess.run(["bash", script], cwd=HARNESS, capture_output=True, text=True, timeout=180)
+    assert p.returncode == 0, (p.stdout[-2000:], p.stderr[-2000:])
+
+
+# ── r977 r2: DA⑥ r1 반례 2건 — 경계를 넓힌 대가로 «새던 입력» 만 되돌린다(경계 글자 집합은 한 벌 그대로) ──────
+BASE_SHA = "1545012e"  # 카드 기준값(base · 경계 한 벌 도입 전)
+BASE_PATHS = {"shapes": "feature-pack/fable-team/harness/bin/ft_secret_shapes.py",
+              "scope": "feature-pack/fable-team/harness/bin/autonomy_scope_secret.py"}
+_BASE_CACHE: dict[str, object] = {}
+
+
+def _base_mod(name):  # base 판 모듈 — 팩 리포 안에서만(설치본에는 base 커밋이 없다 → skip)
+    if name in _BASE_CACHE:
+        return _BASE_CACHE[name]
+    p = subprocess.run(["git", "-C", str(ROOT), "show", BASE_SHA + ":" + BASE_PATHS[name]], capture_output=True, text=True)
+    if p.returncode != 0:
+        pytest.skip("base " + BASE_SHA + " 없음 — " + BASE_PATHS[name])
+    tmp = Path(tempfile.mkdtemp()) / ("base_" + name + ".py")
+    tmp.write_text(p.stdout, encoding="utf-8")
+    spec = importlib.util.spec_from_file_location("base_" + name + "_t", tmp)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    _BASE_CACHE[name] = mod
+    return mod
+
+
+def _masked_values(src, out):  # mask 출력에서 «가린 값» 을 되짚는다(출력 = 앞조각 + *** + 앞조각 …)
+    vals, cur = [], 0
+    for k, piece in enumerate(out.split("***")):
+        j = src.find(piece, cur)
+        if j < 0:
+            return vals
+        if k and j > cur:
+            vals.append(src[cur:j])
+        cur = j + len(piece)
+    if out.endswith("***") and cur < len(src):
+        vals.append(src[cur:])
+    return vals
+
+
+DA_CASE1 = "한ghp_" + "A" * 30 + "_API_TOKEN=" + "B" * 30  # DA⑥ r1 반례 1(더미)
+DA_CASE2 = "note-----BEGIN RSA PRIVATE KEY-----"           # DA⑥ r1 반례 2(더미)
+SPACE_VARIANT = " ghp_" + "A" * 30 + "_API_TOKEN=" + "B" * 30  # 공백 앞 같은 꼴(카드 §반례 집합 알려진 한계)
+DA_R2_1 = "***: SERVICE_CUSTOMER_API_TOKEN=" + "B" * 30  # DA⑥ r2 반례 ① — r3 의 «*** 이름» 이 이름을 값으로 삼켜 값을 놓쳤다
+DA_R2_2 = "ghs_" + "A" * 30 + "_"                     # DA⑥ r2 반례 ② — 끝 밑줄 토큰
+R4_DIFF_FIRST = "토큰은AIza" + "A1b2" * 8 + "API_TOKEN=" + "B" * 21  # r4 차분 1000건의 첫 위반 입력(arch 시험 칸 1)
+
+
+def _base_masked_left_in(src, new_out):  # base 가 가린 글자가 현재판 출력에 남았나(④' base ⊆ 현재판)
+    return [v for v in _masked_values(src, _base_mod("shapes").mask(src)[0]) if v and v.strip("*") and v in new_out]
+
+
+def test_f_r2_case1_matches_base():  # ⓕ' DA⑥ r2 반례 ① — base 와 바이트 동일(이름을 값으로 삼키지 않는다)
+    assert S.mask(DA_R2_1) == _base_mod("shapes").mask(DA_R2_1)
+    out, hits = S.mask(DA_R2_1)
+    assert [h[0] for h in hits] == ["named-secret"], hits
+    assert out.endswith("SERVICE_CUSTOMER_API_TOKEN=***") and "B" * 8 not in out
+
+
+def test_i_space_variant_masks_both():  # ⓘ 공백 앞 — base 가 토큰을, 이 판본은 토큰+값 둘 다 가린다(base 가 가린 글자 ⊆ 현재판)
+    out, hits = S.mask(SPACE_VARIANT)
+    assert out == " ***=***", out
+    assert [h[0] for h in hits] == ["named-secret", "token-prefix"], hits
+    assert _base_masked_left_in(SPACE_VARIANT, out) == []
+
+
+def test_i_r4_diff_first_input_masks_both():  # r977 r4b(arch 판단) — 이름=값 먼저 → 토큰 꼴이 이름 꼬리를 삼켜도 값이 남지 않는다
+    out, hits = S.mask(R4_DIFF_FIRST)
+    assert out == "토큰은***=***", out
+    assert [h[0] for h in hits] == ["named-secret", "token-prefix"], hits
+    assert "B" * 8 not in out and "AIza" not in out
+    assert _base_masked_left_in(R4_DIFF_FIRST, out) == []
+
+
+def test_j_trailing_underscore_token_is_secret_shape():  # ⓙ DA⑥ r2 반례 ② — 오른쪽 경계 되돌림
+    assert SC.SECRET_SHAPE.search(DA_R2_2)
+    assert _base_mod("scope").SECRET_SHAPE.search(DA_R2_2)
+
+
+def test_g_pem_header_with_leading_ascii_is_secret_shape():  # ⓖ 변이 «PEM 을 EDGE 안으로» → FAIL
+    assert SC.SECRET_SHAPE.search(DA_CASE2)
+    assert SC.reason([(None, [(1, DA_CASE2)], False)], None, None, None) == "추가 줄에 비밀 꼴"
+
+
+SUBSET_INPUTS = (  # ⓗ base 대조 전수 — 기존 시험 입력 89건(DA⑥ r1 이 확인한 «가림 대조» 입력 그대로)
+    [s for s, _k, _e in MASK] + PASS_THROUGH + ORDINARY + [s for s, _k, _f in H4] + R4
+    + ["git_sha=0123456789abcdef0123456789", "SECRET_FILE=/run/secrets/abcdefghijklmnopqrstu",
+       "API_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxx", "TOKEN=${API_TOKEN_VALUE_LONG_ENOUGH}"]
+    + WEBHOOK_MASK + ["set webhook " + HOOK + "<webhook>", "set webhook " + HOOK + "***",
+                      "set webhook " + HOOK + "$SLACK_WEBHOOK_PATH", "문서: Slack 은 hooks.slack.com 으로 보낸다",
+                      "X_WEBHOOK_NAME=short"]
+    + [POS[p] + t + PAD + " end" for p in POS for t in TOKENS] + [DA_CASE1]
+)
+
+
+def test_h_input_set_is_eighty_nine():
+    assert len(SUBSET_INPUTS) == 89
+
+
+def test_h_no_base_masked_value_survives():  # ⓗ base 가 가리던 값이 현재판 출력에 남지 않는다(적게 가림 0) — r4 뒤 «알려진 한계 1건» 만 허용
+    base = _base_mod("shapes")
+    leaked = []
+    for src in SUBSET_INPUTS:
+        if "***" in src:  # 이미 가려진 글자가 든 입력은 되짚기(조각 정렬)가 흔들린다 — 대조에서 뺀다
+            continue
+        out_new, _ = S.mask(src)
+        for val in _masked_values(src, base.mask(src)[0]):
+            if val and val.strip("*") and val in out_new:
+                leaked.append((src[:24], val[:8]))
+    assert leaked == []
+
+
+SHAPE_INPUTS = ([POS[p] + SHAPE_SAMPLES[k] for p in POS for k in SHAPE_SAMPLES]
+                + [DA_CASE2, "한-----BEGIN RSA PRIVATE KEY-----", "AKIA" + "A" * 16,
+                   "x gh[pousr]_" + "a" * 30, "sk-" + "a" * 20, "xoxb-" + "1" * 12])
+
+
+def test_h_secret_shape_true_inputs_stay_true():  # ⓗ base True → 현재판 True (PEM 앞 글자 붙음 포함)
+    base = _base_mod("scope")
+    lost = [s[:24] for s in SHAPE_INPUTS if base.SECRET_SHAPE.search(s) and not SC.SECRET_SHAPE.search(s)]
+    assert lost == []
