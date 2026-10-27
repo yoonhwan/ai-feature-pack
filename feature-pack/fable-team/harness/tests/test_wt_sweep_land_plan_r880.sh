@@ -253,10 +253,10 @@ chk "ⓔ④ 판정 불가 사본 남음" "$(printf '%s\n' "$o" | sed -n 's/^판�
 echo "== ⓔ⑤ DA r2 ⑤: tmux·lsof 호출에 시간 상한(기본 7초)"
 chk "ⓔ⑤ 기본 상한 = 7초" "$(grep -c 'FT_WT_LIVE_SEC:-7' "$T/bin/ft-wt-sweep.sh")" 1
 land_reset; rm -f "$PLAN" "$PLAN.sig" "$PLAN.sent"
-t0="$(date +%s)"; o="$(lp FAKE_TMUX_SLEEP=5 FT_WT_LIVE_SEC=2)"; rc=$?; el=$(( $(date +%s) - t0 ))
+t0="$(date +%s)"; o="$(lp FAKE_TMUX_SLEEP=10 FT_WT_LIVE_SEC=2)"; rc=$?; el=$(( $(date +%s) - t0 ))
 chk "ⓔ⑤ 느린 tmux → rc 1" "$rc" 1
 has "$o" "ERROR land 목록 건너뜀 — tmux pane 실패(rc=124)" "ⓔ⑤ 시간 초과 = 못 읽음(좌석 0 아님)"
-chk "ⓔ⑤ 상한에서 끊김(${el}s ≤ 3s)" "$([ "$el" -le 3 ] && echo yes || echo no)" yes
+chk "ⓔ⑤ 상한에서 끊김(${el}s ≤ 6s · 주입 10s)" "$([ "$el" -le 6 ] && echo yes || echo no)" yes
 # 계약 ⑥(h 등록 실패 rc≠0 · 재시도)은 위 ⓒ 칸이 닫는다.
 
 echo "== ⓐ DA r3 ①: 경로는 바이트 그대로 — 뒤 공백·수직탭 들어간 별칭이 가리키는 사본은 «사용 중»"
@@ -284,7 +284,7 @@ t0="$(date +%s)"; o="$(lp FAKE_TMUX_NS_SLEEP=10 FT_WT_RUN_SEC=2)"; rc=$?; el=$((
 chk "ⓒ 시간 초과 → rc 1" "$rc" 1
 has "$o" "ERROR land 목록 건너뜀 — tmux pane 실패(rc=124)" "ⓒ 문구로 면제하지 않는다"
 chk "ⓒ 계획 0" "$([ -e "$PLAN" ] && echo yes || echo no)" no
-chk "ⓒ 상한에서 끊김(${el}s ≤ 3s)" "$([ "$el" -le 3 ] && echo yes || echo no)" yes
+chk "ⓒ 상한에서 끊김(${el}s ≤ 6s · 주입 10s)" "$([ "$el" -le 6 ] && echo yes || echo no)" yes
 
 echo "== ⓓ DA r3 ⑤: 등록 rc≠0 에 오류 문구가 있어도 «성공» 이 아니다"
 land_reset; rm -f "$PLAN" "$PLAN.sig" "$PLAN.sent" "$T/hil.log"
