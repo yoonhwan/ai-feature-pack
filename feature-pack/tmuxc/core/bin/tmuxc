@@ -1942,6 +1942,10 @@ cmd_restore() {
   done
   case "$agent_filter" in claude|codex|all) ;; *) die "--agent must be claude|codex|all" ;; esac
   [[ -n "$from" && "$force_scan" -eq 1 ]] && die "--from 과 --scan 은 함께 쓸 수 없습니다"
+  # r641: 계획 모드 안내를 출력 «끝» 이 아니라 맨 위에 — 표가 길면 끝 줄을 못 보고 실행된 줄 안다.
+  if [[ "$go" -ne 1 ]] && ! [[ -z "$select_spec" && -t 0 ]]; then
+    printf '(계획 모드 — 실행은 `tmuxc restore --select all --go` · 많으면 `ft-reboot-restore.sh`)\n'
+  fi
 
   # 소스 결정: 명시 --from > (스냅샷 존재 && --scan 아님) > 로그 스캔
   local snap=""

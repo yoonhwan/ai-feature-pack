@@ -9,11 +9,13 @@
     <string>__HOME__/.hermes/scripts/magazine_from_news.sh</string>
     <string>--publish</string>
   </array>
+  <!-- r707: 08:00 + 재시도 08:10·08:20 — 이미 올린 날은 magazine_from_news.sh 날짜 가드가 skip rc0(같은 날 두 번 발행 0) -->
   <key>StartCalendarInterval</key>
-  <dict>
-    <key>Hour</key><integer>8</integer>
-    <key>Minute</key><integer>0</integer>
-  </dict>
+  <array>
+    <dict><key>Hour</key><integer>8</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Hour</key><integer>8</integer><key>Minute</key><integer>10</integer></dict>
+    <dict><key>Hour</key><integer>8</integer><key>Minute</key><integer>20</integer></dict>
+  </array>
   <key>RunAtLoad</key><false/>
   <key>EnvironmentVariables</key>
   <dict>

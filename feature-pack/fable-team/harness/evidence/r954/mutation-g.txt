@@ -1,0 +1,19 @@
+## r1 변이 3종 + r2 변이 2종(trunc-sha · timeout-ignored)
+ancestor-off rc= 6 FAILS= ['FAIL ⓐ rc=0 «카드 대기 2 · 진행 4(좌석 2) · 착지됐는데 진행 0»', 'FAIL ⓑ-2 기본(옵션 없음)은 가지 판정을 안 한다 → K 1 — 없음: «착지됐는데 진행 1» ← 카', 'FAIL ⓑ-2 finished-check FINISHED 1건 + 착지 sha 1건 = K 2 (ACTIV', 'FAIL ⓓ news-tick 에 팀 숫자 줄 1개 — 없음: «alpha: 카드 대기 2 · 진행 4(좌석', 'FAIL ⓔ K>0 → WARN 이동 먼저(착지 카드 지목) — 없음: «WARN 카드 흐름 — alpha ', 'FAIL ⓔ WARN 줄 수', 'FAILED 6']
+warn-rc rc= 1 FAILS= ['FAIL ⓔ rc 바뀜 on=9 off=1', 'FAILED 1']
+timeout-zero rc= 2 FAILS= ['FAIL ⓓ rc=0 «카드 대기 0 · 진행 0(좌석 0) · 착지됐는데 진행 0»', 'FAIL ⓓ news-tick 시간 초과 = 확인 불가 줄(빈칸 0) — 없음: «alpha: 카드 숫자 확', 'FAILED 2']
+--- r2
+trunc-sha rc= 0 FAILS= []
+timeout-ignored rc= 1 FAILS= ['FAIL ⓓ2 el=1 «카드 대기 0 · 진행 1(좌석 0) · 착지됐는데 진행 0»', 'FAILED 1']
+ancestor-off rc= 8 FAILS= ['FAIL ⓐ rc=0 «카드 대기 2 · 진행 4(좌석 2) · 착지됐는데 진행 0»', 'FAIL ⓑ-2 기본(옵션 없음)은 가지 판정을 안 한다 → K 1 — 없음: «착지됐는데 진행 1» ← 카', 'FAIL ⓑ-2 finished-check FINISHED 1건 + 착지 sha 1건 = K 2 (ACTIV', 'FAIL ⓑ2 40자 전체', 'FAIL ⓑ2 7자', 'FAIL ⓓ news-tick 에 팀 숫자 줄 1개 — 없음: «alpha: 카드 대기 2 · 진행 4(좌석', 'FAIL ⓔ K>0 → WARN 이동 먼저(착지 카드 지목) — 없음: «WARN 카드 흐름 — alpha ', 'FAIL ⓔ WARN 줄 수', 'FAILED 8']
+warn-rc rc= 1 FAILS= ['FAIL ⓔ rc 바뀜 on=9 off=1', 'FAILED 1']
+timeout-zero rc= 2 FAILS= ['FAIL ⓓ rc=0 «카드 대기 0 · 진행 0(좌석 0) · 착지됐는데 진행 0»', 'FAIL ⓓ news-tick 시간 초과 = 확인 불가 줄(빈칸 0) — 없음: «alpha: 카드 숫자 확', 'FAILED 2']
+trunc-sha rc= 2 FAILS= ['FAIL ⓑ2 41자 «카드 대기 0 · 진행 1(좌석 0) · 착지됐는데 진행 1»', 'FAIL ⓑ2 혼합', 'FAILED 2']
+
+--- r3 변이 6종 (재설계 뒤)
+ancestor-off rc= 9 FAILS= 10 ['FAIL ⓐ rc=0 «카드 대기 2 · 진행 4(좌석 2) · 착지됐는데 진행 0»', 'FAIL ⓑ-2 기본(옵션 없음)은 가지 판정을 안 한다 → K 1 — 없음: «착지됐는데 진행 1» ← 카드 대기 2 · 진', 'FAIL ⓑ-2 finished-check FINISHED 1건 + 착지 sha 1건 = K 2 (ACTIVE 는 안 셈) —']
+warn-rc rc= 1 FAILS= 2 ['FAIL ⓔ rc 바뀜 on=9 off=1', 'FAILED 1']
+timeout-zero rc= 2 FAILS= 3 ['FAIL ⓓ rc=0 «카드 대기 0 · 진행 0(좌석 0) · 착지됐는데 진행 0»', 'FAIL ⓓ news-tick 시간 초과 = 확인 불가 줄(빈칸 0) — 없음: «alpha: 카드 숫자 확인 불가(시간 초과', 'FAILED 2']
+r3-trunc-revive rc= 9 FAILS= 10 ['FAIL ⓝ 40자+«-invalid» «카드 대기 0 · 진행 1(좌석 0) · 착지됐는데 진행 1»', 'FAIL ⓝ 40자+«-x» «카드 대기 0 · 진행 1(좌석 0) · 착지됐는데 진행 1»', 'FAIL ⓝ 40자+«.» «카드 대기 0 · 진행 1(좌석 0) · 착지됐는데 진행 1»']
+r3-warn-branch rc= 3 FAILS= 4 ['FAIL ⓞ 모드«--warn» × slow2 el=1 «»', 'FAIL ⓞ 모드«--warn» × rc2 el=0 «»', 'FAIL ⓞ 모드«--warn» × empty el=0 «»']
+r3-timeout-as-active rc= 2 FAILS= 3 ['FAIL ⓞ 모드«일반» × slow2 el=1 «카드 대기 0 · 진행 1(좌석 0) · 착지됐는데 진행 0»', 'FAIL ⓞ 모드«--warn» × slow2 el=1 «»', 'FAILED 2']

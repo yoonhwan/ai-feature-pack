@@ -1,0 +1,28 @@
+# r947 r2 — 기존 시험 FAIL 5종 base 대조 (같은 부하 1회씩 · /bin/bash · 2026-10-26)
+# base = 6634010102(카드에 적힌 base) · 가지 = nano/r947-d1-standing-approve-external-da-pac-r2 (106f23aa)
+# 사본 = ft-scratch-repo.sh(등록형 worktree · sparse) · 두 사본에서 같은 명령 1회씩
+# 결론: 두 판의 FAIL «이름 목록이 완전히 같다» — 이 가지가 새로 깨뜨린 칸 0. 전부 base 에서도 같다(기존 결함).
+
+=== test_autonomy_core ===
+=== test_merge_land_pack_repo ===
+=== test_doc_exempt_r725 ===
+=== test_doc_exempt_guard_r741 ===
+=== test_autonomy_scope_classify ===
+| 시험 | base 66340101 | 이 가지 106f23aa | 같음? |
+|---|---|---|---|
+| test_autonomy_core | rc1 192P/3F | rc1 192P/3F | 같음(FAIL 이름 동일) |
+| test_merge_land_pack_repo | rc1 29P/4F | rc1 29P/4F | 같음(FAIL 이름 동일) |
+| test_doc_exempt_r725 | rc1 1P/1F | rc1 1P/1F | 같음(FAIL 이름 동일) |
+| test_doc_exempt_guard_r741 | rc1 8P/3F | rc1 8P/3F | 같음(FAIL 이름 동일) |
+| test_autonomy_scope_classify | rc1 67P/6F | rc1 67P/6F | 같음(FAIL 이름 동일) |
+
+## FAIL 이름 목록 (base = 이 가지, 글자 그대로)
+- test_autonomy_core: `H3 큐 쓰기 실패 → rc≠0·stderr (rc 2)` ×2 · `7초+재시도 1회 = external_call.py 값과 같음`
+- test_merge_land_pack_repo: `ⓐ2 전판 · gh -R 없음 → BYZ 쪽 PR #5 로 조회(OPEN 아님)` · `ⓐ3 전판 · BYZ 기준 헤드를 팩 리포 객체로 찾음 → REJECT «객체 없음»` · `ⓕ3a 전판이 «실제로» 착지했다(rc0·LANDED·main 전진·원장 +1 — 아니면 아래 비교는 무효)`
+- test_doc_exempt_r725: `옛 판을 못 꺼냄`
+- test_doc_exempt_guard_r741: `ⓘ② 키트가 이름으로 부르는 .md 토큰 ⊆ EXCLUDE_NAMES (빠진 이름=out.md, task.md)` · `ⓘ⑥ --emit 출력 = 모듈 EXCLUDE_NAMES 블록(목록 갱신 경로가 실제로 맞다)`
+- test_autonomy_scope_classify: `원장 행 있음 → 착지 rc0 · LANDED` · `원장 착지 sha 칸 = 착지 sha` · `원장 되돌림 명령 칸 = git revert --no-edit <착지 sha>` · `원장 없음 → 출력 변화 0 · 착지 rc0` · `원장 쓰기 실패 → WARN 1줄 · 착지 rc0 · 행 불변`
+
+## 사본 경로 (ft-scratch-repo · 등록부 state/scratch-repos.tsv)
+- base: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-66340101-1793010575-61003
+- 가지: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-106f23aa-1793010579-66417

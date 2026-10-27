@@ -1,0 +1,10 @@
+== git status ==
+ M feature-pack/fable-team/harness/bin/ft-inbox.py
+ M feature-pack/fable-team/harness/kit/fable-team/bin/ft-inbox.py
+ M feature-pack/fable-team/harness/tests/test_inbox.sh
+?? feature-pack/fable-team/harness/evidence/r916/
+== diff --stat ==
+ feature-pack/fable-team/harness/bin/ft-inbox.py    | 76 +++++++++++-----------
+ .../harness/kit/fable-team/bin/ft-inbox.py         | 76 +++++++++++-----------
+ .../fable-team/harness/tests/test_inbox.sh         | 31 +++++++++
+ 3 files changed, 107 insertions(+), 76 deletions(-)

@@ -20,7 +20,11 @@ import subprocess
 class ImportErr(Exception):
     pass
 
-SECRET_SHAPE = re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----|\bAKIA[0-9A-Z]{16}\b|\bgh[pousr]_[A-Za-z0-9]{30,}|\bsk-[A-Za-z0-9_-]{20,}|\bxox[abprs]-[A-Za-z0-9-]{10,}")
+EDGE_CHARS = "A-Za-z0-9_"  # ★비밀 «경계» 를 정하는 글자 집합 — ft_secret_shapes.py 와 «같아야» 한다(정의 중복은 남기되 집합은 한 벌)
+EDGE_L = "(?<![" + EDGE_CHARS + "])"  # r977 r4(오빠 결정 1번): «왼쪽» 경계만 한 벌 — «오른쪽» 경계는 base 와 같다(AKIA 만 `\b` · 나머지 꼴은 값 뒤 경계 없음)
+# r977 r2(DA⑥ r1 반례 2): PEM 머리말은 «경계 없이»(base 그대로) — 앞에 ASCII 글자가 붙은 `note-----BEGIN …` 를 놓치면 안 된다. 나머지 4꼴만 EDGE 묶음 안.
+# r977 r4: 오른쪽 경계를 base 꼴로 — 끝 밸줄·끝 하이픈 토큰(`ghs_AAAA…_`)도 base 처럼 잡힌다(DA⑥ r2 반례 ②).
+SECRET_SHAPE = re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----|" + EDGE_L + r"(?:AKIA[0-9A-Z]{16}\b|gh[pousr]_[A-Za-z0-9]{30,}|sk-[A-Za-z0-9_-]{20,}|xox[abprs]-[A-Za-z0-9-]{10,})")
 HUNK = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@")
 
 

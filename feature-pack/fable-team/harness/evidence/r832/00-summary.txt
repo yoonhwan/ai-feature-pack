@@ -1,0 +1,67 @@
+r832 — 껍데기 경보(ft-wt-sweep.sh shell_scan)가 살아 있는 나노 좌석 폴더를 올리던 것
+base = 팩 origin/main 4b3a6a9e · 나노 = byz-harness-nano-r832-wt-shell-scan-live-seat-guard#0
+
+고침(kit/fable-team/bin/ft-wt-sweep.sh · 짝 bin/ft-wt-sweep.sh cmp0)
+- 회차 시작에 `tmux list-panes -a -F '#{pane_current_path}'` 1회(상한 7 s · FT_TMUX_BIN) · 실패 = 그 회차 경보 0 + NOTE · 서명 그대로(ⓓ)
+- 후보(부재 ≥ 2)마다 seat_busy: pane 경로 = 그 폴더 또는 하위 → SKIP «세션 있음» (A-r2 같은 앞부분만 같은 형제는 아님)
+  → 미커밋 = `git -C <폴더> status --porcelain --untracked-files=normal` 1회(상한 FT_WT_SHELL_GIT_SEC 기본 7) 에서 지워짐만(' D'·'D ') 뺀 수 · ≥1 → SKIP «미커밋 N»
+  → git 실패·초과 → SKIP «판정 못 함» · GIT_CEILING_DIRECTORIES=<부모> 로 .git 링크 없는 폴더가 부모 리포 상태를 읽지 않음
+- .deleting-* 은 검사 밖(지금 규칙 그대로) · 경보 문구 끝 «(세션 0 · 미커밋 0)»
+
+설계 판단 1(카드 문구와 다른 점 — arch·DA 확인 요청)
+- 카드 ⓒ «미커밋 0» 을 문자 그대로(status 줄 0) 하면 껍데기는 «tracked 항목이 지워진 폴더» 라 status 에 항상 ' D' 줄이 있어 경보가 영원히 0 이 된다.
+  → 지워짐만 줄은 미커밋에서 뺀다(내용은 HEAD 에 있음 · ft-nano-close r166 껍데기 인식과 같은 판정). 수정·새 파일·이름 바꿈 등은 센다.
+- 판단 2: .git 링크 없는 폴더는 «판정 못 함» SKIP(경보 0) — 카드 원칙 «모르면 올리지 않음» 을 따름. 이런 폴더는 매 회차 SKIP 줄로 보인다.
+- 남는 점: 실 BYZ 워크트리에서 tracked .serena/project.yml 이 자동 수정되는 폴더는 «미커밋 1» 로 SKIP(과소 경보 쪽).
+
+시험
+- 새 시험 tests/test_wt_shell_scan_live_seat_r832.sh: red-before.txt(고치기 전 15 FAIL) → green-run1·2·4 ALL PASS rc=0 (25 PASS)
+  · green-run3: ALL PASS(FAIL 0) 인데 REAL-STATE-GUARD 가 같은 시각 실 ft-tick→v65 master 쪽지(seq 154458)를 잡아 rc=1 — 이 시험은 우편함 손 0(mbox 참조 0줄) · 재실행 run4 PASS
+- 변이(mutations.txt · mut-m*.txt): m1 pane 검사 삭제 → ⓐ FAIL 2 · m2 미커밋 검사 삭제 → ⓑ FAIL 2 · m3 tmux 실패를 «pane 0» 으로 → ⓓ FAIL 3
+- 기존 시험: two_stage ALL PASS(ⓔ 픽스처에 pane 목록 1줄 추가) · r535 ALL PASS · route_timeout ALL PASS
+  · finished_cleanup: ⓛ PASS(픽스처 .worktree-info.json 을 info/exclude 로 무시 — 실 BYZ .gitignore:180 과 같게) · ⓒ FAIL 1 = 기준판(origin/main 코드)에서도 같은 FAIL(baseline-finished_cleanup_auto.txt · ft-scratch-repo tmux unreadable · 범위 밖)
+
+press 필요: 없음(오디오 경로 무관)
+
+== r2 (외부 DA r1 HOLD · design/harness/evidence/r832-da6/REWORK-r832-r2.md · 같은 가지 squash 1 · 기준판 4b3a6a9e)
+고침
+- ① pane_paths: pane 목록 줄마다 글자 그대로 + 실제 경로(`CDPATH= cd -P -- <경로> && pwd -P` · 다를 때만 추가 · 없는 경로는 글자만) — 후보 폴더도 `cd -P` 실제 경로 · 비교 = 같음 또는 «후보/» 시작(A-r2 오인 0)
+- ② seat_busy rc 3갈래(0 올리지 않음 · 1 세션 0∧미커밋 0 · 2 판정 못 함) · 판정 못 함 1곳 이상 = 회차 불완전 → 경보 0 · .shell-sig 삭제·덮어쓰기 0 · NOTE «껍데기 판정 불완전 — N곳 판정 못 함 · 서명 그대로» · 다 끝난 회차만 서명 비교·저장·삭제
+- tmux 실패 회차는 r1 그대로(NOTE 생략 · 서명 그대로)
+시험(r2/)
+- red-before-r1-3704ae60.txt: r1 코드로 새 시험 → ① 6 FAIL(alias · alias/d2 · /var 표기) · ② 2 FAIL(2회차 경보 · NOTE 없음) rc=1
+- green-run1·2·3: 49 PASS · ALL PASS rc=0
+- 변이(mutations.txt): m1 pane 비교 삭제 → FAIL 9 · m2 미커밋 → FAIL 2 · m3 tmux 실패=pane 0 → FAIL 3 · m4 pane 경로 정규화 삭제 → ① FAIL 6 · m5 불완전 회차 서명 유지 삭제 → ② FAIL 2
+- 기존: two_stage · route_timeout · r535 ALL PASS(r535 REAL-STATE-GUARD WARN = 같은 시각 실 좌석 h167 계획 · 이 시험 손 0) · finished_cleanup ⓒ FAIL 1 = 기준판과 같은 FAIL(../baseline-finished_cleanup_auto.txt · tmux unreadable · 범위 밖)
+남는 점(arch 확인 요청)
+- .git 링크 없는 폴더(F 꼴)가 계속 남아 있으면 그 폴더 «판정 못 함» 때문에 매 회차 불완전 → 다른 진짜 껍데기 경보도 0(NOTE 줄로만 보임). 반쯤 지워진 폴더는 .git 링크부터 사라질 수 있음 — 카드 ⓓ «모르면 올리지 않음» 과 REWORK 처리 2 를 그대로 따른 결과.
+press 필요: 없음(오디오 경로 무관)
+
+== r2b (DA r2 전 보충 · REWORK-r832-r2b · 위 r2 «남는 점» 반영 — r2 의 회차 전체 보류는 없앰)
+고침
+- seat_busy rc 4갈래: 0 SKIP(세션·미커밋) · 1 껍데기 · 2 판정 못 함 · 3 껍데기(git 연결 끊김 — .git 없음 또는 .git 파일 gitdir 가 가리키는 곳 없음 · 세션 검사 먼저)
+- 이번 서명 = 이번 껍데기 ∪ (이전 서명 ∩ 이번 판정 못 함) · NOTE «껍데기 판정 못 함 N곳(이전 판정 이어받음)» · 경보·저장은 서명이 바뀐 때만(그대로)
+- 경보 줄: 연결 끊긴 폴더 뒤 «(git 연결 끊김)» · tmux 목록 실패 회차 = 경보 0 · 서명 그대로(r1 그대로)
+- 덤: 경보 줄 `$names—` 를 `${names}—` 로(로캘에 따라 대시 바이트가 변수 이름으로 읽혀 unbound)
+시험(r2b/)
+- red-before-r2-1031a208.txt: r2 코드로 → 8 FAIL(나노 지적 C 경보 없음 · F/X «git 연결 끊김» 없음 · NOTE 문구) rc=1
+- green-run1·2·3: 58 PASS · ALL PASS rc=0
+- 변이: m1 pane 비교 삭제 FAIL 12 · m2 미커밋 FAIL 2 · m3 tmux 실패=pane 0 FAIL 3 · m4 pane 경로 정규화 삭제 FAIL 6
+  · m5 이어받기 삭제 → ② FAIL 3(2·3회차 경보 재발 = DA r1 ②) · m6 회차 전체 보류 되살림 → 나노 지적 칸 FAIL 3 · m7 git 연결 끊김 → 판정 못 함 → F/X 칸 FAIL 3
+- 기존: two_stage · route_timeout · r535 ALL PASS · finished_cleanup ⓒ FAIL 1 = 기준판과 같음(범위 밖)
+press 필요: 없음
+
+== r3 (재설계 · 하드 룰 14 · REWORK-r832-r3 · 외부 DA r2 HOLD = CRLF .git 을 연결 끊김으로 오판 → 미커밋 2 폴더를 «미커밋 0» 경보)
+고침
+- 연결 판정 = `git -C <폴더> rev-parse --git-dir`(GIT_CEILING_DIRECTORIES=<부모> · 상한 FT_WT_SHELL_GIT_SEC 기본 7) 하나 · .git 파일을 sed 로 읽던 줄 삭제
+  · .git 없음 → 끊김 · rc 0 → 연결됨(status 로 미커밋) · rc 124(상한) → 판정 못 함(이어받기) · 그 밖 rc≠0 → 끊김(git 이 «저장소 아님»)
+- 연결됨인데 status 실패·초과 = 판정 못 함(r2b 그대로)
+시험(r3/) — 69 PASS
+- 시험 재배치: r2b 나노 지적 칸 X = «연결됨 · status 만 실패»(가짜 git FAKE_GIT_FAIL_DIR) — 옛 «gitdir 는 있으나 저장소 아님» 꼴은 r3 에서 끊김 칸으로
+- DA r2 반례 CRLF .git + 수정 1 · 새 파일 1 → SKIP «미커밋 2» · 경보 0
+- 변형: 상대 경로 → git 받아들임(연결됨 · 미커밋 1) · 끝 공백 · 앞 빈 줄 → git 이 거부(이 git 기준 «저장소 아님» → 끊김) — 시험은 git rev-parse 답을 판정 기준으로 씀
+- rev-parse 지연 7.5 s(C 만) → «판정 못 함(git rev-parse 7s 초과)» · 서명 1회차와 같음 · 경보 0
+- red-before-r2b-aa8d1a2e.txt: r2b 코드로 5 FAIL(CRLF 2 · 저장소 아님 1 · 앞 빈 줄 1 · 지연 1) rc=1 · green-run1·2·3 ALL PASS rc=0
+- 변이: m1 12 · m2 5 · m3 3 · m4 6 · m5 이어받기 5 · m6 전체 보류 1 · m7 .git 없음→판정 못 함 2 · m8 자체 파싱 되살림 → CRLF 칸 2 · m9 rc≠0→판정 못 함 → 끊김 칸 4 · m10 시간 초과→끊김 → 지연 칸 1 (전부 FAIL)
+- 기존: two_stage · route_timeout · r535 ALL PASS · finished_cleanup ⓒ FAIL 1 = 기준판과 같음(범위 밖)
+press 필요: 없음

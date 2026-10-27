@@ -1,0 +1,21 @@
+# r947 r3 — DA⑥ r2 반례 + 보강 3줄 «고침 뒤» 직접 재현 (2026-10-26 · /bin/bash · 가지 c22a34af)
+# 훅 = kit/fable-team/templates/hooks/autonomy-state-guard.sh (설치 꼴: 훅 폴더에 merge_cmd.py 함께)
+# 명령: stdin JSON {"tool_name":"Bash","tool_input":{"command":"<아래>"}} · FT_ROOT=임시 BYZ 루트 · FT_AUTONOMY_SH=<이 가지 bin>
+
+## 1) DA r2 반례: source -- <bin>/ft-autonomy.sh approve-standing D1 --repos pack --classes code,docs
+{"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", …}}
+## 2) DA r2 반례: . -- <bin>/ft-autonomy.sh approve-standing D1 --repos pack --classes code,docs
+{"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", …}}
+## 3) 보강 1: <bin>/ft-autonomy.sh approve-stand''ing D1 …  (낱말 안쪽 따옴표 — shlex 가 approve-standing 으로 푼다)
+{"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", …}}
+## 4) 보강 1: eval "source <bin>/ft-autonomy.sh approve-standing D1 …"  (shlex 는 한 낱말 — 원문 글자 쌍이 잡는다)
+{"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", …}}
+## 5) 보강 2: 좌석의 bash /tmp/h94721 (계획 본문에 approve-standing) → deny
+{"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", …}}
+## 6) 보강 3(계약 ③): grep -n approve-standing <bin>/ft-autonomy.sh → allow (출력 0)
+## 7) 정상 경로: bash <bin>/ft-autonomy.sh standing-status → allow (출력 0 · 낱말이 다르다)
+
+# 시험 칸 대응
+- ⓚ tests/test_autonomy_hooks.sh (1·2) · ⓛ 그 밖 꼴 묶음 9 + 낱말 쪼개기 3 (3·4) · ⓜ 좌석 h 경유 deny + ⓜ2 BYZ 밖 cwd 대조 (5)
+- ⓛ읽기 읽기 6꼴 allow (6) · 변이 4종: 끝줄 검사(ⓘ7) · source 처리(ⓑ-source변) · 낱말 쌍(ⓚⓛ변) · 읽기 예외(ⓛ읽기변)
+- 오빠 경로 보증은 훅 시험이 아니라 카드 실사건 1건(오빠 h 뒤 다음 팩 PR 이 h 없이 착지)이 맡는다(보강 2).

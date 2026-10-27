@@ -1,0 +1,214 @@
+r850 뉴스 팀 지도 팀 상태 3값(진행 · 대기 · 쉼) + «확인 불가» 는 cwd 재탐색 뒤에만 — 나노 byz-harness-nano-r850-news-team-map-three-states#0 · 2026-10-24
+카드: BYZ design/harness/indices/진행/r850-news-team-map-three-states.md · Issue #3039 · base = 팩 origin/main f1cbd00575283629f066710f94b25f740ab267a4
+
+원인(arch 136 실측 그대로): 팀 상태 = «지금 이 순간 WORKING 좌석 수» 하나 → 60초 틱 사이에 턴이 끝난 팀·나노 결과를 기다리는 팀 = «쉬는 팀» ·
+jsonl 을 세션 이름(파일 머리 1MB 의 agentName/customTitle)으로만 찾아 승계로 이름표가 꼬리에만 있는 좌석 = «확인 불가(jsonl 없음)».
+
+고침(판정 함수 1개 · 세 곳이 부른다):
+- 새 bin/ft_team_state.py — judge(진행 카드 수, 좌석 턴들, 기다리는 것) → (상태, 글자)
+    진행 = 열린 턴(WORKING·PENDING) ≥1 · 또는 진행 카드 ≥1(카드 폴더 없는 팀은 조건 없음) ∧ 30분 안 턴 끝 좌석 ≥1
+    쉼   = 진행 카드 0 ∧ 열린 턴 0(좌석 수 무관) · 카드 폴더 없는 팀은 30분 안 턴 0 ∧ 확인 불가 0 · 좌석 0 = «쉼 · 열린 좌석 0»
+    확인 불가 = 진행 아님 ∧ 턴 판정 못 한 좌석 ≥1(«확인 불가(jsonl 없음 N석)»)
+    대기 = 그 밖 — «대기 N분 · 기다리는 것 = <보드 master 칸 wait 그대로 · 없으면 «기다리는 값 모름»>» · 좌석 0 = «대기 · 열린 좌석 0»
+  seat_turns(): list-panes 1회(r504 계약 유지) → find_jsonls(머리 이름) → 못 찾은 좌석만 rescan(pane cwd 폴더 · 최근 2일 · 꼬리 1MB 의
+  «마지막 이름표 == 좌석» · 다른 좌석이 잡은 파일 제외 · 상한 7초 · 넘으면 «시간 초과»).
+- ft_news_html.py live_teams = state·label 칸 추가(진행 카드 = 명부 _cards/_cards_wt 진행/ · 카드 폴더 없음·명부 깨짐 = 그 팀만 «확인 불가(사유)») · facts 키 = 진행·대기·쉼·확인 불가.
+- ft_news_html_render.py bucket/status_line(문장 1곳) — 요약 첫 줄 «진행 팀 N개 … 대기 팀 … 쉬는 팀 … 상태 확인 불가 …» · 지도 «일하는 팀» 칸 = 진행 다음 대기(카드 머리 = label) ·
+  확인 불가·쉬는 팀 칸 글 머리 = label · state·label 없는 live = NewsHtmlError(조용한 추정 0) · FACT_RULES 첫 줄 = 4칸 이름.
+- ft_board_teams.py team_line(r785 시트 뿌리 글 팀 표 · ft-board teams) 가운데 칸 = 같은 judge 글자(+ 일하는 좌석 이름) — ⓔ 바이트 일치.
+- ft_board_seat.py 칸에 턴 원값 «turn» 1칸(PENDING 을 뉴스와 같이 열린 턴으로) · ft_api_outage_util.py list_panes() 분리 + find_jsonls(panes=) 선택 인자(옛 호출 동작 그대로).
+- harness/bin 사본 = kit/fable-team/bin 과 cmp 0(6파일).
+
+시험(04-wide-tests.txt · 팩 폴더 cwd):
+- 새 tests/scripts/test_news_team_state_r850.py 9 PASS ×3(03) — ⓐ 10분 전 IDLE 2석 = 진행 · ⓑ 45분 = 대기 + 기다리는 것 · ⓒ 카드 0 = 쉼 · ⓓ 재탐색·남의 파일 안 집음·시간 초과 ·
+  ⓔ 요약 첫 줄·지도·시트 표 같은 글자 · ⓕ 변이 3(카드 조건 삭제 → ⓒ FAIL · 30분 창 삭제 → ⓐ FAIL · 재탐색 삭제 → ⓓ FAIL) 모두 잡힘.
+- 빨강 먼저(01): 옛 판 같은 입력 = facts «쉬는 팀: [x]» · «확인 불가: [f]»(jsonl 없음 1석) → 새 판(02) «진행: [f, x]».
+- 고친 모듈을 쓰는 기존 시험 26파일 + 셸 11개: 236 PASS · 셸 11 rc0 · 실패 2 = 기존 실패(내 diff 밖):
+    test_ft_board_teams::test_render_error_team… — 고치기 전 baseline 에서도 같은 실패(첫 실행 102 PASS · 1 FAIL)
+    test_r649…::test_slow_inbox… — 실패 문구 «ft-inbox.sh show 실패(7초 초과 · 재시도 1회)» 는 ft_board_env.py(r677 10-22 변경 · 이 가지 변경 0) 출력
+- 기존 시험 기대값 갱신(의미 변경분만): «일하는 팀 N개» → «진행 팀 N개» · facts «쉬는 팀» → «쉼» · 보드 팀 줄 «일함/정지 N분» → judge 글자 ·
+  r785 ⓒ «열린 좌석 0» → «쉼 · 열린 좌석 0» · r785 ⓛ 변이 사본 경로에 원본 bin 추가 · 옛 꼴 live 픽스처 = tests/scripts/_news_live.with_state(judge 값).
+- ruff check(고친·새 파이썬 8) = All checks passed.
+
+실좌석 읽기 전용 비교(05 · 15:28 · 쓰기 0): 옛 판 쉬는 팀 5(graphics·issues·kk·lecture·ops) → 새 판 진행 4 + kk «대기 · 열린 좌석 0»(진행 카드 남음 · 좌석 0) · 쉼 0.
+새 판에서도 «확인 불가(jsonl 없음)» 인 좌석 5 = 전부 node pane(pi·codex) — claude jsonl 이 원래 없음(이 카드 범위 밖 · 아래 관찰 2).
+
+arch 판단 거리(관찰 · 고치지 않음):
+1. master·arch 의 10분 크론 틱 턴이 30분 창을 늘 채워 «진행 카드 ≥1» 팀은 거의 늘 «진행» — 카드 정의대로이나 «틱만 도는 팀» 과 «일하는 팀» 이 같은 칸.
+2. pi·codex 좌석(node pane)은 claude jsonl 이 없어 언제나 «확인 불가» 사유가 된다 — 좌석 agent 별 턴 원천은 별도 카드 감.
+3. 지도 «일하는 팀» 절 머리 글자는 그대로(린트 H2 고정) — 대기 팀 카드도 그 칸에 «대기 N분 · 기다리는 것 = …» 머리로 실린다. 절 이름을 «진행·대기 팀» 으로 바꾸려면 틀+린트+시험 묶음(범위 밖).
+4. 선행 r847(같은 ft_news_html.py tick) 은 이 가지 base 에 아직 없음 — 바뀐 곳은 live_teams/_turns/facts(+import 1줄)라 tick 과 겹치는 줄 0(병합 때 확인).
+5. 같은 jsonl 을 옛 이름 좌석(#N)이 살아 있는 채 머리 이름으로 잡는 find_jsonls 옛 동작은 그대로(재탐색은 «마지막 이름표» 로만 집음).
+
+press 필요: 없음(오디오·말풍선 경로 0).
+
+── r2 (외부 DA⑥ r1 HOLD 4 · 반송 REWORK-r850-r2.md · 같은 가지 squash 1) ──
+고침:
+① judge — 진행 카드 0 ∧ 열린 턴 ≥1 = «진행 · 진행 카드 0 · 일하는 좌석 W/L»(계약 개정 · 글자로 구분) · 진행 카드 0 ∧ 30분 안 IDLE 만 = «쉼 · 진행 카드 0»(그대로).
+② rescan — 꼬리 읽기 시작 전 + «값을 쓰기 직전» 마감 확인 · 마감 넘긴 뒤 읽은 값은 버리고 «확인 불가(시간 초과)».
+③ 뉴스 live_teams 좌석 = ft_team_state.roster_seats(명부 현역 = ft_board_roster.select · 시트 SeatCells 와 같은 원천) — 이름 접두사 수집 삭제 ·
+   현역 근거 없는 생존 = «?»(사유 = 시트 칸 글자 · unknown_why 공용) · 닫힘·정지레디 = IDLE 분 없음(시트 _seat 와 같은 값) · 명부 깨짐 = 그 팀만 «확인 불가».
+④ judge 좌석 0 갈래 = «대기 · 열린 좌석 0 · 기다리는 것 = …» · master 칸 규칙 master_wait 하나(뉴스 board_waits · 시트 team_line 같이 · 칸 없음 = «기다림 확인 불가(master 칸 없음)»).
+시험:
+- 06-r2-before-red.txt: r1 판(82252582) bin 3파일로 새 시험 = 7 FAIL(ⓑ 개정 · ⓖ ⓗ ⓘ ⓙ · r2 변이 2) / 8 PASS.
+- 08-r2-new-test-x3.txt: 15 PASS ×3 — ⓖ 카드 0 + 열린 턴 = «진행 · 진행 카드 0 · 일하는 좌석 1/1»(뉴스·지도·시트) · ⓗ 꼬리 읽기 7.1초(가짜 시계) → 시간 초과 · 걸린 시간 7.1 ≤ 7.5 ·
+  ⓘ 은퇴 #1(10분 전) + 현역 #2(45분 전) → 뉴스·지도·시트(실제 SeatCells + select) 모두 «대기 45분 · 기다리는 것 = 기다리는 값 모름» · ⓙ 좌석 0 = «… · 기다리는 것 = 회신 대기»(judge) / 뉴스·시트 같은 master 칸 규칙 ·
+  변이 4(열린 턴 조건 · 값 쓰기 직전 마감 · 좌석 0 기다리는 값 · 접두사 수집 되살림) 모두 빨강.
+- 07-r2-wide-tests.txt: 관련 기존 시험 25파일 246 PASS + 셸 11 rc0 · 실패 2 = r1 과 같은 기존 실패(04 기록 그대로).
+  기존 시험 픽스처 갱신(계약 변경분만): test_ft_news_html r478c·r490 / test_seat_turn_batch b·d — 명부 «{}» + 접두사 세션 → 명부에 좌석 행(포인터 _<role> · 나노 #0) + FT_SEAT_RESUME_DIR 임시 폴더.
+- ruff 6파일 All checks passed · harness/bin = kit/bin cmp 0.
+관찰(고치지 않음): 시트 쪽은 master 좌석이 죽으면 칸이 없어 좌석 0 갈래 기다리는 값이 늘 «기다림 확인 불가(master 칸 없음)» — 죽은 master 의 우편 wait 을 싣으려면 collect 변경(범위 밖).
+press 필요: 없음.
+
+── r3 (외부 DA⑥ r2 HOLD 3 · 보류 2회 → 하드 룰 14 재설계 · REWORK-r850-r3.md · 같은 가지 squash 1) ──
+고침:
+1. 좌석 집합 1곳 = ft_team_state.seat_set — 계보(#N 뗀 이름)마다 {명부 행 · 살아 있는 같은 계보 세션} 중 번호가 가장 큰 1석(_replaced_by·seat-resume 기록 이름 제외) ·
+   고른 석이 tmux 에 없으면 뺌 · 닫힘·정지레디 = IDLE 분 없음 · tmux 목록 못 읽음 = 명부 이름만 «?»(tmux 목록 없음). 뉴스 live_teams + 시트 collect.team_seats(새 키) → team_line 이 같이 부름.
+   (시트 ⓪·감시 행의 현역 선정은 §7-7 select 그대로 — 팀 상태 한 줄만 seat_set.)
+2. 바깥 마감 1개 = 새 ft_team_turns.seat_turns — list-panes·이름 찾기·cwd 재탐색·턴 판독 전체를 하위 프로세스 1개로(7초 · TERM→1초→KILL) · 넘김 = 전 좌석 «시간 초과» ·
+   하위 실패 = «판정 실패 rc=N» + ERROR. 안쪽 재탐색 마감 5초 + «값 쓰기 직전» 확인(r2)은 그대로(두 겹). ft_team_state 200줄 상한 때문에 판독 부분을 ft_team_turns 로 옮김.
+3. 팀 단위 격리 = ft_news_html _team_plan/_team_row — 팀 하나의 어떤 예외든 그 팀 «확인 불가(원천 오류 <예외 이름>: …)» + ERROR 1줄 · tmux 목록 실패도 발행 계속 ·
+   기다림 원천 모양 검사(board_waits/master_wait): teams≠list = 전 팀 · seats≠dict 또는 master 칸≠dict = 그 팀 «기다리는 값 모름(원천 모양 오류)» + ERROR.
+시험:
+- 09-r3-before-red.txt: r2 판(19037cad) bin 4파일 + 새 시험 = 6 FAIL(ⓘ·ⓡ2·ⓡ3·ⓡ3b·변이 2). ⓡ1 은 새 파일 ft_team_turns 가 그대로 남아 통과 → 바깥 상한 삭제 변이(벽시계 > 7.5초)가 빨강 증명.
+- 11-r3-new-test-x3.txt: 21 PASS ×3 — ⓡ1 이름표 8초 → 시간 초과 · 벽시계 ≤ 7.5 / 이름표 6초 + 턴 2초 → 확인 불가(하위 프로세스만 sitecustomize 로 늦춤 · 제품 훅 0) ·
+  ⓡ2 x «진행 · 9분 전 턴» 그대로 · y «… 기다리는 값 모름(원천 모양 오류)» · w «확인 불가(원천 오류 TypeError…)» · ERROR y 1 · w 1 ·
+  ⓡ3 명부 #1 · 살아 있는 #2 WORKING → 뉴스 «진행 · 일하는 좌석 1/1» = 시트(team_seats) · ⓡ3b 명부 #2 · 살아 있는 #1·#2 → 뉴스·지도·시트 «대기 45분» ·
+  변이 4(바깥 상한 · 팀 try · 명부만 · 같은 계보 전부) 모두 빨강.
+- 10-r3-wide-tests.txt: 관련 25파일 252 PASS + 셸 11 rc0 · 실패 2 = r1·r2 와 같은 기존 실패. test_seat_turn_batch tmux 시간 초과 시험 = 패치 대상 모듈만 ft_team_turns 로.
+- ruff 7파일 0 · harness/bin = kit/bin cmp0(+ ft_team_turns.py).
+arch 판단 거리:
+a. REWORK 의 기다림 원천 모양 «seats=list[dict|str 이름]» 은 실제 스냅샷 꼴(seats = {이름: 칸 dict})과 달라 dict 로 검사함.
+b. «계보 최고 번호» 는 ft_board_roster §7-7 «가장 큰 번호로 고르는 대체 0» 과 결이 다름 — 팀 상태 한 줄에만 썼고 시트 ⓪·감시 행은 그대로.
+c. 바깥 마감 넘김 = 전 좌석 «시간 초과»(좌석 1개가 느려도 그 틱 전체 확인 불가) — 안쪽 5초 마감이 보통은 그 좌석만 걸러냄.
+d. ft_board_collect.py 182줄(180 경보선 넘김 · 200 상한 안).
+press 필요: 없음.
+
+── r4 (외부 DA⑥ r3 HOLD 5 · 보류 3회 → 축소 재설계 · REWORK-r850-r4.md · 먼저 팩 main c91bee89(r846·r847) 병합 · 같은 가지 squash 1) ──
+고침:
+1. 좌석 = 명부만 — ft_team_state.seat_set: 현역 행(_replaced_by·seat-resume 기록 이름 제외) 중 계보마다 번호가 가장 큰 1행 · tmux 목록은 «그 이름 세션이 살아 있나» 에만
+   (명부에 없는 세션을 좌석으로 넣기 0) · 고른 행이 다 죽음 = 그 행들 «?»(명부 현역 세션 없음) → «확인 불가(명부 현역 세션 없음 N석)» · tmux 목록 못 읽음 = «?»(tmux 목록 없음).
+2. 팀마다 하위 프로세스 1개 · 동시 — ft_team_turns.team_turns: 팀별 Popen(start_new_session) 동시 시작 · 공통 마감 6초 TERM → 7초 KILL(os.killpg = 손자 tmux 까지) ·
+   넘긴 팀만 «확인 불가(시간 초과)» · 하위 실패(rc≠0·결과 꼴 오류) = 그 팀만 «확인 불가(판정 실패 rc=N)» + ERROR · 끝난 무리도 KILL 로 손자 정리. r3 seat_turns(전 좌석 1개) 삭제.
+3. 팀 판정 전체를 그 팀 try 안 — ft_team_state.team_states: try ① 명부 읽기·좌석 집합·기다림(master_wait 모양 검사 = master str|None · seats dict · 칸 dict, 어긋나면 TypeError)·카드 /
+   try ② 판독 결과 → judge · 어떤 예외든 그 팀 «확인 불가(원천 오류 <예외 이름>: …)» + ERROR 1줄. 스냅샷 teams≠list = 팀마다 원천 오류.
+4. 판정 한 곳 — ft_team_state.team_states(root, alive, now, rosters, boards) → {팀: state·label·wait·live·working·unknown·unknown_reason}.
+   뉴스 live_teams = 이 결과(기다림 = 보드 스냅샷 블록) · 시트 = ft_board_collect.attach_team_states 가 블록마다 team_state(기다림 = 그 블록의 master 칸 — 스냅샷이 곧 이 블록)
+   → ft_board_teams.team_line 은 team_state 만 씀(좌석 칸 «현역 근거» 로 따로 판정 0 · team_state 없는 옛 스냅샷 = «확인 불가(팀 상태 없음)»). collect team_seats 삭제.
+시험:
+- 12-r4-before-red.txt: r3 판(HEAD a4f4938e) bin 5파일 + 새 시험 = 21 FAIL / 8 PASS — ⓢ1~ⓢ6 · r4 변이 5 모두 빨강(+ API 바뀐 ⓓ·ⓔ·ⓖ·ⓘ·ⓙ·ⓡ1·ⓡ2·ⓡ3b).
+- 14-r4-new-test-x3.txt: 29 PASS ×3 —
+  ⓢ1 하위 TERM 무시 + 가짜 tmux(손자 sleep 9 → 표식 · 본체 sleep 12) → «시간 초과» · 벽시계 ≤ 7.5 · 9.8초에 손자 표식 0
+  ⓢ2 y 판독만 8초 → x «진행 · 9분 전 턴» · y «확인 불가(시간 초과)» / y jsonl `[]` 1행 → x 그대로 · y «확인 불가(판정 실패 rc=1)» · ERROR 1
+  ⓢ3 스냅샷 y master:["broken"] → x 그대로 · y «확인 불가(원천 오류 TypeError…)» · 예외 전파 0
+  ⓢ4 명부 #1 IDLE 45분 + 명부 밖 #9 WORKING → «대기 45분 · 기다리는 것 = 기다리는 값 모름»(뉴스 = 시트)
+  ⓢ5 _master 없는 명부 1석 WORKING · 카드 1 → 뉴스 «진행 · 일하는 좌석 1/1» = 지도 = 시트(+ «· 일함 byz-p-lead#1»)
+  ⓢ6 명부 #1 죽음 · 명부 밖 #2 살아 있음 → «확인 불가(명부 현역 세션 없음 1석)»(뉴스 = 시트) — 옛 ⓡ3(«진행») 계약 대체
+  변이 5: 팀별 하위 → 전 좌석 1개(ⓢ2 FAIL) · killpg → 하위만(ⓢ1 FAIL · 손자 표식 생김) · tmux 세션 좌석 추가(ⓢ4 FAIL) + 계보 최고 번호 → 행 전부(ⓘ FAIL) ·
+  시트 따로 판정 되살림(ⓢ5 FAIL) · 팀 try ① 삭제(ⓢ3 FAIL · TypeError 전파). r3 바깥 상한 삭제 변이 · r2 변이 3 그대로 빨강.
+  시트 비교(ⓔ ⓖ ⓘ ⓙ ⓡ3b ⓢ4~ⓢ6) = 시트 경로 그대로(attach_team_states → team_line).
+- 13-r4-wide-tests.txt: 관련 38파일 369 PASS · 실패 2 = r1~r3 와 같은 기존 실패 · 셸 11 rc0(^FAIL 0).
+  test_sheet_verify.sh 8 FAIL = r3 판 bin 으로도 같은 8(기존 · 이 변경 밖).
+- 다른 시험 고침: test_ft_news_html·test_seat_turn_batch = 가짜 판독을 ft_team_turns.team_turns 로(옛 fh._turns 삭제) · tmux 멈춤 시험 = 팀 «시간 초과»(벽시계 ≤ 7.5) ·
+  test_ft_board_teams = 픽스처가 좌석 jsonl + 가짜 list-panes(FT_TMUX · FT_CLAUDE_PROJECTS)도 만듦 → 기대 글자 2곳 바뀜(아래 c).
+- ruff 9파일 0 · harness/bin = kit/bin cmp0(5파일).
+arch 판단 거리:
+a. 시트 팀 줄 = 뉴스와 같은 jsonl 판독 → codex 좌석은 시트에서도 «jsonl 없음»(범위 밖 사유 그대로) — 옛 시트는 codex rollout(ft-seat-status)으로 «진행 · 4분 전 턴» 을 냈다(test_ft_board_teams 기대 바뀜).
+b. 좌석 = 명부 현역 행 전부(계보당 1) — 옛 시트 «현역 근거»(포인터·nano·은퇴 표시) 밖 행(예: _da 포인터 없는 da 행)도 팀 상태 좌석이 됨(test_ft_board_teams 정지팀 «7분 전 턴 · 확인 불가 1» → «1분 전 턴»).
+c. «살아 있는 세션 0 = 확인 불가» 를 judge 입력(«?» 사유 «명부 현역 세션 없음»)으로 넣음 — 그래서 진행 카드 0 팀은 r2 계약대로 «쉼»(닫은 팀이 매번 확인 불가로 뜨지 않게) · 글자 끝 «N석».
+d. 시트 collect 가 팀마다 하위 프로세스(판독)를 띄움 — ft-board collect·시트 발행 1회 = 팀 수만큼 python 하위(동시 · ≤ 7.5초). test_board.sh 는 FT_TMUX 를 안 줘 실 tmux list-panes·~/.claude/projects 를 읽는다(읽기만 · 실 상태 지문 PASS).
+e. team_state 라벨에 분(«대기 45분»)이 들어가 collect dict 가 분마다 달라짐 — r3 team_seats(idle_min)와 같은 성질(새로 생긴 것 아님).
+f. 버전: r846 이 커밋 제목에 1.1.229 를 먼저 씀 → 이 항목 1.1.230 으로 올림. ft_board_collect.py 187줄 · ft_team_state.py 193줄(180 경보선 넘김 · 200 상한 안).
+press 필요: 없음.
+
+════════ r5 (DA⑥ r4 HOLD 2 · arch 137 재설계 · fable-5.1 검토 보강 3줄) ════════
+설계 = design/harness/evidence/r850-da6/REWORK-r850-r5.md(보류 4회) + 끝 절 «보강 3줄»(arch 148 · REWORK 커밋 8e562d3223).
+바뀐 것:
+- ft_team_turns: 팀마다 하위 프로세스(r4) → **판정 전체에 하위 1개**(start_new_session · close_fds · 무리 killpg). 하위는 팀 하나를 끝낼 때마다 결과 1줄(JSON)을
+  바로 흘려 보내고, 부모는 마감(6초 TERM → 7초 KILL)까지 **받은 팀만** 쓴다 — 못 받은 팀 = «확인 불가(시간 초과)».
+  원천 1회 = locate()(tmux pane 목록 1회 + find_jsonls 1회 + 이름표 못 찾은 좌석만 cwd 재탐색 5초) · 턴 읽기는 turn_at() 로 팀마다(느린 팀이 앞 팀 결과를 먹지 않는다).
+- 빈 원천 = 오류: 보드 블록의 master 빈 값('' · None) 또는 seats 가 [](0·""·null·{}) → «기다리는 값 모름(원천 모양 오류)» + ERROR 1줄.
+  모양이 틀린 값(비지 않은 list·숫자·str)은 TypeError = 그 팀 «확인 불가(원천 오류 TypeError)».
+- 발행 등급: 확인 불가 팀 ≥1 = 뉴스 발행 끝 줄 «ft-news-html: PARTIAL N팀» · 전원 = «ALL-UNKNOWN» + ERROR 1(발행·rc 그대로).
+- 보강 ⓑ1: 부모는 «\n 으로 끝난 줄» 만 쓴다(마감 순간 잘린 꼬리 줄 버림) · 하위 stderr 는 PIPE 가 아니라 상속.
+- 보강 ⓑ2: killpg 의 ESRCH(이미 끝남)는 삼킨다 · 마감(start+TERM_S) 뒤에 읽힌 줄은 버린다.
+- 보강 ⓑ3: 「확인 불가」는 끝선 «3회 연속 불일치 0» 의 불일치가 아니라 PARTIAL 횟수로 따로 센다(발행 등급 = PARTIAL N팀) · ⓙ 픽스처(세션 0 팀)는 master 칸을 가진 스냅샷으로 바꿔 고침 4 와 충돌 0.
+시험:
+- 15-r5-before-red.txt: r4 판(45437820) bin 3파일 + 새 시험 = 17 FAIL / 24 PASS — ⓣ1·ⓣ1b·ⓣ2(5)·ⓣ3·ⓣ5·ⓣ6·ⓣ7 + 변이 3 + ⓢ2 둘째 갈래가 빨강.
+- 16-r5-new-test-x3.txt: 41 PASS ×3 —
+  ⓣ1 파일 핸들 한도 32 · 20팀 · t10 판독 8초(손자 sleep 7 → 표식) → 예외 전파 0 · 벽시계 ≤ 7.5 · t00 «진행 · 10분 전 턴» · t10 «확인 불가(시간 초과)» · 7.8초에 손자 표식 0
+  ⓣ1b Popen OSError errno 24 주입 → 전 팀 «확인 불가(판정 시작 실패 24)» + ERROR 1 · 예외 0
+  ⓣ2 스냅샷 seats = [] · 0 · "" · null · {} → 그 팀만 «대기 45분 · 기다리는 것 = 기다리는 값 모름(원천 모양 오류)» + ERROR 1 · x 팀 그대로
+  ⓣ3 깨진 jsonl `[]` 한 줄(y) → x «진행 · 9분 전 턴» 그대로 · y «확인 불가(원천 오류 AttributeError…)» · ERROR 1
+  ⓣ5 흘려 받기: 꼬리 줄(개행 없음) 버림 · stderr 인자 없음(상속) · 받은 x 결과 그대로
+  ⓣ6 마감(TERM_S 0.3초) 뒤 0.4초에 읽힌 y 줄 버림 · 변이 «마감 뒤 줄 사용» → ⓣ6 FAIL
+  ⓣ7 발행 등급: PARTIAL 2팀 · ALL-UNKNOWN(ERROR 1) · 확인 불가 0 = «»
+  변이: 끝에 한 번 받기(ⓣ1 FAIL) · 빈 값 검사 삭제(ⓣ2 FAIL) · 마감 뒤 줄 사용(ⓣ6 FAIL) · killpg → 하위만(ⓢ1 FAIL · 손자 표식 생김) · 팀 try ① 삭제(ⓢ3 FAIL) 그대로
+- 17-r5-related-tests.txt: 관련 8파일 134 PASS · 실패 2 = **r4 판에서도 같은 기존 실패**(test_ft_board_teams «확인 못 함: 카드 폴더 없음» 글자 · test_r649 «7초 상한» vs «7초 초과» 문구).
+- 18-r5-shell-tests.txt: test_sheet_root_teams_r785.sh · test_kit_bin_sync.sh(ALL PASS) · test_news_html.sh · test_news_tree_root.sh = rc0.
+- 19-r5-live-probe-readonly.txt: 실 BYZ 루트 읽기 전용 5.87초(≤ 7.5) · 14팀 판정 · grade=PARTIAL 4팀.
+- ruff 4파일 0 · harness/bin = kit/bin cmp0(3파일).
+arch 판단 거리:
+g. 실 스냅샷에서 master 칸이 빈 팀이 있다(cfo·feature·graphics·kk = master='' · seats={}) → 그 팀들은 이제 «기다리는 값 모름(원천 모양 오류)» + 발행마다 ERROR 1줄씩 4줄. 계약(고침 4)대로지만 **소음**이다 —
+   원인은 그 팀 명부에 `_master` 포인터가 없어 보드 블록 master 가 빈 값인 것. 고침 4 를 «비지 않은 dict 인데 master 칸이 없으면 원천 모양 오류로 보지 않는다» 로 좁힐지는 arch 판단.
+h. 부모·하위가 tmux 를 두 번 읽는다(부모 _sessions = alive · 하위 locate = pane cwd). 판정 한 번에 2회 · 팀 수와 무관(옛 r4 는 팀 수만큼).
+press 필요: 없음(단위·캡처·기존 로그만 · 라이브 오디오 시험 없음).
+
+════════ r6 (DA⑥ r5 HOLD 4 · 구현 빈틈 4곳 · arch 148 반송서 REWORK-r850-r6.md) ════════
+바뀐 것(설계는 r5 그대로 · 경로를 설계 안으로):
+- 고침 1 «마감은 입구 1개»: team_states() 진입에서 마감 시각(start + 6초)을 한 번 정하고 세션 목록·pane 목록·jsonl 찾기·하위 생성·흘려 받기가 전부 «남은 시간» 아래에서 돈다.
+  세션 목록이 마감을 통째로 먹으면 전 팀 «확인 불가(tmux 목록 시간 초과)» + ERROR(ALL-UNKNOWN) — 판정 하위를 띄우지 않는다.
+- 고침 2 «모든 외부 호출 = 새 무리 + 무리째 정리»: ft_team_turns._run_group(start_new_session · close_fds) — 마감 넘기면 _reap_group(TERM → 0.2초 → SIGKILL → wait 로 zombie 걷고 killpg(pid,0) 로 «생존 0» 확인 · ESRCH 삼킴).
+  tmux ls = tmux_sessions() · tmux list-panes = list_panes_group() (옛 ft_api_outage_util.list_panes 는 subprocess.run 이라 손자를 남겼다). ft_news_html._sessions 도 tmux_sessions 로.
+- 고침 3 «준비 단계도 같은 try»: 팀 판정 준비(세션 목록·임시 파일·파이프·Popen) 전체를 team_states() 바깥 try 한 겹으로 — 어떤 예외든 전 팀 «확인 불가(판정 시작 실패 <OSError 24 | 예외 이름>)» + ERROR 1줄(예외 전파 0).
+- 고침 4 «등급 줄은 판정 함수가 낸다»: ft_team_state.grade() 하나 — team_states() 가 PARTIAL 은 WARNING, ALL-UNKNOWN 은 ERROR 1줄로 남기고, 뉴스 발행기 끝 줄(state_grade = ts.grade)과 시트 경로(ft-board.py teams → stderr «ft-board teams: PARTIAL N팀 …»)가 같은 글자를 쓴다.
+시험:
+- 22-r6-before-red.txt: r5 판(f6ad3428) bin 4파일 + 새 시험 = 11 FAIL / 38 PASS(ⓤ1~ⓤ4 · 변이 3 · 바뀐 ⓢ1·ⓢ변이·ⓣ1변이 포함).
+- 20-r6-new-test-x3.txt: 49 PASS ×3 —
+  ⓤ1 파일 핸들 한도 32 · 남은 핸들 전부 채움 → team_states() 예외 0 · 전 팀 «확인 불가(판정 시작 실패 …)» + ERROR
+  ⓤ2 tmux ls 4초 + list-panes 4초 → team_states() 벽시계 ≤ 7.5초 · 전 팀 확인 불가 / ls 8초(마감 통째) → 전 팀 «확인 불가(tmux 목록 시간 초과)» + ERROR
+  ⓤ3 ls 스텁이 20초 자식을 낳고 8초 지연 → 반환 ≤ 7.5초 · 반환 1초 뒤 자식 pid 에 os.kill(pid,0) = ProcessLookupError(자손 0)
+  ⓤ4 ft-board.py teams(현역 Claude 좌석 1 · 진행 카드 1 · 빈 jsonl) → stdout «확인 불가(jsonl 없음 1석)» · stderr 에 PARTIAL 줄
+  변이: 세션 목록을 입구 마감 밖에서(ⓤ2 FAIL) · 바깥 try 삭제(ⓤ1 FAIL · KeyError 전파) · 등급 줄 삭제(ⓤ4 FAIL) · killpg → 하위만(_run_group 직접 호출 · 손자 표식 생김) · 흘려 받기 삭제(ⓣ1 FAIL)
+  r5 시험 전부 회귀(ⓐ~ⓙ · ⓡ · ⓢ · ⓣ1~ⓣ7).
+- 21-r6-related-tests.txt: 관련 8파일 141 PASS · 실패 2 = r4·r5 판과 같은 기존 실패(test_ft_board_teams 글자 · test_r649 «7초 상한» vs «7초 초과»).
+- 23-r6-shell-tests.txt: test_sheet_root_teams_r785.sh · test_kit_bin_sync.sh(ALL PASS) · test_news_html.sh · test_news_tree_root.sh rc0 · test_sheet_verify.sh 8 FAIL = r5 판도 같은 8(기존).
+- 24-r6-live-probe-readonly.txt: 실 BYZ 루트 읽기 전용 2.01초(≤ 7.5) · grade=PARTIAL 4팀.
+- ruff 5파일 0 · harness/bin = kit/bin cmp0(4파일).
+arch 판단 거리:
+i. 시트 수집 경로(ft_board_collect) 는 alive 집합을 env.tmux_alive()(subprocess.run · 30초 상한)로 먼저 받는다 — team_states 입구 마감 밖이고 손자 정리도 없다(이번 반례는 뉴스 경로였다). 팀 상태 판정 자체는 그 집합을 받아 마감 안에서 돈다.
+j. «세션 목록 못 읽음» 사유는 이제 좌석마다가 아니라 팀 라벨 한 곳(«확인 불가(tmux 목록 없음)»)에 붙는다(옛 «tmux 목록 없음 N석» 글자 대체).
+press 필요: 없음(단위·캡처·기존 로그만).
+
+════════ r7 (DA⑥ r6 HOLD 3 · 부모 = 얇은 감독자 1개 · 판정 전체는 하위 · 반환 지점 1 · arch harnessclose#1 반송서 REWORK-r850-r7.md · 리서치 r966 표 안1) ════════
+고침(3 — 전부 «이동» · 새 판정 로직 0):
+1. 부모 일 0 — team_states = ①마감 1개(start + TERM_S) ②payload(root·now·rosters «경로 문자열만» · alive(AUTO 표식 | 집합) · boards) ③run_teams ④받은 줄 → grade() → 반환.
+   부모는 roster_files()·tmux()·payload_for()·import ft_team_turns 를 안 부른다. 셋(명부 탐색 · 세션 목록 · payload 조립)은 하위 child_teams 첫 단계로 이동.
+   하위 첫 줄 = {"teams": […]}(부모가 팀 집합을 이 줄로 안다) · 명부 0개 = {"fatal": …} 줄(부모가 RuntimeError raise · 발행 0 계약 그대로) ·
+   세션 목록 전멸 = 팀마다 «확인 불가(tmux 목록 시간 초과)» + {"err": …} 1줄(부모가 ERROR 로 남긴다 — 하위 로그는 caplog 에 안 잡힌다).
+2. 반환 지점 1 — team_states 의 return 은 끝 한 줄뿐. 예외 갈래(하위 생성 실패·0줄·준비 예외)도 fail 사유로 같은 끝 줄을 지나 grade() 를 탄다(조기 return 0).
+3. 반환 직전 무리 생존 0 — run_teams 의 네 갈래(정상·시간 초과·예외·finally)가 한 정리 함수 _reap_group 을 지난다. 하위는 자기 외부 호출(_run_group)의 무리 번호를
+   {"pgid": N} 줄로 부모에 알리고, 부모는 그 무리까지 TERM→KILL 되풀이로 걷어낸 뒤(ESRCH 확인) 돌아간다 — proc.wait(1.0) 단독 판단 삭제. 그래도 살아남으면 ERROR 1줄 «무리 잔존 pgid=N».
+파일: ft_team_state.py(부모 감독자 + run_teams·_spawn·_signal·_group_alive·_reap_group·_pump·_parse·_pgids) · ft_team_turns.py(하위 쪽만: locate·turn_at·rescan·_run_group + _report_pgid) ·
+tests/scripts/test_news_team_state_r850.py(ⓤ1~ⓤ5 + 변이 5 · 회귀 49). kit/bin = harness/bin cmp0.
+시험:
+- 25-r7-before-red.txt: r6 판(41ccd342) bin 으로 새 시험 = 11 FAIL(ⓤ1~ⓤ5 · 변이 5 · r6 판의 인자 자리가 옮겨진 것 3) / 43 PASS — r7 요구가 r6 판에서 빨강.
+- 26-r7-new-test-x3.txt: 54 PASS ×3 (89.9 / 91.2 / 90.0초):
+  ⓤ1 tmux 스텁 TERM 무시 + 20초 손자 · ls 4초 → 벽시계 ≤ 7.5초 · 반환 직후 그 무리 os.killpg(…,0) = ESRCH · 1초 뒤에도 손자 표식 0 · 변이 «killpg → 리더만» / «KILL 되풀이 삭제» → 무리 살아남음(FAIL).
+  ⓤ2 RLIMIT_NOFILE 32 · 남은 핸들 채움 → 예외 전파 0 · 전 팀 «확인 불가(판정 시작 실패 … | 원천 오류 …)» · ERROR ≥1 · 변이 «부모가 명부 직접 탐색(roster_files 되살림)» → OSError 전파(FAIL).
+  ⓤ3 같은 고갈 → 끝 줄 grade() = ALL-UNKNOWN 1줄 + ERROR 1 · 변이 «조기 return 되살림» → grade 를 안 지나 ALL-UNKNOWN 0(FAIL).
+  ⓤ4 하위 첫 줄 없음(스텁 하위 0줄) → rosters 인자 팀 전원 «확인 불가(판정 시작 실패 0줄)» + ALL-UNKNOWN ERROR 1 · 명부 0개 = RuntimeError(발행 0).
+  ⓤ5 team_states 실행 중 부모 Popen 1회 · roster_files 0 · import ft_team_turns 0(monkeypatch 카운터) · 변이 «부모가 직접 import» → 카운터 1(FAIL).
+  회귀: ⓐ~ⓙ ⓡ ⓢ1~ⓢ6 ⓣ1~ⓣ7 + 변이 전부 그대로 통과.
+- 27-r7-related-tests.txt: 관련 9파일 102 PASS · 실패 1 = r4·r5·r6 판과 같은 기존 실패(test_ft_board_teams «확인 못 함: 카드 폴더 없음» 글자 — ft_board_env 경로 밖 문구).
+- 28-r7-shell-tests.txt: test_sheet_root_teams_r785.sh · test_kit_bin_sync.sh(ALL PASS) · test_news_html.sh(39) · test_news_tree_root.sh rc0 · test_sheet_verify.sh 8 FAIL(r6 판과 같은 기존) · test_r649 1 FAIL(기존 문구 «7초 상한» vs «7초 초과»).
+- 29-r7-live-probe-readonly.txt: 실 BYZ 루트 읽기 전용 5.86초(≤ 7.5 · 콜드 캐시 포함) · 15팀 grade=PARTIAL 4팀 · 웜 재측정 5회 1.17~5.43초 전부 PARTIAL 4팀.
+- ruff 3파일 0 · harness/bin = kit/bin cmp0(2파일).
+arch 판단 거리(관찰 · 고치지 않음):
+1. 「부모가 거는 무리 = 하위 세션 하나」 만으로는 손자가 안 죽는다 — 하위의 외부 호출 _run_group 은 r6 계약대로 «자기 무리(start_new_session)» 라 부모 killpg 밖이다.
+   그래서 «하위가 무리 번호를 알리고 부모가 그 무리도 걷어내는» 길을 택했다(계약 ③ 의 «무리 생존 0» 을 지키는 최소 변경 · _run_group 자체는 r6 그대로).
+2. team_states(session_source=…) 는 r7 부터 «받기만 한다»(세션 목록은 하위가 읽는다 · 서명 유지). ft_news_html._sessions 는 그래서 제품 경로에서 안 불린다(시험이 직접 부른다) — 정리하려면 호출부·시험 같이(범위 밖).
+3. 세션 목록 전멸은 이제 «팀마다 확인 불가» 로 흘러 judge 를 안 탄다(카드 0 팀이 «쉼» 으로 새는 길 차단). alive=None 을 인자로 준 경우도 같은 글자(«확인 불가(tmux 목록 없음)») — 옛 «N석» 꼬리 없음.
+4. 0줄(하위가 첫 줄도 못 냄) = «판정 시작 실패 0줄» — 시험 ⓤ4 글자. 팀 집합을 모르므로 rosters 인자가 없으면 빈 dict + ERROR «팀 이름 미상» 1줄.
+5. 콜드 캐시 첫 판은 하위가 6초 마감을 넘겨 ALL-UNKNOWN 이 될 수 있다(실측 1회 6.62초). 원인은 locate/rescan 의 첫 파일 읽기 — r6 판도 같은 자리(부모 killpg 후 «시간 초과»)였다. 웜 1.2~1.4초.
+press 필요: 없음(단위·캡처·기존 로그만).
