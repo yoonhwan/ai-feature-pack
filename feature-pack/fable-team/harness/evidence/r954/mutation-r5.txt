@@ -1,0 +1,6 @@
+PASS 무변이 기준 ALL PASS
+KILLED ①lexists 선판정 되살림 — FAIL ⓥ1 모드«일반» rc=0 «카드 대기 0 · 진행 0(좌석 0) · 착지됐는데 진행 0» FAIL ⓥ1 모드«--warn» rc=0 «» 
+KILLED ②isfile 선판정 되살림 — FAIL ⓥ2-③ rc=3 «카드 숫자 확인 불가(카드 파일 못 읽음 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.CTCi3nznvV/r8/design/alpha/indices/진행/x.md) — alpha» FAIL ⓥ4 폴더 카드 사유에 EISDIR — 없음: «EISDIR» ← 카드 숫자 확인 불가(카드 파일 못 읽음 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.CTCi3nznvV/r8/design/alpha/indices/진행/x.md) — alpha 
+KILLED ③fail exit0 + rc3 판정 삭제 — FAIL ⓥ1 모드«일반» rc=0 «카드 대기  · 진행 (좌석 ) · 착지됐는데 진행 0» FAIL ⓥ1 모드«--warn» rc=0 «/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.nayNlET8io/pack/feature-pack/fable-team/harness/tests/../../harness/kit/fable-team/bin/ft-card-flow.sh: 행 132번: [: : 정수 값이 필요함» 
+KILLED ④ENOENT 도 확인 불가 — FAIL ⓥ3 rc=3 «카드 숫자 확인 불가(카드 폴더 못 읽음 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.7Sm7sa6wJH/r9/design/alpha/indices/대기 (ENOENT)) — alpha» FAILED 1 
+MUTATION ALL KILLED

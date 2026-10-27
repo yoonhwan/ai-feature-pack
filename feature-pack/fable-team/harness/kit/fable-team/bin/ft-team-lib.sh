@@ -230,3 +230,63 @@ ft_team_has() { local t="$1" p="$2" sub="${3:-}" rel c md
   case "$p" in *"$rel$sub"*) return 0;; esac
   c="$(ft_index_twin "$rel")" && case "$p" in *"$c$sub"*) return 0;; esac
   return 1; }
+# ── r978 r2 — «바뀐 경로 목록» 읽기 «한 곳» (리서치 닫기 ft-nano-close.sh · 완성 판정 ft_doc_card_landed 가 같이 부른다)
+#   반송 r1(DA HOLD 3)의 원인 하나: 세 자리가 git 경로 출력을 «그대로» 읽어 ①이름 변경의 옛 경로를 건너뛰고 ②인용된(quotePath) 경로를 원래 글자와 비교했다.
+#   r2 반송 r2(DA r2 HOLD 3): `-c core.quotePath=false` 로도 git 은 «따옴표·역슬래시 든 경로» 와 «공백 든 미추적 경로» 를 따옴표로 감싼다 → 인용 해제 코드 0 을 위해 `-z`(NUL 구분)로 받는다.
+#     bash 명령치환은 NUL 을 지우므로 임시 파일 1개 경유(mktemp + RETURN trap 정리 — 정상·조기 return 두 길 모두 남는 파일 0)
+#   ft_changed_paths <리포> <기준> <끝> [--commits]
+#     기본 = «끝 커밋» 이 기준 대비 바꿔 경로(diff --name-status -z --no-renames · 이름 변경 = 삭제 옛경로 + 추가 새경로 «둘 다») — 완성 판정이 쓴다
+#     --commits = 기준..끝 사이 «비병합» 커밋들이 바꾸는 경로 — 리서치 닫기가 쓴다(머리 맞춤 병합이 끌어온 경로는 셈 밖 = 종전 동작 불변)
+#   ft_changed_paths_wt <리포>           → 미커밋(추적 변경·미추적) `XY<TAB>경로` 1줄 1개(status --porcelain -z) · 이름 변경·복사(R·C)는 원경로·새경로 «둘 다»
+#   rc = git 조회 rc(0 = 읽음 · 경로 0 이어도 0) · 그 밖 = 조회 실패(부르는 쪽이 «셀 수 없다» 로 REJECT)
+_FT_GIT_QP=(-c core.quotePath=false)   # r978-mut:quotepath
+_FT_GIT_NOREN=(--no-renames)   # r978-mut:norenames — 이름 변경을 «삭제+추가» 로 편다(DA r1 반례 1)
+_FT_GIT_Z=(-z)   # r978-mut:zsep — 경로 목록을 NUL 로 받는다(인용 0 · DA r2 반례 3)
+ft_changed_paths() { local repo="${1:-}" base="${2:-}" head="${3:-HEAD}" mode="${4:-}" t="" rc=0 st p
+  [ -n "$repo" ] && [ -n "$base" ] || return 2
+  t="$(mktemp)" || return 2; trap 'rm -f "$t"' RETURN
+  if [ "$mode" = --commits ]; then
+    ft_git_capped 7 "$repo" "${_FT_GIT_QP[@]}" -c diff.ignoreSubmodules=none log --no-merges --ignore-submodules=none "${_FT_GIT_NOREN[@]}" --no-ext-diff --name-status "${_FT_GIT_Z[@]}" --format= "$base..$head" > "$t" 2>/dev/null || rc=$?
+  else
+    ft_git_capped 7 "$repo" "${_FT_GIT_QP[@]}" -c diff.ignoreSubmodules=none diff --ignore-submodules=none "${_FT_GIT_NOREN[@]}" --no-ext-diff --name-status "${_FT_GIT_Z[@]}" "$base" "$head" > "$t" 2>/dev/null || rc=$?
+  fi
+  if [ "$rc" -eq 0 ]; then   # -z: «status\0경로\0» 쌍(이름 변경은 --no-renames 라 R 행이 없다)
+    while IFS= read -r -d '' st; do IFS= read -r -d '' p || break; printf '%s\n' "$p"; done < "$t" | sort -u
+  fi
+  rm -f "$t"
+  return "$rc"; }
+ft_changed_paths_wt() { local repo="${1:-}" t="" rc=0 e p
+  [ -n "$repo" ] || return 2
+  t="$(mktemp)" || return 2; trap 'rm -f "$t"' RETURN
+  ft_git_capped 7 "$repo" "${_FT_GIT_QP[@]}" status --porcelain=v1 "${_FT_GIT_Z[@]}" --untracked-files=all > "$t" 2>/dev/null || rc=$?
+  if [ "$rc" -eq 0 ]; then   # -z: «XY 경로\0» · 이름 변경·복사는 «XY 새경로\0원경로\0» — 원경로도 센다
+    while IFS= read -r -d '' e; do
+      [ -n "$e" ] || continue
+      printf '%s\t%s\n' "${e:0:2}" "${e:3}"
+      case "${e:0:2}" in *R*|*C*) IFS= read -r -d '' p && printf '%s\t%s\n' "${e:0:2}" "$p";; esac   # r978-mut:renames
+    done < "$t"
+  fi
+  rm -f "$t"
+  return "$rc"; }
+# ── r978 고침 2 — «코드 0 문서 카드» 의 완성 인정 판정 «한 곳» (ft-finished-check.sh · ft-index-move-canon.sh 가 같이 부른다)
+#   ft_doc_card_landed <리포> <착지 sha> <카드파일>  → rc0 = 인정(stdout «인정 ref <ref> · 파일 <N>») · rc1 = 불인정(stdout 사유) · rc2 = 판정 불가(stdout 사유)
+#   조건 셋 «전부» 일 때만: ① 카드에 «- 설치: 없음» ② sha 가 문서 가지 ref(FT_DOC_LAND_REF · 기본 origin/ops/main-base)의 조상 ③ sha 가 바꾼 경로가 전부 design/**.md(코드·설정·시험 0)
+#   하나라도 아니면 부르는 쪽은 «origin/main 조상» 만 인정하던 지금 동작으로 돌아간다(동작 불변 · 승인 게이트 확대 0 — r741 ⓑ 안 씀).
+ft_doc_card_landed() { local repo="$1" sha="$2" card="$3" ref="${FT_DOC_LAND_REF:-origin/ops/main-base}" rc=0 p n=0
+  [ -n "$repo" ] && [ -n "$sha" ] && [ -n "$card" ] || { printf '판정 불가 — 인자 없음(리포·sha·카드)\n'; return 2; }
+  [ -f "$card" ] || { printf '판정 불가 — 카드 파일 없음: %s\n' "$card"; return 2; }
+  grep -qE '^[[:space:]]*-[[:space:]]*설치:[[:space:]]*없음[[:space:]]*$' "$card" || { printf '카드가 «- 설치: 없음» 이 아니다\n'; return 1; }   # r978-mut:setup
+  ft_git_capped 7 "$repo" rev-parse --verify -q "${ref}^{commit}" >/dev/null 2>&1 || rc=$?
+  case "$rc" in 0) ;; *) printf '문서 가지 ref 없음·조회 실패(rc=%s): %s\n' "$rc" "$ref"; return 2;; esac
+  ft_git_capped 7 "$repo" merge-base --is-ancestor "$sha" "$ref" >/dev/null 2>&1 || rc=$?
+  case "$rc" in 0) ;; 1) printf '착지 %s 가 %s 조상 아님\n' "${sha:0:12}" "$ref"; return 1;; *) printf '판정 불가 — 조상 검사 실패(rc=%s)\n' "$rc"; return 2;; esac
+  local par; par="$(ft_git_capped 7 "$repo" rev-parse --verify -q "${sha}^1")" || { printf '판정 불가 — %s 첫 부모 없음\n' "${sha:0:12}"; return 2; }
+  local names; names="$(ft_changed_paths "$repo" "$par" "$sha")" \
+    || { printf '판정 불가 — 바꾼 경로 조회 실패 %s\n' "${sha:0:12}"; return 2; }
+  [ -n "$names" ] || { printf '바꾼 경로 0 — 문서 착지 아님: %s\n' "${sha:0:12}"; return 1; }
+  while IFS= read -r p; do
+    [ -n "$p" ] || continue
+    case "$p" in design/*.md) ;; *) printf 'design/**.md 밖 경로: %s\n' "$p"; return 1;; esac
+    n=$((n+1))
+  done <<< "$names"
+  printf '인정 ref %s · 파일 %s\n' "$ref" "$n"; return 0; }

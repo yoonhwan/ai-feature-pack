@@ -105,7 +105,7 @@ check_evidence() {  # $1=file → bad+=  (경로:줄 — 경로 실재 + 줄 번
 check_proposal_line() {  # $1=file → bad+=
   local val added new=1
   val="$(awk '/^##[[:space:]]/{exit} {print}' "$1" | sed -nE 's/^[[:space:]]*[-*][[:space:]]*제안서:[[:space:]]*(.*)$/\1/p' | head -1)"
-  added="$(git -C "$(dirname "$1")" log --diff-filter=A --format=%as -- "$(basename "$1")" 2>/dev/null | tail -1)"
+  added="$(awk -F'\t' -v k="$(basename "$1")" '$1==k{d=$2} END{if(d)print d}' "${FT_CARD_ADDED_MAP_FILE:-/dev/null}" 2>/dev/null)"   # r984: 첫 추가일 = 사전 파일(판정기가 만든 것 · git log 1번) — 카드마다 git 호출 0 · 사전에 없음 = 이력 없음
   { [ -z "$added" ] || [[ ! "$added" < "2026-10-11" ]]; } || new=0
   if [ -z "$val" ]; then
     bash "$(dirname "${BASH_SOURCE[0]:-$0}")/ft-proposal-gate.sh" --writing-card "$1" 2>/dev/null && return   # 제안서 «작성 카드»(proposal-* · 구현 범위 design/ 문서 1개+ 뿐)만 줄 면제 — spawn 게이트와 같은 판별
@@ -119,7 +119,7 @@ check_proposal_line() {  # $1=file → bad+=
 }
 check_da_hold() { local g="$(dirname "${BASH_SOURCE[0]:-$0}")/ft_da_hold_gate.py" l; [ -f "$g" ] || return 0; while IFS= read -r l; do case "$l" in INFO*) echo "INFO $1 — ${l#INFO }";; BAD*) bad+=("${l#BAD }");; esac; done < <(python3 "$g" "$1" --lint 2>/dev/null); }   # ⑪ DA 보류 2회(R387 · 판정 2282 · 설계 §3·§8-3) — 판정기 ft_da_hold_gate.py --lint: INFO(사건 ≥ 2 인데 재설계/리서치 줄 없음 · REJECT 아님) · BAD(위반 뒤 새 워커 없이 채택 = REJECT). 판정기 부재는 INFO 만 건너뜀.
 for f in "$@"; do
-  bad=()
+  bad=(); if [ -z "${FT_CARD_ADDED_MAP_FILE-}" ]; then MAPF="$(mktemp "${TMPDIR:-/tmp}/ft_card_map_dates.XXXXXX" 2>/dev/null)" && trap 'rm -f "$MAPF"' EXIT && export FT_CARD_ADDED_MAP_FILE="$MAPF" && python3 "$(dirname "${BASH_SOURCE[0]:-$0}")/ft_card_map_lint.py" --map-only "$@" >/dev/null 2>&1; fi   # r984 순서: ①사전 생성(판정기 안 git log 1회 · 7초 넘으면 전역 BAD rc3) → ②제안서 줄 → ③⑫
   [ -f "$f" ] || { echo "REJECT $f — 파일 없음"; rc=1; continue; }; [ ! -f "$(dirname "${BASH_SOURCE[0]:-$0}")/ft-team-lib.sh" ] || ( . "$(dirname "${BASH_SOURCE[0]:-$0}")/ft-team-lib.sh" && ft_card_location_ok "$f" ) || { rc=1; continue; }   # r447: 명단 새 꼴 팀 카드가 옛 꼴 폴더에 있으면 REJECT
   LEDGER="$(ledger_for "$f")"
   [ -f "$LEDGER" ] || { echo "REJECT $f — 선언된 정본 없음: $LEDGER"; rc=1; continue; }
@@ -152,9 +152,9 @@ for f in "$@"; do
     ok=0; while IFS= read -r p; do scope_path_exists "$p" && { ok=1; break; }; done <<< "$paths"
     [ "$ok" = 1 ] || bad+=("구현 범위: 인용한 파일 경로가 하나도 실재하지 않는다 ($(printf '%s' "$paths" | head -3 | tr '\n' ' '))")
   fi
-  check_proposal_line "$f"; check_da_hold "$f"
+  check_proposal_line "$f"; check_da_hold "$f"; MAPL="${MAPL-$(python3 "$(dirname "${BASH_SOURCE[0]:-$0}")/ft_card_map_lint.py" "$@" 2>/dev/null)}"; while IFS=$'\t' read -r st cp msg; do { [ "$cp" = "*" ] && MAPERR=1; [ "$cp" = "*" ] || [ -z "$cp" ] || [ "$cp" = "$f" ]; } || continue; case "$st" in INFO*) echo "INFO $f — $msg";; WARN*) echo "WARN $f — $msg";; BAD*) bad+=("$msg");; esac; done < <(printf '%s\n' "$MAPL")   # ⑫ 계약↔시험 대응표(r984 · ft_card_map_lint.py — BAD=REJECT · WARN/INFO 통과 · «*» 줄=판정 불가)
   inst="$(bash "$(dirname "${BASH_SOURCE[0]:-$0}")/ft-index-lint-install.sh" "$f")" || bad+=("$inst")   # ⑩ 하네스 카드 「- 설치:」 줄 (R245)
   if [ "${FT_CARD_REQUIRE_PREVERIFY:-}" = 1 ]; then check_preverify "$f"; check_evidence "$f"; fi
   if [ "${#bad[@]}" -eq 0 ]; then echo "OK $f (ledger=${LEDGER#$ROOT/})${allow_empty:+ (empty-body allowed)}"; else printf 'REJECT %s (ledger=%s)\n' "$f" "${LEDGER#$ROOT/}"; printf '  - %s\n' "${bad[@]}"; rc=1; fi
-done
+done; [ "${MAPERR:-0}" = 1 ] && rc=3   # r984: «판정 불가»(스위치 꼴 오류 · 이력 조회 7초 초과) = rc3 — REJECT rc1 과 다른 층
 exit $rc
