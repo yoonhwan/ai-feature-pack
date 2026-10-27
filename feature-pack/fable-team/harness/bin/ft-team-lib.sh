@@ -147,6 +147,18 @@ ft_team_doc_ref() { local r="$1" t="$2" f="$3" ref="${4:-${FT_TEAMS_REF:-origin/
 #   ft_team_doc_tmp <경로>          : ft_team_doc_ref 가 만든 임시 본문이면 rc0(부르는 쪽이 rm) · 루트 실재 파일이면 rc1
 _ft_team_doc_dir() { local d="${TMPDIR:-/tmp}"; printf '%s\n' "${d%/}"; }
 ft_team_doc_tmp() { case "$1" in "$(_ft_team_doc_dir)"/ft-team-doc.*) return 0;; esac; return 1; }
+#   r839 r5: ref 읽기 규칙(ref_read · 존재 확인 · 명단 조회 · 예산 70초 · 빈 답 재시도 1회)은 «파이썬 한 벌»(같은 폴더 ft_team_lib.py)뿐이다.
+#     셸은 호출 한 줄만 — 재시도·예산·오류 문구 로직 0(두 벌이 있는 한 매 회차 «다른 자리» 가 나온다 · DA⑥ r4 반례 5 중 4건).
+#     stdout·rc 그대로 넘긴다(본문/오류 문구는 파이썬이 만든다 — 기준판 바이트).
+_FT_TEAM_LIB_PY="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)/ft_team_lib.py"
+#   ref_read <리포> <git 인자…>              : ref 조회 1회 규칙(7초 상한 · 빈 값이면 1회 재시도 · 빈 값 2번 = rc4 «빈 응답 2회» · rc≠0 = rc4 · 예산 소진 = rc4)
+ref_read() { python3 "$_FT_TEAM_LIB_PY" ref-read "$@"; }
+#   _ft_ref_present <리포> <ref:경로>        : rc0 있음 · rc1 없음(stderr «does not exist in» 로만) · 그 밖 = rc4 «판정 불가»
+_ft_ref_present() { python3 "$_FT_TEAM_LIB_PY" present "$1" "$2"; }
+#   ft_team_doc_ref_only <루트> <팀> <파일> [<ref>] : 정본 문서 «ref 본문만»(데몬용 · 디스크 0 · 실패 = ERROR 1줄 rc1) — 임시 파일 경로 출력(ft_team_doc_tmp 로 판별 · 정리 = 부르는 쪽)
+ft_team_doc_ref_only() { python3 "$_FT_TEAM_LIB_PY" doc-ref "$@"; }
+#   ft_planner_queue_ref <루트>             : 오빠 큐 «읽기» 본문(r557 ft-queue.sh ft_queue_ref 를 옮김 · 디스크 0 · FT_TEAMS_REF/FT_LEDGER_REPO 그대로) — 임시 파일 경로 출력 · 실패 = 기준판 문구 1줄 rc1
+ft_planner_queue_ref() { python3 "$_FT_TEAM_LIB_PY" queue-ref "$@"; }
 #   ft_team_has_ref <루트> <팀> <경로> [<하위>] [<ref>] : ft_team_has 를 «ref 명단» 으로(R406) — rc 는 ft_team_has 와 같다(ref 못 읽음 = rc2)
 ft_team_has_ref() { ( r="$1"; ref="${5:-${FT_TEAMS_REF:-origin/main}}"; md="$(mktemp)" || exit 2; trap 'rm -f "$md"' EXIT
   git -C "$r" show "$ref:design/TEAMS.md" > "$md" 2>/dev/null || { echo "ERROR 명단($ref:design/TEAMS.md)을 못 읽음: $r" >&2; exit 2; }
@@ -186,7 +198,8 @@ ft_from_current() { local v="${1:-}" seats="${2:-}" m d lint r
 #   ft_git_capped <초> <리포> <git 인자…> : git 조회 1회를 «초» 상한으로 감싼다(r937 r2 T1 · 7초 상한 없는 git 호출 금지).
 #     r3: python 실행기 1개(ft_git_capped.py) — git 을 새 프로세스 그룹에서 돌리고 시간 초과면 그룹 SIGTERM → 0.5초 뒤 SIGKILL(자식까지) → 재시도 1회 실제 수행 →
 #     또 초과면 rc 124. timeout/gtimeout·bash 버전과 무관 · rc·stdout 은 git 그대로 · 실행 실패 rc 128 · 총 ≤ 2회(재시도는 실행기 안에서 끝난다 — 부르는 쪽이 또 감싸지 않는다)
-_FT_GITCAP_PY="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)/ft_git_capped.py"
+_FT_GITCAP_PY_DEFAULT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)/ft_git_capped.py"
+_FT_GITCAP_PY="$_FT_GITCAP_PY_DEFAULT"
 ft_git_capped() { python3 "$_FT_GITCAP_PY" "$@" 2>/dev/null; }
 _ft_git_retry() { ft_git_capped "$@"; }   # 옛 이름 — 재시도가 실행기로 들어갔다(r937 r3)
 #   rc 규약(r937 r2 T2): 0 = 있음 · 1 = «그 리포에 없음» · 그 밖(124 시간 초과 · 128 실행 실패) = «조회 실패» — 없음으로 읽지 않는다
