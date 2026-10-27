@@ -2,60 +2,63 @@
 
 | 칸 | 발행본 쪽 | 원천 쪽(다시 부르는 함수) |
 |---|---|---|
-| ⓖ fetch 실패 | — | 뉴스 로그 «원장 ref fetch 실패» 0줄 + ft_news_ledger.fail_announced (r847) |
+| ⓖ 원천 가져오기 | — | ft_news_ledger._git_capped 로 «원격 ref vs 로컬 ref» 직접 비교 1회(로그·표식 추측 0 · r1005 반송 r4) |
 | ⓗ 팀 지도 ↔ 실측 | 발행본에 실린 팀 이름 | ft_news_html.live_teams (r850 자리 · 지금 함수) |
 | ⓘ 뿌리 글 읽힘 | 발행본 글 자체 | root_readback_guard.check (r1004 가드 재호출 — 판정 새로 구현 0) |
 
 값 못 읽음 = «모름» = 실패로 셈. 선행 카드 모듈·함수가 없음 = «검증 불가»(R1 · V3 · N/9 에 안 셈 · ERROR · 쪽지 0).
 """
+import os
 import sys
+import time
 from pathlib import Path
 
 from _news_verify_lib import FAIL, PASS, UNAVAILABLE, UNKNOWN, Ctx, Missing, guarded, need
 
-
-def _log(ctx: Ctx) -> Path:
-    return ctx.log or Path("/tmp/byz-ft-news-planner.log")
+CAP_ENV = "FT_NEWS_FETCH_BUDGET"  # 선행 모듈(ft_news_ledger)의 묻기 마감 — 칸 상한 7초 안(첫 묻기 5.5초 = 7 − 유예 1.5)으로 끊으려고 이 칸에서만 7초로 둔다
 
 
-FETCH_FAIL = "원장 ref fetch 실패"  # ft_news_ledger.fetch_if_stale 실패 줄
-FETCH_OK = "fetch 생략(ls-remote 같음)"  # 같은 경로 성공 줄(_remote_same · 원격 같아 fetch 0)
+def _br() -> str:
+    """원장 사본 브랜치 이름 — 선행 함수 재호출(r851 branch). 이름 규칙 위반·못 읽음 = «검증 불가»(Missing)."""
+    try:
+        return need("ft_ledger_fill_src", "branch")()
+    except Missing:
+        raise
+    except Exception as e:  # noqa: BLE001 — FillError(이름 규칙) 등 = 그 값을 쓸 수 없다
+        raise Missing(f"원장 브랜치 이름 못 읽음 — {type(e).__name__}: {e}") from e
 
 
-def last_fetch(lines: list[str]) -> str:
-    """로그의 «마지막 fetch 줄» — '실패' | '성공' | ''(fetch 줄 0). 과거 줄은 세지 않는다(r1005 반송 r3 · 결정 2)."""
-    for ln in reversed(lines):
-        if FETCH_FAIL in ln:
-            return "실패"
-        if FETCH_OK in ln:
-            return "성공"
-    return ""
+def _capped(ctx: Ctx, *a: str) -> tuple[int | None, str, str]:
+    """ft_news_ledger._git_capped 재호출 — 이 칸의 총 마감 7초(첫 묻기 5.5초 · 칸 상한 7초 안 · rc None = 시간 초과)."""
+    old = os.environ.get(CAP_ENV)
+    os.environ[CAP_ENV] = "7"
+    try:
+        return need("ft_news_ledger", "_git_capped")(ctx.repo, time.monotonic(), *a)
+    finally:
+        if old is None:
+            os.environ.pop(CAP_ENV, None)
+        else:
+            os.environ[CAP_ENV] = old
 
 
 @guarded
 def cell_g(ctx: Ctx) -> tuple[str, str]:
-    """ⓖ 원천 가져오기 — 판정 입력 둘(r1005 반송 r3 · 결정 2): ① 로그의 «마지막 fetch 줄» ② 실패 표식(fail_announced = fetch-last).
-    마지막 줄 실패면 거짓(표식이 ok 여도 — ft_news_ledger.py:485 의 15분 유예 때문에 표식이 최신이 아닐 수 있다) ·
-    마지막 줄 성공이면 참(과거 실패 줄은 세지 않는다 · 반송 r2 유지) · fetch 줄 0 이면 표식 값으로만 판정 ·
-    로그 못 읽음 = «검증 불가»(C2 · 9/9 아님 · 쪽지 0)."""
-    fail_announced = need("ft_news_ledger", "fail_announced")
-    log = _log(ctx)
-    if not log.is_file():
-        return UNKNOWN, f"뉴스 로그 없음 — {log}"
-    try:
-        lines = log.read_text(encoding="utf-8", errors="replace").splitlines()[-4000:]
-    except OSError as e:  # 못 읽음 = 판정 불가(C2 — 통과도 실패도 아니다)
-        return UNAVAILABLE, f"뉴스 로그 못 읽음 — {type(e).__name__}: {e}"
-    try:
-        marked = fail_announced()
-    except Exception as e:  # noqa: BLE001 — 표식 못 읽음 = 판정 불가
-        return UNAVAILABLE, f"실패 표식 못 읽음 — {type(e).__name__}: {e}"
-    last = last_fetch(lines)
-    if last == "실패":
-        return FAIL, f"로그 마지막 fetch 줄 = 실패(표식 {marked} 무관 · 표식 15분 유예)"
-    if last == "성공":
-        return PASS, f"로그 마지막 fetch 줄 = 성공 · 과거 실패 {sum(1 for ln in lines if FETCH_FAIL in ln)}줄 셈 0"
-    return (FAIL if marked else PASS), (f"fetch 줄 0 — 실패 표식 {marked} 로 판정" if marked else "fetch 줄 0 · 실패 표식 False")
+    """ⓖ 원천 가져오기 = «지금» 원격 ref 와 로컬 ref 를 1회 직접 비교(r1005 반송 r4 · 결정 3 · 로그·표식 추측 0).
+    같음 = 참 · 다름 = 거짓 · ls-remote 실패·시간 초과·로컬 ref 조회 실패 = 검증 불가(C2 · 9/9 아님 · 쪽지 0)."""
+    br = _br()
+    rc, out, err = _capped(ctx, "ls-remote", "origin", "refs/heads/main", f"refs/heads/{br}")
+    remote = dict(reversed(r.split("\t")) for r in out.splitlines() if r.count("\t") == 1) if rc == 0 else {}
+    if rc != 0 or "refs/heads/main" not in remote:
+        return UNAVAILABLE, f"ls-remote 실패 — rc={rc} {(err.strip() or out.strip() or '출력 없음')[:120]}"
+    bad = []
+    for name in ("main", br):
+        lrc, lout, lerr = _capped(ctx, "rev-parse", "--verify", "-q", f"refs/remotes/origin/{name}")
+        if lrc not in (0, 1):
+            return UNAVAILABLE, f"로컬 ref 조회 실패 — {name} rc={lrc} {lerr.strip()[:80]}"
+        want, got = remote.get(f"refs/heads/{name}", ""), lout.strip()
+        if want != got:
+            bad.append(f"{name} {want[:8] or '없음'}≠{got[:8] or '없음'}")
+    return (FAIL if bad else PASS), ("원장 원천이 뒤처짐: " + " · ".join(bad) if bad else "원격 ref = 로컬 ref")
 
 
 @guarded

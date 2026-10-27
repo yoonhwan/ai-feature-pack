@@ -24,6 +24,7 @@ import _news_verify as nv  # noqa: E402
 import _news_verify_cells as cells  # noqa: E402
 import _news_verify_pub_cells as pub  # noqa: E402
 import ft_ledger_fill_tables as tb  # noqa: E402
+import ft_news_ledger as ledger  # noqa: E402
 import ft_news_html as nh  # noqa: E402
 from real_state_guard import guard_begin_module  # noqa: E402,F401  r541: 실 상태 지문 + git 밖 cwd
 
@@ -129,9 +130,41 @@ def world(tmp_path, monkeypatch, caplog):
     monkeypatch.setattr(cells, "sources", lambda ctx: {"qs": [{"what": "크레딧", "seat": "byz-cfo-master#1"}], "hil": [("h1", 5)],
                                                         "queue": [], "cards": {}, "notes": {}})
     monkeypatch.setattr(nh, "live_teams", lambda root: [{"team": "harness", "live": 1, "working": 1, "unknown": 0}])
+    monkeypatch.setattr(ledger, "_git_capped", git_equal)  # r1005 반송 r4 — ⓖ 는 «원격 ref vs 로컬 ref» 직접 비교(대역 = 같음)
     w.guard = stub_guard(monkeypatch)  # r1004 가드 대역(빈 사유 = 정상) — check(text) = None
     w.guard_ok = w.guard.check
     return w
+
+
+SHA_A, SHA_B = "a" * 40, "b" * 40
+
+
+def _local(a) -> str:
+    return SHA_A if a and a[-1].endswith("/main") else ""  # 원장 사본 브랜치 ref 는 양쪽 없음
+
+
+def git_equal(repo, t0, *a):
+    """ⓖ 대역 — 원격 ref == 로컬 ref (main 만 · 원장 사본 브랜치는 양쪽 없음)."""
+    if a and a[0] == "ls-remote":
+        return 0, f"{SHA_A}\trefs/heads/main\n", ""
+    return 0, _local(a), ""
+
+
+def git_behind(repo, t0, *a):
+    """ⓖ 대역 — 원격 main 만 전진(로컬이 뒤) = 원장 원천이 뒤처진 판."""
+    if a and a[0] == "ls-remote":
+        return 0, f"{SHA_B}\trefs/heads/main\n", ""
+    return 0, _local(a), ""
+
+
+def git_failed(repo, t0, *a):
+    """ⓖ 대역 — ls-remote 실패(rc 128 · 출력 0) = 판정 불가."""
+    return 128, "", "ssh: connect to host github.com port 22: Undefined error: 0"
+
+
+def git_timeout(repo, t0, *a):
+    """ⓖ 대역 — 7초 초과(선행 _git_capped 의 rc None) = 판정 불가."""
+    return None, "", "시도 상한 5초 초과"
 
 
 def stub_guard(monkeypatch, reason=None):
@@ -191,14 +224,12 @@ def _fix_closed(w):
 
 
 def _break_fetchlog(w):
-    """ⓖ 거짓 = 표식 켜짐(fetch-last=fail) + 로그 실패 줄 — 표식이 꺼진 과거 줄만으로는 거짓이 아니다(r1005 반송 r2)."""
-    write(w.log, "INFO 뉴스 시작\nERROR 원장 ref fetch 실패 — 판정 불가 · 게시 0\n")
-    write(w.root / ".fable-team/state/news-ledger/fetch-last", "fail\n")
+    """ⓖ 거짓 = 원격 main 이 로컬보다 앞섬(원장 원천이 뒤처진 판 · r1005 반송 r4)."""
+    ledger._git_capped = git_behind
 
 
 def _fix_fetchlog(w):
-    write(w.log, "INFO 뉴스 시작\n")
-    write(w.root / ".fable-team/state/news-ledger/fetch-last", "ok\n")
+    ledger._git_capped = git_equal
 
 
 def _break_liveseats(w):
@@ -487,56 +518,35 @@ def test_r2_5_tail_write_failure_is_not_9_of_9(world, caplog):
     assert "검증 9/9" not in world.body.read_text(encoding="utf-8")
 
 
-# ── r1005 반송 r2 · ⓖ = 최신 상태가 이긴다(표식 꺼짐이면 과거 로그 줄 셈 0) ──────────────
-def test_r2_g_marker_off_ignores_past_log_lines(world, monkeypatch):
-    """반송 r2 — 과거 «원장 ref fetch 실패» 줄 + 그 뒤 성공 줄(마지막 fetch 줄 = 성공) + 표식 False → ⓖ 참 · 9/9 rc0 · 쪽지 0."""
-    write(world.log, "INFO 뉴스 시작\nERROR 원장 ref fetch 실패 — 판정 불가 · 게시 0\n"
-                     "INFO fetch 생략(ls-remote 같음) origin/main=aaa ledger/auto=bbb\n")
-    real_need = pub.need
-    monkeypatch.setattr(pub, "need", lambda m, n: (lambda: False) if (m, n) == ("ft_news_ledger", "fail_announced") else real_need(m, n))
-    rc, out = world.run()
-    assert rc == 0 and "검증 9/9" in out and world.sends() == []
-    assert "과거 로그 1줄 셈 0" not in out  # 실패 칸이 아니라 사유 줄을 안 찍는다(참이면 사유 출력 0)
-
-
-def test_r2_g_marker_on_is_a_failure_one_message(world, monkeypatch):
-    """반송 r2 — 표식이 켜져 있으면 지금대로 ⓖ 거짓 · 쪽지 1통(«표식 무시» 변이 감시)."""
-    write(world.log, "INFO 뉴스 시작\n")
-    real_need = pub.need
-    monkeypatch.setattr(pub, "need", lambda m, n: (lambda: True) if (m, n) == ("ft_news_ledger", "fail_announced") else real_need(m, n))
-    rc, out = world.run()
-    assert rc == 1 and "검증 8/9" in out and "ⓖ fetch 실패" in out and len(world.sends()) == 1
-
-
-def test_r3_1_last_fetch_line_failure_beats_ok_marker(world, monkeypatch):
-    """반송 r3(결정 2) — 마지막 fetch 줄 «실패» + 표식 ok(15분 유예 꼴) → ⓖ 거짓 · 8/9 · rc1 · 쪽지 1."""
-    write(world.log, "INFO 뉴스 시작\nINFO fetch 생략(ls-remote 같음) origin/main=aaa ledger/auto=bbb\n"
-                     "ERROR 원장 ref fetch 실패 — fetch 실행 실패: 시도 상한 29초 초과 · origin/main = 6분 전 받은 판\n")
-    real_need = pub.need
-    monkeypatch.setattr(pub, "need", lambda m, n: (lambda: False) if (m, n) == ("ft_news_ledger", "fail_announced") else real_need(m, n))
-    rc, out = world.run()
-    assert rc == 1 and "검증 8/9" in out and "ⓖ fetch 실패" in out and "마지막 fetch 줄 = 실패" in out
-    assert len(world.sends()) == 1
-
-
-def test_r3_2_last_fetch_line_success_ignores_past_failures(world, monkeypatch):
-    """반송 r3(결정 2) — 마지막 줄 «성공» + 과거 실패 2줄 + 표식 ok → ⓖ 참 · 9/9 · 쪽지 0(결정 1 유지)."""
-    write(world.log, "INFO 뉴스 시작\nERROR 원장 ref fetch 실패 — a\nERROR 원장 ref fetch 실패 — b\n"
-                     "INFO fetch 생략(ls-remote 같음) origin/main=aaa ledger/auto=bbb\n")
-    real_need = pub.need
-    monkeypatch.setattr(pub, "need", lambda m, n: (lambda: False) if (m, n) == ("ft_news_ledger", "fail_announced") else real_need(m, n))
-    rc, out = world.run()
-    assert rc == 0 and "검증 9/9" in out and world.sends() == []
-
-
-def test_r3_3_log_read_failure_is_unavailable_not_9_of_9(world, monkeypatch):
-    """반송 r3(결정 2) — 로그를 못 읽으면 ⓖ «검증 불가»(C2 · 9/9 아님 · 쪽지 0)."""
-    world.log.chmod(0o000)
+# ── r1005 반송 r4 · ⓖ = 원격 ref vs 로컬 ref 직접 비교(로그·표식 추측 0) ──────────────────
+def test_r4_1_remote_equals_local_is_pass_even_with_old_log_and_broken_marker(world):
+    """반송 r4 ⓖ1 — 원격 == 로컬(main · br) → 참 · 9/9 · rc0 · 쪽지 0 (과거 실패 로그 N줄·표식 파일 000 무관)."""
+    write(world.log, "INFO 뉴스 시작\nERROR 원장 ref fetch 실패 — 판정 불가 · 게시 0\n" * 3)
+    write(world.root / ".fable-team/state/news-ledger/fetch-last", "fail\n")
+    (world.root / ".fable-team/state/news-ledger/fetch-last").chmod(0o000)  # 표식 읽기 오류도 무관(더 안 읽는다)
     try:
         rc, out = world.run()
     finally:
-        world.log.chmod(0o644)
-    assert rc == 1 and "[검증 불가]" in out and "ⓖ fetch 실패" in out and world.sends() == []
+        (world.root / ".fable-team/state/news-ledger/fetch-last").chmod(0o644)
+    assert rc == 0 and "검증 9/9" in out and world.sends() == []
+
+
+def test_r4_2_remote_ahead_of_local_is_fail_one_message(world, monkeypatch):
+    """반송 r4 ⓖ2 — 원격 main 전진(로컬 뒤) → 거짓 · 8/9 · rc1 · planner 쪽지 1 · 사유에 두 sha 앞 8자."""
+    monkeypatch.setattr(ledger, "_git_capped", git_behind)
+    rc, out = world.run()
+    assert rc == 1 and "검증 8/9" in out and "ⓖ fetch 실패" in out
+    assert SHA_B[:8] in out and SHA_A[:8] in out
+    assert len(world.sends()) == 1 and "뒤처짐" in world.sends()[0]
+
+
+@pytest.mark.parametrize("stub,why", [(git_failed, "rc=128"), (git_timeout, "rc=None")], ids=["ls-remote 실패", "7초 초과"])
+def test_r4_3_ls_remote_failure_or_timeout_is_unavailable_no_message(world, monkeypatch, stub, why):
+    """반송 r4 ⓖ3 — ls-remote 실패·시간 초과 = 검증 불가 · 9/9 아님 · [검증 불가] 표시 · 쪽지 0."""
+    monkeypatch.setattr(ledger, "_git_capped", stub)
+    rc, out = world.run()
+    assert rc == 1 and "검증 8/9" in out and "[검증 불가]" in out and why in out
+    assert world.sends() == []
 
 
 def test_r2_6_magazine_tilde_out_dir_is_expanded(world, tmp_path_factory):

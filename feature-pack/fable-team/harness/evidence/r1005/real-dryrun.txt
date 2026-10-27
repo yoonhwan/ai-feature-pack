@@ -1,23 +1,27 @@
-반송 r3 재실행(2026-10-27 15:3x) — 입력 = 지금 최신 뉴스 발행본(NEWS-20261027-1140-p8.md · 10-13 옛 판 아님)
-env = launchd com.byz.ft-news-planner 와 같은 값(FT_HARNESS_ROOT·FT_ROOT·FT_LEDGER_REPO·FT_NEWS_DIR · PATH) + 임시 상태 폴더(/tmp/r1005-dry4) + 가짜 쪽지함(/tmp/r1005-dry4/mbox.sh) · FT_NOW=2026-10-27 15:30 · 실 상태·실 쪽지 쓰기 0
-$ FT_NEWS_VERIFY_STATE=/tmp/r1005-dry4 FT_MBOX=/tmp/r1005-dry4/mbox.sh python3.11 bin/_news_verify.py --kind news --body .../NEWS-20261027-1140-p8.md --root <FT_ROOT> --repo <FT_LEDGER_REPO> --state <FT_ROOT>/.fable-team/state/news-ledger --log /tmp/byz-ft-news-planner.log
+반송 r4 재실행(2026-10-27 16:2x) — 입력 = 지금 최신 뉴스 발행본(NEWS-20261027-1140-p8.md · 10-13 옛 판 아님)
+env = launchd com.byz.ft-news-planner 와 같은 값(FT_HARNESS_ROOT·FT_ROOT·FT_LEDGER_REPO·FT_NEWS_DIR · PATH) + 임시 상태 폴더(/tmp/r1005-dry5) + 가짜 쪽지함(/tmp/r1005-dry5/mbox.sh) · FT_NOW=2026-10-27 16:20 · 실 상태·실 쪽지 쓰기 0
+$ FT_NEWS_VERIFY_STATE=/tmp/r1005-dry5 FT_MBOX=/tmp/r1005-dry5/mbox.sh python3.11 bin/_news_verify.py --kind news --body .../NEWS-20261027-1140-p8.md --root <FT_ROOT> --repo <FT_LEDGER_REPO> --state <FT_ROOT>/.fable-team/state/news-ledger --log /tmp/byz-ft-news-planner.log
 
 ERROR 팀 상태 ALL-UNKNOWN — 14팀 전원 확인 불가(판정 원천 실패 · 발행은 계속)
 INFO 검증 5/9 kind=news streak=0 연속 · 실패 ⓐ 오빠 할 일 건수, ⓑ 한 일, ⓒ 팀 수, ⓗ 팀 지도
-NEWS-VERIFY 2026-10-27 15:30 kind=news 검증 5/9
+NEWS-VERIFY 2026-10-27 16:20 kind=news 검증 5/9
   ⓐ 오빠 할 일 건수 — 발행본에 «오빠 할 일» 항목 없음
   ⓑ 한 일 — 발행본에 착지 줄·완료 쪽지 줄 없음
   ⓒ 팀 수 — 발행본에 «팀 N개» 없음
   ⓗ 팀 지도 — 지도에 없는 팀 8 — ccu, cfo, chatbot, feature, graphics
-rc=1
-실 fetch-last 표식 = ok
-실 로그 마지막 fetch 줄 = 1343:INFO fetch 생략(ls-remote 같음) origin/main=0523a64ace ledger/auto=4dd30defe7 (로그 1997줄)
+rc=0
+실 로그 마지막 fetch 줄 = 1343:INFO fetch 생략(ls-remote 같음) origin/main=0523a64ace ledger/auto=4dd30defe7
 
 --- 가짜 쪽지함(실 쪽지 0 확인)
-SEND send byz-planner-master-claude#145 [긴급] news 검증 5/9 · 새 사건 4칸 — ⓐ 오빠 할 일 건수, ⓑ 한 일, ⓒ 팀 수, ⓗ 팀 지도 ⓐ 오빠 할 일 건수 — 발행본에 «오빠 할 일» 항목 없음 ⓑ 한 일 — 발행본에 착지 줄·완료 쪽지 줄 없음 ⓒ 팀 수 — 발행본에 «팀 N개» 없음 ⓗ 팀 지도 — 지도에 없는 팀 8 — ccu, cfo, chatbot, feature, graphics 같은 칸 1통 · 발행은 그대로(검증만 실패) · 2026-10-27 15:30
+SEND send byz-planner-master-claude#145 [긴급] news 검증 5/9 · 새 사건 4칸 — ⓐ 오빠 할 일 건수, ⓑ 한 일, ⓒ 팀 수, ⓗ 팀 지도 ⓐ 오빠 할 일 건수 — 발행본에 «오빠 할 일» 항목 없음 ⓑ 한 일 — 발행본에 착지 줄·완료 쪽지 줄 없음 ⓒ 팀 수 — 발행본에 «팀 N개» 없음 ⓗ 팀 지도 — 지도에 없는 팀 8 — ccu, cfo, chatbot, feature, graphics 같은 칸 1통 · 발행은 그대로(검증만 실패) · 2026-10-27 16:20
+--- ⓖ 판정 입력 직접 실측(원격 vs 로컬 · ls-remote 1회 초)
+ls-remote rc=0 elapsed=3.69s
+main: 원격=5d0b653d 로컬=5d0b653d → 같음
+ledger/auto: 원격=c60592f4 로컬=c60592f4 → 같음
 
---- 이 회차 읽기 (반송 r3 · 결정 2 · 기대 = «검증 5/9») -------------------------
-ⓖ = 참 유지 — 판정 입력 둘 다 참 쪽: ① 로그 «마지막 fetch 줄» = 1343행 «INFO fetch 생략(ls-remote 같음) origin/main=0523a64ace ledger/auto=4dd30defe7»(성공) ② 실패 표식 fetch-last=ok. 과거 실패 4줄(375·853·1116·1135행)은 마지막 줄이 성공이므로 셈 0 → «검증 4/9» 가 아니라 «검증 5/9».
+--- 이 회차 읽기 (반송 r4 · 결정 3 · 기대 = «검증 5/9») -------------------------
+ⓖ = 참 — 추측 없이 «지금» 원격·로컬 비교: main 원격 5d0b653d = 로컬 5d0b653d · ledger/auto 원격 c60592f4 = 로컬 c60592f4 · ls-remote 1회 3.69초(첫 묻기 상한 5.5초 = 7 − 유예 1.5 안 · 칸 상한 7초 안).
+· 과거 로그·표식은 더 안 본다 — 실 로그의 마지막 fetch 줄(1343행 «fetch 생략(ls-remote 같음)»)과 실패 표식(fetch-last)이 판정에 쓰이지 않는다(반송 r4 로 그 두 입력 삭제).
 ⓐ = «발행본에 오빠 할 일 항목 없음», ⓑ = «착지 줄·완료 쪽지 줄 없음», ⓒ = «팀 N개 없음» — 라이브 FT_NEWS_MODE=draft 판 모양 차이(알려진 한계).
 ⓗ = 지도에 없는 팀 8(ccu·cfo·chatbot·feature·graphics·harness·issues·kk) — 발행본은 바뀐 6팀만 싣고 명부는 14팀(모드 차이) + «m.lecture» vs 명부 «lecture» 이름 비교(알려진 한계).
-참 5칸 = ⓓ 발행 sha · ⓔ 같은 경고 · ⓕ 완료 줄 · ⓖ 원천 가져오기 · ⓘ 뿌리 글(실 r1004 check 재호출)
+참 5칸 = ⓓ 발행 sha · ⓔ 같은 경고 · ⓕ 완료 줄 · ⓖ 원천 가져오기 · ⓘ 뿌리 글(실 r1004 check 재호출) → «검증 5/9» rc1
