@@ -43,5 +43,5 @@ Claude 앱을 열어 <팀> 작업 폴더를 고르고 첫 줄에 정해진 문�
 
 ## 이 가이드가 기대는 문서
 - 좌석 지침: `design/teams/<팀>/GUIDE-desk-feedback.md`
-- 장부 틀: `design/teams/<팀>/FEEDBACK-oppa-<YYYYMMDD>.md`
-- 설계: `design/teams/planner/DESIGN-desktop-feedback-to-issues-<YYYYMMDD>.md` §2·§5
+- 장부 틀: `feature-pack/fable-team/skill/references/desk-feedback/FEEDBACK-oppa-TEMPLATE.md`
+- 설계: `design/teams/planner/DESIGN-desktop-feedback-to-issues-20261027.md` §2·§5

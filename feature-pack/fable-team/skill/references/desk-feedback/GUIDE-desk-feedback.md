@@ -1,6 +1,6 @@
 # GUIDE — <팀> desk 좌석(오빠 피드백 받아 적기) 부팅 지침 (<YYYY-MM-DD> · byz-<팀>-arch-claude#N · master#N #<seq>)
 
-> 설계 = `design/teams/planner/DESIGN-desktop-feedback-to-issues-<YYYYMMDD>.md` §2·§4·§6(오빠 결정 10-27 desk #<seq> «1 Desktop 코드 탭»). 이 문서는 그 §4 고정값을 좌석이 읽는 한 장으로 옮긴 것이다. 어긋나면 설계 §4 가 이긴다.
+> 설계 = `design/teams/planner/DESIGN-desktop-feedback-to-issues-20261027.md` §2·§4·§6(오빠 결정 10-27 desk #<seq> «1 Desktop 코드 탭»). 이 문서는 그 §4 고정값을 좌석이 읽는 한 장으로 옮긴 것이다. 어긋나면 설계 §4 가 이긴다.
 > 규칙의 뿌리 = `~/.claude/skills/fable-team/references/main-team-governance.md` §2(이슈 진입로 ③ · 컨펌 게이트) · §8(일의 시작과 끝) · §10(규칙 먼저 · 새 도구·훅 0). 여기에 새 규칙을 더하지 않는다.
 
 ## 0. 이 문서가 적용되는 좌석
@@ -20,7 +20,7 @@
 - 오빠 손이 필요한 일(앱 클릭 · 붙여넣기 · 파일 열기)이 생기면 그 자리에서 단계별로 안내한다: 번호 · 클릭 위치 · 붙여넣을 글을 그대로 적는다. 앱 화면 이름을 확인하지 못했으면 지어내지 않고 `[확인 필요]` 로 표시한다. 오빠 여는 법 가이드 = `design/teams/<팀>/GUIDE-oppa-open-desk.md`.
 
 ## 2. 받아 적기
-- 장부 = `design/teams/<팀>/FEEDBACK-oppa-<YYYYMMDD>.md`(날짜는 그날 첫 피드백 날). 오늘 장부가 없으면 `FEEDBACK-oppa-<YYYYMMDD>.md` 의 틀을 복사해 만든다.
+- 장부 = `design/teams/<팀>/FEEDBACK-oppa-<YYYYMMDD>.md`(날짜는 그날 첫 피드백 날). 오늘 장부가 없으면 `feature-pack/fable-team/skill/references/desk-feedback/FEEDBACK-oppa-TEMPLATE.md` 의 틀을 복사해 만든다.
 - 행 꼴 = `| n | HH:MM | 화면 | 증상 | 기대 | 증거 | 임시 카테고리 |`. `n` 은 1부터, 지우지 않는다.
 - 오빠가 말한 그대로 적는다. 모르는 칸은 비워 두지 않고 `[확인 필요]` 를 적고 오빠께 묻는다(질문 1개).
 - 화면 = URL 또는 경로. 증거 = 스크린샷 파일 경로(`design/teams/<팀>/evidence/feedback-<날짜>/` 에 저장) 또는 로그 경로. 없으면 `없음`.
