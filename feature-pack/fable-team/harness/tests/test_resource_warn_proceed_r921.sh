@@ -21,13 +21,14 @@ export FT_ALLOW_TRACKED_BIN=1
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO="$(cd -- "$HERE/../.." && pwd)"; BIN="$REPO/harness/bin"; KIT="$REPO/harness/kit/fable-team/bin"
+. "$HERE/lib/tmux_isolate.sh"   # r957: 실 tmux 서버 격리 — 대역 tmuxc 가 없는 경로도 격리 소켓만 본다
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }
 has() { case "$1" in *"$2"*) ok "$3";; *) bad "$3 — 없음: «${2}» ← ${1:0:300}";; esac; }
 hasnt() { case "$1" in *"$2"*) bad "$3 — 있음: «${2}» ← ${1:0:300}";; *) ok "$3";; esac; }
 
-T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
+T="$(mktemp -d)"; trap 'tmux_isolate_end; rm -rf "$T"' EXIT
 S="$T/stub"; R="$T/R"; ST="$R/.fable-team/state"; B="$T/bin"; mkdir -p "$S" "$ST" "$B" "$T/home" "$T/cwd" "$R/.fable-team/comm"   # spawn·tick 이 comm 폴더를 먼저 푼다(r459)
 printf '2026-10-21T00:00:00\toff\tinstall\tinit\n' > "$ST/all-stop.log"   # 전팀 정지 원장 init(꺼짐) — 없으면 spawn 이 정지로 읽는다
 FREEZE="$ST/RESOURCE_FREEZE"; PTSV="$ST/pressure.tsv"
@@ -514,4 +515,6 @@ for f in ft-resource-gate.sh ft-nano-spawn.sh ft-role-spawn.sh ft-tick.sh ft-res
 done
 for f in ft-resource-gate.sh ft-nano-spawn.sh ft-role-spawn.sh ft-tick.sh ft-research-seat-lib.sh ft-resource-reclaim.sh ft-successor-open.sh; do bash -n "$BIN/$f" && ok "bash -n $f" || bad "bash -n $f"; done
 
+# ── r957 누수 검사: 실 tmux 서버에 시험 세션(byz-alpha-·byz-v65-·ft-v65-temp-)이 남으면 FAIL ──
+tmux_isolate_leak_check || fail=$((fail+1))
 echo "fail=$fail"; [ $fail -eq 0 ]

@@ -1,0 +1,42 @@
+# r641 증거 05 — r626 전팀 정지 검사(도구 맨 앞) 시험 칸 ⓘ · 2026-10-27 · nano byz-harness-nano-r641-reboot-restore-seats-parallel-hr-re#0 (반송 r1 뒤 재생성)
+# base = 팩 origin/main aad778cf 키트 bin 전체(도구 ft-reboot-restore.sh 없음) — 의존 모듈까지 전부 복사한 판으로 다시 쟀다(모듈 누락 오염 제거)
+
+## (1) 실패 먼저 — base 판
+$ R641_BIN=<origin/main kit/fable-team/bin 전체> bash feature-pack/fable-team/harness/tests/test_reboot_restore_r641.sh
+FAIL ⓘ 정지 켜짐 rc 1 — «127» ≠ «1»
+FAIL ⓘ 그 REJECT 줄 그대로 — 없음: «REJECT 전팀 정지 중(» ← bash: /tmp/r641-base/ft-reboot-restore.sh: No such file or directory
+PASS ⓘ 정지면 좌석 표도 안 냄
+PASS ⓘ 정지 새 세션 0
+PASS ⓘ 정지 래퍼 호출 0
+FAIL ⓘ 정지 끄면 --dry-run 다시 rc 0 — «127» ≠ «0»
+== r641 fail=47
+base 합계: PASS 13 · FAIL 47 · rc=1
+
+## (2) 변이 — 도구에서 정지 검사 1줄만 삭제 → ⓘ 칸이 빨강이어야 한다
+FAIL ⓘ 정지 켜짐 rc 1 — «0» ≠ «1»
+FAIL ⓘ 그 REJECT 줄 그대로 — 없음: «REJECT 전팀 정지 중(» ← 출처=snapshot /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.3bIc2SisZ8/home/.tmuxc/snapshots/latest.json
+FAIL ⓘ 정지면 좌석 표도 안 냄 — 있으면 안 됨: «REBOOT-RESTORE»
+FAIL ⓘ 정지인데 세션 열림
+FAIL ⓘ 정지인데 래퍼 호출
+== r641 fail=6
+
+## (3) 고친 뒤 — 검사 줄 복구(cmp0) → 전량 초록
+PASS ⓘ 정지 켜짐 rc 1
+PASS ⓘ 그 REJECT 줄 그대로
+PASS ⓘ 정지면 좌석 표도 안 냄
+PASS ⓘ 정지 새 세션 0
+PASS ⓘ 정지 래퍼 호출 0
+PASS ⓘ 정지 끄면 --dry-run 다시 rc 0
+== r641 fail=0
+ALL PASS
+후 합계: PASS 61 · FAIL 0 · rc=0
+
+## (4) 정적 검사
+bash -n kit rc=0
+kit ↔ 추적본 cmp 0
+
+## (5) r626 원장 규약(상태 폴더만 있고 원장 없음 = 정지) — 시험 setup 이 init 줄을 남기는 이유
+9:  판정: 상태 폴더 없음 = 정지(사람 확인) · 상태 파일 있음 = 정지 · 원장 마지막 on = 정지(상태 파일이 사라져도) · 원장 깨짐 = 정지 · ★원장 없음 = 정지(r4)★ · 꺼짐 = 원장 마지막 off 뿐.
+150:    """원장 마지막 줄 → (on|off, 그 줄 notify_failed) · 원장 없음 = None · 깨짐(못 읽음·빈 원장·꼴 틀림) = 사유."""
+177:    """→ (off|stop|hard, 사유, 상태 dict) — «없음 = 꺼짐» 가정 0: 꺼짐 증거 = 원장 마지막 off 줄뿐(원장 없음 = 정지 · r4)."""
+189:        return "hard", f"원장 없음({LOG}) — 설치(install.sh --apply)가 init 줄을 남겨야 한다 · 사람 확인", None

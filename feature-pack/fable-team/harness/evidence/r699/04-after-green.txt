@@ -1,0 +1,16 @@
+# ⓑⓒ 후판 — 시험 PROJ = skill 사본 · skill 사본 = 정본(kit) cp · HEAD base c70fa21f1f0239934b96dff4a2fdf0dd20d6eb09
+$ bash feature-pack/fable-team/harness/tests/test_orch_gate_top_models.sh
+ok   KIT bash -n → 0
+ok   KIT Sonnet 5 3번째 Edit → 2
+ok   KIT Sonnet 5.5 3번째 Edit → 0
+ok   KIT Fable 3번째 Edit → 2
+ok   KIT agent_id 있음 3번째 Edit → 0
+ok   PROJ bash -n → 0
+ok   PROJ Sonnet 5 3번째 Edit → 2
+ok   PROJ Sonnet 5.5 3번째 Edit → 0
+ok   PROJ Fable 3번째 Edit → 2
+ok   PROJ agent_id 있음 3번째 Edit → 0
+ok   사본 수 ≥ 2 → yes
+ok   팩 안 사본 전부 = 정본 cmp0 → 
+pass=12 fail=0
+rc=0

@@ -1,0 +1,16 @@
+# env 경로 — ORCH_GATE_PROJ=BYZ 리포 설치 사본(참고 · 단언 아님)
+$ ORCH_GATE_PROJ=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.claude/hooks/orchestration-gate.sh bash feature-pack/fable-team/harness/tests/test_orch_gate_top_models.sh
+ok   KIT bash -n → 0
+ok   KIT Sonnet 5 3번째 Edit → 2
+ok   KIT Sonnet 5.5 3번째 Edit → 0
+ok   KIT Fable 3번째 Edit → 2
+ok   KIT agent_id 있음 3번째 Edit → 0
+ok   PROJ bash -n → 0
+FAIL PROJ Sonnet 5 3번째 Edit → 기대 2 · 실제 0
+ok   PROJ Sonnet 5.5 3번째 Edit → 0
+ok   PROJ Fable 3번째 Edit → 2
+ok   PROJ agent_id 있음 3번째 Edit → 0
+ok   사본 수 ≥ 2 → yes
+ok   팩 안 사본 전부 = 정본 cmp0 → 
+pass=11 fail=1
+rc=1

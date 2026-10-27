@@ -1,0 +1,9 @@
+$ FT_BYZ_REPO=/nonexistent/byz bash harness/tests/test_orch_gate_master.sh
+FAIL BYZ 리포 훅 없음 — /nonexistent/byz origin/main:.claude/hooks/orchestration-gate.sh
+rc=1
+$ (cwd=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.oWAxJjqSIM · FT_BYZ_REPO 없음 · LIVE_ROOT 없음) bash harness/tests/test_orch_gate_master.sh
+FAIL BYZ 리포 못 찾음 — FT_BYZ_REPO 미지정 · cwd 리포 .fable-team/LIVE_ROOT 없음
+rc=1
+$ FT_BYZ_REPO=/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r703-orch-gate-master-test-targets-byz-h (팩 리포 — 훅 없음) bash harness/tests/test_orch_gate_master.sh
+FAIL BYZ 리포 훅 없음 — /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r703-orch-gate-master-test-targets-byz-h origin/main:.claude/hooks/orchestration-gate.sh
+rc=1
