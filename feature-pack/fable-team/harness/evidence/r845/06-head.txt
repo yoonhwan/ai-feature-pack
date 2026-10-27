@@ -1,0 +1,11 @@
+=== 문법 · kit cmp ===
++ bash -n bin/ft-scratch-repo.sh
++ /bin/bash -n bin/ft-scratch-repo.sh
++ cmp bin/ft-scratch-repo.sh kit/fable-team/bin/ft-scratch-repo.sh
+
+=== 세트 ===
+6f354dbf5aecb14f098bda285e5e11a8b9507550
+ M feature-pack/fable-team/harness/bin/ft-scratch-repo.sh
+ M feature-pack/fable-team/harness/kit/fable-team/bin/ft-scratch-repo.sh
+?? feature-pack/fable-team/harness/evidence/r845/
+?? feature-pack/fable-team/harness/tests/test_scratch_repo_register_on_hook_fail_r845.sh

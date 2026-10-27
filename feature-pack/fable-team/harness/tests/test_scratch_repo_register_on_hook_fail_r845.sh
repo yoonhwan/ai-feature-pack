@@ -1,0 +1,131 @@
+#!/usr/bin/env bash
+# test_scratch_repo_register_on_hook_fail_r845.sh — r845 (재설계 r6 · 오빠 결정 10-27 «tmp 에 임시를 쌓으면 재부팅에 정리된다») ft-scratch-repo.sh
+#   ⓐ post-checkout 훅 exit 4 (--full) → 사본은 그 sha 그대로 생겼다 = stderr WARN 1줄 + 경로 stdout rc0 + 장부 1줄
+#   ⓑ 훅 SIGSEGV(kill -SEGV) → ⓐ 와 같음
+#   ⓒ 장부 쓰기 불가(장부 파일 권한 0) → WARN 1줄 · rc0 · 사본 그대로 (장부는 «있으면 참고» — die 0)
+#   ⓓ --done/--sweep 은 «장부 3열 같은 글자» ∧ «분리(detached) 워크트리» 둘 다일 때만 지운다 — 옛 줄(필드 수 ≠3) · 워크트리 아닌 대상 = 삭제 0
+#   ⓔ 생성 경로(FT_SCRATCH_DIR)에 제어 문자(탭·줄바꿈) = 입구 거절 rc2 · 사본 0 · 장부 0 (r6 반례 집합 «제어 문자 경로 = 입구 거절»)
+#   ⓕ FT_SCRATCH_DIR 없으면 기본 생성 자리 = $TMPDIR/ft-scratch/<주인>/ (재부팅이 지우는 임시 자리)
+#   ⓖ 기존 scratch 시험 4종 ALL PASS(동작 변화 0) · kit 짝 cmp0 · /bin/bash(bash 3.2) 로 같은 시험 1회
+#   변이 3: «장부 실패 = die» → ⓒ FAIL · «장부 줄로 삭제(워크트리 확인 없이)» → ⓓ FAIL · «입구 거절 삭제» → ⓔ FAIL
+# 임시 git 저장소·임시 훅 폴더·가짜 tmux·가짜 lsof·임시 TMPDIR 만 쓴다 — 실 저장소·실 장부·실 사본·실 TMPDIR 0.
+# SCR_SUT=<경로> 로 시험 대상을 바꿀 수 있다(기준판 before-red · 변이). R845_FAST=1 = 변이·기존 4종·bash32 생략(변이 재귀용).
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
+set -uo pipefail
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
+REPO="$(cd -- "$HERE/../.." && pwd)"
+SUT="${SCR_SUT:-$REPO/harness/bin/ft-scratch-repo.sh}"
+SH="${BASH:-bash}"
+fail=0
+ok()  { echo "PASS $1"; }
+bad() { echo "FAIL $1"; fail=$((fail+1)); }
+[ -f "$SUT" ] || { bad "ft-scratch-repo.sh 없음 ($SUT)"; echo "(1 failed)"; exit 1; }
+
+T="$(mktemp -d)"; trap 'chmod -R u+w "$T" 2>/dev/null; rm -rf "$T"' EXIT
+G="$T/src"; R="$T/R"; SCR="$T/scratch"; TMPD="$T/tmpdir"; BIN="$T/bin"; HOOKS="$T/hooks"
+mkdir -p "$G" "$R/.fable-team/state" "$SCR" "$TMPD" "$BIN" "$HOOKS"
+cm() { git -C "$1" -c user.name=t -c user.email=t@t commit -q -m "$2"; }
+git init -q -b main "$G"; printf '.fable-team/\n' > "$G/.gitignore"; echo a > "$G/a.txt"
+git -C "$G" add -A; cm "$G" c1; SHA="$(git -C "$G" rev-parse HEAD)"
+STATE="$R/.fable-team/state"; TSV="$STATE/scratch-repos.tsv"; ARMED="$STATE/scratch-sweep.armed"
+printf 'live-owner\n' > "$T/sessions"   # tmux 세션 목록(가짜) = 이 한 줄 — 다른 주인은 «주인 없음»
+printf '#!/bin/sh\n[ "$1" = list-sessions ] && cat "%s/sessions" 2>/dev/null\nexit 0\n' "$T" > "$BIN/tmux"
+printf '#!/bin/sh\nprintf "p1\\ncinit\\nn/\\n"\n' > "$BIN/lsof"   # cwd 를 쓰는 프로세스 0(기준 pid 1 = 루트)
+chmod 755 "$BIN/tmux" "$BIN/lsof"
+git -C "$G" config core.hooksPath "$HOOKS"
+hook() { # <exit4|segv|ok> — worktree add 안에서 도는 post-checkout 훅
+  case "$1" in
+    exit4) printf '#!/bin/sh\nexit 4\n' > "$HOOKS/post-checkout";;
+    segv)  printf '#!/bin/sh\nkill -SEGV $$\n' > "$HOOKS/post-checkout";;
+    ok)    printf '#!/bin/sh\nexit 0\n' > "$HOOKS/post-checkout";;
+  esac
+  chmod 755 "$HOOKS/post-checkout"
+}
+SCRDIR="$SCR"   # 기본 = FT_SCRATCH_DIR 를 명시(ⓕ 에서만 비운다)
+sc() { # 접두 env 는 «따옴표 그대로» 넘긴다 — 단어 분리로 탭·줄바꿈 경로가 갈라지면 ⓔ 가 거짓 통과한다
+  OUT="$(FT_RES_ROOT="$R" FT_SCRATCH_DIR="$SCRDIR" TMPDIR="$TMPD" FT_SCRATCH_OWNER="${OWN:-live-owner}" FT_SCRATCH_MAIN=main \
+    PATH="$BIN:$PATH" "$SH" "$SUT" "$@" 2>"$T/err")"; RC=$?; ERR="$(cat "$T/err")"; }
+nreg()  { awk 'END{print NR+0}' "$TSV" 2>/dev/null; }
+regline() { awk -F'\t' -v p="$1" 'NF==3 && $1==p' "$TSV" 2>/dev/null | wc -l | tr -d ' '; }
+
+# ── ⓐ 훅 exit 4 (--full: post-checkout 훅이 실제로 도는 경로) ──────────────────────────────
+hook exit4
+sc "$SHA" --repo "$G" --full; A="$OUT"
+{ [ $RC = 0 ] && [ -n "$A" ] && [ -d "$A" ] && [ -f "$A/a.txt" ] && [ "$(git -C "$A" rev-parse HEAD 2>/dev/null)" = "$SHA" ] \
+  && printf '%s' "$ERR" | grep -q '사본 생성됨' && [ "$(regline "$A")" = 1 ] && git -C "$G" worktree list | grep -q "$A"; } \
+  && ok "ⓐ 훅 exit 4 → 사본은 그 sha 로 생김 · WARN 1줄 · 경로 rc0 · 장부 1줄" || bad "ⓐ rc=$RC out=[$A] err=[$ERR] reg=$(regline "$A")"
+
+# ── ⓑ 훅 SIGSEGV ─────────────────────────────────────────────────────────────────────
+hook segv
+OWN=segv-owner sc "$SHA" --repo "$G" --full; B="$OUT"
+{ [ $RC = 0 ] && [ -n "$B" ] && [ -d "$B" ] && [ -f "$B/a.txt" ] && [ "$(git -C "$B" rev-parse HEAD 2>/dev/null)" = "$SHA" ] \
+  && printf '%s' "$ERR" | grep -q '사본 생성됨' && [ "$(regline "$B")" = 1 ]; } \
+  && ok "ⓑ 훅 SIGSEGV(rc139) → ⓐ 와 같음(사본 쓸 수 있음 · WARN · rc0)" || bad "ⓑ rc=$RC out=[$B] err=[$ERR]"
+
+# ── ⓒ 장부 쓰기 불가 = WARN 만 (die 0) ────────────────────────────────────────────────
+hook ok
+echo b > "$G/b.txt"; git -C "$G" add -A; cm "$G" c2; SHA2="$(git -C "$G" rev-parse HEAD)"
+chmod 400 "$TSV"   # 폴더 권한이 아니라 «장부 파일» 쓰기를 막는다(이미 있는 파일은 폴더 권한과 무관하게 쓸 수 있다)
+OWN=no-ledger sc "$SHA2" --repo "$G" --full; C="$OUT"
+{ [ $RC = 0 ] && [ -n "$C" ] && [ -d "$C" ] && [ -f "$C/b.txt" ] && printf '%s' "$ERR" | grep -q '장부 등록 실패' && [ "$(regline "$C")" = 0 ]; } \
+  && ok "ⓒ 장부 쓰기 불가 → WARN 1줄 · rc0 · 사본 그대로(장부 0줄)" || bad "ⓒ rc=$RC out=[$C] err=[$ERR] reg=$(regline "$C")"
+chmod 600 "$TSV"; [ -w "$TSV" ] && ok "ⓒ 장부 파일 권한 복구" || bad "ⓒ 권한 복구 실패 $TSV"
+
+# ── ⓓ 지우기 = 장부 3열 같은 글자 ∧ 분리 워크트리 (옛 줄·워크트리 아님 = 삭제 0) ────────────────
+D1="$A"   # ⓐ 의 진짜 detached 워크트리 · 장부 줄을 «옛 4열» 로 바꾼다
+awk -F'\t' -v OFS='\t' -v p="$D1" -v t="$(( $(date +%s) - 90000 ))" 'BEGIN{OFS="\t"} $1==p{print p,"live-owner",t,"extra"; next} {print}' "$TSV" > "$TSV.n" && mv "$TSV.n" "$TSV"
+date +%s > "$ARMED"   # 목록 보고 단계를 건너뛰고 «지우기» 단계로
+sc --done "$D1"; { [ $RC = 2 ] && [ -d "$D1" ] && printf '%s' "$ERR" | grep -q '등록된 사본이 아님'; } \
+  && ok "ⓓ 옛 4열 장부 줄 = --done 거부 rc2 · 사본 그대로" || bad "ⓓ --done rc=$RC err=[$ERR] D1=$([ -d "$D1" ] && echo 있음 || echo 없음)"
+sc --sweep; { [ -d "$D1" ] && printf '%s' "$ERR" | grep -q '옛/깨진 줄'; } \
+  && ok "ⓓ --sweep 은 옛 줄을 해석하지 않는다(경고 1줄 · 삭제 0)" || bad "ⓓ sweep err=[$ERR] D1=$([ -d "$D1" ] && echo 있음 || echo 없음)"
+D2="$SCR/repo-notawt-1-2"; mkdir -p "$D2"; printf 'x\n' > "$D2/f"
+printf '%s\t%s\t%s\n' "$D2" "live-owner" "$(date +%s)" >> "$TSV"   # 3열이지만 «워크트리 아님»
+sc --done "$D2"; { [ $RC = 2 ] && [ -d "$D2" ] && printf '%s' "$ERR" | grep -q '워크트리가 아님'; } \
+  && ok "ⓓ 장부에 있어도 워크트리가 아니면 --done rc2 · 폴더 그대로" || bad "ⓓ 워크트리 아님 rc=$RC err=[$ERR]"
+sc --sweep; [ -d "$D2" ] && ok "ⓓ --sweep 도 워크트리 아닌 줄은 삭제 0" || bad "ⓓ sweep 이 워크트리 아닌 폴더 삭제"
+awk -F'\t' -v p="$D2" '$1!=p' "$TSV" > "$TSV.n" && mv "$TSV.n" "$TSV"
+
+# ── ⓔ 제어 문자 경로 = 입구 거절 (사본 0 · 장부 0) ────────────────────────────────────
+N0="$(nreg)"
+TAB=$'\t'; NL=$'\n'   # $(printf '\n') 은 뒤쪽 줄바꿈이 잘려 «빈 글자» 가 된다 — ANSI-C 인용으로 넣는다
+for bad_dir in "$T/bad${TAB}dir" "$T/bad${NL}dir"; do
+  SCRDIR="$bad_dir" sc "$SHA" --repo "$G" --full
+  { [ $RC = 2 ] && printf '%s' "$ERR" | grep -q '제어 문자' && [ -z "$OUT" ] && [ "$(nreg)" = "$N0" ] && [ ! -e "$bad_dir" ]; } \
+    && ok "ⓔ 제어 문자 경로($(printf '%s' "$bad_dir" | od -An -c | tr -s ' ' | head -1 | cut -c1-24)…) → rc2 · 사본 0 · 장부 0" || bad "ⓔ rc=$RC out=[$OUT] err=[$ERR] reg=$(nreg)/$N0"
+done
+SCRDIR="$SCR"
+
+# ── ⓕ 기본 생성 자리 = $TMPDIR/ft-scratch/<주인>/ ───────────────────────────────────
+SCRDIR= OWN=f-owner sc "$SHA" --repo "$G" --full; F="$OUT"
+{ [ $RC = 0 ] && [ -n "$F" ] && [ -d "$F" ] && [ "$(dirname "$F")" = "$TMPD/ft-scratch/f-owner" ]; } \
+  && ok "ⓕ FT_SCRATCH_DIR 없으면 \$TMPDIR/ft-scratch/<주인>/ 아래에 만든다(재부팅 정리 자리)" || bad "ⓕ rc=$RC out=[$F] (기대 $TMPD/ft-scratch/f-owner)"
+SCRDIR="$SCR"
+
+if [ -z "${R845_FAST:-}" ]; then
+  # ── ⓖ 기존 scratch 시험 4종(동작 변화 0) · kit 짝 cmp0 · bash 3.2 ─────────────────
+  for t in test_scratch_repo.sh test_scratch_judged_r645.sh test_scratch_sweep_live_cwd_r548.sh test_scratch_repo_sparse_auto_done_r891.sh; do
+    bash "$HERE/$t" > "$T/e.txt" 2>&1; e=$?
+    { [ "$e" = 0 ] && grep -q '^ALL PASS' "$T/e.txt"; } && ok "ⓖ 기존 $t ALL PASS" || bad "ⓖ 기존 $t rc=$e $(grep '^FAIL' "$T/e.txt" | head -2 | tr '\n' ' ')"
+  done
+  cmp -s "$REPO/harness/bin/ft-scratch-repo.sh" "$REPO/harness/kit/fable-team/bin/ft-scratch-repo.sh" \
+    && ok "ⓖ kit 짝 cmp0" || bad "ⓖ kit 짝 다름"
+  env R845_FAST=1 /bin/bash "$HERE/$(basename "$0")" > "$T/b32.txt" 2>&1; b=$?
+  { [ "$b" = 0 ] && grep -q '^ALL PASS' "$T/b32.txt"; } && ok "ⓖ /bin/bash(bash 3.2) 로 같은 시험 ALL PASS" || bad "ⓖ bash3.2 rc=$b $(grep '^FAIL' "$T/b32.txt" | head -2 | tr '\n' ' ')"
+
+  # ── 변이 3: 계약을 되돌리면 그 칸이 FAIL ─────────────────────────────────────────
+  awk 'index($0, "|| echo \"WARN ft-scratch-repo — 장부 등록 실패") > 0 { print "      || die \"장부 등록 실패\" 4"; next } { print }' "$SUT" > "$T/mut1.sh"
+  grep -v -F 'own_wt "$P" || die' "$SUT" > "$T/mut2.sh"
+  grep -v -F -e 'has_ctl "${FT_SCRATCH_DIR:-}"' -e 'has_ctl "$OWNER"' -e 'has_ctl "$BASE"' -e 'has_ctl "$DEST"' "$SUT" > "$T/mut3.sh"
+  for m in 1 2 3; do
+    cmp -s "$SUT" "$T/mut$m.sh" && bad "변이$m 이 안 바뀜"
+    "$SH" -n "$T/mut$m.sh" 2>/dev/null || bad "변이$m 문법 깨짐(가짜 변이)"
+  done
+  mut() { env R845_FAST=1 SCR_SUT="$T/mut$1.sh" "$SH" "$HERE/$(basename "$0")" > "$T/m$1.txt" 2>&1; }
+  mut 1; grep -q '^FAIL ⓒ' "$T/m1.txt" && ok "변이1(장부 실패 = die) → ⓒ FAIL" || bad "변이1 이 살아남음 $(grep '^FAIL' "$T/m1.txt" | head -2 | tr '\n' ' ')"
+  mut 2; grep -q '^FAIL ⓓ' "$T/m2.txt" && ok "변이2(장부 줄만 보고 삭제) → ⓓ FAIL" || bad "변이2 가 살아남음 $(grep '^FAIL' "$T/m2.txt" | head -2 | tr '\n' ' ')"
+  mut 3; grep -q '^FAIL ⓔ' "$T/m3.txt" && ok "변이3(입구 거절 삭제) → ⓔ FAIL" || bad "변이3 이 살아남음 $(grep '^FAIL' "$T/m3.txt" | head -2 | tr '\n' ' ')"
+fi
+
+[ $fail -eq 0 ] && echo "ALL PASS" || echo "($fail failed)"
+exit $fail

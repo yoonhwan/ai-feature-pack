@@ -1,3 +1,10 @@
+## 2026-10-27 — 임시 사본(scratch repo)이 «훅이 죽으면 장부에 안 남아 아무도 못 지우는» 고아가 됐다(beads post-checkout SIGSEGV → worktree add rc=4 · 사본은 그 sha 로 생겼는데 등록 전 die) → 설계를 접는다: 사본은 재부팅이 지우는 임시 자리(`$TMPDIR/ft-scratch/<주인>/`)에 만들고 장부는 «있으면 참고»(쓰기 실패 = WARN · die 0) · 훅 실패여도 사본이 «요청 sha 그대로 + status 깨끗» 이면 경로 rc0 + WARN · 지우기(`--done`/`--sweep`)는 «장부 3열 같은 글자 ∧ 분리(detached) 워크트리» 둘 다일 때만 · 생성 경로에 제어 문자 = 입구 거절 rc2 (r845 재설계 r6 · 1.1.260 · ft-scratch-repo.sh 1곳 + 짝 사본 + 시험 1)
+
+- 오빠 결정 10-27 08:5x «tmp 에 임시를 쌓으면 재부팅에 정리된다» · arch 157 재설계 r6 · 인터뷰 묶음 INTERVIEW-arch156-after-decision-20261027.md · DA r3 반례(경로 탭·줄바꿈으로 장부 줄이 깨져 남의 폴더를 지움)는 «입구 거절 + 장부 옛 줄 건너뜀» 으로 닫음.
+- 증거 `harness/evidence/r845/`: 기준판(origin/main 6f354dbf) 10 FAIL rc=10(ⓔ 는 탭 경로에 사본을 만들고 장부 줄을 깨뜨림) → 새 판 20 PASS ×3 rc=0 · 기존 scratch 시험 4종 ALL PASS(23·10·18·27 PASS) · 변이 3종(장부 실패=die · 장부 줄만 보고 삭제 · 입구 거절 삭제) 전부 해당 칸 FAIL · bash 3.2 동일 · kit↔harness/bin cmp0 · bash -n OK.
+- 해석 1줄: r6 «장부 3열·옛 줄 해석 0» 은 «옛/깨진 줄로는 지우지 않는다(건너뜀 + WARN)» 로 읽었다 — 기존 시험 r548 ⓗ 가 3열 나이 칸 계약을 잡고 있어 장부 3열 자체는 유지. 되돌림 = revert 1커밋.
+- press 필요: 없음(단위 시험만 · 라이브 오디오·말풍선·제품 키 경로 0).
+
 ## 2026-10-27 — 워크트리 정리 도구(`ft-wt-sweep.sh`)의 껍데기 경보가 «일시 실패» 를 «끊김» 으로 읽어 일하는 폴더를 올리고, 밖에서 물려받은 git 설정 때문에 남의 저장소를 판정했다 → ① 스크립트 시작(자동 스캔 루트 결정 전)에서 GIT_DIR·GIT_WORK_TREE·GIT_INDEX_FILE·GIT_COMMON_DIR 지움 + LC_ALL=C ② worktree list·ls-tree 실패(rc≠0 · 시간 초과 · SHA 0) = 그 폴더 «판정 못 함»(이전 판정 이어받기 · 후보에서 빼지 않음 · 서명 유지 · NOTE 1줄) (r844 r5 · 1.1.259 · 껍데기 경보만 · 정리 경로 변경 0)
 
 - 외부 DA r3 HOLD 2의 마지막 두 줄. 증거 `harness/evidence/r844/r5/`(초록 144 passed ×4 · r3 판 FAIL 10 · 변이 1 FAIL 3 · 변이 2 FAIL 5 · 기존 시험 FAIL 0(1건은 r3 판과 같은 줄)) · 짝 사본 cmp0 · 되돌림 = revert 1커밋.
