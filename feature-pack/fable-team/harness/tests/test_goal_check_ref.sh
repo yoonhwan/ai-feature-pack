@@ -95,7 +95,7 @@ printf '#!/bin/bash\necho "ARGS $*" >> "%s"; [ "$1" = relay ] && cat "$4" >> "%s
 tmux() { [ "$1" = has-session ]; }; export -f tmux
 tick() { : > "$MLOG"; TOUT="$(FT_GOAL_TICK_ROOT="$R" FT_GOAL_TICK_TARGET=seat-t FT_GOAL_TICK_STREAK="$T/streak" FT_GOAL_TICK_CHECK="${1:-$BIN/ft-goal-check.sh}" bash "$BIN/ft-goal-tick.sh" 2>&1)"; TRC=$?
   sed -n 's#^ARGS relay [^ ]* [^ ]* \(/tmp/goal-tick\.[A-Za-z0-9]*\) .*#\1#p' "$MLOG" | while IFS= read -r f; do rm -f "$f"; done; }   # 틱 relay 본문(/tmp) 정리 — 시험이 남기지 않는다
-tick; [ "$TRC" = 0 ] && printf '%s' "$TOUT" | grep -q 'tick sent target=seat-t rc=3' && [ "$(grep -c '^ARGS relay seat-t os-goal-tick' "$MLOG")" = 1 ] && grep -q '틱 본문 OLD' "$MLOG" && ok "ⓓ1 새 좌석 → rc=3 relay 1(체크아웃 실재 폴더 프롬프트)" || bad "ⓓ1 trc=$TRC :: $TOUT :: $(cat "$MLOG")"
+tick; [ "$TRC" = 0 ] && printf '%s' "$TOUT" | grep -q 'tick sent target=seat-t rc=3' && [ "$(grep -c '^ARGS relay seat-t os-goal-tick' "$MLOG")" = 1 ] && grep -q '틱 본문 REF' "$MLOG" && ok "ⓓ1 새 좌석 → rc=3 relay 1(r994: 체크아웃 옛 꼴 폴더(OLD) 있음에도 프롬프트 = ref 본문)" || bad "ⓓ1 trc=$TRC :: $TOUT :: $(cat "$MLOG")"
 (cd "$R" && bash "$BIN/ft-goal-check.sh" seat-t --touch "$PHRASE" >/dev/null 2>&1)
 tick; [ "$TRC" = 0 ] && printf '%s' "$TOUT" | grep -q 'tick quiet target=seat-t rc=0' && [ ! -s "$MLOG" ] && ok "ⓓ2 읽은 좌석 → rc=0 tick quiet · relay 0" || bad "ⓓ2 trc=$TRC :: $TOUT :: $(cat "$MLOG")"
 printf '#!/bin/bash\necho "REJECT seat=$1 cited 문구가 골 원장에 없다 (열지 않았다): x"; exit 4\n' > "$T/rej.sh"; chmod +x "$T/rej.sh"
