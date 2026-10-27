@@ -1,3 +1,11 @@
+## 2026-10-25 — r868 재부팅 기준선 2시간 재측정 잡 ft-postboot-measure(읽기 전용 · 1.1.231)
+
+- 오빠 지시(10-25 00:3x) «재부팅 직후 기준선 대비 같은 명령 2시간 주기 재측정». 새 `ft-postboot-measure.sh`(+ `ft_postboot_measure.py` 측정 · `ft_postboot_report.py` 상태·요약) + launchd 틀 `kit/launchd/com.byz.ft-postboot-measure.plist.template`(StartInterval 7200 · RunAtLoad = 적재·부팅 때 1열).
+- 1회 = 명령 10개(uptime · sysctl kern.boottime·vm.swapusage · memory_pressure · df -k · ps · tmux ls · git worktree list · lsof +L1 · colima status)만 · kill·rm·worktree 변경·git 쓰기 0. 기준선 표 9항목 + 원인 4 보조(지운 채 쥔 파일 합계·상위 5 · pi/claude/node/python 수·RSS · next-server 수·CPU · limactl · colima).
+- 명령마다 7초 상한 · lsof +L1 은 7초 × ceil(프로세스/500) · 70초 천장 · 넘으면 «시간 초과» · 실패 «실패(…)» 칸(0·빈 칸 0).
+- 상태 `<루트>/.fable-team/state/postboot-measure.tsv`(행 = 1회 · 14일 지난 행은 다음 기록 때 정리 = 닫는 사건) · 날이 바뀐 첫 회 = 전날 요약 1장 `<루트>/design/teams/planner/postboot/SUMMARY-postboot-<날짜>.md`(기준선 열 · 회차 열 · 차이 열 · 커밋 0) · `--summary` = 오늘 요약 지금. stdout 1회 1줄(`/tmp/byz-ft-postboot-measure.log`).
+- 시험 `tests/test_postboot_measure_r868.sh` 49(ⓐ~ⓕ · 변이 2: 시간 초과→0 · colima stop) · 렌더 목록 개수 고정 시험 2개 9 → 10.
+
 ## 2026-10-27 — 워크트리 정리 도구(`ft-wt-sweep.sh`)의 껍데기 경보가 «일시 실패» 를 «끊김» 으로 읽어 일하는 폴더를 올리고, 밖에서 물려받은 git 설정 때문에 남의 저장소를 판정했다 → ① 스크립트 시작(자동 스캔 루트 결정 전)에서 GIT_DIR·GIT_WORK_TREE·GIT_INDEX_FILE·GIT_COMMON_DIR 지움 + LC_ALL=C ② worktree list·ls-tree 실패(rc≠0 · 시간 초과 · SHA 0) = 그 폴더 «판정 못 함»(이전 판정 이어받기 · 후보에서 빼지 않음 · 서명 유지 · NOTE 1줄) (r844 r5 · 1.1.259 · 껍데기 경보만 · 정리 경로 변경 0)
 
 - 외부 DA r3 HOLD 2의 마지막 두 줄. 증거 `harness/evidence/r844/r5/`(초록 144 passed ×4 · r3 판 FAIL 10 · 변이 1 FAIL 3 · 변이 2 FAIL 5 · 기존 시험 FAIL 0(1건은 r3 판과 같은 줄)) · 짝 사본 cmp0 · 되돌림 = revert 1커밋.
