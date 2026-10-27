@@ -367,12 +367,58 @@ fi
 live="$(printf '%s\n' "$out" | grep -x "${PREFIX}${KEY}#[0-9]*" | tr '\n' ' ')"
 [ -z "$live" ] || fail "좌석 ${live% }"
 # ② 워크트리를 cwd 로 쥔 프로세스 0 (tmux 밖 node·mcp·zsh 포함). lsof 절대경로 + 실행 가능 + 종료코드를 grep 과 분리(fail-closed · DA r2 R12)
+#   r992: 이 한 줄이 머신 전체(수천 프로세스)를 훑어 부하 19 에서 7초를 넘겼다(ops 나노 닫기 3종 막힘 ③) — «내 uid ∧ cwd fd» 로 좁히고 7초 상한을 건다. 넘으면 pid 반 쪼개기 1회, 그래도 넘으면 단계 이름 있는 ERROR(조용한 통과 0).
+#     범위: 다른 uid 가 같은 워크트리를 쥔 경우는 안 보인다(나노 워크트리는 내 uid 만 쓴다 — 카드 R1 «알려진 한계»).
 #   r680: «이 명령 자신과 그 조상» 은 세지 않는다 — 닫기를 그 워크트리 «안» 에서 부르면 부른 셸이 늘 cwd 를 쥐고 있어 «cwd 보유 프로세스 1개» 로 정리가 영영 건너뛰어졌다
 #     (같은 키트 ft-seat-reap.sh:9 와 같은 규칙). lsof 는 «자기 자신과 그 캡처 셸» 도 보유자로 내놓으므로 cwd / 에서 띄운다(그 둘은 보유자가 아니다).
 #     조상 계산(ps)이 실패하면 «제외 없이» 센다(조용한 통과 0) · lsof 실패는 그대로 실패.
 [ -x "$LSOF" ] || fail "lsof 실행 불가($LSOF)"
-lsout="$( cd / && "$LSOF" -Fn -d cwd 2>/dev/null )"; rc=$?
-[ "$rc" -eq 0 ] || fail "lsof 실패(rc=$rc)"
+# r992: 머신 «전체» 프로세스 스캔 → «내 uid ∧ cwd fd» 로 좁힌다(부하 19 에서 7초 초과 실측 · 하드 룰 12). 계획은 close 와 따로 도는 독립 스크립트라 nf_bound 를 못 쓰므로 같은 꼴의 상한 도우미를 여기 둔다(호출 1회).
+_nf_cap_s=7   # r992-mut:cap
+_ls_bound() {  # <초> <명령…> — 상한 넘으면 TERM → 0.2초 → KILL · rc 124 (nf_bound 꼴 · 자손은 새 세션이 아니라 프로세스 하나뿐)
+  #   r992: 상한은 «실제 초»(SECONDS)로 잰다 — 반복 횟수(sleep 0.1 × N)로 재면 부하가 걸린 맥에서 0.1초 잠자리가 늘어나 상한이 저절로 늘어난다(그러면 이 카드의 증상이 그래도 남는다).
+  local sec="$1"; shift
+  local tf pid t0 rc
+  tf="$(mktemp "${TMPDIR:-/tmp}/ft-lsof.XXXXXX")" || return 125
+  "$@" >"$tf" 2>/dev/null & pid=$!
+  t0=$SECONDS
+  while kill -0 "$pid" 2>/dev/null; do
+    [ $((SECONDS - t0)) -lt "$sec" ] || break
+    sleep 0.1
+  done
+  if kill -0 "$pid" 2>/dev/null; then
+    kill -TERM "$pid" 2>/dev/null; sleep 0.2; kill -KILL "$pid" 2>/dev/null; wait "$pid" 2>/dev/null
+    cat "$tf"; rm -f "$tf"; return 124
+  fi
+  wait "$pid"; rc=$?
+  cat "$tf"; rm -f "$tf"
+  return "$rc"
+}
+_ls_scan() {  # <lsof 인자…> — 부르는 쪽이 cd / 에서 부른다(자기 자신·캡처 셸은 보유자가 아니다 · 위 r680 규칙 그대로 · r992: cd / 를 «캡처 서브셸» 에 둬야 그 셸이 보유자로 안 세진다)
+  _ls_bound "$_nf_cap_s" "$LSOF" "$@"
+}
+lsout="$( cd / && _ls_scan -a -u "$(id -u)" -d cwd -Fn )"; rc=$?   # r992-mut:uid
+if [ "$rc" -eq 124 ]; then
+  # r992 ②-b: 상한 초과 = «쪼갤 수 없는 배치» 가 아니라 «배수» 문제 — 내 uid pid 목록을 반으로 나눠 각 7초, 재시도 1회.
+  _lpids="$(pgrep -U "$(id -u)" 2>/dev/null | tr '\n' ' ')"; _ln=0
+  for _lp in $_lpids; do _ln=$((_ln + 1)); done
+  [ "$_ln" -ge 2 ] || fail "② lsof 7초 초과(묶음 1 · 쪼갤 pid ${_ln}개)"
+  _lhalf=$(((_ln + 1) / 2)); _lg1=""; _lg2=""; _li=0
+  for _lp in $_lpids; do
+    _li=$((_li + 1))
+    if [ "$_li" -le "$_lhalf" ]; then _lg1="$_lg1${_lg1:+,}$_lp"; else _lg2="$_lg2${_lg2:+,}$_lp"; fi
+  done
+  lsout=""
+  for _lset in "$_lg1" "$_lg2"; do
+    _lo="$( cd / && _ls_scan -a -p "$_lset" -d cwd -Fn )"; _lr=$?
+    # rc 1 = 그 묶음에 «cwd 를 연 프로세스 0»(lsof 의 «선택 결과 없음») — 판정 가능(판정 불가인 rc≠0·1 만 fail)
+    { [ "$_lr" -eq 0 ] || [ "$_lr" -eq 1 ]; } || fail "② lsof 7초 초과(묶음 2 · 재시도 rc=$_lr)"
+    lsout="$lsout$_lo"$'\n'
+  done
+  echo "INFO ② lsof 쪼개기 — 내 uid pid ${_ln}개를 2묶음(${_lhalf}+$((_ln - _lhalf)))으로 재시도 1회 · 7초 상한"
+else
+  [ "$rc" -eq 0 ] || fail "lsof 실패(rc=$rc)"
+fi
 holders="$(printf '%s\n' "$lsout" | awk -v wt="$WT" '/^p/{pid=substr($0,2); next} /^n/{p=substr($0,2); if (p==wt || index(p, wt "/")==1) print pid}' | sort -u)"
 anc=" $$ "
 if [ -n "$holders" ]; then
