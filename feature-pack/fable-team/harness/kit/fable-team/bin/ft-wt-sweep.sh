@@ -35,6 +35,9 @@ cap() { perl -e 'setpgrp(0,0); $SIG{ALRM}=sub{ local $SIG{TERM}="IGNORE"; kill "
 #   7초 상한(FT_WT_GIT_SEC) · 물려받은 GIT_* 지움(GIT_CLEAN) · LC_ALL=C · rc≠0 은 호출부가 «판정 불가» 로 올린다.
 git7() { perl -e 'setpgrp(0,0); $SIG{ALRM}=sub{ local $SIG{TERM}="IGNORE"; kill "TERM", -$$; exit 124 }; alarm shift; my $r=system(@ARGV); exit(($r>>8) || (($r&127) ? 128+($r&127) : 0));' "${FT_WT_GIT_SEC:-7}" "${GIT_CLEAN[@]}" git -C "$1" "${@:2}"; }
 SCAN_U=0   # shell_scan·orphan_scan 이 낸 «판정 불가» 수 — 요약 줄 u= 로 나간다(결정 4 ② · r8: 한 카운터로 모은다)
+# ★r1017★ 스캔 밖 git7 자리(보관 마무리·launchd 보관 조회·초기 공용 폴더 조회·계획 해시)의 실패도 «판정 불가 <경로:단계>» 1줄 + 같은 카운터 1 로 남긴다
+#   — 조용한 FINISH OK·STALE·archived=0·rc0 0(하드 룰 20: 실패는 한 함수가 판정 불가 1줄로 끝낸다).
+gitfail1() { echo "판정 불가 $1:$2 — git 호출 실패(rc=$3 · 오빠 판정 0 · 삭제 0)"; SCAN_U=$((SCAN_U+1)); }
 
 # has_tar <리포 루트> <워크트리 경로> — baton archive(<루트>/.baton/archive/INDEX.jsonl)에 이 경로의 행이 있고 그 tar.gz 가 실재·읽힐 때 0.
 has_tar() {
@@ -58,7 +61,7 @@ PY
 }
 # --finish <포인터> — 이름 바뀐 워크트리(.deleting-<ts>)를 상한 밖에서 끝까지 정리. rc 0 = 끝 · 1 = 남음(포인터·실패 횟수 유지).
 finish_one() {
-  local ptr="$1" del root f rc
+  local ptr="$1" del root f rc gfail=0
   del="$(sed -n 1p "$ptr" 2>/dev/null)"; root="$(sed -n 2p "$ptr" 2>/dev/null)"
   case "${del##*/}" in *.deleting-[0-9]*) ;; *) echo "REJECT 이름 안전장치 — .deleting-<ts> 아님: ${del:-<빈 값>}" >&2; return 1;; esac
   [ -n "$root" ] && [ -d "$root" ] || { echo "REJECT 리포 루트 없음: ${root:-<빈 값>}" >&2; return 1; }
@@ -72,15 +75,21 @@ finish_one() {
         f=$(( $(cat "$ptr.fail" 2>/dev/null || echo 0) + 1 )); echo "$f" > "$ptr.fail"; rm -f "$ptr.pid"; return 1; fi
     fi
     # 여기 도달 = 검증된 보관 있음(또는 baton 이 이미 지움). baton 이 남긴 잔여·반쯤 지워진 껍데기: git 이 알면 git 으로, 아니면 직접 마무리.
-    [ ! -d "$del" ] || git7 "$root" worktree remove --force "$del" 2>/dev/null   # r845: git7 경유(넘으면 아래 rm -rf 가 마무리)
-    [ ! -d "$del" ] || rm -rf -- "$del"
+    # ★r1017 r2★ remove 를 «불렀으면» 폴더 유무와 무관하게 rc 로 판정한다(DA⑥ r1 동작 1) — git 이 폴더를 지운 뒤 rc128/124 로 끝나는 경우가 R3·R7 이다.
+    #   rc≠0 = «판정 불가 <루트:worktree-remove>» 1줄 + u=1 + FINISH OK 0 · rc≠0. 잔여 삭제는 rm -rf 가 마무리하고, 폴더가 남으면 아래 «정리 후에도 남음» 이 다음 pass 로 넘긴다(폴더가 사라졌으면 포인터를 접고 rc≠0 만 남긴다). 폴더가 처음부터 없어 remove 를 «안 부른» 경우(R4 입구)는 아래 prune 이 본다.
+    git7 "$root" worktree remove --force "$del" 2>/dev/null; rc=$?
+    [ "$rc" -eq 0 ] || { gitfail1 "$root" worktree-remove "$rc"; gfail=1; }
+    rm -rf -- "$del"
   fi
-  git7 "$root" worktree prune 2>/dev/null
+  git7 "$root" worktree prune 2>/dev/null || { rc=$?; gitfail1 "$root" worktree-prune "$rc"; gfail=1; }   # ★r1017★ prune 실패 = 판정 불가 + FINISH OK 0 · rc≠0
   rm -f "$ptr.pid"
   if [ -d "$del" ]; then
     f=$(( $(cat "$ptr.fail" 2>/dev/null || echo 0) + 1 )); echo "$f" > "$ptr.fail"; echo "정리 후에도 남음: $del" >&2; return 1
   fi
-  rm -f "$ptr" "$ptr.fail"; echo "FINISH OK ${del##*/}"
+  rm -f "$ptr" "$ptr.fail"
+  # ★r1017 r2★ git 호출이 실패한 회차는 «끝났다»(FINISH OK) 고 말하지 않는다 — 폴더가 사라졌으므로 포인터는 접고 rc≠0 으로만 남긴다(재시도할 것이 없다).
+  [ "$gfail" = 0 ] || return 1
+  echo "FINISH OK ${del##*/}"
 }
 if [ "${1:-}" = "--finish" ]; then [ -n "${2:-}" ] && [ -f "$2" ] || { echo "usage: $0 --finish <포인터 파일>" >&2; exit 2; }; finish_one "$2"; exit $?; fi
 # --launchd — 일 1회 진입. 본체는 같은 스크립트 1회(출력 캡처) · 이 블록은 라우팅·보관 재확인·로그만.
@@ -110,9 +119,14 @@ print(m if isinstance(v,dict) and not v.get("_replaced_by") else "")' "$1" 2>/de
   # 끝난 가지 재확인 — FINISHED 만 refs/archive 로(삭제 0). 최신 가지부터(새로 끝난 것이 먼저 잡히게)
   AR="$(dirname "$SELF")/ft-branch-archive.sh"; ar=0; ask=0
   if [ -f "$AR" ] && [ "${FT_WT_ARCHIVE:-1}" = 1 ]; then
-    while IFS= read -r b; do [ -n "$b" ] || continue
-      if bash "$AR" "$b" --repo "$FT_ROOT" >/dev/null 2>&1; then ar=$((ar+1)); else ask=$((ask+1)); fi
-    done < <(git7 "$FT_ROOT" for-each-ref --sort=-committerdate --count="${FT_WT_ARCHIVE_MAX:-200}" --format='%(refname:short)' 'refs/heads/nano/')
+    # ★r1017★ 보관 조회 실패를 «삼키지 않는다» — archived 셈 0(조용한 archived=0 · rc0 0) + «판정 불가 <루트:for-each-ref>» 1줄 + rc≠0
+    if refs="$(git7 "$FT_ROOT" for-each-ref --sort=-committerdate --count="${FT_WT_ARCHIVE_MAX:-200}" --format='%(refname:short)' 'refs/heads/nano/' 2>/dev/null)"; then
+      while IFS= read -r b; do [ -n "$b" ] || continue
+        if bash "$AR" "$b" --repo "$FT_ROOT" >/dev/null 2>&1; then ar=$((ar+1)); else ask=$((ask+1)); fi
+      done <<<"$refs"
+    else
+      gitfail1 "$FT_ROOT" for-each-ref "$?"; [ "$rc" -ne 0 ] || rc=1
+    fi
   fi
   printf '%s rc=%s cleaned=%s wait=%s hil=%s stale=%s carry=%s resume=%s routed=%s route_fail=%s archived=%s archive_skip=%s replanned=%s hil_files=%s orphans=%s freed_kb=%s\n' "$(date '+%F %T')" "$rc" \
     "$(num 'cleaned/none')" "$(num wait)" "$(num hil)" "$(num stale)" "$(num 이월)" "$(num 이어정리)" "$routed" "$rfail" "$ar" "$ask" \
@@ -130,7 +144,9 @@ LC_ALL=C; export LC_ALL
 INIT_RC=0
 WT="$(git7 "$PWD" rev-parse --show-toplevel 2>/dev/null)"; INIT_RC=$?
 if [ "$INIT_RC" -eq 0 ] && [ -n "$WT" ]; then
-  ROOT="$(git7 "$WT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')"
+  # ★r1017★ 두 번째 초기 조회(git-common-dir) 실패도 «삼키지 않는다» — «판정 불가 <워크트리:common-dir>» 1줄 + u=1 · 루트 0(그 아래 스캔 0)
+  ROOT="$(git7 "$WT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')"; INIT_RC=$?
+  [ "$INIT_RC" -eq 0 ] || { ROOT=""; echo "판정 불가 $WT:common-dir — git 호출 실패(rc=$INIT_RC · 오빠 판정 0 · 삭제 0)"; SCAN_U=$((SCAN_U+1)); }
 else
   WT=""; ROOT=""
   echo "판정 불가 $PWD:init — 워크트리/리포 조회 실패(rc=$INIT_RC · 오빠 판정 0 · 삭제 0)"
@@ -174,10 +190,13 @@ hilmsg() { local m=""; command -v "$HB" >/dev/null 2>&1 && m="$("$HB" --add "$1"
 launch_finish() { ( cd "$2" && perl -MPOSIX -e 'POSIX::setsid(); exec @ARGV' /bin/bash "$SELF" --finish "$1" >> "$1.log" 2>&1 < /dev/null & ); }
 # 계획 버전 대조 — 0 통과 · 1 거부(사유 stdout). 생성기 계획이 아닌 것(수동·스텁)은 대상 아님.
 plan_ver_check() {
-  local pv lv
+  local pv lv rc
   pv="$(sed -n 's/^# plan-ver: //p' "$1" | head -1)"
   if [ -z "$pv" ]; then grep -q '^# wt-clean 계획 — ft-nano-close.sh' "$1" || return 0; fi
-  lv=""; [ -f "$GEN" ] && lv="$(git7 "$PWD" hash-object -- "$GEN" 2>/dev/null)"
+  lv=""; rc=0; [ ! -f "$GEN" ] || { lv="$(git7 "$PWD" hash-object -- "$GEN" 2>/dev/null)"; rc=$?; }
+  # ★r1017★ hash-object 실패 = «판정 불가 <경로:hash-object>» 1줄 + 5(옛 판 아님 · STALE·재생성 판정 0 · 결과값 0).
+  #   ⚠ 이 함수는 호출부가 `$(…)` 로 부르므로 SCAN_U 를 여기서 올리면 서브셸에 갇힌다 — 셈은 호출부(rc=5 가지)가 한다.
+  [ "$rc" -eq 0 ] || { echo "판정 불가 $PWD:hash-object — git 호출 실패(rc=$rc · 오빠 판정 0 · 삭제 0)" >&2; return 5; }
   [ -n "$pv" ] && [ "$pv" = "$lv" ] && return 0
   echo "plan-ver=${pv:-없음} ≠ 라이브 생성기=${lv:-없음}"; return 1
 }
@@ -208,7 +227,9 @@ for plan in "$DIR"/*.sh; do
   seat="$(basename "$plan" .sh)"
   if [ "$DRY" = 1 ]; then n=$((n+1)); echo "DRY $seat — $plan"; continue; fi
   if [ $(( $(date +%s) - T0 )) -ge "$BUDGET" ] || { [ "$MAX" -gt 0 ] && [ "$ran" -ge "$MAX" ]; }; then d=$((d+1)); continue; fi
-  if ! why="$(plan_ver_check "$plan")"; then
+  why="$(plan_ver_check "$plan")"; rc=$?
+  if [ "$rc" -eq 5 ]; then SCAN_U=$((SCAN_U+1)); w=$((w+1)); echo "WAIT $seat 계획 버전 대조 보류 — git 호출 판정 불가(다음 pass)"; continue; fi   # ★r1017★ STALE 오분류 0
+  if [ "$rc" -ne 0 ]; then
     rwhy="$(replan_one "$plan" "$seat")"; rrc=$?
     case "$rrc" in
       0) rp=$((rp+1)); echo "REPLAN $seat — $why → 같은 좌석·같은 WT 새 계획(옛 계획 $plan.replanned)";;
@@ -482,3 +503,6 @@ no=0; [ -f "$ORPH" ] && no=$(( $(wc -l < "$ORPH") - 1 )); [ "$no" -ge 0 ] || no=
 nh="$(ls "$DIR"/*.sh.hil 2>/dev/null | wc -l | tr -d ' ')"
 [ "$DRY" = 1 ] || [ $((c + rp)) -eq 0 ] || echo "$(date '+%F %T') pass cleaned=$c replanned=$rp stale=$st wait=$w carry=$d freed_kb=$freed" >> "$SLOG" 2>/dev/null
 echo "sweep 계획 $n · cleaned/none $c · wait $w · hil $h$([ "${SCAN_U:-0}" -gt 0 ] && echo " · u=$SCAN_U")$([ "$c" -gt 0 ] && echo " · freed_kb $freed")$([ "$d" -gt 0 ] && echo " · 이월 $d")$([ "$st" -gt 0 ] && echo " · stale $st")$([ "$rp" -gt 0 ] && echo " · replanned $rp")$([ "$rs" -gt 0 ] && echo " · 이어정리 $rs")$([ "$nh" -gt 0 ] && echo " · hil_files $nh")$([ "$no" -gt 0 ] && echo " · orphans $no(목록 $ORPH)")"
+# ★r1017★ 최종 rc — 판정 불가(SCAN_U) 가 한 곳이라도 있으면 rc≠0(조용한 rc0 0 · 요약 줄 꼴은 그대로 · 새 집계 변수 0)
+[ "${SCAN_U:-0}" -eq 0 ] || exit 1
+exit 0
