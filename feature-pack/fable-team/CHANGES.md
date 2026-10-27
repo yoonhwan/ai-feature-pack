@@ -1,3 +1,9 @@
+## 2026-10-27 — r845 재설계 r7 (DA 1/2 HOLD 2 반려) — 지우기 판단에 «owner 폴더 경계 0» 이라 장부에 적힌 detached 사본이면 남의 사본 폴더·폴더 밖 경로도 지웠고, 체크아웃 훅이 rc0 이면 «온전한 사본인지» 확인을 건너뛰어 반쯤 사본(파일 옮김·HEAD 바뀜)도 등록됐다 → ① `--done`/`--sweep` 삭제 = «그 줄 주인의 사본 자리(FT_SCRATCH_DIR 또는 `$TMPDIR/ft-scratch/<주인>/`) 아래» ∧ «장부 3열 같은 글자» ∧ «분리 워크트리» 세 조건 모두(자리 밖·남의 owner = 건너뜀 + WARN · 삭제 0 · 장부 줄 유지) ② 사본 완전성(요청 sha == HEAD ∧ status 깨끗)은 훅 rc 와 무관하게 항상 확인(어긋나면 die 4 · 등록 0) (r845 r7 · 1.1.261 · ft-scratch-repo.sh 1곳 + 짝 사본 + 시험 1)
+
+- 반송서 `design/harness/evidence/r845-da6/REWORK-r845-r7.md` (DA da-20261027-111456-12089.out · gpt-6.1-sol) · 계약·반례 집합은 r6 그대로 · 구현만 고침.
+- 증거 `harness/evidence/r845/r7-*`: 기준판(origin/main 6f354dbf) 17 FAIL rc=17 → 새 판 30 PASS ×3 rc=0 · 기존 scratch 시험 4종 ALL PASS · 변이 5종(장부 실패=die · 장부 줄만 보고 삭제 · 입구 거절 삭제 · owner 경계 제거 · rc0 훅 완전성 건너뜀) 전부 해당 칸 FAIL · bash 3.2 동일 · kit↔harness/bin cmp0.
+- 되돌림 = revert 1커밋 · press 필요 없음(단위 시험만).
+
 ## 2026-10-27 — 임시 사본(scratch repo)이 «훅이 죽으면 장부에 안 남아 아무도 못 지우는» 고아가 됐다(beads post-checkout SIGSEGV → worktree add rc=4 · 사본은 그 sha 로 생겼는데 등록 전 die) → 설계를 접는다: 사본은 재부팅이 지우는 임시 자리(`$TMPDIR/ft-scratch/<주인>/`)에 만들고 장부는 «있으면 참고»(쓰기 실패 = WARN · die 0) · 훅 실패여도 사본이 «요청 sha 그대로 + status 깨끗» 이면 경로 rc0 + WARN · 지우기(`--done`/`--sweep`)는 «장부 3열 같은 글자 ∧ 분리(detached) 워크트리» 둘 다일 때만 · 생성 경로에 제어 문자 = 입구 거절 rc2 (r845 재설계 r6 · 1.1.260 · ft-scratch-repo.sh 1곳 + 짝 사본 + 시험 1)
 
 - 오빠 결정 10-27 08:5x «tmp 에 임시를 쌓으면 재부팅에 정리된다» · arch 157 재설계 r6 · 인터뷰 묶음 INTERVIEW-arch156-after-decision-20261027.md · DA r3 반례(경로 탭·줄바꿈으로 장부 줄이 깨져 남의 폴더를 지움)는 «입구 거절 + 장부 옛 줄 건너뜀» 으로 닫음.

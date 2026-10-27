@@ -9,6 +9,8 @@
 #     ROOT 등록부 + 사본들의 원 저장소 등록부(옛 판이 거기 적은 사본)를 읽는다(보고 전용 · 지우기 0) · 못 읽은 등록부는 «부분 읽기» 줄 · env FT_SCRATCH_MBOX(주인 추정용 mailbox.jsonl)
 #   ft-scratch-repo.sh --done <경로>                 등록된 사본만 worktree 제거 + 등록 줄 삭제 (등록 밖 경로는 거부)
 #     r845: 지우기 조건 = 장부의 «3열 · 정확히 같은 글자» 줄 ∧ 그 경로가 «분리(detached) git 워크트리» 둘 다 — 옛/깨진 줄(필드 수 ≠3 · 경로에 제어 문자)은 건너뛰고 WARN 1줄(지우기 0)
+#     r7: 여기에 «그 줄 주인의 사본 자리(FT_SCRATCH_DIR 또는 $TMPDIR/ft-scratch/<주인>/) 아래» 를 더한다 — 남의 owner 폴더·자리 밖 경로는 건너뜀 + WARN(장부 줄도 그대로) · --sweep 도 같다
+#     r7: 사본이 온전한지(요청 sha == HEAD ∧ git status 깨끗)는 체크아웃 훅 rc 와 «무관하게 항상» 확인 — 어긋나면 die 4 · 등록 0
 #   ★r845 (오빠 결정 10-27 «tmp 에 임시를 쌓으면 재부팅에 정리된다»)★ 기본 생성 자리 = $TMPDIR/ft-scratch/<주인>/ (TMPDIR 없으면 /tmp/ft-scratch/<주인>/) — 임시 자리라 재부팅이 지운다.
 #     장부는 «있으면 참고» — 등록 쓰기 실패는 WARN 1줄이고 사본은 그대로 쓸 수 있다(die 0) · 생성 경로(FT_SCRATCH_DIR·DEST)에 제어 문자(0x00–0x1F·0x7F)가 있으면 만들기 전에 rc2 거절
 #     훅(post-checkout) 실패로 worktree add/checkout 이 rc≠0 이어도 DEST 가 «요청 sha 그대로 + status 깨끗» 이면 WARN + 경로 출력 rc0 · 아니면 지금처럼 die 4(등록 0 · 지우기 0)
@@ -62,6 +64,20 @@ reg_has() { # r845: <경로> → 0 = 장부에 «3열 · 정확히 같은 글자
   P="$1" awk 'BEGIN{FS="\t"; p=ENVIRON["P"]} NF==3 && $1==p {f=1} END{exit !f}' "$TSV" 2>/dev/null
 }
 drop_reg() { P="$1" awk 'BEGIN{FS="\t"; p=ENVIRON["P"]} !(NF==3 && $1==p)' "$TSV" > "$TSV.tmp.$$" 2>/dev/null && mv "$TSV.tmp.$$" "$TSV"; }
+reg_owner() { # r845 r7: <경로> → 장부 «3열 · 같은 글자» 줄의 주인(2열) · 없으면 빈 글자
+  P="$1" awk 'BEGIN{FS="\t"; p=ENVIRON["P"]} NF==3 && $1==p {print $2; exit}' "$TSV" 2>/dev/null
+}
+owner_base() { # r845 r7: <주인> → 그 주인의 사본 자리(생성 때 쓰는 BASE 와 같은 규칙 · FT_SCRATCH_DIR 이 있으면 그것 하나)
+  if [ -n "${FT_SCRATCH_DIR:-}" ]; then printf '%s\n' "${FT_SCRATCH_DIR%/}"; return; fi
+  local t="${TMPDIR:-/tmp}"; printf '%s/ft-scratch/%s\n' "${t%/}" "$1"
+}
+under_base() { # r845 r7: <경로> <부모> → 0 = 그 경로가 부모 «아래»다(폴더 경계 · 실경로로 대조 — /var↔/private 정규화)
+  local b p
+  b="$(cd "$2" 2>/dev/null && pwd -P)" || return 1
+  p="$(cd "$1" 2>/dev/null && pwd -P)" || return 1
+  case "$p" in "$b"/*) return 0;; esac
+  return 1
+}
 own_wt() { # r845: <경로> → 0 = 그 경로가 «분리(detached)» git 워크트리(장부에 적힌 글자만으로는 지우지 않는다)
   local b; b="$(bounded 7 git -C "$1" rev-parse --abbrev-ref HEAD 2>/dev/null)" || return 1
   [ "$b" = HEAD ]
@@ -219,6 +235,8 @@ orphans() { # → ORPH = "kb<TAB>경로<TAB>reg|tmp<TAB>사유" 줄들 · HOLD =
       case "$t" in ''|*[!0-9]*) echo "ERROR 등록표 3열이 숫자 아님 — 삭제 0 (경로 $p · 3열 '${t}')" >&2; continue;; esac
       [ $((now - t)) -ge $((AGE*60)) ] || continue
       if ! own_wt "$p"; then echo "WARN ft-scratch-repo — 장부에 있으나 분리(detached) 워크트리가 아님 — 건너뜀(삭제 0): $p" >&2; continue; fi
+      # r845 r7: 그 줄 주인의 사본 자리 아래가 아니면 지우지 않는다(남의 owner 폴더·폴더 밖 줄 = 장부 줄도 그대로)
+      under_base "$p" "$(owner_base "$o")" || { echo "WARN ft-scratch-repo — 주인($o) 사본 자리 밖 등록 사본 — 건너뜀(삭제 0): $p" >&2; continue; }
       if cwd_holder "$p"; then hold "$(kb "$p")" "$p" reg "등록 사본 · 주인 $o 없음 · 붙잡음 pid $HPID $HCMD" "$o" "$HPID" "$HCMD"
       else add "$(kb "$p")" "$p" reg "등록 사본 · 주인 $o 없음"; fi
     done < <(cat "$TSV" 2>/dev/null)
@@ -233,6 +251,9 @@ orphans() { # → ORPH = "kb<TAB>경로<TAB>reg|tmp<TAB>사유" 줄들 · HOLD =
 case "${1:-}" in
   --done)
     P="${2:-}"; [ -n "$P" ] && reg_has "$P" || die "등록된 사본이 아님: ${P:-<없음>}" 2
+    # r845 r7: 지우기 세 조건 «모두» — ① 그 줄 주인의 사본 자리 아래 ② 장부 3열 같은 글자(위 reg_has) ③ 분리 워크트리
+    OW="$(reg_owner "$P")"; OB="$(owner_base "$OW")"
+    under_base "$P" "$OB" || { echo "WARN ft-scratch-repo — 주인(${OW:-모름}) 사본 자리($OB) 밖 등록 사본 — 건너뜀(삭제 0): $P" >&2; die "사본 자리 밖 — 삭제 0: $P" 2; }
     own_wt "$P" || die "장부에 있으나 분리(detached) 워크트리가 아님 — 삭제 0: $P" 2   # r845: 장부 글자만으로는 지우지 않는다
     rm_copy "$P" || die "제거 실패: $P" 4; drop_reg "$P"; echo "DONE $P";;
   --judged)
@@ -292,14 +313,20 @@ EOF
     DEST="${BASE%/}/repo-$(printf '%.8s' "$SHA")-$(date +%s)-$$"
     has_ctl "$DEST" && die "사본 경로에 제어 문자 — 사본·장부를 만들지 않는다: $(printf '%q' "$DEST")" 2
     # r845: 체크아웃 훅(post-checkout 등)이 죽어도 «그 sha 워크트리가 온전히 생겼으면» 사본은 쓸 수 있다 — status 깨끗할 때만 인정(반쯤 = 파일 누락·필터 실패는 거절)
+    verify_complete() { # r845 r7: → 0 = DEST 가 «요청 sha 그대로 + status 깨끗»(필터가 파일을 빠뜨리면 status 가 깨끗하지 않다)
+      local h st
+      [ -d "$DEST" ] || return 1
+      h="$(bounded 7 git -C "$DEST" rev-parse HEAD 2>/dev/null)" || return 1
+      [ "$h" = "$SHA" ] || return 1
+      st="$(bounded 7 git -C "$DEST" status --porcelain 2>/dev/null)" || return 1
+      [ -z "$st" ]
+    }
     addfail() { # <무엇이 실패했나> — DEST 가 요청 sha 그대로 + status 깨끗 → WARN(rc0 유지) · 아니면 die 4(등록 0 · 지우기 0)
-      [ -d "$DEST" ] || die "worktree add 실패: $DEST" 4
-      local h st src
-      h="$(bounded 7 git -C "$DEST" rev-parse HEAD 2>/dev/null)"; src=$?
-      st=""; [ "$h" = "$SHA" ] && [ "$src" = 0 ] && { st="$(bounded 7 git -C "$DEST" status --porcelain 2>/dev/null)"; src=$?; }
-      if [ "$h" = "$SHA" ] && [ "$src" = 0 ] && [ -z "$st" ]; then
+      [ -d "$DEST" ] || die "$1 실패: $DEST" 4
+      if verify_complete; then
         echo "WARN ft-scratch-repo — $1 rc≠0 이지만 사본 생성됨(HEAD=${SHA:0:8} · status 깨끗) · 장부 등록 · 그대로 쓴다: $DEST" >&2
       else
+        local h; h="$(bounded 7 git -C "$DEST" rev-parse HEAD 2>/dev/null)"
         die "$1 실패: $DEST (HEAD=${h:-못 읽음} · 요청 sha 아님/체크아웃 불완전 — 지우기 0 · 등록 0 · 통째 = --full)" 4
       fi
     }
@@ -308,6 +335,8 @@ EOF
       git -C "$SRC" worktree add -q --no-checkout --detach "$DEST" "$SHA" >/dev/null || addfail "worktree add"
       printf '%s\n' "$SPEC" | git -C "$DEST" sparse-checkout set --no-cone --stdin >/dev/null 2>&1 && git -C "$DEST" checkout -q >/dev/null 2>&1 || addfail "sparse 체크아웃"
     fi
+    # r845 r7: 훅 rc 가 0 이어도 «온전한 사본» 인지는 항상 확인한다 — 파일이 옮겨졌거나 HEAD 가 다른 sha 면 등록 0 · die 4
+    verify_complete || { hh="$(bounded 7 git -C "$DEST" rev-parse HEAD 2>/dev/null)"; die "사본이 온전하지 않음: $DEST (HEAD=${hh:-못 읽음} · 요청 ${SHA:0:8} · status 더러움/파일 누락 — 등록 0 · 지우기 0)" 4; }
     # r891 r7: 등록은 체크아웃이 «다 끝난 뒤» 마지막 단계(기준판 순서) — 등록 줄이 있는 사본 = 체크아웃 끝난 사본 · 생성은 아무것도 지우지 않는다
     # r845: 장부는 «있으면 참고» — 쓰기 실패는 WARN 1줄이고 사본은 그대로 돌려준다(die 0)
     printf '%s\t%s\t%s\n' "$DEST" "$OWNER" "$(date +%s)" >> "$TSV" 2>/dev/null \

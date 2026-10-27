@@ -6,8 +6,11 @@
 #   ⓓ --done/--sweep 은 «장부 3열 같은 글자» ∧ «분리(detached) 워크트리» 둘 다일 때만 지운다 — 옛 줄(필드 수 ≠3) · 워크트리 아닌 대상 = 삭제 0
 #   ⓔ 생성 경로(FT_SCRATCH_DIR)에 제어 문자(탭·줄바꿈) = 입구 거절 rc2 · 사본 0 · 장부 0 (r6 반례 집합 «제어 문자 경로 = 입구 거절»)
 #   ⓕ FT_SCRATCH_DIR 없으면 기본 생성 자리 = $TMPDIR/ft-scratch/<주인>/ (재부팅이 지우는 임시 자리)
+#   ⓗ (r7 반송서 ⓕ) 지우기 3조건 = «그 줄 주인의 사본 자리 아래» ∧ 장부 3열 같은 글자 ∧ 분리 워크트리 — 남의 owner 폴더·자리 밖 등록 사본은 --done/--sweep 모두 삭제 0 · WARN · 장부 유지
+#   ⓘ (r7 반송서 ⓖ) 훅 rc0 이어도 완전성 확인은 항상 — 생성 중 파일 이동·HEAD 바꿈(--full·sparse 둘 다) = rc4 · 등록 0
 #   ⓖ 기존 scratch 시험 4종 ALL PASS(동작 변화 0) · kit 짝 cmp0 · /bin/bash(bash 3.2) 로 같은 시험 1회
-#   변이 3: «장부 실패 = die» → ⓒ FAIL · «장부 줄로 삭제(워크트리 확인 없이)» → ⓓ FAIL · «입구 거절 삭제» → ⓔ FAIL
+#   변이 5: «장부 실패 = die» → ⓒ FAIL · «장부 줄로 삭제(워크트리 확인 없이)» → ⓓ FAIL · «입구 거절 삭제» → ⓔ FAIL
+#           «owner 경계 제거» → ⓗ FAIL · «rc0 훅 완전성 건너뜀» → ⓘ FAIL
 # 임시 git 저장소·임시 훅 폴더·가짜 tmux·가짜 lsof·임시 TMPDIR 만 쓴다 — 실 저장소·실 장부·실 사본·실 TMPDIR 0.
 # SCR_SUT=<경로> 로 시험 대상을 바꿀 수 있다(기준판 before-red · 변이). R845_FAST=1 = 변이·기존 4종·bash32 생략(변이 재귀용).
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
@@ -102,6 +105,45 @@ SCRDIR= OWN=f-owner sc "$SHA" --repo "$G" --full; F="$OUT"
   && ok "ⓕ FT_SCRATCH_DIR 없으면 \$TMPDIR/ft-scratch/<주인>/ 아래에 만든다(재부팅 정리 자리)" || bad "ⓕ rc=$RC out=[$F] (기대 $TMPD/ft-scratch/f-owner)"
 SCRDIR="$SCR"
 
+# ── ⓗ (r7) 지우기 경계 = 그 줄 주인의 사본 자리 아래 (남의 owner 폴더·자리 밖 = 삭제 0 · WARN · 장부 유지) ──────
+OLD=$(( $(date +%s) - 90000 ))
+wtadd() { git -C "$G" worktree add -q --detach "$1" "$2" >/dev/null 2>&1; }   # <경로> <sha> — 진짜 detached 워크트리
+OTHER="$TMPD/ft-scratch/other-owner/repo-11111111-1-2"; mkdir -p "$(dirname "$OTHER")"; wtadd "$OTHER" "$SHA"
+printf '%s\t%s\t%s\n' "$OTHER" "live-owner" "$OLD" >> "$TSV"   # 장부 주인 = 내 이름 · 폴더 = 남의 owner
+OUTSIDE="$TMPD/repo-22222222-1-2"; wtadd "$OUTSIDE" "$SHA"
+printf '%s\t%s\t%s\n' "$OUTSIDE" "live-owner" "$OLD" >> "$TSV"   # 사본 자리 밖
+MINE="$TMPD/ft-scratch/dead-owner/repo-33333333-1-2"; mkdir -p "$(dirname "$MINE")"; wtadd "$MINE" "$SHA"
+printf '%s\t%s\t%s\n' "$MINE" "dead-owner" "$OLD" >> "$TSV"        # 정상(경계 안 · 주인 없는 세션) = 지워져야 한다(«항상 거절» 이면 이 칸이 FAIL)
+DEAD="$TMPD/ft-scratch/live-owner/repo-44444444-1-2"; wtadd "$DEAD" "$SHA"
+printf '%s\t%s\t%s\n' "$DEAD" "dead-owner" "$OLD" >> "$TSV"       # 장부 주인(없는 세션) ≠ 폴더 주인 → --sweep 도 건너뜀
+SCRDIR=   # 사본 자리 = $TMPDIR/ft-scratch/<주인>/ 규칙으로 본다
+sc --done "$OTHER"; { [ $RC = 2 ] && [ -d "$OTHER" ] && [ "$(regline "$OTHER")" = 1 ] && printf '%s' "$ERR" | grep -q '사본 자리 밖'; } \
+  && ok "ⓗ 남의 owner 폴더 등록 사본 --done → rc2 · WARN · 삭제 0 · 장부 유지" || bad "ⓗ 남의 owner rc=$RC err=[$ERR] 있음=$([ -d "$OTHER" ] && echo Y || echo N) reg=$(regline "$OTHER")"
+sc --done "$OUTSIDE"; { [ $RC = 2 ] && [ -d "$OUTSIDE" ] && [ "$(regline "$OUTSIDE")" = 1 ] && printf '%s' "$ERR" | grep -q '사본 자리 밖'; } \
+  && ok "ⓗ 사본 자리 밖 등록 사본 --done → rc2 · WARN · 삭제 0 · 장부 유지" || bad "ⓗ 자리 밖 rc=$RC err=[$ERR]"
+sc --sweep; { [ -d "$OTHER" ] && [ -d "$OUTSIDE" ] && [ -d "$DEAD" ] && [ "$(regline "$OTHER")" = 1 ] && [ "$(regline "$DEAD")" = 1 ] && printf '%s' "$ERR" | grep -q '사본 자리 밖'; } \
+  && ok "ⓗ --sweep 은 자리 밖·주인 다른 줄을 지우지 않는다(삭제 0 · 장부 유지 · WARN)" || bad "ⓗ sweep err=[$ERR] 경계밖=$([ -d "$OTHER" ] && echo Y || echo N)/$([ -d "$DEAD" ] && echo Y || echo N)"
+{ [ ! -d "$MINE" ] || [ "$(regline "$MINE")" = 0 ]; } \
+  && ok "ⓗ 경계 안 정상 사본은 --sweep 이 지운다(경계 검사가 «항상 거절» 이 아님)" || bad "ⓗ 정상 사본 미삭제 MINE=$([ -d "$MINE" ] && echo 있음 || echo 없음)"
+awk -F'\t' -v p1="$OTHER" -v p2="$OUTSIDE" -v p3="$DEAD" -v p4="$MINE" '$1!=p1 && $1!=p2 && $1!=p3 && $1!=p4' "$TSV" > "$TSV.n" && mv "$TSV.n" "$TSV"
+git -C "$G" worktree remove --force "$OTHER" >/dev/null 2>&1; git -C "$G" worktree remove --force "$OUTSIDE" >/dev/null 2>&1; git -C "$G" worktree remove --force "$DEAD" >/dev/null 2>&1
+SCRDIR="$SCR"
+
+# ── ⓘ (r7) 훅 rc0 이어도 완전성 확인은 항상 (파일 이동 · HEAD 바꿈 = rc4 · 등록 0) ────────────
+hookmove() { printf '#!/bin/sh\nmv a.txt moved.txt 2>/dev/null\nexit 0\n' > "$HOOKS/post-checkout"; chmod 755 "$HOOKS/post-checkout"; }
+hookhead() { printf '#!/bin/sh\ngit update-ref HEAD %s 2>/dev/null\nexit 0\n' "$SHA2" > "$HOOKS/post-checkout"; chmod 755 "$HOOKS/post-checkout"; }
+for mode in --full --sparse; do
+  for kind in move head; do
+    if [ "$kind" = move ]; then hookmove; else hookhead; fi
+    N1="$(nreg)"
+    OWN="i-$kind-$mode"   # r444 재사용을 피한다(같은 sha·같은 주인 = 기존 사본을 돌려줘 훅이 안 돈다)
+    if [ "$mode" = --full ]; then sc "$SHA" --repo "$G" --full; else sc "$SHA" --repo "$G"; fi
+    { [ $RC = 4 ] && printf '%s' "$ERR" | grep -q '온전하지 않음' && [ "$(nreg)" = "$N1" ] && { [ -z "$OUT" ] || [ "$(regline "$OUT")" = 0 ]; }; } \
+      && ok "ⓘ 훅 rc0 + $kind ($mode) → rc4 · 등록 0" || bad "ⓘ $kind $mode rc=$RC out=[$OUT] err=[$ERR] reg=$(nreg)/$N1"
+  done
+done
+hook ok
+
 if [ -z "${R845_FAST:-}" ]; then
   # ── ⓖ 기존 scratch 시험 4종(동작 변화 0) · kit 짝 cmp0 · bash 3.2 ─────────────────
   for t in test_scratch_repo.sh test_scratch_judged_r645.sh test_scratch_sweep_live_cwd_r548.sh test_scratch_repo_sparse_auto_done_r891.sh; do
@@ -117,7 +159,9 @@ if [ -z "${R845_FAST:-}" ]; then
   awk 'index($0, "|| echo \"WARN ft-scratch-repo — 장부 등록 실패") > 0 { print "      || die \"장부 등록 실패\" 4"; next } { print }' "$SUT" > "$T/mut1.sh"
   grep -v -F 'own_wt "$P" || die' "$SUT" > "$T/mut2.sh"
   grep -v -F -e 'has_ctl "${FT_SCRATCH_DIR:-}"' -e 'has_ctl "$OWNER"' -e 'has_ctl "$BASE"' -e 'has_ctl "$DEST"' "$SUT" > "$T/mut3.sh"
-  for m in 1 2 3; do
+  grep -v -F -e 'under_base "$p" "$(owner_base "$o")"' -e 'under_base "$P" "$OB"' "$SUT" > "$T/mut4.sh"   # owner 경계 제거
+  grep -v -F 'verify_complete || {' "$SUT" > "$T/mut5.sh"   # 훅 rc0 일 때 완전성 확인 건너뜀
+  for m in 1 2 3 4 5; do
     cmp -s "$SUT" "$T/mut$m.sh" && bad "변이$m 이 안 바뀜"
     "$SH" -n "$T/mut$m.sh" 2>/dev/null || bad "변이$m 문법 깨짐(가짜 변이)"
   done
@@ -125,6 +169,8 @@ if [ -z "${R845_FAST:-}" ]; then
   mut 1; grep -q '^FAIL ⓒ' "$T/m1.txt" && ok "변이1(장부 실패 = die) → ⓒ FAIL" || bad "변이1 이 살아남음 $(grep '^FAIL' "$T/m1.txt" | head -2 | tr '\n' ' ')"
   mut 2; grep -q '^FAIL ⓓ' "$T/m2.txt" && ok "변이2(장부 줄만 보고 삭제) → ⓓ FAIL" || bad "변이2 가 살아남음 $(grep '^FAIL' "$T/m2.txt" | head -2 | tr '\n' ' ')"
   mut 3; grep -q '^FAIL ⓔ' "$T/m3.txt" && ok "변이3(입구 거절 삭제) → ⓔ FAIL" || bad "변이3 이 살아남음 $(grep '^FAIL' "$T/m3.txt" | head -2 | tr '\n' ' ')"
+  mut 4; grep -q '^FAIL ⓗ' "$T/m4.txt" && ok "변이4(owner 경계 제거) → ⓗ FAIL" || bad "변이4 가 살아남음 $(grep '^FAIL' "$T/m4.txt" | head -2 | tr '\n' ' ')"
+  mut 5; grep -q '^FAIL ⓘ' "$T/m5.txt" && ok "변이5(rc0 훅 완전성 건너뜀) → ⓘ FAIL" || bad "변이5 가 살아남음 $(grep '^FAIL' "$T/m5.txt" | head -2 | tr '\n' ' ')"
 fi
 
 [ $fail -eq 0 ] && echo "ALL PASS" || echo "($fail failed)"

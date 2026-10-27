@@ -1,0 +1,72 @@
+r845 재설계 r7 (반송서 REWORK-r845-r7.md · DA 1/2 HOLD 2) — 나노 산출
+일시 2026-10-27 · base 팩 origin/main 6f354dbf · 가지 nano/r845-scratch-repo-register-before-hook-f-r3 (앞 커밋 97be2056 위 1커밋)
+
+## 고침 2
+① --done/--sweep 삭제 판단 = «그 줄 주인의 사본 자리(FT_SCRATCH_DIR 또는 $TMPDIR/ft-scratch/<주인>/) 아래» ∧ «장부 3열 같은 글자» ∧ «분리 워크트리» 세 조건 모두
+   자리 밖·남의 owner 폴더 = 건너뜀 + WARN + 삭제 0 (--done 은 ERROR rc2 · 장부 줄 유지 / --sweep 은 그 줄만 건너뛰고 다른 줄은 그대로 처리)
+② 사본 완전성(요청 sha == HEAD ∧ git status 깨끗 · 필터가 파일을 빠뜨리면 status 가 깨끗하지 않다)은 체크아웃 훅 rc 와 «무관하게 항상» 확인 → 어긋나면 die 4 · 등록 0 (전에는 훅 rc0 이면 확인을 건너뛰었다)
+
+## 시험 칸
+ⓗ = r7 반송서 ⓕ(owner 경계) · ⓘ = r7 반송서 ⓖ(rc0 훅 완전성) — 기존 ⓕ(기본 생성 자리)·ⓖ(기존 4종)와 이름이 겹쳐 ⓗ·ⓘ 로 적었다
+r1(1/2) 반례 2 입력 재현 = ⓗ(남의 owner 폴더 · 자리 밖 경로에 등록 사본을 두고 --done/--sweep) · ⓘ(훅 rc0 + a.txt 이동 / HEAD 바꿈 · sparse·--full 넷) → 새 판 전부 [거절]
+## 기준판(6f354dbf) 빨강 — 17 FAIL rc=17
+FAIL ⓐ rc=4 out=[] err=[ERROR worktree add 실패: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.D4vniRSRiP/scratch/repo-d5eca72e-1793068306-4129] reg=0
+FAIL ⓑ rc=4 out=[] err=[error: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.D4vniRSRiP/hooks/post-checkout died of signal 11
+FAIL ⓒ rc=0 out=[/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.D4vniRSRiP/scratch/repo-363aa619-1793068306-4654] err=[] reg=1
+FAIL ⓓ --done rc=2 err=[ERROR 등록된 사본이 아님: <없음>] D1=없음
+FAIL ⓓ sweep err=[] D1=없음
+FAIL ⓓ 워크트리 아님 rc=0 err=[]
+FAIL ⓓ sweep 이 워크트리 아닌 폴더 삭제
+FAIL ⓔ rc=0 out=[/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.D4vniRSRiP/bad	dir/repo-d5eca72e-1793068307-5899] err=[] reg=2/1
+FAIL ⓔ rc=0 out=[/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.D4vniRSRiP/bad
+FAIL ⓕ rc=0 out=[/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.D4vniRSRiP/tmpdir/repo-d5eca72e-1793068307-6193] (기대 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.D4vniRSRiP/tmpdir/ft-scratch/f-owner)
+FAIL ⓗ 남의 owner rc=0 err=[] 있음=N reg=0
+FAIL ⓗ 자리 밖 rc=0 err=[]
+FAIL ⓗ sweep err=[] 경계밖=N/N
+FAIL ⓘ move --full rc=0 out=[/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.D4vniRSRiP/scratch/repo-d5eca72e-1793068308-7232] err=[] reg=6/5
+FAIL ⓘ head --full rc=0 out=[/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.D4vniRSRiP/scratch/repo-d5eca72e-1793068309-7641] err=[] reg=7/6
+FAIL ⓘ move --sparse rc=0 out=[/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.D4vniRSRiP/scratch/repo-d5eca72e-1793068309-7866] err=[] reg=8/7
+FAIL ⓘ head --sparse rc=0 out=[/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.D4vniRSRiP/scratch/repo-d5eca72e-1793068309-8200] err=[] reg=9/8
+(17 failed)
+
+## 새 판 초록 — 30 PASS ×3 rc=0 (안정성 재확인 ×5) (run1 원문 = r7-02-green-run1.txt)
+PASS ⓐ 훅 exit 4 → 사본은 그 sha 로 생김 · WARN 1줄 · 경로 rc0 · 장부 1줄
+PASS ⓑ 훅 SIGSEGV(rc139) → ⓐ 와 같음(사본 쓸 수 있음 · WARN · rc0)
+PASS ⓒ 장부 쓰기 불가 → WARN 1줄 · rc0 · 사본 그대로(장부 0줄)
+PASS ⓒ 장부 파일 권한 복구
+PASS ⓓ 옛 4열 장부 줄 = --done 거부 rc2 · 사본 그대로
+PASS ⓓ --sweep 은 옛 줄을 해석하지 않는다(경고 1줄 · 삭제 0)
+PASS ⓓ 장부에 있어도 워크트리가 아니면 --done rc2 · 폴더 그대로
+PASS ⓓ --sweep 도 워크트리 아닌 줄은 삭제 0
+PASS ⓔ 제어 문자 경로( / v a r / f o l d e r s…) → rc2 · 사본 0 · 장부 0
+PASS ⓔ 제어 문자 경로( / v a r / f o l d e r s…) → rc2 · 사본 0 · 장부 0
+PASS ⓕ FT_SCRATCH_DIR 없으면 $TMPDIR/ft-scratch/<주인>/ 아래에 만든다(재부팅 정리 자리)
+PASS ⓗ 남의 owner 폴더 등록 사본 --done → rc2 · WARN · 삭제 0 · 장부 유지
+PASS ⓗ 사본 자리 밖 등록 사본 --done → rc2 · WARN · 삭제 0 · 장부 유지
+PASS ⓗ --sweep 은 자리 밖·주인 다른 줄을 지우지 않는다(삭제 0 · 장부 유지 · WARN)
+PASS ⓗ 경계 안 정상 사본은 --sweep 이 지운다(경계 검사가 «항상 거절» 이 아님)
+PASS ⓘ 훅 rc0 + move (--full) → rc4 · 등록 0
+PASS ⓘ 훅 rc0 + head (--full) → rc4 · 등록 0
+PASS ⓘ 훅 rc0 + move (--sparse) → rc4 · 등록 0
+PASS ⓘ 훅 rc0 + head (--sparse) → rc4 · 등록 0
+PASS ⓖ 기존 test_scratch_repo.sh ALL PASS
+PASS ⓖ 기존 test_scratch_judged_r645.sh ALL PASS
+PASS ⓖ 기존 test_scratch_sweep_live_cwd_r548.sh ALL PASS
+PASS ⓖ 기존 test_scratch_repo_sparse_auto_done_r891.sh ALL PASS
+PASS ⓖ kit 짝 cmp0
+PASS ⓖ /bin/bash(bash 3.2) 로 같은 시험 ALL PASS
+PASS 변이1(장부 실패 = die) → ⓒ FAIL
+PASS 변이2(장부 줄만 보고 삭제) → ⓓ FAIL
+PASS 변이3(입구 거절 삭제) → ⓔ FAIL
+PASS 변이4(owner 경계 제거) → ⓗ FAIL
+PASS 변이5(rc0 훅 완전성 건너뜀) → ⓘ FAIL
+ALL PASS
+
+## bash 3.2 · kit 짝 cmp0 · 변이
+PASS ⓖ kit 짝 cmp0
+PASS ⓖ /bin/bash(bash 3.2) 로 같은 시험 ALL PASS
+PASS 변이1(장부 실패 = die) → ⓒ FAIL
+PASS 변이2(장부 줄만 보고 삭제) → ⓓ FAIL
+PASS 변이3(입구 거절 삭제) → ⓔ FAIL
+PASS 변이4(owner 경계 제거) → ⓗ FAIL
+PASS 변이5(rc0 훅 완전성 건너뜀) → ⓘ FAIL
