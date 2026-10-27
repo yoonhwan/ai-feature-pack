@@ -67,6 +67,7 @@ git -C "$REPO" branch feat/x "$BASE"                       # ⓑ·ⓘ fetch 경�
 git init -q --bare "$T/origin.git" && git -C "$T/origin.git" symbolic-ref HEAD refs/heads/main
 git -C "$T/origin.git" fetch -q "$REPO" main:main 2>/dev/null || true
 git -C "$REPO" remote add origin "$T/origin.git"
+git -C "$REPO" fetch -q origin   # r842 픽스처: ref(origin/main) 실재 — 단계 판정이 이 ref 를 읽는다(없으면 ERROR + REJECT)
 mkdir -p "$REPO/.fable-team" "$REPO/design/planner/indices/진행"
 SEAT='byz-planner-nano-ns#0'; BR='nano/ns'; NW="$REPO/.worktrees/v65-ns"
 CARD_REL='design/planner/indices/진행/ns.md'; CARD="$REPO/$CARD_REL"

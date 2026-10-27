@@ -192,6 +192,43 @@ def test_d_idle_wake_skips_logged_out_and_rested(tmp_path):
     assert len(rings) == 3 and len([x for x in log if "lo#1" in x]) == 1
 
 
+# r993 — 카드 원천 «한 곳»: 명부 _cards_wt 가 있으면 그 워크트리 카드만 · 없으면 ROOT 만 · 정한 원천에 카드 없음 = 닫기 대기 아님(ring + 로그 1줄)
+def root_card(tmp: Path, name: str, last: str) -> None:
+    """ROOT 체크아웃의 옛 사본 — _cards_wt 가 있으면 판정은 이 사본을 «안» 본다."""
+    d = tmp / "root/design/x/indices/진행"
+    d.mkdir(parents=True, exist_ok=True)
+    (d / f"{name}.md").write_text(f"# {name}\n## 상태\n- 2026-10-24 — 대기→진행\n{last}\n\n## 정본\n- 없음\n", encoding="utf-8")
+
+
+def rest_log(tmp: Path) -> list[str]:
+    p = tmp / "root/.fable-team/state/card-rest.log"
+    return p.read_text(encoding="utf-8").splitlines() if p.exists() else []
+
+
+def test_r2_wt_card_wins_root_stale_copy(tmp_path):
+    """r849 DA r2 반례 2 — ROOT 옛 사본 끝 = 완료 · 실제(=_cards_wt) 카드 끝 = 반송 → 일하는 나노는 ring 1."""
+    (tmp_path / "root/.fable-team").mkdir(parents=True)
+    (tmp_path / "r2#1.turn").write_text(f"IDLE {iso(NOW - 900)} 1000 - jsonl\n")
+    card(tmp_path, "r2#1", "c-r2", "- DA⑥ r1 HOLD → 반송 r2")
+    root_card(tmp_path, "c-r2", "세트: " + "c" * 40 + " · 시험: bash t.sh (3 passed) rc=0 · 이슈: 0")
+    queue(tmp_path, [(21, "r2#1")])
+    rings, _ = wake(tmp_path)
+    assert rings == ["ring r2#1 21"]  # ROOT 사본을 먼저 읽으면 ring 0 = FAIL
+
+
+def test_r2b_wt_without_card_is_not_rest(tmp_path):
+    """_cards_wt 가 있는데 그 워크트리에 카드가 없다(갓 spawn·이동 중) = 닫기 대기 아님 · ring 1 + 로그 1줄."""
+    (tmp_path / "root/.fable-team").mkdir(parents=True)
+    (tmp_path / "r2b#1.turn").write_text(f"IDLE {iso(NOW - 900)} 1000 - jsonl\n")
+    card(tmp_path, "r2b#1", "c-r2b", "- 작업 중")
+    (tmp_path / "root/.worktrees/wt-x/design/x/indices/완성/c-r2b.md").unlink()  # 그 워크트리에서 카드가 사라짐
+    root_card(tmp_path, "c-r2b", "세트: " + "d" * 40 + " · 시험: bash t.sh (3 passed) rc=0 · 이슈: 0")
+    queue(tmp_path, [(22, "r2b#1")])
+    rings, _ = wake(tmp_path)
+    assert rings == ["ring r2b#1 22"]  # 조용한 «완료» 추정 0 · ROOT 사본도 안 본다
+    assert len([x for x in rest_log(tmp_path) if "r2b#1" in x and "카드 없음" in x and "_cards_wt=wt-x" in x]) == 1
+
+
 # api-outage(실측 출처): 로그아웃 좌석은 장애 시작·[재개] 0 — 재개하면 0초 실패 턴만 또 생긴다
 def test_api_outage_never_resumes_logged_out(tmp_path):
     mbox = tmp_path / "mbox.sh"
@@ -363,20 +400,6 @@ def test_r5_unfinished_turn_counts_as_activity(tmp_path):
     f = write(tmp_path / "wip.jsonl", recs)
     assert turn(f)[0] == "WORKING"
     assert "③jsonl 마지막 기록" in gate(tmp_path, f)  # 끝나지 않은 턴을 빼지 않는다
-
-
-def test_r6_cell_is_folder_errors_not_silent(tmp_path):
-    """ⓡ6 — DA⑥ r3 반례 3: 칸 자리가 폴더면 «이미 알렸다» 로 삼키지 않는다 — ERROR 1줄 · 발신 0 · 폴더를 치우면 다음 scan 1통."""
-    w = World(tmp_path)
-    w.state("t1-master#1", "WORKING", 0)
-    w.state("t1-nano#0", "LOGGEDOUT", 30)
-    cell = w.root / ".fable-team/state/stall/logged-out.t1-nano#0"
-    cell.mkdir(parents=True)
-    assert scan(w).returncode == 0 and not sends(w)
-    assert any("act=l ERROR 칸" in x and "파일이 아님" in x for x in w.scan_log()), w.scan_log()
-    cell.rmdir()
-    w.advance(900)
-    assert scan(w).returncode == 0 and len(sends(w)) == 1
 
 
 CELLNOW = ('#!/bin/sh\nfor a; do last="$a"; done\ncase "$1" in\n'

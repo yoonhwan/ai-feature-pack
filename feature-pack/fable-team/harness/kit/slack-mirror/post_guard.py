@@ -5,6 +5,8 @@
 사람 채널 = ⓐ 루트 `.fable-team/seats-*.json` 전부의 `_slack_channel`(문자열 또는 목록 · 단일 출처) ∪ ⓑ 환경변수 BYZ_HUMAN_CHANNELS(쉼표 목록 · 보조)
 · `reply` 는 항상 사람 채널로 본다. 루트 = env FT_ROOT, 없으면 DEFAULT_ROOT. 명부 폴더 없음·JSON 깨짐 = raise(조용히 «사람 채널 아님» 0 · R231a 교정 2).
 """
+from __future__ import annotations  # mini python 3.9.6 — `str | None` 주석을 문자열로 미뤄 import TypeError 를 막는다
+
 import json
 import logging
 import os
