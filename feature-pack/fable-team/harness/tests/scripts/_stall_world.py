@@ -62,11 +62,13 @@ class World:
         self.team("t1", "t1-master#1", ["t1-nano#0"])
         self.planner("planner#1")
 
-    def team(self, label: str, master: str, seats: list[str]) -> None:
+    def team(self, label: str, master: str, seats: list[str], replaces: list[str] | None = None) -> None:
         rows: dict[str, object] = {"_master": master, "_label": label, "_cards": f"design/{label}/indices", "_cards_wt": f"wt-{label}"}
         for s in [master, *seats]:
             rows[s] = {"role": "master" if s == master else "nano"}
             self.live.append(s)
+        if replaces:
+            rows[master] = {**rows[master], "_replaces": replaces}  # 승계 계보 — 옛 팀장 이름
         _ = (self.root / f".fable-team/seats-{label}.json").write_text(json.dumps(rows))
         self._tmux()
 
@@ -97,10 +99,17 @@ class World:
         recs = [{"type": "system", "subtype": "turn_duration"}, {"type": "assistant", "message": {"content": content}}, {"type": "system", "subtype": "turn_duration"}]
         _ = (self.stub / "jsonl" / f"{seat}.jsonl").write_text("".join(json.dumps(r) + "\n" for r in recs))
 
-    def mail(self, to: str, seq: int, minutes_ago: float) -> None:
+    def mail(self, to: str, seq: int, minutes_ago: float, frm: str = "x", body: str = "발주") -> None:
         ts = datetime.fromtimestamp(NOW - minutes_ago * 60).strftime("%Y-%m-%dT%H:%M:%S")
         with open(self.root / ".fable-team/comm/mailbox.jsonl", "a", encoding="utf-8") as f:
-            _ = f.write(json.dumps({"seq": seq, "ts": ts, "to": to, "from": "x", "body": "발주"}, ensure_ascii=False) + "\n")
+            _ = f.write(json.dumps({"seq": seq, "ts": ts, "to": to, "from": frm, "body": body}, ensure_ascii=False) + "\n")
+
+    def raw_mail(self, line: str) -> None:
+        with open(self.root / ".fable-team/comm/mailbox.jsonl", "a", encoding="utf-8") as f:
+            _ = f.write(line + "\n")
+
+    def heartbeat(self, frm: str, minutes_ago: float, seq: int = 900, to: str = "planner#1", body: str = "[정리] 한 일 3줄") -> None:
+        self.mail(to, seq, minutes_ago, frm=frm, body=body)
 
     def freeze(self) -> None:
         _ = (self.root / ".fable-team/state/RESOURCE_FREEZE").write_text("disk\n")
