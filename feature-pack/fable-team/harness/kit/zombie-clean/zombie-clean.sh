@@ -441,8 +441,13 @@ pressure_tier() {
     local swapn compgb jets
     swapn=$(ls /System/Volumes/VM/swapfile* 2>/dev/null | wc -l | tr -d ' ')
     compgb=$(( $(sysctl -n vm.compressor_bytes_used 2>/dev/null || echo 0) / 1073741824 ))
-    jets=$(/usr/bin/log show --last 10m --predicate 'eventMessage CONTAINS "killing_idle_process"' 2>/dev/null \
-           | grep -c killing_idle_process || true)
+    # 시험은 ZC_JETS_CMD 주입으로 실제 log show 호출 0 — 절대경로(/usr/bin/log)라 PATH 스텁이 안 먹는다(2026-10-27 부하 46~69 실사건).
+    if [[ -n "${ZC_JETS_CMD:-}" ]]; then
+        jets=$("$ZC_JETS_CMD" 2>/dev/null | grep -c killing_idle_process || true)
+    else
+        jets=$(/usr/bin/log show --last 10m --predicate 'eventMessage CONTAINS "killing_idle_process"' 2>/dev/null \
+               | grep -c killing_idle_process || true)
+    fi
     jets="${jets:-0}"
     if   [[ "$swapn" -ge "${ZC_P_SWAP_RED:-16}" || "$jets" -ge "${ZC_P_JETS_RED:-60}" || "$compgb" -ge "${ZC_P_COMP_RED:-26}" ]]; then
         ZC_TIER=RED
@@ -544,8 +549,11 @@ roster_root() {   # 명부 리포 루트 1개 — env(ZC_ROSTER_ROOT·FT_RES_ROO
 roster_scan() {   # 실행당 1회: $WORK/roster.names(현역 이름) · $WORK/roster.broken(판정 불가 파일)
     [[ -n "$ZC_ROSTER_READY" ]] && return 0
     ZC_ROSTER_READY=1
-    : > "$WORK/roster.names"; : > "$WORK/roster.broken"; : > "$WORK/roster.broken.skip"
-    local root; root="$(roster_root)" || return 0        # 루트 없음 = 명부 없는 환경 → 현역 아님(기존 규칙)
+    : > "$WORK/roster.names"; : > "$WORK/roster.broken"; : > "$WORK/roster.broken.skip"; : > "$WORK/roster.noroot"
+    local root; root="$(roster_root)" || {             # R3: 루트 못 찾음 = 판정 불가(하드 룰 20) — launchd 는 env 없이 돈다
+        echo "명부 루트 없음" > "$WORK/roster.noroot"
+        return 0
+    }
     python3 - "$root" "$WORK/roster.names" "$WORK/roster.broken" <<'PY' 2>/dev/null \
         || echo "$root/.fable-team/seats.json" >> "$WORK/roster.broken"
 import glob, json, os, signal, sys
@@ -558,7 +566,7 @@ signal.alarm(7)                      # 7초 상한(외부 호출 7초 룰) — �
 root, nout, bout = sys.argv[1:4]
 sout = bout + ".skip"
 files = sorted(glob.glob(os.path.join(root, ".fable-team", "seats*.json")))
-names, broken, skip = set(), [], set()
+names, broken, skip, retired = set(), [], set(), set()
 if not files:
     broken.append(os.path.join(root, ".fable-team", "seats.json"))
 for f in files:
@@ -571,29 +579,32 @@ for f in files:
         broken.append(f)
         continue
 
-    def walk(v):
+    def walk(v, closing):
+        # closing = 닫힌 세트(_closed) 안 — 그 안 이름은 현역이 아니라 «jsonl 판정 건너뛸 이름»(r3 R7)
         if isinstance(v, str):
-            s = v.strip()
-            if s:
-                names.add(s)
+            x = v.strip()
+            if x:
+                (skip if closing else names).add(x)
         elif isinstance(v, dict):
-            if "_closed" in v:
-                return                    # 은퇴(_closed) = 현역 아님
+            cl = closing or ("_closed" in v)
             for x in v.values():
-                walk(x)
+                walk(x, cl)
         elif isinstance(v, list):
             for x in v:
-                walk(x)
+                walk(x, closing)
 
     for k, v in d.items():
         if isinstance(k, str) and k.startswith("_"):
-            walk(v)
+            walk(v, False)
         elif isinstance(k, str) and isinstance(v, dict):
             # 행(이름 키) — role=stop-ready 또는 _closed = «일하는 좌석» 판정을 건너뛸 이름(r1014 r2).
             #   정지 레디 좌석은 크론 틱이 jsonl 을 계속 써서 영원히 못 지운다(2026-10-13 세션 122개 꼴).
             role = v.get("role") if isinstance(v.get("role"), str) else ""
             if role == "stop-ready" or "_closed" in v:
                 skip.add(k)
+            if "_closed" in v:
+                retired.add(k)            # r3 R4: 역할 칸이 «은퇴 행» 을 가리키면 현역 아님
+names -= retired                     # r3 R4: `_arch` 가 은퇴(_closed) 행을 가리키면 현역이 아니다
 with open(nout, "w", encoding="utf-8") as fh:
     for n in sorted(names):
         fh.write(n + "\n")
@@ -620,6 +631,10 @@ roster_active() {   # $1=세션명 → rc0 현역 · rc1 아님 · rc2 판정 �
     local name="$1" f
     ZC_ROSTER_BADFILE=""
     roster_scan
+    if [[ -s "$WORK/roster.noroot" ]]; then
+        ZC_ROSTER_BADFILE="명부 루트 없음"
+        return 2
+    fi
     grep -Fxq -- "$name" "$WORK/roster.names" 2>/dev/null && return 0
     [[ -s "$WORK/roster.broken" ]] || return 1
     # 깨진 명부는 «이 이름이 등록될 수 있는 명부» 일 때만 판정 불가로 친다 — 남의 팀 명부가 깨졌다고 남의 계보를 멈추지 않는다(계약 ③)

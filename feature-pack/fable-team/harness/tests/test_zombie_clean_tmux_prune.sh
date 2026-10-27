@@ -6,8 +6,11 @@ set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ZC="${ZC_SCRIPT:-$HERE/../../harness/kit/zombie-clean/zombie-clean.sh}"
 fail=0; pass=0
-ok()  { echo "PASS $1"; pass=$((pass+1)); }
-bad() { echo "FAIL $1"; fail=$((fail+1)); }
+# FT_TEST_ONLY=<부분문자열> 이면 그 칸(CASE)만 돈다 — 변이 회차·재확인용(한 칸 ≈ 2초 · 하드 룰 22 «그 칸만»).
+CASE="old"
+in_case() { [ -z "${FT_TEST_ONLY:-}" ] && return 0; case "$CASE" in *"$FT_TEST_ONLY"*) return 0 ;; esac; return 1; }
+ok()  { in_case || return 0; echo "PASS $1"; pass=$((pass+1)); }
+bad() { in_case || return 0; echo "FAIL $1"; fail=$((fail+1)); }
 
 bash -n "$ZC" || { echo "FAIL bash -n $ZC"; exit 1; }
 
@@ -69,16 +72,18 @@ mkjsonl() {   # <fixture 본문> — 이 시험의 슬러그 폴더를 새로 �
 
 # run <YELLOW|RED> <fixture 본문> [env 추가…] → `[dry] tmux kill` 이름 집합(정렬·공백구분) + 전체 출력은 $TMP/out
 run() {
+  in_case || { echo ""; return 0; }        # FT_TEST_ONLY 밖 칸은 본체를 부르지도 않는다(부하 0)
   local tier="$1" body="$2"; shift 2
   printf '%s\n' "$body" > "$FIX"
   mkjsonl "$body"
-  local -a envs=(ZC_P_SWAP_RED=999999 ZC_P_JETS_RED=999999 ZC_P_COMP_RED=999999 ZC_P_SWAP_YEL=0)
-  [ "$tier" = RED ] && envs=(ZC_P_SWAP_RED=0)
+  local -a envs=(ZC_JETS_CMD=true ZC_P_SWAP_RED=999999 ZC_P_JETS_RED=999999 ZC_P_COMP_RED=999999 ZC_P_SWAP_YEL=0)
+  [ "$tier" = RED ] && envs=(ZC_JETS_CMD=true ZC_P_SWAP_RED=0)
   env HOME="$TMP/home" PATH="$FAKE:$PATH" FIXTURE="$FIX" FIXCWD="$FIXCWD" ZC_CLAUDE_PROJECTS="$PROJ" TMP_KILLLOG="$TMP/kill.log" \
       ZC_TMUX_IDLE_MIN=30 ZC_RESUME_DIR="$RECD" ZC_ROSTER_ROOT="$ROSTR" "${envs[@]}" "$@" bash "$ZC" tmux-prune --dry-run > "$TMP/out" 2>&1
   sed -n 's/^.*\[dry\] tmux kill \([^ ]*\) .*$/\1/p' "$TMP/out" | sort | tr '\n' ' ' | sed 's/ $//'
 }
 expect() { # expect <label> <기대 집합(공백구분·정렬)> <실제>
+  in_case || return 0
   [ "$3" = "$2" ] && ok "$1" || bad "$1 → 기대 [$2] · 실제 [$3]"
 }
 
@@ -212,7 +217,7 @@ RI#2 600 0
 RI#1 700 0' > "$FIX"
 mkjsonl "$(cat "$FIX")"   # r1014 r2: jsonl 판정도 같은 가짜 세계(기본 999분 = 활동 없음 → 기존 kill 그대로)
 env HOME="$TMP/home" PATH="$FAKE:$PATH" FIXTURE="$FIX" FIXCWD="$FIXCWD" ZC_CLAUDE_PROJECTS="$PROJ" ZC_ROSTER_ROOT="$ROSTR" TMP_KILLLOG="$TMP/kill.log" ZC_TMUX_IDLE_MIN=30 ZC_RESUME_DIR="$RECD" \
-    ZC_P_SWAP_RED=999999 ZC_P_JETS_RED=999999 ZC_P_COMP_RED=999999 ZC_P_SWAP_YEL=0 bash "$ZC" tmux-prune > "$TMP/out" 2>&1
+    ZC_JETS_CMD=true ZC_P_SWAP_RED=999999 ZC_P_JETS_RED=999999 ZC_P_COMP_RED=999999 ZC_P_SWAP_YEL=0 bash "$ZC" tmux-prune > "$TMP/out" 2>&1
 LED="$(ls "$TMP/home/.claude/logs"/zc-reclaim-*.tsv 2>/dev/null | head -1)"
 expect "T23a 대장 RI#2 restore 열 = resume" "zombie-clean.sh resume 'RI#2'" "$(awk -F'\t' '$2=="RI#2"{print $7}' "$LED" 2>/dev/null)"
 expect "T23b 대장 RI#1 restore 열 = 기존 restore" "zombie-clean.sh restore RI#1" "$(awk -F'\t' '$2=="RI#1"{print $7}' "$LED" 2>/dev/null)"
@@ -278,6 +283,7 @@ mkroster() { # <디렉토리 이름> <seats 파일에 쓸 JSON 본문> [추가 �
   local f; for f in "$@"; do printf '%s\n' "${f#*:}" > "$d/.fable-team/${f%%:*}"; done
   echo "$d"
 }
+CASE="ⓐ"
 # ⓐ 계보 3세대 · 현역(_arch) = 순번 3 · idle 999 → keep 1줄 · kill 0 (순번·idle 무관)
 RA="$(mkroster ra '{"_arch": "ZA#1"}')"
 rm -f "$RECD"/*
@@ -285,12 +291,14 @@ expect "ⓐ 현역 순번 3 · idle 999 → kill 0" "" "$(run YELLOW 'ZA#3 10 0
 ZA#2 20 0
 ZA#1 999 0' ZC_ROSTER_ROOT="$RA")"
 grep -q 'tmux keep ZA#1 (명부 현역 역할)' "$TMP/out" && ok "ⓐ «명부 현역 역할» keep 줄 1" || bad "ⓐ keep 줄 없음: $(grep 'ZA#1' "$TMP/out")"
+CASE="ⓑ"
 # ⓑ 현역 = 순번 2 · 재개 기록 검증됨(기존엔 여기서 kill) → 현역 우선 keep
 RB="$(mkroster rb '{"_sets": {"set1": {"arch": "ZB#1", "da": "ZB-da#9"}}}')"
 rm -f "$RECD"/*; mkrec 'ZB#1'
 expect "ⓑ 현역 순번 2 · 재개 기록 검증됨 → 현역 우선 keep" "" "$(run YELLOW 'ZB#2 500 0
 ZB#1 600 0' ZC_ROSTER_ROOT="$RB")"
 grep -q 'tmux keep ZB#1 (명부 현역 역할)' "$TMP/out" && ok "ⓑ 현역 우선 keep 줄" || bad "ⓑ keep 줄 없음: $(grep 'ZB#1' "$TMP/out")"
+CASE="ⓒ"
 # ⓒ 은퇴(_closed) 순번 3 · idle 999 → 기존 규칙대로 kill (회귀 0)
 RC1="$(mkroster rc '{"_sets": {"set1": {"arch": "ZC#1", "_closed": "2026-10-27 13:5x 은퇴"}}}')"
 rm -f "$RECD"/*
@@ -298,6 +306,7 @@ expect "ⓒ 은퇴(_closed) 는 보호 안 함" "ZC#1" "$(run YELLOW 'ZC#3 10 0
 ZC#2 20 0
 ZC#1 999 0' ZC_ROSTER_ROOT="$RC1")"
 grep -q 'tmux keep ZC#1' "$TMP/out" && bad "ⓒ 은퇴 좌석에 keep 줄" || ok "ⓒ 은퇴 좌석 keep 줄 0"
+CASE="ⓓ"
 # ⓓ 명부 JSON 깨짐 → 판정 불가 1줄 · 그 계보 kill 0 · 다른 계보(무관 명부) 영향 0
 RD="$(mkroster rd '{}' 'seats-harness.json:{"_arch": byz-harness-arch-claude#1,,,')"
 rm -f "$RECD"/*
@@ -309,19 +318,24 @@ byz-ops-nano-x#2 20 0
 byz-ops-nano-x#1 999 0' ZC_ROSTER_ROOT="$RD")"
 grep -q '명부 판정 불가: seats-harness.json' "$TMP/out" && ok "ⓓ 판정 불가 1줄" || bad "ⓓ 판정 불가 줄 없음: $(cat "$TMP/out")"
 expect "ⓓ 판정 불가 줄 1개(계보당 1줄)" "1" "$(grep -c '명부 판정 불가' "$TMP/out")"
+CASE="ⓔ"
 # ⓔ 두 경로 한 집합 — 같은 명부 좌석을 memory reclaim 표는 HIL, tmux-prune 은 keep
 #    (reclaim 은 명부 행 role 로 이미 보호 · 코드 수정 0 · 여기서 «같은 명부» 로 두 경로를 한 묶음에 본다)
-RE="$(mkroster re '{}' 'seats-t.json:{"_arch": "byz-t-arch-claude#1", "byz-t-arch-claude#1": {"role": "arch", "agent": "claude"}}')"
+RE="$(mkroster re '{}' 'seats-t.json:{"_arch": "byz-t-arch-claude#1", "byz-t-arch-claude#1": {"role": "arch", "agent": "claude"}, "_sets": {"s": {"arch": "byz-t-nano-s#1"}}}')"
 rm -f "$RECD"/*
 expect "ⓔ tmux-prune: 같은 명부 현역 keep" "" "$(run YELLOW 'byz-t-arch-claude#3 10 0
 byz-t-arch-claude#2 20 0
 byz-t-arch-claude#1 999 0' ZC_ROSTER_ROOT="$RE")"
+expect "ⓔ R5 tmux-prune: _sets 현역 keep" "" "$(run YELLOW 'byz-t-nano-s#3 10 0
+byz-t-nano-s#2 200 0
+byz-t-nano-s#1 999 0' ZC_ROSTER_ROOT="$RE")"
+CASE="ⓕ"
 # ⓕ keep 밖 · 비현역 · jsonl 활동 → keep + 「jsonl 활동」 줄 / jsonl 999분 전 → 기존대로 kill / jsonl 없음 → 판정 불가 1줄 · kill 0
 rm -f "$RECD"/*
 expect "ⓕ jsonl 1분 전 = 일하는 좌석 keep" "" "$(run YELLOW 'ZF#3 10 0
 ZF#2 200 0
 ZF#1 300 0 jsonl=1')"
-grep -q 'tmux keep ZF#1 (jsonl 활동 1분 전)' "$TMP/out" && ok "ⓕ 「jsonl 활동 1분 전」 줄" || bad "ⓕ jsonl 활동 줄 없음: $(grep 'ZF#1' "$TMP/out")"
+grep -qE 'tmux keep ZF#1 \(jsonl 활동 [12]분 전\)' "$TMP/out" && ok "ⓕ 「jsonl 활동 n분 전」 줄(1~2분 — date 분 단위 절삭)" || bad "ⓕ jsonl 활동 줄 없음: $(grep 'ZF#1' "$TMP/out")"
 expect "ⓕ jsonl 999분 전 = 기존대로 kill" "ZF#1" "$(run YELLOW 'ZF#3 10 0
 ZF#2 200 0
 ZF#1 300 0 jsonl=999')"
@@ -329,6 +343,7 @@ expect "ⓕ jsonl 없음 = 판정 불가 · kill 0" "" "$(run YELLOW 'ZF#3 10 0
 ZF#2 200 0
 ZF#1 300 0 jsonl=none')"
 grep -q 'tmux keep ZF#1 (판정 불가' "$TMP/out" && ok "ⓕ 판정 불가 1줄" || bad "ⓕ 판정 불가 줄 없음: $(grep 'ZF#1' "$TMP/out")"
+CASE="ⓖ"
 # ⓖ 명부 행 role=stop-ready (또는 _closed) → jsonl 판정 건너뜀 · 입력 idle 규칙 그대로 kill
 RG="$(mkroster rg '{"ZG#1": {"role": "stop-ready"}}')"
 expect "ⓖ stop-ready 는 jsonl 판정 건너뜀 → kill" "ZG#1" "$(run YELLOW 'ZG#3 10 0
@@ -339,17 +354,47 @@ expect "ⓖ_closed 좌석도 jsonl 판정 건너뜀 → kill" "ZG9#1" "$(run YEL
 ZG9#2 200 0
 ZG9#1 300 0 jsonl=1' ZC_ROSTER_ROOT="$RG2")"
 
+# ── r3 고침 4 (DA⑥ r1 HOLD 동작 4) — R3 명부 루트 없음 · R4 은퇴 행을 가리키는 역할 칸 · R7 닫힌 세트 좌석 ──
+CASE="R3"
+# R3: 루트(ZC_ROSTER_ROOT·FT_RES_ROOT·cwd·$HOME 기본값)가 전부 없는 세계 → 판정 불가 1줄 · 그 sweep kill 0
+NOROOT="$TMP/noroot"; mkdir -p "$NOROOT"
+printf '%s\n' 'ZR#3 10 0
+ZR#2 200 0
+ZR#1 999 0' > "$FIX"
+mkjsonl "$(cat "$FIX")"
+( cd "$NOROOT" && env -u ZC_ROSTER_ROOT -u FT_RES_ROOT HOME="$TMP/home" PATH="$FAKE:$PATH" FIXTURE="$FIX" FIXCWD="$FIXCWD" \
+    ZC_CLAUDE_PROJECTS="$PROJ" TMP_KILLLOG="$TMP/kill.log" ZC_TMUX_IDLE_MIN=30 ZC_RESUME_DIR="$RECD" \
+    ZC_JETS_CMD=true ZC_P_SWAP_RED=999999 ZC_P_JETS_RED=999999 ZC_P_COMP_RED=999999 ZC_P_SWAP_YEL=0 bash "$ZC" tmux-prune --dry-run > "$TMP/out3" 2>&1 )
+expect "R3 명부 루트 없음 → kill 0" "" "$(sed -n 's/^.*\[dry\] tmux kill \([^ ]*\) .*$/\1/p' "$TMP/out3" | sort | tr '\n' ' ' | sed 's/ $//')"
+grep -q '명부 판정 불가: 명부 루트 없음' "$TMP/out3" && ok "R3 판정 불가 1줄(루트 없음)" || bad "R3 판정 불가 줄 없음: $(cat "$TMP/out3")"
+CASE="R4"
+# R4: `_arch` 가 은퇴(_closed) 행을 가리킨다 → 현역 아님 · 기존 회수 규칙
+RR4="$(mkroster rr4 '{"_arch": "CL#1", "CL#1": {"role": "arch", "_closed": "2026-10-27 02:38 은퇴"}}')"
+rm -f "$RECD"/*
+expect "R4 은퇴 행을 가리키는 역할 칸 = 현역 아님" "CL#1" "$(run YELLOW 'CL#3 10 0
+CL#2 200 0
+CL#1 999 0' ZC_ROSTER_ROOT="$RR4")"
+grep -q 'tmux keep CL#1 (명부 현역 역할)' "$TMP/out" && bad "R4 은퇴 좌석에 현역 keep 줄" || ok "R4 현역 keep 줄 0"
+CASE="R7"
+# R7: 닫힌 세트(_closed) 안 좌석은 jsonl 판정을 건너뛴다 → 입력 idle 규칙 그대로 kill
+RR7="$(mkroster rr7 '{"_sets": {"s": {"arch": "CS#1", "_closed": "retired"}}}')"
+expect "R7 닫힌 세트 좌석은 jsonl 건너뜀 → kill" "CS#1" "$(run YELLOW 'CS#3 10 0
+CS#2 200 0
+CS#1 300 0 jsonl=1' ZC_ROSTER_ROOT="$RR7")"
+
 RPATH="$HERE/../bin/ft-resource-reclaim.sh"
 if [ -f "$HERE/lib/fake_reclaim_world.sh" ] && [ -f "$RPATH" ]; then
   T="$TMP/rw"; BIN="$HERE/../bin"; mkdir -p "$T"; . "$HERE/lib/fake_reclaim_world.sh"
   setup
   mkseat "byz-t-arch-claude#1" 999 0 95001
+  mkseat "byz-t-nano-s#1" 999 0 95002          # r3 R5: _sets 안에서만 현역인 좌석(최상위 문자열 값 아님)
   python3 - "$ST/seats.json" <<'PY'
 import json, sys
 p = sys.argv[1]
 d = json.load(open(p))
 d["byz-t-arch-claude#1"] = {"role": "arch", "agent": "claude"}
 d["_arch"] = "byz-t-arch-claude#1"
+d["_sets"] = {"s": {"arch": "byz-t-nano-s#1", "note": "세트 1"}}
 json.dump(d, open(p, "w"), ensure_ascii=False)
 PY
   export FT_ALLOW_TRACKED_BIN=1; unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY   # 추적 사본을 직접 부른다(real test_resource_reclaim.sh 와 같은 규율)
@@ -365,6 +410,11 @@ PY
     ok "ⓔ reclaim 은 현역을 후보표에 안 올림(_* 상위 오케 보호 — 한 집합)"
   fi
   expect "ⓔ reclaim 은 그 좌석 kill 0" "" "$(cat "$ST/kill.log" 2>/dev/null | tr '\n' ' ')"
+  if printf '%s\n' "$rout" | grep -F -- 'byz-t-nano-s#1 |' | grep -q 'WOULD-CLOSE'; then
+    bad "ⓔ R5 _sets 현역을 reclaim 이 닫으려 함: $(printf '%s\n' "$rout" | grep -F 'byz-t-nano-s#1')"
+  else
+    ok "ⓔ R5 _sets 현역 = reclaim 도 보호(한 집합)"
+  fi
 else
   bad "ⓔ reclaim 시험 재료 없음($HERE/lib/fake_reclaim_world.sh)"
 fi
