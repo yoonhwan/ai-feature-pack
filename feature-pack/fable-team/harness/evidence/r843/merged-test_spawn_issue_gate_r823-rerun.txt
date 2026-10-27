@@ -1,0 +1,100 @@
+== ⓐ Issue 없음 → REJECT · 부작용 0 (빨강 = 게이트 호출 뺀 판은 착수)
+PASS ⓐ 새 판 REJECT rc1
+PASS ⓐ 만들기 안내(ft-issue-create-pair.sh → 「- Issue: #N」)
+PASS ⓐ 착수 PLAN 0
+PASS ⓐ 카드 바이트 그대로 · 대기/ 그대로(①b base_sha 갱신 전에 막힘)
+PASS ⓐ 워크트리 0 · gh 호출 0(번호 없으면 조회 안 함)
+PASS ⓐ 빨강: 게이트 호출 뺀 판(= 지금 판) 은 같은 카드를 착수(PLAN) — ⓘ 변이 1 도 이것
+== ⓑ OPEN 착수 · CLOSED·없는 이슈·줄 없음 REJECT
+PASS ⓑ #7 OPEN → OK
+PASS ⓑ #7 OPEN → 착수(PLAN)
+PASS ⓑ 조회 = gh issue view 7 --repo $GH_REPO
+PASS ⓑ CLOSED → REJECT 닫힌 이슈
+PASS ⓑ CLOSED → PLAN 0
+PASS ⓑ 없는 이슈 → REJECT
+PASS ⓑ 없는 이슈 → PLAN 0
+PASS ⓑ Issue 줄 없음 → REJECT
+PASS ⓑ 줄 없음 → PLAN 0
+PASS ⓑ 번호가 PR(url /pull/) → REJECT
+== ⓒ gh 실패·시간 초과 = 판정 불가 · ≤15 s · 재시도 = 출력 0 일 때만
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.AAiYHOdvRu/bin/ft-spawn-issue-gate.sh: 줄 29: 69891 Killed: 9                  "$TO" -s KILL "$LIM" ${FT_GH_READ:-gh} issue view "$N" --repo "$REPO" --json number,state,url > "$T/o" 2> "$T/e"
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.AAiYHOdvRu/bin/ft-spawn-issue-gate.sh: 줄 29: 74805 Killed: 9                  "$TO" -s KILL "$LIM" ${FT_GH_READ:-gh} issue view "$N" --repo "$REPO" --json number,state,url > "$T/o" 2> "$T/e"
+PASS ⓒ TERM 무시 8 s 스텁 → REJECT 판정 불가
+PASS ⓒ 경과 ≤ 15 s (14 s · KILL 7 × 2)
+PASS ⓒ 시간 초과(출력 0) → 재시도 1(호출 2)
+PASS ⓒ #11 출력 0(rc=1) → REJECT
+PASS ⓒ #11 출력 0 → 재시도 1(호출 2)
+PASS ⓒ #14 출력 0(rc=0) → REJECT
+PASS ⓒ #14 출력 0 → 재시도 1(호출 2)
+PASS ⓒ #21 출력 있음(불완전 JSON·rc≠0) → REJECT
+PASS ⓒ #21 출력 있음 → 재시도 0(호출 1)
+PASS ⓒ #13 출력 있음(불완전 JSON·rc≠0) → REJECT
+PASS ⓒ #13 출력 있음 → 재시도 0(호출 1)
+PASS ⓒ spawn 경유 gh 실패 → PLAN 0(통과로 읽지 않음)
+== ⓓ 판독 = 머리 Issue 줄 첫 #숫자만 · owner/repo#N REJECT
+PASS ⓓ 첫 #7 만(뒤 #8 무시)
+PASS ⓓ 첫 #8 만(뒤 #7 로 통과 0)
+PASS ⓓ 본문(## 뒤) #7 무시 → REJECT
+PASS ⓓ owner/repo#N → REJECT 꼴 오류
+PASS ⓓ r2: 괄호 (#7) = 맨 앞 #숫자 아님 → REJECT
+== ⓙ r2 — 값 맨 앞 «#숫자» 만 · 링크·주소·owner/repo 꼴 = 꼴 오류 · gh 호출 0 · 부작용 0 (외부 DA r1 반례)
+PASS ⓙ DA 반례 [#7](https://github.com/other/repo/issues/7) → spawn REJECT 꼴 오류
+PASS ⓙ DA 반례 → PLAN 0
+PASS ⓙ DA 반례 → gh 호출 0 · 워크트리 0 · 카드 그대로
+PASS ⓙ DA 반례 [#7](https://github.com/other/repo/pull/7) → spawn REJECT 꼴 오류
+PASS ⓙ DA 반례 → PLAN 0
+PASS ⓙ DA 반례 → gh 호출 0 · 워크트리 0 · 카드 그대로
+PASS ⓙ «https://github.com/t/r/issues/7» → REJECT 꼴 오류
+PASS ⓙ «https://github.com/t/r/issues/7» → gh 호출 0
+PASS ⓙ «#7a» → REJECT 꼴 오류
+PASS ⓙ «#7a» → gh 호출 0
+PASS ⓙ «GH-7» → REJECT 꼴 오류
+PASS ⓙ «GH-7» → gh 호출 0
+PASS ⓙ «없음 → master 150649» → REJECT 꼴 오류
+PASS ⓙ «없음 → master 150649» → gh 호출 0
+PASS ⓙ «#7 · 설명 [링크](…)» → 맨 앞 #7 통과(스텁 OPEN)
+PASS ⓙ 콜론 뒤 앞 공백 깎고 #7 통과
+== ⓚ r3 — 시간 상수 7 s(env 조절 0) · 번호 0 시작·8자리 = 꼴 오류 · number = JSON 정수 비교 (외부 DA r2 반례)
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.AAiYHOdvRu/bin/ft-spawn-issue-gate.sh: 줄 29: 86201 Killed: 9                  "$TO" -s KILL "$LIM" ${FT_GH_READ:-gh} issue view "$N" --repo "$REPO" --json number,state,url > "$T/o" 2> "$T/e"
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.AAiYHOdvRu/bin/ft-spawn-issue-gate.sh: 줄 29: 96311 Killed: 9                  "$TO" -s KILL "$LIM" ${FT_GH_READ:-gh} issue view "$N" --repo "$REPO" --json number,state,url > "$T/o" 2> "$T/e"
+PASS ⓚ DA r2 반례①: FT_SPAWN_ISSUE_TIMEOUT=0 줘도 7.5 s 스텁 → REJECT 판정 불가
+PASS ⓚ env=0 경과 ≤ 15 s (14 s · 7 s KILL × 2)
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.AAiYHOdvRu/bin/ft-spawn-issue-gate.sh: 줄 29:  9013 Killed: 9                  "$TO" -s KILL "$LIM" ${FT_GH_READ:-gh} issue view "$N" --repo "$REPO" --json number,state,url > "$T/o" 2> "$T/e"
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.AAiYHOdvRu/bin/ft-spawn-issue-gate.sh: 줄 29: 19989 Killed: 9                  "$TO" -s KILL "$LIM" ${FT_GH_READ:-gh} issue view "$N" --repo "$REPO" --json number,state,url > "$T/o" 2> "$T/e"
+PASS ⓚ DA r2 반례①: FT_SPAWN_ISSUE_TIMEOUT=9 줘도 7.5 s 스텁 → REJECT 판정 불가
+PASS ⓚ env=9 경과 ≤ 15 s (14 s · 7 s KILL × 2)
+PASS ⓚ 0.1 s 스텁 → 통과(상한 안)
+PASS ⓚ DA r2 반례②: #012 → REJECT 꼴 오류
+PASS ⓚ #012 → gh 호출 0
+PASS ⓚ #12 · 설명 + number=12 → 통과(회귀)
+PASS ⓚ 8자리 → 꼴 오류
+PASS ⓚ 8자리 → gh 호출 0
+PASS ⓚ gh number "18"(문자열) → REJECT 판정 불가
+PASS ⓚ gh number 19.0 → REJECT 판정 불가
+PASS ⓚ gh number 누락 → REJECT 판정 불가
+== ⓔ 면제 0
+PASS ⓔ proposal-* 카드도 REJECT
+PASS ⓔ proposal-* PLAN 0
+PASS ⓔ 템플릿 카드도 REJECT
+== ⓕ --research(진행/ 부모)·--dry-run = 대상 아님
+PASS ⓕ --dry-run 은 Issue 없음 카드도 PLAN(동작 그대로)
+PASS ⓕ --dry-run 게이트 0
+PASS ⓕ --research 진행/ 카드 PLAN(동작 그대로)
+PASS ⓕ --research 게이트 0
+PASS ⓕ gh 호출 0
+== ⓖ 순서 = ① lint 뒤 · 부작용 전
+PASS ⓖ lint(207) < 게이트(213) < 첫 카드 쓰기(276) < 워크트리(438)
+PASS ⓖ lint 실패 → lint REJECT 가 먼저
+PASS ⓖ lint 실패면 gh 호출 0(게이트는 lint 뒤)
+== ⓘ 변이 — 열림 확인 삭제 → CLOSED 통과 · 출력 확인 삭제 → 출력 있는 실패도 재시도
+PASS ⓘ 변이 2(열림 확인 삭제) → CLOSED 통과 = ⓑ CLOSED 단언 FAIL 로 잡힌다
+PASS ⓘ 변이 3(출력 확인 삭제) → 불완전 JSON 재시도(호출 2) = ⓒ 단언 FAIL 로 잡힌다
+PASS ⓘ 변이 4(맨 앞 검사 → 아무 데나) → DA 반례 통과 = ⓙ 단언 FAIL 로 잡힌다(빨강)
+PASS ⓘ 변이 5(env 시간 되살림) → env=9 에 7.5 s 스텁 통과 = ⓚ 반례① 단언 FAIL 로 잡힌다(빨강)
+PASS ⓘ 변이 6(글자 비교) → number="18" 통과 = ⓚ 문자열 칸 FAIL 로 잡힌다(빨강)
+PASS ⓘ 변이 7(0 시작 검사 삭제) → #012 통과 = ⓚ 반례② 단언 FAIL 로 잡힌다(빨강)
+== 짝 사본 cmp0 · bash -n
+PASS cmp0 · bash -n ft-nano-spawn.sh
+PASS cmp0 · bash -n ft-spawn-issue-gate.sh
+
+ALL PASS

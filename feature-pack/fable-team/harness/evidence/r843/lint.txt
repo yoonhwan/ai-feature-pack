@@ -1,0 +1,16 @@
+sh -n post-checkout rc=0
+bash -n stamp rc=0
+
+In /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r843-wt-sparse-mark-write-verify/feature-pack/fable-team/harness/tests/test_post_checkout_sparse_r835.sh line 66:
+( ROOT="$B" WTDIR="$B/.worktrees/nano-full" BRANCH=nano/full BASE_BRANCH=main _SPT="" IDX_REL=design/teams/a/indices/진행/x.md FT_NANO_SPARSE=0
+  ^--^ SC2034 (warning): ROOT appears unused. Verify use (or export if used externally).
+            ^---^ SC2034 (warning): WTDIR appears unused. Verify use (or export if used externally).
+                                            ^----^ SC2034 (warning): BRANCH appears unused. Verify use (or export if used externally).
+                                                             ^---------^ SC2034 (warning): BASE_BRANCH appears unused. Verify use (or export if used externally).
+                                                                                      ^-----^ SC2034 (warning): IDX_REL appears unused. Verify use (or export if used externally).
+                                                                                                                             ^------------^ SC2034 (warning): FT_NANO_SPARSE appears unused. Verify use (or export if used externally).
+
+For more information:
+  https://www.shellcheck.net/wiki/SC2034 -- BASE_BRANCH appears unused. Verif...
+shellcheck rc=1
+기존: tests/test_post_checkout_sparse_r835.sh 66행 SC2034 6건 = base a7feee9b 그대로(이 카드 변경 줄 아님) · post-checkout·stamp shellcheck -S warning rc=0

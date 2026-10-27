@@ -1,0 +1,5 @@
+# 기준판 4b3a6a9e21f767fa2880968fb5d5cd7e5aac8ac0 (구현 0 · 새 시험만 복사)
+$ bash tests/test_post_checkout_sparse_r835.sh
+FAIL 훅 파일 없음: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.O7qm5CKwGn/feature-pack/fable-team/harness/tests/../kit/fable-team/githooks/post-checkout
+== 결과: FAIL=1
+rc=1

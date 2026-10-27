@@ -1,0 +1,3 @@
+syntax rc=0
+cmp stamp rc=0
+cmp lib rc=0

@@ -1,0 +1,39 @@
+PASS ⓐ 60Gi 쪽지 0
+PASS ⓑ 45Gi 경고 1통 · 상위 3
+PASS ⓑ 상위 3 에서 끊김
+PASS ⓒ 15분 안 재호출은 측정 자체 생략
+PASS ⓒ 같은 단계 60분 안 재측정 0통
+PASS ⓒ 60분 뒤 같은 단계 재알림
+PASS ⓓ 25Gi 긴급 즉시(경고 뒤라도)
+PASS ⓔ 긴급 유지 15분마다 1통
+PASS ⓔ 15분 안 반복 0
+PASS 긴급→여유 40Gi(≥35) 경고 단계로 내림 1통
+PASS 경고 단계 54Gi(<55) 회복 아님 · 쪽지 0
+PASS ⓕ 57Gi 회복 1통
+PASS ⓕ 회복 뒤 상태 초기화 · 쪽지 0
+PASS ⓕ 초기화 뒤 경고 새로 1통
+PASS ⓖ df 실패 → ERROR 로그 + 측정 실패 쪽지
+PASS 경고 쪽지에 주인 없는 임시 사본 1줄 첨부
+PASS ⓗ _hil_route 없음 → ERROR rc≠0 · 옛 이름 발신 0
+PASS 사본 정리 24h 경과 → --sweep 1회 · 결과 1줄 planner 로
+PASS 사본 정리 하루 안 재호출 0
+PASS 시험 컨테이너 정리 24h 경과 → --kill 1회 · 지운 결과 1줄 planner 로
+PASS 시험 컨테이너 정리 하루 안 재호출 0
+PASS 시험 컨테이너 정리 실패(rc20) → 로그 + planner 쪽지(조용한 0 없음)
+PASS ⓟ1 rc20 + 송신 실패 → pending 보관
+PASS ⓟ1 다음 틱 경보만 재시도 1 · 리퍼 재호출 0 · pending 해소
+PASS ⓟ1 해소 뒤 재전송 0
+PASS ⓟ2 rc20 + 본문 OK → 경보 1
+PASS ⓦ1 표식 탐지 24h 경과 → --unmarked 1회 · planner 1통(2곳 · 1.5GiB) · 전체 목록 파일
+PASS ⓦ2 하루 안 재호출 0
+PASS ⓦ3 탐지 실패 rc1 → 로그 + planner 쪽지(조용한 0 없음)
+PASS ⓦ4 목록 0 → 쪽지 0(로그만)
+PASS ⓘ 기본 명부 = seats-planner.json — 긴급 1통 · state 생김
+PASS ⓙ 수신자 없음 → rc3 · 하네스 master 에 고장 쪽지 1통(여유 25Gi) · planner 발신 0
+PASS ⓙ planner 발신 0
+PASS ⓚ +600초 고장 쪽지 0(1시간 1통)
+PASS ⓚ +3700초 고장 쪽지 다시 1통
+PASS ⓛ 명부 고친 뒤 +60초 → 정상 경로 즉시(15분 주기가 고장 기간에 안 먹힘)
+PASS ⓜ 두 명부 모두 키 없음 → rc3 · 쪽지 0 · ERROR 2줄
+ALL PASS
+REAL-STATE-GUARD PASS 실 루트 없음(cwd=/tmp)

@@ -1,0 +1,50 @@
+# r2 훅(10fcb261 · DA r2 HOLD 판) 에 r3 시험
+$ R835_GATE=<r2 훅> bash tests/test_worktree_add_gate_r835.sh
+== ⓕ BYZ 꼴 리포의 맨손 worktree add = 안내(deny 0)
+FAIL ⓕ cwd=B · git worktree add .worktrees/x -b y main — 안내 아님 rc=0 · o={"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": "🚫 [worktree-add-gate] 맨손 git worktree add = 풀 체크아웃(1.43GiB) · ft-wt-add.sh <이름> --team <팀> -b <가지> 로 (sparse · r835) · 풀이 꼭 필요하면 ft-wt-add.s · e=
+FAIL ⓕ cwd=P · git -C <B> worktree add — 안내 아님 rc=0 · o={"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": "🚫 [worktree-add-gate] 맨손 git worktree add = 풀 체크아웃(1.43GiB) · ft-wt-add.sh <이름> --team <팀> -b <가지> 로 (sparse · r835) · 풀이 꼭 필요하면 ft-wt-add.s · e=
+FAIL ⓕ cwd=B 하위 폴더 · 상대경로 — 안내 아님 rc=0 · o={"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": "🚫 [worktree-add-gate] 맨손 git worktree add = 풀 체크아웃(1.43GiB) · ft-wt-add.sh <이름> --team <팀> -b <가지> 로 (sparse · r835) · 풀이 꼭 필요하면 ft-wt-add.s · e=
+FAIL ⓕ cwd=B 연결 워크트리(주 워크트리로 판정) — 안내 아님 rc=0 · o={"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": "🚫 [worktree-add-gate] 맨손 git worktree add = 풀 체크아웃(1.43GiB) · ft-wt-add.sh <이름> --team <팀> -b <가지> 로 (sparse · r835) · 풀이 꼭 필요하면 ft-wt-add.s · e=
+FAIL ⓕ git -C sub -C dir (누적 -C) — 안내 아님 rc=0 · o={"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": "🚫 [worktree-add-gate] 맨손 git worktree add = 풀 체크아웃(1.43GiB) · ft-wt-add.sh <이름> --team <팀> -b <가지> 로 (sparse · r835) · 풀이 꼭 필요하면 ft-wt-add.s · e=
+FAIL ⓕ cd <B> && git worktree add (cwd=P) — 안내 아님 rc=0 · o={"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": "🚫 [worktree-add-gate] 맨손 git worktree add = 풀 체크아웃(1.43GiB) · ft-wt-add.sh <이름> --team <팀> -b <가지> 로 (sparse · r835) · 풀이 꼭 필요하면 ft-wt-add.s · e=
+FAIL ⓕ /usr/bin/git · 전역 옵션 -c k=v --no-pager — 안내 아님 rc=0 · o={"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": "🚫 [worktree-add-gate] 맨손 git worktree add = 풀 체크아웃(1.43GiB) · ft-wt-add.sh <이름> --team <팀> -b <가지> 로 (sparse · r835) · 풀이 꼭 필요하면 ft-wt-add.s · e=
+FAIL ⓕ bash -c '…' 감싸기 — 안내 아님 rc=0 · o={"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": "🚫 [worktree-add-gate] 맨손 git worktree add = 풀 체크아웃(1.43GiB) · ft-wt-add.sh <이름> --team <팀> -b <가지> 로 (sparse · r835) · 풀이 꼭 필요하면 ft-wt-add.s · e=
+FAIL ⓕ bash --norc -lc "…" 감싸기 — 안내 아님 rc=0 · o={"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": "🚫 [worktree-add-gate] 맨손 git worktree add = 풀 체크아웃(1.43GiB) · ft-wt-add.sh <이름> --team <팀> -b <가지> 로 (sparse · r835) · 풀이 꼭 필요하면 ft-wt-add.s · e=
+FAIL ⓕ eval '…' 감싸기 — 안내 아님 rc=0 · o={"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": "🚫 [worktree-add-gate] 맨손 git worktree add = 풀 체크아웃(1.43GiB) · ft-wt-add.sh <이름> --team <팀> -b <가지> 로 (sparse · r835) · 풀이 꼭 필요하면 ft-wt-add.s · e=
+FAIL ⓕ 앞 명령 뒤 줄바꿈 — 안내 아님 rc=0 · o={"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": "🚫 [worktree-add-gate] 맨손 git worktree add = 풀 체크아웃(1.43GiB) · ft-wt-add.sh <이름> --team <팀> -b <가지> 로 (sparse · r835) · 풀이 꼭 필요하면 ft-wt-add.s · e=
+FAIL ⓕ cwd=P · git --git-dir=<B>/.git worktree add — 안내 아님 rc=0 · o={"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": "🚫 [worktree-add-gate] 맨손 git worktree add = 풀 체크아웃(1.43GiB) · ft-wt-add.sh <이름> --team <팀> -b <가지> 로 (sparse · r835) · 풀이 꼭 필요하면 ft-wt-add.s · e=
+FAIL ⓕ cwd=P · git --git-dir <B>/.git (띄움 꼴) — 안내 아님 rc=0 · o={"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": "🚫 [worktree-add-gate] 맨손 git worktree add = 풀 체크아웃(1.43GiB) · ft-wt-add.sh <이름> --team <팀> -b <가지> 로 (sparse · r835) · 풀이 꼭 필요하면 ft-wt-add.s · e=
+FAIL ⓕ cwd=P · env X=1 git -C <B> — 안내 아님 rc=0 · o={"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": "🚫 [worktree-add-gate] 맨손 git worktree add = 풀 체크아웃(1.43GiB) · ft-wt-add.sh <이름> --team <팀> -b <가지> 로 (sparse · r835) · 풀이 꼭 필요하면 ft-wt-add.s · e=
+FAIL ⓕ cd $X 뒤 절대 -C <B> — 안내 아님 rc=0 · o={"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": "🚫 [worktree-add-gate] 맨손 git worktree add = 풀 체크아웃(1.43GiB) · ft-wt-add.sh <이름> --team <팀> -b <가지> 로 (sparse · r835) · 풀이 꼭 필요하면 ft-wt-add.s · e=
+== ⓕ 조용히 통과
+FAIL ⓕ DA r2 반례②-1 · cwd=B · git --git-dir=.git -C <P>(상대 git-dir = -C 뒤 기준) — 조용한 통과 아님 rc=0 · o={"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": "🚫 [worktree-add-gate] 맨손 git worktree add = 풀 체크아웃(1.43GiB) · ft-wt-add.sh <이름> --team <팀> -b <가지> 로 (sparse · r835) · 풀이 꼭 필요하면 ft-wt-add.s · e=
+FAIL ⓕ DA r2 반례②-2 · cwd=P · (cd <B>); git worktree add(서브셸 cd 는 안 샘) — 조용한 통과 아님 rc=0 · o={"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": "🚫 [worktree-add-gate] 맨손 git worktree add = 풀 체크아웃(1.43GiB) · ft-wt-add.sh <이름> --team <팀> -b <가지> 로 (sparse · r835) · 풀이 꼭 필요하면 ft-wt-add.s · e=
+PASS ⓕ DA r1 오탐1 · cwd=B · --git-dir=<P>/.git
+PASS ⓕ DA r1 오탐2 · git ls-files -- git worktree add
+PASS ⓕ echo 인자 속 git worktree add
+PASS ⓕ heredoc 본문 속 git worktree add
+FAIL ⓕ 미전개 git -C $W (cwd=B) — 조용한 통과 아님 rc=0 · o= · e=WARN worktree-add-gate: 대상에 미전개 변수 — 판정 생략 — 보장은 post-checkout(r835)
+FAIL ⓕ 미전개 --git-dir="$B/.git" — 조용한 통과 아님 rc=0 · o= · e=WARN worktree-add-gate: 대상에 미전개 변수 — 판정 생략 — 보장은 post-checkout(r835)
+FAIL ⓕ cd $X 뒤 맨 git worktree add — 조용한 통과 아님 rc=0 · o= · e=WARN worktree-add-gate: 대상에 미전개 변수 — 판정 생략 — 보장은 post-checkout(r835)
+PASS ⓕ 팩 리포(design/teams/ 없음) · 발주문 꼴
+PASS ⓕ cwd=P · 맨손 worktree add
+PASS ⓕ ft-wt-add.sh 호출
+PASS ⓕ ft-nano-spawn.sh 호출
+PASS ⓕ ft-scratch-repo.sh 호출
+PASS ⓕ worktree list
+PASS ⓕ worktree remove
+PASS ⓕ worktree prune
+PASS ⓕ 커밋 메시지 속 글자
+PASS ⓕ git 밖 폴더 cwd
+PASS ⓕ Bash 아닌 도구
+PASS ⓕ 훅이 worktree add 를 실행하지 않음(폴더 0)
+== ⓕ DA r2 반례② 실제 실행 — rc0 · 팩 워크트리 sparse 0
+PASS ⓕ 반례②-1 실행 rc0 · 팩 워크트리 sparse 0
+PASS ⓕ 반례②-2 실행 rc0 · 팩 워크트리 sparse 0
+== ⓖ 입력 깨짐 = 통과(fail-open) + stderr 1줄
+PASS ⓖ {not json → 통과 + WARN 1줄
+PASS ⓖ {"tool_name":"Bash","tool_input":{}} → 통과 + WARN 1줄
+PASS ⓖ {"tool_name":"Bash","tool_input":{"comma → 통과 + WARN 1줄
+FAIL ⓖ 훅 원문에 permissionDecision 이 남음(deny 0 위반)
+== 결과: FAIL=21
+rc=1

@@ -1,0 +1,6 @@
+scratch=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-750a1c23-1792802158-51863
+test_spawn_issue_gate_r823 rc=0 PASS=82 FAIL-lines=0 :: 
+test_dead_seat_resume rc=6 PASS=79 FAIL-lines=7 :: FAIL ⓕ spawn 성공 출력 그대로 — 없음: «SPAWNED » ← ENV team=v65 prefix=byz-v65-nano- seat|FAIL ⓕ 기준선 파일 없음|FAIL ⓕ card_path·branch — «» ≠ «design/v65/indices/진행/r163x.md nano/r163x»|FAIL ⓕ worktree — 없음: «/.worktrees/v65-r163x» ← |FAIL ⓕ 기준선 쓰기 실패여도 spawn 결과 그대로 — 없음: «SPAWNED » ← ENV team=v65 prefix=byz-v65-n|FAIL ⓕ 쓰기 실패 = stderr 1줄 — 없음: «WARN spawn 카드 기준선 쓰기 실패» ← |FAILED=6|
+load=21.48 26.00 27.67
+DONE /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-750a1c23-1792802158-51863
+DONE

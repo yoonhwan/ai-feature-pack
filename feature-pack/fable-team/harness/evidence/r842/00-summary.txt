@@ -1,0 +1,62 @@
+r842 — ft-nano-close 카드 «단계» 를 origin/main 트리로 정한다 (팩 kit · 1커밋 squash · DA⑥ r1~r4 반송 + r5 재설계 반영)
+카드: BYZ design/harness/indices/진행/r842-nano-close-card-stage-from-ref.md · Issue #2940 · 좌석 byz-harness-nano-r842-nano-close-card-stage-from-ref#0 · pi 재개(Opus→pi)
+
+원인 (arch 135 실측)
+ 루트 체크아웃이 origin/main 보다 253 뒤(10-23 16:07 MERGE_HEAD 중단) — 카드 찾기 고리가 «단계 바깥 · 루트 안쪽» 이라
+ 루트의 옛 indices/진행/<파일> 사본이 LEDGER_WT 의 완성/ 사본보다 먼저 잡힘 → ops 나노 2석(canon-accounts·test-w9) 닫기 REJECT.
+
+바꾼 것 (harness/bin + kit/fable-team/bin 짝 cmp0 · 기존 함수 변경 0)
+ ① ft-team-lib.sh `ft_card_stage_ref <루트> <IDX> [<ref>]` 1함수 — IDX(design/[teams/]<팀>/indices/<단계>/<파일>)와 ft_index_twin 쌍둥이의
+    `<indices 뿌리>/{진행,완성,대기}/<파일>` 을 ref 트리에서 직접 본다. 명부(design/TEAMS.md)·ft_team_cands_ref 안 씀 · 디스크 안 봄 · 읽기만.
+    결과 세 갈래 : stdout 첫 줄 `STAGE <단계>` rc0 · `ABSENT` rc0(ref 풀림 + 모든 후보 ls-tree 성공 + 전부 없음) · 그 밖(빈 출력 포함) = stderr ERROR rc1.
+ ② ft-nano-close.sh 카드 찾기 블록 — 문지기 두 칸(DA⑥ r3·r4):
+    (가) IDX 가 팀 카드 꼴(…/indices/<단계>/<파일>)이 아니면 단계 개념 0 = 지금 규칙(오류 아님 · `INFO 카드 단계 판정 0`).
+    (나) 꼴이면 lib·ft_card_stage_ref 가 있는가 — 없으면 ERROR 1줄 + REJECT(R382 옛 설치 역호환은 버림 · 조용한 옛 규칙 후퇴가 더 위험).
+    판정 : stdout 만 글자로 판정(stderr 는 사유) · `STAGE x` = 그 단계 하나 · `ABSENT` 만 지금 규칙 · 그 밖/rc≠0 = ERROR + REJECT.
+    디스크 사본 : 단계가 정해진 때만 IDX·쌍둥이 뿌리에서 직접 고른다(명부 의존 0 · DA⑥ r2 «명부 없으면 후보 0 → 옛 진행/ 후퇴» 자리) · 순서 WT→LEDGER_WT→ROOT ·
+    그 단계 사본이 없으면 ⓒ REJECT(다른 단계 사본 이름을 «낡은 사본» 으로 적음 · 옛 단계 후퇴 0).
+ ④ r5(DA⑥ r4 반례 닫음) — ABSENT(origin/main 에 카드 없음)는 «단계 판정 없음» 이라 IDX 경로 우선 집기(:IDX 고리)를 쓰지 않고 지금 규칙 그대로 돈다:
+    r444 ⑥ 블록(팀 폴더 후보 × 단계 진행→완성→대기 × WT→ROOT→LEDGER_WT)을 먼저 돌려 나노 WT 의 진행/ 증거 사본이 살아남는다.
+    r4 반례 재현 = ABSENT + ROOT 대기/ 사본(증거 없음) + 나노 WT 진행/ 사본(유효) · 고치기 전 = ROOT 대기/ 사본 선택 → «증거 줄 없음» REJECT rc=1(red) · 고친 뒤 = WT 사본 → CLOSED-ABSENT rc=0(green).
+    IDX 우선 집기는 «단계가 정해졌을 때» 만(`if [ -n "$_cs" ]` 절) — ABSENT 절과 분리(표지 r842-mut:absentidx).
+ ③ DA⑥ r1 : «원격 없는 리포 = 지금 규칙» 문 제거(원격 없음도 ref 못 풀면 ERROR + REJECT).
+
+기존 시험 픽스처 (DA⑥ r4 «lib 없음 = 오류» 계약에 맞춰 실 설치 꼴로)
+ - ft-team-lib.sh 사본 추가 9파일(named_wt · never_started · pack_wt · rerun_early · sha_base · superseded_by · suspended · wt_deletion_only · research_r888)
+ - refs/remotes/origin/main 1줄 추가(단계 판정 ref 실재) 9파일 + std_wt_other_branch(bare origin + push main)
+ - research_r888 ⓓ = r842 계약으로 바뀐 칸: «로컬 대기/ 옛 판 · origin/main 진행/» 는 이제 단계(진행/) 디스크 사본이 없어 REJECT(낡은 대기/ 로 쓰지 않는다) ·
+   판독 경로 검사는 새 ⓓ2(로컬에 진행/ 사본도 있음 → origin/main 판 읽고 쓰기는 그 진행/ 사본)로 옮겼다 · ⓕ 변이도 ⓓ2 를 잰다. 바뀐 칸 근거 = 카드 ⓒ «단계 사본이 어디에도 없음 → REJECT».
+
+시험 (새 test_nano_close_card_stage_ref_r842.sh · 98 PASS · 임시 bare 원격 + 낡은 ROOT + LEDGER_WT · 실 리포·실 tmux 0)
+ ⓐ origin/main=완성/ · ROOT 디스크=진행/ 옛 사본 · LEDGER_WT=완성/ → LEDGER_WT 완성/ 사본 + «INFO 카드 단계(origin/main) ← 완성»  ⓑ ref 에 카드 없음 → 지금 규칙 그대로
+ ⓒ 그 단계 디스크 사본 없음 → REJECT + 다른 단계 사본 이름  ⓓ FT_CARD_REF=없는 ref → ERROR 1줄 + REJECT  ⓓ origin/main ref 삭제 → REJECT
+ ⓓ2 (r1 반례) origin 원격 제거 + FT_CARD_REF 없음 → ERROR + REJECT · 카드 위치 0 · CLOSED 0
+ ⓓ3 (r2 반례) ref 에 TEAMS.md 없음 + 완성/cs.md + ROOT 옛 진행/cs.md → 완성/ 사본(LEDGER_WT) 선택 · 옛 진행/ 0
+ ⓓ4 ls-tree 만 rc128 인 가짜 git → ERROR + REJECT  ⓓ5 단계 함수가 빈 출력 rc0 → ERROR + REJECT
+ ⓓ6 단계 함수 없는 lib → REJECT · 팀 카드 꼴 아닌 idx → 단계 판정 0(오류 아님)
+ ⓓ7 (r3 반례) lib 통째로 없음 + 팀 카드 꼴 → ERROR + REJECT ⓓ7b 같은 입력 + 원격 없음 → REJECT
+ ⓓ8 기존 Python 시험 4파일 = 32 passed(failed 0)
+ ⓔ 나노 WT 자기 카드 → WT 사본 그대로(증거 검사 대상 불변)
+ ⓔ' (r5 · DA⑥ r4 반례) ABSENT + ROOT 대기/ 사본 증거 없음 + 나노 WT 진행/ 사본 유효 → 나노 WT 사본으로 CLOSED-ABSENT rc0 · ROOT 대기/ 선택 0 · 단계 줄 0  ⓕ 기존 nano-close 시험 15종 전수 = 기준판과 FAIL 수 동일  ⓗ 단위 8칸
+ ⓖ 변이 8 : 단계 제거 → ⓐ · ⓒ 옛 단계 후퇴 → ⓒ · 조회 실패를 카드 없음으로 → ⓓ·ⓓ2·ⓓ5 · 빈 출력을 없음으로 → ⓓ5 · 명부 없음 = ABSENT → ⓓ3 ·
+    «ABSENT 에도 IDX 우선 집기» → ⓔ' · lib 없으면 블록 건너뜀 → ⓓ7 · 꼴 불일치 = REJECT → ⓓ8(Python 4파일 변이 사본) · 키트 짝 cmp0 · 600/300 s·외부 호출·GIT_DIR 0.
+
+기준판 대조
+ red-new-test.txt : 고치기 전(r4 판) 코드 + 새 시험(ⓔ' 포함) → rc=1 · FAILED 3(ⓔ' 3칸 · 나머지 PASS) — DA⑥ r4 반례 재현분
+   · 이전 회차 빨강(base 66340101 + 새 시험만) = FAILED 38 기록은 git 이력에 남아 있다
+ existing-close-tests.txt vs baseline-close-tests.txt : 15종 PASS/FAIL 수 전부 동일 · 유일 실패 = r680 FAILED 4(기준판도 4 — 기존 실패) · research_r888 만 +2(내가 넣은 ⓓ2)
+ python-close-tests.txt : 4파일 32 passed rc=0(기준판도 32 passed)
+
+press 필요: 없음 — 이 카드는 라이브 오디오 경로를 안 건드린다(닫기 도구·임시 리포 시험만). 실사건 1(ops 나노 canon-accounts 또는 test-w9 닫기 rc0)은 master 착지 뒤 몫.
+범위 밖: 루트 체크아웃 정리(주인 미상 · HIL) · 카드에 쓰는 줄 형식 · r839 읽기 잡 · TEAMS.md 디스크 읽기(다음 후보).
+
+병합 (2026-10-27 · arch#162 발주 #175027 · origin/main 78커밋 + r1023)
+ 왜 다시 했나: git 3-way 의 merge base 가 ee714586(착지 쌓기 부모 계보) 로 잡혀 첫 병합이 main 최신 줄 6파일을 «지운» 나무를 만들었다.
+   → 파일마다 merge-file(ours=0c8a64fb · base=66340101 · theirs=origin/main) 로 다시 계산(r842 줄 + main 줄 둘 다 남는다).
+ 충돌 1: tests/test_nano_close_research_r888.sh(:29~:35) — r842 의 ft-team-lib.sh cp + main 의 ft_git_capped.py cp 를 둘 다 남긴다(중복 0).
+ 픽스처 정합: never_started·pack_wt = 원격 추적 ref 를 두면 R22 가 그 ref 를 fetch 하므로 bare 원격도 만든다 · step_timing = remote add 뒤 fetch 1줄 ·
+   card_branch_r960·landed_pr_r1011 = ft-team-lib.sh·ft_git_capped.py cp 1줄 추가(main 줄은 그대로 두고 «추가 줄» 로 — ft_merge_lines 보호 집합 유지).
+ ft_merge_lines.py <워크트리> origin/main HEAD = PASS(보호 집합 873 파일 · F=6634010102) · kit/bin cmp0 2종 · /bin/bash 3.2 -n 2종.
+ 기준판 대조(19종): FAIL 수 전부 같거나 낫다 — never_started 146/9 → 155/0 · research_r888 101 → 103(+ⓓ2) · step_timing 101/15 ↔ 100/16(초 재는 시험 ±1) ·
+   나머지 동일(r680 4 · sha_base 1 · superseded_by 1 = 기준판도 같은 실패). 표 = existing-close-tests.txt.
+ Python 4파일 = 29 passed 3 failed(origin/main 판도 같은 3건) → ⓓ8 은 «29 이상 · 실패 3 이하» 로 잰다.

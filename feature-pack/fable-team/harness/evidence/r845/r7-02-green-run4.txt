@@ -1,0 +1,33 @@
+PASS ⓐ 훅 exit 4 → 사본은 그 sha 로 생김 · WARN 1줄 · 경로 rc0 · 장부 1줄
+PASS ⓑ 훅 SIGSEGV(rc139) → ⓐ 와 같음(사본 쓸 수 있음 · WARN · rc0)
+PASS ⓒ 장부 쓰기 불가 → WARN 1줄 · rc0 · 사본 그대로(장부 0줄)
+PASS ⓒ 장부 파일 권한 복구
+PASS ⓓ 옛 4열 장부 줄 = --done 거부 rc2 · 사본 그대로
+PASS ⓓ --sweep 은 옛 줄을 해석하지 않는다(경고 1줄 · 삭제 0)
+PASS ⓓ 장부에 있어도 워크트리가 아니면 --done rc2 · 폴더 그대로
+PASS ⓓ --sweep 도 워크트리 아닌 줄은 삭제 0
+PASS ⓔ 제어 문자 경로( / v a r / f o l d e r s…) → rc2 · 사본 0 · 장부 0
+PASS ⓔ 제어 문자 경로( / v a r / f o l d e r s…) → rc2 · 사본 0 · 장부 0
+PASS ⓕ FT_SCRATCH_DIR 없으면 $TMPDIR/ft-scratch/<주인>/ 아래에 만든다(재부팅 정리 자리)
+PASS ⓗ 남의 owner 폴더 등록 사본 --done → rc2 · WARN · 삭제 0 · 장부 유지
+PASS ⓗ 사본 자리 밖 등록 사본 --done → rc2 · WARN · 삭제 0 · 장부 유지
+PASS ⓗ --sweep 은 자리 밖·주인 다른 줄을 지우지 않는다(삭제 0 · 장부 유지 · WARN)
+PASS ⓗ 경계 안 정상 사본은 --sweep 이 지운다(경계 검사가 «항상 거절» 이 아님)
+PASS ⓘ 훅 rc0 + move (--full) → rc4 · 등록 0
+PASS ⓘ 훅 rc0 + head (--full) → rc4 · 등록 0
+PASS ⓘ 훅 rc0 + move (--sparse) → rc4 · 등록 0
+PASS ⓘ 훅 rc0 + head (--sparse) → rc4 · 등록 0
+PASS ⓖ 기존 test_scratch_repo.sh ALL PASS
+PASS ⓖ 기존 test_scratch_judged_r645.sh ALL PASS
+PASS ⓖ 기존 test_scratch_sweep_live_cwd_r548.sh ALL PASS
+PASS ⓖ 기존 test_scratch_repo_sparse_auto_done_r891.sh ALL PASS
+PASS ⓖ kit 짝 cmp0
+PASS ⓖ /bin/bash(bash 3.2) 로 같은 시험 ALL PASS
+PASS 변이1(장부 실패 = die) → ⓒ FAIL
+PASS 변이2(장부 줄만 보고 삭제) → ⓓ FAIL
+PASS 변이3(입구 거절 삭제) → ⓔ FAIL
+PASS 변이4(owner 경계 제거) → ⓗ FAIL
+PASS 변이5(rc0 훅 완전성 건너뜀) → ⓘ FAIL
+ALL PASS
+REAL-STATE-GUARD WARN 번호표 늘었으나 실 좌석 계획(동시 실행): /private/tmp/h374 ← /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/state/approve-batch35-20261027-1210.sh
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

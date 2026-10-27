@@ -1,0 +1,6 @@
+scratch=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-750a1c23-1792802554-55700
+test_spawn_proxy_probe_r669 rc=4 PASS=18 FAIL-lines=5 :: FAIL ⓔ exit=1 (옛 판 1) ← BODY+ ★저장소 전체 검색 금지 — grep -r · git log --all -S · find |FAIL ⓔ 순번 큐에 남는다(QUEUED) — 없음: «QUEUED» ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님|FAIL ⓔ 출력에 사유 proxy 1줄 — 없음: «사유 proxy» ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님|FAIL ⓔ 큐 파일=|FAILED (4)|
+test_team_literal_paths2 rc=1 PASS=324 FAIL-lines=6 :: FAIL ⓔ1 ft-nano-spawn rc=1 ← WARN 후보 제외 — 카드 머리줄 없음: 상태 선행 시험_입력 (REJECT 아님 · ft|FAIL ⓔ1 ft-nano-spawn 카드 실파일 위치 ← design/v65/indices/대기/slug.md |FAIL ⓔ1 ft-nano-spawn: 발주 본문 SEATBELT 경로 = 1꼴 v65 폴더(ft_team_file_ref) — 없음: «/p|FAIL ⓔ2 ft-nano-spawn rc=1 ← WARN 후보 제외 — 카드 머리줄 없음: 상태 선행 시험_입력 (REJECT 아님 · ft|FAIL ⓔ2 ft-nano-spawn 카드 실파일 위치 ← design/teams/v65/indices/대기/slug.md |FAIL ⓔ2 ft-nano-spawn: 발주 본문 SEATBELT 경로 = 2꼴 v65 폴더(ft_team_file_ref) — 없음: «/p|
+load=30.51 28.65 28.49
+DONE /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-750a1c23-1792802554-55700
+DONE

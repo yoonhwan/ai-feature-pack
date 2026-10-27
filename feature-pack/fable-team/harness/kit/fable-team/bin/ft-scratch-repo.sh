@@ -8,6 +8,9 @@
 #   ft-scratch-repo.sh --report --orphans            r891: $FT_SCRATCH_DIR/repo-* 중 어느 등록부에도 없는 사본 표(경로·원 저장소·HEAD·크기·만든 시각·주인 추정) — 삭제 0
 #     ROOT 등록부 + 사본들의 원 저장소 등록부(옛 판이 거기 적은 사본)를 읽는다(보고 전용 · 지우기 0) · 못 읽은 등록부는 «부분 읽기» 줄 · env FT_SCRATCH_MBOX(주인 추정용 mailbox.jsonl)
 #   ft-scratch-repo.sh --done <경로>                 등록된 사본만 worktree 제거 + 등록 줄 삭제 (등록 밖 경로는 거부)
+#     r845 (재설계 r6 · 오빠 결정 10-27 «tmp 에 임시를 쌓으면 재부팅에 정리된다»): 기본 생성 자리 = $TMPDIR/ft-scratch/<주인>/ · 장부는 «있으면 참고»(등록 쓰기 실패 = WARN · die 0) · 훅 실패로 add/checkout 이 rc≠0 이어도 DEST 가 «요청 sha 그대로 + status 깨끗» 이면 WARN + 경로 rc0(아니면 die 4 · 등록 0)
+#     r7: 지우기는 r897 출구 게이트(등록 정확히 1줄 ∧ 그 줄 베이스 바로 아래 ∧ 분리 워크트리)가 지킨다 — 자리 밖 등록 사본은 거절(삭제 0 · 장부 줄 유지) · 온전성 확인은 훅 rc 와 무관하게 항상
+#     r8: «같은 sha·같은 주인 재사용» 도 온전한 사본일 때만 — 더러운 사본은 건너뜀 + WARN 과 새 사본 생성(삭제 0 · 장부 유지)
 #   ft-scratch-repo.sh --report [--summary]          «주인 없는 사본» 크기 목록 — 삭제 0. --summary = `주인 없는 임시 사본 N개 N.N GiB` 한 줄(0개면 출력 없음)
 #   ft-scratch-repo.sh --sweep                       주인 없는 사본 정리(판정 1920): 첫 1회 = 목록 보고만(실삭제 0, 표식 scratch-sweep.armed) · 그 뒤부터 자동 삭제 · 지울 게 없으면 출력 0
 #     r897 r10.3 (DA⑥ r1 반송 r2): ⒜빠른 길의 «못 읽음» 은 전부 «빠른 길 아님» — detached 판정은 rc=1 «만»(rc≥2 오류를 detached 로 읽지 않는다) · ⒝지우기 직전 재확인의 tmux·lsof 호출은 남은 예산(min(7초, 마감-지금))으로 상한 · 예산 0 이하면 호출 0 · 호출 «뒤» 에도 마감 검사(넘었으면 그 항목 삭제 0 + WARN · 남은 항목 다음 정리)
@@ -98,6 +101,27 @@ drop_reg() { # <등록 원문 경로> 그 등록 줄만 삭제 — «경로 정�
 cwd_parse() { printf '%s\n' "$1" | awk '/^p/{pid=substr($0,2);next} /^c/{cmd=substr($0,2);next} /^n/{if (pid!="") printf "%s\t%s\t%s\n", substr($0,2), pid, cmd}'; }   # <lsof -Fpcn 출력> → 경로·pid·명령 줄 · rc = awk rc(pipefail · r10.5: 지우는 길은 cap 으로 받아 rc≠0 = 못 읽음)
 reg_owner() { [ -f "$TSV" ] || return 0; P_EXACT="$1" awk -F'\t' '$1==ENVIRON["P_EXACT"]{print $2; exit}' "$TSV"; }   # <경로> → 등록 주인(정확 대조) · 등록부 없음 = 빈 값 rc0 · awk 실패 = rc≠0
 first_paths() { printf '%s' "$1" | awk -F'\t' 'NR<=3{printf "%s%s", (NR>1?", ":""), $2}'; }   # <ORPH> → 앞 3개 경로(표시 전용)
+scratch_bases() { # r845 r6: 사본이 놀 수 있는 부모 폴더 — FT_SCRATCH_DIR 가 있으면 그 하나, 없으면 $TMPDIR 과 그 아래 ft-scratch/<주인>/
+  local t
+  if [ -n "${FT_SCRATCH_DIR:-}" ]; then printf '%s\n' "${FT_SCRATCH_DIR%/}"; return 0; fi
+  t="${TMPDIR:-/tmp}"; t="${t%/}"
+  printf '%s\n' "$t"
+  for _b in "$t"/ft-scratch/*; do [ -d "$_b" ] && printf '%s\n' "$_b"; done
+  return 0
+}
+# ── r845 (재설계 r6·r7·r8) 헬퍼 — main 의 r897 출구 게이트 구조 위에 얹는다 ──────────────────
+owner_base() { # r845 r7: <주인> → 그 주인의 사본 자리(생성 BASE 와 같은 규칙 · FT_SCRATCH_DIR 이 있으면 그것 하나)
+  if [ -n "${FT_SCRATCH_DIR:-}" ]; then printf '%s\n' "${FT_SCRATCH_DIR%/}"; return 0; fi
+  local t="${TMPDIR:-/tmp}"; printf '%s/ft-scratch/%s\n' "${t%/}" "$1"
+}
+verify_complete() { # r845 r7·r8: <경로> → 0 = 그 사본이 «요청 sha 그대로 + status 깨끗» · 인자 없으면 DEST
+  local d="${1:-${DEST:-}}" h st
+  [ -n "$d" ] && [ -d "$d" ] || return 1
+  cap h bounded 7 git -C "$d" rev-parse HEAD || return 1
+  [ "$h" = "$SHA" ] || return 1
+  cap st bounded 7 git -C "$d" status --porcelain || return 1
+  [ -z "$st" ]
+}
 registered() { # <경로> → 0 = 등록부에 있음(실경로로 대조 — git 은 /private/var 로, 등록부는 $TMPDIR 의 /var 로 적는다)
   local want p rest; want="$(cd "$1" 2>/dev/null && pwd -P)" || return 1
   while IFS="$(printf '\t')" read -r p rest; do [ -d "$p" ] && [ "$(cd "$p" && pwd -P)" = "$want" ] && return 0; done < <(cat "$TSV" 2>/dev/null)
@@ -128,8 +152,11 @@ guess_owner() { # <sha8> → 주인 추정(r891 ⓘ): 그 sha 를 처음 적은 
   printf '%s\n' "${hit:-모름}"
 }
 unregistered_copies() { # r891 ⓘ: $FT_SCRATCH_DIR/repo-* 중 어느 등록부(ROOT + 사본들의 원 저장소)에도 없는 사본 표 — ★보고만 · 지우기 0★ · 못 읽은 등록부 = «부분 읽기» 줄
-  local base="${FT_SCRATCH_DIR:-${TMPDIR:-/tmp}}" f p rest rows keys="" failed="" n h root sha ep me
-  for f in $( { printf '%s\n' "$TSV"; for p in "${base%/}"/repo-*; do [ -d "$p" ] && copy_reg "$p"; done; } | awk '!s[$0]++'); do
+  local f p b rest rows keys="" failed="" n h root sha ep me
+  for f in $( { printf '%s\n' "$TSV"; while IFS= read -r b; do for p in "$b"/repo-*; do [ -d "$p" ] && copy_reg "$p"; done; done <<EOF2
+$(scratch_bases)
+EOF2
+} | awk '!s[$0]++'); do
     [ -e "$f" ] || continue
     if rows="$(cat -- "$f" 2>/dev/null)"; then
       while IFS="$(printf '\t')" read -r p rest; do [ -d "$p" ] && keys="$keys$(cd "$p" && pwd -P)
@@ -140,7 +167,7 @@ EOF
 "; fi
   done
   printf '경로\t원 저장소\tHEAD\t크기 GiB\t만든 시각\t주인 추정\n'
-  for p in "${base%/}"/repo-*; do
+  while IFS= read -r b; do for p in "$b"/repo-*; do
     [ -d "$p" ] || continue
     me="$(cd "$p" && pwd -P)"; case "
 $keys" in *"
@@ -150,7 +177,9 @@ $me
     root="$(common_root "$p")" || root="못 읽음"; sha="$(git -C "$p" rev-parse HEAD 2>/dev/null)" || sha="-"
     case "$ep" in ''|*[!0-9]*) ep="-";; *) ep="$(date -r "$ep" '+%F %H:%M' 2>/dev/null || echo -)";; esac
     printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$p" "$root" "$sha" "$(gib "$(kb "$p")")" "$ep" "$(guess_owner "$h")"
-  done
+  done; done <<EOF3
+$(scratch_bases)
+EOF3
   printf '%s' "$failed" | awk 'NF{print "부분 읽기\t등록부 읽기 실패 — 그 등록부 사본은 «미등록» 으로 보일 수 있음\t" $0}'
 }
 main_ref() { # <변수> → 판정 기준 ref = FT_SCRATCH_MAIN → origin/main(있으면) → main · r10.5(DA⑥ r3 반례 3): main 으로 후퇴는 origin/main 확인이 rc1(정말 없음)일 때만 · rc≥2 = 못 읽음 = rc1
@@ -610,17 +639,33 @@ case "${1:-}" in
     case "$OWNER" in ''|-) die "주인 세션을 모른다(tmux 밖 · FT_SCRATCH_OWNER·FT_ME 없음) — 주인 모르는 사본은 만들지 않는다" 2;; esac
     SPEC="$(want_spec)"
     while IFS="$(printf '\t')" read -r p ow t; do   # r444: 같은 sha·같은 주인 사본이 살아 있으면 재사용(사본 0 추가) · r891: 체크아웃 규칙도 같을 때만
-      [ "$ow" = "$OWNER" ] && [ -d "$p" ] && [ "$(git -C "$p" rev-parse HEAD 2>/dev/null)" = "$SHA" ] && [ "$(spec_of "$p")" = "$SPEC" ] && { echo "$p"; exit 0; }
+      [ "$ow" = "$OWNER" ] && [ -d "$p" ] && [ "$(git -C "$p" rev-parse HEAD 2>/dev/null)" = "$SHA" ] && [ "$(spec_of "$p")" = "$SPEC" ] || continue
+      # r845 r8: 재사용도 «온전한 사본» 일 때만 — 더러운 사본은 건너뜀 + WARN · 삭제 0 · 장부 줄 유지
+      if verify_complete "$p"; then echo "$p"; exit 0; fi
+      echo "WARN ft-scratch-repo — 불완전 사본 건너뜀(status 깨끗하지 않음 · 삭제 0 · 장부 유지) · 새 사본을 만든다: $p" >&2
     done < <(cat "$TSV" 2>/dev/null)
-    BASE="${FT_SCRATCH_DIR:-${TMPDIR:-/tmp}}"; mkdir -p "$BASE"
+    BASE="$(owner_base "$OWNER")"   # r845 r6: 기본 생성 자리 = $TMPDIR/ft-scratch/<주인>/ (TMPDIR 없으면 /tmp/ft-scratch/<주인>/) — 재부팅이 지우는 임시 자리
+    mkdir -p "$BASE" 2>/dev/null || die "사본 부모 폴더 생성 실패: $BASE" 4
     DEST="${BASE%/}/repo-$(printf '%.8s' "$SHA")-$(date +%s)-$$"
     has_ctl "$DEST" && die "등록 불가 경로(탭·개행): $DEST" 2   # r897 r10.2: TSV 로 표현 못 하는 경로면 사본을 만들지 않는다
-    if [ "$FULL" = 1 ]; then git -C "$SRC" worktree add -q --detach "$DEST" "$SHA" >/dev/null || die "worktree add 실패: $DEST" 4
+    # r845 r6·r7: 체크아웃 훅이 죽어도 «그 sha 로 온전히 생긴» 사본은 쓸 수 있다 — 온전성 확인은 훅 rc 와 «무관하게 항상»
+    addfail() { # <무엇이 실패했나> — DEST 가 요청 sha 그대로 + status 깨끗 → WARN(rc0) · 아니면 die 4(등록 0 · 지우기 0)
+      [ -d "$DEST" ] || die "$1 실패: $DEST" 4
+      if verify_complete; then
+        echo "WARN ft-scratch-repo — $1 rc≠0 이지만 사본 생성됨(HEAD=${SHA:0:8} · status 깨끗) · 장부 등록 · 그대로 쓴다: $DEST" >&2
+      else
+        die "$1 실패: $DEST (HEAD=$1 · 요청 sha 아님/체크아웃 불완전 — 등록 0 · 지우기 0 · 통째 = --full)" 4
+      fi
+    }
+    if [ "$FULL" = 1 ]; then git -C "$SRC" worktree add -q --detach "$DEST" "$SHA" >/dev/null || addfail "worktree add"
     else   # r891: 설계 폴더(design/teams/*)·증거 미디어 빼고 체크아웃 — 사본당 1.4G·파일 수만 개 → 코드·시험·하네스 경로만
-      git -C "$SRC" worktree add -q --no-checkout --detach "$DEST" "$SHA" >/dev/null || die "worktree add 실패: $DEST" 4
+      git -C "$SRC" worktree add -q --no-checkout --detach "$DEST" "$SHA" >/dev/null || addfail "worktree add"
       printf '%s\n' "$SPEC" | git -C "$DEST" sparse-checkout set --no-cone --stdin >/dev/null 2>&1 && git -C "$DEST" checkout -q >/dev/null 2>&1 \
-        || die "sparse 체크아웃 실패: $DEST (반쯤 만든 폴더는 등록 밖 — --report --orphans 에 보임 · 지우기 0 · 통째 = --full)" 4
+        || addfail "sparse 체크아웃"
     fi
-    # r891 r7: 등록은 체크아웃이 «다 끝난 뒤» 마지막 단계(기준판 순서) — 등록 줄이 있는 사본 = 체크아웃 끝난 사본 · 생성은 아무것도 지우지 않는다
+    # r845 r7: 훅 rc 가 0 이어도 «온전한 사본» 인지는 항상 확인 — 어긋나면 등록 0 · die 4
+    verify_complete || die "사본이 온전하지 않음: $DEST (요청 ${SHA:0:8} · status 더러움/파일 누름 — 등록 0 · 지우기 0)" 4
+    # r891 r7: 등록은 체크아웃이 «다 끝난 뒤» 마지막 단계 · r845 r6: 장부는 «있으면 참고» — 쓰기 실패는 WARN 1줄이고 사본은 그대로 돌려준다(die 0)
+    if [ -e "$TSV" ] && [ ! -w "$TSV" ]; then echo "WARN ft-scratch-repo — 장부 등록 실패($TSV) · 사본은 그대로 쓸 수 있다(die 0): $DEST" >&2; fi   # r845 r6: 장부는 «있으면 참고»
     printf '%s\t%s\t%s\t%s\n' "$DEST" "$OWNER" "$(date +%s)" "${BASE%/}" >> "$TSV"; warn_many "$OWNER"; echo "$DEST";;
 esac

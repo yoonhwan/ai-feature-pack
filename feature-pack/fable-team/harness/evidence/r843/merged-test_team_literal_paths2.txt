@@ -1,0 +1,370 @@
+== ⓐ 린트 · 문법 · 키트 사본 cmp0 · lib 모드
+PASS ⓐ 실 bin 린트: INFO 리터럴 대기 0
+PASS   └ OK 하드코딩 0
+PASS ⓐ 키트 bin 린트(키트 전용 5 포함): INFO 대기 0 · rc0
+PASS ⓒ r688 린트 반례 real: rc=1(기대 1)
+PASS ⓒ r688 린트 반례 oldmark: rc=1(기대 1)
+PASS ⓒ r688 린트 반례 newmark: rc=0(기대 0)
+PASS ⓒ r688 표지 변수 실재
+PASS bash -n ft-nano-spawn
+PASS 키트 사본 cmp0 ft-nano-spawn
+PASS bash -n ft-nano-slots
+PASS 키트 사본 cmp0 ft-nano-slots
+PASS bash -n ft-nano-spawn-undo
+PASS 키트 사본 cmp0 ft-nano-spawn-undo
+PASS bash -n ft-nano-close
+PASS 키트 사본 cmp0 ft-nano-close
+PASS bash -n ft-index-gate
+PASS 키트 사본 cmp0 ft-index-gate
+PASS bash -n ft-index-move
+PASS 키트 사본 cmp0 ft-index-move
+PASS bash -n ft-index-move-install
+PASS 키트 사본 cmp0 ft-index-move-install
+PASS bash -n ft-orphan-cards
+PASS 키트 사본 cmp0 ft-orphan-cards
+PASS bash -n ft-live-bin-drift-check
+PASS 키트 사본 cmp0 ft-live-bin-drift-check
+PASS bash -n ft-issue-reopen
+PASS 키트 사본 cmp0 ft-issue-reopen
+PASS bash -n ft-autonomy-start
+PASS 키트 사본 cmp0 ft-autonomy-start
+PASS bash -n ft-autonomy
+PASS 키트 사본 cmp0 ft-autonomy
+PASS bash -n ft-proposal-gate
+PASS 키트 사본 cmp0 ft-proposal-gate
+PASS bash -n ft-proxy-decide
+PASS 키트 사본 cmp0 ft-proxy-decide
+PASS bash -n ft-team-lib
+PASS 키트 사본 cmp0 ft-team-lib
+PASS bash -n ft-team-path-lint
+PASS 키트 사본 cmp0 ft-team-path-lint
+PASS ast ft_news_io
+PASS 키트 사본 cmp0 ft_news_io.py
+PASS ast ft_news_ledger
+PASS 키트 사본 cmp0 ft_news_ledger.py
+PASS ast ft_news_ledger_notify
+PASS 키트 사본 cmp0 ft_news_ledger_notify.py
+PASS bash -n 키트 전용 ft-index-lint-install
+PASS bash -n 키트 전용 ft-index-lint
+PASS bash -n 키트 전용 ft-pm-tick
+PASS bash -n 키트 전용 ft-wall-check
+PASS bash -n 키트 전용 ft-wall-read
+PASS ⓐ ft-team-lib.sh 모드 755(추적본)
+PASS ⓐ ft-team-lib.sh 모드 755(키트)
+== ⓑ lib 도우미 — ft_team_cands · ft_team_has (3꼴 표)
+PASS ⓑ cands 꼴1 = 명단 꼴 → 쌍둥이
+PASS ⓑ cands 꼴2 = 새 꼴 → 옛 꼴
+PASS ⓑ cands 꼴3 = 외부 루트 1개(쌍둥이 0)
+PASS ⓑ cands 명단에 없는 팀 = ERROR rc1
+PASS ⓑ has 꼴1: 옛·새 꼴 경로 둘 다 안(상대·절대)
+PASS ⓑ has 꼴1: 다른 팀·접두 오탐 → 밖(rc1)
+PASS ⓑ has 꼴1: 명단에 없는 팀 = 밖(rc1 · ERROR 아님)
+PASS ⓑ has 꼴2: 옛·새 꼴 경로 둘 다 안(상대·절대)
+PASS ⓑ has 꼴2: 다른 팀·접두 오탐 → 밖(rc1)
+PASS ⓑ has 꼴2: 명단에 없는 팀 = 밖(rc1 · ERROR 아님)
+PASS ⓑ has 명단 파일 없음 = rc2(ERROR · 후퇴 0)
+PASS ⓑ has 꼴3: FT_HARNESS_ROOT 절대경로 아래만 안
+== ⓒ 쌍둥이 픽스처 — 옛 꼴 ↔ 새 꼴
+PASS ⓒ1 ft_news_io.read_ledger: 칸 경로의 판정 원장을 읽는다
+PASS ⓒ1 ft_news_ledger_notify.verdict_rows: 같은 원장 행
+PASS ⓒ1 ft_news_ledger.planner_ledger_rel = design/planner/PLAN-oppa-ledger.md
+PASS ⓒ1 ft-index-move-install: 하네스 카드(설치: 있음) + --landed 없음 → REJECT
+PASS ⓒ1 ft-index-move-install: 다른 팀 카드 = 범위 밖 통과
+PASS ⓒ1 ft-index-lint-install(키트): 하네스 카드 설치 줄 없음 → REJECT
+PASS ⓒ1 ft-index-lint-install(키트): 다른 팀 카드 통과
+PASS ⓒ1 ft-nano-slots: v65 칸(1꼴)의 indices/대기 카드를 찾는다(FT_INDEX_DIR 없이)
+PASS ⓒ1 ft-orphan-cards: c-level-planning 워크트리의 cfo 팀 폴더(1꼴) 진행 카드를 센다
+PASS ⓒ2 ft_news_io.read_ledger: 칸 경로의 판정 원장을 읽는다
+PASS ⓒ2 ft_news_ledger_notify.verdict_rows: 같은 원장 행
+PASS ⓒ2 ft_news_ledger.planner_ledger_rel = design/teams/planner/PLAN-oppa-ledger.md
+PASS ⓒ2 ft-index-move-install: 하네스 카드(설치: 있음) + --landed 없음 → REJECT
+PASS ⓒ2 ft-index-move-install: 다른 팀 카드 = 범위 밖 통과
+PASS ⓒ2 ft-index-lint-install(키트): 하네스 카드 설치 줄 없음 → REJECT
+PASS ⓒ2 ft-index-lint-install(키트): 다른 팀 카드 통과
+PASS ⓒ2 ft-nano-slots: v65 칸(2꼴)의 indices/대기 카드를 찾는다(FT_INDEX_DIR 없이)
+PASS ⓒ2 ft-orphan-cards: c-level-planning 워크트리의 cfo 팀 폴더(2꼴) 진행 카드를 센다
+PASS ⓒ1 ft-proposal-gate: 판정 원장 폴더를 ref 트리의 planner 칸(1꼴)에서 푼다(FT_PLANNER_VERDICTS_DIR 없이)
+PASS ⓒ2 ft-proposal-gate: 판정 원장 폴더를 ref 트리의 planner 칸(2꼴)에서 푼다(FT_PLANNER_VERDICTS_DIR 없이)
+PASS ⓒ 변이: 명단을 못 읽으면 옛 경로로 후퇴하지 않고 REJECT rc1
+PASS ⓒ 변이: TEAMS.md 없으면 «범위 밖 통과» 로 후퇴하지 않고 REJECT rc1
+== ⓓ 나머지 셸 도구 — 글자 경로 0 + lib 경유 (정적)
+PASS ⓓ ft-nano-spawn: 리터럴 팀 경로 0 · lib 경유(셸 ft-team-lib.sh 또는 파이썬 ft_team_lib)
+PASS ⓓ ft-nano-spawn-undo: 리터럴 팀 경로 0 · lib 경유(셸 ft-team-lib.sh 또는 파이썬 ft_team_lib)
+PASS ⓓ ft-nano-close: 리터럴 팀 경로 0 · lib 경유(셸 ft-team-lib.sh 또는 파이썬 ft_team_lib)
+PASS ⓓ ft-index-gate: 리터럴 팀 경로 0 · lib 경유(셸 ft-team-lib.sh 또는 파이썬 ft_team_lib)
+PASS ⓓ ft-index-move: 리터럴 팀 경로 0 · lib 경유(셸 ft-team-lib.sh 또는 파이썬 ft_team_lib)
+PASS ⓓ ft-autonomy-start: 리터럴 팀 경로 0 · lib 경유(셸 ft-team-lib.sh 또는 파이썬 ft_team_lib)
+PASS ⓓ ft-autonomy: 리터럴 팀 경로 0 · lib 경유(셸 ft-team-lib.sh 또는 파이썬 ft_team_lib)
+PASS ⓓ ft-proxy-decide: 리터럴 팀 경로 0 · lib 경유(셸 ft-team-lib.sh 또는 파이썬 ft_team_lib)
+PASS ⓓ ft-proposal-gate: 리터럴 팀 경로 0 · lib 경유(셸 ft-team-lib.sh 또는 파이썬 ft_team_lib)
+PASS ⓓ ft-autonomy-start: planner 폴더 = ft_team_in
+PASS ⓓ ft-autonomy: planner 폴더 = ft_team_in
+PASS ⓓ ft-proxy-decide: planner 폴더 = ft_team_in
+PASS ⓓ ft-nano-spawn: planner 카드 판정 = ft_team_has_ref(명단 = ref · R406)
+PASS ⓓ ft-nano-spawn: SEATBELT 경로 = ft_team_file_ref v65(명단 = ref · 실재 1개 · R406)
+PASS ⓓ ft-nano-close: 기본 원장 = ft_team_in(_ref · r495) v65
+PASS ⓓ ft-nano-spawn-undo: 기본 원장 = ft_team_in(_ref · r495) v65
+== ⓔ 22파일 «실제 호출» 두 꼴 대조표 (DA⑥ r1 Q1 · 옛 꼴 ↔ 새 꼴 픽스처마다 실행 · 읽기 도구는 꼴에만 있는 산출물을 찾는다 · 쓰기 도구는 decoy(다른 꼴 폴더) 불변 + 새 경로 쓰기)
+FAIL ⓔ1 ft-nano-spawn rc=1 ← WARN 후보 제외 — 카드 머리줄 없음: 상태 선행 시험_입력 (REJECT 아님 · ft-nano-slots.sh 후보에서 빠진다): /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.hVoGzWfFSI/xs1/design/v65/indices/대기/slug.md
+WARN 후보 제외 — 카드 머리줄 기준값 없음 또는 빈칸 (REJECT 아님 · 지표 없으면 「기준값: 없음 → 대체 축 <무엇>」 · 하네스 팀 폴더의 BASELINE-TEMPLATE.md): /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.hVoGzWfFSI/xs1/design/v65/indices/대기/slug.md
+BODY+ ★저장소 전체 검색 금지 — grep -r · git log --all -S · find / 를 리포 루트·홈에서 돌리지 않는다(부하 40 → 다른 팀 press 오염 · r570) · 카드 §구현 범위 경로나 자기 워크트리 폴더를 지정해 찾는다 · 코드 심볼 찾기는 serena 도구(find_symbol · get_symbols_overview · search_for_pattern) 먼저(r556) · 명부(seats.json · seats-<팀>.json)는 손대지 않는다(spawn 이 이미 등록 · 손 행 = 쪽지 
+FAIL ⓔ1 ft-nano-spawn 카드 실파일 위치 ← design/v65/indices/대기/slug.md 
+PASS ⓔ1 ft-nano-spawn: decoy 카드(다른 꼴 대기/)는 그대로 있다
+FAIL ⓔ1 ft-nano-spawn: 발주 본문 SEATBELT 경로 = 1꼴 v65 폴더(ft_team_file_ref) — 없음: «/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.hVoGzWfFSI/xs1/design/v65/SEATBELT-README.md» ← 
+PASS ⓔ1 ft-nano-spawn: decoy(다른 꼴 폴더) sha 불변
+PASS ⓔ1 ft-nano-spawn — 옛 꼴 경로로 풀림
+PASS ⓔ1 ft-nano-close: 명부 index(다른 꼴)의 카드를 쌍둥이 후보로 찾아 CLOSED
+PASS ⓔ1 ft-nano-close: 원장 append = 1꼴 v65 폴더(ft_team_in 원장 워크트리)
+PASS ⓔ1 ft-nano-close: decoy 원장(다른 꼴) sha 불변
+PASS ⓔ1 ft-nano-close — 옛 꼴 경로로 풀림
+PASS ⓔ1 ft-nano-spawn-undo: 롤백 UNDONE
+PASS ⓔ1 ft-nano-spawn-undo: 원장 줄 = 1꼴 v65 폴더
+PASS ⓔ1 ft-nano-spawn-undo: decoy 원장 sha 불변
+PASS ⓔ1 ft-nano-spawn-undo — 옛 꼴 경로로 풀림
+PASS ⓔ1 ft-index-move: 이동 도착 = 1꼴 폴더(v65 판정 = ft_team_has)
+PASS ⓔ1 ft-index-move: 1꼴 폴더에서 실제로 옮겨짐
+PASS ⓔ1 ft-index-move: decoy(다른 꼴) 카드 sha 불변
+PASS ⓔ1 ft-index-move(완성): 도착 = 1꼴 폴더 완성/
+PASS ⓔ1 ft-index-move(완성): 원장 트랙 = v65(ft_team_has 가 1꼴 폴더를 v65 카드로 판정)
+PASS ⓔ1 ft-index-move(완성): decoy sha 불변
+PASS ⓔ1 ft-index-move — 옛 꼴 경로로 풀림
+FAIL ⓔ2 ft-nano-spawn rc=1 ← WARN 후보 제외 — 카드 머리줄 없음: 상태 선행 시험_입력 (REJECT 아님 · ft-nano-slots.sh 후보에서 빠진다): /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.hVoGzWfFSI/xs2/design/teams/v65/indices/대기/slug.md
+WARN 후보 제외 — 카드 머리줄 기준값 없음 또는 빈칸 (REJECT 아님 · 지표 없으면 「기준값: 없음 → 대체 축 <무엇>」 · 하네스 팀 폴더의 BASELINE-TEMPLATE.md): /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.hVoGzWfFSI/xs2/design/teams/v65/indices/대기/slug.md
+BODY+ ★저장소 전체 검색 금지 — grep -r · git log --all -S · find / 를 리포 루트·홈에서 돌리지 않는다(부하 40 → 다른 팀 press 오염 · r570) · 카드 §구현 범위 경로나 자기 워크트리 폴더를 지정해 찾는다 · 코드 심볼 찾기는 serena 도구(find_symbol · get_symbols_overview · search_for_pattern) 먼저(r556) · 명부(seats.json · seats-<팀>.json)는 손대지 않는다(spawn 이 이미 등록 · 손 행 = 쪽지 
+FAIL ⓔ2 ft-nano-spawn 카드 실파일 위치 ← design/teams/v65/indices/대기/slug.md 
+PASS ⓔ2 ft-nano-spawn: decoy 카드(다른 꼴 대기/)는 그대로 있다
+FAIL ⓔ2 ft-nano-spawn: 발주 본문 SEATBELT 경로 = 2꼴 v65 폴더(ft_team_file_ref) — 없음: «/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.hVoGzWfFSI/xs2/design/teams/v65/SEATBELT-README.md» ← 
+PASS ⓔ2 ft-nano-spawn: decoy(다른 꼴 폴더) sha 불변
+PASS ⓔ2 ft-nano-spawn — 새 꼴 경로로 풀림
+PASS ⓔ2 ft-nano-close: 명부 index(다른 꼴)의 카드를 쌍둥이 후보로 찾아 CLOSED
+PASS ⓔ2 ft-nano-close: 원장 append = 2꼴 v65 폴더(ft_team_in 원장 워크트리)
+PASS ⓔ2 ft-nano-close: decoy 원장(다른 꼴) sha 불변
+PASS ⓔ2 ft-nano-close — 새 꼴 경로로 풀림
+PASS ⓔ2 ft-nano-spawn-undo: 롤백 UNDONE
+PASS ⓔ2 ft-nano-spawn-undo: 원장 줄 = 2꼴 v65 폴더
+PASS ⓔ2 ft-nano-spawn-undo: decoy 원장 sha 불변
+PASS ⓔ2 ft-nano-spawn-undo — 새 꼴 경로로 풀림
+PASS ⓔ2 ft-index-move: 이동 도착 = 2꼴 폴더(v65 판정 = ft_team_has)
+PASS ⓔ2 ft-index-move: 2꼴 폴더에서 실제로 옮겨짐
+PASS ⓔ2 ft-index-move: decoy(다른 꼴) 카드 sha 불변
+PASS ⓔ2 ft-index-move(완성): 도착 = 2꼴 폴더 완성/
+PASS ⓔ2 ft-index-move(완성): 원장 트랙 = v65(ft_team_has 가 2꼴 폴더를 v65 카드로 판정)
+PASS ⓔ2 ft-index-move(완성): decoy sha 불변
+PASS ⓔ2 ft-index-move — 새 꼴 경로로 풀림
+PASS ⓔ1 ft-nano-slots: 1꼴 v65 indices/대기 의 카드를 찾는다
+PASS ⓔ1 ft-nano-slots — 옛 꼴 경로로 풀림
+PASS ⓔ1 ft-orphan-cards: cfo 팀 폴더(1꼴) 진행 카드를 센다
+PASS ⓔ1 ft-orphan-cards — 옛 꼴 경로로 풀림
+PASS ⓔ1 ft-index-move-install: 하네스 카드(1꼴 폴더) 설치: 있음 → REJECT
+PASS ⓔ1 ft-index-move-install: 다른 팀 카드 = 범위 밖 통과
+PASS ⓔ1 ft-index-move-install — 옛 꼴 경로로 풀림
+PASS ⓔ1 ft-index-lint-install(키트): 하네스 카드(1꼴 폴더 · 설치: 있음) 통과 rc0
+PASS ⓔ1 ft-index-lint-install(키트): 하네스 카드(1꼴) 설치 줄 없음 → REJECT rc1(다른 꼴로 풀리면 «범위 밖 통과» 가 됐을 것)
+PASS ⓔ1 ft-index-lint-install — 옛 꼴 경로로 풀림
+PASS ⓔ1 ft-proposal-gate: 두 꼴에 판정 원장(decoy 포함) = 추측 0 REJECT(r492)
+PASS ⓔ1 ft-proposal-gate: ref 트리 planner 칸(1꼴)의 판정 816 을 읽는다
+PASS ⓔ1 ft-proposal-gate — 옛 꼴 경로로 풀림
+PASS ⓔ1 ft-index-gate: 카드 후보 = 1꼴 v65 폴더(ft_team_cands)
+PASS ⓔ1 ft-index-gate — 옛 꼴 경로로 풀림
+PASS ⓔ1 ft-index-lint: 두 꼴에 원장(decoy 포함) = 추측 0 REJECT(R406)
+PASS ⓔ1 ft-index-lint(키트 · 실제 린트): OK rc0 · 기본 골 원장 = 1꼴 v65 폴더(ft_team_file_ref)
+PASS ⓔ1 ft-index-lint — 옛 꼴 경로로 풀림
+PASS ⓔ1 ft-wall-read(키트): 인용 문구를 1꼴 벽에서 찾는다
+PASS ⓔ1 ft-wall-read — 옛 꼴 경로로 풀림
+PASS ⓔ1 ft-wall-check(키트): 읽음 원장 대조 OK
+PASS ⓔ1 ft-wall-check — 옛 꼴 경로로 풀림
+PASS ⓔ1 ft-pm-tick(키트): RULES_FILE = 1꼴 v65 폴더(ft_team_rel)
+PASS ⓔ1 ft-pm-tick — 옛 꼴 경로로 풀림
+PASS ⓔ2 ft-nano-slots: 2꼴 v65 indices/대기 의 카드를 찾는다
+PASS ⓔ2 ft-nano-slots — 새 꼴 경로로 풀림
+PASS ⓔ2 ft-orphan-cards: cfo 팀 폴더(2꼴) 진행 카드를 센다
+PASS ⓔ2 ft-orphan-cards — 새 꼴 경로로 풀림
+PASS ⓔ2 ft-index-move-install: 하네스 카드(2꼴 폴더) 설치: 있음 → REJECT
+PASS ⓔ2 ft-index-move-install: 다른 팀 카드 = 범위 밖 통과
+PASS ⓔ2 ft-index-move-install — 새 꼴 경로로 풀림
+PASS ⓔ2 ft-index-lint-install(키트): 하네스 카드(2꼴 폴더 · 설치: 있음) 통과 rc0
+PASS ⓔ2 ft-index-lint-install(키트): 하네스 카드(2꼴) 설치 줄 없음 → REJECT rc1(다른 꼴로 풀리면 «범위 밖 통과» 가 됐을 것)
+PASS ⓔ2 ft-index-lint-install — 새 꼴 경로로 풀림
+PASS ⓔ2 ft-proposal-gate: 두 꼴에 판정 원장(decoy 포함) = 추측 0 REJECT(r492)
+PASS ⓔ2 ft-proposal-gate: ref 트리 planner 칸(2꼴)의 판정 816 을 읽는다
+PASS ⓔ2 ft-proposal-gate — 새 꼴 경로로 풀림
+PASS ⓔ2 ft-index-gate: 카드 후보 = 2꼴 v65 폴더(ft_team_cands)
+PASS ⓔ2 ft-index-gate — 새 꼴 경로로 풀림
+PASS ⓔ2 ft-index-lint: 두 꼴에 원장(decoy 포함) = 추측 0 REJECT(R406)
+PASS ⓔ2 ft-index-lint(키트 · 실제 린트): OK rc0 · 기본 골 원장 = 2꼴 v65 폴더(ft_team_file_ref)
+PASS ⓔ2 ft-index-lint — 새 꼴 경로로 풀림
+PASS ⓔ2 ft-wall-read(키트): 인용 문구를 2꼴 벽에서 찾는다
+PASS ⓔ2 ft-wall-read — 새 꼴 경로로 풀림
+PASS ⓔ2 ft-wall-check(키트): 읽음 원장 대조 OK
+PASS ⓔ2 ft-wall-check — 새 꼴 경로로 풀림
+PASS ⓔ2 ft-pm-tick(키트): RULES_FILE = 2꼴 v65 폴더(ft_team_rel)
+PASS ⓔ2 ft-pm-tick — 새 꼴 경로로 풀림
+PASS ⓔ1 ft-autonomy-start(on 이 부름): 시작 장부 = 1꼴 planner 폴더에 씀
+PASS ⓔ1 ft-autonomy-start — 옛 꼴 경로로 풀림
+PASS ⓔ1 ft-proxy-decide: 대리 줄 = 1꼴 planner 원장(번호 101)에 append
+PASS ⓔ1 ft-proxy-decide — 옛 꼴 경로로 풀림
+PASS ⓔ1 ft-proxy-decide: 큐 파일 = 1꼴 planner 폴더
+PASS ⓔ1 ft-autonomy status: 대리·큐 수를 1꼴 planner 폴더에서 센다(decoy 의 대리 3줄은 안 센다)
+PASS ⓔ1 ft-autonomy off: 큐 파일 경로 = 1꼴 planner 폴더
+PASS ⓔ1 ft-autonomy — 옛 꼴 경로로 풀림
+PASS ⓔ1 자율 3종: decoy(다른 꼴 폴더) sha 불변
+PASS ⓔ2 ft-autonomy-start(on 이 부름): 시작 장부 = 2꼴 planner 폴더에 씀
+PASS ⓔ2 ft-autonomy-start — 새 꼴 경로로 풀림
+PASS ⓔ2 ft-proxy-decide: 대리 줄 = 2꼴 planner 원장(번호 101)에 append
+PASS ⓔ2 ft-proxy-decide — 새 꼴 경로로 풀림
+PASS ⓔ2 ft-proxy-decide: 큐 파일 = 2꼴 planner 폴더
+PASS ⓔ2 ft-autonomy status: 대리·큐 수를 2꼴 planner 폴더에서 센다(decoy 의 대리 3줄은 안 센다)
+PASS ⓔ2 ft-autonomy off: 큐 파일 경로 = 2꼴 planner 폴더
+PASS ⓔ2 ft-autonomy — 새 꼴 경로로 풀림
+PASS ⓔ2 자율 3종: decoy(다른 꼴 폴더) sha 불변
+PASS ⓔ ft-live-bin-drift-check: grep -c 'ft_team\|design/' ft-live-bin-drift-check.sh = 0 — 경로 미해석(글자만)
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r843-wt-sparse-mark-write-verify/feature-pack/fable-team/harness/tests/test_team_literal_paths2.sh: 줄 361: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.hVoGzWfFSI/eo.ft-live-bin-drift-check: No such file or directory
+PASS ⓔ ft-issue-reopen: grep -c 'ft_team\|design/' ft-issue-reopen.sh = 0 — 경로 미해석(글자만)
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r843-wt-sparse-mark-write-verify/feature-pack/fable-team/harness/tests/test_team_literal_paths2.sh: 줄 361: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.hVoGzWfFSI/eo.ft-issue-reopen: No such file or directory
+PASS ⓔ1 ft-live-bin-drift-check: 빈 bin 이면 DRIFT rc1
+PASS ⓔ1 ft-live-bin-drift-check: HINT 에 글자 경로(design/harness/) 없음
+PASS   └ HINT = 팀 폴더 서술형
+PASS ⓔ1 ft-issue-reopen: dry-run rc0
+PASS ⓔ1 ft-issue-reopen: 본문에 글자 경로(design/harness/) 없음
+PASS   └ 본문 = 팀 폴더 서술형
+PASS ⓔ2 ft-live-bin-drift-check: 빈 bin 이면 DRIFT rc1
+PASS ⓔ2 ft-live-bin-drift-check: HINT 에 글자 경로(design/harness/) 없음
+PASS   └ HINT = 팀 폴더 서술형
+PASS ⓔ2 ft-issue-reopen: dry-run rc0
+PASS ⓔ2 ft-issue-reopen: 본문에 글자 경로(design/harness/) 없음
+PASS   └ 본문 = 팀 폴더 서술형
+PASS ⓔ1 ft-team-lib: ft_team_root v65 = /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.hVoGzWfFSI/xl1/design/v65
+PASS ⓔ1 ft-team-lib — 옛 꼴 경로로 풀림
+PASS ⓔ1 ft-team-path-lint: 글자 팀 경로(design/v65/) 심은 폴더 = ERR rc1(팀 이름은 1꼴 TEAMS.md 에서 동적)
+PASS ⓔ1 ft-team-path-lint: 깨끗한 폴더 = OK rc0
+PASS ⓔ1 ft_news_io.read_ledger: 1꼴 planner 판정 원장(워크트리 명단)을 읽는다
+PASS ⓔ1 ft_news_io — 옛 꼴 경로로 풀림
+PASS ⓔ1 ft_news_ledger_notify.verdict_rows: 1꼴 판정 행
+PASS ⓔ1 ft_news_ledger_notify — 옛 꼴 경로로 풀림
+PASS ⓔ1 ft_news_ledger.planner_ledger_rel = design/planner/PLAN-oppa-ledger.md
+PASS ⓔ1 ft_news_ledger — 옛 꼴 경로로 풀림
+PASS ⓔ2 ft-team-lib: ft_team_root v65 = /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.hVoGzWfFSI/xl2/design/teams/v65
+PASS ⓔ2 ft-team-lib — 새 꼴 경로로 풀림
+PASS ⓔ2 ft-team-path-lint: 글자 팀 경로(design/v65/) 심은 폴더 = ERR rc1(팀 이름은 2꼴 TEAMS.md 에서 동적)
+PASS ⓔ2 ft-team-path-lint: 깨끗한 폴더 = OK rc0
+PASS ⓔ2 ft_news_io.read_ledger: 2꼴 planner 판정 원장(워크트리 명단)을 읽는다
+PASS ⓔ2 ft_news_io — 새 꼴 경로로 풀림
+PASS ⓔ2 ft_news_ledger_notify.verdict_rows: 2꼴 판정 행
+PASS ⓔ2 ft_news_ledger_notify — 새 꼴 경로로 풀림
+PASS ⓔ2 ft_news_ledger.planner_ledger_rel = design/teams/planner/PLAN-oppa-ledger.md
+PASS ⓔ2 ft_news_ledger — 새 꼴 경로로 풀림
+== ⓔ fail-closed — 명단을 지운 같은 픽스처에서 같은 호출(옛 경로 후퇴 0)
+PASS ⓔ fail-closed ft-nano-spawn: rc=1 · «design/TEAMS.md)을 못 읽음»
+PASS ⓔ fail-closed ft-nano-close: rc=1 · «팀 명단(origin/main)을 못 읽음»
+PASS ⓔ fail-closed ft-nano-spawn-undo: rc=1 · «팀 명단 없음»
+PASS ⓔ fail-closed ft-index-move: rc=1 · «팀 명단 없음»
+PASS ⓔ fail-closed ft-nano-slots: rc=1 · «design/TEAMS.md)을 못 읽음»
+PASS ⓔ fail-closed ft-orphan-cards: rc=0 허용 · «팀 명단 없음» · 사유 = 모니터 — cfo 폴더를 못 풀면 ERROR 를 찍고 그 팀만 빼고 스캔을 계속한다(ft-orphan-cards.sh :13 설계) · 제품 코드 0 범위라 r5 에서 rc≠0 로 못 올림
+PASS ⓔ fail-closed ft-index-move-install: rc=1 · «하네스 팀 폴더를 못 풀었다»
+PASS ⓔ fail-closed ft-index-lint-install: rc=1 · «하네스 팀 폴더를 못 풀었다»
+PASS ⓔ fail-closed ft-index-lint: rc=1 · «design/TEAMS.md)을 못 읽음»
+PASS ⓔ fail-closed ft-proposal-gate: rc=1 · «판정 원장 폴더를 못 풀었다»
+PASS ⓔ fail-closed ft-index-gate: rc=0 허용 · «후보를 못 풀었다» · 사유 = close 는 카드 탐색을 건너뛰고(ft-index-gate.sh :135 ERROR 뒤 계속) 상태 기록만 닫는다 · 제품 코드 0 범위라 r5 에서 rc≠0 로 못 올림
+PASS ⓔ fail-closed ft-wall-read: rc=1 · «팀 명단 없음»
+PASS ⓔ fail-closed ft-wall-check: rc=1 · «팀 명단 없음»
+PASS ⓔ fail-closed ft-pm-tick: rc=1 · «팀 명단 없음»
+PASS ⓔ fail-closed ft-autonomy-start: rc=1 · «팀 명단 없음»
+PASS ⓔ fail-closed ft-proxy-decide: rc=4 · «팀 명단 없음»
+PASS ⓔ fail-closed ft-autonomy: rc=0 허용 · «팀 명단 없음» · 사유 = off 는 명단을 안 읽는 분기(상태 파일만 닫는다 · 행렬 §10-1 «rc0 허용 · 명단을 안 읽는 분기»)
+PASS ⓔ fail-closed ft-autonomy(on · 명단 읽는 분기): rc=1 · «팀 명단 없음»
+PASS ⓔ fail-closed ft-team-lib: rc=1 · «팀 명단 없음»
+PASS ⓔ fail-closed ft-team-path-lint: rc=0 허용 · «TEAMS.md 를 못 읽어» · 사유 = 린트는 명단 없이도 돈다(팀 이름 목록만 못 넓힘 · 도우미 · 표 밖)
+PASS ⓔ fail-closed ft_news_io: rc=1 · «팀 명단 없음»
+PASS ⓔ fail-closed ft_news_ledger_notify: rc=1 · «팀 명단 없음»
+PASS ⓔ fail-closed ft_news_ledger: rc=1 · «팀 명단 없음»
+PASS ⓔ fail-closed ft-live-bin-drift-check: 명단 없어도 같은 DRIFT rc1(경로 미해석)
+PASS ⓔ fail-closed ft-issue-reopen: rc=0 허용 · «DRY-RUN» · 사유 = 해당 없음 — 경로 미해석(grep 0) · 명단 무관
+== ⓔ 대조표 22줄 = 수용행렬(셸 14 + 파이썬 3 + 키트 5) · 등급 A15/B2/C3 기대 (옛 꼴 design/<팀>/ ↔ 새 꼴 design/teams/<팀>/)
+표: [A] ft-nano-spawn old=1 new=1 path=old:design/v65/indices/진행/slug.md | new:design/teams/v65/indices/진행/slug.md fail-closed=rc=1 «design/TEAMS.md)을 못 읽음»
+PASS ⓔ 표 [A] ft-nano-spawn: rc 가 두 꼴에서 같다(old=1 new=1) + fail-closed 기록
+PASS ⓔ 표 [A] ft-nano-spawn: fail-closed rc≠0
+PASS ⓔ 표 [A] ft-nano-spawn: 두 꼴 산출물 경로 단언 있음
+표: [A] ft-nano-slots old=0 new=0 path=old:design/v65/indices/대기/slot-c.md | new:design/teams/v65/indices/대기/slot-c.md fail-closed=rc=1 «design/TEAMS.md)을 못 읽음»
+PASS ⓔ 표 [A] ft-nano-slots: rc 가 두 꼴에서 같다(old=0 new=0) + fail-closed 기록
+PASS ⓔ 표 [A] ft-nano-slots: fail-closed rc≠0
+PASS ⓔ 표 [A] ft-nano-slots: 두 꼴 산출물 경로 단언 있음
+표: [A] ft-nano-spawn-undo old=0 new=0 path=old:design/v65/20260912/NANO-LEDGER-pm1-temp-sessions.md | new:design/teams/v65/20260912/NANO-LEDGER-pm1-temp-sessions.md fail-closed=rc=1 «팀 명단 없음»
+PASS ⓔ 표 [A] ft-nano-spawn-undo: rc 가 두 꼴에서 같다(old=0 new=0) + fail-closed 기록
+PASS ⓔ 표 [A] ft-nano-spawn-undo: fail-closed rc≠0
+PASS ⓔ 표 [A] ft-nano-spawn-undo: 두 꼴 산출물 경로 단언 있음
+표: [A] ft-nano-close old=0 new=0 path=old:design/v65/20260912/NANO-LEDGER-pm1-temp-sessions.md | new:design/teams/v65/20260912/NANO-LEDGER-pm1-temp-sessions.md fail-closed=rc=1 «팀 명단(origin/main)을 못 읽음»
+PASS ⓔ 표 [A] ft-nano-close: rc 가 두 꼴에서 같다(old=0 new=0) + fail-closed 기록
+PASS ⓔ 표 [A] ft-nano-close: fail-closed rc≠0
+PASS ⓔ 표 [A] ft-nano-close: 두 꼴 산출물 경로 단언 있음
+표: [B] ft-index-gate old=1 new=1 path=old:design/v65/indices/진행/gx.md | new:design/teams/v65/indices/진행/gx.md fail-closed=rc=0 «후보를 못 풀었다» · rc0 허용 사유 = close 는 카드 탐색을 건너뛰고(ft-index-gate.sh :135 ERROR 뒤 계속) 상태 기록만 닫는다 · 제품 코드 0 범위라 r5 에서 rc≠0 로 못 올림 사유=A→B 하향: fail-closed rc=0(행렬 기대 rc≠0 미달 · 문구는 있음 · 사유는 fail-closed 칸) · 제품 코드 0 · 후속 카드 후보
+PASS ⓔ 표 [B] ft-index-gate: rc 가 두 꼴에서 같다(old=1 new=1) + fail-closed 기록
+PASS ⓔ 표 [B] ft-index-gate: 사유·결과 원문 있음
+표: [A] ft-index-move old=0 new=0 path=old:design/v65/indices/완성/dn.md | new:design/teams/v65/indices/완성/dn.md fail-closed=rc=1 «팀 명단 없음»
+PASS ⓔ 표 [A] ft-index-move: rc 가 두 꼴에서 같다(old=0 new=0) + fail-closed 기록
+PASS ⓔ 표 [A] ft-index-move: fail-closed rc≠0
+PASS ⓔ 표 [A] ft-index-move: 두 꼴 산출물 경로 단언 있음
+표: [A] ft-index-move-install old=1 new=1 path=old:design/harness/indices/진행/h.md | new:design/teams/harness/indices/진행/h.md fail-closed=rc=1 «하네스 팀 폴더를 못 풀었다»
+PASS ⓔ 표 [A] ft-index-move-install: rc 가 두 꼴에서 같다(old=1 new=1) + fail-closed 기록
+PASS ⓔ 표 [A] ft-index-move-install: fail-closed rc≠0
+PASS ⓔ 표 [A] ft-index-move-install: 두 꼴 산출물 경로 단언 있음
+표: [B] ft-orphan-cards old=0 new=0 path=old:design/cfo/indices/진행/orphan-cfo.md | new:design/teams/cfo/indices/진행/orphan-cfo.md fail-closed=rc=0 «팀 명단 없음» · rc0 허용 사유 = 모니터 — cfo 폴더를 못 풀면 ERROR 를 찍고 그 팀만 빼고 스캔을 계속한다(ft-orphan-cards.sh :13 설계) · 제품 코드 0 범위라 r5 에서 rc≠0 로 못 올림 사유=A→B 하향: fail-closed rc=0(행렬 기대 rc≠0 미달 · 문구는 있음 · 사유는 fail-closed 칸) · 제품 코드 0 · 후속 카드 후보
+PASS ⓔ 표 [B] ft-orphan-cards: rc 가 두 꼴에서 같다(old=0 new=0) + fail-closed 기록
+PASS ⓔ 표 [B] ft-orphan-cards: 사유·결과 원문 있음
+표: [B] ft-live-bin-drift-check old=1 new=1 path=old:글자 경로 없음 | new:글자 경로 없음 fail-closed=rc=1 «DRIFT» · 해당 없음 — 경로 미해석(grep 0) · 명단 무관 사유=B: · grep -c 'ft_team\|design/' ft-live-bin-drift-check.sh = 0 · 해당 없음 — 경로 미해석(grep 0) · rc0 허용
+PASS ⓔ 표 [B] ft-live-bin-drift-check: rc 가 두 꼴에서 같다(old=1 new=1) + fail-closed 기록
+PASS ⓔ 표 [B] ft-live-bin-drift-check: 사유·결과 원문 있음
+표: [B] ft-issue-reopen old=0 new=0 path=old:글자 경로 없음 | new:글자 경로 없음 fail-closed=rc=0 «DRY-RUN» · rc0 허용 사유 = 해당 없음 — 경로 미해석(grep 0) · 명단 무관 사유=B: · grep -c 'ft_team\|design/' ft-issue-reopen.sh = 0 · 해당 없음 — 경로 미해석(grep 0) · rc0 허용
+PASS ⓔ 표 [B] ft-issue-reopen: rc 가 두 꼴에서 같다(old=0 new=0) + fail-closed 기록
+PASS ⓔ 표 [B] ft-issue-reopen: 사유·결과 원문 있음
+표: [A] ft-autonomy-start old=0 new=0 path=old:design/planner/AUTONOMY-START-A1.md | new:design/teams/planner/AUTONOMY-START-A1.md fail-closed=rc=1 «팀 명단 없음»
+PASS ⓔ 표 [A] ft-autonomy-start: rc 가 두 꼴에서 같다(old=0 new=0) + fail-closed 기록
+PASS ⓔ 표 [A] ft-autonomy-start: fail-closed rc≠0
+PASS ⓔ 표 [A] ft-autonomy-start: 두 꼴 산출물 경로 단언 있음
+표: [A] ft-autonomy old=0 new=0 path=old:design/planner/AUTONOMY-QUEUE.md | new:design/teams/planner/AUTONOMY-QUEUE.md fail-closed=rc=0 «팀 명단 없음» · rc0 허용 사유 = off 는 명단을 안 읽는 분기(상태 파일만 닫는다 · 행렬 §10-1 «rc0 허용 · 명단을 안 읽는 분기») · on(명단 읽는 분기)=rc1 «팀 명단 없음»
+PASS ⓔ 표 [A] ft-autonomy: rc 가 두 꼴에서 같다(old=0 new=0) + fail-closed 기록
+PASS ⓔ 표 [A] ft-autonomy: fail-closed = 명단 읽는 분기 rc≠0(안 읽는 분기 rc0 허용 · 사유 있음)
+PASS ⓔ 표 [A] ft-autonomy: 두 꼴 산출물 경로 단언 있음
+표: [A] ft-proposal-gate old=0 new=0 path=old:design/planner/VERDICTS-planner-1-20261018.md | new:design/teams/planner/VERDICTS-planner-1-20261018.md fail-closed=rc=1 «판정 원장 폴더를 못 풀었다»
+PASS ⓔ 표 [A] ft-proposal-gate: rc 가 두 꼴에서 같다(old=0 new=0) + fail-closed 기록
+PASS ⓔ 표 [A] ft-proposal-gate: fail-closed rc≠0
+PASS ⓔ 표 [A] ft-proposal-gate: 두 꼴 산출물 경로 단언 있음
+표: [A] ft-proxy-decide old=0 new=0 path=old:design/planner/VERDICTS-planner-1-20261018.md | new:design/teams/planner/VERDICTS-planner-1-20261018.md fail-closed=rc=4 «팀 명단 없음»
+PASS ⓔ 표 [A] ft-proxy-decide: rc 가 두 꼴에서 같다(old=0 new=0) + fail-closed 기록
+PASS ⓔ 표 [A] ft-proxy-decide: fail-closed rc≠0
+PASS ⓔ 표 [A] ft-proxy-decide: 두 꼴 산출물 경로 단언 있음
+표: [A] ft_news_io old=0 new=0 path=old:design/planner/VERDICTS-planner-1-20261018.md | new:design/teams/planner/VERDICTS-planner-1-20261018.md fail-closed=rc=1 «팀 명단 없음»
+PASS ⓔ 표 [A] ft_news_io: rc 가 두 꼴에서 같다(old=0 new=0) + fail-closed 기록
+PASS ⓔ 표 [A] ft_news_io: fail-closed rc≠0
+PASS ⓔ 표 [A] ft_news_io: 두 꼴 산출물 경로 단언 있음
+표: [A] ft_news_ledger old=0 new=0 path=old:design/planner/PLAN-oppa-ledger.md | new:design/teams/planner/PLAN-oppa-ledger.md fail-closed=rc=1 «팀 명단 없음»
+PASS ⓔ 표 [A] ft_news_ledger: rc 가 두 꼴에서 같다(old=0 new=0) + fail-closed 기록
+PASS ⓔ 표 [A] ft_news_ledger: fail-closed rc≠0
+PASS ⓔ 표 [A] ft_news_ledger: 두 꼴 산출물 경로 단언 있음
+표: [A] ft_news_ledger_notify old=0 new=0 path=old:design/planner/VERDICTS-planner-1-20261018.md | new:design/teams/planner/VERDICTS-planner-1-20261018.md fail-closed=rc=1 «팀 명단 없음»
+PASS ⓔ 표 [A] ft_news_ledger_notify: rc 가 두 꼴에서 같다(old=0 new=0) + fail-closed 기록
+PASS ⓔ 표 [A] ft_news_ledger_notify: fail-closed rc≠0
+PASS ⓔ 표 [A] ft_news_ledger_notify: 두 꼴 산출물 경로 단언 있음
+표: [A] ft-index-lint-install old=0 new=0 path=old:design/harness/indices/진행/h.md | new:design/teams/harness/indices/진행/h.md fail-closed=rc=1 «하네스 팀 폴더를 못 풀었다»
+PASS ⓔ 표 [A] ft-index-lint-install: rc 가 두 꼴에서 같다(old=0 new=0) + fail-closed 기록
+PASS ⓔ 표 [A] ft-index-lint-install: fail-closed rc≠0
+PASS ⓔ 표 [A] ft-index-lint-install: 두 꼴 산출물 경로 단언 있음
+표: [A] ft-index-lint old=0 new=0 path=old:design/v65/GOAL-LEDGER-v65.md | new:design/teams/v65/GOAL-LEDGER-v65.md fail-closed=rc=1 «design/TEAMS.md)을 못 읽음»
+PASS ⓔ 표 [A] ft-index-lint: rc 가 두 꼴에서 같다(old=0 new=0) + fail-closed 기록
+PASS ⓔ 표 [A] ft-index-lint: fail-closed rc≠0
+PASS ⓔ 표 [A] ft-index-lint: 두 꼴 산출물 경로 단언 있음
+표: [C] ft-pm-tick old=0 new=0 path=old:design/v65/20260826/RULES-ammo-and-distill-20260826.md | new:design/teams/v65/20260826/RULES-ammo-and-distill-20260826.md fail-closed=rc=1 «팀 명단 없음» 사유=C: bash -n + 팀 폴더 해석 1회(RULES_FILE = 그 꼴 v65 · xtrace) · 사유 = 라이브 tmux·슬랙 의존(틱 루프는 target session gone 으로 종료)
+PASS ⓔ 표 [C] ft-pm-tick: rc 가 두 꼴에서 같다(old=0 new=0) + fail-closed 기록
+PASS ⓔ 표 [C] ft-pm-tick: 해석 1회 + 사유 «라이브 tmux·슬랙 의존»
+표: [C] ft-wall-check old=0 new=0 path=old:design/v65/DIRECTIVE-v65-wall.md | new:design/teams/v65/DIRECTIVE-v65-wall.md fail-closed=rc=1 «팀 명단 없음» 사유=C: bash -n + 팀 폴더 해석 1회(벽 = 그 꼴 v65) · 사유 = 라이브 tmux·슬랙 의존
+PASS ⓔ 표 [C] ft-wall-check: rc 가 두 꼴에서 같다(old=0 new=0) + fail-closed 기록
+PASS ⓔ 표 [C] ft-wall-check: 해석 1회 + 사유 «라이브 tmux·슬랙 의존»
+표: [C] ft-wall-read old=0 new=0 path=old:design/v65/DIRECTIVE-v65-wall.md | new:design/teams/v65/DIRECTIVE-v65-wall.md fail-closed=rc=1 «팀 명단 없음» 사유=C: bash -n + 팀 폴더 해석 1회(벽 = 그 꼴 v65) · 사유 = 라이브 tmux·슬랙 의존
+PASS ⓔ 표 [C] ft-wall-read: rc 가 두 꼴에서 같다(old=0 new=0) + fail-closed 기록
+PASS ⓔ 표 [C] ft-wall-read: 해석 1회 + 사유 «라이브 tmux·슬랙 의존»
+도우미: ft-team-lib old=0 new=0 fail-closed=rc=1 «팀 명단 없음» — 쌍둥이 시험(ⓑ) + 린트 자가 실행 · 표 밖
+도우미: ft-team-path-lint old=1 new=1 fail-closed=rc=0 «TEAMS.md 를 못 읽어» · rc0 허용 사유 = 린트는 명단 없이도 돈다(팀 이름 목록만 못 넓힘 · 도우미 · 표 밖) — 쌍둥이 시험(ⓑ) + 린트 자가 실행 · 표 밖
+PASS ⓔ 표 줄 수 = 22(수용행렬 = 셸 14 + 파이썬 3 + 키트 5 · 도우미 2 는 표 밖)
+등급 합계: A=15 B=4 C=3 (행렬 §10-4 열거 = A17 B2 C3 · 실측 미달 칸은 표 줄 사유 «A→B 하향»)
+PASS ⓔ 등급 합계 = 22
+== fail=6
+REAL-STATE-GUARD FAIL 우편함 가짜 이름 새 줄: ['byz-planner-arch-claude#13'] :: {"seq": 156064, "ts": "2026-10-24T09:36:21", "to": "byz-planner-master-claude#123", "from": "byz-planner-arch-claude#13", "body": "[완료] 발주 156015 원장

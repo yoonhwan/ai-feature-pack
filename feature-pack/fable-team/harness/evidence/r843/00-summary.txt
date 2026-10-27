@@ -1,0 +1,42 @@
+r843 — post-checkout 표식(ft-wt-mode) 쓰기 확인 · 외부 DA r3(r835) 남은 HOLD 1곳 · Issue #2953 · master 155839 · arch 135
+base = 팩 nano/r835-land-spawn-worktree-sparse a7feee9b (r835 r3) · 끝 = 팩 origin/main f1cbd005 위 squash 1커밋(r835 전체 + r843 · 1.1.229 · 750a1c23 에서 r836 이 끼어 재병합)
+pre-squash 커밋 = d91963b0e5be02c79c1ed86241f00b132a7190aa (a7feee9b 위 r843 1커밋 · reflog 보존)
+
+고침
+- kit/fable-team/githooks/post-checkout: _ftw_write <값> = 쓰기 → cat 으로 다시 읽어 값 대조(존재만 아님) · 다르면 stderr
+  «ERROR ft-wt-mode 쓰기 실패 <표식>» + _ftw_rc=1. 표식 쓰기 3곳(full · 이미 sparse · sparse 적용 뒤) 전부 이 함수.
+  표식 없는 워크트리를 sparse 로 바꾸기 «전» probe 를 써 보고 지운다 — 못 쓰면 sparse set 0(체크아웃 상태 변경 0) · checkout 마다 같은 ERROR.
+  FULL 표식을 못 쓰면 로그·«풀 체크아웃 유지» 안내 0(거짓 안내 막음). 끝 = exit "$_ftw_rc"(beads 위임은 rc 0 이면 exec · 1 이면 실행 뒤 exit 1).
+  sparse set 자체 실패(기존 r835 ERROR · rc 0)는 범위 밖 — 그대로.
+- kit/fable-team/bin/ft-wt-mode-stamp.sh(+ 짝 harness/bin cmp0): --apply 쓰기 → 다시 읽어 대조 · 실패 = «ERROR 표식 쓰기 실패: <표식> — …» 줄 ·
+  나머지 워크트리 계속 · TOTAL 줄에 err=<n> · 끝 rc 1.
+
+시험 (tests/test_post_checkout_sparse_r835.sh 에 칸 추가 · 임시 리포·임시 워크트리만 · STAMP 는 R835_STAMP 로 변이 사본 주입)
+ⓐ1 표식 자리 폴더 + FT_WT_FULL checkout → ERROR · rc≠0 · 풀 그대로        (DA r3 반례 그대로)
+ⓐ2 env 없는 다음 checkout → 같은 ERROR · sparse 로 안 바꿈 · [r835] 안내 0
+ⓑ1 이미 sparse(도구가 정함) + 표식 쓰기 실패 → ERROR · rc≠0
+ⓒ1 표식 자리 → /dev/null 심링크(쓰기 성공 · -e 참 · 다시 읽으면 빈 값) → ERROR · sparse 0
+ⓑ2 stamp --apply 폴더 표식 → ERROR 줄 · 다른 워크트리(m4) STAMP legacy-full · TOTAL err≥1 · 끝 rc≠0
+ⓑ3 stamp /dev/null 표식 → 다시 읽어 ERROR(존재만 아님)
+ⓓ 기존 칸 전부 그대로 PASS — r835 시험 3종 ALL PASS
+
+빨강 = red-base-a7feee9b.txt : r835 r3 판(a7feee9b)에서 새 칸 6 전부 FAIL(기존 칸 PASS) — ⓐ1 rc=0 «Is a directory» · ⓐ2 sparse=true · ⓒ1 sparse=true …
+초록 = green-post-checkout-{1,2,3}.txt : 45 PASS · FAIL 0 · 변이 포함 rc=0 ×3
+       green-test_worktree_add_gate_r835.txt rc=0 FAIL 0 · green-test_wt_add_r835.txt 27 PASS rc=0
+변이 ⓔ(사본 한 줄 → 해당 칸 FAIL · 전부 잡힘)
+  r843-no-verify     쓰기 확인 삭제(쓰고 return 0)       → ⓐ1 FAIL
+  r843-exist-only    다시 읽기 → [ -e ] 존재만            → ⓒ1 FAIL
+  r843-no-probe      sparse 전 쓰기 시험 삭제             → ⓒ1 FAIL
+  r843-rc0           exit "$_ftw_rc" → exit 0             → ⓐ1 FAIL
+  r843-stamp-no-verify stamp 다시 읽기 삭제               → ⓑ3 FAIL
+  r843-stamp-rc0     stamp 끝 rc → true                   → ⓑ2 FAIL
+lint = lint.txt : sh -n · bash -n rc 0 · shellcheck -S warning (post-checkout · stamp) rc 0 · 시험 66행 SC2034 6건은 base 그대로
+합친 판 = merged-on-main.txt (origin/main 750a1c23 병합 뒤 · 이 카드 시험 3 + ft-nano-spawn 겹침 시험 + 짝 사본 cmp)
+  이 카드 시험 3종 = 45 · 47 · 27 PASS rc 0 · 짝 사본 5개 cmp0
+  r823 시험: 첫 회 ⓚ(시간 칸 · 부하 38) 1 FAIL → 재실행 82 PASS rc 0(merged-test_spawn_issue_gate_r823-rerun.txt) · 순수 main 사본도 rc 0
+  아래 3개는 «순수 팩 main 750a1c23 사본»(ft-scratch-repo · main-baseline*.txt)에서도 같은 칸·같은 수로 FAIL = 이 카드 몫 아님(기존 결함):
+    test_dead_seat_resume ⓕ 6 · test_spawn_proxy_probe_r669 ⓔ 4 · test_team_literal_paths2 ⓔ1·ⓔ2 6
+  REAL-STATE-GUARD FAIL 줄(planner_nano_path · evidence_log_gate · literal_paths2) = 시험 중 다른 좌석이 실 우편함·autonomy 에 쓴 줄 · 각 시험 본문은 ALL PASS
+
+press 필요: 없음(오디오 경로 무관 · git 훅)
+설치(master): 키트 cmp0 → ft-wt-mode-stamp.sh --apply(rc 1 이면 ERROR 줄의 표식 자리 확인) → githooks/post-checkout → 훅 등록 → 실사건 1

@@ -1,0 +1,13 @@
+PASS 무변이 기준(전부)
+KILLED ① 모름 = 통과
+KILLED ② 모든 실패 = 새 사건(키 유지 삭제)
+KILLED ③ 검증 불가를 복구로 읽기
+KILLED ④ ⓘ 칸이 가드를 안 부름(자체 판정)
+KILLED ⑤ 꼬리 쓰기 실패 삼킴
+KILLED ⑥ 자체 오류 사건 닫기 삭제
+KILLED ⑦ 발행본 읽기 예외 안 받음
+KILLED ⑨ JSON 오류 → {} (조용한 초기화)
+KILLED ⑬ 예산 공유 되돌림(호출마다 t0 새로)
+KILLED ⑫ ls-remote 실패를 참으로
+KILLED ⑧ 매거진 «~» 펼침 삭제
+OK 전부 KILLED

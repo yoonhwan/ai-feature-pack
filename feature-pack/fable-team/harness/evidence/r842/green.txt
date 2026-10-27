@@ -1,0 +1,122 @@
+== ⓖ 키트 2곳 같은 바이트 + bash -n
+PASS cmp ft-nano-close.sh (bin == kit)
+PASS bash -n ft-nano-close.sh
+PASS cmp ft-team-lib.sh (bin == kit)
+PASS bash -n ft-team-lib.sh
+PASS 준비: ROOT=진행/ 옛 사본 · LEDGER_WT=완성/ · origin/main=B(완성/)
+== ⓐ origin/main=완성/ · ROOT=진행/ 옛 사본 · LEDGER_WT=완성/ → LEDGER_WT 완성/ 사본
+PASS ⓐ «INFO 카드 단계(origin/main) ← 완성» 1줄
+PASS   └ 카드 = LEDGER_WT 완성/ 사본
+PASS   └ ROOT 진행/ 옛 사본 안 잡음
+PASS   └ 닫기 rc0
+== ⓑ origin/main 에 카드 없음(착지 전) → 지금 규칙 그대로
+PASS ⓑ 단계 줄 0(ref 에 카드 없음)
+PASS   └ 지금 규칙 그대로(ROOT 진행/ 카드로 닫힘)
+PASS   └ 단계 REJECT 0
+PASS   └ 닫기 rc0
+== ⓒ origin/main=완성/ 인데 완성/ 디스크 사본 없음 → REJECT · 옛 진행/ 사본 후퇴 0
+PASS ⓒ REJECT «카드 단계 origin/main=완성 · 디스크 사본 없음»
+PASS   └ 다른 단계 사본 = 진행(ROOT)
+PASS   └ «낡은 사본» 표기
+PASS   └ 카드 위치 줄 0(옛 사본 안 잡음)
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+== ⓓ ref 못 읽음(FT_CARD_REF=없는 ref) → ERROR 1줄 + REJECT
+PASS ⓓ ERROR 1줄
+PASS   └ REJECT 사유
+PASS   └ ERROR 정확히 1줄
+PASS   └ 지금 규칙으로 후퇴 0
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+== ⓓ2 원격 없음 · FT_CARD_REF 없음 → ERROR + REJECT(옛 규칙으로 새지 않는다)
+PASS ⓓ2 ERROR 1줄
+PASS   └ REJECT 사유
+PASS   └ 옛 규칙 후퇴 0(ROOT 진행/ 사본 안 집음)
+PASS   └ 닫힘 0
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+== ⓓ 원격 origin 은 있는데 origin/main ref 없음 → ERROR + REJECT
+PASS ⓓ origin/main 없음 → REJECT
+== ⓓ3 ref 에 TEAMS.md 없음 + 완성/cs.md + ROOT 옛 진행/cs.md → 완성/ 사본(LEDGER_WT) · 옛 진행/ 0
+PASS ⓓ3 단계 = 완성(명부 무관)
+PASS   └ 카드 = LEDGER_WT 완성/ 사본
+PASS   └ ROOT 옛 진행/ 선택 0
+PASS   └ 닫기 rc0
+== ⓓ4 ls-tree 실패 주입 → ERROR + REJECT
+PASS ⓓ4 ERROR 1줄
+PASS   └ 사유 = ls-tree
+PASS   └ 옛 규칙 후퇴 0
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+== ⓓ5 단계 함수가 빈 출력 rc0 → ERROR + REJECT
+PASS ⓓ5 ERROR 1줄
+PASS   └ 빈 출력으로 후퇴 0
+PASS   └ 닫힘 0
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+== ⓓ6 ft_card_stage_ref 없는 lib(미로드 스텁) · idx 꼴 불일치 → ERROR + REJECT
+PASS ⓓ6 lib 미로드 → ERROR 1줄
+PASS   └ 옛 규칙 후퇴 0
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS ⓓ6 팀 카드 꼴 아닌 idx → 단계 판정 0(오류 아님)
+PASS   └ 단계 REJECT 0(범위 밖)
+PASS   └ 단계 ERROR 0
+== ⓓ7 ft-team-lib.sh 통째로 없음(팀 카드 꼴) → ERROR + REJECT · ⓓ7b 같은 입력 + 원격 없음 → REJECT
+PASS ⓓ7 lib 없음 → ERROR 1줄
+PASS   └ ROOT 옛 진행/ 사본 안 집음
+PASS   └ 닫힘 0
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS ⓓ7b lib 없음 + 원격 없음 → ERROR 1줄
+PASS   └ 닫힘 0
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+== ⓓ8 기존 Python 시험 4파일(팀 카드 꼴 아닌 index) → 기준판과 같은 통과 수
+PASS ⓓ8 Python 4파일 29 passed 3 failed(기준판 origin/main 29 passed 3 failed — 같은 3건)
+== ⓔ 호출 워크트리(WT · 나노가 증거 줄을 쓴 진행/ 사본) · origin/main 도 진행/ → WT 사본 그대로
+PASS ⓔ 단계 = 진행
+PASS   └ 카드 = 호출 WT 사본(증거 검사 대상 불변)
+PASS   └ 닫기 rc0(WT 사본 증거 줄)
+== ⓔ' origin/main 에 카드 없음(ABSENT) · ROOT 대기/ 사본 = 증거 줄 없음 · 나노 WT 진행/ 사본 = 유효 → CLOSED-ABSENT rc0
+PASS ⓔ' 단계 줄 0(ref 에 카드 없음 = 단계 판정 없음)
+PASS   └ 카드 = 나노 WT 진행/ 사본(지금 규칙)
+PASS   └ ROOT 대기/ 사본 안 집음(IDX 우선 집기 0)
+PASS   └ 단계 REJECT 0
+PASS   └ 닫기 rc0(나노 WT 증거 사본)
+== ⓗ ft_card_stage_ref 단위(idx 직접 · 명부 무관 · 세 갈래)
+PASS ⓗ 1단계 = STAGE 완성 rc0
+PASS ⓗ 카드 없음 = ABSENT rc0
+PASS ⓗ 카드 없는 판 = ABSENT rc0
+PASS ⓗ ref 없음 = ERROR rc1
+PASS ⓗ 리포 아님 = ERROR rc1
+PASS ⓗ idx 꼴 아님 = ERROR rc1
+PASS ⓗ 2단계 = ERROR rc1
+PASS ⓗ 명단 없는 ref 도 STAGE 완성(명부 의존 0)
+== ⓖ 변이 — 단계 제거 → ⓐ FAIL · ⓒ 후퇴 → ⓒ FAIL · 조회 실패를 카드 없음으로 → ⓓ·ⓓ2·ⓓ5 FAIL · 빈 출력을 없음으로 → ⓓ5 FAIL · 명부 없음 = ABSENT → ⓓ3 FAIL
+PASS ⓖ 단계 판정 제거(디스크 고리) → ⓐ FAIL
+PASS ⓖ ⓒ 를 옛 단계 후퇴로 → ⓒ FAIL
+PASS ⓖ 조회 실패를 «카드 없음» 으로 → ⓓ·ⓓ2·ⓓ5 FAIL
+Traceback (most recent call last):
+  File "<stdin>", line 5, in <module>
+AssertionError: [1070, 1088]
+PASS ⓖ 빈 출력 rc0 을 «없음» 으로 → ⓓ5 FAIL
+PASS ⓖ «명부 없음 = ABSENT» → ⓓ3 FAIL
+PASS ⓖ «ABSENT 에도 IDX 우선 집기» → ⓔ' FAIL(DA⑥ r4)
+PASS ⓖ «lib 없으면 블록 건너뜀» → ⓓ7 FAIL
+PASS ⓖ «꼴 불일치 = REJECT» → ⓓ8 FAIL(Python 4파일)
+== ⓖ 600/300 s · 외부 호출 · GIT_* env 0 (r842 줄)
+PASS ⓖ 600/300 숫자 0
+PASS ⓖ 외부 호출 0
+PASS ⓖ GIT_DIR env 0
+
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

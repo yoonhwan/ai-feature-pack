@@ -1,0 +1,8 @@
+=== 변이 3 (run1 발췌) ===
+PASS 변이1(장부 실패 = die) → ⓒ FAIL
+PASS 변이2(장부 줄만 보고 삭제) → ⓓ FAIL
+PASS 변이3(입구 거절 삭제) → ⓔ FAIL
+
+=== kit 짝 · bash 3.2 (run1 발췌) ===
+PASS ⓖ kit 짝 cmp0
+PASS ⓖ /bin/bash(bash 3.2) 로 같은 시험 ALL PASS

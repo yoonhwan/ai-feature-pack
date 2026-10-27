@@ -1,0 +1,48 @@
+r835 r3 — 팀 워크트리 sparse 보장 = post-checkout «워크트리 표식 파일» 판별 · 글자 훅 deny 0(안내만) · full 신호 하나(FT_WT_FULL)
+카드: BYZ harness-ops design/harness/indices/진행/r835-land-spawn-worktree-sparse.md · 나노 byz-harness-nano-r835-land-spawn-worktree-sparse#0
+r1 = 0b4967a7 (외부 DA r1 HOLD — 글자 훅이 --git-dir·변수·스크립트·별칭으로 빠지고 팩 --git-dir·ls-files 오탐)
+r2 = 10fcb261 (외부 DA r2 HOLD — --no-checkout 뒤 checkout 이 «이전 HEAD = 0» 을 빠짐 · 팩 리포 오차단 2꼴 · nano 풀 경로를 덮음)
+r3 = 재설계 REWORK-r835-r3.md(arch 135) 그대로 · 같은 가지 squash 1 · 기준판 4b3a6a9e
+
+바꾼 것
+- kit/fable-team/githooks/post-checkout (보장 층): 표식 = $(git rev-parse --git-dir)/ft-wt-mode (워크트리별 gitdir · 추적 밖) = sparse | full <사유> | legacy-full
+    조건 = top 이 <주 워크트리>/.worktrees/ 아래 ∧ design/teams/ ∧ 표식 없음 (이전 HEAD 와 무관)
+    FT_WT_FULL ≥10자 → 표식 full + wt-add-full.log 1줄 · 이미 sparse(도구가 팀 패턴 고름) → 표식 sparse 만 · 그 밖 → `/*` `!/design/teams/*/` + 표식 sparse + stderr
+    표식 있음 → 아무것도 안 함(사람이 바꾼 상태 존중) · 실패 = ERROR 1줄(표식 0 → 다음 checkout 에 다시) · 끝에 beads 위임
+- kit/hooks/worktree-add-gate.sh (안내 층): deny 0 — BYZ 꼴 대상이면 stdout additionalContext 1개 + stderr 1줄 «팀 워크트리는 ft-wt-add.sh …» · 판별 실패·팩 리포 = 조용히 통과
+    (DA r2 ② 반영: --git-dir 상대값은 모든 -C 뒤 폴더 기준 · ( … ) 서브셸 안 cd 는 밖으로 안 샘)
+    ★arch 문안 «stderr 안내 1줄» 에 additionalContext 를 더함 — PreToolUse 훅 rc0 의 stderr 는 좌석(모델)에 안 보여서 안내가 닿지 않는다(이 세션의 code-intel 훅이 같은 꼴)★
+- kit/fable-team/bin/ft-nano-spawn.sh (+ 짝) 433행 1줄: 풀 경로 worktree add 에 FT_WT_FULL="nano full(FT_NANO_SPARSE=… · team=…) <카드>" (DA r2 ③)
+- kit/fable-team/bin/ft-wt-add.sh (+ 짝): --full 은 checkout 에 FT_WT_FULL 을 실음 · 끝에 표식(훅이 이미 찍었으면 그대로 · 풀 로그는 1번만)
+- kit/fable-team/bin/ft-wt-mode-stamp.sh (새 + 짝): 설치 때 1회 기존 .worktrees/* 표식 · 기본 --dry-run · --apply 는 master
+    ★값: 이미 sparse(core.sparseCheckout=true) → `sparse` · 아니면 `legacy-full` (arch 문안 «전부 legacy-full» 에서 상태대로 — 둘 다 «손대지 않음» 으로 같고, 나중 «표식 없는/풀 팀 워크트리» 목록이 정확해진다)★
+- ft-team-lib.sh ft_sparse_patterns (+ 짝) — r1 그대로
+- tests: test_wt_add_r835.sh(그대로) · test_worktree_add_gate_r835.sh(안내 단언으로 고쳐 씀) · test_post_checkout_sparse_r835.sh(r3) · test_evidence_log_gate.sh(githooks 개수 2→3 · r2 때)
+
+시험 칸 → 증거
+- post-checkout (green-post-checkout-*.txt · 29 + 변이 4 = 33 PASS)
+    빠짐 4꼴(DA r1) → sparse · 표식 sparse · [r835] 1회 · beads 1회
+    DA r2 반례 ① --no-checkout + checkout -q → sparse · 표식 sparse
+    DA r2 반례 ③ ft-nano-spawn 풀 경로 «실제 줄» eval(FT_NANO_SPARSE=0) → 풀 · 표식 full · 다음 checkout 에도 풀
+    stamp: --dry-run 목록만 · --apply legacy-full · 2회째 new=0 · 팩 꼴 SKIP · legacy-full 워크트리 git switch → sparse 0
+    표식 sparse + 사람 disable 뒤 checkout → 다시 안 켬
+    FT_WT_FULL 13자 → full + 로그 1줄 · 9자 → sparse + «사유 짧음» · 로그 0
+    .worktrees 밖 · 팩 꼴 · 주 워크트리 → 표식 0 · ft-wt-add --team(팀 a 패턴 그대로 · 표식 sparse) · ft-wt-add --full(풀 · 표식 full · 로그 1줄) · ft-nano-spawn sparse 꼴(팀 b 그대로) · merge
+    변이: 표식 판별 → «이전 HEAD = 0» → 반례① FAIL · sparse set 삭제 → 빠짐1 FAIL · legacy 표식 무시 → legacy 칸 FAIL · nano FT_WT_FULL 삭제 → 반례③ FAIL
+- 안내 훅 (green-gate-*.txt · 42 + 변이 5 = 47 PASS)
+    안내 15꼴 · 조용히 통과 20꼴(DA r2 반례② 두 꼴 · DA r1 오탐 2 · echo · heredoc · 미전개 3 · 팩 · 도구 3 · list/remove/prune · 커밋 메시지 · git 밖 · 비 Bash)
+    반례② 두 꼴 실제 실행 → rc0 · 팩 워크트리 sparse 0 · ⓖ 입력 깨짐 3꼴 = 통과 + WARN · 훅 원문 permissionDecision 0
+    변이: 안내 삭제 · 팩 통과 조건 삭제 · 글자 아무 데나 · --git-dir 이른 확정 · 서브셸 cd 샘 → 각 칸 FAIL
+- ft-wt-add (green-wt-add-*.txt · 27) — r1 그대로
+
+결과
+- 기준판(4b3a6a9e) 빨강: red-base-wt-add · red-base-gate · red-base-post-checkout 전부 rc=1
+- r1 훅에 r3 시험: red-r1-gate.txt rc=1 · r2 훅·post-checkout·nano 에 r3 시험: red-r2-gate.txt · red-r2-post-checkout.txt rc=1 (반례 ①·②·③ 칸 FAIL)
+- 초록 반복 3: wt-add 27 · gate 47 · post-checkout 33 PASS · rc=0
+- 회귀(regress.txt): ft-nano-spawn 을 부르는 시험 48(test_nano_spawn* 8 + 그 밖 40) rc=0 · test_evidence_log_gate · test_pre_push_range · team_lib pytest
+- lint.txt: bash/sh -n · shellcheck -S warning 4 파일 · 짝 cmp 4
+
+범위 밖(arch r3 문안 그대로): core.hooksPath 를 끈 실행(-c core.hooksPath=/dev/null)·hooks 우회 = 의도적 우회(사람 책임) — 탐지 = ft-wt-mode-stamp.sh --dry-run 목록(«DRY … legacy-full» = 표식 없는 풀 팀 워크트리) · ft-disk-alarm 일 1회 연결은 이 카드에 없음
+설치(master 손 · 순서 중요): ① LIVE_BIN 키트(ft-wt-add·ft-wt-mode-stamp·ft-nano-spawn·ft-team-lib) cmp0 ② `ft-wt-mode-stamp.sh --root <BYZ 루트>` 목록 확인 → `--apply`
+  ③ ★그 «뒤» 에★ <루트>/.fable-team/githooks/post-checkout cmp0(install.sh --apply --project <루트>) ④ ~/.claude/hooks/worktree-add-gate.sh + PreToolUse(Bash) 등록
+press 필요: 없음 (하네스 도구 · 오디오 경로 0)

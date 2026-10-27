@@ -1,0 +1,38 @@
+$ bash tests/test_wt_add_r835.sh  (반복 3)
+== ⓐ --team a -b docs/x --base main → sparse
+PASS ⓐ rc=0
+PASS ⓐ 패턴 3줄
+PASS ⓐ 자기 팀 a 있음
+PASS ⓐ design/teams/b·c 디스크 0
+PASS ⓐ design/harness·루트 파일 있음
+PASS ⓐ info(branch·base·base_sha·purpose)
+PASS ⓐ .venv/.env 링크
+PASS ⓐ 끝줄 WT … sparse team=a size=
+== ⓑ --branch <기존 가지>
+PASS ⓑ 기존 가지 체크아웃 rc=0
+PASS ⓑ 다른 워크트리에 걸린 가지 = REJECT(git 문구 그대로)
+PASS ⓑ 거절 때 폴더 0
+== ⓒ --also (여러 번) · 없는 경로 REJECT
+PASS ⓒ planner·b/f.md 나옴 · c 0
+PASS ⓒ 없는 경로 = REJECT · 폴더 0
+== ⓓ --full <사유> · 사유 없음/짧음 · 둘 다 없음
+PASS ⓓ 풀 체크아웃 rc=0
+PASS ⓓ 끝줄 WT … full
+PASS ⓓ 로그 1줄(시각·좌석·경로·사유)
+PASS ⓓ 사유 없음 = REJECT
+PASS ⓓ 사유 짧음 = REJECT
+PASS ⓓ --team·--full 둘 다 없음 = REJECT(추측 0)
+PASS ⓓ 거절 때 폴더·로그 0
+== ⓔ 체크아웃 실패 → 2 s 뒤 재시도(최대 3회)
+PASS ⓔ 1회 실패 → 재시도 성공
+PASS ⓔ 3회 실패 = REJECT + 남김 문구 · 3회만
+== ⓗ sparse 워크트리에서 git merge origin/main
+PASS ⓗ sparse 밖 변경 포함 merge rc=0 · c 디스크 0 · 트리엔 c2
+PASS ⓗ 충돌 전 b 디스크 0
+PASS ⓗ sparse 밖 충돌 = 그 파일만 디스크에 나옴(rc=1)
+== 결과: FAIL=0
+== ⓘ 변이(사본에 한 줄 · 그 칸이 FAIL 이어야)
+PASS ⓘ no-sparse-set → FAIL ⓐ design/teams/b·c 디스크에 있음
+PASS ⓘ no-full-reason → FAIL ⓓ short rc=0 · NOTE shim-init 생략 — /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.79sOoZVwRR/r/.fable-team/LIVE_BIN 없음
+== 결과(변이 포함): FAIL=0
+rc=0

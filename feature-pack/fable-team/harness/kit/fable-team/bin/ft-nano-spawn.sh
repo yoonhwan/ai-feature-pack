@@ -10,7 +10,7 @@
 set -uo pipefail
 [ -f "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" ] && . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" "$@"   # R201: 비설치 위치면 LIVE_BIN 으로 exec
 IDX="${1:-}"; shift || { echo "usage: $0 <indices/대기/X.md> [--agent claude|codex|cmd|opencode|pi] [--model M] [--effort E] [--raise \"<사유>\"] [--from SEAT] [--base REF] [--cherry-override \"<사유>\"] [--dry-run]" >&2; exit 2; }
-AGENT="claude"; AGENT_SET=0; MODEL=""; EFFORT="high"; EFFORT_SET=0; FROM="${FT_SEND_FROM:-dispatch}"; FROM_SET=0; RESEARCH=0; DRY=0; FAST=""; TIER=""; RECHECK=""; BASE_REF=""; HAVE_CO=0; CO=""; RAISE=""
+AGENT="claude"; AGENT_SET=0; MODEL=""; EFFORT="high"; EFFORT_SET=0; FROM="${FT_SEND_FROM:-}"; FROM_SET=0; RESEARCH=0; DRY=0; FAST=""; TIER=""; RECHECK=""; BASE_REF=""; HAVE_CO=0; CO=""; RAISE=""
 while [ $# -gt 0 ]; do case "$1" in
   --agent) AGENT="$2"; AGENT_SET=1; shift 2;; --model) MODEL="$2"; shift 2;; --effort) EFFORT="$2"; EFFORT_SET=1; shift 2;; --raise) RAISE="${2:-}"; shift 2 2>/dev/null || shift;;
   --from) FROM="$2"; FROM_SET=1; shift 2;; --recheck) RECHECK="$2"; shift 2;; --dry-run) DRY=1; shift;; --research) RESEARCH=1; shift;; --tier) TIER="$2"; shift 2;; --base) BASE_REF="$2"; shift 2;;
@@ -50,6 +50,8 @@ printf '%s\n' "$_rgout" | grep '^WARN ' >&2 || true   # r672: 넘은 채 진행�
 RESEARCH_LOCK=""
 WT="$(git rev-parse --show-toplevel)"                       # 호출 워크트리(기준 브랜치의 자리)
 ROOT="$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||')"   # 리포 루트
+# ★r975 회신 대상 = --from > env FT_SEND_FROM(명부 현역으로 해석) > 그 팀 명부의 현역 `_master`★ — 아래 세 줄이 그 순서다(1번째는 r730 가드, 2·3번째가 r975 ).
+# (r975 r4: 보고 대상은 «살아 있는 좌석 목록»(tmm ls) 에서 고른다 — 명부 파일 해석 0 · 아래 _nano_reply_target 한 칸)
 # ★페널티 게이트 (R320b · 오빠 판정 2170)★: 전 세션 정지(PENALTY_STOP 파일) 중이면 재개 전 팀은 열지 않는다(부작용 전 · successor 는 대상 아님). 우회 플래그 없음 — 풀기는 ft-penalty.sh resume <팀>. 파일이 있는데 판정기가 없으면 REJECT(조용한 통과 0).
 if [ -f "$ROOT/.fable-team/state/PENALTY_STOP" ]; then
   [ -f "$HERE/ft-penalty.sh" ] || { echo "REJECT 전 세션 정지 중인데 ft-penalty.sh 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
@@ -61,11 +63,13 @@ fi
 [ -e "$ROOT/.fable-team" ] && { _aout="$(FT_ROOT="$ROOT" bash "$HERE/ft-all-stop.sh" check 2>&1)" || { printf '%s\n' "$_aout"; exit 1; }; }
 # ★팀 env 자동 로드 (카드 nano-spawn-close-team-env §1)★: FT_NANO_PREFIX 가 이미 있으면 «명시가 이긴다» — 아무것도 안 한다.
 #   없으면 카드 경로 design/<팀>/indices/ 의 팀(v65 포함)으로 $ROOT/.fable-team/bin-<팀>/<팀>-env.sh 를 source. ★v65 도 예외 없이 읽다(r655)★ — 파일이 없는 다른 팀은 지금처럼 REJECT, v65 는 파일이 없으면 기본값(아래 공용 규칙 = byz-v65-nano-)으로 간다.
+# ★r975 r2(DA② ③)★ 팀 추출은 «정귀식» 이 아니라 마지막 조각 잘라내기 — 폴더 이름에 공백·한글이 들어가도 팀 env 를 읽는다(옛 `[a-z0-9]+` 정규식은 그 꼴을 v65 로 밀어 버렸다).
+_nano_team() { local t="${FT_TEAM:-}" seg; [ -n "$t" ] || { case "$IDX" in */indices/*) seg="${IDX%/indices/*}"; t="${seg##*/}" ;; esac; }; printf '%s\n' "${t:-v65}"; }
 [ -f "$HERE/ft_teamset.py" ] || { echo "REJECT ft_teamset.py·ft_spawn_queue.py 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }   # r689: 이름 규칙 읽기 «전» 존재·안내 검사(:102 와 같은 글자) — 있는데 못 읽으면 아래 문구
 DEF_NANO_PREFIX="$(python3 "$HERE/ft_teamset.py" prefix --team v65 2>/dev/null)"
 [ -n "$DEF_NANO_PREFIX" ] || { echo "REJECT 나노 이름 규칙(ft_teamset.py prefix --team v65) 못 읽음: $HERE"; exit 1; }
 if [ -z "${FT_NANO_PREFIX:-}" ]; then
-  _team=""; [[ "$IDX" =~ design/(teams/)?([a-z0-9]+)/indices/ ]] && _team="${BASH_REMATCH[2]}"
+  _team="$(_nano_team)"
   if [ -n "$_team" ] && [ "$_team" != v65 ]; then
     _tenv="$ROOT/.fable-team/bin-$_team/$_team-env.sh"
     [ -f "$_tenv" ] || { echo "REJECT 팀 env 없음: $_tenv"; exit 1; }
@@ -76,6 +80,74 @@ if [ -z "${FT_NANO_PREFIX:-}" ]; then
   fi
   echo "ENV team=${_team:-v65} prefix=${FT_NANO_PREFIX:-$DEF_NANO_PREFIX} seats=${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}"
 fi
+# ★r975 r4 (오빠 결정 3 · 10-27 09:3x «tmuxc tmm 에서 현팀 리스트 보고 판단»)· 보고 대상은 «지금 살아 있는 좌석 목록» 에서 고른다★
+#   명부 파일(seats.json · 팀 env · FT_SEATS_JSON) 해석은 «하지 않는다» — 그 입력이 답을 바꿀 수 있으면 그 자체가 결함이다(r1~r3 반례 전부).
+#   순서(r8): tmm ls byz-<팀> 1회 + 후보마다 ft-name-lint 1회(«같은 7초 상한 하나» · rc≠0/초과 = REJECT 1줄) → PASS 만 «이 팀 좌석» → --from > FT_SEND_FROM > 기본 = master 현역 1명(0·2명+ = REJECT).
+#   «이 팀 좌석인가» 판정 사본 0 — 역할 목록·정규식은 검사기(ft-name-lint) 한 곳(오빠 결정 6 = 4번).
+#   목록 0 · 2명 이상 · rc≠0 · 빈 출력 · 7초 초과 = REJECT 1줄 rc≠0 · 개설 0 (조용한 루트 팀장·옛 이름 대체 0).
+_nano_team() { local t="${FT_TEAM:-}" seg; [ -n "$t" ] || { case "$IDX" in */indices/*) seg="${IDX%/indices/*}"; t="${seg##*/}" ;; esac; }; printf '%s\n' "${t:-v65}"; }
+_nano_reply_target() {  # rc0 = stdout 보고 대상 1줄 · rc1 = stdout REJECT 1줄(부작용 0 — 워크트리·tmux·명부 등록 전부 앞)
+  local team tmp rc
+  team="$(_nano_team)"
+  command -v tmm >/dev/null 2>&1 || { echo "REJECT 보고 대상을 못 풀었다 — tmm 이 PATH 에 없다(tmuxc tmm ls)"; return 1; }
+  [ -f "$HERE/ft-name-lint.sh" ] || { echo "REJECT 보고 대상을 못 풀었다 — ft-name-lint.sh 없음: $HERE"; return 1; }
+  tmp="$(mktemp "${TMPDIR:-/tmp}/ft-r975-tmm.XXXXXX")" || { echo "REJECT 보고 대상을 못 풀었다 — 임시 파일 실패"; return 1; }
+  # ★외부 호출 = «한 함수 한 상한»(r8 ② · 하드 룰 12/20)★ — `tmm ls` 1회 + 후보 이름마다 `ft-name-lint` 1회를
+  #   «같은 7초 상한» 안에서 돈다. rc≠0 또는 초과 = REJECT 1줄 · 개설 0(호출마다 7초가 아니다).
+  #   «이 팀 좌석인가» 판정은 검사기에 통째로 맡긴다 — spawn 안에 역할 목록·정규식 사본을 두지 않는다(결정 6 = 4번).
+  COLUMNS=400 ft_reclaim_capped "$tmp" bash -c '
+    T="$1"; L="$2"
+    list="$(tmm ls "$T" 2>/dev/null)" || exit 3
+    printf "%s\n" "$list" | tr -s " " "\n" | grep -E "^${T}-" | grep -v "…" | sort -u | while IFS= read -r n; do
+      case "$n" in *"#"*) ;; *) continue;; esac
+      bash "$L" "$n" >/dev/null 2>&1 && printf "%s\n" "$n"
+    done
+    exit 0
+  ' _ "byz-$team" "$HERE/ft-name-lint.sh"; rc=$?
+  if [ "$rc" = 124 ]; then rm -f "$tmp"
+    echo "REJECT 보고 대상을 못 풀었다 — 좌석 목록·이름 검사 7초 초과(tmm ls + ft-name-lint) · 개설 0"; return 1; fi
+  if [ "$rc" != 0 ]; then rm -f "$tmp"
+    echo "REJECT 보고 대상을 못 풀었다 — ft-name-lint/tmm 호출 rc=$rc (좌석 목록·이름 검사) · 개설 0"; return 1; fi
+  [ -s "$tmp" ] || { rm -f "$tmp"; echo "REJECT 보고 대상을 못 풀었다 — 이름 검사를 지난 좌석이 0명(tmm ls byz-$team · ft-name-lint PASS 0) · 개설 0"; return 1; }
+  python3 - "$team" "$FROM_SET" "$FROM" "${FT_SEND_FROM:-}" "$tmp" <<'PY'
+import re, sys
+team, from_set, arg, env_from, path = sys.argv[1:6]
+names = [ln.strip() for ln in open(path, encoding="utf-8", errors="replace") if ln.strip()]
+mpat = re.compile(r"^byz-" + re.escape(team) + r"-master-[^#\s]+#([0-9]+)$")   # 기본 선택 = «그 팀 master» (이름 규칙은 검사기가 이미 통과시킨 것)
+masters = sorted((int(m.group(1)), n) for n in names for m in [mpat.match(n)] if m)
+def reject(msg):
+    print("REJECT 보고 대상을 못 풀었다 — " + msg); sys.exit(1)
+def note(s):
+    sys.stderr.write("INFO " + s + "\n")
+state = ("1명(%s)" % masters[0][1]) if len(masters) == 1 else ("0명" if not masters else "%d명" % len(masters))
+want, src = ("", "")
+if from_set == "1":
+    want, src = arg.strip(), "--from"
+    if not want:
+        reject("--from 값이 비었다")
+elif env_from.strip():
+    want, src = env_from.strip(), "FT_SEND_FROM"
+if want:
+    if want not in names:
+        reject("%s 가 이 팀(byz-%s) 좌석 집합에 없다(ft-name-lint PASS 0): %s (집합: %s)"
+               % (src, team, want, " ".join(names) or "0명"))
+    if len(masters) != 1:
+        note("%s 로 확정 = %s (팀장 %s — 명시가 기본 선택을 대신한다 · 계약 ③)" % (src, want, state))
+    print(want); sys.exit(0)
+if not masters:
+    reject("이 팀(byz-%s) master 좌석이 집합에 없다 (집합: %s)" % (team, " ".join(names) or "0명"))
+if len(masters) > 1:
+    reject("현역 master 가 %d명이다(하나여야 한다): %s" % (len(masters), " ".join(n for _, n in masters)))
+print(masters[0][1])
+PY
+  local prc=$?; rm -f "$tmp"; return "$prc"
+}
+# ①-0 보고 대상 = lint 첫 칸 (dry-run·실행 같은 칸 · 워크트리·tmux·명부 등록 전부 앞)
+_nano_rt="$(_nano_reply_target)"; _nano_rtrc=$?
+[ "$_nano_rtrc" = 0 ] || { printf '%s\n' "$_nano_rt"; exit 1; }
+FROM="$_nano_rt"
+echo "INFO 회신 대상 = $FROM (발주문 머리 [$FROM-><나노>] · 출처: 살아 있는 좌석 목록 tmm ls byz-$(_nano_team))" >&2
+SEATS="${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}"   # ⑤명부 «등록» 대상 전용 — 보고 대상 해석에는 쓰지 않는다(tmm 목록이 정한다)
 # ★v65 기본 접두 = 공용 규칙(ft_teamset.py)★ — 이름 규칙을 스크립트마다 복사하지 않는다(두 벌 규칙 0). 규칙을 못 읽으면 추측 없이 REJECT.
 [ -n "${FT_NANO_PREFIX:-}" ] || FT_NANO_PREFIX="$DEF_NANO_PREFIX"
 # ★EXIT 정리 목록 (r921 r3 · DA⑥ r2 W4)★: trap 을 «덮어쓰지» 않는다 — 정리 함수를 _ON_EXIT 에 이어 붙이고 trap 은 _on_exit 하나만 건다(잠금 해제·사건 원장 abort 가 둘 다 돈다).
@@ -263,9 +335,7 @@ if [ -z "$MODEL" ]; then case "$AGENT" in
   pi)     MODEL="${FT_PI_MODEL:-opengateway/deepseek/deepseek-v4.1-flash-ultrafast}";;   # Pi 1.3.0 · OpenGateway fast lane
   *) echo "REJECT --model 필수 (--agent $AGENT 는 기본 모델이 없다)"; exit 1;; esac
 fi
-SEATS="${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}"
-# r730 ★보내는 사람 = 명부 현역★: --from 을 «안 줬을 때만» env FT_SEND_FROM 을 그 팀 명부 `_master` 로 해석한다 — 팀장 승계 뒤에도 발주문(:533)·명부 보고자(:499)·송신 from 이 현역 팀장. 해석 함수 = ft-team-lib.sh 한 곳.
-[ "$FROM_SET" = 1 ] || [ ! -f "$HERE/ft-team-lib.sh" ] || FROM="$( . "$HERE/ft-team-lib.sh" && ft_from_current "$FROM" "$SEATS" )"
+# (r975: SEATS·회신 대상 해석은 :54 로 옮겼다 — 상한·회수 게이트의 --caller/--from 도 같은 값을 쓴다)
 if [ ! -f "$IDX" ] && [ -f "$HERE/ft-team-lib.sh" ]; then . "$HERE/ft-team-lib.sh"; _tw="$(ft_index_twin "$IDX")" && [ -f "$_tw" ] && { echo "INFO 인덱스 쌍둥이 경로로 해석: $IDX → $_tw (R382 전환 기간 역호환)"; IDX="$_tw"; }; fi
 [ -f "$IDX" ] || { echo "REJECT 인덱스 없음: $IDX"; exit 1; }
 [ ! -f "$HERE/ft-team-lib.sh" ] || ( . "$HERE/ft-team-lib.sh" && ft_card_location_ok "$IDX" ) || exit 1   # r447: 명단 새 꼴 팀 카드가 옛 꼴 폴더(쌍둥이 해석 포함)면 REJECT
@@ -291,6 +361,8 @@ esac
 [ -f "$HERE/ft-team-lib.sh" ] || { echo "REJECT ft-team-lib.sh 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
 . "$HERE/ft-team-lib.sh"   # R383: planner 카드 판정·SEATBELT 경로를 팀 폴더 명단으로 푼다(팀 이름 글자 0)
 _EBN=""; if ft_team_has_ref "$WT" planner "$IDX" indices/ && awk '/^##[[:space:]]/{exit} {print}' "$IDX" | grep -q '^- 템플릿: 빈 카드(나노가 채움)'; then export FT_INDEX_ALLOW_EMPTY_BODY=1; _EBN=" ★빈 카드 템플릿: 카드 구현 범위·완료 조건 절을 네가 먼저 채우고 arch 1줄 확인 뒤 착수★"; else unset FT_INDEX_ALLOW_EMPTY_BODY; fi
+# ①-0 보고 대상 검사는 위 _nano_reply_target 한 곳에서 끝났다(tmm 목록 1회 · 같은 칸 · REJECT 1줄).
+
 bash "$HERE/ft-index-lint.sh" "$IDX" || { echo "REJECT lint 실패"; exit 1; }
 # ①-0 제안서 «오빠가 본 승인» 게이트 (R77 · 판정 816 — 로직은 ft-proposal-gate.sh --card)
 _pg="$(bash "$HERE/ft-proposal-gate.sh" --card "$IDX")" || { echo "REJECT 제안서 승인 증거 부족 — $_pg"; exit 1; }; echo "$_pg"
@@ -382,7 +454,6 @@ PY
       ;;
   esac
 fi
-
 SLUG="$(basename "$IDX" .md | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | cut -c1-40)"
 [ "$RESEARCH" != 1 ] || SLUG="$(printf '%s' "$SLUG" | cut -c1-30)-research"   # R387: 좌석 이름·브랜치·워크트리 꼬리 -research
 BASE_NAME="${FT_NANO_PREFIX:-$DEF_NANO_PREFIX}$SLUG"
@@ -571,7 +642,7 @@ if [ ! -d "$WTDIR" ]; then
       || { echo "REJECT sparse 체크아웃 실패($WTDIR · 브랜치 $BRANCH · 워크트리는 남김 — 사람 판정)"; exit 1; }
     echo "SPARSE team=$_SPT 남의 팀 design·자기 팀 안 미디어(wav·mp4·png·zip 등)·큰 글자(result.json·jsonl) 제외 · 글자 파일은 남김 · 새 증거 = design/teams/$_SPT/evidence/$SLUG/ (다른 미디어가 필요하면 git sparse-checkout add <경로> · 되돌림: git -C $WTDIR sparse-checkout disable)"
   else
-    git -C "$ROOT" worktree add "$WTDIR" -b "$BRANCH" "$BASE_BRANCH" >/dev/null || { echo "REJECT worktree add 실패"; exit 1; }
+    FT_WT_FULL="nano full(FT_NANO_SPARSE=${FT_NANO_SPARSE:-1} · team=${_SPT:-?}) $IDX_REL" git -C "$ROOT" worktree add "$WTDIR" -b "$BRANCH" "$BASE_BRANCH" >/dev/null || { echo "REJECT worktree add 실패"; exit 1; }   # r835: 풀 선택을 post-checkout 에 알림(표식 full)
   fi
   # r494: 새 워크트리에 하네스 입구(.fable-team/bin 연결 파일 + LIVE_BIN·LIVE_ROOT) — 실패해도 spawn 은 계속 · 조용한 통과 0(NOTE 줄)
   _shim_out="$(bash "$HERE/ft-root-bin-shim.sh" --root "$WTDIR" --live "$(sed -n 1p "$ROOT/.fable-team/LIVE_BIN" 2>/dev/null)" --init 2>&1)" \

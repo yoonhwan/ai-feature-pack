@@ -1,0 +1,95 @@
+== 빠짐 4꼴(DA r1) → sparse + 표식
+PASS 빠짐1 cwd=P · git --git-dir=<B>/.git worktree add
+PASS beads 위임 1회(빠짐1)
+PASS 빠짐2 W=<B>; git -C "$W" worktree add
+PASS 빠짐3 bash <스크립트 파일> 속 worktree add
+PASS 빠짐4 git -c alias.wa='worktree add' wa
+PASS 안내 2번째 줄 원문
+PASS 패턴 2줄(팀 폴더 0 · 추측 0)
+== DA r2 반례 ① --no-checkout 뒤 checkout -q
+PASS 반례① --no-checkout + checkout -q → sparse · 표식 sparse
+== DA r2 반례 ③ ft-nano-spawn 풀 경로(실제 줄 eval · FT_WT_FULL)
+PASS ft-nano-spawn 풀 경로 줄 찾음
+PASS 반례③ FT_NANO_SPARSE=0 nano 풀 경로 → 풀 · 표식 full
+PASS 반례③ 다음 checkout 에도 풀 유지
+== 표식 있으면 손대지 않음
+PASS stamp --dry-run(기본) → 목록만 · 표식 0
+PASS stamp --apply → legacy-full 표식 · 체크아웃 그대로
+PASS stamp 2회째 new=0(멱등)
+PASS stamp 팩 꼴 리포 = SKIP
+PASS 표식 legacy-full 워크트리에서 git switch → sparse 0
+PASS 표식 sparse + 사람이 disable 뒤 checkout → 다시 켜지 않음
+== FT_WT_FULL 예외
+PASS FULL 사유 13자 → 풀 · 표식 full <사유>
+PASS FULL 로그 1줄
+PASS FULL 사유 9자 → 무시하고 sparse
+PASS «사유 짧음» stderr · 로그 0
+== 동작 0 / 도구 경로
+PASS 무동작 .worktrees 밖(ft-scratch-repo 꼴) · beads 1회
+PASS 무동작 팩 꼴 리포(design/teams 없음)
+PASS ft-wt-add --team → 팀 a 패턴 그대로 · 표식 sparse
+PASS ft-wt-add --full → 풀 · 표식 full
+PASS ft-wt-add --full 로그 1줄(훅·도구 겹침 0)
+PASS ft-nano-spawn sparse 꼴(428~429행 명령) → 팀 b 패턴 그대로 · 표식 sparse
+PASS 무동작 merge(풀 워크트리)
+PASS 주 워크트리 자신은 표식 0(.worktrees 밖)
+== r843 표식 쓰기 확인(DA r3 반례 · 못 쓴 표식을 조용히 지나가지 않음)
+PASS ⓐ1 표식 자리 폴더 + FT_WT_FULL checkout → 표식 자리 이상 · rc≠0 · 풀 그대로
+PASS ⓐ2 env 없는 다음 checkout → 같은 ERROR · sparse 로 안 바꿈
+PASS ⓑ1 이미 sparse(도구가 정함) + 표식 자리 폴더 → 표식 자리 이상 · rc≠0
+PASS ⓒ1 표식 자리 → /dev/null 심링크 → 표식 자리 이상 · sparse 0
+PASS ⓑ2 stamp --apply 표식 자리 폴더 → ERROR 줄 · 쓰기 0 · 다른 워크트리 계속 · 끝 rc≠0
+PASS ⓑ3 stamp 표식 자리 /dev/null 심링크 → ERROR(값 안 믿음) · 쓰기 0
+PASS ⓒ2 FT_WT_FULL + 표식 자리 /dev/null 심링크 → 표식 자리 이상 · rc≠0
+== r843 r2 (외부 DA r843 r1 반례 · 시험 표식 남김 · checkout 을 안 거치는 풀 생성 길)
+PASS ⓡ1 남은 표식 값 probe = «있음»(읽힘) → 손대지 않음 · 값 해석 0 · 상태 그대로(r843 r5 DA④)
+PASS ⓡ3 읽을 수 있는 표식(444) = 있음 → 손대지 않음 · sparse 로 안 바꿈(r843 r5)
+PASS ⓡ2 표식 = sparse · 별도 이름 시험 파일 0(남는 시험 표식 0)
+PASS ⓡ2 다음 checkout → 표식 있음 = 손대지 않음 · 되풀이 0
+PASS ⓡ4 --no-checkout + reset --hard(훅 미호출 · 표식 0 · 풀) → --unmarked 목록에 오름 · 표식 폴더 = ERROR 줄 + rc≠0 · 읽히는 값은 해석 0(r843 r5)
+PASS ⓡ5 stamp --apply 읽히는 값 probe = HAS · 쓰기 0 · 다른 워크트리는 계속(r843 r5)
+PASS ⓡ6 --apply + --unmarked 같이 → REJECT
+== r843 r4 (외부 DA r843 r2 반례 · 표식 «있음» = -e 또는 -L · 정상 값 아니면 ERROR + 상태 변경 0)
+PASS ⓡ7 R1 full 표식 0200(못 읽음) → fail_closed(표식 삭제) · rc≠0 · 풀 그대로(r843 r8 DA③)
+PASS ⓡ8 R1 다음 checkout 은 «처음부터»(표식 없음 → sparse 적용 · 안내 1회)
+PASS ⓡ9 stamp --apply 표식 0200(읽기 rc≠0) → 못 읽음 ERROR · 쓰기 0(값 안 바꿈)
+PASS ⓡ10 R2 끊긴 심링크 표식 자리 → 표식 자리 이상 · rc≠0 · 풀 그대로
+PASS ⓡ11 R2 다음 checkout 도 같은 ERROR · 심링크 자리 그대로
+PASS ⓡ12 R3 design/teams 000 → --unmarked ERROR 줄 + rc≠0(읽기 오류 안 묻음)
+PASS ⓓ1 훅 표식 쓰기 확인(쓰고 다시 읽어 대조) → 읽은 값이 다르면 ERROR · rc≠0
+PASS ⓓ2 stamp --apply 쓰기 확인 → 읽은 값이 다르면 ERROR 표식 쓰기 실패 · rc≠0
+== r843 r5 (외부 DA r843 r3 반례 ①②④ · 표식 «먼저» 쓰고 확인 · 값 해석 0)
+PASS ⓔ1 DA① full 선택 + 표식 쓰기만 거부 → ERROR 쓰기 실패 · rc≠0 · 풀 그대로 · 표식 0
+PASS ⓔ2 DA① env 없는 다음 checkout 도 같은 ERROR · sparse 로 안 덮음(표식 쓰기 실패가 상태를 못 바꿈)
+PASS ⓔ3 DA② 표식 쓰기 거부 + checkout → ERROR · rc≠0 · sparse 적용 전에 멈춤(상태 변경 0)
+PASS ⓔ4 DA④ 읽히는 표식 custom-marker = 있음 → 손대지 않음 · rc0 · stderr 0 · 값 그대로
+PASS ⓔ5 DA④ stamp --apply 도 값 해석 0 → HAS custom-marker · 쓰기 0
+== r843 r6 (외부 DA r4 반례 3 · 실패는 fail_closed 한 자리 · pending → mv 1회)
+PASS ⓕ1 DA② 읽기 rc1(출력은 같음) → ERROR · rc≠0 · 표식 0 · pending 잔존 0 · 상태 그대로
+PASS ⓕ1b stamp --apply 같은 주입 → 읽기 rc≠0 = 실패 · 표식 원복(0)
+PASS ⓕ1c stamp 표식 읽기 rc≠0 → 못 읽음 ERROR · HAS/STAMP 0 · 값 그대로
+PASS ⓕ2 DA② 쓰기 검증 실패(빈 출력) → 빈 표식 0 · 풀 그대로 · rc≠0
+PASS ⓕ2b 같은 주입 유지한 다음 실행 → 조용한 rc0 0(같은 ERROR 로 처음부터)
+PASS ⓕ3 DA② sparse-checkout set 실패 → config 원복(unset) · 표식 0 · rc≠0
+PASS ⓕ3b 다음 checkout 이 처음부터 다시 적용(sparse · 표식 · [r835] 안내 1회)
+== r843 r8 (DA r6 반례 3 · 실패 자리 전수 · 설정 원복은 워크트리만 · 표식은 설정 rc0 뒤 mv)
+PASS ⓖ0-표식 pending 쓰기 자리: ERROR 1줄 · rc≠0 · 최종 표식 0 · 임시 자리 0 · 설정 원상 · 파일 복원
+PASS ⓖ0-pending 검증 읽기 자리: ERROR 1줄 · rc≠0 · 최종 표식 0 · 임시 자리 0 · 설정 원상 · 파일 복원
+PASS ⓖ0-sparse 설정 자리: ERROR 1줄 · rc≠0 · 최종 표식 0 · 임시 자리 0 · 설정 원상 · 파일 복원
+PASS ⓖ0-표식 mv 자리: ERROR 1줄 · rc≠0 · 최종 표식 0 · 임시 자리 0 · 설정 원상 · 파일 복원
+PASS ⓖ0-최종 자리 검증 읽기 자리: ERROR 1줄 · rc≠0 · 최종 표식 0 · 임시 자리 0 · 설정 원상 · 파일 복원
+PASS ⓖ0-기존 표식 읽기 자리: ERROR 1줄 · rc≠0 · 최종 표식 0 · 임시 자리 0 · 설정 원상 · 파일 복원
+PASS ⓜ 자리 수 = 5(쓰기·검증읽기·설정·mv·최종읽기) · 모르는 자리 0 · 설정 값(config) 을 읽어 믿는 자리 0
+PASS ⓖ1 DA① pending 읽기 실패 — 설정 원복 공용(true) 불변 · 워크트리(false) 불변 · 표식 0 · rc≠0
+PASS ⓖ1b DA① sparse 설정 실패 — 공용(true)·워크트리(false) 불변 · 표식 0(공용 설정 선택기 안 건드림)
+PASS ⓖ2 DA② 설정 rc0 전 최종 자리 표식 0 · 실패는 임시 자리만 정리(rc≠0)
+PASS ⓖ3 DA③ 기존 표식 읽기 rc≠0 → fail_closed(표식 삭제 · ERROR 1줄 · rc≠0)
+PASS ⓖ3b 다음 실행은 처음부터(표식 없음 → sparse 적용 · 안내 1회)
+PASS ⓚ0 사전: 새 리포(byz3) 에 worktreeConfig·core.sparseCheckout 없음(설정 0)
+FAIL ⓚ rc=1 wtcfg=true sparse= · ERROR ft-wt-mode sparse 설정 실패 — sparse-checkout set 실패(체크아웃 그대로) /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.O2e1O4G3Qm/byz3/.worktrees/k1 · 표식·spars
+FAIL ⓚb rc=0 표식=sparse · 
+FAIL ⓚc rc=1 패턴파일=0 wtcfg=true b=있음 · ERROR ft-wt-mode 표식 이동 실패 — pending → /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.O2e1O4G3Qm/byz4/.git/worktrees/k2/ft-wt-mode mv 실패 · 표식·sparse 설정 원�
+PASS ⓚc2 그 다음 실행도 처음부터(sparse 적용 · 표식 sparse)
+PASS ⓛ0 사전: 설정 true · 파일은 풀 · 패턴 파일 0 · 표식 0
+FAIL ⓛ rc=0 표식=sparse b=있음 · 
+== 결과: FAIL=4
