@@ -1,0 +1,23 @@
+PASS ⓐ~ⓔ 15 passed
+PASS ⓕ LOGGEDOUT 분기 삭제 → test_a_logged_out FAIL
+PASS ⓕ 칸 있으면 0통 삭제 → test_c_tick_notifies_team_master_once FAIL
+PASS ⓕ ring 제외(로그아웃) 삭제 → test_d_idle_wake_skips_logged_out_and_rested FAIL
+PASS ⓕ ring 제외(닫기 대기) 삭제 → test_d_idle_wake_skips_logged_out_and_rested FAIL
+PASS ⓕ 글자 찾기 되살림 → test_d_idle_wake_skips_logged_out_and_rested FAIL
+PASS ⓕ 칸 먼저 기록 → test_c_send_failure_retries_next_scan FAIL
+PASS ⓕ 키에 시작 시각 되살림 → test_r1_unreadable_process_start_one_notice FAIL
+PASS ⓕ 칸 지움 삭제 → test_r1b_relogin_then_logout_two_notices_and_unreadable_scan_keeps_cell FAIL
+PASS ⓕ ③ 면제 삭제 → test_e_nano_close_gate FAIL
+PASS ⓕ [재개] 제외 삭제 → test_api_outage_never_resumes_logged_out FAIL
+PASS 짝 사본 ft_api_outage_util.py
+PASS 짝 사본 ft_api_outage.py
+PASS 짝 사본 ft_seat_turn.py
+PASS 짝 사본 ft-seat-status.sh
+PASS 짝 사본 ft_stall_scan.py
+PASS 짝 사본 ft_stall_detect.py
+PASS 짝 사본 ft_card_rest.py
+PASS 짝 사본 ft-idle-wake.sh
+PASS 짝 사본 ft-jsonl-last-ts.py
+PASS 짝 사본 ft-nano-close.sh
+FAIL=0
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

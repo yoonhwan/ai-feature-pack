@@ -31,13 +31,15 @@ CHK="${FT_INSTALL_CHECK:-$HERE/ft-live-install-check.sh}"
 PACKH=""; [ -f "$HERE/ft-harness-root.sh" ] && PACKH="$(. "$HERE/ft-harness-root.sh" && ft_harness_root "$HERE" 2>/dev/null)"
 PACK=""; [ -n "$PACKH" ] && { PACK="$(ft_git_capped 7 "$PACKH" rev-parse --show-toplevel)" || rej "팩 리포($PACKH) 루트 조회 실패(rc=$?) — 통과 0"; }
 [ -n "$PACK" ] || rej "하네스 루트를 못 풂 — 설치 대조 리포를 못 정한다(FT_HARNESS_ROOT · ../HARNESS_ROOT)"
-LR="$(ft_landed_repo "${LANDED##*..}" "$WT" "$PACK" "${FT_LANDED_MARKER:-}")" || { printf '%s\n' "$LR"; exit 1; }
+LR="$(ft_landed_repo "${LANDED##*..}" "$WT" "$PACK" "${FT_LANDED_MARKER:-}")" || { printf '%s\n' "$LR"; exit 1; }   # r959: 표식 오기(팩 착지) 보정은 ft_landed_repo 기본 — 정본·보류 가드·close-landed 와 같은 판정
 LRREPO="${LR%%$'\t'*}"
-# r948: --all 은 «어느 프로젝트의 라이브» 인지 같이 넘긴다 = 카드 리포의 공용 루트(워크트리 안 카드도 루트) — 안 넘기면 검사기가 팩 리포를 프로젝트로 본다(LIVE_BIN 없음 ERROR)
-if [ "$LRREPO" = "$PACK" ]; then CARG=(--range "$RANGE")
+# r948 + r959: --all 은 «어느 프로젝트의 라이브» 인지 같이 넘긴다 = 카드 리포의 공용 루트(워크트리 안 카드도 루트) — 안 넘기면 검사기가 팩 리포를 프로젝트로 본다(LIVE_BIN 없음 ERROR).
+# r959 ④(r426 rc3): 같은 값을 --range 갈래(팩 착지 sha)에도 넘긴다 — plist-env 렌더도 프로젝트 루트가 필요한데,--all 만 넘기면 팩 착지 카드는 rc3 로 막했다.
+CROOT="$(ft_git_capped 7 "$WT" rev-parse --path-format=absolute --git-common-dir)" || rej "카드 리포($WT) 공용 루트 조회 실패(rc=$?) — 통과 0"
+CROOT="$(dirname "$CROOT")"
+if [ "$LRREPO" = "$PACK" ]; then CARG=(--range "$RANGE" --project "$CROOT")
 else
-  CROOT="$(ft_git_capped 7 "$WT" rev-parse --path-format=absolute --git-common-dir)" || rej "카드 리포($WT) 공용 루트 조회 실패(rc=$?) — 통과 0"
-  CROOT="$(dirname "$CROOT")"; CARG=(--all --project "$CROOT")
+  CARG=(--all --project "$CROOT")
   printf 'INFO 착지 리포 = 카드 리포(%s) — 설치 대조 = 라이브 전수(--all --project %s)\n' "$LRREPO" "$CROOT"
 fi
 COUT="$(bash "$CHK" "${CARG[@]}" 2>&1)"; crc=$?
@@ -45,7 +47,7 @@ COUT="$(bash "$CHK" "${CARG[@]}" 2>&1)"; crc=$?
 EV="$(grep -m1 -E '^[[:space:]]*-[[:space:]]*실사건:' "$CARD")"
 [ -n "$EV" ] || rej "카드에 「- 실사건: <무엇> · <증거>」 줄 없음 — 설치 뒤 실사건 1회 실측 증거(mbox #N | 경로:줄 | ledger 키)"
 printf '%s' "$EV" | grep -qE '#[0-9]+|[A-Za-z0-9_./-]+\.[A-Za-z0-9]+:[0-9]+|ledger[:=][^[:space:]]+' || rej "「- 실사건:」 줄에 증거 토큰 없음(mbox #N · 경로:줄 · ledger 키)"
-ROOT="$(ft_git_capped 7 "$WT" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||')"
+ROOT="${CROOT:-$WT}"   # r959: 같은 공용 루트 — 위에서 7초 상한으로 이미 풀었다(중복 git 호출 0)
 PD="${FT_INSTALL_PENDING_DIR:-${ROOT:-$WT}/.fable-team/state/install-pending}"
 for s in $(ft_git_capped 7 "$WT" rev-list "$RANGE"); do rm -f "$PD/$s.txt"; done
 echo "OK 설치 확인 — $COUT"

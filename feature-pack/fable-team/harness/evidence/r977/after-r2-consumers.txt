@@ -1,0 +1,4 @@
+tests/test_secret_scan.sh rc=0
+tests/test_secret_output_mask.sh rc=0
+tests/test_evidence_inject_scan.sh rc=0
+tests/test_flag_off_scan.sh rc=0

@@ -1,0 +1,8 @@
+=== r959 판(고침) ===
+§32 r462-approve-merge-equiv-head-with-main-merge-only :: 닫힘 — r462-approve-merge-equiv-head-with-main-merge-only — main(팩) :: OK	정본 영향 없음: docs/architect 변경 0 — 키트 2 + 홈 훅 1 + 시험 1 + BOOT 1줄
+§56 r560-approval-equiv-main-moves-and-hook-candidates :: 닫힘 — r560-approval-equiv-main-moves-and-hook-candidates — main(팩) :: OK	정본 영향 없음: 소급 닫기 — 착지 커밋 bd1dcc2fa4 이 docs/architect 를 안 바꿈
+§116 r737-news-map-canon-sha-change-trigger :: 닫힘 — r737-news-map-canon-sha-change-trigger — main(팩) :: OK	정본 영향 없음: 소급 닫기 — 착지 커밋 2e0bb16660 이 docs/architect 를 안 바꿈
+§120 r756-desk-planner-seat-on-main-based-worktree :: 닫힘 — r756-desk-planner-seat-on-main-based-worktree — main(팩) :: OK	정본 영향 없음: 소급 닫기 — 착지 커밋 008e509575 이 docs/architect 를 안 바꿈
+§128 r847-news-ledger-fetch-lsremote-30s :: 닫힘 — r847-news-ledger-fetch-lsremote-30s — main(팩) :: OK	정본 영향 없음: 소급 닫기 — 착지 커밋 c91bee891f 이 docs/architect 를 안 바꿈
+§135 r888-nano-close-research-seat-evidence-exempt-card-origin-main :: 닫힘 — r888-nano-close-research-seat-evidence-exempt-card-origin-main — main(팩) :: OK	정본 영향 없음: 소급 닫기 — 착지 커밋 3b1bdb5173 이 docs/architect 를 안 바꿈
+§142 r911-finished-branch-archive-file-content-equal-main :: 닫힘 — r911-finished-branch-archive-file-content-equal-main — main(팩) :: OK	정본 영향 없음: 소급 닫기 — 착지 커밋 759aeedafc 이 docs/architect 를 안 바꿈

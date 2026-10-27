@@ -1,0 +1,62 @@
+== test_ft_tick_master_seat.sh rc=0 PASS=62 FAIL=0
+== test_ft_tick_renamed_args.sh rc=0 PASS=6 FAIL=0
+== test_tick_idle_long_nano_wait.sh rc=0 PASS=14 FAIL=0
+== test_tick_shim_guard.sh rc=0 PASS=26 FAIL=0
+== test_team_tick_unify.sh rc=0 PASS=58 FAIL=0
+== test_tick_team_msg.sh rc=0 PASS=32 FAIL=0
+== test_tick_line.sh rc=0 PASS=198 FAIL=0
+== test_board_publish_tick.sh rc=0 PASS=14 FAIL=0
+== test_install_team_tick_live.sh rc=0 PASS=48 FAIL=0
+== test_agent_alive_fg_judge.sh rc=1 PASS=124 FAIL=2
+PASS ⓖ H3 ft-tick-team 오래된(죽은 주인) 잠금은 회수 → 경보 1건
+PASS ⓖ H3 ft-tick-team 방금 잡힌 잠금 → 이 틱 건너뜀(경보 0 · 발사 0)
+
+FAIL 1
+REAL-STATE-GUARD WARN 번호표 늘었으나 실 좌석 계획(동시 실행): /private/tmp/h20 ← /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/state/approve-merge-lecture-3208-cfo-3204-20261025.sh.hil
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+== test_autonomy_core.sh rc=1 PASS=192 FAIL=3
+PASS 키트 미러 cmp ft-proxy-decide.sh
+PASS 200줄 이하 ft-proxy-decide.sh
+grep: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r874-ft-tick-six-daemons-load/feature-pack/fable-team/harness/tests/../../shared/config/external_call.py: No such file or directory
+FAIL 7초+재시도 1회 = external_call.py 값과 같음
+== 192 checks, fail=3
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+== test_autonomy_level.sh rc=0 PASS=65 FAIL=0
+== test_dead_seat_resume.sh rc=0 PASS=85 FAIL=0
+== test_dead_seat_resume_r615.sh rc=0 PASS=25 FAIL=0
+== test_ft_wt_sweep_route_timeout.sh rc=0 PASS=38 FAIL=0
+== test_harness_root.sh rc=0 PASS=74 FAIL=0
+== test_hil_notify_marker.sh rc=0 PASS=50 FAIL=0
+== test_hil_run_marker.sh rc=0 PASS=69 FAIL=0
+== test_installed_root.sh rc=0 PASS=22 FAIL=0
+== test_leak_reap.sh rc=1 PASS=121 FAIL=0
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+--- 증거: 시험 로케일 C.UTF-8
+ALL PASS
+ALL PASS
+REAL-STATE-GUARD FAIL 우편함 가짜 이름 새 줄: ['aifp-multihost-master-claude#4'] :: {"seq": 3298, "ts": "2026-10-25T01:54:26", "to": "aifp-multihost-master-claude#4", "from": "ft-tick", "body": "[HIL 미실행] h16 가 30분째 안 끝났다(�
+== test_live_bin_drift_check.sh rc=0 PASS=69 FAIL=0
+== test_live_snapshot_all_rosters.sh rc=0 PASS=10 FAIL=0
+== test_magazine_check.sh rc=0 PASS=38 FAIL=0
+== test_queue_reask_r529.sh rc=0 PASS=52 FAIL=0
+== test_raised_card_state_three_places.sh rc=0 PASS=38 FAIL=0
+== test_raised_seat.sh rc=1 PASS=94 FAIL=26
+PASS --dry-run 송신 0
+PASS C2 tick: 명부 하나 + 같은 폴더 glob → 송신 1건
+PASS C2 tick: 본문 1건(중복 0)
+--- 증거: 시험 로케일 ko_KR.UTF-8
+FAILED 25
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+== test_seat_close.sh rc=0 PASS=81 FAIL=0
+== test_seat_retire.sh rc=0 PASS=172 FAIL=0
+== test_team_move_roundtrip.sh rc=1 PASS=102 FAIL=4
+FAIL ⓔ lint rc=1 ft_ledger_fill.py:272:    p.add_argument("--path", default=os.environ.get("FT_LEDGER_PATH") or "design/teams/planner/PLAN-oppa-ledger.md")
+ERR 리터럴 팀 이름 경로 1개 파일 — ft_team_root(셸)·ft_team_lib.team_in(파이썬)으로 바꾼다: ft_ledger_fill.py
+PASS ⓔ 변이: 조립 한 줄 → ERR rc1
+PASS ⓔ 전환 끝(전 팀 꼴2) + 쌍둥이 호출 잔존 → ERR rc1
+== fail=4
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+== test_team_rename.sh rc=0 PASS=86 FAIL=0
+== test_tracked_bin_call_gate.sh rc=0 PASS=75 FAIL=0
+/opt/homebrew/opt/python@3.14/bin/python3.14: No module named pytest

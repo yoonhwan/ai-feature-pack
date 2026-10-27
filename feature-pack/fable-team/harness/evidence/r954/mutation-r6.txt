@@ -1,0 +1,5 @@
+PASS 무변이 기준 ALL PASS
+KILLED ①esc 삭제(카드 줄·사유 줄 날것) — FAIL ⓥ5 일반 rc=0 «카드 대기 0 · 진행 4(좌석 0) · 착지됐는데 진행 1» FAIL ⓥ5 --warn rc=0 «WARN 카드 흐름 — alpha 진행 4(좌석 0) · 착지됐는데 진행 1 · 이동 먼저: b.md» 
+KILLED ②대기 목록을 읽지 않고 길이만 — FAIL ⓥ6 모드«일반» rc=0 «카드 대기 1 · 진행 0(좌석 0) · 착지됐는데 진행 0» FAIL ⓥ6 모드«--warn» rc=0 «» 
+---
+ALL KILLED
