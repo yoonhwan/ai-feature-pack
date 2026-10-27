@@ -1,0 +1,35 @@
+# r843 r9 — DA r8 반례 2 닫기 (base = 49d13397 위 커밋 1 · 나노 byz-harness-nano-r843-wt-sparse-mark-write-verify#0 · 2026-10-27)
+
+오빠 결정 5 = 4번 «그 길을 없앰». «기존 설정 값을 읽어서 믿는 길» 을 지웠습니다.
+
+## 반례 → 고침
+
+| # | DA r8 반례 | 고침 |
+|---|---|---|
+| ① | 새 리포(worktreeConfig·sparse 설정 0)에서 설정 직전 실패 → ERROR·rc1 은 맞지만 **공용 worktreeConfig=true + 워크트리 sparseCheckout=true 가 남고**, 다음 실행이 풀 상태인데 «이미 sparse» 로 믿고 sparse 표식 쓰고 rc0 (`:43`·`:121`) | `_ftw_pre_capture` 가 캡처 때 `extensions.worktreeConfig` 가 **없었음**을 기록하고, `_ftw_restore` 가 그것을 되돌린다(`git config --unset extensions.worktreeConfig` + `config.worktree` 삭제). `sparse-checkout disable` 뒤에 돌므로 파일도 복원된다 → 실패 뒤 설정 «없음» 복원 |
+| ② | `git config --bool core.sparseCheckout` 이 true 를 출력하고 rc1 → rc 무시로 «이미 sparse» 로 보고 설정을 건너뜀 → 풀 상태인데 표식 sparse · ERROR 0 · rc0 (`:116`) | **`core.sparseCheckout` 을 읽는 분기 삭제** — 표식이 없으면 설정 값과 무관하게 **항상** `git sparse-checkout set --no-cone --stdin` 을 실행한다. 읽어서 믿는 자리가 없으므로 ①·② 둘 다 소멸 |
+
+### 구현상 필요한 1가지(arch 보고 사항 · 계약 문구와의 차이)
+- 「항상 set」을 글자 그대로 두면 **ft-wt-add `--team` · ft-nano-spawn 이 고른 팀 패턴이 덮여** 기존 96 PASS 중 2칸(«ft-wt-add --team → 팀 a 패턴 그대로» · «nano 꺼 sparse 꼴»)이 깨집니다(r835 r4 가 닫은 «이미 sparse(도구가 정함) → 패턴 그대로» 계약).
+- 그래서 **config 값이 아니라 «패턴 파일»(`<gitdir>/info/sparse-checkout`)만** 봅니다: 있으면(읽기 rc0 ∧ 내용 있음) 도구가 고른 패턴으로 인정해 덮지 않고 표식만 쓰고, 없으면 항상 set 합니다. 읽기 rc≠0 은 `_ftw_fail "패턴 읽기"` = fail_closed(조용히 건너뛰는 길 0).
+- **`core.sparseCheckout` 을 «판정(건너뛰기)» 에 쓰는 자리 0** — 남은 읽기는 원복용 캐처(`_ftw_pre_capture`: `--worktree`/`--local` 스코프 · `sparse-checkout disable` 전 상태 확인) 뿐이고, 어떤 분기도 그 값으로 동작을 건너뛰지 않습니다.
+
+## 시험(ⓚ ⓛ ⓜ)
+
+- **ⓚ** 새 리포(`byz3` · worktreeConfig·sparse 설정 0) + 설정 직전 실패(`<gitdir>/info` 를 일반 파일로) → rc≠0 · ERROR 1줄 · 표식 0 · `extensions.worktreeConfig` 없음 · `core.sparseCheckout` 없음(공용·워크트리) · b 팀 파일 복원. **ⓚb** 파일 치운 다음 실행 = 처음부터(sparse 적용 · `[r835]` 안내 1회).
+- **ⓛ** 설정 값이 true 인데 파일은 풀 상태(표식·패턴 파일 0) → 항상 set 실행 → 파일 sparse · 표식 sparse (읽어서 건너뛰는 길 0).
+- **ⓜ** 자리 수 가드 = 5(표식 쓰기 · pending 검증 읽기 · sparse 설정 · mv · 최종 자리 검증 읽기) · grep 대조 · 모르는 자리 0 · `core.sparseCheckout` 읽는 자리 0.
+- ⓖ0 실패 자리 전수 6칸 유지(위 5 + «기존 표식 읽기» 판정 자리).
+- 계약이 바뀌지 않은 기존 칸은 그대로: 96 PASS → **103 PASS**.
+
+## 값
+
+- green: `test_post_checkout_sparse_r835.sh` **103 PASS** 0 FAIL rc=0(변이 포함) · `test_worktree_add_gate_r835.sh` 47 PASS · `test_wt_add_r835.sh` 27 PASS · `test_disk_alarm.sh` 37 PASS
+- red: **49d13397**(r8 판) FAIL 3 — ⓚ«worktreeConfig=true 잔존» · ⓚb · ⓛ«b 남음(건너뜀)» = DA 반례 ①② 그대로 재현 · **730e2886** FAIL 45
+- 변이 **23**(전부 빨강): 신규 `r843r9-config-branch`(설정 읽기 분기 부활 → ⓛ) · `r843r9-unset-restore`(unset 원복 제거 → ⓚ) + 기존 21
+- lint: `sh -n` 1 · `/bin/bash 3.2.57 -n` 4파일 rc=0 · stamp 짝 cmp0 · manifest 1.1.256 그대로 · 훅 154줄
+- 바뀐 파일: `kit/fable-team/githooks/post-checkout` · `tests/test_post_checkout_sparse_r835.sh` · 증거 `evidence/r843/r9-*.txt`
+- press 필요: 없음(임시 리포 단위 시험만)
+
+## 범위 밖(그대로)
+- 표식 권한·폴더·심링크 판정(하드 룰 19 `_ftw_slot_bad`) · 파일명 줄바꿈·탭 · ft-team-lib.sh 변경 0.

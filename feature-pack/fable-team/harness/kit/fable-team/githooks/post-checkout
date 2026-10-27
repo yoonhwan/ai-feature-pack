@@ -22,13 +22,13 @@
 #   - 훅이 닫는 길 = checkout·switch·worktree add 뿐. reset·read-tree 같은 저수준 길은 ft-disk-alarm 하루 1회 탐지(ft-wt-mode-stamp --unmarked)
 # 기존 워크트리는 설치 때 ft-wt-mode-stamp.sh --apply 로 표식을 먼저 찍는다(다음 checkout 에 갑자기 sparse 되는 길 차단).
 _ftw_rc=0
-_ftw_pend=""; _ftw_moved=0; _ftw_drop=0; _ftw_sc_changed=0; _ftw_out=""; _ftw_wtcfg=0; _ftw_pre_wt=unset; _ftw_pre_local=unset; _ftw_pre_info=0
+_ftw_pend=""; _ftw_moved=0; _ftw_drop=0; _ftw_sc_changed=0; _ftw_out=""; _ftw_wtcfg=0; _ftw_pre_wtcfg_absent=0; _ftw_pre_wt=unset; _ftw_pre_local=unset; _ftw_pre_info=0
 _ftw_read() {  # <파일> — rc 와 출력을 «둘 다» 본다(rc≠0 = 실패) · _ftw_out 에 값을 남긴다
   _ftw_out="$(cat "$1" 2>/dev/null)"; [ "$?" = 0 ]
 }
 _ftw_pre_capture() {  # 설정 전 값 — «스코프별»(워크트리·공용) 로 읽는다 · 공용 설정 쓰기 0 을 지키려면 섞으면 안 된다
   _ftw_wtcfg=0
-  [ "$(git config --bool extensions.worktreeConfig 2>/dev/null)" = true ] && _ftw_wtcfg=1
+  if [ "$(git config --bool extensions.worktreeConfig 2>/dev/null)" = true ]; then _ftw_wtcfg=1; else _ftw_pre_wtcfg_absent=1; fi
   if [ "$_ftw_wtcfg" = 1 ]; then
     _ftw_pre_wt="$(git config --worktree --bool core.sparseCheckout 2>/dev/null)"; [ -n "$_ftw_pre_wt" ] || _ftw_pre_wt=unset
   fi
@@ -48,6 +48,11 @@ _ftw_restore() {  # 원복은 «값이 달라진 스코프» 만 — 워크트�
     else git config --"$_fp" --bool core.sparseCheckout "$_fv" 2>/dev/null; fi
   done
   [ "$_ftw_pre_info" = 1 ] || rm -f "$_gd/info/sparse-checkout" 2>/dev/null
+  # r843 r9: 캐치 때 extensions.worktreeConfig 가 «없었으면» 그것도 «없음» 으로 되돌린다(우리가 켜진 것을 남기면 다음 실행이 풀 상태를 sparse 로 믿는다)
+  if [ "$_ftw_pre_wtcfg_absent" = 1 ] && [ "$(git config --bool extensions.worktreeConfig 2>/dev/null)" = true ]; then
+    git config --unset extensions.worktreeConfig 2>/dev/null
+    rm -f "$_gd/config.worktree" 2>/dev/null
+  fi
 }
 _ftw_fail() {  # <단계> <사유> — 반쪽 상태를 남기지 않는 «한 자리»: pending 삭제 · (옮겼거나 읽기 실패한) 표식 삭제 · 설정 원복 · rc1 + ERROR 1줄
   [ -z "$_ftw_pend" ] || rm -rf "$_ftw_pend" 2>/dev/null
@@ -76,6 +81,12 @@ _ftw_commit() {  # <값> — 설정이 rc0 인 «뒤» 최종 자리로 mv 1회 
   return 0
 }
 _ftw_len() { python3 -c 'import sys; print(len(sys.argv[1].strip()))' "$1" 2>/dev/null || echo 0; }
+_ftw_tool_patterns() {  # 도구가 이미 고른 패턴 파일(info/sparse-checkout)判别 — 0 = 있음(그대로 쓴다) · 2 = 없음 · 1 = 읽기 실패(fail_closed 기록)
+  [ -e "$_gd/info/sparse-checkout" ] || return 2
+  _ftw_read "$_gd/info/sparse-checkout" || { _ftw_fail "패턴 읽기" "info/sparse-checkout 을 못 읽어0 생성 패턴을 판단할 수 없음"; return 1; }
+  [ -n "$_ftw_out" ] || return 2
+  return 0
+}
 _ftw_slot_bad() {  # <이유> — 표식이 «일반 파일이 아님»(심링크·폴더) = ERROR + rc1 · 상태 변경 0 · 값·읽기 문제는 _ftw_fail 로 간다
   echo "ERROR ft-wt-mode 표식 자리 이상 $_mark — $1 · 체크아웃 상태 그대로(다음 checkout 마다 같은 ERROR · 손으로 고치거나 지워라)" >&2
   _ftw_rc=1
@@ -95,8 +106,6 @@ if [ "${FT_R835_SPARSE_HOOK:-0}" != 1 ] && [ -n "$_top" ]; then
   _gd="$(git rev-parse --path-format=absolute --git-dir 2>/dev/null)"
   _mark="$_gd/ft-wt-mode"
   _ftw_pre_capture
-  _ftw_pre_sc="$(git config --bool core.sparseCheckout 2>/dev/null)"; [ -n "$_ftw_pre_sc" ] || _ftw_pre_sc=unset
-  [ ! -e "$_gd/info/sparse-checkout" ] || _ftw_pre_info=1
   case "$_topr" in
     "$_root"/.worktrees/*)
       if [ -n "$_root" ] && [ -d "$_root/design/teams" ]; then
@@ -113,12 +122,13 @@ if [ "${FT_R835_SPARSE_HOOK:-0}" != 1 ] && [ -n "$_top" ]; then
                   && printf '%s · %s · %s · %s\n' "$(date '+%F %T')" "${_seat:-?}" "$_topr" "$FT_WT_FULL" >> "$_root/.fable-team/state/wt-add-full.log"
                 echo "[r835] FT_WT_FULL — 풀 체크아웃 유지 · 표식 $_mark" >&2
               fi
-            elif [ "$(git config --bool core.sparseCheckout 2>/dev/null)" = true ]; then
-              _ftw_pending sparse && _ftw_commit sparse
             else
               [ -z "${FT_WT_FULL:-}" ] || echo "  FT_WT_FULL 사유 짧음(${_n}자 · 10자 이상) — 무시하고 sparse" >&2
-              if _ftw_pending sparse; then
-                if printf '/*\n!/design/teams/*/\n' | git sparse-checkout set --no-cone --stdin >/dev/null 2>&1; then
+              _ftw_tool_patterns; _tp=$?
+              if [ "$_tp" != 1 ] && _ftw_pending sparse; then
+                if [ "$_tp" = 0 ]; then  # 도구(ft-wt-add --team · ft-nano-spawn)가 고른 패턴 — 덮지 않고 표식만
+                  _ftw_commit sparse && echo "  도구가 고른 sparse 패턴 그대로(남의 팀 폴더 0 은 그 도구 몫) · $_topr" >&2
+                elif printf '/*\n!/design/teams/*/\n' | git sparse-checkout set --no-cone --stdin >/dev/null 2>&1; then
                   _ftw_sc_changed=1
                   if _ftw_commit sparse; then
                     echo "[r835] 팀 워크트리를 sparse 로 정함(남의 팀 폴더 0) · $_topr" >&2

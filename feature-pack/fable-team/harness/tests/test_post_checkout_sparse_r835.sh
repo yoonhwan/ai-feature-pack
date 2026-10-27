@@ -285,8 +285,8 @@ nohook_wt s3; touch "$(gd "$B/.worktrees/s3")/info"; git -C "$B/.worktrees/s3" c
 nohook_wt s4; S4M="$(gd "$B/.worktrees/s4")/ft-wt-mode"; (cd "$B/.worktrees/s4" && "$DENY" -p "$(deny_at "$S4M")" git checkout -q -b s4a) >"$T/o" 2>"$T/e"; site_ok "표식 mv" "$B/.worktrees/s4" $?
 nohook_wt s5; PATH="$T/fcat:$PATH" git -C "$B/.worktrees/s5" checkout -q -b s5a >"$T/o" 2>"$T/e"; site_ok "최종 자리 검증 읽기" "$B/.worktrees/s5" $?
 nohook_wt s6; printf 'sparse\n' > "$(gd "$B/.worktrees/s6")/ft-wt-mode"; chmod 200 "$(gd "$B/.worktrees/s6")/ft-wt-mode"; git -C "$B/.worktrees/s6" checkout -q -b s6a >"$T/o" 2>"$T/e"; site_ok "기존 표식 읽기" "$B/.worktrees/s6" $?
-SITES=$(grep -cE 'printf .%s\\n. "\$1" > "\$_ftw_pend|mv "\$_ftw_pend|_ftw_read "\$_ftw_pend|_ftw_read "\$_mark"|git sparse-checkout set ' "$HOOK")
-[ "$SITES" = 6 ] && ok "자리 수 = 6(쓰기·검증읽기·설정·mv·최종읽기·기존표식읽기) · 모르는 자리 0" || bad "자리 수 grep=$SITES (기대 6)"
+SITES=$(grep -cE 'printf .%s\\n. "\$1" > "\$_ftw_pend|mv "\$_ftw_pend|_ftw_read "\$_ftw_pend|_ftw_read "\$_mark" && |git sparse-checkout set ' "$HOOK")
+[ "$SITES" = 5 ] && ok "ⓜ 자리 수 = 5(쓰기·검증읽기·설정·mv·최종읽기) · 모르는 자리 0 · 설정 값(config) 을 읽어 믿는 자리 0" || bad "ⓜ 자리 수 grep=$SITES (기대 5)"
 # DA① 설정 원복은 워크트리만 — extensions.worktreeConfig · 공용(local)=true · 워크트리=false
 B2="$T/byz2"; git init -q -b main "$B2"; git -C "$B2" config user.name t; git -C "$B2" config user.email t@t; git -C "$B2" config core.hooksPath "$T/hooks"; git -C "$B2" config extensions.worktreeConfig true
 mkdir -p "$B2/.beads/hooks"; printf '#!/bin/sh\nexit 0\n' > "$B2/.beads/hooks/post-checkout"; chmod +x "$B2/.beads/hooks/post-checkout"
@@ -315,6 +315,33 @@ PATH="$T/rc1cat:$PATH" git -C "$B/.worktrees/o2" checkout -q -b o2a >"$T/o" 2>"$
 git -C "$B/.worktrees/o2" checkout -q -b o2b >"$T/o" 2>"$T/e"; rc=$?
 [ "$rc" = 0 ] && sparse_on "$B/.worktrees/o2" && [ "$(mark "$B/.worktrees/o2")" = sparse ] && [ "$(r835_n)" = 1 ] \
   && ok "ⓖ3b 다음 실행은 처음부터(표식 없음 → sparse 적용 · 안내 1회)" || bad "ⓖ3b rc=$rc 표식=$(mark "$B/.worktrees/o2") · $(head -c 200 "$T/e")"
+# ⓚ DA(r9) ① — worktreeConfig·sparse 설정이 하나도 없는 새 리포 + 설정 직전 실패 → 설정 «없음» 복원(우리가 켠 worktreeConfig 도 끔) · 다음 실행 처음부터
+nohook_wt k1; K1M="$(gd "$B/.worktrees/k1")/ft-wt-mode"
+B3="$T/byz3"; git init -q -b main "$B3"; git -C "$B3" config user.name t; git -C "$B3" config user.email t@t; git -C "$B3" config core.hooksPath "$T/hooks"
+mkdir -p "$B3/.beads/hooks"; printf '#!/bin/sh\nexit 0\n' > "$B3/.beads/hooks/post-checkout"; chmod +x "$B3/.beads/hooks/post-checkout"
+echo x > "$B3/README.md"; for t in a b c; do mkdir -p "$B3/design/teams/$t"; echo "$t" > "$B3/design/teams/$t/f.md"; done; git -C "$B3" add -A; git -C "$B3" commit -qm init
+git -C "$B3" -c core.hooksPath=/dev/null worktree add -q "$B3/.worktrees/k1" -b k1 main 2>/dev/null
+K1GD="$(git -C "$B3/.worktrees/k1" rev-parse --path-format=absolute --git-dir)"; K1M="$K1GD/ft-wt-mode"
+[ "$(git -C "$B3" config --get extensions.worktreeConfig 2>/dev/null; echo rc=$?)" = "rc=1" ] && [ "$(git -C "$B3" config --local --get core.sparseCheckout 2>/dev/null; echo rc=$?)" = "rc=1" ] \
+  && ok "ⓚ0 사전: 새 리포(byz3) 에 worktreeConfig·core.sparseCheckout 없음(설정 0)" || bad "ⓚ0 사전 상태 — worktreeConfig=$(git -C "$B3" config --get extensions.worktreeConfig 2>&1) sparse=$(git -C "$B3" config --local --get core.sparseCheckout 2>&1)"
+touch "$K1GD/info"
+git -C "$B3/.worktrees/k1" checkout -q -b k1a >"$T/o" 2>"$T/e"; rc=$?
+[ "$rc" != 0 ] && [ "$(grep -c '^ERROR ft-wt-mode' "$T/e")" = 1 ] && [ ! -e "$K1M" ] \
+  && [ "$(git -C "$B3" config --get extensions.worktreeConfig 2>/dev/null; echo rc=$?)" = "rc=1" ] && [ "$(git -C "$B3" config --local --get core.sparseCheckout 2>/dev/null; echo rc=$?)" = "rc=1" ] \
+  && [ "$(git -C "$B3/.worktrees/k1" config --bool core.sparseCheckout 2>/dev/null; echo rc=$?)" = "rc=1" ] && here "$B3/.worktrees/k1/design/teams/b/f.md" \
+  && ok "ⓚ DA① 설정 0 + 설정 직전 실패 → rc≠0 · ERROR 1줄 · 표식 0 · worktreeConfig/설정 «없음» 복원(우리가 켠 것도 끔)" || bad "ⓚ rc=$rc wtcfg=$(git -C "$B3" config --get extensions.worktreeConfig 2>&1) sparse=$(git -C "$B3" config --local --get core.sparseCheckout 2>&1) · $(head -c 200 "$T/e")"
+rm -f "$K1GD/info"
+git -C "$B3/.worktrees/k1" checkout -q -b k1b >"$T/o" 2>"$T/e"; rc=$?
+[ "$rc" = 0 ] && sparse_on "$B3/.worktrees/k1" && [ "$(cat "$K1M" 2>/dev/null)" = sparse ] && grep -q '\[r835\]' "$T/e" && ! here "$B3/.worktrees/k1/design/teams/b" \
+  && ok "ⓚb 다음 실행 = 처음부터(설정 0 에서 표식 없음 → sparse 적용 · 안내 1회)" || bad "ⓚb rc=$rc 표식=$(cat "$K1M" 2>/dev/null) · $(head -c 200 "$T/e")"
+# ⓛ DA(r9) ② — 설정 값이 true 인데 파일은 풀 상태(표식·패턴 파일 없음) → 읽어서 건너뛰는 길 0 · 항상 set
+nohook_wt l1; L1M="$(gd "$B/.worktrees/l1")/ft-wt-mode"; git -C "$B" config core.sparseCheckout true
+here "$B/.worktrees/l1/design/teams/b/f.md" && [ ! -e "$(gd "$B/.worktrees/l1")/info/sparse-checkout" ] && [ -z "$(mark "$B/.worktrees/l1")" ] \
+  && ok "ⓛ0 사전: 설정 true · 파일은 풀 · 패턴 파일 0 · 표식 0" || bad "ⓛ0 사전 — b=$(here "$B/.worktrees/l1/design/teams/b/f.md" && echo 있음) 패턴파일=$([ -e "$(gd "$B/.worktrees/l1")/info/sparse-checkout" ] && echo 있음 || echo 0) mark=$(mark "$B/.worktrees/l1")"
+git -C "$B/.worktrees/l1" checkout -q -b l1a >"$T/o" 2>"$T/e"; rc=$?
+[ "$rc" = 0 ] && sparse_on "$B/.worktrees/l1" && [ "$(mark "$B/.worktrees/l1")" = sparse ] && ! here "$B/.worktrees/l1/design/teams/b" && [ "$(r835_n)" = 1 ] \
+  && ok "ⓛ DA② 설정 값 true 를 «믿고 건너뛰는 길» 0 — 항상 set 실행 → 파일 sparse · 표식 sparse" || bad "ⓛ rc=$rc 표식=$(mark "$B/.worktrees/l1") b=$(here "$B/.worktrees/l1/design/teams/b/f.md" && echo 있음) · $(head -c 200 "$T/e")"
+git -C "$B" config --unset core.sparseCheckout 2>/dev/null
 
 echo "== 결과: FAIL=$fail"
 [ "${R835_MUT:-0}" = 1 ] && exit $((fail > 0))
@@ -343,6 +370,9 @@ mutate r843r5-full-swallow "$SRC" R835_HOOK 'if _ftw_pending "full $FT_WT_FULL" 
 mutate r843r6-fail-noop "$SRC" R835_HOOK '  if [ "$_ftw_moved" = 1 ] || [ "$_ftw_drop" = 1 ]; then rm -f "$_mark" 2>/dev/null; fi
   _ftw_restore' '  :' 'ⓡ7'
 mutate r843r5-value-reinterpret "$SRC" R835_HOOK 'if [ -f "$_mark" ] && [ -r "$_mark" ] && _ftw_read "$_mark"; then return 0; fi' "if head -n 1 \"\$_mark\" 2>/dev/null | grep -qx 'sparse\|legacy-full'; then return 0; fi" 'ⓔ4'
+mutate r843r9-config-branch "$SRC" R835_HOOK '              _ftw_tool_patterns; _tp=$?' '              if [ "$(git config --bool core.sparseCheckout 2>/dev/null)" = true ]; then _tp=0; else _ftw_tool_patterns; _tp=$?; fi' 'ⓛ'
+mutate r843r9-unset-restore "$SRC" R835_HOOK '    git config --unset extensions.worktreeConfig 2>/dev/null
+    rm -f "$_gd/config.worktree" 2>/dev/null' '    :' 'ⓚ'
 mutate r843r8-read-branch-back "$SRC" R835_HOOK '_ftw_drop=1; _ftw_fail "표식 읽기" "표식 자리 있음인데 못 읽음(rc≠0 또는 일반 파일 아님) $_mark"; return 1' '_ftw_slot_bad "못 읽음"; return 1' 'ⓖ3'
 mutate r843r8-shared-write "$SRC" R835_HOOK '    if [ "$_fp" = worktree ]; then [ "$_ftw_wtcfg" = 1 ] || continue; _fv="$_ftw_pre_wt"
     else _fv="$_ftw_pre_local"; fi' '    _fv="$_ftw_pre_wt"; [ "$_fv" != unset ] || _fv="$_ftw_pre_local"' 'ⓖ1'

@@ -1,0 +1,2 @@
+syntax rc=0
+cmp rc=0
