@@ -1,0 +1,119 @@
+== 키트 2곳 같은 바이트 + bash -n(3.2)
+PASS cmp ft-nano-close.sh (bin == kit)
+PASS /bin/bash -n ft-nano-close.sh (3.2)
+PASS cmp ft-merge-lib.sh (bin == kit)
+PASS /bin/bash -n ft-merge-lib.sh (3.2)
+== ⓐ 정상 대역 → CLOSED · stderr 에 단계마다 «STEP <이름> +<초>s» · stdout 0줄
+PASS ⓐ rc=0 · CLOSED
+PASS   └ STEP ⑥증거검사 줄 있음
+PASS   └ STEP ⑤cherry 줄 있음
+PASS   └ STEP sheet 줄 있음
+PASS   └ STEP ledger 줄 있음
+PASS   └ STEP slots 줄 있음
+PASS   └ STEP 줄은 stderr 전용(stdout 회귀 0)
+PASS   └ ④ 면제 WARN 뒤에 단계 줄이 이어진다(실측 그 자리)
+PASS   └ 첫 단계는 ⑥증거검사(가장 먼저)
+PASS   └ 정상 대역 STEP 5줄(⑥·⑤·sheet·ledger·slots)
+PASS   └ 총 소요 2s < 20s(정상 대역)
+== ⓑ fetch 대역 30초 → 7초 + 재시도 1 뒤 «origin/main fetch 시간 초과» · 옛 ref 대조 0 · 총 ≤ 20초
+PASS ⓑ REJECT + «origin/main fetch 시간 초과»
+PASS   └ 옛 ref 대조 0 문구
+PASS   └ fetch 실패 뒤 두 번째 게이트 호출 0(옛 ref 대조 0)
+PASS   └ 총 소요 16s ≤ 20초(7초 + 재시도 1)
+PASS   └ CLOSED 0
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+PASS   └ 카드 ref fetch 도 7초+재시도 1(옛 판 안 읽음)
+PASS   └ 카드 ref fetch 총 소요 15s ≤ 20초
+== ⓒ 증거 검사 대역 90초 → 상한(≈11초) 뒤 REJECT «⑥증거 검사 시간 초과 — 닫지 않음»
+FAIL ⓒ rc=0 ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.qnT5OPCpmj/bin
+WARN ④checkpoint 면제 — 나노 브랜치에 press 산출 0(poller_dom.jsonl 없음)
+STEP ⑥증거검사 +0s
+
+STEP ⑤cherry +91s
+OK cherry 게이트 — nano/ns 의 모든 커밋이 main 에 patch 단위로 존재(+ 0)
+STEP sheet +91s
+STEP ledger +91s
+워크트리 정리 계획: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.qnT5OPCpmj/wtclean/byz-planner-nano-ns#0.sh (실행은 세션 kill 직후 — 미완이면 ft-wt-sweep.sh)
+reap byz-planner-nano-ns#0 stopped=0 left=0 rc=0
+CLOSED byz-planner-nano-ns#0 (명부 삭제 · 원장 append) — 좌석은 정지 레디 · reap left=0 rc=0
+STEP slots +91s
+SLOTS
+KILLED byz-planner-nano-ns#0 (@zc_v65_active 해제 · 세션 kill · 브랜치 보존)
+FAIL   └ «닫지 않음» 문구 — 없음: «— 닫지 않음» ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.qnT5OPCpmj/bin
+WARN ④checkpoint 면제 — 나노 브랜치에 press 산출 0(poller_dom.jsonl 없음)
+STEP ⑥증거검사 +0s
+
+STEP ⑤cherry +91s
+OK cherry 게이트 — nano/ns 의 모든 커밋이 main 에 patch 단위로 존재(+ 0)
+STEP sheet +91s
+STEP ledger +91s
+워크트리 정리 계획: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.qnT5OPCpmj/wtclean/byz-planner-nano-ns#0.sh (실행은 세션 kill 직후 — 미완이면 ft-wt-sweep.sh)
+reap byz-planner-nano-ns#0 stopped=0 left=0 rc=0
+CLOSED byz-planner-nano-ns#0 (명부 삭제 · 원장 append) — 좌석은 정지 레디 · reap left=0 rc=0
+STEP slots +91s
+SLOTS
+KILLED byz-planner-nano-ns#0 (@zc_v65_active 해제 · 세션 kill · 브랜치 보존)
+FAIL   └ 총 소요 92s — 상한이 안 걸렸다
+FAIL   └ CLOSED 0 — 있으면 안 됨: «CLOSED»
+FAIL ⓒ⑥: tmux 변경
+FAIL ⓒ⑥: 명부 삭제
+FAIL ⓒ⑥: 원장 행 생김
+== ⓒ cherry 게이트 대역 90초 → 상한 뒤 REJECT «⑤cherry 게이트 시간 초과 — 닫지 않음» · 뒤 단계 0
+FAIL ⓒ' rc=0 ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.qnT5OPCpmj/bin
+WARN ④checkpoint 면제 — 나노 브랜치에 press 산출 0(poller_dom.jsonl 없음)
+STEP ⑥증거검사 +1s
+OK 증거 줄 — 세트 HEAD 131408fb8 · 시험 rc=0 · 이슈 0
+STEP ⑤cherry +1s
+
+STEP sheet +91s
+STEP ledger +91s
+워크트리 정리 계획: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.qnT5OPCpmj/wtclean/byz-planner-nano-ns#0.sh (실행은 세션 kill 직후 — 미완이면 ft-wt-sweep.sh)
+reap byz-planner-nano-ns#0 stopped=0 left=0 rc=0
+CLOSED byz-planner-nano-ns#0 (명부 삭제 · 원장 append) — 좌석은 정지 레디 · reap left=0 rc=0
+STEP slots +91s
+SLOTS
+KILLED byz-planner-nano-ns#0 (@zc_v65_active 해제 · 세션 kill · 브랜치 보존)
+PASS   └ 상한 초과 뒤 두 번째 게이트 호출 0
+PASS   └ 상한 초과 → freshness 단계 0
+FAIL   └ 총 소요 91s — 상한이 안 걸렸다
+FAIL   └ CLOSED 0 — 있으면 안 됨: «CLOSED»
+FAIL ⓒ⑤: tmux 변경
+FAIL ⓒ⑤: 명부 삭제
+FAIL ⓒ⑤: 원장 행 생김
+== ⓒ freshness 대역 90초 → 상한 뒤 «⑤-생애 freshness 시간 초과» · REJECT
+FAIL ⓒ freshness 상한 → REJECT — 없음: «⑤-생애 freshness 시간 초과» ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.qnT5OPCpmj/bin
+WARN ④checkpoint 면제 — 나노 브랜치에 press 산출 0(poller_dom.jsonl 없음)
+STEP ⑥증거검사 +0s
+OK 증거 줄 — 세트 HEAD 131408fb8 · 시험 rc=0 · 이슈 0
+STEP ⑤cherry +1s
+STEP fetch +1s
+STEP freshness +1s
+REJECT byz-planner-nano-ns#0
+  - ⑤REJECT cherry-gate 대역
+    origin/main 기준: REJECT cherry-gate 대역
+  - ⑤-생애 
+FAIL   └ 총 소요 91s — 상한이 안 걸렸다
+PASS   └ CLOSED 0
+PASS   └ kill·태그 해제 0
+PASS   └ 명부 그대로
+PASS   └ 닫힘 원장 행 0
+== ⓓ 정상 대역(모두 즉시) → 지금과 같은 결과(닫힘 · 사람 출력 꼴 그대로)
+PASS ⓓ 즉시 대역 → CLOSED
+PASS   └ 마지막 slots 단계까지 감
+PASS   └ 시간 초과 0
+PASS   └ 원장 닫힘 행 1줄
+PASS   └ 세션 kill
+== ⓔ 실측 재현 — 카드 인자 꼴(--result · --recv · role=nano · press 산출 0)에서 STEP 줄이 끝까지
+PASS   └ press 산출 0(나노 좌석)
+PASS ⓔ ④ 면제 자리(실측 마지막 줄) 재현
+PASS   └ STEP 5줄 끝까지(slots 포함)
+== ⓕ 상한 계산 = min(고정비 + 7×배수, 70) · 600/300초 0 · 외부 호출 0
+PASS   └ nf_cap 1=11 · 2=18 · 20=70(최대 70)
+PASS 600/300 숫자 0
+PASS 외부 호출 0
+PASS   └ 무상한 git fetch 0(전부 nf_fetch 경유)
+
+FAILED 15
+REAL-STATE-GUARD PASS 실 루트 없음(cwd=/tmp/r938pre/harness)

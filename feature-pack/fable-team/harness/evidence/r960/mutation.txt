@@ -1,0 +1,32 @@
+# r5 변이 4종 · 2026-10-26 23:09:05 — 각 변이가 대응 시험을 실제로 무너뜨리는지(변이 적용 → 그 시험 칸이 기대와 반대)
+# 실행 = bash tests/test_seat_close_pi_resume_r960.sh (변이는 시험 안에서 임시 사본에 적용 — 작업트리 원본 불변)
+
+1) ft_roster_lib.py: cand = [arg] if arg else [env] if env else files  →  cand = files   (확정 되살림 = 루트 글롭)
+   결과: ⓦr5-1 불일치 REJECT 0 (기대 1) → ⓦr5-1 FAIL
+
+2) ft_roster_lib.py: if (a, r) != (a2, r2):  →  if False and ...   (불일치 무시 = 확정 파일로 진행)
+   결과: ⓦr5-1 불일치 REJECT 0 (기대 1) → ⓦr5-1 FAIL
+
+3) ft-seat-close.sh: ${SEATS_FILE:+--seats "$SEATS_FILE"}  →  ${ARG:+--seats "$ARG"}   (자식에 조건부)
+   결과: 스텁이 받은 --seats 0 (기대 1) → ⓦr5-3 FAIL
+
+4) ft-seat-close.sh: rec="$RECF"  →  rec="$HOME/.claude/state/seat-resume/$SEAT.json"   (lineage 경로 자체 계산)
+   결과: ZC_RESUME_DIR 기록을 못 봐 kill=held (기대 kill=ok rc 0) → ⓦr5-4 FAIL
+
+## 시험 출력 원문(변이 칸 · 전부 PASS = 변이가 실제로 시험을 깨뜨렸다)
+PASS 변이 표지 r960-mut:pi 1줄
+PASS 변이 표지 agent 칸 판정 1줄
+PASS 변이 표지 finish NORECORD 줄 1줄
+PASS ⓡ 변이 «수용 뒤 출력 생략» → NORECORD 줄 0 (ⓡ FAIL)
+PASS 변이 표지 r960-mut:firstline 1줄
+PASS ⓢ 변이 «첫 줄만» → model 못 읽음(ⓢ FAIL)
+PASS 변이 표지 죽은 갈래 finish 앞 exit 1줄
+PASS ⓣ 변이 «죽은 갈래 exit 를 함수 앞에» → NORECORD 줄 0 (ⓣ FAIL)
+PASS 변이 표지 확정 되살림(루트 글롭) 1줄
+PASS ⓦr5-1 변이 «루트 글롭 되살림» → 불일치 REJECT 0 (ⓦr5-1 FAIL)
+PASS 변이 표지 불일치 무시 1줄
+PASS ⓦr5-1 변이 «불일치 때 확정으로 진행» → 불일치 REJECT 0 (ⓦr5-1 FAIL)
+PASS 변이 표지 자식 --seats 조건부 1줄
+PASS ⓦr5-3 변이 «자식에 조건부» → 스텁이 받은 --seats 0 (ⓦr5-3 FAIL)
+PASS 변이 표지 lineage 경로 자체 계산 1줄
+PASS ⓦr5-4 변이 «경로 자체 계산» → kill=held (ⓦr5-4 FAIL)

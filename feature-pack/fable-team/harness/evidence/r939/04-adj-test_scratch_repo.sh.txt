@@ -1,0 +1,25 @@
+PASS ⓐ 사본 생성(detach worktree) · 경로 출력 · 등록 줄(경로·주인·시각)
+PASS ⓐ 요청한 sha 그대로
+PASS ⓑ 주인 세션 살아 있으면 보고 대상 아님
+PASS ⓒ 주인 세션 없는 사본만 보고
+PASS ⓓ --summary 한 줄
+PASS ⓔ TMPDIR tmp.* 는 24h 지난 것만
+PASS ⓔ 요약에 합산(2개)
+PASS ⓕ --report 는 삭제 0
+PASS ⓖ --done = worktree 제거 + 등록 줄 삭제
+PASS ⓖ git worktree 목록에서도 제거
+PASS ⓗ 등록 안 된 경로는 --done 거부
+PASS ⓙ 등록 파일 없어도 --report 정상
+PASS ⓚ 첫 --sweep = 목록 보고만 · 실삭제 0
+PASS ⓛ 둘째 --sweep = 주인 없는 사본·24h 지난 tmp.* 삭제
+PASS ⓜ 주인 살아 있는 사본·새 tmp.* 는 남음
+PASS ⓛ git worktree 목록에서도 제거
+PASS ⓝ 지울 것 없으면 출력 0
+PASS ⓞ 주인 없음+등록 25시간 → 후보(판정 1920 · r548 이 r444 문턱 0 을 되돌림)
+PASS ⓟ tmux 목록 실패 → 등록 사본 후보 0 + ERROR
+PASS ⓟ tmux 실패여도 tmp.* 판정은 계속
+PASS ⓟ tmux 실패 중 --sweep = ERROR 1줄(stdout) + 삭제 0(tmp.* 포함 · r444)
+PASS ⓠ 주인 '-' → 등록 거부 rc≠0 · worktree 0
+PASS ⓘ 없는 ref → 실패 rc≠0(조용한 성공 0)
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

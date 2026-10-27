@@ -1,0 +1,11 @@
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.qnT5OPCpmj/bin
+WARN ④checkpoint 면제 — 나노 브랜치에 press 산출 0(poller_dom.jsonl 없음)
+STEP ⑥증거검사 +0s
+OK 증거 줄 — 세트 HEAD 131408fb8 · 시험 rc=0 · 이슈 0
+STEP ⑤cherry +1s
+STEP fetch +1s
+STEP freshness +1s
+REJECT byz-planner-nano-ns#0
+  - ⑤REJECT cherry-gate 대역
+    origin/main 기준: REJECT cherry-gate 대역
+  - ⑤-생애 

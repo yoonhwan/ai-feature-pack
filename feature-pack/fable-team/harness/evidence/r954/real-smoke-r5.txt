@@ -1,0 +1,13 @@
+== 실데이터 스모크(r5 · 읽기 전용) ==
+root=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-ops
+[harness] 카드 대기 46 · 진행 19(좌석 1) · 착지됐는데 진행 0 real 0.13 user 0.07 sys 0.07 
+[v65] 카드 대기 132 · 진행 36(좌석 0) · 착지됐는데 진행 0 real 0.08 user 0.04 sys 0.02 
+[ops] 카드 숫자 확인 불가(카드 폴더 없음 또는 못 읽음(/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-ops/design/ops/indices)) — ops real 0.01 user 0.00 sys 0.01 
+
+== r4 판(보존 사본) 과 같은 숫자인가 ==
+[harness] r4: 카드 대기 46 · 진행 19(좌석 1) · 착지됐는데 진행 0
+[harness] r5: 카드 대기 46 · 진행 19(좌석 1) · 착지됐는데 진행 0
+[v65] r4: 카드 대기 132 · 진행 36(좌석 0) · 착지됐는데 진행 0
+[v65] r5: 카드 대기 132 · 진행 36(좌석 0) · 착지됐는데 진행 0
+[ops] r4: 카드 숫자 확인 불가(카드 폴더 없음) — ops
+[ops] r5: 카드 숫자 확인 불가(카드 폴더 없음 또는 못 읽음(/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-ops/design/ops/indices)) — ops

@@ -1,0 +1,29 @@
+r844 재설계 r5 (REWORK-r844-r4 · 외부 DA r3 HOLD 2) — 구현·시험 요약
+카드: design/harness/indices/진행/r844-wt-sweep-git-env-and-error-kind.md §재설계 r5
+좌석: byz-harness-nano-r844-wt-sweep-git-env-and-error-kind#0 · 2026-10-27
+가지: nano/r844-wt-sweep-git-env-and-error-kind-r2 (팩 origin/main 44aa6978 위 squash 1)
+
+고친 것 (kit/fable-team/bin/ft-wt-sweep.sh + 짝 harness/bin, cmp0)
+ ⓐ 시작(자동 스캔 루트 결정 «전», 113행 앞)에서 GIT_DIR·GIT_WORK_TREE·GIT_INDEX_FILE·GIT_COMMON_DIR unset + LC_ALL=C
+    → 물려받은 값이 WT·ROOT 결정을 다른 리포로 돌리지 않는다(DA r3 반례 2)
+ ⓑ shell_scan: worktree list 를 cap 아래에서 «받아» rc≠0/시간 초과 = 그 회차 판정 생략(NOTE 1줄 · 서명 그대로)
+    ls-tree 실패(rc≠0 · 시간 초과 · SHA 0/빈 값) = 그 폴더 «판정 못 함»(이전 서명 이어받기 · 후보에서 빼지 않음)
+    NOTE 1줄 «껍데기 판정 못 함 N곳(ls-tree 실패 K곳 …)» · 서명 지우기 0
+    → 권한 실패로 서명이 사라져 같은 경보가 반복되던 길(DA r3 반례 1)이 닫힘
+
+시험 (harness/tests/test_wt_shell_scan_live_seat_r832.sh 에 칸 추가 · 기존 칸 그대로)
+ r5 반례 1 칸: Q 껍데기 → 경보+서명 · .git/worktrees/Q/HEAD 000 = worktree list SHA 0 → ls-tree 실패
+   단언: SKIP «판정 못 함(ls-tree 실패…)» · [HIL] 0 · NOTE 1줄(«ls-tree 실패 1곳») · 서명 = 1회차 · 복구 회차 경보 0 · 서명 같음
+ r5 반례 2 칸: FT_WT_SCAN_ROOT 없이 다른 리포 GIT_* 4개 물려받고 워크트리 폴더에서 실행
+   단언: B SKIP «미커밋 2» · C 경보 · 서명 = env 없는 회차와 같음
+ r5 추가 칸: worktree list rc≠0 → 경보 0 · NOTE 1줄 · 서명 그대로
+
+값
+ 초록: 144 passed ×4 rc=0 (green-run1~4.txt · 기존 128 + 새 16)
+ 빨강(r3 판 0789d087 코드 = /tmp/r844-r3base): FAIL 10 — r5 칸 전부(red-r3-pan.txt)
+   그중 «물려받은 GIT_* 에 C 경보 없음(남의 리포를 봄)» = DA r3 반례 2 그대로 재현 · SHA 0 회차 [HIL] 경보 = 반례 1 재현
+ 변이 1(unset 을 루트 결정 «뒤»로): FAIL 3 — 반례 2 칸 3개(mut-1-unset-after-root.txt)
+ 변이 2(ls-tree 실패 = 후보 제외): FAIL 5 — 반례 1 칸 5개(mut-2-ls-tree-skip.txt)
+ 기존 시험: test_wt_clean_two_stage 62/0 · test_ft_wt_sweep_route_timeout 38/0 · test_wt_sweep_budget_replan_r535 50/0
+   · test_finished_cleanup_auto 29 PASS + FAIL 1(«ⓒ swept [] … ERROR tmux unreadable») = r3 판과 «같은 1줄»(회귀 아님 · existing-*.txt)
+ 짝 사본 cmp0 · bash -n 통과 · press 필요: 없음

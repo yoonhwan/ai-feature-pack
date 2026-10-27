@@ -1,0 +1,15 @@
+# /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents  (base=origin/main)
+## du .git
+8508624	/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.git
+## count-objects -vH
+count: 22935
+size: 197.13 MiB
+in-pack: 692091
+packs: 5
+size-pack: 4.52 GiB
+prune-packable: 390
+garbage: 0
+size-garbage: 0 bytes
+## pack 파일 수
+5
+## 잔재(tmp_pack·tmp_obj) — 크기KiB·수정시각·쥔 프로세스

@@ -1,0 +1,26 @@
+# r874 r3 (재설계 · arch 151) — 증거 요약
+# 카드: design/harness/indices/진행/r874-ft-tick-six-daemons-load.md §재설계 r3 (3항목)
+# base = 보존 가지 nano/r874-ft-tick-six-daemons-load 세트 c74e9a11 (origin/main ba445cce 위 squash 1커밋) · 이 커밋은 그 위 amend 1커밋
+
+## 1. 무엇을 고쳤나 (항목 3개만)
+1) stamp 쓰기 = 함수 1개 `write_stamp` (같은 폴더 임시 파일 `$f.tmp.$$` + `mv` 원자 교체) · stamp 경로 쓰기 전부 이 함수(리다이렉션 직접 쓰기 0)
+   - 대상: `stamp_of` 로 만든 모든 `.last`·`.count`(noagent·goal·stall·stall.count·idle-sent·drift·mtwarn·master·mtsig) + STATE_DIR `renamed.last`·`live-sweep`
+   - 서명 파일(`*.sig`)은 stamp 가 아니라 문자열 상태라 그대로 둠(경로 이름이 `.sig` 로 구분된다 — stamp 경로는 전부 `stamp_of`/`*.last`/`live-sweep`)
+2) stamp 읽기 = 함수 1개 `read_stamp` — 숫자가 아니면(빈 파일 포함) 0 으로 읽고 `WARN stamp 숫자 아님` 1줄(stderr) 남긴 뒤 그 바퀴를 계속. 파일 «없음» 은 첫 바퀴라 0 만(경고 0). `stamp_gap` = 경과초.
+3) 배경 바퀴(pass) rc≠0 → 부모가 `ERROR pass failed rc=N` 1줄 · 같은 원인(rc) 연속은 1통(서명 STATE_DIR/pass.err.sig · rc=0 이면 삭제) · 조용한 계속 0 · 바퀴 상한으로 끊은 바퀴(over=1)는 위 ERROR 와 겹쳐 쓰지 않음
+
+## 2. 계약 ↔ 시험 대응표
+- «중간에 끊겨도 stamp 는 옛 값 또는 새 값(빈 파일 0)» = ⓓ0(직접 쓰기 0) + 변이 m2
+- «빈·비숫자 stamp 도 바퀴 진행 + WARN» = ⓓ1·ⓓ2(빈 stamp 2바퀴 · beide stall 뒤 wt-sweep 도달 · 산술 오류 0 · 바퀴 뒤 stamp 숫자) + 변이 m3
+- «배경 pass 실패 = ERROR 1줄 · 부모 계속 · 같은 원인 연속 1통» = ⓔ
+- «TERM 5초 안 종료(c74e9a11 ⓐ~ⓔ) 그대로» = ⓐ·ⓐ2·ⓐ3·ⓑ·ⓒ (green-run-r3.txt)
+- «kit 짝 cmp0» = 아래 3
+
+## 3. 값
+- kit 짝: `cmp bin/ft-tick.sh kit/fable-team/bin/ft-tick.sh` rc=0 (CMP0)
+- 문법·정적: `bash -n bin/ft-tick.sh` rc=0 · `shellcheck -S warning bin/ft-tick.sh` rc=0
+- 고침판 3회: `bash tests/test_tick_term_fast_r874.sh` RESULT fail=0 ×3 (27 PASS/회 · green-run-r3.txt)
+- 변이(단일 실행 · mutations-r3.txt): 기준판 c74e9a11 fail=11 · m2(직접 쓰기 되살림) fail=1 · m3(빈값 0 처리 제거) fail=6 — 셋 다 빨강
+- 기존 ft-tick 셸 시험 31종 base 대조(existing-tick-tests-r3.txt): rc≠0 = test_agent_alive_fg_judge·test_autonomy_core·test_raised_seat·test_team_move_roundtrip 4종 — base-compare-failing.txt(ba445cce·c74e9a11) 와 «같은 4종», 나머지 27종 rc=0 (base 와 같음)
+- 실 좌석 0: 시험 전부 가짜 wt-sweep·가짜 mbox·mktemp 명부/pid/stamp/상태 · REAL-STATE-GUARD PASS
+- press: 없음 (나노는 쏘지 않는다 · 라이브 오디오 시험은 tester/checker 소관) — press 필요: 없음

@@ -1,0 +1,40 @@
+$ (cwd=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents · LIVE_ROOT=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live) bash <팩>/harness/tests/test_orch_gate_master.sh
+ok   byz-v65-master-claude#143 .worktrees ts Write → 2
+ok   byz-v65-master-claude#143 .worktrees html Edit → 2
+ok   byz-v65-master-claude#143 카드 진행 md Edit → 2
+ok   byz-v65-master-claude#143 카드 완성 md Edit → 2
+ok   byz-v65-master-claude#143 판정 문서 md Edit → 0
+ok   byz-v65-master-claude#143 카드 대기 md Write → 0
+ok   byz-v65-master-claude#143 seats.json Edit → 0
+ok   byz-v65-master-claude#143 Bash sed -i 코드 → 2
+ok   byz-v65-master-claude#143 Bash cp 훅 설치 → 0
+ok   ft-v65-master-claude#142 .worktrees ts Write → 2
+ok   ft-v65-master-claude#142 .worktrees html Edit → 2
+ok   ft-v65-master-claude#142 카드 진행 md Edit → 2
+ok   ft-v65-master-claude#142 카드 완성 md Edit → 2
+ok   ft-v65-master-claude#142 판정 문서 md Edit → 0
+ok   ft-v65-master-claude#142 카드 대기 md Write → 0
+ok   ft-v65-master-claude#142 seats.json Edit → 0
+ok   ft-v65-master-claude#142 Bash sed -i 코드 → 2
+ok   ft-v65-master-claude#142 Bash cp 훅 설치 → 0
+--- 회귀 대조표 (구 훅 = 43eb52ed632a) ---
+ok   회귀 arch html Edit (구=0 신=0) → 0
+ok   회귀 arch html Edit 구=신 → 0
+ok   회귀 arch ts Edit (구=0 신=0) → 0
+ok   회귀 arch ts Edit 구=신 → 0
+ok   회귀 nano ts Edit (구=0 신=0) → 0
+ok   회귀 nano ts Edit 구=신 → 0
+ok   회귀 TMUX_PANE 없음 ts Edit (구=0 신=0) → 0
+ok   회귀 TMUX_PANE 없음 ts Edit 구=신 → 0
+ok   회귀 agent_id 있는 ts Edit (구=0 신=0) → 0
+ok   회귀 agent_id 있는 ts Edit 구=신 → 0
+ok   회귀 TOP 모델 html Edit (구=0 신=0) → 0
+ok   회귀 TOP 모델 html Edit 구=신 → 0
+ok   회귀 TOP 모델 .worktrees ts (구=0 신=0) → 0
+ok   회귀 TOP 모델 .worktrees ts 구=신 → 0
+ok   회귀 TOP 모델 코드 한도 0 deny (구=2 신=2) → 2
+ok   회귀 TOP 모델 코드 한도 0 deny 구=신 → 2
+ok   회귀 TOP 모델 Bash sed -i deny (구=2 신=2) → 2
+ok   회귀 TOP 모델 Bash sed -i deny 구=신 → 2
+pass=36 fail=0
+rc=0

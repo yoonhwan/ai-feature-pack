@@ -1,0 +1,33 @@
+# r949 r4 시험 (2026-10-26 · pi 나노 좌석 · 브랜치 nano/r949-sat-nano-roster-name-ledger-guard-r4 · base 1545012e 위 squash 1 15a4e920)
+# 명령: env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE /bin/bash feature-pack/fable-team/harness/tests/test_sat_nano_r949.sh
+# rc=0 · ALL PASS (PASS 29줄)
+PASS ⓐ 명부 OPEN 3 → 4번째 open rc8 «상한 3 · 대기 1번째» · 판 출력 · 원격 0 · 명부 행 0 · 원장 reject(cap)
+PASS ⓑ free 24% → WARN 1줄 + 열고 진행(rc0) · open 줄 free=24 warn=free<25 · 빈칸·글자 → 「측정 불가(파싱)」 + free=? · 25% = 경고 0
+PASS ⓒ 이름 자동 byz-satnano-nano-<slug>#0 · ft-name-lint PASS · --name lint 불통 4종 rc2 원격 0
+PASS ⓓ open → 명부 OPEN 1행 + 원장 open 1줄 · close → CLOSED + close 1줄 · roster 표
+PASS ⓔ 카드 토큰·DSN·키 / task DSN → rc2 · 원격 0 · 원장 = 종류만(값 0)
+PASS ⓕ 명부 표식 없음·남의 표식 → close rc6 · 원격 0 · 기록 유지 · 표식 있는 줄은 rc0
+PASS ⓘ ghs_/ghp_/xoxb-/sk- 더미 × (공백 앞 · 괄호 안) → rc2 · 원격 0 · 원장 종류만(한글 바로 뒤 = r977 범위라 뺀다)
+PASS ⓙ 측정 대역 8초 → 3초 상한에서 잘려 free_raw 빈칸·free_rc=124(7초 상한 소모 0) · rc=124 사전점검 → WARN 「측정 불가(시간 초과)」+ free=? + 열고 진행
+PASS ⓛ ssh rc0∧시간 안 + 측정 rc0 + 숫자 셋 다일 때만 값(41) · exit 1 → 「측정 불가(rc 1)」+ free=? · 시간 초과 두 갈래 → 「측정 불가(시간 초과)」
+PASS ⓜ 원장 = open 1 + close 1(경고 있어도 2줄) · 정상도 2줄 · 비밀 거절 = reject 1 + open 0 · 명부 CLOSED 1행
+PASS ⓝ base 1545012e 가 잡던 반례(ghs_ 공백 앞 · -github_pat_ 하이픈 뒤) → rc2 · 원격 0 · 거절 줄
+PASS ⓑ' R_PRE 실스크립트: 대역 24% → free_raw 24 · 도구 없음 → 빈칸 · exit 1 → free_rc=1(값으로 안 쓴다)
+PASS ⓖ test_sat_nano_r902.sh ALL PASS (/bin/bash 3.2.57(1)-release)
+PASS ⓖ test_satellite_rosters.sh ALL PASS (/bin/bash 3.2.57(1)-release)
+PASS ⓗ 변이 상한 검사 끔 → 칸 cap 빨강 = 감지
+PASS ⓗ 변이 WARN 줄 끔 → 칸 mem 빨강 = 감지
+PASS ⓗ 변이 비밀 검사 끔 → 칸 secret 빨강 = 감지
+PASS ⓗ 변이 표식 검사 끔 → 칸 mark 빨강 = 감지
+PASS ⓗ 변이 공용 SECRET_SHAPE 끔 → 칸 secpos 빨강 = 감지
+PASS ⓗ 변이 원장 경고를 독립 줄로 되살림 → 칸 ledger 빨강 = 감지
+PASS ⓗ 변이 측정 rc 버림(free_rc=0 고정) → 칸 measure 빨강 = 감지
+PASS ⓗ 변이 ssh 시간 초과 갈래 끝 → 칸 mtimeout 빨강 = 감지
+PASS ⓚ 공용 비밀 lib 5사본 base 1545012e 대비 diff 0줄
+PASS ⓚ test_ft_secret_shapes.py 전건 PASS (91 passed in 9.57s)
+PASS 정적 kit 사본 cmp0 ft_sat_nano.py
+PASS 정적 kit 사본 cmp0 ft_sat_gate.py
+PASS 정적 kit 사본 cmp0 ft_sat_rt.py
+PASS 정적 kit 사본 cmp0 ft-sat-nano.sh
+PASS 정적 /bin/bash -n
+ALL PASS

@@ -182,13 +182,14 @@ mkdir -p "$T/scan"
 mkshell() { GIT worktree add -q "$REPO/.worktrees/$1" -b "shell-$1"; local d; for d in 0 1 2 3 4 5; do mkdir -p "$REPO/.worktrees/$1/d$d"; echo x > "$REPO/.worktrees/$1/d$d/x"; done; git -C "$REPO/.worktrees/$1" add -A; git -C "$REPO/.worktrees/$1" -c user.email=t@t -c user.name=t commit -q -m w; }
 mkshell sa; mkshell ok1
 rm -rf "$REPO/.worktrees/sa"/d0 "$REPO/.worktrees/sa"/d1
-scan() { DIRX="$T/scan" swp FT_WT_SCAN_ROOT="$REPO" FT_WT_SHELL_SCAN_SEC=0; }
+echo /elsewhere > "$T/pane-cwds-scan"   # r832: pane 목록을 읽어야 경보가 나간다 — 껍데기 폴더와 무관한 pane 1개
+scan() { DIRX="$T/scan" swp FT_WT_SCAN_ROOT="$REPO" FT_WT_SHELL_SCAN_SEC=0 FAKE_PANE_CWDS="$T/pane-cwds-scan"; }
 s1="$(scan)"; has "$s1" "[HIL] seat=byz-harness-wt-shell 반쯤 지워진 워크트리 껍데기 1곳(전체 1곳): sa" "ⓔ 껍데기 1곳 → [HIL] 1줄(sa · 팀 미상 = harness · r444)"; hasnt "$s1" "ok1" "  └ 멀쩡한 워크트리(ok1)는 안 셈"
 s2="$(scan)"; hasnt "$s2" "[HIL] 반쯤" "ⓔ 그대로면 두 번째 sweep 은 경보 0"
 mkshell sb; rm -rf "$REPO/.worktrees/sb"/d2 "$REPO/.worktrees/sb"/d3
 s3="$(scan)"; has "$s3" "껍데기 2곳(전체 2곳): sa sb" "ⓔ 목록이 바뀌면(2곳) 다시 1줄"
 s4="$(scan)"; hasnt "$s4" "[HIL] 반쯤" "  └ 바뀐 뒤 그대로면 다시 0"
-s5="$(DIRX="$T/scan" swp FT_WT_SCAN_ROOT="$REPO" FT_WT_SHELL_SCAN_SEC=3600)"; hasnt "$s5" "[HIL] 반쯤" "  └ 스캔 간격 안(3600s)에선 훑지도 않음"
+s5="$(DIRX="$T/scan" swp FT_WT_SCAN_ROOT="$REPO" FT_WT_SHELL_SCAN_SEC=3600 FAKE_PANE_CWDS="$T/pane-cwds-scan")"; hasnt "$s5" "[HIL] 반쯤" "  └ 스캔 간격 안(3600s)에선 훑지도 않음"
 [ -d "$REPO/.worktrees/sa" ] && [ -d "$REPO/.worktrees/sb" ] && ok "  └ 경보는 읽기만 — 껍데기 손 0" || bad "경보가 껍데기를 건드림"
 
 echo "== ⓕ 브랜치 삭제 코드 0"

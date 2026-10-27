@@ -1,0 +1,102 @@
+PASS 분류 101
+PASS 분류 102
+PASS 분류 103
+PASS 분류 104
+PASS 분류 105
+PASS 분류 106
+PASS 미상은 규칙표 즉시 적재 시 cls=미상
+PASS 미상 + Haiku 성공 → ⑤(비동기 갱신)
+PASS 미상 + Haiku 실패 → 미상 유지
+PASS Haiku 실패는 hook-errors.log 1줄
+PASS 미상 prio ①과 ② 사이
+PASS via 분류 출처 101 = rule
+PASS via 분류 출처 102 = rule
+PASS via 분류 출처 103 = rule
+PASS via 분류 출처 104 = rule
+PASS via 분류 출처 105 = rule
+PASS via 분류 출처 106 = rule
+PASS via 107 (미상 + Haiku 성공 갱신 뒤) = haiku
+PASS via 108 (미상 + Haiku 실패) = unknown
+PASS 묶음 짝 1 (201·202)
+PASS 묶음 짝 2 (203·204)
+PASS PR 번호 다르면 안 묶임
+PASS 다른 from·본문은 다른 묶음
+PASS 계보 키: #9·#10 같은 큐
+PASS 큐 파일 수(계보 1개)
+PASS 본문 보존 bodies/301.txt
+PASS 재적재 멱등(SKIP)
+PASS 술어: mark 만(③) → show 에 남음
+REFUSED seq=103 cls=③ reported=false — 술어 거짓(이동 거부)
+PASS 술어: mark 후 report 없음 → archive 이동 거부
+PASS 거부된 줄은 큐에 그대로(유실 0)
+PASS 술어: report 후 show 에서 닫힘
+PASS 술어: report 후 archive 이동
+PASS 보관함에 103 존재(삭제 0)
+PASS ⑥ 은 mark 만으로 닫힘
+PASS 미상: mark 만 → archive 이동 거부(REFUSED)
+PASS 미상: report 후 닫힘
+PASS G 구성(401·402 같은 묶음)
+PASS 묶음: S1 만 report → G 미닫힘(show 유지)
+PASS 묶음: S2 대상 유지(archive 거부)
+PASS 묶음: 둘 다 report → 닫힘
+PASS --compact 출력
+PASS --compact 큐 무변경
+PASS --compact Haiku 실패 → rc≠0
+PASS 없는 seq mark → rc≠0
+PASS usage → rc 2
+PASS 새 행 502 via=rule
+PASS show 출력 바이트: via 있음 = via 키 제거본
+PASS show --compact 출력 바이트: via 있음 = via 키 제거본
+PASS 옛 행 501 show 에 보임
+PASS 옛 행 mark·report 뒤에도 via 키 없음(마이그레이션 0)
+PASS 옛 행 report 후 show 에서 닫힘
+PASS 옛 행·새 행 archive 이동
+PASS 보관된 옛 행 501 에도 via 키 없음
+PASS ingest 실패해도 send rc 0
+PASS ingest 실패해도 QUEUED 출력 유지
+PASS ingest 실패는 stderr WARN
+PASS ingest 성공 send rc 0
+PASS send 훅 큐 적재(cls ③)
+PASS 느린 Haiku 중에도 send rc 0
+PASS send 소요 1초 미만(Haiku sleep 3 대기 0)
+PASS 적재 시점 cls=미상
+PASS 나중에 cls 갱신(Haiku ⑤)
+PASS 갱신 prio 도 반영
+PASS 새 RULES 701 분류
+PASS 새 RULES 701 via = rule
+PASS 새 RULES 702 분류
+PASS 새 RULES 702 via = rule
+PASS 새 RULES 703 분류
+PASS 새 RULES 703 via = rule
+PASS 새 RULES 704 분류
+PASS 새 RULES 704 via = rule
+PASS 새 줄은 \A — 본문 중간 줄 머리 [완료·휴식] 는 규칙에 안 걸림(미상 또는 Haiku)
+PASS Haiku 1회 실패 → 재시도 성공 → ③ 갱신
+PASS 재시도 정확히 1회(호출 2번)
+PASS Haiku 2회 실패 → 미상 유지
+PASS 오류 로그에 stdout 조각
+PASS haiku 기본 상한 7초 · 시간 초과도 1회 재시도 뒤 raise
+FAIL ⓐ close rc 0 (기대 '0' 실제 '2')
+FAIL ⓐ close 출력: REJECT usage: ft-inbox.sh ingest <seq> | show <좌석> [--compact] | mark <seq|group> 처리|위임|보류 "<1줄>" [--seat <좌석>] | report <seq|group…> [--seat <좌석>] | waive <좌석> --before <ISO ts> "<판정 N 사유>" | archive <좌석>
+FAIL ⓐ reported 안 찍힘(mark 만)
+Traceback (most recent call last):
+  File "<string>", line 4, in <module>
+    if x["seq"]==int(sys.argv[2]): print(x["mark"]["kind"], x["mark"]["note"])
+                                         ~~~~~~~~~^^^^^^^^
+TypeError: 'NoneType' object is not subscriptable
+FAIL ⓐ close 사유가 mark.note 에 (기대 '처리 close 한 줄 시험' 실제 '')
+FAIL ⓐ close 뒤 show 에 남음(닫힘 아님)
+FAIL ⓐ close 뒤 archive 거부
+PASS ⓑ 없는 대상 NOTFOUND → rc≠0
+FAIL ⓑ NOTFOUND 줄 없음: REJECT usage: ft-inbox.sh ingest <seq> | show <좌석> [--compact] | mark <seq|group> 처리|위임|보류 "<1줄>" [--seat <좌석>] | report <seq|group…> [--seat <좌석>] | waive <좌석> --before <ISO ts> "<판정 N 사유>" | archive <좌석>
+FAIL ⓑ 802 안 닫힘
+PASS ⓒ 사유 빈 값 → usage rc 2
+FAIL ⓒ close usage 문구 아님: REJECT usage: ft-inbox.sh ingest <seq> | show <좌석> [--compact] | mark <seq|group> 처리|위임|보류 "<1줄>" [--seat <좌석>] | report <seq|group…> [--seat <좌석>] | waive <좌석> --before <ISO ts> "<판정 N 사유>" | archive <좌석>
+PASS ⓒ 사유 빈 값은 큐 무변경
+PASS close 묶음 구성(811·812)
+FAIL 묶음 close 뒤 show 에 남음
+PASS 내 좌석에 없는 seq → NOTFOUND rc≠0
+FAIL 남의 큐 seq NOTFOUND 줄 없음: REJECT usage: ft-inbox.sh ingest <seq> | show <좌석> [--compact] | mark <seq|group> 처리|위임|보류 "<1줄>" [--seat <좌석>] | report <seq|group…> [--seat <좌석>] | waive <좌석> --before <ISO ts> "<판정 N 사유>" | archive <좌석>
+PASS 남의 좌석 큐 보존
+PASS test_kit_bin_sync.sh PASS
+RESULT fail=11
