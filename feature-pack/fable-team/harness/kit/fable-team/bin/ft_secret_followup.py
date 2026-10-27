@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 """ft_secret_followup — r1002 점검 표의 «실값» 행 256건(46파일)을 값 0 으로 셋 답한다 (r1027 · 읽기 전용).
-ⓐ 시각: 행 줄의 `timestamp`(없으면 파일 mtime) → byz-keys 원장 «교체 …날짜» 전/뒤/같은날 · 뒤인 행은 그 줄을 낸 도구·명령 첫 낱말만.
-ⓑ 지문: 값을 r1002 가림 함수가 찾은 자리에서만 읽어 sha256 앞 8자 → 1Password develop 볼트(SDK) 값도 같은 방식 · 비교만 · 출력은 «키 이름 · 살아 있음(일치)/옛 키(일치 0) + 줄 수»(값·해시 글자 0).
+ⓐ 시각: 행 줄의 `timestamp`(없으면 파일 mtime) → byz-keys 원장 «교체 …날짜» 전/뒤/같은날 · 뒤인 행은 그 줄을 낸 도구·첫 명령 이름만(앞붙은 «이름=값» 대입문은 건너뛴다).
+ⓑ 지문: 값을 r1002 가림 함수가 찾은 자리에서만 읽어 sha256 앞 8자 → 1Password 볼트 전부 + GCP SM 전부의 값도 같은 방식 · 같은 줄 값마다 따로 대조 · 출력은 «키 이름 · 살아 있음(일치)/옛 키(일치 0) + 줄 수»(값·해시 글자 0).
 ⓒ 삭제 계획: 실값 파일 경로 + «살아 있는 세션의 기록인가»(tmux pane cwd ↔ 기록 폴더 · 최근 10분 쓰기) → «다음 닫힘 뒤» · 머리 줄 «되돌림 없음» · 삭제 명령은 글자로만(실행 0).
-교체 시각을 못 찾거나 볼트 읽기가 실패하면 «판정 불가» 1줄로 끝낸다(조용한 0 아님).
-사용: (uv run --with onepassword-sdk --no-project) ft_secret_followup.py --triage MD --keys-log PATH[,PATH] [--report MD] [--plan MD] · rc: 0 · 2 usage · 4 쓰기 실패
-볼트는 1Password Python SDK 로 읽는다(op CLI 금지) — SDK 가 없는 인터프리터에서는 «판정 불가 — 1Password Python SDK 없음» 1줄(uv 명령으로 돌리면 붙는다).
+교체 시각을 못 찾거나 출처를 못 읽으면 «판정 불가/대조 못 한 곳» 1줄로 끝낸다(조용한 0 아님).
+사용: (uv run --with onepassword-sdk --no-project) ft_secret_followup.py --triage MD --keys-log PATH[,PATH] [--report MD] [--plan MD] · rc: 0 · 2 usage · 4 쓰기 실패 · 볼트는 SDK 전용(op CLI 금지 · 없으면 «판정 불가» 1줄).
 """
 from __future__ import annotations
 
@@ -66,15 +65,22 @@ def values_of(line: str) -> list[str]:  # 가림 함수가 찾은 자리에서�
     out = [m["val"] for _k, rx in RULES for m in rx.finditer(line) if not _is_placeholder(m["val"])]
     return out + [m["val"] for m in NAMED.finditer(line) if NAME.search(m["name"]) and not _is_placeholder(m["val"])]
 
-def tool_of(line: str) -> str:  # 그 줄을 낸 도구 이름 · 명령 첫 낱말만(값 0) — 낱말이 아니라 경로면 파일 이름만
-    def word(cmd: object) -> str:
+def tool_of(line: str) -> str:  # 그 줄을 낸 도구 이름 · 첫 명령 이름만(값 0) — 앞붙은 «이름=값» 대입문은 건너뛴다
+    def word(cmd: object, is_path: bool) -> str:
         w = str(cmd).split() if isinstance(cmd, str) else []
-        return w[0] if w and re.fullmatch(r"[A-Za-z][\w.-]*", w[0]) else os.path.basename(w[0]) if w else ""
+        if is_path:  # 파일 경로는 파일 이름만
+            return os.path.basename(w[0]) if w else ""
+        for i, x in enumerate(w):
+            if i < len(w) - 1 and re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*=\S*", x):
+                continue  # 대입문(API_TOKEN=값 …) — 값이 출력에 새지 않게 건너뛴다
+            return x if re.fullmatch(r"[A-Za-z][\w.-]*", x) else "명령 이름 판정 불가"
+        return ""
 
     def walk(v: object, found: list[str]) -> None:
         if isinstance(v, dict):
             if isinstance(v.get("name"), str) and isinstance(v.get("input"), dict):
-                w = word(v["input"].get("command") or v["input"].get("file_path") or "")
+                path = v["input"].get("file_path") or ""
+                w = word(path or v["input"].get("command") or "", bool(path))
                 found.append(v["name"] + "()" + (" " + w if w else ""))
             for x in v.values():
                 walk(x, found)
@@ -120,7 +126,7 @@ def collect(rows: list[dict[str, str]], keys: dict[str, list[str]], total: float
             except OSError as e:
                 why = {"FileNotFoundError": "파일 없음", "PermissionError": "읽기 권한 없음"}.get(e.__class__.__name__, "읽기 실패")
         for r in mine:
-            ln, r["tool"], r["ts"], r["hit"] = got.get(int(r["line"])), "", "", ""
+            ln, r["tool"], r["ts"], r["hits"] = got.get(int(r["line"])), "", "", []
             if ln is None:
                 r["why"] = why or "줄 번호가 파일 길이 넘음"
                 continue
@@ -137,7 +143,7 @@ def collect(rows: list[dict[str, str]], keys: dict[str, list[str]], total: float
                     r["ts"] = "줄 시각 없음"
             r["tool"] = tool_of(ln)
             vals = values_of(ln)  # 값은 여기 변수에만 — 아래 지문 비교 밖으로 나가지 않는다
-            r["hit"] = next((n for n, lvs in keys.items() for v in vals if any(_sha(v) == _sha(lv) for lv in lvs)), "")
+            r["hits"] = sorted({n for n, lvs in keys.items() for v in vals if any(_sha(v) == _sha(lv) for lv in lvs)})
 
 def main(argv: list[str]) -> int:
     triage, keys_log, outs = "", [], {"--report": "", "--plan": ""}
@@ -185,7 +191,7 @@ def main(argv: list[str]) -> int:
     c = {k: sum(1 for r in rows if r["age"] == k) for k in (FRONT, BACK, SAME, UNK)}
     files = list(dict.fromkeys(r["path"] for r in rows))
     print(f"followup={len(rows)} front={c[FRONT]} back={c[BACK]} same={c[SAME]} unknown={c[UNK]} "
-          f"live_keys={len({r['hit'] for r in rows if r['hit']})} keys={len(keys)} missed={len(miss)} files={len(files)} "
+          f"live_keys={len({n for r in rows for n in r['hits']})} keys={len(keys)} missed={len(miss)} files={len(files)} "
           f"live_files={sum(1 for f in files if live.get(f, '').startswith('살아'))}")
     return 0
 

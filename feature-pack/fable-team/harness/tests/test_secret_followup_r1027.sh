@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # test_secret_followup_r1027.sh — ft_secret_followup.py 셋 답(시각·지문·삭제 계획) · 값 0 (r1027 · 계약 C1~C4)
 # 격리: 임시 HOME(합성 session jsonl · 합성 점검 표 · 합성 키 장부) + 가짜 볼트 2(하나는 읽기 실패) + 가짜 gcloud(프로젝트 2 · 하나는 권한 오류) + 가짜 tmux.
-#   실 기록·실 볼트·실 SM·실 tmux 읽기 0 · 쓰기 0. 변이 «값 출력 되살림» 은 mktemp 사본에서만(새 칸만: FT_TEST_ONLY=sm).
+#   실 기록·실 볼트·실 SM·실 tmux 읽기 0 · 쓰기 0. 변이 4종은 mktemp 사본에서만(새 칸만: FT_TEST_ONLY=r2).
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/test_only.sh"                              # r1026: FT_TEST_ONLY 로 «그 칸만»
 set -uo pipefail
@@ -128,6 +128,60 @@ grep -q 'GCP 프로젝트 목록 · ERROR: (gcloud.projects.list) PERMISSION_DEN
 novalue "$T/rep4.md" "$T/e4" <<<"$out"; ck "R1 SM 실패 출력에도 값 0" $?
 }
 
+
+ft_only r2 && {   # ── 새 칸(DA r1 동작 3): R1 대입문 앞붙은 명령 · R2 같은 줄 2값 · R3 SDK 7초 상한
+DIR3="$T/proj/r2-wt"; ENC3="$(printf '%s' "$DIR3" | tr '/' '-')"; mkdir -p "$HOME/.claude/projects/$ENC3"
+R2J="$HOME/.claude/projects/$ENC3/r2.jsonl"
+printf '{"type":"assistant","timestamp":"2026-11-01T10:00:00Z","message":{"content":[{"type":"tool_use","name":"Bash","input":{"command":"API_TOKEN=%s curl -s"}}]}}\n' "$V1" > "$R2J"
+printf '{"type":"assistant","timestamp":"2026-11-01T10:05:00Z","message":{"content":[{"type":"tool_use","name":"Bash","input":{"command":"API_TOKEN=%s"}}]}}\n' "$V3" >> "$R2J"
+printf '{"timestamp":"2026-11-01T10:10:00Z","stdout":"API_TOKEN=%s OLD_TOKEN=%s"}\n' "$V1" "$O1" >> "$R2J"
+printf '| 파일 | 줄 | 종류 | 3값 |\n| --- | --- | --- | --- |\n| %s | 1 | named-secret | 실값 |\n| %s | 2 | named-secret | 실값 |\n| %s | 3 | named-secret | 실값 |\n' \
+  "$R2J" "$R2J" "$R2J" > "$T/TRIAGE2.md"
+run --triage "$T/TRIAGE2.md" --keys-log "$T/keys.md" --report "$T/rep-r2.md"
+grep -q 'r2.jsonl:1.*assistant · Bash() curl' "$T/rep-r2.md"; ck "R1 대입문 앞붙은 명령 → 첫 명령 이름만(curl)" $?
+grep -q 'r2.jsonl:2.*명령 이름 판정 불가' "$T/rep-r2.md"; ck "R1 명령 이름에 = 남으면 «판정 불가»" $?
+novalue "$T/rep-r2.md" "$T/e" <<<"$out"; ck "R1 도구 칸에 값 글자·앞 8자 0" $?
+grep -q '머리 줄: \*\*일치 2\*\* (OP develop · GH_TOKEN, OP develop · OLD_A)' "$T/rep-r2.md"; ck "R2 같은 줄 값 2개 → 일치 2" $?
+grep -q '| OP develop · OLD_A | 살아 있음(일치) | 1 |' "$T/rep-r2.md"; ck "R2 둘째 값도 따로 셈" $?
+grep -q 'live_keys=2' <<<"$out"; ck "R2 표준출력 요약 live_keys=2" $?
+
+# R3 — 가짜 SDK 항목 읽기가 상한보다 느림 → 그 볼트만 «대조 못 한 곳 · 시간 초과» 1줄(고정 sleep 0 · 상한만 낮춤)
+mkdir -p "$T/fakesdk"
+cat > "$T/fakesdk/onepassword.py" <<'PYEOF'
+import asyncio
+class _O:
+    def __init__(self, i, t):
+        self.id, self.title = i, t
+class _F:
+    def __init__(self, v):
+        self.value, self.purpose = v, ""
+class _Full:
+    fields = [_F("zzz-slow-unrelated")]
+class Client:
+    @staticmethod
+    async def authenticate(**kw):
+        return Client()
+    class vaults:
+        @staticmethod
+        async def list():
+            return [_O("v1", "SLOW")]
+    class items:
+        @staticmethod
+        async def list(vid):
+            return [_O("i1", "ITEM")]
+        @staticmethod
+        async def get(vid, iid):
+            await asyncio.sleep(0.3)
+            return _Full()
+PYEOF
+out="$(PYTHONPATH="$T/fakesdk" OP_SERVICE_ACCOUNT_TOKEN_DEVELOP=x FT_FOLLOWUP_CALL_SECS=0.1 \
+  FT_FOLLOWUP_TMUX="$T/tmux" FT_FOLLOWUP_GCLOUD="$T/gcloud" \
+  python3 "$PY" --triage "$T/TRIAGE.md" --keys-log "$T/keys.md" --report "$T/rep-r3.md" 2>"$T/e3")"; rc=$?
+grep -q '1Password 볼트 SLOW · 시간 초과' "$T/rep-r3.md"; ck "R3 SDK 호출 7초 상한 → 대조 못 한 곳 1줄" $?
+grep -q '대조한 키 2' "$T/rep-r3.md" && grep -q 'missed=2' <<<"$out"; ck "R3 그 볼트 키는 대조 0 · 못 한 곳 2(볼트+프로젝트)" $?
+novalue "$T/rep-r3.md" "$T/e3" <<<"$out"; ck "R3 출력에 값 0" $?
+}
+
 # 짝 사본 cmp0
 KIT="$HARNESS/kit/fable-team/bin"
 if [ "$BIND" = "$HARNESS/bin" ]; then
@@ -135,11 +189,11 @@ if [ "$BIND" = "$HARNESS/bin" ]; then
   ck "kit 짝 cmp0 (도구·짝)" $?
 fi
 
-# 변이 — «값 출력 되살림»(보고에 값 첫 12자) → 이 시험이 FAIL 로 잡아야 한다(새 칸만: FT_TEST_ONLY=sm)
-mut() {  # mut <이름> <patch 코드> — 코드는 «A >>\\n B» 쌍, 여러 쌍은 줄 «#---» 로 잇는다
+# 변이 4종(새 칸만: FT_TEST_ONLY=r2 · DA r1 동작 3 + 값 출력 되살림) → 이 시험이 FAIL 로 잡아야 한다
+mut() {  # mut <이름> <patch 코드> [대상 파일(기본 ft_secret_followup.py)]
   local d="$T/mut-$1"; mkdir -p "$d"
   cp -p "$BIND"/ft_secret_followup*.py "$BIND"/ft_secret_*.py "$d/"   # 의존 모듈까지(못 읽는 사본으로 «우연히» FAIL 하지 않게)
-  python3 - "$d/ft_secret_followup.py" "$2" <<'EOF'
+  python3 - "$d/${3:-ft_secret_followup.py}" "$2" <<'EOF'
 import sys
 p, code = sys.argv[1], sys.argv[2]
 s = open(p).read()
@@ -150,19 +204,35 @@ for pair in code.split("\n#---\n"):
 open(p, "w").write(s)
 EOF
 }
-LEAK='            r["hit"] = next((n for n, lvs in keys.items() for v in vals if any(_sha(v) == _sha(lv) for lv in lvs)), "")
+LEAK='            r["hits"] = sorted({n for n, lvs in keys.items() for v in vals if any(_sha(v) == _sha(lv) for lv in lvs)})
 >>>
-            r["hit"] = next((n for n, lvs in keys.items() for v in vals if any(_sha(v) == _sha(lv) for lv in lvs)), "")
+            r["hits"] = sorted({n for n, lvs in keys.items() for v in vals if any(_sha(v) == _sha(lv) for lv in lvs)})
             r["leak"] = " ".join(v[:12] for v in vals)
 #---
     rep, pln = texts(rows, rot, rot_why, keys, miss, live)
 >>>
     rep, pln = texts(rows, rot, rot_why, keys, miss, live)
     rep += "LEAK " + " ".join(r.get("leak", "") for r in rows) + "\n"'
+ASSIGN='            return x if re.fullmatch(r"[A-Za-z][\w.-]*", x) else "명령 이름 판정 불가"
+>>>
+            return x'
+FIRST='            r["hits"] = sorted({n for n, lvs in keys.items() for v in vals if any(_sha(v) == _sha(lv) for lv in lvs)})
+>>>
+            r["hits"] = sorted({next((n for n, lvs in keys.items() for v in vals if any(_sha(v) == _sha(lv) for lv in lvs)), "")} - {""})'
+NOCAP='            return await asyncio.wait_for(make(), CALL_S)
+>>>
+            return await make()'
 if [ -z "${FT_FOLLOWUP_UNDER_TEST:-}" ]; then
-  mut leak "$LEAK"
-  FT_FOLLOWUP_UNDER_TEST="$T/mut-leak" FT_TEST_ONLY=sm bash "${BASH_SOURCE[0]:-$0}" >"$T/m-leak.log" 2>&1
-  [ $? -ne 0 ]; ck "변이 «값 출력 되살림» → 이 시험이 FAIL 로 잡음" $?
+  for name in leak assign first nocap; do
+    case "$name" in
+      leak) mut leak "$LEAK" ;;
+      assign) mut assign "$ASSIGN" ;;
+      first) mut first "$FIRST" ;;
+      nocap) mut nocap "$NOCAP" ft_secret_followup_plan.py ;;
+    esac
+    FT_FOLLOWUP_UNDER_TEST="$T/mut-$name" FT_TEST_ONLY=r2 bash "${BASH_SOURCE[0]:-$0}" >"$T/m-$name.log" 2>&1
+    [ $? -ne 0 ]; ck "변이 $name → 이 시험이 FAIL 로 잡음" $?
+  done
 fi
 
 ft_only_report || fail=$((fail+1))

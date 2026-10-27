@@ -1,4 +1,4 @@
-# 비밀 기록 후속 점검 — r1027 (2026-10-27 16:36:18 · 값 0 · 읽기 전용)
+# 비밀 기록 후속 점검 — r1027 (2026-10-27 16:53:01 · 값 0 · 읽기 전용)
 
 ## ① 노출 시각, 교체 전인가 뒤인가
 
@@ -24,35 +24,35 @@
 - `9d23fc78-45be-40b1-ad20-e7a46eb18116.jsonl:2689` named-secret · 2026-10-26 23:11:05 (mtime) · api-request-blob · Write() prereboot-cleanup-20261026.sh
 - `agent-a4801cb9418d719ac.jsonl:120` named-secret · 2026-10-26T02:57:58.626Z (줄 시각) · assistant · Bash() gcloud
 - `agent-a4801cb9418d719ac.jsonl:122` named-secret · 2026-10-26 17:16:02 (mtime) · api-request-blob · Bash() gcloud
-- `agent-a4801cb9418d719ac.jsonl:169` named-secret · 2026-10-26T02:59:24.480Z (줄 시각) · assistant · Bash() err3"
-- `agent-a4801cb9418d719ac.jsonl:171` named-secret · 2026-10-26 17:16:02 (mtime) · api-request-blob · Bash() err3"
-- `agent-a4801cb9418d719ac.jsonl:181` named-secret · 2026-10-26T02:59:47.064Z (줄 시각) · assistant · Bash() err4"
-- `agent-a4801cb9418d719ac.jsonl:183` named-secret · 2026-10-26 17:16:02 (mtime) · api-request-blob · Bash() err4"
-- `agent-a4801cb9418d719ac.jsonl:210` named-secret · 2026-10-26T03:02:03.473Z (줄 시각) · assistant · Bash() err5"
-- `agent-a4801cb9418d719ac.jsonl:212` named-secret · 2026-10-26 17:16:02 (mtime) · api-request-blob · Bash() err5"
-- `agent-a4801cb9418d719ac.jsonl:229` named-secret · 2026-10-26T03:02:51.921Z (줄 시각) · assistant · Bash() err6"
-- `agent-a4801cb9418d719ac.jsonl:232` named-secret · 2026-10-26 17:16:02 (mtime) · api-request-blob · Bash() err6"
-- `agent-a4801cb9418d719ac.jsonl:235` named-secret · 2026-10-26T03:03:02.658Z (줄 시각) · assistant · Bash() err7"
-- `agent-a4801cb9418d719ac.jsonl:237` named-secret · 2026-10-26 17:16:02 (mtime) · api-request-blob · Bash() err7"
-- `agent-a4801cb9418d719ac.jsonl:239` named-secret · 2026-10-26T03:03:11.694Z (줄 시각) · assistant · Bash() err8"
-- `agent-a4801cb9418d719ac.jsonl:241` named-secret · 2026-10-26 17:16:02 (mtime) · api-request-blob · Bash() err8"
-- `agent-a4801cb9418d719ac.jsonl:243` named-secret · 2026-10-26T03:03:26.500Z (줄 시각) · assistant · Bash() err9"
-- `agent-a4801cb9418d719ac.jsonl:245` named-secret · 2026-10-26 17:16:02 (mtime) · api-request-blob · Bash() err9"
+- `agent-a4801cb9418d719ac.jsonl:169` named-secret · 2026-10-26T02:59:24.480Z (줄 시각) · assistant · Bash() secrets
+- `agent-a4801cb9418d719ac.jsonl:171` named-secret · 2026-10-26 17:16:02 (mtime) · api-request-blob · Bash() secrets
+- `agent-a4801cb9418d719ac.jsonl:181` named-secret · 2026-10-26T02:59:47.064Z (줄 시각) · assistant · Bash() secrets
+- `agent-a4801cb9418d719ac.jsonl:183` named-secret · 2026-10-26 17:16:02 (mtime) · api-request-blob · Bash() secrets
+- `agent-a4801cb9418d719ac.jsonl:210` named-secret · 2026-10-26T03:02:03.473Z (줄 시각) · assistant · Bash() secrets
+- `agent-a4801cb9418d719ac.jsonl:212` named-secret · 2026-10-26 17:16:02 (mtime) · api-request-blob · Bash() secrets
+- `agent-a4801cb9418d719ac.jsonl:229` named-secret · 2026-10-26T03:02:51.921Z (줄 시각) · assistant · Bash() secrets
+- `agent-a4801cb9418d719ac.jsonl:232` named-secret · 2026-10-26 17:16:02 (mtime) · api-request-blob · Bash() secrets
+- `agent-a4801cb9418d719ac.jsonl:235` named-secret · 2026-10-26T03:03:02.658Z (줄 시각) · assistant · Bash() secrets
+- `agent-a4801cb9418d719ac.jsonl:237` named-secret · 2026-10-26 17:16:02 (mtime) · api-request-blob · Bash() secrets
+- `agent-a4801cb9418d719ac.jsonl:239` named-secret · 2026-10-26T03:03:11.694Z (줄 시각) · assistant · Bash() secrets
+- `agent-a4801cb9418d719ac.jsonl:241` named-secret · 2026-10-26 17:16:02 (mtime) · api-request-blob · Bash() secrets
+- `agent-a4801cb9418d719ac.jsonl:243` named-secret · 2026-10-26T03:03:26.500Z (줄 시각) · assistant · Bash() secrets
+- `agent-a4801cb9418d719ac.jsonl:245` named-secret · 2026-10-26 17:16:02 (mtime) · api-request-blob · Bash() secrets
 - `agent-a4801cb9418d719ac.jsonl:266` named-secret · 2026-10-26T03:54:39.829Z (줄 시각) · type=user
-- `agent-a4801cb9418d719ac.jsonl:269` named-secret · 2026-10-26T03:54:55.577Z (줄 시각) · assistant · Bash() err10"
-- `agent-a4801cb9418d719ac.jsonl:271` named-secret · 2026-10-26 17:16:02 (mtime) · api-request-blob · Bash() err10"
-- `agent-a4801cb9418d719ac.jsonl:287` named-secret · 2026-10-26T04:01:45.098Z (줄 시각) · assistant · Bash() err11"
-- `agent-a4801cb9418d719ac.jsonl:289` named-secret · 2026-10-26 17:16:02 (mtime) · api-request-blob · Bash() err11"
-- `agent-a4801cb9418d719ac.jsonl:291` named-secret · 2026-10-26T04:01:56.951Z (줄 시각) · assistant · Bash() err12"
-- `agent-a4801cb9418d719ac.jsonl:293` named-secret · 2026-10-26 17:16:02 (mtime) · api-request-blob · Bash() err12"
-- `agent-a4801cb9418d719ac.jsonl:303` named-secret · 2026-10-26T08:13:23.700Z (줄 시각) · assistant · Bash() err13"
-- `agent-a4801cb9418d719ac.jsonl:305` named-secret · 2026-10-26 17:16:02 (mtime) · api-request-blob · Bash() err13"
-- `agent-a4801cb9418d719ac.jsonl:315` named-secret · 2026-10-26T08:13:53.090Z (줄 시각) · assistant · Bash() err14"
-- `agent-a4801cb9418d719ac.jsonl:317` named-secret · 2026-10-26 17:16:02 (mtime) · api-request-blob · Bash() err14"
-- `agent-a4801cb9418d719ac.jsonl:327` named-secret · 2026-10-26T08:15:26.590Z (줄 시각) · assistant · Bash() err15"
-- `agent-a4801cb9418d719ac.jsonl:329` named-secret · 2026-10-26 17:16:02 (mtime) · api-request-blob · Bash() err15"
-- `agent-a4801cb9418d719ac.jsonl:331` named-secret · 2026-10-26T08:15:36.689Z (줄 시각) · assistant · Bash() err16"
-- `agent-a4801cb9418d719ac.jsonl:333` named-secret · 2026-10-26 17:16:02 (mtime) · api-request-blob · Bash() err16"
+- `agent-a4801cb9418d719ac.jsonl:269` named-secret · 2026-10-26T03:54:55.577Z (줄 시각) · assistant · Bash() secrets
+- `agent-a4801cb9418d719ac.jsonl:271` named-secret · 2026-10-26 17:16:02 (mtime) · api-request-blob · Bash() secrets
+- `agent-a4801cb9418d719ac.jsonl:287` named-secret · 2026-10-26T04:01:45.098Z (줄 시각) · assistant · Bash() secrets
+- `agent-a4801cb9418d719ac.jsonl:289` named-secret · 2026-10-26 17:16:02 (mtime) · api-request-blob · Bash() secrets
+- `agent-a4801cb9418d719ac.jsonl:291` named-secret · 2026-10-26T04:01:56.951Z (줄 시각) · assistant · Bash() secrets
+- `agent-a4801cb9418d719ac.jsonl:293` named-secret · 2026-10-26 17:16:02 (mtime) · api-request-blob · Bash() secrets
+- `agent-a4801cb9418d719ac.jsonl:303` named-secret · 2026-10-26T08:13:23.700Z (줄 시각) · assistant · Bash() secrets
+- `agent-a4801cb9418d719ac.jsonl:305` named-secret · 2026-10-26 17:16:02 (mtime) · api-request-blob · Bash() secrets
+- `agent-a4801cb9418d719ac.jsonl:315` named-secret · 2026-10-26T08:13:53.090Z (줄 시각) · assistant · Bash() secrets
+- `agent-a4801cb9418d719ac.jsonl:317` named-secret · 2026-10-26 17:16:02 (mtime) · api-request-blob · Bash() secrets
+- `agent-a4801cb9418d719ac.jsonl:327` named-secret · 2026-10-26T08:15:26.590Z (줄 시각) · assistant · Bash() secrets
+- `agent-a4801cb9418d719ac.jsonl:329` named-secret · 2026-10-26 17:16:02 (mtime) · api-request-blob · Bash() secrets
+- `agent-a4801cb9418d719ac.jsonl:331` named-secret · 2026-10-26T08:15:36.689Z (줄 시각) · assistant · Bash() secrets
+- `agent-a4801cb9418d719ac.jsonl:333` named-secret · 2026-10-26 17:16:02 (mtime) · api-request-blob · Bash() secrets
 - `ee2ee535-6f64-46ed-ab10-09c6539af9a8.jsonl:1580` named-secret · 2026-10-26T11:21:48.389Z (줄 시각) · assistant · Bash() cd
 - `6cf30e2e-a3d2-4133-8543-d9d78aa329eb.jsonl:3365` named-secret · 2026-10-26T09:37:11.513Z (줄 시각) · assistant · Bash() cd
 - `rollout-2026-10-27T01-27-15-01a17909-9cdc-71d2-bf85-17d99cbb668b.jsonl:134` named-secret · 2026-10-26T17:08:55.199Z (줄 시각) · type=event_msg

@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """ft_secret_followup_plan — ft_secret_followup 의 볼트·세션·글 부분 (r1027 · 값 0 · 읽기 전용).
 200줄 한도 때문에 나눈 짝 모듈. sources = 살아 있는 키 출처 둘 — 1Password(토큰이 닿는 볼트 전부 · SDK · op CLI 0) + GCP Secret Manager(닿는 프로젝트 전부 · 최신 버전) · 못 닿는 곳은 오류 원문 1줄
-· live_files = 살아 있는 세션 기록 판정(tmux pane cwd ↔ 기록 폴더 이름 · 최근 10분 쓰기)
-· texts = 보고 표 1장(① 시각 ② 지문 ③ 계획) + 삭제 계획 1장(«되돌림 없음» 머리 줄 · 명령은 글자로만).
+· live_files = 살아 있는 세션 기록 판정(tmux pane cwd ↔ 기록 폴더 이름 · 최근 10분 쓰기) · texts = 보고 1장(① 시각 ② 지문 ③ 계획) + 삭제 계획 1장(«되돌림 없음» · 명령은 글자로만).
 값·해시는 어떤 출력에도 쓰지 않는다 — 지문 비교 결과(살아 있음/옛 키)와 줄 수만.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import subprocess
@@ -16,23 +16,34 @@ from concurrent.futures import ThreadPoolExecutor
 FRONT, BACK, SAME, UNK = "교체 전", "교체 뒤", "같은 날", "판정 불가"
 ALIVE = "살아 있음(다음 닫힘 뒤)"
 BUDGET, LIVE = 7.0, 600.0
-CALL_S, SM_TOTAL, SM_WORKERS = 7.0, 120.0, 4  # 외부 호출 7초 · SM 전체 상한 · 동시 4
+SM_TOTAL, SM_WORKERS = 120.0, 4  # SM 전체 상한 · 동시 4
+CALL_S = float(os.environ.get("FT_FOLLOWUP_CALL_SECS") or 7.0)  # 외부 호출 1회 상한(기본 7초 · 시험은 낮춘다)
 
 
-async def _sdk_vaults(tok: str) -> tuple[dict[str, list[str]], list[str]]:  # 1Password Python SDK (op CLI 금지) — 토큰이 닿는 볼트 전부
-    import onepassword
-
-    client = await onepassword.Client.authenticate(auth=tok, integration_name="ft-secret-followup", integration_version="1.0")
-    keys, miss = {}, []
-    for v in await client.vaults.list():
+async def _aw(make):  # SDK 호출 1회 상한 + 재시도 1 — 넘으면 asyncio.TimeoutError
+    for attempt in (0, 1):
         try:
-            for it in await client.items.list(v.id):
-                full = await client.items.get(v.id, it.id)
+            return await asyncio.wait_for(make(), CALL_S)
+        except asyncio.TimeoutError:
+            if attempt:
+                raise
+
+
+async def _sdk_vaults(tok: str) -> tuple[dict[str, list[str]], list[str]]:  # 1Password SDK (op CLI 금지) — 토큰이 닿는 볼트 전부
+    import onepassword
+    client = await _aw(lambda: onepassword.Client.authenticate(auth=tok, integration_name="ft-secret-followup", integration_version="1.0"))
+    keys, miss = {}, []
+    for v in await _aw(lambda: client.vaults.list()):
+        try:
+            for it in await _aw(lambda: client.items.list(v.id)):
+                full = await _aw(lambda: client.items.get(v.id, it.id))
                 vals = [f.value for f in (getattr(full, "fields", None) or [])
                         if isinstance(getattr(f, "value", None), str) and f.value and getattr(f, "purpose", "") != "USERNAME"]
                 if vals:
                     keys[f"OP {v.title} · {it.title}"] = vals
-        except Exception as e:  # 볼트 읽기 실패 = «대조 못 한 곳» 1줄(조용한 0 금지)
+        except asyncio.TimeoutError:  # 그 볼트만 «대조 못 한 곳» 1줄(조용한 0 금지)
+            miss.append(f"1Password 볼트 {v.title} · 시간 초과 {CALL_S:g}초")
+        except Exception as e:
             miss.append(f"1Password 볼트 {v.title} · {_one(getattr(e, 'message', '') or str(e)) or e.__class__.__name__}")
     return keys, miss
 
@@ -108,8 +119,6 @@ def _vault_src() -> tuple[dict[str, list[str]], list[str]]:  # 볼트 쪽 살아
     if not tok:
         return {}, ["1Password · 볼트 토큰(OP_SERVICE_ACCOUNT_TOKEN_DEVELOP) 없음"]
     try:
-        import asyncio
-
         return asyncio.run(_sdk_vaults(tok))
     except ImportError:
         return {}, ["1Password · Python SDK 없음(uv run --with onepassword-sdk 로 돌릴 것)"]
@@ -151,10 +160,10 @@ def live_files(paths: list[str]) -> dict[str, str]:  # 파일 → 살아 있음/
 def texts(rows, rot, rot_why, keys, miss, live) -> tuple[str, str]:  # (보고, 계획) — 값·해시 글자 0
     files = list(dict.fromkeys(r["path"] for r in rows))
     cnt = {k: sum(1 for r in rows if r["age"] == k) for k in (FRONT, BACK, SAME, UNK)}
-    hits: dict[str, int] = {}
+    hits: dict[str, int] = {}  # 같은 줄 값마다 따로 센다(줄 하나가 키 2개와 같을 수 있다)
     for r in rows:
-        if r["hit"]:
-            hits[r["hit"]] = hits.get(r["hit"], 0) + 1
+        for n in r["hits"]:
+            hits[n] = hits.get(n, 0) + 1
     rep = [f"# 비밀 기록 후속 점검 — r1027 ({time.strftime('%F %T')} · 값 0 · 읽기 전용)", "", "## ① 노출 시각, 교체 전인가 뒤인가", ""]
     rep += [f"- {rot_why} — 전/뒤 셈 0"] if not rot else [
         f"- 교체 시각: {rot}", f"- 교체 전 {cnt[FRONT]} · 교체 뒤 {cnt[BACK]} · 같은 날 {cnt[SAME]} · 판정 불가 {cnt[UNK]} (행 {len(rows)})", "",
