@@ -9,6 +9,7 @@
 #   ⓑ2(반례 ②-워크트리 config) 비cone `**/*.md` + d1 삭제 → 껍데기 1
 #   ⓑ3(반례 ②-공용 config·! 제외) 비cone `/d1/` + `!/d1/excluded/` + d1 삭제 → 껍데기 1
 #   ⓓ2(반례 ④ · r6 동결 기대 복원) 비cone `/*` 뒤 패턴 파일을 «폴더» 로 교체 → «판정 불가» 1줄(동결값 1 · 껍데기 0 · 삭제 0) — sparse 표식이 true 면 패턴을 읽을 수 있는지 한 번 묻는다
+#   ⓦ(결정 5 · r8) 가짜 git «전 명령 rc128» 전수 실패 — 루트 미지정 = «:init» 1줄 · u=1 / 루트 지정 = init+worktree-list+orphan-list · u=3 · 껍데기 0 · HIL 0 · 삭제 0 · git7 자리 수 == 시험이 아는 자리 수(새 자리 = FAIL)
 #   ⓣ(결정 4 ①) sparse 안 «하위 파일 1개» 만 부재(d0/a · d0 폴더는 디스크에 있음) → 껍데기 0(최상위로 접는다) · 폴더가 통째로 사라지면 1
 #   ⓤ(결정 4 ②) 판정 불가가 있으면 요약 줄에 «u=N» 이 붙는다
 #   ⓥ(결정 4 ③) 공용 config 가 깨져도 orphan 검사는 git7 을 지난다(«:orphan-list» 1줄 · python 이 git 을 직접 부르지 않는다 · 직접 호출 정적 검사 0)
@@ -18,7 +19,7 @@
 #   ⓗ(DA⑥ r3 반례 1·2) 최상위 이름에 제어문자(줄바꿈·탭·0x01·0x7F) 가 있는 sparse — 이름을 «안 읽으므로» 판정 불가가 아니라 «정확히» 센다: 이름이 다 있으면 0 · 줄바꿈 이름 폴더를 지우면 1
 #   ⓘ(DA⑥ r3 반례 3) 추적 «파일» keep2 삭제(파일 규칙 keep2) → 1 · 추적 «파일» keep3 삭제(폴더 규칙 keep3/) → 1 (r5: 제외 규칙은 판정에 안 들어온다)
 #   ⓕ core.quotePath=false 로도 같은 목록 · 한글·공백·큰따옴표·줄바꿈 이름이 든 cone sparse → 0 (따옴표를 경로로 읽지 않는다)
-#   변이 6: 판정 불가를 «껍데기 아님» 으로(1) → ⓓ 빨강 · 개수 ≥1 → ≥2(2) → ⓑ 빨강 · sparse 분기 끔(3) → ⓑ 빨강 · 개수 ≥1 → ≥0(4) → ⓐ 빨강 · gitfail 의 «판정 불가» 기록 끔(5) → ⓓⓓ2ⓠⓡⓢ 빨강 · 접기(최상위 존재 확인) 끔(6) → ⓣ 빨강
+#   변이 8: 판정 불가를 «껍데기 아님» 으로(1) → ⓓ 빨강 · 개수 ≥1 → ≥2(2) → ⓑ 빨강 · sparse 분기 끔(3) → ⓑ 빨강 · 개수 ≥1 → ≥0(4) → ⓐ 빨강 · gitfail 의 «판정 불가» 기록 끔(5) → ⓓⓓ2ⓠⓡⓢ 빨강 · 접기(최상위 존재 확인) 끔(6) → ⓣ 빨강 · SCAN_U 올리기 제거(7) → ⓦ 빨강 · || pwd 부활(8) → ⓦ 빨강
 # WT_TEST_BASH=/bin/bash 로 돌리면 도구를 macOS 기본 bash 3.2 로 실행한다(카드 완료 조건). WT_TEST_SRC=<bin> 으로 옛 도구를 물린다.
 # 임시 git 리포 + 임시 워크트리만 쓴다 — 실 리포·워크트리·mbox·tmux 0.
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"
@@ -58,7 +59,11 @@ case "${WT_TEST_MUT:-0}" in
      echo "MUT 5 — git7 실패를 «판정 불가» 로 안 셈(조용히 넘김)";;
   6) MUTP '    [ -e "$p/$top" ] || [ -L "$p/$top" ] && continue   # 최상위가 디스크에 있으면 그 안 하위 파일 부재는 껍데기가 아니다' '    :   # MUT6 최상위 접기(존재 확인) 끔'
      echo "MUT 6 — 삭제 파일을 최상위로 접지 않음(하위 부재도 껍데기)";;
-  *) echo "usage: WT_TEST_MUT=0|1|2|3|4|5|6"; exit 2;;
+  7) MUTP '    SCAN_U=$((SCAN_U+1))   # ★r8★ 판정 불가 셈은 한 카운터(SCAN_U) 하나로 모은다' '    :   # MUT7 판정 불가 셈을 SCAN_U 에 안 올림'
+     echo "MUT 7 — SCAN_U 올리기 제거";;
+  8) MUTP 'WT="$(git7 "$PWD" rev-parse --show-toplevel 2>/dev/null)"; INIT_RC=$?' 'WT="$(git7 "$PWD" rev-parse --show-toplevel 2>/dev/null || pwd)"; INIT_RC=0   # MUT8 || pwd 부활'
+     echo "MUT 8 — || pwd 부활(초기 조회 실패를 삼킴)";;
+  *) echo "usage: WT_TEST_MUT=0|1|2|3|4|5|6|7|8"; exit 2;;
 esac
 "${WT_TEST_BASH:-bash}" -n "$T/bin/ft-wt-sweep.sh" && ok "본보기 bash -n(${WT_TEST_BASH:-bash})" || bad "bash -n"
 
@@ -74,7 +79,7 @@ ln -s d3 "$REPO/top-link"                                 # 보강 1 — 최상�
 GIT add -A && GIT commit -q -m init
 
 # swp <계획 디렉터리> [quotePath true|false] [스캔루트] — sweep 1회(껍데기 스캔 간격 0 = 매번 훑는다)
-swp() { mkdir -p "$1"; ( cd "$T" && env -i HOME="$HOME" PATH="$PATH" ${2:+GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.quotePath GIT_CONFIG_VALUE_0=$2} FT_WT_CLEAN_DIR="$1" FT_WT_SCAN_ROOT="${3:-$REPO}" FT_WT_SHELL_SCAN_SEC=0 \
+swp() { mkdir -p "$1"; ( cd "${3:-$REPO}" && env -i HOME="$HOME" PATH="$PATH" ${2:+GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.quotePath GIT_CONFIG_VALUE_0=$2} FT_WT_CLEAN_DIR="$1" FT_WT_SCAN_ROOT="${3:-$REPO}" FT_WT_SHELL_SCAN_SEC=0 \
   FT_WT_ORPHANS_TSV="$T/state/orphans.tsv" FT_WT_SWEEP_LOG="$T/state/wt-sweep.log" FT_WT_ORPHANS_SCAN_SEC=999999 \
   "${WT_TEST_BASH:-bash}" "$T/bin/ft-wt-sweep.sh" 2>&1 ); }
 # mksparse <이름> <cone|noconc> <패턴…> — --no-checkout + sparse-checkout(문서 워크트리 꼴) → 체크아웃
@@ -246,6 +251,32 @@ hasnt "$out7" "worktrees/c3"             "ⓗ 제어문자 이름을 «안 받�
 hasnt "$out7" "판정 불가"                 "ⓗ 제어문자 이름 때문에 «판정 불가» 로 보류하지 않는다(r5 — 이름을 안 읽는다)"
 [ -d "$R2/.worktrees/c1/d0" ] && [ -d "$R2/.worktrees/c3/d0" ] && ok "  └ 경보는 읽기만 — 워크트리 손 0" || bad "경보가 워크트리를 건드림(r5 ⓗ)"
 [ -z "$(ls "$T/scan-h"/.sparse-* 2>/dev/null)" ] && ok "  └ sparse 임시 파일 남김 0" || bad "sparse 임시 파일이 남음(r5 ⓗ)"
+
+echo "== ⓦ 결정 5/r8 가짜 git 전수 실패 — 판정 불가 1줄 · u=N · 껍데기 0 · HIL 0"
+mkdir -p "$T/fakegit"; printf '#!/bin/bash\nexit 128\n' > "$T/fakegit/git"; chmod +x "$T/fakegit/git"
+R7="$T/repo7"; mkdir -p "$R7/.worktrees"; git -C "$R7" init -q -b main
+# swpf <계획 디렉터리> [스캔루트] — PATH 앞에 «모든 하위 명령 rc128» 가짜 git 을 둔다
+swpf() { mkdir -p "$1"; ( cd "${2:-$T}" && env -i HOME="$HOME" PATH="$T/fakegit:$PATH" FT_WT_CLEAN_DIR="$1" ${2:+FT_WT_SCAN_ROOT="$2"} FT_WT_SHELL_SCAN_SEC=0 \
+  FT_WT_ORPHANS_TSV="$T/state/orphans.tsv" FT_WT_SWEEP_LOG="$T/state/wt-sweep.log" FT_WT_ORPHANS_SCAN_SEC=999999 \
+  "${WT_TEST_BASH:-bash}" "$T/bin/ft-wt-sweep.sh" 2>&1 ); }
+SITES="$(grep -c 'git7 "' "$T/bin/ft-wt-sweep.sh")"
+[ "$SITES" -eq 12 ] && ok "  └ git7 호출 자리 12개(스캔 도달 8 + --finish/--launchd/plan 4) — 새 자리가 생기면 이 시험이 FAIL" || bad "git7 자리 수 변화($SITES ≠ 12) — 새 자리를 시험이 모른다"
+for st in init config worktree-list sparse-list ls-files ls-tree orphan-list; do
+  grep -q "$st" "$T/bin/ft-wt-sweep.sh" && ok "  └ 단계 이름 $st 가 도구에 있다" || bad "단계 이름 $st 없음"
+done
+outw1="$(swpf "$T/scan-w1")"
+has   "$outw1" ":init"                    "ⓦ 루트 미지정 · 전 명령 실패 → «:init» 판정 불가 1줄(|| pwd 폴백 0)"
+has   "$outw1" "u=1"                      "  └ 요약 u=1"
+hasnt "$outw1" "반쯤 지워진"               "  └ 껍데기 0(조용한 0 이 아니라 판정 불가로 남는다)"
+hasnt "$outw1" "[HIL]"                    "  └ 오빠 HIL 0"
+[ -z "$(ls -d "$R7"/.worktrees/*.deleting-* 2>/dev/null)" ] && ok "  └ 삭제·이름 바꿈 0" || bad "전수 실패 실행이 워크트리를 지움"
+outw2="$(swpf "$T/scan-w2" "$R7")"
+has   "$outw2" ":init"                    "ⓦ 루트 지정 · 전 명령 실패 → «:init» 1줄"
+has   "$outw2" ":worktree-list"           "  └ «:worktree-list» 1줄(shell_scan 의 공용 목록 조회)"
+has   "$outw2" ":orphan-list"             "  └ «:orphan-list» 1줄(등록 없는 폴더 검사)"
+has   "$outw2" "u=3"                      "  └ 요약 u=3(자리 3곳이 모두 셈에 들어간다)"
+hasnt "$outw2" "[HIL]"                    "  └ 오빠 HIL 0"
+[ -d "$R7/.worktrees" ] && ok "  └ 경보는 읽기만 — 리포 손 0(ⓦ)" || bad "전수 실패 실행이 리포를 건드림"
 
 echo "== 결과"
 [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; }

@@ -116,8 +116,16 @@ fi
 
 DRY=0; [ "${1:-}" = "--dry-run" ] && DRY=1
 [ "${FT_WT_AUTOCLEAN:-1}" != 0 ] || { echo "FT_WT_AUTOCLEAN=0 — sweep 실행 안 함"; exit 0; }
-WT="$(git7 "$PWD" rev-parse --show-toplevel 2>/dev/null || pwd)"   # r6: git7 경유(7초 상한)
-ROOT="$(git7 "$WT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')"
+# ★r8★ 초기 조회 실패를 «삼키지 않는다» — `|| pwd` 폴백 0 · 조용한 return 0. 실패 = «판정 불가 <cwd>:init» 1줄 + SCAN_U 1(요약 u= 로 나간다) · rc 는 줄에 그대로 적는다.
+INIT_RC=0
+WT="$(git7 "$PWD" rev-parse --show-toplevel 2>/dev/null)"; INIT_RC=$?
+if [ "$INIT_RC" -eq 0 ] && [ -n "$WT" ]; then
+  ROOT="$(git7 "$WT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')"
+else
+  WT=""; ROOT=""
+  echo "판정 불가 $PWD:init — 워크트리/리포 조회 실패(rc=$INIT_RC · 오빠 판정 0 · 삭제 0)"
+  SCAN_U=$((SCAN_U+1))
+fi
 DIR="${FT_WT_CLEAN_DIR:-${ROOT:-$WT}/.fable-team/state/wt-clean}"
 TMO="${FT_WT_PLAN_TIMEOUT:-120}"
 MAX="${FT_WT_SWEEP_MAX:-0}"          # 명시할 때만 pass 1회 계획 수 상한(0 = 없음 · 좌석 WAIT 는 세지 않는다)
@@ -312,7 +320,7 @@ shell_scan() {
     esac
     tm="$(owner_team "$p")"; list="$list$tm:${p##*/} "; cnt=$((cnt+1))
   done < <(printf '%s\n' "$wl" | awk '/^worktree /{p=substr($0,10)} /^HEAD /{print p "\t" substr($0,6)}')
-  SCAN_U="$ucnt"   # 요약 줄 u= (결정 4 ②) — 아래 early return 전에 확정한다
+  SCAN_U=$((SCAN_U+ucnt))   # 요약 줄 u= (결정 4 ② · r8: orphan·init 이 먼저 올린 수에 «더한다» — 아래 early return 전에 확정)
   s1="$(printf '%s' "$list" | tr ' ' '\n' | sed '/^$/d' | sort | tr '\n' ' ')"   # 끝 공백 유지(경보 줄 꼴 원형)
   s2="$(printf '%s' "$und" | tr ' ' '\n' | sed '/^$/d' | sort | tr '\n' ' ')"
   sig="$(printf '%s %s' "$s1" "$s2" | tr -s ' ' | sed 's/^ //; s/ $//')"
@@ -335,6 +343,7 @@ orphan_scan() {
   local wlp
   if ! wlp="$(git7 "$SCAN_ROOT" worktree list --porcelain 2>/dev/null)"; then   # r6: git7 경유 · python 은 git 을 부르지 않는다
     echo "판정 불가 $SCAN_ROOT:orphan-list — 등록 없는 폴더 목록 갱신 0(오빠 판정 0 · 삭제 0)" >&2
+    SCAN_U=$((SCAN_U+1))   # ★r8★ 판정 불가 셈은 한 카운터(SCAN_U) 하나로 모은다
     return 0
   fi
   printf '%s\n' "$wlp" > "$ORPH.wl"   # git7 이 받은 목록을 파일로 넘긴다(python 은 git 을 부르지 않는다)
