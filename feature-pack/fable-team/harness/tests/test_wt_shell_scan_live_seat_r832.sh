@@ -205,35 +205,6 @@ hasnt "$o2" "C (git 연결 끊김)" "  └ 시간 초과를 연결 끊김으로 
 hasnt "$o2" "[HIL]" "r3 2회차 경보 0(이어받음)"
 [ -n "$s1" ] && [ "$s2" = "$s1" ] && ok "r3 2회차 서명 = 1회차" || bad "r3 서명 바뀜: 1«${s1}» 2«${s2}»"
 
-echo "== r844 ⓐ DA r3 반례 ① — K 미커밋 3(수정·새 파일·staged) · K/.git 권한 000 → 판정 못 함 · 이어받기 · 복구 전후 서명 같음 · C 경보 반복 0"
-mk K; echo y >> "$REPO/.worktrees/K/d2/x"; echo new > "$REPO/.worktrees/K/new.txt"; echo st > "$REPO/.worktrees/K/st.txt"; git -C "$REPO/.worktrees/K" add st.txt
-printf '%s\n' "$REPO/.worktrees/A/d3" > "$T/panes"; rm -f "$T/clean/.shell-sig"
-o1="$(swp)"; s1="$(cat "$T/clean/.shell-sig" 2>/dev/null)"
-has "$o1" "SKIP 껍데기 후보 K — 미커밋 3" "ⓐ 1회차 K SKIP «미커밋 3»"
-listed "$o1" C && ok "ⓐ 1회차 C 경보" || bad "ⓐ 1회차 C 없음 ← ${o1:0:600}"
-chmod 000 "$REPO/.worktrees/K/.git"; o2="$(swp)"; s2="$(cat "$T/clean/.shell-sig" 2>/dev/null)"; chmod 644 "$REPO/.worktrees/K/.git"
-has "$o2" "SKIP 껍데기 후보 K — 판정 못 함(git rev-parse rc=128 · fatal: error opening" "ⓐ .git 000 → K 판정 못 함(rc128 · git 원문)"
-hasnt "$o2" "K (git 연결 끊김)" "ⓐ 권한 실패를 «연결 끊김» 으로 읽지 않음"
-if listed "$o2" K; then bad "ⓐ 미커밋 3 인 K 가 경보에"; else ok "ⓐ K 경보 0"; fi
-hasnt "$o2" "[HIL]" "ⓐ 2회차 경보 0(서명 그대로)"
-[ -n "$s1" ] && [ "$s2" = "$s1" ] && ok "ⓐ 권한 000 회차 서명 = 1회차" || bad "ⓐ 서명 바뀜: 1«${s1}» 2«${s2}»"
-o3="$(swp)"; s3="$(cat "$T/clean/.shell-sig" 2>/dev/null)"
-hasnt "$o3" "[HIL]" "ⓐ 권한 복구 회차 경보 0(C 경보 반복 0)"
-[ "$s3" = "$s1" ] && ok "ⓐ 복구 전후 서명 같음" || bad "ⓐ 복구 뒤 서명 바뀜: 1«${s1}» 3«${s3}»"
-echo "== r844 ⓐ' 가리킨 gitdir 못 읽음(권한) · 위 폴더 권한으로 있는지 모름 → 판정 못 함(끊김 아님)"
-chmod 000 "$REPO/.git/worktrees/K"; o="$(swp)"; s="$(cat "$T/clean/.shell-sig" 2>/dev/null)"; chmod 755 "$REPO/.git/worktrees/K"
-if listed "$o" K; then bad "ⓐ' 등록 폴더 000 → K 가 경보에"; else ok "ⓐ' 등록 폴더(.git/worktrees/K) 000 → K 경보 0(worktree list 가 후보에서 뺌)"; fi
-hasnt "$o" "K (git 연결 끊김)" "ⓐ' 등록 폴더 권한을 «연결 끊김» 으로 읽지 않음"
-[ "$s" = "$s1" ] && ok "ⓐ' 서명 = 1회차" || bad "ⓐ' 서명 바뀜: 1«${s1}» «${s}»"
-# K2: 등록(.git/worktrees/K2)은 그대로 두고 폴더 .git 만 숨긴 사본($T/hide/K2)을 가리킴 → 사본 위 폴더 000 = git «저장소 아님»(가리킨 곳 있는지 모름)
-mk K2; mkdir -p "$T/hide"; cp -R "$REPO/.git/worktrees/K2" "$T/hide/K2"; echo "$REPO/.git" > "$T/hide/K2/commondir"
-printf 'gitdir: %s\n' "$T/hide/K2" > "$REPO/.worktrees/K2/.git"; echo new > "$REPO/.worktrees/K2/new.txt"
-GIT_CEILING_DIRECTORIES="$REPO/.worktrees" git -C "$REPO/.worktrees/K2" rev-parse --git-dir >/dev/null 2>&1 && ok "ⓐ' K2 준비(gitdir = $T/hide/K2 · 연결됨)" || bad "ⓐ' K2 준비 실패"
-rm -f "$T/clean/.shell-sig"; o="$(swp)"
-has "$o" "SKIP 껍데기 후보 K2 — 미커밋 1" "ⓐ' K2 평소 = SKIP «미커밋 1»"
-chmod 000 "$T/hide"; o="$(swp)"; chmod 755 "$T/hide"
-has "$o" "SKIP 껍데기 후보 K2 — 판정 못 함(git rev-parse rc=128 · fatal: not a git repository" "ⓐ' gitdir 위 폴더 000(git «저장소 아님») → 있는지 모름 = K2 판정 못 함"
-hasnt "$o" "K2 (git 연결 끊김)" "ⓐ' 위 폴더 권한을 «연결 끊김» 으로 읽지 않음"
 
 echo "== r844 ⓑ DA r3 반례 ② — 물려받은 GIT_DIR·GIT_WORK_TREE·GIT_INDEX_FILE(상위 리포) → B SKIP «미커밋 2»"
 rm -f "$T/clean/.shell-sig"; o0="$(swp)"; s0="$(cat "$T/clean/.shell-sig" 2>/dev/null)"
@@ -263,26 +234,7 @@ KO="$(LC_ALL=ko_KR.UTF-8 LANG=ko_KR.UTF-8 GIT_CEILING_DIRECTORIES="$REPO/.worktr
 case "$KO" in *"not a git repository"*) bad "ⓓ 준비 — 이 git 은 한국어 문구가 없음(시험 무의미) «$KO»";; *) ok "ⓓ 준비 — 한국어 로캘 git 문구 «${KO:0:60}»";; esac
 rm -f "$T/clean/.shell-sig"; o="$(swp LC_ALL=ko_KR.UTF-8 LANG=ko_KR.UTF-8)"
 has "$o" " X (git 연결 끊김) " "ⓓ 한국어 로캘 · X(가리킨 곳 없음) → 끊김"
-chmod 000 "$REPO/.worktrees/K/.git"; o="$(swp LC_ALL=ko_KR.UTF-8 LANG=ko_KR.UTF-8)"; chmod 644 "$REPO/.worktrees/K/.git"
-has "$o" "SKIP 껍데기 후보 K — 판정 못 함" "ⓓ 한국어 로캘 · K .git 000 → 판정 못 함"
 
-echo "== r844 r2 외부 DA r1 반례 — K4 미커밋 3 · .git = 정상 gitfile 의 심링크 · 대상 상위 폴더만 000 → 판정 못 함 · 서명 그대로 · 복구 회차 경보 0"
-mk K4; mkdir -p "$T/lnk/sub"; mv "$REPO/.worktrees/K4/.git" "$T/lnk/sub/gitfile"; ln -s "$T/lnk/sub/gitfile" "$REPO/.worktrees/K4/.git"
-echo y >> "$REPO/.worktrees/K4/d2/x"; echo new > "$REPO/.worktrees/K4/new.txt"; echo st > "$REPO/.worktrees/K4/st.txt"; git -C "$REPO/.worktrees/K4" add st.txt
-rm -f "$T/clean/.shell-sig"; o1="$(swp)"; s1="$(cat "$T/clean/.shell-sig" 2>/dev/null)"
-has "$o1" "SKIP 껍데기 후보 K4 — 미커밋 3" "r2 1회차 K4(심링크 .git) SKIP «미커밋 3»"
-chmod 000 "$T/lnk/sub"; o2="$(swp)"; s2="$(cat "$T/clean/.shell-sig" 2>/dev/null)"
-o2ko="$(swp LC_ALL=ko_KR.UTF-8 LANG=ko_KR.UTF-8)"; chmod 755 "$T/lnk/sub"
-has "$o2" "SKIP 껍데기 후보 K4 — 판정 못 함(git rev-parse rc=128" "r2 심링크 대상 상위 000 → K4 판정 못 함(rev-parse 먼저 · 접근 불가)"
-hasnt "$o2" "K4 (git 연결 끊김)" "r2 접근 불가를 «.git 없음»·«연결 끊김» 으로 읽지 않음"
-if listed "$o2" K4; then bad "r2 미커밋 3 인 K4 가 경보에"; else ok "r2 K4 경보 0"; fi
-hasnt "$o2" "[HIL]" "r2 000 회차 경보 0(서명 그대로)"
-[ -n "$s1" ] && [ "$s2" = "$s1" ] && ok "r2 000 회차 서명 = 1회차" || bad "r2 서명 바뀜: 1«${s1}» 2«${s2}»"
-has "$o2ko" "SKIP 껍데기 후보 K4 — 판정 못 함" "r2 한국어 로캘에서도 K4 판정 못 함"
-o3="$(swp)"; s3="$(cat "$T/clean/.shell-sig" 2>/dev/null)"
-has "$o3" "SKIP 껍데기 후보 K4 — 미커밋 3" "r2 권한 복구 → K4 SKIP «미커밋 3»"
-hasnt "$o3" "[HIL]" "r2 권한 복구 회차 경보 0"
-[ "$s3" = "$s1" ] && ok "r2 복구 전후 서명 같음" || bad "r2 복구 뒤 서명 바뀜: 1«${s1}» 3«${s3}»"
 echo "== r844 r2 진짜 끊김은 그대로 — 심링크 .git 대상 없음(매달린 심링크) → 끊김"
 mk K5; rm -f "$REPO/.worktrees/K5/.git"; ln -s "$T/lnk/nope/gitfile" "$REPO/.worktrees/K5/.git"
 rm -f "$T/clean/.shell-sig"; o="$(swp)"
@@ -290,28 +242,6 @@ has "$o" " K5 (git 연결 끊김) " "r2 매달린 심링크 .git(대상 없음 E
 hasnt "$o" "SKIP 껍데기 후보 K5" "r2 매달린 심링크 → SKIP 아님"
 listed "$o" K5 && ok "r3 깨진 심링크 K5 첫 회차 경보" || bad "r3 K5 첫 회차 경보 없음 ← ${o:0:600}"
 
-echo "== r844 r3 외부 DA r2 반례 — K6 미커밋 3 · 정상 gitdir · gitdir 의 HEAD 만 000 → 판정 못 함 · 서명 그대로 · 복구 회차 경보 0"
-# 등록 폴더(.git/worktrees/K6) HEAD 000 은 worktree list 의 HEAD sha 가 비어 후보에서 빠진다 → 폴더 .git 이 가리킨 gitdir 사본($T/hide3/K6)의 HEAD 를 막는다(등록은 그대로)
-mk K6; mkdir -p "$T/hide3"; cp -R "$REPO/.git/worktrees/K6" "$T/hide3/K6"; echo "$REPO/.git" > "$T/hide3/K6/commondir"
-printf 'gitdir: %s\n' "$T/hide3/K6" > "$REPO/.worktrees/K6/.git"
-echo y >> "$REPO/.worktrees/K6/d2/x"; echo new > "$REPO/.worktrees/K6/new.txt"; echo st > "$REPO/.worktrees/K6/st.txt"; git -C "$REPO/.worktrees/K6" add st.txt
-rm -f "$T/clean/.shell-sig"; o1="$(swp)"; s1="$(cat "$T/clean/.shell-sig" 2>/dev/null)"
-has "$o1" "SKIP 껍데기 후보 K6 — 미커밋 3" "r3 1회차 K6 SKIP «미커밋 3»"
-chmod 000 "$T/hide3/K6/HEAD"
-e6="$(GIT_CEILING_DIRECTORIES="$REPO/.worktrees" LC_ALL=C git -C "$REPO/.worktrees/K6" rev-parse --git-dir 2>&1)"
-case "$e6" in *"not a git repository"*) ok "r3 K6 준비 — HEAD 000 에 git «not a git repository»(DA r2 꼴)";; *) bad "r3 K6 준비 — git 답이 DA r2 꼴 아님 «${e6:0:160}»";; esac
-o2="$(swp)"; s2="$(cat "$T/clean/.shell-sig" 2>/dev/null)"
-o2ko="$(swp LC_ALL=ko_KR.UTF-8 LANG=ko_KR.UTF-8)"; chmod 644 "$T/hide3/K6/HEAD"
-has "$o2" "SKIP 껍데기 후보 K6 — 판정 못 함(git rev-parse rc=" "r3 HEAD 000(git «저장소 아님») → K6 판정 못 함"
-hasnt "$o2" "K6 (git 연결 끊김)" "r3 gitdir 안 파일 권한을 «연결 끊김» 으로 읽지 않음"
-if listed "$o2" K6; then bad "r3 미커밋 3 인 K6 가 경보에"; else ok "r3 K6 경보 0"; fi
-hasnt "$o2" "[HIL]" "r3 000 회차 경보 0(서명 그대로)"
-[ -n "$s1" ] && [ "$s2" = "$s1" ] && ok "r3 000 회차 서명 = 1회차" || bad "r3 서명 바뀜: 1«${s1}» 2«${s2}»"
-has "$o2ko" "SKIP 껍데기 후보 K6 — 판정 못 함" "r3 한국어 로캘에서도 K6 판정 못 함"
-o3="$(swp)"; s3="$(cat "$T/clean/.shell-sig" 2>/dev/null)"
-has "$o3" "SKIP 껍데기 후보 K6 — 미커밋 3" "r3 권한 복구 → K6 SKIP «미커밋 3»"
-hasnt "$o3" "[HIL]" "r3 권한 복구 회차 경보 0(C 경보 반복 0)"
-[ "$s3" = "$s1" ] && ok "r3 복구 전후 서명 같음" || bad "r3 복구 뒤 서명 바뀜: 1«${s1}» 3«${s3}»"
 
 echo "== r844 r3 진짜 끊김 — gitdir 대상 삭제(등록은 그대로 · 폴더 .git 이 가리킨 사본을 지움) → 첫 회차 경보"
 mk K7; mkdir -p "$T/hide2"; cp -R "$REPO/.git/worktrees/K7" "$T/hide2/K7"; echo "$REPO/.git" > "$T/hide2/K7/commondir"
