@@ -8,7 +8,7 @@ set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 KIT="$HERE/../../harness/kit/fable-team"; SRC="$KIT/bin"; TXT="$KIT/bin-planner/goal-lines-planner.txt"; ENVSRC="$KIT/bin-planner/planner-env.sh"
 T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T"' EXIT
-. "$HERE/lib/fake_tmm.sh"; fake_tmm "$T/fake" byz-planner-master-claude#1 byz-planner-arch#0 byz-harness-master-claude#1 byz-v65-master-claude#1   # r975 r4: 살아 있는 좌석 목록 대역(팀 env FT_SEND_FROM 포함)
+. "$HERE/lib/fake_tmm.sh"; fake_tmm "$T/fake" byz-planner-master-claude#1 byz-planner-arch-claude#0 byz-harness-master-claude#1 byz-v65-master-claude#1   # r975 r4: 살아 있는 좌석 목록 대역(팀 env FT_SEND_FROM 포함)
 . "$HERE/lib/fake_resource_env.sh"; fake_resource_env "$T/sensors" ok   # R218: 자원 문지기 센서를 가짜로(실 머신 부하·압력 무관)
 fail=0
 ok()  { echo "PASS $1"; }
@@ -50,6 +50,7 @@ GIT() { git -C "$REPO" -c user.email=t@t -c user.name=t "$@"; }
 mkdir -p "$REPO/.fable-team/bin-planner" "$REPO/design/planner/indices/대기" "$REPO/design/planner/indices/진행" "$REPO/design/v65/indices/대기" "$REPO/scripts"
 cp "$TXT" "$REPO/.fable-team/bin-planner/goal-lines-planner.txt"
 sed "s#/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents#$REPO#g" "$ENVSRC" > "$REPO/.fable-team/bin-planner/planner-env.sh"
+printf "export FT_SEND_FROM='byz-planner-arch-claude#0'\n" >> "$REPO/.fable-team/bin-planner/planner-env.sh"   # r975 r8: 발신자 이름도 ft-name-lint 를 지나는 꼴(역할 뒤 에이전트 꼬리)
 mkdir -p "$REPO/.fable-team/bin-harness"   # 하네스 팀 env — 골 줄·원장은 planner 시험 카드와 같은 값(⑤ 가 «유일한» REJECT 사유가 되도록)
 printf 'export FT_SEATS_JSON=%s/.fable-team/seats-harness.json\nexport FT_NANO_PREFIX=byz-harness-nano-\nexport FT_NANO_WT_PREFIX=harness-\nexport FT_GOAL_LEDGER=design/planner/GOAL-planner.md\nexport FT_GOAL_LINES_FILE=%s/.fable-team/bin-planner/goal-lines-planner.txt\n' "$REPO" "$REPO" > "$REPO/.fable-team/bin-harness/harness-env.sh"; echo '{"_master":"byz-harness-master-claude#1","byz-harness-master-claude#1":{"role":"master"}}' > "$REPO/.fable-team/seats-harness.json"   # r975 반송 r1: 회신 대상 = 명부 _master(빈 명부면 lint 앞에서 REJECT)
 echo '{"_master":"byz-planner-master-claude#1","byz-planner-master-claude#1":{"role":"master"},"byz-planner-arch#0":{"role":"arch"}}' > "$REPO/.fable-team/seats-planner.json"   # r975 반송 r1: 팀 env FT_SEND_FROM(발주자) 도 그 명부에 실재해야 한다

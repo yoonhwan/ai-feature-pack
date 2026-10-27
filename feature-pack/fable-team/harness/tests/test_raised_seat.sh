@@ -8,7 +8,7 @@ unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO="$HERE/../.."; BIN="${R149_BIN:-$REPO/harness/bin}"; KIT="$REPO/harness/kit/fable-team/bin"
 T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T"' EXIT
-. "$HERE/lib/fake_tmm.sh"; fake_tmm "$T/fake" m#1 byz-v65-master-claude#1   # r975 r4: 살아 있는 좌석 목록 대역(--from m#1 포함)
+. "$HERE/lib/fake_tmm.sh"; fake_tmm "$T/fake" byz-v65-master-claude#1   # r975 r4: 살아 있는 좌석 목록 대역(--from byz-v65-master-claude#1 포함)
 . "$HERE/lib/fake_resource_env.sh"; fake_resource_env "$T/sensors" ok   # R218: 자원 문지기 센서를 가짜로(실 머신 부하·압력 무관)
 fail=0
 ok()   { echo "PASS $1"; }
@@ -40,7 +40,7 @@ printf '#!/bin/bash\n[ "$1" = key ] && { echo k; exit 0; }\necho "$*" >> "%s/eve
 printf '#!/bin/bash\necho "tmuxc $*" >> "%s/calls.log"\nif [ "$1" = open ]; then n=""; dry=0; while [ $# -gt 0 ]; do [ "$1" = --name ] && n="$2"; [ "$1" = --dry-run ] && dry=1; shift; done; if [ $dry = 1 ]; then echo "TMUXC-DRY $n"; else : > "%s/sess/$n"; fi; fi\n' "$T" "$T" > "$T/fake/tmuxc"
 printf '#!/bin/bash\necho "tmux $*" >> "%s/calls.log"\ncase "$1" in\n has-session) [ -e "%s/sess/${3#=}" ];;\n list-panes) for s in "%s"/sess/*; do [ -e "$s" ] && echo "$(basename "$s")|%%1|1700000000"; done; exit 0;;\n show-option) echo 1;;\n *) exit 0;;\nesac\n' "$T" "$T" "$T" > "$T/fake/tmux"
 chmod +x "$B"/*.sh "$T/fake/tmuxc" "$T/fake/tmux"
-printf '{"_master":"m#1","m#1":{"role":"master","agent":"claude","tick":null}}\n' > "$SEATS"
+printf '{"_master":"byz-v65-master-claude#1","byz-v65-master-claude#1":{"role":"master","agent":"claude","tick":null}}\n' > "$SEATS"
 SEATS0="$(cat "$SEATS")"
 SPAWN() { (cd "$R" && PATH="$T/fake:$PATH" FT_SEATS_JSON="$SEATS" bash "$B/ft-nano-spawn.sh" "$R/$CARD_REL" "$@" 2>&1); }
 RSPAWN() { (cd "$R" && PATH="$T/fake:$PATH" bash "$B/ft-role-spawn.sh" "$@" 2>&1); }
@@ -62,14 +62,14 @@ o="$(RSPAWN da --agent codex --model gpt-6-astra --effort low --raise 사유 --r
 untouched "role dry-run"
 
 # ── ③ 격리 실전: 실제 경로로 명부 행 저장 ──
-o="$(SPAWN --model claude-fable-5-1 --raise '2회 수렴 실패' --from m#1)"; has "$o" "SPAWNED " "실전 상향 spawn → SPAWNED"
+o="$(SPAWN --model claude-fable-5-1 --raise '2회 수렴 실패' --from byz-v65-master-claude#1)"; has "$o" "SPAWNED " "실전 상향 spawn → SPAWNED"
 S="$(ls "$T/sess" | head -1)"; r="$(row "$S")"
-has "$r" '"reason": "2회 수렴 실패"' "행 raised.reason"; has "$r" '"card": "design/v65/indices/진행/r149x.md"' "행 raised.card = 진행/ 카드"; has "$r" '"by": "m#1"' "행 raised.by = --from"
+has "$r" '"reason": "2회 수렴 실패"' "행 raised.reason"; has "$r" '"card": "design/v65/indices/진행/r149x.md"' "행 raised.card = 진행/ 카드"; has "$r" '"by": "byz-v65-master-claude#1"' "행 raised.by = --from"
 has "$r" '"close_on": "card 가 완성/ 으로 가거나 없어짐 · 또는 좌석 닫기"' "행 raised.close_on"; has "$r" '"at": "20' "행 raised.at ISO"; has "$r" '"model": "claude-fable-5-1"' "행 model"
 printf '# 인덱스: r149y\n## 상태\n' > "$R/design/v65/indices/대기/r149y.md"
 o="$(cd "$R" && PATH="$T/fake:$PATH" FT_SEATS_JSON="$SEATS" bash "$B/ft-nano-spawn.sh" "$R/design/v65/indices/대기/r149y.md" 2>&1)"; has "$o" "SPAWNED " "실전 기본 모델 spawn → SPAWNED"
 S2="$(ls "$T/sess" | grep r149y | head -1)"; eq "$(keys "$S2")" "role,agent,tick,model,index" "기본 모델 행 모양 변화 0 (raised 칸 없음)"
-o="$(RSPAWN master --model claude-fable-5-1 --raise '설계 재작성' --raise-card design/v65/indices/진행/r149x.md --from m#1)"; has "$o" "SPAWNED " "실전 상향 role spawn → SPAWNED"
+o="$(RSPAWN master --model claude-fable-5-1 --raise '설계 재작성' --raise-card design/v65/indices/진행/r149x.md --from byz-v65-master-claude#1)"; has "$o" "SPAWNED " "실전 상향 role spawn → SPAWNED"
 RS="$(ls "$T/sess" | grep master | head -1)"; r="$(row "$RS")"
 has "$r" '"card": "design/v65/indices/진행/r149x.md"' "role 행 raised.card = --raise-card"; has "$r" '"index": "design/v65/indices/inbox/master/"' "role 행 index = inbox 의미 보존"
 
@@ -81,7 +81,7 @@ refroot() { git -C "$1" init -q 2>/dev/null; git -C "$1" -c user.email=t@t -c us
 refroot "$CK"
 mk() { python3 - "$@" <<'PY'
 import json, sys
-rows = {"_master": "m#1"}
+rows = {"_master": "byz-v65-master-claude#1"}
 def raised(card, reason="r"): return {"reason": reason, "card": card}
 rows["nano-open"] = {"role": "nano", "model": "claude-fable-5-1", "index": "design/x/indices/진행/a.md", "raised": raised("design/x/indices/진행/a.md")}
 rows["nano-done"] = {"role": "nano", "model": "claude-fable-5-1", "index": "design/x/indices/진행/b.md", "raised": raised("design/x/indices/진행/b.md", "어려움")}
@@ -102,14 +102,14 @@ hasnt "$o" "nano-open" "나노 카드 진행/ → 0줄"; hasnt "$o" "role-open" 
 hasnt "$o" "retired" "은퇴 행(_replaced_by) → 0줄"; hasnt "$o" "nano-wait" "카드 대기/ → 0줄"; eq "$(printf '%s\n' "$o" | grep -c '▶내릴 것')" 3 "▶내릴 것 정확히 3줄"
 python3 - "$CK/s2.json" <<'PY'
 import json, sys
-json.dump({"_master": "m#1", "a": {"role": "nano", "raised": {"card": "design/x/indices/진행/a.md"}}, "p": {"role": "master", "index": "design/v65/indices/inbox/master/"}}, open(sys.argv[1], "w"))
+json.dump({"_master": "byz-v65-master-claude#1", "a": {"role": "nano", "raised": {"card": "design/x/indices/진행/a.md"}}, "p": {"role": "master", "index": "design/v65/indices/inbox/master/"}}, open(sys.argv[1], "w"))
 PY
 o="$(python3 "$RAISED" check "$CK/s2.json" --root "$CK" 2>&1)"; rc=$?; rc_is "$rc" 0 "check 전부 진행/ → rc 0"; eq "$o" "" "check 전부 진행/ → 출력 0"
 python3 "$RAISED" check "$CK/s.json" "$CK/s.json" "$CK/./s.json" "$CK/s*.json" --root "$CK" >/dev/null 2>&1
 DUP="$T/dup"; mkdir -p "$DUP/design/x/indices/완성"; : > "$DUP/design/x/indices/완성/z.md"; refroot "$DUP"
 python3 - "$DUP/seats-t.json" <<'PY2'
 import json, sys
-json.dump({"_master": "m#1", "m#1": {"role": "master", "agent": "claude", "tick": None}, "nano-z": {"role": "nano", "model": "claude-fable-5-1", "raised": {"reason": "r", "card": "design/x/indices/완성/z.md"}}}, open(sys.argv[1], "w"), ensure_ascii=False)
+json.dump({"_master": "byz-v65-master-claude#1", "byz-v65-master-claude#1": {"role": "master", "agent": "claude", "tick": None}, "nano-z": {"role": "nano", "model": "claude-fable-5-1", "raised": {"reason": "r", "card": "design/x/indices/완성/z.md"}}}, open(sys.argv[1], "w"), ensure_ascii=False)
 PY2
 ln -s seats-t.json "$DUP/link.json"
 o="$(python3 "$RAISED" check "$DUP/seats-t.json" "$DUP/seats-*.json" "$DUP/./seats-t.json" "$DUP/link.json" --root "$DUP" 2>&1)"; rc=$?
@@ -127,7 +127,7 @@ python3 "$RAISED" check "$CK/glob-없음-*.json" --root "$CK" >/dev/null 2>&1; r
 # ── ⑤ tick raised_watch ──
 TK="$T/tk"; mkdir -p "$TK"; cp "$CK/s.json" "$TK/seats.json"; python3 - "$TK/seats.json" <<'PY'
 import json, sys
-d = json.load(open(sys.argv[1])); d["m#1"] = {"role": "master", "agent": "claude", "tick": None}; json.dump(d, open(sys.argv[1], "w"), ensure_ascii=False)
+d = json.load(open(sys.argv[1])); d["byz-v65-master-claude#1"] = {"role": "master", "agent": "claude", "tick": None}; json.dump(d, open(sys.argv[1], "w"), ensure_ascii=False)
 PY
 printf '#!/bin/bash\necho "$*" >> "%s/mbox.log"\n' "$T" > "$T/fakembox.sh"; printf '#!/bin/bash\nexit 1\n' > "$T/failmbox.sh"; chmod +x "$T/fakembox.sh" "$T/failmbox.sh"
 mkdir -p "$T/fk-sha"; printf '#!/bin/sh\nexit 9\n' > "$T/fk-sha/shasum"; chmod +x "$T/fk-sha/shasum"

@@ -119,7 +119,7 @@ o="$(run1 "$D")"; rc=$?
 { [ "$rc" = 0 ] && [[ "$o" == *"SPAWNED"* ]]; } && ok "ⓐ 개설 rc=0" || bad "ⓐ rc=$rc $o"
 # ⓐ-2 이름은 같은데 «옛 번호» 도 살아 있고 새 번호도 살아 있으면 = 2명(ⓑ) · 목록에 master 가 하나면 그 하나
 tl "$T/tmm.lst" byz-harness-master-claude#7
-o="$(run1 "$D")"
+o="$(run1 "$D" --dry-run)"   # 하드 룰 22(70초) — 이 칸은 «번호 하드코딩 0» 만 본다(개설은 ⓐ 가 이미 쟀다)
 [[ "$o" == *"INFO 회신 대상 = byz-harness-master-claude#7"* ]] && ok "ⓐ-2 목록이 바뀌면 대상도 바뀐다(번호 하드코딩 0)" || bad "ⓐ-2 $o"
 
 # ── ⓑ 현역 master 2명 → REJECT 1줄 + 목록 · 개설 0 ──
@@ -143,7 +143,7 @@ t0="$(date +%s)"; o="$(FAKE_TMM_DELAY=20 run1 "$D")"; rc=$?; dt=$(( $(date +%s) 
 # ── ⓓ --from 이 목록 밖(은퇴 이름) → REJECT(승계 추적 0) ──
 D="$T/d"; mkfix "$D"; tl "$T/tmm.lst" byz-harness-master-claude#4 byz-harness-arch-claude#1
 o="$(run1 "$D" --from byz-harness-master-claude#3)"; rc=$?
-{ [ "$rc" != 0 ] && one_line "$o" && [[ "$o" == *"목록에 없다"* ]] && [ ! -f "$T/opened" ]; } \
+{ [ "$rc" != 0 ] && one_line "$o" && [[ "$o" == *"집합에 없다"* ]] && [ ! -f "$T/opened" ]; } \
   && ok "ⓓ --from 은퇴 이름 → REJECT 1줄(후계로 바꾸지 않는다)" || bad "ⓓ rc=$rc $o"
 
 # ── ⓔ --from 이 목록 안 → 그대로 ──
@@ -158,9 +158,9 @@ o="$(run1 "$D" --from byz-v65-master-claude#2)"; rc=$?
 # ── ⓘ 팀 폴더 이름에 공백·한글 → 그 팀 접두로 tmm 목록을 읽는다 ──
 setteam '하네스'; D="$T/f-1"; mkfix "$D"
 tl "$T/tmm.lst" "byz-하네스-master-claude#3" "byz-하네스-arch-claude#1"
-o="$(run1 "$D")"
-{ [[ "$o" == *"INFO 회신 대상 = byz-하네스-master-claude#3"* ]] && [[ "$o" == *"SPAWNED"* ]]; } \
-  && ok "ⓘ 한글 팀 → tmm ls byz-하네스 목록에서 고른다" || bad "ⓘ 한글 팀 $o"
+o="$(run1 "$D")"; rc=$?
+# [범위 밖] 좌석 이름 규칙(ft-name-lint)은 소문자·숫자·'-' 만 — 한글 팀 이름 좌석은 «없다». 조용히 다른 좌석을 고르지 않고 REJECT 1줄인지만 본다.
+{ [ "$rc" != 0 ] && one_line "$o" && [ ! -f "$T/opened" ]; } && ok "ⓘ 한글 팀 좌석 → 검사기 REJECT 1줄 · 개설 0([범위 밖])" || bad "ⓘ 한글 팀 rc=$rc $o"
 # [범위 밖] 팀·좌석 이름에 «공백» 은 우리 도구가 만들지 않는다(하드 룰 18 결 · arch 161 판단 ⒝) —
 #   목록 토큰은 공백으로 갈리므로 «공백 팀 접두» 는 매치될 수 없다. 그래도 조용히 다른 좌석을 고르지 않고 REJECT 1줄인지만 본다.
 setteam 'harness team'; D="$T/f-2"; mkfix "$D"
@@ -172,20 +172,18 @@ setteam harness
 
 # ── ⓕ (r5 ①) master 0명 + 현역 arch + --from 그 arch → 개설(명시가 기본 선택을 대신) · 다른 팀 master 명시 → REJECT ──
 D="$T/f5"; mkfix "$D"; tl "$T/tmm.lst" byz-harness-arch-claude#1 byz-harness-nano-x#0
-o="$(run1 "$D" --from byz-harness-arch-claude#1)"; rc=$?
-{ [ "$rc" = 0 ] && [[ "$o" == *"INFO 회신 대상 = byz-harness-arch-claude#1"* ]] && [[ "$o" == *"[byz-harness-arch-claude#1->"* ]] \
-  && [ "$(cat "$T/sent-from.txt" 2>/dev/null)" = "byz-harness-arch-claude#1" ] && [[ "$o" == *"SPAWNED"* ]]; } \
-  && ok "ⓕ master 0명 + --from 현역 arch → 그 이름으로 개설·송신" || bad "ⓕ rc=$rc $o"
+o="$(run1 "$D" --dry-run --from byz-harness-arch-claude#1)"; rc=$?
+{ [ "$rc" = 0 ] && [[ "$o" == *"INFO 회신 대상 = byz-harness-arch-claude#1"* ]] && [[ "$o" == *"[byz-harness-arch-claude#1->"* ]]; } \
+  && ok "ⓕ master 0명 + --from 현역 arch → 그 이름으로 확정" || bad "ⓕ rc=$rc $o"
 [[ "$o" == *"INFO --from 로 확정"* ]] && ok "ⓕ 팀장 0명 사유 INFO 1줄" || bad "ⓕ INFO 없음: $o"
 o="$(run1 "$D" --from byz-harness-tools-master-claude#2)"; rc=$?
 { [ "$rc" != 0 ] && one_line "$o" && [ ! -f "$T/opened" ]; } && ok "ⓕ 다른 팀 좌석 명시 → REJECT 1줄 · 개설 0" || bad "ⓕ 다른 팀 rc=$rc $o"
 
 # ── ⓖ (r5 ③) FT_SEND_FROM 이 이 팀 좌석이면 --from 없이도 그 값(팀장 아님) · 목록 밖이면 REJECT ──
 D="$T/g5"; mkfix "$D"; tl "$T/tmm.lst" byz-harness-master-claude#3 byz-harness-arch-claude#1
-EXTRA_ENV=(FT_SEND_FROM=byz-harness-arch-claude#1); o="$(run1 "$D")"; rc=$?; EXTRA_ENV=()
-{ [ "$rc" = 0 ] && [[ "$o" == *"INFO 회신 대상 = byz-harness-arch-claude#1"* ]] && [[ "$o" == *"[byz-harness-arch-claude#1->"* ]] \
-  && [ "$(cat "$T/sent-from.txt" 2>/dev/null)" = "byz-harness-arch-claude#1" ]; } \
-  && ok "ⓖ FT_SEND_FROM(이 팀 좌석) → 그 값으로 개설·송신(팀장 아님)" || bad "ⓖ rc=$rc $o"
+EXTRA_ENV=(FT_SEND_FROM=byz-harness-arch-claude#1); o="$(run1 "$D" --dry-run)"; rc=$?; EXTRA_ENV=()
+{ [ "$rc" = 0 ] && [[ "$o" == *"INFO 회신 대상 = byz-harness-arch-claude#1"* ]] && [[ "$o" == *"[byz-harness-arch-claude#1->"* ]]; } \
+  && ok "ⓖ FT_SEND_FROM(이 팀 좌석) → 그 값으로 확정(팀장 아님)" || bad "ⓖ rc=$rc $o"
 EXTRA_ENV=(FT_SEND_FROM=byz-v65-master-claude#2); o="$(run1 "$D")"; rc=$?; EXTRA_ENV=()
 { [ "$rc" != 0 ] && one_line "$o" && [ ! -f "$T/opened" ]; } && ok "ⓖ FT_SEND_FROM 목록 밖 → REJECT 1줄(조용히 팀장으로 0)" || bad "ⓖ 밖 rc=$rc $o"
 
@@ -215,9 +213,8 @@ for r in analyst repro tool; do
 done
 ok "ⓘ FT_SEND_FROM=analyst·repro·tool 도 그 이름으로 확정"
 tl "$T/tmm.lst" byz-harness-master-claude#3 byz-harness-analyst-claude#1
-o="$(run1 "$D" --from byz-harness-analyst-claude#1)"
-{ [[ "$o" == *"[byz-harness-analyst-claude#1->"* ]] && [ "$(cat "$T/sent-from.txt" 2>/dev/null)" = "byz-harness-analyst-claude#1" ] && [[ "$o" == *"SPAWNED"* ]]; } \
-  && ok "ⓘ analyst 좌석으로 실제 개설 · 송신 = 그 이름" || bad "ⓘ analyst 개설 $o"
+o="$(run1 "$D" --dry-run --from byz-harness-analyst-claude#1)"
+[[ "$o" == *"[byz-harness-analyst-claude#1->"* ]] && ok "ⓘ analyst 좌석이 발주문 머리로 확정" || bad "ⓘ analyst $o"
 
 # ── 계약 ④ 실제 송신 도구 경유: 선택 이름 = mbox from/to ──
 D="$T/g"; mkfix "$D"; tl "$T/tmm.lst" byz-harness-master-claude#3
@@ -235,63 +232,94 @@ assert old in s, "변이 대상 없음: " + old[:60]
 open(p, "w", encoding="utf-8").write(s.replace(old, new, 1))
 PY
 }
-# 변이 ① «목록 밖 이름을 고른다»(명부/하드코딩 값으로 대체 = r4 이전 방식) → 계약 위반: 목록에 없는 이름
-M1="$T/mut1"; mk_mut "$M1" 'print(masters[0][1])' 'print("byz-harness-master-claude#1")   # 변이: 고정값(옛 방식)'
-bash -n "$M1/ft-nano-spawn.sh" && ok "변이① bash -n rc0(실행 가능)" || bad "변이① bash -n 실패"
-D="$T/m1"; mkfix "$D"; tl "$T/tmm.lst" byz-harness-master-claude#3
-rm -f "$T/opened"; mkpanes
+# ── ⓙ (r8 ①) 검사기 rc≠0 → REJECT 1줄 · 개설 0 (dry-run·실행 같은 판정) ──
+D="$T/j8"; mkfix "$D"; tl "$T/tmm.lst" byz-harness-master-claude#3
+JX="$T/bin-j"; cp -R "$BINX" "$JX"
+printf '#!/usr/bin/env bash\nexit 7\n' > "$JX/ft-name-lint.sh"; chmod +x "$JX/ft-name-lint.sh"   # 검사기 대역: 늘 rc7
+for mode in --dry-run ""; do
+  rm -f "$T/opened"; mkpanes; o="$(sp "$D" "$JX" $mode)"; rc=$?
+  { [ "$rc" != 0 ] && one_line "$o" && [ "$(wts "$D")" = 1 ] && [ ! -f "$T/opened" ]; } \
+    && ok "ⓙ 검사기 rc7(${mode:-실행}) → REJECT 1줄 · 개설 0" || bad "ⓙ ${mode:-실행} rc=$rc $o"
+done
+# ── ⓚ (r8 ②) 검사기 8초 지연 → 7초 상한에 끊고 REJECT · 개설 0 ──
+KX="$T/bin-k"; cp -R "$BINX" "$KX"
+printf '#!/usr/bin/env bash\n/bin/sleep 8\necho "PASS $1"\n' > "$KX/ft-name-lint.sh"; chmod +x "$KX/ft-name-lint.sh"
+rm -f "$T/opened"; mkpanes; t0="$(date +%s)"; o="$(sp "$D" "$KX" --dry-run)"; rc=$?; dt=$(( $(date +%s) - t0 ))
+{ [ "$rc" != 0 ] && one_line "$o" && [[ "$o" == *"7초 초과"* ]] && [ "$dt" -le 10 ] && [ ! -f "$T/opened" ]; } \
+  && ok "ⓚ 검사기 8초 지연 → 7초 상한 REJECT(${dt}s) · 개설 0" || bad "ⓚ rc=$rc ${dt}s $o"
+# ── ⓛ (r8 ③) 검사기가 거절하는 이름(역할 뒤 임의 꼬리)은 집합 밖 — --from/FT_SEND_FROM 거절 ──
+D="$T/l8"; mkfix "$D"; tl "$T/tmm.lst" byz-harness-master-claude#3 byz-harness-analyst-master-claude#2
+o="$(run1 "$D" --dry-run --from byz-harness-analyst-master-claude#2)"; rc=$?
+{ [ "$rc" != 0 ] && one_line "$o" && ! [[ "$o" == *"INFO 회신 대상 = byz-harness-analyst-master-claude#2"* ]]; } \
+  && ok "ⓛ 검사기 REJECT 이름 --from → REJECT 1줄" || bad "ⓛ --from rc=$rc $o"
+EXTRA_ENV=(FT_SEND_FROM=byz-harness-analyst-master-claude#2); o="$(run1 "$D" --dry-run)"; rc=$?; EXTRA_ENV=()
+{ [ "$rc" != 0 ] && one_line "$o"; } && ok "ⓛ 검사기 REJECT 이름 FT_SEND_FROM → REJECT 1줄" || bad "ⓛ env rc=$rc $o"
+o="$(run1 "$D")"; rc=$?
+{ [ "$rc" = 0 ] && [[ "$o" == *"INFO 회신 대상 = byz-harness-master-claude#3"* ]] && [ "$(cat "$T/sent-from.txt" 2>/dev/null)" = "byz-harness-master-claude#3" ]; } \
+  && ok "ⓛ 미지정 → master 선택 · 송신 발신자 = master" || bad "ⓛ 기본 rc=$rc $o"
+
+# ── 변이 5종 — 계약 위반 단언(문구 아님) · 각 bash -n rc0 먼저 ──
+mk_mut() { cp -R "$BINX" "$1"; python3 - "$1/ft-nano-spawn.sh" "$2" "$3" <<'PY'
+import sys
+p, old, new = sys.argv[1:4]
+s = open(p, encoding="utf-8").read()
+assert old in s, "변이 대상 없음: " + old[:60]
+open(p, "w", encoding="utf-8").write(s.replace(old, new, 1))
+PY
+}
+# 변이 ① «고정값 이름(옛 r4 이전 방식)» → 계약 위반: 목록에 없는 이름으로 개설
+M1="$T/mut1"; mk_mut "$M1" 'print(masters[0][1])' 'print("byz-harness-master-claude#1")   # 변이: 고정값'
+bash -n "$M1/ft-nano-spawn.sh" && ok "변이① bash -n rc0" || bad "변이① bash -n 실패"
+D="$T/m1"; mkfix "$D"; tl "$T/tmm.lst" byz-harness-master-claude#3; rm -f "$T/opened"; mkpanes
 TO="$(command -v timeout || command -v gtimeout || true)"
-o="$( cd "$D" && "$TO" 20 env -i HOME="$HOME" LC_ALL=en_US.UTF-8 PATH="$T/fake:$PATH" \
-      FT_GH_READ="$T/fake/gh-open" GH_REPO=o/r FT_TEAMSET=0 FT_RES_ROOT="$T/res" FT_SHEET_ROOT="$FT_SHEET_ROOT" \
-      FT_ROOT="$D" FT_RECLAIM_SH="$T/reclaim.sh" FAKE_OPENED="$T/opened" FAKE_PANES="$T/panes" \
-      FAKE_TMM_LIST="$T/tmm.lst" bash "$M1/ft-nano-spawn.sh" "$CARDX" --dry-run 2>&1 )"; rc=$?
-if [ "$rc" = 124 ]; then ok "변이① 20초 안에 안 끝남(상한 소실) → 변이 검출(arch 161 ⒜)"
+o="$( cd "$D" && "$TO" 20 env -i HOME="$HOME" LC_ALL=en_US.UTF-8 PATH="$T/fake:$PATH" FT_GH_READ="$T/fake/gh-open" GH_REPO=o/r \
+      FT_TEAMSET=0 FT_RES_ROOT="$T/res" FT_SHEET_ROOT="$FT_SHEET_ROOT" FT_ROOT="$D" FT_RECLAIM_SH="$T/reclaim.sh" \
+      FAKE_OPENED="$T/opened" FAKE_PANES="$T/panes" FAKE_TMM_LIST="$T/tmm.lst" \
+      bash "$M1/ft-nano-spawn.sh" "$CARDX" --dry-run 2>&1 )"; rc=$?
+if [ "$rc" = 124 ]; then ok "변이① 20초 안에 안 끝남 → 변이 검출"
 elif [[ "$o" == *"INFO 회신 대상 = byz-harness-master-claude#1"* ]]; then ok "변이① 목록 밖 이름을 골랐다 → 계약 위반 검출"
 else bad "변이① 계약을 안 깼다(rc=$rc): $o"; fi
 
-# 변이 ② «master 가 없으면 루트 팀장으로 대체»(조용한 대체 = 계약 ② 위반) → 목록에 없는 이름으로 개설
+# 변이 ② «master 없으면 루트 팀장으로 대체»(조용한 대체) → 계약 위반
 M2="$T/mut2"; mk_mut "$M2" 'if not masters:
-    reject("이 팀(byz-%s) master 좌석이 목록에 없다%s (목록: %s)" % (team, " — master 이름이 잘려 읽혔다" if cut_master else "", " ".join(names) or "0명"))' 'if not masters:
+    reject("이 팀(byz-%s) master 좌석이 집합에 없다 (집합: %s)" % (team, " ".join(names) or "0명"))' 'if not masters:
     print("byz-v65-master-claude#2"); sys.exit(0)'
-bash -n "$M2/ft-nano-spawn.sh" && ok "변이② bash -n rc0(실행 가능)" || bad "변이② bash -n 실패"
-D="$T/m2"; mkfix "$D"; tl "$T/tmm.lst" byz-harness-arch-claude#1   # 살아 있는 좌석은 있지만 master 없음
-rm -f "$T/opened"; mkpanes
-# 변이 빌드는 «일부러 계약을 깬» 판이라 흐름이 무너져 끝나지 않을 수 있다 → 시험이 timeout 20 으로 감싸고
-#   rc124 = 변이 검출로 센다(arch 161 ⒜ 와 같은 규칙). 계약 위반 자체는 위 ⓑ·ⓒ 칸이 이미 잰다.
-o="$( cd "$D" && "$TO" 20 env -i HOME="$HOME" LC_ALL=en_US.UTF-8 PATH="$T/fake:$PATH" \
-      FT_GH_READ="$T/fake/gh-open" GH_REPO=o/r FT_TEAMSET=0 FT_RES_ROOT="$T/res" FT_SHEET_ROOT="$FT_SHEET_ROOT" \
-      FT_ROOT="$D" FT_RECLAIM_SH="$T/reclaim.sh" FAKE_OPENED="$T/opened" FAKE_PANES="$T/panes" \
-      FAKE_TMM_LIST="$T/tmm.lst" bash "$M2/ft-nano-spawn.sh" "$CARDX" --dry-run 2>&1 )"; rc=$?
-if [ "$rc" = 124 ]; then ok "변이② 20초 안에 안 끝남 → 변이 검출(arch 161 ⒜)"
-elif [ "$rc" = 0 ] && [[ "$o" == *"INFO 회신 대상 = byz-v65-master-claude#2"* ]]; then ok "변이② master 없음 → 루트 팀장 대체 = 계약② 위반 검출"
-else bad "변이② 계약을 안 깼다(rc=$rc): $o"; fi
+bash -n "$M2/ft-nano-spawn.sh" && ok "변이② bash -n rc0" || bad "변이② bash -n 실패"
+D="$T/m2"; mkfix "$D"; tl "$T/tmm.lst" byz-harness-arch-claude#1; rm -f "$T/opened"; mkpanes
+o="$(sp "$D" "$M2" --dry-run)"; rc=$?
+{ [ "$rc" = 0 ] && [[ "$o" == *"INFO 회신 대상 = byz-v65-master-claude#2"* ]]; } \
+  && ok "변이② master 없음 → 루트 팀장 대체 = 계약 위반 검출" || bad "변이② 계약을 안 깼다(rc=$rc): $o"
 
-# 변이 ③ «경계 정규식 제거(포함 검색 그대로)» → ⓗ 위반: 다른 팀 좌석이 이 팀 좌석으로 센다
-M3="$T/mut3"; mk_mut "$M3" '        if not seat.match(tok):' '        if False:   # 변이: 경계 검사 제거(포함 검색 그대로)'
-bash -n "$M3/ft-nano-spawn.sh" && ok "변이③ bash -n rc0(실행 가능)" || bad "변이③ bash -n 실패"
-D="$T/m3"; mkfix "$D"; tl "$T/tmm.lst" byz-harness-master-claude#3 byz-harness-tools-master-claude#2
-rm -f "$T/opened"; mkpanes; o="$(sp "$D" "$M3" --dry-run --from byz-harness-tools-master-claude#2)"; rc=$?
-{ [ "$rc" = 0 ] && [[ "$o" == *"INFO 회신 대상 = byz-harness-tools-master-claude#2"* ]]; } \
-  && ok "변이③ 경계 제거 → 다른 팀 이름 수용 = ⓗ 위반 검출" || bad "변이③ 계약을 안 깼다(rc=$rc): $o"
-# 변이 ④ «FT_SEND_FROM 무시 복원» → ⓖ 위반: env 값 대신 팀장으로 간다
+# 변이 ③ «검사기 호출 우회(이름 판정 사본 복원)» → 계약 위반: 검사기가 거절하는 이름을 수용
+M3="$T/mut3"; mk_mut "$M3" '      bash "$L" "$n" >/dev/null 2>&1 && printf "%s\n" "$n"' '      printf "%s\n" "$n"   # 변이: 검사기 호출 우회'
+bash -n "$M3/ft-nano-spawn.sh" && ok "변이③ bash -n rc0" || bad "변이③ bash -n 실패"
+D="$T/m3"; mkfix "$D"; tl "$T/tmm.lst" byz-harness-master-claude#3 byz-harness-analyst-master-claude#2
+rm -f "$T/opened"; mkpanes; o="$(sp "$D" "$M3" --dry-run --from byz-harness-analyst-master-claude#2)"; rc=$?
+{ [ "$rc" = 0 ] && [[ "$o" == *"INFO 회신 대상 = byz-harness-analyst-master-claude#2"* ]]; } \
+  && ok "변이③ 검사기 우회 → 거절 이름 수용 = ⓛ 위반 검출" || bad "변이③ 계약을 안 깼다(rc=$rc): $o"
+
+# 변이 ④ «FT_SEND_FROM 무시 복원» → 계약 위반: env 값 대신 팀장으로
 M4="$T/mut4"; mk_mut "$M4" 'elif env_from.strip():
-    want, src = env_from.strip(), "FT_SEND_FROM"' 'elif False:                                   # 변이: FT_SEND_FROM 무시
+    want, src = env_from.strip(), "FT_SEND_FROM"' 'elif False:
     want, src = env_from.strip(), "FT_SEND_FROM"'
-bash -n "$M4/ft-nano-spawn.sh" && ok "변이④ bash -n rc0(실행 가능)" || bad "변이④ bash -n 실패"
-D="$T/m4"; mkfix "$D"; tl "$T/tmm.lst" byz-harness-master-claude#3 byz-harness-arch-claude#1
-rm -f "$T/opened"; mkpanes
+bash -n "$M4/ft-nano-spawn.sh" && ok "변이④ bash -n rc0" || bad "변이④ bash -n 실패"
+D="$T/m4"; mkfix "$D"; tl "$T/tmm.lst" byz-harness-master-claude#3 byz-harness-arch-claude#1; rm -f "$T/opened"; mkpanes
 o="$(EXTRA_ENV=(FT_SEND_FROM=byz-harness-arch-claude#1); sp "$D" "$M4" --dry-run)"; EXTRA_ENV=()
 [[ "$o" == *"INFO 회신 대상 = byz-harness-master-claude#3"* ]] \
   && ok "변이④ FT_SEND_FROM 무시 → 팀장 선택 = ⓖ 위반 검출" || bad "변이④ 계약을 안 깼다: $o"
 
-# 변이 ⑤ «역할 목록 다시 하드코딩(analyst 빠진 옛 목록)» → ⓘ 위반: analyst 좌석 거절
-M5="$T/mut5"; mk_mut "$M5" 'ROLES = tuple(r for r in roles.split() if r)          # ← ft-name-lint.sh ROLES 그대로(사본 0 · 한 값은 한 곳)' \
-  'ROLES = ("master", "arch", "da", "desk", "pm", "nano", "tester", "checker", "planner", "ops", "research", "impl", "issue", "seat")   # 변이: 옛 하드코딩'
-bash -n "$M5/ft-nano-spawn.sh" && ok "변이⑤ bash -n rc0(실행 가능)" || bad "변이⑤ bash -n 실패"
-D="$T/m5"; mkfix "$D"; tl "$T/tmm.lst" byz-harness-master-claude#3 byz-harness-analyst-claude#1
-rm -f "$T/opened"; mkpanes; o="$(sp "$D" "$M5" --dry-run --from byz-harness-analyst-claude#1)"; rc=$?
-{ [ "$rc" != 0 ] && [[ "$o" == *"목록에 없다"* ]]; } \
-  && ok "변이⑤ 옛 목록 하드코딩 → analyst 거절 = ⓘ 위반 검출" || bad "변이⑤ 계약을 안 깼다(rc=$rc): $o"
+# 변이 ⑤ «7초 상한 제거» → 계약 위반: 검사기 8초 지연을 그대로 기다린다(ⓚ 위반)
+M5="$T/mut5"; mk_mut "$M5" "  COLUMNS=400 ft_reclaim_capped \"\$tmp\" bash -c '" "  COLUMNS=400 FT_RECLAIM_TIMEOUT_SEC=60 ft_reclaim_capped \"\$tmp\" bash -c '"''
+bash -n "$M5/ft-nano-spawn.sh" && ok "변이⑤ bash -n rc0" || bad "변이⑤ bash -n 실패"
+D="$T/m5"; mkfix "$D"; tl "$T/tmm.lst" byz-harness-master-claude#3
+printf '#!/usr/bin/env bash\n/bin/sleep 8\necho "PASS $1"\n' > "$M5/ft-name-lint.sh"; chmod +x "$M5/ft-name-lint.sh"
+rm -f "$T/opened"; mkpanes; t0="$(date +%s)"
+o="$( cd "$D" && "$TO" 25 env -i HOME="$HOME" LC_ALL=en_US.UTF-8 PATH="$T/fake:$PATH" FT_GH_READ="$T/fake/gh-open" GH_REPO=o/r \
+      FT_TEAMSET=0 FT_RES_ROOT="$T/res" FT_SHEET_ROOT="$FT_SHEET_ROOT" FT_ROOT="$D" FT_RECLAIM_SH="$T/reclaim.sh" \
+      FAKE_OPENED="$T/opened" FAKE_PANES="$T/panes" FAKE_TMM_LIST="$T/tmm.lst" \
+      bash "$M5/ft-nano-spawn.sh" "$CARDX" --dry-run 2>&1 )"; rc=$?; dt=$(( $(date +%s) - t0 ))
+{ [ "$dt" -gt 7 ] && [[ "$o" != *"7초 초과"* ]]; } \
+  && ok "변이⑤ 상한 제거 → 8초 지연을 그대로 기다림(${dt}s) = ⓚ 위반 검출" || bad "변이⑤ 계약을 안 깼다(${dt}s): $o"
 
 # ── /bin/bash 3.2.57 1회 ──
 if /bin/bash --version | head -1 | grep -q '3\.2'; then
