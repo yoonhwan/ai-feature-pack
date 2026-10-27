@@ -1,3 +1,11 @@
+## 2026-10-25 — r868 재부팅 기준선 2시간 재측정 잡 ft-postboot-measure(읽기 전용 · 1.1.231)
+
+- 오빠 지시(10-25 00:3x) «재부팅 직후 기준선 대비 같은 명령 2시간 주기 재측정». 새 `ft-postboot-measure.sh`(+ `ft_postboot_measure.py` 측정 · `ft_postboot_report.py` 상태·요약) + launchd 틀 `kit/launchd/com.byz.ft-postboot-measure.plist.template`(StartInterval 7200 · RunAtLoad = 적재·부팅 때 1열).
+- 1회 = 명령 10개(uptime · sysctl kern.boottime·vm.swapusage · memory_pressure · df -k · ps · tmux ls · git worktree list · lsof +L1 · colima status)만 · kill·rm·worktree 변경·git 쓰기 0. 기준선 표 9항목 + 원인 4 보조(지운 채 쥔 파일 합계·상위 5 · pi/claude/node/python 수·RSS · next-server 수·CPU · limactl · colima).
+- 명령마다 7초 상한 · lsof +L1 은 7초 × ceil(프로세스/500) · 70초 천장 · 넘으면 «시간 초과» · 실패 «실패(…)» 칸(0·빈 칸 0).
+- 상태 `<루트>/.fable-team/state/postboot-measure.tsv`(행 = 1회 · 14일 지난 행은 다음 기록 때 정리 = 닫는 사건) · 날이 바뀐 첫 회 = 전날 요약 1장 `<루트>/design/teams/planner/postboot/SUMMARY-postboot-<날짜>.md`(기준선 열 · 회차 열 · 차이 열 · 커밋 0) · `--summary` = 오늘 요약 지금. stdout 1회 1줄(`/tmp/byz-ft-postboot-measure.log`).
+- 시험 `tests/test_postboot_measure_r868.sh` 49(ⓐ~ⓕ · 변이 2: 시간 초과→0 · colima stop) · 렌더 목록 개수 고정 시험 2개 9 → 10.
+
 ## 2026-10-27 — 워크트리 정리 도구(`ft-wt-sweep.sh`)의 껍데기 경보가 «일시 실패» 를 «끊김» 으로 읽어 일하는 폴더를 올리고, 밖에서 물려받은 git 설정 때문에 남의 저장소를 판정했다 → ① 스크립트 시작(자동 스캔 루트 결정 전)에서 GIT_DIR·GIT_WORK_TREE·GIT_INDEX_FILE·GIT_COMMON_DIR 지움 + LC_ALL=C ② worktree list·ls-tree 실패(rc≠0 · 시간 초과 · SHA 0) = 그 폴더 «판정 못 함»(이전 판정 이어받기 · 후보에서 빼지 않음 · 서명 유지 · NOTE 1줄) (r844 r5 · 1.1.259 · 껍데기 경보만 · 정리 경로 변경 0)
 
 - 외부 DA r3 HOLD 2의 마지막 두 줄. 증거 `harness/evidence/r844/r5/`(초록 144 passed ×4 · r3 판 FAIL 10 · 변이 1 FAIL 3 · 변이 2 FAIL 5 · 기존 시험 FAIL 0(1건은 r3 판과 같은 줄)) · 짝 사본 cmp0 · 되돌림 = revert 1커밋.
@@ -24,6 +32,16 @@
 ## 2026-10-26 — r765 승인 도구가 게이트와 같은 원장 줄 꼴(줄머리∨표 행)을 읽는다 (1.1.255)
 
 - 제안 승인 도구가 원장 표 행도 승인 줄로 읽어 게이트(ft-proposal-gate)와 판정이 같아진다. 승인판 dc01df8c(팩 origin/main 병합) · 외부 DA sol high r1 APPROVE(BYZ design/harness/evidence/r765-da6/VERDICT-r765-sol-approve.md).
+
+## 2026-10-26 — r949 위성 나노 «열 때의 문» — 상한 3 · mini 메모리 경고 · 이름 규칙 · 명부·원장 · 비밀 입력 거절 · 표식 있는 것만 닫기 (1.1.256)
+
+- ft-sat-nano open 앞 문: 명부 roster.json 의 OPENING+OPEN 이 SAT_MAX(기본 3) 이상이면 rc8 «상한 3 · 대기 n번째» + 지금 판 표(원격 0 · 명부 행 0).
+- mini free% 는 문이 아니라 경고다(오빠 10-25 «멈춰있으면 머할건데» · arch 반송 r2). 값은 세 조건이 다 맞을 때만 쓴다 — (a) 사전점검 ssh 1회 rc 0 ∧ 7초 안 (b) 측정 명령 rc 0 (c) 출력이 숫자. 하나라도 아니면 «WARN mini free 측정 불가(<이유>)» 1줄 + 원장 free=? + 열고 진행(rc0)이고, 값이 SAT_FREE_MIN(기본 25) 미만이면 «WARN mini free <n>% < 25% — 열고 진행» 1줄 + 원장 free=n + rc0 이다. 판정 자리는 ft_sat_gate.gate_free 한 곳뿐이고, 원격 줄(R_PRE)은 측정 명령의 종료값을 버리지 않고 free_rc·free_raw 를 «싣기만» 한다(r949 r4 · DA⑥ r2 반례 2). 측정이 자라도 7초 상한을 먹지 않게 memory_pressure 는 3초 상한(perl alarm 1회)으로 자른다.
+- 이름: 기본 byz-satnano-nano-<slug>#0(slug = run 소문자·[a-z0-9-]) · 기본·--name 모두 ft-name-lint.sh 그대로 통과해야 연다(불통 = rc2 · 원격 0).
+- 명부 roster.json(상태 폴더 · OPENING → OPEN → CLOSED · slug·이름·소켓·연 시각·닫은 시각·표식 by=ft-sat-nano) · 원장 ledger.tsv(추가 전용 · 시각·종류·slug·이름·free·warn·결과). 원장 줄 종류는 open·close·reject 셋뿐이다 — 열고 닫으면 open 1 + close 1(경고는 open 줄의 warn 칸이라 줄 수가 늘지 않는다) · 거절이면 reject 1 + open 0(r949 r4 · DA⑥ r2 반례 3). 쓰기는 기존 opened.flock 장부 잠금 안에서만. 새 하위명령 roster(읽기 · 표 1장).
+- 카드·task 입력에 비밀 꼴이 있으면 rc2 · 원격 0 · 원장에는 종류만. 판정은 하네스 공용 판정을 «부르기만» 한다 — ft_secret_shapes.mask + autonomy_scope_secret.SECRET_SHAPE(ghs_·AKIA·PEM). 이 도구의 자기 패턴·경계 재정의·전처리는 0이고, 공용 lib 5사본은 base 와 바이트 동일이다(별 카드 r977 이 경계 한 벌을 맡는다 · r949 r4).
+- close(·--adopt)는 명부에 이 도구의 표식이 있는 열린 줄만 — 없으면 rc6(닫기 0). --forget 은 지금처럼 기록만 지우고 명부 CLOSED + 원장 close 1줄.
+- 시험 test_sat_nano_r949.sh ALL PASS(ⓐ~ⓜ·ⓝ · ⓚ 공용 lib diff 0줄 + test_ft_secret_shapes.py 전건 · ⓛ 측정 3조건 5갈래 · ⓜ 원장 줄 수 · 변이 8/8 · 기존 2건 · kit cmp0 · /bin/bash 3.2). base 대조: 같은 시험을 base 1545012e 사본에서도 돌려 결과가 같다(test_ft_secret_shapes 91 passed — 부하 29 에서 시간 상한 칸 1건이 양쪽 똑같이 흔들린다).
 
 ## 2026-10-26 — r959 인덱스 이동 실패 사유를 REJECT 에 · 정본 게이트 착지 리포 판정(팩 sha 를 팩 리포에서) (1.1.254)
 
