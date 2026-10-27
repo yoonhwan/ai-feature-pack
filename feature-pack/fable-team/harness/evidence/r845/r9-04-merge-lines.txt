@@ -1,2 +1,3 @@
-DENY main 이 더한 줄을 지움(옛 브랜치 F=6f354dbf5a) — main 에서 새 브랜치로 따라: feature-pack/fable-team/harness/bin/ft-nano-close.sh: main 이 더한 줄 64 개가 S 에서 사라짐; feature-pack/fable-team/harness/kit/fable-team/bin/ft-nano-close.sh: main 이 더한 줄 64 개가 S 에서 사라짐; feature-pack/fable-team/harness/tests/test_nano_close_landed_pr_r1011.sh: main 이 더한 줄 143 개가 S 에서 사라짐
-rc=1
+PASS 보호 집합 442 파일 · F=6f354dbf5a · 이동 인정 0
+rc=0
+main=9f910d94
