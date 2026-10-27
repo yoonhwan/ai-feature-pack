@@ -1,0 +1,6 @@
+test_sheet_root_teams_r785.sh rc=0 REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+test_kit_bin_sync.sh rc=0 ALL PASS
+test_news_html.sh rc=0 39 passed in 20.54s
+test_news_tree_root.sh rc=0 REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+test_sheet_verify.sh rc=1 REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+PYTHONPATH=harness/bin pytest test_r649 rc: FAILED harness/tests/scripts/test_r649_news_team_lines_isolate_error.py::test_slow_inbox_is_bounded_and_only_that_team_errors 1 failed, 7 passed in 15.16s 

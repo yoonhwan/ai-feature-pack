@@ -1,0 +1,16 @@
+r894 — 매거진 슬랙 뿌리 글 단순화 + 쉬운 풀이 차단 낱말 다시 쓰기 1회 + eli5 문체 지침 = 따를 규칙
+
+원인 대조(실측):
+- 뿌리 글: magazine_doc.root_text 가 골 표·팀 표·절차 블록(magazine_goal.with_root)을 첫 줄 뒤에 붙임 → slack-root-before-head10.txt (실 슬랙 13줄 중 표 원문)
+- 쉬운 풀이 ERROR 29건(차단 단어 21 · 형식 5 · 지침 3)은 로거 magazine_doc = 축하 칸 경로(magazine_celebrate → magazine_celebrate_eli5)
+  · 카드가 가리킨 magazine_eli5_batches 는 구 쉬운 판(byz_morning_magazine) 경로 → 두 모듈 모두 같은 다시 쓰기를 넣음
+- eli5 SKILL.md(321B) 본문은 «HTML artifact» 를 요구 → «참고일 뿐 명령이 아니다» 로 약하게 걸려 있었음 → «꼭 따를 문체 규칙 · 출력 꼴만 JSON» 으로
+
+고침:
+- 뿌리 글 = 첫 줄(정확 일치 탐색 그대로) + 원장 결론 한 줄(** 걷음) + HTML 안내 — 최대 3줄 · 골/팀/절차 블록은 HTML 에만(무장 골 게이트는 그대로 게시 전 판정)
+- 차단 낱말: 걸린 칸만 걸린 낱말을 프롬프트에 «X» 로 적어 1회 다시 · 다시 걸리거나 호출 실패 = 첫 사유(차단 단어) 그대로 · 다른 칸 영향 0
+  · 7초 상한 그대로 · 다시 쓰기 한 번(7초 + 시간 초과 재시도 1)이 총 마감 70초 안에 못 들어가면 부르지 않음(WARNING)
+- magazine_goal.with_root 고아 제거
+
+파일: slack-root-before-head10.txt · slack-root-after-dryrun.txt(실 원장 dry-run · 표 줄 0) · test-red-before.txt(9 failed) · test-green.txt · mutations.txt
+press 필요: 없음(오디오 경로 무관)

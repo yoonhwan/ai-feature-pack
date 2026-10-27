@@ -47,6 +47,8 @@ expect "evidence --feat nope/main → REJECT" 1 "refs/remotes/" -- bash "$BIN/ft
 
 # close 의 fetch 블록 — 함수만 떼어 직접 호출
 sed -n '/^_fetch_remote_feat() {/,/^}/p' "$BIN/ft-nano-close.sh" > "$T/fn.sh"
+# r938: _fetch_remote_feat 는 이제 nf_fetch(7초+재시도 1 상한)를 쓴다 — 그 도우미도 같이 떼어 온다(없으면 호출 실패로 «fetch 실패» 오판)
+awk '/^nf_cap\(\) \{/{p=1} /^if \[ "\$REPLAN" -eq 0 \]/{p=0} p' "$BIN/ft-nano-close.sh" >> "$T/fn.sh"
 [ -s "$T/fn.sh" ] && ok "close 에 _fetch_remote_feat 정의 존재" || bad "close 에 _fetch_remote_feat 없음"
 ( cd "$T/seed" && git pull -q --ff-only origin main && echo n > src/n.txt && git add -A && git commit -qm "[feature] newer" && git push -q origin main )
 new="$(git -C "$T/seed" rev-parse --short HEAD)"
@@ -58,7 +60,7 @@ git -C "$W" remote set-url origin "$T/gone.git"
 out="$(run_fn main 2>&1)"; echo "  $out" | head -3
 printf '%s' "$out" | grep -q 'bad_n=0' && ! printf '%s' "$out" | grep -q INFO && ok "로컬 브랜치 값 → fetch 0" || bad "로컬 브랜치 값 fetch 발생"
 out="$(run_fn origin/main 2>&1)"; echo "  $out" | head -3
-printf '%s' "$out" | grep -q 'bad_n=1' && printf '%s' "$out" | grep -q 'fetch 실패: origin/main' && ok "fetch 실패 → bad 1건(REJECT 사유)" || bad "fetch 실패가 REJECT 로 안 이어짐"
+printf '%s' "$out" | grep -q 'bad_n=1' && printf '%s' "$out" | grep -q 'origin/main fetch 실패' && ok "fetch 실패 → bad 1건(REJECT 사유 · r938 r2 N4 문구)" || bad "fetch 실패가 REJECT 로 안 이어짐"
 
 echo "RESULT fail=$fail"
 [ "$fail" -eq 0 ]

@@ -190,7 +190,7 @@ hasnt "$outr1" "[HIL]"                    "  └ 오빠 HIL 0"
 has   "$outr1" ":orphan-list"              "ⓥ 공용 config 가 깨지면 orphan 검사도 «:orphan-list» 판정 불가 1줄(git7 경유 · 결정 4 ③)"
 hasnt "$outr1" "git worktree list rc="     "  └ python 이 git 을 직접 부르지 않는다(옛 메시지 사라짐)"
 grep -q 'subprocess.run(\["git"' "$T/bin/ft-wt-sweep.sh" && bad "  └ 직접 git 호출 잔존(python)" || ok "  └ 직접 git 호출 0(python 정적 검사)"
-grep -nE '^[^#]*\$\(git |^[^#]*git -C "' "$T/bin/ft-wt-sweep.sh" | grep -v 'git7()' | grep -q . && bad "  └ 직접 git 호출 잔존(셸)" || ok "  └ 직접 git 호출 0(셸 정적 검사 — 전부 git7 경유)"
+grep -nE '^[^#]*\$\(git |^[^#]*git -C "' "$T/bin/ft-wt-sweep.sh" | grep -vE '^[0-9]+:git7' | grep -q . && bad "  └ 직접 git 호출 잔존(셸)" || ok "  └ 직접 git 호출 0(셸 정적 검사 — 전부 git7/git7c 경유)"
 # ⓢ 트리 객체가 없음 → ls-tree rc128 → «경로:ls-tree»(일반 워크트리)
 R5="$T/repo5"; mkdir -p "$R5"; git -C "$R5" init -q -b main
 G5() { git -C "$R5" -c user.email=t@t -c user.name=t "$@"; }

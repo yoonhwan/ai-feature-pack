@@ -1,0 +1,15 @@
+# ⓐ' r695 판 HEAD c70fa21f1f0239934b96dff4a2fdf0dd20d6eb09 고치기 전 시험(HEAD:feature-pack/fable-team/harness/tests/test_orch_gate_top_models.sh 그대로 같은 폴더에서 실행)
+$ bash feature-pack/fable-team/harness/tests/test_orch_gate_top_models.sh  (HEAD 판)
+ok   KIT bash -n → 0
+ok   KIT Sonnet 5 3번째 Edit → 2
+ok   KIT Sonnet 5.5 3번째 Edit → 0
+ok   KIT Fable 3번째 Edit → 2
+ok   KIT agent_id 있음 3번째 Edit → 0
+bash: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r699-orch-gate-tests-proj-copy-after-rel/feature-pack/fable-team/.claude/hooks/orchestration-gate.sh: No such file or directory
+FAIL PROJ bash -n → 기대 0 · 실제 1
+FAIL PROJ Sonnet 5 3번째 Edit → 기대 2 · 실제 127
+FAIL PROJ Sonnet 5.5 3번째 Edit → 기대 0 · 실제 127
+FAIL PROJ Fable 3번째 Edit → 기대 2 · 실제 127
+FAIL PROJ agent_id 있음 3번째 Edit → 기대 0 · 실제 127
+pass=5 fail=5
+rc=1

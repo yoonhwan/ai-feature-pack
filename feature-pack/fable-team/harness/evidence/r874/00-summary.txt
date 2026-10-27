@@ -1,0 +1,34 @@
+r874 ft-tick -9 — 요약 (나노 byz-harness-nano-r874-ft-tick-six-daemons-load#0 · 2026-10-25)
+
+단계 1 (읽기 전용) — TABLE-ft-tick-load.md
+- -9 = 설치 뒤 launchctl kickstart -k 가 SIGTERM → 5초 안에 안 끝나면 launchd SIGKILL (launchd 로그 원문 표 ①)
+- 5초 초과 이유 = bash 가 앞단 자식(메인 = ft-wt-sweep 바퀴 2.4~9.5분) 도는 동안 TERM trap 을 미룸
+- 6데몬 겹침은 작음(트리 CPU 합 ~5%) · load 주원인 아님
+- arch 138 ③ 확정 = ⓒ 만 (BYZ ecdab83e73 카드 «③ 확정» 줄)
+
+단계 2 — bin/ft-tick.sh (+ kit/fable-team/bin/ft-tick.sh cmp0)
+- 바퀴(pass)·쉼(sleep)을 배경 자식 + wait (trap 이 끼어든다)
+- on_term = 자식 묶음(ps 1회로 떠 둔 자손 전부) TERM → FT_TICK_TERM_GRACE(2초) 뒤 남은 것 KILL → pidfile 지우고 종료
+- FT_TICK_PASS_MAX_SEC(70 · 하드 룰 12 천장) 넘으면 «ERROR pass over Ns» 1줄 + 묶음 끊고 다음 바퀴(끊긴 wt-sweep 은 다음 바퀴가 처음부터)
+
+시험 tests/test_tick_term_fast_r874.sh (실 좌석 0 · 가짜 sweep·mbox · REAL-STATE-GUARD PASS)
+- red-base.txt     : 기준판 ba445cce → FAIL 12 · rc=1
+- green-run1~3.txt : 13 PASS · FAIL 0 · rc=0 ×3
+  ⓐ kickstart -k 대역(바퀴 자식 중 TERM → 5초 안 · 자식 0 · stopped 줄 · pidfile 지움)
+  ⓐ2 TERM 무시 자식(trap '' TERM) → 5초 안 · KILL 로 자식 0
+  ⓐ3 쉼 단계 TERM → 5초 안
+  ⓑ 상한 3초 → ERROR 1줄 + 다음 바퀴 + 끊긴 sweep 종료
+  ⓒ 한 데몬 묶여도 다른 데몬 바퀴 계속
+- mutations.txt    : M1 앞단 pass · M2 상한 제거 · M3 KILL 마무리 제거 · M4 앞단 sleep → 4개 모두 rc=1(빨강)
+- ⓓ existing-tick-tests.txt : ft-tick.sh 를 부르는 셸 시험 31개 — 26개 rc=0
+    rc≠0 5개(agent_alive_fg_judge·autonomy_core·raised_seat·team_move_roundtrip FAIL · leak_reap = 동시 실 우편 1줄로 가드 FAIL)
+    → base-compare-failing.txt: 기준판 ft-tick.sh 로 같은 FAIL 줄 집합(임시 경로만 다름) · leak_reap 는 두 판 모두 rc=0 = 이번 변경 무관
+- pytest-tick-refs.txt : ft-tick 을 부르는 파이썬 시험 7개 파일 127 passed (python3.11)
+- shellcheck.txt   : ft-tick.sh rc=0
+
+설치 뒤 볼 것(master): LIVE_BIN ft-tick.sh cmp0 → 6데몬 kickstart → 2시간 launchctl list 종료 코드 -9 0
+- ★arch 판단 필요(회귀 위험)★: 메인 데몬 바퀴는 실측 2.4~9.5분이고 그중 대부분이 wt-sweep(표본 84/90). 기본 상한 70초면 메인 바퀴가
+  거의 매번 끊겨 wt-sweep 이 끝까지 못 갈 수 있다 — shell_scan 은 시작할 때 stamp 를 먼저 써서(ft-wt-sweep.sh:243) 끊겨도 600초 동안 다시 안 돌고,
+  계획 실행(상한 120초)도 매번 중간에 끊기면 워크트리 정리가 멈춘다. ERROR 줄은 남지만(숨김 0) 정리가 안 되는 것은 회귀.
+  선택지(나노 의견): ① 메인 plist 만 FT_TICK_PASS_MAX_SEC 를 wt-sweep 상한(BUDGET 90 + 계획 120)보다 크게 · ② wt-sweep 을 바퀴 밖 별 주기로(카드 범위 밖) · ③ 그대로 두고 실사건 2시간에 wt-sweep 완료 줄 수로 판정
+press 필요: 없음

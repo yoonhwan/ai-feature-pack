@@ -1,0 +1,18 @@
+# extra (2026-10-27 02:2x · 읽기 전용)
+## wt-clean 계획 상태: hil=1401 done=0
+## du -sk (KiB)
+4522216	/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.baton/archive
+65571428	/Users/yoonhwan/.claude/projects
+## ~/.claude/projects 상위 10
+13817824	/Users/yoonhwan/.claude/projects/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents
+12179096	/Users/yoonhwan/.claude/projects/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-v6-realtime-live
+5890008	/Users/yoonhwan/.claude/projects/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-ops
+3635800	/Users/yoonhwan/.claude/projects/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-c-level-planning
+2380472	/Users/yoonhwan/.claude/projects/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-loom-main
+2287520	/Users/yoonhwan/.claude/projects/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-planner-main
+1273980	/Users/yoonhwan/.claude/projects/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-chatbot-main
+1157600	/Users/yoonhwan/.claude/projects/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-docs-ops-main-r3
+979616	/Users/yoonhwan/.claude/projects/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-feature-main
+845468	/Users/yoonhwan/.claude/projects/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-feature-close-1879
+## df
+/dev/disk3s5  1948455240 1755097520 171282940    92% 30216221 1712829400    2%   /System/Volumes/Data

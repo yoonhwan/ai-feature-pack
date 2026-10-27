@@ -1,0 +1,10 @@
+# r879 r3b 디스크 실측 — git sparse-checkout check-rules --no-cone (실제 체크아웃 0)
+# REWORK-r879-r3b §결과계약 ⓖ = v65 팀 폴더 기준 제외량 ≥ 599M(r2 판 665.5M 의 90%)
+BYZ 44f807e3d0 · design/teams/v65 tracked 14250 파일 824.9M
+r3b 규칙 IN 13475 파일 161.2M · OUT 775 파일 663.7M (80.5% 제외)
+r2 판 665.5M 의 99.7% (목표 90% = 599.0M · 통과=True)
+
+-- r3b 추가 2줄 (r3 규칙에 더한 것 · 미디어 32줄은 생략)
+!/design/teams/v65/**/result.json
+!/design/teams/v65/**/*.jsonl
+!/design/teams/v65/**/*.JSONL

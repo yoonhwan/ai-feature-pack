@@ -1,0 +1,6 @@
+INFO 배치 판정기 42장 경과=2.64초 · git log 호출=1
+INFO 실데이터 42장 전체 lint 경과=35.07초 · /bin/bash 3.2 rc=0 (기준 86.4초 · DA r1 실측 · 남은 비용 = 다른 lint 항목 카드당 git 호출 — 범위 밖)
+INFO 배치 판정기 42장 경과=3.26초 · git log 호출=1
+INFO 실데이터 42장 전체 lint 경과=37.43초 · /bin/bash 3.2 rc=0 (기준 86.4초 · DA r1 실측 · 남은 비용 = 다른 lint 항목 카드당 git 호출 — 범위 밖)
+INFO 배치 판정기 42장 경과=3.57초 · git log 호출=1
+INFO 실데이터 42장 전체 lint 경과=35.91초 · /bin/bash 3.2 rc=0 (기준 86.4초 · DA r1 실측 · 남은 비용 = 다른 lint 항목 카드당 git 호출 — 범위 밖)

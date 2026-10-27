@@ -1,0 +1,137 @@
+== 키트 2곳 같은 바이트 + bash -n(3.2)
+PASS cmp ft-nano-close.sh (bin == kit)
+PASS /bin/bash -n ft-nano-close.sh (3.2)
+PASS cmp ft-merge-lib.sh (bin == kit)
+PASS /bin/bash -n ft-merge-lib.sh (3.2)
+PASS 기준판 사본에 step 줄 0(기계적 제거)
+== ⓐ 정상 대역 → CLOSED · STEP 줄은 stderr 에만 · stdout 은 기준판과 cmp0
+PASS [ⓐ] rc=0 · CLOSED(새 판)
+PASS [ⓐ]   └ STEP ⑥증거검사 줄이 stderr 에 있음
+PASS [ⓐ]   └ STEP ⑤cherry 줄이 stderr 에 있음
+PASS [ⓐ]   └ STEP sheet 줄이 stderr 에 있음
+PASS [ⓐ]   └ STEP ledger 줄이 stderr 에 있음
+PASS [ⓐ]   └ STEP slots 줄이 stderr 에 있음
+PASS [ⓐ]   └ stdout 에 STEP 0줄
+PASS [ⓐ]   └ stdout 기준판 cmp0(사람 출력 회귀 0)
+PASS [ⓐ]   └ 기준판 stderr 에는 STEP 0줄(대조군 확인)
+== ⓑ fetch 대역 30초 → 7초 + 재시도 1 뒤 «origin/main fetch 실패» · 옛 ref 대조 0 · 총 ≤ 20초
+PASS [ⓑ] REJECT + «origin/main fetch 실패»
+PASS [ⓑ]   └ 옛 ref 대조 0 문구
+PASS [ⓑ]   └ 두 번째 게이트 호출 0(옛 ref 대조 0)
+PASS [ⓑ]   └ 게이트 대역 1회만
+PASS [ⓑ]   └ 총 소요 ≤ 20초(7초 + 재시도 1)
+PASS [ⓑ]   └ CLOSED 0
+PASS [ⓑ]   └ kill·태그 해제 0
+PASS [ⓑ]   └ 명부 그대로
+PASS [ⓑ]   └ 닫힘 원장 행 0
+PASS [ⓑ]   └ 카드 ref fetch 도 7초+재시도 1
+PASS [ⓑ]   └ 카드 ref fetch 총 소요 ≤ 20초
+== ⓒ 검사 대역 90초 → 상한 뒤 REJECT(걸린/상한 초·배수·다시 하는 길) · 명부·원장·세션 변경 0
+PASS [ⓒ] ⑥ 증거 검사 상한 → REJECT
+PASS [ⓒ]   └ 배수·다시 하는 길 1줄
+PASS [ⓒ]   └ 계속이면 arch 보고 안내
+PASS [ⓒ]   └ 총 소요 ≤ 25초(상한 8초 · 멈춤 0)
+PASS [ⓒ]   └ CLOSED 0
+PASS [ⓒ⑥]   └ kill·태그 해제 0
+PASS [ⓒ⑥]   └ 명부 그대로
+PASS [ⓒ⑥]   └ 닫힘 원장 행 0
+PASS [ⓒ] ⑤ cherry 상한 → REJECT
+PASS [ⓒ]   └ 상한 초과 → freshness 단계 0
+PASS [ⓒ]   └ 총 소요 ≤ 25초
+PASS [ⓒ]   └ CLOSED 0
+PASS [ⓒ⑤]   └ kill·태그 해제 0
+PASS [ⓒ⑤]   └ 명부 그대로
+PASS [ⓒ⑤]   └ 닫힘 원장 행 0
+PASS [ⓒ] freshness 상한 → REJECT
+PASS [ⓒ]   └ 총 소요 ≤ 35초
+PASS [ⓒ]   └ CLOSED 0
+PASS [ⓒfr]   └ kill·태그 해제 0
+PASS [ⓒfr]   └ 명부 그대로
+PASS [ⓒfr]   └ 닫힘 원장 행 0
+== ⓓ 정상 대역(모두 즉시) → 지금과 같은 결과(닫힘)
+PASS [ⓓ] 즉시 대역 → CLOSED
+PASS [ⓓ]   └ 마지막 slots 단계까지 감
+PASS [ⓓ]   └ 시간 초과 0
+PASS [ⓓ]   └ 원장 닫힘 행 1줄
+PASS [ⓓ]   └ 세션 kill
+== ⓔ 실측 재현 — 카드 인자 꼴(--result · --recv · role=nano · press 산출 0)에서 STEP 줄이 끝까지
+PASS [ⓔ]   └ press 산출 0(나노 좌석)
+PASS [ⓔ] ④ 면제 자리(실측 마지막 줄) 재현
+PASS [ⓔ]   └ STEP 5줄 끝까지(slots 포함)
+== ⓕ 상한 REJECT 시 쓰기 0 — .prepared 0 · 명부·원장 바이트 불변(DA⑥ r1 반례 1)
+PASS [ⓕ] 상한 REJECT(증거 검사 대역)
+PASS [ⓕ]   └ .prepared 0
+PASS [ⓕ]   └ 명부 바이트 불변
+PASS [ⓕ]   └ 원장 바이트 불변
+PASS [ⓕ] prepare 상한 → REJECT
+PASS [ⓕ]   └ «시간 초과» 표기
+PASS [ⓕ]   └ prepare 잘린 뒤 .prepared 0(trap 이 prepare 전)
+PASS [ⓕ] bad(증거 검사 상한) + --cherry-override → REJECT
+PASS [ⓕ]   └ 우회 원장(cherry override) 행 0
+PASS [ⓕ]   └ cherry 는 읽기 전용 판정(REJECT 줄)
+PASS [ⓕ]   └ kill·태그 해제 0
+PASS [ⓕ]   └ 명부 그대로
+PASS [ⓕ]   └ 닫힘 원장 행 0
+PASS [ⓕ]   └ 대조군: bad 0 이면 override 전달 · 원장 1행 · CLOSED
+== ⓖ 상한이 프로세스 묶음째 끝냄 — 자식이 분리돼도 REJECT 뒤 자식 쓰기 0
+PASS [ⓖ] 상한 → REJECT
+PASS [ⓖ]   └ REJECT 뒤 3초 자식 쓰기 0
+PASS [ⓖ]   └ 그 묶음 생존 0
+PASS [ⓖ] setsid 손자 대역 · 상한 1초 → rc 124
+PASS [ⓖ]   └ 3초에 반환(≤3초 · 손자가 출력 fd 를 물고 있어도)
+PASS [ⓖ]   └ 반환 뒤 5초 손자 쓰기 0
+PASS [ⓖ]   └ 손자 pid 79578 생존 0
+PASS [ⓖ] ⓖ2 ps 대역(ps07) · nf_bound 1 /bin/sleep 10 → rc 124
+PASS [ⓖ]   └ ⓖ2 3.856초 ≤ 4.9초(시험 단언 · 계약 상한 1 + 4 = 5.0초)
+PASS [ⓖ]   └ ⓖ2 대상 /bin/sleep 10 생존 0
+PASS [ⓖ] ⓖ3 ps 대역(ps5) · nf_bound 1 /bin/sleep 10 → rc 124
+PASS [ⓖ]   └ ⓖ3 4.140초 ≤ 4.9초(시험 단언 · 계약 상한 1 + 4 = 5.0초)
+PASS [ⓖ]   └ ⓖ3 대상 /bin/sleep 10 생존 0
+PASS [ⓖ]   └ ⓖ3 대역 ps(sleep 5) 생존 0(조회 상한 1초에 잘림)
+== ⓗ TERM 무시 대역 · 상한 1초 → 3초 안에 끝남(KILL 유예 1초)
+PASS [ⓗ] TERM 무시 대역 · 상한 1초 → rc 124
+PASS [ⓗ]   └ 상한+유예 = 2초(≤3초 · KILL 유예 1초)
+PASS [ⓗ]   └ 그 묶음 생존 0
+== ⓘ 배수 = 커밋 수 — 커밋 12 · 커밋당 1초 대역은 «정상 느림» 이라 통과(거짓 거절 0)
+FAIL [ⓘ] rc=1 ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Vf9krtKBZZ/bin
+WARN ④checkpoint 면제 — 나노 브랜치에 press 산출 0(poller_dom.jsonl 없음)
+OK 증거 줄 — 세트 HEAD 5298cb3c6 · 시험 rc=0 · 이슈 0
+REJECT byz-planner-nano-ns#0
+  - ⑤cherry 게이트 시간 초과 10s/9s · 배수 1 — 다시: 같은 명령(일시 부하면) · 계속이면 arch 에 cherry 게이트·10s 보고 — 닫지 않음
+STEP ⑥증거검사 +2s
+STEP ⑤cherry +3s
+PASS [ⓘ]   └ 대역이 실제로 13초 걸렸다(느림 재현)
+== ⓙ 원격 없음 + 캐시 origin/main → fetch 실패 REJECT · cherry 통과 줄 0(DA⑥ r1 반례 3)
+PASS [ⓙ] fetch 실패 → 그 자리 REJECT
+PASS [ⓙ]   └ cherry 통과 줄 0
+PASS [ⓙ]   └ 옛 ref 대조 0 문구
+PASS [ⓙ]   └ kill·태그 해제 0
+PASS [ⓙ]   └ 명부 그대로
+PASS [ⓙ]   └ 닫힘 원장 행 0
+PASS [ⓙ] --research fetch 실패 → rc1
+PASS [ⓙ]   └ «⑥리서치 origin/main fetch 실패» 1줄
+PASS [ⓙ]   └ 리서치 통과 줄 0(옛 ref 병합 대조 0)
+PASS [ⓙ]   └ CLOSED 0
+PASS [ⓙ]   └ kill·태그 해제 0
+PASS [ⓙ]   └ 명부 그대로
+PASS [ⓙ]   └ 닫힘 원장 행 0
+PASS [ⓙ]   └ 대조군: 원격 있음 → RESEARCH-OK · rc0
+== ⓚ 상한식 = min(고정비 + 7×배수, 70) · 600/300초 0 · 무상한 fetch 0
+PASS [ⓚ] 배수 1→8 · 2→15 · 12→70(상한)
+PASS [ⓚ] 600/300 숫자 0
+PASS [ⓚ] 외부 호출 0
+PASS [ⓚ] 무상한 git fetch 0(전부 nf_fetch 경유)
+PASS [ⓚ] abort trap 이 prepare 전에 등록(N1)
+== ⓛ 첫 cherry 즉시 REJECT · fetch 성공 · 둘째 cherry(origin/main) 6초 · 상한 1초 → 그 자리 REJECT · freshness 0(astra r2 반례 N3)
+PASS [ⓛ] rc1
+PASS [ⓛ]   └ 둘째 cherry(origin/main) 호출 1회(fetch 성공 경로)
+PASS [ⓛ]   └ «cherry 게이트(origin/main) 시간 초과 <초>s/<상한>s · 배수 <n> — 다시:» 1줄
+PASS [ⓛ]   └ 빈 «origin/main 기준:» 줄 0
+PASS [ⓛ]   └ freshness STEP 줄 0
+PASS [ⓛ]   └ CLOSED 0
+PASS [ⓛ]   └ kill·태그 해제 0
+PASS [ⓛ]   └ 명부 그대로
+PASS [ⓛ]   └ 닫힘 원장 행 0
+
+FAILED 1
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

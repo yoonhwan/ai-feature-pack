@@ -1,0 +1,6 @@
+# r849 r2 기준판 빨강 — 새 시험 파일을 r1 판(5c897a70 kit bin)에 돌림 · DA⑥ r1 반례 3 + 갱신된 ⓒ = 4 FAIL
+FAILED test_seat_logged_out_r849.py::test_c_tick_notifies_team_master_once - ...
+FAILED test_seat_logged_out_r849.py::test_d_idle_wake_skips_logged_out_and_rested
+FAILED test_seat_logged_out_r849.py::test_c_long_streak_over_tail_cap_one_notice
+FAILED test_seat_logged_out_r849.py::test_c_send_failure_retries_next_scan - ...
+4 failed, 8 passed in 8.09s
