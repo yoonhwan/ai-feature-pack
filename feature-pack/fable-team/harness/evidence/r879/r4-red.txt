@@ -1,0 +1,17 @@
+PASS ⓐ 남의 카드 증거 폴더 미디어(wav·MP4·png·zip)·자기 팀 notes/wav 0 · 남의 팀 0
+PASS ⓑ 남의 카드 증거 폴더의 md·txt·json · 공백·괄호 파일명 · evidence 바로 아래 파일 = IN
+PASS ⓒ 카드 글자 0 이어도 같은 결과(md IN · 미디어 OUT · 카드 글자 파싱 없음)
+PASS ⓓ 자기 stem 폴더(evidence/r9-sparse-card/)의 wav·md 있음 + 새 wav·md git add rc0
+PASS ⓔ fixtures/ 아래 wav·mp4 IN(기존 그대로) · 팀 밖 tests/fixtures 도 IN
+PASS ⓓ' 남의 카드 증거 폴더 새 wav add 는 막힘(sparse 밖)
+PASS ⓑ' 남의 카드 증거 폴더 새 md add rc0(글자는 받음)
+PASS ⓗ 남의 stem 폴더 result.json·x.jsonl·y.JSONL OUT · summary.json IN
+PASS ⓘ 자기 stem 폴더 result.json·x.jsonl IN + 새 result.json·jsonl git add rc0
+FAIL ⓚ 확장자로 끝나는 폴더를 통째로 뺴는 중 — note.md=OUT x.wav=OUT (작업 트리 준비 중 (새 브랜치 'nano/W2')
+SPARSE team=lecture 남의 팀 design·자기 팀 안 미디어(wav·mp4·png·zip 등)·큰 글자(result.json·jsonl) 제외 · 글자 파일은 남김 · 새 증거 = design/teams/lecture/evidence/r9-sparse-card/ (다른 미디어가 필요하면 git sparse-checkout add <경로> · 되돌림: git -C /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DvckfTbvMg/W2 sparse-checkout disable))
+PASS ⓛ a.WaV·b.PnG·Result.JSON·x.JsonL OUT(기본 ignorecase=true · 판별력은 ⓐ'ⓑ' 칸)
+FAIL ⓐ'ⓑ' ignorecase=false 판정 어긋남[ a.WaV b.PnG] (작업 트리 준비 중 (새 브랜치 'nano/W4')
+SPARSE team=lecture 남의 팀 design·자기 팀 안 미디어(wav·mp4·png·zip 등)·큰 글자(result.json·jsonl) 제외 · 글자 파일은 남김 · 새 증거 = design/teams/lecture/evidence/r9-sparse-card/ (다른 미디어가 필요하면 git sparse-checkout add <경로> · 되돌림: git -C /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DvckfTbvMg/W4 sparse-checkout disable))
+PASS ⓖ FT_NANO_SPARSE=0 → 전체 체크아웃
+FAILED 2
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
