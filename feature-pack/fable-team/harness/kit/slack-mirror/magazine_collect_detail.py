@@ -4,6 +4,7 @@
 같은 경로·절이 여러 ref 에 있으면 목록 앞 ref 의 것을 쓴다.
 """
 import re
+import subprocess
 from datetime import datetime
 from pathlib import Path
 from collections.abc import Mapping
@@ -13,7 +14,7 @@ import magazine_card_shape as shape
 from magazine_collect_git import DOC_PREFIXES, _git
 from magazine_window import MagazineError
 
-DEFAULT_REFS = ("origin/main", "ops/main-base", "origin/feat/v6-realtime-live")
+DEFAULT_REFS = ("origin/main", "origin/ops/main-base", "origin/feat/v6-realtime-live")  # r1009 — 사본에는 원격 추적 ref 만 있다(로컬 «ops/main-base» 는 낡거나 없다)
 EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 CARD_GLOB = "design/*/indices/완성/*"
 VERDICT_GLOB = "design/*/OPS-VERDICTS-*.md"
@@ -23,6 +24,9 @@ VERDICT_HEAD_RE = re.compile(r"^(§\d+)\s*(.*)$")
 TITLE_RE = re.compile(r"^#\s+(?:인덱스:\s*)?(.+)$")
 DA_RE = re.compile(r"진행→완성\s*·\s*DA\s+(\S+)")
 EVIDENCE_MARKS = ("세트:", "완료 독립 검증")
+TEAM_RE = re.compile(r"^design/(?:teams/)?([^/]+)/indices/")  # magazine_collect_open.CARD_RE 와 같은 해석(R382 팀 폴더)
+CLOSE_HEAD = "- 닫힘 판정문:"  # 완성 카드 머리의 닫는 증거 줄 — «끝낸 일» 1줄의 첫 후보
+FETCH_TIMEOUT = 7  # 하드 룰 12 — 사본에 원격 가지를 받는 상한(초) · 재시도 1
 _Row = TypeVar("_Row", bound=Mapping[str, object])
 
 
@@ -35,6 +39,58 @@ class Sec(NamedTuple):
 
 def git(repo: Path, *args: str) -> str:
     return _git(repo, "-c", "core.quotePath=false", *args)
+
+
+def team_of(path: str) -> str:
+    """카드 경로 → 팀 칸. `design/(teams/)?<팀>/indices/…` 의 <팀> · 못 풀면 옛 꼴(둘째 조각) 그대로."""
+    found = TEAM_RE.match(path)
+    return found.group(1) if found else path.split("/")[1]
+
+
+def fetch_refs(repo: Path, refs: list[str]) -> None:
+    """`origin/<가지>` ref 를 사본에 받아 둔다 — 7초 상한 · 재시도 1(출력 없는 실패만) · 실패 = MagazineError(반쪽 결과 0).
+
+    원장 사본은 ft-ledger-repo-sync 가 origin/main 만 전진시킨다 — ops/main-base 같은 다른 원격 가지는 여기서 받지 않으면 낡거나 없다.
+    """
+    for name in refs:
+        if not name.startswith("origin/"):
+            continue  # 로컬 가지 이름 = 부르는 쪽이 만든 시험용 ref(원격에 없다)
+        branch = name[len("origin/") :]
+        err = ""
+        for _ in (1, 2):
+            try:
+                done = subprocess.run(
+                    ["git", "-C", str(repo), "fetch", "--quiet", "origin", f"+refs/heads/{branch}:refs/remotes/origin/{branch}"],
+                    capture_output=True, text=True, timeout=FETCH_TIMEOUT,
+                )
+            except subprocess.TimeoutExpired:
+                err = f"{FETCH_TIMEOUT}초 상한 초과"
+                continue
+            except OSError as e:
+                raise MagazineError(f"git fetch 실행 실패: {type(e).__name__}") from e
+            if done.returncode == 0:
+                err = ""
+                break
+            lines = (done.stderr.strip() or done.stdout.strip()).splitlines()
+            err = lines[-1] if lines else f"rc={done.returncode} 출력 없음"
+            if lines:
+                break  # 출력이 있는 실패 = 확정 실패(재시도 0)
+        if err:
+            raise MagazineError(f"ref {name} fetch 실패: {err}")
+
+
+def done_line(text: str) -> str | None:
+    """완성 카드의 «끝낸 일» 1줄 — 머리 `- 닫힘 판정문:` → «## 상태» 의 «진행→완성» 줄. 둘 다 없으면 None.
+
+    머리의 다른 줄(«- 상태: 대기» 등)은 싣지 않는다 — 완성으로 옮긴 카드가 «대기» 로 보이던 자리(r1009).
+    """
+    lines = text.split("\n")
+    head_end = next((i for i, ln in enumerate(lines) if ln.startswith("## ")), len(lines))
+    close = next((ln.strip() for ln in lines[:head_end] if ln.strip().startswith(CLOSE_HEAD)), None)
+    if close:
+        return close
+    state = next((s.body for s in sections(text) if s.head.startswith("상태")), "")
+    return next((ln.strip() for ln in state.split("\n") if "진행→완성" in ln), None)
 
 
 def blob(repo: Path, path: str, *shas: str) -> str:
@@ -80,7 +136,7 @@ def _card(repo: Path, info: dict[str, object], path: str, moved: str, report: bo
         raise shape.error_for(missing[0], path)
     if missing:
         shape.report_line(path, missing)
-        return {"path": path, "team": path.split("/")[1], "missing": missing, "moved_sha": moved, "ref": info["name"]}
+        return {"path": path, "team": team_of(path), "missing": missing, "moved_sha": moved, "ref": info["name"]}
 
     def pick(name: str) -> str:
         return next(s.body.strip() for s in secs if s.head.startswith(name))
@@ -89,8 +145,9 @@ def _card(repo: Path, info: dict[str, object], path: str, moved: str, report: bo
     lines = [ln.strip() for ln in state.split("\n")]
     da = DA_RE.search(state)
     return {
-        "team": path.split("/")[1], "path": path, "title": head, "why": pick("배경"), "coord": pick("골좌표"),
+        "team": team_of(path), "path": path, "title": head, "why": pick("배경"), "coord": pick("골좌표"),
         "evidence": [ln for ln in lines if any(k in ln for k in EVIDENCE_MARKS)],
+        "done": done_line(text),
         "da": da.group(1) if da else None, "moved_sha": moved, "ref": info["name"],
     }
 
@@ -169,6 +226,7 @@ def first_wins(rows: list[_Row], key: tuple[str, ...]) -> list[_Row]:
 def collect_detail(repo: Path, refs: list[str], start: datetime, end: datetime, merge_shas: list[str]) -> dict[str, Any]:
     repo = Path(repo)
     report = shape.report_mode()
+    fetch_refs(repo, refs)
     infos = resolve_refs(repo, refs, start, end)
     span = [f"--since={start.isoformat()}", f"--until={end.isoformat()}"]
     units, malformed = _units(repo, infos, span, report)

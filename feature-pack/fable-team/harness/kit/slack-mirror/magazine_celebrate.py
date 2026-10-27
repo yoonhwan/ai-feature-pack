@@ -14,7 +14,7 @@ from pathlib import Path
 
 import magazine_eli5
 from magazine_brief import Brief, Done
-from magazine_collect_detail import git
+from magazine_collect_detail import done_line, fetch_refs, git, team_of
 from magazine_date_guard import find_relative_dates
 from magazine_doc_md import Cell, Doc
 from magazine_celebrate_eli5 import explain
@@ -22,11 +22,12 @@ from magazine_eli5_batches import Eli5Error
 from magazine_guide_check import violations
 from magazine_indexless import strip_tokens
 from magazine_summary import run_cmd
-from magazine_window import KST
+from magazine_window import KST, MagazineError
 
 LOG = logging.getLogger("magazine_doc")
 CARD_GLOB = "design/*/indices/완성/*.md"
 DONE_DIR = "/indices/완성/"
+OPS_REF = "origin/ops/main-base"  # r1009 — 하네스 카드는 이 원격 가지에서 완성된다
 TITLE = re.compile(r"^#\s+(?:인덱스:\s*)?(.+)$")
 
 
@@ -56,12 +57,35 @@ def _plain(text: str, why: list[str]) -> str:
 
 
 def _card_name(text: str, path: str) -> str:
-    """카드 머리 «끝:» 앞 이름(«# 인덱스: <이름> — 끝: …»)."""
+    """카드 이름 — 머리 «… — 끝:»·«(설명)» 앞부분만(머리에 섮인 «— 대기 · 착수 0» 같은 상태 글은 싣지 않는다 · r1009)."""
     head = next((m.group(1) for ln in text.split("\n")[:3] if (m := TITLE.match(ln))), Path(path).stem)
-    return head.split("— 끝:")[0].strip(" —")
+    return head.split("— 끝:")[0].split(" (")[0].strip(" —")
 
 
-def _from_cards(repo: Path, ref: str, start: datetime, end: datetime) -> list[Done]:
+def _done_refs(repo: Path, ref: str) -> list[str]:
+    """축하 칸이 읽을 ref — 넘어온 ref + (사본일 때) 하네스 카드가 완성되는 origin/ops/main-base.
+
+    HEAD 는 원장 사본의 origin/main 과 같은 커밋(ft-ledger-repo-sync)이다. ops 가지를 못 받으면 경고 1줄 + origin/main 만으로 그린다(반쪽 0).
+    """
+    if ref != "HEAD" and not ref.startswith("origin/"):
+        return [ref]  # 시험·수동 지정 ref 는 그대로(원격 가지가 아니다)
+    try:
+        fetch_refs(repo, [OPS_REF])
+    except MagazineError as e:
+        LOG.warning("축하 칸 ops 가지 없음 — %s (넘어온 ref 만으로 그린다)", e)
+        return [ref]
+    return [ref, OPS_REF]
+
+
+def _from_cards(repo: Path, refs: list[str], start: datetime, end: datetime) -> list[Done]:
+    out: list[Done] = []
+    seen: set[tuple[str, str]] = set()  # (경로, 커밋) — 여러 ref 에 같은 카드가 있어도 한 번만
+    for ref in refs:
+        out += _cards_of(repo, ref, start, end, seen)
+    return out
+
+
+def _cards_of(repo: Path, ref: str, start: datetime, end: datetime, seen: set[tuple[str, str]]) -> list[Done]:
     out = git(repo, "log", ref, "-M", "--diff-filter=AR", "--name-status", "--format=%x01%H%x00%cI",
               f"--since={start.isoformat()}", f"--until={end.isoformat()}", "--", CARD_GLOB)
     done: list[Done] = []
@@ -71,12 +95,17 @@ def _from_cards(repo: Path, ref: str, start: datetime, end: datetime) -> list[Do
         if not start <= datetime.fromisoformat(at) < end:
             continue  # git --since/--until 는 경계 포함·근사 — 창은 여기서 정확히 자른다
         for fields in (row.split("\t") for row in lines[1:] if row.strip()):
-            if fields[0].startswith("R") and DONE_DIR in fields[1]:
+            path = fields[-1]
+            if (path, sha) in seen:
+                continue
+            seen.add((path, sha))
+            if fields[0].startswith("R") and DONE_DIR in path:
                 continue  # 완성/ 안에서 이름만 바꿈 — 창 전에 이미 끝난 일
-            name = _card_name(git(repo, "show", f"{sha}:{fields[-1]}"), fields[-1])
+            text = git(repo, "show", f"{sha}:{path}")
+            name = _card_name(text, path)
             why = [f"{sha[:10]} 완성 이동 · 카드 {name}"]
             title = _plain(name, why) or "(카드 이름은 근거 표에)"  # 이름 속 번호 낱말(R259 등)은 근거 표로
-            done.append(Done(f"sha:{sha}", title, f"원문 — {title}", " · ".join(why), f"{fields[-1].split('/')[1]} 팀 · 카드 완성", title))
+            done.append(Done(f"sha:{sha}", title, done_line(text) or f"원문 — {title}", " · ".join(why), f"{team_of(path)} 팀 · 카드 완성", title))
     return done
 
 
@@ -95,7 +124,7 @@ def _merge(items: list[Done]) -> list[Done]:
 def collect(repo: str, ref: str, day: str) -> tuple[str, list[Done]]:
     """(창 글, 창 안 완성 목록 — 인덱스 카드만 · 같은 sha 1건)."""
     start, end = window(day)
-    return span_text(start, end), _merge(_from_cards(Path(repo), ref, start, end))
+    return span_text(start, end), _merge(_from_cards(Path(repo), _done_refs(Path(repo), ref), start, end))
 
 
 def explain_done(done: list[Done], cmd: str) -> None:
