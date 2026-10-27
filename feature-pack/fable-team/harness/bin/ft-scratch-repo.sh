@@ -9,7 +9,7 @@
 #     ROOT 등록부 + 사본들의 원 저장소 등록부(옛 판이 거기 적은 사본)를 읽는다(보고 전용 · 지우기 0) · 못 읽은 등록부는 «부분 읽기» 줄 · env FT_SCRATCH_MBOX(주인 추정용 mailbox.jsonl)
 #   ft-scratch-repo.sh --done <경로>                 등록된 사본만 worktree 제거 + 등록 줄 삭제 (등록 밖 경로는 거부)
 #     r845 (재설계 r6 · 오빠 결정 10-27 «tmp 에 임시를 쌓으면 재부팅에 정리된다»): 기본 생성 자리 = $TMPDIR/ft-scratch/<주인>/ · 장부는 «있으면 참고»(등록 쓰기 실패 = WARN · die 0) · 훅 실패로 add/checkout 이 rc≠0 이어도 DEST 가 «요청 sha 그대로 + status 깨끗» 이면 WARN + 경로 rc0(아니면 die 4 · 등록 0)
-#     r7: 지우기는 «그 줄 주인의 사본 자리(FT_SCRATCH_DIR 또는 $TMPDIR/ft-scratch/<주인>/) 아래» ∧ 등록 정확히 1줄 ∧ 분리 워크트리 셋 다 — 자리 밖 등록 사본은 건너뜀 + WARN(삭제 0 · 장부 줄 유지) · 온전성 확인은 훅 rc 와 무관하게 항상
+#     r7: 지우기는 r897 출구 게이트(등록 정확히 1줄 ∧ 그 줄 베이스 바로 아래 ∧ 분리 워크트리)가 지킨다 — 자리 밖 등록 사본은 거절(삭제 0 · 장부 줄 유지) · 온전성 확인은 훅 rc 와 무관하게 항상
 #     r8: «같은 sha·같은 주인 재사용» 도 온전한 사본일 때만 — 더러운 사본은 건너뜀 + WARN 과 새 사본 생성(삭제 0 · 장부 유지)
 #   ft-scratch-repo.sh --report [--summary]          «주인 없는 사본» 크기 목록 — 삭제 0. --summary = `주인 없는 임시 사본 N개 N.N GiB` 한 줄(0개면 출력 없음)
 #   ft-scratch-repo.sh --sweep                       주인 없는 사본 정리(판정 1920): 첫 1회 = 목록 보고만(실삭제 0, 표식 scratch-sweep.armed) · 그 뒤부터 자동 삭제 · 지울 게 없으면 출력 0
@@ -88,7 +88,6 @@ trap 'bash "$HERE/ft-bg-finite.sh" unregister $$ >/dev/null 2>&1 || true' EXIT
 gib() { awk -v k="$1" 'BEGIN{ if (k ~ /^[0-9]+$/) printf "%.2f", k/1048576; else printf "?" }'; }
 kb()  { $TMO du -sk "$1" 2>/dev/null | awk '{print $1}'; }
 has_ctl() { case "$1" in *"$TAB"*|*$'\n'*) return 0;; esac; return 1; }   # r897 r10.2: 등록부는 TSV — 탭·개행이 든 경로는 표현할 수 없다
-has_ctl_all() { case "$1" in *[[:cntrl:]]*) return 0;; esac; return 1; }   # r845 r6: 입구 거절은 제어 문자(0x00–0x1F·0x7F) 전체 — 장부 줄이 깨질 경로는 만들지 않는다
 has_line() { case $'\n'"$1"$'\n' in *$'\n'"$2"$'\n'*) return 0;; esac; return 1; }   # <목록> <이름> → 0 = 그 줄이 «정확히» 있다 · r10.5: 외부 명령·리다이렉트 0(grep <<< 는 임시 파일 실패가 rc1 = «주인 없음» 으로 읽혔다)
 phys() { ( cd "$1" 2>/dev/null && pwd -P ); }   # r897 r10: 물리 경로(/private/var…) — 못 읽으면 rc≠0
 drop_reg() { # <등록 원문 경로> 그 등록 줄만 삭제 — «경로 정확 대조»(r10.1: awk -v 는 역슬래시를 해석해 `\161`→`q` 로 남의 줄과 맞는다 · ENVIRON 은 바이트 그대로) · r5 고침 6: 0줄 지우면 rc≠0(조용한 rc0 0)
@@ -585,8 +584,6 @@ case "${1:-}" in
     SHA="$(git -C "$SRC" rev-parse --verify -q "$REF^{commit}")" || die "ref 를 못 찾음: $REF" 2
     OWNER="${FT_SCRATCH_OWNER:-${FT_ME:-$(tmux display-message -p '#S' 2>/dev/null || echo -)}}"
     case "$OWNER" in ''|-) die "주인 세션을 모른다(tmux 밖 · FT_SCRATCH_OWNER·FT_ME 없음) — 주인 모르는 사본은 만들지 않는다" 2;; esac
-    has_ctl_all "$OWNER" && die "주인 이름에 제어 문자 — 사본·장부를 만들지 않는다: $(printf '%q' "$OWNER")" 2   # r845 r6 입구 거절
-    has_ctl_all "${FT_SCRATCH_DIR:-}" && die "FT_SCRATCH_DIR 에 제어 문자(탭·줄바꿈 등) — 사본·장부를 만들지 않는다(재사용 0): $(printf '%q' "${FT_SCRATCH_DIR:-}")" 2   # r845 r6: 재사용 길도 막는다
     SPEC="$(want_spec)"
     while IFS="$(printf '\t')" read -r p ow t; do   # r444: 같은 sha·같은 주인 사본이 살아 있으면 재사용(사본 0 추가) · r891: 체크아웃 규칙도 같을 때만
       [ "$ow" = "$OWNER" ] && [ -d "$p" ] && [ "$(git -C "$p" rev-parse HEAD 2>/dev/null)" = "$SHA" ] && [ "$(spec_of "$p")" = "$SPEC" ] || continue
@@ -595,11 +592,9 @@ case "${1:-}" in
       echo "WARN ft-scratch-repo — 불완전 사본 건너뜀(status 깨끗하지 않음 · 삭제 0 · 장부 유지) · 새 사본을 만든다: $p" >&2
     done < <(cat "$TSV" 2>/dev/null)
     BASE="$(owner_base "$OWNER")"   # r845 r6: 기본 생성 자리 = $TMPDIR/ft-scratch/<주인>/ (TMPDIR 없으면 /tmp/ft-scratch/<주인>/) — 재부팅이 지우는 임시 자리
-    has_ctl_all "$BASE" && die "등록 불가 경로(제어 문자): $(printf '%q' "$BASE")" 2
     mkdir -p "$BASE" 2>/dev/null || die "사본 부모 폴더 생성 실패: $BASE" 4
     DEST="${BASE%/}/repo-$(printf '%.8s' "$SHA")-$(date +%s)-$$"
     has_ctl "$DEST" && die "등록 불가 경로(탭·개행): $DEST" 2   # r897 r10.2: TSV 로 표현 못 하는 경로면 사본을 만들지 않는다
-    has_ctl_all "$DEST" && die "등록 불가 경로(제어 문자): $DEST" 2   # r845 r6: 제어 문자 전체(0x00–0x1F·0x7F)
     # r845 r6·r7: 체크아웃 훅이 죽어도 «그 sha 로 온전히 생긴» 사본은 쓸 수 있다 — 온전성 확인은 훅 rc 와 «무관하게 항상»
     addfail() { # <무엇이 실패했나> — DEST 가 요청 sha 그대로 + status 깨끗 → WARN(rc0) · 아니면 die 4(등록 0 · 지우기 0)
       [ -d "$DEST" ] || die "$1 실패: $DEST" 4

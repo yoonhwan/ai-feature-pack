@@ -1,0 +1,16 @@
+r845 r10 = 제어 문자 입구 거절 걷기 (arch 165 반송 · DA 추가 0 · 기준판 쪽 되돌림) — 나노 산출
+가지 nano/r845-scratch-repo-register-before-hook-f-r3 · base = origin/main(병합 764421f5) · push 0
+
+## 걷은 것
+1. has_ctl_all 함수 + 호출 4곳(주인·FT_SCRATCH_DIR·BASE·DEST) 삭제 — main 의 has_ctl(탭·개행)만 남아 기준판 동작으로 돌아갔다.
+2. 그 입구 거절만 보던 시험 칸 ⓔ 2칸 + 변이3 삭제(r845 시험 34 → 31 PASS).
+
+## 확인 (단계별 초)
+- test_scratch_repo_r897_r10.sh ⓔ 칸만(FT_CASES=ⓔ): 2초 rc=0 · «PASS ⓔ 생성 경로에 탭 = rc2 · 사본 0» 포함 5 PASS
+- test_scratch_repo_r897_r10.sh 전체: 619초 rc=1 · 50 PASS · FAIL 1 = «test_scratch_exit_gate_r897.sh rc=4»(origin/main 기준판도 같은 4 FAIL · 이 병합이 더한 실패 0)
+- r845 시험: 138초 rc=0 · 31 PASS(변이 5 전부 빨강 · bash 3.2 포함)
+- test_scratch_judged_r645.sh: 29초 rc=0
+- test_kit_bin_sync.sh: 3초 rc=0 · kit↔bin cmp0 · bash -n / /bin/bash 3.2 -n OK
+
+## main 이 더한 줄 보존
+PASS 보호 집합 481 파일 · F=6f354dbf5a · 이동 인정 0

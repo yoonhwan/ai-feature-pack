@@ -4,13 +4,12 @@
 #   ⓑ 훅 SIGSEGV(kill -SEGV) → ⓐ 와 같음
 #   ⓒ 장부 쓰기 불가(장부 파일 권한 0) → WARN 1줄 · rc0 · 사본 그대로 (장부는 «있으면 참고» — die 0)
 #   ⓓ --done/--sweep 은 출구 게이트(r897: 등록 정확히 1줄 ∧ 사본 자리 아래 ∧ 이름꼴 ∧ 분리 워크트리)를 통과할 때만 지운다 — 깨진 줄(칸 5개) · 이름꼴 아닌 사본 = 삭제 0
-#   ⓔ 생성 경로(FT_SCRATCH_DIR)에 제어 문자(탭·줄바꿈) = 입구 거절 rc2 · 사본 0 · 장부 0 (r6 반례 집합 «제어 문자 경로 = 입구 거절»)
 #   ⓕ FT_SCRATCH_DIR 없으면 기본 생성 자리 = $TMPDIR/ft-scratch/<주인>/ (재부팅이 지우는 임시 자리)
 #   ⓗ (r7 반송서 ⓕ) 등록 사본이 «그 줄 주인의 사본 자리(베이스) 아래» 가 아니면 --done/--sweep 모두 삭제 0 · 거절 1줄 · 장부 유지 (r897 게이트 G1 이 그 자리를 지킨다 · 옛 3칸 줄은 TMPDIR·FT_SCRATCH_DIR 만 베이스로 인정)
 #   ⓘ (r7 반송서 ⓖ) 훅 rc0 이어도 완전성 확인은 항상 — 생성 중 파일 이동·HEAD 바꿈(--full·sparse 둘 다) = rc4 · 등록 0
 #   ⓚ (r8 반송서) 같은 sha 재사용도 «온전한 사본» 일 때만 — 더러운 기존 사본은 돌려주지 않고 WARN 1줄 + 새 사본(그 사본은 status 깨끗) · 더러운 사본은 삭제 0 · 장부 유지 · --full·sparse 둘 다
 #   ⓖ 기존 scratch 시험 4종 ALL PASS(동작 변화 0) · kit 짝 cmp0 · /bin/bash(bash 3.2) 로 같은 시험 1회
-#   변이 6: «장부 실패 = die» → ⓒ FAIL · «장부 줄로 삭제(워크트리 확인 없이)» → ⓓ FAIL · «입구 거절 삭제» → ⓔ FAIL
+#   변이 5: «장부 실패 = die» → ⓒ FAIL · «게이트 검사 끔» → ⓓ/ⓗ FAIL · «완전성 확인 건너뜀» → ⓘ/ⓚ FAIL
 #           «owner 경계 제거» → ⓗ FAIL · «rc0 훅 완전성 건너뜀» → ⓘ FAIL · «재사용 완전성 확인 끔» → ⓚ FAIL
 # 임시 git 저장소·임시 훅 폴더·가짜 tmux·가짜 lsof·임시 TMPDIR 만 쓴다 — 실 저장소·실 장부·실 사본·실 TMPDIR 0.
 # SCR_SUT=<경로> 로 시험 대상을 바꿀 수 있다(기준판 before-red · 변이). R845_FAST=1 = 변이·기존 4종·bash32 생략(변이 재귀용).
@@ -93,16 +92,6 @@ sc --sweep; [ -d "$D2" ] && ok "ⓓ --sweep 도 이름꼴 아닌 줄은 삭제 0
 awk -F'\t' -v p="$D2" '$1!=p' "$TSV" > "$TSV.n" && mv "$TSV.n" "$TSV"
 git -C "$G" worktree remove --force "$D2" >/dev/null 2>&1
 
-# ── ⓔ 제어 문자 경로 = 입구 거절 (사본 0 · 장부 0) ────────────────────────────────────
-N0="$(nreg)"
-TAB=$'\t'; NL=$'\n'   # $(printf '\n') 은 뒤쪽 줄바꿈이 잘려 «빈 글자» 가 된다 — ANSI-C 인용으로 넣는다
-for bad_dir in "$T/bad${TAB}dir" "$T/bad${NL}dir"; do
-  SCRDIR="$bad_dir" sc "$SHA" --repo "$G" --full
-  { [ $RC = 2 ] && printf '%s' "$ERR" | grep -q '제어 문자' && [ -z "$OUT" ] && [ "$(nreg)" = "$N0" ] && [ ! -e "$bad_dir" ]; } \
-    && ok "ⓔ 제어 문자 경로($(printf '%s' "$bad_dir" | od -An -c | tr -s ' ' | head -1 | cut -c1-24)…) → rc2 · 사본 0 · 장부 0" || bad "ⓔ rc=$RC out=[$OUT] err=[$ERR] reg=$(nreg)/$N0"
-done
-SCRDIR="$SCR"
-
 # ── ⓕ 기본 생성 자리 = $TMPDIR/ft-scratch/<주인>/ ───────────────────────────────────
 SCRDIR= OWN=f-owner sc "$SHA" --repo "$G" --full; F="$OUT"
 { [ $RC = 0 ] && [ -n "$F" ] && [ -d "$F" ] && [ "$(dirname "$F")" = "$TMPD/ft-scratch/f-owner" ]; } \
@@ -180,18 +169,16 @@ if [ -z "${R845_FAST:-}" ]; then
   # ── 변이 3: 계약을 되돌리면 그 칸이 FAIL ─────────────────────────────────────────
   grep -v -F 'WARN ft-scratch-repo — 장부 등록 실패($TSV)' "$SUT" > "$T/mut1.sh"   # 장부 실패 경고 삭제
   grep -v -F '[[ ${P##*/} =~ $re ]] || { gfail G2 3' "$SUT" > "$T/mut2.sh"
-  grep -v -F -e 'has_ctl_all "${FT_SCRATCH_DIR:-}"' -e 'has_ctl_all "$OWNER"' -e 'has_ctl_all "$BASE"' -e 'has_ctl_all "$DEST"' "$SUT" > "$T/mut3.sh"
   grep -v -F 'gate_base "$P"' "$SUT" > "$T/mut4.sh"   # 출구 게이트의 «베이스 바로 아래»(G1) 검사 제거
   grep -v -F 'verify_complete || die "사본이 온전하지 않음' "$SUT" > "$T/mut5.sh"   # 훅 rc0 일 때 완전성 확인 건너뜀
   awk 'index($0, "if verify_complete \"$p\"; then echo") > 0 { sub(/if verify_complete "\$p"; then echo/, "if true; then echo"); print; next } { print }' "$SUT" > "$T/mut6.sh"   # 재사용 완전성 확인 끔
-  for m in 1 2 3 4 5 6; do
+  for m in 1 2 4 5 6; do
     cmp -s "$SUT" "$T/mut$m.sh" && bad "변이$m 이 안 바뀜"
     "$SH" -n "$T/mut$m.sh" 2>/dev/null || bad "변이$m 문법 깨짐(가짜 변이)"
   done
   mut() { env R845_FAST=1 SCR_SUT="$T/mut$1.sh" "$SH" "$HERE/$(basename "$0")" > "$T/m$1.txt" 2>&1; }
   mut 1; grep -q '^FAIL ⓒ' "$T/m1.txt" && ok "변이1(장부 실패 경고 삭제) → ⓒ FAIL" || bad "변이1 이 살아남음 $(grep '^FAIL' "$T/m1.txt" | head -2 | tr '\n' ' ')"
   mut 2; grep -q '^FAIL ⓓ' "$T/m2.txt" && ok "변이2(출구 게이트 이름꼴 검사 끔) → ⓓ FAIL" || bad "변이2 가 살아남음 $(grep '^FAIL' "$T/m2.txt" | head -2 | tr '\n' ' ')"
-  mut 3; grep -q '^FAIL ⓔ' "$T/m3.txt" && ok "변이3(입구 거절 삭제) → ⓔ FAIL" || bad "변이3 이 살아남음 $(grep '^FAIL' "$T/m3.txt" | head -2 | tr '\n' ' ')"
   mut 4; grep -q '^FAIL ⓗ' "$T/m4.txt" && ok "변이4(게이트 G1 베이스 검사 제거) → ⓗ FAIL" || bad "변이4 가 살아남음 $(grep '^FAIL' "$T/m4.txt" | head -2 | tr '\n' ' ')"
   mut 5; grep -q '^FAIL ⓘ' "$T/m5.txt" && ok "변이5(rc0 훅 완전성 건너뜀) → ⓘ FAIL" || bad "변이5 가 살아남음 $(grep '^FAIL' "$T/m5.txt" | head -2 | tr '\n' ' ')"
   mut 6; grep -q '^FAIL ⓚ' "$T/m6.txt" && ok "변이6(재사용 완전성 확인 끔) → ⓚ FAIL" || bad "변이6 이 살아남음 $(grep '^FAIL' "$T/m6.txt" | head -2 | tr '\n' ' ')"
