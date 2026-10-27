@@ -42,8 +42,15 @@ else
   CARG=(--all --project "$CROOT")
   printf 'INFO 착지 리포 = 카드 리포(%s) — 설치 대조 = 라이브 전수(--all --project %s)\n' "$LRREPO" "$CROOT"
 fi
-COUT="$(bash "$CHK" "${CARG[@]}" 2>&1)"; crc=$?
-[ "$crc" -eq 0 ] || { printf '%s\n' "$COUT"; rej "라이브 설치 어긋남(rc=$crc) — master 설치 뒤 다시 이동"; }
+# r964: FT_BIN 은 부른 쪽(close-landed → index-move 사슬)이 넣지 않는다 — 비면 «게이트가 있는 라이브 폴더»(shim 이 exec 한 판 폴더)를 넘긴다.
+#   안 넘기면 대조기가 «FT_BIN 없음» rc=3 으로 끝나고, 설치가 맞아도 «라이브 설치 어긋남» 으로 오표기됐다.
+COUT="$(FT_BIN="${FT_BIN:-$HERE}" bash "$CHK" "${CARG[@]}" 2>&1)"; crc=$?
+case "$crc" in
+  0) ;;
+  # r964: rc=3 = 대조기가 대조 자체를 못 한 것(지도·ref·FT_BIN 못 풂) — «설치 어긋남» 과 다른 사유로 거절한다
+  3) printf '%s\n' "$COUT"; rej "설치 대조 불가(rc=3) — $(printf '%s\n' "$COUT" | grep -m1 -E '^ERROR' || echo '대조기 ERROR 줄 없음')";;
+  *) printf '%s\n' "$COUT"; rej "라이브 설치 어긋남(rc=$crc) — master 설치 뒤 다시 이동";;
+esac
 EV="$(grep -m1 -E '^[[:space:]]*-[[:space:]]*실사건:' "$CARD")"
 [ -n "$EV" ] || rej "카드에 「- 실사건: <무엇> · <증거>」 줄 없음 — 설치 뒤 실사건 1회 실측 증거(mbox #N | 경로:줄 | ledger 키)"
 printf '%s' "$EV" | grep -qE '#[0-9]+|[A-Za-z0-9_./-]+\.[A-Za-z0-9]+:[0-9]+|ledger[:=][^[:space:]]+' || rej "「- 실사건:」 줄에 증거 토큰 없음(mbox #N · 경로:줄 · ledger 키)"
