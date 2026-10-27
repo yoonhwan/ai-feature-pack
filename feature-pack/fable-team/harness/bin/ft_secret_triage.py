@@ -3,10 +3,9 @@
 
 ⓐ 실값 = 가림 함수가 값을 가렸고 예시 표식이 없음 · ⓑ 이름만 = 비밀 «이름» 꼴은 있으나 값 자리가 비었거나 ***·<…> 자리표시
 · ⓒ 예시·가짜 = 시험 폴더 경로이거나 example·dummy·fake·xxx 낱말 · 그 밖/못 읽음/시간 초과 = 판정 불가.
-출력은 종류·파일·줄·3값 뿐 — 값·값 일부·길이를 어디에도 쓰지 않는다. 원장·세션 기록 파일 쓰기 0(읽기 전용).
-같은 파일의 행은 파일을 한 번만 통과해 나눠 쓴다(행 상한은 파일 상한과 같다 — 한 행이 7초를 넘으면 그 파일 행 전부 판정 불가).
-사용: ft_secret_triage.py [--log PATH] [--since YYYY-MM-DD] [--until YYYY-MM-DD] [--out MD]
-rc: 0 정상 · 2 usage · 4 표 파일 쓰기 실패
+출력은 종류·파일·줄·3값 뿐 — 값·값 일부·길이를 어디에도 쓰지 않는다. 원장·세션 기록 파일 쓰기 0(읽기 전용). 같은 파일의 행은 파일을 한 번만 통과해 나눠 쓴다.
+R1 jsonl 이스케이프(\"NAME\": \"***\")는 이름 쌍이 밖 필드에 먹힌다 — 이름만 판정은 1단 푼 줄로 한 번 더 본다. R2 분류(가림 함수) 호출도 행마다 min(행 상한, 남은 전체) 타이머 안 — 넘으면 판정 불가.
+사용: ft_secret_triage.py [--log PATH] [--since YYYY-MM-DD] [--until YYYY-MM-DD] [--out MD] · rc: 0 정상 · 2 usage · 4 표 파일 쓰기 실패
 """
 from __future__ import annotations
 
@@ -26,6 +25,7 @@ TS = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$")
 REC = re.compile(r"^(?P<ts>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\t(?P<path>.+):(?P<no>\d+) (?P<kind>\S.*)$")  # kind 에는 띄어쓰기가 들어간다(plan:이유 …) — 앞에서부터 잡고 뒤는 통째로
 TEST_DIR = re.compile(r"/(?:tests?|fixtures?|testdata|__fixtures__|stubs?|samples?|mocks?)/")
 EX_WORD = re.compile(r"(?<![A-Za-z0-9_])(?:examples?|dummy|fake|sample|placeholder|redacted|changeme|x{3,})(?![A-Za-z0-9_])", re.I)
+ESC = re.compile(r'\\(["\\\\])')  # jsonl 문자열 이스케이프 1단("→" · \\→\)
 SLOT = re.compile(r"[\"']?(?P<name>[A-Za-z_][A-Za-z0-9_]*)[\"']?\s*[=:]\s*[\"']?(?P<val>[^\s,;&}\]\"']*)")
 EMPTY = re.compile(r"^(?:\*{2,}|<[^<>]*>|\$\{?[A-Za-z_][A-Za-z0-9_]*\}?|x{3,}|(?:redacted|changeme|placeholder|dummy|fake|example|none|null)?)$", re.I)
 FIXED, CAP, ROW = 5.0, 70.0, 7.0  # 고정비 · 전체 상한 · 행 상한(초) — 넘으면 «판정 불가» 줄(조용한 생략 0)
@@ -45,9 +45,10 @@ def verdict(path: str, line: str) -> str:
         return EXAMPLE
     if mask(line)[1]:  # 가림 함수가 값을 가렸다 = 실값(예시 표식 없는 줄에서만)
         return REAL
-    for m in SLOT.finditer(line):
-        if NAME.search(m.group("name")) and EMPTY.match(m.group("val")):
-            return MNAME  # 이름 꼴은 있고 값 자리가 비었거나 자리표시
+    for cand in (line, ESC.sub(r"\1", line)):  # R1 — 원문에서 못 찾으면 1단 푼 줄로 한 번 더
+        for m in SLOT.finditer(cand):
+            if NAME.search(m.group("name")) and EMPTY.match(m.group("val")):
+                return MNAME  # 이름 꼴은 있고 값 자리가 비었거나 자리표시
     return UNKNOWN
 
 
@@ -83,6 +84,14 @@ def collect(path: str, nos: list[int], budget: float) -> dict[int, str]:
     return got
 
 
+def timed_verdict(path: str, line: str, budget: float) -> str:
+    signal.setitimer(signal.ITIMER_REAL, budget)
+    try:
+        return verdict(path, line)
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
+
+
 def classify(rows: list[dict[str, str]], row_secs: float, total: float) -> None:
     by_file: dict[str, list[int]] = {}
     for r in rows:
@@ -98,22 +107,21 @@ def classify(rows: list[dict[str, str]], row_secs: float, total: float) -> None:
                 got = collect(path, nos, min(row_secs, left))
             except _Timeout:
                 why = f"행 {row_secs:g}초 초과"
-            except FileNotFoundError:
-                why = "파일 없음"
-            except PermissionError:
-                why = "읽기 권한 없음"
-            except OSError:
-                why = "읽기 실패"
+            except OSError as e:  # 파일 없음·읽기 권한 없음·읽기 실패 — 조용한 생략 0
+                why = {"FileNotFoundError": "파일 없음", "PermissionError": "읽기 권한 없음"}.get(e.__class__.__name__, "읽기 실패")
         for r in rows:
             if r["path"] != path or not r["line"].isdigit():
                 continue
-            no = int(r["line"])
-            if why:
-                r["verdict"], r["why"] = UNKNOWN, why
-            elif no not in got:
-                r["verdict"], r["why"] = UNKNOWN, "줄 번호가 파일 길이 넘음"
-            else:
-                r["verdict"] = verdict(path, got[no])
+            no, left = int(r["line"]), total - (time.monotonic() - start)
+            if why or no not in got:
+                r["verdict"], r["why"] = UNKNOWN, why or "줄 번호가 파일 길이 넘음"
+            elif left <= 0:
+                r["verdict"], r["why"] = UNKNOWN, "전체 상한 초과"
+            else:  # R2 — 분류도 같은 타이머 안(행마다 min(행 상한, 남은 전체))
+                try:
+                    r["verdict"] = timed_verdict(path, got[no], budget := min(row_secs, left))
+                except _Timeout:
+                    r["verdict"], r["why"] = UNKNOWN, f"행 {row_secs:g}초 초과" if budget >= row_secs else "전체 상한 초과"
 
 
 def table(rows: list[dict[str, str]], log: str, since: str, until: str) -> str:

@@ -80,6 +80,27 @@ if [ -p "$FIFO" ]; then
   grep -q 'triage=1 real=0 name=0 example=0 unknown=1' "$T/o3" && grep -q '초과: 1건' "$T/t3.md"; ck "C3 1초 넘는 행 = 판정 불가 · 표에 남음" $?
 fi
 
+# C1 R1 — jsonl 문자열 안(역슬래시 감싼) 이름·자리표시자 = 이름만 (DA⑥ r1 고침 1)
+ESCJ="$T/esc.jsonl"
+printf '{"stdout":"[INFO] \\"GITHUB_TOKEN\\": \\"***\\" saved"}\n' > "$ESCJ"
+printf '{"cfg":"\\"API_KEY\\": \\"<TOKEN>\\" here"}\n' >> "$ESCJ"
+printf '2026-10-27 05:00:00%s%s:1 named-secret\n2026-10-27 05:00:00%s%s:2 named-secret\n' "$TAB" "$ESCJ" "$TAB" "$ESCJ" > "$T/esc.log"
+FT_SECRET_TRIAGE_LOG="$T/esc.log" bash "$SH" --out "$T/t4.md" >"$T/o4" 2>"$T/e4b"
+grep -q 'triage=2 real=0 name=2 example=0 unknown=0' "$T/o4"; ck "R1 jsonl 이스케이프 이름만 2 (고침 1)" $?
+
+# C3 R2 — 분류(가림 함수) 구간에도 행·전체 상한 (DA⑥ r1 고침 2 · 지연 스텁)
+SB="$T/slowbin"; mkdir -p "$SB"; cp -p "$BIND"/ft_secret_*.py "$SH" "$SB/"  # 의존 모듈(ft_secret_targets·lex)까지 함께
+printf 'import os, time\ndef mask(text):\n    time.sleep(float(os.environ.get("FT_TRIAGE_MASK_SLEEP") or "2"))\n    return text, []\n' > "$SB/ft_secret_shapes.py"
+printf 'API_TOKEN=abcdefghijklmnop\n' > "$T/one.jsonl"
+printf '2026-10-27 06:00:00%s%s:1 named-secret\n' "$TAB" "$T/one.jsonl" > "$T/one.log"
+FT_SECRET_TRIAGE_LOG="$T/one.log" FT_TRIAGE_MASK_SLEEP=3 FT_SECRET_TRIAGE_ROW_SECS=0.5 bash "$SB/ft-secret-triage.sh" --out "$T/t5.md" >"$T/o5" 2>"$T/e5"
+grep -q 'triage=1 real=0 name=0 example=0 unknown=1' "$T/o5" && grep -q '행 0.5초 초과: 1건' "$T/t5.md"; ck "R2 지연 가림 함수 → 행 상한 판정 불가 (고침 2)" $?
+printf 'API_TOKEN=abcdefghijklmnop\nSECRET_KEY=qqq\nDB_PASSWORD=zzz\n' > "$T/three.jsonl"
+printf '2026-10-27 06:10:00%s%s:1 named-secret\n2026-10-27 06:10:00%s%s:2 named-secret\n2026-10-27 06:10:00%s%s:3 named-secret\n' \
+  "$TAB" "$T/three.jsonl" "$TAB" "$T/three.jsonl" "$TAB" "$T/three.jsonl" > "$T/three.log"
+FT_SECRET_TRIAGE_LOG="$T/three.log" FT_TRIAGE_MASK_SLEEP=0.2 FT_SECRET_TRIAGE_TOTAL_SECS=0.25 bash "$SB/ft-secret-triage.sh" --out "$T/t6.md" >"$T/o6" 2>"$T/e6"
+grep -q 'triage=3 real=0 name=0 example=0 unknown=3' "$T/o6" && grep -q '전체 상한 초과: 2건' "$T/t6.md"; ck "R2 전체 상한 축소 → 남은 행 판정 불가 · 합계 일치" $?
+
 # C3 — 표 쓰기 실패 = rc≠0
 mkdir -p "$T/ro"; chmod 500 "$T/ro"
 bash "$SH" --out "$T/ro/x/y.md" >/dev/null 2>"$T/e4"; rc=$?
@@ -94,7 +115,7 @@ fi
 
 # 변이 2종 — 사본을 고쳐 이 시험 자체를 다시 돌린다(FAIL 이어야 잡힌 것)
 mut() {  # mut <이름> <patch.py 코드> [env]
-  local d="$T/mut-$1"; mkdir -p "$d"; cp -p "$PY" "$SH" "$d/"
+  local d="$T/mut-$1"; mkdir -p "$d"; cp -p "$BIND"/ft_secret_*.py "$SH" "$d/"  # 의존 모듈까지 — 못 읽는 사본으로 «우연히» FAIL 하지 않게
   python3 - "$d/ft_secret_triage.py" "$2" <<'EOF'
 import sys
 p, code = sys.argv[1], sys.argv[2]
@@ -107,10 +128,10 @@ for pair in code.split("\n#---\n"):
 open(p, "w").write(s)
 EOF
 }
-LEAK='                r["verdict"] = verdict(path, got[no])
+LEAK='                    r["verdict"] = timed_verdict(path, got[no], budget := min(row_secs, left))
 >>>
-                r["verdict"] = verdict(path, got[no])
-                r["why"] = got[no][:120]
+                    r["verdict"] = timed_verdict(path, got[no], budget := min(row_secs, left))
+                    r["why"] = got[no][:120]
 #---
     print(f"triage={len(rows)}
 >>>
@@ -120,9 +141,20 @@ DROP='def table(rows: list[dict[str, str]], log: str, since: str, until: str) ->
 >>>
 def table(rows: list[dict[str, str]], log: str, since: str, until: str) -> str:
     rows = [r for r in rows if "초과" not in r.get("why", "")]'
+ESC_OFF='    for cand in (line, ESC.sub(r"\1", line)):  # R1 — 원문에서 못 찾으면 1단 푼 줄로 한 번 더
+>>>
+    for cand in (line,):'
+TIMER_OFF='                    r["verdict"] = timed_verdict(path, got[no], budget := min(row_secs, left))
+>>>
+                    r["verdict"] = verdict(path, got[no])'
 if [ -z "${FT_TRIAGE_UNDER_TEST:-}" ]; then   # 변이 자식은 다시 변이를 만들지 않는다(무한 재귀 차단)
-  for name in leak drop; do
-    [ "$name" = leak ] && mut "$name" "$LEAK" || mut "$name" "$DROP"
+  for name in leak drop esc timer; do
+    case "$name" in
+      leak) mut "$name" "$LEAK" ;;
+      drop) mut "$name" "$DROP" ;;
+      esc) mut "$name" "$ESC_OFF" ;;
+      timer) mut "$name" "$TIMER_OFF" ;;
+    esac
     FT_TRIAGE_UNDER_TEST="$T/mut-$name" bash "${BASH_SOURCE[0]:-$0}" >"$T/m-$name.log" 2>&1
     [ $? -ne 0 ]; ck "변이 $name → 이 시험이 FAIL 로 잡음" $?
   done
