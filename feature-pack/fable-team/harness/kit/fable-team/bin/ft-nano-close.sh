@@ -16,6 +16,7 @@
 #   --research = 자료 조사 좌석(코드 0 · 조사 결과만 · 예: pi 리서치 나노)을 닫는다(r888). ⑥ 구현 증거 줄(세트·시험 rc0)은 생길 수 없어 면제하고 그 자리에서 «코드 0» 을 값 2개로 센다 —
 #     r4: 기준 판(좌석 브랜치 reflog 맨 처음 «branch: Created from» sha · 없으면 REJECT · 카드 줄 안 읽음) 뒤 첫 부모 줄기 비병합 커밋 0 · 머리 맞춤 병합은 끌어온 쪽이 origin/main 조상일 때만 · 미커밋 0(정확 경로 · 예외 «?? .serena/project.yml» 하나) · FT_NANO_FEAT 가 좌석 자기 브랜치면 REJECT.
 #     하나라도 아니면 REJECT «리서치 아님 · 구현 닫기 경로로» · 셀 수 없으면 REJECT · ①--result 실재 ∧ 비어 있지 않음(0바이트 = REJECT) · ②·③·⑤ 그대로 · 원장 행·출력 꼬리 research=1 · --never-started·--superseded-by·--suspended·--cherry-override·--shared-wt 와 동시 = usage 2 · 인자 없으면 동작 불변.
+#     r978 고침 1: 커밋·미커밋이 있어도 그 «경로 전부» 가 --result 1개뿐이면 통과(리서치 표를 커밋해도 닫힌다 · r976 꼴). 그 밖 경로가 1개라도 있으면 지금처럼 REJECT.
 #   카드 읽기(r888): 명부 index 의 카드는 FT_CARD_REF(기본 origin/main · 닫기 직전 그 ref 하나만 fetch)의 indices/{진행,완성,대기}/<파일> 판을 먼저 «읽는다»(INFO 카드 위치 ← <ref>:<경로>).
 #     ref 에 없으면 기존 후보(작업 트리) 그대로 · fetch 실패면 옛 ref 판을 믿지 않는다(WARN 1줄 · 작업 트리 후보) · 쓰기(리서치 닫힘·중단 줄)는 작업 트리 사본 그대로.
 #   --wt <경로> --branch <이름> = 전용 워크트리는 있는데 «이름이 표준(.worktrees/<접두><키> · nano/<키>)이 아닌» 좌석 닫기(원장 R8 보강) — 둘 «모두» 명시해야만 이 모드(하나만 · --shared-wt 와 동시 = usage 2 · 자동 판별 0).
@@ -1047,6 +1048,14 @@ elif [ "$RESEARCH" = 1 ]; then   # r888-mut:research
     if [ -z "$_rs_base" ] || ! git -C "$SEAT_WT" cat-file -e "$_rs_base^{commit}" 2>/dev/null; then
       bad+=("⑥리서치 기준 판 없음(reflog) — 좌석 브랜치 ${_rs_hb:-<detached>} 의 reflog 맨 처음 줄이 «branch: Created from» 이 아니거나 없음·그 sha 를 못 읽음(${_rs_base:-빈 값}) · «코드 0» 을 셀 수 없다")
     else
+      # r978 고침 1: «산출 1개(r976 꼴)» 를 코드 0 으로 인정한다 — 구현 커밋·미커밋이 있어도 그 경로 «전부» 가 --result 1개뿐이면 통과.
+      #   비교는 경로 집합(커밋 = 기준 판..HEAD 각 커밋이 바꾼 경로 · 미커밋 = porcelain 정확 경로) · 산출이 좌석 워크트리 밖이면 어떤 커밋 경로도 산출일 수 없다(그대로 REJECT).
+      _rs_top="$(git -C "$SEAT_WT" rev-parse --show-toplevel 2>/dev/null)"; _rs_rel=""
+      case "$RESULT" in
+        /*) case "$RESULT" in "$_rs_top"/*) _rs_rel="${RESULT#"$_rs_top"/}";; esac;;
+        *) _rs_rel="$RESULT";;
+      esac
+      _rs_rel="${_rs_rel#./}"
       step fetch
       if ! nf_fetch "$SEAT_REPO" origin main >/dev/null 2>&1; then   # r938 r3(astra r2 N4): 실패 = 그 자리 REJECT · 아래 병합 대조 0
         bad+=("⑥리서치 origin/main fetch 실패 — 옛 ref 대조 0(R22) · 7초+재시도 1 상한 · 다시: 같은 명령(일시 장애면)")
@@ -1056,18 +1065,28 @@ elif [ "$RESEARCH" = 1 ]; then   # r888-mut:research
       while read -r _m _p1 _ps; do [ -n "$_m" ] || continue
         for _p in $_ps; do git -C "$SEAT_WT" merge-base --is-ancestor "$_p" origin/main 2>/dev/null || _rs_side=$((_rs_side+1)); done   # r888-mut:side
       done <<< "$_rs_mg"
-      _rs_tmp="$(mktemp)" && git -C "$SEAT_WT" status --porcelain=v1 -z --untracked-files=all > "$_rs_tmp" 2>/dev/null; _rs_src=$?
-      _rs_dirty=0; _rs_skip=0
-      [ "$_rs_src" -ne 0 ] || while IFS= read -r -d '' _e; do
-        [ "$_rs_skip" = 0 ] || { _rs_skip=0; continue; }
-        case "${_e:0:2}" in *R*|*C*) _rs_skip=1;; esac
-        [ "$_e" = "?? .serena/project.yml" ] || _rs_dirty=$((_rs_dirty+1))   # r888-mut:exact
-      done < "$_rs_tmp"
-      rm -f "${_rs_tmp:-}"
-      if [ "$_rs_nrc" -ne 0 ] || [ "$_rs_mrc" -ne 0 ] || [ "$_rs_src" -ne 0 ]; then bad+=("⑥리서치 검사 실패(rev-list rc=$_rs_nrc·$_rs_mrc · status rc=$_rs_src: ${_rs_n:0:60}) — «코드 0» 을 셀 수 없다")
-      elif [ "$_rs_n" -gt 0 ] || [ "$_rs_side" -gt 0 ] || [ "$_rs_dirty" -gt 0 ] || [ -n "$_rs_self" ]; then
-        bad+=("⑥리서치 아님 — 기준 판 ${_rs_base:0:9}($_rs_bsrc) 뒤 구현 커밋 ${_rs_n} · main 밖 곁가지 병합 ${_rs_side} · 미커밋 ${_rs_dirty}건${_rs_self} · 구현 닫기 경로로(--research 없이 · 카드 증거 줄)")
-      else echo "RESEARCH-OK 기준 판 ${_rs_base:0:9}($_rs_bsrc) 뒤 구현 커밋 0 · 미커밋 0 · 결과 $RESULT (⑥ 증거 줄 면제)"; fi
+      _rs_wt="$(ft_changed_paths_wt "$SEAT_WT")"; _rs_src=$?
+      _rs_dirty=0; _rs_rok=0
+      [ "$_rs_src" -ne 0 ] || while IFS=$'\t' read -r _rs_xy _rs_p; do
+        [ -n "${_rs_p:-}" ] || continue
+        if [ "$_rs_xy" = "??" ] && [ "$_rs_p" = ".serena/project.yml" ]; then :   # r888-mut:exact
+        elif [ -n "$_rs_rel" ] && [ "$_rs_p" = "$_rs_rel" ]; then _rs_rok=$((_rs_rok+1))   # r978-mut:result — 산출 경로 1개는 «코드 0» 위반이 아니다
+        else _rs_dirty=$((_rs_dirty+1)); fi
+      done <<< "$_rs_wt"
+      # r978-mut:patnote — 커밋이 바꾼 경로 전부가 산출 1개인가(첫 부모 줄기 구현 커밋의 이름표 전부를 센다 · 병합 커밋은 곁가지 검사가 따로 본다)
+      _rs_out=0; _rs_paths=""; _rs_prc=0
+      if [ "$_rs_n" -ne 0 ]; then   # 첫 부모 줄기 구현 커밋이 0 이면 «구현 경로» 도 0(머리 맞춤 병합이 끌어온 경로는 셈 밖 — 종전 동작)
+        _rs_paths="$(ft_changed_paths "$SEAT_WT" "$_rs_base" HEAD --commits)"; _rs_prc=$?   # r978-mut:paths
+      fi
+      [ "$_rs_prc" -eq 0 ] || _rs_paths=""
+      while IFS= read -r _p; do
+        [ -n "$_p" ] || continue
+        { [ -n "$_rs_rel" ] && [ "$_p" = "$_rs_rel" ]; } || _rs_out=$((_rs_out+1))
+      done <<< "$_rs_paths"
+      if [ "$_rs_nrc" -ne 0 ] || [ "$_rs_mrc" -ne 0 ] || [ "$_rs_src" -ne 0 ] || [ "$_rs_prc" -ne 0 ]; then bad+=("⑥리서치 검사 실패(rev-list rc=$_rs_nrc·$_rs_mrc · 경로목록 rc=$_rs_src·$_rs_prc: ${_rs_n:0:60}) — «코드 0» 을 셀 수 없다")
+      elif [ "$_rs_side" -gt 0 ] || [ "$_rs_dirty" -gt 0 ] || [ "$_rs_out" -gt 0 ] || [ -n "$_rs_self" ]; then   # r978-mut:count
+        bad+=("⑥리서치 아님 — 기준 판 ${_rs_base:0:9}($_rs_bsrc) 뒤 구현 커밋 ${_rs_n} · main 밖 곁가지 병합 ${_rs_side} · 미커밋 ${_rs_dirty}건 · 산출(${_rs_rel:-<워크트리 밖>}) 밖 경로 ${_rs_out}개${_rs_self} · 구현 닫기 경로로(--research 없이 · 카드 증거 줄)")
+      else echo "RESEARCH-OK 기준 판 ${_rs_base:0:9}($_rs_bsrc) 뒤 구현 커밋 ${_rs_n}(산출 1경로만) · 미커밋 ${_rs_rok}건(산출) · 결과 $RESULT (⑥ 증거 줄 면제)"; fi
       fi
     fi
   fi
