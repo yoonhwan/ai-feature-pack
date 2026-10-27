@@ -28,16 +28,17 @@ fmt() { date -r "$1" "+$2" 2>/dev/null || date -d "@$1" "+$2" 2>/dev/null; }  # 
 hhmm() { fmt "$1" %H:%M || echo "--:--"; }
 now_epoch() { echo "${FT_NOW:-$(date +%s)}"; }  # FT_NOW = 시험용 고정 시계
 
-MODE_RE=$'^[0-9]+\t(on|off)\tA[0-9]+$'; APPROVE_RE='^approve-merge [0-9a-f]{40} (A[0-9]+|OFF) [0-9]+$'
+MODE_RE=$'^[0-9]+\t(on|off)\tA[0-9]+$'; APPROVE_RE='^approve-merge [0-9a-f]{40} (A[0-9]+|OFF|D1) [0-9]+$'   # r947: 이벤트 칸 D1 = 상시 승인(ft-autonomy-standing.sh)
 # 범위 사전 승인 줄 3꼴(R298 · ft-autonomy-scope.sh 가 쓴다 · r560: scope-use 종류에 equiv = 이미 센 승인의 EQUIV 재승인·셈 0) — 이 꼴 밖의 줄은 지금처럼 위변조
 SCOPE_GRANT_RE='^approve-scope S[0-9]+ A[0-9]+ [0-9]+ until=[0-9]+ max=[0-9]+ daily=[0-9]+ classes=(docs|ff|revert|code)(,(docs|ff|revert|code))*( codemax=[0-9]+)?( repos=byz,pack)?( level=(full|mid))?$'
 SCOPE_USE_RE='^scope-use S[0-9]+ [0-9a-f]{40} (docs|ff|revert|code|equiv) [0-9]+( repo=pack)?( learned=[a-z0-9,-]+)?$'; SCOPE_STOP_RE=$'^scope-stop S[0-9]+ [0-9]+ [^\t]+$';   DOC_EXEMPT_RE='^doc-exempt [0-9a-f]{40} team=[a-z0-9][a-z0-9_-]* files=[0-9]+ by=[A-Za-z0-9#_-]+$'; DOC_EXEMPT_REJ_RE='^doc-exempt-reject [0-9a-f]{40} by=[A-Za-z0-9#_-]+$'   # R725 문서 전용 PR 예외 착지 기록(ft_doc_exempt.py · merge-land·가드) — 형식 고정
+STANDING_GRANT_RE='^approve-standing D1 [0-9]+ repos=pack classes=(code|docs)(,(code|docs))? da=external$'; STANDING_USE_RE='^standing-use D1 [0-9a-f]{40} [0-9]+ pr=[0-9]+ repo=pack da=[0-9a-f]{40}$'; STANDING_STOP_RE=$'^standing-stop D1 [0-9]+ [^\t]+$'   # r947 상시 승인 D1 3꼴(ft-autonomy-standing.sh 가 쓴다)
 # log 를 ⓐ정상 모드 줄 ⓑ정당한 부가 줄(승인 줄·범위 승인 줄·형식 고정) ⓒ그 밖 으로 가른다. stdout = 마지막 정상 모드 줄 · rc 1 = 그 뒤에 ⓒ(불완전·모르는 줄) 가 있음 = 위변조
 log_last_mode() {
   local line last="" bad=0
   while IFS= read -r line || [ -n "$line" ]; do
     if [[ "$line" =~ $MODE_RE ]]; then last="$line"; bad=0
-    elif [[ "$line" =~ $APPROVE_RE || "$line" =~ $SCOPE_GRANT_RE || "$line" =~ $SCOPE_USE_RE || "$line" =~ $SCOPE_STOP_RE || "$line" =~ $DOC_EXEMPT_RE || "$line" =~ $DOC_EXEMPT_REJ_RE ]]; then :
+    elif [[ "$line" =~ $APPROVE_RE || "$line" =~ $SCOPE_GRANT_RE || "$line" =~ $SCOPE_USE_RE || "$line" =~ $SCOPE_STOP_RE || "$line" =~ $DOC_EXEMPT_RE || "$line" =~ $DOC_EXEMPT_REJ_RE || "$line" =~ $STANDING_GRANT_RE || "$line" =~ $STANDING_USE_RE || "$line" =~ $STANDING_STOP_RE ]]; then :
     else bad=1; fi
   done 2>/dev/null < "$LOG"
   printf '%s' "$last"; return $bad
@@ -190,11 +191,10 @@ case "${1:-}" in
   forget-kind|interview-note|on-check) c="cmd_${1//-/_}"; shift; "$c" "$@" ;;   # r466 학습표에서 종류 빼기(오빠 `!` 전용) · desk 에 [자율 인터뷰] 1통(틱 expire 뒤 · off 는 스스로) · on 인자 검사만(쓰기 0)
   approve-merge) shift; cmd_approve_merge "$@" ;;
   approve-scope|scope-approve|scope-stop|scope-status) c="${1//-/_}"; shift; . "$HERE/ft-autonomy-scope.sh"; "cmd_$c" "$@" ;;  # 범위 사전 승인(R298) — approve-scope = 오빠 `!` 전용
-  off) cmd_off ;;
-  expire) cmd_expire ;;
+  off) cmd_off ;; expire) cmd_expire ;;
   status) status ;;
-  mode) mode ;;
-  event) event ;;
+  approve-standing|standing-approve|standing-stop|standing-status) c="${1//-/_}"; shift; . "$HERE/ft-autonomy-standing.sh"; "cmd_$c" "$@" ;;  # r947 상시 승인 D1 — approve-standing = 오빠 `!` 전용 · standing-approve = planner master 좌석만
+  mode) mode ;; event) event ;;
   state-dir) printf '%s\n' "$STATE" ;;
-  *) echo "usage: ft-autonomy.sh on|off|expire|status|mode|event|state-dir|approve-merge <40hex>…|approve-scope|scope-approve|scope-stop|scope-status|forget-kind <키>|interview-note <A<N>> <expire|off>" >&2; exit 2 ;;
+  *) echo "usage: ft-autonomy.sh on|off|expire|status|mode|event|state-dir|approve-merge <40hex>…|approve-scope|scope-approve|scope-stop|scope-status|approve-standing|standing-approve|standing-stop|standing-status|forget-kind <키>|interview-note <A<N>> <expire|off>" >&2; exit 2 ;;
 esac

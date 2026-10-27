@@ -1,0 +1,28 @@
+# r879 r6 음성대조(red) — 새 시험(r6)을 «r5 판 bin»(54393c91)에 돌린 결과
+# 명령: FT_R879_SPAWN=/tmp/r879-r5-bin.sh bash feature-pack/fable-team/harness/tests/test_nano_spawn_sparse_evidence_r879.sh
+# 기대 = ⓨ7 이 «줄 갈라짐» 을 잡는다 · r6 판에서는 ALL PASS
+FAIL ⓐ 남은 것: 미디어=[./lecture/evidence/other/line break.wav ] (작업 트리 준비 중 (새 브랜치 'nano/W1')
+SPARSE team=lecture 남의 팀 design·자기 팀 안 미디어(wav·mp4·png·zip 등)·큰 글자(result.json·jsonl) 제외 · 글자 파일은 남김 · 새 증거 = design/teams/lecture/evidence/r9-sparse-card/ (다른 미디어가 필요하면 git sparse-checkout add <경로> · 되돌림: git -C /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.VSTwOcyVf4/W1 sparse-checkout disable))
+PASS ⓑ 남의 카드 증거 폴더의 md·txt·json · 공백·괄호 파일명 · evidence 바로 아래 파일 = IN
+PASS ⓒ 카드 글자 0 이어도 같은 결과(md IN · 미디어 OUT · 카드 글자 파싱 없음)
+PASS ⓓ 자기 stem 폴더(evidence/r9-sparse-card/)의 wav·md 있음 + 새 wav·md git add rc0
+PASS ⓔ fixtures/ 아래 wav·mp4 IN(기존 그대로) · 팀 밖 tests/fixtures 도 IN
+PASS ⓨ5' 남의 카드 증거 폴더 «새» wav add rc0 — r5 계약 ③ = 트리에 없는 새 파일은 제외 0
+PASS ⓑ' 남의 카드 증거 폴더 새 md add rc0(글자는 받음)
+PASS ⓗ 남의 stem 폴더 result.json·x.jsonl·y.JSONL OUT · summary.json IN
+PASS ⓘ 자기 stem 폴더 result.json·x.jsonl IN + 새 result.json·jsonl git add rc0
+PASS ⓚ other.wav/note.md·summary.json IN(git add rc0) · other.wav/x.wav OUT
+PASS ⓛ a.WaV·b.PnG·Result.JSON·x.JsonL OUT(기본 ignorecase=true · 판별력은 ⓐ'ⓑ' 칸)
+PASS ⓐ'ⓑ' core.ignorecase=false — 섞인 대소문자 미디어 OUT · 글자 IN · other.wav/ 안 글자 IN
+PASS ⓨ1 other.wav/note.md·summary.json IN(git add rc0) · other.wav/x.wav OUT
+PASS ⓨ2 a.WaV·b.PnG·Result.JSON·x.JsonL OUT(소문자 비교)
+PASS ⓨ3 'my report.md'·'INV(final).md' IN · 'my song (final).WAV'·'weird[1].png' OUT(이스케이프)
+PASS ⓨ4 evidence 바로 아래 md IN · 자기 카드 clip.wav IN · 남의 카드 big.wav OUT(되살림 줄이 제외 줄 뒤)
+FAIL ⓨ5 줄 수 46 ≠ 45 또는 새 파일 add 막힘
+PASS ⓨ6 미디어 15확장자 · 대문자 MP3·FlAc 전부 OUT
+FAIL ⓨ7 개행 이름 판정 어긋남 — 조각줄=1 wav=IN 폴더md=OUT
+PASS ⓨ7' 트리에 없는 개행 이름 새 글자 파일 add rc0
+PASS ⓨ8 tab\there.mp3·cr\rhere.png OUT · 같은 폴더 tab/x.md IN(제어 문자 갈래)
+PASS ⓖ FT_NANO_SPARSE=0 → 전체 체크아웃
+FAILED 3
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

@@ -1,0 +1,29 @@
+.........F.............................................................. [ 69%]
+...............................                                          [100%]
+=================================== FAILURES ===================================
+____ test_render_error_team_shows_unconfirmed_line_and_other_rows_unchanged ____
+
+board = <class 'test_ft_board_teams.B'>
+
+    def test_render_error_team_shows_unconfirmed_line_and_other_rows_unchanged(board) -> None:
+        """ⓓ 그리는 쪽 — error 팀 = «확인 못 함: <원인>» 한 줄 · 다른 팀 줄은 error 팀이 늘기 전과 같은 글자."""
+        _cards(board.root, "ok")
+        board.seats("ok", {"_label": "정상팀", "_master": "ok-m#1", "_cards": "t/ok", "ok-m#1": {"role": "master"}}, ["ok-m#1"])
+        only = board.run("render", "--term")
+        assert only.returncode == 0, only.stderr
+        board.seats("bad", {"_label": "사라진팀", "_master": "bad-m#1", "_cards": "t/nope", "bad-m#1": {"role": "master"}}, ["bad-m#1"])
+        both = board.run("render", "--term")
+        assert both.returncode == 0, both.stderr
+        ok_row = next(ln for ln in only.stdout.splitlines() if "정상팀" in ln)
+        assert ok_row in both.stdout.splitlines()
+>       assert f"- 사라진팀 | 확인 못 함: 카드 폴더 없음 — {board.root / 't' / 'nope'}" in both.stdout.splitlines()
+E       AssertionError: assert '- 사라진팀 | 확인 못 함: 카드 폴더 없음 — /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-1435/test_render_error_team_shows_u0/root/t/nope' in ['메인팀 보드 10:00', '', '⓪ 팀 요약', '- 사라진팀 | 확인 불가(명부 읽기 실패)', '- 정상팀 | 지금: 진행 1(ok카드 · 좌석 없음) | 큐: 대기 0 | 오빠 할 일 0 | 결정 자리: 확인 불가(seats-planner.json 없음) | 정지(3분+) 0 | 완료 선언 0', '', ...]
+E        +  where ['메인팀 보드 10:00', '', '⓪ 팀 요약', '- 사라진팀 | 확인 불가(명부 읽기 실패)', '- 정상팀 | 지금: 진행 1(ok카드 · 좌석 없음) | 큐: 대기 0 | 오빠 할 일 0 | 결정 자리: 확인 불가(seats-planner.json 없음) | 정지(3분+) 0 | 완료 선언 0', '', ...] = <built-in method splitlines of str object at 0x12712b200>()
+E        +    where <built-in method splitlines of str object at 0x12712b200> = '메인팀 보드 10:00\n\n⓪ 팀 요약\n- 사라진팀 | 확인 불가(명부 읽기 실패)\n- 정상팀 | 지금: 진행 1(ok카드 · 좌석 없음) | 큐: 대기 0 | 오빠 할 일 0 | 결정 자리: 확인 불가(... HIL-LEDGER 확인 불가(파일 없음)\n- 큐 [HIL]·[긴급] 확인 불가(큐·planner 명부 읽기 실패)\n- MERGE-QUEUE 확인 불가(파일 없음)\n- 제안 미결정 0\n- 관찰 중 0\n'.splitlines
+E        +      where '메인팀 보드 10:00\n\n⓪ 팀 요약\n- 사라진팀 | 확인 불가(명부 읽기 실패)\n- 정상팀 | 지금: 진행 1(ok카드 · 좌석 없음) | 큐: 대기 0 | 오빠 할 일 0 | 결정 자리: 확인 불가(... HIL-LEDGER 확인 불가(파일 없음)\n- 큐 [HIL]·[긴급] 확인 불가(큐·planner 명부 읽기 실패)\n- MERGE-QUEUE 확인 불가(파일 없음)\n- 제안 미결정 0\n- 관찰 중 0\n' = CompletedProcess(args=['/opt/homebrew/opt/python@3.11/bin/python3.11', '/Users/yoonhwan/Project/ai-feature-pack/.workt...yoonhwan/pytest-1435/test_render_error_team_shows_u0/root/t/nope\n팀 상태 ALL-UNKNOWN — 1팀 전원 확인 불가(판정 원천 실패 · 발행은 계속)\n').stdout
+
+harness/tests/scripts/test_ft_board_teams.py:209: AssertionError
+=========================== short test summary info ============================
+FAILED harness/tests/scripts/test_ft_board_teams.py::test_render_error_team_shows_unconfirmed_line_and_other_rows_unchanged
+1 failed, 102 passed in 68.82s (0:01:08)
+rc=1

@@ -1,0 +1,100 @@
+MUT 2 — 개수 임계 ≥1 → ≥2
+PASS 본보기 bash -n(/bin/bash)
+PASS 전제: sp1 은 sparse(cone d0) — d0 만 있고 d1~d3 없음
+PASS 전제: sp1 core.sparseCheckout=true
+PASS 전제: da1 은 비cone 3패턴 — d0·d1·d2 있고 d3 없음
+PASS 전제: da3 d1 삭제 · da4 는 전체 체크아웃(패턴 /*)
+PASS 전제: ig1 은 ex 가 H 인데 디스크에 없고 제외 규칙(ex/)에 걸림
+PASS 전제: ⓕ 꼴 묶음(한글·공백·따옴표·줄바꿈)이 d0 안에 있고 cone sparse(sp1) 가 그것을 받았다
+PASS 전제: ⓕ ln1 에 최상위 심볼릭 링크(120000) 가 디스크에 있음
+PASS 전제: ⓘ i1 파일 keep2 부재 · i2 파일 keep3 부재
+PASS 전제: ⓙ g1 keep 부재(제외 취소 규칙 !keep 아래)
+PASS 전제: ⓓ br1 은 인덱스가 망가져 git 이 삭제 목록을 못 준다(rc=128)
+PASS 전제: ⓓ2 da4 는 패턴 파일이 폴더여도 ls-files -d 는 rc=0(r5 가 패턴을 안 읽는다)
+== ⓐⓑⓒⓓⓔⓙ + DA⑥ r1·r2·r3·r4 반례 — 한 번의 스캔
+FAIL ⓑⓑ2ⓑ3ⓔⓙⓒⓘ 진짜 부재만 — sp2(d0 부재) · da2(**/*.md · d1 부재) · da3(/d1/ + ! 제외 · d1 부재) · n2(일반 최상위 2개 부재) · ig1(H 인 ex 부재 · 제외 규칙에 걸려도 센다) · g1(!keep 아래 keep 부재) · i2(파일 keep3 부재) — 없음: «껍데기 8곳(전체 8곳): da2 da3 g1 i1 i2 ig1 n2 sp2» ← [HIL] seat=byz-harness-wt-shell 반쯤 지워진 워크트리 껍데기 3곳(전체 3곳): da3 n2 sp2 — 처리는 오빠 값(바뀐 때만 1줄)
+판정 불가 2곳 — git 호출 실패로 껍데기 판정 보류(오빠 판정 0 · 삭제 0): /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.yx0sFhQacn/repo/.worktrees/br1:ls-files /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.yx0sFhQacn/repo/.worktrees/da4:sparse-list 
+sweep 계획 0 · cleaned/none 0 · wait 0 · hil 0 · u=2
+PASS ⓐ cone sparse(d0 있음) → 껍데기 0
+PASS 보론 비cone(d1/) sparse → 껍데기 0
+PASS ⓐ2 비cone /d0/absent · /d2/absent · /d1/ → 껍데기 0 (패턴을 손으로 접으면 오탐)
+PASS ⓒ 일반 워크트리 · 최상위 1개 부재 → 껍데기 아님(회귀 0)
+PASS ⓕ-링크 최상위 심볼릭 링크(120000) 가 디스크에 있음 → 껍데기 0
+PASS ⓓⓓ2 git 호출이 실패한 sparse 2곳 → «판정 불가» 1줄
+PASS   └ 판정 불가 줄에 «경로:단계»(br1:ls-files — 인덱스 망가짐)
+PASS ⓓ2 패턴 파일 자리가 폴더 → «경로:단계»(da4:sparse-list · 동결 기대 복원)
+FAIL 껍데기 줄 꼴이 달라짐 ← [HIL] seat=byz-harness-wt-shell 반쯤 지워진 워크트리 껍데기 3곳(전체 3곳): da3 n2 sp2 — 처리는 오빠 값(바뀐 때만 1줄)
+판정 불가 2곳 — git 호출 실패로 껍데기 판정 보류(오빠 판정 0 · 삭제 0): /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.yx0sFhQacn/repo/.worktrees/br1:ls-files /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.yx0sFhQacn/repo/.worktrees/da4:sparse-list 
+sweep 계획 0 · cleaned/none 0 · wait 0 · hil 0 · u=2
+PASS   └ 판정 불가 줄 꼴 그대로(«경로:단계» 포함)
+FAIL ⓕ core.quotePath=false 로도 같은 목록 — 경로 글자와 상관없이 판정 — 없음: «껍데기 8곳(전체 8곳): da2 da3 g1 i1 i2 ig1 n2 sp2» ← [HIL] seat=byz-harness-wt-shell 반쯤 지워진 워크트리 껍데기 3곳(전체 3곳): da3 n2 sp2 — 처리는 오빠 값(바뀐 때만 1줄)
+판정 불가 2곳 — git 호출 실패로 껍데기 판정 보류(오빠 판정 0 · 삭제 0): /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.yx0sFhQacn/repo/.worktrees/br1:ls-files /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.yx0sFhQacn/repo/.worktrees/da4:sparse-list 
+sweep 계획 0 · cleaned/none 0 · wait 0 · hil 0 · u=2
+PASS ⓕ 한글·공백·큰따옴표·줄바꿈 이름이 드는 cone sparse(d0) → 껍데기 0 (따옴표를 경로로 읽지 않는다)
+PASS   └ 바뀐 것 없음 → 같은 목록이면 두 번째 스캔은 경보 0(바뀐 때만)
+PASS   └ 판정 불가 목록도 그대로면 다시 0
+FAIL ⓒ 일반 워크트리 부재가 2개로 늘면 다시 껍데기(n1 추가) — 없음: «껍데기 9곳(전체 9곳): da2 da3 g1 i1 i2 ig1 n1 n2 sp2» ← [HIL] seat=byz-harness-wt-shell 반쯤 지워진 워크트리 껍데기 4곳(전체 4곳): da3 n1 n2 sp2 — 처리는 오빠 값(바뀐 때만 1줄)
+판정 불가 2곳 — git 호출 실패로 껍데기 판정 보류(오빠 판정 0 · 삭제 0): /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.yx0sFhQacn/repo/.worktrees/br1:ls-files /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.yx0sFhQacn/repo/.worktrees/da4:sparse-list 
+sweep 계획 0 · cleaned/none 0 · wait 0 · hil 0 · u=2
+PASS   └ 경보는 읽기만 — 워크트리 손 0
+PASS   └ sparse 임시 파일 남김 0
+PASS   └ 삭제·이름 바꿈 0
+== ⓠⓡⓢ git 호출 실패 3경로(r6 동결 계약 ④) — 판정 불가 1줄 · 껍데기 0 · HIL 0 · 삭제 0
+PASS 전제: ⓠ q1 설정 조회 rc=128
+PASS ⓠ 워크트리 설정이 깨지면 «판정 불가» 1줄(일반 워크트리로 후퇴해 껍데기 1 로 세지 않는다)
+PASS   └ 단계 이름 = config
+PASS   └ 오빠 HIL 0
+PASS   └ 껍데기 0(조용한 0 이 아니라 «판정 불가»)
+PASS   └ 경보는 읽기만 — 워크트리 손 0(ⓠ)
+PASS ⓤ 판정 불가 수가 요약 줄에 «u=1» 로 나온다(결정 4 ②)
+PASS 전제: ⓡ worktree list rc=128
+PASS ⓡ 공용 config 가 깨지면 «판정 불가» 1줄(조용한 «껍데기 0» 으로 끝나지 않는다)
+PASS   └ 단계 이름 = worktree-list
+PASS   └ 오빠 HIL 0
+PASS ⓥ 공용 config 가 깨지면 orphan 검사도 «:orphan-list» 판정 불가 1줄(git7 경유 · 결정 4 ③)
+PASS   └ python 이 git 을 직접 부르지 않는다(옛 메시지 사라짐)
+PASS   └ 직접 git 호출 0(python 정적 검사)
+PASS   └ 직접 git 호출 0(셸 정적 검사 — 전부 git7 경유)
+PASS 전제: ⓢ ls-tree rc=128(트리 객체 없음)
+PASS ⓢ 트리 객체가 없으면 «판정 불가» 1줄(조용한 «껍데기 0» 아님)
+PASS   └ 단계 이름 = ls-tree
+PASS   └ 오빠 HIL 0
+PASS   └ 되돌림 확인(객체 복구 rc=0)
+== ⓣ 결정 4 ① 하위 파일 부재로 접기 — 폴더가 살아 있으면 껍데기 0
+PASS 전제: ⓣ t1 은 d0 살아 있고 d0/a 만 없음
+PASS 전제: git 은 d0/a 를 «삭제된 추적 파일» 로 본다(그래서 접기가 필요)
+PASS ⓣ 하위 파일 1개 부재(t1) → 껍데기 0 · 폴더가 통째로 사라진 t2 → 껍데기 1
+PASS   └ t1 이 목록에 없다(최상위로 접었으므로)
+PASS   └ 경보는 읽기만 — 워크트리 손 0(ⓣ)
+== ⓗ 제어문자 이름(DA⑥ r3 반례 1·2) — 이름을 안 읽으므로 «정확히» 센다(오탐 0 · 누락 0 · 삭제 0)
+PASS 전제: ⓗ c1 에 줄바꿈 이름 폴더 있음 · c2 는 삭제 · c4 는 d0 삭제
+FAIL ⓗ 줄바꿈 이름 폴더 삭제(c2) · d0 삭제(c4) → 껍데기 2 (옛 판은 c2 를 «판정 불가» 로 보류) — 없음: «껍데기 2곳(전체 2곳): c2 c4» ← sweep 계획 0 · cleaned/none 0 · wait 0 · hil 0
+FAIL   └ 껍데기 줄에 이름(c2 — 제어문자 이름이어도 누락 0) — 없음: « c2» ← sweep 계획 0 · cleaned/none 0 · wait 0 · hil 0
+PASS ⓗ 이름이 다 있는 sparse(c1) → 껍데기 0 (오탐 0)
+PASS ⓗ 제어문자 이름을 «안 받는» sparse(c3) → 정상 판정(껍데기 0)
+PASS ⓗ 제어문자 이름 때문에 «판정 불가» 로 보류하지 않는다(r5 — 이름을 안 읽는다)
+PASS   └ 경보는 읽기만 — 워크트리 손 0
+PASS   └ sparse 임시 파일 남김 0
+== ⓦ 결정 5/r8 가짜 git 전수 실패 — 판정 불가 1줄 · u=N · 껍데기 0 · HIL 0
+PASS   └ git7 호출 자리 12개(스캔 도달 8 + --finish/--launchd/plan 4) — 새 자리가 생기면 이 시험이 FAIL
+PASS   └ 단계 이름 init 가 도구에 있다
+PASS   └ 단계 이름 config 가 도구에 있다
+PASS   └ 단계 이름 worktree-list 가 도구에 있다
+PASS   └ 단계 이름 sparse-list 가 도구에 있다
+PASS   └ 단계 이름 ls-files 가 도구에 있다
+PASS   └ 단계 이름 ls-tree 가 도구에 있다
+PASS   └ 단계 이름 orphan-list 가 도구에 있다
+PASS ⓦ 루트 미지정 · 전 명령 실패 → «:init» 판정 불가 1줄(|| pwd 폴백 0)
+PASS   └ 요약 u=1
+PASS   └ 껍데기 0(조용한 0 이 아니라 판정 불가로 남는다)
+PASS   └ 오빠 HIL 0
+PASS   └ 삭제·이름 바꿈 0
+PASS ⓦ 루트 지정 · 전 명령 실패 → «:init» 1줄
+PASS   └ «:worktree-list» 1줄(shell_scan 의 공용 목록 조회)
+PASS   └ «:orphan-list» 1줄(등록 없는 폴더 검사)
+PASS   └ 요약 u=3(자리 3곳이 모두 셈에 들어간다)
+PASS   └ 오빠 HIL 0
+PASS   └ 경보는 읽기만 — 리포 손 0(ⓦ)
+== 결과
+FAIL 6
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

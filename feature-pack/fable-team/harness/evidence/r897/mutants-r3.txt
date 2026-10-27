@@ -1,0 +1,12 @@
+PASS 변이 1-pwd → V0 빨강(시험이 잡는다)
+PASS 변이 2-F → ⓑ 빨강(시험이 잡는다)
+PASS 변이 3-symbolic → ⓒ 빨강(시험이 잡는다)
+PASS 변이 4-recheck → ⓓ 빨강(시험이 잡는다)
+PASS 변이 5-owner → ⓔ 빨강(시험이 잡는다)
+PASS 변이 6-rc128 → ⓤ 빨강(시험이 잡는다)
+PASS 변이 7-overbudget → ⓥ 빨강(시험이 잡는다)
+PASS 변이 8-tmo → ⓥ 빨강(시험이 잡는다)
+PASS 변이 9-mergebase → ⓦ 빨강(시험이 잡는다)
+PASS 변이 10-logrc → ⓦ 빨강(시험이 잡는다)
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

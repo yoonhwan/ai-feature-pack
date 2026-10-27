@@ -72,6 +72,9 @@ SEAT='byz-planner-nano-ns#0'; BR='nano/ns'; NW="$REPO/.worktrees/v65-ns"
 CARD_REL='design/planner/indices/진행/ns.md'; CARD="$REPO/$CARD_REL"
 git -C "$REPO" worktree add -q "$NW" -b "$BR"
 git -C "$NW" config user.email t@t; git -C "$NW" config user.name t
+# r958 r4 계약: ⑤ 비교 기준 = 좌석 .worktree-info base «먼저»(env FT_NANO_FEAT 는 base 없을 때만) — 시나리오의 «기준 브랜치» 는 이 파일에 쓰고 커밋 밖에 둔다.
+echo ".worktree-info.json" >> "$(git -C "$REPO" rev-parse --path-format=absolute --git-common-dir)/info/exclude"
+setbase() { printf '{"branch":"%s","base":"%s","base_sha":"%s","created_at":"2026-10-26 02:00:00"}\n' "$BR" "$1" "${BASE:0:10}" > "$NW/.worktree-info.json"; }
 LEDGER="$T/ledger.md"; RESULT="$T/result.md"; PROJ="$T/home/.claude/projects/$(printf '%s' "$NW" | LC_ALL=C sed 's|[^A-Za-z0-9]|-|g')"
 V="$T/calls.log"; PEND="$FT_SHEET_ROOT/.fable-team/state/sheet-events.pending"
 
@@ -86,7 +89,7 @@ setup() {   # 정상 대역(모두 즉시) — 부를 때마다 하위 스크립
   git -C "$REPO" branch -q -f "$BR" "$BASE" 2>/dev/null; git -C "$REPO" checkout -q main 2>/dev/null || true
   rm -rf "$PEND" "$PROJ" "$T/oc.db" "$T/wtclean"; mkdir -p "$PROJ"
   printf '{"%s":{"role":"nano","agent":"claude","index":"%s"}}\n' "$SEAT" "$CARD_REL" > "$REPO/.fable-team/seats-planner.json"
-  printf '{"branch":"%s","base":"main","base_sha":"%s","created_at":"2026-10-26 02:00:00"}\n' "$BR" "${BASE:0:10}" > "$NW/.worktree-info.json"
+  printf '{"branch":"%s","base":"main","base_sha":"%s","created_at":"2026-10-26 02:00:00"}\n' "$BR" "${BASE:0:10}" > "$NW/.worktree-info.json"   # r958 r4: 기본 기준 = main
   printf '%s|%%1\n' "$SEAT" > "$T/panes"; printf '%s' "$NW" > "$T/cwd"; : > "$T/tlog"; : > "$LEDGER"; : > "$V"
   printf '{"type":"agent-name","agentName":"%s"}\n{"type":"assistant","timestamp":"2026-10-26T00:00:00Z","message":{"model":"m"}}\n' "$SEAT" > "$PROJ/s1.jsonl"
   printf '{"seq": 1, "from": "byz-planner-master-claude#1", "to": "%s", "body": "[발주]"}\n' "$SEAT" > "$T/comm/mailbox.jsonl"
@@ -103,6 +106,7 @@ instant() {   # instant <이름> <rc> — 즉시 끝나는 대역(호출 기록)
 }
 close() {  # 표준 인자 꼴(--result · --recv · role=nano · press 산출 0) — stdout/stderr 를 따로 남긴다(ⓐ)
   local rc
+  setbase "${FEAT:-main}"   # r958 r4: 그 시나리오의 «기준 브랜치» = base(env 우선 아님)
   run FT_NANO_PREFIX=byz-planner-nano- FT_SEATS_JSON="$REPO/.fable-team/seats-planner.json" FT_NANO_LEDGER="$LEDGER" FT_NANO_FEAT="${FEAT:-main}" \
     FT_CHERRY_OVERRIDE_LEDGER="$T/cherry.log" FT_INBOX_ROOT="$T/comm" FT_NANO_IDLE_MIN=3 FT_WT_CLEAN_DIR="$T/wtclean" FT_WT_AUTOCLEAN=0 \
     bash "$T/bin/ft-nano-close.sh" "$SEAT" --result "$RESULT" --recv 1 "$@" >"$T/out" 2>"$T/err"
@@ -110,6 +114,7 @@ close() {  # 표준 인자 꼴(--result · --recv · role=nano · press 산출 0
 }
 closebase() {  # 기준판(r938 시각 줄 없는 사본) — stdout cmp0 대조용
   local rc
+  setbase "${FEAT:-main}"   # r958 r4: 기준판도 같은 base 를 본다
   run FT_NANO_PREFIX=byz-planner-nano- FT_SEATS_JSON="$REPO/.fable-team/seats-planner.json" FT_NANO_LEDGER="$LEDGER" FT_NANO_FEAT="${FEAT:-main}" \
     FT_CHERRY_OVERRIDE_LEDGER="$T/cherry.log" FT_INBOX_ROOT="$T/comm" FT_NANO_IDLE_MIN=3 FT_WT_CLEAN_DIR="$T/wtclean" FT_WT_AUTOCLEAN=0 \
     bash "$T/bin/ft-nano-close-baseline.sh" "$SEAT" --result "$RESULT" --recv 1 "$@" >"$T/base-out" 2>"$T/base-err"

@@ -8,8 +8,9 @@ export FT_ALLOW_TRACKED_BIN=1
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO="$HERE/../.."; BIN="$REPO/harness/bin"; KIT="$REPO/harness/kit/fable-team/bin"
-T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T"' EXIT
-. "$HERE/lib/fake_tmm.sh"; fake_tmm "$T/fake" byz-alpha-master-claude#1   # r975 r4: 살아 있는 좌석 목록 대역
+T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'tmux_isolate_end; rm -rf "$T"' EXIT
+. "$HERE/lib/tmux_isolate.sh"   # r957: 실 tmux 서버 격리 — 가짜 tmux 만 있고 가짜 tmuxc 가 없으면 진짜 tmuxc 가 불린다(실측)
+. "$HERE/lib/fake_tmm.sh"; fake_tmm "$T/fake" byz-alpha-master-claude#1   # r975 r4: 살아 있는 좌석 목록 대역(둘 다 보존)
 . "$HERE/lib/fake_resource_env.sh"
 fail=0
 ok()  { echo "PASS $1"; }
@@ -91,5 +92,7 @@ o="$(PATH="$FAKE:$PATH" FT_ROOT="$T/repo" FT_RES_ROOT="$T/rr" bash "$BIN/ft-reso
 { [ "$rc" = 0 ] && [[ "$o" == *"RECLAIMED 0"* ]]; } && ok "ⓗ --team dry-run rc0 · 후보 0(가짜 tmux 에 활동 시각 없음)" || bad "ⓗ rc=$rc $o"
 
 [ "$(git -C "$REPO" config --get core.bare)" = false ]   # guard 재실행은 git 밖 cwd 로 간다 — 저장소를 명시한다(사전 결함 정정) && ok "core.bare=false" || bad "core.bare != false"
+# ── r957 누수 검사: 실 tmux 서버에 시험 세션(byz-alpha-·byz-v65-·ft-v65-temp-)이 남으면 FAIL ──
+tmux_isolate_leak_check || fail=$((fail+1))
 [ "$fail" = 0 ] && echo "ALL PASS" || echo "FAILED $fail"
 exit $fail

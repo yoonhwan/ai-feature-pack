@@ -23,7 +23,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))  # 형제 모듈 — python -I 에서도 찾는다
 from ft_api_outage_util import (CAUSES, cause_of, epoch as _epoch, eta_of, hhmm, is_error as _is_error,  # noqa: E402
-                                is_normal as _is_normal, locked, model_of, records as _records, reset_of)
+                                is_logged_out, is_normal as _is_normal, locked, model_of, records as _records, reset_of)
 
 SENDER = "ft-api-outage"
 
@@ -55,7 +55,8 @@ def analyze(path: str) -> tuple[Cut | None, list[tuple[int, str]]]:
     conv = [r for r in recs[i + 1:] if r.get("type") in ("user", "assistant")]
     done = any(r.get("type") == "system" and r.get("subtype") == "turn_duration" for r in recs[i + 1:])
     ts = _epoch(recs[i])
-    return Cut(str(recs[i].get("uuid", "")), ts, cause_of(recs[i]), not conv and done, reset_of(recs[i], ts), model_of(recs[i]), eta_of(recs[i], ts)), oks
+    cause = "logged_out" if is_logged_out(recs[i]) else cause_of(recs[i])
+    return Cut(str(recs[i].get("uuid", "")), ts, cause, not conv and done, reset_of(recs[i], ts), model_of(recs[i]), eta_of(recs[i], ts)), oks
 
 
 class Outage:
@@ -122,7 +123,10 @@ class Outage:
 
     def run(self, seats: dict[str, str]) -> None:
         res = {seat: analyze(path) for seat, path in seats.items()}
-        cuts = {s: c for s, (c, _) in res.items() if c is not None}
+        for s, (c, _) in res.items():  # r849 — 로그인 풀린 좌석은 API 장애가 아니다: 시작·끝·[재개] 0(재개하면 0초 실패 턴만 또 생긴다 · 알림은 ft-stall-scan)
+            if c is not None and c.cause == "logged_out":
+                print(f"SKIP 재개 {s} — 로그아웃 좌석(재시작 필요)")
+        cuts = {s: c for s, (c, _) in res.items() if c is not None and c.cause != "logged_out"}
         oks = [t for _, o in res.values() for t in o]
         last = max(cuts.values(), key=lambda c: c.ts) if cuts else None  # r497: «끝» = 가장 최근 오류의 모델이 돌아온 때
         sf = Path(self.a.state)

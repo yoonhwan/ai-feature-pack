@@ -11,6 +11,7 @@ set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 KIT="$HERE/../../harness/kit/fable-team/bin"; BIN="$HERE/../../harness/bin"
 T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T"' EXIT
+. "$HERE/lib/tmux_isolate.sh"   # r957: 실 tmux 서버 격리 — SP() 는 env -i PATH 만 넘기므로 가짜 tmux 가 없어 진짜 tmuxc 가 불린다(실측)
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY FT_REPO_ROOT FT_TEAMS_MD
 . "$HERE/lib/fake_tmm.sh"; fake_tmm "$T/fake" byz-alpha-master-claude#1 byz-v65-master-claude#1   # r975 r4: 살아 있는 좌석 목록 대역
 . "$HERE/lib/fake_resource_env.sh"; fake_resource_env "$T/sensors" ok
@@ -64,7 +65,7 @@ cp "$KIT/ft-nano-spawn.sh" "$KIT/ft-proposal-gate.sh" "$KIT/ft-team-lib.sh" "$KI
   "$KIT/ft-sheet-events.sh" "$KIT/ft_sheet_events.py" "$KIT/ft_sheet_confirm.py" "$KIT/ft_sheet_key.py" "$KIT/ft_board_env.py" "$KIT/ft_board_mail.py" "$T/sbin/"
 . "$HERE/lib/bin_source_deps.sh"; copy_source_deps "$KIT" "$T/sbin" || bad "r686 사본 source 대상 채우기"   # r686: 고른 도구가 source 하는 같은 폴더 lib(r672 swap · research-seat …)
 printf '#!/usr/bin/env bash\nexit 0\n' > "$T/sbin/ft-index-lint.sh"; chmod +x "$T/sbin/"*
-SP() { ( cd "$R" && env -i HOME="$HOME" PATH="$T/fake:$PATH" FT_TEAMSET=0 FT_RES_ROOT="$FT_RES_ROOT" FT_SHEET_ROOT="$T/sheet" FT_NANO_PREFIX=byz-alpha-nano- FT_SEATS_JSON="$R/.fable-team.seats.json" bash "$T/sbin/ft-nano-spawn.sh" "$@" --dry-run 2>&1 ); }
+SP() { ( cd "$R" && env -i HOME="$HOME" PATH="$T/fake:$PATH" TMUX_TMPDIR="$TMUX_TMPDIR" FT_TEAMSET=0 FT_RES_ROOT="$FT_RES_ROOT" FT_SHEET_ROOT="$T/sheet" FT_NANO_PREFIX=byz-alpha-nano- FT_SEATS_JSON="$R/.fable-team.seats.json" bash "$T/sbin/ft-nano-spawn.sh" "$@" --dry-run 2>&1 ); }
 out="$(SP "$OLDC")"; rc=$?
 [ "$rc" = 1 ] && has "$out" "REJECT 카드 위치 옛 경로" "ⓑ nano-spawn --dry-run 옛 꼴 → REJECT rc1" || bad "ⓑ spawn rc=$rc ${out: -400}"
 mv "$NEWC" "$T/y.md"; out="$(SP "design/teams/alpha/indices/대기/x.md")"; rc=$?   # 새 꼴 경로를 줬는데 카드는 옛 꼴에만 = 쌍둥이 해석 뒤 REJECT
@@ -148,5 +149,8 @@ mkpr 23 "design/beta/new.md"; apv --approve-sha "$PRSHA"; out="$(bash "$KIT/ft-m
 echo "== ⓕ 600/300 0 · 외부 호출 0"
 hasnt "$(cd "$KIT" && grep -nE "\b($((6*100))|$((3*100)))\b" ft_team_move_twin.py ft-team-lib.sh ft-team-path-lint.sh || true)" ":" "ⓕ 바뀐 lib·린트·병합 모듈에 600/300 숫자 0"
 hasnt "$(cd "$KIT" && grep -nE 'curl|https?://|requests\.' ft_team_move_twin.py ft-team-lib.sh ft-team-path-lint.sh || true)" ":" "ⓕ 외부 호출 0"
+
+# ── r957 누수 검사: 실 tmux 서버에 시험 세션(byz-alpha-·byz-v65-·ft-v65-temp-)이 남으면 FAIL ──
+tmux_isolate_leak_check || fail=$((fail+1))
 
 echo "== fail=$fail"; [ "$fail" = 0 ]

@@ -1,0 +1,7 @@
+=== 변이 5
+MUT 5 — 제외 패턴 종류 구분 끔
+FAIL ⓑⓑ2ⓑ3ⓒⓖⓘ 진짜 껍데기만 — sp2(d0 부재) · da2(**/*.md · d1 부재) · da3(/d1/ + ! 제외 · d1 부재) · n2(일반 최상위 2개 부재) · g1(파일 keep + 폴더 규칙) · g2(폴더 kdir + 파일 규칙) · i2(파일 keep3 + 폴더 규칙) — 없음: «껍데기 7곳(전체 7곳): da2 da3 g1 g2 i2 n2 sp2» ← [HIL] seat=byz-harness-wt-shell 반쯤 지워진 워크트리 껍데기 6곳(전체 6곳): da2 da3 g1 i2 n2 sp2 — 처리는 오빠 값(바뀐 때만 1줄)
+FAIL 껍데기 줄 꼴이 달라짐 ← [HIL] seat=byz-harness-wt-shell 반쯤 지워진 워크트리 껍데기 6곳(전체 6곳): da2 da3 g1 i2 n2 sp2 — 처리는 오빠 값(바뀐 때만 1줄)
+FAIL ⓕ core.quotePath=false 로도 같은 목록 — 경로 글자와 상관없이 판정 — 없음: «껍데기 7곳(전체 7곳): da2 da3 g1 g2 i2 n2 sp2» ← [HIL] seat=byz-harness-wt-shell 반쯤 지워진 워크트리 껍데기 6곳(전체 6곳): da2 da3 g1 i2 n2 sp2 — 처리는 오빠 값(바뀐 때만 1줄)
+FAIL ⓒ 일반 워크트리 부재가 2개로 늘면 다시 껍데기(n1 추가) — 없음: «껍데기 8곳(전체 8곳): da2 da3 g1 g2 i2 n1 n2 sp2» ← [HIL] seat=byz-harness-wt-shell 반쯤 지워진 워크트리 껍데기 7곳(전체 7곳): da2 da3 g1 i2 n1 n2 sp2 — 처리는 오빠 값(바뀐 때만 1줄)
+FAIL 4

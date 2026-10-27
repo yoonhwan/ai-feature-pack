@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.hermes.ops-intake-poster</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>__PY__</string>
+    <string>__KIT__/ops_intake_poster.py</string>
+  </array>
+  <key>WorkingDirectory</key><string>__HOME__</string>
+  <key>StartInterval</key><integer>60</integer>
+  <key>RunAtLoad</key><false/>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key><string>/opt/homebrew/bin:__HOME__/.local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <key>OPS_INTAKE_ROOT</key><string>__HOME__/.fable-team/ops-intake</string>
+    <key>OPS_SLACK_LIB</key><string>__KIT__/../slack-mirror</string>
+    <key>OPS_HERMES_ENV</key><string>__HOME__/.hermes/.env</string>
+    <key>OPS_INTAKE_SECRET_DIR</key><string>__KIT__</string>
+  </dict>
+  <key>StandardOutPath</key><string>__HOME__/.hermes/logs/ops-intake-poster.log</string>
+  <key>StandardErrorPath</key><string>__HOME__/.hermes/logs/ops-intake-poster.log</string>
+</dict>
+</plist>

@@ -1,0 +1,14 @@
+=== r945 r3 요약 (DA⑥ r2 HOLD 2 · 재설계 + arch 보강 2줄)
+설계: 사람 읽기 출력 재해석 0 — (1) git ls-files -z -t -s (NUL) 만 쓰고 항목마다 종류를 mode 로 받는다(100644/755=파일 · 120000=링크 · 160000=폴더 · 하위경로=폴더)
+      (2) 디스크 확인은 종류에 맞게(-f/-L/-d) · 이름만 같은 다른 종류는 «없음»
+      (3) 제외 규칙은 항목 종류에 맞는 «한 꼴» 로만 묻고(check-ignore -z -v --stdin) 패턴이 / 로 끝나는 «같은 종류 규칙» 일 때만 부재를 정상으로 본다
+      (4) 제외 규칙을 못 읽으면 «판정 불가» 줄(오빠 판정 0 · 삭제 0) · 외부 호출 7초 상한 유지
+      (5) 경보 = 읽기 전용 후보 목록(삭제 판단은 r166 경로) — 보강 2
+
+후 초록: 30 PASS rc=0 — /bin/bash 3.2(22) · bash 5(23)
+전 빨강: 옛 도구 r1 7 FAIL(20) · r2 9 FAIL(21) — 새 시험 ⓕ(따옴표·링크) ⓖ(같은 종류 규칙) 가 r1·r2 를 모두 잡는다
+변이 5종 전부 빨강(24-mut1~5): S필터끔 8F · 판정불가끔 4F · 제외필터끔 6F · -z빼고줄단위 9F · 패턴종류구분끔 4F
+인접: route_timeout 38P · wt_clean_two_stage 62P · budget_replan 50P · kit_bin_sync 7P · plan_self_check 23P · plan_rn_sibling 23P · plan_single_runner_lock 17P 전부 rc=0(26)
+기존 빨강: finished_cleanup_auto rc=1(tmux unreadable · base 와 같은 실패 · 무관)
+kit 짝 cmp0 · /bin/bash -n rc=0 (25)
+실 스캔루트 1회: 껍데기 0 · 판정 불가 0 (27) · 표본 60석 부재 0 (28)

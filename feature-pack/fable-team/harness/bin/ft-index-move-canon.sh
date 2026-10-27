@@ -110,8 +110,12 @@ gq() { local max="$1" why="$2"; shift 2
   return "$GQ_RC"; }
 gq 1 "랜딩 브랜치 ref($REF)" rev-parse --verify -q "${REF}^{commit}" \
   || rej "랜딩 브랜치 ref 없음: $REF ($REPO_LANDED)"
-gq 1 "조상 검사($REF)" merge-base --is-ancestor "$SFULL" "$REF" \
-  || rej "랜딩 안 됨 — $S 가 $REF 의 조상이 아니다 ($REPO_LANDED)"
+gq 1 "조상 검사($REF)" merge-base --is-ancestor "$SFULL" "$REF" || {
+  # r978 고침 2 — 카드가 «설치: 없음» 이고 문서 가지(FT_DOC_LAND_REF · 기본 origin/ops/main-base) 조상이며 바꾼 경로가 전부 design/**.md 면 문서 가지 착지 인정(판정 = ft_doc_card_landed 한 곳)
+  _dc=""; _dc="$(ft_doc_card_landed "$REPO_LANDED" "$SFULL" "$CARD")"; _drc=$?   # r978-mut:imc
+  [ "$_drc" -eq 0 ] || rej "랜딩 안 됨 — $S 가 $REF 의 조상이 아니다 ($REPO_LANDED) · 문서 카드 인정 0(${_dc:-사유 없음})"
+  printf '착지 인정 = %s(문서 카드)\n' "$_dc" >&2   # r1018: stdout 은 «OK<TAB>…»/«REJECT<TAB>…» 한 줄 계약 — 안내 줄은 stderr
+}
 if [ -z "$UPDS" ]; then printf '%s\n' "$LAST"; exit 0; fi
 if [ -n "$T" ]; then
   gq 1 "T($T)" rev-parse --verify -q "${T}^{commit}" || rej "T 없음 — git fetch 후 다시: $T"

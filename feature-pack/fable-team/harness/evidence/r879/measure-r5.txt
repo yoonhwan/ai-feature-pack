@@ -1,0 +1,23 @@
+# r879 r5 디스크 실측 — git sparse-checkout check-rules --no-cone --rules-file (실제 체크아웃 0 · BYZ 설정 손대지 않음)
+# REWORK-r879-r5 = r3b/r4 목표(제외 ≥ 599M) 유지 확인 · 경로 출처 = git ls-tree -r 44f807e3d0 (실재 파일 literal)
+BYZ 44f807e3d0 · design/teams/v65 tracked 14250 파일 824.9M
+r5 규칙 IN 13475 파일 161.2M · OUT 775 파일 663.7M (80.5% 제외)
+r3b·r4 판 663.7M 의 100.0% · 목표 599.0M 통과 = True
+규칙 787줄 = 머리 3(/* · !/design/teams/*/ · /design/teams/v65/) + 제외 782(실재 미디어·result.json·jsonl 파일 1:1) + 되살림 2(fixtures · evidence/M5-1812)
+제외 줄 782 vs 실제 OUT 775 = 7 파일이 되살림 줄(fixtures/** 또는 자기 카드 evidence/**)에 다시 살아난 몫 — 되살림 «뒤 줄이 이김» 규칙이 실측으로 확인됨
+측정 명령: git ls-tree -r -z --name-only 44f807e3d0 -- design/teams/v65 → git sparse-checkout check-rules -z --no-cone --rules-file <rules> → git cat-file --batch-check 로 blob 크기 합
+
+-- r5 규칙 앞 12줄 (sparse_patterns v65 44f807e3d0 M5-1812)
+/*
+!/design/teams/*/
+/design/teams/v65/
+!/design/teams/v65/.omc/state/agent-replay-fa57a46c-8095-45a3-849f-628ee39e0bc1.jsonl
+!/design/teams/v65/20260814/sat-lang/sim/.omc/state/agent-replay-dfca9693-a5eb-448c-89ae-e2506b930c47.jsonl
+!/design/teams/v65/20260814/sat-lang/sim/.omc/state/agent-replay-e8ed0872-67fa-4d7e-92c6-3fb872cd7541.jsonl
+!/design/teams/v65/20260814/sat-lang/sim/u25-seamwindow-results-s2.jsonl
+!/design/teams/v65/20260814/sat-lang/sim/u25-seamwindow-results-s2b.jsonl
+!/design/teams/v65/20260814/sat-lang/sim/u25-seamwindow-results-s3.jsonl
+!/design/teams/v65/20260814/sat-lang/sim/u25-seamwindow-results-v2.jsonl
+!/design/teams/v65/20260814/sat-lang/sim/u25-seamwindow-results-v3.jsonl
+!/design/teams/v65/20260814/sat-lang/sim/u25-seamwindow-results.jsonl
+... (제외 782줄 생략)

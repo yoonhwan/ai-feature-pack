@@ -1,0 +1,41 @@
+2026-10-24 15:28:17
+== 옛 판(origin/main f1cbd005)
+secs=5.16
+{"team": "cfo", "live": 5, "working": 1, "unknown": 2, "unknown_reason": "jsonl 없음 2석"}
+{"team": "chatbot", "live": 4, "working": 1, "unknown": 0, "unknown_reason": ""}
+{"team": "feature", "live": 3, "working": 1, "unknown": 0, "unknown_reason": ""}
+{"team": "graphics", "live": 2, "working": 0, "unknown": 0, "unknown_reason": ""}
+{"team": "harness", "live": 6, "working": 3, "unknown": 0, "unknown_reason": ""}
+{"team": "issues", "live": 1, "working": 0, "unknown": 0, "unknown_reason": ""}
+{"team": "kk", "live": 0, "working": 0, "unknown": 0, "unknown_reason": ""}
+{"team": "knowledge", "live": 4, "working": 1, "unknown": 0, "unknown_reason": ""}
+{"team": "lecture", "live": 2, "working": 0, "unknown": 0, "unknown_reason": ""}
+{"team": "ops", "live": 2, "working": 0, "unknown": 0, "unknown_reason": ""}
+{"team": "planner", "live": 5, "working": 1, "unknown": 1, "unknown_reason": "jsonl 없음 1석"}
+{"team": "room", "live": 4, "working": 0, "unknown": 2, "unknown_reason": "jsonl 없음 2석"}
+{"team": "v65", "live": 7, "working": 4, "unknown": 0, "unknown_reason": ""}
+facts = {"일하는 팀": ["v65", "harness", "cfo", "chatbot", "feature", "knowledge", "planner"], "확인 불가": ["room"], "쉬는 팀": ["graphics", "issues", "kk", "lecture", "ops"], "자율": "모름"}
+== 새 판(r850)
+secs=2.87
+{"team": "cfo", "live": 5, "working": 1, "unknown": 2, "unknown_reason": "jsonl 없음 2석", "state": "진행", "label": "진행 · 일하는 좌석 1/5"}
+{"team": "chatbot", "live": 4, "working": 1, "unknown": 0, "unknown_reason": "", "state": "진행", "label": "진행 · 일하는 좌석 1/4"}
+{"team": "feature", "live": 3, "working": 1, "unknown": 0, "unknown_reason": "", "state": "진행", "label": "진행 · 일하는 좌석 1/3"}
+{"team": "graphics", "live": 2, "working": 0, "unknown": 0, "unknown_reason": "", "state": "진행", "label": "진행 · 0분 전 턴"}
+{"team": "harness", "live": 6, "working": 3, "unknown": 0, "unknown_reason": "", "state": "진행", "label": "진행 · 일하는 좌석 3/6"}
+{"team": "issues", "live": 1, "working": 0, "unknown": 0, "unknown_reason": "", "state": "진행", "label": "진행 · 4분 전 턴"}
+{"team": "kk", "live": 0, "working": 0, "unknown": 0, "unknown_reason": "", "state": "대기", "label": "대기 · 열린 좌석 0"}
+{"team": "knowledge", "live": 4, "working": 1, "unknown": 0, "unknown_reason": "", "state": "진행", "label": "진행 · 일하는 좌석 1/4"}
+{"team": "lecture", "live": 2, "working": 0, "unknown": 0, "unknown_reason": "", "state": "진행", "label": "진행 · 1분 전 턴"}
+{"team": "ops", "live": 2, "working": 0, "unknown": 0, "unknown_reason": "", "state": "진행", "label": "진행 · 0분 전 턴"}
+{"team": "planner", "live": 5, "working": 1, "unknown": 1, "unknown_reason": "jsonl 없음 1석", "state": "진행", "label": "진행 · 일하는 좌석 1/5"}
+{"team": "room", "live": 4, "working": 0, "unknown": 2, "unknown_reason": "jsonl 없음 2석", "state": "진행", "label": "진행 · 0분 전 턴"}
+{"team": "v65", "live": 7, "working": 4, "unknown": 0, "unknown_reason": "", "state": "진행", "label": "진행 · 일하는 좌석 4/7"}
+facts = {"진행": ["v65", "harness", "cfo", "chatbot", "feature", "knowledge", "planner", "graphics", "issues", "lecture", "ops", "room"], "대기": ["kk"], "쉼": [], "확인 불가": [], "자율": "모름"}
+
+# 새 판에서도 «확인 불가(jsonl 없음)» 인 좌석 = 전부 node pane(pi·codex — claude jsonl 이 원래 없음)
+byz-cfo-nano-cfo-orgsub-4-renewer#0 ('?', 'jsonl 없음', None) pane_cmd= node
+byz-cfo-nano-cfo-orgsub-5-seat-join#0 ('?', 'jsonl 없음', None) pane_cmd= node
+byz-planner-da-codex#1 ('?', 'jsonl 없음', None) pane_cmd= node
+byz-room-nano-r-room-credential-cookie-lifecycle#0 ('?', 'jsonl 없음', None) pane_cmd= node
+byz-room-nano-r-room-press-close-on-mic-loss#0 ('?', 'jsonl 없음', None) pane_cmd= node
+seats 45 unknown 5

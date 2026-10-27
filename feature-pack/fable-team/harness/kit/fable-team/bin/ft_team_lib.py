@@ -13,8 +13,11 @@ from __future__ import annotations
 
 import os
 import re
+import signal
 import subprocess
 import sys
+import tempfile
+import time
 from pathlib import Path
 
 _FORM = re.compile(r"^(\$FT_HARNESS_ROOT/|\$\{FT_HARNESS_ROOT\}/)?design/(teams/)?[a-z0-9][a-z0-9_-]*/$")
@@ -22,6 +25,10 @@ _FORM = re.compile(r"^(\$FT_HARNESS_ROOT/|\$\{FT_HARNESS_ROOT\}/)?design/(teams/
 
 class TeamPathError(RuntimeError):
     pass
+
+
+class RefReadError(TeamPathError):
+    """r839: ref 읽기 규칙 위반(못 읽음·빈 응답 2회·예산 소진·판정 불가) = rc4 — «없음/파일 없음»(TeamPathError · rc1)과 가른다."""
 
 
 class SparseHidden(TeamPathError):
@@ -34,6 +41,83 @@ class SparseHidden(TeamPathError):
 
 def _git_out(base: Path, *args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(["git", "-C", str(base), *args], capture_output=True, text=True, timeout=7)
+
+
+REF_BUDGET_S = 70.0   # r839 r4: ref 읽기 전체 예산(초 · 프로세스 첫 조회 기준) — 7초 룰 × 여러 조회를 감싼다(FT_REF_BUDGET_SEC 로 덮기·시험 전용)
+_REF_T0: float | None = None
+
+
+def _ref_remaining() -> float:
+    """남은 예산(초) — 첫 조회 때 시작 시각을 잡고 예산에서 뺀다. 0 이하면 예산 소진(미종료 0)."""
+    global _REF_T0
+    if _REF_T0 is None:
+        _REF_T0 = time.monotonic()
+    try:
+        budget = float(os.environ.get("FT_REF_BUDGET_SEC") or REF_BUDGET_S)
+    except ValueError:
+        budget = REF_BUDGET_S
+    return _REF_T0 + budget - time.monotonic()
+
+
+def _git_once(base: Path | str, args: list[str], lim: float) -> tuple[int, str, str]:
+    """git 1회 — lim 초 상한 · 넘으면 프로세스 그룹 TERM → 0.5초 뒤 KILL(자식까지) · (rc, stdout, stderr) · rc 124 = 상한 초과 · 128 = 실행 실패."""
+    try:
+        p = subprocess.Popen(["git", "-C", str(base), *args], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                             stdin=subprocess.DEVNULL, start_new_session=True)
+    except OSError:
+        return 128, "", ""
+    try:
+        out, err = p.communicate(timeout=lim)
+    except subprocess.TimeoutExpired:
+        for sig in (signal.SIGTERM, signal.SIGKILL):
+            try:
+                os.killpg(p.pid, sig)
+            except (ProcessLookupError, PermissionError):
+                pass
+            if sig == signal.SIGTERM:
+                try:
+                    p.wait(0.5)
+                except subprocess.TimeoutExpired:
+                    pass
+        try:
+            p.communicate(timeout=2)
+        except (subprocess.TimeoutExpired, ValueError):
+            pass
+        return 124, "", ""
+    return p.returncode, (out or b"").decode("utf-8", "replace"), (err or b"").decode("utf-8", "replace")
+
+
+def ref_read(base: Path | str, *args: str) -> str:
+    """r839 r4 — ref 조회 공용 규칙(셸 ft-team-lib.sh ref_read 와 같은 규칙 · 시험이 두 구현을 대조):
+    ① 시도당 7초 상한 ② stdout 빈 값(rc0)이면 딱 1회 재시도 ③ 그래도 빈 값 = «빈 응답 2회» TeamPathError
+    ④ rc≠0 = 재시도 없이 «못 읽음» TeamPathError ⑤ 남은 예산(REF_BUDGET_S=70) 소진 = TeamPathError — 미종료 0."""
+    shown = " ".join(["git", "-C", str(base), *args])
+    for _attempt in (1, 2):
+        left = _ref_remaining()
+        if left <= 0:
+            raise RefReadError(f"ERROR ref 읽기 예산 소진({REF_BUDGET_S:g}s): {shown}")
+        rc, out, _err = _git_once(base, list(args), min(7.0, left))
+        if rc != 0:
+            raise RefReadError(f"ERROR {shown} 못 읽음: rc={rc}")
+        if out.strip():
+            return out
+    raise RefReadError(f"ERROR 빈 응답 2회: {shown}")
+
+
+def _ref_present(base: Path | str, spec: str) -> bool:
+    """ref 에 그 객체가 있나 — 존재 판정은 «출력» 도 «rc 만» 도 안 믿는다(r5 ②):
+    rc0 = 있음 · rc1/128 + stderr 가 «does not exist in» = 그 ref 에 그 파일 없음 · 그 밖(명령 실패·리포 아님·ref 없음·상한) = TeamPathError «판정 불가».
+    (빈 답을 «없음» 으로, 명령 실패를 «파일 없음» 으로 읽는 길을 닫는다 — DA⑥ r4 반례 ②)"""
+    left = _ref_remaining()
+    shown = f"git -C {base} cat-file -e {spec}"
+    if left <= 0:
+        raise RefReadError(f"ERROR ref 읽기 예산 소진({REF_BUDGET_S:g}s): {shown}")
+    rc, _out, err = _git_once(base, ["cat-file", "-e", spec], min(7.0, left))
+    if rc == 0:
+        return True
+    if rc in (1, 128) and re.search(r"(does not exist in|exists on disk, but not in)", err):
+        return False   # «없음» 은 git 이 그렇게 «말할 때» 만(실패·빈 답을 없음으로 읽지 않는다)
+    raise RefReadError(f"ERROR {shown} 판정 불가: rc={rc}" + (f" {err.strip().splitlines()[0][:120]}" if err.strip() else ""))
 
 
 def _check_sparse(base: Path, path: Path) -> None:
@@ -151,16 +235,16 @@ def team_in(root: Path | str, team: str) -> Path:
 
 
 def team_rows_ref(ref: str = "origin/main", repo: Path | str | None = None) -> dict[str, str]:
-    """명단 = `git show <ref>:design/TEAMS.md`(R400 r3 · r479 — 체크아웃 사본이 옛 명단이어도·없어도 무관) · 못 읽음 = TeamPathError(옛 파일 후퇴 0)."""
+    """명단 = `git show <ref>:design/TEAMS.md`(R400 r3 · r479 — 체크아웃 사본이 옛 명단이어도·없어도 무관) · 못 읽음 = TeamPathError(옛 파일 후퇴 0).
+    r839 r5 ①: 이 show 도 공용 ref_read 를 거친다(빈 답 = 1회 재시도 · 빈 답 2번 = rc4 · 예산) — ref_read 밖 git 호출 0."""
     base = Path(repo) if repo else repo_root()
     try:
-        out = subprocess.run(["git", "-C", str(base), "show", f"{ref}:design/TEAMS.md"],
-                             capture_output=True, text=True, timeout=7)
-    except (OSError, subprocess.SubprocessError) as e:
+        body = ref_read(base, "show", f"{ref}:design/TEAMS.md")
+    except RefReadError as e:   # 하드 오류(못 읽음·빈 응답 2회·예산 소진)는 rc4 로 살려 올린다
+        raise RefReadError(f"ERROR 명단 ref 못 읽음({ref}:design/TEAMS.md): {base} — {e}") from e
+    except TeamPathError as e:
         raise TeamPathError(f"ERROR 명단 ref 못 읽음({ref}:design/TEAMS.md): {base} — {e}") from e
-    if out.returncode != 0:
-        raise TeamPathError(f"ERROR 명단 ref 못 읽음({ref}:design/TEAMS.md): {base}")
-    return _rows_text(out.stdout)
+    return _rows_text(body)
 
 
 def _cands_ref(root: Path | str, team: str, ref: str) -> list[Path]:
@@ -181,22 +265,17 @@ def team_cands_ref(root: Path | str, team: str, ref: str = "origin/main") -> lis
 
 def team_doc_ref(root: Path | str, team: str, name: str, ref: str = "origin/main") -> str | None:
     """r517: 정본 문서 «읽기» 본문 = ref 판(셸 ft_team_doc_ref 의 ref 쪽 · 임시 파일 0 · 체크아웃 명단·디스크 0) — ref 명단 후보(_cands_ref · 명단 꼴 먼저)마다
-    `<ref>:<후보>/<name>` 이 ref 트리에 있으면 그 본문 · 모두 없음 = None · 명단 못 읽음·팀 없음·git 실패·리포 밖 후보(꼴3) = TeamPathError(조용한 None 0)."""
+    `<ref>:<후보>/<name>` 이 ref 트리에 있으면 그 본문 · 모두 없음 = None · 명단 못 읽음·팀 없음·git 실패·리포 밖 후보(꼴3) = TeamPathError(조용한 None 0).
+    r839 r4: 있나는 `cat-file -e`(출력을 안 믿는다) · 본문은 공용 ref_read(빈 응답 2회 = TeamPathError)."""
     base = Path(root)
     for c in _cands_ref(base, team, ref):
         try:
             path = f"{c.relative_to(base)}/{name}"
-            ls = _git_out(base, "ls-tree", "--name-only", ref, "--", path)
-            if ls.returncode == 0 and not ls.stdout.strip():
-                continue
-            out = _git_out(base, "show", f"{ref}:{path}") if ls.returncode == 0 else ls
         except ValueError:
             raise TeamPathError(f"ERROR {team} 폴더가 리포 밖({c}) — ref 문서 읽기 대상 아님") from None
-        except (OSError, subprocess.SubprocessError) as e:
-            raise TeamPathError(f"ERROR {ref}:{c}/{name} 못 읽음: {e}") from e
-        if out.returncode != 0:
-            raise TeamPathError(f"ERROR {ref}:{path} 못 읽음: rc={out.returncode} {out.stderr.strip()[:120]}")
-        return out.stdout
+        if not _ref_present(base, f"{ref}:{path}"):
+            continue
+        return ref_read(base, "show", f"{ref}:{path}")
     return None
 
 
@@ -255,3 +334,84 @@ def planner_queue(root: Path | str) -> Path:
     if not g:
         raise TeamPathError(f"ERROR planner 큐 자리를 못 풂 — 명단 꼴 폴더 없음({first}) · 공용 루트(git common dir) 못 읽음: {root}")
     return Path(g[:-5] if g.endswith("/.git") else g) / ".fable-team/state/planner/AUTONOMY-QUEUE.md"
+
+
+def _doc_dir() -> str:
+    return (os.environ.get("TMPDIR") or "/tmp").rstrip("/")
+
+
+def _write_temp(prefix: str, body: str) -> Path:
+    fd, p = tempfile.mkstemp(prefix=prefix, dir=_doc_dir())
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        f.write(body if body.endswith("\n") else body + "\n")
+    return Path(p)
+
+
+def doc_ref_only_temp(root: Path | str, team: str, name: str, ref: str | None = None) -> Path:
+    """r839: 정본 문서 «ref 본문만» 을 임시 파일로(디스크 0 · 셸 ft_team_doc_ref_only 의 짝) — 없음·못 읽음 = TeamPathError 1줄."""
+    r = ref or os.environ.get("FT_TEAMS_REF") or "origin/main"
+    body = team_doc_ref(root, team, name, r)
+    if body is None:
+        raise TeamPathError(f"ERROR {team} {name} 가 {r} 에 없거나 못 읽었다(디스크 0 · 명단 {r}:design/TEAMS.md)")
+    return _write_temp("ft-team-doc.", body)
+
+
+def planner_queue_ref_temp(root: Path | str, ref: str | None = None, repo: str | None = None) -> Path:
+    """r839: 오빠 큐(AUTONOMY-QUEUE.md) «ref 본문» 을 임시 파일로(디스크 0 · 셸 ft_planner_queue_ref 의 짝).
+    실패 문구 = 기준판 바이트 그대로 1줄(`ERROR 오빠 큐 origin/main 판을 못 읽음: <ref>:<rel>` · 명단 실패는 `ERROR planner 명단(…)을 못 읽음: <루트>`) — 호출자가 덧붙이지 않는다(r5 ④)."""
+    r = ref or os.environ.get("FT_TEAMS_REF") or "origin/main"
+    base = Path(repo or os.environ.get("FT_LEDGER_REPO") or root)
+    try:
+        first = _cands_ref(root, "planner", r)[0]
+    except TeamPathError:
+        raise TeamPathError(f"ERROR planner 명단({r}:design/TEAMS.md)을 못 읽음: {root}") from None
+    try:
+        rel = str(first.relative_to(Path(root))) + "/AUTONOMY-QUEUE.md"
+    except ValueError:
+        rel = f"{first}/AUTONOMY-QUEUE.md"
+    spec = f"{r}:{rel}"
+    bad = f"ERROR 오빠 큐 origin/main 판을 못 읽음: {spec}"
+    try:
+        if not _ref_present(base, spec):
+            raise TeamPathError(bad)
+        body = ref_read(base, "show", spec)
+    except RefReadError as e:
+        # 기준판 바이트 유지(④): «빈 파일» 은 기준판처럼 rc1 · 예산·판정 불가·못 읽음은 rc4(⑤)
+        raise (TeamPathError(bad) if "빈 응답 2회" in str(e) else RefReadError(bad)) from None
+    except TeamPathError:
+        raise TeamPathError(bad) from None
+    return _write_temp("ft-queue-ref.", body)
+
+
+def main(argv: list[str]) -> int:
+    """셸 호출용 진입점(r839 r5 — 셸에 재시도·예산·문구 로직을 두지 않는다): stdout = 본문/경로, rc 그대로.
+    ref-read·present 실패 = rc4(판정 불가 1줄) · doc-ref·queue-ref 실패 = rc1(기준판 문구 1줄)."""
+    cmd = argv[0] if argv else ""
+    try:
+        if cmd == "ref-read":
+            sys.stdout.write(ref_read(argv[1], *argv[2:]))
+            return 0
+        if cmd == "present":
+            return 0 if _ref_present(argv[1], argv[2]) else 1
+    except TeamPathError as e:
+        print(str(e), file=sys.stderr)
+        return 4
+    try:
+        if cmd == "doc-ref":
+            print(doc_ref_only_temp(argv[1], argv[2], argv[3], argv[4] if len(argv) > 4 else None))
+            return 0
+        if cmd == "queue-ref":
+            print(planner_queue_ref_temp(argv[1], argv[2] if len(argv) > 2 else None, argv[3] if len(argv) > 3 else None))
+            return 0
+    except RefReadError as e:
+        print(str(e), file=sys.stderr)
+        return 4
+    except TeamPathError as e:
+        print(str(e), file=sys.stderr)
+        return 1
+    print("usage: ft_team_lib.py ref-read <리포> <git 인자…> | present <리포> <ref:경로> | doc-ref <루트> <팀> <파일> [<ref>] | queue-ref <루트> [<ref>] [<리포>]", file=sys.stderr)
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
