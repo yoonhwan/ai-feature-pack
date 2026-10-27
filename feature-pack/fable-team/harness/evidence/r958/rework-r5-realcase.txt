@@ -1,0 +1,1 @@
+INFO cherry 게이트 — nano/c-fix-k12-tool-results-slot-budget 의 «+» 커밋 5개는 git cherry 로는 미랜딩이나 merge-tree 실제 delta 가 design/ 밖 0개(design/ 0개) — 통과 (사유 content_landed_via_merge_tree)

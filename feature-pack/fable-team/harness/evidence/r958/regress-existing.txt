@@ -1,0 +1,22 @@
+== ① test_cherry_gate_identical_head.sh
+PASS ⑧bash -n ft-nano-spawn.sh
+PASS ⑧게이트      329줄 ≤ 340
+---
+ALL PASS
+== ② test_cherry_gate_squash.sh
+PASS 도우미 없이 · 플래그 없음 → 기존 동작 그대로 통과
+PASS 도우미 없이 · 플래그 → REJECT(사유 명시)
+fail=0
+== ③ test_kit_bin_sync.sh
+PASS control: byte diff detected
+PASS control: mode diff detected
+ALL PASS
+== ④ test_nano_close_step_timing_r938.sh
+== ⓘ 배수 = 묶음 수(r958) — 커밋 12(묶음 1) · 묶음당 1초 대역은 «정상 느림» 이라 통과(거짓 거절 0)
+PASS [ⓘ] 커밋 12(묶음 1) · 묶음당 1초 → 상한 안 → 통과(rc0)
+PASS [ⓘ]   └ 대역이 실제로 4초 걸렸다(느림 재현)
+== ⓛ 첫 cherry 즉시 REJECT · fetch 성공 · 둘째 cherry(origin/main) 6초 · 상한 1초 → 그 자리 REJECT · freshness 0(astra r2 반례 N3)
+PASS [ⓛ] rc1
+PASS [ⓛ]   └ 둘째 cherry(origin/main) 호출 1회(fetch 성공 경로)
+PASS [ⓛ]   └ «cherry 게이트(origin/main) 시간 초과 <초>s/<상한>s · 배수 <n> — 다시:» 1줄
+PASS [ⓛ]   └ 빈 «origin/main 기준:» 줄 0
