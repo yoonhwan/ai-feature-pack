@@ -42,7 +42,7 @@ PASS ⓔ 요약 freed_kb 1234
 PASS ⓔ wt-sweep.log 폴더별 KB 줄
 PASS ⓔ wt-sweep.log pass 줄 끝 freed_kb
 PASS ⓔ du 상한 넘김 → freed_kb=?
-PASS ⓔ  └ 느린 du 를 상한에서 끊음(2s)
+PASS ⓔ  └ 느린 du 를 상한에서 끊음(1s)
 PASS ⓔ  └ 로그 kb=?
 PASS ⓔ --launchd 줄에 freed_kb
 PASS ⓔ --launchd 줄에 replanned
