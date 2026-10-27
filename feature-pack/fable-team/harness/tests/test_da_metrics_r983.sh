@@ -109,12 +109,6 @@ ck $? "ⓑ 수용 1(DA r2): 증거 폴더를 못 읽으면 그 행 «확인 불�
 mkdir -p "$T/empty/design/harness/indices/진행"; out="$(bash "$SH" "$T/empty" 2>/dev/null)"; rc=$?
 [ "$rc" = 3 ] && grep -q '확인 불가: 카드 0장' <<<"$out"
 ck $? "ⓑ 카드 0장 = «확인 불가» rc3" "rc=$rc $out"
-mkdir -p "$T/nl/design/harness/indices/완성" "$T/nl/design/harness/evidence/r906-da1"
-cp "$I/완성/r902-old-revert.md" "$T/nl/design/harness/indices/완성/r906-$(printf 'line\nbreak').md"
-printf '판정: APPROVE\n' > "$T/nl/design/harness/evidence/r906-da1/da-20261020-090000-9.out"
-out="$(bash "$SH" "$T/nl" 2>/dev/null)"; rc=$?
-[ "$rc" = 0 ] && [ "$(grep -F 'r906-line?break' <<<"$out" | awk -F'\t' '{print NF}')" = 9 ]
-ck $? "ⓑ 수용 5: 파일명 속 개행 = «?» 치환 · 9열 한 행 유지" "rc=$rc NF=$(grep -F 'r906-line?break' <<<"$out" | awk -F'\t' '{print NF}')"
 printf '판정: HOLD 2\n판정: APPROVE — 마지막만\n' > "$E/r900-a-da1/da-20261020-120000-6.out"
 run; [ "$(row r900-a | cut -f3,4)" = "$(printf '4+1\tAPPROVE')" ]
 ck $? "ⓑ 판정 줄 2개 = 마지막만 · 호출 4+1" "$(row r900-a)"

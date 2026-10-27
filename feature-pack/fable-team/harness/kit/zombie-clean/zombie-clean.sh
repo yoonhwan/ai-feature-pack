@@ -441,8 +441,13 @@ pressure_tier() {
     local swapn compgb jets
     swapn=$(ls /System/Volumes/VM/swapfile* 2>/dev/null | wc -l | tr -d ' ')
     compgb=$(( $(sysctl -n vm.compressor_bytes_used 2>/dev/null || echo 0) / 1073741824 ))
-    jets=$(/usr/bin/log show --last 10m --predicate 'eventMessage CONTAINS "killing_idle_process"' 2>/dev/null \
-           | grep -c killing_idle_process || true)
+    # 시험은 ZC_JETS_CMD 주입으로 실제 log show 호출 0 — 절대경로(/usr/bin/log)라 PATH 스텁이 안 먹는다(2026-10-27 부하 46~69 실사건).
+    if [[ -n "${ZC_JETS_CMD:-}" ]]; then
+        jets=$("$ZC_JETS_CMD" 2>/dev/null | grep -c killing_idle_process || true)
+    else
+        jets=$(/usr/bin/log show --last 10m --predicate 'eventMessage CONTAINS "killing_idle_process"' 2>/dev/null \
+               | grep -c killing_idle_process || true)
+    fi
     jets="${jets:-0}"
     if   [[ "$swapn" -ge "${ZC_P_SWAP_RED:-16}" || "$jets" -ge "${ZC_P_JETS_RED:-60}" || "$compgb" -ge "${ZC_P_COMP_RED:-26}" ]]; then
         ZC_TIER=RED
@@ -518,6 +523,190 @@ reclaim_record() {
         "$(date '+%F %T')" "$1" "$2" "$3" "${ZC_TIER:-?}" "${cwd:-?}" "$rcmd" "${argv:-?}" >> "$ZC_RECLAIM"
 }
 
+# ── 명부 현역 역할 좌석 보호 (r1014, 2026-10-27) ────────────────────────────────
+# 뿌리: 이 도구는 seats*.json 을 한 번도 읽지 않았다(`grep -c seats` = 0). 승계 직후에는 한 계보에 세 세대가
+#   잠깐 같이 살고, 명부가 «지금 현역» 이라고 적은 좌석이 keep-last-2 밖 순번 3 에 놓인다. 자율 루프 좌석은
+#   입력이 오래 없으니 그 좌석이 «idle» 로 지워진다 — 2026-10-27 arch 세 좌석(04:25·08:45)이 그렇게 사라졌다.
+# 여기서 명부에 «물어본다»: 리포 루트의 .fable-team/seats*.json 전부에서 «_» 로 시작하는 역할 키
+#   (_master·_arch·_da·_hil_route·_sets 안 arch/da 값 …)의 값이 세션명과 같으면 현역(`_closed` 있는 항목은 은퇴 = 현역 아님).
+#   범위: 명부 «행»(이름 키의 role)은 보지 않는다 — 이 카드 계약은 «_» 역할 키다(카드 «알려진 한계» 1줄).
+# rc: 0 현역 · 1 아님 · 2 판정 불가(명부 파일 없음 · JSON 깨짐 · 읽기 실패 · 7초 초과) — 부르는 쪽이 그 계보 kill 0(하드 룰 20).
+ZC_ROSTER_READY=""; ZC_ROSTER_BADFILE=""
+roster_root() {   # 명부 리포 루트 1개 — env(ZC_ROSTER_ROOT·FT_RES_ROOT) → cwd 위로 → BYZ 명부 정본 기본값
+    local r
+    [[ -n "${ZC_ROSTER_ROOT:-}" ]] && { echo "$ZC_ROSTER_ROOT"; return 0; }
+    [[ -n "${FT_RES_ROOT:-}" ]] && { echo "$FT_RES_ROOT"; return 0; }
+    r="$PWD"
+    while [[ -n "$r" && "$r" != "/" ]]; do
+        compgen -G "$r/.fable-team/seats*.json" >/dev/null 2>&1 && { echo "$r"; return 0; }
+        r="$(dirname -- "$r")"
+    done
+    # launchd(plist)·훅 경로의 cwd 는 홈·/ 일 수 있다 — 그래도 현역 좌석은 지킨다(명부 정본 1곳)
+    r="$HOME/Project/Agent/BYZ-Work/BYZ-Agents"
+    compgen -G "$r/.fable-team/seats*.json" >/dev/null 2>&1 && { echo "$r"; return 0; }
+    return 1
+}
+roster_scan() {   # 실행당 1회: $WORK/roster.names(현역 이름) · $WORK/roster.broken(판정 불가 파일)
+    [[ -n "$ZC_ROSTER_READY" ]] && return 0
+    ZC_ROSTER_READY=1
+    : > "$WORK/roster.names"; : > "$WORK/roster.broken"; : > "$WORK/roster.broken.skip"; : > "$WORK/roster.noroot"
+    local root; root="$(roster_root)" || {             # R3: 루트 못 찾음 = 판정 불가(하드 룰 20) — launchd 는 env 없이 돈다
+        echo "명부 루트 없음" > "$WORK/roster.noroot"
+        return 0
+    }
+    python3 - "$root" "$WORK/roster.names" "$WORK/roster.broken" <<'PY' 2>/dev/null \
+        || echo "$root/.fable-team/seats.json" >> "$WORK/roster.broken"
+import glob, json, os, signal, sys
+
+def _on_alarm(*_a):
+    raise SystemExit(3)
+
+signal.signal(signal.SIGALRM, _on_alarm)
+signal.alarm(7)                      # 7초 상한(외부 호출 7초 룰) — 넘으면 판정 불가로 떨어진다
+root, nout, bout = sys.argv[1:4]
+sout = bout + ".skip"
+files = sorted(glob.glob(os.path.join(root, ".fable-team", "seats*.json")))
+names, broken, skip = set(), [], set()
+if not files:
+    broken.append(os.path.join(root, ".fable-team", "seats.json"))
+for f in files:
+    try:
+        with open(f, encoding="utf-8") as fh:
+            d = json.load(fh)
+        if not isinstance(d, dict):
+            raise ValueError("not a mapping")
+    except Exception:
+        broken.append(f)
+        continue
+
+    # r4(오빠 결정 17:3x «명부가 엇갈려도 지킨다»): 은퇴 집합은 «명부마다» 따로 모은다 —
+    #   A 명부가 현역이라고 적은 좌석을 B 명부의 은퇴 행이 지우지 못한다(reclaim 과 같은 판정 · 두 경로 한 집합).
+    fnames, fskip, fretired = set(), set(), set()
+
+    def walk(v, closing):
+        # closing = 닫힌 세트(_closed) 안 — 그 안 이름은 현역이 아니라 «jsonl 판정 건너뛸 이름»(r3 R7)
+        if isinstance(v, str):
+            x = v.strip()
+            if x:
+                (fskip if closing else fnames).add(x)
+        elif isinstance(v, dict):
+            cl = closing or ("_closed" in v)
+            for x in v.values():
+                walk(x, cl)
+        elif isinstance(v, list):
+            for x in v:
+                walk(x, closing)
+
+    for k, v in d.items():
+        if isinstance(k, str) and k.startswith("_"):
+            walk(v, False)
+        elif isinstance(k, str) and isinstance(v, dict):
+            # 행(이름 키) — role=stop-ready 또는 _closed = «일하는 좌석» 판정을 건너뛸 이름(r1014 r2).
+            #   정지 레디 좌석은 크론 틱이 jsonl 을 계속 써서 영원히 못 지운다(2026-10-13 세션 122개 꼴).
+            role = v.get("role") if isinstance(v.get("role"), str) else ""
+            if role == "stop-ready" or "_closed" in v:
+                fskip.add(k)
+            if "_closed" in v:
+                fretired.add(k)           # r3 R4: 역할 칸이 «은퇴 행» 을 가리키면 현역 아님
+    # 명부마다: 이 명부의 은퇴 행만 이 명부의 현역에서 뺀다(다른 명부의 은퇴 행은 보호를 지우지 못한다 — r4)
+    names |= (fnames - fretired)
+    skip |= fskip
+with open(nout, "w", encoding="utf-8") as fh:
+    for n in sorted(names):
+        fh.write(n + "\n")
+with open(sout, "w", encoding="utf-8") as fh:
+    for n in sorted(skip):
+        fh.write(n + "\n")
+with open(bout, "w", encoding="utf-8") as fh:
+    for f in broken:
+        fh.write(f + "\n")
+PY
+}
+roster_file_covers() {   # $1=세션명 $2=명부파일 → rc0 = 이 이름이 그 명부에 등록될 수 있다(기본 명부 · seats-<팀>.json)
+    local b="${2##*/}" t
+    case "$b" in
+        seats.json) return 0 ;;
+        seats-*.json)
+            t="${b#seats-}"; t="${t%.json}"
+            [[ -n "$t" ]] || return 0
+            case "$1" in *"$t"*) return 0 ;; esac ;;
+    esac
+    return 1
+}
+roster_active() {   # $1=세션명 → rc0 현역 · rc1 아님 · rc2 판정 불가. 판정 불가 사유는 ZC_ROSTER_BADFILE
+    local name="$1" f
+    ZC_ROSTER_BADFILE=""
+    roster_scan
+    if [[ -s "$WORK/roster.noroot" ]]; then
+        ZC_ROSTER_BADFILE="명부 루트 없음"
+        return 2
+    fi
+    grep -Fxq -- "$name" "$WORK/roster.names" 2>/dev/null && return 0
+    [[ -s "$WORK/roster.broken" ]] || return 1
+    # 깨진 명부는 «이 이름이 등록될 수 있는 명부» 일 때만 판정 불가로 친다 — 남의 팀 명부가 깨졌다고 남의 계보를 멈추지 않는다(계약 ③)
+    while IFS= read -r f; do
+        [[ -n "$f" ]] || continue
+        roster_file_covers "$name" "$f" || continue
+        ZC_ROSTER_BADFILE="${f##*/}" || true
+        echo "판정 불가 $f" >> "$WORK/roster.why"
+        return 2
+    done < "$WORK/roster.broken"
+    return 1
+}
+
+roster_jsonl_skip() {   # $1=세션명 → rc0 = 그 명부 행이 stop-ready 이거나 _closed (jsonl 판정 건너뛰기)
+    roster_scan
+    grep -Fxq -- "$1" "$WORK/roster.broken.skip" 2>/dev/null
+}
+# ── «일하는 좌석» 판정: jsonl 활동 (r1014 r2 · 2026-10-27) ────────────────────────
+# 입력(tmux session_activity)은 «사람이 친 시각» 만 센다. 발주 뒤 출력만 내는 좌석은 6시간 idle 로 보인다 —
+#   13:39 kill 때 #160 의 jsonl 마지막 레코드는 kill 56초 전, #161 은 kill 그 순간이었다(둘 다 일하는 중).
+# jsonl mtime 은 «그 좌석이 대화를 진행 중» 의 직접 증거다(출력 idle 은 10-13 «크론 출력으로 영원히 keep» 재발 — 쓰지 않는다).
+# rc 0 = 활동(분 stdout) · 2 = 판정 불가(폴더·jsonl 못 찾음·읽기 실패·7초 초과 · 하드 룰 20).
+seat_jsonl_idle() {   # $1=세션명
+    local name="$1" cwd slug dir
+    command -v tmux >/dev/null 2>&1 || return 2
+    cwd=$(tmux display -t "=$name:" -p '#{pane_current_path}' 2>/dev/null || true)
+    [[ -n "$cwd" ]] || return 2
+    slug="${cwd//\//-}"; slug="${slug//./-}"          # /Users/x/proj → -Users-x-proj (claude projects 폴더 슬러그)
+    dir="${ZC_CLAUDE_PROJECTS:-$HOME/.claude/projects}/$slug"
+    [[ -d "$dir" ]] || return 2
+    local out rc
+    out=$(python3 - "$dir" "$name" "${ZC_JSONL_SCAN_MAX:-200}" "${ZC_JSONL_HEAD_BYTES:-262144}" <<'PY' 2>/dev/null
+import glob, os, re, signal, sys, time
+
+def _on_alarm(*_a):
+    raise SystemExit(3)
+
+signal.signal(signal.SIGALRM, _on_alarm)
+signal.alarm(7)
+d, name, cap, head = sys.argv[1], sys.argv[2], int(sys.argv[3]), int(sys.argv[4])
+now = time.time()
+pat = re.compile(r'"(?:agentName|customTitle)":"' + re.escape(name) + '"')
+files = []
+for f in glob.glob(os.path.join(d, "*.jsonl")):
+    try:
+        files.append((os.stat(f).st_mtime, f))
+    except OSError:
+        continue
+files.sort(reverse=True)                 # 최신 먼저 — 살아 있는 좌석일수록 앞에서 끝난다
+for mt, f in files[:cap]:
+    try:
+        with open(f, "rb") as fh:
+            blob = fh.read(head).decode("utf-8", "replace")
+    except OSError:
+        continue
+    if pat.search(blob):
+        print(int((now - mt) // 60))
+        raise SystemExit(0)
+raise SystemExit(4)                       # 못 찾음 = 판정 불가(부르는 쪽이 그 좌석 kill 0)
+PY
+    ); rc=$?
+    [[ "$rc" -eq 0 && -n "$out" ]] || return 2      # 0 만 «활동(분)» — 그 밖(못 찾음·시간 초과·읽기 실패)은 판정 불가
+    echo "$out"
+    return 0
+}
+
 # tmuxc 정책 정리: lineage(베이스명 #N 계열)당 최근 KEEP개 보존, 초과 유령만 kill-session.
 # 표준승인(2026-07-11 CLAUDE.md): kill-session은 메모리 relief용 상시 자율 정리 허용,
 #   lineage당 최근 KEEP개 보존(기본·하한 2 — 2026-09-15 복귀, R75 판정 807 로 하한 고정), kill-server는 HIL(여기서 안 함).
@@ -538,7 +727,7 @@ tmux_prune() {
     [[ -z "$sess" ]] && return 0
     local SRVRE='server\.sh|uvicorn|next-server|next dev|caddy|redis-server|postgres|cli-proxy|headroom|hermes|[Oo]llama|node .*(dev|start|watch)'
     local bases; bases=$(printf '%s\n' "$sess" | sed -E 's/#[0-9]+\|/|/' | cut -d'|' -f1 | sort -u)
-    local killed=0 total idx gen activity name idle pp srvhit why rcr
+    local killed=0 total idx gen activity name idle pp srvhit why rcr rostbad=0 rrc jidle jrc
     while IFS= read -r base; do
         [[ -z "$base" ]] && continue
         # 이 lineage 멤버를 세대 번호(#N) 내림차순 정렬(최신 세대가 위) — 같은 번호(번호 없음=0)끼리는 입력 시각 내림차순.
@@ -553,7 +742,7 @@ tmux_prune() {
         #   R75(판정 807): 그래서 RED 에서도 유일 세대·최신 keep 세대는 지킨다. RED 의 회수력은 «keep 밖 세대 + RED idle 임계» 경로로만 남는다.
         #   판정 1344: 멤버 1개 계보만 무조건 건너뛴다. 2개 이상은 멤버 판정으로 들어가 — 순번 2(직전 세대)는 «검증된 재개 기록»이 있을 때만 풀린다(아래).
         [[ "$total" -le 1 ]] && continue
-        idx=0
+        idx=0; rostbad=0
         while IFS='|' read -r gen activity name att; do
             [[ -z "$name" ]] && continue
             idx=$((idx+1))   # 순번은 가드 앞에서 센다 — attached·preserve 도 «최신 순번»을 차지한다 (R75 · 판정 807)
@@ -572,6 +761,14 @@ tmux_prune() {
             #   현행은 idle 임계에만 의존했는데, RED 로 임계가 10분이 되면 «보고 있지만 조용한»
             #   좌석까지 대상이 된다(2026-09-11 설계 구멍). 티어 무관 최우선 보호선.
             [[ "${att:-0}" -gt 0 ]] && continue
+            # ★명부 현역 역할 좌석 = attached 와 같은 급 보호 (r1014). 순번·idle 무관.
+            #   판정 불가(rc2)면 «그 계보» kill 0 + 1줄 — 깨진 명부를 «현역 아님» 으로 읽지 않는다(하드 룰 20).
+            roster_active "$name"; rrc=$?
+            if [[ "$rrc" -eq 0 ]]; then echo "  tmux keep $name (명부 현역 역할)"; continue; fi
+            if [[ "$rrc" -eq 2 ]]; then
+                [[ "$rostbad" -eq 1 ]] || echo "  tmux keep $base 계보 전체 (명부 판정 불가: ${ZC_ROSTER_BADFILE:-?} — kill 0)"
+                rostbad=1; break
+            fi
             # ★최신 keep 세대는 어떤 티어에서도 보존한다(R75 B1). 옛 «RED 에서 6시간 방치면 keep 안도 회수»는 하한 2 를 깼다.
             #   자리를 비운 좌석(밥·회의)과 버려진 좌석을 가르는 선은 keep 밖 세대의 idle 임계가 맡는다.
             #   단 순번 2(직전 세대, 판정 1344)는 «검증된 재개 기록»(ft-seat-retire.sh 가 은퇴 때 씀)이 있으면 보존하지 않고 아래 가드(idle 임계·라이브 서버)로 계속한다.
@@ -587,6 +784,17 @@ tmux_prune() {
             #   출력 포함 idle 은 위 preserve(active V65 task · ABANDON) 판정에만 쓴다 — 10-01 codex DA 오살 방지 그대로.
             idle=$(( (now - activity) / 60 ))
             [[ "$idle" -lt "$idlemin" ]] && continue       # 활성(호스트 포함) 보호
+            # ★«일하는 좌석» 판정(r1014 r2): 입력 idle 이 커도 그 좌석 jsonl 이 최근에 쓰였으면 keep.
+            #   정지 레디(stop-ready)·은퇴(_closed) 좌석은 건너뛴다 — 크론 틱이 jsonl 을 계속 써서 영원히 못 지우는 2026-10-13 꼴.
+            #   jsonl 못 찾음 = 판정 불가 1줄 · 그 좌석 kill 0(하드 룰 20 · 슬러그가 cwd 와 다른 좌석 포함).
+            if ! roster_jsonl_skip "$name"; then
+                jidle=$(seat_jsonl_idle "$name"); jrc=$?
+                if [[ "$jrc" -eq 0 && -n "$jidle" ]]; then
+                    [[ "$jidle" -lt "$idlemin" ]] && { echo "  tmux keep $name (jsonl 활동 ${jidle}분 전)"; continue; }
+                elif [[ "$jrc" -eq 2 ]]; then
+                    echo "  tmux keep $name (판정 불가: jsonl 못 찾음 — $name)"; continue
+                fi
+            fi
             pp=$(tmux list-panes -t "$name" -F '#{pane_pid}' 2>/dev/null | head -1)
             srvhit=""
             [[ -n "$pp" ]] && srvhit=$(pgrep -P "$pp" 2>/dev/null | while read -r k; do ps -o command= -p "$k" 2>/dev/null; done | grep -aoE "$SRVRE" | head -1)

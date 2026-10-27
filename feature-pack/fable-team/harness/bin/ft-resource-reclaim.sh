@@ -90,8 +90,30 @@ build_protect() {
   pv="$(printf '%s\n' "$ROSTERS" | while IFS= read -r r; do [ -f "$r" ] && python3 -c '
 import json,sys
 d=json.load(open(sys.argv[1])); pl=sys.argv[1].endswith("seats-planner.json")
-ok=[(k,v) for k,v in d.items() if k.startswith("_") and isinstance(v,str) and v and " " not in v]
-print(" ".join(v for k,v in ok)+"\t"+" ".join(v for k,v in ok if pl or k in ("_hil_route","_desk")))' "$r" 2>/dev/null; done)"
+# r1014 r3 R5(두 경로 한 집합): 명부 «_» 역할 칸을 재귀해 모은다(_sets 안 arch·da 포함).
+#   닫힌 세트(_closed) 안 이름 = 은퇴 = 현역 아님 · `_closed` 행을 가리키는 역할 칸도 현역 아님 = zombie-clean roster_active 와 같은 집합.
+vals=[]; hard=[]
+def walk(v, closing, key):
+    if isinstance(v,str):
+        s=v.strip()
+        if s and " " not in s:
+            if closing: skip.append(s)
+            else:
+                vals.append(s)
+                if pl or key in ("_hil_route","_desk"): hard.append(s)
+    elif isinstance(v,dict):
+        cl = closing or ("_closed" in v)
+        for x in v.values(): walk(x, cl, key)
+    elif isinstance(v,list):
+        for x in v: walk(x, closing, key)
+skip=[]; retired=set()
+for k,v in d.items():
+    if isinstance(k,str) and k.startswith("_"):
+        walk(v, False, k)
+    elif isinstance(k,str) and isinstance(v,dict) and "_closed" in v:
+        retired.add(k)
+vals=[v for v in vals if v not in retired]; hard=[v for v in hard if v not in retired]
+print(" ".join(vals)+"\t"+" ".join(hard))' "$r" 2>/dev/null; done)"
   PROTECT="$_ANC$(printf '%s\n' "$pv" | cut -f1 | tr '\n' ' ') "
   PROTECT_HARD="$_ANC$(printf '%s\n' "$pv" | cut -f2 | tr '\n' ' ') "   # R332: 쉬는 역할 좌석 후보용 좁은 보호 = 부르는 쪽·조상 + planner 명부 전부 + 모든 `_hil_route`·`_desk`
 }

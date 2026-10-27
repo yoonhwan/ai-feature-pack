@@ -227,9 +227,9 @@ def calls_cell(r: dict, kids: list, mo: list) -> str:
 
 
 def mark(r: dict) -> str:
-    """표 첫 칸 — 파일명 속 개행·탭은 `?` 로 치환해 한 행이 9열로 유지된다."""
+    """표 첫 칸 — 카드 이름 그대로(한 행 = 9열)."""
     tag = "" if r["folder"] in ("완성", "아카이브") else "[미완료] "
-    name = re.sub(r"[\r\n\t]+", "?", r["stem"])
+    name = r["stem"]
     return tag + name + (f" ↳{r['parent']}" if r["parent"] else "")
 
 

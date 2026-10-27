@@ -180,7 +180,7 @@ def load_map(paths):
     """(사전, 판정 불가 사유). 사전 파일이 있으면 재조회 0 — 빈 사전도 «제공됨» 으로 읽는다."""
     f = os.environ.get(MAPFILE_ENV, "")
     text = ""
-    if f and os.path.isfile(f):
+    if f:
         text = open(f, encoding="utf-8").read()
         if TIMEOUT_MARK in text:
             return {}, TIMEOUT_WHY
