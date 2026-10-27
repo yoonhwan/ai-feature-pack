@@ -3,7 +3,7 @@
 #   ⓐ post-checkout 훅 exit 4 (--full) → 사본은 그 sha 그대로 생겼다 = stderr WARN 1줄 + 경로 stdout rc0 + 장부 1줄
 #   ⓑ 훅 SIGSEGV(kill -SEGV) → ⓐ 와 같음
 #   ⓒ 장부 쓰기 불가(장부 파일 권한 0) → WARN 1줄 · rc0 · 사본 그대로 (장부는 «있으면 참고» — die 0)
-#   ⓓ --done/--sweep 은 «장부 3열 같은 글자» ∧ «분리(detached) 워크트리» 둘 다일 때만 지운다 — 옛 줄(필드 수 ≠3) · 워크트리 아닌 대상 = 삭제 0
+#   ⓓ --done/--sweep 은 출구 게이트(r897: 등록 정확히 1줄 ∧ 사본 자리 아래 ∧ 이름꼴 ∧ 분리 워크트리)를 통과할 때만 지운다 — 깨진 줄(칸 5개) · 이름꼴 아닌 사본 = 삭제 0
 #   ⓔ 생성 경로(FT_SCRATCH_DIR)에 제어 문자(탭·줄바꿈) = 입구 거절 rc2 · 사본 0 · 장부 0 (r6 반례 집합 «제어 문자 경로 = 입구 거절»)
 #   ⓕ FT_SCRATCH_DIR 없으면 기본 생성 자리 = $TMPDIR/ft-scratch/<주인>/ (재부팅이 지우는 임시 자리)
 #   ⓗ (r7 반송서 ⓕ) 지우기 3조건 = «그 줄 주인의 사본 자리 아래» ∧ 장부 3열 같은 글자 ∧ 분리 워크트리 — 남의 owner 폴더·자리 밖 등록 사본은 --done/--sweep 모두 삭제 0 · WARN · 장부 유지
@@ -50,7 +50,7 @@ sc() { # 접두 env 는 «따옴표 그대로» 넘긴다 — 단어 분리로 �
   OUT="$(FT_RES_ROOT="$R" FT_SCRATCH_DIR="$SCRDIR" TMPDIR="$TMPD" FT_SCRATCH_OWNER="${OWN:-live-owner}" FT_SCRATCH_MAIN=main \
     PATH="$BIN:$PATH" "$SH" "$SUT" "$@" 2>"$T/err")"; RC=$?; ERR="$(cat "$T/err")"; }
 nreg()  { awk 'END{print NR+0}' "$TSV" 2>/dev/null; }
-regline() { awk -F'\t' -v p="$1" 'NF==3 && $1==p' "$TSV" 2>/dev/null | wc -l | tr -d ' '; }
+regline() { awk -F'\t' -v p="$1" '$1==p' "$TSV" 2>/dev/null | wc -l | tr -d ' '; }   # r897 정본 장부 = 4칸 · 옛 3칸도 같은 줄로 센다
 
 # ── ⓐ 훅 exit 4 (--full: post-checkout 훅이 실제로 도는 경로) ──────────────────────────────
 hook exit4
@@ -75,20 +75,23 @@ OWN=no-ledger sc "$SHA2" --repo "$G" --full; C="$OUT"
   && ok "ⓒ 장부 쓰기 불가 → WARN 1줄 · rc0 · 사본 그대로(장부 0줄)" || bad "ⓒ rc=$RC out=[$C] err=[$ERR] reg=$(regline "$C")"
 chmod 600 "$TSV"; [ -w "$TSV" ] && ok "ⓒ 장부 파일 권한 복구" || bad "ⓒ 권한 복구 실패 $TSV"
 
-# ── ⓓ 지우기 = 장부 3열 같은 글자 ∧ 분리 워크트리 (옛 줄·워크트리 아님 = 삭제 0) ────────────────
-D1="$A"   # ⓐ 의 진짜 detached 워크트리 · 장부 줄을 «옛 4열» 로 바꾼다
-awk -F'\t' -v OFS='\t' -v p="$D1" -v t="$(( $(date +%s) - 90000 ))" 'BEGIN{OFS="\t"} $1==p{print p,"live-owner",t,"extra"; next} {print}' "$TSV" > "$TSV.n" && mv "$TSV.n" "$TSV"
+# ── ⓓ 지우기 = 출구 게이트(등록 1줄 ∧ 사본 자리 아래 ∧ 사본 증명) — 깨진 줄·이름꼴 아닌 사본 = 삭제 0 ──────
+D1="$A"   # ⓐ 의 진짜 detached 워크트리 · 장부 줄을 «칸 5개 깨진 줄» 로 바꾼다
+awk -F'\t' -v OFS='\t' -v p="$D1" -v t="$(( $(date +%s) - 90000 ))" 'BEGIN{OFS="\t"} $1==p{print p,"live-owner",t,"/tmp","extra"; next} {print}' "$TSV" > "$TSV.n" && mv "$TSV.n" "$TSV"
 date +%s > "$ARMED"   # 목록 보고 단계를 건너뛰고 «지우기» 단계로
-sc --done "$D1"; { [ $RC = 2 ] && [ -d "$D1" ] && printf '%s' "$ERR" | grep -q '등록된 사본이 아님'; } \
-  && ok "ⓓ 옛 4열 장부 줄 = --done 거부 rc2 · 사본 그대로" || bad "ⓓ --done rc=$RC err=[$ERR] D1=$([ -d "$D1" ] && echo 있음 || echo 없음)"
-sc --sweep; { [ -d "$D1" ] && printf '%s' "$ERR" | grep -q '옛/깨진 줄'; } \
-  && ok "ⓓ --sweep 은 옛 줄을 해석하지 않는다(경고 1줄 · 삭제 0)" || bad "ⓓ sweep err=[$ERR] D1=$([ -d "$D1" ] && echo 있음 || echo 없음)"
-D2="$SCR/repo-notawt-1-2"; mkdir -p "$D2"; printf 'x\n' > "$D2/f"
-printf '%s\t%s\t%s\n' "$D2" "live-owner" "$(date +%s)" >> "$TSV"   # 3열이지만 «워크트리 아님»
-sc --done "$D2"; { [ $RC = 2 ] && [ -d "$D2" ] && printf '%s' "$ERR" | grep -q '워크트리가 아님'; } \
-  && ok "ⓓ 장부에 있어도 워크트리가 아니면 --done rc2 · 폴더 그대로" || bad "ⓓ 워크트리 아님 rc=$RC err=[$ERR]"
-sc --sweep; [ -d "$D2" ] && ok "ⓓ --sweep 도 워크트리 아닌 줄은 삭제 0" || bad "ⓓ sweep 이 워크트리 아닌 폴더 삭제"
+sc --done "$D1"; { [ $RC = 2 ] && [ -d "$D1" ] && printf '%s' "$ERR" | grep -q '칸 깨짐'; } \
+  && ok "ⓓ 깨진 장부 줄(칸 5개) = --done 거부 rc2 · 사본 그대로" || bad "ⓓ --done rc=$RC err=[$ERR] D1=$([ -d "$D1" ] && echo 있음 || echo 없음)"
+# --sweep 후보가 되려면 주인이 tmux 에 없어야 한다(가짜 tmux = live-owner 한 줄) — 주인 칸만 dead-owner 로 바꾼다
+awk -F'\t' -v OFS='\t' -v p="$D1" 'BEGIN{OFS="\t"} $1==p{$2="dead-owner"; print; next} {print}' "$TSV" > "$TSV.n" && mv "$TSV.n" "$TSV"
+sc --sweep; { [ -d "$D1" ] && printf '%s' "$ERR" | grep -q '칸 깨짐'; } \
+  && ok "ⓓ --sweep 도 깨진 줄은 지우지 않는다(경고 1줄 · 삭제 0)" || bad "ⓓ sweep err=[$ERR] D1=$([ -d "$D1" ] && echo 있음 || echo 없음)"
+D2="$SCR/notrepo-1-2"; git -C "$G" worktree add -q --detach "$D2" "$SHA" >/dev/null 2>&1   # 사본이긴 한데 이름꼴이 다르다
+printf '%s\t%s\t%s\t%s\n' "$D2" "live-owner" "$(date +%s)" "$SCR" >> "$TSV"
+sc --done "$D2"; { [ $RC = 2 ] && [ -d "$D2" ] && printf '%s' "$ERR" | grep -q '이름꼴'; } \
+  && ok "ⓓ 이름꼴 다른 사본 = --done 거부 rc2 · 폴더 그대로" || bad "ⓓ 이름꼴 rc=$RC err=[$ERR]"
+sc --sweep; [ -d "$D2" ] && ok "ⓓ --sweep 도 이름꼴 아닌 줄은 삭제 0" || bad "ⓓ sweep 이 이름꼴 아닌 폴더 삭제"
 awk -F'\t' -v p="$D2" '$1!=p' "$TSV" > "$TSV.n" && mv "$TSV.n" "$TSV"
+git -C "$G" worktree remove --force "$D2" >/dev/null 2>&1
 
 # ── ⓔ 제어 문자 경로 = 입구 거절 (사본 0 · 장부 0) ────────────────────────────────────
 N0="$(nreg)"
@@ -110,13 +113,13 @@ SCRDIR="$SCR"
 OLD=$(( $(date +%s) - 90000 ))
 wtadd() { git -C "$G" worktree add -q --detach "$1" "$2" >/dev/null 2>&1; }   # <경로> <sha> — 진짜 detached 워크트리
 OTHER="$TMPD/ft-scratch/other-owner/repo-11111111-1-2"; mkdir -p "$(dirname "$OTHER")"; wtadd "$OTHER" "$SHA"
-printf '%s\t%s\t%s\n' "$OTHER" "live-owner" "$OLD" >> "$TSV"   # 장부 주인 = 내 이름 · 폴더 = 남의 owner
+printf '%s\t%s\t%s\t%s\n' "$OTHER" "live-owner" "$OLD" "$TMPD/ft-scratch/other-owner" >> "$TSV"   # 장부 주인 = 내 이름 · 폴더 = 남의 owner
 OUTSIDE="$TMPD/repo-22222222-1-2"; wtadd "$OUTSIDE" "$SHA"
-printf '%s\t%s\t%s\n' "$OUTSIDE" "live-owner" "$OLD" >> "$TSV"   # 사본 자리 밖
+printf '%s\t%s\t%s\t%s\n' "$OUTSIDE" "live-owner" "$OLD" "$TMPD" >> "$TSV"   # 사본 자리 밖
 MINE="$TMPD/ft-scratch/dead-owner/repo-33333333-1-2"; mkdir -p "$(dirname "$MINE")"; wtadd "$MINE" "$SHA"
-printf '%s\t%s\t%s\n' "$MINE" "dead-owner" "$OLD" >> "$TSV"        # 정상(경계 안 · 주인 없는 세션) = 지워져야 한다(«항상 거절» 이면 이 칸이 FAIL)
+printf '%s\t%s\t%s\t%s\n' "$MINE" "dead-owner" "$OLD" "$TMPD/ft-scratch/dead-owner" >> "$TSV"        # 정상(경계 안 · 주인 없는 세션) = 지워져야 한다(«항상 거절» 이면 이 칸이 FAIL)
 DEAD="$TMPD/ft-scratch/live-owner/repo-44444444-1-2"; wtadd "$DEAD" "$SHA"
-printf '%s\t%s\t%s\n' "$DEAD" "dead-owner" "$OLD" >> "$TSV"       # 장부 주인(없는 세션) ≠ 폴더 주인 → --sweep 도 건너뜀
+printf '%s\t%s\t%s\t%s\n' "$DEAD" "dead-owner" "$OLD" "$TMPD/ft-scratch/live-owner" >> "$TSV"       # 장부 주인(없는 세션) ≠ 폴더 주인 → --sweep 도 건너뜀
 SCRDIR=   # 사본 자리 = $TMPDIR/ft-scratch/<주인>/ 규칙으로 본다
 sc --done "$OTHER"; { [ $RC = 2 ] && [ -d "$OTHER" ] && [ "$(regline "$OTHER")" = 1 ] && printf '%s' "$ERR" | grep -q '사본 자리 밖'; } \
   && ok "ⓗ 남의 owner 폴더 등록 사본 --done → rc2 · WARN · 삭제 0 · 장부 유지" || bad "ⓗ 남의 owner rc=$RC err=[$ERR] 있음=$([ -d "$OTHER" ] && echo Y || echo N) reg=$(regline "$OTHER")"
@@ -175,19 +178,19 @@ if [ -z "${R845_FAST:-}" ]; then
   { [ "$b" = 0 ] && grep -q '^ALL PASS' "$T/b32.txt"; } && ok "ⓖ /bin/bash(bash 3.2) 로 같은 시험 ALL PASS" || bad "ⓖ bash3.2 rc=$b $(grep '^FAIL' "$T/b32.txt" | head -2 | tr '\n' ' ')"
 
   # ── 변이 3: 계약을 되돌리면 그 칸이 FAIL ─────────────────────────────────────────
-  awk 'index($0, "|| echo \"WARN ft-scratch-repo — 장부 등록 실패") > 0 { print "      || die \"장부 등록 실패\" 4"; next } { print }' "$SUT" > "$T/mut1.sh"
-  grep -v -F 'own_wt "$P" || die' "$SUT" > "$T/mut2.sh"
-  grep -v -F -e 'has_ctl "${FT_SCRATCH_DIR:-}"' -e 'has_ctl "$OWNER"' -e 'has_ctl "$BASE"' -e 'has_ctl "$DEST"' "$SUT" > "$T/mut3.sh"
-  grep -v -F -e 'under_base "$p" "$(owner_base "$o")"' -e 'under_base "$P" "$OB"' "$SUT" > "$T/mut4.sh"   # owner 경계 제거
-  grep -v -F 'verify_complete || {' "$SUT" > "$T/mut5.sh"   # 훅 rc0 일 때 완전성 확인 건너뜀
+  grep -v -F 'WARN ft-scratch-repo — 장부 등록 실패($TSV)' "$SUT" > "$T/mut1.sh"   # 장부 실패 경고 삭제
+  grep -v -F '[[ ${P##*/} =~ $re ]] || { gfail G2 3' "$SUT" > "$T/mut2.sh"
+  grep -v -F -e 'has_ctl_all "${FT_SCRATCH_DIR:-}"' -e 'has_ctl_all "$OWNER"' -e 'has_ctl_all "$BASE"' -e 'has_ctl_all "$DEST"' "$SUT" > "$T/mut3.sh"
+  grep -v -F 'under_base "$P" "$OB" || { gfail G5 3' "$SUT" > "$T/mut4.sh"   # owner 경계(사본 자리) 검사 제거
+  grep -v -F 'verify_complete || die "사본이 온전하지 않음' "$SUT" > "$T/mut5.sh"   # 훅 rc0 일 때 완전성 확인 건너뜀
   awk 'index($0, "if verify_complete \"$p\"; then echo") > 0 { sub(/if verify_complete "\$p"; then echo/, "if true; then echo"); print; next } { print }' "$SUT" > "$T/mut6.sh"   # 재사용 완전성 확인 끔
   for m in 1 2 3 4 5 6; do
     cmp -s "$SUT" "$T/mut$m.sh" && bad "변이$m 이 안 바뀜"
     "$SH" -n "$T/mut$m.sh" 2>/dev/null || bad "변이$m 문법 깨짐(가짜 변이)"
   done
   mut() { env R845_FAST=1 SCR_SUT="$T/mut$1.sh" "$SH" "$HERE/$(basename "$0")" > "$T/m$1.txt" 2>&1; }
-  mut 1; grep -q '^FAIL ⓒ' "$T/m1.txt" && ok "변이1(장부 실패 = die) → ⓒ FAIL" || bad "변이1 이 살아남음 $(grep '^FAIL' "$T/m1.txt" | head -2 | tr '\n' ' ')"
-  mut 2; grep -q '^FAIL ⓓ' "$T/m2.txt" && ok "변이2(장부 줄만 보고 삭제) → ⓓ FAIL" || bad "변이2 가 살아남음 $(grep '^FAIL' "$T/m2.txt" | head -2 | tr '\n' ' ')"
+  mut 1; grep -q '^FAIL ⓒ' "$T/m1.txt" && ok "변이1(장부 실패 경고 삭제) → ⓒ FAIL" || bad "변이1 이 살아남음 $(grep '^FAIL' "$T/m1.txt" | head -2 | tr '\n' ' ')"
+  mut 2; grep -q '^FAIL ⓓ' "$T/m2.txt" && ok "변이2(출구 게이트 이름꼴 검사 끔) → ⓓ FAIL" || bad "변이2 가 살아남음 $(grep '^FAIL' "$T/m2.txt" | head -2 | tr '\n' ' ')"
   mut 3; grep -q '^FAIL ⓔ' "$T/m3.txt" && ok "변이3(입구 거절 삭제) → ⓔ FAIL" || bad "변이3 이 살아남음 $(grep '^FAIL' "$T/m3.txt" | head -2 | tr '\n' ' ')"
   mut 4; grep -q '^FAIL ⓗ' "$T/m4.txt" && ok "변이4(owner 경계 제거) → ⓗ FAIL" || bad "변이4 가 살아남음 $(grep '^FAIL' "$T/m4.txt" | head -2 | tr '\n' ' ')"
   mut 5; grep -q '^FAIL ⓘ' "$T/m5.txt" && ok "변이5(rc0 훅 완전성 건너뜀) → ⓘ FAIL" || bad "변이5 가 살아남음 $(grep '^FAIL' "$T/m5.txt" | head -2 | tr '\n' ' ')"

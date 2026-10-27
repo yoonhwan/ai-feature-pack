@@ -1,0 +1,54 @@
+PASS bash -n ft-live-install-check.sh (파일 실재)
+PASS LIVE-MAP.tsv 실재
+PASS 진입 ft-live-install-check.sh ≤ 60줄
+PASS ⓐ 같음 → OK n=1 rc0
+PASS ⓐ' .bak·라이브 전용 파일은 오탐 0
+PASS ⓑ 다름 → PENDING + DIFF <키트> -> <라이브> rc1
+PASS ⓑ' 폴더별 HINT 줄
+PASS ⓒ 라이브 없음 → MISSING rc1
+PASS ⓒ' 실행 비트 어긋남 → MODE rc1
+PASS ⓓ 지도에 없음 → UNMAPPED rc1
+PASS skip 종류(tmm) → OK + skip=1
+PASS ⓕ 범위 밖 어긋남은 출력 0 · 범위 안 훅 OK
+PASS 훅 어긋남 → DIFF (홈 훅 경로)
+PASS ⓔ 라벨 미적재 → NOTLOADED rc1
+PASS ⓔ 적재 · 프로세스 시작 < 라이브 스크립트 mtime → RESTART rc1
+PASS ⓔ 적재 · 프로세스가 스크립트보다 새로움 → OK
+PASS 인자 없음 → usage rc2
+PASS ref 못 품 → ERROR rc3(#0 RULE)
+PASS 지도 못 읽음 → ERROR rc3
+PASS --all --ref → 훅 MISSING 을 잡는다
+PASS DA⑥ launchd·loom-tunnel·stt-tunnel 문서 파일 → OK skip=3 (UNMAPPED 0)
+PASS DA⑥ zombie-clean/x.sh 내용 다름 → DIFF (스킬 scripts 경로)
+PASS DA⑥ zombie-clean/x.sh 같음 → OK
+PASS ⓖ 검사 rc1 → LANDED·rc0 불변 + INSTALL 줄
+PASS ⓖ PENDING → install-pending/<Q>.txt 1개
+PASS ⓖ 검사 rc3 → LANDED·rc0 불변 + 상태 파일
+PASS ⓖ 검사 타임아웃 → LANDED·rc0 불변 + INSTALL-PENDING 줄 + 상태 파일
+PASS ⓖ OK → INSTALL OK 줄 · 상태 파일 0
+PASS R367 착지 직후 검사에 --ref <착지 sha> 전달(로컬 origin/main 미갱신 경로 ERROR 0)
+PASS 착지 도구에 검사 호출 · ≤ 120줄(test_merge_land 와 같은 상한)
+PASS ⑦ 대기 파일 3개 → 「설치 대기 3 병합 — 짧은 sha」 1줄
+PASS ⑦ 대기 0 → 줄 0
+PASS ⑦ 뉴스 틱이 ft-install-pending 호출
+PASS ⓗ 설치: 없음 → 통과(검사 호출 0)
+PASS ⓗ 하네스 카드에 「- 설치:」 줄 없음 → REJECT
+PASS ⓗ 다른 팀 indices 는 줄 없음 = 통과(범위 밖)
+PASS ⓗ 설치: 있음 + --landed 없음 → REJECT
+PASS ⓗ 있음 + 검사 PENDING → REJECT(항목 줄·HINT 출력)
+PASS ⓗ 있음 + 검사 ERROR → REJECT
+PASS ⓗ 있음 + OK + 실사건 줄 없음 → REJECT
+PASS ⓗ 있음 + OK + 실사건 증거 토큰 0(자리표시) → REJECT
+PASS ⓗ 있음 + OK + 실사건 증거 → 통과
+PASS ⓗ 통과 시 그 범위 sha 의 install-pending 파일 삭제
+PASS ft-index-move.sh 가 설치 게이트를 호출
+PASS ft-index-move-install.sh ≤ 60줄
+PASS ⑥ 하네스 카드 「- 설치:」 줄 없음 → REJECT
+PASS ⑥ 설치: 있음 → 통과
+PASS ⑥ 설치: 없음 + 키트 언급 없음 → 통과
+PASS ⑥ 구현 범위가 harness/kit/ 언급 + 없음 → REJECT
+PASS ⑥ 옛 키트 경로(scripts/harness-install/)만 = 키트 아님 → 통과(r385 뒤 린트 동작 고정)
+PASS ⑥ 다른 폴더 카드는 줄 없음 = 통과(범위 밖)
+PASS core.bare 오염 0
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

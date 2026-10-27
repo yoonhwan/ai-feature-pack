@@ -1,0 +1,24 @@
+PASS ⓐ옛 판 외부 호출 903회 ≥ 3×300(커밋 수 비례)
+PASS ⓐ새 판 외부 호출 6회 ≤ 20(묶음 상수 회)
+PASS ⓑsmall 판정 전문 동일(rc=1)
+PASS ⓑbig 판정 동일(rc=1 · 차단·WARN 목록 같음)
+PASS ⓑbig(경로 300개) 묶음 호출 13회 ≤ 30
+PASS ⓒ상한 초과 = 사유 있는 REJECT(쪼개도 넘음)
+PASS ⓓ진행 파일 재호출 → 같은 결과(rc=1)
+PASS ⓓ끝난 묶음은 다시 묻지 않는다(--no-walk 호출 0)
+PASS ⓔbash -n
+PASS ⓔtest_cherry_gate_identical_head.sh rc=0
+PASS ⓔtest_cherry_gate_squash.sh rc=0
+PASS ⓔ/bin/bash 3.2 에서 기존 시험 rc=0
+PASS ⓕ변이(묶음 대신 커밋마다 호출 = FT_CHERRY_BATCH=1) → 호출 303회로 ⓑ 단언(≤20) FAIL
+PASS ⓕ변이본 생성(쪼개기 끔)
+PASS ⓕ쪼개기 끈 변이 → «묶음 1» 이 아니라 ⓒ 단언 FAIL(rc=0)
+PASS ⓖbase 판은 rename 무변경 이동을 REJECT 한다(rc=1)
+PASS ⓖrename 무변경 이동 = base 와 같이 REJECT(rc=1 · 차단·WARN 목록 같음)
+PASS ⓖ변이본 생성(rename 검출 켬 = 종전 판)
+PASS ⓖrename 검출 켠 변이 → rc=0 통과로 ⓖ 단언 FAIL(«없는 경로 하나» 가 sup 로 새는 자리)
+PASS ⓗcherry 1회 상한 초과 = 단계 이름 «cherry» 있는 REJECT(조용한 통과 0)
+PASS ⓗ변이본 생성(cherry 를 도우미 밖으로)
+PASS ⓗcherry 도우미 밖 변이 → «cherry 초과» REJECT 없음 = ⓗ 단언 FAIL(rc=1)
+---
+ALL PASS

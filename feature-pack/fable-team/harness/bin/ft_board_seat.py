@@ -107,7 +107,8 @@ class SeatCells:
         te, _ = _turn_end(row.get("turn_end"), self.now)
         idle = int((self.now - te).total_seconds() // 60) if te and row.get("state") == "IDLE" and row.get("source") in ("jsonl", "codex") else None
         return {"text": text, "stalled": n, "turn_end": at, "decl": decl, "wait": self.mail.wait(name, decl),
-                "working": row.get("state") == "WORKING", "idle_min": idle, "unknown_why": why}  # idle_min = teams 한 줄의 N(⚠ 임계와 무관한 원값)
+                "working": row.get("state") == "WORKING", "idle_min": idle, "unknown_why": why,  # idle_min = teams 한 줄의 N(⚠ 임계와 무관한 원값)
+                "turn": row.get("state")}  # 턴 상태 원값 — teams 팀 상태(ft_team_state.judge)가 PENDING 을 열린 턴으로 본다(r850 · 뉴스와 같은 입력)
 
     def all(self) -> dict:
         return {n: self.get(n) for n in self.roster() if n in self.alive}

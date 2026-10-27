@@ -23,7 +23,9 @@ import ft_news_html_render as fr  # noqa: E402
 from real_state_guard import guard_begin_module  # noqa: E402,F401  r541: 실 상태 지문 + git 밖 cwd(모듈 autouse)
 
 TEAMS = ["chatbot", "graphics", "harness", "ops", "room", "v65", "kk", "lecture", "loom", "issues", "planner", "feature", "daily-trend"]
-LIVE13 = [{"team": t, "live": 2, "working": 1 if i % 2 == 0 else 0, "unknown": 0} for i, t in enumerate(TEAMS)]
+from _news_live import with_state  # noqa: E402  r850: live 팀 상태(state·label) = ft_team_state.judge 값
+
+LIVE13 = with_state([{"team": t, "live": 2, "working": 1 if i % 2 == 0 else 0, "unknown": 0} for i, t in enumerate(TEAMS)])
 DATA13 = {"goals": [{"n": i, "goal": f"골 글 {i}", "team": f"t{i}", "state": "지금"} for i in range(1, 7)], "live": LIVE13}
 STATUS13 = fr.status_line(fr.bucket({}, LIVE13))
 
@@ -89,7 +91,7 @@ def test_r598_d_overflow_is_error_naming_chars_and_bytes():
 
 def test_r598_e_zero_chars_raises_before_model_call():
     """ⓔ 상태 줄이 길어 모델 몫 글자 수가 0 이하 = 모델 호출 전 ERROR(«글자» 를 말한다)."""
-    live = [{"team": "t" * 580, "live": 1, "working": 1, "unknown": 0}]
+    live = with_state([{"team": "t" * 580, "live": 1, "working": 1, "unknown": 0}])
     assert want_chars(fr.status_line(fr.bucket({}, live))) <= 0
     with pytest.raises(fr.NewsHtmlError) as e:
         fr.build_prompt({"live": live}, "summary")

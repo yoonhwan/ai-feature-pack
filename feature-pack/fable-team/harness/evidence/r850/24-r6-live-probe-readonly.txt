@@ -1,0 +1,26 @@
+2026-10-26 21:05:22
+== r6 판(입구 마감 1개 · tmux 무리째 · 등급 줄 판정 함수) · 읽기 전용 · root=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents
+팀 cfo 기다림 원천 모양 오류 — master='' · seats={}
+팀 feature 기다림 원천 모양 오류 — master='' · seats={}
+팀 graphics 기다림 원천 모양 오류 — master='' · seats={}
+팀 kk 기다림 원천 모양 오류 — master='FB_KK#4' · seats={}
+팀 상태 PARTIAL 4팀 — 확인 불가 팀이 있다(발행은 계속)
+secs=2.01
+{"team": "ccu", "live": 1, "working": 0, "unknown": 0, "state": "진행", "label": "진행 · 17분 전 턴"}
+{"team": "cfo", "live": 11, "working": 0, "unknown": 11, "state": "확인 불가", "label": "확인 불가(명부 현역 세션 없음 11석)"}
+{"team": "chatbot", "live": 1, "working": 0, "unknown": 0, "state": "진행", "label": "진행 · 8분 전 턴"}
+{"team": "feature", "live": 5, "working": 0, "unknown": 5, "state": "확인 불가", "label": "확인 불가(명부 현역 세션 없음 5석)"}
+{"team": "graphics", "live": 19, "working": 0, "unknown": 19, "state": "확인 불가", "label": "확인 불가(명부 현역 세션 없음 19석)"}
+{"team": "harness", "live": 11, "working": 1, "unknown": 9, "state": "진행", "label": "진행 · 일하는 좌석 1/11"}
+{"team": "issues", "live": 1, "working": 0, "unknown": 0, "state": "진행", "label": "진행 · 20분 전 턴"}
+{"team": "kk", "live": 6, "working": 0, "unknown": 6, "state": "확인 불가", "label": "확인 불가(명부 현역 세션 없음 6석)"}
+{"team": "knowledge", "live": 1, "working": 0, "unknown": 0, "state": "진행", "label": "진행 · 5분 전 턴"}
+{"team": "lecture", "live": 1, "working": 0, "unknown": 0, "state": "진행", "label": "진행 · 14분 전 턴"}
+{"team": "ops", "live": 1, "working": 0, "unknown": 0, "state": "진행", "label": "진행 · 13분 전 턴"}
+{"team": "planner", "live": 5, "working": 0, "unknown": 2, "state": "진행", "label": "진행 · 1분 전 턴"}
+{"team": "room", "live": 1, "working": 0, "unknown": 0, "state": "진행", "label": "진행 · 15분 전 턴"}
+{"team": "v65", "live": 1, "working": 0, "unknown": 0, "state": "진행", "label": "진행 · 2분 전 턴"}
+grade=PARTIAL 4팀
+real 2.10
+user 0.97
+sys 0.58

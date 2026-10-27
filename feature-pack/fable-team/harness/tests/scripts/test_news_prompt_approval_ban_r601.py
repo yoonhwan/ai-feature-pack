@@ -17,10 +17,11 @@ os.environ.setdefault("FT_HERMES_SCRIPTS", str(ROOT / "harness" / "kit" / "slack
 
 import ft_news_html_lint as lint  # noqa: E402
 import ft_news_html_render as fr  # noqa: E402
+from _news_live import with_state  # noqa: E402  r850: live 팀 상태(state·label) = ft_team_state.judge 값
 from real_state_guard import guard_begin_module  # noqa: E402,F401  r541: 실 상태 지문 + git 밖 cwd(모듈 autouse)
 
-BASE_HEAD = ('- 입력 facts = 코드가 tmux 좌석·jsonl 로 잰 «사실» — 원장 문장과 어긋나면 facts 가 이긴다. «일하는 팀» 이 1개 이상이면 '
-             '«모든 팀이 멈춤·대기·쉼» 같은 문장 금지 · 일하는/쉬는 팀 수·이름은 facts 그대로.\n'
+BASE_HEAD = ('- 입력 facts = 코드가 tmux 좌석·jsonl·진행 카드로 잰 «사실»(팀 상태 4칸 진행·대기·쉼·확인 불가 · r850) — 원장 문장과 어긋나면 facts 가 이긴다. '
+             '«진행» 이 1개 이상이면 «모든 팀이 멈춤·대기·쉼» 같은 문장 금지 · 진행/대기/쉼 팀 수·이름은 facts 그대로.\n'  # r850: 첫 줄 = facts 4칸 이름
              '- facts.확인 불가 팀은 쉬는 팀이 아니다 — 그 팀이 쉰다·멈췄다·대기 중이라고 상태를 단정하지 말 것(쓰려면 «상태 확인 불가»).\n')
 BASE_AUTO = ('- facts.자율 이 "ON" 이면 병합 승인은 desk 가 실행한다 — «사장님 승인을 기다린다» 금지 · '
              '"모름" 이면 승인·자율 이야기를 쓰지 않는다.')
@@ -30,7 +31,7 @@ BAD = "1번 골 마감 승인 대기다."
 FOOT_ON = ('<p class="foot">근거: 원장 · 카드 · 자율 ON · 정리 x</p>'
            '<section class="prio"><li>%s</li></section>')
 DATA = {"goals": [{"n": i, "goal": f"골 {i}", "state": "지금"} for i in range(1, 7)],
-        "live": [{"team": "harness", "live": 1, "working": 1, "unknown": 0}]}
+        "live": with_state([{"team": "harness", "live": 1, "working": 1, "unknown": 0}])}
 
 
 def rules_head(part: str) -> str:

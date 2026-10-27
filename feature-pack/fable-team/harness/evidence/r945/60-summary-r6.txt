@@ -1,0 +1,20 @@
+# r945 r6 요약 — git 호출을 한 함수로(어떤 rc≠0 도 «판정 불가») + 동결 기대 복원(arch 157 반송서 · 오빠 결정 3)
+
+## 바뀐 것(구현 교체 1커밋)
+- `gitfail()` 신설 = 실패의 «공용» 처리 — shell_scan 의 지역 `und`/`ucnt` 에 «판정 불가 <경로:단계>» 를 더한다. 호출부는 그 워크트리를 건너뛴다(껍데기 0 · HIL 0 · 삭제 0).
+- shell_scan 의 git 호출 4자리 전부 git7 경유 + 실패 분기 통일: ①워크트리 설정 조회(:config) ②공용 `worktree list`(:worktree-list) ③`ls-tree`(:ls-tree) ④`ls-files -d`(:ls-files) + ⑤`sparse-checkout list`(:sparse-list).
+  - 조용한 «껍데기 0» 과 «일반 워크트리로 후퇴» 분기가 사라졌다(r5 는 설정 실패를 일반 규칙으로 흘려 껍데기 1, 공용 목록 실패는 조용한 0).
+  - `config --bool --get` 의 rc 1 = «키 없음 = 일반 워크트리»(정상) · rc ≥ 2 = 판정 불가로 갈랐다.
+- 동결 기대 복원: sparse 표식이 true 면 패턴 파일을 읽을 수 있는지 1회 묻는다 — 패턴 파일이 폴더면 git 은 rc0 + 경고만 내므로 «rc≠0 또는 경고» 를 판정 불가로 본다(da4 = 동결값 1).
+- 판정 불가 줄에 «경로:단계» 를 적는다(어느 호출이 실패했는지 사람이 바로 안다).
+
+## 시험
+- `cd feature-pack/fable-team/harness/tests && WT_TEST_BASH=/bin/bash bash test_wt_shell_scan_sparse_r945.sh` → **54 PASS · ALL PASS**(51/52 · bash5 동일)
+- 옛 판(r5 = cd1381c8)으로 같은 시험 → **11 FAIL**(50) — ⓓⓓ2 기대 복원 3 + ⓠⓡⓢ 8 = DA 반례 ④·⑦ 재현이 그대로 잡힌다
+- 신규 칸 3: ⓠ 워크트리 설정 깨짐(rc128) → 판정 불가 1 · 껍데기 0 · HIL 0 · ⓡ 공용 config 깨짐(worktree list rc128) → 판정 불가 1(조용한 0 아님) · ⓢ 트리 객체 없음(ls-tree rc128) → 판정 불가 1 · 기대 복원 1: ⓓ2 패턴 파일 폴더 → 판정 불가 1
+- 변이 5종 전부 빨강(53-mut1~5): ①판정 불가를 «껍데기 아님»으로 4 ②임계 ≥1→≥2 7 ③sparse 분기 끔 14 ④임계 ≥1→≥0 11 ⑤**gitfail 기록 끔 → ⓓⓓ2ⓠⓡⓢ 11**(반송서가 지정한 변이)
+- 7초 상한은 실패 4자리가 전부 git7 을 지나므로 한 자리에서 걸린다(가짜 git 4초 잠 + FT_WT_GIT_SEC=1 → 판정 불가 1줄 실측은 r5 47-cap-7s.txt 그대로 유효)
+- 인접: two_stage rc0 · r535 budget_replan rc0 · kit_bin_sync rc0 · bash -n 3.2 rc0 · bash5 rc0 · bin↔kit cmp0(59)
+
+## 실 스캔루트 1회(읽기 전용 · 계획 0 · 삭제 0)
+- 553석 → 껍데기 41곳 · **판정 불가 0**(58) — r5 와 같은 41곳이고 전부 «삭제된 추적 .serena»(r1004 범위). 새 패턴 확인은 실 데이터에서 «판정 불가» 를 늘리지 않았다.
