@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # test_goal_receipt_drafted_rebind_r1031.sh — r1031: 초안 모드에서 같은 묶음 id(골표 sha10·run)의 «drafted» 영수증을
 #   다음 틱 본문으로 다시 결속해 «같은 id 다른 본문» 거절(발행 0 · 초안 파일 0)을 없앤다 — ft_goal_receipt.begin 1줄.
-# 칸 = 계약 ①~⑤ (FT_TEST_ONLY 로 그 칸만 · 변이는 그 칸만 — 하드 룰 22).
+#   r2(반송 REVORK-r1031-r2-total-rebind): 판 수가 바뀝어도(8→9) begin 이 total 도 이번 판으로 다시 결속한다.
+# 칸 = 계약 ①~⑥ (FT_TEST_ONLY 로 그 칸만 · 변이는 그 칸만 — 하드 룰 22).
 # 격리: 임시 상태 폴더의 영수증 파일만 쓴다(시험 픽스처) · 실 .fable-team/state·실 redis·실 슬랙 미접촉.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
@@ -26,7 +27,8 @@ OTHER = "옛 둘째 판 본문"                          # 지난 틱이 검증�
 MSG_SAME_ID = "같은 묶음 id(골표 sha10·run)인데 검증한 판 본문과 다르다"
 MSG_COMPLETE = "이미 완료된 묶음이다 — 같은 묶음 id 재발행 거절"
 MSG_ALREADY_OUT = "판번호 2/2 가 범위 밖이거나 이미 나간 판이다"
-GUARD = 'if rec.get("status") == "drafted"'      # 변이 = 이 줄(과 다음 줄) 삭제
+GUARD = 'if rec.get("status") == "drafted"'      # 변이 = 이 줄이 시작하는 블록 전체 삭제
+TOTAL_REBIND = 'rec["total"] = len(parts)'       # r2 변이 = 이 줄만 삭제
 MODS = {}
 FAILS = 0
 
@@ -54,6 +56,24 @@ def chk(name, cond, detail=""):
 
 def parts(b2="다음 틱 본문"):
     return ["1/2 첫 판 본문", f"골표 {SHA}·{RUN} (2/2) {b2}"]
+
+
+def parts9():                                      # 실사건 꼴 = 9판(묶음 표지 "(n/9)")
+    return ["1/9 첫 판 본문"] + [f"골표 {SHA}·{RUN} ({n}/9) 판{n} 본문" for n in range(2, 10)]
+
+
+def hashes_of(ps):
+    return {str(n): r.digest(ps[n - 1]) for n in range(2, len(ps) + 1)}
+
+
+def drafted_block(lines):                          # GUARD 가 시작하는 if 블록의 (start, end) — 들여쓰기 8칸 연속 줄
+    hit = [i for i, ln in enumerate(lines) if GUARD in ln]
+    if len(hit) != 1:
+        return None
+    s, e = hit[0], hit[0] + 1
+    while e < len(lines) and lines[e].strip() and lines[e].startswith("        "):
+        e += 1
+    return s, e
 
 
 def _rec(state):
@@ -125,16 +145,16 @@ def case_d(state):                                 # ④ 다시 결속 뒤 done 
     chk("ⓓ done 번호는 check_part 가 «이미 나간 판» 으로 막음", blocked == MSG_ALREADY_OUT, blocked)
 
 
-def case_e(state):                                 # ⑤ 변이 «drafted 다시 결속 줄 삭제» → ⓐ 가 FAIL
+def case_e(state):                                 # ⑤ 변이 «drafted 다시 결속 블록 삭제» → ⓐ 가 FAIL
     src = Path(os.environ["FT_REC"]).read_text(encoding="utf-8")
     lines = src.splitlines(True)
-    hit = [i for i, ln in enumerate(lines) if GUARD in ln]
-    if len(hit) != 1 or hit[0] + 1 >= len(lines) or 'rec["hashes"] = hashes' not in lines[hit[0] + 1]:
-        chk("ⓔ 변이 적용(다시 결속 줄 찾기)", False, f"줄 {hit}")
+    blk = drafted_block(lines)
+    if not blk or 'rec["hashes"] = hashes' not in "".join(lines[blk[0]:blk[1]]):
+        chk("ⓔ 변이 적용(다시 결속 블록 찾기)", False, f"블록 {blk}")
         return
     mut = Path(state).parent / "mut" / "ft_goal_receipt.py"
     mut.parent.mkdir(parents=True, exist_ok=True)
-    mut.write_text("".join(ln for i, ln in enumerate(lines) if i not in (hit[0], hit[0] + 1)), encoding="utf-8")
+    mut.write_text("".join(ln for i, ln in enumerate(lines) if not blk[0] <= i < blk[1]), encoding="utf-8")
     m = mod(str(mut))
     chk("ⓔ 변이 사본 = 다시 결속 0", GUARD not in mut.read_text(encoding="utf-8"))
     p = parts()
@@ -144,7 +164,48 @@ def case_e(state):                                 # ⑤ 변이 «drafted 다시
     chk("ⓔ 변이 → ⓐ 시나리오가 FAIL(같은 id 다른 본문 거절)", why == MSG_SAME_ID, why or "빈 글 = 변이 미검출")
 
 
-CASES = {"ⓐ": case_a, "ⓑ": case_b, "ⓒ": case_c, "ⓓ": case_d, "변이-no-rebind": case_e}
+def case_f(state):                                 # ⑥ drafted total 8 + 이번 판 9 → begin 통과 · 저장 total 9 · (9/9) 발행 가능
+    p = parts9()
+    put(state, "drafted", {str(n): r.digest(f"옛 {n} 판") for n in range(2, 9)}, [], total=8)
+    why = r.begin(Path(state), p)
+    rec = get(state)
+    chk("ⓕ drafted total 8 + 이번 판 9 → begin 빈 글(통과)", why == "", why)
+    chk("ⓕ 저장 total = 9(이번 판 수)", rec.get("total") == 9, rec.get("total"))
+    chk("ⓕ 저장 hashes = 9판 본문", rec.get("hashes") == hashes_of(p), rec.get("hashes"))
+    out = r.check_part(Path(state), p[8], 9, 9, token(r, p[8]))
+    chk("ⓕ 다시 결속 뒤 (9/9) check_part 빈 글", out == "", out)
+    dump = Path(state) / "f-done"
+    put(dump, "drafted", {str(n): r.digest(f"옛 {n} 판") for n in range(2, 9)}, [2], total=8)
+    why = r.begin(dump, p)
+    blocked = r.check_part(dump, p[1], 2, 9, token(r, p[1]))
+    chk("ⓕ done 에 2 있음 → begin 통과 · (2/9) 는 «이미 나간 판» 그대로",
+        why == "" and blocked == "판번호 2/9 가 범위 밖이거나 이미 나간 판이다", f"{why} / {blocked}")
+    chk("ⓕ done 목록 그대로([2])", get(dump).get("done") == [2], get(dump).get("done"))
+
+
+def case_g(state):                                 # 변이 «total 다시 결속 줄 삭제» → ⓕ 가 FAIL
+    lines = Path(os.environ["FT_REC"]).read_text(encoding="utf-8").splitlines(True)
+    hit = [i for i, ln in enumerate(lines) if TOTAL_REBIND in ln]
+    if len(hit) != 1 or hit[0] == 0 or 'rec["hashes"] = hashes' not in lines[hit[0] - 1]:
+        chk("ⓖ 변이 적용(total 다시 결속 줄 찾기)", False, f"줄 {hit}")
+        return
+    mut = Path(state).parent / "mut-total" / "ft_goal_receipt.py"
+    mut.parent.mkdir(parents=True, exist_ok=True)
+    mut.write_text("".join(ln for i, ln in enumerate(lines) if i != hit[0]), encoding="utf-8")
+    m = mod(str(mut))
+    chk("ⓖ 변이 사본 = total 다시 결속 0", TOTAL_REBIND not in mut.read_text(encoding="utf-8"))
+    p, st = parts9(), Path(state)
+    put(st, "drafted", {str(n): m.digest(f"옛 {n} 판") for n in range(2, 9)}, [], total=8)
+    why = m.begin(st, p)
+    rec = get(st)
+    blocked = m.check_part(st, p[8], 9, 9, m.TOKEN.search(m.first(p[8])))
+    chk("ⓖ 변이 → ⓕ 시나리오가 FAIL(저장 total 8 그대로 · (9/9) 총수 불일치)",
+        not (why == "" and rec.get("total") == 9 and blocked == ""),
+        f"total={rec.get('total')} check_part={blocked!r}")
+
+
+CASES = {"ⓐ": case_a, "ⓑ": case_b, "ⓒ": case_c, "ⓓ": case_d, "변이-no-rebind": case_e,
+         "ⓕ": case_f, "변이-total": case_g}
 case, state = sys.argv[1], sys.argv[2]
 t0 = time.time()
 try:
@@ -173,6 +234,8 @@ ft_only ⓑ && run_case ⓑ
 ft_only ⓒ && run_case ⓒ
 ft_only ⓓ && run_case ⓓ
 ft_only 변이-no-rebind && run_case 변이-no-rebind
+ft_only ⓕ && run_case ⓕ
+ft_only 변이-total && run_case 변이-total
 t_all1="$(python3 -c 'import time;print(time.time())')"
 
 sum_line="$(grep '^#sec ' "$OUT" | awk '{printf "%s=%ss ", $2, $3}' | sed 's/ $//')"
