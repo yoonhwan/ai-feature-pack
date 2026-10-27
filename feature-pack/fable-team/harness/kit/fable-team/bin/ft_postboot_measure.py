@@ -225,16 +225,14 @@ def main(argv):
         print("usage: ft-postboot-measure.sh [--summary]", file=sys.stderr)
         return 2
     row = measure(root, now, base)
-    # 상태 기록이 실패해도 로그 닫는 사건은 반드시 돈다(읽기 전용 폴더에서 로그만 자라는 길을 막는다).
     rc, summ = 0, "-"
     try:
         prev_day = rep.append_row(state, row, now, int(os.environ.get("FT_POSTBOOT_KEEP_DAYS", "14")))
         summ = rep.write_summary(state, sumdir, now, prev_day) if prev_day else "-"
         logst = manage_log(log, now if prev_day else None)
-    except (OSError, RuntimeError) as e:  # 상태 기록·요약 실패 — 로그 닫는 사건은 계속 돈다
+    except (OSError, RuntimeError) as e:  # 상태 기록·요약 실패 — 이 회차만 실패로 적는다
         print("ERROR ft-postboot-measure: 상태 기록 실패 — %s: %s" % (type(e).__name__, e), file=sys.stderr)
-        rc, summ = 1, "실패(%s)" % type(e).__name__
-        logst = manage_log(log, now if rep.last_day(state) else None)
+        rc, summ, logst = 1, "실패(%s)" % type(e).__name__, "-"
     tos = sum(1 for k, v in row.items() if v == TIMEOUT_CELL and k != "deleted_top")
     print("postboot-measure at=%s boot=%sm disk=%sGi swap=%sM load15=%s claude=%s tmux=%s wt=%s deleted=%sM timeouts=%d summary=%s log=%s" % (
         row["at"], row["boot_min"], row["disk_avail_gib"], row["swap_used_mib"], row["load15"], row["claude_n"],

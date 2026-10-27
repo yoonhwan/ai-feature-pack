@@ -60,9 +60,9 @@ LOGGEDOUT_MAX_MS = 5000  # r849 재설계 r3 — «0초 실패 턴» 의 소요 
 
 
 def is_quick_turn(duration_ms: object) -> bool:
-    """r849 r3 — turn_duration 의 durationMs 가 «0초 실패» 범위인가. 숫자가 아니면(칸 없음·'-') False — 모르면 로그아웃 아님 쪽으로
+    """r849 r3 — turn_duration 의 durationMs 가 «0초 실패» 범위인가(정수 ms 규칙). 숫자가 아니면 False — 모르면 로그아웃 아님 쪽으로
     판정한다(일하는 좌석을 안 깨우는 쪽이 이 카드의 목적 · 반대쪽은 0초 실패 턴을 정상으로 읽어 깨우기가 되풀이된다)."""
-    return isinstance(duration_ms, (int, float)) and 0 <= int(duration_ms) <= LOGGEDOUT_MAX_MS
+    return isinstance(duration_ms, int) and 0 <= duration_ms <= LOGGEDOUT_MAX_MS
 
 
 def is_normal(rec: Rec) -> bool:

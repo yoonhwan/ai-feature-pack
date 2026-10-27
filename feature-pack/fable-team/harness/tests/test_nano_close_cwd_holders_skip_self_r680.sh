@@ -31,6 +31,7 @@ cp "$SUT" "$T/bin/ft-nano-close.sh"
 BASE_SUT="${FT_TEST_BASE_SUT:-}"                               # ⓐ 대조용 «고치기 전» 판(없으면 ⓐ 생략 — 증거 01-before-red 가 그 원문)
 [ -z "$BASE_SUT" ] || cp "$BASE_SUT" "$T/bin/ft-nano-close.base.sh"
 cp "$KIT/ft-nano-evidence-check.sh" "$KIT/ft-hil.sh" "$KIT/ft-landed-check.sh" "$T/bin/"
+cp "$KIT/ft_teamset.py" "$KIT/ft-team-lib.sh" "$KIT/ft-merge-lib.sh" "$T/bin/"   # r992: 입구가 ft_teamset.py(r655)·ft-team-lib.sh 를 요구한다 — 빠지면 계획 생성 자체가 ERROR(이 시험은 base 에서도 빨간불이었다)
 cp "$KIT/ft-sheet-events.sh" "$KIT/ft_sheet_events.py" "$KIT/ft_sheet_confirm.py" "$KIT/ft_sheet_key.py" "$KIT/ft_board_env.py" "$KIT/ft_board_mail.py" "$T/bin/"
 export FT_SHEET_ROOT="$T/sheet-root"; mkdir -p "$FT_SHEET_ROOT/.fable-team/state"
 printf '#!/bin/sh\necho "reap $1 stopped=0 left=0 rc=0"\n' > "$T/bin/ft-seat-reap.sh"
