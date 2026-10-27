@@ -78,7 +78,12 @@ if [ -n "$CARD" ]; then
   L="$(sed -nE 's/^[[:space:]]*-[[:space:]]*착지:[[:space:]]*([0-9a-f]{7,40}).*/\1/p' "$CARD" | tail -1)"
   if [ -z "$L" ]; then E1W="착지 줄 없음"
   elif git -C "$R" merge-base --is-ancestor "$L" "$M" 2>/dev/null; then E1=1; E1W="착지 $L ⊂ $M"
-  else E1W="착지 $L 가 $M 조상 아님"; fi
+  else
+    # r978 고침 2 — 코드 0 문서 카드면 문서 가지 착지도 인정(조건 셋은 ft_doc_card_landed 한 곳) · 아니면 지금처럼 origin/main 조상만
+    _dc=""; _dc="$(ft_doc_card_landed "$R" "$L" "$CARD" 2>/dev/null)"; _drc=$?
+    if [ "$_drc" -eq 0 ]; then E1=1; E1W="착지 $L ⊂ ${FT_DOC_LAND_REF:-origin/ops/main-base}(문서 카드 · 설치는 없음 · design/**.md 만)"
+    else E1W="착지 $L 가 $M 조상 아님(${_dc:-문서 카드 아님})"; fi
+  fi
   case "$CARD" in */indices/완성/*) E2=1; E2W="완성/";; *) E2W="$(basename "$(dirname "$CARD")")/";; esac
 fi
 AHEAD="$(git -C "$R" rev-list --count "$M..$SHA" 2>/dev/null)" || err "rev-list 실패: $M..$SHA"
