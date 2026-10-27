@@ -67,7 +67,8 @@ def begin(state_dir: Path, parts: list[str]) -> str:
     if rec.get("status") == "complete":
         return "이미 완료된 묶음이다 — 같은 묶음 id 재발행 거절"
     if rec.get("status") == "drafted":
-        rec["hashes"] = hashes  # 초안 모드로 닫힌 묶음은 기준선을 안 옮겨 본문이 매 틱 달라진다 — 다음 틱 본문으로 다시 결속(발행 0 · done·total 그대로)
+        rec["hashes"] = hashes  # 초안 모드로 닫힌 묶음은 기준선을 안 옮겨 본문이 매 틱 달라진다 — 다음 틱 본문으로 다시 결속(발행 0 · done 그대로)
+        rec["total"] = len(parts)  # 판 수가 바뀌어도(8→9) 이번 판 묶음으로 다시 결속 — check_part «총수 불일치» 막힘 0
     if rec and rec.get("hashes") != hashes:
         return "같은 묶음 id(골표 sha10·run)인데 검증한 판 본문과 다르다"
     if rec:
