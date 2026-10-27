@@ -1,0 +1,25 @@
+R765 ⓐ 빨강 — 같은 시험(ⓐ~ⓚ)을 «고침 전» base(origin/main) 판으로 돌린 원문
+base=008e509575451a7a1ceb0db8559657ec87935bf7 · lib=origin/main 판(145줄) · 시험=tests/test_proposal_ledger_table_row.sh(새 파일)
+---
+FAIL ⓐ rc=1 planner 원장 「2651 오빠 인터뷰」 줄에 test/repo issues/2657 없음(/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.ahKzWa4qpK/planner)
+FAIL ⓑ rc=1 planner 원장 「816 오빠 인터뷰」 줄에 test/repo issues/12 없음(/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.ahKzWa4qpK/planner)
+PASS ⓒ 줄머리 「816 오빠 인터뷰 … issues/12」 → rc 0(그대로)
+PASS ⓓ 표 행에 «(오빠 인터뷰» 없음 → rc 1
+PASS ⓔa 표 행 번호 8160 ≠ 816 → rc 1
+PASS ⓔb 표 행 번호 81 ≠ 816 → rc 1
+PASS ⓕ issues/121 은 issues/12 가 아니다 → rc 1
+PASS ⓖ other/repo issues/12 → rc 1
+FAIL ⓗ ⓑ 표 행 lib rc=1(planner 원장 「816 오빠 인터뷰」 줄에 test/repo issues/12 없음(/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.ahKzWa4qpK/planner)) ≠ gate rc=0(OK #12 승인 ⓑ 판정 816)
+PASS ⓗ ⓒ 줄머리 두 도구 같은 답 rc=0
+PASS ⓗ ⓓ (오빠 인터뷰 없음 두 도구 같은 답 rc=1
+PASS ⓗ ⓔ 표 행 번호 81 두 도구 같은 답 rc=1
+PASS ⓗ ⓕ issues/121 두 도구 같은 답 rc=1
+PASS ⓗ ⓖ other/repo 두 도구 같은 답 rc=1
+PASS ⓗz 대조 전제 — 픽스처 원장으로 게이트가 승인 통과(ⓑ 판정 816)
+MUT-NOT-APPLIED
+FAIL ⓘ 변이 적용 실패(정규식 자리 못 찾음)
+FAIL ⓘ 변이 rc=2 /opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python: can't open file '/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.ahKzWa4qpK/mut.py': [Errno 2] No such file or directory
+PASS ⓙ test_proposal_approve_inbox.sh ALL PASS rc 0
+FAIL ⓚ rc=1 호출=0 planner 원장 「816 오빠 인터뷰」 줄에 test/repo issues/12 없음(/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.ahKzWa4qpK/planner)
+FAILED 6
+rc=1

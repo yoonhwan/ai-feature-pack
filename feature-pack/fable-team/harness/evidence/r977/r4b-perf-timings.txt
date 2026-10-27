@@ -1,0 +1,9 @@
+입력                        base       r4b  (min of 3 · 1MB)
+jwt-dash                119.6ms    121.8ms  OK
+url-ab                  109.0ms    119.5ms  OK
+named-eq                139.4ms    153.3ms  OK
+named-underscore-eq     123.1ms    130.1ms  OK
+named-spaced            107.5ms    118.4ms  OK
+named-ctx-repeat        156.3ms    172.9ms  OK
+named-a-colon           127.5ms    143.3ms  OK
+named-x-eq-y            112.9ms    125.2ms  OK

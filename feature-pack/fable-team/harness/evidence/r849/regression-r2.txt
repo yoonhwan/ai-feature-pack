@@ -1,0 +1,9 @@
+# r849 r2 회귀 — 바뀐 도구(ft_stall_scan·ft_stall_detect·ft-idle-wake) 쓰는 기존 시험 (2026-10-24 18:10)
+## pytest test_ft_penalty test_ft_stall_scan_wake_r638 test_ft_stall_scan test_ft_stall_scan_off_roster test_decision_count_truth
+FAILED test_ft_stall_scan.py::test_a_zero_when_team_cap_full_or_policy_stop
+FAILED test_ft_stall_scan.py::test_a_zero_when_group_cap_full_and_no_penalty_next_tick
+2 failed, 69 passed in 54.84s
+  ← 2 failed = r1 regression.txt 의 기존 결함(기준판도 같은 2 failed · 팀 상한 a 판정 · 카드 밖)
+test_ft_idle_wake.sh rc=0
+test_idle_slot_fill_r667.sh rc=0
+test_install_launchd_render.sh rc=0

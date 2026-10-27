@@ -1,0 +1,20 @@
+# bash tests/test_seat_logged_out_r849.sh — HEAD 9ed3fcc042e7ac6987960b396630b5548c2658fb · 2026-10-24 14:37:53
+PASS ⓐ~ⓔ 10 passed
+PASS ⓕ LOGGEDOUT 분기 삭제 → test_a_logged_out FAIL
+PASS ⓕ 쪽지 중복 키 삭제 → test_c_tick_notifies_team_master_once FAIL
+PASS ⓕ ring 제외(로그아웃) 삭제 → test_d_idle_wake_skips_logged_out_and_rested FAIL
+PASS ⓕ ring 제외(닫기 대기) 삭제 → test_d_idle_wake_skips_logged_out_and_rested FAIL
+PASS ⓕ ③ 면제 삭제 → test_e_nano_close_gate FAIL
+PASS ⓕ [재개] 제외 삭제 → test_api_outage_never_resumes_logged_out FAIL
+PASS 짝 사본 ft_api_outage_util.py
+PASS 짝 사본 ft_api_outage.py
+PASS 짝 사본 ft_seat_turn.py
+PASS 짝 사본 ft-seat-status.sh
+PASS 짝 사본 ft_stall_scan.py
+PASS 짝 사본 ft-idle-wake.sh
+PASS 짝 사본 ft-jsonl-last-ts.py
+PASS 짝 사본 ft-nano-close.sh
+FAIL=0
+REAL-STATE-GUARD WARN 번호표 늘었으나 실 좌석 계획(동시 실행): /private/tmp/h247 ← /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/state/approve-merge-ops-2990-3005-20261024.sh.hil
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+rc=0

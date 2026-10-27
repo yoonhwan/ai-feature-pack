@@ -1,0 +1,55 @@
+# 후 = 나노 작업 트리 r2(팩 origin/main aad778cf 위 cherry-pick + r626 전팀 정지 검사) · 2026-10-27 · 시험 ⓐ~ⓘ
+PASS bash -n ft-reboot-restore.sh
+PASS harness/bin 사본 cmp 0
+PASS ⓐ rc 0
+PASS ⓐ 세션 2개 생김
+PASS ⓐ 래퍼 인자(a)
+PASS ⓐ 래퍼 인자(b)
+PASS ⓐ 세션 환경 FT_SEAT
+PASS ⓐ 시작 셸 zsh -l
+PASS ⓐ cwd = 행의 cwd
+PASS ⓐ shell 행은 좌석 아님(열기 0)
+PASS ⓑ 표 줄(a OK)
+PASS ⓑ 표 줄 = 이름·결과·pid·8317 O·uuid
+PASS ⓑ 8317 X 하나 → rc 3
+PASS ⓑ b 줄 8317 X
+PASS ⓒ rc 0
+PASS ⓒ a SKIP 살아 있음
+PASS ⓒ 래퍼 호출 0(send-keys 0)
+PASS ⓓ FAIL 있음 → rc 3
+PASS ⓓ a FAIL 대화 파일 없음
+PASS ⓓ a 세션 열기 0
+PASS ⓓ b 는 계속 열림
+PASS ⓔ 끝난 나노 SKIP
+PASS ⓔ 끝난 나노 열기 0
+PASS ⓔ 나노 아닌 좌석은 열림
+PASS ⓔ rc 0
+PASS ⓕ seat-live rc 0
+PASS ⓕ 로그 출처=seat-live
+PASS ⓕ 원장 출처=seat-live
+PASS ⓕ effort 기본 high
+PASS ⓕ 깨진 스냅샷 → seat-live
+PASS ⓕ 둘 다 없음 rc 2
+PASS ⓕ ERROR 줄
+PASS ⓖ 6석 rc 0
+PASS ⓖ 동시 래퍼 수 2..4 (=4)
+PASS ⓖ 원장 좌석별 OK 6줄
+PASS ⓖ 기동 확인 없음 rc 3
+PASS ⓖ FAIL 기동 확인 없음
+PASS ⓖ 원장 FAIL 줄
+PASS ⓗ dry-run rc 0
+PASS ⓗ 계획 표
+PASS ⓗ dry-run 세션 0
+PASS ⓗ dry-run 래퍼 호출 0
+PASS ⓗ tmuxc restore 맨 위 실행 안내
+PASS ⓗ tmuxc restore 맨 위 많으면 안내
+PASS ⓗ tmuxc restore 동작 변경 0(계획만)
+PASS ⓘ 정지 켜짐 rc 1
+PASS ⓘ 그 REJECT 줄 그대로
+PASS ⓘ 정지면 좌석 표도 안 냄
+PASS ⓘ 정지 새 세션 0
+PASS ⓘ 정지 래퍼 호출 0
+PASS ⓘ 정지 끄면 --dry-run 다시 rc 0
+== r641 fail=0
+ALL PASS
+rc=0

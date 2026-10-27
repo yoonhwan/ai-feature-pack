@@ -1,0 +1,100 @@
+=== 변이: ⓐ 시각 줄 끔(step 무출력) → rc=1 fail=6 (기대 칸: [ⓐ])
+   FAIL [ⓐ]   └ STEP ⑥증거검사 줄 없음 ← 
+   FAIL [ⓐ]   └ STEP ⑤cherry 줄 없음 ← 
+   FAIL [ⓐ]   └ STEP sheet 줄 없음 ← 
+   FAIL [ⓐ]   └ STEP ledger 줄 없음 ← 
+   FAIL [ⓐ]   └ STEP slots 줄 없음 ← 
+   FAIL STEP 줄 0개 ← 
+   OK 기대 칸 전부 빨강: [ⓐ]
+=== 변이: ⓐ 시각 줄을 stdout 으로(자리 바뀜) → rc=1 fail=8 (기대 칸: [ⓐ])
+   FAIL [ⓐ]   └ STEP ⑥증거검사 줄 없음 ← 
+   FAIL [ⓐ]   └ STEP ⑤cherry 줄 없음 ← 
+   FAIL [ⓐ]   └ STEP sheet 줄 없음 ← 
+   FAIL [ⓐ]   └ STEP ledger 줄 없음 ← 
+   FAIL [ⓐ]   └ STEP slots 줄 없음 ← 
+   FAIL [ⓐ]   └ stdout 에 STEP 0줄 — 있으면 안 됨: «STEP»
+   FAIL stdout 이 기준판과 다름: 2a3
+   FAIL STEP 줄 0개 ← 
+   OK 기대 칸 전부 빨강: [ⓐ]
+=== 변이: ⓑ fetch 상한 끔(옛 판 무상한 git fetch) → rc=1 fail=8 (기대 칸: [ⓑ])
+   FAIL [ⓑ] REJECT + «origin/main fetch 실패» — 없음: «origin/main fetch 실패» ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/t
+   FAIL [ⓑ]   └ 옛 ref 대조 0 문구 — 없음: «옛 ref 대조 0» ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: <TMP>/bin
+   FAIL [ⓑ]   └ 두 번째 게이트 호출 0(옛 ref 대조 0) — 있으면 안 됨: «origin/main 기준:»
+   FAIL 게이트 호출 2회
+   FAIL 총 소요 32s > 20초
+   FAIL [ⓑ]   └ 카드 ref fetch 도 7초+재시도 1 — 없음: «WARN 카드 ref fetch 실패/시간 초과(origin/main» ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlv
+   FAIL 카드 ref fetch 32s > 20초
+   FAIL fetch -q 잔존 1줄
+   OK 기대 칸 전부 빨강: [ⓑ]
+=== 변이: ⓒ 하위 상한 끔(nf_bound = 그대로 실행) → rc=1 fail=40 (기대 칸: [ⓒ] [ⓕ] [ⓖ] [ⓗ])
+   FAIL ⓒ⑥ rc=0 ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: <TMP>/bin
+   FAIL [ⓒ]   └ 배수·다시 하는 길 1줄 — 없음: «· 배수 1 — 다시: 같은 명령» ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: <TMP>/bi
+   FAIL [ⓒ]   └ 계속이면 arch 보고 안내 — 없음: «arch 에 증거 검사» ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: <TMP>/bin
+   FAIL 총 소요 92s
+   FAIL [ⓒ]   └ CLOSED 0 — 있으면 안 됨: «CLOSED»
+   FAIL [ⓒ⑥]   └ kill·태그 해제 0 — tmux 변경
+   FAIL [ⓒ⑥]   └ 명부 삭제됨
+   FAIL [ⓒ⑥]   └ 원장 행 생김
+   FAIL ⓒ⑤ rc=0 ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: <TMP>/bin
+   FAIL 총 소요 92s
+   FAIL [ⓒ]   └ CLOSED 0 — 있으면 안 됨: «CLOSED»
+   FAIL [ⓒ⑤]   └ kill·태그 해제 0 — tmux 변경
+   FAIL [ⓒ⑤]   └ 명부 삭제됨
+   FAIL [ⓒ⑤]   └ 원장 행 생김
+   FAIL [ⓒ] freshness 상한 → REJECT — 없음: «⑤-생애 freshness 시간 초과» ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: <TMP>
+   FAIL 총 소요 91s
+   FAIL ⓕ rc=0 ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: <TMP>/bin
+   FAIL ⓕ 명부 바뀜
+   FAIL ⓕ 원장 바뀜
+   FAIL ⓕ2 rc=0 ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: <TMP>/bin
+   FAIL [ⓕ]   └ «시간 초과» 표기 — 없음: «시간 초과» ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: <TMP>/bin
+   FAIL [ⓕ] override rc=0 ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: <TMP>/bin
+   FAIL [ⓕ]   └ 우회 원장에 행 생김: 2026-10-26 16:03:57	seat=byz-planner-nano-ns#0	nano=nano/ns	tip=9f64a9e	feat=5a81493	reason=dummy
+   FAIL [ⓕ]   └ cherry 는 읽기 전용 판정(REJECT 줄) — 없음: «⑤REJECT cherry 게이트» ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp
+   FAIL [ⓕ]   └ kill·태그 해제 0 — tmux 변경
+   FAIL [ⓕ]   └ 명부 삭제됨
+   FAIL [ⓕ]   └ 원장 행 생김
+   FAIL [ⓖ] rc=0 ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: <TMP>/bin
+   FAIL [ⓖ]   └ 자식이 늦게 씀(묶음째 kill 실패)
+   FAIL [ⓖ] setsid 손자 대역 · 상한 1초 → rc 124 — 없음: «rc=124» ← started
+   FAIL [ⓖ]   └ 반환 90s > 3초(손자 fd 기다림)
+   FAIL [ⓖ]   └ 손자가 반환 뒤에 씀(새 세션 손자 회수 실패)
+   FAIL [ⓗ] TERM 무시 대역 · 상한 1초 → rc 124 — 없음: «rc=124» ← rc=0
+   FAIL ⓗ took=90s > 3초 ← rc=0
+   FAIL [ⓛ] rc=0 ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: <TMP>/bin
+   FAIL [ⓛ]   └ 둘째 cherry 상한 줄 없음 ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: <TMP>/bin
+   FAIL [ⓛ]   └ CLOSED 0 — 있으면 안 됨: «CLOSED»
+   FAIL [ⓛ]   └ kill·태그 해제 0 — tmux 변경
+   FAIL [ⓛ]   └ 명부 삭제됨
+   FAIL [ⓛ]   └ 원장 행 생김
+   OK 기대 칸 전부 빨강: [ⓒ] [ⓕ] [ⓖ] [ⓗ]
+=== 변이: ⓘ 배수 고정 1(작업량 무시) → rc=1 fail=1 (기대 칸: [ⓘ])
+   FAIL [ⓘ] rc=1 ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: <TMP>/bin
+   OK 기대 칸 전부 빨강: [ⓘ]
+=== 변이: ⓕ abort trap 을 prepare 뒤로 → rc=1 fail=3 (기대 칸: [ⓕ])
+   FAIL ⓕ2 rc=0 ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: <TMP>/bin
+   FAIL [ⓕ]   └ «시간 초과» 표기 — 없음: «시간 초과» ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: <TMP>/bin
+   FAIL trap 위치가 prepare 뒤
+   OK 기대 칸 전부 빨강: [ⓕ]
+=== 변이: ⓕ bad 있을 때 override 빼기 끔 → rc=1 fail=2 (기대 칸: [ⓕ])
+   FAIL [ⓕ]   └ 우회 원장에 행 생김: 2026-10-26 16:15:23	seat=byz-planner-nano-ns#0	nano=nano/ns	tip=5d46b6d	feat=b1752d5	reason=dummy
+   FAIL [ⓕ]   └ cherry 는 읽기 전용 판정(REJECT 줄) — 없음: «⑤REJECT cherry 게이트» ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp
+   OK 기대 칸 전부 빨강: [ⓕ]
+=== 변이: ⓖ 자손 모으기 끔(killpg 만) → rc=1 fail=1 (기대 칸: [ⓖ])
+   FAIL [ⓖ]   └ 손자가 반환 뒤에 씀(새 세션 손자 회수 실패)
+   OK 기대 칸 전부 빨강: [ⓖ]
+=== 변이: ⓙ 리서치 fetch 실패를 WARN 로 복귀 → rc=1 fail=7 (기대 칸: [ⓙ])
+   FAIL [ⓙ] --research rc=0 ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: <TMP>/bin
+   FAIL [ⓙ]   └ 리서치 fetch 실패 줄 0개
+   FAIL [ⓙ]   └ 리서치 통과 줄 0(옛 ref 병합 대조 0) — 있으면 안 됨: «RESEARCH-OK»
+   FAIL [ⓙ]   └ CLOSED 0 — 있으면 안 됨: «CLOSED»
+   FAIL [ⓙ]   └ kill·태그 해제 0 — tmux 변경
+   FAIL [ⓙ]   └ 명부 삭제됨
+   FAIL [ⓙ]   └ 원장 행 생김
+   OK 기대 칸 전부 빨강: [ⓙ]
+=== 변이: ⓛ 둘째 cherry rc124 분기 끔 → rc=1 fail=3 (기대 칸: [ⓛ])
+   FAIL [ⓛ]   └ 둘째 cherry 상한 줄 없음 ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: <TMP>/bin
+   FAIL [ⓛ]   └ 빈 «origin/main 기준:» 줄 0 — 있으면 안 됨: «origin/main 기준: »
+   FAIL [ⓛ]   └ 상한 초과인데 freshness STEP 줄 있음
+   OK 기대 칸 전부 빨강: [ⓛ]
+MUTATION-ALL-RED

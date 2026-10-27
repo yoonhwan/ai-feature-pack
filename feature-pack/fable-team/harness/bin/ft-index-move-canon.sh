@@ -95,10 +95,11 @@ case "$LANDED" in *..*) T="${LANDED%%..*}"; S="${LANDED##*..}";; *) T=""; S="$LA
 REF="${FT_LAND_REF:-origin/main}"
 # r937: 착지 리포 = sha 가 실제로 있는 리포(ft_landed_repo) — 표식 줄 = 이 카드의 «닫힘 — <카드> — main…» 줄(§절 본문에서)
 STEM="$(basename "$CARD" .md)"
-MARKER="$(printf '%s\n' "$BODY" | awk -v s="$STEM" 'index($0,"닫힘")&&index($0,s)&&index($0,"main"){print;exit}')"
+MARKER="$(printf '%s\n' "$BODY" | awk -v s="$STEM" 'BEGIN{p="(닫힘|CLOSE)[[:space:]]*—[[:space:]]*" s "[[:space:]]*—[[:space:]]*main"} $0 ~ p{print;exit}')"   # r959: «닫힘 — <카드> — main…» 정확한 모양만 — 절 헤더 오인 금지
 PACK=""; [ -f "$HERE/ft-harness-root.sh" ] && PACK="$(. "$HERE/ft-harness-root.sh" && ft_harness_root "$HERE" 2>/dev/null)"
 # r937 r3: 루트 조회도 ft_git_capped — 한 후보의 루트 조회가 실패(rc≠0 · 시간 초과 포함)면 그 후보를 빈 값으로 넘기지 않고 REJECT
 if [ -n "$PACK" ]; then PACK_H="$PACK"; PACK="$(ft_git_capped 7 "$PACK_H" rev-parse --show-toplevel)" || rej "팩 리포($PACK_H) 루트 조회 실패(rc=$?) — 통과 0"; fi
+# r959: «표식 오기(팩 착지)» 보정은 ft_landed_repo 의 기본 동작 — 부르는 쪽마다 붙이지 않는다(네 호출이 같은 판정)
 LR="$(ft_landed_repo "$S" "$WT" "$PACK" "$MARKER")" || rej "${LR#REJECT }"
 REPO_LANDED="${LR%%$'\t'*}"; SFULL="${LR##*$'\t'}"
 # r937 r2 (T1·T2): 모든 git 조회 = ft_git_capped(7초 · 재시도 1) · 허용 rc 를 넘은 값(124 시간 초과 · 128 실행 실패)은 «조회 실패» = REJECT(«없음» 으로 읽지 않는다)

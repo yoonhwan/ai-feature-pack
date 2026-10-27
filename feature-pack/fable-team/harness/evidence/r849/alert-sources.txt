@@ -1,0 +1,16 @@
+# r849 ⓓ 알림·깨우기 실제 출처 실측 — 쪽지 기록(mailbox.log.jsonl·.1)에서 byz-v65-tester-claude#90 관련 10-23 20시 이후 (보낸 곳별)
+3건 2026-10-23T21:50:21~2026-10-23T22:15:07 ft-tick 받는이=byz-v65-master-claude#238 «[idle-detected] byz-v65-test»
+1건 2026-10-23T21:56:17~2026-10-23T21:56:17 ft-tick 받는이=byz-v65-master-claude#238 «[정지 154분] byz-v65-tester-cla»
+1건 2026-10-23T22:12:54~2026-10-23T22:12:54 byz-v65-master-claude#238 받는이=좌석 «[byz-v65-master-claude#238->»
+1건 2026-10-23T22:13:47~2026-10-23T22:13:47 ft-api-outage 받는이=좌석 «[재개] API 오류로 끊긴 턴(22:12) — 마»
+1건 2026-10-23T22:15:12~2026-10-23T22:15:12 ft-api-outage 받는이=좌석 «[재개] API 오류로 끊긴 턴(22:14) — 마»
+1건 2026-10-23T22:15:13~2026-10-23T22:15:13 byz-lecture-tester-claude#3 받는이=byz-lecture-master-claude#17 «[막힘] 세트 병합은 끝(HEAD 6fb8302a1»
+1건 2026-10-23T22:51:13~2026-10-23T22:51:13 ft-stall-scan 받는이=byz-planner-master-claude#119 «[정지] byz-v65-tester-claude#9»
+1건 2026-10-23T22:51:20~2026-10-23T22:51:20 ft-stall-scan 받는이=byz-v65-master-claude#238 «[정지] byz-v65-tester-claude#9»
+
+## 처리(이 가지)
+- ft-tick [idle-detected]·[정지 N분](idle_watch·idle_long_watch): 둘 다 상태 = IDLE 일 때만 → LOGGEDOUT 은 자동 제외(코드 변경 0)
+- ft-stall-scan e [정지]: idle_age = IDLE 일 때만 → 자동 제외 · 대신 act_l [로그아웃 좌석] 1통(교대 표시 좌석 = 계보 현역 master)
+- ft-api-outage [재개]: 로그아웃 좌석에 재개를 보내 0초 실패 턴을 또 만든 출처 → cause=logged_out 은 장애·재개 대상에서 뺌(SKIP 줄)
+- ft-idle-wake ring: 이 좌석엔 기록 0(실측 기간) · 카드 범위대로 LOGGEDOUT·닫기 대기 제외
+- 우편함 거의 참(ft_queue_watch): 이 좌석 기록 0 — 변경 0(쪽지 유실 경보는 유지)

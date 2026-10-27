@@ -1,0 +1,21 @@
+### 닫기 전 — show planner-x#5
+[③] g-be716292f3 seq=901 미닫힘=901 from=desk#1 원문=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.raf5r0EcKK/root/.fable-team/comm/bodies/901.txt | [desk#1->planner-x#5] 판정 요청: A안 B안
+[③] g-a4dfc0c089 seq=902 미닫힘=902 from=desk#1 원문=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.raf5r0EcKK/root/.fable-team/comm/bodies/902.txt | [desk#1->planner-x#5] 판정 요청: C안 D안
+[⑥] g-224e0e13fa seq=903 미닫힘=903 from=desk#1 원문=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.raf5r0EcKK/root/.fable-team/comm/bodies/903.txt | [desk#1->planner-x#5] 참고: 접수
+
+### close 901 903 "판정 1804 처리 완료"
+CLOSED 901 seq=901
+CLOSED 903 seq=903
+rc=0
+
+### 닫은 뒤 — show
+[③] g-a4dfc0c089 seq=902 미닫힘=902 from=desk#1 원문=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.raf5r0EcKK/root/.fable-team/comm/bodies/902.txt | [desk#1->planner-x#5] 판정 요청: C안 D안
+
+### 없는 seq 섞기 — close 902 999
+CLOSED 902 seq=902
+NOTFOUND 999
+rc=1
+
+### 사유 빈 값 — close 903 ""
+REJECT usage: close <seq|group…> "<사유>" [--seat <좌석>]
+rc=2

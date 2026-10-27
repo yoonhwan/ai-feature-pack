@@ -1,0 +1,17 @@
+PASS bash -n ft-role-spawn.sh
+PASS ⑥ kit·bin 짝 cmp0
+PASS ⑥ /bin/bash 실행 가능
+PASS ⓐ --add dry-run: 새 번호 #4 · replaces=[<없음>] mode=add
+PASS ⓐ dry-run 명부 쓰기 0
+PASS ⓐ --add 없는 호출: 교체 PLAN 그대로(mode=add 0)
+PASS ⓒ --add 첫 발주문에 retire 칸 0
+PASS ⓒ --add 없으면 retire 칸 있음
+PASS ⓑ --add 실전: 새 행 #4(_replaces=[]) · 기존 #3 _replaced_by 0·role·tick 그대로 · _arch=#3 불변 · 현역 arch 2
+PASS ⓑ --add tick = 역할 기본값(ft-pm-tick) · 구 좌석 tick(ft-custom-tick) 물려받지 않음
+PASS ⓓ --add 없음: 구 #3 을 _replaced_by·stop-ready·tick null 로 닫고 _arch 이동(불변 동작)
+PASS ⓓ 기존 시험 test_role_spawn_name.sh ALL PASS
+PASS ⓓ 기존 시험 test_role_spawn_team.sh ALL PASS
+PASS ⓔ 변이본 생성(old = [] if add else → old = [k for k …])
+PASS ⓔ 변이: --add 가 구 좌석을 닫는다(byz-feat-arch-claude#4|stop-ready|None) → ⓑ('_replaced_by 0') FAIL 재현
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

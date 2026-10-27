@@ -2,6 +2,7 @@
 # test_da_codex_wrapper.sh — r513 시험: DA 용 codex 래퍼 ft-da-codex.sh 가 헤드룸 «건너뛰기» 헤더·모델·effort·
 # 머리말을 싣고, 실행마다 새 출력 파일을 만들고, 실패를 그대로 돌려준다.
 # r782 추가: 건너뛰기 헤더는 설정(${CODEX_HOME:-$HOME/.codex}/config.toml)에 `[model_providers.headroom]` 절이 «있을 때만»
+# r990 추가: 머리 둘째 줄 [DA 전수] — DA 가 1회차에 기준 전체를 훑어 반례를 한 묶음으로 낸다(WS-ⓐ·ⓑ·ⓒ).
 # 실린다 — 절이 없는데 머리만 남으면 codex 가 «provider name must not be empty» 로 rc1(전 팀 DA 정지).
 # 픽스처 = PATH 앞 가짜 codex(받는 인자·stdin 을 적고, 설정에 절이 없는데 머리가 오면 그 오류를 흉내) · 외부 호출 0 · 헤드룸 0 · GIT_* env 0.
 set -uo pipefail
@@ -82,8 +83,18 @@ first="$(printf '%s\n' "$prompt" | head -1)"
 printf '%s' "$first" | grep -qF '파일은 sed -n 으로 400줄 이하씩 나눠 읽는다' \
   && printf '%s' "$first" | grep -qF '본문을 못 봤으면 HOLD 대신 «검증 불가 — <파일:줄>» 로 적는다' \
   && ok "ⓒ 머리말 1줄(나눠 읽기 · 검증 불가 표기)" || bad "ⓒ 첫 줄이 머리말 아님: $first"
-[ "$(printf '%s\n' "$prompt" | sed -n 2p)" = '질문 1: 이 설계가 맞는가' ] \
-  && ok "ⓒ 둘째 줄 = 프롬프트 원문" || bad "ⓒ 원문 위치 어긋남"
+[ "$(printf '%s\n' "$prompt" | sed -n 3p)" = '질문 1: 이 설계가 맞는가' ] \
+  && ok "ⓒ 셋째 줄 = 프롬프트 원문(r990 머리 2줄)" || bad "ⓒ 원문 위치 어긋남"
+
+# ── r990: 머리 둘째 줄 = [DA 전수] 문구 ──────────────────────────────
+second="$(printf '%s\n' "$prompt" | sed -n 2p)"
+printf '%s' "$second" | grep -qF '1회차에 질문지의 결과 계약·기준 «전체» 를 훑어 반례를 한 묶음으로 낸다' \
+  && printf '%s' "$second" | grep -qF '한 건을 찾았다고 멈추지 않는다' \
+  && printf '%s' "$second" | grep -qF '이미 처리된 지난 반례는 다시 내지 않는다' \
+  && printf '%s' "$second" | grep -qF '기준 밖 지적은 범위 밖 메모로만 적는다' \
+  && ok "WS-ⓐ 머리 둘째 줄 = 전수 문구" || bad "WS-ⓐ 전수 문구 없음: $second"
+[ "$first" = '[DA 머리말] 파일은 sed -n 으로 400줄 이하씩 나눠 읽는다 · 본문을 못 봤으면 HOLD 대신 «검증 불가 — <파일:줄>» 로 적는다.' ] \
+  && ok "WS-ⓑ 기존 머리 첫 줄 그대로" || bad "WS-ⓑ 첫 줄 변형됨: $first"
 
 # ⓓ --model·--effort 덮어쓰기 · 프롬프트 없음/빈 파일 = rc2 + 사유
 rc="$(run --cwd "$T/cwd" --prompt-file "$T/p.txt" --out-dir "$T/d" --model gpt-5.5 --effort medium)"
@@ -190,6 +201,12 @@ if [ "${FT_DA_WRAPPER_MUTANT_CHECK:-1}" = 1 ]; then
   FT_DA_WRAPPER_MUTANT_CHECK=0 DA_CODEX_TOOL="$T/mut_never.sh" bash "${BASH_SOURCE[0]:-$0}" > "$T/mutB.log" 2>&1 \
     && bad "HR-ⓖ 변이(늘 뺌)가 통과함" || ok "HR-ⓖ 변이(늘 뺌) = 실패"
   grep -q 'FAIL HR-ⓒ' "$T/mutB.log" && ok "HR-ⓖ 변이(늘 뺌) → HR-ⓒ FAIL" || bad "HR-ⓖ 변이(늘 뺌)에 HR-ⓒ FAIL 없음"
+  # r990 변이: 머리 둘째 줄([DA 전수]) 삭제 → WS-ⓐ FAIL
+  sed '/^\[DA 전수\]/d' "$TOOL" > "$T/mut_noall.sh"
+  cmp -s "$TOOL" "$T/mut_noall.sh" && bad "WS-ⓒ 변이 생성 실패(전수 줄 미일치)" || ok "WS-ⓒ 변이 생성"
+  FT_DA_WRAPPER_MUTANT_CHECK=0 DA_CODEX_TOOL="$T/mut_noall.sh" bash "${BASH_SOURCE[0]:-$0}" > "$T/mutC.log" 2>&1 \
+    && bad "WS-ⓒ 변이(전수 줄 삭제)가 통과함" || ok "WS-ⓒ 변이(전수 줄 삭제) = 실패"
+  grep -q 'FAIL WS-ⓐ' "$T/mutC.log" && ok "WS-ⓒ 변이 → WS-ⓐ FAIL" || bad "WS-ⓒ 변이에 WS-ⓐ FAIL 없음"
 fi
 
 [ "$fail" = 0 ] && echo "ALL PASS" || echo "FAILED=$fail"
