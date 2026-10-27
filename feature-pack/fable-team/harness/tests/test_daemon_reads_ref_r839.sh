@@ -9,6 +9,7 @@
 #   ⓐⓑⓒ DA⑥ r4·r5: 빈 값 2회 = ERROR rc4 · 재시도 딱 1회(파이썬 한 벌) · 예산 소진 = rc4(미종료 0) · cat-file rc128 = 판정 불가 · 오류 1줄
 #   ⓖ DA⑥ r2 반례: 빈 출력으로 «없음/0건» 을 가장하지 않는다 · 큐 명령 오류 문구 = 기준판 바이트 그대로
 #   ⓕ 키트 미러 cmp 0 · bash -n · 정적 검사(ref_read 밖 git 0) · 변이 7종 → 해당 칸 FAIL
+#   r994 ⓐ'ⓑ'ⓒ': 읽기만 하는 잡 2곳(자율 큐 개수 ft-autonomy.sh · 목표 틱 프롬프트 ft-goal-tick.sh)도 같은 규칙 = ref 본문(디스크 옛 본문 0) · env 지정 우선 · ref 실패 = ERROR · 변이 «디스크 읽기 되살림» → 해당 칸 FAIL
 # 격리: 임시 bare 원격 + 임시 «루트» 클론(원격 main 보다 뒤 · 작업 폴더에 옛 큐 · 합치다 만 UU 1) · 가짜 tmux·hil · 실 리포·실 launchd 0 · GIT_* 0.
 #   R839_BIN=<옛 bin 폴더> 로 돌리면 기준판(빨강) 대조 — 미러 cmp·변이·ⓓ 는 건너뜀.
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"
@@ -42,6 +43,14 @@ echo x > "$S/more.txt"; G "$S" add -A; G "$S" commit -qm more; G "$S" push -q or
 G "$S" checkout -q -b noq; G "$S" rm -q "$QP"; G "$S" commit -qm noq; G "$S" push -q origin noq; G "$S" checkout -q main
 G "$S" checkout -q -b emptyq; : > "$S/$QP"; G "$S" add -A; G "$S" commit -qm emptyq; G "$S" push -q origin emptyq; G "$S" checkout -q main
 G "$RT" fetch -q origin
+# r994 픽스처: ref origin/main 에 v65 항목 + 새 틱 프롬프트 · 루트 디스크에도 v65 폴더 + 옛 틱 프롬프트(«디스크 읽기 되살림» 변이를 잡기 위해)
+V65="design/teams/v65/20260912"; TICK="TICK-PROMPT-v65-unified.md"
+mkdir -p "$S/$V65"; printf '```\n<세션명> 새프롬프트\n```\n' > "$S/$V65/$TICK"
+printf '| v65 | `design/teams/v65/` | x | 현역 |\n' >> "$S/design/TEAMS.md"
+G "$S" add -A; G "$S" commit -qm v65; G "$S" push -q origin main; G "$RT" fetch -q origin
+mkdir -p "$RT/$V65" "$RT/.fable-team/comm"; printf '```\n<세션명> 옛프롬프트\n```\n' > "$RT/$V65/$TICK"
+printf '#!/usr/bin/env bash\n[ "$1" = relay ] && cp -f "$4" "%s/gt-body.txt"\nexit 0\n' "$T" > "$RT/.fable-team/comm/mbox.sh"; chmod +x "$RT/.fable-team/comm/mbox.sh"
+printf '#!/bin/sh\nexit 3\n' > "$T/gcheck3.sh"; chmod +x "$T/gcheck3.sh"
 printf '.fable-team/\n' >> "$RT/.git/info/exclude"
 F="$RT/.fable-team"; mkdir -p "$F/state/inbox" "$F/comm"; : > "$F/state/inbox/byz-planner-master-claude.jsonl"
 printf '{"_master":"byz-planner-master-claude#82","_cards_wt":"cards"}\n' > "$F/seats-planner.json"
@@ -166,12 +175,32 @@ suite() { # $1 = bin 폴더 — 줄마다 PASS/FAIL «칸»
   # ⓕ 정적 검사(r5) — ref_read 밖 git 호출 0(파이썬) · 셸은 호출 한 줄씩(로직 0)
   [ "$(grep -c '_git_once(' "$B/ft_team_lib.py")" = 3 ] && awk '/^def team_rows_ref/,/^def _cands_ref/' "$B/ft_team_lib.py" | grep -q 'ref_read('; ck "ⓕ 파이썬 정적: _git_once 자리 3(정의+ref_read+_ref_present) · 명단 조회도 ref_read" $?
   [ "$(grep -cE '^(ref_read|_ft_ref_present|ft_team_doc_ref_only|ft_planner_queue_ref)\(\) \{ python3 ' "$B/ft-team-lib.sh")" = 4 ] && ! grep -qE 'for i in|for attempt|FT_REF_BUDGET_SEC|g\.run_cmd|ft_ref_git_once' "$B/ft-team-lib.sh"; ck "ⓕ 셸 정적: ref 읽기 = 파이썬 호출 한 줄씩 4개(재시도·예산·문구 로직 0)" $?
+  # ── r994 ⓐ' — 읽기만 하는 잡 2곳: 자율 큐 개수·목표 틱 프롬프트 = origin/main 판 본문(디스크 옛 본문 0) · env 지정 우선 · ref 실패 = ERROR ──
+  local SD="$T/state-r994"; mkdir -p "$SD"
+  printf '%s\t%s\t%s\n' 1700000000 on A9 > "$SD/autonomy.log"
+  printf '{"mode":"on","since":1700000000,"event":"A9","until":null}\n' > "$SD/autonomy.json"
+  AQ() { out="$(cd "$RT" && env FT_ROOT="$RT" FT_AUTONOMY_STATE_DIR="$SD" FT_AUTONOMY_LEVEL=each FT_NOW=1700000100 "$@" bash "$B/ft-autonomy.sh" status 2>&1)"; rc=$?; }
+  AQ; echo "  ⓐ' 원문(자율 큐 개수): $out"
+  [ "$rc" = 0 ] && grep -q '큐 3' <<<"$out"; ck "① 자율 큐 개수 = origin/main 판 3줄(디스크 옛 1줄 아님)" $?
+  [ -z "$(ls -A "$TMPDIR")" ]; ck "① 자율 큐 임시 본문 정리(TMPDIR 비어 있음)" $?
+  AQ FT_PLANNER_DIR="$PD"; echo "  ⓑ' 원문(자율 큐 개수·env 지정): $out"
+  [ "$rc" = 0 ] && grep -q '큐 4' <<<"$out"; ck "② FT_PLANNER_DIR 지정 → 그 플래너 폴더 4줄(ref 보다 우선)" $?
+  AQ FT_TEAMS_REF=origin/noq; echo "  ⓒ' 원문(자율 큐 개수·ref 판에 큐 없음): $out"
+  [ "$rc" = 0 ] && grep -q '큐 ?' <<<"$out"; ck "③ ref 판에 큐 없음 → 큐 ? (디스크 옛 1줄로 후퇴 0)" $?
+  [ -z "$(ls -A "$TMPDIR")" ]; ck "③ 자율 큐 실패도 임시 본문 정리(TMPDIR 비어 있음)" $?
+  GT() { out="$(cd "$RT" && env FT_GOAL_TICK_ROOT="$RT" FT_GOAL_TICK_TARGET=seat-r994 FT_GOAL_TICK_STREAK="$T/gstreak" FT_GOAL_TICK_CHECK="$T/gcheck3.sh" "$@" bash "$B/ft-goal-tick.sh" 2>&1)"; rc=$?; }
+  rm -f "$T/gt-body.txt" "$T/gstreak"; GT; echo "  ⓐ' 원문(틱 프롬프트): 발주본문=$(grep -o '새프롬프트\|옛프롬프트' "$T/gt-body.txt" 2>/dev/null | head -1) · $(head -1 <<<"$out")"
+  [ "$rc" = 0 ] && [ -f "$T/gt-body.txt" ] && grep -q '새프롬프트' "$T/gt-body.txt" && ! grep -q '옛프롬프트' "$T/gt-body.txt"; ck "① 목표 틱 프롬프트 = origin/main 판(디스크 옛 본문 0 · 발주본문 도달)" $?
+  [ -z "$(ls -A "$TMPDIR")" ]; ck "① 목표 틱 임시 본문 정리(trap)" $?
+  rm -f "$T/gt-body.txt" "$T/gstreak"; GT FT_TEAMS_REF=origin/noq; echo "  ⓒ' 원문(틱 프롬프트·ref 판에 없음): $out"
+  [ "$rc" = 1 ] && grep -q 'ERROR v65 틱 프롬프트를 못 풀었다' <<<"$out" && [ ! -f "$T/gt-body.txt" ]; ck "③ ref 판에 프롬프트 없음 → ERROR rc1(디스크 옛 본문 후퇴 0 · 발주 0)" $?
 }
 fail=0
 res="$(suite "$BIN0")"; printf '%s\n' "$res"; fail=$((fail + $(grep -c '^FAIL' <<<"$res")))
 if [ -z "${R839_BIN:-}" ]; then
   ok() { echo "PASS $1"; }; bad() { echo "FAIL $1"; fail=$((fail+1)); }
   for f in ft_decision_count.py ft_team_lib.py ft-team-lib.sh ft-queue.sh; do cmp -s "$BIN0/$f" "$KIT/$f" && ok "ⓕ 키트 미러 cmp 0: $f" || bad "ⓕ 키트 미러 다름: $f"; done
+  for f in ft-autonomy.sh ft-goal-tick.sh; do cmp -s "$BIN0/$f" "$KIT/$f" && ok "ⓕ 키트 미러 cmp 0: $f(r994)" || bad "ⓕ 키트 미러 다름: $f"; bash -n "$BIN0/$f" && ok "ⓕ bash -n $f(r994)" || bad "ⓕ bash -n $f"; done
   for f in ft-team-lib.sh ft-queue.sh; do bash -n "$BIN0/$f" && ok "ⓕ bash -n $f" || bad "ⓕ bash -n $f"; done
   python3 -m py_compile "$BIN0/ft_team_lib.py" && ok "ⓕ py_compile ft_team_lib.py" || bad "ⓕ py_compile ft_team_lib.py"
   [ "$(wc -l < "$BIN0/ft_decision_count.py")" -le 200 ] && ok "ⓕ ft_decision_count.py ≤ 200줄" || bad "ⓕ ft_decision_count.py 200줄 넘음"
@@ -191,5 +220,8 @@ if [ -z "${R839_BIN:-}" ]; then
   mut "cat-file rc128 = 없음" ft_team_lib.py 'if rc in (1, 128) and re.search(r"(does not exist in|exists on disk, but not in)", err):' 'if rc in (1, 128):' "ⓐ cat-file rc128"
   mut "셸 로직 부활(재시도·예산)" ft-team-lib.sh 'ref_read() { python3 "$_FT_TEAM_LIB_PY" ref-read "$@"; }' 'ref_read() { local i; for i in 1 2 3; do python3 "$_FT_TEAM_LIB_PY" ref-read "$@" && return 0; done; return 4; }' "ⓕ 셸 정적: ref 읽기 = 파이썬 호출 한 줄씩 4개"
   mut "ref 에 없을 때 디스크로 후퇴" ft_decision_count.py 'team_doc_ref(ref_at() if ref_at else R, "planner", name, os.environ.get("FT_TEAMS_REF") or "origin/main")' '(team_doc_ref(ref_at() if ref_at else R, "planner", name, os.environ.get("FT_TEAMS_REF") or "origin/main") or (Path(planner_queue(data_root(R))).read_text(encoding="utf-8") if ref_at else None))' "ⓑ ref 판에 큐 없음"
+  # r994 변이 2 — 호출자만 «디스크 읽기» 로 되살린다 → r994 칸이 잡아야 한다
+  mut "자율 큐 개수를 디스크로" ft-autonomy.sh 'ft_planner_queue_ref "$ROOT"' 'ft_planner_queue "$ROOT"' "① 자율 큐 개수"
+  mut "틱 프롬프트를 디스크로" ft-goal-tick.sh 'ft_team_doc_ref_only "$ROOT" v65' 'ft_team_doc_ref "$ROOT" v65' "① 목표 틱 프롬프트"
 fi
 echo "== FAIL $fail"; [ "$fail" = 0 ] && echo "ALL PASS"; [ "$fail" = 0 ]

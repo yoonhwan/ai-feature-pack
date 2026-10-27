@@ -77,7 +77,7 @@ count_proxy() {  # <A<N>> — 판정 원장의 대리 줄 수
   local n pd; pd="$(planner_dir)" || { echo "?"; return 0; }; n="$(cat "$pd"/VERDICTS-*.md 2>/dev/null | grep -cF "[대리 · 자율 ON $1]")"; echo "${n:-0}"
 }
 queue_file() { ( . "$HERE/ft-team-lib.sh" && ft_planner_queue "$ROOT" ) || { echo "ERROR 오빠 큐 자리를 못 풀었다(ft_planner_queue · FT_ROOT=$ROOT)" >&2; return 1; }; }   # r515: 대리·결정 셈과 같은 리졸버
-count_queue() { local n q; q="$(queue_file)" || { echo "?"; return 0; }; n="$(grep -cF "| $1 |" "$q" 2>/dev/null)"; echo "${n:-0}"; }
+count_queue() { local n q; q="$( . "$HERE/ft-team-lib.sh"; if [ -n "${FT_PLANNER_DIR:-}" ]; then ft_planner_queue "$ROOT"; else ft_planner_queue_ref "$ROOT"; fi )" || { echo "?"; return 0; }; n="$(grep -cF "| $1 |" "$q" 2>/dev/null)"; case "$q" in "${TMPDIR:-/tmp}"/ft-queue-ref.*) rm -f "$q" ;; esac; echo "${n:-0}"; }   # r994: 센 본문 = r839 ref 함수(디스크 0 · 루트가 main 보다 뒤여도 개수 맞음 · FT_PLANNER_DIR 지정은 그대로 우선) · 임시 본문은 여기서 지운다
 
 status() {
   local m e s u
