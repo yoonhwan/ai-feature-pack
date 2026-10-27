@@ -25,7 +25,9 @@ from real_state_guard import guard_begin_module  # noqa: E402,F401  r541: 실 �
 
 APPROVAL = "1번 골 마감 승인 대기다"
 TEAMS = ["chatbot", "harness", "ops", "v65"]
-LIVE = [{"team": t, "live": 1, "working": 1, "unknown": 0} for t in TEAMS]
+from _news_live import with_state  # noqa: E402  r850: live 팀 상태(state·label) = ft_team_state.judge 값
+
+LIVE = with_state([{"team": t, "live": 1, "working": 1, "unknown": 0} for t in TEAMS])
 
 
 def _html(important: list[str], auto: str = "ON", working: int = 2, goals: int = 6) -> str:

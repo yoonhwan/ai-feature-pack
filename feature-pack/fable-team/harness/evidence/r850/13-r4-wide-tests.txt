@@ -1,0 +1,16 @@
+FAILED harness/tests/scripts/test_ft_board_teams.py::test_render_error_team_shows_unconfirmed_line_and_other_rows_unchanged
+FAILED harness/tests/scripts/test_r649_news_team_lines_isolate_error.py::test_slow_inbox_is_bounded_and_only_that_team_errors
+2 failed, 369 passed in 243.83s (0:04:03)
+pytest files=      38
+SH test_board.sh rc=0 fail_lines=0
+SH test_board_seat_cell.sh rc=0 fail_lines=0
+SH test_sheet_root_teams_r785.sh rc=0 fail_lines=0
+SH test_board_publish.sh rc=0 fail_lines=0
+SH test_board_publish_norm.sh rc=0 fail_lines=0
+SH test_board_publish_tick.sh rc=0 fail_lines=0
+SH test_news_tree_root.sh rc=0 fail_lines=0
+SH test_tick_line.sh rc=0 fail_lines=0
+SH test_sheet_render.sh rc=0 fail_lines=0
+SH test_sheet_publish.sh rc=0 fail_lines=0
+SH test_news_html.sh rc=0 fail_lines=0
+SH test_sheet_verify.sh rc=1 fail_lines=8 — r3 판 bin 으로도 같은 8 FAIL(기존 · 이 변경 밖)

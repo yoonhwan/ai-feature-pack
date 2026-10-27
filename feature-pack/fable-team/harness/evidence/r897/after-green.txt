@@ -1,0 +1,35 @@
+PASS V0 실 lsof 물리 경로(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.1Qkwnd9QVK/tmpdir/tmp.held) · 기준판 글자 비교 = 붙잡음 0(빨강) · 고친 판 = 붙잡음(초록)
+PASS ⓐ 등록 경로 /var 꼴 · lsof 물리 경로 → «붙잡음»(재현 빨강 닫힘)
+PASS ⓐ cwd 물린 사본 = --sweep 2회 뒤에도 삭제 0
+PASS ⓐ 경로 못 읽음(cd 실패) = 붙잡음(지우기 0)
+PASS ⓑ 주인 'seat[' = 후보 0(grep rc2 를 «주인 없음» 으로 읽지 않는다)
+PASS ⓑ --sweep 2회 뒤에도 삭제 0
+error: pathspec '-' did not match any file(s) known to git
+PASS ⓒ 넷 다 참 = 삭제 · 로그에 사유 judged
+PASS ⓒ 커밋 추가·가지 체크아웃·이름꼴 아님 = 삭제 0(24h 규칙으로 후퇴)
+PASS ⓒ judged rc1 = 후보 0(삭제 0)
+PASS ⓓ 재확인에서 주인 생김 = 그 항목 삭제 0(앞 항목은 지움)
+PASS ⓓ lsof 못 읽음 = 남은 항목 삭제 0 + WARN 1줄
+PASS ⓓ 70초 초과 = 남은 항목 삭제 0 + WARN
+PASS ⓔ 남의 사본 --done = rc2 · 삭제 0
+PASS ⓔ --done '.*' = rc2 · 등록부 그대로(정규식 해석 0)
+PASS ⓔ cwd 물린 사본 --done = rc4 · 삭제 0
+PASS ⓔ lsof 실패 = rc4 · 삭제 0
+PASS ⓔ 정상 --done = DONE · 그 줄만 빠짐
+PASS ⓔ \161 경로 = 등록 줄 없음 rc2(이스케이프로 남의 줄과 안 맞음) · 삭제 0
+PASS ⓔ --done 탭 경로 = rc2
+PASS ⓔ 생성 경로에 탭 = rc2 · 사본 0
+PASS ⓕ 기존 test_scratch_repo.sh = ALL PASS
+PASS ⓕ 기존 test_scratch_judged_r645.sh = ALL PASS
+PASS ⓕ 기존 test_scratch_sweep_live_cwd_r548.sh = ALL PASS
+PASS ⓕ 기존 test_scratch_repo_sparse_auto_done_r891.sh = ALL PASS
+PASS ⓕ kit 짝 사본 cmp0
+PASS 변이 1-pwd → V0 빨강(시험이 잡는다)
+PASS 변이 2-F → ⓑ 빨강(시험이 잡는다)
+PASS 변이 3-symbolic → ⓒ 빨강(시험이 잡는다)
+PASS 변이 4-recheck → ⓓ 빨강(시험이 잡는다)
+PASS 변이 5-owner → ⓔ 빨강(시험이 잡는다)
+ALL PASS
+REAL-STATE-GUARD WARN 번호표 늘었으나 실 좌석 계획(동시 실행): /private/tmp/h183 ← /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/state/approve-merge-graphics-3480-eea975b0d9-20261025.sh.hil
+REAL-STATE-GUARD WARN 번호표 늘었으나 실 좌석 계획(동시 실행): /private/tmp/h184 ← /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/state/MAKE-ccu20-20261025-r8.sh.hil
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

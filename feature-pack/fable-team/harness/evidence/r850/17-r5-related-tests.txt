@@ -1,0 +1,50 @@
+........................................................................ [ 52%]
+.................F....................F.........................         [100%]
+=================================== FAILURES ===================================
+____ test_render_error_team_shows_unconfirmed_line_and_other_rows_unchanged ____
+
+board = <class 'test_ft_board_teams.B'>
+
+    def test_render_error_team_shows_unconfirmed_line_and_other_rows_unchanged(board) -> None:
+        """ⓓ 그리는 쪽 — error 팀 = «확인 못 함: <원인>» 한 줄 · 다른 팀 줄은 error 팀이 늘기 전과 같은 글자."""
+        _cards(board.root, "ok")
+        board.seats("ok", {"_label": "정상팀", "_master": "ok-m#1", "_cards": "t/ok", "ok-m#1": {"role": "master"}}, ["ok-m#1"])
+        only = board.run("render", "--term")
+        assert only.returncode == 0, only.stderr
+        board.seats("bad", {"_label": "사라진팀", "_master": "bad-m#1", "_cards": "t/nope", "bad-m#1": {"role": "master"}}, ["bad-m#1"])
+        both = board.run("render", "--term")
+        assert both.returncode == 0, both.stderr
+        ok_row = next(ln for ln in only.stdout.splitlines() if "정상팀" in ln)
+        assert ok_row in both.stdout.splitlines()
+>       assert f"- 사라진팀 | 확인 못 함: 카드 폴더 없음 — {board.root / 't' / 'nope'}" in both.stdout.splitlines()
+E       AssertionError: assert '- 사라진팀 | 확인 못 함: 카드 폴더 없음 — /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-1359/test_render_error_team_shows_u0/root/t/nope' in ['메인팀 보드 10:00', '', '⓪ 팀 요약', '- 사라진팀 | 확인 불가(명부 읽기 실패)', '- 정상팀 | 지금: 진행 1(ok카드 · 좌석 없음) | 큐: 대기 0 | 오빠 할 일 0 | 결정 자리: 확인 불가(seats-planner.json 없음) | 정지(3분+) 0 | 완료 선언 0', '', ...]
+E        +  where ['메인팀 보드 10:00', '', '⓪ 팀 요약', '- 사라진팀 | 확인 불가(명부 읽기 실패)', '- 정상팀 | 지금: 진행 1(ok카드 · 좌석 없음) | 큐: 대기 0 | 오빠 할 일 0 | 결정 자리: 확인 불가(seats-planner.json 없음) | 정지(3분+) 0 | 완료 선언 0', '', ...] = <built-in method splitlines of str object at 0x10981de00>()
+E        +    where <built-in method splitlines of str object at 0x10981de00> = '메인팀 보드 10:00\n\n⓪ 팀 요약\n- 사라진팀 | 확인 불가(명부 읽기 실패)\n- 정상팀 | 지금: 진행 1(ok카드 · 좌석 없음) | 큐: 대기 0 | 오빠 할 일 0 | 결정 자리: 확인 불가(... HIL-LEDGER 확인 불가(파일 없음)\n- 큐 [HIL]·[긴급] 확인 불가(큐·planner 명부 읽기 실패)\n- MERGE-QUEUE 확인 불가(파일 없음)\n- 제안 미결정 0\n- 관찰 중 0\n'.splitlines
+E        +      where '메인팀 보드 10:00\n\n⓪ 팀 요약\n- 사라진팀 | 확인 불가(명부 읽기 실패)\n- 정상팀 | 지금: 진행 1(ok카드 · 좌석 없음) | 큐: 대기 0 | 오빠 할 일 0 | 결정 자리: 확인 불가(... HIL-LEDGER 확인 불가(파일 없음)\n- 큐 [HIL]·[긴급] 확인 불가(큐·planner 명부 읽기 실패)\n- MERGE-QUEUE 확인 불가(파일 없음)\n- 제안 미결정 0\n- 관찰 중 0\n' = CompletedProcess(args=['/opt/homebrew/opt/python@3.11/bin/python3.11', '/Users/yoonhwan/Project/ai-feature-pack/.workt...ders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-1359/test_render_error_team_shows_u0/root/t/nope\n').stdout
+
+tests/scripts/test_ft_board_teams.py:209: AssertionError
+_____________ test_slow_inbox_is_bounded_and_only_that_team_errors _____________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-1359/test_slow_inbox_is_bounded_and0')
+
+    def test_slow_inbox_is_bounded_and_only_that_team_errors(tmp_path: Path) -> None:
+        """ⓔ 20초 느린 쪽지함 = 7초 상한 + 재시도 1(2회 호출) → 그 팀만 error · 정상 팀 숫자 그대로 · 수집 전체 < 20초."""
+        b = _board(tmp_path, "slow")
+        r, elapsed = _collect(b)
+        assert r.returncode == 0, r.stderr
+        d = json.loads(r.stdout)
+        assert _team_of(d, "ok")["counts"]["진행"] == 1
+        slow = _team_of(d, "slow")
+        assert "ft-inbox.sh show 실패" in slow["error"], slow
+>       assert slow["error"].startswith("ft-inbox.sh show 실패(7초 상한") or "7초 상한" in slow["error"], slow
+E       AssertionError: {'error': "ft-inbox.sh show 실패(7초 초과 · 재시도 1회): Command '['bash', '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh000..._is_bounded_and0/inbox.sh', 'slow-m#1']' timed out after 7 seconds", 'inbox_fail': True, 'key': 'slow', 'label': '느린팀'}
+E       assert (False or '7초 상한' in "ft-inbox.sh show 실패(7초 초과 · 재시도 1회): Command '['bash', '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-1359/test_slow_inbox_is_bounded_and0/inbox.sh', 'slow-m#1']' timed out after 7 seconds")
+E        +  where False = <built-in method startswith of str object at 0x10b8047a0>('ft-inbox.sh show 실패(7초 상한')
+E        +    where <built-in method startswith of str object at 0x10b8047a0> = "ft-inbox.sh show 실패(7초 초과 · 재시도 1회): Command '['bash', '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-1359/test_slow_inbox_is_bounded_and0/inbox.sh', 'slow-m#1']' timed out after 7 seconds".startswith
+
+tests/scripts/test_r649_news_team_lines_isolate_error.py:165: AssertionError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_ft_board_teams.py::test_render_error_team_shows_unconfirmed_line_and_other_rows_unchanged
+FAILED tests/scripts/test_r649_news_team_lines_isolate_error.py::test_slow_inbox_is_bounded_and_only_that_team_errors
+2 failed, 134 passed in 142.35s (0:02:22)
+rc=1

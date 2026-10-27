@@ -1,0 +1,9 @@
+# r868 r3 — DA r2 반례 7 고침 뒤 이웃 시험
+## test_install_launchd_render.sh
+PASS 시험 시간 < 10분 (101s)
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+## test_plist_workdir_exist_r544.sh
+PASS 600/300 초 상한 0
+PASS 시험 시간 < 10분 (367s)
+ALL PASS

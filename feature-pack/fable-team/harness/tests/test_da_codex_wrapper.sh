@@ -74,8 +74,8 @@ grep -qx '판정: APPROVE' "$out1" && ok "ⓑ 판정 본문 보존" || bad "ⓑ 
 rc="$(run --cwd "$T/cwd" --prompt-file "$T/p.txt" --out-dir "$T/d")"
 out2="$(tail -1 "$T/stdout" | sed -n 's/^OUT \(.*\) rc=0$/\1/p')"
 [ -n "$out2" ] && [ "$out2" != "$out1" ] && ok "ⓑ 두 번째 실행 = 다른 이름" || bad "ⓑ 같은 이름/없음: $out2"
-[ "$(ls "$T/d" | wc -l | tr -d ' ')" = 2 ] && grep -qx '판정: APPROVE' "$out1" \
-  && ok "ⓑ 첫 파일 덮어쓰기 0(파일 2개)" || bad "ⓑ 파일 수 $(ls "$T/d" | wc -l)"
+[ "$(ls "$T/d" | grep -c '\.out$')" = 2 ] && grep -qx '판정: APPROVE' "$out1" \
+  && ok "ⓑ 첫 파일 덮어쓰기 0(파일 2개)" || bad "ⓑ 파일 수 $(ls "$T/d" | grep -c '\.out$')"
 
 # ⓒ 프롬프트 맨 앞 머리말 1줄 + 원문
 prompt="$(cat "$FAKE_LOG.prompt")"
@@ -174,14 +174,14 @@ has_arg "$HDR" && ok "HR-ⓔ 줄 시작 절(주석 달림) → 머리 있음" ||
 
 # HR-ⓕ 절 없어도 모델·effort·-C·stdin /dev/null·새 출력 파일명·끝줄 `OUT <경로> rc=<n>` 은 지금과 같음
 cfg_absent
-before_list="$(ls "$T/hr" 2>/dev/null | wc -l | tr -d ' ')"
+before_list="$(ls "$T/hr" 2>/dev/null | grep -c '\.out$')"
 rc="$(run --cwd "$T/cwd" --prompt-file "$T/p.txt" --out-dir "$T/hr" --model gpt-5.5 --effort medium)"
 hf="$(tail -1 "$T/stdout" | sed -n 's/^OUT \(.*\) rc=0$/\1/p')"
 [ "$rc" = 0 ] && has_arg 'model="gpt-5.5"' && has_arg 'model_reasoning_effort="medium"' \
   && has_arg '--skip-git-repo-check' && has_arg "$T/cwd" && grep -qx 'STDIN_BYTES=0' "$T/args.log" \
   && ok "HR-ⓕ 모델·effort·-C·--skip-git-repo-check·stdin 0 유지" || bad "HR-ⓕ 인자 어긋남 rc=$rc"
 case "$(basename "$hf")" in da-[0-9]*-[0-9]*-[0-9]*.out) ok "HR-ⓕ 출력 파일 새 이름 da-<시각>-<pid>.out";; *) bad "HR-ⓕ 파일명: $hf";; esac
-[ "$(ls "$T/hr" | wc -l | tr -d ' ')" = "$((before_list + 1))" ] && ok "HR-ⓕ 실행마다 새 파일(덮어쓰기 0)" || bad "HR-ⓕ 파일 수 $(ls "$T/hr" | wc -l)"
+[ "$(ls "$T/hr" | grep -c '\.out$')" = "$((before_list + 1))" ] && ok "HR-ⓕ 실행마다 새 파일(덮어쓰기 0 · r947 .meta 제외)" || bad "HR-ⓕ 파일 수 $(ls "$T/hr" | grep -c '\.out$')"
 
 # HR-ⓗ 실 ~/.codex 읽기·쓰기 0 (CODEX_HOME·HOME = 임시)
 case "$HOME" in "$T"/*) case "$CODEX_HOME" in "$T"/*) ok "HR-ⓗ HOME·CODEX_HOME 모두 임시";; *) bad "HR-ⓗ CODEX_HOME 실경로";; esac;; *) bad "HR-ⓗ HOME 실경로";; esac
