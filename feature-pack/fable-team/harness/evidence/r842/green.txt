@@ -81,7 +81,7 @@ PASS   └ kill·태그 해제 0
 PASS   └ 명부 그대로
 PASS   └ 닫힘 원장 행 0
 == ⓓ8 기존 Python 시험 4파일(팀 카드 꼴 아닌 index) → 기준판과 같은 통과 수
-PASS ⓓ8 Python 4파일 32 passed rc=0(기준판 32 passed)
+PASS ⓓ8 Python 4파일 29 passed 3 failed(기준판 origin/main 29 passed 3 failed — 같은 3건)
 == ⓔ 호출 워크트리(WT · 나노가 증거 줄을 쓴 진행/ 사본) · origin/main 도 진행/ → WT 사본 그대로
 PASS ⓔ 단계 = 진행
 PASS   └ 카드 = 호출 WT 사본(증거 검사 대상 불변)
@@ -107,7 +107,7 @@ PASS ⓖ ⓒ 를 옛 단계 후퇴로 → ⓒ FAIL
 PASS ⓖ 조회 실패를 «카드 없음» 으로 → ⓓ·ⓓ2·ⓓ5 FAIL
 Traceback (most recent call last):
   File "<stdin>", line 5, in <module>
-AssertionError: [823, 841]
+AssertionError: [1070, 1088]
 PASS ⓖ 빈 출력 rc0 을 «없음» 으로 → ⓓ5 FAIL
 PASS ⓖ «명부 없음 = ABSENT» → ⓓ3 FAIL
 PASS ⓖ «ABSENT 에도 IDX 우선 집기» → ⓔ' FAIL(DA⑥ r4)

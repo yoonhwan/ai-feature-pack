@@ -1,17 +1,28 @@
-# 날짜 2026-10-27 · 세트 = 이 커밋 · 방식 = tests/ 에서 test_nano_close_*.sh 순차 실행(1개씩 · 출력에서 '^PASS'/'^FAIL ' 줄 수를 센다 — 마지막 'FAILED n' 요약 줄은 세지 않는다)
+# 2026-10-27 병합 뒤 세트 = origin/main(d4ec9ef6 + r1023 1dfe255) 위 r842 · 방식 = tests/ 에서 test_nano_close_*.sh 순차 1개씩 · '^PASS'/'^FAIL ' 줄 수(마지막 FAILED 요약 줄 제외)
+# 기준판 = 같은 시험을 origin/main 나무(/tmp/r842-base-main, d4ec9ef6)에서 돈 값 — 이 카드의 계약은 «기준판과 FAIL 수 동일(또는 더 낫다)»
+#
+시험                                             병합판(r842)              기준판(origin/main)      
+test_nano_close_card_branch_r960.sh            rc=0  PASS=21   FAIL=0  9   s  rc=0  PASS=21   FAIL=0 s
+test_nano_close_card_stage_ref_r842.sh         rc=0  PASS=98   FAIL=0  66  s  rc=-  PASS=-    FAIL=- s
+test_nano_close_cwd_holders_skip_self_r680.sh  rc=1  PASS=5    FAIL=4  60  s  rc=1  PASS=5    FAIL=4 s
+test_nano_close_fail_closed.sh                 rc=0  PASS=48   FAIL=0  25  s  rc=0  PASS=48   FAIL=0 s
+test_nano_close_landed_pr_r1011.sh             rc=0  PASS=217  FAIL=0  73  s  rc=0  PASS=171  FAIL=0 s
+test_nano_close_named_wt.sh                    rc=0  PASS=63   FAIL=0  20  s  rc=0  PASS=63   FAIL=0 s
+test_nano_close_never_started.sh               rc=0  PASS=155  FAIL=0  65  s  rc=1  PASS=146  FAIL=9 s
+test_nano_close_pack_wt.sh                     rc=0  PASS=37   FAIL=0  16  s  rc=0  PASS=37   FAIL=0 s
+test_nano_close_rerun_early.sh                 rc=0  PASS=37   FAIL=0  15  s  rc=0  PASS=37   FAIL=0 s
+test_nano_close_rerun_named_equal.sh           rc=0  PASS=25   FAIL=0  7   s  rc=0  PASS=25   FAIL=0 s
+test_nano_close_rerun_wt_clean.sh              rc=0  PASS=32   FAIL=0  7   s  rc=0  PASS=32   FAIL=0 s
+test_nano_close_research_r888.sh               rc=0  PASS=103  FAIL=0  63  s  rc=0  PASS=101  FAIL=0 s
+test_nano_close_sha_base.sh                    rc=1  PASS=20   FAIL=1  8   s  rc=1  PASS=20   FAIL=1 s
+test_nano_close_std_wt_other_branch.sh         rc=0  PASS=27   FAIL=0  13  s  rc=0  PASS=27   FAIL=0 s
+test_nano_close_step_timing_r938.sh            rc=1  PASS=100  FAIL=16 188 s  rc=1  PASS=101  FAIL=15s
+test_nano_close_superseded_by.sh               rc=1  PASS=139  FAIL=1  85  s  rc=1  PASS=139  FAIL=1 s
+test_nano_close_suspended.sh                   rc=0  PASS=100  FAIL=0  34  s  rc=0  PASS=100  FAIL=0 s
+test_nano_close_worktree_list_pipe.sh          rc=0  PASS=18   FAIL=0  40  s  rc=0  PASS=18   FAIL=0 s
+test_nano_close_wt_deletion_only.sh            rc=0  PASS=23   FAIL=0  41  s  rc=0  PASS=23   FAIL=0 s
 
-test_nano_close_cwd_holders_skip_self_r680.sh rc=1 PASS=5 FAIL=4
-test_nano_close_fail_closed.sh rc=0 PASS=48 FAIL=0
-test_nano_close_named_wt.sh rc=0 PASS=63 FAIL=0
-test_nano_close_never_started.sh rc=0 PASS=155 FAIL=0
-test_nano_close_pack_wt.sh rc=0 PASS=37 FAIL=0
-test_nano_close_rerun_early.sh rc=0 PASS=37 FAIL=0
-test_nano_close_rerun_named_equal.sh rc=0 PASS=25 FAIL=0
-test_nano_close_rerun_wt_clean.sh rc=0 PASS=32 FAIL=0
-test_nano_close_research_r888.sh rc=0 PASS=103 FAIL=0
-test_nano_close_sha_base.sh rc=0 PASS=21 FAIL=0
-test_nano_close_std_wt_other_branch.sh rc=0 PASS=27 FAIL=0
-test_nano_close_superseded_by.sh rc=0 PASS=140 FAIL=0
-test_nano_close_suspended.sh rc=0 PASS=92 FAIL=0
-test_nano_close_worktree_list_pipe.sh rc=0 PASS=18 FAIL=0
-test_nano_close_wt_deletion_only.sh rc=0 PASS=23 FAIL=0
+# 기준판보다 나은 칸: never_started 146/9 → 155/0(픽스처가 lib 사본과 bare 원격을 갖춘다) · research_r888 101 → 103(r842 ⓓ2 +2)
+# 같은 칸: r680 4 · sha_base 1 · superseded_by 1 (기준판도 같은 실패) · 나머지 0
+# 시간 민감: step_timing_r938 은 초를 재는 시험 — 이 박스 부하에 따라 ±1칸(101/15 ↔ 100/16)
+# Python 4파일 = 29 passed 3 failed(origin/main 판도 같은 3건 · r842 ⓓ2 는 «기준판과 같은 통과 수 29 이상 · 실패 3 이하» 로 잰다)

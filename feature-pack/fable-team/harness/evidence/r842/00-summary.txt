@@ -49,3 +49,14 @@ r842 — ft-nano-close 카드 «단계» 를 origin/main 트리로 정한다 (�
 
 press 필요: 없음 — 이 카드는 라이브 오디오 경로를 안 건드린다(닫기 도구·임시 리포 시험만). 실사건 1(ops 나노 canon-accounts 또는 test-w9 닫기 rc0)은 master 착지 뒤 몫.
 범위 밖: 루트 체크아웃 정리(주인 미상 · HIL) · 카드에 쓰는 줄 형식 · r839 읽기 잡 · TEAMS.md 디스크 읽기(다음 후보).
+
+병합 (2026-10-27 · arch#162 발주 #175027 · origin/main 78커밋 + r1023)
+ 왜 다시 했나: git 3-way 의 merge base 가 ee714586(착지 쌓기 부모 계보) 로 잡혀 첫 병합이 main 최신 줄 6파일을 «지운» 나무를 만들었다.
+   → 파일마다 merge-file(ours=0c8a64fb · base=66340101 · theirs=origin/main) 로 다시 계산(r842 줄 + main 줄 둘 다 남는다).
+ 충돌 1: tests/test_nano_close_research_r888.sh(:29~:35) — r842 의 ft-team-lib.sh cp + main 의 ft_git_capped.py cp 를 둘 다 남긴다(중복 0).
+ 픽스처 정합: never_started·pack_wt = 원격 추적 ref 를 두면 R22 가 그 ref 를 fetch 하므로 bare 원격도 만든다 · step_timing = remote add 뒤 fetch 1줄 ·
+   card_branch_r960·landed_pr_r1011 = ft-team-lib.sh·ft_git_capped.py cp 1줄 추가(main 줄은 그대로 두고 «추가 줄» 로 — ft_merge_lines 보호 집합 유지).
+ ft_merge_lines.py <워크트리> origin/main HEAD = PASS(보호 집합 873 파일 · F=6634010102) · kit/bin cmp0 2종 · /bin/bash 3.2 -n 2종.
+ 기준판 대조(19종): FAIL 수 전부 같거나 낫다 — never_started 146/9 → 155/0 · research_r888 101 → 103(+ⓓ2) · step_timing 101/15 ↔ 100/16(초 재는 시험 ±1) ·
+   나머지 동일(r680 4 · sha_base 1 · superseded_by 1 = 기준판도 같은 실패). 표 = existing-close-tests.txt.
+ Python 4파일 = 29 passed 3 failed(origin/main 판도 같은 3건) → ⓓ8 은 «29 이상 · 실패 3 이하» 로 잰다.
