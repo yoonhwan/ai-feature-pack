@@ -81,12 +81,13 @@ for F in 1 2; do
   # ft-goal-check: v65 정본 4개 실재
   o="$(cd "$R" && bash "$SRC/ft-goal-check.sh" seat-x 2>&1)"; hasnt "$o" "정본 부재" "ⓐ$F ft-goal-check: v65 정본 4개를 칸 경로에서 찾았다"; hasnt "$o" "REJECT" "ⓐ$F ft-goal-check: REJECT 0 ← ${o:0:200}"
 
-  # ft-goal-tick: 프롬프트 파일(v65 칸) 게이트 통과 → target absent
+  # ft-goal-tick: 프롬프트 파일(v65 칸) 게이트 통과 → target absent · r994: 프롬프트 본문 = ref 만(디스크 0) — 그래서 ref 에 커밋해서 넣는다
   mkdir -p "$R/.fable-team/comm" "$T/tk$F"; printf '#!/bin/bash\nexit 0\n' > "$R/.fable-team/comm/mbox.sh"; printf '#!/bin/bash\nexit 0\n' > "$T/tk$F/check.sh"; chmod +x "$R/.fable-team/comm/mbox.sh" "$T/tk$F/check.sh"
   mkdir -p "$VT/20260912"; printf '```\n틱 <세션명>\n```\n' > "$VT/20260912/TICK-PROMPT-v65-unified.md"
+  GITC "$R" add -f "$VT/20260912/TICK-PROMPT-v65-unified.md" >/dev/null 2>&1; GITC "$R" update-ref refs/remotes/origin/main "$(GITC "$R" commit-tree "$(GITC "$R" write-tree)" -p HEAD -m tick-prompt)"; GITC "$R" reset -q -- "$VT/20260912/TICK-PROMPT-v65-unified.md"   # HEAD 는 그대로(커밋 추가 0) — ref 에만 프롬프트
   o="$(FT_GOAL_TICK_ROOT="$R" FT_GOAL_TICK_TARGET="r382b-없는-좌석#0" FT_GOAL_TICK_CHECK="$T/tk$F/check.sh" FT_GOAL_TICK_STREAK="$T/tk$F/streak" bash "$SRC/ft-goal-tick.sh" 2>&1)"
   has "$o" "target absent" "ⓐ$F ft-goal-tick: 프롬프트·mbox·check 게이트를 통과(칸 경로의 프롬프트)"
-  rm "$VT/20260912/TICK-PROMPT-v65-unified.md"
+  rm -f "$VT/20260912/TICK-PROMPT-v65-unified.md"; GITC "$R" update-ref refs/remotes/origin/main HEAD
   o="$(FT_GOAL_TICK_ROOT="$R" FT_GOAL_TICK_TARGET="r382b-없는-좌석#0" FT_GOAL_TICK_CHECK="$T/tk$F/check.sh" FT_GOAL_TICK_STREAK="$T/tk$F/streak" bash "$SRC/ft-goal-tick.sh" 2>&1)"
   has "$o" "ERROR v65 틱 프롬프트를 못 풀었다" "ⓐ$F ft-goal-tick 변이: 칸 경로·ref 둘 다 프롬프트가 없으면 멈춘다(r459 ERROR)"
 

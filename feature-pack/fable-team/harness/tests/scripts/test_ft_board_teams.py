@@ -84,8 +84,8 @@ def test_teams_one_line_per_team_working_vs_stopped_with_unknown(board) -> None:
     r = board.run("teams")
     assert r.returncode == 0, r.stderr
     assert r.stdout.splitlines() == [  # r850: 가운데 칸 = ft_team_state.judge 글자(진행 카드 1 + 30분 안 턴 = 진행)
-        "일함팀 | 진행 · 일하는 좌석 1/3 · 일함 a-n1#0 | 진행 0",
-        "정지팀 | 진행 · 1분 전 턴 | 진행 1(c-prog)",  # r4: 좌석 = 명부 현역 행(da 행도 좌석 · 시트 «현역 근거» 따로 판정 0)
+        "일함팀 · 진행 · 일하는 좌석 1/3 · 일함 a-n1#0 · 진행 0",
+        "정지팀 · 진행 · 1분 전 턴 · 진행 1(c-prog)",  # r4: 좌석 = 명부 현역 행(da 행도 좌석 · 시트 «현역 근거» 따로 판정 0)
     ]
 
 
@@ -95,7 +95,7 @@ def test_teams_team_option_limits_to_one_roster(board) -> None:
     _turn(board.root, "a-m#1", "WORKING", 1)
     _turn(board.root, "z-m#1", "WORKING", 1)
     r = board.run("teams", "--team", str(board.root / ".fable-team" / "seats-a.json"))
-    assert r.stdout.splitlines() == ["일함팀 | 진행 · 일하는 좌석 1/1 · 일함 a-m#1 | 진행 0"]
+    assert r.stdout.splitlines() == ["일함팀 · 진행 · 일하는 좌석 1/1 · 일함 a-m#1 · 진행 0"]
 
 
 def test_teams_no_waiting_conclusion_when_no_unreplied_mail(board) -> None:
@@ -105,7 +105,7 @@ def test_teams_no_waiting_conclusion_when_no_unreplied_mail(board) -> None:
     _turn(board.root, "b-m#1", "IDLE", 45)
     board.mail([{"seq": 1, "ts": ago(30), "to": "b-m#1", "from": "x#1", "body": "[x#1->b-m#1] 발주"}])
     line = board.run("teams").stdout.strip()
-    assert line == "정지팀 | 대기 45분 · 기다리는 것 = 추정: 기록(09:30 이후)상 발신 없음 | 진행 1(c-prog)"
+    assert line == "정지팀 · 대기 45분 · 기다리는 것 = 추정: 기록(09:30 이후)상 발신 없음 · 진행 1(c-prog)"
     assert "다음 발주 없음" not in line
 
 
@@ -116,7 +116,7 @@ def test_teams_codex_aborted_seat_counts_as_stopped(board) -> None:
     _turn(board.root, "d-m#1", "IDLE", 30)
     _turn(board.root, "d-da#1", "IDLE", 4, source="codex", aborted=True)
     r = board.run("teams")
-    assert r.stdout.startswith("코덱스팀 | 확인 불가(jsonl 없음 1석) | "), r.stdout  # r850 r4: 팀 줄 = 뉴스와 같은 판정(codex 좌석 = jsonl 없음 · 범위 밖)
+    assert r.stdout.startswith("코덱스팀 · 확인 불가(jsonl 없음 1석) · "), r.stdout  # r850 r4: 팀 줄 = 뉴스와 같은 판정(codex 좌석 = jsonl 없음 · 범위 밖)
 
 
 def test_stalled_lists_unknown_seat_regardless_of_min(board) -> None:
@@ -218,3 +218,55 @@ def test_collect_error_team_prints_error_line_on_stderr(board) -> None:
     r = board.run("collect")
     assert r.returncode == 0, r.stderr
     assert f"ERROR seats-bad.json: 카드 폴더 없음 — {board.root / 't' / 'nope'}" in r.stderr
+
+
+# ── r1024 — 팀 줄이 슬랙 뿌리 글 되읽기 가드(r1004)에 «표 줄» 로 세이지 않는다(칸 구분 « · ») ──
+def _mods():
+    """ft_board_teams(갈래 5) + root_readback_guard.check(판정기 그대로) — 시험 판정기는 가드의 실제 함수."""
+    import importlib.util
+    kit = BIN.parent / "kit" / "slack-mirror"
+    sys.path.insert(0, str(kit))
+    spec = importlib.util.spec_from_file_location("ft_board_teams_r1024", BIN / "ft_board_teams.py")
+    tb = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(tb)
+    import root_readback_guard as guard
+    return tb, guard
+
+
+def _branches() -> list[dict]:
+    """반례 집합 5갈래 — 확인 못 함(수집 오류) · 확인 불가(팀 상태 없음) · 일함 · 일함 없음 · 끝 «확인 불가 N»."""
+    return [
+        {"label": "오류팀", "error": "카드 폴더 없음 — /t/nope"},
+        {"label": "옛팀", "progress": {"카드X": 1}},
+        {"label": "일함팀", "progress": {}, "team_state": {"label": "진행 · 일하는 좌석 1/2", "working": ["a-n#0"], "unknown": 0}},
+        {"label": "정지팀", "progress": {"카드A": 1}, "team_state": {"label": "대기 5분 · 기다리는 것 = 회신 대기", "working": [], "unknown": 0}},
+        {"label": "빈팀", "progress": {}, "team_state": {"label": "쉼 · 열린 좌석 0", "working": [], "unknown": 3}},
+    ]
+
+
+def test_team_lines_have_no_table_rows_for_root_guard() -> None:
+    """C1 — 갈래 5 전부: 줄당 파이프 ≤1 · 뿌리 글(첫 줄 → 👥 → 팀 줄 → 트리 → 끝줄) check() == None."""
+    tb, guard = _mods()
+    lines = tb.team_lines({"teams": _branches()})
+    assert len(lines) == 5, lines
+    assert [ln.count("|") for ln in lines] == [0] * 5, lines
+    assert lines[0].startswith("오류팀 · 확인 못 함: "), lines[0]
+    assert lines[1] == "옛팀 · 확인 불가(팀 상태 없음) · 진행 1(카드X)", lines[1]
+    assert lines[2] == "일함팀 · 진행 · 일하는 좌석 1/2 · 일함 a-n#0 · 진행 0", lines[2]
+    assert lines[4].endswith("· 확인 불가 3"), lines[4]
+    root = "\n".join(["확인 중 0 · 소유자 미확인 0", "👥 팀별 지금", *lines, "  · 카드A — 착수", "❓ 오빠가 정할 것 (0건)"])
+    assert guard.check(root) is None, guard.check(root)
+
+
+def test_teams_stdout_passes_root_guard(board) -> None:
+    """C1 실 발행 경로 — ft-board.py teams 출력으로 만든 뿌리 글이 가드를 통과한다(«표 줄 14개» 회귀 재현 금지)."""
+    _, guard = _mods()
+    board.seats("a", {"_label": "일함팀", "_master": "a-m#1", "a-m#1": {"role": "master"}, "a-n#0": {"role": "nano"}}, ["a-m#1", "a-n#0"])
+    board.seats("bad", {"_label": "사라진팀", "_master": "bad-m#1", "_cards": "t/nope", "bad-m#1": {"role": "master"}}, ["bad-m#1"])
+    _turn(board.root, "a-n#0", "WORKING", 3)
+    r = board.run("teams")
+    assert r.returncode == 0, r.stderr
+    lines = r.stdout.splitlines()
+    assert lines and all(ln.count("|") == 0 for ln in lines), lines
+    root = "\n".join(["확인 중 0 · 소유자 미확인 0", "👥 팀별 지금", *lines, "  · 카드A — 착수", "❓ 오빠가 정할 것 (0건)"])
+    assert guard.check(root) is None, guard.check(root)

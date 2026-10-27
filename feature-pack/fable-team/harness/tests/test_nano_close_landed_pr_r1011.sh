@@ -4,11 +4,19 @@
 # 임시 git 리포 + 가짜 tmux·gh(PATH 앞)만 쓴다 — 실제 리포·seats·tmux·gh(네트워크)는 건드리지 않는다. GIT_* 환경 변수는 쓰지 않는다.
 # 축 ⓐ 통과 = LANDED-PR-OK · CLOSED-ABSENT <좌석> landed-pr=<N> · 원장 행 · 명부 삭제 · 브랜치 보존 · ⑤ INFO 건너뜀
 #    ⓑ PR head ≠ 카드 세트 → REJECT ⓒ OPEN · CLOSED(미병합) → REJECT ⓓ 카드 «- 착지:» 줄 없음 → REJECT(gh 호출 0)
-#    ⓔ gh rc≠0 → REJECT · gh 8초(상한 7초) → REJECT ⓕ 모드 충돌·빈 번호 → usage 2 · 인자 없으면 불변
+#    ⓔ gh rc≠0 → REJECT · gh 3초(상한 1초 시험값) → REJECT ⓕ 모드 충돌·빈 번호 → usage 2 · 인자 없으면 불변
 #    ⓖ 변이 «head 대조 끔» → ⓑ 가 닫힘(FAIL) ⓗ kit 짝 cmp0 · /bin/bash 3.2 · 600/300·GIT_* 0
 #    ⓘ 세트 줄 = «## 상태» 절 «안» 만 (절 밖 세트 줄이 head 와 같아도 REJECT · 상태 절 세트 = head 면 CLOSED · 상태 절에 세트 줄 0 = REJECT)
 #    ⓙ 명부 부재 + 원장 닫힘 행 + 대역 세션 + 없는 PR → gh 1회 · kill 0 · 원장 append 0 · REJECT (PR 검증이 조기 재실행보다 «먼저»)
 #    ⓚ 변이 2«절 경계 무시»·«재실행 경로 선행» → 각각 ⓘ·ⓙ 가 못 잡게 되는지(변이 FAIL)
+# ★r1019★ (카드 글자는 ⓕ~ⓙ 이지만 위 ⓕ·ⓖ·ⓘ·ⓙ·ⓚ 가 이미 쓰여 «r1019 ⓕ» 처럼 접두로 가른다)
+#    r1019 ⓕ head = 세트 + main 병합 1 → CLOSED · 꼬리 equiv=1 · r1019 ⓖ 병합 2 → CLOSED · equiv=2
+#    r1019 ⓗ head 첫 부모 ≠ 세트 · 세트 뒤 변경 커밋 포함 → 판정기 rc1 사유 그대로 REJECT
+#    r1019 ⓘ 판정기 rc3(origin/main 없음 = 판단 불가) → REJECT(조용한 통과 0) · r1019 ⓙ fetch 실패 → «판정 불가» REJECT
+#    r1019 변이 «EQUIV 호출 끔»→r1019 ⓕ FAIL · «rc3 를 통과로»→r1019 ⓘ FAIL (가드가 실제로 잡는가)
+# ★r1019 r2 (DA 1/2 HOLD 동작 2)★ ⓚ 판정기 mode=rebase(merges=0) rc0 → REJECT · ⓛ head ∈ origin/main(머지 커밋 PR) → REJECT · 판정기 호출 0
+#    변이 «mode 검사 끔» → ⓚ FAIL · «is-ancestor 검사 끔» → ⓛ FAIL · ③(REJECT 2줄 꼴) = 알려진 한계(안 고침)
+# ★r1023★ ⓜ 리포 선택 = 카드 세트 가지의 리포: ⓜ BYZ cwd + --wt 팩 → gh -R 팩 · 판정기 팩 ⓝ --wt 없음 · 대상 줄 전부 팩 → 같음 ⓞ 대상 줄 전부 BYZ → gh -R BYZ ⓟ 섞임 → REJECT 1줄 · gh 0 ⓠ origin 꼴 못 품 → «판정 불가» REJECT · gh 0 ⓡ gh -R 의 PR 없음(rc1) → 기존 gh 실패 REJECT · 변이 «-R 제거» → ⓜ FAIL · «섞임을 팩으로» → ⓟ FAIL
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
@@ -31,6 +39,7 @@ mkdir -p "$T/bin" "$T/fake"
 printf '#!/bin/sh\necho "reap $1 stopped=0 left=0 rc=0"\n' > "$T/bin/ft-seat-reap.sh"   # reap = 같은 bin 스텁(실기계 프로세스 0)
 cp "$SRC/ft-nano-close.sh" "$SRC/ft-nano-evidence-check.sh" "$SRC/ft-nano-cherry-gate.sh" "$SRC/ft-nano-superseded-check.sh" \
    "$SRC/ft-nano-suspended-check.sh" "$SRC/ft-wt-sweep.sh" "$T/bin/"
+cp "$SRC/ft-team-lib.sh" "$SRC/ft_git_capped.py" "$T/bin/"   # r842 픽스처: 실 설치 꼴 — 단계 판정 lib + 캡 git
 cp "$SRC/ft_teamset.py" "$T/bin/"
 cp "$SRC/ft-sheet-events.sh" "$SRC/ft_sheet_events.py" "$SRC/ft_sheet_confirm.py" "$SRC/ft_sheet_key.py" "$SRC/ft_board_env.py" "$SRC/ft_board_mail.py" "$T/bin/"
 export FT_SHEET_ROOT="$T/sheet-root"; mkdir -p "$FT_SHEET_ROOT/.fable-team/state"
@@ -43,12 +52,18 @@ case "$1" in
   set-option|kill-session) echo "$*" >> "$FAKE_LOG";;
 esac
 EOF
-# 가짜 gh — 네트워크 0 · 응답은 FAKE_GH_JSON · 실패는 FAKE_GH_RC · 늦음은 FAKE_GH_SLEEP. 호출은 FAKE_GH_LOG 에 남긴다.
+# 가짜 gh — 네트워크 0 · 응답은 -R <owner/repo> 의 FAKE_GH_DIR/<owner_repo>.json › 없으면 FAKE_GH_JSON(cwd 리포 몫) · 실패는 FAKE_GH_RC · 늦음은 FAKE_GH_SLEEP. 호출은 FAKE_GH_LOG 에 남긴다(r1023: -R 인자를 기록 = 리포 선택 축).
 cat > "$T/fake/gh" <<'EOF'
 #!/usr/bin/env bash
 echo "$*" >> "$FAKE_GH_LOG"
+slug=""; prev=""
+for a in "$@"; do [ "$prev" = "-R" ] && slug="$a"; prev="$a"; done
 [ "${FAKE_GH_SLEEP:-0}" = 0 ] || sleep "$FAKE_GH_SLEEP"
 [ "${FAKE_GH_RC:-0}" = 0 ] || { echo "gh: Not Found (HTTP 404)" >&2; exit "$FAKE_GH_RC"; }
+if [ -n "$slug" ] && [ -n "${FAKE_GH_DIR:-}" ]; then
+  f="$FAKE_GH_DIR/$(printf '%s' "$slug" | tr '/' '_').json"
+  [ -f "$f" ] && { cat "$f"; exit 0; }
+fi
 cat "$FAKE_GH_JSON"
 EOF
 chmod +x "$T/bin/"* "$T/fake/"*
@@ -57,6 +72,28 @@ REPO="$T/repo"; mkdir -p "$REPO"
 git -C "$REPO" init -q -b main && git -C "$REPO" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init
 mkdir -p "$REPO/.fable-team" "$REPO/design/planner/indices/진행" "$T/comm/bodies"
 echo seq > "$T/comm/bodies/1.txt"; echo res > "$T/result.md"
+# ★r1023★ 리포 식별자 = origin 설정값(owner/repo) — 전송은 url.<로컬경로>.insteadOf 로 로컬에 돌려 네트워크 0 (git remote get-url 은 insteadOf 를 펼치므로 코드는 설정값을 읽는다).
+BYZ_URL='https://github.com/lptest/byz.git'; PACK_URL='https://github.com/lptest/pack.git'
+git -C "$REPO" remote add origin "$BYZ_URL"; git -C "$REPO" config "url.$REPO.insteadOf" "$BYZ_URL"
+# 팩 리포("카드 세트 가지가 사는 리포") + 그 안의 하네스 워크트리 — r1023 리포 선택 축
+PACK="$T/pack"; mkdir -p "$PACK/.worktrees"
+git -C "$PACK" init -q -b main && git -C "$PACK" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init
+git -C "$PACK" remote add origin "$PACK_URL"; git -C "$PACK" config "url.$PACK.insteadOf" "$PACK_URL"
+PWT="$PACK/.worktrees/harn-r1"; git -C "$PACK" worktree add -q "$PWT" -b nano/harn-r1
+git -C "$PWT" config user.email t@t; git -C "$PWT" config user.name t
+mkdir -p "$PWT/scripts" && echo 'print(2)' > "$PWT/scripts/set.py"
+git -C "$PWT" add scripts/set.py && git -C "$PWT" commit -q -m '팩 세트(squash 로 착지한 세트)'
+PSET="$(git -C "$PWT" rev-parse HEAD)"
+printf 'p1\n' > "$PACK/packmain.txt"; git -C "$PACK" add packmain.txt
+git -C "$PACK" -c user.email=t@t -c user.name=t commit -q -m 'pack main 1'; PM1="$(git -C "$PACK" rev-parse HEAD)"
+git -C "$PACK" update-ref refs/remotes/origin/main "$PM1"
+lp_merge_pack() {  # <p1> <p2> → 깨끗한 병합 커밋(팩 리포)
+  local a="$1" b="$2" t
+  t="$(git -C "$PACK" merge-tree --write-tree "$a" "$b" 2>/dev/null | head -1)"
+  [ -n "$t" ] || { echo "lp_merge_pack: merge-tree 실패($a $b)" >&2; return 1; }
+  git -C "$PACK" -c user.email=t@t -c user.name=t commit-tree "$t" -p "$a" -p "$b"
+}
+PH1="$(lp_merge_pack "$PSET" "$PM1")"   # 팩 세트 + pack main 병합 1
 
 SEAT='byz-planner-nano-lp#0'; BR='nano/lp'; NW="$REPO/.worktrees/v65-lp"
 CARD_REL='design/planner/indices/진행/lp.md'; CARD="$REPO/$CARD_REL"
@@ -66,17 +103,31 @@ mkdir -p "$NW/scripts" && echo 'print(1)' > "$NW/scripts/landed.py"
 git -C "$NW" add scripts/landed.py && git -C "$NW" commit -q -m "work (squash 로 착지한 세트)"
 SHA0="$(git -C "$NW" rev-parse HEAD)"
 SHA1="$(git -C "$REPO" -c user.email=t@t -c user.name=t commit-tree HEAD^{tree} -p HEAD -m 'other')"   # PR head 가 아닌 «다른 커밋»
+# ★r1019★ 판정기(ft-approval-equiv.sh)를 «실제로» 부르려면 origin 과 main 이 필요하다 — origin = 이 임시 리포 자신(로컬 전송 · 네트워크 0) · main 2칸 전진.
+#   main 쪽 경로(main.txt)와 세트 쪽 경로(scripts/landed.py)를 겹치지 않게 둬 «깨끗한 병합» 이 성립한다.
+cp "$SRC/ft-approval-equiv.sh" "$SRC/ft_approval_equiv.py" "$T/bin/"
+git -C "$REPO" remote add origin "$REPO"
+printf 'm1\n' > "$REPO/main.txt"; git -C "$REPO" add main.txt
+git -C "$REPO" -c user.email=t@t -c user.name=t commit -q -m 'main 1'; M1="$(git -C "$REPO" rev-parse HEAD)"
+printf 'm2\n' >> "$REPO/main.txt"; git -C "$REPO" add main.txt
+git -C "$REPO" -c user.email=t@t -c user.name=t commit -q -m 'main 2'; M2="$(git -C "$REPO" rev-parse HEAD)"
 LEDGER="$T/ledger.md"
 
-run() { ( cd "$REPO" && env -i HOME="$HOME" FT_SHEET_ROOT="$FT_SHEET_ROOT" PATH="$T/fake:$PATH" \
-  FAKE_PANES="$T/panes" FAKE_CWD="$T/cwd" FAKE_LOG="$T/tlog" FAKE_GH_LOG="$T/ghlog" \
-  FAKE_GH_JSON="${FAKE_GH_JSON:-$T/gh.json}" FAKE_GH_RC="${FAKE_GH_RC:-0}" FAKE_GH_SLEEP="${FAKE_GH_SLEEP:-0}" "$@" 2>&1 ); }
+run() { ( cd "$REPO" && env -i HOME="$HOME" FT_SHEET_ROOT="$FT_SHEET_ROOT" PATH="$T/fake:$PATH" FT_PACK_ROOT="$PACK" \
+  FAKE_PANES="$T/panes" FAKE_CWD="$T/cwd" FAKE_LOG="$T/tlog" FAKE_GH_LOG="$T/ghlog" FAKE_GH_DIR="${FAKE_GH_DIR:-$T/ghdir}" \
+  FAKE_GH_JSON="${FAKE_GH_JSON:-$T/gh.json}" FAKE_GH_RC="${FAKE_GH_RC:-0}" FAKE_GH_SLEEP="${FAKE_GH_SLEEP:-0}" \
+  FT_NANO_LANDED_PR_CAP_S="${FT_NANO_LANDED_PR_CAP_S:-}" "$@" 2>&1 ); }
 setup() {  # 명부·pane·카드·나노 HEAD 를 «정상(세션 없음 · 미커밋 0 · 착지 끝)» 으로 리셋
   git -C "$NW" reset -q --hard "$SHA0"; git -C "$NW" clean -qfd
   printf '{"%s":{"role":"nano","index":"%s"}}\n' "$SEAT" "$CARD_REL" > "$REPO/.fable-team/seats-planner.json"
   : > "$T/panes"; printf '%s' "$NW" > "$T/cwd"; : > "$T/tlog"; : > "$T/ghlog"; : > "$LEDGER"; rm -rf "$T/wtclean"; unset FAKE_GH_RC FAKE_GH_SLEEP   # ⓔ 가 건 값이 다음 축으로 새지 않게
   rm -f "$NW/.worktree-info.json"
-  printf '# 인덱스: lp\n## 상태\n- 2026-10-27 진행\n- 세트: %s · 시험: bash t.sh (12 passed) rc=0 · 이슈: 0\n\n## 정본\n- 착지 끝 좌석은 PR 이 증거\n- 착지: PR #363 merged · squash\n' "$SHA0" > "$CARD"
+  rm -rf "$T/ghdir"; mkdir -p "$T/ghdir"   # r1023: slug 별 gh 응답은 그 칸이 만든다 — 남으면 다음 칸이 남의 응답을 읽는다
+  while read -r _ik _iv; do git -C "$REPO" config --unset-all "$_ik" 2>/dev/null; done < <(git -C "$REPO" config --get-regexp '^url\..*\.insteadof$' 2>/dev/null)   # r1023: 앞 칸이 건 insteadOf 전부 되돌린다(두 개가 같은 url 을 가리키면 git 이 모호로 실패한다)
+  git -C "$REPO" config "url.$REPO.insteadOf" "$BYZ_URL"   # 전송 = 로컬 · 식별자 = origin 설정값
+  git -C "$REPO" remote set-url origin "$BYZ_URL" 2>/dev/null || git -C "$REPO" remote add origin "$BYZ_URL"
+  git -C "$REPO" update-ref refs/remotes/origin/main "$M2"
+  printf '# 인덱스: lp\n## 상태\n- 2026-10-27 진행\n- 세트: %s · 시험: bash t.sh (12 passed) rc=0 · 이슈: 0\n- 대상: %s/scripts/landed.py(r1011 시험)\n\n## 정본\n- 착지 끝 좌석은 PR 이 증거\n- 착지: PR #363 merged · squash\n' "$SHA0" "$REPO" > "$CARD"
   # gh 응답 기본값 = MERGED ∧ head == 카드 세트
   printf '{"state":"MERGED","mergeCommit":{"oid":"%s"},"headRefOid":"%s"}\n' "$SHA1" "$SHA0" > "$T/gh.json"
 }
@@ -93,7 +144,7 @@ echo "== ⓐ MERGED ∧ head==세트 ∧ «- 착지:» 줄 → CLOSED-ABSENT lan
 setup; out="$(close --landed-pr 363)"; rc=$?
 [ "$rc" -eq 0 ] && ok "ⓐ rc=0" || bad "ⓐ rc=$rc ← ${out:0:800}"
 has "$out" "LANDED-PR-OK #363" "  └ ⑥ 자리 = LANDED-PR-OK"
-has "$out" "merged=${SHA1:0:9} state=MERGED head=${SHA0:0:9} == 카드 세트" "  └ 값 3개(mergeCommit·state·head==세트)를 화면에"
+has "$out" "merged=${SHA1:0:9} state=MERGED head=${SHA0:0:9} repo=lptest/byz == 카드 세트" "  └ 값 3개(mergeCommit·state·head==세트)+repo 를 화면에"
 has "$out" "INFO ⑤ cherry 건너뜀 — 착지 끝 좌석(PR #363)" "  └ ⑤ cherry = 가지 비교 0(INFO)"
 hasnt "$out" "OK 증거 줄" "  └ ⑥ 증거 줄 검사 면제"
 has "$out" "CLOSED-ABSENT $SEAT landed-pr=363" "  └ CLOSED-ABSENT <좌석> landed-pr=<N>"
@@ -101,7 +152,7 @@ has "$(cat "$LEDGER")" "landed-pr=363" "  └ 원장 닫힘 행에 landed-pr=<N>
 has "$(cat "$LEDGER")" "닫힘(ft-nano-close)" "  └ 기존 원장 행 꼴 그대로"
 jq -e --arg s "$SEAT" 'has($s) | not' "$REPO/.fable-team/seats-planner.json" >/dev/null && ok "  └ 명부 CLOSED(기존 경로)" || bad "명부에 좌석 남음"
 git -C "$REPO" rev-parse --verify -q "refs/heads/$BR" >/dev/null && ok "  └ 브랜치 실재(삭제 0)" || bad "브랜치 삭제됨"
-[ "$(cat "$T/ghlog")" = "pr view 363 --json state,mergeCommit,headRefOid" ] && ok "  └ gh 호출 1회 · 인자 그대로" || bad "gh 호출: $(cat "$T/ghlog")"
+[ "$(cat "$T/ghlog")" = "pr view 363 -R lptest/byz --json state,mergeCommit,headRefOid" ] && ok "  └ gh 호출 1회 · 리포 지정(-R lptest/byz) 그대로" || bad "gh 호출: $(cat "$T/ghlog")"
 [ -d "$NW" ] && ok "  └ 좌석 워크트리 그대로(정리 계획만)" || bad "좌석 워크트리 사라짐"
 
 echo "== ⓑ PR head ≠ 카드 세트 → REJECT · 닫기 0"
@@ -120,23 +171,24 @@ for st in OPEN CLOSED; do
 done
 
 echo "== ⓓ 카드에 «- 착지:» 줄 없음 → REJECT · gh 호출 0"
-setup; printf '# 인덱스: lp\n## 상태\n- 세트: %s · 시험: bash t.sh (12 passed) rc=0 · 이슈: 0\n' "$SHA0" > "$CARD"
+setup; printf '# 인덱스: lp\n## 상태\n- 세트: %s · 시험: bash t.sh (12 passed) rc=0 · 이슈: 0\n- 대상: %s/scripts/landed.py\n' "$SHA0" "$REPO" > "$CARD"
 out="$(close --landed-pr 363)"; rc=$?
 [ "$rc" -eq 1 ] && has "$out" "«- 착지:» 줄이 없다" "ⓓ 착지 줄 없음 → REJECT" || bad "ⓓ rc=$rc ← ${out:0:600}"
 [ ! -s "$T/ghlog" ] || [ "$(grep -c . <<< "$(cat "$T/ghlog")")" = 1 ] && ok "  └ PR 조회는 카드 대조보다 먼저 1회(순서 = PR 먼저)" || bad "  └ PR 조회 $(grep -c . <<< "$(cat "$T/ghlog")")회"
 untouched "ⓓ"
-setup; printf '# 인덱스: lp\n## 상태\n- 2026-10-27 진행\n- 착지: PR #363\n' > "$CARD"   # 세트 줄 없음
+setup; printf '# 인덱스: lp\n## 상태\n- 2026-10-27 진행\n- 대상: %s/scripts/landed.py\n- 착지: PR #363\n' "$REPO" > "$CARD"   # 세트 줄 없음
 out="$(close --landed-pr 363)"; rc=$?
 [ "$rc" -eq 1 ] && has "$out" "«## 상태» 절에 «세트:» 40-hex 줄이 없다" "ⓓ 세트 줄 없음 → REJECT" || bad "ⓓ 세트 rc=$rc ← ${out:0:600}"
 untouched "ⓓ 세트"
 
-echo "== ⓔ gh 실패(rc≠0) → REJECT · gh 8초(상한 7초) → REJECT"
+echo "== ⓔ gh 실패(rc≠0) → REJECT · gh 3초(상한 1초 시험값) → REJECT"
 setup; FAKE_GH_RC=1 out="$(close --landed-pr 363)"; rc=$?
 [ "$rc" -eq 1 ] && has "$out" "gh pr view 363 실패(rc=1" "ⓔ gh rc≠0 → REJECT" || bad "ⓔ rc=$rc ← ${out:0:600}"
 untouched "ⓔ rc≠0"
-setup; _t0="$(date +%s)"; FAKE_GH_SLEEP=8 out="$(close --landed-pr 363)"; rc=$?; _el=$(( $(date +%s) - _t0 ))
-[ "$rc" -eq 1 ] && has "$out" "gh 시간 초과(7초 상한" "ⓔ gh 8초 → REJECT(상한 7초)" || bad "ⓔ 느린 gh rc=$rc ← ${out:0:600}"
-[ "$_el" -le 30 ] && ok "  └ 상한이 실제로 끊었다(경과 ${_el}s)" || bad "  └ 경과 ${_el}s — 상한이 안 걸렸다"
+# 하드 룰 22(시험 1개 70초): 상한 「걸림」 만 보면 되므로 상한을 1초로 좁혀 잰다(FT_NANO_LANDED_PR_CAP_S = 시험 전용 · gh 는 3초 sleep)
+setup; _t0="$(date +%s)"; FAKE_GH_SLEEP=3 FT_NANO_LANDED_PR_CAP_S=1 out="$(close --landed-pr 363)"; rc=$?; _el=$(( $(date +%s) - _t0 ))
+[ "$rc" -eq 1 ] && has "$out" "gh 시간 초과(1초 상한" "ⓔ gh 3초 · 상한 1초 → REJECT" || bad "ⓔ 느린 gh rc=$rc ← ${out:0:600}"
+[ "$_el" -le 20 ] && ok "  └ 상한이 실제로 끊었다(경과 ${_el}s)" || bad "  └ 경과 ${_el}s — 상한이 안 걸렸다"
 untouched "ⓔ 8초"
 
 echo "== ⓕ 모드 충돌 · 빈 번호 → usage 2 · 인자 없으면 불변"
@@ -168,14 +220,14 @@ out="$(CLOSE_BIN="$T/mutbin/ft-nano-close.sh" close --landed-pr 363)"; rc=$?
 [ "$rc" -eq 0 ] && ok "ⓖ 변이(대조 끔) → head 가 달라도 닫힘 = ⓑ 가 잡는다(변이 FAIL)" || bad "ⓖ 변이 rc=$rc — 변이가 안 먹었다(ⓑ 가 다른 이유로 막힘): $(printf '%s' "$out" | head -3)"
 
 echo "== ⓘ 세트 줄은 «## 상태» 절 안의 마지막 줄만 (DA⑥ r2 HOLD ①)"
-setup; printf '# 인덱스: lp\n## 상태\n- 세트: %s · 시험: bash t.sh (12 passed) rc=0 · 이슈: 0\n\n## 참고\n- 세트: %s · 시험: bash t.sh rc=0 · 이슈: 0\n- 착지: PR #363\n' "$SHA1" "$SHA0" > "$CARD"
+setup; printf '# 인덱스: lp\n## 상태\n- 세트: %s · 시험: bash t.sh (12 passed) rc=0 · 이슈: 0\n\n## 참고\n- 세트: %s · 시험: bash t.sh rc=0 · 이슈: 0\n- 대상: %s/scripts/landed.py\n- 착지: PR #363\n' "$SHA1" "$SHA0" "$REPO" > "$CARD"
 out="$(close --landed-pr 363)"; rc=$?
 [ "$rc" -eq 1 ] && has "$out" "≠ 카드 세트" "ⓘ 상태 절 세트(≠head) · 절 밖 세트(=head) → REJECT" || bad "ⓘ rc=$rc ← ${out:0:600}"
 untouched "ⓘ 절 밖 세트 무시"
-setup; printf '# 인덱스: lp\n## 상태\n- 세트: %s · 시험: bash t.sh (12 passed) rc=0 · 이슈: 0\n\n## 참고\n- 세트: %s · 시험: bash t.sh rc=0 · 이슈: 0\n- 착지: PR #363\n' "$SHA0" "$SHA1" > "$CARD"
+setup; printf '# 인덱스: lp\n## 상태\n- 세트: %s · 시험: bash t.sh (12 passed) rc=0 · 이슈: 0\n\n## 참고\n- 세트: %s · 시험: bash t.sh rc=0 · 이슈: 0\n- 대상: %s/scripts/landed.py\n- 착지: PR #363\n' "$SHA0" "$SHA1" "$REPO" > "$CARD"
 out="$(close --landed-pr 363)"; rc=$?
 [ "$rc" -eq 0 ] && has "$out" "CLOSED-ABSENT $SEAT landed-pr=363" "ⓘ 상태 절 세트 = head(뒤 절은 다른 sha) → CLOSED" || bad "ⓘ rc=$rc ← ${out:0:600}"
-setup; printf '# 인덱스: lp\n## 상태\n- 2026-10-27 진행\n- 착지: PR #363\n\n## 참고\n- 세트: %s · 시험: bash t.sh rc=0 · 이슈: 0\n' "$SHA0" > "$CARD"
+setup; printf '# 인덱스: lp\n## 상태\n- 2026-10-27 진행\n- 대상: %s/scripts/landed.py\n- 착지: PR #363\n\n## 참고\n- 세트: %s · 시험: bash t.sh rc=0 · 이슈: 0\n' "$REPO" "$SHA0" > "$CARD"
 out="$(close --landed-pr 363)"; rc=$?
 [ "$rc" -eq 1 ] && has "$out" "«## 상태» 절에 «세트:» 40-hex 줄이 없다" "ⓘ 상태 절에 세트 줄 0(절 밖에만) → REJECT" || bad "ⓘ 세트 rc=$rc ← ${out:0:600}"
 untouched "ⓘ 상태 절 세트 0"
@@ -185,10 +237,10 @@ rerun_setup() {  # ⓙ 명부 부재 + 원장 닫힘 행 + 대역 세션 살아 
   printf -- '- **[2026-10-27 10:00 KST] `%s` 닫힘(ft-nano-close)**: ①결과 `x` ②회수 seq 1 ③세션 없음(백필). kill=1 · wt=planned\n' "$SEAT" > "$LEDGER"
   printf '%s|%%1\n' "$SEAT" > "$T/panes"; : > "$T/tlog"
 }
-echo "== ⓙ 명부 부재 · 원장 닫힘 행 · 대역 세션 + 없는 PR → gh 1회 · kill 0 · REJECT (DA⑥ r2 HOLD ②)"
+echo "== ⓙ 명부 부재 · 원장 닫힘 행 + 없는 PR → gh 0회 · kill 0 · REJECT (DA⑥ r2 HOLD ② · r1023 r2 동작①: 리포를 못 정하면 gh 0)"
 rerun_setup; FAKE_GH_RC=1 out="$(close --landed-pr 999999)"; rc=$?
-[ "$rc" -eq 1 ] && has "$out" "gh pr view 999999 실패" "ⓙ 없는 PR → REJECT" || bad "ⓙ rc=$rc ← ${out:0:600}"
-[ "$(grep -c . <<< "$(cat "$T/ghlog")")" = 1 ] && ok "  └ gh 호출 1회" || bad "  └ gh 호출: $(cat "$T/ghlog")"
+[ "$rc" -eq 1 ] && has "$out" "명부에 좌석 행이 없어 카드 index 를 알 수 없다" "ⓙ 명부 부재 → REJECT(사유 줄 그대로)" || bad "ⓙ rc=$rc ← ${out:0:600}"
+[ ! -s "$T/ghlog" ] && ok "  └ gh 호출 0(카드 없음 = 리포 못 정함)" || bad "  └ gh 호출: $(cat "$T/ghlog")"
 [ ! -s "$T/tlog" ] && ok "  └ kill·태그 해제 0(조기 재실행보다 먼저 막힘)" || bad "  └ tmux 변경: $(cat "$T/tlog")"
 [ "$(grep -c '닫힘(ft-nano-close)' "$LEDGER")" = 1 ] && ok "  └ 원장 append 0" || bad "  └ 원장 행 $(grep -c '닫힘(ft-nano-close)' "$LEDGER")개"
 rerun_setup; out="$(close --landed-pr 363)"; rc=$?   # PR 은 MERGED 인데 명부에 행이 없다
@@ -210,14 +262,219 @@ PY
 }
 echo "== ⓚ 변이 «절 경계 무시» → ⓘ(절 밖 세트 무시) 가 닫혀 버린다"
 mutant 'inb && /세트:/{l=$0}' '/세트:/{l=$0}'
-setup; printf '# 인덱스: lp\n## 상태\n- 세트: %s · 시험: bash t.sh (12 passed) rc=0 · 이슈: 0\n\n## 참고\n- 세트: %s · 시험: bash t.sh rc=0 · 이슈: 0\n- 착지: PR #363\n' "$SHA1" "$SHA0" > "$CARD"
+setup; printf '# 인덱스: lp\n## 상태\n- 세트: %s · 시험: bash t.sh (12 passed) rc=0 · 이슈: 0\n\n## 참고\n- 세트: %s · 시험: bash t.sh rc=0 · 이슈: 0\n- 대상: %s/scripts/landed.py\n- 착지: PR #363\n' "$SHA1" "$SHA0" "$REPO" > "$CARD"
 out="$(CLOSE_BIN="$T/mutbin/ft-nano-close.sh" close --landed-pr 363)"; rc=$?
 [ "$rc" -eq 0 ] && ok "ⓚ 변이(절 경계 무시) → 절 밖 세트로 닫힘 = ⓘ 가 잡는다(변이 FAIL)" || bad "ⓚ 변이 rc=$rc — 변이가 안 먹었다: $(printf '%s' "$out" | head -2)"
-echo "== ⓚ 변이 «재실행 경로 선행» → ⓙ(PR 검증 먼저) 가 kill 로 넘어간다"
-mutant 'if [ -n "$LANDED_PR" ]; then _lp_fetch_pr || { echo "REJECT $SEAT"; echo "  - $_lp_pr_err"; exit 1; }; fi' ':' \
-  '[ -z "$LANDED_PR" ] || { echo "REJECT $SEAT"; echo "  - ⑥--landed-pr: 명부에 좌석 행이 없어 카드 index 를 알 수 없다 — «세트»·«- 착지:» 대조 불가(닫기 0 · kill 0 · 원장 append 0) · 명부 행을 복구하거나 카드 경로를 확인해라"; exit 1; }' ':'
+echo "== ⓚ 변이 «재실행 경로 선행» → ⓙ(명부 부재 REJECT 먼저) 가 kill 로 넘어간다"
+mutant '  [ -z "$LANDED_PR" ] || { echo "REJECT $SEAT"; echo "  - ⑥--landed-pr: 명부에 좌석 행이 없어 카드 index 를 알 수 없다 — «세트»·«- 착지:» 대조 불가(닫기 0 · kill 0 · 원장 append 0) · 명부 행을 복구하거나 카드 경로를 확인해라"; exit 1; }' '  :'
 rerun_setup; FAKE_GH_RC=1 out="$(CLOSE_BIN="$T/mutbin/ft-nano-close.sh" close --landed-pr 999999)"; rc=$?
 { [ "$rc" -eq 0 ] || [ -s "$T/tlog" ]; } && ok "ⓚ 변이(검증 선행 제거) → kill 로 넘어감 = ⓙ 가 잡는다(변이 FAIL)" || bad "ⓚ 변이 rc=$rc — 변이가 안 먹었다: $(printf '%s' "$out" | head -2)"
+
+echo "== r1019 ⓕ head = 세트 + main 병합 1 → CLOSED · 꼬리 equiv=1 (판정기 EQUIV)"
+lp_merge() {  # lp_merge <p1> <p2> — «깨끗한 병합» 커밋(트리 = merge-tree · 부모 순서 = 인자 순서)
+  local a="$1" b="$2" t
+  t="$(git -C "$REPO" merge-tree --write-tree "$a" "$b" 2>/dev/null | head -1)"
+  [ -n "$t" ] || { echo "lp_merge: merge-tree 실패($a $b)" >&2; return 1; }
+  git -C "$REPO" -c user.email=t@t -c user.name=t commit-tree "$t" -p "$a" -p "$b"
+}
+H1="$(lp_merge "$SHA0" "$M1")"
+[ -n "$H1" ] && ok "  └ 병합 커밋 1 준비(head=${H1:0:9} = 세트 + main 1)" || bad "  └ 병합 커밋 1 못 만듦"
+setup; printf '{"state":"MERGED","mergeCommit":{"oid":"%s"},"headRefOid":"%s"}\n' "$M2" "$H1" > "$T/gh.json"
+out="$(close --landed-pr 363)"; rc=$?
+[ "$rc" -eq 0 ] && ok "r1019 ⓕ rc=0(세트 + main 병합뿐 → 닫힘)" || bad "r1019 ⓕ rc=$rc ← ${out:0:800}"
+has "$out" "LANDED-PR-OK #363" "  └ ⑥ 자리 = LANDED-PR-OK"
+has "$out" "equiv=1" "  └ 출력 꼬리에 equiv=1"
+has "$out" "CLOSED-ABSENT $SEAT landed-pr=363 equiv=1" "  └ CLOSED-ABSENT … landed-pr=363 equiv=1"
+has "$(cat "$LEDGER")" "landed-pr=363 equiv=1" "  └ 원장 닫힘 행에 equiv=1"
+hasnt "$out" "REJECT" "  └ REJECT 0"
+
+echo "== r1019 ⓖ 병합 2 → CLOSED · equiv=2"
+H2a="$(lp_merge "$SHA0" "$M1")"; H2="$(lp_merge "$H2a" "$M2")"
+[ -n "$H2" ] && ok "  └ 병합 커밋 2 준비(head=${H2:0:9})" || bad "  └ 병합 커밋 2 못 만듦"
+setup; printf '{"state":"MERGED","mergeCommit":{"oid":"%s"},"headRefOid":"%s"}\n' "$H2" "$H2" > "$T/gh.json"
+out="$(close --landed-pr 363)"; rc=$?
+[ "$rc" -eq 0 ] && has "$out" "equiv=2" "r1019 ⓖ 병합 2 → CLOSED · equiv=2" || bad "r1019 ⓖ rc=$rc ← ${out:0:800}"
+has "$(cat "$LEDGER")" "equiv=2" "  └ 원장 행 equiv=2"
+
+echo "== r1019 ⓗ 판정기 rc1(NOT-EQUIV) → 사유 그대로 REJECT · 닫기 0"
+HN="$(lp_merge "$M2" "$SHA0")"   # 첫 부모 = main(승인 줄기 아님)
+setup; printf '{"state":"MERGED","mergeCommit":{"oid":"%s"},"headRefOid":"%s"}\n' "$M2" "$HN" > "$T/gh.json"
+out="$(close --landed-pr 363)"; rc=$?
+[ "$rc" -eq 1 ] && has "$out" "≠ 카드 세트" "r1019 ⓗ head 첫 부모 ≠ 세트 → REJECT" || bad "r1019 ⓗ rc=$rc ← ${out:0:600}"
+has "$out" "NOT-EQUIV" "  └ 사유 = 판정기 첫 줄(NOT-EQUIV)"
+untouched "r1019 ⓗ 첫 부모"
+HC="$(git -C "$REPO" -c user.email=t@t -c user.name=t commit-tree "$(git -C "$REPO" merge-tree --write-tree "$SHA0" "$M1" 2>/dev/null | head -1)" -p "$SHA0" -m 'set 뒤 변경')"
+HD="$(lp_merge "$HC" "$M1")"   # 세트 뒤 일반 커밋 1개를 품은 병합
+setup; printf '{"state":"MERGED","mergeCommit":{"oid":"%s"},"headRefOid":"%s"}\n' "$M1" "$HD" > "$T/gh.json"
+out="$(close --landed-pr 363)"; rc=$?
+[ "$rc" -eq 1 ] && has "$out" "NOT-EQUIV" "r1019 ⓗ 세트 뒤 변경 커밋 포함 → REJECT" || bad "r1019 ⓗ 변경 rc=$rc ← ${out:0:600}"
+untouched "r1019 ⓗ 변경"
+
+echo "== r1019 ⓘ 판정기 rc3(판단 불가) → REJECT · 조용한 통과 0"
+stub_equiv() {  # stub_equiv <bin폴더> — 판정기 rc3 스텁(객체 없음 = «못 판단» · #0 RULE 대조)
+  printf '#!/usr/bin/env bash\necho "ERROR 승인 sha ${1:0:10} 객체가 이 저장소에 없음(네트워크 0 — 대조 불가·재승인)"\nexit 3\n' > "$1/ft-approval-equiv.sh"
+  chmod +x "$1/ft-approval-equiv.sh"
+}
+rm -rf "$T/errbin"; cp -R "$T/bin" "$T/errbin"; stub_equiv "$T/errbin"
+setup; printf '{"state":"MERGED","mergeCommit":{"oid":"%s"},"headRefOid":"%s"}\n' "$M2" "$H1" > "$T/gh.json"
+out="$(CLOSE_BIN="$T/errbin/ft-nano-close.sh" close --landed-pr 363)"; rc=$?
+[ "$rc" -eq 1 ] && has "$out" "rc=3" "r1019 ⓘ 판정기 rc3 → REJECT" || bad "r1019 ⓘ rc=$rc ← ${out:0:600}"
+hasnt "$out" "CLOSED" "  └ CLOSED 0"
+untouched "r1019 ⓘ rc3"
+
+echo "== r1019 ⓙ fetch 실패 → «판정 불가» REJECT (하드 룰 12·20)"
+setup; git -C "$REPO" config --unset-all "url.$REPO.insteadOf"; git -C "$REPO" config "url.$T/없는-리모트.insteadOf" "$BYZ_URL"; printf '{"state":"MERGED","mergeCommit":{"oid":"%s"},"headRefOid":"%s"}\n' "$M2" "$H1" > "$T/gh.json"
+_t0="$(date +%s)"; out="$(close --landed-pr 363)"; rc=$?; _el=$(( $(date +%s) - _t0 ))
+[ "$rc" -eq 1 ] && has "$out" "판정 불가로 닫지 않는다" "r1019 ⓙ fetch 실패 → «판정 불가» REJECT" || bad "r1019 ⓙ rc=$rc ← ${out:0:600}"
+has "$out" "fetch origin 실패" "  └ 사유 = fetch 실패 1줄"
+[ "$_el" -le 30 ] && ok "  └ 7초 상한 2회 안에 끝났다(경과 ${_el}s)" || bad "  └ 경과 ${_el}s"
+untouched "r1019 ⓙ fetch"
+
+echo "== r1019 변이 «EQUIV 호출 끔(옛 == 만)» → r1019 ⓕ 가 잡는다(변이 FAIL)"
+mutant 'if _lp_equiv_gate; then' 'if false; then'
+setup; printf '{"state":"MERGED","mergeCommit":{"oid":"%s"},"headRefOid":"%s"}\n' "$M2" "$H1" > "$T/gh.json"
+out="$(CLOSE_BIN="$T/mutbin/ft-nano-close.sh" close --landed-pr 363)"; rc=$?
+[ "$rc" -eq 1 ] && ok "r1019 변이(호출 끔) → 병합뿐 head 가 REJECT = r1019 ⓕ 가 잡는다(변이 FAIL)" || bad "r1019 변이 rc=$rc — 변이가 안 먹었다: $(printf '%s' "$out" | head -3)"
+
+echo "== r1019 변이 «rc3 를 통과로» → r1019 ⓘ 가 잡는다(변이 FAIL)"
+mutant 'if [ "$rc" -eq 0 ]; then' 'if [ "$rc" -eq 0 ] || [ "$rc" -eq 3 ]; then' \
+  'if [ "$_lp_equiv_mode" = merge ] && [ "$_lp_equiv_merges" -ge 1 ]; then' 'if true; then'
+stub_equiv "$T/mutbin"
+setup; printf '{"state":"MERGED","mergeCommit":{"oid":"%s"},"headRefOid":"%s"}\n' "$M2" "$H1" > "$T/gh.json"
+out="$(CLOSE_BIN="$T/mutbin/ft-nano-close.sh" close --landed-pr 363)"; rc=$?
+[ "$rc" -eq 0 ] && ok "r1019 변이(rc3 통과) → 판단 불가인데 닫힘 = r1019 ⓘ 가 잡는다(변이 FAIL)" || bad "r1019 변이 rc=$rc — 변이가 안 먹었다: $(printf '%s' "$out" | head -3)"
+
+echo "== r1019 r2 ⓚ 판정기 mode=rebase(merges=0) rc0 → REJECT (세트 위 main 병합만 통과)"
+eqstub() {  # eqstub <bin폴더> <mode> <merges> — 판정기 스텁(호출은 그 폴더의 equiv.log 에 1줄씩)
+  printf '#!/usr/bin/env bash\necho "$*" >> "$(dirname "$0")/equiv.log"\necho "EQUIV approve=${1:0:9} head=${2:0:9} merges=%s files=0 mode=%s overlap=0 base=${1:0:9}"\nexit 0\n' "$3" "$2" > "$1/ft-approval-equiv.sh"
+  chmod +x "$1/ft-approval-equiv.sh"
+}
+rm -rf "$T/eqbin"; cp -R "$T/bin" "$T/eqbin"; eqstub "$T/eqbin" rebase 0
+setup; printf '{"state":"MERGED","mergeCommit":{"oid":"%s"},"headRefOid":"%s"}\n' "$M2" "$H1" > "$T/gh.json"
+out="$(CLOSE_BIN="$T/eqbin/ft-nano-close.sh" close --landed-pr 363)"; rc=$?
+[ "$rc" -eq 1 ] && has "$out" "rebase" "r1019 r2 ⓚ mode=rebase → REJECT" || bad "r1019 r2 ⓚ rc=$rc ← ${out:0:600}"
+has "$out" "merges=0" "  └ 사유에 merges=0 표기"
+hasnt "$out" "CLOSED" "  └ CLOSED 0"
+untouched "r1019 r2 ⓚ rebase"
+
+echo "== r1019 r2 ⓛ head 가 origin/main 조상(머지 커밋 PR) → REJECT · 판정기 호출 0"
+rm -rf "$T/eqbin2"; cp -R "$T/bin" "$T/eqbin2"; eqstub "$T/eqbin2" merge 1
+setup; git -C "$REPO" reset -q --hard "$H1"; printf '{"state":"MERGED","mergeCommit":{"oid":"%s"},"headRefOid":"%s"}\n' "$H1" "$H1" > "$T/gh.json"
+out="$(CLOSE_BIN="$T/eqbin2/ft-nano-close.sh" close --landed-pr 363)"; rc=$?
+[ "$rc" -eq 1 ] && has "$out" "머지 커밋 PR" "r1019 r2 ⓛ head ∈ origin/main → REJECT" || bad "r1019 r2 ⓛ rc=$rc ← ${out:0:600}"
+[ ! -s "$T/eqbin2/equiv.log" ] && ok "  └ 판정기 호출 0" || bad "  └ 판정기 호출 $(grep -c . "$T/eqbin2/equiv.log")회"
+hasnt "$out" "CLOSED" "  └ CLOSED 0"
+untouched "r1019 r2 ⓛ 머지 PR"
+git -C "$REPO" reset -q --hard "$M2"   # main 을 원래대로(다음 칸이 fetch 로 origin/main 을 다시 읽는다)
+
+echo "== r1019 r2 변이 «mode 검사 끔» → r1019 r2 ⓚ 가 잡는다(변이 FAIL)"
+mutant 'if [ "$_lp_equiv_mode" = merge ] && [ "$_lp_equiv_merges" -ge 1 ]; then' 'if true; then'
+eqstub "$T/mutbin" rebase 0
+setup; printf '{"state":"MERGED","mergeCommit":{"oid":"%s"},"headRefOid":"%s"}\n' "$M2" "$H1" > "$T/gh.json"
+out="$(CLOSE_BIN="$T/mutbin/ft-nano-close.sh" close --landed-pr 363)"; rc=$?
+[ "$rc" -eq 0 ] && ok "r1019 r2 변이(mode 검사 끔) → rebase 머리인데 닫힘 = r1019 r2 ⓚ 가 잡는다(변이 FAIL)" || bad "r1019 r2 변이 rc=$rc — 변이가 안 먹었다: $(printf '%s' "$out" | head -3)"
+
+echo "== r1019 r2 변이 «is-ancestor 검사 끔» → r1019 r2 ⓛ 가 잡는다(변이 FAIL)"
+mutant 'if git -C "$repo" merge-base --is-ancestor "$_lp_head" refs/remotes/origin/main 2>/dev/null; then' 'if false; then'
+eqstub "$T/mutbin" merge 1
+setup; git -C "$REPO" reset -q --hard "$H1"; printf '{"state":"MERGED","mergeCommit":{"oid":"%s"},"headRefOid":"%s"}\n' "$H1" "$H1" > "$T/gh.json"
+out="$(CLOSE_BIN="$T/mutbin/ft-nano-close.sh" close --landed-pr 363)"; rc=$?
+[ "$rc" -eq 0 ] && ok "r1019 r2 변이(is-ancestor 끔) → 머지 커밋 PR 인데 닫힘 = r1019 r2 ⓛ 가 잡는다(변이 FAIL)" || bad "r1019 r2 변이 rc=$rc — 변이가 안 먹었다: $(printf '%s' "$out" | head -3)"
+git -C "$REPO" reset -q --hard "$M2"
+
+# ══════════════════════════════════════════════════════════════════════════════════════════════════════
+# ★r1023★ 리포 선택 = «카드 세트 가지가 사는 리포» 하나 — 호출 cwd·인자와 무관(r1019 설치 뒤 실사건 3/3: BYZ cwd 에서 닫으면 BYZ 리포의 같은 번호 PR 을 읽었다)
+pack_card() {  # pack_card <대상줄> [<세트 sha>] — 카드 = 팩 세트(기본 PSET) · 착지 줄 있음 · «대상:» 줄은 인자 그대로
+  printf '# 인덱스: lp\n## 상태\n- 2026-10-27 진행\n- 세트: %s · 시험: bash t.sh (12 passed) rc=0 · 이슈: 0\n- 대상: %s\n- 착지: PR #700 merged · squash\n' "${2:-$PSET}" "$1" > "$CARD"
+}
+pack_gh() {  # pack_gh <head> — 팩 slug 응답(MERGED) + BYZ slug 응답(세트 SHA0). cwd 낙폭(무 -R)은 «PR 없음» 을 흉내내 OPEN
+  printf '{"state":"MERGED","mergeCommit":{"oid":"%s"},"headRefOid":"%s"}\n' "$PM1" "$1" > "$T/ghdir/lptest_pack.json"
+  printf '{"state":"MERGED","mergeCommit":{"oid":"%s"},"headRefOid":"%s"}\n' "$SHA1" "$SHA0" > "$T/ghdir/lptest_byz.json"
+  printf '{"state":"OPEN","mergeCommit":null,"headRefOid":"%s"}\n' "$SHA1" > "$T/gh.json"
+}
+echo "== ⓜ BYZ cwd + --wt 팩 → gh -R 팩 lptest/pack · 판정기 팩 → CLOSED repo=lptest/pack"
+rm -rf "$T/pkbin"; cp -R "$T/bin" "$T/pkbin"; eqstub "$T/pkbin" merge 1
+setup; pack_card "$PWT/scripts/set.py"; pack_gh "$PH1"
+out="$(CLOSE_BIN="$T/pkbin/ft-nano-close.sh" close --landed-pr 700 --wt "$PWT")"; rc=$?
+[ "$rc" -eq 0 ] && ok "ⓜ rc=0(--wt 팩 → 팩 리포)" || bad "ⓜ rc=$rc ← ${out:0:800}"
+has "$out" "CLOSED-ABSENT $SEAT landed-pr=700 equiv=1 repo=lptest/pack" "  └ 꼬리 = landed-pr·equiv·repo=lptest/pack"
+has "$out" "LANDED-PR-OK #700" "  └ ⑥ 자리 = LANDED-PR-OK"
+has "$(cat "$T/ghlog")" "-R lptest/pack" "  └ gh 에 -R lptest/pack"
+hasnt "$(cat "$T/ghlog")" "lptest/byz" "  └ BYZ(cwd) 리포를 안 읽는다"
+has "$(cat "$T/pkbin/equiv.log" 2>/dev/null)" "--repo $PACK" "  └ 판정기도 팩 리포에서(같은 리포)"
+has "$(cat "$LEDGER")" "repo=lptest/pack" "  └ 원장 닫힘 행에 repo=<owner/repo>"
+
+echo "== ⓝ --wt 없음 · 대상 줄 전부 팩 → 같은 답(팩) — 호출 인자와 무관"
+setup; pack_card "$PWT/scripts/set.py"; pack_gh "$PSET"
+out="$(close --landed-pr 700)"; rc=$?
+[ "$rc" -eq 0 ] && ok "ⓝ rc=0(대상 줄 전부 팩 → 팩 리포)" || bad "ⓝ rc=$rc ← ${out:0:800}"
+has "$out" "CLOSED-ABSENT $SEAT landed-pr=700 repo=lptest/pack" "  └ 꼬리 repo=lptest/pack"
+has "$(cat "$T/ghlog")" "-R lptest/pack" "  └ gh 에 -R lptest/pack"
+
+echo "== ⓞ 대상 줄 전부 BYZ(제품 카드 꼴) → gh -R BYZ · 지금 동작 그대로"
+setup; pack_card "$REPO/scripts/landed.py" "$SHA0"; pack_gh "$SHA0"
+out="$(close --landed-pr 700)"; rc=$?
+[ "$rc" -eq 0 ] && ok "ⓞ rc=0(대상 줄 전부 BYZ → ROOT 리포)" || bad "ⓞ rc=$rc ← ${out:0:800}"
+has "$out" "CLOSED-ABSENT $SEAT landed-pr=700 repo=lptest/byz" "  └ 꼬리 repo=lptest/byz"
+[ "$(cat "$T/ghlog")" = "pr view 700 -R lptest/byz --json state,mergeCommit,headRefOid" ] && ok "  └ gh -R BYZ 1회" || bad "gh 호출: $(cat "$T/ghlog")"
+
+echo "== ⓟ 대상 줄 섞임(팩 + BYZ) → REJECT 1줄 · gh 호출 0 · 닫기 0"
+setup; pack_card "$PWT/scripts/set.py · $REPO/scripts/landed.py"
+out="$(close --landed-pr 700)"; rc=$?
+[ "$rc" -eq 1 ] && has "$out" "리포를 정할 수 없다" "ⓟ 섞임 → REJECT(리포 정함 불가)" || bad "ⓟ rc=$rc ← ${out:0:600}"
+has "$out" "섞임" "  └ 사유에 섞임 표기"
+[ ! -s "$T/ghlog" ] && ok "  └ gh 호출 0" || bad "  └ gh 호출: $(cat "$T/ghlog")"
+untouched "ⓟ 섞임"
+
+echo "== ⓠ origin 에서 owner/repo 못 풀음(로컬 경로) → «판정 불가» REJECT · gh 호출 0"
+setup; pack_card "$PWT/scripts/set.py"; pack_gh "$PSET"
+git -C "$PACK" remote set-url origin "$PACK"
+out="$(close --landed-pr 700 --wt "$PWT")"; rc=$?
+git -C "$PACK" remote set-url origin "$PACK_URL"
+[ "$rc" -eq 1 ] && has "$out" "origin 꼴 밖" "ⓠ 꼴 밖 origin → 판정 불가 REJECT" || bad "ⓠ rc=$rc ← ${out:0:600}"
+has "$out" "판정 불가로 닫지 않는다" "  └ 사유 = 판정 불가(하드 룰 20)"
+[ ! -s "$T/ghlog" ] && ok "  └ gh 호출 0" || bad "  └ gh 호출: $(cat "$T/ghlog")"
+untouched "ⓠ origin 꼴"
+
+echo "== ⓡ gh -R 의 PR 번호 없음(rc1) → 기존 gh 실패 REJECT 그대로 · 리포는 팩"
+setup; pack_card "$PWT/scripts/set.py"; pack_gh "$PSET"
+FAKE_GH_RC=1 out="$(close --landed-pr 700 --wt "$PWT")"; rc=$?
+[ "$rc" -eq 1 ] && has "$out" "gh pr view 700 실패(rc=1" "ⓡ 없는 PR → REJECT(기존 gh 실패 꼴)" || bad "ⓡ rc=$rc ← ${out:0:600}"
+has "$(cat "$T/ghlog")" "-R lptest/pack" "  └ 리포 지정은 팩(실패해도 값은 남는다)"
+untouched "ⓡ gh 실패"
+
+echo "== ⓢ origin 꼴 3종(file:// · 빈 값 · «owner/repo» 만) → 판정 불가 REJECT · gh 0 (r1023 r2 동작②)"
+setup; pack_card "$PWT/scripts/set.py"; pack_gh "$PSET"   # 세 꼴 다 REJECT = 상태 그대로라 setup 은 한 번만(하드 룰 22: 70초)
+for badurl in "file:///tmp/local" "" "lptest/pack"; do
+  : > "$T/ghlog"; git -C "$PACK" remote set-url origin "$badurl"
+  out="$(close --landed-pr 700 --wt "$PWT")"; rc=$?
+  if [ -z "$badurl" ]; then _n="빈 url"; else _n="$badurl"; fi
+  [ "$rc" -eq 1 ] && has "$out" "origin 꼴 밖" "ⓢ $_n → 판정 불가 REJECT" || bad "ⓢ $_n rc=$rc ← ${out:0:600}"
+  [ ! -s "$T/ghlog" ] && ok "  └ gh 호출 0" || bad "  └ gh 호출: $(cat "$T/ghlog")"
+done
+git -C "$PACK" remote set-url origin "$PACK_URL"
+untouched "ⓢ origin 꼴"
+
+echo "== r1023 r2 변이 «정규식 느슨(꼴 아무거나·호스트 빈 값)» → ⓢ file:// 가 잡는다"
+mutant '^https?://[A-Za-z0-9._-]+(:[0-9]+)?/' '^[a-z]+://[A-Za-z0-9._-]*(:[0-9]+)?/'
+setup; pack_card "$PWT/scripts/set.py"; pack_gh "$PSET"
+git -C "$PACK" remote set-url origin "file:///tmp/local"
+printf '{"state":"MERGED","mergeCommit":{"oid":"%s"},"headRefOid":"%s"}\n' "$PM1" "$PSET" > "$T/ghdir/tmp_local.json"   # 변이가 tmp/local 로 풀면 닫히도록 그 몫 응답을 깔아 둔다(기준 판은 gh 호출 0 이라 안 읽는다)
+out="$(CLOSE_BIN="$T/mutbin/ft-nano-close.sh" close --landed-pr 700 --wt "$PWT")"; rc=$?
+git -C "$PACK" remote set-url origin "$PACK_URL"
+[ "$rc" -eq 0 ] && ok "r1023 r2 변이(정규식 느슨) → file:// 가 tmp/local 로 풀려 닫힘 = ⓢ 가 잡는다(변이 FAIL)" || bad "r1023 r2 변이 rc=$rc — 변이가 안 먹었다: $(printf '%s' "$out" | tail -3)"
+
+echo "== r1023 변이 «-R 제거» → ⓜ 이 잡는다(cwd 리포 PR 을 읽어 REJECT)"
+mutant '-R "$_lp_slug" ' ''
+setup; pack_card "$PWT/scripts/set.py"; pack_gh "$PH1"
+out="$(CLOSE_BIN="$T/mutbin/ft-nano-close.sh" close --landed-pr 700 --wt "$PWT")"; rc=$?
+[ "$rc" -eq 1 ] && has "$out" "state=OPEN" "r1023 변이(-R 제거) → cwd 리포 PR(state=OPEN) → REJECT = ⓜ 이 잡는다(변이 FAIL)" || bad "r1023 변이 rc=$rc — 변이가 안 먹었다: $(printf '%s' "$out" | tail -3)"
+
+echo "== r1023 변이 «섞임을 팩으로» → ⓟ 가 잡는다(섞인 카드가 닫힌다)"
+mutant 'if [ "$nin" -gt 0 ] && [ "$nout" -gt 0 ]; then' 'if false; then'
+setup; pack_card "$PWT/scripts/set.py · $REPO/scripts/landed.py"; pack_gh "$PSET"
+out="$(CLOSE_BIN="$T/mutbin/ft-nano-close.sh" close --landed-pr 700)"; rc=$?
+[ "$rc" -eq 0 ] && ok "r1023 변이(섞임 통과) → 섞인 카드가 닫힘 = ⓟ 가 잡는다(변이 FAIL)" || bad "r1023 변이 rc=$rc — 변이가 안 먹었다: $(printf '%s' "$out" | tail -3)"
 
 echo "== ⓗ 600/300 s · 외부 호출(네트워크) · GIT_* env 0"
 NEWL="$(grep 'LANDED_PR\|_lp_' "$SRC/ft-nano-close.sh")"

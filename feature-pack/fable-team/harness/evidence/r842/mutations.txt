@@ -1,0 +1,15 @@
+# 변이 8종 — 전부 «FAIL» 이 나와야 통과(초록 run 안에서 확인 · green.txt ⓖ 절)
+== ⓖ 키트 2곳 같은 바이트 + bash -n
+== ⓖ 변이 — 단계 제거 → ⓐ FAIL · ⓒ 후퇴 → ⓒ FAIL · 조회 실패를 카드 없음으로 → ⓓ·ⓓ2·ⓓ5 FAIL · 빈 출력을 없음으로 → ⓓ5 FAIL · 명부 없음 = ABSENT → ⓓ3 FAIL
+PASS ⓖ 단계 판정 제거(디스크 고리) → ⓐ FAIL
+PASS ⓖ ⓒ 를 옛 단계 후퇴로 → ⓒ FAIL
+PASS ⓖ 조회 실패를 «카드 없음» 으로 → ⓓ·ⓓ2·ⓓ5 FAIL
+PASS ⓖ 빈 출력 rc0 을 «없음» 으로 → ⓓ5 FAIL
+PASS ⓖ «명부 없음 = ABSENT» → ⓓ3 FAIL
+PASS ⓖ «ABSENT 에도 IDX 우선 집기» → ⓔ' FAIL(DA⑥ r4)
+PASS ⓖ «lib 없으면 블록 건너뜀» → ⓓ7 FAIL
+PASS ⓖ «꼴 불일치 = REJECT» → ⓓ8 FAIL(Python 4파일)
+== ⓖ 600/300 s · 외부 호출 · GIT_* env 0 (r842 줄)
+PASS ⓖ 600/300 숫자 0
+PASS ⓖ 외부 호출 0
+PASS ⓖ GIT_DIR env 0

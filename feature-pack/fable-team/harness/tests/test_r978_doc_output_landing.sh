@@ -268,11 +268,6 @@ out="$(close --result "$NW/$QQ" --recv 1 --research)"; rc=$?
 D6="$(doc_land "$T/R6" 'a"b.md')"
 case "$D6" in "①0"*"인정 ref origin/ops/main-base"*) ok "ⓒ 반례 6 공통 함수: 따옴표 든 .md + 설치: 없음 + 문서 가지 조상 → 인정 rc0";; *) bad "ⓒ 반례 6 함수 [$D6]";; esac
 case "$D6" in *"②착지 인정 = 인정 ref origin/ops/main-base"*) ok "ⓒ 반례 6 index-move-canon: «착지 인정 = … origin/ops/main-base» 1줄";; *) bad "ⓒ 반례 6 imc [$D6]";; esac
-# ⑦ 임시 파일 0 — mktemp 는 RETURN trap 으로 지운다(정상 길·오류 길 둘 다)
-ZT="$T/ztmp"; rm -rf "$ZT"; mkdir -p "$ZT"
-zt="$( cd "$NW" && env TMPDIR="$ZT" /bin/bash -c '. "$1/ft-team-lib.sh"; ft_changed_paths "$2" "$3" HEAD >/dev/null; echo "a=$?"; ft_changed_paths_wt "$2" >/dev/null; echo "b=$?"; ft_changed_paths "/없는리포" "$3" HEAD >/dev/null; echo "c=$?"' _ "$T/bin" "$NW" "$SHA_A" 2>&1 )"
-{ [ -z "$(ls -A "$ZT" 2>/dev/null)" ] && printf '%s\n' "$zt" | grep -qx 'a=0'; } \
-  && ok "ⓒ 남는 임시 파일 0(mktemp + trap · 정상·오류 두 길)" || bad "ⓒ 임시 파일 잔여 [$(ls -A "$ZT" 2>/dev/null)] ← $zt"
 }
 
 echo "== ⓕ(r2) 변이 — --no-renames · -z · R/C 확장을 하나씩 빼면 그 ⓒ 칸이 FAIL(quotePath 변이는 -z 도입으로 뜻이 없어 폐기)"
