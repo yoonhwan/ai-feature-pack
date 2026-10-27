@@ -27,8 +27,8 @@ STREAK_FILE="${FT_GOAL_TICK_STREAK:-/tmp/ft-goal-tick.streak}"
 cd "$ROOT" || exit 0
 MBOX=.fable-team/comm/mbox.sh
 CHECK="${FT_GOAL_TICK_CHECK:-.fable-team/bin/ft-goal-check.sh}"
-. "$HERE/ft-team-lib.sh"   # r459: 명단 = ref · 체크아웃에 v65 폴더가 없으면 ref 본문(ft_team_doc_ref)
-PROMPT="$(ft_team_doc_ref "$ROOT" v65 20260912/TICK-PROMPT-v65-unified.md)" || { echo "$(date '+%F %T') ERROR v65 틱 프롬프트를 못 풀었다 — exit"; exit 1; }
+. "$HERE/ft-team-lib.sh"   # r459: 명단 = ref · r994: 틱 프롬프트 «본문» 도 ref 만(디스크 0 · 루트 체크아웃이 뒤처져도 main 판 · 못 읽으면 ERROR)
+PROMPT="$(ft_team_doc_ref_only "$ROOT" v65 20260912/TICK-PROMPT-v65-unified.md)" || { echo "$(date '+%F %T') ERROR v65 틱 프롬프트를 못 풀었다 — exit"; exit 1; }
 ft_team_doc_tmp "$PROMPT" && trap 'rm -f "$PROMPT"' EXIT
 [ -x "$MBOX" ] && [ -x "$CHECK" ] && [ -f "$PROMPT" ] || { echo "$(date '+%F %T') missing mbox/check/prompt — exit"; exit 0; }
 tmux has-session -t "=$TARGET" 2>/dev/null || { echo "$(date '+%F %T') target absent: $TARGET"; exit 0; }

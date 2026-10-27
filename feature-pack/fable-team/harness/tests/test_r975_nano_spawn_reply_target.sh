@@ -199,13 +199,13 @@ ROLES="$(bash "$KIT/ft-name-lint.sh" --roles)"
 [ -n "$ROLES" ] && ok "ⓘ ft-name-lint --roles 로 역할 집합을 읽는다(시험도 하드코딩 0)" || bad "ⓘ ft-name-lint --roles 빈 값"
 D="$T/i6"; mkfix "$D"; mkpanes
 bad_roles=""
-for r in $ROLES; do
-  n="byz-harness-$r-claude#1"
-  tl "$T/tmm.lst" byz-harness-master-claude#3 "$n"
-  o="$(run1 "$D" --dry-run --from "$n")"
-  [[ "$o" == *"INFO 회신 대상 = $n"* ]] || bad_roles="$bad_roles $r"
+for r in $ROLES; do                       # 정식 11역할 전부 — 판정 권위가 검사기이므로 «검사기 통과» 를 먼저 11회로 확인한다(빠름)
+  bash "$KIT/ft-name-lint.sh" "byz-harness-$r-claude#1" >/dev/null 2>&1 || bad_roles="$bad_roles $r"
 done
-[ -z "$bad_roles" ] && ok "ⓘ 정식 11역할(${ROLES// /·}) 전부 --from 인정" || bad "ⓘ 거절된 역할:$bad_roles"
+[ -z "$bad_roles" ] && ok "ⓘ 정식 11역할(${ROLES// /·}) 전부 검사기 PASS" || bad "ⓘ 검사기가 거절한 역할:$bad_roles"
+tl "$T/tmm.lst" byz-harness-master-claude#3 byz-harness-tool-claude#1
+o="$(run1 "$D" --dry-run --from byz-harness-tool-claude#1)"
+[[ "$o" == *"INFO 회신 대상 = byz-harness-tool-claude#1"* ]] && ok "ⓘ 검사기를 지난 역할(tool) → --from 인정" || bad "ⓘ tool $o"
 for r in analyst repro tool; do
   n="byz-harness-$r-claude#1"; tl "$T/tmm.lst" byz-harness-master-claude#3 "$n"
   EXTRA_ENV=(FT_SEND_FROM="$n"); o="$(run1 "$D" --dry-run)"; EXTRA_ENV=()

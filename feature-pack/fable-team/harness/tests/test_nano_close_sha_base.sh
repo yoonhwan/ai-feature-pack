@@ -19,7 +19,7 @@ for f in ft-nano-close.sh ft-nano-spawn.sh; do
 done
 
 mkdir -p "$T/bin" "$T/fake"
-cp "$SRC/ft-nano-close.sh" "$SRC/ft-nano-evidence-check.sh" "$T/bin/"
+cp "$SRC/ft-nano-close.sh" "$SRC/ft-nano-evidence-check.sh" "$SRC/ft-team-lib.sh" "$T/bin/"   # r842: 단계 판정(ft_card_stage_ref) = ft-team-lib.sh 필수(없으면 ERROR + REJECT)
 cp "$SRC/ft_teamset.py" "$T/bin/"
 cp "$SRC/ft-sheet-events.sh" "$SRC/ft_sheet_events.py" "$SRC/ft_sheet_confirm.py" "$SRC/ft_sheet_key.py" "$SRC/ft_board_env.py" "$SRC/ft_board_mail.py" "$T/bin/"   # 사건 원장 훅(PLAN-status-sheet §3-1) 의존 — 설치 폴더 밖 시험이라 FT_SHEET_ROOT 로 임시 루트
 export FT_SHEET_ROOT="$T/sheet-root"; mkdir -p "$FT_SHEET_ROOT/.fable-team/state"
@@ -46,6 +46,7 @@ REPO="$T/repo"; mkdir -p "$REPO"
 git -C "$REPO" init -q -b main
 GIT() { git -C "$REPO" -c user.email=t@t -c user.name=t "$@"; }
 echo base > "$REPO/a.txt"; GIT add a.txt; GIT commit -q -m init
+git -C "$REPO" update-ref refs/remotes/origin/main HEAD   # r842: 카드 단계 ref 실재(없으면 단계 판정 실패 = ERROR + REJECT) · ref 에 카드 없음 = ABSENT → 지금 규칙
 FORK="$(GIT rev-parse HEAD)"                       # 나노가 갈라진 점(sha)
 LAND=feat/v6-realtime-live; OTHER=land/other       # 기본 랜딩 브랜치 · 다른 랜딩 브랜치
 GIT branch "$LAND" "$FORK"; GIT branch "$OTHER" "$FORK"
