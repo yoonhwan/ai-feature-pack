@@ -203,7 +203,7 @@ class Scan:
 
     def act_l(self, stamp: str) -> list[str]:
         """r849 로그아웃 좌석 — 팀 _master 1통 · 칸 없음 → 발신 · 칸 있음 → 0통(로그아웃 구간당 1통).
-        재설계 r3(DA⑥ r3 반례 3·4): 칸은 «발신 전에» 세우고 발신 rc≠0 이면 지운다 · 칸 자리가 파일이 아니면(폴더·특수) ERROR 1줄 + 이번 scan 발신 0.
+        재설계 r3: 칸은 «발신 전에» 세우고 발신 rc≠0 이면 지운다.
         팀장 없음·자기 자신·명부 못 읽음 = 로그 1줄(칸 0 — 알린 것이 없다)."""
         log: list[str] = []
         for f in sorted((self.root / ".fable-team").glob("seats*.json")):  # load_teams 는 깨진 명부를 조용히 건너뛴다 — 그 좌석은 로그아웃 판정을 못 받는다
@@ -217,9 +217,6 @@ class Scan:
                 log.append(f"{stamp} act=l seat={seat} first={first} — 알릴 팀장 없음(_master {master or '없음'})")
                 continue
             cell = self.cell(seat)
-            if cell.exists() and not cell.is_file():  # 폴더·특수 파일 = 칸이 아니다 — «이미 알림» 으로 삼키지 않는다(조용한 통과 0)
-                log.append(f"{stamp} act=l ERROR 칸 {cell} 가 파일이 아님({self.cell_kind(cell)}) — 이번 scan 발신 0 · 다음 scan 재시도")
-                continue
             if cell.is_file():
                 continue
             try:  # 발신 전에 칸을 세운다 — 이 기록이 안 되면 발신 0(같은 구간 2통 방지)
@@ -238,10 +235,6 @@ class Scan:
                 continue
             log.append(f"{stamp} act=l to={master} seat={seat} first={first}")
         return log
-
-    @staticmethod
-    def cell_kind(path: Path) -> str:
-        return "폴더" if path.is_dir() else "특수 파일" if path.exists() else "없음"
 
     def send(self, to: str, body: str, urgent: bool = True) -> int:
         return run(["bash", self.mbox, "send", to, self.sender, body] + (["--urgent"] if urgent else []))[0]
