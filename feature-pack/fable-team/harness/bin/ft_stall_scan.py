@@ -84,7 +84,6 @@ class Scan:
         for t in teams:
             m = t["master"]
             leads = lead_names(self.root, m)  # 현역 role=master 전부 — 승계 직후 옛·새 둘 다
-            recips = {m} | {x["master"] for x in teams if x["team"] == "planner"}  # 심박 받는이 = 그 팀장·planner
             if m in self.live and not stop and t["master_stop"]:  # r428 — 정지 레디 팀은 노는 게 맞다: a 대신 c(정지 파일 0 알림)
                 out.append(dict(kind="c", seat=m, team=t["team"], age=0.0, why="정지 레디(명부 role=stop-ready)인데 정지 파일 0 — `ft-spawn-hold.sh set` 필요 · 독촉 0", stopready=True))
             # a — 그 팀이 지금 spawn 가능(유효 정지 아님 ∧ 정지 레디 아님 ∧ 페널티 중이면 재개된 팀 ∧ 실제 spawn 상한 판정 통과)일 때만. 정상 대기는 세지 않는다.
@@ -123,12 +122,12 @@ class Scan:
                 if self.flags(s)["rest"]:
                     continue
                 if s in leads and not t["master_stop"]:  # r1001 — 현역 팀장 b·d 는 «팀 단위 심박» 만 본다
-                    alert, hba, undec = hbd.setdefault(t["team"], lead_alert(self.comm, leads, recips, self.now))
+                    alert, hba, undec = hbd.setdefault(t["team"], lead_alert(self.root, self.comm, m, self.now))
                     if undec:  # 판정 불가 = 조용한 «경보 0» 아님(u 칸 · 처리 0)
                         unknown += 1
                         notes.append(f"f? {s} 팀장 심박 판정 불가 — b·d·f 세지 않음")
                     elif alert and not any(x["kind"] == "f" and x["team"] == t["team"] for x in out):  # 신선 = 0통 · 팀당 1통
-                        out.append(dict(kind="f", seat=s, team=t["team"], age=age, hb_age=hba, seq=mail[s][0] if s in mail else None,
+                        out.append(dict(kind="f", seat=s, team=t["team"], key=f"f:{t['team']}", age=age, hb_age=hba, seq=mail[s][0] if s in mail else None,
                                         why="팀장 " + ("심박 없음(한 번도 안 보냄)" if hba is None else f"심박 {hba:.0f}분")))
                     continue
                 if self.flags(s)["future"]:
@@ -317,11 +316,12 @@ class Scan:
         for f in found:
             if cell_err or f["kind"] == "e" or f["kind"] == "b" and f["seat"] in d_seats:  # b+d 동시 = d 한 번(가장 오래된 pending seq ring · 새 send 생략)
                 continue
-            if f["attached"] or f["held"] or self.now - float(handled.get(f["seat"], 0)) < REPEAT_S or stm.recent_in_log(self.state_dir, f["seat"], self.now):
+            key = f.get("key", f["seat"])  # r1001 r3 — 팀장 경보 억제 키 = 팀(대상 좌석이 바뀌어도 같은 팀 10분 0통)
+            if f["attached"] or f["held"] or self.now - float(handled.get(key, 0)) < REPEAT_S or f["kind"] != "f" and stm.recent_in_log(self.state_dir, f["seat"], self.now):
                 continue
             res = self.act(f)
             if res:
-                handled[f["seat"]] = self.now
+                handled[key] = self.now
                 log.append(f"{stamp} {res} key={f['kind']}:{f['seat']} {f['why']}")
         if trig and pen is None and os.environ.get("FT_STALL_PENALTY_AUTO", "1") != "0":
             _ = ft_penalty.turn_on("같은 멈춤을 처리 뒤에도 또 감지: " + ",".join(trig))

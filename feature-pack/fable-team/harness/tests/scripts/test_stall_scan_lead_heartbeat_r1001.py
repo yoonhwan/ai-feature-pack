@@ -282,3 +282,29 @@ def test_n2_two_live_masters_fresh_heartbeat_is_zero(w: World) -> None:  # ⓝ �
     r = scan(w)
     assert counts(r.stdout)["f"] == "0" and counts(r.stdout)["b"] == "0", r.stdout
     assert not w.mbox_log()
+
+
+# ── r3 반송(DA 2/2 HOLD ①②) — ⓞ 억제 키 = 팀 · ⓟ 수신자 = 모든 현역 master ────────
+def test_o_suppression_key_is_team_not_seat(w: World) -> None:  # ⓞ 대상 좌석이 바뀌어도 같은 팀 10분 안 0통
+    w.env["FT_STALL_PENALTY_AUTO"] = "0"
+    add_master_row(w, "t1", "t1-master#0")
+    lead_b_candidate(w)
+    w.state("t1-master#0", "IDLE", 6)
+    w.jsonl("t1-master#0", "지금 착수하겠습니다")
+    w.heartbeat("t1-master#1", 20)
+    _ = scan(w)
+    assert len([x for x in w.mbox_log() if x.startswith("send|t1-master#")]) == 1, w.mbox_log()
+    w.advance(120)
+    w.state("t1-master#0", "WORKING", 0.1)  # 경보 대상이 #0 → #1 로 바뀐다
+    r = scan(w)
+    assert counts(r.stdout)["f"] == "1"  # 감지는 계속
+    assert len([x for x in w.mbox_log() if x.startswith("send|t1-master#")]) == 1, w.mbox_log()  # 재알림 0
+
+
+def test_p_other_team_live_master_is_a_recipient(w: World) -> None:  # ⓟ 다른 팀 현역 master 수신 [정리] = 심박
+    lead_b_candidate(w)
+    w.team("t2", "t2-master#1", [])
+    w.state("t2-master#1", "WORKING", 0.1)
+    w.heartbeat("t1-master#1", 5, to="t2-master#1")
+    r = scan(w)
+    assert counts(r.stdout)["f"] == "0" and not w.mbox_log(), r.stdout

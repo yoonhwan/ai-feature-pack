@@ -353,9 +353,23 @@ def lead_heartbeat_min() -> float:
     return v if v > 0 else LEAD_HEARTBEAT_MIN
 
 
-def lead_alert(comm: Path, masters: set[str], recipients: set[str], now: float) -> tuple[bool, float | None, bool]:
+def lead_recipients(root: Path) -> set[str]:
+    """심박 받는이 = 명부 «전체» 의 현역 role=master + 현역 planner(planner 팀장도 role=master) — DA r2 반례 2.
+    자기 팀 _master 로 좁히면 «다른 팀 현역 master 에게 보낸 신선한 [정리]» 를 놓쳐 멀쩡한 팀장이 멈춤으로 읽힌다."""
+    out: set[str] = set()
+    for f in sorted((root / ".fable-team").glob("seats*.json")):
+        try:
+            d = json.loads(f.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        out |= {k for k, v in d.items() if not k.startswith("_") and isinstance(v, dict) and v.get("role") == "master"
+                and not v.get("_replaced_by") and not v.get("_closed")}
+    return out
+
+
+def lead_alert(root: Path, comm: Path, master: str, now: float) -> tuple[bool, float | None, bool]:
     """심박 → 경보 판정 «한 함수» (C6: 이 판정은 scan 이 아니라 여기 산다). → (경보, 심박 나이 분|None, 판정 불가)."""
-    state, ts, _why = lead_heartbeat(comm, masters, recipients, now)
+    state, ts, _why = lead_heartbeat(comm, lead_names(root, master), lead_recipients(root), now)
     if state == "ERROR":
         return False, None, True
     if ts is None:
