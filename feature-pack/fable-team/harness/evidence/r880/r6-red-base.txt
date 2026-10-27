@@ -1,0 +1,203 @@
+PASS bash -n
+== ⓑ 착지 끝난 land 사본만 계획 1개 · 삭제 0
+PASS ⓑ rc 0
+PASS ⓑ 대상 3곳(land-done·2·3) · 크기 합
+PASS ⓑ 목록 줄 = 이름·착지 sha·크기
+PASS ⓑ 계획 파일 1개
+PASS ⓑ 계획의 land_rm 줄 = 3
+PASS ⓑ 첫 목록 = [HIL] 1줄
+PASS ⓑ 삭제 호출 0 — 워크트리 수 그대로
+PASS ⓑ 삭제 호출 0 — land-done 폴더 그대로
+PASS ⓑ land-* 아닌 사본은 대상 밖
+PASS ⓑ 목록이 같고 보냄 표지 있으면 [HIL] 0(바뀐 때만)
+PASS ⓑ 보냄 표지 없으면 같은 목록도 재발송(ⓓ)
+== ⓒ 목록 밖 — 이유 1줄
+PASS ⓒ land-dirty 계획 밖
+PASS ⓒ land-alive 계획 밖
+PASS ⓒ land-locked 계획 밖
+PASS ⓒ land-unlanded 계획 밖
+PASS ⓒ 미커밋 이유
+PASS ⓒ 미착지 이유
+PASS ⓒ 좌석 살아 있음 이유(cwd)
+PASS ⓒ 잠김 이유
+PASS ⓒ tmux pane 이 안에 = 목록 밖
+PASS ⓒ 목록이 바뀌면 [HIL] 다시 1줄
+PASS ⓒ 좌석 못 읽음 → rc 1
+PASS ⓒ 좌석 못 읽음 → 이유
+PASS ⓒ 좌석 못 읽음 → 계획 0
+== ⓕ 계획 실행 순간 다시 잰다(= 오빠 h)
+PASS ⓕ 다시 만든 계획 = 3곳
+PASS ⓕ 계획 rc 0
+PASS ⓕ 검사 통과 = git worktree remove
+PASS ⓕ land-done 지워짐
+PASS ⓕ 만든 뒤 미커밋 = skip
+PASS ⓕ 만든 뒤 HEAD 바뀜 = skip(낡은 목록으로 지우기 0)
+PASS ⓕ land-done2 남음
+PASS ⓕ land-done3 남음
+PASS ⓕ land-dirty 남음
+PASS ⓕ land-alive 남음
+PASS ⓕ land-locked 남음
+PASS ⓕ land-unlanded 남음
+PASS ⓕ nano-x 남음
+PASS ⓕ 실행 때 좌석 못 읽음 → 중단 rc 1
+PASS ⓕ 중단 이유
+== ⓐ 재설계 r3-1: 사본마다 직전에 좌석 목록을 새로 읽는다(처리 중 열린 좌석 skip)
+PASS ⓐ rc 0
+PASS ⓐ 앞 사본을 처리하는 사이 열린 좌석은 계획 밖(3→2곳)
+PASS ⓐ B(land-done2) land_rm 줄 없음
+PASS ⓐ B KEEP 이유 1줄
+PASS ⓐ 뒤 사본은 새 목록으로 재판단
+PASS ⓐ 다시 3곳 계획
+PASS ⓐ 계획 실행 rc 0
+PASS ⓐ 계획 첫 사본 = 지움
+PASS ⓐ 실행 중 열린 좌석 = 지우기 직전 skip
+PASS ⓐ land-done2 남음
+PASS ⓐ land-done 지워짐
+PASS ⓑ 준비: 대상 3곳 복구
+== ⓑ 재설계 r3-1: tmux 오류 글자를 «좌석 0» 으로 읽지 않는다
+PASS ⓑ tmux 연결 오류 → rc 1
+PASS ⓑ 중단 + ERROR
+PASS ⓑ 실패 출력은 쓰지 않는다(성공일 때만)
+PASS ⓑ 계획 0
+PASS ⓑ 준비: 계획 3곳
+== ⓒ 재설계 r3-1: 계획을 ft-hil 에 등록하고 ! bash /tmp/h<N> 한 줄을 알림에 싣는다
+PASS ⓒ 등록기 대역 호출 1회
+PASS ⓒ 등록 대상 = 계획 파일
+PASS ⓒ 알림 줄에 h 진입점 한 줄
+PASS ⓒ 알림은 1줄
+PASS ⓒ 등록 실패 → rc≠0
+PASS ⓒ 등록 실패 → ERROR 1줄
+PASS ⓒ 등록 실패 → 알림 0
+PASS ⓒ 등록 실패 → 보냄 표지 0
+PASS ⓒ 등록 실패여도 계획 파일은 남음
+PASS ⓒ 다음 pass 가 등록 재시도
+PASS ⓒ 재시도 성공 → h 진입점
+== ⓓ 재설계 r3-1: «보냄» 표지는 알림이 실제로 나간 뒤에만 · 표지 없으면 같은 목록도 재발송
+PASS ⓓ 알림 성공 → .sent = 보낸 목록 해시
+PASS ⓓ mbox 로 1회 나감
+PASS ⓓ 나간 알림에 h 진입점
+PASS ⓓ 표지 있음 = 재발송 0
+PASS ⓓ 표지 없으면 같은 목록도 재발송
+PASS ⓓ 알림 실패 = 표지 0
+PASS ⓓ 실패 뒤 다음 pass 재발송
+PASS ⓓ 재발송 성공 뒤 표지
+PASS ⓓ 삭제 호출 0 — land-done 살아 있음
+== ⓔ① DA r2 ①: tmux 가 준 심링크 경로도 «진짜 경로» 로 맞춰 비교한다
+PASS ⓔ① 별칭으로 열린 사본 = 목록 밖
+PASS ⓔ① land_rm 줄 없음
+PASS ⓔ① 남은 대상 2곳
+== ⓔ③ DA r2 ③: 계획에 mtime 을 박고, 낡은 계획은 실행하지 않는다
+PASS ⓔ③ 계획 3곳
+PASS ⓔ③ 계획 줄에 mtime 3번째 인자
+PASS ⓔ③ mtime 이 바뀌면 재생성 해시도 달라짐
+PASS ⓔ③ 낡은 계획 실행 rc 0
+PASS ⓔ③ 낡은 계획은 지우지 않고 skip(이유 = mtime)
+PASS ⓔ③ land-done 남음(낡은 목록으로 지우기 0)
+== ⓔ④ DA r2 ④: 목록을 채우는 두 번째 호출의 실패도 검사한다(짝수 호출 실패 = 판정 불가)
+PASS ⓔ④ 실패한 사본이 있으면 rc 1
+FAIL ⓔ④ 실패 사본은 «판정 불가» 로그(ERROR 접두 0) — 없음: «판정 불가 land-» ← ERROR 판정 불가 — land-alive: tmux pane 실패(rc=1)(계획 제외 · 삭제 0)
+KEEP land-dirty — 미커밋 1줄
+ERROR 판정 불가 — land-done: tmux pane 실패(rc=1)(계획 제외 · 삭제 0)
+LAND land-done2 sha=6d49549ffce9 kb=1000
+ERROR 판정 불가 — land-done3: tmux pane 실패(rc=1)(계획 제외 · 삭제 0)
+KEEP land-locked — 잠김(locked)
+KEEP land-unlanded — 미착지 — HEAD 9a402be433a9 가 origin/main 조상 아님
+LAND-PLAN 1곳 1000KB → /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.i80UUQo5KD/state/wt-clean/land-copies.sh.hil
+[HIL] seat=byz-harness-wt-land 착지 끝난 land 사본 1곳(1000KB) · ! bash /tmp/h77 · 계획 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T
+FAIL ⓔ④ ERROR 는 요약 1줄 — 없음: «ERROR land 판정 불가 » ← ERROR 판정 불가 — land-alive: tmux pane 실패(rc=1)(계획 제외 · 삭제 0)
+KEEP land-dirty — 미커밋 1줄
+ERROR 판정 불가 — land-done: tmux pane 실패(rc=1)(계획 제외 · 삭제 0)
+LAND land-done2 sha=6d49549ffce9 kb=1000
+ERROR 판정 불가 — land-done3: tmux pane 실패(rc=1)(계획 제외 · 삭제 0)
+KEEP land-locked — 잠김(locked)
+KEEP land-unlanded — 미착지 — HEAD 9a402be433a9 가 origin/main 조상 아님
+LAND-PLAN 1곳 1000KB → /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.i80UUQo5KD/state/wt-clean/land-copies.sh.hil
+[HIL] seat=byz-harness-wt-land 착지 끝난 land 사본 1곳(1000KB) · ! bash /tmp/h77 · 계획 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T
+FAIL ⓔ④ ERROR 줄 수 = 1 (got=[3] want=[1])
+sed: RE error: illegal byte sequence
+PASS ⓔ④ 판정 불가 사본은 계획에 없음
+sed: RE error: illegal byte sequence
+PASS ⓔ④ 판정 불가 사본 남음
+== ⓔ⑤ DA r2 ⑤: tmux·lsof 호출에 시간 상한(기본 7초)
+PASS ⓔ⑤ 기본 상한 = 7초
+PASS ⓔ⑤ 느린 tmux → rc 1
+PASS ⓔ⑤ 시간 초과 = 못 읽음(좌석 0 아님)
+PASS ⓔ⑤ 상한에서 끊김(2s ≤ 3s)
+== ⓐ DA r3 ①: 경로는 바이트 그대로 — 뒤 공백·수직탭 들어간 별칭이 가리키는 사본은 «사용 중»
+PASS ⓐ 뒤 공백 별칭 = 사용 중
+PASS ⓐ 수직탭 별칭 = 사용 중
+PASS ⓐ 남은 대상 1곳
+== ⓑ DA r3 ④: lsof 가 부분 출력을 내고 rc≠0 이면 중단(계획 0)
+PASS ⓑ rc 1
+PASS ⓑ 출력이 있어도 실패 = 중단
+PASS ⓑ 계획 0
+== ⓒ DA r3 ④: «no server running» 도 면제 0 — 지연이면 시간 초과 실패
+PASS ⓒ 시간 상한 기본 = 7초
+PASS ⓒ 시간 초과 → rc 1
+PASS ⓒ 문구로 면제하지 않는다
+PASS ⓒ 계획 0
+PASS ⓒ 상한에서 끊김(2s ≤ 3s)
+== ⓓ DA r3 ⑤: 등록 rc≠0 에 오류 문구가 있어도 «성공» 이 아니다
+PASS ⓓ rc≠0
+PASS ⓓ rc≠0 = 등록 실패
+PASS ⓓ .sent 0
+PASS ⓓ 알림 0
+PASS ⓓ 다음 실행이 등록 재시도
+== ⓔ DA r3 미종결 ⑥: --launchd 가 land-plan 의 rc 를 그대로 반영
+PASS ⓔ 등록 실패면 --launchd rc≠0
+PASS ⓔ 표지 0
+PASS ⓔ 정상이면 --launchd rc 0
+PASS ⓔ 정상이면 표지 생김
+== ⓕ DA r4 ①: 표지 해시가 같아 알림을 생략해도 «판정 불가» 가 있으면 최종 rc≠0 (--launchd 도)
+PASS ⓕ 1회차(조회 실패 포함) rc≠0
+PASS ⓕ 1회차 계획 = 확정분 2곳
+PASS ⓕ 1회차에 표지 생김
+PASS ⓕ 2회차는 알림 생략 경로
+FAIL ⓕ 표지 일치여도 rc≠0(--launchd 기록) (got=[no] want=[yes])
+FAIL ⓕ 2회차 ERROR 1줄 (got=[2] want=[1])
+== ⓖ DA r4 ②: 한 건 실패에 ERROR 는 1줄(사본별 줄은 «판정 불가» 로그)
+PASS ⓖ rc≠0
+FAIL ⓖ ERROR 줄 수 = 1 (got=[2] want=[1])
+FAIL ⓖ 사본별 줄은 ERROR 접두 0 — 없음: «판정 불가 land-» ← KEEP land-alive — 좌석·프로세스 살아 있음(cwd/pane 이 안에)
+KEEP land-dirty — 미커밋 1줄
+LAND land-done sha=6d49549ffce9 kb=1000
+LAND land-done2 sha=6d49549ffce9 kb=1000
+ERROR 판정 불가 — land-done3: tmux pane 실패(rc=1)(계획 제외 · 삭제 0)
+KEEP land-locked — 잠김(locked)
+ERROR 판정 불가 — land-unlanded: tmux pane 실패(rc=1)(계획 제외 · 삭제 0)
+LAND-PLAN 2곳 2000KB → /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.i80UUQo5KD/state/wt-clean/land-copies.sh.hil
+[HIL] seat=byz-harness-wt-land 착지 끝난 land 사본 2곳(2000KB) · ! bash /tmp/h77 · 계획 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.i80UUQo5KD/state/wt-clean/la
+FAIL ⓖ ERROR = 요약 1줄 — 없음: «ERROR land 판정 불가 2곳» ← KEEP land-alive — 좌석·프로세스 살아 있음(cwd/pane 이 안에)
+KEEP land-dirty — 미커밋 1줄
+LAND land-done sha=6d49549ffce9 kb=1000
+LAND land-done2 sha=6d49549ffce9 kb=1000
+ERROR 판정 불가 — land-done3: tmux pane 실패(rc=1)(계획 제외 · 삭제 0)
+KEEP land-locked — 잠김(locked)
+ERROR 판정 불가 — land-unlanded: tmux pane 실패(rc=1)(계획 제외 · 삭제 0)
+LAND-PLAN 2곳 2000KB → /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.i80UUQo5KD/state/wt-clean/land-copies.sh.hil
+[HIL] seat=byz-harness-wt-land 착지 끝난 land 사본 2곳(2000KB) · ! bash /tmp/h77 · 계획 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.i80UUQo5KD/state/wt-clean/la
+== ⓗ 전수: 조회 자리마다 실패 → rc≠0 · ERROR 1줄 · (표지 있는/없는 경우)
+PASS ⓗ run7 호출 자리 = 4
+PASS ⓗtmux1 표지 없음 → rc≠0
+PASS ⓗtmux1 표지 없음 → ERROR 1줄
+PASS ⓗtmux3 표지 없음 → rc≠0
+FAIL ⓗtmux3 표지 없음 → ERROR 1줄 (got=[2] want=[1])
+PASS ⓗtmux3 표지 만든 1회차 rc≠0
+PASS ⓗtmux3 표지 생김
+FAIL ⓗtmux3 표지 있음 → rc≠0 (got=[no] want=[yes])
+FAIL ⓗtmux3 표지 있음 → ERROR 1줄 (got=[2] want=[1])
+PASS ⓗtmux4 표지 없음 → rc≠0
+FAIL ⓗtmux4 표지 없음 → ERROR 1줄 (got=[3] want=[1])
+PASS ⓗtmux4 표지 만든 1회차 rc≠0
+PASS ⓗtmux4 표지 생김
+FAIL ⓗtmux4 표지 있음 → rc≠0 (got=[no] want=[yes])
+FAIL ⓗtmux4 표지 있음 → ERROR 1줄 (got=[3] want=[1])
+PASS ⓗlsof 표지 없음 → rc≠0
+PASS ⓗlsof 표지 없음 → ERROR 1줄
+PASS ⓗrealpath 표지 없음 → rc≠0
+PASS ⓗrealpath 표지 없음 → ERROR 1줄
+PASS ⓗhil 표지 없음 → rc≠0
+PASS ⓗhil 표지 없음 → ERROR 1줄
+
+FAILED 14
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

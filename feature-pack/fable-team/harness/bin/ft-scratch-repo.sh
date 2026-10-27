@@ -21,6 +21,10 @@
 #     r444: tmux 목록을 못 읽으면 stdout `ERROR tmux unreadable …` 1줄(호출자 ft-disk-alarm 이 planner 로) + 삭제 0 · 지운 뒤 로그 `swept=N owner-dead=N tmp=N held=N`
 #     r548: 어떤 프로세스의 cwd(그 폴더 또는 그 아래)인 사본은 지우지 않고 붙잡는다 — 로그 `붙잡음 …` 줄 + stdout `[장비 정리] 주인 <좌석> 사본 <경로> 에서 pid <n> <명령> 실행 중 — 삭제 보류` 최대 3줄(나머지 개수 1줄)
 #     r548: cwd 를 묻는 lsof 가 실패하거나 0줄이면 «아무도 안 씀» 으로 읽지 않는다 — 로그·stdout `ERROR lsof 실패 — 삭제 0` 1줄 + 이번 정리 전체 생략(등록 사본·tmp.* 포함)
+#     r1029: 점유(cwd) 조회 = ★사본별 1회(`lsof -a -d cwd +D <사본>` · 사본당 7초)★ — 한 사본의 lsof 실패·지연은 그 사본만 `붙잡음(조회 실패 · 삭제 보류)` 이고 다른 사본은 계속 판정한다(전체 1회 조회의 «하나 실패 = 그 틱 전부 0» 을 없앤다 · 하드 룰 12)
+#           판정 예산 FT_SCRATCH_JUDGE_BUDGET(기본 20초)을 넘긴 사본은 이번 틱에 판정하지 않고 다음 틱으로 넘긴다 — `WARN … 판정 예산(N초) 초과 · 남은 사본 M개 다음 틱` 1줄(조용한 0 아님) · 예산 0 이면 조회 호출 0
+#           lsof 자체가 고장(내 프로세스의 cwd 조차 못 봄)이면 그 회차는 삭제 0 + `ERROR lsof 실패 — 삭제 0`(r548 의 «0줄을 아무도 안 씀으로 읽지 않는다» 는 대조 1회로 유지 · 사본별 조회에서 0줄 = 그 사본을 쓰는 프로세스 0)
+#           --report 는 지우기 0 이라 지금처럼 전체 1회 조회(빠른 길 · 판정에 안 쓴다)
 #   ft-scratch-repo.sh --gate <경로> [--kind reg|tmp] [--owner O]   r897 r5: 출구 게이트 진단(조건 G0~G8 줄 + rc · 삭제 0)
 #     r897 r5 (DA⑥ r4 → fable 설계 · DESIGN-r897-exit-gate-r5 + DECISION-r897-design-final): ★삭제는 delete_copy 한 곳★ — 그 함수가 지금 다시 읽어 «우리가 만든 사본» 임을 증명할 때만 지운다
 #           (경로 글자 · 베이스 바로 아래 · 이름꼴 · 등록부 정확히 1줄 · 시계·마감 · 점유 0 · 주인 없음 · 자격(나이 또는 판정 끝) · git 연결 워크트리 루트·detached · 장치·inode)
@@ -29,7 +33,7 @@
 #     r645: 그 «적혔나» 는 지금 main 한 트리 문자열 검색(`git grep -F`) + 7초 상한 — 전 히스토리 pickaxe 검색(RSS 1~1.7GB·1분+) 0. 초과·실패 = «판정 안 끝남»(rc 1) + WARN 1줄 · warn_many 전체 예산 FT_SCRATCH_JUDGE_BUDGET(기본 20초)
 #   같은 주인의 «등록 사본» 이 3개를 넘게 살아 있으면 새로 만들 때 stderr WARN + 가장 오래된 «판정 끝난» 사본 경로(삭제는 좌석 손 — `--done <경로>`). env FT_SCRATCH_MAIN(판정 기준 ref · 기본 origin/main 있으면 그것 없으면 main)
 #   ★cwd 로 쓰이는 사본은 두 종류 모두 삭제 0 + «붙잡음» 목록(경로·pid·명령·주인) — 붙잡힌 사본은 그 팀이 시험 장비를 정리해야 지워진다(오빠 10-20 «시험 끝 = 띄운 장비 정리»)★
-#   «주인 없는 사본» = 등록 사본 중 주인 세션이 tmux 에 없고 «등록 뒤 FT_SCRATCH_AGE_MIN(1440분) 지난» 것(판정 1920 문구 · r444 의 나이 문턱 0 을 r548 이 되돌림 · tmux 목록 실패면 이 판정 생략) + TMPDIR `tmp.*` 중 FT_SCRATCH_AGE_MIN 지나고 내 소유이며 어떤 프로세스의 cwd 도 아닌 것
+#   «주인 없는 사본» = 등록 사본 중 주인 세션이 tmux 에 없고 «등록 뒤 FT_SCRATCH_AGE_MIN(240분) 지난» 것(판정 1920 문구 · r444 의 나이 문턱 0 을 r548 이 되돌림 · tmux 목록 실패면 이 판정 생략) + TMPDIR `tmp.*` 중 FT_SCRATCH_AGE_MIN 지나고 내 소유이며 어떤 프로세스의 cwd 도 아닌 것
 #   같은 sha·같은 주인의 등록 사본이 디스크에 있으면 새로 만들지 않고 그 경로를 다시 준다(r444).
 #   ★계약(r897 r10)★ 사본은 일회용 — 남길 것(커밋·산출)은 좌석 워크트리·--out-dir 로 · 사본 안 고유 작업은 자동 정리로 사라질 수 있다(같은 sha 로 재생성) · --done 은 주인 자신만(남의 사본 = rc2 · 주인 없는 사본은 --sweep)
 #   env: FT_RES_ROOT · FT_SCRATCH_DIR(사본 부모, 기본 $TMPDIR) · FT_SCRATCH_OWNER(주인, 기본 현재 tmux 세션)
@@ -40,7 +44,7 @@ HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="${FT_RES_ROOT:-}"   # r385: 리포 공용 루트 = env → ft_repo_root(옛 설치 꼴 · cwd) → ERROR (새 설치본이 git 밖이라 자기 위치로 풀지 않는다)
 [ -n "$ROOT" ] || { . "$HERE/ft-harness-root.sh" && ROOT="$(ft_repo_root "$HERE")"; } || exit 3
 TAB=$'\t'
-STATE="$ROOT/.fable-team/state"; TSV="$STATE/scratch-repos.tsv"; ARMED="$STATE/scratch-sweep.armed"; SLOG="$STATE/scratch-sweep.log"; AGE="${FT_SCRATCH_AGE_MIN:-1440}"
+STATE="$ROOT/.fable-team/state"; TSV="$STATE/scratch-repos.tsv"; ARMED="$STATE/scratch-sweep.armed"; SLOG="$STATE/scratch-sweep.log"; AGE="${FT_SCRATCH_AGE_MIN:-240}"   # r1029: 1440 → 240(오빠 결정 · 사본은 일회용 · 같은 sha 재생성 · 주인 살아 있음·cwd 보유는 그대로 보존)
 TIMEOUT_BIN=""; command -v gtimeout >/dev/null 2>&1 && TIMEOUT_BIN="$(command -v gtimeout)"; [ -n "$TIMEOUT_BIN" ] || { command -v timeout >/dev/null 2>&1 && TIMEOUT_BIN="$(command -v timeout)"; }
 TMO=""; [ -z "$TIMEOUT_BIN" ] || TMO="$TIMEOUT_BIN 7"
 JUDGE_TMO=7   # r645: judged 1회 검색 상한(초) — warn_many 가 남은 예산으로 줄여 넘긴다
@@ -255,12 +259,55 @@ held_report() { # <날짜> r548: 붙잡은 사본 = 로그 «붙잡음» 줄 전
   while IFS="$TAB" read -r k p ty why own pid cmd; do
     [ -n "$p" ] || continue
     i=$((i+1))
-    printf '%s 붙잡음 %s (pid %s %s · 주인 %s)\n' "$1" "$p" "$pid" "$cmd" "$own" >> "$SLOG"
-    [ "$i" -le 3 ] && echo "[장비 정리] 주인 $own 사본 $p 에서 pid $pid $cmd 실행 중 — 삭제 보류"
+    if [ "$cmd" = "lsof 실패" ]; then   # r1029: 점유 조회 실패로 보류한 사본 — «pid ? 실행 중» 이 아니라 «조회 실패» 라고 적는다
+      printf '%s 붙잡음 %s (점유 조회 실패 · 삭제 보류 · 주인 %s)\n' "$1" "$p" "$own" >> "$SLOG"
+      [ "$i" -le 3 ] && echo "[장비 정리] 사본 $p — 점유 조회 실패(lsof) · 삭제 보류"
+    else
+      printf '%s 붙잡음 %s (pid %s %s · 주인 %s)\n' "$1" "$p" "$pid" "$cmd" "$own" >> "$SLOG"
+      [ "$i" -le 3 ] && echo "[장비 정리] 주인 $own 사본 $p 에서 pid $pid $cmd 실행 중 — 삭제 보류"
+    fi
   done <<EOF
 $HOLD
 EOF
   [ "$HELD" -le 3 ] || echo "[장비 정리] …외 $((HELD-3)) 건"
+}
+# ── r1029: 점유(cwd) 조회 = 사본별 1회 ──────────────────────────────────────────
+ODL=0; OQF=0; ODEF=0   # ODL = 점유 조회 예산 마감(epoch · 0 = 예산 없음) · OQF = 조회 실패로 보류한 사본 수 · ODEF = 예산 초과로 다음 틱에 넘긴 사본 수
+occ_left() { # → 이번 사본 조회에 쓸 초 = min(7, 예산 남은 초) · 예산 없음 = 7 · 남은 0 = 0(그 뒤 호출 0)
+  local now t
+  [ "$ODL" != 0 ] || { printf '7\n'; return 0; }
+  cap now date +%s && isnum "$now" || { printf '0\n'; return 0; }
+  t=$(( ODL - now )); [ "$t" -gt 7 ] && t=7; [ "$t" -gt 0 ] || t=0
+  printf '%s\n' "$t"
+}
+lsof_ok() { # → 0 = lsof 가 «지금 내 프로세스의 cwd» 를 본다(rc≠0·0줄 = 고장) — r548 의 «0줄을 아무도 안 씀으로 읽지 않는다» 를 사본별 조회에도 남기는 대조 1회
+  local out
+  cap out $TMO lsof -w -a -d cwd -Fpcn -p $$ 2>/dev/null || return 1
+  [ -n "$out" ]
+}
+occ_rows() { # <사본> → 0 = 조회 성공(CWDROWS 채움 · 0줄 = 그 사본을 쓰는 프로세스 0) · 1 = 실패·시간 초과(그 사본만 보류) · 124 = 예산 소진(다음 틱)
+  local t out rc
+  cap t occ_left || return 124
+  [ "$t" -gt 0 ] || return 124
+  cap out bounded "$t" lsof -w -a -d cwd -Fpcn +D "$1" 2>/dev/null; rc=$?
+  case "$rc" in 0|1) ;; *) return 1;; esac   # 0/1 = 정상(1 = 걸리는 프로세스 없음 — lsof 의 «없음» rc) · 124 = 시간 초과 · 2 이상 = 못 읽음
+  cap CWDROWS cwd_parse "$out" || return 1
+  return 0
+}
+occ_decide() { # <kb> <경로> <reg|tmp> <사유> <주인> → 그 사본만 점유 조회 1회 → 붙잡음(hold) 또는 후보(add) · 예산 소진 = 다음 틱(조용한 0 아님)
+  local k="$1" p="$2" ty="$3" why="$4" own="$5" rc
+  if [ "$REPORT_ONLY" != 0 ]; then   # --report = 지우기 0 — 전체 1회 결과로 «보이는 칸» 만 채운다
+    if cwd_holder "$p" "$CWDROWS"; then hold "$k" "$p" "$ty" "$why · 붙잡음 pid $HPID $HCMD" "$own" "$HPID" "$HCMD"
+    else add "$k" "$p" "$ty" "$why" "$own"; fi
+    return 0
+  fi
+  occ_rows "$p"; rc=$?
+  case "$rc" in
+    0) if cwd_holder "$p" "$CWDROWS"; then hold "$k" "$p" "$ty" "$why · 붙잡음 pid $HPID $HCMD" "$own" "$HPID" "$HCMD"
+       else add "$k" "$p" "$ty" "$why" "$own"; fi;;
+    1) OQF=$((OQF+1)); hold "$k" "$p" "$ty" "$why · 붙잡음(조회 실패 · 삭제 보류)" "$own" "?" "lsof 실패";;
+    *) ODEF=$((ODEF+1));;
+  esac
 }
 orphans() { # → ORPH = "kb<TAB>경로<TAB>reg|tmp<TAB>사유" 줄들 · HOLD = "kb<TAB>경로<TAB>reg|tmp<TAB>사유(붙잡음)·…<TAB>주인<TAB>pid<TAB>명령" · N · K · HELD · TMUX_OK · LSOF_OK
   local SESS p o t b d TD now RAW r why jdl jt jnow jover=0 kbv me tdl rows=""; ORPH=""; HOLD=""; N=0; K=0; HELD=0; TMUX_OK=1; LSOF_OK=1; READ_OK=1
@@ -271,12 +318,17 @@ orphans() { # → ORPH = "kb<TAB>경로<TAB>reg|tmp<TAB>사유" 줄들 · HOLD =
 "; N=$((N+1)); case "$1" in ''|*[!0-9]*) ;; *) K=$((K+$1));; esac; }   # 5열 = 주인(r897 r10: 지우기 직전 재확인용 · --report awk 는 $2·$4 만 읽는다)
   hold() { HOLD="$HOLD$1	$2	$3	$4	$5	$6	$7
 "; HELD=$((HELD+1)); }
-  # r548: «누가 이 폴더를 cwd 로 쓰나» 를 한 번($TMO lsof -Fpcn)만 묻고 등록 사본·tmp 둘 다에 쓴다. 실패(rc≠0)하거나 0줄이면 «아무도 안 씀» 으로 읽지 않고 이번 판정 전체를 접는다(조용한 통과 0).
-  cap RAW $TMO lsof -w -d cwd -Fpcn 2>/dev/null || LSOF_OK=0
-  [ -n "$RAW" ] || LSOF_OK=0
-  # r10.5: lsof 출력 해석(awk)도 rc 를 본다 — 해석 실패 = cwd 판정 불가(빈 표 = «아무도 안 씀» 으로 읽지 않는다)
-  [ "$LSOF_OK" = 0 ] || cap CWDROWS cwd_parse "$RAW" || LSOF_OK=0
-  if [ "$LSOF_OK" = 0 ]; then echo "ERROR lsof 실패 — 삭제 0 (cwd 판정 불가)" >&2; return 0; fi
+  # r1029: 점유 조회 = 사본별(한 사본의 실패·지연이 다른 사본 판정을 지우지 않는다) — --report 는 지우기 0 이라 전체 1회 그대로
+  if [ "$REPORT_ONLY" != 0 ]; then
+    cap RAW $TMO lsof -w -d cwd -Fpcn 2>/dev/null || LSOF_OK=0
+    [ -n "$RAW" ] || LSOF_OK=0
+    [ "$LSOF_OK" = 0 ] || cap CWDROWS cwd_parse "$RAW" || LSOF_OK=0
+    if [ "$LSOF_OK" = 0 ]; then echo "ERROR lsof 실패 — 삭제 0 (cwd 판정 불가)" >&2; return 0; fi
+  else
+    OQF=0; ODEF=0; ODL=0
+    if ! lsof_ok; then LSOF_OK=0; echo "ERROR lsof 실패 — 삭제 0 (cwd 판정 불가)" >&2; return 0; fi
+    ODL=$(( now + ${FT_SCRATCH_JUDGE_BUDGET:-20} ))
+  fi
   # 등록 사본: tmux 목록을 못 읽으면(rc≠0) «세션 0» 으로 세지 않고 이 판정 전체를 건너뛴다(#0 RULE) · 후보 = 주인 없음 ∧ 등록 뒤 AGE 분 지남(판정 1920 문구 · r548 이 r444 의 문턱 0 을 되돌림)
   # r5(DA⑥ r4 반례 1a): 등록부 읽기도 rc 를 본다 — 못 읽음 = 이번 판정 전체를 접는다(READ_OK=0 · sweep 삭제 0) · `<(…)` 0
   if [ -e "$TSV" ]; then cap rows bounded 7 cat -- "$TSV" || { READ_OK=0; echo "ERROR 등록부 못 읽음 — 삭제 0" >&2; return 0; }; fi
@@ -297,8 +349,7 @@ orphans() { # → ORPH = "kb<TAB>경로<TAB>reg|tmp<TAB>사유" 줄들 · HOLD =
         why="$why · judged"
       fi
       cap kbv kb "$p"; isnum "$kbv" || kbv='?'   # 표시 전용(크기) — 결정 입력 0 · r5: 빈 칸 0(탭 IFS 가 빈 칸을 접어 열이 밀리던 길 · DA⑥ r4 반례 1b)
-      if cwd_holder "$p" "$CWDROWS"; then hold "$kbv" "$p" reg "$why · 붙잡음 pid $HPID $HCMD" "$o" "$HPID" "$HCMD"
-      else add "$kbv" "$p" reg "$why" "$o"; fi
+      occ_decide "$kbv" "$p" reg "$why" "$o"
     done <<EOF
 $rows
 EOF
@@ -310,12 +361,13 @@ EOF
       case "$d" in "$TD"/tmp.*) [ -d "$d" ] || continue;; *) continue;; esac
       case "${d#"$TD"/}" in */*) continue;; esac
       cap kbv kb "$d"; isnum "$kbv" || kbv='?'   # 표시 전용(크기)
-      if cwd_holder "$d" "$CWDROWS"; then hold "$kbv" "$d" tmp "TMPDIR tmp.* ${AGE}분 지남 · 붙잡음 pid $HPID $HCMD" "-" "$HPID" "$HCMD"
-      else add "$kbv" "$d" tmp "TMPDIR tmp.* ${AGE}분 지남" "-"; fi
+      occ_decide "$kbv" "$d" tmp "TMPDIR tmp.* ${AGE}분 지남" "-"
     done <<EOF
 $tdl
 EOF
   else echo "WARN ft-scratch-repo — TMPDIR 목록(id·find) 못 읽음 · tmp.* 삭제 0" >&2; fi
+  # r1029: 예산을 넘긴 사본은 «조용한 0» 이 아니라 1줄로 알린다(다음 틱에 다시 본다)
+  [ "$ODEF" = 0 ] || echo "WARN ft-scratch-repo — 판정 예산(${FT_SCRATCH_JUDGE_BUDGET:-20}초) 초과 · 남은 사본 ${ODEF}개 다음 틱" >&2
 }
 fast() { # <사본> → 0 = «판정 끝 표식 ∧ 주인 없음» 중 이름꼴·HEAD·detached 가 모두 참(2720 빠른 길 · r897 r10) · 하나라도 못 읽거나 거짓 = rc1(24시간 규칙으로 후퇴 · 덜 지우는 쪽)
   local p="$1" n h sha r re='^repo-([0123456789abcdef]{8})-[0123456789]+-[0123456789]+$'
@@ -332,7 +384,7 @@ fast() { # <사본> → 0 = «판정 끝 표식 ∧ 주인 없음» 중 이름�
 # ── 출구 게이트(r897 r5 · DESIGN-r897-exit-gate-r5 + DECISION-r897-design-final 고침 11) ──────────────────────────
 #   rm·worktree remove 는 delete_copy 안에만 · 조건은 전부 «지금» 다시 읽는다(앞 단계 ORPH·fast·lsof 값을 믿지 않는다) · 조회마다 min(7초, 마감-지금)
 #   rc: 0 삭제됨 · 1 HELD(점유·주인 생김) · 2 UNREADABLE/BUDGET(남은 항목 전부 삭제 0) · 3 REFUSED(이 항목 대상 아님 — 그 항목만 건너뜀) · 4 FAILED(삭제 명령 실패 · 등록 줄 유지 · 다음 sweep 재시도)
-GWHY=""; GATE_DRY=0
+GWHY=""; GATE_DRY=0; REPORT_ONLY=0
 gfail() { # <조건> <rc> <사유> → GWHY · --gate 면 조건 줄 · rc 그대로
   GWHY="$1 $3"
   if [ "$GATE_DRY" != 0 ]; then case "$2" in 1) printf '%s HELD (%s)\n' "$1" "$3";; 2) printf '%s UNREADABLE (%s)\n' "$1" "$3";; *) printf '%s REFUSED (%s)\n' "$1" "$3";; esac; fi
@@ -556,6 +608,7 @@ case "${1:-}" in
     judged "$P"; exit $?;;
   --report)
     [ "${2:-}" != --orphans ] || { unregistered_copies; exit 0; }
+    REPORT_ONLY=1   # r1029: 보고는 지우기 0 — 점유 조회를 전체 1회로(빠른 길)
     orphans
     if [ "${2:-}" = --summary ]; then [ "$N" = 0 ] || printf '주인 없는 임시 사본 %s개 %s GiB\n' "$N" "$(gib "$K")"
     else printf '%s%s' "$ORPH" "$HOLD" | awk -F'\t' '$2!=""{k=$1; if (k !~ /^[0-9]+$/) k=0; printf "%s\t%s\t%s\n", sprintf("%.2f", k/1048576), $2, $4}'; fi;;   # r548: 붙잡은 사본도 «붙잡음 pid …» 칸으로 보인다 · --summary 는 지울 수 있는 것만 센다

@@ -1,0 +1,136 @@
+PASS bash -n
+== ⓑ 착지 끝난 land 사본만 계획 1개 · 삭제 0
+PASS ⓑ rc 0
+PASS ⓑ 대상 3곳(land-done·2·3) · 크기 합
+PASS ⓑ 목록 줄 = 이름·착지 sha·크기
+PASS ⓑ 계획 파일 1개
+PASS ⓑ 계획의 land_rm 줄 = 3
+PASS ⓑ 첫 목록 = [HIL] 1줄
+PASS ⓑ 삭제 호출 0 — 워크트리 수 그대로
+PASS ⓑ 삭제 호출 0 — land-done 폴더 그대로
+PASS ⓑ land-* 아닌 사본은 대상 밖
+cp: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.6bo36N1Z8r/state/wt-clean/land-copies.sh.hil.sig: No such file or directory
+PASS ⓑ 목록이 같고 보냄 표지 있으면 [HIL] 0(바뀐 때만)
+FAIL ⓑ 보냄 표지 없으면 같은 목록도 재발송(ⓓ) — 없음: «[HIL]» ← KEEP land-alive — 좌석·프로세스 살아 있음(cwd/pane 이 안에)
+KEEP land-dirty — 미커밋 1줄
+LAND land-done sha=be8bf0bd5b04 kb=1000
+LAND land-done2 sha=be8bf0bd5b04 kb=1000
+LAND land-done3 sha=be8bf0bd5b04 kb=1000
+KEEP land-locked — 잠김(locked)
+KEEP land-unlanded — 미착지 — HEAD 484511dbd4bf 가 origin/main 조상 아님
+LAND-PLAN 3곳 3000KB → /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.6bo36N1Z8r/state/wt-clean/land-copies.sh.hil
+== ⓒ 목록 밖 — 이유 1줄
+PASS ⓒ land-dirty 계획 밖
+PASS ⓒ land-alive 계획 밖
+PASS ⓒ land-locked 계획 밖
+PASS ⓒ land-unlanded 계획 밖
+PASS ⓒ 미커밋 이유
+PASS ⓒ 미착지 이유
+PASS ⓒ 좌석 살아 있음 이유(cwd)
+PASS ⓒ 잠김 이유
+PASS ⓒ tmux pane 이 안에 = 목록 밖
+PASS ⓒ 목록이 바뀌면 [HIL] 다시 1줄
+PASS ⓒ 좌석 못 읽음 → rc 1
+PASS ⓒ 좌석 못 읽음 → 이유
+PASS ⓒ 좌석 못 읽음 → 계획 0
+== ⓕ 계획 실행 순간 다시 잰다(= 오빠 h)
+PASS ⓕ 다시 만든 계획 = 3곳
+PASS ⓕ 계획 rc 0
+PASS ⓕ 검사 통과 = git worktree remove
+PASS ⓕ land-done 지워짐
+PASS ⓕ 만든 뒤 미커밋 = skip
+PASS ⓕ 만든 뒤 HEAD 바뀜 = skip(낡은 목록으로 지우기 0)
+PASS ⓕ land-done2 남음
+PASS ⓕ land-done3 남음
+PASS ⓕ land-dirty 남음
+PASS ⓕ land-alive 남음
+PASS ⓕ land-locked 남음
+PASS ⓕ land-unlanded 남음
+PASS ⓕ nano-x 남음
+PASS ⓕ 실행 때 좌석 못 읽음 → 중단 rc 1
+PASS ⓕ 중단 이유
+== ⓐ 재설계 r3-1: 사본마다 직전에 좌석 목록을 새로 읽는다(처리 중 열린 좌석 skip)
+PASS ⓐ rc 0
+FAIL ⓐ 앞 사본을 처리하는 사이 열린 좌석은 계획 밖(3→2곳) — 없음: «LAND-PLAN 2곳 2000KB» ← KEEP land-alive — 좌석·프로세스 살아 있음(cwd/pane 이 안에)
+KEEP land-dirty — 미커밋 1줄
+LAND land-done sha=be8bf0bd5b04 kb=1000
+LAND land-done2 sha=be8bf0bd5b04 kb=1000
+LAND land-done3 sha=be8bf0bd5b04 kb=1000
+KEEP land-locked — 잠김(locked)
+KEEP land-unlanded — 미착지 — HEAD 484511dbd4bf 가 origin/main 조상 아님
+LAND-PLAN 3곳 3000KB → /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.6bo36N1Z8r/state/wt-clean/land-copies.sh.hil
+[HIL] seat=byz-harness-wt-land 착지 끝난 land 사본 3곳(3000KB) 정리 계획 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.6bo36N1Z8r/state/wt-clean/land-copies.sh.hil — 지우기는 오빠 h(목록 
+FAIL ⓐ B(land-done2) land_rm 줄 없음 — 있으면 안 됨: «/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.6bo36N1Z8r/repo/.worktrees/land-done2 »
+FAIL ⓐ B KEEP 이유 1줄 — 없음: «KEEP land-done2 — 좌석·프로세스 살아 있음» ← KEEP land-alive — 좌석·프로세스 살아 있음(cwd/pane 이 안에)
+KEEP land-dirty — 미커밋 1줄
+LAND land-done sha=be8bf0bd5b04 kb=1000
+LAND land-done2 sha=be8bf0bd5b04 kb=1000
+LAND land-done3 sha=be8bf0bd5b04 kb=1000
+KEEP land-locked — 잠김(locked)
+KEEP land-unlanded — 미착지 — HEAD 484511dbd4bf 가 origin/main 조상 아님
+LAND-PLAN 3곳 3000KB → /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.6bo36N1Z8r/state/wt-clean/land-copies.sh.hil
+[HIL] seat=byz-harness-wt-land 착지 끝난 land 사본 3곳(3000KB) 정리 계획 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.6bo36N1Z8r/state/wt-clean/land-copies.sh.hil — 지우기는 오빠 h(목록 
+PASS ⓐ 뒤 사본은 새 목록으로 재판단
+PASS ⓐ 다시 3곳 계획
+PASS ⓐ 계획 실행 rc 0
+PASS ⓐ 계획 첫 사본 = 지움
+PASS ⓐ 실행 중 열린 좌석 = 지우기 직전 skip
+PASS ⓐ land-done2 남음
+PASS ⓐ land-done 지워짐
+PASS ⓑ 준비: 대상 3곳 복구
+== ⓑ 재설계 r3-1: tmux 오류 글자를 «좌석 0» 으로 읽지 않는다
+FAIL ⓑ tmux 연결 오류 → rc 1 (got=[0] want=[1])
+FAIL ⓑ 중단 + ERROR — 없음: «ERROR land 목록 건너뜀 — tmux 목록 실패(rc=1)» ← KEEP land-alive — 좌석·프로세스 살아 있음(cwd/pane 이 안에)
+KEEP land-dirty — 미커밋 1줄
+LAND land-done sha=be8bf0bd5b04 kb=1000
+LAND land-done2 sha=be8bf0bd5b04 kb=1000
+LAND land-done3 sha=be8bf0bd5b04 kb=1000
+KEEP land-locked — 잠김(locked)
+KEEP land-unlanded — 미착지 — HEAD 484511dbd4bf 가 origin/main 조상 아님
+LAND-PLAN 3곳 3000KB → /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.6bo36N1Z8r/state/wt-clean/land-copies.sh.hil
+[HIL] seat=byz-harness-wt-land 착지 끝난 land 사본 3곳(3000KB) 정리 계획 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.6bo36N1Z8r/state/wt-clean/land-copies.sh.hil — 지우기는 오빠 h(목록 
+FAIL ⓑ 오류 글자 그대로 — 없음: «error connecting to /tmp/tmux-501/default (Permission denied)» ← KEEP land-alive — 좌석·프로세스 살아 있음(cwd/pane 이 안에)
+KEEP land-dirty — 미커밋 1줄
+LAND land-done sha=be8bf0bd5b04 kb=1000
+LAND land-done2 sha=be8bf0bd5b04 kb=1000
+LAND land-done3 sha=be8bf0bd5b04 kb=1000
+KEEP land-locked — 잠김(locked)
+KEEP land-unlanded — 미착지 — HEAD 484511dbd4bf 가 origin/main 조상 아님
+LAND-PLAN 3곳 3000KB → /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.6bo36N1Z8r/state/wt-clean/land-copies.sh.hil
+[HIL] seat=byz-harness-wt-land 착지 끝난 land 사본 3곳(3000KB) 정리 계획 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.6bo36N1Z8r/state/wt-clean/land-copies.sh.hil — 지우기는 오빠 h(목록 
+FAIL ⓑ 계획 0 (got=[yes] want=[no])
+PASS ⓑ 준비: 계획 3곳
+== ⓒ 재설계 r3-1: 계획을 ft-hil 에 등록하고 ! bash /tmp/h<N> 한 줄을 알림에 싣는다
+FAIL ⓒ 등록기 대역 호출 1회 (got=[0] want=[1])
+FAIL ⓒ 등록 대상 = 계획 파일 — 없음: «--add /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.6bo36N1Z8r/state/wt-clean/land-copies.sh.hil» ← 
+FAIL ⓒ 알림 줄에 h 진입점 한 줄 — 없음: «! bash /tmp/h77» ← KEEP land-alive — 좌석·프로세스 살아 있음(cwd/pane 이 안에)
+KEEP land-dirty — 미커밋 1줄
+LAND land-done sha=be8bf0bd5b04 kb=1000
+LAND land-done2 sha=be8bf0bd5b04 kb=1000
+LAND land-done3 sha=be8bf0bd5b04 kb=1000
+KEEP land-locked — 잠김(locked)
+KEEP land-unlanded — 미착지 — HEAD 484511dbd4bf 가 origin/main 조상 아님
+LAND-PLAN 3곳 3000KB → /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.6bo36N1Z8r/state/wt-clean/land-copies.sh.hil
+FAIL ⓒ 알림은 1줄 (got=[0] want=[1])
+FAIL ⓒ 등록기 실패 = 경로 안내로 후퇴 — 없음: «스크립트 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.6bo36N1Z8r/state/wt-clean/land-copies.sh.hil» ← KEEP land-alive — 좌석·프로세스 살아 있음(cwd/pane 이 안에)
+KEEP land-dirty — 미커밋 1줄
+LAND land-done sha=be8bf0bd5b04 kb=1000
+LAND land-done2 sha=be8bf0bd5b04 kb=1000
+LAND land-done3 sha=be8bf0bd5b04 kb=1000
+KEEP land-locked — 잠김(locked)
+KEEP land-unlanded — 미착지 — HEAD 484511dbd4bf 가 origin/main 조상 아님
+LAND-PLAN 3곳 3000KB → /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.6bo36N1Z8r/state/wt-clean/land-copies.sh.hil
+== ⓓ 재설계 r3-1: «보냄» 표지는 알림이 실제로 나간 뒤에만 · 표지 없으면 같은 목록도 재발송
+FAIL ⓓ 알림 성공 → .sent = 보낸 목록 해시 (got=[no] want=[yes])
+PASS ⓓ mbox 로 1회 나감
+FAIL ⓓ 나간 알림에 h 진입점 — 없음: «! bash /tmp/h77» ← send m#1 ft-wt-sweep [HIL] 워크트리 정리 사람 판정 — seat=byz-harness-wt-land 착지 끝난 land 사본 3곳(3000KB) 정리 계획 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.6bo36N1Z8r/state/wt-clean/land-copies.sh.hil — 지우 --urgent
+PASS ⓓ 표지 있음 = 재발송 0
+FAIL ⓓ 표지 없으면 같은 목록도 재발송 (got=[1] want=[2])
+PASS ⓓ 알림 실패 = 표지 0
+grep: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.6bo36N1Z8r/mbox.log: No such file or directory
+FAIL ⓓ 실패 뒤 다음 pass 재발송 (got=[] want=[1])
+FAIL ⓓ 재발송 성공 뒤 표지 (got=[no] want=[yes])
+PASS ⓓ 삭제 호출 0 — land-done 살아 있음
+
+FAILED 18
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

@@ -1,0 +1,29 @@
+r880 재설계 r4 — DA r2 HOLD 6 중 5건 닫음 (오빠 결정 10-27 07:4x «1번» · 반례 집합·계약 동결 · 구현만 교체)
+
+DA r2 원문 = design/harness/evidence/r880-da6/da-20261027-034339-74253.out 마지막 블록 · 인터뷰 묶음 행 14.
+  ② (함수 안 계획 파일 교체 mv·표지 rm) = «사본 삭제 0 · 계획 파일만» 으로 읽으면 통과 = 범위 밖 메모(오빠 결정표) → 손대지 않음.
+
+닫은 5건
+  ① tmux 가 돌려준 심링크 경로를 정규화하지 않아 «쓰는 중인 사본» 이 계획에 들어감 → 실경로 정규화(realpaths · python3 os.path.realpath)를 LIVE 쪽(lsof·tmux 양쪽)에 적용. 이제 양쪽을 같은 자(진짜 경로)로 잰다.
+  ③ 계획에 대상 해시·mtime 이 없어 낡은 계획이 그대로 실행됨 → 계획 각 줄에 mtime 을 박고(land_rm <경로> <sha> <mtime>), 실행 직전 land_check 가 mtime 을 대조해 다르면 skip(«mtime 바뀜»). 계획 지문(sig)도 mtime 이 바뀌면 달라진다.
+  ④ 목록을 채우는 두 번째 호출의 실패를 검사하지 않음 → land_live 가 검사와 채우기를 한 번에 하고(LIVE·LAND_ERR), 호출자가 rc 를 본다. 사본마다 그 rc 로 중단/제외.
+  ⑤ tmux·lsof 호출에 시간 상한 없음(8초 지연 → 19.58초 뒤 rc0) → alarmed() 로 그룹째 7초 상한(FT_WT_LIVE_SEC 기본 7 · 124 = 못 읽음 → 중단).
+  ⑥ h 등록 실패(rc9·번호 충돌)에도 rc0 · 재시도 0 → hil_register() 가 실패하면 rc≠0 · 알림 0 · 보냄 표지 0 → 다음 pass 가 등록부터 다시 한다(«보냈다» 로 치지 않음).
+
+계약 변경 1건(정당 · 계약 ⑥): 등록기 실패는 «경로 안내로 후퇴(r세0)» 가 아니라 rc≠0 이다 — 시험 칸도 그에 맞게 바꿨다(DA r2 지적 그대로).
+
+시험 (임시 리포 · 가짜 tmux·lsof·du·ft-hil·mbox · 실 워크트리·실 tmux·실 mbox 0)
+  ⓔ① 심링크: tmux 가 별칭 경로를 줘도 사용 중인 사본은 목록 밖(3→2곳) — r4-green.txt
+  ⓔ③ mtime: 계획 줄 3번째 인자에 mtime · 만든 뒤 mtime 만 바꾸면 재생성 해시가 달라지고, 낡은 계획 실행은 «skip … mtime 바뀜» 으로 남김(지우기 0) — r4-green.txt
+  ⓔ④ 짝수(두 번째) 호출 실패 → rc1 · ERROR · 계획 0 — r4-green.txt
+  ⓔ⑤ 느린 tmux(5초) · 상한 2초 → rc1 · «tmux 목록 실패(rc=124)» · 2초에 끊김 · 기본값 7초 확인 — r4-green.txt
+  ⓒ 등록 실패 → rc≠0 · ERROR · 알림 0 · 표지 0 · 계획 보존 · 다음 pass 재등록(대역 호출 1회) — r4-green.txt
+  green: rc=0 · PASS 93 · ALL PASS (기존 ⓑⓒⓓⓕⓐ 칸 포함)
+  red-base(7aea7bd2 코드 그대로 · 새 시험): rc=1 · FAIL 16 — r4-red-base.txt
+  회귀: test_ft_wt_sweep_route_timeout rc=0 · test_wt_sweep_budget_replan_r535 rc=0 · test_kit_bin_sync rc=0 — r4-regress-*.txt
+  변이 9 전부 KILLED — mutation-r2.sh · r4-mutation.txt
+    refresher(사본별 재검사 제거)→ⓐ · tmuxerr(연결 오류를 좌석 0)→ⓑ · nohil(등록 안 함)→ⓒ · earlysent(알림 전 표지)→ⓓ
+    norealpath(정규화 제거)→ⓔ① · nomtime(mtime 대조 제거)→ⓔ③ · ignrc(tmux 실패 rc0)→ⓒ·ⓔ④ · nocap(시간 상한 제거)→ⓔ⑤ · hilfailok(등록 실패를 성공으로)→ⓒ
+
+bin·kit 두 사본 cmp 0 · 삭제 실행 0(계획 파일만) · ②는 범위 밖 메모(오빠 결정표)
+press 필요: 없음(오디오 경로 무관)

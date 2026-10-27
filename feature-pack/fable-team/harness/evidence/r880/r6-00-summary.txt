@@ -1,0 +1,19 @@
+r880 재설계 r6 — 오빠 결정 4(«1번 빈자리+시험» · 반례 집합·계약 동결 · 구현만 교체) · arch 159 반송서 REWORK-r880-r5.md
+
+DA r4 반례 2 = «실패 처리 한 자리» 가 사본별 자리와 요약 자리 두 곳에 남은 결.
+  ① 표지 해시가 같아 알림을 생략하는 경로에서 최종 rc0 → 판정 불가가 있으면 rc1 무조건(보냄 표지 일치·알림 생략과 무관) · --launchd 기록도 같은 rc
+  ② 한 건 실패에 ERROR 두 줄(사본별 + 요약) → ERROR 는 마지막 요약 «1줄» 만 · 사본별 줄은 «판정 불가 <사본>:<단계>» 로그(접두 ERROR 0)
+
+구현: land_rc() 한 자리 = bad≥1 이면 요약 ERROR 1줄 + rc1 · 모든 반환 경로(0곳 · 표지 일치로 알림 생략 · 정상 알림)가 land_rc 를 지난다 · 사본별 줄에서 ERROR 접두 제거 · 제외 사본 이름을 요약에 담는다.
+
+시험 (임시 리포 · 가짜 tmux·lsof·du·ft-hil·mbox·python3 · 실 워크트리·실 tmux·실 mbox 0)
+  ⓕ 표지 있는 상태(알림 생략)에서 판정 불가 → rc≠0 · --launchd 기록 rc≠0 · ERROR 1줄 — r6-green.txt
+  ⓖ 표지 없는 상태에서 조회 실패 → rc≠0 · ERROR 정확히 1줄 · 사본별 줄은 «판정 불가» 로그 — r6-green.txt
+  ⓗ 전수 6자리(첫 tmux · 6번째 tmux · 5번째 tmux · lsof · realpath · h 등록) × 표지 유무 → rc≠0 · ERROR 1줄 · run7 호출 자리 수 가드(=4) — r6-green.txt
+  green: rc=0 · PASS 147 · ALL PASS (기존 114 칸 포함)
+  red-base(3790c0db 코드 그대로 · 새 시험): rc=1 · FAIL 14 — r6-red-base.txt
+  회귀: test_wt_clean_two_stage 62 PASS rc0 · route_timeout rc0 · budget_replan_r535 rc0 · kit_bin_sync rc0 — r6-regress-*.txt
+  변이 12 전부 KILLED — mutation-r2.sh · r6-mutation.txt («bad 무시 rc0» → ⓕ FAIL · «사본별 ERROR 부활» → ⓖ FAIL)
+
+bin·kit 두 사본 cmp 0 · /bin/bash 3.2 · 삭제 실행 0(계획 파일만) · 바뀐 파일 = ft-wt-sweep.sh 짝 2 + 시험 1
+press 필요: 없음(오디오 경로 무관)
