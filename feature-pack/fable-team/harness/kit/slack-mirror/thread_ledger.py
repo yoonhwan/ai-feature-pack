@@ -77,6 +77,16 @@ def ensure_report(path: Path, key: str, *, channel: str, root_ts: str, replace: 
         raise LedgerError(f"장부 root_ts({rec.get('root_ts')}) ≠ 이번 root_ts({root_ts}): {key} — 사람이 확인한다")
 
 
+def drop(path: Path, key: str) -> bool:
+    """장부에서 그 키를 뻈다 — 지운 글 번호를 남기지 않는다(r1004 되읽기 가드가 지운 뒤 다음 갱신이 새 글을 만들게). 없는 키 = False(조용한 성공 0)."""
+    data = load(path)
+    if key not in data:
+        return False
+    del data[key]
+    _write(path, data)
+    return True
+
+
 def set_field(path: Path, key: str, name: str, value: str | None) -> None:
     """한 칸 기록(value=None 이면 지움) — 보드 `reply_pending` 용."""
     data = load(path)

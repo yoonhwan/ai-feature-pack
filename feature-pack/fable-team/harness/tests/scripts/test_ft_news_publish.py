@@ -54,6 +54,9 @@ class FakeSlack:
 
             def do_POST(self) -> None:
                 body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+                if self.path.endswith("chat.delete"):  # r1004 되읽기 가드
+                    outer.msgs = [m for m in outer.msgs if m["ts"] != body["ts"]]
+                    return self._reply({"ok": True})
                 if self.path.endswith("chat.update"):
                     outer.updates.append(body)
                     for m in outer.msgs:
@@ -73,7 +76,10 @@ class FakeSlack:
                 u = urlparse(self.path)
                 q = {k: v[0] for k, v in parse_qs(u.query).items()}
                 if u.path.endswith("conversations.history"):
-                    roots = [m for m in outer.msgs if (outer.history_has_replies or m["thread_ts"] in ("", m["ts"])) and float(m["ts"]) > float(q["oldest"])]
+                    lo, hi = float(q["oldest"]), float(q.get("latest") or "9" * 12)
+                    inc = q.get("inclusive") == "true"  # r1004 되읽기가 «그 글 하나»(oldest=latest=ts · inclusive)를 묻는다
+                    roots = [m for m in outer.msgs if (outer.history_has_replies or m["thread_ts"] in ("", m["ts"]))
+                             and (lo <= float(m["ts"]) if inc else lo < float(m["ts"])) and float(m["ts"]) <= hi]
                     return self._reply({"ok": True, "messages": list(reversed(roots))})
                 if u.path.endswith("conversations.replies"):
                     return self._reply({"ok": True, "messages": [m for m in outer.msgs if m["ts"] == q["ts"] or m["thread_ts"] == q["ts"]]})
@@ -183,11 +189,13 @@ def test_failed_slack_call_records_nothing_and_retry_publishes_once(env, slack, 
     assert np.main(["publish", str(p)]) == 0 and len(slack.posts) == 1 and d.name in records(tmp)[0]
 
 
-def test_numbers_outside_trailing_footnote_table_are_logged_not_blocked(env, slack, caplog):
+def test_numbers_outside_trailing_footnote_table_are_logged_and_table_body_is_deleted(env, slack, caplog):
+    """r1004 — 번호 경고는 그대로(경고 자체는 발행을 막지 않는다) · 그러나 맨 끝 각주 표도 이제 위반이라 글은 지워진다(가드 예외 0)."""
     tmp, news = env
     body = BODY_A + "\n- 판정 1430 반영\n\n| 번호 | 뜻 |\n|---|---|\n| 1430 | 판정 |\n"
-    assert np.main(["publish", str(polished(news, "20261013-0910", body))]) == 0 and len(slack.posts) == 1
+    assert np.main(["publish", str(polished(news, "20261013-0910", body))]) == 1
     assert "각주 표 밖 번호" in caplog.text
+    assert len(slack.posts) == 1 and slack.msgs == []  # 올렸다가 가드가 지웠다
 
 
 # ── ③ 처리 기록 ───────────────────────────────────────────────────
