@@ -382,12 +382,22 @@ expect "R7 닫힌 세트 좌석은 jsonl 건너뜀 → kill" "CS#1" "$(run YELLO
 CS#2 200 0
 CS#1 300 0 jsonl=1' ZC_ROSTER_ROOT="$RR7")"
 
+# R8(r4 · 오빠 결정 17:3x «명부가 엇갈려도 지킨다»): 명부 A = 현역 · 명부 B = 같은 좌석 _closed → 지킨다
+CASE="R8"
+RR8="$(mkroster rr8 '{"_arch": "CM#1"}' 'seats-b.json:{"CM#1": {"role": "arch", "_closed": "retired"}}')"
+rm -f "$RECD"/*
+expect "R8 명부 엇갈림(A 현역 · B 은퇴) → keep" "" "$(run YELLOW 'CM#3 10 0
+CM#2 200 0
+CM#1 999 0' ZC_ROSTER_ROOT="$RR8")"
+grep -q 'tmux keep CM#1 (명부 현역 역할)' "$TMP/out" && ok "R8 현역 keep 줄" || bad "R8 keep 줄 없음: $(grep 'CM#1' "$TMP/out")"
+
 RPATH="$HERE/../bin/ft-resource-reclaim.sh"
 if [ -f "$HERE/lib/fake_reclaim_world.sh" ] && [ -f "$RPATH" ]; then
   T="$TMP/rw"; BIN="$HERE/../bin"; mkdir -p "$T"; . "$HERE/lib/fake_reclaim_world.sh"
   setup
   mkseat "byz-t-arch-claude#1" 999 0 95001
   mkseat "byz-t-nano-s#1" 999 0 95002          # r3 R5: _sets 안에서만 현역인 좌석(최상위 문자열 값 아님)
+  printf '%s\n' '{"byz-t-nano-s#1": {"role": "arch", "_closed": "retired"}}' > "$ST/seats-t2.json"   # r4 R8: 명부 B 의 은퇴 행이 A 의 현역을 지우지 못한다
   python3 - "$ST/seats.json" <<'PY'
 import json, sys
 p = sys.argv[1]
@@ -413,7 +423,7 @@ PY
   if printf '%s\n' "$rout" | grep -F -- 'byz-t-nano-s#1 |' | grep -q 'WOULD-CLOSE'; then
     bad "ⓔ R5 _sets 현역을 reclaim 이 닫으려 함: $(printf '%s\n' "$rout" | grep -F 'byz-t-nano-s#1')"
   else
-    ok "ⓔ R5 _sets 현역 = reclaim 도 보호(한 집합)"
+    ok "ⓔ R5·R8 _sets 현역 = reclaim 도 보호(명부 엇갈림 포함 · 한 집합)"
   fi
 else
   bad "ⓔ reclaim 시험 재료 없음($HERE/lib/fake_reclaim_world.sh)"

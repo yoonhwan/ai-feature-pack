@@ -566,7 +566,7 @@ signal.alarm(7)                      # 7초 상한(외부 호출 7초 룰) — �
 root, nout, bout = sys.argv[1:4]
 sout = bout + ".skip"
 files = sorted(glob.glob(os.path.join(root, ".fable-team", "seats*.json")))
-names, broken, skip, retired = set(), [], set(), set()
+names, broken, skip = set(), [], set()
 if not files:
     broken.append(os.path.join(root, ".fable-team", "seats.json"))
 for f in files:
@@ -579,12 +579,16 @@ for f in files:
         broken.append(f)
         continue
 
+    # r4(오빠 결정 17:3x «명부가 엇갈려도 지킨다»): 은퇴 집합은 «명부마다» 따로 모은다 —
+    #   A 명부가 현역이라고 적은 좌석을 B 명부의 은퇴 행이 지우지 못한다(reclaim 과 같은 판정 · 두 경로 한 집합).
+    fnames, fskip, fretired = set(), set(), set()
+
     def walk(v, closing):
         # closing = 닫힌 세트(_closed) 안 — 그 안 이름은 현역이 아니라 «jsonl 판정 건너뛸 이름»(r3 R7)
         if isinstance(v, str):
             x = v.strip()
             if x:
-                (skip if closing else names).add(x)
+                (fskip if closing else fnames).add(x)
         elif isinstance(v, dict):
             cl = closing or ("_closed" in v)
             for x in v.values():
@@ -601,10 +605,12 @@ for f in files:
             #   정지 레디 좌석은 크론 틱이 jsonl 을 계속 써서 영원히 못 지운다(2026-10-13 세션 122개 꼴).
             role = v.get("role") if isinstance(v.get("role"), str) else ""
             if role == "stop-ready" or "_closed" in v:
-                skip.add(k)
+                fskip.add(k)
             if "_closed" in v:
-                retired.add(k)            # r3 R4: 역할 칸이 «은퇴 행» 을 가리키면 현역 아님
-names -= retired                     # r3 R4: `_arch` 가 은퇴(_closed) 행을 가리키면 현역이 아니다
+                fretired.add(k)           # r3 R4: 역할 칸이 «은퇴 행» 을 가리키면 현역 아님
+    # 명부마다: 이 명부의 은퇴 행만 이 명부의 현역에서 뺀다(다른 명부의 은퇴 행은 보호를 지우지 못한다 — r4)
+    names |= (fnames - fretired)
+    skip |= fskip
 with open(nout, "w", encoding="utf-8") as fh:
     for n in sorted(names):
         fh.write(n + "\n")
