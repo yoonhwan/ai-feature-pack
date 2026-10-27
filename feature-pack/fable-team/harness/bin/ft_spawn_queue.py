@@ -102,8 +102,12 @@ def stuck(a):
 
 
 def notify_master(root, prefix, free, master):
-    """빈 석 있음 ∧ 큐 비지 않음 → 현역 master 에 멱등 쪽지(같은 카드 10분 1번). 호출 쪽(ft_teamset)이 master 형식·소속·라이브를 먼저 검증한다."""
-    if free <= 0 or os.environ.get("FT_TEAMSET_NOTIFY", "1") == "0":
+    """큐 비지 않음 → 현역 master 에 멱등 쪽지(같은 카드 10분 1번). 호출 쪽(ft_teamset)이 master 형식·소속·라이브를 먼저 검증한다.
+
+    r921(오빠 2026-10-25 «멈추지 마라») — ★free(빈 석 수) 조건을 없앴다★: AT-CAP 이 더 이상 spawn 을 세우지 않으므로
+    «빈 석 0 = 큐를 못 연다» 가 성립하지 않는다. 이미 쌓인 큐는 다음 tick 의 이 알림으로 맨 앞 카드부터 열린다(free 는 호환용 인자).
+    """
+    if os.environ.get("FT_TEAMSET_NOTIFY", "1") == "0":
         return ""
     mbox = os.environ.get("FT_TEAMSET_MBOX") or str(Path(root) / ".fable-team/comm/mbox.sh")
     buf = io.StringIO()

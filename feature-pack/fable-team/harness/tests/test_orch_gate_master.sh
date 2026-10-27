@@ -1,12 +1,21 @@
 #!/bin/bash
 # 시험: orchestration-gate 의 master 좌석 모드 (세션명 3번째 토큰 = master)
 # 가짜 tmux 가 FAKE_SESSION 을 돌려준다. master 케이스 + 비-master 회귀(수정 전 훅 대조).
-ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-NEW="$ROOT/.claude/hooks/orchestration-gate.sh"
-BASE_REV="${OLD_HOOK_REV:-43eb52ed632a}"   # 수정 전 훅이 있던 main 커밋
+# r703: master 좌석 모드는 BYZ 프로젝트 훅에만 있다 — 대상은 BYZ 리포(FT_BYZ_REPO · 기본 = cwd 리포 LIVE_ROOT 1행)의
+#       origin/main 훅 · 수정 전 훅 = 같은 리포 BASE_REV. 못 찾으면 FAIL rc1(건너뛰기 0).
+HOOK=".claude/hooks/orchestration-gate.sh"
+BASE_REV="${OLD_HOOK_REV:-43eb52ed632a}"   # 수정 전 훅이 있던 BYZ main 커밋
+BYZ="${FT_BYZ_REPO:-}"
+if [ -z "$BYZ" ]; then
+  LR="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)/../.fable-team/LIVE_ROOT"
+  [ -f "$LR" ] && BYZ="$(sed -n '1p' "$LR" | tr -d '\r')"
+fi
+[ -n "$BYZ" ] || { echo "FAIL BYZ 리포 못 찾음 — FT_BYZ_REPO 미지정 · cwd 리포 .fable-team/LIVE_ROOT 없음"; exit 1; }
+git -C "$BYZ" cat-file -e "origin/main:$HOOK" 2>/dev/null || { echo "FAIL BYZ 리포 훅 없음 — $BYZ origin/main:$HOOK"; exit 1; }
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
-OLD="$TMP/old-gate.sh"
-git -C "$ROOT" show "$BASE_REV:.claude/hooks/orchestration-gate.sh" > "$OLD" || { echo "수정 전 훅 추출 실패($BASE_REV)"; exit 1; }
+NEW="$TMP/new-gate.sh"; OLD="$TMP/old-gate.sh"
+git -C "$BYZ" show "origin/main:$HOOK" > "$NEW" || { echo "FAIL 대상 훅 추출 실패($BYZ origin/main)"; exit 1; }
+git -C "$BYZ" show "$BASE_REV:$HOOK" > "$OLD" || { echo "FAIL 수정 전 훅 추출 실패($BYZ $BASE_REV)"; exit 1; }
 mkdir -p "$TMP/bin"
 printf '#!/bin/bash\necho "$FAKE_SESSION"\n' > "$TMP/bin/tmux"; chmod +x "$TMP/bin/tmux"
 

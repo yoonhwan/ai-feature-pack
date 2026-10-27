@@ -1,0 +1,7 @@
+FAILED fable-team/harness/tests/scripts/test_ledger_fill_disk_cards_r892.py::test_a_card_moved_after_glob_counted_once_in_new_folder
+FAILED fable-team/harness/tests/scripts/test_ledger_fill_disk_cards_r892.py::test_b_card_still_vanishing_after_retry_skipped_with_warn
+FAILED fable-team/harness/tests/scripts/test_ledger_fill_disk_cards_r892.py::test_b_card_moved_between_folder_globs_not_lost
+FAILED fable-team/harness/tests/scripts/test_ledger_fill_disk_cards_r892.py::test_c_done_card_stat_moved_skipped
+FAILED fable-team/harness/tests/scripts/test_ledger_fill_disk_cards_r892.py::test_c_folder_removed_mid_scan_is_fill_error
+FAILED fable-team/harness/tests/scripts/test_ledger_fill_disk_cards_r892.py::test_d_fill_skipped_card_tail_cell_no_error_rows
+6 failed, 2 passed in 0.97s

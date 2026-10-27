@@ -1,0 +1,134 @@
+PASS bash -n ft-leak-reap.sh
+PASS bash -n ft-leak-watch.sh
+PASS bash -n ft-tick.sh
+PASS bash -n ft-tick-team.sh
+PASS 키트 사본 cmp 0 ft-leak-reap.sh
+PASS 키트 사본 cmp 0 ft-leak-watch.sh
+PASS 키트 사본 cmp 0 ft-tick.sh
+PASS 키트 사본 cmp 0 ft-tick-team.sh
+PASS 표본4 dry-run 발견 (rc=10)
+PASS 검출 5001
+PASS 검출 5002
+PASS 부모 생존 제외
+PASS 보호 목록 제외
+PASS 사살 0(dry-run)
+PASS 검출 2건
+PASS 사건 지문 fp 8자리(18ed18c2)
+PASS 같은 표 → 같은 지문
+PASS --json leaked 2
+PASS --json killed 0
+PASS 경계 표 발견 (rc=10)
+PASS CPU 29s 비검출
+PASS CPU 30s 검출
+PASS 데이터 셸(부모 생존) 비검출
+PASS 데이터 셸(CPU<30) 비검출
+PASS --min-cpu=29 → 29s 검출
+PASS 유출 0 → rc 0 (rc=0)
+PASS 유출 0 문구
+PASS 유출 0 + --quiet → 출력 0
+PASS 스냅샷 파일 없음 (rc=20)
+PASS stderr ERROR 줄
+PASS 빈 스냅샷 (rc=20)
+PASS 파싱 불가 행(필드 부족) (rc=20)
+PASS 로캘 달라 lstart 4토큰 → 조용한 오검출 0 · rc 20 (rc=20)
+PASS ps rc≠0 (rc=20)
+PASS ps rc≠0 stderr
+PASS ps timeout (rc=20)
+PASS timeout 10초 안
+PASS timeout 사유 줄
+PASS python3 없음 (rc=20)
+PASS python3 없음 stderr
+PASS usage → rc 2 (rc=2)
+PASS --snapshot 생성 (rc=0)
+PASS 스냅샷 내용 = ps 출력 그대로
+PASS --snapshot ps 실패 → rc 20 (rc=20)
+PASS 실패 시 파일 안 남김
+PASS H1-1 기존 출력 파일 + ps 실패 → rc 20 (rc=20)
+PASS H1-1 기존 파일 삭제(유효 결과로 안 남김)
+PASS H1-2 잘못된 lstart(날짜 아님) → rc 20(조용한 유출 0 아님) (rc=20)
+PASS H1-2b 잘못된 stat → rc 20 (rc=20)
+PASS H1-2c 생산도 같은 검증(잘못된 lstart 는 스냅샷으로 발행 안 함) (rc=20)
+PASS H1-2c 파일 없음
+PASS H1-3 오래된 루프 스냅샷 → rc 20 (rc=20)
+PASS H1-3 사유 줄
+PASS H1-3b 신선도 상한을 늘리면 같은 파일이 통과(검사가 신선도임을 대조) (rc=10)
+PASS H1-4 쓰기 실패(없는 폴더) → rc 20 (rc=20)
+PASS H1-4 사유 줄
+PASS H1-4 파일 없음
+PASS H1-6 FT_PS_TIMEOUT=60 주입 → 7 로 제한돼 timeout rc 20 (rc=20)
+PASS H1-6 16초 안(60초 아님 · r670 재시도 1회 포함 7+7)
+PASS H1-6 WARN 1줄
+PASS H1 잘못된 수치 인자 → rc 20 (rc=20)
+PASS H1 traceback 0
+while :; do :; done
+PASS 실 ps 합성 고아 dry-run 발견 (rc=10)
+PASS 합성 고아 명령줄
+PASS 데이터 셸 비검출(실 프로세스)
+PASS 합성 고아 정확히 1건
+PASS --kill rc 0 (rc=0)
+PASS 합성 고아만 정리
+PASS 합성 고아 실제 소멸
+PASS 데이터 셸은 살아 있음(건드리지 않음)
+PASS 합성 프로세스 잔여 0 (pgrep -f 고유 태그)
+--- 정보: 머신 전체 pgrep -f 'while :; do :; done' = 0건(다른 좌석 것 포함 · 이 시험 몫 0)
+PASS 1틱: 유출 경보 1통
+PASS 틱 로그에 leak-reap 줄
+PASS 수신자 = _hil_route(planner)
+PASS 본문 백틱 0
+PASS 본문에 사건 지문
+PASS 경보 상태 파일 저장
+PASS 같은 지문 2틱: 추가 0
+PASS 팀 틱(같은 머신 같은 지문): 추가 0(단일 소유)
+PASS 재알림 간격 0 → 같은 지문 재송 1
+PASS 지문 바뀜(다른 표) → 새 통
+PASS 유출 사라짐 → 해소 1통
+PASS 해소 뒤 상태 삭제
+PASS 해소 뒤 틱: 추가 0
+PASS 조사 실패 → 틱 로그 ERROR
+PASS 조사 실패 경보 1통(유출 경보와 다른 머리)
+PASS 같은 오류 2틱: 추가 0
+PASS 오류 → 정상 복귀 시 유출 경보 정상 발신
+PASS 송신 실패 → stderr 1줄
+PASS 송신 실패 → 상태 미저장(다음 틱 재시도)
+PASS FT_TICK_LEAK_REAP=0 → 검사·송신 0
+PASS --dry-run → DRY kind=leak-reap
+PASS --dry-run 송신 0
+PASS 팀 틱 --dry-run → DRY kind=leak-reap
+PASS 틱이 리퍼에 넘기는 인자에 --kill 0
+PASS 분석 호출 = --dry-run --quiet
+PASS 소스에 --kill 호출 줄 0
+PASS H1-5 python3 없음 → 틱 로그용 ERROR 줄
+PASS H1-5 python3 없어도 수신자 조회(grep)로 조사 실패 경보 1통
+PASS H1-5 수신자 = _hil_route
+PASS H1 리퍼 없음 → ERROR 줄
+PASS H1 리퍼 없음도 조사 실패 경보로 합류
+PASS H1 mktemp 실패 → ERROR 줄
+PASS H1 mktemp 실패도 경보로 합류
+PASS H2-1 동시 발견 2틱 → 경보 1통(잠금)
+PASS H2-1 상태 1건 저장
+PASS H2-1 잠금 해제됨
+PASS H2-2 새로 발견된 지문(3b3abd38)을 해소로 보내지 않음
+PASS H2-2 상태 없음 = 해소가 먼저 끝난 직렬화(새 발견은 다음 틱)
+PASS H2-2 쪽지 2통 이하
+PASS H2-3 조사 실패 중에도 미해소 유출 칸 보존
+PASS H2-3 조사 실패 칸 따로 저장
+PASS H2-3 유출→오류→0 에서 해소 1통
+PASS H2-3 해소 지문 = 처음 유출 지문
+PASS H2-3 두 칸 모두 정리
+PASS H2-3b 경로·숫자만 다른 같은 오류 → 600초 억제
+PASS H2-4 송신 실패 stderr
+PASS H2-4 상태 미저장
+PASS H2-4 다음 틱 재시도 1통
+PASS 오래된 잠금 잔재 회수 → 경보 발신
+PASS 새 잠금이 잡혀 있으면 이 틱 알림은 건너뜀
+--- 증거: 시험 로케일 ko_KR.UTF-8
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+--- 증거: 시험 로케일 C.UTF-8
+ALL PASS
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

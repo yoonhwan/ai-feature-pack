@@ -1,0 +1,10 @@
+밖:미착지	206	228.9 GiB
+밖:미커밋	56	58.6 GiB
+안:scratch-sweep	111	37.0 GiB
+안:nano-close	37	33.1 GiB
+밖:나노 밖 워크트리	57	22.4 GiB
+keep:쓰는중	26	20.5 GiB
+안후보:nano-close(census 확인)	9	4.4 GiB
+밖:등록 밖 사본	12	3.9 GiB
+사라짐(측정 뒤)	3	0.7 GiB
+안:scratch-sweep 조건충족(주인 없음 ∧ 24h)	87	23.7 GiB

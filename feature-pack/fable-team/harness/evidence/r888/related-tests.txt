@@ -1,0 +1,37 @@
+# ft-nano-close 를 부르는 다른 시험 27 (내 판) — rc≠0 7개는 origin/main 판으로도 같은 rc · PASS/FAIL 줄 diff 0(기존 실패)
+test_autonomy_kinds_1675.sh rc=0
+test_da_hold_gate.sh rc=1
+test_finished_cleanup_auto.sh rc=1
+test_harness_root.sh rc=0
+test_install_worktree_shim.sh rc=0
+test_jsonl_last_ts.sh rc=0
+test_live_bin_drift_check.sh rc=0
+test_nano_feat_remote_ref.sh rc=0
+test_nano_spawn_reuse_info.sh rc=0
+test_nano_spawn_teamset_cap.sh rc=7
+test_nano_succession_index.sh rc=0
+test_nano_team_env.sh rc=0
+test_pack_nano_worktree_place.sh rc=0
+test_proxy_decide_r188.sh rc=1
+test_r655_nano_name_prefix.sh rc=1
+test_reap_agent_pi_r542.sh rc=0
+test_seat_reap_left0.sh rc=0
+test_sheet_events.sh rc=0
+test_team_literal_paths2.sh rc=1
+test_team_move_roundtrip.sh rc=1
+test_teamset_check.sh rc=0
+test_tracked_bin_call_gate.sh rc=0
+test_wt_clean_plan_rn_sibling.sh rc=0
+test_wt_clean_plan_self_check.sh rc=0
+test_wt_clean_plan_single_runner_lock.sh rc=0
+test_wt_clean_two_stage.sh rc=0
+test_wt_sweep_budget_replan_r535.sh rc=0
+
+# origin/main 판(같은 7개)
+test_da_hold_gate.sh base_rc=1
+test_finished_cleanup_auto.sh base_rc=1
+test_nano_spawn_teamset_cap.sh base_rc=7
+test_proxy_decide_r188.sh base_rc=1
+test_r655_nano_name_prefix.sh base_rc=1
+test_team_literal_paths2.sh base_rc=1
+test_team_move_roundtrip.sh base_rc=1

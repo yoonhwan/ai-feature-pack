@@ -25,7 +25,9 @@ bash -n "$KIT/ft-tick.sh" && bash -n "$KIT/ft-tick-install.sh" && ok "bash -n" |
 
 # ── 팀별 «지금 plist» 가짜(키 15개 + LANG·PATH) · 구판 팀 폴더 ft-seat-status.sh ──
 mkdir -p "$TMP/live" "$TMP/plists" "$TMP/root/.fable-team"
-cp "$KIT/ft-tick.sh" "$KIT/ft-seat-status.sh" "$TMP/live/"
+# r962: 설치 «시작 경로» 는 공용 루트 .fable-team/bin 아래만 — scratch 도 «가짜 공용 루트(git 리포)» 의 bin 을 쓴다
+LIVEDIR="$TMP/root/.fable-team/bin"; mkdir -p "$LIVEDIR"; git init -q "$TMP/root"
+cp "$KIT/ft-tick.sh" "$KIT/ft-seat-status.sh" "$LIVEDIR/"
 python3 - "$TMP" "$TEAMS" <<'PY'
 import plistlib, sys, os
 tmp, teams = sys.argv[1], sys.argv[2].split()
@@ -43,14 +45,14 @@ for t in teams:
     plistlib.dump(d, open(f"{tmp}/plists/com.byz.ft-tick-{t}.plist", "wb"))
 PY
 cp "$TMP/plists/com.byz.ft-tick-ops.plist" "$TMP/ops-from.plist"
-inst() { env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR -u GIT_OBJECT_DIRECTORY FT_TICK_TEAM_TSV="$TSV" FT_TICK_PLIST_DIR="$TMP/plists" bash "$KIT/ft-tick-install.sh" --script "$TMP/live/ft-tick.sh" "$@"; }
+inst() { env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR -u GIT_OBJECT_DIRECTORY FT_TICK_TEAM_TSV="$TSV" FT_TICK_PLIST_DIR="$TMP/plists" bash "$KIT/ft-tick-install.sh" --script "$LIVEDIR/ft-tick.sh" "$@"; }
 envof() { python3 -c 'import plistlib,sys;print(plistlib.load(open(sys.argv[1],"rb"))["EnvironmentVariables"].get(sys.argv[2],"<none>"))' "$1" "$2"; }
 
 # ⓐ 보존
 for t in $TEAMS; do
   inst --team "$t" --dry-run > "$TMP/new-$t.plist" 2>/dev/null; rc=$?
   chk "ⓐ $t dry-run rc" "$rc" 0
-  r="$(python3 - "$TMP/plists/com.byz.ft-tick-$t.plist" "$TMP/new-$t.plist" "$TMP/live/ft-tick.sh" <<'PY'
+  r="$(python3 - "$TMP/plists/com.byz.ft-tick-$t.plist" "$TMP/new-$t.plist" "$LIVEDIR/ft-tick.sh" <<'PY'
 import plistlib, sys
 o = plistlib.load(open(sys.argv[1], "rb")); n = plistlib.load(open(sys.argv[2], "rb"))
 oe, ne = o["EnvironmentVariables"], n["EnvironmentVariables"]
@@ -59,7 +61,7 @@ print("lost=%s changed=%s pa1=%s" % (lost, chg, "live" if n["ProgramArguments"][
 PY
 )"
   chk "ⓐ $t 기존 키 보존 · 바뀐 키 = SEAT_STATUS 뿐 · ProgramArguments[1] = 공용" "$r" "lost=[] changed=['FT_TICK_SEAT_STATUS'] pa1=live"
-  chk "ⓐ $t SEAT_STATUS = 공용 bin" "$(envof "$TMP/new-$t.plist" FT_TICK_SEAT_STATUS)" "$TMP/live/ft-seat-status.sh"
+  chk "ⓐ $t SEAT_STATUS = 공용 bin" "$(envof "$TMP/new-$t.plist" FT_TICK_SEAT_STATUS)" "$LIVEDIR/ft-seat-status.sh"
   chk "ⓐ $t FIRE_V2 · STATE_DIR" "$(envof "$TMP/new-$t.plist" FT_TICK_FIRE_V2) $(envof "$TMP/new-$t.plist" FT_TICK_STATE_DIR)" "1 /tmp/ft-tick-state-$t"
 done
 chk "ⓐ dry-run: 실 plist 불변" "$(cmp -s "$TMP/ops-from.plist" "$TMP/plists/com.byz.ft-tick-ops.plist" && echo same || echo changed)" same
@@ -71,7 +73,8 @@ PY
 chk "ⓐ 표≠plist(PIDFILE) → 거부 rc" "$(inst --team loom --dry-run >/dev/null 2>&1; echo $?)" 1
 cp "$TMP/ops-from.plist" "$TMP/plists/com.byz.ft-tick-ops.plist"
 mkdir -p "$TMP/live-noss"; cp "$KIT/ft-tick.sh" "$TMP/live-noss/"
-chk "ⓐ 공용 bin 에 seat-status 없음 → 거부 rc" "$(env FT_TICK_TEAM_TSV="$TSV" FT_TICK_PLIST_DIR="$TMP/plists" bash "$KIT/ft-tick-install.sh" --team ops --script "$TMP/live-noss/ft-tick.sh" --dry-run >/dev/null 2>&1; echo $?)" 1
+NOSS="$TMP/root2/.fable-team/bin"; mkdir -p "$NOSS"; git init -q "$TMP/root2"; cp "$KIT/ft-tick.sh" "$NOSS/"   # r962: 경로는 통과 + seat-status 없음
+chk "ⓐ 공용 bin 에 seat-status 없음 → 거부 rc" "$(env FT_TICK_TEAM_TSV="$TSV" FT_TICK_PLIST_DIR="$TMP/plists" bash "$KIT/ft-tick-install.sh" --team ops --script "$NOSS/ft-tick.sh" --dry-run >/dev/null 2>&1; echo $?)" 1
 chk "ⓐ 표에 없는 팀 → 거부 rc" "$(inst --team nope --dry-run >/dev/null 2>&1; echo $?)" 1
 chk "ⓐ chatbot: 원본 plist 없음 → 거부 rc" "$(inst --team chatbot --dry-run >/dev/null 2>&1; echo $?)" 1
 inst --team chatbot --from "$TMP/ops-from.plist" --dry-run > "$TMP/new-chatbot.plist" 2>/dev/null
@@ -88,30 +91,30 @@ cp "$TMP/ops-keep.plist" "$TMP/plists/com.byz.ft-tick-ops.plist"
 chk "ⓖ H1 plist 에 STATE_DIR 없음 → 추가(rc 0 · 표 값)" "$(inst --team ops --dry-run 2>/dev/null > "$TMP/h1.plist"; echo $? $(envof "$TMP/h1.plist" FT_TICK_STATE_DIR))" "0 /tmp/ft-tick-state-ops"
 instd() { env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR -u GIT_OBJECT_DIRECTORY FT_TICK_TEAM_TSV="$TSV" FT_TICK_PLIST_DIR="$TMP/plists" bash "${INSTALLER:-$KIT/ft-tick-install.sh}" "$@"; }
 chk "ⓖ H2 메인 plist 없음 + --script 생략 → 거부 rc" "$(instd --team ops --dry-run >/dev/null 2>&1; echo $?)" 1
-python3 - "$TMP/plists/com.byz.ft-tick.plist" "$TMP/live/ft-tick.sh" <<'PY'
+python3 - "$TMP/plists/com.byz.ft-tick.plist" "$LIVEDIR/ft-tick.sh" <<'PY'
 import plistlib, sys
 plistlib.dump({"Label": "com.byz.ft-tick", "ProgramArguments": ["/opt/homebrew/bin/bash", sys.argv[2]]}, open(sys.argv[1], "wb"))
 PY
 instd --team ops --dry-run > "$TMP/h2.plist" 2>/dev/null; rc=$?
-chk "ⓖ H2 --script 생략 → 메인 plist 의 스크립트" "$rc $(python3 -c 'import plistlib,sys;print(plistlib.load(open(sys.argv[1],"rb"))["ProgramArguments"][1])' "$TMP/h2.plist")" "0 $TMP/live/ft-tick.sh"
+chk "ⓖ H2 --script 생략 → 메인 plist 의 스크립트" "$rc $(python3 -c 'import plistlib,sys;print(plistlib.load(open(sys.argv[1],"rb"))["ProgramArguments"][1])' "$TMP/h2.plist")" "0 $LIVEDIR/ft-tick.sh"
 for bad_dir in "$TMP/wt/.worktrees/x/.fable-team/bin" "$TMP/wt/harness/bin" "$TMP/wt/harness/kit/fable-team/bin"; do  # 키트 원본 = 팩 배치(r385 · 옛 scripts/fable-team-bin 은 없음)
   mkdir -p "$bad_dir"; cp "$KIT/ft-tick.sh" "$KIT/ft-seat-status.sh" "$bad_dir/"
   chk "ⓖ H2 --script ${bad_dir#$TMP/} → 거부 rc" "$(instd --team ops --script "$bad_dir/ft-tick.sh" --dry-run >/dev/null 2>&1; echo $?)" 1
 done
 LIVEWT="$TMP/wt/.worktrees/v6-realtime-live/.fable-team/bin"; mkdir -p "$LIVEWT"; cp "$KIT/ft-tick.sh" "$KIT/ft-seat-status.sh" "$LIVEWT/"
-chk "ⓖ H2 라이브 .worktrees/v6-realtime-live/.fable-team/bin 은 허용 rc" "$(instd --team ops --script "$LIVEWT/ft-tick.sh" --dry-run >/dev/null 2>&1; echo $?)" 0
-# r3 DA⑥ r2 재현: 허용 패턴(라이브 bin)을 `..` 로 흉내 낸 키트 원본 경로 → 명시 --script·메인 plist 기본값 둘 다 거부
+chk "ⓖ r962: 라이브 .worktrees/v6-realtime-live/.fable-team/bin → 거부 rc" "$(instd --team ops --script "$LIVEWT/ft-tick.sh" --dry-run >/dev/null 2>&1; echo $?)" 1
+# r962: `..` 로 공용 루트 bin 밖을 흉내 내는 경로 → 명시 --script·메인 plist 기본값 둘 다 거부
 mkdir -p "$TMP/x/.worktrees/harness-foo/scripts/fable-team-bin"; cp "$KIT/ft-tick.sh" "$KIT/ft-seat-status.sh" "$TMP/x/.worktrees/harness-foo/scripts/fable-team-bin/"
-DOTS="$LIVEWT/../../../harness-foo/scripts/fable-team-bin/ft-tick.sh"
+DOTS="$LIVEWT/../../../x/.worktrees/harness-foo/scripts/fable-team-bin/ft-tick.sh"
 chk "ⓖ r3 H2 '..' 로 허용 패턴 흉내(--script) → 거부 rc" "$(instd --team ops --script "$DOTS" --dry-run >/dev/null 2>&1; echo $?)" 1
-chk "ⓖ r3 H2 '..' 흉내 + REJECT 출력 · plist 출력 0" "$(instd --team ops --script "$DOTS" --dry-run 2>/dev/null | grep -c '^REJECT')" 1
+chk "ⓖ r3 H2 '..' 흉내 + ERROR 출력 · plist 출력 0" "$(instd --team ops --script "$DOTS" --dry-run 2>/dev/null | grep -c '^ERROR')" 1
 python3 - "$TMP/plists/com.byz.ft-tick.plist" "$DOTS" <<'PY'
 import plistlib, sys
 plistlib.dump({"Label": "com.byz.ft-tick", "ProgramArguments": ["/opt/homebrew/bin/bash", sys.argv[2]]}, open(sys.argv[1], "wb"))
 PY
 chk "ⓖ r3 H2 '..' 흉내(메인 plist 기본값) → 거부 rc" "$(instd --team ops --dry-run >/dev/null 2>&1; echo $?)" 1
-chk "ⓖ r3 정규화 값이 plist 에 들어간다(허용 경로 '..' 우회 아닌 것)" "$(instd --team ops --script "$LIVEWT/../bin/ft-tick.sh" --dry-run 2>/dev/null > "$TMP/r3.plist"; python3 -c 'import plistlib,sys;print(plistlib.load(open(sys.argv[1],"rb"))["ProgramArguments"][1])' "$TMP/r3.plist")" "$LIVEWT/ft-tick.sh"
-python3 - "$TMP/plists/com.byz.ft-tick.plist" "$TMP/live/ft-tick.sh" <<'PY'
+chk "ⓖ r3 정규화 값이 plist 에 들어간다('..' 우회 아닌 것)" "$(instd --team ops --script "$LIVEDIR/../bin/ft-tick.sh" --dry-run 2>/dev/null > "$TMP/r3.plist"; python3 -c 'import plistlib,sys;print(plistlib.load(open(sys.argv[1],"rb"))["ProgramArguments"][1])' "$TMP/r3.plist")" "$LIVEDIR/ft-tick.sh"
+python3 - "$TMP/plists/com.byz.ft-tick.plist" "$LIVEDIR/ft-tick.sh" <<'PY'
 import plistlib, sys
 plistlib.dump({"Label": "com.byz.ft-tick", "ProgramArguments": ["/opt/homebrew/bin/bash", sys.argv[2]]}, open(sys.argv[1], "wb"))
 PY

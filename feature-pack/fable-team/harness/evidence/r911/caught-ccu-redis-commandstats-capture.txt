@@ -1,0 +1,8 @@
+FINISHED nano/ccu-redis-commandstats-capture
+E0 ok 폴더 없음
+E1 no 카드 없음
+E2 no 카드 없음
+E3 ok 좌석 0
+E1f ok files=7
+branch=nano/ccu-redis-commandstats-capture sha=f825d3d5e333febd13104fa981f9442491de90bf ahead=10 main=origin/main card=<0개> dir=<없음>
+WARN card 없음 — E1f ok 로 끝 처리(착지 줄·완성/ 불일치) · 카드 이동은 이 도구 몫 아님

@@ -1,0 +1,73 @@
+...F.................................................................... [  9%]
+........................................................................ [ 19%]
+........................................................................ [ 29%]
+........................................................................ [ 38%]
+...s.................................................................... [ 48%]
+........................................................................ [ 58%]
+........................................................................ [ 68%]
+..................................................................F..... [ 77%]
+........................................................................ [ 87%]
+...................................................F.................... [ 97%]
+...................                                                      [100%]
+=================================== FAILURES ===================================
+_____________ test_plan_runs_past_missing_ledger_row_marks_nothing _____________
+
+env = {'repo': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-378/test_plan_r...rivate/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-378/test_plan_runs_past_missing_le0')}
+
+    def test_plan_runs_past_missing_ledger_row_marks_nothing(env):
+        """원장에 닫힘 행이 없는(close 를 거친 적 없는) 좌석의 계획이 «원장 표식 실패» 로 멈추지 않는다."""
+        _run_plan(env)
+        plan = env["tmp"] / "wtc" / "ft-v65-temp-sq#0.sh"
+        baton = env["tmp"] / "baton-stub"
+        baton.write_text("#!/bin/bash\nexit 0\n")
+        baton.chmod(baton.stat().st_mode | stat.S_IEXEC)
+        e = {**os.environ, "PATH": f"{env['sh']}{os.pathsep}{os.environ['PATH']}", "BATON_BIN": str(baton), **_plan_env(env)}
+        r = subprocess.run(["bash", str(plan)], capture_output=True, text=True, cwd=env["repo"], env=e)
+>       assert r.stdout.strip().splitlines()[-1].startswith("cleaned"), r.stdout + r.stderr
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r867-morning-magazine-celebration-eli5-r/feature-pack/fable-team/harness/tests/scripts/test_disk_census.py:259: IndexError
+--------------------------- Captured stderr teardown ---------------------------
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+___________ test_spawn_unknown_ledger_rejects_before_any_side_effect ___________
+
+env = {'hb': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-378/test_spawn_un...rivate/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-378/test_spawn_unknown_ledger_reje0')}
+
+    def test_spawn_unknown_ledger_rejects_before_any_side_effect(env):
+        exe(env["tmp"] / "tp.sh", "echo UNKNOWN >&2\nexit 3\n")
+        before = CARD.replace("## 상태\n", "## 상태\n" + SLACK)
+        r, card = spawn(env, before)
+>       assert r.returncode == 1 and "슬랙 장부 불명" in r.stdout and "부작용 0" in r.stdout
+E       AssertionError: assert (1 == 1 and '슬랙 장부 불명' in 'ENV team=v65 prefix=byz-v65-nano- seats=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/p...wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-378/test_spawn_unknown_ledger_reje0/bin (런타임 .fable-team/bin/ 에서 실행하라)\n')
+E        +  where 1 = CompletedProcess(args=['bash', '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-378...000gn/T/pytest-of-yoonhwan/pytest-378/test_spawn_unknown_ledger_reje0/repo/.fable-team/seats.json (값 그대로: dispatch)\n').returncode
+E        +  and   'ENV team=v65 prefix=byz-v65-nano- seats=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/p...wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-378/test_spawn_unknown_ledger_reje0/bin (런타임 .fable-team/bin/ 에서 실행하라)\n' = CompletedProcess(args=['bash', '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-378...000gn/T/pytest-of-yoonhwan/pytest-378/test_spawn_unknown_ledger_reje0/repo/.fable-team/seats.json (값 그대로: dispatch)\n').stdout
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r867-morning-magazine-celebration-eli5-r/feature-pack/fable-team/harness/tests/scripts/test_nano_spawn_rollback.py:65: AssertionError
+--------------------------- Captured stderr teardown ---------------------------
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+_____________ test_slow_inbox_is_bounded_and_only_that_team_errors _____________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-378/test_slow_inbox_is_bounded_and0')
+
+    def test_slow_inbox_is_bounded_and_only_that_team_errors(tmp_path: Path) -> None:
+        """ⓔ 20초 느린 쪽지함 = 7초 상한 + 재시도 1(2회 호출) → 그 팀만 error · 정상 팀 숫자 그대로 · 수집 전체 < 20초."""
+        b = _board(tmp_path, "slow")
+        r, elapsed = _collect(b)
+        assert r.returncode == 0, r.stderr
+        d = json.loads(r.stdout)
+        assert _team_of(d, "ok")["counts"]["진행"] == 1
+        slow = _team_of(d, "slow")
+        assert "ft-inbox.sh show 실패" in slow["error"], slow
+>       assert slow["error"].startswith("ft-inbox.sh show 실패(7초 상한") or "7초 상한" in slow["error"], slow
+E       AssertionError: {'error': "ft-inbox.sh show 실패(7초 초과 · 재시도 1회): Command '['bash', '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh000..._is_bounded_and0/inbox.sh', 'slow-m#1']' timed out after 7 seconds", 'inbox_fail': True, 'key': 'slow', 'label': '느린팀'}
+E       assert (False or '7초 상한' in "ft-inbox.sh show 실패(7초 초과 · 재시도 1회): Command '['bash', '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-378/test_slow_inbox_is_bounded_and0/inbox.sh', 'slow-m#1']' timed out after 7 seconds")
+E        +  where False = <built-in method startswith of str object at 0x107094ca0>('ft-inbox.sh show 실패(7초 상한')
+E        +    where <built-in method startswith of str object at 0x107094ca0> = "ft-inbox.sh show 실패(7초 초과 · 재시도 1회): Command '['bash', '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-378/test_slow_inbox_is_bounded_and0/inbox.sh', 'slow-m#1']' timed out after 7 seconds".startswith
+
+tests/scripts/test_r649_news_team_lines_isolate_error.py:165: AssertionError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_disk_census.py::test_plan_runs_past_missing_ledger_row_marks_nothing
+FAILED tests/scripts/test_nano_spawn_rollback.py::test_spawn_unknown_ledger_rejects_before_any_side_effect
+FAILED tests/scripts/test_r649_news_team_lines_isolate_error.py::test_slow_inbox_is_bounded_and_only_that_team_errors
+3 failed, 735 passed, 1 skipped, 1470 deselected in 331.31s (0:05:31)

@@ -4,6 +4,7 @@
 """
 import re
 from dataclasses import dataclass, field
+from typing import Any
 
 from magazine_brief_diff import changes
 from magazine_brief_rows import split_evidence, table_rows
@@ -19,9 +20,35 @@ _LABEL = (re.compile(r"\*\*(.+?)\*\*\s*[:：]?\s*(.*)"), re.compile(r"([^:：]+?
 
 
 @dataclass
+class Done:
+    """창 안에 닫는 증거가 생긴 일 하나 — 축하 칸(r867 · magazine_celebrate). eli5 = 쉬운 풀이 dict(title·icon·analogy·lines) · 실패 사유 글 · 안 부름 None."""
+    key: str
+    title: str  # 쉬운 풀이가 실패했을 때의 제목(원장 일 · 카드 배경 첫 문장)
+    what: str
+    evidence: str
+    chip: str = ""  # 어디서 끝났나(«원장 · 오빠가 시킨 일» · «<팀> 팀 · 카드 완성»)
+    source: str = ""  # 쉬운 풀이 재료 — 판에는 안 실림
+    eli5: dict[str, Any] | str | None = None
+
+    def head(self) -> str:
+        return str(self.eli5["title"]) if isinstance(self.eli5, dict) else self.title
+
+    def fact(self) -> str:
+        """쉬운 제목 아래 원문 한 줄 — 풀이가 실패하면 제목이 곧 원문이라 비운다."""
+        return self.what if isinstance(self.eli5, dict) else ""
+
+    def easy(self) -> list[str]:
+        if isinstance(self.eli5, dict):
+            return [self.eli5["analogy"], *self.eli5["lines"]]
+        return [f"쉬운 풀이 생성 실패 — {self.eli5 or '부르지 않음'}"]
+
+
+@dataclass
 class Brief:
     date: str
     src: str
+    span: str = ""  # 축하 창 글(«10-15 00:00 ~ 10-16 08:00») — 비면 축하 칸을 안 채운 것
+    done: list[Done] = field(default_factory=list)
     conclusion: str = ""
     todo: list[tuple[str, list[str]]] = field(default_factory=list)  # §2 묶음 (제목, 항목들)
     risk: str = ""
@@ -40,10 +67,17 @@ class Brief:
             self.evidence.append((why, clean[:40] + ("…" if len(clean) > 40 else "")))
         return clean
 
+    def done_head(self) -> str:
+        """축하 칸 머리 1줄 — 셈은 «인덱스 카드 기준» 이라고 밝힌다(원장 행 완료는 안 셈 · r4) · 0건이면 꾸민 축하 없이 기준만."""
+        if not self.done:
+            return f"{self.span} 사이 인덱스 카드 기준 0건 — 원장 행 완료는 이번 판 축하에 싣지 않아요."
+        return f"🎉 축하해요! {self.span} 사이에 인덱스 카드 기준 {len(self.done)}건을 끝냈어요(원장 행 완료는 이번 판 축하에 싣지 않아요). 하나씩 쉬운 말로 풀어 볼게요."
+
     def cells(self) -> list[Cell]:
         """칸마다 평문 줄 — 날짜 가드·지침 검사가 읽는 «판에 실릴 글»(근거 표 제외)."""
         parts = [
             ("결론", [self.conclusion]),
+            ("끝낸 일", [self.done_head(), *(ln for d in self.done for ln in (d.head(), d.chip, d.fact(), *d.easy()))] if self.span else []),
             ("오빠 할 일", [ln for title, items in self.todo for ln in (title, *items)] + [self.risk]),
             ("지난 판 뒤로 바뀐 것", [f"{kind} {text}" for kind, text in self.changes] + [self.changes_note]),
             ("눈여겨볼 열린 일", [f"{task} — {state}" for task, state in self.open_rows]),

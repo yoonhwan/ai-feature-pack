@@ -67,6 +67,7 @@ def env(tmp_path, monkeypatch):
     monkeypatch.setattr(fp, "retry_attach", lambda now: None)
     monkeypatch.setenv("FT_NEWS_MAIN_REF", "HEAD")  # 최근 커밋 칸 = 이 리포 HEAD(origin 없음)
     monkeypatch.setenv("FT_NEWS_REPEAT_MIN", "100000")  # 반복 줄 없이 «변화 0» 만 보는 기본
+    monkeypatch.setenv("FT_NEWS_MIN_GAP_MIN", "1")  # r907 r2 게시 최소 간격(기본 10분)은 이 카드 밖 — 1분으로 낮춰 판정 키만 본다
     for k in ("FT_NEWS_MODE", "FT_LEDGER_SYNC_ERROR", "FT_NEWS_HEAD"):
         monkeypatch.delenv(k, raising=False)
     return root, repo, state, news, made, lines
@@ -134,13 +135,14 @@ def test_c_ledger_content_commit_makes_one_map_and_commits_span_from_last_map(en
     assert _tick(env, c5) == (0, "지도 발행") and len(made) == 2
     rows = fh.commits(env[1], before)  # 지도 «최근 커밋» 칸이 쓰는 그 함수
     assert len(rows) == 4 and rows[0].endswith("[docs] 원장 B") and sum("다른 경로" in r for r in rows) == 3
-    assert _base(env[2]) == c5 and (env[2] / "last.blob").read_text().strip() == _git(env[1], "rev-parse", f"{c5}:{REL}")
+    assert _base(env[2]) == c5 and (env[2] / "last.blob").read_text().strip() == c5  # r907 r4: 판정 키 = 원장 경로의 «채움 아닌» 마지막 커밋 sha(옛 값 = 원장 블롭)
 
 
 # ── ⓓ 원장 경로 커밋이지만 블롭 같음 = 지도 0 ────────────────────────
 
-def test_d_ledger_commit_with_same_blob_makes_no_map(env, monkeypatch):
-    """ⓓ 되돌림 두 번(A→B→A) = 발행 0 — 판정이 커밋이 아니라 내용이라는 증거."""
+def test_d_ledger_commit_with_same_blob_is_a_human_commit_makes_one_map(env, monkeypatch):
+    """ⓓ (r907 r4 계약 변경) 되돌림 두 번(A→B→A) = «채움이 아닌» 원장 커밋이라 키가 바뀐다 = 지도 1(옛 계약 = 블롭 같아서 0).
+    왜: 판정 키가 글자(블롭)에서 «채움 아닌 마지막 커밋 sha» 로 바뀌었다(DA⑥ r3 — 글자 빼기가 채움이 하는 일을 못 따라감). 사람이 되돌림을 커밋하면 지도 1장은 수용(간격 10분이 상한)."""
     _at(monkeypatch, "2026-10-21 09:00")
     made = env[4]
     c1 = _commit(env[1], REL, "원장 A\n", "[docs] 원장 A")
@@ -148,7 +150,7 @@ def test_d_ledger_commit_with_same_blob_makes_no_map(env, monkeypatch):
     _commit(env[1], REL, "원장 B\n", "[docs] 원장 B")
     back = _commit(env[1], REL, "원장 A\n", "[docs] 원장 A 되돌림")
     _at(monkeypatch, "2026-10-21 09:20")
-    assert _tick(env, back) == (0, "원장 커밋 0") and len(made) == 1
+    assert _tick(env, back) == (0, "지도 발행") and len(made) == 2
 
 
 # ── ⓔ 하루 첫 틱 = 원장 그대로여도 지도 1 ───────────────────────────
@@ -177,7 +179,7 @@ def test_f_missing_or_broken_blob_state_publishes_and_rewrites_state(env, monkey
         (env[2] / "last.blob").write_text(garbage, encoding="utf-8")
         _at(monkeypatch, "2026-10-21 10:0%d" % len(made))
         assert _tick(env, cur) == (0, "지도 발행")
-        assert (env[2] / "last.blob").read_text().strip() == _git(env[1], "rev-parse", f"{cur}:{REL}")
+        assert (env[2] / "last.blob").read_text().strip() == c1  # r907 r4: 키 = 원장 경로의 «채움 아닌» 마지막 커밋(cur 은 다른 경로 커밋 → c1)
     assert len(made) == 4
 
 

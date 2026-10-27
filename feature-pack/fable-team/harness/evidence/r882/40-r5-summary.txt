@@ -1,0 +1,33 @@
+R882 r5 — DA⑥ r4 HOLD 1 재설계 반송(보류 4회 · 하드 룰 14 · REWORK-r882-r5.md · VERDICT-r882-da6-r4.md · arch 139)
+반례: 종료 코드 128 ≠ «시작 못 함» — commit.gpgSign 실패처럼 git 이 병합 내용을 index·작업 트리에 반영하고 MERGE_HEAD 를 쓴 뒤 die(128) → r4 는 «다른 연산 진행 중» 으로 오분류
+뿌리(arch): r1~r4 넷 다 «실패한 merge 를 abort 해도 되는 내 것인가» 추정 자리 → r5 는 그 자리를 없앰
+base: origin/main 24330095 그대로(새 착지 0) · 버전 1.1.234 유지 · git 2.52.0
+
+바뀐 것 (bin/ft-head-sync.sh + kit 짝 사본 cmp=0 · 130줄 ≤130)
+- merge 전에 git merge-tree --write-tree HEAD <base 40hex> (작업 트리·index 무변경 · 출력 버림 · 종료 코드 따로 · | head 0)
+  1 = 충돌 → merge 안 함 «충돌·사람»(상태 무변경) · 0·1 밖 = «오류(merge-tree rc=N)» ERROR rc1 · 0 = merge --no-edit
+- merge rc=0 → r3 검증 그대로(HEAD ⊇ base ∧ 미커밋 0 일 때만 «최신화함» · 아니면 ERROR rc1)
+- merge 실패(어떤 rc 든) → abort 0 · 상태 그대로 · «오류·사람(merge rc=N · MERGE_HEAD <경로> 남음|없음)» · ERROR 1줄(사람이 그 자리에서 마무리하거나 git merge --abort) · rc1 · 그 워크트리 전후 대조 밖
+- ★도구 안 merge --abort 호출 0★(남은 두 글자는 주석·안내 문구) · MERGE_HEAD 소유 판정 코드(sha 비교·종료 코드 1 갈래) 삭제
+- 머리 주석 :10 · 3단계 주석(검사→merge-tree→merge→검증)
+
+시험 tests/test_head_sync_lock_r882.sh 35
+- ⓟ 충돌 base(wt-a m.txt ↔ main m.txt) → merge-tree 1 → merge 안 함 · «충돌·사람» · MERGE_HEAD 0 · HEAD·파일·index 무변경 rc0 (r4 ⓞ 자리)
+- ⓠ 깨끗 base + commit.gpgSign=true · gpg.program/gpg.openpgp.program=/usr/bin/false → merge 실패 → abort 0 · MERGE_HEAD(=base) 그대로 · «오류·사람(merge rc=…)» · ERROR · rc1
+- ⓡ 깨끗 base 정상 → «최신화함» · 미커밋 0 rc0
+- ⓗ·ⓝ(남의 MERGE_HEAD · 같은 base 남의 병합) 단언: «보류(다른 연산 진행 중 · merge rc=128)» → «오류·사람(merge rc=128 · MERGE_HEAD … 남음)» (사유: r5 는 실패한 merge 를 전부 한 갈래 «오류·사람» 으로 · abort 0 은 그대로)
+- 변이4(merge-tree 사전 판정 제거) → 충돌 merge 를 실제로 돌려 MERGE_HEAD 남김 = ⓟ 빨강 · 변이5(실패 갈래에 abort 되살림) → 서명 실패 병합을 지움 = ⓠ 빨강
+- 나머지 r882 칸(1곳·전수·잠금·고아·같은 워크트리·병합 뒤 검증·변이 flock/cwd/공용 키) 그대로 통과
+- 3회 연속 ALL PASS(r5-t-test_head_sync_lock_r882.txt 1회분) · /bin/bash 3.2 ALL PASS(r5-t-lock-bash32.txt)
+- r4 판(5cb15c33)에 돌리면 ⓠ 빨강(서명 실패 = «merge 시작 못 함 · 다른 연산» 오분류 = DA 반례 그대로) + ⓗ·ⓝ 문구 · 변이 대상 없음(r5-red-r4-script.txt)
+회귀 (r5-t-*.txt)
+test_head_sync_apply_scope rc=0 PASS 26 FAIL 0
+test_head_sync rc=0 PASS 25 FAIL 0
+test_head_lag_remind_per_wt_r836 rc=0 PASS 36 FAIL 0
+test_head_skip_list rc=0 PASS 21 FAIL 0
+test_merge_head_gate rc=0 PASS 32 FAIL 0
+test_cherry_gate_identical_head rc=0 PASS 20 FAIL 0
+test_head_lag rc=1 PASS 23 FAIL 1
+- test_head_lag FAIL 1 = ⓐ «착지 성공» remote URL 픽스처(r889) — 기준판 동일 · 범위 밖
+남는 길(알고 있음): merge-tree 와 실제 merge 의 판정이 어긋나면(같은 ort 엔진 · 같은 HEAD·base 라 기대는 일치) merge 가 충돌로 멈춤 → «오류·사람» rc1 · abort 0 로 사람에게 감 — 상태를 숨기지 않음
+press 필요: 없음

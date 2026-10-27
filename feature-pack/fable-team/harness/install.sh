@@ -22,6 +22,9 @@
 #         .bak-r538 + 교체 + bootout·bootstrap · 끝줄 `LAUNCHD rendered=N changed=M restarted=K` · 워크트리 --project = SKIP launchd.
 #   r544: 렌더 목록 = 루트 bin 을 부르는 템플릿 전부(__BYZ_ROOT__/.fable-team/bin/ 꼴 포함) · 바꾸는 키 = ProgramArguments + 템플릿의 WorkingDirectory(설치본에 없어 launchd cwd=/ 로 돌던 사건).
 #   r626 r4: shim 단계 뒤 공용 루트 `.fable-team/state/` + 전팀 정지 원장 `all-stop.log` init 줄(`ft_all_stop.py init` · 이미 있으면 그대로) — 판정기는 원장 없음 = 정지.
+#   r777: `--pack-hooks <팩 리포>` 갈래 1개 — 팩 리포 루트 체크아웃 main 직접 커밋을 거절하는 훅(키트 githooks/pack/pack-pre-commit)을
+#         그 리포 `.git/hooks/pre-commit` 에 cp+cmp · 기존 post-checkout·post-merge 는 건드리지 않는다 · core.hooksPath 가 없는 폴더를
+#         가리키면 ERROR 1줄 + --apply 면 해제(.git/hooks 로 복구) · 기본 dry-run · 이 갈래는 --project 를 받지 않는다.
 #   종료: 0 · 1 ERROR · 2 usage.
 set -euo pipefail
 
@@ -30,9 +33,9 @@ MANIFEST="$HARNESS/../manifest.json"
 KIT="$HARNESS/kit/fable-team"
 HOME_DIR="$HOME"
 MACHINE="$(hostname -s)"
-PROJECT=""; LROOT=""; APPLY=0
+PROJECT=""; LROOT=""; APPLY=0; PACK_HOOKS=""
 
-usage() { echo "usage: $0 [--dry-run|--apply] --project <프로젝트 루트> [--home DIR] [--machine NAME] [--live-root DIR]" >&2; exit 2; }
+usage() { echo "usage: $0 [--dry-run|--apply] --project <프로젝트 루트> [--home DIR] [--machine NAME] [--live-root DIR]" >&2; echo "       $0 [--dry-run|--apply] --pack-hooks <팩 리포>" >&2; exit 2; }
 while [ $# -gt 0 ]; do
   case "$1" in
     --dry-run)   APPLY=0 ;;
@@ -41,14 +44,67 @@ while [ $# -gt 0 ]; do
     --machine)   MACHINE="${2:?--machine 값 필요}"; shift ;;
     --project)   PROJECT="${2:?--project 값 필요}"; shift ;;
     --live-root) LROOT="${2:?--live-root 값 필요}"; shift ;;
+    --pack-hooks) PACK_HOOKS="${2:?--pack-hooks 값 필요}"; shift ;;
     *) echo "ERROR: 알 수 없는 인자: $1" >&2; usage ;;
   esac
   shift
 done
 
+# r777: 팩 리포 갈래 — 팩 리포 훅 자리(.git/hooks)에는 공용 훅 판정식(bin)이 없어 키트 githooks 판을 쓰지 않는다.
+#   거절 범위 = «공용 루트 체크아웃 + 가지 main» 하나. 작업 폴더(.worktrees/<slug>)·다른 가지·표지 FT_PACK_ROOT_COMMIT=1 은 통과.
+#   r1(DA⑥ HOLD): 훅 자리 판단은 `git rev-parse --path-format=absolute --git-path hooks` 하나 — git 이 실제로 보는 곳(포함·전역 설정 반영).
+#   실재하는 «다른» 훅 폴더는 덮지도 지우지도 않고 rc1 · 없는 폴더가 로컬 밖(포함·전역)에서 와서 못 지우면 rc1(«HEALED» 0 · 쓰기 0).
+#   r2(오빠 결정 10-27 07:4x · 계약 ③): core.hooksPath 가 설정돼 있는데 그 폴더가 없으면 «기본 자리와 같아도» ERROR 1줄(출처 원문 포함).
+#     기본 자리면 설치가 폴더를 만들 수 있으므로 apply 는 진행 · dry-run 은 rc1 · 다른 자리면 종전대로 해제 후 진행.
+pack_hooks() {
+  local P="$1" src="$KIT/githooks/pack/pack-pre-commit" top common dh origin dst hpd now healed=0 missing=0
+  [ -d "$P" ] || { echo "REJECT 팩 리포 폴더 없음: $P (쓰기 0)" >&2; exit 2; }
+  P="$(cd "$P" && pwd -P)"
+  [ "$(git -C "$P" rev-parse --is-inside-work-tree 2>/dev/null || true)" = true ] || { echo "REJECT git 리포 아님: $P (쓰기 0)" >&2; exit 2; }
+  top="$(git -C "$P" rev-parse --show-toplevel 2>/dev/null)"; top="$(cd "$top" && pwd -P)"
+  common="$(git -C "$P" rev-parse --git-common-dir 2>/dev/null)"
+  case "$common" in /*) : ;; *) common="$P/$common" ;; esac
+  common="$(cd "$common" && pwd -P)"; common="${common%/.git}"
+  [ -f "$src" ] || { echo "ERROR: 키트 팩 훅 없음: $src" >&2; exit 1; }
+  [ "$top" = "$common" ] || echo "WARN --pack-hooks 인자가 팩 루트 체크아웃이 아니다(top=$top root=$common) — 훅은 $common/.git/hooks 에 쓴다"
+  dh="$(cd "$common/.git" 2>/dev/null && pwd -P)/hooks"
+  origin="$(git -C "$common" config --show-origin --get-all core.hooksPath 2>/dev/null | tr '\t' ' ' | tr '\n' ';' || true)"
+  hpd="$(git -C "$common" rev-parse --path-format=absolute --git-path hooks 2>/dev/null || echo "$dh")"
+  if [ "$hpd" != "$dh" ] && [ -d "$hpd" ]; then
+    echo "ERROR core.hooksPath=$hpd ($origin) 실재 — 그 폴더의 훅을 끄지 않으려면 사람이 정한다(쓰기 0)" >&2
+    exit 1
+  fi
+  dst="$dh/pre-commit"; missing=0
+  if [ -n "$origin" ] && [ ! -d "$hpd" ]; then echo "ERROR core.hooksPath 폴더 없음 — git 이 보는 훅 자리 = $hpd · 이 리포 훅이 전부 꺼져 있다(출처 $origin)"; missing=1; fi
+  if [ "$missing" = 1 ] && [ "$hpd" != "$dh" ]; then healed=1; fi
+  echo "PACK-HOOKS $dst <- $src ($([ "$APPLY" = 1 ] && echo apply || echo 'dry-run · 쓰기 0'))"
+  if [ "$APPLY" != 1 ]; then
+    if [ "$missing" = 1 ]; then echo "(dry-run: 쓰지 않았다 — 고치려면 --apply)" >&2; exit 1; fi
+    exit 0
+  fi
+  if [ "$healed" = 1 ]; then git -C "$common" config --unset-all core.hooksPath >/dev/null 2>&1 || true; fi
+  mkdir -p "$dh"
+  [ ! -f "$dst" ] || cp -p "$dst" "$dst.bak-r777"
+  cp -p "$src" "$dst"
+  cmp -s "$src" "$dst" || { echo "ERROR: 팩 훅 복사 불일치: $dst" >&2; exit 1; }
+  [ -x "$dst" ] || chmod +x "$dst"
+  now="$(git -C "$common" rev-parse --path-format=absolute --git-path hooks 2>/dev/null || echo unknown)"
+  [ "$now" = "$dh" ] && cmp -s "$src" "$dh/pre-commit" || { echo "ERROR PACK-HOOKS 자리불일치 now=$now 기대=$dh 출처=$(git -C "$common" config --show-origin --get-all core.hooksPath 2>/dev/null | tr '\t' ' ' | tr '\n' ';') — 훅이 실제로 돌지 않는다(사람: 출처 파일을 고치거나 폴더를 만든다)" >&2; exit 1; }
+  [ "$healed" = 0 ] || echo "HEALED core.hooksPath 해제 — 훅 자리 = .git/hooks"
+  echo "PACK-HOOKS installed cmp=0 exec=$([ -x "$dst" ] && echo yes || echo no) hooksPath=$(git -C "$common" config --get core.hooksPath 2>/dev/null || echo unset)"
+  exit 0
+}
+if [ -n "$PACK_HOOKS" ]; then
+  [ -z "$PROJECT" ] || { echo "REJECT --pack-hooks 와 --project 는 함께 쓸 수 없다(쓰기 0)" >&2; exit 2; }
+  pack_hooks "$PACK_HOOKS"
+fi
+
 [ -n "$PROJECT" ] || { echo "REJECT --project <프로젝트 루트> 필수 — cwd 로 추론하지 않는다 (쓰기 0)" >&2; exit 2; }
 [ -d "$PROJECT" ] || { echo "REJECT 프로젝트 폴더 없음: $PROJECT (쓰기 0)" >&2; exit 2; }
 PROJECT="$(cd "$PROJECT" && pwd -P)"
+# r939 H1: «곧 끝나는 일» 자기 등록 — 승계(retire)가 이 설치를 죽이지 않고 후계에게 넘긴다(장부 state/bg-finite.tsv · 상한 10분)
+bash "$HARNESS/bin/ft-bg-finite.sh" register "${FT_SEAT:--}" "${FT_BG_FINITE_INSTALL_SEC:-600}" "$$" "install.sh --project $PROJECT" >/dev/null 2>&1 || true   # 등록 실패 = 넘김 대상 아님(오늘과 같은 reap) — 도구 stdout 계약을 흔들지 않는다
+trap 'bash "$HARNESS/bin/ft-bg-finite.sh" unregister $$ >/dev/null 2>&1 || true' EXIT
 # r457: launchd plist 는 git 공용 루트 설치에서만 — 워크트리 --project(r413 shim 설치)는 plist 를 건드리지 않는다
 COMMON="$(git -C "$PROJECT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"; COMMON="${COMMON%/.git}"
 [ -z "$COMMON" ] || [ ! -d "$COMMON" ] || COMMON="$(cd "$COMMON" && pwd -P)"
@@ -84,7 +140,7 @@ echo "LIVE_ROOT $LR_FILE <- $LROOT$([ -f "$LR_FILE" ] && echo ' (있으면 보�
 for h in $HOME_HOOKS; do echo "HOOK $HOME_DIR/.claude/hooks/$h <- $HARNESS/kit/hooks/$h (exec)"; done
 # r449: 프로젝트 git 훅 = 키트 kit/fable-team/githooks/* → <프로젝트>/.fable-team/githooks/ (core.hooksPath 가 가리키는 곳 · LIVE_BIN 연결 «뒤» 에 복사 — 새 pre-commit 이 새 bin 의 판정식을 찾게)
 GH_DEST="$PROJECT/.fable-team/githooks"
-for g in "$KIT"/githooks/*; do [ -f "$g" ] && echo "GITHOOK $GH_DEST/$(basename "$g") <- $g"; done
+for g in "$KIT"/githooks/*; do [ -f "$g" ] && echo "GITHOOK $GH_DEST/$(basename "$g") <- $g"; done   # 하위 폴더(pack/ = 팩 리포 전용 --pack-hooks)는 대상 밖
 HP="$(git -C "$PROJECT" config --get core.hooksPath 2>/dev/null || true)"
 [ -z "$HP" ] || [ "$HP" = "$GH_DEST" ] || [ "$HP" = .fable-team/githooks ] || echo "WARN core.hooksPath=$HP != $GH_DEST — 훅이 실제로 도는 곳과 다르다(--project 를 공용 루트로)"
 # r426: 설치기 관리 launchd plist(ft_plist_env.py list) — «설치된 것만» 템플릿 렌더본(FT_ROOT=프로젝트 · inbox=LIVE_BIN)과 대조.

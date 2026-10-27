@@ -43,7 +43,7 @@ mk e4 'f docs/x.cred'; cls; want "ⓔ docs/x.cred → FORBID kind=key" 3 "FORBID
 order="$(python3 -I -c 'import sys; sys.path.insert(0, sys.argv[1]); import autonomy_scope_rules as r
 ks = [(c, k, x.pattern) for c, k, x in r.BYZ_TABLE]; d = [c for c, _, _ in ks].index("docs"); code = [c for c, _, _ in ks].index("code")
 kw = lambda k: next(i for i, (c, kk, p) in enumerate(ks) if kk == k and "|" in p and not p.startswith("^"))
-cost = next(i for i, (c, kk, p) in enumerate(ks) if "COST_BASE_TABLE" in p); sec = next(i for i, (c, kk, p) in enumerate(ks) if p.startswith("^secrets/"))
+cost = next(i for i, (c, kk, p) in enumerate(ks) if "COST_BASE_TABLE" in p); sec = next(i for i, (c, kk, p) in enumerate(ks) if "secrets/" in p)   # r909: (^|/)secrets/ 로 넓힘(하위 폴더 포함)
 print(int(d < kw("billing") < code and cost < d and sec < d and not any("credential" in p for c, kk, p in ks[:d])))' "$BIN" 2>&1)"
 out="$order"; [ "$order" = 1 ]; ck "분류표: 낱말 줄 docs 아래·code 위 · COST_BASE_TABLE·secrets 경로 줄 docs 위 · credential 낱말 docs 위 0" $?
 python3 -I -m py_compile "$RULES"; ck "py_compile rules" $?

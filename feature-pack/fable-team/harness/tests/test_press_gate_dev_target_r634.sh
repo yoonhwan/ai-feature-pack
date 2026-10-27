@@ -71,6 +71,10 @@ case "$4" in
 esac
 exit "${FAKE_GCLOUD_RC:-0}"   # r634 H2①: 출력이 유효해도 종료코드가 0 이 아니면 채택 금지
 GCLOUD
+cat > "$GBIN/sysctl" <<'SYSCTL'
+#!/bin/sh
+printf '{ 0.50 0.50 0.50 }\n'   # r769b: 부하 게이트 — 호스트 부하와 무관하게(이 시험은 포트 갈래만 본다)
+SYSCTL
 cat > "$GBIN/lsof" <<'LSOF'
 #!/bin/sh
 exit 1   # 리스너 0 — 시험이 이 머신의 실제 :8080·:8081·:3001 에 좌우되지 않게(hermetic)

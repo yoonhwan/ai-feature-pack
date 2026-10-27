@@ -1,0 +1,29 @@
+r844 r3 — 외부 DA r2 HOLD 1(보류 2회) → 하드 룰 14 재설계(arch 136 · VERDICT-r844-da6-r2.md «재설계» 절) · 나노 byz-harness-nano-r844-wt-sweep-git-env-and-error-kind#0 · 2026-10-24
+원칙: ★끊김 = «.git 없음» 또는 «.git 이 가리키는 gitdir 경로 자체가 없음(ENOENT·ENOTDIR)» 하나뿐★ · gitdir 이 있는데 rev-parse·status 가 실패 = 무엇이든 판정 못 함(이어받기)
+DA r2 반례: K 미커밋 3 · 정상 gitdir · gitdir 의 HEAD 만 000 → rev-parse rc128 «not a git repository» → 오류 문구 분류가 끊김으로 → 경보
+
+고침(kit/fable-team/bin/ft-wt-sweep.sh · 짝 harness/bin cmp0):
+- git_gone(rev-parse 오류 문구 «not a git repository»·«invalid gitfile format» 분류) 삭제
+- gitdir_gone <폴더>(새 함수): .git pstat 없음(깨진 심링크) = 끊김 · .git 폴더 = gitdir 있음 · .git 파일 = git read_gitfile 과 같게 읽음
+  (파일 머리 «gitdir: » · 끝 \r\n 만 뗌 · 상대 경로는 .git 이 있는 폴더 기준) → 그 경로 pstat 없음 = 끊김
+  · .git·gitdir 접근 불가 · gitdir: 줄 못 읽음/꼴 틀림 = 끊김 아님 → rev-parse·status 로 판정 · 실패하면 판정 못 함
+- seat_busy: .git 없음(-e 도 -L 도 아님) = 끊김(그대로) → gitdir_gone → rev-parse rc≠0 = 무엇이든 판정 못 함 → status
+- GIT_CLEAN(env -u GIT_* · LC_ALL=C) 그대로 — LC_ALL=C 는 이제 SKIP 사유 원문 고정용(판정은 문구를 읽지 않음)
+
+시험(test_wt_shell_scan_live_seat_r832.sh · 110 → 128 칸):
+- 새 칸 r3 DA r2 반례 K6: .git 이 가리킨 gitdir 사본의 HEAD 000(git «not a git repository» 준비 확인) → 판정 못 함 · 끊김 0 · 경보 0 · 서명 = 1회차 · 한국어 로캘 같음 · 복구 → SKIP 미커밋 3 · 경보 0 · 서명 같음
+  (등록 폴더 .git/worktrees/K6/HEAD 000 은 worktree list 의 HEAD sha 가 비어 후보에서 빠짐 — 빨강판도 경보 0 → 반례가 닿는 꼴로 시험)
+- 새 칸 r3 진짜 끊김 첫 회차 경보: K7(gitdir 대상 삭제) · K5(깨진 심링크) · X(gitdir: 대상 없음)
+- r3 개정 칸(원칙 바뀜): X(gitdir = 있는 폴더 · 저장소 아님) 끊김 → 판정 못 함 · K3(.git «garbage») 끊김 → 판정 못 함 · H3(앞 빈 줄 · git 거절) 끊김 → 판정 못 함 · H2(끝 공백 · git 거절) = gitdir 경로 없음 → 끊김 그대로
+- r1 반례(심링크 .git 대상 상위 000 · K4) · r832·r844 r1 반례(.git 000 · ⓐ' K2 · env ⓑ · 로캘 ⓓ) 전부 유지
+- green ×4: green-run1~4.txt rc=0 · 128 PASS · ALL PASS
+- 빨강 fbf8f8ae 판(r2 산출): red-before-fbf8f8ae.txt rc=1 · FAIL 13(K6 경보·서명 바뀜·복구 회차 경보 재현 포함)
+- 변이 6 오류 문구 분류 되살림(rev-parse «not a git repository» → 끊김): mut-6-error-text-classify.txt rc=1 · FAIL 19(K6 HEAD 000 칸 포함)
+- 변이 1 GIT_* unset 삭제: mut-1-no-env-unset.txt rc=1 · FAIL 5
+- 변이 7 pstat 를 -e 로(접근 불가도 없음): mut-7-pstat-as-e.txt rc=1 · FAIL 10
+- 변이 3(LC_ALL=C 삭제)은 r3 에서 해당 없음 — 판정이 오류 문구를 읽지 않음(ⓓ 칸은 그대로 통과 확인용)
+- 기존: test_wt_clean_two_stage 62 · test_ft_wt_sweep_route_timeout 38 · test_wt_sweep_budget_replan_r535 50 — ALL PASS(FAIL 0)
+  test_finished_cleanup_auto FAIL 1 = «ⓒ swept [] … ERROR tmux unreadable» — r1·r2·r832 기준판과 같은 줄(PASS 29 같음)
+
+범위 밖(손대지 않음): 껍데기 기준(부재 ≥ 2 · tracked 항목 -e) · 실제 정리 경로 · r535 목록 · pane 판정 · 등록 폴더 HEAD 를 못 읽어 worktree list 가 후보에서 빼는 길(경보 0 쪽)
+press 필요: 없음

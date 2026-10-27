@@ -1,0 +1,27 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_____ test_r2_da_counterexample_tool_with_lineage_number_opens_no_question _____
+
+env = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-640/test_r2_da_counterexample_tool0')
+slack = <_slack_fakes.FakeSlack object at 0x1041eed10>
+
+    def test_r2_da_counterexample_tool_with_lineage_number_opens_no_question(env: Path, slack: FakeSlack):  # noqa: F811
+        start(env, slack)
+        hil_row(env, 2, "ft-model-swap#1")  # DA r1 반례 — «이름#N» 꼴이지만 명부에 없다
+        assert run(env, slack).returncode == 0
+>       assert opened(env) == {} and "어느 쪽?" in slack.replies(slack.roots[0])[0]["text"]
+E       AssertionError: assert ({'2': {'asked...swap#1', ...}} == {}
+E         
+E         Left contains 1 more item:
+E         {'2': {'asked_at': 1792819431,
+E                'key': '#822',
+E                'options': ['a', 'b'],
+E                'seat': 'ft-model-swap#1',
+E                'state': 'open',...
+E         
+E         ...Full output truncated (3 lines hidden), use '-vv' to show)
+
+tests/scripts/test_mirror_question_cap_r846.py:69: AssertionError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_mirror_question_cap_r846.py::test_r2_da_counterexample_tool_with_lineage_number_opens_no_question
+1 failed, 22 deselected in 1.35s

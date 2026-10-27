@@ -1,0 +1,49 @@
+# 변경·추가 파일 (git status · diff --stat vs origin/main)
+   M feature-pack/fable-team/harness/bin/ft_model_swap.py
+   M feature-pack/fable-team/harness/bin/ft_model_swap_account.py
+   M feature-pack/fable-team/harness/comm/mbox_keep.py
+   M feature-pack/fable-team/harness/evidence/r912/files.txt
+   M feature-pack/fable-team/harness/evidence/r912/green.txt
+   M feature-pack/fable-team/harness/evidence/r912/mutation.sh
+   M feature-pack/fable-team/harness/evidence/r912/red-base.txt
+   M feature-pack/fable-team/harness/kit/fable-team/bin/ft-mbox.py
+   M feature-pack/fable-team/harness/kit/fable-team/bin/ft_model_swap.py
+   M feature-pack/fable-team/harness/kit/fable-team/bin/ft_model_swap_account.py
+   M feature-pack/fable-team/harness/tests/scripts/test_model_swap_notify_coalesce.py
+   M feature-pack/fable-team/harness/tests/test_mbox_keep_human_mail.sh
+   .../fable-team/harness/bin/ft-autonomy-scope.sh    |   8 +-
+   .../fable-team/harness/bin/ft_model_swap.py        |   9 +-
+   .../harness/bin/ft_model_swap_account.py           |  77 ++++++++
+   .../fable-team/harness/comm/check-drift.sh         |   2 +
+   feature-pack/fable-team/harness/comm/mbox_keep.py  | 121 ++++++++++++
+   feature-pack/fable-team/harness/comm/mbox_ops.py   |  30 +--
+   .../fable-team/harness/evidence/r908/README.md     |  38 ----
+   .../harness/evidence/r912/00-summary.txt           |  52 +++++
+   .../harness/evidence/r912/classify-senders.txt     |  28 +++
+   .../fable-team/harness/evidence/r912/files.txt     |  13 ++
+   .../fable-team/harness/evidence/r912/green.txt     |  23 +++
+   .../fable-team/harness/evidence/r912/mutation.sh   |  70 +++++++
+   .../fable-team/harness/evidence/r912/mutation.txt  |   8 +
+   .../fable-team/harness/evidence/r912/red-base.txt  |  45 +++++
+   .../fable-team/harness/evidence/r912/run.sh        |  67 +++++++
+   .../kit/fable-team/bin/ft-autonomy-scope.sh        |   8 +-
+   .../harness/kit/fable-team/bin/ft-mbox.py          | 132 +++++++++++--
+   .../harness/kit/fable-team/bin/ft_model_swap.py    |   9 +-
+   .../kit/fable-team/bin/ft_model_swap_account.py    |  77 ++++++++
+   .../scripts/test_model_swap_account_outage_r838.py |  15 +-
+   .../scripts/test_model_swap_notify_coalesce.py     | 198 +++++++++++++++++++
+   .../harness/tests/test_autonomy_level.sh           |   2 +-
+   .../harness/tests/test_autonomy_scope.sh           |  13 +-
+   .../harness/tests/test_mbox_keep_human_mail.sh     | 216 +++++++++++++++++++++
+   24 files changed, 1170 insertions(+), 91 deletions(-)
+# 짝 사본 kit cmp0
+  cmp0 bin/ft_model_swap.py = kit/fable-team/bin/ft_model_swap.py
+  cmp0 bin/ft_model_swap_account.py = kit/fable-team/bin/ft_model_swap_account.py
+# 줄 수(≤200 규칙)
+       184 /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r912-mbox-queue-keep-human-mail-coalesce/feature-pack/fable-team/harness/comm/mbox_ops.py
+       121 /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r912-mbox-queue-keep-human-mail-coalesce/feature-pack/fable-team/harness/comm/mbox_keep.py
+       200 /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r912-mbox-queue-keep-human-mail-coalesce/feature-pack/fable-team/harness/bin/ft_model_swap.py
+       164 /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r912-mbox-queue-keep-human-mail-coalesce/feature-pack/fable-team/harness/bin/ft_model_swap_account.py
+       669 total
+# 자르는 곳 셋 공유 블록 바이트 동일(r3 · 시험 ⓘ)
+  identical ['74eb46a227ef7186', '74eb46a227ef7186', '74eb46a227ef7186']

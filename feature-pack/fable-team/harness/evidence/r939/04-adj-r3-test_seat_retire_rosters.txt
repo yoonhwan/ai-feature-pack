@@ -1,0 +1,69 @@
+PASS bash -n
+PASS ft-seat-retire.sh ≤ 200줄
+reap byz-planner-master-claude#9 stopped=0 left=0 rc=0
+PASS ⓐrc 0
+PASS ⓐRETIRED 첫 줄 · files=3 · routes
+PASS ⓐ자기 명부 _master·_hil_route·_version
+PASS ⓐseats.json _hil_route 후계 · _master 불변
+PASS ⓐseats-a _hil_route·_desk_route 후계
+PASS ⓑseats-a _master 후계(r465 · 역할 칸도 남의 명부까지)
+PASS ⓑ관계없는 seats-b 바이트 불변 · .bak 0
+PASS ⓑ바뀐 파일마다 .bak 1개(planner·seats·a = 3)
+PASS ⓑtmp 잔류 0
+reap byz-planner-master-claude#9 stopped=0 left=0 rc=0
+PASS ⓑ두 번째 호출 NOOP
+reap byz-planner-master-claude#9 stopped=0 left=0 rc=0
+PASS ⓒrc 0 · RETIRED · files=3
+PASS ⓒ은퇴 행 생성(_created_by=retire · _replaced_by)
+PASS ⓒ자기 명부 _master + 남의 명부 _hil_route 후계
+reap byz-planner-master-claude#9 stopped=0 left=0 rc=0
+PASS ⓒ' 남의 명부 _master → RETIRED rc 0 · seats-a _master 후계 · .bak 3
+PASS ⓓrc 1 · ERROR · 손상 파일 이름
+PASS ⓓ명부 4개 바이트 불변
+PASS ⓓ.bak·tmp 0
+PASS ⓔ600/300 0
+reap byz-v65-arch-claude#262 stopped=0 left=0 rc=0
+PASS r465ⓐrc 0 · RETIRED 첫 줄 files=3 roles·routes
+PASS r465ⓐseats·lecture _arch · room _hil_route = 후계
+PASS r465ⓐ파일마다 .bak 1(3) · planner 바이트 불변 · 옛 이름 칸 0
+reap byz-v65-arch-claude#262 stopped=0 left=0 rc=0
+PASS r465ⓑrc 0 · FIXED files=1 roles=[lecture]
+PASS r465ⓑlecture _arch 후계 · seats.json 바이트 불변
+reap byz-v65-arch-claude#262 stopped=0 left=0 rc=0
+PASS r465ⓑ세 번째 = NOOP
+PASS r465ⓒrc 1 · ERROR · 손상 파일 이름 · 바이트 불변 · .bak 0
+reap byz-v65-arch-claude#262 stopped=0 left=0 rc=0
+PASS r465ⓒNOOP 경로도 손상 → ERROR rc 1
+PASS r465ⓓ명부 후보 0 + lint 실패 → REJECT rc 1 · 바이트 불변
+PASS r465ⓓ후계 이미 은퇴 → rc 3 · lecture 불변 · .bak 0
+PASS r465ⓔ대조: 은퇴 전 close → 현역 역할 좌석 REJECT
+reap byz-v65-arch-claude#262 stopped=0 left=0 rc=0
+PASS r465ⓔ은퇴 뒤 close → 현역 역할 좌석 REJECT 0 · 옛 이름 칸 0
+reap byz-v65-arch-claude#262 stopped=0 left=0 rc=0
+PASS r465ⓕ은퇴 + 빈 _arch → FILLED · 값 후계
+reap byz-v65-arch-claude#262 stopped=0 left=0 rc=0
+PASS r465ⓕNOOP 경로 + _arch 없음 → FIXED … FILLED (NOOP 아님)
+PASS r465ⓕ_arch = 살아 있는 다른 좌석 → REJECT rc 1 · 쓰기 0
+reap byz-v65-arch-claude#262 stopped=0 left=0 rc=0
+PASS r465ⓕ_arch = 죽은 다른 좌석 → 채우기 0 (추측 0) · lecture·room 만 보정
+reap byz-v65-arch-claude#262 stopped=0 left=0 rc=0
+PASS r499ⓖ옛 stop-ready·_retired_role 없음·후계 행 없음 → rc 0 · 첫 줄 role stop-ready->arch
+PASS r499ⓖ후계 role=arch · _arch 후계 · 옛 행 _retired_role 안 씀(추측 0)
+reap byz-v65-arch-claude#262 stopped=0 left=0 rc=0
+PASS r499ⓗ옛 _retired_role=master → 후계 role=master (역할 칸보다 먼저)
+reap byz-v65-arch-claude#262 stopped=0 left=0 rc=0
+PASS r499ⓘ후계 행 있음·stop-ready·_replaced_by 없음 → 도출 role · 출력 role stop-ready->arch
+reap byz-v65-arch-claude#262 stopped=0 left=0 rc=0
+PASS r499ⓘ대조: 정상 승계(옛 arch · 후계 arch) → role 꼬리 0
+reap byz-v65-arch-claude#262 stopped=0 left=0 rc=0
+PASS r499ⓙ재실행(NOOP 자리) + 현역 후계 stop-ready 꼴 → FIXED … role stop-ready->arch rc 0
+reap byz-v65-arch-claude#262 stopped=0 left=0 rc=0
+PASS r499ⓙ후계 role=arch · .bak 1 · 다시 = NOOP
+reap byz-harness-nano-r1-x#0 stopped=0 left=0 rc=0
+PASS r499ⓙ역할 칸 값 아님·_retired_role 없음·이름 토큰 nano → 고치지 않음(NOOP 그대로 · 바이트 불변)
+PASS 짝 cmp0
+PASS 짝 cmp0 (ft_roster_lib.py · r465)
+fail=0
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+rc=0

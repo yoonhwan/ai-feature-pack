@@ -1,0 +1,20 @@
+stem	count	GiB	examples
+cfo-land-	8	10.1	cfo-land-2382 cfo-land-2404 cfo-land-2447 cfo-land-2449
+v65-land-	6	8.2	v65-land-2385 v65-land-2406 v65-land-2429 v65-land-2430
+feature-doc-canon	3	4.3	feature-doc-canon13 feature-doc-canon14 feature-doc-canon15
+repo-b9b42738-*(같은 sha 사본)	5	3.7	repo-b9b42738-1793028483-33576 repo-b9b42738-1793028657-30617 repo-b9b42738-1793028659-33122 repo-b9b42738-1793028680-45414
+ops-kb-cards	2	2.9	ops-kb-cards ops-kb-cards2
+loom-land-	2	2.7	loom-land-2122 loom-land-2137
+docs-ops-canon-stage3-step	2	2.6	docs-ops-canon-stage3-step1 docs-ops-canon-stage3-step2
+repo-ec94aadb-*(같은 sha 사본)	2	1.7	repo-ec94aadb-1793025365-33493 repo-ec94aadb-1793026243-91697
+repo-bdb77579-*(같은 sha 사본)	2	1.7	repo-bdb77579-1792905452-81223 repo-bdb77579-1792905469-94114
+repo-45c149de-*(같은 sha 사본)	3	0.8	repo-45c149de-1792932658-68639 repo-45c149de-1792933024-28374 repo-45c149de-1792933057-54954
+repo-a51e59ec-*(같은 sha 사본)	2	0.5	repo-a51e59ec-1792930701-89194 repo-a51e59ec-1792931000-83166
+repo-e5de194c-*(같은 sha 사본)	2	0.5	repo-e5de194c-1792931117-89618 repo-e5de194c-1792931136-6727
+repo-90bcd565-*(같은 sha 사본)	2	0.5	repo-90bcd565-1792978464-74717 repo-90bcd565-1792978485-5437
+repo-e64acbf8-*(같은 sha 사본)	2	0.5	repo-e64acbf8-1792930949-48223 repo-e64acbf8-1792931044-23945
+repo-b634f110-*(같은 sha 사본)	2	0.5	repo-b634f110-1792927000-11027 repo-b634f110-1792927024-26202
+repo-423698ea-*(같은 sha 사본)	2	0.5	repo-423698ea-1792923807-65042 repo-423698ea-1792923841-98391
+repo-9b059aa9-*(같은 sha 사본)	2	0.5	repo-9b059aa9-1792904848-15500 repo-9b059aa9-1792904933-99174
+planner-arch16-ledger	3	0.0	planner-arch16-ledger planner-arch16-ledger2 planner-arch16-ledger3
+ops-arch60-ccu	2	0.0	ops-arch60-ccu00 ops-arch60-ccu03

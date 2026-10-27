@@ -39,16 +39,15 @@ def _fake(tmp_path: Path, secs: float, rc: int = 0) -> tuple[Path, Path]:
     return script, log
 
 
-def _stamp(repo: Path) -> Path:
-    common = subprocess.run(["git", "-C", str(repo), "rev-parse", "--path-format=absolute", "--git-common-dir"],
-                            check=True, capture_output=True, text=True).stdout.strip()
-    return Path(common) / "FETCH_HEAD"
+def _stamp(tmp_path: Path) -> Path:
+    """r706 — 전용 fetch 표식(성공 시각 1줄) · FETCH_HEAD 아님."""
+    return tmp_path / "fetch.stamp"
 
 
 def _prep(tmp_path, monkeypatch, secs: float, rc: int = 0) -> tuple[Path, Path]:
     repo = _repo(tmp_path)
     script, log = _fake(tmp_path, secs, rc)
-    for k, v in {"FT_LEDGER_FETCH": script, "FT_NEWS_FETCH_MIN": "0"}.items():
+    for k, v in {"FT_LEDGER_FETCH": script, "FT_NEWS_FETCH_MIN": "0", "FT_NEWS_FETCH_STAMP": _stamp(tmp_path)}.items():
         monkeypatch.setenv(k, str(v))
     monkeypatch.delenv("FT_LEDGER_SYNC_ERROR", raising=False)
     return repo, log
@@ -65,37 +64,35 @@ def test_a_8s_fetch_passes_under_cli_fixed_cost_cap(tmp_path, monkeypatch):
     assert elapsed >= 7.5  # 7초 룰만으로는 못 넘긴 시간
 
 
-# ── ⓑ 11초 fetch × 2 = 둘 다 실패 · 시도당 10.5초 · 합 ≤ 22초 여유 · 경고에 «N분 전 받은 판» ──
+# ── ⓑ 상한 넘는 fetch × 2 = 둘 다 실패 · 시도당 상한 · 합 ≤ 상한×2 + TERM 유예 · 경고에 «N분 전 받은 판» ──
+# r847: 기본 상한 30초(오빠 «뉴스는 30초로 상향») — 실시간 대기를 줄이려 상한을 env 2초로 낮추고 3초 fetch 로 같은 꼴을 본다(30초 칸 = test_news_ledger_fetch_lsremote_r847.sh)
 def test_b_two_timeouts_bounded_and_warn_with_age(tmp_path, monkeypatch, caplog):
-    repo, log = _prep(tmp_path, monkeypatch, 11)
-    stamp = _stamp(repo)
-    stamp.write_text("x\n", encoding="utf-8")
-    old = time.time() - (40 * 60 + 5)
-    os.utime(stamp, (old, old))
+    repo, log = _prep(tmp_path, monkeypatch, 3)
+    monkeypatch.setenv("FT_NEWS_FETCH_TIMEOUT", "2")
+    _stamp(tmp_path).write_text(f"{time.time() - (40 * 60 + 5):.0f}\n", encoding="utf-8")  # r706: 내용 = 성공 시각
     t0 = time.monotonic()
     err = nl.fetch_if_stale(repo)
     elapsed = time.monotonic() - t0
     assert len(log.read_text(encoding="utf-8").split()) == 2  # 재시도 1
-    assert elapsed <= 22.5  # 시도당 10.5 × 2 + 여유(옛 판 = 7 × 2 = 14 · 총 마감 70 안)
+    assert elapsed <= 8.5  # 시도당 2 × 2 + TERM→KILL 유예 1 × 2 + 여유(총 마감 70 안)
     assert err.startswith("원장 ref fetch 실패 — ") and "origin/main = 40분 전 받은 판" in err
     assert os.environ["FT_LEDGER_SYNC_ERROR"] == err  # 머리 줄과 로그가 같은 문구
-    assert err in [r.message for r in caplog.records if r.levelname == "ERROR"]
+    assert err in [r.message for r in caplog.records if r.levelname == "WARNING"]  # r907 r3 — ERROR 는 뉴스 틱이 구간당 1줄
 
 
-# ── ⓒ FETCH_HEAD 없음 = «받은 시각 모름» ──
+# ── ⓒ fetch 표식 없음 = «받은 시각 모름» ──
 def test_c_missing_stamp_says_unknown_time(tmp_path, monkeypatch):
     repo, _log = _prep(tmp_path, monkeypatch, 0, rc=1)
-    assert not _stamp(repo).exists()
+    assert not _stamp(tmp_path).exists()
     err = nl.fetch_if_stale(repo)
     assert "origin/main = 받은 시각 모름" in err
 
 
-# ── ⓓ FETCH_HEAD 300초 안 = fetch 0(지금 동작) ──
+# ── ⓓ fetch 표식 300초 안 = fetch 0 ──
 def test_d_fresh_stamp_skips_fetch(tmp_path, monkeypatch):
     repo, log = _prep(tmp_path, monkeypatch, 0)
     monkeypatch.setenv("FT_NEWS_FETCH_MIN", "300")  # 기본값 = 300초 안이면 건너뜀
-    stamp = _stamp(repo)
-    stamp.write_text(f"{time.time():.0f}\n", encoding="utf-8")  # 지금 동작 = 파일 «내용» 이 시각(초)
+    _stamp(tmp_path).write_text(f"{time.time():.0f}\n", encoding="utf-8")  # r706: 전용 표식 «내용» = 성공 시각(초)
     assert nl.fetch_if_stale(repo) == ""
     assert not log.exists()  # 부른 적 0
 
@@ -104,5 +101,5 @@ def test_d_fresh_stamp_skips_fetch(tmp_path, monkeypatch):
 def test_e_attempt_timeout_clamped_to_budget(monkeypatch):
     monkeypatch.setenv("FT_NEWS_FETCH_TIMEOUT", "55")
     assert nl._attempt_timeout(0.0) == 55.0  # 첫 시도 = 시도당 상한
-    assert nl._attempt_timeout(67.0) == 3.0  # 둘째 시도 = 남은 마감만
+    assert abs(nl._attempt_timeout(67.0) - (3.0 - nl.KILL_GRACE_S - nl.STAGE_SLACK_S)) < 1e-9  # 둘째 시도 = 남은 마감 − TERM→KILL 유예 − 회수 여유(r847 r2)
     assert nl._attempt_timeout(70.0) <= 0  # 마감 소진 = 새 시도 0

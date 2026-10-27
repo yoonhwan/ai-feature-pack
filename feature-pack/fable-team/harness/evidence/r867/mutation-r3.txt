@@ -1,0 +1,2 @@
+변이1 sha 판정 → 작업명 비교(창 시작 원장에 없던 작업명 = 새 완성): rc=1 · 1 failed, 3 passed in 3.83s · 빨강=test_b_renaming_a_task_done_before_the_window_is_not_new
+변이2 조립 프롬프트 전체 상한 제거: rc=1 · 1 failed, 3 passed in 1.98s · 빨강=test_a_whole_prompt_stays_under_the_limit_whatever_the_input

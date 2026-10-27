@@ -32,7 +32,7 @@ ft_team_root() { local t="$1" alt=0 rel root out; [ "${2:-}" = --alt ] && alt=1
         [ -f "$d/ft-harness-root.sh" ] && hr="$(. "$d/ft-harness-root.sh" && ft_harness_root "$d")"; fi
       [ -n "$hr" ] && [ -d "$hr" ] || { echo "ERROR $t 폴더가 \$FT_HARNESS_ROOT 꼴인데 env 가 없거나 폴더가 아니다: ${FT_HARNESS_ROOT:-<없음>}" >&2; return 1; }
       out="${hr%/}/${rel#*/}";;
-    design/teams/*) if [ "$alt" = 1 ]; then out="$root/${rel/design\/teams\//design/}"; else out="$root/$rel"; _ft_team_twin_warn "$root/${rel/design\/teams\//design/}" "$t"; fi;;
+    design/teams/*) if [ "$alt" = 1 ]; then out="$root/${rel/design\/teams\//design/}"; else out="$root/$rel"; _ft_team_twin_warn "$root/${rel/design\/teams\//design/}" "$t" "$root"; fi;;
     design/*)       if [ "$alt" = 1 ]; then out="$root/design/teams/$t/"; else out="$root/$rel"; fi;;
     *) echo "ERROR $t 폴더 칸을 풀지 못했다: $rel" >&2; return 1;;
   esac
@@ -45,10 +45,24 @@ _ft_team_sparse_check() { [ "${FT_TEAM_SPARSE_CHECK:-1}" != 0 ] && [ ! -e "$1/$2
   git -C "$1" ls-files --error-unmatch -- "$2" >/dev/null 2>&1 || return 0
   echo "SPARSE-HIDDEN $2 — 이 워크트리는 자기 팀 폴더만 체크아웃(r444) · 전체 사본 = ft-scratch-repo.sh <base> 에서 돌려라" >&2; return 1; }
 # r447: 명단 새 꼴인데 옛 꼴 폴더에 파일이 남았으면(쌍둥이 공존) 새 꼴을 돌려주고 stderr WARN 1줄 — 옛 꼴로 되돌아가지 않는다
+#   r926: 루트 가지가 origin/main 을 품는지 먼저 본다(rev-list --count HEAD..origin/main 1회 · 7초 상한) — 안 품으면(데이터 루트 = 한참 뒤진 작업 폴더) «이동하라» 대신 «이동 0 · 원장은 ref 정본» 이라고 말한다(그 안내대로 하면 뒤진 가지에 이동 커밋이 생긴다)
 #   FT_TEAM_TWIN_WARN=0 = 끔 — 쌍둥이를 일부러 둘 다 세는 ft_team_cands* 와 stderr 를 값으로 받는 호출처(map-lint)만
-_ft_team_twin_warn() { local old="${1%/}" n; [ "${FT_TEAM_TWIN_WARN:-1}" != 0 ] && [ -d "$old" ] || return 0
+#   _ft_team_branch_state <루트> → stdout `contains|behind:<N>|unknown` rc0 — git 조회 1회 · 7초 상한(넘김·git 실패 = unknown = 가지를 못 물어봤다)
+#     `rev-list --count HEAD..origin/main` 한 번으로 둘 다 된다(0 = main 을 품었다 · N>0 = N 뒤 · 실패 = 못 물어봄) — 7초 상한도 한 번에 건다
+#     r926 r2: timeout·gtimeout 이 둘 다 없으면 git 을 부르지 않고 unknown — 7초 상한 없는 git 호출 금지(DA⑥ r1 반례 2)
+_ft_team_branch_state() { local r="$1" to n
+  to="$(command -v timeout || command -v gtimeout || true)"
+  [ -n "$to" ] || { echo unknown; return 0; }
+  n="$("$to" 7 git -C "$r" rev-list --count HEAD..origin/main 2>/dev/null)"
+  case "$n" in ''|*[!0-9]*) echo unknown;; 0) echo contains;; *) echo "behind:$n";; esac; }
+_ft_team_twin_warn() { local old="${1%/}" t="${2:-}" root="${3:-${FT_REPO_ROOT:-}}" n st; [ "${FT_TEAM_TWIN_WARN:-1}" != 0 ] && [ -d "$old" ] || return 0
   n="$(find "$old" -type f 2>/dev/null | wc -l | tr -d ' ')"; [ "$n" -gt 0 ] || return 0
-  echo "WARN 옛 꼴 잔존 ${n}파일 — ft-team-move.sh --apply $2 (옛 폴더 $old)" >&2; }
+  st=unknown; [ -n "$root" ] && st="$(_ft_team_branch_state "$root")"
+  case "$st" in
+    behind:*) echo "WARN 옛 꼴 잔존 ${n}파일 — 데이터 루트 가지가 main 보다 ${st#behind:} 뒤 · 이동 0 · 원장은 ref 정본 (옛 폴더 $old)" >&2;;
+    contains) echo "WARN 옛 꼴 잔존 ${n}파일 — ft-team-move.sh --apply $t (옛 폴더 $old)" >&2;;
+    *) echo "WARN 옛 꼴 잔존 ${n}파일 — ft-team-move.sh --apply $t (옛 폴더 $old) · 가지 확인 못 함" >&2;;
+  esac; }
 #   ft_old_form_team <경로>         : 경로의 첫 `design/<이름>/` 구간(teams 아님)이 «명단 새 꼴(design/teams/<팀>/) 팀» 이면 팀 이름 출력 rc0 · 옛 꼴 팀·꼴3·명단 밖·design 밖 = rc1 · 명단 못 읽음 = rc2 (r447)
 ft_old_form_team() { local t rel
   [[ "$1" =~ (^|/)design/([a-z0-9][a-z0-9_-]*)/ ]] || return 1; t="${BASH_REMATCH[2]}"; [ "$t" != teams ] || return 1
@@ -163,6 +177,49 @@ ft_from_current() { local v="${1:-}" seats="${2:-}" m d lint r
   [ "$(_ft_from_lineage "$v")" = "$(_ft_from_lineage "$m")" ] || { printf '%s\n' "$v"; return 0; }
   [ "$v" = "$m" ] || echo "INFO FT_SEND_FROM 옛 세대(#$(_ft_from_gen "$v")) → 명부 현역(#$(_ft_from_gen "$m"))" >&2
   printf '%s\n' "$m"; }
+#   ft_landed_repo <sha> <카드 리포> [<팩 리포>] [<판정문 표식 줄>] : 착지 sha 의 «진짜 리포» 1곳 판정 (r937 ⓐ · 설치·정본·close-landed 세 게이트가 같은 값을 쓴다)
+#     stdout = `<리포 절대경로><TAB><full sha>` rc0 · 실패 = stdout `REJECT <사유>` rc1(부르는 쪽이 그 줄을 게이트 거절문으로 쓴다)
+#     순서: ①두 리포 rev-parse(7초 상한) ②한 곳에만 = 그 리포 ③둘 다 = 표식 줄(main(팩) = 팩 · main = 카드 리포 · 표식 없으면 팩 — 카드 리포가 팩 객체를 fetch 해 두는 실사건 · r581)
+#           ④둘 다 없음 = REJECT «어느 리포에서도 못 찾음» · 표식과 실제가 어긋나면 REJECT(표식 오기 숨김 0 · ⓒ)
+#     앞자리(7~39자)는 그 리포에서 유일해야 인정 · 같은 앞자리가 두 리포의 «다른» 커밋이면 표식 필수(없으면 REJECT) · 팩 리포가 빈 값이면 카드 리포만 본다
+#   r959: 표식 «main» 인데 sha 가 팩에만 있으면 «표식 오기(팩 착지)» WARN 1줄 + 팩 리포 결과(기본 동작 — 부르는 쪽마다 따로 보정하지 않는다). 표식 «main(팩)» 어긋남은 보정하지 않는다(숨김 0)
+#   ft_git_capped <초> <리포> <git 인자…> : git 조회 1회를 «초» 상한으로 감싼다(r937 r2 T1 · 7초 상한 없는 git 호출 금지).
+#     r3: python 실행기 1개(ft_git_capped.py) — git 을 새 프로세스 그룹에서 돌리고 시간 초과면 그룹 SIGTERM → 0.5초 뒤 SIGKILL(자식까지) → 재시도 1회 실제 수행 →
+#     또 초과면 rc 124. timeout/gtimeout·bash 버전과 무관 · rc·stdout 은 git 그대로 · 실행 실패 rc 128 · 총 ≤ 2회(재시도는 실행기 안에서 끝난다 — 부르는 쪽이 또 감싸지 않는다)
+_FT_GITCAP_PY="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)/ft_git_capped.py"
+ft_git_capped() { python3 "$_FT_GITCAP_PY" "$@" 2>/dev/null; }
+_ft_git_retry() { ft_git_capped "$@"; }   # 옛 이름 — 재시도가 실행기로 들어갔다(r937 r3)
+#   rc 규약(r937 r2 T2): 0 = 있음 · 1 = «그 리포에 없음» · 그 밖(124 시간 초과 · 128 실행 실패) = «조회 실패» — 없음으로 읽지 않는다
+_ft_landed_git() { _ft_git_retry 7 "$1" rev-parse --verify -q "${2}^{commit}"; }
+ft_landed_repo() { local sha="$1" cr="${2:-}" pr="${3:-}" mk="${4:-}" cs="" ps="" want=""
+  case "$sha" in ''|*[!0-9a-f]*) printf 'REJECT 착지 sha 가 40/앞자리 hex 가 아니다: %s\n' "$sha"; return 1;; esac
+  [ "${#sha}" -ge 7 ] || { printf 'REJECT 착지 sha 가 7자 미만이다: %s\n' "$sha"; return 1; }
+  [ -n "$cr" ] && [ -d "$cr" ] || { printf 'REJECT 카드 리포가 폴더가 아니다: %s\n' "${cr:-<없음>}"; return 1; }
+  local rc=0
+  cs="$(_ft_landed_git "$cr" "$sha")" || rc=$?
+  case "$rc" in 0) rc=0;; 1) cs="";; *) printf 'REJECT %s 조회 실패(rc=%s · 시간 초과 포함) — 리포 판정 안 함(통과 0)\n' "$cr" "$rc"; return 1;; esac
+  if [ -n "$pr" ] && [ -d "$pr" ]; then
+    rc=0
+    ps="$(_ft_landed_git "$pr" "$sha")" || rc=$?
+    case "$rc" in 0) rc=0;; 1) ps="";; *) printf 'REJECT %s 조회 실패(rc=%s · 시간 초과 포함) — 리포 판정 안 함(통과 0)\n' "$pr" "$rc"; return 1;; esac
+  fi
+  case "$mk" in *닫힘*|*CLOSE*)
+    if printf '%s' "$mk" | grep -qE 'main[[:space:]]*\([[:space:]]*팩[[:space:]]*\)'; then want=pack
+    elif printf '%s' "$mk" | grep -qE 'main'; then want=card; fi;; esac
+  if [ -z "$cs" ] && [ -z "$ps" ]; then
+    printf 'REJECT 착지 sha 를 어느 리포에서도 못 찾음: %s (카드 %s · 팩 %s)\n' "$sha" "$cr" "${pr:-<못 풂>}"; return 1; fi
+  if [ -n "$cs" ] && [ -n "$ps" ] && [ "$cs" != "$ps" ]; then   # 같은 앞자리가 두 리포의 다른 커밋 = 표식 없이는 못 정한다
+    case "$want" in pack) printf '%s\t%s\n' "$pr" "$ps"; return 0;; card) printf '%s\t%s\n' "$cr" "$cs"; return 0;; esac
+    printf 'REJECT 착지 sha 앞자리가 두 리포의 다른 커밋을 가리킨다 — 판정문 표식(main / main(팩)) 필요: %s (%s ≠ %s)\n' "$sha" "${cs:0:12}" "${ps:0:12}"; return 1; fi
+  case "$want" in
+    pack) [ -n "$ps" ] || { printf 'REJECT 판정문 표식 main(팩) 인데 팩 리포에 그 sha 가 없다 — 표식 오기(숨김 0): %s\n' "$sha"; return 1; }
+          printf '%s\t%s\n' "$pr" "$ps"; return 0;;
+    card) [ -n "$cs" ] || {   # r959: 표식 «main» 인데 sha 가 팩에만 = 표식 오기(팩 착지) → WARN 1줄 + 팩 리포. 보정은 «이 함수의 기본 동작» — 정본·설치·DA 보류 가드·close-landed 네 호출이 부르는 쪽마다 보정을 붙이다 두 번 샜다(DA⑥ r1·r2)
+            printf 'WARN\t표식 오기(팩 착지) — 판정문 표식 «main» 인데 sha 가 팩 리포에만 있다 — 팩 리포로 검사한다(카드에 «main(팩)» 로 적으면 이 경고가 사라진다): %s\n' "$sha" >&2
+            printf '%s\t%s\n' "$pr" "$ps"; return 0; }
+          printf '%s\t%s\n' "$cr" "$cs"; return 0;;
+  esac
+  if [ -n "$ps" ]; then printf '%s\t%s\n' "$pr" "$ps"; else printf '%s\t%s\n' "$cr" "$cs"; fi; }
 ft_team_has() { local t="$1" p="$2" sub="${3:-}" rel c md
   md="$(ft_team_teams_md)" || return 2
   ft_team_names "$md" | grep -qxF -- "$t" || return 1

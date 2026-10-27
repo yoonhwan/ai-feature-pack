@@ -1,0 +1,195 @@
+FAIL ⓐ rc=1 [FINISHED nano/a1-eq
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+E1f ok files=3
+branch=nano/a1-eq sha=8cf79a8d58650d99577a553691fd8611f5748167 ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.32woeicUww/R/design/teams/lecture/indices/진행/a1-eq.md dir=<없음>
+WARN card /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.32woeicUww/R/design/teams/lecture/indices/진행/a1-eq.md — E1f ok 로 끝 처리(착지 줄·완성/ 불일치) · 카드 이동은 이 도구 몫 아님]
+FAIL ⓑ [ACTIVE nano/b1-part
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+E1f no files=1 first=p3.txt
+branch=nano/b1-part sha=742d6dd83a51b09bb4cf178e8d840c15fb060833 ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.32woeicUww/R/design/teams/lecture/indices/진행/b1-part.md dir=<없음>]
+FAIL ⓒ1 [FINISHED nano/c1-del-same
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+E1f ok files=1
+branch=nano/c1-del-same sha=e5bef032eab85a6e7e3712c1df4fdee576cbca7d ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.32woeicUww/R/design/teams/lecture/indices/진행/c1-del-same.md dir=<없음>
+WARN card /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.32woeicUww/R/design/teams/lecture/indices/진행/c1-del-same.md — E1f ok 로 끝 처리(착지 줄·완성/ 불일치) · 카드 이동은 이 도구 몫 아님]
+FAIL ⓒ2 [ACTIVE nano/c2-del-diff
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+E1f no files=1 first=h.txt
+branch=nano/c2-del-diff sha=7452320d94736679be59909cd1df52227c41dc7c ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.32woeicUww/R/design/teams/lecture/indices/진행/c2-del-diff.md dir=<없음>]
+FAIL ⓓ 좌석 [ACTIVE nano/d1-eq
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 no tmux byz-lecture-nano-d1-eq#0
+E1f ok files=1
+branch=nano/d1-eq sha=5692c8e86a6b6d4f8c86d5b6cb38ad52f97ca91d ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.32woeicUww/R/design/teams/lecture/indices/진행/d1-eq.md dir=<없음>]
+FAIL ⓓ 미커밋 [ACTIVE nano/d2-eq
+E0 no 미커밋 있음 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.32woeicUww/wt-d2-eq
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+E1f ok files=1
+branch=nano/d2-eq sha=1e266d63b747c09f7c6d0e4f41fd97ec75082175 ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.32woeicUww/R/design/teams/lecture/indices/진행/d2-eq.md dir=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.32woeicUww/wt-d2-eq]
+PASS ⓔ blob 조회 rc≠0 → rc2 판정 불가(FINISHED 0)
+PASS ⓔ 7초 룰(시험값 0.3s) 초과 → rc2 판정 불가(FINISHED 0)
+FAIL ⓓ' [ACTIVE nano/h1-empty
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+E1f no files=0 (바꾼 파일 없음 — E1f 대상 아님 · 카드 규칙으로)
+branch=nano/h1-empty sha=3386b23e502bbe066ed1a585de6337e396f17ab8 ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.32woeicUww/R/design/teams/lecture/indices/진행/h1-empty.md dir=<없음>]
+PASS ⓕ E1f FINISHED → refs/archive 생성 · 폴더 쓰는 중이라 가지 유지 · 폴더 그대로
+PASS ⓕ 폴더 정리 뒤 같은 판정으로 가지 목록에서 뺌(보관 ref 유지)
+PASS ⓕ `git branch -D` 호출 0
+PASS ⓕ ACTIVE(E1f no) 가지 → 이동 0
+PASS ⓖ wt-sweep --launchd: E1f 끝난 가지 이동(archived=5 archive_skip=3 replanned=0 hil_files=0 orphans=0 freed_kb=0) · ACTIVE 가지는 그대로(정리 도구 코드 변경 0)
+FAIL ⓗ [ACTIVE nano/h1-sub
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+E1f no files=1 first=sub
+branch=nano/h1-sub sha=8bc292bf8dcab05908cc827d92c8a2873a873d49 ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.32woeicUww/R/design/teams/lecture/indices/진행/h1-sub.md dir=<없음>]
+FAIL ⓘ small [FINISHED nano/i1-small
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+E1f ok files=3
+branch=nano/i1-small sha=baff8cd0e0f64ff7b3cfdb8f212f3ef43a92c2e7 ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.32woeicUww/R/design/teams/lecture/indices/진행/i1-small.md dir=<없음>
+WARN card /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.32woeicUww/R/design/teams/lecture/indices/진행/i1-small.md — E1f ok 로 끝 처리(착지 줄·완성/ 불일치) · 카드 이동은 이 도구 몫 아님]
+FAIL ⓘ bulk [FINISHED nano/i2-bulk
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+E1f ok files=501
+branch=nano/i2-bulk sha=886ce3946a4e451f138e0c38cc5e362412518748 ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.32woeicUww/R/design/teams/lecture/indices/진행/i2-bulk.md dir=<없음>
+WARN card /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.32woeicUww/R/design/teams/lecture/indices/진행/i2-bulk.md — E1f ok 로 끝 처리(착지 줄·완성/ 불일치) · 카드 이동은 이 도구 몫 아님]
+FAIL ⓘ 재확인 [FINISHED nano/i3-eq
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+E1f ok files=3
+branch=nano/i3-eq sha=6bae5e066c0c635e736fbc4a741688250e963e6a ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.32woeicUww/R/design/teams/lecture/indices/진행/i3-eq.md dir=<없음>
+WARN card /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.32woeicUww/R/design/teams/lecture/indices/진행/i3-eq.md — E1f ok 로 끝 처리(착지 줄·완성/ 불일치) · 카드 이동은 이 도구 몫 아님]
+PASS ⓙ criss-cross(merge-base 2개) → rc2 판정 불가(FINISHED 0)
+FAIL ⓚ [ACTIVE nano/k1-magic
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+E1f no files=5 first=*
+branch=nano/k1-magic sha=4005921a60b4c776d0b5fd6f04c5ae2c0a54728b ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.32woeicUww/R/design/teams/lecture/indices/진행/k1-magic.md dir=<없음>]
+FAIL ⓚ ok [FINISHED nano/k2-magic
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+E1f ok files=3
+branch=nano/k2-magic sha=646c8a2f0692b761c5d7c1786fdf5f8fe454e8cc ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.32woeicUww/R/design/teams/lecture/indices/진행/k2-magic.md dir=<없음>
+WARN card /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.32woeicUww/R/design/teams/lecture/indices/진행/k2-magic.md — E1f ok 로 끝 처리(착지 줄·완성/ 불일치) · 카드 이동은 이 도구 몫 아님]
+FAIL ⓛ rc=1 calls=3 el=12s [FINISHED nano/l1-many
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+E1f ok files=5000
+branch=nano/l1-many sha=6a00055dc7feebf74148088e6707d52da6a42891 ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.32woeicUww/R/design/teams/lecture/indices/진행/l1-many.md dir=<없음>
+WARN card /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.32woeicUww/R/design/teams/lecture/indices/진행/l1-many.md — E1f ok 로 끝 처리(착지 줄·완성/ 불일치) · 카드 이동은 이 도구 몫 아님]
+PASS ⓛ 전체 마감(시험값 3s) 초과 → rc2 판정 불가(남은 시간으로 호출을 줄이다 마감 · FINISHED 0)
+PASS ⓛ 기본 전체 마감 = 70초(하드 룰 12)
+FAIL ⓜ mode [ACTIVE nano/m1-mode
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+E1f no files=1 first=sh.txt
+branch=nano/m1-mode sha=d57f99c6a458c6453480bf78b5bc60344ac8a4c2 ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.32woeicUww/R/design/teams/lecture/indices/진행/m1-mode.md dir=<없음>]
+FAIL ⓜ link [ACTIVE nano/m2-link
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+E1f no files=1 first=ln.txt
+branch=nano/m2-link sha=946f9b8cf39398bf3272b49b067cccf91bcf7b4a ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.32woeicUww/R/design/teams/lecture/indices/진행/m2-link.md dir=<없음>]
+FAIL ⓞ ACTIVE rc=1 [ACTIVE nano/o1-diff
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+E1f no files=1 first=o1.txt
+branch=nano/o1-diff sha=dcf3319810c812703a9aee42ba8c6fbc69dbf8c8 ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.32woeicUww/R/design/teams/lecture/indices/진행/o1-diff.md dir=<없음>]
+FAIL ⓞ ORPHAN rc=1 [ORPHAN nano/o2-orphan
+E0 ok 폴더 없음
+E1 no 카드 없음
+E2 no 카드 없음
+E3 ok 좌석 0
+E1f no files=1 first=o2.txt
+branch=nano/o2-orphan sha=10fc474a0811d201d3e1f65a97560eef9ef7bfc6 ahead=1 main=origin/main card=<0개> dir=<없음>]
+FAIL ⓞ EMPTY rc=1 [EMPTY nano/o3-empty
+E0 ok 폴더 없음
+E1 no 카드 없음
+E2 no 카드 없음
+E3 ok 좌석 0
+E1f no files=0 (ahead=0 — E1f 대상 아님)
+branch=nano/o3-empty sha=da1a82e965b045753c2746e58819032f9210db26 ahead=0 main=origin/main card=<0개> dir=<없음>]
+FAIL ⓞ FINISHED rc=1 [FINISHED nano/o4-eq
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+E1f ok files=1
+branch=nano/o4-eq sha=8b7b98e09a94e32e1fbf9e352a703c7640703baa ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.32woeicUww/R/design/teams/lecture/indices/진행/o4-eq.md dir=<없음>
+WARN card /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.32woeicUww/R/design/teams/lecture/indices/진행/o4-eq.md — E1f ok 로 끝 처리(착지 줄·완성/ 불일치) · 카드 이동은 이 도구 몫 아님]
+FAIL ⓞ rc 값역 밖: rc=1 [FINISHED nano/o4-eq
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+E1f ok files=1
+branch=nano/o4-eq sha=8b7b98e09a94e32e1fbf9e352a703c7640703baa ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.32woeicUww/R/design/teams/lecture/indices/진행/o4-eq.md dir=<없음>
+WARN card /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.32woeicUww/R/design/teams/lecture/indices/진행/o4-eq.md — E1f ok 로 끝 처리(착지 줄·완성/ 불일치) · 카드 이동은 이 도구 몫 아님]
+FAIL ⓞ exit 0 줄 없음(rc 계약 미고정)
+PASS ⓞ 옛 159줄 && 사슬 0(정상 판정이 rc1 로 끝나지 않는다)
+PASS ⓟ 판정기 rc1 + 1행 ACTIVE → 이동 0(SKIP rc1 · 호출자는 rc 를 안 읽는다)
+PASS ⓟ 판정기 rc2 + 1행 ERROR → 이동 0(«판정 불가 = 안 끝남» 계약과 일치)
+PASS ⓟ 호출자 ft-branch-archive.sh 판정기 호출 줄에 rc 읽기 0(1행 판정 이름만)
+FAIL ⓝ differ rc=1 [ACTIVE nano/n1-raw
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+E1f no files=1 first=raw-\xff
+branch=nano/n1-raw sha=c41806b5a83553ce77441bb938517289219a50d0 ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.32woeicUww/R/design/teams/lecture/indices/진행/n1-raw.md dir=<없음>]
+FAIL ⓝ same rc=1 [FINISHED nano/n1-raw
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+E1f ok files=1
+branch=nano/n1-raw sha=c41806b5a83553ce77441bb938517289219a50d0 ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.32woeicUww/R/design/teams/lecture/indices/진행/n1-raw.md dir=<없음>
+WARN card /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.32woeicUww/R/design/teams/lecture/indices/진행/n1-raw.md — E1f ok 로 끝 처리(착지 줄·완성/ 불일치) · 카드 이동은 이 도구 몫 아님]
+FAIL ⓝ newline rc=1 [ACTIVE nano/n3-nl
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+E1f no files=1 first=nl-\n-x
+branch=nano/n3-nl sha=f2b35ca4f5771adcce2400b1de4593f321a21bb6 ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.32woeicUww/R/design/teams/lecture/indices/진행/n3-nl.md dir=<없음>]
+(25 failed)
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

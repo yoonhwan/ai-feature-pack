@@ -1,0 +1,31 @@
+R882 r3 — DA⑥ r2 HOLD 1 재설계 반송(보류 2회 · 하드 룰 14 · REWORK-r882-r3.md · VERDICT-r882-da6-r2.md · arch 139)
+반례: 전수 쓰기(--apply --all)와 1곳 쓰기(--apply)가 다른 잠금 키 → 같은 워크트리 겹침 → 남의 MERGE_HEAD 를 자기 것으로 알고 abort → HEAD 새 트리·작업 파일 옛 상태인데 «최신화함» rc0
+base: origin/main 4d8704c3(r886) 그대로(새 착지 0) · 버전 1.1.233 유지
+
+바뀐 것 (bin/ft-head-sync.sh + kit 짝 사본 cmp=0 · 130줄 ≤130)
+1. 쓰기 잠금 = 워크트리 하나: «그 워크트리 git 폴더/ft-head-sync.flock» — 1곳 --apply 는 실행 내내(fd 9) · 전수는 워크트리마다 wt_lock(fd 8) 잡고 검사→merge→abort→검증 끝까지 쥔 뒤 다음 전에 풂(exec 8>&-)
+   못 잡으면 그 줄 «건너뜀 (다른 실행 중)» · 요약 줄과 끝줄(비파괴 증거)에 건너뜀 수 · 건너뛴 워크트리는 전후 대조 밖(남이 쓰는 중)
+2. 공용 git 폴더 잠금 = 이름 ft-head-sync-scan.flock · 표·전수 «순회끼리 직렬»만(쓰기 보호 아님) — 이름을 갈라 메인 체크아웃(git 폴더 = 공용 폴더)에서 쓰기 키와 겹치지 않음
+3. merge --abort 소유 확인: merge 직전 MERGE_HEAD 있으면 손대지 않고 «보류(진행 중 연산 MERGE_HEAD)» · merge 실패 뒤 MERGE_HEAD = base sha 일 때만 abort(«충돌·사람») · 다른 sha = «보류(… 남의 병합 — abort 0)»
+4. «최신화함» = merge 뒤 HEAD ⊇ base ∧ 미커밋 0 일 때만 · 아니면 «오류(병합 뒤 검증 실패)» + ERROR 1줄 · rc1
+5. flock_nb <fd> <경로> 공용(잡으면 안내 글자 pid·시작 · rc3 = 남이 쥠 · 그 밖 ERROR) · 죽은 «다른 워크트리 — 그 자리에서» 칸 삭제(R882 r1 뒤 1곳 모드엔 cwd 줄만 남아 닿지 않음)
+
+시험 tests/test_head_sync_lock_r882.sh 29 (git 대역에 merge 직전 멈춤 GITMERGESLOW · 남의 MERGE_HEAD 심기 FOREIGN_MH · 병합 뒤 더럽히기 DIRTY_AFTER)
+- ⓖ 같은 워크트리 1곳 --apply(merge 직전 6초 멈춤) ∥ --apply --all --confirm 3 → --all 의 nano/a «건너뜀» · 건너뜀 1 · B·C 는 전수가 최신화 · wt-a 작업 파일 = HEAD(미커밋 0 · MERGE_HEAD 0) · HEAD ⊇ main
+- ⓗ merge 직전 남의 MERGE_HEAD(wt-b HEAD sha) → abort 0 · 그 MERGE_HEAD 그대로 · 보류 rc0
+- ⓘ 병합 뒤 미커밋 남음 → «최신화함» 0 · ERROR rc1
+- 기존 r882 20칸 그대로 통과(순회 키 경로만 -scan.flock · 변이1 대상 줄 flock_nb 꼴)
+- 변이3(전수 쓰기 잠금 = 공용 키) → --all 이 wt-a 를 씀 = ⓖ 빨강 · 변이4(abort 소유 확인 제거) → 남의 MERGE_HEAD 지움 = ⓗ 빨강
+- 3회 연속 ALL PASS(r3-t-test_head_sync_lock_r882.txt 1회분) · /bin/bash 3.2 ALL PASS(r3-t-lock-bash32.txt)
+- r2 판(69ae3e65)에 돌리면 ⓖ·ⓗ·ⓘ 빨강(r3-red-r2-script.txt · 나머지 FAIL = 키 이름·변이 대상 줄 없음)
+회귀 (r3-t-*.txt)
+test_head_sync_apply_scope rc=0 PASS 26 FAIL 0
+test_head_sync rc=0 PASS 25 FAIL 0
+test_head_lag_remind_per_wt_r836 rc=0 PASS 36 FAIL 0
+test_head_skip_list rc=0 PASS 21 FAIL 0
+test_merge_head_gate rc=0 PASS 32 FAIL 0
+test_cherry_gate_identical_head rc=0 PASS 20 FAIL 0
+test_head_lag rc=1 PASS 23 FAIL 1
+- test_head_lag FAIL 1 = ⓐ «착지 성공» remote URL 픽스처(r889) — 기준판 동일 · 범위 밖
+남는 길(알고 있음): ft-head-sync 를 거치지 않는 손 git 조작은 잠금을 모른다(검사 시점 뒤 사람이 고치면 비파괴 대조가 VIOLATION 으로 알림) · 죽은 실행의 살아 있는 자식이 fd 를 물려받으면 그 자식 끝까지 잠금 유지
+press 필요: 없음

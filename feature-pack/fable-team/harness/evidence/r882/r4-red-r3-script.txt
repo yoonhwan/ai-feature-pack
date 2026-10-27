@@ -1,0 +1,50 @@
+PASS bash -n head-sync
+PASS ⓐ wt-a 안 --apply rc0 · A 최신화
+PASS ⓐ 남의 워크트리(wt-b·wt-c) git 호출 0 (실측 0)
+PASS ⓐ 표에 B·C 줄 0 · B HEAD 불변
+PASS ⓑ --table = 전 워크트리 표(A·B·C) rc0
+PASS ⓑ --table --apply → usage rc2
+PASS ⓒ 겹친 3개 → 표 1 · «이미 실행 중 pid N · 시작 HH:MM» 2 · rc 전부 0 (표 1 · 대기 2)
+PASS ⓒ 끝나면 잠금 풀림(쥔 프로세스 0 · 다음 실행 정상)
+PASS ⓐ r2 두 실행 동시 → 둘째 «이미 실행 중 pid N · 시작 HH:MM» 1줄 rc0 · 스캔 git 0 (실측 0)
+PASS ⓑ r2 신호 9 로 죽은 주인 → 다음 실행이 바로 잡음(회수 문구 0 · 고아 0)
+PASS ⓒ r2 잠금 파일의 옛 pid 글자만으로는 막지 않음
+PASS ⓒ 살아 있는 주인 → 1줄 rc0 · 남의 잠금 글자 그대로
+PASS ⓒ 전수 잠금 중에도 자기 워크트리 --apply 는 돈다(잠금 범위 = 그 워크트리)
+PASS ⓓ 쪽지에 --apply 0
+PASS ⓓ 쪽지 = 자기 워크트리 스스로(merge 만 · main sha 고정) · 팩 작업 무관
+PASS ⓖ r3 --all 은 1곳 실행이 쥔 wt-a 를 «건너뜀» · 끝줄 건너뜀 수 rc0
+PASS ⓖ r3 wt-a = 1곳 실행만 씀 · B·C = 전수가 씀
+PASS ⓖ r3 wt-a 작업 파일 = HEAD(미커밋 0 · MERGE_HEAD 0) · HEAD ⊇ main
+FAIL ⓗ r3·r4 남의 MERGE_HEAD(다른 sha) → abort 0 · 그대로 둠 · 보류 rc1 :: rc=0 out=base=ed698e09a5d84f66b794a88592cc453ec7862d7f (origin/main) apply=1 all=0
+브랜치  워크트리  분류   contains_main  미랜딩  결과
+nano/a  wt-a      STALE  no             1       보류(진행 중 연산 MERGE_HEAD · 남의 병합 — abort 0)
+요약: 총 1 · 최신 0 · 최신화함 0 · 충돌·사람 0 · 보류 1 · 최신화 필요 0 · 오류 0 · 건너뜀 0
+비파괴 증거: 병합 안 한 워크트리 1 개 전후 HEAD
+PASS ⓘ r3 병합 뒤 미커밋 남음 → «최신화함» 0 · ERROR rc1
+FAIL ⓝ r4 남의 같은 base 병합 → abort 0 · MERGE_HEAD(=base) 그대로 · 보류 rc1 :: rc=0 out=base=f790faa783f7103949671ae94d38e3d611d04dba (origin/main) apply=1 all=0
+브랜치  워크트리  분류   contains_main  미랜딩  결과
+nano/a  wt-a      STALE  no             1       충돌·사람
+요약: 총 1 · 최신 0 · 최신화함 0 · 충돌·사람 1 · 보류 0 · 최신화 필요 0 · 오류 0 · 건너뜀 0
+비파괴 증거: 병합 안 한 워크트리 1 개 전후 HEAD·staged·상태·미커밋 내용 해시 동일 · 건너뜀 0(다른 
+PASS ⓞ r4 우리 merge 충돌(rc=1) → abort · «충돌·사람» · HEAD·파일 원래대로 rc0
+PASS ⓕ 변이1(flock 줄 제거)이 실제로 줄을 바꿨다
+PASS ⓕ 변이(flock 제거) → 겹친 실행이 표 3 개 = ⓒ 단언이 잡는다
+PASS ⓕ 변이(flock 제거) → 둘째도 스캔 git 36 = r2 ⓐ 단언이 잡는다
+PASS ⓕ 변이2 가 실제로 줄을 바꿨다
+PASS ⓕ 변이(cwd 제한 제거) → 남의 워크트리 git 호출 50 = ⓐ 단언이 잡는다
+PASS ⓕ 변이3(전수 쓰기 잠금 = 공용 키) 만듦
+PASS ⓕ 변이(공용 키) → --all 이 1곳 실행 중인 wt-a 를 씀 = ⓖ 단언이 잡는다
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import sys; s = open(sys.argv[1], encoding="utf-8").read(); assert s.count(sys.argv[3]) == 1, "변이 대상 없음"
+                                                                       ^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 변이 대상 없음
+FAIL ⓕ 변이4(abort 판정 = rc 대신 MERGE_HEAD sha 비교 · r3 꼴) 만듦 :: rc=0 out=base=f41afa75bded5830b235852f23bb7162c4fce6a0 (origin/main) apply=1 all=1
+브랜치  워크트리  분류   contains_main  미랜딩  결과
+nano/a  wt-a      STALE  no             1       최신화함
+nano/b  wt-b      STALE  no             1       최신화함
+nano/c  wt-c      STALE  no             1       최신화함
+요약: 총 3 · 최신 0 · 최신화함 3 · 충돌
+PASS ⓕ 변이(rc→sha 비교) → 남의 같은 base MERGE_HEAD 를 abort 로 지움 = ⓝ 단언이 잡는다
+FAILED 3

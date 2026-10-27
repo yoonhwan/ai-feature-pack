@@ -7,8 +7,10 @@ FT_NEWS_MODE=html(r478) = 판 대신 ft_news_html.tick(팀 지도 HTML 첨부 + 
 env: FT_ROOT · FT_LEDGER_REPO(기본 <루트>/.fable-team/LIVE_ROOT 1행 — 없으면 ERROR · R382) · FT_LEDGER_PATH(기본 그 리포 TEAMS.md 의 planner 폴더/PLAN-oppa-ledger.md) — 원장 정본 = 이 두 값 «한 곳»: sha·경로·뉴스 폴더(<루트>/<원장 폴더>/news)·골 표 원장 모두 여기서 푼다 · 기준선 판에 같은 경로가 없으면 ERROR(R458) · FT_NEWS_DIR · FT_NEWS_PUBLISH(기본 ft-news-publish.sh) · FT_NEWS_NOW("YYYY-MM-DD HH:MM") · FT_MBOX
 """
 import logging
+import math
 import os
 import re
+import signal
 import subprocess
 import sys
 import time
@@ -31,6 +33,7 @@ SECTION = re.compile(r"^##\s+(\d+(?:-\d+)?)\.\s*(.*)")
 NOW_LINE = re.compile(r"^\*\*지금 전체 상태\*\*\s*:\s*(.+)")
 VERDICT_ROW = re.compile(r"^\|\s*(\d+)\s*\|\s*(\d{1,2}):([\dx]{2})\s*\|\s*(.*?)\s*\|?\s*$")
 SKIP_KEY_HEADERS = {"순번"}
+GIT_S = 7  # 이 경로의 로컬 git 호출 1회 상한(7초 룰 · r907 r5)
 
 
 def _cells(ln: str) -> list[str]:
@@ -87,7 +90,10 @@ def diff_ledger(old: Lines, new: Lines) -> list[tuple[str, str]]:
 
 
 def _git(repo: Path, *a: str) -> str:
-    done = subprocess.run(["git", "-C", str(repo), *a], capture_output=True, text=True, encoding="utf-8", check=False)
+    try:
+        done = subprocess.run(["git", "-C", str(repo), *a], capture_output=True, text=True, encoding="utf-8", check=False, timeout=GIT_S)  # r907 r5 — 7초 룰(넘으면 RuntimeError = 판정 불가 갈래 · run() finally 가 check_stale 항상)
+    except subprocess.TimeoutExpired as e:
+        raise RuntimeError(f"git {a[0]} 시간 초과({GIT_S}초)") from e
     if done.returncode != 0:
         raise RuntimeError(f"git {a[0]} 실패: {done.stderr.strip()[:200]}")
     return done.stdout
@@ -100,9 +106,14 @@ def run() -> int:
         if not got:
             LOG.info("다른 뉴스 실행이 일하는 중 — 건너뜀")
             return 0
-        rc, why = _run(root, state)
-        if interval_s() > 0:
-            check_stale(root, state, news_now(), why)
+        rc, why = 1, "뉴스 틱 예외"
+        try:
+            rc, why = _run(root, state)
+        except Exception as e:  # noqa: BLE001 — r907 r4: 어떤 예외든 정지 감시(check_stale)는 «항상» 부른다 · ERROR 1줄 + rc 1
+            _error_once(os.environ.get("FT_NEWS_MODE") == "html", "뉴스 실행 예외 — 게시 중단(정지 감시는 계속)", f"{type(e).__name__}: {e}")
+        finally:
+            if interval_s() > 0:
+                check_stale(root, state, news_now(), why)
         return rc
 
 
@@ -175,7 +186,11 @@ def news_dir(root: Path, rel: str) -> Path:
 
 def check_base(repo: Path, sha: str, rel: str) -> None:
     """기준선 sha 판도 원장 정본(같은 리포·같은 경로)이어야 한다(R458) — 다른 리포 판·옛 경로 판이면 RuntimeError(경로 후퇴·쌍둥이 읽기 0 · #0 RULE)."""
-    if subprocess.run(["git", "-C", str(repo), "cat-file", "-e", f"{sha}:{rel}"], capture_output=True, check=False).returncode != 0:
+    try:
+        missing = subprocess.run(["git", "-C", str(repo), "cat-file", "-e", f"{sha}:{rel}"], capture_output=True, check=False, timeout=GIT_S).returncode != 0  # r907 r5 — 7초 룰
+    except subprocess.TimeoutExpired as e:
+        raise RuntimeError(f"git cat-file 시간 초과({GIT_S}초)") from e
+    if missing:
         raise RuntimeError(f"기준선 {sha[:10]} 판에 원장 정본 {rel} 이 없다(원장 리포 {repo}) — 기준선이 다른 리포·옛 경로 판이다 · "
                            "원장을 이 경로 판으로 커밋한 뒤 기준선(state/news-ledger/last.sha)을 그 판으로 다시 잡아야 발행된다(옛 경로 후퇴 0)")
 
@@ -217,7 +232,7 @@ def sync_repo() -> str:
         LOG.info("원장 사본 동기화 건너뜀 — 마지막 성공 2분 안(%s)", _stamp_file())
         return os.environ.get("FT_LEDGER_SYNC_ERROR", "")
     try:
-        done = subprocess.run(["bash", os.environ.get("FT_LEDGER_SYNC") or str(HERE / "ft-ledger-repo-sync.sh"), repo], capture_output=True, text=True, timeout=20)
+        done = subprocess.run(["bash", os.environ.get("FT_LEDGER_SYNC") or str(HERE / "ft-ledger-repo-sync.sh"), repo], capture_output=True, text=True, timeout=FETCH_BUDGET_S)  # r847: 스크립트 = ls-remote 7 + fetch 30 + 재시도 — 총 마감 70초
         lines = (done.stdout.strip() or done.stderr.strip()).splitlines()
         line, rc = (lines[-1] if lines else f"rc={done.returncode} 출력 없음"), done.returncode
     except (OSError, subprocess.TimeoutExpired) as e:
@@ -232,73 +247,264 @@ def sync_repo() -> str:
     return os.environ["FT_LEDGER_SYNC_ERROR"]
 
 
-FETCH_TIMEOUT_S = 10.5  # r569 — 시도당 상한 = CLI 기동 고정비 3.5초 + 7초 룰(git fetch = 서브프로세스)
+FETCH_TIMEOUT_S = 30.0  # r847 — 이 경로(뉴스 원장 ref) 시도당 상한(오빠 «뉴스는 30초로 상향» · 하드 룰 12 «크기 아는 배치» 70초 천장 안 · 공용 fm_t7 7초는 그대로)
 FETCH_BUDGET_S = 70.0  # r569 — 재시도까지 합친 마감(전역 하드 룰 12 · env 로 크게 줘도 여기서 자름)
+LS_REMOTE_TIMEOUT_S = 7.0  # r847 — 원격 main sha 묻기·로컬 ref 조회(7초 룰)
+KILL_GRACE_S = 1.0  # r847 — 시간 초과 때 TERM → KILL 사이 유예
+STAGE_SLACK_S = 0.5  # r847 r2 — 단계마다 프로세스 기동·KILL 뒤 회수 몫(유예까지 빼도 총 마감을 넘던 71.0초 반례 · 0.25초 = 69.77초로 여유 부족)
 
 
-def _attempt_timeout(spent: float) -> float:
-    """r569 — 이번 시도 상한 = 시도당 상한과 남은 마감 중 작은 쪽."""
-    per = float(os.environ.get("FT_NEWS_FETCH_TIMEOUT", str(FETCH_TIMEOUT_S)))
-    return min(per, float(os.environ.get("FT_NEWS_FETCH_BUDGET", str(FETCH_BUDGET_S))) - spent)
+def _attempt_timeout(spent: float, per: float | None = None) -> float:
+    """r569 · r847 r2 — 이번 단계 상한 = min(단계 상한, 남은 마감 − TERM→KILL 유예 − 회수 여유) · ≤ 0 = 그 단계 시작 0.
+    단계 상한 기본 = FT_NEWS_FETCH_TIMEOUT(30초) · 마감 = FT_NEWS_FETCH_BUDGET(70초 넘으면 70초)."""
+    if per is None:
+        per = float(os.environ.get("FT_NEWS_FETCH_TIMEOUT", str(FETCH_TIMEOUT_S)))
+    budget = min(float(os.environ.get("FT_NEWS_FETCH_BUDGET", str(FETCH_BUDGET_S))), FETCH_BUDGET_S)
+    return min(per, budget - spent - KILL_GRACE_S - STAGE_SLACK_S)
 
 
-def _fetch_age(stamp: Path | None) -> str:
-    """r569 — 그 ref 를 «몇 분 전에 받은 판» 인지(FETCH_HEAD mtime 기준 · 모르면 «받은 시각 모름»)."""
+def _fetch_stamp_file() -> Path:
+    """r706 — 원장 ref fetch 성공 시각 1줄(에포크 초 · fetch 성공 때만 씀) — 기본 <루트>/.fable-team/state/news-ledger/fetch.stamp.
+    옛 판은 git FETCH_HEAD(«<sha>\\t\\tbranch …») 를 숫자로 읽어 늘 ValueError → 매분 fetch(10-22 시간 초과 351줄)."""
+    if os.environ.get("FT_NEWS_FETCH_STAMP"):
+        return Path(os.environ["FT_NEWS_FETCH_STAMP"])
+    return env.ft_root() / ".fable-team" / "state" / "news-ledger" / "fetch.stamp"
+
+
+def _last_fetch() -> float | None:
+    """마지막 fetch 성공 시각 — 표식 없음 = None(지금 fetch) · 깨짐 = None + WARN 1줄(지금 fetch)."""
+    f = _fetch_stamp_file()
     try:
-        if stamp is None:
-            raise OSError("stamp 없음")
-        return f"{int((time.time() - stamp.stat().st_mtime) // 60)}분 전 받은 판"
-    except OSError:
-        return "받은 시각 모름"
+        raw = f.read_text(encoding="utf-8").strip()
+    except FileNotFoundError:
+        return None
+    except OSError as e:
+        LOG.warning("fetch 표식 못 읽음 — 지금 fetch: %s (%s)", f, e)
+        return None
+    try:
+        v = float(raw)
+    except ValueError:
+        LOG.warning("fetch 표식 깨짐 — 지금 fetch: %s 내용=%r", f, raw[:40])
+        return None
+    if not math.isfinite(v):  # r907 r2 — nan·inf 표식 = «모름»(나이 계산 예외 0 · 판정 불가 갈래 · DA⑥ r1 반례)
+        LOG.warning("fetch 표식 값이 유한하지 않음 — 지금 fetch: %s 내용=%r", f, raw[:40])
+        return None
+    return v
+
+
+def _mark_fetch(now: float) -> None:
+    try:
+        f = _fetch_stamp_file()
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(f"{now:.0f}\n", encoding="utf-8")
+    except OSError as e:
+        LOG.warning("fetch 표식 못 씀 — 다음 틱에 또 fetch: %s", e)
+
+
+def _fetch_age(last: float | None) -> str:
+    """r569 — 그 ref 를 «몇 분 전에 받은 판» 인지(r706: 전용 표식 = 마지막 fetch 성공 시각 · 모르면 «받은 시각 모름»)."""
+    return "받은 시각 모름" if last is None else f"{int((time.time() - last) // 60)}분 전 받은 판"
+
+
+STALE_OK_MIN = 15.0  # r907 — 받기 실패 때 직전 판으로 게시해도 되는 나이 상한(분 · env FT_NEWS_STALE_OK_MIN)
+
+
+def _stale_ok_age(last: float | None) -> int | None:
+    """r907 — 직전 받은 판의 나이(분)가 상한 안이면 그 분 · 표식 없음·깨짐(last None)·미래 시각(시계 뒤틀림 · 표식 반올림 1초 몫만 허용)·상한 밖 = None(판정 불가 갈래).
+    상한 = FT_NEWS_STALE_OK_MIN(숫자 아님·음수·유한하지 않음(inf·nan) = 15 · DA⑥ r1 반례: inf = 무제한 통과 금지)."""
+    if last is None or not math.isfinite(last):
+        return None
+    try:
+        limit = float(os.environ.get("FT_NEWS_STALE_OK_MIN", str(STALE_OK_MIN)))
+    except ValueError:
+        limit = STALE_OK_MIN
+    if not math.isfinite(limit) or not limit >= 0:
+        limit = STALE_OK_MIN
+    age_s = time.time() - last
+    return int(max(age_s, 0) // 60) if -1 <= age_s <= limit * 60 else None
+
+
+def _run_capped(cmd: list[str], cap: float) -> tuple[int | None, str, str]:
+    """r847 — (rc, stdout, stderr — 날것 · 재시도 판정이 «0바이트» 를 보도록) · cap 초를 넘으면 rc None — 프로세스 묶음 전체에 TERM → 1초 뒤 KILL(손자 git·TERM 무시 자식까지 · 남은 자식 0)."""
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, start_new_session=True)
+    try:
+        out, err = p.communicate(timeout=cap)
+        return p.returncode, out, err
+    except subprocess.TimeoutExpired:
+        for sig, grace in ((signal.SIGTERM, KILL_GRACE_S), (signal.SIGKILL, 0.0)):
+            try:
+                os.killpg(p.pid, sig)
+            except (ProcessLookupError, PermissionError):  # 묶음이 이미 끝남 · macOS = 좀비만 남은 묶음에 EPERM
+                pass
+            time.sleep(grace)
+        out, err = p.communicate()
+        return None, out, err
+
+
+def _first(out: str, err: str) -> str:
+    return (err.strip() or out.strip()).split("\n")[0]
+
+
+def _git_capped(repo: Path, t0: float, *a: str) -> tuple[int | None, str, str]:
+    """r847 r2 — 묻기 단계(ls-remote·로컬 ref) = min(7초, 남은 마감 − 유예) 안에서만 · 남은 시간 없음 = 시작 0(rc None)."""
+    cap = _attempt_timeout(time.monotonic() - t0, LS_REMOTE_TIMEOUT_S)
+    return _run_capped(["git", "-C", str(repo), *a], cap) if cap > 0 else (None, "", "총 마감 안에 시작 못 함")
+
+
+LEDGER_REFSPEC = "+refs/heads/ledger/*:refs/remotes/origin/ledger/*"  # r851 r3 ③ — 원장 사본 브랜치(ledger/ 만 · 원격에 없어도 실패 0)
+
+
+def _remote_same(repo: Path, t0: float, br: str) -> bool:
+    """r847 — 원격 sha(`ls-remote` 7초) == 사본 원격 추적 ref 이면 True(fetch 0). 묻기 실패·sha 다름·origin/main 없음 = False(fetch 로 진행 · 판정 불가 아님) + 로그 1줄.
+    r851 r3 ③ — 두 ref(main · 원장 사본 브랜치 br) 를 함께 비교(사본 브랜치만 전진해도 받는다 · 원격에 없음 = 로컬에도 없어야 같음)."""
+    rc, out, err = _git_capped(repo, t0, "ls-remote", "origin", "refs/heads/main", f"refs/heads/{br}")
+    rows = dict(reversed(r.split("\t")) for r in out.splitlines() if r.count("\t") == 1) if rc == 0 else {}
+    remote = rows.get("refs/heads/main", "")
+    if not remote:
+        LOG.warning("ls-remote 실패 — fetch 로 진행: rc=%s %s", rc, _first(out, err)[:160] or "출력 없음")
+        return False
+    local = []
+    for ref in ("refs/remotes/origin/main", f"refs/remotes/origin/{br}"):
+        rc, sha, _err = _git_capped(repo, t0, "rev-parse", "--verify", "-q", ref)
+        if rc not in (0, 1):
+            return False
+        local.append(sha.strip())
+    if [remote, rows.get(f"refs/heads/{br}", "")] != local:
+        return False
+    LOG.info("fetch 생략(ls-remote 같음) origin/main=%s %s=%s", local[0][:10], br, local[1][:10] or "없음")
+    return True
+
+
+def _fetch_last_file() -> Path:
+    """r847 r3 — 원장 ref 받기 «마지막 결과» 1칸(ok|fail) — 기본 <루트>/.fable-team/state/news-ledger/fetch-last.
+    경고 = 실패 구간당 1통(성공→실패 전이) — 실패 글자(사유·pid·출력)는 비교하지 않는다(r2 DA: 출력 해시 키 = pid 바뀌는 같은 장애가 매 틱 새 경고)."""
+    if os.environ.get("FT_NEWS_FETCH_LAST"):
+        return Path(os.environ["FT_NEWS_FETCH_LAST"])
+    return env.ft_root() / ".fable-team" / "state" / "news-ledger" / "fetch-last"
+
+
+def _read_last() -> str:
+    """마지막 결과 — 표식 없음 = ""(성공 쪽 · 다음 실패에 경고) · 못 읽음(권한 등) = "" + ERROR(알 수 없음 = 경고 냄 쪽 · 그 틱 원자 쓰기가 파일을 새로 만들어 다음 틱부터 정상 · r847 r4)."""
+    try:
+        return _fetch_last_file().read_text(encoding="utf-8").strip()
+    except FileNotFoundError:
+        return ""
+    except OSError as e:
+        LOG.error("fetch 마지막 결과 못 읽음 — 알 수 없음으로 보고 경고 냄: %s", e)
+        return ""
+
+
+def _write_last(value: str) -> None:
+    """r847 r4 — 원자 쓰기: 같은 폴더 임시 파일(fetch-last.tmp.<pid>)에 쓰고 os.replace — 파일 권한(000·444)이 상태를 굳히지 않는다(폴더만 쓰이면 성공).
+    폴더도 못 쓰면(권한·디스크) ERROR + FT_NEWS_STATE_ERROR(ft_news_html.tick 이 rc 1 로 돌려줌 · 그때 구간당 1통은 보장 안 함 — 보이게만)."""
+    f = _fetch_last_file()
+    tmp = f.parent / f"{f.name}.tmp.{os.getpid()}"
+    try:
+        f.parent.mkdir(parents=True, exist_ok=True)
+        tmp.write_text(value + "\n", encoding="utf-8")
+        os.replace(tmp, f)
+    except OSError as e:
+        try:
+            tmp.unlink(missing_ok=True)
+        except OSError:
+            pass
+        why = f"상태 파일 {f.name} 쓰기 실패: {e}"
+        LOG.error("%s", why)
+        os.environ["FT_NEWS_STATE_ERROR"] = why
+
+
+def fail_announced() -> bool:
+    """이 실패 구간의 경고를 이미 냈나 = 마지막 결과가 fail(경고가 실제 글로 나간 뒤에만 적힘)."""
+    return _read_last() == "fail"
+
+
+def mark_fail_announced() -> None:
+    """뉴스가 이 틱의 실패 경고를 실제 글로 냈을 때만(ft_news_html.tick) fail 로 적는다 — 못 낸 경고(게시 실패)는 다음 틱에 다시."""
+    _write_last("fail")
+
+
+def _error_once(html: bool, msg: str, err) -> None:
+    """이 경로 실패(git 시간 초과·실패 포함)의 ERROR = 구간당 1줄(r907 r6) — fetch 실패 구간과 같은 장치(fail_announced · mark_fail_announced · 새 장치 0). 구간 안 다음 틱 = WARN(게시 0 · 오래 가면 check_stale).
+    html 이 아니면 옛 꼴 그대로(매번 ERROR)."""
+    if html and fail_announced():
+        LOG.warning("%s: %s — 구간 계속(ERROR 는 이미 1줄)", msg, err)
+        return
+    LOG.error("%s: %s", msg, err)
+    if html:
+        mark_fail_announced()
+
+
+def _fetch_ok() -> str:
+    """fetch 성공(또는 ls-remote 같음) — 표식 전진 · 마지막 결과 ok(다음 실패 = 새 구간 = 새 1통) · 머리 줄 경고 0."""
+    _mark_fetch(time.time())  # r706: 성공 때만 전진 — 실패 뒤 낡은 ref 를 최신으로 보지 않는다
+    _write_last("ok")
+    os.environ.pop("FT_LEDGER_SYNC_REPEAT", None)
+    return os.environ.pop("FT_LEDGER_SYNC_ERROR", "")
 
 
 def fetch_if_stale(repo: Path) -> str:
-    """r563 — 뉴스(HTML) 경로: 사본 «체크아웃 전진» 대신 origin/main ref 만 최신으로. 마지막 fetch 가 FT_NEWS_FETCH_MIN(300초) 안이면 건너뜀 ·
-    필요하면 `git fetch origin main`(r569: 시도당 10.5초 = CLI 기동 고정비 3.5 + 7 · 재시도 1 · 총 마감 70초 · FT_LEDGER_FETCH 로 대역).
-    실패 = ERROR 로그 + 머리 줄에 «N분 전 받은 판»(발행은 지금 ref 로 계속 · 조용한 낡음 0)."""
+    """r563 — 뉴스(HTML) 경로: 사본 «체크아웃 전진» 대신 origin/main ref 만 최신으로. 마지막 성공이 FT_NEWS_FETCH_MIN(300초) 안이면 건너뜀 ·
+    r847: 그다음 `ls-remote`(7초) 원격 main·원장 사본 브랜치 == 원격 추적 ref 이면 fetch 0 · 아니면 `git fetch origin main <ledger/*>`(r851 r3 ③ · 시도당 30초 · TERM→1초 KILL ·
+    재시도 1 = 첫 시도 출력 0 일 때만 · ls-remote 포함 총 마감 70초 · FT_LEDGER_FETCH 로 대역).
+    실패 = 머리 줄에 «N분 전 받은 판»(발행은 지금 ref 로 계속 · 조용한 낡음 0) · 이 실패 구간 경고를 이미 냈으면 FT_LEDGER_SYNC_REPEAT=1(구간당 1통 · r3).
+    r907: 실패여도 직전 판이 나이 상한(_stale_ok_age) 안이면 FT_LEDGER_SYNC_ERROR 대신 FT_LEDGER_STALE_HEAD=«원장 N분 전 판(받기 실패: …)»(정상 게시 + 머리 경고 · ERROR 로그 1줄 그대로)."""
+    os.environ.pop("FT_NEWS_STATE_ERROR", None)  # r847 r4 — 이 틱의 상태 쓰기 실패만 싣는다
+    os.environ.pop("FT_LEDGER_STALE_HEAD", None)  # r907 — 이 틱의 받기 실패만 싣는다
     min_s = float(os.environ.get("FT_NEWS_FETCH_MIN", "300"))
-    stamp = _fetch_stamp(repo)
+    last = _last_fetch()
+    if last is not None and -1 <= time.time() - last < min_s:  # 미래 시각(시계 뒤틀림) = 최신 아님 · r847: 1초 = 표식 «{:.0f}» 반올림 몫(같은 초에 쓴 표식이 미래로 읽히던 간헐 fetch)
+        return os.environ.get("FT_LEDGER_SYNC_ERROR", "")
+    t_start = time.monotonic()
+    from ft_ledger_fill_src import FillError, branch
     try:
-        if stamp is not None and time.time() - float(stamp.read_text(encoding="utf-8").strip()) < min_s:
-            return os.environ.get("FT_LEDGER_SYNC_ERROR", "")
-    except (OSError, ValueError):
-        pass
+        br = branch()  # r851 r3 ① — ledger/ 밖 이름 = 입구 거절(받기 실패 갈래 · 판정 불가)
+    except FillError as e:
+        br, line = "", str(e)
+    if br and _remote_same(repo, t_start, br):
+        return _fetch_ok()
     script = os.environ.get("FT_LEDGER_FETCH")
-    cmd = ["bash", script, str(repo)] if script else ["git", "-C", str(repo), "fetch", "--quiet", "origin", "main"]
-    line, rc, spent = "", 1, 0.0
-    for _ in range(2):
-        left = _attempt_timeout(spent)
+    cmd = ["bash", script, str(repo)] if script else ["git", "-C", str(repo), "fetch", "--quiet", "origin", "main", LEDGER_REFSPEC]
+    if br:
+        line = ""
+    for _ in range(2 if br else 0):
+        left = _attempt_timeout(time.monotonic() - t_start)
         if left <= 0:
-            line = f"fetch 실행 실패: 총 마감 {FETCH_BUDGET_S:.0f}초 초과"
+            line = f"fetch 실행 실패: 총 마감 {FETCH_BUDGET_S:.0f}초 안에 시도 못 함"
             break
-        t0 = time.monotonic()
         try:
-            done = subprocess.run(cmd, capture_output=True, text=True, timeout=left)
-            line, rc = (done.stderr.strip() or done.stdout.strip() or "fetch ok"), done.returncode
-        except (OSError, subprocess.TimeoutExpired) as e:
-            line, rc = f"fetch 실행 실패: {e}", 1
-        spent += time.monotonic() - t0
+            rc, out, err = _run_capped(cmd, left)
+        except OSError as e:
+            rc, out, err = 1, "", f"fetch 실행 실패: {e}"
         if rc == 0:
-            return os.environ.pop("FT_LEDGER_SYNC_ERROR", "")
-    why = f"원장 ref fetch 실패 — {line[:160]} · origin/main = {_fetch_age(stamp)}"
-    LOG.error("%s", why)
+            return _fetch_ok()
+        first = _first(out, err)
+        line = first if rc is not None else f"fetch 실행 실패: 시도 상한 {left:.0f}초 초과{' · ' + first if first else ''}"
+        if out or err:  # 출력(1바이트 이상)이 있는 실패 = 확정 실패 — 재시도 0(하드 룰 12 «첫 출력 전 실패» 만)
+            break
+    why = f"원장 ref fetch 실패 — {line[:160] or 'fetch 실패(출력 없음)'} · origin/main = {_fetch_age(last)}"
+    if (age := _stale_ok_age(last)) is not None:  # r907 — 직전 판이 나이 상한 안 = 그 판으로 정상 게시 + 머리 경고 구(판정 불가 0)
+        LOG.warning("%s", why)  # r907 r3 — ERROR 는 뉴스 틱이 구간당 1줄(DA⑥ r2 반례: 첫 실패 틱 ERROR 2줄이던 자리)
+        os.environ["FT_LEDGER_STALE_HEAD"] = f"원장 {age}분 전 판(받기 실패: {line[:80] or 'fetch 실패(출력 없음)'})"
+        return os.environ["FT_LEDGER_STALE_HEAD"]
     os.environ["FT_LEDGER_SYNC_ERROR"] = why
+    repeat = fail_announced()
+    if repeat:  # r907 r3 — ERROR 는 tick 이 구간당 1줄 · 여기는 사유만 WARN
+        LOG.warning("fetch 실패 구간 계속 — 경고는 이미 1통(머리·줄 생략 · 오래 가면 check_stale): %s", why)
+    else:
+        LOG.warning("%s", why)
+    os.environ["FT_LEDGER_SYNC_REPEAT"] = "1" if repeat else ""
     return why
 
 
-def _fetch_stamp(repo: Path) -> Path | None:
-    """그 리포의 FETCH_HEAD 경로(git 공용 폴더 기준) — 모르면 None(지금 fetch)."""
-    try:
-        common = subprocess.run(["git", "-C", str(repo), "rev-parse", "--path-format=absolute", "--git-common-dir"],
-                                capture_output=True, text=True, timeout=7)
-        return Path(common.stdout.strip()) / "FETCH_HEAD" if common.returncode == 0 else None
-    except (OSError, subprocess.TimeoutExpired):
-        return None
-
-
-def news_ref() -> str:
-    """뉴스가 읽는 ref — 사본 체크아웃 HEAD 가 아니라 origin/main(다른 도구 fetch 로 이미 최신 · r563)."""
-    return os.environ.get("FT_NEWS_MAIN_REF") or "origin/main"
+def news_ref(repo: Path | None = None) -> str:
+    """뉴스가 읽는 ref — 사본 체크아웃 HEAD 가 아니라 origin/main(다른 도구 fetch 로 이미 최신 · r563).
+    r851 r2: 원장 사본 브랜치(origin/ledger/auto)가 main 을 품으면(앞섬) 그 브랜치 · 없거나 뒤처짐 = origin/main(읽는 ref 고르는 곳 = 여기 1곳 · FT_NEWS_MAIN_REF = 고정)."""
+    if os.environ.get("FT_NEWS_MAIN_REF"):
+        return os.environ["FT_NEWS_MAIN_REF"]
+    if repo is None:
+        return "origin/main"
+    from ft_ledger_fill_src import read_ref
+    return read_ref(repo)
 
 
 def news_cur(repo: Path, rel: str, ref_mode: bool | None = None) -> str:
@@ -308,7 +514,7 @@ def news_cur(repo: Path, rel: str, ref_mode: bool | None = None) -> str:
         ref_mode = os.environ.get("FT_NEWS_MODE") == "html"
     if not ref_mode:
         return _git(repo, "log", "-1", "--format=%H", "--", rel).strip()
-    ref = news_ref()
+    ref = news_ref(repo)
     return _git(repo, "rev-parse", "--verify", f"{ref}^{{commit}}").strip()
 
 
@@ -333,9 +539,10 @@ def _run(root: Path, state: Path) -> tuple[int, str]:
         base = base_f.read_text(encoding="utf-8").strip() if base_f.exists() else ""
         if base and base != cur:
             check_base(repo, base, rel)
+        ledger_text = _git(repo, "show", f"{cur}:{rel}")  # r907 r6 — try 밖: git 시간 초과·실패는 아래 판정 불가 갈래(게시 0 · 구간당 ERROR 1줄 · check_stale)로 간다
         try:
-            notify(root, _git(repo, "show", f"{cur}:{rel}"), state)
-        except Exception as e:  # 알림 실패가 뉴스를 막지 않는다
+            notify(root, ledger_text, state)
+        except Exception as e:  # 알림 «자체» 실패(슬랙 등)만 뉴스를 막지 않는다
             LOG.error("알림 건너뜀: %s", e)
         if os.environ.get("FT_NEWS_MODE") == "html":  # r478 — 팀 지도 HTML + 한 줄(ft_news_html) · 모드 없음 = 옛 판 경로 그대로
             from ft_news_html import tick
@@ -352,7 +559,7 @@ def _run(root: Path, state: Path) -> tuple[int, str]:
         lead = " · ".join(x for x in (sync_note, decision_line(root)) if x)
         parts = render_parts(now, new, diff, rel, extra, lead, goal_gate.goal_block(state.parent), teams_block() + procs_block()) if diff else []
     except (RuntimeError, OSError, ValueError) as e:
-        LOG.error("원장 뉴스 실패: %s", e)
+        _error_once(html, "원장 뉴스 실패", e)
         return 1, "원장 읽기 실패"
     rc, posts = publish(news, state, parts, now, cur)
     if rc == 0 and parts and status and not is_draft():

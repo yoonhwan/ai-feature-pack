@@ -1,0 +1,44 @@
+......FF...................                                              [100%]
+=================================== FAILURES ===================================
+______________________ test_r3_on_roster_exact_match_only ______________________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-792/test_r3_on_roster_exact_match_0')
+capsys = <_pytest.capture.CaptureFixture object at 0x1056dec90>
+
+    def test_r3_on_roster_exact_match_only(tmp_path: Path, capsys):
+        (tmp_path / "seats-a.json").write_text(json.dumps({"_master": "x#0", S1: {}, "ft-harness-ops#2": {}}), encoding="utf-8")
+        assert mq.on_roster(S1, tmp_path) and mq.on_roster("ft-harness-ops#2", tmp_path)
+        assert not mq.on_roster("byz-cfo-master-claude#113", tmp_path) and not mq.on_roster("ft-harness-ops#0", tmp_path)  # 명부에 없는 같은 계보 번호 = 질문 0
+        assert not mq.on_roster("ft-model-swap#1", tmp_path) and not mq.on_roster("x#0", tmp_path) and not mq.on_roster("byz-cfo-master#112", tmp_path)
+        assert not mq.on_roster(S1, tmp_path / "없음") and "WARN: 명부 못 읽음" in capsys.readouterr().err
+        (tmp_path / "seats-b.json").write_text("[1, 2]", encoding="utf-8")  # r4 ⓐ: 모양 틀린 파일만 건너뜀 — 정상 명부 seats-a 는 그대로
+>       assert mq.on_roster(S1, tmp_path) and "WARN: 명부 모양 틀림 — 건너뜀 · seats-b.json" in capsys.readouterr().err
+E       AssertionError: assert (False)
+E        +  where False = <function on_roster at 0x104fbc5e0>('byz-cfo-master-claude#112', PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-792/test_r3_on_roster_exact_match_0'))
+E        +    where <function on_roster at 0x104fbc5e0> = mq.on_roster
+
+tests/scripts/test_mirror_question_cap_r846.py:110: AssertionError
+----------------------------- Captured stderr call -----------------------------
+WARN: 명부 못 읽음 — 질문 열기 0 · byz-cfo-master-claude#112 (/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-792/test_r3_on_roster_exact_match_0 · AttributeError)
+_ test_r4_da_r3_counterexample_misshaped_roster_file_is_skipped_card_posts_and_seat_still_opens _
+
+env = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-792/test_r4_da_r3_counterexample_m0')
+slack = <_slack_fakes.FakeSlack object at 0x105650e50>
+
+    def test_r4_da_r3_counterexample_misshaped_roster_file_is_skipped_card_posts_and_seat_still_opens(env: Path, slack: FakeSlack):  # noqa: F811
+        start(env, slack)
+        (env / "seats-broken.json").write_text("[[1, {}]]", encoding="utf-8")  # DA r3 반례 — dict([[1, {}]]) = {1: {}} → 키 int
+        hil_row(env, 2, "src#1")
+        r = run(env, slack)
+        assert r.returncode == 0 and any("#822" in x["text"] for x in slack.replies(slack.roots[0]))
+>       assert r.stderr.count("WARN: 명부 모양 틀림 — 건너뜀 · seats-broken.json") == 1
+E       AssertionError: assert 0 == 1
+E        +  where 0 = <built-in method count of str object at 0x104eaef50>('WARN: 명부 모양 틀림 — 건너뜀 · seats-broken.json')
+E        +    where <built-in method count of str object at 0x104eaef50> = 'WARN: 명부 못 읽음 — 질문 열기 0 · src#1 (/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-792/test_r4_da_r3_counterexample_m0 · AttributeError)\n'.count
+E        +      where 'WARN: 명부 못 읽음 — 질문 열기 0 · src#1 (/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-792/test_r4_da_r3_counterexample_m0 · AttributeError)\n' = CompletedProcess(args=['/opt/homebrew/opt/python@3.11/bin/python3.11', '/Users/yoonhwan/Project/ai-feature-pack/.workt...vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-792/test_r4_da_r3_counterexample_m0 · AttributeError)\n').stderr
+
+tests/scripts/test_mirror_question_cap_r846.py:119: AssertionError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_mirror_question_cap_r846.py::test_r3_on_roster_exact_match_only
+FAILED tests/scripts/test_mirror_question_cap_r846.py::test_r4_da_r3_counterexample_misshaped_roster_file_is_skipped_card_posts_and_seat_still_opens
+2 failed, 25 passed in 12.17s

@@ -66,8 +66,10 @@ def is_quick_turn(duration_ms: object) -> bool:
 
 
 def is_normal(rec: Rec) -> bool:
+    """정상 턴 = 모델 응답 하나뿐(r838 r3 · ft_api_outage·ft_model_swap 모두 이 함수만) — 오류·요약·메타·사이드체인·model 없음/<synthetic> = 아님."""
     msg = rec.get("message")
-    return rec.get("type") == "assistant" and not is_error(rec) and not (isinstance(msg, dict) and msg.get("model") == "<synthetic>")  # pyright: ignore[reportUnknownMemberType]
+    return (rec.get("type") == "assistant" and isinstance(msg, dict) and msg.get("model") not in (None, "", "<synthetic>")  # pyright: ignore[reportUnknownMemberType]
+            and not any(rec.get(k) for k in ("isApiErrorMessage", "isCompactSummary", "isMeta", "isSidechain")))
 
 
 def hhmm(epoch: int) -> str:
