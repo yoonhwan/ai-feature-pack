@@ -23,6 +23,7 @@
 #     r548: cwd 를 묻는 lsof 가 실패하거나 0줄이면 «아무도 안 씀» 으로 읽지 않는다 — 로그·stdout `ERROR lsof 실패 — 삭제 0` 1줄 + 이번 정리 전체 생략(등록 사본·tmp.* 포함)
 #     r1029: 점유(cwd) 조회 = ★사본별 1회(`lsof -a -d cwd +D <사본>` · 사본당 7초)★ — 한 사본의 lsof 실패·지연은 그 사본만 `붙잡음(조회 실패 · 삭제 보류)` 이고 다른 사본은 계속 판정한다(전체 1회 조회의 «하나 실패 = 그 틱 전부 0» 을 없앤다 · 하드 룰 12)
 #           판정 예산 FT_SCRATCH_JUDGE_BUDGET(기본 20초)을 넘긴 사본은 이번 틱에 판정하지 않고 다음 틱으로 넘긴다 — `WARN … 판정 예산(N초) 초과 · 남은 사본 M개 다음 틱` 1줄(조용한 0 아님) · 예산 0 이면 조회 호출 0
+#           r1029 r2 (실사건 반송 · planner 쪽지 176185): 크기 표시용 `du -sk`(kb) 도 판정 예산 «안» — 예산이 남지 않은 사본은 du 호출 0 으로 «다음 틱» 에 넘기고(사본 수에 비례해 회차가 끝나지 않던 길), du 자체도 남은 초 상한(min(7, 예산 남은 초)) · --report 는 지금 그대로
 #           lsof 자체가 고장(내 프로세스의 cwd 조차 못 봄)이면 그 회차는 삭제 0 + `ERROR lsof 실패 — 삭제 0`(r548 의 «0줄을 아무도 안 씀으로 읽지 않는다» 는 대조 1회로 유지 · 사본별 조회에서 0줄 = 그 사본을 쓰는 프로세스 0)
 #           --report 는 지우기 0 이라 지금처럼 전체 1회 조회(빠른 길 · 판정에 안 쓴다)
 #   ft-scratch-repo.sh --gate <경로> [--kind reg|tmp] [--owner O]   r897 r5: 출구 게이트 진단(조건 G0~G8 줄 + rc · 삭제 0)
@@ -90,7 +91,12 @@ mkdir -p "$STATE" 2>/dev/null || die "상태 폴더 생성 실패: $STATE" 4
 bash "$HERE/ft-bg-finite.sh" register "${FT_SEAT:--}" "${FT_BG_FINITE_SCRATCH_SEC:-1200}" "$$" "ft-scratch-repo.sh $*" >/dev/null 2>&1 || true   # 등록 실패 = 넘김 대상 아님(오늘과 같은 reap) — 도구 stdout 계약을 흔들지 않는다
 trap 'bash "$HERE/ft-bg-finite.sh" unregister $$ >/dev/null 2>&1 || true' EXIT
 gib() { awk -v k="$1" 'BEGIN{ if (k ~ /^[0-9]+$/) printf "%.2f", k/1048576; else printf "?" }'; }
-kb()  { $TMO du -sk "$1" 2>/dev/null | awk '{print $1}'; }
+kb() { # <경로> [초] → 크기(kb) 1줄 · 초 상한(기본 7) · r1029 r2: 상한을 판정 예산 남은 초로 넘긴다(du 가 예산 밖에서 40초를 쓰던 길)
+  local o rc
+  cap o bounded "${2:-7}" du -sk "$1" 2>/dev/null; rc=$?
+  [ "$rc" = 0 ] || return "$rc"
+  printf '%s\n' "$o" | awk '{print $1}'
+}
 has_ctl() { case "$1" in *"$TAB"*|*$'\n'*) return 0;; esac; return 1; }   # r897 r10.2: 등록부는 TSV — 탭·개행이 든 경로는 표현할 수 없다
 has_line() { case $'\n'"$1"$'\n' in *$'\n'"$2"$'\n'*) return 0;; esac; return 1; }   # <목록> <이름> → 0 = 그 줄이 «정확히» 있다 · r10.5: 외부 명령·리다이렉트 0(grep <<< 는 임시 파일 실패가 rc1 = «주인 없음» 으로 읽혔다)
 phys() { ( cd "$1" 2>/dev/null && pwd -P ); }   # r897 r10: 물리 경로(/private/var…) — 못 읽으면 rc≠0
@@ -285,23 +291,23 @@ lsof_ok() { # → 0 = lsof 가 «지금 내 프로세스의 cwd» 를 본다(rc�
   cap out $TMO lsof -w -a -d cwd -Fpcn -p $$ 2>/dev/null || return 1
   [ -n "$out" ]
 }
-occ_rows() { # <사본> → 0 = 조회 성공(CWDROWS 채움 · 0줄 = 그 사본을 쓰는 프로세스 0) · 1 = 실패·시간 초과(그 사본만 보류) · 124 = 예산 소진(다음 틱)
-  local t out rc
-  cap t occ_left || return 124
+occ_rows() { # <사본> [초] → 0 = 조회 성공(CWDROWS 채움 · 0줄 = 그 사본을 쓰는 프로세스 0) · 1 = 실패·시간 초과(그 사본만 보류) · 124 = 예산 소진(다음 틱) · r1029 r2: 초를 넘기면 다시 재지 않는다(외부 호출 수를 늘리지 않는다 — 주입 시험이 호출 순번으로 센다)
+  local t="${2:-}" out rc
+  if [ -z "$t" ]; then cap t occ_left || return 124; fi
   [ "$t" -gt 0 ] || return 124
   cap out bounded "$t" lsof -w -a -d cwd -Fpcn +D "$1" 2>/dev/null; rc=$?
   case "$rc" in 0|1) ;; *) return 1;; esac   # 0/1 = 정상(1 = 걸리는 프로세스 없음 — lsof 의 «없음» rc) · 124 = 시간 초과 · 2 이상 = 못 읽음
   cap CWDROWS cwd_parse "$out" || return 1
   return 0
 }
-occ_decide() { # <kb> <경로> <reg|tmp> <사유> <주인> → 그 사본만 점유 조회 1회 → 붙잡음(hold) 또는 후보(add) · 예산 소진 = 다음 틱(조용한 0 아님)
-  local k="$1" p="$2" ty="$3" why="$4" own="$5" rc
+occ_decide() { # <kb> <경로> <reg|tmp> <사유> <주인> [초] → 그 사본만 점유 조회 1회 → 붙잡음(hold) 또는 후보(add) · 예산 소진 = 다음 틱(조용한 0 아님) · r1029 r2: [초] = 사본별 du 가 이미 잰 예산 남은 초(안 넘기면 occ_rows 가 잰다)
+  local k="$1" p="$2" ty="$3" why="$4" own="$5" left="${6:-}" rc
   if [ "$REPORT_ONLY" != 0 ]; then   # --report = 지우기 0 — 전체 1회 결과로 «보이는 칸» 만 채운다
     if cwd_holder "$p" "$CWDROWS"; then hold "$k" "$p" "$ty" "$why · 붙잡음 pid $HPID $HCMD" "$own" "$HPID" "$HCMD"
     else add "$k" "$p" "$ty" "$why" "$own"; fi
     return 0
   fi
-  occ_rows "$p"; rc=$?
+  occ_rows "$p" "$left"; rc=$?
   case "$rc" in
     0) if cwd_holder "$p" "$CWDROWS"; then hold "$k" "$p" "$ty" "$why · 붙잡음 pid $HPID $HCMD" "$own" "$HPID" "$HCMD"
        else add "$k" "$p" "$ty" "$why" "$own"; fi;;
@@ -310,7 +316,7 @@ occ_decide() { # <kb> <경로> <reg|tmp> <사유> <주인> → 그 사본만 점
   esac
 }
 orphans() { # → ORPH = "kb<TAB>경로<TAB>reg|tmp<TAB>사유" 줄들 · HOLD = "kb<TAB>경로<TAB>reg|tmp<TAB>사유(붙잡음)·…<TAB>주인<TAB>pid<TAB>명령" · N · K · HELD · TMUX_OK · LSOF_OK
-  local SESS p o t b d TD now RAW r why jdl jt jnow jover=0 kbv me tdl rows=""; ORPH=""; HOLD=""; N=0; K=0; HELD=0; TMUX_OK=1; LSOF_OK=1; READ_OK=1
+  local SESS p o t b d TD now RAW r why jdl jt jnow jover=0 kbv oleft me tdl rows=""; ORPH=""; HOLD=""; N=0; K=0; HELD=0; TMUX_OK=1; LSOF_OK=1; READ_OK=1
   # r10.5: «지금» 을 못 읽으면(rc≠0·숫자 아님) 24시간 문턱도 빠른 길도 못 가린다 — 이번 판정 전체를 접는다(READ_OK=0 → sweep 삭제 0)
   cap now date +%s && isnum "$now" || { READ_OK=0; echo "ERROR 시계(date +%s) 못 읽음 — 삭제 0" >&2; return 0; }
   jdl=$(( now + ${FT_SCRATCH_JUDGE_BUDGET:-20} ))   # 2720 빠른 길 판정 예산(초) — 넘으면 «즉시 삭제 후보» 를 만들지 않는다(덜 지우는 쪽 · warn_many 와 같은 꼴)
@@ -348,8 +354,11 @@ orphans() { # → ORPH = "kb<TAB>경로<TAB>reg|tmp<TAB>사유" 줄들 · HOLD =
         JUDGE_TMO=$jt; fast "$p" || { JUDGE_TMO=7; continue; }; JUDGE_TMO=7
         why="$why · judged"
       fi
-      cap kbv kb "$p"; isnum "$kbv" || kbv='?'   # 표시 전용(크기) — 결정 입력 0 · r5: 빈 칸 0(탭 IFS 가 빈 칸을 접어 열이 밀리던 길 · DA⑥ r4 반례 1b)
-      occ_decide "$kbv" "$p" reg "$why" "$o"
+      # r1029 r2: 판정 예산이 이미 바닥이면 크기(du)도 부르지 않고 다음 틱으로 넘긴다 — 사본 수에 비례해 회차가 끝나지 않던 길 · «남은 사본 N개 다음 틱» 1줄이 그대로 센다
+      cap oleft occ_left; isnum "$oleft" || oleft=0
+      if [ "$ODL" != 0 ] && [ "$oleft" = 0 ]; then ODEF=$((ODEF+1)); continue; fi
+      cap kbv kb "$p" "$oleft"; isnum "$kbv" || kbv='?'   # 표시 전용(크기) — 결정 입력 0 · r5: 빈 칸 0(탭 IFS 가 빈 칸을 접어 열이 밀리던 길 · DA⑥ r4 반례 1b)
+      occ_decide "$kbv" "$p" reg "$why" "$o" "$oleft"
     done <<EOF
 $rows
 EOF
@@ -360,8 +369,11 @@ EOF
     while IFS= read -r d; do
       case "$d" in "$TD"/tmp.*) [ -d "$d" ] || continue;; *) continue;; esac
       case "${d#"$TD"/}" in */*) continue;; esac
-      cap kbv kb "$d"; isnum "$kbv" || kbv='?'   # 표시 전용(크기)
-      occ_decide "$kbv" "$d" tmp "TMPDIR tmp.* ${AGE}분 지남" "-"
+      # r1029 r2: 예산이 바닥이면 tmp.* 도 du 호출 0 으로 다음 틱
+      cap oleft occ_left; isnum "$oleft" || oleft=0
+      if [ "$ODL" != 0 ] && [ "$oleft" = 0 ]; then ODEF=$((ODEF+1)); continue; fi
+      cap kbv kb "$d" "$oleft"; isnum "$kbv" || kbv='?'   # 표시 전용(크기)
+      occ_decide "$kbv" "$d" tmp "TMPDIR tmp.* ${AGE}분 지남" "-" "$oleft"
     done <<EOF
 $tdl
 EOF
