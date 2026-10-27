@@ -1,0 +1,15 @@
+FAILED harness/tests/scripts/test_ft_board_teams.py::test_render_error_team_shows_unconfirmed_line_and_other_rows_unchanged
+FAILED harness/tests/scripts/test_r649_news_team_lines_isolate_error.py::test_slow_inbox_is_bounded_and_only_that_team_errors
+2 failed, 246 passed in 203.59s (0:03:23)
+pytest files=      25
+SH test_board.sh rc=0 fail_lines=0
+SH test_board_seat_cell.sh rc=0 fail_lines=0
+SH test_sheet_root_teams_r785.sh rc=0 fail_lines=0
+SH test_board_publish.sh rc=0 fail_lines=0
+SH test_board_publish_norm.sh rc=0 fail_lines=0
+SH test_board_publish_tick.sh rc=0 fail_lines=0
+SH test_news_tree_root.sh rc=0 fail_lines=0
+SH test_tick_line.sh rc=0 fail_lines=0
+SH test_sheet_render.sh rc=0 fail_lines=0
+SH test_sheet_publish.sh rc=0 fail_lines=0
+SH test_news_html.sh rc=0 fail_lines=0
