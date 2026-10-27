@@ -75,7 +75,7 @@ def off_roster_live(root: Path, live: Any, teams: list[dict[str, Any]]) -> list[
             for s in sorted(set(live) - seen)]
 
 
-def _has_agent(pid: str, kids: dict[str, list[str]], args: dict[str, str]) -> bool:
+def _agent_pid(pid: str, kids: dict[str, list[str]], args: dict[str, str]) -> str | None:
     todo, seen = [pid], set()
     while todo:
         p = todo.pop()
@@ -83,13 +83,13 @@ def _has_agent(pid: str, kids: dict[str, list[str]], args: dict[str, str]) -> bo
             continue
         seen.add(p)
         if AGENT.search(args.get(p, "")):
-            return True
+            return p
         todo += kids.get(p, [])
-    return False
+    return None
 
 
-def agent_sessions(tmux: list[str], ps: list[str]) -> set[str]:
-    """r525 — pane 프로세스(자신+자손)에 claude|codex 가 도는 tmux 세션 이름 (ps 1회 + list-panes 1회)."""
+def _pane_agents(tmux: list[str], ps: list[str]) -> dict[str, str]:
+    """tmux 세션 이름 → 그 pane 프로세스(자신+자손) 중 claude|codex pid (ps 1회 + list-panes 1회)."""
     kids: dict[str, list[str]] = {}
     args: dict[str, str] = {}
     for line in run([*ps, "-A", "-o", "pid=,ppid=,args="])[1].splitlines():
@@ -97,12 +97,18 @@ def agent_sessions(tmux: list[str], ps: list[str]) -> set[str]:
         if len(p) == 3:
             args[p[0]] = p[2]
             kids.setdefault(p[1], []).append(p[0])
-    out: set[str] = set()
+    out: dict[str, str] = {}
     for line in run([*tmux, "list-panes", "-a", "-F", "#{session_name}|#{pane_pid}"])[1].splitlines():
         name, _, pid = line.rpartition("|")
-        if name and _has_agent(pid, kids, args):
-            out.add(name)
+        a = _agent_pid(pid, kids, args) if name and name not in out else None
+        if a:
+            out[name] = a
     return out
+
+
+def agent_sessions(tmux: list[str], ps: list[str]) -> set[str]:
+    """r525 — pane 프로세스(자신+자손)에 claude|codex 가 도는 tmux 세션 이름."""
+    return set(_pane_agents(tmux, ps))
 
 
 def ctx_pct(ctx_cmd: str, seat: str) -> int | None:
