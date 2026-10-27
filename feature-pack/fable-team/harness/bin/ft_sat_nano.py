@@ -3,7 +3,9 @@
 
 골 축: 하네스 골 C «메인 하네스를 유니크하게 머신들에 완전히 독립 배분해 운용» — 이 맥 대신 mini 에 작업 좌석을 열고 쓰고 닫는다.
 명령: open <카드> [--run R] [--name N] · task <세션> <파일> [--retry] · pull --seats A,B [--every N] · fetch <세션>
-      close <세션> [--adopt | --forget --why '<1~200자>']
+      close <세션> [--adopt | --forget --why '<1~200자>'] · roster(명부 표 1장 · 읽기)
+열 때의 문(r949 · ft_sat_gate): 상한 SAT_MAX 3 · mini free% 경고 SAT_FREE_MIN 25(값은 ssh rc0 ∧ 측정 rc0 ∧ 숫자 셋 다일 때만 · 아니면 「측정 불가」 1줄 · 어느 갈래도 열고 진행) · 이름 = ft-name-lint(기본 byz-satnano-nano-<slug>#0)
+      입력 비밀 꼴 = rc2 · 명부 roster.json(OPENING→OPEN→CLOSED · 표식 by=ft-sat-nano) · 원장 ledger.tsv(종류 = open·close·reject 셋뿐 · 경고는 open 줄의 칸)
 보장: 쪽지 = 최소 한 번(꼬리표 · 재발신 상한 · dead 격리) · 지시 입력·원격 열기 = 최대 한 번(결과 모름 = rc4 · 자동 해소 0)
       close = 신원이 확인된 줄만 닫는다 · 열기 불확실 줄은 도구가 지우지 않는다(--forget = 사람·master 명시 · 원격 0)
 장부(r5): R1 열쇠 = run(기본 이름 byz-sat-nano-<run>#0) · open·close·--adopt·--forget 은 장부 잠금을 명령 내내 쥔다
@@ -11,7 +13,8 @@
       R3 확인된 줄의 원격 조회·kill·입력 = 기록 소켓(tmux -S)만
 원격 쓰기 = mini ~/<SAT_ROOT_REMOTE>/<run>/ · 쪽지함(+quarantine/) 뿐 · 사용자 값은 위치 인자(shlex 인용)로만.
 rc: 0 ok · 1 다른 pull·open/close 진행 중(원격 0) · 2 값·설정·기록 실패(원격 0) · 3 열기 실패·다른 세션 · 4 불확실/전달 실패(기록 유지)
-    5 원격 실패·총 마감·남의 세션 · 6 조회/닫기 확인 실패(기록 유지) · 7 pull 미완(skip·실패·dead·ack 실패)
+    5 원격 실패·총 마감·남의 세션 · 6 조회/닫기 확인 실패·표식 없음(기록 유지) · 7 pull 미완(skip·실패·dead·ack 실패)
+    8 문 닫힘(상한 — 원격 쓰기 0 · 명부 행 0)
 """
 import base64
 import hashlib
@@ -22,6 +25,7 @@ import sys
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import ft_sat_gate as gate  # noqa: E402
 import ft_sat_rt as rt  # noqa: E402
 from ft_sat_rt import Fail  # noqa: E402
 
@@ -42,6 +46,11 @@ SESS = TM + """sess() { e="$(tm has-session -t "=$1" 2>&1)"; r=$?; case "$r:$e" 
 IDENT_FMT = "'#{session_id} #{session_created} #{socket_path} #{pane_current_path}'"
 R_PRE = SESS + """for t in tmuxc pi perl; do if command -v "$t" >/dev/null 2>&1; then echo "$t=ok"; else echo "$t=MISSING"; fi; done
 echo "sess_rc=$(sess "$1")"
+mf=$(mktemp)
+perl -e 'alarm 3; exec @ARGV' memory_pressure >"$mf" 2>/dev/null; mrc=$?
+echo "free_rc=$mrc"
+echo "free_raw=$(sed -n 's/.*free percentage: *\\([0-9][0-9]*\\)%.*/\\1/p' "$mf")"
+rm -f "$mf"
 if [ -e "$HOME/$2" ]; then echo dir=EXISTS; else echo dir=absent; fi
 """
 R_WRITE = 'd="$HOME/$1"; mkdir -p "$d" && cat >"$d/TASK.md"\n'
@@ -195,9 +204,10 @@ def cmd_open(argv):
     if len(pos) != 1 or not os.path.isfile(card):
         raise Fail(2, f"usage open <카드파일> [--run R] [--name N] — 카드 파일이 없다: {card or '<없음>'}")
     run = o.get("--run") or re.sub(r"^[^A-Za-z0-9]+", "", re.sub(r"[^A-Za-z0-9._-]", "-", os.path.splitext(os.path.basename(card))[0]))[:40]
-    name = o.get("--name") or f"byz-sat-nano-{run}#0"
+    name = o.get("--name") or gate.auto_name(run)
     rt.need("run", run, "--run")
     rt.need("name", name, "--name")
+    gate.lint_name(name)
     rt.need("root", RROOT, "SAT_ROOT_REMOTE")
     rt.need("model", MODEL, "SAT_MODEL")
     try:
@@ -205,6 +215,7 @@ def cmd_open(argv):
             data = f.read()
     except OSError as e:
         raise Fail(2, f"카드 읽기 실패(원격 0): {card} ({e})")
+    gate.no_secret(data, "카드(TASK)", gate.slug(run), name)
     cfg = rt.config()
     dl = rt.Deadline(cfg["total"], cfg["tmo"])
     rt.ensure_state()
@@ -218,17 +229,25 @@ def reserve(dl, name, run, d):
     """R1 — 같은 이름·같은 run 줄 검사와 pending 추가(write-ahead)를 명령 내내 쥔 장부 잠금 안에서 · 실패 = rc2 · 원격 0."""
     if any(r[0] == name or rt.same_run(r, run) for r in rt.read_rows("opened.tsv")):
         raise Fail(2, f"이 도구의 기록에 같은 이름 또는 같은 run 이 남아 있다 — close 먼저 · 원격 0: {name} run={run}")
+    gate.gate_cap(gate.slug(run), name)  # r949 — 상한 = 원격 전
     rt.in_time(dl, "pending 기록 전", "원격 0")
     rt.opened_add([name, run, d, time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "", "", "", ""])
+    try:
+        gate.roster_add(run, name)
+    except Fail:
+        rt.opened_del(run)  # 원격 0 — 두 기록을 함께 되돌린다
+        raise
 
 
 def open_body(dl, name, run, d, data):
     try:
-        pre(dl, name, d)
+        free, warn = pre(dl, name, run, d)
     except Fail:
         rt.in_time(dl, "pending 삭제 전", unsure(name, d, "사전점검 뒤 마감 · 원격 쓰기 0"))
         rt.opened_del(run)  # R2 — 원격 호출이 R_PRE(읽기 전용) 뿐 · 세션이 생길 길 0
+        gate.roster_drop(run)
         raise
+    gate.ledger_open(gate.slug(run), name, free, warn, d)  # r949 r4 — 열기 줄 1(경고는 그 줄의 칸)
     write_task(dl, name, d, data)  # R2 — R_WRITE 를 부르기 시작했으면 결과와 무관하게 실패 = rc4 · 줄 유지
     try:
         sock = open_bg_and_poll(dl, name, run, d)
@@ -245,21 +264,26 @@ def open_body(dl, name, run, d, data):
     return 0
 
 
-def pre(dl, name, d):
+def pre(dl, name, run, d):
+    """사전점검 1회 ssh — 확인된 칸으로 진행하고, free% 판정은 gate.gate_free 한 곳이 한다(r949 r4).
+    반환 = (free 칸, warn 칸) — 열기 줄에 쓰인다."""
     rc, out, err = rt.rcall(dl, R_PRE, "", name, d)
-    if rc != 0:
-        raise Fail(5, f"mini 접속 실패(rc={rc}): {tail(out, err)}")
-    for ln in out.decode("utf-8", "replace").splitlines():
-        say(f"  {ln}")
+    text = out.decode("utf-8", "replace")
     k = kv(out)
+    if rc != 0 and ("sess_rc=" not in text or "dir=" not in text):
+        raise Fail(5, f"mini 접속 실패(rc={rc}): {tail(out, err)}")  # 볼 칸이 아예 없다 = 진짜 접속 실패
+    for ln in text.splitlines():
+        say(f"  {ln}")
     if b"MISSING" in out:
         raise Fail(2, "mini 에 필요한 도구가 없다(위 MISSING)")
+    free, warn = gate.gate_free(k.get("free_raw", ""), k.get("free_rc", ""), rc, gate.slug(run), name)
     if k.get("sess_rc") == "0":
         raise Fail(2, f"같은 이름 세션이 이미 있다 — 남의 세션이라 건드리지 않는다: {name}")
     if k.get("sess_rc") != "1":
         raise Fail(5, f"mini 세션 조회 실패(sess_rc={k.get('sess_rc')}) — 열지 않는다")
     if k.get("dir") != "absent":
         raise Fail(2, f"작업 폴더가 이미 있다 — --run <다른이름> 으로 다시: {d}")
+    return free, warn
 
 
 def write_task(dl, name, d, data):
@@ -301,6 +325,7 @@ def open_bg_and_poll(dl, name, run, d):
         raise Fail(6, f"신원 조회 실패(세션은 있음 · 기록 pending · {unsure(name, d, 'IDENT')}): {tail(out, err)}")
     rt.in_time(dl, "신원 기록 전", unsure(name, d, "세션은 있음 · 신원 기록 전 마감"))
     rt.opened_set_ident(run, p[0], p[1], p[3], p[2])
+    gate.roster_set(run, status="OPEN", sock=p[2])
     say(f"  OPEN ok name={name} id={p[0]}")
     say(f"2/4 세션 열기 — {name} (이 도구가 연 세션으로 기록 · 신원 {p[0]} {p[1]} · 소켓 {p[2]})")
     return p[2]
@@ -333,6 +358,7 @@ def cmd_task(argv):
     dl = rt.Deadline(cfg["total"], cfg["tmo"])
     with open(path, "rb") as f:
         data = f.read()
+    gate.no_secret(data, "task 입력", gate.slug(row[1]), name)
     target = f"TASK-{hashlib.sha256(data).hexdigest()[:8]}.md"
     tok = target
     if "--retry" in o:
@@ -490,8 +516,13 @@ def cmd_close(argv):
         if not row:
             raise Fail(5, f"이 도구가 연 세션이 아니다 — 남의 세션은 닫지 않는다: {name}")
         if "--forget" in o:
-            return forget(dl, row, o.get("--why"))
-        return close_row(dl, row, "--adopt" in o)
+            rc = forget(dl, row, o.get("--why"))
+            gate.closed(row, "forget")
+            return rc
+        gate.roster_marked(name)  # r949 — 이 도구 표식이 있는 줄만 닫는다
+        rc = close_row(dl, row, "--adopt" in o)
+        gate.closed(row, "close")
+        return rc
 
 
 def close_row(dl, row, adopt):
@@ -552,10 +583,10 @@ def forget(dl, row, why):
 
 
 def main(argv):
-    cmds = {"open": cmd_open, "task": cmd_task, "pull": cmd_pull, "fetch": cmd_fetch, "close": cmd_close}
+    cmds = {"open": cmd_open, "task": cmd_task, "pull": cmd_pull, "fetch": cmd_fetch, "close": cmd_close, "roster": gate.cmd_roster}
     if not argv or argv[0] not in cmds:
         print("usage: ft-sat-nano.sh {open <카드> [--run R] [--name N] | task <세션> <파일> [--retry] | pull --seats A,B [--every N]"
-              " | fetch <세션> | close <세션> [--adopt | --forget --why '<사유>']}", file=sys.stderr)
+              " | fetch <세션> | close <세션> [--adopt | --forget --why '<사유>'] | roster}", file=sys.stderr)
         return 2
     try:
         return cmds[argv[0]](argv[1:])
