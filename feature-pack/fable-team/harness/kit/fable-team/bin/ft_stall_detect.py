@@ -294,51 +294,115 @@ def lead_names(root: Path, master: str | None) -> set[str]:
     return {master}
 
 
-def lead_heartbeat(comm: Path, masters: set[str], recipients: set[str], now: float) -> tuple[str, float | None, str]:
-    """팀장 심박 = «현역 팀장» 이 «master 또는 planner» 에게 보낸 쪽지 중 본문 머리 `[정리]` 인 마지막 줄의 ts(epoch · 읽기 전용).
-    → ("ok", ts|None, "") · ("ERROR", None, 이유) = 판정 불가(파일 없음·읽기 실패·예산 초과·깨진 줄 있음).
-    깨진 줄이 하나라도 있으면 «조용한 0통» 으로 넘기지 않고 판정 불가로 돌려준다(DA r1 반례 3) — 그 좌석은 처리 0 + u.
-    미래 ts(시계 어긋남)는 «신선» 으로 인정하지 않고 그 줄을 버린다 — 신선으로 읽으면 영영 조용해진다.
-    예산 = FT_STALL_HEARTBEAT_BUDGET(기본 7초). 넘으면 부분 결과를 쓰지 않고 판정 불가(7초 룰)."""
-    budget = float(os.environ.get("FT_STALL_HEARTBEAT_BUDGET") or 7)
-    path = comm / "mailbox.jsonl"
-    t0, best, broken, n = time.monotonic(), None, 0, 0
+def _hb_line(line: str, masters: set[str], recipients: set[str], now: float) -> tuple[float | None, bool, bool]:
+    """쪽지 1줄 → (ts, 심박인가, 깨진 줄인가). ts 는 «모든» 줄에서 뽑는다 — 로그를 끝에서 읽으며 창 밖에서 멈추는 기준(r1020)."""
+    try:
+        r = json.loads(line)
+    except ValueError:
+        return None, False, True
+    if not isinstance(r, dict):
+        return None, False, True
+    try:
+        ts = datetime.strptime(str(r.get("ts"))[:19], "%Y-%m-%dT%H:%M:%S").timestamp()
+    except ValueError:
+        return None, False, True
+    if ts > now + 5:  # 미래 ts = 시계 어긋남 — 신선으로 읽지 않는다
+        return ts, False, True
+    body = r.get("body")
+    if not isinstance(body, str) or not body.lstrip().startswith(HEARTBEAT_TOKEN):
+        return ts, False, False  # 심박 아닌 쪽지(발주·보고)는 판정 대상이 아니다
+    if r.get("from") not in masters or r.get("to") not in recipients:
+        return ts, False, False  # 발신자가 현역 팀장이 아니거나, 받는이가 master/planner 가 아니면 심박이 아니다(반례 2·4·5)
+    return ts, True, False
+
+
+def _lines_from_end(fh, chunk: int = 1 << 16):
+    """파일 «끝» 에서 거꾸로 줄을 낸다 — 전체 읽기 0(r1020). 마지막 줄이 개행 없이 끝나도 낸다."""
+    fh.seek(0, os.SEEK_END)
+    pos, buf = fh.tell(), b""
+    while pos > 0:
+        step = min(chunk, pos)
+        pos -= step
+        fh.seek(pos)
+        buf = fh.read(step) + buf
+        parts = buf.split(b"\n")
+        buf = parts[0]
+        for raw in reversed(parts[1:]):
+            yield raw
+    if buf:
+        yield buf
+
+
+def _read_mailbox(path: Path, masters: set[str], recipients: set[str], now: float, budget: float, t0: float) -> tuple[str, float | None, int, int]:
+    """안 읽은 쪽지 큐 전체 읽기(작다). → (에러 이유, 최신 심박 ts, 깨진 줄 수, 줄 수)."""
+    best, broken, n = None, 0, 0
     try:
         fh = open(path, encoding="utf-8")
     except FileNotFoundError:
-        return "ERROR", None, f"mailbox.jsonl 없음({path})"
+        return f"mailbox.jsonl 없음({path})", None, 0, 0
     except OSError as e:
-        return "ERROR", None, f"mailbox.jsonl 읽기 실패 {e.__class__.__name__}"
+        return f"mailbox.jsonl 읽기 실패 {e.__class__.__name__}", None, 0, 0
     with fh:
         for line in fh:
             n += 1
             if n % 256 == 0 and time.monotonic() - t0 > budget:
-                return "ERROR", None, f"심박 읽기 {budget:g}초 초과(줄 {n})"
-            try:
-                r = json.loads(line)
-            except ValueError:
-                broken += 1
-                continue
-            if not isinstance(r, dict):
-                broken += 1
-                continue
-            body = r.get("body")
-            if not isinstance(body, str) or not body.lstrip().startswith(HEARTBEAT_TOKEN):
-                continue  # 심박 아닌 쪽지(발주·보고)는 판정 대상이 아니다
-            try:
-                ts = datetime.strptime(str(r.get("ts"))[:19], "%Y-%m-%dT%H:%M:%S").timestamp()
-            except ValueError:
-                broken += 1
-                continue
-            if ts > now + 5:  # 미래 ts = 시계 어긋남 — 신선으로 읽지 않는다
-                broken += 1
-                continue
-            if r.get("from") not in masters or r.get("to") not in recipients:
-                continue  # 발신자가 현역 팀장이 아니거나, 받는이가 master/planner 가 아니면 심박이 아니다(반례 2·4·5)
-            if best is None or ts > best:
+                return f"심박 읽기 {budget:g}초 초과(줄 {n})", None, 0, n
+            ts, hb, bad = _hb_line(line, masters, recipients, now)
+            broken += bad
+            if hb and (best is None or ts > best):
                 best = ts
+    return "", best, broken, n
+
+
+def _read_mailbox_log(path: Path, masters: set[str], recipients: set[str], now: float, window: float, budget: float, t0: float) -> tuple[str, float | None, int, int]:
+    """읽은 쪽지 로그(mailbox.log.jsonl)를 «끝에서» 읽어 심박 창(window 분) 안만 본다 — r1020: recv 가 레코드를 큐→로그로 옮기므로 큐만 보면 심박이 사라진다.
+    창 밖 줄에 닿으면 멈춘다(큰 로그 4.4MB 전체 읽기 0 · 예산은 큐와 공유). 로그 파일 없음 = 큐만(ERROR 아님).
+    → (에러 이유, 최신 심박 ts, 깨진 줄 수, 줄 수)."""
+    best, broken, n = None, 0, 0
+    try:
+        fh = open(path, "rb")
+    except FileNotFoundError:
+        return "", None, 0, 0  # 로그 없음 = 큐만 본다(판정 불가 아님)
+    except OSError as e:
+        return f"mailbox.log.jsonl 읽기 실패 {e.__class__.__name__}", None, 0, 0
+    with fh:
+        for raw in _lines_from_end(fh):
+            line = raw.decode("utf-8", "replace")
+            if not line.strip():
+                continue
+            n += 1
+            if n % 256 == 0 and time.monotonic() - t0 > budget:
+                return f"심박 읽기 {budget:g}초 초과(줄 {n})", None, 0, n
+            ts, hb, bad = _hb_line(line, masters, recipients, now)
+            if ts is not None and (now - ts) / 60 > window:
+                break  # r1020 창 밖 — 더 옛 줄은 안 본다
+            broken += bad
+            if hb and (best is None or ts > best):
+                best = ts
+    return "", best, broken, n
+
+
+def lead_heartbeat(comm: Path, masters: set[str], recipients: set[str], now: float) -> tuple[str, float | None, str]:
+    """팀장 심박 = «현역 팀장» 이 «master 또는 planner» 에게 보낸 쪽지 중 본문 머리 `[정리]` 인 마지막 줄의 ts(epoch · 읽기 전용).
+    입력 = 안 읽은 큐(mailbox.jsonl) + 읽은 로그(mailbox.log.jsonl) 둘 다 — 받는 쪽이 recv 하면 레코드가 로그로 옮겨가므로 큐만 보면 제때 보낸 팀장도 «한 번도 안 보냄» 으로 읽힌다(r1020).
+    → ("ok", ts|None, "") · ("ERROR", None, 이유) = 판정 불가(큐 없음·읽기 실패·예산 초과·깨진 줄 있음).
+    깨진 줄이 하나라도 있으면 «조용한 0통» 으로 넘기지 않고 판정 불가로 돌려준다(DA r1 반례 3) — 그 좌석은 처리 0 + u.
+    미래 ts(시계 어긋남)는 «신선» 으로 인정하지 않고 그 줄을 버린다 — 신선으로 읽으면 영영 조용해진다.
+    예산 = FT_STALL_HEARTBEAT_BUDGET(기본 7초). 넘으면 부분 결과를 쓰지 않고 판정 불가(7초 룰)."""
+    budget = float(os.environ.get("FT_STALL_HEARTBEAT_BUDGET") or 7)
+    t0 = time.monotonic()
+    err, best, broken, n = _read_mailbox(comm / "mailbox.jsonl", masters, recipients, now, budget, t0)
+    if err:
+        return "ERROR", None, err
+    err, ts, bad, n2 = _read_mailbox_log(comm / "mailbox.log.jsonl", masters, recipients, now, lead_heartbeat_min(), budget, t0)
+    if err:
+        return "ERROR", None, err
+    broken += bad
+    n += n2
+    if ts is not None and (best is None or ts > best):
+        best = ts
     if broken:
-        return "ERROR", None, f"mailbox.jsonl 깨진 줄 {broken}개 — 심박 판정 불가"
+        return "ERROR", None, f"쪽지 깨진 줄 {broken}개 — 심박 판정 불가"
     if time.monotonic() - t0 > budget:
         return "ERROR", None, f"심박 읽기 {budget:g}초 초과(줄 {n})"
     return "ok", best, ""

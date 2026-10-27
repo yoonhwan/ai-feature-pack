@@ -685,6 +685,37 @@ _lp_fetch_pr() {
   if [ "$_lp_state" != MERGED ]; then _lp_pr_err="⑥--landed-pr #$LANDED_PR state=$_lp_state — MERGED 만 닫는다(OPEN·CLOSED 미병합 = 산출이 main 에 없다)"; return 1; fi
   return 0
 }
+# ★r1019★ ⑥ «세트 대조» 를 «세트 + main 병합뿐» 까지 넓힌다 — ft-merge-land 는 main 이 앞서 있으면 승인판 위에 합침 커밋 1개를 올려 합치므로 PR head 는 «언제나» 카드 세트가 아니다(r1011 경로가 오늘 착지 6건을 0/6 으로 막았다).
+#   판정기는 승인 h 쪽이 이미 쓰는 ft-approval-equiv.sh(R247 · 판정 1917) 그대로 — 규칙 변경 0 · 호출 1곳만. rc0 만 통과 · rc1/rc3/rc2 는 사유 첫 줄 그대로 REJECT(조용한 통과 0 · #0 RULE).
+#   head 객체는 호출 전에 fetch 1회(하드 룰 12 = nf_fetch: 시도당 7초 + 재시도 1). 실패 = «판정 불가» 한 줄 REJECT(하드 룰 20).
+_lp_equiv_merges=""; _lp_equiv_mode=""; _lp_equiv_err=""
+_lp_equiv_gate() {
+  local repo cap out rc first
+  repo="${SEAT_REPO:-$ROOT}"
+  _lp_equiv_merges=""; _lp_equiv_mode=""
+  step landed-pr-equiv
+  if ! nf_fetch "$repo" origin "$_lp_head" >/dev/null 2>&1; then
+    _lp_equiv_err="⑥--landed-pr head ${_lp_head:0:9} 객체를 받지 못했다(fetch origin 실패 · 7초 상한) — 판정 불가로 닫지 않는다"; return 1
+  fi
+  # r1019 r2(DA 1/2 동작②): head 가 이미 origin/main 안 = «머지 커밋 PR». 우리 착지 도구(ft-merge-land)는 squash 만 만들므로 이 경로 밖 — 판정기를 부르지 않고 1줄로 끝낸다(하드 룰 20 · 틀린 사유 NOT-EQUIV 0).
+  if git -C "$repo" merge-base --is-ancestor "$_lp_head" refs/remotes/origin/main 2>/dev/null; then
+    _lp_equiv_err="⑥--landed-pr head ${_lp_head:0:9} 가 origin/main 조상 = 머지 커밋 PR(squash 착지 아님) — 이 경로 밖 · 수동 닫기(기존 경로)"; return 1
+  fi
+  cap="$(nf_cap "$(nf_fixed equiv)" 1)"
+  out="$(nf_bound "$cap" bash "$HERE/ft-approval-equiv.sh" "$_lp_set" "$_lp_head" --repo "$repo" 2>&1)"; rc=$?
+  first="$(printf '%s' "$out" | head -1 | cut -c1-200)"
+  if [ "$rc" -eq 0 ]; then
+    _lp_equiv_mode="$(printf '%s' "$out" | grep -oE 'mode=[a-z]+' | tail -1 | cut -d= -f2)"
+    _lp_equiv_merges="$(printf '%s' "$out" | grep -oE 'merges=[0-9]+' | tail -1 | cut -d= -f2)"
+    case "$_lp_equiv_merges" in ''|*[!0-9]*) _lp_equiv_merges=0;; esac
+    # r1019 r2(DA 1/2 동작①): rc0 이어도 «세트 위 main 병합(mode=merge ∧ merges≥1)» 만 통과 — rebase 머리는 이 경로의 증거가 아니다.
+    if [ "$_lp_equiv_mode" = merge ] && [ "$_lp_equiv_merges" -ge 1 ]; then return 0; fi
+    _lp_equiv_err="⑥--landed-pr head ${_lp_head:0:9} 가 세트 위 main 병합이 아니라 rebase 머리(mode=${_lp_equiv_mode:-없음} merges=$_lp_equiv_merges) — 세트 줄을 고치거나 새 카드"; return 1
+  fi
+  if [ "$rc" -eq 124 ]; then _lp_equiv_err="⑥--landed-pr 판정기 시간 초과(${cap}초 상한 · 하드 룰 12) — ${first:-출력 없음}"; return 1; fi
+  _lp_equiv_err="⑥--landed-pr #$LANDED_PR head ${_lp_head:0:9} ≠ 카드 세트 ${_lp_set:0:9} · «세트 + main 병합뿐» 도 아님(판정기 rc=$rc) — ${first:-출력 없음}"
+  return 1
+}
 if [ -n "$LANDED_PR" ]; then _lp_fetch_pr || { echo "REJECT $SEAT"; echo "  - $_lp_pr_err"; exit 1; }; fi
 if [ "$_hrc" -eq 1 ] && [ -n "$_lrow" ]; then
   # r1011 r2: 명부에 행이 없으면 카드 index 를 알 수 없다 — 착지 검증(세트·«- 착지:»)을 건너 뛰고 닫는 대신 그 자리 REJECT(조용한 통과 0).
@@ -1164,7 +1195,9 @@ elif [ -n "$LANDED_PR" ]; then
     _lp_land=""; grep -qE '^[[:space:]]*-[[:space:]]*착지:' "$CARD_READ" 2>/dev/null && _lp_land=1   # r1011-mut:land
     if [ -z "$_lp_set" ]; then bad+=("⑥--landed-pr 카드 «## 상태» 절에 «세트:» 40-hex 줄이 없다: $CARD_READ — 대조할 세트가 없으면 닫지 않는다")
     elif [ -z "$_lp_land" ]; then bad+=("⑥--landed-pr 카드에 «- 착지:» 줄이 없다: $CARD_READ — 착지 기록 없는 좌석은 이 경로로 닫지 않는다")
-    elif [ "$_lp_head" != "$_lp_set" ]; then bad+=("⑥--landed-pr #$LANDED_PR head ${_lp_head:0:9} ≠ 카드 세트 ${_lp_set:0:9} — 다른 커밋이 착지했다(카드 «세트:» 줄을 고치거나 새 카드로)")   # r1011-mut:head
+    elif [ "$_lp_head" != "$_lp_set" ]; then   # r1019: head ≠ 세트 = 판정기 1회 — EQUIV(세트 + main 병합뿐)만 통과   # r1011-mut:head
+      if _lp_equiv_gate; then echo "LANDED-PR-OK #$LANDED_PR merged=${_lp_mrg:0:9} state=MERGED head=${_lp_head:0:9} ≡ 카드 세트 ${_lp_set:0:9} + main 병합 ${_lp_equiv_merges} equiv=${_lp_equiv_merges} · «- 착지:» 줄 있음 (⑤ cherry·⑥ 증거 줄 면제)"
+      else bad+=("$_lp_equiv_err"); fi
     else echo "LANDED-PR-OK #$LANDED_PR merged=${_lp_mrg:0:9} state=MERGED head=${_lp_head:0:9} == 카드 세트 · «- 착지:» 줄 있음 (⑤ cherry·⑥ 증거 줄 면제)"; fi
   fi
 elif [ "$_role" = nano ] && [ -z "$CARD_READ" ]; then
@@ -1285,7 +1318,7 @@ _su_tag=""; [ "$SUSP" -eq 0 ] || _su_tag=" suspended=1 reason=$SUSP_REASON set=$
 [ -z "$NS_SUCC" ] || _su_tag=" never-started (공유 워크트리 → 후계 $NS_SUCC · 워크트리 정리 0)"
 [ -z "$NS_LAND" ] || _su_tag=" never-started (착지 가지 $NS_LAND · 워크트리 정리 0)"   # 개정 r3 규칙 2b   # r506 r2 규칙 2 출력 꼴(사유는 원장 행 wt= 칸)
 [ "$RESEARCH" -eq 0 ] || _su_tag=" research=1"   # r888: 원장 행·출력 꼬리(⑥ 증거 줄 면제 표기)
-[ -z "$LANDED_PR" ] || _su_tag=" landed-pr=$LANDED_PR"   # r1011: 원장 행·출력 꼬리(⑤⑥ 을 PR 이 대신했다는 표기)
+[ -z "$LANDED_PR" ] || _su_tag=" landed-pr=$LANDED_PR${_lp_equiv_merges:+ equiv=$_lp_equiv_merges}"   # r1011: 원장 행·출력 꼬리(⑤⑥ 을 PR 이 대신했다는 표기) · r1019: head ≠ 세트로 통과했으면 equiv=<병합 수>
 # R387 판정 2282 §7-2 — 리서치 좌석(카드 `- 리서치: <좌석> base=<sha> 허용=<경로 패턴>`): 허용 밖 변경(base..HEAD + 작업트리)이 있으면 카드에 `- 리서치 위반:` 1줄 — 기록만(닫기·WIP 보존·회수는 막지 않는다 · 새 sandbox 0)
 RS_LINE=""; RS_AGENT="$(jq -r --arg s "$SEAT" '.[$s].agent // empty' "$SEATS" 2>/dev/null)"   # r286: 에이전트는 카드 유무와 무관(opencode 회수)
 RC_AG=""; case "$RS_AGENT" in opencode|pi) RC_AG="$RS_AGENT";; esac   # r542: 회수 대상 에이전트(명부 값 그대로 · 그 밖·빈 값 = 판정기 기본 opencode)
