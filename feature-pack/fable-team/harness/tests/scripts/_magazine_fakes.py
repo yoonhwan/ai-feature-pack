@@ -46,7 +46,8 @@ def detail_fixture() -> dict:
         "units": [{
             "team": "harness", "path": "design/harness/indices/완성/x.md", "title": "예시 단위", "why": "왜 이 단위를 했는지 전문",
             "coord": "하네스 GOAL 표 / 닫는 증거: …", "evidence": ["- 세트: " + "d" * 40 + " · 시험: pytest rc=0 · 이슈: 0"],
-            "da": "design/harness/OPS-VERDICTS-20261008.md#§3", "moved_sha": "e" * 40, "ref": "ops/main-base",
+            "done": "- 닫힘 판정문: design/harness/OPS-VERDICTS-20261008.md#§3 — 완성 이동 = master --landed " + "e" * 10,
+            "da": "design/harness/OPS-VERDICTS-20261008.md#§3", "moved_sha": "e" * 40, "ref": "origin/ops/main-base",
         }],
         "malformed": [],
         "verdict_sections": [{"path": "design/harness/OPS-VERDICTS-20261008.md", "section": "§3", "title": "예시 판정 — 닫힘", "body": "판정 본문 전문"}],

@@ -33,7 +33,13 @@ def _bullets(items: list[str]) -> Block:
 
 
 def _d1_units(m: Model) -> list[Block]:
-    return cap_section([_item(f"{scrub(u['title'])} · {u['team']}", [*u["evidence"][:1], u["why"]], u["path"] + (f" · DA {u['da']}" if u["da"] else "")) for u in m["detail"]["units"]])
+    # r1009 — 완성 카드 «끝낸 일» 줄 = 카드 «- 닫힘 판정문:» 1줄(없으면 «## 상태» 의 «진행→완성» 줄). 머리 «- 상태: 대기» 는 싣지 않는다.
+    return cap_section([_item(f"{scrub(u['title'])} · {u['team']}", [_closed_line(u), u["why"]], u["path"] + (f" · DA {u['da']}" if u["da"] else "")) for u in m["detail"]["units"]])
+
+
+def _closed_line(unit: dict) -> str:
+    """카드 하나의 닫는 줄 — done(닫힘 판정문→진행→완성) → 첫 증거 줄 → 배경(증거 0장 카드)."""
+    return unit.get("done") or next(iter(unit["evidence"]), unit["why"])
 
 
 def _d2_verdict_sections(m: Model) -> list[Block]:
