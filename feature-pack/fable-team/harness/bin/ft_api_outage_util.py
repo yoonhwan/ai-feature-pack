@@ -49,6 +49,22 @@ def is_error(rec: Rec) -> bool:
     return rec.get("type") == "assistant" and rec.get("isApiErrorMessage") is True
 
 
+def is_logged_out(rec: Rec) -> bool:
+    """r849 — 로그인 풀린 좌석의 0초 실패 턴 기록(합성 오류 assistant · error=authentication_failed 또는 «Not logged in»). 429·overloaded 등 다른 API 오류는 아니다(r838 몫)."""
+    msg = rec.get("message")
+    synthetic = bool(rec.get("type") == "assistant" and isinstance(msg, dict) and msg.get("model") == "<synthetic>")  # pyright: ignore[reportUnknownMemberType]
+    return (synthetic and rec.get("error") == "authentication_failed") or (is_error(rec) and "Not logged in" in text_of(rec))
+
+
+LOGGEDOUT_MAX_MS = 5000  # r849 재설계 r3 — «0초 실패 턴» 의 소요 시간 상한(실측 142ms) · 넘으면 «일한 턴» 이라 로그아웃으로 보지 않는다(DA⑥ r3 반례 1: 120초 턴 오판)
+
+
+def is_quick_turn(duration_ms: object) -> bool:
+    """r849 r3 — turn_duration 의 durationMs 가 «0초 실패» 범위인가. 숫자가 아니면(칸 없음·'-') False — 모르면 로그아웃 아님 쪽으로
+    판정한다(일하는 좌석을 안 깨우는 쪽이 이 카드의 목적 · 반대쪽은 0초 실패 턴을 정상으로 읽어 깨우기가 되풀이된다)."""
+    return isinstance(duration_ms, (int, float)) and 0 <= int(duration_ms) <= LOGGEDOUT_MAX_MS
+
+
 def is_normal(rec: Rec) -> bool:
     """정상 턴 = 모델 응답 하나뿐(r838 r3 · ft_api_outage·ft_model_swap 모두 이 함수만) — 오류·요약·메타·사이드체인·model 없음/<synthetic> = 아님."""
     msg = rec.get("message")

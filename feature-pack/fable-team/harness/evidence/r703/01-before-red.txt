@@ -1,0 +1,4 @@
+$ (cwd=팩 워크트리 HEAD 08054bbf93a14fe8e625b3066bef07394d703b36) bash harness/tests/test_orch_gate_master.sh
+fatal: invalid object name '43eb52ed632a'.
+수정 전 훅 추출 실패(43eb52ed632a)
+rc=1

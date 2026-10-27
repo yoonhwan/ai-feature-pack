@@ -1,0 +1,9 @@
+# r849 재설계 r4 빨강 기준 (2026-10-27) — 새 시험 3종을 «r2 판 코드(146671b0)» 에 돌린 결과
+## base bin = git archive HEAD(146671b0) → /tmp/r849-base
+```
+$ R849_BIN=/tmp/r849-base/feature-pack/fable-team/harness/kit/fable-team/bin pytest -q test_seat_logged_out_r849.py -k "r1 or r1b or r3"
+FAILED test_seat_logged_out_r849.py::test_r1_unreadable_process_start_one_notice
+FAILED test_seat_logged_out_r849.py::test_r1b_relogin_then_logout_two_notices_and_unreadable_scan_keeps_cell
+FAILED test_seat_logged_out_r849.py::test_r3_cell_dir_unwritable_errors_then_retries
+3 failed, 12 deselected in 3.02s
+```

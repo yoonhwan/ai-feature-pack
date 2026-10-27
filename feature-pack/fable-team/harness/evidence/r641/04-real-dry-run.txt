@@ -1,0 +1,46 @@
+# 실 스냅샷 읽기만 — --dry-run (세션 0 · 원장 0 · has-session 조회와 rested 읽기만)
+출처=snapshot /Users/yoonhwan/.tmuxc/snapshots/latest.json
+이름 · 결과 · pid · 8317 · uuid
+aifp-worker-master-claude#1 · SKIP 살아 있음 · - · - · 9cf5806e-4c52-496e-8585-07267ef14639
+byz-cfo-arch-claude#41 · SKIP 살아 있음 · - · - · d5d26298-17b5-4cd4-9cbe-1b2fe6cf4ac9
+byz-cfo-master-claude#101 · SKIP 살아 있음 · - · - · 54024ff4-06fc-484e-9daa-bc95bb0ddb04
+byz-cfo-nano-cfo-reset-link-howtotalk-confirm-recover#0 · SKIP 살아 있음 · - · - · 07628a8e-0860-4d7c-a172-f9c32897d058
+byz-chatbot-arch-claude#15 · 계획 열기 · - · - · 7ea5fe75-f140-4881-873e-eaacf4258a9d
+byz-chatbot-arch-claude#16 · SKIP 살아 있음 · - · - · f3b1fb9a-5c89-450d-bcda-af24f3a273f3
+byz-chatbot-master-claude#17 · SKIP 살아 있음 · - · - · 00775051-eb0e-42e4-b9db-7ec7e538644a
+byz-chatbot-nano-c-research-instruction-layer-names#0 · FAIL 엔진 밖(pi) · - · - · f9b4bb07-15e2-4d67-abca-3f2dae8fca8d
+byz-chatbot-tester-claude#3 · SKIP 살아 있음 · - · - · d0f8b1f1-c598-403c-afe6-4faba63ac506
+byz-feature-arch-claude#49 · SKIP 살아 있음 · - · - · 208fcba5-64f7-460a-a5c3-dc101f33783e
+byz-feature-master-claude#37 · SKIP 살아 있음 · - · - · 3ef7956e-a7ae-4348-9d04-b6d92a9ff48e
+byz-graphics-arch-claude#23 · SKIP 살아 있음 · - · - · eed95c7a-fe70-46a5-9887-c4ac7c64d98b
+byz-graphics-da-claude#10 · SKIP 살아 있음 · - · - · a6613dfc-d418-4739-af58-27f7760cb153
+byz-graphics-master-claude#25 · SKIP 살아 있음 · - · - · 6c75c7f1-367e-4593-9251-f8eb9e16a4ac
+byz-graphics-nano-g1087-credits-sub4-payment-orders#0 · SKIP 살아 있음 · - · - · 01a15cff-6dd5-7250-b34d-bb56a79101c7
+byz-graphics-tester-claude#4 · SKIP 살아 있음 · - · - · 9741aef6-a6bf-4a5e-8dc7-f14967a7c52a
+byz-harness-arch-claude#116 · SKIP 살아 있음 · - · - · 5594628b-476e-4baf-b992-c53c232b6a60
+byz-harness-master-claude#91 · SKIP 살아 있음 · - · - · 37a8ed8e-f71a-4fa4-8d98-636f38c57afd
+byz-harness-nano-r623-block-destructive-redis-stdin-read-#0 · SKIP 살아 있음 · - · - · 799890ac-57b3-497a-8776-a32733130cb9
+byz-harness-nano-r626-all-teams-stop-switch-core#0 · SKIP 살아 있음 · - · - · 6b32d76b-d047-4e67-ac71-87e89d4aedae
+byz-harness-nano-r633-resource-freeze-to-idle-close-list-#0 · SKIP 살아 있음 · - · - · b5fb6c0b-1069-4634-a1b7-3dc2555a1284
+byz-harness-nano-r641-reboot-restore-seats-parallel-hr-re#0 · SKIP 살아 있음 · - · - · 91d3bd04-6862-43a5-a514-84f67f9d90fb
+byz-issues-master-claude#23 · SKIP 살아 있음 · - · - · 1b25fed3-cfe2-4221-b011-8e62f72f9edb
+byz-lecture-master-claude#9 · SKIP 살아 있음 · - · - · 2ed674d0-08f6-4685-b8b2-c3d9445eb0d2
+byz-loom-arch-claude#65 · SKIP 살아 있음 · - · - · 8ac32fda-72a0-4182-a358-0b93a993f931
+byz-loom-master-claude#43 · SKIP 살아 있음 · - · - · 33035e5c-b2bf-49be-99c5-6dcf1463e2a0
+byz-ops-arch-claude#44 · SKIP 살아 있음 · - · - · 23db5c09-5645-45c1-8f6d-0f4a9345d104
+byz-ops-master-claude#40 · SKIP 살아 있음 · - · - · 87159bc7-d2a4-449f-b9c4-48ffc3321d98
+byz-ops-tester-claude#7 · SKIP 살아 있음 · - · - · 0f7d25ae-017a-4c0a-bb22-29be6d2b5bb8
+byz-planner-arch-claude#8 · SKIP 살아 있음 · - · - · aa0eed45-de56-4ebf-a1e9-85aea3454cea
+byz-planner-desk-claude#35 · 계획 열기 · - · - · f20e158f-96d9-444b-bdcb-65f9f9ea9d14
+byz-planner-desk-claude#36 · SKIP 살아 있음 · - · - · 606cb741-ea90-43c9-ba1d-cdb70041d7a0
+byz-planner-master-claude#91 · SKIP 살아 있음 · - · - · 2ad1da23-aff8-46a4-8c6e-0c523b96b887
+byz-room-arch-claude#0 · SKIP 살아 있음 · - · - · 0ea71eee-b425-4795-bbe1-3bf95d9b8757
+byz-room-master-claude#5 · SKIP 살아 있음 · - · - · a09782bb-8e4c-446c-95d6-0aca525d7a30
+byz-room-nano-r-runner-overlap-assertion1-read-spot#0 · SKIP 살아 있음 · - · - · 5a622fc5-106a-4191-986f-132ebce82ed7
+byz-v65-arch-claude#275 · SKIP 살아 있음 · - · - · 9539a343-ee7a-425a-96fb-5efde216a32b
+byz-v65-master-claude#221 · SKIP 살아 있음 · - · - · 2d1ff779-03bb-43a4-b3ff-1f78cd3f5b11
+byz-v65-tester-claude#78 · SKIP 살아 있음 · - · - · 52c64b6d-1e56-4dc0-b954-51cbf0562a7e
+FAIL 목록:
+- byz-chatbot-nano-c-research-instruction-layer-names#0 — 엔진 밖(pi)
+REBOOT-RESTORE dry-run ok=0 plan=2 skip=36 fail=1 x8317=0 rc=0 원장=- (dry-run 기록 0)
+rc=0

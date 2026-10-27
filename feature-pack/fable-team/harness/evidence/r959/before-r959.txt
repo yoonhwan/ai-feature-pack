@@ -1,0 +1,32 @@
+FAIL ⓐ git mv 실패 사유 :: REJECT 이동 실패: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.MscLep0TeJ/byz/design/harness/indices/진행/kmv.md → /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.MscLep0TeJ/byz/design/harness/indices/대기/kmv.md :: rc=1 out=fatal: '/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.MscLep0TeJ/byz/design/harness/indices/진행/kmv.md' is outside repository at '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r959-index-move-mv-fail-reason-and-lande'
+REJECT 이동 실패: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.MscLep0TeJ/byz/design/harness/indices/진행/kmv.md → /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.MscLep0TeJ/byz/design/harness/indices/대기/kmv.md
+FAIL ⓐ mv(untracked) 실패 → REJECT 줄 «안»에 원문 사유(«Permission denied») :: REJECT 이동 실패: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.MscLep0TeJ/byz/design/harness/indices/진행/kmv2.md → /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.MscLep0TeJ/byz/design/harness/indices/대기/kmv2.md :: rc=1 out=fatal: '/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.MscLep0TeJ/byz/design/harness/indices/진행/kmv2.md' is outside repository at '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r959-index-move-mv-fail-reason-and-lande'
+REJECT 이동 실패: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.MscLep0TeJ/byz/design/harness/indices/진행/kmv2.md → /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.MscLep0TeJ/byz/design/harness/indices/대기/kmv2.md
+FAIL ⓐ 정상 이동 rc0 :: rc=1 out=fatal: '/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.MscLep0TeJ/byz/design/harness/indices/진행/kmv.md' is outside repository at '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r959-index-move-mv-fail-reason-and-lande'
+REJECT 이동 실패: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.MscLep0TeJ/byz/design/harness/indices/진행/kmv.md → /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.MscLep0TeJ/byz/design/harness/indices/대기/kmv.md
+FAIL ⓑ 팩 착지(두 리포) → OK :: rc=0 out=REJECT	랜딩 안 됨 — 945b0bf08c44e7154f493f51e3c282406e448869 가 origin/main 의 조상이 아니다 (/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.MscLep0TeJ/byz)
+FAIL ⓑ 팩에만 있는 sha → OK :: rc=0 out=REJECT	판정문 표식 main 인데 카드 리포에 그 sha 가 없다 — 표식 오기(숨김 0): 6c7c62bbdbb81e7c9d0374e232f98583cf3992be
+PASS ⓑ 두 리포 어디에도 없는 sha → 지금처럼 REJECT
+FAIL ⓒ 표식 오기(팩) → WARN + 통과 ::  :: rc=0 out=REJECT	판정문 표식 main 인데 카드 리포에 그 sha 가 없다 — 표식 오기(숨김 0): 6c7c62bbdbb81e7c9d0374e232f98583cf3992be
+FAIL ⓒ 표식 오기(카드) → REJECT :: rc=0 out=OK	정본 영향 없음: 하네스 도구만 바뀐 카드 — 제품 정본 없음
+PASS ⓒ 표식 main + 카드 리포 착지 → OK(정상 길 회귀 0)
+FAIL ⓑ 진행→완성 이동 :: REJECT 정본 게이트 — 랜딩 안 됨 — 945b0bf08c44e7154f493f51e3c282406e448869 가 origin/main 의 조상이 아니다 (/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.MscLep0TeJ/byz) (이동 0 · 카드에 줄을 쓰고 다시 이동) :: rc=1 out=REJECT 정본 게이트 — 랜딩 안 됨 — 945b0bf08c44e7154f493f51e3c282406e448869 가 origin/main 의 조상이 아니다 (/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.MscLep0TeJ/byz) (이동 0 · 카드에 줄을 쓰고 다시 이동)
+FAIL ⓒ2 두 게이트 같은 판정 :: REJECT 정본 게이트 — 판정문 표식 main 인데 카드 리포에 그 sha 가 없다 — 표식 오기(숨김 0): 6c7c62bbdbb81e7c9d0374e232f98583cf3992be (이동 0 · 카드에 줄을 쓰고 다시 이동) :: rc=1 out=REJECT 정본 게이트 — 판정문 표식 main 인데 카드 리포에 그 sha 가 없다 — 표식 오기(숨김 0): 6c7c62bbdbb81e7c9d0374e232f98583cf3992be (이동 0 · 카드에 줄을 쓰고 다시 이동)
+FAIL ⓒ3 보류 이력 카드 :: REJECT DA 보류 가드: HOLD events=2 reviews=2 releases=0/0 budget_left=0 — 해제 = 상위 master·planner 의 «[재설계 해제 <카드>.md]» 쪽지 + 카드 «- 재설계 해제: #seq» 줄 또는 착지 증거(카드 «- 착지: <sha>» + DA 닫힘 판정문 «닫힘 — <카드> — main `<sha>`» 행) · LANDED-INVALID marker-mismatch 판정문 표식 main 인데 카드 리포에 그 sha 가 없다 — 표식 오기(숨김 0): 6c7c62bbdbb81e7c9d0374e232f98583cf3992be (이동 0) :: rc=1 out=REJECT DA 보류 가드: HOLD events=2 reviews=2 releases=0/0 budget_left=0 — 해제 = 상위 master·planner 의 «[재설계 해제 <카드>.md]» 쪽지 + 카드 «- 재설계 해제: #seq» 줄 또는 착지 증거(카드 «- 착지: <sha>» + DA 닫힘 판정문 «닫힘 — <카드> — main `<sha>`» 행) · LANDED-INVALID marker-mismatch 판정문 표식 main 인데 카드 리포에 그 sha 가 없다 — 표식 오기(숨김 0): 6c7c62bbdbb81e7c9d0374e232f98583cf3992be (이동 0)
+FAIL ⓒ4 close-landed 보정 :: | § | 카드 | 위치 | 조상 | 착지 줄 | 예상 |
+|---|---|---|---|---|---|
+| §1 | kclose | 진행 | no | 무 | REJECT LANDED-INVALID not-found |
+DRY rows=1 (쓰기 0) :: rc=0 out=| § | 카드 | 위치 | 조상 | 착지 줄 | 예상 |
+|---|---|---|---|---|---|
+| §1 | kclose | 진행 | no | 무 | REJECT LANDED-INVALID not-found |
+DRY rows=1 (쓰기 0)
+FAIL ⓒ5 호출 자리 :: callers=4 alias=0 incorr=0 :: rc=0 out=| § | 카드 | 위치 | 조상 | 착지 줄 | 예상 |
+|---|---|---|---|---|---|
+| §1 | kclose | 진행 | no | 무 | REJECT LANDED-INVALID not-found |
+DRY rows=1 (쓰기 0)
+FAIL ⓕ --range 갈래 --project :: ERROR plist-env com.hermes.byz-mbox-slack-mirror: LIVE_BIN 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.MscLep0TeJ/pack2/.fable-team/LIVE_BIN) — 렌더본을 못 만든다 · --project <프로젝트 루트> 를 준다
+REJECT 라이브 설치 어긋남(rc=3) — master 설치 뒤 다시 이동 (이동 0) :: rc=1 out=ERROR plist-env com.hermes.byz-mbox-slack-mirror: LIVE_BIN 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.MscLep0TeJ/pack2/.fable-team/LIVE_BIN) — 렌더본을 못 만든다 · --project <프로젝트 루트> 를 준다
+REJECT 라이브 설치 어긋남(rc=3) — master 설치 뒤 다시 이동 (이동 0)
+PASS ⓓ 팩 리포 변경 0
+PASS ⓔ bash 3.2(/bin/bash) -n rc0 — 고친 두 파일 + lib
+FAILED 13

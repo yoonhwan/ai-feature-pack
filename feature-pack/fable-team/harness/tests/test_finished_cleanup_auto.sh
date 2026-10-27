@@ -133,6 +133,7 @@ OUT="$(env FT_ROOT="$R" FT_FINISHED_CHECK="$T/fin-stub" bash "$B/ft-branch-archi
 
 # ⓛ 껍데기 경보 — lecture 팀 폴더 → [HIL] 수신자 = lecture master · 팀 미상 → harness master
 for n in lec-shell odd-shell; do git -C "$R" worktree add -q --detach "$R/.worktrees/$n" "$MAIN"; rm -f "$R/.worktrees/$n/README" "$R/.worktrees/$n/a.txt"; done
+echo .worktree-info.json >> "$(git -C "$R" rev-parse --path-format=absolute --git-common-dir)/info/exclude"   # r832: 실 리포처럼 무시(안 하면 미커밋 1 → SKIP)
 printf '{"branch":"nano/x","purpose":"nano · design/teams/lecture/indices/진행/x.md"}\n' > "$R/.worktrees/lec-shell/.worktree-info.json"
 : > "$T/mbox.log"; rm -f "$WC/.shell-sig"; sweep_ld
 { printf '%s' "$OUT" | grep -q '^\[HIL\] seat=byz-lecture-wt-shell .*lec-shell' && printf '%s' "$OUT" | grep -q '^\[HIL\] seat=byz-harness-wt-shell .*odd-shell' \
