@@ -1,4 +1,4 @@
-# 비밀 기록 후속 점검 — r1027 (2026-10-27 16:19:16 · 값 0 · 읽기 전용)
+# 비밀 기록 후속 점검 — r1027 (2026-10-27 16:36:18 · 값 0 · 읽기 전용)
 
 ## ① 노출 시각, 교체 전인가 뒤인가
 
@@ -266,55 +266,135 @@
 
 - 결론: 교체(2026-10-16) 뒤에 생긴 행 256건 — 그 뒤에 돈 도구가 옛 값을 기록에 다시 썼다
 
-## ② 지금 살아 있는 키와 지문이 같은가 (앞 8자끼리만 비교 · 해시 글자 0)
+## ② 지금 살아 있는 키와 지문이 같은가 (1Password 볼트 전부 + GCP SM 전부 · 앞 8자끼리만 · 해시 글자 0)
+
+- 머리 줄: **일치 0** (없음) · **대조 못 한 곳 17** · **대조한 키 100**
 
 | 키 이름 | 판정 | 줄 수 |
 | --- | --- | --- |
-| AIRAG_ARCHIVE_KEY_HEX | 옛 키(일치 0) | 0 |
-| AIRAG_CONSUMER_KEY_HEX | 옛 키(일치 0) | 0 |
-| AIRAG_PROJECTION_KEY_HEX | 옛 키(일치 0) | 0 |
-| BYZ dev 시연 계정 tour.oy | 옛 키(일치 0) | 0 |
-| BYZ dev 시연 계정 tour.oyc1 | 옛 키(일치 0) | 0 |
-| BYZ dev 시연 계정 tour.oyc2 | 옛 키(일치 0) | 0 |
-| BYZ dev 시연 계정 tour.t1 | 옛 키(일치 0) | 0 |
-| BYZ dev 시연 계정 tour.t1c | 옛 키(일치 0) | 0 |
-| BYZ dev 시연 계정 tour.t2 | 옛 키(일치 0) | 0 |
-| BYZ dev 시연 계정 tour.t2a | 옛 키(일치 0) | 0 |
-| BYZ dev 시연 계정 tour.t3 | 옛 키(일치 0) | 0 |
-| BYZ dev 시연 계정 tour.t3c | 옛 키(일치 0) | 0 |
-| BYZ dev 시연 계정 tour.t4 | 옛 키(일치 0) | 0 |
-| BYZ dev 시연 계정 tour.t4c | 옛 키(일치 0) | 0 |
-| BYZ dev 시연 계정 슈퍼어드민 developer.ts | 옛 키(일치 0) | 0 |
-| BYZ · dev · GCHAT_ALERT_WEBHOOK · 20261025 | 옛 키(일치 0) | 0 |
-| BYZ · dev · GCHAT_NOTICE_WEBHOOK · 20261025 | 옛 키(일치 0) | 0 |
-| BYZ · dev · TOSS_LIVE_BILLING_CLIENT_KEY · 20261024 | 옛 키(일치 0) | 0 |
-| BYZ · dev · TOSS_LIVE_BILLING_SECRET_KEY · 20261024 | 옛 키(일치 0) | 0 |
-| BYZ · dev · TOSS_LIVE_CLIENT_KEY · 20261024 | 옛 키(일치 0) | 0 |
-| BYZ · dev · TOSS_LIVE_SECRET_KEY · 20261024 | 옛 키(일치 0) | 0 |
-| BYZ · dev · loom_gateway_r20261022 · 20261022 | 옛 키(일치 0) | 0 |
-| BYZ · dev · postgres · 20261022 | 옛 키(일치 0) | 0 |
-| BYZ-Agents(localhost) | 옛 키(일치 0) | 0 |
-| Cartier | 옛 키(일치 0) | 0 |
-| OPENGATEWAY_API_KEY | 옛 키(일치 0) | 0 |
-| Service Account Auth Token: byz-develop-agent | 옛 키(일치 0) | 0 |
-| Service Account Auth Token: cartier-develop-readonly | 옛 키(일치 0) | 0 |
-| byz-develop-rw | 옛 키(일치 0) | 0 |
-| ft-redis-readonly | 옛 키(일치 0) | 0 |
-| github-token | 옛 키(일치 0) | 0 |
-| github-token-tank | 옛 키(일치 0) | 0 |
-| krb-master-key | 옛 키(일치 0) | 0 |
-| loom-temp-admin-dental_snudh | 옛 키(일치 0) | 0 |
-| loom-temp-admin-derm_cheongdam | 옛 키(일치 0) | 0 |
-| loom-temp-admin-rotary | 옛 키(일치 0) | 0 |
-| loom-temp-admin-rotary_gift_of_life | 옛 키(일치 0) | 0 |
-| perplexity-api-key | 옛 키(일치 0) | 0 |
-| resend-api-key-dev | 옛 키(일치 0) | 0 |
-| slack-bot-token | 옛 키(일치 0) | 0 |
-| slack-bot-token(byz-agents) | 옛 키(일치 0) | 0 |
-| 오즈의마법사 | 옛 키(일치 0) | 0 |
+| OP BYZ · .dev | 옛 키(일치 0) | 0 |
+| OP BYZ · .env | 옛 키(일치 0) | 0 |
+| OP BYZ · BYZ | 옛 키(일치 0) | 0 |
+| OP BYZ · BYZ-admin | 옛 키(일치 0) | 0 |
+| OP BYZ · GCP BYZ Develop | 옛 키(일치 0) | 0 |
+| OP BYZ · Service Account Auth Token: byz-develop-agent | 옛 키(일치 0) | 0 |
+| OP BYZ · https://business.toss.im/ | 옛 키(일치 0) | 0 |
+| OP BYZ · 데이터베이스 | 옛 키(일치 0) | 0 |
+| OP BYZ · 로그인 정보 | 옛 키(일치 0) | 0 |
+| OP develop · AIRAG_ARCHIVE_KEY_HEX | 옛 키(일치 0) | 0 |
+| OP develop · AIRAG_CONSUMER_KEY_HEX | 옛 키(일치 0) | 0 |
+| OP develop · AIRAG_PROJECTION_KEY_HEX | 옛 키(일치 0) | 0 |
+| OP develop · BYZ dev 시연 계정 tour.oy | 옛 키(일치 0) | 0 |
+| OP develop · BYZ dev 시연 계정 tour.oyc1 | 옛 키(일치 0) | 0 |
+| OP develop · BYZ dev 시연 계정 tour.oyc2 | 옛 키(일치 0) | 0 |
+| OP develop · BYZ dev 시연 계정 tour.t1 | 옛 키(일치 0) | 0 |
+| OP develop · BYZ dev 시연 계정 tour.t1c | 옛 키(일치 0) | 0 |
+| OP develop · BYZ dev 시연 계정 tour.t2 | 옛 키(일치 0) | 0 |
+| OP develop · BYZ dev 시연 계정 tour.t2a | 옛 키(일치 0) | 0 |
+| OP develop · BYZ dev 시연 계정 tour.t3 | 옛 키(일치 0) | 0 |
+| OP develop · BYZ dev 시연 계정 tour.t3c | 옛 키(일치 0) | 0 |
+| OP develop · BYZ dev 시연 계정 tour.t4 | 옛 키(일치 0) | 0 |
+| OP develop · BYZ dev 시연 계정 tour.t4c | 옛 키(일치 0) | 0 |
+| OP develop · BYZ dev 시연 계정 슈퍼어드민 developer.ts | 옛 키(일치 0) | 0 |
+| OP develop · BYZ · dev · GCHAT_ALERT_WEBHOOK · 20261025 | 옛 키(일치 0) | 0 |
+| OP develop · BYZ · dev · GCHAT_NOTICE_WEBHOOK · 20261025 | 옛 키(일치 0) | 0 |
+| OP develop · BYZ · dev · TOSS_LIVE_BILLING_CLIENT_KEY · 20261024 | 옛 키(일치 0) | 0 |
+| OP develop · BYZ · dev · TOSS_LIVE_BILLING_SECRET_KEY · 20261024 | 옛 키(일치 0) | 0 |
+| OP develop · BYZ · dev · TOSS_LIVE_CLIENT_KEY · 20261024 | 옛 키(일치 0) | 0 |
+| OP develop · BYZ · dev · TOSS_LIVE_SECRET_KEY · 20261024 | 옛 키(일치 0) | 0 |
+| OP develop · BYZ · dev · loom_gateway_r20261022 · 20261022 | 옛 키(일치 0) | 0 |
+| OP develop · BYZ · dev · postgres · 20261022 | 옛 키(일치 0) | 0 |
+| OP develop · BYZ-Agents(localhost) | 옛 키(일치 0) | 0 |
+| OP develop · Cartier | 옛 키(일치 0) | 0 |
+| OP develop · OPENGATEWAY_API_KEY | 옛 키(일치 0) | 0 |
+| OP develop · Service Account Auth Token: byz-develop-agent | 옛 키(일치 0) | 0 |
+| OP develop · Service Account Auth Token: cartier-develop-readonly | 옛 키(일치 0) | 0 |
+| OP develop · byz-develop-rw | 옛 키(일치 0) | 0 |
+| OP develop · ft-redis-readonly | 옛 키(일치 0) | 0 |
+| OP develop · github-token | 옛 키(일치 0) | 0 |
+| OP develop · github-token-tank | 옛 키(일치 0) | 0 |
+| OP develop · krb-master-key | 옛 키(일치 0) | 0 |
+| OP develop · loom-temp-admin-dental_snudh | 옛 키(일치 0) | 0 |
+| OP develop · loom-temp-admin-derm_cheongdam | 옛 키(일치 0) | 0 |
+| OP develop · loom-temp-admin-rotary | 옛 키(일치 0) | 0 |
+| OP develop · loom-temp-admin-rotary_gift_of_life | 옛 키(일치 0) | 0 |
+| OP develop · perplexity-api-key | 옛 키(일치 0) | 0 |
+| OP develop · resend-api-key-dev | 옛 키(일치 0) | 0 |
+| OP develop · slack-bot-token | 옛 키(일치 0) | 0 |
+| OP develop · slack-bot-token(byz-agents) | 옛 키(일치 0) | 0 |
+| OP develop · 오즈의마법사 | 옛 키(일치 0) | 0 |
+| SM byz-agents-484214/BYZ_LOOM_ADMIN_TOKEN_DEV | 옛 키(일치 0) | 0 |
+| SM byz-agents-484214/byz-agents-anthropic-api-key-dev | 옛 키(일치 0) | 0 |
+| SM byz-agents-484214/byz-agents-billing-key-enc-dev | 옛 키(일치 0) | 0 |
+| SM byz-agents-484214/byz-agents-cartesia-api-key-dev | 옛 키(일치 0) | 0 |
+| SM byz-agents-484214/byz-agents-deepgram-api-key-dev | 옛 키(일치 0) | 0 |
+| SM byz-agents-484214/byz-agents-deepl-api-key-dev | 옛 키(일치 0) | 0 |
+| SM byz-agents-484214/byz-agents-elevenlabs-api-key-dev | 옛 키(일치 0) | 0 |
+| SM byz-agents-484214/byz-agents-fireworks-api-key-dev | 옛 키(일치 0) | 0 |
+| SM byz-agents-484214/byz-agents-gemini-api-key-dev | 옛 키(일치 0) | 0 |
+| SM byz-agents-484214/byz-agents-google-api-key-dev | 옛 키(일치 0) | 0 |
+| SM byz-agents-484214/byz-agents-google-project-id-dev | 옛 키(일치 0) | 0 |
+| SM byz-agents-484214/byz-agents-google-translate-api-key-dev | 옛 키(일치 0) | 0 |
+| SM byz-agents-484214/byz-agents-groq-api-key-dev | 옛 키(일치 0) | 0 |
+| SM byz-agents-484214/byz-agents-guest-jwt-secret-dev | 옛 키(일치 0) | 0 |
+| SM byz-agents-484214/byz-agents-internal-secret-dev | 옛 키(일치 0) | 0 |
+| SM byz-agents-484214/byz-agents-jwt-secret-dev | 옛 키(일치 0) | 0 |
+| SM byz-agents-484214/byz-agents-langsmith-api-key-dev | 옛 키(일치 0) | 0 |
+| SM byz-agents-484214/byz-agents-loom-app-dsn-dev | 옛 키(일치 0) | 0 |
+| SM byz-agents-484214/byz-agents-loom-gateway-dsn-dev | 옛 키(일치 0) | 0 |
+| SM byz-agents-484214/byz-agents-loom-ingest-dsn-dev | 옛 키(일치 0) | 0 |
+| SM byz-agents-484214/byz-agents-loom-interim-db-url-dev | 옛 키(일치 0) | 0 |
+| SM byz-agents-484214/byz-agents-openai-api-key-dev | 옛 키(일치 0) | 0 |
+| SM byz-agents-484214/byz-agents-perplexity-api-key-dev | 옛 키(일치 0) | 0 |
+| SM byz-agents-484214/byz-agents-postgres-password-dev | 옛 키(일치 0) | 0 |
+| SM byz-agents-484214/byz-agents-postgres-prod-password | 옛 키(일치 0) | 0 |
+| SM byz-agents-484214/byz-agents-qdrant-api-key-dev | 옛 키(일치 0) | 0 |
+| SM byz-agents-484214/byz-agents-qdrant-grpc-port-dev | 옛 키(일치 0) | 0 |
+| SM byz-agents-484214/byz-agents-qdrant-host-dev | 옛 키(일치 0) | 0 |
+| SM byz-agents-484214/byz-agents-qdrant-port-dev | 옛 키(일치 0) | 0 |
+| SM byz-agents-484214/byz-agents-redis-db-dev | 옛 키(일치 0) | 0 |
+| SM byz-agents-484214/byz-agents-redis-host-dev | 옛 키(일치 0) | 0 |
+| SM byz-agents-484214/byz-agents-redis-port-dev | 옛 키(일치 0) | 0 |
+| SM byz-agents-484214/byz-agents-redis-prod-ca | 옛 키(일치 0) | 0 |
+| SM byz-agents-484214/byz-agents-resend-api-key-dev | 옛 키(일치 0) | 0 |
+| SM byz-agents-484214/byz-agents-scheduler-secret-dev | 옛 키(일치 0) | 0 |
+| SM byz-agents-484214/byz-agents-soniox-api-key-dev | 옛 키(일치 0) | 0 |
+| SM byz-agents-484214/byz-agents-supabase-db-url-dev | 옛 키(일치 0) | 0 |
+| SM byz-agents-484214/byz-agents-supabase-publishable-key-dev | 옛 키(일치 0) | 0 |
+| SM byz-agents-484214/byz-agents-supabase-repair-dsn-dev | 옛 키(일치 0) | 0 |
+| SM byz-agents-484214/byz-agents-supabase-secret-key-dev | 옛 키(일치 0) | 0 |
+| SM byz-agents-484214/byz-agents-supertone-api-key-dev | 옛 키(일치 0) | 0 |
+| SM byz-agents-484214/byz-agents-toss-billing-client-key-dev | 옛 키(일치 0) | 0 |
+| SM byz-agents-484214/byz-agents-toss-billing-secret-key-dev | 옛 키(일치 0) | 0 |
+| SM byz-agents-484214/byz-agents-toss-secret-key-dev | 옛 키(일치 0) | 0 |
+| SM byz-agents-484214/byz-agents-typecast-api-key-dev | 옛 키(일치 0) | 0 |
+| SM byz-agents-484214/byz-dev-toss-live-billing-client-key | 옛 키(일치 0) | 0 |
+| SM byz-agents-484214/byz-dev-toss-live-billing-secret-key | 옛 키(일치 0) | 0 |
+| SM byz-agents-484214/byz-dev-toss-live-client-key | 옛 키(일치 0) | 0 |
+| SM byz-agents-484214/byz-dev-toss-live-secret-key | 옛 키(일치 0) | 0 |
 
-- 일치 키 0 · 옛 키 42 (볼트 키 42)
+- 일치 키 0 · 옛 키 100 (대조한 키 100)
 - 결론: 살아 있는 키와 같은 값이 기록에 없음 — 기록만 지우면 됨
+
+### 대조 못 한 곳 (오류 원문 1줄 · 조용한 0 아님)
+
+- GCP 프로젝트 sys-76984832859949266889026603 · API [secretmanager.googleapis.com] not enabled on project
+- GCP 프로젝트 sys-46615465890661547094051877 · API [secretmanager.googleapis.com] not enabled on project
+- GCP 프로젝트 sys-33713438165909240068172708 · API [secretmanager.googleapis.com] not enabled on project
+- GCP 프로젝트 sys-56878548683219052817251187 · API [secretmanager.googleapis.com] not enabled on project
+- GCP 프로젝트 how-to-works-homepage · API [secretmanager.googleapis.com] not enabled on project
+- GCP 프로젝트 how-to-works-console · API [secretmanager.googleapis.com] not enabled on project
+- GCP 프로젝트 stable-hologram-500204-b0 · API [secretmanager.googleapis.com] not enabled on project
+- GCP 프로젝트 sunny-emissary-484011-f3 · API [secretmanager.googleapis.com] not enabled on project
+- GCP 프로젝트 amplified-hull-484011-s7 · API [secretmanager.googleapis.com] not enabled on project
+- GCP 프로젝트 gen-lang-client-0730989186 · API [secretmanager.googleapis.com] not enabled on project
+- GCP 프로젝트 howto-ads · API [secretmanager.googleapis.com] not enabled on project [howto-ads]. Would you
+- GCP 프로젝트 byourz-app · API [secretmanager.googleapis.com] not enabled on project [byourz-app]. Would
+- GCP 시크릿 byz-agents-484214/byz-agents-ccu-db-url-dev · ERROR: (gcloud.secrets.versions.access) FAILED_PRECONDITION: Secret Version [projects/1024379410733/secrets/byz-agents-ccu-db-url-dev/versions/5] is in DISABLED
+- GCP 시크릿 byz-agents-484214/byz-agents-clova-api-secret-dev · ERROR: (gcloud.secrets.versions.access) FAILED_PRECONDITION: Secret Version [projects/1024379410733/secrets/byz-agents-clova-api-secret-dev/versions/2] is in DI
+- GCP 시크릿 byz-agents-484214/byz-agents-clova-grpc-secret-dev · ERROR: (gcloud.secrets.versions.access) FAILED_PRECONDITION: Secret Version [projects/1024379410733/secrets/byz-agents-clova-grpc-secret-dev/versions/2] is in D
+- GCP 시크릿 byz-agents-484214/byz-agents-returnzero-id-dev · ERROR: (gcloud.secrets.versions.access) FAILED_PRECONDITION: Secret Version [projects/1024379410733/secrets/byz-agents-returnzero-id-dev/versions/2] is in DISAB
+- GCP 시크릿 byz-agents-484214/byz-agents-returnzero-secret-dev · ERROR: (gcloud.secrets.versions.access) FAILED_PRECONDITION: Secret Version [projects/1024379410733/secrets/byz-agents-returnzero-secret-dev/versions/2] is in D
 
 ## ③ 삭제 계획
 

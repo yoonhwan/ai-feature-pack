@@ -18,7 +18,7 @@ import sys
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from ft_secret_followup_plan import BACK, FRONT, SAME, UNK, live_files, texts, vault  # noqa: E402  볼트·세션·글(200줄 한도로 나눈 짝)
+from ft_secret_followup_plan import BACK, FRONT, SAME, UNK, live_files, sources, texts  # noqa: E402  출처·세션·글(200줄 한도로 나눈 짝)
 from ft_secret_shapes import NAMED, RULES, _is_placeholder  # noqa: E402  r1002 가림 함수 재사용 — 값은 여기서만 만진다
 from ft_secret_targets import NAME  # noqa: E402  비밀 «이름» 판정 한 벌 재사용
 
@@ -164,14 +164,14 @@ def main(argv: list[str]) -> int:
     except OSError as e:
         print(f"ERROR ft-secret-followup: 점검 표 못 읽음 ({e.__class__.__name__})", file=sys.stderr)
         return 2
-    keys, key_why = vault()  # 살아 있는 키(이름 → 값들) — 값은 지문 비교에만
+    keys, miss = sources()  # 살아 있는 키(이름 → 값들) + 대조 못 한 곳 — 값은 지문 비교에만
     signal.signal(signal.SIGALRM, _fire)
     collect(rows, keys, min(BUDGET + BUDGET * len(rows), CAP))
     rot, rot_why = rot_at(keys_log)
     for r in rows:
         r["age"] = age(r["ts"], rot) if rot else UNK
     live = live_files([r["path"] for r in rows])
-    rep, pln = texts(rows, rot, rot_why, keys, key_why, live)
+    rep, pln = texts(rows, rot, rot_why, keys, miss, live)
     for path, text in ((outs["--report"], rep), (outs["--plan"], pln)):
         if not path:
             continue
@@ -185,7 +185,7 @@ def main(argv: list[str]) -> int:
     c = {k: sum(1 for r in rows if r["age"] == k) for k in (FRONT, BACK, SAME, UNK)}
     files = list(dict.fromkeys(r["path"] for r in rows))
     print(f"followup={len(rows)} front={c[FRONT]} back={c[BACK]} same={c[SAME]} unknown={c[UNK]} "
-          f"live_keys={len({r['hit'] for r in rows if r['hit']})} keys={len(keys)} files={len(files)} "
+          f"live_keys={len({r['hit'] for r in rows if r['hit']})} keys={len(keys)} missed={len(miss)} files={len(files)} "
           f"live_files={sum(1 for f in files if live.get(f, '').startswith('살아'))}")
     return 0
 

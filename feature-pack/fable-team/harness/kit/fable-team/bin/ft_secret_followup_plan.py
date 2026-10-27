@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """ft_secret_followup_plan — ft_secret_followup 의 볼트·세션·글 부분 (r1027 · 값 0 · 읽기 전용).
-200줄 한도 때문에 나눈 짝 모듈. vault = 1Password develop 볼트(SDK · op CLI 금지 · 실패 = 판정 불가 1줄)
+200줄 한도 때문에 나눈 짝 모듈. sources = 살아 있는 키 출처 둘 — 1Password(토큰이 닿는 볼트 전부 · SDK · op CLI 0) + GCP Secret Manager(닿는 프로젝트 전부 · 최신 버전) · 못 닿는 곳은 오류 원문 1줄
 · live_files = 살아 있는 세션 기록 판정(tmux pane cwd ↔ 기록 폴더 이름 · 최근 10분 쓰기)
 · texts = 보고 표 1장(① 시각 ② 지문 ③ 계획) + 삭제 계획 1장(«되돌림 없음» 머리 줄 · 명령은 글자로만).
 값·해시는 어떤 출력에도 쓰지 않는다 — 지문 비교 결과(살아 있음/옛 키)와 줄 수만.
@@ -11,50 +11,116 @@ import json
 import os
 import subprocess
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 FRONT, BACK, SAME, UNK = "교체 전", "교체 뒤", "같은 날", "판정 불가"
-VAULT = "develop"
 ALIVE = "살아 있음(다음 닫힘 뒤)"
 BUDGET, LIVE = 7.0, 600.0
+CALL_S, SM_TOTAL, SM_WORKERS = 7.0, 120.0, 4  # 외부 호출 7초 · SM 전체 상한 · 동시 4
 
 
-async def _sdk(tok: str) -> dict[str, list[str]]:  # 1Password Python SDK (op CLI 금지) — develop 볼트 항목 이름 → 값들
+async def _sdk_vaults(tok: str) -> tuple[dict[str, list[str]], list[str]]:  # 1Password Python SDK (op CLI 금지) — 토큰이 닿는 볼트 전부
     import onepassword
 
     client = await onepassword.Client.authenticate(auth=tok, integration_name="ft-secret-followup", integration_version="1.0")
-    out: dict[str, list[str]] = {}
+    keys, miss = {}, []
     for v in await client.vaults.list():
-        if v.title.lower() != VAULT:  # develop 볼트만
+        try:
+            for it in await client.items.list(v.id):
+                full = await client.items.get(v.id, it.id)
+                vals = [f.value for f in (getattr(full, "fields", None) or [])
+                        if isinstance(getattr(f, "value", None), str) and f.value and getattr(f, "purpose", "") != "USERNAME"]
+                if vals:
+                    keys[f"OP {v.title} · {it.title}"] = vals
+        except Exception as e:  # 볼트 읽기 실패 = «대조 못 한 곳» 1줄(조용한 0 금지)
+            miss.append(f"1Password 볼트 {v.title} · {_one(getattr(e, 'message', '') or str(e)) or e.__class__.__name__}")
+    return keys, miss
+
+
+def _one(text: str) -> str:  # 오류 원문 첫 줄만(길면 자른다) — 값은 여기 오지 않는다
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    return (lines[0][:160] if lines else "")
+
+
+def _run(cmd: list[str]) -> tuple[int, str, str]:  # 외부 호출 1회 7초 + 재시도 1 (하드 룰 12)
+    rc, out, err = 127, "", ""
+    for attempt in (0, 1):
+        if attempt:
+            time.sleep(0.5)
+        try:
+            p = subprocess.run(cmd, capture_output=True, text=True, timeout=CALL_S)
+        except subprocess.TimeoutExpired:
+            rc, out, err = 124, "", f"{CALL_S:g}초 초과"
             continue
-        for it in await client.items.list(v.id):
-            full = await client.items.get(v.id, it.id)
-            vals = [f.value for f in (getattr(full, "fields", None) or [])
-                    if isinstance(getattr(f, "value", None), str) and f.value and getattr(f, "purpose", "") != "USERNAME"]
-            if vals:
-                out[it.title] = vals
-    return out
+        except OSError as e:
+            return 127, "", f"{cmd[0]} 실행 실패({e.__class__.__name__})"
+        if p.returncode == 0:
+            return 0, p.stdout, p.stderr
+        rc, out, err = p.returncode, p.stdout, p.stderr
+    return rc, out, err
 
 
-def vault() -> tuple[dict[str, list[str]], str]:  # (키 이름 → 값들, 실패 사유) — 값은 비교에만
-    p = os.environ.get("FT_FOLLOWUP_VAULT_JSON")
+def _sm_one(gcloud: str, proj: str, name: str) -> tuple[str, str]:  # («키 이름», 값) 또는 («», 오류 1줄)
+    rc, out, err = _run([gcloud, "secrets", "versions", "access", "latest", "--secret", name, "--project", proj])
+    if rc != 0:
+        return "", f"GCP 시크릿 {proj}/{name} · {_one(err or out) or f'rc={rc}'}"
+    return f"SM {proj}/{name}", out
+
+
+def sm(gcloud: str) -> tuple[dict[str, list[str]], list[str]]:  # GCP SM — 닿는 프로젝트 전부 · 비밀마다 최신 버전 1개
+    rc, out, err = _run([gcloud, "projects", "list", "--format=value(projectId)"])
+    if rc != 0:
+        return {}, [f"GCP 프로젝트 목록 · {_one(err or out) or f'rc={rc}'}"]
+    keys, miss, jobs = {}, [], []
+    for proj in [x for x in out.split() if x]:
+        rc, out, err = _run([gcloud, "secrets", "list", "--project", proj, "--format=value(name)"])
+        if rc != 0:  # API 꺼짐·권한 없음 = 그 프로젝트는 대조 못 함
+            miss.append(f"GCP 프로젝트 {proj} · {_one(err or out) or f'rc={rc}'}")
+            continue
+        jobs += [(proj, n) for n in out.split() if n]
+    deadline = time.monotonic() + SM_TOTAL
+    with ThreadPoolExecutor(max_workers=SM_WORKERS) as pool:
+        futs = {pool.submit(_sm_one, gcloud, p, n): (p, n) for p, n in jobs if time.monotonic() < deadline}
+        miss += [f"GCP 시크릿 {p}/{n} · 전체 상한 초과" for p, n in jobs if time.monotonic() >= deadline]
+        for fut, (p, n) in futs.items():
+            name, val = fut.result()
+            if name:
+                keys[name] = [val]
+            else:
+                miss.append(val)
+    return keys, miss
+
+
+def _vault_src() -> tuple[dict[str, list[str]], list[str]]:  # 볼트 쪽 살아 있는 키 — 가짜 출처(시험) 또는 SDK(실)
+    p = os.environ.get("FT_FOLLOWUP_VAULTS_JSON") or os.environ.get("FT_FOLLOWUP_VAULT_JSON")
     if p:  # 격리·시험용 가짜 볼트(실 볼트 읽기 0)
         try:
             with open(os.path.expanduser(p)) as f:
                 raw = json.load(f)
         except (OSError, ValueError) as e:
-            return {}, f"판정 불가 — 볼트 파일 읽기 실패({e.__class__.__name__})"
-        return {k: [v] if isinstance(v, str) else [str(x) for x in v] for k, v in raw.items()}, ""
+            return {}, [f"가짜 출처 파일 읽기 실패({e.__class__.__name__})"]
+        if "vaults" in raw:  # {"vaults": {볼트: {이름: 값}}, "fail": {볼트: 오류}}
+            keys = {f"OP {v} · {k}": [x] if isinstance(x, str) else [str(y) for y in x]
+                    for v, items in raw["vaults"].items() for k, x in items.items()}
+            return keys, [f"1Password 볼트 {v} · {msg}" for v, msg in raw.get("fail", {}).items()]
+        return {k: [v] if isinstance(v, str) else [str(x) for x in v] for k, v in raw.items()}, []
     tok = os.environ.get("OP_SERVICE_ACCOUNT_TOKEN_DEVELOP") or ""
     if not tok:
-        return {}, "판정 불가 — 볼트 토큰(OP_SERVICE_ACCOUNT_TOKEN_DEVELOP) 없음"
+        return {}, ["1Password · 볼트 토큰(OP_SERVICE_ACCOUNT_TOKEN_DEVELOP) 없음"]
     try:
         import asyncio
 
-        return asyncio.run(_sdk(tok)), ""
+        return asyncio.run(_sdk_vaults(tok))
     except ImportError:
-        return {}, "판정 불가 — 1Password Python SDK 없음(uv run --with onepassword-sdk 로 돌릴 것)"
+        return {}, ["1Password · Python SDK 없음(uv run --with onepassword-sdk 로 돌릴 것)"]
     except Exception as e:
-        return {}, f"판정 불가 — 볼트 읽기 실패({e.__class__.__name__})"
+        return {}, [f"1Password · 볼트 읽기 실패({e.__class__.__name__})"]
+
+
+def sources() -> tuple[dict[str, list[str]], list[str]]:  # 살아 있는 키(이름 → 값들) + 대조 못 한 곳 1줄들
+    keys, miss = _vault_src()
+    k, m = sm(os.environ.get("FT_FOLLOWUP_GCLOUD") or "gcloud")  # GCP SM 은 언제나 함께 본다
+    return {**keys, **k}, miss + m
 
 
 def live_files(paths: list[str]) -> dict[str, str]:  # 파일 → 살아 있음/닫힘 · tmux 실패면 mtime 만
@@ -82,7 +148,7 @@ def live_files(paths: list[str]) -> dict[str, str]:  # 파일 → 살아 있음/
     return out
 
 
-def texts(rows, rot, rot_why, keys, key_why, live) -> tuple[str, str]:  # (보고, 계획) — 값·해시 글자 0
+def texts(rows, rot, rot_why, keys, miss, live) -> tuple[str, str]:  # (보고, 계획) — 값·해시 글자 0
     files = list(dict.fromkeys(r["path"] for r in rows))
     cnt = {k: sum(1 for r in rows if r["age"] == k) for k in (FRONT, BACK, SAME, UNK)}
     hits: dict[str, int] = {}
@@ -98,14 +164,17 @@ def texts(rows, rot, rot_why, keys, key_why, live) -> tuple[str, str]:  # (보�
                 for r in rows if r["age"] == BACK] or ["- 없음"]
         tail = f"뒤에 생긴 행 {cnt[BACK]}건 — 그 뒤에 돈 도구가 옛 값을 기록에 다시 썼다" if cnt[BACK] else "뒤에 생긴 실값 행 0 — 남은 행은 모두 교체 전 기록"
         rep += ["", f"- 결론: 교체({rot}) {tail}"]
-    rep += ["", "## ② 지금 살아 있는 키와 지문이 같은가 (앞 8자끼리만 비교 · 해시 글자 0)", ""]
-    if key_why or not keys:
-        rep += [f"- {key_why or '살아 있는 키 0 (볼트 빈 응답)'}" + (" — 비교 0" if key_why else "")]
-    else:
-        rep += ["| 키 이름 | 판정 | 줄 수 |", "| --- | --- | --- |"]
+    rep += ["", "## ② 지금 살아 있는 키와 지문이 같은가 (1Password 볼트 전부 + GCP SM 전부 · 앞 8자끼리만 · 해시 글자 0)", "",
+            f"- 머리 줄: **일치 {len(hits)}** ({', '.join(sorted(hits)) if hits else '없음'}) · **대조 못 한 곳 {len(miss)}** · **대조한 키 {len(keys)}**"]
+    if keys:
+        rep += ["", "| 키 이름 | 판정 | 줄 수 |", "| --- | --- | --- |"]
         rep += [f"| {n} | {'살아 있음(일치)' if n in hits else '옛 키(일치 0)'} | {hits.get(n, 0)} |" for n in sorted(keys)]
-        rep += ["", f"- 일치 키 {len(hits)} · 옛 키 {len(keys) - len(hits)} (볼트 키 {len(keys)})"]
+        rep += ["", f"- 일치 키 {len(hits)} · 옛 키 {len(keys) - len(hits)} (대조한 키 {len(keys)})"]
         rep += [f"- 결론: 살아 있는 키와 같은 값이 기록에 {'있음 — 그 키만 교체 판단(오빠)' if hits else '없음 — 기록만 지우면 됨'}"]
+    else:
+        rep += ["", "- 대조한 키 0 — 비교 0(아래 대조 못 한 곳을 먼저 고쳐야 한다)"]
+    rep += ["", "### 대조 못 한 곳 (오류 원문 1줄 · 조용한 0 아님)", ""]
+    rep += [f"- {m}" for m in miss] or ["- 없음"]
     alive = [f for f in files if live.get(f, "").startswith("살아")]
     rep += ["", "## ③ 삭제 계획", "",
             f"- 파일 {len(files)} · 살아 있는 세션 기록 {len(alive)}(다음 닫힘 뒤) · 닫힘 {len(files) - len(alive)}",
