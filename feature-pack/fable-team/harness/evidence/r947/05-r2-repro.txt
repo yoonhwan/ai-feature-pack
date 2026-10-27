@@ -1,0 +1,31 @@
+# r947 r2 — DA⑥ r1 반례 2건 «고침 뒤» 직접 재현 (2026-10-26 · /bin/bash · 가지 106f23aa)
+# 고친 파일 = kit/fable-team/templates/hooks/autonomy-state-guard.sh(resolve 의 SOURCE) · bin/ft-autonomy-standing.sh(std_da_out 의 끝줄=마지막 비어 있지 않은 줄)
+
+## 반례 1 (계약 ② «D1 켜기는 좌석에서 실행 0»)
+입력: stdin JSON {"tool_name":"Bash","tool_input":{"command":"source <harness>/bin/ft-autonomy.sh approve-standing D1 --repos pack --classes code,docs"}}
+실행: /bin/bash <설치꼴 훅 폴더>/autonomy-state-guard.sh (FT_ROOT=<임시 BYZ 루트> · FT_AUTONOMY_SH=<새 bin>)
+결과: permissionDecision=deny (사유 = «자율 모드 상태 파일 … ft-autonomy.sh on|off|approve-merge…좌석 경로 0»)
+      → 고침 앞(DA r1 실측)은 차단 출력 0 · STANDING-GRANTED rc0 이었다.
+재현 스크립트(한 덩이):
+  T=$(mktemp -d); mkdir -p "$T/h" "$T/root/.fable-team"
+  cp kit/fable-team/templates/hooks/autonomy-*.sh kit/hooks/merge_cmd.py "$T/h"/
+  IN=$(python3 -c 'import json,sys;print(json.dumps({"tool_name":"Bash","cwd":sys.argv[1],"tool_input":{"command":sys.argv[2]}},ensure_ascii=False))' "$T/root" "source $PWD/bin/ft-autonomy.sh approve-standing D1 --repos pack --classes code,docs")
+  printf '%s' "$IN" | FT_ROOT="$T/root" FT_AUTONOMY_SH="$PWD/bin/ft-autonomy.sh" FT_AUTONOMY_LOG=x FT_AUTONOMY_HOOK_LOG="$T/hook.log" /bin/bash "$T/h/autonomy-state-guard.sh"
+
+## 반례 2 (계약 ① «마지막 codex 블록 첫 줄·끝줄 둘 다 APPROVE»)
+입력: 정상 APPROVE 원문 끝에 «최종 검토가 완료되지 않았습니다.» 1줄 추가 → 그 원문 sha256 을 판정문에 넣음
+결과(고침 앞 · DA r1): STANDING-OK rc0 · 승인 파일 생김
+결과(고침 뒤 · 이 가지): rc=2 · «⑤ DA 마지막 codex 블록이 APPROVE 아님(첫 줄·마지막 줄: 판정: APPROVE | 최종 검토가 완료되지 않았습니다.)» · 승인 파일 0 · log 줄 0
+  — 시험 칸 ⓐ-tail 이 이 입력을 그대로 쓴다(tests/test_autonomy_standing_r947.sh · mkv 는 붙인 뒤의 sha256 을 판정문에 넣는다).
+  — 빈 줄만 붙인 입력은 통과한다(ⓐ-tail2) = «마지막 비어 있지 않은 줄» 만 본다.
+  — 변이 «끝줄 검사 끔(마지막 ^판정: 줄만)» 이면 ⓐ-tail 칸이 통과해 버린다(ⓘ7) = 그 칸이 그 검사를 실제로 잡는다.
+
+## 시험 칸 ↔ 변이 대응
+- tests/test_autonomy_standing_r947.sh (03-r2-test-full.txt) : ⓐ-tail · ⓐ-tail2 · ⓘ7 변이
+- tests/test_autonomy_hooks.sh (06-r2-hooks-test.txt) : ⓑ-source(6 deny 꼴) · ⓑ-source2(4 allow 꼴) · ⓑ-source변 변이
+- PASS ⓐ-tail APPROVE 원문 끝에 판정 아닌 줄 1줄 추가 → 거절(마지막 비어 있지 않은 줄 검사 · DA 반례 2)
+- PASS ⓐ-tail2 끝의 빈 줄만 = 통과(마지막 «비어 있지 않은» 줄)
+
+변이:
+- PASS ⓘ7 변이(끝줄 검사 끔 = 마지막 «판정:» 줄만) → ⓐ-tail 칸 빨강
+- hooks 시험 195 PASS 에 ⓑ-source 6칸 deny · ⓑ-source2 4칸 allow · ⓑ-source변 1칸 포함(06 파일)

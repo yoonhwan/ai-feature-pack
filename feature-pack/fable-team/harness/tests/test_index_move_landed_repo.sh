@@ -67,8 +67,11 @@ out="$(ft_landed_repo "$(printf '0%.0s' {1..40})" "$CR" "$PR" "")"; rc=$?
 [ "$rc" = 1 ] && [[ "$out" == "REJECT"*"어느 리포에서도 못 찾음"* ]] && ck "ⓐ 둘 다 없음 → REJECT «어느 리포에서도 못 찾음»" 0 || ck "ⓐ 둘 다 없음 → REJECT" 1
 out="$(ft_landed_repo "$C0" "$CR" "$PR" "닫힘 — kbyz — main(팩) \`$C0\`")"; rc=$?
 [ "$rc" = 1 ] && [[ "$out" == *"표식 오기"* ]] && ck "ⓐ 표식 main(팩) 인데 팩에 없음 → REJECT(표식 오기 숨김 0)" 0 || ck "ⓐ 표식 오기(팩) → REJECT" 1
-out="$(ft_landed_repo "$P2" "$CR" "$PR" "닫힘 — kpack — main \`$P2\`")"; rc=$?
-[ "$rc" = 1 ] && [[ "$out" == *"표식 오기"* ]] && ck "ⓐ 표식 main 인데 카드 리포에 없음 → REJECT(표식 오기 숨김 0)" 0 || ck "ⓐ 표식 오기(카드) → REJECT" 1
+# r959: 표식 «main» 인데 sha 가 팩에만 = «표식 오기(팩 착지)» → WARN 1줄 + 팩 리포(보정이 ft_landed_repo 의 기본 동작 — 부르는 쪽마다 붙이지 않는다 · DA⑥ r2 반송)
+out="$(ft_landed_repo "$P2" "$CR" "$PR" "닫힘 — kpack — main \`$P2\`" 2>"$T/warn-c")"; rc=$?
+TABX="$(printf '\t')"
+if [ "$rc" = 0 ] && [ "${out%%$TABX*}" = "$PR" ] && grep -q '표식 오기(팩 착지)' "$T/warn-c"; then ck "ⓐ 표식 main 인데 카드 리포에 없음 + 팩에 있음 → WARN + 팩 리포 r959 ③" 0
+else ck "ⓐ 표식 오기 카드 → WARN + 팩" 1; fi
 
 # ⓑ 세 게이트가 ⓐ 의 같은 리포·같은 ref 를 쓴다
 export FT_HARNESS_ROOT="$KD"

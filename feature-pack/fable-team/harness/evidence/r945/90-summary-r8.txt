@@ -1,0 +1,19 @@
+# r945 r8 요약 — 결정 5(빈자리 + 시험) · 같은 가지 e1a8fb7e 위 1커밋
+
+## 고친 2자리(반송서 REWORK-r945-r8 · DA r7 2건)
+① **초기 조회 실패를 삼키지 않는다**(:119~:120): `|| pwd` 폴백 삭제 · 실패 = `판정 불가 <cwd>:init — 워크트리/리포 조회 실패(rc=N …)` 1줄 + `SCAN_U` 1 → 요약 `u=1`. 실패하면 `WT`/`ROOT` 는 «비운다»(폴백 값으로 채우지 않는다).
+   - rc 는 줄에 그대로 적는다(종료코드는 기존처럼 0 — tick/close 경로 영향 없음 · 인터뷰 판단 여지로 보고).
+② **판정 불가 셈은 한 카운터(SCAN_U)로**: orphan_scan 실패가 `SCAN_U` 를 올리고, shell_scan 은 `SCAN_U=$((SCAN_U+ucnt))` 로 «더한다»(r7 은 덮어썼다) → 요약 `u=N` 이 세 자리(init · shell_scan · orphan)를 모두 센다.
+
+## 시험(칸 2 + 변이 2 · 반송서 그대로)
+- **ⓦ 가짜 git «전 명령 rc128» 전수 실패**: 루트 미지정 → `:init` 1줄 · `u=1` · 껍데기 0 · HIL 0 · 삭제 0 / 루트 지정 → `:init` + `:worktree-list` + `:orphan-list` · `u=3` · HIL 0.
+- **자리 수 가드**: `grep -c 'git7 "'` == 12(스캔 도달 8 = init·config·worktree-list·sparse-list·ls-files·ls-tree·orphan-list + --finish/--launchd/plan 4 = worktree remove·prune·for-each-ref·hash-object) · 단계 이름 7종이 도구에 실재하는지 확인 — **새 git7 자리가 생기면 이 시험이 FAIL**(«모르는 자리» 금지).
+- 변이 8종 전부 빨강(83-mut1~8) · 신규 2: SCAN_U 올리기 제거(7) → ⓦ `u=3` FAIL · `|| pwd` 부활(8) → ⓦ `:init`/`u=1` FAIL.
+- 전체: **83 PASS · ALL PASS**(81/82 · bash5 동일) · 옛 판 r7 로 돌리면 6 FAIL(80b).
+
+## 실 데이터(읽기 전용)
+- 리포 안에서 1회(cwd = BYZ 루트 · launchd 와 같은 꼴): 껍데기 **39곳**(r7 과 동일) · 판정 불가 0 · orphan 78 · 2분.
+- 리포 밖에서 1회(cwd = /tmp): `판정 불가 <cwd>:init` 1줄 + `u=1`(r7 은 조용히 0) — 89-init-fail-outside-repo.txt.
+
+## 인접
+- two_stage rc0 · r535 budget_replan rc0 · kit_bin_sync rc0 · bash -n 3.2·5 rc0 · bin↔kit cmp0

@@ -44,7 +44,8 @@ chmod +x "$T/bin/"* "$T/fake/"*
 
 REPO="$T/repo"; mkdir -p "$REPO"
 git -C "$REPO" init -q -b main && git -C "$REPO" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init
-git -C "$REPO" update-ref refs/remotes/origin/main HEAD   # r842: 카드 단계 ref 실재(없으면 단계 판정 실패 = ERROR + REJECT) · ref 에 카드 없음 = ABSENT → 지금 규칙
+git -C "$REPO" update-ref refs/remotes/origin/main HEAD
+git init -q --bare "$T/origin.git"; git -C "$REPO" remote add origin "$T/origin.git"; git -C "$REPO" push -q origin HEAD:main   # r842 픽스처: 원격 추적 ref 를 두면 닫기가 그 ref 하나만 fetch 한다(R22) — 원격도 실재해야 한다   # r842: 카드 단계 ref 실재(없으면 단계 판정 실패 = ERROR + REJECT) · ref 에 카드 없음 = ABSENT → 지금 규칙
 BASE="$(git -C "$REPO" rev-parse HEAD)"
 mkdir -p "$REPO/.fable-team" "$REPO/design/planner/indices/진행" "$T/comm"
 SEAT='byz-planner-nano-ns#0'; BR='nano/ns'; NW="$REPO/.worktrees/v65-ns"

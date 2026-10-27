@@ -7,6 +7,7 @@
 #    ⓕ 변이(면제 제거 → ⓐ FAIL · origin/main 후보 제거 → ⓓ FAIL) ⓖ 600/300·외부 호출·GIT_* 0 + 키트 짝 cmp0
 #    r3(DA⑥ r2 HOLD 3): 기준 = 카드 기준 판(리서치 줄 base= › «## 상태» base_sha) ⓘ기준 판 뒤 구현 커밋 1 → main 착지여도 REJECT ⓙ머리 맞춤 병합만 → OK · 곁가지 병합 → REJECT
 #      ⓚbase_sha 없는 카드 → REJECT ⓛ«R … -> .serena/project.yml»·« M docs/.serena/project.yml» → 미커밋 REJECT ⓜ루트 미추적 .serena/project.yml 만 → OK
+#        (r978 r2: R 은 원경로·새경로를 «둘 다» 센다 → ⓛ R 꼴의 미커밋 수 = 2)
 #      변이: 기준 = origin/main → ⓘ FAIL · 정확 경로 → 접미사 → ⓛ FAIL · 곁가지 대조 제거 → ⓙ FAIL
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
@@ -26,7 +27,7 @@ bash -n "$SRC/ft-nano-close.sh" && ok "bash -n ft-nano-close.sh" || bad "bash -n
 mkdir -p "$T/bin" "$T/fake" "$T/tmp"
 printf '#!/bin/sh\necho "reap $1 stopped=0 left=0 rc=0"\n' > "$T/bin/ft-seat-reap.sh"
 cp "$SRC/ft-nano-close.sh" "$SRC/ft-nano-suspended-check.sh" "$SRC/ft-nano-superseded-check.sh" "$SRC/ft-nano-evidence-check.sh" "$SRC/ft-nano-cherry-gate.sh" "$SRC/ft-wt-sweep.sh" "$SRC/ft-team-lib.sh" "$T/bin/"   # r842: 단계 판정(ft_card_stage_ref) = ft-team-lib.sh 필수(없으면 ERROR + REJECT)
-cp "$SRC/ft_teamset.py" "$T/bin/"
+cp "$SRC/ft_teamset.py" "$SRC/ft_git_capped.py" "$T/bin/"   # r939: 캡 git 도 함께
 cp "$SRC/ft-sheet-events.sh" "$SRC/ft_sheet_events.py" "$SRC/ft_sheet_confirm.py" "$SRC/ft_sheet_key.py" "$SRC/ft_board_env.py" "$SRC/ft_board_mail.py" "$T/bin/"
 export FT_SHEET_ROOT="$T/sheet-root"; mkdir -p "$FT_SHEET_ROOT/.fable-team/state"
 cat > "$T/fake/tmux" <<'EOF'
@@ -208,7 +209,7 @@ section_l() {
   echo "== ⓛ(r3) «R scripts/x.py -> .serena/project.yml» · « M docs/.serena/project.yml» → 미커밋 REJECT(정확 경로 · r4: 추적 파일은 열린 판 A 에)"
   rs_setup; mkdir -p "$NW/.serena"; git -C "$NW" mv scripts/x.py .serena/project.yml
   out="$(close --result "$T/result.md" --recv 1 --research)"; rc=$?
-  [ "$rc" -eq 1 ] && has "$out" "미커밋 1건" "ⓛ R → .serena/project.yml → 미커밋 1건 REJECT" || bad "ⓛ R rc=$rc ← ${out:0:600}"
+  [ "$rc" -eq 1 ] && has "$out" "미커밋 2건" "ⓛ R → .serena/project.yml → 미커밋 2건 REJECT(이름 변경 = 원경로+새경로 둘 다 센다 · r978 r2)" || bad "ⓛ R rc=$rc ← ${out:0:600}"
   untouched "ⓛ R"
   git -C "$NW" reset -q --hard "$SHA_A"; rm -rf "$NW/.serena"; echo 'a: 2' > "$NW/docs/.serena/project.yml"
   out="$(close --result "$T/result.md" --recv 1 --research)"; rc=$?

@@ -1,0 +1,16 @@
+# ⓓ 변이 — skill 사본 끝에 주석 1줄 추가(동작 불변 · 바이트만 다름) → cmp0 단언이 잡아야 함
+$ bash feature-pack/fable-team/harness/tests/test_orch_gate_top_models.sh
+ok   KIT bash -n → 0
+ok   KIT Sonnet 5 3번째 Edit → 2
+ok   KIT Sonnet 5.5 3번째 Edit → 0
+ok   KIT Fable 3번째 Edit → 2
+ok   KIT agent_id 있음 3번째 Edit → 0
+ok   PROJ bash -n → 0
+ok   PROJ Sonnet 5 3번째 Edit → 2
+ok   PROJ Sonnet 5.5 3번째 Edit → 0
+ok   PROJ Fable 3번째 Edit → 2
+ok   PROJ agent_id 있음 3번째 Edit → 0
+ok   사본 수 ≥ 2 → yes
+FAIL 팩 안 사본 전부 = 정본 cmp0 → 기대  · 실제  skill/templates/hooks/orchestration-gate.sh
+pass=11 fail=1
+rc=1

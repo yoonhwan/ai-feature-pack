@@ -4,6 +4,7 @@
 #       skip = 라이브 설치 대상 아님(설명이 마지막 열) · 어떤 행에도 안 맞는 파일 = UNMAPPED(조용한 통과 0 — 새 폴더는 행을 추가한다)
 # 치환: $FT_BIN(env, 라이브 도구 폴더) · $HOME   — plist·skip 의 라이브 열은 `-`
 LIVE-MAP.tsv	skip	-	지도 자신
+launchd/com.byz.ft-head-lag.plist.template	skip	-	r948: launchd 설치 대상 아님 — install.sh 는 새 launchd 를 깔지 않고(r538 «설치된 것만») ft-head-lag.sh 는 ft-news-tick.sh(--summary)·ft-merge-land.sh(--event)가 직접 부른다
 */*.plist.template	plist	-	해당 install 스크립트로 plist 렌더·적재: slack-mirror/install*.sh · loom-tunnel/install.sh · stt-tunnel/install.sh · iap-tunnels/install.sh · zombie-clean/install.sh(serena-ensure) · fable-team/install.sh (후 launchctl bootstrap·kickstart)
 */install.sh	skip	-	설치 스크립트 자체
 */install-*.sh	skip	-	설치 스크립트 자체
@@ -24,6 +25,7 @@ fable-team/templates/*	skip	-	새 프로젝트 설치 템플릿 — 라이브 �
 fable-team/*	skip	-	팀 설치 산출(템플릿 plist 등) — fable-team/install.sh 소관
 graphics/*	skip	-	graphics 팀 스테이징 — graphics/install.sh 가 <ROOT>/.fable-team/ 으로 복사
 satellite/*	skip	-	위성 팀 스테이징 — satellite/install.sh 가 <ROOT>/.fable-team/ 으로 복사
+ops-intake/*	skip	-	r955 접수 도구(#howto-talk-ops) — mini 쪽은 h-B, 이 맥 쪽은 h-C 설치 스크립트가 배치(r956). 이 맥 자리 = ~/.fable-team/ops-tools · mini 자리 = ~/.hermes/skills/ops-intake
 proposal/*	skip	-	리포 경로로 호출하는 도구(라이브 복사 없음) — 슬랙 발행 모듈만 slack-mirror 로 설치
 sets/*	skip	-	리포 경로로 호출하는 도구(라이브 복사 없음)
 tmm/*	skip	-	~/.tmm 설치는 오빠 승인 영역(별도 절차)

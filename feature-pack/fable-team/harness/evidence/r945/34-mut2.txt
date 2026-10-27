@@ -1,0 +1,7 @@
+=== 변이 2
+MUT 2 — 판정 불가를 «껍데기 아님» 으로
+FAIL ⓓⓓ2 패턴을 못 읽은 sparse 2곳 → «판정 불가» 1줄 — 없음: «판정 불가 2곳» ← [HIL] seat=byz-harness-wt-shell 반쯤 지워진 워크트리 껍데기 7곳(전체 7곳): da2 da3 g1 g2 i2 n2 sp2 — 처리는 오빠 값(바뀐 때만 1줄)
+FAIL   └ 판정 불가 줄에 경로(br1 — 패턴 파일 삭제) — 없음: «br1» ← [HIL] seat=byz-harness-wt-shell 반쯤 지워진 워크트리 껍데기 7곳(전체 7곳): da2 da3 g1 g2 i2 n2 sp2 — 처리는 오빠 값(바뀐 때만 1줄)
+FAIL   └ 판정 불가 줄에 경로(da4 — 패턴 파일 자리가 폴더) — 없음: «da4» ← [HIL] seat=byz-harness-wt-shell 반쯤 지워진 워크트리 껍데기 7곳(전체 7곳): da2 da3 g1 g2 i2 n2 sp2 — 처리는 오빠 값(바뀐 때만 1줄)
+FAIL 판정 불가 줄 꼴이 달라짐 ← [HIL] seat=byz-harness-wt-shell 반쯤 지워진 워크트리 껍데기 7곳(전체 7곳): da2 da3 g1 g2 i2 n2 sp2 — 처리는 오빠 값(바뀐 때만 1줄)
+FAIL 4

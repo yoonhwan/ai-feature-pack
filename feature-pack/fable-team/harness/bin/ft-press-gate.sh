@@ -14,6 +14,19 @@ HERE="$(cd "$(dirname "$0")" && pwd)"  # cd 전에 절대화 — 상대경로로
 cd "$WT" || exit 1
 FAIL=0
 say(){ printf '%s %s\n' "$1" "$2"; }
+# ★숫자 env 입력 검사 «한 곳»(r769 r2 반송 · DA⑥ r2 HOLD: 변수마다 case 로 검사해 구멍 2개가 났다)★
+#   _int_port = ^[1-9][0-9]{3,4}$ 이고 1024~65535 일 때만 rc0 — 앞 0(017620 은 8진으로 8080) · 부호 · 공백 · 빈 값 = rc1
+#   _decimal  = ^[0-9]+(\.[0-9]+)?$ 일 때만 rc0 — 60..0 · 1e2 · 60. · .5 · -1 = rc1
+_int_port(){
+  case "$1" in ''|*[!0-9]*) return 1 ;; esac
+  case "$1" in 0*) return 1 ;; esac
+  [ "${#1}" -ge 4 ] && [ "${#1}" -le 5 ] || return 1
+  [ "$1" -ge 1024 ] && [ "$1" -le 65535 ]
+}
+_decimal(){
+  case "$1" in ''|*[!0-9.]*|.*|*.|*.*.*) return 1 ;; esac
+  return 0
+}
 # r634: press 대상 갈래 — FT_PRESS_TARGET=dev 로 «선언한 회차만» ②~⑤ 를 dev 세트 검사로 바꾼다(기본 local = 지금과 같음 · 조용히 건너뛰기 0 · ①⑥⑦⑧·허가 파일은 그대로)
 TARGET="${FT_PRESS_TARGET:-local}"
 DEV_WEB="${FT_PRESS_DEV_WEB:-https://byz-agents-web-dev-a3yix5apcq-du.a.run.app}"
@@ -51,6 +64,36 @@ DEV_BUDGET="${FT_PRESS_DEV_BUDGET:-70}"   # dev 검사 «전체» 마감(초 · 
 DEV_END=0
 # ⓪ 전팀 정지(r626 DA⑥ r1 Q1) — 첫 검사 · 켜짐·깨짐이면 다른 검사 없이 막힘 1 (장치 허가 검사는 그대로)
 [ -e "$ROOT/.fable-team" ] && { _as="$(FT_ROOT="$ROOT" bash "$HERE/ft-all-stop.sh" check 2>&1)" || { say "✗" "⓪ $_as"; exit 1; }; }
+# ⓪b 부하 게이트(r769b · 오빠 지시 2026-10-23) — 5분 평균 load ≥ 임계(기본 60 FT_PRESS_LOAD_MAX)면 press 시작 REJECT.
+#   왜: 부하 81~102 에서 돈 lecture p3-r6 이 청크 POST 1500ms 초과 15 · Redis Timeout 14 로 무효가 됐다.
+#   임계는 env 로 덮는다 · 못 읽으면 경고만(이 머신의 load 를 못 읽는 것과 부하를 구분한다).
+LOAD_MAX="${FT_PRESS_LOAD_MAX:-60}"
+_load5(){ # macOS sysctl vm.loadavg = "{ 1분 5분 15분 }" · 없으면 /proc/loadavg 의 2칸
+  local v
+  v="$(sysctl -n vm.loadavg 2>/dev/null | tr -d '{}' | awk '{print $2}')"
+  [ -n "$v" ] || v="$(awk '{print $2}' /proc/loadavg 2>/dev/null)"
+  printf '%s' "$v"
+}
+_retry_at(){ # 10분 뒤 시각(HH:MM) — macOS date -v · GNU date -d
+  local t
+  t="$(date -v+10M '+%H:%M' 2>/dev/null)" || t=""
+  [ -n "$t" ] || t="$(date -d '+10 minutes' '+%H:%M' 2>/dev/null)"
+  printf '%s' "${t:-+10분}"
+}
+_load_gate(){
+  local v
+  _decimal "$LOAD_MAX" || { say "✗" "FT_PRESS_LOAD_MAX=$LOAD_MAX — 숫자(부하 임계)만"; FAIL=1; return; }
+  v="$(_load5)"
+  if [ -z "$v" ]; then say "⚠" "부하 5분 평균 못 읽음 — 부하 게이트 건너뜀"; return; fi
+  if awk -v a="$v" -v b="$LOAD_MAX" 'BEGIN{exit !(a>=b)}'; then
+    say "✗" "5분 평균 부하 $v ≥ 임계 $LOAD_MAX — 지금 쏘면 회차가 무효(청크 POST 타임아웃·Redis Timeout) · 원인 상위 3 프로세스:"
+    ps -Ao pcpu,pid,comm -r 2>/dev/null | head -4 | tail -3 | sed 's/^/      /'
+    # 거절 = «기다림 신호» — 지금 값·기준·다시 볼 시각을 1줄로 준다(planner 2681)
+    say "·" "지금 load $v · 기준 FT_PRESS_LOAD_MAX=$LOAD_MAX · 다시 볼 시각 $(_retry_at) (5분 평균이 그때 내려오는지)"
+    FAIL=1; return
+  fi
+  say "✓" "부하 5분 평균 $v < 임계 $LOAD_MAX"
+}
 # ★갈래를 «분명히 적은» 회차만 dev 검사 — 오타·미지 값은 막는다(선언 없이 로컬 칸을 건너뛰는 길 0)★
 case "$TARGET" in
   local|dev) ;;
@@ -258,6 +301,8 @@ if [ "${FT_PRESS_GATE_SELFTEST:-}" = "1" ]; then
   echo "PRESS-GATE SELFTEST BLOCK"; exit 1
 fi
 
+_load_gate   # ⓪b 부하 — 자체시험(위 stub 경로)은 부하와 무관하게 돈다
+
 # ① 현역 나노 브랜치 미랜딩 0
 UNLANDED=0
 # ★v65 나노 접두·이름 판정은 공용 규칙(ft_teamset.py) 한 곳(r655)★ — 옛 이름과 새 이름을 둘 다 세는 판정을 스크립트마다 복사하지 않는다. 판정기를 못 부르면 조용한 통과 없이 막는다.
@@ -321,10 +366,52 @@ for W in $LIVE_WT; do
 done
 [ "$UNLANDED" = "0" ] && say "✓" "미랜딩 제품 커밋 0" || FAIL=1
 
+# r769: 로컬 갈래 포트 해석 «1곳» — 팀이 선언한 슬롯을 따르고, 선언이 없으면 지금과 똑같다(조용한 바뀜 0).
+#   FT_PRESS_PORTS("gw,worker,fe") > FT_PRESS_PORT_BASE(+0/+1/+2) > 기본 8080·8081·3001
+#   ★일반 FT_PORT_BASE 는 «읽지 않는다»★ — 팀 env(lecture-env.sh 등)가 이미 export 하고 있어서, 그걸 읽으면
+#   press 갈래가 팀 잡일 env 에 끌려간다(lecture 는 기본 포트 서버로 press 해 왔다 — 그 동작 그대로).
+#   기본이 아닌 갈래는 로그·SSE 주소도 «같이» 선언해야 한다 — 반쪽 선언은 엉뚱한 서버를 통과시킨다.
+GW_PORT=8080; WK_PORT=8081; FE_PORT=3001
+WORKER_LOG=/tmp/byz-worker.log
+SSE_HEALTH_URL=https://localhost:8443/api/v1/health/
+SSE_LABEL="Caddy 8443"
+_ports(){ # rc 0 = 해석 끝(GW_PORT·WK_PORT·FE_PORT·WORKER_LOG·SSE_HEALTH_URL 확정) · rc 1 = 막힘
+  local gw wk fe p
+  if [ -n "${FT_PRESS_PORTS:-}" ]; then
+    IFS=, read -r gw wk fe p <<<"$FT_PRESS_PORTS"
+    [ -z "$p" ] && [ -n "$gw" ] && [ -n "$wk" ] && [ -n "$fe" ] \
+      || { say "✗" "FT_PRESS_PORTS 는 «gw,worker,fe» 3칸이어야 한다(지금: $FT_PRESS_PORTS)"; return 1; }
+    for p in "$gw" "$wk" "$fe"; do
+      _int_port "$p" || { say "✗" "FT_PRESS_PORTS 포트가 숫자 1024~65535 가 아니다: $p"; return 1; }
+    done
+    GW_PORT=$gw; WK_PORT=$wk; FE_PORT=$fe
+    printf '포트 갈래: FT_PRESS_PORTS=%s → gateway %s · worker %s · 화면 %s\n' "$FT_PRESS_PORTS" "$gw" "$wk" "$fe"
+  elif [ -n "${FT_PRESS_PORT_BASE:-}" ]; then
+    _int_port "$FT_PRESS_PORT_BASE" || { say "✗" "FT_PRESS_PORT_BASE 가 숫자 1024~65535 가 아니다: $FT_PRESS_PORT_BASE"; return 1; }
+    GW_PORT=$FT_PRESS_PORT_BASE; WK_PORT=$((10#$FT_PRESS_PORT_BASE + 1)); FE_PORT=$((10#$FT_PRESS_PORT_BASE + 2))
+    for p in "$WK_PORT" "$FE_PORT"; do
+      _int_port "$p" || { say "✗" "FT_PRESS_PORT_BASE=$FT_PRESS_PORT_BASE 에서 나온 포트가 1024~65535 밖이다: $p"; return 1; }
+    done
+    printf '포트 갈래: FT_PRESS_PORT_BASE=%s → gateway %s · worker %s · 화면 %s\n' "$FT_PRESS_PORT_BASE" "$GW_PORT" "$WK_PORT" "$FE_PORT"
+  else
+    printf '포트 갈래: 기본\n'
+    return 0
+  fi
+  if [ -z "${FT_PRESS_WORKER_LOG:-}" ] || [ -z "${FT_PRESS_SSE_HEALTH_URL:-}" ]; then
+    say "✗" "슬롯 선언 회차는 worker 로그·SSE health 주소도 지정 — FT_PRESS_WORKER_LOG · FT_PRESS_SSE_HEALTH_URL 둘 다 필요(지금: log=${FT_PRESS_WORKER_LOG:-없음} sse=${FT_PRESS_SSE_HEALTH_URL:-없음})"
+    return 1
+  fi
+  return 0
+}
+
 # r634: ②~⑤ 는 로컬 스택 전제 — dev 로 선언한 회차만 dev 칸으로 바꾼다(로컬 갈래는 문자 그대로)
 if [ "$TARGET" = "dev" ]; then
   _dev_gate
 else
+_ports || { echo; echo "PRESS-GATE BLOCK — 위 ✗ 를 먼저 닫아라(랜딩 → stop→run → 화면도 같이)"; exit 1; }
+[ -n "${FT_PRESS_WORKER_LOG:-}" ] && { WORKER_LOG=$FT_PRESS_WORKER_LOG; }
+[ -n "${FT_PRESS_SSE_HEALTH_URL:-}" ] && { SSE_HEALTH_URL=$FT_PRESS_SSE_HEALTH_URL; SSE_LABEL=$FT_PRESS_SSE_HEALTH_URL; }
+true
 # ② 워커·관문·화면 기동시각 > 각자의 최신 제품 커밋
 chk(){ # 이름 포트 경로들
   local name=$1 port=$2; shift 2
@@ -348,31 +435,31 @@ else:
     say "✗" "$name pid=$pid 기동이 최신 커밋보다 «앞»선다 — 재기동 필요"; FAIL=1
   fi
 }
-chk worker 8081 worker shared
-chk gateway 8080 gateway shared
-chk 화면 3001 clients/web ":(exclude)clients/web/__tests__/*"
+chk worker "$WK_PORT" worker shared
+chk gateway "$GW_PORT" gateway shared
+chk 화면 "$FE_PORT" clients/web ":(exclude)clients/web/__tests__/*"
 
 # ③ 활성화 lane + health
-grep -q 'activation bundle established' /tmp/byz-worker.log \
+grep -q 'activation bundle established' "$WORKER_LOG" \
   && say "✓" "[C2c-ACT] activation bundle established" \
   || { say "✗" "활성화 번들 줄 없음 — legacy lane 의심"; FAIL=1; }
-code=$(curl -s -m 4 -o /dev/null -w '%{http_code}' http://localhost:8081/health 2>/dev/null)
+code=$(curl -s -m 4 -o /dev/null -w '%{http_code}' "http://localhost:$WK_PORT/health" 2>/dev/null)
 [ "$code" = "200" ] && say "✓" "worker health 200" || { say "✗" "worker health=$code"; FAIL=1; }
 # FE SSE 는 Caddy :8443 경유(run.command NEXT_PUBLIC_SSE_URL) — 죽으면 press 무효(2026-10-01 m7-rt-ledger 2회 · /health 는 307 이라 api 경로)
-code2=$(curl -sk -m 4 -o /dev/null -w '%{http_code}' https://localhost:8443/api/v1/health/ 2>/dev/null)
-[ "$code2" = "200" ] && say "✓" "Caddy 8443 health 200" || { say "✗" "Caddy 8443 health=$code2 — 리스너 없으면 run.command 로 기동"; FAIL=1; }
+code2=$(curl -sk -m 4 -o /dev/null -w '%{http_code}' "$SSE_HEALTH_URL" 2>/dev/null)
+[ "$code2" = "200" ] && say "✓" "$SSE_LABEL health 200" || { say "✗" "$SSE_LABEL health=$code2 — 리스너 없으면 run.command 로 기동"; FAIL=1; }
 # HTTP 200 이어도 본문 consumer_ready=false 면 PTT disabled — press 가 no_viable_target 으로 무효(2026-09-26 long3m-002)
-cr=$(curl -s -m 4 http://localhost:8081/health 2>/dev/null | python3 -c 'import sys,json
+cr=$(curl -s -m 4 "http://localhost:$WK_PORT/health" 2>/dev/null | python3 -c 'import sys,json
 try: d=json.load(sys.stdin)
 except Exception: print("unparsed"); sys.exit()
 print("ok" if d.get("consumer_ready") is True else "status=%s consumer_ready=%s" % (d.get("status"), d.get("consumer_ready")))' 2>/dev/null)
 [ "$cr" = "ok" ] && say "✓" "worker consumer_ready=true" || { say "✗" "worker ${cr:-unparsed} — LOOM DSN·언어 웜업 먼저(troubleshoot 20260926-local-worker)"; FAIL=1; }
 # 재기동 직후 LOOM selfhost 프리워밍(전 튜플 실 LLM 호출 · ≈3 분)이 press 와 겹치면 vLLM 프리필 포화 → 번역 7 s 타임아웃 → 봉인 실패
 # (2026-10-02 10:12 K5 p1 무효 · 타임아웃 30건). 이번 기동의 «Warming up» 줄 «뒤»에 prewarm SUMMARY 가 있어야 한다.
-boot_ln=$(grep -n 'Worker Starting - Warming up services' /tmp/byz-worker.log 2>/dev/null | tail -1 | cut -d: -f1)
-sum_ln=$(grep -n 'selfhost prewarm SUMMARY' /tmp/byz-worker.log 2>/dev/null | tail -1 | cut -d: -f1)
+boot_ln=$(grep -n 'Worker Starting - Warming up services' "$WORKER_LOG" 2>/dev/null | tail -1 | cut -d: -f1)
+sum_ln=$(grep -n 'selfhost prewarm SUMMARY' "$WORKER_LOG" 2>/dev/null | tail -1 | cut -d: -f1)
 # SUMMARY 줄 «존재»만으로 통과시키지 않는다 — FAILED>0 이면 vLLM 이 그 순간 포화였다는 뜻(2026-10-02 20:22 K4 p1 무효 · 22 ok/14 FAILED 를 PASS).
-sum_txt=$([ -n "$sum_ln" ] && sed -n "${sum_ln}p" /tmp/byz-worker.log | grep -oE 'SUMMARY: [0-9]+ ok / [0-9]+ FAILED')
+sum_txt=$([ -n "$sum_ln" ] && sed -n "${sum_ln}p" "$WORKER_LOG" | grep -oE 'SUMMARY: [0-9]+ ok / [0-9]+ FAILED')
 sum_failed=$(printf '%s' "$sum_txt" | grep -oE '[0-9]+ FAILED' | grep -oE '[0-9]+')
 if [ -n "$boot_ln" ] && [ -n "$sum_ln" ] && [ "$sum_ln" -gt "$boot_ln" ] && [ "${sum_failed:-1}" -gt 0 ]; then
   say "✗" "LOOM prewarm SUMMARY FAILED>0 ($sum_txt) — 공유 vLLM 포화 의심(다른 트랙 worker 기동·측정) → 원인 정리 뒤 worker 재기동"; FAIL=1
@@ -383,7 +470,7 @@ else
 fi
 
 # ④ 워커 필수 env(WORKER_ENV_SPEC 키 이름만 대조 · 값 복제 0)
-wpid=$(lsof -ti:8081 -sTCP:LISTEN 2>/dev/null | head -1)
+wpid=$(lsof -ti:"$WK_PORT" -sTCP:LISTEN 2>/dev/null | head -1)
 if [ -n "$wpid" ]; then
   miss=0
   while read -r k; do
@@ -396,9 +483,9 @@ fi
 _cwd_of(){ lsof -a -p "$1" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | head -1; }
 # 기동 stamp = 서비스 pid 프로세스 시작시각(epoch) — set-check 가 «워크트리 HEAD 가 기동 뒤 움직였나» 를 가른다(A4). 못 구하면 빈 값 → set-check 가 REJECT.
 _start_of(){ LC_ALL=C date -j -f '%a %b %e %T %Y' "$(LC_ALL=C ps -o lstart= -p "$1" 2>/dev/null)" +%s 2>/dev/null; }
-gpid=$(lsof -ti:8080 -sTCP:LISTEN 2>/dev/null | head -1)
+gpid=$(lsof -ti:"$GW_PORT" -sTCP:LISTEN 2>/dev/null | head -1)
 if [ -z "${wpid:-}" ] || [ -z "$gpid" ]; then
-  say "✗" "세트 축 — worker(:8081)·gateway(:8080) 리스너 pid 없음"; FAIL=1
+  say "✗" "세트 축 — worker(:$WK_PORT)·gateway(:$GW_PORT) 리스너 pid 없음"; FAIL=1
 else
   wcwd=$(_cwd_of "$wpid"); gcwd=$(_cwd_of "$gpid")
   if [ -z "$wcwd" ] || [ -z "$gcwd" ]; then say "✗" "세트 축 — pid cwd 조회 실패(worker=$wpid gateway=$gpid)"; FAIL=1

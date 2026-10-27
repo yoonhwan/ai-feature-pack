@@ -45,7 +45,8 @@ chmod +x "$T/bin/"* "$T/fake/"*
 GC() { git -C "$1" -c user.email=t@t -c user.name=t "${@:2}"; }
 # R = BYZ 꼴 리포 — spawn 이 만든 같은 이름 빈 워크트리(.worktrees/harness-k · nano/k) 가 있다(실사건 꼴)
 R="$T/repo"; mkdir -p "$R"; git -C "$R" init -q -b main; GC "$R" commit -q --allow-empty -m init
-git -C "$R" update-ref refs/remotes/origin/main HEAD   # r842: 카드 단계 ref 실재(없으면 단계 판정 실패 = ERROR + REJECT) · ref 에 카드 없음 = ABSENT → 지금 규칙
+git -C "$R" update-ref refs/remotes/origin/main HEAD
+git init -q --bare "$T/R-origin.git"; git -C "$R" remote add origin "$T/R-origin.git"; git -C "$R" push -q origin HEAD:main   # r842 픽스처: 원격 추적 ref 를 두면 닫기가 그 ref 하나만 fetch 한다(R22) — 원격도 실재해야 한다   # r842: 카드 단계 ref 실재(없으면 단계 판정 실패 = ERROR + REJECT) · ref 에 카드 없음 = ABSENT → 지금 규칙
 GC "$R" worktree add -q "$R/.worktrees/harness-k" -b nano/k
 RW="$R/.worktrees/harness-k"
 # P = 팩 꼴 리포 + bare 원격(origin/main fetch 가 실제로 된다)

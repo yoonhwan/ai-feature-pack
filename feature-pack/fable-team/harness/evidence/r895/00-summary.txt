@@ -1,0 +1,8 @@
+r895 디스크 조사 — 읽기 전용 측정 (r1 2026-10-25 08:24~08:56 · r2 2026-10-27 01:5x~02:3x · load 9~11) · 삭제·repack·gc·prune·mv 0
+산출: design/harness/PLAN-r895-disk-cleanup-20261025.md (가) · design/harness/TABLE-r895-disk-delete-candidates-20261025.md (나 + 범위 추가 #164204)
+시험: bash tests/test_r895_disk_survey_readonly.sh → ALL PASS (읽기 전용·칸 값·변이 1)
+측정 순서: measure.sh(BYZ·팩) → sparse.sh(워크트리별 core.sparseCheckout) → scratch.sh(등록부 574줄·TMPDIR) → landed.sh(착지 4단) → orphans.sh(.worktrees 등록 밖 폴더) → classify.py → dupstem.py → candidates.py
+  + scratch-safety.tsv(등록 밖 사본 dirty·품은 가지) · scratch-owner.txt(쪽지 80,861개 한 번 훑기 = 이름 남은 사본 0) · extra.txt(df·claude projects·baton·hil 장수) · stats.txt(분류·sparse·사본 합계)
+census: ft-disk-census.sh 는 r2 에서도 돌리지 않았다(r1 600초 상한 초과 rc=124). 표는 자체 측정으로 채웠다.
+r2 에서 달라진 것: ①BYZ .git 9.9→8.11 GiB · pack 59→5 · tmp_pack_FmB1dV 2.1 GiB 잔재 소멸 ②$TMPDIR 등록 사본 62.0 GiB(326개 실재·주인 없음 296) 가 새 주범 ③`.sh.hil` 181→1,401장 ④브랜치 «끝난 가지 보관 이동» 대상 448개를 처음 셈
+스냅샷 주의: 워크트리·사본은 측정 중에도 주인 손으로 늘고 준다(측정 뒤 사라짐 3개). 표는 시각을 붙여 읽는다.

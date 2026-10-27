@@ -27,6 +27,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 from ft_news_html_lint import FOOT, SECRET, problem_records, problems  # noqa: E402
 from ft_news_html_render import DROP_ENV, PARTS, NewsHtmlError, build_prompt, call_model, render  # noqa: E402
+import ft_team_state as ts  # noqa: E402
 
 LOG = logging.getLogger("ft_news_html")
 KEEP = ("오빠 할 일", "팀 작업", "드러난 문제", "체크리스트")  # 원장에서 싣는 절(머리 글자) — 나머지(완료 보관·옛 지시)는 지도 원천이 아니다
@@ -118,39 +119,22 @@ def teams(root: Path) -> list[str] | str:
         return f"원천 없음: {e}"
 
 
-def _sessions() -> list[str]:
-    """tmux 세션 이름 전부 — 서버 없음 = [] · 그 밖의 실패 = RuntimeError(발행 0)."""
-    done = subprocess.run(["tmux", "ls", "-F", "#{session_name}"], capture_output=True, text=True, timeout=SEAT_S, check=False)
-    if done.returncode != 0 and "no server running" not in done.stderr:
-        raise RuntimeError(f"tmux ls 실패 rc={done.returncode}: {done.stderr.strip()[:120]}")
-    return done.stdout.split() if done.returncode == 0 else []
-
-
-def _turns(seats: list[str]) -> dict[str, tuple[str, str]]:
-    """좌석들 → (WORKING·IDLE·…|«?», 사유) 한 번에 — 판정기 = ft_seat_turn(셸 도구와 같은 것 · 좌석별 하위 프로세스 0 · r504)."""
-    from ft_seat_turn import turns
-    try:
-        return turns(seats, os.environ.get("FT_TMUX", "tmux"), Path(os.environ.get("FT_CLAUDE_PROJECTS") or Path.home() / ".claude" / "projects"))
-    except subprocess.TimeoutExpired:  # tmux list-panes 7초 초과 — 전 좌석 «확인 불가»(사유 보임 · 쉼 아님)
-        return {s: ("?", "tmux 시간 초과") for s in seats}
-
-
-def _unknown_reason(reasons: list[str]) -> str:
-    return " · ".join(f"{r} {reasons.count(r)}석" for r in dict.fromkeys(reasons))  # «jsonl 없음 N석 · 읽기 실패 N석» (r490 꼴)
+def _sessions(budget_s: float | None = None) -> list[str]:
+    """tmux 세션 이름 전부 — 자기 무리에서(마감 넘기면 무리째 정리 · 자손 0 · r6 고침 2) · 서버 없음 = [] ·
+    그 밖의 실패 = RuntimeError(발행 0) · 마감 넘김 = TimeoutError(그 팀들 «tmux 목록 시간 초과»)."""
+    import ft_team_turns as tt
+    return tt.tmux_sessions(os.environ.get("FT_TMUX", "tmux"), min(SEAT_S, budget_s or SEAT_S))
 
 
 def live_teams(root: Path) -> list[dict]:
-    """팀별 라이브 좌석 실측(r478c): 팀 = 명부 seats-<팀>.json(+ seats.json = v65) · 좌석 = tmux 세션 중 `byz-<팀>-`·`ft-<팀>-` 로 시작하는 것 ·
-    일하는 좌석 = 턴 판정(ft_seat_turn)이 WORKING · 확인 불가 = «?»(사유 unknown_reason · r490). 쪽지 문장·스냅샷의 옛 «일함» 값은 쓰지 않는다."""
-    fable = root / ".fable-team"
-    names = [p.name[len("seats-"):-len(".json")] for p in fable.glob("seats-*.json")] + (["v65"] if (fable / "seats.json").is_file() else [])
-    if not names:
-        raise RuntimeError(f"명부 0개({fable}/seats-*.json) — 팀 실측 불가")
-    sessions = _sessions()
-    seats = {t: [s for s in sessions if s.startswith((f"byz-{t}-", f"ft-{t}-"))] for t in sorted(set(names))}
-    state = _turns(sorted({s for ss in seats.values() for s in ss}))
-    return [{"team": t, "live": len(ss), "working": sum(state[s][0] == "WORKING" for s in ss), "unknown": sum(state[s][0] == "?" for s in ss),
-             "unknown_reason": _unknown_reason([state[s][1] for s in ss if state[s][0] == "?"])} for t, ss in seats.items()]
+    """팀별 라이브 좌석 실측(r478c) — 판정 = ft_team_state.team_states(r850 · 시트 뿌리 글 팀 표와 같은 함수 · 같은 결과):
+    좌석 = 명부만(계보당 번호가 가장 큰 현역 행) · 판정 = 하위 1개(팀 결과 흘려 받기 · 마감 7초 · r5) · 확인 불가 = «?»(사유 unknown_reason · r490) ·
+    tmux 목록 못 읽음 = 명부 이름만 «?»(그 사유 · 지도 발행은 계속) · 마감은 «입구» 에서 1개(세션 목록까지 남은 시간 안 · r6) ·
+    팀 하나의 어떤 예외든 그 팀만 «확인 불가(원천 오류 …)»."""
+    from ft_news_post import news_now
+    keep = ("live", "unknown", "unknown_reason", "state", "label")
+    states = ts.team_states(root, ts.AUTO, news_now(), session_source=_sessions)  # 세션 목록도 판정 마감 안에서(r6 고침 1)
+    return [{"team": t, "working": len(v["working"]), **{k: v[k] for k in keep}} for t, v in states.items()]
 
 
 def commits(repo: Path, base: str) -> list[str]:
@@ -204,10 +188,15 @@ def autonomy(root: Path) -> str:
 
 
 def facts(live: list[dict], auto: str) -> dict:
-    """요약·중요한 일 문장이 따라야 할 코드 판정(r478d) — 일하는 팀(좌석 많은 순)·확인 불가(일하는 0 ∧ 확인 불가 ≥1 · r490)·쉬는 팀(둘 다 0)·자율."""
-    work = sorted((t for t in live if t["working"]), key=lambda t: (-t["working"], t["team"]))
-    return {"일하는 팀": [t["team"] for t in work], "확인 불가": [t["team"] for t in live if not t["working"] and t.get("unknown")],
-            "쉬는 팀": [t["team"] for t in live if not t["working"] and not t.get("unknown")], "자율": auto}
+    """요약·중요한 일 문장이 따라야 할 코드 판정(r478d) — r850: 팀 상태 4칸 «진행·대기·쉼·확인 불가»(live state = ft_team_state.judge · 진행은 일하는 좌석 많은 순)·자율."""
+    order = sorted(live, key=lambda t: (-t["working"], t["team"]))
+    return {**{k: [t["team"] for t in order if t["state"] == k] for k in ts.STATES}, "자율": auto}
+
+
+def state_grade(live: list[dict]) -> str:
+    """발행 등급(r850 r5 · r6 고침 4) — 판정 함수(ft_team_state.grade) 가 내는 글자 그대로(뉴스·시트 같은 규칙).
+    확인 불가 팀 0 = "" · 1개 이상 = «PARTIAL N팀» · 전원 = «ALL-UNKNOWN». ERROR·WARN 줄은 team_states 가 남긴다."""
+    return ts.grade({str(i): t for i, t in enumerate(live)})
 
 
 def build(root: Path, repo: Path, rel: str, base: str, cur: str, now: datetime) -> dict:
@@ -230,6 +219,9 @@ def run_files(data: dict, out: Path, now: datetime) -> tuple[Path, Path]:
     html_p.write_text(page, encoding="utf-8")
     sum_p.write_text("\n".join(s.strip() for s in c["summary"] if s.strip()) + "\n", encoding="utf-8")
     print(f"ft-news-html: 만듦 {html_p.name} secs={max(secs.values()):.1f}({' '.join(f'{p}={s:.1f}' for p, s in secs.items())}) fixed={fixed:.1f}s model={model_id()} important={len(c['important'])} summary={len(sum_p.read_bytes())}B")
+    grade = state_grade(data.get("live") or [])
+    if grade:  # 끝 줄 — 확인 불가 팀이 있어도 발행은 계속(r850 r5 발행 등급)
+        print(f"ft-news-html: {grade}")
     return html_p, sum_p
 
 

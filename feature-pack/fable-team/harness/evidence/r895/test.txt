@@ -1,0 +1,30 @@
+PASS bash -n 3종
+PASS py_compile 2종
+PASS ⓐ 리포·사본 안 바뀐 파일 0
+PASS ⓐ refs·worktree 목록 그대로
+PASS ⓑ 착지 가지 행
+PASS ⓑ landed = 조상
+PASS ⓑ open = 아님
+PASS ⓑ 주인 tmux 칸
+PASS ⓑ 미커밋 1
+PASS ⓑ detached 칸
+PASS ⓒ 같은 HEAD 묶음 2
+PASS ⓓ tmp_pack 잔재 행(4KiB)
+PASS 가지 수 nano=2
+PASS ⓔ 등록 사본 나이 2h · 실재
+PASS ⓔ 주인 살아 있음 · cwd 0
+PASS ⓔ 사라진 사본 · 주인 없음
+PASS ⓔ 미등록 repo-* 행
+PASS landed: squash = 내용착지
+PASS landed: 미착지(다른 1/바꾼 1)
+PASS landed: 경로만 → HEAD 읽어 조상
+PASS sparse: 기본 false · info 없음
+PASS sparse: 켜면 true · info 있음
+PASS candidates: 칸 9개
+PASS candidates: KiB → GiB
+PASS candidates: sparse 칸 옮김
+PASS candidates: 분류 옮김
+PASS candidates: 안 분류가 먼저
+PASS 변이(GIT_OPTIONAL_LOCKS 제거) → 바뀐 파일 4 로 잡힘
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

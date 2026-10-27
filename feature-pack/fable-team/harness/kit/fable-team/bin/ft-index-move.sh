@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ft-index-move.sh <indices/<from>/X.md> <대기|진행|완성> [--da <판정문경로#§N>] [--seat <좌석명>] [--landed <sha>]
+# ft-index-move.sh <indices/<from>/X.md> <대기|진행|완성|아카이브> [--da <판정문경로#§N>] [--seat <좌석명>] [--landed <sha>]
 #   Seatbelt 0.3 · 인덱스 상태 = 폴더. «닫힘» 글자를 손으로 쓸 자리를 없앤다.
 #   exit 0 = 이동 · 1 = REJECT · 2 = usage
 # 규칙:
@@ -9,17 +9,24 @@
 #               정본 줄 세 꼴 중 하나: 「정본 갱신: docs/architect/….md §절」 · 「정본화: <경로>[, …]」(허용 뿌리 4곳 · R318a) · 「정본 영향 없음: <이유>」.
 #               하네스 카드는 `- 설치: 있음|없음` 필수 · 있음 = 라이브 설치 대조 OK + `- 실사건:` 증거(ft-index-move-install.sh · R245).
 #               (DA 가 안 쓴 「닫힘」은 없다 — pm·master 가 대신 쓸 길을 두지 않는다.)
+#   대기|진행→아카이브 (r1000) : --da · --seat 필수. 판정 종류는 «절 전체» 로 본다 — «(닫힘|CLOSE) — <카드> — main …» 줄이 하나라도 있으면 착지 카드 = REJECT(완성 갈래로),
+#               아니면 «(닫힘|CLOSE) — <카드> — 버림» 또는 «… — 쓸모 없음» 로 시작하는 줄 +
+#               카드에 `- 정본 영향 없음:` 줄 + DA 보류 가드(ft_da_hold_gate.py --closing) 통과 → indices/아카이브/<YYYY-MM>/ 로 이동.
+#               착지 sha·설치 대조·실사건 검사는 이 갈래에서 하지 않는다(착지 카드는 완성 갈래로 닫는다).
 #   기타 방향 : 되돌리기(진행→대기 등)는 --seat 로 사유만 남기고 허용.
 #   슬랙(판정 405) : 카드에 `- 슬랙:` 줄이 있으면 이동 «전»에 대기→진행=착수 답글 · 진행→완성=결과 답글 확인/발송.
 #               도구 = env FT_THREAD_POST(기본 ~/.hermes/scripts/byz_thread_post.py) · 실패·장부 불명·도구 없음 = REJECT(이동 0 · 폴백 0).
 set -uo pipefail
-SRC="${1:-}"; DST="${2:-}"; shift 2 2>/dev/null || { echo "usage: $0 <index.md> <대기|진행|완성> [--da <file#§N>] [--seat <name>] [--landed <sha>]" >&2; exit 2; }
+SRC="${1:-}"; DST="${2:-}"; shift 2 2>/dev/null || { echo "usage: $0 <index.md> <대기|진행|완성|아카이브> [--da <file#§N>] [--seat <name>] [--landed <sha>]" >&2; exit 2; }
 DA=""; SEAT=""; LANDED=""
 while [ $# -gt 0 ]; do case "$1" in --da) DA="$2"; shift 2;; --seat) SEAT="$2"; shift 2;; --landed) LANDED="$2"; shift 2;; *) echo "unknown $1" >&2; exit 2;; esac; done
-case "$DST" in 대기|진행|완성) ;; *) echo "REJECT dst 는 대기|진행|완성" >&2; exit 2;; esac
+case "$DST" in 대기|진행|완성|아카이브) ;; *) echo "REJECT dst 는 대기|진행|완성|아카이브" >&2; exit 2;; esac
 [ -f "$SRC" ] || { echo "REJECT 없음: $SRC"; exit 1; }
 SRC="$(cd -- "$(dirname -- "$SRC")" && pwd)/$(basename -- "$SRC")"   # 절대경로 — 상대경로면 아래 git -C ls-files 추적 판정이 untracked 로 떨어져 mv 가 된다(DA r1 R5)
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
+# 착지 표식 정규식 «단일 출처» — 완성 갈래(FT_LANDED_MARKER)와 아카이브 갈래가 같이 쓴다(두 벌 금지 · r1000 r1 F2).
+# «닫힘|CLOSE» 둘 다 인정 · 카드 이름은 «정확» 일치 · 세 번째 칸이 main 으로 시작해야 착지.
+landed_marker_re() { printf '(닫힘|CLOSE)[[:space:]]*—[[:space:]]*%s[[:space:]]*—[[:space:]]*main' "$1"; }
 [ ! -f "$HERE/ft-team-lib.sh" ] || ( . "$HERE/ft-team-lib.sh" && ft_card_location_ok "$SRC" ) || exit 1   # r447: 명단 새 꼴 팀 카드가 옛 꼴 폴더면 REJECT(이동 0)
 IDX_ROOT="$(cd "$(dirname "$SRC")/.." && pwd)"
 FROM="$(basename "$(dirname "$SRC")")"
@@ -53,7 +60,8 @@ if [ "$DST" = 완성 ]; then
   # 정본 게이트 + 랜딩 commit 사실 검사(ft-index-move-canon.sh · 판정 440 r2 §6-1) — 이동 «전»에 검사한다.
   WT="$(git -C "$IDX_ROOT" rev-parse --show-toplevel 2>/dev/null || echo "$IDX_ROOT")"
   # r937: 착지 리포 표식 = 이 카드의 «닫힘 — <카드> — main|main(팩) `<sha>`» 줄 — 정본·설치 게이트가 같은 리포를 골라 쓰게 넘기는 값
-  FT_LANDED_MARKER="$(printf '%s\n' "$body" | awk -v s="$(basename "$SRC" .md)" 'index($0,"닫힘")&&index($0,s)&&index($0,"main"){print;exit}')"; export FT_LANDED_MARKER
+  # r959: 표식 줄 = «닫힘 — <카드> — main…» 정확한 모양만 — 절 헤더 «## §32 <카드> — 닫힘 (CLOSE)» 를 표식으로 오인하지 않는다(카드 이름에 «main» 이 들면 카드 리포로 잘못 풀린다 · r462·r560·r756)
+  FT_LANDED_MARKER="$(printf '%s\n' "$body" | awk -v p="$(landed_marker_re "$(basename "$SRC" .md)")" '$0 ~ p{print;exit}')"; export FT_LANDED_MARKER
   CANON_RES="$(printf '%s\n' "$body" | bash "$HERE/ft-index-move-canon.sh" "$SRC" "$WT" "$LANDED")"
   CANON_KIND="$(printf '%s' "$CANON_RES" | cut -f1)"; CANON_NOTE="$(printf '%s' "$CANON_RES" | cut -f2-)"
   case "$CANON_KIND" in
@@ -80,6 +88,35 @@ if [ "$DST" = 완성 ]; then
   fi
   # R245 병합 ≠ 끝 — 하네스 카드 설치 게이트(ft-index-move-install.sh · 설치: 있음 = 라이브 cmp0 + 실사건 증거). 다른 팀 indices 는 게이트 안에서 통과.
   bash "$HERE/ft-index-move-install.sh" "$SRC" ${LANDED:+--landed "$LANDED"} || exit 1
+fi
+if [ "$DST" = 아카이브 ]; then
+  # r1000 — «버림»·«쓸모 없음» 카드의 닫는 길. 착지 sha 가 없는 카드는 완성 갈래를 못 지나므로 여기로 닫는다(설치 대조 우회 금지 · R1).
+  case "$FROM" in 대기|진행) ;; *) echo "REJECT 아카이브 출발은 대기|진행 만 — $FROM 출발은 완성 갈래(착지·설치 대조)로 닫는다 (이동 0)"; exit 1;; esac
+  [ -n "$DA" ] || { echo "REJECT 아카이브 는 --da <판정문#§N> 필수 — 판정문 없는 보관은 없다"; exit 1; }
+  [ -n "$SEAT" ] || { echo "REJECT 아카이브 는 --seat <좌석명> 필수"; exit 1; }
+  DAF="${DA%%#*}"; SEC="${DA#*#}"
+  [ -f "$DAF" ] || { echo "REJECT DA 판정문 없음: $DAF"; exit 1; }
+  body="$(awk -v s="$SEC" 'index($0,"## ")==1{f=0; r=$0; while((i=index(r,s))>0){n=substr(r,i+length(s),1); if(index(s,"§")==0||n!~/[0-9]/){f=1;break}; r=substr(r,i+length(s))} if(f){print;next}} f' "$DAF")"
+  [ -n "$body" ] || { echo "REJECT $DAF 에 절 «${SEC}» 없음"; exit 1; }
+  CARDID="$(basename "$SRC" .md)"
+  # 판정 종류 = «절 전체» 로 본다(r1000 r1 F1·F2) — 착지 줄이 «하나라도» 있으면 착지(뒤에 있거나 CLOSE 표기여도 잡는다).
+  #   착지 = 완성 갈래와 같은 정규식(landed_marker_re) · 버림·쓸모 없음 = 줄 «사두리» 에서 «닫힘|CLOSE — <카드> — …»(이름 정확 일치).
+  _verdict="$(printf '%s\n' "$body" | awk -v c="$CARDID" -v mk="$(landed_marker_re "$CARDID")" '
+    { s=$0; gsub(/[[:space:]]+/," ",s); sub(/^ /,"",s); sub(/ $/,"",s) }
+    { if ($0 ~ mk) { land=1 }
+      for (i=1;i<=2;i++) { pre=((i==1)?"닫힘":"CLOSE") " — " c " — "
+        if (substr(s,1,length(pre "버림"))==pre "버림") { if (v=="") v="버림" }
+        if (substr(s,1,length(pre "쓸모 없음"))==pre "쓸모 없음") { if (v=="") v="쓸모 없음" } } }
+    END { if (land) print "착지"; else if (v!="") print v }')"
+  case "$_verdict" in
+    버림|"쓸모 없음") ;;
+    착지) echo "REJECT $CARDID 는 착지한 카드다 — $DAF $SEC 에 «(닫힘|CLOSE) — $CARDID — main …» 줄이 있다. 착지 카드는 완성 갈래로 닫는다(설치 대조 우회 금지 · R1) (이동 0)"; exit 1;;
+    *) echo "REJECT $DAF $SEC 에 «(닫힘|CLOSE) — $CARDID — 버림»·«… — 쓸모 없음» 으로 시작하는 줄 없음 — 카드 이름 정확 일치여야 한다(R2) (이동 0)"; exit 1;;
+  esac
+  grep -qE '^- 정본 영향 없음:' "$SRC" || { echo "REJECT 카드에 «- 정본 영향 없음:» 줄 없음 — 아카이브 카드도 정본 줄은 있어야 한다(R4) (이동 0)"; exit 1; }
+  [ -f "$HERE/ft_da_hold_gate.py" ] || { echo "REJECT ft_da_hold_gate.py 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
+  # R3 — 착지 증거(--landed·--da 착지 행)는 넘기지 않는다: 이 갈래는 «보류 해제» 만 본다.
+  _hg="$(python3 "$HERE/ft_da_hold_gate.py" "$SRC" --closing 2>&1)" || { _h1="${_hg%%$'\n'*}"; echo "REJECT DA 보류 가드: $_h1 — 해제 = 상위 master·planner 의 «[재설계 해제 <카드>.md]» 쪽지 + 카드 «- 재설계 해제: #seq» 줄 (이동 0)"; exit 1; }
 fi
 # 슬랙 단위 스레드(판정 405 §4) — «게시 대상» = 카드의 `- 슬랙:` 줄 유무(장부 아님). 이동 «전»에 끝낸다: 실패면 이동 0.
 if { [ "$FROM" = 대기 ] && [ "$DST" = 진행 ]; } || { [ "$FROM" = 진행 ] && [ "$DST" = 완성 ]; }; then
@@ -114,10 +151,15 @@ if [ "$FROM" = 진행 ] && [ "$DST" = 완성 ]; then
   done < <(grep -oE '[A-Za-z0-9_./-]+' "$SRC" | grep -E '^design/.*/evidence/|^tests/|\.(py|sh)$' | sort -u)
   if [ "${#SCAN_PATHS[@]}" -gt 0 ]; then bash "$HERE/ft-evidence-inject-scan.sh" "${SCAN_PATHS[@]}" || echo "ERROR inject-scan rc=$?" >&2; fi
 fi
-mkdir -p "$IDX_ROOT/$DST"
-NEW="$IDX_ROOT/$DST/$(basename "$SRC")"
+if [ "$DST" = 아카이브 ]; then
+  ARCH_MON="$(date '+%Y-%m')"; mkdir -p "$IDX_ROOT/아카이브/$ARCH_MON"; NEW="$IDX_ROOT/아카이브/$ARCH_MON/$(basename "$SRC")"
+else
+  mkdir -p "$IDX_ROOT/$DST"; NEW="$IDX_ROOT/$DST/$(basename "$SRC")"
+fi
 TRACKED=0; git -C "$IDX_ROOT" ls-files --error-unmatch "$SRC" >/dev/null 2>&1 && TRACKED=1
-if [ "$TRACKED" = 1 ]; then git mv "$SRC" "$NEW"; else mv "$SRC" "$NEW"; fi || { echo "REJECT 이동 실패: $SRC → $NEW"; exit 1; }
+# r959: 실패 사유를 버리지 않는다 — git·mv 의 stderr 첫 줄을 REJECT 줄 «안»에 붙인다(«REJECT 이동 실패» 한마디로는 무엇을 고칠지 알 수 없다 · r737·r847)
+if [ "$TRACKED" = 1 ]; then _mv_out="$(git -C "$IDX_ROOT" mv "$SRC" "$NEW" 2>&1)"; _mv_rc=$?; else _mv_out="$(mv "$SRC" "$NEW" 2>&1)"; _mv_rc=$?; fi
+[ "$_mv_rc" = 0 ] || { _mv1="${_mv_out%%$'\n'*}"; echo "REJECT 이동 실패: $SRC → $NEW${_mv1:+ — $_mv1}"; exit 1; }
 if [ "$DST" = 완성 ]; then
   # 하네스 0.5 행 3 — «완성 이동»이 원장 close 의 유일한 기록자. 원장 없는 완성은 없다(#0 RULE).
   #   트랙 = FT_TRACK(기본 default · 카드가 design/v65/indices 아래면 v65) · $ROOT/STATE_DIR 은 ft-index-gate.sh 와 같은 규약.
@@ -134,14 +176,36 @@ if [ "$DST" = 완성 ]; then
   row="{\"ts\":\"$(date '+%Y-%m-%dT%H:%M:%S%z')\",\"ev\":\"close\",\"id\":\"$ID\",\"da\":\"$DA\",\"seat\":\"${SEAT:--}\",\"via\":\"index-move\"}"
   if ! printf '%s\n' "$row" >> "$LEDGER" 2>/dev/null; then
     # 되돌리기도 실패할 수 있다(DA r1 R1) — 성공 문구는 되돌리기가 «실제로» 성공했을 때만.
-    if { [ "$TRACKED" = 1 ] && git mv "$NEW" "$SRC"; } || { [ "$TRACKED" != 1 ] && mv "$NEW" "$SRC"; }; then
+    if { [ "$TRACKED" = 1 ] && git -C "$IDX_ROOT" mv "$NEW" "$SRC"; } || { [ "$TRACKED" != 1 ] && mv "$NEW" "$SRC"; }; then
       echo "REJECT 원장에 못 썼다: $LEDGER — 이동을 되돌렸다"; exit 1
     fi
     echo "REJECT 원장에 못 썼다: $LEDGER" >&2
     echo "★되돌리기 실패 — 카드 ${NEW} · 원장 0 · 복구: git mv ${NEW} ${SRC}★" >&2; exit 3
   fi
 fi
-printf -- '- %s — %s→%s%s%s\n' "$(date '+%Y-%m-%d %H:%M')" "$FROM" "$DST" "${SEAT:+ · 좌석 $SEAT}" "${DA:+ · DA $DA}" >> "$NEW"
+# r1000 r2 (DA⑥ r2 반례 1): 카드 끝 바이트가 줄바꿈이 아니면 덧붙인 기록이 «앞 줄 끝» 에 붙는다 — 기록을 쓰기 전에 줄바꿈 1개를 보장한다(이동 길 전부).
+if [ -s "$NEW" ] && [ -n "$(tail -c 1 "$NEW")" ]; then printf '\n' >> "$NEW"; fi
+if [ "$DST" = 아카이브 ]; then
+  printf -- '- %s — %s→아카이브 · 좌석 %s · 판정 %s\n' "$(date '+%Y-%m-%d %H:%M')" "$FROM" "$SEAT" "$DA" >> "$NEW"
+else
+  printf -- '- %s — %s→%s%s%s\n' "$(date '+%Y-%m-%d %H:%M')" "$FROM" "$DST" "${SEAT:+ · 좌석 $SEAT}" "${DA:+ · DA $DA}" >> "$NEW"
+fi
+# r1009 — 완성 이동이면 머리의 `- 상태:` 줄을 «완성 · 시각 · 좌석» 으로 바꾼다(매거진이 머리 «대기» 를 실어 «대기» 로 보이던 자리).
+#   머리 = 첫 `## ` 절 «앞» 구역 · 그 줄이 없으면 0(새 줄을 만들지 않는다) · 다른 갈래는 손대지 않는다.
+if [ "$DST" = 완성 ]; then
+  python3 - "$NEW" "$(date '+%Y-%m-%d %H:%M')" "${SEAT:--}" <<'PY'
+import sys
+path, at, seat = sys.argv[1], sys.argv[2], sys.argv[3]
+lines = open(path, encoding="utf-8").read().split("\n")
+head_end = next((i for i, ln in enumerate(lines) if ln.startswith("## ")), len(lines))
+for i in range(head_end):
+    if lines[i].startswith("- 상태:"):
+        lines[i] = f"- 상태: 완성 · {at} · {seat}"
+        open(path, "w", encoding="utf-8").write("\n".join(lines))
+        print("HEAD-STATE 완성")
+        break
+PY
+fi
 # r444: 완성 + --landed = 카드에 `- 착지: <sha>`(판정기 ft-finished-check E1 이 읽는 줄) → 끝난 가지 refs/archive 이동 1회(FINISHED 만 · 삭제 0). 실패·SKIP 은 출력만 — 이동 종료코드 불변.
 if [ "$DST" = 완성 ] && [ -n "$LANDED" ]; then
   grep -qF -- "- 착지: ${LANDED##*..}" "$NEW" || printf -- '- 착지: %s\n' "${LANDED##*..}" >> "$NEW"   # r456: 일괄 닫기 도구가 먼저 쓴 같은 줄은 두 번 쓰지 않는다

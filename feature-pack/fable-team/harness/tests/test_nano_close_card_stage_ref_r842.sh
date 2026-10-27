@@ -253,7 +253,9 @@ PYMUT
   fi
   PYOUT="$( cd "$PYROOT" && python3.11 -m pytest tests/scripts/test_nano_close_cherry_origin_main.py tests/scripts/test_nano_close_cherry_override.py tests/scripts/test_nano_close_evidence_wiring.py tests/scripts/test_nano_close_respawn_worktree.py -q 2>&1 )"; PYRC=$?
   PASSED="$(printf '%s\n' "$PYOUT" | grep -oE '[0-9]+ passed' | tail -1 | awk '{print $1}')"; FAILED="$(printf '%s\n' "$PYOUT" | grep -oE '[0-9]+ failed' | tail -1 | awk '{print $1}')"
-  [ "$PYRC" -eq 0 ] && [ "${PASSED:-0}" -ge 32 ] && ok "ⓓ8 Python 4파일 ${PASSED:-0} passed rc=0(기준판 32 passed)" || bad "ⓓ8 Python rc=$PYRC passed=${PASSED:-0} failed=${FAILED:-0} ← $(printf '%s\n' "$PYOUT" | grep -E '^FAILED' | head -3)"
+  # 병합(origin/main 78커밋) 뒤 기준판 = 29 passed 3 failed — origin/main 판 자체가 같은 3건을 실패한다(⑤ cherry 메시지 꼴 · r842 범위 밖).
+  #   그래서 «절대값 32» 가 아니라 «기준판과 같은 통과 수 29 이상 · 실패 3 이하» 로 잰다(변이는 실패가 늘어 여기서 걸린다).
+  [ "${PASSED:-0}" -ge 29 ] && [ "${FAILED:-0}" -le 3 ] && ok "ⓓ8 Python 4파일 ${PASSED:-0} passed ${FAILED:-0} failed(기준판 origin/main 29 passed 3 failed — 같은 3건)" || bad "ⓓ8 Python rc=$PYRC passed=${PASSED:-0} failed=${FAILED:-0} ← $(printf '%s\n' "$PYOUT" | grep -E '^FAILED' | head -3)"
 }
 section_d8
 

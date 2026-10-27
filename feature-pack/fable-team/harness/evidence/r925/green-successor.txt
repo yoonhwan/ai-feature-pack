@@ -1,0 +1,58 @@
+### GREEN — 고친 뒤 ft-successor-open
+PASS bash -n
+PASS ⓐ 첫 3줄 빈 값 → REJECT · open·송신 0
+PASS ⓑ 기동 확인(pgrep 3) → 송신 1회 · 도달 파일
+PASS ⓑ-2 도달 파일 model = --model 값 · successor·seq·rc 불변
+PASS ⓒ 기동 미확인 → 송신 0 · 도달 파일 0 · [HIL]
+PASS ⓓ 5 → ring 1 → 5 → exit 5 · 도달 파일 0 · 닫기 0
+PASS ⓔ 2 → ring 1 → 도달 → 도달 파일 · exit 0
+PASS ⓕ open 실패 → REJECT · 기동 확인·송신 0
+PASS ⓕ-2 r838 열기 실패 → REJECT 줄에 «이유: 마지막 3줄» · 토큰 가림 · 송신 0
+PASS ⓡ5 r838 r2 이유 줄 비밀값(Bearer · KEY_ID= · sk-) 가림 · 송신 0
+PASS ⓡ7 r838 r3 줄 단위 가림(Basic · 따옴표 · Cookie · JWT) · 송신 0
+PASS ⓡ7 r838 r3 줄 단위 가림(Basic · 따옴표 · Cookie · JWT) · 송신 0
+PASS ⓖ SessionStart 레코드 있음 → 관측 후 송신
+PASS ⓖ SessionStart 없음 → 미관측 표시 · 송신 1회
+PASS ⓗ 다른 리포 → 대상 리포 mbox(ring·송신·꼬리 mbox=) · 호출자 0
+PASS ⓘ 같은 리포 → 같은 mbox · 도달 파일
+PASS ⓙ mbox 없는 리포 → REJECT rc2 · open·송신 0 · 호출자 mbox 0
+PASS ⓚ 링크 워크트리 사본 있음 → 리포 루트 mbox 고름 · 사본 0
+PASS ⓛ 짝 파일 없음 → RC2 · open·송신 0
+PASS ⓜ FT_MBOX_SH 명시 → 지금과 같음
+PASS ⓝ r609 ⓐ 세션 이미 있음 → 이어감 · 열기 건너뜀 · 송신 1 · 도달 파일
+PASS ⓞ r609 ⓑ 이미 도달 → rc0 · 송신 0(도달 파일 불변)
+PASS ⓟ r609 ⓒ 남의 세션 → REJECT · 열기·송신 0 · 도달 파일 0
+PASS ⓠ r622 같은 폴더 → 이어감 · 열기 건너뜀 · 송신 1
+PASS ⓠ' r622 다른 폴더 → REJECT · 실제 경로(pane=) 찍힘
+PASS ⓡ r622 못 읽음 → 판정 불가 REJECT · «다르다» 0 · 송신 0
+PASS ⓡ2 r925 r3 이어가기 → boot-enter 1회(후계 이름) · 이 도구 Enter 0 · 제출 확인 → 송신 1
+PASS ⓡ2' 이어가기 + 입력줄 ≠ 전문(boot-enter rc4) → HIL rc5 · 송신 0 · 도달 파일 0
+PASS ⓡ3 이어가기 + 입력줄 판독 불가 → rc5 «[HIL] 입력줄 판독 불가» · 송신 0
+PASS ⓡ5 /bin/bash 3.2 -n rc0
+PASS ⓡ5' /bin/bash 3.2 새로 열기 → 송신 1 · 도달 파일
+PASS ⓡ5'' /bin/bash 3.2 이어가기 판독 불가 → rc5 · 송신 0
+PASS ⓡ4 새로 열기 → boot-enter 0 · tmuxc open 1 · 송신 1
+PASS ⓢ r622 새 좌석 CWD 실제 경로 → JDIR 그 워크트리 · SessionStart 관측
+PASS ⓣ r660 desk 본문에 GUIDE 27줄 없음 → 열기 전 REJECT · open·송신 0
+PASS ⓣ r660 desk 본문에 팀 직발 예시 → 열기 전 REJECT · open·송신 0
+PASS ⓣ r660 따옴표 주소(relay + 작은따옴표) 직발 예시 → 열기 전 REJECT
+PASS ⓣ r660 desk 본문 = 27줄 원문 포함 → 통과 · 송신 1
+PASS ⓣ planner 역할 승계 = 이 문 밖(판정 불변 · GUIDE 줄 없어도 송신 1)
+PASS ⓣ r660 GUIDE 원문을 못 읽음 → REJECT · open·송신 0(fail-closed)
+PASS ⓣ r688 planner 폴더 = 명단 칸 · 명단 못 읽음 → REJECT · open·송신 0(트리 목록으로 통과 0)
+PASS ⓤ-ⓐ r826 구절 30줄로 밀림 → 전체에서 찾아 통과 · 송신 1
+PASS ⓤ-ⓑ r826 안내서에 구절 0줄 → REJECT · open·송신 0
+PASS ⓤ-ⓑ r826 안내서에 구절 2줄 → REJECT «여러 줄» · open·송신 0
+PASS ⓤ-ⓒ r826 본문 첫 10줄에 구절 없음 → REJECT · 찾은 줄 번호(30) 표시
+PASS ⓤ-ⓓ r826 FT_GUIDE_LINE=27 줘도 판정에 안 씀 · WARN 1줄
+PASS ⓥ r1 반례(정본 2통 + > 인용 1통) → «여러 줄» REJECT · open·송신·도달 파일 0
+PASS ⓥ r2 반례(백틱 4개 울타리 속 백틱 3개 + 옛 1통) → «여러 줄» REJECT · open·송신·도달 파일 0
+PASS ⓥ ~~~ 울타리 속 옛 1통 → «여러 줄» REJECT · open·송신·도달 파일 0
+PASS ⓥ HTML 주석 속 옛 1통 → «여러 줄» REJECT · open·송신·도달 파일 0
+PASS ⓥ 4칸 들여쓰기 속 옛 1통 → «여러 줄» REJECT · open·송신·도달 파일 0
+PASS ⓥ 정본 1줄만(main 꼴 · 30행) → 통과 · 송신 1
+PASS ⓥ 정본이 들여쓰기로만 → «모양 바뀜» REJECT
+PASS ⓥ 정본이 > 인용으로만 → «모양 바뀜» REJECT
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+rc=0

@@ -58,10 +58,12 @@ setup() {  # 명부·pane·카드·나노 HEAD 를 «정상(세션 없음 · 미
   git -C "$NW" reset -q --hard "$SHA0"; git -C "$NW" clean -qfd
   printf '{"%s":{"role":"nano","index":"%s"}}\n' "$SEAT" "$CARD_REL" > "$REPO/.fable-team/seats-planner.json"
   : > "$T/panes"; printf '%s' "$NW" > "$T/cwd"; : > "$T/tlog"; : > "$LEDGER"; rm -f "$CHERRY_LOG"; rm -rf "$T/wtclean"
+  rm -f "$NW/.worktree-info.json"   # r958 r4: 기본 상태 = info 파일 없음(그 시험만 따로 만든다). 무시 파일이라 clean -fd 로 지워지지 않는다
   printf '# 인덱스: sus\n## 상태\n- 2026-10-19 진행\n- 세트: %s · 시험: bash t.sh (905 passed / 4 failed) rc=1 · 이슈: 1\n\n## 정본\n- 뒤 절\n' "$SHA0" > "$CARD"
 }
-close() { run FT_NANO_PREFIX=byz-planner-nano- FT_SEATS_JSON="$REPO/.fable-team/seats-planner.json" FT_NANO_LEDGER="$LEDGER" FT_NANO_FEAT=main \
+close() { run FT_NANO_PREFIX=byz-planner-nano- FT_SEATS_JSON="$REPO/.fable-team/seats-planner.json" FT_NANO_LEDGER="$LEDGER" FT_NANO_FEAT="$CLOSE_FEAT" \
   FT_CHERRY_OVERRIDE_LEDGER="$CHERRY_LOG" FT_INBOX_ROOT="$T/comm" FT_NANO_IDLE_MIN=0 FT_WT_CLEAN_DIR="$T/wtclean" FT_WT_AUTOCLEAN=0 bash "$T/bin/ft-nano-close.sh" "$SEAT" --result "$T/result.md" --recv 1 "$@"; }
+CLOSE_FEAT=main
 status_last() { awk '/^## 상태[[:space:]]*$/{inb=1; last=""; next} /^## /{inb=0} inb && NF{last=$0} END{print last}' "$CARD"; }
 untouched() {  # untouched <이름> — REJECT/usage 인데 명부·tmux·원장·카드가 그대로
   [ -z "$(cat "$T/tlog")" ] && ok "  └ kill·태그 해제 0" || bad "$1: tmux 변경"
@@ -133,7 +135,28 @@ rm -f "$REPO/.git/hooks/pre-commit"
 untouched "ⓒ 커밋 실패"
 [ "$(git -C "$NW" rev-parse HEAD)" = "$SHA0" ] && ok "  └ HEAD 그대로" || bad "  └ HEAD 이동"
 
-echo "== ⓔ 멱등 — 같은 세트의 중단 끝줄이 이미 있으면 다시 쓰지 않는다"
+echo "== ⓐ r958 r4 — ⑤ 비교 기준은 좌석 .worktree-info base «먼저» · env 는 base 없을 때만 · 다르면 WARN 1줄"
+# base=origin/main · env=feat/old(뒤진 가지): env 를 쓰면 ⑤ 가 feat/old 기준 REJECT 뒤 origin/main 재시도(fetch 실패)로 REJECT 된다 = rc1. base 를 쓰면 곷장 rc0.
+git -C "$REPO" branch -f feat/old main   # env 쪽 값(뒤진 가지 — 06-23 실사건 모양)
+git init -q --bare "$T/origin.git"; git -C "$REPO" remote add origin "$T/origin.git"; git -C "$REPO" push -q origin main; git -C "$REPO" fetch -q origin
+echo '.worktree-info.json' >> "$REPO/.git/info/exclude"   # 무시 — setup() 의 clean -fd 뒤에도 남고, 미커밋 검사에도 안 걸린다
+setup; printf '{"branch":"%s","base":"origin/main"}\n' "$BR" > "$NW/.worktree-info.json"
+CLOSE_FEAT=feat/old; out="$(close --suspended "$REASON")"; rc=$?; CLOSE_FEAT=main
+[ "$rc" -eq 0 ] && ok "ⓐ base(origin/main) 우선 → 닫힘 rc=0(env feat/old 로 판정했으면 ⑤ REJECT)" || bad "ⓐ rc=$rc ← ${out:0:600}"
+has "$out" "WARN 비교 기준 = 좌석 .worktree-info base(origin/main) · FT_NANO_FEAT=feat/old 무시" "  └ 조용한 선택 0 — WARN 1줄에 두 값"
+hasnt "$out" "기준 REJECT" "  └ ⑤ 가 base 하나로 판정(env 기준 재시도 0)"
+has "$out" "INFO feat=origin/main @" "  └ fetch 도 base ref(origin/main) 하나"
+[ "$(grep -c '^WARN 비교 기준' <<< "$out")" = 1 ] && ok "  └ WARN 은 정확히 1줄" || bad "  └ WARN 줄 수 $(grep -c '^WARN 비교 기준' <<< "$out")"
+setup   # .worktree-info.json 없음 → env 그대로(회귀 0)
+out="$(close --suspended "$REASON")"; rc=$?
+[ "$rc" -eq 0 ] && ok "ⓑ base 없음 → env(FT_NANO_FEAT=main) 그대로 · rc=0" || bad "ⓑ rc=$rc ← ${out:0:400}"
+hasnt "$out" "WARN 비교 기준" "  └ base 없으면 WARN 0(조용한 비교 0)"
+
+setup; printf '{"branch":"%s","base":"origin/main"}\n' "$BR" > "$NW/.worktree-info.json"
+CLOSE_FEAT=origin/main; out="$(close --suspended "$REASON")"; rc=$?; CLOSE_FEAT=main   # base == env → WARN 0
+[ "$rc" -eq 0 ] && hasnt "$out" "WARN 비교 기준" "ⓐ base 와 env 가 같으면 WARN 0 · rc=0" || bad "ⓐ 동일값 rc=$rc ← ${out:0:400}"
+
+
 setup; out="$(close --suspended "$REASON")"
 printf '{"%s":{"role":"nano","index":"%s"}}\n' "$SEAT" "$CARD_REL" > "$REPO/.fable-team/seats-planner.json"; : > "$LEDGER"
 out="$(close --suspended "$REASON")"; rc=$?

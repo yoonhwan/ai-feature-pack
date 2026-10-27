@@ -16,17 +16,12 @@ HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 cmd="${1:-}"
 case "$cmd" in shown|due|take|remind|add) ;; *) echo "usage: ft-queue.sh shown|due|take|remind|add …" >&2; exit 4 ;; esac
 # r557: «읽기만» 하는 명령(remind·due)은 큐를 origin/main 판에서 읽는다 — 틱 루트(공용 루트 체크아웃)엔 새 자리 design/teams/planner/ 가 없어 ft_planner_queue 가 옛 자리로 후퇴하면 매 틱 «큐 읽기 실패» ERROR(r545·r551 과 같은 꼴). 쓰는 명령(shown·take·add) 자리 변경 0.
-ft_queue_ref() { local ref="${FT_TEAMS_REF:-origin/main}" repo="${FT_LEDGER_REPO:-$ROOT}" c rel t
-  c="$(ft_team_cands_ref "$ROOT" planner "$ref")" || return 1; c="${c%%$'\n'*}"
-  case "$c" in "$ROOT"/*) rel="${c#"$ROOT"/}/AUTONOMY-QUEUE.md";; *) rel="${c%/}/AUTONOMY-QUEUE.md";; esac
-  t="$(mktemp "${TMPDIR:-/tmp}/ft-queue-ref.XXXXXX")" || return 1
-  if git -C "$repo" show "$ref:$rel" > "$t" 2>/dev/null && [ -s "$t" ]; then printf '%s\n' "$t"; return 0; fi
-  rm -f "$t"; echo "ERROR 오빠 큐 origin/main 판을 못 읽음: $ref:$rel" >&2; return 1; }
+#   읽기 함수 = ft-team-lib.sh ft_planner_queue_ref(r839 · ft-queue.sh 는 호출만 · 같은 이름 옛 ft_queue_ref 삭제)
 QUEUE="${FT_QUEUE_FILE:-}"; ROOT="${FT_ROOT:-}"
 if [ -z "$QUEUE" ]; then
   [ -n "$ROOT" ] || { . "$HERE/ft-harness-root.sh" && ROOT="$(ft_data_root "$HERE")"; } || { echo "ERROR 라이브 루트를 못 풂(FT_ROOT)" >&2; exit 2; }
   . "$HERE/ft-team-lib.sh" || { echo "ERROR ft-team-lib.sh 를 못 읽음" >&2; exit 2; }
-  case "$cmd" in remind|due) [ -n "${FT_PLANNER_DIR:-}" ] || { QUEUE="$(ft_queue_ref)" || exit 2; trap 'rm -f "$QUEUE"' EXIT; } ;; esac
+  case "$cmd" in remind|due) [ -n "${FT_PLANNER_DIR:-}" ] || { QUEUE="$(ft_planner_queue_ref "$ROOT")" || exit 2; trap 'rm -f "$QUEUE"' EXIT; } ;; esac
   if [ -z "$QUEUE" ]; then
     QUEUE="$(ft_planner_queue "$ROOT")" || { echo "ERROR 오빠 큐 자리를 못 풂(ft_planner_queue · FT_ROOT=$ROOT)" >&2; exit 2; }
   fi

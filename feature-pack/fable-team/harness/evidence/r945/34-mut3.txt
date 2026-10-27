@@ -1,0 +1,10 @@
+=== 변이 3
+MUT 3 — 제외 규칙(.git/info/exclude) 필터 끔
+FAIL ⓑⓑ2ⓑ3ⓒⓖⓘ 진짜 껍데기만 — sp2(d0 부재) · da2(**/*.md · d1 부재) · da3(/d1/ + ! 제외 · d1 부재) · n2(일반 최상위 2개 부재) · g1(파일 keep + 폴더 규칙) · g2(폴더 kdir + 파일 규칙) · i2(파일 keep3 + 폴더 규칙) — 없음: «껍데기 7곳(전체 7곳): da2 da3 g1 g2 i2 n2 sp2» ← [HIL] seat=byz-harness-wt-shell 반쯤 지워진 워크트리 껍데기 10곳(전체 10곳): da2 da3 g1 g2 g3 i1 i2 ig1 n2 sp2 — 처리는 오빠 값(바뀐 때만 1줄)
+FAIL ⓔ 제외 규칙에 걸린 이름(H 인데 디스크에 없음) → 껍데기 0 — 있으면 안 됨: «ig1» ← [HIL] seat=byz-harness-wt-shell 반쯤 지워진 워크트리 껍데기 10곳(전체 10곳): da2 da3 g1 g2 g3 i1 i2 ig1 n2 sp2 — 처리는 오빠 값(바뀐 때만 1줄)
+FAIL ⓖ-3 추적 «폴더» kdir2 삭제 + 폴더 규칙 kdir2/ → 껍데기 0(같은 종류 규칙) — 있으면 안 됨: «g3» ← [HIL] seat=byz-harness-wt-shell 반쯤 지워진 워크트리 껍데기 10곳(전체 10곳): da2 da3 g1 g2 g3 i1 i2 ig1 n2 sp2 — 처리는 오빠 값(바뀐 때만 1줄)
+FAIL ⓘ-1 추적 «파일» keep2 삭제 + 파일 규칙 keep2 → 껍데기 0 (r4: 파일 항목은 파일 규칙 인정) — 있으면 안 됨: «i1» ← [HIL] seat=byz-harness-wt-shell 반쯤 지워진 워크트리 껍데기 10곳(전체 10곳): da2 da3 g1 g2 g3 i1 i2 ig1 n2 sp2 — 처리는 오빠 값(바뀐 때만 1줄)
+FAIL 껍데기 줄 꼴이 달라짐 ← [HIL] seat=byz-harness-wt-shell 반쯤 지워진 워크트리 껍데기 10곳(전체 10곳): da2 da3 g1 g2 g3 i1 i2 ig1 n2 sp2 — 처리는 오빠 값(바뀐 때만 1줄)
+FAIL ⓕ core.quotePath=false 로도 같은 목록 — 경로 글자와 상관없이 판정 — 없음: «껍데기 7곳(전체 7곳): da2 da3 g1 g2 i2 n2 sp2» ← [HIL] seat=byz-harness-wt-shell 반쯤 지워진 워크트리 껍데기 10곳(전체 10곳): da2 da3 g1 g2 g3 i1 i2 ig1 n2 sp2 — 처리는 오빠 값(바뀐 때만 1줄)
+FAIL ⓒ 일반 워크트리 부재가 2개로 늘면 다시 껍데기(n1 추가) — 없음: «껍데기 8곳(전체 8곳): da2 da3 g1 g2 i2 n1 n2 sp2» ← [HIL] seat=byz-harness-wt-shell 반쯤 지워진 워크트리 껍데기 11곳(전체 11곳): da2 da3 g1 g2 g3 i1 i2 ig1 n1 n2 sp2 — 처리는 오빠 값(바뀐 때만 1줄)
+FAIL 7

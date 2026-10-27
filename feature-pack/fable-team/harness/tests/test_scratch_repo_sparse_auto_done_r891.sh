@@ -72,7 +72,7 @@ PK="$T/pack"; mkdir -p "$PK/.fable-team/state"; git init -q -b main "$PK"; print
 git -C "$PK" add -A; cm "$PK" p; PREG="$PK/.fable-team/state/scratch-repos.tsv"
 OWN=o9 sc HEAD --repo "$PK"; K9="$OUT"
 { [ $RC = 0 ] && grep -q "^$K9	o9	" "$REG" && ! grep -q "$K9" "$PREG" 2>/dev/null; } && ok "ⓖ' 다른 저장소(.fable-team 있음) 사본 = ROOT 등록부에 1줄" || bad "ⓖ' 등록부 위치 rc=$RC [$(cat "$PREG" 2>/dev/null)]"
-sc --done "$K9"; { [ $RC = 0 ] && [ ! -d "$K9" ] && ! grep -q "$K9" "$REG"; } && ok "ⓖ' ROOT --done = rc0 · 사본 0 · 등록 줄 0" || bad "ⓖ' --done rc=$RC [$OUT][$ERR]"
+OWN=o9 sc --done "$K9"; { [ $RC = 0 ] && [ ! -d "$K9" ] && ! grep -q "$K9" "$REG"; } && ok "ⓖ' ROOT --done = rc0 · 사본 0 · 등록 줄 0" || bad "ⓖ' --done rc=$RC [$OUT][$ERR]"   # r897 r10: --done 은 «주인 자신» 만(등록 주인 o9 = 실행 주인 o9)
 
 # 대역 git·rm(r7): 호출을 적어 두고 FG_MODE 대로 실패시킨다 — addfail = worktree add 가 그 자리에 폴더(premade)만 남기고 rc128 ·
 #   cofail = sparse 뒤 «checkout -q» rc1 · killset = sparse-checkout set 를 마친 직후 부모(ft-scratch-repo)를 TERM 으로 끊음

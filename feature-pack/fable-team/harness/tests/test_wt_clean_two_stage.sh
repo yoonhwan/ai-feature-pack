@@ -3,8 +3,10 @@
 #   ⓐ상한 초과가 정리 단계에서 나도 원래 경로 껍데기 0(이름 바뀐 .deleting-<ts> 만) ⓑ.deleting-* 는 다음 sweep 이 이어서 정리(+연속 실패 HIL)
 #   ⓒ작업 트리에서만 지워진 줄만 남은 껍데기 = 가드 5번 건너뛰고 정리만 · 진짜 미커밋 = 기존 그대로 HIL ⓓ계획 머리 plan-ver ≠ 라이브 생성기 = 실행 거부
 #   ⓔ껍데기 경보는 바뀐 때만 ⓕ브랜치 삭제 0 · 변이 2: move 단계 제거 → ⓐ 실패 · plan-ver 대조 제거 → ⓓ 실패.
+#   FT_TEST_ONLY=<칸> 이면 «그 칸만» 돈다(하드 룰 22 · 공용 함수 tests/lib/test_only.sh). 칸 = ⓐⓑⓒⓓⓔⓕⓖ · 변이1·변이2·변이3 · 부속 칸 = 준비(bash -n)·위생. 비었으면 전부 돈다(기존 동작 그대로).
 # 임시 git 리포 + 임시 워크트리(파일 천 개대 픽스처) + 가짜 tmux·baton(지연·실패 주입) 만 쓴다 — 실 리포·워크트리·baton·tmux·mbox 0.
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/test_only.sh"   # r1026: FT_TEST_ONLY=<칸> 이면 «그 칸만» · 비었으면 전부(하드 룰 22)
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
@@ -16,7 +18,7 @@ bad() { echo "FAIL $1"; fail=$((fail+1)); }
 has()  { case "$1" in *"$2"*) ok "$3";; *) bad "$3 — 없음: «$2» ← ${1:0:400}";; esac; }
 hasnt(){ case "$1" in *"$2"*) bad "$3 — 있으면 안 됨: «$2»";; *) ok "$3";; esac; }
 
-bash -n "$SRC/ft-nano-close.sh" && bash -n "$SRC/ft-wt-sweep.sh" && ok "bash -n 2종" || bad "bash -n"
+ft_only 준비 && { bash -n "$SRC/ft-nano-close.sh" && bash -n "$SRC/ft-wt-sweep.sh" && ok "bash -n 2종" || bad "bash -n"; }   # r1026: 단일 칸 실행이 «그 칸만» 이 되도록 부속 칸(준비·위생)으로 감싼다
 
 mkdir -p "$T/bin" "$T/fake" "$T/hil"
 cp "$SRC/ft-nano-close.sh" "$SRC/ft-wt-sweep.sh" "$SRC/ft-nano-evidence-check.sh" "$SRC/ft-hil.sh" "$T/bin/"
@@ -62,6 +64,17 @@ swp() { ( cd "$T" && env -i HOME="$HOME" PATH="$T/fake:$PATH" BATON_BIN="$T/fake
   HIL_DIR="$T/hil" HIL_CLIP=0 FT_SHEET_ROOT="$FT_SHEET_ROOT" "$@" bash "${SWEEPX:-$T/bin/ft-wt-sweep.sh}" 2>&1 ); }
 gone() { local i; for i in $(seq 1 80); do [ ! -e "$1" ] && return 0; sleep 0.5; done; return 1; }
 deleting_dirs() { ls -d "$NW".deleting-* 2>/dev/null; }
+# 변이 1 이 띄운 느린 baton(8초)이 끝날 때까지 폴링 — 고정 sleep 9 대체(하드 룰 22 · 0.25초 간격 · 상한 9초). 상한을 넘으면 bad 1줄, 조용한 통과 0.
+wait_slow_baton() {
+  local i pid
+  for i in $(seq 1 36); do
+    pid="$(cat "$PTR.pid" 2>/dev/null)"
+    { [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; } || pgrep -f "$T/fake/baton" >/dev/null 2>&1 || return 0
+    sleep 0.25
+  done
+  bad "느린 baton(8초)이 9초 안에 안 끝남 — 다음 칸이 오염될 수 있음"
+  return 1
+}
 
 # fresh — 파일 천 개대 워크트리(최상위 dir 15 + file 4) 커밋 → close(FT_WT_AUTOCLEAN=0)로 계획 생성. GEN=생성기 경로(변이용).
 fresh() {
@@ -93,6 +106,7 @@ axis_a() {
   return 0
 }
 
+ft_only ⓐ && {
 echo "== ⓐ 상한 초과(baton 8s > 계획 상한 4s)에도 원래 경로 껍데기 0 · 이름 바뀐 .deleting-<ts> 만"
 fresh && {
   grep -qE '^# plan-ver: [0-9a-f]{40}$' "$PLAN" && ok "  └ 계획 머리 # plan-ver: <40hex>" || bad "계획 머리에 plan-ver 없음"
@@ -105,7 +119,9 @@ fresh && {
   tip_unmoved && ok "ⓕ 브랜치 tip 그대로(삭제 0)" || bad "ⓕ 브랜치 tip 이 움직임"
   GIT rev-parse --verify -q "refs/heads/$BR" >/dev/null && ok "ⓕ 브랜치 $BR 실재" || bad "ⓕ 브랜치가 사라짐"
 }
+}
 
+ft_only ⓑ && {
 echo "== ⓑ 이어정리 — 분리 정리가 실패/중단된 .deleting-<ts> 를 다음 sweep 이 이어서 지운다"
 fresh && {
   baton_fail; b1="$(GRACEX=60 swp)"   # 방금 만든 포인터는 이어정리 대상 아님(유예 60s) — 계획이 건 분리 정리와 겹쳐 실패 횟수가 2 가 되는 것을 막는다
@@ -130,7 +146,9 @@ fresh && {
   bash "$T/bin/ft-wt-sweep.sh" --finish "$T/p.deleting" >/dev/null 2>&1; rc=$?
   [ "$rc" -eq 1 ] && [ -f "$T/keep/x" ] && ok "  └ 이름 안전장치: .deleting-<ts> 아닌 경로 삭제 거부(rc=1)" || bad "이름 안전장치 실패 rc=$rc"
 }
+}
 
+ft_only ⓒ && {
 echo "== ⓒ 껍데기 인식 — ' D' 만 남은(info 도 사라진) 워크트리는 가드 5번 건너뛰고 정리만 · 진짜 미커밋은 기존 그대로 HIL"
 fresh && { rm -rf "$NW"/d0 "$NW"/d1 "$NW"/d2 "$NW/.worktree-info.json"
   has "$(git -C "$NW" status --porcelain | head -1)" " D " "  └ 전제: 작업 트리에서만 지워진 줄(' D')"
@@ -146,6 +164,7 @@ fresh && { rm -rf "$NW"/d0 "$NW"/d1; echo changed >> "$NW/f1"
 fresh && { rm -rf "$NW"/d0 "$NW"/d1 "$NW/.worktree-info.json"; echo new > "$NW/untracked.txt"
   c4="$(swp)"; has "$c4" "[HIL] seat=$SEAT" "ⓒ ' D' + 새 파일('??') + info 없음 → HIL"
   [ -d "$NW" ] && ok "  └ 워크트리 그대로" || bad "워크트리가 사라짐"; }
+}
 
 # ⓓ 축 검사 함수 — 생성기가 계획 생성 뒤 달라졌으면 옛 계획은 실행 거부(r535: 같은 좌석·WT 로 재생성 → 새 계획만 실행 · 옛 계획 .replanned). 0 = 충족.
 axis_d() {
@@ -160,6 +179,7 @@ axis_d() {
   grep -qx "# plan-ver: $lv" "$PLAN.done" 2>/dev/null || { d_why="새 계획(plan-ver=라이브)이 실행되지 않음"; return 1; }
   return 0
 }
+ft_only ⓓ && {
 echo "== ⓓ 계획 plan-ver ≠ 라이브 생성기 = 옛 계획 실행 거부 → 재생성(r535)"
 fresh && {
   if axis_d; then ok "ⓓ 생성기가 달라진 뒤 sweep → REPLAN 1줄 · 옛 계획 .replanned · 새 계획만 실행"; else bad "ⓓ $d_why"; fi
@@ -175,25 +195,31 @@ fresh && { printf '{"branch":"feat/x"}\n' > "$NW/.worktree-info.json"; printf '\
 fresh && { e2="$(swp)"; has "$e2" "OK   $SEAT wt=cleaned" "ⓓ 생성기 그대로면 정상 실행"; gone "$PTR"; hasnt "$e2" "STALE" "  └ STALE 0"; }
 mkdir -p "$T/stub"; printf 'echo cleaned\n' > "$T/stub/x#0.sh"
 e3="$(DIRX="$T/stub" swp)"; has "$e3" "OK   x#0 wt=cleaned" "ⓓ 생성기 계획이 아닌 스텁 계획은 plan-ver 대상 아님(기존 시험 호환)"
+}
 
+ft_only ⓔ && {
 echo "== ⓔ 껍데기 경보 — 바뀐 때만 1줄"
 rm -rf "$NW" "$NW".deleting-* "$T"/wtclean/* 2>/dev/null; GIT worktree prune
 mkdir -p "$T/scan"
 mkshell() { GIT worktree add -q "$REPO/.worktrees/$1" -b "shell-$1"; local d; for d in 0 1 2 3 4 5; do mkdir -p "$REPO/.worktrees/$1/d$d"; echo x > "$REPO/.worktrees/$1/d$d/x"; done; git -C "$REPO/.worktrees/$1" add -A; git -C "$REPO/.worktrees/$1" -c user.email=t@t -c user.name=t commit -q -m w; }
 mkshell sa; mkshell ok1
 rm -rf "$REPO/.worktrees/sa"/d0 "$REPO/.worktrees/sa"/d1
-scan() { DIRX="$T/scan" swp FT_WT_SCAN_ROOT="$REPO" FT_WT_SHELL_SCAN_SEC=0; }
+echo /elsewhere > "$T/pane-cwds-scan"   # r832: pane 목록을 읽어야 경보가 나간다 — 껍데기 폴더와 무관한 pane 1개
+scan() { DIRX="$T/scan" swp FT_WT_SCAN_ROOT="$REPO" FT_WT_SHELL_SCAN_SEC=0 FAKE_PANE_CWDS="$T/pane-cwds-scan"; }
 s1="$(scan)"; has "$s1" "[HIL] seat=byz-harness-wt-shell 반쯤 지워진 워크트리 껍데기 1곳(전체 1곳): sa" "ⓔ 껍데기 1곳 → [HIL] 1줄(sa · 팀 미상 = harness · r444)"; hasnt "$s1" "ok1" "  └ 멀쩡한 워크트리(ok1)는 안 셈"
 s2="$(scan)"; hasnt "$s2" "[HIL] 반쯤" "ⓔ 그대로면 두 번째 sweep 은 경보 0"
 mkshell sb; rm -rf "$REPO/.worktrees/sb"/d2 "$REPO/.worktrees/sb"/d3
 s3="$(scan)"; has "$s3" "껍데기 2곳(전체 2곳): sa sb" "ⓔ 목록이 바뀌면(2곳) 다시 1줄"
 s4="$(scan)"; hasnt "$s4" "[HIL] 반쯤" "  └ 바뀐 뒤 그대로면 다시 0"
-s5="$(DIRX="$T/scan" swp FT_WT_SCAN_ROOT="$REPO" FT_WT_SHELL_SCAN_SEC=3600)"; hasnt "$s5" "[HIL] 반쯤" "  └ 스캔 간격 안(3600s)에선 훑지도 않음"
+s5="$(DIRX="$T/scan" swp FT_WT_SCAN_ROOT="$REPO" FT_WT_SHELL_SCAN_SEC=3600 FAKE_PANE_CWDS="$T/pane-cwds-scan")"; hasnt "$s5" "[HIL] 반쯤" "  └ 스캔 간격 안(3600s)에선 훑지도 않음"
 [ -d "$REPO/.worktrees/sa" ] && [ -d "$REPO/.worktrees/sb" ] && ok "  └ 경보는 읽기만 — 껍데기 손 0" || bad "경보가 껍데기를 건드림"
+}
 
+ft_only ⓕ && {
 echo "== ⓕ 브랜치 삭제 코드 0"
 grep -nE 'branch +-[dD]|update-ref +-d' "$SRC/ft-wt-sweep.sh" >/dev/null && bad "sweep 에 브랜치 삭제 코드" || ok "ⓕ sweep 에 브랜치 삭제 코드 0"
 sed -n '/^# ★r166 2단 정리★/,/^mark "\$res"/p' "$SRC/ft-nano-close.sh" | grep -qE 'branch +-[dD]|update-ref +-d' && bad "계획 2단 블록에 브랜치 삭제 코드" || ok "ⓕ 계획 2단 블록에 브랜치 삭제 코드 0"
+}
 
 # ⓖ 보관 tar 없는 삭제 0 (DA⑥ H1) — 가짜 baton 은 성공 때 tar·INDEX 행을 «실제로 만든다»(baton archive 와 같은 꼴: <루트>/.baton/archive/INDEX.jsonl · <id>.tar.gz)
 baton_tar() { printf '#!/usr/bin/env bash\nA="%s/.baton/archive"; mkdir -p "$A"; echo hello > "$A/.seed"; id="arch_$$"; tar czf "$A/$id.tar.gz" -C "$A" .seed\nprintf '"'"'{"id":"%%s","worktree":"%%s"}\\n'"'"' "$id" "$2" >> "$A/INDEX.jsonl"\ngit -C "%s" worktree remove --force "$2"\n' "$REPO" "$REPO" > "$T/fake/baton"; chmod +x "$T/fake/baton"; }
@@ -212,6 +238,7 @@ axis_g() {
   [ -d "$G1" ] && [ -f "$G1/d5/f1.txt" ] && [ -f "$PTR" ] || { g_why="보관 tar 없이 지워짐(.deleting/파일/포인터 소실)"; return 1; }
   return 0
 }
+ft_only ⓖ && {
 echo "== ⓖ 보관 tar 없는 삭제 0 — 잔여 삭제는 검증된 tar 가 있을 때만(marker 무관)"
 fresh && {
   if axis_g; then ok "ⓖ①② marker 없음·tar 없음 + 보관 실패 → 삭제 0 · 원래 경로 없음 · .deleting·포인터·파일 유지 · 다음 sweep 재시도"; else bad "ⓖ①② $g_why"; fi
@@ -232,25 +259,35 @@ fresh && {
   has "$(cat "$REPO/.baton/archive/INDEX.jsonl" 2>/dev/null)" ".deleting-" "ⓖ④ INDEX 행이 이름 바뀐 경로를 가리킴"
   baton_ok
 }
+}
 
-echo "== 변이 시험 — 검사가 정말 결함을 잡는가"
+{ ft_only 변이1 || ft_only 변이2 || ft_only 변이3; } && echo "== 변이 시험 — 검사가 정말 결함을 잡는가"
+ft_only 변이1 && {
 # 변이 1: move 단계 제거 → ⓐ 실패해야 한다
 sed '/worktree move "\$WT" "\$DEL"/d' "$SRC/ft-nano-close.sh" > "$T/mut-close.sh"; chmod +x "$T/mut-close.sh"; cp "$T/mut-close.sh" "$T/bin/ft-nano-close-mut.sh"
 cmp -s "$T/mut-close.sh" "$SRC/ft-nano-close.sh" && bad "변이 1 이 생성기를 안 바꿈" || ok "변이 1 적용(move 줄 제거)"
 GEN="$T/bin/ft-nano-close-mut.sh" fresh && { if axis_a; then bad "변이 1(move 제거) 인데 ⓐ 가 통과 — 검사가 못 잡음"; else ok "변이 1(move 제거) → ⓐ 실패 검출: $a_why"; fi; }
-sleep 9; rm -rf "$NW" "$NW".deleting-*; GIT worktree prune
+wait_slow_baton; rm -rf "$NW" "$NW".deleting-*; GIT worktree prune
+}
+ft_only 변이2 && {
 # 변이 2: plan-ver 대조 제거 → ⓓ 실패해야 한다
 sed 's/^plan_ver_check() {$/plan_ver_check() { return 0;/' "$SRC/ft-wt-sweep.sh" > "$T/bin/ft-wt-sweep-mut.sh"
 cmp -s "$T/bin/ft-wt-sweep-mut.sh" "$SRC/ft-wt-sweep.sh" && bad "변이 2 가 sweep 을 안 바꿈" || ok "변이 2 적용(plan-ver 대조 무력화)"
 fresh && { SWEEPX="$T/bin/ft-wt-sweep-mut.sh"; if axis_d; then bad "변이 2(plan-ver 대조 제거) 인데 ⓓ 가 통과 — 검사가 못 잡음"; else ok "변이 2(plan-ver 대조 제거) → ⓓ 실패 검출: $d_why"; fi; unset SWEEPX; }
+}
 
+ft_only 변이3 && {
 # 변이 3: tar 실재 검사 제거 → ⓖ①② 실패해야 한다(마커 없는 껍데기를 tar 없이 지워 버린다)
 sed 's/^has_tar() {$/has_tar() { return 0;/' "$SRC/ft-wt-sweep.sh" > "$T/bin/ft-wt-sweep-mut3.sh"
 cmp -s "$T/bin/ft-wt-sweep-mut3.sh" "$SRC/ft-wt-sweep.sh" && bad "변이 3 이 sweep 을 안 바꿈" || ok "변이 3 적용(tar 실재 검사 무력화)"
 fresh && { SWEEPX="$T/bin/ft-wt-sweep-mut3.sh"; if axis_g; then bad "변이 3(tar 검사 제거) 인데 ⓖ 가 통과 — 검사가 못 잡음"; else ok "변이 3(tar 검사 제거) → ⓖ 실패 검출: $g_why"; fi; unset SWEEPX; }
+}
 
+ft_only 위생 && {
 echo "== 위생 — 공용 .git 설정 불변"
 [ "$(git -C "$HERE/../.." config --get core.bare)" = false ] && ok "core.bare=false" || bad "core.bare 이상"
+}
 
 echo
+ft_only_report || fail=$((fail+1))   # r1026: FT_TEST_ONLY 오타로 «0 FAIL = 통과» 가 되는 길 차단
 [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }

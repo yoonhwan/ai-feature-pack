@@ -1,0 +1,14 @@
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.qnT5OPCpmj/bin
+WARN ④checkpoint 면제 — 나노 브랜치에 press 산출 0(poller_dom.jsonl 없음)
+STEP ⑥증거검사 +1s
+OK 증거 줄 — 세트 HEAD 131408fb8 · 시험 rc=0 · 이슈 0
+STEP ⑤cherry +1s
+
+STEP sheet +91s
+STEP ledger +91s
+워크트리 정리 계획: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.qnT5OPCpmj/wtclean/byz-planner-nano-ns#0.sh (실행은 세션 kill 직후 — 미완이면 ft-wt-sweep.sh)
+reap byz-planner-nano-ns#0 stopped=0 left=0 rc=0
+CLOSED byz-planner-nano-ns#0 (명부 삭제 · 원장 append) — 좌석은 정지 레디 · reap left=0 rc=0
+STEP slots +91s
+SLOTS
+KILLED byz-planner-nano-ns#0 (@zc_v65_active 해제 · 세션 kill · 브랜치 보존)

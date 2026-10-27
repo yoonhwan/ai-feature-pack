@@ -195,6 +195,13 @@ if [ "${FT_TEAMSET:-1}" != 0 ]; then
       echo "WARN 팀셋 측정 실패(rc=$_tsrc) — 진행(r921: 정지는 디스크 하한·디스크 측정 실패 둘뿐)" >&2;;
   esac
 fi
+# ★카드 흐름 경보 (r954 · 오빠 10-26 «쌓이니까 하루를 다써도 완성이 안되지»)★: 진행 카드 > 일하는 좌석 + 2 또는 착지됐는데 진행인 카드가 있으면 `WARN 카드 흐름 … 이동 먼저: <카드>` 1줄을 내고 «계속» 연다 — rc·개설 불변(개발은 멈추지 않는다 · 읽기 전용 계산).
+_cft="$(printf '%s' "${FT_NANO_PREFIX:-}" | sed -n 's/^byz-\([a-z0-9]*\)-nano-$/\1/p')"
+[ -n "$_cft" ] || _cft="$(printf '%s' "$IDX" | sed -n 's|.*design/\(teams/\)\{0,1\}\([a-z0-9_-]*\)/indices/.*|\2|p')"
+if [ "${FT_CARD_FLOW:-1}" != 0 ] && [ -n "$_cft" ]; then
+  if [ -f "$HERE/ft-card-flow.sh" ]; then bash "$HERE/ft-card-flow.sh" --team "$_cft" --root "$ROOT" --warn >&2 || true
+  else echo "WARN 카드 흐름 경보 못 냄 — ft-card-flow.sh 없음: $HERE" >&2; fi
+fi
 # ★라이브 bin 드리프트 입구 검사 (카드 live-bin-drift-check · Issue 816 ③)★: 설치 꼴(*/.fable-team/bin)에서 돌 때만 — 라이브 도구가 origin/main 키트와 다르면 열지 않는다(--dry-run 도 같다).
 #   검사 스크립트가 없는 것도 드리프트(설치 누락) · 우회 스위치 없음 — 해결은 master 라이브 cp.
 case "$HERE" in
@@ -438,7 +445,7 @@ echo "PLAN seat=$NAME agent=$AGENT model=$MODEL$_VIA${TIER:+ tier=$TIER}${FAST:+
 _SPX=" ★광역 pytest 금지 — 이 워크트리는 sparse(다른 팀 design 없음 · r444) · 자기 카드 시험만 · 광역·다른 팀 자료 시험은 ft-scratch-repo.sh <base> 사본에서 · 도구는 SPARSE-HIDDEN <경로> 로 말한다(r486)★"
 echo "BODY+${_SPX}"
 # r570: 나노가 리포 전체를 grep -r 로 훑어 부하를 올리고(v65 press 첫 원문 오염) 공용 명부에 자기 행을 손으로 넣던 사고(쪽지 반송) — 첫 발주문 고정 줄 1개. 에이전트 분기 0(claude·pi·opencode·codex 같은 줄).
-_SRX=" ★저장소 전체 검색 금지 — grep -r · git log --all -S · find / 를 리포 루트·홈에서 돌리지 않는다(부하 40 → 다른 팀 press 오염 · r570) · 카드 §구현 범위 경로나 자기 워크트리 폴더를 지정해 찾는다 · 코드 심볼 찾기는 serena 도구(find_symbol · get_symbols_overview · search_for_pattern) 먼저(r556) · 명부(seats.json · seats-<팀>.json)는 손대지 않는다(spawn 이 이미 등록 · 손 행 = 쪽지 반송)★"
+_SRX=" ★저장소 전체 검색 금지 — grep -r · git log --all -S · find / 를 리포 루트·홈에서 돌리지 않는다(부하 40 → 다른 팀 press 오염 · r570) · 카드 §구현 범위 경로나 자기 워크트리 폴더를 지정해 찾는다 · 코드 찾기·바꾸기는 \`ci sym/refs/outline/search\`(스코프 = 카드 §구현 범위 폴더 · 리포 루트 scope 금지) · grep 은 로그·결과·명부만 · ci 가 없으면 rg+Read 로 진행하고 1줄 보고(하드 룰 16 · r1025) · 명부(seats.json · seats-<팀>.json)는 손대지 않는다(spawn 이 이미 등록 · 손 행 = 쪽지 반송)★"
 echo "BODY+${_SRX}"
 # r519: 하네스 카드(머리 `- 설치: 있음`) 나노는 팩 리포에 따로 작업 폴더를 만든다 — 자리를 발주문 1줄로 정한다.
 #   세션 스크래치에 만들면 nano-close --wt 팩 모드(r508 · 팩 .worktrees/ 아래만)가 거절한다(r517 실사건) · 그 밖 카드 = 출력 0
@@ -505,16 +512,64 @@ link_web_node_modules() {
 }
 
 # ② 워크트리 — 이미 있으면 재사용(재발주), 없으면 기준 브랜치에서 분기
-# r444 ⑤ sparse — 남의 팀 폴더(design/teams/<남>/)는 체크아웃하지 않는다(나노 1개 1.5Gi 중 design 1.34Gi). 자기 팀 폴더는 통째(증거 폴더를 빼면 새 증거 `git add` 가 rc1 — 실측).
+# r444 ⑤ sparse — 남의 팀 폴더(design/teams/<남>/)는 체크아웃하지 않는다(나노 1개 1.5Gi 중 design 1.34Gi).
 #   팀을 못 정하면(카드 경로가 design/(teams/)<팀>/indices 꼴 아님) 전체 체크아웃 · FT_NANO_SPARSE=0 이면 끔 · 되돌림: git -C <워크트리> sparse-checkout disable
-sparse_patterns() { printf '/*\n!/design/teams/*/\n/design/teams/%s/\n' "$1"; }
+# r879 r3 자기 팀 폴더 안에서는 «미디어 확장자»만 뺀다(v65 822M 중 656M) — 글자 파일(md·txt·json)은 작아 남긴다 · fixtures/ 는 통째 · 자기 카드 증거 evidence/<slug>/ 는 맨 뒤에서 통째(나중 줄이 이김).
+#   카드 본문 글자에서 허용 경로를 뽑지 않는다(DA⑥ r1·r2 반례 = 자유 글자 파싱이 공백·괄호·«...» 에서 샜다). $2 는 옛 호출 꼴 호환용으로만 받는다.
+# r879 r3b(REWORK-r879-r3b): 큰 글자 몫도 뺀다 — `result.json`(press 결과 13~30M)·`*.jsonl`(대소문자 두 벌). 자기 카드 stem 허용 줄은 그대로 맨 뒤.
+# r879 r4(DA⑥ r3 HOLD 2 · REWORK-r879-r4): 패턴 «글자 꼴» 을 손으로 쓰지 않는다 — 함수 하나가 만든다. (r5 에서 이 글자 조립 자체를 버렸다 — 아래 r5 주석)
+#   r4 의 ①확장자 대소문자 묶음 · ②«폴더 전용» 되살림 줄은 r5 가 지웠다(실재 파일만 제외하므로 폴더 오인이 없다).
+# r879 r5(REWORK-r879-r5 · 하드 룰 14 보류 3회 재설계): 제외 규칙을 «손글자 glob» 으로 조립하지 않는다 —
+#   git 이 아는 «실재 파일 이름 그대로»(literal) 1줄씩 적는다. 글자 규칙은 git 의 매칭 규칙(폴더/파일 · 대소문자 ·
+#   되살림 순서)에 기대므로 입력 꼴마다 새 반례가 났다(r3 두 꼴 · r4 두 꼴). 실재 이름이면 기댈 규칙이 없다.
+#   경로 출처 = `git ls-tree -r <BASE_BRANCH>` = 그 워크트리에 «실제로 체크아웃될 파일» 그대로.
+#   ★`ls-files` 를 쓰지 않는 이유(실측 2026-10-27)★ ①`worktree add --no-checkout` 직후 그 워크트리 index 는 비어 있다
+#     (ls-files 0줄) ②`$ROOT` 의 index 는 ROOT 가 «체크아웃한 가지»의 것이라 BASE_BRANCH 와 다르다(실측: base 에만
+#     있는 파일이 빠졌다). 트리(commit)에서 뜨면 두 경우가 다 없다.
+#   판정 = python 이 실재 «이름» 의 확장자를 소문자로 비교(폴더는 대상 아님 — 이름이 .wav 로 끝나는 폴더도 그 안 글자는 IN)
+#     · `result.json` · 끝 `.jsonl` 도 같은 자리에서 본다.
+#   이스케이프 1규칙(gitignore): `\` `!` `*` `?` `[` `]` `#` 앞에 `\` · 공백은 `\ `.
+# r879 r6(DA⑥ r4 반례 · REWORK-r879-r6): 이름 안 «제어 문자»(개행·탭·CR 등)는 그 글자 하나를 `?` 한 글자로 적는다.
+#   규칙 파일이 «줄 단위»라 개행을 literal 로 적을 수 없다 — 그대로 내보내면 `…/other/line` + `break.wav` 두 줄이 되어
+#   첫 줄이 `line/` 폴더를 통째 제외한다(DA 원문 반례). `?` 는 그 자리 한 글자만 대신하므로 폴더를 건드리지 않는다.
+#   (계약 아님 · 실측) 같은 폴더에 그 자리만 다른 이름의 «다른 미디어 파일» 이 있으면 함께 제외될 수 있다.
+#   새 파일(트리에 없는 것)은 제외 줄에 없다 — 나노 자기 산출은 그대로 add rc0(계약 ③).
+SPARSE_EXTS="wav mp3 m4a flac ogg mp4 webm mov png jpg jpeg gif zip tar gz tgz"
+sparse_exclude_lines() {  # $1=팀 $2=base ref → 제외 줄('!/<실재 경로>') 1줄씩 · NUL 로 받아 NUL 로 내보낸다
+  git -C "$ROOT" --literal-pathspecs ls-tree -r -z --name-only "$2" -- "design/teams/$1" \
+    | python3 -c 'import sys
+exts = set(sys.argv[1].split())
+raw = sys.stdin.buffer.read().decode("utf-8", "surrogateescape")
+for p in raw.split("\0"):
+    if not p:
+        continue
+    name = p.rsplit("/", 1)[-1].lower()
+    if not (name == "result.json" or name.endswith(".jsonl") or any(name.endswith("." + e) for e in exts)):
+        continue
+    out = []
+    for ch in p:
+        if ord(ch) < 0x20 or ord(ch) == 0x7f:
+            out.append("?")
+            continue
+        if ch in "\\!*?[]#" or ch == " ":
+            out.append("\\" + ch)
+        else:
+            out.append(ch)
+    sys.stdout.write("!/" + "".join(out) + "\0")' "$SPARSE_EXTS"
+}
+sparse_patterns() {  # $1=팀 $2=base ref $3=카드 슬러그 — 머리 3줄 → 제외 N줄(실재 파일) → 되살림 2줄(뒤 줄이 이김)
+  printf '/*\n!/design/teams/*/\n/design/teams/%s/\n' "$1"
+  sparse_exclude_lines "$1" "$2" | tr '\0' '\n'
+  printf '/design/teams/%s/**/fixtures/**\n' "$1"
+  [ -z "${3:-}" ] || printf '/design/teams/%s/evidence/%s/**\n' "$1" "$3"
+}
 if [ ! -d "$WTDIR" ]; then
   _SPT="$(printf '%s' "$IDX_ABS" | sed -nE 's#.*/design/(teams/)?([a-z0-9][a-z0-9_-]*)/indices/.*#\2#p')"   # 카드가 다른 워크트리(절대경로)에 있어도 팀을 푼다
   if [ "${FT_NANO_SPARSE:-1}" = 1 ] && [ -n "$_SPT" ]; then
     git -C "$ROOT" worktree add --no-checkout "$WTDIR" -b "$BRANCH" "$BASE_BRANCH" >/dev/null || { echo "REJECT worktree add 실패"; exit 1; }
-    sparse_patterns "$_SPT" | git -C "$WTDIR" sparse-checkout set --no-cone --stdin >/dev/null 2>&1 && git -C "$WTDIR" checkout -q 2>/dev/null \
+    sparse_patterns "$_SPT" "$BASE_BRANCH" "$SLUG" | git -C "$WTDIR" sparse-checkout set --no-cone --stdin >/dev/null 2>&1 && git -C "$WTDIR" checkout -q 2>/dev/null \
       || { echo "REJECT sparse 체크아웃 실패($WTDIR · 브랜치 $BRANCH · 워크트리는 남김 — 사람 판정)"; exit 1; }
-    echo "SPARSE team=$_SPT 남의 팀 design 제외 (되돌림: git -C $WTDIR sparse-checkout disable)"
+    echo "SPARSE team=$_SPT 남의 팀 design·자기 팀 안 미디어(wav·mp4·png·zip 등)·큰 글자(result.json·jsonl) 제외 · 글자 파일은 남김 · 새 증거 = design/teams/$_SPT/evidence/$SLUG/ (다른 미디어가 필요하면 git sparse-checkout add <경로> · 되돌림: git -C $WTDIR sparse-checkout disable)"
   else
     git -C "$ROOT" worktree add "$WTDIR" -b "$BRANCH" "$BASE_BRANCH" >/dev/null || { echo "REJECT worktree add 실패"; exit 1; }
   fi
@@ -617,9 +672,29 @@ bash "$HERE/ft-sheet-events.sh" commit "$_SK" >/dev/null || true   # 좌석 열�
 # ⑦⑧ 첫 발주 = 인덱스 경로 한 줄 + README. 본문은 파일에 있다. 도달은 jsonl 층(ft-send-verified)
 if [ -n "${FT_SEATBELT_README:-}" ]; then _SBR="$WT/$FT_SEATBELT_README"   # R406: 기본값 = 명단 ref(FT_TEAMS_REF · 기본 origin/main) 의 v65 폴더 꼴·쌍둥이 중 WT 에 실재하는 1개
 else _SBR="$(ft_team_file_ref "$WT" v65 SEATBELT-README.md)" || { echo "REJECT v65 팀 폴더를 못 풀었다(명단 ${FT_TEAMS_REF:-origin/main}:design/TEAMS.md · 후보 실재 1개) — SEATBELT-README 경로 없음"; exit 1; }; fi
-BODY="[Seatbelt 발주] 네 인덱스: $WT/$NEW_IDX — 먼저 $_SBR §2 부팅 5단계(첫 보고까지), 그 다음 인덱스 §구현 범위만. 커밋은 브랜치 $BRANCH, push 금지. 산출 경로를 mbox 로 $FROM 에. ★press(라이브 오디오 시험) 금지 — 나노는 쏘지 않는다(ft-press-gate ⑦ 이 tester·checker 좌석만 허가 · 오빠 10-07) · 시험은 단위·캡처·기존 로그만, press 가 필요하면 산출에 「press 필요: <무엇을 볼지>」 1줄로 적어 $FROM 에 넘긴다★ ★측정 조작 금지(오빠 절대지침) — 임의 Redis 쓰기(redis-cli SET·HSET·XADD·PUBLISH 등 제품 키 직접 주입)·말풍선 DOM 주입(재생 하네스·/dev/bubble-replay·appendChild)으로 만든 결과는 증거 아님 · 측정은 trusted 클릭 + 기존 e2e 러너의 실제 음성 경로만 · 격리 Redis 픽스처 시험은 별개 · 이미 썼으면 [HIL] 로 올림 (BOOT 20)★ ★Serena 는 읽기만(find_symbol·search_for_pattern) — Serena 편집 도구(replace_*·insert_*·rename_*) 금지 · 편집은 Edit 절대경로($WTDIR/…)만★(Serena 서버 1개를 전 좌석이 공유해 활성 프로젝트가 전역 — 10-02 타 워크트리 편집 4회 · 오빠 판정). ★읽기는 Read/Serena, Bash 는 실행(git·pytest·ruff·mbox)만★ — cat/sed -n/grep 으로 파일을 읽으면 전문이 컨텍스트에 쌓인다(2026-09-14 나노 16좌석 실측: Bash 100~156회 중 절반이 파일 읽기). ★증거 줄(세트: … · 시험: … rc=… · 이슈: …)은 완료 턴에 네가 인덱스 «상태» 절에 직접 쓴다($WT/$NEW_IDX 절대경로 Edit) — master 는 커밋만(판정 1125)★ 증거 줄 템플릿(그대로 복사해 <> 만 채움): 세트: <나노 HEAD 40자> · 시험: <명령 — «(N passed)» 같은 꼬리는 여기> rc=<n> · 이슈: 0 — rc= 바로 뒤는 « · 이슈:» — 괄호·설명은 rc= 앞에. ★팀 구조: 각 팀 = master(집행) + arch(설계·발주·DA 소환) + DA(반박 게이트) 상시 · 실제 작업은 전부 나노(카드 1장 = 나노 1석) · master·arch·DA 는 코드·시안·카드 증거 줄을 쓰지 않는다★${_SPX}${_SRX}$_PKX${_EBN}"
+BODY="[Seatbelt 발주] 네 인덱스: $WT/$NEW_IDX — 먼저 $_SBR §2 부팅 5단계(첫 보고까지), 그 다음 인덱스 §구현 범위만. 커밋은 브랜치 $BRANCH, push 금지. 산출 경로를 mbox 로 $FROM 에. ★press(라이브 오디오 시험) 금지 — 나노는 쏘지 않는다(ft-press-gate ⑦ 이 tester·checker 좌석만 허가 · 오빠 10-07) · 시험은 단위·캡처·기존 로그만, press 가 필요하면 산출에 「press 필요: <무엇을 볼지>」 1줄로 적어 $FROM 에 넘긴다★ ★측정 조작 금지(오빠 절대지침) — 임의 Redis 쓰기(redis-cli SET·HSET·XADD·PUBLISH 등 제품 키 직접 주입)·말풍선 DOM 주입(재생 하네스·/dev/bubble-replay·appendChild)으로 만든 결과는 증거 아님 · 측정은 trusted 클릭 + 기존 e2e 러너의 실제 음성 경로만 · 격리 Redis 픽스처 시험은 별개 · 이미 썼으면 [HIL] 로 올림 (BOOT 20)★ ★편집은 Edit 절대경로($WTDIR/…)만★ ★읽기는 Read · 코드 찾기는 ci, Bash 는 실행(git·pytest·ruff·mbox)만★ — cat/sed -n/grep 으로 파일을 읽으면 전문이 컨텍스트에 쌓인다(2026-09-14 나노 16좌석 실측: Bash 100~156회 중 절반이 파일 읽기). ★증거 줄(세트: … · 시험: … rc=… · 이슈: …)은 완료 턴에 네가 인덱스 «상태» 절에 직접 쓴다($WT/$NEW_IDX 절대경로 Edit) — master 는 커밋만(판정 1125)★ 증거 줄 템플릿(그대로 복사해 <> 만 채움): 세트: <나노 HEAD 40자> · 시험: <명령 — «(N passed)» 같은 꼬리는 여기> rc=<n> · 이슈: 0 — rc= 바로 뒤는 « · 이슈:» — 괄호·설명은 rc= 앞에. ★팀 구조: 각 팀 = master(집행) + arch(설계·발주·DA 소환) + DA(반박 게이트) 상시 · 실제 작업은 전부 나노(카드 1장 = 나노 1석) · master·arch·DA 는 코드·시안·카드 증거 줄을 쓰지 않는다★${_SPX}${_SRX}$_PKX${_EBN}"
 [ "$RESEARCH" != 1 ] || BODY="$BODY$_RSP"
 [ "$TIER" != search ] || BODY="$BODY ★검색 나노($AGENT · r286)★ 읽고 모으기만 — 코드 수정·커밋 0 · 산출 = 파일 1개 + mbox relay · 끝나면 [완료·휴식] (닫기 = master ft-nano-close · $AGENT 프로세스 left=0 확인)."
+# ★r1025: 송신 «직전» 최종 본문 검사★ 전역 하드 룰 16 은 «사람·나노·스크립트 모두 ci» 인데 이 스크립트의 고정 문구가
+#   «serena 먼저»(r556)라 규칙과 도구가 서로 반대였다(planner 설계 §② 실측 · r1024 나노 부팅 보고 «Serena O»).
+#   문구를 ci 로 바꾼 뒤 다시 섞이지 않게 «보내기 전» 검사 1개 — 걸리면 REJECT 1줄 · 송신 0 · 좌석·워크트리는 기존 REJECT 길로 롤백.
+#   ★r1025 r1(arch 163 반송)★ 검사 대상 = «지시 문장» 뿐이다 — 카드 경로·가지 이름·좌석 이름에는 «serena» 가 들어갈 수 있다
+#   (이 카드 r1025 자신: nano/r1025-nano-spawn-body-serena-to-ci · r1025-nano-spawn-body-serena-to-ci.md).
+#   BODY 는 그대로 두고 이름 「값»만 지운 사본을 검사한다(값 지우기는 retired_probe 한 곳).
+retired_probe() {   # $1=발주문 전문 · $2..=지울 «이름 값» → 이름 값을 지운 검사용 사본
+  local _p="$1" _v; shift
+  for _v in "$@"; do [ -n "$_v" ] && _p="${_p//"$_v"/}"; done
+  printf '%s\n' "$_p"
+}
+retired_line() {   # $1=검사용 사본 → 은퇴 도구 낱말 1개(없으면 빈 출력)
+  local _w
+  for _w in serena Serena find_symbol; do
+    case "$1" in *"$_w"*) printf '%s\n' "$_w"; return 0;; esac
+  done
+}
+_probe="$(retired_probe "$BODY" "$WT/$NEW_IDX" "$WTDIR" "$BRANCH" "$IDX_REL" "$NEW_IDX" "$_SBR" "$NAME" "$FROM" "$SLUG")"
+_retired="$(retired_line "$_probe")"
+[ -z "$_retired" ] || fail_rb "REJECT 발주문에 은퇴 도구 지시(serena) — $_retired"
 # (에이전트 본체는 ③ 직후 ft-agent-ready.sh 가 확인했다 — 옛 sleep 8 대체 · R251)
 FT_SEND_FROM="$FROM" bash "$HERE/ft-send-verified.sh" "$NAME" "$BODY"; _src=$?
 [ "$_src" -eq 0 ] && { echo "SPAWNED $NAME index=$NEW_IDX wt=$WTDIR"; exit 0; }

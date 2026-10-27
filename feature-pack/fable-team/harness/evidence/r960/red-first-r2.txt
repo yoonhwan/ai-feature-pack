@@ -1,0 +1,12 @@
+# r960 r2 빨강 먼저 — 고치기 «전»(HEAD 350cd4b6 판)으로 같은 시험을 돌린 원문 (rc=1)
+FAIL ⓡ NORECORD 줄 1개 (got=[0] want=[1])
+FAIL   └ NORECORD 줄에 좌석 이름 — 없음: «NORECORD pi#7 » ← 
+FAIL   └ NORECORD 줄에 산출 보존 사유 — 없음: «pi 세션 없음 — 산출 커밋 보존» ← 
+FAIL ⓢ retire rc 0 · RESUME ok (got=[0 NORECORD pi#8] want=[0 RESUME ok])
+FAIL ⓢ model = 마지막 model_change.modelId (got=[] want=[opengateway/deepseek/last-model])
+FAIL ⓢ close rc 0 · 기록 경로 출력 (got=[3 ] want=[0 record=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.hWUKVYbWth/resume/pi#8.json])
+FAIL 변이 표지 NOLINE 출력 1줄 (got=[0] want=[1])
+FAIL 변이 표지 r960-mut:firstline 1줄 (got=[0] want=[1])
+FAILED 8
+
+(고친 판 = ALL PASS · test-green.txt)

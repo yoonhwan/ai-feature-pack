@@ -27,9 +27,10 @@
     ⑤ 모드 100644 만(링크·실행비트·gitlink 0) · 바이너리 0 — numstat rc≠0 = rc2 · 바이너리 판정은 git diff 속성이 아니라
        head 의 blob 내용(NUL 바이트·UTF-8 아님)으로 본다(DA⑥ r1 질문 3: 속성 강제·numstat 실패로 바이너리가 통과하던 자리)
     ⑥ 경로 정규화로 범위를 넓히지 않음(대소문자 그대로 · NFC 아님·제어문자 0)
+  planner-seat (r947) — 부른 좌석 = planner 명부 `_master` 정확 일치인가(위 ⓪① 와 같은 함수 · --head 불요) — 상시 승인(standing-approve) 좌석 판정
   md-files — diff 의 모든 경로가 *.md 인가(ft-proxy-decide docs-push 의 «design/x.py 구멍» 막기 · 판정 1125 계열)
 
-출력: 첫 줄 `DOC-EXEMPT <head> files=<N> team=<팀> by=<좌석>`(좌석 = 실제 호출 좌석) | `DOC-FILES <head> files=<N>`  (rc 0)
+출력: 첫 줄 `DOC-EXEMPT <head> files=<N> team=<팀> by=<좌석>`(좌석 = 실제 호출 좌석) | `DOC-FILES <head> files=<N>` | `PLANNER-SEAT <좌석>`  (rc 0)
       `NOT <사유>` (rc 1 · 판정했고 예외 아님) · `NOT <사유>` (rc 2 · 판정 불가 — 호출자는 «면제 0»)
 환경: FT_DOC_EXEMPT=0 → 예외 꺼짐(rc 2 NOT) · FT_SEAT(자기 신고 좌석 — 실제 좌석과 같아야) · FT_ROOT(명부 루트 — 출처 검증)
       FT_DOC_EXEMPT_SELFTEST=1 + FT_DOC_EXEMPT_SEAT=<좌석> = 시험에서만 좌석 덮어쓰기 — ★그 판정 성공은 rc3★(«시험 판정 — 착지에 못 쓴다» · ft-press-gate 자체시험과 같은 꼴)
@@ -196,6 +197,19 @@ def diff_paths(repo, base, head):
     return pairs
 
 
+def planner_seat(repo, roota, declared):
+    """r947 --mode planner-seat — ⓪ 실제 좌석 · 명부 루트 출처 · 이름 lint 를 doc-exempt 와 같은 함수로 · 좌석 = planner `_master` 정확 일치.
+    출력 `PLANNER-SEAT <좌석>` rc0 · 아니면 NOT rc2 · SELFTEST 판정 성공은 rc3(승인에 못 쓴다 — 호출자는 env -u 로 지운다)."""
+    root = verified_root(repo, roota)
+    seat = actual_seat(declared or os.environ.get("FT_SEAT") or "")
+    planner = roster_master(root, PLANNER)
+    name_lint(seat)
+    if seat != planner:
+        notx("부른 좌석(%s)이 planner master(%s) 아님 — 상시 승인은 planner 좌석만" % (seat, planner), 2)
+    print("PLANNER-SEAT %s" % seat)
+    return 3 if os.environ.get("FT_DOC_EXEMPT_SELFTEST") == "1" else 0
+
+
 def main(argv):
     mode, head, base, repoa, roota, seat, remote, target = "doc-exempt", "", "", "", "", "", "origin", "main"
     i = 0
@@ -222,6 +236,8 @@ def main(argv):
         else:
             notx("알 수 없는 인자: %s" % a, 2)
         i += 2
+    if mode == "planner-seat":   # r947 상시 승인 좌석 판정 — FT_DOC_EXEMPT(문서 예외 끄기)·--head 와 무관
+        return planner_seat(repo_dir(repoa), roota, seat)
     if mode not in ("doc-exempt", "md-files"):
         notx("--mode 은 doc-exempt|md-files: %s" % mode, 2)
     if os.environ.get("FT_DOC_EXEMPT", "1") == "0":

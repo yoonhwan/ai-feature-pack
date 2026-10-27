@@ -21,6 +21,7 @@ KIT = ROOT / "harness" / "kit" / "slack-mirror"
 sys.path[:0] = [str(BIN), str(KIT)]
 os.environ["FT_HERMES_SCRIPTS"] = str(KIT)  # 설치본(~/.hermes/scripts) 아닌 키트판 magazine_slack(upload_file comment 인자)
 
+from _team_turns_fake import install as install_turns  # noqa: E402  r850 r5: 턴 원천(실 jsonl + 가짜 tmux)
 import ft_news_html as fh  # noqa: E402
 import ft_news_html_lint as lint  # noqa: E402
 import ft_news_html_render as fr  # noqa: E402
@@ -35,8 +36,10 @@ CONTENT = {"summary": ["통역 고침 시험 중", "하네스 설치 끝"],
            "team_notes": [{"team": "kk", "text": "닫힘"}, {"team": "chatbot", "text": "이름 바꾸기"}, {"team": "ops", "text": "메뉴 만드는 중"}],
            "resting": [{"team": "chatbot", "text": "LLM 이 잘못 넣은 쉬는 팀"}],  # r478c 반려 재현 — LLM 의 일함/쉼 판정은 버린다
            "refs": ["#113248", "a608fea5a0"]}
-LIVE = [{"team": "kk", "live": 0, "working": 0, "unknown": 0}, {"team": "ops", "live": 2, "working": 1, "unknown": 1},
-        {"team": "chatbot", "live": 6, "working": 2, "unknown": 0}]
+from _news_live import with_state  # noqa: E402  r850: live 팀 상태(state·label) = ft_team_state.judge 값
+
+LIVE = with_state([{"team": "kk", "live": 0, "working": 0, "unknown": 0}, {"team": "ops", "live": 2, "working": 1, "unknown": 1},
+                   {"team": "chatbot", "live": 6, "working": 2, "unknown": 0}])
 DATA = {"goals": GOALS, "live": LIVE}
 FAKE_OC = """#!/usr/bin/env python3
 import json, os, stat, sys, time
@@ -138,7 +141,7 @@ def test_b_run_calls_opencode_standalone_json_with_variant_and_fills_template(tm
     assert "{{" not in page and page.count('<section class="goal">') == 6 and "골 1 · t1" in page
     assert 'class="step s-hot"' in page and "var(--hot-bg)" in page  # 급한 불 골
     # r588: 요약 첫 줄 = 코드가 만든 팀 상태 줄(모델 줄은 그 뒤) — DATA 의 LIVE 그대로
-    assert sum_p.read_text(encoding="utf-8").splitlines() == ["일하는 팀 2개: chatbot, ops. 쉬는 팀 1개: kk", *CONTENT["summary"]]
+    assert sum_p.read_text(encoding="utf-8").splitlines() == ["진행 팀 2개: chatbot, ops. 쉬는 팀 1개: kk", *CONTENT["summary"]]  # r850 «진행 팀»
     assert lint.problems(page, sum_p.read_text(encoding="utf-8")) == []
 
 
@@ -240,7 +243,7 @@ def test_r478c_working_team_from_live_seats_is_above_resting_and_never_in_restin
     assert work_h < chatbot < ops < goal_h < rest_h < kk
     assert "LLM 이 잘못 넣은" not in "\n".join(lines)  # LLM 의 일함/쉼 판정은 쓰지 않는다
     assert "일하는 좌석 2/6" in lines[chatbot - 1] and "이름 바꾸기" in lines[chatbot + 2] and "확인 불가 1" in lines[ops - 1]
-    assert "라이브 좌석 0 · 일하는 좌석 0" in lines[kk]
+    assert "쉼 · 열린 좌석 0 · 라이브 좌석 0" in lines[kk]  # r850: 쉬는 팀 글 머리 = judge 글자
     assert "\n".join(lines).count('<section class="goal work">') == 2 and '<section class="goal work">' in lines[chatbot - 4]
 
 
@@ -267,10 +270,10 @@ def test_r478d_lint_rejects_all_stopped_and_approval_wait_against_code_facts(tmp
 def test_r478d_prompt_carries_code_facts_and_autonomy_in_footer(tmp_path, oc, monkeypatch):
     _, log = oc
     data = {**DATA, "facts": fh.facts(LIVE, "ON")}
-    assert data["facts"] == {"일하는 팀": ["chatbot", "ops"], "확인 불가": [], "쉬는 팀": ["kk"], "자율": "ON"}
+    assert data["facts"] == {"진행": ["chatbot", "ops"], "대기": [], "쉼": ["kk"], "확인 불가": [], "자율": "ON"}  # r850 팀 상태 4칸
     html_p, _ = fh.run_files(data, tmp_path, NOW)
     top = next(c[-1] for c in calls(log) if '"summary":' in c[-1].split("출력 스키마:")[1].splitlines()[0])
-    assert '"일하는 팀": [' in top and '"chatbot"' in top and '"자율": "ON"' in top and "facts 가 이긴다" in top
+    assert '"진행": [' in top and '"chatbot"' in top and '"자율": "ON"' in top and "facts 가 이긴다" in top
     assert "자율 ON" in html_p.read_text(encoding="utf-8")
     monkeypatch.setattr(fh, "HERE", tmp_path)  # ft-autonomy.sh 없음 = 모름
     assert fh.autonomy(tmp_path) == "모름"
@@ -285,13 +288,18 @@ def test_r478c_no_live_input_fails_without_publish(tmp_path, oc):
 def test_r478c_live_teams_counts_tmux_seats_by_jsonl_turn(tmp_path, monkeypatch):
     fable = tmp_path / ".fable-team"
     fable.mkdir()
-    for name in ("seats-chatbot.json", "seats-kk.json", "seats.json"):
-        (fable / name).write_text("{}", encoding="utf-8")
+    rosters = {"seats-chatbot.json": {"_master": "byz-chatbot-master-claude#7", "byz-chatbot-master-claude#7": {"role": "master"},
+                                      "byz-chatbot-nano-c-k1#0": {"role": "nano"}, "byz-chatbot-nano-c-k6#0": {"role": "nano"}},
+               "seats-kk.json": {}, "seats.json": {"_master": "byz-v65-master-claude#212", "byz-v65-master-claude#212": {"role": "master"},
+                                                   "ft-v65-temp-m5#0": {"role": "nano"}}}  # r850 r2: 좌석 = 명부 현역(접두사 수집 0)
+    for name, body in rosters.items():
+        (fable / name).write_text(json.dumps(body), encoding="utf-8")
+    monkeypatch.setenv("FT_SEAT_RESUME_DIR", str(tmp_path / "resume"))
     sessions = ["byz-chatbot-master-claude#7", "byz-chatbot-nano-c-k1#0", "byz-chatbot-nano-c-k6#0", "byz-concierge-master-claude#6",
                 "byz-v65-master-claude#212", "ft-v65-temp-m5#0", "byz-planner-desk-claude#24"]
     turns = {"byz-chatbot-nano-c-k1#0": "WORKING", "byz-chatbot-nano-c-k6#0": "WORKING", "ft-v65-temp-m5#0": "?"}
-    monkeypatch.setattr(fh, "_sessions", lambda: sessions)
-    monkeypatch.setattr(fh, "_turns", lambda ss: {s: (turns.get(s, "IDLE"), "jsonl 없음" if turns.get(s) == "?" else "") for s in ss})
+    monkeypatch.setattr(fh, "_sessions", lambda *_a: sessions)
+    install_turns(tmp_path, monkeypatch, {s: (turns.get(s, "IDLE"), "jsonl 없음" if turns.get(s) == "?" else "") for s in sessions})  # r850 r5: 턴 원천을 실제로 읽힌다
     got = {t["team"]: t for t in fh.live_teams(tmp_path)}
     assert set(got) == {"chatbot", "kk", "v65"}  # 명부 있는 팀만 · seats.json = v65
     assert (got["chatbot"]["live"], got["chatbot"]["working"]) == (3, 2)  # 옛 이름 concierge 좌석은 chatbot 에 안 섞인다
@@ -303,47 +311,50 @@ def test_r478c_live_teams_counts_tmux_seats_by_jsonl_turn(tmp_path, monkeypatch)
 
 # ── r490: «확인 불가»(판정 못 함) ≠ «쉬는 팀» · r504: 판정 = ft_seat_turn.turns 한 번(좌석별 하위 프로세스·재시도·풀 0 — test_seat_turn_batch) ─────────
 
-R490_TURNS = {"byz-a-1": ("WORKING", ""), "byz-a-2": ("WORKING", ""), "byz-a-3": ("?", "읽기 실패")}
+R490_TURNS = {"byz-a-1": ("WORKING", ""), "byz-a-2": ("WORKING", ""), "byz-a-3": ("?", "jsonl 없음")}  # r5: 사유는 «jsonl 없음»(읽기 실패는 그 좌석 파일이 찾은 뒤 사라져야 난다)
 
 
 @pytest.fixture
 def seat_root(tmp_path, monkeypatch):
-    """임시 루트(명부 a·b·v65) + 가짜 tmux ls(a 3 · b 2 · v65 1) + 가짜 판정(_turns · R490_TURNS 밖 = IDLE)."""
+    """임시 루트(명부 a·b·v65) + 가짜 tmux ls(a 3 · b 2 · v65 1) + 턴 원천(실 jsonl · R490_TURNS 밖 = IDLE)."""
     fable = tmp_path / ".fable-team"
     fable.mkdir()
-    for name in ("seats-a.json", "seats-b.json", "seats.json"):
-        (fable / name).write_text("{}", encoding="utf-8")
-    monkeypatch.setattr(fh, "_sessions", lambda: ["byz-a-1", "byz-a-2", "byz-a-3", "byz-b-1", "byz-b-2", "byz-v65-1"])
-    monkeypatch.setattr(fh, "_turns", lambda ss: {s: R490_TURNS.get(s, ("IDLE", "")) for s in ss})
+    roles = ("master", "arch", "da")  # r850 r2: 좌석 = 명부 현역(포인터 _<role> · 접두사 수집 0)
+    for name, ss in (("seats-a.json", ["byz-a-1", "byz-a-2", "byz-a-3"]), ("seats-b.json", ["byz-b-1", "byz-b-2"]), ("seats.json", ["byz-v65-1"])):
+        body = {**{f"_{r}": s for r, s in zip(roles, ss)}, **{s: {"role": r} for r, s in zip(roles, ss)}}
+        (fable / name).write_text(json.dumps(body), encoding="utf-8")
+    monkeypatch.setenv("FT_SEAT_RESUME_DIR", str(tmp_path / "resume"))
+    monkeypatch.setattr(fh, "_sessions", lambda *_a: ["byz-a-1", "byz-a-2", "byz-a-3", "byz-b-1", "byz-b-2", "byz-v65-1"])
+    install_turns(tmp_path, monkeypatch, {s: R490_TURNS.get(s, ("IDLE", "")) for s in ("byz-a-1", "byz-a-2", "byz-a-3", "byz-b-1", "byz-b-2", "byz-v65-1")})
     return tmp_path
 
 
 def test_r490_a_failed_seat_is_unknown_not_resting(seat_root):
     got = {t["team"]: t for t in fh.live_teams(seat_root)}
-    assert (got["a"]["live"], got["a"]["working"], got["a"]["unknown"], got["a"]["unknown_reason"]) == (3, 2, 1, "읽기 실패 1석")
+    assert (got["a"]["live"], got["a"]["working"], got["a"]["unknown"], got["a"]["unknown_reason"]) == (3, 2, 1, "jsonl 없음 1석")
     assert (got["b"]["working"], got["b"]["unknown"], got["v65"]["unknown"]) == (0, 0, 0)
-    assert fh.facts(list(got.values()), "모름") == {"일하는 팀": ["a"], "확인 불가": [], "쉬는 팀": ["b", "v65"], "자율": "모름"}
+    assert fh.facts(list(got.values()), "모름") == {"진행": ["a"], "대기": [], "쉼": ["b", "v65"], "확인 불가": [], "자율": "모름"}  # r850 팀 상태 4칸
 
 
 def test_r490_b_all_unknown_team_goes_to_unknown_block_with_reason_never_resting(seat_root, oc, monkeypatch, tmp_path):
-    monkeypatch.setitem(R490_TURNS, "byz-a-1", ("?", "jsonl 없음"))
-    monkeypatch.setitem(R490_TURNS, "byz-a-2", ("?", "jsonl 없음"))
+    for f in (tmp_path / "projects").rglob("byz-a-*.jsonl"):  # a 팀 세 좌석의 jsonl 만 사라짐 = 전원 확인 불가
+        f.unlink()
     live = fh.live_teams(seat_root)
     a = next(t for t in live if t["team"] == "a")
-    assert (a["working"], a["unknown"], a["unknown_reason"]) == (0, 3, "jsonl 없음 2석 · 읽기 실패 1석")
-    assert fh.facts(live, "모름")["확인 불가"] == ["a"] and "a" not in fh.facts(live, "모름")["쉬는 팀"]
+    assert (a["working"], a["unknown"], a["unknown_reason"]) == (0, 3, "jsonl 없음 3석")
+    assert fh.facts(live, "모름")["확인 불가"] == ["a"] and "a" not in fh.facts(live, "모름")["쉼"]
     page = fh.run_files({**DATA, "live": live}, tmp_path / "out", NOW)[0].read_text(encoding="utf-8")
     unk = page.split("<h2>확인 불가</h2>")[1].split("<h2>")[0]
     rest = page.split("<h2>쉬는 팀</h2>")[1]
-    assert "<strong>a</strong>" in unk and "jsonl 없음 2석 · 읽기 실패 1석" in unk and "<strong>a</strong>" not in rest
+    assert "<strong>a</strong>" in unk and "jsonl 없음 3석" in unk and "<strong>a</strong>" not in rest
     assert page.index("<h2>일하는 팀</h2>") < page.index("<h2>확인 불가</h2>") < page.index("<h2>골 6개</h2>")
     assert "c-unk" in page and "{{" not in page
 
 
 @pytest.fixture
 def unknown_page(tmp_path, oc):
-    live = [{"team": "a", "live": 3, "working": 0, "unknown": 2, "unknown_reason": "turn 시간 초과 2석"},
-            {"team": "b", "live": 2, "working": 0, "unknown": 0, "unknown_reason": ""}]
+    live = with_state([{"team": "a", "live": 3, "working": 0, "unknown": 2, "unknown_reason": "turn 시간 초과 2석"},
+                       {"team": "b", "live": 2, "working": 0, "unknown": 0, "unknown_reason": ""}])
     html_p, _ = fh.run_files({**DATA, "live": live}, tmp_path / "u", NOW)
     return html_p.read_text(encoding="utf-8")
 
@@ -503,7 +514,7 @@ def test_e_publish_one_root_post_with_html_and_rerun_adopts(tmp_path, oc, slack)
     assert rc == 0 and len(slack.msgs) == 1 and slack.uploads == [html_p.read_bytes()]
     m = slack.msgs[0]
     assert m["thread_ts"] == "" and m["files"][0]["title"] == html_p.name
-    assert m["text"].splitlines() == ["[뉴스 09:15] 팀 지도 — 일하는 팀 2개: chatbot, ops. 쉬는 팀 1개: kk", "통역 고침 시험 중", "하네스 설치 끝"]
+    assert m["text"].splitlines() == ["[뉴스 09:15] 팀 지도 — 진행 팀 2개: chatbot, ops. 쉬는 팀 1개: kk", "통역 고침 시험 중", "하네스 설치 끝"]  # r850 «진행 팀»
     assert got["ts"] == m["ts"] and got["permalink"].startswith("https://x.slack.com/archives/C1/p")
     assert fh.publish_files(html_p, sum_p, NOW)[0] == 0 and len(slack.msgs) == 1 and len(slack.uploads) == 1  # 같은 글 채택 · 다시 안 올림
 

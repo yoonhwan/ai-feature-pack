@@ -95,10 +95,11 @@ case "$LANDED" in *..*) T="${LANDED%%..*}"; S="${LANDED##*..}";; *) T=""; S="$LA
 REF="${FT_LAND_REF:-origin/main}"
 # r937: 착지 리포 = sha 가 실제로 있는 리포(ft_landed_repo) — 표식 줄 = 이 카드의 «닫힘 — <카드> — main…» 줄(§절 본문에서)
 STEM="$(basename "$CARD" .md)"
-MARKER="$(printf '%s\n' "$BODY" | awk -v s="$STEM" 'index($0,"닫힘")&&index($0,s)&&index($0,"main"){print;exit}')"
+MARKER="$(printf '%s\n' "$BODY" | awk -v s="$STEM" 'BEGIN{p="(닫힘|CLOSE)[[:space:]]*—[[:space:]]*" s "[[:space:]]*—[[:space:]]*main"} $0 ~ p{print;exit}')"   # r959: «닫힘 — <카드> — main…» 정확한 모양만 — 절 헤더 오인 금지
 PACK=""; [ -f "$HERE/ft-harness-root.sh" ] && PACK="$(. "$HERE/ft-harness-root.sh" && ft_harness_root "$HERE" 2>/dev/null)"
 # r937 r3: 루트 조회도 ft_git_capped — 한 후보의 루트 조회가 실패(rc≠0 · 시간 초과 포함)면 그 후보를 빈 값으로 넘기지 않고 REJECT
 if [ -n "$PACK" ]; then PACK_H="$PACK"; PACK="$(ft_git_capped 7 "$PACK_H" rev-parse --show-toplevel)" || rej "팩 리포($PACK_H) 루트 조회 실패(rc=$?) — 통과 0"; fi
+# r959: «표식 오기(팩 착지)» 보정은 ft_landed_repo 의 기본 동작 — 부르는 쪽마다 붙이지 않는다(네 호출이 같은 판정)
 LR="$(ft_landed_repo "$S" "$WT" "$PACK" "$MARKER")" || rej "${LR#REJECT }"
 REPO_LANDED="${LR%%$'\t'*}"; SFULL="${LR##*$'\t'}"
 # r937 r2 (T1·T2): 모든 git 조회 = ft_git_capped(7초 · 재시도 1) · 허용 rc 를 넘은 값(124 시간 초과 · 128 실행 실패)은 «조회 실패» = REJECT(«없음» 으로 읽지 않는다)
@@ -109,8 +110,12 @@ gq() { local max="$1" why="$2"; shift 2
   return "$GQ_RC"; }
 gq 1 "랜딩 브랜치 ref($REF)" rev-parse --verify -q "${REF}^{commit}" \
   || rej "랜딩 브랜치 ref 없음: $REF ($REPO_LANDED)"
-gq 1 "조상 검사($REF)" merge-base --is-ancestor "$SFULL" "$REF" \
-  || rej "랜딩 안 됨 — $S 가 $REF 의 조상이 아니다 ($REPO_LANDED)"
+gq 1 "조상 검사($REF)" merge-base --is-ancestor "$SFULL" "$REF" || {
+  # r978 고침 2 — 카드가 «설치: 없음» 이고 문서 가지(FT_DOC_LAND_REF · 기본 origin/ops/main-base) 조상이며 바꾼 경로가 전부 design/**.md 면 문서 가지 착지 인정(판정 = ft_doc_card_landed 한 곳)
+  _dc=""; _dc="$(ft_doc_card_landed "$REPO_LANDED" "$SFULL" "$CARD")"; _drc=$?   # r978-mut:imc
+  [ "$_drc" -eq 0 ] || rej "랜딩 안 됨 — $S 가 $REF 의 조상이 아니다 ($REPO_LANDED) · 문서 카드 인정 0(${_dc:-사유 없음})"
+  printf '착지 인정 = %s(문서 카드)\n' "$_dc" >&2   # r1018: stdout 은 «OK<TAB>…»/«REJECT<TAB>…» 한 줄 계약 — 안내 줄은 stderr
+}
 if [ -z "$UPDS" ]; then printf '%s\n' "$LAST"; exit 0; fi
 if [ -n "$T" ]; then
   gq 1 "T($T)" rev-parse --verify -q "${T}^{commit}" || rej "T 없음 — git fetch 후 다시: $T"
