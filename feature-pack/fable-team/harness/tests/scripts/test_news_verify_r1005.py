@@ -489,8 +489,9 @@ def test_r2_5_tail_write_failure_is_not_9_of_9(world, caplog):
 
 # ── r1005 반송 r2 · ⓖ = 최신 상태가 이긴다(표식 꺼짐이면 과거 로그 줄 셈 0) ──────────────
 def test_r2_g_marker_off_ignores_past_log_lines(world, monkeypatch):
-    """반송 r2 — 과거 «원장 ref fetch 실패» 줄 + 그 뒤 성공 + 표식 False → ⓖ 참 · 9/9 rc0 · 쪽지 0."""
-    write(world.log, "INFO 뉴스 시작\nERROR 원장 ref fetch 실패 — 판정 불가 · 게시 0\nINFO 원장 ref fetch 성공\n")
+    """반송 r2 — 과거 «원장 ref fetch 실패» 줄 + 그 뒤 성공 줄(마지막 fetch 줄 = 성공) + 표식 False → ⓖ 참 · 9/9 rc0 · 쪽지 0."""
+    write(world.log, "INFO 뉴스 시작\nERROR 원장 ref fetch 실패 — 판정 불가 · 게시 0\n"
+                     "INFO fetch 생략(ls-remote 같음) origin/main=aaa ledger/auto=bbb\n")
     real_need = pub.need
     monkeypatch.setattr(pub, "need", lambda m, n: (lambda: False) if (m, n) == ("ft_news_ledger", "fail_announced") else real_need(m, n))
     rc, out = world.run()
@@ -505,6 +506,37 @@ def test_r2_g_marker_on_is_a_failure_one_message(world, monkeypatch):
     monkeypatch.setattr(pub, "need", lambda m, n: (lambda: True) if (m, n) == ("ft_news_ledger", "fail_announced") else real_need(m, n))
     rc, out = world.run()
     assert rc == 1 and "검증 8/9" in out and "ⓖ fetch 실패" in out and len(world.sends()) == 1
+
+
+def test_r3_1_last_fetch_line_failure_beats_ok_marker(world, monkeypatch):
+    """반송 r3(결정 2) — 마지막 fetch 줄 «실패» + 표식 ok(15분 유예 꼴) → ⓖ 거짓 · 8/9 · rc1 · 쪽지 1."""
+    write(world.log, "INFO 뉴스 시작\nINFO fetch 생략(ls-remote 같음) origin/main=aaa ledger/auto=bbb\n"
+                     "ERROR 원장 ref fetch 실패 — fetch 실행 실패: 시도 상한 29초 초과 · origin/main = 6분 전 받은 판\n")
+    real_need = pub.need
+    monkeypatch.setattr(pub, "need", lambda m, n: (lambda: False) if (m, n) == ("ft_news_ledger", "fail_announced") else real_need(m, n))
+    rc, out = world.run()
+    assert rc == 1 and "검증 8/9" in out and "ⓖ fetch 실패" in out and "마지막 fetch 줄 = 실패" in out
+    assert len(world.sends()) == 1
+
+
+def test_r3_2_last_fetch_line_success_ignores_past_failures(world, monkeypatch):
+    """반송 r3(결정 2) — 마지막 줄 «성공» + 과거 실패 2줄 + 표식 ok → ⓖ 참 · 9/9 · 쪽지 0(결정 1 유지)."""
+    write(world.log, "INFO 뉴스 시작\nERROR 원장 ref fetch 실패 — a\nERROR 원장 ref fetch 실패 — b\n"
+                     "INFO fetch 생략(ls-remote 같음) origin/main=aaa ledger/auto=bbb\n")
+    real_need = pub.need
+    monkeypatch.setattr(pub, "need", lambda m, n: (lambda: False) if (m, n) == ("ft_news_ledger", "fail_announced") else real_need(m, n))
+    rc, out = world.run()
+    assert rc == 0 and "검증 9/9" in out and world.sends() == []
+
+
+def test_r3_3_log_read_failure_is_unavailable_not_9_of_9(world, monkeypatch):
+    """반송 r3(결정 2) — 로그를 못 읽으면 ⓖ «검증 불가»(C2 · 9/9 아님 · 쪽지 0)."""
+    world.log.chmod(0o000)
+    try:
+        rc, out = world.run()
+    finally:
+        world.log.chmod(0o644)
+    assert rc == 1 and "[검증 불가]" in out and "ⓖ fetch 실패" in out and world.sends() == []
 
 
 def test_r2_6_magazine_tilde_out_dir_is_expanded(world, tmp_path_factory):

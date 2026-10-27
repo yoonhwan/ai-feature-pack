@@ -18,21 +18,44 @@ def _log(ctx: Ctx) -> Path:
     return ctx.log or Path("/tmp/byz-ft-news-planner.log")
 
 
+FETCH_FAIL = "원장 ref fetch 실패"  # ft_news_ledger.fetch_if_stale 실패 줄
+FETCH_OK = "fetch 생략(ls-remote 같음)"  # 같은 경로 성공 줄(_remote_same · 원격 같아 fetch 0)
+
+
+def last_fetch(lines: list[str]) -> str:
+    """로그의 «마지막 fetch 줄» — '실패' | '성공' | ''(fetch 줄 0). 과거 줄은 세지 않는다(r1005 반송 r3 · 결정 2)."""
+    for ln in reversed(lines):
+        if FETCH_FAIL in ln:
+            return "실패"
+        if FETCH_OK in ln:
+            return "성공"
+    return ""
+
+
 @guarded
 def cell_g(ctx: Ctx) -> tuple[str, str]:
-    """ⓖ 뉴스 로그 «원장 ref fetch 실패» 0줄 + r847 구간 표식 0 — 표식이 꺼져 있으면(최신 fetch 성공) 과거 로그 줄은 세지 않는다(r1005 반송 r2 · 최신 상태가 이긴다)."""
+    """ⓖ 원천 가져오기 — 판정 입력 둘(r1005 반송 r3 · 결정 2): ① 로그의 «마지막 fetch 줄» ② 실패 표식(fail_announced = fetch-last).
+    마지막 줄 실패면 거짓(표식이 ok 여도 — ft_news_ledger.py:485 의 15분 유예 때문에 표식이 최신이 아닐 수 있다) ·
+    마지막 줄 성공이면 참(과거 실패 줄은 세지 않는다 · 반송 r2 유지) · fetch 줄 0 이면 표식 값으로만 판정 ·
+    로그 못 읽음 = «검증 불가»(C2 · 9/9 아님 · 쪽지 0)."""
     fail_announced = need("ft_news_ledger", "fail_announced")
     log = _log(ctx)
     if not log.is_file():
         return UNKNOWN, f"뉴스 로그 없음 — {log}"
     try:
         lines = log.read_text(encoding="utf-8", errors="replace").splitlines()[-4000:]
+    except OSError as e:  # 못 읽음 = 판정 불가(C2 — 통과도 실패도 아니다)
+        return UNAVAILABLE, f"뉴스 로그 못 읽음 — {type(e).__name__}: {e}"
+    try:
         marked = fail_announced()
-    except Exception as e:  # noqa: BLE001
-        return UNKNOWN, f"로그·표식 못 읽음 — {type(e).__name__}: {e}"
-    old = sum(1 for ln in lines if "원장 ref fetch 실패" in ln)
-    n = old if marked else 0  # r1005 반송 r2 — 최신 상태가 이긴다: 표식 꺼짐(최신 fetch 성공)이면 과거 로그 줄은 근거가 아니다
-    return (FAIL if n or marked else PASS), (f"로그 꼬리 {n}줄 · 구간 표식 {marked}" if marked else f"구간 표식 False(최신 fetch 성공) · 과거 로그 {old}줄 셈 0")
+    except Exception as e:  # noqa: BLE001 — 표식 못 읽음 = 판정 불가
+        return UNAVAILABLE, f"실패 표식 못 읽음 — {type(e).__name__}: {e}"
+    last = last_fetch(lines)
+    if last == "실패":
+        return FAIL, f"로그 마지막 fetch 줄 = 실패(표식 {marked} 무관 · 표식 15분 유예)"
+    if last == "성공":
+        return PASS, f"로그 마지막 fetch 줄 = 성공 · 과거 실패 {sum(1 for ln in lines if FETCH_FAIL in ln)}줄 셈 0"
+    return (FAIL if marked else PASS), (f"fetch 줄 0 — 실패 표식 {marked} 로 판정" if marked else "fetch 줄 0 · 실패 표식 False")
 
 
 @guarded
