@@ -85,7 +85,7 @@ probe "$PURL"
 
 echo "== ⓔ 둘 다 실패 = 진짜 장애 → spawn exit 7 · 순번 큐 1줄(사유 proxy) · 좌석 0"
 B="$T/bin"; mkdir -p "$B"
-cp "$KIT/ft-nano-spawn.sh" "$KIT/ft-spawn-issue-gate.sh" "$KIT/ft-agent-ready.sh" "$KIT/ft_spawn_queue.py" "$KIT/ft_teamset.py" "$B/"
+cp "$KIT/ft-nano-spawn.sh" "$KIT/ft-spawn-issue-gate.sh" "$KIT/ft-agent-ready.sh" "$KIT/ft_spawn_queue.py" "$KIT/ft_teamset.py" "$KIT/ft-name-lint.sh" "$B/"   # r975 r6: 역할 집합 출처
 printf '#!/bin/bash\necho "{\\"number\\":1,\\"state\\":\\"OPEN\\",\\"url\\":\\"https://github.com/o/r/issues/1\\"}"\n' > "$B/gh-open"   # r823: 착수 게이트 = 픽스처 카드 #1 열린 이슈(가짜 gh)
 . "$(dirname -- "${BASH_SOURCE[0]}")/lib/bin_source_deps.sh"; copy_source_deps "$KIT" "$B" || bad "r686 사본 source 대상 채우기"   # r686: spawn 이 source 하는 같은 폴더 lib(r672 research-seat …) · 아래 가짜(team-lib 등)는 그 뒤에 덮는다
 printf '#!/bin/bash\nexit 0\n' > "$B/ft-index-lint.sh"                       # 카드 lint = 이 카드 소관 아님

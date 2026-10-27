@@ -95,14 +95,16 @@ _nano_reply_target() {  # rc0 = stdout 보고 대상 1줄 · rc1 = stdout REJECT
   if [ "$rc" != 0 ]; then out="$(head -2 "$tmp" 2>/dev/null | tr '\n' ' ')"; rm -f "$tmp"
     echo "REJECT 보고 대상을 못 풀었다 — tmm ls byz-$team 실패(rc=$rc · ${out:0:120}) · 개설 0"; return 1; fi
   [ -s "$tmp" ] || { rm -f "$tmp"; echo "REJECT 보고 대상을 못 풀었다 — tmm ls byz-$team 빈 출력(살아 있는 좌석 0) · 개설 0"; return 1; }
-  python3 - "$team" "$FROM_SET" "$FROM" "${FT_SEND_FROM:-}" "$tmp" <<'PY'
+  # ★역할 집합 = ft-name-lint 정본 한 곳(r6)★ — 여기 목록을 따로 적지 않는다(analyst·repro·tool 누락 반례)
+  _roles="$(bash "$HERE/ft-name-lint.sh" --roles 2>/dev/null)"
+  [ -n "${_roles//[[:space:]]/}" ] || { rm -f "$tmp"; echo "REJECT 보고 대상을 못 풀었다 — ft-name-lint 에서 역할 집합을 못 읽었다(--roles): $HERE/ft-name-lint.sh"; return 1; }
+  python3 - "$team" "$FROM_SET" "$FROM" "${FT_SEND_FROM:-}" "$tmp" "$_roles" <<'PY'
 import re, sys
-team, from_set, arg, env_from, path = sys.argv[1:6]
+team, from_set, arg, env_from, path, roles = sys.argv[1:7]
 text = open(path, encoding="utf-8", errors="replace").read()
 # ★목록 경계(r5 ②)★ — `tmm ls byz-<팀>` 은 «글자 포함» 검색이라 다른 팀(`byz-harness-tools-…`)도 섞여 온다.
 #   그래서 «byz-<팀>- + 역할 토큰 + 나머지» 인 줄만 «이 팀 좌석» 으로 센다(팀 이름에 한글·대시 허용 · 공백 팀은 [범위 밖]).
-ROLES = ("master", "arch", "da", "desk", "pm", "nano", "tester", "checker",
-         "planner", "plan", "ops", "research", "impl", "search", "issue", "issues", "seat")
+ROLES = tuple(r for r in roles.split() if r)          # ← ft-name-lint.sh ROLES 그대로(사본 0 · 한 값은 한 곳)
 head = "byz-" + team + "-"
 seat = re.compile(r"^" + re.escape(head) + r"(" + "|".join(ROLES) + r")(-[^#\s]+)?#([0-9]+)$")   # `byz-<팀>-arch#0`(에이전트 생략)도 이 팀 좌석
 mpat = re.compile(r"^" + re.escape(head) + r"master-[^#\s]+#([0-9]+)$")

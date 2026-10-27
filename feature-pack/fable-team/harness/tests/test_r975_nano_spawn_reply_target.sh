@@ -196,6 +196,29 @@ o="$(run1 "$D" --dry-run)"
 o="$(run1 "$D" --dry-run --from byz-harness-tools-master-claude#2)"; rc=$?
 { [ "$rc" != 0 ] && one_line "$o"; } && ok "ⓗ 다른 팀 좌석 명시 → REJECT 1줄" || bad "ⓗ 다른 팀 rc=$rc $o"
 
+# ── ⓘ (r6) 역할 집합 = ft-name-lint 정본 그대로 — 정식 11 전부 «이 팀 좌석» 으로 인정 ──
+ROLES="$(bash "$KIT/ft-name-lint.sh" --roles)"
+[ -n "$ROLES" ] && ok "ⓘ ft-name-lint --roles 로 역할 집합을 읽는다(시험도 하드코딩 0)" || bad "ⓘ ft-name-lint --roles 빈 값"
+D="$T/i6"; mkfix "$D"; mkpanes
+bad_roles=""
+for r in $ROLES; do
+  n="byz-harness-$r-claude#1"
+  tl "$T/tmm.lst" byz-harness-master-claude#3 "$n"
+  o="$(run1 "$D" --dry-run --from "$n")"
+  [[ "$o" == *"INFO 회신 대상 = $n"* ]] || bad_roles="$bad_roles $r"
+done
+[ -z "$bad_roles" ] && ok "ⓘ 정식 11역할(${ROLES// /·}) 전부 --from 인정" || bad "ⓘ 거절된 역할:$bad_roles"
+for r in analyst repro tool; do
+  n="byz-harness-$r-claude#1"; tl "$T/tmm.lst" byz-harness-master-claude#3 "$n"
+  EXTRA_ENV=(FT_SEND_FROM="$n"); o="$(run1 "$D" --dry-run)"; EXTRA_ENV=()
+  [[ "$o" == *"INFO 회신 대상 = $n"* ]] || bad "ⓘ FT_SEND_FROM=$r 거절: $o"
+done
+ok "ⓘ FT_SEND_FROM=analyst·repro·tool 도 그 이름으로 확정"
+tl "$T/tmm.lst" byz-harness-master-claude#3 byz-harness-analyst-claude#1
+o="$(run1 "$D" --from byz-harness-analyst-claude#1)"
+{ [[ "$o" == *"[byz-harness-analyst-claude#1->"* ]] && [ "$(cat "$T/sent-from.txt" 2>/dev/null)" = "byz-harness-analyst-claude#1" ] && [[ "$o" == *"SPAWNED"* ]]; } \
+  && ok "ⓘ analyst 좌석으로 실제 개설 · 송신 = 그 이름" || bad "ⓘ analyst 개설 $o"
+
 # ── 계약 ④ 실제 송신 도구 경유: 선택 이름 = mbox from/to ──
 D="$T/g"; mkfix "$D"; tl "$T/tmm.lst" byz-harness-master-claude#3
 rm -f "$T/mbox-from.txt" "$T/mbox-to.txt"; mkpanes
@@ -260,6 +283,15 @@ rm -f "$T/opened"; mkpanes
 o="$(EXTRA_ENV=(FT_SEND_FROM=byz-harness-arch-claude#1); sp "$D" "$M4" --dry-run)"; EXTRA_ENV=()
 [[ "$o" == *"INFO 회신 대상 = byz-harness-master-claude#3"* ]] \
   && ok "변이④ FT_SEND_FROM 무시 → 팀장 선택 = ⓖ 위반 검출" || bad "변이④ 계약을 안 깼다: $o"
+
+# 변이 ⑤ «역할 목록 다시 하드코딩(analyst 빠진 옛 목록)» → ⓘ 위반: analyst 좌석 거절
+M5="$T/mut5"; mk_mut "$M5" 'ROLES = tuple(r for r in roles.split() if r)          # ← ft-name-lint.sh ROLES 그대로(사본 0 · 한 값은 한 곳)' \
+  'ROLES = ("master", "arch", "da", "desk", "pm", "nano", "tester", "checker", "planner", "ops", "research", "impl", "issue", "seat")   # 변이: 옛 하드코딩'
+bash -n "$M5/ft-nano-spawn.sh" && ok "변이⑤ bash -n rc0(실행 가능)" || bad "변이⑤ bash -n 실패"
+D="$T/m5"; mkfix "$D"; tl "$T/tmm.lst" byz-harness-master-claude#3 byz-harness-analyst-claude#1
+rm -f "$T/opened"; mkpanes; o="$(sp "$D" "$M5" --dry-run --from byz-harness-analyst-claude#1)"; rc=$?
+{ [ "$rc" != 0 ] && [[ "$o" == *"목록에 없다"* ]]; } \
+  && ok "변이⑤ 옛 목록 하드코딩 → analyst 거절 = ⓘ 위반 검출" || bad "변이⑤ 계약을 안 깼다(rc=$rc): $o"
 
 # ── /bin/bash 3.2.57 1회 ──
 if /bin/bash --version | head -1 | grep -q '3\.2'; then

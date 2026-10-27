@@ -12,7 +12,9 @@ for f in "$KIT"/ft-{nano-spawn,proposal-gate,gh-as-tank}.sh; do bash -n "$f" && 
 
 # ── spawn --dry-run: lint 는 항상 통과하는 가짜 · 게이트는 진짜 · gh 는 가짜 ──
 . "$HERE/lib/fake_tmm.sh"; fake_tmm "$T/fake" byz-harness-master-claude#1 byz-v65-master-claude#1   # r975 r4: 살아 있는 좌석 목록 대역
-mkdir -p "$T/bin" "$T/idx/대기"; cp "$KIT/ft-nano-spawn.sh" "$KIT/ft-proposal-gate.sh" "$KIT/ft-resource-gate.sh" "$KIT/ft_raised.py" "$KIT/ft_teamset.py" "$KIT/ft_spawn_queue.py" "$KIT/ft-team-lib.sh" "$T/bin/"; printf '#!/usr/bin/env bash\nexit 0\n' > "$T/bin/ft-index-lint.sh"; echo '{"_master":"byz-harness-master-claude#1","byz-harness-master-claude#1":{"role":"master"}}' > "$T/seats.json"   # r975: 회신 대상 = 명부 _master
+mkdir -p "$T/bin" "$T/idx/대기"; cp "$KIT/ft-nano-spawn.sh" "$KIT/ft-proposal-gate.sh" "$KIT/ft-resource-gate.sh" "$KIT/ft_raised.py" "$KIT/ft_teamset.py" "$KIT/ft_spawn_queue.py" "$KIT/ft-team-lib.sh" "$KIT/ft-name-lint.sh" "$T/bin/"   # r975 r6: ft-name-lint = 역할 집합 출처
+printf '#!/usr/bin/env bash\nexit 0\n' > "$T/bin/ft-index-lint.sh"
+echo '{"_master":"byz-harness-master-claude#1","byz-harness-master-claude#1":{"role":"master"}}' > "$T/seats.json"
 printf '#!/usr/bin/env bash\nexit 0\n' > "$T/bin"/ft-all-stop.sh   # r626 DA⑥ r2: spawn 이 .fable-team 있으면 늘 전팀 정지 check — 사본 bin 에 없으면 REJECT · 이 시험 주제 밖이라 통과 스텁
 . "$HERE/lib/bin_source_deps.sh"; copy_source_deps "$KIT" "$T/bin" || bad "r686 사본 source 대상 채우기"   # r686: 고른 도구가 source 하는 같은 폴더 lib(r672 swap · research-seat …)
 card() {  # card <파일이름> <머리 제안서 줄|-> [머리 Issue 줄|-] [구현 범위 줄 · 기본 x] [본문 추가 줄]
