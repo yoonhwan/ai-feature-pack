@@ -80,13 +80,13 @@ def fetch_refs(repo: Path, refs: list[str]) -> None:
 
 
 def done_line(text: str) -> str | None:
-    """완성 카드의 «끝낸 일» 1줄 — 머리 `- 닫힘 판정문:` → «## 상태» 의 «진행→완성» 줄. 둘 다 없으면 None.
+    """완성 카드의 «끝낸 일» 1줄 — `- 닫힘 판정문:` 이 «어디에 있든» 먼저(머리든 «## 상태» 안이든) · 없으면 «## 상태» 의 «진행→완성» 줄.
 
     머리의 다른 줄(«- 상태: 대기» 등)은 싣지 않는다 — 완성으로 옮긴 카드가 «대기» 로 보이던 자리(r1009).
+    판정은 이 함수 하나 — 수집기·축하 칸·상세 렌더가 같은 값을 쓴다(두 벌 0 · DA⑥ r1 반례 3).
     """
-    lines = text.split("\n")
-    head_end = next((i for i, ln in enumerate(lines) if ln.startswith("## ")), len(lines))
-    close = next((ln.strip() for ln in lines[:head_end] if ln.strip().startswith(CLOSE_HEAD)), None)
+    lines = [ln.strip() for ln in text.split("\n")]
+    close = next((ln for ln in lines if ln.startswith(CLOSE_HEAD)), None)
     if close:
         return close
     state = next((s.body for s in sections(text) if s.head.startswith("상태")), "")

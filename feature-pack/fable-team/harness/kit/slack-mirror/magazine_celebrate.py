@@ -22,7 +22,7 @@ from magazine_eli5_batches import Eli5Error
 from magazine_guide_check import violations
 from magazine_indexless import strip_tokens
 from magazine_summary import run_cmd
-from magazine_window import KST, MagazineError
+from magazine_window import KST
 
 LOG = logging.getLogger("magazine_doc")
 CARD_GLOB = "design/*/indices/완성/*.md"
@@ -63,29 +63,34 @@ def _card_name(text: str, path: str) -> str:
 
 
 def _done_refs(repo: Path, ref: str) -> list[str]:
-    """축하 칸이 읽을 ref — 넘어온 ref + (사본일 때) 하네스 카드가 완성되는 origin/ops/main-base.
+    """축하 칸이 읽을 ref — 넘어온 ref + 하네스 카드가 완성되는 origin/ops/main-base.
 
-    HEAD 는 원장 사본의 origin/main 과 같은 커밋(ft-ledger-repo-sync)이다. ops 가지를 못 받으면 경고 1줄 + origin/main 만으로 그린다(반쪽 0).
+    HEAD 는 원장 사본의 origin/main 과 같은 커밋(ft-ledger-repo-sync)이다. ops 가지를 못 받으면 MagazineError —
+    상세 수집기와 같은 «반쪽 0» 규칙(삼킴 0 · DA⑥ r1 반례 2).
     """
     if ref != "HEAD" and not ref.startswith("origin/"):
         return [ref]  # 시험·수동 지정 ref 는 그대로(원격 가지가 아니다)
-    try:
-        fetch_refs(repo, [OPS_REF])
-    except MagazineError as e:
-        LOG.warning("축하 칸 ops 가지 없음 — %s (넘어온 ref 만으로 그린다)", e)
-        return [ref]
+    if not _remote_tracked(repo):
+        LOG.info("축하 칸 — 원격 추적 ref 없는 리포(%s): 넘어온 ref %s 만으로 그린다", repo, ref)
+        return [ref]  # 사본이 아니다(origin 이 아예 없는 로컬 리포) — 사본이면 아래에서 ops 가지가 필수다
+    fetch_refs(repo, [OPS_REF])  # 못 받으면 MagazineError — 상세 수집기와 같은 «반쪽 0»(삼킴 0)
     return [ref, OPS_REF]
+
+
+def _remote_tracked(repo: Path) -> bool:
+    """이 리포가 «원격 추적 가지» 를 가진 사본인가 — 사본이면 하네스 카드 가지(ops/main-base)가 필수다."""
+    return bool(git(repo, "for-each-ref", "--count=1", "--format=%(refname)", "refs/remotes/").strip())
 
 
 def _from_cards(repo: Path, refs: list[str], start: datetime, end: datetime) -> list[Done]:
     out: list[Done] = []
-    seen: set[tuple[str, str]] = set()  # (경로, 커밋) — 여러 ref 에 같은 카드가 있어도 한 번만
+    seen: set[str] = set()  # 카드 경로 — 앞 ref 가 이긴다(두 ref 에 다른 커밋으로 있어도 1건 · 상세 수집기와 같은 규칙)
     for ref in refs:
         out += _cards_of(repo, ref, start, end, seen)
     return out
 
 
-def _cards_of(repo: Path, ref: str, start: datetime, end: datetime, seen: set[tuple[str, str]]) -> list[Done]:
+def _cards_of(repo: Path, ref: str, start: datetime, end: datetime, seen: set[str]) -> list[Done]:
     out = git(repo, "log", ref, "-M", "--diff-filter=AR", "--name-status", "--format=%x01%H%x00%cI",
               f"--since={start.isoformat()}", f"--until={end.isoformat()}", "--", CARD_GLOB)
     done: list[Done] = []
@@ -96,9 +101,9 @@ def _cards_of(repo: Path, ref: str, start: datetime, end: datetime, seen: set[tu
             continue  # git --since/--until 는 경계 포함·근사 — 창은 여기서 정확히 자른다
         for fields in (row.split("\t") for row in lines[1:] if row.strip()):
             path = fields[-1]
-            if (path, sha) in seen:
+            if path in seen:
                 continue
-            seen.add((path, sha))
+            seen.add(path)
             if fields[0].startswith("R") and DONE_DIR in path:
                 continue  # 완성/ 안에서 이름만 바꿈 — 창 전에 이미 끝난 일
             text = git(repo, "show", f"{sha}:{path}")

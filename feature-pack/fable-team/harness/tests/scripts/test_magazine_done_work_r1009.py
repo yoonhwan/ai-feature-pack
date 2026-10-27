@@ -18,6 +18,7 @@ import _magazine_fakes  # noqa: E402,F401 — slack-mirror 경로를 sys.path �
 
 import magazine_celebrate as mc  # noqa: E402
 import magazine_collect_detail as mcd  # noqa: E402
+import magazine_render_full as mrf  # noqa: E402
 from magazine_window import MagazineError  # noqa: E402
 
 HARNESS = Path(__file__).resolve().parents[2]  # feature-pack/fable-team/harness
@@ -61,9 +62,11 @@ def copy(tmp_path: Path) -> Path:
     seed.mkdir()
     sh(seed, "init", "-q", "-b", "main")
     put(seed, "design/x/VERDICT.md", "# 판정문\n## §1 닫힘\n본문\n")
-    put(seed, "design/teams/ops/indices/완성/a-close.md", card("a-close", True, True, True))
     sh(seed, "add", "-A")
     sh(seed, "commit", "-qm", "c0")
+    put(seed, "design/teams/ops/indices/완성/a-close.md", card("a-close", True, True, True))
+    sh(seed, "add", "-A")
+    sh(seed, "commit", "-qm", "c0b")
     put(seed, "design/teams/planner/indices/완성/b-move.md", card("b-move", True, False, True))
     sh(seed, "add", "-A")
     sh(seed, "commit", "-qm", "c1")
@@ -220,3 +223,67 @@ def test_c4_wait_to_progress_leaves_the_head_state_line_alone(mover):  # ⓔ③
 def test_c5_kit_and_bin_copies_stay_identical():  # C5 회귀 칸
     kit = HARNESS / "kit/fable-team/bin/ft-index-move.sh"
     assert kit.read_bytes() == MOVE.read_bytes()
+
+# ── r1 반송(DA⑥ r1 HOLD 3) — ⓕ 판정문 우선 · ⓖ 삼킴 0 · ⓗ ref 하나로 1건 ──────────────────────
+STATE_BOTH = ("- 닫힘 판정문: design/x/VERDICT.md §1 — 완성 이동 = master --landed " + "a" * 10 + "\n"
+              "- 2026-10-27 01:00 — 진행→완성 · DA design/x/VERDICT.md#§1")
+
+
+def test_c3_verdict_line_wins_wherever_it_sits_and_all_three_places_agree(copy):  # ⓕ
+    put(copy, "design/harness/indices/완성/f-both.md", card("f-both", True, False, False).replace("## 상태\n- 대기\n", "## 상태\n" + STATE_BOTH + "\n"))
+    sh(copy, "add", "-A")
+    sh(copy, "commit", "-qm", "both")
+    sh(copy, "push", "-q", "origin", "main")  # 수집기가 fetch 하는 원격 가지에 올린다
+    want = "- 닫힘 판정문: design/x/VERDICT.md §1 — 완성 이동 = master --landed " + "a" * 10
+    assert unit(copy, "f-both.md")["done"] == want  # ① 수집기
+    assert next(d.what for d in mc.collect(str(copy), "HEAD", DAY)[1] if d.source == "f-both") == want  # ② 축하 칸
+    model = {"detail": {"units": [unit(copy, "f-both.md")]}}
+    assert mrf._closed_line(model["detail"]["units"][0]) == want  # ③ 상세 렌더 — 같은 값(판정 두 벌 0)
+    assert want in str(mrf._d1_units(model))  # ③ 상세 렌더의 카드 본문 첫 줄도 같은 값
+
+
+def test_m3_mutation_moving_the_verdict_line_behind_the_move_line_turns_f_cell(copy, monkeypatch):  # 변이 «판정문 우선 삭제»
+    put(copy, "design/harness/indices/완성/f-both2.md", card("f-both2", True, False, False).replace("## 상태\n- 대기\n", "## 상태\n" + STATE_BOTH + "\n"))
+    sh(copy, "add", "-A")
+    sh(copy, "commit", "-qm", "both2")
+    sh(copy, "push", "-q", "origin", "main")
+
+    def old_done_line(text: str):  # 머리만 보고 → «## 상태» 안의 판정문 줄을 놓친다(고침 전 동작)
+        lines = text.split("\n")
+        head_end = next((i for i, ln in enumerate(lines) if ln.startswith("## ")), len(lines))
+        close = next((ln.strip() for ln in lines[:head_end] if ln.strip().startswith(mcd.CLOSE_HEAD)), None)
+        if close:
+            return close
+        state = next((s.body for s in mcd.sections(text) if s.head.startswith("상태")), "")
+        return next((ln.strip() for ln in state.split("\n") if "진행→완성" in ln), None)
+
+    monkeypatch.setattr(mcd, "done_line", old_done_line)
+    monkeypatch.setattr(mc, "done_line", old_done_line)
+    assert unit(copy, "f-both2.md")["done"].startswith("- 2026-10-27 01:00 — 진행→완성")  # 변이면 이동 줄로 떨어진다
+
+
+def test_c1_celebrate_does_not_swallow_a_missing_ops_branch(tmp_path):  # ⓖ
+    remote, seed = tmp_path / "r2.git", tmp_path / "seed2"
+    subprocess.run(["git", "init", "-q", "--bare", "-b", "main", str(remote)], check=True)
+    seed.mkdir()
+    sh(seed, "init", "-q", "-b", "main")
+    put(seed, "design/teams/ops/indices/완성/a.md", card("a", True, True, True))
+    sh(seed, "add", "-A")
+    sh(seed, "commit", "-qm", "c0")
+    sh(seed, "push", "-q", str(remote), "main")  # ops/main-base 가지를 «안» 올린다
+    sh(tmp_path, "clone", "-q", "--single-branch", "--branch", "main", str(remote), str(tmp_path / "copy2"))
+    copy2 = tmp_path / "copy2"
+    with pytest.raises(MagazineError, match="ops/main-base"):
+        mc.collect(str(copy2), "HEAD", DAY)  # 사본인데 ops 가지가 없다 = MagazineError(반쪽 0)
+
+
+def test_c1_same_card_on_two_refs_is_one_item_first_ref_wins(copy):  # ⓗ
+    sh(copy, "checkout", "-q", "-b", "side", "origin/main~3")  # 카드가 없던 시점(판정문만 있는 커밋)에서 갈라진다
+    put(copy, "design/teams/ops/indices/완성/a-close.md", card("a-close-side", True, True, True))
+    sh(copy, "add", "-A")
+    sh(copy, "commit", "-qm", "side")
+    side = sh(copy, "rev-parse", "HEAD")
+    sh(copy, "checkout", "-q", "--detach", "origin/main")
+    got = mc._from_cards(copy, ["origin/main", side], START, END)
+    same = [d for d in got if d.source == "a-close"]
+    assert len(same) == 1 and len(got) == 3  # 앞 ref(origin/main) 이김 · 같은 경로는 1건
