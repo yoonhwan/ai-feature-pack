@@ -1,3 +1,21 @@
+## 2026-10-27 — r845 재설계 r8 (DA 2/2 동작 반례 1 · 오빠 결정 3 = 1번) — «같은 sha·같은 주인» 재사용 조기 반환이 완전성 확인을 건너뛰어, 훅이나 시험이 더럽힌 기존 사본(a.txt 가 moved.txt 로 옮겨짐)을 rc0 으로 그대로 돌려줬다 → 재사용 조건에 `verify_complete`(그 사본의 HEAD == 요청 sha ∧ `git status` 깨끗) 추가 — 불완전 사본은 건너뛰고 WARN 1줄 + 새 사본 생성(삭제 0 · 장부 줄 유지) · 로직 추가 0, 함수 호출 1곳(같은 함수를 생성 뒤 확인과 재사용 판정이 함께 쓴다) (r845 r8 · 1.1.262 · ft-scratch-repo.sh 1곳 + 짝 사본 + 시험 1)
+
+- 반송서 `design/harness/evidence/r845-da6/REWORK-r845-r8.md` · DA 원문 `harness/evidence/r845-da6/da-20261027-121705-17143.out` · 오빠 결정 3(`desk #174265`) · 계약·반례 집합은 그대로, 구현만 교체.
+- 증거 `harness/evidence/r845/r8-*`: 기준판(df9df4c1 = r7 세트) ⓚ 3 FAIL rc=3 → 새 판 34 PASS ×3 rc=0 · scratch 기존 4종 ALL PASS · 변이 6종 전부 해당 칸 FAIL(«재사용 완전성 확인 끔» → ⓚ FAIL 포함) · bash 3.2 · kit↔harness/bin cmp0.
+- 되돌림 = revert 1커밋 · press 필요 없음(단위 시험만).
+
+## 2026-10-27 — r845 재설계 r7 (DA 1/2 HOLD 2 반려) — 지우기 판단에 «owner 폴더 경계 0» 이라 장부에 적힌 detached 사본이면 남의 사본 폴더·폴더 밖 경로도 지웠고, 체크아웃 훅이 rc0 이면 «온전한 사본인지» 확인을 건너뛰어 반쯤 사본(파일 옮김·HEAD 바뀜)도 등록됐다 → ① `--done`/`--sweep` 삭제 = «그 줄 주인의 사본 자리(FT_SCRATCH_DIR 또는 `$TMPDIR/ft-scratch/<주인>/`) 아래» ∧ «장부 3열 같은 글자» ∧ «분리 워크트리» 세 조건 모두(자리 밖·남의 owner = 건너뜀 + WARN · 삭제 0 · 장부 줄 유지) ② 사본 완전성(요청 sha == HEAD ∧ status 깨끗)은 훅 rc 와 무관하게 항상 확인(어긋나면 die 4 · 등록 0) (r845 r7 · 1.1.261 · ft-scratch-repo.sh 1곳 + 짝 사본 + 시험 1)
+
+- 반송서 `design/harness/evidence/r845-da6/REWORK-r845-r7.md` (DA da-20261027-111456-12089.out · gpt-6.1-sol) · 계약·반례 집합은 r6 그대로 · 구현만 고침.
+- 증거 `harness/evidence/r845/r7-*`: 기준판(origin/main 6f354dbf) 17 FAIL rc=17 → 새 판 30 PASS ×3 rc=0 · 기존 scratch 시험 4종 ALL PASS · 변이 5종(장부 실패=die · 장부 줄만 보고 삭제 · 입구 거절 삭제 · owner 경계 제거 · rc0 훅 완전성 건너뜀) 전부 해당 칸 FAIL · bash 3.2 동일 · kit↔harness/bin cmp0.
+- 되돌림 = revert 1커밋 · press 필요 없음(단위 시험만).
+
+## 2026-10-27 — 임시 사본(scratch repo)이 «훅이 죽으면 장부에 안 남아 아무도 못 지우는» 고아가 됐다(beads post-checkout SIGSEGV → worktree add rc=4 · 사본은 그 sha 로 생겼는데 등록 전 die) → 설계를 접는다: 사본은 재부팅이 지우는 임시 자리(`$TMPDIR/ft-scratch/<주인>/`)에 만들고 장부는 «있으면 참고»(쓰기 실패 = WARN · die 0) · 훅 실패여도 사본이 «요청 sha 그대로 + status 깨끗» 이면 경로 rc0 + WARN · 지우기(`--done`/`--sweep`)는 «장부 3열 같은 글자 ∧ 분리(detached) 워크트리» 둘 다일 때만 · 생성 경로에 제어 문자 = 입구 거절 rc2 (r845 재설계 r6 · 1.1.260 · ft-scratch-repo.sh 1곳 + 짝 사본 + 시험 1)
+
+- 오빠 결정 10-27 08:5x «tmp 에 임시를 쌓으면 재부팅에 정리된다» · arch 157 재설계 r6 · 인터뷰 묶음 INTERVIEW-arch156-after-decision-20261027.md · DA r3 반례(경로 탭·줄바꿈으로 장부 줄이 깨져 남의 폴더를 지움)는 «입구 거절 + 장부 옛 줄 건너뜀» 으로 닫음.
+- 증거 `harness/evidence/r845/`: 기준판(origin/main 6f354dbf) 10 FAIL rc=10(ⓔ 는 탭 경로에 사본을 만들고 장부 줄을 깨뜨림) → 새 판 20 PASS ×3 rc=0 · 기존 scratch 시험 4종 ALL PASS(23·10·18·27 PASS) · 변이 3종(장부 실패=die · 장부 줄만 보고 삭제 · 입구 거절 삭제) 전부 해당 칸 FAIL · bash 3.2 동일 · kit↔harness/bin cmp0 · bash -n OK.
+- 해석 1줄: r6 «장부 3열·옛 줄 해석 0» 은 «옛/깨진 줄로는 지우지 않는다(건너뜀 + WARN)» 로 읽었다 — 기존 시험 r548 ⓗ 가 3열 나이 칸 계약을 잡고 있어 장부 3열 자체는 유지. 되돌림 = revert 1커밋.
+- press 필요: 없음(단위 시험만 · 라이브 오디오·말풍선·제품 키 경로 0).
 ## 2026-10-27 — r843 r5~r9 팀 워크트리 표식 — 값 해석 0 · 실패는 fail_closed 한 자리 · 설정 값(config)을 읽어 믿는 길 삭제 (1.1.259)
 
 - 외부 DA r3·r4·r6·r8 반례를 5회에 걸쳐 닫았다(반례 집합·계약 동결 · 구현만 교체).
@@ -74,6 +92,7 @@
 - 명령마다 7초 상한 · lsof +L1 은 7초 × ceil(프로세스/500) · 70초 천장 · 넘으면 «시간 초과» · 실패 «실패(…)» 칸(0·빈 칸 0).
 - 상태 `<루트>/.fable-team/state/postboot-measure.tsv`(행 = 1회 · 14일 지난 행은 다음 기록 때 정리 = 닫는 사건) · 날이 바뀐 첫 회 = 전날 요약 1장 `<루트>/design/teams/planner/postboot/SUMMARY-postboot-<날짜>.md`(기준선 열 · 회차 열 · 차이 열 · 커밋 0) · `--summary` = 오늘 요약 지금. stdout 1회 1줄(`/tmp/byz-ft-postboot-measure.log`).
 - 시험 `tests/test_postboot_measure_r868.sh` 49(ⓐ~ⓕ · 변이 2: 시간 초과→0 · colima stop) · 렌더 목록 개수 고정 시험 2개 9 → 10.
+
 
 ## 2026-10-27 — 워크트리 정리 도구(`ft-wt-sweep.sh`)의 껍데기 경보가 «일시 실패» 를 «끊김» 으로 읽어 일하는 폴더를 올리고, 밖에서 물려받은 git 설정 때문에 남의 저장소를 판정했다 → ① 스크립트 시작(자동 스캔 루트 결정 전)에서 GIT_DIR·GIT_WORK_TREE·GIT_INDEX_FILE·GIT_COMMON_DIR 지움 + LC_ALL=C ② worktree list·ls-tree 실패(rc≠0 · 시간 초과 · SHA 0) = 그 폴더 «판정 못 함»(이전 판정 이어받기 · 후보에서 빼지 않음 · 서명 유지 · NOTE 1줄) (r844 r5 · 1.1.259 · 껍데기 경보만 · 정리 경로 변경 0)
 

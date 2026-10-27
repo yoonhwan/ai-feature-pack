@@ -53,17 +53,22 @@ chk_warn "_master 없음" 'byz-x-master-claude#2' "$TMP/seats-nomaster.json"
 chk_warn "lint 실패(FB_KK#4)" 'FB_KK#3' "$TMP/seats-kk.json"
 out="$(run_from "$KIT/ft-team-lib.sh" '' "$TMP/seats-x.json" 2>/dev/null)"; [ -z "$out" ] && ok "ⓓ 빈 값 → 빈 값(rc0)" || bad "ⓓ 빈 값이 '$out'"
 
-# ── ⓔ --from 명시 → 해석하지 않는다 · 세 곳이 «한 함수» 를 부른다
-guard="$(LC_ALL=en_US.UTF-8 grep -m1 '^\[ "\$FROM_SET" = 1 \]' "$KIT/ft-nano-spawn.sh")"
-[ -n "$guard" ] && ok "ⓔ nano-spawn 가드 줄 존재" || bad "ⓔ nano-spawn 가드 줄 없음"
-run_guard() { bash -c 'HERE="$1"; FROM="$2"; FROM_SET="$3"; SEATS="$4"; '"$guard"'; printf "%s\n" "$FROM"' _ "$KIT" "$1" "$2" "$3" 2>/dev/null; }
-[ "$(FT_SEATS_JSON="$TMP/seats-x.json" run_guard 'byz-x-master-claude#2' 1 "$TMP/seats-x.json")" = 'byz-x-master-claude#2' ] \
-  && ok "ⓔ --from 명시 → 그대로" || bad "ⓔ --from 명시인데 해석됨"
-[ "$(FT_SEATS_JSON="$TMP/seats-x.json" run_guard 'byz-x-master-claude#2' 0 "$TMP/seats-x.json")" = 'byz-x-master-claude#5' ] \
-  && ok "ⓔ --from 없으면 해석" || bad "ⓔ --from 없는데 해석 안 됨"
-for f in ft-nano-spawn.sh ft-role-spawn.sh ft-send-verified.sh; do
+# ── ⓔ --from 명시 → 해석하지 않는다 (r975 r4·오빠 결정 3 뒤: spawn 은 «아예 해석하지 않는다»)
+#   spawn 의 보고 대상은 «살아 있는 좌석 목록»(tmm ls) 이 정한다 — 명부 파일(seats.json·팀 env·FT_SEATS_JSON)을 읽어
+#   이름을 바꾸는 코드가 하나도 남아 있으면 그 자체가 r975 반례다(r1~r3 전부 그 원인이었다).
+[ "$(grep -cE '^[^#]*ft_from_current|^[^#]*ft_from_gen' "$KIT/ft-nano-spawn.sh")" = 0 ] \
+  && ok "ⓔ nano-spawn 은 발신자를 해석하지 않는다(승계 추적 0 · tmm 목록이 정한다)" \
+  || bad "ⓔ nano-spawn 이 아직 명부로 발신자를 해석한다"
+[ "$(LC_ALL=en_US.UTF-8 grep -c 'tmm ls' "$KIT/ft-nano-spawn.sh")" -ge 1 ] \
+  && ok "ⓔ nano-spawn 이 살아 있는 좌석 목록(tmm ls)을 본다" || bad "ⓔ tmm ls 호출 0"
+# r975 반송 r2(DA⑥ r2 ①): ft-send-verified 는 «부르는 쪽이 확정해 넘긴 발신자» 를 그대로 쓴다 — 재해석 0.
+#   해석은 role-spawn 한 곳(= 해석할 «인자·env» 를 직접 받는 곳)에서만 1회.
+for f in ft-role-spawn.sh; do
   [ "$(grep -c 'ft_from_current' "$KIT/$f")" = 1 ] && ok "ⓕ $f 가 함수 1회 호출" || bad "ⓕ $f 호출 $(grep -c 'ft_from_current' "$KIT/$f")회 (기대 1)"
 done
+[ "$(grep -cE '^[^#]*ft_from_current' "$KIT/ft-send-verified.sh")" = 0 ] \
+  && ok "ⓕ ft-send-verified.sh 는 재해석 0(확정 발신자 그대로 · r975 r2)" \
+  || bad "ⓕ ft-send-verified.sh 가 발신자를 다시 해석한다($(grep -cE '^[^#]*ft_from_current' "$KIT/ft-send-verified.sh")회) — 명시 --from 이 되돌려진다"
 [ "$(grep -c '^ft_from_current()' "$KIT/ft-team-lib.sh")" = 1 ] && ok "ⓕ 정의는 ft-team-lib.sh 한 곳" || bad "ⓕ ft-team-lib.sh 의 ft_from_current 정의 $(grep -c '^ft_from_current()' "$KIT/ft-team-lib.sh")회 (기대 1)"
 
 # ── ⓖ 변이 2종 — 지우면 ⓑ·ⓒ 가 무너진다

@@ -6,6 +6,7 @@ set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 SRC="$HERE/../../harness/kit/fable-team/bin"
 T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T"' EXIT
+. "$HERE/lib/fake_tmm.sh"; fake_tmm "$T/fake" byz-planner-master-claude#1 byz-planner-arch-claude#1 byz-harness-master-claude#1 byz-v65-master-claude#1   # r975 r4: 살아 있는 좌석 목록 대역
 . "$HERE/lib/fake_resource_env.sh"; fake_resource_env "$T/sensors" ok   # R218: 자원 문지기 센서를 가짜로(실 머신 부하·압력 무관)
 fail=0
 ok()  { echo "PASS $1"; }
@@ -17,7 +18,7 @@ for f in ft-nano-close.sh ft-nano-spawn.sh ft-nano-evidence-check.sh; do bash -n
 ok "bash -n 3종"
 
 mkdir -p "$T/bin" "$T/fake"
-cp "$SRC/ft-nano-close.sh" "$SRC/ft-nano-spawn.sh" "$SRC/ft-proposal-gate.sh" "$SRC/ft-nano-evidence-check.sh" "$SRC/ft-team-lib.sh" "$T/bin/"
+cp "$SRC/ft-nano-close.sh" "$SRC/ft-nano-spawn.sh" "$SRC/ft-proposal-gate.sh" "$SRC/ft-nano-evidence-check.sh" "$SRC/ft-team-lib.sh" "$SRC/ft-name-lint.sh" "$T/bin/"   # r975 r6: 역할 집합 출처
 cp "$SRC/ft_teamset.py" "$T/bin/"
 cp "$SRC/ft-resource-gate.sh" "$SRC/ft_raised.py" "$SRC/ft_teamset.py" "$SRC/ft_spawn_queue.py" "$T/bin/"   # spawn 이 부르는 자원 문지기(R161)·상향 판정기 — 임시 bin 에도 있어야 한다
 printf '#!/usr/bin/env bash\nexit 0\n' > "$T/bin"/ft-all-stop.sh   # r626 DA⑥ r2: spawn 이 .fable-team 있으면 늘 전팀 정지 check — 사본 bin 에 없으면 REJECT · 이 시험 주제 밖이라 통과 스텁
@@ -54,7 +55,7 @@ export FT_NANO_WT_PREFIX=planner-
 export FT_NANO_LEDGER=$T/ledger.md
 export FT_IMPL_MODEL='claude-sonnet-5-5[1m]'
 EOF
-echo '{}' > "$REPO/.fable-team/seats-planner.json"; echo '{}' > "$REPO/.fable-team/seats.json"
+echo '{"_master":"byz-planner-master-claude#1","byz-planner-master-claude#1":{"role":"master"}}' > "$REPO/.fable-team/seats-planner.json"; echo '{"_master":"byz-harness-master-claude#1","byz-harness-master-claude#1":{"role":"master"}}' > "$REPO/.fable-team/seats.json"   # r975: 회신 대상 = 명부 _master
 : > "$T/ledger.md"   # R400 r3 ②: 원장은 «이미 있는» 파일만 쓴다(없으면 입구 REJECT · 첫 append 로 만들지 않는다)
 echo card > "$REPO/design/planner/indices/대기/c.md"; echo card > "$REPO/design/v65/indices/대기/c.md"
 echo seq > "$T/comm/bodies/1.txt"

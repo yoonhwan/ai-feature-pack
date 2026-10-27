@@ -1,0 +1,26 @@
+반송 r5 재실행(2026-10-27 17:2x) — 입력 = 지금 최신 뉴스 발행본(NEWS-20261027-1140-p8.md · 10-13 옛 판 아님)
+env = launchd com.byz.ft-news-planner 와 같은 값(FT_HARNESS_ROOT·FT_ROOT·FT_LEDGER_REPO·FT_NEWS_DIR · PATH) + 임시 상태 폴더(/tmp/r1005-dry6) + 가짜 쪽지함(/tmp/r1005-dry6/mbox.sh) · FT_NOW=2026-10-27 17:20 · 실 상태·실 쪽지 쓰기 0
+$ FT_NEWS_VERIFY_STATE=/tmp/r1005-dry6 FT_MBOX=/tmp/r1005-dry6/mbox.sh python3.11 bin/_news_verify.py --kind news --body .../NEWS-20261027-1140-p8.md --root <FT_ROOT> --repo <FT_LEDGER_REPO> --state <FT_ROOT>/.fable-team/state/news-ledger --log /tmp/byz-ft-news-planner.log
+
+ERROR 팀 상태 ALL-UNKNOWN — 14팀 전원 확인 불가(판정 원천 실패 · 발행은 계속)
+INFO 검증 5/9 kind=news streak=0 연속 · 실패 ⓐ 오빠 할 일 건수, ⓑ 한 일, ⓒ 팀 수, ⓗ 팀 지도
+NEWS-VERIFY 2026-10-27 17:20 kind=news 검증 5/9
+  ⓐ 오빠 할 일 건수 — 발행본에 «오빠 할 일» 항목 없음
+  ⓑ 한 일 — 발행본에 착지 줄·완료 쪽지 줄 없음
+  ⓒ 팀 수 — 발행본에 «팀 N개» 없음
+  ⓗ 팀 지도 — 지도에 없는 팀 8 — ccu, cfo, chatbot, feature, graphics
+
+--- 가짜 쪽지함(실 쪽지 0 확인)
+SEND send byz-planner-master-claude#145 [긴급] news 검증 5/9 · 새 사건 4칸 — ⓐ 오빠 할 일 건수, ⓑ 한 일, ⓒ 팀 수, ⓗ 팀 지도 ⓐ 오빠 할 일 건수 — 발행본에 «오빠 할 일» 항목 없음 ⓑ 한 일 — 발행본에 착지 줄·완료 쪽지 줄 없음 ⓒ 팀 수 — 발행본에 «팀 N개» 없음 ⓗ 팀 지도 — 지도에 없는 팀 8 — ccu, cfo, chatbot, feature, graphics 같은 칸 1통 · 발행은 그대로(검증만 실패) · 2026-10-27 17:20
+--- ⓖ 입력 실측(공유 t0 · ls-remote 1회 초)
+ls-remote rc=0 elapsed=3.21s
+main: 원격=656910e0 로컬=656910e0 → 같음
+ledger/auto: 원격=c60592f4 로컬=c60592f4 → 같음
+합계 3.25s(공유 t0)
+
+--- 이 회차 읽기 (반송 r5 · 결정 4 · 기대 = «검증 5/9») -------------------------
+ⓖ = 참 — 한 번 잰 시작 시각(t0)을 세 호출이 나눠 씀: ls-remote 3.21초 + rev-parse 2회 = 합 3.25초(합계 마감 7초 안 · 첫 묻기 5.5초 안) · main 원격 656910e0 = 로컬 · ledger/auto 원격 c60592f4 = 로컬.
+· 합계가 7초에 닿으면 안쪽 _git_capped 이 먼저 rc None 으로 끊어 «검증 불가 · 쪽지 0» 길로 간다(바깥 칸 상한 7초 «모름» 보다 항상 먼저).
+ⓐ = «발행본에 오빠 할 일 항목 없음», ⓑ = «착지 줄·완료 쪽지 줄 없음», ⓒ = «팀 N개 없음» — 라이브 FT_NEWS_MODE=draft 판 모양 차이(알려진 한계).
+ⓗ = 지도에 없는 팀 8 — 발행본은 바뀐 6팀만 싣고 명부는 14팀(모드 차이) + «m.lecture» vs 명부 «lecture» 이름 비교(알려진 한계).
+참 5칸 = ⓓ 발행 sha · ⓔ 같은 경고 · ⓕ 완료 줄 · ⓖ 원천 가져오기 · ⓘ 뿌리 글 → «검증 5/9» rc1

@@ -1,0 +1,16 @@
+FAIL ⓐ rc=4 out=[] err=[ERROR worktree add 실패: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.KkgUOabTuN/scratch/repo-6d259867-1793061833-13783] reg=0
+FAIL ⓑ rc=4 out=[] err=[error: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.KkgUOabTuN/hooks/post-checkout died of signal 11
+ERROR worktree add 실패: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.KkgUOabTuN/scratch/repo-6d259867-1793061833-14086]
+chmod: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.KkgUOabTuN/R/.fable-team/state/scratch-repos.tsv: No such file or directory
+FAIL ⓒ rc=0 out=[/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.KkgUOabTuN/scratch/repo-682c7581-1793061833-14203] err=[] reg=1
+PASS ⓒ 장부 파일 권한 복구
+FAIL ⓓ --done rc=2 err=[ERROR 등록된 사본이 아님: <없음>] D1=없음
+FAIL ⓓ sweep err=[] D1=없음
+FAIL ⓓ 워크트리 아님 rc=0 err=[]
+FAIL ⓓ sweep 이 워크트리 아닌 폴더 삭제
+FAIL ⓔ rc=0 out=[/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.KkgUOabTuN/bad	dir/repo-6d259867-1793061834-15145] err=[] reg=2/1
+FAIL ⓔ rc=0 out=[/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.KkgUOabTuN/bad
+dir/repo-6d259867-1793061834-15238] err=[] reg=4/1
+FAIL ⓕ rc=0 out=[/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.KkgUOabTuN/tmpdir/repo-6d259867-1793061834-15338] (기대 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.KkgUOabTuN/tmpdir/ft-scratch/f-owner)
+(10 failed)
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

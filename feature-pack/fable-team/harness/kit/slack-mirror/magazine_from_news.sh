@@ -74,4 +74,57 @@ if [ "${FT_LEDGER_FRESH_GATE:-1}" != 0 ]; then
   FRESH="${FT_LEDGER_FRESH:-$(cat "$ROOT/.fable-team/LIVE_BIN" 2>/dev/null || true)/ft-ledger-fill}"
   OUT="$(bash "$FRESH" fresh --repo "$REPO" --path "$REL" --ref "$SHA" 2>&1)" || { echo "ERROR magazine_from_news: 원장 신선도 — ${OUT:-$FRESH 실행 실패} (낡은 매거진 발행 0)" >&2; exit 6; }
 fi
-exec python3 "${FT_MAGAZINE_DOC:-$HERE/magazine_doc.py}" --src-repo "$REPO" --src-sha "$SHA" --src-path "$REL" --date "${NOW:0:10}" "$@"
+# r1005 — 발행 뒤 9칸 재측정 1줄(ft-news-verify --kind magazine · --tail = 발행본 꼬리 «검증 N/9») · 검증 실패는 발행 rc 를 바꿔지 않는다
+#   발행이 «실제로 쓴» 출력 폴더(--out-dir 반영) 에서 찾는다 · 못 찾으면 ERROR 1줄 + rc7(조용한 건너뜀 0)
+#   «~» 는 사람이 쓴 대로 펼칩니다(발행기 magazine_doc 는 expanduser 를 한다) · HOME 없이 «~» 출력 폴더면 rc7 · 그 밖은 ${HOME:-} 끌로 안전
+DOC="${FT_MAGAZINE_DOC:-$HERE/magazine_doc.py}"
+RC=0
+OUT="$(python3 "$DOC" --src-repo "$REPO" --src-sha "$SHA" --src-path "$REL" --date "${NOW:0:10}" "$@" 2>&1)" || RC=$?
+printf '%s\n' "$OUT"
+[ "$RC" -eq 0 ] || exit "$RC"
+if [ "${FT_NEWS_VERIFY:-1}" != 0 ]; then
+  OUTDIR=""; WANT=""
+  for ARG in "$@"; do
+    case "$ARG" in
+      --out-dir) WANT=out ;;
+      --out-dir=*) OUTDIR="${ARG#--out-dir=}" ;;
+      *) [ "$WANT" = out ] && OUTDIR="$ARG" && WANT="" ;;
+    esac
+  done
+  SEARCH="${OUTDIR:-${FT_MAGAZINE_OUT:-${HOME:-}/.hermes/magazine}}"
+  case "$SEARCH" in  # r1005 반례 6 — «~» 를 글자 그대로 찾아 rc7 나던 길(발행기 magazine_doc 는 expanduser 를 한다)
+    "~"|"~/"*)
+      if [ -z "${HOME:-}" ]; then
+        echo "ERROR magazine_from_news: 출력 폴더 «${SEARCH}» — HOME 없음(«~» 펼침 불가)" >&2
+        exit 7
+      fi
+      SEARCH="$HOME${SEARCH#\~}"  # «~» → HOME · «~/x» → HOME/x
+      ;;
+  esac
+  HTML="$(printf '%s\n' "$OUT" | sed -n 's/.* html=\([^ ]*\.html\).*/\1/p' | tail -1)"
+  case "$HTML" in  # r1005 반례 6 — 발행 출력이 «~» 달고 오는 경우도 같은 자리에서 펼친다(HOME 없으면 rc7)
+    "~"|"~/"*)
+      if [ -z "${HOME:-}" ]; then
+        echo "ERROR magazine_from_news: 발행 출력 경로 «${HTML}» — HOME 없음(«~» 펼침 불가)" >&2
+        exit 7
+      fi
+      HTML="$HOME${HTML#\~}"  # «~» → HOME · «~/x» → HOME/x
+      ;;
+  esac
+  case "$HTML" in  # 발행기가 상대 경로를 찍으면 그대로 · 이름만 찍으면 출력 폴더 기준
+    /*) BODY="$HTML" ;;
+    "") BODY="" ;;
+    *) BODY="$SEARCH/$HTML" ;;
+  esac
+  if [ -z "$HTML" ]; then
+    echo "WARN magazine_from_news: 발행 출력에 html= 줄 없음 — 검증 건너뜀(발행 대역)" >&2
+  elif [ ! -f "$BODY" ]; then
+    echo "ERROR magazine_from_news: 검증할 발행본 못 찾음 — $BODY (--out-dir 반영 · 발행 출력 html=$HTML)" >&2
+    exit 7
+  else
+    VERIFY="${FT_NEWS_VERIFY_BIN:-$(cat "$ROOT/.fable-team/LIVE_BIN" 2>/dev/null || true)/ft-news-verify}"
+    if [ -e "$VERIFY" ]; then bash "$VERIFY" --kind magazine --body "$BODY" --tail || true
+    else echo "ERROR magazine_from_news: 검증기 없음 — $VERIFY (설치 확인 · 발행은 그대로)" >&2; fi
+  fi
+fi
+exit 0
