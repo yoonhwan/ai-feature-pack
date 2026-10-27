@@ -8,13 +8,14 @@
 #   ⓐ2(DA⑥ r1 반례 ①) 비cone `/d0/absent` `/d2/absent` `/d1/` → 껍데기 0 (패턴을 손으로 접으면 오탐)
 #   ⓑ2(반례 ②-워크트리 config) 비cone `**/*.md` + d1 삭제 → 껍데기 1
 #   ⓑ3(반례 ②-공용 config·! 제외) 비cone `/d1/` + `!/d1/excluded/` + d1 삭제 → 껍데기 1
-#   ⓓ2(반례 ④) 비cone `/*` 뒤 패턴 파일을 «폴더» 로 교체 → r5 는 패턴을 안 읽으므로 «정상 판정»(껍데기 0 · 판정 불가 0) — 결함 자리가 사라졌다
+#   ⓓ2(반례 ④ · r6 동결 기대 복원) 비cone `/*` 뒤 패턴 파일을 «폴더» 로 교체 → «판정 불가» 1줄(동결값 1 · 껍데기 0 · 삭제 0) — sparse 표식이 true 면 패턴을 읽을 수 있는지 한 번 묻는다
+#   ⓠⓡⓢ(r6 · 동결 계약 ④) git 호출 실패 3경로 — 워크트리 설정 깨짐(:config) · 공용 config 깨짐(:worktree-list) · 트리 객체 없음(:ls-tree) → 각각 «판정 불가» 1줄 · 껍데기 0 · HIL 0 · 삭제 0(조용한 0 · 일반 후퇴 0)
 #   ⓔ 제외 규칙(.git/info/exclude)에 걸린 이름이 H 인데 디스크에 없음 → 껍데기 1 (r5: git 은 추적 파일 부재를 제외 규칙으로 안 가린다 · 옛 판은 «정상» 으로 숨겼다)
 #   ⓙ(DA⑥ r4 반례) `.git/info/exclude` 의 제외 취소 규칙(`!keep`)이 진짜 부재를 숨기지 않는다 → 껍데기 1
 #   ⓗ(DA⑥ r3 반례 1·2) 최상위 이름에 제어문자(줄바꿈·탭·0x01·0x7F) 가 있는 sparse — 이름을 «안 읽으므로» 판정 불가가 아니라 «정확히» 센다: 이름이 다 있으면 0 · 줄바꿈 이름 폴더를 지우면 1
 #   ⓘ(DA⑥ r3 반례 3) 추적 «파일» keep2 삭제(파일 규칙 keep2) → 1 · 추적 «파일» keep3 삭제(폴더 규칙 keep3/) → 1 (r5: 제외 규칙은 판정에 안 들어온다)
 #   ⓕ core.quotePath=false 로도 같은 목록 · 한글·공백·큰따옴표·줄바꿈 이름이 든 cone sparse → 0 (따옴표를 경로로 읽지 않는다)
-#   변이 4: 판정 불가를 «껍데기 아님» 으로(1) → ⓓ 빨강 · 개수 ≥1 → ≥2(2) → ⓑ 빨강 · sparse 분기 끔(3) → ⓑ 빨강 · 개수 ≥1 → ≥0(4) → ⓐ 빨강
+#   변이 5: 판정 불가를 «껍데기 아님» 으로(1) → ⓓ 빨강 · 개수 ≥1 → ≥2(2) → ⓑ 빨강 · sparse 분기 끔(3) → ⓑ 빨강 · 개수 ≥1 → ≥0(4) → ⓐ 빨강 · gitfail 의 «판정 불가» 기록 끔(5) → ⓓⓓ2ⓠⓡⓢ 빨강
 # WT_TEST_BASH=/bin/bash 로 돌리면 도구를 macOS 기본 bash 3.2 로 실행한다(카드 완료 조건). WT_TEST_SRC=<bin> 으로 옛 도구를 물린다.
 # 임시 git 리포 + 임시 워크트리만 쓴다 — 실 리포·워크트리·mbox·tmux 0.
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"
@@ -44,13 +45,15 @@ case "${WT_TEST_MUT:-0}" in
   0) ;;
   1) MUTP 'if ! missing="$(sparse_deleted "$p" "$spx")"; then' 'missing="$(sparse_deleted "$p" "$spx")"; if false; then'
      echo "MUT 1 — 판정 불가를 «껍데기 아님» 으로";;
-  2) MUTP '             [ "$missing" -ge 1 ] || continue;;' '             [ "$missing" -ge 2 ] || continue;;   # MUT2 임계 2'
+  2) MUTP '           [ "$missing" -ge 1 ] || continue' '           [ "$missing" -ge 2 ] || continue   # MUT2 임계 2'
      echo "MUT 2 — 개수 임계 ≥1 → ≥2";;
-  3) MUTP '           true)   # sparse' '           false)   # MUT3 sparse 분기 끔(sparse 를 일반 규칙으로)'
+  3) MUTP '         if [ "$crc" -eq 0 ] && [ "$spcfg" = true ]; then' '         if false; then   # MUT3 sparse 분기 끔(sparse 를 일반 규칙으로)'
      echo "MUT 3 — sparse 분기 끔(패턴 해석 없이 일반 규칙)";;
-  4) MUTP '             [ "$missing" -ge 1 ] || continue;;' '             [ "$missing" -ge 0 ] || continue;;   # MUT4 임계 0'
+  4) MUTP '           [ "$missing" -ge 1 ] || continue' '           [ "$missing" -ge 0 ] || continue   # MUT4 임계 0'
      echo "MUT 4 — 개수 임계 ≥1 → ≥0(0 개도 껍데기)";;
-  *) echo "usage: WT_TEST_MUT=0|1|2|3|4"; exit 2;;
+  5) MUTP 'gitfail() { und="$und$1:$2 "; ucnt=$((ucnt+1)); }' 'gitfail() { : ; }   # MUT5 실패를 «판정 불가» 로 안 셈'
+     echo "MUT 5 — git7 실패를 «판정 불가» 로 안 셈(조용히 넘김)";;
+  *) echo "usage: WT_TEST_MUT=0|1|2|3|4|5"; exit 2;;
 esac
 "${WT_TEST_BASH:-bash}" -n "$T/bin/ft-wt-sweep.sh" && ok "본보기 bash -n(${WT_TEST_BASH:-bash})" || bad "bash -n"
 
@@ -125,11 +128,11 @@ hasnt "$out" "sp3"                        "보론 비cone(d1/) sparse → 껍데
 hasnt "$out" "da1"                        "ⓐ2 비cone /d0/absent · /d2/absent · /d1/ → 껍데기 0 (패턴을 손으로 접으면 오탐)"
 hasnt "$out" " n1"                        "ⓒ 일반 워크트리 · 최상위 1개 부재 → 껍데기 아님(회귀 0)"
 hasnt "$out" "ln1"                        "ⓕ-링크 최상위 심볼릭 링크(120000) 가 디스크에 있음 → 껍데기 0"
-has  "$out" "판정 불가 1곳"                "ⓓ git 이 삭제 목록을 못 준 sparse(br1 — 인덱스 망가짐) → «판정 불가» 1줄"
-has  "$out" "br1"                         "  └ 판정 불가 줄에 경로(br1)"
-hasnt "$out" "da4"                        "ⓓ2 패턴 파일 자리가 폴더여도 r5 는 패턴을 안 읽는다 → 판정 불가 0 · 껍데기 0"
+has  "$out" "판정 불가 2곳"                "ⓓⓓ2 git 호출이 실패한 sparse 2곳 → «판정 불가» 1줄"
+has  "$out" "br1:ls-files"                 "  └ 판정 불가 줄에 «경로:단계»(br1:ls-files — 인덱스 망가짐)"
+has  "$out" "da4:sparse-list"              "ⓓ2 패턴 파일 자리가 폴더 → «경로:단계»(da4:sparse-list · 동결 기대 복원)"
 case "$out" in *"[HIL] seat=byz-harness-wt-shell 반쯤 지워진 워크트리 껍데기 8곳(전체 8곳): da2 da3 g1 i1 i2 ig1 n2 sp2 —"*) ok "  └ 껍데기 줄 꼴 그대로(팀 미상 = harness · r444)";; *) bad "껍데기 줄 꼴이 달라짐 ← ${out:0:400}";; esac
-case "$out" in *"판정 불가 1곳 —"*) ok "  └ 판정 불가 줄 꼴 그대로";; *) bad "판정 불가 줄 꼴이 달라짐 ← ${out:0:400}";; esac
+case "$out" in *"판정 불가 2곳 — git 호출 실패로 껍데기 판정 보류"*) ok "  └ 판정 불가 줄 꼴 그대로(«경로:단계» 포함)";; *) bad "판정 불가 줄 꼴이 달라짐 ← ${out:0:400}";; esac
 outq="$(swp "$T/scan-q" false)"
 has  "$outq" "껍데기 8곳(전체 8곳): da2 da3 g1 i1 i2 ig1 n2 sp2" "ⓕ core.quotePath=false 로도 같은 목록 — 경로 글자와 상관없이 판정"
 hasnt "$outq" "sp1"                        "ⓕ 한글·공백·큰따옴표·줄바꿈 이름이 드는 cone sparse(d0) → 껍데기 0 (따옴표를 경로로 읽지 않는다)"
@@ -142,6 +145,51 @@ has  "$out3" "껍데기 9곳(전체 9곳): da2 da3 g1 i1 i2 ig1 n1 n2 sp2" "ⓒ 
 [ -d "$REPO/.worktrees/sp1/d0" ] && [ -d "$REPO/.worktrees/da1" ] && [ -d "$REPO/.worktrees/br1" ] && ok "  └ 경보는 읽기만 — 워크트리 손 0" || bad "경보가 워크트리를 건드림"
 [ -z "$(ls "$T/scan"/.sparse-* 2>/dev/null)" ] && ok "  └ sparse 임시 파일 남김 0" || bad "sparse 임시 파일이 남음"
 [ -z "$(ls -d "$REPO"/.worktrees/*.deleting-* 2>/dev/null)" ] && ok "  └ 삭제·이름 바꿈 0" || bad "스캔이 워크트리를 지움"
+
+echo "== ⓠⓡⓢ git 호출 실패 3경로(r6 동결 계약 ④) — 판정 불가 1줄 · 껍데기 0 · HIL 0 · 삭제 0"
+# ⓠ 워크트리 설정(config.worktree)이 깨짐 → 설정 조회 rc128 → «경로:config»
+R3="$T/repo3"; mkdir -p "$R3"; git -C "$R3" init -q -b main
+G3() { git -C "$R3" -c user.email=t@t -c user.name=t "$@"; }
+mkdir -p "$R3/d0" "$R3/d1"; echo x > "$R3/d0/x"; echo y > "$R3/d1/y"
+G3 add -A && G3 commit -q -m c3
+G3 worktree add -q --no-checkout "$R3/.worktrees/q1" -b q1
+git -C "$R3/.worktrees/q1" sparse-checkout set d0 >/dev/null 2>&1
+git -C "$R3/.worktrees/q1" read-tree -mu HEAD >/dev/null 2>&1
+C3="$(git -C "$R3/.worktrees/q1" rev-parse --git-path config.worktree)"
+printf '[invalid\n' >> "$C3"
+[ "$(git -C "$R3/.worktrees/q1" config --bool --get core.sparseCheckout 2>/dev/null; echo "rc=$?")" = "rc=128" ] && ok "전제: ⓠ q1 설정 조회 rc=128" || bad "전제 실패: ⓠ 설정"
+outq1="$(swp "$T/scan-q1" '' "$R3")"
+has   "$outq1" "판정 불가 1곳"            "ⓠ 워크트리 설정이 깨지면 «판정 불가» 1줄(일반 워크트리로 후퇴해 껍데기 1 로 세지 않는다)"
+has   "$outq1" "q1:config"                "  └ 단계 이름 = config"
+hasnt "$outq1" "[HIL]"                    "  └ 오빠 HIL 0"
+hasnt "$outq1" "반쯤 지워진"                "  └ 껍데기 0(조용한 0 이 아니라 «판정 불가»)"
+[ -d "$R3/.worktrees/q1/d0" ] && ok "  └ 경보는 읽기만 — 워크트리 손 0(ⓠ)" || bad "경보가 워크트리를 건드림(ⓠ)"
+# ⓡ 공용 config(.git/config)가 깨짐 → worktree list rc128 → «경로:worktree-list» · 조용한 0 아님
+R4="$T/repo4"; mkdir -p "$R4"; git -C "$R4" init -q -b main
+G4R() { git -C "$R4" -c user.email=t@t -c user.name=t "$@"; }
+mkdir -p "$R4/d0"; echo x > "$R4/d0/x"; G4R add -A && G4R commit -q -m c4
+G4R worktree add -q "$R4/.worktrees/w1" -b w1
+rm -rf "$R4/.worktrees/w1/d0"             # 진짜 껍데기(목록을 못 읽어 «판정 불가» 로 보류돼야 한다)
+printf '[invalid\n' >> "$R4/.git/config"
+[ "$(git -C "$R4" worktree list --porcelain 2>/dev/null; echo "rc=$?")" = "rc=128" ] && ok "전제: ⓡ worktree list rc=128" || bad "전제 실패: ⓡ 공용 config"
+outr1="$(swp "$T/scan-r1" '' "$R4")"
+has   "$outr1" "판정 불가 1곳"            "ⓡ 공용 config 가 깨지면 «판정 불가» 1줄(조용한 «껍데기 0» 으로 끝나지 않는다)"
+has   "$outr1" "worktree-list"            "  └ 단계 이름 = worktree-list"
+hasnt "$outr1" "[HIL]"                    "  └ 오빠 HIL 0"
+# ⓢ 트리 객체가 없음 → ls-tree rc128 → «경로:ls-tree»(일반 워크트리)
+R5="$T/repo5"; mkdir -p "$R5"; git -C "$R5" init -q -b main
+G5() { git -C "$R5" -c user.email=t@t -c user.name=t "$@"; }
+mkdir -p "$R5/d0" "$R5/d1"; echo x > "$R5/d0/x"; echo y > "$R5/d1/y"; G5 add -A && G5 commit -q -m c5
+G5 worktree add -q "$R5/.worktrees/s1" -b s1
+OBJ="$(G5 rev-parse 'HEAD^{tree}')"; OP="$R5/.git/objects/${OBJ:0:2}/${OBJ:2}"
+mkdir -p "$T/objhold"; mv "$OP" "$T/objhold/$OBJ"
+[ "$(git -C "$R5" ls-tree --name-only HEAD 2>/dev/null; echo "rc=$?")" = "rc=128" ] && ok "전제: ⓢ ls-tree rc=128(트리 객체 없음)" || bad "전제 실패: ⓢ 트리 객체"
+outs1="$(swp "$T/scan-s1" '' "$R5")"
+has   "$outs1" "판정 불가 1곳"            "ⓢ 트리 객체가 없으면 «판정 불가» 1줄(조용한 «껍데기 0» 아님)"
+has   "$outs1" "s1:ls-tree"               "  └ 단계 이름 = ls-tree"
+hasnt "$outs1" "[HIL]"                    "  └ 오빠 HIL 0"
+mkdir -p "$R5/.git/objects/${OBJ:0:2}"; mv "$T/objhold/$OBJ" "$OP"   # 되돌림(임시 사본 정리)
+[ "$(git -C "$R5" ls-tree --name-only HEAD >/dev/null 2>&1; echo "rc=$?")" = "rc=0" ] && ok "  └ 되돌림 확인(객체 복구 rc=0)" || bad "되돌림 실패: ⓢ 객체"
 
 echo "== ⓗ 제어문자 이름(DA⑥ r3 반례 1·2) — 이름을 안 읽으므로 «정확히» 센다(오탐 0 · 누락 0 · 삭제 0)"
 R2="$T/repo2"; mkdir -p "$R2"; git -C "$R2" init -q -b main

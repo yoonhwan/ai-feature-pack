@@ -245,8 +245,11 @@ owner_team() {
 #     대신 «있어야 하는데 없는 추적 파일» 을 git 에게 그대로 묻는다: `git ls-files -d -z` 1회.
 #     sparse 로 «안 받은» 파일은 git 이 skip-worktree(S)로 들고 있어 애초에 `-d` 에 안 나온다 — 셈에서 빠지는 것을 우리가 판단하지 않는다.
 #     `-z` = NUL 구분이라 이름 글자(따옴표·줄바꿈·제어문자)를 해석하지 않고 «개수» 만 센다(글자 때문에 놓치거나 오탐하는 길 0).
-#   ⇒ sparse 껍데기 = 그 수 ≥ 1 · 판정 실패(rc≠0 · 7초 초과 124) = «판정 불가 <경로>» 1줄(오빠 판정 0 · 삭제 0) — sparse 면 «항상» 본다.
-#   ★알려진 값(r5 실측)★ 실 스캔루트 sparse 325석 중 41석이 «추적된 .serena 삭제» 로 1 이상 = 후보에 오른다(옛 판 filter 는 .git/info/exclude 의 `.serena/` 로 이것을 정상 처리했다) — 카드 «주의» 참조.
+#   ⇒ sparse 껍데기 = 그 수 ≥ 1 · 판정 실패(rc≠0 · 7초 초과 124) = «판정 불가 <경로:단계>» 1줄(오빠 판정 0 · 삭제 0) — sparse 면 «항상» 본다.
+#   ★r6★ git 호출은 «전부» git7 하나를 지난다 — shell_scan 의 네 자리(워크트리 설정 조회 · 공용 worktree list · ls-tree · ls-files -d) 중 어느 것이 실패해도
+#     그 워크트리는 «껍데기 0 · HIL 0 · 삭제 0» 으로 넘기고 «판정 불가 <경로:단계>» 한 줄에 센다(조용한 0 · 일반 워크트리 후퇴 = 구조로 사라짐).
+#     + sparse 표식이 true 면 «패턴 파일을 읽을 수 있는가» 를 한 번 묻는다(`git sparse-checkout list` rc≠0 또는 경고 = 판정 불가) — 동결 기대(패턴 파일이 폴더 → 판정 불가) 복원.
+#   ★알려진 값(r5 실측)★ 실 스캔루트 sparse 325석 중 41석이 «추적된 .serena 삭제» 로 1 이상 = 후보에 오른다(옛 판 filter 는 .git/info/exclude 의 `.serena/` 로 이것을 정상 처리했다) — 카드 «주의» 참조(r6 범위 밖 · 새 카드 r1004).
 # 외부 호출 7초 상한 — perl alarm 으로 그룹 TERM(macOS 기본엔 timeout(1) 이 없다 · run_plan 과 같은 꼴).
 git7() { perl -e 'setpgrp(0,0); $SIG{ALRM}=sub{ local $SIG{TERM}="IGNORE"; kill "TERM", -$$; exit 124 }; alarm shift; my $r=system(@ARGV); exit(($r>>8) || (($r&127) ? 128+($r&127) : 0));' "${FT_WT_GIT_SEC:-7}" git -C "$1" "${@:2}"; }
 # sparse 워크트리의 «삭제된 추적 파일 수» — $1 = 워크트리. stdout = 개수 · rc 0 정상 · 2 판정 불가(git rc≠0 · 7초 초과).
@@ -261,30 +264,45 @@ sparse_deleted() {
   echo "${n:-0}"
   return 0
 }
+# git 호출 실패의 «공용» 처리 — shell_scan 의 지역 변수 und·ucnt 에 «판정 불가 <경로:단계>» 를 더한다(bash 동적 스코프).
+#   ★r6★ 호출부는 이 함수를 부른 뒤 그 워크트리를 건너뛴다 — 조용한 «껍데기 0» · «일반 워크트리 후퇴» 분기를 두지 않는다.
+gitfail() { und="$und$1:$2 "; ucnt=$((ucnt+1)); }
+# sparse 패턴 파일을 «읽을 수 있는가» — rc≠0 또는 경고(stderr) = 판정 불가(r6 동결 기대: 패턴 파일이 폴더면 git 은 rc0 + 경고만 낸다).
+sparse_patterns_ok() {
+  local p="$1" err rc
+  err="$(git7 "$p" sparse-checkout list 2>&1 >/dev/null)"; rc=$?
+  [ "$rc" -eq 0 ] && [ -z "$err" ]
+}
 shell_scan() {
-  local stamp="$DIR/.shell-scan.stamp" sigf="$DIR/.shell-sig" now sig="" list="" p sha name missing cnt=0 live tm spx="" und="" ucnt=0 s1 s2 rrc
+  local stamp="$DIR/.shell-scan.stamp" sigf="$DIR/.shell-sig" now sig="" list="" p sha name missing cnt=0 live tm spx="" und="" ucnt=0 s1 s2 wl="" crc spcfg tree
   [ "$DRY" != 1 ] && [ -n "$SCAN_ROOT" ] && [ -d "$SCAN_ROOT" ] && [ -d "$DIR" ] || return 0
   now="$(date +%s)"; [ $(( now - $(cat "$stamp" 2>/dev/null || echo 0) )) -ge "$SCAN_SEC" ] || return 0
   echo "$now" > "$stamp"
   live="$(for f in "$DIR"/*.deleting; do [ -f "$f" ] && sed -n 1p "$f"; done)"
+  # 공용 목록 조회 실패 = 셈 자체가 불가 — 조용한 «껍데기 0» 으로 끝나지 않도록 «판정 불가» 한 줄로 남긴다(r6).
+  if ! wl="$(git7 "$SCAN_ROOT" worktree list --porcelain 2>/dev/null)"; then gitfail "$SCAN_ROOT" worktree-list; wl=""; fi
   while IFS=$'\t' read -r p sha; do
+    [ -n "$p" ] || continue
     case "$p" in "$SCAN_ROOT"/.worktrees/*) ;; *) continue;; esac
     [ -d "$p" ] || continue
     case "${p##*/}" in
       *.deleting-[0-9]*) printf '%s\n' "$live" | grep -qxF -- "$p" && continue; missing=9;;
-      *) case "$(git7 "$p" config --bool --get core.sparseCheckout 2>/dev/null)" in
-           true)   # sparse — git 에게 직접 묻는다(삭제된 추적 파일 수 · 규칙·글자 해석 0 · 오빠 결정 10-27 선택 1)
-             spx="$DIR/.sparse-$$"
-             if ! missing="$(sparse_deleted "$p" "$spx")"; then und="$und$p "; ucnt=$((ucnt+1)); continue; fi   # 판정 불가 — 껍데기 아님도 아님(오빠 판정 0 · 삭제 0)
-             [ "$missing" -ge 1 ] || continue;;
-           *)      # 일반 — 기존 규칙 그대로(최상위 2개 이상 부재)
-             missing=0
-             while IFS= read -r name; do [ -e "$p/$name" ] || missing=$((missing+1)); done < <(git7 "$SCAN_ROOT" ls-tree --name-only "$sha" 2>/dev/null)
-             [ "$missing" -ge 2 ] || continue;;
-         esac;;
+      *) spcfg="$(git7 "$p" config --bool --get core.sparseCheckout 2>/dev/null)"; crc=$?
+         if [ "$crc" -gt 1 ]; then gitfail "$p" config; continue; fi   # 설정 조회 실패 = 판정 불가(일반 워크트리로 퇴각 0)
+         if [ "$crc" -eq 0 ] && [ "$spcfg" = true ]; then   # sparse — git 에게 직접 묻는다(삭제된 추적 파일 수 · 규칙·글자 해석 0)
+           if ! sparse_patterns_ok "$p"; then gitfail "$p" sparse-list; continue; fi
+           spx="$DIR/.sparse-$$"
+           if ! missing="$(sparse_deleted "$p" "$spx")"; then gitfail "$p" ls-files; continue; fi   # 판정 불가 — 껍데기 아님도·아님(오빠 판정 0 · 삭제 0)
+           [ "$missing" -ge 1 ] || continue
+         else   # 일반 — 기존 규칙 그대로(최상위 2개 이상 부재)
+           if ! tree="$(git7 "$SCAN_ROOT" ls-tree --name-only "$sha" 2>/dev/null)"; then gitfail "$p" ls-tree; continue; fi
+           missing=0
+           while IFS= read -r name; do [ -n "$name" ] && [ ! -e "$p/$name" ] && missing=$((missing+1)); done <<< "$tree"
+           [ "$missing" -ge 2 ] || continue
+         fi;;
     esac
     tm="$(owner_team "$p")"; list="$list$tm:${p##*/} "; cnt=$((cnt+1))
-  done < <(git7 "$SCAN_ROOT" worktree list --porcelain 2>/dev/null | awk '/^worktree /{p=substr($0,10)} /^HEAD /{print p "\t" substr($0,6)}')
+  done < <(printf '%s\n' "$wl" | awk '/^worktree /{p=substr($0,10)} /^HEAD /{print p "\t" substr($0,6)}')
   s1="$(printf '%s' "$list" | tr ' ' '\n' | sed '/^$/d' | sort | tr '\n' ' ')"   # 끝 공백 유지(경보 줄 꼴 원형)
   s2="$(printf '%s' "$und" | tr ' ' '\n' | sed '/^$/d' | sort | tr '\n' ' ')"
   sig="$(printf '%s %s' "$s1" "$s2" | tr -s ' ' | sed 's/^ //; s/ $//')"
@@ -294,8 +312,8 @@ shell_scan() {
   for tm in $(printf '%s' "$s1" | tr ' ' '\n' | sed '/^$/d' | cut -d: -f1 | sort -u); do
     echo "[HIL] seat=byz-$tm-wt-shell 반쯤 지워진 워크트리 껍데기 $(printf '%s' "$s1" | tr ' ' '\n' | grep -c "^$tm:")곳(전체 ${cnt}곳): $(printf '%s' "$s1" | tr ' ' '\n' | sed -n "s/^$tm://p" | tr '\n' ' ')— 처리는 오빠 값(바뀐 때만 1줄)"
   done
-  # 판정 불가 — 사람 판정 0 · 삭제 대상 0 · master 1줄(git 이 삭제 목록을 못 줄 때 — 7초 초과 포함)
-  [ "$ucnt" -eq 0 ] || echo "판정 불가 ${ucnt}곳 — git 이 삭제 목록을 못 줘 껍데기 판정 보류(오빠 판정 0 · 삭제 0): $(printf '%s' "$s2" | tr ' ' '\n' | sed '/^$/d' | tr '\n' ' ')"
+  # 판정 불가 — 사람 판정 0 · 삭제 대상 0 · master 1줄(어느 git 호출이 실패했는지 «경로:단계» 로 적는다 — r6)
+  [ "$ucnt" -eq 0 ] || echo "판정 불가 ${ucnt}곳 — git 호출 실패로 껍데기 판정 보류(오빠 판정 0 · 삭제 0): $(printf '%s' "$s2" | tr ' ' '\n' | sed '/^$/d' | tr '\n' ' ')"
 }
 shell_scan
 # r535 등록 없는 폴더 목록 — <SCAN_ROOT>/.worktrees/* 중 git worktree list 에 없는 실폴더(링크 제외) → TSV(이름·mtime·KB). 읽기·목록만(삭제 0) · 간격 ORPH_SEC · du 폴더당 DU_SEC · 합계 60s 넘으면 나머지 크기 ?
