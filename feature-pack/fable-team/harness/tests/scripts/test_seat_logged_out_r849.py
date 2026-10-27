@@ -402,7 +402,7 @@ def test_r5_unfinished_turn_counts_as_activity(tmp_path):
     assert "③jsonl 마지막 기록" in gate(tmp_path, f)  # 끝나지 않은 턴을 빼지 않는다
 
 
-def test_r7_cell_written_before_send_one_notice(tmp_path):('#!/bin/sh\nfor a; do last="$a"; done\ncase "$1" in\n'
+CELLNOW = ('#!/bin/sh\nfor a; do last="$a"; done\ncase "$1" in\n'
            '  send) n=$(ls "$FT_ROOT/.fable-team/state/stall" 2>/dev/null | grep -c "^logged-out[.]")\n'
            '    echo "send|$2|$3|$last|$4|cell=$n" >> "$FT_STUB/mbox.log";;\n  ring) echo "ring|$2|${3:-}" >> "$FT_STUB/mbox.log";;\nesac\n')
 
