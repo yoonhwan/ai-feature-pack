@@ -1,0 +1,4 @@
+bash3.2 -n rc=0
+bash5 -n rc=0
+kit cmp0
+git7 호출 자리: 12

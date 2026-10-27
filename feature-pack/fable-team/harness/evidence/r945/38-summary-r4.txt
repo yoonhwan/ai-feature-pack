@@ -1,0 +1,9 @@
+=== r945 r4 요약 (DA⑥ r3 HOLD 3 반송 · 마지막 회차)
+고침 1: 최상위 이름에 제어문자(0x00~0x1F·0x7F — 탭·줄바꿈 포함)가 있으면 그 워크트리는 껍데기 판정 «안 함» → «판정 불가(제어문자 이름) N곳» 1줄 · 삭제 0 · 오빠 판정 0
+고침 2: 파일(100644/755)·링크(120000) 항목은 파일 규칙(check-ignore -- <이름> rc0)이면 제외 — `/` 끝 여부 안 봄(r3 누락). 폴더 항목은 종전대로 `<이름>/` + 폴더 규칙(`/` 끝)만
+후 초록: 40 PASS rc=0 — /bin/bash 3.2(32) · bash 5(33)
+전 빨강: 직전 세트 r3 9 FAIL(30 · ⓘ-1·ⓗ 가 그대로 남음) · r1 11 FAIL · r2 14 FAIL(31)
+변이 7종 전부 빨강(34-mut1~7): S필터끔 11F · 판정불가끔 4F · 제외필터끔 7F · -z빼고줄단위 14F · 패턴종류구분끔 4F · 제어문자검사끔 4F · 파일도/끝규칙만 5F
+인접: route_timeout 38P · wt_clean_two_stage 62P · budget_replan 50P · kit_bin_sync 7P · plan_self_check 23P · plan_rn_sibling 23P · plan_single_runner_lock 17P 전부 rc=0(36) · finished_cleanup_auto rc=1(tmux unreadable · base 와 같은 실패)
+kit 짝 cmp0 · /bin/bash -n rc=0 (35)
+실 스캔루트 1회 12m38s: 껍데기 0 · 판정 불가 0 · 제어문자 판정 불가 0 (37)

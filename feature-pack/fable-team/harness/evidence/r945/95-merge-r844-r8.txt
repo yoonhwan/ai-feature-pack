@@ -1,0 +1,22 @@
+# r945 병합 — 세트 c48d6892 + 팩 origin/main(r844 착지 27d60ced) · 구현 추가 0 · 충돌 해소만
+
+## 충돌 2파일 = bin/ft-wt-sweep.sh · kit/ft-wt-sweep.sh (같은 내용)
+해소 원칙: **r844 쪽 변경과 r8 쪽 변경을 둘 다 살린다**(버린 로직 0 · 새 로직 0). 두 계약이 겹치는 자리는 «양쪽 다 만족» 으로 풀었다.
+
+| 자리 | r844(팩 main) | r8(이 카드) | 병합 후 |
+|---|---|---|---|
+| git 호출 | cap + GIT_CLEAN + `git -C` 직접(sgit 별도) | git7 하나(7초 상한) | **git7·git7c 하나로 통일** — GIT_CLEAN·LC_ALL=C·7초 상한을 git7 에 접어넣고, ceiling 이 필요한 seat_busy 는 git7c(같은 perl 꼴) · 직접 호출 0 |
+| 초기 조회 | `\|\| pwd` 폴백 | 실패 = «판정 불가 :init» + u= | r8 그대로(폴백 0) — main 의 `unset GIT_*`·LC_ALL=C 는 그대로 앞에 |
+| 공용 worktree list 실패 | NOTE 1줄 + 이번 회차 생략(서명 그대로) | «판정 불가 :worktree-list» + u= | **둘 다** — NOTE + 판정 불가 줄 + u= 뒤 `return 0`(서명은 안 건드린다 = r844 계약) |
+| 폴더별 판정 | ls-tree 실패 = SKIP «판정 못 함» + 이어받기 | 같은 실패 = «판정 불가 :ls-tree» + u= | **둘 다** — SKIP 줄과 판정 불가 줄을 같이 내고, 이어받기 로직은 r844 그대로 |
+| sparse | 없음(일반 규칙만) | ls-files -d 를 최상위로 접어 ≥1 | r8 그대로 삽입 · 설정 조회 실패 = «판정 불가 :config» + u= **이면서** r844 의 일반 규칙·seat_busy 경로도 계속 돈다 |
+| 살아있는 좌석 가드 | seat_busy(pane 0 ∧ 미커밋 0) · «연결 끊김» 표시 | 없음 | r844 그대로(모든 후보에 적용) |
+| 서명·HIL 줄 | list 만 서명 · SKIP/NOTE/«(세션 0 · 미커밋 0)» | list+und 서명 | 서명 = **list 만**(r844) · 판정 불가 목록은 `$DIR/.shell-und` 로 따로 «바뀐 때만» 1줄(r8 취지 유지) |
+| orphan_scan | python 이 `git worktree list` 직접 | git7 + SCAN_U | r8 그대로(직접 호출 0) · 호출 순서 = orphan → shell_scan(worktree list 실패로 shell_scan 이 생략돼도 orphan 판정 불가는 남는다) |
+
+## 시험(병합 뒤 · 전부 rc0)
+- test_wt_shell_scan_sparse_r945.sh (이 카드) **83 PASS** — bash 3.2·5 동일 · 변이 8종 전부 빨강(3·6·13·12·13·2·1·4 FAIL)
+- test_wt_shell_scan_live_seat_r832.sh (r844 몫) **ALL PASS** · test_ft_wt_sweep_route_timeout.sh rc0
+- test_wt_clean_two_stage.sh rc0 · test_wt_sweep_budget_replan_r535.sh rc0 · test_kit_bin_sync.sh rc0
+- test_finished_cleanup_auto.sh rc3 = 기준판(origin/main 판)에서도 같은 3 FAIL(tmux unreadable 등) — 이 병합과 무관
+- bin↔kit cmp0 · /bin/bash -n · bash -n rc0

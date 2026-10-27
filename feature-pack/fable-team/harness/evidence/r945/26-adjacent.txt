@@ -1,0 +1,12 @@
+=== r945 r3 인접 시험 — 내 변경 위 (전부 rc=0)
+=== r945 r3 인접 시험 (내 변경 위)
+test_ft_wt_sweep_route_timeout.sh rc=0 38P REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pac
+test_wt_clean_two_stage.sh rc=0 62P REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pac
+test_wt_sweep_budget_replan_r535.sh rc=0 50P REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pac
+test_kit_bin_sync.sh rc=0 7P ALL PASS
+test_wt_clean_plan_self_check.sh rc=0 23P REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pac
+test_wt_clean_plan_rn_sibling.sh rc=0 23P REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pac
+test_wt_clean_plan_single_runner_lock.sh rc=0 17P REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pac
+
+=== 기존 빨강(내 변경과 무관 · base 와 같은 실패): test_finished_cleanup_auto.sh
+FAIL ⓒ swept [] 2026-10-26 ERROR tmux unreadable — 삭제 0 (tmux=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.H1237tl0xp/bin/tmux)

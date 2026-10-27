@@ -1,0 +1,12 @@
+=== r945 r3 — 실 스캔루트 1회(읽기 전용 · 계획 0 · 삭제 0)
+루트=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents · sparse 좌석 258(이번 셈) · FT_WT_CLEAN_DIR=빈 임시(계획 0 → 실행 0)
+명령: FT_WT_SCAN_ROOT=<루트> FT_WT_SHELL_SCAN_SEC=0 FT_WT_ORPHAN_SCAN_SEC=999999 bin/ft-wt-sweep.sh
+
+sweep 계획 0 · cleaned/none 0 · wait 0 · hil 0 · orphans 78(목록 /tmp/r945real/state/o.tsv)
+
+real	13m58.736s
+user	5m19.702s
+sys	6m51.336s
+
+⇒ 껍데기 [HIL] 줄 0 · 판정 불가 줄 0 (경보 목록 비어 있음 = 후보 0곳)
+   옛 도구(r1 · ce956bcc)는 같은 루트에서 38곳을 올렸다 — evidence/r945/01-before-red.txt (r2 측정)
