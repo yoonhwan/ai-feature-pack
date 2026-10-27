@@ -13,6 +13,17 @@ base = 팩 origin/main `1dfe2550` · 브랜치 `nano/r1010-overfit-branches-remo
 | r988 | bin/ft-root-bin-migrate.sh (+kit 짝) | `os.path.islink(path)` / `os.path.islink(path + ".bak-r962")` REPORT 가드 4줄 | 나 | tests/test_r988_root_bin_migrate.sh ⓧ(심링크 꼴 2) 절 전체 | 심링크로 바꾼 plist = 19 로 범위 밖 |
 | r983 | bin/ft_da_metrics.py (+kit 짝) | `mark()` 의 `re.sub(r"[\r\n\t]+", "?", r["stem"])` → `name = r["stem"]` | 가 | tests/test_da_metrics_r983.sh ⓑ 수용 5(파일명 개행) 칸 | 카드 이름 속 개행·탭 = 18 로 범위 밖 |
 | r984 | bin/ft_card_map_lint.py (+kit 짝) | `load_map()` 의 `if f and os.path.isfile(f):` → `if f:` (환경값 경로 방어) | 다 | (시험 칸 없음 — 기존 시험 그대로) | FT_CARD_ADDED_MAP_FILE 는 lint 가 mktemp 로 만들어 넘기는 값 하나 |
+| r844 | tests/test_wt_shell_scan_live_seat_r832.sh | chmod 000 칸 5블록 삭제(ⓐ `.git` 000 · ⓐ' 등록 폴더 000 + K2 hide 000 · ⓓ K `.git` 000 · r2 K4 상위 000 · r3 K6 HEAD 000) — 단언·복원 chmod 까지 | 나 | (시험 파일 단독 변경) | 일부러 깨뜨린 권한 = 19. 코드 쪽 분기는 남김(권한 아닌 실패도 같은 길) |
+| r978 | tests/test_r978_doc_output_landing.sh | «⑦ 임시 파일 0 — TMPDIR 잡여 검사» 블록 5줄 | 나 | (시험 파일 단독 변경) | TMPDIR 를 일부러 잡은 입력 = 18·19 범위 밖 |
+
+## 걷을 것 없음 (arch 165 #175747 결정 · 행 닫음)
+
+| 카드 | 이유 |
+|---|---|
+| r845 | 카드 적힌 «제어 문자 입구 거절·reg_cat WARN·4열 장부 분기» = arch 판단 «걷을 것 없음». 이번에 `has_ctl` 3자리 삭제를 시도했으나 결정 전 변경이라 **되돌렸다**(git checkout · 현재 diff 0) |
+| r897 | arch 판단 «걷을 것 없음» (stat 실패 처리 = 규칙 다 판정 불가 1줄 그 자체) |
+| r874 | arch 판단 «걷을 것 없음» |
+| r955 | arch 판단 «걷을 것 없음» |
 
 ## 남김 (이번에 손 0)
 
@@ -28,14 +39,11 @@ base = 팩 origin/main `1dfe2550` · 브랜치 `nano/r1010-overfit-branches-remo
 
 ## 자리 미확정 — 다음 판단 필요 (코드 수정 0)
 
-| 카드 | 카드에 적힌 걷을 것 | 이번 실측 |
-|---|---|---|
-| r844 | ft-wt-sweep.sh 서명 소실·gitdir 000 분기 시험 칸 | tests/test_wt_shell_scan_live_seat_r832.sh 에 권한 000 칸 다수(ⓐ·ⓐ'·ⓓ) — «서명 소실» 이 어느 칸인지 카드에 줄 번호 없음 |
-| r845 | ft-scratch-repo.sh 제어 문자 입구 거절 1줄 · 옛 깨진 줄 WARN(reg_cat) · 4열 장부 분기 | bin/ft-scratch-repo.sh 에 «제어 문자»·«reg_cat»·«4열» 문자열 0 — r945 착지가 이미 흡수했을 가능성 |
-| r897 | ft-scratch-repo.sh 호출자 4곳 stat 실패 처리 → 한 곳 | stat 실패 처리 자리(G6 소유자·G8 장치/inode) 다수 — «4곳» 특정 불가 |
-| r874 | ft-tick.sh stamp 폴더 검사 시험 칸 | write_stamp/read_stamp 에 폴더 검사 분기 0 · 해당 시험 칸도 0 = 이미 없음 가능성 |
-| r955 | oneline() 위조 방어 분기 | kit/ops-intake·bin 어디에도 `oneline()` 함수 0 — 흡수됐을 가능성 |
-| r978 | 판정기 개행·탭 경로 시험 칸 · TMPDIR 실패 주입 칸 | «판정기» 파일명이 카드에 없음 |
+없음 — arch 165 #175747 결정으로 6행 전부 닫혔다(r844·r978 = 걷음 · r845·r897·r874·r955 = 걷을 것 없음).
+
+## 카드에 없던 000 칸 하나 (남김)
+
+tests/test_wt_shell_scan_live_seat_r832.sh:258 `chmod 000 "$REPO/.git/worktrees/Q/HEAD"`(r5 ⓑ worktree list 자체 실패 칸) — arch 결정 목록 6곳에 없어 손대지 않았다.
 
 ## 시험 (이번 회차 실측)
 
@@ -46,6 +54,8 @@ base = 팩 origin/main `1dfe2550` · 브랜치 `nano/r1010-overfit-branches-remo
 | tests/test_r988_root_bin_migrate.sh | 0 | 5 | PASS 82 · FAIL 0 |
 | tests/test_da_metrics_r983.sh | 0 | 4 | PASS 39 · FAIL 0 |
 | tests/test_card_map_lint_r984.sh | 0 | 37 | fail=0 (단, 부하 12 대에서 «3.2 전체 lint» 칸이 내 변경 **전** 베이스에서도 rc≠0 = 기존 플레이크) |
+| tests/test_wt_shell_scan_live_seat_r832.sh | 0 | 44 | ALL PASS (변경 전 59s) |
+| tests/test_r978_doc_output_landing.sh | 0 | 95 | ALL PASS — ★70초 상한 넘김(변경 전 길이 미실측 · 변이 3종이 section_c 를 4번 돌린다)★ |
 | kit·bin 짝 cmp0 | 0 | - | 6파일 전부 cmp0 |
 
 ## press 필요
