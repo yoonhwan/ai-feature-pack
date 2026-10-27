@@ -13,8 +13,10 @@ from __future__ import annotations
 
 import os
 import re
+import signal
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 _FORM = re.compile(r"^(\$FT_HARNESS_ROOT/|\$\{FT_HARNESS_ROOT\}/)?design/(teams/)?[a-z0-9][a-z0-9_-]*/$")
@@ -34,6 +36,80 @@ class SparseHidden(TeamPathError):
 
 def _git_out(base: Path, *args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(["git", "-C", str(base), *args], capture_output=True, text=True, timeout=7)
+
+
+REF_BUDGET_S = 70.0   # r839 r4: ref 읽기 전체 예산(초 · 프로세스 첫 조회 기준) — 7초 룰 × 여러 조회를 감싼다(FT_REF_BUDGET_SEC 로 덮기·시험 전용)
+_REF_T0: float | None = None
+
+
+def _ref_remaining() -> float:
+    """남은 예산(초) — 첫 조회 때 시작 시각을 잡고 예산에서 뺀다. 0 이하면 예산 소진(미종료 0)."""
+    global _REF_T0
+    if _REF_T0 is None:
+        _REF_T0 = time.monotonic()
+    try:
+        budget = float(os.environ.get("FT_REF_BUDGET_SEC") or REF_BUDGET_S)
+    except ValueError:
+        budget = REF_BUDGET_S
+    return _REF_T0 + budget - time.monotonic()
+
+
+def _git_once(base: Path | str, args: list[str], lim: float) -> tuple[int, str]:
+    """git 1회 — lim 초 상한 · 넘으면 프로세스 그룹 TERM → 0.5초 뒤 KILL(자식까지) · rc 124 = 상한 초과 · 128 = 실행 실패."""
+    try:
+        p = subprocess.Popen(["git", "-C", str(base), *args], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                             stdin=subprocess.DEVNULL, start_new_session=True)
+    except OSError:
+        return 128, ""
+    try:
+        out, _ = p.communicate(timeout=lim)
+    except subprocess.TimeoutExpired:
+        for sig in (signal.SIGTERM, signal.SIGKILL):
+            try:
+                os.killpg(p.pid, sig)
+            except (ProcessLookupError, PermissionError):
+                pass
+            if sig == signal.SIGTERM:
+                try:
+                    p.wait(0.5)
+                except subprocess.TimeoutExpired:
+                    pass
+        try:
+            p.communicate(timeout=2)
+        except (subprocess.TimeoutExpired, ValueError):
+            pass
+        return 124, ""
+    return p.returncode, (out or b"").decode("utf-8", "replace")
+
+
+def ref_read(base: Path | str, *args: str) -> str:
+    """r839 r4 — ref 조회 공용 규칙(셸 ft-team-lib.sh ref_read 와 같은 규칙 · 시험이 두 구현을 대조):
+    ① 시도당 7초 상한 ② stdout 빈 값(rc0)이면 딱 1회 재시도 ③ 그래도 빈 값 = «빈 응답 2회» TeamPathError
+    ④ rc≠0 = 재시도 없이 «못 읽음» TeamPathError ⑤ 남은 예산(REF_BUDGET_S=70) 소진 = TeamPathError — 미종료 0."""
+    shown = " ".join(["git", "-C", str(base), *args])
+    for _attempt in (1, 2):
+        left = _ref_remaining()
+        if left <= 0:
+            raise TeamPathError(f"ERROR ref 읽기 예산 소진({REF_BUDGET_S:g}s): {shown}")
+        rc, out = _git_once(base, list(args), min(7.0, left))
+        if rc != 0:
+            raise TeamPathError(f"ERROR {shown} 못 읽음: rc={rc}")
+        if out.strip():
+            return out
+    raise TeamPathError(f"ERROR 빈 응답 2회: {shown}")
+
+
+def _ref_present(base: Path | str, spec: str) -> bool:
+    """ref 에 그 객체가 있나 — 존재 판정은 «출력» 을 안 믿는다(빈 출력으로 «없음» 을 가장하는 길 닫기 · DA⑥ r2 반례 ①). rc1/128 = 그 ref 에 그 경로 없음 · 그 밖 = TeamPathError."""
+    left = _ref_remaining()
+    if left <= 0:
+        raise TeamPathError(f"ERROR ref 읽기 예산 소진({REF_BUDGET_S:g}s): git -C {base} cat-file -e {spec}")
+    rc, _ = _git_once(base, ["cat-file", "-e", spec], min(7.0, left))
+    if rc == 0:
+        return True
+    if rc in (1, 128):   # 128 = 그 경로가 그 ref 에 없음(리포·ref 자체는 명단 읽기에서 이미 통과)
+        return False
+    raise TeamPathError(f"ERROR ref 존재 확인 실패({spec}): rc={rc}")
 
 
 def _check_sparse(base: Path, path: Path) -> None:
@@ -179,34 +255,19 @@ def team_cands_ref(root: Path | str, team: str, ref: str = "origin/main") -> lis
     return [c for c in _cands_ref(root, team, ref) if c.is_dir()]
 
 
-def _git_out_retry_empty(base: Path, *args: str) -> subprocess.CompletedProcess[str]:
-    """r839: rc0 · «출력 0» 이면 같은 조회를 1회 재시도(셸 ft_ref_git_out 과 같은 규칙) — 시간 초과·rc≠0 은 재시도 0(7초 룰).
-    빈 응답을 «없음(0건)» 으로 읽어 버리는 길을 줄인다(DA⑥ r2 반례 ① · ft_team_lib.py:189)."""
-    out = _git_out(base, *args)
-    if out.returncode == 0 and not out.stdout.strip():
-        out = _git_out(base, *args)
-    return out
-
-
 def team_doc_ref(root: Path | str, team: str, name: str, ref: str = "origin/main") -> str | None:
     """r517: 정본 문서 «읽기» 본문 = ref 판(셸 ft_team_doc_ref 의 ref 쪽 · 임시 파일 0 · 체크아웃 명단·디스크 0) — ref 명단 후보(_cands_ref · 명단 꼴 먼저)마다
     `<ref>:<후보>/<name>` 이 ref 트리에 있으면 그 본문 · 모두 없음 = None · 명단 못 읽음·팀 없음·git 실패·리포 밖 후보(꼴3) = TeamPathError(조용한 None 0).
-    r839: ls-tree·show 가 rc0·«출력 0» 이면 같은 조회 1회 재시도(_git_out_retry_empty · DA⑥ r2 반례 ①)."""
+    r839 r4: 있나는 `cat-file -e`(출력을 안 믿는다) · 본문은 공용 ref_read(빈 응답 2회 = TeamPathError)."""
     base = Path(root)
     for c in _cands_ref(base, team, ref):
         try:
             path = f"{c.relative_to(base)}/{name}"
-            ls = _git_out_retry_empty(base, "ls-tree", "--name-only", ref, "--", path)
-            if ls.returncode == 0 and not ls.stdout.strip():
-                continue
-            out = _git_out_retry_empty(base, "show", f"{ref}:{path}") if ls.returncode == 0 else ls
         except ValueError:
             raise TeamPathError(f"ERROR {team} 폴더가 리포 밖({c}) — ref 문서 읽기 대상 아님") from None
-        except (OSError, subprocess.SubprocessError) as e:
-            raise TeamPathError(f"ERROR {ref}:{c}/{name} 못 읽음: {e}") from e
-        if out.returncode != 0:
-            raise TeamPathError(f"ERROR {ref}:{path} 못 읽음: rc={out.returncode} {out.stderr.strip()[:120]}")
-        return out.stdout
+        if not _ref_present(base, f"{ref}:{path}"):
+            continue
+        return ref_read(base, "show", f"{ref}:{path}")
     return None
 
 

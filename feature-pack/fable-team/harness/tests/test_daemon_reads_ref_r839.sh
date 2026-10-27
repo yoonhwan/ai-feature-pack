@@ -6,7 +6,8 @@
 #   ⓓ ft-queue.sh = 옮긴 공용 함수 호출(자체 정의 0 · r557 시험 그대로)
 #   ⓔ FT_PLANNER_DIR·FT_DECISION_AUTONOMY_QUEUE = 그 경로 그대로
 #   ⓣ 상한: `git show` 8초 지연 래퍼 → ft_planner_queue_ref·ft_team_doc_ref_only·결정 셈 ERROR · 경과 ≤ 9초 · 남은 자식 0 · TERM 무시 래퍼도 ≤ 9초(KILL) · 첫 시도 «출력 0» 은 재시도 1회로 정상
-#   ⓖ DA⑥ r2 반례: 파이썬 첫 조회 «출력 0·rc0» 재시도 1회 · 큐 명령 오류 문구 = 기준판 바이트 그대로
+#   ⓐⓑⓒ DA⑥ r4: 빈 값 2회 = ERROR rc4 · 재시도 딱 1회(샐·파이썬 같음) · 예산 소진 = rc4(미종료 0)
+#   ⓖ DA⑥ r2 반례: 빈 출력으로 «없음/0건» 을 가장하지 않는다 · 큐 명령 오류 문구 = 기준판 바이트 그대로
 #   ⓕ 키트 미러 cmp 0 · bash -n · 변이 5종 → 해당 칸 FAIL
 # 격리: 임시 bare 원격 + 임시 «루트» 클론(원격 main 보다 뒤 · 작업 폴더에 옛 큐 · 합치다 만 UU 1) · 가짜 tmux·hil · 실 리포·실 launchd 0 · GIT_* 0.
 #   R839_BIN=<옛 bin 폴더> 로 돌리면 기준판(빨강) 대조 — 미러 cmp·변이·ⓓ 는 건너뜀.
@@ -62,6 +63,10 @@ mkdir -p "$T/empty"   # AUTONOMY-QUEUE 본문만 첫 시도 «출력 0»
 pyempty() { local d="$T/py-$1"; mkdir -p "$d"
   { printf '#!/bin/bash\nhit=0; q=0\nfor a in "$@"; do [ "$a" = %s ] && hit=1; case "$a" in *AUTONOMY-QUEUE.md) q=1;; esac; done\nif [ "$hit" = 1 ] && [ "$q" = 1 ] && [ ! -f %s/once ]; then : > %s/once; exit 0; fi\nexec %s "$@"\n' "$1" "$d" "$d" "$REALGIT"; } > "$d/git"; chmod +x "$d/git"; }
 pyempty ls-tree; pyempty show
+# DA⑥ r4 반례 — AUTONOMY-QUEUE 본문 `show` 가 «항상 빈 값» / «N번 빈 뒤 본문» / «빈 값+6초» · 나머지는 진짜 git
+showfake() { local d="$1" n="$2" delay="${3:-0}"; mkdir -p "$d"; echo 0 > "$d/n"
+  { printf '#!/bin/bash\nfor a in "$@"; do case "$a" in *AUTONOMY-QUEUE.md) c=$(cat %s/n); [ -n "$c" ] || c=0; if [ "$c" -lt %s ]; then echo $((c+1)) > %s/n; [ %s -gt 0 ] && sleep %s; exit 0; fi;; esac; done\nexec %s "$@"\n' "$d" "$n" "$d" "$delay" "$delay" "$REALGIT"; } > "$d/git"; chmod +x "$d/git"; }
+showfake "$T/show-empty" 99; showfake "$T/show-empty3" 3; showfake "$T/show-slow-empty" 99 6
 
 suite() { # $1 = bin 폴더 — 줄마다 PASS/FAIL «칸»
   local B="$1" out rc s
@@ -102,6 +107,27 @@ suite() { # $1 = bin 폴더 — 줄마다 PASS/FAIL «칸»
   [ "$rc" = 0 ] && grep -q '^결정 인터뷰 3건 ' <<<"$out"; ck "ⓖ 첫 ls-tree 출력 0 → 재시도 1회로 3건(0건 아님)" $?
   rm -f "$T/py-show/once"; C PATH="$T/py-show:$PATH"; echo "  ⓖ 원문(빈 show): $out"
   [ "$rc" = 0 ] && grep -q '^결정 인터뷰 3건 ' <<<"$out"; ck "ⓖ 첫 show 출력 0 → 재시도 1회로 3건(«표가 없다» rc4 아님)" $?
+  # ⓐ DA⑥ r4 — 두 번 연속 빈 값(rc0) = ERROR rc4 «빈 응답 2회» · 재시도는 «딱 1회» · 결정 0건 출력 0
+  L "$T/show-empty" 'ref_read "$FT_ROOT" show origin/main:design/teams/planner/AUTONOMY-QUEUE.md'; echo "  ⓐ 원문(빈 2회): $out"
+  [ "$rc" = 4 ] && grep -q '^ERROR 빈 응답 2회: git -C ' <<<"$out"; ck "ⓐ 셸 ref_read 빈 값 2회 → ERROR rc4 «빈 응답 2회»" $?
+  L "$T/show-empty3" 'ref_read "$FT_ROOT" show origin/main:design/teams/planner/AUTONOMY-QUEUE.md'; echo "  ⓐ 원문(빈 3회): $out"
+  [ "$rc" = 4 ] && grep -q '^ERROR 빈 응답 2회' <<<"$out"; ck "ⓐ 재시도는 딱 1회(3번째 답이 있어도 rc4)" $?
+  C PATH="$T/show-empty:$PATH"; s="$(now)"; C PATH="$T/show-empty:$PATH"; le "$s" 15; t1=$?
+  echo "  ⓐ 원문(결정 셈 빈 2회): $out"
+  [ "$rc" = 4 ] && grep -q '^ERROR ft-decision-count: ' <<<"$out" && ! grep -q '^결정 인터뷰' <<<"$out" && [ "$t1" = 0 ]; ck "ⓐ 파이썬 빈 값 2회 → ERROR rc4 · 결정 0건 출력 0 · ≤15초" $?
+  # ⓑ 첫 빈 → 재시도 뒤 정상 = 셸·파이썬 둘 다 성공(대조)
+  L "$T/empty" 'ref_read "$FT_ROOT" show origin/main:design/teams/planner/AUTONOMY-QUEUE.md'; echo "  ⓑ 원문(셸): $out"
+  [ "$rc" = 0 ] && grep -q '새줄' <<<"$out"; ck "ⓑ 셸 ref_read 첫 빈 → 재시도 뒤 본문(rc0)" $?
+  rm -f "$T/py-show/once"; C PATH="$T/py-show:$PATH"; echo "  ⓑ 원문(파이썬): $out"
+  [ "$rc" = 0 ] && grep -q '^결정 인터뷰 3건 ' <<<"$out"; ck "ⓑ 파이썬 첫 빈 → 재시도 뒤 3건(셸과 같은 규칙)" $?
+  # ⓒ 예산 소진 = ERROR rc4(미종료 0) · 기본 예산 70초 = 두 구현 같음
+  s="$(now)"; L "$T/fast" 'FT_REF_BUDGET_SEC=0 ref_read "$FT_ROOT" show origin/main:design/teams/planner/AUTONOMY-QUEUE.md'; le "$s" 5; t1=$?
+  echo "  ⓒ 원문(예산): $out"
+  [ "$rc" = 4 ] && grep -q '^ERROR ref 읽기 예산 소진' <<<"$out" && [ "$t1" = 0 ]; ck "ⓒ 예산 소진 → rc4 · ≤5초(미종료 0 · 디스크 후퇴 0)" $?
+  s="$(now)"; L "$T/show-slow-empty" 'FT_REF_BUDGET_SEC=3 ref_read "$FT_ROOT" show origin/main:design/teams/planner/AUTONOMY-QUEUE.md'; le "$s" 15; t1=$?
+  echo "  ⓒ 원문(빈·지연): $out"
+  [ "$rc" = 4 ] && [ "$t1" = 0 ] && [ -z "$(alive_pids "$T/show-slow-empty" 2>/dev/null | grep -v '^0$')" ]; ck "ⓒ 빈 답·지연 답도 ≤15초 rc4(미종료 0)" $?
+  grep -q 'FT_REF_BUDGET_SEC_DEFAULT=70' "$B/ft-team-lib.sh" && grep -q 'REF_BUDGET_S = 70' "$B/ft_team_lib.py"; ck "ⓒ 기본 예산 70초 = 셸·파이썬 같음" $?
   # ⓔ env 지정 = 그 경로 그대로
   C FT_DECISION_AUTONOMY_QUEUE="$T/AQ.md"; [ "$rc" = 0 ] && grep -q '^결정 인터뷰 2건 ' <<<"$out"; ck "ⓔ FT_DECISION_AUTONOMY_QUEUE = 그 파일(2)" $?
   C FT_PLANNER_DIR="$PD"; [ "$rc" = 0 ] && grep -q '^결정 인터뷰 4건 ' <<<"$out"; ck "ⓔ FT_PLANNER_DIR = 그 폴더(4)" $?
@@ -112,10 +138,10 @@ suite() { # $1 = bin 폴더 — 줄마다 PASS/FAIL «칸»
   out="$(alive_pids "$T/slow")"; [ "$out" = 0 ]; ck "ⓣ 상한 초과 뒤 남은 자식 0(프로세스 그룹 KILL)" $?
   s="$(now)"; L "$T/slow" 'ft_team_doc_ref_only "$FT_ROOT" planner AUTONOMY-QUEUE.md'; le "$s" 9; t1=$?
   echo "  ⓣ 원문(느린 문서): $out"
-  [ "$rc" = 1 ] && grep -qE '^ERROR (planner 명단|planner AUTONOMY-QUEUE.md)' <<<"$out" && [ "$t1" = 0 ]; ck "ⓣ 느린 git show → ft_team_doc_ref_only ERROR rc1 · 경과 ≤9초" $?
+  [ "$rc" = 4 ] && grep -qE '^ERROR (planner 명단|planner AUTONOMY-QUEUE.md|ref 존재 확인 실패)' <<<"$out" && [ "$t1" = 0 ]; ck "ⓣ 느린 git show → ft_team_doc_ref_only ERROR(rc≠0) · 경과 ≤9초" $?
   s="$(now)"; L "$T/noterm" 'ft_team_doc_ref_only "$FT_ROOT" planner AUTONOMY-QUEUE.md'; le "$s" 9; t1=$?
   echo "  ⓣ 원문(TERM 무시): $out"
-  [ "$rc" = 1 ] && [ "$t1" = 0 ]; ck "ⓣ TERM 무시 래퍼도 ≤9초(KILL 이 끊는다)" $?
+  [ "$rc" = 4 ] && [ "$t1" = 0 ]; ck "ⓣ TERM 무시 래퍼도 ≤9초(KILL 이 끊는다)" $?
   s="$(now)"; C PATH="$T/slow:$PATH"; le "$s" 9; t1=$?
   echo "  ⓣ 원문(느린 결정 셈): $out"
   [ "$rc" = 4 ] && grep -q '^ERROR ft-decision-count: ' <<<"$out" && [ "$t1" = 0 ]; ck "ⓣ 느린 git show → 결정 셈 ERROR rc4 · 경과 ≤9초(디스크 셈 0)" $?
@@ -142,11 +168,10 @@ if [ -z "${R839_BIN:-}" ]; then
     python3 -I -c 'import sys; p,a,b=sys.argv[1:]; s=open(p,encoding="utf-8").read(); assert s.count(a)==1, s.count(a); open(p,"w",encoding="utf-8").write(s.replace(a,b))' "$M/$2" "$3" "$4" || { bad "변이 적용 실패: $1"; return; }
     local r; r="$(suite "$M")"; grep -q "^FAIL $5" <<<"$r" && ok "변이 $1 → «$5» FAIL" || bad "변이 $1 이 잡히지 않음"; }
   mut "결정 셈을 디스크 읽기로" ft_decision_count.py '(lambda: planner_queue(data_root(R))) if os.environ.get("FT_PLANNER_DIR") else None, lambda: data_root(R)' 'lambda: planner_queue(data_root(R))' "ⓐ 결정 셈"
-  mut "큐 ref 상한 삭제" ft-team-lib.sh 'body="$(ft_ref_git_out "$repo" show "$ref:$rel")"' 'body="$(git -C "$repo" show "$ref:$rel" 2>/dev/null)"' "ⓣ 느린 git show → ft_planner_queue_ref"
-  mut "문서 ref 상한 삭제" ft-team-lib.sh 'body="$(ft_ref_git_out "$r" show "$ref:$rel/$f")"' 'body="$(git -C "$r" show "$ref:$rel/$f" 2>/dev/null)"' "ⓣ 느린 git show → ft_team_doc_ref_only"
-  mut "파이썬 빈 응답 재시도 삭제" ft_team_lib.py '    if out.returncode == 0 and not out.stdout.strip():
-        out = _git_out(base, *args)' '    pass' "ⓖ 첫 ls-tree 출력 0"
-  mut "빈 큐 문구를 «판이 비었다» 로" ft-team-lib.sh '[ -n "$body" ] || { echo "ERROR 오빠 큐 origin/main 판을 못 읽음: $ref:$rel" >&2; return 1; }' '[ -n "$body" ] || { echo "ERROR 오빠 큐 origin/main 판이 비었다: $ref:$rel" >&2; return 1; }' "ⓖ 빈 큐 판"
+  mut "ref git 상한 삭제" ft-team-lib.sh 'rc, out = g.run_cmd(["git", "-C", repo, *args], lim)      # 1회 — 재시도 0' 'rc, out = g.run_cmd(["git", "-C", repo, *args], 300)' "ⓣ 느린 git show → ft_planner_queue_ref"
+  mut "셸 재시도를 2회로" ft-team-lib.sh 'for attempt in 1 2; do' 'for attempt in 1 2 3; do' "ⓐ 재시도는 딱 1회"
+  mut "파이썬 재시도 삭제" ft_team_lib.py 'for _attempt in (1, 2):' 'for _attempt in (1,):' "ⓑ 파이썬 첫 빈"
+  mut "빈 값을 성공으로" ft-team-lib.sh '[ -n "$out" ] && { printf '\''%s'\'' "$out"; return 0; }' '{ printf '\''%s'\'' "$out"; return 0; }' "ⓐ 셸 ref_read 빈 값 2회"
   mut "ref 에 없을 때 디스크로 후퇴" ft_decision_count.py 'team_doc_ref(ref_at() if ref_at else R, "planner", name, os.environ.get("FT_TEAMS_REF") or "origin/main")' '(team_doc_ref(ref_at() if ref_at else R, "planner", name, os.environ.get("FT_TEAMS_REF") or "origin/main") or (Path(planner_queue(data_root(R))).read_text(encoding="utf-8") if ref_at else None))' "ⓑ ref 판에 큐 없음"
 fi
 echo "== FAIL $fail"; [ "$fail" = 0 ] && echo "ALL PASS"; [ "$fail" = 0 ]

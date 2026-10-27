@@ -4,35 +4,57 @@ PASS ⓐ 결정 셈 = origin/main 판 큐 3줄(디스크 옛 1줄 아님)
 PASS ⓐ 루트 작업 폴더·index·HEAD·MERGE_HEAD 변경 0
   ⓑ 원문(파일 없음): 결정 인터뷰 0건 · 스크립트 0건 · 팀 대기 0건 (MERGE-QUEUE 파일 없음)
 PASS ⓑ ref 판에 큐 없음 → 결정 셈 0(파일 없음 = 0 · 디스크 1줄로 후퇴 0)
-  ⓑ 원문(ref 없음): ERROR ft-decision-count: MERGE-QUEUE.md 위치를 못 풀었다: ERROR 명단 ref 못 읽음(origin/nope:design/TEAMS.md): /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.f17zEN0XbS/root
+  ⓑ 원문(ref 없음): ERROR ft-decision-count: MERGE-QUEUE.md 위치를 못 풀었다: ERROR 명단 ref 못 읽음(origin/nope:design/TEAMS.md): /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Ju40KJ0AKi/root
 PASS ⓑ ref 못 읽음 → ERROR 1줄 + rc4 · 숫자 0
-  ⓒ 원문: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.f17zEN0XbS/tmp/ft-team-doc.N84F3u
+  ⓒ 원문: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Ju40KJ0AKi/tmp/ft-team-doc.dskh1C
 PASS ⓒ ft_team_doc_ref_only = origin/main 판 본문(디스크 옛 본문 0 · 임시 파일)
-  ⓒ 원문(없음): ERROR planner AUTONOMY-QUEUE.md 가 origin/noq 에 없거나 못 읽었다(상한 7s · 디스크 0 · 명단 origin/noq:design/TEAMS.md · 후보 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.f17zEN0XbS/root/design/teams/planner /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.f17zEN0XbS/root/design/planner )
+  ⓒ 원문(없음): ERROR planner AUTONOMY-QUEUE.md 가 origin/noq 에 없거나 못 읽었다(디스크 0 · 명단 origin/noq:design/TEAMS.md · 후보 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Ju40KJ0AKi/root/design/teams/planner /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Ju40KJ0AKi/root/design/planner )
 PASS ⓒ ref 판에 없음 → ERROR rc1(디스크 옛 본문 후퇴 0)
 PASS ⓒ 임시 본문 정리(TMPDIR 비어 있음)
   ⓖ 원문(큐 판 없음): ERROR 오빠 큐 origin/main 판을 못 읽음: origin/noq:design/teams/planner/AUTONOMY-QUEUE.md
 PASS ⓖ 큐 판 없음 → 기준판 문구 바이트 그대로 · rc1
   ⓖ 원문(빈 큐 판): ERROR 오빠 큐 origin/main 판을 못 읽음: origin/emptyq:design/teams/planner/AUTONOMY-QUEUE.md
 PASS ⓖ 빈 큐 판 → 기준판 문구 그대로(«판이 비었다» 0)
-  ⓖ 원문(없는 ref): ERROR planner 명단(origin/nope:design/TEAMS.md)을 못 읽음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.f17zEN0XbS/root
+  ⓖ 원문(없는 ref): ERROR planner 명단(origin/nope:design/TEAMS.md)을 못 읽음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Ju40KJ0AKi/root
 PASS ⓖ 없는 ref → 기준판 명단 문구 바이트 그대로
   ⓖ 원문(빈 ls-tree): 결정 인터뷰 3건 · 스크립트 0건 · 팀 대기 0건 (MERGE-QUEUE 파일 없음)
 PASS ⓖ 첫 ls-tree 출력 0 → 재시도 1회로 3건(0건 아님)
   ⓖ 원문(빈 show): 결정 인터뷰 3건 · 스크립트 0건 · 팀 대기 0건 (MERGE-QUEUE 파일 없음)
 PASS ⓖ 첫 show 출력 0 → 재시도 1회로 3건(«표가 없다» rc4 아님)
+  ⓐ 원문(빈 2회): ERROR 빈 응답 2회: git -C /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Ju40KJ0AKi/root show origin/main:design/teams/planner/AUTONOMY-QUEUE.md
+PASS ⓐ 셸 ref_read 빈 값 2회 → ERROR rc4 «빈 응답 2회»
+  ⓐ 원문(빈 3회): ERROR 빈 응답 2회: git -C /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Ju40KJ0AKi/root show origin/main:design/teams/planner/AUTONOMY-QUEUE.md
+PASS ⓐ 재시도는 딱 1회(3번째 답이 있어도 rc4)
+  ⓐ 원문(결정 셈 빈 2회): ERROR ft-decision-count: AUTONOMY-QUEUE.md 위치를 못 풀었다: ERROR 빈 응답 2회: git -C /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Ju40KJ0AKi/root show origin/main:design/teams/planner/AUTONOMY-QUEUE.md
+PASS ⓐ 파이썬 빈 값 2회 → ERROR rc4 · 결정 0건 출력 0 · ≤15초
+  ⓑ 원문(셸): # AUTONOMY-QUEUE
+
+| 자율 | 시각 | 종류 | 질문 | 추천안 | 사유 | 상태 | 번호 | 팀 | 보여준 시각 |
+|---|---|---|---|---|---|---|---|---|---|
+| A9 | 2026-10-24 08:00 | card-start | 새줄 1 | 추 | 사 | 대기 | q1 | graphics | - |
+| A9 | 2026-10-24 08:00 | card-start | 새줄 2 | 추 | 사 | 대기 | q2 | graphics | - |
+| A9 | 2026-10-24 08:00 | card-start | 새줄 3 | 추 | 사 | 대기 | q3 | graphics | - |
+PASS ⓑ 셸 ref_read 첫 빈 → 재시도 뒤 본문(rc0)
+  ⓑ 원문(파이썬): 결정 인터뷰 3건 · 스크립트 0건 · 팀 대기 0건 (MERGE-QUEUE 파일 없음)
+PASS ⓑ 파이썬 첫 빈 → 재시도 뒤 3건(셸과 같은 규칙)
+  ⓒ 원문(예산): ERROR ref 읽기 예산 소진(0s): git -C /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Ju40KJ0AKi/root show origin/main:design/teams/planner/AUTONOMY-QUEUE.md
+PASS ⓒ 예산 소진 → rc4 · ≤5초(미종료 0 · 디스크 후퇴 0)
+  ⓒ 원문(빈·지연): ERROR git -C /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Ju40KJ0AKi/root show origin/main:design/teams/planner/AUTONOMY-QUEUE.md 못 읽음: rc=124
+PASS ⓒ 빈 답·지연 답도 ≤15초 rc4(미종료 0)
+PASS ⓒ 기본 예산 70초 = 셸·파이썬 같음
 PASS ⓔ FT_DECISION_AUTONOMY_QUEUE = 그 파일(2)
 PASS ⓔ FT_PLANNER_DIR = 그 폴더(4)
-  ⓣ 원문(느린 큐): ERROR 오빠 큐 origin/main 판을 못 읽음: origin/main:design/teams/planner/AUTONOMY-QUEUE.md
+  ⓣ 원문(느린 큐): ERROR ref 존재 확인 실패(origin/main:design/teams/planner/AUTONOMY-QUEUE.md): rc=124
+ERROR 오빠 큐 origin/main 판을 못 읽음: origin/main:design/teams/planner/AUTONOMY-QUEUE.md
 PASS ⓣ 느린 git show → ft_planner_queue_ref ERROR rc1 · 경과 ≤9초
 PASS ⓣ 상한 초과 뒤 남은 자식 0(프로세스 그룹 KILL)
-  ⓣ 원문(느린 문서): ERROR planner AUTONOMY-QUEUE.md 못 읽음 — 상한 7s 초과(origin/main:design/teams/planner/AUTONOMY-QUEUE.md · 디스크 후퇴 0)
-PASS ⓣ 느린 git show → ft_team_doc_ref_only ERROR rc1 · 경과 ≤9초
-  ⓣ 원문(TERM 무시): ERROR planner AUTONOMY-QUEUE.md 못 읽음 — 상한 7s 초과(origin/main:design/teams/planner/AUTONOMY-QUEUE.md · 디스크 후퇴 0)
+  ⓣ 원문(느린 문서): ERROR ref 존재 확인 실패(origin/main:design/teams/planner/AUTONOMY-QUEUE.md): rc=124
+PASS ⓣ 느린 git show → ft_team_doc_ref_only ERROR(rc≠0) · 경과 ≤9초
+  ⓣ 원문(TERM 무시): ERROR ref 존재 확인 실패(origin/main:design/teams/planner/AUTONOMY-QUEUE.md): rc=124
 PASS ⓣ TERM 무시 래퍼도 ≤9초(KILL 이 끊는다)
-  ⓣ 원문(느린 결정 셈): ERROR ft-decision-count: AUTONOMY-QUEUE.md 위치를 못 풀었다: ERROR origin/main:/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.f17zEN0XbS/root/design/teams/planner/AUTONOMY-QUEUE.md 못 읽음: Command '['git', '-C', '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.f17zEN0XbS/root', 'ls-tree', '--name-only', 'origin/main', '--', 'design/teams/planner/AUTONOMY-QUEUE.md']' timed out after 7 seconds
+  ⓣ 원문(느린 결정 셈): ERROR ft-decision-count: AUTONOMY-QUEUE.md 위치를 못 풀었다: ERROR ref 존재 확인 실패(origin/main:design/teams/planner/AUTONOMY-QUEUE.md): rc=124
 PASS ⓣ 느린 git show → 결정 셈 ERROR rc4 · 경과 ≤9초(디스크 셈 0)
-  ⓣ 원문(첫 시도 빈 응답): /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.f17zEN0XbS/tmp/ft-queue-ref.Kxp4Lx
+  ⓣ 원문(첫 시도 빈 응답): /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Ju40KJ0AKi/tmp/ft-queue-ref.9iaHWN
 PASS ⓣ 첫 시도 «출력 0» → 재시도 1회로 정상(rc0 · ref 본문)
 PASS ⓣ 임시 본문 정리 · 루트 변경 0
 PASS ⓕ 키트 미러 cmp 0: ft_decision_count.py
@@ -45,11 +67,14 @@ PASS ⓓ ft-queue.sh = 공용 ft_planner_queue_ref 호출(자체 정의 0)
 PASS ⓓ 기존 ft_team_doc_ref 본문 그대로(변경 0)
 PASS ⓓ r557 시험 PASS(remind·due·shown·take·add · ⓖ 가지 범위 가드 1줄 제외)
 PASS 변이 결정 셈을 디스크 읽기로 → «ⓐ 결정 셈» FAIL
-PASS 변이 큐 ref 상한 삭제 → «ⓣ 느린 git show → ft_planner_queue_ref» FAIL
-PASS 변이 문서 ref 상한 삭제 → «ⓣ 느린 git show → ft_team_doc_ref_only» FAIL
-PASS 변이 파이썬 빈 응답 재시도 삭제 → «ⓖ 첫 ls-tree 출력 0» FAIL
-PASS 변이 빈 큐 문구를 «판이 비었다» 로 → «ⓖ 빈 큐 판» FAIL
+PASS 변이 ref git 상한 삭제 → «ⓣ 느린 git show → ft_planner_queue_ref» FAIL
+PASS 변이 셸 재시도를 2회로 → «ⓐ 재시도는 딱 1회» FAIL
+PASS 변이 파이썬 재시도 삭제 → «ⓑ 파이썬 첫 빈» FAIL
+PASS 변이 빈 값을 성공으로 → «ⓐ 셸 ref_read 빈 값 2회» FAIL
 PASS 변이 ref 에 없을 때 디스크로 후퇴 → «ⓑ ref 판에 큐 없음» FAIL
 == FAIL 0
 ALL PASS
+REAL-STATE-GUARD WARN 번호표 늘었으나 실 좌석 계획(동시 실행): /private/tmp/h335 ← /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/state/approve-batch9-20261027-0950.sh
+REAL-STATE-GUARD WARN 번호표 늘었으나 실 좌석 계획(동시 실행): /private/tmp/h336 ← /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/state/approve-batch10-20261027-0946.sh
+REAL-STATE-GUARD WARN 번호표 늘었으나 실 좌석 계획(동시 실행): /private/tmp/h337 ← /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/state/approve-batch11-20261027-0950.sh
 REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
