@@ -1,28 +1,23 @@
-입력 = 지금 최신 뉴스 발행본(news-ledger-main/design/teams/planner/news/NEWS-20261027-1140-p8.md · 10-13 옛 판 아님)
-env = launchd com.byz.ft-news-planner 와 같은 값(FT_HARNESS_ROOT·FT_ROOT·FT_LEDGER_REPO·FT_NEWS_DIR · PATH) + 임시 상태 폴더(/tmp/r1005-dry2) + 가짜 쪽지함(/tmp/r1005-dry2/mbox.sh) · FT_NOW=2026-10-27 13:35 · 실 상태·실 쪽지 쓰기 0
-$ FT_NEWS_VERIFY_STATE=/tmp/r1005-dry2 FT_MBOX=/tmp/r1005-dry2/mbox.sh python3.11 bin/_news_verify.py --kind news --body .../NEWS-20261027-1140-p8.md --root <FT_ROOT> --repo <FT_LEDGER_REPO> --state <FT_ROOT>/.fable-team/state/news-ledger --log /tmp/byz-ft-news-planner.log
+반송 r2 재실행(2026-10-27 14:4x) — 입력 = 지금 최신 뉴스 발행본(NEWS-20261027-1140-p8.md · 10-13 옛 판 아님)
+env = launchd com.byz.ft-news-planner 와 같은 값(FT_HARNESS_ROOT·FT_ROOT·FT_LEDGER_REPO·FT_NEWS_DIR · PATH) + 임시 상태 폴더(/tmp/r1005-dry3) + 가짜 쪽지함(/tmp/r1005-dry3/mbox.sh) · FT_NOW=2026-10-27 14:40 · 실 상태·실 쪽지 쓰기 0
+$ FT_NEWS_VERIFY_STATE=/tmp/r1005-dry3 FT_MBOX=/tmp/r1005-dry3/mbox.sh python3.11 bin/_news_verify.py --kind news --body .../NEWS-20261027-1140-p8.md --root <FT_ROOT> --repo <FT_LEDGER_REPO> --state <FT_ROOT>/.fable-team/state/news-ledger --log /tmp/byz-ft-news-planner.log
 
 ERROR 팀 상태 ALL-UNKNOWN — 14팀 전원 확인 불가(판정 원천 실패 · 발행은 계속)
-INFO 검증 4/9 kind=news streak=0 연속 · 실패 ⓐ 오빠 할 일 건수, ⓑ 한 일, ⓒ 팀 수, ⓖ fetch 실패, ⓗ 팀 지도
-NEWS-VERIFY 2026-10-27 13:35 kind=news 검증 4/9
+INFO 검증 5/9 kind=news streak=0 연속 · 실패 ⓐ 오빠 할 일 건수, ⓑ 한 일, ⓒ 팀 수, ⓗ 팀 지도
+NEWS-VERIFY 2026-10-27 14:40 kind=news 검증 5/9
   ⓐ 오빠 할 일 건수 — 발행본에 «오빠 할 일» 항목 없음
   ⓑ 한 일 — 발행본에 착지 줄·완료 쪽지 줄 없음
   ⓒ 팀 수 — 발행본에 «팀 N개» 없음
-  ⓖ fetch 실패 — 로그 꼬리 4줄 · 구간 표식 False
   ⓗ 팀 지도 — 지도에 없는 팀 8 — ccu, cfo, chatbot, feature, graphics
 rc=1
+실 fetch-last 표식 = ok
 
 --- 가짜 쪽지함(실 쪽지 0 확인)
-SEND send byz-planner-master-claude#144 [긴급] news 검증 4/9 · 새 사건 5칸 — ⓐ 오빠 할 일 건수, ⓑ 한 일, ⓒ 팀 수, ⓖ fetch 실패, ⓗ 팀 지도 ⓐ 오빠 할 일 건수 — 발행본에 «오빠 할 일» 항목 없음 ⓑ 한 일 — 발행본에 착지 줄·완료 쪽지 줄 없음 ⓒ 팀 수 — 발행본에 «팀 N개» 없음 ⓖ fetch 실패 — 로그 꼬리 4줄 · 구간 표식 False 같은 칸 1통 · 발행은 그대로(검증만 실패) · 2026-10-27 13:35
+SEND send byz-planner-master-claude#144 [긴급] news 검증 5/9 · 새 사건 4칸 — ⓐ 오빠 할 일 건수, ⓑ 한 일, ⓒ 팀 수, ⓗ 팀 지도 ⓐ 오빠 할 일 건수 — 7초 초과 ⓑ 한 일 — 7초 초과 ⓒ 팀 수 — 발행본에 «팀 N개» 없음 ⓗ 팀 지도 — 지도에 없는 팀 8 — ccu, cfo, chatbot, feature, graphics 같은 칸 1통 · 발행은 그대로(검증만 실패) · 2026-10-27 14:40
 
---- 실패 칸 5개 근거 (발행본 실제 결함 / 검증기 오판) --------------------------
-발행본 = /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/news-ledger-main/design/teams/planner/news/NEWS-20261027-1140-p8.md (1896B · 10줄 · 2026-10-27 13:32)
-라이브 발행 모드 = launchd EnvironmentVariables 의 FT_NEWS_MODE=draft (지도 HTML 판이 아니라 «팀·세션 상태» 초안 판)
-
-ⓐ 오빠 할 일 건수 — 발행본에 «오빠 할 일» 절이 없다(NEWS-20261027-1140-p8.md:4 «*팀·세션 상태 + 해야 할 일*» 한 절뿐 · «질문 —/실행 줄 —/자율 큐 —» 줄 0). 장부 값(gather 실측) = 질문 27 · 실행 줄 3 · 자율 큐 1. ⇒ «발행본 결함» 이 아니라 «모드 차이»(draft 판은 오빠 할 일 절을 만들지 않는다) — 칸 설계(9칸 = 지도 판 기준)는 그대로 둔다.
-ⓑ 한 일 — 발행본 10줄 전체에 «<sha> [tag]» 착지 줄 0 · «완료·착지 쪽지 N통» 0(grep 실측 0). ⇒ 모드 차이(지도 판 머리 모양 전용).
-ⓒ 팀 수 — «팀 N개» 0(첫 줄 = «*뉴스 10-27 11:40 (8/8)*»). ⇒ 모드 차이(지도 판 머리 모양 전용).
-ⓖ fetch 실패 — 검증기 오판: 로그 1954줄 중 «원장 ref fetch 실패» 4줄 = 375 · 853 · 1116 · 1135행, 전부 과거이고 1135행 뒤 819줄에는 없다(로그 마지막 수정 13:32). 칸이 «시각 없는 로그» 라 하루 창을 못 재서 옛 줄을 오늘 실패로 셈한다(칸 docstring 이 이미 «창은 근사» 라 적음).
-ⓗ 팀 지도 — 두 갈래: (a) 검증기 오판 — 발행본은 «m.lecture»(6행)·«m.room»(9행) 로 적고 명부는 «lecture»·«room» 이라 이름 비교가 빗나간다. (b) 모드 차이 — 발행본은 바뀐 팀 6개(knowledge·m.lecture·ops·planner·m.room·v65)만 싣고 명부는 14팀(ccu·cfo·chatbot·feature·graphics·harness·issues·kk·knowledge·lecture·ops·planner·room·v65). 판정 원천은 «팀 상태 ALL-UNKNOWN — 14팀 전원 확인 불가» 라 «일함/확인 불가» 값은 못 쓴다(team_states 판정 실패).
-참 4칸 = ⓓ 발행 sha · ⓔ 같은 경고 · ⓕ 완료 줄 · ⓘ 뿌리 글(실 r1004 root_readback_guard.check 재호출 · 사유 없음)
-관측(알려진 한계 · 코드 변경 0): ⓐ 칸의 선행 함수 gather 실측 6.8초 = 칸 상한 7초와 여유 0.2초 — 한 회차는 «7초 초과 = 모름» 으로 떨어졌다(하드 룰 12 상한 안이지만 여유 0). 시간 초과를 줄이는 일은 선행 도구(r851 gather) 몫이라 이 카드에서 손대지 않는다.
+--- 이 회차 읽기 (반송 r2 · 기대 = «검증 5/9») --------------------------------
+ⓖ fetch 실패 = 참(실패 칸 목록에서 빠짐) — 실 로그 꼬리에 «원장 ref fetch 실패» 4줄(375·853·1116·1135행)이 남아 있지만 현재 표식 fetch-last=ok 이므로 «과거 로그 4줄 셈 0». 반송 r2 고침이 실 데이터에서 그대로 걸렸다(거짓 경보 1칸 사라짐 → 4/9 → 5/9).
+ⓐ·ⓑ = 이 회차 부하로 «7초 초과 = 모름» (선행 함수 gather·landed_commits 실측이 칸 상한 7초와 경합 · 직전 회차에는 ⓐ = «발행본에 오빠 할 일 항목 없음», ⓑ = «착지 줄·완료 쪽지 줄 없음» 으로 판정됐다). 칸 상한은 하드 룰 12 그대로 — 줄이는 일은 선행 도구 몫(이 카드 범위 밖).
+ⓒ «팀 N개» 없음 = 라이브 FT_NEWS_MODE=draft 판이라 지도 판 머리 모양이 없다(모드 차이 · 알려진 한계).
+ⓗ 지도에 없는 팀 8(ccu·cfo·chatbot·feature·graphics·harness·issues·kk) = 발행본은 바뀐 6팀만 싣고 명부는 14팀(모드 차이 · 알려진 한계) + «m.lecture» vs 명부 «lecture» 이름 비교(검증기 오판 · 알려진 한계).
+참 = ⓓ 발행 sha · ⓔ 같은 경고 · ⓕ 완료 줄 · ⓖ fetch 실패 · ⓘ 뿌리 글(실 r1004 check 재호출) → «검증 5/9» rc1

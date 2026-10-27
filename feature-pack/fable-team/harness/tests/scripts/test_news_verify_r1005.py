@@ -191,11 +191,14 @@ def _fix_closed(w):
 
 
 def _break_fetchlog(w):
+    """ⓖ 거짓 = 표식 켜짐(fetch-last=fail) + 로그 실패 줄 — 표식이 꺼진 과거 줄만으로는 거짓이 아니다(r1005 반송 r2)."""
     write(w.log, "INFO 뉴스 시작\nERROR 원장 ref fetch 실패 — 판정 불가 · 게시 0\n")
+    write(w.root / ".fable-team/state/news-ledger/fetch-last", "fail\n")
 
 
 def _fix_fetchlog(w):
     write(w.log, "INFO 뉴스 시작\n")
+    write(w.root / ".fable-team/state/news-ledger/fetch-last", "ok\n")
 
 
 def _break_liveseats(w):
@@ -482,6 +485,26 @@ def test_r2_5_tail_write_failure_is_not_9_of_9(world, caplog):
     assert any(r.levelname == "ERROR" and "꼬리 못 씀" in r.getMessage() for r in caplog.records)
     assert len(world.sends()) == 1
     assert "검증 9/9" not in world.body.read_text(encoding="utf-8")
+
+
+# ── r1005 반송 r2 · ⓖ = 최신 상태가 이긴다(표식 꺼짐이면 과거 로그 줄 셈 0) ──────────────
+def test_r2_g_marker_off_ignores_past_log_lines(world, monkeypatch):
+    """반송 r2 — 과거 «원장 ref fetch 실패» 줄 + 그 뒤 성공 + 표식 False → ⓖ 참 · 9/9 rc0 · 쪽지 0."""
+    write(world.log, "INFO 뉴스 시작\nERROR 원장 ref fetch 실패 — 판정 불가 · 게시 0\nINFO 원장 ref fetch 성공\n")
+    real_need = pub.need
+    monkeypatch.setattr(pub, "need", lambda m, n: (lambda: False) if (m, n) == ("ft_news_ledger", "fail_announced") else real_need(m, n))
+    rc, out = world.run()
+    assert rc == 0 and "검증 9/9" in out and world.sends() == []
+    assert "과거 로그 1줄 셈 0" not in out  # 실패 칸이 아니라 사유 줄을 안 찍는다(참이면 사유 출력 0)
+
+
+def test_r2_g_marker_on_is_a_failure_one_message(world, monkeypatch):
+    """반송 r2 — 표식이 켜져 있으면 지금대로 ⓖ 거짓 · 쪽지 1통(«표식 무시» 변이 감시)."""
+    write(world.log, "INFO 뉴스 시작\n")
+    real_need = pub.need
+    monkeypatch.setattr(pub, "need", lambda m, n: (lambda: True) if (m, n) == ("ft_news_ledger", "fail_announced") else real_need(m, n))
+    rc, out = world.run()
+    assert rc == 1 and "검증 8/9" in out and "ⓖ fetch 실패" in out and len(world.sends()) == 1
 
 
 def test_r2_6_magazine_tilde_out_dir_is_expanded(world, tmp_path_factory):

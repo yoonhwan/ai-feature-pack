@@ -20,7 +20,7 @@ def _log(ctx: Ctx) -> Path:
 
 @guarded
 def cell_g(ctx: Ctx) -> tuple[str, str]:
-    """ⓖ 뉴스 로그 «원장 ref fetch 실패» 0줄 + r847 구간 표식 0 (로그에 시각이 없어 창은 표식·꼬리로 근사)."""
+    """ⓖ 뉴스 로그 «원장 ref fetch 실패» 0줄 + r847 구간 표식 0 — 표식이 꺼져 있으면(최신 fetch 성공) 과거 로그 줄은 세지 않는다(r1005 반송 r2 · 최신 상태가 이긴다)."""
     fail_announced = need("ft_news_ledger", "fail_announced")
     log = _log(ctx)
     if not log.is_file():
@@ -30,8 +30,9 @@ def cell_g(ctx: Ctx) -> tuple[str, str]:
         marked = fail_announced()
     except Exception as e:  # noqa: BLE001
         return UNKNOWN, f"로그·표식 못 읽음 — {type(e).__name__}: {e}"
-    n = sum(1 for ln in lines if "원장 ref fetch 실패" in ln)
-    return (FAIL if n or marked else PASS), f"로그 꼬리 {n}줄 · 구간 표식 {marked}"
+    old = sum(1 for ln in lines if "원장 ref fetch 실패" in ln)
+    n = old if marked else 0  # r1005 반송 r2 — 최신 상태가 이긴다: 표식 꺼짐(최신 fetch 성공)이면 과거 로그 줄은 근거가 아니다
+    return (FAIL if n or marked else PASS), (f"로그 꼬리 {n}줄 · 구간 표식 {marked}" if marked else f"구간 표식 False(최신 fetch 성공) · 과거 로그 {old}줄 셈 0")
 
 
 @guarded
