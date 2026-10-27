@@ -537,6 +537,7 @@ for k, v in d.items():
     if k.startswith("_") or not isinstance(v, dict): continue
     if isinstance(m, str) and v.get("role") == "master" and k != m: continue
     if v.get("_replaced_by") or v.get("role") == "stop-ready": continue
+    if v.get("agent") == "desktop": continue   # r1015: tmux 밖 Claude Desktop 좌석 = 살아 있어도 tmux 세션이 없다 → 죽음 아님
     print("\t".join([k, v.get("role") or "-", v.get("agent") or "claude", v.get("model") or "-"]))
 PY
 }
