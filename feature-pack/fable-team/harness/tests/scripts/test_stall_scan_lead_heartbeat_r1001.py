@@ -46,6 +46,16 @@ def lead_b_candidate(w: World) -> None:
     w.jsonl("t1-master#1", "확인했습니다. 지금 착수하겠습니다")
 
 
+def add_master_row(w: World, label: str, seat: str) -> None:
+    """같은 명부에 «현역 role=master» 행을 하나 더 — 승계 직후 옛·새 둘 다 현역인 상태."""
+    p = w.root / f".fable-team/seats-{label}.json"
+    d = json.loads(p.read_text(encoding="utf-8"))
+    d[seat] = {"role": "master"}
+    _ = p.write_text(json.dumps(d), encoding="utf-8")
+    w.live.append(seat)
+    w._tmux()
+
+
 def set_replaces(w: World, label: str, master: str, olds: list[str]) -> None:
     p = w.root / f".fable-team/seats-{label}.json"
     d = json.loads(p.read_text(encoding="utf-8"))
@@ -134,20 +144,20 @@ def test_c4_g1_no_mailbox_is_undecidable_not_silent_zero(w: World) -> None:  # �
     r = scan(w)
     c = counts(r.stdout)
     assert c["u"] == "1" and c["f"] == "0" and c["b"] == "0", r.stdout
-    assert "팀장 심박 판정 불가" in r.stdout and "mailbox.jsonl 없음" in r.stdout
+    assert "팀장 심박 판정 불가" in r.stdout
     assert not w.mbox_log()
 
 
-def test_c4_g2_broken_line_skipped_but_not_silently(w: World) -> None:  # ⓖ2
+def test_c4_g2_broken_line_makes_it_undecidable(w: World) -> None:  # ⓚ 깨진 줄 1 = 판정 불가(신선 심박이 같이 있어도)
     quiet_others(w)
     lead_b_candidate(w)
     w.raw_mail("{ 깨진 줄")
     w.heartbeat("t1-master#1", 5)
     r = scan(w)
     c = counts(r.stdout)
-    assert c["f"] == "0" and c["u"] == "0", r.stdout
-    assert "깨진 줄 1개 건너뜀" in r.stdout  # 조용한 통과가 아니다
-    assert not w.mbox_log()
+    assert c["u"] == "1" and c["f"] == "0" and c["b"] == "0", r.stdout
+    assert "팀장 심박 판정 불가" in r.stdout
+    assert not w.mbox_log()  # 조용한 경보 0 도, 경보 1통도 아니다
 
 
 def test_c4_g3_budget_over_7s_is_undecidable(w: World) -> None:  # ⓖ3
@@ -158,16 +168,17 @@ def test_c4_g3_budget_over_7s_is_undecidable(w: World) -> None:  # ⓖ3
     r = scan(w)
     c = counts(r.stdout)
     assert c["u"] == "1" and c["f"] == "0", r.stdout
-    assert "초과" in r.stdout and not w.mbox_log()
+    assert "팀장 심박 판정 불가" in r.stdout and not w.mbox_log()
 
 
 # ── C5 — 심박 발신자는 현역 팀장 이름만(승계 직후 옛 이름도 인정) ───────────────
-def test_c5_h_successor_old_name_heartbeat_accepted(w: World) -> None:  # ⓗ 승계 직후
+def test_c5_h_replaces_only_old_name_is_ignored(w: World) -> None:  # ⓛ `_replaces` 에만 있는 옛 이름 = 현역 아님
     lead_b_candidate(w)
     set_replaces(w, "t1", "t1-master#1", ["t1-master#0"])
     w.heartbeat("t1-master#0", 5)
     r = scan(w)
-    assert counts(r.stdout)["f"] == "0" and not w.mbox_log()
+    assert counts(r.stdout)["f"] == "1", r.stdout
+    assert len(sends(w, "t1-master#1")) == 1
 
 
 def test_c5_h2_unknown_sender_heartbeat_ignored(w: World) -> None:  # ⓗ 옛 이름이 계보에 없으면 무시
@@ -184,12 +195,13 @@ def test_c5_h3_heartbeat_token_must_be_body_head(w: World) -> None:  # `[정리]
     assert counts(r.stdout)["f"] == "1"
 
 
-def test_c5_h4_future_ts_is_not_fresh(w: World) -> None:  # 시계 어긋난 미래 ts
+def test_c5_h4_future_ts_is_never_fresh(w: World) -> None:  # 시계 어긋난 미래 ts = 신선으로 읽지 않는다
+    quiet_others(w)
     lead_b_candidate(w)
     w.heartbeat("t1-master#1", -120)  # 2시간 «미래»
     r = scan(w)
-    assert counts(r.stdout)["f"] == "1", r.stdout
-    assert "깨진 줄 1개 건너뜀" in r.stdout
+    assert counts(r.stdout)["f"] == "0" and counts(r.stdout)["u"] == "1", r.stdout
+    assert not w.mbox_log()
 
 
 # ── attached·rest·stop-ready 팀장은 처리 0(base 게이트 그대로) ──────────────────
@@ -222,3 +234,51 @@ def test_dry_run_lead_stall_sends_nothing(w: World) -> None:
     w.heartbeat("t1-master#1", 20)
     r = scan(w, "--dry-run")
     assert counts(r.stdout)["f"] == "1" and not w.mbox_log() and not w.scan_log()
+
+
+# ── r2 반송(DA 1/2 HOLD) — ⓘ env 임계 · ⓙ 수신자 · ⓜ 둘 다 현역 · ⓝ 두 팀장 1통 ──────────
+def test_i_env_threshold_is_read(w: World) -> None:  # ⓘ FT_LEAD_HEARTBEAT_MIN=20 이면 16분은 신선
+    lead_b_candidate(w)
+    w.heartbeat("t1-master#1", 16)
+    w.env["FT_LEAD_HEARTBEAT_MIN"] = "20"
+    r = scan(w)
+    assert counts(r.stdout)["f"] == "0" and not w.mbox_log(), r.stdout
+
+
+def test_j_heartbeat_to_nano_is_not_a_heartbeat(w: World) -> None:  # ⓙ 받는이 = master/planner 만
+    lead_b_candidate(w)
+    w.heartbeat("t1-master#1", 5, to="t1-nano#0")
+    r = scan(w)
+    assert counts(r.stdout)["f"] == "1", r.stdout
+    assert "심박 없음" in body_of(sends(w, "t1-master#1")[0])
+
+
+def test_m_old_name_live_master_counts(w: World) -> None:  # ⓜ 옛·새 둘 다 현역이면 옛 이름 심박도 인정
+    lead_b_candidate(w)
+    add_master_row(w, "t1", "t1-master#0")
+    w.heartbeat("t1-master#0", 5)
+    r = scan(w)
+    assert counts(r.stdout)["f"] == "0" and not w.mbox_log(), r.stdout
+
+
+def test_n_two_live_masters_one_notice_per_team(w: World) -> None:  # ⓝ 승계 직후 두 팀장 · 팀당 1통
+    add_master_row(w, "t1", "t1-master#0")
+    lead_b_candidate(w)
+    w.state("t1-master#0", "IDLE", 6)
+    w.jsonl("t1-master#0", "지금 착수하겠습니다")
+    w.heartbeat("t1-master#1", 20)
+    r = scan(w)
+    c = counts(r.stdout)
+    assert c["f"] == "1" and c["b"] == "0" and c["d"] == "0", r.stdout  # b 중복 0
+    assert len([x for x in w.mbox_log() if x.startswith("send|t1-master#")]) == 1, w.mbox_log()
+
+
+def test_n2_two_live_masters_fresh_heartbeat_is_zero(w: World) -> None:  # ⓝ 신선 = 경보 0
+    add_master_row(w, "t1", "t1-master#0")
+    lead_b_candidate(w)
+    w.state("t1-master#0", "IDLE", 6)
+    w.jsonl("t1-master#0", "지금 착수하겠습니다")
+    w.heartbeat("t1-master#0", 5)
+    r = scan(w)
+    assert counts(r.stdout)["f"] == "0" and counts(r.stdout)["b"] == "0", r.stdout
+    assert not w.mbox_log()
