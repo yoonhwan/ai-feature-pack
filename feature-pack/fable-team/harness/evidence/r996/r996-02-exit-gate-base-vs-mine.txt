@@ -1,0 +1,24 @@
+== BASE(origin/main 92fce7fc)
+PASS ⓧ reg 대조(주입 0) = 지운다
+PASS ⓧ cut = 지우는 길에서 호출 0
+FAIL ⓧ reg git:--git-common-dir#1 real = 삭제 0 [rc=0] WARN ft-scratch-r
+FAIL ⓧ reg git:--git-common-dir#1 empty = 삭제 0 [rc=0] WARN ft-scratch-
+PASS ⓧ reg git:--git-common-dir#2 real = 삭제 0
+PASS ⓧ reg git:--git-common-dir#2 empty = 삭제 0
+PASS ⓧ reg git:--git-common-dir#3 real = 삭제 0
+PASS ⓧ reg git:--git-common-dir#3 empty = 삭제 0
+FAIL ⓧ reg git:--git-common-dir#4 real = 삭제 0 [rc=0] WARN ft-scratch-r
+FAIL ⓧ reg git:--git-common-dir#4 empty = 삭제 0 [rc=0] WARN ft-scratch-
+PASS ⓧ tmp 대조(주입 0) = 지운다
+== MINE(r996)
+PASS ⓧ reg 대조(주입 0) = 지운다
+PASS ⓧ cut = 지우는 길에서 호출 0
+FAIL ⓧ reg git:--git-common-dir#1 real = 삭제 0 [rc=0] WARN ft-scratch-r
+FAIL ⓧ reg git:--git-common-dir#1 empty = 삭제 0 [rc=0] WARN ft-scratch-
+PASS ⓧ reg git:--git-common-dir#2 real = 삭제 0
+PASS ⓧ reg git:--git-common-dir#2 empty = 삭제 0
+PASS ⓧ reg git:--git-common-dir#3 real = 삭제 0
+PASS ⓧ reg git:--git-common-dir#3 empty = 삭제 0
+FAIL ⓧ reg git:--git-common-dir#4 real = 삭제 0 [rc=0] WARN ft-scratch-r
+FAIL ⓧ reg git:--git-common-dir#4 empty = 삭제 0 [rc=0] WARN ft-scratch-
+PASS ⓧ tmp 대조(주입 0) = 지운다

@@ -21,6 +21,10 @@
 #     r444: tmux 목록을 못 읽으면 stdout `ERROR tmux unreadable …` 1줄(호출자 ft-disk-alarm 이 planner 로) + 삭제 0 · 지운 뒤 로그 `swept=N owner-dead=N tmp=N held=N`
 #     r548: 어떤 프로세스의 cwd(그 폴더 또는 그 아래)인 사본은 지우지 않고 붙잡는다 — 로그 `붙잡음 …` 줄 + stdout `[장비 정리] 주인 <좌석> 사본 <경로> 에서 pid <n> <명령> 실행 중 — 삭제 보류` 최대 3줄(나머지 개수 1줄)
 #     r548: cwd 를 묻는 lsof 가 실패하거나 0줄이면 «아무도 안 씀» 으로 읽지 않는다 — 로그·stdout `ERROR lsof 실패 — 삭제 0` 1줄 + 이번 정리 전체 생략(등록 사본·tmp.* 포함)
+#   r996: 장부 둘(ROOT 등록부 + 사본의 원 저장소 등록부) — 만들 때 같은 줄을 양쪽에 적고, --done·--sweep·--report·registered 는 양쪽을 함께 읽는다(한쪽 장부만 있어도 보인다 · 못 읽은 등록부 = «모름» = 덜 지우는 쪽)
+#   r996 ⓗ: 만들기는 체크아웃 «전에» 등록하고, 체크아웃이 끝나면 그 사본의 git 관리폴더에 `scratch-ready`(완성 표식)를 쓴다 — 끊긴 사본도 등록돼 보이고, 재사용·«24시간 없이 바로 지우기» 는 완성 표식 있는 사본만(사본 안에 파일을 안 써서 `git status` 깨끗함이 그대로)
+#           실패 되돌림 = «이번 실행이 만든 폴더만»(있던 폴더 rm 0) · rm 실패 = 등록 유지 + ERROR
+#   r996 2720 입구: 판정 끝 표식 = `--judged` rc0 «또는» 사본 안 `.scratch-judged` — 주인 세션 없으면 24시간 조건 없이 --sweep 대상(첫 1회는 목록만 · delete_copy 게이트 경유)
 #     r1029: 점유(cwd) 조회 = ★사본별 1회(`lsof -a -d cwd +D <사본>` · 사본당 7초)★ — 한 사본의 lsof 실패·지연은 그 사본만 `붙잡음(조회 실패 · 삭제 보류)` 이고 다른 사본은 계속 판정한다(전체 1회 조회의 «하나 실패 = 그 틱 전부 0» 을 없앤다 · 하드 룰 12)
 #           판정 예산 FT_SCRATCH_JUDGE_BUDGET(기본 20초)을 넘긴 사본은 이번 틱에 판정하지 않고 다음 틱으로 넘긴다 — `WARN … 판정 예산(N초) 초과 · 남은 사본 M개 다음 틱` 1줄(조용한 0 아님) · 예산 0 이면 조회 호출 0
 #           r1029 r2 (실사건 반송 · planner 쪽지 176185): 크기 표시용 `du -sk`(kb) 도 판정 예산 «안» — 예산이 남지 않은 사본은 du 호출 0 으로 «다음 틱» 에 넘기고(사본 수에 비례해 회차가 끝나지 않던 길), du 자체도 남은 초 상한(min(7, 예산 남은 초)) · --report 는 지금 그대로
@@ -100,12 +104,30 @@ kb() { # <경로> [초] → 크기(kb) 1줄 · 초 상한(기본 7) · r1029 r2:
 has_ctl() { case "$1" in *"$TAB"*|*$'\n'*) return 0;; esac; return 1; }   # r897 r10.2: 등록부는 TSV — 탭·개행이 든 경로는 표현할 수 없다
 has_line() { case $'\n'"$1"$'\n' in *$'\n'"$2"$'\n'*) return 0;; esac; return 1; }   # <목록> <이름> → 0 = 그 줄이 «정확히» 있다 · r10.5: 외부 명령·리다이렉트 0(grep <<< 는 임시 파일 실패가 rc1 = «주인 없음» 으로 읽혔다)
 phys() { ( cd "$1" 2>/dev/null && pwd -P ); }   # r897 r10: 물리 경로(/private/var…) — 못 읽으면 rc≠0
-drop_reg() { # <등록 원문 경로> 그 등록 줄만 삭제 — «경로 정확 대조»(r10.1: awk -v 는 역슬래시를 해석해 `\161`→`q` 로 남의 줄과 맞는다 · ENVIRON 은 바이트 그대로) · r5 고침 6: 0줄 지우면 rc≠0(조용한 rc0 0)
-  [ -f "$TSV" ] || return 3
-  P_EXACT="$1" awk -F'\t' '$1==ENVIRON["P_EXACT"]{n++; next} {print} END{exit (n>0 ? 0 : 3)}' "$TSV" > "$TSV.tmp.$$" && mv "$TSV.tmp.$$" "$TSV"
+drop_reg() { # <등록 원문 경로> [<등록부들>] 그 줄을 «모든 등록부» 에서 삭제(r996 장부 둘) — «경로 정확 대조»(r10.1: awk -v 는 역슬래시를 해석해 `\161`→`q` 로 남의 줄과 맞는다 · ENVIRON 은 바이트 그대로) · 하나도 못 지우면 rc≠0
+  #   목록을 안 주면 «지금» 계산하되 REGS 캐시를 먼저 쓴다 — 사본을 지운 뒤에는 copy_reg 이 그 사본의 .git 을 못 읽어 원 저장소 장부를 놓친다(게이트가 사본이 살아 있을 때 읽은 목록)
+  local f n=0 fl
+  fl="${2:-}"
+  if [ -z "$fl" ]; then fl="${REGS:-}"; [ -n "$fl" ] || { reg_list; fl="$REGS"; }; fi
+  for f in $fl; do
+    [ -f "$f" ] || continue
+    P_EXACT="$1" awk -F'\t' '$1==ENVIRON["P_EXACT"]{n++; next} {print} END{exit (n>0 ? 0 : 3)}' "$f" > "$f.tmp.$$" || { rm -f "$f.tmp.$$"; continue; }
+    mv "$f.tmp.$$" "$f" && n=$((n+1))
+  done
+  [ "$n" -gt 0 ]
 }
 cwd_parse() { printf '%s\n' "$1" | awk '/^p/{pid=substr($0,2);next} /^c/{cmd=substr($0,2);next} /^n/{if (pid!="") printf "%s\t%s\t%s\n", substr($0,2), pid, cmd}'; }   # <lsof -Fpcn 출력> → 경로·pid·명령 줄 · rc = awk rc(pipefail · r10.5: 지우는 길은 cap 으로 받아 rc≠0 = 못 읽음)
-reg_owner() { [ -f "$TSV" ] || return 0; P_EXACT="$1" awk -F'\t' '$1==ENVIRON["P_EXACT"]{print $2; exit}' "$TSV"; }   # <경로> → 등록 주인(정확 대조) · 등록부 없음 = 빈 값 rc0 · awk 실패 = rc≠0
+reg_owner() { # <경로> → 등록 주인(정확 대조 · ROOT 등록부 → 그 사본의 원 저장소 등록부 r996) · 없음 = 빈 값 rc0 · 못 읽음 = rc≠0
+  local o f rc
+  cap o row_owner "$TSV" "$1"; rc=$?
+  [ -n "$o" ] && { printf '%s\n' "$o"; return 0; }
+  case "$rc" in 0|3) ;; *) return 1;; esac
+  cap f copy_reg "$1" || return 0
+  [ -n "$f" ] && [ "$f" != "$TSV" ] || return 0
+  cap o row_owner "$f" "$1" || return 1
+  printf '%s\n' "$o"
+  return 0
+}
 first_paths() { printf '%s' "$1" | awk -F'\t' 'NR<=3{printf "%s%s", (NR>1?", ":""), $2}'; }   # <ORPH> → 앞 3개 경로(표시 전용)
 scratch_bases() { # r845 r6: 사본이 놀 수 있는 부모 폴더 — FT_SCRATCH_DIR 가 있으면 그 하나, 없으면 $TMPDIR 과 그 아래 ft-scratch/<주인>/
   local t
@@ -128,9 +150,13 @@ verify_complete() { # r845 r7·r8: <경로> → 0 = 그 사본이 «요청 sha �
   cap st bounded 7 git -C "$d" status --porcelain || return 1
   [ -z "$st" ]
 }
-registered() { # <경로> → 0 = 등록부에 있음(실경로로 대조 — git 은 /private/var 로, 등록부는 $TMPDIR 의 /var 로 적는다)
-  local want p rest; want="$(cd "$1" 2>/dev/null && pwd -P)" || return 1
-  while IFS="$(printf '\t')" read -r p rest; do [ -d "$p" ] && [ "$(cd "$p" && pwd -P)" = "$want" ] && return 0; done < <(cat "$TSV" 2>/dev/null)
+registered() { # <경로> → 0 = 등록부에 있음(실경로로 대조 — git 은 /private/var 로, 등록부는 $TMPDIR 의 /var 로 적는다) · r996: ROOT 등록부 + 그 사본의 원 저장소 등록부
+  local want p rest f
+  want="$(cd "$1" 2>/dev/null && pwd -P)" || return 1
+  for f in "$TSV" "$(copy_reg "$1" 2>/dev/null)"; do
+    [ -n "$f" ] && [ -f "$f" ] || continue
+    while IFS="$(printf '\t')" read -r p rest; do [ -d "$p" ] && [ "$(cd "$p" && pwd -P)" = "$want" ] && return 0; done < "$f"
+  done
   return 1
 }
 common_root() { # <git 경로> → 원 저장소 공용 루트(사본·워크트리여도 원 저장소) · 못 읽으면 rc 1 (r891)
@@ -141,6 +167,66 @@ copy_reg() { # <사본> → 그 사본의 원 저장소 등록부(워크트리 .
   local l g; [ -f "$1/.git" ] && read -r l < "$1/.git" || return 1; g="${l#gitdir: }"
   case "$g" in */.git/worktrees/*) g="${g%%/.git/worktrees/*}";; *) return 1;; esac
   [ -d "$g/.fable-team" ] && printf '%s/.fable-team/state/scratch-repos.tsv\n' "$g"
+}
+# ── r996: 장부 둘(ROOT 등록부 + 사본의 원 저장소 등록부) — 읽기는 함께, 못 읽음 = 모름 ──────────────
+reg_list() { # → REGS = 이번 실행이 읽을 등록부들(ROOT 먼저 · 중복 0 · 원 저장소 등록부는 r897 copy_reg 도우미 경유 · 자리는 r845 scratch_bases 전부)
+  local b p f bases
+  REGS="$TSV"
+  cap bases scratch_bases
+  while IFS= read -r b; do
+    [ -n "$b" ] || continue
+    for p in "${b%/}"/repo-*; do
+      [ -d "$p" ] || continue
+      cap f copy_reg "$p" || continue
+      [ -n "$f" ] || continue
+      [ "$f" = "$TSV" ] && continue
+      has_line "$REGS" "$f" || REGS="$REGS
+$f"
+    done
+  done <<EOF
+$bases
+EOF
+  return 0
+}
+reg_rows() { # → ROWS = 등록부 전부의 줄 — 같은 줄은 «등록부별 등장 횟수의 최대» 만(장부 둘의 같은 줄 = 한 번 · 한 등록부 안 중복은 그대로 남아 G5 가 «정확히 1줄 아님» 으로 거절) · REG_BAD=1 = 못 읽은 등록부 있음(«모름»)
+  local f rows line n1 n2 t="$STATE/.regrows.$$"
+  ROWS=""; REG_BAD=0
+  reg_list
+  : > "$t" 2>/dev/null || { ROWS=""; REG_BAD=1; return 0; }
+  for f in $REGS; do
+    [ -e "$f" ] || continue
+    cap rows cat -- "$f" || { REG_BAD=1; continue; }
+    while IFS= read -r line; do
+      [ -n "$line" ] || continue
+      cap n1 grep -c -x -F -e "$line" -- "$f"; n1="${n1:-0}"
+      cap n2 grep -c -x -F -e "$line" -- "$t"; n2="${n2:-0}"
+      isnum "$n1" && isnum "$n2" || { REG_BAD=1; continue; }
+      [ "$n1" -gt "$n2" ] || continue
+      printf '%s\n' "$line" >> "$t"
+    done <<EOF
+$rows
+EOF
+  done
+  cap ROWS cat -- "$t"; rm -f -- "$t" 2>/dev/null
+  return 0
+}
+row_owner() { # <등록부> <경로> → 그 줄의 주인 · 등록부 없음/그 줄 없음 = rc3 · 못 읽음 = 그 밖의 rc
+  [ -f "$1" ] || return 3
+  P_EXACT="$2" awk -F'\t' '$1==ENVIRON["P_EXACT"]{print $2; exit}' "$1"
+}
+reg_write() { # <경로> <주인> <시각> <베이스> <원 저장소|빈> → ROOT + 원 저장소 등록부에 같은 줄 · REGN = 적은 곳 수 · REGF = 적은 등록부 목록
+  local line n=0 f=""
+  line="$1${TAB}$2${TAB}$3${TAB}$4"
+  REGF=""
+  printf '%s\n' "$line" >> "$TSV" 2>/dev/null && { n=1; REGF="$TSV"; } || echo "WARN ft-scratch-repo — 등록부 쓰기 실패: $TSV" >&2
+  [ -n "$5" ] && [ -d "$5/.fable-team" ] && f="$5/.fable-team/state/scratch-repos.tsv"
+  if [ -n "$f" ] && [ "$f" != "$TSV" ]; then
+    mkdir -p "$5/.fable-team/state" 2>/dev/null
+    printf '%s\n' "$line" >> "$f" 2>/dev/null && { n=$((n+1)); REGF="$REGF
+$f"; } || echo "WARN ft-scratch-repo — 원 저장소 등록부 쓰기 실패: $f" >&2
+  fi
+  REGN=$n
+  [ "$n" -gt 0 ]
 }
 SPARSE_EXT="wav mp3 mp4 webm mov png jpg jpeg gif zip tar gz"
 want_spec() { # → 요청한 체크아웃 규칙(sparse-checkout list 와 같은 꼴) · --full 이면 FULL (r891)
@@ -337,7 +423,10 @@ orphans() { # → ORPH = "kb<TAB>경로<TAB>reg|tmp<TAB>사유" 줄들 · HOLD =
   fi
   # 등록 사본: tmux 목록을 못 읽으면(rc≠0) «세션 0» 으로 세지 않고 이 판정 전체를 건너뛴다(#0 RULE) · 후보 = 주인 없음 ∧ 등록 뒤 AGE 분 지남(판정 1920 문구 · r548 이 r444 의 문턱 0 을 되돌림)
   # r5(DA⑥ r4 반례 1a): 등록부 읽기도 rc 를 본다 — 못 읽음 = 이번 판정 전체를 접는다(READ_OK=0 · sweep 삭제 0) · `<(…)` 0
-  if [ -e "$TSV" ]; then cap rows bounded 7 cat -- "$TSV" || { READ_OK=0; echo "ERROR 등록부 못 읽음 — 삭제 0" >&2; return 0; }; fi
+  # r996: 등록부 둘(ROOT + 사본들의 원 저장소)을 함께 읽는다 — 한쪽 장부만 있는 사본도 본다 · REG_BAD=1 = 모름
+  reg_rows
+  [ "$REG_BAD" = 0 ] || { READ_OK=0; echo "ERROR 등록부 못 읽음 — 삭제 0" >&2; return 0; }
+  rows="$ROWS"
   if cap SESS tmux_sessions; then
     while IFS="$TAB" read -r p o t b; do
       [ -n "$p" ] && [ -d "$p" ] || continue
@@ -381,6 +470,10 @@ EOF
   # r1029: 예산을 넘긴 사본은 «조용한 0» 이 아니라 1줄로 알린다(다음 틱에 다시 본다)
   [ "$ODEF" = 0 ] || echo "WARN ft-scratch-repo — 판정 예산(${FT_SCRATCH_JUDGE_BUDGET:-20}초) 초과 · 남은 사본 ${ODEF}개 다음 틱" >&2
 }
+READY="$STATE/scratch-ready"   # r996 ⓗ: 완성 표식 자리 — 사본별 빈 파일(사본 이름 그대로)
+ready_mark() { # <사본> → 0 = 완성 표식 있음(체크아웃 끝) · 1 = 없음(끊긴 사본 · 옛 판 사본) — 외부 호출 0 · 사본 작업 트리 안에 파일을 쓰지 않는다(r891 ⓑ «status 깨끗» 그대로)
+  [ -n "${1:-}" ] && [ -f "$READY/${1##*/}" ]
+}
 fast() { # <사본> → 0 = «판정 끝 표식 ∧ 주인 없음» 중 이름꼴·HEAD·detached 가 모두 참(2720 빠른 길 · r897 r10) · 하나라도 못 읽거나 거짓 = rc1(24시간 규칙으로 후퇴 · 덜 지우는 쪽)
   local p="$1" n h sha r re='^repo-([0123456789abcdef]{8})-[0123456789]+-[0123456789]+$'
   n="${p##*/}"
@@ -390,8 +483,24 @@ fast() { # <사본> → 0 = «판정 끝 표식 ∧ 주인 없음» 중 이름�
   [ "${sha:0:8}" = "$h" ] || return 1
   git -C "$p" symbolic-ref -q HEAD >/dev/null 2>&1; r=$?   # ③detached — ★rc=1(가지 없음) 만 «detached»★ · rc0(가지 워크트리)·rc≥2(오류·못 읽음) = 빠른 길 아님(«못 읽음» 을 detached 로 읽지 않는다 · DA⑥ r1 반례 1)
   [ "$r" = 1 ] || return 1
-  judged "$p" || return 1   # ④판정 끝 표식 — rc0 만 참(그 밖 = 빠른 길 아님)
+  judged "$p" || [ -f "$p/.scratch-judged" ] || return 1   # ④판정 끝 표식 — rc0 만 참(그 밖 = 빠른 길 아님) · r996: 사본 안 `.scratch-judged` 도 표식(2720 설계 §2)
+  ready_mark "$p" || return 1   # ⑤r996 ⓗ: 완성 표식(체크아웃 끝) — 끊긴 사본은 «24시간 없이 바로 지우기» 대상이 아니다(24시간 길로만)
   return 0
+}
+gen_rollback() { # <경로> <사유> r996 ⓗ: 생성 실패 되돌림 — «이번 실행이 만든 폴더만»(있던 폴더·남의 폴더 rm 0) · rm 실패 = 등록 유지 + ERROR · rc = 4
+  local d="$1" why="$2"
+  if [ "$PRE" = 0 ]; then
+    git -C "$SRC" worktree remove --force -- "$d" >/dev/null 2>&1
+    git -C "$SRC" worktree prune >/dev/null 2>&1
+    [ ! -e "$d" ] || rm -r -f -- "$d" 2>/dev/null
+  fi
+  if [ -e "$d" ] && [ "$PRE" = 0 ]; then
+    echo "ERROR ft-scratch-repo — 되돌림 실패: $d 남음 · 등록 유지(완성 표식 없음 — 사람 확인) — $why" >&2
+  else
+    drop_reg "$d" "${REGF:-}" >/dev/null 2>&1 || true
+    rm -f -- "$READY/${d##*/}" 2>/dev/null
+  fi
+  return 4
 }
 # ── 출구 게이트(r897 r5 · DESIGN-r897-exit-gate-r5 + DECISION-r897-design-final 고침 11) ──────────────────────────
 #   rm·worktree remove 는 delete_copy 안에만 · 조건은 전부 «지금» 다시 읽는다(앞 단계 ORPH·fast·lsof 값을 믿지 않는다) · 조회마다 min(7초, 마감-지금)
@@ -420,8 +529,10 @@ gq() { # <변수> <외부 명령…> → 남은 예산 상한으로 cap · 예�
 }
 gate_rows() { # <P> <주인> → G5: 등록부를 «지금» 읽어 첫 칸 물리 경로 == P 인 줄이 정확히 1줄 · GRAW(원문 경로)·GOWN·GT·GBASE(없으면 빈 값) · rc 2/3
   local P="$1" rows line c1 rest tabs pp n=0
-  [ -e "$TSV" ] || { gfail G5 3 "등록부 없음"; return; }
-  gq rows cat -- "$TSV" 2>/dev/null || { gfail G5 2 "등록부 못 읽음"; return; }
+  reg_rows
+  [ "$REG_BAD" = 0 ] || { gfail G5 2 "등록부 못 읽음"; return; }
+  rows="$ROWS"
+  [ -n "$rows" ] || { gfail G5 3 "등록부 없음"; return; }
   GRAW=""; GOWN=""; GT=""; GBASE=""
   while IFS= read -r line; do
     [ -n "$line" ] || continue
@@ -536,6 +647,7 @@ delete_copy() { # <경로> <reg|tmp> <주인|-> [sweep|done] → 위 rc 표 · G
     git -C "$P" worktree remove --force "$P" >/dev/null 2>&1 || { r=$?; GWHY="삭제 명령 실패(worktree remove rc=$r) · 등록 줄 유지"; return 4; }
     [ ! -e "$P" ] || { GWHY="삭제 명령 rc0 인데 폴더 남음 · 등록 줄 유지"; return 4; }
     drop_reg "$GRAW" || echo "ERROR ft-scratch-repo — 등록 줄 삭제 실패(폴더는 없음 · --report 에 stale): $GRAW" >&2
+    rm -f -- "$READY/${P##*/}" 2>/dev/null
     return 0
   fi
   dest="$GB/.reaping"
@@ -650,24 +762,30 @@ case "${1:-}" in
     OWNER="${FT_SCRATCH_OWNER:-${FT_ME:-$(tmux display-message -p '#S' 2>/dev/null || echo -)}}"
     case "$OWNER" in ''|-) die "주인 세션을 모른다(tmux 밖 · FT_SCRATCH_OWNER·FT_ME 없음) — 주인 모르는 사본은 만들지 않는다" 2;; esac
     SPEC="$(want_spec)"
-    while IFS="$(printf '\t')" read -r p ow t; do   # r444: 같은 sha·같은 주인 사본이 살아 있으면 재사용(사본 0 추가) · r891: 체크아웃 규칙도 같을 때만
-      [ "$ow" = "$OWNER" ] && [ -d "$p" ] && [ "$(git -C "$p" rev-parse HEAD 2>/dev/null)" = "$SHA" ] && [ "$(spec_of "$p")" = "$SPEC" ] || continue
-      # r845 r8: 재사용도 «온전한 사본» 일 때만 — 더러운 사본은 건너뜀 + WARN · 삭제 0 · 장부 줄 유지
+    reg_rows   # r996: 재사용 후보 = 양쪽 장부의 사본 (r444: 같은 sha·같은 주인 · r891: 체크아웃 규칙도 같을 때만 · r996 ⓗ: 완성 표식 있는 사본만)
+    while IFS="$TAB" read -r p ow t b; do
+      [ "$ow" = "$OWNER" ] && [ -d "$p" ] && ready_mark "$p" && [ "$(git -C "$p" rev-parse HEAD 2>/dev/null)" = "$SHA" ] && [ "$(spec_of "$p")" = "$SPEC" ] || continue
+      # r845 r8 + r996 ⓗ: 재사용도 «온전한 사본» 일 때만(요청 sha 그대로 · status 깨끗) — 아니면 건너뜀 + WARN · 삭제 0 · 장부 줄 유지
       if verify_complete "$p"; then echo "$p"; exit 0; fi
       echo "WARN ft-scratch-repo — 불완전 사본 건너뜀(status 깨끗하지 않음 · 삭제 0 · 장부 유지) · 새 사본을 만든다: $p" >&2
-    done < <(cat "$TSV" 2>/dev/null)
+    done <<EOF
+$ROWS
+EOF
     BASE="$(owner_base "$OWNER")"   # r845 r6: 기본 생성 자리 = $TMPDIR/ft-scratch/<주인>/ (TMPDIR 없으면 /tmp/ft-scratch/<주인>/) — 재부팅이 지우는 임시 자리
     mkdir -p "$BASE" 2>/dev/null || die "사본 부모 폴더 생성 실패: $BASE" 4
     DEST="${BASE%/}/repo-$(printf '%.8s' "$SHA")-$(date +%s)-$$"
     has_ctl "$DEST" && die "등록 불가 경로(탭·개행): $DEST" 2   # r897 r10.2: TSV 로 표현 못 하는 경로면 사본을 만들지 않는다
-    # r845 r6·r7: 체크아웃 훅이 죽어도 «그 sha 로 온전히 생긴» 사본은 쓸 수 있다 — 온전성 확인은 훅 rc 와 «무관하게 항상»
-    addfail() { # <무엇이 실패했나> — DEST 가 요청 sha 그대로 + status 깨끗 → WARN(rc0) · 아니면 die 4(등록 0 · 지우기 0)
-      [ -d "$DEST" ] || die "$1 실패: $DEST" 4
-      if verify_complete; then
+    PRE=0; [ -e "$DEST" ] && PRE=1   # r996 ⓗ: 있던 폴더 = 이번 실행이 만든 것이 아니다(되돌림 0)
+    # r996 ⓗ + r845 r6: 체크아웃 «전에» 등록(끊겨도 보인다) · 장부는 «있으면 참고» — 쓰기 실패는 WARN 1줄(die 0)
+    reg_write "$DEST" "$OWNER" "$(date +%s)" "${BASE%/}" "$SRC" || echo "WARN ft-scratch-repo — 장부 등록 실패 · 사본은 그대로 만들고 쓴다(die 0): $DEST" >&2
+    # r845 r6·r7 + r996 ⓗ: 훅이 죽어도 «그 sha 로 온전히 생긴» 사본은 쓴다 — 완전하면 WARN rc0(등록 유지) · 아니면 되돌림 + die 4
+    addfail() { # <무엇이 실패했나>
+      if [ -d "$DEST" ] && verify_complete; then
         echo "WARN ft-scratch-repo — $1 rc≠0 이지만 사본 생성됨(HEAD=${SHA:0:8} · status 깨끗) · 장부 등록 · 그대로 쓴다: $DEST" >&2
-      else
-        die "$1 실패: $DEST (HEAD=$1 · 요청 sha 아님/체크아웃 불완전 — 등록 0 · 지우기 0 · 통째 = --full)" 4
+        return 0
       fi
+      gen_rollback "$DEST" "$1"
+      die "$1 실패: $DEST (요청 sha 아님/체크아웃 불완전 — 이번 실행이 만든 폴더만 되돌림 · 등록 정리 · 통째 = --full)" 4
     }
     if [ "$FULL" = 1 ]; then git -C "$SRC" worktree add -q --detach "$DEST" "$SHA" >/dev/null || addfail "worktree add"
     else   # r891: 설계 폴더(design/teams/*)·증거 미디어 빼고 체크아웃 — 사본당 1.4G·파일 수만 개 → 코드·시험·하네스 경로만
@@ -675,9 +793,9 @@ case "${1:-}" in
       printf '%s\n' "$SPEC" | git -C "$DEST" sparse-checkout set --no-cone --stdin >/dev/null 2>&1 && git -C "$DEST" checkout -q >/dev/null 2>&1 \
         || addfail "sparse 체크아웃"
     fi
-    # r845 r7: 훅 rc 가 0 이어도 «온전한 사본» 인지는 항상 확인 — 어긋나면 등록 0 · die 4
-    verify_complete || die "사본이 온전하지 않음: $DEST (요청 ${SHA:0:8} · status 더러움/파일 누름 — 등록 0 · 지우기 0)" 4
-    # r891 r7: 등록은 체크아웃이 «다 끝난 뒤» 마지막 단계 · r845 r6: 장부는 «있으면 참고» — 쓰기 실패는 WARN 1줄이고 사본은 그대로 돌려준다(die 0)
-    if [ -e "$TSV" ] && [ ! -w "$TSV" ]; then echo "WARN ft-scratch-repo — 장부 등록 실패($TSV) · 사본은 그대로 쓸 수 있다(die 0): $DEST" >&2; fi   # r845 r6: 장부는 «있으면 참고»
-    printf '%s\t%s\t%s\t%s\n' "$DEST" "$OWNER" "$(date +%s)" "${BASE%/}" >> "$TSV"; warn_many "$OWNER"; echo "$DEST";;
+    # r845 r7: 훅 rc 가 0 이어도 «온전한 사본» 인지는 항상 확인 — 어긋나면 되돌림 + die 4
+    verify_complete || { gen_rollback "$DEST" "온전성 확인"; die "사본이 온전하지 않음: $DEST (요청 ${SHA:0:8} · status 더러움/파일 누름 — 되돌림 · 등록 정리)" 4; }
+    # r996 ⓗ: 완성 표식 — 재사용과 «24시간 없이 바로 지우기» 의 조건 · 체크아웃이 다 끝난 뒤에만 생긴다
+    mkdir -p "$READY" 2>/dev/null && : > "$READY/${DEST##*/}" 2>/dev/null || echo "WARN ft-scratch-repo — 완성 표식 못 씀(재사용·즉시 삭제 대상 아님): $DEST" >&2
+    warn_many "$OWNER"; echo "$DEST";;
 esac

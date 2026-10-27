@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # test_scratch_repo_sparse_auto_done_r891.sh — r891(범위 축소 r7): ft-scratch-repo.sh = sparse 기본 + --report --orphans 만
 #   ⓑ 기본 sparse(design/teams/*·evidence 미디어 제외) · --full · --with · 재사용은 규칙 같을 때만
-#   ⓖ' 등록부 = ROOT 하나(--repo 가 다른 저장소여도 · ROOT --done 이 치움 · r6)   ⓩ 생성은 아무것도 안 지움(판정 끝난 같은 주인 사본 그대로)
-#   ⓩ' worktree add 실패 · sparse 체크아웃 실패 = rc 4 · 지운 것 0 · 등록 줄 0 · 그 자리 폴더 그대로   ⓡ 등록은 체크아웃 «뒤» 마지막 단계(sparse set 직후 끊기면 등록 0)
+#   ⓖ' 등록부 = ROOT + 원 저장소 둘(r996 ①: 같은 줄을 양쪽에 · --done 이 양쪽 줄을 치움)   ⓩ 생성은 아무것도 안 지움(판정 끝난 같은 주인 사본 그대로)
+#   ⓩ' worktree add 실패 · sparse 체크아웃 실패 = rc 4 · 이번 실행이 만든 폴더만 되돌림 · 등록 줄 0   ⓡ 선등록(r996 ⓗ): sparse set 직후 끊겨도 등록 1줄이 남고 완성 표식은 없다
 #   ⓘ --report --orphans = 미등록 사본 표(주인 추정) · 삭제 0 · 못 읽은 등록부 = «부분 읽기» 줄
 #   ⓔ 기존 scratch 시험 ALL PASS   ⓕ 변이 2종 FAIL   ⓙ kit 짝 cmp0
-#   옮긴 칸: 지우는 쪽(AUTO-DONE·신원 비교·합친 등록부 sweep·--done 가드 · r5) · ⓗ 선등록·되돌림(r7 · 기준판 순서로 되돌려 이 카드 밖) → 별 카드 r897
+#   옮긴 칸: 지우는 쪽(AUTO-DONE·신원 비교·합친 등록부 sweep·--done 가드 · r5) → r897 · ⓗ 선등록·되돌림은 r996 이 되가져옴(ⓩ'·ⓡ 칸이 그 계약)
 # 임시 git 저장소·가짜 lsof·임시 TMPDIR 만 쓴다 — 실 저장소·실 사본·실 TMPDIR 0.
 # SCR_SUT=<경로> 로 시험 대상을 바꿀 수 있다(고치기 전 판 = before-red 증거용 · 변이). R891_NO_MUT=1 = ⓔⓕⓙ 생략(변이 재귀용).
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
@@ -71,8 +71,8 @@ sc "$(U u3)" --repo "$G"; N3="$OUT"
 PK="$T/pack"; mkdir -p "$PK/.fable-team/state"; git init -q -b main "$PK"; printf '.fable-team/\n' > "$PK/.gitignore"; echo p > "$PK/p.txt"
 git -C "$PK" add -A; cm "$PK" p; PREG="$PK/.fable-team/state/scratch-repos.tsv"
 OWN=o9 sc HEAD --repo "$PK"; K9="$OUT"
-{ [ $RC = 0 ] && grep -q "^$K9	o9	" "$REG" && ! grep -q "$K9" "$PREG" 2>/dev/null; } && ok "ⓖ' 다른 저장소(.fable-team 있음) 사본 = ROOT 등록부에 1줄" || bad "ⓖ' 등록부 위치 rc=$RC [$(cat "$PREG" 2>/dev/null)]"
-OWN=o9 sc --done "$K9"; { [ $RC = 0 ] && [ ! -d "$K9" ] && ! grep -q "$K9" "$REG"; } && ok "ⓖ' ROOT --done = rc0 · 사본 0 · 등록 줄 0" || bad "ⓖ' --done rc=$RC [$OUT][$ERR]"   # r897 r10: --done 은 «주인 자신» 만(등록 주인 o9 = 실행 주인 o9)
+{ [ $RC = 0 ] && grep -q "^$K9	o9	" "$REG" && grep -q "^$K9	o9	" "$PREG" 2>/dev/null; } && ok "ⓖ' 다른 저장소(.fable-team 있음) 사본 = ROOT·원 저장소 등록부에 같은 줄(r996 ①)" || bad "ⓖ' 등록부 위치 rc=$RC [$(cat "$PREG" 2>/dev/null)]"
+OWN=o9 sc --done "$K9"; { [ $RC = 0 ] && [ ! -d "$K9" ] && ! grep -q "$K9" "$REG" && ! grep -q "$K9" "$PREG"; } && ok "ⓖ' ROOT --done = rc0 · 사본 0 · 두 등록부 줄 0" || bad "ⓖ' --done rc=$RC [$OUT][$ERR]"   # r897 r10: --done 은 «주인 자신» 만(등록 주인 o9 = 실행 주인 o9)
 
 # 대역 git·rm(r7): 호출을 적어 두고 FG_MODE 대로 실패시킨다 — addfail = worktree add 가 그 자리에 폴더(premade)만 남기고 rc128 ·
 #   cofail = sparse 뒤 «checkout -q» rc1 · killset = sparse-checkout set 를 마친 직후 부모(ft-scratch-repo)를 TERM 으로 끊음
@@ -93,17 +93,16 @@ printf '#!/bin/sh\necho "$*" >> "%s/rmlog"\nexec /bin/rm "$@"\n' "$T" > "$T/fg/r
 for mode in addfail cofail; do
   : > "$T/gitlog"; : > "$T/rmlog"; snap; NL="$(nreg)"
   PBIN="$T/fg" FG_MODE=$mode OWN=o5 sc "$(U u3)" --repo "$G"; D="$(newdir)"
-  { [ $RC = 4 ] && [ "$(nreg)" = "$NL" ] && ! grep -q 'worktree remove' "$T/gitlog" && [ ! -s "$T/rmlog" ] && [ -n "$D" ] && [ -d "$D" ] \
-    && { [ "$mode" != addfail ] || [ -f "$D/premade" ]; }; } \
-    && ok "ⓩ' $mode = rc4 · 지운 것 0 · 등록 줄 0 · 그 자리 폴더 그대로" || bad "ⓩ' $mode rc=$RC 등록 ${NL}→$(nreg) D=[$D] rm=[$(cat "$T/rmlog")] [$ERR]"
+  { [ $RC = 4 ] && [ "$(nreg)" = "$NL" ] && [ -z "$D" ]; } \
+    && ok "ⓩ' $mode = rc4 · 이번 실행이 만든 폴더 = 되돌림(폴더 0) · 등록 줄 0" || bad "ⓩ' $mode rc=$RC 등록 ${NL}→$(nreg) D=[$D] rm=[$(cat "$T/rmlog")] [$ERR]"
 done
-COF="$D"   # sparse 체크아웃 실패로 반쯤 만든 폴더(등록 밖) — 아래 ⓘ 에서 «미등록» 으로 보여야 함
 
 # ⓡ 등록은 체크아웃 «뒤» 마지막 단계 — sparse set 직후 스크립트가 끊기면 등록 0(등록 줄이 있는 사본 = 체크아웃 끝난 사본)
 snap; NL="$(nreg)"
 PBIN="$T/fg" FG_MODE=killset OWN=o6 sc "$(U u2)" --repo "$G"; D="$(newdir)"
-{ [ -n "$D" ] && [ -d "$D" ] && [ "$(nreg)" = "$NL" ] && ! grep -q "$(basename "$D")" "$REG"; } \
-  && ok "ⓡ sparse set 직후 끊김 = 등록 0(등록이 마지막 단계)" || bad "ⓡ rc=$RC D=[$D] 등록 ${NL}→$(nreg)"
+{ [ -n "$D" ] && [ -d "$D" ] && [ "$(nreg)" = "$((NL+1))" ] && grep -q "^$D	" "$REG" \
+  && [ ! -f "$G/.fable-team/state/scratch-ready/${D##*/}" ]; } \
+  && ok "ⓡ sparse set 직후 끊김 = 선등록 1줄 남음 · 완성 표식 없음(r996 ⓗ)" || bad "ⓡ rc=$RC D=[$D] 등록 ${NL}→$(nreg)"
 
 # ⓘ --report --orphans = 미등록 사본 표 · 삭제 0 · 못 읽은 등록부 = «부분 읽기»
 S8="$(U u3 | cut -c1-8)"; O1="$SCR/repo-$S8-1792860000-111"; git -C "$G" worktree add -q --detach "$O1" "$(U u3)"
@@ -115,7 +114,7 @@ sc --report --orphans
 printf '%s\n' "$OUT" | grep "^$O2	" | grep -q '못 읽음	-	.*	모름$' && ok "ⓘ 못 읽는 사본 = 원 저장소 «못 읽음» · 주인 «모름»" || bad "ⓘ 못 읽음 줄 [$OUT]"
 { ! printf '%s\n' "$OUT" | grep -q "^$A	" && ! printf '%s\n' "$OUT" | grep -q "^$PO	"; } && ok "ⓘ 등록된 사본(ROOT · 옛 판이 적은 원 저장소 등록부)은 표에 없음" || bad "ⓘ 등록 사본이 섞임"
 { [ -d "$O1" ] && [ -d "$O2" ]; } && ok "ⓘ --orphans 는 삭제 0" || bad "ⓘ 삭제됨"
-printf '%s\n' "$OUT" | grep -q "^$COF	" && ok "ⓘ sparse 체크아웃 실패로 반쯤 만든 폴더 = «미등록» 표에 보임" || bad "ⓘ 반쯤 만든 폴더 안 보임 [$COF]"
+{ [ -n "$D" ] && grep -q "^$D	" "$REG" && ! printf '%s\n' "$OUT" | grep -q "^$D	"; } && ok "ⓘ 끊긴 사본 = 등록부에 보임(선등록) · «미등록» 표에는 안 나옴(r996 ⓗ)" || bad "ⓘ 끊긴 사본 안 보임 [$D]"
 OWN=o1 sc HEAD --repo "$PK"; PC="$OUT"; chmod 000 "$PREG"
 sc --report --orphans
 { [ $RC = 0 ] && printf '%s\n' "$OUT" | grep -q "^부분 읽기	.*$PREG" && [ -d "$PC" ]; } && ok "ⓘ 못 읽은 등록부 = «부분 읽기» 줄(보고만 · 삭제 0)" || bad "ⓘ 부분 읽기 [$OUT][$ERR]"
@@ -132,7 +131,7 @@ MUT
   for m in 1 2 3; do cmp -s "$SUT" "$T/mut$m.sh" && bad "ⓕ 변이$m 이 안 바뀜"; bash -n "$T/mut$m.sh" 2>/dev/null || bad "ⓕ 변이$m 문법 깨짐(가짜 변이)"; done
   mut() { R891_NO_MUT=1 SCR_SUT="$T/mut$1.sh" bash "$HERE/$(basename "$0")" > "$T/m$1.txt" 2>&1; }
   mut 1; grep -q '^FAIL ⓑ' "$T/m1.txt" && ok "ⓕ 변이1(sparse 기본 끔) → ⓑ FAIL" || bad "ⓕ 변이1 이 살아남음"
-  mut 2; grep -q '^FAIL ⓡ' "$T/m2.txt" && ok "ⓕ 변이2(등록을 체크아웃 전으로) → ⓡ FAIL" || bad "ⓕ 변이2 가 살아남음"
+  mut 2; grep -q '^FAIL ⓡ' "$T/m2.txt" && ok "ⓕ 변이2(등록 줄 하나 더 — 선등록 중복) → ⓡ FAIL" || bad "ⓕ 변이2 가 살아남음"
   mut 3; grep -q '^FAIL ⓑ sparseCheckout=' "$T/m3.txt" && ok "ⓕ 변이3(--bool 빼기) → ⓑ sparseCheckout 칸 FAIL" || bad "ⓕ 변이3 이 살아남음"
   # ⓔ 기존 scratch 시험 (r548 시험이 test_scratch_repo.sh·census pytest 도 돌린다)
   for t in test_scratch_repo.sh test_scratch_judged_r645.sh test_scratch_sweep_live_cwd_r548.sh; do
