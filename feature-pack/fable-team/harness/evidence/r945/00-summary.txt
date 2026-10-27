@@ -1,0 +1,51 @@
+# r945 증거 요약 r2 — ft-wt-sweep.sh shell_scan 의 sparse 워크트리 껍데기 오판 제거 (DA⑥ r1 HOLD 4 반영)
+
+날짜: 2026-10-26 (r2) · 좌석: byz-harness-nano-r945-wt-shell-scan-skip-sparse-outside#0 · 브랜치: nano/r945-wt-shell-scan-skip-sparse-outside
+설계: 패턴을 손으로 해석하지 않는다. sparse 워크트리의 «있어야 할 최상위 항목» = `git ls-files -t` 중 skip-worktree(S) 아닌 파일의 최상위
+      = git 이 cone·비cone(`**/*.md`)·`!` 제외·워크트리별/공용 config 를 이미 적용한 결과.
+
+## 칸 ↔ DA⑥ r1 반례
+- ⓐ / ⓑ : cone sparse(d0) 있음 / 없음 → 껍데기 0 / 1
+- ⓐ2 (반례 ①) 비cone /d0/absent · /d2/absent · /d1/ → 껍데기 0 (r1 은 하위 경로를 최상위로 접어 오탐)
+- ⓑ2 (반례 ② 워크트리 config) 비cone **/*.md + d1 삭제 → 껍데기 1 (r1 은 **/ 를 벗겨 놓침)
+- ⓑ3 (반례 ② 공용 config·! 제외) 비cone /d1/ + !/d1/excluded/ + d1 삭제 → 껍데기 1 (r1 은 ! 를 손으로 풀어 놓침)
+- ⓓ / ⓓ2 (반례 ④) 패턴 파일 삭제 / 패턴 파일 자리를 «폴더» 로 → 판정 불가 1줄 (r1 은 부재 2개 미만이면 패턴 확인을 건너뜀)
+- ⓒ : 일반 워크트리 규칙 회귀 0 (최상위 2개 부재 = 껍데기 · 1개 = 아님)
+- ⓔ : 제외 규칙(.git/info/exclude)에 걸린 이름이 H 인데 디스크에 없음 → 껍데기 0
+
+## rc (시험 = tests/test_wt_shell_scan_sparse_r945.sh · 도구는 macOS 기본 /bin/bash 3.2.57)
+- 01-before-red.txt : pass=14 fail=10
+- 02-after-green.txt : pass=23 fail=0
+- 03-bash32.txt : pass=23 fail=0
+- 04-mut1-skipworktree-off.txt : pass=17 fail=7
+- 05-mut2-und-never.txt : pass=19 fail=5
+- 05b-mut3-ignore-off.txt : pass=19 fail=5
+- 06-adj-test_finished_cleanup_auto.txt : pass=29 fail=1
+- 06-adj-test_ft_wt_sweep_route_timeout.txt : pass=38 fail=0
+- 06-adj-test_kit_bin_sync.txt : pass=7 fail=0
+- 06-adj-test_wt_clean_two_stage.txt : pass=62 fail=0
+- 06-adj-test_wt_sweep_budget_replan_r535.txt : pass=50 fail=0
+- 07-adj-base-finished_cleanup_auto-run1.txt : (base 기준선 로그 — 아래 인접 설명 참조)
+- 08-kit-cmp0.txt : pass=0 fail=0
+- 10-live-real-root-new.txt : pass=0 fail=0
+- 11-probe-r2-rule.txt : pass=0 fail=0
+
+## 읽는 법
+- 01-before-red.txt = 옛 도구(HEAD 66340101) + 새 시험 → rc=1 (결함 재현: sparse 워크트리가 껍데기로, 판정 불가 0)
+- 02-after-green.txt = 고친 도구 → ALL PASS · 03-bash32.txt = 같은 시험을 /bin/bash 3.2.57 로 → ALL PASS
+- 04-mut1-skipworktree-off.txt = 변이 1(skip-worktree 필터 끔) → ⓐ·ⓐ2·보론 빨강 rc=1
+- 05-mut2-und-never.txt = 변이 2(판정 불가 «항상» 끔) → ⓓ·ⓓ2 빨강 rc=1
+- 05b-mut3-ignore-off.txt = 변이 3(제외 규칙 필터 끔) → ⓔ 빨강 rc=1
+- 06-adj-* = 인접 회귀. wt_clean_two_stage(ⓔ 껍데기 경보 축) · r535 · route_timeout · kit_bin_sync = rc 0
+- 06-adj-test_finished_cleanup_auto rc=1 (ⓒ swept [] · ERROR tmux unreadable) — base·head 같은 조건에서 «각 3회 모두 같은 실패»(07-adj-base-…run1 = base 로그) → 이 카드와 무관한 기존 빨강
+- 08-kit-cmp0.txt = bin ↔ kit 사본 cmp 0
+
+## 실측 (읽기 전용 · 실 스캔루트 = BYZ-Agents)
+- 09-live-real-root-old.txt = 옛 도구(HEAD 66340101) → 껍데기 38곳(전부 sparse 문서 워크트리) · 16.4s
+- 10-live-real-root-new.txt = 고친 도구 → 껍데기 0곳 · 판정 불가 0 · rc 0 · 42.6s (sparse 125석에 git 2~3회 추가)
+- 11-probe-r2-rule.txt = 새 규칙 단독 실측: 총 464석 · sparse 125석 · FLAG 0 · UND 0
+  ★중요★ 제외 규칙 필터가 없으면 40석이 오탐이 된다. 전부 .serena(HEAD 에는 추적되지만 .git/info/exclude 로 제외된 이름)가 디스크에 없어서 잡힌다.
+  그래서 «check-ignore --no-index 에 걸린 이름은 없어도 정상» 을 넣었다(40 → 0). 이 필터가 없으면 이 카드가 없애려던 오빠 HIL 오염이 40곳으로 되살아난다(변이 3 이 그 축).
+- 12-probe-ignore-filter.txt = ★DA r2 계약 ⑥ «필터가 진짜 껍데기를 숨기지 않는가» 실측★
+  제외 필터가 뺀 워크트리 = 40곳 · 그 40곳 «전부» 진짜 부재 0 이고 디스크 최상위 61~68개가 살아 있다(반쯤 지워진 것이 아니다).
+  즉 필터가 숨기는 것은 «로컬 제외 이름(.serena)의 부재» 뿐이고, 진짜 껍데기(비제외 이름 부재)는 그대로 잡힌다 — 숨김 0.

@@ -1,0 +1,3 @@
+=== kit 짝 cmp · /bin/bash -n
+cmp0 OK
+bash -n OK rc=0
