@@ -51,7 +51,7 @@ mkwt wb nano/wb "$L" 'byz-teamb-nano-claude#0'
 rm -f "$SF"; : > "$MBOX_LOG"; PY="$OLD/ft_head_lag.py" run --event; cp "$MBOX_LOG" "$T/old.log"
 rm -f "$SF"; : > "$MBOX_LOG"; run --event
 [ "$(msgs)" = 2 ] && [ "$(grep -c '^byz-teama-master-claude#1' "$MBOX_LOG")" = 1 ] && [ "$(grep -c '^byz-teamb-master-claude#2' "$MBOX_LOG")" = 1 ]; ck "ⓓ 팀 A·B 각 1통" $?
-[ -s "$T/old.log" ] && cmp -s "$T/old.log" "$MBOX_LOG" && grep -qF "$RA " "$MBOX_LOG"; ck "ⓓ 묶음 문구 기준판과 글자 같음(R749 절대 경로)" $?
+[ -s "$T/old.log" ] && cmp -s <(sed 's/~조치:.*//' "$T/old.log") <(sed 's/~조치:.*//' "$MBOX_LOG") && grep -qF "$RA " "$MBOX_LOG"; ck "ⓓ 묶음 문구 기준판과 글자 같음(R749 절대 경로 · 조치 줄은 R882 가 바꿈)" $?
 # ── ⓔ 옛 상태 파일(<경로>@<sha>) → 워크트리 키로 합침(가장 최근 ts · n 최대)
 N="$FT_HEAD_LAG_NOW"; RB="$(cd "$T/wb" && pwd -P)"; S1="$(printf 'a%.0s' $(seq 40))"; S2="$(printf 'b%.0s' $(seq 40))"
 python3 -c 'import json,sys;a,b,n,s1,s2=sys.argv[2:];n=int(n);json.dump({a+"@"+s1:{"seq":11,"ts":n-3600,"n":1},a+"@"+s2:{"seq":12,"ts":n-36000,"n":2},b+"@"+s1:{"seq":21,"ts":n-3600,"n":1}},open(sys.argv[1],"w"))' "$SF" "$RA" "$RB" "$N" "$S1" "$S2"

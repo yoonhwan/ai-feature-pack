@@ -1,0 +1,36 @@
+PASS bash -n
+== ⓐⓑⓒⓔ 한 회차
+PASS ⓐ pane 이 A/d3(하위) → A 경보 목록에서 빠짐
+PASS ⓐ SKIP 1줄(세션 있음)
+PASS ⓐ SKIP 줄은 경보가 아님
+PASS ⓐ 경로 앞부분만 같은 형제 A-r2 = 세션 없음 → 경보 목록에
+PASS ⓑ pane 0 · 미커밋 → B 빠짐
+PASS ⓑ SKIP 1줄(미커밋 2 · 지워짐 줄은 안 셈)
+PASS ⓒ pane 0 · 미커밋 0(지워짐만) → C 경보 목록에
+PASS ⓒ 경보 문구에 «세션 0 · 미커밋 0»
+PASS ⓔ 포인터 없는 .deleting-* = 지금 규칙 그대로(pane 있어도 검사 밖)
+PASS   └ 멀쩡한 폴더(OK)는 안 셈
+PASS ⓕ .git 링크 없는 폴더 = 판정 못 함(부모 리포 status 를 읽지 않음)
+PASS   └ 부모 리포 «?? .worktrees/» 를 F 의 미커밋으로 셈 0
+PASS ⓐ tmux pane 목록 = 회차당 1회
+PASS   └ list-panes -a -F '#{pane_current_path}'
+== ⓓ tmux 목록 못 읽음 → 경보 0 · 서명 그대로
+FAIL ⓓ 경보 0 — 있으면 안 됨: «[HIL]»
+FAIL ⓓ NOTE 1줄 — 없음: «NOTE 껍데기 판정 생략 — tmux 목록 못 읽음» ← SKIP 껍데기 후보 B — 미커밋 2
+SKIP 껍데기 후보 F — 판정 못 함(git status rc=128)
+[HIL] seat=byz-harness-wt-shell 반쯤 지워진 워크트리 껍데기 4곳(전체 4곳): A A-r2 C E.deleting-123 — 처리는 오빠 값(바뀐 때만 1줄) (세션 0 · 미커밋 0)
+sweep 계획 0 · cleaned/none 0 · wait 0 · hil 0
+FAIL ⓓ 서명 바뀜: harness:A harness:A-r2 harness:C harness:E.deleting-123 
+== ⓕ git status 상한 초과 → 판정 못 함 SKIP · 경보 0(그 폴더)
+PASS ⓕ 상한 1s · git status 4s → C 판정 못 함 SKIP
+PASS ⓕ C 경보 0
+PASS ⓕ 상한이 먹음(5s · 후보 4 × 4s 를 기다리지 않음)
+PASS ⓕ 기본 상한 7 s
+PASS ⓕ status --porcelain --untracked-files=normal
+== 위생
+PASS 경보는 읽기만 — 폴더 손 0
+PASS B 미커밋 그대로
+
+FAILED 3
+REAL-STATE-GUARD WARN 번호표 늘었으나 실 좌석 계획(동시 실행): /private/tmp/h151 ← /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/state/approve-merge-knowledge-2913-9598a58c23-20261024.sh.hil
+REAL-STATE-GUARD FAIL 실 상태 바뀜: /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live/.fable-team/state/autonomy.log

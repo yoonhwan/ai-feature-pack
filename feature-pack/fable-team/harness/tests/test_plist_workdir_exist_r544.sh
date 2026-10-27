@@ -80,8 +80,8 @@ ck "ⓒ WorkingDirectory 없는 템플릿 → 그 키 안 만짐(손 값 /tmp/ha
 
 # ⓓ bin-list = 루트 bin 을 부르는 템플릿 전부(__FT_BIN__ 7 + __BYZ_ROOT__/.fable-team/bin/ 2) · __HOME__·__REPO__ 를 쓰는 magazine 류 0
 out="$(python3 "$ENV_PY" bin-list "$H/kit" 2>&1)"; rc=$?
-[ "$rc" = 0 ] && [ "$(grep -c . <<< "$out")" = 9 ] && has "$SEC	" && has "$WEEK	" && has "$SWEEP	" && ! has "com.byz.ft-magazine" && ! has "com.hermes."
-ck "ⓓ bin-list = 9(__FT_BIN__ 7 + 루트 bin 꼴 2 · magazine·미러 0)" $?
+[ "$rc" = 0 ] && [ "$(grep -c . <<< "$out")" = 10 ] && has "$SEC	" && has "$WEEK	" && has "$SWEEP	" && ! has "com.byz.ft-magazine" && ! has "com.hermes."
+ck "ⓓ bin-list = 10(__FT_BIN__ 8(r868 postboot-measure 포함) + 루트 bin 꼴 2 · magazine·미러 0)" $?
 out="$(python3 "$ENV_PY" render-bin "$H/kit/fable-team/$WEEK.plist.template" "$P" --need-exist 2>&1)"; rc=$?; r544 "$out"
 [ "$rc" = 0 ] && plutil -lint "$T/r.plist" >/dev/null && [ "$(plutil -extract ProgramArguments.1 raw "$T/r.plist")" = "$RB/ft-weekly-review.sh" ] \
   && [ "$(plutil -extract WorkingDirectory raw "$T/r.plist")" = "$P" ] && ! has "__" && ! has "/fable-team/live/"

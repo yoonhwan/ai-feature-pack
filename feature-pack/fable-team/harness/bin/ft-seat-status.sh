@@ -110,6 +110,7 @@ jsonl_age_of() {
 #           · turn_duration 뒤 queue-operation enqueue 만 있으면(dequeue/remove 로 닫히지 않음) PENDING
 #           · tail 창(FT_SEAT_TAIL_BYTES, 기본 1MB)에 turn_duration 이 없어도 user/assistant 가 있으면 WORKING(긴 턴·첫 턴 · REPORTED `-`),
 #             user/assistant 도 없을 때만 UNKNOWN
+#           · r849: 끝난 턴이 인증 실패 0초 턴(«Not logged in»)이면 LOGGEDOUT <첫 실패 시각> <연속 실패 턴 수> — 깨우기·유휴 알림 대상 아님(재개 = 재시작)
 #   REPORTED = «그 턴»(직전 turn_duration ~ 마지막 turn_duration) 의 assistant tool_use 입력에
 #              `mbox.sh send <master>` 문자열 실재(yes/no) — «보고가 옳았다»가 아니라 «문자열이 있다»다. master 미상이면 '-'.
 #   mtime·pane 을 쓰지 않는다 — idle 중 away_summary 가 mtime 을 갱신하고 완료요약행이 pane 을 BUSY 로 보이게 한다.
@@ -153,8 +154,10 @@ emit_turn() {  # stdin = 5열 탭 1행
     python3 -c '
 import json, sys
 s, e, d, r, src, b, *codex = sys.stdin.readline().rstrip("\n").split("\t")
-row = {"state": s, "turn_end": None if e == "-" else e, "duration_ms": None if d == "-" else int(d),
+lo = s == "LOGGEDOUT"  # r849 — 2·3칸 = 첫 실패 시각 · 연속 실패 턴 수(턴 길이 아님)
+row = {"state": s, "turn_end": None if e == "-" else e, "duration_ms": None if d == "-" or lo else int(d),
        "reported": None if r == "-" else r, "source": src, "read_bytes": None if b == "-" else int(b)}
+if lo: row["failed_turns"] = int(d)
 if codex and codex[0] == "aborted": row["aborted"] = True  # codex 행(8열)만 — jsonl·pane 행(6열)은 키가 늘지 않는다
 if codex and codex[1] != "-": row["reason"] = codex[1]
 print(json.dumps(row, ensure_ascii=False))'

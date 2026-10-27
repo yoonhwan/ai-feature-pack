@@ -30,9 +30,9 @@ REQUIRED="byz_morning_magazine.py magazine_emit.py magazine_render.py magazine_s
   magazine_render_full.py magazine_render_cap.py magazine_card_shape.py magazine_attach.py magazine_reattach.py magazine_cli_args.py
   magazine_eli5_decisions.py magazine_indexless.py magazine_eli5_pdf.py magazine_run_emit.py
   resume_block.py thread_ledger.py thread_card.py thread_unit.py thread_post_args.py thread_post_update.py thread_reply_slack.py thread_room_shape.py post_guard.py byz_thread_post.py magazine_block.py
-  mirror_share.py mirror_lib.py file_guard.py mirror_summary.py proposal_text.py
+  mirror_share.py mirror_lib.py root_readback_guard.py file_guard.py mirror_summary.py proposal_text.py
   magazine_doc.py magazine_goal.py magazine_doc_md.py magazine_doc_three.py magazine_date_guard.py magazine_hermes.py magazine_swiss_template.html magazine_from_news.sh
-  magazine_brief.py magazine_brief_rows.py magazine_brief_diff.py magazine_brief_html.py magazine_guide_check.py"
+  magazine_brief.py magazine_brief_rows.py magazine_brief_diff.py magazine_brief_html.py magazine_guide_check.py magazine_celebrate.py magazine_celebrate_eli5.py"
 # 풀 디테일 세트의 다른 나노 산출(수집 detail · eli5 HTML) — 통합 전 브랜치에는 없을 수 있어 «있으면 복사 · 없으면 WARN»(조용한 건너뛰기 아님).
 # 통합(cherry-pick) 뒤 설치할 때는 WARN 이 0 이어야 한다. 없는 채로 돌면 실행 때 ImportError/「쉬운 판 못 만들었어요」 로 보인다.
 COMPANION="magazine_collect_detail.py magazine_collect_decisions.py magazine_eli5.py magazine_eli5_batches.py magazine_eli5_template.html

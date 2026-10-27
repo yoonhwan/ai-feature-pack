@@ -47,6 +47,24 @@ def _changes(b: Brief) -> str:
     return "\n".join(([_list("ul", items)] if items else []) + ([f'<p class="more">{inline(b.changes_note)}</p>'] if b.changes_note else []))
 
 
+def _done(b: Brief) -> str:
+    """① 끝낸 일 축하 — 머리 1줄 + 일마다 카드(무엇 · 쉬운 풀이). 풀이 실패는 카드 안에 그대로 보인다."""
+    out = [f'<p class="cheer">{inline(b.done_head())}</p>']
+    for d in b.done:
+        easy = d.easy()
+        if isinstance(d.eli5, dict):
+            pic = f'<p class="analogy">{html.escape(d.eli5["icon"])} {inline(easy[0])}</p>' + "".join(f"<p>{inline(x)}</p>" for x in easy[1:])
+        else:
+            pic = f'<p class="eli5-fail">{inline(easy[0])}</p>'
+        what = f'<p class="fact">{inline(d.fact())}</p>' if d.fact() else ""
+        out.append(f'<div class="done"><p class="chip">{inline(d.chip)}</p><h3>{inline(d.head())}</h3>{what}<div class="eli5">{pic}</div></div>')
+    return "\n".join(out)
+
+
+REMAINING = "<!--remaining-->"
+PART2 = '<p class="part">아래는 남은 일이에요 — 오빠 차례 · 골마다 남은 것 · 왜 아직 열려 있나 · 어느 팀이 다음에 무엇을 하나</p>\n' + REMAINING
+
+
 def _footer(b: Brief) -> str:
     rows, seen = [[f"원장 {b.src}", "이 판을 만든 원장 커밋"]], set()
     for why, what in b.evidence:
@@ -66,6 +84,8 @@ def render(b: Brief) -> str:
     ]
     month, day = int(b.date[5:7]), int(b.date[8:10])
     body = [f'<p class="date">{month}월 {day}일 아침 매거진</p>', f"<h1>{inline(b.conclusion) if b.conclusion else NO_CONCLUSION}</h1>"]
+    body += [f"<h2>끝낸 일</h2>\n{_done(b)}"] if b.span else []
+    body.append(PART2)  # ② 남은 일 — 골 표(magazine_doc)는 REMAINING 자리에 들어간다
     body += [f"<h2>{title}</h2>\n{text}" for title, text in sections if text]
     body.append(_footer(b))
     values = {"TITLE": html.escape(f"매거진 {b.date} · 오빠 확인판"), "BODY": "\n\n".join(body)}

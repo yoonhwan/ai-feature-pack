@@ -1,0 +1,92 @@
+PASS py_compile ops_intake_common.py
+PASS py_compile ops_intake_poster.py
+PASS py_compile ops_intake_sync.py
+PASS py_compile ops_intake_write.py
+PASS py_compile sat-mbox.py
+PASS plutil com.byz.ops-intake-sync.plist.template
+PASS plutil com.byz.sat-pull.plist.template
+PASS plutil com.hermes.ops-intake-poster.plist.template
+PASS write.py diff 0 (r6 커밋 c52b84f8)
+test_b2_rescan_quarantines_masked_copy (__main__.TestIntake.test_b2_rescan_quarantines_masked_copy) ... ok
+test_b3_declared_masked_blocks (__main__.TestIntake.test_b3_declared_masked_blocks) ... ok
+test_b3_missing_field_blocks (__main__.TestIntake.test_b3_missing_field_blocks) ... ok
+test_clean_card_sends_issue_req (__main__.TestIntake.test_clean_card_sends_issue_req) ... ok
+test_r_masked_before_cr_removed_regression (__main__.TestNormalize.test_r_masked_before_cr_removed_regression)
+DA r3 반례 1 그대로 — 마스킹 «뒤» 에 CR 을 지우면 토큰이 다시 합쳐진다. ... ok
+test_r_one_split_shapes_all_kinds (__main__.TestNormalize.test_r_one_split_shapes_all_kinds) ... ok
+test_q_broken_before_save_then_error_not_repost (__main__.TestPostOnce.test_q_broken_before_save_then_error_not_repost) ... ok
+test_q_broken_response_then_recover (__main__.TestPostOnce.test_q_broken_response_then_recover) ... ok
+test_q_concurrent_runs_post_once (__main__.TestPostOnce.test_q_concurrent_runs_post_once) ... ok
+test_q_lock_serializes_runs (__main__.TestPostOnce.test_q_lock_serializes_runs)
+잠금은 «결정적» 으로 본다 — 다른 프로세스가 원장 잠금을 쥐고 있으면 게시기는 기다린다. ... ok
+test_q_lookup_failure_is_error_not_repost (__main__.TestPostOnce.test_q_lookup_failure_is_error_not_repost) ... ok
+test_p_every_card_secret_shape_blocked_on_post (__main__.TestPostSecrets.test_p_every_card_secret_shape_blocked_on_post) ... ok
+test_p_masked_marker_and_paths_blocked (__main__.TestPostSecrets.test_p_masked_marker_and_paths_blocked) ... ok
+test_d_internal_words_and_secrets_blocked (__main__.TestPoster.test_d_internal_words_and_secrets_blocked) ... ok
+test_d_missing_thread_ts_posts_nothing (__main__.TestPoster.test_d_missing_thread_ts_posts_nothing) ... ok
+test_d_posts_once_in_thread (__main__.TestPoster.test_d_posts_once_in_thread) ... ok
+test_d_same_seq_twice_posts_once (__main__.TestPoster.test_d_same_seq_twice_posts_once) ... ok
+test_f_only_listed_seats (__main__.TestPull.test_f_only_listed_seats) ... ok
+test_f_queue_cap_defers (__main__.TestPull.test_f_queue_cap_defers) ... ok
+test_f_scp_card_only_result_dir (__main__.TestPull.test_f_scp_card_only_result_dir) ... ok
+test_v_leftover_after_mask_rejects (__main__.TestR5.test_v_leftover_after_mask_rejects)
+가림 뒤 공용 판정이 남으면 접수 거절 — 4조각으로 쪼갠 토큰(붙일 수 없는 모양). ... ok
+test_v_pem_block_removed_whole (__main__.TestR5.test_v_pem_block_removed_whole)
+R2: 개인키는 BEGIN~END 블록을 통째로 지운다 — 줄 단위로는 본문이 남는다. ... ok
+test_v_shared_shape_single_token_masked (__main__.TestR5.test_v_shared_shape_single_token_masked)
+공용 규칙표에만 있는 꼴(aws-key)도 카드에서 «가려» 진다 — 자체 정규식으로 줄이면 거절이나 누출이 된다. ... ok
+test_v_slow_finish_counts_wall_clock (__main__.TestR5.test_v_slow_finish_counts_wall_clock)
+R3: 4초에 성공 청크 · 8초에 종료 — 전체 벽시계 7초를 넘으면 sent 0 · 원장 failed. ... ok
+test_v_space_split_password_value_gone (__main__.TestR5.test_v_space_split_password_value_gone)
+R1: `password=\nhunter2hunter2` — 머리표만 가리고 값을 버리면 안 된다. ... ok
+test_w_late_headers_wall_clock (__main__.TestR6.test_w_late_headers_wall_clock)
+ⓓ 상태줄 즉시 · 헤더 4초 · 끝 8초 — 타이머가 urlopen «전» 이라 7초에 끊긴다(failed · sent 0). ... ok
+test_w_pgp_key_block_gone (__main__.TestR6.test_w_pgp_key_block_gone)
+ⓑ `-----BEGIN PGP PRIVATE KEY BLOCK-----` 도 머리말 집합 1개로 통째 삭제. ... ok
+test_w_quoted_value_all_combinations_gone (__main__.TestR6.test_w_quoted_value_all_combinations_gone)
+ⓐ «이름=값» 의 값이 따옴표로 감싸이면 개행·공백이 들어가도 값 글자 0 (2×6×9 = 108조합). ... ok
+test_w_rejected_ledger_and_version_pin (__main__.TestR6.test_w_rejected_ledger_and_version_pin)
+ⓒ 접수 거절 2사유 — ① 가림 뒤 잔여 = 원장 rejected 1줄(종류만 · 값 0) ② 판본 sha256 다름. ... ok
+test_r1_forged_header_blocks_intake (__main__.TestReworkR2.test_r1_forged_header_blocks_intake) ... ok
+test_r1_two_header_lines_block_intake (__main__.TestReworkR2.test_r1_two_header_lines_block_intake) ... ok
+test_r1_user_value_cannot_forge_header (__main__.TestReworkR2.test_r1_user_value_cannot_forge_header) ... ok
+test_r2_paths_and_masked_secret_words_blocked (__main__.TestReworkR2.test_r2_paths_and_masked_secret_words_blocked) ... ok
+test_r3_queue_recounted_per_message (__main__.TestReworkR2.test_r3_queue_recounted_per_message) ... ok
+test_r4_ssh_over_7s_fails (__main__.TestReworkR2.test_r4_ssh_over_7s_fails) ... ok
+test_s_all_shared_shapes_blocked_and_not_in_ledger (__main__.TestSharedShapes.test_s_all_shared_shapes_blocked_and_not_in_ledger) ... ok
+test_g_shell_and_python (__main__.TestShell.test_g_shell_and_python) ... ok
+test_e_only_three_kinds_of_change (__main__.TestSync.test_e_only_three_kinds_of_change) ... ok
+test_e_pack_20_per_pass (__main__.TestSync.test_e_pack_20_per_pass) ... ok
+test_u_dribbling_slack_bounded (__main__.TestWallClock.test_u_dribbling_slack_bounded) ... ok
+test_u_dribbling_ssh_bounded (__main__.TestWallClock.test_u_dribbling_ssh_bounded) ... ok
+test_a_bad_schema_writes_nothing (__main__.TestWrite.test_a_bad_schema_writes_nothing) ... ok
+test_a_valid_creates_card_and_note (__main__.TestWrite.test_a_valid_creates_card_and_note) ... ok
+test_b_secrets_and_pii_masked (__main__.TestWrite.test_b_secrets_and_pii_masked) ... ok
+test_c_channel_limit_blocks_31st (__main__.TestWrite.test_c_channel_limit_blocks_31st) ... ok
+test_c_user_limit_blocks_sixth (__main__.TestWrite.test_c_user_limit_blocks_sixth) ... ok
+test_t_concurrent_same_user (__main__.TestWriteLock.test_t_concurrent_same_user) ... ok
+
+----------------------------------------------------------------------
+Ran 47 tests in 137.820s
+
+OK
+PASS mutate mask-off
+PASS mutate rescan-off
+PASS mutate declared-off
+PASS mutate guard-ts
+PASS mutate ledger-off
+PASS mutate notice-off
+PASS mutate header-block-off
+PASS mutate path-rule-off
+PASS mutate queue-recount-off
+PASS mutate timeout-off
+PASS mutate poster-secrets-off
+PASS mutate ledger-after-post-off
+PASS mutate lock-off
+PASS mutate cr-after-mask-off
+PASS mutate own-rules-off
+PASS mutate lock-scope-off
+PASS mutate own-mask-regex-off
+PASS mutate timer-after-urlopen
+PASS mutate pin-off
+ALL PASS

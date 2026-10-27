@@ -1,6 +1,6 @@
-"""R362 뉴스 골 표 — render_parts 첫 판 머리 줄 아래에 골 표 블록 · 이어진 판 묶음 표지(sha10·run id) · publish/post 문(무장 표식 때만 REJECT) · 판 묶음 사전검증 + 검증 영수증 · 거절 통지 · 모듈 누락 fail-closed.
+"""R362 뉴스 골 표 — render_parts 첫 판 머리에 `골표 <sha10>·<run id>` 표지 1줄(블록 0 · r1006) · publish/post 문(무장 표식 때만 REJECT) · 판 묶음 사전검증 + 검증 영수증 · 거절 통지 · 모듈 누락 fail-closed.
 
-인터페이스(시험이 고정): render_parts(..., goal=<ft-goal-table.sh 출력>) — 첫 판에만 머리 바로 아래(= lead 앞)에 실리고 3500B 계산에 들어간다 · 이어진 판 머리에 `골표 <sha10>·<run id>`.
+인터페이스(시험이 고정): render_parts(..., goal=<ft-goal-table.sh 출력>) — r1006 부터 본문에 싣지 않고 머리 끝 표지의 sha10 만 쓴다(3500B 계산에서 블록 바이트 없음) · 첫 판도 표지 있음.
 게이트 = <루트>/.fable-team/state/goal-gate.armed 가 있을 때만 REJECT rc3(발행 0 · 처리 기록 0 · planner [긴급] 1통) · 없으면 WOULD-REJECT 로그만. 후속 판 단독 publisher 는 «검증 영수증»(같은 run 의 묶음 검증)이 있어야 통과.
 실행: .venv/bin/python -m pytest tests/scripts/test_ft_news_goal_block.py -q
 """
@@ -73,19 +73,20 @@ def _sha(block: str) -> str:
 
 # ── render_parts ─────────────────────────────────────────────────
 
-def test_goal_block_sits_under_the_head_before_lead_in_the_first_part_only(block):
+def test_the_tag_sits_on_every_part_head_and_no_block_in_the_body(block):
     parts = lt.render_parts(NOW, _new(120), [], REL, lead=LEAD, goal=block)
     assert len(parts) >= 2
-    first = parts[0].splitlines()
-    assert first[0].startswith("*뉴스") and first[1] == block.splitlines()[0]  # 머리 바로 아래
-    assert parts[0].index("★/골 표★") < parts[0].index(LEAD)  # 블록이 lead 앞
-    assert all("★골 표" not in p for p in parts[1:])  # 이어진 판에는 블록 반복 0
-    assert all(f"골표 {_sha(block)}·{NOW:%Y%m%d%H%M}" in p.splitlines()[0] for p in parts[1:])  # 묶음 표지 = sha10 + run id
+    assert all(p.splitlines()[0].startswith("*뉴스") for p in parts)  # 표지 = 머리 줄 끝
+    assert all("★골 표" not in p and "|---" not in p for p in parts)  # r1006: 본문 표 줄 0(첫 판도)
+    assert all(f"골표 {_sha(block)}·{NOW:%Y%m%d%H%M}" in p.splitlines()[0] for p in parts)  # 전 판 표지 = sha10 + run id
+    assert parts[0].splitlines()[1] == LEAD  # 머리 바로 아래 = lead(블록 자리 없음)
 
 
-def test_every_part_stays_within_3500_bytes_with_the_block_counted(block):
+def test_every_part_stays_within_3500_bytes_with_the_tag_and_without_the_block(block):
     parts = lt.render_parts(NOW, _new(120), [], REL, lead=LEAD, goal=block)
     assert all(len(p.encode("utf-8")) <= lt.MAX_BYTES for p in parts)
+    # r1006: 블록 바이트는 계산에서 빠진다 — 같은 내용이면 블록을 안 넘긴 판과 판 수가 같다
+    assert len(parts) == len(lt.render_parts(NOW, _new(120), [], REL, lead=LEAD))
 
 
 def test_without_goal_the_text_is_unchanged():
@@ -126,11 +127,12 @@ def test_armed_publish_rejects_a_forged_block_that_does_not_match_the_canon(env,
     assert slack.calls() == 0
 
 
-def test_armed_publish_accepts_first_part_with_block(env, slack, block):  # noqa: F811
+def test_armed_publish_accepts_first_part_with_the_tag(env, slack, block):  # noqa: F811
     tmp, news = env
     arm(tmp)
-    assert np.main(["publish", str(polished(news, "20261013-0910", block + "\n" + BODY_A))]) == 0
-    assert len(slack.posts) == 1 and "★/골 표★" in slack.posts[0]["text"]
+    body = lt.render_parts(NOW, _new(3), [], REL, lead=LEAD, goal=block)[0]
+    assert np.main(["publish", str(polished(news, "20261013-0910", body))]) == 0
+    assert len(slack.posts) == 1 and "★/골 표★" not in slack.posts[0]["text"]  # 블록 0 · 표지 1줄
 
 
 # ── H3 후속 판 위장 · 검증 영수증 ────────────────────────────────
@@ -166,10 +168,13 @@ def test_bundle_rejects_mixed_runs_missing_and_duplicate_part_numbers(block):
     assert gate.verify_bundle([parts[0], parts[1], parts[1], *parts[3:]]) != ""  # 판번호 중복
 
 
-def test_bundle_check_always_checks_the_real_block_of_the_first_element(block):
+def test_bundle_check_always_checks_the_first_part_tag_against_the_rendered_goal_table(block):
     parts = lt.render_parts(NOW, _new(120), [], REL, lead=LEAD, goal=block)
-    no_block = [parts[0].replace("★/골 표★", "").replace(block.splitlines()[0], ""), *parts[1:]]
-    assert gate.verify_bundle(no_block) != ""
+    assert gate.verify_bundle(parts) == ""
+    no_tag = [parts[0].replace(f" · 골표 {_sha(block)}", ""), *parts[1:]]
+    assert gate.verify_bundle(no_tag) != ""  # 표지 없음
+    with_block = [parts[0].replace(LEAD, block + "\n" + LEAD), *parts[1:]]  # 옛 판 조립기: 블록이 다시 실렸다
+    assert gate.verify_bundle(with_block) != ""
 
 
 # ── 판 묶음 사전검증 (ft_news_post) ──────────────────────────────

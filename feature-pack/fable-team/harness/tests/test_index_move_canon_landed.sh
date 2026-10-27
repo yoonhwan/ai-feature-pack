@@ -12,7 +12,7 @@ for f in ft-index-move.sh ft-index-move-canon.sh; do bash -n "$SRCDIR/$f" && ok 
 
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 BIN="$T/bin"; mkdir -p "$BIN"
-cp "$SRCDIR/ft-index-move.sh" "$SRCDIR/ft-index-move-canon.sh" "$SRCDIR/ft-index-move-install.sh" "$SRCDIR/ft_da_hold_gate.py" "$BIN/"
+cp "$SRCDIR/ft-index-move.sh" "$SRCDIR/ft-index-move-canon.sh" "$SRCDIR/ft-index-move-install.sh" "$SRCDIR/ft_da_hold_gate.py" "$SRCDIR/ft_git_capped.py" "$BIN/"
 cp "$SRCDIR/ft-team-lib.sh" "$BIN/"
 printf '#!/usr/bin/env bash\nexit 0\n' > "$BIN/ft-index-lint.sh"
 printf '#!/usr/bin/env bash\necho "$*" >> "$MBOX_LOG"\nexit 0\n' > "$T/fake-mbox.sh"; chmod 755 "$T/fake-mbox.sh"
@@ -117,5 +117,17 @@ out="$(FT_SEATS_JSON="$T/seats-none.json" mv_ "$c" 완성 --da "$d#§1" --seat s
 : > "$MBOX_LOG"; c="$(card k8c 없음)"
 out="$(FT_SEATS_JSON="$T/seats-arch.json" mv_ "$c" 완성 --da "$d#§1" --seat s --landed "$S8")"
 [ ! -s "$MBOX_LOG" ] && echo "$out" | grep -q '^INFO 정본 쪽지 생략 — 정본 영향 없음 카드' && ! echo "$out" | grep -q '^NOTIFIED' && [ -f "$IDX/완성/k8c.md" ] && ok "8c _arch 있음 + 영향 없음 카드 → 쪽지 0·INFO·이동 완료" || bad "8c: $out / $(cat "$MBOX_LOG")"
+
+
+# ⑨ (r1018) 문서 카드(«- 설치: 없음» · design/**.md 만 · 문서 가지 조상) 인정 — stdout 은 «OK» 한 줄뿐, 안내 줄 «착지 인정 =» 은 stderr
+G checkout -q -b docbase main; printf 'doc only\n' > "$REPO/design/harness/NOTE-doc.md"; G add -A; G commit -qm "doc note"; SDOC="$(sha)"; G checkout -q main
+mkdir -p "$IDX/진행"
+c="$(card k9 없음)"; d="$(da da9 "## §1 닫힘: k9")"
+out9="$(printf '%s\n' "## §1 닫힘: k9" | FT_DOC_LAND_REF=docbase bash "$BIN/ft-index-move-canon.sh" "$c" "$REPO" "$SDOC" 2>"$T/c9.err")"
+n9="$(printf '%s\n' "$out9" | awk 'END{print NR}')"
+[ "$n9" = 1 ] && [ "$(printf '%s\n' "$out9" | cut -f1)" = OK ] && [ "$(grep -c '착지 인정' "$T/c9.err")" = 1 ] && ok "9a 문서 카드 → stdout 1줄 OK · 안내 줄 stderr" || bad "9a: n=$n9 out=[$out9] err=[$(cat "$T/c9.err")]"
+# ⑨b 호출자 ft-index-move.sh 흐름 — «정본 게이트 검사 실행 실패» 0 · 완성 이동 성공
+out9b="$(FT_DOC_LAND_REF=docbase mv_ "$c" 완성 --da "$d#§1" --seat s --landed "$SDOC")"
+! echo "$out9b" | grep -q '정본 게이트 검사 실행 실패' && echo "$out9b" | grep -q '^MOVED' && [ -f "$IDX/완성/k9.md" ] && ok "9b 문서 카드 → 호출자 실행 실패 0 · 이동 완료" || bad "9b: $out9b"
 
 echo "fail=$fail"; [ "$fail" = 0 ]

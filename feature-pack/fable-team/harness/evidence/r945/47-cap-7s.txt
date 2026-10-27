@@ -1,0 +1,6 @@
+# 7초 상한 실측(r5) — 가짜 git 이 `ls-files -d` 에서 4초 잔다
+# ① FT_WT_GIT_SEC=1 (상한 1초 < 4초) → 판정 불가 1줄 · 껍데기 0 · 삭제 0
+판정 불가 1곳 — git 이 삭제 목록을 못 줘 껍데기 판정 보류(오빠 판정 0 · 삭제 0): /private/.../repo/.worktrees/sp
+sweep 계획 0 · cleaned/none 0 · wait 0 · hil 0
+# ② 기본 상한(7초) > 4초 → 정상 판정(껍데기 0 · 판정 불가 0)
+sweep 계획 0 · cleaned/none 0 · wait 0 · hil 0

@@ -1,0 +1,152 @@
+== 키트 2곳 같은 바이트 + bash -n(3.2)
+PASS cmp ft-nano-close.sh (bin == kit)
+PASS /bin/bash -n ft-nano-close.sh (3.2)
+PASS cmp ft-merge-lib.sh (bin == kit)
+PASS /bin/bash -n ft-merge-lib.sh (3.2)
+PASS 기준판 사본에 step 줄 0(기계적 제거)
+== ⓐ 정상 대역 → CLOSED · STEP 줄은 stderr 에만 · stdout 은 기준판과 cmp0
+PASS [ⓐ] rc=0 · CLOSED(새 판)
+PASS [ⓐ]   └ STEP ⑥증거검사 줄이 stderr 에 있음
+PASS [ⓐ]   └ STEP ⑤cherry 줄이 stderr 에 있음
+PASS [ⓐ]   └ STEP sheet 줄이 stderr 에 있음
+PASS [ⓐ]   └ STEP ledger 줄이 stderr 에 있음
+PASS [ⓐ]   └ STEP slots 줄이 stderr 에 있음
+PASS [ⓐ]   └ stdout 에 STEP 0줄
+PASS [ⓐ]   └ stdout 기준판 cmp0(사람 출력 회귀 0)
+PASS [ⓐ]   └ 기준판 stderr 에는 STEP 0줄(대조군 확인)
+== ⓑ fetch 대역 30초 → 7초 + 재시도 1 뒤 «origin/main fetch 실패» · 옛 ref 대조 0 · 총 ≤ 20초
+PASS [ⓑ] REJECT + «origin/main fetch 실패»
+PASS [ⓑ]   └ 옛 ref 대조 0 문구
+PASS [ⓑ]   └ 두 번째 게이트 호출 0(옛 ref 대조 0)
+PASS [ⓑ]   └ 게이트 대역 1회만
+PASS [ⓑ]   └ 총 소요 ≤ 20초(7초 + 재시도 1)
+PASS [ⓑ]   └ CLOSED 0
+PASS [ⓑ]   └ kill·태그 해제 0
+PASS [ⓑ]   └ 명부 그대로
+PASS [ⓑ]   └ 닫힘 원장 행 0
+PASS [ⓑ]   └ 카드 ref fetch 도 7초+재시도 1
+PASS [ⓑ]   └ 카드 ref fetch 총 소요 ≤ 20초
+== ⓒ 검사 대역 90초 → 상한 뒤 REJECT(걸린/상한 초·배수·다시 하는 길) · 명부·원장·세션 변경 0
+PASS [ⓒ] ⑥ 증거 검사 상한 → REJECT
+PASS [ⓒ]   └ 배수·다시 하는 길 1줄
+PASS [ⓒ]   └ 계속이면 arch 보고 안내
+PASS [ⓒ]   └ 총 소요 ≤ 25초(상한 8초 · 멈춤 0)
+PASS [ⓒ]   └ CLOSED 0
+PASS [ⓒ⑥]   └ kill·태그 해제 0
+PASS [ⓒ⑥]   └ 명부 그대로
+PASS [ⓒ⑥]   └ 닫힘 원장 행 0
+PASS [ⓒ] ⑤ cherry 상한 → REJECT
+PASS [ⓒ]   └ 상한 초과 → freshness 단계 0
+PASS [ⓒ]   └ 총 소요 ≤ 25초
+PASS [ⓒ]   └ CLOSED 0
+PASS [ⓒ⑤]   └ kill·태그 해제 0
+PASS [ⓒ⑤]   └ 명부 그대로
+PASS [ⓒ⑤]   └ 닫힘 원장 행 0
+PASS [ⓒ] freshness 상한 → REJECT
+PASS [ⓒ]   └ 총 소요 ≤ 35초
+PASS [ⓒ]   └ CLOSED 0
+PASS [ⓒfr]   └ kill·태그 해제 0
+PASS [ⓒfr]   └ 명부 그대로
+PASS [ⓒfr]   └ 닫힘 원장 행 0
+== ⓓ 정상 대역(모두 즉시) → 지금과 같은 결과(닫힘)
+PASS [ⓓ] 즉시 대역 → CLOSED
+PASS [ⓓ]   └ 마지막 slots 단계까지 감
+PASS [ⓓ]   └ 시간 초과 0
+PASS [ⓓ]   └ 원장 닫힘 행 1줄
+PASS [ⓓ]   └ 세션 kill
+== ⓔ 실측 재현 — 카드 인자 꼴(--result · --recv · role=nano · press 산출 0)에서 STEP 줄이 끝까지
+PASS [ⓔ]   └ press 산출 0(나노 좌석)
+PASS [ⓔ] ④ 면제 자리(실측 마지막 줄) 재현
+PASS [ⓔ]   └ STEP 5줄 끝까지(slots 포함)
+== ⓕ 상한 REJECT 시 쓰기 0 — .prepared 0 · 명부·원장 바이트 불변(DA⑥ r1 반례 1)
+PASS [ⓕ] 상한 REJECT(증거 검사 대역)
+PASS [ⓕ]   └ .prepared 0
+PASS [ⓕ]   └ 명부 바이트 불변
+PASS [ⓕ]   └ 원장 바이트 불변
+PASS [ⓕ] prepare 상한 → REJECT
+PASS [ⓕ]   └ «시간 초과» 표기
+PASS [ⓕ]   └ prepare 잘린 뒤 .prepared 0(trap 이 prepare 전)
+PASS [ⓕ] bad(증거 검사 상한) + --cherry-override → REJECT
+FAIL [ⓕ]   └ 우회 원장에 행 생김: 2026-10-26 15:46:12	seat=byz-planner-nano-ns#0	nano=nano/ns	tip=42f76b2	feat=074c821	reason=dummy
+FAIL [ⓕ]   └ cherry 는 읽기 전용 판정(REJECT 줄) — 없음: «⑤REJECT cherry 게이트» ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: <TMP>/bin
+WARN ④checkpoint 면제 — 나노 브랜치에 press 산출 0(poller_dom.jsonl 없음)
+REJECT cherry 게이트 — nano/ns 머지 시 feat/x 에 design/ 밖 변경 1개가 생김(내용 미랜딩 · merge-tree 실제 delta):
+  code.sh
+  tip 내용이 feat/x 역사에 없는 경로:
+  code.sh (tip 100644 587be6b4c 가 분기 뒤 feat/x 구간(074c821f7..)에 새 blob 으로 없음)
+REJECT cherry 게이트 — nano/ns 에 feat/x 로 안 들어온 코드·시험·스크립트 커밋 1개 (git cherry '+' · design/ 밖 경로):
+  + 42f76b2 code
+  → cherry-pick -x 로 feat/x 에 반영하거나 폐기 사유를 값으로 적은 뒤 닫는다 (사람 우회: --override "<사유>")
+OVERRIDE cherry 게이트 — 위 REJECT 를 우회해 통과 · 사유: dummy · 원장 1행 기록: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/
+PASS [ⓕ]   └ kill·태그 해제 0
+PASS [ⓕ]   └ 명부 그대로
+PASS [ⓕ]   └ 닫힘 원장 행 0
+PASS [ⓕ]   └ 대조군: bad 0 이면 override 전달 · 원장 1행 · CLOSED
+== ⓖ 상한이 프로세스 묶음째 끝냄 — 자식이 분리돼도 REJECT 뒤 자식 쓰기 0
+PASS [ⓖ] 상한 → REJECT
+PASS [ⓖ]   └ REJECT 뒤 3초 자식 쓰기 0
+PASS [ⓖ]   └ 그 묶음 생존 0
+PASS [ⓖ] setsid 손자 대역 · 상한 1초 → rc 124
+FAIL [ⓖ]   └ 반환 4s > 3초(손자 fd 기다림)
+FAIL [ⓖ]   └ 손자가 반환 뒤에 씀(새 세션 손자 회수 실패)
+PASS [ⓖ]   └ 손자 pid 64827 생존 0
+== ⓗ TERM 무시 대역 · 상한 1초 → 3초 안에 끝남(KILL 유예 1초)
+PASS [ⓗ] TERM 무시 대역 · 상한 1초 → rc 124
+PASS [ⓗ]   └ 상한+유예 = 2초(≤3초 · KILL 유예 1초)
+PASS [ⓗ]   └ 그 묶음 생존 0
+== ⓘ 배수 = 커밋 수 — 커밋 12 · 커밋당 1초 대역은 «정상 느림» 이라 통과(거짓 거절 0)
+PASS [ⓘ] 커밋 12 · 커밋당 1초 → 배수 12 상한 안 → 통과(rc0)
+PASS [ⓘ]   └ 대역이 실제로 14초 걸렸다(느림 재현)
+== ⓙ 원격 없음 + 캐시 origin/main → fetch 실패 REJECT · cherry 통과 줄 0(DA⑥ r1 반례 3)
+PASS [ⓙ] fetch 실패 → 그 자리 REJECT
+PASS [ⓙ]   └ cherry 통과 줄 0
+PASS [ⓙ]   └ 옛 ref 대조 0 문구
+PASS [ⓙ]   └ kill·태그 해제 0
+PASS [ⓙ]   └ 명부 그대로
+PASS [ⓙ]   └ 닫힘 원장 행 0
+FAIL [ⓙ] --research rc=0 ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: <TMP>/bin
+WARN ④checkpoint 면제 — 나노 브랜치에 press 산출 0(poller_dom.jsonl 없음)
+WARN 리서치 — origin main fetch 실패/시간 초과(7초+재시도 1) · 머리 맞춤 병합 대조는 로컬 origin/main(옛 ref = 끌어온 쪽을 더 막는다 · 거짓 통과 0)
+RESEARCH-OK 기준 판 074c821f7(reflog) 뒤 구현 커밋 0 · 미커밋 0 · 결과 <TMP>/result.md (⑥ 증거 줄 면제)
+OK cherry 게이트 — nano/ns 의 모든 커밋이 main 에 patch 단위로 존재(+ 0)
+워크트리 정리 계획: <TMP>/wtclean/byz-planner-nano-ns#0.sh (실행은 세션 kill 직후 — 미완이면 ft-wt-sweep.sh)
+CLOSED byz-planner-nano-ns#0 research=1 (명부 삭제
+FAIL [ⓙ]   └ 리서치 fetch 실패 줄 0개
+FAIL [ⓙ]   └ 리서치 통과 줄 0(옛 ref 병합 대조 0) — 있으면 안 됨: «RESEARCH-OK»
+FAIL [ⓙ]   └ CLOSED 0 — 있으면 안 됨: «CLOSED»
+FAIL [ⓙ]   └ kill·태그 해제 0 — tmux 변경
+FAIL [ⓙ]   └ 명부 삭제됨
+FAIL [ⓙ]   └ 원장 행 생김
+PASS [ⓙ]   └ 대조군: 원격 있음 → RESEARCH-OK · rc0
+== ⓚ 상한식 = min(고정비 + 7×배수, 70) · 600/300초 0 · 무상한 fetch 0
+PASS [ⓚ] 배수 1→8 · 2→15 · 12→70(상한)
+PASS [ⓚ] 600/300 숫자 0
+PASS [ⓚ] 외부 호출 0
+PASS [ⓚ] 무상한 git fetch 0(전부 nf_fetch 경유)
+PASS [ⓚ] abort trap 이 prepare 전에 등록(N1)
+== ⓛ 첫 cherry 즉시 REJECT · fetch 성공 · 둘째 cherry(origin/main) 6초 · 상한 1초 → 그 자리 REJECT · freshness 0(astra r2 반례 N3)
+PASS [ⓛ] rc1
+PASS [ⓛ]   └ 둘째 cherry(origin/main) 호출 1회(fetch 성공 경로)
+FAIL [ⓛ]   └ 둘째 cherry 상한 줄 없음 ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: <TMP>/bin
+WARN ④checkpoint 면제 — 나노 브랜치에 press 산출 0(poller_dom.jsonl 없음)
+OK 증거 줄 — 세트 HEAD 074c821f7 · 시험 rc=0 · 이슈 0
+REJECT byz-planner-nano-ns#0
+  - ⑤REJECT cherry 게이트 대역(feat/x)
+    origin/main 기준: 
+  - ⑤-생애 branch    nano/ns
+    base      074c821 (2026-10-26 15:44) · 루트가 그 뒤로 0 커밋 앞섬
+    branch    마지막 커밋 2026-10-26 15:44 · 루트에 없는 패치 0
+    VERDICT   LANDED — 브랜치 변경이 전부 루트에 있다 → 생애 ⑤ 닫기만(ft-nano-close)
+STEP ⑥증거검사 +1s
+STEP ⑤cherry +1s
+STEP fetch +2s
+STEP freshness +4s
+FAIL [ⓛ]   └ 빈 «origin/main 기준:» 줄 0 — 있으면 안 됨: «origin/main 기준: »
+FAIL [ⓛ]   └ 상한 초과인데 freshness STEP 줄 있음
+PASS [ⓛ]   └ CLOSED 0
+PASS [ⓛ]   └ kill·태그 해제 0
+PASS [ⓛ]   └ 명부 그대로
+PASS [ⓛ]   └ 닫힘 원장 행 0
+
+FAILED 14
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=data:/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live,repo:/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents,comm:/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/comm files=1716

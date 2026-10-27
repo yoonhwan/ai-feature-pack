@@ -1,0 +1,15 @@
+M1 유한성 검사 끔 → ⓖ: rc=1 (2 failed, 6 passed, 49 deselected in 52.68s) · test_g_non_finite_limit_falls_back_to_15[inf] test_g_non_finite_limit_falls_back_to_15[1e309] 
+M2 판정 불가 게시 복귀 → ⓗ: rc=1 (1 failed, 56 deselected in 5.08s) · test_h_over_age_publishes_nothing_rc1_one_error 
+M3 커미터 이메일 판별 끔(채움 커밋도 키) → ⓙ'·ⓦ: rc=1 (4 failed, 2 passed, 51 deselected in 2.78s) · test_i_fill_only_changes_are_not_a_change_and_gap_is_10 test_j_key_is_last_non_fill_commit test_j_real_fill_commits_do_not_move_key_including_row_lowering test_w_fill_is_told_by_committer_email_not_message 
+M8 키 모름 base==cur 을 «변화 없음» 으로 복귀 → ⓦ: rc=1 (1 failed, 56 deselected in 1.16s) · test_w_more_fill_than_scan_window_means_key_unknown_and_publish_candidate 
+M9 미래 시각 검사 끔(칸마다 따로 계산하던 옛 꼴) → ⓧ: rc=1 (3 failed, 4 passed, 50 deselected in 1.01s) · test_k_broken_or_future_map_at_publishes_with_warn[9999-12-31 23:59] test_x_bad_fail_at_waits_zero_and_warns[9999-12-31 23:59] test_x_bad_at_waits_zero_and_warns[9999-12-31 23:59] 
+M10 ledger _git 시간 상한 끔 → ⓨ: rc=1 (2 failed, 55 deselected in 60.83s (0:01:00)) · test_y_ledger_rev_parse_and_cat_file_time_out_fast test_y_run_with_slow_ledger_git_returns_fast_and_calls_check_stale_once 
+M11 ledger cat-file 시간 상한 끔 → ⓨ: rc=1 (1 failed, 56 deselected in 31.44s) · test_y_ledger_rev_parse_and_cat_file_time_out_fast 
+M4 최소 간격 끔 → ⓘ·ⓙ': rc=1 (2 failed, 55 deselected in 1.79s) · test_i_fill_only_changes_are_not_a_change_and_gap_is_10 test_j_unknown_key_publishes_but_gap_still_caps 
+M5 map_at 형 검사 끔 → ⓚ': rc=1 (1 failed, 6 passed, 50 deselected in 3.45s) · test_k_garbage_state_file_no_exception_warn_and_check_stale_once[{"map_at": 123}] 
+M6 틱 예외 잡기 끔 → ⓝ: rc=1 (1 failed, 56 deselected in 0.38s) · test_n_tick_exception_is_caught_error_once_rc1 
+M7 run() 을 r3 꼴로(예외 잡기·finally 둘 다 끔 → 정지 감시 건너뜀) → ⓝ: rc=1 (1 failed, 56 deselected in 0.30s) · test_n_run_calls_check_stale_even_when_run_raises 
+M12 시각 칸 기본값 required=False 복귀 → ⓩ1: rc=1 (1 failed, 56 deselected in 0.75s) · test_z1_state_without_at_field_waits_zero_and_warns_once 
+M13 git show 를 알림 try 안으로 복귀 → ⓩ2: rc=1 (1 failed, 56 deselected in 0.51s) · test_z2_show_timeout_only_is_unjudgeable_one_error_per_section 
+M14 ERROR 구간당 1줄 끔(매 틱 ERROR) → ⓩ2: rc=1 (1 failed, 56 deselected in 0.82s) · test_z2_show_timeout_only_is_unjudgeable_one_error_per_section 
+복원 확인: 두 파일 sha = 변이 전

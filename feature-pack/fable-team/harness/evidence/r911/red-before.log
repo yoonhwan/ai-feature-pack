@@ -1,0 +1,124 @@
+FAIL ⓐ rc=0 [ACTIVE nano/a1-eq
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+branch=nano/a1-eq sha=93333346d3637157653f21fc0f8a62b13281776a ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.5doNPpgAeo/R/design/teams/lecture/indices/진행/a1-eq.md dir=<없음>]
+FAIL ⓑ [ACTIVE nano/b1-part
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+branch=nano/b1-part sha=2b2de19602034e4ca16db72d2cf636c9bccfb693 ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.5doNPpgAeo/R/design/teams/lecture/indices/진행/b1-part.md dir=<없음>]
+FAIL ⓒ1 [ACTIVE nano/c1-del-same
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+branch=nano/c1-del-same sha=279876acbb4f3887d53d38339af728ad4d9912b7 ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.5doNPpgAeo/R/design/teams/lecture/indices/진행/c1-del-same.md dir=<없음>]
+FAIL ⓒ2 [ACTIVE nano/c2-del-diff
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+branch=nano/c2-del-diff sha=87d09762a18d0155f7d4086d4800ac1e7d331190 ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.5doNPpgAeo/R/design/teams/lecture/indices/진행/c2-del-diff.md dir=<없음>]
+FAIL ⓓ 좌석 [ACTIVE nano/d1-eq
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 no tmux byz-lecture-nano-d1-eq#0
+branch=nano/d1-eq sha=cb99c1d9d7b33866d038e648670a99f9b6e1a7f2 ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.5doNPpgAeo/R/design/teams/lecture/indices/진행/d1-eq.md dir=<없음>]
+PASS ⓓ E1f 참 + 미커밋 → ACTIVE(E0 no)
+FAIL ⓔ rc=0 [ACTIVE nano/a1-eq
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+branch=nano/a1-eq sha=93333346d3637157653f21fc0f8a62b13281776a ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.5doNPpgAeo/R/design/teams/lecture/indices/진행/a1-eq.md dir=<없음>]
+FAIL ⓔ slow rc=0 [ACTIVE nano/a1-eq
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+branch=nano/a1-eq sha=93333346d3637157653f21fc0f8a62b13281776a ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.5doNPpgAeo/R/design/teams/lecture/indices/진행/a1-eq.md dir=<없음>]
+FAIL ⓓ' [ACTIVE nano/h1-empty
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+branch=nano/h1-empty sha=4cdac5b890a48830c38b8e4a1c1ee5a803a8b628 ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.5doNPpgAeo/R/design/teams/lecture/indices/진행/h1-empty.md dir=<없음>]
+FAIL ⓕ rc=1 [SKIP nano/f1-eq ACTIVE — 이동 0 (E1 no 착지 줄 없음)]
+FAIL ⓕ2 rc=1 [SKIP nano/f1-eq ACTIVE — 이동 0 (E1 no 착지 줄 없음)]
+PASS ⓕ `git branch -D` 호출 0
+PASS ⓕ ACTIVE(E1f no) 가지 → 이동 0
+FAIL ⓖ rc=0 log=[2026-10-25 15:22:52 rc=0 cleaned=0 wait=0 hil=0 stale=0 carry=0 resume=0 routed=0 route_fail=0 archived=0 archive_skip=9 replanned=0 hil_files=0 orphans=0 freed_kb=0] out=sweep 계획 0 · cleaned/none 0 · wait 0 · hil 0
+2026-10-25 15:22:52 rc=0 cleaned=0 wait=0 hil=0 stale=0 carry=0 resume=0 routed=0 route_fail=0 archived=0 archive_skip=9 replanned=0 hil_files=0 orphans=0 freed_kb=0
+FAIL ⓗ [ACTIVE nano/h1-sub
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+branch=nano/h1-sub sha=c204fd0e4ecd4e9c6290deb4e9a9f76ed09a2258 ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.5doNPpgAeo/R/design/teams/lecture/indices/진행/h1-sub.md dir=<없음>]
+FAIL ⓘ small [ACTIVE nano/i1-small
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+branch=nano/i1-small sha=2cfa9cd5850ecda41c391f91e8237137a47f38b8 ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.5doNPpgAeo/R/design/teams/lecture/indices/진행/i1-small.md dir=<없음>]
+FAIL ⓘ bulk [ACTIVE nano/i2-bulk
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+branch=nano/i2-bulk sha=240ee587eca7ef0bb23927fe5a6ee507dc5f0206 ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.5doNPpgAeo/R/design/teams/lecture/indices/진행/i2-bulk.md dir=<없음>]
+FAIL ⓘ 재확인 [ACTIVE nano/i3-eq
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+branch=nano/i3-eq sha=5b443a780fdfb694af93815f26f496878cf2a4f9 ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.5doNPpgAeo/R/design/teams/lecture/indices/진행/i3-eq.md dir=<없음>]
+FAIL ⓙ rc=0 [ORPHAN jc-m2
+E0 ok 폴더 없음
+E1 no 카드 없음
+E2 no 카드 없음
+E3 ok 좌석 0
+branch=jc-m2 sha=3483856a33e0ab3491213a0f2196014394c00559 ahead=1 main=jc-m1 card=<0개> dir=<없음>]
+FAIL ⓚ [ACTIVE nano/k1-magic
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+branch=nano/k1-magic sha=76a0988b3d0ae84754ae139d06d8e67295a4a82d ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.5doNPpgAeo/R/design/teams/lecture/indices/진행/k1-magic.md dir=<없음>]
+FAIL ⓚ ok [ACTIVE nano/k2-magic
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+branch=nano/k2-magic sha=ab30042ecdc206a947e4c09c9e9e1e722f73c8cb ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.5doNPpgAeo/R/design/teams/lecture/indices/진행/k2-magic.md dir=<없음>]
+FAIL ⓛ rc=0 calls=0 el=0s [ACTIVE nano/l1-many
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+branch=nano/l1-many sha=7c6d057512fac8ffbb76948503eded8883f0cb7a ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.5doNPpgAeo/R/design/teams/lecture/indices/진행/l1-many.md dir=<없음>]
+FAIL ⓛ deadline rc=0 [ACTIVE nano/l1-many
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+branch=nano/l1-many sha=7c6d057512fac8ffbb76948503eded8883f0cb7a ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.5doNPpgAeo/R/design/teams/lecture/indices/진행/l1-many.md dir=<없음>]
+FAIL ⓛ 기본 마감 70 아님
+FAIL ⓜ mode [ACTIVE nano/m1-mode
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+branch=nano/m1-mode sha=728f973b9ceb71ed7fc50e677e02d6bd1c599a37 ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.5doNPpgAeo/R/design/teams/lecture/indices/진행/m1-mode.md dir=<없음>]
+FAIL ⓜ link [ACTIVE nano/m2-link
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+branch=nano/m2-link sha=31592ac3ac7e1f9ede4595aaacfb8441e1912439 ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.5doNPpgAeo/R/design/teams/lecture/indices/진행/m2-link.md dir=<없음>]
+(23 failed)
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

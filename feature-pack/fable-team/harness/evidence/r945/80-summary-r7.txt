@@ -1,0 +1,18 @@
+# r945 r7 요약 — 결정 4(빠진 3곳 채움) · 같은 가지 3ed5ec89 위 1커밋
+
+## 고친 3곳(발주 173060 · 나노 173014 ①②③ 그대로)
+① **하위 파일 부재를 최상위로 접는다**: `ls-files -d -z` 의 삭제 파일을 «최상위 이름» 으로 접고, 그 최상위가 디스크에 없을 때만 껍데기. 폴더가 살아 있는데 그 안 파일 1개가 빠진 것은 껍데기가 아니다(DA r6 반례 ① · 계약 ① «H 최상위 항목 부재»).
+   - 실측 효과: 실 스캔루트 41곳 → **39곳** (harness-r777-pack-root-main-commit-guard · v6-realtime-live 2석이 빠짐 = `.serena` 폴더는 살아 있고 그 안 5파일만 빠진 자리 · 78-real-scan-r7).
+② **판정 불가 수를 요약 줄에**: shell_scan 이 `SCAN_U` 에 남기고 요약에 ` · u=N`(값이 0 이면 안 붙는다 · 결정 4 ②).
+③ **git7 밖 git 호출 0**: orphan_scan 의 `worktree list` 를 git7 로 받아 파일로 python 에 넘김(python 은 git 을 안 부른다 · 실패 = «판정 불가 <경로>:orphan-list» 1줄) · 머리 `rev-parse` 2곳 git7 경유.
+   - 같은 계약(⑦ «git7 밖 호출 0»)으로 **범위 밖 4곳도 함께 정리**: `worktree remove --force`(:69) · `worktree prune`(:72) · `for-each-ref`(:109) · `hash-object`(:162). 정적 검사로 확인 = 직접 호출 0(79).
+
+## 시험
+- `cd feature-pack/fable-team/harness/tests && WT_TEST_BASH=/bin/bash bash test_wt_shell_scan_sparse_r945.sh` → **64 PASS · ALL PASS**(71/72 · bash5 동일)
+- 옛 판(r6 세트 3ed5ec89)으로 새 시험 → **8 FAIL**(70) = ⓣⓤⓥ 가 r6 결함을 잡는다
+- 신규 칸 3: ⓣ 하위 파일만 부재 → 0 · 폴더 통째 부재 → 1(접기) ⓤ 요약 줄 `u=1` ⓥ 공용 config 깨짐에서 `:orphan-list` 1줄 + python/셸 직접 git 호출 정적 검사 0
+- 변이 6종 전부 빨강(73-mut1~6): 임계 ≥1→≥2(7) · sparse 분기 끔(14) · 임계 ≥0(13) · gitfail 기록 끔(12) · **접기 끔(3 → ⓣ FAIL)** · 판정 불가 무시(4)
+- 인접: two_stage rc0 · r535 budget_replan rc0 · kit_bin_sync rc0 · bash -n 3.2·5 rc0 · bin↔kit cmp0
+
+## 남는 값
+- 실 스캔루트 39곳 = 전부 `.serena` 폴더가 통째로 사라진 자리(r1007 별 카드 범위) · 판정 불가 0 · orphan 78

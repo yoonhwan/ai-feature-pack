@@ -144,21 +144,82 @@ def render(text: str, s: dict, at: datetime, seen: dict) -> tuple[str, list[str]
     return "\n".join(lines), errs, seen, moved
 
 
-def _commit(repo: Path, rel: str, base: str, text: str, parents: list[str]) -> str:
-    blob = subprocess.run(["git", "-C", str(repo), "hash-object", "-w", "--stdin"], input=text.encode("utf-8"), capture_output=True, timeout=src.LOCAL_S, check=False)
+class PushError(FillError):
+    """r870 ⓒ — 사본 브랜치 push 실패 · repeat = 직전 실패와 같은 원인(부르는 쪽은 경고로 낮춘다 · 실패 구간당 ERROR 1통 · r847 꼴)."""
+
+    def __init__(self, msg: str, repeat: bool = False):
+        super().__init__(msg)
+        self.repeat = repeat
+
+
+def _local(repo: Path, *a: str, **kw) -> subprocess.CompletedProcess:
+    """로컬 git 1회(7초) — 시간 초과·실행 실패 = FillError(r870 1-0 · TimeoutExpired 가 뉴스 틱을 죽이던 자리 · 원장 채움만 0)."""
+    try:
+        return subprocess.run(["git", "-C", str(repo), *a], capture_output=True, timeout=src.LOCAL_S, check=False, **kw)
+    except subprocess.TimeoutExpired as e:
+        raise FillError(f"git {a[0]} 시간 초과({src.LOCAL_S:.0f}초)") from e
+    except OSError as e:
+        raise FillError(f"git {a[0]} 실행 실패: {e}") from e
+
+
+def _tree(repo: Path, rel: str, base: str, text: str) -> str:
+    blob = _local(repo, "hash-object", "-w", "--stdin", input=text.encode("utf-8"))
     if blob.returncode != 0:
         raise FillError(f"git hash-object 실패: {blob.stderr.decode('utf-8', 'replace').strip()[:200]}")
     with tempfile.TemporaryDirectory() as tmp:
         env = {**os.environ, "GIT_INDEX_FILE": str(Path(tmp) / "index")}
-        run = lambda *a: subprocess.run(["git", "-C", str(repo), *a], capture_output=True, text=True, env=env, timeout=src.LOCAL_S, check=False)  # noqa: E731
-        for a in (("read-tree", base), ("update-index", "--add", "--cacheinfo", f"100644,{blob.stdout.decode().strip()},{rel}")):
-            if (r := run(*a)).returncode != 0:
+        for a in (("read-tree", base), ("update-index", "--add", "--cacheinfo", f"100644,{blob.stdout.decode().strip()},{rel}"), ("write-tree",)):
+            if (r := _local(repo, *a, text=True, env=env)).returncode != 0:
                 raise FillError(f"git {a[0]} 실패: {r.stderr.strip()[:200]}")
-        tree = run("write-tree")
-        if tree.returncode != 0:
-            raise FillError(f"git write-tree 실패: {tree.stderr.strip()[:200]}")
+    return r.stdout.strip()
+
+
+def _commit(repo: Path, tree: str, parents: list[str]) -> str:
     ps = [x for p in parents for x in ("-p", p)]
-    return git(repo, "-c", f"user.name={WHO}", "-c", f"user.email={WHO}@byz.local", "commit-tree", tree.stdout.strip(), *ps, "-m", MSG).strip()
+    return git(repo, "-c", f"user.name={WHO}", "-c", f"user.email={WHO}@byz.local", "commit-tree", tree, *ps, "-m", MSG).strip()
+
+
+def _pending(st: Path, tree: str, parents: list[str]) -> str:
+    """r870 ⓒ — 직전 push 실패 커밋이 같은 트리·같은 부모면 그 커밋(다음 틱이 «같은 커밋» 을 다시 올림) · 아니면 ''."""
+    try:
+        p = _load(st / "push-fail.json", {})
+    except (OSError, ValueError) as e:
+        LOG.warning("push 실패 기록 못 읽음 — 새 커밋으로 올림: %s", e)
+        return ""
+    return p.get("sha", "") if isinstance(p, dict) and p.get("tree") == tree and p.get("parents") == parents else ""
+
+
+def _push(repo: Path, sha: str, br: str) -> tuple[int, str]:
+    """(rc, 실패 줄) — r870 ⓑ 시도당 REMOTE_S(CLI 고정비 3.5 + 7) · 출력 0 인 시간 초과만 재시도 1(총 2 × (REMOTE_S + 유예 1) ≤ 70초 · 하드 룰 12) ·
+    넘기면 프로세스 묶음 TERM→KILL(r847 _run_capped · 손자 원격 도우미까지). ⓓ --no-verify = 이 refspec 1개(ledger/* · branch() 입구 검사)만 —
+    pre-push 게이트는 GATE_BRANCH 체크아웃에서만 켜지고(원장 사본 = detached HEAD → 늘 통과) 그 뒤는 beads shim(이슈 장부 · 원장과 무관) — 훅 ~2초가 상한을 먹던 몫."""
+    from ft_news_ledger import _run_capped
+    cmd = ["git", "-C", str(repo), "push", "--quiet", "--no-verify", "origin", f"{sha}:refs/heads/{br}"]
+    for n in (1, 2):
+        try:
+            rc, out, err = _run_capped(cmd, REMOTE_S)
+        except OSError as e:
+            raise FillError(f"git push 실행 실패: {e}") from e
+        if rc is not None:
+            return rc, f"git push 실패: {err.strip()[:200]}"
+        if out or err:  # 출력 있는 시간 초과 = 확정 실패(재시도 0)
+            break
+    return 1, f"git push 실행 실패: timed out after {REMOTE_S} seconds(시도 {n}회 · 출력 {'있음' if out or err else '0'})"
+
+
+def _push_failed(st: Path, sha: str, tree: str, parents: list[str], why: str) -> PushError:
+    """r870 ⓒ — 실패 커밋 기억(다음 틱 같은 커밋 재전송) + 같은 원인 연속 횟수 — 기록 실패는 ERROR 만(채움 오류를 덮지 않음)."""
+    cause = why.replace(sha, "<sha>")
+    try:
+        prev = _load(st / "push-fail.json", {})
+    except (OSError, ValueError):
+        prev = {}
+    n = prev.get("n", 0) + 1 if isinstance(prev, dict) and prev.get("cause") == cause else 1
+    try:
+        _save(st / "push-fail.json", {"sha": sha, "tree": tree, "parents": parents, "cause": cause, "n": n})
+    except OSError as e:
+        LOG.error("push 실패 기록 못 씀: %s", e)
+    return PushError(why + (f" (같은 원인 연속 {n}회 — 경고는 이미 1통)" if n > 1 else ""), repeat=n > 1)
 
 
 def bases(repo: Path, ref: str) -> tuple[str, list[str]]:
@@ -192,7 +253,7 @@ def fetch(repo: Path) -> None:
 
 
 def fill(root: Path, repo: Path, rel: str, ref: str, at: datetime, do_fetch: bool = True, push: bool = False) -> tuple[int, str]:
-    """(rc, 새 커밋 sha 또는 '') — 표 다시 쓰기 → 바뀌었으면 커밋 1(+push) · 오류 줄은 ERROR 로그 + rc1(커밋은 된 표만)."""
+    """(rc, 이번 판 sha — 새 커밋 또는 «변화 없음» 이면 읽은 판) — 표 다시 쓰기 → 바뀌었으면 커밋 1(+push) · 오류 줄은 ERROR 로그 + rc1(커밋은 된 표만)."""
     st, br = state_dir(root), src.branch()  # r851 r3 ① — 입구에서 사본 브랜치 이름 검사(ledger/ 밖 = FillError rc1 · push 0)
     for attempt in range(2):
         if do_fetch or attempt:
@@ -206,19 +267,22 @@ def fill(root: Path, repo: Path, rel: str, ref: str, at: datetime, do_fetch: boo
             _save(st / "closed-seen.json", seen)
             _ok(st, at, errs)
             print(f"FILL 변화 없음 {base[:10]}" + (f" · 오류 {len(errs)}" if errs else ""))
-            return (1 if errs else 0), ""
-        sha = _commit(repo, rel, base, new, parents)
+            return (1 if errs else 0), base  # r870 r4 — 뉴스는 sha 빈칸이면 옛 cur 를 유지 — 다른 작성자가 같은 렌더를 먼저 올린 경쟁(DA⑥ r3)에서 새 판을 놓침
+        tree = _tree(repo, rel, base, new)
+        # r870 r3 — «push 생략(같음)» 갈래 없음: 사본 ⊇ main 이면 bases() 가 그 머리를 base 로 골라 tb.same 이 먼저 끝냄 — 생략 갈래는 경쟁 때만 닿고 닿으면 틀림(DA⑥ r1·r2)
+        sha = _pending(st, tree, parents) or _commit(repo, tree, parents)
         if not push:
             print(f"FILL 커밋 {sha[:10]} (push 0) · 내림 {moved}")
             return (1 if errs else 0), sha
-        r = _remote(repo, "push", "--quiet", "origin", f"{sha}:refs/heads/{br}")  # refspec 1개 · 사본 브랜치(ledger/…)만 — main 쓰기 0(planner 결정 ② · r3 ①)
-        if r.returncode == 0:
+        rc, why = _push(repo, sha, br)  # refspec 1개 · 사본 브랜치(ledger/…)만 — main 쓰기 0(planner 결정 ② · r3 ①)
+        if rc == 0:
+            (st / "push-fail.json").unlink(missing_ok=True)
             _save(st / "closed-seen.json", seen)
             _ok(st, at, errs)
             print(f"FILL 커밋 {sha[:10]} push {br} · 내림 {moved}" + (f" · 오류 {len(errs)}" if errs else ""))
             return (1 if errs else 0), sha
-        if not re.search(r"non-fast-forward|fetch first|rejected", r.stderr):
-            raise FillError(f"git push 실패: {r.stderr.strip()[:200]}")
+        if not re.search(r"non-fast-forward|fetch first|rejected", why):
+            raise _push_failed(st, sha, tree, parents, why)
         LOG.warning("원장 사본 브랜치 push ff 거절(다른 판 먼저) — 다시 받고 새 판 위에서 %s", "1번 더" if attempt == 0 else "포기")
     raise FillError("원장 사본 브랜치 push 2번 ff 거절 — 커밋 0(다른 판을 덮지 않음)")
 

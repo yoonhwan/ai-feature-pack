@@ -1,0 +1,7 @@
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.dKCiStypmw/bin
+WARN ④checkpoint 면제 — 나노 브랜치에 press 산출 0(poller_dom.jsonl 없음)
+STEP ⑥증거검사 +1s
+STEP ⑤cherry +12s
+OK cherry 게이트 — nano/ns 의 모든 커밋이 main 에 patch 단위로 존재(+ 0)
+REJECT byz-planner-nano-ns#0
+  - ⑥증거 검사 시간 초과(11s 상한) — 닫지 않음

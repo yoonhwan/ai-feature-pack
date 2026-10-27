@@ -249,22 +249,117 @@ watch_alive() {
   return 1
 }
 # 감시 없음 → 하네스 master(seats-harness.json `_master`)에 긴급 1통 · 같은 좌석 10분 1회(표식 <루트>/.fable-team/state/planner-watch-missing.<좌석> mtime).
+#   ★r928 r3 유예 = 표본기가 본 «처음 없음»★ — 감시(ft-inbox-watch.sh)는 아무것도 쓰지 않는다(R1). 쓰는 쪽은 60초 표본기 하나(ft-tick 매 루프 → `ft-mbox.sh watch-sample`).
+#     표본 파일 state/planner-watch-absent-since.<좌석> = «<표본 epoch>\t<처음 없음 epoch | 0=감시 있음>» 1줄 — absent-since 와 heartbeat 를 한 파일 두 칸으로(임시 파일+mv 원자 교체 · 두 파일 사이 경합 0).
+#     송신 쪽(여기)은 읽기만(R2): 표본이 FT_WATCH_SAMPLE_STALE_SEC(180) 안 ∧ 처음 없음이 FT_WATCH_REARM_GRACE_SEC(300) 안 → 긴급 0 · stderr `WATCH-REARM 대기 <분>` 1줄.
+#       감시가 살아 있던 동안 송신이 없어도 «처음 없음» 은 표본기가 60초마다 지운다 — 다음 공백 첫 송신에 옛 시각으로 곧장 긴급이 나가지 않는다(RESEARCH H2·H3).
+#     ★이상은 모두 긴급 쪽(R3)★ — 표본기 실패 표식(<표본 파일>.broken · r4)·표본 없음·180초 넘음(표본 멈춤)·심링크·일반 파일 아님·state 폴더 쓰기 불가·읽기 실패·본문이 정수 두 칸 아님·미래 값 → 유예 0 + stderr `WATCH-ABSENT 표본 멈춤(<사유>)`/`WATCH-ABSENT 이상(<사유>)` 1줄.
+#     Monitor 는 최대 30분이면 꺼지고 다시 거는 틈이 생긴다 — 그 틈을 «감시 없음» 긴급으로 보내면 받는 쪽이 오탐으로 의심한다(판정 1125 · 300초 = 재걸기 공백 67% 를 덮는 값).
 #   큐 직접 적재(py send · 이 래퍼 send 재귀 0 · 발신자 = 도구 이름이라 FANOUT·RATE 면제 · 본문에 계기 쪽지 번호 = 같은 본문 재발신 가드(RESEND_COOLDOWN)에 10분 뒤 재알림이 막히지 않게) · 실패·master 없음 = stderr 1줄(표식 0 → 다음 send 재시도). 오빠 pane 주입 0(876 불변).
+#   긴급 본문의 근거 줄 = `감시 프로세스 0(pgrep) · <처음 없음 HH:MM(N분) | 표본 이상(<사유>)>` — 받는 쪽이 오탐·진짜를 바로 가른다.
+#   _absent_grace <표본 파일> <유예초> <표본 신선초> → rc0 유예 · rc1 유예 밖 · rc3 이상(stderr 1줄) — 셋 다 stdout = 근거 조각
+_ep_hhmm() { date -r "$1" +%H:%M 2>/dev/null || date -d "@$1" +%H:%M 2>/dev/null || printf '?'; }
+_absent_grace() {
+  local f="$1" grace="$2" stale="$3" line s="" a="" now why=""
+  now="$(date +%s)"
+  if [ -e "$f.broken" ] || [ -L "$f.broken" ]; then why="표본기 실패 표식"
+  elif [ -L "$f" ]; then why="심링크"
+  elif [ -e "$f" ] && [ ! -f "$f" ]; then why="일반 파일 아님"
+  elif [ ! -e "$f" ]; then why="표본 없음"
+  elif [ ! -w "$(dirname "$f")" ]; then why="state 쓰기 불가"
+  elif ! line="$(head -1 "$f" 2>/dev/null)"; then why="읽기 실패"
+  else
+    case "$line" in *$'\t'*) s="${line%%$'\t'*}"; a="${line#*$'\t'}" ;; esac
+    case "$s" in ''|*[!0-9]*) why="본문 깨짐" ;; esac
+    case "$a" in ''|*[!0-9]*) why="본문 깨짐" ;; esac
+    if [ -z "$why" ] && { [ "${#s}" -gt 12 ] || [ "${#a}" -gt 12 ]; }; then why="본문 깨짐"; fi
+    if [ -z "$why" ]; then
+      s=$((10#$s)); a=$((10#$a))
+      if [ "$s" -gt "$now" ]; then why="미래 표본"
+      elif [ $((now - s)) -gt "$stale" ]; then why="표본 멈춤 $((now - s))초 전"
+      elif [ "$a" -gt "$s" ]; then why="미래 처음 없음"
+      fi
+    fi
+  fi
+  if [ -n "$why" ]; then
+    case "$why" in 표본\ 없음|표본\ 멈춤*) echo "WATCH-ABSENT 표본 멈춤($why) $f" >&2 ;; *) echo "WATCH-ABSENT 이상($why) $f" >&2 ;; esac
+    printf '표본 이상(%s)' "$why"; return 3
+  fi
+  if [ "$a" = 0 ]; then printf '0분 · 처음 없음 표본 전(마지막 표본 %s 감시 있음)' "$(_ep_hhmm "$s")"; return 0; fi
+  if [ $((now - a)) -lt "$grace" ]; then printf '%s분 · 처음 없음 %s' "$(( (now - a) / 60 ))" "$(_ep_hhmm "$a")"; return 0; fi
+  printf '처음 없음 %s(%s분)' "$(_ep_hhmm "$a")" "$(( (now - a) / 60 ))"; return 1
+}
 watch_alarm() {  # <to> <우편함 comm 절대경로(빈 값 → _mbox_dir)> <계기 쪽지 seq>
-  local to="$1" ft hs hm mk q
+  local to="$1" ft hs hm mk af ev q grc=0
   ft="$(dirname "${2:-$(_mbox_dir)}")"
   mk="$ft/state/planner-watch-missing.$(printf '%s' "$to" | tr -c 'A-Za-z0-9._#-' '_')"
+  af="$ft/state/planner-watch-absent-since.$(printf '%s' "$to" | tr -c 'A-Za-z0-9._#-' '_')"
   [ -n "$(find "$mk" -mmin -10 2>/dev/null)" ] && return 0
+  ev="$(_absent_grace "$af" "${FT_WATCH_REARM_GRACE_SEC:-300}" "${FT_WATCH_SAMPLE_STALE_SEC:-180}")" || grc=$?
+  if [ "$grc" = 0 ]; then
+    echo "WATCH-REARM 대기 $ev — $to 다시 거는 틈이라 긴급 0통($af)" >&2
+    return 0
+  fi
   hs="${FT_HARNESS_SEATS_JSON:-$ft/seats-harness.json}"
   hm="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1],encoding="utf-8")).get("_master") or "")' "$hs" 2>/dev/null)"
   [ -n "$hm" ] || { echo "WARN planner watch 없음 $to — 하네스 master 를 못 찾음($hs) · 긴급 0통" >&2; return 0; }
-  q="$(python3 "$MBOXPY" send "$hm" ft-watch-alarm "[긴급 · planner watch 없음] $to · 감지 $(date +%H:%M) · 계기 쪽지 #${3:-?} · 시작: Monitor → bash $ft/bin/ft-inbox-watch.sh $to")" \
+  q="$(python3 "$MBOXPY" send "$hm" ft-watch-alarm "[긴급 · planner watch 없음] $to · 감지 $(date +%H:%M) · 계기 쪽지 #${3:-?} · 감시 프로세스 0(pgrep) · $ev · 시작: Monitor → bash $ft/bin/ft-inbox-watch.sh $to")" \
     || { echo "WARN planner watch 없음 $to — 긴급 적재 실패(다음 send 재시도)" >&2; return 0; }
   mkdir -p "$ft/state" && : > "$mk"
   echo "WARN planner watch 없음 $to — 하네스 master $hm 긴급 seq=$(seq_of "$q")" >&2
 }
 # user_facing send/relay 공통: 감시 없으면 db 에 꼬리 «(WATCH 없음)» 을 붙이고(quiet → quiet(WATCH 없음)) 알린다. 감시 있으면 db 그대로.
 uf_watch() { watch_alive "$1" && return 0; db="${db}(WATCH 없음)"; watch_alarm "$1" "$2" "$3"; }
+# ★r928 r3 표본기 — 표본 파일의 유일한 쓰는 쪽★ (ft-tick 이 60초마다 `watch-sample <planner _master> <comm>`)
+#   감시 있음 → «<지금>\t0» · 없음 → 앞 표본이 «정상»(두 칸 정수 · 표본 ≤ 지금 · 처음 없음 ≤ 표본)이고 처음 없음 > 0 이면 그 값 그대로, 없거나 0(감시 있었음)이면 «<지금>\t<지금>».
+#   ★r4 원칙 «표본기가 실패하면 옛 파일을 믿지 않는다»(DECISION-r928-r4-final 고침 1·2)★ — 아래는 모두 _sample_fail: stderr `WATCH-ABSENT 이상(<사유>)` 1줄 + 표본 파일 지움
+#     (못 지우면 같은 폴더 `<파일>.broken` 표식 · 그것도 실패면 stderr 1줄 더) + rc1. 송신 쪽은 표본 없음·.broken 을 긴급으로 본다 · 지운 뒤 다음 표본이 새로 시작한다.
+#     쓰기 실패(감시 없음) · 지우기 실패(감시 있음 = 0 으로 덮기) · 앞 표본이 심링크·일반 파일 아님·읽기 실패·본문 깨짐·미래(첫 칸이든 둘째 칸이든 «되살리기» 0).
+#   표본을 쓰는 데 성공하면 .broken 표식을 지운다(못 지우면 stderr + rc1 — 송신 쪽은 계속 긴급).
+_sample_put() {  # <파일> <처음 없음 epoch|0> <지금> — 같은 폴더 임시 파일 + mv(원자 · 반쯤 쓴 표본 0)
+  local t
+  t="$(mktemp "$(dirname "$1")/.watch-sample.XXXXXX" 2>/dev/null)" || return 1
+  printf '%s\t%s\n' "$3" "$2" > "$t" 2>/dev/null && mv -f "$t" "$1" 2>/dev/null && return 0
+  rm -f "$t" 2>/dev/null; return 1
+}
+_sample_fail() {  # <파일> <사유> — 언제나 rc1
+  echo "WATCH-ABSENT 이상($2) $1" >&2
+  rm -f "$1" 2>/dev/null
+  if [ -e "$1" ] || [ -L "$1" ]; then
+    : > "$1.broken" 2>/dev/null || echo "WATCH-ABSENT 이상(.broken 표식 실패 · 옛 표본 남음) $1" >&2
+  fi
+  return 1
+}
+_sample_ok() {  # <파일> — 쓰기 성공 뒤 .broken 표식 정리
+  rm -f "$1.broken" 2>/dev/null
+  if [ -e "$1.broken" ] || [ -L "$1.broken" ]; then echo "WATCH-ABSENT 이상(.broken 표식 못 지움) $1" >&2; return 1; fi
+  return 0
+}
+watch_sample() {  # <좌석> <우편함 comm 절대경로(빈 값 → _mbox_dir)>
+  local to="$1" st f now line s="" a=""
+  st="$(dirname "${2:-$(_mbox_dir)}")/state"
+  f="$st/planner-watch-absent-since.$(printf '%s' "$to" | tr -c 'A-Za-z0-9._#-' '_')"
+  now="$(date +%s)"; mkdir -p "$st" 2>/dev/null
+  if [ -L "$f" ] || { [ -e "$f" ] && [ ! -f "$f" ]; }; then _sample_fail "$f" "일반 파일 아님"; return 1; fi
+  if watch_alive "$to"; then
+    _sample_put "$f" 0 "$now" || { _sample_fail "$f" "지우기 실패"; return 1; }
+    _sample_ok "$f" || return 1
+    echo "SAMPLE alive $to"; return 0
+  fi
+  if [ -e "$f" ]; then
+    line="$(head -1 "$f" 2>/dev/null)" || { _sample_fail "$f" "읽기 실패"; return 1; }
+    case "$line" in *$'\t'*) s="${line%%$'\t'*}"; a="${line#*$'\t'}" ;; *) s="x" ;; esac
+    case "$s" in ''|*[!0-9]*) _sample_fail "$f" "본문 깨짐"; return 1 ;; esac
+    case "$a" in ''|*[!0-9]*) _sample_fail "$f" "본문 깨짐"; return 1 ;; esac
+    if [ "${#s}" -gt 12 ] || [ "${#a}" -gt 12 ]; then _sample_fail "$f" "본문 깨짐"; return 1; fi
+    s=$((10#$s)); a=$((10#$a))
+    if [ "$s" -gt "$now" ] || [ "$a" -gt "$s" ]; then _sample_fail "$f" "미래 값"; return 1; fi
+  fi
+  [ -n "$a" ] && [ "$a" != 0 ] || a="$now"
+  _sample_put "$f" "$a" "$now" || { _sample_fail "$f" "쓰기 실패"; return 1; }
+  _sample_ok "$f" || return 1
+  echo "SAMPLE absent $to since=$a"; return 0
+}
 
 cmd="${1:-}"; shift || true
 case "$cmd" in
@@ -339,5 +434,7 @@ case "$cmd" in
          db="$(doorbell "$sess" 1 "${2:-}" "$_rc_md")"; echo "RING $sess doorbell=$db" ;;
   # watch-alive — 세션 안 감시 실재 판정(판정기 하나 · ft_teamset.py 도 이것을 부른다 · r408). rc0 `OK` / rc3 `NO` · 큐·pane 무변경.
   watch-alive) sess="${1:?sess}"; if watch_alive "$sess"; then echo "OK watch $sess"; else echo "NO watch $sess"; exit 3; fi ;;
-  *) echo "usage: ft-mbox.sh {send <to> <from> <body> [--urgent] [--force]|relay <to> <from> <file> <summary>|recv <me> [<from>] [--all]|peek <me>|ring <sess> [seq]|watch-alive <sess>}" >&2; exit 2;;
+  # watch-sample — r928 r3 표본기(ft-tick 60초 루프 · 표본 파일의 유일한 쓰는 쪽). rc0 `SAMPLE alive|absent …` / rc1 이상(stderr 1줄) · 큐·pane 무변경.
+  watch-sample) sess="${1:?sess}"; watch_sample "$sess" "${2:-}" || exit 1 ;;
+  *) echo "usage: ft-mbox.sh {send <to> <from> <body> [--urgent] [--force]|relay <to> <from> <file> <summary>|recv <me> [<from>] [--all]|peek <me>|ring <sess> [seq]|watch-alive <sess>|watch-sample <sess> [<comm>]}" >&2; exit 2;;
 esac

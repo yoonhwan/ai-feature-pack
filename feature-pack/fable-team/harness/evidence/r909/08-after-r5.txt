@@ -1,0 +1,5 @@
+# r909 r5 증거 — 문서 코드 울타리도 코드 파일 규칙(DA⑥ r4 HOLD 1 · REWORK-r909-r5.md)
+고친 곳: bin/autonomy_scope_secret.py doc_cmds — 코드 언어 울타리(python·ts·go 등) 본문을 통째 제외하지 않고 판정하되 문자열 리터럴 밖 식별자 set( 만 가림. 비코드 언어(text 등)는 기준판처럼 전부 판정.
+시험: tests/test_autonomy_scope_fp_r909.sh 68 PASS (r5 반례 docs python 울타리 os.system("set") → FORBID · ts 울타리 · text 울타리 · 변이 «울타리 통째 제외 복귀» 빨강 포함)
+기존: pack · plain3_r658 · keyword_docs · secret_output_mask · secret_scan rc0 · ruff rc0 · kit 사본 cmp0 · ft_secret_targets/judge 기준판 diff 0줄
+pytest secret(python3.11): 430 passed + 4 failed = test_ft_secret_shapes 의 «1MB 200ms» 시간 시험(부하 load 40~80 에서 간헐) — 같은 시험이 재실행에서 15 passed 로 통과하는 것 확인 · 이 변경과 무관(해당 모듈은 기준판 바이트 같음)

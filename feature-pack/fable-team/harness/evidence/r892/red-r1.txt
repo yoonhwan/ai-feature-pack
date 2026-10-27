@@ -1,0 +1,8 @@
+FAILED fable-team/harness/tests/scripts/test_ledger_fill_disk_cards_r892.py::test_b_card_moved_between_folder_globs_not_lost
+FAILED fable-team/harness/tests/scripts/test_ledger_fill_disk_cards_r892.py::test_g_ping_pong_card_counted_once_or_warned_never_zero[3]
+FAILED fable-team/harness/tests/scripts/test_ledger_fill_disk_cards_r892.py::test_h_harness_root_missing_is_fill_error
+FAILED fable-team/harness/tests/scripts/test_ledger_fill_disk_cards_r892.py::test_h_listing_permission_error_is_fill_error
+FAILED fable-team/harness/tests/scripts/test_ledger_fill_disk_cards_r892.py::test_h_one_state_folder_missing_warn_not_silent
+FAILED fable-team/harness/tests/scripts/test_ledger_fill_disk_cards_r892.py::test_c_done_card_stat_moved_skipped
+FAILED fable-team/harness/tests/scripts/test_ledger_fill_disk_cards_r892.py::test_i_skipped_card_tail_in_goal_table_and_team_table
+7 failed, 9 passed in 2.56s

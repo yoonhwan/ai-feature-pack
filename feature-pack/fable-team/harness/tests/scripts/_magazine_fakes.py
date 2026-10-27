@@ -46,7 +46,8 @@ def detail_fixture() -> dict:
         "units": [{
             "team": "harness", "path": "design/harness/indices/완성/x.md", "title": "예시 단위", "why": "왜 이 단위를 했는지 전문",
             "coord": "하네스 GOAL 표 / 닫는 증거: …", "evidence": ["- 세트: " + "d" * 40 + " · 시험: pytest rc=0 · 이슈: 0"],
-            "da": "design/harness/OPS-VERDICTS-20261008.md#§3", "moved_sha": "e" * 40, "ref": "ops/main-base",
+            "done": "- 닫힘 판정문: design/harness/OPS-VERDICTS-20261008.md#§3 — 완성 이동 = master --landed " + "e" * 10,
+            "da": "design/harness/OPS-VERDICTS-20261008.md#§3", "moved_sha": "e" * 40, "ref": "origin/ops/main-base",
         }],
         "malformed": [],
         "verdict_sections": [{"path": "design/harness/OPS-VERDICTS-20261008.md", "section": "§3", "title": "예시 판정 — 닫힘", "body": "판정 본문 전문"}],
@@ -113,6 +114,9 @@ class FakeMagazineSlack:
                     return self._reply({"ok": True})
                 ts = outer._next_ts()
                 body = json.loads(data)
+                if self.path.endswith("chat.delete"):  # r1004 되읽기 가드 — 지운 글은 목록에서 사라진다
+                    outer.msgs = [m for m in outer.msgs if m["ts"] != body["ts"]]
+                    return self._reply({"ok": True})
                 outer.msgs.append({"ts": ts, "text": body["text"], "bot_id": "B1", "thread_ts": body.get("thread_ts", "")})
                 if outer.drop_after_create:
                     outer.drop_after_create = False
@@ -124,7 +128,9 @@ class FakeMagazineSlack:
                 u = urlparse(self.path)
                 q = {k: v[0] for k, v in parse_qs(u.query).items()}
                 if u.path.endswith("conversations.history"):
-                    roots = [m for m in outer.msgs if not m["thread_ts"] and float(m["ts"]) > float(q["oldest"])]
+                    lo, hi = float(q["oldest"]), float(q.get("latest") or "9" * 12)
+                    inc = q.get("inclusive") == "true"  # r1004: 되읽기가 «그 글 하나»(oldest=latest=ts · inclusive)를 묻는다
+                    roots = [m for m in outer.msgs if not m["thread_ts"] and (lo <= float(m["ts"]) if inc else lo < float(m["ts"])) and float(m["ts"]) <= hi]
                     return self._reply({"ok": True, "messages": list(reversed(roots))})
                 if u.path.endswith("conversations.replies"):
                     if outer.fail_replies:

@@ -1,0 +1,10 @@
+R765 ⓙ 회귀 — 제안 계열 시험 8종 전수
+---
+test_proposal_approve_inbox.sh rc=0 ALL PASS
+test_proposal_card.sh rc=0 ALL PASS
+test_proposal_gate.sh rc=0 ALL PASS
+test_proposal_gate_wiring.sh rc=0 REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+test_proposal_interview_gate.sh rc=0 ALL PASS
+test_proposal_ledger_table_row.sh rc=0 ALL PASS
+test_proposal_open.sh rc=0 ALL PASS
+test_proposal_register.sh rc=0 ALL PASS

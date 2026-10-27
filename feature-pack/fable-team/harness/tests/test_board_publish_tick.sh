@@ -18,10 +18,14 @@ LOG="$T/slack.log"; CALLS="$T/calls"; : > "$LOG"; : > "$CALLS"
 
 # 가짜 슬랙 API — 한 줄 = METHOD|channel|ts|thread_ts. $T/fail_reply 가 있으면 스레드 답글만 ok=false.
 python3 - "$T" <<'PY' &
-import http.server, json, os, sys
+import http.server, json, os, sys, urllib.parse
 T = sys.argv[1]
 class H(http.server.BaseHTTPRequestHandler):
     n = 0
+    TEXT = {}  # ts → 게시·갱신된 text — 되읽기(conversations.history GET)가 그 글을 돌려준다(r1022)
+    def _send(self, out):
+        b = json.dumps(out).encode()
+        self.send_response(200); self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b)
     def do_POST(self):
         p = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
         m = self.path.rsplit("/", 1)[-1]
@@ -30,10 +34,14 @@ class H(http.server.BaseHTTPRequestHandler):
         else:
             H.n += 1
             out = {"ok": True, "ts": p.get("ts") or f"1700000000.{H.n:06d}"}
+            H.TEXT[out["ts"]] = p["text"]
             with open(f"{T}/slack.log", "a") as f:
                 f.write(f"{m}|{p.get('channel')}|{out['ts']}|{p.get('thread_ts', '')}\n")
-        b = json.dumps(out).encode()
-        self.send_response(200); self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b)
+        self._send(out)
+    def do_GET(self):  # 되읽기 가드(r1004) — oldest/latest 로 그 글 하나
+        q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+        ts = (q.get("latest") or q.get("oldest") or [""])[0]
+        self._send({"ok": True, "messages": [{"ts": ts, "text": H.TEXT[ts]}] if ts in H.TEXT else []})
     def log_message(self, *a): pass
 s = http.server.HTTPServer(("127.0.0.1", 0), H)
 open(f"{T}/port", "w").write(str(s.server_port))

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ft-nano-close.sh <좌석> --result <산출경로> --recv <master seq> [--kill] [--cherry-override "<사유>" | --superseded-by <대체 카드 경로> | --suspended "<사유>"] [--shared-wt | --wt <경로> --branch <이름>]
+# ft-nano-close.sh <좌석> --result <산출경로> --recv <master seq> [--kill] [--cherry-override "<사유>" | --superseded-by <대체 카드 경로> | --suspended "<사유>" | --landed-pr <PR 번호>] [--shared-wt | --wt <경로> --branch <이름>]
 # ft-nano-close.sh <좌석> --never-started "<사유>" [--wt <경로> --branch <이름>]
 #   --never-started "<사유>" = 발주를 한 번도 처리하지 못한 나노(산출 0)를 닫는다(r506). ①--result ②--recv ⑥증거 줄을 면제하는 대신 ft-nano-never-started-check.sh 가
 #     «한 일 0» 을 값 4개(대화 기록 assistant 턴 0 · base 위 커밋 0 · 워크트리 미커밋 0 · 좌석 발신 쪽지 0)로 센다 — 하나라도 0 이 아니거나 셀 수 없으면 REJECT.
@@ -13,6 +13,13 @@
 #     HEAD(브랜치 위)·미커밋 0 을 보고(실작업물 미커밋은 먼저 [wip] 커밋 · 실패 = REJECT), 닫기 직전 카드 «## 상태» 끝에 `중단: <사유> · 세트 <HEAD> · …` 1줄(멱등)을 남긴다.
 #     ⑤ cherry 게이트엔 --override "suspended: <사유>" 자동 전달 · 원장 행 suspended=1 reason=… set=… · 출력 `CLOSED <좌석> suspended=1 reason=<사유> set=<HEAD>` · 브랜치 삭제 0.
 #     빈 사유·--superseded-by·--cherry-override 와 동시 = usage 2 · 인자 없으면 동작 불변.
+#   --research = 자료 조사 좌석(코드 0 · 조사 결과만 · 예: pi 리서치 나노)을 닫는다(r888). ⑥ 구현 증거 줄(세트·시험 rc0)은 생길 수 없어 면제하고 그 자리에서 «코드 0» 을 값 2개로 센다 —
+#     r4: 기준 판(좌석 브랜치 reflog 맨 처음 «branch: Created from» sha · 없으면 REJECT · 카드 줄 안 읽음) 뒤 첫 부모 줄기 비병합 커밋 0 · 머리 맞춤 병합은 끌어온 쪽이 origin/main 조상일 때만 · 미커밋 0(정확 경로 · 예외 «?? .serena/project.yml» 하나) · FT_NANO_FEAT 가 좌석 자기 브랜치면 REJECT.
+#     하나라도 아니면 REJECT «리서치 아님 · 구현 닫기 경로로» · 셀 수 없으면 REJECT · ①--result 실재 ∧ 비어 있지 않음(0바이트 = REJECT) · ②·③·⑤ 그대로 · 원장 행·출력 꼬리 research=1 · --never-started·--superseded-by·--suspended·--cherry-override·--shared-wt 와 동시 = usage 2 · 인자 없으면 동작 불변.
+#     r978 고침 1: 커밋·미커밋이 있어도 그 «경로 전부» 가 --result 1개뿐이면 통과(리서치 표를 커밋해도 닫힌다 · r976 꼴). 그 밖 경로가 1개라도 있으면 지금처럼 REJECT.
+#   카드 읽기(r888): 명부 index 의 카드는 FT_CARD_REF(기본 origin/main · 닫기 직전 그 ref 하나만 fetch)의 indices/{진행,완성,대기}/<파일> 판을 먼저 «읽는다»(INFO 카드 위치 ← <ref>:<경로>).
+#     ref 에 없으면 기존 후보(작업 트리) 그대로 · fetch 실패면 옛 ref 판을 믿지 않는다(WARN 1줄 · 작업 트리 후보) · 쓰기(리서치 닫힘·중단 줄)는 작업 트리 사본 그대로.
+#   카드 찾기(r960): 위 후보(WT·ROOT·LEDGER_WT·형제 폴더)에 카드가 없으면 «좌석 가지»에서 찾는다 — 좌석 워크트리(가지 체크아웃) 인덱스 폴더 먼저(읽기·쓰기), 없으면 가지 tip 의 ref 판(읽기 전용). 정보 = «INFO 카드 위치 ← <가지>:<경로>» 1줄. 가지에도 없으면 지금처럼 ⑥카드 못 찾음 REJECT.
 #   --wt <경로> --branch <이름> = 전용 워크트리는 있는데 «이름이 표준(.worktrees/<접두><키> · nano/<키>)이 아닌» 좌석 닫기(원장 R8 보강) — 둘 «모두» 명시해야만 이 모드(하나만 · --shared-wt 와 동시 = usage 2 · 자동 판별 0).
 #     확인 ⓐ등록된 .worktrees/ 아래 워크트리 ⓑ그 워크트리 체크아웃 브랜치 == --branch ⓒ세션이 살아 있으면 pane cwd toplevel == --wt ⓓ다른 pane 이 --wt 안 cwd 0 ⓔ미커밋 0 ⓕ기존 종료조건 3·증거 줄 ⓖcherry 는 --branch 기준(우회는 기존 --cherry-override 뿐).
 #     통과해도 WIP 자동 커밋·wt-clean 실행·브랜치 삭제 0 — 정리 계획만 <wt-clean>/<seat>.sh.hil 로 생성(sweep 순회 밖 · 사람 ! 실행).
@@ -24,6 +31,14 @@
 #   --superseded-by <카드> = 다른 카드로 «대체된» 나노(세트를 랜딩하지 않아 ⑥ rc=0 증거 줄이 영원히 없다)를 닫는다(R171). 이 인자가 있으면 ⑥ 의 rc=0 증거 줄 대신 ft-nano-superseded-check.sh 가
 #     «카드 ## 상태 맨 끝 줄 = 대체됨: <카드> · 사유: <글>» + 대체 카드(design/[teams/]<팀>/indices/{대기,진행,완성,완료}/*.md) 실재 + 자기 자신 아님을 요구하고, ⑤ cherry 게이트엔 --override "superseded-by <카드>"(원장 1행)를 넘긴다.
 #     --cherry-override 와 동시 = usage 2 · 인자 없으면 동작 불변 · 브랜치 삭제 0 · 명부는 기존 CLOSED 경로가 갱신(손 편집 불필요) · 출력 `CLOSED <좌석> superseded-by=<카드> …`.
+#   --landed-pr <PR 번호> = 「이미 착지(squash)가 끝난」 나노 좌석을 닫는다(r1011). ⑤ cherry(가지 «+» 커밋 0)와 ⑥ 증거 줄 세트 대조(«세트 == 지금 HEAD»)를
+#     «gh pr view <N> --json state,mergeCommit,headRefOid 가 MERGED ∧ headRefOid == 카드 «## 상태» 절 «안» 의 마지막 «세트:» sha(40-hex 정확 일치) ∧ 카드에 «- 착지:» 줄 실재» 로「대체»한다.
+#     ★r2(DA⑥ HOLD ①): 세트 줄은 «## 상태» 절 안에서만 고른다(절 경계 = 다음 `## ` 머리) — 파일 뒤 «## 참고» 절의 세트 줄을 집으면 거짓 통과·거짓 거절이 난다 · 상태 절에 세트 줄 0 = REJECT.
+#     ★r2(DA⑥ HOLD ②): PR 검증은 «명부 부재·조기 재실행» 경로보다 «먼저» 돈다 — gh 1회 · 실패·시간 초과·MERGED 아님 = 그 자리 REJECT 1줄(닫기 0 · kill·명부·원장 손 0). 명부에 행이 없어 카드 index 를 모르면 같은 자리 REJECT.
+#     착지가 squash 면 세트 sha 는 main 의 조상이 아니고 워크트리 HEAD 도 움직여 기존 ⑤⑥ 이 전부 어긋난다 — 그 자리를 PR 하나로 바꾼다.
+#     나머지(①②③④ · 세션 kill · 워크트리 정리 계획 · 명부 CLOSED · 원장 행)는 기존 경로 그대로 · 원장 행·출력 꼬리에 `landed-pr=<N>`.
+#     gh 호출은 «1회 · 7초 상한»(FT_NANO_LANDED_PR_CAP_S 로만 줄인다) — 시간 초과·rc≠0 = REJECT 1줄(닫기 0 · 조용한 통과 0). 브랜치 삭제 0.
+#     다른 모드(--never-started·--superseded-by·--suspended·--research·--cherry-override·--shared-wt·--wt/--branch·--plan-only·--replan)와 동시 = usage 2 · 인자 없으면 동작 불변.
 #   --plan-only <워크트리 경로> = 이미 좌석이 사라졌는데 정리 계획이 없는 나노 워크트리의 «계획만» 만든다(r-disk-drop-worktree-scratch-census · ft-disk-census.sh --plan 이 부른다). ①②③ 종료조건·cherry 게이트·명부·원장 행·kill 전부 건너뛰고
 #     확인: 좌석 세션 0(tmux 조회 성공) · 그 경로가 이 리포 .worktrees/ 아래 등록 워크트리 · 가지가 nano/<좌석 키>[-rN]. 통과하면 <wt-clean>/<seat>.sh 생성 + `PLANNED <경로>` + exit 0 — 실행은 기존 ft-wt-sweep.sh. 착지 판정은 호출자(census) 몫이고, 원장에 닫힘 행이 없어도 계획은 표식 실패로 멈추지 않는다.
 #   --replan <옛 계획 파일> = 옛 판(plan-ver ≠ 이 생성기) 계획을 같은 좌석·같은 WT 로 다시 만든다(r535 · ft-wt-sweep.sh 가 부른다). 굽힌 값(SEAT·KEY·WT·PREFIX·LEDGER·FT_NANO_WIP·PLAN_ONLY·MAINREF)만 옛 계획에서 읽고
@@ -34,6 +49,8 @@
 #   --kill 은 호환용 — 닫으면 항상 태그 해제 + kill-session(2026-10-02 · keep-last-2 검사 삭제, nano 계보는 대상 아님).
 # 종료조건 3 (전부 «값»): ①--result 경로 실재 ②--recv master 회수 seq 가 우편함/bodies 에 실재 ③jsonl 마지막 활동 ≥ IDLE_MIN 분 전
 # 종료조건 ④ (팩 1.0.2): press/시험 카드면 마지막 checkpoint 표 실재 + alarm=no (checkpoint.json 미설정 프로젝트는 경고만).
+# r938 단계 시각 줄·외부 호출 상한 (하드 룰 12): ④checkpoint 뒤 단계마다 stderr 한 줄 `STEP <이름> +<초>s`(⑥증거검사·⑤cherry·fetch·freshness·sheet·ledger·slots) — stdout 은 0줄(사람 출력 그대로).
+#   fetch = 7초 + 재시도 1(ft-merge-lib fm_fetch · 없으면 time 직접) · 하위 검사 = min(고정비 4.5초 + 7초 × 배수, 70초) 넘으면 REJECT «<단계> 시간 초과 — 닫지 않음».
 # 하네스 0.5 행 2 r3 (표준승인 2026-09-25 · ~/.claude/CLAUDE.md HIL 절 · DA r1 조건 1~7 · DA r2 조건 1~5):
 #   close 는 워크트리 정리 계획을 «생성만» 한다(.fable-team/state/wt-clean/<seat>.sh · 원장 행 wt=planned). 조건 ③이 세션 실재를 요구하므로
 #   close 시점엔 좌석이 살아 있다 — 실행은 «세션이 사라진 뒤»: --kill 이 KILLED 를 낸 직후, 또는 ft-wt-sweep.sh(ft-tick.sh 가 매 루프 호출 · r3 배선).
@@ -42,9 +59,13 @@
 #   FT_WT_AUTOCLEAN=0 = 실행 경로 전부 끔(계획만 남김). 원장 경로는 리포 고정(ROOT 기준 · DA r2 MINOR C) — FT_NANO_LEDGER 로 override.
 set -uo pipefail
 [ -f "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" ] && . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" "$@"   # R201: 비설치 위치면 LIVE_BIN 으로 exec
+# ★r938 ⓐ 단계 시각 줄★ — ④checkpoint 뒤 단계마다 «STEP <이름> +<초>s» 를 stderr 에 찍는다. 지금은 그 단계들의 출력이 변수에 담겨 끝에 한꺼번에 나와
+#   «어느 단계에서 멈췄는지» 화면으로 알 길이 0(실측: ④ WARN 뒤 70초+ 무출력 · master#114 #169157). stdout 은 손대지 않는다(사람 출력 회귀 0 · 시험 ⓐ).
+T0="$(date +%s)"
+step() { printf 'STEP %s +%ss\n' "$1" "$(( $(date +%s) - T0 ))" >&2; }
 SEAT="${1:-}"; shift || { echo "usage: $0 <seat> --result <path> --recv <seq> [--kill]" >&2; exit 2; }
-RESULT=""; RECV=""; PLAN_ONLY=0; PO_WT=""; KILL=1; IDLE_MIN="${FT_NANO_IDLE_MIN:-3}"; CHERRY_OVERRIDE=""; HAVE_CHERRY_OVERRIDE=0; SUPER=0; SUPERSEDED=""; SHARED=0; HAVE_NWT=0; HAVE_NBR=0; NWT=""; NBR=""; SUSP=0; SUSP_REASON=""; SUSP_SET=""; NEVER=0; NEVER_REASON=""; NS_SUCC=""; NS_LAND=""; REPLAN=0; RP_OLD=""
-while [ $# -gt 0 ]; do case "$1" in --result) RESULT="$2"; shift 2;; --recv) RECV="$2"; shift 2;; --kill) KILL=1; shift;;
+RESULT=""; RECV=""; PLAN_ONLY=0; PO_WT=""; KILL=1; IDLE_MIN="${FT_NANO_IDLE_MIN:-3}"; CHERRY_OVERRIDE=""; HAVE_CHERRY_OVERRIDE=0; SUPER=0; SUPERSEDED=""; SHARED=0; HAVE_NWT=0; HAVE_NBR=0; NWT=""; NBR=""; SUSP=0; SUSP_REASON=""; SUSP_SET=""; NEVER=0; NEVER_REASON=""; NS_SUCC=""; NS_LAND=""; REPLAN=0; RP_OLD=""; RESEARCH=0; LANDED_PR=""; HAVE_LPR=0
+while [ $# -gt 0 ]; do case "$1" in --result) RESULT="$2"; shift 2;; --recv) RECV="$2"; shift 2;; --kill) KILL=1; shift;; --research) RESEARCH=1; shift;;
   --replan) [ $# -ge 2 ] && [ -f "$2" ] || { echo "usage: --replan <옛 계획 파일> (인자 누락·파일 없음)" >&2; exit 2; }; REPLAN=1; RP_OLD="$2"; shift 2;;
   --plan-only) [ $# -ge 2 ] || { echo "usage: --plan-only <워크트리 경로> (경로 인자 누락)" >&2; exit 2; }; PLAN_ONLY=1; PO_WT="$2"; shift 2;; --shared-wt) SHARED=1; shift;;
   --wt) [ $# -ge 2 ] || { echo "usage: --wt <경로> (경로 인자 누락)" >&2; exit 2; }; HAVE_NWT=1; NWT="$2"; shift 2;;
@@ -53,6 +74,7 @@ while [ $# -gt 0 ]; do case "$1" in --result) RESULT="$2"; shift 2;; --recv) REC
   --superseded-by) [ $# -ge 2 ] || { echo "usage: --superseded-by <대체 카드 경로> (경로 인자 누락)" >&2; exit 2; }; SUPER=1; SUPERSEDED="$2"; shift 2;;
   --suspended) [ $# -ge 2 ] || { echo "usage: --suspended <사유> (사유 인자 누락)" >&2; exit 2; }; SUSP=1; SUSP_REASON="$2"; shift 2;;
   --never-started) [ $# -ge 2 ] || { echo "usage: --never-started <사유> (사유 인자 누락)" >&2; exit 2; }; NEVER=1; NEVER_REASON="$2"; shift 2;;
+  --landed-pr) [ $# -ge 2 ] || { echo "usage: --landed-pr <PR 번호> (번호 인자 누락)" >&2; exit 2; }; HAVE_LPR=1; LANDED_PR="$2"; shift 2;;
   *) echo "unknown $1" >&2; exit 2;; esac; done
 # --never-started(r506): 빈·여러 줄 사유 · 다른 ⑥ 면제 모드(--superseded-by·--suspended)·--shared-wt(전용 워크트리가 없어 «한 일 0» 을 셀 수 없다)와 동시 = usage(2)
 if [ "$NEVER" -eq 1 ]; then
@@ -60,6 +82,12 @@ if [ "$NEVER" -eq 1 ]; then
   case "$NEVER_REASON" in *$'\n'*|*$'\r'*) echo "usage: --never-started 사유는 한 줄이어야 한다" >&2; exit 2;; esac
   [ "$SUPER" -eq 0 ] && [ "$SUSP" -eq 0 ] || { echo "usage: --never-started 는 --superseded-by·--suspended 와 동시에 못 쓴다(⑥ 면제 사유가 둘이 된다)" >&2; exit 2; }
   [ "$SHARED" -eq 0 ] || { echo "usage: --never-started 는 --shared-wt 와 같이 쓰지 못한다(공유 워크트리의 커밋·미커밋은 좌석 몫으로 셀 수 없다)" >&2; exit 2; }
+fi
+# --research(r888): 다른 ⑥ 면제 · ⑤ 우회(리서치 조건이 cherry +0 이다) · --shared-wt(좌석 몫 «코드 0» 을 셀 수 없다)와 동시 = usage(2)
+if [ "$RESEARCH" -eq 1 ]; then
+  [ "$NEVER" -eq 0 ] && [ "$SUPER" -eq 0 ] && [ "$SUSP" -eq 0 ] || { echo "usage: --research 는 --never-started·--superseded-by·--suspended 와 동시에 못 쓴다(⑥ 면제 사유가 둘이 된다)" >&2; exit 2; }
+  [ "$HAVE_CHERRY_OVERRIDE" -eq 0 ] || { echo "usage: --research 는 --cherry-override 와 같이 쓰지 못한다(리서치 = cherry +0 이 조건이다)" >&2; exit 2; }
+  [ "$SHARED" -eq 0 ] || { echo "usage: --research 는 --shared-wt 와 같이 쓰지 못한다(공유 워크트리의 커밋·미커밋은 좌석 몫으로 셀 수 없다)" >&2; exit 2; }
 fi
 # --suspended(r450): 빈 사유·다른 우회 인자와 동시 = usage(2) — ⑤·⑥ 우회 사유가 둘이 되면 원장 사유가 갈린다(--superseded-by 와 같은 꼴)
 if [ "$SUSP" -eq 1 ] && [ -z "${SUSP_REASON//[[:space:]]/}" ]; then echo "usage: --suspended 사유가 비어 있음(사유 없는 면제 거부)" >&2; exit 2; fi
@@ -79,8 +107,114 @@ if [ "$HAVE_NWT" -eq 1 ]; then
   [ "$SHARED" -eq 0 ] || { echo "usage: --shared-wt 와 --wt/--branch 는 같이 쓰지 못한다" >&2; exit 2; }
   NAMED=1
 fi
+# --landed-pr(r1011): 착지 끝 좌석 — ⑤ cherry·⑥ 세트 대조를 PR 로 대체한다. 빈 값 · 다른 모드와 동시 = usage(2) — 닫기 경로·우회 사유가 둘이 되면 원장이 갈린다.
+if [ "$HAVE_LPR" -eq 1 ]; then
+  [ -n "${LANDED_PR//[[:space:]]/}" ] || { echo "usage: --landed-pr 번호가 비어 있음(빈 번호로 닫지 않는다)" >&2; exit 2; }
+  [ "$NEVER" -eq 0 ] && [ "$SUPER" -eq 0 ] && [ "$SUSP" -eq 0 ] && [ "$RESEARCH" -eq 0 ] && [ "$HAVE_CHERRY_OVERRIDE" -eq 0 ] && [ "$SHARED" -eq 0 ] && [ "$HAVE_NWT" -eq 0 ] && [ "$PLAN_ONLY" -eq 0 ] && [ "$REPLAN" -eq 0 ] \
+    || { echo "usage: --landed-pr 는 다른 모드(--never-started·--superseded-by·--suspended·--research·--cherry-override·--shared-wt·--wt/--branch·--plan-only·--replan)와 동시에 못 쓴다(닫기 경로가 둘이 된다)" >&2; exit 2; }
+fi
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 if [ -f "$HERE/ft-team-lib.sh" ]; then . "$HERE/ft-team-lib.sh"; else echo "WARN ft-team-lib.sh 없음($HERE) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)" >&2; fi
+# ★r938 ⓒ 단계 상한 (r2 · DA⑥ r1 N2·N3)★ — 팩 공용 상한 함수(ft-merge-lib.sh: fm_timeout_bin · 7초 룰 판정 666)를 쓰되, 없는 시험·부분 설치에서는
+#   python3 로 내려간다. 상한 = min(고정비 + 7초 × 배수, 70초) — 하드 룰 12 «쪼갤 수 없는 배치» 꼴.
+#   고정비 = «그 검사 자체를 이 맥에서 3회 잰 값»으로 단계별로 따로 둔다(push 측정값 재사용 0 · 측정은 아래 nf_fixed 주석).
+#   배수 = 그 검사가 보는 «작업량»(커밋 수 · 리포·ref 수) — 상한 상한 70초·하한 7초.
+#   FT_NANO_CAP_S(시험 전용 · 양의 정수) 가 있으면 그 값을 쓴다(ⓖ·ⓗ 가 1초 상한을 건다).
+if [ -f "$HERE/ft-merge-lib.sh" ]; then . "$HERE/ft-merge-lib.sh"; else echo "INFO ft-merge-lib.sh 없음($HERE) — 단계 상한은 python3 직접으로 건다" >&2; fi
+nf_fixed() {  # <단계> → 고정비(초) — 이 맥 3회 측정(aifp r938 워크트리 2026-10-26): 증거검사 0.04·0.04·0.07 / cherry 0.61·0.66·0.61 / freshness 0.55·0.23·0.31
+  case "$1" in
+    증거검사) echo 1.0;;    # 측정 최대 0.07 → 14배 여유(카드·카드 ref 읽기 포함)
+    cherry)   echo 2.0;;    # 측정 최대 0.66 → 3배 여유(git cherry + diff)
+    freshness) echo 1.5;;   # 측정 최대 0.55 → 3배 여유
+    *)        echo 1.0;;
+  esac
+}
+nf_mult_commits() {  # <repo> <feat> <branch> → 그 검사가 보는 커밋 수(못 세면 1 · 0 이면 1)
+  local n
+  n="$(git -C "$1" rev-list --count "$2..$3" 2>/dev/null)" || n=""
+  case "$n" in ''|*[!0-9]*|0) n=1;; esac
+  printf '%s\n' "$n"
+}
+nf_cap() {  # <고정비> <배수> → min(고정비 + 7 × 배수, 70) · FT_NANO_CAP_S(시험) 가 있으면 그 값
+  local f="${1:-1}" m="${2:-1}"
+  case "${FT_NANO_CAP_S:-}" in ''|0|*[!0-9]*) ;; *) printf '%s\n' "$FT_NANO_CAP_S"; return 0;; esac
+  case "$m" in ''|*[!0-9]*|0) m=1;; esac
+  awk -v f="$f" -v m="$m" 'BEGIN{t=f+7*m; if(t>70)t=70; if(t<7)t=7; printf "%d\n", t}'
+}
+nf_bound() {  # <초> <명령…> — 상한 초과 = 자손 «전부»(새 세션 손자 포함) TERM → 1초 → KILL → 회수 0.5초 · rc 124
+  # r938 r5 계약: 총(nf_bound 호출부터 rc 까지) ≤ 상한 + 4초 — ps 가 안 돌아와도 · 대상이 TERM 을 무시해도 · 손자가 출력 fd 를 물고 있어도 그 안에 rc(상한 = 124)를 돌려준다.
+  #   근거(계약 아님): ps 조회 2회 각 timeout=1 · TERM 유예 1초 · 회수 대기 0.5초 = 최악 3.5초 + 고정 부담 실측 ≈0.33초 < 4초.
+  # r938 r3(astra r2 N2): 출력은 파이프 대신 임시 파일(손자가 물려받아도 기다림 0 · 끝나면 지워짐) · 죽이기 «전» 에 ps 로 자손 나무를 모은다.
+  #   한계(받아들임): 상한 «전» 에 부모가 끝나 launchd 로 넘어간 이중 fork 손자는 나무가 끊겨 못 잡는다 — 이 도구들(증거 검사·cherry·freshness·sheet)은 그런 fork 를 안 한다.
+  #   한계(받아들임): ps 가 1초 안에 안 돌아오면 새 세션 손자는 못 잡는다(묶음·자기 pid 만) — 완성 후 카드.
+  local sec="$1"; shift || true
+  command -v python3 >/dev/null 2>&1 || { echo "WARN python3 없음 — ${sec}초 상한을 걸 수 없어 호출 거절" >&2; return 127; }
+  python3 -c '
+import os, signal, subprocess, sys, tempfile, time
+cap = float(sys.argv[1]); cmd = sys.argv[2:]
+def tree(root):  # root 아래 자손 pid 전부(ps 한 장 · ppid 로 잇는다)
+    try:
+        ps = subprocess.run(["ps", "-A", "-o", "pid=,ppid="], capture_output=True, text=True, timeout=1).stdout
+    except Exception:
+        ps = ""
+    kids = {}
+    for ln in ps.splitlines():
+        a = ln.split()
+        if len(a) == 2 and a[0].isdigit() and a[1].isdigit():
+            kids.setdefault(int(a[1]), []).append(int(a[0]))
+    seen, todo = set(), [root]
+    while todo:
+        for c in kids.get(todo.pop(), []):
+            if c not in seen:
+                seen.add(c); todo.append(c)
+    return seen
+def hit(pids, sig):  # 각 pid 의 묶음(pgid) + pid 자신 — 우리 묶음·1 이하는 건드리지 않는다
+    me = os.getpgrp(); groups = set()
+    for q in pids:
+        try:
+            groups.add(os.getpgid(q))
+        except (ProcessLookupError, PermissionError):
+            pass
+    for g in groups:
+        if g > 1 and g != me:
+            try:
+                os.killpg(g, sig)
+            except (ProcessLookupError, PermissionError):
+                pass
+    for q in pids:
+        try:
+            os.kill(q, sig)
+        except (ProcessLookupError, PermissionError):
+            pass
+fo = tempfile.TemporaryFile(); fe = tempfile.TemporaryFile()
+p = subprocess.Popen(cmd, stdout=fo, stderr=fe, start_new_session=True)
+try:
+    rc = p.wait(timeout=cap)
+except subprocess.TimeoutExpired:
+    pids = tree(p.pid) | {p.pid}
+    hit(pids, signal.SIGTERM); time.sleep(1.0)
+    pids |= tree(p.pid)
+    hit(pids, signal.SIGKILL)
+    try:
+        p.wait(timeout=0.5)
+    except subprocess.TimeoutExpired:
+        pass
+    rc = 124
+for f, o in ((fo, sys.stdout), (fe, sys.stderr)):
+    f.seek(0); o.buffer.write(f.read()); o.buffer.flush(); f.close()
+sys.exit(rc if 0 <= rc < 256 else 1)
+' "$sec" "$@"
+}
+nf_again() {  # <단계> <걸린 초> <상한 초> <배수> — 상한 REJECT 줄(다시 하는 길 포함 · DA⑥ r1 N3)
+  printf '%s 시간 초과 %ss/%ss · 배수 %s — 다시: 같은 명령(일시 부하면) · 계속이면 arch 에 %s·%ss 보고' "$1" "$2" "$3" "$4" "$1" "$2"
+}
+nf_now() { date +%s; }
+nf_fetch() {  # <repo> <remote> <ref> — 하드 룰 12 기준량: 시도당 7초 + 재시도 1(총 ≤14초) · rc≠0 = 실패(시간 초과 포함 · 옛 ref 대조 0)
+  local rc=0 i
+  if command -v fm_fetch >/dev/null 2>&1; then fm_fetch "$@"; return $?; fi
+  for i in 1 2; do nf_bound 7 git -c gc.auto=0 -C "$1" fetch --quiet "$2" "$3" && return 0; rc=$?; done
+  return "$rc"
+}
 if [ "$REPLAN" -eq 0 ]; then   # r535 --replan 은 아래 입구(팀 env·드리프트·원장 해석·명부)를 건너뛴다 — 값은 옛 계획에 구워져 있다
 WT="$(git rev-parse --show-toplevel)"
 ROOT="$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||')"
@@ -530,12 +664,62 @@ _seat_reap() {
   done
   return 1
 }
-# ★r520 조기 재실행★ — reap CLOSE-FAIL 뒤 같은 close 재호출은 명부 행이 이미 지워져 아래 카드 찾기(명부 index)에서 REJECT 되던 자리.
-#   명부에 행 없음(jq has = false · rc 1 만) ∧ 원장에 이 좌석 닫힘 행 1개 이상 = 1차에서 검사를 통과한 증거 → 카드·증거·cherry 검사 0 · 남은 정리(reap·회수·태그·kill)만 · 원장 append 0 · 명부 쓰기 0.
+# ★r520 조기 재실행★ — reap CLOSE-FAIL 뒤 같은 close 재호출은 명부 행이 이미 지워져 아래 카드 찾기(명부 index)에서 REJECT 되던 자리.#   명부에 행 없음(jq has = false · rc 1 만) ∧ 원장에 이 좌석 닫힘 행 1개 이상 = 1차에서 검사를 통과한 증거 → 카드·증거·cherry 검사 0 · 남은 정리(reap·회수·태그·kill)만 · 원장 append 0 · 명부 쓰기 0.
 #   원장 행이 없으면(처음 보는 좌석) 이 길로 오지 않는다 — 아래 기존 검사 그대로. --plan-only 는 대상 아님. 워크트리 = --wt › 원장 행 wt=<절대경로>(pack-wt·named-wt 꼴) › 없음(reap 은 세션 경로).
 _lrow=""; [ "$PLAN_ONLY" = 1 ] || _lrow="$(grep -F "\`$SEAT\` 닫힘(ft-nano-close)" "$LEDGER" 2>/dev/null | tail -1)"
 jq -e --arg s "$SEAT" 'has($s)' "$SEATS" >/dev/null 2>&1; _hrc=$?
+# ★r1011 r2(DA⑥ HOLD ②)★ --landed-pr 검증은 «명부 부재·조기 재실행» 경로보다 먼저 — gh 1회 · 실패·시간 초과·MERGED 아님 = 그 자리 REJECT(닫기 0 · kill·명부·원장 손 0).
+#   결과(_lp_state·_lp_head·_lp_mrg)는 ⑥ 이 그대로 쓰다 — 두 번 부르지 않는다(호출 1회 · 7초 상한).
+_lp_state=""; _lp_head=""; _lp_mrg=""; _lp_pr_err=""
+_lp_fetch_pr() {
+  local cap out rc
+  cap="${FT_NANO_LANDED_PR_CAP_S:-7}"; case "$cap" in ''|*[!0-9]*|0) cap=7;; esac
+  step landed-pr
+  out="$(nf_bound "$cap" gh pr view "$LANDED_PR" --json state,mergeCommit,headRefOid 2>&1)"; rc=$?
+  if [ "$rc" -eq 124 ]; then _lp_pr_err="⑥--landed-pr gh 시간 초과(${cap}초 상한 · 하드 룰 12) — 닫지 않음(R22: 옛 값 대조 0)"; return 1; fi
+  if [ "$rc" -ne 0 ]; then _lp_pr_err="⑥--landed-pr gh pr view $LANDED_PR 실패(rc=$rc: $(printf '%s' "$out" | head -1 | cut -c1-160)) — 닫지 않음"; return 1; fi
+  _lp_state="$(printf '%s' "$out" | jq -r '.state // empty' 2>/dev/null)"
+  _lp_head="$(printf '%s' "$out" | jq -r '.headRefOid // empty' 2>/dev/null)"
+  _lp_mrg="$(printf '%s' "$out" | jq -r 'if (.mergeCommit|type)=="object" then (.mergeCommit.oid // "") else (.mergeCommit // "") end' 2>/dev/null)"
+  if [ -z "$_lp_state" ] || [ -z "$_lp_head" ]; then _lp_pr_err="⑥--landed-pr gh 응답을 못 읽음(state·headRefOid 없음): $(printf '%s' "$out" | head -1 | cut -c1-160)"; return 1; fi
+  if [ "$_lp_state" != MERGED ]; then _lp_pr_err="⑥--landed-pr #$LANDED_PR state=$_lp_state — MERGED 만 닫는다(OPEN·CLOSED 미병합 = 산출이 main 에 없다)"; return 1; fi
+  return 0
+}
+# ★r1019★ ⑥ «세트 대조» 를 «세트 + main 병합뿐» 까지 넓힌다 — ft-merge-land 는 main 이 앞서 있으면 승인판 위에 합침 커밋 1개를 올려 합치므로 PR head 는 «언제나» 카드 세트가 아니다(r1011 경로가 오늘 착지 6건을 0/6 으로 막았다).
+#   판정기는 승인 h 쪽이 이미 쓰는 ft-approval-equiv.sh(R247 · 판정 1917) 그대로 — 규칙 변경 0 · 호출 1곳만. rc0 만 통과 · rc1/rc3/rc2 는 사유 첫 줄 그대로 REJECT(조용한 통과 0 · #0 RULE).
+#   head 객체는 호출 전에 fetch 1회(하드 룰 12 = nf_fetch: 시도당 7초 + 재시도 1). 실패 = «판정 불가» 한 줄 REJECT(하드 룰 20).
+_lp_equiv_merges=""; _lp_equiv_mode=""; _lp_equiv_err=""
+_lp_equiv_gate() {
+  local repo cap out rc first
+  repo="${SEAT_REPO:-$ROOT}"
+  _lp_equiv_merges=""; _lp_equiv_mode=""
+  step landed-pr-equiv
+  if ! nf_fetch "$repo" origin "$_lp_head" >/dev/null 2>&1; then
+    _lp_equiv_err="⑥--landed-pr head ${_lp_head:0:9} 객체를 받지 못했다(fetch origin 실패 · 7초 상한) — 판정 불가로 닫지 않는다"; return 1
+  fi
+  # r1019 r2(DA 1/2 동작②): head 가 이미 origin/main 안 = «머지 커밋 PR». 우리 착지 도구(ft-merge-land)는 squash 만 만들므로 이 경로 밖 — 판정기를 부르지 않고 1줄로 끝낸다(하드 룰 20 · 틀린 사유 NOT-EQUIV 0).
+  if git -C "$repo" merge-base --is-ancestor "$_lp_head" refs/remotes/origin/main 2>/dev/null; then
+    _lp_equiv_err="⑥--landed-pr head ${_lp_head:0:9} 가 origin/main 조상 = 머지 커밋 PR(squash 착지 아님) — 이 경로 밖 · 수동 닫기(기존 경로)"; return 1
+  fi
+  cap="$(nf_cap "$(nf_fixed equiv)" 1)"
+  out="$(nf_bound "$cap" bash "$HERE/ft-approval-equiv.sh" "$_lp_set" "$_lp_head" --repo "$repo" 2>&1)"; rc=$?
+  first="$(printf '%s' "$out" | head -1 | cut -c1-200)"
+  if [ "$rc" -eq 0 ]; then
+    _lp_equiv_mode="$(printf '%s' "$out" | grep -oE 'mode=[a-z]+' | tail -1 | cut -d= -f2)"
+    _lp_equiv_merges="$(printf '%s' "$out" | grep -oE 'merges=[0-9]+' | tail -1 | cut -d= -f2)"
+    case "$_lp_equiv_merges" in ''|*[!0-9]*) _lp_equiv_merges=0;; esac
+    # r1019 r2(DA 1/2 동작①): rc0 이어도 «세트 위 main 병합(mode=merge ∧ merges≥1)» 만 통과 — rebase 머리는 이 경로의 증거가 아니다.
+    if [ "$_lp_equiv_mode" = merge ] && [ "$_lp_equiv_merges" -ge 1 ]; then return 0; fi
+    _lp_equiv_err="⑥--landed-pr head ${_lp_head:0:9} 가 세트 위 main 병합이 아니라 rebase 머리(mode=${_lp_equiv_mode:-없음} merges=$_lp_equiv_merges) — 세트 줄을 고치거나 새 카드"; return 1
+  fi
+  if [ "$rc" -eq 124 ]; then _lp_equiv_err="⑥--landed-pr 판정기 시간 초과(${cap}초 상한 · 하드 룰 12) — ${first:-출력 없음}"; return 1; fi
+  _lp_equiv_err="⑥--landed-pr #$LANDED_PR head ${_lp_head:0:9} ≠ 카드 세트 ${_lp_set:0:9} · «세트 + main 병합뿐» 도 아님(판정기 rc=$rc) — ${first:-출력 없음}"
+  return 1
+}
+if [ -n "$LANDED_PR" ]; then _lp_fetch_pr || { echo "REJECT $SEAT"; echo "  - $_lp_pr_err"; exit 1; }; fi
 if [ "$_hrc" -eq 1 ] && [ -n "$_lrow" ]; then
+  # r1011 r2: 명부에 행이 없으면 카드 index 를 알 수 없다 — 착지 검증(세트·«- 착지:»)을 건너 뛰고 닫는 대신 그 자리 REJECT(조용한 통과 0).
+  [ -z "$LANDED_PR" ] || { echo "REJECT $SEAT"; echo "  - ⑥--landed-pr: 명부에 좌석 행이 없어 카드 index 를 알 수 없다 — «세트»·«- 착지:» 대조 불가(닫기 0 · kill 0 · 원장 append 0) · 명부 행을 복구하거나 카드 경로를 확인해라"; exit 1; }
   echo "재실행 — 명부에 없고 원장 닫힘 행 있음: 검사 건너뛰고 남은 정리(reap·회수·태그·kill)만"
   SEAT_WT=""; SEAT_BR=""; _RERUN_STD=0; _RERUN_INFOED=0; _RERUN_ZERO_WHY="표준 좌석 해석 밖"
   if [ "$NAMED" = 1 ]; then
@@ -586,6 +770,7 @@ bad=()
 if [ "$NEVER" = 1 ]; then :
 else
 [ -n "$RESULT" ] && [ -e "$RESULT" ] || bad+=("①결과 경로 없음: ${RESULT:-<미지정>}")
+[ "$RESEARCH" -eq 0 ] || [ ! -e "$RESULT" ] || [ -s "$RESULT" ] || bad+=("①결과 파일이 비어 있음(0바이트): $RESULT — 리서치 좌석의 산출 = 조사 결과(r888 r2)")
 # ② master 회수 — 그 seq 가 실제로 존재했는가 (행이 소비돼도 bodies/<seq>.txt 또는 카운터 이하)
 if [ -z "$RECV" ]; then bad+=("②--recv <seq> 미지정")
 elif ! { [ -f "$COMM/bodies/$RECV.txt" ] || grep -q "\"seq\": *$RECV," "$COMM/mailbox.jsonl" 2>/dev/null || [ "$RECV" -le "$(cat "$COMM/.mbox-seq" 2>/dev/null || echo 0)" ]; }; then
@@ -729,29 +914,38 @@ if [ "$NAMED" = 1 ]; then
   fi
 fi
 [ -z "$SEAT_WT_ERR" ] || bad+=("③$SEAT_WT_ERR")
-# base 정합 (카드 §3): FT_NANO_FEAT «명시» → 그 값 · 아니면 좌석 워크트리 .worktree-info.json 의 base · 그것도 없으면 지금 기본값.
-_FEAT="${FT_NANO_FEAT:-}"
-[ -n "$_FEAT" ] || [ -z "$SEAT_WT" ] || _FEAT="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("base",""))' "$SEAT_WT/.worktree-info.json" 2>/dev/null)"
-# R42: info.base 가 ref 가 아니고 commit(sha)이면 «랜딩 브랜치 정보 없음» — 기본 사슬로 랜딩 브랜치를 정한다(FT_NANO_FEAT 명시값은 그대로 우선). 조상 확인은 fetch 뒤.
+# base 정합 (카드 §3 · r958 r4): 좌석 워크트리 .worktree-info.json 의 base «먼저» · FT_NANO_FEAT 는 base 가 없을 때만 · 둘 다 있고 다르면 WARN 1줄(조용한 선택 0).
+_ENV_FEAT="${FT_NANO_FEAT:-}"
+_FEAT=""
+[ -z "$SEAT_WT" ] || _FEAT="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("base",""))' "$SEAT_WT/.worktree-info.json" 2>/dev/null)"
+_INFO_FEAT="$_FEAT"   # R42 판정 대상 = info 에서 온 값뿐 — env «명시» 값은 sha 로 되읽지 않는다(옛 규칙 그대로)
+if [ -n "$_INFO_FEAT" ]; then
+  [ -z "$_ENV_FEAT" ] || [ "$_ENV_FEAT" = "$_INFO_FEAT" ] || echo "WARN 비교 기준 = 좌석 .worktree-info base($_INFO_FEAT) · FT_NANO_FEAT=$_ENV_FEAT 무시(둘 다 있고 다름)"
+else
+  _FEAT="$_ENV_FEAT"
+fi
+# R42: info.base 가 ref 가 아니고 commit(sha)이면 «랜딩 브랜치 정보 없음» — 기본 사슬로 랜딩 브랜치를 정한다(env 명시값은 그대로). 조상 확인은 fetch 뒤.
 _BASE_SHA=""
-if [ -z "${FT_NANO_FEAT:-}" ] && [ -n "$_FEAT" ] \
+if [ -n "$_INFO_FEAT" ] && [ "$_FEAT" = "$_INFO_FEAT" ] \
    && ! git -C "$SEAT_REPO" rev-parse --verify -q "refs/heads/$_FEAT" >/dev/null \
    && ! git -C "$SEAT_REPO" rev-parse --verify -q "refs/remotes/$_FEAT" >/dev/null \
    && git -C "$SEAT_REPO" rev-parse --verify -q "$_FEAT^{commit}" >/dev/null; then
-  _BASE_SHA="$_FEAT"; _FEAT=""
+  _BASE_SHA="$_FEAT"; _FEAT="$_ENV_FEAT"
 fi
 [ "$PACK_WT" != 1 ] || _FEAT="${_FEAT:-origin/main}"   # r508: 팩 리포에는 feat/v6-realtime-live 가 없다 — 팩 착지 줄기
 _FEAT="${_FEAT:-feat/v6-realtime-live}"
 # R22: base 가 원격 추적 ref(origin/<b>)면 닫기 직전 그 ref 하나만 fetch — 옛 ref 로 대조하지 않는다(#0 RULE). 로컬 브랜치 값이면 fetch 0.
+_FEAT_FETCH_FAIL=0   # r938 r2(DA⑥ r1 N4): feat ref fetch 가 실패하면 그 ref 를 쓰는 검사(⑥·⑤)를 돌리지 않고 그 자리 REJECT — 옛 ref 대조 0(R22)
 _fetch_remote_feat() {
   local feat="$1" remote br repo="${SEAT_REPO:-$ROOT}"   # r508: 대조 리포(팩 나노 = 팩) · 함수만 떼어 쓰는 시험은 ROOT
   git -C "$repo" rev-parse --verify -q "refs/heads/$feat" >/dev/null && return 0
   git -C "$repo" rev-parse --verify -q "refs/remotes/$feat" >/dev/null || return 0
   remote="${feat%%/*}"; br="${feat#*/}"
-  if git -C "$repo" fetch -q "$remote" "$br" >/dev/null 2>&1; then
+  if nf_fetch "$repo" "$remote" "$br" >/dev/null 2>&1; then
     echo "INFO feat=$feat @ $(git -C "$repo" rev-parse --short "refs/remotes/$feat") (fetch 완료)"
   else
-    bad+=("⑤ feat 원격 ref fetch 실패: $feat — 옛값으로 대조하지 않는다")
+    _FEAT_FETCH_FAIL=1
+    bad+=("⑤ origin/main fetch 실패($feat) — 옛 ref 대조 0(R22) · ⑥증거·⑤cherry·freshness 검사 0")
   fi
 }
 _fetch_remote_feat "$_FEAT"
@@ -778,7 +972,7 @@ if [ "$tmux_ok" = 1 ]; then
       last="$(find "$cwd" -type f -newer "$SEATS" -not -path '*/.git/*' -mmin -"$IDLE_MIN" 2>/dev/null | head -1)"
       [ -z "$last" ] || bad+=("③워크트리에 ${IDLE_MIN}분 내 편집: $last")
     else
-      _lt="$("${FT_JSONL_LAST_TS:-$HERE/ft-jsonl-last-ts.py}" "$f" 2>&1)"; _lt_rc=$?  # R53: 파일 mtime 이 아니라 timestamp 있는 마지막 기록
+      _lt="$("${FT_JSONL_LAST_TS:-$HERE/ft-jsonl-last-ts.py}" "$f" --skip-logged-out 2>&1)"; _lt_rc=$?  # R53: 파일 mtime 이 아니라 timestamp 있는 마지막 기록 · r849: 인증 실패 0초 턴은 «활동» 아님
       if [ "$_lt_rc" -ne 0 ]; then bad+=("③jsonl 기록 시각 없음: ${_lt%%$'\n'*}")
       else age=$(( ( $(date +%s) - ${_lt%% *} ) / 60 ))
         [ "$age" -ge "$IDLE_MIN" ] || bad+=("③jsonl 마지막 기록(${_lt#* }) ${age}분 전 < ${IDLE_MIN}분"); fi
@@ -813,11 +1007,64 @@ if [ -z "$CARD" ] && [[ "$IDX" =~ ^(.*/indices)/[^/]+/[^/]+$ ]]; then
     [ -z "$_hit" ] || { _sibn=$((_sibn+1)); _sib1="$_hit"; }; done
   [ "$_sibn" = 1 ] && { CARD="$_sib1"; echo "INFO 카드 위치 ← $CARD"; }
 fi
+# r960 ⓐ 나노 가지 카드 — 카드가 아직 origin/main 에 없고 «좌석 가지»에만 있으면 그 가지에서 찾는다(닫기 길 막힘 해소).
+#   먼저 좌석 워크트리(그 가지 체크아웃)의 같은 indices/{진행,완성,대기}/<파일> — 있으면 쓰기(card 줄)도 그 판에 한다.
+#   워크트리에 없으면 가지 tip 의 ref 판을 임시 파일로 꺼내 CARD_READ 로만 쓴다. 가지에도 없으면 아래 ⑥ 이 지금처럼 REJECT.
+_CB_TMP=""
+if [ -z "$CARD" ] && [ -n "$IDX" ] && [ -n "$SEAT_WT" ] && [[ "$IDX" =~ ^(.*/indices)/[^/]+/([^/]+)$ ]]; then
+  _cb_root="${BASH_REMATCH[1]}"; _cb_name="${BASH_REMATCH[2]}"; _cb_rel=""
+  for _rel in "$IDX" ${_tw:+"$_tw"}; do [[ "$_rel" =~ ^(.*/indices)/[^/]+/([^/]+)$ ]] || continue
+    for _d in 진행 완성 대기; do [ -z "$_cb_rel" ] && [ -f "$SEAT_WT/${BASH_REMATCH[1]}/$_d/${BASH_REMATCH[2]}" ] && _cb_rel="${BASH_REMATCH[1]}/$_d/${BASH_REMATCH[2]}"; done; done
+  if [ -n "$_cb_rel" ]; then
+    CARD="$SEAT_WT/$_cb_rel"; echo "INFO 카드 위치 ← ${SEAT_BR:-<좌석 가지>}:$_cb_rel (가지 체크아웃 · 읽기·쓰기)"   # r960-mut:branchcard
+  else
+    _cb_ref="${SEAT_BR:-nano/$_KEY}"; _cb_hit=""
+    for _d in 진행 완성 대기; do [ -z "$_cb_hit" ] && git -C "$SEAT_REPO" cat-file -e "$_cb_ref:$_cb_root/$_d/$_cb_name" 2>/dev/null && _cb_hit="$_cb_root/$_d/$_cb_name"; done
+    if [ -n "$_cb_hit" ]; then
+      _CB_TMP="$(mktemp)" || { _CB_TMP=""; echo "WARN 카드 임시 파일 생성 실패 — 가지 판 읽기 0"; }   # r960-mut:branchref
+      if [ -n "$_CB_TMP" ] && git -C "$SEAT_REPO" show "$_cb_ref:$_cb_hit" > "$_CB_TMP" 2>/dev/null; then
+        echo "INFO 카드 위치 ← $_cb_ref:$_cb_hit (읽기 전용 · 가지 tip)"
+      else rm -f "$_CB_TMP"; _CB_TMP=""; fi
+    fi
+  fi
+fi
+# ★r888 카드 «읽기» = ref 판 먼저★ — 루트 로컬 체크아웃이 뒤처지면(실측 69커밋 · 대기/ 옛 사본) 위 후보가 옛 판을 집는다. 읽기(증거 줄·리서치 줄·표지·checkpoint)는
+#   FT_CARD_REF(기본 origin/main)의 <IDX>·쌍둥이 indices/{진행,완성,대기}/<파일> 첫 판을 임시 파일로 꺼낸 CARD_READ · 쓰기(리서치 닫힘·중단 줄)는 위 CARD(작업 트리) 그대로.
+#   원격 ref 는 그 ref 하나만 fetch — 실패면 옛 ref 판을 믿지 않는다(WARN · CARD_READ=CARD) · ref 에 없으면 CARD_READ=CARD(기존 순서 그대로).
+CARD_READ="$CARD"; _CR_TMP=""
+_card_ref_read() {
+  local ref="${FT_CARD_REF:-origin/main}" rel d hit=""
+  [ -n "$IDX" ] || return 0
+  if [[ "$ref" == */* ]] && git -C "$ROOT" remote get-url "${ref%%/*}" >/dev/null 2>&1; then
+    nf_fetch "$ROOT" "${ref%%/*}" "${ref#*/}" >/dev/null 2>&1 || { echo "WARN 카드 ref fetch 실패/시간 초과($ref · 7초+재시도 1) — 옛 ref 판은 읽지 않는다 · 작업 트리 후보로"; return 0; }
+  fi
+  for d in 진행 완성 대기; do [ -z "$hit" ] || break
+    for rel in "$IDX" ${_tw:+"$_tw"}; do [ -z "$hit" ] || break
+      [[ "$rel" =~ ^(.*/indices)/[^/]+/([^/]+)$ ]] || continue
+      git -C "$ROOT" cat-file -e "$ref:${BASH_REMATCH[1]}/$d/${BASH_REMATCH[2]}" 2>/dev/null && hit="${BASH_REMATCH[1]}/$d/${BASH_REMATCH[2]}"
+    done; done
+  [ -n "$hit" ] || return 0
+  _CR_TMP="$(mktemp)" || { _CR_TMP=""; echo "WARN 카드 임시 파일 생성 실패 — 작업 트리 후보로"; return 0; }
+  git -C "$ROOT" show "$ref:$hit" > "$_CR_TMP" 2>/dev/null || { echo "WARN 카드 꺼내기 실패($ref:$hit) — 작업 트리 후보로"; return 0; }
+  CARD_READ="$_CR_TMP"; echo "INFO 카드 위치 ← $ref:$hit (읽기 · 쓰기 = ${CARD:-작업 트리 사본 없음})"
+}
+trap 'rm -f "${_CR_TMP:-}" "${_CB_TMP:-}"' EXIT   # r960: 가지 판 임시 파일도 같이
+_card_ref_read   # r888-mut:cardref
+[ -z "$CARD_READ" ] && [ -n "${_CB_TMP:-}" ] && { CARD_READ="$_CB_TMP"; echo "INFO 카드 읽기 ← 가지 판(읽기 전용)"; }   # r960 ⓐ: ref·작업 트리에 없으면 가지 tip 판
+# r888: 증거 줄 검사 = 읽기 판 먼저 · 거절이고 작업 트리 판이 따로 있으면 그 판도 — 증거 줄은 «세트 = 지금 HEAD» 로 스스로 검증돼 옛 판이 거짓 통과하지 못한다(작업 트리에 막 쓴 미착지 줄 · RED 판정의 git 이력 보존)
+_ev_run() {  # r938 ⓒ(r2 N2·N3): 증거 검사도 상한 안에서 — 상한 = min(고정비 + 7초 × «그 검사가 보는 커밋 수», 70) · 넘으면 rc 124 → 닫지 않음
+  local o r
+  _ev_t0="$(nf_now)"
+  _ev_out="$(nf_bound "$_ev_cap" "$HERE/ft-nano-evidence-check.sh" "$CARD_READ" "$@" 2>&1)"; _ev_rc=$?
+  [ "$_ev_rc" -ne 0 ] && [ -n "$CARD" ] && [ "$CARD" != "$CARD_READ" ] || return 0
+  o="$(nf_bound "$_ev_cap" "$HERE/ft-nano-evidence-check.sh" "$CARD" "$@" 2>&1)"; r=$?
+  [ "$r" -eq 0 ] && { _ev_out="$o"$'\n'"INFO ⑥ 증거 줄 ← 작업 트리 판 $CARD"; _ev_rc=0; }
+}
 # r508 ⓐ 카드 · r621: 판별 = 카드 첫 5줄의 원장 줄(하네스 카드는 둘째 줄 `<!-- ledger: design/harness/GOAL-harness.md -->`) — 머리 `- 설치:` 줄로 보면 시험만 고치는 하네스 카드(설치: 없음)가 막혀 --suspended 로 우회하게 된다(r604·r618). 제품 카드·카드 못 찾음은 지금 ⓐ REJECT 문구 그대로
 # r688: 표지는 경로가 아니라 카드 안 글자 — 팀 폴더 글자 없이 «원장 파일 이름» 으로 맞춘다(팀 경로 리터럴 린트 오인 0 · 하네스 폴더가 design/teams/ 로 옮겨도 같은 표지)
 HARNESS_LEDGER_MARK_RE='<!-- ledger: [^ ]*/GOAL-harness\.md -->'
-if [ "$PACK_WT" = 1 ] && ! { [ -n "$CARD" ] && head -5 "$CARD" | grep -qE "$HARNESS_LEDGER_MARK_RE"; }; then
-  bad+=("ⓐ--wt($_nw)가 이 리포($ROOT)에 등록된 .worktrees/ 아래 워크트리가 아니다 · 팩 경로는 하네스 카드(원장 GOAL-harness)만 (카드 ${CARD:-못 찾음})")
+if [ "$PACK_WT" = 1 ] && ! { [ -n "$CARD_READ" ] && head -5 "$CARD_READ" | grep -qE "$HARNESS_LEDGER_MARK_RE"; }; then
+  bad+=("ⓐ--wt($_nw)가 이 리포($ROOT)에 등록된 .worktrees/ 아래 워크트리가 아니다 · 팩 경로는 하네스 카드(원장 GOAL-harness)만 (카드 ${CARD_READ:-못 찾음})")
 fi
 # ④ 면제: 나노는 press 금지(single_set_testing) — 이 좌석 브랜치에 press 산출(poller_dom.jsonl)이 없으면 checkpoint 를 요구하지 않는다(10-03 문서·유닛 나노 4석 막힘 · master-claude#131).
 _cp_pressed=1
@@ -825,7 +1072,7 @@ if [ "$(jq -r --arg s "$SEAT" '.[$s].role // empty' "$SEATS" 2>/dev/null)" = nan
   _cp_mb="$(git -C "$SEAT_WT" merge-base HEAD "$_FEAT" 2>/dev/null)"
   git -C "$SEAT_WT" diff --name-only "${_cp_mb:-HEAD}" HEAD 2>/dev/null | grep -q 'poller_dom\.jsonl' || { _cp_pressed=0; echo "WARN ④checkpoint 면제 — 나노 브랜치에 press 산출 0(poller_dom.jsonl 없음)"; }
 fi
-if [ -n "$CARD" ] && [ "$_cp_pressed" = 1 ] && grep -qF 'ft-checkpoint.sh' "$CARD"; then
+if [ -n "$CARD_READ" ] && [ "$_cp_pressed" = 1 ] && grep -qF 'ft-checkpoint.sh' "$CARD_READ"; then
   CPCFG="${FT_CHECKPOINT_JSON:-$ROOT/.fable-team/checkpoint.json}"; CPST="$ROOT/.fable-team/checkpoint/${SEAT//\//_}.last"
   if [ ! -f "$CPCFG" ]; then echo "WARN ④press/시험 카드인데 checkpoint 미설정($CPCFG) — 경고만(§6-2)"
   elif [ ! -f "$CPST" ]; then bad+=("④press/시험 카드인데 checkpoint 실행 기록 없음: ft-checkpoint.sh <증거폴더> --seat $SEAT")
@@ -835,6 +1082,7 @@ if [ -n "$CARD" ] && [ "$_cp_pressed" = 1 ] && grep -qF 'ft-checkpoint.sh' "$CAR
     [ "$cp_al" = "no" ] || bad+=("④마지막 checkpoint alarm=$cp_al exit=$cp_ex — 경보면 4축 정리 → arch(+DA) 처방 → 수정 → 재실행 후 닫는다")
   fi
 fi
+step ⑥증거검사
 # ⑥ 나노 생애 ③④ 증거 줄 (M7 · REVIEW arch141 §2-2) — role=nano 좌석만: 카드 «## 상태» 의 `세트: <HEAD> · 시험: … rc=0 · 이슈: …` 가 현재 나노 HEAD 와 맞아야 닫힌다.
 #   impl·tester·checker 등 tier 좌석은 대상 아님(role 이 nano 가 아님). 루트 포함은 cherry-gate --mode land 가 랜딩 요청 시점에 맡는다(close 에는 걸지 않는다).
 _role="$(jq -r --arg s "$SEAT" '.[$s].role // empty' "$SEATS" 2>/dev/null)"
@@ -850,7 +1098,8 @@ _susp_wip() {
   git -C "$SEAT_WT" commit -q -m "[wip] nano close $SEAT" || return 1
   echo "INFO [wip] 커밋 $(git -C "$SEAT_WT" rev-parse --short HEAD) — 중단 전 미커밋 보존"
 }
-if [ "$NEVER" = 1 ]; then
+if [ "$_FEAT_FETCH_FAIL" = 1 ]; then :   # r938 r2 N4: fetch 실패 = 그 자리 REJECT(옛 ref 를 쓰는 검사 0)
+elif [ "$NEVER" = 1 ]; then
   # r506 한 일 0: rc=0 세트 증거 줄 대신 ft-nano-never-started-check.sh(턴·커밋·미커밋·발신 4값 0). 카드는 base_sha 출처로만(없어도 .worktree-info.json) · 역할 무관.
   if [ -z "$SEAT_WT" ]; then bad+=("⑥나노 워크트리 ${SEAT_WT_ERR:-없음: $ROOT/.worktrees/${WT_PREFIX}<key>[-rN]} — «한 일 0» 을 셀 워크트리가 없다")
   elif [ ! -x "$HERE/ft-nano-never-started-check.sh" ]; then bad+=("⑥한 일 0 검사 스크립트 없음: $HERE/ft-nano-never-started-check.sh (런타임 bin 에 같이 복사)")
@@ -877,22 +1126,93 @@ elif [ "$SUSP" = 1 ]; then
   if [ -z "$CARD" ]; then bad+=("⑥카드 못 찾음: seats.json index=${IDX:-<빈 값>} — 중단 줄을 남길 카드가 없다${_sibn:+ · 형제 ${_sibn}개}")
   elif [ -z "$SEAT_WT" ]; then bad+=("⑥나노 워크트리 ${SEAT_WT_ERR:-없음: $ROOT/.worktrees/${WT_PREFIX}<key>[-rN]} — 중단 세트(HEAD)를 정할 수 없다")
   elif [ ! -x "$HERE/ft-nano-suspended-check.sh" ]; then bad+=("⑥중단 검사 스크립트 없음: $HERE/ft-nano-suspended-check.sh (런타임 bin 에 같이 복사)")
-  else
-    # 실작업물 미커밋은 먼저 [wip] 커밋(앞 조건이 다 통과했을 때만 · --wt/--branch 모드는 WIP 자동 커밋 0 이라 ⓔ 가 이미 REJECT) — 실패 = REJECT · 닫힘 0
-    if [ "${#bad[@]}" -eq 0 ] && [ "$NAMED" != 1 ]; then _susp_wip || bad+=("⑥[wip] 커밋 실패 — 미커밋을 보존하지 못해 닫지 않는다: $SEAT_WT"); fi
-    _su_out="$("$HERE/ft-nano-suspended-check.sh" "$CARD" --wt "$SEAT_WT" --reason "$SUSP_REASON" 2>&1)"; _su_rc=$?
-    if [ "$_su_rc" -eq 0 ]; then echo "$_su_out"; SUSP_SET="$(git -C "$SEAT_WT" rev-parse HEAD)"; else bad+=("⑥$(printf '%s' "$_su_out" | sed -e 's/^REJECT //' -e '2,$s/^/    /')"); fi
   fi
-elif [ "$_role" = nano ] && [ -z "$CARD" ]; then
+  # r938 r2 N1: [wip] 커밋(쓰기)과 중단 검사는 «상한 걸리는 검사(⑤⑥) 뒤» 로 미룬다 — 상한 REJECT 시 쓰기 0. 아래 bad 판정 직후 블록이 한다.
+elif [ "$RESEARCH" = 1 ]; then   # r888-mut:research
+  # r888 리서치 좌석(코드 0 · 조사 결과만): 구현 증거 줄은 생길 수 없다 — 면제 대신 «코드 0» 을 값 2개로 센다 · ①--result 실재·비어 있지 않음은 위 ① · 역할 무관.
+  #   r3(DA⑥ r2 HOLD 3 · 재설계): «main 과 비교» 는 착지·main 이동에 따라 뜻이 변한다 — 기준 = 이 좌석이 «열린 판»(기준 판).
+  #     r4(DA⑥ r3 HOLD 1): 기준 판 = 좌석 브랜치 reflog 맨 처음 줄 «branch: Created from …» 의 sha(git 이 브랜치를 만들 때 쓴 값 · 좌석이 카드 글자로 못 고친다) · 카드 줄은 읽지 않는다 · 없음·다른 줄·못 읽음 = REJECT.
+  #     구현 커밋 = 기준 판..HEAD 의 첫 부모 줄기 비병합 커밋(이미 main 에 착지했어도 센다) · 병합 커밋(머리 맞춤)은 셈 밖이되 끌어온 쪽(둘째 부모~)이 origin/main 조상이 아니면 REJECT(곁가지 구현 숨김 차단).
+  #     미커밋 = status -z --untracked-files=all 정확 경로 — 예외는 «?? .serena/project.yml»(루트 미추적) 한 항목뿐 · R/C 는 원 경로 토큰까지 먹고 미커밋으로 센다.
+  #   _FEAT 가 좌석 자기 브랜치(이름)면 «기준 브랜치가 좌석 자신» 으로 REJECT(⑤ cherry 가 자기 자신과 비교해 거짓 통과하는 길).
+  if [ -z "$SEAT_WT" ]; then bad+=("⑥나노 워크트리 ${SEAT_WT_ERR:-없음: $ROOT/.worktrees/${WT_PREFIX}<key>[-rN]} — 리서치 «코드 0» 을 셀 워크트리가 없다")
+  else
+    _rs_hb="$(git -C "$SEAT_WT" symbolic-ref --short -q HEAD)"; _rs_self=""; _rs_base=""; _rs_bsrc="reflog"
+    [ -z "$_rs_hb" ] || _rs_base="$(git -C "$SEAT_WT" reflog show --format='%H %gs' "refs/heads/$_rs_hb" 2>/dev/null | tail -1 | sed -nE 's/^([0-9a-f]{40}) branch: Created from .*/\1/p')"   # r888-mut:base
+    { [ -n "$_rs_hb" ] && { [ "$_FEAT" = "$_rs_hb" ] || [ "$_FEAT" = "refs/heads/$_rs_hb" ]; }; } && _rs_self=" · 기준 브랜치가 좌석 자신(FT_NANO_FEAT=$_FEAT)"
+    if [ -z "$_rs_base" ] || ! git -C "$SEAT_WT" cat-file -e "$_rs_base^{commit}" 2>/dev/null; then
+      bad+=("⑥리서치 기준 판 없음(reflog) — 좌석 브랜치 ${_rs_hb:-<detached>} 의 reflog 맨 처음 줄이 «branch: Created from» 이 아니거나 없음·그 sha 를 못 읽음(${_rs_base:-빈 값}) · «코드 0» 을 셀 수 없다")
+    else
+      # r978 고침 1: «산출 1개(r976 꼴)» 를 코드 0 으로 인정한다 — 구현 커밋·미커밋이 있어도 그 경로 «전부» 가 --result 1개뿐이면 통과.
+      #   비교는 경로 집합(커밋 = 기준 판..HEAD 각 커밋이 바꾼 경로 · 미커밋 = porcelain 정확 경로) · 산출이 좌석 워크트리 밖이면 어떤 커밋 경로도 산출일 수 없다(그대로 REJECT).
+      _rs_top="$(git -C "$SEAT_WT" rev-parse --show-toplevel 2>/dev/null)"; _rs_rel=""
+      case "$RESULT" in
+        /*) case "$RESULT" in "$_rs_top"/*) _rs_rel="${RESULT#"$_rs_top"/}";; esac;;
+        *) _rs_rel="$RESULT";;
+      esac
+      _rs_rel="${_rs_rel#./}"
+      step fetch
+      if ! nf_fetch "$SEAT_REPO" origin main >/dev/null 2>&1; then   # r938 r3(astra r2 N4): 실패 = 그 자리 REJECT · 아래 병합 대조 0
+        bad+=("⑥리서치 origin/main fetch 실패 — 옛 ref 대조 0(R22) · 7초+재시도 1 상한 · 다시: 같은 명령(일시 장애면)")
+      else
+      _rs_n="$(git -C "$SEAT_WT" rev-list --count --no-merges --first-parent "$_rs_base..HEAD" 2>&1)"; _rs_nrc=$?   # r888-mut:uniq
+      _rs_mg="$(git -C "$SEAT_WT" rev-list --merges --first-parent --parents "$_rs_base..HEAD" 2>&1)"; _rs_mrc=$?; _rs_side=0
+      while read -r _m _p1 _ps; do [ -n "$_m" ] || continue
+        for _p in $_ps; do git -C "$SEAT_WT" merge-base --is-ancestor "$_p" origin/main 2>/dev/null || _rs_side=$((_rs_side+1)); done   # r888-mut:side
+      done <<< "$_rs_mg"
+      _rs_wt="$(ft_changed_paths_wt "$SEAT_WT")"; _rs_src=$?
+      _rs_dirty=0; _rs_rok=0
+      [ "$_rs_src" -ne 0 ] || while IFS=$'\t' read -r _rs_xy _rs_p; do
+        [ -n "${_rs_p:-}" ] || continue
+        if [ "$_rs_xy" = "??" ] && [ "$_rs_p" = ".serena/project.yml" ]; then :   # r888-mut:exact
+        elif [ -n "$_rs_rel" ] && [ "$_rs_p" = "$_rs_rel" ]; then _rs_rok=$((_rs_rok+1))   # r978-mut:result — 산출 경로 1개는 «코드 0» 위반이 아니다
+        else _rs_dirty=$((_rs_dirty+1)); fi
+      done <<< "$_rs_wt"
+      # r978-mut:patnote — 커밋이 바꾼 경로 전부가 산출 1개인가(첫 부모 줄기 구현 커밋의 이름표 전부를 센다 · 병합 커밋은 곁가지 검사가 따로 본다)
+      _rs_out=0; _rs_paths=""; _rs_prc=0
+      if [ "$_rs_n" -ne 0 ]; then   # 첫 부모 줄기 구현 커밋이 0 이면 «구현 경로» 도 0(머리 맞춤 병합이 끌어온 경로는 셈 밖 — 종전 동작)
+        _rs_paths="$(ft_changed_paths "$SEAT_WT" "$_rs_base" HEAD --commits)"; _rs_prc=$?   # r978-mut:paths
+      fi
+      [ "$_rs_prc" -eq 0 ] || _rs_paths=""
+      while IFS= read -r _p; do
+        [ -n "$_p" ] || continue
+        { [ -n "$_rs_rel" ] && [ "$_p" = "$_rs_rel" ]; } || _rs_out=$((_rs_out+1))
+      done <<< "$_rs_paths"
+      if [ "$_rs_nrc" -ne 0 ] || [ "$_rs_mrc" -ne 0 ] || [ "$_rs_src" -ne 0 ] || [ "$_rs_prc" -ne 0 ]; then bad+=("⑥리서치 검사 실패(rev-list rc=$_rs_nrc·$_rs_mrc · 경로목록 rc=$_rs_src·$_rs_prc: ${_rs_n:0:60}) — «코드 0» 을 셀 수 없다")
+      elif [ "$_rs_side" -gt 0 ] || [ "$_rs_dirty" -gt 0 ] || [ "$_rs_out" -gt 0 ] || [ -n "$_rs_self" ]; then   # r978-mut:count
+        bad+=("⑥리서치 아님 — 기준 판 ${_rs_base:0:9}($_rs_bsrc) 뒤 구현 커밋 ${_rs_n} · main 밖 곁가지 병합 ${_rs_side} · 미커밋 ${_rs_dirty}건 · 산출(${_rs_rel:-<워크트리 밖>}) 밖 경로 ${_rs_out}개${_rs_self} · 구현 닫기 경로로(--research 없이 · 카드 증거 줄)")
+      else echo "RESEARCH-OK 기준 판 ${_rs_base:0:9}($_rs_bsrc) 뒤 구현 커밋 ${_rs_n}(산출 1경로만) · 미커밋 ${_rs_rok}건(산출) · 결과 $RESULT (⑥ 증거 줄 면제)"; fi
+      fi
+    fi
+  fi
+elif [ -n "$LANDED_PR" ]; then
+  # r1011 착지 끝 나노: ⑥ «세트 == 지금 HEAD» 대신 «PR #N 이 MERGED ∧ PR head == 카드 «## 상태» 절 «안» 의 마지막 «세트:» sha ∧ 카드 «- 착지:» 줄» — ⑤ cherry 도 이 한 값이 대신한다(아래 ⑤ INFO).
+  #   PR 값은 위 _lp_fetch_pr 이 이미 받았다(호출 1회 · 7초 상한 · 재실행 경로보다 먼저) — 여기서 다시 부르지 않는다. 세트·착지 줄은 카드(읽기 판 CARD_READ 먼저)에서만 읽는다(추론 0).
+  if [ -z "$CARD_READ" ] || [ ! -f "$CARD_READ" ]; then bad+=("⑥카드 못 찾음: seats.json index=${IDX:-<빈 값>} — 착지 대조(«세트:» sha·«- 착지:» 줄)를 할 카드가 없다")
+  else
+    # 「## 상태」 절 «안» 의 마지막 «세트:» 만 — 절 경계 = 다음 `## ` 머리(DA⑥ r2 HOLD ①: 파일 뒤 절의 세트 줄을 집으면 거짓 통과)
+    _lp_set="$(awk '/^##[[:space:]]/{inb = ($0 ~ /^##[[:space:]]*상태[[:space:]]*$/)} inb && /세트:/{l=$0} END{if (l!="") print l}' "$CARD_READ" 2>/dev/null | sed -nE 's/.*세트:[[:space:]]*([0-9a-f]{40}).*/\1/p')"   # r1011-mut:set
+    _lp_land=""; grep -qE '^[[:space:]]*-[[:space:]]*착지:' "$CARD_READ" 2>/dev/null && _lp_land=1   # r1011-mut:land
+    if [ -z "$_lp_set" ]; then bad+=("⑥--landed-pr 카드 «## 상태» 절에 «세트:» 40-hex 줄이 없다: $CARD_READ — 대조할 세트가 없으면 닫지 않는다")
+    elif [ -z "$_lp_land" ]; then bad+=("⑥--landed-pr 카드에 «- 착지:» 줄이 없다: $CARD_READ — 착지 기록 없는 좌석은 이 경로로 닫지 않는다")
+    elif [ "$_lp_head" != "$_lp_set" ]; then   # r1019: head ≠ 세트 = 판정기 1회 — EQUIV(세트 + main 병합뿐)만 통과   # r1011-mut:head
+      if _lp_equiv_gate; then echo "LANDED-PR-OK #$LANDED_PR merged=${_lp_mrg:0:9} state=MERGED head=${_lp_head:0:9} ≡ 카드 세트 ${_lp_set:0:9} + main 병합 ${_lp_equiv_merges} equiv=${_lp_equiv_merges} · «- 착지:» 줄 있음 (⑤ cherry·⑥ 증거 줄 면제)"
+      else bad+=("$_lp_equiv_err"); fi
+    else echo "LANDED-PR-OK #$LANDED_PR merged=${_lp_mrg:0:9} state=MERGED head=${_lp_head:0:9} == 카드 세트 · «- 착지:» 줄 있음 (⑤ cherry·⑥ 증거 줄 면제)"; fi
+  fi
+elif [ "$_role" = nano ] && [ -z "$CARD_READ" ]; then
   # 카드를 못 찾으면 증거를 대조할 수 없다 — 건너뛰고 CLOSED 하면 무음 통과(#0 RULE · DA⑥ 관측 A3). grandfather 와 무관하게 REJECT.
   bad+=("⑥카드 못 찾음: seats.json index=${IDX:-<빈 값>} (후보 $WT/·$ROOT/·$LEDGER_WT/ 아래 어디에도 없음) — 증거 줄을 대조할 카드가 없다${_sibn:+ · 형제 ${_sibn}개}")
-elif [ "$_role" = nano ] && [ -n "$CARD" ]; then
+elif [ "$_role" = nano ] && [ -n "$CARD_READ" ]; then
   if [ ! -x "$HERE/ft-nano-evidence-check.sh" ]; then bad+=("⑥증거 검사 스크립트 없음: $HERE/ft-nano-evidence-check.sh (런타임 bin 에 같이 복사)")
   elif [ "$SHARED" = 1 ]; then
     # ⓔ 공유 워크트리: 증거 sha 는 «공유 HEAD 의 조상»(HEAD 는 다른 세션이 계속 옮긴다). SH_TOP 이 없으면 ⓑ 에서 이미 REJECT 사유가 있다.
     if [ -n "$SH_TOP" ]; then
-      _ev_out="$("$HERE/ft-nano-evidence-check.sh" "$CARD" --repo "$SH_TOP" --feat "$_FEAT" --ancestor-of HEAD 2>&1)"; _ev_rc=$?
-      if [ "$_ev_rc" -eq 0 ]; then echo "$_ev_out"; else bad+=("ⓔ$(printf '%s' "$_ev_out" | sed -e 's/^REJECT //' -e '2,$s/^/    /')"); fi
+      _ev_mult="$(nf_mult_commits "$SH_TOP" "$_FEAT" HEAD)"; _ev_cap="$(nf_cap "$(nf_fixed 증거검사)" "$_ev_mult")"
+      _ev_run --repo "$SH_TOP" --feat "$_FEAT" --ancestor-of HEAD
+      if [ "$_ev_rc" -eq 0 ]; then echo "$_ev_out"
+      elif [ "$_ev_rc" -eq 124 ]; then bad+=("ⓔ$(nf_again "증거 검사" "$(( $(nf_now) - _ev_t0 ))" "$_ev_cap" "$_ev_mult") — 닫지 않음")
+      else bad+=("ⓔ$(printf '%s' "$_ev_out" | sed -e 's/^REJECT //' -e '2,$s/^/    /')"); fi
     fi
   elif [ -z "$SEAT_WT" ]; then bad+=("⑥나노 워크트리 ${SEAT_WT_ERR:-없음: $ROOT/.worktrees/${WT_PREFIX}<key>[-rN]} — 증거 줄의 HEAD 를 대조할 수 없다")
   else
@@ -900,8 +1220,10 @@ elif [ "$_role" = nano ] && [ -n "$CARD" ]; then
     #   created_at 을 못 읽으면 요구한다(fail-closed · 값 추론 금지).
     _ev_created="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("created_at","")[:10])' "$SEAT_WT/.worktree-info.json" 2>/dev/null)"
     _ev_since="${FT_EVIDENCE_SINCE:-2026-10-03}"
-    _ev_out="$("$HERE/ft-nano-evidence-check.sh" "$CARD" --repo "$SEAT_WT" --feat "$_FEAT" 2>&1)"; _ev_rc=$?
+    _ev_mult="$(nf_mult_commits "$SEAT_WT" "$_FEAT" HEAD)"; _ev_cap="$(nf_cap "$(nf_fixed 증거검사)" "$_ev_mult")"
+    _ev_run --repo "$SEAT_WT" --feat "$_FEAT"
     if [ "$_ev_rc" -eq 0 ]; then echo "$_ev_out"
+    elif [ "$_ev_rc" -eq 124 ]; then bad+=("⑥$(nf_again "증거 검사" "$(( $(nf_now) - _ev_t0 ))" "$_ev_cap" "$_ev_mult") — 닫지 않음")
     elif [ -n "$_ev_created" ] && [[ "$_ev_created" < "$_ev_since" ]]; then echo "WARN ⑥증거 줄 미충족(grandfather — 워크트리 created_at $_ev_created < $_ev_since): $(printf '%s' "$_ev_out" | head -1)"
     else bad+=("⑥$(printf '%s' "$_ev_out" | sed -e 's/^REJECT //' -e '2,$s/^/    /')"); fi
   fi
@@ -909,10 +1231,15 @@ fi
 # ⑤ 산출물 회수 — 그 좌석 브랜치의 «+» 커밋(git cherry <feat> <branch>)이 0 (G4 · 골좌표 M7). 좌석이 닫혔다 ≠ 산출물이 들어왔다.
 #   feat = FT_NANO_FEAT(기본 feat/v6-realtime-live) · 브랜치 = 워크트리 .worktree-info.json 의 branch, 워크트리가 없으면 nano/<key>. 못 찾으면 REJECT(침묵 통과 0).
 # --shared-wt: cherry 게이트·wt-clean 계획은 건너뛴다(좌석 브랜치·전용 워크트리가 없다 — 공유 워크트리·브랜치는 손대지 않는다). 대신 ⓓ 가 산출물 커밋 여부를 본다.
+step ⑤cherry
 _gate_br=""; [ -z "$SEAT_WT" ] || _gate_br="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("branch",""))' "$SEAT_WT/.worktree-info.json" 2>/dev/null)"
 [ -n "$_gate_br" ] || _gate_br="${SEAT_BR:-nano/$_KEY}"
 [ "$NAMED" != 1 ] || _gate_br="$NBR"   # --wt/--branch: cherry 게이트는 «--branch 기준»(ⓖ) — info 파일 값이 아니다. 우회는 기존 --cherry-override 뿐.
-if [ -n "$NS_LAND" ]; then
+if [ "$_FEAT_FETCH_FAIL" = 1 ]; then :   # r938 r2 N4: fetch 실패 = cherry·freshness 0(옛 origin/main 대조 0)
+elif [ -n "$LANDED_PR" ]; then
+  # r1011: 착지 끝 좌석은 가지 비교(git cherry)가 뜻이 없다 — ⑥ LANDED-PR-OK 하나가 ⑤ 를 대신한다(브랜치·워크트리 손대기 0).
+  echo "INFO ⑤ cherry 건너뜀 — 착지 끝 좌석(PR #$LANDED_PR): 산출은 이미 main 에 있다(가지 비교 0 · 브랜치 보존)"
+elif [ -n "$NS_LAND" ]; then
   echo "INFO ⑤ cherry 건너뜀 — never-started 착지 가지($NS_LAND): 산출은 이미 main 에 있다(워크트리·브랜치 손대기 0)"
 elif [ -n "${NS_SUCC:-}" ]; then
   echo "INFO ⑤ cherry 건너뜀 — never-started 공유 워크트리: 가지의 커밋은 후계 $NS_SUCC 몫(워크트리·브랜치 손대기 0)"
@@ -927,32 +1254,62 @@ elif [ "$SHARED" = 1 ]; then
   fi
 elif [ -x "$HERE/ft-nano-cherry-gate.sh" ]; then
   # --cherry-override 는 ⑤ 에만 전달한다(①~④·⑥ 영향 0). FT_SEAT 로 원장 행 seat 칸이 좌석명이 된다.
-  _gate_args=(--repo "$SEAT_REPO" --mode close); [ "$HAVE_CHERRY_OVERRIDE" -eq 0 ] || _gate_args+=(--override "$CHERRY_OVERRIDE")
+  _gate_args=(--repo "$SEAT_REPO" --mode close)
+  # r938 r3(astra r2 N1): 앞 검사가 이미 bad 면 이 닫기는 어차피 REJECT — --override 3종을 빼고 «읽기 전용 판정» 만(우회 원장 쓰기 0).
+  if [ "${#bad[@]}" -eq 0 ]; then
+  [ "$HAVE_CHERRY_OVERRIDE" -eq 0 ] || _gate_args+=(--override "$CHERRY_OVERRIDE")
   [ "$SUPER" -eq 0 ] || _gate_args+=(--override "superseded-by $SUPERSEDED")   # R171: 대체 나노는 산출을 랜딩하지 않는다 — cherry REJECT 일 때만 원장 1행(사유 = 대체 카드)
   [ "$SUSP" -eq 0 ] || _gate_args+=(--override "suspended: $SUSP_REASON")   # r450: 중단 나노도 미완 산출을 랜딩하지 않는다(브랜치 보존) — 같은 자리 · 같은 원장
-  _gate_out="$(FT_SEAT="$SEAT" "$HERE/ft-nano-cherry-gate.sh" "$_FEAT" "$_gate_br" "${_gate_args[@]}" 2>&1)"; _gate_rc=$?
+  fi
+  # r938 r2 N3: 배수 = 그 검사가 보는 커밋 수(feat..가지) — 커밋 12개짜리 가지가 정상 동작인데 11초에 잘리는 거짓 거절을 막는다.
+  _gate_mult="$(nf_mult_commits "$SEAT_REPO" "$_FEAT" "$_gate_br")"; _gate_cap="$(nf_cap "$(nf_fixed cherry)" "$_gate_mult")"
+  _gate_t0="$(nf_now)"
+  _gate_out="$(FT_SEAT="$SEAT" nf_bound "$_gate_cap" "$HERE/ft-nano-cherry-gate.sh" "$_FEAT" "$_gate_br" "${_gate_args[@]}" 2>&1)"; _gate_rc=$?
+  if [ "$_gate_rc" -eq 124 ]; then
+    # r938 ⓒ: 상한 초과 = REJECT(멈춤 0) — 뒤 단계(fetch 교차·freshness)도 0. 명부·원장·세션은 아래 bad 판정에서 그대로 남긴다.
+    bad+=("⑤$(nf_again "cherry 게이트" "$(( $(nf_now) - _gate_t0 ))" "$_gate_cap" "$_gate_mult") — 닫지 않음")
+  else
   # 판정 1280: 팀 base 기준 REJECT «일 때만» origin/main 기준으로 같은 게이트를 한 번 더(--override 전달 0) — 뒤처진 팀 base 에서 main 에 squash 된 나노를 막지 않는다.
-  #   fetch 실패면 옛 ref 로 대조하지 않는다(R22 · #0 RULE). 팀 base 가 이미 main·origin/main 이면 두 번째 실행 0.
+  #   fetch 실패면 옛 ref 로 대조하지 않는다(R22 · #0 RULE · r938 r2 N4 = 그 자리 REJECT). 팀 base 가 이미 main·origin/main 이면 두 번째 실행 0.
+  _om_fetch_fail=0
   if [ "$_gate_rc" -ne 0 ] && [ "$_FEAT" != origin/main ] && [ "$_FEAT" != main ]; then
-    if git -C "$SEAT_REPO" fetch -q origin main >/dev/null 2>&1; then
-      _om_out="$(FT_SEAT="$SEAT" "$HERE/ft-nano-cherry-gate.sh" origin/main "$_gate_br" --repo "$SEAT_REPO" --mode close 2>&1)"; _om_rc=$?
-      if [ "$_om_rc" -eq 0 ]; then _gate_rc=0; _gate_out="INFO cherry 게이트 — $_FEAT 기준 REJECT(${_gate_out%%$'\n'*}) · origin/main 기준 통과(${_om_out%%$'\n'*}) (사유 content_on_origin_main)"
+    step fetch
+    if nf_fetch "$SEAT_REPO" origin main >/dev/null 2>&1; then
+      _om_t0="$(nf_now)"
+      _om_out="$(FT_SEAT="$SEAT" nf_bound "$_gate_cap" "$HERE/ft-nano-cherry-gate.sh" origin/main "$_gate_br" --repo "$SEAT_REPO" --mode close 2>&1)"; _om_rc=$?
+      if [ "$_om_rc" -eq 124 ]; then   # r938 r3(astra r2 N3): 둘째 cherry 상한 = 그 자리 REJECT · freshness 0(fetch 실패와 같은 표식)
+        _om_fetch_fail=1; bad+=("⑤$(nf_again "cherry 게이트(origin/main)" "$(( $(nf_now) - _om_t0 ))" "$_gate_cap" "$_gate_mult") — 닫지 않음")
+      elif [ "$_om_rc" -eq 0 ]; then _gate_rc=0; _gate_out="INFO cherry 게이트 — $_FEAT 기준 REJECT(${_gate_out%%$'\n'*}) · origin/main 기준 통과(${_om_out%%$'\n'*}) (사유 content_on_origin_main)"
       else _gate_out="$_gate_out"$'\n'"origin/main 기준: ${_om_out%%$'\n'*}"; fi
-    else _gate_out="$_gate_out"$'\n'"origin/main fetch 실패 — 옛 ref 로 대조하지 않는다(R22)"; fi
+    else _om_fetch_fail=1; _gate_out="$_gate_out"$'\n'"origin/main fetch 실패(7초+재시도 1 상한) — 옛 ref 대조 0(R22) · cherry 재검사·freshness 0"; fi
   fi
   [ "$_gate_rc" -eq 0 ] || bad+=("⑤$(printf '%s' "$_gate_out" | sed '2,$s/^/    /')")
   # 나노 생애(오빠 ORDERS 103 · docs/rules/single_set_testing.md §3): 미랜딩이면 «루트부터» 판정과 다음 수(최신 루트 병합→시험→squash 랜딩)를 같이 낸다.
-  if [ "$_gate_rc" -ne 0 ] && [ -x "$HERE/ft-nano-freshness.sh" ]; then
-    _fresh_out="$(cd "$SEAT_REPO" &&"$HERE/ft-nano-freshness.sh" "$_gate_br" --root "$_FEAT" 2>&1 | grep -E '^(base|branch|overlap|다음|VERDICT|  )')"
-    bad+=("⑤-생애 $(printf '%s' "$_fresh_out" | sed '2,$s/^/    /')")
+  #   r938 r2 N4: fetch 가 실패했으면 freshness(origin/main 을 다시 읽는다)도 돌리지 않는다 — 옛 ref 로 판정하지 않는다(R22).
+  if [ "$_gate_rc" -ne 0 ] && [ "$_om_fetch_fail" = 0 ] && [ -x "$HERE/ft-nano-freshness.sh" ]; then
+    step freshness
+    _fr_mult="$(nf_mult_commits "$SEAT_REPO" "$_FEAT" "$_gate_br")"; _fr_cap="$(nf_cap "$(nf_fixed freshness)" "$_fr_mult")"
+    _fr_t0="$(nf_now)"
+    _fresh_out="$(cd "$SEAT_REPO" && nf_bound "$_fr_cap" "$HERE/ft-nano-freshness.sh" "$_gate_br" --root "$_FEAT" 2>&1)"; _fresh_rc=$?
+    if [ "$_fresh_rc" -eq 124 ]; then bad+=("⑤-생애 $(nf_again "freshness" "$(( $(nf_now) - _fr_t0 ))" "$_fr_cap" "$_fr_mult") — 닫지 않음")
+    else
+      _fresh_out="$(printf '%s\n' "$_fresh_out" | grep -E '^(base|branch|overlap|다음|VERDICT|  )')"
+      bad+=("⑤-생애 $(printf '%s' "$_fresh_out" | sed '2,$s/^/    /')")
+    fi
   fi
   [ "$_gate_rc" -ne 0 ] || echo "$_gate_out"
+  fi
 else
   bad+=("⑤cherry 게이트 스크립트 없음: $HERE/ft-nano-cherry-gate.sh (런타임 bin 에 같이 복사)")
 fi
 if [ "${#bad[@]}" -gt 0 ]; then echo "REJECT $SEAT"; printf '  - %s\n' "${bad[@]}"; exit 1; fi
 # r450 중단: 조건이 전부 통과한 뒤에만 카드 «## 상태» 끝에 중단 줄(멱등) — 못 쓰면 명부·원장·세션 변경 전에 REJECT
 if [ "$SUSP" = 1 ]; then
+  # r938 r2 N1: 여기가 첫 쓰기다(⑤⑥ 상한 검사를 다 지난 뒤) — [wip] 커밋 → 중단 검사(HEAD·미커밋 0) → 카드 줄 적용.
+  if [ "$NAMED" != 1 ]; then _susp_wip || { echo "REJECT $SEAT"; echo "  - ⑥[wip] 커밋 실패 — 미커밋을 보존하지 못해 닫지 않는다: $SEAT_WT"; exit 1; }; fi
+  _su_out="$("$HERE/ft-nano-suspended-check.sh" "$CARD" --wt "$SEAT_WT" --reason "$SUSP_REASON" 2>&1)"; _su_rc=$?
+  [ "$_su_rc" -eq 0 ] || { echo "REJECT $SEAT"; printf '  - ⑥%s\n' "${_su_out#REJECT }"; exit 1; }
+  echo "$_su_out"; SUSP_SET="$(git -C "$SEAT_WT" rev-parse HEAD)"
   _su_out="$("$HERE/ft-nano-suspended-check.sh" "$CARD" --wt "$SEAT_WT" --reason "$SUSP_REASON" --apply 2>&1)" || { echo "REJECT $SEAT"; printf '  - ⑥%s\n' "${_su_out#REJECT }"; exit 1; }
   echo "$_su_out"
 fi
@@ -960,10 +1317,12 @@ _su_tag=""; [ "$SUSP" -eq 0 ] || _su_tag=" suspended=1 reason=$SUSP_REASON set=$
 [ "$NEVER" -eq 0 ] || { _su_tag=" never-started «${NEVER_REASON}»"; RESULT="(never-started · 산출 0)"; RECV="-"; }   # r506: 원장 ①② 칸 = 면제 표기 · 출력·원장 꼬리는 suspended 와 같은 자리
 [ -z "$NS_SUCC" ] || _su_tag=" never-started (공유 워크트리 → 후계 $NS_SUCC · 워크트리 정리 0)"
 [ -z "$NS_LAND" ] || _su_tag=" never-started (착지 가지 $NS_LAND · 워크트리 정리 0)"   # 개정 r3 규칙 2b   # r506 r2 규칙 2 출력 꼴(사유는 원장 행 wt= 칸)
+[ "$RESEARCH" -eq 0 ] || _su_tag=" research=1"   # r888: 원장 행·출력 꼬리(⑥ 증거 줄 면제 표기)
+[ -z "$LANDED_PR" ] || _su_tag=" landed-pr=$LANDED_PR${_lp_equiv_merges:+ equiv=$_lp_equiv_merges}"   # r1011: 원장 행·출력 꼬리(⑤⑥ 을 PR 이 대신했다는 표기) · r1019: head ≠ 세트로 통과했으면 equiv=<병합 수>
 # R387 판정 2282 §7-2 — 리서치 좌석(카드 `- 리서치: <좌석> base=<sha> 허용=<경로 패턴>`): 허용 밖 변경(base..HEAD + 작업트리)이 있으면 카드에 `- 리서치 위반:` 1줄 — 기록만(닫기·WIP 보존·회수는 막지 않는다 · 새 sandbox 0)
 RS_LINE=""; RS_AGENT="$(jq -r --arg s "$SEAT" '.[$s].agent // empty' "$SEATS" 2>/dev/null)"   # r286: 에이전트는 카드 유무와 무관(opencode 회수)
 RC_AG=""; case "$RS_AGENT" in opencode|pi) RC_AG="$RS_AGENT";; esac   # r542: 회수 대상 에이전트(명부 값 그대로 · 그 밖·빈 값 = 판정기 기본 opencode)
-if [ -n "${CARD:-}" ] && [ -f "$CARD" ]; then RS_LINE="$(grep -m1 -F -- "- 리서치: $SEAT base=" "$CARD" 2>/dev/null)"; fi
+for _rc in "${CARD_READ:-}" "${CARD:-}"; do [ -z "$RS_LINE" ] && [ -n "$_rc" ] && [ -f "$_rc" ] && RS_LINE="$(grep -m1 -F -- "- 리서치: $SEAT base=" "$_rc" 2>/dev/null)"; done   # r888: 읽기 판 먼저 · 없으면 작업 트리 판(좌석 이름이 박힌 줄)
 # r286: opencode 좌석 = 명부 agent 또는 스폰이 남긴 pid 파일 — 명부를 지우기 «앞»에 지금 나무를 pid 파일에 합친다(세션 kill 뒤 부모 잃은 것까지 회수 · 재실행은 pid 파일로 판정 · OC_BIN·OC_PF 는 위 _oc_close 정의 옆)
 OC_WT=(); AGARG=(); [ "$SHARED" = 1 ] || [ -z "${SEAT_WT:-}" ] || OC_WT=(--wt "$SEAT_WT"); [ "$RC_AG" != pi ] || AGARG=(--agent pi)
 OC=0; { [ -n "$RC_AG" ] || [ -f "$OC_PF" ]; } && OC=1
@@ -991,10 +1350,14 @@ fi
 # jq 종료코드 1(has=false) 만 «없음» — 파일 오류(2·5)는 RERUN=0 으로 두어 기존 동작(append) 유지.
 RERUN=0; jq -e --arg s "$SEAT" 'has($s)' "$SEATS" >/dev/null 2>&1; [ "$?" -ne 1 ] || RERUN=1
 # 사건 원장 훅(PLAN-status-sheet §3-1): 명부 삭제 «전» prepared — 못 쓰면 닫기 거절 · 원장 append 직후 committed · 그 밖의 종료는 abort(trap)
-_SK="$(bash "$HERE/ft-sheet-events.sh" key nano-close "$SEAT" "${RESULT:-none}")"
-bash "$HERE/ft-sheet-events.sh" prepare "$_SK" "$(python3 -c 'import json,sys;print(json.dumps(dict(zip(("ev","team","id","seat","ref","by"),sys.argv[1:]))))' nano-close "" "$SEAT" "$SEAT" "세트 ${RESULT:0:60}" nano-close)" >/dev/null || { echo "REJECT $SEAT"; echo "  - 사건 원장 prepared 실패 — 닫기 거절(PLAN §3-1)"; exit 1; }
-trap 'bash "$HERE/ft-sheet-events.sh" abort "$_SK" 2>/dev/null' EXIT
+step sheet
+_SHCAP="$(nf_cap "$(nf_fixed sheet)" 1)"   # r938 ⓒ: 사건 원장 호출도 상한 안에서(key·prepare·commit 각 1회)
+_SK="$(nf_bound "$_SHCAP" bash "$HERE/ft-sheet-events.sh" key nano-close "$SEAT" "${RESULT:-none}")"
+# r938 r2 N1: abort trap 을 prepare «호출 전» 에 건다 — prepare 뒤에 등록하면 prepare 가 상한에 잘릴 때 .prepared 가 남는다(DA⑥ r1 반례 1).
+trap 'if [ -n "${_SK:-}" ]; then bash "$HERE/ft-sheet-events.sh" abort "$_SK" 2>/dev/null; fi; rm -f "${_CR_TMP:-}" "${_CB_TMP:-}"' EXIT   # r888: 꺼낸 카드 임시 파일도 같이(r960: 가지 판도)
+nf_bound "$_SHCAP" bash "$HERE/ft-sheet-events.sh" prepare "$_SK" "$(python3 -c 'import json,sys;print(json.dumps(dict(zip(("ev","team","id","seat","ref","by"),sys.argv[1:]))))' nano-close "" "$SEAT" "$SEAT" "세트 ${RESULT:0:60}" nano-close)" >/dev/null || { _shr=$?; echo "REJECT $SEAT"; echo "  - 사건 원장 prepared 실패$([ "$_shr" -eq 124 ] && echo " — 시간 초과(${_SHCAP}s 상한)") — 닫기 거절(PLAN §3-1)"; exit 1; }
 # 명부 삭제 + 원장 append (pm 만 원장을 쓴다는 §2-7 의 예외 = 이 스크립트의 append 1줄)
+step ledger
 python3 - "$SEATS" "$SEAT" <<'PY'
 import json, sys, collections
 p, s = sys.argv[1:3]
@@ -1050,7 +1413,7 @@ if [ "$NAMED" = 1 ]; then
   [ "$PACK_WT" != 1 ] || echo "INFO 팩 워크트리 정리 = 별 경로 — $SEAT_WT (팩 리포 $SEAT_REPO · 이 닫기는 계획 0 · BYZ 쪽 같은 이름 워크트리는 기존 규칙 그대로)"
 elif [ -n "$PLAN" ]; then echo "워크트리 정리 계획: $PLAN (실행은 세션 kill 직후 — 미완이면 ft-wt-sweep.sh)"; fi
 # r6(DA r5 MINOR e): 명부 pop 은 ABSENT 여부와 무관하게 위에서 항상 실행된다 — 「명부 확인」은 사실과 달랐다.
-bash "$HERE/ft-sheet-events.sh" commit "$_SK" >/dev/null || true   # 원장 append 직후 = 닫힘 사건 성공(append 실패는 stderr SHEET-EVENT-PENDING)
+nf_bound "${_SHCAP:-$(nf_cap "$(nf_fixed sheet)" 1)}" bash "$HERE/ft-sheet-events.sh" commit "$_SK" >/dev/null || true   # 원장 append 직후 = 닫힘 사건 성공(append 실패는 stderr SHEET-EVENT-PENDING)
 _sp_tag=""; [ "$SUPER" -eq 0 ] || _sp_tag=" superseded-by=$SUPERSEDED"   # R171
 _sp_tag+="$_su_tag"   # r450
 # r448: 세션 kill «앞»(세션이 이미 없어도) 그 좌석이 띄운 백그라운드 루프 정지 — left≠0 ∨ rc≠0 = CLOSE-FAIL + exit 1(세션 보존 · 명부는 삭제됨 → 같은 close 재실행이 RERUN 으로 이어간다)
@@ -1059,7 +1422,8 @@ _seat_reap || { echo "CLOSE-FAIL reap ${_rp_left:-left=?} rc=$_rp_rc — $SEAT �
 if [ "$ABSENT" = 1 ]; then _oc_close; echo "CLOSED-ABSENT $SEAT$_sp_tag (명부 삭제 · 원장 표식) — 워크트리 정리 계획만 · reap left=0 rc=0"; exit 0; fi
 echo "CLOSED $SEAT$_sp_tag (명부 삭제 · 원장 append) — 좌석은 정지 레디 · reap left=0 rc=0"
 # 슬롯 채움(오빠 2026-10-02): 닫은 같은 턴에 빈 석·후보를 보인다 — 출력만, 실패해도 close 결과는 그대로.
-bash "$(dirname "$0")/ft-nano-slots.sh" || echo "WARN ft-nano-slots 실패(rc=$?) — 빈 석을 손으로 세라"
+step slots
+nf_bound "$(nf_cap "$(nf_fixed slots)" 1)" bash "$(dirname "$0")/ft-nano-slots.sh" || echo "WARN ft-nano-slots 실패(rc=$?) — 빈 석을 손으로 세라"
 
 # 닫힌 나노는 «항상» 태그 해제 + 세션 kill — 근거: 글로벌 ~/.claude/CLAUDE.md 「나노 세션 정리 표준승인 (2026-10-02 · 오빠 AskUserQuestion master-claude#120)」
 # (nano-close 경로 하나 · 나노 계보 keep-last-2 면제 · ★브랜치 삭제 0★ · 역할 좌석은 keep-last-2 그대로).

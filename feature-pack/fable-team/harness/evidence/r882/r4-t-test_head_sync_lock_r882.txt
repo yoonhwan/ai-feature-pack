@@ -1,0 +1,32 @@
+PASS bash -n head-sync
+PASS ⓐ wt-a 안 --apply rc0 · A 최신화
+PASS ⓐ 남의 워크트리(wt-b·wt-c) git 호출 0 (실측 0)
+PASS ⓐ 표에 B·C 줄 0 · B HEAD 불변
+PASS ⓑ --table = 전 워크트리 표(A·B·C) rc0
+PASS ⓑ --table --apply → usage rc2
+PASS ⓒ 겹친 3개 → 표 1 · «이미 실행 중 pid N · 시작 HH:MM» 2 · rc 전부 0 (표 1 · 대기 2)
+PASS ⓒ 끝나면 잠금 풀림(쥔 프로세스 0 · 다음 실행 정상)
+PASS ⓐ r2 두 실행 동시 → 둘째 «이미 실행 중 pid N · 시작 HH:MM» 1줄 rc0 · 스캔 git 0 (실측 0)
+PASS ⓑ r2 신호 9 로 죽은 주인 → 다음 실행이 바로 잡음(회수 문구 0 · 고아 0)
+PASS ⓒ r2 잠금 파일의 옛 pid 글자만으로는 막지 않음
+PASS ⓒ 살아 있는 주인 → 1줄 rc0 · 남의 잠금 글자 그대로
+PASS ⓒ 전수 잠금 중에도 자기 워크트리 --apply 는 돈다(잠금 범위 = 그 워크트리)
+PASS ⓓ 쪽지에 --apply 0
+PASS ⓓ 쪽지 = 자기 워크트리 스스로(merge 만 · main sha 고정) · 팩 작업 무관
+PASS ⓖ r3 --all 은 1곳 실행이 쥔 wt-a 를 «건너뜀» · 끝줄 건너뜀 수 rc0
+PASS ⓖ r3 wt-a = 1곳 실행만 씀 · B·C = 전수가 씀
+PASS ⓖ r3 wt-a 작업 파일 = HEAD(미커밋 0 · MERGE_HEAD 0) · HEAD ⊇ main
+PASS ⓗ r3·r4 남의 MERGE_HEAD(다른 sha) → abort 0 · 그대로 둠 · 보류 rc1
+PASS ⓘ r3 병합 뒤 미커밋 남음 → «최신화함» 0 · ERROR rc1
+PASS ⓝ r4 남의 같은 base 병합 → abort 0 · MERGE_HEAD(=base) 그대로 · 보류 rc1
+PASS ⓞ r4 우리 merge 충돌(rc=1) → abort · «충돌·사람» · HEAD·파일 원래대로 rc0
+PASS ⓕ 변이1(flock 줄 제거)이 실제로 줄을 바꿨다
+PASS ⓕ 변이(flock 제거) → 겹친 실행이 표 3 개 = ⓒ 단언이 잡는다
+PASS ⓕ 변이(flock 제거) → 둘째도 스캔 git 36 = r2 ⓐ 단언이 잡는다
+PASS ⓕ 변이2 가 실제로 줄을 바꿨다
+PASS ⓕ 변이(cwd 제한 제거) → 남의 워크트리 git 호출 50 = ⓐ 단언이 잡는다
+PASS ⓕ 변이3(전수 쓰기 잠금 = 공용 키) 만듦
+PASS ⓕ 변이(공용 키) → --all 이 1곳 실행 중인 wt-a 를 씀 = ⓖ 단언이 잡는다
+PASS ⓕ 변이4(abort 판정 = rc 대신 MERGE_HEAD sha 비교 · r3 꼴) 만듦
+PASS ⓕ 변이(rc→sha 비교) → 남의 같은 base MERGE_HEAD 를 abort 로 지움 = ⓝ 단언이 잡는다
+ALL PASS

@@ -127,7 +127,7 @@ def test_f_delay_notice_once_per_stall_then_recovery_line(tmp_path, oc, slack, m
     assert fh.tick(*args, "a", "b")[0] == 0 and len(slack.msgs) == 1
     link = json.loads((state / "html.json").read_text())["link"]
     reply.write_text("JSON 아님", encoding="utf-8")
-    for n, at in enumerate(("09:06", "09:12", "09:18", "09:24"), 1):
+    for n, at in enumerate(("09:12", "09:24", "09:36", "09:48"), 1):  # r907 r2: 게시 최소 간격 10분 — 틱 간격을 그보다 벌린다
         monkeypatch.setenv("FT_NEWS_NOW", f"2026-10-19 {at}")
         assert fh.tick(*args, "b", "c") == (1, "지도 만들기 실패")
         assert len(slack.msgs) == (1 if n < 3 else 2), n  # 3틱째 1번 · 4틱째 추가 0
@@ -136,9 +136,9 @@ def test_f_delay_notice_once_per_stall_then_recovery_line(tmp_path, oc, slack, m
     assert re.search(rf"· 마지막 판 09:00\({re.escape(link)}\) · 부하 \d+\.\d\d$", text)
     assert len(text.split("사유: ")[1].split(" · 마지막 판")[0]) <= 120
     reply.write_text(good, encoding="utf-8")
-    monkeypatch.setenv("FT_NEWS_NOW", "2026-10-19 09:30")
+    monkeypatch.setenv("FT_NEWS_NOW", "2026-10-19 10:00")
     assert fh.tick(*args, "b", "c")[0] == 0
-    assert [m["text"] for m in slack.msgs[2:]][-1] == "뉴스 복구 09:30 · 지연 30분" and len(slack.msgs) == 4  # 지도 1 + 복구 1
+    assert [m["text"] for m in slack.msgs[2:]][-1] == "뉴스 복구 10:00 · 지연 60분"  # r907 r2: 틱 간격 12분(게시 간격 10분) and len(slack.msgs) == 4  # 지도 1 + 복구 1
     assert not (state / "news-delay.json").exists()
 
 

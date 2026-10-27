@@ -1,0 +1,5 @@
+# 변이(시험 안 ⓕ) — research→'elif false' ⇒ ⓐ FAIL · cardref→':' ⇒ ⓓ FAIL · uniq→'_rs_n=0; _rs_nrc=0' ⇒ ⓖ FAIL
+== ⓕ 변이 — 면제 제거 → ⓐ FAIL · origin/main 후보 제거 → ⓓ FAIL
+PASS ⓕ 면제 제거 → ⓐ FAIL
+PASS ⓕ origin/main 후보 제거 → ⓓ FAIL
+PASS ⓕ 고유 커밋 검사 제거 → ⓖ FAIL

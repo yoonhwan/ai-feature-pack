@@ -86,7 +86,7 @@ p="$(ls "$S"/autonomy-on-*-full.sh.hil 2>/dev/null | head -1)"; [ -n "$p" ] && g
 [ ! -e "$LOG" ]; ck "ⓕ 인터뷰 도구는 상태 쓰기 0(ON 은 오빠 h)" $?
 run bash "$I" --for 12h --level turbo; [ $rc = 2 ] && [ "$(ls "$S"/autonomy-on-* | wc -l | tr -d ' ')" = 1 ]; ck "ⓕ 틀린 레벨 → REJECT rc 2 · 계획 파일 0" $?
 run bash "$I" --level full; [ $rc = 2 ] && has '기간 없음'; ck "ⓕ 기간 없음 → REJECT" $?
-run bash "$I" --for 3h --level mid --max 40; [ $rc = 2 ]; ck "ⓕ 범위 값 틀림(--max 40) → REJECT" $?
+run bash "$I" --for 3h --level mid --max 101; [ $rc = 2 ]; ck "ⓕ 범위 값 틀림(--max 101 · 상한 100 r908) → REJECT" $?
 # ⓖ 위변조 — log 에 승인 줄만(모드 줄 없음) = 기존 OFF 그대로
 fresh; printf 'approve-scope S1 A1 %s until=%s max=30 daily=15 classes=docs level=full\n' "$T0" "$((T0+9999))" > "$LOG"
 [ "$(a mode)" = off ]; ck "ⓖ 승인 줄만 → mode off" $?
