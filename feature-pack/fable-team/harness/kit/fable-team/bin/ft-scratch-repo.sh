@@ -189,25 +189,19 @@ EOF
   return 0
 }
 reg_rows() { # → ROWS = 등록부 전부의 줄 — 같은 줄은 «등록부별 등장 횟수의 최대» 만(장부 둘의 같은 줄 = 한 번 · 한 등록부 안 중복은 그대로 남아 G5 가 «정확히 1줄 아님» 으로 거절) · REG_BAD=1 = 못 읽은 등록부 있음(«모름»)
-  local f rows line n1 n2 t="$STATE/.regrows.$$"
+  #   r1032: 줄마다 grep 2회(등록부 640줄 = 외부 명령 약 1270회 · 1회 약 7초 · 후보 1개마다 다시 불려 70초 예산에 7개만 봄) → »등록부 전체 awk 1회«로 센다. 뜻은 그대로: 등록부마다 파일 번호(fi)로 세어
+  #   «그 줄이 그 등록부에 나온 횟수 > 지금까지 최대» 일 때만 낸다 = 등록부별 등장 횟수의 최대만 · 한 등록부 안 중복은 그대로 남는다(R2 = 양쪽 1줄 → 1 · R1 = 한쪽 2줄 → 2) · 빈 줄 0
+  local f rows okf=""
   ROWS=""; REG_BAD=0
   reg_list
-  : > "$t" 2>/dev/null || { ROWS=""; REG_BAD=1; return 0; }
   for f in $REGS; do
     [ -e "$f" ] || continue
-    cap rows cat -- "$f" || { REG_BAD=1; continue; }
-    while IFS= read -r line; do
-      [ -n "$line" ] || continue
-      cap n1 grep -c -x -F -e "$line" -- "$f"; n1="${n1:-0}"
-      cap n2 grep -c -x -F -e "$line" -- "$t"; n2="${n2:-0}"
-      isnum "$n1" && isnum "$n2" || { REG_BAD=1; continue; }
-      [ "$n1" -gt "$n2" ] || continue
-      printf '%s\n' "$line" >> "$t"
-    done <<EOF
-$rows
-EOF
+    cap rows cat -- "$f" || { REG_BAD=1; continue; }   # 읽기 실패 = 모름(그 등록부는 awk 에 안 넘긴다)
+    okf="$okf$f
+"
   done
-  cap ROWS cat -- "$t"; rm -f -- "$t" 2>/dev/null
+  [ -n "$okf" ] || { ROWS=""; return 0; }
+  cap ROWS awk 'FNR==1{fi++} $0!=""{k=fi SUBSEP $0; c[k]++; if (c[k] > m[$0]) {m[$0]=c[k]; print}}' $okf || REG_BAD=1
   return 0
 }
 row_owner() { # <등록부> <경로> → 그 줄의 주인 · 등록부 없음/그 줄 없음 = rc3 · 못 읽음 = 그 밖의 rc
