@@ -1,0 +1,19 @@
+r703 — test_orch_gate_master.sh 가 BYZ 리포 origin/main 프로젝트 훅을 명시적으로 읽게 (시험 1파일)
+base = 팩 origin/main 08054bbf93a14fe8e625b3066bef07394d703b36 · BYZ origin/main = 02-after-green.txt 첫 줄
+
+원인: r386 재배치 뒤 시험만 팩으로 왔고 대상 훅(master 좌석 모드)은 BYZ .claude/hooks 에 남음.
+      시험은 팩/.claude/hooks(없음)와 BYZ 커밋 43eb52ed632a(팩에 없음)를 찾아 늘 rc1.
+고침: NEW = git -C $FT_BYZ_REPO show origin/main:.claude/hooks/orchestration-gate.sh
+      OLD = 같은 리포 BASE_REV(43eb52ed632a · OLD_HOOK_REV 로 덮어쓰기 가능)
+      FT_BYZ_REPO 기본 = cwd 리포 공용 루트의 .fable-team/LIVE_ROOT 1행 · 못 찾음/훅 없음 = «FAIL …» rc1 (건너뛰기 0)
+
+ⓐ 01-before-red.txt      지금 판 rc=1 «수정 전 훅 추출 실패(43eb52ed632a)»
+ⓑ 02-after-green.txt     FT_BYZ_REPO=BYZ 루트 · 36칸 pass=36 fail=0 rc=0 (BYZ a1b0242ce9 때 36/0 과 같은 수)
+   03-default-live-root  BYZ cwd 에서 FT_BYZ_REPO 없이 (LIVE_ROOT 1행 = v6-realtime-live) pass=36 fail=0 rc=0
+ⓓ 04-mutation-fail.txt   대상 훅 master 판별 줄 1줄 삭제 사본(임시 리포) → pass=26 fail=10 rc=1 (master 기대 2 칸 10개 전부 FAIL)
+ⓔ 05-bad-path-fail.txt   FT_BYZ_REPO=없는 경로 · LIVE_ROOT 없는 cwd · 팩 리포(훅 없음) → 셋 다 «FAIL …» rc=1
+
+관찰(범위 밖):
+- 팩 cwd 에는 .fable-team/LIVE_ROOT 가 없어 팩 cwd 에서 FT_BYZ_REPO 없이 돌리면 rc1(사유 출력) — 카드 ⓑ 대로 건너뛰기 0. 팩 쪽 일괄 실행은 FT_BYZ_REPO 를 넘겨야 함.
+- CHANGES.md·manifest 판 번호는 손대지 않음 — land/r699-squash 가 1.1.202 로 대기 중이라 착지 순번에 master 가 배정.
+- press 필요: 없음 (훅 단위 시험).
