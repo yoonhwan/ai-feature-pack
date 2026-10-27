@@ -17,12 +17,13 @@ ALIVE = "살아 있음(다음 닫힘 뒤)"
 BUDGET, LIVE = 7.0, 600.0
 SM_TOTAL, SM_WORKERS = 120.0, 4  # SM 전체 상한 · 동시 4
 CALL_S = float(os.environ.get("FT_FOLLOWUP_CALL_SECS") or 7.0)  # 외부 호출 1회 상한(기본 7초 · 시험은 낮춘다)
+SDK_S = float(os.environ.get("FT_FOLLOWUP_SDK_SECS") or CALL_S)  # SDK 호출 상한(기본 = 위 값 · 시험은 SDK 만 낮춘다)
 
 
 async def _aw(make):  # SDK 호출 1회 상한 + 재시도 1 — 넘으면 asyncio.TimeoutError
     for attempt in (0, 1):
         try:
-            return await asyncio.wait_for(make(), CALL_S)
+            return await asyncio.wait_for(make(), SDK_S)
         except asyncio.TimeoutError:
             if attempt:
                 raise
@@ -41,7 +42,7 @@ async def _sdk_vaults(tok: str) -> tuple[list[tuple[str, str, list[str]]], list[
                 if vals:
                     keys.append((f"OP {v.title}/{it.id}", f"OP {v.title} · {it.title}", vals))
         except asyncio.TimeoutError:  # 그 볼트만 «대조 못 한 곳» 1줄(조용한 0 금지)
-            miss.append(f"1Password 볼트 {v.title} · 시간 초과 {CALL_S:g}초")
+            miss.append(f"1Password 볼트 {v.title} · 시간 초과 {SDK_S:g}초")
         except Exception as e:
             miss.append(f"1Password 볼트 {v.title} · {_one(getattr(e, 'message', '') or str(e)) or e.__class__.__name__}")
     return keys, miss
@@ -171,8 +172,7 @@ def texts(rows, rot, rot_why, keys, miss, live) -> tuple[str, str]:  # (보고, 
         rep += ["", f"- 결론: 교체({rot}) {tail}"]
     rep += ["", "## ② 지금 살아 있는 키와 지문이 같은가 (1Password 볼트 전부 + GCP SM 전부 · 앞 8자끼리만 · 해시 글자 0)", "",
             f"- 머리 줄: **일치 {len(hits)}** ({', '.join(sorted(d for u, d, _v in keys if u in hits)) if hits else '없음'}) · **대조 못 한 곳 {len(miss)}** · **대조한 키 {len(keys)}**"]
-    dup = {d: [x for _u, x, _v in keys].count(d) for d in {x for _u, x, _v in keys}}  # 같은 제목 항목 수(값 0 · 이름만)
-    twos = sorted(d for d, n in dup.items() if n > 1)
+    twos = sorted(d for d in {x for _u, x, _v in keys} if [x for _u, x, _v in keys].count(d) > 1)  # 같은 제목 항목(값 0 · 이름만)
     rep += ["", f"- 같은 제목 항목 {len(twos)}쌍" + (f" ({', '.join(twos)})" if twos else "")]
     if keys:
         rep += ["", "| 키 이름 | 판정 | 줄 수 |", "| --- | --- | --- |"]

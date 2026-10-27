@@ -76,7 +76,7 @@ novalue() { ! grep -q -e ZQ7x "$@" \
 python3 -m py_compile "$PY" "$BIND/ft_secret_followup_plan.py"; ck "py_compile (도구·짝)" $?
 [ "$(wc -l < "$PY")" -le 200 ] && [ "$(wc -l < "$BIND/ft_secret_followup_plan.py")" -le 200 ]; ck "200줄 상한(도구·짝)" $?
 
-ft_only sm || {   # ── 기존 칸(① 시각 · ② 이름 · ③ 계획)은 FT_TEST_ONLY=sm 변이 회차에서 건너뛴다
+ft_only base && {   # ── 기존 칸(① 시각 · ② 이름 · ③ 계획) — FT_TEST_ONLY 가 있으면 그 칸만 돈다
 # C1 — 시각 전/뒤 셈 · 뒤인 행의 도구 이름 · 줄 시각 없음 = mtime
 run --triage "$T/TRIAGE.md" --keys-log "$T/keys.md" --report "$T/rep.md" --plan "$T/plan.md"
 [ "$rc" = 0 ] && [ "$(grep -c . <<<"$out")" = 1 ]; ck "rc0 · 표준출력 1줄" $?
@@ -87,7 +87,7 @@ grep -q 'live.jsonl:3.*(mtime)' "$T/rep.md"; ck "C1 줄 시각 없음 → mtime 
 grep -q 'unknown=1' <<<"$out"; ck "C1 못 읽는 줄 = 판정 불가(조용한 생략 0)" $?
 
 # C2 — 옛 키 판정 · 삭제 계획(③)
-grep -q '| OLD_A | 옛 키(일치 0) | 0 |' "$T/rep.md"; ck "C2 옛 키(일치 0)" $?
+grep -q '| OP develop · OLD_A | 옛 키(일치 0) | 0 |' "$T/rep.md"; ck "C2 옛 키(일치 0)" $?
 grep -q '되돌림 없음 — 지운 기록은 복구 0' "$T/plan.md"; ck "C3 머리 줄 «되돌림 없음»" $?
 grep -q "다음 닫힘 뒤 (살아 있는 세션 기록)" "$T/plan.md" && grep -q "rm -f '$LIVEJ'" "$T/plan.md"; ck "C3 살아 있는 세션 기록 = 다음 닫힘 뒤 칸" $?
 grep -q "## 삭제 명령 (실행 0 · 글자만)" "$T/plan.md" && grep -q "rm -f '$DEADJ'" "$T/plan.md"; ck "C3 닫힌 세션 = 삭제 명령 칸" $?
@@ -171,10 +171,10 @@ class Client:
             return [_O("i1", "ITEM")]
         @staticmethod
         async def get(vid, iid):
-            await asyncio.sleep(0.3)
+            await asyncio.sleep(3.0)
             return _Full()
 PYEOF
-out="$(PYTHONPATH="$T/fakesdk" OP_SERVICE_ACCOUNT_TOKEN_DEVELOP=x FT_FOLLOWUP_CALL_SECS=0.1 \
+out="$(PYTHONPATH="$T/fakesdk" OP_SERVICE_ACCOUNT_TOKEN_DEVELOP=x FT_FOLLOWUP_SDK_SECS=1.0 \
   FT_FOLLOWUP_TMUX="$T/tmux" FT_FOLLOWUP_GCLOUD="$T/gcloud" \
   python3 "$PY" --triage "$T/TRIAGE.md" --keys-log "$T/keys.md" --report "$T/rep-r3.md" 2>"$T/e3")"; rc=$?
 grep -q '1Password 볼트 SLOW · 시간 초과' "$T/rep-r3.md"; ck "R3 SDK 호출 7초 상한 → 대조 못 한 곳 1줄" $?
@@ -245,17 +245,26 @@ ASSIGN='            return x if re.fullmatch(r"[A-Za-z][\w.-]*", x) else "명령
 FIRST='            r["hits"] = sorted({u for u, _d, lvs in keys for v in vals if any(_sha(v) == _sha(lv) for lv in lvs)})
 >>>
             r["hits"] = sorted({next((n for n, lvs in keys.items() for v in vals if any(_sha(v) == _sha(lv) for lv in lvs)), "")} - {""})'
-NOCAP='            return await asyncio.wait_for(make(), CALL_S)
+NOCAP='            return await asyncio.wait_for(make(), SDK_S)
 >>>
             return await make()'
 TITLE='                    keys.append((f"OP {v.title}/{it.id}", f"OP {v.title} · {it.title}", vals))
 >>>
-                    keys = [k for k in keys if k[1] != f"OP {v.title} · {it.title}"] + [(f"OP {v.title}/{it.title}", f"OP {v.title} · {it.title}", vals)]'
+                    keys = [k for k in keys if k[1] != f"OP {v.title} · {it.title}"] + [(f"OP {v.title}/{it.title}", f"OP {v.title} · {it.title}", vals)]
+#---
+            keys = [(f"OP {v}/{i}", f"OP {v} · {n}", vals)
+                    for v, items in raw["vaults"].items() for i, (n, vals) in enumerate(_pairs(items))]
+>>>
+            keys = list({f"OP {v} · {n}": (f"OP {v}/{n}", f"OP {v} · {n}", vals)
+                         for v, items in raw["vaults"].items() for n, vals in _pairs(items)}.values())
+'
 PATHON='                w = word(v["input"].get("command") or "")
 >>>
                 w = word(v["input"].get("command") or "") or os.path.basename(str(v["input"].get("file_path") or ""))'
-if [ -z "${FT_FOLLOWUP_UNDER_TEST:-}" ]; then
+want_mut() { [ "${FT_FOLLOWUP_MUT:-}" = 1 ] && return 0; [ -n "${FT_TEST_ONLY:-}" ] && ft_only mut; }  # 기본 실행에서는 변이를 돌리지 않는다(부하 30 에서 70초 안)
+if [ -z "${FT_FOLLOWUP_UNDER_TEST:-}" ] && want_mut; then
   for name in leak assign first nocap title path; do
+    cells=r2; [ "$name" = title ] || [ "$name" = path ] && cells=r3   # 변이는 그 칸만(하드 룰 22)
     case "$name" in
       leak) mut leak "$LEAK" ;;
       assign) mut assign "$ASSIGN" ;;
@@ -264,11 +273,12 @@ if [ -z "${FT_FOLLOWUP_UNDER_TEST:-}" ]; then
       title) mut title "$TITLE" ft_secret_followup_plan.py ;;
       path) mut path "$PATHON" ;;
     esac
-    FT_FOLLOWUP_UNDER_TEST="$T/mut-$name" FT_TEST_ONLY=r2,r3 bash "${BASH_SOURCE[0]:-$0}" >"$T/m-$name.log" 2>&1
+    FT_FOLLOWUP_UNDER_TEST="$T/mut-$name" FT_TEST_ONLY="$cells" bash "${BASH_SOURCE[0]:-$0}" >"$T/m-$name.log" 2>&1
     [ $? -ne 0 ]; ck "변이 $name → 이 시험이 FAIL 로 잡음" $?
   done
 fi
 
+want_mut || echo "SKIP 변이 6종 — FT_FOLLOWUP_MUT=1 (또는 FT_TEST_ONLY=mut) 회차에서 돈다"
 ft_only_report || fail=$((fail+1))
 echo "----"
 [ "$fail" = 0 ] && { echo "ALL PASS (secret-followup r1027)"; exit 0; }
