@@ -1,0 +1,15 @@
+# r960 착수 전(HEAD = origin/main a1fccaf7) — 같은 두 시험이 같은 수로 실패한다(내 변경 탓 아님)
+== HEAD test_nano_close_superseded_by.sh rc=1 139 PASS · 2 FAIL
+FAIL 기존 --cherry-override 사유는 그대로(⑥ 은 별개 REJECT: 증거 줄 없음) — 없음: «reason=사람 사유» ← 
+FAILED 1
+== HEAD test_nano_close_cwd_holders_skip_self_r680.sh rc=1 5 PASS · 5 FAIL
+FAIL ⓑ 계획 생성 실패 ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.kq2fAP51jF/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+FAIL ⓒ 계획 생성 실패 ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.kq2fAP51jF/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+FAIL ⓓ 계획 생성 실패 ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.kq2fAP51jF/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+FAIL ⓔ 계획 생성 실패 ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.kq2fAP51jF/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+FAILED 4
+
+# r5 재대조(2026-10-26 23:01:02) — 고치기 전 판 806dc49a 를 같은 환경으로 돌린 값(내 변경 탓 아님을 보이는 기준선)
+== 806dc49a test_nano_close_superseded_by.sh rc=1 139 PASS · 2 FAIL (같은 2칸: 기존 --cherry-override 사유)
+== 806dc49a test_seat_retire_defer_press_r690.sh rc=1 34 PASS · 2 FAIL (ⓓ못 멈춤 → kept=1 — 시간 의존 flaky · 4회 중 1회 rc0 35 PASS)
+== 806dc49a test_seat_close.sh(/bin/bash 3.2.57) rc=1 79 PASS · 2 FAIL (③M#1·③P#1 --verdict 경로 1줄 — 3.2 의 grep 판정 탓 · 4.4 에선 81 PASS 0 FAIL)
