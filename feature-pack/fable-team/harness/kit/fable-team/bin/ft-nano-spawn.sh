@@ -678,13 +678,22 @@ BODY="[Seatbelt 발주] 네 인덱스: $WT/$NEW_IDX — 먼저 $_SBR §2 부팅 
 # ★r1025: 송신 «직전» 최종 본문 검사★ 전역 하드 룰 16 은 «사람·나노·스크립트 모두 ci» 인데 이 스크립트의 고정 문구가
 #   «serena 먼저»(r556)라 규칙과 도구가 서로 반대였다(planner 설계 §② 실측 · r1024 나노 부팅 보고 «Serena O»).
 #   문구를 ci 로 바꾼 뒤 다시 섞이지 않게 «보내기 전» 검사 1개 — 걸리면 REJECT 1줄 · 송신 0 · 좌석·워크트리는 기존 REJECT 길로 롤백.
-retired_line() {   # $1=발주문 전문 → 은퇴 도구 낱말 1개(없으면 빈 출력)
+#   ★r1025 r1(arch 163 반송)★ 검사 대상 = «지시 문장» 뿐이다 — 카드 경로·가지 이름·좌석 이름에는 «serena» 가 들어갈 수 있다
+#   (이 카드 r1025 자신: nano/r1025-nano-spawn-body-serena-to-ci · r1025-nano-spawn-body-serena-to-ci.md).
+#   BODY 는 그대로 두고 이름 「값»만 지운 사본을 검사한다(값 지우기는 retired_probe 한 곳).
+retired_probe() {   # $1=발주문 전문 · $2..=지울 «이름 값» → 이름 값을 지운 검사용 사본
+  local _p="$1" _v; shift
+  for _v in "$@"; do [ -n "$_v" ] && _p="${_p//"$_v"/}"; done
+  printf '%s\n' "$_p"
+}
+retired_line() {   # $1=검사용 사본 → 은퇴 도구 낱말 1개(없으면 빈 출력)
   local _w
   for _w in serena Serena find_symbol; do
     case "$1" in *"$_w"*) printf '%s\n' "$_w"; return 0;; esac
   done
 }
-_retired="$(retired_line "$BODY")"
+_probe="$(retired_probe "$BODY" "$WT/$NEW_IDX" "$WTDIR" "$BRANCH" "$IDX_REL" "$NEW_IDX" "$_SBR" "$NAME" "$FROM" "$SLUG")"
+_retired="$(retired_line "$_probe")"
 [ -z "$_retired" ] || fail_rb "REJECT 발주문에 은퇴 도구 지시(serena) — $_retired"
 # (에이전트 본체는 ③ 직후 ft-agent-ready.sh 가 확인했다 — 옛 sleep 8 대체 · R251)
 FT_SEND_FROM="$FROM" bash "$HERE/ft-send-verified.sh" "$NAME" "$BODY"; _src=$?

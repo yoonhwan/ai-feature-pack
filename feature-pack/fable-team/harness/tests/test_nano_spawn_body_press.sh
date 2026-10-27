@@ -66,6 +66,9 @@ check_retired() {
 }
 check_retired "추적본" "$TRACKED"
 check_retired "키트" "$KIT"
+RFN="$(awk '/^retired_probe\(\) \{/,/^\}/' "$TRACKED")"
+[ -n "$RFN" ] && ok "retired_probe 함수 추출" || bad "retired_probe 함수 없음"
+eval "$RFN"
 RFN="$(awk '/^retired_line\(\) \{/,/^\}/' "$TRACKED")"
 [ -n "$RFN" ] && ok "retired_line 함수 추출" || bad "retired_line 함수 없음"
 eval "$RFN"
@@ -79,6 +82,19 @@ eval "$BEBN" 2>/dev/null || true
 [ -z "$(retired_line "$BLINE")" ] && ok "검사: 실제 BODY 줄 → 일치 0" || bad "검사: 실제 BODY 줄에서 은퇴 도구 글자 발견"
 [ "$(retired_line "$BLINE$_EBN serena")" = "serena" ] && ok "검사: _EBN 뒤에 serena 를 넣으면 걸린다(REJECT 1줄)" || bad "검사: _EBN 뒤 serena 를 못 잡음"
 [ "$(retired_line "$BLINE$_EBN find_symbol")" = "find_symbol" ] && ok "검사: _EBN 뒤 find_symbol 도 걸린다" || bad "검사: _EBN 뒤 find_symbol 을 못 잡음"
+# r1025 r1(arch 163 반송) — 카드 경로·가지 이름에 «serena» 가 들어도(이 카드 r1025 자신) 지시문 serena 0 이면 REJECT 0
+N_WT="/x/harness-ops"; N_IDX="design/harness/indices/진행/r1025-nano-spawn-body-serena-to-ci.md"; N_BR="nano/r1025-nano-spawn-body-serena-to-ci"; N_SLUG="r1025-nano-spawn-body-serena-to-ci"
+N_BODY="네 인덱스: $N_WT/$N_IDX 커밋은 브랜치 $N_BR · 팩 폴더 .worktrees/$N_SLUG · 코드 찾기는 ci sym/refs/outline/search"
+[ "$(retired_line "$N_BODY")" = "serena" ] && ok "반례 재현: 이름 값 그대로 보면 거짓 REJECT(serena)" || bad "반례 재현 실패 — 이름에 serena 가 안 걸린다"
+[ -z "$(retired_line "$(retired_probe "$N_BODY" "$N_WT/$N_IDX" "$N_BR" "$N_SLUG")")" ] && ok "새 칸: 이름 값 지운 사본 → REJECT 0(송신 길로 감)" || bad "새 칸: 이름 값을 지웠는데도 REJECT"
+[ "$(retired_line "$(retired_probe "$N_BODY ★빈 카드: serena 먼저★" "$N_WT/$N_IDX" "$N_BR" "$N_SLUG")")" = "serena" ] && ok "새 칸: 같은 이름 + 지시문 serena 1줄 → REJECT 1줄" || bad "새 칸: 지시문 serena 를 못 잡음"
+# 검사 줄은 이름 값 지운 사본(_probe)을 본다 — BODY 를 직접 보면 이름 때문에 거잠 REJECT
+[ "$(grep -c 'retired_line "\$_probe"' "$TRACKED")" = "1" ] && ok "추적본 검사 줄이 사본(_probe)을 본다" || bad "추적본 검사 줄이 사본을 보지 않음"
+[ "$(grep -c 'retired_line "\$_probe"' "$KIT")" = "1" ] && ok "키트 검사 줄이 사본(_probe)을 본다" || bad "키트 검사 줄이 사본을 보지 않음"
+# 변이 — «검사용 사본 대신 BODY 직접» 으로 바꾼 사본은 새 칸 FAIL
+sed 's/retired_line "\$_probe"/retired_line "$BODY"/' "$TRACKED" > "$TMP/stripped5.sh"
+cmp -s "$TRACKED" "$TMP/stripped5.sh" && bad "변이: sed 가 검사 줄을 바꾸지 못함"
+[ "$(grep -c 'retired_line "\$_probe"' "$TMP/stripped5.sh")" = "1" ] && bad "변이: 사본 검사가 그대로남" || ok "변이 «BODY 직접 검사» → 새 칸 FAIL"
 unset _EBN
 # 변이 — 검사 줄을 지운 사본은 check_retired 가 FAIL
 grep -v 'REJECT 발주문에 은퇴 도구 지시(serena)' "$TRACKED" > "$TMP/stripped4.sh"
