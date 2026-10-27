@@ -177,13 +177,8 @@ bash "$STAMP" --root "$B" --apply --unmarked >"$T/o" 2>&1; rc=$?
 [ "$rc" != 0 ] && grep -q '^REJECT --apply 와 --unmarked' "$T/o" && ok "ⓡ6 --apply + --unmarked 같이 → REJECT" || bad "ⓡ6 rc=$rc $(cat "$T/o")"
 
 echo "== r843 r4 (외부 DA r843 r2 반례 · 표식 «있음» = -e 또는 -L · 정상 값 아니면 ERROR + 상태 변경 0)"
-nohook_wt v1; V1="$(gd "$B/.worktrees/v1")/ft-wt-mode"; printf 'full 판정용 전체 사본이 필요함\n' > "$V1"; chmod 200 "$V1"
-git -C "$B/.worktrees/v1" checkout -q -b v1a >"$T/o" 2>"$T/e"; rc=$?
-[ "$rc" != 0 ] && grep -q "^ERROR ft-wt-mode 표식 읽기 실패 — 표식 자리 있음인데 못 읽음" "$T/e" && [ ! -e "$V1" ] && here "$B/.worktrees/v1/design/teams/b/f.md" && ! sparse_on "$B/.worktrees/v1" \
-  && ok "ⓡ7 R1 full 표식 0200(못 읽음) → fail_closed(표식 삭제) · rc≠0 · 풀 그대로(r843 r8 DA③)" || bad "ⓡ7 rc=$rc 표식=$([ -e "$V1" ] && echo 있음 || echo 0) · e=$(head -c 300 "$T/e")"
-git -C "$B/.worktrees/v1" checkout -q -b v1b >"$T/o" 2>"$T/e"; rc=$?
-[ "$rc" = 0 ] && sparse_on "$B/.worktrees/v1" && [ "$(mark "$B/.worktrees/v1")" = sparse ] && [ "$(r835_n)" = 1 ] && ! here "$B/.worktrees/v1/design/teams/b" \
-  && ok "ⓡ8 R1 다음 checkout 은 «처음부터»(표식 없음 → sparse 적용 · 안내 1회)" || bad "ⓡ8 rc=$rc 표식=$(mark "$B/.worktrees/v1") · e=$(head -c 300 "$T/e")"
+# ⓡ7 ⓡ8 — «r1030 대체»(삭제): «못 읽는 표식 → fail_closed(표식 삭제) → 다음 실행은 처음부터» 는 되돌리기 경로다.
+#   r1030 은 표식 읽기 rc≠0 = ERROR 1줄 + rc1 + 상태 변경 0(표식 그대로) 이고, 그 표식은 다음 checkout 도 같은 ERROR(알려진 한계). 대체 = r1030 시험 ⓒ.
 nohook_wt v5; V5="$(gd "$B/.worktrees/v5")/ft-wt-mode"; printf 'sparse\n' > "$V5"; chmod 200 "$V5"
 bash "$STAMP" --root "$B" --apply >"$T/o" 2>&1; rc=$?
 [ "$rc" != 0 ] && grep -q "^ERROR 표식 자리 이상: $V5 — 못 읽음" "$T/o" && ! grep -q "^STAMP $B/.worktrees/v5 " "$T/o" && [ "$(stat -f %z "$V5")" -gt 0 ] \
@@ -256,10 +251,9 @@ nohook_wt f2; F2="$(gd "$B/.worktrees/f2")/ft-wt-mode"
 ( cd "$B/.worktrees/f2" && FT_WT_FULL="approved full checkout reason" PATH="$T/quietcat:$PATH" git checkout -q -b f2b ) >"$T/o" 2>"$T/e"; rc=$?
 [ "$rc" != 0 ] && grep -q "^ERROR ft-wt-mode" "$T/e" && ! sparse_on "$B/.worktrees/f2" \
   && ok "ⓕ2b 같은 주입 유지한 다음 실행 → 조용한 rc0 0(같은 ERROR 로 처음부터)" || bad "ⓕ2b rc=$rc · $(head -c 300 "$T/e")"
-nohook_wt f3; F3="$(gd "$B/.worktrees/f3")/ft-wt-mode"; touch "$(gd "$B/.worktrees/f3")/info"
+# ⓕ3 — «r1030 대체»(삭제): «set 실패 → config 원복(unset) + 표식 0» 은 되돌리기 단언. r1030 은 표식 `sparse` 를 먼저 쓰고 set 실패 = ERROR 1줄 + rc1(표식은 목표 그대로). 대체 = r1030 시험 ⓒ·ⓓ.
+nohook_wt f3; touch "$(gd "$B/.worktrees/f3")/info"
 git -C "$B/.worktrees/f3" checkout -q -b f3a >"$T/o" 2>"$T/e"; rc=$?
-[ "$rc" != 0 ] && grep -q "^ERROR ft-wt-mode sparse 설정 실패" "$T/e" && [ ! -e "$F3" ] && [ "$(git -C "$B/.worktrees/f3" config --bool core.sparseCheckout 2>/dev/null || echo unset)" = unset ] && here "$B/.worktrees/f3/design/teams/b/f.md" \
-  && ok "ⓕ3 DA② sparse-checkout set 실패 → config 원복(unset) · 표식 0 · rc≠0" || bad "ⓕ3 rc=$rc sc=$(git -C "$B/.worktrees/f3" config --bool core.sparseCheckout 2>&1) 표식=$([ -e "$F3" ] && echo 있음 || echo 0) · $(head -c 300 "$T/e")"
 rm -f "$(gd "$B/.worktrees/f3")/info"
 git -C "$B/.worktrees/f3" checkout -q -b f3b >"$T/o" 2>"$T/e"; rc=$?
 [ "$rc" = 0 ] && [ "$(mark "$B/.worktrees/f3")" = sparse ] && [ "$(r835_n)" = 1 ] && ! here "$B/.worktrees/f3/design/teams/b" \
@@ -271,23 +265,8 @@ printf '#!/bin/sh\ncase "$*" in *pending*) /bin/cat "$@"; exit 1;; esac\nexec /b
 printf '#!/bin/sh\ncase "$*" in *pending*) exec /bin/cat "$@";; esac\n/bin/cat "$@"; exit 1\n' > "$T/fcat/cat"
 chmod +x "$T/pcat/cat" "$T/fcat/cat"
 noenv() { env -u FT_WT_FULL -u FT_R835_SPARSE_HOOK "$@"; }
-site_ok() {  # <이름> <워크트리> <rc> — 실패 자리 하나: ERROR 1줄 · rc≠0 · 최종 표식 0 · 임시 자리 0 · 설정 원상 · 파일 복원
-  local m; m="$(gd "$2")/ft-wt-mode"
-  if [ "$3" != 0 ] && [ "$(grep -c '^ERROR ft-wt-mode' "$T/e")" = 1 ] && [ ! -e "$m" ] && [ -z "$(ls -d "$m".pending.* 2>/dev/null)" ] \
-     && [ "$(git -C "$2" config --bool core.sparseCheckout 2>/dev/null || echo unset)" = unset ] && here "$2/design/teams/b/f.md"; then
-    ok "ⓖ0-$1 자리: ERROR 1줄 · rc≠0 · 최종 표식 0 · 임시 자리 0 · 설정 원상 · 파일 복원"
-  else
-    bad "ⓖ0-$1 rc=$3 표식=$([ -e "$m" ] && echo 있음 || echo 0) pending=$(ls -d "$m".pending.* 2>/dev/null | wc -l | tr -d ' ') sc=$(git -C "$2" config --bool core.sparseCheckout 2>&1) · $(head -c 200 "$T/e")"
-  fi
-}
-nohook_wt s1; noenv "${DENY}" -p '(version 1)(allow default)(deny file-write-create (regex ".*ft-wt-mode[.]pending[.].*"))' git -C "$B/.worktrees/s1" checkout -q -b s1a >"$T/o" 2>"$T/e"; site_ok "표식 pending 쓰기" "$B/.worktrees/s1" $?
-nohook_wt s2; PATH="$T/pcat:$PATH" git -C "$B/.worktrees/s2" checkout -q -b s2a >"$T/o" 2>"$T/e"; site_ok "pending 검증 읽기" "$B/.worktrees/s2" $?
-nohook_wt s3; touch "$(gd "$B/.worktrees/s3")/info"; git -C "$B/.worktrees/s3" checkout -q -b s3a >"$T/o" 2>"$T/e"; site_ok "sparse 설정" "$B/.worktrees/s3" $?
-nohook_wt s4; S4M="$(gd "$B/.worktrees/s4")/ft-wt-mode"; (cd "$B/.worktrees/s4" && "$DENY" -p "$(deny_at "$S4M")" git checkout -q -b s4a) >"$T/o" 2>"$T/e"; site_ok "표식 mv" "$B/.worktrees/s4" $?
-nohook_wt s5; PATH="$T/fcat:$PATH" git -C "$B/.worktrees/s5" checkout -q -b s5a >"$T/o" 2>"$T/e"; site_ok "최종 자리 검증 읽기" "$B/.worktrees/s5" $?
-nohook_wt s6; printf 'sparse\n' > "$(gd "$B/.worktrees/s6")/ft-wt-mode"; chmod 200 "$(gd "$B/.worktrees/s6")/ft-wt-mode"; git -C "$B/.worktrees/s6" checkout -q -b s6a >"$T/o" 2>"$T/e"; site_ok "기존 표식 읽기" "$B/.worktrees/s6" $?
-SITES=$(grep -cE 'printf .%s\\n. "\$1" > "\$_ftw_pend|mv "\$_ftw_pend|_ftw_read "\$_ftw_pend|_ftw_read "\$_mark" && |git sparse-checkout set ' "$HOOK")
-[ "$SITES" = 5 ] && ok "ⓤ 자리 수 = 5(쓰기·검증읽기·설정·mv·최종읽기) · 모르는 자리 0 · 설정 값(config) 을 읽어 믿는 자리 0" || bad "ⓤ 자리 수 grep=$SITES (기대 5)"
+# ⓖ0 ⓤ — «r1030 대체»(삭제): 실패 자리 6종의 «ERROR 1줄 + rc≠0 + 최종 표식 0 + 설정 원상 + 파일 복원» 단언은 되돌리기 전용이다(r1030 은 표식이 곧 목표 — 실패해도 표식을 지우지 않는다).
+#   대체 = test_post_checkout_reapply_r1030.sh ⓒ(실패 주입 7종 = ERROR 1줄 + rc1 + 그 턴 상태 변경 0 의 «설정·패턴·표식 체크섬 그대로») · ⓤ 자리 수 단언도 훅 구조가 바뀌어 대체.
 # DA① 설정 원복은 워크트리만 — extensions.worktreeConfig · 공용(local)=true · 워크트리=false
 B2="$T/byz2"; git init -q -b main "$B2"; git -C "$B2" config user.name t; git -C "$B2" config user.email t@t; git -C "$B2" config core.hooksPath "$T/hooks"; git -C "$B2" config extensions.worktreeConfig true
 mkdir -p "$B2/.beads/hooks"; printf '#!/bin/sh\nexit 0\n' > "$B2/.beads/hooks/post-checkout"; chmod +x "$B2/.beads/hooks/post-checkout"
@@ -298,125 +277,11 @@ PATH="$T/pcat:$PATH" git -C "$B2/.worktrees/w1" checkout -q -b w1a >"$T/o" 2>"$T
 W1M="$(git -C "$B2/.worktrees/w1" rev-parse --path-format=absolute --git-dir)/ft-wt-mode"
 [ "$rc" != 0 ] && [ "$(git -C "$B2" config --local --bool core.sparseCheckout)" = true ] && [ "$(git -C "$B2/.worktrees/w1" config --worktree --bool core.sparseCheckout)" = false ] && [ ! -e "$W1M" ] \
   && ok "ⓖ1 DA① pending 읽기 실패 — 설정 원복 공용(true) 불변 · 워크트리(false) 불변 · 표식 0 · rc≠0" || bad "ⓖ1 rc=$rc local=$(git -C "$B2" config --local --bool core.sparseCheckout 2>&1) wt=$(git -C "$B2/.worktrees/w1" config --worktree --bool core.sparseCheckout 2>&1) · $(head -c 200 "$T/e")"
-nohook2 w2; git -C "$B2/.worktrees/w2" config --worktree --bool core.sparseCheckout false; touch "$(git -C "$B2/.worktrees/w2" rev-parse --path-format=absolute --git-dir)/info"
-git -C "$B2/.worktrees/w2" checkout -q -b w2a >"$T/o" 2>"$T/e"; rc=$?
-[ "$rc" != 0 ] && [ "$(git -C "$B2" config --local --bool core.sparseCheckout)" = true ] && [ "$(git -C "$B2/.worktrees/w2" config --worktree --bool core.sparseCheckout)" = false ] && [ ! -e "$(git -C "$B2/.worktrees/w2" rev-parse --path-format=absolute --git-dir)/ft-wt-mode" ] \
-  && ok "ⓖ1b DA① sparse 설정 실패 — 공용(true)·워크트리(false) 불변 · 표식 0(공용 설정 선택기 안 건드림)" || bad "ⓖ1b rc=$rc local=$(git -C "$B2" config --local --bool core.sparseCheckout 2>&1) · $(head -c 200 "$T/e")"
-# DA② 설정이 rc0 이기 전에 최종 자리에 표식이 보이지 않는다 — 설정 실패 주입 시점에 최종 자리 0 · 실패 = 임시 자리 정리
-nohook_wt o1; O1M="$(gd "$B/.worktrees/o1")/ft-wt-mode"
-touch "$(gd "$B/.worktrees/o1")/info"
-git -C "$B/.worktrees/o1" checkout -q -b o1a >"$T/o" 2>"$T/e"; rc=$?
-[ "$rc" != 0 ] && [ ! -e "$O1M" ] && [ -z "$(ls -d "$O1M".pending.* 2>/dev/null)" ] && grep -q '^ERROR ft-wt-mode sparse 설정 실패' "$T/e" \
-  && ok "ⓖ2 DA② 설정 rc0 전 최종 자리 표식 0 · 실패는 임시 자리만 정리(rc≠0)" || bad "ⓖ2 rc=$rc 표식=$([ -e "$O1M" ] && echo 있음 || echo 0) · $(head -c 200 "$T/e")"
-# DA③ 기존 표식: 내용은 나오는데 읽기 rc≠0 → fail_closed(표식 삭제·설정 원상·ERROR 1줄·rc1) · 다음은 처음부터
-nohook_wt o2; O2M="$(gd "$B/.worktrees/o2")/ft-wt-mode"; printf 'custom-marker\n' > "$O2M"
-PATH="$T/rc1cat:$PATH" git -C "$B/.worktrees/o2" checkout -q -b o2a >"$T/o" 2>"$T/e"; rc=$?
-[ "$rc" != 0 ] && grep -q '^ERROR ft-wt-mode 표식 읽기 실패' "$T/e" && [ ! -e "$O2M" ] && ! sparse_on "$B/.worktrees/o2" \
-  && ok "ⓖ3 DA③ 기존 표식 읽기 rc≠0 → fail_closed(표식 삭제 · ERROR 1줄 · rc≠0)" || bad "ⓖ3 rc=$rc 표식=$([ -e "$O2M" ] && echo 있음 || echo 0) · $(head -c 200 "$T/e")"
-git -C "$B/.worktrees/o2" checkout -q -b o2b >"$T/o" 2>"$T/e"; rc=$?
-[ "$rc" = 0 ] && sparse_on "$B/.worktrees/o2" && [ "$(mark "$B/.worktrees/o2")" = sparse ] && [ "$(r835_n)" = 1 ] \
-  && ok "ⓖ3b 다음 실행은 처음부터(표식 없음 → sparse 적용 · 안내 1회)" || bad "ⓖ3b rc=$rc 표식=$(mark "$B/.worktrees/o2") · $(head -c 200 "$T/e")"
-# ⓚ DA(r9) ① — worktreeConfig·sparse 설정이 하나도 없는 새 리포 + 설정 직전 실패 → 설정 «없음» 복원(우리가 켠 worktreeConfig 도 끔) · 다음 실행 처음부터
-nohook_wt k1; K1M="$(gd "$B/.worktrees/k1")/ft-wt-mode"
-B3="$T/byz3"; git init -q -b main "$B3"; git -C "$B3" config user.name t; git -C "$B3" config user.email t@t; git -C "$B3" config core.hooksPath "$T/hooks"
-mkdir -p "$B3/.beads/hooks"; printf '#!/bin/sh\nexit 0\n' > "$B3/.beads/hooks/post-checkout"; chmod +x "$B3/.beads/hooks/post-checkout"
-echo x > "$B3/README.md"; for t in a b c; do mkdir -p "$B3/design/teams/$t"; echo "$t" > "$B3/design/teams/$t/f.md"; done; git -C "$B3" add -A; git -C "$B3" commit -qm init
-git -C "$B3" -c core.hooksPath=/dev/null worktree add -q "$B3/.worktrees/k1" -b k1 main 2>/dev/null
-K1GD="$(git -C "$B3/.worktrees/k1" rev-parse --path-format=absolute --git-dir)"; K1M="$K1GD/ft-wt-mode"
-[ "$(git -C "$B3" config --get extensions.worktreeConfig 2>/dev/null; echo rc=$?)" = "rc=1" ] && [ "$(git -C "$B3" config --local --get core.sparseCheckout 2>/dev/null; echo rc=$?)" = "rc=1" ] \
-  && ok "ⓚ0 사전: 새 리포(byz3) 에 worktreeConfig·core.sparseCheckout 없음(설정 0)" || bad "ⓚ0 사전 상태 — worktreeConfig=$(git -C "$B3" config --get extensions.worktreeConfig 2>&1) sparse=$(git -C "$B3" config --local --get core.sparseCheckout 2>&1)"
-touch "$K1GD/info"
-git -C "$B3/.worktrees/k1" checkout -q -b k1a >"$T/o" 2>"$T/e"; rc=$?
-[ "$rc" != 0 ] && [ "$(grep -c '^ERROR ft-wt-mode' "$T/e")" = 1 ] && [ ! -e "$K1M" ] \
-  && [ "$(git -C "$B3" config --get extensions.worktreeConfig 2>/dev/null; echo rc=$?)" = "rc=1" ] && [ "$(git -C "$B3" config --local --get core.sparseCheckout 2>/dev/null; echo rc=$?)" = "rc=1" ] \
-  && [ "$(git -C "$B3/.worktrees/k1" config --bool core.sparseCheckout 2>/dev/null; echo rc=$?)" = "rc=1" ] && here "$B3/.worktrees/k1/design/teams/b/f.md" \
-  && ok "ⓚ DA① 설정 0 + 설정 직전 실패 → rc≠0 · ERROR 1줄 · 표식 0 · worktreeConfig/설정 «없음» 복원(우리가 켠 것도 끔)" || bad "ⓚ rc=$rc wtcfg=$(git -C "$B3" config --get extensions.worktreeConfig 2>&1) sparse=$(git -C "$B3" config --local --get core.sparseCheckout 2>&1) · $(head -c 200 "$T/e")"
-rm -f "$K1GD/info"
-git -C "$B3/.worktrees/k1" checkout -q -b k1b >"$T/o" 2>"$T/e"; rc=$?
-[ "$rc" = 0 ] && sparse_on "$B3/.worktrees/k1" && [ "$(cat "$K1M" 2>/dev/null)" = sparse ] && grep -q '\[r835\]' "$T/e" && ! here "$B3/.worktrees/k1/design/teams/b" \
-  && ok "ⓚb 다음 실행 = 처음부터(설정 0 에서 표식 없음 → sparse 적용 · 안내 1회)" || bad "ⓚb rc=$rc 표식=$(cat "$K1M" 2>/dev/null) · $(head -c 200 "$T/e")"
-# ⓚc arch ① — «실패가 패턴 파일을 남긴 경우»: 새 리포(설정 0)에서 설정은 성공했는데 표식 mv 가 실패 → 원복이 패턴 파일·worktreeConfig·설정을 모두 «없음» 으로 지우고 파일도 복원
-B4="$T/byz4"; git init -q -b main "$B4"; git -C "$B4" config user.name t; git -C "$B4" config user.email t@t; git -C "$B4" config core.hooksPath "$T/hooks"
-mkdir -p "$B4/.beads/hooks"; printf '#!/bin/sh\nexit 0\n' > "$B4/.beads/hooks/post-checkout"; chmod +x "$B4/.beads/hooks/post-checkout"
-echo x > "$B4/README.md"; for t in a b c; do mkdir -p "$B4/design/teams/$t"; echo "$t" > "$B4/design/teams/$t/f.md"; done; git -C "$B4" add -A; git -C "$B4" commit -qm init
-git -C "$B4" -c core.hooksPath=/dev/null worktree add -q "$B4/.worktrees/k2" -b k2 main 2>/dev/null
-K2GD="$(git -C "$B4/.worktrees/k2" rev-parse --path-format=absolute --git-dir)"; K2M="$K2GD/ft-wt-mode"
-(cd "$B4/.worktrees/k2" && "$DENY" -p "$(deny_at "$K2M")" git checkout -q -b k2a) >"$T/o" 2>"$T/e"; rc=$?
-[ "$rc" != 0 ] && [ "$(grep -c '^ERROR ft-wt-mode' "$T/e")" = 1 ] && [ ! -e "$K2M" ] && [ ! -e "$K2GD/info/sparse-checkout" ] \
-  && [ "$(git -C "$B4" config --get extensions.worktreeConfig 2>/dev/null; echo rc=$?)" = "rc=1" ] && [ "$(git -C "$B4" config --local --get core.sparseCheckout 2>/dev/null; echo rc=$?)" = "rc=1" ] \
-  && here "$B4/.worktrees/k2/design/teams/b/f.md" \
-  && ok "ⓚc 설정 성공 + 표식 mv 실패 → 패턴 파일 0 · worktreeConfig/설정 «없음» · 파일 복원(실패가 패턴 파일을 남기지 않음)" || bad "ⓚc rc=$rc 패턴파일=$([ -e "$K2GD/info/sparse-checkout" ] && echo 있음 || echo 0) wtcfg=$(git -C "$B4" config --get extensions.worktreeConfig 2>&1) b=$(here "$B4/.worktrees/k2/design/teams/b/f.md" && echo 있음) · $(head -c 200 "$T/e")"
-if ft_only ⓚc; then
-git -C "$B4/.worktrees/k2" checkout -q -b k2b >"$T/o" 2>"$T/e"; rc=$?
-[ "$rc" = 0 ] && sparse_on "$B4/.worktrees/k2" && [ "$(cat "$K2M" 2>/dev/null)" = sparse ] && ! here "$B4/.worktrees/k2/design/teams/b" \
-  && ok "ⓚc2 그 다음 실행도 처음부터(sparse 적용 · 표식 sparse)" || bad "ⓚc2 rc=$rc 표식=$(cat "$K2M" 2>/dev/null) · $(head -c 200 "$T/e")"
-fi
-# ⓜ DA(r11) ① — `extensions.worktreeConfig=false` 원값 보존: 실패 복원이 false 를 없음으로 바꾸지 않는다
-if ft_only ⓜ; then
-B5="$T/byz5"; git init -q -b main "$B5"; git -C "$B5" config user.name t; git -C "$B5" config user.email t@t; git -C "$B5" config core.hooksPath "$T/hooks"; git -C "$B5" config extensions.worktreeConfig false
-mkdir -p "$B5/.beads/hooks"; printf '#!/bin/sh\nexit 0\n' > "$B5/.beads/hooks/post-checkout"; chmod +x "$B5/.beads/hooks/post-checkout"
-echo x > "$B5/README.md"; for t in a b c; do mkdir -p "$B5/design/teams/$t"; echo "$t" > "$B5/design/teams/$t/f.md"; done; git -C "$B5" add -A; git -C "$B5" commit -qm init
-git -C "$B5" -c core.hooksPath=/dev/null worktree add -q "$B5/.worktrees/m1" -b m1 main 2>/dev/null
-M1GD="$(git -C "$B5/.worktrees/m1" rev-parse --path-format=absolute --git-dir)"; M1M="$M1GD/ft-wt-mode"; touch "$M1GD/info"
-git -C "$B5/.worktrees/m1" checkout -q -b m1a >"$T/o" 2>"$T/e"; rc=$?
-M1W="$(git -C "$B5" config --get extensions.worktreeConfig 2>/dev/null)"; M1RC=$?
-[ "$rc" != 0 ] && [ "$(grep -c '^ERROR ft-wt-mode' "$T/e")" = 1 ] && [ ! -e "$M1M" ] && [ -z "$(ls -d "$M1M".pending.* 2>/dev/null)" ] \
-  && [ "$M1RC" = 0 ] && [ "$M1W" = false ] && here "$B5/.worktrees/m1/design/teams/b/f.md" \
-  && ok "ⓜ DA① worktreeConfig=false 원값 보존 — 실패 뒤 rc0 으로 false 그대로(false → unset 0)" || bad "ⓜ rc=$rc wtcfg=$(git -C "$B5" config --get extensions.worktreeConfig 2>&1)(rc=$M1RC) 표식=$([ -e "$M1M" ] && echo 있음 || echo 0) · $(head -c 200 "$T/e")"
-rm -f "$M1GD/info"
-git -C "$B5/.worktrees/m1" checkout -q -b m1b >"$T/o" 2>"$T/e"; rc=$?
-[ "$rc" = 0 ] && [ "$(git -C "$B5/.worktrees/m1" config --bool core.sparseCheckout 2>/dev/null)" = true ] && [ "$(cat "$M1M" 2>/dev/null)" = sparse ] && ! here "$B5/.worktrees/m1/design/teams/b" && grep -q '\[r835\]' "$T/e" \
-  && ok "ⓜb 다음 실행은 처음부터(set 수행 · 올바른 표식)" || bad "ⓜb rc=$rc 표식=$(cat "$M1M" 2>/dev/null) · $(head -c 200 "$T/e")"
-fi
-# ⓝ DA(r11) ② — 빈 패턴 파일이 미리 있어도 복원은 «빈 파일 그대로» · 다음 실행은 set 수행(건너뛰기 0)
-if ft_only ⓝ; then
-B6="$T/byz6"; git init -q -b main "$B6"; git -C "$B6" config user.name t; git -C "$B6" config user.email t@t; git -C "$B6" config core.hooksPath "$T/hooks"
-mkdir -p "$B6/.beads/hooks"; printf '#!/bin/sh\nexit 0\n' > "$B6/.beads/hooks/post-checkout"; chmod +x "$B6/.beads/hooks/post-checkout"
-echo x > "$B6/README.md"; for t in a b c; do mkdir -p "$B6/design/teams/$t"; echo "$t" > "$B6/design/teams/$t/f.md"; done; git -C "$B6" add -A; git -C "$B6" commit -qm init
-git -C "$B6" -c core.hooksPath=/dev/null worktree add -q "$B6/.worktrees/n1" -b n1 main 2>/dev/null
-N1GD="$(git -C "$B6/.worktrees/n1" rev-parse --path-format=absolute --git-dir)"; N1M="$N1GD/ft-wt-mode"
-mkdir -p "$N1GD/info"; : > "$N1GD/info/sparse-checkout"
-(cd "$B6/.worktrees/n1" && "$DENY" -p "$(deny_at "$N1M")" git checkout -q -b n1a) >"$T/o" 2>"$T/e"; rc=$?
-[ "$rc" != 0 ] && [ "$(grep -c '^ERROR ft-wt-mode' "$T/e")" = 1 ] && [ ! -e "$N1M" ] \
-  && [ -e "$N1GD/info/sparse-checkout" ] && [ "$(stat -f %z "$N1GD/info/sparse-checkout")" = 0 ] \
-  && [ "$(git -C "$B6" config --get extensions.worktreeConfig 2>/dev/null; echo rc=$?)" = "rc=1" ] && [ "$(git -C "$B6" config --local --get core.sparseCheckout 2>/dev/null; echo rc=$?)" = "rc=1" ] \
-  && ok "ⓝ DA② 빈 패턴 파일 + 설정 성공 뒤 mv 실패 → 패턴 파일 0바이트 그대로 · 설정 «없음» · 첫 실행 ERROR 1 · rc≠0" || bad "ⓝ rc=$rc 패턴크기=$(stat -f %z "$N1GD/info/sparse-checkout" 2>/dev/null || echo 없음) wtcfg=$(git -C "$B6" config --get extensions.worktreeConfig 2>&1) · $(head -c 200 "$T/e")"
-git -C "$B6/.worktrees/n1" checkout -q -b n1b >"$T/o" 2>"$T/e"; rc=$?
-[ "$rc" = 0 ] && grep -q '\[r835\]' "$T/e" && [ "$(git -C "$B6/.worktrees/n1" config --bool core.sparseCheckout 2>/dev/null)" = true ] && [ "$(cat "$N1M" 2>/dev/null)" = sparse ] && ! here "$B6/.worktrees/n1/design/teams/b" \
-  && ok "ⓝb 다음 실행 = set 수행(빈 패턴 파일을 «도구 패턴» 으로 오인해 건너뛰기 0)" || bad "ⓝb rc=$rc 표식=$(cat "$N1M" 2>/dev/null) · $(head -c 200 "$T/e")"
-fi
-# ⓞ DA(r13) — 캐처 호출 위치: 표식 «없음» 갈래 안에서만 · 캐처 실패 = _ftw_fail 한 길(변경 0) · 표식 있으면 캐처 호출 0
-if ft_only ⓞ; then
-mkdir -p "$T/badcp"; printf '#!/bin/sh\ncase "$*" in *ft-wt-mode.info*) echo "fake cp: denied $*" >&2; exit 1;; esac\nexec /bin/cp "$@"\n' > "$T/badcp/cp"; chmod +x "$T/badcp/cp"
-B7="$T/byz7"; git init -q -b main "$B7"; git -C "$B7" config user.name t; git -C "$B7" config user.email t@t; git -C "$B7" config core.hooksPath "$T/hooks"
-mkdir -p "$B7/.beads/hooks"; printf '#!/bin/sh\nexit 0\n' > "$B7/.beads/hooks/post-checkout"; chmod +x "$B7/.beads/hooks/post-checkout"
-echo x > "$B7/README.md"; for t in a b c; do mkdir -p "$B7/design/teams/$t"; echo "$t" > "$B7/design/teams/$t/f.md"; done; git -C "$B7" add -A; git -C "$B7" commit -qm init
-git -C "$B7" -c core.hooksPath=/dev/null worktree add -q "$B7/.worktrees/o1" -b o1 main 2>/dev/null
-O1GD="$(git -C "$B7/.worktrees/o1" rev-parse --path-format=absolute --git-dir)"; O1M="$O1GD/ft-wt-mode"
-mkdir -p "$O1GD/info"; printf '/*\n!/design/teams/*/\n/design/teams/b/\n' > "$O1GD/info/sparse-checkout"; O1SUM="$(cksum < "$O1GD/info/sparse-checkout")"
-PATH="$T/badcp:$PATH" git -C "$B7/.worktrees/o1" checkout -q -b o1a >"$T/o" 2>"$T/e"; rc=$?
-[ "$rc" != 0 ] && [ "$(grep -c '^ERROR ft-wt-mode' "$T/e")" = 1 ] && grep -q '^ERROR ft-wt-mode 캐처 실패' "$T/e" && [ ! -e "$O1M" ] && [ -z "$(ls -d "$O1M".pending.* 2>/dev/null)" ] \
-  && [ -z "$(ls "$O1GD"/ft-wt-mode.info.* 2>/dev/null)" ] && [ "$(cksum < "$O1GD/info/sparse-checkout")" = "$O1SUM" ] \
-  && [ "$(git -C "$B7" config --get extensions.worktreeConfig 2>/dev/null; echo rc=$?)" = "rc=1" ] && [ "$(git -C "$B7" config --local --get core.sparseCheckout 2>/dev/null; echo rc=$?)" = "rc=1" ] \
-  && here "$B7/.worktrees/o1/design/teams/b/f.md" \
-  && ok "ⓞ DA① 캐처 실패(표식 없음 갈래) → _ftw_fail 1줄 · rc≠0 · 설정·패턴 파일 그대로 · 표식·pending·임시 사본 0" || bad "ⓞ rc=$rc 표식=$([ -e "$O1M" ] && echo 있음 || echo 0) 사본=$(ls "$O1GD"/ft-wt-mode.info.* 2>/dev/null | wc -l | tr -d ' ') 패턴일치=$([ "$(cksum < "$O1GD/info/sparse-checkout")" = "$O1SUM" ] && echo O || echo X) · $(head -c 200 "$T/e")"
-git -C "$B7/.worktrees/o1" checkout -q -b o1b >"$T/o" 2>"$T/e"; rc=$?
-[ "$rc" = 0 ] && [ "$(cat "$O1M" 2>/dev/null)" = sparse ] && ! grep -q '^ERROR' "$T/e" && [ -z "$(ls "$O1GD"/ft-wt-mode.info.* 2>/dev/null)" ] \
-  && ok "ⓞb 다음 실행 = 표식 저장 · ERROR 0(패턴 파일이 미리 있으므로 «도구 패턴» 갈래 — 설정 변경 0)" || bad "ⓞb rc=$rc 표식=$(cat "$O1M" 2>/dev/null) 사본=$(ls "$O1GD"/ft-wt-mode.info.* 2>/dev/null | wc -l | tr -d ' ') · $(head -c 200 "$T/e")"
-git -C "$B7" -c core.hooksPath=/dev/null worktree add -q "$B7/.worktrees/o2" -b o2 main 2>/dev/null
-O2GD="$(git -C "$B7/.worktrees/o2" rev-parse --path-format=absolute --git-dir)"; O2M="$O2GD/ft-wt-mode"; mkdir -p "$O2GD/info"; printf 'custom\n' > "$O2GD/info/sparse-checkout"; printf 'custom-marker\n' > "$O2M"
-PATH="$T/badcp:$PATH" git -C "$B7/.worktrees/o2" checkout -q -b o2a >"$T/o" 2>"$T/e"; rc=$?
-[ "$rc" = 0 ] && [ -z "$(cat "$T/e")" ] && [ "$(cat "$O2M" 2>/dev/null)" = custom-marker ] && [ -z "$(ls "$O2GD"/ft-wt-mode.info.* 2>/dev/null)" ] \
-  && ok "ⓞc 표식 있음(custom-marker) → 캐처 호출 0 · 표식 그대로 · ERROR 0 · rc0(정상 «손대지 않음» 갈래)" || bad "ⓞc rc=$rc 표식=$(cat "$O2M" 2>/dev/null) 사본=$(ls "$O2GD"/ft-wt-mode.info.* 2>/dev/null | wc -l | tr -d ' ') · $(head -c 200 "$T/e")"
-fi
-# ⓛ DA(r9) ② — 설정 값이 true 인데 파일은 풀 상태(표식·패턴 파일 없음) → 읽어서 건너뛰는 길 0 · 항상 set
-nohook_wt l1; L1M="$(gd "$B/.worktrees/l1")/ft-wt-mode"; git -C "$B" config core.sparseCheckout true
-here "$B/.worktrees/l1/design/teams/b/f.md" && [ ! -e "$(gd "$B/.worktrees/l1")/info/sparse-checkout" ] && [ -z "$(mark "$B/.worktrees/l1")" ] \
-  && ok "ⓛ0 사전: 설정 true · 파일은 풀 · 패턴 파일 0 · 표식 0" || bad "ⓛ0 사전 — b=$(here "$B/.worktrees/l1/design/teams/b/f.md" && echo 있음) 패턴파일=$([ -e "$(gd "$B/.worktrees/l1")/info/sparse-checkout" ] && echo 있음 || echo 0) mark=$(mark "$B/.worktrees/l1")"
-git -C "$B/.worktrees/l1" checkout -q -b l1a >"$T/o" 2>"$T/e"; rc=$?
-[ "$rc" = 0 ] && sparse_on "$B/.worktrees/l1" && [ "$(mark "$B/.worktrees/l1")" = sparse ] && ! here "$B/.worktrees/l1/design/teams/b" && [ "$(r835_n)" = 1 ] \
-  && ok "ⓛ DA② 설정 값 true 를 «믿고 건너뛰는 길» 0 — 항상 set 실행 → 파일 sparse · 표식 sparse" || bad "ⓛ rc=$rc 표식=$(mark "$B/.worktrees/l1") b=$(here "$B/.worktrees/l1/design/teams/b/f.md" && echo 있음) · $(head -c 200 "$T/e")"
-git -C "$B" config --unset core.sparseCheckout 2>/dev/null
+# ⓖ1b ⓖ2 ⓖ3 ⓖ3b — «r1030 대체»(삭제): «sparse 설정 실패 → 표식 0» · «기존 표식 읽기 실패 → 표식 삭제 후 다음 실행은 처음부터» 는 전부 되돌리기 전용 단언이다.
+#   r1030 은 실패해도 표식(=목표)을 지우지 않으며, 설정 파일(core.sparseCheckout)을 직접 쓰지 않는다(공용·워크트리 값 불변 그 자체는 훅이 config 쓰기를 하지 않으므로 구조적으로 성립). 대체 = r1030 시험 ⓒ·ⓓ.
+# ⓚ ⓚb ⓚc ⓚc2 ⓛ ⓜ ⓜb ⓝ ⓝb ⓞ ⓞb ⓞc — «r1030 대체»(삭제): 이 칸들은 전부 «실패가 남긴 패턴 파일·worktreeConfig·설정을 지우고(원복) 표식도 지운다» 는 되돌리기 동작을 단언한다.
+#   r1030 은 되돌리기가 없다 — 표식이 곧 목표이고, 실패 = ERROR 1줄 + rc1 + 다음 checkout 이 같은 목표를 다시 적용. 설정(config)은 훅이 직접 쓰거나 지우지 않는다.
+#   대체 = test_post_checkout_reapply_r1030.sh ⓒ(실패 주입 7종 · 설정·패턴·표식 체크섬 그대로) · ⓓ(실패 뒤 다음 checkout = 같은 목표 재적용) · ⓑ2(멱등).
 
 echo "== 결과: FAIL=$fail"
 ft_only_report || fail=$((fail+1))
@@ -436,26 +301,11 @@ PY
 }
 mutate mark-to-zero-prev "$SRC" R835_HOOK 'if [ -n "$_root" ] && [ -d "$_root/design/teams" ]; then' 'if [ -n "$_root" ] && [ -d "$_root/design/teams" ] && [ "${1:-}" = 0000000000000000000000000000000000000000 ]; then' '반례①'
 mutate no-sparse-set "$SRC" R835_HOOK "printf '/*\\n!/design/teams/*/\\n' | git sparse-checkout set --no-cone --stdin >/dev/null 2>&1" 'true' '빠짐1'
-mutate legacy-ignored "$SRC" R835_HOOK '  [ -e "$_mark" ] || return 2' '  return 2' 'ⓡ7'
+mutate legacy-ignored "$SRC" R835_HOOK '  [ -e "$_mark" ] || return 2' '  return 2' 'ⓡ1'
 mutate nano-no-full-env "$NANO" R835_NANO 'FT_WT_FULL="nano full(FT_NANO_SPARSE=${FT_NANO_SPARSE:-1} · team=${_SPT:-?}) $IDX_REL" git -C' 'git -C' '반례③'
 mutate r843-no-verify "$SRC" R835_HOOK '_ftw_out="$(cat "$1" 2>/dev/null)"; [ "$?" = 0 ]' '_ftw_out="$(cat "$1" 2>/dev/null)"; [ -n "$_ftw_out" ]' 'ⓕ1'
 mutate r843-exist-only "$STAMP" R835_STAMP '_o="$(cat "$mark" 2>/dev/null)"; _c=$?' '_o="$(cat "$mark" 2>/dev/null)"; _c=0' 'ⓕ1c'
-mutate r843r8-move-before-set "$SRC" R835_HOOK '    || { _ftw_fail "표식 쓰기" "«$1» 쓰고 다시 읽은 값이 다름 또는 읽기 rc≠0 $_ftw_pend/ft-wt-mode"; return 1; }
-  return 0' '    || { _ftw_fail "표식 쓰기" "«$1» 쓰고 다시 읽은 값이 다름 또는 읽기 rc≠0 $_ftw_pend/ft-wt-mode"; return 1; }
-  mv "$_ftw_pend/ft-wt-mode" "$_mark" 2>/dev/null; return 0' 'ⓖ2'
-mutate r843r5-full-swallow "$SRC" R835_HOOK 'if _ftw_pending "full $FT_WT_FULL" && _ftw_commit "full $FT_WT_FULL"; then' '_ftw_pending "full $FT_WT_FULL"; if true; then' 'ⓔ1'
-mutate r843r6-fail-noop "$SRC" R835_HOOK '  if [ "$_ftw_moved" = 1 ] || [ "$_ftw_drop" = 1 ]; then rm -f "$_mark" 2>/dev/null; fi
-  _ftw_restore' '  :' 'ⓡ7'
-mutate r843r5-value-reinterpret "$SRC" R835_HOOK 'if [ -f "$_mark" ] && [ -r "$_mark" ] && _ftw_read "$_mark"; then return 0; fi' "if head -n 1 \"\$_mark\" 2>/dev/null | grep -qx 'sparse\|legacy-full'; then return 0; fi" 'ⓔ4'
-mutate r843r9-config-branch "$SRC" R835_HOOK '              _ftw_tool_patterns; _tp=$?' '              if [ "$(git config --bool core.sparseCheckout 2>/dev/null)" = true ]; then _tp=0; else _ftw_tool_patterns; _tp=$?; fi' 'ⓛ'
-mutate r843r9-unset-restore "$SRC" R835_HOOK '  if [ "$3" = unset ]; then git config "$1" --unset "$2" 2>/dev/null' '  if [ "$3" = unset ]; then :' 'ⓚ'
-mutate r843r8-read-branch-back "$SRC" R835_HOOK '_ftw_drop=1; _ftw_fail "표식 읽기" "표식 자리 있음인데 못 읽음(rc≠0 또는 일반 파일 아님) $_mark"; return 1' '_ftw_slot_bad "못 읽음"; return 1' 'ⓖ3'
-mutate r843r8-shared-write "$SRC" R835_HOOK '  _ftw_putcfg --local core.sparseCheckout "$_ftw_pre_local"' '  _ftw_putcfg --local core.sparseCheckout "$_ftw_pre_wt"' 'ⓖ1'
-mutate r843r13-capture-rc "$SRC" R835_HOOK '            if ! _ftw_pre_capture; then _ftw_fail "캐처" "$_ftw_why"' '            if false; then _ftw_fail "캐처" "$_ftw_why"' 'ⓞ'
-mutate r843r11-false-as-unset "$SRC" R835_HOOK '  _ftw_putcfg --local extensions.worktreeConfig "$_ftw_pre_wtcfg"' '  _ftw_putcfg --local extensions.worktreeConfig "$([ "$_ftw_pre_wtcfg" = false ] && echo unset || echo "$_ftw_pre_wtcfg")"' 'ⓜ'
-mutate r843r11-pattern-keep "$SRC" R835_HOOK '  if [ "$_ftw_pre_info" = 1 ]; then  # 있었으면' '  if false; then  # 있었으면' 'ⓝ'
-mutate r843r4-no-dir-check "$SRC" R835_HOOK 'if [ -d "$_mark" ]; then _ftw_slot_bad "폴더(일반 파일 아님)"; return 1; fi' 'if false; then _ftw_slot_bad "폴더(일반 파일 아님)"; return 1; fi' 'ⓐ1'
-mutate r843r4-exist-only "$SRC" R835_HOOK 'if [ -L "$_mark" ]; then _ftw_slot_bad "심링크 표식 자리(일반 파일 아님)"; return 1; fi' 'if false; then _ftw_slot_bad "심링크 표식 자리(일반 파일 아님)"; return 1; fi' 'ⓡ10'
+# r1030: r843 되돌리기 코드(_ftw_pending/_ftw_commit/_ftw_fail/_ftw_getcfg/_ftw_putcfg/_ftw_pre_capture/_ftw_restore)를 대상으로 한 변이 13종은 대상 글자가 훅에서 사라져 삭제했다 — 대체 변이 3종 = test_post_checkout_reapply_r1030.sh ⓗ.
 mutate r843r2-unm-teams "$STAMP" R835_STAMP '[ "$tn" -ge 2 ] || continue' 'continue' 'ⓡ4'
 mutate r843r5-stamp-value "$STAMP" R835_STAMP 'if [ "$_c" = 0 ]; then cur="$(printf '\''%s'\'' "$_o" | head -n 1)"; slot=ok' 'if [ "$_c" = 0 ]; then cur="$(printf '\''%s'\'' "$_o" | head -n 1)"; case "$cur" in sparse|legacy-full) slot=ok;; *) slot=bad; why="정상 값 아님";; esac' 'ⓔ5'
 mutate r843r4-stamp-read-absent "$STAMP" R835_STAMP 'elif [ -e "$mark" ]; then' 'elif [ -f "$mark" ] && [ -r "$mark" ]; then' 'ⓡ9'
