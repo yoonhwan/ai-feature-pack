@@ -15,6 +15,8 @@
 #   ⓐ분리 정리 = `--finish <계획>.deleting`(포인터: 1행 이름 바뀐 경로 · 2행 리포 루트) — baton 보관+삭제 → prune. 끝나지 않은 포인터는 매 pass 가 이어서 다시 건다(⓶ 이어정리 · 실패 FT_WT_FINISH_MAX=3 회면 HIL).
 #   ⓑ계획 머리 `# plan-ver:` ≠ 옆의 라이브 생성기(ft-nano-close.sh blob sha) = 실행 거부(.stale 로 이동 + STALE 1줄). 머리 표식이 없어도 생성기 계획(`# wt-clean 계획 — ft-nano-close.sh`)이면 옛 판으로 거부. 생성기 계획이 아닌 것(수동·스텁)은 대상 아님.
 #   ⓒ껍데기 경보 = 반쯤 지워진 워크트리(tracked 최상위 항목 2개 이상 부재 · 포인터 없는 .deleting-*)의 목록을 «바뀐 때만» [HIL] 1줄(FT_WT_SHELL_SCAN_SEC 간격 · 기본 600s).
+#     ★r832★ 후보마다 «tmux pane 0 ∧ 미커밋 0» 일 때만 목록에(아니면 SKIP 1줄 · 경보 아님) · pane 목록을 못 읽은 회차 = 경보 0(NOTE) · git status 상한 FT_WT_SHELL_GIT_SEC(기본 7).
+#     ★r844 r5★ 판정이 «안 된» 것은 경보도 «아님» 도 아니다 — worktree list·ls-tree 실패(rc≠0·시간 초과·SHA 0) = 판정 못 함(이전 판정 이어받기 · 후보 제외 0 · NOTE 1줄). 물려받은 GIT_DIR·GIT_WORK_TREE·GIT_INDEX_FILE·GIT_COMMON_DIR 는 스크립트 시작(자동 스캔 루트 결정 전)에서 지운다.
 #   실행 위치 무관(원장·워크트리는 계획에 절대경로로 박혀 있다). FT_WT_AUTOCLEAN=0 이면 아무것도 실행하지 않는다.
 #   ★r444 --launchd★(com.byz.ft-wt-sweep · 일 1회 — 사람 h 0): FT_ROOT 필수 · 그 루트에서 sweep 1회(FT_WT_SWEEP_MAX 기본 20) → [HIL] 줄을 팀 master 우편함으로(ft-tick sweep_wt 와 같은 규칙)
 #     → 끝난 가지 재확인(refs/heads/nano/* 최신순 FT_WT_ARCHIVE_MAX 기본 200 · ft-branch-archive.sh · FINISHED 만 refs/archive 로) → 로그 <FT_ROOT>/.fable-team/state/wt-sweep.log 1줄 `cleaned=N wait=N hil=N … archived=N`.
@@ -109,6 +111,10 @@ fi
 
 DRY=0; [ "${1:-}" = "--dry-run" ] && DRY=1
 [ "${FT_WT_AUTOCLEAN:-1}" != 0 ] || { echo "FT_WT_AUTOCLEAN=0 — sweep 실행 안 함"; exit 0; }
+# ★r844 r5 ⓐ★ 물려받은 저장소 env(GIT_DIR·GIT_WORK_TREE·GIT_INDEX_FILE·GIT_COMMON_DIR)는 «자동 스캔 루트 결정 전» 에 지운다
+#   — 밖에서 물려받은 값이 있으면 아래 WT·ROOT 결정이 다른 리포를 가리켜 남의 저장소 상태를 판정한다(외부 DA r3 반례 2) · LC_ALL=C 로 git 원문 고정
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR
+LC_ALL=C; export LC_ALL
 WT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 ROOT="$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')"
 DIR="${FT_WT_CLEAN_DIR:-${ROOT:-$WT}/.fable-team/state/wt-clean}"
@@ -236,29 +242,128 @@ owner_team() {
   local t; t="$(sed -nE 's#.*design/(teams/)?([a-z0-9][a-z0-9_-]*)/indices/.*#\2#p' "$1/.worktree-info.json" 2>/dev/null | head -1)"
   if [ -n "$t" ] && [ -f "$(dirname "$SELF")/ft-team-lib.sh" ] && ( . "$(dirname "$SELF")/ft-team-lib.sh"; FT_REPO_ROOT="$SCAN_ROOT" ft_team_names 2>/dev/null ) | grep -qxF -- "$t"; then echo "$t"; else echo harness; fi
 }
+# cap <초> <명령…> — run_plan 과 같은 꼴의 상한(그룹째 TERM) · 초과 = rc 124
+cap() { perl -e 'setpgrp(0,0); $SIG{ALRM}=sub{ local $SIG{TERM}="IGNORE"; kill "TERM", -$$; exit 124 }; alarm shift; my $r=system(@ARGV); exit(($r>>8) || (($r&127) ? 128+($r&127) : 0));' "$@"; }
+# r832 살아 있는 좌석 가드 — rc 0 = 껍데기로 올리지 않음(사유 stdout) · 1 = 세션 0 ∧ 미커밋 0 · 2 = 판정 못 함(이전 판정 이어받음)
+#   · 3 = 세션 0 ∧ git 연결 끊김(.git 없음 · gitdir 경로 자체 없음 — 미커밋을 셀 수 없지만 껍데기로 셈 · 정리는 오빠 값).
+#   · r844 r3: gitdir 이 있는데 rev-parse·status 가 실패 = 무엇이든 2(판정 못 함 · 오류 문구로 «없음»·«못 읽음» 을 가르지 않음) · git 호출은 sgit(물려받은 GIT_* 지움 · LC_ALL=C).
+#   세션 = tmux pane 경로(글자 그대로 + 실제 경로 — pane_paths)가 그 폴더 자신 또는 하위(경로 앞부분만 같은 형제 A-r2 는 아님).
+#   미커밋 = status 줄 중 «지워짐만»(' D'·'D ' — 껍데기 자체 · 내용은 HEAD 에 있음 · r166 과 같은 판정)을 뺀 수.
+#   git 은 그 폴더 밖으로 올라가지 않는다(부모 리포 상태를 읽는 일 0) · 실패·상한 초과 = 판정 못 함.
+# r844 GIT_CLEAN — 물려받은 저장소 env 지움(git rev-parse --local-env-vars 목록 그대로 · 다른 저장소 상태를 읽지 않게) · LC_ALL=C(SKIP 사유의 git 원문 고정)
+GIT_CLEAN=(env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR -u GIT_OBJECT_DIRECTORY -u GIT_ALTERNATE_OBJECT_DIRECTORIES
+  -u GIT_CONFIG -u GIT_CONFIG_PARAMETERS -u GIT_CONFIG_COUNT -u GIT_IMPLICIT_WORK_TREE -u GIT_GRAFT_FILE -u GIT_NO_REPLACE_OBJECTS -u GIT_REPLACE_REF_BASE
+  -u GIT_PREFIX -u GIT_SHALLOW_FILE LC_ALL=C)
+# sgit <폴더> <git 인자…> — GIT_CLEAN · 그 폴더 밖으로 안 올라감 · 상한 SHELL_GIT_SEC
+sgit() { local p="$1"; shift; cap "$SHELL_GIT_SEC" "${GIT_CLEAN[@]}" GIT_CEILING_DIRECTORIES="$(dirname "$p")" git -C "$p" "$@"; }
+# r844 r2 pstat <경로> — stat(심링크 따라감) rc: 0 = 있음 · 1 = 없음(ENOENT·ENOTDIR — 앞 폴더를 다 지나 이름이 없음) · 2 = 접근 불가 등(EACCES·ELOOP… — 있는지 모름)
+#   ★-e 는 접근 불가도 «없음» 으로 답한다(외부 DA r844 r1) — 없음 판정은 이것만 쓴다★
+pstat() { perl -e 'exit(stat($ARGV[0]) ? 0 : ($!{ENOENT} || $!{ENOTDIR}) ? 1 : 2)' -- "$1"; }
+# r844 r3 gitdir_gone <폴더> — rc0(사유 stdout) = 끊김: «.git 이 가리키는 gitdir 경로 자체가 없음» 하나뿐 · rc1 = 끊김 아님(rev-parse·status 로 판정)
+#   gitdir = .git 이 폴더면 그 폴더 · 파일이면 «gitdir: » 뒤(git read_gitfile 과 같게 — 파일 머리가 «gitdir: » · 끝 \r\n 만 뗌 · 상대 경로는 .git 이 있는 폴더 기준)
+#   .git 대상 없음(깨진 심링크) = 끊김 · .git·gitdir 접근 불가 · gitdir: 줄 못 읽음/꼴 틀림 = rc1(판정은 git 에게 · 실패하면 판정 못 함)
+gitdir_gone() {
+  local g="$1/.git" t s
+  pstat "$g"; s=$?
+  [ "$s" -ne 1 ] || { echo ".git 대상 없음"; return 0; }
+  [ "$s" -eq 0 ] && [ ! -d "$g" ] || return 1
+  t="$(perl -e 'open(my $f, "<", $ARGV[0]) or exit 1; local $/; my $b = <$f>; $b =~ s/[\r\n]+\z//; $b =~ s/\Agitdir: // or exit 1; print $b' -- "$g")" || return 1
+  case "$t" in /*) ;; *) t="$1/$t";; esac
+  pstat "$t"; [ "$?" -eq 1 ] || return 1
+  echo "gitdir 없음: $t"
+}
+seat_busy() {
+  local p="$1" rp q out rc n err
+  rp="$(CDPATH= cd -P -- "$p" 2>/dev/null && pwd -P)"
+  while IFS= read -r q; do
+    [ -n "$q" ] || continue
+    case "$q" in "$p"|"$p"/*|"${rp:-$p}"|"${rp:-$p}"/*) echo "세션 있음(pane $q)"; return 0;; esac
+  done <<<"$2"
+  [ -r "$p" ] && [ -x "$p" ] || { echo "판정 못 함(폴더 못 읽음)"; return 2; }
+  # r844 r2: .git 은 «있음» 만 본다(-e 거짓 = 심링크 대상 접근 불가일 수 있음 → -L · 폴더 r·x 라 이름 확인은 정확)
+  [ -e "$p/.git" ] || [ -L "$p/.git" ] || { echo "git 연결 끊김(.git 없음)"; return 3; }
+  # r844 r3: 끊김 = gitdir 경로 자체 없음 하나 · 그 밖은 git 에게 묻고 실패하면 무엇이든 판정 못 함(이어받음)
+  q="$(gitdir_gone "$p")" && { echo "git 연결 끊김($q)"; return 3; }
+  err="$(sgit "$p" rev-parse --git-dir 2>&1 >/dev/null)"; rc=$?
+  [ "$rc" -ne 124 ] || { echo "판정 못 함(git rev-parse ${SHELL_GIT_SEC}s 초과)"; return 2; }
+  [ "$rc" -eq 0 ] || { echo "판정 못 함(git rev-parse rc=$rc · $(printf '%s\n' "$err" | head -1 | cut -c1-160))"; return 2; }
+  out="$(sgit "$p" status --porcelain --untracked-files=normal 2>/dev/null)"; rc=$?
+  [ "$rc" -eq 0 ] || { echo "판정 못 함(git status rc=$rc$([ "$rc" -eq 124 ] && echo " · ${SHELL_GIT_SEC}s 초과"))"; return 2; }
+  n="$(printf '%s\n' "$out" | grep -cvE '^( D|D ) |^$')"
+  [ "$n" -eq 0 ] || { echo "미커밋 $n"; return 0; }
+  return 1
+}
+# pane_paths <목록> — 줄마다 글자 그대로 + 실제 경로(심링크·/var→/private/var 풀림 · 다를 때만) · 없는 경로는 글자만
+pane_paths() {
+  local q r
+  while IFS= read -r q; do
+    [ -n "$q" ] || continue
+    printf '%s\n' "$q"
+    r="$(CDPATH= cd -P -- "$q" 2>/dev/null && pwd -P)" && [ "$r" != "$q" ] && printf '%s\n' "$r"
+  done <<<"$1"
+  return 0
+}
 shell_scan() {
-  local stamp="$DIR/.shell-scan.stamp" sigf="$DIR/.shell-sig" now sig="" list="" p sha name missing cnt=0 live tm
+  local stamp="$DIR/.shell-scan.stamp" sigf="$DIR/.shell-sig" now sig="" list="" p sha name missing cnt=0 unk=0 unkl="" unkls=0 dis="" live tm chk why brc panes k names wl wrc tree trc
+  local tb="${FT_TMUX_BIN:-$(command -v tmux 2>/dev/null || echo /opt/homebrew/bin/tmux)}" SHELL_GIT_SEC="${FT_WT_SHELL_GIT_SEC:-7}"
   [ "$DRY" != 1 ] && [ -n "$SCAN_ROOT" ] && [ -d "$SCAN_ROOT" ] && [ -d "$DIR" ] || return 0
   now="$(date +%s)"; [ $(( now - $(cat "$stamp" 2>/dev/null || echo 0) )) -ge "$SCAN_SEC" ] || return 0
   echo "$now" > "$stamp"
+  # r832: 살아 있는지 모르면 올리지 않는다 — pane 목록을 못 읽은 회차는 경보 0 · 서명 그대로
+  panes="$(cap 7 "$tb" list-panes -a -F '#{pane_current_path}' 2>/dev/null)" || { echo "NOTE 껍데기 판정 생략 — tmux 목록 못 읽음($tb)"; return 0; }
+  panes="$(pane_paths "$panes")"
+  # ★r844 r5 ⓑ★ worktree list 실패(rc≠0 · 시간 초과) = 이번 회차는 껍데기를 판정하지 않는다 — 경보 0 · 서명 그대로
+  wl="$(cap "$SHELL_GIT_SEC" "${GIT_CLEAN[@]}" git -C "$SCAN_ROOT" worktree list --porcelain 2>/dev/null)"; wrc=$?
+  [ "$wrc" -eq 0 ] || { echo "NOTE 껍데기 판정 생략 — worktree list 실패(rc=$wrc · 서명 그대로)"; return 0; }
   live="$(for f in "$DIR"/*.deleting; do [ -f "$f" ] && sed -n 1p "$f"; done)"
   while IFS=$'\t' read -r p sha; do
     case "$p" in "$SCAN_ROOT"/.worktrees/*) ;; *) continue;; esac
     [ -d "$p" ] || continue
+    chk=1
     case "${p##*/}" in
-      *.deleting-[0-9]*) printf '%s\n' "$live" | grep -qxF -- "$p" && continue; missing=9;;
+      *.deleting-[0-9]*) printf '%s\n' "$live" | grep -qxF -- "$p" && continue; missing=9; chk=0;;
       *) missing=0
-         while IFS= read -r name; do [ -e "$p/$name" ] || missing=$((missing+1)); done < <(git -C "$SCAN_ROOT" ls-tree --name-only "$sha" 2>/dev/null);;
+         # ★r844 r5 ⓑ★ ls-tree 실패(rc≠0 · 시간 초과 · SHA 0/빈 값) = 그 폴더 «판정 못 함»(이전 서명 이어받기 · 후보에서 빼지 않음)
+         #   — 지금까지는 실패를 «부재 0» 으로 읽어 후보에서 빼고 서명을 지웠다(외부 DA r3 반례 1: 같은 경보 반복)
+         tree=""; trc=0
+         if [ -n "$sha" ] && ! printf '%s' "$sha" | grep -q '^0*$'; then
+           tree="$(cap "$SHELL_GIT_SEC" "${GIT_CLEAN[@]}" git -C "$SCAN_ROOT" ls-tree --name-only "$sha" 2>/dev/null)"; trc=$?
+         else
+           trc=1
+         fi
+         if [ "$trc" -ne 0 ]; then
+           echo "SKIP 껍데기 후보 ${p##*/} — 판정 못 함(ls-tree 실패 · sha=${sha:-빈값} rc=$trc)"
+           unk=$((unk+1)); unkls=$((unkls+1)); unkl="$unkl$(owner_team "$p"):${p##*/} "; continue
+         fi
+         while IFS= read -r name; do [ -n "$name" ] || continue; [ -e "$p/$name" ] || missing=$((missing+1)); done <<<"$tree";;
     esac
     [ "$missing" -ge 2 ] || continue
+    brc=1
+    if [ "$chk" = 1 ]; then
+      why="$(seat_busy "$p" "$panes")"; brc=$?
+      case "$brc" in
+        0) echo "SKIP 껍데기 후보 ${p##*/} — $why"; continue;;
+        2) echo "SKIP 껍데기 후보 ${p##*/} — $why"; unk=$((unk+1)); unkl="$unkl$(owner_team "$p"):${p##*/} "; continue;;
+      esac
+    fi
     tm="$(owner_team "$p")"; list="$list$tm:${p##*/} "; cnt=$((cnt+1))
-  done < <(git -C "$SCAN_ROOT" worktree list --porcelain 2>/dev/null | awk '/^worktree /{p=substr($0,10)} /^HEAD /{print p "\t" substr($0,6)}')
+    [ "$brc" -eq 3 ] && dis="$dis$tm:${p##*/} "
+  done < <(printf '%s\n' "$wl" | awk '/^worktree /{p=substr($0,10)} /^HEAD /{print p "\t" substr($0,6)}')
+  # r832 r2b: 판정 못 한 폴더는 그 폴더만 이전 서명을 이어받는다(지우면 다음 회차에 같은 경보가 다시 나감) — 회차 전체 보류 0
+  if [ "$unk" -gt 0 ]; then
+    why="이전 판정 이어받음"; [ "$unkls" -eq 0 ] || why="ls-tree 실패 ${unkls}곳 · 이전 판정 이어받음"; [ "$unkls" -ne "$unk" ] || why="ls-tree 실패 ${unkls}곳"
+    echo "NOTE 껍데기 판정 못 함 ${unk}곳(${why})"
+    for k in $unkl; do tr ' ' '\n' 2>/dev/null < "$sigf" | grep -qxF -- "$k" && { list="$list$k "; cnt=$((cnt+1)); }; done
+  fi
   sig="$(printf '%s' "$list" | tr ' ' '\n' | sort | tr '\n' ' ')"
-  if [ -z "$sig" ]; then rm -f "$sigf"; return 0; fi
+  if [ -z "$sig" ]; then [ "$unk" -gt 0 ] && return 0; rm -f "$sigf"; return 0; fi
   [ "$sig" = "$(cat "$sigf" 2>/dev/null)" ] && return 0
   printf '%s' "$sig" > "$sigf"
   for tm in $(printf '%s' "$sig" | tr ' ' '\n' | cut -d: -f1 | sort -u); do
-    echo "[HIL] seat=byz-$tm-wt-shell 반쯤 지워진 워크트리 껍데기 $(printf '%s' "$sig" | tr ' ' '\n' | grep -c "^$tm:")곳(전체 ${cnt}곳): $(printf '%s' "$sig" | tr ' ' '\n' | sed -n "s/^$tm://p" | tr '\n' ' ')— 처리는 오빠 값(바뀐 때만 1줄)"
+    names=""; for k in $(printf '%s' "$sig" | tr ' ' '\n' | grep "^$tm:"); do
+      names="$names${k#*:}"; case " $dis " in *" $k "*) names="$names (git 연결 끊김)";; esac; names="$names "
+    done
+    echo "[HIL] seat=byz-$tm-wt-shell 반쯤 지워진 워크트리 껍데기 $(printf '%s' "$sig" | tr ' ' '\n' | grep -c "^$tm:")곳(전체 ${cnt}곳): ${names}— 처리는 오빠 값(바뀐 때만 1줄) (세션 0 · 미커밋 0)"
   done
 }
 shell_scan

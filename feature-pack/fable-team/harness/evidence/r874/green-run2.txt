@@ -1,0 +1,16 @@
+PASS bash -n
+PASS ⓐ TERM 뒤 5초 안 종료 (1s)
+PASS ⓐ 자식 묶음 0 (sweep·sleep 종료)
+PASS ⓐ stopped 줄(trap 이 돎)
+PASS ⓐ pidfile 지움
+PASS ⓐ2 TERM 무시 자식이 있어도 5초 안 종료 (2s)
+PASS ⓐ2 TERM 무시 자식도 정리(KILL)
+PASS ⓐ3 쉼 중 TERM 5초 안 종료 (0s)
+PASS ⓑ 상한 뒤 다음 바퀴 시작 (runs=2)
+PASS ⓑ ERROR 줄 1개
+PASS ⓑ 끊긴 바퀴의 sweep 종료(이어 돌기 0)
+PASS ⓒ 다른 데몬 바퀴 계속 (c2 runs=3 · c1 runs=1)
+PASS ⓒ 묶인 데몬은 살아 있음(죽지 않고 상한까지 대기)
+RESULT fail=0
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+green-run2 rc=0

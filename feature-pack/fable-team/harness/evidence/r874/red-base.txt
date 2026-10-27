@@ -1,0 +1,18 @@
+PASS bash -n
+FAIL ⓐ TERM 뒤 5초 넘게 살아 있음 (launchd 라면 SIGKILL = -9)
+FAIL ⓐ 자식 남음 sweep=살아있음 sleep=살아있음
+FAIL ⓐ stopped 줄 없음
+FAIL ⓐ pidfile 남음
+FAIL ⓐ2 5초 넘게 살아 있음
+FAIL ⓐ2 TERM 무시 자식 남음 sweep=살아있음 sleep=살아있음
+FAIL ⓐ3 쉼 중 TERM 5초 넘게 살아 있음
+FAIL ⓑ 다음 바퀴 없음 (runs=1 · 바퀴가 묶임)
+FAIL ⓑ ERROR 줄 0 (조용한 끊김/묶임)
+FAIL ⓑ 끊긴 sweep 살아 있음 (36709)
+FAIL ⓑ 정리 TERM 5초 초과
+PASS ⓒ 다른 데몬 바퀴 계속 (c2 runs=3 · c1 runs=1)
+PASS ⓒ 묶인 데몬은 살아 있음(죽지 않고 상한까지 대기)
+FAIL ⓒ 정리 TERM 5초 초과
+RESULT fail=12
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+red-base rc=1 (ft-tick.sh = ba445cce)
