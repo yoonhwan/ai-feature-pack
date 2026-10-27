@@ -45,6 +45,7 @@ ORIGIN="$T/origin.git"; git init -q --bare "$ORIGIN"
 REPO="$T/repo"; mkdir -p "$REPO"
 gitc() { git -C "$REPO" -c user.email=t@t -c user.name=t "$@"; }
 git -C "$REPO" init -q -b main && gitc commit -q --allow-empty -m init
+git -C "$REPO" update-ref refs/remotes/origin/main HEAD   # r842: 카드 단계 ref 실재(없으면 단계 판정 실패 = ERROR + REJECT) · ref 에 카드 없음 = ABSENT → 지금 규칙
 git -C "$REPO" remote add origin "$ORIGIN"
 mkdir -p "$REPO/.fable-team" "$T/comm/bodies"
 echo seq > "$T/comm/bodies/1.txt"; echo res > "$T/result.md"
@@ -226,22 +227,31 @@ section_m() {
 section_m
 
 section_d() {
-  echo "== ⓓ 로컬 루트 = 대기/ 옛 판 · origin/main = 진행/ 새 판 → origin/main 판을 읽는다"
+  echo "== ⓓ 로컬 루트 = 대기/ 옛 판 · origin/main = 진행/ 새 판 → r842: 단계(진행/) 디스크 사본 없음 REJECT(낡은 대기/ 로 쓰지 않는다)"
   setup; out="$(close --result "$T/result.md" --recv 1)"; rc=$?
-  [ "$rc" -eq 0 ] && has "$out" "CLOSED-ABSENT $SEAT" "ⓓ 증거 줄(origin/main 판에만 있음) → rc0" || bad "ⓓ rc=$rc ← ${out:0:600}"
-  has "$out" "카드 위치 ← origin/main:$IDX" "  └ INFO 카드 위치 ← origin/main:<경로>"
-  has "$(cat "$REPO/$OLD_REL")" "- 리서치 닫힘: $SEAT" "  └ 리서치 줄(origin/main 판)을 읽고 · 쓰기는 작업 트리 사본(대기/)"
-  [ ! -e "$REPO/$IDX" ] && ok "  └ 작업 트리에 진행/ 사본을 새로 만들지 않음" || bad "  └ 작업 트리에 $IDX 생김"
-  [ -z "$(ls -A "$T/tmp")" ] && ok "  └ 꺼낸 임시 카드 파일 정리(TMPDIR 비어 있음)" || bad "  └ 임시 파일 남음: $(ls -A "$T/tmp")"
+  [ "$rc" -eq 1 ] && has "$out" "디스크 사본 없음" "ⓓ r842 — 옛 단계 사본뿐 → REJECT «디스크 사본 없음»" || bad "ⓓ rc=$rc ← ${out:0:600}"
+  hasnt "$out" "CLOSED" "  └ 닫힘 0(낡은 사본으로 안 감)"
+  [ -f "$REPO/$OLD_REL" ] && ok "  └ 대기/ 옛 사본은 그대로(쓰기 0)" || bad "  └ 대기/ 사본 사라짐"
 }
 section_d
+
+section_d2() {
+  echo "== ⓓ2 로컬 루트에 진행/ 사본도 있음 → origin/main 판을 읽고 쓰기는 그 진행/ 사본(r888 판독 보존)"
+  setup; mkdir -p "$REPO/design/planner/indices/진행"; cp "$REPO/$OLD_REL" "$REPO/$IDX"; printf '%s\n' "$(cat "$REPO/$OLD_REL")" > "$REPO/$IDX"
+  out="$(close --result "$T/result.md" --recv 1)"; rc=$?
+  [ "$rc" -eq 0 ] && has "$out" "CLOSED-ABSENT $SEAT" "ⓓ2 증거 줄(origin/main 판에만 있음) → rc0" || bad "ⓓ2 rc=$rc ← ${out:0:600}"
+  has "$out" "카드 위치 ← origin/main:$IDX" "  └ INFO 카드 위치 ← origin/main:<경로>"
+  has "$(cat "$REPO/$IDX")" "- 리서치 닫힘: $SEAT" "  └ 리서치 줄(origin/main 판)을 읽고 · 쓰기는 작업 트리 진행/ 사본"
+  [ -z "$(ls -A "$T/tmp")" ] && ok "  └ 꺼낸 임시 카드 파일 정리(TMPDIR 비어 있음)" || bad "  └ 임시 파일 남음: $(ls -A "$T/tmp")"
+}
+section_d2
 
 echo "== ⓓ origin/main 에 카드 없음 → 기존 후보 순서 그대로"
 rs_setup; out="$(close --result "$T/result.md" --recv 1 --research)"; rc=$?
 [ "$rc" -eq 0 ] && hasnt "$out" "origin/main:" "ⓓ origin/main 에 없는 카드 → 작업 트리 후보(origin/main 표기 0)" || bad "ⓓ 없음 rc=$rc ← ${out:0:400}"
 
 echo "== ⓓ origin fetch 실패 → 옛 origin/main ref 를 최신으로 믿지 않는다(기존 순서 · 증거 줄 없음 REJECT)"
-setup; git -C "$REPO" remote set-url origin "$T/no-such.git"
+setup; mkdir -p "$REPO/design/planner/indices/진행"; cp "$REPO/$OLD_REL" "$REPO/$IDX"; git -C "$REPO" remote set-url origin "$T/no-such.git"   # r842: 단계(진행/) 디스크 사본을 둬 ⑥ 증거 줄 자리까지 간다
 out="$(close --result "$T/result.md" --recv 1)"; rc=$?
 [ "$rc" -eq 1 ] && has "$out" "fetch 실패" "ⓓ fetch 실패 → WARN 1줄 + origin/main 판 안 읽음" || bad "ⓓ fetch 실패 rc=$rc ← ${out:0:500}"
 hasnt "$out" "카드 위치 ← origin/main:" "  └ 옛 ref 카드 사용 0"
@@ -265,8 +275,8 @@ mutate "# r888-mut:research" 'elif false; then'
 CLOSE_BIN="$T/bin/ft-nano-close.mut.sh"; sub="$(section_a)"
 case "$sub" in *FAIL*) ok "ⓕ 면제 제거 → ⓐ FAIL";; *) bad "ⓕ 면제 제거해도 ⓐ 통과(시험이 면제를 못 잡음)";; esac
 mutate "# r888-mut:cardref" ':'
-sub="$(section_d)"
-case "$sub" in *FAIL*) ok "ⓕ origin/main 후보 제거 → ⓓ FAIL";; *) bad "ⓕ origin/main 후보 제거해도 ⓓ 통과";; esac
+sub="$(section_d2)"   # r842: ⓓ 는 이제 단계 판정에서 먼저 막는다 — 판독 경로는 ⓓ2 가 잰다
+case "$sub" in *FAIL*) ok "ⓕ origin/main 후보 제거 → ⓓ2 FAIL";; *) bad "ⓕ origin/main 후보 제거해도 ⓓ2 통과";; esac
 mutate "# r888-mut:uniq" '    _rs_n=0; _rs_nrc=0'
 sub="$(section_g)"
 case "$sub" in *FAIL*) ok "ⓕ 고유 커밋 검사 제거 → ⓖ FAIL";; *) bad "ⓕ 고유 커밋 검사 제거해도 ⓖ 통과";; esac

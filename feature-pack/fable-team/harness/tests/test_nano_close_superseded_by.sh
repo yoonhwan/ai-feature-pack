@@ -21,7 +21,7 @@ for f in ft-nano-close.sh ft-nano-superseded-check.sh; do
 done
 
 mkdir -p "$T/bin" "$T/fake" "$T/mut"
-cp "$SRC/ft-nano-close.sh" "$SRC/ft-nano-superseded-check.sh" "$SRC/ft-nano-evidence-check.sh" "$SRC/ft-nano-cherry-gate.sh" "$SRC/ft-wt-sweep.sh" "$T/bin/"
+cp "$SRC/ft-nano-close.sh" "$SRC/ft-nano-superseded-check.sh" "$SRC/ft-nano-evidence-check.sh" "$SRC/ft-nano-cherry-gate.sh" "$SRC/ft-wt-sweep.sh" "$SRC/ft-team-lib.sh" "$T/bin/"   # r842: 단계 판정(ft_card_stage_ref) = ft-team-lib.sh 필수(없으면 ERROR + REJECT)
 cp "$SRC/ft_teamset.py" "$T/bin/"
 cp "$SRC/ft-sheet-events.sh" "$SRC/ft_sheet_events.py" "$SRC/ft_sheet_confirm.py" "$SRC/ft_sheet_key.py" "$SRC/ft_board_env.py" "$SRC/ft_board_mail.py" "$T/bin/"
 export FT_SHEET_ROOT="$T/sheet-root"; mkdir -p "$FT_SHEET_ROOT/.fable-team/state"
@@ -38,6 +38,7 @@ chmod +x "$T/bin/"* "$T/fake/"*
 
 REPO="$T/repo"; mkdir -p "$REPO"
 git -C "$REPO" init -q -b main && git -C "$REPO" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init
+git -C "$REPO" update-ref refs/remotes/origin/main HEAD   # r842: 카드 단계 ref 실재(없으면 단계 판정 실패 = ERROR + REJECT) · ref 에 카드 없음 = ABSENT → 지금 규칙
 GIT() { git -C "$REPO" -c user.email=t@t -c user.name=t "$@"; }
 mkdir -p "$REPO/.fable-team" "$REPO/design/planner/indices/진행" "$REPO/design/planner/indices/대기" "$REPO/design/planner/indices/완료" "$REPO/design/planner/indices/폐기" "$T/comm/bodies"
 echo seq > "$T/comm/bodies/1.txt"; echo res > "$T/result.md"

@@ -5,6 +5,8 @@
 ③결정이 필요한 글에는 지금 살아 있는 planner 세션 이름을 싣는다(live_planner · decision_line).
 확인 불가면 사유를 그대로 싣고 대체 이름은 없다(#0 RULE). 이 모듈은 mirror_lib 를 «호출 시점» 에만 import 한다(순환 방지).
 """
+from __future__ import annotations  # mini python 3.9.6 — `str | None` 주석을 문자열로 미뤄 import TypeError 를 막는다
+
 import json
 import os
 import re
