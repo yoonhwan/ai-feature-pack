@@ -24,12 +24,24 @@
 
 ## 값
 
-- green: `test_post_checkout_sparse_r835.sh` **103 PASS** 0 FAIL rc=0(변이 포함) · `test_worktree_add_gate_r835.sh` 47 PASS · `test_wt_add_r835.sh` 27 PASS · `test_disk_alarm.sh` 37 PASS
-- red: **49d13397**(r8 판) FAIL 3 — ⓚ«worktreeConfig=true 잔존» · ⓚb · ⓛ«b 남음(건너뜀)» = DA 반례 ①② 그대로 재현 · **730e2886** FAIL 45
+- green: `test_post_checkout_sparse_r835.sh` **105 PASS** 0 FAIL rc=0(변이 포함 · 병합 뒤 재실행) · `test_worktree_add_gate_r835.sh` 47 PASS · `test_wt_add_r835.sh` 27 PASS · `test_disk_alarm.sh` 37 PASS · `test_kit_bin_sync.sh` 7 PASS
+- red: **49d13397**(r8 판) FAIL 4 — ⓚ«worktreeConfig=true 잔존» · ⓚb · ⓛ«b 남음(건너뜀)» · ⓚc = DA 반례 ①② 그대로 재현 · **730e2886** FAIL 46
 - 변이 **23**(전부 빨강): 신규 `r843r9-config-branch`(설정 읽기 분기 부활 → ⓛ) · `r843r9-unset-restore`(unset 원복 제거 → ⓚ) + 기존 21
 - lint: `sh -n` 1 · `/bin/bash 3.2.57 -n` 4파일 rc=0 · stamp 짝 cmp0 · manifest 1.1.256 그대로 · 훅 154줄
-- 바뀐 파일: `kit/fable-team/githooks/post-checkout` · `tests/test_post_checkout_sparse_r835.sh` · 증거 `evidence/r843/r9-*.txt`
+- 바뀌 파일: `kit/fable-team/githooks/post-checkout` · `tests/test_post_checkout_sparse_r835.sh` · 증거 `evidence/r843/r9-*.txt`
 - press 필요: 없음(임시 리포 단위 시험만)
+
+## 병합(arch ② · 착지 PR 막힘 해소)
+- `git merge origin/main`(rebase 0 · 설계 변경 0 · 충돌만 해소) · 기준 = origin/main `ee714586`(처음 받은 70670c82 뒤에 2커밋 더 쌓여 다시 병합)
+- 충돌 4파일과 해소 요지:
+  1. `feature-pack/fable-team/CHANGES.md` — 양쪽 항목 유지(r843 r5~r9 항목 1개를 새로 적고 main 항목 전부 그대로) · 버전 표기는 1.1.259
+  2. `harness/bin/ft-team-lib.sh` · `kit/fable-team/bin/ft-team-lib.sh` — 양쪽 함수 유지(r835 `ft_sparse_patterns` + main `ft_changed_paths` 계열) · 짝 cmp0
+  3. `feature-pack/fable-team/manifest.json` — 버전 = main `1.1.259`
+- 병합 뒤 재실행: 105 PASS 0 FAIL(변이 23) · gate 47 · wt_add 27 · disk_alarm 37 · kit_bin_sync 7 PASS · `ft_merge_lines.py <워크트리> origin/main HEAD` = `PASS 보호 집합 786 파일` · bash 3.2 -n rc0 · stamp/lib 짝 cmp0
+- 조정 1건(시험만): 병합된 `ft-nano-spawn.sh` 가 `sparse_patterns "$_SPT" "$BASE_BRANCH" "$SLUG"` 를 부르므로 그 줄을 찾는 grep 패턴을 넓혔다(설계·동작 변경 0).
+
+## arch ① 요청 반영
+- «실패가 패턴 파일을 남긴 경우» 칸 추가 = **ⓚc** (새 리포 byz4 · sparse 설정은 성공하고 표식 mv 만 실패) → 실패 뒤 **패턴 파일 0 · worktreeConfig/설정 «없음» · b 팀 파일 복원** · **ⓚc2** 그 다음 실행은 처음부터(sparse 적용 · 표식 sparse).
 
 ## 범위 밖(그대로)
 - 표식 권한·폴더·심링크 판정(하드 룰 19 `_ftw_slot_bad`) · 파일명 줄바꿈·탭 · ft-team-lib.sh 변경 0.
