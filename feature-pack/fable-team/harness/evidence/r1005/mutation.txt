@@ -6,5 +6,6 @@ KILLED ④ ⓘ 칸이 가드를 안 부름(자체 판정)
 KILLED ⑤ 꼬리 쓰기 실패 삼킴
 KILLED ⑥ 자체 오류 사건 닫기 삭제
 KILLED ⑦ 발행본 읽기 예외 안 받음
+KILLED ⑨ JSON 오류 → {} (조용한 초기화)
 KILLED ⑧ 매거진 «~» 펼침 삭제
 OK 전부 KILLED

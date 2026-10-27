@@ -129,6 +129,12 @@ def main(argv: list[str]) -> int:
     try:  # V4 — 검증기 안 예외는 전부 여기 한 곳에서(상태 파일 꼴 깨짐 포함) = 발행 유지 · ERROR 1줄 · 쪽지 1(R2)
         passed, out = verify(ctx)
         line = f"검증 {passed}/9"
+        try:  # r1005 반송 r1 — 상태 파일 손상(깨진 JSON) = 그 회차 «검증 불가» · 9/9 금지 · 손상 파일 덮어쓰기 0
+            book.check_state(st)
+        except book.StateCorrupt as e:
+            print(f"NEWS-VERIFY {now:%Y-%m-%d %H:%M} kind={a.kind} 검증 불가 — 상태 파일 손상: {e}")
+            self_error(root, st, a.kind, f"상태 파일 손상 — {e}")  # ERROR 1줄 · 쪽지 1(사건 키 = 그 파일) · 파일 그대로
+            return 1
         bad = [w for w in ([tail_line(f, line) for f in body if f.is_file()] if a.tail else []) if w]
         LOG.info("%s kind=%s streak=%s 연속 · 실패 %s", line, a.kind, _load(st / "streak.json", {}).get(a.kind, 0),
                  ", ".join(name for name, v, _w in out if v != lib.PASS) or "0")

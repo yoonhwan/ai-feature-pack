@@ -17,13 +17,24 @@ TARGET_STREAK = 24
 WHO = "ft-news-verify"
 
 
-def _load(f: Path, default):
-    """상태 파일 — 없음·못 읽음·깨진 JSON = 기본값. 꼴이 다른 JSON(리스트/문자열)은 감싸지 않는다 —
-    V4(R2): 꼴 깨짐도 «검증기 자체 실패» 로 받는다(조용한 무시 0)."""
-    try:
-        return json.loads(f.read_text(encoding="utf-8")) if f.is_file() else default
-    except (OSError, ValueError):
+class StateCorrupt(Exception):
+    """상태 파일이 JSON 으로 안 읽힌다 — «없음»(첫 실행) 과 다르다. 그 회차는 검증 불가이고, 그 파일은 덮어쓰지 않는다."""
+
+
+def load_state(f: Path, default):
+    """상태 파일 — «파일 없음» 만 기본값(첫 실행). 못 읽음·깨진 JSON(STATE) = StateCorrupt(조용한 초기화 0 · r1005 반송 r1)."""
+    if not f.is_file():
         return default
+    try:
+        return json.loads(f.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        raise StateCorrupt(f"{f.name} — {type(e).__name__}") from e
+
+
+def check_state(st: Path) -> None:
+    """검증 전에 상태 두 파일(streak·alarm)이 읽히는지 본다 — 손상이면 9/9 를 말하지 않고 자체 오류 길로 간다."""
+    for name in ("streak.json", "alarm.json"):
+        load_state(st / name, {})
 
 
 def _save(f: Path, data) -> None:
@@ -49,10 +60,10 @@ def bookkeep(root: Path, st: Path, kind: str, passed: int, out, now: datetime) -
     """연속 24 · 실패 [긴급] 1통 — 사건 키 = «실패 칸 하나»(V2): 그 칸이 정상으로 돌아오면 키를 닫고,
     다시 실패하면 새 사건 1통 · 다른 칸이 늘거나 줄어도 이미 알린 칸은 다시 알리지 않는다.
     r1005 반례 1: «검증 불가» 는 복구가 아니다 — 그 칸의 열린 사건은 닫지도 새로 열지도 않는다."""
-    streak = _load(st / "streak.json", {})
+    streak = load_state(st / "streak.json", {})
     n = int(streak.get(kind, 0)) + 1 if passed == 9 else 0
     _save(st / "streak.json", {**streak, kind: n})
-    open_cells = set(_load(st / "alarm.json", {}).get("open") or [])  # 지금 열려 있는 사건(칸 이름 하나 단위)
+    open_cells = set(load_state(st / "alarm.json", {}).get("open") or [])  # 지금 열려 있는 사건(칸 이름 하나 단위)
     failing = {name for name, v, _w in out if v in (lib.FAIL, lib.UNKNOWN)}  # 검증 불가는 사건이 아니다(R1 = ERROR 로만)
     unknown = {name for name, v, _w in out if v == lib.UNAVAILABLE}  # 검증 불가 칸 — 사건은 안 닫는다
     fresh = failing - open_cells  # 이번에 새로 열린 칸 = 쪽지 몫

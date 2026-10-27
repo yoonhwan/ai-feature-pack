@@ -494,6 +494,33 @@ def test_r2_6_magazine_tilde_out_dir_is_expanded(world, tmp_path_factory):
     assert "--kind magazine" in calls and str(home / "tilde-out") in calls
 
 
+# ── r1005 반송 r1 · 상태 파일 손상(깨진 JSON) = 자체 오류 길 · 9/9 금지 · 덮어쓰기 0 ──────────
+def test_r1_1_broken_streak_json_is_error_one_message_and_not_9_of_9(world, caplog):
+    """반송 r1 ① — streak.json='{' : ERROR 1줄 · planner 쪽지 1통 · «검증 9/9» 아님 · 손상 파일 그대로."""
+    write(world.st / "streak.json", "{")
+    rc, out = world.run()
+    assert rc == 1 and "검증 불가 — 상태 파일 손상" in out and "검증 9/9" not in out
+    assert any(r.levelname == "ERROR" and "자체 실패" in r.getMessage() for r in caplog.records)
+    assert len(world.sends()) == 1 and "자체 실패" in world.sends()[0]
+    assert (world.st / "streak.json").read_text(encoding="utf-8") == "{"  # 초기값으로 덮어쓰기 0
+
+
+def test_r1_2_broken_alarm_json_same_failure_keeps_one_message(world):
+    """반송 r1 ① — alarm.json='{' 뒤 같은 실패를 다시 돌려도 쪽지 누적 1통 그대로(사건 키 = 상태 손상)."""
+    write(world.st / "alarm.json", "{")
+    _break_todo(world)
+    assert world.run()[0] == 1 and len(world.sends()) == 1
+    assert world.run()[0] == 1 and len(world.sends()) == 1   # 두 번째 회차 = 같은 사건 0통
+    assert (world.st / "alarm.json").read_text(encoding="utf-8") == "{"  # 사건 기록으로 덮어쓰기 0
+
+
+def test_r1_3_missing_state_files_are_still_a_first_run(world):
+    """반송 r1 — «파일 없음» 은 지금대로 정상 초기값(첫 실행) — 9/9 rc0 · 쪽지 0."""
+    assert not (world.st / "streak.json").exists()
+    rc, out = world.run()
+    assert rc == 0 and "검증 9/9" in out and world.sends() == []
+
+
 def test_r2_6_magazine_tilde_without_home_is_rc7(world):
     """반례 6(환경) — HOME 없이 «~» 출력 폴더 = 펼침 불가 · ERROR 1줄 + rc7(조용한 건너뜀 0)."""
     r, calls = magazine_run(world, Path("~/tilde-out"), "MAGAZINE-DOC-2026-10-27-abc.html",

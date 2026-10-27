@@ -6,6 +6,11 @@ r1005 발행 검증기 ft-news-verify — 선행(r850 · r1006 · r1004) 착지 
   · 칸 = 착지한 선행 함수 재호출만 — r851 gather(open_questions·hil_pending·queue_open·published_at) · ft_ledger_fill_src landed_commits·teams·git·ancestor · ft_ledger_fill_tables.lower_closed · r847 ft_news_ledger.fail_announced · r850 ft_news_html.live_teams · r1004 root_readback_guard.check · 판정 규칙 새로 구현 0(ⓔ «같은 경고 하루 2회» 만 arch 155 판단대로 직접 셈 — 카드 §반례 집합 각주)
   · r853 판(2082d729)에서 바꾼 곳 하나: ⓘ 칸의 `root_readback_guard.problems(text)` → r1004 착지 판의 `check(text)`(None = 정상 · 사유 글자 = 거짓). 함수 확인은 getattr 한 곳(모듈만 있고 함수 없음 = «검증 불가»)
 
+반송 r1 (arch 160 · DA⑥ r1 HOLD · 동작 1) — 2026-10-27 13:4x
+  · 상태 파일 손상(JSON 으로 안 읽힘 · streak.json/alarm.json `{`) = «검증기 자체 오류» 길: 그 회차 출력 «검증 불가 — 상태 파일 손상»(9/9 금지) · ERROR 1줄 · planner 쪽지 1(사건 키 = 그 파일) · 손상 파일을 초기값으로 덮어쓰지 않는다 · «파일 없음» 은 지금대로 정상 초기값(첫 실행)
+  · 구현 = _news_verify_book.py 의 StateCorrupt + load_state(깨진 JSON 만 예외) + check_state(streak·alarm) · _news_verify.py 는 verify 뒤·출력 전에 check_state → 검증 불가 줄 + self_error + return 1(bookkeep 안 함 = streak/alarm 쓰기 0)
+  · 시험 3칸 추가(test_r1_1 streak 손상 · test_r1_2 alarm 손상 + 같은 실패 재실행 = 쪽지 누적 1 · test_r1_3 파일 없음 = 첫 실행 9/9 rc0) · 변이 ⑨ «JSON 오류 → {} 복원» KILLED
+
 DA⑥ r2 [수용] 반례 6건 (카드 §반례 집합 동결 · 전부 닫음)
   1. 검증 불가를 복구로 읽음(_news_verify.py:119) → 열린 사건 집합에서 «지금 참이 아닌 칸(실패·모름·검증 불가)» 만 유지. 검증 불가 칸은 닫지도 새로 열지도 않는다. 시험 = 거짓 → 검증 불가 → 같은 거짓 = 쪽지 누적 1→1→1
   2. 발행본 읽기 권한 오류(:164) → 발행본 읽기를 main 의 R2 try 안으로 옮김. PermissionError = 발행 유지 · ERROR 1줄 · 쪽지 1 · rc1(예외 전파 0)
@@ -14,17 +19,18 @@ DA⑥ r2 [수용] 반례 6건 (카드 §반례 집합 동결 · 전부 닫음)
   5. 꼬리 쓰기 실패인데 9/9(:93) → tail_line 이 사유를 돌려주고 main 이 rc≠0 + ERROR 1줄 + 쪽지 1 로 만든다(«(꼬리 못 씀 — 9/9 아님)» 출력 · 연속 셈 안 올림)
   6. 매거진 출력 폴더 `~/` 글자 그대로(magazine_from_news.sh:47) → 출력 폴더와 발행 출력 경로의 «~» 를 편다(«~» → HOME · «~/x» → HOME/x) · HOME 없이 «~» 면 ERROR 1줄 + rc7 · 그 밖 경로는 ${HOME:-} 로 set -u 안전
 
-시험 (tests/scripts/test_news_verify_r1005.py · 32 tests · 임시 bare origin + 사본 · 실 발행·실 슬랙·실 쪽지 0 · FT_NOW 고정 · r1004 가드는 대역)
+시험 (tests/scripts/test_news_verify_r1005.py · 35 tests · 임시 bare origin + 사본 · 실 발행·실 슬랙·실 쪽지 0 · FT_NOW 고정 · r1004 가드는 대역)
   ⓐ 9칸 참 → «검증 9/9» rc0 · 로그 1줄 · 꼬리 «검증 9/9» · streak 1 · 쪽지 0
   ⓑ 칸별 거짓 주입 8종 → «검증 8/9 · 실패 <칸>» rc1 · [긴급] 1통 · 같은 칸 또 거짓 0통 · 참 뒤 다시 거짓 새 1통 · ⓔ 는 하루 두 판 시험
   ⓒ 장부 못 읽음 = 모름 = 실패로 셈 · ⓓ 23→24 = 끝선 1통(다음 0통) · ⓔ 칸 예외 = ERROR+쪽지 1 · verify_run 예외 전파 0
   ⓘ 4시험(가드 재호출 · None 참 · 사유 거짓 · 모듈 없음/함수 없음 = 검증 불가 · 자체 판정 0)
   V2 2 · V3 2 · V4 2 · V5 2(--out-dir 두 꼴 · 파일 없음 rc7) · V6 1(HOME 없음 WARN rc0) · r1005 반례 7시험(1~6 + HOME 없음 «~» rc7)
-  mutation.sh → mutation.txt — 8종 전부 KILLED(① 모름=통과 ② 사건 키 삭제 ③ 검증 불가=복구 ④ ⓘ 자체 판정 ⑤ 꼬리 실패 삼킴 ⑥ 자체오류 사건 닫기 삭제 ⑦ 발행본 읽기 예외 안 받음 ⑧ 매거진 «~» 펼침 삭제)
+  반송 r1 3칸(상태 파일 손상 2 · 파일 없음 첫 실행 1)
+  mutation.sh → mutation.txt — 9종 전부 KILLED(① 모름=통과 ② 사건 키 삭제 ③ 검증 불가=복구 ④ ⓘ 자체 판정 ⑤ 꼬리 실패 삼킴 ⑥ 자체오류 사건 닫기 삭제 ⑦ 발행본 읽기 예외 안 받음 ⑧ 매거진 «~» 펼침 삭제)
 
 빨강 먼저: red-base.txt (기준판 origin/main bin 으로 새 시험 = 모듈 없음 수집 오류 rc2) → green.txt (32 passed rc0)
-실 원천 읽기 전용 1회: real-dryrun.txt — 실 로그·명부·원장·옛 발행본(10-13)으로 «검증 3/9» rc1 · ⓘ = 참(실 r1004 가드 호출) · 예외 0 · 실 상태 쓰기 0(상태 = /tmp · 쪽지 0)
+실 원천 읽기 전용 1회(반송 r1 갱신): real-dryrun.txt — 지금 최신 뉴스 발행본(NEWS-20261027-1140-p8.md) + launchd com.byz.ft-news-planner 와 같은 env(FT_HARNESS_ROOT·FT_ROOT·FT_LEDGER_REPO·FT_NEWS_DIR·PATH) · 임시 상태 폴더 · 가짜 쪽지함 → «검증 4/9» rc1 · 참 4칸(ⓓⓔⓕⓘ) · 실패 5칸마다 «모드 차이 / 검증기 오판» 1줄 근거(발행본 파일:줄 · 장부 값 원문) · 실 상태·실 쪽지 쓰기 0
 회귀: regress.txt — 뉴스·매거진·원장 7파일 178 passed · 2 failed 는 기준판(origin/main)에서도 같은 2건 실패(test_ledger_fill_r851 의 rc6 기대 vs r707 가드 rc7 · 이 카드 무관 · 같은 파일 2.4초 실측) · kit↔bin cmp0(tests/test_kit_bin_sync.sh ALL PASS)
 
 press 필요: 없음 — 이 카드는 발행 뒤 검증 도구 + 시험 · 라이브 발화(뉴스 24회 연속 9/9 + 매거진 1회)는 planner 계획 §4 끝선 몫
-알려진 한계: ⓔ «같은 경고 하루 2회» 만 선행 함수가 없어 직접 셈(arch 155 판단 «기준 밖» · r853 탐색 원문 evidence 는 옛 가지에 있음) · 「악성 권한 발행본」 같은 root 실행 환경에서는 0444 시험이 안 걸린다(현 사용자 계정 실측 rc1 — 사용자 권한 기준)
+알려진 한계: 라이브 발행이 FT_NEWS_MODE=draft 라 9칸 중 ⓐⓑⓒ(지도 판 머리 모양)는 «모드 차이» 로 늘 실패 — 칸 설계는 카드 동결대로 그대로 둔다(새 기준 0) · ⓖ 는 «시각 없는 로그» 라 옛 fetch 실패 줄을 오늘로 셈(오판 · 알려진 한계) · ⓗ 는 «m.lecture» vs 명부 «lecture» 이름 비교가 빗나감 · ⓐ 선행 gather 실측 6.8초 = 칸 상한 7초 여유 0.2초 · ⓔ «같은 경고 하루 2회» 만 선행 함수가 없어 직접 셈(arch 155 판단 «기준 밖» · r853 탐색 원문 evidence 는 옛 가지에 있음) · 「악성 권한 발행본」 같은 root 실행 환경에서는 0444 시험이 안 걸린다(현 사용자 계정 실측 rc1 — 사용자 권한 기준)
