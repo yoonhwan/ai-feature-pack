@@ -9,6 +9,7 @@ unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO="$HERE/../.."; BIN="$REPO/harness/bin"; KIT="$REPO/harness/kit/fable-team/bin"
 T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T"' EXIT
+. "$HERE/lib/fake_tmm.sh"; fake_tmm "$T/fake" byz-alpha-master-claude#1   # r975 r4: 살아 있는 좌석 목록 대역
 . "$HERE/lib/fake_resource_env.sh"
 fail=0
 ok()  { echo "PASS $1"; }

@@ -8,6 +8,7 @@ set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 KIT="$HERE/../../harness/kit/fable-team"; SRC="$KIT/bin"; TXT="$KIT/bin-planner/goal-lines-planner.txt"; ENVSRC="$KIT/bin-planner/planner-env.sh"
 T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T"' EXIT
+. "$HERE/lib/fake_tmm.sh"; fake_tmm "$T/fake" byz-planner-master-claude#1 byz-planner-arch#0 byz-harness-master-claude#1 byz-v65-master-claude#1   # r975 r4: 살아 있는 좌석 목록 대역(팀 env FT_SEND_FROM 포함)
 . "$HERE/lib/fake_resource_env.sh"; fake_resource_env "$T/sensors" ok   # R218: 자원 문지기 센서를 가짜로(실 머신 부하·압력 무관)
 fail=0
 ok()  { echo "PASS $1"; }

@@ -8,6 +8,7 @@ unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO="$HERE/../.."; BIN="${R149_BIN:-$REPO/harness/bin}"; KIT="$REPO/harness/kit/fable-team/bin"
 T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T"' EXIT
+. "$HERE/lib/fake_tmm.sh"; fake_tmm "$T/fake" m#1 byz-v65-master-claude#1   # r975 r4: 살아 있는 좌석 목록 대역(--from m#1 포함)
 . "$HERE/lib/fake_resource_env.sh"; fake_resource_env "$T/sensors" ok   # R218: 자원 문지기 센서를 가짜로(실 머신 부하·압력 무관)
 fail=0
 ok()   { echo "PASS $1"; }

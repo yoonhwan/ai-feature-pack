@@ -51,7 +51,7 @@ RESEARCH_LOCK=""
 WT="$(git rev-parse --show-toplevel)"                       # 호출 워크트리(기준 브랜치의 자리)
 ROOT="$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||')"   # 리포 루트
 # ★r975 회신 대상 = --from > env FT_SEND_FROM(명부 현역으로 해석) > 그 팀 명부의 현역 `_master`★ — 아래 세 줄이 그 순서다(1번째는 r730 가드, 2·3번째가 r975 ).
-# (r975 반송 r1: 회신 대상 해석은 «팀 env 로드 뒤» 한 함수(_nano_reply_target)로 — 옛 판은 여기서 후보를 전부 훑어 루트 명부를 먼저 읽었다)
+# (r975 r4: 보고 대상은 «살아 있는 좌석 목록»(tmm ls) 에서 고른다 — 명부 파일 해석 0 · 아래 _nano_reply_target 한 칸)
 # ★페널티 게이트 (R320b · 오빠 판정 2170)★: 전 세션 정지(PENALTY_STOP 파일) 중이면 재개 전 팀은 열지 않는다(부작용 전 · successor 는 대상 아님). 우회 플래그 없음 — 풀기는 ft-penalty.sh resume <팀>. 파일이 있는데 판정기가 없으면 REJECT(조용한 통과 0).
 if [ -f "$ROOT/.fable-team/state/PENALTY_STOP" ]; then
   [ -f "$HERE/ft-penalty.sh" ] || { echo "REJECT 전 세션 정지 중인데 ft-penalty.sh 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
@@ -80,70 +80,66 @@ if [ -z "${FT_NANO_PREFIX:-}" ]; then
   fi
   echo "ENV team=${_team:-v65} prefix=${FT_NANO_PREFIX:-$DEF_NANO_PREFIX} seats=${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}"
 fi
-# ★r975 회신 대상 해석 = 한 함수 한 자리 (DA⑥ r1 HOLD 1~6 반송)★ — 순서:
-#   ②명부 후보 1개 고정 = FT_SEATS_JSON > seats-<팀>.json > 루트 seats.json («처음 존재하는 것» 하나만 · 둘 다 있으면 팀 파일) ③그 파일 JSON 파싱(깨지면 열기 0)
-#   ④회신 대상 = --from > FT_SEND_FROM > 그 명부 `_master` ⑤`_replaced_by` 사슬 끝까지(현역) ⑥ft-name-lint 통과 ∧ «고정한 그 명부» 실재 → 아니면 REJECT 1줄 rc≠0
-#   옛 결함(실사건 r972): 기본값이 명부 밖 글자였고 후보를 전부 훑어 루트 명부를 먼저 읽었다 → 나노 보고가 죽은 우편함으로 가 ring 10 포화 뒤 1건 영구 유실.
-#   고정한 명부는 $SEATS 전역 — 명부 등록(⑤)도 «그 파일» 에 한다(팀 파일이 있으면 루트 seats.json 부재는 REJECT 사유 아님).
-_nano_team() { local t="${FT_TEAM:-}"; [ -n "$t" ] || { [[ "$IDX" =~ design/(teams/)?([a-z0-9]+)/indices/ ]] && t="${BASH_REMATCH[2]}"; }; printf '%s\n' "${t:-v65}"; }
-_nano_roster_fix() {  # ②명부 후보 1개 고정 — «처음 존재하는 것» 하나만(서브셰 0: $SEATS 전역에 남긴다)
-  #   rc0 = $SEATS 고정(없으면 빈 값) · rc1 = 존재하는데 «파일이 아니다» → $SEATS_ERR 에 REJECT 1줄(조용한 건너뛰기 0 · DA r2 ②)
-  local cand
-  SEATS=""; SEATS_ERR=""
-  for cand in "${FT_SEATS_JSON:-}" "$ROOT/.fable-team/seats-$(_nano_team).json" "$ROOT/.fable-team/seats.json"; do
-    [ -n "$cand" ] || continue; [ -e "$cand" ] || continue
-    if [ -f "$cand" ]; then SEATS="$cand"; return 0; fi
-    SEATS_ERR="REJECT 회신 대상을 못 풀었다 — 명부 경로가 폴더다(파일이 아니다): $cand"
-    return 1
-  done
-  return 0
-}
-_nano_reply_target() {  # rc0 = stdout 회신 대상 1줄 · rc1 = stdout REJECT 1줄(부작용 0 — 워크트리·tmux·명부 등록 전부 앞)
-  python3 - "${SEATS:-}" "$FROM_SET" "$FROM" "$HERE" <<'PY'
-import json, os, subprocess, sys
-seats, from_set, arg, here = sys.argv[1:5]
-if not seats:
-    print("REJECT 회신 대상을 못 풀었다 — 명부 파일이 없다(FT_SEATS_JSON · seats-<팀>.json · seats.json): --from <좌석> 로 지정하거나 명부 _master 를 채운다"); sys.exit(1)
-try:
-    d = json.load(open(seats, encoding="utf-8"))
-except Exception as e:
-    print("REJECT 회신 대상을 못 풀었다 — 명부 JSON 손상: %s (%s) · 열지 않는다" % (seats, type(e).__name__)); sys.exit(1)
-if not isinstance(d, dict):
-    print("REJECT 회신 대상을 못 풀었다 — 명부 JSON 이 객체가 아니다: %s" % seats); sys.exit(1)
-v = arg.strip()
-if not v: v = str(d.get("_master") or "").strip()   # ④ --from > FT_SEND_FROM(r730 가드가 위에서 해석) > 그 명부 `_master`
-if not v:
-    print("REJECT 회신 대상을 못 풀었다 — --from · FT_SEND_FROM · 명부 _master(%s) 가 전부 비었다" % seats); sys.exit(1)
-seen = set()
-while True:                                # ⑤현역 추적 — `_replaced_by` 사슬 끝까지(은퇴 좌석 개설 0)
-    row = d.get(v)
-    nx = str(row.get("_replaced_by") or "").strip() if isinstance(row, dict) else ""
-    if not nx: break
-    if nx == v or nx in seen:
-        print("REJECT 회신 대상 계보가 순환한다: %s (%s)" % (v, seats)); sys.exit(1)
-    seen.add(nx)
-    if nx not in d:
-        print("REJECT 회신 대상 계보가 명부 밖으로 끊긴다: %s → %s (%s)" % (v, nx, seats)); sys.exit(1)
-    v = nx
-lint = os.path.join(here, "ft-name-lint.sh")
-if os.path.isfile(lint):
-    r = subprocess.run(["bash", lint, v], capture_output=True, text=True)
-    if r.returncode != 0:
-        why = ((r.stdout or "") + (r.stderr or "")).strip().splitlines()
-        print("REJECT 회신 대상 이름 lint 실패: %s%s — 발주문 머리 [%s-><나노>] 로 열지 않는다" % (v, (" (" + why[0] + ")") if why else "", v)); sys.exit(1)
-if v not in d:
-    print("REJECT 회신 대상이 명부에 없다: %s (%s) — 발주문 머리가 죽은 우편함으로 가 나노 보고가 유실된다(r975)" % (v, seats)); sys.exit(1)
-print(v)
+# ★r975 r4 (오빠 결정 3 · 10-27 09:3x «tmuxc tmm 에서 현팀 리스트 보고 판단»)· 보고 대상은 «지금 살아 있는 좌석 목록» 에서 고른다★
+#   명부 파일(seats.json · 팀 env · FT_SEATS_JSON) 해석은 «하지 않는다» — 그 입력이 답을 바꿀 수 있으면 그 자체가 결함이다(r1~r3 반례 전부).
+#   순서: tmm ls byz-<팀> 1회(7초 상한) → byz-<팀>-master-*#<N> 현역 중 번호 최대 1명 → `--from`/FT_SEND_FROM 은 «목록 안» 일 때만 인정(승계 추적 0).
+#   목록 0 · 2명 이상 · rc≠0 · 빈 출력 · 7초 초과 = REJECT 1줄 rc≠0 · 개설 0 (조용한 루트 팀장·옛 이름 대체 0).
+_nano_team() { local t="${FT_TEAM:-}" seg; [ -n "$t" ] || { case "$IDX" in */indices/*) seg="${IDX%/indices/*}"; t="${seg##*/}" ;; esac; }; printf '%s\n' "${t:-v65}"; }
+_nano_reply_target() {  # rc0 = stdout 보고 대상 1줄 · rc1 = stdout REJECT 1줄(부작용 0 — 워크트리·tmux·명부 등록 전부 앞)
+  local team tmp rc out
+  team="$(_nano_team)"
+  command -v tmm >/dev/null 2>&1 || { echo "REJECT 보고 대상을 못 풀었다 — tmm 이 PATH 에 없다(tmuxc tmm ls)"; return 1; }
+  tmp="$(mktemp "${TMPDIR:-/tmp}/ft-r975-tmm.XXXXXX")" || { echo "REJECT 보고 대상을 못 풀었다 — 임시 파일 실패"; return 1; }
+  COLUMNS=400 ft_reclaim_capped "$tmp" tmm ls "byz-$team"; rc=$?
+  if [ "$rc" = 124 ]; then rm -f "$tmp"; echo "REJECT 보고 대상을 못 풀었다 — tmm ls byz-$team 시간 초과(${FT_RECLAIM_TIMEOUT_SEC:-7}초 상한) · 개설 0"; return 1; fi
+  if [ "$rc" != 0 ]; then out="$(head -2 "$tmp" 2>/dev/null | tr '\n' ' ')"; rm -f "$tmp"
+    echo "REJECT 보고 대상을 못 풀었다 — tmm ls byz-$team 실패(rc=$rc · ${out:0:120}) · 개설 0"; return 1; fi
+  [ -s "$tmp" ] || { rm -f "$tmp"; echo "REJECT 보고 대상을 못 풀었다 — tmm ls byz-$team 빈 출력(살아 있는 좌석 0) · 개설 0"; return 1; }
+  python3 - "$team" "$FROM_SET" "$FROM" "$tmp" <<'PY'
+import re, sys
+team, from_set, arg, path = sys.argv[1:5]
+text = open(path, encoding="utf-8", errors="replace").read()
+head = "byz-" + team + "-"
+seat = re.compile(r"^[^#\s]+#[0-9]+$")                            # 좌석 이름 꼴(공백 없음 · `#N` 으로 끝 · 팀 글자는 한글도 허용)
+mpat = re.compile(r"^byz-" + re.escape(team) + r"-master-[^#\s]+#([0-9]+)$")
+names, masters, cut_master = set(), [], False
+for line in text.splitlines():
+    line = re.sub(r"\x1b\[[0-9;]*m", "", line)
+    for tok in line.split():
+        if "\u2026" in tok or "..." in tok:          # 이름이 잘려 읽혔다 = 그 이름으로는 못 보낸다
+            if tok.startswith(head) and "-master-" in tok:
+                cut_master = True
+            continue
+        if not seat.match(tok):
+            continue
+        names.add(tok)                                 # 목록에 «실재하는 이름» 이면 --from 으로 인정(③)
+        m = mpat.match(tok)
+        if m:
+            masters.append((int(m.group(1)), tok))     # 보고 대상 후보 = «그 팀 + 역할 master» 만
+def reject(msg):
+    print("REJECT 보고 대상을 못 풀었다 — " + msg); sys.exit(1)
+if from_set == "1":                                  # ③ --from 명시 = 목록 안만 인정(승계 추적 0)
+    v = arg.strip()
+    if not v:
+        reject("--from 값이 비었다")
+    if v not in names:
+        reject("--from 가 살아 있는 좌석 목록에 없다: %s (목록: %s)" % (v, " ".join(sorted(names)) or "0명"))
+    print(v); sys.exit(0)
+if not masters:
+    reject("목록에 byz-%s-master-* 좌석이 없다%s (목록: %s)" % (team, " — master 이름이 잘려 읽혔다" if cut_master else "", " ".join(sorted(names)) or "0명"))
+masters.sort()
+if len(masters) > 1:                                  # ② 현역 2명 = 어느 쪽인지 조용히 고르지 않는다
+    reject("현역 master 가 %d명이다(하나여야 한다): %s" % (len(masters), " ".join(n for _, n in masters)))
+print(masters[0][1])
 PY
+  local prc=$?; rm -f "$tmp"; return "$prc"
 }
-# ①-0 회신 대상 = lint 첫 칸 (dry-run·실행 같은 칸 · 워크트리·tmux·명부 등록 전부 앞)
-_nano_roster_fix || { printf '%s\n' "$SEATS_ERR"; exit 1; }   # ②③명부 1개 고정($SEATS · 폴더면 열기 0) · 팀 env 로드 «뒤» 라 FT_SEATS_JSON·FT_TEAM 이 확정된 값이다
-# r730 가드 그대로: --from 명시는 해석하지 않는다 — env FT_SEND_FROM 만 «고정한 그 명부» 의 현역으로 해석(팀장 승계 추적)
-[ "$FROM_SET" = 1 ] || FROM="$( . "$HERE/ft-team-lib.sh" 2>/dev/null && ft_from_current "${FT_SEND_FROM:-$FROM}" "$SEATS" )"
+# ①-0 보고 대상 = lint 첫 칸 (dry-run·실행 같은 칸 · 워크트리·tmux·명부 등록 전부 앞)
 _nano_rt="$(_nano_reply_target)"; _nano_rtrc=$?
 [ "$_nano_rtrc" = 0 ] || { printf '%s\n' "$_nano_rt"; exit 1; }
 FROM="$_nano_rt"
-echo "INFO 회신 대상 = $FROM (발주문 머리 [$FROM-><나노>] · 명부: $SEATS)" >&2
+echo "INFO 회신 대상 = $FROM (발주문 머리 [$FROM-><나노>] · 출처: 살아 있는 좌석 목록 tmm ls byz-$(_nano_team))" >&2
+SEATS="${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}"   # ⑤명부 «등록» 대상 전용 — 보고 대상 해석에는 쓰지 않는다(tmm 목록이 정한다)
 # ★v65 기본 접두 = 공용 규칙(ft_teamset.py)★ — 이름 규칙을 스크립트마다 복사하지 않는다(두 벌 규칙 0). 규칙을 못 읽으면 추측 없이 REJECT.
 [ -n "${FT_NANO_PREFIX:-}" ] || FT_NANO_PREFIX="$DEF_NANO_PREFIX"
 # ★EXIT 정리 목록 (r921 r3 · DA⑥ r2 W4)★: trap 을 «덮어쓰지» 않는다 — 정리 함수를 _ON_EXIT 에 이어 붙이고 trap 은 _on_exit 하나만 건다(잠금 해제·사건 원장 abort 가 둘 다 돈다).
@@ -350,7 +346,7 @@ esac
 [ -f "$HERE/ft-team-lib.sh" ] || { echo "REJECT ft-team-lib.sh 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
 . "$HERE/ft-team-lib.sh"   # R383: planner 카드 판정·SEATBELT 경로를 팀 폴더 명단으로 푼다(팀 이름 글자 0)
 _EBN=""; if ft_team_has_ref "$WT" planner "$IDX" indices/ && awk '/^##[[:space:]]/{exit} {print}' "$IDX" | grep -q '^- 템플릿: 빈 카드(나노가 채움)'; then export FT_INDEX_ALLOW_EMPTY_BODY=1; _EBN=" ★빈 카드 템플릿: 카드 구현 범위·완료 조건 절을 네가 먼저 채우고 arch 1줄 확인 뒤 착수★"; else unset FT_INDEX_ALLOW_EMPTY_BODY; fi
-# ①-0 회신 대상 검사는 위 _nano_reply_target 한 곳에서 끝났다(팀 env 로드 뒤 · 같은 칸 · REJECT 1줄 · $SEATS 고정).
+# ①-0 보고 대상 검사는 위 _nano_reply_target 한 곳에서 끝났다(tmm 목록 1회 · 같은 칸 · REJECT 1줄).
 
 bash "$HERE/ft-index-lint.sh" "$IDX" || { echo "REJECT lint 실패"; exit 1; }
 # ①-0 제안서 «오빠가 본 승인» 게이트 (R77 · 판정 816 — 로직은 ft-proposal-gate.sh --card)

@@ -6,6 +6,7 @@ set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 SRC="$HERE/../../harness/kit/fable-team/bin"
 T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T"' EXIT
+. "$HERE/lib/fake_tmm.sh"; fake_tmm "$T/fake" byz-planner-master-claude#1 byz-planner-arch-claude#1 byz-harness-master-claude#1 byz-v65-master-claude#1   # r975 r4: 살아 있는 좌석 목록 대역
 . "$HERE/lib/fake_resource_env.sh"; fake_resource_env "$T/sensors" ok   # R218: 자원 문지기 센서를 가짜로(실 머신 부하·압력 무관)
 fail=0
 ok()  { echo "PASS $1"; }

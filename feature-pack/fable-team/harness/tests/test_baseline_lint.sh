@@ -18,6 +18,7 @@ cp "$BIN/ft-nano-spawn.sh" "$BIN/ft-proposal-gate.sh" "$BIN/ft_raised.py" "$BIN/
 printf '#!/usr/bin/env bash\nexit 0\n' > "$T/bin/ft-index-lint.sh"
 printf '#!/usr/bin/env bash\nexit 0\n' > "$T/bin/ft-resource-gate.sh"   # spawn 입구 자원 문지기(Res-1014) — 사본 폴더에 없으면 spawn 이 경고 줄 전에 죽어 3a·3b 가 FAIL 한다. 이 시험은 기준값 줄만 본다
 printf '#!/usr/bin/env bash\nexit 0\n' > "$T/bin/ft-all-stop.sh"   # r626 DA⑥ r2: spawn 이 .fable-team 있으면 늘 전팀 정지 check — 사본 폴더에 없으면 REJECT 로 죽는다. 이 시험은 기준값 줄만 본다
+. "$HERE/lib/fake_tmm.sh"; fake_tmm "$T/fake" byz-v65-master-claude#1   # r975 r4: 살아 있는 좌석 목록 대역(실 tmm 누출 0)
 . "$HERE/lib/bin_source_deps.sh"; copy_source_deps "$BIN" "$T/bin" || bad "r686 사본 source 대상 채우기"   # r686: spawn 이 source 하는 같은 폴더 lib(r672 research-seat …) — 이름 골라 복사하면 빠진다
 echo '{"_master":"byz-harness-master-claude#1","byz-harness-master-claude#1":{"role":"master"}}' > "$T/seats.json"   # r975: 회신 대상 = 명부 _master(옛 기본값 글자 폐기)
 
@@ -28,7 +29,7 @@ card() {  # card <파일> [기준값 줄(통째로, 생략하면 줄 없음)]
     echo "## 구현 범위"; echo "x"
     echo "기준값: 본문에 있는 줄은 머리줄이 아니다"; } > "$T/idx/대기/$1.md"
 }
-run() { (cd "$HERE/../.." && FT_TEAMSET=0 FT_SEATS_JSON="$T/seats.json" bash "$T/bin/ft-nano-spawn.sh" "$T/idx/대기/$1.md" --dry-run 2>&1); }
+run() { (cd "$HERE/../.." && PATH="$T/fake:$PATH" FT_TEAMSET=0 FT_SEATS_JSON="$T/seats.json" bash "$T/bin/ft-nano-spawn.sh" "$T/idx/대기/$1.md" --dry-run 2>&1); }
 warned() { echo "$1" | grep -q 'WARN 후보 제외 — 카드 머리줄 기준값 없음 또는 빈칸'; }
 
 # 케이스 1 — 기준값 있음: 경고 없음
