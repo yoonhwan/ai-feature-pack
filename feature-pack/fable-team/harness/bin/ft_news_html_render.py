@@ -65,8 +65,8 @@ GOAL_ICONS = ('<svg class="ic" viewBox="0 0 84 84" aria-hidden="true"><circle cx
 TEMPLATES = (HERE.parent / "templates", HERE.parent / "kit" / "fable-team" / "templates")  # 설치본·키트 bin 옆 → 팩 harness/bin 옆
 SCHEMAS = {"summary": f'["{SUMMARY_LINES - 1}줄 이하"]', "important": '[{"title":"","detail":"","who":"팀","hot":false}]', "refs": '["근거 번호"]',
            "goals": '[{"done":"","now":"","left":"","hot":false}]', "team_notes": '[{"team":"live 의 team 그대로","text":""}]'}
-FACT_RULES = ('- 입력 facts = 코드가 tmux 좌석·jsonl 로 잰 «사실» — 원장 문장과 어긋나면 facts 가 이긴다. «일하는 팀» 이 1개 이상이면 '
-              '«모든 팀이 멈춤·대기·쉼» 같은 문장 금지 · 일하는/쉬는 팀 수·이름은 facts 그대로.\n'
+FACT_RULES = ('- 입력 facts = 코드가 tmux 좌석·jsonl·진행 카드로 잰 «사실»(팀 상태 4칸 진행·대기·쉼·확인 불가 · r850) — 원장 문장과 어긋나면 facts 가 이긴다. '
+              '«진행» 이 1개 이상이면 «모든 팀이 멈춤·대기·쉼» 같은 문장 금지 · 진행/대기/쉼 팀 수·이름은 facts 그대로.\n'
               '- facts.확인 불가 팀은 쉬는 팀이 아니다 — 그 팀이 쉰다·멈췄다·대기 중이라고 상태를 단정하지 말 것(쓰려면 «상태 확인 불가»).\n'
               '- facts.자율 이 "ON" 이면 병합 승인은 desk 가 실행한다 — «승인 대기»·«승인을 기다» 꼴(누구 승인이든) 금지(린트가 «승인 … 기다|대기» 를 거절 · 예외 0) · 남은 승인 단계는 «<무엇> 승인 단계 남음» 으로 쓴다 · "모름" 이면 승인·자율 이야기를 쓰지 않는다.')  # r601: 린트 APPROVAL_WAIT 와 같은 범위
 PARTS = {  # 갈래 → (받을 키, 넘길 입력 키, 갈래 규칙, 예상 출력 글자) · r478e: 옛 top(요약+중요한 일+근거)을 2갈래로(부하 load 25 · max 에서 38.5초 상한 초과)
@@ -438,26 +438,27 @@ def call_model(data: dict) -> tuple[dict, dict[str, float], float]:
 
 
 def bucket(notes: object, live: object) -> dict[str, list[dict]]:
-    """일하는/쉬는 팀 = 코드가 live(팀별 tmux 좌석·jsonl turn 실측)로 정한다(r478c · 오빠 반려 «일하는 챗봇이 쉬는 쪽에»).
-    일하는 팀 = 일하는 좌석(WORKING) ≥ 1 · 일하는 좌석 많은 순 · LLM 은 팀별 설명 한 문장만(없으면 «설명 없음» 그대로).
-    확인 불가 = 일하는 0 ∧ turn «?» ≥ 1(사유 칸 · r490 · 오빠 «챗봇팀은 왜쉬어?») · 쉬는 팀 = 일하는 0 ∧ 확인 불가 0."""
+    """지도 칸 = 코드가 live 의 팀 상태(state·label = ft_team_state.judge · r850)로 정한다(r478c · 오빠 반려 «일하는 챗봇이 쉬는 쪽에»).
+    «일하는 팀» 칸 = 진행(일하는 좌석 많은 순) 다음 대기 — 카드 머리 = label 그대로(«진행 · …»·«대기 N분 · 기다리는 것 = …») · LLM 은 팀별 설명 한 문장만.
+    확인 불가 칸 = state 확인 불가(사유 칸 · r490) · 쉬는 팀 칸 = state 쉼 — 두 칸 글 머리도 label 그대로(시트 뿌리 글 팀 표와 같은 글자)."""
     if not isinstance(live, list) or not live:
         raise NewsHtmlError("입력 live(팀별 라이브 좌석 실측) 없음 — 일하는/쉬는 팀을 정할 수 없다")
+    if missing := [str(t.get("team")) for t in live if t.get("state") not in ("진행", "대기", "쉼", "확인 불가") or not t.get("label")]:
+        raise NewsHtmlError(f"입력 live 팀 상태(state·label) 없음: {', '.join(missing)} — ft_team_state.judge 값이어야 한다")
     text = {str(n.get("team", "")).strip(): str(n.get("text", "")).strip() for n in notes if isinstance(n, dict)} if isinstance(notes, list) else {}
-    work = sorted((t for t in live if t["working"]), key=lambda t: (-t["working"], t["team"]))
-    unknown = lambda t: f" · 확인 불가 {t['unknown']}" if t.get("unknown") else ""  # noqa: E731
-    why = lambda t: t.get("unknown_reason") or f"turn 확인 불가 {t['unknown']}석"  # noqa: E731
-    return {"working": [{"team": t["team"], "seats": f"일하는 좌석 {t['working']}/{t['live']}{unknown(t)}", "note": text.get(t["team"]) or "설명 없음"} for t in work],
-            "unknown": [{"team": t["team"], "text": f"라이브 좌석 {t['live']} · 확인 불가 {t['unknown']} ({why(t)}) · {text.get(t['team']) or '설명 없음'}"}
-                        for t in live if not t["working"] and t.get("unknown")],
-            "resting": [{"team": t["team"], "text": f"라이브 좌석 {t['live']} · 일하는 좌석 0 · {text.get(t['team']) or '설명 없음'}"}
-                        for t in live if not t["working"] and not t.get("unknown")]}
+    note = lambda t: text.get(t["team"]) or "설명 없음"  # noqa: E731
+    unknown = lambda t: f" · 확인 불가 {t['unknown']}" if t.get("unknown") else ""  # noqa: E731  진행·대기 팀 안의 판정 못 한 좌석(숨김 0 · r490)
+    order = sorted(live, key=lambda t: (t["state"] != "진행", -t["working"], t["team"]))
+    return {"working": [{"team": t["team"], "state": t["state"], "seats": t["label"] + unknown(t), "note": note(t)} for t in order if t["state"] in ("진행", "대기")],
+            "unknown": [{"team": t["team"], "text": f"{t['label']} · 라이브 좌석 {t['live']} · {note(t)}"} for t in order if t["state"] == "확인 불가"],
+            "resting": [{"team": t["team"], "text": f"{t['label']} · 라이브 좌석 {t['live']} · {note(t)}"} for t in order if t["state"] == "쉼"]}
 
 
 def status_line(c: dict) -> str:
-    """팀 상태 1~3문장 — 코드가 live(좌석·jsonl)로 정한 셋(일하는/쉬는/확인 불가)에서 «0개 칸은 생략»(r588).
+    """팀 상태 1~4문장 — 코드가 live 팀 상태(ft_team_state.judge)로 정한 넷(진행/대기/쉬는/확인 불가)에서 «0개 칸은 생략»(r588 · r850).
     모델에게 이 문장을 쓰게 하지 않는다 — 00:57 판은 확인 불가 팀(feature·graphics·harness)을 «쉬며» 절에 넣어 린트 3건으로 발행 0."""
-    rows = (("일하는 팀", c["working"]), ("쉬는 팀", c["resting"]), ("상태 확인 불가", c["unknown"]))
+    rows = (("진행 팀", [t for t in c["working"] if t.get("state") == "진행"]), ("대기 팀", [t for t in c["working"] if t.get("state") == "대기"]),
+            ("쉬는 팀", c["resting"]), ("상태 확인 불가", c["unknown"]))
     said = [f"{label} {len(group)}개: {', '.join(t['team'] for t in group)}" for label, group in rows if group]
     return ". ".join(said) or "팀 상태 원천 없음"
 

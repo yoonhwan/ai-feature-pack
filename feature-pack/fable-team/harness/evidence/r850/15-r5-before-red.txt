@@ -1,0 +1,463 @@
+.................F.F....F..FFFFFFFFFFFFFF                                [100%]
+=================================== FAILURES ===================================
+____________ test_t2_mutation_empty_source_check_removed_is_caught _____________
+
+    def test_t2_mutation_empty_source_check_removed_is_caught():
+>       no_shape = _mutant('    if not master or not seats:  # 빈 원천 — [] · 0 · "" · null · {} 는 «모름» 이 아니라 «모양 오류»\n',
+                           '    if False:  # 변이: 빈 값 검사 삭제\n')
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r850-news-team-map-three-states/feature-pack/fable-team/harness/tests/scripts/test_news_team_state_r850.py:395: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+old = '    if not master or not seats:  # 빈 원천 — [] · 0 · "" · null · {} 는 «모름» 이 아니라 «모양 오류»\n'
+new = '    if False:  # 변이: 빈 값 검사 삭제\n', fname = 'ft_team_state.py'
+
+    def _mutant(old: str, new: str, fname: str = "ft_team_state.py") -> types.ModuleType:
+        src = (BIN / fname).read_text(encoding="utf-8")
+>       assert src.count(old) == 1, old
+E       AssertionError:     if not master or not seats:  # 빈 원천 — [] · 0 · "" · null · {} 는 «모름» 이 아니라 «모양 오류»
+E         
+E       assert 0 == 1
+E        +  where 0 = <built-in method count of str object at 0x1040cf800>('    if not master or not seats:  # 빈 원천 — [] · 0 · "" · null · {} 는 «모름» 이 아니라 «모양 오류»\n')
+E        +    where <built-in method count of str object at 0x1040cf800> = '"""ft_team_state — 팀 상태 판정기 하나(r850): «진행 · 대기 · 쉼 · 확인 불가». 뉴스 지도·요약 첫 줄(ft_news_html)과\n시트 뿌리 글 팀 표(ft_board_teams ...zone().replace(tzinfo=None) if p.tzinfo else p\n    return None if p > now else int((now - p).total_seconds() // 60)\n'.count
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r850-news-team-map-three-states/feature-pack/fable-team/harness/tests/scripts/test_news_team_state_r850.py:208: AssertionError
+____________ test_s2_slow_or_broken_team_does_not_touch_other_team _____________
+
+world = namespace(root=PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-1358/test...6-10-24T13:55:00', ['byz-z-nano#0']), 'byz-f-master#2': ('2026-10-24T13:40:00', ['byz-f-master#1', 'byz-f-master#2'])})
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-1358/test_s2_slow_or_broken_team_do0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1111372d0>
+caplog = <_pytest.logging.LogCaptureFixture object at 0x1111d2290>
+
+    def test_s2_slow_or_broken_team_does_not_touch_other_team(world, tmp_path, monkeypatch, caplog):
+        _slow_child(tmp_path, monkeypatch, 0, 8, only="byz-y-master")
+        live, wall = _timed(_live, world)
+        assert (live["x"]["state"], live["x"]["label"]) == ("진행", "진행 · 9분 전 턴")
+        assert (live["y"]["state"], live["y"]["label"]) == ("확인 불가", "확인 불가(시간 초과)") and wall <= 7.5, wall
+        monkeypatch.delenv("PYTHONPATH")
+        jl = world.projects / _enc("/wt/byz-y-master") / "byz-y-master_1.jsonl"
+        jl.write_text(jl.read_text(encoding="utf-8") + "[]\n", encoding="utf-8")
+        with caplog.at_level("ERROR"):
+            live = _live(world)
+        assert (live["x"]["state"], live["x"]["label"]) == ("진행", "진행 · 9분 전 턴")
+>       assert live["y"]["state"] == "확인 불가" and live["y"]["label"].startswith("확인 불가(원천 오류 AttributeError"), live["y"]
+E       AssertionError: {'label': '확인 불가(판정 실패 rc=1)', 'live': 0, 'state': '확인 불가', 'team': 'y', ...}
+E       assert ('\ud655\uc778 \ubd88\uac00' == '\ud655\uc778 \ubd88\uac00'
+E         
+E           확인 불가 and False)
+E        +  where False = <built-in method startswith of str object at 0x1111df9f0>('확인 불가(원천 오류 AttributeError')
+E        +    where <built-in method startswith of str object at 0x1111df9f0> = '확인 불가(판정 실패 rc=1)'.startswith
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r850-news-team-map-three-states/feature-pack/fable-team/harness/tests/scripts/test_news_team_state_r850.py:434: AssertionError
+------------------------------ Captured log call -------------------------------
+ERROR    ft_team_turns:ft_team_turns.py:115 팀 y 좌석 턴 판독 실패 rc=1: or i, r in enumerate(recs) if r.get("type") == "system" and r.get("subtype") == "turn_duration"]
+                                             ^^^^^
+AttributeError: 'list' object has no attribute 'get'
+__________________ test_s_mutation_kill_child_only_is_caught ___________________
+
+world = namespace(root=PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-1358/test...6-10-24T13:55:00', ['byz-z-nano#0']), 'byz-f-master#2': ('2026-10-24T13:40:00', ['byz-f-master#1', 'byz-f-master#2'])})
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-1358/test_s_mutation_kill_child_onl0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1117c5e10>
+
+    def test_s_mutation_kill_child_only_is_caught(world, tmp_path, monkeypatch):
+        child_only = _mutant("        os.killpg(proc.pid, sig)\n", "        proc.send_signal(sig)\n", "ft_team_turns.py")
+        stub, mark = _grandchild_tmux(tmp_path)
+        monkeypatch.setenv("FT_TMUX", stub)
+>       payload = ts.payload_for(world.root, set(fh._sessions()), NOW_DT, ts.roster_files(world.root))
+                  ^^^^^^^^^^^^^^
+E       AttributeError: module 'ft_team_state' has no attribute 'payload_for'
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r850-news-team-map-three-states/feature-pack/fable-team/harness/tests/scripts/test_news_team_state_r850.py:497: AttributeError
+__________________ test_s_mutation_team_try_removed_is_caught __________________
+
+world = namespace(root=PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-1358/test...6-10-24T13:55:00', ['byz-z-nano#0']), 'byz-f-master#2': ('2026-10-24T13:40:00', ['byz-f-master#1', 'byz-f-master#2'])})
+
+    def test_s_mutation_team_try_removed_is_caught(world):
+        _broken_master(world)
+        no_try = _mutant("        except Exception as e:  # noqa: BLE001 — 팀 단위 격리 ① 명부·좌석 집합·기다림·카드\n", "        except ZeroDivisionError as e:  # 변이\n")
+>       payload = ts.payload_for(world.root, set(fh._sessions()), NOW_DT, ts.roster_files(world.root))
+                  ^^^^^^^^^^^^^^
+E       AttributeError: module 'ft_team_state' has no attribute 'payload_for'
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r850-news-team-map-three-states/feature-pack/fable-team/harness/tests/scripts/test_news_team_state_r850.py:529: AttributeError
+______________ test_t1_many_teams_low_fd_limit_streaming_deadline ______________
+
+world = namespace(root=PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-1358/test...6-10-24T13:55:00', ['byz-z-nano#0']), 'byz-f-master#2': ('2026-10-24T13:40:00', ['byz-f-master#1', 'byz-f-master#2'])})
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-1358/test_t1_many_teams_low_fd_limi0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1117c4390>
+
+    def test_t1_many_teams_low_fd_limit_streaming_deadline(world, tmp_path, monkeypatch):
+        import resource
+    
+        _twenty_teams(world, monkeypatch)
+        mark = tmp_path / "judge-grandchild-done"
+        _slow_judge(tmp_path, monkeypatch, "byz-t10-master", 8, mark)
+        soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+        resource.setrlimit(resource.RLIMIT_NOFILE, (min(soft, 32), hard))
+        try:
+>           live, wall = _timed(_live, world)
+                         ^^^^^^^^^^^^^^^^^^^^
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r850-news-team-map-three-states/feature-pack/fable-team/harness/tests/scripts/test_news_team_state_r850.py:575: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r850-news-team-map-three-states/feature-pack/fable-team/harness/tests/scripts/test_news_team_state_r850.py:350: in _timed
+    got = fn(*a)
+          ^^^^^^
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r850-news-team-map-three-states/feature-pack/fable-team/harness/tests/scripts/test_news_team_state_r850.py:113: in _live
+    return {t["team"]: t for t in fh.live_teams(world.root)}
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r850-news-team-map-three-states/feature-pack/fable-team/harness/bin/ft_news_html.py:141: in live_teams
+    return [{"team": t, "working": len(v["working"]), **{k: v[k] for k in keep}} for t, v in ts.team_states(root, alive, news_now()).items()]
+                                                                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r850-news-team-map-three-states/feature-pack/fable-team/harness/bin/ft_team_state.py:172: in team_states
+    turns = tt.team_turns({t: v[0] for t, v in plan.items()}, os.environ.get("FT_TMUX", "tmux"), projects, now)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r850-news-team-map-three-states/feature-pack/fable-team/harness/bin/ft_team_turns.py:123: in team_turns
+    procs = {t: _spawn(seats, tmux, projects, now) for t, seats in plan.items() if seats}  # 팀마다 하위 1개(r4)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r850-news-team-map-three-states/feature-pack/fable-team/harness/bin/ft_team_turns.py:123: in <dictcomp>
+    procs = {t: _spawn(seats, tmux, projects, now) for t, seats in plan.items() if seats}  # 팀마다 하위 1개(r4)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r850-news-team-map-three-states/feature-pack/fable-team/harness/bin/ft_team_turns.py:98: in _spawn
+    return subprocess.Popen([sys.executable, "-c", code, args], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, start_new_session=True)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/subprocess.py:1026: in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <Popen: returncode: None args: ['/opt/homebrew/opt/python@3.11/bin/python3.1...>
+args = ['/opt/homebrew/opt/python@3.11/bin/python3.11', '-c', "import sys; sys.path.insert(0, '/Users/yoonhwan/Project/ai-fea...vnmmh0000gn/T/pytest-of-yoonhwan/pytest-1358/test_t1_many_teams_low_fd_limi0/projects", "now": "2026-10-24T14:00:00"}']
+executable = '/opt/homebrew/opt/python@3.11/bin/python3.11', preexec_fn = None
+close_fds = True, pass_fds = (), cwd = None, env = None, startupinfo = None
+creationflags = 0, shell = False, p2cread = -1, p2cwrite = -1, c2pread = 26
+c2pwrite = 28, errread = 29, errwrite = 30, restore_signals = True, gid = None
+gids = None, uid = None, umask = -1, start_new_session = True
+process_group = -1
+
+    def _execute_child(self, args, executable, preexec_fn, close_fds,
+                       pass_fds, cwd, env,
+                       startupinfo, creationflags, shell,
+                       p2cread, p2cwrite,
+                       c2pread, c2pwrite,
+                       errread, errwrite,
+                       restore_signals,
+                       gid, gids, uid, umask,
+                       start_new_session, process_group):
+        """Execute program (POSIX version)"""
+    
+        if isinstance(args, (str, bytes)):
+            args = [args]
+        elif isinstance(args, os.PathLike):
+            if shell:
+                raise TypeError('path-like args is not allowed when '
+                                'shell is true')
+            args = [args]
+        else:
+            args = list(args)
+    
+        if shell:
+            # On Android the default shell is at '/system/bin/sh'.
+            unix_shell = ('/system/bin/sh' if
+                      hasattr(sys, 'getandroidapilevel') else '/bin/sh')
+            args = [unix_shell, "-c"] + args
+            if executable:
+                args[0] = executable
+    
+        if executable is None:
+            executable = args[0]
+    
+        sys.audit("subprocess.Popen", executable, args, cwd, env)
+    
+        if (_USE_POSIX_SPAWN
+                and os.path.dirname(executable)
+                and preexec_fn is None
+                and not close_fds
+                and not pass_fds
+                and cwd is None
+                and (p2cread == -1 or p2cread > 2)
+                and (c2pwrite == -1 or c2pwrite > 2)
+                and (errwrite == -1 or errwrite > 2)
+                and not start_new_session
+                and process_group == -1
+                and gid is None
+                and gids is None
+                and uid is None
+                and umask < 0):
+            self._posix_spawn(args, executable, env, restore_signals,
+                              p2cread, p2cwrite,
+                              c2pread, c2pwrite,
+                              errread, errwrite)
+            return
+    
+        orig_executable = executable
+    
+        # For transferring possible exec failure from child to parent.
+        # Data format: "exception name:hex errno:description"
+        # Pickle is not used; it is complex and involves memory allocation.
+>       errpipe_read, errpipe_write = os.pipe()
+                                      ^^^^^^^^^
+E       OSError: [Errno 24] Too many open files
+
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/subprocess.py:1851: OSError
+_________________ test_t1b_child_spawn_failure_is_all_unknown __________________
+
+world = namespace(root=PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-1358/test...6-10-24T13:55:00', ['byz-z-nano#0']), 'byz-f-master#2': ('2026-10-24T13:40:00', ['byz-f-master#1', 'byz-f-master#2'])})
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1139d5c50>
+caplog = <_pytest.logging.LogCaptureFixture object at 0x1139d42d0>
+
+    def test_t1b_child_spawn_failure_is_all_unknown(world, monkeypatch, caplog):
+        def boom(*a, **k):
+            raise OSError(24, "Too many open files")
+    
+        monkeypatch.setattr(tt, "_spawn", boom)
+        with caplog.at_level("ERROR"):
+>           got = ts.team_states(world.root, set(fh._sessions()), NOW_DT)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r850-news-team-map-three-states/feature-pack/fable-team/harness/tests/scripts/test_news_team_state_r850.py:592: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r850-news-team-map-three-states/feature-pack/fable-team/harness/bin/ft_team_state.py:172: in team_states
+    turns = tt.team_turns({t: v[0] for t, v in plan.items()}, os.environ.get("FT_TMUX", "tmux"), projects, now)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r850-news-team-map-three-states/feature-pack/fable-team/harness/bin/ft_team_turns.py:123: in team_turns
+    procs = {t: _spawn(seats, tmux, projects, now) for t, seats in plan.items() if seats}  # 팀마다 하위 1개(r4)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r850-news-team-map-three-states/feature-pack/fable-team/harness/bin/ft_team_turns.py:123: in <dictcomp>
+    procs = {t: _spawn(seats, tmux, projects, now) for t, seats in plan.items() if seats}  # 팀마다 하위 1개(r4)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+a = (['byz-f-master#2', 'byz-f-nano#0'], '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pyte...gn/T/pytest-of-yoonhwan/pytest-1358/test_t1b_child_spawn_failure_i0/projects'), datetime.datetime(2026, 10, 24, 14, 0))
+k = {}
+
+    def boom(*a, **k):
+>       raise OSError(24, "Too many open files")
+E       OSError: [Errno 24] Too many open files
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r850-news-team-map-three-states/feature-pack/fable-team/harness/tests/scripts/test_news_team_state_r850.py:588: OSError
+_________ test_t2_empty_source_is_shape_error_not_silent_unknown[list] _________
+
+world = namespace(root=PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-1358/test...6-10-24T13:55:00', ['byz-z-nano#0']), 'byz-f-master#2': ('2026-10-24T13:40:00', ['byz-f-master#1', 'byz-f-master#2'])})
+shape = [], caplog = <_pytest.logging.LogCaptureFixture object at 0x111734f90>
+
+    @pytest.mark.parametrize("shape", [[], 0, "", None, {}], ids=["list", "zero", "empty-str", "null", "dict"])
+    def test_t2_empty_source_is_shape_error_not_silent_unknown(world, shape, caplog):
+        _snap(world).write_text(json.dumps({"teams": [{"key": "y", "master": "byz-y-master#1", "seats": shape}]}, ensure_ascii=False), encoding="utf-8")
+        with caplog.at_level("ERROR"):
+            live = _live(world)
+>       assert (live["y"]["state"], live["y"]["label"]) == ("대기", f"대기 45분 · 기다리는 것 = {ts.WAIT_SHAPE}"), live["y"]
+                                                                                       ^^^^^^^^^^^^^
+E       AttributeError: module 'ft_team_state' has no attribute 'WAIT_SHAPE'
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r850-news-team-map-three-states/feature-pack/fable-team/harness/tests/scripts/test_news_team_state_r850.py:603: AttributeError
+_________ test_t2_empty_source_is_shape_error_not_silent_unknown[zero] _________
+
+world = namespace(root=PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-1358/test...6-10-24T13:55:00', ['byz-z-nano#0']), 'byz-f-master#2': ('2026-10-24T13:40:00', ['byz-f-master#1', 'byz-f-master#2'])})
+shape = 0, caplog = <_pytest.logging.LogCaptureFixture object at 0x107fc8190>
+
+    @pytest.mark.parametrize("shape", [[], 0, "", None, {}], ids=["list", "zero", "empty-str", "null", "dict"])
+    def test_t2_empty_source_is_shape_error_not_silent_unknown(world, shape, caplog):
+        _snap(world).write_text(json.dumps({"teams": [{"key": "y", "master": "byz-y-master#1", "seats": shape}]}, ensure_ascii=False), encoding="utf-8")
+        with caplog.at_level("ERROR"):
+            live = _live(world)
+>       assert (live["y"]["state"], live["y"]["label"]) == ("대기", f"대기 45분 · 기다리는 것 = {ts.WAIT_SHAPE}"), live["y"]
+                                                                                       ^^^^^^^^^^^^^
+E       AttributeError: module 'ft_team_state' has no attribute 'WAIT_SHAPE'
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r850-news-team-map-three-states/feature-pack/fable-team/harness/tests/scripts/test_news_team_state_r850.py:603: AttributeError
+______ test_t2_empty_source_is_shape_error_not_silent_unknown[empty-str] _______
+
+world = namespace(root=PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-1358/test...6-10-24T13:55:00', ['byz-z-nano#0']), 'byz-f-master#2': ('2026-10-24T13:40:00', ['byz-f-master#1', 'byz-f-master#2'])})
+shape = '', caplog = <_pytest.logging.LogCaptureFixture object at 0x111768e10>
+
+    @pytest.mark.parametrize("shape", [[], 0, "", None, {}], ids=["list", "zero", "empty-str", "null", "dict"])
+    def test_t2_empty_source_is_shape_error_not_silent_unknown(world, shape, caplog):
+        _snap(world).write_text(json.dumps({"teams": [{"key": "y", "master": "byz-y-master#1", "seats": shape}]}, ensure_ascii=False), encoding="utf-8")
+        with caplog.at_level("ERROR"):
+            live = _live(world)
+>       assert (live["y"]["state"], live["y"]["label"]) == ("대기", f"대기 45분 · 기다리는 것 = {ts.WAIT_SHAPE}"), live["y"]
+                                                                                       ^^^^^^^^^^^^^
+E       AttributeError: module 'ft_team_state' has no attribute 'WAIT_SHAPE'
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r850-news-team-map-three-states/feature-pack/fable-team/harness/tests/scripts/test_news_team_state_r850.py:603: AttributeError
+_________ test_t2_empty_source_is_shape_error_not_silent_unknown[null] _________
+
+world = namespace(root=PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-1358/test...6-10-24T13:55:00', ['byz-z-nano#0']), 'byz-f-master#2': ('2026-10-24T13:40:00', ['byz-f-master#1', 'byz-f-master#2'])})
+shape = None, caplog = <_pytest.logging.LogCaptureFixture object at 0x1111d1fd0>
+
+    @pytest.mark.parametrize("shape", [[], 0, "", None, {}], ids=["list", "zero", "empty-str", "null", "dict"])
+    def test_t2_empty_source_is_shape_error_not_silent_unknown(world, shape, caplog):
+        _snap(world).write_text(json.dumps({"teams": [{"key": "y", "master": "byz-y-master#1", "seats": shape}]}, ensure_ascii=False), encoding="utf-8")
+        with caplog.at_level("ERROR"):
+            live = _live(world)
+>       assert (live["y"]["state"], live["y"]["label"]) == ("대기", f"대기 45분 · 기다리는 것 = {ts.WAIT_SHAPE}"), live["y"]
+                                                                                       ^^^^^^^^^^^^^
+E       AttributeError: module 'ft_team_state' has no attribute 'WAIT_SHAPE'
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r850-news-team-map-three-states/feature-pack/fable-team/harness/tests/scripts/test_news_team_state_r850.py:603: AttributeError
+_________ test_t2_empty_source_is_shape_error_not_silent_unknown[dict] _________
+
+world = namespace(root=PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-1358/test...6-10-24T13:55:00', ['byz-z-nano#0']), 'byz-f-master#2': ('2026-10-24T13:40:00', ['byz-f-master#1', 'byz-f-master#2'])})
+shape = {}, caplog = <_pytest.logging.LogCaptureFixture object at 0x11178a190>
+
+    @pytest.mark.parametrize("shape", [[], 0, "", None, {}], ids=["list", "zero", "empty-str", "null", "dict"])
+    def test_t2_empty_source_is_shape_error_not_silent_unknown(world, shape, caplog):
+        _snap(world).write_text(json.dumps({"teams": [{"key": "y", "master": "byz-y-master#1", "seats": shape}]}, ensure_ascii=False), encoding="utf-8")
+        with caplog.at_level("ERROR"):
+            live = _live(world)
+>       assert (live["y"]["state"], live["y"]["label"]) == ("대기", f"대기 45분 · 기다리는 것 = {ts.WAIT_SHAPE}"), live["y"]
+                                                                                       ^^^^^^^^^^^^^
+E       AttributeError: module 'ft_team_state' has no attribute 'WAIT_SHAPE'
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r850-news-team-map-three-states/feature-pack/fable-team/harness/tests/scripts/test_news_team_state_r850.py:603: AttributeError
+__________________ test_t3_broken_jsonl_row_is_only_that_team __________________
+
+world = namespace(root=PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-1358/test...6-10-24T13:55:00', ['byz-z-nano#0']), 'byz-f-master#2': ('2026-10-24T13:40:00', ['byz-f-master#1', 'byz-f-master#2'])})
+caplog = <_pytest.logging.LogCaptureFixture object at 0x107faabd0>
+
+    def test_t3_broken_jsonl_row_is_only_that_team(world, caplog):
+        jl = world.projects / _enc("/wt/byz-y-master") / "byz-y-master_1.jsonl"
+        jl.write_text(jl.read_text(encoding="utf-8") + "[]\n", encoding="utf-8")
+        with caplog.at_level("ERROR"):
+            live = _live(world)
+        assert (live["x"]["state"], live["x"]["label"]) == ("진행", "진행 · 9분 전 턴")
+>       assert live["y"]["state"] == "확인 불가" and live["y"]["label"].startswith("확인 불가(원천 오류"), live["y"]
+E       AssertionError: {'label': '확인 불가(판정 실패 rc=1)', 'live': 0, 'state': '확인 불가', 'team': 'y', ...}
+E       assert ('\ud655\uc778 \ubd88\uac00' == '\ud655\uc778 \ubd88\uac00'
+E         
+E           확인 불가 and False)
+E        +  where False = <built-in method startswith of str object at 0x1111965d0>('확인 불가(원천 오류')
+E        +    where <built-in method startswith of str object at 0x1111965d0> = '확인 불가(판정 실패 rc=1)'.startswith
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r850-news-team-map-three-states/feature-pack/fable-team/harness/tests/scripts/test_news_team_state_r850.py:615: AssertionError
+------------------------------ Captured log call -------------------------------
+ERROR    ft_team_turns:ft_team_turns.py:115 팀 y 좌석 턴 판독 실패 rc=1: or i, r in enumerate(recs) if r.get("type") == "system" and r.get("subtype") == "turn_duration"]
+                                             ^^^^^
+AttributeError: 'list' object has no attribute 'get'
+____________ test_t5_stream_tail_line_dropped_and_stderr_inherited _____________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x107fc8090>
+
+    def test_t5_stream_tail_line_dropped_and_stderr_inherited(monkeypatch):
+        import io
+        import subprocess as sp
+        import types
+    
+        seen = {}
+    
+        class FakeProc:
+            pid, returncode = 424242, 0
+            stdout = io.StringIO('{"team": "x", "v": {"state": "진행"}}\n{"team": "y", "v": ')
+    
+            def wait(self, timeout=None):
+                return 0
+    
+        def popen(args, **kw):
+            seen.update(kw)
+            return FakeProc()
+    
+        monkeypatch.setattr(tt, "subprocess", types.SimpleNamespace(Popen=popen, PIPE=sp.PIPE, DEVNULL=sp.DEVNULL, TimeoutExpired=sp.TimeoutExpired))
+>       got, fail = tt.run_teams({"root": "/x", "teams": ["x", "y"]}, ["x", "y"])
+                    ^^^^^^^^^^^^
+E       AttributeError: module 'ft_team_turns' has no attribute 'run_teams'
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r850-news-team-map-three-states/feature-pack/fable-team/harness/tests/scripts/test_news_team_state_r850.py:643: AttributeError
+________________ test_t6_line_read_after_deadline_is_discarded _________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1117b47d0>
+
+    def test_t6_line_read_after_deadline_is_discarded(monkeypatch):
+        class FakeProc:
+            pid, returncode = 424242, 0
+            stdout = _slow_stream([('{"team": "x", "v": {"state": "진행"}}\n', 0.05), ('{"team": "y", "v": {"state": "쉼"}}\n', 0.4)])
+    
+            def wait(self, timeout=None):
+                return 0
+    
+        _fake_run(monkeypatch, tt, FakeProc)
+>       got, _ = tt.run_teams({"root": "/x", "teams": ["x", "y"]}, ["x", "y"])
+                 ^^^^^^^^^^^^
+E       AttributeError: module 'ft_team_turns' has no attribute 'run_teams'
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r850-news-team-map-three-states/feature-pack/fable-team/harness/tests/scripts/test_news_team_state_r850.py:676: AttributeError
+_____________ test_t6_mutation_line_after_deadline_used_is_caught ______________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1117b4290>
+
+    def test_t6_mutation_line_after_deadline_used_is_caught(monkeypatch):
+>       late = _mutant("        return _parse([line for at, line in out if at <= start + TERM_S]), None",
+                       "        return _parse([line for _at, line in out]), None", "ft_team_turns.py")
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r850-news-team-map-three-states/feature-pack/fable-team/harness/tests/scripts/test_news_team_state_r850.py:681: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+old = '        return _parse([line for at, line in out if at <= start + TERM_S]), None'
+new = '        return _parse([line for _at, line in out]), None'
+fname = 'ft_team_turns.py'
+
+    def _mutant(old: str, new: str, fname: str = "ft_team_state.py") -> types.ModuleType:
+        src = (BIN / fname).read_text(encoding="utf-8")
+>       assert src.count(old) == 1, old
+E       AssertionError:         return _parse([line for at, line in out if at <= start + TERM_S]), None
+E       assert 0 == 1
+E        +  where 0 = <built-in method count of str object at 0x110866400>('        return _parse([line for at, line in out if at <= start + TERM_S]), None')
+E        +    where <built-in method count of str object at 0x110866400> = '"""ft_team_turns — 좌석 턴 판독(r850 r4): 팀 → {좌석: (턴 상태, 사유, 마지막 턴 끝 뒤 분)}. ft_team_state.team_states 의 입력을 만든다.\n\nteam_...], Path(a["projects"]), datetime.fromisoformat(a["now"]))\n    sys.stdout.write(json.dumps(got, ensure_ascii=False))\n'.count
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r850-news-team-map-three-states/feature-pack/fable-team/harness/tests/scripts/test_news_team_state_r850.py:208: AssertionError
+________________ test_t7_publish_grade_partial_and_all_unknown _________________
+
+caplog = <_pytest.logging.LogCaptureFixture object at 0x1139d5990>
+
+    def test_t7_publish_grade_partial_and_all_unknown(caplog):
+>       assert fh.state_grade([]) == "" and fh.state_grade([{"state": "진행"}, {"state": "대기"}]) == ""
+               ^^^^^^^^^^^^^^
+E       AttributeError: module 'ft_news_html' has no attribute 'state_grade'
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r850-news-team-map-three-states/feature-pack/fable-team/harness/tests/scripts/test_news_team_state_r850.py:698: AttributeError
+________________ test_t1_mutation_end_of_run_receive_is_caught _________________
+
+world = namespace(root=PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-1358/test...6-10-24T13:55:00', ['byz-z-nano#0']), 'byz-f-master#2': ('2026-10-24T13:40:00', ['byz-f-master#1', 'byz-f-master#2'])})
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-1358/test_t1_mutation_end_of_run_re0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1139d4f50>
+
+    def test_t1_mutation_end_of_run_receive_is_caught(world, tmp_path, monkeypatch):
+>       end_once = _mutant("        pump_out.join(max(0.0, start + TERM_S - time.monotonic()))  # 흘려 받기",
+                           "        pump_out.join(None)  # 변이: 끝에 한 번 받기", "ft_team_turns.py")
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r850-news-team-map-three-states/feature-pack/fable-team/harness/tests/scripts/test_news_team_state_r850.py:707: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+old = '        pump_out.join(max(0.0, start + TERM_S - time.monotonic()))  # 흘려 받기'
+new = '        pump_out.join(None)  # 변이: 끝에 한 번 받기', fname = 'ft_team_turns.py'
+
+    def _mutant(old: str, new: str, fname: str = "ft_team_state.py") -> types.ModuleType:
+        src = (BIN / fname).read_text(encoding="utf-8")
+>       assert src.count(old) == 1, old
+E       AssertionError:         pump_out.join(max(0.0, start + TERM_S - time.monotonic()))  # 흘려 받기
+E       assert 0 == 1
+E        +  where 0 = <built-in method count of str object at 0x137081c00>('        pump_out.join(max(0.0, start + TERM_S - time.monotonic()))  # 흘려 받기')
+E        +    where <built-in method count of str object at 0x137081c00> = '"""ft_team_turns — 좌석 턴 판독(r850 r4): 팀 → {좌석: (턴 상태, 사유, 마지막 턴 끝 뒤 분)}. ft_team_state.team_states 의 입력을 만든다.\n\nteam_...], Path(a["projects"]), datetime.fromisoformat(a["now"]))\n    sys.stdout.write(json.dumps(got, ensure_ascii=False))\n'.count
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r850-news-team-map-three-states/feature-pack/fable-team/harness/tests/scripts/test_news_team_state_r850.py:208: AssertionError
+--------------------------- Captured stderr teardown ---------------------------
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+=========================== short test summary info ============================
+FAILED harness/tests/scripts/test_news_team_state_r850.py::test_t2_mutation_empty_source_check_removed_is_caught
+FAILED harness/tests/scripts/test_news_team_state_r850.py::test_s2_slow_or_broken_team_does_not_touch_other_team
+FAILED harness/tests/scripts/test_news_team_state_r850.py::test_s_mutation_kill_child_only_is_caught
+FAILED harness/tests/scripts/test_news_team_state_r850.py::test_s_mutation_team_try_removed_is_caught
+FAILED harness/tests/scripts/test_news_team_state_r850.py::test_t1_many_teams_low_fd_limit_streaming_deadline
+FAILED harness/tests/scripts/test_news_team_state_r850.py::test_t1b_child_spawn_failure_is_all_unknown
+FAILED harness/tests/scripts/test_news_team_state_r850.py::test_t2_empty_source_is_shape_error_not_silent_unknown[list]
+FAILED harness/tests/scripts/test_news_team_state_r850.py::test_t2_empty_source_is_shape_error_not_silent_unknown[zero]
+FAILED harness/tests/scripts/test_news_team_state_r850.py::test_t2_empty_source_is_shape_error_not_silent_unknown[empty-str]
+FAILED harness/tests/scripts/test_news_team_state_r850.py::test_t2_empty_source_is_shape_error_not_silent_unknown[null]
+FAILED harness/tests/scripts/test_news_team_state_r850.py::test_t2_empty_source_is_shape_error_not_silent_unknown[dict]
+FAILED harness/tests/scripts/test_news_team_state_r850.py::test_t3_broken_jsonl_row_is_only_that_team
+FAILED harness/tests/scripts/test_news_team_state_r850.py::test_t5_stream_tail_line_dropped_and_stderr_inherited
+FAILED harness/tests/scripts/test_news_team_state_r850.py::test_t6_line_read_after_deadline_is_discarded
+FAILED harness/tests/scripts/test_news_team_state_r850.py::test_t6_mutation_line_after_deadline_used_is_caught
+FAILED harness/tests/scripts/test_news_team_state_r850.py::test_t7_publish_grade_partial_and_all_unknown
+FAILED harness/tests/scripts/test_news_team_state_r850.py::test_t1_mutation_end_of_run_receive_is_caught
+17 failed, 24 passed in 34.93s
+rc=1

@@ -108,7 +108,7 @@ U="$T"
   cmp -s "$U/t-direct.txt" "$U/t-from.txt" && echo SAME || echo DIFF
 ) > "$T/u.txt" 2>&1
 grep -q "^SAME$" "$T/u.txt" && ok "ⓑ teams --from 수집 파일 == 직접 collect 출력(바이트 동일)" || bad "teams --from 불일치: $(tr '\n' ' ' < "$T/u.txt" | cut -c1-200)"
-grep -qx '빈팀 | 열린 좌석 0 | 진행 0' "$T/t-from.txt" && ok "ⓒ 열린 좌석 0 팀 → «빈팀 | 열린 좌석 0 | 진행 0»" || bad "ⓒ 실제: $(grep 빈팀 "$T/t-from.txt")"
+grep -qx '빈팀 | 쉼 · 열린 좌석 0 | 진행 0' "$T/t-from.txt" && ok "ⓒ 열린 좌석 0 팀 → «빈팀 | 쉼 · 열린 좌석 0 | 진행 0»(r850 팀 상태 글자)" || bad "ⓒ 실제: $(grep 빈팀 "$T/t-from.txt")"
 grep -q '^사라진팀 | 확인 못 함: 카드 폴더 없음 — ' "$T/t-from.txt" && ok "ⓓ 오류 팀 → «확인 못 함: <오류>» 그대로" || bad "ⓓ 실제: $(grep 사라진팀 "$T/t-from.txt")"
 "$BOARD" teams --from "$T/없는파일.json" >/dev/null 2>&1 && bad "ⓗ 없는 --from 인데 rc 0(조용한 생략)" || ok "ⓗ teams --from 없는 파일 → rc≠0"
 printf '{깨짐' > "$T/bad.json"; "$BOARD" teams --from "$T/bad.json" >/dev/null 2>&1 && bad "ⓗ 깨진 --from 인데 rc 0" || ok "ⓗ teams --from 깨진 파일 → rc≠0"
@@ -257,9 +257,9 @@ old = '    for nl in ("\\r\\n", "\\r", "\\n"):\n        text = text.replace(nl, 
 assert old in s
 open(p, "w", encoding="utf-8").write(s.replace(old, "    return text", 1))
 PY
-python3 - "$T/mut3" > "$T/l2.txt" 2>&1 <<'PY'
+python3 - "$T/mut3" "$ROOT/bin" > "$T/l2.txt" 2>&1 <<'PY'
 import sys
-sys.path.insert(0, sys.argv[1])
+sys.path[:0] = [sys.argv[1], sys.argv[2]]  # 변이 사본 먼저 · 판정 모듈(ft_team_state · r850)은 원본 bin
 from ft_board_teams import team_line
 line = team_line({"label": "끊긴팀", "error": "카드 폴더 없음 — /x\nTraceback (most recent call last):\n  File \"a.py\", line 1"})
 print("MUT_MULTI" if "\n" in line else "MUT_ONE_LINE")

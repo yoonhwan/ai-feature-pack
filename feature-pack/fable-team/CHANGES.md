@@ -1,3 +1,55 @@
+## 2026-10-26 — r850 r5 뉴스 팀 지도 — 「원천 1회 · 하위 1개 흘려 받기 · 팀 단위 격리 · 빈 원천 오류 · 발행 등급」 (1.1.254)
+
+- DA⑥ r4 보류 2(팀마다 하위 1개 동시 → 파일 핸들 한도에서 생성 실패가 지도 전체 중단 · ERROR 0 · 빈 스냅샷 seats 가 모양 검사 통과)를 재설계 r5 로 고친다(REWORK-r850-r5.md · 하드 룰 14 · 리서치 r864 표 · fable-5.1 검토 보강 3줄).
+- 원천 1회: 판정 한 번에 tmux pane 목록 1회 + 좌석 → jsonl 위치 `find_jsonls` 1회(팀마다 하위 프로세스를 띄우던 r4 꼴 폐기) · 이름표가 머리 1MB 밖인 좌석만 cwd 재탐색.
+- 판정 하위는 1개(`start_new_session` · `close_fds`) — 팀 하나를 끝낼 때마다 결과 1줄(JSON)을 흘려 보내고, 부모는 마감(6초 TERM → 7초 killpg)까지 받은 팀 결과만 쓴다. 못 받은 팀 = «확인 불가(시간 초과)».
+- 하위 생성 실패(OSError·EMFILE) = 전 팀 «확인 불가(판정 시작 실패 <errno>)» + ERROR 1줄 · 지도는 그 값으로 발행(예외 전파 0).
+- 팀 단위 격리: 하위 안에서 팀 판정 전체(명부·좌석 집합·jsonl 읽기·턴 판독·스냅샷 모양·기다림)를 팀마다 try — 깨진 jsonl 한 줄·모양 오류 하나가 그 팀만 «확인 불가(원천 오류 …)» + ERROR 1줄, 다음 팀 계속.
+- 빈 원천 = 오류: 보드 블록의 `master` 가 빈 값이거나 `seats` 가 `[] · 0 · "" · null · {}` 면 «기다리는 값 모름(원천 모양 오류)» + ERROR 1줄 · 비지 않은 list·숫자·str 은 TypeError(그 팀 «확인 불가(원천 오류 TypeError)»).
+- 발행 등급: 확인 불가 팀 ≥1 = 뉴스 발행 끝 줄 «PARTIAL N팀»(발행 계속 · rc 그대로) · 전원 확인 불가 = «ALL-UNKNOWN» + ERROR 1줄. 「확인 불가」는 끝선 «3회 연속 불일치 0» 의 불일치가 아니라 PARTIAL 횟수로 센다.
+- 보강(fable-5.1): 마감 순간 잘린 꼬리 줄은 버린다(개행으로 끝난 줄만 사용) · 하위 stderr 는 PIPE 가 아니라 상속 · killpg ESRCH 는 삼킨다 · 마감 뒤 읽힌 줄은 버린다.
+- r6(DA⑥ r5 HOLD 4 · 구현 빈틈 4곳): 마감을 «호출 입구» 에서 1개(세션 목록·pane 목록·jsonl 찾기·하위 생성이 전부 남은 시간 아래 · 세션 목록이 마감을 먹으면 전 팀 «확인 불가(tmux 목록 시간 초과)» + ERROR) ·
+  tmux 호출도 하위 판정과 같은 무리 도우미(start_new_session · 마감이면 killpg · 반환 전 «생존 0» 확인 · ESRCH 삼킴) · 준비 단계(임시 파일·파이프·Popen) 전체를 바깥 try 한 겹으로(어떤 예외든 전 팀 «확인 불가(판정 시작 실패 <errno·예외 이름>)» + ERROR 1) ·
+  발행 등급 줄(PARTIAL·ALL-UNKNOWN)은 판정 함수 `ft_team_state.grade` 가 내고 뉴스 발행기 끝 줄과 시트 `ft-board.py teams`(stderr)이 같은 글자를 쓴다.
+- 시험 `test_news_team_state_r850.py` 49 PASS ×3(r6 ⓤ1 핸들 한도 · ⓤ2 tmux 4+4초·ls 8초 · ⓤ3 자손 0 · ⓤ4 시트 등급 줄 · 변이 3) · r5 판으로 11 FAIL · 관련 8파일 141 PASS(기존 실패 2) · 셸 4종 rc0(sheet_verify 8 FAIL = 기존) · 실 루트 읽기 전용 2.01초 · bin = kit cmp0.
+## 2026-10-26 — r947 r5 — D1 켜기의 게이트를 «훅 글자 검사» 에서 «쓰기 자리 좌석 판정» 으로 옮긴다 (1.1.256)
+
+- DA⑥ r4 HOLD(보류 4회 · 하드 룰 14 재설계 · arch 149 안1 · 표 `design/harness/evidence/r947-da6/TABLE-r947-r5-gate-inside-tool.md`) 고침. r1~r4 네 번이 전부 «훅이 명령 글자를 읽어 막는» 자리에서 났고 갈래(source · `source --` · 읽기 프로그램 · heredoc 본문)마다 하나씩 샜다. 글자에는 «누가 치는가» 가 없으므로, 게이트를 «쓰는 자리» 로 옮긴다.
+- `ft-autonomy-standing.sh`: `approve-standing` 첫머리에서 `std_seat_probe` 로 «실제 좌석 = planner 명부 `_master`» 를 판정한다(문서 전용 예외와 같은 함수 `ft_doc_exempt.py --mode planner-seat` · 실제 좌석 TMUX_PANE · 명부 루트 출처 · 이름 lint · `env -u FT_DOC_EXEMPT_SELFTEST -u FT_DOC_EXEMPT_SEAT`). 실패 = rc2 `STANDING-REJECT approve-standing D1 — 호출 좌석 <값> ≠ planner master · 쓰기 0`(상태·원장·슬랙 쓰기 0). SELFTEST env 가 켜진 채 부르면 rc3(승인 0). 호출 경유(heredoc·eval·변수 조립·사본·source)와 무관하게 같은 한 곳에서 막힌다.
+- `autonomy-state-guard.sh`: `approve-standing` 의 글자 판정(낱말 쌍 · shlex 실패 보조 · 진입 파일 본문)은 **경고만** — stderr `WARN autonomy-state-guard — approve-standing 은 도구 안 좌석 판정이 막는다(훅 글자 검사는 보조)` 1줄 남기고 허용한다. 다른 갈래(`on|off|approve-merge|approve-scope|forget-kind` · ft-all-stop · 상태 파일 쓰기)의 deny 는 그대로다.
+- 남는 구멍 2개는 계약에 적었다(지어내지 않음): TMUX_PANE 과 FT_SEAT 를 **함께** 위조하면 planner 행세가 된다(`actual_seat` 가 자기 신고와 대조하므로 두 값을 같이 바꿔야 한다) · 도구를 안 거치고 상태 파일을 직접 쓰는 길(기존 훅·autonomy-merge-guard 몫).
+- 시험: r947 ⓧ1(heredoc 경유 → 훅 allow+WARN · 도구 rc2 · 쓰기 0) · ⓧ2(eval·변수 조립·사본 3꼴 같은 결과) · ⓧ3(planner 좌석 = rc0 GRANTED · 원장 1줄) · ⓧ4(SELFTEST = rc3) · 훅 시험 ⓧ5(글자 경유 24꼴 allow+WARN · 진입 파일 본문 · heredoc 본문) · 변이 3(std_seat_probe 호출 끔 · env -u 삭제 · FT_SEAT 자기 신고만) + 훅 변이 2(deny 되살림 · WARN 줄 지움).
+- 증거: `harness/evidence/r947/14`(전체 시험 77칸 ALL PASS · 기존 11 묶음 포함) · `15`(훅 시험 220 PASS) · `16`(r4 반례 + ⓧ2 세 꼴 재현 — 사본은 훅이 이름으로 못 본다).
+
+## 2026-10-26 — r947 반송 r2·r3·r4 — 승인 판정은 «블록 첫 줄과 끝줄 둘 다», D1 켜기는 «낱말 쌍» 으로 좌석에서 막는다 (1.1.255)
+
+- DA⑥ r1·r2 HOLD 고침(design/harness/evidence/r947-da6). 승인 계약: `standing-approve` 는 DA 원문 마지막 codex 블록의 첫 비어 있지 않은 줄과 마지막 비어 있지 않은 줄이 «둘 다» `판정: APPROVE` 일 때만 승인 파일·`approve-merge … D1` 줄을 쓴다. 앞서는 마지막 `판정:` 줄만 봐서 APPROVE 뒤에 판정 아닌 줄을 붙인 원문도 통과했다(r2).
+- 좌석 차단 계약(r3 · 꼴 맞히기를 버리고 구조로 닫음): autonomy-state-guard 훅은 Bash 명령의 «낱말 쌍» 을 본다 — shlex 낱말(모든 segment · `-c` 재귀 · 따옴표·역슬래시로 쪼갠 낱말 포함)에 `ft-autonomy` 와 `approve-standing` 이 함께 있으면 deny, 보조로 원문 글자 쌍(shlex 가 못 쪼갠 `eval "…"` 꼴). r1 은 `source <파일>`, r2 는 `source -- <파일>` 로 뚫렸고, 꼴 목록을 늘리는 고침은 세 번째 꼴에 또 진다.
+- 오빠 h 계획 본문 경유(`bash /tmp/h<N>` 안에 approve-standing)도 deny 다(훅 계약 ⓛ3 과 같은 방향). 오빠 `!` 실행은 훅을 거치지 않으므로 영향 0. r4(DA r3 반례): «읽기 프로그램 예외» 를 없앴다 — awk `system()`·`sed e`·`find -exec`·`xargs`·`perl -e`·`python3 -c` 도 명령을 실행하므로 프로그램 예외를 두지 않는다. 대가로 Bash 로 `grep approve-standing …/ft-autonomy.sh` 도 막히고, deny 문구가 «읽기는 Bash 대신 Read 도구로» 를 안내한다(훅은 Bash 만 본다). 위협 모델 밖: 변수 간접·이름 바꾼 사본(판정 2078 ⓐ — 슬랙 1글·grants.audit 로 들린다).
+- 시험: ⓐ-tail(끝 판정 아닌 줄 = 거절 · 빈 줄만이면 통과) · ⓑ-source(source·.·bash -c 경유 deny) · ⓚ(DA r2 반례 두 꼴) · ⓛ(꼴 묶음 9 + 낱말 안쪽 쪼개기 3) · ⓝ(awk system·sed e·find -exec·xargs·perl -e·python3 -c·env 경유 deny) · ⓛ읽기a(두 낱말 함께 = deny + «Read 도구로» 안내) · ⓛ읽기b(낱말 하나 = allow) · ⓜ(좌석의 h 경유 = deny · BYZ 밖 cwd 대조 = allow) · 변이 4(끝줄 검사·source 처리·낱말 쌍·읽기 예외 되살림).
+
+## 2026-10-26 — r947 외부 DA 가 APPROVE 한 팩 PR 은 «상시 승인» D1 으로 planner 가 바로 착지한다 (1.1.252)
+
+- 오빠 D1(mbox 169402) 을 돌리는 장치. 오빠 h 한 번(`ft-autonomy.sh approve-standing D1 --repos pack --classes code,docs`)으로 켜고, 슬랙 «켜짐 알림» 1글을 먼저 올린다. 자율 모드 ON·OFF 와 무관하고 끝 시각이 없다. 멈춤은 `standing-stop D1 "<사유>"`(누구나).
+- planner master 좌석만 `standing-approve <head> --pr <N> --repo pack --verdict <판정문>` 을 부른다. 좌석 판정은 문서 전용 예외와 같은 함수(ft_doc_exempt.py --mode planner-seat · 실제 좌석 · 명부 루트 출처)다. 검사: D1 켜짐 → 팩 분류표 forbid 0 → 판정문이 BYZ origin/main 에 있음(값도 origin/main 에서 읽음) → 판정문 4줄과 DA 원문 sha256 일치 → DA 원문 마지막 codex 블록 첫 줄·끝 판정 줄 APPROVE + .meta head=A rc=0 · claude 계열 아님 → head=A 또는 EQUIV. 통과하면 기존 꼴 승인 파일(`approve-merge <head> D1 <epoch>`)을 쓴다. 착지 검사(ft-merge-land)는 그대로다.
+- ft-da-codex.sh 가 출력 옆 `<out>.meta`(head=codex 실행 «전» cwd HEAD)를 쓴다. ft-merge-land 는 D1 착지면 D1 원장(state/autonomy-standing/D1.ledger.tsv)에 착지 sha·되돌림 명령을 적고 merge-gate.log 줄 끝에 `standing=D1` 을 붙인다. `standing-status --since <epoch>` 가 착지 묶음을 사람 말 1덩이로 낸다.
+- autonomy-state-guard 훅: 좌석의 `approve-standing` 실행과 `autonomy-standing/` 쓰기를 막는다(오빠 `!` 전용).
+- 시험 test_autonomy_standing_r947.sh 64 PASS(/bin/bash 3.2 · 변이 6/6 · 그중 기존 시험 11개 묶음 ALL PASS). 외부 DA 는 arch 몫.
+
+## 2026-10-25 — r897 ft-scratch-repo 삭제 직전 출구 게이트 delete_copy 하나 · 후퇴 없는 삭제 — 물리 경로 cwd · 정확 대조 · 2720 빠른 길(1.1.243)
+
+- cwd 보호가 실제로는 죽어 있었다: 등록부는 `/var/folders/…` 로 적고 macOS lsof 는 `/private/var/…` 로 내서 글자 비교가 영원히 불일치(실측 10-24 sweep 로그 held=0). 비교를 물리 경로(`pwd -P`)로 바꾸고, 경로를 못 읽으면 «붙잡음»(지우기 0)으로 읽는다 — 등록 사본·`tmp.*` 가 같은 한 함수를 쓰므로 한 곳 수정.
+- 주인 대조를 정확 대조(`grep -Fxq`)로: 이름에 정규식 글자가 있으면(`seat[`) rc2 가 «주인 없음» 으로 읽혀 지워지던 길을 닫는다(rc≥2 = 건너뜀 + WARN).
+- 판정 2720 입구 2: 주인 없음 ∧ 이름꼴(`repo-<sha8>-<숫자>-<숫자>`) ∧ HEAD=sha8 ∧ detached ∧ `judged` rc0 이면 24시간 조건 없이 정리 대상. 넷 중 하나라도 못 읽거나 거짓이면 24시간 규칙으로 후퇴(덜 지우는 쪽) · `FT_SCRATCH_JUDGE_BUDGET` 예산 초과 = 후보 만들지 않음.
+- 지우기 «직전» 재확인 1회(tmux 목록 + lsof): 그 사이 주인이 생겼거나 cwd 가 붙으면 건너뛰고, 둘 중 하나라도 못 읽으면 남은 항목 전부 삭제 0(+WARN · 70초 초과도 남은 항목 다음 정리로).
+- `--done` = 주인 자신만(남의 사본 rc2) · 등록 줄 정확 대조(awk `-v` 는 `\161`→`q` 로 남의 줄과 맞는다 — ENVIRON 바이트 대조 · `drop_reg` 동일) · lsof 실패·붙잡음 rc4. 등록부가 TSV 라 탭·개행이 든 경로는 생성·`--done` 에서 rc2(불변식).
+- `tests/test_scratch_repo_sparse_auto_done_r891.sh` ⓖ' 한 칸을 새 계약(`--done` 은 주인 자신)에 맞춤 — r6 이 보던 «ROOT 등록부 하나» 는 그대로.
+- DA⑥ r2 반송 r3(r10.4): 빠른 길이 부르는 `judged()` 안의 외부 호출도 **rc=0 일 때만** 그 결과를 쓴다 — `git log -1 --format=%ct` 가 숫자를 찍고 rc128 이면 그 숫자를 «판정 끝 시각» 으로 삼아 24시간 문턱을 건너뛰고 지우던 길(반례 1)을 닫고, `merge-base` 도 rc=0 만 «착지»(rc≥2 = 못 읽음 = 판정 안 끝남). 호출 나무 전수 표 = `evidence/r897/CALLTREE-r897-r3.md`.
+- DA⑥ r3 반송 r4(r10.5 · 하드 룰 14 재설계): «rc 를 안 보는 `$(…)`» 를 지우는 길에서 쓸 수 없게 — `cap 변수 명령…`(rc 그대로) 하나로만 출력을 받고, 지우는 길 함수·도우미의 `$(`·백틱·파이프 0 을 시험이 기계로 센다(손 전수 표 대체 · CALLTREE 자동 생성). 이름꼴 = 셸 정규식(cut 0) · 주인 대조 = 셸 안 정확 대조 · 시계 8곳 rc0∧숫자만 · origin/main 확인 rc≥2 = main 으로 후퇴 0 · tmp.* 목록(id·find) rc 검사 + 줄 단위. 시험 ⓧ = 지우는 길의 모든 외부 명령 호출 자리에 «출력 있음/없음 + rc128» 주입 47칸 지우기 0 · 변이 16 은 기대한 칸만 빨강일 때 검출. 고치기 전 판 21칸 빨강.
+- DA⑥ r4 반송 → fable 설계 r5(삭제 직전 출구 게이트 하나 · 후퇴 없는 삭제): `rm`·`git worktree remove` 는 `delete_copy` 한 곳에서만 부르고, 그 함수가 «지금» 다시 읽어 «우리가 만든 사본» 임을 증명할 때만 지운다 — 경로 글자 · 베이스 «바로 아래»(등록 줄 4칸 = 생성 당시 베이스) · 이름꼴 · 등록부 정확히 1줄(원문 경로로 지우고 물리 경로로 대조 · 0줄 지우면 rc≠0) · 시계·70초 마감(삭제 명령 앞 재검사) · 점유 0(자기 lsof 를 인자로) · 주인 없음 · 자격 재계산(나이 또는 판정 끝) · git 연결 워크트리 루트·detached(bare 원 저장소 허용) · 장치·inode. 등록 사본 = `worktree remove` 하나(실패 = 등록 줄 유지·ERROR·다음 sweep 재시도 · `rm` 후퇴 0) · tmp = 격리 폴더로 이동 → inode 대조 → 제거(실패 = 원위치). rc3(대상 아님) = 그 항목만 건너뜀 · rc2(못 읽음) = 남은 항목 전부 0. 진단 입구 `--gate <경로>`. 등록부 읽기 rc 검사(`<(…)` 0) · 크기 칸 빈 값 0(열 밀림 0) · 시계 못 읽음 = 그 실행 삭제 0.
+- 오빠 결정(10-27 07:4x · 2번 «범위 줄여 지금 착지») — **알려진 한계**: 판정 끝 사본 «자동 삭제(AUTO-DONE)» 는 이 카드에서 넣지 않는다(자동 삭제 = 별 카드). 지우는 길은 수동 `--done`(주인 자신) 과 `--sweep`(주인 죽음 ∧ 24시간 ∧ detached ∧ 판정 끝) 둘뿐이고 둘 다 `delete_copy` 를 지난다.
+- 시험 `tests/test_scratch_repo_r897_r10.sh`(V0 · ⓐ~ⓦ · ⓨ 출구 검사 · 변이 11) + 새 `tests/test_scratch_exit_gate_r897.sh`(모든 칸 끝 이웃 8 생존 단언 · `--gate` 조건별 · 정상 길 · du 표시만 · 중복 등록 · 하위 폴더·이름꼴·베이스 밖 · 가지 워크트리 · tmp git/남의 uid/젊음 · `--done` · 지우는 길 외부 명령 주입 전수 · 삭제 명령 호출 전/후 실패 · 변이 14 기대 칸만 빨강). · 기존 4종 ALL PASS · kit cmp0. 설계 = `DESIGN-r897-r10-reframe-20261025.md`(r10.2) · 사전 DA 마감(VERDICT-r897-predesign-r10-r11.md).
+
 ## 2026-10-25 — r868 재부팅 기준선 2시간 재측정 잡 ft-postboot-measure(읽기 전용 · 1.1.231)
 
 - 오빠 지시(10-25 00:3x) «재부팅 직후 기준선 대비 같은 명령 2시간 주기 재측정». 새 `ft-postboot-measure.sh`(+ `ft_postboot_measure.py` 측정 · `ft_postboot_report.py` 상태·요약) + launchd 틀 `kit/launchd/com.byz.ft-postboot-measure.plist.template`(StartInterval 7200 · RunAtLoad = 적재·부팅 때 1열).
