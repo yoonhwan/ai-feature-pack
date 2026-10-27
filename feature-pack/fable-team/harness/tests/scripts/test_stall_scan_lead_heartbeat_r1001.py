@@ -7,11 +7,13 @@ R1001_BIN = 시험할 bin 폴더(기본 kit · 셸 짝 tests/test_stall_scan_lea
 import json
 import os
 import subprocess
+import time
+from datetime import datetime
 from pathlib import Path
 
 import pytest
 
-from _stall_world import World, counts
+from _stall_world import NOW, World, counts
 from real_state_guard import guard_begin_module  # noqa: F401  r541: 실 상태 지문 + git 밖 cwd(모듈 autouse)
 
 BIN = Path(os.environ.get("R1001_BIN") or Path(__file__).resolve().parents[2] / "kit/fable-team/bin")
@@ -44,6 +46,14 @@ def lead_b_candidate(w: World) -> None:
     """팀장 b 후보 — IDLE 5분 + 마지막 글이 미래형 선언(도구 0)."""
     w.state("t1-master#1", "IDLE", 5)
     w.jsonl("t1-master#1", "확인했습니다. 지금 착수하겠습니다")
+
+
+def log_mail(w: World, to: str, seq: int, minutes_ago: float, frm: str = "x", body: str = "[정리] 한 일 3줄") -> None:
+    """recv 뒤 옮겨진 레코드 자리 = mailbox.log.jsonl — r1020: 판정기는 큐와 읽은 로그 둘 다 본다."""
+    ts = datetime.fromtimestamp(NOW - minutes_ago * 60).strftime("%Y-%m-%dT%H:%M:%S")
+    p = w.root / ".fable-team/comm/mailbox.log.jsonl"
+    with open(p, "a", encoding="utf-8") as f:
+        _ = f.write(json.dumps({"seq": seq, "ts": ts, "to": to, "from": frm, "body": body}, ensure_ascii=False) + "\n")
 
 
 def add_master_row(w: World, label: str, seat: str) -> None:
@@ -308,3 +318,89 @@ def test_p_other_team_live_master_is_a_recipient(w: World) -> None:  # ⓟ 다�
     w.heartbeat("t1-master#1", 5, to="t2-master#1")
     r = scan(w)
     assert counts(r.stdout)["f"] == "0" and not w.mbox_log(), r.stdout
+
+
+# ── r1020 — recv 가 레코드를 큐→로그로 옮긴다: 심박은 «큐 + 읽은 로그» 둘 다에서 본다 ──────
+def test_q_heartbeat_read_into_log_only_is_fresh(w: World) -> None:  # ⓠ 로그에만(recv 뒤) → 심박 ok · 경보 0
+    quiet_others(w)
+    lead_b_candidate(w)
+    w.mail("t1-master#1", 5, 3, frm="planner#1")  # 큐에는 심박 아닌 쪽지만
+    log_mail(w, "planner#1", 900, 3, frm="t1-master#1")  # planner 가 recv → 로그로 옮겨진 [정리] 3분 전
+    r = scan(w)
+    c = counts(r.stdout)
+    assert c["f"] == "0" and c["u"] == "0", r.stdout
+    assert not w.mbox_log()
+
+
+def test_r_heartbeat_in_queue_only_is_fresh(w: World) -> None:  # ⓡ 큐에만(기존 꼴) → ok
+    quiet_others(w)
+    lead_b_candidate(w)
+    w.heartbeat("t1-master#1", 3)
+    r = scan(w)
+    c = counts(r.stdout)
+    assert c["f"] == "0" and c["u"] == "0", r.stdout
+
+
+def test_s_queue_newer_than_log_uses_latest_ts(w: World) -> None:  # ⓢ 둘 다 — 최신 ts 를 쓴다
+    quiet_others(w)
+    lead_b_candidate(w)
+    log_mail(w, "planner#1", 901, 20, frm="t1-master#1")  # 로그 = 옛 [정리] 20분
+    w.heartbeat("t1-master#1", 3, seq=902)  # 큐 = 새 [정리] 3분
+    r = scan(w)
+    c = counts(r.stdout)
+    assert c["f"] == "0" and c["u"] == "0", r.stdout  # 로그 것만 썼다면 20분 = 경보 1통
+    assert not w.mbox_log()
+
+
+def test_t_old_log_heartbeat_only_is_not_fresh(w: World) -> None:  # ⓣ 로그에 창 밖 옛 [정리] 만 → 심박 없음 → 1통
+    quiet_others(w)
+    lead_b_candidate(w)
+    w.mail("t1-master#1", 5, 3, frm="planner#1")
+    log_mail(w, "planner#1", 900, 60, frm="t1-master#1")
+    r = scan(w)
+    c = counts(r.stdout)
+    assert c["f"] == "1" and c["u"] == "0", r.stdout
+    s = sends(w, "t1-master#1")
+    assert len(s) == 1 and "심박 없음" in body_of(s[0]), w.mbox_log()
+
+
+def test_u_broken_log_line_in_window_is_undecidable(w: World) -> None:  # ⓤ 로그 깨진 줄(창 안) → 판정 불가
+    quiet_others(w)
+    lead_b_candidate(w)
+    w.mail("t1-master#1", 5, 3, frm="planner#1")
+    log_mail(w, "planner#1", 900, 3, frm="t1-master#1")
+    with open(w.root / ".fable-team/comm/mailbox.log.jsonl", "a", encoding="utf-8") as f:
+        _ = f.write("{ 깨진 줄\n")
+    r = scan(w)
+    c = counts(r.stdout)
+    assert c["u"] == "1" and c["f"] == "0", r.stdout
+    assert "팀장 심박 판정 불가" in r.stdout and not w.mbox_log()
+
+
+def test_v_no_log_file_falls_back_to_queue(w: World) -> None:  # ⓥ 로그 파일 없음 = 큐만(판정 불가 아님)
+    quiet_others(w)
+    lead_b_candidate(w)
+    w.heartbeat("t1-master#1", 3)
+    assert not (w.root / ".fable-team/comm/mailbox.log.jsonl").exists()
+    r = scan(w)
+    c = counts(r.stdout)
+    assert c["f"] == "0" and c["u"] == "0", r.stdout
+
+
+def test_w_huge_log_stops_at_window_edge(w: World) -> None:  # ⓦ 창 밖 10만 줄 → 끝에서 읽어 7초 안
+    quiet_others(w)
+    lead_b_candidate(w)
+    w.env["FT_STALL_HEARTBEAT_BUDGET"] = "0.05"  # 전체를 읽으면 예산 초과 = 판정 불가
+    w.mail("t1-master#1", 5, 1, frm="planner#1")
+    old = json.dumps({"seq": 1, "ts": datetime.fromtimestamp(NOW - 3600).strftime("%Y-%m-%dT%H:%M:%S"),
+                      "to": "planner#1", "from": "t2-master#9", "body": "발주"}, ensure_ascii=False)
+    with open(w.root / ".fable-team/comm/mailbox.log.jsonl", "w", encoding="utf-8") as f:
+        _ = f.write((old + "\n") * 100000)
+    log_mail(w, "planner#1", 900, 3, frm="t1-master#1")  # 창 안 [정리] = 파일 맨 끝
+    started = time.monotonic()
+    r = scan(w)
+    elapsed = time.monotonic() - started
+    c = counts(r.stdout)
+    assert c["f"] == "0" and c["u"] == "0", r.stdout
+    assert elapsed < 7, elapsed
+    assert not w.mbox_log()
