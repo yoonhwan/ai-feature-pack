@@ -1,0 +1,10 @@
+### test_kit_bin_sync.sh
+PASS dirs exist
+PASS tracked bin ⊂ kit bin (bytes+mode)
+PASS shim-exec lint: OK 0건
+PASS control: identical → 0
+PASS control: missing detected
+PASS control: byte diff detected
+PASS control: mode diff detected
+ALL PASS
+rc=0

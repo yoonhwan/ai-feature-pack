@@ -1,0 +1,45 @@
+PASS bash -n
+== ⓑ 착지 끝난 land 사본만 계획 1개 · 삭제 0
+PASS ⓑ rc 0
+PASS ⓑ 대상 3곳(land-done·2·3) · 크기 합
+PASS ⓑ 목록 줄 = 이름·착지 sha·크기
+PASS ⓑ 계획 파일 1개
+PASS ⓑ 계획의 land_rm 줄 = 3
+PASS ⓑ 첫 목록 = [HIL] 1줄
+PASS ⓑ 삭제 호출 0 — 워크트리 수 그대로
+PASS ⓑ 삭제 호출 0 — land-done 폴더 그대로
+PASS ⓑ land-* 아닌 사본은 대상 밖
+PASS ⓑ 목록이 같으면 [HIL] 0(바뀐 때만)
+== ⓒ 목록 밖 — 이유 1줄
+PASS ⓒ land-dirty 계획 밖
+PASS ⓒ land-alive 계획 밖
+PASS ⓒ land-locked 계획 밖
+PASS ⓒ land-unlanded 계획 밖
+PASS ⓒ 미커밋 이유
+PASS ⓒ 미착지 이유
+PASS ⓒ 좌석 살아 있음 이유(cwd)
+PASS ⓒ 잠김 이유
+PASS ⓒ tmux pane 이 안에 = 목록 밖
+PASS ⓒ 목록이 바뀌면 [HIL] 다시 1줄
+PASS ⓒ 좌석 못 읽음 → rc 1
+PASS ⓒ 좌석 못 읽음 → 이유
+PASS ⓒ 좌석 못 읽음 → 계획 0
+== ⓕ 계획 실행 순간 다시 잰다(= 오빠 h)
+PASS ⓕ 다시 만든 계획 = 3곳
+PASS ⓕ 계획 rc 0
+PASS ⓕ 검사 통과 = git worktree remove
+PASS ⓕ land-done 지워짐
+PASS ⓕ 만든 뒤 미커밋 = skip
+PASS ⓕ 만든 뒤 HEAD 바뀜 = skip(낡은 목록으로 지우기 0)
+PASS ⓕ land-done2 남음
+PASS ⓕ land-done3 남음
+PASS ⓕ land-dirty 남음
+PASS ⓕ land-alive 남음
+PASS ⓕ land-locked 남음
+PASS ⓕ land-unlanded 남음
+PASS ⓕ nano-x 남음
+PASS ⓕ 실행 때 좌석 못 읽음 → 중단 rc 1
+PASS ⓕ 중단 이유
+
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

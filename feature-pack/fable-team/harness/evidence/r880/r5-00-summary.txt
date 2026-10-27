@@ -1,0 +1,28 @@
+r880 재설계 r5 — 오빠 결정 3(«1번 구조 교체» · 반례 집합·계약 동결 · 구현만 교체) · arch 157 반송서 REWORK-r880-r4.md
+
+구조 교체(핵심): 외부 명령 호출을 «run7» 한 함수로 모았다.
+  run7 <단계> <명령…> = 7초 상한(시간 초과 = rc124 = 실패) · 성공 = rc0 «만»(출력 유무로 판단 0) · 실패는 «단계 이름 + rc» 로 알린다(문구로 면제 0) · 출력은 성공일 때만 쓴다.
+  land-plan 갈래의 lsof · tmux · 경로 정규화(python3 realpath) · h 등록(ft-hil --add) 전부 run7 경유.
+  실패 처리도 한 자리 = 사본별 «판정 불가(계획 제외 · 삭제 0)» + ERROR 1줄 · 등록 실패 = 알림 0 · .sent 0 · 다음 실행 재시도 · --launchd 는 --land-plan 의 rc 를 최종 rc 에 그대로 반영.
+  경로는 바이트 그대로 — strip()·splitlines() 삭제(개행 하나만 자름 · 뒤 공백 보존).
+
+DA r3 반례 4 + 미종결 1
+  ① 경로 정규화의 strip/splitlines 가 뒤 공백·수직탭 들어간 이름을 바꿔 «사용 중인 사본» 이 계획에 들어감 → 바이트 그대로 처리(b"\n" 분해 · strip 0) → 별칭이 가리키는 사본은 KEEP
+  ④ lsof 가 부분 출력을 내고 rc≠0 이면 통과 → run7 = rc0 만 성공 → 중단(계획 0 · ERROR 1)
+  ④ tmux «no server running» 문구로 시간 초과를 면제 → 문구 면제 0 · rc124 = 실패 → 중단
+  ⑤ 등록 대역이 오류 문구를 출력하고 rc9/17 이면 «성공» → run7 rc0 만 성공 → .sent 0 · 다음 실행 재시도
+  ⑥(미종결) --launchd 가 --land-plan rc 를 저장하지 않아 rc0 → rc 전파 → 등록 실패면 --launchd rc≠0
+
+시험 (임시 리포 · 가짜 tmux·lsof·du·ft-hil·mbox · 실 워크트리·실 tmux·실 mbox 0)
+  ⓐ 뒤 공백·수직탭 별칭이 가리키는 사본 = 사용 중(계획 제외 · 남은 1곳) — r5-green.txt
+  ⓑ lsof 부분 출력 + rc1 → rc1 · «lsof cwd 실패(rc=1)» · 계획 0 — r5-green.txt
+  ⓒ tmux «no server running» + 10초 지연 · 상한 2초 → rc1 · «tmux pane 실패(rc=124)» · 계획 0 · 2초에 끊김 · 기본 상한 7초 — r5-green.txt
+  ⓓ 등록 rc9 + 오류 문구 → rc≠0 · 알림 0 · .sent 0 · 다음 실행 재등록 — r5-green.txt
+  ⓔ 등록 rc17 이면 --launchd rc≠0 · 표지 0 / 정상이면 rc0 · 표지 생김 — r5-green.txt
+  green: rc=0 · PASS 114 · ALL PASS (기존 ⓑⓒⓓⓕⓐⓔ 칸 포함)
+  red-base(8bdc40a7 코드 그대로 · 새 시험): rc=1 · FAIL 18 — r5-red-base.txt
+  회귀: test_wt_clean_two_stage 62 PASS rc0 · route_timeout rc0 · budget_replan_r535 rc0 · kit_bin_sync rc0 — r5-regress-*.txt
+  변이 10 전부 KILLED — mutation-r2.sh · r5-mutation.txt (그중 «run7 의 rc 무시(출력 유무로 성공)» → ⓑ FAIL 로 잡힘)
+
+bin·kit 두 사본 cmp 0 · /bin/bash 3.2 · 삭제 실행 0(계획 파일만) · 바뀐 파일 = ft-wt-sweep.sh 짝 2 + 시험 1
+press 필요: 없음(오디오 경로 무관)

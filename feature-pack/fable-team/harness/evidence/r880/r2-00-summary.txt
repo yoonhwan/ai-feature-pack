@@ -1,0 +1,27 @@
+r880 재설계 r3 — 증거 요약 (arch 151 · REWORK-r880-r2 를 3항목으로 · base = 보존 가지 세트 d902ac5b 위 amend 1커밋)
+
+DA⑥ r1 HOLD 4 (da-20261025-030617-82948.out · VERDICT-r880-da6-r1.md) 의 반례 넷을 코드에서 닫았다.
+  반례 1 실행 직전 재검사가 낡은 좌석 목록 사용 → «사본마다 직전» 새로 읽기(계획 생성 쪽 + 계획 실행 쪽 둘 다). 못 읽으면 그 사본만 남김(생성 쪽은 계획 생성 중단).
+  반례 2 tmux 접근 실패를 «좌석 없음» 으로 통과 → rc≠0 에서 «no server running» 하나만 좌석 0 · 그 밖(«error connecting to … (Permission denied)») 은 중단 + ERROR + 오류 글자 그대로.
+  반례 3 새 계획이 ft-hil 에 등록 안 됨 → 계획을 ft-hil.sh --add 로 등록(/tmp/h<N>)하고 «! bash /tmp/h<N>» 한 줄을 [HIL] 알림에 실음(하드 룰 13) · 등록기 실패면 경로 안내로 후퇴.
+  반례 4 첫 알림 실패 뒤 재시도 사라짐 → «보냄» 판정을 목록 비교가 아니라 표지로: <계획>.sig = 지금 목록 해시 · <계획>.sent = 실제로 나간 목록 해시 · mbox send 성공 뒤에만 .sent 를 씀 · 표지가 없거나 다르면 목록이 그대로여도 재발송.
+
+구현 범위
+  1. ft-wt-sweep.sh — land_live rc≠0 판정 · land_plan 사본별 재검사 · land_rm 실행 전 재검사 · [HIL] 에 h 진입점 · .sig/.sent 표지 + --launchd 라우팅 성공 뒤 표지. bin·kit 두 사본 cmp 0.
+  2. ft-wt-add.sh «land» 갈래 — ★안 함: 선행 r843 미착지★ 실측 = origin/main(44aa6978 · 1.1.256) 에 ft-wt-add.sh 없음 · 가지 nano/r835-land-spawn-worktree-sparse(a7feee9b) · nano/r843-wt-sparse-mark-write-verify-r2(543ce5a9) 에만 있음 · LIVE_BIN/BYZ·팩 .fable-team/bin 에도 없음. 카드 §구현범위 1 의 «미착지면 r835 재설계에 묶기(master 판단)» 에 따라 이 커밋 밖 — master 판단 요청.
+  3. 시험 tests/test_wt_sweep_land_plan_r880.sh — 칸 4(ⓐ~ⓓ) 추가 + 변이 4(고침마다 1개).
+
+시험 (임시 리포 · 가짜 tmux·lsof·du·mbox·ft-hil · 실 워크트리·실 tmux·실 mbox 0)
+  ⓐ 사본마다 직전 재검사: 앞 사본을 처리하는 사이 열린 좌석이 계획 밖(3→2곳) · 계획 실행 중 열린 좌석은 지우기 직전 skip — r2-green.txt
+  ⓑ tmux «error connecting … (Permission denied)» → rc 1 · ERROR · 계획 0 · 오류 글자 그대로 — r2-green.txt
+  ⓒ ft-hil 등록기 대역 호출 1회(대상 = 계획 파일) · 알림에 «! bash /tmp/h77» · 등록기 실패 = 경로 안내 후퇴 — r2-green.txt
+  ⓓ 알림 성공 → .sent=보낸 목록 해시 · 표지 있으면 재발송 0 · 표지 없으면 같은 목록도 재발송 · 알림 실패면 표지 0 → 다음 pass 재발송 — r2-green.txt
+  green: rc=0 · PASS 71 · ALL PASS (기존 ⓑⓒⓕ 칸 포함)
+  red-base(r1 코드 그대로 · 새 시험): rc=1 · FAIL 18 — r2-red-base.txt
+  회귀: test_ft_wt_sweep_route_timeout rc=0 · test_wt_sweep_budget_replan_r535 rc=0 · test_kit_bin_sync rc=0 — r2-regress-*.txt
+  변이: refresher(사본별 재검사 제거) → KILLED(ⓐ) · tmuxerr(연결 오류를 좌석 0 으로) → KILLED(ⓑ) · nohil(h 안내 제거) → KILLED(ⓒ) · earlysent(알림 전 표지) → KILLED(ⓓ) — mutation.sh · r2-mutation.txt
+
+계약 변경 1건(정당): 기존 칸 «목록이 같으면 [HIL] 0» 의 근거가 목록 비교에서 «보냄 표지» 로 바뀌었다(반례 4). 시험도 «목록 같고 표지 있으면 [HIL] 0 · 표지 없으면 같은 목록도 재발송» 두 칸으로 바꿨다.
+
+press 필요: 없음(오디오 경로 무관)
+설치(master): LIVE_BIN cmp0 · 실 리포 --land-plan 첫 실행은 master/arch 가 계획 파일 목록 확인(삭제 실행 0)
