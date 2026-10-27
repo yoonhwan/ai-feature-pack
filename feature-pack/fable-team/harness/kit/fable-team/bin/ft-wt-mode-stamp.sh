@@ -12,6 +12,7 @@
 #   --unmarked 도 읽기 실패(표식 자리·design/teams)를 묻지 않는다 — 경로마다 ERROR 줄 + 끝 rc 1
 #   --unmarked = 탐지만(쓰기 0 · 지우기 0): 표식 없음 ∧ sparse 꺼짐 ∧ design/teams/ 아래 폴더 2개 이상(남의 팀 폴더 있음)
 #     → 줄마다 `UNMARKED <경로> teams=<n> kib=<n>` · 끝줄 `TOTAL … unmarked=<n> mode=unmarked` — reset·read-tree 처럼 훅을 안 거치는 길(ft-disk-alarm 하루 1회)
+#   r843 r6(외부 DA r4): 읽기 확인은 «rc 와 출력» 을 둘 다 본다(rc≠0 = 못 읽음 · 출력만 비교하면 읽기 실패를 성공으로 읽는다) · --apply 쓰기 확인도 같다
 set -uo pipefail
 ROOT="" APPLY=0 err=0 UNM=0 unm=0
 while [ $# -gt 0 ]; do
@@ -44,7 +45,10 @@ while IFS= read -r line; do
   if [ -L "$mark" ]; then slot=bad; why="심링크 표식 자리(일반 파일 아님)"
   elif [ -d "$mark" ]; then slot=bad; why="폴더(일반 파일 아님)"
   elif [ -e "$mark" ]; then
-    if [ -f "$mark" ] && [ -r "$mark" ] && cur="$(head -n 1 "$mark" 2>/dev/null)"; then slot=ok
+    if [ -f "$mark" ] && [ -r "$mark" ]; then
+      _o="$(cat "$mark" 2>/dev/null)"; _c=$?
+      if [ "$_c" = 0 ]; then cur="$(printf '%s' "$_o" | head -n 1)"; slot=ok
+      else slot=bad; why="못 읽음(읽기 rc≠0)"; fi
     else slot=bad; why="못 읽음(일반 파일 아님 또는 권한)"; fi
   fi
   if [ "$slot" = bad ]; then err=$((err+1)); echo "ERROR 표식 자리 이상: $mark — $why · $w"; continue; fi
@@ -61,8 +65,8 @@ while IFS= read -r line; do
   fi
   new=$((new+1))
   if [ "$APPLY" = 1 ]; then
-    if echo "$v" > "$mark" && [ "$(cat "$mark" 2>/dev/null)" = "$v" ]; then echo "STAMP $w $v"
-    else err=$((err+1)); echo "ERROR 표식 쓰기 실패: $mark — «${v}» 쓰고 다시 읽은 값이 다름 · $w"; fi
+    if echo "$v" > "$mark" && { _o="$(cat "$mark" 2>/dev/null)"; [ "$?" = 0 ] && [ "$_o" = "$v" ]; }; then echo "STAMP $w $v"
+    else rm -f "$mark" 2>/dev/null; err=$((err+1)); echo "ERROR 표식 쓰기 실패: $mark — «${v}» 쓰고 다시 읽은 값이 다름 또는 읽기 rc≠0 · 원복(표식 0) · $w"; fi
   else
     echo "DRY $w $v"
   fi

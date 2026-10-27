@@ -202,7 +202,7 @@ chmod 755 "$B/.worktrees/v3/design/teams"
 mkdir -p "$T/fakecat"; printf '#!/bin/sh\nfor a in "$@"; do case "$a" in */ft-wt-mode) echo other; exit 0;; esac; done\nexec /bin/cat "$@"\n' > "$T/fakecat/cat"; chmod +x "$T/fakecat/cat"
 nohook_wt d1
 PATH="$T/fakecat:$PATH" git -C "$B/.worktrees/d1" checkout -q -b d1a >"$T/o" 2>"$T/e"; rc=$?
-[ "$rc" != 0 ] && grep -q "^ERROR ft-wt-mode 쓰기 실패 $(gd "$B/.worktrees/d1")/ft-wt-mode — «sparse» 쓰고 다시 읽은 값이 다름" "$T/e" \
+[ "$rc" != 0 ] && grep -q "^ERROR ft-wt-mode 표식 쓰기 실패 — «sparse» 쓰고 다시 읽은" "$T/e" \
   && ok "ⓓ1 훅 표식 쓰기 확인(쓰고 다시 읽어 대조) → 읽은 값이 다르면 ERROR · rc≠0" || bad "ⓓ1 rc=$rc · $(head -c 300 "$T/e")"
 nohook_wt d2
 PATH="$T/fakecat:$PATH" bash "$STAMP" --root "$B" --apply >"$T/o" 2>&1; rc=$?
@@ -216,14 +216,14 @@ DENY="$(command -v sandbox-exec 2>/dev/null | head -1)"
 deny_at() { printf '(version 1)(allow default)(deny file-write* (literal "%s"))' "$1"; }
 nohook_wt e5; E5="$(gd "$B/.worktrees/e5")/ft-wt-mode"
 (cd "$B/.worktrees/e5" && FT_WT_FULL="approved full checkout reason" "$DENY" -p "$(deny_at "$E5")" git checkout -q -b e5a) >"$T/o" 2>"$T/e"; rc=$?
-[ "$rc" != 0 ] && grep -q "^ERROR ft-wt-mode 쓰기 실패 $E5" "$T/e" && ! grep -q '풀 체크아웃 유지' "$T/e" && ! sparse_on "$B/.worktrees/e5" && here "$B/.worktrees/e5/design/teams/b/f.md" && [ -z "$(mark "$B/.worktrees/e5")" ] \
+[ "$rc" != 0 ] && grep -q "^ERROR ft-wt-mode 표식 .* 실패 — .*$E5" "$T/e" && ! grep -q '풀 체크아웃 유지' "$T/e" && ! sparse_on "$B/.worktrees/e5" && here "$B/.worktrees/e5/design/teams/b/f.md" && [ -z "$(mark "$B/.worktrees/e5")" ] \
   && ok "ⓔ1 DA① full 선택 + 표식 쓰기만 거부 → ERROR 쓰기 실패 · rc≠0 · 풀 그대로 · 표식 0" || bad "ⓔ1 rc=$rc · $(head -c 300 "$T/e")"
 (cd "$B/.worktrees/e5" && "$DENY" -p "$(deny_at "$E5")" git checkout -q -b e5b) >"$T/o" 2>"$T/e"; rc=$?
-[ "$rc" != 0 ] && grep -q "^ERROR ft-wt-mode 쓰기 실패 $E5" "$T/e" && ! sparse_on "$B/.worktrees/e5" && here "$B/.worktrees/e5/design/teams/b/f.md" && [ -z "$(mark "$B/.worktrees/e5")" ] && [ "$(r835_n)" = 0 ] \
+[ "$rc" != 0 ] && grep -q "^ERROR ft-wt-mode 표식 .* 실패 — .*$E5" "$T/e" && ! sparse_on "$B/.worktrees/e5" && here "$B/.worktrees/e5/design/teams/b/f.md" && [ -z "$(mark "$B/.worktrees/e5")" ] && [ "$(r835_n)" = 0 ] \
   && ok "ⓔ2 DA① env 없는 다음 checkout 도 같은 ERROR · sparse 로 안 덮음(표식 쓰기 실패가 상태를 못 바꿈)" || bad "ⓔ2 rc=$rc sparse=$(git -C "$B/.worktrees/e5" config --bool core.sparseCheckout 2>&1) · $(head -c 300 "$T/e")"
 nohook_wt e6; E6="$(gd "$B/.worktrees/e6")/ft-wt-mode"
 (cd "$B/.worktrees/e6" && "$DENY" -p "$(deny_at "$E6")" git checkout -q -b e6a) >"$T/o" 2>"$T/e"; rc=$?
-[ "$rc" != 0 ] && grep -q "^ERROR ft-wt-mode 쓰기 실패 $E6 — «sparse»" "$T/e" && ! sparse_on "$B/.worktrees/e6" && here "$B/.worktrees/e6/design/teams/b/f.md" && [ -z "$(mark "$B/.worktrees/e6")" ] && [ "$(r835_n)" = 0 ] \
+[ "$rc" != 0 ] && grep -q "^ERROR ft-wt-mode 표식 .* 실패 — .*$E6" "$T/e" && ! sparse_on "$B/.worktrees/e6" && here "$B/.worktrees/e6/design/teams/b/f.md" && [ -z "$(mark "$B/.worktrees/e6")" ] && [ "$(r835_n)" = 0 ] \
   && ok "ⓔ3 DA② 표식 쓰기 거부 + checkout → ERROR · rc≠0 · sparse 적용 전에 멈춤(상태 변경 0)" || bad "ⓔ3 rc=$rc sparse=$(git -C "$B/.worktrees/e6" config --bool core.sparseCheckout 2>&1) b=$(here "$B/.worktrees/e6/design/teams/b/f.md" && echo 있음) · $(head -c 300 "$T/e")"
 nohook_wt e7; E7="$(gd "$B/.worktrees/e7")/ft-wt-mode"; printf 'custom-marker\n' > "$E7"
 git -C "$B/.worktrees/e7" checkout -q -b e7a >"$T/o" 2>"$T/e"; rc=$?
@@ -232,6 +232,36 @@ git -C "$B/.worktrees/e7" checkout -q -b e7a >"$T/o" 2>"$T/e"; rc=$?
 bash "$STAMP" --root "$B" --apply >"$T/o" 2>&1
 grep -q "^HAS $B/.worktrees/e7 custom-marker$" "$T/o" && ! grep -q "^STAMP $B/.worktrees/e7 " "$T/o" && ! grep -q "^ERROR 표식 자리 이상: $E7" "$T/o" && [ "$(mark "$B/.worktrees/e7")" = custom-marker ] \
   && ok "ⓔ5 DA④ stamp --apply 도 값 해석 0 → HAS custom-marker · 쓰기 0" || bad "ⓔ5 · $(grep e7 "$T/o")"
+
+echo "== r843 r6 (외부 DA r4 반례 3 · 실패는 fail_closed 한 자리 · pending → mv 1회)"
+mkdir -p "$T/rc1cat"; printf '#!/bin/sh\n/bin/cat "$@"\nexit 1\n' > "$T/rc1cat/cat"; chmod +x "$T/rc1cat/cat"
+nohook_wt f1; F1="$(gd "$B/.worktrees/f1")/ft-wt-mode"
+PATH="$T/rc1cat:$PATH" git -C "$B/.worktrees/f1" checkout -q -b f1a >"$T/o" 2>"$T/e"; rc=$?
+[ "$rc" != 0 ] && grep -q "^ERROR ft-wt-mode 표식 쓰기 실패 — «sparse» 쓰고 다시 읽은" "$T/e" && [ ! -e "$F1" ] && ! sparse_on "$B/.worktrees/f1" && [ -z "$(ls -d "$F1".pending.* 2>/dev/null)" ] && here "$B/.worktrees/f1/design/teams/b/f.md" \
+  && ok "ⓕ1 DA② 읽기 rc1(출력은 같음) → ERROR · rc≠0 · 표식 0 · pending 잔존 0 · 상태 그대로" || bad "ⓕ1 rc=$rc 표식=$([ -e "$F1" ] && echo 있음 || echo 0) pending=$(ls -d "$F1".pending.* 2>/dev/null | wc -l | tr -d ' ') · $(head -c 300 "$T/e")"
+PATH="$T/rc1cat:$PATH" bash "$STAMP" --root "$B" --apply >"$T/o" 2>&1; rc=$?
+[ "$rc" != 0 ] && grep -q "^ERROR 표식 쓰기 실패: $F1 — «legacy-full»" "$T/o" && [ ! -e "$F1" ] \
+  && ok "ⓕ1b stamp --apply 같은 주입 → 읽기 rc≠0 = 실패 · 표식 원복(0)" || bad "ⓕ1b rc=$rc · $(grep f1 "$T/o")"
+nohook_wt f4; printf 'sparse\n' > "$(gd "$B/.worktrees/f4")/ft-wt-mode"
+PATH="$T/rc1cat:$PATH" bash "$STAMP" --root "$B" --apply >"$T/o" 2>&1; rc=$?
+[ "$rc" != 0 ] && grep -q "^ERROR 표식 자리 이상: $(gd "$B/.worktrees/f4")/ft-wt-mode — 못 읽음(읽기 rc≠0)" "$T/o" && ! grep -q "^HAS $B/.worktrees/f4" "$T/o" && [ "$(mark "$B/.worktrees/f4")" = sparse ] \
+  && ok "ⓕ1c stamp 표식 읽기 rc≠0 → 못 읽음 ERROR · HAS/STAMP 0 · 값 그대로" || bad "ⓕ1c rc=$rc · $(grep f4 "$T/o")"
+mkdir -p "$T/quietcat"; printf '#!/bin/sh\nexit 0\n' > "$T/quietcat/cat"; chmod +x "$T/quietcat/cat"
+nohook_wt f2; F2="$(gd "$B/.worktrees/f2")/ft-wt-mode"
+( cd "$B/.worktrees/f2" && FT_WT_FULL="approved full checkout reason" PATH="$T/quietcat:$PATH" git checkout -q -b f2a ) >"$T/o" 2>"$T/e"; rc=$?
+[ "$rc" != 0 ] && grep -q "^ERROR ft-wt-mode 표식 쓰기 실패" "$T/e" && [ ! -e "$F2" ] && ! sparse_on "$B/.worktrees/f2" && here "$B/.worktrees/f2/design/teams/b/f.md" \
+  && ok "ⓕ2 DA② 쓰기 검증 실패(빈 출력) → 빈 표식 0 · 풀 그대로 · rc≠0" || bad "ⓕ2 rc=$rc 표식=$([ -e "$F2" ] && echo 있음 || echo 0) · $(head -c 300 "$T/e")"
+( cd "$B/.worktrees/f2" && FT_WT_FULL="approved full checkout reason" PATH="$T/quietcat:$PATH" git checkout -q -b f2b ) >"$T/o" 2>"$T/e"; rc=$?
+[ "$rc" != 0 ] && grep -q "^ERROR ft-wt-mode" "$T/e" && ! sparse_on "$B/.worktrees/f2" \
+  && ok "ⓕ2b 같은 주입 유지한 다음 실행 → 조용한 rc0 0(같은 ERROR 로 처음부터)" || bad "ⓕ2b rc=$rc · $(head -c 300 "$T/e")"
+nohook_wt f3; F3="$(gd "$B/.worktrees/f3")/ft-wt-mode"; touch "$(gd "$B/.worktrees/f3")/info"
+git -C "$B/.worktrees/f3" checkout -q -b f3a >"$T/o" 2>"$T/e"; rc=$?
+[ "$rc" != 0 ] && grep -q "^ERROR ft-wt-mode sparse 설정 실패" "$T/e" && [ ! -e "$F3" ] && [ "$(git -C "$B/.worktrees/f3" config --bool core.sparseCheckout 2>/dev/null || echo unset)" = unset ] && here "$B/.worktrees/f3/design/teams/b/f.md" \
+  && ok "ⓕ3 DA② sparse-checkout set 실패 → config 원복(unset) · 표식 0 · rc≠0" || bad "ⓕ3 rc=$rc sc=$(git -C "$B/.worktrees/f3" config --bool core.sparseCheckout 2>&1) 표식=$([ -e "$F3" ] && echo 있음 || echo 0) · $(head -c 300 "$T/e")"
+rm -f "$(gd "$B/.worktrees/f3")/info"
+git -C "$B/.worktrees/f3" checkout -q -b f3b >"$T/o" 2>"$T/e"; rc=$?
+[ "$rc" = 0 ] && [ "$(mark "$B/.worktrees/f3")" = sparse ] && [ "$(r835_n)" = 1 ] && ! here "$B/.worktrees/f3/design/teams/b" \
+  && ok "ⓕ3b 다음 checkout 이 처음부터 다시 적용(sparse · 표식 · [r835] 안내 1회)" || bad "ⓕ3b rc=$rc 표식=$(mark "$B/.worktrees/f3") r835=$(r835_n) · $(head -c 300 "$T/e")"
 
 echo "== 결과: FAIL=$fail"
 [ "${R835_MUT:-0}" = 1 ] && exit $((fail > 0))
@@ -251,19 +281,21 @@ mutate mark-to-zero-prev "$SRC" R835_HOOK 'if [ -n "$_root" ] && [ -d "$_root/de
 mutate no-sparse-set "$SRC" R835_HOOK "printf '/*\\n!/design/teams/*/\\n' | git sparse-checkout set --no-cone --stdin >/dev/null 2>&1" 'true' '빠짐1'
 mutate legacy-ignored "$SRC" R835_HOOK '  [ -e "$_mark" ] || return 2' '  return 2' 'ⓡ7'
 mutate nano-no-full-env "$NANO" R835_NANO 'FT_WT_FULL="nano full(FT_NANO_SPARSE=${FT_NANO_SPARSE:-1} · team=${_SPT:-?}) $IDX_REL" git -C' 'git -C' '반례③'
-mutate r843-no-verify "$SRC" R835_HOOK ' && [ "$(cat "$_mark" 2>/dev/null)" = "$(printf '"'"'%s'"'"' "$1")" ] && return 0' ' && return 0' 'ⓓ1'
-mutate r843-exist-only "$SRC" R835_HOOK '[ "$(cat "$_mark" 2>/dev/null)" = "$(printf '"'"'%s'"'"' "$1")" ]' '[ -e "$_mark" ]' 'ⓓ1'
-mutate r843r5-no-state-guard "$SRC" R835_HOOK 'if _ftw_write sparse; then' 'if true; then' 'ⓔ3'
-mutate r843r5-full-swallow "$SRC" R835_HOOK 'if _ftw_write "full $FT_WT_FULL"; then' '_ftw_write "full $FT_WT_FULL"; if true; then' 'ⓔ1'
+mutate r843-no-verify "$SRC" R835_HOOK '_ftw_out="$(cat "$1" 2>/dev/null)"; [ "$?" = 0 ]' '_ftw_out="$(cat "$1" 2>/dev/null)"; [ -n "$_ftw_out" ]' 'ⓕ1'
+mutate r843-exist-only "$STAMP" R835_STAMP '_o="$(cat "$mark" 2>/dev/null)"; _c=$?' '_o="$(cat "$mark" 2>/dev/null)"; _c=0' 'ⓕ1c'
+mutate r843r5-no-state-guard "$SRC" R835_HOOK 'if _ftw_stage sparse; then' 'if true; then' 'ⓔ3'
+mutate r843r5-full-swallow "$SRC" R835_HOOK 'if _ftw_stage "full $FT_WT_FULL"; then' '_ftw_stage "full $FT_WT_FULL"; if true; then' 'ⓔ1'
+mutate r843r6-fail-noop "$SRC" R835_HOOK '  [ -z "$_ftw_pend" ] || rm -rf "$_ftw_pend" 2>/dev/null
+  [ "$_ftw_moved" = 0 ] || rm -f "$_mark" 2>/dev/null' '  :' 'ⓕ1'
 mutate r843r5-value-reinterpret "$SRC" R835_HOOK 'if [ -f "$_mark" ] && [ -r "$_mark" ] && head -n 1 "$_mark" >/dev/null 2>&1; then return 0; fi' "if head -n 1 \"\$_mark\" 2>/dev/null | grep -qx 'sparse\|legacy-full'; then return 0; fi" 'ⓔ4'
 mutate r843r4-no-dir-check "$SRC" R835_HOOK 'if [ -d "$_mark" ]; then _ftw_slot_bad "폴더(일반 파일 아님)"; return 1; fi' 'if false; then _ftw_slot_bad "폴더(일반 파일 아님)"; return 1; fi' 'ⓐ1'
 mutate r843r4-exist-only "$SRC" R835_HOOK 'if [ -L "$_mark" ]; then _ftw_slot_bad "심링크 표식 자리(일반 파일 아님)"; return 1; fi' 'if false; then _ftw_slot_bad "심링크 표식 자리(일반 파일 아님)"; return 1; fi' 'ⓡ10'
 mutate r843r2-unm-teams "$STAMP" R835_STAMP '[ "$tn" -ge 2 ] || continue' 'continue' 'ⓡ4'
-mutate r843r5-stamp-value "$STAMP" R835_STAMP 'if [ -f "$mark" ] && [ -r "$mark" ] && cur="$(head -n 1 "$mark" 2>/dev/null)"; then slot=ok' 'if cur="$(head -n 1 "$mark" 2>/dev/null)" && case "$cur" in sparse|legacy-full) true;; *) false;; esac; then slot=ok' 'ⓔ5'
+mutate r843r5-stamp-value "$STAMP" R835_STAMP 'if [ "$_c" = 0 ]; then cur="$(printf '\''%s'\'' "$_o" | head -n 1)"; slot=ok' 'if [ "$_c" = 0 ]; then cur="$(printf '\''%s'\'' "$_o" | head -n 1)"; case "$cur" in sparse|legacy-full) slot=ok;; *) slot=bad; why="정상 값 아님";; esac' 'ⓔ5'
 mutate r843r4-stamp-read-absent "$STAMP" R835_STAMP 'elif [ -e "$mark" ]; then' 'elif [ -f "$mark" ] && [ -r "$mark" ]; then' 'ⓡ9'
 mutate r843r4-unm-swallow "$STAMP" R835_STAMP 'if [ "$err" -ne 0 ]; then echo "ERROR 표식·읽기 실패' 'if false; then echo "ERROR 표식·읽기 실패' 'ⓡ12'
 mutate r843-rc0 "$SRC" R835_HOOK 'exit "$_ftw_rc"' 'exit 0' 'ⓐ1'
-mutate r843-stamp-no-verify "$STAMP" R835_STAMP ' && [ "$(cat "$mark" 2>/dev/null)" = "$v" ]' '' 'ⓓ2'
+mutate r843-stamp-no-verify "$STAMP" R835_STAMP '[ "$?" = 0 ] && [ "$_o" = "$v" ]' 'true' 'ⓓ2'
 mutate r843-stamp-rc0 "$STAMP" R835_STAMP '[ "$err" = 0 ]' 'true' 'ⓑ2'
 echo "== 결과(변이 포함): FAIL=$fail"
 [ "$fail" = 0 ]
