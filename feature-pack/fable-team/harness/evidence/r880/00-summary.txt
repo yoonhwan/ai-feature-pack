@@ -1,0 +1,19 @@
+r880 착지 끝난 land 사본 정리 계획 — 증거 요약 (base origin/main c059ddd1 · 1.1.232)
+
+구현 범위
+  1. land 용도 sparse 생성(r835 ft-wt-add.sh 갈래) — 안 함: r835 가 팩 main 미착지(가지 nano/r835-land-spawn-worktree-sparse 에만) → 카드 «미착지면 r835 재설계에 묶기(master 판단)»
+  2. ft-wt-sweep.sh --land-plan (land_live · land_check · land_plan) + --launchd 1회 호출 — bin·kit 두 사본 cmp 0
+  3. 시험 tests/test_wt_sweep_land_plan_r880.sh
+
+시험 (임시 리포 · 가짜 tmux·lsof·du · 실 워크트리 0)
+  ⓐ 생성 쪽 sparse — 범위 밖(위 1)
+  ⓑ 착지 sha main 조상 + 미커밋 0 + 좌석 0 → 계획 1개 3곳 · 삭제 호출 0(워크트리 수·폴더 그대로) · [HIL] 은 목록 바뀐 때만 — green.txt
+  ⓒ 미커밋·미착지·cwd 살아 있음·tmux pane 살아 있음·잠김 = KEEP 이유 1줄 · 좌석 못 읽음 = 목록 0 rc1 — green.txt
+  ⓕ 계획 실행 순간 재검사: 만든 뒤 미커밋 = skip · HEAD 바뀜 = skip · 통과만 정리 · 좌석 못 읽음 = 중단 rc1 — green.txt
+  green: rc=0 · PASS 39 · ALL PASS
+  red-base(고치기 전 ft-wt-sweep.sh): rc=1 · FAIL 22 — red-base.txt
+  ⓓ 회귀: test_ft_wt_sweep_route_timeout rc=0 · test_wt_sweep_budget_replan_r535 rc=0 · test_kit_bin_sync rc=0 — regress-*.txt
+  ⓔ 변이: M1 착지 조상 검사 제거 → KILLED(ⓒ land-unlanded 계획 밖 FAIL) · M2 계획 대신 바로 정리 → KILLED(ⓑ 삭제 호출 0 FAIL) — mutation.sh · mutation.txt
+
+press 필요: 없음(오디오 경로 무관)
+설치(master): LIVE_BIN cmp0 · 실 리포 --land-plan 첫 실행은 master/arch 가 계획 파일 목록 확인(삭제 실행 0)

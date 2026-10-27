@@ -1,0 +1,43 @@
+### test_ft_wt_sweep_route_timeout.sh (rc recorded in 파일 끝)
+PASS ft-wt-sweep bash -n
+PASS ft-tick bash -n
+PASS ⓐ timeout → [HIL] seat=sa#0 timeout 1s
+PASS ⓐ '실행 실패' 0
+PASS ⓐ 계획 .hil 로 이동
+PASS ⓐ 로그 Terminated 0
+PASS ⓑ 1회 WAIT
+PASS ⓑ 1회 계획 제자리
+PASS ⓑ 1회 .tmo=1
+PASS ⓑ 1회 [HIL] 0
+PASS ⓑ 2회 .tmo=2
+PASS ⓑ 3회 연속 → [HIL] seat=sb#0
+PASS ⓑ 3회 .hil 이동
+PASS ⓑ 3회 .tmo 삭제
+PASS ⓑ' 초과 1회 .tmo=1
+PASS ⓑ' 성공 → .done
+PASS ⓑ' 성공 → .tmo 삭제
+PASS ⓒ MAX=1 pass1 .done=1
+PASS ⓒ pass1 남은 .sh=2
+PASS ⓒ MAX=1 pass2 .done=2
+PASS ⓒ 기본(시간 상한) → .done=3
+PASS ⓒ WAIT 는 예산 0 → z1 실행
+PASS ⓒ w1 제자리
+PASS ⓓ none → .done
+PASS ⓓ skipped → [HIL] seat=k1#0 미커밋 변경
+PASS ⓓ R83 짧은 링크 유지(! bash …/h<N>)
+PASS ⓔ harness 좌석 → harness master
+PASS ⓔ harness 머리 없음
+PASS ⓔ v65 두 줄 → 1통
+PASS ⓔ v65 → 자기 master
+PASS ⓔ 현역 master 없음 → 자기 master
+PASS ⓔ 라우팅 실패 머리(loom)
+PASS ⓔ 라우팅 실패 stderr 1줄
+PASS ⓔ 팀 파일 없음(cfo) → 라우팅 실패 머리
+PASS ⓔ 팀 2개 → 2통
+PASS ⓕ 본문 = [HIL] [라우팅 실패 loom] 워크트리 정리 …
+PASS ⓕ 라우팅 실패 본문 → planner 머리 검사(reject) 통과 rc
+PASS ⓕ 대조: 머리 순서 뒤집으면 가드 rc3
+fail=0
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+rc=0

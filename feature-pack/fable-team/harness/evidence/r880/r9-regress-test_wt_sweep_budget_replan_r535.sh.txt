@@ -1,0 +1,62 @@
+PASS bash -n 2종
+== ⓐ 한 pass = 시간 상한 안의 막히지 않은 계획 여러 건
+PASS ⓐ 막힘 없는 계획 5 → 한 pass 에 .done 5
+PASS ⓐ 이월 0
+PASS ⓐ 시간 상한 2s · 계획 1s×4 → 일부만(.done=2)
+PASS ⓐ 상한 넘긴 나머지 = 이월
+PASS ⓐ FT_WT_SWEEP_MAX=2 명시 → 건수 상한 2
+PASS ⓐ 건수 상한 나머지 이월 1
+== ⓑ cwd 보유(WAIT) 계획은 건너뛰고 뒤 계획 계속
+PASS ⓑ 뒤 계획 3 → .done 3
+PASS ⓑ WAIT 계획 제자리
+PASS ⓑ WAIT 1줄
+PASS ⓑ 이월 0(머리 막힘 0)
+== ⓒ 옛 판 계획 → 같은 좌석·같은 WT 로 재생성 → 같은 pass 에 실행 · 좌석 살아 있으면 재생성 0
+PASS ⓒ 좌석 세션 살아 있음 → WAIT
+PASS ⓒ  └ 계획 제자리(옛 판 그대로)
+PASS ⓒ  └ .replanned 0
+PASS ⓒ  └ .stale 0
+PASS ⓒ 좌석 없음 → REPLAN 1줄
+PASS ⓒ  └ 옛 계획 .replanned 로 보존
+PASS ⓒ  └ 새 계획이 같은 pass 에 실행 → cleaned
+PASS ⓒ  └ 옛 몸통 실행 0
+PASS ⓒ  └ 새 계획 plan-ver = 라이브 생성기
+PASS ⓒ  └ 같은 WT 를 굽힘
+PASS ⓒ  └ 요약 replanned 1
+PASS ⓒ  └ 원래 경로 정리됨
+PASS ⓒ  └ 가지 nano/rp 보존
+== ⓓ 재생성 불가 → .stale + 사유 1줄 (실작업물 미커밋은 새 계획의 가드가 HIL)
+PASS ⓓ WT 없음 → STALE
+PASS ⓓ  └ 사유 1줄
+PASS ⓓ  └ .stale 이동
+PASS ⓓ 가지 nano/* 아님 → STALE
+PASS ⓓ  └ 사유 1줄
+PASS ⓓ  └ 워크트리 그대로
+PASS ⓓ 미커밋 → 재생성은 됨
+PASS ⓓ  └ 새 계획 가드가 미커밋을 HIL 로(정리 0)
+PASS ⓓ  └ 워크트리 그대로
+== ⓔ 지운 폴더 크기 — du 상한 · .done·요약·wt-sweep.log freed_kb
+PASS ⓔ .done 에 freed_kb=1234
+PASS ⓔ 요약 freed_kb 1234
+PASS ⓔ wt-sweep.log 폴더별 KB 줄
+PASS ⓔ wt-sweep.log pass 줄 끝 freed_kb
+PASS ⓔ du 상한 넘김 → freed_kb=?
+PASS ⓔ  └ 느린 du 를 상한에서 끊음(1s)
+PASS ⓔ  └ 로그 kb=?
+PASS ⓔ --launchd 줄에 freed_kb
+PASS ⓔ --launchd 줄에 replanned
+== ⓕ 등록 없는 폴더 → wt-orphans.tsv 목록만 · 삭제 0
+PASS ⓕ 목록에 orphan1 1줄(크기 77)
+PASS ⓕ 등록 워크트리는 목록 밖
+PASS ⓕ 요약 orphans 1
+PASS ⓕ  └ 폴더 그대로(삭제 0)
+== ⓖ .hil 계획 → 요약 수만 · 처리 0
+PASS ⓖ 요약 hil_files 2
+PASS ⓖ  └ .hil 그대로 2 · .done 0
+== 위생
+PASS sweep 에 브랜치 삭제 코드 0
+PASS core.bare=false
+
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+test_wt_sweep_budget_replan_r535.sh rc=0

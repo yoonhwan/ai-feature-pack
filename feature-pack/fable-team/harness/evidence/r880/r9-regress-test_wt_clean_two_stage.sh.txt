@@ -1,0 +1,84 @@
+PASS bash -n 2종
+== ⓐ 상한 초과(baton 8s > 계획 상한 4s)에도 원래 경로 껍데기 0 · 이름 바뀐 .deleting-<ts> 만
+FAIL 계획 생성 실패 ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c7xvUEGdAq/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+INFO ft-merge-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c7xvUEGdAq/bin) — 단계 상한은 python3 직접으로 건다
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c7xvUEGdAq/bin
+ERROR 카드 단계 함수 없음(ft-t
+== ⓑ 이어정리 — 분리 정리가 실패/중단된 .deleting-<ts> 를 다음 sweep 이 이어서 지운다
+FAIL 계획 생성 실패 ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c7xvUEGdAq/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+INFO ft-merge-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c7xvUEGdAq/bin) — 단계 상한은 python3 직접으로 건다
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c7xvUEGdAq/bin
+ERROR 카드 단계 함수 없음(ft-t
+== ⓒ 껍데기 인식 — ' D' 만 남은(info 도 사라진) 워크트리는 가드 5번 건너뛰고 정리만 · 진짜 미커밋은 기존 그대로 HIL
+FAIL 계획 생성 실패 ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c7xvUEGdAq/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+INFO ft-merge-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c7xvUEGdAq/bin) — 단계 상한은 python3 직접으로 건다
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c7xvUEGdAq/bin
+ERROR 카드 단계 함수 없음(ft-t
+FAIL 계획 생성 실패 ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c7xvUEGdAq/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+INFO ft-merge-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c7xvUEGdAq/bin) — 단계 상한은 python3 직접으로 건다
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c7xvUEGdAq/bin
+ERROR 카드 단계 함수 없음(ft-t
+FAIL 계획 생성 실패 ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c7xvUEGdAq/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+INFO ft-merge-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c7xvUEGdAq/bin) — 단계 상한은 python3 직접으로 건다
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c7xvUEGdAq/bin
+ERROR 카드 단계 함수 없음(ft-t
+FAIL 계획 생성 실패 ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c7xvUEGdAq/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+INFO ft-merge-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c7xvUEGdAq/bin) — 단계 상한은 python3 직접으로 건다
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c7xvUEGdAq/bin
+ERROR 카드 단계 함수 없음(ft-t
+== ⓓ 계획 plan-ver ≠ 라이브 생성기 = 옛 계획 실행 거부 → 재생성(r535)
+FAIL 계획 생성 실패 ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c7xvUEGdAq/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+INFO ft-merge-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c7xvUEGdAq/bin) — 단계 상한은 python3 직접으로 건다
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c7xvUEGdAq/bin
+ERROR 카드 단계 함수 없음(ft-t
+FAIL 계획 생성 실패 ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c7xvUEGdAq/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+INFO ft-merge-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c7xvUEGdAq/bin) — 단계 상한은 python3 직접으로 건다
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c7xvUEGdAq/bin
+ERROR 카드 단계 함수 없음(ft-t
+FAIL 계획 생성 실패 ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c7xvUEGdAq/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+INFO ft-merge-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c7xvUEGdAq/bin) — 단계 상한은 python3 직접으로 건다
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c7xvUEGdAq/bin
+ERROR 카드 단계 함수 없음(ft-t
+FAIL 계획 생성 실패 ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c7xvUEGdAq/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+INFO ft-merge-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c7xvUEGdAq/bin) — 단계 상한은 python3 직접으로 건다
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c7xvUEGdAq/bin
+ERROR 카드 단계 함수 없음(ft-t
+PASS ⓓ 생성기 계획이 아닌 스텁 계획은 plan-ver 대상 아님(기존 시험 호환)
+== ⓔ 껍데기 경보 — 바뀐 때만 1줄
+PASS ⓔ 껍데기 1곳 → [HIL] 1줄(sa · 팀 미상 = harness · r444)
+PASS   └ 멀쩡한 워크트리(ok1)는 안 셈
+PASS ⓔ 그대로면 두 번째 sweep 은 경보 0
+PASS ⓔ 목록이 바뀌면(2곳) 다시 1줄
+PASS   └ 바뀐 뒤 그대로면 다시 0
+PASS   └ 스캔 간격 안(3600s)에선 훑지도 않음
+PASS   └ 경보는 읽기만 — 껍데기 손 0
+== ⓕ 브랜치 삭제 코드 0
+PASS ⓕ sweep 에 브랜치 삭제 코드 0
+PASS ⓕ 계획 2단 블록에 브랜치 삭제 코드 0
+== ⓖ 보관 tar 없는 삭제 0 — 잔여 삭제는 검증된 tar 가 있을 때만(marker 무관)
+FAIL 계획 생성 실패 ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c7xvUEGdAq/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+INFO ft-merge-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c7xvUEGdAq/bin) — 단계 상한은 python3 직접으로 건다
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c7xvUEGdAq/bin
+ERROR 카드 단계 함수 없음(ft-t
+== 변이 시험 — 검사가 정말 결함을 잡는가
+PASS 변이 1 적용(move 줄 제거)
+FAIL 계획 생성 실패 ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c7xvUEGdAq/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+INFO ft-merge-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c7xvUEGdAq/bin) — 단계 상한은 python3 직접으로 건다
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c7xvUEGdAq/bin
+ERROR 카드 단계 함수 없음(ft-t
+PASS 변이 2 적용(plan-ver 대조 무력화)
+FAIL 계획 생성 실패 ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c7xvUEGdAq/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+INFO ft-merge-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c7xvUEGdAq/bin) — 단계 상한은 python3 직접으로 건다
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c7xvUEGdAq/bin
+ERROR 카드 단계 함수 없음(ft-t
+PASS 변이 3 적용(tar 실재 검사 무력화)
+FAIL 계획 생성 실패 ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c7xvUEGdAq/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+INFO ft-merge-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c7xvUEGdAq/bin) — 단계 상한은 python3 직접으로 건다
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c7xvUEGdAq/bin
+ERROR 카드 단계 함수 없음(ft-t
+== 위생 — 공용 .git 설정 불변
+PASS core.bare=false
+
+FAILED 14
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+test_wt_clean_two_stage.sh rc=1
