@@ -1,0 +1,53 @@
+PASS ⓧ 대조(주입 0) = 빠른 길로 지운다
+FAIL ⓧ cut 호출 5회
+PASS ⓧ git:rev-parse HEAD#1 real = 못 읽음 = 지우기 0
+PASS ⓧ git:rev-parse HEAD#1 empty = 못 읽음 = 지우기 0
+PASS ⓧ git:rev-parse HEAD#2 real = 못 읽음 = 지우기 0
+PASS ⓧ git:rev-parse HEAD#2 empty = 못 읽음 = 지우기 0
+PASS ⓧ git:symbolic-ref#1 real = 못 읽음 = 지우기 0
+PASS ⓧ git:symbolic-ref#1 empty = 못 읽음 = 지우기 0
+PASS ⓧ git:--git-dir#1 real = 못 읽음 = 지우기 0
+PASS ⓧ git:--git-dir#1 empty = 못 읽음 = 지우기 0
+PASS ⓧ git:merge-base#1 real = 못 읽음 = 지우기 0
+PASS ⓧ git:merge-base#1 empty = 못 읽음 = 지우기 0
+PASS ⓧ git:grep -F#1 real = 못 읽음 = 지우기 0
+PASS ⓧ git:grep -F#1 empty = 못 읽음 = 지우기 0
+PASS ⓧ git:log -1#1 real = 못 읽음 = 지우기 0
+PASS ⓧ git:log -1#1 empty = 못 읽음 = 지우기 0
+FAIL ⓧ date:+%s#1 real 지움 [[임시 사본 자동 삭제] 주인 없는 사본 1개 0.00 GiB 삭제(되살릴 수 있는 사본만) — 목록: .fable-team/state/scratch-sweep.log]
+PASS ⓧ date:+%s#1 empty = 못 읽음 = 지우기 0
+FAIL ⓧ date:+%s#2 real 지움 [[임시 사본 자동 삭제] 주인 없는 사본 1개 0.00 GiB 삭제(되살릴 수 있는 사본만) — 목록: .fable-team/state/scratch-sweep.log]
+PASS ⓧ date:+%s#2 empty = 못 읽음 = 지우기 0
+FAIL ⓧ date:+%s#3 real 지움 [[임시 사본 자동 삭제] 주인 없는 사본 1개 0.00 GiB 삭제(되살릴 수 있는 사본만) — 목록: .fable-team/state/scratch-sweep.log]
+PASS ⓧ date:+%s#3 empty = 못 읽음 = 지우기 0
+FAIL ⓧ date:+%s#4 real 지움 [[임시 사본 자동 삭제] 주인 없는 사본 1개 0.00 GiB 삭제(되살릴 수 있는 사본만) — 목록: .fable-team/state/scratch-sweep.log]
+PASS ⓧ date:+%s#4 empty = 못 읽음 = 지우기 0
+FAIL ⓧ date:+%s#5 real 지움 [[임시 사본 자동 삭제] 주인 없는 사본 1개 0.00 GiB 삭제(되살릴 수 있는 사본만) — 목록: .fable-team/state/scratch-sweep.log]
+FAIL ⓧ date:+%s#5 empty 지움 [[임시 사본 자동 삭제] 주인 없는 사본 1개 0.00 GiB 삭제(되살릴 수 있는 사본만) — 목록: .fable-team/state/scratch-sweep.log]
+FAIL ⓧ date:+%s#6 real 지움 [[임시 사본 자동 삭제] 주인 없는 사본 1개 0.00 GiB 삭제(되살릴 수 있는 사본만) — 목록: .fable-team/state/scratch-sweep.log]
+PASS ⓧ date:+%s#6 empty = 못 읽음 = 지우기 0
+FAIL ⓧ date:+%s#7 real 지움 [[임시 사본 자동 삭제] 주인 없는 사본 1개 0.00 GiB 삭제(되살릴 수 있는 사본만) — 목록: .fable-team/state/scratch-sweep.log]
+PASS ⓧ date:+%s#7 empty = 못 읽음 = 지우기 0
+FAIL ⓧ date:+%s#8 real 지움 [[임시 사본 자동 삭제] 주인 없는 사본 1개 0.00 GiB 삭제(되살릴 수 있는 사본만) — 목록: .fable-team/state/scratch-sweep.log]
+FAIL ⓧ date:+%s#8 empty 지움 [[임시 사본 자동 삭제] 주인 없는 사본 1개 0.00 GiB 삭제(되살릴 수 있는 사본만) — 목록: .fable-team/state/scratch-sweep.log]
+PASS ⓧ tmux:list-sessions#1 real = 못 읽음 = 지우기 0
+PASS ⓧ tmux:list-sessions#1 empty = 못 읽음 = 지우기 0
+PASS ⓧ tmux:list-sessions#2 real = 못 읽음 = 지우기 0
+PASS ⓧ tmux:list-sessions#2 empty = 못 읽음 = 지우기 0
+PASS ⓧ lsof:-d cwd#1 real = 못 읽음 = 지우기 0
+PASS ⓧ lsof:-d cwd#1 empty = 못 읽음 = 지우기 0
+PASS ⓧ lsof:-d cwd#2 real = 못 읽음 = 지우기 0
+PASS ⓧ lsof:-d cwd#2 empty = 못 읽음 = 지우기 0
+FAIL ⓧ awk:/^p/#1 real 지움 [[임시 사본 자동 삭제] 주인 없는 사본 1개 0.00 GiB 삭제(되살릴 수 있는 사본만) — 목록: .fable-team/state/scratch-sweep.log]
+FAIL ⓧ awk:/^p/#1 empty 지움 [[임시 사본 자동 삭제] 주인 없는 사본 1개 0.00 GiB 삭제(되살릴 수 있는 사본만) — 목록: .fable-team/state/scratch-sweep.log]
+FAIL ⓧ awk:/^p/#2 real 지움 [[임시 사본 자동 삭제] 주인 없는 사본 1개 0.00 GiB 삭제(되살릴 수 있는 사본만) — 목록: .fable-team/state/scratch-sweep.log]
+FAIL ⓧ awk:/^p/#2 empty 지움 [[임시 사본 자동 삭제] 주인 없는 사본 1개 0.00 GiB 삭제(되살릴 수 있는 사본만) — 목록: .fable-team/state/scratch-sweep.log]
+PASS ⓧ 이름 repo-<sha8>-1-1-extra = 빠른 길 아님 · 지우기 0
+PASS ⓧ verify 대조(origin/main 없음 rc1) = main 기준으로 지운다
+FAIL ⓧ verify real 지움 [[임시 사본 자동 삭제] 주인 없는 사본 1개 0.00 GiB 삭제(되살릴 수 있는 사본만) — 목록: .fable-team/state/scratch-sweep.log]
+FAIL ⓧ verify empty 지움 [[임시 사본 자동 삭제] 주인 없는 사본 1개 0.00 GiB 삭제(되살릴 수 있는 사본만) — 목록: .fable-team/state/scratch-sweep.log]
+FAIL ⓨ 함수 못 찾음: main_ref sweep_run done_run has_line reg_owner
+FAIL ⓨ cwd_parse 꼴 바뀜
+FAIL ⓨ 범위 안 rc 안 보는 꼴: 239	  n="${p##*/}"; h="$(printf '%s' "$n" | cut -d- -f2)"; ep="$(printf '%s' "$n" | cut -d- -f3)"; pp="$(printf '%s' "$n" | cut -d- -f4)" 240	  [ "$(printf '%s' "$n" | cut -d- -f1)" = repo ] || return 1 241	  [ -z "$(printf '%s' "$n" | cut -d- -f5)" ] || return 1 
+FAIL ⓨ pipefail/cap 없음(cap=0)
+(21 failed)

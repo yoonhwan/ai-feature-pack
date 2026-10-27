@@ -26,8 +26,9 @@ OWN=live-owner
 sc() { OUT="$(env PATH="${PBIN:-$T/bin}:$PATH" FT_RES_ROOT="$G" FT_SCRATCH_DIR="$SCR" TMPDIR="$TMPD" FT_SCRATCH_OWNER="${OWN:-live-owner}" \
   FT_SCRATCH_MAIN=main FT_SCRATCH_AGE_MIN=1 bash "$SUT" "$@" 2>"$T/err")"; RC=$?; ERR="$(cat "$T/err")"; }
 reg() { printf '%s\t%s\t%s\n' "$1" "${OWN:-live-owner}" "$(date +%s)" >> "$TSV"; }
-mk_copy() { # <폴더> → 그 사본 HEAD 앞 8자
-  git init -q "$1"; printf "x\n%s\n" "$1" > "$1/f.txt"; git -C "$1" add -A   # 경로를 내용에 넣어 사본마다 sha 가 다르게
+mk_copy() { # <폴더> → 그 사본 HEAD 앞 8자 —— r897 r10.4: 실사본과 같은 꼴(ROOT 저장소 worktree) — 객체가 ROOT 에 없으면 judged 의 merge-base 가 rc128 로 «못 읽음» 이 된다
+  git -C "$G" worktree add -q --detach "$1" main
+  printf "x\n%s\n" "$1" > "$1/f.txt"; git -C "$1" add -A   # 경로를 내용에 넣어 사본마다 sha 가 다르게(그 커밋 = main 의 조상 아님)
   git -C "$1" -c user.name=t -c user.email=t@t commit -q -m c1; git -C "$1" rev-parse HEAD | cut -c1-8
 }
 
