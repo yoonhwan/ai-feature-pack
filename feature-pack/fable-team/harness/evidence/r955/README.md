@@ -125,3 +125,24 @@ bash feature-pack/fable-team/harness/tests/test_ops_intake.sh  → ALL PASS (rc=
 ```
 
 press 필요: 없음 (정적 판정기·가짜 슬랙 시험만 · 라이브 축은 r956).
+
+## 반송 r6 (오빠 결정 3 = 1번 구조 교체 · DA⑥ r5 HOLD 5 · arch 157)
+
+base 를 팩 origin/main `8bdf4574`(r977 착지 포함 · bin/ft_secret_shapes.py = 착지판)로 올렸다(리베이스 · r6 = 그 위 1커밋). 반례 집합·계약 동결, 구현만 교체.
+
+| 결정(동결) | 구현 | 시험 | 변이 |
+|---|---|---|---|
+| 가림 호출 자리 하나 = `mask_for_card()` → common `mask_text()` 한 곳 · write.py·poster.py 개별 호출 0 | write.py 는 `c.mask_text()`(diff 0 · 변경 금지) · poster 는 `c.post_kinds()`(common 한 자리를 거친다) | ⓔ `write.py diff 0`(.sh 러너) · 기존 ⓟ | `lock-scope-off`(write.py 축 유지) |
+| 판본 sha256 고정 — 다르면 접수 거절 | `FT_SECRET_SHAPES_SHA256 = 8bdf45744dcc61aa…` · `_ft_mask()` 가 파일 해시를 대조, 다르면 rc2 «판본 다름» | ⓒ 두 번째 사유(사본에 한 줄 더한 모듈 → rc2) | `pin-off` |
+| 따옴표 안 공백·개행 값 — 가림 전에 따옴표 «경계» 로 자른다 | `mask_quoted_values()`(따옴표 쌍만 본다 · 비밀 꼴 0) → 그 안을 통째로 `***` | ⓐ 108조합(따옴표 2 × 구분자 6 × 값 앞 공백·개행 9) 전부 `hunter2` 0 | — |
+| 개인키 = `PRIVATE KEY` 를 품은 모든 BEGIN 줄 → BEGIN~END 통째 삭제 | `PEM_BEGIN/PEM_END` 머리말 집합 1개(PGP `KEY BLOCK` 포함) | ⓑ PGP PRIVATE KEY BLOCK → 본문·Version 줄 0 | — |
+| 타이머 시작 = `urlopen()` «호출 전» 하나(연결·상태줄·헤더·본문·종료) · 넘으면 소켓 닫고 sent 0 · 실패 | `_call()` = 작업 스레드 + `done.wait(남은 시간)` + 마감에 `sock.shutdown` | ⓓ 상태줄 즉시·헤더 4초·끝 8초 → 7.0초에 끊김 · rc5 · 원장 failed | `timer-after-urlopen` |
+| 원장 rejected 1줄(사유 종류만 · 값 0) | `record_rejected()` → `state/rejected.jsonl` `{"ts","reason":"leftover-secret","kinds":[…]}` | ⓒ 첫 번째 사유(잔여 → rc2 · 1줄 · `ghp_` 0) | — |
+| 변경 금지 파일 되돌림 | `ops_intake_write.py` = r4 승인판 그대로(`c.mask_text` · `_write_locked` · `c.locked`) | ⓔ | — |
+
+```
+bash feature-pack/fable-team/harness/tests/test_ops_intake.sh   → ALL PASS (rc=0)
+  write.py diff 0 · py_compile 5/5 · plutil 3/3 · cases 47 · mutate 19/19
+```
+
+press 필요: 없음 (가짜 슬랙·임시 HOME 만 · 라이브 축은 r956).

@@ -72,6 +72,22 @@ class Slack:
                     except OSError:
                         pass
                     return
+                if outer.mode == "slow-headers":  # 상태줄만 즉시 · 헤더 4초 · 끝 8초 — 타이머가 urlopen «뒤» 면 통과한다(카드 r6)
+                    payload = json.dumps({"ok": True, "ts": "1700.0011"}).encode()
+                    half = len(payload) // 2
+                    try:
+                        self.wfile.write(b"HTTP/1.1 200 OK\r\n")
+                        self.wfile.flush()
+                        __import__("time").sleep(4)
+                        self.wfile.write(b"Content-Type: application/json\r\nContent-Length: %d\r\n\r\n" % len(payload))
+                        self.wfile.write(payload[:half])
+                        self.wfile.flush()
+                        __import__("time").sleep(4)
+                        self.wfile.write(payload[half:])
+                        self.wfile.flush()
+                    except OSError:
+                        pass
+                    return
                 if outer.mode == "slow-finish":  # 4초에 앞 반 · 8초에 끝 — «전체 벽시계» 가 아니면 통과한다(DA⑥ r4 반례 3)
                     payload = json.dumps({"ok": True, "ts": "1700.0009"}).encode()
                     self.send_response(200)
@@ -894,6 +910,82 @@ class TestR5(Base):
         self.assertRegex(text, r"secrets_masked: [1-9]")
 
 
+class TestR6(Base):
+    """ⓦ DA⑥ r5 반례 5칸 — 따옴표 안 개행 값 · PGP KEY BLOCK · rejected 원장 · 헤더 지연 7초"""
+
+    QUOTES = ('"', "'")
+    SEPS = ("=", "=", "= ", " = ", ":\n", " =\n")
+    GAPS = ("", " ", "\n", " \n", "\n ", "\t", "\n\n", "  \n  ", "\r\n")
+
+    def test_w_quoted_value_all_combinations_gone(self) -> None:
+        """ⓐ «이름=값» 의 값이 따옴표로 감싸이면 개행·공백이 들어가도 값 글자 0 (2×6×9 = 108조합)."""
+        tick = 0
+        seen = 0
+        for q in self.QUOTES:
+            for sep in self.SEPS:
+                for gap in self.GAPS:
+                    text = f"password{sep}{q}{gap}hunter2hunter2{q}"
+                    card_index = len(self.e.cards())
+                    tick += 601  # 한도창(600초)을 매번 넘긴다
+                    r = self.e.run("ops_intake_write.py", stdin=json.dumps(dict(CARD, symptom=text)),
+                                   extra={"FT_NOW": str(1793000000 + tick)})
+                    self.assertEqual(r.returncode, 0, f"{q!r}/{sep!r}/{gap!r}: {r.stderr}")
+                    card = self.e.cards()[card_index].read_text()
+                    self.assertNotIn("hunter2", card, f"{q!r}/{sep!r}/{gap!r} 값이 남았다")
+                    self.assertRegex(card, r"secrets_masked: [1-9]", f"{q!r}/{sep!r}/{gap!r} 검출 0")
+                    seen += 1
+        self.assertEqual(seen, 108)
+
+    def test_w_pgp_key_block_gone(self) -> None:
+        """ⓑ `-----BEGIN PGP PRIVATE KEY BLOCK-----` 도 머리말 집합 1개로 통째 삭제."""
+        pem = ("-----BEGIN PGP PRIVATE KEY BLOCK-----\nVersion: GnuPG v2\n\n"
+               "lQOYBF+AAAABCADGGGGzzzz9999\n-----END PGP PRIVATE KEY BLOCK-----")
+        r = self.e.run("ops_intake_write.py", stdin=json.dumps(dict(CARD, symptom=pem)))
+        self.assertEqual(r.returncode, 0, r.stderr)
+        text = self.e.cards()[0].read_text()
+        for leaked in ("lQOYBF+AAAABCADGGGGzzzz9999", "Version: GnuPG", "BEGIN PGP PRIVATE KEY BLOCK"):
+            self.assertNotIn(leaked, text, leaked)
+        self.assertRegex(text, r"secrets_masked: [1-9]")
+
+    def test_w_rejected_ledger_and_version_pin(self) -> None:
+        """ⓒ 접수 거절 2사유 — ① 가림 뒤 잔여 = 원장 rejected 1줄(종류만 · 값 0) ② 판본 sha256 다름."""
+        split = "g h p _ a b c d e f g h i j k l m n o p q r s t u v w x y z 0 1 2 3"
+        r = self.e.run("ops_intake_write.py", stdin=json.dumps(dict(CARD, symptom=split)))
+        self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+        self.assertEqual(self.e.cards(), [])
+        ledger = self.e.home / ".fable-team/ops-intake/state/rejected.jsonl"
+        lines = [ln for ln in ledger.read_text().splitlines() if ln.strip()]
+        self.assertEqual(len(lines), 1, "원장 rejected 1줄이 아니다")
+        row = json.loads(lines[0])
+        self.assertEqual(row["reason"], "leftover-secret")
+        self.assertNotIn("ghp_", ledger.read_text(), "원장에 값이 남았다")
+        other = self.e.t / "otherbin"
+        other.mkdir()
+        for name in ("ft_secret_shapes.py", "ft_secret_targets.py", "ft_secret_lex.py"):
+            (other / name).write_text((BIN / name).read_text() + "\n# 판본 다름(시험)\n")
+        r2 = self.e.run("ops_intake_write.py", stdin=json.dumps(dict(CARD, symptom="평범한 문의")),
+                        extra={"OPS_INTAKE_SECRET_DIR": str(other), "FT_NOW": "1793000900"})
+        self.assertEqual(r2.returncode, 2, r2.stdout + r2.stderr)
+        self.assertIn("판본 다름", r2.stderr)
+        self.assertEqual(len(self.e.cards()), 0)
+
+    def test_w_late_headers_wall_clock(self) -> None:
+        """ⓓ 상태줄 즉시 · 헤더 4초 · 끝 8초 — 타이머가 urlopen «전» 이라 7초에 끊긴다(failed · sent 0)."""
+        body = "[OPS-REPLY] OPS-20261026-001\nthread_ts: 1793000000.000100\n확인 중입니다."
+        subprocess.run(["bash", str(FT_MBOX_SH), "send", "byz-opsintake-tool-cmd#0", "byz-opsintake-master-claude#0", body],
+                       capture_output=True, text=True,
+                       env=dict(self.e.env, FT_MBOX_DIR=str(self.e.home / ".fable-team/comm"), HOME=str(self.e.home)))
+        self.e.slack.mode = "slow-headers"
+        start = __import__("time").monotonic()
+        r = self.e.run("ops_intake_poster.py")
+        elapsed = __import__("time").monotonic() - start
+        self.assertLess(elapsed, 7.6, f"헤더 지연 구간이 벽시계에 안 들어갔다({elapsed:.1f}s)")
+        self.assertEqual(r.returncode, 5, r.stdout + r.stderr)
+        self.assertNotIn("POST ok", r.stdout)
+        ledger = json.loads((self.e.home / ".fable-team/ops-intake/state/posted.json").read_text())
+        self.assertEqual([v["state"] for v in ledger.values()], ["failed"])
+
+
 MUTATIONS = {
     # 이름: (파일, 원문, 바꿀 글, 이 변이가 깨야 하는 축)
     "mask-off": ("ops_intake_common.py", "        masked, cnt = rx.subn(ph, masked)", "        masked, cnt = masked, 0", "b-secrets"),
@@ -912,8 +1004,15 @@ MUTATIONS = {
     # 게시 쪽 검사기를 따로 둠(카드 검출기와 무관) → ⓟ FAIL
     "poster-secrets-off": ("ops_intake_poster.py", "    secrets(text)\n    _ml, pg = slack_lib()", "    _ml, pg = slack_lib()", "p-secrets"),
     # 마스킹 «뒤» 에 CR 을 지움(DA r3 반례 1 그대로) → ⓡ FAIL
-    "cr-after-mask-off": ("ops_intake_common.py", "    masked, split = _mask_split_runs(masked)  # ⑤ 공백으로 쪼갠 값",
+    "cr-after-mask-off": ("ops_intake_common.py", "    masked, split = _mask_split_runs(masked)  # ⑥ 공백으로 쪼갠 값",
                           "    split = []\n    masked = normalize(masked)", "r_"),
+    # 타이머를 urlopen «뒤» 로 미룸(마감을 늘림) → ⓓ FAIL (카드 r6)
+    "timer-after-urlopen": ("ops_intake_poster.py",
+                            "    if not done.wait(max(0.0, left())):  # 마감까지 결과가 없으면 실패",
+                            "    if not done.wait(limit + 6.0):  # 타이머를 응답 뒤로(변이)", "r6-7s"),
+    # 판본 sha256 검증을 끔 → ⓒ FAIL (카드 r6)
+    "pin-off": ("ops_intake_common.py", "            if got != FT_SECRET_SHAPES_SHA256:",
+                "            if False:", "r6-pin"),
     # 자체 정규식을 되살림(공용 판정·가림 대신 자기 꼴) → ⓥ(남은 비밀 거절 칸) FAIL (카드 r5 반례 1)
     "own-mask-regex-off": ("ops_intake_common.py",
                            "    kinds = [k for k, _ln in _ft_mask()(text)[1]]\n"
@@ -929,11 +1028,6 @@ MUTATIONS = {
     "lock-scope-off": ("ops_intake_write.py", '        with c.locked("ops-intake"):  # ★한도 확인부터 쪽지 예약까지 한 잠금★ (DA r3 반례 3)\n            return _write_locked(doc)',
                        "        return _write_locked(doc)", "t_"),
     # 소켓 timeout 만(읽기 루프 없음) → ⓤ FAIL
-    # 감시 타이머를 빼고 «읽기 전» 만 검사(막힌 recv 를 끊지 못함) → ⓥ FAIL (카드 r5 반례 3)
-    "read-only-timeout": ("ops_intake_poster.py",
-                          "        timer = threading.Timer(max(0.0, left()), _abort)\n"
-                          "        timer.daemon = True\n        timer.start()\n",
-                          "        _abort = lambda: None\n", "r5-7s"),
     # 원장 잠금을 끔 → 동시 실행에서 두 번 게시
     "lock-off": ("ops_intake_poster.py", "    lock = lock_ledger()", "    lock = open(c.sub(\"state\") / \"posted.lock\", \"w\")", "q-lock"),
     # 원장 기록을 «성공 뒤» 로(보내는 중 선기록 제거) → ⓠ FAIL

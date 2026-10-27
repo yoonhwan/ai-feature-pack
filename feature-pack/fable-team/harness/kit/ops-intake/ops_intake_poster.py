@@ -56,9 +56,9 @@ def slack_lib():
 
 
 def secrets(text: str) -> None:
-    """★비밀 검출기는 하나★ — 카드 쓰기·재검사와 «같은 함수»(c.mask_text)를 게시 직전에 한 번 더 돌린다.
-    검출 1건 이상이면 게시 0. 두 쪽 판정이 갈리면 그 차이가 곧 구멍이다(DA⑥ r2 반례 1)."""
-    kinds = c.mask_text(text)[1]
+    """★비밀 검출기는 하나★ — 가림 자리는 common 한 곳(`c.post_kinds`)뿐이다. 검출 1건 이상이면 게시 0.
+    두 쪽 판정이 갈리면 그 차이가 곧 구멍이다(DA⑥ r2 반례 1 · r6 «개별 호출 0»)."""
+    kinds = c.post_kinds(text)
     if kinds:
         raise c.IntakeError(f"게시 거부 — 비밀 꼴 검출({c.kind_summary(kinds)}) · 카드 검출기와 같은 판정 · 게시 0", 4)
 
@@ -135,10 +135,10 @@ def final_text(text: str, tag: str) -> str:
 
 
 def _call(base: str, tok: str, method: str, params: dict, *, get: bool = False, limit: float = WALL_LIMIT) -> dict:
-    """슬랙 1회 호출 — ★연결·읽기·종료 전부 포함 «전체 벽시계» 상한 하나★(DA⑥ r4 반례 3).
-    소켓 timeout 만 걸면 4초에 성공 청크를 주고 8초에 끝내는 흘림에 안 걸린다 — 감시 타이머가
-    마감에 응답을 닫고, 읽기가 끝난 뒤에도 한 번 더 마감을 본다."""
-    end = time.monotonic() + limit
+    """슬랙 1회 호출 — ★벽시계 7초 하나, 시작 = `urlopen()` «호출 전»★(카드 r6 · DA⑥ r4 반례 3).
+    연결·상태줄·헤더·본문·종료가 전부 그 안에 들어간다. 마감에 소켓을 닫아 막힌 recv 를 끊고,
+    결과를 기다리는 쪽도 `wait(남은 시간)` 으로 같은 마감을 지킨다 — 넘으면 TimeoutError(sent 0 · 원장 failed)."""
+    end = time.monotonic() + limit  # ★타이머 시작 자리 하나 — urlopen 보다 먼저★
 
     def left() -> float:
         return end - time.monotonic()
@@ -149,42 +149,58 @@ def _call(base: str, tok: str, method: str, params: dict, *, get: bool = False, 
     else:
         headers["Content-Type"] = "application/json; charset=utf-8"
         req = urllib.request.Request(f"{base}/{method}", data=json.dumps(params).encode("utf-8"), headers=headers)
-    resp = urllib.request.urlopen(req, timeout=max(0.1, left()))
-    timer: threading.Timer | None = None
-    try:
-        def _abort() -> None:  # 마감 순간 읽기를 깨운다 — 소켓 shutdown 이 막힌 recv 를 끊는다(흘림 차단)
-            sock = getattr(getattr(getattr(resp, "fp", None), "raw", None), "_sock", None)
+    box: dict = {}
+    done = threading.Event()
+
+    def _shutdown() -> None:  # 마감 — 소켓을 닫아 상태줄·헤더·본문 어느 구간에서 막혀도 끊는다
+        sock = box.get("sock")
+        try:
+            if sock is not None:
+                sock.shutdown(socket.SHUT_RDWR)
+        except Exception:
+            pass
+
+        def _close() -> None:  # 응답 닫기는 «다른 스레드» 에서 — 막힌 read 를 쥔 채로 마감을 늦추면 안 된다
             try:
-                if sock is not None:
-                    sock.shutdown(socket.SHUT_RDWR)
-            except Exception:
-                pass
-            try:
-                resp.close()
+                resp = box.get("resp")
+                if resp is not None:
+                    resp.close()
             except Exception:
                 pass
 
-        timer = threading.Timer(max(0.0, left()), _abort)
-        timer.daemon = True
-        timer.start()
-        chunks: list[bytes] = []
-        while True:
-            if left() <= 0:
-                raise TimeoutError(f"{method} 벽시계 {limit:.0f}초 초과")
-            chunk = resp.read1(4096)
-            if not chunk:
-                break
-            chunks.append(chunk)
-    finally:
-        if timer is not None:
-            timer.cancel()
+        threading.Thread(target=_close, daemon=True).start()
+
+    def work() -> None:
         try:
-            resp.close()
-        except Exception:
-            pass
-    if left() <= 0:  # 읽기가 마감을 넘겨 끝난 경우(4초 청크 + 8초 종료)
+            resp = urllib.request.urlopen(req, timeout=max(0.1, left()))
+            box["resp"] = resp
+            box["sock"] = getattr(getattr(getattr(resp, "fp", None), "raw", None), "_sock", None)
+            chunks: list[bytes] = []
+            try:
+                while True:
+                    if left() <= 0:
+                        raise TimeoutError(f"{method} 벽시계 {limit:.0f}초 초과")
+                    chunk = resp.read1(4096)
+                    if not chunk:
+                        break
+                    chunks.append(chunk)
+            finally:
+                resp.close()
+            box["raw"] = b"".join(chunks)
+        except BaseException as e:  # 소켓 닫힘·깨진 응답 — 호출한 쪽이 마감과 함께 판단한다
+            box["err"] = e
+        finally:
+            done.set()
+
+    threading.Thread(target=work, daemon=True).start()
+    if not done.wait(max(0.0, left())):  # 마감까지 결과가 없으면 실패
+        _shutdown()
         raise TimeoutError(f"{method} 벽시계 {limit:.0f}초 초과")
-    body = json.loads(b"".join(chunks).decode("utf-8"))
+    if left() <= 0:  # 결과가 마감을 넘겨 도착한 경우(4초 청크 + 8초 종료)
+        raise TimeoutError(f"{method} 벽시계 {limit:.0f}초 초과")
+    if "err" in box:
+        raise box["err"]
+    body = json.loads(box["raw"].decode("utf-8"))
     if not body.get("ok"):
         raise RuntimeError(f"{method} ok=false")
     return body

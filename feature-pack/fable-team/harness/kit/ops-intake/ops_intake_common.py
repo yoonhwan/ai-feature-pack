@@ -1,15 +1,17 @@
 """ops_intake_common — #howto-talk-ops 접수 도구 공용 (경로·스키마·마스킹·쪽지·시각).
 
 경로는 전부 env 로 옮길 수 있다(시험 = 임시 HOME). 기본값은 mini 기준 `~/.fable-team/ops-intake/`.
-비밀 가림은 하네스 공용 함수(`ft_secret_shapes.mask`) 하나만 부른다 — 규칙 복제 0. 공용 규칙표
-(`post_guard.SECRETS`)는 판정과 «머리표» 가림에만 쓴다(값 꼴은 이 파일에 없다). 개인키는 BEGIN~END 블록을
-통째로 지우고, 가림 뒤 공용 판정을 한 번 더 돌려 남으면 접수 거절(`mask_for_card`).
+비밀 가림은 하네스 공용 함수(`ft_secret_shapes.mask`) 하나만 부른다 — 규칙 복제 0. 그 모듈의 판본은
+sha256 고정값과 대조해 다르면 접수 거절(카드 r6). 공용 규칙표(`post_guard.SECRETS`)는 판정과 «머리표» 가림에만
+쓴다(값 꼴은 이 파일에 없다). 가림 자리는 `mask_text()` 하나뿐이다 — write.py·poster.py 는 이 함수만 부른다.
+순서 = 따옴표 안 값 → 개인키 BEGIN~END 블록 통째 삭제 → 공용 가림 → 공용 판정 재실행(남으면 원장 rejected + 거절).
 규칙 모듈을 못 찾으면 «판정 불가 = 차단»(IntakeError rc2) — 조용히 통과하지 않는다.
 개인정보(전화·이메일)만 이 파일에 정규식 2줄로 더한다(하네스 스캔에 없는 축).
 """
 from __future__ import annotations
 
 import fcntl
+import hashlib
 import json
 import os
 import re
@@ -30,10 +32,15 @@ USER_RX = re.compile(r"^U[A-Z0-9]{4,}$")
 EMAIL_RX = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 PHONE_RX = re.compile(r"(?<!\d)0\d{1,2}[-. ]?\d{3,4}[-. ]?\d{4}(?!\d)")
 SECRET_MODULE = "ft_secret_shapes.py"
+# ★판본 고정★ 착지한 공용 가림 함수(팩 origin/main 80a476d0 · r977)의 sha256 — 다르면 접수 거절(카드 r6).
+FT_SECRET_SHAPES_SHA256 = "8bdf45744dcc61aa52e7c716c2bed718f85c979703e4623da2153b8779b3f962"
 SEP_TAIL = "=:/"  # 규칙표에서 «이름+구분자» 로 끝난 머리표 — 값은 뒤 덩어리
 RUN_MIN, RUN_MAX = 2, 4  # 공백으로 쪼갠 값을 붙여 보는 이웃 덩어리 수
-PEM_BEGIN = re.compile(r"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----")
-PEM_END = re.compile(r"-----END [A-Z0-9 ]*PRIVATE KEY-----")
+# 개인키 머리말 집합 1개 — OPENSSH·RSA·EC·PGP(`PRIVATE KEY BLOCK`) 전부 «PRIVATE KEY» 를 품는다.
+PEM_BEGIN = re.compile(r"-----BEGIN [A-Za-z0-9 ]*PRIVATE KEY[A-Za-z0-9 ]*-----")
+PEM_END = re.compile(r"-----END [A-Za-z0-9 ]*PRIVATE KEY[A-Za-z0-9 ]*-----")
+# «이름=값» 의 값이 따옴표(쌍)로 감싸였을 때 그 경계 — 비밀 꼴이 아니라 구두점 경계다(개행 포함).
+QUOTED = re.compile(r"""(?P<pre>[A-Za-z_][A-Za-z0-9_]{1,}\s*[=:]\s*)(?P<q>["'])(?P<val>.*?)(?P=q)""", re.S)
 # 제어문자·폭 0 문자 — 검출 전에 지운다(이것들이 끼면 토큰이 쪼개져 검출을 빠져나간다 · DA r3 반례 1)
 CTRL_RX = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f\u00ad\u200b-\u200f\u2028\u2029\ufeff]")
 
@@ -121,9 +128,13 @@ def _secret_dirs() -> list[Path]:
 
 
 def _ft_mask():
-    """정본 1 = 하네스 출력 가림 규칙(ft_secret_shapes.RULES)."""
+    """정본 1 = 하네스 출력 가림 규칙(ft_secret_shapes.RULES) — 판본 sha256 을 고정값과 대조한다(r6)."""
     for d in _secret_dirs():
-        if (d / SECRET_MODULE).is_file():
+        f = d / SECRET_MODULE
+        if f.is_file():
+            got = hashlib.sha256(f.read_bytes()).hexdigest()
+            if got != FT_SECRET_SHAPES_SHA256:
+                raise IntakeError(f"공용 가림 함수 판본 다름(sha256 {got[:12]}…) · 판정 불가 · 카드 0", 2)
             if str(d) not in sys.path:
                 sys.path.insert(0, str(d))
             try:
@@ -158,7 +169,7 @@ def normalize(text: str) -> str:
 
 def detect_raw(text: str) -> list[str]:
     """공용 판정 — 공용 규칙 두 정본(ft_secret_shapes.RULES · post_guard.SECRETS)만 본다. 값은 돌려주지 않는다.
-    가림 «뒤» 이 함수를 한 번 더 돌려 남는 것이 있으면 접수 거절(카드 r5 · mask_for_card)."""
+    가림 «뒤» 이 함수를 한 번 더 돌려 남는 것이 있으면 접수 거절(카드 r6 · mask_text ⑧)."""
     kinds = [k for k, _ln in _ft_mask()(text)[1]]
     for name, pat in _pg_secrets().items():
         if re.search(pat, text):
@@ -169,6 +180,18 @@ def detect_raw(text: str) -> list[str]:
 def detect(text: str) -> list[str]:
     """정규화한 글에 대한 공용 판정."""
     return detect_raw(normalize(text))
+
+
+def mask_quoted_values(text: str) -> tuple[str, list[str]]:
+    """«이름=값» 의 값이 따옴표로 감싸여 있으면 그 안을 통째로 가린다 — 값에 개행·공백이 들어가도 경계가 보인다.
+    본다 것은 따옴표 «경계» 뿐이다(비밀 꼴 0) · 공용 가림 함수 호출 «전» 1단계(카드 r6)."""
+    kinds: list[str] = []
+
+    def sub(m: re.Match[str]) -> str:
+        kinds.append("quoted-value")
+        return m.group("pre") + m.group("q") + "***" + m.group("q")
+
+    return QUOTED.sub(sub, text), kinds
 
 
 def drop_pem_blocks(text: str) -> tuple[str, int]:
@@ -236,35 +259,50 @@ def _mask_split_runs(text: str) -> tuple[str, list[str]]:
     return " ".join(out), kinds
 
 
+def record_rejected(kinds: list[str]) -> None:
+    """접수 거절 1줄 — 사유 «종류» 만 남는다(값·본문 0). 원장 = state/rejected.jsonl."""
+    try:
+        path = sub("state") / "rejected.jsonl"
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(json.dumps({"ts": now_iso(), "reason": "leftover-secret", "kinds": sorted(set(kinds))}, ensure_ascii=False) + "\n")
+    except OSError:
+        pass  # 원장을 못 써도 거절은 한다(조용한 통과 0)
+
+
 def mask_text(text: str) -> tuple[str, list[str]]:
-    """(가린 글, 종류 목록) — 비밀은 ***, 개인정보는 자리표시자.
-    ★비밀 «꼴» 은 이 파일에 없다★ — ③은 공용 규칙표(post_guard.SECRETS)의 머리표만, ④는 공용 가림 함수
-    (ft_secret_shapes.mask)만 쓴다. ⑥ 개인정보 두 줄은 공용 가림 함수에 없는 축(비밀 아님)이라 여기 남긴다."""
+    """★가림 호출 자리 하나★ (write.py·poster.py 는 이 함수만 부른다 — common 한 곳).
+    (가린 글, 종류 목록) — 비밀은 ***, 개인정보는 자리표시자. 순서는 계약이다(카드 r6):
+    ① 따옴표 안 값 통째 → ② 개인키 BEGIN~END 블록 통째 삭제 → ③ 정규화 →
+    ④ 공용 규칙표(post_guard.SECRETS) 머리표 가림 → ⑤ 공용 가림 함수(ft_secret_shapes.mask) →
+    ⑥ 공백으로 쪼갠 값 창 → ⑦ 개인정보 → ⑧ 공용 판정 재실행, 남으면 원장 rejected + 접수 거절.
+    ★비밀 «꼴» 은 이 파일에 없다★ — 개인정보 두 줄만 공용 가림 함수에 없는 축(비밀 아님)이라 남긴다."""
     if not text:
         return "", []
-    body, dropped = drop_pem_blocks(text)  # ① 개인키 블록 통째 삭제
-    kinds = ["private-key"] * dropped
-    n = normalize(body)  # ② 정규화 먼저
-    n, pg = _mask_shared_heads(n)  # ③ 공용 규칙표 머리표 + 값 덩어리
-    masked, hits = _ft_mask()(n)  # ④ 공용 가림 함수 하나
+    body, kinds = mask_quoted_values(text)  # ① 따옴표 경계
+    body, dropped = drop_pem_blocks(body)  # ② 개인키 블록 통째 삭제
+    kinds += ["private-key"] * dropped
+    n = normalize(body)  # ③ 정규화 먼저
+    n, pg = _mask_shared_heads(n)  # ④ 공용 규칙표 머리표 + 값 덩어리
+    masked, hits = _ft_mask()(n)  # ⑤ 공용 가림 함수 하나
     kinds += pg + [k for k, _ln in hits]
-    masked, split = _mask_split_runs(masked)  # ⑤ 공백으로 쪼갠 값
+    masked, split = _mask_split_runs(masked)  # ⑥ 공백으로 쪼갠 값
     kinds += split
     for kind, rx, ph in (("email", EMAIL_RX, "<이메일>"), ("phone", PHONE_RX, "<전화번호>")):
-        masked, cnt = rx.subn(ph, masked)  # ⑥ 개인정보
+        masked, cnt = rx.subn(ph, masked)  # ⑦ 개인정보
         kinds += [kind] * cnt
-    return masked, kinds
-
-
-def mask_for_card(text: str) -> tuple[str, list[str]]:
-    """카드에 쓸 값 — 가림 «뒤» 공용 판정을 한 번 더 돌려 남으면 접수 거절(rc2 · 카드 0).
-    공백을 지운 판도 같이 본다 — 여러 조각으로 쪼개져 가림이 끝내 못 붙인 비밀이 남을 수 있다.
-    조용히 통과하는 길을 만들지 않는다(카드 r5 · DA⑥ r4)."""
-    masked, kinds = mask_text(text)
-    left = detect_raw(masked) or detect_raw(masked.replace(" ", ""))
+    left = detect_raw(masked) or detect_raw(masked.replace(" ", ""))  # ⑧ 공용 판정 재실행
     if left:
+        record_rejected(left)
         raise IntakeError(f"가림 뒤 비밀 잔여({kind_summary(left)}) · 판정 불가 · 카드 0", 2)
     return masked, kinds
+
+
+def post_kinds(text: str) -> list[str]:
+    """게시 직전 판정 — 카드와 «같은» 가림 자리를 거친다. 가리지 못한 잔여도 «비밀 있음» 으로 본다(게시 0)."""
+    try:
+        return mask_text(text)[1]
+    except IntakeError:
+        return ["unmasked-leftover"]
 
 
 def kind_summary(kinds: list[str]) -> str:

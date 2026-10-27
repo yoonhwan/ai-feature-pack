@@ -6,6 +6,7 @@ PASS py_compile sat-mbox.py
 PASS plutil com.byz.ops-intake-sync.plist.template
 PASS plutil com.byz.sat-pull.plist.template
 PASS plutil com.hermes.ops-intake-poster.plist.template
+PASS write.py diff 0 (r6 커밋 c52b84f8)
 test_b2_rescan_quarantines_masked_copy (__main__.TestIntake.test_b2_rescan_quarantines_masked_copy) ... ok
 test_b3_declared_masked_blocks (__main__.TestIntake.test_b3_declared_masked_blocks) ... ok
 test_b3_missing_field_blocks (__main__.TestIntake.test_b3_missing_field_blocks) ... ok
@@ -38,6 +39,14 @@ test_v_slow_finish_counts_wall_clock (__main__.TestR5.test_v_slow_finish_counts_
 R3: 4초에 성공 청크 · 8초에 종료 — 전체 벽시계 7초를 넘으면 sent 0 · 원장 failed. ... ok
 test_v_space_split_password_value_gone (__main__.TestR5.test_v_space_split_password_value_gone)
 R1: `password=\nhunter2hunter2` — 머리표만 가리고 값을 버리면 안 된다. ... ok
+test_w_late_headers_wall_clock (__main__.TestR6.test_w_late_headers_wall_clock)
+ⓓ 상태줄 즉시 · 헤더 4초 · 끝 8초 — 타이머가 urlopen «전» 이라 7초에 끊긴다(failed · sent 0). ... ok
+test_w_pgp_key_block_gone (__main__.TestR6.test_w_pgp_key_block_gone)
+ⓑ `-----BEGIN PGP PRIVATE KEY BLOCK-----` 도 머리말 집합 1개로 통째 삭제. ... ok
+test_w_quoted_value_all_combinations_gone (__main__.TestR6.test_w_quoted_value_all_combinations_gone)
+ⓐ «이름=값» 의 값이 따옴표로 감싸이면 개행·공백이 들어가도 값 글자 0 (2×6×9 = 108조합). ... ok
+test_w_rejected_ledger_and_version_pin (__main__.TestR6.test_w_rejected_ledger_and_version_pin)
+ⓒ 접수 거절 2사유 — ① 가림 뒤 잔여 = 원장 rejected 1줄(종류만 · 값 0) ② 판본 sha256 다름. ... ok
 test_r1_forged_header_blocks_intake (__main__.TestReworkR2.test_r1_forged_header_blocks_intake) ... ok
 test_r1_two_header_lines_block_intake (__main__.TestReworkR2.test_r1_two_header_lines_block_intake) ... ok
 test_r1_user_value_cannot_forge_header (__main__.TestReworkR2.test_r1_user_value_cannot_forge_header) ... ok
@@ -58,7 +67,7 @@ test_c_user_limit_blocks_sixth (__main__.TestWrite.test_c_user_limit_blocks_sixt
 test_t_concurrent_same_user (__main__.TestWriteLock.test_t_concurrent_same_user) ... ok
 
 ----------------------------------------------------------------------
-Ran 43 tests in 134.672s
+Ran 47 tests in 137.820s
 
 OK
 PASS mutate mask-off
@@ -78,6 +87,6 @@ PASS mutate cr-after-mask-off
 PASS mutate own-rules-off
 PASS mutate lock-scope-off
 PASS mutate own-mask-regex-off
-PASS mutate read-only-timeout
+PASS mutate timer-after-urlopen
+PASS mutate pin-off
 ALL PASS
-rc=0
