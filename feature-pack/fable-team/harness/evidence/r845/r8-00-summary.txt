@@ -1,0 +1,54 @@
+r845 재설계 r8 (오빠 결정 3 = 1번 · desk #174265 · 반송서 REWORK-r845-r8.md · arch 161) — 나노 산출
+가지 nano/r845-scratch-repo-register-before-hook-f-r3 · 앞 커밋 df9df4c1(r7) 위 1커밋 · base = 팩 origin/main 6f354dbf · push 0(master 몫)
+
+## 고침 1곳 (로직 추가 0 · 함수 호출 1곳)
+같은 sha·같은 주인 «재사용» 조건에 verify_complete(그 사본) 를 더한다 — HEAD 일치 ∧ 체크아웃 규칙 일치 ∧ 완전(HEAD == 요청 sha ∧ git status 깨끗) 일 때만 재사용.
+완전하지 않으면 그 줄을 건너뛰고 WARN 1줄(«불완전 사본 건너뜀 …») + 새 사본 생성. 삭제 0 · 장부 줄 유지.
+구현: verify_complete 를 경로 인자를 받는 공용 함수 1개로 올리고(전에는 DEST 전용 내부 함수) 생성 뒤 확인과 재사용 판정이 같은 함수를 쓴다.
+
+## 시험 칸 ⓚ (r8) — 같은 sha 재사용 · 첫 사본 파일 이동(moved.txt) · 재요청 (--full · --sparse · 반복)
+
+## 기준판(df9df4c1 = r7 세트) 빨강 — 3 FAIL rc=3 (더러운 사본 p2 == p1 을 rc0 으로 돌려줌)
+FAIL ⓚ (--full) rc=0 p1=[/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.AJ87GePZFv/scratch/repo-38149897-1793073677-83628] p2=[/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.AJ87GePZFv/scratch/repo-38149897-1793073677-83628] err=[] p1있음=Y reg=1 nreg=4/5
+FAIL ⓚ (--sparse) rc=0 p1=[/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.AJ87GePZFv/scratch/repo-38149897-1793073677-84158] p2=[/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.AJ87GePZFv/scratch/repo-38149897-1793073677-84158] err=[] p1있음=Y reg=1 nreg=5/6
+FAIL ⓚ (--sparse) rc=0 p1=[/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.AJ87GePZFv/scratch/repo-38149897-1793073678-84573] p2=[/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.AJ87GePZFv/scratch/repo-38149897-1793073678-84573] err=[] p1있음=Y reg=1 nreg=6/7
+(3 failed)
+
+## 새 판 초록 — 34 PASS ×3 rc=0 (원문 = r8-02-green-run1.txt)
+PASS ⓐ 훅 exit 4 → 사본은 그 sha 로 생김 · WARN 1줄 · 경로 rc0 · 장부 1줄
+PASS ⓑ 훅 SIGSEGV(rc139) → ⓐ 와 같음(사본 쓸 수 있음 · WARN · rc0)
+PASS ⓒ 장부 쓰기 불가 → WARN 1줄 · rc0 · 사본 그대로(장부 0줄)
+PASS ⓒ 장부 파일 권한 복구
+PASS ⓓ 옛 4열 장부 줄 = --done 거부 rc2 · 사본 그대로
+PASS ⓓ --sweep 은 옛 줄을 해석하지 않는다(경고 1줄 · 삭제 0)
+PASS ⓓ 장부에 있어도 워크트리가 아니면 --done rc2 · 폴더 그대로
+PASS ⓓ --sweep 도 워크트리 아닌 줄은 삭제 0
+PASS ⓔ 제어 문자 경로( / v a r / f o l d e r s…) → rc2 · 사본 0 · 장부 0
+PASS ⓔ 제어 문자 경로( / v a r / f o l d e r s…) → rc2 · 사본 0 · 장부 0
+PASS ⓕ FT_SCRATCH_DIR 없으면 $TMPDIR/ft-scratch/<주인>/ 아래에 만든다(재부팅 정리 자리)
+PASS ⓗ 남의 owner 폴더 등록 사본 --done → rc2 · WARN · 삭제 0 · 장부 유지
+PASS ⓗ 사본 자리 밖 등록 사본 --done → rc2 · WARN · 삭제 0 · 장부 유지
+PASS ⓗ --sweep 은 자리 밖·주인 다른 줄을 지우지 않는다(삭제 0 · 장부 유지 · WARN)
+PASS ⓗ 경계 안 정상 사본은 --sweep 이 지운다(경계 검사가 «항상 거절» 이 아님)
+PASS ⓘ 훅 rc0 + move (--full) → rc4 · 등록 0
+PASS ⓘ 훅 rc0 + head (--full) → rc4 · 등록 0
+PASS ⓘ 훅 rc0 + move (--sparse) → rc4 · 등록 0
+PASS ⓘ 훅 rc0 + head (--sparse) → rc4 · 등록 0
+PASS ⓚ (--full) 더러운 사본 재사용 0 → 새 사본(깨끗) · WARN 1줄 · 더러운 사본 삭제 0 · 장부 유지
+PASS ⓚ (--sparse) 더러운 사본 재사용 0 → 새 사본(깨끗) · WARN 1줄 · 더러운 사본 삭제 0 · 장부 유지
+PASS ⓚ (--sparse) 더러운 사본 재사용 0 → 새 사본(깨끗) · WARN 1줄 · 더러운 사본 삭제 0 · 장부 유지
+PASS ⓖ 기존 test_scratch_repo.sh ALL PASS
+PASS ⓖ 기존 test_scratch_judged_r645.sh ALL PASS
+PASS ⓖ 기존 test_scratch_sweep_live_cwd_r548.sh ALL PASS
+PASS ⓖ 기존 test_scratch_repo_sparse_auto_done_r891.sh ALL PASS
+PASS ⓖ kit 짝 cmp0
+PASS ⓖ /bin/bash(bash 3.2) 로 같은 시험 ALL PASS
+PASS 변이1(장부 실패 = die) → ⓒ FAIL
+PASS 변이2(장부 줄만 보고 삭제) → ⓓ FAIL
+PASS 변이3(입구 거절 삭제) → ⓔ FAIL
+PASS 변이4(owner 경계 제거) → ⓗ FAIL
+PASS 변이5(rc0 훅 완전성 건너뜀) → ⓘ FAIL
+PASS 변이6(재사용 완전성 확인 끔) → ⓚ FAIL
+ALL PASS
+
+## 범위 밖 그대로: 제어 문자 입구 거절(r1010 걷어내기 대상) · 권한·심링크 변조 · 장부 밖 사본 지우기(HIL) · beads 훅 SIGSEGV 원인

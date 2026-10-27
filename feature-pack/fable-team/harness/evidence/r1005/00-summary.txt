@@ -1,0 +1,63 @@
+r1005 발행 검증기 ft-news-verify — 선행(r850 · r1006 · r1004) 착지 위로 다시 얹음 (nano byz-harness-nano-r1005-news-verify-after-prereqs#0 · 2026-10-27)
+
+무엇: 뉴스·매거진 발행 직후 계획 §2 9칸(ⓐ~ⓘ)을 다시 재고 «검증 N/9» 한 줄 + 새 사건 칸만 planner [긴급] 1통. 발행은 안 막는다(rc·로그만).
+  · 검증기 = kit/fable-team/bin/ft-news-verify(입구) + _news_verify.py(151줄 · 칸 상한 7초·연속 셈 호출·R2 한 곳) + _news_verify_book.py(88줄 · 사건 키 쪽지·연속 24·자체 오류 1통 · r1005에서 분리) + _news_verify_lib.py(97줄 · 4값 상수·need/guarded·글 다듬기) + _news_verify_cells.py(142줄 · 원장 칸 ⓐ~ⓕ) + _news_verify_pub_cells.py(88줄 · 발행 칸 ⓖ~ⓘ) · 전부 200줄 아래 · 짝 사본 harness/bin cmp0
+  · 호출 1줄씩 = ft_news_html.py `verify_run`(publish_files 성공 갈래 첫 줄 · R2 쪽지) · kit/slack-mirror/magazine_from_news.sh(magazine_doc rc0 뒤)
+  · 칸 = 착지한 선행 함수 재호출만 — r851 gather(open_questions·hil_pending·queue_open·published_at) · ft_ledger_fill_src landed_commits·teams·git·ancestor · ft_ledger_fill_tables.lower_closed · r847 ft_news_ledger.fail_announced · r850 ft_news_html.live_teams · r1004 root_readback_guard.check · 판정 규칙 새로 구현 0(ⓔ «같은 경고 하루 2회» 만 arch 155 판단대로 직접 셈 — 카드 §반례 집합 각주)
+  · r853 판(2082d729)에서 바꾼 곳 하나: ⓘ 칸의 `root_readback_guard.problems(text)` → r1004 착지 판의 `check(text)`(None = 정상 · 사유 글자 = 거짓). 함수 확인은 getattr 한 곳(모듈만 있고 함수 없음 = «검증 불가»)
+
+반송 r1 (arch 160 · DA⑥ r1 HOLD · 동작 1) — 2026-10-27 13:4x
+  · 상태 파일 손상(JSON 으로 안 읽힘 · streak.json/alarm.json `{`) = «검증기 자체 오류» 길: 그 회차 출력 «검증 불가 — 상태 파일 손상»(9/9 금지) · ERROR 1줄 · planner 쪽지 1(사건 키 = 그 파일) · 손상 파일을 초기값으로 덮어쓰지 않는다 · «파일 없음» 은 지금대로 정상 초기값(첫 실행)
+  · 구현 = _news_verify_book.py 의 StateCorrupt + load_state(깨진 JSON 만 예외) + check_state(streak·alarm) · _news_verify.py 는 verify 뒤·출력 전에 check_state → 검증 불가 줄 + self_error + return 1(bookkeep 안 함 = streak/alarm 쓰기 0)
+  · 시험 3칸 추가(test_r1_1 streak 손상 · test_r1_2 alarm 손상 + 같은 실패 재실행 = 쪽지 누적 1 · test_r1_3 파일 없음 = 첫 실행 9/9 rc0) · 변이 ⑨ «JSON 오류 → {} 복원» KILLED
+
+반송 r2 (arch 162 · 오빠 결정 1) — 2026-10-27 14:4x
+  · ⓖ 원천 가져오기 칸 = «최신 상태가 이긴다»: r847 구간 표식(fail_announced = fetch-last)이 꺼져 있으면 과거 로그(꼬리 4,000줄)의 «원장 ref fetch 실패» 줄을 세지 않는다 — 조건 1개(_news_verify_pub_cells.py) · 로직 추가 0
+  · 시험 2칸: 과거 실패 줄 + 표식 False → ⓖ 참 · 9/9 rc0 · 쪽지 0 / 표식 True → 지금대로 거짓 · 쪽지 1 · CASES 의 ⓖ 거짓 주입도 «표식 켜짐» 을 함께 만들도록 고침(fetch-last=fail) · 변이 ⑩ «표식 무시» KILLED
+  · real-dryrun 재실행 → «검증 5/9» rc1(ⓖ 참으로 4/9 → 5/9 · 실 로그에 남은 과거 4줄은 셈 0 · 실 fetch-last=ok)
+
+반송 r3 (arch 162 · 오빠 결정 2 = 1번) — 2026-10-27 15:3x
+  · ⓖ 판정 입력을 «둘» 로: ① 로그의 «마지막 fetch 줄»(실패 줄 = 원장 ref fetch 실패 · 성공 줄 = fetch 생략(ls-remote 같음)) ② 실패 표식(fail_announced = fetch-last)
+    판정 = 마지막 줄 실패 → 거짓(표식이 ok 여도 · ft_news_ledger.py:485 의 15분 유예 때문에 표식이 최신이 아닐 수 있다) · 마지막 줄 성공 → 참(과거 실패 줄 셈 0 · 반송 r2 유지) · fetch 줄 0 → 표식 값으로만 · 로그/표식 못 읽음 = «검증 불가»(C2 · 9/9 아님 · 쪽지 0)
+  · ft_news_ledger.py:485 은 손대지 않음(범위 밖 · 별 카드 후보) · 로직 추가 0(조건 1개 → 2개 · 함수 last_fetch 1곳)
+  · 시험 3칸: 마지막 줄 실패 + 표식 ok → 거짓·8/9·쪽지 1 / 마지막 줄 성공 + 과거 실패 2줄 + 표식 ok → 참·9/9·쪽지 0 / 로그 못 읽음(000) → 검증 불가·쪽지 0 · 반송 r2 칸의 «성공» 줄도 실 로그와 같은 문구로 고침 · 변이 ⑪ «마지막 fetch 줄 무시(표식만)» KILLED(⑩ 은 «fetch 줄 0 일 때 표식 안 봄» 으로 자리 갱신)
+  · real-dryrun 재실행 → «검증 5/9» 유지(실 로그 마지막 fetch 줄 = 1343행 «INFO fetch 생략(ls-remote 같음) origin/main=0523a64ace ledger/auto=4dd30defe7» · 실 fetch-last=ok · 과거 실패 4줄 셈 0)
+
+반송 r4 (arch 164 · 오빠 결정 3 = 4번) — 2026-10-27 16:2x
+  · ⓖ 를 «추측» 에서 «직접 비교» 로 교체: 로그 파싱(last_fetch·FETCH_OK·FETCH_FAIL)·표식(fail_announced) 읽기를 삭제하고, ft_news_ledger._git_capped 재호출로
+    ① 원격 = ls-remote origin refs/heads/main refs/heads/<br>(br = ft_ledger_fill_src.branch() 재호출) ② 로컬 = rev-parse --verify -q refs/remotes/origin/{main,br}
+    ③ 같음 = 참 · 다름 = 거짓(«원장 원천이 뒤처짐: main <원격8>≠<로컬8>» · 쪽지 1) · ls-remote rc≠0·refs/heads/main 없음·시간 초과(rc None)·rev-parse rc∉{0,1}·branch() 예외 = «검증 불가»(9/9 아님 · 쪽지 0)
+  · 마감 = 이 칸에서만 FT_NEWS_FETCH_BUDGET=7 로 낮춰(복원) 첫 묻기 상한 5.5초(7 − 유예 1.5) — 칸 상한 7초를 넘기지 않는다(rc None = 검증 불가)
+  · ft_news_ledger.py 손 0(15분 유예·_read_last 오류 삼킴·성공 로그 0 = 별 카드 r1028 후보) · 비교 로직 = cell_g 1함수 13줄 · 파일 116줄
+  · 시험 ⓖ 5칸(옛 로그·표식 5칸) → 새 4칸(ⓖ1 같음=9/9·쪽지 0 · ⓖ2 원격 전진=8/9·쪽지 1·두 sha 8자 · ⓖ3 ls-remote 실패 rc=128 / 7초 초과 rc=None = 검증 불가·쪽지 0) · CASES 의 ⓖ 거짓 주입도 «원격 전진» 대역으로 교체 · 변이 ⑫ «ls-remote 실패를 참으로» KILLED(⑩⑪ 은 칸 교체로 삭제)
+  · real-dryrun 재실행 → «검증 5/9» 유지 · ⓖ 참(main 원격 5d0b653d = 로컬 · ledger/auto 원격 c60592f4 = 로컬 · ls-remote 3.69초) · 실 상태·쪽지 쓰기 0
+
+반송 r5 (arch 166 · 오빠 결정 4 = 1번) — 2026-10-27 17:2x
+  · ⓖ 예산 공유: cell_g 시작에서 t0 = time.monotonic() 1번만 재고 _capped(ctx, t0, …) 세 호출이 그 t0 를 나눠 쓴다 → 합계가 7초에 닿으면 안쪽 _git_capped 이 먼저 rc None 으로 끊어 «검증 불가 · 쪽지 0» 길로 간다(바깥 CELL_S «모름» 보다 항상 먼저). 예산 값(CAP_ENV=7)·판정 길·ft_news_ledger.py 손 0 · 3줄 변경
+  · 시험 ⓖ4 추가: git 대역이 ls-remote 4초 + rev-parse 4초(각각 7초 안 · 합 8초 · 남은 예산은 실 규칙 _attempt_timeout 으로 잼) → «검증 불가»(rc=None · 9/9 아님 · ERROR 0 · 쪽지 0) · 바깥 «7초 초과 — 모름» 0 · 40 passed rc0
+  · 변이 ⑬ «예산 공유 되돌림(호출마다 t0 새로)» KILLED(10종 전부)
+  · real-dryrun 재실행 → «검증 5/9» 유지 · ⓖ 참(main 원격 656910e0 = 로컬 · ledger/auto c60592f4 = 로컬 · ls-remote 3.21초 · 세 호출 합계 3.25초) · 실 상태·쪽지 쓰기 0
+
+DA⑥ r2 [수용] 반례 6건 (카드 §반례 집합 동결 · 전부 닫음)
+  1. 검증 불가를 복구로 읽음(_news_verify.py:119) → 열린 사건 집합에서 «지금 참이 아닌 칸(실패·모름·검증 불가)» 만 유지. 검증 불가 칸은 닫지도 새로 열지도 않는다. 시험 = 거짓 → 검증 불가 → 같은 거짓 = 쪽지 누적 1→1→1
+  2. 발행본 읽기 권한 오류(:164) → 발행본 읽기를 main 의 R2 try 안으로 옮김. PermissionError = 발행 유지 · ERROR 1줄 · 쪽지 1 · rc1(예외 전파 0)
+  3. 오류 처리기 안 오류(:144) → self_error 의 상태 읽기를 꼴 검사 로더(lib.load)로. streak.json=[] · self-error.json=[] 에서도 ERROR + 쪽지 1
+  4. 자체 오류 재발 알림 0(:144) → 정상 완주 때 self-error 사건을 닫는다(`_save(st/'self-error.json', {})`). 같은 사유 재발 = 새 1통(누적 1→1→2)
+  5. 꼬리 쓰기 실패인데 9/9(:93) → tail_line 이 사유를 돌려주고 main 이 rc≠0 + ERROR 1줄 + 쪽지 1 로 만든다(«(꼬리 못 씀 — 9/9 아님)» 출력 · 연속 셈 안 올림)
+  6. 매거진 출력 폴더 `~/` 글자 그대로(magazine_from_news.sh:47) → 출력 폴더와 발행 출력 경로의 «~» 를 편다(«~» → HOME · «~/x» → HOME/x) · HOME 없이 «~» 면 ERROR 1줄 + rc7 · 그 밖 경로는 ${HOME:-} 로 set -u 안전
+
+시험 (tests/scripts/test_news_verify_r1005.py · 40 tests · 임시 bare origin + 사본 · 실 발행·실 슬랙·실 쪽지 0 · FT_NOW 고정 · r1004 가드는 대역)
+  ⓐ 9칸 참 → «검증 9/9» rc0 · 로그 1줄 · 꼬리 «검증 9/9» · streak 1 · 쪽지 0
+  ⓑ 칸별 거짓 주입 8종 → «검증 8/9 · 실패 <칸>» rc1 · [긴급] 1통 · 같은 칸 또 거짓 0통 · 참 뒤 다시 거짓 새 1통 · ⓔ 는 하루 두 판 시험
+  ⓒ 장부 못 읽음 = 모름 = 실패로 셈 · ⓓ 23→24 = 끝선 1통(다음 0통) · ⓔ 칸 예외 = ERROR+쪽지 1 · verify_run 예외 전파 0
+  ⓘ 4시험(가드 재호출 · None 참 · 사유 거짓 · 모듈 없음/함수 없음 = 검증 불가 · 자체 판정 0)
+  V2 2 · V3 2 · V4 2 · V5 2(--out-dir 두 꼴 · 파일 없음 rc7) · V6 1(HOME 없음 WARN rc0) · r1005 반례 7시험(1~6 + HOME 없음 «~» rc7)
+  반송 r1 3칸(상태 파일 손상 2 · 파일 없음 첫 실행 1) · 반송 r2 2칸(표식 꺼짐 = 과거 로그 셈 0 · 표식 켜짐 = 거짓) · 반송 r3 3칸(옛 ⓖ 칸 — 반송 r4 에서 교체)
+  mutation.sh → mutation.txt — 10종 전부 KILLED(칸이 바뀐 ⑩⑪ 은 삭제 · ⑫⑬ 신설)(① 모름=통과 ② 사건 키 삭제 ③ 검증 불가=복구 ④ ⓘ 자체 판정 ⑤ 꼬리 실패 삼킴 ⑥ 자체오류 사건 닫기 삭제 ⑦ 발행본 읽기 예외 안 받음 ⑧ 매거진 «~» 펼침 삭제)
+
+빨강 먼저: red-base.txt (기준판 origin/main bin 으로 새 시험 = 모듈 없음 수집 오류 rc2) → green.txt (32 passed rc0)
+실 원천 읽기 전용 1회(반송 r1 갱신): real-dryrun.txt — 지금 최신 뉴스 발행본(NEWS-20261027-1140-p8.md) + launchd com.byz.ft-news-planner 와 같은 env(FT_HARNESS_ROOT·FT_ROOT·FT_LEDGER_REPO·FT_NEWS_DIR·PATH) · 임시 상태 폴더 · 가짜 쪽지함 → «검증 5/9» rc1(반송 r2 뒤) · 참 5칸(ⓓⓔⓕⓖⓘ) · 실패 5칸마다 «모드 차이 / 검증기 오판» 1줄 근거(발행본 파일:줄 · 장부 값 원문) · 실 상태·실 쪽지 쓰기 0
+회귀: regress.txt — 뉴스·매거진·원장 7파일 178 passed · 2 failed 는 기준판(origin/main)에서도 같은 2건 실패(test_ledger_fill_r851 의 rc6 기대 vs r707 가드 rc7 · 이 카드 무관 · 같은 파일 2.4초 실측) · kit↔bin cmp0(tests/test_kit_bin_sync.sh ALL PASS)
+
+press 필요: 없음 — 이 카드는 발행 뒤 검증 도구 + 시험 · 라이브 발화(뉴스 24회 연속 9/9 + 매거진 1회)는 planner 계획 §4 끝선 몫
+알려진 한계: 라이브 발행이 FT_NEWS_MODE=draft 라 9칸 중 ⓐⓑⓒ(지도 판 머리 모양)는 «모드 차이» 로 늘 실패 — 칸 설계는 카드 동결대로 그대로 둔다(새 기준 0) · ⓖ 는 «시각 없는 로그» 라 옛 fetch 실패 줄을 오늘로 셈(오판 · 알려진 한계) · ⓗ 는 «m.lecture» vs 명부 «lecture» 이름 비교가 빗나감 · ⓐ 선행 gather 실측 6.8초 = 칸 상한 7초 여유 0.2초 · ⓔ «같은 경고 하루 2회» 만 선행 함수가 없어 직접 셈(arch 155 판단 «기준 밖» · r853 탐색 원문 evidence 는 옛 가지에 있음) · 「악성 권한 발행본」 같은 root 실행 환경에서는 0444 시험이 안 걸린다(현 사용자 계정 실측 rc1 — 사용자 권한 기준)

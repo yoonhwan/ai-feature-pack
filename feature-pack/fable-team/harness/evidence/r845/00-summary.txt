@@ -1,0 +1,30 @@
+r845 재설계 r6 — ft-scratch-repo.sh: 임시 사본은 재부팅이 지우는 자리에, 장부는 «있으면 참고» (arch 157 · 오빠 결정 10-27 08:5x desk #172744)
+
+base = 팩 origin/main 6f354dbf · 가지 nano/r845-scratch-repo-register-before-hook-f-r3 (push 0 · master 몫)
+
+바뀐 곳 (ft-scratch-repo.sh · 키트 1 + 추적본 1 = cmp0)
+1) 기본 생성 자리 = $TMPDIR/ft-scratch/<주인>/ (TMPDIR 없으면 /tmp/ft-scratch/<주인>/). 장부는 «있으면 참고» — 등록 쓰기 실패 = WARN 1줄 · rc0(사본은 그대로 쓴다).
+2) 훅(post-checkout) 실패로 worktree add/checkout 이 rc≠0 이어도 DEST 가 «요청 sha 그대로 + git status 깨끗» 이면 WARN 1줄 + 경로 출력 rc0. 아니면(안 생김 · 반쯤 = 파일 누락/필터 실패) 지금처럼 die 4 · 등록 0 · 지우기 0.
+3) --done = 장부의 «3열 · 정확히 같은 글자» 줄 ∧ 그 경로가 «분리(detached) git 워크트리» 둘 다일 때만 지운다(정규식 0 · 장부 글자만으로는 삭제 0). --sweep/--report 도 같다 — 옛/깨진 줄(필드 수 ≠3 · 경로에 제어 문자)은 건너뛰고 WARN 1줄 · 삭제 0.
+4) 생성 경로(FT_SCRATCH_DIR · 주인 · BASE · DEST)에 제어 문자(0x00–0x1F · 0x7F)가 있으면 «만들기 전에» rc2 거절 — r6 반례 집합 «제어 문자 경로 = 입구 거절»(r1008 공용 함수 착지 전 자체 검사 1줄).
+5) \\--report --orphans 는 FT_SCRATCH_DIR 가 없을 때 $TMPDIR 과 그 아래 ft-scratch/<주인>/ 둘 다 본다(재부팅 자리 사본도 «미등록» 표에 보인다).
+
+판정 (증거 파일)
+- 01 기준판(origin/main 6f354dbf) 빨강: 10 FAIL rc=10 — ⓐⓑ rc4 로 사본을 못 씀 · ⓒ 장부 실패에도 rc0/장부 1줄 · ⓓ 지우기 검사 없음 · ⓔ 탭 경로에 사본을 만들고 장부 줄을 깨뜨림(`bad<TAB>dir`) · ⓕ 기본 자리가 $TMPDIR 바로 아래.
+- 02 새 판 초록 3회: 20 PASS ×3 rc=0.
+- 03 기존 scratch 시험 4종: test_scratch_repo.sh 23 PASS · test_scratch_judged_r645.sh 10 PASS · test_scratch_sweep_live_cwd_r548.sh 18 PASS · test_scratch_repo_sparse_auto_done_r891.sh 27 PASS — 전부 ALL PASS rc=0(동작 변화 0).
+- 04 변이 3: «장부 실패 = die» → ⓒ FAIL · «장부 줄만 보고 삭제(워크트리 확인 없이)» → ⓓ FAIL · «입구 거절 삭제» → ⓔ FAIL. /bin/bash(bash 3.2) 로 같은 시험 ALL PASS.
+- 05 bash -n · /bin/bash -n OK · kit↔harness/bin cmp0. 06 세트·미커밋.
+
+계약 ↔ 시험 대응표
+- «훅 실패여도 생긴 사본은 쓸 수 있다(경로 rc0 + WARN)» = ⓐ · ⓑ
+- «장부는 best-effort(쓰기 실패 = WARN · die 0)» = ⓒ (+ 변이 1)
+- «지우기 = 장부 3열 같은 글자 ∧ 분리 워크트리» = ⓓ (+ 변이 2)
+- «제어 문자 경로 = 입구 거절» = ⓔ (+ 변이 3) — 계약 표에는 없는 칸, r6 반례 집합의 그 항을 닫은 것
+- «임시 자리 기본값 = $TMPDIR/ft-scratch/<주인>/» = ⓕ — 구현 범위 1항
+- «기존 scratch 시험 4종 base 와 같음 · kit cmp0 · bash 3.2» = ⓖ
+
+해석 1줄(설계 판단 — DA 가 볼 곳)
+r6 «장부 3열·옛 줄 해석 0» 을 «옛/깨진 줄로는 지우지 않는다(건너뜀 + WARN)» 로 읽었다. 기존 시험 r548 ⓗ 가 «3열 나이 칸이 숫자 아님 = ERROR + 삭제 0» 을 계약으로 잡고 있어 장부 3열 자체를 버릴 수 없다. 그래서 지우기 쪽 안전장치를 «정확한 글자 대조 + 분리 워크트리 확인» 두 겹으로 세웠다.
+
+press 필요: 없음(단위 시험만 — 라이브 오디오·말풍선·제품 키 경로 0).
