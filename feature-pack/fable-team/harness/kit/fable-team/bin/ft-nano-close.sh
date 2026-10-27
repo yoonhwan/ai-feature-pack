@@ -680,7 +680,7 @@ jq -e --arg s "$SEAT" 'has($s)' "$SEATS" >/dev/null 2>&1; _hrc=$?
 # ★r1023★ --landed-pr 의 리포 = «카드 세트 가지가 사는 리포» 하나 — 호출 cwd·인자와 무관(추측 0). r1019 설치 뒤 실사건 3/3: BYZ cwd 에서 닫으면
 #   gh 가 cwd 리포의 «같은 번호» PR 을 읽어 head 가 틀리고(팩 PR 402 head 73b03a4f vs BYZ PR 402 7464fd052) 판정기도 BYZ 에서 돌아 rc3(객체 없음)이었다.
 #   ⓐ 함께 온 --wt 가 팩 등록 워크트리 → 팩  ⓑ 카드 «대상:» 줄 경로가 전부 FT_PACK_ROOT 아래 → 팩 · 전부 밖 → ROOT  ⓒ 섞임·절대경로 0·origin 꼴 못 품 = REJECT 1줄(닫기 0 · gh 호출 0).
-_lp_repo=""; _lp_slug=""; _lp_repo_err=""; _lp_nocard=0
+_lp_repo=""; _lp_slug=""; _lp_repo_err=""; _lp_slug_url=""
 _lp_pack_root() { ( cd "${FT_PACK_ROOT:-$HOME/Project/ai-feature-pack}" 2>/dev/null && pwd -P ); }
 _lp_is_pack_wt() {  # <경로> → 팩 리포에 등록된 .worktrees/ 아래면 그 팩 루트를 찍고 rc0(읽기만 · _pack_wt 같은 부수효과 0)
   local pk pporc
@@ -693,16 +693,18 @@ _lp_is_pack_wt() {  # <경로> → 팩 리포에 등록된 .worktrees/ 아래면
 _lp_slug_of() {  # <리포> → owner/repo (ssh 꼴 · 꼴들 · 끝 .git 유무) · 꼴 밖·remote 없음 = rc1
   local url
   # remote.origin.url 을 «설정값 그대로» 읽는다 — git remote get-url 은 url.<x>.insteadOf 를 펼칠 수 있다(시험 리포가 로컬 전송을 쓰는 꼴)
+  # ★r1023 r2(DA⑥ 1/2 동작②)★ 허용 꼴은 둘뿐: ssh «user@host:owner/repo(.git)» · https «http(s)://host/owner/repo(.git)». 그 밖(file:///tmp/local · 빈 값 · «owner/repo» 만) = 꼴 밖 → 판정 불가(추측 0).
   url="$(git -C "$1" config --get remote.origin.url 2>/dev/null)"
+  _lp_slug_url="${url:0:40}"
   [ -n "$url" ] || return 1
-  url="${url%.git}"; url="${url%/}"
-  case "$url" in
-    *://*) url="${url#*://}"; url="${url#*@}"; url="${url#*/}";;   # 꼴://[user@]host/owner/repo → owner/repo
-    *:*)   case "${url%%:*}" in /*) return 1;; esac; url="${url#*:}";;   # [user@]host:owner/repo
-    *)     return 1;;                                                  # 로컬 경로 등 = 꼴 밖(추측 0 · 판정 불가)
-  esac
-  case "$url" in ''|/*|*/*/*|*\ *|*//*) return 1;; esac
-  case "$url" in */*) printf '%s\n' "$url";; *) return 1;; esac
+  url="${url%.git}"; url="${url%/}"   # 끝 «.git»·«/» 는 꼴 허용 폭(카드 1ⓒ ssh 꼴 · https 꼴 · 끝 .git 유무 모두)
+  if [[ "$url" =~ ^[A-Za-z0-9._-]+@[A-Za-z0-9._-]+:([A-Za-z0-9._-]+)/([A-Za-z0-9._-]+)(\.git)?$ ]]; then
+    printf '%s/%s\n' "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}"; return 0
+  fi
+  if [[ "$url" =~ ^https?://[A-Za-z0-9._-]+(:[0-9]+)?/([A-Za-z0-9._-]+)/([A-Za-z0-9._-]+)(\.git)?$ ]]; then
+    printf '%s/%s\n' "${BASH_REMATCH[2]}" "${BASH_REMATCH[3]}"; return 0
+  fi
+  return 1
 }
 _lp_card_targets() {  # 카드 «대상:» 줄(마지막)의 절대경로만 — (…)·«·»·쉼표 = 구분자
   [ -n "${CARD_READ:-}" ] && [ -f "$CARD_READ" ] || return 0
@@ -714,21 +716,19 @@ _lp_repo_pick() {  # 리포(·slug) 하나를 정한다 — 못 정하면 _lp_re
   _lp_repo=""; _lp_slug=""; _lp_repo_err=""
   if [ -n "$NWT" ]; then nw="$(cd "$NWT" 2>/dev/null && pwd -P)"; [ -z "$nw" ] || repo="$(_lp_is_pack_wt "$nw")"; fi
   if [ -z "$repo" ]; then
-    if [ "$_lp_nocard" = 1 ]; then repo="$ROOT"   # 명부 부재 재실행 자리 = 카드 index 를 알 수 없다 — PR 검증은 지금처럼 돌리고 gh 실패/사유로 줄을 낸다(음소 통과 0)
-    else
-      pk="$(_lp_pack_root)"
-      while IFS= read -r t; do
-        [ -n "$t" ] || continue
-        n=$((n+1))
-        case "$pk" in '') nout=$((nout+1));; *) case "$t" in "$pk"|"$pk"/*) nin=$((nin+1));; *) nout=$((nout+1));; esac;; esac
-      done <<< "$(_lp_card_targets)"
-      if [ "$n" -eq 0 ]; then _lp_repo_err="⑥--landed-pr 리포를 정할 수 없다(카드 «대상:» 줄에 절대경로 0 · ${CARD_READ:-카드 없음}) — 닫지 않음(추측 0)"; return 1; fi
-      if [ "$nin" -gt 0 ] && [ "$nout" -gt 0 ]; then _lp_repo_err="⑥--landed-pr 리포를 정할 수 없다(카드 «대상:» 줄 경로가 팩 ${nin}개·밖 ${nout}개로 섞임 · ${CARD_READ:-카드 없음}) — 한 카드 = 한 리포 · 닫지 않음"; return 1; fi
-      if [ "$nin" -gt 0 ]; then repo="$pk"; else repo="$ROOT"; fi
-    fi
+    if [ -z "${CARD_READ:-}" ] || [ ! -f "$CARD_READ" ]; then _lp_repo_err="⑥--landed-pr 리포를 정할 수 없다(카드 없음 · seats.json index=${IDX:-<빈 값>}) — 닫지 않음(추측 0)"; return 1; fi
+    pk="$(_lp_pack_root)"
+    while IFS= read -r t; do
+      [ -n "$t" ] || continue
+      n=$((n+1))
+      case "$pk" in '') nout=$((nout+1));; *) case "$t" in "$pk"|"$pk"/*) nin=$((nin+1));; *) nout=$((nout+1));; esac;; esac
+    done <<< "$(_lp_card_targets)"
+    if [ "$n" -eq 0 ]; then _lp_repo_err="⑥--landed-pr 리포를 정할 수 없다(카드 «대상:» 줄에 절대경로 0 · ${CARD_READ:-카드 없음}) — 닫지 않음(추측 0)"; return 1; fi
+    if [ "$nin" -gt 0 ] && [ "$nout" -gt 0 ]; then _lp_repo_err="⑥--landed-pr 리포를 정할 수 없다(카드 «대상:» 줄 경로가 팩 ${nin}개·밖 ${nout}개로 섞임 · ${CARD_READ:-카드 없음}) — 한 카드 = 한 리포 · 닫지 않음"; return 1; fi
+    if [ "$nin" -gt 0 ]; then repo="$pk"; else repo="$ROOT"; fi
   fi
   [ -n "$repo" ] || { _lp_repo_err="⑥--landed-pr 리포를 정할 수 없다(카드 «대상:» 줄·--wt 어느 쪽도 리포를 가리키지 않음) — 닫지 않음"; return 1; }
-  _lp_slug="$(_lp_slug_of "$repo")" || { _lp_slug=""; _lp_repo_err="⑥--landed-pr 리포($repo)의 origin 에서 owner/repo 를 풀 수 없다(remote 없음·꼴 밖) — 판정 불가로 닫지 않는다(하드 룰 20)"; return 1; }
+  _lp_slug="$(_lp_slug_of "$repo")" || { _lp_slug=""; _lp_repo_err="⑥--landed-pr 리포($repo) origin 꼴 밖(${_lp_slug_url:-빈 값}) — ssh «user@host:owner/repo» · https «http(s)://host/owner/repo» 만 푼다 · 판정 불가로 닫지 않는다(하드 룰 20)"; return 1; }
   _lp_repo="$repo"
   return 0
 }
@@ -783,7 +783,8 @@ _lp_equiv_gate() {
 #   명부 부재·조기 재실행 경로(바로 아래)만 카드 없이(_lp_nocard=1 · ROOT) 지금처럼 PR 을 먼저 본다 — 그 자리 REJECT 순서(gh 실패 › 사유) 불변.
 if [ "$_hrc" -eq 1 ] && [ -n "$_lrow" ]; then
   # r1011 r2: 명부에 행이 없으면 카드 index 를 알 수 없다 — 착지 검증(세트·«- 착지:»)을 건너 뛰고 닫는 대신 그 자리 REJECT(조용한 통과 0).
-  [ -z "$LANDED_PR" ] || { _lp_nocard=1; _lp_fetch_pr || { echo "REJECT $SEAT"; echo "  - $_lp_pr_err"; exit 1; }; echo "REJECT $SEAT"; echo "  - ⑥--landed-pr: 명부에 좌석 행이 없어 카드 index 를 알 수 없다 — «세트»·«- 착지:» 대조 불가(닫기 0 · kill 0 · 원장 append 0) · 명부 행을 복구하거나 카드 경로를 확인해라"; exit 1; }
+  # r1023 r2(DA⑥ 1/2 동작①): 카드 index 를 모르면 리포도 못 정한다 — gh 호출 0(추측으로 cwd 리포를 읽지 않는다) · 사유 줄은 그대로 REJECT.
+  [ -z "$LANDED_PR" ] || { echo "REJECT $SEAT"; echo "  - ⑥--landed-pr: 명부에 좌석 행이 없어 카드 index 를 알 수 없다 — «세트»·«- 착지:» 대조 불가(닫기 0 · kill 0 · 원장 append 0) · 명부 행을 복구하거나 카드 경로를 확인해라"; exit 1; }
   echo "재실행 — 명부에 없고 원장 닫힘 행 있음: 검사 건너뛰고 남은 정리(reap·회수·태그·kill)만"
   SEAT_WT=""; SEAT_BR=""; _RERUN_STD=0; _RERUN_INFOED=0; _RERUN_ZERO_WHY="표준 좌석 해석 밖"
   if [ "$NAMED" = 1 ]; then
