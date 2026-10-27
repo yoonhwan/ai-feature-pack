@@ -182,6 +182,32 @@ grep -q '대조한 키 2' "$T/rep-r3.md" && grep -q 'missed=2' <<<"$out"; ck "R3
 novalue "$T/rep-r3.md" "$T/e3" <<<"$out"; ck "R3 출력에 값 0" $?
 }
 
+
+ft_only r3 && {   # ── 새 칸(r3 · DA r2 동작 2): R6 같은 제목 2항목 · R5 파일 도구 경로
+# R6 — 같은 제목 DUP 2항목(첫째 값이 기록과 같음) → 일치 1 · 표에 DUP 2줄
+printf '{"vaults":{"develop":[["DUP","%s"],["DUP","zzz-other-item"]]}}' "$V1" > "$T/vaults-dup.json"
+printf '{"timestamp":"2026-11-02T10:00:00Z","stdout":"API_TOKEN=%s"}\n' "$V1" > "$T/dup.jsonl"
+printf '| %s | 1 | named-secret | 실값 |\n' "$T/dup.jsonl" > "$T/TRIAGE3.md"
+out="$(FT_FOLLOWUP_TMUX="$T/tmux" FT_FOLLOWUP_VAULTS_JSON="$T/vaults-dup.json" FT_FOLLOWUP_GCLOUD="$T/gcloud" \
+  python3 "$PY" --triage "$T/TRIAGE3.md" --keys-log "$T/keys.md" --report "$T/rep-r6.md" 2>"$T/e6")"; rc=$?
+grep -q '머리 줄: \*\*일치 1\*\* (OP develop · DUP)' "$T/rep-r6.md"; ck "R6 같은 제목 2항목 → 일치 1" $?
+[ "$(grep -c '| OP develop · DUP |' "$T/rep-r6.md")" = 2 ]; ck "R6 같은 제목 2줄을 둘 다 센다" $?
+grep -q '| OP develop · DUP | 살아 있음(일치) | 1 |' "$T/rep-r6.md" && grep -q '| OP develop · DUP | 옛 키(일치 0) | 0 |' "$T/rep-r6.md"
+ck "R6 항목마다 따로 판정(앞 항목이 덮이지 않음)" $?
+grep -q '대조한 키 4' "$T/rep-r6.md"; ck "R6 대조한 키 4(같은 제목 2 + SM 2)" $?
+novalue "$T/rep-r6.md" "$T/e6" <<<"$out"; ck "R6 출력에 값 0" $?
+
+# R5 — Read 처럼 file_path 를 쓰는 도구: 도구 칸에 경로 0 (경로 안에 합성 값이 있어도)
+printf '{"type":"assistant","timestamp":"2026-11-02T10:05:00Z","message":{"content":[{"type":"tool_use","name":"Read","input":{"file_path":"%s/%s.txt"}}]}}\n' \
+  "$T" "$V2" > "$T/path.jsonl"
+printf '| %s | 1 | named-secret | 실값 |\n' "$T/path.jsonl" > "$T/TRIAGE4.md"
+out="$(FT_FOLLOWUP_TMUX="$T/tmux" FT_FOLLOWUP_VAULTS_JSON="$T/vaults.json" FT_FOLLOWUP_GCLOUD="$T/gcloud" \
+  python3 "$PY" --triage "$T/TRIAGE4.md" --keys-log "$T/keys.md" --report "$T/rep-r5.md" --plan "$T/plan-r5.md" 2>"$T/e5")"; rc=$?
+grep -q 'assistant · Read()' "$T/rep-r5.md"; ck "R5 파일 도구 = 도구 이름만(경로 0)" $?
+! grep -q '\.txt' "$T/rep-r5.md"; ck "R5 도구 칸에 경로 글자 0" $?
+novalue "$T/rep-r5.md" "$T/plan-r5.md" "$T/e5" <<<"$out"; ck "R5 보고·계획·stdout·stderr 에 값 0" $?
+}
+
 # 짝 사본 cmp0
 KIT="$HARNESS/kit/fable-team/bin"
 if [ "$BIND" = "$HARNESS/bin" ]; then
@@ -189,11 +215,11 @@ if [ "$BIND" = "$HARNESS/bin" ]; then
   ck "kit 짝 cmp0 (도구·짝)" $?
 fi
 
-# 변이 4종(새 칸만: FT_TEST_ONLY=r2 · DA r1 동작 3 + 값 출력 되살림) → 이 시험이 FAIL 로 잡아야 한다
+# 변이 6종(새 칸만: FT_TEST_ONLY=r2,r3 · DA r1 동작 3 + DA r2 동작 2 + 값 출력 되살림) → 이 시험이 FAIL 로 잡아야 한다
 mut() {  # mut <이름> <patch 코드> [대상 파일(기본 ft_secret_followup.py)]
   local d="$T/mut-$1"; mkdir -p "$d"
   cp -p "$BIND"/ft_secret_followup*.py "$BIND"/ft_secret_*.py "$d/"   # 의존 모듈까지(못 읽는 사본으로 «우연히» FAIL 하지 않게)
-  python3 - "$d/${3:-ft_secret_followup.py}" "$2" <<'EOF'
+  python3 - "$d/${3:-ft_secret_followup.py}" "$2" <<'EOF' || { echo "FAIL 변이 $1 패치가 원본에 안 붙음"; fail=$((fail+1)); return 1; }
 import sys
 p, code = sys.argv[1], sys.argv[2]
 s = open(p).read()
@@ -204,9 +230,9 @@ for pair in code.split("\n#---\n"):
 open(p, "w").write(s)
 EOF
 }
-LEAK='            r["hits"] = sorted({n for n, lvs in keys.items() for v in vals if any(_sha(v) == _sha(lv) for lv in lvs)})
+LEAK='            r["hits"] = sorted({u for u, _d, lvs in keys for v in vals if any(_sha(v) == _sha(lv) for lv in lvs)})
 >>>
-            r["hits"] = sorted({n for n, lvs in keys.items() for v in vals if any(_sha(v) == _sha(lv) for lv in lvs)})
+            r["hits"] = sorted({u for u, _d, lvs in keys for v in vals if any(_sha(v) == _sha(lv) for lv in lvs)})
             r["leak"] = " ".join(v[:12] for v in vals)
 #---
     rep, pln = texts(rows, rot, rot_why, keys, miss, live)
@@ -216,21 +242,29 @@ LEAK='            r["hits"] = sorted({n for n, lvs in keys.items() for v in vals
 ASSIGN='            return x if re.fullmatch(r"[A-Za-z][\w.-]*", x) else "명령 이름 판정 불가"
 >>>
             return x'
-FIRST='            r["hits"] = sorted({n for n, lvs in keys.items() for v in vals if any(_sha(v) == _sha(lv) for lv in lvs)})
+FIRST='            r["hits"] = sorted({u for u, _d, lvs in keys for v in vals if any(_sha(v) == _sha(lv) for lv in lvs)})
 >>>
             r["hits"] = sorted({next((n for n, lvs in keys.items() for v in vals if any(_sha(v) == _sha(lv) for lv in lvs)), "")} - {""})'
 NOCAP='            return await asyncio.wait_for(make(), CALL_S)
 >>>
             return await make()'
+TITLE='                    keys.append((f"OP {v.title}/{it.id}", f"OP {v.title} · {it.title}", vals))
+>>>
+                    keys = [k for k in keys if k[1] != f"OP {v.title} · {it.title}"] + [(f"OP {v.title}/{it.title}", f"OP {v.title} · {it.title}", vals)]'
+PATHON='                w = word(v["input"].get("command") or "")
+>>>
+                w = word(v["input"].get("command") or "") or os.path.basename(str(v["input"].get("file_path") or ""))'
 if [ -z "${FT_FOLLOWUP_UNDER_TEST:-}" ]; then
-  for name in leak assign first nocap; do
+  for name in leak assign first nocap title path; do
     case "$name" in
       leak) mut leak "$LEAK" ;;
       assign) mut assign "$ASSIGN" ;;
       first) mut first "$FIRST" ;;
       nocap) mut nocap "$NOCAP" ft_secret_followup_plan.py ;;
+      title) mut title "$TITLE" ft_secret_followup_plan.py ;;
+      path) mut path "$PATHON" ;;
     esac
-    FT_FOLLOWUP_UNDER_TEST="$T/mut-$name" FT_TEST_ONLY=r2 bash "${BASH_SOURCE[0]:-$0}" >"$T/m-$name.log" 2>&1
+    FT_FOLLOWUP_UNDER_TEST="$T/mut-$name" FT_TEST_ONLY=r2,r3 bash "${BASH_SOURCE[0]:-$0}" >"$T/m-$name.log" 2>&1
     [ $? -ne 0 ]; ck "변이 $name → 이 시험이 FAIL 로 잡음" $?
   done
 fi

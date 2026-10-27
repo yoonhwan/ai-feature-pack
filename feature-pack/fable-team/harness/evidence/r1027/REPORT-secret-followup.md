@@ -1,4 +1,4 @@
-# 비밀 기록 후속 점검 — r1027 (2026-10-27 16:53:01 · 값 0 · 읽기 전용)
+# 비밀 기록 후속 점검 — r1027 (2026-10-27 17:14:53 · 값 0 · 읽기 전용)
 
 ## ① 노출 시각, 교체 전인가 뒤인가
 
@@ -20,8 +20,8 @@
 - `ba558445-3c68-44ff-8e5e-657b14da65ce.jsonl:1267` named-secret · 2026-10-26T14:21:30.716Z (줄 시각) · assistant · Bash() cd
 - `05ef0500-7546-41d7-829f-03fbac0a49ad.jsonl:1115` named-secret · 2026-10-26T03:54:39.753Z (줄 시각) · assistant · SendMessage()
 - `05ef0500-7546-41d7-829f-03fbac0a49ad.jsonl:1117` named-secret · 2026-10-26 18:29:38 (mtime) · api-request-blob · Monitor() bash
-- `9d23fc78-45be-40b1-ad20-e7a46eb18116.jsonl:2684` named-secret · 2026-10-26T11:22:24.018Z (줄 시각) · assistant · Write() prereboot-cleanup-20261026.sh
-- `9d23fc78-45be-40b1-ad20-e7a46eb18116.jsonl:2689` named-secret · 2026-10-26 23:11:05 (mtime) · api-request-blob · Write() prereboot-cleanup-20261026.sh
+- `9d23fc78-45be-40b1-ad20-e7a46eb18116.jsonl:2684` named-secret · 2026-10-26T11:22:24.018Z (줄 시각) · assistant · Write()
+- `9d23fc78-45be-40b1-ad20-e7a46eb18116.jsonl:2689` named-secret · 2026-10-26 23:11:05 (mtime) · api-request-blob · Write()
 - `agent-a4801cb9418d719ac.jsonl:120` named-secret · 2026-10-26T02:57:58.626Z (줄 시각) · assistant · Bash() gcloud
 - `agent-a4801cb9418d719ac.jsonl:122` named-secret · 2026-10-26 17:16:02 (mtime) · api-request-blob · Bash() gcloud
 - `agent-a4801cb9418d719ac.jsonl:169` named-secret · 2026-10-26T02:59:24.480Z (줄 시각) · assistant · Bash() secrets
@@ -268,7 +268,9 @@
 
 ## ② 지금 살아 있는 키와 지문이 같은가 (1Password 볼트 전부 + GCP SM 전부 · 앞 8자끼리만 · 해시 글자 0)
 
-- 머리 줄: **일치 0** (없음) · **대조 못 한 곳 17** · **대조한 키 100**
+- 머리 줄: **일치 0** (없음) · **대조 못 한 곳 17** · **대조한 키 102**
+
+- 같은 제목 항목 2쌍 (OP BYZ · 로그인 정보, OP develop · BYZ-Agents(localhost))
 
 | 키 이름 | 판정 | 줄 수 |
 | --- | --- | --- |
@@ -280,6 +282,7 @@
 | OP BYZ · Service Account Auth Token: byz-develop-agent | 옛 키(일치 0) | 0 |
 | OP BYZ · https://business.toss.im/ | 옛 키(일치 0) | 0 |
 | OP BYZ · 데이터베이스 | 옛 키(일치 0) | 0 |
+| OP BYZ · 로그인 정보 | 옛 키(일치 0) | 0 |
 | OP BYZ · 로그인 정보 | 옛 키(일치 0) | 0 |
 | OP develop · AIRAG_ARCHIVE_KEY_HEX | 옛 키(일치 0) | 0 |
 | OP develop · AIRAG_CONSUMER_KEY_HEX | 옛 키(일치 0) | 0 |
@@ -304,6 +307,7 @@
 | OP develop · BYZ · dev · TOSS_LIVE_SECRET_KEY · 20261024 | 옛 키(일치 0) | 0 |
 | OP develop · BYZ · dev · loom_gateway_r20261022 · 20261022 | 옛 키(일치 0) | 0 |
 | OP develop · BYZ · dev · postgres · 20261022 | 옛 키(일치 0) | 0 |
+| OP develop · BYZ-Agents(localhost) | 옛 키(일치 0) | 0 |
 | OP develop · BYZ-Agents(localhost) | 옛 키(일치 0) | 0 |
 | OP develop · Cartier | 옛 키(일치 0) | 0 |
 | OP develop · OPENGATEWAY_API_KEY | 옛 키(일치 0) | 0 |
@@ -373,7 +377,7 @@
 | SM byz-agents-484214/byz-dev-toss-live-client-key | 옛 키(일치 0) | 0 |
 | SM byz-agents-484214/byz-dev-toss-live-secret-key | 옛 키(일치 0) | 0 |
 
-- 일치 키 0 · 옛 키 100 (대조한 키 100)
+- 일치 키 0 · 옛 키 102 (대조한 키 102)
 - 결론: 살아 있는 키와 같은 값이 기록에 없음 — 기록만 지우면 됨
 
 ### 대조 못 한 곳 (오류 원문 1줄 · 조용한 0 아님)

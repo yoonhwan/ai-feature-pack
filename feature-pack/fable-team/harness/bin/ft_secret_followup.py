@@ -65,11 +65,9 @@ def values_of(line: str) -> list[str]:  # 가림 함수가 찾은 자리에서�
     out = [m["val"] for _k, rx in RULES for m in rx.finditer(line) if not _is_placeholder(m["val"])]
     return out + [m["val"] for m in NAMED.finditer(line) if NAME.search(m["name"]) and not _is_placeholder(m["val"])]
 
-def tool_of(line: str) -> str:  # 그 줄을 낸 도구 이름 · 첫 명령 이름만(값 0) — 앞붙은 «이름=값» 대입문은 건너뛴다
-    def word(cmd: object, is_path: bool) -> str:
+def tool_of(line: str) -> str:  # 그 줄을 낸 도구 이름 · 첫 명령 이름만(값·경로 0) — 대입문은 건너뛴다
+    def word(cmd: object) -> str:  # 파일 도구는 경로를 쓰지 않는다(위치는 «파일:줄» 칸이 이미 있다)
         w = str(cmd).split() if isinstance(cmd, str) else []
-        if is_path:  # 파일 경로는 파일 이름만
-            return os.path.basename(w[0]) if w else ""
         for i, x in enumerate(w):
             if i < len(w) - 1 and re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*=\S*", x):
                 continue  # 대입문(API_TOKEN=값 …) — 값이 출력에 새지 않게 건너뛴다
@@ -79,8 +77,7 @@ def tool_of(line: str) -> str:  # 그 줄을 낸 도구 이름 · 첫 명령 이
     def walk(v: object, found: list[str]) -> None:
         if isinstance(v, dict):
             if isinstance(v.get("name"), str) and isinstance(v.get("input"), dict):
-                path = v["input"].get("file_path") or ""
-                w = word(path or v["input"].get("command") or "", bool(path))
+                w = word(v["input"].get("command") or "")
                 found.append(v["name"] + "()" + (" " + w if w else ""))
             for x in v.values():
                 walk(x, found)
@@ -111,7 +108,7 @@ def read_lines(path: str, nos: list[int], budget: float) -> dict[int, str]:
         signal.setitimer(signal.ITIMER_REAL, 0)
     return got
 
-def collect(rows: list[dict[str, str]], keys: dict[str, list[str]], total: float) -> None:  # 파일 하나 = 한 번만 통과
+def collect(rows: list[dict[str, str]], keys: list[tuple[str, str, list[str]]], total: float) -> None:  # 파일 하나 = 한 번만 통과
     start = time.monotonic()
     for path in dict.fromkeys(r["path"] for r in rows):
         mine = [r for r in rows if r["path"] == path]
@@ -143,7 +140,7 @@ def collect(rows: list[dict[str, str]], keys: dict[str, list[str]], total: float
                     r["ts"] = "줄 시각 없음"
             r["tool"] = tool_of(ln)
             vals = values_of(ln)  # 값은 여기 변수에만 — 아래 지문 비교 밖으로 나가지 않는다
-            r["hits"] = sorted({n for n, lvs in keys.items() for v in vals if any(_sha(v) == _sha(lv) for lv in lvs)})
+            r["hits"] = sorted({u for u, _d, lvs in keys for v in vals if any(_sha(v) == _sha(lv) for lv in lvs)})
 
 def main(argv: list[str]) -> int:
     triage, keys_log, outs = "", [], {"--report": "", "--plan": ""}
