@@ -39,7 +39,9 @@ EOF
 chmod +x "$T/bin/"* "$T/fake/"*
 
 REPO="$T/repo"; mkdir -p "$REPO"
+git init -q --bare "$T/origin.git"
 git -C "$REPO" init -q -b main && git -C "$REPO" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init
+git -C "$REPO" remote add origin "$T/origin.git" && git -C "$REPO" push -q origin main   # r842: ref(origin/main) 실재 — r842 계약은 ref 못 풀면 REJECT(시험 픽스처는 ref 를 준다 · ref 에 design/TEAMS.md 없음 = 단계 판정 빈 rc0 → 지금 규칙)
 GIT() { git -C "$REPO" -c user.email=t@t -c user.name=t "$@"; }
 mkdir -p "$REPO/.fable-team" "$REPO/design/planner/indices/진행" "$T/comm/bodies"
 echo seq > "$T/comm/bodies/1.txt"; echo res > "$T/result.md"
