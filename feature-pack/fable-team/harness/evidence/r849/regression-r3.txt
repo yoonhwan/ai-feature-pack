@@ -1,0 +1,13 @@
+# r849 재설계 r3 회귀 — 바뀐 도구(ft_stall_scan · ft_seat_turn · ft-jsonl-last-ts · ft_api_outage_util) 쓰는 기존 시험 (2026-10-27)
+## 현재판(r3) pytest test_ft_stall_scan test_ft_stall_scan_off_roster test_ft_stall_scan_wake_r638 test_ft_penalty
+FAILED test_ft_stall_scan.py::test_a_zero_when_team_cap_full_or_policy_stop
+FAILED test_ft_stall_scan.py::test_a_zero_when_group_cap_full_and_no_penalty_next_tick
+2 failed, 62 passed in 26.89s
+## 기준판 3ca8ab05(워크트리 .worktrees/r849-logged-out-seat-detect-r2 · 같은 4파일 그대로)
+FAILED test_ft_stall_scan.py::test_a_zero_when_team_cap_full_or_policy_stop
+FAILED test_ft_stall_scan.py::test_a_zero_when_group_cap_full_and_no_penalty_next_tick
+2 failed, 62 passed in 29.98s
+  ← 위 2 failed = r1/r2/r4 regression 과 같은 «기존 결함»(팀 상한 a 판정 · 카드 밖 · 세트 무관) — r3 가 늘린 실패 0
+## tests/test_ft_idle_wake.sh → rc=0 (fail=0)
+## tests/test_seat_logged_out_r849.sh → round1·2 rc=0 · /bin/bash 3.2.57 rc=0 (evidence/r849/test-r3.txt)
+## 짝 사본 10종 cmp0 (ft_api_outage_util.py · ft_api_outage.py · ft_seat_turn.py · ft-seat-status.sh · ft_stall_scan.py · ft_stall_detect.py · ft_card_rest.py · ft-idle-wake.sh · ft-jsonl-last-ts.py · ft-nano-close.sh)
