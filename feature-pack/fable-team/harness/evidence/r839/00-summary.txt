@@ -1,30 +1,33 @@
-r839 r4 (오빠 결정 3 · 1번 구조 교체) — 빈 답 처리를 «한 함수» 로: 셸 `ref_read` · 파이썬 `ref_read`, 같은 규칙
-= 7초 상한 1회 → stdout 빈 값(rc0)이면 딱 1회 재시도 → 또 빈 값 = ERROR rc4 «빈 응답 2회» · rc≠0 = 재시도 없이 ERROR rc4 · 예산(70초) 소진 = ERROR rc4(미종료 0) · 디스크 후퇴 0
+r839 r5 (오빠 결정 4 = «한 벌로 합침») — ref 읽기(ref_read · 명단 조회 · 존재 확인 · 예산)는 파이썬 한 벌(ft_team_lib.py)만, 셸은 파이썬 호출 한 줄
 base = 팩 origin/main 44aa697891383893eec0c916285877fde82288b4 · 브랜치 nano/r839-daemon-reads-ref-not-root-checkout-r2 (push 0)
 
-## 바뀐 파일 (3 · 짝 사본 cmp0)
-1. kit/fable-team/bin/ft_team_lib.py + bin/ 사본 — `ref_read(base, *args)` 신설(위 규칙 · `_git_once` = 프로세스 그룹 TERM→0.5초 뒤 KILL · `_ref_remaining` 예산) · `_git_out_retry_empty` 삭제 · `team_doc_ref` 는 «있나 = `cat-file -e`(출력을 안 믿는다)» + «본문 = 재사용 가능한 `ref_read`» 로 교체 · `_ref_present` 1함수
-2. kit/fable-team/bin/ft-team-lib.sh + bin/ 사본 — `ref_read`(같은 규칙 · `ft_ref_git_once` 1회 실행기로 `ft_git_capped.run_cmd` 재사용) · `_ft_ref_present` · `_ft_ref_cands`/`ft_team_doc_ref_only`/`ft_planner_queue_ref` 가 그 둘만 쓴다(개별 재시도·상한 코드 삭제) · 오류 문구는 기준판 바이트 유지
-3. tests/test_daemon_reads_ref_r839.sh — 칸 8개 추가/교체(ⓐ 빈 값 2회 · 재시도 딱 1회 · 파이썬 빈 값 2회 / ⓑ 셸·파이썬 첫 빈 = 재시도 성공 대조 / ⓒ 예산 소진·지연 답 미종료 0·기본 예산 70 두 구현 / ⓖ 빈 출력으로 «없음·0건» 가장 금지)
+## 한 벌 규칙 (ft_team_lib.pyref_read)
+- 7초 상한 1회 → stdout 빈 값(rc0)이면 딱 1회 재시도 → 또 빈 값 = `ERROR 빈 응답 2회` rc4
+- rc≠0 = 재시도 없이 rc4 · 예산(REF_BUDGET_S=70 · FT_REF_BUDGET_SEC) 은 호출 진입 1회부터 모든 하위 조회(존재 확인 포함)가 «남은 예산» 사용 · 소진 = rc4 · 미종료 0(그룹 TERM→0.5초 뒤 KILL)
+- 존재 확인 = `cat-file -e`: rc0 = 있음 · rc1/128 + git 이 «does not exist in / exists on disk, but not in» 이라고 «말할 때» 만 없음 · 그 밖(명령 실패·ref 없음·상한) = `판정 불가` rc4 — 거짓 0건 0
+- 오류는 만든 자리에서 1줄(RefReadError = rc4 / 없음 = TeamPathError rc1) · 호출자는 문구를 덧붙이지 않는다
 
-## 계약 ↔ 시험 (r4 추가분)
-«빈 값 2회 = ERROR rc4» = ⓐ 3칸(셸 ref_read · 3번째 답이 있어도 rc4 · 결정 셈 rc4 & 「결정 인터뷰」 출력 0)
-«첫 빈 → 재시도 1회 뒤 정상(셸·파이썬 같음)» = ⓑ 2칸
-«예산 소진·지연 답 = rc4 · 미종료 0 · 기본 70초» = ⓒ 3칸
-«빈 출력으로 없음/0건 가장 금지» = ⓖ (첫 ls-tree 빈 값 · 첫 show 빈 값 모두 3건 유지)
-기존 계약(①~④ · ⓐ~ⓔ · r557 동작 같음) 그대로 통과.
+## 바뀐 파일 (3 · 짝 cmp0)
+1. kit/fable-team/bin/ft_team_lib.py + bin/ 사본 — `ref_read` · `_git_once`(그룹 TERM→KILL · stderr 수집) · `_ref_present`(문구 판정) · `RefReadError` · `team_rows_ref` 도 ref_read 경유(①) · `doc_ref_only_temp` · `planner_queue_ref_temp`(기준판 문구 1줄 · 빈 파일은 기준판처럼 rc1) · CLI 진입점 `ref-read|present|doc-ref|queue-ref`
+2. kit/fable-team/bin/ft-team-lib.sh + bin/ 사본 — `ref_read`·`_ft_ref_present`·`ft_team_doc_ref_only`·`ft_planner_queue_ref` = 파이썬 호출 한 줄씩(재시도·예산·문구 로직 0 · `ft_ref_git_once` 삭제) · 기존 호출자 인터페이스(이름·인자·stdout·rc) 그대로
+3. tests/test_daemon_reads_ref_r839.sh — 빈 답 «딱 2번» 고정 · cat-file rc128 전/후 구분 · 예산 1초+0.7초 지연 · 오류 1줄(rc42) · 정적 검사 2칸(ref_read 밖 git 0 · 셸 한 줄 4개) · 변이 7종
+
+## DA r4 반례 5 → 닫은 자리
+① 명단 조회 ref_read 밖 → team_rows_ref 가 ref_read 경유(정적 검사 칸으로 고정)
+② cat-file rc128 = 없음 → «git 이 없음이라고 말할 때만» 없음 · 아니면 판정 불가 rc4(ⓐ 칸)
+③ 셸 예산 서브셸 유실 → 셸에 예산 로직 자체가 없음(파이썬 프로세스 진입 1회 기준) · ⓒ 칸(1초 예산 + 0.7초 지연 → rc4)
+④ 오류 2줄 → 오류는 파이썬 한 자리 1줄 · 호출자 덧붙임 0(ⓐ rc42 칸이 기준판 바이트 일치로 확인)
+⑤ 변이 미검출 → 가짜 빈 답 «딱 2번» 고정 · 변이 «재시도 3번» FAIL 로 잡힘(7종 전부 빨강)
 
 ## 결과 (evidence/r839/)
-red-base-origin-main.txt : 기준판(origin/main 44aa6978) = FAIL 22
-green-run1~3.txt : 3회 연속 PASS 45 · FAIL 0 · ALL PASS (rc0) · 변이 6종 전부 빨강
-변이 = 결정 셈 디스크 읽기 · ref git 상한 삭제 · 셸 재시도 2회 · 파이썬 재시도 삭제 · 빈 값을 성공으로 · ref 에 없을 때 디스크 후퇴
+red-base-origin-main.txt : 기준판(origin/main 44aa6978) FAIL 27
+green-run1~3.txt : 3회 연속 PASS 53 · FAIL 0 · ALL PASS rc=0 · 변이 7종 전부 빨강
+변이 = 결정 셈 디스크 읽기 · ref 상한 삭제 · 재시도 3번 · 빈 값을 성공으로 · cat-file rc128=없음 · 셸 로직 부활(재시도·예산) · ref 없을 때 디스크 후퇴
 
-## 관련 시험 회귀 (기준판 대조)
-test_queue_state_r528 · test_queue_reask_r529 · test_queue_remind_origin_main_r557 · test_decision_count_tables_ref · test_decision_count_missing_body_r738 · test_root_bin_shim = rc0 FAIL 0
-test_team_literal_paths2 = rc1 FAIL 2 (기준판과 같은 2 · 기존 실패) · ruff check ft_team_lib.py ft_decision_count.py = All checks passed
+## 회귀 (/bin/bash 로 실행)
+queue 3종 · decision_count 2종 · root_bin_shim = rc0 FAIL 0 · `/bin/bash -n ft-team-lib.sh` OK · ruff check 통과 · kit/bin cmp0 4파일
 
 ## 정직 고지
-- 파이썬 손자 프로세스: `_git_once` 가 `start_new_session=True` + 그룹 TERM→KILL 로 바뀌어 «직계만 KILL» 갭도 함께 닫혔다(셸과 같음).
-- `team_rows_ref`(명단 본문 · 기존 함수)는 손대지 않았다 — 실패가 «조용한 0» 이 아니라 TeamPathError 라 r4 대상 밖, 기존 시험(test_decision_count_tables_ref ⓓ)이 그 문구를 고정하고 있다.
-- 실 70초 예산은 상수로 고정·시험은 작은 예산(0·3초)으로 기전 확인(1회 실행 5분 안에 끝내려는 것 · 예산 소진 경로·미종료 0 은 실측).
+- 셸 함수의 rc: 없음/못 찾음 = 1(기준판과 같음) · 하드 오류(예산·판정 불가·못 읽음) = 4 — ft-queue.sh 는 어느 쪽이든 exit 2 로 그대로(기준판 동작 보존).
+- 명단 본문이 «빈 응답 2회» 인 경우 큐 명령은 기준판처럼 rc1(«빈 파일» 자리 보존).
 - press 필요 없음(제품 런타임 무관) · 설치 cmp0 + launchd kickstart exit 0 = master 손.

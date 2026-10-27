@@ -147,73 +147,18 @@ ft_team_doc_ref() { local r="$1" t="$2" f="$3" ref="${4:-${FT_TEAMS_REF:-origin/
 #   ft_team_doc_tmp <경로>          : ft_team_doc_ref 가 만든 임시 본문이면 rc0(부르는 쪽이 rm) · 루트 실재 파일이면 rc1
 _ft_team_doc_dir() { local d="${TMPDIR:-/tmp}"; printf '%s\n' "${d%/}"; }
 ft_team_doc_tmp() { case "$1" in "$(_ft_team_doc_dir)"/ft-team-doc.*) return 0;; esac; return 1; }
-#   ft_ref_git_once <리포> <초> <git 인자…> : ref 조회 git «1회» — 초 상한, 넘으면 프로세스 그룹 TERM → 0.5초 뒤 KILL(자식까지 · ft_git_capped.run_cmd 재사용) · rc 124 = 상한 초과 · 128 = 실행 실패 (재시도 규칙은 ref_read 가 갖는다)
-FT_REF_BUDGET_SEC_DEFAULT=70   # r839 r4: ref 읽기 전체 예산(초 · 이 셸의 첫 조회 기준 · FT_REF_BUDGET_SEC 로 덮기·시험 전용)
-_FT_REF_T0=""
-ft_ref_git_once() { local repo="$1" lim="$2" out rc
-  out="$(PYTHONPATH="$(dirname -- "${_FT_GITCAP_PY:-$_FT_GITCAP_PY_DEFAULT}")" python3 - "$repo" "$lim" "${@:3}" <<'PY'
-import sys
-import ft_git_capped as g
-repo, lim, args = sys.argv[1], float(sys.argv[2]), sys.argv[3:]
-rc, out = g.run_cmd(["git", "-C", repo, *args], lim)      # 1회 — 재시도 0
-sys.stdout.buffer.write(out)
-sys.exit(rc)
-PY
-)"; rc=$?; printf '%s' "$out"; return "$rc"; }
-#   ref_read <리포> <git 인자…> : ref 조회 공용 규칙(r839 r4 · 파이썬 ft_team_lib.ref_read 와 같은 규칙 — 시험이 두 구현을 대조)
-#     ① 시도당 7초 상한 ② stdout 빈 값(rc0)이면 «딱 1회» 재시도 ③ 그래도 빈 값 = stderr `ERROR 빈 응답 2회: <명령>` + rc4
-#     ④ rc≠0 = 재시도 없이 `ERROR <명령> 못 읽음: rc=…` + rc4 ⑤ 남은 예산(FT_REF_BUDGET_SEC · 기본 70초 · 첫 조회 기준) 소진 = rc4 — 미종료 0
-#     stdout = 성공 본문만 · 부르는 쪽이 «디스크 본문으로 후퇴» 하지 않는다(#0 RULE)
-ref_read() { local repo="$1" lim bud left rc out attempt; shift; local shown="git -C $repo $*"
-  [ -n "$_FT_REF_T0" ] || _FT_REF_T0="$(date +%s)"
-  bud="${FT_REF_BUDGET_SEC:-$FT_REF_BUDGET_SEC_DEFAULT}"
-  for attempt in 1 2; do
-    left=$(( bud - ( $(date +%s) - _FT_REF_T0 ) ))
-    [ "$left" -gt 0 ] || { echo "ERROR ref 읽기 예산 소진(${bud}s): $shown" >&2; return 4; }
-    lim=7; [ "$left" -lt 7 ] && lim="$left"
-    out="$(ft_ref_git_once "$repo" "$lim" "$@")"; rc=$?
-    [ "$rc" = 0 ] || { echo "ERROR $shown 못 읽음: rc=$rc" >&2; return 4; }
-    [ -n "$out" ] && { printf '%s' "$out"; return 0; }
-  done
-  echo "ERROR 빈 응답 2회: $shown" >&2; return 4; }
-#   _ft_ref_present <리포> <ref:경로> : ref 에 그 객체가 있나 — 존재 판정은 «출력» 을 안 믿는다(cat-file -e) · rc0 있음 · rc1 없음 · 그 밖 = stderr ERROR rc4
-#     (빈 출력을 «없음» 으로 읽는 길을 닫는다 — DA⑥ r2 반례 ① · ref·리포 자체가 없는 것은 명단 읽기에서 먼저 걸린다)
-_ft_ref_present() { local rc; ft_ref_git_once "$1" 7 cat-file -e "$2" >/dev/null 2>&1; rc=$?
-  case "$rc" in 0) return 0;; 1|128) return 1;; *) echo "ERROR ref 존재 확인 실패($2): rc=$rc" >&2; return 4;; esac; }
-#   _ft_ref_cands <루트> <팀> [<ref>] : ref 명단(design/TEAMS.md) 으로 푼 그 팀 폴더 후보 줄마다(명단 꼴 먼저 · 쌍둥이 뒤 · 꼴3 은 쌍둥이 0 · 실재 여부 무관) — 명단 = «ref 본문»(ref_read · 디스크 0)
-#     명단 못 읽음·팀 없음 = stderr ERROR rc1 — ft_team_cands_ref(디스크 본문 읽기 · 상한 0)를 데몬 경로가 쓰지 않게 하는 짝
-_ft_ref_cands() { local r="$1" t="$2" ref="${3:-${FT_TEAMS_REF:-origin/main}}" md body rc=0
-  body="$(ref_read "$r" show "$ref:design/TEAMS.md" 2>/dev/null)" || rc=$?
-  [ "$rc" = 0 ] || { echo "ERROR $t 명단($ref:design/TEAMS.md)을 못 읽음: $r" >&2; return 1; }
-  md="$(mktemp "$(_ft_team_doc_dir)/ft-team-ref.XXXXXX")" || return 1
-  printf '%s\n' "$body" > "$md"
-  ( unset FT_TEAMS_MD; export FT_TEAMS_MD="$md" FT_REPO_ROOT="$r" FT_TEAM_TWIN_WARN=0 FT_TEAM_SPARSE_CHECK=0
-    ft_team_root "$t" || exit 1; ft_team_root "$t" --alt 2>/dev/null; exit 0 ); rc=$?
-  rm -f "$md"; return "$rc"; }
-#   ft_team_doc_ref_only <루트> <팀> <파일> [<ref>] : 정본 문서 «ref 본문만»(r839 · 데몬용 — 루트 체크아웃이 뒤처지거나 더러워도 옛 본문 0) — ref 명단 후보(명단 꼴 먼저)마다
-#                                    `<ref>:<후보>/<파일>` 이 ref 트리에 있으면 그 본문을 임시 파일로 쓰고 경로(ft_team_doc_tmp 로 판별 · 정리 = 부르는 쪽) · 디스크 0 · git 호출마다 시도당 7초 상한 ·
-#                                    명단 못 읽음·팀 없음·리포 밖 후보·ref 에 없음·show 실패·상한 초과 = stderr ERROR rc1 — 나노 워크트리 안 호출자(자기 디스크가 맞음)는 ft_team_doc_ref 그대로
-ft_team_doc_ref_only() { local r="$1" t="$2" f="$3" ref="${4:-${FT_TEAMS_REF:-origin/main}}" cands c rel tmp body pr
-  cands="$(_ft_ref_cands "$r" "$t" "$ref")" || return 1
-  while IFS= read -r c; do [ -n "$c" ] || continue
-    case "$c" in "$r"/*) rel="${c#"$r"/}";; *) echo "ERROR $t 폴더가 리포 밖($c) — ref 문서 읽기 대상 아님" >&2; return 1;; esac
-    pr=0; _ft_ref_present "$r" "$ref:$rel/$f" || pr=$?
-    [ "$pr" = 4 ] && return 4; [ "$pr" = 0 ] || continue
-    body="$(ref_read "$r" show "$ref:$rel/$f")" || { echo "ERROR $t $f $ref:$rel/$f 못 읽음(디스크 후퇴 0)" >&2; return 1; }
-    tmp="$(mktemp "$(_ft_team_doc_dir)/ft-team-doc.XXXXXX")" || return 1
-    printf '%s\n' "$body" > "$tmp"; printf '%s\n' "$tmp"; return 0
-  done <<< "$cands"
-  echo "ERROR $t $f 가 $ref 에 없거나 못 읽었다(디스크 0 · 명단 $ref:design/TEAMS.md · 후보 $(printf '%s ' $cands))" >&2; return 1; }
-#   ft_planner_queue_ref <루트>     : 오빠 큐 «읽기» 본문(r557 ft-queue.sh ft_queue_ref 를 옮김 · r839) — ref(FT_TEAMS_REF · 기본 origin/main) 명단 꼴 planner 후보의
-#                                    `git show <ref>:<후보>/AUTONOMY-QUEUE.md` 를 임시 파일로(정리 = 부르는 쪽) · 읽을 리포 = FT_LEDGER_REPO(기본 루트) · 디스크 0 · git 호출마다 시도당 7초 상한 ·
-#                                    못 읽음·ref 에 없음·상한 초과 = stderr ERROR rc1(빈 본문도 ERROR — 조용한 0 후퇴 금지)
-ft_planner_queue_ref() { local r="$1" ref="${FT_TEAMS_REF:-origin/main}" repo="${FT_LEDGER_REPO:-$1}" c rel t body
-  c="$(_ft_ref_cands "$r" planner "$ref")" || return 1; c="${c%%$'\n'*}"
-  case "$c" in "$r"/*) rel="${c#"$r"/}/AUTONOMY-QUEUE.md";; *) rel="${c%/}/AUTONOMY-QUEUE.md";; esac
-  if ! _ft_ref_present "$repo" "$ref:$rel"; then echo "ERROR 오빠 큐 origin/main 판을 못 읽음: $ref:$rel" >&2; return 1; fi
-  body="$(ref_read "$repo" show "$ref:$rel" 2>/dev/null)" || { echo "ERROR 오빠 큐 origin/main 판을 못 읽음: $ref:$rel" >&2; return 1; }
-  t="$(mktemp "${TMPDIR:-/tmp}/ft-queue-ref.XXXXXX")" || return 1
-  printf '%s\n' "$body" > "$t"; printf '%s\n' "$t"; }
+#   r839 r5: ref 읽기 규칙(ref_read · 존재 확인 · 명단 조회 · 예산 70초 · 빈 답 재시도 1회)은 «파이썬 한 벌»(같은 폴더 ft_team_lib.py)뿐이다.
+#     셸은 호출 한 줄만 — 재시도·예산·오류 문구 로직 0(두 벌이 있는 한 매 회차 «다른 자리» 가 나온다 · DA⑥ r4 반례 5 중 4건).
+#     stdout·rc 그대로 넘긴다(본문/오류 문구는 파이썬이 만든다 — 기준판 바이트).
+_FT_TEAM_LIB_PY="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)/ft_team_lib.py"
+#   ref_read <리포> <git 인자…>              : ref 조회 1회 규칙(7초 상한 · 빈 값이면 1회 재시도 · 빈 값 2번 = rc4 «빈 응답 2회» · rc≠0 = rc4 · 예산 소진 = rc4)
+ref_read() { python3 "$_FT_TEAM_LIB_PY" ref-read "$@"; }
+#   _ft_ref_present <리포> <ref:경로>        : rc0 있음 · rc1 없음(stderr «does not exist in» 로만) · 그 밖 = rc4 «판정 불가»
+_ft_ref_present() { python3 "$_FT_TEAM_LIB_PY" present "$1" "$2"; }
+#   ft_team_doc_ref_only <루트> <팀> <파일> [<ref>] : 정본 문서 «ref 본문만»(데몬용 · 디스크 0 · 실패 = ERROR 1줄 rc1) — 임시 파일 경로 출력(ft_team_doc_tmp 로 판별 · 정리 = 부르는 쪽)
+ft_team_doc_ref_only() { python3 "$_FT_TEAM_LIB_PY" doc-ref "$@"; }
+#   ft_planner_queue_ref <루트>             : 오빠 큐 «읽기» 본문(r557 ft-queue.sh ft_queue_ref 를 옮김 · 디스크 0 · FT_TEAMS_REF/FT_LEDGER_REPO 그대로) — 임시 파일 경로 출력 · 실패 = 기준판 문구 1줄 rc1
+ft_planner_queue_ref() { python3 "$_FT_TEAM_LIB_PY" queue-ref "$@"; }
 #   ft_team_has_ref <루트> <팀> <경로> [<하위>] [<ref>] : ft_team_has 를 «ref 명단» 으로(R406) — rc 는 ft_team_has 와 같다(ref 못 읽음 = rc2)
 ft_team_has_ref() { ( r="$1"; ref="${5:-${FT_TEAMS_REF:-origin/main}}"; md="$(mktemp)" || exit 2; trap 'rm -f "$md"' EXIT
   git -C "$r" show "$ref:design/TEAMS.md" > "$md" 2>/dev/null || { echo "ERROR 명단($ref:design/TEAMS.md)을 못 읽음: $r" >&2; exit 2; }
