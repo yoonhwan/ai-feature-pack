@@ -1,3 +1,27 @@
+## 2026-10-26 — r947 r5 — D1 켜기의 게이트를 «훅 글자 검사» 에서 «쓰기 자리 좌석 판정» 으로 옮긴다 (1.1.256)
+
+- DA⑥ r4 HOLD(보류 4회 · 하드 룰 14 재설계 · arch 149 안1 · 표 `design/harness/evidence/r947-da6/TABLE-r947-r5-gate-inside-tool.md`) 고침. r1~r4 네 번이 전부 «훅이 명령 글자를 읽어 막는» 자리에서 났고 갈래(source · `source --` · 읽기 프로그램 · heredoc 본문)마다 하나씩 샜다. 글자에는 «누가 치는가» 가 없으므로, 게이트를 «쓰는 자리» 로 옮긴다.
+- `ft-autonomy-standing.sh`: `approve-standing` 첫머리에서 `std_seat_probe` 로 «실제 좌석 = planner 명부 `_master`» 를 판정한다(문서 전용 예외와 같은 함수 `ft_doc_exempt.py --mode planner-seat` · 실제 좌석 TMUX_PANE · 명부 루트 출처 · 이름 lint · `env -u FT_DOC_EXEMPT_SELFTEST -u FT_DOC_EXEMPT_SEAT`). 실패 = rc2 `STANDING-REJECT approve-standing D1 — 호출 좌석 <값> ≠ planner master · 쓰기 0`(상태·원장·슬랙 쓰기 0). SELFTEST env 가 켜진 채 부르면 rc3(승인 0). 호출 경유(heredoc·eval·변수 조립·사본·source)와 무관하게 같은 한 곳에서 막힌다.
+- `autonomy-state-guard.sh`: `approve-standing` 의 글자 판정(낱말 쌍 · shlex 실패 보조 · 진입 파일 본문)은 **경고만** — stderr `WARN autonomy-state-guard — approve-standing 은 도구 안 좌석 판정이 막는다(훅 글자 검사는 보조)` 1줄 남기고 허용한다. 다른 갈래(`on|off|approve-merge|approve-scope|forget-kind` · ft-all-stop · 상태 파일 쓰기)의 deny 는 그대로다.
+- 남는 구멍 2개는 계약에 적었다(지어내지 않음): TMUX_PANE 과 FT_SEAT 를 **함께** 위조하면 planner 행세가 된다(`actual_seat` 가 자기 신고와 대조하므로 두 값을 같이 바꿔야 한다) · 도구를 안 거치고 상태 파일을 직접 쓰는 길(기존 훅·autonomy-merge-guard 몫).
+- 시험: r947 ⓧ1(heredoc 경유 → 훅 allow+WARN · 도구 rc2 · 쓰기 0) · ⓧ2(eval·변수 조립·사본 3꼴 같은 결과) · ⓧ3(planner 좌석 = rc0 GRANTED · 원장 1줄) · ⓧ4(SELFTEST = rc3) · 훅 시험 ⓧ5(글자 경유 24꼴 allow+WARN · 진입 파일 본문 · heredoc 본문) · 변이 3(std_seat_probe 호출 끔 · env -u 삭제 · FT_SEAT 자기 신고만) + 훅 변이 2(deny 되살림 · WARN 줄 지움).
+- 증거: `harness/evidence/r947/14`(전체 시험 77칸 ALL PASS · 기존 11 묶음 포함) · `15`(훅 시험 220 PASS) · `16`(r4 반례 + ⓧ2 세 꼴 재현 — 사본은 훅이 이름으로 못 본다).
+
+## 2026-10-26 — r947 반송 r2·r3·r4 — 승인 판정은 «블록 첫 줄과 끝줄 둘 다», D1 켜기는 «낱말 쌍» 으로 좌석에서 막는다 (1.1.255)
+
+- DA⑥ r1·r2 HOLD 고침(design/harness/evidence/r947-da6). 승인 계약: `standing-approve` 는 DA 원문 마지막 codex 블록의 첫 비어 있지 않은 줄과 마지막 비어 있지 않은 줄이 «둘 다» `판정: APPROVE` 일 때만 승인 파일·`approve-merge … D1` 줄을 쓴다. 앞서는 마지막 `판정:` 줄만 봐서 APPROVE 뒤에 판정 아닌 줄을 붙인 원문도 통과했다(r2).
+- 좌석 차단 계약(r3 · 꼴 맞히기를 버리고 구조로 닫음): autonomy-state-guard 훅은 Bash 명령의 «낱말 쌍» 을 본다 — shlex 낱말(모든 segment · `-c` 재귀 · 따옴표·역슬래시로 쪼갠 낱말 포함)에 `ft-autonomy` 와 `approve-standing` 이 함께 있으면 deny, 보조로 원문 글자 쌍(shlex 가 못 쪼갠 `eval "…"` 꼴). r1 은 `source <파일>`, r2 는 `source -- <파일>` 로 뚫렸고, 꼴 목록을 늘리는 고침은 세 번째 꼴에 또 진다.
+- 오빠 h 계획 본문 경유(`bash /tmp/h<N>` 안에 approve-standing)도 deny 다(훅 계약 ⓛ3 과 같은 방향). 오빠 `!` 실행은 훅을 거치지 않으므로 영향 0. r4(DA r3 반례): «읽기 프로그램 예외» 를 없앴다 — awk `system()`·`sed e`·`find -exec`·`xargs`·`perl -e`·`python3 -c` 도 명령을 실행하므로 프로그램 예외를 두지 않는다. 대가로 Bash 로 `grep approve-standing …/ft-autonomy.sh` 도 막히고, deny 문구가 «읽기는 Bash 대신 Read 도구로» 를 안내한다(훅은 Bash 만 본다). 위협 모델 밖: 변수 간접·이름 바꾼 사본(판정 2078 ⓐ — 슬랙 1글·grants.audit 로 들린다).
+- 시험: ⓐ-tail(끝 판정 아닌 줄 = 거절 · 빈 줄만이면 통과) · ⓑ-source(source·.·bash -c 경유 deny) · ⓚ(DA r2 반례 두 꼴) · ⓛ(꼴 묶음 9 + 낱말 안쪽 쪼개기 3) · ⓝ(awk system·sed e·find -exec·xargs·perl -e·python3 -c·env 경유 deny) · ⓛ읽기a(두 낱말 함께 = deny + «Read 도구로» 안내) · ⓛ읽기b(낱말 하나 = allow) · ⓜ(좌석의 h 경유 = deny · BYZ 밖 cwd 대조 = allow) · 변이 4(끝줄 검사·source 처리·낱말 쌍·읽기 예외 되살림).
+
+## 2026-10-26 — r947 외부 DA 가 APPROVE 한 팩 PR 은 «상시 승인» D1 으로 planner 가 바로 착지한다 (1.1.252)
+
+- 오빠 D1(mbox 169402) 을 돌리는 장치. 오빠 h 한 번(`ft-autonomy.sh approve-standing D1 --repos pack --classes code,docs`)으로 켜고, 슬랙 «켜짐 알림» 1글을 먼저 올린다. 자율 모드 ON·OFF 와 무관하고 끝 시각이 없다. 멈춤은 `standing-stop D1 "<사유>"`(누구나).
+- planner master 좌석만 `standing-approve <head> --pr <N> --repo pack --verdict <판정문>` 을 부른다. 좌석 판정은 문서 전용 예외와 같은 함수(ft_doc_exempt.py --mode planner-seat · 실제 좌석 · 명부 루트 출처)다. 검사: D1 켜짐 → 팩 분류표 forbid 0 → 판정문이 BYZ origin/main 에 있음(값도 origin/main 에서 읽음) → 판정문 4줄과 DA 원문 sha256 일치 → DA 원문 마지막 codex 블록 첫 줄·끝 판정 줄 APPROVE + .meta head=A rc=0 · claude 계열 아님 → head=A 또는 EQUIV. 통과하면 기존 꼴 승인 파일(`approve-merge <head> D1 <epoch>`)을 쓴다. 착지 검사(ft-merge-land)는 그대로다.
+- ft-da-codex.sh 가 출력 옆 `<out>.meta`(head=codex 실행 «전» cwd HEAD)를 쓴다. ft-merge-land 는 D1 착지면 D1 원장(state/autonomy-standing/D1.ledger.tsv)에 착지 sha·되돌림 명령을 적고 merge-gate.log 줄 끝에 `standing=D1` 을 붙인다. `standing-status --since <epoch>` 가 착지 묶음을 사람 말 1덩이로 낸다.
+- autonomy-state-guard 훅: 좌석의 `approve-standing` 실행과 `autonomy-standing/` 쓰기를 막는다(오빠 `!` 전용).
+- 시험 test_autonomy_standing_r947.sh 64 PASS(/bin/bash 3.2 · 변이 6/6 · 그중 기존 시험 11개 묶음 ALL PASS). 외부 DA 는 arch 몫.
+
 ## 2026-10-25 — r897 ft-scratch-repo 삭제 직전 출구 게이트 delete_copy 하나 · 후퇴 없는 삭제 — 물리 경로 cwd · 정확 대조 · 2720 빠른 길(1.1.243)
 
 - cwd 보호가 실제로는 죽어 있었다: 등록부는 `/var/folders/…` 로 적고 macOS lsof 는 `/private/var/…` 로 내서 글자 비교가 영원히 불일치(실측 10-24 sweep 로그 held=0). 비교를 물리 경로(`pwd -P`)로 바꾸고, 경로를 못 읽으면 «붙잡음»(지우기 0)으로 읽는다 — 등록 사본·`tmp.*` 가 같은 한 함수를 쓰므로 한 곳 수정.
