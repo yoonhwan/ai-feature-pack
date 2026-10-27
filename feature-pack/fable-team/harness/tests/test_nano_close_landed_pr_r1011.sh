@@ -14,6 +14,8 @@
 #    r1019 ⓗ head 첫 부모 ≠ 세트 · 세트 뒤 변경 커밋 포함 → 판정기 rc1 사유 그대로 REJECT
 #    r1019 ⓘ 판정기 rc3(origin/main 없음 = 판단 불가) → REJECT(조용한 통과 0) · r1019 ⓙ fetch 실패 → «판정 불가» REJECT
 #    r1019 변이 «EQUIV 호출 끔»→r1019 ⓕ FAIL · «rc3 를 통과로»→r1019 ⓘ FAIL (가드가 실제로 잡는가)
+# ★r1019 r2 (DA 1/2 HOLD 동작 2)★ ⓚ 판정기 mode=rebase(merges=0) rc0 → REJECT · ⓛ head ∈ origin/main(머지 커밋 PR) → REJECT · 판정기 호출 0
+#    변이 «mode 검사 끔» → ⓚ FAIL · «is-ancestor 검사 끔» → ⓛ FAIL · ③(REJECT 2줄 꼴) = 알려진 한계(안 고침)
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
@@ -301,11 +303,50 @@ out="$(CLOSE_BIN="$T/mutbin/ft-nano-close.sh" close --landed-pr 363)"; rc=$?
 [ "$rc" -eq 1 ] && ok "r1019 변이(호출 끔) → 병합뿐 head 가 REJECT = r1019 ⓕ 가 잡는다(변이 FAIL)" || bad "r1019 변이 rc=$rc — 변이가 안 먹었다: $(printf '%s' "$out" | head -3)"
 
 echo "== r1019 변이 «rc3 를 통과로» → r1019 ⓘ 가 잡는다(변이 FAIL)"
-mutant 'if [ "$rc" -eq 0 ]; then' 'if [ "$rc" -eq 0 ] || [ "$rc" -eq 3 ]; then'
+mutant 'if [ "$rc" -eq 0 ]; then' 'if [ "$rc" -eq 0 ] || [ "$rc" -eq 3 ]; then' \
+  'if [ "$_lp_equiv_mode" = merge ] && [ "$_lp_equiv_merges" -ge 1 ]; then' 'if true; then'
 stub_equiv "$T/mutbin"
 setup; printf '{"state":"MERGED","mergeCommit":{"oid":"%s"},"headRefOid":"%s"}\n' "$M2" "$H1" > "$T/gh.json"
 out="$(CLOSE_BIN="$T/mutbin/ft-nano-close.sh" close --landed-pr 363)"; rc=$?
 [ "$rc" -eq 0 ] && ok "r1019 변이(rc3 통과) → 판단 불가인데 닫힘 = r1019 ⓘ 가 잡는다(변이 FAIL)" || bad "r1019 변이 rc=$rc — 변이가 안 먹었다: $(printf '%s' "$out" | head -3)"
+
+echo "== r1019 r2 ⓚ 판정기 mode=rebase(merges=0) rc0 → REJECT (세트 위 main 병합만 통과)"
+eqstub() {  # eqstub <bin폴더> <mode> <merges> — 판정기 스텁(호출은 그 폴더의 equiv.log 에 1줄씩)
+  printf '#!/usr/bin/env bash\necho "$*" >> "$(dirname "$0")/equiv.log"\necho "EQUIV approve=${1:0:9} head=${2:0:9} merges=%s files=0 mode=%s overlap=0 base=${1:0:9}"\nexit 0\n' "$3" "$2" > "$1/ft-approval-equiv.sh"
+  chmod +x "$1/ft-approval-equiv.sh"
+}
+rm -rf "$T/eqbin"; cp -R "$T/bin" "$T/eqbin"; eqstub "$T/eqbin" rebase 0
+setup; printf '{"state":"MERGED","mergeCommit":{"oid":"%s"},"headRefOid":"%s"}\n' "$M2" "$H1" > "$T/gh.json"
+out="$(CLOSE_BIN="$T/eqbin/ft-nano-close.sh" close --landed-pr 363)"; rc=$?
+[ "$rc" -eq 1 ] && has "$out" "rebase" "r1019 r2 ⓚ mode=rebase → REJECT" || bad "r1019 r2 ⓚ rc=$rc ← ${out:0:600}"
+has "$out" "merges=0" "  └ 사유에 merges=0 표기"
+hasnt "$out" "CLOSED" "  └ CLOSED 0"
+untouched "r1019 r2 ⓚ rebase"
+
+echo "== r1019 r2 ⓛ head 가 origin/main 조상(머지 커밋 PR) → REJECT · 판정기 호출 0"
+rm -rf "$T/eqbin2"; cp -R "$T/bin" "$T/eqbin2"; eqstub "$T/eqbin2" merge 1
+setup; git -C "$REPO" reset -q --hard "$H1"; printf '{"state":"MERGED","mergeCommit":{"oid":"%s"},"headRefOid":"%s"}\n' "$H1" "$H1" > "$T/gh.json"
+out="$(CLOSE_BIN="$T/eqbin2/ft-nano-close.sh" close --landed-pr 363)"; rc=$?
+[ "$rc" -eq 1 ] && has "$out" "머지 커밋 PR" "r1019 r2 ⓛ head ∈ origin/main → REJECT" || bad "r1019 r2 ⓛ rc=$rc ← ${out:0:600}"
+[ ! -s "$T/eqbin2/equiv.log" ] && ok "  └ 판정기 호출 0" || bad "  └ 판정기 호출 $(grep -c . "$T/eqbin2/equiv.log")회"
+hasnt "$out" "CLOSED" "  └ CLOSED 0"
+untouched "r1019 r2 ⓛ 머지 PR"
+git -C "$REPO" reset -q --hard "$M2"   # main 을 원래대로(다음 칸이 fetch 로 origin/main 을 다시 읽는다)
+
+echo "== r1019 r2 변이 «mode 검사 끔» → r1019 r2 ⓚ 가 잡는다(변이 FAIL)"
+mutant 'if [ "$_lp_equiv_mode" = merge ] && [ "$_lp_equiv_merges" -ge 1 ]; then' 'if true; then'
+eqstub "$T/mutbin" rebase 0
+setup; printf '{"state":"MERGED","mergeCommit":{"oid":"%s"},"headRefOid":"%s"}\n' "$M2" "$H1" > "$T/gh.json"
+out="$(CLOSE_BIN="$T/mutbin/ft-nano-close.sh" close --landed-pr 363)"; rc=$?
+[ "$rc" -eq 0 ] && ok "r1019 r2 변이(mode 검사 끔) → rebase 머리인데 닫힘 = r1019 r2 ⓚ 가 잡는다(변이 FAIL)" || bad "r1019 r2 변이 rc=$rc — 변이가 안 먹었다: $(printf '%s' "$out" | head -3)"
+
+echo "== r1019 r2 변이 «is-ancestor 검사 끔» → r1019 r2 ⓛ 가 잡는다(변이 FAIL)"
+mutant 'if git -C "$repo" merge-base --is-ancestor "$_lp_head" refs/remotes/origin/main 2>/dev/null; then' 'if false; then'
+eqstub "$T/mutbin" merge 1
+setup; git -C "$REPO" reset -q --hard "$H1"; printf '{"state":"MERGED","mergeCommit":{"oid":"%s"},"headRefOid":"%s"}\n' "$H1" "$H1" > "$T/gh.json"
+out="$(CLOSE_BIN="$T/mutbin/ft-nano-close.sh" close --landed-pr 363)"; rc=$?
+[ "$rc" -eq 0 ] && ok "r1019 r2 변이(is-ancestor 끔) → 머지 커밋 PR 인데 닫힘 = r1019 r2 ⓛ 가 잡는다(변이 FAIL)" || bad "r1019 r2 변이 rc=$rc — 변이가 안 먹었다: $(printf '%s' "$out" | head -3)"
+git -C "$REPO" reset -q --hard "$M2"
 
 echo "== ⓗ 600/300 s · 외부 호출(네트워크) · GIT_* env 0"
 NEWL="$(grep 'LANDED_PR\|_lp_' "$SRC/ft-nano-close.sh")"

@@ -688,23 +688,31 @@ _lp_fetch_pr() {
 # ★r1019★ ⑥ «세트 대조» 를 «세트 + main 병합뿐» 까지 넓힌다 — ft-merge-land 는 main 이 앞서 있으면 승인판 위에 합침 커밋 1개를 올려 합치므로 PR head 는 «언제나» 카드 세트가 아니다(r1011 경로가 오늘 착지 6건을 0/6 으로 막았다).
 #   판정기는 승인 h 쪽이 이미 쓰는 ft-approval-equiv.sh(R247 · 판정 1917) 그대로 — 규칙 변경 0 · 호출 1곳만. rc0 만 통과 · rc1/rc3/rc2 는 사유 첫 줄 그대로 REJECT(조용한 통과 0 · #0 RULE).
 #   head 객체는 호출 전에 fetch 1회(하드 룰 12 = nf_fetch: 시도당 7초 + 재시도 1). 실패 = «판정 불가» 한 줄 REJECT(하드 룰 20).
-_lp_equiv_merges=""; _lp_equiv_err=""
+_lp_equiv_merges=""; _lp_equiv_mode=""; _lp_equiv_err=""
 _lp_equiv_gate() {
   local repo cap out rc first
   repo="${SEAT_REPO:-$ROOT}"
+  _lp_equiv_merges=""; _lp_equiv_mode=""
   step landed-pr-equiv
   if ! nf_fetch "$repo" origin "$_lp_head" >/dev/null 2>&1; then
     _lp_equiv_err="⑥--landed-pr head ${_lp_head:0:9} 객체를 받지 못했다(fetch origin 실패 · 7초 상한) — 판정 불가로 닫지 않는다"; return 1
+  fi
+  # r1019 r2(DA 1/2 동작②): head 가 이미 origin/main 안 = «머지 커밋 PR». 우리 착지 도구(ft-merge-land)는 squash 만 만들므로 이 경로 밖 — 판정기를 부르지 않고 1줄로 끝낸다(하드 룰 20 · 틀린 사유 NOT-EQUIV 0).
+  if git -C "$repo" merge-base --is-ancestor "$_lp_head" refs/remotes/origin/main 2>/dev/null; then
+    _lp_equiv_err="⑥--landed-pr head ${_lp_head:0:9} 가 origin/main 조상 = 머지 커밋 PR(squash 착지 아님) — 이 경로 밖 · 수동 닫기(기존 경로)"; return 1
   fi
   cap="$(nf_cap "$(nf_fixed equiv)" 1)"
   out="$(nf_bound "$cap" bash "$HERE/ft-approval-equiv.sh" "$_lp_set" "$_lp_head" --repo "$repo" 2>&1)"; rc=$?
   first="$(printf '%s' "$out" | head -1 | cut -c1-200)"
   if [ "$rc" -eq 0 ]; then
+    _lp_equiv_mode="$(printf '%s' "$out" | grep -oE 'mode=[a-z]+' | tail -1 | cut -d= -f2)"
     _lp_equiv_merges="$(printf '%s' "$out" | grep -oE 'merges=[0-9]+' | tail -1 | cut -d= -f2)"
-    [ -n "$_lp_equiv_merges" ] || _lp_equiv_merges=0
-    return 0
+    case "$_lp_equiv_merges" in ''|*[!0-9]*) _lp_equiv_merges=0;; esac
+    # r1019 r2(DA 1/2 동작①): rc0 이어도 «세트 위 main 병합(mode=merge ∧ merges≥1)» 만 통과 — rebase 머리는 이 경로의 증거가 아니다.
+    if [ "$_lp_equiv_mode" = merge ] && [ "$_lp_equiv_merges" -ge 1 ]; then return 0; fi
+    _lp_equiv_err="⑥--landed-pr head ${_lp_head:0:9} 가 세트 위 main 병합이 아니라 rebase 머리(mode=${_lp_equiv_mode:-없음} merges=$_lp_equiv_merges) — 세트 줄을 고치거나 새 카드"; return 1
   fi
-  if [ "$rc" -eq 124 ]; then _lp_equiv_err="⑥--landed-pr 판정기 시간 초과(${cap}초 상한 · 하드 룰 12) — ${first:-출력 없음}"; return 1; fi   # r1019-mut:rc3
+  if [ "$rc" -eq 124 ]; then _lp_equiv_err="⑥--landed-pr 판정기 시간 초과(${cap}초 상한 · 하드 룰 12) — ${first:-출력 없음}"; return 1; fi
   _lp_equiv_err="⑥--landed-pr #$LANDED_PR head ${_lp_head:0:9} ≠ 카드 세트 ${_lp_set:0:9} · «세트 + main 병합뿐» 도 아님(판정기 rc=$rc) — ${first:-출력 없음}"
   return 1
 }
