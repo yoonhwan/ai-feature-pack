@@ -1,0 +1,42 @@
+FAIL Ⓖ 전부 참 = GATE ok rc0 · 삭제 0 [rc=2] ERROR usage: ft-scratch-repo.sh <sha|ref> [--repo <저장소>] [--full] [--with <경로>]… | --done <경로> | --judged <경로> | --report [--summary|--orphans] | --sweep
+FAIL Ⓖ G0 상대 경로 = REFUSED rc3 [rc=2] ERROR usage: ft-scratch-repo.sh <sha|ref> [--repo <저장소>] [--full] [--with <경로>]… | --done <경로> | --judged <경로> | --report [--summary|--orphans] | --sweep
+FAIL Ⓖ G0 보호 경로 R = rc3 [rc=2] ERROR usage: ft-scratch-repo.sh <sha|ref> [--repo <저장소>] [--full] [--with <경로>]… | --done <경로> | --judged <경로> | --report [--summary|--orphans] | --sweep
+FAIL Ⓖ G0 보호 경로 tmpdir = rc3 [rc=2] ERROR usage: ft-scratch-repo.sh <sha|ref> [--repo <저장소>] [--full] [--with <경로>]… | --done <경로> | --judged <경로> | --report [--summary|--orphans] | --sweep
+FAIL Ⓖ G0 보호 경로 scratch = rc3 [rc=2] ERROR usage: ft-scratch-repo.sh <sha|ref> [--repo <저장소>] [--full] [--with <경로>]… | --done <경로> | --judged <경로> | --report [--summary|--orphans] | --sweep
+FAIL Ⓖ 홈 꼴(베이스 밖) = rc3 [rc=2] ERROR usage: ft-scratch-repo.sh <sha|ref> [--repo <저장소>] [--full] [--with <경로>]… | --done <경로> | --judged <경로> | --report [--summary|--orphans] | --sweep
+FAIL Ⓖ G5 등록 안 된 폴더 reg/ = rc3 [rc=2] ERROR usage: ft-scratch-repo.sh <sha|ref> [--repo <저장소>] [--full] [--with <경로>]… | --done <경로> | --judged <경로> | --report [--summary|--orphans] | --sweep
+FAIL Ⓖ G5 주인 다름 = rc3 [rc=2] ERROR usage: ft-scratch-repo.sh <sha|ref> [--repo <저장소>] [--full] [--with <경로>]… | --done <경로> | --judged <경로> | --report [--summary|--orphans] | --sweep
+FAIL Ⓖ G4 점유 = HELD rc1 [rc=2] ERROR usage: ft-scratch-repo.sh <sha|ref> [--repo <저장소>] [--full] [--with <경로>]… | --done <경로> | --judged <경로> | --report [--summary|--orphans] | --sweep
+FAIL Ⓖ G6 주인 살아 있음 = HELD rc1 [rc=2] ERROR usage: ft-scratch-repo.sh <sha|ref> [--repo <저장소>] [--full] [--with <경로>]… | --done <경로> | --judged <경로> | --report [--summary|--orphans] | --sweep
+FAIL Ⓖ G3 시계 못 읽음 = UNREADABLE rc2 [rc=2] ERROR usage: ft-scratch-repo.sh <sha|ref> [--repo <저장소>] [--full] [--with <경로>]… | --done <경로> | --judged <경로> | --report [--summary|--orphans] | --sweep
+FAIL Ⓖ G7 가지 워크트리 = REFUSED rc3 [rc=2] ERROR usage: ft-scratch-repo.sh <sha|ref> [--repo <저장소>] [--full] [--with <경로>]… | --done <경로> | --judged <경로> | --report [--summary|--orphans] | --sweep
+FAIL Ⓖ 자격: 젊음 ∧ 판정 안 끝남 = rc3 [rc=2] ERROR usage: ft-scratch-repo.sh <sha|ref> [--repo <저장소>] [--full] [--with <경로>]… | --done <경로> | --judged <경로> | --report [--summary|--orphans] | --sweep
+PASS Ⓝ 첫 sweep = 목록만 · 삭제 0
+FAIL Ⓝ 둘째 sweep = 셋 삭제 · swept=3 · 등록 줄 빠짐 [rc=0] [임시 사본 자동 삭제] 주인 없는 사본 4개 0.00 GiB 삭제(되살릴 수 있는 사본만) — 목록: .fable-team/state/scratch-sweep.log
+FAIL Ⓝ 가지 워크트리 = gate refused(G7) 줄 · 그 항목만 건너뜀 [rc=0] [임시 사본 자동 삭제] 주인 없는 사본 4개 0.00 GiB 삭제(되살릴 수 있는 사본만) — 목록: .fable-team/state/scratch-sweep.log
+PASS Ⓝ 격리 폴더 비었음(이동한 tmp 는 지워짐)
+FAIL Ⓑ du empty+rc128 = 대상 판정 그대로(삭제) · reg/ 생존 [rc=0] [장비 정리] 사본 reg — 재확인에서 쓰는 중·주인 생김 — 삭제 보류
+  이웃 사라짐: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.5kD7QLsn5E/scratch/repo-e42b24e3-1792941920-53053 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.5kD7QLsn5E/scratch/repo-e42b24e3-1792941920-53053/.git
+FAIL Ⓑ du real+rc128 = 대상 판정 그대로(삭제) · reg/ 생존 [rc=0] [임시 사본 자동 삭제] 주인 없는 사본 1개 0.00 GiB 삭제(되살릴 수 있는 사본만) — 목록: .fable-team/state/scratch-sweep.log
+FAIL Ⓓ 중복 등록 = 삭제 0 · gate refused(G5) · 뒤 항목은 삭제 [rc=0] [장비 정리] 사본 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.5kD7QLsn5E/scratch/repo-e42b24e3-1792942909-61061 — 재확인에서 쓰는 중·주인 생김 — 삭제 보류 [임시 사본 자동 삭제] 주인 없는 사본 2개 0.00 GiB 삭제(되살릴 수 있는 사본만) — 목록: .fable-team/state/scratch-sweep.log
+FAIL Ⓔ 사본/sub 등록 = 거절(G1 깊이) · 사본 생존 [rc=0] ERROR 등록표 3열이 숫자 아님 — 삭제 0 (경로 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.5kD7QLsn5E/scratch/repo-58eed07a-1-1-extra · 3열 '1792852910	/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.5kD7QLsn5E/scratch') ERROR 등록표 3열이 숫자 아님 — 삭제 0 (경로 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.5kD7QLsn5E/outside/repo-e42b24e3-1792942910-61691 · 3열 '1792852910	/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.5kD7QLsn5E/scratch')
+FAIL Ⓔ 이름꼴 아님(-extra · 25시간 · git 참) = 거절(G2) [rc=0] ERROR 등록표 3열이 숫자 아님 — 삭제 0 (경로 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.5kD7QLsn5E/scratch/repo-58eed07a-1-1-extra · 3열 '1792852910	/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.5kD7QLsn5E/scratch') ERROR 등록표 3열이 숫자 아님 — 삭제 0 (경로 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.5kD7QLsn5E/outside/repo-e42b24e3-1792942910-61691 · 3열 '1792852910	/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.5kD7QLsn5E/scratch')
+FAIL Ⓔ 베이스 밖(등록 베이스 SCR · 나머지 참) = 거절(G1) [rc=0] ERROR 등록표 3열이 숫자 아님 — 삭제 0 (경로 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.5kD7QLsn5E/scratch/repo-58eed07a-1-1-extra · 3열 '1792852910	/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.5kD7QLsn5E/scratch') ERROR 등록표 3열이 숫자 아님 — 삭제 0 (경로 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.5kD7QLsn5E/outside/repo-e42b24e3-1792942910-61691 · 3열 '1792852910	/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.5kD7QLsn5E/scratch')
+FAIL Ⓕ 가지 워크트리 사본 = sweep 2회 뒤에도 생존 · REFUSED 로그 [rc=0] 
+FAIL Ⓗ tmp 안에 .git = 거절(G5) · 생존 [rc=0] [임시 사본 자동 삭제] 주인 없는 사본 1개 0.00 GiB 삭제(되살릴 수 있는 사본만) — 목록: .fable-team/state/scratch-sweep.log
+FAIL Ⓗ 남의 uid(stat 이 0 이라 함) = 거절(G6) · 생존 [rc=0] [임시 사본 자동 삭제] 주인 없는 사본 1개 0.00 GiB 삭제(되살릴 수 있는 사본만) — 목록: .fable-team/state/scratch-sweep.log
+FAIL Ⓗ find 가 젊은 폴더를 «오래됨» 이라 함 = 거절(G6 나이 재측정) · 생존 [rc=0] [임시 사본 자동 삭제] 주인 없는 사본 1개 0.00 GiB 삭제(되살릴 수 있는 사본만) — 목록: .fable-team/state/scratch-sweep.log
+  이웃 사라짐: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.5kD7QLsn5E/scratch/repo-e42b24e3-1792941920-53053 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.5kD7QLsn5E/scratch/repo-e42b24e3-1792941920-53053/.git
+FAIL Ⓘ --done 등록 밖 폴더 = rc2 · 삭제 0 [rc=2] ERROR 등록된 사본이 아님: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.5kD7QLsn5E/scratch/reg
+  이웃 사라짐: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.5kD7QLsn5E/scratch/repo-e42b24e3-1792941920-53053 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.5kD7QLsn5E/scratch/repo-e42b24e3-1792941920-53053/.git
+FAIL Ⓘ --done 남의 사본 = rc2 [rc=2] ERROR 주인 아님(등록 주인 live-owner · 나 other) — 남의 사본은 sweep 이 지운다
+  이웃 사라짐: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.5kD7QLsn5E/scratch/repo-e42b24e3-1792941920-53053 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.5kD7QLsn5E/scratch/repo-e42b24e3-1792941920-53053/.git
+FAIL Ⓘ --done 정상 = DONE · 등록 줄 빠짐 [rc=0] DONE /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.5kD7QLsn5E/scratch/repo-58eed07a-1792942911-62699
+FAIL Ⓚ 고침2 게이트 자기 lsof 가 점유 = 붙잡음 · 삭제 0 [rc=0] [임시 사본 자동 삭제] 주인 없는 사본 1개 0.00 GiB 삭제(되살릴 수 있는 사본만) — 목록: .fable-team/state/scratch-sweep.log
+FAIL Ⓚ 고침5 reg 제거 직전 inode 다름 = 삭제 0(G8) [rc=0] [임시 사본 자동 삭제] 주인 없는 사본 1개 0.00 GiB 삭제(되살릴 수 있는 사본만) — 목록: .fable-team/state/scratch-sweep.log
+FAIL Ⓚ 고침5 tmp 이동 뒤 inode 다름 = 원위치 복원 · 삭제 0 [rc=0] [임시 사본 자동 삭제] 주인 없는 사본 1개 0.00 GiB 삭제(되살릴 수 있는 사본만) — 목록: .fable-team/state/scratch-sweep.log
+  이웃 사라짐: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.5kD7QLsn5E/scratch/repo-e42b24e3-1792941920-53053 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.5kD7QLsn5E/scratch/repo-e42b24e3-1792941920-53053/.git
+FAIL Ⓚ 고침7 옛 3칸 줄(지금 FT_SCRATCH_DIR 아래) = 삭제 [rc=0] [임시 사본 자동 삭제] 주인 없는 사본 1개 0.00 GiB 삭제(되살릴 수 있는 사본만) — 목록: .fable-team/state/scratch-sweep.log
+  이웃 사라짐: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.5kD7QLsn5E/scratch/repo-e42b24e3-1792941920-53053 /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.5kD7QLsn5E/scratch/repo-e42b24e3-1792941920-53053/.git
+FAIL Ⓚ 고침8 bare 원 저장소 사본 = 삭제 [rc=0] [임시 사본 자동 삭제] 주인 없는 사본 1개 0.00 GiB 삭제(되살릴 수 있는 사본만) — 목록: .fable-team/state/scratch-sweep.log
+(33 failed)

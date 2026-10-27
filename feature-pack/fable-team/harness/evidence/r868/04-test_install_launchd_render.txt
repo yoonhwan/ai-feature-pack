@@ -1,0 +1,26 @@
+PASS py_compile 2 · bash -n install.sh
+PASS bin/kit 짝 cmp0 (ft_plist_env · ft_live_install_check)
+PASS ⓔ --dry-run → PENDING/OK launchd 줄 · LAUNCHD 요약 · 쓰기 0 · launchctl 0
+PASS ⓐ bin-list = 루트 bin 템플릿 10개(__FT_BIN__ 8(launchd 7 + board-publish) + r544 루트 bin 꼴 2(secret-scan·weekly-review)) · 미러(com.hermes) 0
+PASS ⓐ render-bin → 실행 경로 <루트>/.fable-team/bin/ft-wt-sweep.sh · WorkingDirectory·FT_ROOT=<루트> · 자리표시·판 경로 0 · plutil rc0
+PASS ⓑ --apply → wt-sweep 실행 경로 = 루트 shim · .bak-r538 = 판 고정 원본 · bootout·bootstrap 각 1 · kickstart 0 · rc0
+PASS ⓑ 렌더된 실행 경로 = 실재 루트 shim(연결 파일 표식) · plutil rc0
+PASS ⓑ 바뀌는 것 = ProgramArguments 하나 · 머신별 env(FT_MACHINE_ONLY·손 값 FT_WT_SWEEP_MAX=7)·주기 보존
+PASS ⓒ 같은 설치본(stall-scan) → 쓰기 0 · bootstrap 0 · 백업 0
+PASS ⓒ 재apply(멱등) → OK launchd · changed=0 · launchctl 0 · 쓰기 0
+PASS ⓓ 템플릿 밖 plist cmp 불변 · 미설치 라벨 SKIP(새 plist 0)
+PASS ⓑ' bootstrap 3회 실패 → 원복(cmp0) · RESTORED · rc1
+PASS ⓑ' .bak-r538(첫 원본) 보존
+PASS ⓑ' 다음 apply → 렌더본 복구 rc0
+PASS 렌더: 자리표시 잔재 → ERROR rc3
+PASS 렌더 --need-exist: 실행 경로 없음 → ERROR rc3
+PASS 렌더: git 공용 루트 아님 → ERROR rc3
+PASS 워크트리 --project → SKIP launchd · plist 불변 · launchctl 0
+PASS ⓕ install-check: live/1.1.16 고정 plist → DRIFT launchd pinned=1.1.16 rc1 + HINT · 루트 shim plist 는 DRIFT 0
+PASS ⓕ 판 = 지금 LIVE_BIN 판(1.1.230) → DRIFT 0 · OK rc0
+PASS ⓕ apply 뒤 → 루트 shim · DRIFT 0 · OK rc0
+PASS 600/300 초 상한 0
+PASS 시험 시간 < 10분 (158s)
+ALL PASS
+REAL-STATE-GUARD WARN 번호표 늘었으나 실 좌석 계획(동시 실행): /private/tmp/h19 ← /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/state/approve-merge-planner-3196-3202-issues-3205-20261025.sh.hil
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

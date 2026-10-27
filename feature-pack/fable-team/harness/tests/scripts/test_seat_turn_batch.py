@@ -21,6 +21,7 @@ sys.path.insert(0, str(BIN))
 
 import ft_news_html as fh  # noqa: E402
 import ft_seat_turn as st  # noqa: E402
+from _team_turns_fake import install as install_turns  # noqa: E402  r850 r5: 턴 원천(실 jsonl + 가짜 tmux)
 
 MASTER = "byz-t-master-claude#1"
 KINDS = ["IDLE"] * 20 + ["WORKING"] * 15 + ["PENDING"] * 3 + ["UNKNOWN"] * 2
@@ -147,7 +148,8 @@ def test_e_shell_turn_output_bytes_unchanged(world):
 def test_b_news_html_live_teams_one_list_panes_no_seat_status_calls(world, monkeypatch):
     fable = world["tmp"] / ".fable-team"
     fable.mkdir()
-    (fable / "seats-t.json").write_text("{}", encoding="utf-8")
+    (fable / "seats-t.json").write_text(json.dumps({s: {"role": "nano"} for s in SEATS}), encoding="utf-8")  # r850 r2: 좌석 = 명부 현역
+    monkeypatch.setenv("FT_SEAT_RESUME_DIR", str(world["tmp"] / "resume"))
     monkeypatch.setattr(fh, "HERE", world["fake"])  # 옛 경로(HERE/ft-seat-status.sh)가 불리면 status.log 에 남는다
     start = time.monotonic()
     t = next(x for x in fh.live_teams(world["tmp"]) if x["team"] == "t")
@@ -184,19 +186,29 @@ def test_d_seat_without_jsonl_is_unknown_with_reason_not_resting(world, monkeypa
     assert st.turns([SEATS[0], SEATS[39]], "tmux", Path("/x")) == {SEATS[0]: ("?", "읽기 실패"), SEATS[39]: ("?", "jsonl 없음")}
     fable = world["tmp"] / ".fable-team"
     fable.mkdir()
-    (fable / "seats-z.json").write_text("{}", encoding="utf-8")
-    monkeypatch.setattr(fh, "_sessions", lambda: ["byz-z-a#0", "byz-z-b#0"])
-    monkeypatch.setattr(fh, "_turns", lambda seats: {"byz-z-a#0": ("?", "jsonl 없음"), "byz-z-b#0": ("?", "jsonl 없음")})
+    (fable / "seats-z.json").write_text(json.dumps({"byz-z-a#0": {"role": "nano"}, "byz-z-b#0": {"role": "nano"}}), encoding="utf-8")
+    monkeypatch.setenv("FT_SEAT_RESUME_DIR", str(world["tmp"] / "resume"))
+    monkeypatch.setattr(fh, "_sessions", lambda *_a: ["byz-z-a#0", "byz-z-b#0"])
+    install_turns(world["tmp"], monkeypatch, {"byz-z-a#0": ("?", "jsonl 없음"), "byz-z-b#0": ("?", "jsonl 없음")})  # r850 r5: 턴 원천을 실제로 읽힌다
     live = fh.live_teams(world["tmp"])
     z = next(x for x in live if x["team"] == "z")
     assert (z["working"], z["unknown"], z["unknown_reason"]) == (0, 2, "jsonl 없음 2석")
     facts = fh.facts(live, "모름")
-    assert "z" in facts["확인 불가"] and "z" not in facts["쉬는 팀"]
+    assert "z" in facts["확인 불가"] and "z" not in facts["쉼"]  # r850: 쉬는 팀 칸 = «쉼»
 
 
-def test_tmux_timeout_marks_all_unknown_with_reason(monkeypatch):
-    def boom(*_a):
-        raise subprocess.TimeoutExpired("tmux", 7)
-    import ft_seat_turn
-    monkeypatch.setattr(ft_seat_turn, "turns", boom)
-    assert fh._turns(["a", "b"]) == {"a": ("?", "tmux 시간 초과"), "b": ("?", "tmux 시간 초과")}
+def test_tmux_timeout_marks_all_unknown_with_reason(tmp_path, monkeypatch):
+    """tmux list-panes 가 멈춤 → 판정 하위가 마감(6초 TERM · 7초 KILL)에 끊겨 «확인 불가(시간 초과)»(쉼 아님 · r850 r5 하위 1개)."""
+    import ft_team_state as ts
+    from datetime import datetime
+    fable = tmp_path / ".fable-team"
+    fable.mkdir()
+    (fable / "seats-t.json").write_text(json.dumps({"_master": "byz-t-master#1", "byz-t-master#1": {"role": "master"}}), encoding="utf-8")
+    hang = tmp_path / "tmux"
+    hang.write_text("#!/bin/sh\nsleep 10\n", encoding="utf-8")
+    hang.chmod(0o755)
+    monkeypatch.setenv("FT_TMUX", str(hang))
+    monkeypatch.setenv("FT_SEAT_RESUME_DIR", str(tmp_path / "resume"))
+    start = time.monotonic()
+    got = ts.team_states(tmp_path, {"byz-t-master#1"}, datetime(2026, 10, 24, 14, 0))
+    assert got["t"]["state"] == "확인 불가" and "시간 초과" in got["t"]["label"] and time.monotonic() - start <= 7.5  # r6: pane 목록은 자기 무리 5초 상한

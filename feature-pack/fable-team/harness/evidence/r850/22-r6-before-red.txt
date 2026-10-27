@@ -1,0 +1,13 @@
+FAILED harness/tests/scripts/test_news_team_state_r850.py::test_s_mutation_kill_child_only_is_caught
+FAILED harness/tests/scripts/test_news_team_state_r850.py::test_t6_mutation_line_after_deadline_used_is_caught
+FAILED harness/tests/scripts/test_news_team_state_r850.py::test_t7_publish_grade_partial_and_all_unknown
+FAILED harness/tests/scripts/test_news_team_state_r850.py::test_t1_mutation_end_of_run_receive_is_caught
+FAILED harness/tests/scripts/test_news_team_state_r850.py::test_u2_slow_tmux_stays_inside_deadline
+FAILED harness/tests/scripts/test_news_team_state_r850.py::test_u2_session_list_over_deadline_is_all_unknown
+FAILED harness/tests/scripts/test_news_team_state_r850.py::test_u3_no_descendants_left_after_return
+FAILED harness/tests/scripts/test_news_team_state_r850.py::test_u4_sheet_teams_path_emits_grade_line
+FAILED harness/tests/scripts/test_news_team_state_r850.py::test_u_mutation_entry_deadline_removed_is_caught
+FAILED harness/tests/scripts/test_news_team_state_r850.py::test_u_mutation_outer_try_removed_is_caught
+FAILED harness/tests/scripts/test_news_team_state_r850.py::test_u_mutation_grade_line_removed_is_caught
+11 failed, 38 passed in 48.73s
+rc=1

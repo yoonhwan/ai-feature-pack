@@ -1,0 +1,7 @@
+FAILED tests/scripts/test_news_team_state_r850.py::test_i_retired_generation_is_not_collected_news_map_sheet_same
+FAILED tests/scripts/test_news_team_state_r850.py::test_r2_one_broken_source_isolated_to_its_team
+FAILED tests/scripts/test_news_team_state_r850.py::test_r3_successor_above_roster_is_the_seat
+FAILED tests/scripts/test_news_team_state_r850.py::test_r3b_retired_lower_generation_alive_is_ignored
+FAILED tests/scripts/test_news_team_state_r850.py::test_r3_mutation_team_try_removed_is_caught
+FAILED tests/scripts/test_news_team_state_r850.py::test_r3_mutation_seat_set_rules_are_caught
+6 failed, 15 passed in 25.70s

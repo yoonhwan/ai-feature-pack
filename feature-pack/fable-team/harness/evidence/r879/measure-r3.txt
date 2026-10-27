@@ -1,0 +1,44 @@
+# r879 r3 디스크 실측 — git sparse-checkout check-rules --no-cone (실제 체크아웃 0)
+BYZ 44f807e3d0 · design/teams/v65 tracked 14250 파일 824.9M
+  r3 구현(미디어 확장자만): IN 13679 파일 704.0M · OUT 120.9M (14.7%)
+  r2 판(evid* 폴더 통째 + 카드 글자): IN 10696 파일 159.4M · OUT 665.5M (80.7%)
+  제안(r2 − 카드 글자 파싱): IN 10696 파일 159.4M · OUT 665.5M (80.7%)
+
+-- r3 규칙 전문 (sparse_patterns v65 '' M5-1812 · 32 미디어 줄 생략 없음)
+/*
+!/design/teams/*/
+/design/teams/v65/
+!/design/teams/v65/**/*.wav
+!/design/teams/v65/**/*.WAV
+!/design/teams/v65/**/*.mp3
+!/design/teams/v65/**/*.MP3
+!/design/teams/v65/**/*.m4a
+!/design/teams/v65/**/*.M4A
+!/design/teams/v65/**/*.flac
+!/design/teams/v65/**/*.FLAC
+!/design/teams/v65/**/*.ogg
+!/design/teams/v65/**/*.OGG
+!/design/teams/v65/**/*.mp4
+!/design/teams/v65/**/*.MP4
+!/design/teams/v65/**/*.webm
+!/design/teams/v65/**/*.WEBM
+!/design/teams/v65/**/*.mov
+!/design/teams/v65/**/*.MOV
+!/design/teams/v65/**/*.png
+!/design/teams/v65/**/*.PNG
+!/design/teams/v65/**/*.jpg
+!/design/teams/v65/**/*.JPG
+!/design/teams/v65/**/*.jpeg
+!/design/teams/v65/**/*.JPEG
+!/design/teams/v65/**/*.gif
+!/design/teams/v65/**/*.GIF
+!/design/teams/v65/**/*.zip
+!/design/teams/v65/**/*.ZIP
+!/design/teams/v65/**/*.tar
+!/design/teams/v65/**/*.TAR
+!/design/teams/v65/**/*.gz
+!/design/teams/v65/**/*.GZ
+!/design/teams/v65/**/*.tgz
+!/design/teams/v65/**/*.TGZ
+/design/teams/v65/**/fixtures/**
+/design/teams/v65/evidence/M5-1812/**

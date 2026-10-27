@@ -1,0 +1,12 @@
+# r879 r5 red — 대조 = 보존 세트 897a3293(r4) 판 bin 에 «새 시험» 을 돌린 결과 (변이 아님 · 판 대조)
+# ★r4 판 그대로는 시험 블록 추출 단계에서 멈춘다(SPARSE_EXTS 없음) — 아래는 r4 판에 SPARSE_EXTS 한 줄만 심어 블록을 통과시킨 대조다(동작은 r4 그대로).
+#   파일: /tmp/r879-r4bin/ft-nano-spawn.sh (a0db75fc3b6a + SPARSE_EXTS 줄)
+# 판별 = ⓨ5' (트리에 없는 새 wav add) · ⓨ5(규칙 줄 수 41≠42) — r4 의 glob 규칙은 «새 파일»까지 제외하고 줄 수가 실재 파일 수와 1:1 이 아니다
+FAIL ⓨ5' 새 wav add 가 막혔음(r5 는 새 파일 제외 0)
+PASS ⓨ1 other.wav/note.md·summary.json IN(git add rc0) · other.wav/x.wav OUT
+PASS ⓨ2 a.WaV·b.PnG·Result.JSON·x.JsonL OUT(소문자 비교)
+PASS ⓨ3 'my report.md'·'INV(final).md' IN · 'my song (final).WAV'·'weird[1].png' OUT(이스케이프)
+PASS ⓨ4 evidence 바로 아래 md IN · 자기 카드 clip.wav IN · 남의 카드 big.wav OUT(되살림 줄이 제외 줄 뒤)
+FAIL ⓨ5 줄 수 41 ≠ 42 또는 새 파일 add 막힘
+PASS ⓨ6 미디어 15확장자 · 대문자 MP3·FlAc 전부 OUT
+FAILED 2

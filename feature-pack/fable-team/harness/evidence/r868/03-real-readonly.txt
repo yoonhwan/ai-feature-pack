@@ -1,0 +1,31 @@
+postboot-measure at=2026-10-25 01:22 boot=61m disk=166.5Gi swap=0M load15=41.30 claude=37 tmux=40 wt=실패(rc=128 rc≠0 fatal: (현재 폴더 또는 상위 폴더 중 일부가) ) deleted=206M timeouts=0 summary=-
+env FT_ROOT=$T FT_POSTBOOT_SUMMARY_DIR=$T/sum bash bin/ft-postboot-measure.sh  0.37s user 0.50s system 62% cpu 1.382 total
+rc=0
+postboot-measure summary=<임시 루트>/sum/SUMMARY-postboot-2026-10-25.md
+# 재부팅 기준선 재측정 요약 — 2026-10-25 (r868 · 측정 1회)
+
+> 원본 = `.fable-team/state/postboot-measure.tsv` · 기준선 = design/teams/planner/BASELINE-postboot-20261025.md 원시 출력 00:33
+> «시간 초과»·«실패(…)» 칸은 그대로 둔다(0·빈 칸으로 숨김 0). 이 파일은 측정 잡이 커밋하지 않는다.
+
+| 항목 | 기준선 (재부팅 직후 00:33) | 01:22 · 부팅 61분 | 차이 (마지막 − 기준선) |
+|---|---|---|---|
+| 디스크 여유 GiB | 182 | 166.5 | −15.5 |
+| 스왑 사용 MiB | 0 | 0 | 0 |
+| 메모리 여유 % | 91 | 56 | −35.0 |
+| 부하 load 15분 | 9.71 | 41.30 | +31.6 |
+| claude 프로세스 | 18 | 37 | +19.0 |
+| 웹 next-server 수 | 0 | 2 | +2.0 |
+| colima 상태 | — | 실행 | — |
+| tmux 세션 | 6 | 40 | +34.0 |
+| 워크트리 | 441 | 실패(rc=128 rc≠0 fatal: (현재 폴더 또는 상위 폴더 중 일부가) ) | — |
+| ① 지운 채 쥔 파일 MiB(lsof +L1) | — | 206 | — |
+| ① 쥔 프로세스 상위 5(이름:pid=MiB) | — | WeatherWi:755=25 fileprovi:633=13 Wallpaper:667=13 chronod:672=13 com.apple:675=13 | — |
+| ② pi 프로세스 | 11 | 1 | −10.0 |
+| ② pi RSS MiB | — | 149 | — |
+| ② claude RSS MiB | — | 13232 | — |
+| ② node 프로세스 | 18 | 30 | +12.0 |
+| ② python 프로세스 | 20 | 40 | +20.0 |
+| ② 전체 프로세스 | 695 | 918 | +223.0 |
+| ③ next-server CPU % | — | 0.1 | — |
+| ④ limactl 프로세스 | 2 | 3 | +1.0 |
+| 부팅 뒤 경과 분 | 11 | 61 | +50.0 |

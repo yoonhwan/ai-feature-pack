@@ -1,0 +1,69 @@
+PASS bash -n 3종
+PASS ⓐ0 지금 판 = approve-standing·standing-approve 없음(usage rc2 · 승인 파일 0)
+PASS ⓐ1 approve-standing → 슬랙 1글 먼저 · GRANTED
+PASS ⓐ2 log 줄 꼴 · grants.audit 슬랙 ts
+PASS ⓐ3 standing-approve A → STANDING-OK(좌석 = 실측 planner)
+PASS ⓐ4 log 2줄 + 승인 파일(같은 줄)
+PASS ⓐ5 자율 OFF 에서 통과 · 위변조 아님
+PASS ⓐ6 ft-merge-land A → LANDED(팩 main = 착지 sha · 오빠 h 0)
+PASS ⓐ7 merge-gate.log approve=A approve-file … standing=D1
+PASS ⓖ1 D1 원장 = PR·da·DA 원문 경로·착지 sha·되돌림 명령
+PASS ⓖ2 standing-status --since = 사람 말 1덩이
+PASS ⓖ3 --since 뒤 행 없음 = «없어요»
+PASS ⓑ1 상시 승인 줄 없음 → ① 거절
+PASS ⓑ2a standing-stop 줄
+PASS ⓑ2 standing-stop 뒤 → ① 거절
+PASS ⓑ2b stop 뒤 새 approve-standing = 다시 켜짐
+PASS ⓑ3 DA 마지막 블록 HOLD(앞 블록 APPROVE 섞음) → 거절
+PASS ⓑ3b 블록 첫 줄 APPROVE · 끝 판정 줄 HOLD → 거절
+PASS ⓐ-tail APPROVE 원문 끝에 판정 아닌 줄 1줄 추가 → 거절(마지막 비어 있지 않은 줄 검사 · DA 반례 2)
+PASS ⓑ4 .meta 없음 → 거절
+PASS ⓑ4b .meta head ≠ A → 거절
+PASS ⓑ4c DA 모델 claude 계열 → 거절
+PASS ⓑ5 판정문이 BYZ origin/main 에 없음(로컬만) → 거절
+PASS ⓑ6 DA 원문 sha256 ≠ 판정문(판정 뒤 바꿔치기) → 거절
+PASS ⓑ6b 격리 세트 ≠ 승인 sha → 거절
+PASS ⓑ7 팩 분류표 forbid(repo-outside) → 거절
+PASS ⓑ8 종류 docs ∉ classes=code → 거절
+PASS ⓑ8b 대조: 문서만 PR(분류기 ff = docs) · classes=code,docs → 통과
+PASS ⓑ0 대조: 같은 PR·좋은 판정문 = 통과(거절 사유가 그 칸 하나뿐)
+PASS ⓑ0b 같은 head 두 번 = NOOP(쓰기 0)
+PASS ⓐ-tail2 끝의 빈 줄만 = 통과(마지막 «비어 있지 않은» 줄)
+PASS ⓒ1 A 위 main 병합만 → EQUIV 통과 · use 줄 da=A
+PASS ⓒ2 자기 변경이 다름 → ⑥ 거절
+PASS ⓓ byz-planner-arch-claude#16 → 거절
+PASS ⓓ byz-harness-master-claude#115 → 거절
+PASS ⓓ byz-harness-nano-r947-x#0 → 거절
+PASS ⓓ2 실제 좌석 나노 · SELFTEST·자기신고를 planner 로 위조 → 거절(env -u)
+PASS ⓕ1 자율 ON 에서 통과 · mode on 그대로 · scope-use 0
+PASS ⓕ2 자율 OFF(json 있음)에서 통과 · mode off
+PASS ⓔ1 approve-standing·standing-use·standing-stop·approve-merge D1 → 위변조 아님
+PASS ⓔ2 꼴 틀린 줄 7종 → 전부 tamper
+PASS ⓔ3 tamper 면 approve-standing 거절
+PASS da-codex .meta head = 실행 «전» HEAD(codex 가 커밋해도) · 끝줄 OUT 그대로
+PASS da-codex cwd 가 git 아님 → head=none(상시 승인 거절 쪽)
+PASS ⓘ1 변이(마지막 블록 대신 아무 «판정: APPROVE» 줄) → ⓑ3 HOLD 섞음 칸 빨강
+PASS ⓘ7 변이(끝줄 검사 끔 = 마지막 «판정:» 줄만) → ⓐ-tail 칸 빨강
+PASS ⓘ2 변이(.meta head 대조 끔) → ⓑ4b 칸 빨강
+PASS ⓘ3 변이(origin/main 존재 검사 끔 · 로컬 판정문 읽기) → ⓑ5 칸 빨강
+PASS ⓘ4 변이(sha256 대조 끔) → ⓑ6 칸 빨강
+PASS ⓘ5 변이(log 새 꼴 등록 끔) → ⓔ1 칸 빨강(tamper)
+PASS ⓘ6 변이(좌석 검사 끔) → ⓓ 칸 빨강
+PASS 키트 사본 cmp0 ft-autonomy.sh
+PASS 키트 사본 cmp0 ft-autonomy-standing.sh
+PASS 키트 사본 cmp0 ft-merge-land.sh
+PASS 키트 사본 cmp0 ft_doc_exempt.py
+PASS 줄 수 상한(autonomy 200 · standing 200 · merge-land 120)
+PASS ⓗ test_autonomy_core rc=0 (192 PASS)
+PASS ⓗ test_autonomy_scope rc=0 (144 PASS)
+PASS ⓗ test_autonomy_scope_pack rc=0 (13 PASS)
+PASS ⓗ test_autonomy_kinds_1675 rc=0 (110 PASS)
+PASS ⓗ test_autonomy_hooks rc=0 (226 PASS)
+PASS ⓗ test_merge_land rc=0 (49 PASS)
+PASS ⓗ test_merge_land_pack_repo rc=0 (29 PASS)
+PASS ⓗ test_merge_land_equiv rc=0 (42 PASS)
+PASS ⓗ test_merge_land_off_approval rc=0 (14 PASS)
+PASS ⓗ test_da_codex_wrapper rc=0 (49 PASS)
+PASS ⓗ test_doc_exempt_r725 rc=0 (119 PASS)
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
