@@ -29,8 +29,9 @@ from ft_news_post import goal_gate  # noqa: E402 — 문 모듈 누락(설치 �
 try:
     from magazine_slack import permalink, post_root  # noqa: E402
     from mirror_lib import MirrorError, paged  # noqa: E402
+    from root_readback_guard import Post, readback  # noqa: E402 — r1004 되읽기 가드(설치본·키트 같은 폴더)
 except ImportError as e:
-    raise ImportError(f"magazine_slack·mirror_lib 를 못 찾음 — 찾은 곳: {_HERMES} (FT_HERMES_SCRIPTS) · {_KIT} ({e})") from e
+    raise ImportError(f"magazine_slack·mirror_lib·root_readback_guard 를 못 찾음 — 찾은 곳: {_HERMES} (FT_HERMES_SCRIPTS) · {_KIT} ({e})") from e
 
 LOG = logging.getLogger("ft_news_publish")
 STAMP = re.compile(r"-(\d{8}-\d{4})\.md$")
@@ -118,15 +119,19 @@ def _find_posted(t, body: str, oldest: float) -> str | None:
 
 
 def _post_new(day: str, polished: Path, body: str):
-    """(ts, 대상) — 채널 최상위 새 글 1개(스레드·답글·update·첨부 0). 올리기 «전» 그날 봇 글 중 본문이 같은 글이 있으면 올리지 않고 그 ts 를 채택."""
+    """(ts, 대상) — 채널 최상위 새 글 1개(스레드·답글·update·첨부 0). 올리기 «전» 그날 봇 글 중 본문이 같은 글이 있으면 올리지 않고 그 ts 를 채택.
+    채택한 글도 되읽기 가드를 건다(r1004 — 표 글이 남아 있는 걸 «이미 올라감» 으로 통과시키지 않는다)."""
     if len(body.encode("utf-8")) > MAX_BYTES:
         raise MirrorError(f"뉴스 본문 {len(body.encode('utf-8'))}B > {MAX_BYTES}B — Slack 길이 한도(바이트) 초과, 자르지 않고 발행 0")
     t = _target(day, polished)
     oldest = datetime.strptime(day, "%Y-%m-%d").timestamp()
     if found := _find_posted(t, body, oldest):
         LOG.info("이미 올라간 글 채택 ts=%s — 다시 올리지 않음", found)
+        readback(Post(t.base, t.token, t.channel, found, f"news:{day}"))  # r1004 — 채택 뒤에도 검사
         return found, t
-    return post_root(t, body), t
+    ts = post_root(t, body)
+    readback(Post(t.base, t.token, t.channel, ts, f"news:{day}"))  # r1004 — 게시 직후 되읽기(표·«…»·결론 아닌 첫 줄이면 지운다)
+    return ts, t
 
 
 def _link(t, ts: str) -> str | None:
@@ -200,6 +205,8 @@ def publish_html(html_p: Path, summary: str, now: datetime) -> tuple[int, dict |
                 state = _paths()[1]
                 state.mkdir(parents=True, exist_ok=True)
                 (state / "pending-attach.json").write_text(json.dumps({"day": day, "ts": ts, "html": str(html_p)}), encoding="utf-8")
+        if ts:
+            readback(Post(t.base, t.token, t.channel, ts, f"news:{day}"))  # r1004 — HTML 모드 글도 게시 직후 되읽기(채택한 글 포함)
     except MirrorError as e:
         LOG.error("뉴스 지도 발행 실패: %s", e)
         return 1, None
@@ -238,6 +245,7 @@ def publish_line(text: str, now: datetime) -> int:
     try:
         t = _target(day, f)
         ts = post_root(t, text)
+        readback(Post(t.base, t.token, t.channel, ts, f"news:{day}"))  # r1004 — 한 줄 글도 같은 가드
     except MirrorError as e:
         LOG.error("뉴스 한 줄 발행 실패: %s", e)
         return 1

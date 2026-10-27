@@ -113,6 +113,9 @@ class FakeMagazineSlack:
                     return self._reply({"ok": True})
                 ts = outer._next_ts()
                 body = json.loads(data)
+                if self.path.endswith("chat.delete"):  # r1004 되읽기 가드 — 지운 글은 목록에서 사라진다
+                    outer.msgs = [m for m in outer.msgs if m["ts"] != body["ts"]]
+                    return self._reply({"ok": True})
                 outer.msgs.append({"ts": ts, "text": body["text"], "bot_id": "B1", "thread_ts": body.get("thread_ts", "")})
                 if outer.drop_after_create:
                     outer.drop_after_create = False
@@ -124,7 +127,9 @@ class FakeMagazineSlack:
                 u = urlparse(self.path)
                 q = {k: v[0] for k, v in parse_qs(u.query).items()}
                 if u.path.endswith("conversations.history"):
-                    roots = [m for m in outer.msgs if not m["thread_ts"] and float(m["ts"]) > float(q["oldest"])]
+                    lo, hi = float(q["oldest"]), float(q.get("latest") or "9" * 12)
+                    inc = q.get("inclusive") == "true"  # r1004: 되읽기가 «그 글 하나»(oldest=latest=ts · inclusive)를 묻는다
+                    roots = [m for m in outer.msgs if not m["thread_ts"] and (lo <= float(m["ts"]) if inc else lo < float(m["ts"])) and float(m["ts"]) <= hi]
                     return self._reply({"ok": True, "messages": list(reversed(roots))})
                 if u.path.endswith("conversations.replies"):
                     if outer.fail_replies:

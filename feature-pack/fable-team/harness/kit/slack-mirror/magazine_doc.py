@@ -26,6 +26,7 @@ from magazine_slack import SLACK_BASE, Target, permalink, post_root, upload_file
 from magazine_summary import PROXY_URL
 from magazine_window import MagazineError
 from mirror_lib import MirrorError, read_token, save_state
+from root_readback_guard import Post, readback
 
 try:
     from magazine_goal import block as goal_block, html_section, procs_block, teams_block
@@ -108,6 +109,8 @@ def publish(args: argparse.Namespace, key: str, date: str, html_path: Path, conc
         return f"skip {key} root_ts={rec['root_ts']} (이미 발행됨)", str(rec["root_ts"])
     target = Target(args.slack_base, read_token(Path(args.token_file).expanduser()), args.channel, "")
     root_ts = str(rec.get("root_ts") or post_root(target, root_text(date, conclusion)))
+    if not rec.get("root_ts"):  # 방금 올린 뿌리 글만 되읽기(이미 검사한 재샐행 글은 다시 안 본다)
+        readback(Post(target.base, target.token, target.channel, root_ts, f"magazine:{date}"))  # r1004 — 위반이면 지우고 raise → 상태 기록 0(다음 새샐행이 새 글)
     state[key] = {"root_ts": root_ts, "uploaded": False, "date": date}
     state_path.parent.mkdir(parents=True, exist_ok=True)
     save_state(state_path, state)
