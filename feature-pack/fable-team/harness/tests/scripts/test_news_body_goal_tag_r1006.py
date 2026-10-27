@@ -72,6 +72,20 @@ def body(sha: str = "", extra: str = "") -> str:
     return heading(sha) + "\n\n" + extra + "*지금*\n• 진행\n"
 
 
+def two_tags(block: str, where: str) -> str:
+    """표지 2개 — 같은 줄(머리 끝에 하나 더) 또는 다음 줄."""
+    tag = f"골표 {_sha(block)}·202610271030"
+    if where == "같은 줄":
+        return heading(_sha(block)) + " · " + tag + "\n\n*지금*\n• 진행\n"
+    return heading(_sha(block)) + "\n" + tag + "\n\n*지금*\n• 진행\n"
+
+
+def other_block(block: str, name: str) -> str:
+    """ft_goal_table 이 내는 다른 블록 하나(팀별 완성 진행·표준절차 골) — 머리·꼬리 글자는 그 한 곳에서 가져온다."""
+    head, tail = (gt.TEAMS_HEAD, gt.TEAMS_TAIL) if name == "팀별 완성 진행" else (gt.PROCS_HEAD, gt.PROCS_TAIL)
+    return f"{head}{_sha(block)})★\n| 팀 | 끝선 N/M |\n|---|---|\n| planner | 2/5 |\n{tail}\n"
+
+
 # ── ⓐ C1 본문 표 줄 0 · 표지 1줄 ────────────────────────────────
 
 def test_a_first_part_has_no_table_line_and_exactly_one_tag_line(block):
@@ -157,6 +171,29 @@ def test_e_status_footnote_lines_stay_bullets_in_order_and_carry_no_table(block)
     assert "|---" not in parts[0] and not [ln for ln in got if ln.startswith("|")]  # 표 줄 0
     assert got[-len(lines):] == lines  # 각주(맨 끝) = 내용·순서 그대로
     assert got.index(st.TITLE) < got.index(lines[-1])  # 절 제목 아래
+
+
+# ── ⓕ 표지 2개 · ⓖ 다른 블록 재삼입 ─────────────────────────
+
+@pytest.mark.parametrize("where", ["같은 줄", "다음 줄"])
+@pytest.mark.parametrize("armed", [True, False])
+def test_f_two_tags_in_the_first_part_are_a_problem(where, armed, block, monkeypatch, env, slack):  # noqa: F811
+    tmp, news = env
+    if armed:
+        arm(tmp)
+    b = two_tags(block, where)
+    assert "2개" in gate.problem(b, sdir(tmp))  # 표지는 «정확히 1개»
+    rc = np.main(["publish", str(polished(news, "20261027-1031", b))])
+    assert (rc == 3 and slack.calls() == 0) if armed else (rc == 0 and len(slack.posts) == 1)
+
+
+@pytest.mark.parametrize("name", ["팀별 완성 진행", "표준절차 골"])
+def test_g_other_goal_table_blocks_in_the_first_part_are_a_problem(name, block, env, slack):  # noqa: F811
+    tmp, news = env
+    arm(tmp)
+    b = body(_sha(block), other_block(block, name))
+    assert name in gate.problem(b, sdir(tmp))  # 마커 3종 중 어느 것이든 본문에 있으면 문제
+    assert np.main(["publish", str(polished(news, "20261027-1032", b))]) == 3 and slack.calls() == 0
 
 
 # ── C6 kit 짝 cmp0 · 200줄 상한 ─────────────────────────────────

@@ -59,16 +59,27 @@ def _rendered() -> tuple[str, str]:
     return block, m[1]
 
 
+def blocks_in(body: str) -> str:
+    """본문에 실린 골 표 계열 블록 이름 — 마커 목록은 ft_goal_table.BLOCK_MARKS 한 곳(골 표 · 팀별 완성 진행 · 표준절차 골). 없으면 빈 글."""
+    lines = [ln.strip() for ln in body.splitlines()]
+    for name, head, tail in gt.BLOCK_MARKS:
+        if any(head.match(ln) for ln in lines) or tail in lines:
+            return name
+    return ""
+
+
 def first_problem(body: str) -> str:
-    """첫 판 하나의 문제(없으면 빈 글) — 본문에 블록 0 · 표지 sha10 = 지금 렌더한 골 표 sha10 ∧ 그 블록 check 통과(r1006)."""
-    if any(gt.HEAD.match(ln.strip()) for ln in body.splitlines()):
-        return "첫 판 본문에 골 표 블록이 실렸다 — `골표 <sha10>` 표지 1줄만 남긴다(표는 HTML 지도가 그린다)"
-    t = TOKEN.search(_first(body))
-    if not t:
+    """첫 판 하나의 문제(없으면 빈 글) — 본문에 블록 0 · 표지 «정확히 1개» 의 sha10 = 지금 렌더한 골 표 sha10 ∧ 그 블록 check 통과(r1006)."""
+    if mark := blocks_in(body):
+        return f"첫 판 본문에 {mark} 블록이 실렸다 — `골표 <sha10>` 표지 1줄만 남긴다(표는 HTML 지도가 그린다)"
+    tags = TOKEN.findall(body)
+    if not tags:
         return "첫 판 머리에 `골표 <sha10>·<run id>` 표지가 없다"
+    if len(tags) > 1:
+        return f"첫 판 본문에 `골표 <sha10>·<run id>` 표지가 {len(tags)}개다 — 판마다 정확히 1개"
     block, sha = _rendered()
-    if t[1] != sha:
-        return f"표지 sha10 {t[1]} 이 지금 렌더한 골 표 {sha} 와 다르다(옛 정본·다른 표지)"
+    if tags[0][0] != sha:
+        return f"표지 sha10 {tags[0][0]} 이 지금 렌더한 골 표 {sha} 와 다르다(옛 정본·다른 표지)"
     rc, msg = gt.check(block, block_only=True)
     return "" if rc == 0 else msg.removeprefix("REJECT ")
 
