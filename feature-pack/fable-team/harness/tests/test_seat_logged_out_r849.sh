@@ -46,6 +46,8 @@ mutate "[재개] 제외 삭제" ft_api_outage.py 'c is not None and c.cause != "
 mutate "소요 시간 검사 삭제" ft_seat_turn.py ' or not is_quick_turn(recs[ends[j]].get("durationMs"))' '' test_r4_slow_auth_failure_turn_is_not_logged_out
 mutate "미완 턴 활동 제외 되살림" ft-jsonl-last-ts.py '        if end is not None and is_quick_turn(end.get("durationMs")) and any(is_logged_out(r) for r in seg) and not any(is_normal(r) for r in seg):' '        if any(is_logged_out(r) for r in seg) and not any(is_normal(r) for r in seg):' test_r5_unfinished_turn_counts_as_activity
 mutate "칸 폴더 조용한 통과 되살림" ft_stall_scan.py 'if cell.exists() and not cell.is_file():' 'if False:' test_r6_cell_is_folder_errors_not_silent
+# r993 — 카드 원천 «한 곳» 을 r849 꼴(ROOT 먼저)로 되돌리면 그 반례가 FAIL
+mutate "ROOT 먼저 되살림" ft_card_rest.py '        name, base = source(d, root)' '        name, base = "ROOT", root' test_r2_wt_card_wins_root_stale_copy
 mutate "칸 발신 전 기록 삭제" ft_stall_scan.py '                _ = cell.write_text(f"first={first} master={master}\n", encoding="utf-8")' '                _ = None' test_r7_cell_written_before_send_one_notice
 
 # 짝 사본(harness/bin ↔ kit) 바이트·실행 비트 동일
