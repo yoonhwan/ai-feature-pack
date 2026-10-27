@@ -1,0 +1,22 @@
+-- ft-tick.sh = ba445cce (     861 lines)
+ba445cce test_agent_alive_fg_judge.sh rc=1 PASS=124 FAIL=2 guard=REAL-STATE-GUARD PASS
+ba445cce test_autonomy_core.sh rc=1 PASS=192 FAIL=3 guard=REAL-STATE-GUARD PASS
+ba445cce test_leak_reap.sh rc=0 PASS=121 FAIL=0 guard=REAL-STATE-GUARD PASS
+ba445cce test_raised_seat.sh rc=1 PASS=94 FAIL=26 guard=REAL-STATE-GUARD PASS
+ba445cce test_team_move_roundtrip.sh rc=1 PASS=102 FAIL=4 guard=REAL-STATE-GUARD PASS
+-- ft-tick.sh = HEAD (     892 lines)
+HEAD test_agent_alive_fg_judge.sh rc=1 PASS=124 FAIL=2 guard=REAL-STATE-GUARD PASS
+HEAD test_autonomy_core.sh rc=1 PASS=192 FAIL=3 guard=REAL-STATE-GUARD PASS
+HEAD test_leak_reap.sh rc=0 PASS=121 FAIL=0 guard=REAL-STATE-GUARD PASS
+HEAD test_raised_seat.sh rc=1 PASS=94 FAIL=26 guard=REAL-STATE-GUARD PASS
+HEAD test_team_move_roundtrip.sh rc=1 PASS=102 FAIL=4 guard=REAL-STATE-GUARD PASS
+DIFF test_agent_alive_fg_judge.sh: 같음(FAIL 줄 집합 동일)
+DIFF test_autonomy_core.sh: 같음(FAIL 줄 집합 동일)
+DIFF test_leak_reap.sh: 같음(FAIL 줄 집합 동일)
+DIFF test_raised_seat.sh: < FAIL astra 사유 없음: 거절 문구 — 없음: «REJECT 상향 모델(gpt-6-astra)» ← /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.2wWat3CXn4/bin/ft-r
+< FAIL dry-run 상향 + --raise → PLAN — 없음: «PLAN seat=» ← /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.2wWat3CXn4/bin/ft-resourc
+< FAIL dry-run 기본 모델 → PLAN (--raise 불필요) — 없음: «PLAN seat=» ← /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.2wWat3CXn4/bin/ft-
+> FAIL astra 사유 없음: 거절 문구 — 없음: «REJECT 상향 모델(gpt-6-astra)» ← /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.FdkYhjDIJ7/bin/ft-r
+> FAIL dry-run 상향 + --raise → PLAN — 없음: «PLAN seat=» ← /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.FdkYhjDIJ7/bin/ft-resourc
+DIFF test_team_move_roundtrip.sh: < FAIL ⓑ' 쌍둥이 rc=1 ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.00ulCgU8Wh/bin3
+> FAIL ⓑ' 쌍둥이 rc=1 ← INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.WFl9S4BwbL/bin3
