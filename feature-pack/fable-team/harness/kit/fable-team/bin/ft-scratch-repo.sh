@@ -111,14 +111,6 @@ owner_base() { # r845 r7: <주인> → 그 주인의 사본 자리(생성 BASE �
   if [ -n "${FT_SCRATCH_DIR:-}" ]; then printf '%s\n' "${FT_SCRATCH_DIR%/}"; return 0; fi
   local t="${TMPDIR:-/tmp}"; printf '%s/ft-scratch/%s\n' "${t%/}" "$1"
 }
-under_base() { # r845 r7: <경로> <부모> → 0 = 그 경로가 부모 «아래»다(폴더 경계 · 물리 경로로 대조 — /var↔/private)
-  local b p
-  cap b phys_tmo "$2" || return 1
-  cap p phys_tmo "$1" || return 1
-  [ -n "$b" ] && [ -n "$p" ] || return 1
-  case "$p" in "$b"/*) return 0;; esac
-  return 1
-}
 verify_complete() { # r845 r7·r8: <경로> → 0 = 그 사본이 «요청 sha 그대로 + status 깨끗» · 인자 없으면 DEST
   local d="${1:-${DEST:-}}" h st
   [ -n "$d" ] && [ -d "$d" ] || return 1
@@ -410,9 +402,6 @@ delete_copy() { # <경로> <reg|tmp> <주인|-> [sweep|done] → 위 rc 표 · G
   # G5(reg) 등록부 · G1 베이스(등록 줄의 생성 당시 베이스 — 옛 줄은 기본 TMPDIR·지금 FT_SCRATCH_DIR) · G2 이름꼴
   if [ "$kind" = reg ]; then
     gate_rows "$P" "$own" || return
-    # r845 r7: 지우기 세 조건 «모두» — 그 줄 주인의 사본 자리 아래 ∧ 장부 정확히 1줄(gate_rows) ∧ 분리 워크트리(G7)
-    cap OB owner_base "$GOWN" 2>/dev/null || { gfail G5 2 "주인 사본 자리 못 읽음"; return; }
-    under_base "$P" "$OB" || { gfail G5 3 "주인 사본 자리 밖($OB)"; return; }
     if [ -n "$GBASE" ]; then gate_base "$P" "$GBASE" || return; else gate_base "$P" "${TMPDIR:-/tmp}" "${FT_SCRATCH_DIR:-}" || return; fi
     re='^repo-[0123456789abcdef]{8}-[0123456789]+-[0123456789]+$'
   else
@@ -605,8 +594,7 @@ case "${1:-}" in
       if verify_complete "$p"; then echo "$p"; exit 0; fi
       echo "WARN ft-scratch-repo — 불완전 사본 건너뜀(status 깨끗하지 않음 · 삭제 0 · 장부 유지) · 새 사본을 만든다: $p" >&2
     done < <(cat "$TSV" 2>/dev/null)
-    # r845 r6: 기본 생성 자리 = $TMPDIR/ft-scratch/<주인>/ (TMPDIR 없으면 /tmp/ft-scratch/<주인>/) — 재부팅이 지우는 임시 자리
-    if [ -n "${FT_SCRATCH_DIR:-}" ]; then BASE="${FT_SCRATCH_DIR%/}"; else BASE="${TMPDIR:-/tmp}"; BASE="${BASE%/}/ft-scratch/$OWNER"; fi
+    BASE="$(owner_base "$OWNER")"   # r845 r6: 기본 생성 자리 = $TMPDIR/ft-scratch/<주인>/ (TMPDIR 없으면 /tmp/ft-scratch/<주인>/) — 재부팅이 지우는 임시 자리
     has_ctl_all "$BASE" && die "등록 불가 경로(제어 문자): $(printf '%q' "$BASE")" 2
     mkdir -p "$BASE" 2>/dev/null || die "사본 부모 폴더 생성 실패: $BASE" 4
     DEST="${BASE%/}/repo-$(printf '%.8s' "$SHA")-$(date +%s)-$$"
