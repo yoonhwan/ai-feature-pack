@@ -8,7 +8,8 @@ r426: plist 행 중 설치기 관리 라벨(ft_plist_env.MANAGED)은 설치본 =
 r459: --restart-scan [<plist 폴더>] = 적재된 하네스 데몬 중 «기동 < 스크립트 mtime» 인 라벨의 RESTART 줄만(install.sh --apply 끝 · 실행 0 · rc0).
 r538: com.byz.*.plist 실행 경로의 판 붙은 live 경로(판 ≠ 루트 LIVE_BIN 판) → DRIFT launchd <라벨> pinned=<판> (고침 = install.sh --apply 렌더).
 r544: com.byz.*.plist 실행 경로(ProgramArguments 의 .sh/.py)가 없는 파일 → DRIFT launchd <라벨> missing=<경로> (지운 워크트리를 가리키는 데몬이 매시간 실패 — gce-guard 사건 · 키트 템플릿 밖 plist 도 실재만 검사 · 고치기 0).
-r583: bin 행의 라이브 파일이 연결 파일(shim · SHIMMARK)이면 대조 대상 = <그 폴더>/../LIVE_BIN 의 판 폴더 같은 상대 경로 파일 · 줄 끝에 «via shim → <판 폴더>» (팀 env FT_BIN = 연결 파일 폴더 — 설치가 맞아도 DIFF 로 나오던 것)."""
+r583: bin 행의 라이브 파일이 연결 파일(shim · SHIMMARK)이면 대조 대상 = <그 폴더>/../LIVE_BIN 의 판 폴더 같은 상대 경로 파일 · 줄 끝에 «via shim → <판 폴더>» (팀 env FT_BIN = 연결 파일 폴더 — 설치가 맞아도 DIFF 로 나오던 것).
+r961: 키트 상대 경로 = relpath(<HARNESS_ROOT>/kit, <HARNESS_ROOT 자기 show-toplevel>) — 라이브 하네스 루트가 같은 리포의 다른 워크트리여도 경로가 같다. «같은 리포» 판정 = 두 쪽 `git rev-parse --git-common-dir` 가 같음(r2 · 공용 루트 밖에 등록한 워크트리도 같은 리포) · 다르면 종전대로 outside_repo"""
 import fnmatch
 import os
 import re
@@ -86,13 +87,65 @@ def resolve_kit(o):
     if o["kit"]:
         kd = o["kit"]
     else:
-        rel = os.path.relpath(os.path.join(hr, "kit"), os.path.realpath(repo))
+        rel = kit_rel(hr, repo)
         if rel.startswith(".."):
             outside_repo(o, hr, repo)
         kd = rel
     KD = kd.rstrip("/") + "/"
     MAPPATH, KBIN = KD + "LIVE-MAP.tsv", KD + "fable-team/bin/"
     return repo
+
+
+def kit_rel(hr, repo):
+    """하네스 루트의 kit/ 을 «그 루트 자기 체크아웃 최상위» 기준 상대 경로로 (r961).
+    라이브 HARNESS_ROOT 가 같은 리포의 «다른 워크트리»(.worktrees/land-* · 공용 루트 밖에 등록한 워크트리)면
+    공용 루트 기준 경로에는 그 접두가 붙어 커밋 트리에 없는 이름이 된다(PR 332·333 INSTALL ERROR 2회 ·
+    DA⑥ r1 반례: 등록 워크트리가 공용 루트 밖이면 «포함 관계» 판정이 끊겨 같은 리포인데도 막혔다) —
+    체크아웃 안 경로는 워크트리마다 같으므로 자기 최상위 기준이면 어느 워크트리든 같은 값이다.
+    «같은 리포» 판정 = 두 쪽 `git rev-parse --git-common-dir` 의 실제 경로가 같음(r961 r2 · 디렉터리 포함 관계가 아니다).
+    공용 git 폴더가 다르면 «..» 로 시작하는 값을 돌려 호출부가 outside_repo 로 막는다(ⓒ·ⓖ).
+    하네스 루트가 git 리포가 아니면 옛 기준(repo)으로 폴백 — 역시 «..» 가 되어 «밖» 판정(ⓔ · 조용한 통과 0)."""
+    rp = os.path.realpath(repo)
+    top = git_toplevel(hr)
+    if top is None:
+        return os.path.relpath(os.path.join(os.path.realpath(hr), "kit"), rp)
+    if git_common_dir(hr) != git_common_dir(repo):
+        return os.path.join("..", "outside-repo")
+    return os.path.relpath(os.path.join(os.path.realpath(hr), "kit"), top)
+
+
+def git_toplevel(path):
+    """<path> 가 든 체크아웃 최상위 — git 리포가 아니면 None(r961: 옛 기준 repo 로 폴백)."""
+    out = git_rev(path, "--show-toplevel", soft=True)
+    return os.path.realpath(out) if out else None
+
+
+def git_common_dir(path):
+    """<path> 가 든 리포의 공용 git 폴더(절대·실제 경로) — 다른 워크트리라도 같은 리포면 같은 값(r961 r2).
+    리포가 아니면 None 을 돌려 호출부가 «다른 리포» 로 막는다(조용한 통과 0)."""
+    out = git_rev(path, "--git-common-dir")
+    if not out:
+        return None
+    return os.path.realpath(out if os.path.isabs(out) else os.path.join(os.path.realpath(path), out))
+
+
+def git_rev(path, opt, soft=False):
+    """git rev-parse 한 값 · 7초 상한 · soft=False 면 실패 = ERROR(조용한 통과 0).
+    r961 r6: 출력을 bytes 로 받는다 — text=True 의 universal newlines 가 CR 을 LF 로 바꾸면
+    이름만 다른 두 git 폴더 경로가 같아져 «같은 리포» 로 보인다(DA⑥ r6 반례). 끝 개행 1개만 띄고 os.fsdecode 로 문자열을 만든다."""
+    try:
+        r = subprocess.run(["git", "-C", path, "rev-parse", opt], capture_output=True,
+                           timeout=7, env={**os.environ, "LC_ALL": "C"})
+    except (subprocess.TimeoutExpired, OSError) as e:
+        if soft:
+            return None
+        die("실행 실패/7초 초과: git rev-parse %s (%s)" % (opt, e))
+    out = r.stdout[:-1] if r.stdout.endswith(b"\n") else r.stdout  # 경로 바이트는 바꾸지 않는다 — 끝 개행 1개만 뗀다(r961 r5·r6)
+    if r.returncode == 0 and out:
+        return os.fsdecode(out)
+    if soft:
+        return None
+    die("git rev-parse %s 실패: %s" % (opt, (os.fsdecode(r.stderr).strip() or "값 0")[:120]))
 
 
 OLD_HARNESS = ("scripts/fable-team-bin/", "scripts/harness-install/", "tools/comm-canonical/", "tests/harness/", "kit/",
@@ -130,8 +183,10 @@ def subst(p):
 
 
 def live_path(row, f):
-    """라이브 파일 경로 = 라이브 폴더 + 지도 패턴의 «첫 와일드카드 앞» 이후 상대 경로(중첩 폴더 보존). 와일드카드 없으면 파일 이름만 (R377)."""
+    """라이브 파일 경로 = 라이브 폴더 + 지도 패턴의 «첫 와일드카드 앞 폴더» 이후 상대 경로(중첩 폴더 보존). 와일드카드 없으면 파일 이름만 (R377).
+    r948: 접두는 폴더(마지막 /)까지만 — `templates/scope-*.tsv` 의 `scope-` 는 파일 이름 일부라 자르지 않는다(설치본 = 원래 이름)."""
     pre = row[0].split("*")[0]
+    pre = pre[: pre.rfind("/") + 1]
     rel = f[len(KD):]
     sub = rel[len(pre):] if pre and rel.startswith(pre) else ""
     return os.path.join(subst(row[2]), sub or os.path.basename(f))
@@ -163,6 +218,24 @@ def plist_items(repo, path, blob):
     # r385: 하네스 bin 을 부르는 데몬은 데이터 루트를 cwd·env 로만 푼다(설치본이 git 밖) — 둘 다 없으면 PENDING
     if re.search(r"__FT_BIN__|/\.fable-team/bin/", body) and not re.search(r"<key>WorkingDirectory</key>|<key>FT_(RES_)?ROOT</key>", body):
         return ["NOROOT %s (하네스 bin 데몬에 WorkingDirectory·FT_ROOT 없음 — 설치본 위치로 루트를 못 푼다)" % label]
+    inst = re.fullmatch(r"(.+-)__[A-Z_]+__", m.group(1)) if m else None  # r948: «접두-__PORT__» = 인스턴스 라벨 «접두-<숫자>» (iap-tunnel-18703·-18712)
+    if not inst:
+        return label_items(path, body, label)
+    found = loaded_instances(inst.group(1))
+    return [x for lb in found for x in label_items(path, body, lb)] if found else ["NOTLOADED %s · %s<숫자> (적재 0)" % (inst.group(1)[:-1], inst.group(1))]
+
+
+def loaded_instances(prefix):
+    """r948: 적재 목록에서 정확 라벨(접두 끝 «-» 뗀 것) 또는 «접두 + 숫자» 라벨 — 다른 접미는 안 센다 · 목록 조회 실패는 ERROR(NOTLOADED 로 숨기지 않는다)."""
+    r = run([os.environ.get("FT_LAUNCHCTL", "launchctl"), "list"])
+    if r.returncode:
+        die("launchctl list 실패(rc=%d) — 인스턴스 라벨 %s<숫자> 적재를 못 잰다" % (r.returncode, prefix))
+    pat = re.compile(re.escape(prefix[:-1]) + r"(?:-\d+)?")
+    return sorted({c[-1] for c in (ln.split() for ln in r.stdout.splitlines()) if c and pat.fullmatch(c[-1])})
+
+
+def label_items(path, body, label):
+    """라벨 1개: 적재 여부 + PID 있으면 시작 시각 < 스크립트 mtime → RESTART."""
     r = run([os.environ.get("FT_LAUNCHCTL", "launchctl"), "list", label])
     if r.returncode:
         return ["NOTLOADED " + label]

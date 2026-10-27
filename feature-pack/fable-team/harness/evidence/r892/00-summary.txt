@@ -1,0 +1,44 @@
+r892 뉴스 원장 채움 — 훑는 사이 옮겨진 카드 1장 건너뜀 — 증거 요약 (나노 byz-harness-nano-r892-news-disk-cards-skip-moved-card#0 · 2026-10-25)
+
+카드: BYZ design/harness/indices/진행/r892-news-disk-cards-skip-moved-card.md · base = 팩 origin/main 24330095
+바뀐 것: bin/ft_ledger_fill_src.py(_disk_team · _scan · _listing · _card · _gone) · bin/ft_ledger_fill_tables.py(_work 꼬리 2줄) (+ kit/fable-team/bin 짝 사본 cmp0) · manifest 1.1.234 · CHANGES
+범위 메모: 카드 §구현 범위 1 «표 꼬리 1칸» 은 표를 만드는 ft_ledger_fill_tables._work 에 2줄(키 «읽기 실패» 가 있을 때만 칸 추가) — 표 형식(칸 수·머리)은 그대로.
+
+시험 — tests/scripts/test_ledger_fill_disk_cards_r892.py
+  ⓐ test_a_card_moved_after_glob_counted_once_in_new_folder — 목록 뒤 첫 read 때 진행2 → 대기 이동 → 다시 훑어 대기 4 · 진행 2 · 읽기 실패 0 · 건너뜀 WARN 0
+  ⓑ test_b_card_still_vanishing_after_retry_skipped_with_warn — 다시 훑어도 없음 → 그 카드만 건너뜀 · WARN «카드 이동 중 — 건너뜀 진행2» 1줄 · 읽기 실패 1 · 나머지 정상
+     test_b_card_moved_between_folder_globs_not_lost — 진행 목록 직후 대기1 → 진행 이동(오류 없이 0번 세어지는 길) → 목록 재대조로 다시 훑어 1번
+  ⓒ test_c_done_card_stat_moved_skipped — 완성 카드 stat 때 완성 밖으로 이동 → 착지 2 · 읽기 실패 0
+     test_c_other_oserror_not_swallowed[PermissionError·IsADirectoryError] — 그대로 올림(FileNotFoundError 아님)
+     test_c_folder_removed_mid_scan_is_fill_error — 훑는 사이 진행 폴더 삭제 → FillError «카드 폴더 사라짐»
+  ⓓ test_d_fill_skipped_card_tail_cell_no_error_rows — r851 world 전체 채움: 하네스 카드 1장 계속 사라짐 → rc0 · ERROR 0 · WARN 1 · 팀 작업 표 하네스 행에만 «읽기 실패 1장» · 결제 행 정상
+  ⓔ r851 38 · r870 10 그대로 통과 (green.txt 56 = r892 8 + r851 38 + r870 10) · green.rc=0
+  ⓕ mutation.sh — 6 변이 모두 KILLED (mutation.txt): ①건너뛰기 제거 ②OSError 전부 삼키기 ③목록 재대조 제거 ④폴더 사라짐 검사 제거 ⑤재시도 제거 ⑥표 꼬리 칸 제거
+
+빨강 기준: red-base.txt (base bin 두 파일로 r892 시험 = 6 FAILED · 2 passed = 다른 OSError 그대로 올림은 옛 판도 같음)
+시간: 로컬 파일 읽기만 · 외부 호출 0 · 재시도 1회 상한(무한 0) — 7초 룰·70초 천장 대상 호출 없음
+press 필요: 없음
+
+==== r2 (외부 DA⑥ r1 HOLD 3 반송 · REWORK-r892-r2.md · 2026-10-25 06:1x) ====
+바뀐 것: _listing = 세 폴더 묶음 훑기(os.scandir · 이름당 1번 · 진행 > 대기 > 완성) · _read · _disk_team = 지도 1개로 읽고 세 폴더 전체를 1번만 다시 훑어 «사라진 이름 + 새로 보인 이름» 만 다시 읽음 · 그래도 없는 이름 = 건너뜀 + WARN + «읽기 실패» · 폴더별 재훑기(_scan) 삭제
+  진짜 고장: 하네스 루트·indices 없음 = FillError · 목록 PermissionError·OSError = FillError · 세 폴더 중 하나 없음 = WARN «카드 폴더 없음 — <폴더> 0장»
+  ft_ledger_fill_tables.goal_state: 메인 골 표 그 팀 담당 행에도 « · 읽기 실패 N장» 꼬리(팀 작업 표와 같은 문구)
+시험 추가(16칸): ⓖ test_g_ping_pong_…[2·3·4] (왕복 이동 = 정확히 1번 또는 건너뜀 1 · 이름 9장 합계 보존) · ⓗ test_h_harness_root_missing · test_h_listing_permission_error · test_h_one_state_folder_missing_warn · ⓘ test_i_skipped_card_tail_in_goal_table_and_team_table
+  ⓒ test_c_done_card_stat_moved_skipped 기대 변경: 세 폴더 밖으로 나간 카드 = 읽기 실패 1 + WARN(r1 = 조용히 0) · test_c_done_card_moved_to_other_folder_counted_there 추가
+빨강: red-base-r2.txt (base = 14 failed · 2 passed) · red-r1.txt (r1 판 36a9d0c9 = 7 failed — ⓖ[3] 가 DA 반례 1 재현 · ⓑ-between 의 r1 빨강 = «진행 목록 2번» 단정(r1 은 판마다 목록 2번씩 훑음 — 추정 · 원인 미확인))
+변이: mutation-r2.txt — 9 KILLED (⑦ 메인 골 꼬리 제거 · ⑧ 다시 훑어도 못 찾은 이름 조용히 버림 · ⑨ scandir → Path.glob 추가)
+초록: green-r2-r892-r851.txt 54 passed rc=0 (r892 16 + r851 38)
+r870: 부하(load 19~24) 때 git fetch 2초 축척 상한 시간 초과로 매회 다른 1칸 실패(green-r2.txt test_a3 · rerun test_d · rerun2 1칸) · 단독 test_a3 3회 통과 · 같은 부하에서 base 판도 2 failed(r870-on-base-same-load.txt) → 이 변경과 무관(ft_ledger_fill.py fetch 경로 변경 0) · 부하 낮을 때 재시험 권고
+
+==== r3 (외부 DA⑥ r2 HOLD 2 · 보류 2회 → 재설계 · REWORK-r892-r3.md · 2026-10-25 07:2x) ====
+바뀐 것: 디스크 훑기(_listing·_read·_disk_team·STATES·LOG) 삭제 → _harness_ref(FT_HARNESS_ROOT → 리포 루트·HEAD sha 1번 고정·prefix) + _ref_cards(다른 팀 갈래 본문을 함수로 · 리포·ref·폴더 인자) · team_cards = 두 갈래 모두 _ref_cards
+  ft_ledger_fill_tables.py = base 그대로(«읽기 실패» 꼬리 삭제 — git 판에선 카드별 읽기 실패가 생길 수 없음) · manifest = base 그대로(버전은 DA 뒤 master)
+  알려진 한계: 커밋 안 된 카드 이동은 다음 커밋 뒤 틱부터(코드 주석·CHANGES·카드)
+시험(9칸 · r1·r2 디스크 시험 삭제 = 그 코드 삭제): ⓙ test_j_cards_moving_on_disk_count_equals_fixed_sha(스레드가 진행2 를 진행↔대기로 계속 옮기는 중 20회 읽기 = 고정 sha 판 그대로) · test_j_uncommitted_move_seen_after_commit
+  ⓚ test_k_harness_root_broken_is_fill_error[no_env·not_git·missing·no_commit] · ⓛ test_l_done_card_added_in_window_is_landed_even_via_git_mv(진행→완성 git mv 도 착지) · test_l_subfolder_harness_root_uses_repo_prefix · test_world_fill_harness_row_from_git_and_tables_unchanged(미커밋 카드 안 셈)
+기존 시험 손댐: r851 world 픽스처 hroot = git init + 커밋(3줄) · r870 test_1b 하네스 리포도 창 안 커밋 2개(같은 잠 래퍼가 하네스 log 에도 걸림 · 1줄) · r870 mutation.sh ⑧ 자리 on_ref→rels(함수 인자 이름)
+빨강: red-base-r3.txt (base = 7 failed · 2 passed) · red-r2.txt (r2 판 b664c187 = 4 failed — ⓙ 옮기는 중 카드 수 포함)
+변이: mutation-r3.txt — 2 KILLED(①디스크 훑기 되살림 → ⓙ · ②하위 폴더 prefix 제거 → ⓛ) · r870-mutation-after-r3.txt 10 KILLED
+초록: green-r3.txt 57 passed rc=0 (r892 9 + r851 38 + r870 10) · news-ledger-r3.txt test_ft_news_ledger 24 passed
+실 환경 읽기 전용: real-harness-ops-readonly-r3.txt — harness-ops HEAD 7bea0b1922 · 진행 178 · 대기 279(디스크 ls 와 같음) · 착지 3
+병합 머리(ce55f038 + origin/main 3b1bdb51 병합) 시험: r892 9 + r851 38 + r870 10 + test_ft_news_ledger 24 = 81 passed rc=0 (green-r3-merged.txt · load 16~19)

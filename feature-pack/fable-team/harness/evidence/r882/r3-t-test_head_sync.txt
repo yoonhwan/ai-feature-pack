@@ -1,0 +1,26 @@
+PASS bash -n head-sync
+PASS 표만 rc=0
+PASS 표 머리에 base 40hex 고정 기록
+PASS 표만 = 모든 HEAD 불변
+PASS 뒤처진 clean → «최신화 필요»
+PASS main 포함 fresh → «최신»
+PASS LANDED 도 최신화 대상 + 닫기 후보 표기(H3 · rc3 를 신선으로 안 봄)
+PASS main 브랜치 제외
+PASS --apply rc=0 (비파괴 위반 0)
+PASS 깨끗한 STALE → 최신화함
+PASS clean: merge 1커밋(부모 2) · main 이 조상
+PASS squash 계보(같은 내용 다른 커밋) → 자동 해소 → 최신화함
+PASS LANDED 도 merge · 닫기 후보 칸
+PASS 미커밋 있는 워크트리 → 보류
+PASS 보류 워크트리 손대지 않음(HEAD·수정·미추적 내용 동일)
+PASS 충돌 → «충돌·사람»
+PASS 충돌 워크트리: abort 뒤 HEAD 그대로·깨끗·MERGE_HEAD 0
+PASS 이미 포함 fresh 는 그대로
+PASS fresh HEAD 불변
+PASS 비파괴 증거 줄 출력
+PASS 픽스처: opx 는 충돌로 병합 진행 중
+PASS 진행 중 연산(MERGE_HEAD) → 보류
+PASS 진행 중 연산 워크트리 손대지 않음(abort 도 안 함)
+PASS core.bare 오염 0
+PASS 정적: head-sync 에 reset·rebase·force·push 호출 0
+ALL PASS

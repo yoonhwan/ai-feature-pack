@@ -1,0 +1,31 @@
+# r909 후 시험 — 2026-10-25T07:22:40Z
+세트: c2357be8cb7472cf14e3e85d56394ab954007e50
+
+## 새 시험(ⓐ~ⓗ + 변이 3)
+PASS py_compile classify
+PASS ⓐ .py set(tags)·set(LIVE_GPUS) → FORBID secret 0
+PASS ⓐ design/*.py(확장자 .py = code) set( → FORBID secret 0
+PASS ⓑ .sh 의 set 단독 → FORBID secret
+PASS ⓑ 문서 bash 울타리 안 set 단독 → FORBID secret
+PASS ⓑ h 계획(set 단독) → reject rc1
+PASS ⓒ .sh set -euo pipefail → FORBID 0
+PASS ⓒ .sh set -x → FORBID secret(값 추적 출력)
+PASS ⓒ 문서 python 울타리 안 set( → FORBID secret 0
+PASS ⓓ __tests__/*.test.ts credential → key FORBID 0
+PASS ⓓ tests/test_credential_x.py → key FORBID 0
+PASS ⓔ shared/credential_store.py(시험 아님) → FORBID key
+PASS ⓔ tests/.env(경로 금지 규칙이 먼저) → FORBID key
+PASS ⓕ 시험 파일 내용의 키 원문 → FORBID secret
+PASS ⓖ .env.example 이름만(빈 칸·자리표) → FORBID key 0
+PASS ⓖ .env.example 실값 → FORBID key
+PASS ⓖ .env.sample 이름만 → FORBID key 0
+PASS ⓖ .env.template 이름만 → FORBID key 0
+PASS ⓗ echo $OP_SECRET_ITEM_NAME → FORBID secret 0
+PASS ⓗ echo $TOSS_SECRET_KEY → FORBID secret
+PASS ⓗ 이름표+실값 섞임 → FORBID secret
+PASS 변이: 문맥 한정 끔 → ⓐ 빨강(FORBID secret)
+PASS 변이: 시험 경로 제외 끔 → ⓓ 빨강(FORBID key)
+PASS 변이: 제외를 .env 규칙 위로 → ⓔ 빨강(tests/.env 통과)
+PASS 칸 파일 4개 kit 사본 cmp0
+ALL PASS
+rc=0

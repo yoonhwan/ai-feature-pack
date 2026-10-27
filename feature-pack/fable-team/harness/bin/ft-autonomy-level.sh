@@ -4,7 +4,7 @@
 #   on --level L [--max --daily --code-max] : 같은 잠금 안에서 «슬랙 게시 → 모드 줄 → 범위 승인 줄(level=L)» — 게시 실패 = 둘 다 쓰기 0(rc 1) · each = 범위 승인 줄 0
 #   종류 학습: scope-approve 거절 `FORBID kind=X` = denied.tsv 1행 → 오빠 approve-merge(ON ∧ 레벨 full) = learned-kinds.tsv 1행 → 다음 같은 종류 = 분류기 docs(learned)
 #   forget-kind <키>                    오빠 `!` 전용 — 학습표에서 그 종류를 뺀다(scope-stop·OFF 는 학습표를 지우지 않는다)
-#   interview-note <A<N>> <expire|off>   planner 명부 `_desk` 에 `[자율 인터뷰]` 1통(연장/종료/레벨 변경 · 추천 1) · 같은 사건·종류 10분 중복 억제 · planner 명부 없는 환경 = 대상 아님
+#   interview-note <A<N>> <expire|off>   planner 명부 `_desk` 에 `[자율 인터뷰]` 1통(연장/종료/레벨 변경 · 추천 1) · 같은 사건·종류 10분 중복 억제 · 명부 자리 = ①$ROOT ②$ROOT 가 속한 리포 공용 루트(r926 r2 · cwd·설치 위치는 보지 않는다) · 둘 다 없음 = WARN + rc1(조용한 건너뜀 0)
 NEVER_LEARN=",secret,"   # 비밀 꼴 줄은 오빠 승인으로도 «종류» 저장 0 (분류기 rules.NEVER_LEARN 과 같다)
 level_label() { case "$1" in full) echo 풀자동 ;; mid) echo 중간 ;; each) echo "건마다 확인" ;; *) echo "$1" ;; esac; }
 tpl_file() { local d; for d in "$HERE/../templates" "$HERE/../kit/fable-team/templates"; do [ -f "$d/$1" ] && { printf '%s\n' "$d/$1"; return 0; }; done; return 1; }
@@ -59,15 +59,33 @@ cmd_forget_kind() {  # 오빠 `!` 전용(훅이 좌석 실행을 막는다)
 cmd_on_check() { parse_end "$@"; level_prepare; echo "ON-CHECK-OK level=$ON_LEVEL until=$UNTIL"; }   # ft-autonomy-interview.sh 가 부른다 — on 과 같은 판정 · 상태 쓰기 0
 cmd_interview_note() { interview_note "$@"; }
 
+_roster_common_root() {  # <폴더> → 그 폴더가 속한 리포 공용 루트(git 공용 dir 의 부모) · 7초 상한 · timeout·gtimeout 둘 다 없으면 git 호출 0(rc1) — r926 r2
+  local to g
+  to="$(command -v timeout || command -v gtimeout || true)"
+  [ -n "$to" ] || return 1
+  g="$("$to" 7 git -C "$1" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || return 1
+  [ -n "$g" ] || return 1
+  printf '%s\n' "${g%/.git}"
+}
+
 interview_note() {  # <A<N>> <expire|off> — rc 1 = 못 보냄(WARN stderr · 모드 기록은 이미 끝)
-  local ev="$1" kind="$2" desk mb body l gt mk="$STATE/autonomy-interview" now
+  local ev="$1" kind="$2" desk mb body l gt mk="$STATE/autonomy-interview" now rr p found=""
   [[ "$ev" =~ ^A[0-9]+$ ]] && { [ "$kind" = expire ] || [ "$kind" = off ]; } || { echo "REJECT usage: interview-note <A<N>> <expire|off>" >&2; return 2; }
   desk="${FT_AUTONOMY_DESK:-}"
   if [ -z "$desk" ]; then
-    [ -f "$ROOT/.fable-team/seats-planner.json" ] || { echo "INTERVIEW-SKIP planner 명부 없음"; return 0; }
-    desk="$(python3 -c 'import json,sys;v=json.load(open(sys.argv[1])).get("_desk");print(v if isinstance(v,str) else "")' "$ROOT/.fable-team/seats-planner.json" 2>/dev/null)"
+    # r926 r2: 명부 자리 = $ROOT 기준으로만 — ①$ROOT ②$ROOT 가 속한 리포 공용 루트. cwd·설치 위치는 보지 않는다(FT_ROOT=A · cwd=B 면 B 명부로 보내는 길 · DA⑥ r1 반례 1)
+    rr="$(_roster_common_root "$ROOT")" || rr=""
+    for p in "$ROOT/.fable-team/seats-planner.json" "${rr:+$rr/.fable-team/seats-planner.json}"; do
+      [ -f "$p" ] || continue
+      desk="$(python3 -c 'import json,sys;v=json.load(open(sys.argv[1])).get("_desk");print(v if isinstance(v,str) else "")' "$p" 2>/dev/null)"
+      [ -z "$desk" ] || break
+      found="$p"
+    done
+    if [ -z "$desk" ]; then
+      [ -z "$found" ] || { echo "WARN 자율 인터뷰 쪽지 못 보냄: planner 명부에 _desk 없음 ($found)" >&2; return 1; }
+      echo "WARN 자율 인터뷰 쪽지 못 보냄: planner 명부 못 찾음(찾은 자리 2곳: $ROOT/.fable-team/seats-planner.json · ${rr:-<공용 루트 못 풂>}/.fable-team/seats-planner.json)" >&2; return 1
+    fi
   fi
-  [ -n "$desk" ] || { echo "WARN 자율 인터뷰 쪽지 못 보냄: planner 명부에 _desk 없음" >&2; return 1; }
   now="$(now_epoch)"; mkdir -p "$mk" || return 1
   if [ -f "$mk/$ev.$kind" ] && [ $(( now - $(head -1 "$mk/$ev.$kind") )) -lt $(( 10 * 60 )) ]; then echo "INTERVIEW-DUP $ev $kind"; return 0; fi
   l="$(jfield level)"; l="${l:-full}"

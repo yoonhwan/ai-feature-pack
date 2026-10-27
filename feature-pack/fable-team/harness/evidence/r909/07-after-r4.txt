@@ -1,0 +1,15 @@
+# r909 r4 증거 — 칸4 범위에서 뺌(기준판 cbe218a5 복귀 · arch 143 SCOPE-r909-r4.md)
+git diff cbe218a5 -- ft_secret_targets.py (bin · kit/bin · kit/templates/hooks 3사본) = 0 줄
+git diff cbe218a5 -- ft_secret_judge.py (3사본) = 0 줄 (칸4 전용 set_context 3줄 되돌림)
+
+## 시험 (이 r4 HEAD)
+- tests/test_autonomy_scope_fp_r909.sh: 64 PASS · ALL PASS (칸1~3 반례·변이 포함 · 칸4 = 기준판 동작 FORBID 유지)
+- pytest tests/scripts/test_ft_secret_shapes.py + test_ft_secret_judge.py: 434 passed (python3.11)
+- test_autonomy_scope_pack · plain3_r658 · scope_classify_keyword_docs · secret_output_mask · secret_scan: rc0
+- ruff check bin/autonomy_scope_*.py bin/ft_secret_targets.py: rc0
+
+## 기준판(cbe218a5)도 통과하는 칸4 범위 밖 꼴 — 시험 칸 없음 (arch 에 보고)
+- cat 에 비밀 경로를 담은 _FILE 변수를 넘기는 꼴
+- 비밀 낱말 없는 이름의 변수에 비밀을 대입한 뒤 그 변수를 echo 하는 꼴
+- 다단계 파생(마지막 변수 이름에 비밀 낱말 없음)
+확인: ft_secret_judge.py --plan 으로 기준판 판정 ok(rc0) 3건 실측.

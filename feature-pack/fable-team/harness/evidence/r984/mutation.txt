@@ -1,0 +1,16 @@
+=== 변이: ⓐ 검사 끔(시험 칸 빈 행 통과) → rc=1 fail=5
+   FAIL ⓐ 시험 칸 빈 행 = REJECT → rc=0 OK /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.aoFjUsmJzx/map-empty.md (ledger=design/LEDGER.md);
+   FAIL 이스케이프 \| 가 든 빈 시험 칸 = REJECT(ⓐ 안 건너뜀) → rc=0 OK /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.aoFjUsmJzx/esc-1.md (ledger=design/LEDGER.md);
+   FAIL r899 r3 원문 입력 = BAD rc1(ⓐ C3) → rc=0 OK /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.aoFjUsmJzx/r899r3.md (ledger=design/LEDGER.md);
+   FAIL 모순 2건 → r963 rc=1 r899 rc=0
+   FAIL 3.2 전체 lint → rc=0  · bash5 와 같은 출력=no
+=== 변이: 날짜 스위치 무시(옛 카드도 REJECT) → rc=1 fail=5
+   FAIL 절 없음 · 새 카드 · 스위치 전(기본 2026-10-30) = WARN + rc0 → rc=1 REJECT /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.cPSxCB23OY/none-new.md (ledger=design/LE
+   FAIL 옛 카드(10-01 추가) 절 없음 = WARN + rc0 → rc=1 REJECT /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.cPSxCB23OY/none-old.md (ledger=design/LEDGER.md);  - 절 
+   FAIL 옛 카드여도 모순표는 WARN(REJECT 0) → rc=1 REJECT /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.cPSxCB23OY/old-map.md (ledger=design/LEDGER.md);  - 대응표: 같은 입
+   FAIL 실데이터 rc=1 BAD=30 OK=10 WARN=0 (카드 40)
+   FAIL 3.2 전체 lint → rc=3  · bash5 와 같은 출력=no
+=== 변이: 이스케이프 보존 분할 되돌림(셀 안 | 가 열 경계) → rc=1 fail=2
+   FAIL 이스케이프 \| 가 든 빈 시험 칸 = REJECT(ⓐ 안 건너뜀) → rc=0 INFO /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.g71wIkJo0b/esc-1.md — 시험 칸 번호 없음 1행 (①~⑳·ⓐ~ⓩ 만 순서 검사
+   FAIL 이스케이프 \| 가 든 같은 입력·다른 기대 = REJECT(ⓑ) → rc=0 INFO /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.g71wIkJo0b/esc-2.md — 시험 칸 번호 없음 2행 (①~⑳·ⓐ~ⓩ 만 순서 검사 
+MUTATION-ALL-RED

@@ -5,15 +5,16 @@
 
 ⓐ FT_LEDGER_REPO 없음 · LIVE_ROOT = 임시 리포(로컬 bare 원격 · 원격 원장이 로컬 origin/main 보다 1커밋 앞) · 오늘 지도·기준선 있음
    → 받기 1회(FT_LEDGER_FETCH 스텁 호출 수 1) · 새 판 기준 지도 발행(«변화 없음» 0)
-ⓑ 같은 꼴 + 받기 실패(스텁 rc1 «fatal: offline») → 발행 줄 머리 = «[뉴스 HH:MM] 판정 불가 — 원장 ref fetch 실패 …» · «변화 없음» 글자 0
+ⓑ 같은 꼴 + 받기 실패(스텁 rc1 «fatal: offline») → r907 r2: 게시 0(«판정 불가» 줄도 «변화 없음» 줄도 안 낸다) · rc1
 ⓒ FT_LEDGER_REPO 있는 꼴(라이브 지금) → 받기 1회 · 발행 결과 ⓐ 와 같음
 ⓓ 받기 성공 + 원격 = 로컬 + 기준선 같음 → «변화 없음» 그대로(정상 오판 0)
 ⓔ FT_NEWS_MODE 없음(옛 판 경로) → sync_repo() 그대로(동작 무변경 · 받기 스텁 호출 0)
-ⓖ 변이: 받기를 건너뛰면 ⓐ FAIL · «판정 불가» 줄을 «변화 없음» 으로 되돌리면 ⓑ FAIL
+ⓖ 변이: 받기를 건너뛰면 ⓐ FAIL · «판정 불가» 갈래에 게시를 되살리면 ⓑ FAIL
 ⓗ 격리 = 임시 리포·임시 루트 · 가짜 발행기(실 원격·실 원장·실 슬랙·실 mbox 0)
 
 실행: cd harness && PYTHONPATH=bin:kit/fable-team/bin python3.11 -m pytest tests/scripts/test_r809_news_default_repo_fetch.py -q
 """
+import importlib.util
 import json
 import subprocess
 import sys
@@ -91,7 +92,7 @@ def world(tmp_path, monkeypatch):
     state = root / ".fable-team" / "state" / "news-ledger"
     state.mkdir(parents=True, exist_ok=True)
     (state / "last.sha").write_text(c1 + "\n", encoding="utf-8")
-    (state / "last.blob").write_text(_git(live, "rev-parse", f"{c1}:{REL}") + "\n", encoding="utf-8")
+    (state / "last.blob").write_text(c1 + "\n", encoding="utf-8")  # r907 r4: 판정 키 = 원장 경로를 건드린 «채움 아닌» 마지막 커밋 sha(옛 값 = 원장 블롭)
     (state / "html.json").write_text(json.dumps({"at": "2026-10-23 09:00", "map_at": "2026-10-23 09:00", "link": "http://x/0"}), encoding="utf-8")
 
     made, lines = [], []
@@ -127,10 +128,8 @@ def _assert_fetch_then_new_map(w, counter: Path, n: int = 1) -> None:
 
 
 def _assert_unjudgeable(w) -> None:
-    """ⓑ 의 단정 — 줄 머리 «판정 불가 — 원장 ref fetch 실패 …» · «변화 없음» 글자 0 · 지도 0."""
-    assert w["lines"], "«변화 없음» 대신 한 줄이 나와야 한다"
-    assert w["lines"][0].startswith("[뉴스 09:40] 판정 불가 — 원장 ref fetch 실패"), w["lines"][0]
-    assert "변화 없음" not in w["lines"][0] and w["made"] == []
+    """ⓑ 의 단정 — r907 r2: 판정 불가 = 게시 0(«판정 불가» 줄도 «변화 없음» 줄도 안 낸다) · 지도 0 · rc1 은 부르는 쪽이 본다."""
+    assert w["lines"] == [] and w["made"] == []
 
 
 # ── ⓐ 기본 경로(env 없음)도 리포를 먼저 정하고 받는다 ────────────────
@@ -148,7 +147,7 @@ def test_b_fetch_failure_publishes_unjudgeable_line(world, tmp_path, monkeypatch
     """ⓑ 받기 실패면 «변화 없음» 이 아니라 «판정 불가 — 원장 ref fetch 실패 …» — 낡은 판을 «변화 0» 으로 읽지 않는다."""
     stub, counter = _stub(tmp_path, monkeypatch, FETCH_FAIL)
     monkeypatch.setenv("FT_LEDGER_FETCH", str(stub))
-    assert fl._run(world["root"], world["state"]) == (0, "원장 ref fetch 실패")  # r847 r4: 받기 실패 사유가 정지 감시 원인 칸으로(옛 «원장 커밋 0»)
+    assert fl._run(world["root"], world["state"]) == (1, "원장 ref fetch 실패")  # r907 r2: rc1 = launchd 종료 코드 → check_stale 정지 경보
     assert _count(counter) >= 1  # 재시도 규칙은 이 카드 밖 — 1회 이상이면 받기 시도는 한 것
     _assert_unjudgeable(world)
 
@@ -202,15 +201,32 @@ def test_g1_mutation_skipping_fetch_falls_back_to_change_line(world, tmp_path, m
         _assert_fetch_then_new_map(world, counter)
 
 
-def test_g2_mutation_change_line_without_unjudgeable_head(world, tmp_path, monkeypatch):
-    """ⓖ② «판정 불가» 를 «변화 없음» 으로 되돌리면 ⓑ 단정이 깨진다 — 머리 글자가 조건의 몫."""
+def _mutated_html(tmp_path, old: str, new: str):
+    """r907 r3 — 변이 모듈(소스 한 줄 바꿔 exec) — «변이를 실제로 넣고 빨강 확인» 하기 위한 도구."""
+    src = (BIN / "ft_news_html.py").read_text(encoding="utf-8")
+    assert src.count(old) == 1, src.count(old)
+    f = tmp_path / "ft_news_html_mut.py"
+    f.write_text(src.replace(old, new), encoding="utf-8")
+    spec = importlib.util.spec_from_file_location("ft_news_html_mut", f)
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules["ft_news_html_mut"] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_g2_mutation_unjudgeable_publish_revival_makes_b_red(world, tmp_path, monkeypatch):
+    """ⓖ② 변이 = «판정 불가» 갈래에 게시를 되살리면(r907 r2 코드로 되돌림) ⓑ 단정(게시 0)이 빨강 — 조건의 몫."""
     stub, counter = _stub(tmp_path, monkeypatch, FETCH_FAIL)
     monkeypatch.setenv("FT_LEDGER_FETCH", str(stub))
-    monkeypatch.setattr(fh, "zero_change_line",  # 변이 = 옛 판 문장(«변화 없음» + warn 꼬리)
-                        lambda now, last, warn: f"[뉴스 {now:%H:%M}] 변화 없음 · 지도 {last.get('link')} · {warn}")
-    assert fl._run(world["root"], world["state"]) == (0, "원장 ref fetch 실패")  # r847 r4
+    mut = _mutated_html(tmp_path, '        return 1, "원장 ref fetch 실패"\n',
+                        '        __import__("ft_news_publish").publish_line(zero_change_line(now, last, warn), now)\n'
+                        '        return 0, "원장 ref fetch 실패"\n')
+    monkeypatch.setattr(fh, "tick", mut.tick)  # _run 은 «from ft_news_html import tick» 로 이 이름을 쓴다
+    assert fl._run(world["root"], world["state"]) == (0, "원장 ref fetch 실패")  # 변이 판 = 한 줄 게시
+    assert world["lines"]  # 옛 판처럼 «판정 불가» 1줄
     with pytest.raises(AssertionError):
         _assert_unjudgeable(world)
+    monkeypatch.undo()
 
 
 # ── ⓗ 격리 ───────────────────────────────────────────────────────────

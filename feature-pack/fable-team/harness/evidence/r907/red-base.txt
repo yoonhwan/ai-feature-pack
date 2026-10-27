@@ -1,0 +1,640 @@
+FF.FFFF....FFF..FFFFFFFFFFFFFFF.                                         [100%]
+=================================== FAILURES ===================================
+___________ test_a_timeout_within_age_sets_stale_head_not_sync_error ___________
+
+fetch = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_a_timeout_with...olders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_a_timeout_within_age_sets0/fetch.stamp'))
+caplog = <_pytest.logging.LogCaptureFixture object at 0x121eac750>
+
+    def test_a_timeout_within_age_sets_stale_head_not_sync_error(fetch, caplog):
+        repo, log, stamp = fetch
+        _age(stamp, 6.1)
+        caplog.set_level(logging.WARNING)
+        head = nl.fetch_if_stale(repo)
+>       assert head.startswith("원장 6분 전 판(받기 실패: ") and "시도 상한" in head and head.endswith(")")
+E       AssertionError: assert (False)
+E        +  where False = <built-in method startswith of str object at 0x121e0a6b0>('원장 6분 전 판(받기 실패: ')
+E        +    where <built-in method startswith of str object at 0x121e0a6b0> = '원장 ref fetch 실패 — fetch 실행 실패: 시도 상한 1초 초과 · origin/main = 6분 전 받은 판'.startswith
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/tests/scripts/test_r907_news_stale_head.py:70: AssertionError
+------------------------------ Captured log call -------------------------------
+WARNING  ft_news_ledger:ft_news_ledger.py:328 ls-remote 실패 — fetch 로 진행: rc=128 fatal: 'origin' does not appear to be a git repository
+ERROR    ft_news_ledger:ft_news_ledger.py:441 원장 ref fetch 실패 — fetch 실행 실패: 시도 상한 1초 초과 · origin/main = 6분 전 받은 판
+_______________ test_a_tick_publishes_map_with_stale_head_first ________________
+
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_a_tick_publishes_map_with0')
+oc = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_a_tick_publish...var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_a_tick_publishes_map_with0/oc.log'))
+slack = <test_ft_news_html.FakeSlack object at 0x121e9a250>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x121eaea10>
+
+    def test_a_tick_publishes_map_with_stale_head_first(tmp_path, oc, slack, monkeypatch):  # noqa: F811  픽스처 재사용(oc·slack)
+        fills: list = []
+        args = _tick_args(tmp_path, monkeypatch, fills)
+        monkeypatch.setenv("FT_NEWS_FETCH_LAST", str(tmp_path / "fetch-last"))
+        monkeypatch.delenv("FT_LEDGER_SYNC_ERROR", raising=False)
+        monkeypatch.setenv("FT_LEDGER_STALE_HEAD", "원장 6분 전 판(받기 실패: fetch 실행 실패: 시도 상한 28초 초과)")
+        monkeypatch.setenv("FT_NEWS_NOW", "2026-10-25 12:15")
+        assert fh.tick(*args, "a", "b") == (0, "지도 발행")
+        text = slack.msgs[-1]["text"]
+>       assert text.startswith("[뉴스 12:15] 원장 6분 전 판(받기 실패: fetch 실행 실패: 시도 상한 28초 초과) · 팀 지도 — ")
+E       AssertionError: assert False
+E        +  where False = <built-in method startswith of str object at 0x121ed32f0>('[뉴스 12:15] 원장 6분 전 판(받기 실패: fetch 실행 실패: 시도 상한 28초 초과) · 팀 지도 — ')
+E        +    where <built-in method startswith of str object at 0x121ed32f0> = '[뉴스 12:15] 팀 지도 — 일하는 팀 2개: chatbot, ops. 쉬는 팀 1개: kk\n통역 고침 시험 중\n하네스 설치 끝'.startswith
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/tests/scripts/test_r907_news_stale_head.py:88: AssertionError
+----------------------------- Captured stdout call -----------------------------
+ft-news-html: 만듦 NEWS-20261025-1215.html secs=0.2(summary=0.2 important=0.2 goals=0.2 teams=0.2) fixed=3.5s model=opencode/deepseek-v4.1-flash-free important=2 summary=100B
+ft-news-publish: 발행 완료 ts=1900000000.000000 channel=C1 permalink=https://x.slack.com/archives/C1/p1900000000000000
+------------------------------ Captured log call -------------------------------
+ERROR    ft_news_html:ft_news_html.py:348 골 정본 못 읽음 — 정본 sha 판정 0: ERROR 골 표 기본 출처: LIVE_BIN 이 없거나 무효 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_a_tick_publishes_map_with0/.fable-team/LIVE_BIN = '' (절대경로 · 실재 폴더 필요 — ft-root-bin-shim.sh 가 설치 때 만든다 · env FT_GOAL_A6_MD·FT_GOAL_A6_LEDGER 로 직접 지정 가능)
+__________________ test_b_bad_limit_env_falls_back_to_15[abc] __________________
+
+fetch = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_b_bad_limit_en...olders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_b_bad_limit_env_falls_bac0/fetch.stamp'))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x121f62850>
+raw = 'abc'
+
+    @pytest.mark.parametrize("raw", ["abc", "-3", "nan", ""])
+    def test_b_bad_limit_env_falls_back_to_15(fetch, monkeypatch, raw):
+        repo, _log, stamp = fetch
+        monkeypatch.setenv("FT_NEWS_STALE_OK_MIN", raw)
+        _age(stamp, 14.2)
+>       assert nl.fetch_if_stale(repo).startswith("원장 14분 전 판(")
+E       AssertionError: assert False
+E        +  where False = <built-in method startswith of str object at 0x121ed3130>('원장 14분 전 판(')
+E        +    where <built-in method startswith of str object at 0x121ed3130> = '원장 ref fetch 실패 — fetch 실행 실패: 시도 상한 1초 초과 · origin/main = 14분 전 받은 판'.startswith
+E        +      where '원장 ref fetch 실패 — fetch 실행 실패: 시도 상한 1초 초과 · origin/main = 14분 전 받은 판' = <function fetch_if_stale at 0x121e20860>(PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_b_bad_limit_env_falls_bac0/ledger-repo'))
+E        +        where <function fetch_if_stale at 0x121e20860> = nl.fetch_if_stale
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/tests/scripts/test_r907_news_stale_head.py:107: AssertionError
+------------------------------ Captured log call -------------------------------
+WARNING  ft_news_ledger:ft_news_ledger.py:328 ls-remote 실패 — fetch 로 진행: rc=128 fatal: 'origin' does not appear to be a git repository
+ERROR    ft_news_ledger:ft_news_ledger.py:441 원장 ref fetch 실패 — fetch 실행 실패: 시도 상한 1초 초과 · origin/main = 14분 전 받은 판
+__________________ test_b_bad_limit_env_falls_back_to_15[-3] ___________________
+
+fetch = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_b_bad_limit_en...olders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_b_bad_limit_env_falls_bac1/fetch.stamp'))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x121e9b9d0>
+raw = '-3'
+
+    @pytest.mark.parametrize("raw", ["abc", "-3", "nan", ""])
+    def test_b_bad_limit_env_falls_back_to_15(fetch, monkeypatch, raw):
+        repo, _log, stamp = fetch
+        monkeypatch.setenv("FT_NEWS_STALE_OK_MIN", raw)
+        _age(stamp, 14.2)
+>       assert nl.fetch_if_stale(repo).startswith("원장 14분 전 판(")
+E       AssertionError: assert False
+E        +  where False = <built-in method startswith of str object at 0x121ed2cd0>('원장 14분 전 판(')
+E        +    where <built-in method startswith of str object at 0x121ed2cd0> = '원장 ref fetch 실패 — fetch 실행 실패: 시도 상한 1초 초과 · origin/main = 14분 전 받은 판'.startswith
+E        +      where '원장 ref fetch 실패 — fetch 실행 실패: 시도 상한 1초 초과 · origin/main = 14분 전 받은 판' = <function fetch_if_stale at 0x121e20860>(PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_b_bad_limit_env_falls_bac1/ledger-repo'))
+E        +        where <function fetch_if_stale at 0x121e20860> = nl.fetch_if_stale
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/tests/scripts/test_r907_news_stale_head.py:107: AssertionError
+------------------------------ Captured log call -------------------------------
+WARNING  ft_news_ledger:ft_news_ledger.py:328 ls-remote 실패 — fetch 로 진행: rc=128 fatal: 'origin' does not appear to be a git repository
+ERROR    ft_news_ledger:ft_news_ledger.py:441 원장 ref fetch 실패 — fetch 실행 실패: 시도 상한 1초 초과 · origin/main = 14분 전 받은 판
+__________________ test_b_bad_limit_env_falls_back_to_15[nan] __________________
+
+fetch = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_b_bad_limit_en...olders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_b_bad_limit_env_falls_bac2/fetch.stamp'))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x121e9fe90>
+raw = 'nan'
+
+    @pytest.mark.parametrize("raw", ["abc", "-3", "nan", ""])
+    def test_b_bad_limit_env_falls_back_to_15(fetch, monkeypatch, raw):
+        repo, _log, stamp = fetch
+        monkeypatch.setenv("FT_NEWS_STALE_OK_MIN", raw)
+        _age(stamp, 14.2)
+>       assert nl.fetch_if_stale(repo).startswith("원장 14분 전 판(")
+E       AssertionError: assert False
+E        +  where False = <built-in method startswith of str object at 0x121ed32f0>('원장 14분 전 판(')
+E        +    where <built-in method startswith of str object at 0x121ed32f0> = '원장 ref fetch 실패 — fetch 실행 실패: 시도 상한 1초 초과 · origin/main = 14분 전 받은 판'.startswith
+E        +      where '원장 ref fetch 실패 — fetch 실행 실패: 시도 상한 1초 초과 · origin/main = 14분 전 받은 판' = <function fetch_if_stale at 0x121e20860>(PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_b_bad_limit_env_falls_bac2/ledger-repo'))
+E        +        where <function fetch_if_stale at 0x121e20860> = nl.fetch_if_stale
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/tests/scripts/test_r907_news_stale_head.py:107: AssertionError
+------------------------------ Captured log call -------------------------------
+WARNING  ft_news_ledger:ft_news_ledger.py:328 ls-remote 실패 — fetch 로 진행: rc=128 fatal: 'origin' does not appear to be a git repository
+ERROR    ft_news_ledger:ft_news_ledger.py:441 원장 ref fetch 실패 — fetch 실행 실패: 시도 상한 1초 초과 · origin/main = 14분 전 받은 판
+___________________ test_b_bad_limit_env_falls_back_to_15[] ____________________
+
+fetch = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_b_bad_limit_en...olders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_b_bad_limit_env_falls_bac3/fetch.stamp'))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x121fa9d10>, raw = ''
+
+    @pytest.mark.parametrize("raw", ["abc", "-3", "nan", ""])
+    def test_b_bad_limit_env_falls_back_to_15(fetch, monkeypatch, raw):
+        repo, _log, stamp = fetch
+        monkeypatch.setenv("FT_NEWS_STALE_OK_MIN", raw)
+        _age(stamp, 14.2)
+>       assert nl.fetch_if_stale(repo).startswith("원장 14분 전 판(")
+E       AssertionError: assert False
+E        +  where False = <built-in method startswith of str object at 0x121ed3bb0>('원장 14분 전 판(')
+E        +    where <built-in method startswith of str object at 0x121ed3bb0> = '원장 ref fetch 실패 — fetch 실행 실패: 시도 상한 1초 초과 · origin/main = 14분 전 받은 판'.startswith
+E        +      where '원장 ref fetch 실패 — fetch 실행 실패: 시도 상한 1초 초과 · origin/main = 14분 전 받은 판' = <function fetch_if_stale at 0x121e20860>(PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_b_bad_limit_env_falls_bac3/ledger-repo'))
+E        +        where <function fetch_if_stale at 0x121e20860> = nl.fetch_if_stale
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/tests/scripts/test_r907_news_stale_head.py:107: AssertionError
+------------------------------ Captured log call -------------------------------
+WARNING  ft_news_ledger:ft_news_ledger.py:328 ls-remote 실패 — fetch 로 진행: rc=128 fatal: 'origin' does not appear to be a git repository
+ERROR    ft_news_ledger:ft_news_ledger.py:441 원장 ref fetch 실패 — fetch 실행 실패: 시도 상한 1초 초과 · origin/main = 14분 전 받은 판
+________________________ test_success_clears_stale_head ________________________
+
+fetch = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_success_clears...olders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_success_clears_stale_head0/fetch.stamp'))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x122850810>
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_success_clears_stale_head0')
+
+    def test_success_clears_stale_head(fetch, monkeypatch, tmp_path):
+        repo, _log, stamp = fetch
+        _age(stamp, 6.1)
+        nl.fetch_if_stale(repo)
+        ok = tmp_path / "ok.sh"
+        ok.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+        monkeypatch.setenv("FT_LEDGER_FETCH", str(ok))
+>       assert nl.fetch_if_stale(repo) == "" and "FT_LEDGER_STALE_HEAD" not in os.environ
+E       AssertionError: assert ('원장 ref fetch...n = 6분 전 받은 판' == ''
+E         
+E         + 원장 ref fetch 실패 — fetch 실행 실패: 시도 상한 1초 초과 · origin/main = 6분 전 받은 판)
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/tests/scripts/test_r907_news_stale_head.py:142: AssertionError
+------------------------------ Captured log call -------------------------------
+WARNING  ft_news_ledger:ft_news_ledger.py:328 ls-remote 실패 — fetch 로 진행: rc=128 fatal: 'origin' does not appear to be a git repository
+ERROR    ft_news_ledger:ft_news_ledger.py:441 원장 ref fetch 실패 — fetch 실행 실패: 시도 상한 1초 초과 · origin/main = 6분 전 받은 판
+WARNING  ft_news_ledger:ft_news_ledger.py:328 ls-remote 실패 — fetch 로 진행: rc=128 fatal: 'origin' does not appear to be a git repository
+____________________ test_sync_repo_entrance_error_is_kept _____________________
+
+fetch = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_sync_repo_entr...olders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_sync_repo_entrance_error_0/fetch.stamp'))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x121fe1210>
+
+    def test_sync_repo_entrance_error_is_kept(fetch, monkeypatch):
+        repo, _log, stamp = fetch
+        monkeypatch.setenv("FT_LEDGER_SYNC_ERROR", "원장 사본 갱신 안 됨 — ERROR x")
+        _age(stamp, 6.1)
+        nl.fetch_if_stale(repo)
+>       assert os.environ["FT_LEDGER_SYNC_ERROR"] == "원장 사본 갱신 안 됨 — ERROR x"
+E       AssertionError: assert '원장 ref fetch...n = 6분 전 받은 판' == '원장 사본 갱신 안 됨 — ERROR x'
+E         
+E         - 원장 사본 갱신 안 됨 — ERROR x
+E         + 원장 ref fetch 실패 — fetch 실행 실패: 시도 상한 1초 초과 · origin/main = 6분 전 받은 판
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/tests/scripts/test_r907_news_stale_head.py:151: AssertionError
+------------------------------ Captured log call -------------------------------
+WARNING  ft_news_ledger:ft_news_ledger.py:328 ls-remote 실패 — fetch 로 진행: rc=128 fatal: 'origin' does not appear to be a git repository
+ERROR    ft_news_ledger:ft_news_ledger.py:441 원장 ref fetch 실패 — fetch 실행 실패: 시도 상한 1초 초과 · origin/main = 6분 전 받은 판
+_______________ test_d_three_ticks_then_over_age_one_unjudgeable _______________
+
+fetch = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_d_three_ticks_...olders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_d_three_ticks_then_over_a0/fetch.stamp'))
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_d_three_ticks_then_over_a0')
+oc = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_d_three_ticks_...var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_d_three_ticks_then_over_a0/oc.log'))
+slack = <test_ft_news_html.FakeSlack object at 0x12285ae50>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x122858fd0>
+
+    def test_d_three_ticks_then_over_age_one_unjudgeable(fetch, tmp_path, oc, slack, monkeypatch):  # noqa: F811  픽스처 재사용(oc·slack)
+        repo, _log, stamp = fetch
+        fills: list = []
+        args = _tick_args(tmp_path, monkeypatch, fills)
+        made: list = []
+        real = fh.run_files
+        monkeypatch.setattr(fh, "run_files", lambda d, out, now: made.append(now) or real(d, out, now))
+    
+        def tick(now: str, minutes: float, base: str, cur: str):
+            for k in ENV_KEYS[:3] + ("FT_NEWS_HEAD",):
+                os.environ.pop(k, None)
+            _age(stamp, minutes)
+            nl.fetch_if_stale(repo)
+            monkeypatch.setenv("FT_NEWS_NOW", now)
+            return fh.tick(*args, base, cur)
+    
+>       assert tick("2026-10-25 12:15", 6.1, "a", "b") == (0, "지도 발행") and len(made) == 1
+E       AssertionError: assert ((0, '원장 ref fetch 실패') == (0, '지도 발행')
+E         
+E         At index 1 diff: '원장 ref fetch 실패' != '지도 발행'
+E         Use -v to get more diff)
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/tests/scripts/test_r907_news_stale_head.py:171: AssertionError
+----------------------------- Captured stdout call -----------------------------
+ft-news-publish: 발행 완료 ts=1900000000.000000 channel=C1 permalink=-
+------------------------------ Captured log call -------------------------------
+WARNING  ft_news_ledger:ft_news_ledger.py:328 ls-remote 실패 — fetch 로 진행: rc=128 fatal: 'origin' does not appear to be a git repository
+ERROR    ft_news_ledger:ft_news_ledger.py:441 원장 ref fetch 실패 — fetch 실행 실패: 시도 상한 1초 초과 · origin/main = 6분 전 받은 판
+________________ test_g_non_finite_limit_falls_back_to_15[inf] _________________
+
+fetch = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_g_non_finite_l...olders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_g_non_finite_limit_falls_0/fetch.stamp'))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x121cf0250>
+raw = 'inf'
+
+    @pytest.mark.parametrize("raw", ["inf", "1e309", "-inf", "nan"])
+    def test_g_non_finite_limit_falls_back_to_15(fetch, monkeypatch, raw):
+        """env 상한이 유한하지 않으면 기본 15분 — inf 로 무제한 통과(DA⑥ r1 HOLD) 0."""
+        repo, _log, stamp = fetch
+        monkeypatch.setenv("FT_NEWS_STALE_OK_MIN", raw)
+        _age(stamp, 14.2)
+>       assert nl.fetch_if_stale(repo).startswith("원장 14분 전 판(")  # 15분 상한 그대로
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: assert False
+E        +  where False = <built-in method startswith of str object at 0x121ed3130>('원장 14분 전 판(')
+E        +    where <built-in method startswith of str object at 0x121ed3130> = '원장 ref fetch 실패 — fetch 실행 실패: 시도 상한 1초 초과 · origin/main = 14분 전 받은 판'.startswith
+E        +      where '원장 ref fetch 실패 — fetch 실행 실패: 시도 상한 1초 초과 · origin/main = 14분 전 받은 판' = <function fetch_if_stale at 0x121e20860>(PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_g_non_finite_limit_falls_0/ledger-repo'))
+E        +        where <function fetch_if_stale at 0x121e20860> = nl.fetch_if_stale
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/tests/scripts/test_r907_news_stale_head.py:212: AssertionError
+------------------------------ Captured log call -------------------------------
+WARNING  ft_news_ledger:ft_news_ledger.py:328 ls-remote 실패 — fetch 로 진행: rc=128 fatal: 'origin' does not appear to be a git repository
+ERROR    ft_news_ledger:ft_news_ledger.py:441 원장 ref fetch 실패 — fetch 실행 실패: 시도 상한 1초 초과 · origin/main = 14분 전 받은 판
+_______________ test_g_non_finite_limit_falls_back_to_15[1e309] ________________
+
+fetch = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_g_non_finite_l...olders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_g_non_finite_limit_falls_1/fetch.stamp'))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x121ef3e50>
+raw = '1e309'
+
+    @pytest.mark.parametrize("raw", ["inf", "1e309", "-inf", "nan"])
+    def test_g_non_finite_limit_falls_back_to_15(fetch, monkeypatch, raw):
+        """env 상한이 유한하지 않으면 기본 15분 — inf 로 무제한 통과(DA⑥ r1 HOLD) 0."""
+        repo, _log, stamp = fetch
+        monkeypatch.setenv("FT_NEWS_STALE_OK_MIN", raw)
+        _age(stamp, 14.2)
+>       assert nl.fetch_if_stale(repo).startswith("원장 14분 전 판(")  # 15분 상한 그대로
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: assert False
+E        +  where False = <built-in method startswith of str object at 0x121caf750>('원장 14분 전 판(')
+E        +    where <built-in method startswith of str object at 0x121caf750> = '원장 ref fetch 실패 — fetch 실행 실패: 시도 상한 1초 초과 · origin/main = 14분 전 받은 판'.startswith
+E        +      where '원장 ref fetch 실패 — fetch 실행 실패: 시도 상한 1초 초과 · origin/main = 14분 전 받은 판' = <function fetch_if_stale at 0x121e20860>(PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_g_non_finite_limit_falls_1/ledger-repo'))
+E        +        where <function fetch_if_stale at 0x121e20860> = nl.fetch_if_stale
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/tests/scripts/test_r907_news_stale_head.py:212: AssertionError
+------------------------------ Captured log call -------------------------------
+WARNING  ft_news_ledger:ft_news_ledger.py:328 ls-remote 실패 — fetch 로 진행: rc=128 fatal: 'origin' does not appear to be a git repository
+ERROR    ft_news_ledger:ft_news_ledger.py:441 원장 ref fetch 실패 — fetch 실행 실패: 시도 상한 1초 초과 · origin/main = 14분 전 받은 판
+________________ test_g_non_finite_limit_falls_back_to_15[-inf] ________________
+
+fetch = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_g_non_finite_l...olders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_g_non_finite_limit_falls_2/fetch.stamp'))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x121ef3710>
+raw = '-inf'
+
+    @pytest.mark.parametrize("raw", ["inf", "1e309", "-inf", "nan"])
+    def test_g_non_finite_limit_falls_back_to_15(fetch, monkeypatch, raw):
+        """env 상한이 유한하지 않으면 기본 15분 — inf 로 무제한 통과(DA⑥ r1 HOLD) 0."""
+        repo, _log, stamp = fetch
+        monkeypatch.setenv("FT_NEWS_STALE_OK_MIN", raw)
+        _age(stamp, 14.2)
+>       assert nl.fetch_if_stale(repo).startswith("원장 14분 전 판(")  # 15분 상한 그대로
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: assert False
+E        +  where False = <built-in method startswith of str object at 0x121caf3d0>('원장 14분 전 판(')
+E        +    where <built-in method startswith of str object at 0x121caf3d0> = '원장 ref fetch 실패 — fetch 실행 실패: 시도 상한 1초 초과 · origin/main = 14분 전 받은 판'.startswith
+E        +      where '원장 ref fetch 실패 — fetch 실행 실패: 시도 상한 1초 초과 · origin/main = 14분 전 받은 판' = <function fetch_if_stale at 0x121e20860>(PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_g_non_finite_limit_falls_2/ledger-repo'))
+E        +        where <function fetch_if_stale at 0x121e20860> = nl.fetch_if_stale
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/tests/scripts/test_r907_news_stale_head.py:212: AssertionError
+------------------------------ Captured log call -------------------------------
+WARNING  ft_news_ledger:ft_news_ledger.py:328 ls-remote 실패 — fetch 로 진행: rc=128 fatal: 'origin' does not appear to be a git repository
+ERROR    ft_news_ledger:ft_news_ledger.py:441 원장 ref fetch 실패 — fetch 실행 실패: 시도 상한 1초 초과 · origin/main = 14분 전 받은 판
+________________ test_g_non_finite_limit_falls_back_to_15[nan] _________________
+
+fetch = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_g_non_finite_l...olders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_g_non_finite_limit_falls_3/fetch.stamp'))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x121f60b90>
+raw = 'nan'
+
+    @pytest.mark.parametrize("raw", ["inf", "1e309", "-inf", "nan"])
+    def test_g_non_finite_limit_falls_back_to_15(fetch, monkeypatch, raw):
+        """env 상한이 유한하지 않으면 기본 15분 — inf 로 무제한 통과(DA⑥ r1 HOLD) 0."""
+        repo, _log, stamp = fetch
+        monkeypatch.setenv("FT_NEWS_STALE_OK_MIN", raw)
+        _age(stamp, 14.2)
+>       assert nl.fetch_if_stale(repo).startswith("원장 14분 전 판(")  # 15분 상한 그대로
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: assert False
+E        +  where False = <built-in method startswith of str object at 0x121caf050>('원장 14분 전 판(')
+E        +    where <built-in method startswith of str object at 0x121caf050> = '원장 ref fetch 실패 — fetch 실행 실패: 시도 상한 1초 초과 · origin/main = 14분 전 받은 판'.startswith
+E        +      where '원장 ref fetch 실패 — fetch 실행 실패: 시도 상한 1초 초과 · origin/main = 14분 전 받은 판' = <function fetch_if_stale at 0x121e20860>(PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_g_non_finite_limit_falls_3/ledger-repo'))
+E        +        where <function fetch_if_stale at 0x121e20860> = nl.fetch_if_stale
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/tests/scripts/test_r907_news_stale_head.py:212: AssertionError
+------------------------------ Captured log call -------------------------------
+WARNING  ft_news_ledger:ft_news_ledger.py:328 ls-remote 실패 — fetch 로 진행: rc=128 fatal: 'origin' does not appear to be a git repository
+ERROR    ft_news_ledger:ft_news_ledger.py:441 원장 ref fetch 실패 — fetch 실행 실패: 시도 상한 1초 초과 · origin/main = 14분 전 받은 판
+_________________ test_g_non_finite_stamp_is_unjudgeable[nan] __________________
+
+fetch = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_g_non_finite_s...olders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_g_non_finite_stamp_is_unj0/fetch.stamp'))
+raw = 'nan'
+
+    @pytest.mark.parametrize("raw", ["nan", "inf", "-inf", "1e400"])
+    def test_g_non_finite_stamp_is_unjudgeable(fetch, raw):
+        """표식 값이 유한하지 않으면 «모름» = 판정 불가 갈래 · 문구 계산 예외 0."""
+        repo, _log, stamp = fetch
+        stamp.write_text(raw + "\n", encoding="utf-8")
+>       err = nl.fetch_if_stale(repo)
+              ^^^^^^^^^^^^^^^^^^^^^^^
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/tests/scripts/test_r907_news_stale_head.py:224: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/bin/ft_news_ledger.py:435: in fetch_if_stale
+    why = f"원장 ref fetch 실패 — {line[:160] or 'fetch 실패(출력 없음)'} · origin/main = {_fetch_age(last)}"
+                                                                                 ^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+last = nan
+
+    def _fetch_age(last: float | None) -> str:
+        """r569 — 그 ref 를 «몇 분 전에 받은 판» 인지(r706: 전용 표식 = 마지막 fetch 성공 시각 · 모르면 «받은 시각 모름»)."""
+>       return "받은 시각 모름" if last is None else f"{int((time.time() - last) // 60)}분 전 받은 판"
+                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ValueError: cannot convert float NaN to integer
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/bin/ft_news_ledger.py:288: ValueError
+------------------------------ Captured log call -------------------------------
+WARNING  ft_news_ledger:ft_news_ledger.py:328 ls-remote 실패 — fetch 로 진행: rc=128 fatal: 'origin' does not appear to be a git repository
+_________________ test_g_non_finite_stamp_is_unjudgeable[inf] __________________
+
+fetch = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_g_non_finite_s...olders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_g_non_finite_stamp_is_unj1/fetch.stamp'))
+raw = 'inf'
+
+    @pytest.mark.parametrize("raw", ["nan", "inf", "-inf", "1e400"])
+    def test_g_non_finite_stamp_is_unjudgeable(fetch, raw):
+        """표식 값이 유한하지 않으면 «모름» = 판정 불가 갈래 · 문구 계산 예외 0."""
+        repo, _log, stamp = fetch
+        stamp.write_text(raw + "\n", encoding="utf-8")
+>       err = nl.fetch_if_stale(repo)
+              ^^^^^^^^^^^^^^^^^^^^^^^
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/tests/scripts/test_r907_news_stale_head.py:224: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/bin/ft_news_ledger.py:435: in fetch_if_stale
+    why = f"원장 ref fetch 실패 — {line[:160] or 'fetch 실패(출력 없음)'} · origin/main = {_fetch_age(last)}"
+                                                                                 ^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+last = inf
+
+    def _fetch_age(last: float | None) -> str:
+        """r569 — 그 ref 를 «몇 분 전에 받은 판» 인지(r706: 전용 표식 = 마지막 fetch 성공 시각 · 모르면 «받은 시각 모름»)."""
+>       return "받은 시각 모름" if last is None else f"{int((time.time() - last) // 60)}분 전 받은 판"
+                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ValueError: cannot convert float NaN to integer
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/bin/ft_news_ledger.py:288: ValueError
+------------------------------ Captured log call -------------------------------
+WARNING  ft_news_ledger:ft_news_ledger.py:328 ls-remote 실패 — fetch 로 진행: rc=128 fatal: 'origin' does not appear to be a git repository
+_________________ test_g_non_finite_stamp_is_unjudgeable[-inf] _________________
+
+fetch = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_g_non_finite_s...olders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_g_non_finite_stamp_is_unj2/fetch.stamp'))
+raw = '-inf'
+
+    @pytest.mark.parametrize("raw", ["nan", "inf", "-inf", "1e400"])
+    def test_g_non_finite_stamp_is_unjudgeable(fetch, raw):
+        """표식 값이 유한하지 않으면 «모름» = 판정 불가 갈래 · 문구 계산 예외 0."""
+        repo, _log, stamp = fetch
+        stamp.write_text(raw + "\n", encoding="utf-8")
+>       err = nl.fetch_if_stale(repo)
+              ^^^^^^^^^^^^^^^^^^^^^^^
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/tests/scripts/test_r907_news_stale_head.py:224: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/bin/ft_news_ledger.py:435: in fetch_if_stale
+    why = f"원장 ref fetch 실패 — {line[:160] or 'fetch 실패(출력 없음)'} · origin/main = {_fetch_age(last)}"
+                                                                                 ^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+last = -inf
+
+    def _fetch_age(last: float | None) -> str:
+        """r569 — 그 ref 를 «몇 분 전에 받은 판» 인지(r706: 전용 표식 = 마지막 fetch 성공 시각 · 모르면 «받은 시각 모름»)."""
+>       return "받은 시각 모름" if last is None else f"{int((time.time() - last) // 60)}분 전 받은 판"
+                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ValueError: cannot convert float NaN to integer
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/bin/ft_news_ledger.py:288: ValueError
+------------------------------ Captured log call -------------------------------
+WARNING  ft_news_ledger:ft_news_ledger.py:328 ls-remote 실패 — fetch 로 진행: rc=128 fatal: 'origin' does not appear to be a git repository
+________________ test_g_non_finite_stamp_is_unjudgeable[1e400] _________________
+
+fetch = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_g_non_finite_s...olders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_g_non_finite_stamp_is_unj3/fetch.stamp'))
+raw = '1e400'
+
+    @pytest.mark.parametrize("raw", ["nan", "inf", "-inf", "1e400"])
+    def test_g_non_finite_stamp_is_unjudgeable(fetch, raw):
+        """표식 값이 유한하지 않으면 «모름» = 판정 불가 갈래 · 문구 계산 예외 0."""
+        repo, _log, stamp = fetch
+        stamp.write_text(raw + "\n", encoding="utf-8")
+>       err = nl.fetch_if_stale(repo)
+              ^^^^^^^^^^^^^^^^^^^^^^^
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/tests/scripts/test_r907_news_stale_head.py:224: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/bin/ft_news_ledger.py:435: in fetch_if_stale
+    why = f"원장 ref fetch 실패 — {line[:160] or 'fetch 실패(출력 없음)'} · origin/main = {_fetch_age(last)}"
+                                                                                 ^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+last = inf
+
+    def _fetch_age(last: float | None) -> str:
+        """r569 — 그 ref 를 «몇 분 전에 받은 판» 인지(r706: 전용 표식 = 마지막 fetch 성공 시각 · 모르면 «받은 시각 모름»)."""
+>       return "받은 시각 모름" if last is None else f"{int((time.time() - last) // 60)}분 전 받은 판"
+                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ValueError: cannot convert float NaN to integer
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/bin/ft_news_ledger.py:288: ValueError
+------------------------------ Captured log call -------------------------------
+WARNING  ft_news_ledger:ft_news_ledger.py:328 ls-remote 실패 — fetch 로 진행: rc=128 fatal: 'origin' does not appear to be a git repository
+_______________ test_h_over_age_publishes_nothing_rc1_one_error ________________
+
+fetch = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_h_over_age_pub...olders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_h_over_age_publishes_noth0/fetch.stamp'))
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_h_over_age_publishes_noth0')
+oc = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_h_over_age_pub...var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_h_over_age_publishes_noth0/oc.log'))
+slack = <test_ft_news_html.FakeSlack object at 0x122811090>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x121f74910>
+caplog = <_pytest.logging.LogCaptureFixture object at 0x122811190>
+
+    def test_h_over_age_publishes_nothing_rc1_one_error(fetch, tmp_path, oc, slack, monkeypatch, caplog):  # noqa: F811  픽스처 재사용(oc·slack)
+        repo, _log, stamp = fetch
+        fills: list = []
+        args = _tick_args(tmp_path, monkeypatch, fills)
+        monkeypatch.setenv("FT_NEWS_FETCH_LAST", str(tmp_path / "fetch-last"))
+        made: list = []
+        real = fh.run_files
+        monkeypatch.setattr(fh, "run_files", lambda d, out, now: made.append(now) or real(d, out, now))
+        caplog.set_level(logging.ERROR)
+        _age(stamp, 16.1)
+        nl.fetch_if_stale(repo)
+        monkeypatch.setenv("FT_NEWS_NOW", "2026-10-25 12:15")
+>       assert fh.tick(*args, "a", "b") == (1, "원장 ref fetch 실패")
+E       AssertionError: assert (0, '원장 ref fetch 실패') == (1, '원장 ref fetch 실패')
+E         
+E         At index 0 diff: 0 != 1
+E         Use -v to get more diff
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/tests/scripts/test_r907_news_stale_head.py:242: AssertionError
+----------------------------- Captured stdout call -----------------------------
+ft-news-publish: 발행 완료 ts=1900000000.000000 channel=C1 permalink=-
+------------------------------ Captured log call -------------------------------
+ERROR    ft_news_ledger:ft_news_ledger.py:441 원장 ref fetch 실패 — fetch 실행 실패: 시도 상한 1초 초과 · origin/main = 16분 전 받은 판
+___________ test_i_fill_only_changes_are_not_a_change_and_gap_is_10 ____________
+
+fillenv = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_i_fill_only_ch...t_i_fill_only_changes_are_n0/state'), [datetime.datetime(2026, 10, 25, 12, 0), datetime.datetime(2026, 10, 25, 12, 1)])
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_i_fill_only_changes_are_n0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x122832550>
+
+    def test_i_fill_only_changes_are_not_a_change_and_gap_is_10(fillenv, tmp_path, monkeypatch):
+        """기계 채움 칸만 바뀐 커밋 3틱 = 게시 0 · 사람 글줄 1줄 = 게시 1 · 그 뒤 5분 변화 = 게시 0(간격) · 10분 변화 = 게시 1."""
+        repo, rel, state, made = fillenv
+        news = tmp_path / "news"
+        base_f = state / "last.sha"
+        stamp = {"v": ""}
+    
+        def tick(cur: str, at: str):
+            monkeypatch.setenv("FT_NEWS_NOW", at)
+            base = base_f.read_text(encoding="utf-8").strip() if base_f.is_file() else ""
+            return fh.tick(tmp_path, state, repo, rel, news, base, cur)
+    
+        c1 = _commit_ledger(repo, rel, LEDGER_FILLED.format(human="A", n=1, mins=5, cards=1))
+        stamp["v"] = c1
+        assert tick(c1, "2026-10-25 12:00") == (0, "지도 발행") and len(made) == 1
+        for i, (n, mins, cards) in enumerate([(2, 6, 2), (3, 7, 3), (4, 8, 4)], start=1):
+            c = _commit_ledger(repo, rel, LEDGER_FILLED.format(human="A", n=n, mins=mins, cards=cards))
+>           assert tick(c, f"2026-10-25 12:0{i}") == (0, "원장 커밋 0") and len(made) == 1  # 채움 칸만 = 변화 0
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           AssertionError: assert ((0, '지도 발행') == (0, '원장 커밋 0')
+E             
+E             At index 1 diff: '지도 발행' != '원장 커밋 0'
+E             Use -v to get more diff)
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/tests/scripts/test_r907_news_stale_head.py:327: AssertionError
+------------------------------ Captured log call -------------------------------
+ERROR    ft_news_html:ft_news_html.py:348 골 정본 못 읽음 — 정본 sha 판정 0: ERROR 골 표 기본 출처: LIVE_BIN 이 없거나 무효 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/ft_root25/.fable-team/LIVE_BIN = '' (절대경로 · 실재 폴더 필요 — ft-root-bin-shim.sh 가 설치 때 만든다 · env FT_GOAL_A6_MD·FT_GOAL_A6_LEDGER 로 직접 지정 가능)
+ERROR    ft_news_html:ft_news_html.py:348 골 정본 못 읽음 — 정본 sha 판정 0: ERROR 골 표 기본 출처: LIVE_BIN 이 없거나 무효 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/ft_root25/.fable-team/LIVE_BIN = '' (절대경로 · 실재 폴더 필요 — ft-root-bin-shim.sh 가 설치 때 만든다 · env FT_GOAL_A6_MD·FT_GOAL_A6_LEDGER 로 직접 지정 가능)
+___________________ test_i_min_gap_env_finite_positive_only ____________________
+
+fillenv = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_i_min_gap_env_.../folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_i_min_gap_env_finite_posi0/state'), [])
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x122870910>
+
+    def test_i_min_gap_env_finite_positive_only(fillenv, monkeypatch):
+        """최소 간격 env — 유한하고 1 ≤ 값 ≤ 1440 만 · 0 이하·1441·1e308·숫자 아님·nan·inf = 10."""
+        for raw, want in (("3", 3.0), ("1440", 1440.0), ("0", 10.0), ("-5", 10.0), ("1441", 10.0),
+                          ("1e308", 10.0), ("abc", 10.0), ("nan", 10.0), ("inf", 10.0)):
+            monkeypatch.setenv("FT_NEWS_MIN_GAP_MIN", raw)
+>           assert fh._min_gap_min() == want
+                   ^^^^^^^^^^^^^^^
+E           AttributeError: module 'ft_news_html' has no attribute '_min_gap_min'
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/tests/scripts/test_r907_news_stale_head.py:342: AttributeError
+_________ test_j_human_table_change_counts_fill_table_change_does_not __________
+
+fillenv = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_j_human_table_...t_j_human_table_change_coun0/state'), [datetime.datetime(2026, 10, 25, 12, 0), datetime.datetime(2026, 10, 25, 12, 2)])
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_j_human_table_change_coun0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x122863750>
+
+    def test_j_human_table_change_counts_fill_table_change_does_not(fillenv, tmp_path, monkeypatch):
+        """fill 구간(§3 표)만 바뀐 커밋 = 게시 0 · fill 구간 밖 사람 표 칸(§4 드러난 문제) 변경 = 게시 1 · fill 구간 못 찾으면 전체 비교."""
+        repo, rel, state, made = fillenv
+        news = tmp_path / "news"
+        base_f = state / "last.sha"
+    
+        def tick(cur: str, at: str):
+            monkeypatch.setenv("FT_NEWS_NOW", at)
+            base = base_f.read_text(encoding="utf-8").strip() if base_f.is_file() else ""
+            return fh.tick(tmp_path, state, repo, rel, news, base, cur)
+    
+        c1 = _commit_ledger(repo, rel, LEDGER_TABLES.format(human="A", cards=1, issue="a"))
+        assert tick(c1, "2026-10-25 12:00") == (0, "지도 발행") and len(made) == 1
+        c2 = _commit_ledger(repo, rel, LEDGER_TABLES.format(human="A", cards=2, issue="a"))
+>       assert tick(c2, "2026-10-25 12:02") == (0, "원장 커밋 0") and len(made) == 1  # fill 이 쓰는 표만 = 변화 0
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: assert ((0, '지도 발행') == (0, '원장 커밋 0')
+E         
+E         At index 1 diff: '지도 발행' != '원장 커밋 0'
+E         Use -v to get more diff)
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/tests/scripts/test_r907_news_stale_head.py:373: AssertionError
+------------------------------ Captured log call -------------------------------
+ERROR    ft_news_html:ft_news_html.py:348 골 정본 못 읽음 — 정본 sha 판정 0: ERROR 골 표 기본 출처: LIVE_BIN 이 없거나 무효 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/ft_root27/.fable-team/LIVE_BIN = '' (절대경로 · 실재 폴더 필요 — ft-root-bin-shim.sh 가 설치 때 만든다 · env FT_GOAL_A6_MD·FT_GOAL_A6_LEDGER 로 직접 지정 가능)
+ERROR    ft_news_html:ft_news_html.py:348 골 정본 못 읽음 — 정본 sha 판정 0: ERROR 골 표 기본 출처: LIVE_BIN 이 없거나 무효 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/ft_root27/.fable-team/LIVE_BIN = '' (절대경로 · 실재 폴더 필요 — ft-root-bin-shim.sh 가 설치 때 만든다 · env FT_GOAL_A6_MD·FT_GOAL_A6_LEDGER 로 직접 지정 가능)
+__________ test_k_broken_or_future_map_at_publishes_with_warn[broken] __________
+
+fillenv = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_k_broken_or_fu...00gn/T/pytest-of-yoonhwan/pytest-472/test_k_broken_or_future_map_at0/state'), [datetime.datetime(2026, 10, 25, 12, 5)])
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_k_broken_or_future_map_at0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x121f77d90>
+caplog = <_pytest.logging.LogCaptureFixture object at 0x121f74d10>
+map_at = 'broken'
+
+    @pytest.mark.parametrize("map_at", ["broken", "9999-12-31 23:59", ""])
+    def test_k_broken_or_future_map_at_publishes_with_warn(fillenv, tmp_path, monkeypatch, caplog, map_at):
+        repo, rel, state, made = fillenv
+        state.mkdir(parents=True, exist_ok=True)
+        (state / "html.json").write_text(json.dumps({"at": "2026-10-25 12:00", "map_at": map_at}), encoding="utf-8")
+        caplog.set_level(logging.WARNING)
+        c = _commit_ledger(repo, rel, "# 원장\n사람 A\n")
+        monkeypatch.setenv("FT_NEWS_NOW", "2026-10-25 12:05")
+        assert fh.tick(tmp_path, state, repo, rel, tmp_path / "news", "", c) == (0, "지도 발행") and len(made) == 1
+>       assert [r for r in caplog.records if r.levelname == "WARNING" and "마지막 지도 게시 시각 모름" in r.getMessage()]
+E       assert []
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/tests/scripts/test_r907_news_stale_head.py:391: AssertionError
+------------------------------ Captured log call -------------------------------
+ERROR    ft_news_html:ft_news_html.py:348 골 정본 못 읽음 — 정본 sha 판정 0: ERROR 골 표 기본 출처: LIVE_BIN 이 없거나 무효 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/ft_root28/.fable-team/LIVE_BIN = '' (절대경로 · 실재 폴더 필요 — ft-root-bin-shim.sh 가 설치 때 만든다 · env FT_GOAL_A6_MD·FT_GOAL_A6_LEDGER 로 직접 지정 가능)
+_____ test_k_broken_or_future_map_at_publishes_with_warn[9999-12-31 23:59] _____
+
+fillenv = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_k_broken_or_fu...00gn/T/pytest-of-yoonhwan/pytest-472/test_k_broken_or_future_map_at1/state'), [datetime.datetime(2026, 10, 25, 12, 5)])
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_k_broken_or_future_map_at1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x121f77610>
+caplog = <_pytest.logging.LogCaptureFixture object at 0x12286d890>
+map_at = '9999-12-31 23:59'
+
+    @pytest.mark.parametrize("map_at", ["broken", "9999-12-31 23:59", ""])
+    def test_k_broken_or_future_map_at_publishes_with_warn(fillenv, tmp_path, monkeypatch, caplog, map_at):
+        repo, rel, state, made = fillenv
+        state.mkdir(parents=True, exist_ok=True)
+        (state / "html.json").write_text(json.dumps({"at": "2026-10-25 12:00", "map_at": map_at}), encoding="utf-8")
+        caplog.set_level(logging.WARNING)
+        c = _commit_ledger(repo, rel, "# 원장\n사람 A\n")
+        monkeypatch.setenv("FT_NEWS_NOW", "2026-10-25 12:05")
+        assert fh.tick(tmp_path, state, repo, rel, tmp_path / "news", "", c) == (0, "지도 발행") and len(made) == 1
+>       assert [r for r in caplog.records if r.levelname == "WARNING" and "마지막 지도 게시 시각 모름" in r.getMessage()]
+E       assert []
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/tests/scripts/test_r907_news_stale_head.py:391: AssertionError
+------------------------------ Captured log call -------------------------------
+ERROR    ft_news_html:ft_news_html.py:348 골 정본 못 읽음 — 정본 sha 판정 0: ERROR 골 표 기본 출처: LIVE_BIN 이 없거나 무효 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/ft_root29/.fable-team/LIVE_BIN = '' (절대경로 · 실재 폴더 필요 — ft-root-bin-shim.sh 가 설치 때 만든다 · env FT_GOAL_A6_MD·FT_GOAL_A6_LEDGER 로 직접 지정 가능)
+_____________ test_k_broken_or_future_map_at_publishes_with_warn[] _____________
+
+fillenv = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_k_broken_or_fu...00gn/T/pytest-of-yoonhwan/pytest-472/test_k_broken_or_future_map_at2/state'), [datetime.datetime(2026, 10, 25, 12, 5)])
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/test_k_broken_or_future_map_at2')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x121f776d0>
+caplog = <_pytest.logging.LogCaptureFixture object at 0x121fe22d0>, map_at = ''
+
+    @pytest.mark.parametrize("map_at", ["broken", "9999-12-31 23:59", ""])
+    def test_k_broken_or_future_map_at_publishes_with_warn(fillenv, tmp_path, monkeypatch, caplog, map_at):
+        repo, rel, state, made = fillenv
+        state.mkdir(parents=True, exist_ok=True)
+        (state / "html.json").write_text(json.dumps({"at": "2026-10-25 12:00", "map_at": map_at}), encoding="utf-8")
+        caplog.set_level(logging.WARNING)
+        c = _commit_ledger(repo, rel, "# 원장\n사람 A\n")
+        monkeypatch.setenv("FT_NEWS_NOW", "2026-10-25 12:05")
+        assert fh.tick(tmp_path, state, repo, rel, tmp_path / "news", "", c) == (0, "지도 발행") and len(made) == 1
+>       assert [r for r in caplog.records if r.levelname == "WARNING" and "마지막 지도 게시 시각 모름" in r.getMessage()]
+E       assert []
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r907-news-ledger-fetch-timeout-post-last/feature-pack/fable-team/harness/tests/scripts/test_r907_news_stale_head.py:391: AssertionError
+------------------------------ Captured log call -------------------------------
+ERROR    ft_news_html:ft_news_html.py:348 골 정본 못 읽음 — 정본 sha 판정 0: ERROR 골 표 기본 출처: LIVE_BIN 이 없거나 무효 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-472/ft_root30/.fable-team/LIVE_BIN = '' (절대경로 · 실재 폴더 필요 — ft-root-bin-shim.sh 가 설치 때 만든다 · env FT_GOAL_A6_MD·FT_GOAL_A6_LEDGER 로 직접 지정 가능)
+=========================== short test summary info ============================
+FAILED harness/tests/scripts/test_r907_news_stale_head.py::test_a_timeout_within_age_sets_stale_head_not_sync_error
+FAILED harness/tests/scripts/test_r907_news_stale_head.py::test_a_tick_publishes_map_with_stale_head_first
+FAILED harness/tests/scripts/test_r907_news_stale_head.py::test_b_bad_limit_env_falls_back_to_15[abc]
+FAILED harness/tests/scripts/test_r907_news_stale_head.py::test_b_bad_limit_env_falls_back_to_15[-3]
+FAILED harness/tests/scripts/test_r907_news_stale_head.py::test_b_bad_limit_env_falls_back_to_15[nan]
+FAILED harness/tests/scripts/test_r907_news_stale_head.py::test_b_bad_limit_env_falls_back_to_15[]
+FAILED harness/tests/scripts/test_r907_news_stale_head.py::test_success_clears_stale_head
+FAILED harness/tests/scripts/test_r907_news_stale_head.py::test_sync_repo_entrance_error_is_kept
+FAILED harness/tests/scripts/test_r907_news_stale_head.py::test_d_three_ticks_then_over_age_one_unjudgeable
+FAILED harness/tests/scripts/test_r907_news_stale_head.py::test_g_non_finite_limit_falls_back_to_15[inf]
+FAILED harness/tests/scripts/test_r907_news_stale_head.py::test_g_non_finite_limit_falls_back_to_15[1e309]
+FAILED harness/tests/scripts/test_r907_news_stale_head.py::test_g_non_finite_limit_falls_back_to_15[-inf]
+FAILED harness/tests/scripts/test_r907_news_stale_head.py::test_g_non_finite_limit_falls_back_to_15[nan]
+FAILED harness/tests/scripts/test_r907_news_stale_head.py::test_g_non_finite_stamp_is_unjudgeable[nan]
+FAILED harness/tests/scripts/test_r907_news_stale_head.py::test_g_non_finite_stamp_is_unjudgeable[inf]
+FAILED harness/tests/scripts/test_r907_news_stale_head.py::test_g_non_finite_stamp_is_unjudgeable[-inf]
+FAILED harness/tests/scripts/test_r907_news_stale_head.py::test_g_non_finite_stamp_is_unjudgeable[1e400]
+FAILED harness/tests/scripts/test_r907_news_stale_head.py::test_h_over_age_publishes_nothing_rc1_one_error
+FAILED harness/tests/scripts/test_r907_news_stale_head.py::test_i_fill_only_changes_are_not_a_change_and_gap_is_10
+FAILED harness/tests/scripts/test_r907_news_stale_head.py::test_i_min_gap_env_finite_positive_only
+FAILED harness/tests/scripts/test_r907_news_stale_head.py::test_j_human_table_change_counts_fill_table_change_does_not
+FAILED harness/tests/scripts/test_r907_news_stale_head.py::test_k_broken_or_future_map_at_publishes_with_warn[broken]
+FAILED harness/tests/scripts/test_r907_news_stale_head.py::test_k_broken_or_future_map_at_publishes_with_warn[9999-12-31 23:59]
+FAILED harness/tests/scripts/test_r907_news_stale_head.py::test_k_broken_or_future_map_at_publishes_with_warn[]
+24 failed, 8 passed in 103.39s (0:01:43)

@@ -1,0 +1,8 @@
+FINISHED nano/m5-solo-release-await-psid-recheck
+E0 ok 폴더 없음
+E1 no 카드 없음
+E2 no 카드 없음
+E3 ok 좌석 0
+E1f ok files=1
+branch=nano/m5-solo-release-await-psid-recheck sha=331ebf3f5bfb0b8d1a38a03f84cf473b07449a2a ahead=1 main=origin/main card=<0개> dir=<없음>
+WARN card 없음 — E1f ok 로 끝 처리(착지 줄·완성/ 불일치) · 카드 이동은 이 도구 몫 아님

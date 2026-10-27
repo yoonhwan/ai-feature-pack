@@ -1,0 +1,23 @@
+
+==================================== ERRORS ====================================
+__________ ERROR collecting tests/scripts/test_magazine_celebrate.py ___________
+ImportError while importing test module '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-ba445cce-1792858969-23025/feature-pack/fable-team/harness/tests/scripts/test_magazine_celebrate.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/scripts/test_magazine_celebrate.py:16: in <module>
+    import magazine_celebrate as mc
+E   ModuleNotFoundError: No module named 'magazine_celebrate'
+=========================== short test summary info ============================
+ERROR tests/scripts/test_magazine_celebrate.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.71s
+## red ② — origin/main ba445cce 위 고친 test_magazine_guide.py(H2 에 «끝낸 일»)
+E       AssertionError: assert ['오빠 할 일', '지...지금', '드러난 문제'] == ['끝낸 일', '오빠 ...지금', '드러난 문제']
+E         
+E         At index 0 diff: '오빠 할 일' != '끝낸 일'
+E         Right contains one more item: '드러난 문제'
+E         Use -v to get more diff
+FAILED tests/scripts/test_magazine_guide.py::test_i_sections_follow_guide_order_and_empty_sections_are_dropped

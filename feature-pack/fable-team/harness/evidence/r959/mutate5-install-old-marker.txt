@@ -1,0 +1,22 @@
+PASS ⓐ git mv 실패 → REJECT 줄 «안»에 git 원문 사유(«destination exists») 포함
+PASS ⓐ mv(untracked) 실패 → REJECT 줄 «안»에 원문 사유(«Permission denied») :: REJECT 이동 실패: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DGrJ9bfEmY/byz/design/harness/indices/진행/kmv2.md → /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DGrJ9bfEmY/byz/design/harness/indices/대기/kmv2.md — fatal: renaming 'design/harness/indices/진행/kmv2.md' failed: Permission denied
+PASS ⓐ 정상 이동은 그대로 MOVED rc0(회귀 0)
+PASS ⓑ 두 리포에 다 있는 팩 sha + 표식 main(팩) → OK(절 헤더 오인 0)
+PASS ⓑ 팩에만 있는 착지 sha + 표식 main(팩) → OK(«랜딩 안 됨» 0)
+PASS ⓑ 두 리포 어디에도 없는 sha → 지금처럼 REJECT
+PASS ⓒ 표식 main 인데 sha 가 팩에만 → «표식 오기(팩 착지)» WARN + 팩 조상이면 통과
+PASS ⓒ 표식 main(팩) 인데 sha 가 카드 리포에만 → REJECT(숨김 0 · 회귀 0)
+PASS ⓒ 표식 main + 카드 리포 착지 → OK(정상 길 회귀 0)
+PASS ⓑ 진행→완성: 팩 착지 카드가 정본 게이트를 통과해 실제로 이동
+FAIL ⓒ2 두 게이트 같은 판정 :: WARN	표식 오기(팩 착지) — 판정문 표식 «main» 인데 sha 가 팩 리포에만 있다 — 팩 리포로 검사한다(카드에 «main(팩)» 로 적으면 이 경고가 사라진다): 6cf5106ba16a8617aabba0acad2a4431a6bc9d89
+REJECT 착지 sha 를 어느 리포에서도 못 찾음: 6cf5106ba16a8617aabba0acad2a4431a6bc9d89 (카드 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DGrJ9bfEmY/byz · 팩 <못 풂>) :: rc=1 out=WARN	표식 오기(팩 착지) — 판정문 표식 «main» 인데 sha 가 팩 리포에만 있다 — 팩 리포로 검사한다(카드에 «main(팩)» 로 적으면 이 경고가 사라진다): 6cf5106ba16a8617aabba0acad2a4431a6bc9d89
+REJECT 착지 sha 를 어느 리포에서도 못 찾음: 6cf5106ba16a8617aabba0acad2a4431a6bc9d89 (카드 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DGrJ9bfEmY/byz · 팩 <못 풂>)
+FAIL ⓒ3 보류 이력 카드 :: WARN	표식 오기(팩 착지) — 판정문 표식 «main» 인데 sha 가 팩 리포에만 있다 — 팩 리포로 검사한다(카드에 «main(팩)» 로 적으면 이 경고가 사라진다): 6cf5106ba16a8617aabba0acad2a4431a6bc9d89
+REJECT 착지 sha 를 어느 리포에서도 못 찾음: 6cf5106ba16a8617aabba0acad2a4431a6bc9d89 (카드 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DGrJ9bfEmY/byz · 팩 <못 풂>) :: rc=1 out=WARN	표식 오기(팩 착지) — 판정문 표식 «main» 인데 sha 가 팩 리포에만 있다 — 팩 리포로 검사한다(카드에 «main(팩)» 로 적으면 이 경고가 사라진다): 6cf5106ba16a8617aabba0acad2a4431a6bc9d89
+REJECT 착지 sha 를 어느 리포에서도 못 찾음: 6cf5106ba16a8617aabba0acad2a4431a6bc9d89 (카드 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DGrJ9bfEmY/byz · 팩 <못 풂>)
+PASS ⓒ4 close-landed(네 번째 호출)도 표식 오기 보정 → 조상 ok
+PASS ⓒ5 호출 4곳 모두 기본 함수 · 보정은 ft_landed_repo 안 · 별칭 잔재 0
+FAIL ⓕ --range 갈래 --project :: REJECT 착지 sha 를 어느 리포에서도 못 찾음: 812489dec95ce7727ab5e1f1b3ce7c12b6efbabc (카드 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DGrJ9bfEmY/byz · 팩 <못 풂>) :: rc=1 out=REJECT 착지 sha 를 어느 리포에서도 못 찾음: 812489dec95ce7727ab5e1f1b3ce7c12b6efbabc (카드 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.DGrJ9bfEmY/byz · 팩 <못 풂>)
+PASS ⓓ 팩 리포 변경 0
+PASS ⓔ bash 3.2(/bin/bash) -n rc0 — 고친 두 파일 + lib
+FAILED 3

@@ -1,0 +1,84 @@
+# r909 r3 증거 — 하드 룰 14 재설계(추적 삭제 · 양성 증거만) · 팩 가지 nano/r909-scope-classifier-false-forbid-py-se
+## test_autonomy_scope_fp_r909.sh (r3 반례 1~5 전 꼴 + 새 오탐 2 + 변이 9 포함)
+PASS py_compile classify
+PASS ⓐ .py set(tags)·set(LIVE_GPUS) → FORBID secret 0
+PASS ⓐ design/*.py(확장자 .py = code) set( → FORBID secret 0
+PASS ⓑ .sh 의 set 단독 → FORBID secret
+PASS ⓑ 문서 bash 울타리 안 set 단독 → FORBID secret
+PASS ⓑ h 계획(set 단독) → reject rc1
+PASS ⓒ .sh set -euo pipefail → FORBID 0
+PASS ⓒ .sh set -x → FORBID secret(값 추적 출력)
+PASS ⓒ 문서 python 울타리 안 set( → FORBID secret 0
+PASS ⓓ __tests__/*.test.ts credential → key FORBID 0
+PASS ⓓ tests/test_credential_x.py → key FORBID 0
+PASS ⓔ shared/credential_store.py(시험 아님) → FORBID key
+PASS ⓔ tests/.env(경로 금지 규칙이 먼저) → FORBID key
+PASS ⓕ 시험 파일 내용의 키 원문 → FORBID secret
+PASS ⓖ .env.example 이름만(빈 칸·자리표) → FORBID key 0
+PASS ⓖ .env.example 실값 → FORBID key
+PASS ⓖ .env.sample 이름만 → FORBID key 0
+PASS ⓖ .env.template 이름만 → FORBID key 0
+PASS ⓗ echo $OP_SECRET_ITEM_NAME → FORBID secret 0
+PASS ⓗ echo $TOSS_SECRET_KEY → FORBID secret
+PASS ⓗ 이름표+실값 섞임 → FORBID secret
+PASS 반례1 ⓐ 확장자 없는 셔뱅 파일의 set 단독 → FORBID secret
+PASS 반례1 ⓑ yaml run: 블록 안 set 단독 → FORBID secret
+PASS 반례1 ⓒ .py 문자열 리터럴 속 set → FORBID secret
+PASS 반례1 ⓓ .py 라도 셔뱅 있으면 셸 문맥(set( 도 판정) → FORBID secret
+PASS 반례2 ⓓ tests/credential.json 실값 → FORBID key
+PASS 반례2 ⓔ tests/secrets/credential.json → FORBID key(secrets/ 규칙 넓힘)
+PASS 반례2 ⓕ 시험 꼴 이름이라도 .json 이면 FORBID key
+PASS 반례2 ⓖ 시험 꼴 이름이라도 secrets/ 경로면 FORBID key
+PASS 반례3 ⓗ 따옴표 값 «안» 에 끼어든 줄 하나(추가 줄 = 그 #줄뿐) → FORBID key
+PASS 반례3 ⓘ 여러 줄 따옴표에 실값 → FORBID key
+PASS 반례3 ⓙ 여러 줄 따옴표(시작 줄 파싱 실패)는 자리표뿐이어도 → FORBID key(닫힌 쪽)
+PASS 반례4 ⓚ _ID 는 이름표 목록 밖 → FORBID secret
+PASS 반례4 ⓛ 대입 없는 이름표 변수(다른 파일·환경에서 옴) → FORBID secret
+PASS 반례4 ⓜ 이름표 변수에 값($…)이 들어간 대입 → FORBID secret
+PASS 반례4 ⓝ 따옴표 대입($ 포함) → FORBID secret
+PASS 반례4 ⓞ 다단계 파생 → FORBID secret
+PASS 반례4 ⓟ ${!X} 간접 확장 → FORBID secret
+PASS 반례4 ⓠ eval 이 있는 글 → FORBID secret
+PASS 반례4 ⓡ 다른 파일 source 가 있는 글 → FORBID secret
+PASS 반례4 ⓢ cat "$X_FILE" (접미사 무관) → FORBID secret
+PASS 반례4 ⓣ 대입이 둘 이상 → FORBID secret(하나뿐일 때만 양성)
+PASS 새 오탐 ⓤ 주석 줄의 대입은 세지 않는다 → FORBID secret 0
+PASS 반례4 ⓥ _FILE 은 이름표 밖 → FORBID secret
+PASS r3 반례1 .txt 자료 확장자에 printf 비밀 → FORBID secret
+PASS r3 반례2 yaml run: |- 블록 안 set → FORBID secret
+PASS r3 반례2 yaml run: >- 블록 안 set → FORBID secret
+PASS r3 반례2 yaml run: | # c 블록 안 set → FORBID secret
+PASS r3 반례2 yaml "run": "set" → FORBID secret
+PASS r3 반례2 yaml script: 목록 - set → FORBID secret
+PASS r3 반례2 yaml script: [set] → FORBID secret
+PASS r3 반례3 .md 라도 셔뱅 있으면 셸 문맥 → FORBID secret
+PASS r3 새 오탐 yaml 기존 set 블록은 두고 주석 줄만 추가 → FORBID secret 0
+PASS r3 반례4 dotenv 같은 키 실값 + 자리표 → 줄별 판정 FORBID key
+PASS r3 반례4 KEY="''" 는 빈 값 아님 → FORBID key
+PASS r3 dotenv 따옴표 뒤 # 주석은 허용 → FORBID key 0
+PASS 변이: 칸1 좁힘 끔(set( 가리기 끔) → ⓐ 빨강(FORBID secret)
+PASS 변이: 셔뱅 문맥 판정 끔 → 반례1 ⓓ 빨강(셸 판정 밖)
+PASS 변이: 칸3 따옴표 값 안 판정 끔 → 반례3 ⓗ 빨강(key 0)
+PASS 변이: 칸3 줄별 값 검사 끔 → ⓖ 실값 빨강(key 0)
+PASS 변이: 칸4 좁힘 끔(_ID 되살림) → 반례4 ⓚ 빨강
+PASS 변이: 칸4 양성 증거(리터럴 대입 하나) 끔 → 반례4 ⓜ 빨강
+PASS 변이: eval·${!·source 불가 표식 끔 → 반례4 ⓠ 빨강
+PASS 변이: 자료 확장자 제외 복귀 → r3 반례1 빨강
+PASS 변이: YAML 판정 끔 → r3 반례2 빨강
+PASS 변이: 시험 경로 제외 끔 → ⓓ 빨강(FORBID key)
+PASS 변이: 시험 경로 줄을 r1 의 넓은 꼴로 → 반례2 ⓓ 빨강(tests/credential.json 통과)
+PASS 칸 파일 4개 kit 사본 + hooks 템플릿 cmp0
+ALL PASS
+
+## pytest tests/scripts/test_ft_secret_shapes.py + test_ft_secret_judge.py (python3.11)
+..                                                                       [100%]
+434 passed in 55.59s
+
+## 기존 묶음
+test_autonomy_scope_pack rc=0
+test_autonomy_scope_plain3_r658 rc=0
+test_scope_classify_keyword_docs rc=0
+test_secret_output_mask rc=0
+test_secret_scan rc=0
+test_autonomy_scope_classify.sh FAILED 5 = 원장 착지 5칸(픽스처 remote URL 해석 실패) — base(origin/main)에서도 동일(r909 이전 회귀 아님)
+ruff check 4파일 rc=0 · kit/hooks 템플릿 cmp0

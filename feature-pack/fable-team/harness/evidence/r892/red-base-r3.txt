@@ -1,0 +1,8 @@
+FAILED fable-team/harness/tests/scripts/test_ledger_fill_disk_cards_r892.py::test_j_cards_moving_on_disk_count_equals_fixed_sha
+FAILED fable-team/harness/tests/scripts/test_ledger_fill_disk_cards_r892.py::test_j_uncommitted_move_seen_after_commit
+FAILED fable-team/harness/tests/scripts/test_ledger_fill_disk_cards_r892.py::test_k_harness_root_broken_is_fill_error[not_git]
+FAILED fable-team/harness/tests/scripts/test_ledger_fill_disk_cards_r892.py::test_k_harness_root_broken_is_fill_error[missing]
+FAILED fable-team/harness/tests/scripts/test_ledger_fill_disk_cards_r892.py::test_k_harness_root_broken_is_fill_error[no_commit]
+FAILED fable-team/harness/tests/scripts/test_ledger_fill_disk_cards_r892.py::test_l_done_card_added_in_window_is_landed_even_via_git_mv
+FAILED fable-team/harness/tests/scripts/test_ledger_fill_disk_cards_r892.py::test_world_fill_harness_row_from_git_and_tables_unchanged
+7 failed, 2 passed in 1.72s

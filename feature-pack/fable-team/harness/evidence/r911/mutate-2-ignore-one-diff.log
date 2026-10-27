@@ -1,0 +1,65 @@
+PASS ⓐ 내용 같음(squash 착지·카드 착지 줄 없음) → FINISHED · E1f ok files=3 · WARN 1줄
+FAIL ⓑ [FINISHED nano/b1-part
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+E1f ok files=3
+branch=nano/b1-part sha=37cde808dae3f04ec92686fe17092be876e0231e ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.3LPD835g93/R/design/teams/lecture/indices/진행/b1-part.md dir=<없음>
+WARN card /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.3LPD835g93/R/design/teams/lecture/indices/진행/b1-part.md — E1f ok 로 끝 처리(착지 줄·완성/ 불일치) · 카드 이동은 이 도구 몫 아님]
+PASS ⓒ 가지가 지운 파일을 main 도 지움 → 같음(FINISHED)
+FAIL ⓒ2 [FINISHED nano/c2-del-diff
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+E1f ok files=1
+branch=nano/c2-del-diff sha=6180a4887b44c8d32755094dba172f4d0c5e9cfe ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.3LPD835g93/R/design/teams/lecture/indices/진행/c2-del-diff.md dir=<없음>
+WARN card /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.3LPD835g93/R/design/teams/lecture/indices/진행/c2-del-diff.md — E1f ok 로 끝 처리(착지 줄·완성/ 불일치) · 카드 이동은 이 도구 몫 아님]
+PASS ⓓ E1f 참 + 좌석 살아 있음 → ACTIVE(E3 no)
+PASS ⓓ E1f 참 + 미커밋 → ACTIVE(E0 no)
+PASS ⓔ blob 조회 rc≠0 → rc2 판정 불가(FINISHED 0)
+PASS ⓔ 7초 룰(시험값 0.3s) 초과 → rc2 판정 불가(FINISHED 0)
+PASS ⓓ' 빈 커밋만 가지 → E1f 대상 아님(ACTIVE · 카드 규칙)
+PASS ⓕ E1f FINISHED → refs/archive 생성 · 폴더 쓰는 중이라 가지 유지 · 폴더 그대로
+PASS ⓕ 폴더 정리 뒤 같은 판정으로 가지 목록에서 뺌(보관 ref 유지)
+PASS ⓕ `git branch -D` 호출 0
+FAIL ⓕ ACTIVE [ARCHIVED nano/b1-part 37cde808dae3f04ec92686fe17092be876e0231e restore: git branch nano/b1-part refs/archive/nano/b1-part]
+FAIL ⓖ rc=0 log=[2026-10-25 15:42:35 rc=0 cleaned=0 wait=0 hil=0 stale=0 carry=0 resume=0 routed=0 route_fail=0 archived=6 archive_skip=1 replanned=0 hil_files=0 orphans=0 freed_kb=0] out=sweep 계획 0 · cleaned/none 0 · wait 0 · hil 0
+2026-10-25 15:42:35 rc=0 cleaned=0 wait=0 hil=0 stale=0 carry=0 resume=0 routed=0 route_fail=0 archived=6 archive_skip=1 replanned=0 hil_files=0 orphans=0 freed_kb=0
+FAIL ⓗ [FINISHED nano/h1-sub
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+E1f ok files=1
+branch=nano/h1-sub sha=eef4a33ae12be1924797adef853f6c58440b4de4 ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.3LPD835g93/R/design/teams/lecture/indices/진행/h1-sub.md dir=<없음>
+WARN card /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.3LPD835g93/R/design/teams/lecture/indices/진행/h1-sub.md — E1f ok 로 끝 처리(착지 줄·완성/ 불일치) · 카드 이동은 이 도구 몫 아님]
+PASS ⓘ (500 이하) 가지가 파일 tr2 삭제 · main 은 tr2 폴더 → «파일 tr2 = 양쪽 없음» = 같음(FINISHED · DA⑥ r3 §2 파일 단위 정의)
+PASS ⓘ (501 경로) bulk 500 같고 tr 은 «폴더 자체의 차이» → 파일 단위로는 같음(FINISHED · files=501)
+PASS ⓘ 501 경로 가지를 지난 뒤에도 «내용 같음» 판정 그대로(FINISHED · files=3)
+PASS ⓙ criss-cross(merge-base 2개) → rc2 판정 불가(FINISHED 0)
+PASS ⓚ :(literal)x·:(glob)*·*·[ab]·-x 5개가 main≠tip → ACTIVE(E1f no files=5)
+PASS ⓚ magic 꼴 이름이 main 과 같은 내용 → FINISHED(E1f ok files=3)
+PASS ⓛ 5,000 경로 · git 대역 각 4초 → 호출 3회 · 13초(<70) · FINISHED(ok files=5000)
+PASS ⓛ 전체 마감(시험값 3s) 초과 → rc2 판정 불가(남은 시간으로 호출을 줄이다 마감 · FINISHED 0)
+PASS ⓛ 기본 전체 마감 = 70초(하드 룰 12)
+FAIL ⓜ mode [FINISHED nano/m1-mode
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+E1f ok files=1
+branch=nano/m1-mode sha=e352c0a7e36437a013a19b736f0730531cb7d274 ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.3LPD835g93/R/design/teams/lecture/indices/진행/m1-mode.md dir=<없음>
+WARN card /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.3LPD835g93/R/design/teams/lecture/indices/진행/m1-mode.md — E1f ok 로 끝 처리(착지 줄·완성/ 불일치) · 카드 이동은 이 도구 몫 아님]
+FAIL ⓜ link [FINISHED nano/m2-link
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+E1f ok files=2
+branch=nano/m2-link sha=e8b7fc09a41e2b497220f4d111847cf6801064e1 ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.3LPD835g93/R/design/teams/lecture/indices/진행/m2-link.md dir=<없음>
+WARN card /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.3LPD835g93/R/design/teams/lecture/indices/진행/m2-link.md — E1f ok 로 끝 처리(착지 줄·완성/ 불일치) · 카드 이동은 이 도구 몫 아님]
+(7 failed)
+REAL-STATE-GUARD WARN 번호표 늘었으나 실 좌석 계획(동시 실행): /private/tmp/h183 ← /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/state/approve-merge-graphics-3480-eea975b0d9-20261025.sh.hil
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

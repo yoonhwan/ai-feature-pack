@@ -6,6 +6,177 @@
 - 상태 `<루트>/.fable-team/state/postboot-measure.tsv`(행 = 1회 · 14일 지난 행은 다음 기록 때 정리 = 닫는 사건) · 날이 바뀐 첫 회 = 전날 요약 1장 `<루트>/design/teams/planner/postboot/SUMMARY-postboot-<날짜>.md`(기준선 열 · 회차 열 · 차이 열 · 커밋 0) · `--summary` = 오늘 요약 지금. stdout 1회 1줄(`/tmp/byz-ft-postboot-measure.log`).
 - 시험 `tests/test_postboot_measure_r868.sh` 49(ⓐ~ⓕ · 변이 2: 시간 초과→0 · colima stop) · 렌더 목록 개수 고정 시험 2개 9 → 10.
 
+## 2026-10-27 — 워크트리 정리 도구(`ft-wt-sweep.sh`)의 껍데기 경보가 «일시 실패» 를 «끊김» 으로 읽어 일하는 폴더를 올리고, 밖에서 물려받은 git 설정 때문에 남의 저장소를 판정했다 → ① 스크립트 시작(자동 스캔 루트 결정 전)에서 GIT_DIR·GIT_WORK_TREE·GIT_INDEX_FILE·GIT_COMMON_DIR 지움 + LC_ALL=C ② worktree list·ls-tree 실패(rc≠0 · 시간 초과 · SHA 0) = 그 폴더 «판정 못 함»(이전 판정 이어받기 · 후보에서 빼지 않음 · 서명 유지 · NOTE 1줄) (r844 r5 · 1.1.259 · 껍데기 경보만 · 정리 경로 변경 0)
+
+- 외부 DA r3 HOLD 2의 마지막 두 줄. 증거 `harness/evidence/r844/r5/`(초록 144 passed ×4 · r3 판 FAIL 10 · 변이 1 FAIL 3 · 변이 2 FAIL 5 · 기존 시험 FAIL 0(1건은 r3 판과 같은 줄)) · 짝 사본 cmp0 · 되돌림 = revert 1커밋.
+
+## 2026-10-27 — 재부팅 뒤 좌석 복구가 손일이었다(`tmuxc restore` 는 기본이 계획 모드 · 좌석을 하나씩 열며 좌석당 최대 60초를 기다려 45석이면 한 호출 시간 제한에 잘림(추정) → planner 가 26석을 손으로 엶) → 새 도구 `ft-reboot-restore.sh` 1줄: 스냅샷(없으면 seat-live)에서 claude 좌석 목록 → 4석씩 병렬로 tmux 세션 + 헤드룸 래퍼 `--resume` → 좌석별 확인표(8317 O/X) + FAIL 목록 + 원장 · 맨 앞에 r626 전팀 정지 검사 · `tmuxc restore` 계획 모드 안내를 출력 맨 위로 (r641 · 1.1.258 · tmuxc 0.4.8 · 새 도구 + 안내 1줄 · tmuxc restore 동작·`ft-resume-attempt.sh`·`ft-resume-cmd.sh`·zombie-clean resume·명부 무변경)
+
+- 사건(이슈 2341 → harness master 91 쪽지 129714·129722 · arch 116 실측 읽기 전용): `~/.tmuxc/snapshots/latest.json` 좌석 45 · 행 = name·cwd·model·effort·session_id · `~/.claude/state/seat-live/*.json` 930 · tmuxc restore 계획 모드 안내는 출력 «끝» 에만(:1669·:1679).
+- 새 도구(키트 `kit/fable-team/bin/ft-reboot-restore.sh` + 추적본 `bin/` cmp0): `[--from latest|<경로>] [--since 24] [--dry-run]` · 목록 = 스냅샷(agent=shell 제외) → 없음·깨짐·0석이면 seat-live(engine=claude · 파일 시각 since 시간 안 · 같은 이름 at 최신 1 · effort 기본 high) · 출처 1줄 · 둘 다 없음 ERROR rc 2. 좌석마다(`FT_RR_PAR`=4 병렬): ①같은 이름 세션 있음 SKIP 살아 있음(보기만 · kill·send-keys 0) ②claude 아님 FAIL 엔진 밖 ③uuid·model·cwd·대화 파일 없음 FAIL ④이름에 `-nano-` + `ft-resume-attempt.sh rested` rc 0 = SKIP 끝난 나노 ⑤`tmux new-session -d -s <이름> -c <cwd> -e FT_SEAT=<이름> 'zsh -l'` → `send-keys -l <줄>` 과 `Enter` 별도 호출 · 줄 = `FT_SEAT=<이름> ~/.headroom/claude-hr.sh --dangerously-skip-permissions --model … --effort … --resume <uuid> --name <이름>`(shlex 따옴표) ⑥`FT_RR_WAIT`(60)초 안 pane 자손 중 `ANTHROPIC_BASE_URL` 있는 프로세스(또는 exec 된 claude) = OK · 8317 O/X · 못 보면 FAIL 기동 확인 없음. 출력 = «이름 · 결과 · pid · 8317 · uuid» 표 + FAIL 목록 + 맨 끝 `REBOOT-RESTORE ok=… skip=… fail=… x8317=… rc=…` · 원장 `<루트>/.fable-team/state/reboot-restore.log`(좌석이 끝날 때마다 1줄 — 중간에 끊겨도 남음) · rc 0 / 3(FAIL 또는 X) / 2(ERROR).
+- 전팀 정지 겹침 해소(r626 착지 뒤): 도구 맨 앞에서 `ft-all-stop.sh check` 를 `FT_ROOT` 로 부르고, rc≠0 이면 그 `REJECT 전팀 정지 중(…)` 줄을 **그대로** 내고 rc 1 · 좌석 목록·tmux 세션·send-keys 0(정지 우회 금지 · 반례 R1). 같은 폴더에 `ft-all-stop.sh` 가 없으면 stderr `WARN … 전팀 정지 검사 0` 1줄. r626 은 «상태 폴더만 있고 원장(all-stop.log) 없음 = 정지» 로 보므로, 시험 setup 이 `ft-all-stop.sh init` 으로 꺼짐 증거(원장 첫 줄)를 남긴다.
+- tmuxc(`tmuxc/core/bin/tmuxc` cmd_restore): `--go` 없고 대화형 선택 프롬프트가 아닐 때 출력 맨 위 1줄 «(계획 모드 — 실행은 `tmuxc restore --select all --go` · 많으면 `ft-reboot-restore.sh`)» · 끝의 기존 안내·동작 그대로.
+- 시험 `harness/tests/test_reboot_restore_r641.sh`(새 51 · 임시 HOME·FT_ROOT · 가짜 claude-hr.sh(인자·cwd 기록 후 `ANTHROPIC_BASE_URL` 붙인 python 자식) · ★tmux 는 격리 소켓 `-L ftrr-test-<pid>` 셔임 — 사용자 tmux 서버 접근 0★ · 세션 이름 `ftrr-test-*`): ⓐ~ⓗ + ⓘ(정지 켜짐 = rc 1 · 그 REJECT 줄 · 세션 0 · 래퍼 0 · 표 0 · 끄면 다시 rc 0). 실측 함정: macOS 는 시스템 바이너리(`/bin/sleep`)의 환경을 `ps eww` 로 안 보여 준다 — 가짜 자식은 python(사용자 바이너리 · 실 claude 와 같은 조건). **전(base = origin/main 키트 bin · 도구 없음: PASS 20 · FAIL 31 · ⓘ 5칸 빨강 rc=1 · `evidence/r641/05-stop-guard.txt`) → 후(ALL PASS 51 rc=0)** · 변이(정지 검사 1줄 삭제) = ⓘ 5칸 전부 FAIL · 원복 cmp0.
+- 기존 시험(인접 · 광역 0): `test_kit_bin_sync.sh` ALL PASS rc=0 · `test_all_stop_r626.sh` 116 PASS ALL PASS rc=0 · `evidence/r641/03-existing-tests.txt`.
+- 설치: 있음 — 키트 1(`ft-reboot-restore.sh` → LIVE_BIN 새 판 cmp0) · `tmuxc/core/bin/tmuxc` → `~/.tmuxc/current/core/bin/tmuxc` cmp0 · manifest 1.1.258 · tmuxc 0.4.8(manifest + core/VERSION). **설치·실사건 1(다음 재부팅 또는 오빠 승인 1회 시험 때 이 도구 1줄 복구 확인표 원문)은 master 소관 — 미실행.** 되돌림 = 새 도구 삭제 + tmuxc 안내 줄 원복.
+- press 필요: 없음 — 하네스 좌석 복구(제품 키·말풍선·음성 경로 무관).
+
+## 2026-10-27 — r894 매거진 슬랙 뿌리 글 단순화 · 쉬운 풀이 차단 낱말 다시 쓰기 1회 · explain 총 마감 (1.1.257)
+
+- 뿌리 글에 표 꼴 결론을 싣지 않고 warn 1(HTML 첫 절 유지) · 쉬운 풀이 차단 낱말이 나오면 다시 쓰기 1회 · explain 호출 총 마감(마감 뒤 새 호출 0 · 못 끝난 칸 «시간 초과»). 승인판 7dd860fd(squash) · 외부 DA⑥ r2 APPROVE(BYZ design/harness/VERDICT-arch155-r894-close-20261027.md · cc0d57a7ce) · 설치: LIVE_BIN·슬랙 미러 cmp0 → 매거진 재생성.
+
+## 2026-10-27 — 오케스트레이션 게이트 시험(`test_orch_gate_top_models.sh`)의 «프로젝트 사본» 자리(`<팩>/.claude/hooks/…`)가 1.1.0 재배치(3b25f81d) 뒤 없어 PROJ 5칸이 «파일 없음»(127)으로 빨갰고, 팩 안 같은 훅 사본 2벌(kit/templates · skill/templates)이 서로 달랐다 → PROJ = 팩 안 두 번째 사본(skill/templates · `ORCH_GATE_PROJ` 로 바꿀 수 있음) · skill 사본을 정본(kit/templates)과 같게 복사 · 팩 안 사본 전부 = 정본 cmp0 단언 추가 (r699 · 1.1.256 · 시험·사본 정리 · 훅 동작 변경 0)
+
+- 증거 `harness/evidence/r699/`(고치기 전 5/5 FAIL · 후판 12/0 · 변이 cmp FAIL) · skill 사본은 manifest `template-only` 항목이라 지우지 않고 맞춤 · 설치: kit 판 불변 → 전역 훅 그대로(cmp0 확인만) · 되돌림 = 이전 판.
+
+## 2026-10-26 — r765 승인 도구가 게이트와 같은 원장 줄 꼴(줄머리∨표 행)을 읽는다 (1.1.255)
+
+- 제안 승인 도구가 원장 표 행도 승인 줄로 읽어 게이트(ft-proposal-gate)와 판정이 같아진다. 승인판 dc01df8c(팩 origin/main 병합) · 외부 DA sol high r1 APPROVE(BYZ design/harness/evidence/r765-da6/VERDICT-r765-sol-approve.md).
+
+## 2026-10-26 — r959 인덱스 이동 실패 사유를 REJECT 에 · 정본 게이트 착지 리포 판정(팩 sha 를 팩 리포에서) (1.1.254)
+
+- ft-index-move 가 git mv 실패 stderr 를 REJECT 줄에 싣고, 정본 게이트(ft-index-move-canon)가 착지 sha 를 실제로 있는 리포(BYZ·팩)에서 조상 판정한다. 승인판 81562c34 · 외부 DA sol high r3 APPROVE(BYZ design/harness/evidence/r959-da6/VERDICT-r959-sol-approve.md).
+
+## 2026-10-26 — r938 r3 상한 «전 자리» — 자손 전부 회수 · bad 뒤 우회 원장 0 · 둘째 cherry·리서치 fetch 그 자리 REJECT (1.1.252)
+
+- 상한 함수(nf_bound)가 출력을 파이프 대신 임시 파일로 받고, 상한이면 죽이기 전에 ps 로 자손 나무(새 세션 손자 포함)를 모아 TERM → 1초 → KILL · 회수 0.5초(총 ≤ 상한 + 2초). 손자가 출력 fd 를 물고 있어도 기다림 0.
+- 앞 검사가 이미 거절이면 첫 cherry 게이트에서 --override 3종(cherry-override·superseded·suspended)을 빼고 읽기 전용 판정만 — 우회 원장 쓰기 0.
+- 둘째 cherry(origin/main) 상한 = «cherry 게이트(origin/main) 시간 초과 …» REJECT · freshness 0. 리서치 origin/main fetch 실패 = «⑥리서치 origin/main fetch 실패 — 옛 ref 대조 0(R22)» REJECT · 병합 대조 0.
+- 시험 108 PASS(ⓕⓖⓙⓛ 보강·추가 · /bin/bash 3.2) · 고치기 전 판 ⓕⓖⓙⓛ 빨강 · 변이 10종 · kit cmp0. 근거 BYZ design/harness/evidence/r938-da6/DECISION-r938-r3-final.md.
+
+## 2026-10-26 — r938 나노 닫기 단계 시각 줄 + 외부 호출 상한 — 멈춤 대신 «어느 단계 시간 초과»(r2 · 1.1.246)
+
+- ft-nano-close.sh 가 ④checkpoint 면제 WARN 뒤 단계마다 stderr 로 `STEP <이름> +<초>s` 를 찍는다(⑥증거검사·⑤cherry·fetch·freshness·sheet·ledger·slots). 그 단계들의 출력은 끝에 한꺼번에 나와 «어느 단계에서 멈췄는지» 알 수 없었다(라이브 1.1.244 실 census 닫기 3회 70초+ 무출력). stdout 은 0줄 바뀐다(사본 대조 시험).
+- 원격 받아오기(fetch) 네 곳(카드 ref·연구 origin main·cherry 재대조·feat ref)이 7초 + 재시도 1 상한을 거치고, fetch 가 실패하면 그 뒤 origin/main 을 쓰는 검사(cherry 재검사·freshness)를 돌리지 않고 그 자리 REJECT 한다(«origin/main fetch 실패 — 옛 ref 대조 0(R22)»).
+- 하위 검사(증거 검사·cherry 게이트·freshness·사건 원장·slots)는 min(고정비 + 7초 × 작업량(커밋·리포 수), 70초) 상한. 넘으면 프로세스 묶음째 TERM → 1초 → KILL 하고 REJECT «<단계> 시간 초과 <걸린>/<상한>s · 배수 <n> — 다시: 같은 명령 · 계속이면 arch 보고». 상한 걸리는 검사는 모든 쓰기보다 먼저 끝나고(사건 원장 abort trap 은 prepare 전), 상한 REJECT 시 명부·원장·세션·카드·.prepared 변경 0.
+- 시험 test_nano_close_step_timing_r938.sh 80 PASS(ⓐ~ⓚ · /bin/bash 3.2) · 변이 6종 각축 ALL-RED(빨강이어야 할 칸 이름 단언) · kit cmp0 · 기존 닫기·시트 시험 12종 초록.
+## 2026-10-26 — r948 카드 리포 착지 카드의 라이브 전수 대조가 프로젝트를 넘긴다 + --all 거짓 PENDING 3종 (1.1.253)
+
+- ft-index-move-install.sh: 착지 리포가 카드 리포면 `--all --project <카드 리포 공용 루트>` 로 부른다(git-common-dir 의 부모 · ft_git_capped 7초 · 워크트리 안 카드도 루트). 전엔 --project 가 없어 검사기가 팩 리포를 프로젝트로 보고 «LIVE_BIN 없음» ERROR rc3 → 일괄 닫기가 첫 장부터 막혔다. 팩 착지(--range) 갈래는 그대로.
+- ft_live_install_check.py live_path: 지도 패턴 접두는 폴더(마지막 /)까지만 — `templates/scope-*.tsv` 를 «scope-» 뗀 이름(classes-pack.tsv)으로 찾던 MISSING 2 가 사라진다.
+- plist Label 이 «접두-__자리표시__» 꼴(iap-tunnel-__PORT__)이면 적재 목록에서 정확 라벨 또는 «접두-<숫자>» 인스턴스를 찾아 각각 대조한다(다른 접미는 안 셈). 0개 = NOTLOADED · launchctl list 실패 = ERROR(숨김 0).
+- LIVE-MAP: launchd/com.byz.ft-head-lag.plist.template = skip(install.sh 는 새 launchd 를 깔지 않고 ft-head-lag.sh 는 ft-news-tick·ft-merge-land 가 직접 부른다). ft-idle-wake 는 부르는 곳이 launchd 하나뿐이라 NOTLOADED 그대로 둔다(10-25 07:12 이후 실제로 안 돎 = 진짜 어긋남).
+- 시험 test_r948_live_all_project.sh 15 PASS(ⓐ~ⓗ + 변이 6종 · /bin/bash 3.2 · r2 = DA⑥ r1 HOLD 1 정확 라벨 반영) · 인접 시험 rc0 · 짝 사본 cmp0(bin 2 + kit).
+
+## 2026-10-26 — r921 자원 조건으로 멈추지 않는다 — 회수 먼저 → 그래도 넘으면 WARN 1줄 + 진행 (1.1.251)
+
+- 정지는 디스크 하한과 측정 실패 둘뿐이다. 스왑·메모리·압력·에이전트 수가 넘으면 회수(ft-reclaim-capped.sh · 7초 상한) 1회 뒤 WARN 1줄을 남기고 spawn·재개를 계속한다. 리서치 1석 고정 상한은 지웠다.
+- 디스크 하한 FT_DISK_HARD_MIN_MIB 는 양의 정수만 받는다(이상 값 = ERROR + exit 3 · 기본값으로 문을 열지 않는다). WARN 줄은 모든 항목을 평가한다.
+- 팀 나노 상한은 cap+1 까지 열고, 그 위는 유휴·끝난 나노 회수 1회 → 재검 → 그래도면 순번 큐 + master 알림(정지 아니라 순서 바꿈). «좌석 셈~개설» 은 nano-cap 잠금으로 직렬화한다.
+- 시험 test_resource_warn_proceed_r921.sh 71 PASS(/bin/bash 3.2) · 변이 8/8 · 외부 DA astra r3 APPROVE(BYZ design/harness/evidence/r921-da6/VERDICT-r921-astra-approve.md · 승인판 3960cd25 · 보류 2회 뒤 하드 룰 14 로 Opus 재spawn). 1.1.246~1.1.250 은 열린 PR #326~#329 몫.
+
+## 2026-10-26 — r939 승계(retire)는 «스스로 등록한 곧 끝나는 일»을 죽이지 않고 후계에게 넘긴다 (1.1.250)
+
+- **판정을 «짐작»에서 «등록» 으로 (DA⑥ r1 반송 H1)** — ft-bg-finite.sh 신규: 끝나는 작업을 띄우는 도구(ft-da-codex.sh · install.sh · ft-scratch-repo.sh)가 시작할 때 자기 pid·pgid·lstart·상한을 장부 `<데이터 루트>/.fable-team/state/bg-finite.tsv` 에 한 줄 적고 trap EXIT 에서 지운다. 명령줄 허용 목록·env 판정은 지웠다.
+- ft-seat-reap.sh `--handover <후계>`: 장부에서 «이 좌석 ∧ pid 살아 있음 ∧ lstart 같음 ∧ 상한 전» 줄의 pgid 전체 + 자손만 넘긴다. 글자·인자 속 while·`timeout 999999` 로는 넘지 않고, 반대로 명령줄에 while·install.sh 글자가 있어도 등록된 작업은 넘는다. 등록 안 한 도구는 `reap-unregistered` 1줄로 보이게 남기고 지금처럼 정지.
+- **H2** 넘김은 장부의 좌석 칸을 후계로 바꾸는 것(flock + 읽기-병합-원자 교체 · 다른 줄 보존) — 후계의 다음 retire·닫기가 같은 장부로 그 작업을 본다. 재개 기록의 "handed" 칸은 보기용 사본으로만 남는다. 닫기(후계 없음)는 이 좌석의 등록 작업을 정리하고 죽은 줄을 prune 한다.
+- **H3** 넘김 분리를 press 미룸보다 먼저 — press 점유 중 retire 도 DA 를 넘기고, 그 뒤 정리에서 reap 0. 상한 지난 장부 줄은 ft-leak-reap 이 `handover-stale` 로 보고만 하고(죽이지 않음) 상태를 stale 로 표시, 죽은 pid 줄은 지운다.
+- 시험 test_seat_handover_r939.sh ALL PASS(ⓐ~ⓖ + 변이 4종) · /bin/bash 3.2 ALL PASS · 인접 20건 rc0 · 짝 사본 cmp0(bin 5 + kit) · 등록 실패는 도구 stdout 계약을 흔들지 않는다(넘김 대상 아님 = 오늘과 같은 reap).
+- 외부 DA 반송 고침: register 상한초는 ^[0-9]{1,6}$ 만(그 밖·4200 초과 = 4200 + 경고 1줄) · 경고 값 이스케이프 · 장부 seat·cmd 칸 탭·줄바꿈 공백화. 시험 78 PASS · 외부 DA astra r4 APPROVE(BYZ design/harness/evidence/r939-da6/VERDICT-r939-astra-approve.md · 승인판 c2662666). 1.1.247~1.1.249 는 #328·#326·#327 몫.
+
+## 2026-10-26 — r937 카드 이동 게이트가 착지 sha 를 «그 sha 가 있는 리포» 로 판정 · 모든 git 조회 7초 상한 (1.1.249)
+
+- ft-index-move 의 설치·정본·close-landed·DA 보류 가드 네 게이트가 공용 판정 ft_landed_repo 하나로 BYZ·팩 리포를 고른다. 판정문 «main / main(팩)» 표식과 어긋나면 REJECT. 조회 실패는 «없음» 이 아니라 REJECT.
+- git 조회는 ft_git_capped.py(새 프로세스 그룹 · TERM→0.5초→KILL · 재시도 1회 실수행 · 7초 상한) 하나로 돈다.
+- 시험 test_index_move_landed_repo.sh 32 PASS(기본 셸 ×3 · /bin/bash 3.2) · 변이 7종 빨강 · arch 확정 APPROVE(BYZ design/harness/evidence/r937-da6/VERDICT-r937-arch-confirm.md · 승인판 26281b7b).
+- astra 반송 2회 고침: DA 보류 가드 바깥 상한 = min(2+15×조회 수, 70)초 + 바깥 끊김 때 git 그룹 정리 · ft_git_capped 재시도는 실제 시간 초과만(git 자신의 rc124 는 1회·출력 보존). 시험 36 PASS · 외부 DA astra r3 APPROVE(BYZ design/harness/evidence/r937-da6/VERDICT-r937-astra-approve.md · 승인판 16775a1f). 1.1.247·1.1.248 은 #328·#326 몫.
+
+## 2026-10-26 — r902 위성 mini 나노 도구 ft-sat-nano (1.1.248)
+
+- 위성 머신에서 mini 나노를 여는·일 맡기는·결과 받는·닫는 도구 ft-sat-nano(open·task·fetch·close). 소켓 칸 빈 확인 줄 rc6 · --forget 뒤 마감 재검사 · 시험 시간 의존 제거(r5 확정).
+- 시험 test_sat_nano_r902.sh 106 PASS(기본 셸 ×5 · /bin/bash 3.2 ×2) · 변이 8종 감지 · kit cmp0 · arch 확정 APPROVE(BYZ design/harness/evidence/r902-da6/VERDICT-r902-arch-confirm.md · 승인판 a2680569).
+- astra r1 반송 1곳(시험 대역 tmuxc 표식 없으면 세션 0 · 새 칸 Ⓙ'') 고침 → 107 PASS · 외부 DA astra r2 APPROVE(BYZ design/harness/evidence/r902-da6/VERDICT-r902-astra-approve.md · 승인판 4e72b51b).
+- 1.1.247 은 r928(PR #328) 몫. #328 이 먼저 착지하면 이 PR 은 main 병합 뒤 착지한다.
+
+## 2026-10-26 — r928 planner 감시 재걸기 틈 유예 · 표본기 실패 뒤 옛 파일 안 믿음 (1.1.247)
+
+- ft-mbox.sh 감시 경보가 planner 감시를 다시 거는 틈(끝 표식 5분 · 60초 표본기의 «처음 없음»)에는 긴급을 늦추고, 대기 몇 분인지 근거 줄을 남긴다. 300초 넘는 공백은 긴급 1통 그대로.
+- 표본 파일 쓰기·지우기 실패면 .broken 표식 + 긴급 1 · 첫 칸이 epoch 아님·미래면 표본 rc1 + 파일 삭제 + 긴급 1(깨진 표본으로 유예 0).
+- 시험 test_r928_watch_rearm_grace.sh 205 PASS ×3 · /bin/bash 3.2 · 변이 10 모두 검출 · 외부 DA astra APPROVE(BYZ design/harness/evidence/r928-da6/VERDICT-r928-astra-approve.md · 승인판 f72ebd12). 1.1.246 은 열린 PR #326·#327 몫이라 건너뜀.
+
+## 2026-10-26 — r922a 초안 모드 골 표 검증 실패 = planner [긴급] 대신 WARN 1줄 (1.1.245)
+
+- ft_news_post.py 가 초안 모드(무장)에서 골 표 검증에 실패하면 goal_gate.refuse 를 부르지 않고 WARN 1줄만 남긴다. rc·발행 0·기준선은 그대로(초안+무장 rc=3). 게이트 본체 없는 설치도 같은 문을 지난다.
+- 시험 test_r922a_news_draft_gate_warn.sh 35 PASS · 변이 MUTATION-ALL-RED · 회귀 test_news_html.sh rc0 · 외부 DA⑥ r1 APPROVE(BYZ design/harness/evidence/r922a-da6/VERDICT-r922a-da6-r1.md · 승인판 3dd15da0).
+
+## 2026-10-26 — r926 자율 인터뷰 명부 = $ROOT 기준만 · 쌍둥이 경고는 가지가 main 안 품으면 «이동 0»(1.1.244)
+
+- ft-autonomy-level.sh 가 명부(seats-planner.json)를 $ROOT 와 $ROOT 리포의 공용 루트 2곳에서만 찾는다. cwd·설치 위치는 보지 않는다. 둘 다 없으면 WARN + rc1(조용한 건너뜀 0).
+- ft-team-lib.sh 쌍둥이 경고가 루트 가지의 origin/main 포함 여부를 먼저 본다(7초 상한). 안 품으면 «이동 0 · 원장은 ref 정본», timeout 도구가 없으면 git 호출 0 = unknown.
+- 시험 test_r926_root_roster_twin_warn.sh 16 PASS ×3 · bash 3.2 · kit cmp0 · 외부 DA⑥ r2 APPROVE(VERDICT-r926-da6-r2.md · 승인판 ea937601).
+
+## 2026-10-26 — r909 자율 범위 분류기 오탐 고침 — 셸 set 문맥 · 시험 파일 credential 경로 · .env 견본 (1.1.243)
+
+- 분류기(autonomy_scope_secret·rules·classify · ft_secret_targets)가 셸 «식별자 set(» 문맥과 시험 경로의 credential 이름을 비밀로 오판해 범위 밖(FORBID)으로 막던 것을 고침. 시험 경로 예외는 좁히고 secrets/ 는 넓힘 · .env 견본은 dotenv 로 전문 파싱 · 따옴표 값 안 줄 판별 복원.
+- 판정은 «양성 증거만»(하드 룰 14 재설계 r3) — 대입 없는 이름표 변수의 echo 판정(칸4)은 정적 분석으로 증명 불가라 범위에서 뺌(그 꼴은 오빠 h 1줄 · 별 카드 후보).
+- 시험 test_autonomy_scope_fp_r909.sh ALL PASS · 비밀 판정 6사본 기준판 바이트 같음 · 외부 DA⑥ r5 APPROVE(VERDICT-r909-da6-r5.md · 승인판 f6641cec).
+
+## 2026-10-25 — r907 뉴스 원장 받기 실패·정지 판정 — 판정 불가면 게시 0 · 채움 칸 제외 판정 키 · 게시 최소 간격 10분(1.1.242)
+
+- 뉴스 원장(ft_news_ledger.py)을 못 받아도 직전 판(15분 안)으로 게시하되 «원장 N분 전 판» 경고를 붙인다. 판정 불가(시각 칸 모름·실패)는 게시 0 — 옛 원장을 «변화 없음» 으로 게시하던 틀린 게시를 막는다.
+- 판정 키 = 원장 경로의 «채움 아닌» 마지막 커밋(채움 커미터 이메일 · 메시지 거름 0) · 시각 칸은 한 함수 · ledger git 은 7초 상한 · 간격 상태 손상 = 게시 가능 + WARN · 시각 칸 required=True 기본 · ERROR 는 구간당 1줄.
+- 시험 test_r907_news_stale_head.py 57 PASS ×3 · 뉴스 묶음 385 passed(r649 부하 1 = 기준판 같음) · 외부 DA⑥ r7 APPROVE(VERDICT-r907-da6-r7.md · 승인판 5948ab22 · gpt-6.1-sol).
+
+## 2026-10-25 — r911 끝난 가지 판정 «main 과 파일 단위 같음» 갈래(E1f) 추가(1.1.241)
+
+- ft-finished-check.sh 에 E1f 갈래: 가지가 바꾼 파일마다 main 의 blob 이 같으면(내용이 main 에 이미 있음) 끝난 가지로 본다. FINISHED = E0 ∧ E3 ∧ ((E1 ∧ E2) ∨ E1f). 판정은 C(merge-base..tip 바꾼 경로) ≠ ∅ ∧ C∩D(main..tip 다른 경로) = ∅ — 경로를 git 에 넘기지 않아 pathspec 매직 오판이 없고 git 호출은 3회 고정(5천 경로 12초 · 호출 7초 + 전체 마감 70초).
+- 비교 단위는 파일(blob·심링크·gitlink)이며 폴더 자체의 존재 차이는 정의 밖이다. 종료코드 계약: 정상 rc0 · 판정 불가 rc2 · rc1 없음. 비 UTF-8 경로 이름은 예외 없이 처리한다.
+- 시험 test_finished_e1f_r911.sh 39 PASS ×3 · 변이 13종 빨강 · kit cmp0 · 외부 DA⑥ r5 APPROVE(VERDICT-r911-da6-r5.md · 승인판 80e5fd14).
+
+## 2026-10-25 — r899 팀 폴더 이동 뒷정리 — 분류·보관 계획·실행 경로 옛 경로 고침(1.1.240)
+
+- `ft-team-move.sh --classify` (읽기 전용): 남은 옛 경로를 살아 있는 좌석(LIVE-OK·LIVE-FIX·LIVE-HAND) · 닫힌 좌석(ARCHIVE · 역할 계보 최댓값 행은 KEEP-LINEAGE/KEEP-FIX — ft-role-spawn 번호 기준이라 빼지 않음) · 코드(CODE-RUN·NOTE·RECORD·FIXTURE) 로 가른다. tmux 목록을 못 읽으면 분류 전체 ERROR(보관 판정 0). 상태 폴더만 다른 후보는 자동으로 따라가지 않는다(spawn 경쟁 실측 · LIVE-HAND).
+- `--cleanup-plan --out <폴더>` = plan.json·plan.tsv·plan.sh 만(쓰기 0) · plan.sh(master/오빠) → `--cleanup-run`(계획 sha 고정 · 실행 시점 tmux 재확인 · 행 바뀌면 SKIP · 보관 = 지우기 0) · `--cleanup-restore <archive.json>` 되살림(명부 키 순서까지).
+- `--verify`: 좌석 칸이 행 worktree 뿐 아니라 카드 워크트리(_cards_wt)·팀 루트 리포도 본다 · 코드 칸은 실행 글자·허용 목록 밖 픽스처 = ERR · 주석·독스트링·기록 폴더 = WARN · `design/TEAM-MOVE-ALLOW.tsv`(사유 필수 · 데이터 파일만) = 셈 밖.
+- 실 리포 리허설(사본): ERR 2753 → 보관 2302·다시 씀 14 뒤 46 → BYZ 가지(실행 경로 12파일 + 허용 목록) 착지 뒤 25(표 evidence/r899/README.md). 시험 test_team_move_cleanup_r899.sh · 변이(분류 반전) 빨강.
+
+
+## 2026-10-25 — r912 우편함 넘칠 때 사람 글 보존 · 교대 불가 알림 10분 묶기(1.1.239)
+
+- mbox 큐가 넘칠 때 시스템 알림(ft-tick·뉴스의 자동 [HIL]/[긴급] 포함)부터 버리고 사람 글(slack-oppa·[HIL]·[긴급])은 보존한다. 자르는 곳 셋(comm·kit ft-mbox.py·skill ft-mbox.py)은 같은 공유 블록(바이트 동일)이다. 보낸 이 이름은 ft-name-lint 문법으로 판정한다(byz-tool#0 같은 이름은 일반).
+- ft_model_swap «교대 불가» 알림은 같은 좌석·같은 사유로 10분에 1통만 보낸다. 보낸 시각은 send rc0 뒤에만 저장하고, 창 안에서 저장이 실패하면 그냥 보낸다. hil() 옛 r838 가드(blocked·mute·dry_run·수신자 없음)는 그대로 복원했다.
+- r838 ⓡ2 픽스처는 «창 안 300초 = 1통 · 창 밖 700초 = 2통» 으로 화해(DA 승인 — 창 뒤에도 정지면 반드시 1통).
+- 시험: pytest 113 passed · shell mbox 6종 · test_mbox_keep_human_mail 9/9 · 변이 10/10 KILLED · 외부 DA⑥ r3 APPROVE(VERDICT-r912-da6-r3.md · 승인판 9aa1af56).
+
+## 2026-10-25 — r908 자율 범위 --max 상한 30 → 100 · 수 인자 산술 전 자릿수 거름(1.1.238)
+
+- ft-autonomy-scope.sh 의 범위 승인 --max 상한을 30 에서 100 으로 올린다(자율 ON 중 병합 승인 묶음 한도).
+- 수 인자(--max·--daily·--code-max)를 산술 «전» 에 정규식(앞자리 0 허용 · 4자리 이상 거절)으로 거른다 — 2^64+100 같은 아주 큰 수가 산술 넘침으로 100 이 되어 통과하던 길을 닫는다(외부 DA⑥ r1 HOLD 1). ft-autonomy-level 은 같은 함수라 함께 막힌다.
+- 시험 test_autonomy_scope 144 PASS(ⓓ 5칸 신규) · _pack 13 · _plain3_r658 27 · _level 65 ALL PASS · 변이(정규식 완화) 3 빨강 · 외부 DA⑥ r2 APPROVE(VERDICT-r908-da6-r2.md · 승인판 35e418e727).
+
+## 2026-10-25 — r891 ft-scratch-repo 사본 sparse 기본 · --report --orphans · 등록부 ROOT 하나(1.1.237)
+
+- 검증 사본(ft-scratch-repo)을 기본 sparse 로 만들어 디스크를 줄인다(전체 복사는 --full 요청 때만). 등록은 체크아웃이 다 끝난 뒤 ROOT 등록부 1줄이고 실패하면 rc4 로 중단하며 지우기는 0 이다(기준판 순서).
+- --report --orphans 는 어느 등록부에도 없는 사본을 보고만 한다(삭제 0). 선등록·되돌림(ⓗ)과 --done·--sweep 의 여러 등록부 읽기는 이 카드 범위 밖 — 카드 r897 로.
+- spec_of 는 core.sparseCheckout 을 git 의 참 판정(config --bool --get)으로 읽는다(값 1 인 sparse 사본을 --full 요청에 재사용하던 결함 · DA⑥ r7 HOLD 1).
+- 시험 test_scratch_repo_sparse_auto_done_r891.sh 27 PASS · 기존 3종·census ALL PASS · 변이 3 빨강 · 외부 DA⑥ r8 APPROVE(VERDICT-r891-da6-r8.md · 승인판 0be0621b 와 harness/ 전체 diff 0, 차이 = manifest 1.1.237 + CHANGES).
+
+## 2026-10-25 — r892 뉴스 원장 채움 — 하네스 카드도 git 한 판에서 읽기 · 카드 이동 경쟁 0(1.1.236)
+
+- 뉴스 원장 채움의 하네스 카드 읽기(`$FT_HARNESS_ROOT` 꼴 팀)가 디스크 폴더를 훑는 사이 카드 1장이 다른 폴더로 옮겨지면(nano spawn/close · ft-index-move) `FileNotFoundError` 하나로 «메인 골 지금 상태»·«팀 작업» 표 2개가 통째로 갱신 0 이었다(05:1x 뉴스 로그 ERROR 2 · r888 카드 이동 1회).
+- r3(외부 DA⑥ r1·r2 HOLD · 보류 2회 → 하드 룰 14 재설계): 디스크를 여러 번 훑어 한 순간을 맞추는 길(r1 재시도 · r2 묶음 훑기)을 버리고, 하네스 카드도 다른 팀처럼 커밋 한 판에서 읽는다 — `$FT_HARNESS_ROOT` 워크트리 HEAD sha 를 1번 읽어 고정 → 그 sha 로 ls-tree·log(착지 창)·cat-file(`_harness_ref` → `_ref_cards` · 다른 팀 갈래와 같은 함수). 디스크 훑기 코드 삭제 · «읽기 실패 N장» 꼬리는 git 판에선 생길 수 없어 넣지 않음(표 파일 변경 0).
+- 고장은 그대로 드러냄: FT_HARNESS_ROOT 없음 · git 리포 아님 · 커밋 없음 · sha 못 읽음 = FillError(그 표만 갱신 0 — 지금 규칙). FT_HARNESS_ROOT 가 리포 하위 폴더면 리포 루트 기준 prefix 를 붙인다.
+- 알려진 한계: 커밋 안 된 카드 이동은 다음 커밋 뒤 틱부터 보인다(뉴스는 주기 발행 · 하네스 카드 이동은 master 가 바로 커밋).
+- 시험 `tests/scripts/test_ledger_fill_disk_cards_r892.py` 9(r1·r2 디스크 시험은 그 코드 삭제로 대체) · 기준판 빨강 7 · r2 판 빨강 4(옮기는 중 카드 수 포함) · 변이 2 모두 빨강 · r851(하네스 픽스처 = git 리포로) · r870(test_1b 하네스 리포도 창 안 커밋 2개 · 변이 ⑧ 자리 이름 갱신 — 10 KILLED) 그대로 통과.
+
+## 2026-10-25 — r888 `ft-nano-close --research` 리서치 좌석 닫기 길(좌석 브랜치 reflog 기준 판 뒤 구현 커밋 0 → ⑥ 증거 줄 면제) + 카드를 origin/main 판에서 읽기(1.1.235)
+
+## 2026-10-25 — r882 `ft-head-sync` 동시 폭주 제거: --apply 는 cwd 1곳만 · 전수 표 --table · 동시 1개 커널 잠금(flock) · 쪽지 실행 지시 0(1.1.234)
+
+- 사건(master#108 #162149 · 02:5x): `ft-head-sync` 14개 동시 · 최장 30분 45초. 원인 3 = ①`[베이스 뒤처짐]` 쪽지가 나노마다 «bash ft-head-sync.sh --apply» 실행을 지시 ②--apply 가 cwd 1곳만 쓰면서도 워크트리 417곳 전수 스캔(status·freshness·snap) ③겹쳐도 막는 장치 0.
+- `ft-head-sync.sh`: --apply(--all 없음) = 워크트리 목록(메타)만 읽고 cwd 워크트리 1줄만 남긴 뒤 스캔·병합(남의 워크트리 git 호출 0) · 전수 표 = `--table`(인자 없음과 같음 · `--apply` 와 같이 쓰면 usage rc2) · 동시 1개 잠금 = 커널 flock(전수 = 공용 git 폴더 `ft-head-sync.flock` · 1곳 = 그 워크트리 git 폴더) — `exec 9>>` 로 연 fd 에 python3 `fcntl.flock(LOCK_EX|LOCK_NB)` · 잡혀 있으면 «이미 실행 중 pid N · 시작 HH:MM» 1줄 rc0 · 셸이 죽으면(신호 9 포함) 커널이 풀어 고아 0 · 회수 코드 0(r2 — DA⑥ r1 HOLD «고아 회수 경쟁: 둘 다 잡음»). r3(DA⑥ r2 HOLD «전수·1곳 쓰기가 다른 잠금 → 남의 MERGE_HEAD abort»): 쓰기 키 = 그 워크트리 git 폴더 `ft-head-sync.flock` 하나(1곳 = 실행 내내 · 전수 = 워크트리마다 잡고-쓰고-풂 · 못 잡으면 «건너뜀 (다른 실행 중)» · 끝줄 건너뜀 수) · 공용 키는 `ft-head-sync-scan.flock` 으로 순회끼리 직렬만 · 충돌은 merge 전에 `git merge-tree --write-tree` 로 판정 → 충돌이면 merge 안 함 «충돌·사람» · merge 실패(서명·훅 등 어떤 rc 든) = abort 0 · 상태 그대로 «오류·사람(merge rc=N · MERGE_HEAD 경로)» rc1 · 도구 안 merge --abort 호출 0(r5 — DA⑥ r1~r4 HOLD 넷 다 «abort 해도 되는 내 병합인가» 추정 자리 → 자리 삭제) · «최신화함» = 병합 뒤 HEAD ⊇ base ∧ 미커밋 0 일 때만(아니면 ERROR rc1).
+- `ft_head_lag.py` 조치문: 도구 실행 지시 0 → «그 자리에 앉은 좌석이 자기 일 사이에 스스로 merge --no-edit <main sha>(merge 만) · 팩 작업 폴더는 무관».
+- 시험 `tests/test_head_sync_lock_r882.sh` 35(r5 충돌 미리 판정·무변경 · 서명 실패 abort 0 · 정상 최신화 · 변이 사전 판정 제거·abort 되살림 + r4 남의 같은 base 병합 abort 0 + r3 같은 워크트리 1곳∥전수 · 남의 MERGE_HEAD abort 0 · 병합 뒤 검증 · 변이 공용 키 + git 대역 호출 기록 · 겹친 3개 · 두 실행 동시 스캔 0 · 신호 9 고아 0 · 옛 pid 글자로 막지 않음 · 변이 flock·cwd) · 기존 시험 단언 갱신(apply_scope lagmsg build() 2인자 = r886 뒤 origin/main ⓖ 2 FAIL 수리 포함)(apply_scope ⓑ·ⓖ·변이 sed · head_lag ⓑ · r836 ⓓ 기준판 대조에서 조치 줄 제외). 쌓인 14개 정리(kill)는 범위 밖(오빠 [HIL]) — 잠금 착지로 새 겹침 0.
+## 2026-10-25 — r870 원장 채움 push·로컬 git 시간 초과 — 뉴스 틱 안 죽음 · 훅 건너뜀 · 재시도 1(1.1.233)
+
+- 뉴스 틱 원장 채움(`ft_ledger_fill`)의 임시 인덱스 git(hash-object·read-tree·update-index·write-tree)과 사본 브랜치 유무 확인(`_has`)이 부하 때 7초를 넘기면 `TimeoutExpired` 가 잡히지 않아 뉴스 틱 전체가 Traceback rc1 로 죽었다(재부팅 뒤 3회). → 시간 초과·실행 실패 = FillError(«원장 채움 실패 — 표 갱신 0: git read-tree 시간 초과(7초)» 1줄 · 뉴스는 지금 판으로 계속).
+- push: ⓐ(r3 에서 삭제 — 같은 판 push 0 은 표 같음 판정이 맡음 · 아래 r3) ⓑ시도당 10.5초(CLI 고정비 3.5 + 7) · 출력 0 인 시간 초과만 재시도 1 · 넘기면 프로세스 묶음 TERM→KILL(r847 `_run_capped`) ⓒ실패 = 실패 커밋을 state `push-fail.json` 에 기억 → 다음 틱이 같은 트리·같은 부모면 «같은 커밋» 을 다시 올림 · 같은 원인 연속은 뉴스 로그 WARNING(실패 구간당 ERROR 1통 · 문구에 «git push … timed out» 그대로) ⓓ`--no-verify` = 원장 사본 refspec(`ledger/*` · 입구 검사) 1개만 — pre-push 게이트는 `feat/v6-realtime-live` 체크아웃 전용(원장 사본 = detached HEAD → 늘 통과)이고 그 뒤는 beads shim(원장과 무관) · 훅 몫이 상한을 먹던 자리.
+- 완성 카드 `git log`(최근 24시간 · 팀 완성/ 폴더) 상한 = 창 안 커밋 수 비례 `min(7초 × ceil(N/100), 70초)`(하드 룰 12 · `ft_ledger_fill_src.sized`) — 부하 때 고정 7초에 걸려 «메인 골 지금 상태·팀 작업» 표가 0 이던 몫. 실패 = 그 표만 ERROR(그대로).
+- 시험 `tests/scripts/test_ledger_fill_r870.py` 8(git 래퍼 · 축척 잠) · 기준판 빨강 7 · 변이 8 모두 빨강 · r851 시험 38 그대로 통과.
+- r2(외부 DA⑥ r1 HOLD 1 반송): ⓐ «push 생략(같음)» = 원격 사본 트리 같음 ∧ 사본 브랜치가 지금 main 을 품음(`read_ref` 가 그 판을 고름) 둘 다일 때만 — main 이 빈 커밋으로 앞서 사본이 main 을 못 품으면 트리가 같아도 [main, 사본] 병합 커밋을 올린다(옛 판 = 생략 → 뉴스는 옛 main 원장 · 채움은 성공 기록). 시험 ⓐ2 · 변이 ⑨(품음 검사 제거) 빨강.
+- r3(외부 DA⑥ r2 HOLD 1 · 보류 2회 → 재설계): «push 생략(같음)» 갈래와 `_remote_tree()` 삭제 — 사본 ⊇ main 이면 `bases()` 가 그 머리를 판으로 골라 표 같음(`tb.same`) «변화 없음» 이 먼저 push 0 으로 끝내므로 생략 갈래는 fetch 경쟁 때만 닿고, 닿으면 두 검사가 다른 시점 ref 를 읽어 새 판을 안 올렸다(반례: 원격 트리 B 읽은 뒤 사본이 C 로 전진 → push 0 · 성공 기록). 바뀐 줄은 삭제뿐. 시험 ⓐ = 대역 없이 «FILL 변화 없음» · push 0 · ⓐ2 = read_ref 경쟁 대역에서도 [main, 사본] 병합 push · 두 칸 모두 «push 생략(같음)» 0 · 변이 ⑩(옛 갈래 되살림) 빨강.
+- r4(외부 DA⑥ r3 HOLD 1): «FILL 변화 없음» 도 이번에 읽은 판 sha(`bases()` 의 base)를 돌려준다(옛 판 = 빈칸 → 뉴스 `ledger_fill()` 이 옛 cur 유지). 반례: 다른 작성자가 같은 렌더 C(부모 [main, 사본])를 먼저 올려 이번 push 가 ff 거절 → 다시 받아 C 위 «변화 없음» → 뉴스는 옛 main 원장. 사본 없음·main 위 판이면 base = main = cur(뉴스 값 그대로). 시험 ⓐ3 · 변이 ⑪(빈칸 되돌림) 빨강.
+
 ## 2026-10-24 — r838 계정 전체 한도 때 자동 교대 보류 1통 · 열기 실패 이유 남기기(1.1.230)
 
 - `ft_model_swap` 이 계정 전체 한도(모든 모델 정지) 때 좌석마다 «[HIL] 자동 교대 불가 · 대체 모델 없음» 을 보냈다(실측 107통 · 같은 좌석 5~6통 = 정지 uuid 가 회차마다 새로 생김). → 후보를 고르기 전 계정 한도 판정: (가) api-outage 상태 «OUTAGE» ∧ 그 시작 뒤 정상 0 = 교대 0 · 발신 0(장애 알림은 ft_api_outage 1통) · (나) 최근 10분 역할 좌석 rate_limit 정지 ≥2 ∧ 첫 정지 뒤 정상 0 = 교대 0 · «[자동 교대 보류] 계정 전체 한도 — 정지 좌석 N · 교대 0 · 풀리면 ft_api_outage 재개» 장애당 1통(state `outage_open`·`outage_notified` 최근 20 · 정상 1 이 오면 닫힘). 장애 표식이 켜져도 그 뒤 다른 모델 정상이 있으면 모델 하나 한도 = 지금 규칙(교대).

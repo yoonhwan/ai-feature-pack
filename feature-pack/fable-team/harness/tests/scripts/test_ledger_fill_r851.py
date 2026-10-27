@@ -86,6 +86,9 @@ def world(tmp_path, monkeypatch):
     run(repo, "commit", "-qm", "팀 착지 2")
     run(repo, "push", "-q", "origin", "main")
     write(hroot, "design/harness/indices/진행/r851.md", "# 인덱스: r851 — 원장 자동 채움 — 원장 표\n")
+    subprocess.run(["git", "init", "-q", "-b", "main", str(hroot)], check=True)  # r892 r3 — 하네스 카드 = 그 워크트리 HEAD 한 판
+    run(hroot, "add", "-A")
+    run(hroot, "commit", "-qm", "harness cards")
     (root / ".fable-team/comm").mkdir(parents=True)
     (root / ".fable-team/seats-planner.json").write_text(json.dumps({"_master": "byz-planner-master-claude#9"}), encoding="utf-8")
     ts = (NOW - timedelta(hours=1)).isoformat()
@@ -166,7 +169,7 @@ def test_b_no_change_no_commit_and_todo_rows_equal_ledger_sum(world):
     fill(world)
     n1 = n_commits(world)
     rc, sha = fill(world, NOW + timedelta(minutes=7))  # 시각만 다른 판 = 같은 판
-    assert (rc, sha) == (0, "") and n_commits(world) == n1
+    assert (rc, sha) == (0, sha_of(world, BR)) and n_commits(world) == n1  # r870 r4 — «변화 없음» = 읽은 판(사본 ⊇ main → 사본 머리)
     rows = [ln for ln in section(origin_ledger(world), "## 2. 오빠 할 일") if re.match(r"\d+\. ", ln)]
     assert len(rows) == 1 + 2 + 1  # 질문 열린 1(전달됨 제외) + h 대기 2 + QUEUE 빈칸 1
 
@@ -196,7 +199,7 @@ def test_c_news_head_and_zero_change_line_carry_note(world, monkeypatch):
     monkeypatch.delenv("FT_LEDGER_SYNC_ERROR", raising=False)
     monkeypatch.setattr(np, "retry_attach", lambda now: None)
     monkeypatch.setattr(np, "publish_line", lambda text, now: lines.append(text) or 0)
-    monkeypatch.setattr(fh, "_ledger_blob", lambda *a: "B")
+    monkeypatch.setattr(fh, "_human_key", lambda *a: "B")  # r907 r4: 판정 키 함수 이름 = _human_key
     monkeypatch.setattr(fh, "_canon_sha", lambda: "")
     monkeypatch.setattr(fh, "ledger_fill", lambda root, repo, rel, cur: cur)
     monkeypatch.setattr(fh, "ledger_fresh", lambda *a: "원장 61분 낡음 · 담당 planner arch#14")

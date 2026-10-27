@@ -1,0 +1,3 @@
+PASS 무변이 기준(전부)
+KILLED ①디스크훑기되살림
+KILLED ②하위폴더prefix제거
