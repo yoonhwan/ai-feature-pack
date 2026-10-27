@@ -1,0 +1,13 @@
+PASS ⓐ 전 히스토리 pickaxe 호출 0건
+PASS ⓑ 판정문에 sha8 + 1시간 전 커밋(AGE 1분) → rc0
+PASS ⓒ 판정문에 없는 sha → rc1 · WARN 0(정상 «안 끝남»)
+PASS ⓓ 사본 HEAD 가 main 조상 → rc0(검색 경로 안 돎 · 판정문 없음)
+PASS ⓔ 느린 grep(sleep 10) → 7s 안에 rc1 + 시간 초과 WARN 1줄
+PASS ⓔ WARN 은 정확히 1줄
+PASS ⓕ grep rc=2 → rc1 + «git grep 실패» WARN(조용한 rc0 0)
+PASS ⓖ 느린 grep 이어도 사본 생성 rc0 · 전체 20s ≤ 예산 20초(+worktree add)
+PASS ⓖ 남은 사본 «판정 안 함» WARN 1줄
+PASS ⓖ 예산 WARN 은 1줄
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+rc=0

@@ -1,0 +1,12 @@
+# r909 전 빨강 — 고침 전 동작 재현 (세트 = origin/main 3330d7ff)
+## 재현 입력
+  A. .py 바뀐 줄 `print(set(tags))` / 줄머리 `    set(LIVE_GPUS)` → 셸 «set» 오탐
+  B. 경로 clients/web/__tests__/…/credential-cookie-lifecycle.test.ts → credential 낱말 → FORBID key
+  C. .env.example 에 `NEW_KEY=` 만 추가 → FORBID key
+  D. .sh 의 `echo "$OP_SECRET_ITEM_NAME"` → FORBID secret(비밀 변수 출력)
+
+## A 재현 (origin/main 판정기 = 현행 ft_secret_targets.py + autonomy_scope_secret.py 문맥 한정 없음)
+plan('print(set(tags))') -> [(1, 'set 로 환경변수 통째 출력 출력이 화면·파이프로 감')]
+plan('    set(LIVE_GPUS)') -> [(1, 'set 로 환경변수 통째 출력 출력이 화면·파이프로 감')]
+
+## B·C·D 는 03-mutation.txt 의 변이(=고침을 끈 사본)에서 같은 빨강으로 재현된다

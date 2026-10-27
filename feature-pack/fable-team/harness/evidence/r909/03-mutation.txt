@@ -1,0 +1,15 @@
+# r909 변이 3 — 고침을 하나씩 끈 사본($T/mut)으로 «빨강» 확인 (시험 파일 안에서 수행 · 원본 무변경)
+세트: c2357be8cb7472cf14e3e85d56394ab954007e50
+
+## 기준(고침 켜짐) = 통과
+PASS ⓐ .py set(tags)·set(LIVE_GPUS) → FORBID secret 0
+PASS ⓐ design/*.py(확장자 .py = code) set( → FORBID secret 0
+PASS ⓓ __tests__/*.test.ts credential → key FORBID 0
+PASS ⓓ tests/test_credential_x.py → key FORBID 0
+PASS ⓔ shared/credential_store.py(시험 아님) → FORBID key
+PASS ⓔ tests/.env(경로 금지 규칙이 먼저) → FORBID key
+
+## 변이(고침 끔) = 빨강
+PASS 변이: 문맥 한정 끔 → ⓐ 빨강(FORBID secret)
+PASS 변이: 시험 경로 제외 끔 → ⓓ 빨강(FORBID key)
+PASS 변이: 제외를 .env 규칙 위로 → ⓔ 빨강(tests/.env 통과)

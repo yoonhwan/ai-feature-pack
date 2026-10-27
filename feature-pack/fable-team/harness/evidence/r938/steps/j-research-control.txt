@@ -1,0 +1,15 @@
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: <TMP>/bin
+WARN ④checkpoint 면제 — 나노 브랜치에 press 산출 0(poller_dom.jsonl 없음)
+RESEARCH-OK 기준 판 a17cb8269(reflog) 뒤 구현 커밋 0 · 미커밋 0 · 결과 <TMP>/result.md (⑥ 증거 줄 면제)
+OK cherry 게이트 — nano/ns 의 모든 커밋이 main 에 patch 단위로 존재(+ 0)
+워크트리 정리 계획: <TMP>/wtclean/byz-planner-nano-ns#0.sh (실행은 세션 kill 직후 — 미완이면 ft-wt-sweep.sh)
+CLOSED byz-planner-nano-ns#0 research=1 (명부 삭제 · 원장 append) — 좌석은 정지 레디 · reap left=0 rc=0
+SLOTS
+KILLED byz-planner-nano-ns#0 (@zc_v65_active 해제 · 세션 kill · 브랜치 보존)
+STEP ⑥증거검사 +0s
+STEP fetch +0s
+STEP ⑤cherry +1s
+STEP sheet +1s
+STEP ledger +1s
+reap byz-planner-nano-ns#0 stopped=0 left=0 rc=0
+STEP slots +1s

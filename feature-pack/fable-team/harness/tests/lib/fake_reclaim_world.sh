@@ -74,6 +74,7 @@ git -C "$P" update-ref refs/remotes/origin/main HEAD; for c in a b c d e f g h; 
 SWAP_LOW="total = 1000.00M  used = 100.00M  free = 900.00M  (encrypted)"   # 압력 아님(10%) — 시험 기본값(실 sysctl 을 읽지 않는다)
 
 setup() {   # 시험마다 새 세계
+  NOW=$(date +%s)   # r921: 세계를 만드는 시점 기준 — 파일 로드 시각에 고정하면 시험이 길어질수록 idle 분이 흘러 «닫히면 안 되는 좌석» 이 닫힌다(«5» ≠ «3» 로 헛빨강)
   rm -rf "$ST" "$T/root"; mkdir -p "$ST" "$T/root/.fable-team/state"; rm -f "$H/.claude/state/seat-resume/"*.json
   : > "$ST/sessions"; : > "$ST/kids"; : > "$ST/cmds"; cp /dev/null "$F/mailbox.jsonl"
   local c

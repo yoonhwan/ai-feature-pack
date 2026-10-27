@@ -12,7 +12,7 @@ for f in ft-index-move.sh "../kit/fable-team/bin/ft-index-move.sh"; do bash -n "
 
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 BIN="$T/bin"; mkdir -p "$BIN"
-cp "$SRCDIR/ft-index-move.sh" "$SRCDIR/ft-index-move-canon.sh" "$SRCDIR/ft-index-move-install.sh" "$SRCDIR/ft_da_hold_gate.py" "$SRCDIR/ft-evidence-inject-scan.sh" "$BIN/"
+cp "$SRCDIR/ft-index-move.sh" "$SRCDIR/ft-index-move-canon.sh" "$SRCDIR/ft-index-move-install.sh" "$SRCDIR/ft_da_hold_gate.py" "$SRCDIR/ft_git_capped.py" "$SRCDIR/ft-evidence-inject-scan.sh" "$BIN/"
 cp "$SRCDIR/ft-team-lib.sh" "$BIN/"
 printf '#!/usr/bin/env bash\nexit 0\n' > "$BIN/ft-index-lint.sh"
 export HOME="$T/home" FT_INDEX_STATE_DIR="$T/state" FT_SEATS_JSON="$T/none.json" FT_MBOX=/bin/true FT_LAND_REF=HEAD

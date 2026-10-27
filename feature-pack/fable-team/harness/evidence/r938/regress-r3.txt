@@ -1,0 +1,16 @@
+== test_nano_feat_remote_ref.sh
+bad: ⑤ origin/main fetch 실패(origin/main) — 옛 ref 대조 0(R22) · ⑥증거·⑤cherry·freshness 검사 0
+PASS fetch 실패 → bad 1건(REJECT 사유 · r938 r2 N4 문구)
+RESULT fail=0
+== test_nano_close_research_r888.sh
+
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+== test_nano_close_suspended.sh
+
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+== test_nano_close_never_started.sh
+
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

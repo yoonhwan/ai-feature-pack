@@ -1,0 +1,67 @@
+REPORT	/Users/yoonhwan/Library/LaunchAgents/ai.hermes.gateway-watchdog.plist	Label	비관리 Label(파일명=ai.hermes.gateway-watchdog · Label=ai.hermes.gateway-watchdog) — 이전 대상 아님
+REPORT	/Users/yoonhwan/Library/LaunchAgents/ai.hermes.gateway-zion.plist	Label	비관리 Label(파일명=ai.hermes.gateway-zion · Label=ai.hermes.gateway-zion) — 이전 대상 아님
+REPORT	/Users/yoonhwan/Library/LaunchAgents/ai.hermes.gateway.plist	Label	비관리 Label(파일명=ai.hermes.gateway · Label=ai.hermes.gateway) — 이전 대상 아님
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.airag.consumer.plist	Label	비관리 Label(파일명=com.airag.consumer · Label=com.airag.consumer) — 이전 대상 아님
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.airag.ft-goal-tick.plist	Label	비관리 Label(파일명=com.airag.ft-goal-tick · Label=com.airag.ft-goal-tick) — 이전 대상 아님
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.airag.ft-news-tick.plist	Label	비관리 Label(파일명=com.airag.ft-news-tick · Label=com.airag.ft-news-tick) — 이전 대상 아님
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.alfredapp.vitor.1password.plist	Label	비관리 Label(파일명=com.alfredapp.vitor.1password · Label=com.alfredapp.vitor.1password) — 이전 대상 아님
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.byz.cfo-g4-observe.plist	Label	비관리 Label(파일명=com.byz.cfo-g4-observe · Label=com.byz.cfo-g4-observe) — 이전 대상 아님
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.byz.colima-periodic-restart-unlock.plist	Label	plistlib 로 못 읽음(ExpatError) · Label=com.byz.colima-periodic-restart-unlock — 쓰기 0
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.byz.colima-periodic-restart.plist	Label	plistlib 로 못 읽음(ExpatError) · Label=com.byz.colima-periodic-restart — 쓰기 0
+MIGRATE	/Users/yoonhwan/Library/LaunchAgents/com.byz.ft-resource-watch.plist	ProgramArguments/1	/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live/.fable-team/bin/ft-resource-watch.sh	/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/bin/ft-resource-watch.sh
+MIGRATE	/Users/yoonhwan/Library/LaunchAgents/com.byz.ft-weekly-review.plist	EnvironmentVariables/FT_LIVE_BIN	/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live/.fable-team/bin	/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/bin
+MIGRATE	/Users/yoonhwan/Library/LaunchAgents/com.byz.ft-weekly-review.plist	EnvironmentVariables/FT_PLANNER_REPO	/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live	/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.byz.gce-guard-check.plist	Label	비관리 Label(파일명=com.byz.gce-guard-check · Label=com.byz.gce-guard-check) — 이전 대상 아님
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.byz.iap-tunnel-18703.plist	Label	비관리 Label(파일명=com.byz.iap-tunnel-18703 · Label=com.byz.iap-tunnel-18703) — 이전 대상 아님
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.byz.iap-tunnel-18712.plist	Label	비관리 Label(파일명=com.byz.iap-tunnel-18712 · Label=com.byz.iap-tunnel-18712) — 이전 대상 아님
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.byz.llm-tunnel-8000-health.plist	Label	비관리 Label(파일명=com.byz.llm-tunnel-8000-health · Label=com.byz.llm-tunnel-8000-health) — 이전 대상 아님
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.byz.llm-tunnel-8000.plist	Label	비관리 Label(파일명=com.byz.llm-tunnel-8000 · Label=com.byz.llm-tunnel-8000) — 이전 대상 아님
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.byz.loom-pg-tunnel.plist	Label	비관리 Label(파일명=com.byz.loom-pg-tunnel · Label=com.byz.loom-pg-tunnel) — 이전 대상 아님
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.byz.serena-ensure.plist	Label	비관리 Label(파일명=com.byz.serena-ensure · Label=com.byz.serena-ensure) — 이전 대상 아님
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.byz.stt-tunnel-8001.plist	Label	비관리 Label(파일명=com.byz.stt-tunnel-8001 · Label=com.byz.stt-tunnel-8001) — 이전 대상 아님
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.cartier-auto.watchdog.plist	Label	비관리 Label(파일명=com.cartier-auto.watchdog · Label=com.cartier-auto.watchdog) — 이전 대상 아님
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.cliproxy.api.plist	Label	비관리 Label(파일명=com.cliproxy.api · Label=com.cliproxy.api) — 이전 대상 아님
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.cloudflare.cloudflared.plist	Label	비관리 Label(파일명=com.cloudflare.cloudflared · Label=com.cloudflare.cloudflared) — 이전 대상 아님
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.codex.dummyenv.plist	Label	비관리 Label(파일명=com.codex.dummyenv · Label=com.codex.dummyenv) — 이전 대상 아님
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.gastown.dashboard.plist	Label	비관리 Label(파일명=com.gastown.dashboard · Label=com.gastown.dashboard) — 이전 대상 아님
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.gastown.langfuse.plist	Label	비관리 Label(파일명=com.gastown.langfuse · Label=com.gastown.langfuse) — 이전 대상 아님
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.hermes.byz-github-slack-mirror.plist	Label	비관리 Label(파일명=com.hermes.byz-github-slack-mirror · Label=com.hermes.byz-github-slack-mirror) — 이전 대상 아님
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.hermes.byz-mbox-slack-mirror.plist	Label	비관리 Label(파일명=com.hermes.byz-mbox-slack-mirror · Label=com.hermes.byz-mbox-slack-mirror) — 이전 대상 아님
+MIGRATE	/Users/yoonhwan/Library/LaunchAgents/com.hermes.byz-slack-mbox-inbound.plist	ProgramArguments/11	/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live/.fable-team/bin/ft-inbox.sh	/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/bin/ft-inbox.sh
+MIGRATE	/Users/yoonhwan/Library/LaunchAgents/com.hermes.byz-slack-talk-inbound.plist	ProgramArguments/12	/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live/.fable-team/bin/ft-inbox.sh	/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/bin/ft-inbox.sh
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.hermes.vertex-openai-proxy.plist	Label	비관리 Label(파일명=com.hermes.vertex-openai-proxy · Label=com.hermes.vertex-openai-proxy) — 이전 대상 아님
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.jetbrains.toolbox.plist	Label	비관리 Label(파일명=com.jetbrains.toolbox · Label=com.jetbrains.toolbox) — 이전 대상 아님
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.oz.photosync.plist	Label	비관리 Label(파일명=com.oz.photosync · Label=com.oz.photosync) — 이전 대상 아님
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.stockquant.docs-sync.plist	Label	비관리 Label(파일명=com.stockquant.docs-sync · Label=com.stockquant.docs-sync) — 이전 대상 아님
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.xclaw.apoc.plist	Label	심링크 plist — 이전 대상 아님 · 쓰기 0
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.xclaw.architect.plist	Label	심링크 plist — 이전 대상 아님 · 쓰기 0
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.xclaw.keymaker.plist	Label	심링크 plist — 이전 대상 아님 · 쓰기 0
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.xclaw.link.plist	Label	심링크 plist — 이전 대상 아님 · 쓰기 0
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.xclaw.merovingian.plist	Label	심링크 plist — 이전 대상 아님 · 쓰기 0
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.xclaw.morpheus.plist	Label	심링크 plist — 이전 대상 아님 · 쓰기 0
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.xclaw.mouse.plist	Label	심링크 plist — 이전 대상 아님 · 쓰기 0
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.xclaw.neo.plist	Label	심링크 plist — 이전 대상 아님 · 쓰기 0
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.xclaw.niobe.plist	Label	심링크 plist — 이전 대상 아님 · 쓰기 0
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.xclaw.oracle.plist	Label	심링크 plist — 이전 대상 아님 · 쓰기 0
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.xclaw.persephone.plist	Label	심링크 plist — 이전 대상 아님 · 쓰기 0
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.xclaw.seraph.plist	Label	심링크 plist — 이전 대상 아님 · 쓰기 0
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.xclaw.smith.plist	Label	심링크 plist — 이전 대상 아님 · 쓰기 0
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.xclaw.stream-router.plist	Label	심링크 plist — 이전 대상 아님 · 쓰기 0
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.xclaw.switch.plist	Label	심링크 plist — 이전 대상 아님 · 쓰기 0
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.xclaw.tank.plist	Label	심링크 plist — 이전 대상 아님 · 쓰기 0
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.xclaw.trinity.plist	Label	심링크 plist — 이전 대상 아님 · 쓰기 0
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.xclaw.zee.plist	Label	심링크 plist — 이전 대상 아님 · 쓰기 0
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.yoonhwan.codex-sol-normalize-reminder.plist	Label	비관리 Label(파일명=com.yoonhwan.codex-sol-normalize-reminder · Label=com.yoonhwan.codex-sol-normalize-reminder) — 이전 대상 아님
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.yoonhwan.excalidraw-canvas.plist	Label	비관리 Label(파일명=com.yoonhwan.excalidraw-canvas · Label=com.yoonhwan.excalidraw-canvas) — 이전 대상 아님
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.yoonhwan.oracle-login-reminder.plist	Label	비관리 Label(파일명=com.yoonhwan.oracle-login-reminder · Label=com.yoonhwan.oracle-login-reminder) — 이전 대상 아님
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.yoonhwan.serena-guard.plist	Label	비관리 Label(파일명=com.yoonhwan.serena-guard · Label=com.yoonhwan.serena-guard) — 이전 대상 아님
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.yoonhwan.v6-nine-ready-20260720.plist	Label	비관리 Label(파일명=com.yoonhwan.v6-nine-ready-20260720 · Label=com.yoonhwan.v6-nine-ready-20260720) — 이전 대상 아님
+REPORT	/Users/yoonhwan/Library/LaunchAgents/com.yoonhwan.zombie-clean.plist	Label	비관리 Label(파일명=com.yoonhwan.zombie-clean · Label=com.yoonhwan.zombie-clean) — 이전 대상 아님
+REPORT	/Users/yoonhwan/Library/LaunchAgents/dev.byz.limit-resume-once-20260928-1201.plist	Label	비관리 Label(파일명=dev.byz.limit-resume-once-20260928-1201 · Label=dev.byz.limit-resume-once-20260928-1201) — 이전 대상 아님
+REPORT	/Users/yoonhwan/Library/LaunchAgents/dev.byz.v6-rate-limit-resume-once-20260628-1803.plist	Label	비관리 Label(파일명=dev.byz.v6-rate-limit-resume-once-20260628-1803 · Label=dev.byz.v6-rate-limit-resume-once-20260628-1803) — 이전 대상 아님
+REPORT	/Users/yoonhwan/Library/LaunchAgents/dev.byz.v6-rate-limit-resume.plist	Label	비관리 Label(파일명=dev.byz.v6-rate-limit-resume · Label=dev.byz.v6-rate-limit-resume) — 이전 대상 아님
+REPORT	/Users/yoonhwan/Library/LaunchAgents/homebrew.mxcl.postgresql@14.plist	Label	비관리 Label(파일명=homebrew.mxcl.postgresql@14 · Label=homebrew.mxcl.postgresql@14) — 이전 대상 아님
+REPORT	/Users/yoonhwan/Library/LaunchAgents/kr.co.iniline.crossex-service.plist	Label	비관리 Label(파일명=kr.co.iniline.crossex-service · Label=kr.co.iniline.crossex-service) — 이전 대상 아님
+REPORT	/Users/yoonhwan/Library/LaunchAgents/net.pulsesecure.SetupClient.plist	Label	plistlib 로 못 읽음(ExpatError) · Label=net.pulsesecure.SetupClient — 쓰기 0
+REPORT	/Users/yoonhwan/Library/LaunchAgents/sh.brew.ollama.plist	Label	비관리 Label(파일명=sh.brew.ollama · Label=sh.brew.ollama) — 이전 대상 아님
+SUM	mode=dry-run	plist_migrate=5 plist_report=61 plist_error=0 env_migrate=0 env_report=0 env_error=0

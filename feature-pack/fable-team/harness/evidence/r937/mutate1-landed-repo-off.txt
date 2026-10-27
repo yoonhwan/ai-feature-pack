@@ -1,0 +1,55 @@
+PASS ⓐ 카드 리포에만 → 카드 리포
+FAIL ⓐ 팩 리포에만 → 팩 리포 :: rc=0 out=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c6o7vurGJf/byz	6db4d451344644976c88a0f011849400e7137c93
+PASS ⓐ 둘 다 + 표식 main → 카드 리포
+FAIL ⓐ 둘 다 + 표식 main(팩) → 팩 리포 :: rc=0 out=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c6o7vurGJf/byz	2aa53877cca85f53dbef72fa2ed434b81ffafec2
+FAIL ⓐ 둘 다 + 표식 없음 → 팩 :: rc=0 out=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c6o7vurGJf/byz	2aa53877cca85f53dbef72fa2ed434b81ffafec2
+FAIL ⓐ 둘 다 없음 → REJECT :: rc=0 out=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c6o7vurGJf/byz	0000000000000000000000000000000000000000
+FAIL ⓐ 표식 오기(팩) → REJECT :: rc=0 out=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c6o7vurGJf/byz	1da973fa01b52d93c7b5f805ccb0f4a65c04f7e5
+FAIL ⓐ 표식 오기(카드) → REJECT :: rc=0 out=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c6o7vurGJf/byz	af3fbcf73dfa3f549e3053f3ac70a614af2901c1
+PASS ⓑ 카드 착지 + 설치: 있음 → 라이브 전수 대조 통과 rc0
+FAIL ⓑ 팩 착지 + 정본 영향 없음 → OK :: rc=0 out=REJECT	랜딩 안 됨 — 2aa53877cca85f53dbef72fa2ed434b81ffafec2 가 origin/main 의 조상이 아니다 (/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c6o7vurGJf/byz)
+PASS ⓑ 표식 main + 두 리포에 있는 sha → 카드 리포로 풀려 «랜딩 안 됨»(표식이 리포를 가른다)
+FAIL ⓑ close-landed 조상 검사 리포 :: rc=0 out=| § | 카드 | 위치 | 조상 | 착지 줄 | 예상 |
+|---|---|---|---|---|---|
+| §1 | kpack | 진행 | no | 무 | REJECT LANDED-INVALID not-ancestor |
+| §2 | cside | 진행 | no | 무 | REJECT LANDED-INVALID not-ancestor |
+| §3 | kbyz2 | 진행 | ok | 무 | LANDED-CLOSE sha=1da973fa01b52d93c7b5f805ccb0f4a65c04f7e5 da=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c6o7vurGJf/byz/design/harness/DA-row.md#§3 |
+| §4 | kbyzh | 없음 | ok | 무 | SKIP 카드 없음 |
+DRY rows=4 (쓰기 0)
+FAIL ⓒ 표식 어긋남 → REJECT :: rc=0 out=OK	정본 영향 없음: 하네스 도구만 바뀐 카드 — 제품 정본 없음
+PASS ⓓ 카드 착지 + 설치: 없음 → 통과 rc0(회귀 0)
+FAIL ⓔ 팩 착지 카드 → LANDED-CLOSE :: rc=0 out=HOLD events=0 reviews=0 releases=0/0 budget_left=2
+LANDED-INVALID not-ancestor 2aa53877cca85f53dbef72fa2ed434b81ffafec2
+FAIL ⓔ 표식 오기 → marker-mismatch :: rc=0 out=LANDED-CLOSE sha=1da973fa01b52d93c7b5f805ccb0f4a65c04f7e5 da=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c6o7vurGJf/byz/design/harness/DA-row.md#§4
+HOLD events=2 reviews=2 releases=0/0 budget_left=0
+FAIL ⓔ not-found → rc3 :: rc=3 out=HOLD events=2 reviews=2 releases=0/0 budget_left=0
+LANDED-INVALID lookup-failed /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c6o7vurGJf/byz merge-base rc=128 (시간 초과 포함 · 통과 0)
+PASS ⓕ 정본 게이트: merge-base 8초 지연 → 조회 실패 REJECT · 소요 15초 ≤ 16
+PASS ⓕ 보류 가드: merge-base 8초 지연 → LANDED-INVALID lookup-failed · 소요 14초 ≤ 16
+FAIL ⓕ close-landed 시간 초과(소요 56초) :: | § | 카드 | 위치 | 조상 | 착지 줄 | 예상 |
+|---|---|---|---|---|---|
+| §1 | kpack | 진행 | no | 무 | REJECT LANDED-INVALID lookup-failed |
+| §2 | cside | 진행 | no | 무 | REJECT LANDED-INVALID lookup-failed |
+| §3 | kbyz2 | 진행 | no | 무 | REJECT LANDED-INVALID lookup-failed |
+| §4 | kbyzh | 진행 | no | 무 | REJECT LANDED-INVALID lookup-failed |
+DRY rows=4 (쓰기 0) :: rc=0 out=| § | 카드 | 위치 | 조상 | 착지 줄 | 예상 |
+|---|---|---|---|---|---|
+| §1 | kpack | 진행 | no | 무 | REJECT LANDED-INVALID lookup-failed |
+| §2 | cside | 진행 | no | 무 | REJECT LANDED-INVALID lookup-failed |
+| §3 | kbyz2 | 진행 | no | 무 | REJECT LANDED-INVALID lookup-failed |
+| §4 | kbyzh | 진행 | no | 무 | REJECT LANDED-INVALID lookup-failed |
+DRY rows=4 (쓰기 0)
+PASS ⓛ 시간 초과 rc124 · 재시도 1회 실제 수행(git 2회 기동 · 자식 2개) · 자식 sleep 생존 0 · 소요 7초
+PASS ⓖ timeout·gtimeout 실제로 없는 PATH: rev-parse 8초 → REJECT «조회 실패» · 소요 15초 ≤ 18
+FAIL ⓗ 팩 조회만 실패 :: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c6o7vurGJf/byz	2aa53877cca85f53dbef72fa2ed434b81ffafec2 :: rc=0 out=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c6o7vurGJf/byz	2aa53877cca85f53dbef72fa2ed434b81ffafec2
+PASS ⓙ 정본 게이트: 팩 루트 조회(--show-toplevel)만 시간 초과 → REJECT «루트 조회 실패» · 소요 14초
+PASS ⓙ 보류 가드: 팩 루트 조회만 시간 초과 → LANDED-INVALID lookup-failed(루트 조회 실패) · 소요 14초
+PASS ⓙ close-landed: 팩 루트 조회만 시간 초과 → ERROR rc2(루트 조회 실패)
+PASS ⓙ 설치 게이트: 팩 루트 조회만 시간 초과 → REJECT «루트 조회 실패»
+FAIL ⓚ 재시도 :: rc=0 mb=2 el=8 REJECT	랜딩 안 됨 — 2aa53877cca85f53dbef72fa2ed434b81ffafec2 가 origin/main 의 조상이 아니다 (/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c6o7vurGJf/byz) :: rc=0 out=REJECT	랜딩 안 됨 — 2aa53877cca85f53dbef72fa2ed434b81ffafec2 가 origin/main 의 조상이 아니다 (/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.c6o7vurGJf/byz)
+PASS ⓘ bash 3.2(/bin/bash): 고친 파일 -n rc0 · ft_landed_repo 실행 ok
+PASS ⓘ /bin/bash 3.2: ft_git_capped(python 실행기) rc·stdout git 그대로
+PASS ⓝ 게이트 4파일에서 ft_git_capped 밖 git 호출 줄 0
+PASS ⓜ 리포 오염 0(design/harness 픽스처 밖 변경 0 · 팩 무변경)
+FAILED 15
+rc=1
