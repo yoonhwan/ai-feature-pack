@@ -359,7 +359,7 @@ shell_scan() {
   # ★r844 r5 ⓑ★ worktree list 실패(rc≠0 · 시간 초과) = 이번 회차는 껍데기를 판정하지 않는다 — 경보 0 · 서명 그대로
   wl="$(cap "$SHELL_GIT_SEC" "${GIT_CLEAN[@]}" git -C "$SCAN_ROOT" worktree list --porcelain 2>/dev/null)"; wrc=$?
   # ★r8★ 그 실패는 «판정 불가 <루트>:worktree-list» 1줄 + u= 로도 남긴다(위 조기 return 은 r844 계약 그대로)
-  [ "$wrc" -eq 0 ] || { gitfail "$SCAN_ROOT" worktree-list; SCAN_U=$((SCAN_U+ucnt)); }
+  [ "$wrc" -eq 0 ] || { gitfail "$SCAN_ROOT" worktree-list; SCAN_U=$((SCAN_U+ucnt)); s2="$(printf '%s' "$und" | tr ' ' '\n' | sed '/^$/d' | sort | tr '\n' ' ')"; echo "판정 불가 ${ucnt}곳 — git 호출 실패로 껍데기 판정 보류(오빠 판정 0 · 삭제 0): $(printf '%s' "$s2" | tr ' ' '\n' | sed '/^$/d' | tr '\n' ' ')"; }
   [ "$wrc" -eq 0 ] || { echo "NOTE 껍데기 판정 생략 — worktree list 실패(rc=$wrc · 서명 그대로)"; return 0; }
   live="$(for f in "$DIR"/*.deleting; do [ -f "$f" ] && sed -n 1p "$f"; done)"
   while IFS=$'\t' read -r p sha; do
@@ -383,7 +383,7 @@ shell_scan() {
     [ "$sp_hit" = 1 ] && : || {
     case "${p##*/}" in
       *.deleting-[0-9]*) printf '%s\n' "$live" | grep -qxF -- "$p" && continue; missing=9; chk=0;;
-      *)
+      *) missing=0
          # ★r844 r5 ⓑ★ ls-tree 실패(rc≠0 · 시간 초과 · SHA 0/빈 값) = 그 폴더 «판정 못 함»(이전 서명 이어받기 · 후보에서 빼지 않음)
          #   — 지금까지는 실패를 «부재 0» 으로 읽어 후보에서 빼고 서명을 지웠다(외부 DA r3 반례 1: 같은 경보 반복)
          #   ★r8★ 그 실패는 «판정 불가 <경로>:ls-tree» 1줄 + u= 로도 남긴다(두 계약을 같이 지킨다)
@@ -400,6 +400,7 @@ shell_scan() {
          fi
          while IFS= read -r name; do [ -n "$name" ] || continue; [ -e "$p/$name" ] || missing=$((missing+1)); done <<<"$tree";;
     esac
+    [ "$missing" -ge 2 ] || continue
     }
     brc=1
     if [ "$chk" = 1 ]; then

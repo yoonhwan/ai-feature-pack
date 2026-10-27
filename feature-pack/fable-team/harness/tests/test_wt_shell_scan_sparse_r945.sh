@@ -49,11 +49,11 @@ case "${WT_TEST_MUT:-0}" in
   0) ;;
   1) MUTP 'if ! missing="$(sparse_deleted "$p" "$spx")"; then' 'missing="$(sparse_deleted "$p" "$spx")"; if false; then'
      echo "MUT 1 — 판정 불가를 «껍데기 아님» 으로";;
-  2) MUTP '           [ "$missing" -ge 1 ] || continue' '           [ "$missing" -ge 2 ] || continue   # MUT2 임계 2'
+  2) MUTP '      [ "$missing" -ge 1 ] || continue' '      [ "$missing" -ge 2 ] || continue   # MUT2 임계 2'
      echo "MUT 2 — 개수 임계 ≥1 → ≥2";;
-  3) MUTP '         if [ "$crc" -eq 0 ] && [ "$spcfg" = true ]; then' '         if false; then   # MUT3 sparse 분기 끔(sparse 를 일반 규칙으로)'
+  3) MUTP '    if [ "$crc" -eq 0 ] && [ "$spcfg" = true ]; then' '    if false; then   # MUT3 sparse 분기 끔(sparse 를 일반 규칙으로)'
      echo "MUT 3 — sparse 분기 끔(패턴 해석 없이 일반 규칙)";;
-  4) MUTP '           [ "$missing" -ge 1 ] || continue' '           [ "$missing" -ge 0 ] || continue   # MUT4 임계 0'
+  4) MUTP '      [ "$missing" -ge 1 ] || continue' '      [ "$missing" -ge 0 ] || continue   # MUT4 임계 0'
      echo "MUT 4 — 개수 임계 ≥1 → ≥0(0 개도 껍데기)";;
   5) MUTP 'gitfail() { und="$und$1:$2 "; ucnt=$((ucnt+1)); }' 'gitfail() { : ; }   # MUT5 실패를 «판정 불가» 로 안 셈'
      echo "MUT 5 — git7 실패를 «판정 불가» 로 안 셈(조용히 넘김)";;
@@ -190,7 +190,7 @@ hasnt "$outr1" "[HIL]"                    "  └ 오빠 HIL 0"
 has   "$outr1" ":orphan-list"              "ⓥ 공용 config 가 깨지면 orphan 검사도 «:orphan-list» 판정 불가 1줄(git7 경유 · 결정 4 ③)"
 hasnt "$outr1" "git worktree list rc="     "  └ python 이 git 을 직접 부르지 않는다(옛 메시지 사라짐)"
 grep -q 'subprocess.run(\["git"' "$T/bin/ft-wt-sweep.sh" && bad "  └ 직접 git 호출 잔존(python)" || ok "  └ 직접 git 호출 0(python 정적 검사)"
-grep -nE '^[^#]*\$\(git |^[^#]*git -C "' "$T/bin/ft-wt-sweep.sh" | grep -vE '^[0-9]+:git7' | grep -q . && bad "  └ 직접 git 호출 잔존(셸)" || ok "  └ 직접 git 호출 0(셸 정적 검사 — 전부 git7/git7c 경유)"
+grep -nE '^[^#]*\$\(git |^[^#]*git -C "' "$T/bin/ft-wt-sweep.sh" | grep -vE '^[0-9]+:(git7|sgit)' | grep -v 'cap "' | grep -q . && bad "  └ 직접 git 호출 잔존(셸)" || ok "  └ 직접 git 호출 0(셸 정적 검사 — 전부 git7 또는 r844 sgit/cap 경유)"
 # ⓢ 트리 객체가 없음 → ls-tree rc128 → «경로:ls-tree»(일반 워크트리)
 R5="$T/repo5"; mkdir -p "$R5"; git -C "$R5" init -q -b main
 G5() { git -C "$R5" -c user.email=t@t -c user.name=t "$@"; }
@@ -259,8 +259,8 @@ R7="$T/repo7"; mkdir -p "$R7/.worktrees"; git -C "$R7" init -q -b main
 swpf() { mkdir -p "$1"; ( cd "${2:-$T}" && env -i HOME="$HOME" PATH="$T/fakegit:$PATH" FT_WT_CLEAN_DIR="$1" ${2:+FT_WT_SCAN_ROOT="$2"} FT_WT_SHELL_SCAN_SEC=0 \
   FT_WT_ORPHANS_TSV="$T/state/orphans.tsv" FT_WT_SWEEP_LOG="$T/state/wt-sweep.log" FT_WT_ORPHANS_SCAN_SEC=999999 \
   "${WT_TEST_BASH:-bash}" "$T/bin/ft-wt-sweep.sh" 2>&1 ); }
-SITES="$(grep -c 'git7 "' "$T/bin/ft-wt-sweep.sh")"
-[ "$SITES" -eq 12 ] && ok "  └ git7 호출 자리 12개(스캔 도달 8 + --finish/--launchd/plan 4) — 새 자리가 생기면 이 시험이 FAIL" || bad "git7 자리 수 변화($SITES ≠ 12) — 새 자리를 시험이 모른다"
+SITES="$(( $(grep -c 'git7 "' "$T/bin/ft-wt-sweep.sh") + $(grep -cE '^(sgit\(\)|[^#]*cap "\$SHELL_GIT_SEC")' "$T/bin/ft-wt-sweep.sh") ))"
+[ "$SITES" -eq 13 ] && ok "  └ git 호출 자리 13개(git7 10 + r844 sgit/cap 3) — 새 자리가 생기면 이 시험이 FAIL" || bad "git 호출 자리 수 변화($SITES ≠ 13) — 새 자리를 시험이 모른다"
 for st in init config worktree-list sparse-list ls-files ls-tree orphan-list; do
   grep -q "$st" "$T/bin/ft-wt-sweep.sh" && ok "  └ 단계 이름 $st 가 도구에 있다" || bad "단계 이름 $st 없음"
 done

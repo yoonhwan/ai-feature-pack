@@ -1,0 +1,21 @@
+# r945 병합 2 — R230 줄 게이트(ft_merge_lines) 통과 · 새 로직 0
+
+## 무엇이 막혔나(PR #395 REJECT)
+`ft_merge_lines.py` 규칙 «팩 main 이 더한 줄은 글자 그대로 남아야 한다» — r944(27d60ced)이 더한 줄 8개가 내 충돌 해소에서 글이 바뀌어 사라졌다(옛 브랜치 F=6634010102).
+
+## 해소 = r844 줄 «원문 그대로 복원» + r8 변경은 옆에
+| r844 원문(복원) | r8 이 옆에 둔 것 |
+|---|---|
+| `sgit() { local p="$1"; shift; cap "$SHELL_GIT_SEC" "${GIT_CLEAN[@]}" GIT_CEILING_DIRECTORIES="$(dirname "$p")" git -C "$p" "$@"; }` | (git7c 폐기 — ceiling 자리는 r844 sgit 그대로) |
+| `# ★r844 r5 ⓑ★ worktree list 실패…` + `wl="$(cap … git -C "$SCAN_ROOT" worktree list --porcelain 2>/dev/null)"; wrc=$?` + `[ "$wrc" -eq 0 ] \|\| { echo "NOTE 껍데기 판정 생략 …"; return 0; }` | 그 사이에 «판정 불가 <루트>:worktree-list» 1줄 + u= (조기 return 전에 낸다) |
+| `tree="$(cap … git -C "$SCAN_ROOT" ls-tree --name-only "$sha" 2>/dev/null)"; trc=$?` | 실패 갈래에 «판정 불가 <경로>:ls-tree» 1줄 + u=(SKIP 줄과 같이) |
+| `while IFS= read -r name; … done <<<"$tree";;` | 없음(그 줄이 case 갈래 끝) |
+| `names=""; for k in $(printf '%s' "$sig" …)` · `echo "[HIL] … $sig … (세션 0 · 미커밋 0)"` | 서명은 r844 그대로(list) · 판정 불가 목록은 `$DIR/.shell-und` 로 «바뀐 때만» 1줄 |
+
+sparse 판정은 r844 `case` **앞**에 두고 `sp_hit` 로 갈랐다 — sparse 는 그 자리서 판정 끝, 일반 워크트리만 r844 `case`(ls-tree·SKIP·이어받기)를 그대로 탄다.
+
+## 확인
+- `python3 ft_merge_lines.py <워크트리> origin/main HEAD` → **PASS 보호 집합 731 파일 · F=6634010102 · rc0**
+- test_wt_shell_scan_sparse_r945 **83 PASS**(bash 3.2·5) · 변이 8종 전부 빨강(3·6·13·12·13·2·1·4)
+- test_wt_shell_scan_live_seat_r832 ALL PASS · route_timeout rc0 · two_stage rc0 · r535 rc0 · kit_bin_sync rc0
+- bin↔kit cmp0 · /bin/bash -n · bash -n rc0
