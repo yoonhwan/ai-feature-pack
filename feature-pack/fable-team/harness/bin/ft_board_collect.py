@@ -14,6 +14,7 @@ import ft_sheet_events
 from ft_board_mail import Mail
 from ft_board_seat import SeatCells
 from ft_board_tree import STATES, fold, parse_tree
+from ft_team_state import team_states
 
 FOLDERS = ("대기", "진행", "완성")
 QUEUE_TOP = 5
@@ -97,6 +98,15 @@ def _parent(root: Path, path: Path, seats: dict) -> str | None:
     return "?"
 
 
+def attach_team_states(root: Path, alive: set, now: datetime, teams: list[dict], files: list[Path]) -> None:
+    """블록마다 team_state = ft_team_state.team_states(뉴스 지도와 같은 함수 · 기다림 = 이 블록의 master 칸 · r850 r4) — 시트 따로 판정 0.
+    수집 실패 블록(error)은 건너뛴다(그 팀 줄 = «확인 못 함»)."""
+    ok = {b["key"]: (b, f) for b, f in zip(teams, files) if "error" not in b}
+    states = team_states(root, alive, now, rosters={k: f for k, (_, f) in ok.items()}, boards={k: b for k, (b, _) in ok.items()})
+    for k, (b, _) in ok.items():
+        b["team_state"] = states[k]
+
+
 def team_block(root: Path, path: Path, alive: set, date: str, vds: list, mail: Mail) -> dict:
     seats = json.loads(path.read_text(encoding="utf-8"))
     cells = SeatCells(seats, alive, mail, env.now())
@@ -172,5 +182,6 @@ def collect(files: list[Path] | None = None) -> dict:
     vds = env.verdicts(root, date)
     files = files or sorted((root / ".fable-team").glob("seats*.json"))
     mail = Mail(root)
-    return {"date": date, "decision": decision(root, alive), "verdicts": vds, "issues": env.gh_issues(root),
-            "teams": [team_or_error(root, f, alive, date, vds, mail) for f in files]}
+    teams = [team_or_error(root, f, alive, date, vds, mail) for f in files]
+    attach_team_states(root, alive, env.now(), teams, files)
+    return {"date": date, "decision": decision(root, alive), "verdicts": vds, "issues": env.gh_issues(root), "teams": teams}

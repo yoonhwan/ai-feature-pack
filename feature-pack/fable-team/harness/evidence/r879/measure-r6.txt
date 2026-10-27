@@ -1,0 +1,11 @@
+# r879 r6 디스크 실측 — git sparse-checkout check-rules -z --no-cone --rules-file (실제 체크아웃 0 · BYZ 설정 손대지 않음)
+# 목적 = r6 변경(이름 안 제어 문자 → `?` 1글자)이 «제외 집합» 을 바꾸지 않았는지 확인
+BYZ 44f807e3d0 · design/teams/v65 tracked 14250 파일
+r6 규칙 787줄 = 머리 3(/* · !/design/teams/*/ · /design/teams/v65/) + 제외 782 + 되살림 2
+r5 규칙(787줄 · 같은 rev · 같은 카드 슬러그 M5-1812)과 diff = 0 (RULES_IDENTICAL) — 제외 줄이 «bit 동일»
+check-rules 결과: IN 13475 파일 169.0M · OUT 775 파일 695.9M (80.5% 제외) · 목표 599.0M 통과 = True
+(※ 절대 MB 는 측정 방식(blob 크기 합)에 따라 r5 기록 824.9M/663.7M 과 다르다 — 같은 파이프라인으로 r5·r6 를 나란히 돌린 값은 위 r5 대조 = «규칙 동일» 이므로 제외량 차 0 이 결론)
+# 실재 트리에서 «이름 안 제어 문자» 파일 수(r6 계약 ①' 의 실측치)
+design/teams/v65 tracked 14250 파일 중 이름 안 제어 문자(ord<0x20 · 0x7f) = 0
+⇒ `?` 가 «다른 파일까지» 함께 빼는 충돌 후보(같은 폴더 · 그 자리만 다른 이름) = 0
+측정 명령: git ls-tree -r -z --name-only 44f807e3d0 -- design/teams/v65 → sparse_exclude_lines/sparse_patterns 로 규칙 생성 → check-rules -z --no-cone --rules-file → git cat-file --batch-check 로 blob 크기 합

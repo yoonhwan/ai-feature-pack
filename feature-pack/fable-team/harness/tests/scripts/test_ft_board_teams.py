@@ -1,8 +1,10 @@
-"""R132a — `ft-board.py teams` 팀 한 줄 시험 (일함 1팀 · 전원 정지 1팀 + 확인 불가 1). 임시 FT_ROOT·스텁 env — 실제 tmux·gh·jsonl 조회 0."""
+"""R132a — `ft-board.py teams` 팀 한 줄 시험 (일함 1팀 · 전원 정지 1팀 + 확인 불가 1). 임시 FT_ROOT·스텁 env — 실제 tmux·gh·jsonl 조회 0.
+r850 r4: 팀 줄 가운데 칸 = ft_team_state.team_states(뉴스와 같은 판정 · 좌석 = 명부 현역 행 · 턴 = jsonl) — 픽스처가 좌석마다 jsonl + 가짜 list-panes 도 만든다."""
 
 import datetime as dt
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -17,6 +19,16 @@ ago = lambda m: (NOW - dt.timedelta(minutes=m)).isoformat()  # noqa: E731
 def _turn(root: Path, seat: str, state: str, minutes: int | None = None, **extra) -> None:
     out = {"state": state, "turn_end": None if minutes is None else ago(minutes), "duration_ms": 1000, "reported": "no", "source": "jsonl", **extra}
     (root / "turn" / f"{seat}.out").write_text(json.dumps(out), encoding="utf-8")
+    if out["source"] != "jsonl":  # codex 좌석 = claude jsonl 없음(뉴스·시트 판정 = «jsonl 없음» · r850 r4 범위 밖 그대로)
+        return
+    rows = [{"type": "custom-title", "customTitle": seat}, {"type": "user", "message": {"content": "일"}}, {"type": "assistant", "message": {"content": []}}]
+    if minutes is not None:
+        rows.append({"type": "system", "subtype": "turn_duration", "timestamp": ago(minutes), "durationMs": 1000})
+    if state == "WORKING":
+        rows.append({"type": "user", "message": {"content": "다음"}})
+    d = root.parent / "projects" / re.sub(r"[^A-Za-z0-9]", "-", f"/wt/{seat}")
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "s.jsonl").write_text("".join(json.dumps(r, ensure_ascii=False, separators=(",", ":")) + "\n" for r in rows), encoding="utf-8")
 
 
 @pytest.fixture
@@ -36,7 +48,10 @@ def board(tmp_path: Path):
     env = {**os.environ, "FT_ROOT": str(root), "FT_BOARD_NOW": NOW.isoformat(), "FT_BOARD_GH_TTL": "0", "FT_BOARD_GH_REFRESH": "1",
            "FT_VERDICT_BIN": str(BIN / "ft-verdict.sh"), "FT_BOARD_TMUX": f"bash {tmp_path / 'tmux.sh'}", "FT_BOARD_GH": f"cat {tmp_path / 'gh.json'}",
            "FT_BOARD_INBOX": f"bash {tmp_path / 'inbox.sh'}", "FT_BOARD_SEAT_STATUS": str(tmp_path / "seat.sh"),
-           "FT_SEAT_RESUME_DIR": str(tmp_path / "resume")}
+           "FT_SEAT_RESUME_DIR": str(tmp_path / "resume"), "FT_TMUX": str(tmp_path / "panes.sh"), "FT_CLAUDE_PROJECTS": str(tmp_path / "projects")}
+    (tmp_path / "panes.sh").write_text(f'#!/bin/sh\nwhile read -r s; do [ -n "$s" ] && printf "%s\\t/wt/%s\\n" "$s" "$s"; done < "{tmp_path}/alive.txt"\n',
+                                       encoding="utf-8")
+    (tmp_path / "panes.sh").chmod(0o755)
     env.pop("GIT_DIR", None)
 
     def run(*args: str) -> subprocess.CompletedProcess:
@@ -68,9 +83,9 @@ def test_teams_one_line_per_team_working_vs_stopped_with_unknown(board) -> None:
     board.mail([{"seq": 1, "ts": ago(30), "to": "b-arch#1", "from": "b-m#1", "body": "[b-m#1->b-arch#1] 질문"}])
     r = board.run("teams")
     assert r.returncode == 0, r.stderr
-    assert r.stdout.splitlines() == [
-        "일함팀 | 일함 a-n1#0 | 진행 0",
-        "정지팀 | 정지 7분 · 기다리는 것 = 추정: b-arch#1 에 마지막 발신 #1(09:30) · 기록상 이후 b-arch#1 회신 없음 | 진행 1(c-prog) · 확인 불가 1",
+    assert r.stdout.splitlines() == [  # r850: 가운데 칸 = ft_team_state.judge 글자(진행 카드 1 + 30분 안 턴 = 진행)
+        "일함팀 | 진행 · 일하는 좌석 1/3 · 일함 a-n1#0 | 진행 0",
+        "정지팀 | 진행 · 1분 전 턴 | 진행 1(c-prog)",  # r4: 좌석 = 명부 현역 행(da 행도 좌석 · 시트 «현역 근거» 따로 판정 0)
     ]
 
 
@@ -80,16 +95,17 @@ def test_teams_team_option_limits_to_one_roster(board) -> None:
     _turn(board.root, "a-m#1", "WORKING", 1)
     _turn(board.root, "z-m#1", "WORKING", 1)
     r = board.run("teams", "--team", str(board.root / ".fable-team" / "seats-a.json"))
-    assert r.stdout.splitlines() == ["일함팀 | 일함 a-m#1 | 진행 0"]
+    assert r.stdout.splitlines() == ["일함팀 | 진행 · 일하는 좌석 1/1 · 일함 a-m#1 | 진행 0"]
 
 
 def test_teams_no_waiting_conclusion_when_no_unreplied_mail(board) -> None:
-    """기록상 미회신 0 이면 Mail.wait 가 내는 문구 그대로 — «다음 발주 없음» 같은 결론 문구를 만들어 쓰지 않는다."""
-    board.seats("b", {"_label": "정지팀", "_master": "b-m#1", "b-m#1": {"role": "master"}}, ["b-m#1"])
-    _turn(board.root, "b-m#1", "IDLE", 5)
+    """기록상 미회신 0 이면 Mail.wait 가 내는 문구 그대로 — «다음 발주 없음» 같은 결론 문구를 만들어 쓰지 않는다.
+    r850: «기다리는 것» 은 대기(진행 카드 ≥1 · 좌석이 30분 넘게 조용)일 때 싣는다."""
+    board.seats("b", {"_label": "정지팀", "_master": "b-m#1", "_cards": "t", "b-m#1": {"role": "master"}}, ["b-m#1"])
+    _turn(board.root, "b-m#1", "IDLE", 45)
     board.mail([{"seq": 1, "ts": ago(30), "to": "b-m#1", "from": "x#1", "body": "[x#1->b-m#1] 발주"}])
     line = board.run("teams").stdout.strip()
-    assert line == "정지팀 | 정지 5분 · 기다리는 것 = 추정: 기록(09:30 이후)상 발신 없음 | 진행 0"
+    assert line == "정지팀 | 대기 45분 · 기다리는 것 = 추정: 기록(09:30 이후)상 발신 없음 | 진행 1(c-prog)"
     assert "다음 발주 없음" not in line
 
 
@@ -100,7 +116,7 @@ def test_teams_codex_aborted_seat_counts_as_stopped(board) -> None:
     _turn(board.root, "d-m#1", "IDLE", 30)
     _turn(board.root, "d-da#1", "IDLE", 4, source="codex", aborted=True)
     r = board.run("teams")
-    assert r.stdout.startswith("코덱스팀 | 정지 4분 · 기다리는 것 = "), r.stdout
+    assert r.stdout.startswith("코덱스팀 | 확인 불가(jsonl 없음 1석) | "), r.stdout  # r850 r4: 팀 줄 = 뉴스와 같은 판정(codex 좌석 = jsonl 없음 · 범위 밖)
 
 
 def test_stalled_lists_unknown_seat_regardless_of_min(board) -> None:
