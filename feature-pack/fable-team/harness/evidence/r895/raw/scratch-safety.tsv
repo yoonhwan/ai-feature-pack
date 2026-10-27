@@ -1,0 +1,15 @@
+# 등록 밖 사본 안전 칸 (읽기 전용 · 2026-10-27 02:22:20) — dirty = status --porcelain -uall 줄 수 · ref = 그 sha 를 품은 가지/원격 1개(for-each-ref --contains · 7초)
+path	dirty	ref
+repo-1051267d-1792927934-80381	0	archive/nano/c-exp-m-ctx-5-serialization-reserve
+repo-11ce68f4-1792969355-468	49255	da-throwaway-budget-impl-20261026
+repo-3bf49e53-1792893609-12879	0	archive/nano/loom-1017-a-reindex-job-entry
+repo-4e2ff42e-1792892293-47501	0	origin/nano/ops-sched-approval-writer-closing-event
+repo-52a99460-1792892582-10474	0	archive/nano/l55-mle-host-reset-expire-recording-rele
+repo-875b0eea-1792868520-26430	0	못잼
+repo-a51e59ec-1792930701-89194	0	archive/nano/ops-alert-gchat-sink
+repo-ab8adb8c-1792899463-66746	0	nano/cfo-terms-art8-effective-date-1102
+repo-b634f110-1792927000-11027	0	nano/ccu-build-async-poll
+repo-b9b42738-1793028657-30617	0	archive/nano/c-exp-m-ctx-5-serialization-reserve
+repo-b9b42738-1793028680-45414	0	archive/nano/c-exp-m-ctx-5-serialization-reserve
+repo-bdb77579-1792905452-81223	0	docs/ops-cleanup-account-2747-20261025
+repo-e5de194c-1792931117-89618	0	docs/ccu-r1-20261025

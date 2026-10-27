@@ -131,7 +131,7 @@ if not guide.splitlines()[ln - 1].startswith("- **desk 좌석"):
 core = " ".join(m.group(0).split())
 if core not in " ".join(" ".join(lines[:10]).split()):
     print("REJECT desk 승계 본문 첫 10줄에 planner 안내서 %s줄 원문 구절이 없다 — 이 줄을 그대로 옮겨 적어라: 「%s」" % (ln, core)); sys.exit(3)
-bad = sorted({x.group(1) for x in re.finditer(r"(?:send|relay)\s+['\"`]?((?:byz|ft)-([a-z0-9]+)-[A-Za-z0-9._#-]*)", "\n".join(lines)) if x.group(2) != "planner"})
+bad = sorted({x.group(1) for x in re.finditer(r"(?:send|relay)\s+['\"\x60]?((?:byz|ft)-([a-z0-9]+)-[A-Za-z0-9._#-]*)", "\n".join(lines)) if x.group(2) != "planner"})
 if bad:
     print("REJECT desk 승계 본문에 팀 직발 예시가 있다(%s) — desk 는 planner 에게만 보낸다: 그 줄을 지우고 planner 주소로 바꿔라" % ", ".join(bad)); sys.exit(3)
 sys.exit(0)
@@ -180,6 +180,17 @@ PID="$(tmux list-panes -t "=$NAME" -F '#{pane_pid}' 2>/dev/null | head -1)"
 up=0; i=0
 while [ "$i" -lt "$WAIT_MAX" ]; do i=$((i+1)); pgrep -P "$PID" >/dev/null 2>&1 && { up=1; break; }; sleep "$POLL"; done
 [ "$up" = 1 ] || { echo "REJECT $NAME 에서 에이전트 프로세스 기동 미확인(pgrep ${WAIT_MAX}회) — 송신 0"; hil "새 pane 을 사람이 확인"; exit 1; }
+
+# ⓒ-1 이어가기 모드의 미제출 부팅 문장 (r925 r3) — 재실행으로 이어갈 때 tmuxc 가 넣은 부팅 문장이 입력줄에 남아 있어
+#   jsonl 이 안 생긴다(ops #56→#57 3회 정지). 판정은 tmuxc 한 곳(`tmuxc boot-enter`)이 한다 — 근거 = 그 좌석 세션 env 의
+#   발급 --session-id(기록 «한 파일» · 전수 판독 0) + 넣은 전문(완전 일치만 Enter 1회 · 접두·색 판정 0 · 하드 룰 10·17).
+#   rc0 = 제출 확인 → 송신으로 잇는다 · 그 밖(입력줄 판독 불가 · 다른 글자 · 기록 없음 · 근거 없음) = HIL exit 5.
+#   claude 만 — 다른 에이전트 이어가기는 종전 그대로(Enter 0).
+if [ "$RESUMED" = 1 ] && [ "$AGENT" = claude ]; then
+  BE_OUT="$(tmuxc boot-enter "$NAME" 2>&1)"; BE_RC=$?
+  [ -n "$BE_OUT" ] && printf '%s\n' "$BE_OUT"
+  [ "$BE_RC" = 0 ] || { hil "이어가기 부팅 문장 판정 rc=$BE_RC — $(printf '%s' "$BE_OUT" | tail -n 1)"; exit 5; }
+fi
 
 # ⓒ-2 새 좌석 jsonl 의 SessionStart — 실측 꼴(SessionStart 뒤 16초 Enter 미제출)을 줄이려 기다린다. 못 봐도 «미관측» 을 드러내고 송신(도달 판정은 아래 send-verified 몫).
 CWD="$(tmux display-message -p -t "=$NAME:" '#{pane_current_path}' 2>/dev/null)"   # r622: «=이름:» — «=이름» 은 창 대상에서 빈 값(새 좌석 jsonl 폴더가 엉뚱해진다)

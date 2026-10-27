@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ft-merge-land.sh <PR번호> --approve-sha <40hex> [--repo <dir>] [--remote origin] [--target main]   (R230 교정 2 H1 · 오빠 판정 1875 «로컬 착지 강제»)
 #   main 병합 = 이 도구뿐(gh pr merge·ft-gh-as-tank.sh pr merge 는 훅이 막는다). 검사한 트리 == 실제로 main 에 놓이는 트리 — 틈은 git 서버의 non-FF 거절이 닫는다.
-#   ① 오빠 승인 값(--approve-sha = 승인한 PR head sha · 없으면 실행 0 · 지금 head 가 다르면 «A 뒤 main 병합만 + 자기 변경 동일» 일 때만 ft-approval-equiv 로 통과 — R247 판정 1917) ② PR OPEN·base main·head sha 결속 ③ PR head fetch(pull/N/head) ④ ft-merge-gate(main 포함·줄 계약)
+#   ① 오빠 승인 값(--approve-sha = 승인한 PR head sha · 없으면 실행 0 · 지금 head 가 다르면 «A 뒤 main 병합만 + 자기 변경 동일» 일 때만 ft-approval-equiv 로 통과 — R247 판정 1917) ② PR OPEN·base main·head sha 결속 ③ PR head fetch(pull/N/head → 개인 ref refs/ft-land/N · r706) ④ ft-merge-gate(main 포함·줄 계약)
 #   ⑤ Q = commit-tree <S^{tree}> -p <M>(squash 1커밋 · 메시지 = PR 제목·본문 + PR #N) · --ff(R392) = 승인 sha == PR head ∧ main 이 head 의 조상일 때만 Q=S(commit-tree 0 · 전송 객체 0 · 커밋 수 보존) ⑥ git push origin Q:refs/heads/main (force 0 · non-FF = 착지 0)
 #   ⑦ PR 에 착지 sha 코멘트 + 닫기. 7초 룰: gh·fetch 각 7 s + 재시도 1 · push 는 크기 비례 PB=min(F + 7 s × ceil(객체수/U0), 70 s)(fm_push_bound · R354) · 실제 상한 AB=min(PB, 남은 시간)(남은 11 s·PB 70 이면 11 s 한 번 · timeout 이면 재시도 0) · 재시도 1 은 «서버 응답 전 연결 실패» 뿐(timeout·reset·remote 출력 = 불명 → ls-remote 1회로 착지됨/착지 0/불명 판정) · 총 마감 70 s.
 #   ★모든 모드(ON·OFF·tamper·상태 못 읽음)에서 승인 파일(autonomy-merge-approved/<sha> + autonomy.log 한 줄)이 필요★(R336 · autonomy-merge-guard 와 같은 결속). 승인 파일 폴더 = ft-autonomy.sh state-dir(R253). 성공 줄에 approve-file=<승인 epoch>.
@@ -22,7 +22,7 @@ while [ $# -gt 0 ]; do case "$1" in
 printf '%s' "$PR" | grep -Eq '^[0-9]+$' || usage
 [ -z "$AP" ] || printf '%s' "$AP" | grep -Eq '^[0-9a-f]{40}$' || { echo "REJECT 오빠 병합 승인 값(--approve-sha <PR head 40hex>) 없음 — 실행 0"; exit 2; }   # R725: 빈 값 = 문서 전용 판정 경로(아래 ft_doc_exempt.py)
 [ -n "$REPO" ] || REPO="$(git rev-parse --show-toplevel 2>/dev/null)" || { echo "REJECT repo 를 찾을 수 없음"; exit 1; }
-G() { git -C "$REPO" "$@"; }
+G() { git -C "$REPO" "$@"; }; lr_del() { local e; e="$(G update-ref -d "refs/ft-land/$PR" ${1:+"$1"} 2>&1)" || { echo "WARN 개인 ref 정리 실패 refs/ft-land/$PR — ${e:-git 원문 0}" >&2; return 1; }; }   # r706: 개인 ref 정리 = 이 도구 하나 책임(공용 FETCH_HEAD 는 다른 좌석 fetch 가 덮는다)
 rej() { echo "REJECT $* (착지 0)"; exit 1; }
 CTX="$(fm_land_ctx "$REPO" "$REMOTE" "${FT_ROOT:-}")" || rej "대상 리포 remote URL 해석 실패(fetch·push URL 이 같은 github owner/name 이어야) — 어느 리포 PR 인지 몰라 착지 0"   # r648: 승인 루트(BYZ) ≠ 대상 리포
 IFS='|' read -r ROOT CROSS SLUG BH RROOT <<<"$CTX"; STATE="${FT_AUTONOMY_STATE_DIR:-$ROOT/.fable-team/state}"
@@ -45,8 +45,8 @@ pf() { printf '%s' "$JSON" | python3 -c 'import json,sys;print(json.load(sys.std
 [ "$(pf state)" = OPEN ] || rej "PR #$PR 가 OPEN 아님($(pf state))"
 [ "$(pf baseRefName)" = "$TARGET" ] || rej "PR #$PR base 가 $TARGET 아님($(pf baseRefName))"
 HEADSHA="$(pf headRefOid)"   # head != 승인 sha 는 게이트 뒤 ft-approval-equiv 가 가른다(R247 판정 1917 — A 뒤 main 병합만 했고 자기 변경이 같으면 같은 승인)
-fm_t7 git -c gc.auto=0 -C "$REPO" fetch --quiet "$REMOTE" "pull/$PR/head" || rej "PR head fetch 실패"; deadline
-S="$(G rev-parse --verify -q FETCH_HEAD^{commit})" && [ "$S" = "$HEADSHA" ] || rej "fetch 한 head($S) != PR head($HEADSHA)"; DNY="$(bash "$HERE/ft-merge-deny.sh" "$S" --branch "$(pf headRefName)" --repo "$REPO")" || rej "${DNY:-착지 금지 목록 검사 실패(사유 0)}"   # r755: 착지 금지 가지 목록(ft-merge-deny.txt) — 목록 없음·꼴 오류·금지 가지 = 착지 0(fail-closed)
+lr_exit() { local st=$?; lr_del || { [ "$st" = 0 ] && exit 4; }; return 0; }; lr_trap() { local p; p="$(trap -p EXIT)"; p="${p#trap -- }"; p="${p% EXIT}"; p="${p#\'}"; p="${p%\'}"; p="${p#lr_exit}"; p="${p#; }"; trap "lr_exit${p:+; $p}${1:+; $1}" EXIT; }; lr_trap; fm_fetch "$REPO" "$REMOTE" "+pull/$PR/head:refs/ft-land/$PR" || rej "PR head fetch 실패"; deadline   # r706: 개인 ref — 정리는 EXIT trap 이 모든 출구(총 마감 거절 포함)에서 한다
+S="$(G rev-parse --verify -q "refs/ft-land/$PR^{commit}")"; [ -z "$S" ] || lr_del "$S" || rej "개인 ref 정리 실패 refs/ft-land/$PR(착지 0)"; [ -n "$S" ] && [ "$S" = "$HEADSHA" ] || rej "fetch 한 head($S) != PR head($HEADSHA)"; DNY="$(bash "$HERE/ft-merge-deny.sh" "$S" --branch "$(pf headRefName)" --repo "$REPO")" || rej "${DNY:-착지 금지 목록 검사 실패(사유 0)}"   # r755: 착지 금지 가지 목록(ft-merge-deny.txt) — 목록 없음·꼴 오류·금지 가지 = 착지 0(fail-closed)
 
 GOUT="$(bash "$HERE/ft-merge-gate.sh" "$S" --repo "$REPO" --remote "$REMOTE" --target "$TARGET" --base-head-file "$BH")" || rej "게이트: ${GOUT#DENY }"; deadline
 EQ=""   # R247: 게이트가 main 을 fetch 한 «뒤»(equiv 는 로컬 git 만) — 통과면 나머지 게이트·착지는 S 기준 그대로. 못 판단(rc3)도 REJECT.
@@ -114,7 +114,7 @@ ITO="${FT_INSTALL_CHECK_TIMEOUT:-7}"; IOUT="$("$TB" "$ITO" bash "${FT_INSTALL_CH
 if [ "$irc" -eq 124 ] || [ "$irc" -eq 143 ]; then echo "INSTALL-PENDING 설치 검사 ${ITO}초 초과 — 손으로: ft-live-install-check.sh --range $M..$Q"; IOUT="INSTALL-PENDING 검사 시간 초과"
 else printf '%s\n' "$IOUT" | sed 's/^/INSTALL /'; fi
 [ "$irc" -eq 0 ] || { mkdir -p "$ROOT/.fable-team/state/install-pending" && printf '%s\n' "$IOUT" > "$ROOT/.fable-team/state/install-pending/$Q.txt"; } || echo "WARN install-pending 기록 실패"
-CB="$(mktemp)"; trap 'rm -f "$CB"' EXIT   # R261: ft-gh-as-tank.sh 는 하이픈 동사 + 본문 «파일» + --apply(없으면 dry-run) · pr-close --comment 한 번이 코멘트+닫기
+CB="$(mktemp)"; lr_trap 'rm -f "$CB"'   # R261: ft-gh-as-tank.sh 는 하이픈 동사 + 본문 «파일» + --apply(없으면 dry-run) · pr-close --comment 한 번이 코멘트+닫기
 printf '%s\n' "착지 sha $Q (ft-merge-land · 검사 트리 == 착지 트리 · 판정 1875)${EQ:+ · 동일승인 대조 EQUIV (${AP:0:10}→${S:0:10} · 판정 1917${EQM:+ · $EQM})}" > "$CB"
 fm_t7 ${SLUG:+env FT_ISSUE_REPO="$SLUG"} "$GH_W" pr-close "$PR" --comment "$CB" --apply \
   || { echo "WARN 착지는 성공 — PR #$PR 코멘트/닫기 실패: 손으로 처리(착지 sha $Q)"; exit 3; }

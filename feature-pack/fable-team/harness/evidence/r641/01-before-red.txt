@@ -1,0 +1,52 @@
+# 전 = base 1c580b42(origin/main · git archive 사본 + 빈 git init) + 최종 r641 시험 파일만
+FAIL 도구 없음 /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r641-reboot-restore-seats-parallel-hr-re/91d3bd04-6862-43a5-a514-84f67f9d90fb/scratchpad/base.KZp5/feature-pack/fable-team/harness/tests/../../harness/kit/fable-team/bin/ft-reboot-restore.sh
+FAIL harness/bin 사본 어긋남
+FAIL ⓐ rc 0 — «127» ≠ «0»
+FAIL ⓐ 세션 2개 생김
+/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r641-reboot-restore-seats-parallel-hr-re/91d3bd04-6862-43a5-a514-84f67f9d90fb/scratchpad/base.KZp5/feature-pack/fable-team/harness/tests/test_reboot_restore_r641.sh: 줄 74: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.IVvaiUDPfI/args.ftrr-test-a: No such file or directory
+FAIL ⓐ 래퍼 인자(a) — «» ≠ «--dangerously-skip-permissions --model claude-opus-5-5[1m] --effort xhigh --resume 11111111-aaaa-4000-8000-000000000001 --name ftrr-test-a »
+/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r641-reboot-restore-seats-parallel-hr-re/91d3bd04-6862-43a5-a514-84f67f9d90fb/scratchpad/base.KZp5/feature-pack/fable-team/harness/tests/test_reboot_restore_r641.sh: 줄 75: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.IVvaiUDPfI/args.ftrr-test-b: No such file or directory
+FAIL ⓐ 래퍼 인자(b) — «» ≠ «--dangerously-skip-permissions --model claude-opus-5-5[1m] --effort xhigh --resume 22222222-bbbb-4000-8000-000000000002 --name ftrr-test-b »
+FAIL ⓐ 세션 환경 FT_SEAT — «» ≠ «FT_SEAT=ftrr-test-a»
+FAIL ⓐ 시작 셸 zsh -l — 없음: «zsh -l» ← 
+FAIL ⓐ cwd = 행의 cwd — «» ≠ «/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.IVvaiUDPfI/cwd-ftrr-test-a»
+PASS ⓐ shell 행은 좌석 아님(열기 0)
+FAIL ⓑ 표 줄(a OK) — 없음: «ftrr-test-a · OK · » ← bash: /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r641-reboot-restore-seats-parallel-hr-re/91d3bd04-6862-43a5-a514-84f67f9d90fb/scratchpad/base.KZp5/feature-pack/fable-team/harness/tests/../../harness/kit/fable-team/bin/ft-reboot-restore.sh: No such file or directory
+FAIL ⓑ 표 줄 꼴 — bash: /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r641-reboot-restore-seats-parallel-hr-re/91d3bd04-6862-43a5-a514-84f67f9d90fb/scratchpad/base.KZp5/feature-pack/fable-team/harness/tests/../../harness/kit/fable-team/bin/ft-reboot-restore.sh: No such file or directory
+FAIL ⓑ 8317 X 하나 → rc 3 — «127» ≠ «3»
+FAIL ⓑ b 줄 8317 X — bash: /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r641-reboot-restore-seats-parallel-hr-re/91d3bd04-6862-43a5-a514-84f67f9d90fb/scratchpad/base.KZp5/feature-pack/fable-team/harness/tests/../../harness/kit/fable-team/bin/ft-reboot-restore.sh: No such file or directory
+FAIL ⓒ rc 0 — «127» ≠ «0»
+FAIL ⓒ a SKIP 살아 있음 — 없음: «ftrr-test-a · SKIP 살아 있음» ← bash: /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r641-reboot-restore-seats-parallel-hr-re/91d3bd04-6862-43a5-a514-84f67f9d90fb/scratchpad/base.KZp5/feature-pack/fable-team/harness/tests/../../harness/kit/fable-team/bin/ft-reboot-restore.sh: No such file or directory
+PASS ⓒ 래퍼 호출 0(send-keys 0)
+FAIL ⓓ FAIL 있음 → rc 3 — «127» ≠ «3»
+FAIL ⓓ a FAIL 대화 파일 없음 — 없음: «ftrr-test-a · FAIL 대화 파일 없음» ← bash: /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r641-reboot-restore-seats-parallel-hr-re/91d3bd04-6862-43a5-a514-84f67f9d90fb/scratchpad/base.KZp5/feature-pack/fable-team/harness/tests/../../harness/kit/fable-team/bin/ft-reboot-restore.sh: No such file or directory
+PASS ⓓ a 세션 열기 0
+FAIL ⓓ b 안 열림
+FAIL ⓔ 끝난 나노 SKIP — 없음: «ftrr-test-nano-a · SKIP 끝난 나노» ← bash: /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r641-reboot-restore-seats-parallel-hr-re/91d3bd04-6862-43a5-a514-84f67f9d90fb/scratchpad/base.KZp5/feature-pack/fable-team/harness/tests/../../harness/kit/fable-team/bin/ft-reboot-restore.sh: No such file or directory
+PASS ⓔ 끝난 나노 열기 0
+FAIL ⓔ 나노 아닌 좌석 안 열림
+FAIL ⓔ rc 0 — «127» ≠ «0»
+FAIL ⓕ seat-live rc 0 — «127» ≠ «0»
+FAIL ⓕ 로그 출처=seat-live — 없음: «출처=seat-live» ← bash: /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r641-reboot-restore-seats-parallel-hr-re/91d3bd04-6862-43a5-a514-84f67f9d90fb/scratchpad/base.KZp5/feature-pack/fable-team/harness/tests/../../harness/kit/fable-team/bin/ft-reboot-restore.sh: No such file or directory
+FAIL ⓕ 원장 출처=seat-live — 없음: «출처=seat-live» ← 
+/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r641-reboot-restore-seats-parallel-hr-re/91d3bd04-6862-43a5-a514-84f67f9d90fb/scratchpad/base.KZp5/feature-pack/fable-team/harness/tests/test_reboot_restore_r641.sh: 줄 121: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.IVvaiUDPfI/args.ftrr-test-a: No such file or directory
+FAIL ⓕ effort 기본 high — 없음: «--model claude-sonnet-5-5[1m] --effort high » ← 
+FAIL ⓕ 깨진 스냅샷 → seat-live — 없음: «출처=seat-live» ← bash: /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r641-reboot-restore-seats-parallel-hr-re/91d3bd04-6862-43a5-a514-84f67f9d90fb/scratchpad/base.KZp5/feature-pack/fable-team/harness/tests/../../harness/kit/fable-team/bin/ft-reboot-restore.sh: No such file or directory
+FAIL ⓕ 둘 다 없음 rc 2 — «127» ≠ «2»
+FAIL ⓕ ERROR 줄 — 없음: «ERROR» ← bash: /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r641-reboot-restore-seats-parallel-hr-re/91d3bd04-6862-43a5-a514-84f67f9d90fb/scratchpad/base.KZp5/feature-pack/fable-team/harness/tests/../../harness/kit/fable-team/bin/ft-reboot-restore.sh: No such file or directory
+FAIL ⓖ 6석 rc 0 — «127» ≠ «0»
+FAIL ⓖ 동시 래퍼 수 0
+FAIL ⓖ 원장 좌석별 OK 6줄 — «0» ≠ «6»
+FAIL ⓖ 기동 확인 없음 rc 3 — «127» ≠ «3»
+FAIL ⓖ FAIL 기동 확인 없음 — 없음: «ftrr-test-g1 · FAIL 기동 확인 없음» ← bash: /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r641-reboot-restore-seats-parallel-hr-re/91d3bd04-6862-43a5-a514-84f67f9d90fb/scratchpad/base.KZp5/feature-pack/fable-team/harness/tests/../../harness/kit/fable-team/bin/ft-reboot-restore.sh: No such file or directory
+FAIL ⓖ 원장 FAIL 줄 — 없음: «ftrr-test-g1 FAIL» ← 
+FAIL ⓗ dry-run rc 0 — «127» ≠ «0»
+FAIL ⓗ 계획 표 — 없음: «ftrr-test-a · 계획 열기» ← bash: /private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r641-reboot-restore-seats-parallel-hr-re/91d3bd04-6862-43a5-a514-84f67f9d90fb/scratchpad/base.KZp5/feature-pack/fable-team/harness/tests/../../harness/kit/fable-team/bin/ft-reboot-restore.sh: No such file or directory
+PASS ⓗ dry-run 세션 0
+PASS ⓗ dry-run 래퍼 호출 0
+FAIL ⓗ tmuxc restore 맨 위 실행 안내 — 없음: «tmuxc restore --select all --go» ← 📸 스냅샷 사용: latest.json (38분 전, 3개 세션)
+FAIL ⓗ tmuxc restore 맨 위 많으면 안내 — 없음: «ft-reboot-restore.sh» ← 📸 스냅샷 사용: latest.json (38분 전, 3개 세션)
+PASS ⓗ tmuxc restore 동작 변경 0(계획만)
+== r641 fail=38
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=data:/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live,repo:/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents,comm:/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/comm files=660
+rc=1
