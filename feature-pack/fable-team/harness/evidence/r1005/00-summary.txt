@@ -1,0 +1,30 @@
+r1005 발행 검증기 ft-news-verify — 선행(r850 · r1006 · r1004) 착지 위로 다시 얹음 (nano byz-harness-nano-r1005-news-verify-after-prereqs#0 · 2026-10-27)
+
+무엇: 뉴스·매거진 발행 직후 계획 §2 9칸(ⓐ~ⓘ)을 다시 재고 «검증 N/9» 한 줄 + 새 사건 칸만 planner [긴급] 1통. 발행은 안 막는다(rc·로그만).
+  · 검증기 = kit/fable-team/bin/ft-news-verify(입구) + _news_verify.py(151줄 · 칸 상한 7초·연속 셈 호출·R2 한 곳) + _news_verify_book.py(88줄 · 사건 키 쪽지·연속 24·자체 오류 1통 · r1005에서 분리) + _news_verify_lib.py(97줄 · 4값 상수·need/guarded·글 다듬기) + _news_verify_cells.py(142줄 · 원장 칸 ⓐ~ⓕ) + _news_verify_pub_cells.py(88줄 · 발행 칸 ⓖ~ⓘ) · 전부 200줄 아래 · 짝 사본 harness/bin cmp0
+  · 호출 1줄씩 = ft_news_html.py `verify_run`(publish_files 성공 갈래 첫 줄 · R2 쪽지) · kit/slack-mirror/magazine_from_news.sh(magazine_doc rc0 뒤)
+  · 칸 = 착지한 선행 함수 재호출만 — r851 gather(open_questions·hil_pending·queue_open·published_at) · ft_ledger_fill_src landed_commits·teams·git·ancestor · ft_ledger_fill_tables.lower_closed · r847 ft_news_ledger.fail_announced · r850 ft_news_html.live_teams · r1004 root_readback_guard.check · 판정 규칙 새로 구현 0(ⓔ «같은 경고 하루 2회» 만 arch 155 판단대로 직접 셈 — 카드 §반례 집합 각주)
+  · r853 판(2082d729)에서 바꾼 곳 하나: ⓘ 칸의 `root_readback_guard.problems(text)` → r1004 착지 판의 `check(text)`(None = 정상 · 사유 글자 = 거짓). 함수 확인은 getattr 한 곳(모듈만 있고 함수 없음 = «검증 불가»)
+
+DA⑥ r2 [수용] 반례 6건 (카드 §반례 집합 동결 · 전부 닫음)
+  1. 검증 불가를 복구로 읽음(_news_verify.py:119) → 열린 사건 집합에서 «지금 참이 아닌 칸(실패·모름·검증 불가)» 만 유지. 검증 불가 칸은 닫지도 새로 열지도 않는다. 시험 = 거짓 → 검증 불가 → 같은 거짓 = 쪽지 누적 1→1→1
+  2. 발행본 읽기 권한 오류(:164) → 발행본 읽기를 main 의 R2 try 안으로 옮김. PermissionError = 발행 유지 · ERROR 1줄 · 쪽지 1 · rc1(예외 전파 0)
+  3. 오류 처리기 안 오류(:144) → self_error 의 상태 읽기를 꼴 검사 로더(lib.load)로. streak.json=[] · self-error.json=[] 에서도 ERROR + 쪽지 1
+  4. 자체 오류 재발 알림 0(:144) → 정상 완주 때 self-error 사건을 닫는다(`_save(st/'self-error.json', {})`). 같은 사유 재발 = 새 1통(누적 1→1→2)
+  5. 꼬리 쓰기 실패인데 9/9(:93) → tail_line 이 사유를 돌려주고 main 이 rc≠0 + ERROR 1줄 + 쪽지 1 로 만든다(«(꼬리 못 씀 — 9/9 아님)» 출력 · 연속 셈 안 올림)
+  6. 매거진 출력 폴더 `~/` 글자 그대로(magazine_from_news.sh:47) → 출력 폴더와 발행 출력 경로의 «~» 를 편다(«~» → HOME · «~/x» → HOME/x) · HOME 없이 «~» 면 ERROR 1줄 + rc7 · 그 밖 경로는 ${HOME:-} 로 set -u 안전
+
+시험 (tests/scripts/test_news_verify_r1005.py · 32 tests · 임시 bare origin + 사본 · 실 발행·실 슬랙·실 쪽지 0 · FT_NOW 고정 · r1004 가드는 대역)
+  ⓐ 9칸 참 → «검증 9/9» rc0 · 로그 1줄 · 꼬리 «검증 9/9» · streak 1 · 쪽지 0
+  ⓑ 칸별 거짓 주입 8종 → «검증 8/9 · 실패 <칸>» rc1 · [긴급] 1통 · 같은 칸 또 거짓 0통 · 참 뒤 다시 거짓 새 1통 · ⓔ 는 하루 두 판 시험
+  ⓒ 장부 못 읽음 = 모름 = 실패로 셈 · ⓓ 23→24 = 끝선 1통(다음 0통) · ⓔ 칸 예외 = ERROR+쪽지 1 · verify_run 예외 전파 0
+  ⓘ 4시험(가드 재호출 · None 참 · 사유 거짓 · 모듈 없음/함수 없음 = 검증 불가 · 자체 판정 0)
+  V2 2 · V3 2 · V4 2 · V5 2(--out-dir 두 꼴 · 파일 없음 rc7) · V6 1(HOME 없음 WARN rc0) · r1005 반례 7시험(1~6 + HOME 없음 «~» rc7)
+  mutation.sh → mutation.txt — 8종 전부 KILLED(① 모름=통과 ② 사건 키 삭제 ③ 검증 불가=복구 ④ ⓘ 자체 판정 ⑤ 꼬리 실패 삼킴 ⑥ 자체오류 사건 닫기 삭제 ⑦ 발행본 읽기 예외 안 받음 ⑧ 매거진 «~» 펼침 삭제)
+
+빨강 먼저: red-base.txt (기준판 origin/main bin 으로 새 시험 = 모듈 없음 수집 오류 rc2) → green.txt (32 passed rc0)
+실 원천 읽기 전용 1회: real-dryrun.txt — 실 로그·명부·원장·옛 발행본(10-13)으로 «검증 3/9» rc1 · ⓘ = 참(실 r1004 가드 호출) · 예외 0 · 실 상태 쓰기 0(상태 = /tmp · 쪽지 0)
+회귀: regress.txt — 뉴스·매거진·원장 7파일 178 passed · 2 failed 는 기준판(origin/main)에서도 같은 2건 실패(test_ledger_fill_r851 의 rc6 기대 vs r707 가드 rc7 · 이 카드 무관 · 같은 파일 2.4초 실측) · kit↔bin cmp0(tests/test_kit_bin_sync.sh ALL PASS)
+
+press 필요: 없음 — 이 카드는 발행 뒤 검증 도구 + 시험 · 라이브 발화(뉴스 24회 연속 9/9 + 매거진 1회)는 planner 계획 §4 끝선 몫
+알려진 한계: ⓔ «같은 경고 하루 2회» 만 선행 함수가 없어 직접 셈(arch 155 판단 «기준 밖» · r853 탐색 원문 evidence 는 옛 가지에 있음) · 「악성 권한 발행본」 같은 root 실행 환경에서는 0444 시험이 안 걸린다(현 사용자 계정 실측 rc1 — 사용자 권한 기준)

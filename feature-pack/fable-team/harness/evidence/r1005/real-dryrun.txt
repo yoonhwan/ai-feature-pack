@@ -1,0 +1,10 @@
+WARNING 팀 상태 PARTIAL 8팀 — 확인 불가 팀이 있다(발행은 계속)
+INFO 검증 3/9 kind=news streak=0 연속 · 실패 ⓐ 오빠 할 일 건수, ⓑ 한 일, ⓒ 팀 수, ⓓ 발행 sha, ⓖ fetch 실패, ⓗ 팀 지도
+NEWS-VERIFY 2026-10-27 13:19 kind=news 검증 3/9
+  ⓐ 오빠 할 일 건수 — 발행본 0건 ≠ 장부 31건(질문 27 · 실행 줄 3 · 자율 큐 1)
+  ⓑ 한 일 — 카드·쪽지 장부 못 읽음 — FillError: 하네스 폴더 $FT_HARNESS_ROOT/design/harness/ — FT_HARNESS_ROOT 미설정
+  ⓒ 팀 수 — 발행본에 «팀 N개» 없음
+  ⓓ 발행 sha — 발행본 sha 20c89bc2a1 · origin/main 7c011ae3a1 (발행본이 옛 판)
+  ⓖ fetch 실패 — 로그 꼬리 4줄 · 구간 표식 False
+  ⓗ 팀 지도 — 지도에 없는 팀 13 — ccu, cfo, chatbot, feature, graphics
+rc=1

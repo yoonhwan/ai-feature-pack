@@ -1,0 +1,12 @@
+Traceback:
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/scripts/test_news_verify_r1005.py:23: in <module>
+    import _news_verify as nv  # noqa: E402
+    ^^^^^^^^^^^^^^^^^^^^^^^^^
+E   ModuleNotFoundError: No module named '_news_verify'
+=========================== short test summary info ============================
+ERROR tests/scripts/test_news_verify_r1005.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.22s

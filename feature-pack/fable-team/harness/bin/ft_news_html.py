@@ -299,6 +299,34 @@ def publish_files(html_p: Path, sum_p: Path, now: datetime) -> tuple[int, dict |
     return publish_html(html_p, summary, now)
 
 
+def verify_run(html_p: Path, sum_p: Path) -> None:
+    """r1005 — 발행 뒤 9칸(ⓐ~ⓘ) 재측정 1줄(ft-news-verify · --tail = 발행본 꼬리 «검증 N/9»).
+    검증 실패·예외·시간 초과는 발행 rc 를 바꾸지 않는다(게시는 그대로 · 검증기 로그·쪽지가 알린다 · FT_NEWS_VERIFY=0 = 끔)."""
+    if os.environ.get("FT_NEWS_VERIFY", "1") == "0":
+        return
+    try:
+        done = subprocess.run(["bash", str(HERE / "ft-news-verify"), "--kind", "news", "--body", str(sum_p), "--body", str(html_p), "--tail"],
+                              capture_output=True, text=True, timeout=70, check=False)
+    except (OSError, subprocess.TimeoutExpired) as e:  # R2 — 발행 유지 · ERROR 1줄 · 쪽지 1(같은 사유 연속 0통)
+        _verify_self_error(e)
+        return
+    line = (done.stdout or done.stderr).strip().splitlines()[0] if (done.stdout or done.stderr).strip() else "출력 없음"
+    (LOG.error if done.returncode else LOG.info)("%s", line)
+    if done.returncode == 2:  # 발행본을 못 읽어 검증 자체를 못 함 = R2 경로(쪽지 1 · 발행 유지)
+        _verify_self_error(RuntimeError(line))
+
+
+def _verify_self_error(err: Exception) -> None:
+    """R2 — 검증기를 못 돌림 = 발행 유지 · ERROR 1줄 · planner 쪽지 1(쪽지는 검증기 알림기 한 곳)."""
+    try:
+        import _news_verify as nv
+        root = Path(os.environ.get("FT_ROOT") or ".")
+        nv.self_error(root, Path(os.environ.get("FT_NEWS_VERIFY_STATE") or root / ".fable-team/state/news-verify"), "news",
+                      f"{type(err).__name__}: {err}")
+    except Exception as e:  # noqa: BLE001 — 알림기 자체가 없어도 발행은 계속(ERROR 만)
+        LOG.error("검증기 자체 실패 — 발행은 그대로: %s (%s)", err, e)
+
+
 def _save(f: Path, data: dict) -> None:
     f.parent.mkdir(parents=True, exist_ok=True)
     f.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
@@ -512,6 +540,7 @@ def _tick(root: Path, state: Path, repo: Path, rel: str, news: Path, base: str, 
         return 1, "지도 만들기 실패"
     rc, got = publish_files(html_p, sum_p, now)
     if got is not None:  # 글이 올라갔다(미첨부 rc3 포함) — 기준선 전진
+        verify_run(html_p, sum_p)  # r1005 — 발행 뒤 9칸 재측정(발행 rc 무관)
         _delay_clear(state, now, last)
         _save(hs, {"at": stamp, "map_at": stamp, "ts": got.get("ts"), "link": got.get("permalink")})
         state.mkdir(parents=True, exist_ok=True)
