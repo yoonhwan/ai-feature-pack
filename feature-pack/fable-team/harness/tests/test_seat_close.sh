@@ -135,7 +135,7 @@ vrun() { FAKE_RETIRE_OUT="${FAKE_RETIRE_OUT-RESUME ok $TMP/resume/$1.json}" RETI
 S="$TMP/v1.json"; mkrole "$S"; : > "$LOG"; : > "$TMP/retire.log"
 out="$(FAKE_LIVE="A#1" FAKE_SESSION=1 vrun 'A#1' --reason "판정 2304 역할 좌석 닫기" --seats "$S" --verdict 2304)"; rc=$?
 chk "ⓑrc 0 · CLOSED-ROLE 출력" "$rc $out" "0 CLOSED-ROLE A#1 verdict=2304 record=$TMP/resume/A#1.json cells=$S:_arch kill=ok reap left=0 rc=0"
-chk "ⓑretire 스텁 인자(--record-only --verdict · --seats 전달)" "$(cat "$TMP/retire.log")" "A#1 --record-only --verdict 2304 --seats $S"
+chk "ⓑretire 스텁 인자(--record-only --verdict · --seats · r1013 keep-existing)" "$(cat "$TMP/retire.log")" "A#1 --record-only --verdict 2304 --seats $S --keep-existing"
 chk "ⓑ_arch \"\" · 다른 _ 칸 불변" "$(J "$S" '[._arch,._master,._hil_route]|join(",")')" ",M#1,P#1"
 chk "ⓑ행 stop-ready · _closed_role · _closed.verdict·reason" "$(J "$S" '.["A#1"]|[.role,(.tick|tostring),._closed_role,._closed.verdict,._closed.reason]|join(",")')" "stop-ready,null,arch,2304,판정 2304 역할 좌석 닫기"
 chk "ⓑ.bak 1 · kill 1 · 태그 해제 1" "$(ls "$S".bak-close-* | wc -l | tr -d ' ') $(kills) $(grep -c '^set-option .*-u @zc_v65_active' "$LOG")" "1 1 1"
@@ -199,14 +199,14 @@ chk "ⓐ기록 바이트 불변 · 파일 수 1" "$(cmp -s "$ZC_RESUME_DIR/A#1.j
 chk "ⓐ행 stop-ready·dead·verdict · _closed_from · _closed_tick" "$(J "$S" '.["A#1"]|[.role,(._closed.dead|tostring),._closed.verdict,(._closed_from|join("+")),._closed_tick]|join(",")')" "stop-ready,true,2344,$S:_arch,ft-arch-tick"
 chk "ⓐ_arch \"\" · 다른 칸 불변" "$(J "$S" '[._arch,._master,._hil_route]|join(",")')" ",M#1,P#1"
 chk "ⓐkill 0 · 태그 해제 0 · 원장 kill=dead" "$(kills) $(grep -c '^set-option' "$LOG") ${out:+$(cut -f6 "$VLOG")}" "0 0 kill=dead"
-# ⓓ 세션 «있음» + 기록 실패 → HELD rc 3 그대로 · 재개 기록 호출에 --keep-existing 0
+# ⓓ 세션 «있음» + 기록 실패 → HELD rc 3 그대로(r1013 — 기존 기록 보존은 ft-seat-retire 안에서 갈린다) · 재개 기록 호출에 --keep-existing 1
 cat > "$TMP/bin/retire-spy" <<'EOF'
 #!/usr/bin/env bash
 echo "$*" >> "$RETIRE_LOG"; echo "NORECORD $1 조회 불가: pane 식별 조회 불가"
 EOF
 chmod +x "$TMP/bin/retire-spy"; S="$TMP/d4.json"; mkrole "$S"; cp "$S" "$TMP/d4.orig"; : > "$TMP/retire.log"; : > "$LOG"
 out="$(FT_SEAT_RETIRE_BIN="$TMP/bin/retire-spy" FAKE_SESSION=1 FAKE_LIVE="A#1" run bash "$CLOSE" 'A#1' --reason r --seats "$S" --verdict 2344)"; rc=$?
-chk "ⓓ살아 있는 좌석 · 기록 실패 → HELD rc 3 · keep 0 · 쓰기·kill 0" "$rc ${out%% — *} $(grep -c -- --keep-existing "$TMP/retire.log") $(cmp -s "$S" "$TMP/d4.orig" && echo same || echo changed) $(kills)" "3 HELD A#1 재개 기록 실패 0 same 0"
+chk "ⓓ살아 있는 좌석 · 기록 실패 → HELD rc 3 · keep 1(r1013) · 쓰기·kill 0" "$rc ${out%% — *} $(grep -c -- --keep-existing "$TMP/retire.log") $(cmp -s "$S" "$TMP/d4.orig" && echo same || echo changed) $(kills)" "3 HELD A#1 재개 기록 실패 1 same 0"
 # ⓑ 세션 없음 + 기록 없음 + 대화 기록(agent-name 줄) 1개 → 기록 1개 생성(record=new) · CLOSED-DEAD
 rm -f "$ZC_RESUME_DIR"/*; mkdir -p "$DH/.claude/projects/$ENC"
 printf '{"display":"[발주 #1] mbox recv A#1","project":"%s","sessionId":"%s"}\n' "$WK" "$UU" > "$DH/.claude/history.jsonl"
@@ -233,6 +233,50 @@ S="$TMP/d2.json"; jq '._arch="A#2"' "$S" > "$S.t" && mv "$S.t" "$S"   # ⓑ 로 
 out="$(FAKE_SESSION=1 run bash "$CLOSE" 'A#1' --reopen --seats "$S")"; rc=$?
 chk "ⓖ교대된 칸은 덮지 않음" "$rc $(J "$S" '._arch') ${out#*roles=}" "0 A#2 - role=arch file=$S · 교대된 칸(복원 0): $S:_arch=A#2"
 run bash "$CLOSE" --reopen 'A#1' --verdict 1 --seats "$S" > /dev/null 2>&1; chk "ⓖ--reopen+--verdict rc 2" "$?" 2
+# r1013 «2차 시도가 1차 기록을 쓴다» — 살아 있는 좌석 + 기존 기록 = kept(새 시도 0) · 기록 없음 + 결속 0 = HELD 그대로 · 1차 reap 실패 뒤 2차 = kept → CLOSED
+cat > "$TMP/bin/retire-model" <<'EOF'
+#!/usr/bin/env bash
+# ft-seat-retire 축소 모형 — «--keep-existing + 기록 있음» = kept(새 시도 0) · 아니면 새로 쓴다(기록 1개)
+k=0; for a in "$@"; do [ "$a" = --keep-existing ] && k=1; done
+rec="$ZC_RESUME_DIR/$1.json"
+[ -z "${RETIRE_LOG:-}" ] || echo "$*" >> "$RETIRE_LOG"
+[ "$k" = 1 ] && [ -f "$rec" ] && { echo "RESUME kept $rec"; exit 0; }
+mkdir -p "$(dirname "$rec")"; printf '{"name":"%s"}' "$1" > "$rec"; echo "RESUME ok $rec"
+EOF
+chmod +x "$TMP/bin/retire-model"
+# ⓐ 살아 있는 좌석 + 기존 기록 + 결속 0 → CLOSED-ROLE record=kept · 기록 바이트 불변 · kill 1
+rm -f "$ZC_RESUME_DIR"/*; printf '{"name":"A#1","uuid":"x"}' > "$ZC_RESUME_DIR/A#1.json"; cp "$ZC_RESUME_DIR/A#1.json" "$TMP/k1.rec"; S="$TMP/k1.json"; mkrole "$S"; : > "$LOG"; : > "$TMP/retire.log"; : > "$VLOG"
+out="$(FT_SEAT_RETIRE_BIN="$TMP/bin/retire-model" RETIRE_LOG="$TMP/retire.log" FAKE_LIVE="A#1" FAKE_SESSION=1 run bash "$CLOSE" 'A#1' --reason "판정 2718 후계 없이 닫기" --seats "$S" --verdict 2718)"; rc=$?
+chk "ⓐrc 0 · record=kept · kill=ok · cells" "$rc $(grep -o 'record=[^ ]*' <<<"$out") $(grep -o 'kill=[a-z]*' <<<"$out") $(grep -o 'cells=[^ ]*' <<<"$out")" "0 record=$ZC_RESUME_DIR/A#1.json kill=ok cells=$S:_arch"
+chk "ⓐ기록 바이트 불변(새 시도 0)·--keep-existing 1" "$(cmp -s "$ZC_RESUME_DIR/A#1.json" "$TMP/k1.rec" && echo same || echo changed) $(grep -c -- --keep-existing "$TMP/retire.log")" "same 1"
+chk "ⓐ행 stop-ready · _closed.verdict=2718 · _arch \"\"" "$(J "$S" '.["A#1"]|[.role,(._closed.verdict|tostring)]|join(",")') $(J "$S" '._arch')" "stop-ready,2718 "
+# ⓐ변이 «살아 있는 좌석에 --keep-existing 안 넘김» → 새 시도로 흘러 kept 아님(이 시험이 잡는다) — bin 폴더 통째 사본에서만 변이(lib 동반)
+MUTB="$TMP/mutbin"; [ -d "$MUTB" ] || cp -R "$BIN" "$MUTB"; MUT="$MUTB/ft-seat-close.sh"
+sed 's/ --keep-existing / /' "$CLOSE" > "$MUT"; chmod +x "$MUT"
+S="$TMP/k1b.json"; mkrole "$S"; cp "$TMP/k1.rec" "$ZC_RESUME_DIR/A#1.json"; : > "$LOG"; : > "$TMP/retire.log"
+out="$(FT_SEAT_RETIRE_BIN="$TMP/bin/retire-model" RETIRE_LOG="$TMP/retire.log" FAKE_LIVE="A#1" FAKE_SESSION=1 run bash "$MUT" 'A#1' --reason r --seats "$S" --verdict 2718)"; rc=$?
+chk "ⓐ변이(keep-existing 없음) → kept 0 · 기록 덮어씀" "$rc $(grep -c 'record=kept' <<<"$out") $(cmp -s "$ZC_RESUME_DIR/A#1.json" "$TMP/k1.rec" && echo same || echo changed)" "0 0 changed"
+# ⓑ 살아 있는 좌석 + 기록 없음 + 결속 0(ft-seat-retire 가 NORECORD) → HELD rc 3(지금과 같음) · 쓰기·kill 0
+rm -f "$ZC_RESUME_DIR"/*; S="$TMP/k2.json"; mkrole "$S"; cp "$S" "$TMP/k2.orig"; : > "$LOG"; : > "$TMP/retire.log"
+out="$(FT_SEAT_RETIRE_BIN="$TMP/bin/retire-spy" FAKE_LIVE="A#1" FAKE_SESSION=1 run bash "$CLOSE" 'A#1' --reason r --seats "$S" --verdict 2718)"; rc=$?
+chk "ⓑrc 3 · HELD · keep 1 · 기록 0개" "$rc ${out%% — *} $(grep -c -- --keep-existing "$TMP/retire.log") $(ls "$ZC_RESUME_DIR" | wc -l | tr -d ' ')" "3 HELD A#1 재개 기록 실패 1 0"
+chk "ⓑ쓰기 0 · kill 0" "$(cmp -s "$S" "$TMP/k2.orig" && echo same || echo changed) $(kills)" "same 0"
+# ⓒ 1차 CLOSE-FAIL(reap left=1) → 2차(같은 기록) → CLOSED · record=kept · 1차가 남긴 기록 그대로
+cat > "$TMP/bin/reap-flaky" <<'EOF'
+#!/bin/sh
+n=$(cat "$REAP_CNT" 2>/dev/null || echo 0); n=$((n+1)); echo "$n" > "$REAP_CNT"
+[ "$n" -le 1 ] && { echo "reap $1 stopped=0 left=1 rc=0"; exit 0; }
+echo "reap $1 stopped=0 left=0 rc=0"
+EOF
+chmod +x "$TMP/bin/reap-flaky"; rm -f "$ZC_RESUME_DIR"/*; : > "$TMP/reap.cnt"; : > "$LOG"; : > "$TMP/retire.log"; : > "$VLOG"
+S="$TMP/k3.json"; mkrole "$S"
+out="$(FT_SEAT_RETIRE_BIN="$TMP/bin/retire-model" RETIRE_LOG="$TMP/retire.log" FT_SEAT_REAP_BIN="$TMP/bin/reap-flaky" REAP_CNT="$TMP/reap.cnt" FAKE_LIVE="A#1" FAKE_SESSION=1 run bash "$CLOSE" 'A#1' --reason "1차" --seats "$S" --verdict 2718 2>/dev/null)"; rc=$?
+chk "ⓒ1차 CLOSE-FAIL reap left=1 rc 1 · 세션 보존(kill 0)" "$rc $(grep -o '^CLOSE-FAIL reap left=1' <<<"$out") $(kills)" "1 CLOSE-FAIL reap left=1 0"
+cp "$ZC_RESUME_DIR/A#1.json" "$TMP/k3.rec"
+out="$(FT_SEAT_RETIRE_BIN="$TMP/bin/retire-model" RETIRE_LOG="$TMP/retire.log" FT_SEAT_REAP_BIN="$TMP/bin/reap-flaky" REAP_CNT="$TMP/reap.cnt" FAKE_LIVE="A#1" FAKE_SESSION=1 run bash "$CLOSE" 'A#1' --reason "2차" --seats "$S" --verdict 2718 2>/dev/null)"; rc=$?
+chk "ⓒ2차 rc 0 · CLOSED-ROLE record=kept · kill=ok" "$rc ${out%% *} $(grep -o 'record=[^ ]*' <<<"$out") $(grep -o 'kill=[a-z]*' <<<"$out")" "0 CLOSED-ROLE record=$ZC_RESUME_DIR/A#1.json kill=ok"
+chk "ⓒ1차 기록 바이트 그대로 · 두 번 다 keep 1(2) · kill 1" "$(cmp -s "$ZC_RESUME_DIR/A#1.json" "$TMP/k3.rec" && echo same || echo changed) $(grep -c -- --keep-existing "$TMP/retire.log") $(kills)" "same 2 1"
+chk "ⓒ원장 2행(1차 fail-reap · 2차 kill=ok) · 2차 verdict=2718" "$(wc -l < "$VLOG" | tr -d ' ') $(tail -1 "$VLOG" | cut -f2,6)" "2 verdict=2718	kill=ok"
 # ⓕ 600/300 0
 chk "ⓕ600/300 0(ft-seat-close·ft-seat-retire)" "$(grep -cE '\b(600|300)\b' "$CLOSE" "$BIN/ft-seat-retire.sh" | cut -d: -f2 | xargs)" "0 0"
 
