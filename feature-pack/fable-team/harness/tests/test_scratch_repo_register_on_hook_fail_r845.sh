@@ -167,10 +167,10 @@ if [ -z "${R845_FAST:-}" ]; then
   { [ "$b" = 0 ] && grep -q '^ALL PASS' "$T/b32.txt"; } && ok "ⓖ /bin/bash(bash 3.2) 로 같은 시험 ALL PASS" || bad "ⓖ bash3.2 rc=$b $(grep '^FAIL' "$T/b32.txt" | head -2 | tr '\n' ' ')"
 
   # ── 변이 3: 계약을 되돌리면 그 칸이 FAIL ─────────────────────────────────────────
-  grep -v -F 'WARN ft-scratch-repo — 장부 등록 실패($TSV)' "$SUT" > "$T/mut1.sh"   # 장부 실패 경고 삭제
+  grep -v -F 'WARN ft-scratch-repo — 장부 등록 실패 · 사본은 그대로 만들고 쓴다' "$SUT" > "$T/mut1.sh"   # 장부 실패 경고 삭제(r996: reg_write 실패 WARN 1줄)
   grep -v -F '[[ ${P##*/} =~ $re ]] || { gfail G2 3' "$SUT" > "$T/mut2.sh"
   grep -v -F 'gate_base "$P"' "$SUT" > "$T/mut4.sh"   # 출구 게이트의 «베이스 바로 아래»(G1) 검사 제거
-  grep -v -F 'verify_complete || die "사본이 온전하지 않음' "$SUT" > "$T/mut5.sh"   # 훅 rc0 일 때 완전성 확인 건너뜀
+  grep -v -F 'verify_complete || { gen_rollback "$DEST" "온전성 확인"' "$SUT" > "$T/mut5.sh"   # 훅 rc0 일 때 완전성 확인 건너뜀(r996: 실패 = 되돌림 + die)
   awk 'index($0, "if verify_complete \"$p\"; then echo") > 0 { sub(/if verify_complete "\$p"; then echo/, "if true; then echo"); print; next } { print }' "$SUT" > "$T/mut6.sh"   # 재사용 완전성 확인 끔
   for m in 1 2 4 5 6; do
     cmp -s "$SUT" "$T/mut$m.sh" && bad "변이$m 이 안 바뀜"

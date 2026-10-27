@@ -286,7 +286,8 @@ if want M; then
   mut g5t-git 's#\[ ! -e "\$P/.git" \] || { gfail G5 3#: || { gfail G5 3#' 'Ⓗ' 'Ⓗ tmp 안에'
   mut g6-owner 's#has_line "\$S" "\$own" \&\& { gfail G6 1#false \&\& { gfail G6 1#' 'Ⓖ' 'Ⓖ G6'
   mut rm-fallback 's#git -C "\$P" worktree remove --force "\$P" >/dev/null 2>\&1 ||#{ git -C "$P" worktree remove --force "$P" >/dev/null 2>\&1 || rm -r -f "$P"; } ||#' 'ⓧ' 'ⓧ reg git:worktree remove' 'worktree remove'
-  mut cat-procsub 's#^  if \[ -e "\$TSV" \]; then cap rows bounded 7 cat -- "\$TSV" || {.*#  rows="$(cat "$TSV" 2>/dev/null)"#' 'ⓧ' 'ⓧ reg cat:scratch-repos.tsv#1 real' 'reg cat:scratch-repos.tsv#1'
+  # r996: 등록부 읽기 = r996 reg_rows 의 `cap rows cat` (장부 둘) — rc 를 안 보는 `$(cat)` 로 바꾸면 그 주입 칸이 빨강
+  mut cat-procsub 's#^    cap rows cat -- "\$f" || { REG_BAD=1; continue; }#    rows="$(cat "$f" 2>/dev/null)"#' 'ⓧ' 'ⓧ reg cat:scratch-repos.tsv#1 real' 'reg cat:scratch-repos.tsv#1'
   mut awk-orphans 's#cap CWDROWS cwd_parse "\$RAW" || LSOF_OK=0#cap CWDROWS cwd_parse "$RAW"#' 'ⓧ' 'ⓧ (reg|tmp) awk:/\^p/#1 ' '(reg|tmp) awk:/\^p/#1 '
   mut judged-sha 's#cap sha git -C "\$1" rev-parse HEAD 2>/dev/null || return 1; h8=#cap sha git -C "$1" rev-parse HEAD 2>/dev/null; h8=#' 'ⓧ' 'ⓧ reg git:<사본> rev-parse HEAD#[0-9]+ real' 'reg git:<사본> rev-parse HEAD'
   mut mainref 's#\*) echo "WARN ft-scratch-repo judged — origin/main 확인 실패.*#*) printf -v "$1" "%s" main;;#' 'ⓧ' 'ⓧ verify origin' 'verify'

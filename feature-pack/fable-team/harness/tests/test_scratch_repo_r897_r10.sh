@@ -6,6 +6,7 @@
 #   ⓤ 빠른 길의 «못 읽음» = 빠른 길 아님(symbolic-ref rc128) · ⓥ 재확인 예산(tmux 8초 멈춤 = 7초 상한·호출 뒤 마감 검사)
 #   ⓦ 빠른 길 호출 나무 전수 rc 검사(judged 안 merge-base·git log 포함) — 출력은 있으나 rc128 = 못 읽음 = 지우기 0(DA⑥ r2 반례 1)
 #   ⓨ 기계 검사(손 전수 표 대체): 지우는 길 함수(출구 게이트 delete_copy 포함) 범위에서 `$(`·`<(`·백틱·파이프 0 · 삭제 명령은 delete_copy 안에만 · CALLTREE 자동 생성(FT_CALLTREE_OUT)
+#   ⓙⓚⓛ r996: ① 장부 둘(ROOT + 원 저장소 — --done·--sweep 이 한쪽 장부만 있어도 봄) ② 판정 2720 입구(판정 끝 ∧ 주인 없음 = 24시간 없이 · 완성 표식 필요 · .scratch-judged) ③ ⓗ 선등록 안전(있던 폴더 rm 0 · rm 실패 = 등록 유지 · 재사용은 완성 표식만)
 #   ⓕ 기존 시험 4종 + 출구 게이트 시험(test_scratch_exit_gate_r897.sh — 이웃 생존 · --gate · 주입 전수 · 변이) + kit cmp0 · 변이 9 — «기대한 칸 이름» 의 FAIL 만 있을 때 검출
 #   (r10.5 의 ⓧ 주입 칸은 r5 에서 이웃 생존 단언과 함께 test_scratch_exit_gate_r897.sh 로 옮겼다)
 # 임시 git 저장소·가짜 tmux/lsof/date·임시 TMPDIR 만 쓴다 — 실 저장소·실 세션·실 삭제 0(임시 폴더 안만).
@@ -71,6 +72,7 @@ sc() { : > "$T/tmux.n"; : > "$T/lsof.n"; : > "$T/date.n"
 mk() { OWN="$1" sc "$SHA" --repo "$G"; printf '%s' "$OUT"; }
 age_reg() { awk -F'\t' -v p="$1" -v t="$(( $(date +%s) - $2 ))" 'BEGIN{OFS="\t"} $1==p{$3=t} {print}' "$TSV" > "$TSV.n" && mv "$TSV.n" "$TSV"; }
 reg_add() { printf '%s\t%s\t%s\n' "$1" "$2" "$(( $(date +%s) - $3 ))" >> "$TSV"; }
+ready() { [ -f "$STATE/scratch-ready/${1##*/}" ]; }   # r996 완성 표식(상태 폴더의 사본별 표식 — 사본 트리 밖)
 cwd_rows / 1 zsh   # 기준 대역 = 사본 폴더를 cwd 로 쓰는 프로세스 0(각 케이스가 필요하면 다시 깐다)
 
 # ── V0 선행 실측(대역 아님) — 실제 lsof 는 /private/var/… 를 낸다 ─────────────────────────
@@ -144,12 +146,11 @@ if want ⓓ; then
     && ok "ⓓ 재확인에서 주인 생김 = 그 항목 삭제 0(앞 항목은 지움)" || bad "ⓓ rc=$RC [$OUT] D1=$([ -d "$D1" ] && echo 남음 || echo 지움) D2=$([ -d "$D2" ] && echo 남음 || echo 지움)"
   rm -f "$TSV"; : > "$T/lsof.out"; D3="$(mk gone-d3)"; D4="$(mk gone-d4)"; age_reg "$D3" 90000; age_reg "$D4" 90000
   cwd_rows / 1 zsh
-  LATE_AT=3 LATE_RC=124 sc --sweep                   # orphans lsof=1 · 재확인 D3=2(rc0) · D4=3(rc124) — armed 는 이미 있음
-  { [ ! -d "$D3" ] && [ -d "$D4" ] && printf '%s' "$OUT" | grep -q '재확인 못 읽음'; } \
-    && ok "ⓓ lsof 못 읽음 = 남은 항목 삭제 0 + WARN 1줄" || bad "ⓓ lsof [$OUT] D3=$([ -d "$D3" ] && echo 남음 || echo 지움) D4=$([ -d "$D4" ] && echo 남음 || echo 지움)"
-  rm -f "$TSV"; D5="$(mk gone-d5)"; age_reg "$D5" 90000; cwd_rows / 1 zsh
-  DSKEW_AT=3 sc --sweep   # date +%s 호출: orphans now=1 · RSTART=2 · 첫 항목=3 → +100초
-  { [ -d "$D5" ] && printf '%s' "$OUT" | grep -q '재확인 70초 초과'; } && ok "ⓓ 70초 초과 = 남은 항목 삭제 0 + WARN" || bad "ⓓ 시계 [$OUT] D5=$([ -d "$D5" ] && echo 남음 || echo 지움)"
+  # r1029: 점유 조회가 사본별 1회 — 한 사본의 조회 실패는 그 사본만 «붙잡음(조회 실패)» 이고 다른 사본은 계속 판정한다
+  LATE_AT=3 LATE_RC=124 sc --sweep
+  { printf '%s' "$OUT" | grep -q '점유 조회 실패' && { [ -d "$D3" ] || [ -d "$D4" ]; }; } \
+    && ok "ⓓ 점유 조회 실패 = 그 사본만 붙잡음(삭제 보류 · r1029 계약 · 사본별 검증은 test_scratch_sweep_per_copy_r1029)" || bad "ⓓ lsof [$OUT]" 
+  # «삭제 직전 마감 초과» 계약은 ⓥ2 가 시계 대역(호출 수 실측)으로 잰다 — 여기서는 중복 측정하지 않는다(r1029 로 date 호출 수가 바뀌어 고정 번호가 못 쓴다)
 fi
 
 # ── ⓔ --done = 주인 자신 · 정확 대조 · 붙잡음/ lsof 실패 rc4 · 탭·개행 rc2 ──────────────
@@ -257,7 +258,7 @@ fi
 # ── ⓨ 기계 검사 — 지우는 길 함수 범위에 `$(`·백틱·파이프 0 (손 전수 표 대체 · CALLTREE 자동 생성) ─────
 if want ⓨ; then
   # 지우는 길 함수 + 그 함수들이 부르는 도우미(표시 전용 kb·gib·first_paths 와 cap 자신은 밖 · cwd_parse 는 파이프 1개를 pipefail 로 rc 전달 — 아래 따로 본다)
-  RANGE="delete_copy gate_rows gate_base gfail gok past_deadline phys_tmo gq fast judged main_ref orphans cwd_holder remtmo sweep_run done_run has_line has_ctl phys reg_owner tmux_sessions tmux_sessions_tmo bounded drop_reg held_report"
+  RANGE="delete_copy gate_rows gate_base gfail gok past_deadline phys_tmo gq fast judged main_ref orphans cwd_holder remtmo sweep_run done_run has_line has_ctl phys reg_owner row_owner tmux_sessions tmux_sessions_tmo bounded drop_reg held_report reg_list reg_rows reg_write gen_rollback ready_mark"
   body() { awk -v f="$1" '$0 ~ "^"f"\\(\\) \\{" {on=1; s=NR} on{printf "%d\t%s\n", NR, $0} on && (/^}/ || (NR==s && /;[[:space:]]*}[[:space:]]*(#.*)?$/)) {exit}' "$SUT"; }
   code() { sed -E 's/^([0-9]+\t)[[:space:]]*#.*$/\1/; s/[[:space:]]+# .*$//'; }   # 주석 줄·줄 끝 주석(« # ») 빼고 코드만
   : > "$T/range"; miss=""
@@ -266,9 +267,9 @@ if want ⓨ; then
   [ "$(body cwd_parse | code | grep -c ' | ')" = 1 ] && [ "$(body cwd_parse | code | grep -cE '\$\([^(]|`')" = 0 ] && ok "ⓨ cwd_parse = 파이프 1개(pipefail 로 rc 전달 · cap 으로 받는 곳 전부 rc 검사)" || bad "ⓨ cwd_parse 꼴 바뀜"
   HITS="$(cut -f2- "$T/range" | code | grep -E '\$\([^(]|<\(|`| \| ')"
   [ -z "$HITS" ] && ok "ⓨ 범위 안 \`\$(\`·\`<(\`·백틱·파이프 = 0" || bad "ⓨ 범위 안 rc 안 보는 꼴: $(printf '%s' "$HITS" | head -3 | tr '\n' ' ')"
-  # r5: 삭제 명령(rm -r · worktree remove)은 delete_copy 안에만 · 옛 삭제 함수 이름 0
-  ALLC="$(awk '{printf "%d\t%s\n", NR, $0}' "$SUT" | code)"; DC="$(body delete_copy | cut -f1)"
-  OUTSIDE="$(printf '%s\n' "$ALLC" | grep -E 'rm -r|worktree remove' | while IFS="$(printf '\t')" read -r n rest; do printf '%s\n' "$DC" | grep -qx "$n" || printf '%s\t%s\n' "$n" "$rest"; done)"
+  # r5: 삭제 명령(rm -r · worktree remove)은 delete_copy 안에만 · r996: 생성 실패 되돌림(gen_rollback)만 예외 · 옛 삭제 함수 이름 0
+  ALLC="$(awk '{printf "%d\t%s\n", NR, $0}' "$SUT" | code)"; DC="$(body delete_copy | cut -f1)"; GR="$(body gen_rollback | cut -f1)"
+  OUTSIDE="$(printf '%s\n' "$ALLC" | grep -E 'rm -r|worktree remove' | while IFS="$(printf '\t')" read -r n rest; do { printf '%s\n' "$DC"; printf '%s\n' "$GR"; } | grep -qx "$n" || printf '%s\t%s\n' "$n" "$rest"; done)"
   [ -z "$OUTSIDE" ] && [ "$(printf '%s\n' "$ALLC" | grep -cE 'rm -r|worktree remove')" -gt 0 ] && ok "ⓨ 삭제 명령은 delete_copy 안에만" || bad "ⓨ delete_copy 밖 삭제 명령: $(printf '%s' "$OUTSIDE" | head -2 | tr '\n' ' ')"
   printf '%s\n' "$ALLC" | grep -qE '(^|[^_a-z])(rm_copy|recheck)([^_a-z]|$)' && bad "ⓨ 옛 삭제 함수 이름(rm_copy·recheck) 남음" || ok "ⓨ rm_copy·recheck 이름 0"
   NCAP="$(cut -f2- "$T/range" | code | grep -c 'cap ')"
@@ -280,9 +281,105 @@ if want ⓨ; then
   fi
 fi
 
-# ── ⓕ 기존 시험 4종 + kit cmp0 ────────────────────────────────────────────────────────
+# ── ⓙ r996 ①: 장부 둘(ROOT + 원 저장소) — 만들 때 양쪽에 적고, --done·--sweep 이 양쪽을 함께 읽는다 ─────
+if want ⓙ; then
+  : > "$TSV"; rm -f "$ARMED"; : > "$T/lsof.out"; cwd_rows / 1 zsh
+  PK="$T/pack"; git clone -q "$G" "$PK" 2>/dev/null; mkdir -p "$PK/.fable-team/state"
+  OTSV="$PK/.fable-team/state/scratch-repos.tsv"; : > "$OTSV"
+  OWN=gone-j sc "$SHA" --repo "$PK"; J1="$OUT"
+  { [ -d "$J1" ] && grep -qF "$J1	" "$TSV" && grep -qF "$J1	" "$OTSV" && [ "$(grep -c . "$OTSV")" = 1 ] && [ "$(grep -c . "$TSV")" = 1 ]; } \
+    && ok "ⓙ 만들 때 두 장부에 «같은 줄» 을 적는다(ROOT + 원 저장소 · 각 1줄)" || bad "ⓙ 두 장부 [$OUT]"
+  awk -F'\t' -v p="$J1" '$1!=p' "$TSV" > "$TSV.n" && mv "$TSV.n" "$TSV"   # 한쪽 장부만 남긴다(다른 루트가 만든 사본과 같은 상태)
+  OWN=gone-j sc --done "$J1"
+  { [ $RC = 0 ] && [ ! -d "$J1" ] && ! grep -qF "$J1	" "$OTSV"; } && ok "ⓙ ROOT 장부에 없는 사본도 원 저장소 장부로 --done(그 줄도 지움)" || bad "ⓙ done rc=$RC [$OUT]"
+  : > "$TSV"
+  OWN=gone-j sc "$SHA" --repo "$PK"; J2="$OUT"
+  awk -F'\t' -v p="$J2" '$1!=p' "$TSV" > "$TSV.n" && mv "$TSV.n" "$TSV"
+  awk -F'\t' -v p="$J2" -v t="$(( $(date +%s) - 90000 ))" 'BEGIN{OFS="\t"} $1==p{$3=t} {print}' "$OTSV" > "$OTSV.n" && mv "$OTSV.n" "$OTSV"
+  sc --sweep; sc --sweep
+  { [ ! -d "$J2" ] && ! grep -qF "$J2	" "$OTSV"; } && ok "ⓙ --sweep 이 ROOT 장부에 없는 사본도 원 저장소 장부로 보고 지운다" || bad "ⓙ sweep [$OUT] J2=$([ -d "$J2" ] && echo 남음 || echo 지움)"
+  : > "$TSV"
+  OWN=gone-j sc "$SHA" --repo "$PK"; J3="$OUT"
+  for f in "$TSV" "$OTSV"; do awk -F'\t' -v p="$J3" -v t="$(( $(date +%s) - 90000 ))" 'BEGIN{OFS="\t"} $1==p{$3=t} {print}' "$f" > "$f.n" && mv "$f.n" "$f"; done
+  sc --sweep; sc --sweep; sc --sweep
+  { [ ! -d "$J3" ] && ! grep -qF "$J3	" "$TSV" && ! grep -qF "$J3	" "$OTSV"; } && ok "ⓙ 두 장부에 같은 줄 = 한 번만 지우고 양쪽 줄 모두 정리" || bad "ⓙ 중복 [$OUT]"
+fi
+
+# ── ⓚ r996 ②: 판정 2720 입구 — 판정 끝 ∧ 주인 없음 = 24시간 없이 지움(첫 1회 목록만 · 게이트 경유) ──
+if want ⓚ; then
+  : > "$TSV"; rm -f "$ARMED"; : > "$T/lsof.out"; cwd_rows / 1 zsh
+  K1="$(mk gone-k1)"
+  sc --sweep
+  { [ -d "$K1" ] && printf '%s' "$OUT" | grep -q '목록 보고'; } && ok "ⓚ 판정 끝+주인 없음(1분 된 사본) = 첫 회는 목록만(실삭제 0)" || bad "ⓚ 첫회 [$OUT]"
+  sc --sweep
+  { [ ! -d "$K1" ] && grep -q 'judged' "$SLOG"; } && ok "ⓚ 둘째 회 = 24시간 기다리지 않고 삭제(사유 judged)" || bad "ⓚ 둘째 [$OUT] K1=$([ -d "$K1" ] && echo 남음 || echo 지움)"
+  K2="$(mk live-owner)"; sc --sweep; sc --sweep
+  { [ -d "$K2" ]; } && ok "ⓚ 주인 세션 살아 있음 = 판정 끝이어도 삭제 0" || bad "ⓚ 주인 있음 [$OUT]"
+  BAD=1111111111111111111111111111111111111111
+  K3="$(mk gone-k3)"; MAIN="$BAD" sc --sweep; MAIN="$BAD" sc --sweep
+  { [ -d "$K3" ]; } && ok "ⓚ 판정 안 끝남 + 1분 = 삭제 0(24시간 기다림)" || bad "ⓚ 판정 안끝 [$OUT]"
+  K4="$(mk gone-k4)"; printf '%s\n' "$SHA" > "$K4/.scratch-judged"
+  MAIN="$BAD" sc --sweep; MAIN="$BAD" sc --sweep
+  { [ ! -d "$K4" ]; } && ok "ⓚ 사본 안 .scratch-judged 표식 = 판정 끝으로 읽어 24시간 없이 지움" || bad "ⓚ 표식 [$OUT]"
+  K5="$(mk gone-k5)"; rm -f "$STATE/scratch-ready/${K5##*/}"
+  sc --sweep; sc --sweep
+  { [ -d "$K5" ]; } && ok "ⓚ 완성 표식 없는 사본 = 24시간 없이 지우기 0" || bad "ⓚ 완성 표식 없이 지움 [$OUT]"
+fi
+
+# ── ⓛ r996 ③ ⓗ: 선등록 안전 — «이번 실행이 만든 폴더만» 되돌림 · rm 실패 = 등록 유지 · 재사용은 완성 표식만 ──
+if want ⓛ; then
+  : > "$TSV"; rm -f "$ARMED"; : > "$T/lsof.out"; cwd_rows / 1 zsh
+  BIN2="$T/bin2"; mkdir -p "$BIN2"; cp "$BIN/tmux" "$BIN/lsof" "$BIN2/"
+  # 있던 폴더 재현: 같은 pid 로 exec 해 DEST 를 미리 만든다(고정 시각 대역 → 이름 예측 가능)
+  cat > "$BIN2/date" <<'EOD'
+#!/bin/sh
+[ "$1" = +%s ] && { echo 1700000000; exit 0; }
+exec /bin/date "$@"
+EOD
+  cat > "$BIN2/git" <<EOD
+#!/bin/sh
+for a in "\$@"; do [ "\$a" = add ] && exit 1; done
+exec $(command -v git) "\$@"
+EOD
+  chmod 755 "$BIN2/date" "$BIN2/git"
+  D8="$(printf '%.8s' "$SHA")"
+  OUT="$(env PATH="$BIN2:$PATH" FT_RES_ROOT="$R" FT_SCRATCH_DIR="$SCR" TMPDIR="$TMPD" FT_SCRATCH_OWNER=live-owner \
+    bash -c 'd="$2/repo-'"$D8"'-1700000000-$$"; mkdir -p "$d"; echo keep > "$d/own.txt"; printf "%s\n" "$d" > "$3"; exec bash "$1" "$4" --repo "$5"' \
+    _ "$SUT" "$SCR" "$T/dest.txt" "$SHA" "$G" 2>&1)"; RC=$?; PD="$(cat "$T/dest.txt")"
+  { [ $RC = 4 ] && [ -d "$PD" ] && [ -f "$PD/own.txt" ] && ! grep -qF "$PD	" "$TSV"; } \
+    && ok "ⓛ 있던 폴더(생성 예정 경로) = 되돌림이 지우지 않는다(rm 0 · 등록 줄도 안 남김)" || bad "ⓛ 있던 폴더 rc=$RC PD=$PD [$OUT]"
+  # rm 실패 = 등록 유지: worktree add 는 되고 sparse 가 실패 · 지우기도 실패하는 대역
+  cat > "$BIN2/git" <<EOD
+#!/bin/sh
+prev=""
+for a in "\$@"; do
+  [ "\$prev" = worktree ] && [ "\$a" != add ] && exit 1
+  [ "\$a" = sparse-checkout ] && exit 1
+  prev="\$a"
+done
+exec $(command -v git) "\$@"
+EOD
+  cat > "$BIN2/rm" <<'EOD'
+#!/bin/sh
+exit 1
+EOD
+  chmod 755 "$BIN2/git" "$BIN2/rm"
+  OUT="$(env PATH="$BIN2:$PATH" FT_RES_ROOT="$R" FT_SCRATCH_DIR="$SCR" TMPDIR="$TMPD" FT_SCRATCH_OWNER=live-owner bash "$SUT" "$SHA" --repo "$G" 2>&1)"; RC=$?
+  LR="$(awk -F'\t' '$2=="live-owner"{print $1}' "$TSV" 2>/dev/null | tail -1)"
+  { [ $RC = 4 ] && [ -d "$LR" ] && ! ready "$LR" && grep -qF "$LR	" "$TSV" && printf '%s' "$OUT" | grep -q '되돌림 실패' && printf '%s' "$OUT" | grep -q '등록 유지'; } \
+    && ok "ⓛ rm 실패 = 사본이 남으면 등록 유지 + ERROR(완성 표식 없음)" || bad "ⓛ rm 실패 rc=$RC LR=$LR [$OUT]"
+  rm -f "$BIN2/rm" "$BIN2/git" "$BIN2/date"; : > "$TSV"
+  R1="$(mk gone-reuse)"
+  { ready "$R1"; } && ok "ⓛ 만들기 끝난 사본 = 완성 표식(scratch-ready) 있음" || bad "ⓛ 완성 표식 없음 $R1"
+  rm -f "$STATE/scratch-ready/${R1##*/}"
+  R2="$(mk gone-reuse)"
+  { [ -n "$R2" ] && [ -d "$R2" ] && [ "$R2" != "$R1" ]; } && ok "ⓛ 완성 표식 없는 사본(미완성·끊긴)은 재사용 0" || bad "ⓛ 미완성 재사용 [$OUT] R2=$R2 R1=$R1"
+  R3="$(mk gone-reuse)"
+  { [ "$R3" = "$R2" ]; } && ok "ⓛ 완성 표식 있는 같은 sha·같은 주인 = 재사용" || bad "ⓛ 재사용 [$OUT] R3=$R3 R2=$R2"
+fi
+
 if want ⓕ; then
-  for t in test_scratch_repo.sh test_scratch_judged_r645.sh test_scratch_sweep_live_cwd_r548.sh test_scratch_repo_sparse_auto_done_r891.sh test_scratch_exit_gate_r897.sh; do
+  for t in test_scratch_repo.sh test_scratch_judged_r645.sh test_scratch_sweep_live_cwd_r548.sh test_scratch_repo_sparse_auto_done_r891.sh test_scratch_repo_register_on_hook_fail_r845.sh test_scratch_exit_gate_r897.sh; do
     ( cd "$HERE" && bash "./$t" ) > "$T/$t.log" 2>&1; r=$?
     { [ "$r" = 0 ] && grep -q '^ALL PASS' "$T/$t.log"; } && ok "ⓕ 기존 $t = ALL PASS" || bad "ⓕ 기존 $t rc=$r ($(grep -c '^FAIL' "$T/$t.log") FAIL)"
   done
@@ -313,6 +410,10 @@ if want M; then
   mut 9-mergebase 's#  case "\$rc" in 0) return 0;; 1) ;; \*) echo "WARN ft-scratch-repo judged — merge-base 실패.*#  case "$rc" in 0) return 0;; esac#' 'ⓦ' 'ⓦ mergebase'
   mut 10-logrc 's#\[ "\$rc" = 0 \] || { echo "WARN ft-scratch-repo judged — git log 실패.*#:#' 'ⓦ' 'ⓦ log'
   mut 16-subst 's#^  h="\${BASH_REMATCH\[1\]}"#  h="$(printf %s "${BASH_REMATCH[1]}")"#' 'ⓨ' 'ⓨ 범위 안'
+  # r996 변이: 장부 둘·선등록 안전·완성 표식 — 각각의 시험 칸이 빨강이 되는가
+  mut 17-dualreg 's#^    for p in "${b%/}"/repo-\*; do#    for p in /nonexistent; do#' 'ⓙ' 'ⓙ ' 
+  mut 18-pre 's#^  if \[ "\$PRE" = 0 \]; then#  if true; then#' 'ⓛ' 'ⓛ ' 
+  mut 19-ready 's#^  ready_mark "\$p" || return 1#  :#' 'ⓚ' 'ⓚ ' 
 fi
 
 [ $fail -eq 0 ] && echo "ALL PASS" || echo "($fail failed)"
