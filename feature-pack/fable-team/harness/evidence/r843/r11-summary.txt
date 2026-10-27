@@ -1,0 +1,32 @@
+# r843 r11 — DA r10 반례 2 닫기 (base = 13363628 + origin/main 병합 · 가지 nano/r843-wt-sparse-mark-write-verify-r3 · 나노 byz-harness-nano-r843-wt-sparse-mark-write-verify#0 · 2026-10-27)
+
+회차 요약(단계별 초): base 1벌(86칸) 34초 · FT_TEST_ONLY ⓜⓝⓚc 32초 · 변이 2 + 칸 5 = 1분 36초 · red(13363628 판) ⓜⓝⓚc 33초 · gate 47 = 3초 · wt_add 27 = 4초 · disk_alarm 37 = 2초 · kit_bin_sync 7 = 1초 — 회차 합계 약 3분 45초(7분 안) · 1벌 전체(1158초) 0회.
+
+## 반례 → 고침 (되돌리기 «한 자리» 안)
+
+| # | DA r10 반례 | 고침 |
+|---|---|---|
+| ① | 리포에 `extensions.worktreeConfig=false` 가 미리 적혀 있는데, 실패 복원이 그것을 **unset** 으로 만들어 원값 소실 (`:31`·`:52`) | `_ftw_getcfg` 가 `git config <범위> --get <키>` 의 **rc 와 출력**으로 «없음·true·false» 3값을 구분해 캡처하고, `_ftw_putcfg` 가 그 값을 «글자 그대로» 되돌린다(없음 → unset · true → true · false → false) |
+| ② | `info/sparse-checkout` 이 **빈 일반 파일** 로 미리 있는데, 실패 복원이 우리 패턴을 남겨 다음 실행이 set 을 건너뛰고 풀 상태에 `sparse` 표식 (`:36`·`:50`·`:86`·`:129`) | 패턴 파일은 **존재 여부 + 바이트 내용**을 임시 사본(`<gitdir>/ft-wt-mode.info.<pid>`)으로 캡처하고, 복원은 «있었으면 그 바이트 그대로(0바이트 → 0바이트) · 없었으면 삭제» · 판정 입력에서는 0바이트 패턴 파일을 «패턴 없음» 으로 셈(set 수행) |
+
+`_ftw_restore` = 설정 3값 + 패턴 파일 존재·바이트 + `config.worktree` 정리 + pending·표식 삭제를 한 자리에서 한다(실패는 전부 `_ftw_fail` 경유). 되돌리기 자리 밖 변경 0.
+
+## 시험(칸 2 + 변이 2 · FT_TEST_ONLY)
+
+- **ⓜ** `extensions.worktreeConfig=false` 리포 + set 직전 실패 → ERROR 1줄 · rc1 · 표식·pending 0 · `git config --get extensions.worktreeConfig` = **false(rc0)** · b 팀 파일 복원. **ⓜb** 다음 실행 = 처음부터(set 수행 · 표식 sparse · `[r835]` 1회).
+- **ⓝ** 빈 `info/sparse-checkout` 미리 있음 + 설정 성공 뒤 mv 실패 → 패턴 파일 **0바이트 그대로** · worktreeConfig/설정 «없음» · 첫 실행 ERROR 1줄 · rc1. **ⓝb** 다음 실행 = set 수행(sparse 적용 · 표식 sparse · b 제거).
+- 변이 2(그 칸만): `r843r11-false-as-unset`(복원이 false 를 unset 으로 → ⓜ FAIL) · `r843r11-pattern-keep`(패턴 파일 복원을 «그대로 두기» → ⓝ FAIL)
+- FT_TEST_ONLY 배선: `tests/lib/test_only.sh`(r1026) source + `mutate()` 첫 줄 `ft_only "변이-<이름>"` + ⓚc·ⓜ·ⓝ 칸 가드 + 맨 끝 `ft_only_report`. FT_TEST_ONLY 가 비면 기존처럼 전부 돈다(칸 단언 변경 0).
+
+## 값
+
+- green: `test_post_checkout_sparse_r835.sh` **86 PASS** 0 FAIL rc=0(base 1벌 · 34초) · gate 47 · wt_add 27 · disk_alarm 37 · kit_bin_sync 7 PASS
+- FT_TEST_ONLY 회차: `ⓜ,ⓝ,ⓚc` 6 PASS 32초 · 변이 2 포함 1분 36초 전부 PASS
+- red: **13363628**(직전 세트) ⓜⓝⓚc = FAIL 3 — ⓜ«wtcfg rc=1 = 원값 false 소실» · ⓝ«패턴크기 21 = 우리 패턴 잔존» · ⓝb«건너뛰고 sparse 표식» = DA 반례 ①② 그대로 재현
+- lint: `sh -n` 1 · `/bin/bash 3.2.57 -n` 2파일 rc=0 · stamp 짝 cmp0 · ft-team-lib 짝 cmp0 · manifest 1.1.259
+- 바뀐 파일: `kit/fable-team/githooks/post-checkout` · `tests/test_post_checkout_sparse_r835.sh` · 증거 `evidence/r843/r11-*`
+- 병합: origin/main `d4ec9ef6`(r1026 test_only 착지 포함) 병합 · 충돌 0
+- press 필요: 없음(임시 리포 단위 시험만)
+
+## 고치지 않은 것(알려진 한계 1줄)
+- 실패 자리 수 가드(5자리)는 «기존 표식 읽기·패턴 파일 읽기» 2자리를 세지 않는다(비동작 · DA 확인) · 권한 000/0444·심링크·제어문자 이름은 [범위 밖] · 1벌 1158초 분할은 착지 뒤 별건.

@@ -22,37 +22,48 @@
 #   - 훅이 닫는 길 = checkout·switch·worktree add 뿐. reset·read-tree 같은 저수준 길은 ft-disk-alarm 하루 1회 탐지(ft-wt-mode-stamp --unmarked)
 # 기존 워크트리는 설치 때 ft-wt-mode-stamp.sh --apply 로 표식을 먼저 찍는다(다음 checkout 에 갑자기 sparse 되는 길 차단).
 _ftw_rc=0
-_ftw_pend=""; _ftw_moved=0; _ftw_drop=0; _ftw_sc_changed=0; _ftw_out=""; _ftw_wtcfg=0; _ftw_pre_wtcfg_absent=0; _ftw_pre_wt=unset; _ftw_pre_local=unset; _ftw_pre_info=0
+_ftw_pend=""; _ftw_moved=0; _ftw_drop=0; _ftw_sc_changed=0; _ftw_out=""; _ftw_wtcfg=0; _ftw_pre_wtcfg=unset; _ftw_pre_wt=unset; _ftw_pre_local=unset; _ftw_pre_info=0; _ftw_info_bak=""
 _ftw_read() {  # <파일> — rc 와 출력을 «둘 다» 본다(rc≠0 = 실패) · _ftw_out 에 값을 남긴다
   _ftw_out="$(cat "$1" 2>/dev/null)"; [ "$?" = 0 ]
 }
-_ftw_pre_capture() {  # 설정 전 값 — «스코프별»(워크트리·공용) 로 읽는다 · 공용 설정 쓰기 0 을 지키려면 섞으면 안 된다
-  _ftw_wtcfg=0
-  if [ "$(git config --bool extensions.worktreeConfig 2>/dev/null)" = true ]; then _ftw_wtcfg=1; else _ftw_pre_wtcfg_absent=1; fi
-  if [ "$_ftw_wtcfg" = 1 ]; then
-    _ftw_pre_wt="$(git config --worktree --bool core.sparseCheckout 2>/dev/null)"; [ -n "$_ftw_pre_wt" ] || _ftw_pre_wt=unset
-  fi
-  _ftw_pre_local="$(git config --local --bool core.sparseCheckout 2>/dev/null)"; [ -n "$_ftw_pre_local" ] || _ftw_pre_local=unset
-  _ftw_pre_info=0; [ ! -e "$_gd/info/sparse-checkout" ] || _ftw_pre_info=1
+_ftw_getcfg() {  # <범위> <키> — «세 값»(없음·true·false)을 rc 와 출력으로 구분한다(false 를 없음으로 읽지 않는다 · r843 r11)
+  _v="$(git config "$1" --get "$2" 2>/dev/null)" || { _ftw_cap=unset; return 0; }
+  case "$_v" in true|false) _ftw_cap="$_v";; *) _ftw_cap="$_v";; esac
 }
-_ftw_restore() {  # 원복은 «값이 달라진 스코프» 만 — 워크트리 값만 되돌리고 공용(local) 값이 그대로면 쓰기 0
-  if [ "$_ftw_sc_changed" = 1 ]; then  # sparse 로 바뀌었으면 git 자신의 되돌림(파일 복원 + 설정 제거) 을 먼저 — config 만 되돌리면 파일이 빠진 반쪽
+_ftw_pre_capture() {  # 적어 두는 것 = 돌려놓는 것 — 설정 각 스코프의 3값 + 패턴 파일의 존재·바이트 그대로
+  _ftw_getcfg --local extensions.worktreeConfig; _ftw_pre_wtcfg="$_ftw_cap"
+  _ftw_wtcfg=0; [ "$_ftw_pre_wtcfg" = true ] && _ftw_wtcfg=1
+  if [ "$_ftw_wtcfg" = 1 ]; then _ftw_getcfg --worktree core.sparseCheckout; _ftw_pre_wt="$_ftw_cap"; fi
+  _ftw_getcfg --local core.sparseCheckout; _ftw_pre_local="$_ftw_cap"
+  _ftw_pre_info=0; _ftw_info_bak=""
+  if [ -e "$_gd/info/sparse-checkout" ]; then  # 바이트 그대로 = 임시 사본 1개(읽어서 변수에 넣으면 끝새줄이 깎인다)
+    _ftw_pre_info=1; _ftw_info_bak="$_gd/ft-wt-mode.info.$$"
+    cp "$_gd/info/sparse-checkout" "$_ftw_info_bak" 2>/dev/null \
+      || { echo "ERROR ft-wt-mode 패턴 읽기 실패 — $_gd/info/sparse-checkout 사본을 못 만들어 생성 상태 판단 불가 · 체크아웃 상태 그대로" >&2; _ftw_rc=1; return 1; }
+  fi
+  return 0
+}
+_ftw_putcfg() {  # <범위> <키> <없음|값> — 캐치값 그대로(없음 → unset · false → false · true → true)
+  if [ "$3" = unset ]; then git config "$1" --unset "$2" 2>/dev/null
+  else git config "$1" -- "$2" "$3" 2>/dev/null; fi
+  return 0
+}
+_ftw_restore() {  # 돌려놓기 = 적어 둔 그대로 — 설정 3값 + 패턴 파일 존재·바이트(하나라도 어깋나면 반쪽이 남는다)
+  if [ "$_ftw_sc_changed" = 1 ]; then  # 작업 트리 파일 복원은 git 자신에게 먼저 시킨다(disable 실패해도 설정·패턴은 아래에서 되돌림)
     _fc="$(git config --bool core.sparseCheckout 2>/dev/null)"; [ "$_fc" = true ] && git sparse-checkout disable >/dev/null 2>&1
   fi
-  for _fp in worktree local; do
-    if [ "$_fp" = worktree ]; then [ "$_ftw_wtcfg" = 1 ] || continue; _fv="$_ftw_pre_wt"
-    else _fv="$_ftw_pre_local"; fi
-    _fc="$(git config --"$_fp" --bool core.sparseCheckout 2>/dev/null)"; [ -n "$_fc" ] || _fc=unset
-    [ "$_fc" = "$_fv" ] && continue
-    if [ "$_fv" = unset ]; then git config --"$_fp" --unset core.sparseCheckout 2>/dev/null
-    else git config --"$_fp" --bool core.sparseCheckout "$_fv" 2>/dev/null; fi
-  done
-  [ "$_ftw_pre_info" = 1 ] || rm -f "$_gd/info/sparse-checkout" 2>/dev/null
-  # r843 r9: 캐치 때 extensions.worktreeConfig 가 «없었으면» 그것도 «없음» 으로 되돌린다(우리가 켜진 것을 남기면 다음 실행이 풀 상태를 sparse 로 믿는다)
-  if [ "$_ftw_pre_wtcfg_absent" = 1 ] && [ "$(git config --bool extensions.worktreeConfig 2>/dev/null)" = true ]; then
-    git config --unset extensions.worktreeConfig 2>/dev/null
-    rm -f "$_gd/config.worktree" 2>/dev/null
+  _ftw_putcfg --local extensions.worktreeConfig "$_ftw_pre_wtcfg"
+  if [ "$_ftw_pre_wtcfg" = true ]; then _ftw_putcfg --worktree core.sparseCheckout "$_ftw_pre_wt"; fi
+  _ftw_putcfg --local core.sparseCheckout "$_ftw_pre_local"
+  if [ "$_ftw_pre_info" = 1 ]; then  # 있었으면 그 바이트 그대로(0바이트 → 0바이트)
+    mkdir -p "$_gd/info" 2>/dev/null
+    cp "$_ftw_info_bak" "$_gd/info/sparse-checkout" 2>/dev/null \
+      || echo "WARN ft-wt-mode 패턴 파일 복원 실패 $_gd/info/sparse-checkout — 손으로 확인하라" >&2
+  else
+    rm -f "$_gd/info/sparse-checkout" 2>/dev/null
   fi
+  [ -z "$_ftw_info_bak" ] || rm -f "$_ftw_info_bak" 2>/dev/null
+  if [ "$_ftw_pre_wtcfg" != true ]; then rm -f "$_gd/config.worktree" 2>/dev/null; fi
 }
 _ftw_fail() {  # <단계> <사유> — 반쪽 상태를 남기지 않는 «한 자리»: pending 삭제 · (옮겼거나 읽기 실패한) 표식 삭제 · 설정 원복 · rc1 + ERROR 1줄
   [ -z "$_ftw_pend" ] || rm -rf "$_ftw_pend" 2>/dev/null
@@ -78,6 +89,7 @@ _ftw_commit() {  # <값> — 설정이 rc0 인 «뒤» 최종 자리로 mv 1회 
   _ftw_read "$_mark" && [ "$_ftw_out" = "$1" ] \
     || { _ftw_fail "표식 쓰기" "«$1» mv 뒤 읽은 값이 다름 또는 읽기 rc≠0 $_mark"; return 1; }
   rm -rf "$_ftw_pend" 2>/dev/null
+  [ -z "$_ftw_info_bak" ] || rm -f "$_ftw_info_bak" 2>/dev/null
   return 0
 }
 _ftw_len() { python3 -c 'import sys; print(len(sys.argv[1].strip()))' "$1" 2>/dev/null || echo 0; }
