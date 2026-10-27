@@ -67,7 +67,13 @@ cat > "$T/fake/mbox.sh" <<'EOF'
 [ "${FAKE_MBOX_FAIL:-0}" = 1 ] && exit 1
 printf '%s\n' "$*" >> "$FAKE_MBOX_LOG"
 EOF
-chmod +x "$T/fake/ft-hil" "$T/fake/mbox.sh"; : > "$T/hil.log"; : > "$T/mbox.log"
+REALPY="$(command -v python3)"   # realpath 실패 주입용 대역(정상일 때는 진짜 python3)
+cat > "$T/fake/python3" <<PYEOF
+#!/usr/bin/env bash
+[ "\${FAKE_PY_FAIL:-0}" = 1 ] && { echo "python3 실패"; exit 1; }
+exec "$REALPY" "\$@"
+PYEOF
+chmod +x "$T/fake/ft-hil" "$T/fake/mbox.sh" "$T/fake/python3"; : > "$T/hil.log"; : > "$T/mbox.log"
 lp() { ( cd "$T" && env -i HOME="$HOME" PATH="$T/fake:$PATH" FT_WT_CLEAN_DIR="$T/state/wt-clean" FT_WT_SCAN_ROOT="$REPO" \
   FT_TMUX_BIN="$T/fake/tmux" FT_LSOF_BIN="$T/fake/lsof" FT_DU_BIN="$T/fake/du" FAKE_PANES="$T/panes" FAKE_CWDS="$T/cwds" \
   FT_HIL_BIN="$T/fake/ft-hil" FAKE_HIL_LOG="$T/hil.log" "$@" \
@@ -234,9 +240,11 @@ echo "== ⓔ④ DA r2 ④: 목록을 채우는 두 번째 호출의 실패도 �
 land_reset; rm -f "$PLAN" "$PLAN.sig" "$PLAN.sent" "$T/cnt3"
 o="$(lp FAKE_TMUX_CNT="$T/cnt3" FAKE_TMUX_ERR_EVEN=1 FAKE_TMUX_ERR_TEXT='Permission denied')"; rc=$?
 chk "ⓔ④ 실패한 사본이 있으면 rc 1" "$rc" 1
-has "$o" "ERROR 판정 불가 — land-done: tmux pane 실패(rc=1)(계획 제외 · 삭제 0)" "ⓔ④ 판정 불가 = 계획 제외 + ERROR 1줄"
-hasnt "$(grep '^land_rm ' "$PLAN")" "$W/land-done " "ⓔ④ 판정 불가 사본은 계획 밖"
-chk "ⓔ④ land-done 남음" "$(isd "$W/land-done")" yes
+has "$o" "판정 불가 land-" "ⓔ④ 실패 사본은 «판정 불가» 로그(ERROR 접두 0)"
+has "$o" "ERROR land 판정 불가 " "ⓔ④ ERROR 는 요약 1줄"
+chk "ⓔ④ ERROR 줄 수 = 1" "$(printf '%s\n' "$o" | grep -c '^ERROR')" 1
+chk "ⓔ④ 판정 불가 사본은 계획에 없음" "$(printf '%s\n' "$o" | sed -n 's/^판정 불가 \(land-[^:]*\):.*/\1/p' | while read -r nm; do grep -q "^land_rm .*\b$nm\b" "$PLAN" && echo BAD; done | grep -c BAD)" 0
+chk "ⓔ④ 판정 불가 사본 남음" "$(printf '%s\n' "$o" | sed -n 's/^판정 불가 \(land-[^:]*\):.*/\1/p' | while read -r nm; do isd "$W/$nm"; done | grep -c no)" 0
 
 echo "== ⓔ⑤ DA r2 ⑤: tmux·lsof 호출에 시간 상한(기본 7초)"
 chk "ⓔ⑤ 기본 상한 = 7초" "$(grep -c 'FT_WT_LIVE_SEC:-7' "$T/bin/ft-wt-sweep.sh")" 1
@@ -292,6 +300,54 @@ chk "ⓔ 표지 0" "$([ -e "$PLAN.sent" ] && echo yes || echo no)" no
 rm -f "$PLAN.sent"; o="$(lrun)"; rc=$?
 chk "ⓔ 정상이면 --launchd rc 0" "$rc" 0
 chk "ⓔ 정상이면 표지 생김" "$(sent_is_sig "$PLAN")" yes
+
+echo "== ⓕ DA r4 ①: 표지 해시가 같아 알림을 생략해도 «판정 불가» 가 있으면 최종 rc≠0 (--launchd 도)"
+land_reset; rm -f "$PLAN" "$PLAN.sig" "$PLAN.sent" "$T/cntF"
+o="$(lrun FAKE_TMUX_CNT="$T/cntF" FAKE_TMUX_ERR_AT=6)"; rc=$?
+chk "ⓕ 1회차(조회 실패 포함) rc≠0" "$([ "$rc" -ne 0 ] && echo yes || echo no)" yes
+chk "ⓕ 1회차 계획 = 확정분 2곳" "$(grep -c '^land_rm ' "$PLAN")" 2
+chk "ⓕ 1회차에 표지 생김" "$(sent_is_sig "$PLAN")" yes
+rm -f "$T/cntF"
+o="$(lrun FAKE_TMUX_CNT="$T/cntF" FAKE_TMUX_ERR_AT=6)"; rc=$?
+has "$o" "LAND-NOTIFY 보냄 표지 있음" "ⓕ 2회차는 알림 생략 경로"
+chk "ⓕ 표지 일치여도 rc≠0(--launchd 기록)" "$([ "$rc" -ne 0 ] && echo yes || echo no)" yes
+chk "ⓕ 2회차 ERROR 1줄" "$(printf '%s\n' "$o" | grep -c '^ERROR')" 1
+
+echo "== ⓖ DA r4 ②: 한 건 실패에 ERROR 는 1줄(사본별 줄은 «판정 불가» 로그)"
+land_reset; rm -f "$PLAN" "$PLAN.sig" "$PLAN.sent" "$T/cntG"
+o="$(lp FAKE_TMUX_CNT="$T/cntG" FAKE_TMUX_ERR_AT=6)"; rc=$?
+chk "ⓖ rc≠0" "$([ "$rc" -ne 0 ] && echo yes || echo no)" yes
+chk "ⓖ ERROR 줄 수 = 1" "$(printf '%s\n' "$o" | grep -c '^ERROR')" 1
+has "$o" "판정 불가 land-" "ⓖ 사본별 줄은 ERROR 접두 0"
+has "$o" "ERROR land 판정 불가 2곳" "ⓖ ERROR = 요약 1줄"
+
+echo "== ⓗ 전수: 조회 자리마다 실패 → rc≠0 · ERROR 1줄 · (표지 있는/없는 경우)"
+chk "ⓗ run7 호출 자리 = 4" "$(grep -c 'run7 "' "$T/bin/ft-wt-sweep.sh")" 4
+hsite() {   # hsite <이름> — 자리별 실패 주입. per-copy 자리(tmux3·tmux4)는 표지 있는 경우까지 잰다.
+  local nm="$1" cnt="$T/cnt_$1" o rc o2 rc2
+  case "$nm" in
+    tmux1) set -- FAKE_TMUX_CNT="$cnt" FAKE_TMUX_ERR_AT=1 ;;
+    tmux3) set -- FAKE_TMUX_CNT="$cnt" FAKE_TMUX_ERR_AT=6 ;;   # 6·7번째 조회 = land-done3·land-unlanded
+    tmux4) set -- FAKE_TMUX_CNT="$cnt" FAKE_TMUX_ERR_AT=5 ;;   # 5번째부터 = 확정 대상까지 실패
+    lsof)  set -- FAKE_LSOF_RC=1 ;;
+    realpath) set -- FAKE_PY_FAIL=1 ;;
+    hil)   set -- FAKE_HIL_RC=9 ;;
+  esac
+  land_reset; rm -f "$PLAN" "$PLAN.sig" "$PLAN.sent" "$cnt"
+  o="$(lp "$@")"; rc=$?
+  chk "ⓗ$nm 표지 없음 → rc≠0" "$([ "$rc" -ne 0 ] && echo yes || echo no)" yes
+  chk "ⓗ$nm 표지 없음 → ERROR 1줄" "$(printf '%s\n' "$o" | grep -c '^ERROR')" 1
+  case "$nm" in tmux3|tmux4) ;; *) return 0 ;; esac   # 시작 조회 실패·등록 실패는 계획이 없어 «표지 있음» 경우가 성립하지 않는다
+  rm -f "$cnt" "$PLAN.sent"
+  o="$(lrun "$@")"; rc=$?
+  chk "ⓗ$nm 표지 만든 1회차 rc≠0" "$([ "$rc" -ne 0 ] && echo yes || echo no)" yes
+  chk "ⓗ$nm 표지 생김" "$(sent_is_sig "$PLAN")" yes
+  rm -f "$cnt"
+  o2="$(lrun "$@")"; rc2=$?
+  chk "ⓗ$nm 표지 있음 → rc≠0" "$([ "$rc2" -ne 0 ] && echo yes || echo no)" yes
+  chk "ⓗ$nm 표지 있음 → ERROR 1줄" "$(printf '%s\n' "$o2" | grep -c '^ERROR')" 1
+}
+for site in tmux1 tmux3 tmux4 lsof realpath hil; do hsite "$site"; done
 
 echo
 [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }

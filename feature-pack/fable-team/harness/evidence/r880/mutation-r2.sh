@@ -28,9 +28,9 @@ echo "== 변이 1: 사본마다 직전 재검사 제거(고침 1) — ⓐ 가 �
 cat > "$T/m1.py" <<'MPY1'
 import sys
 p = sys.argv[1]; s = open(p, encoding="utf-8").read()
-old = '    if ! land_live; then echo "ERROR 판정 불가 — ${p##*/}: $LAND_ERR(계획 제외 · 삭제 0)" >&2; bad=$((bad+1)); continue; fi'
+old = '    if ! land_live; then echo "판정 불가 ${p##*/}'
 assert old in s, "사본별 재검사 줄 없음"
-open(p, "w", encoding="utf-8").write(s.replace(old, "", 1))
+open(p, "w", encoding="utf-8").write(s.replace(old, '    if false; then echo "판정 불가 ${p##*/}', 1))
 MPY1
 mut refresher "ⓐ" "$T/m1.py"
 
@@ -91,9 +91,10 @@ echo "== 변이 7: 사본별 land_live rc 무시(DA r3 ④) — ⓔ④ 가 잡�
 cat > "$T/m7.py" <<'MPY7'
 import sys
 p = sys.argv[1]; s = open(p, encoding="utf-8").read()
-old = '    if ! land_live; then echo "ERROR 판정 불가'
-assert old in s, "판정 불가 줄 없음"
-open(p, "w", encoding="utf-8").write(s.replace(old, '    if false; then echo "ERROR 판정 불가', 1))
+old = '  [ "$bad" -gt 0 ] || return 0'
+assert old in s, "land_rc 판정 줄 없음"
+new = '  return 0   # 변이: 판정 불가를 rc 에 반영하지 않는다'
+open(p, "w", encoding="utf-8").write(s.replace(old, new, 1))
 MPY7
 mut ignrc "ⓔ④" "$T/m7.py"
 
@@ -127,6 +128,26 @@ assert old in s, "run7 성공 판정 줄 없음"
 open(p, "w", encoding="utf-8").write(s.replace(old, '  [ -n "$o" ] && { RUN7_OUT="$o"; return 0; }   # 변이: 출력 유무로 성공', 1))
 MPY10
 mut run7rc "ⓑ" "$T/m10.py"
+echo "== 변이 11: bad 무시 rc0(DA r4 ①) — ⓕ 이 잡아야 한다"
+cat > "$T/m11.py" <<'MPY11'
+import sys
+p = sys.argv[1]; s = open(p, encoding="utf-8").read()
+old = '  [ "$bad" -gt 0 ] || return 0'
+assert old in s, "land_rc 판정 줄 없음"
+open(p, "w", encoding="utf-8").write(s.replace(old, '  return 0   # 변이: 판정 불가 무시', 1))
+MPY11
+mut badignored "ⓕ" "$T/m11.py"
+
+echo "== 변이 12: 사본별 ERROR 부활(DA r4 ②) — ⓖ·ⓗ 가 잡아야 한다"
+cat > "$T/m12.py" <<'MPY12'
+import sys
+p = sys.argv[1]; s = open(p, encoding="utf-8").read()
+old = 'echo "판정 불가 ${p##*/}: $LAND_ERR(계획 제외 · 삭제 0)"'
+assert old in s, "사본별 판정 불가 줄 없음"
+open(p, "w", encoding="utf-8").write(s.replace(old, 'echo "ERROR 판정 불가 — ${p##*/}: $LAND_ERR(계획 제외 · 삭제 0)"', 1))
+MPY12
+mut hilerror "ⓖ" "$T/m12.py"
+
 echo
-if [ "$fail" -eq 0 ]; then echo "ALL MUTATIONS KILLED (10)"; exit 0; fi
+if [ "$fail" -eq 0 ]; then echo "ALL MUTATIONS KILLED (12)"; exit 0; fi
 echo "MUTATION PROBLEM $fail"; exit 1
