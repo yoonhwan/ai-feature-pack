@@ -32,5 +32,5 @@ PASS ⓗ sparse 밖 충돌 = 그 파일만 디스크에 나옴(rc=1)
 == 결과: FAIL=0
 == ⓘ 변이(사본에 한 줄 · 그 칸이 FAIL 이어야)
 PASS ⓘ no-sparse-set → FAIL ⓐ design/teams/b·c 디스크에 있음
-PASS ⓘ no-full-reason → FAIL ⓓ short rc=0 · NOTE shim-init 생략 — /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.stV6ehCxL1/r/.fable-team/LIVE_BIN 없음
+PASS ⓘ no-full-reason → FAIL ⓓ short rc=0 · NOTE shim-init 생략 — /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.YHqPIKtQwj/r/.fable-team/LIVE_BIN 없음
 == 결과(변이 포함): FAIL=0

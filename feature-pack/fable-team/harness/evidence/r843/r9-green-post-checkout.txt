@@ -88,6 +88,8 @@ PASS ⓖ3b 다음 실행은 처음부터(표식 없음 → sparse 적용 · 안�
 PASS ⓚ0 사전: 새 리포(byz3) 에 worktreeConfig·core.sparseCheckout 없음(설정 0)
 PASS ⓚ DA① 설정 0 + 설정 직전 실패 → rc≠0 · ERROR 1줄 · 표식 0 · worktreeConfig/설정 «없음» 복원(우리가 켠 것도 끔)
 PASS ⓚb 다음 실행 = 처음부터(설정 0 에서 표식 없음 → sparse 적용 · 안내 1회)
+PASS ⓚc 설정 성공 + 표식 mv 실패 → 패턴 파일 0 · worktreeConfig/설정 «없음» · 파일 복원(실패가 패턴 파일을 남기지 않음)
+PASS ⓚc2 그 다음 실행도 처음부터(sparse 적용 · 표식 sparse)
 PASS ⓛ0 사전: 설정 true · 파일은 풀 · 패턴 파일 0 · 표식 0
 PASS ⓛ DA② 설정 값 true 를 «믿고 건너뛰는 길» 0 — 항상 set 실행 → 파일 sparse · 표식 sparse
 == 결과: FAIL=0
@@ -97,7 +99,7 @@ PASS 변이 no-sparse-set → FAIL 빠짐1 cwd=P · git --git-dir=<B>/.git workt
 PASS 변이 legacy-ignored → FAIL ⓡ7 rc=0 표식=있음 · e=[r835] 팀 워크트리를 sparse 로 정함(남의 팀 폴더 0) · /private/var/fold
 PASS 변이 nano-no-full-env → FAIL 반례③ FT_NANO_SPARSE=0 nano 풀 경로 → 풀 · 표식 full — b= sparse=true mark=sparse · e=작업 트리
 PASS 변이 r843-no-verify → FAIL ⓕ1 rc=0 표식=있음 pending=0 · [r835] 팀 워크트리를 sparse 로 정함(남의 팀 폴더 0) · /private/
-PASS 변이 r843-exist-only → FAIL ⓕ1c rc=1 · HAS /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.jkA1T0ir9s/byz/.worktrees/f4 sparse
+PASS 변이 r843-exist-only → FAIL ⓕ1c rc=1 · HAS /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.T2htkZmlB8/byz/.worktrees/f4 sparse
 PASS 변이 r843r8-move-before-set → FAIL ⓖ2 rc=1 표식=있음 · ERROR ft-wt-mode sparse 설정 실패 — sparse-checkout set 실패(체크아웃 그대
 PASS 변이 r843r5-full-swallow → FAIL ⓔ1 rc=0 · [r835] FT_WT_FULL — 풀 체크아웃 유지 · 표식 /private/var/folders/vm/j7_jw8050t553wj5wqlvnm
 PASS 변이 r843r6-fail-noop → FAIL ⓡ7 rc=1 표식=있음 · e=ERROR ft-wt-mode 표식 읽기 실패 — 표식 자리 있음인데 못 읽음(rc≠0
@@ -108,11 +110,11 @@ PASS 변이 r843r8-read-branch-back → FAIL ⓖ3 rc=1 표식=있음 · ERROR ft
 PASS 변이 r843r8-shared-write → FAIL ⓖ1 rc=1 local=false wt=false · ERROR ft-wt-mode 표식 쓰기 실패 — «sparse» 쓰고 다시 읽은 값이 
 PASS 변이 r843r4-no-dir-check → FAIL ⓐ1 rc=1 · e=ERROR ft-wt-mode 표식 읽기 실패 — 표식 자리 있음인데 못 읽음(rc≠0 또는 일반
 PASS 변이 r843r4-exist-only → FAIL ⓡ10 rc=0 · e=[r835] 팀 워크트리를 sparse 로 정함(남의 팀 폴더 0) · /private/var/folders/vm/j7_jw8
-PASS 변이 r843r2-unm-teams → FAIL ⓡ4 rc=1 · ERROR 표식 자리 이상: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.yXU9CsIQuu/by
-PASS 변이 r843r5-stamp-value → FAIL ⓔ5 · ERROR 표식 자리 이상: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.dzO0ifuzZn/byz/.gi
-PASS 변이 r843r4-stamp-read-absent → FAIL ⓡ9 · ERROR 표식 쓰기 실패: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.FUcurAUATD/byz/.gi
-PASS 변이 r843r4-unm-swallow → FAIL ⓡ12 rc=0 · ERROR 팀 폴더 못 읽음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.yfx18sQpw2/
-PASS 변이 r843-rc0 → FAIL ⓐ1 rc=0 · e=ERROR ft-wt-mode 표식 자리 이상 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Y
-PASS 변이 r843-stamp-no-verify → FAIL ⓓ2 rc=1 · STAMP /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.AxV97e154C/byz/.worktrees/d2 legacy
-PASS 변이 r843-stamp-rc0 → FAIL ⓑ2 stamp rc=0 · HAS /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.74C0HeDY8A/byz/.worktrees/e1 sp
+PASS 변이 r843r2-unm-teams → FAIL ⓡ4 rc=1 · ERROR 표식 자리 이상: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.EQKKFvGDrq/by
+PASS 변이 r843r5-stamp-value → FAIL ⓔ5 · ERROR 표식 자리 이상: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.QKxXmPtjeC/byz/.gi
+PASS 변이 r843r4-stamp-read-absent → FAIL ⓡ9 · ERROR 표식 쓰기 실패: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.ATFjfI2Gyg/byz/.gi
+PASS 변이 r843r4-unm-swallow → FAIL ⓡ12 rc=0 · ERROR 팀 폴더 못 읽음: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.6JaWPhBpgk/
+PASS 변이 r843-rc0 → FAIL ⓐ1 rc=0 · e=ERROR ft-wt-mode 표식 자리 이상 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.h
+PASS 변이 r843-stamp-no-verify → FAIL ⓓ2 rc=1 · STAMP /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.vCcX9GPE5e/byz/.worktrees/d2 legacy
+PASS 변이 r843-stamp-rc0 → FAIL ⓑ2 stamp rc=0 · HAS /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.vzEqLYDEiK/byz/.worktrees/e1 sp
 == 결과(변이 포함): FAIL=0

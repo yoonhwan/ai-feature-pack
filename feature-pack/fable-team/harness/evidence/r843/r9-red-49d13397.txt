@@ -86,8 +86,10 @@ PASS ⓖ2 DA② 설정 rc0 전 최종 자리 표식 0 · 실패는 임시 자리
 PASS ⓖ3 DA③ 기존 표식 읽기 rc≠0 → fail_closed(표식 삭제 · ERROR 1줄 · rc≠0)
 PASS ⓖ3b 다음 실행은 처음부터(표식 없음 → sparse 적용 · 안내 1회)
 PASS ⓚ0 사전: 새 리포(byz3) 에 worktreeConfig·core.sparseCheckout 없음(설정 0)
-FAIL ⓚ rc=1 wtcfg=true sparse= · ERROR ft-wt-mode sparse 설정 실패 — sparse-checkout set 실패(체크아웃 그대로) /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.QdjG1ctliv/byz3/.worktrees/k1 · 표식·spars
+FAIL ⓚ rc=1 wtcfg=true sparse= · ERROR ft-wt-mode sparse 설정 실패 — sparse-checkout set 실패(체크아웃 그대로) /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.O2e1O4G3Qm/byz3/.worktrees/k1 · 표식·spars
 FAIL ⓚb rc=0 표식=sparse · 
+FAIL ⓚc rc=1 패턴파일=0 wtcfg=true b=있음 · ERROR ft-wt-mode 표식 이동 실패 — pending → /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.O2e1O4G3Qm/byz4/.git/worktrees/k2/ft-wt-mode mv 실패 · 표식·sparse 설정 원�
+PASS ⓚc2 그 다음 실행도 처음부터(sparse 적용 · 표식 sparse)
 PASS ⓛ0 사전: 설정 true · 파일은 풀 · 패턴 파일 0 · 표식 0
 FAIL ⓛ rc=0 표식=sparse b=있음 · 
-== 결과: FAIL=3
+== 결과: FAIL=4

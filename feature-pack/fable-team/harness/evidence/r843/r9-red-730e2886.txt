@@ -34,101 +34,103 @@ PASS ft-nano-spawn sparse 꼴(428~429행 명령) → 팀 b 패턴 그대로 · �
 PASS 무동작 merge(풀 워크트리)
 PASS 주 워크트리 자신은 표식 0(.worktrees 밖)
 == r843 표식 쓰기 확인(DA r3 반례 · 못 쓴 표식을 조용히 지나가지 않음)
-FAIL ⓐ1 rc=1 · e=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/hooks/post-checkout: line 23: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.git/worktrees/m1/ft-wt-mode: Is a directory
+FAIL ⓐ1 rc=1 · e=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/hooks/post-checkout: line 23: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.git/worktrees/m1/ft-wt-mode: Is a directory
 ERROR ft-wt-mode 쓰기 실패 /private/var/folders/vm/j7_jw8050t553wj5wqlvnm
-FAIL ⓐ2 rc=1 sparse= · e=ERROR ft-wt-mode 쓰기 실패 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.git/worktrees/m1/ft-wt-mode — 표식 자리가 쓸 수 있는 일반 파일 아님 · 체크아웃 상태 그대로
-FAIL ⓑ1 rc=1 · e=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/hooks/post-checkout: line 23: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.git/worktrees/m2/ft-wt-mode: Is a directory
+FAIL ⓐ2 rc=1 sparse= · e=ERROR ft-wt-mode 쓰기 실패 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.git/worktrees/m1/ft-wt-mode — 표식 자리가 쓸 수 있는 일반 파일 아님 · 체크아웃 상태 그대로
+FAIL ⓑ1 rc=1 · e=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/hooks/post-checkout: line 23: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.git/worktrees/m2/ft-wt-mode: Is a directory
 ERROR ft-wt-mode 쓰기 실패 /private/var/folders/vm/j7_jw8050t553wj5wqlvnm
-FAIL ⓒ1 rc=1 sparse= · e=ERROR ft-wt-mode 쓰기 실패 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.git/worktrees/m6/ft-wt-mode — 표식 자리가 쓸 수 있는 일반 파일 아님 · 체크아웃 상태 그대로
-FAIL ⓑ2 stamp rc=1 · HAS /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.worktrees/e1 sparse
-HAS /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.worktrees/e2 sparse
-HAS /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.worktrees/e3 sparse
-HAS /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.worktrees/e4 sparse
-HAS /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.worktrees/full full 시험용 풀 체크아웃 사유
-/tmp/r843old/stamp.730e: 줄 52: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.git/worktrees/m1/ft-wt-mode: Is a directory
-ERROR 표식 쓰기 실패: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.git/worktrees/m1/ft-wt-mode — «legacy-full» 쓰고 다시 읽은 값이 다름 · /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.worktrees/m1
-/tmp/r843old/stamp.730e: 줄 52: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.git/worktrees/m2/ft-wt-mode: Is a directory
-ERROR 표식 쓰기 실패: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.git/worktrees/m2/ft-wt-mode — «sparse» 쓰고 다시 읽은 값이 다름 · /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.worktrees/m2
-STAMP /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.worktrees/m4 legacy-full
-ERROR 표식 쓰기 실패: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.git/worktrees/m6/ft-wt-mode — «legacy-full» 쓰고 다시 읽은 값이 다름 · /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.worktrees/m6
-HAS /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.worktrees/nano sparse
-HAS /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.worktrees/nano-full full nano full(FT_NANO_SPARSE=0 · team=?) design/teams/a/indices/진행/x.md
-HAS /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.worktrees/old legacy-full
-HAS /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.worktrees/r1 sparse
-HAS /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.worktrees/short sparse
-HAS /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.worktrees/wtadd sparse
-HAS /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.worktrees/wtfull full 판정용 전체 사본이 필요함
+FAIL ⓒ1 rc=1 sparse= · e=ERROR ft-wt-mode 쓰기 실패 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.git/worktrees/m6/ft-wt-mode — 표식 자리가 쓸 수 있는 일반 파일 아님 · 체크아웃 상태 그대로
+FAIL ⓑ2 stamp rc=1 · HAS /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.worktrees/e1 sparse
+HAS /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.worktrees/e2 sparse
+HAS /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.worktrees/e3 sparse
+HAS /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.worktrees/e4 sparse
+HAS /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.worktrees/full full 시험용 풀 체크아웃 사유
+/tmp/r843old/stamp.730e: 줄 52: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.git/worktrees/m1/ft-wt-mode: Is a directory
+ERROR 표식 쓰기 실패: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.git/worktrees/m1/ft-wt-mode — «legacy-full» 쓰고 다시 읽은 값이 다름 · /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.worktrees/m1
+/tmp/r843old/stamp.730e: 줄 52: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.git/worktrees/m2/ft-wt-mode: Is a directory
+ERROR 표식 쓰기 실패: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.git/worktrees/m2/ft-wt-mode — «sparse» 쓰고 다시 읽은 값이 다름 · /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.worktrees/m2
+STAMP /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.worktrees/m4 legacy-full
+ERROR 표식 쓰기 실패: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.git/worktrees/m6/ft-wt-mode — «legacy-full» 쓰고 다시 읽은 값이 다름 · /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.worktrees/m6
+HAS /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.worktrees/nano sparse
+HAS /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.worktrees/nano-full full nano full(FT_NANO_SPARSE=0 · team=?) design/teams/a/indices/진행/x.md
+HAS /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.worktrees/old legacy-full
+HAS /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.worktrees/r1 sparse
+HAS /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.worktrees/short sparse
+HAS /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.worktrees/wtadd sparse
+HAS /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.worktrees/wtfull full 판정용 전체 사본이 필요함
 TOTAL worktrees=16 new=4 has=12 err=3 mode=apply
-FAIL ⓑ3 stamp · ERROR 표식 쓰기 실패: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.git/worktrees/m6/ft-wt-mode — «legacy-full» 쓰고 다시 읽은 값이 다름 · /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.worktrees/m6
-FAIL ⓒ2 rc=1 · e=ERROR ft-wt-mode 쓰기 실패 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.git/worktrees/m7/ft-wt-mode — «full 시험용 풀 체크아웃 사유» 쓰고 다시 읽은 값이 다름 · 표식 자리(일반 파일)를 확인
+FAIL ⓑ3 stamp · ERROR 표식 쓰기 실패: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.git/worktrees/m6/ft-wt-mode — «legacy-full» 쓰고 다시 읽은 값이 다름 · /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.worktrees/m6
+FAIL ⓒ2 rc=1 · e=ERROR ft-wt-mode 쓰기 실패 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.git/worktrees/m7/ft-wt-mode — «full 시험용 풀 체크아웃 사유» 쓰고 다시 읽은 값이 다름 · 표식 자리(일반 파일)를 확인
 == r843 r2 (외부 DA r843 r1 반례 · 시험 표식 남김 · checkout 을 안 거치는 풀 생성 길)
-FAIL ⓡ1 rc=0 표식=sparse · e=[r835] 팀 워크트리를 sparse 로 정함(남의 팀 폴더 0) · /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.worktrees/q1
-  자기 팀 폴더 = git -C /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.worktrees/q1 sparse-checkout add /d
-FAIL ⓡ3 rc=1 · e=ERROR ft-wt-mode 쓰기 실패 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.git/worktrees/q3/ft-wt-mode — 표식 자리가 쓸 수 있는 일반 파일 아님 · 체크아웃 상태 그대로
+FAIL ⓡ1 rc=0 표식=sparse · e=[r835] 팀 워크트리를 sparse 로 정함(남의 팀 폴더 0) · /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.worktrees/q1
+  자기 팀 폴더 = git -C /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.worktrees/q1 sparse-checkout add /d
+FAIL ⓡ3 rc=1 · e=ERROR ft-wt-mode 쓰기 실패 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.git/worktrees/q3/ft-wt-mode — 표식 자리가 쓸 수 있는 일반 파일 아님 · 체크아웃 상태 그대로
 PASS ⓡ2 표식 = sparse · 별도 이름 시험 파일 0(남는 시험 표식 0)
 PASS ⓡ2 다음 checkout → 표식 있음 = 손대지 않음 · 되풀이 0
-FAIL ⓡ4 rc=0 · UNMARKED /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.worktrees/m1 teams=3 kib=24
-UNMARKED /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.worktrees/m6 teams=3 kib=24
-UNMARKED /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.worktrees/m7 teams=3 kib=24
-UNMARKED /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.worktrees/q3 teams=3 kib=24
-UNMARKED /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.worktrees/q5 teams=3 kib=24
-UNMARKED /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.worktrees/q6 teams=3 kib=24
-UNMARKED /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.worktrees/x teams=3 kib=24
+FAIL ⓡ4 rc=0 · UNMARKED /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.worktrees/m1 teams=3 kib=24
+UNMARKED /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.worktrees/m6 teams=3 kib=24
+UNMARKED /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.worktrees/m7 teams=3 kib=24
+UNMARKED /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.worktrees/q3 teams=3 kib=24
+UNMARKED /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.worktrees/q5 teams=3 kib=24
+UNMARKED /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.worktrees/q6 teams=3 kib=24
+UNMARKED /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.worktrees/x teams=3 kib=24
 TOTAL worktrees=23 has=15 unmarked=7 mode=unmarked
-FAIL ⓡ5 · STAMP /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.worktrees/q5 legacy-full
-STAMP /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.worktrees/x legacy-full
+FAIL ⓡ5 · STAMP /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.worktrees/q5 legacy-full
+STAMP /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.worktrees/x legacy-full
 PASS ⓡ6 --apply + --unmarked 같이 → REJECT
 == r843 r4 (외부 DA r843 r2 반례 · 표식 «있음» = -e 또는 -L · 정상 값 아니면 ERROR + 상태 변경 0)
-FAIL ⓡ7 rc=1 표식=있음 · e=ERROR ft-wt-mode 쓰기 실패 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.git/worktrees/v1/ft-wt-mode — «sparse» 쓰고 다시 읽은 값이 다름 · 표식 자리(일반 파일)를 확인
-FAIL ⓡ8 rc=1 표식= · e=ERROR ft-wt-mode 쓰기 실패 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.git/worktrees/v1/ft-wt-mode — «sparse» 쓰고 다시 읽은 값이 다름 · 표식 자리(일반 파일)를 확인
-FAIL ⓡ9 · ERROR 표식 쓰기 실패: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.git/worktrees/v5/ft-wt-mode — «legacy-full» 쓰고 다시 읽은 값이 다름 · /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.worktrees/v5
-FAIL ⓡ10 rc=1 · e=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/hooks/post-checkout: line 23: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.git/worktrees/v2/ft-wt-mode: Read-only file system
+FAIL ⓡ7 rc=1 표식=있음 · e=ERROR ft-wt-mode 쓰기 실패 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.git/worktrees/v1/ft-wt-mode — «sparse» 쓰고 다시 읽은 값이 다름 · 표식 자리(일반 파일)를 확인
+FAIL ⓡ8 rc=1 표식= · e=ERROR ft-wt-mode 쓰기 실패 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.git/worktrees/v1/ft-wt-mode — «sparse» 쓰고 다시 읽은 값이 다름 · 표식 자리(일반 파일)를 확인
+FAIL ⓡ9 · ERROR 표식 쓰기 실패: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.git/worktrees/v5/ft-wt-mode — «legacy-full» 쓰고 다시 읽은 값이 다름 · /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.worktrees/v5
+FAIL ⓡ10 rc=1 · e=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/hooks/post-checkout: line 23: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.git/worktrees/v2/ft-wt-mode: Read-only file system
 ERROR ft-wt-mode 쓰기 실패 /private/var/folders/vm/j7_jw8050t553wj
-FAIL ⓡ11 rc=1 · /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/hooks/post-checkout: line 23: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.git/worktrees/v2/ft-wt-mode: Read-only file system
+FAIL ⓡ11 rc=1 · /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/hooks/post-checkout: line 23: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.git/worktrees/v2/ft-wt-mode: Read-only file system
 ERROR ft-wt-mode 쓰기 실패 /private/var/folders/vm/j7_jw8050t553wj
 FAIL ⓡ12 rc=0 · 
-FAIL ⓓ1 rc=1 · ERROR ft-wt-mode 쓰기 실패 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.git/worktrees/d1/ft-wt-mode — «sparse» 쓰고 다시 읽은 값이 다름 · 표식 자리(일반 파일)를 확인
+FAIL ⓓ1 rc=1 · ERROR ft-wt-mode 쓰기 실패 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.git/worktrees/d1/ft-wt-mode — «sparse» 쓰고 다시 읽은 값이 다름 · 표식 자리(일반 파일)를 확인
 PASS ⓓ2 stamp --apply 쓰기 확인 → 읽은 값이 다르면 ERROR 표식 쓰기 실패 · rc≠0
 == r843 r5 (외부 DA r843 r3 반례 ①②④ · 표식 «먼저» 쓰고 확인 · 값 해석 0)
-FAIL ⓔ1 rc=1 · /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/hooks/post-checkout: line 23: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.git/worktrees/e5/ft-wt-mode: Operation not permitted
+FAIL ⓔ1 rc=1 · /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/hooks/post-checkout: line 23: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.git/worktrees/e5/ft-wt-mode: Operation not permitted
 ERROR ft-wt-mode 쓰기 실패 /private/var/folders/vm/j7_jw8050t553
-FAIL ⓔ2 rc=1 sparse=true · /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/hooks/post-checkout: line 23: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.git/worktrees/e5/ft-wt-mode: Operation not permitted
+FAIL ⓔ2 rc=1 sparse=true · /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/hooks/post-checkout: line 23: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.git/worktrees/e5/ft-wt-mode: Operation not permitted
 ERROR ft-wt-mode 쓰기 실패 /private/var/folders/vm/j7_jw8050t553
-FAIL ⓔ3 rc=1 sparse=true b= · /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/hooks/post-checkout: line 23: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.git/worktrees/e6/ft-wt-mode: Operation not permitted
+FAIL ⓔ3 rc=1 sparse=true b= · /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/hooks/post-checkout: line 23: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.git/worktrees/e6/ft-wt-mode: Operation not permitted
 ERROR ft-wt-mode 쓰기 실패 /private/var/folders/vm/j7_jw8050t553
-FAIL ⓔ4 rc=0 · [r835] 팀 워크트리를 sparse 로 정함(남의 팀 폴더 0) · /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.worktrees/e7
-  자기 팀 폴더 = git -C /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.worktrees/e7 sparse-checkout add /d
-FAIL ⓔ5 · HAS /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.worktrees/e7 sparse
+FAIL ⓔ4 rc=0 · [r835] 팀 워크트리를 sparse 로 정함(남의 팀 폴더 0) · /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.worktrees/e7
+  자기 팀 폴더 = git -C /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.worktrees/e7 sparse-checkout add /d
+FAIL ⓔ5 · HAS /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.worktrees/e7 sparse
 == r843 r6 (외부 DA r4 반례 3 · 실패는 fail_closed 한 자리 · pending → mv 1회)
-FAIL ⓕ1 rc=0 표식=있음 pending=0 · [r835] 팀 워크트리를 sparse 로 정함(남의 팀 폴더 0) · /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.worktrees/f1
-  자기 팀 폴더 = git -C /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.worktrees/f1 sparse-checkout add /d
-FAIL ⓕ1b rc=1 · HAS /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.worktrees/f1 sparse
-FAIL ⓕ1c rc=1 · HAS /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.worktrees/f4 sparse
-FAIL ⓕ2 rc=1 표식=있음 · ERROR ft-wt-mode 쓰기 실패 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.git/worktrees/f2/ft-wt-mode — «full approved full checkout reason» 쓰고 다시 읽은 값이 다름 · 표식 자리(일반 파일)를 확인
+FAIL ⓕ1 rc=0 표식=있음 pending=0 · [r835] 팀 워크트리를 sparse 로 정함(남의 팀 폴더 0) · /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.worktrees/f1
+  자기 팀 폴더 = git -C /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.worktrees/f1 sparse-checkout add /d
+FAIL ⓕ1b rc=1 · HAS /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.worktrees/f1 sparse
+FAIL ⓕ1c rc=1 · HAS /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.worktrees/f4 sparse
+FAIL ⓕ2 rc=1 표식=있음 · ERROR ft-wt-mode 쓰기 실패 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.git/worktrees/f2/ft-wt-mode — «full approved full checkout reason» 쓰고 다시 읽은 값이 다름 · 표식 자리(일반 파일)를 확인
 FAIL ⓕ2b rc=0 · 
-FAIL ⓕ3 rc=0 sc=true 표식=0 · ERROR [r835] sparse 적용 실패 — 풀 체크아웃 그대로 · 표식 없음(다음 checkout 에 다시): /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.worktrees/f3
+FAIL ⓕ3 rc=0 sc=true 표식=0 · ERROR [r835] sparse 적용 실패 — 풀 체크아웃 그대로 · 표식 없음(다음 checkout 에 다시): /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.worktrees/f3
 FAIL ⓕ3b rc=0 표식=sparse r835=0 · 
 == r843 r8 (DA r6 반례 3 · 실패 자리 전수 · 설정 원복은 워크트리만 · 표식은 설정 rc0 뒤 mv)
-FAIL ⓖ0-표식 pending 쓰기 rc=0 표식=있음 pending=0 sc=true · [r835] 팀 워크트리를 sparse 로 정함(남의 팀 폴더 0) · /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.worktrees/s1
+FAIL ⓖ0-표식 pending 쓰기 rc=0 표식=있음 pending=0 sc=true · [r835] 팀 워크트리를 sparse 로 정함(남의 팀 폴더 0) · /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.worktrees/s1
   자기 팀 폴더 = git -C /private/var
-FAIL ⓖ0-pending 검증 읽기 rc=0 표식=있음 pending=0 sc=true · [r835] 팀 워크트리를 sparse 로 정함(남의 팀 폴더 0) · /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.worktrees/s2
+FAIL ⓖ0-pending 검증 읽기 rc=0 표식=있음 pending=0 sc=true · [r835] 팀 워크트리를 sparse 로 정함(남의 팀 폴더 0) · /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.worktrees/s2
   자기 팀 폴더 = git -C /private/var
-FAIL ⓖ0-sparse 설정 rc=0 표식=0 pending=0 sc=true · ERROR [r835] sparse 적용 실패 — 풀 체크아웃 그대로 · 표식 없음(다음 checkout 에 다시): /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.worktrees/s3
-FAIL ⓖ0-표식 mv rc=1 표식=0 pending=0 sc=true · /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/hooks/post-checkout: line 23: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.git/worktrees/s4/ft-w
-FAIL ⓖ0-최종 자리 검증 읽기 rc=0 표식=있음 pending=0 sc=true · [r835] 팀 워크트리를 sparse 로 정함(남의 팀 폴더 0) · /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.worktrees/s5
+FAIL ⓖ0-sparse 설정 rc=0 표식=0 pending=0 sc=true · ERROR [r835] sparse 적용 실패 — 풀 체크아웃 그대로 · 표식 없음(다음 checkout 에 다시): /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.worktrees/s3
+FAIL ⓖ0-표식 mv rc=1 표식=0 pending=0 sc=true · /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/hooks/post-checkout: line 23: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.git/worktrees/s4/ft-w
+FAIL ⓖ0-최종 자리 검증 읽기 rc=0 표식=있음 pending=0 sc=true · [r835] 팀 워크트리를 sparse 로 정함(남의 팀 폴더 0) · /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.worktrees/s5
   자기 팀 폴더 = git -C /private/var
-FAIL ⓖ0-기존 표식 읽기 rc=1 표식=있음 pending=0 sc=true · ERROR ft-wt-mode 쓰기 실패 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.git/worktrees/s6/ft-wt-mode — «sparse» 쓰고 다시 읽은 값이 다름 · 표식 자�
+FAIL ⓖ0-기존 표식 읽기 rc=1 표식=있음 pending=0 sc=true · ERROR ft-wt-mode 쓰기 실패 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.git/worktrees/s6/ft-wt-mode — «sparse» 쓰고 다시 읽은 값이 다름 · 표식 자�
 FAIL ⓜ 자리 수 grep=1 (기대 5)
-FAIL ⓖ1 rc=0 local=true wt=true · [r835] 팀 워크트리를 sparse 로 정함(남의 팀 폴더 0) · /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz2/.worktrees/w1
+FAIL ⓖ1 rc=0 local=true wt=true · [r835] 팀 워크트리를 sparse 로 정함(남의 팀 폴더 0) · /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz2/.worktrees/w1
   자기 팀 폴더 = git -C /private/va
-FAIL ⓖ1b rc=0 local=true · ERROR [r835] sparse 적용 실패 — 풀 체크아웃 그대로 · 표식 없음(다음 checkout 에 다시): /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz2/.worktrees/w
-FAIL ⓖ2 rc=0 표식=0 · ERROR [r835] sparse 적용 실패 — 풀 체크아웃 그대로 · 표식 없음(다음 checkout 에 다시): /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.worktrees/o1
-FAIL ⓖ3 rc=0 표식=있음 · [r835] 팀 워크트리를 sparse 로 정함(남의 팀 폴더 0) · /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz/.worktrees/o2
+FAIL ⓖ1b rc=0 local=true · ERROR [r835] sparse 적용 실패 — 풀 체크아웃 그대로 · 표식 없음(다음 checkout 에 다시): /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz2/.worktrees/w
+FAIL ⓖ2 rc=0 표식=0 · ERROR [r835] sparse 적용 실패 — 풀 체크아웃 그대로 · 표식 없음(다음 checkout 에 다시): /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.worktrees/o1
+FAIL ⓖ3 rc=0 표식=있음 · [r835] 팀 워크트리를 sparse 로 정함(남의 팀 폴더 0) · /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz/.worktrees/o2
   자기 팀 폴더 = git -C /private/var
 FAIL ⓖ3b rc=0 표식=sparse · 
 PASS ⓚ0 사전: 새 리포(byz3) 에 worktreeConfig·core.sparseCheckout 없음(설정 0)
-FAIL ⓚ rc=0 wtcfg=true sparse= · ERROR [r835] sparse 적용 실패 — 풀 체크아웃 그대로 · 표식 없음(다음 checkout 에 다시): /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XmIA3Plvxf/byz3/.worktrees/k
+FAIL ⓚ rc=0 wtcfg=true sparse= · ERROR [r835] sparse 적용 실패 — 풀 체크아웃 그대로 · 표식 없음(다음 checkout 에 다시): /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz3/.worktrees/k
 FAIL ⓚb rc=0 표식=sparse · 
+FAIL ⓚc rc=1 패턴파일=있음 wtcfg=true b= · /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/hooks/post-checkout: line 23: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.XPFqZfuHe3/byz4/.git/worktrees/k2/ft-
+PASS ⓚc2 그 다음 실행도 처음부터(sparse 적용 · 표식 sparse)
 PASS ⓛ0 사전: 설정 true · 파일은 풀 · 패턴 파일 0 · 표식 0
 FAIL ⓛ rc=0 표식=sparse b=있음 · 
-== 결과: FAIL=45
+== 결과: FAIL=46
