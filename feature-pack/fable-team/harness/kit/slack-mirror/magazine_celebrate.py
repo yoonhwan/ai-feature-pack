@@ -110,7 +110,9 @@ def _cards_of(repo: Path, ref: str, start: datetime, end: datetime, seen: set[st
             name = _card_name(text, path)
             why = [f"{sha[:10]} 완성 이동 · 카드 {name}"]
             title = _plain(name, why) or "(카드 이름은 근거 표에)"  # 이름 속 번호 낱말(R259 등)은 근거 표로
-            done.append(Done(f"sha:{sha}", title, done_line(text) or f"원문 — {title}", " · ".join(why), f"{team_of(path)} 팀 · 카드 완성", title))
+            raw = done_line(text) or ""
+            what = _plain(raw, why) if raw else ""  # 원문 줄도 같은 걸러내기(r1033) — why 를 evidence 로 잇기 «전»
+            done.append(Done(f"sha:{sha}", title, what or f"원문 — {title}", " · ".join(why), f"{team_of(path)} 팀 · 카드 완성", title))
     return done
 
 

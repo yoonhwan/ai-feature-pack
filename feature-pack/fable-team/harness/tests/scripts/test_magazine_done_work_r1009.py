@@ -124,12 +124,9 @@ def test_c3_done_line_is_the_verdict_line_never_the_head_state(copy):  # ⓓ
 def test_c3_celebrate_uses_ops_ref_team_and_done_line(copy):
     _, done = mc.collect(str(copy), "HEAD", DAY)
     assert [d.chip for d in done] == ["v65 팀 · 카드 완성", "planner 팀 · 카드 완성", "ops 팀 · 카드 완성", "harness 팀 · 카드 완성"]  # git log = 새 커밋 먼저
-    assert [d.what for d in done] == [
-        "원문 — c-plain",
-        "- 2026-10-27 01:00 — 진행→완성 · DA design/x/VERDICT.md#§1",
-        "- 닫힘 판정문: design/x/VERDICT.md §1 — 완성 이동 = master --landed a-closeaa",
-        "- 닫힘 판정문: design/x/VERDICT.md §1 — 완성 이동 = master --landed d-opsaa",
-    ]
+    # r1033 — 판에 실리는 원문 줄도 제목과 같은 걸러내기를 지난다: 경로가 남는 줄은 표시만, 고른 줄은 근거 표에 그대로
+    assert [d.what for d in done] == ["원문 — c-plain", "(설명 문장은 근거 표에)", "(설명 문장은 근거 표에)", "(설명 문장은 근거 표에)"]
+    assert "진행→완성" in done[1].evidence and done[2].evidence.count("닫힘 판정문") == 1  # 고른 줄이 근거 표에 그대로(번予防 0)
     assert all("— 대기 · 착수 0" not in d.head() + d.fact() for d in done)  # 머리에 섞인 «대기» 글도 안 싣는다
 
 
@@ -236,7 +233,9 @@ def test_c3_verdict_line_wins_wherever_it_sits_and_all_three_places_agree(copy):
     sh(copy, "push", "-q", "origin", "main")  # 수집기가 fetch 하는 원격 가지에 올린다
     want = "- 닫힘 판정문: design/x/VERDICT.md §1 — 완성 이동 = master --landed " + "a" * 10
     assert unit(copy, "f-both.md")["done"] == want  # ① 수집기
-    assert next(d.what for d in mc.collect(str(copy), "HEAD", DAY)[1] if d.source == "f-both") == want  # ② 축하 칸
+    shown = next(d for d in mc.collect(str(copy), "HEAD", DAY)[1] if d.source == "f-both")
+    assert shown.what == "(설명 문장은 근거 표에)" and "landed " in shown.evidence  # ② 축하 칸 = 같은 줄을 골라 판 지침으로 걸러 낸 글(r1033) · 번호는 근거 표에
+    assert shown.evidence.split(" · ")[-1].startswith("닫힘 판정문:")  # 고른 줄이 같다(판정 두 벌 0)
     model = {"detail": {"units": [unit(copy, "f-both.md")]}}
     assert mrf._closed_line(model["detail"]["units"][0]) == want  # ③ 상세 렌더 — 같은 값(판정 두 벌 0)
     assert want in str(mrf._d1_units(model))  # ③ 상세 렌더의 카드 본문 첫 줄도 같은 값
