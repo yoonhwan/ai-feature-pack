@@ -1,0 +1,12 @@
+# r849 재설계 r3 빨강 기준 (2026-10-27) — 새 시험 5종을 «r4 판 코드(3ca8ab05)» 에 돌린 결과
+## base bin = git archive 3ca8ab05 -- feature-pack/fable-team/harness → /tmp/r849-base-r3
+```
+$ R849_BIN=/tmp/r849-base-r3/feature-pack/fable-team/harness/kit/fable-team/bin pytest -q test_seat_logged_out_r849.py -k "r4 or r5 or r6 or r7"
+FAILED test_seat_logged_out_r849.py::test_r4_slow_auth_failure_turn_is_not_logged_out
+FAILED test_seat_logged_out_r849.py::test_r5_unfinished_turn_counts_as_activity
+FAILED test_seat_logged_out_r849.py::test_r6_cell_is_folder_errors_not_silent
+FAILED test_seat_logged_out_r849.py::test_r7_cell_written_before_send_one_notice
+FAILED test_seat_logged_out_r849.py::test_r7b_claim_write_failure_no_send
+5 failed, 15 deselected in 1.99s
+```
+  ← DA⑥ r3 HOLD 4건이 기준판에서 실제로 재현된다(고침 전 = 빨강).

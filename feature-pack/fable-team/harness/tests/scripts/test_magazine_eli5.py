@@ -172,7 +172,8 @@ def test_batches_preserve_facts_and_count_partial_failures(tmp_path, monkeypatch
         return json.dumps({"units": items})
     monkeypatch.setattr(me, "run_cmd", llm)
     page = me.build(m, NOTES, "fake")
-    assert isinstance(page, str) and sorted(calls) == [(1, 7.0)] + [(2, 7.0)] * 12  # 하드 룰 12 — 배치 2장 · 호출당 7초(재시도 1 은 run_cmd 안)
+    rewrite = [(1, 7.0)] if mode == "blocked" else []  # r894 — 차단 낱말 카드만 1회 다시 쓰기(또 걸리면 생략)
+    assert isinstance(page, str) and sorted(calls) == sorted([(1, 7.0)] + [(2, 7.0)] * 12 + rewrite)  # 하드 룰 12 — 배치 2장 · 호출당 7초(재시도 1 은 run_cmd 안)
     assert page.stats == {"success": 25 - omitted, "total": 25, "omitted": omitted, "reasons": {reason: omitted} if omitted else {}}
     assert f"AI 풀이 {25 - omitted}/25 · 생략 {omitted}" in page
     assert page.count('class="omitted"') == omitted and page.count('class="source"') == 25

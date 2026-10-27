@@ -1,0 +1,5 @@
+# r954 r6 — /bin/bash 3.2 시험 3회 연속 (b70d14b9 작업본)
+## run1 rc=0 PASS=86 FAIL=0 ALL PASS  (2026-10-26 23:41:50)
+## run2 rc=0 PASS=86 FAIL=0 ALL PASS  (2026-10-26 23:41:50)
+## run3 rc=0 PASS=86 FAIL=0 ALL PASS  (2026-10-26 23:41:50)
+## r6 축: ⓥ5 개행 이름 카드 1장·K 0 / ⓥ6 대기 카드 000·폴더 = 확인 불가 rc3 / ⓥ7 사유 한 줄 EISDIR+경로 전체 / ⓥ4b os.path 0줄

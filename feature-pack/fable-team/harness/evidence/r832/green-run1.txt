@@ -1,0 +1,33 @@
+PASS bash -n
+== ⓐⓑⓒⓔ 한 회차
+PASS ⓐ pane 이 A/d3(하위) → A 경보 목록에서 빠짐
+PASS ⓐ SKIP 1줄(세션 있음)
+PASS ⓐ SKIP 줄은 경보가 아님
+PASS ⓐ 경로 앞부분만 같은 형제 A-r2 = 세션 없음 → 경보 목록에
+PASS ⓑ pane 0 · 미커밋 → B 빠짐
+PASS ⓑ SKIP 1줄(미커밋 2 · 지워짐 줄은 안 셈)
+PASS ⓒ pane 0 · 미커밋 0(지워짐만) → C 경보 목록에
+PASS ⓒ 경보 문구에 «세션 0 · 미커밋 0»
+PASS ⓔ 포인터 없는 .deleting-* = 지금 규칙 그대로(pane 있어도 검사 밖)
+PASS   └ 멀쩡한 폴더(OK)는 안 셈
+PASS ⓕ .git 링크 없는 폴더 = 판정 못 함(부모 리포 status 를 읽지 않음)
+PASS   └ 부모 리포 «?? .worktrees/» 를 F 의 미커밋으로 셈 0
+PASS ⓐ tmux pane 목록 = 회차당 1회
+PASS   └ list-panes -a -F '#{pane_current_path}'
+== ⓓ tmux 목록 못 읽음 → 경보 0 · 서명 그대로
+PASS ⓓ 경보 0
+PASS ⓓ NOTE 1줄
+PASS ⓓ 서명 파일 안 바꿈
+== ⓕ git status 상한 초과 → 판정 못 함 SKIP · 경보 0(그 폴더)
+PASS ⓕ 상한 1s · git status 4s → C 판정 못 함 SKIP
+PASS ⓕ C 경보 0
+PASS ⓕ 상한이 먹음(5s · 후보 4 × 4s 를 기다리지 않음)
+PASS ⓕ 기본 상한 7 s
+PASS ⓕ status --porcelain --untracked-files=normal
+== 위생
+PASS 경보는 읽기만 — 폴더 손 0
+PASS B 미커밋 그대로
+
+ALL PASS
+REAL-STATE-GUARD WARN 우편함 줄어듦/없음(회전?): /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/comm/mailbox.jsonl
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=data:/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live,repo:/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents,comm:/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/comm files=1254

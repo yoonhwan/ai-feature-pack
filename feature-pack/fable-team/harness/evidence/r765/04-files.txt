@@ -1,0 +1,10 @@
+R765 파일 — 변경 1 + 새 시험 1 (+ 증거)
+---
+ feature-pack/fable-team/harness/kit/proposal/proposal_issue_lib.py | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+새 파일:
+      93 feature-pack/fable-team/harness/tests/test_proposal_ledger_table_row.sh
+---
+정규식 대조 (lib vs gate):
+106:            if re.match(rf"^(?:{re.escape(a.verdict)} 오빠 인터뷰|\|\s*{re.escape(a.verdict)}\s*\|.*?\(오빠 인터뷰)", ln) and re.search(rf"(?<![\w.\-])github\.com/{re.escape(a.repo)}/issues/{re.escape(a.issue)}(?![0-9])", ln, re.I):
+125:        rows = [ln for t in texts for ln in t.splitlines() if re.match(rf"^(?:{n} 오빠 인터뷰|\|\s*{n}\s*\|.*?\(오빠 인터뷰)", ln)]

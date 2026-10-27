@@ -8,6 +8,7 @@
 #          · 게이트 전체 마감 = 상수 15 s — 넘으면 판정 불가 REJECT. 시간 값은 바깥(env·인자)에서 바꾸지 못한다(r3).
 #   출력 `OK #N 열린 이슈` rc0 · `REJECT <사유>` rc1(판정 불가도 통과 0 · #0 RULE) · usage rc2.
 # 시험용 env: FT_GH_READ(가짜 gh · ft-proposal-gate.sh 와 같은 이름) · GH_REPO
+# r984: 카드 «계약↔시험 대표」 게이트는 이 게이트 «전» 단계(ft-index-lint.sh ⑫ · ft_card_map_lint.py) 소관 — 여기 새 분기는 0(대응표 없는 새 카드는 lint 가 먼저 REJECT).
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 [ $# -eq 1 ] && [ -f "$1" ] || { echo "usage: $0 <카드.md>" >&2; exit 2; }

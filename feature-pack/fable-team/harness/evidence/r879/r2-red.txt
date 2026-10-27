@@ -1,0 +1,12 @@
+PASS ⓐ 남의 카드 증거 폴더(evidence/·evidence-*·evid-*)·*.wav 0 · 남의 팀 0
+PASS ⓐ 카드·fixtures(wav 포함)·자기 카드 증거·카드가 적은 자기 팀 증거·팀 밖 시험 픽스처 있음
+PASS ⓑ 자기 카드 증거 새 파일(md·wav) git add rc0
+PASS ⓑ 카드가 적은 자기 팀 증거 폴더 git add rc0
+FAIL ⓑ 카드가 적은 evidence/ 파일 sparse 밖 (/design/teams/lecture/evidence/r9-sparse-card/** /design/teams/lecture/20261025/evidence-t1/** /design/teams/lecture/evidence/cited/** )
+PASS ⓑ 남의 증거 폴더 add 는 막힘(sparse 밖)
+PASS ⓑ' 카드에 증거 경로 0 → sparse 정상(pipefail) · 자기 카드 증거 add rc0
+PASS ⓒ FT_NANO_SPARSE=0 → 전체 체크아웃
+PASS ⓔ 변이: 증거 제외 줄 제거 → ⓐ FAIL
+PASS ⓔ 변이: 자기 카드 허용 줄 제거 → ⓑ FAIL
+FAILED 1
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
