@@ -16,7 +16,7 @@ done
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
 BIN="$T/bin"; mkdir -p "$BIN"
-cp "$SRCDIR/ft-index-move.sh" "$SRCDIR/ft-index-move-canon.sh" "$SRCDIR/ft-index-move-install.sh" "$SRCDIR/ft_da_hold_gate.py" "$BIN/"
+cp "$SRCDIR/ft-index-move.sh" "$SRCDIR/ft-index-move-canon.sh" "$SRCDIR/ft-index-move-install.sh" "$SRCDIR/ft_da_hold_gate.py" "$SRCDIR/ft_git_capped.py" "$BIN/"
 cp "$SRCDIR/ft-team-lib.sh" "$BIN/"
 printf '#!/usr/bin/env bash\nexit 0\n' > "$BIN/ft-index-lint.sh"
 export FT_MBOX=/bin/true FT_INDEX_STATE_DIR="$T/state" FT_LAND_REF=HEAD FT_SEATS_JSON="$T/none.json"

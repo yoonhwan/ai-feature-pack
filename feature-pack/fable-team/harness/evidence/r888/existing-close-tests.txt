@@ -1,0 +1,16 @@
+# r2 기존 ft-nano-close 시험(내 판) — r680 FAILED 4 는 origin/main 판도 같음(기존 실패)
+test_nano_close_cwd_holders_skip_self_r680.sh rc=1 · FAILED 4
+test_nano_close_fail_closed.sh rc=0 · ALL PASS
+test_nano_close_named_wt.sh rc=0 · ALL PASS
+test_nano_close_never_started.sh rc=0 · ALL PASS
+test_nano_close_pack_wt.sh rc=0 · ALL PASS
+test_nano_close_rerun_early.sh rc=0 · ALL PASS
+test_nano_close_rerun_named_equal.sh rc=0 · ALL PASS
+test_nano_close_rerun_wt_clean.sh rc=0 · ALL PASS
+test_nano_close_research_r888.sh rc=0 · ALL PASS
+test_nano_close_sha_base.sh rc=0 · ALL PASS
+test_nano_close_std_wt_other_branch.sh rc=0 · ALL PASS
+test_nano_close_superseded_by.sh rc=0 · ALL PASS
+test_nano_close_suspended.sh rc=0 · ALL PASS
+test_nano_close_worktree_list_pipe.sh rc=0 · ALL PASS
+test_nano_close_wt_deletion_only.sh rc=0 · ALL PASS

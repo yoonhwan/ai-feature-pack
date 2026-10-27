@@ -1,0 +1,199 @@
+PASS bash -n ft-tick.sh
+PASS bash -n ft-seat-retire.sh
+PASS bash -n ft-role-spawn.sh
+PASS ft-seat-retire.sh ≤ 200줄
+PASS ①stall: 옛 M#1 제외 · M#2·N#0 포함
+PASS ①all_seats: 옛 M#1 제외
+PASS ②_master 없음 → 무변경(M#1 M#2 N#0)
+PASS ②all_seats _master 없음 → 무변경
+PASS ②_master 문자열 아님 → 무변경
+reap M#1 stopped=0 left=0 rc=0
+PASS ③rc
+PASS ③RETIRED 줄(첫 줄 · 부팅 보고 retire= 계약 불변)
+PASS ③구 행 _replaced_by·role·_retired_role·tick
+PASS ③후계 행 생성(role·agent·model·tick·_replaces)
+PASS ③_master·_hil_route → M#2
+PASS ③백업 1개
+reap M#1 stopped=0 left=0 rc=0
+PASS ⑤NOOP rc
+PASS ⑤NOOP 출력
+PASS ⑤바이트 불변
+PASS ④rc 3
+PASS ④파일 바이트 그대로
+PASS ④백업 0
+PASS ⑥rc 1
+PASS ⑥쓰기 0(백업·후계 행 없음)
+reap M#1 stopped=0 left=0 rc=0
+PASS ⑥b 후보 1개 → 자동 선택 rc 0
+PASS ⑥b 구 행 은퇴
+PASS ⑦블록 추출(비어 있지 않음)
+PASS ⑦블록 인자 수 = 시험 인자 수 (스크립트 호출 줄 기준)
+PASS ⑦옛 행 B#1 닫힘
+PASS ⑦_master·_hil_route → B#2
+PASS ⑦새 행 tick 상속·_replaces
+PASS ⑦이미 닫힌 B#0 불변
+reap M#1 stopped=0 left=0 rc=0
+PASS ⑨정상 rc
+PASS ⑨RETIRED 첫 줄 불변(r465 · 같은 폴더 seats-b.json _master=M#1 도 후계)
+PASS ⑨둘째 줄 = RESUME ok <기록 경로>
+PASS ⑨기록 파일 10칸(9 + binding · R364)
+PASS ⑨uuid = 세션 파일 sessionId (더 최신 다른 jsonl 무시)
+PASS ⑨name·engine·pid·cwd·model·retired_by
+PASS ⑨명부 구 행 _resume_uuid
+reap M#1 stopped=0 left=0 rc=0
+PASS ⑨세션파일없음 rc 0(은퇴 결과와 분리)
+PASS ⑨세션파일없음 RETIRED 첫 줄
+PASS ⑨세션파일없음 NORECORD 둘째 줄
+PASS ⑨세션파일없음 기록 파일 0
+PASS ⑨세션파일없음 명부 은퇴됨
+reap M#1 stopped=0 left=0 rc=0
+PASS ⑨세션파일2개 rc 0(은퇴 결과와 분리)
+PASS ⑨세션파일2개 RETIRED 첫 줄
+PASS ⑨세션파일2개 NORECORD 둘째 줄
+PASS ⑨세션파일2개 기록 파일 0
+PASS ⑨세션파일2개 명부 은퇴됨
+reap M#1 stopped=0 left=0 rc=0
+PASS ⑨이름불일치 rc 0(은퇴 결과와 분리)
+PASS ⑨이름불일치 RETIRED 첫 줄
+PASS ⑨이름불일치 NORECORD 둘째 줄
+PASS ⑨이름불일치 기록 파일 0
+PASS ⑨이름불일치 명부 은퇴됨
+reap M#1 stopped=0 left=0 rc=0
+PASS ⑨pid불일치 rc 0(은퇴 결과와 분리)
+PASS ⑨pid불일치 RETIRED 첫 줄
+PASS ⑨pid불일치 NORECORD 둘째 줄
+PASS ⑨pid불일치 기록 파일 0
+PASS ⑨pid불일치 명부 은퇴됨
+reap M#1 stopped=0 left=0 rc=0
+PASS ⑨jsonl없음 rc 0(은퇴 결과와 분리)
+PASS ⑨jsonl없음 RETIRED 첫 줄
+PASS ⑨jsonl없음 NORECORD 둘째 줄
+PASS ⑨jsonl없음 기록 파일 0
+PASS ⑨jsonl없음 명부 은퇴됨
+reap M#1 stopped=0 left=0 rc=0
+PASS ⑨model없음 rc 0(은퇴 결과와 분리)
+PASS ⑨model없음 RETIRED 첫 줄
+PASS ⑨model없음 NORECORD 둘째 줄
+PASS ⑨model없음 기록 파일 0
+PASS ⑨model없음 명부 은퇴됨
+reap M#1 stopped=0 left=0 rc=0
+PASS ⑨tmux세션없음 rc 0(은퇴 결과와 분리)
+PASS ⑨tmux세션없음 RETIRED 첫 줄
+PASS ⑨tmux세션없음 NORECORD 둘째 줄
+PASS ⑨tmux세션없음 기록 파일 0
+PASS ⑨tmux세션없음 명부 은퇴됨
+reap M#1 stopped=0 left=0 rc=0
+PASS ⑨H1 rc 0
+PASS ⑨H1 둘째 줄 = NORECORD … · 기존 기록 보존 <경로>
+PASS ⑨H1 <구>.json 바이트 불변 · stale 0 · prev 0
+PASS ⑨H1 명부 구 행 _resume_uuid 제거
+PASS ⑩ⓐ rc 0
+PASS ⑩ⓐ 출력 = RESUME ok <기록 경로> 한 줄(RETIRED 줄 없음)
+PASS ⑩ⓐ 기록 키 10개(9 + binding · R364)
+PASS ⑩ⓐ uuid·name·engine·pid·model
+PASS ⑩ⓐ retired_by = 명부 _replaced_by(M#7)
+PASS ⑩ⓑ 명부 바이트 불변
+PASS ⑩ⓑ .bak-retire-* 0
+PASS ⑩ⓒ rc 1
+PASS ⑩ⓒ 출력 REJECT
+PASS ⑩ⓒ 기록 파일 0
+PASS ⑩ⓒ 명부 바이트 불변
+PASS ⑩ⓓ세션파일없음 rc 0
+PASS ⑩ⓓ세션파일없음 첫 줄 NORECORD M#1
+PASS ⑩ⓓ세션파일없음 기록 파일 0
+PASS ⑩ⓓ세션파일없음 명부 바이트 불변·bak 0
+PASS ⑩ⓓ세션파일2개 rc 0
+PASS ⑩ⓓ세션파일2개 첫 줄 NORECORD M#1
+PASS ⑩ⓓ세션파일2개 기록 파일 0
+PASS ⑩ⓓ세션파일2개 명부 바이트 불변·bak 0
+PASS ⑩ⓓ이름불일치 rc 0
+PASS ⑩ⓓ이름불일치 첫 줄 NORECORD M#1
+PASS ⑩ⓓ이름불일치 기록 파일 0
+PASS ⑩ⓓ이름불일치 명부 바이트 불변·bak 0
+PASS ⑩ⓓpid불일치 rc 0
+PASS ⑩ⓓpid불일치 첫 줄 NORECORD M#1
+PASS ⑩ⓓpid불일치 기록 파일 0
+PASS ⑩ⓓpid불일치 명부 바이트 불변·bak 0
+PASS ⑩ⓓjsonl없음 rc 0
+PASS ⑩ⓓjsonl없음 첫 줄 NORECORD M#1
+PASS ⑩ⓓjsonl없음 기록 파일 0
+PASS ⑩ⓓjsonl없음 명부 바이트 불변·bak 0
+PASS ⑩ⓓmodel없음 rc 0
+PASS ⑩ⓓmodel없음 첫 줄 NORECORD M#1
+PASS ⑩ⓓmodel없음 기록 파일 0
+PASS ⑩ⓓmodel없음 명부 바이트 불변·bak 0
+PASS ⑩ⓓtmux세션없음 rc 0
+PASS ⑩ⓓtmux세션없음 첫 줄 NORECORD M#1
+PASS ⑩ⓓtmux세션없음 기록 파일 0
+PASS ⑩ⓓtmux세션없음 명부 바이트 불변·bak 0
+PASS ⑩ⓓcodex좌석 rc 0
+PASS ⑩ⓓcodex좌석 첫 줄 NORECORD M#1
+PASS ⑩ⓓcodex좌석 기록 파일 0
+PASS ⑩ⓓcodex좌석 명부 바이트 불변·bak 0
+PASS ⑩ⓓstale rc 0·NORECORD
+PASS ⑩ⓓstale <구>.json 바이트 불변 · stale 0
+PASS ⑩ⓓstale 명부 불변
+PASS ⑩ⓕ [M#1 M#2 --record-only] rc 2
+PASS ⑩ⓕ [M#1 --record-only M#2] rc 2
+PASS ⑩ⓕ 기록 0 · 명부 불변
+reap M#1 stopped=0 left=0 rc=0
+PASS ⑪명부 model 없음 + jsonl → RESUME ok(불일치 표시 없음)
+PASS ⑪기록 model = jsonl 마지막 assistant(synthetic 제외) · roster_model 없음
+reap M#1 stopped=0 left=0 rc=0
+PASS ⑪명부 m1 ≠ jsonl → 둘째 줄 끝 표시
+PASS ⑪기록 model=jsonl · roster_model=명부
+reap M#1 stopped=0 left=0 rc=0
+PASS ⑪jsonl = 명부 → 표시 0 · roster_model 0
+reap M#1 stopped=0 left=0 rc=0
+PASS ⑪jsonl·명부 둘 다 없음 → NORECORD(model 못 읽음) · 기록 0
+reap M#1 stopped=0 left=0 rc=0
+PASS ⑪r2 명부 claude-x[1m] · jsonl claude-x(바탕 같음) → 기록 model 에 [1m] 유지 · roster_model 0 · 표시 0
+reap M#1 stopped=0 left=0 rc=0
+PASS ⑪r2 argv --model(명부 없음) → 기록 model = argv 값(접미사 포함)
+reap M#1 stopped=0 left=0 rc=0
+PASS ⑪r2 argv(--model=) 가 명부·jsonl 보다 먼저 · 명부와 바탕 다르면 roster_model + 표시
+reap M#1 stopped=0 left=0 rc=0
+PASS ⑫도달 파일 model → 후계 행 model
+reap M#1 stopped=0 left=0 rc=0
+PASS ⑫도달 파일 없음 → 옛 행 값(m1)
+reap M#1 stopped=0 left=0 rc=0
+PASS ⑫도달 파일·명부 둘 다 없음 → jsonl 값
+reap byz-room-master-claude#1 stopped=0 left=0 rc=0
+PASS ⑬행 없음+팀 명부 → rc 0 RETIRED
+PASS ⑬은퇴 행 생성(role·agent·model·_created_by·_replaced_by·_retired_role)
+PASS ⑬_master → 후계 · 후계 행 model=옛 값
+PASS ⑬.bak 1개 · 재개 기록 RESUME ok
+PASS ⑬팀 명부 없음 → REJECT rc 1 · 파일 생성 0
+PASS ⑬이름 lint 실패 → REJECT rc 1 · 명부 불변
+reap byz-room-master-claude#1 stopped=0 left=0 rc=0
+PASS ⑬옛 이름이 다른 명부 역할 칸(_master) → r465 그 칸도 후계 · RETIRED rc 0 · 은퇴 행 생성 · .bak 2
+PASS ⑭ⓐⓑⓒ 참 → rc 0 · 출력 RESUME ok 한 줄
+PASS ⑭retired_by = 명부 _master 현역 · model=jsonl
+PASS ⑭명부 바이트 불변 · .bak 0
+PASS ⑭옛 이름이 _master 현역 → REJECT rc 1 · 기록 0
+PASS ⑭더 큰 번호 현역 없음 → REJECT rc 1 · 기록 0
+PASS ⑭현역 세션 죽음 → REJECT rc 1 · 기록 0
+PASS ⑮ⓖ rc 0 · RESUME ok 한 줄
+PASS ⑮ⓖ retired_by = verdict 2304 · model = 명부 · uuid
+PASS ⑮ⓖ 명부 바이트 불변 · .bak 0
+PASS ⑮ⓗ rc 0 · RESUME ok(더 큰 번호 현역·생존 없이)
+PASS ⑮ⓗ retired_by = verdict 2304 · model = jsonl
+PASS ⑮ⓗ 명부 바이트 불변 · .bak 0
+PASS ⑮ⓗ' 행 없음 + _ 칸 값 → REJECT rc 1 · 기록 0
+PASS ⑮ 결속 실패 → rc 0 · NORECORD · 기록 0
+PASS ⑮usage [M#1 M#2 --verdict 2304] rc 2
+PASS ⑮usage [M#1 --record-only --verdict] rc 2
+PASS ⑮usage [M#1 --record-only --verdict x] rc 2
+PASS ⑯codex rc 0 · RESUME ok
+PASS ⑯기록 engine·uuid·cwd·jsonl·model(argv -c)·retired_by
+PASS ⑯resume_cmd = codex <원래 인자> resume <id>
+PASS ⑯binding pid 400 · source codex-open-fd · session_name 칸 0 · 명부 불변
+PASS ⑯codex 프로세스 2개가 rollout 을 엶 → NORECORD(rollout 2개) · 기록 0
+PASS ⑯rollout 0개 → NORECORD(rollout 0개)
+PASS ⑯session_meta id ≠ 파일명 끝 → NORECORD(id·cwd 없음)
+PASS ⑧test_ft_tick_master_seat.sh rc=0
+PASS ⑧test_role_spawn_name.sh rc=0
+PASS ⑧test_kit_bin_sync.sh rc=0
+fail=0
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

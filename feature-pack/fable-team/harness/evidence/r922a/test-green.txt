@@ -1,0 +1,37 @@
+PASS 픽스처: 정상 골 표 블록 렌더 rc0
+PASS ⓐ 구동기 정상 종료 (rc=0)
+PASS ⓐ rc = 지금과 같다(3 · 발행 0)
+PASS ⓐ mbox 송신 0(planner [긴급] 없음)
+PASS ⓐ WARN «draft 묶음 검증 실패(긴급 0 — 발행 0 모드)» 1줄
+PASS ⓐ ERROR «REJECT 골 표 없음» 0(초안 모드는 로그 경고 1줄로만)
+PASS ⓐ Traceback 0
+PASS ⓐ 발행 도구 호출 0
+PASS ⓐ 기준선(last.sha) 안 옮김
+PASS ⓐ' 본체 없음 + draft rc 3(발행 0 그대로)
+PASS ⓐ' 본체 없음 + draft → 최소 통지 0
+PASS ⓐ' 본체 없음 + draft WARN 1줄
+PASS ⓐ' Traceback 0
+PASS ⓑ html rc 3
+PASS ⓑ html → planner [긴급] 1통
+PASS ⓑ 쪽지 머리 «[긴급] 뉴스 발행 거절 — 골 표»
+PASS ⓑ html → ERROR «REJECT 골 표 없음» 1줄(지금 그대로)
+PASS ⓑ html → draft WARN 0
+PASS ⓑ html 검증 실패 = 발행 0
+PASS ⓑ' 본체 없음 + html → 최소 통지 1통
+PASS ⓑ' 쪽지 머리 «[긴급] …»
+PASS ⓒ draft + 정상 묶음 rc 0
+PASS ⓒ WARN 0
+PASS ⓒ REJECT 0
+PASS ⓒ 통지 0
+PASS ⓒ 초안 모드 = 발행 도구 0
+PASS ⓒ 초안 파일은 남는다
+PASS ⓓ FT_NEWS_MODE='drafts' → draft 아님([긴급] 1통)
+PASS ⓓ 'drafts' → draft WARN 0
+PASS ⓓ FT_NEWS_MODE='' → draft 아님([긴급] 1통)
+PASS ⓓ '' → draft WARN 0
+PASS ⓔ draft + 비무장 rc 0(지금 그대로)
+PASS ⓔ WOULD-REJECT 로그 남음
+PASS ⓔ 비무장 통지 0
+PASS 짝 사본 kit cmp0
+== fail=0
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

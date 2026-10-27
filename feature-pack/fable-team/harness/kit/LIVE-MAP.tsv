@@ -4,6 +4,7 @@
 #       skip = 라이브 설치 대상 아님(설명이 마지막 열) · 어떤 행에도 안 맞는 파일 = UNMAPPED(조용한 통과 0 — 새 폴더는 행을 추가한다)
 # 치환: $FT_BIN(env, 라이브 도구 폴더) · $HOME   — plist·skip 의 라이브 열은 `-`
 LIVE-MAP.tsv	skip	-	지도 자신
+launchd/com.byz.ft-head-lag.plist.template	skip	-	r948: launchd 설치 대상 아님 — install.sh 는 새 launchd 를 깔지 않고(r538 «설치된 것만») ft-head-lag.sh 는 ft-news-tick.sh(--summary)·ft-merge-land.sh(--event)가 직접 부른다
 */*.plist.template	plist	-	해당 install 스크립트로 plist 렌더·적재: slack-mirror/install*.sh · loom-tunnel/install.sh · stt-tunnel/install.sh · iap-tunnels/install.sh · zombie-clean/install.sh(serena-ensure) · fable-team/install.sh (후 launchctl bootstrap·kickstart)
 */install.sh	skip	-	설치 스크립트 자체
 */install-*.sh	skip	-	설치 스크립트 자체

@@ -1,0 +1,46 @@
+PASS ⓐ 내용 같음(squash 착지·카드 착지 줄 없음) → FINISHED · E1f ok files=3 · WARN 1줄
+PASS ⓑ 1개만 다름 → ACTIVE · E1f no files=1 first=p3.txt
+PASS ⓒ 가지가 지운 파일을 main 도 지움 → 같음(FINISHED)
+PASS ⓒ 가지가 지웠는데 main 에 있음 → 다름(ACTIVE)
+PASS ⓓ E1f 참 + 좌석 살아 있음 → ACTIVE(E3 no)
+PASS ⓓ E1f 참 + 미커밋 → ACTIVE(E0 no)
+FAIL ⓔ rc=1 [ACTIVE nano/a1-eq
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+E1f no files=0 (바꾼 파일 없음 — E1f 대상 아님 · 카드 규칙으로)
+branch=nano/a1-eq sha=bd36735a61f5d4d04d46b09fbe881888701a6cdf ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.isaUmA0maD/R/design/teams/lecture/indices/진행/a1-eq.md dir=<없음>]
+FAIL ⓔ slow rc=1 [ACTIVE nano/a1-eq
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+E1f no files=0 (바꾼 파일 없음 — E1f 대상 아님 · 카드 규칙으로)
+branch=nano/a1-eq sha=bd36735a61f5d4d04d46b09fbe881888701a6cdf ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.isaUmA0maD/R/design/teams/lecture/indices/진행/a1-eq.md dir=<없음>]
+PASS ⓓ' 빈 커밋만 가지 → E1f 대상 아님(ACTIVE · 카드 규칙)
+PASS ⓕ E1f FINISHED → refs/archive 생성 · 폴더 쓰는 중이라 가지 유지 · 폴더 그대로
+PASS ⓕ 폴더 정리 뒤 같은 판정으로 가지 목록에서 뺌(보관 ref 유지)
+PASS ⓕ `git branch -D` 호출 0
+PASS ⓕ ACTIVE(E1f no) 가지 → 이동 0
+PASS ⓖ wt-sweep --launchd: E1f 끝난 가지 이동(archived=5 archive_skip=3 replanned=0 hil_files=0 orphans=0 freed_kb=0) · ACTIVE 가지는 그대로(정리 도구 코드 변경 0)
+PASS ⓗ diff.ignoreSubmodules=all 이어도 gitlink 다름 → ACTIVE(E1f no files=1 first=sub)
+PASS ⓘ (500 이하) 가지가 파일 tr2 삭제 · main 은 tr2 폴더 → «파일 tr2 = 양쪽 없음» = 같음(FINISHED · DA⑥ r3 §2 파일 단위 정의)
+PASS ⓘ (501 경로) bulk 500 같고 tr 은 «폴더 자체의 차이» → 파일 단위로는 같음(FINISHED · files=501)
+PASS ⓘ 501 경로 가지를 지난 뒤에도 «내용 같음» 판정 그대로(FINISHED · files=3)
+PASS ⓙ criss-cross(merge-base 2개) → rc2 판정 불가(FINISHED 0)
+PASS ⓚ :(literal)x·:(glob)*·*·[ab]·-x 5개가 main≠tip → ACTIVE(E1f no files=5)
+PASS ⓚ magic 꼴 이름이 main 과 같은 내용 → FINISHED(E1f ok files=3)
+PASS ⓛ 5,000 경로 · git 대역 각 4초 → 호출 3회 · 13초(<70) · FINISHED(ok files=5000)
+FAIL ⓛ deadline rc=1 [ACTIVE nano/l1-many
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+E1f no files=0 (바꾼 파일 없음 — E1f 대상 아님 · 카드 규칙으로)
+branch=nano/l1-many sha=93a35399842687d50f32bd1927fda563f1cc378b ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.isaUmA0maD/R/design/teams/lecture/indices/진행/l1-many.md dir=<없음>]
+PASS ⓛ 기본 전체 마감 = 70초(하드 룰 12)
+PASS ⓜ 모드(실행권한)만 다름 → ACTIVE(E1f no files=1 first=sh.txt)
+PASS ⓜ 파일↔심링크 교체 → ACTIVE(E1f no files=1 first=ln.txt)
+(3 failed)
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

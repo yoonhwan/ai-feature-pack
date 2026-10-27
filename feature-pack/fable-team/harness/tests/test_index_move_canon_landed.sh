@@ -12,7 +12,7 @@ for f in ft-index-move.sh ft-index-move-canon.sh; do bash -n "$SRCDIR/$f" && ok 
 
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 BIN="$T/bin"; mkdir -p "$BIN"
-cp "$SRCDIR/ft-index-move.sh" "$SRCDIR/ft-index-move-canon.sh" "$SRCDIR/ft-index-move-install.sh" "$SRCDIR/ft_da_hold_gate.py" "$BIN/"
+cp "$SRCDIR/ft-index-move.sh" "$SRCDIR/ft-index-move-canon.sh" "$SRCDIR/ft-index-move-install.sh" "$SRCDIR/ft_da_hold_gate.py" "$SRCDIR/ft_git_capped.py" "$BIN/"
 cp "$SRCDIR/ft-team-lib.sh" "$BIN/"
 printf '#!/usr/bin/env bash\nexit 0\n' > "$BIN/ft-index-lint.sh"
 printf '#!/usr/bin/env bash\necho "$*" >> "$MBOX_LOG"\nexit 0\n' > "$T/fake-mbox.sh"; chmod 755 "$T/fake-mbox.sh"

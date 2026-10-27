@@ -1,0 +1,27 @@
+r907 r5 — DA⑥ r4 HOLD 3 반송(arch 142 · 하드 룰 14) · 이어받은 가지 65211307 위 5번째 커밋 · 골좌표: 1 — 하네스팀 랜딩부터
+
+닫힘 유지(변경 0): 판정 키 원리(커밋 기준 · 글자 파싱 0) · 최소 간격 10분 · 판정 불가 게시 0 · ERROR 구간당 1줄 · 예외여도 정지 감시 항상
+
+r5 에서 고친 것
+1. fill 판별 = 커미터 이메일(메시지 안 봄) — ft_news_html._human_key = `git log -n KEY_SCAN_N(200) --format=%H%x00%ce <ref> -- <원장>` 에서 %ce != `<ft_ledger_fill.WHO>@byz.local`(WHO import · 한 곳)인 첫 줄 sha · 7초.
+   · 사람 PR 본문·커밋 메시지에 채움 문구가 있어도 사람 커밋(키 후퇴 0) — --invert-grep·MSG 사용 삭제
+   · 200 안에 사람 커밋이 없음·git 실패·시간 초과 = None = 모름 → 항상 «바뀜»(base==cur 여도 게시 후보 · 최소 간격 10분이 상한 · 옛 `else base != cur` 삭제)
+2. 시각 칸 한 함수 — ft_news_html._since(last, key, now, required): map_at·fail_at·at(+ _delay_clear 의 since) 전부 이 함수 하나. 없음(required)·형 다름·파싱 실패·미래(1분 밖) = «모름» = 대기 0(지금 가능) + WARN 1줄 · 칸마다 따로 쓰던 strptime 계산 삭제(_gap_ok 도 이 함수)
+3. ledger 쪽 git 7초 — ft_news_ledger.GIT_S=7 · _git(rev-parse·show 등 전부)·check_base(cat-file) timeout=GIT_S · 초과 = RuntimeError(판정 불가 갈래 · run() finally 가 check_stale 항상)
+4. kit 짝 사본 2개 cmp0 · sync_repo 갈래 변경 0
+
+시험 (test_r907_news_stale_head.py · 54건 · 새 9건)
+- ⓦ 사람 커밋 메시지에 MSG 문구 → 게시 1 · 채움 이메일 커밋(임의 메시지) → 게시 0(키 = 직전 사람 커밋) · 최근 N개가 전부 채움 → 키 None + WARN → base==cur 에도 게시 후보 · 간격이 상한
+- ⓧ fail_at 미래·깨짐 → «재시도 대기» 에 안 갇힘(지금 게시 + WARN) · at 미래·깨짐 → 변화 없음 줄 1회 + WARN
+- ⓨ PATH 앞 «30초 자는 git» 대역(상한 1초로 줄임): _git·check_base 가 상한 안에 RuntimeError(시간 초과) · run() = rc1 + ERROR + check_stale 정확히 1회 · 실제 상수 == 7
+- 새 계약으로 갱신한 기존 칸: _fill_commit(메시지 → 커미터 이메일) · 경고 문구 «지도 상태 시각 모름» · test_d(r907)·test_e(test_ft_news_html) = 키 모름이 «바뀜»이 되어 «같은 판» 전제를 키 고정으로 명시
+
+결과
+- green.txt: 54 passed rc=0 (PYTHONPYCACHEPREFIX 새 바이트코드)
+- green-bundle.txt: 뉴스 묶음 382 passed · 1 failed rc=1 — test_r649_news_team_lines_isolate_error(부하 때 inbox «7초 초과 · 재시도» 문구 · base 판도 같은 실패 · 이 카드 밖) · 첫 묶음 때 흔들린 3건(r478e·cli_startup test_b·r870 test_a push 2초)은 단독 재실행 통과 = 부하(load 15~20) 플레이크
+- mutation.txt: 11종 전부 빨강(M1 유한성·M2 판정 불가 게시·M3 이메일 판별 끔→ⓙ'·ⓦ·M4 최소 간격·M5 상태 칸 형·M6 틱 예외·M7 run() r3 꼴·M8 키 모름 base==cur 복귀→ⓦ·M9 미래 시각 검사 끔→ⓧ·M10 ledger _git 상한 끔→ⓨ·M11 cat-file 상한 끔→ⓨ) · 복원 sha 일치
+- ruff = All checks passed(두 파일 + r907 시험)
+
+DA 범위 밖: 키 형이 바뀐 첫 틱 1회 게시 · r649 문구 시험 · fetch 상한 숫자 · 뉴스 본문 문구
+
+press 필요: 없음(라이브 확인 = master 설치 뒤 /tmp/byz-ft-news-planner.log 에서 ①채움 커밋만 쌓이는 동안 게시 0 ②사람 커밋 1개(PR 본문에 채움 문구가 있어도) = 게시 1 ③받기 실패 틱 «원장 N분 전 판» 1회 ④나이 밖 틱 = 게시 0 · rc1 · ERROR 1줄)

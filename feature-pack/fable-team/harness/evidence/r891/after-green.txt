@@ -1,0 +1,30 @@
+PASS ⓑ 기본 사본에 bin·tests·feature-pack·design/harness(증거 txt) 있음
+PASS ⓑ 기본 사본에 design/teams/*·evidence 미디어 없음
+PASS ⓑ sparse 사본 git status 깨끗
+PASS ⓑ 같은 sha·주인·규칙 = 재사용
+PASS ⓑ --full = 통째(sparse 사본을 재사용하지 않음)
+PASS ⓑ --with design/teams/a = 그 경로만 추가
+PASS ⓑ core.sparseCheckout=1 sparse 사본 → --full 재사용 0(새 사본 · 원 사본 그대로)
+PASS ⓑ core.sparseCheckout=yes sparse 사본 → --full 재사용 0(새 사본 · 원 사본 그대로)
+PASS ⓩ 판정 끝난 같은 주인 사본(--judged rc0) = 새 사본 생성 때 지우기 0 · AUTO-DONE 줄 0
+PASS ⓖ' 다른 저장소(.fable-team 있음) 사본 = ROOT 등록부에 1줄
+PASS ⓖ' ROOT --done = rc0 · 사본 0 · 등록 줄 0
+PASS ⓩ' addfail = rc4 · 지운 것 0 · 등록 줄 0 · 그 자리 폴더 그대로
+PASS ⓩ' cofail = rc4 · 지운 것 0 · 등록 줄 0 · 그 자리 폴더 그대로
+PASS ⓡ sparse set 직후 끊김 = 등록 0(등록이 마지막 단계)
+PASS ⓘ 미등록 사본 = 경로·HEAD·주인 추정(mbox) 줄
+PASS ⓘ 못 읽는 사본 = 원 저장소 «못 읽음» · 주인 «모름»
+PASS ⓘ 등록된 사본(ROOT · 옛 판이 적은 원 저장소 등록부)은 표에 없음
+PASS ⓘ --orphans 는 삭제 0
+PASS ⓘ sparse 체크아웃 실패로 반쯤 만든 폴더 = «미등록» 표에 보임
+PASS ⓘ 못 읽은 등록부 = «부분 읽기» 줄(보고만 · 삭제 0)
+PASS ⓕ 변이1(sparse 기본 끔) → ⓑ FAIL
+PASS ⓕ 변이2(등록을 체크아웃 전으로) → ⓡ FAIL
+PASS ⓕ 변이3(--bool 빼기) → ⓑ sparseCheckout 칸 FAIL
+PASS ⓔ 기존 test_scratch_repo.sh ALL PASS
+PASS ⓔ 기존 test_scratch_judged_r645.sh ALL PASS
+PASS ⓔ 기존 test_scratch_sweep_live_cwd_r548.sh ALL PASS
+PASS ⓙ kit 짝 cmp0
+ALL PASS
+REAL-STATE-GUARD WARN 번호표 늘었으나 실 좌석 계획(동시 실행): /private/tmp/h140 ← /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/state/approve-merge-knowledge-3368-a76fec6f89-20261025.sh.hil
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

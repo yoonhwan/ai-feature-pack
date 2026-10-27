@@ -1,0 +1,9 @@
+# r939 r4 (DECISION-r939-r4-final · astra r3 HOLD 반례 = 상한초 칸 줄바꿈 → 경고 2줄) — claude-opus-5-5 재spawn
+고침(이것만): ① ft-bg-finite.sh 경고 값 = secs[:20] unicode_escape(«1\n2» 1줄) ② register 의 seat·cmd 칸 속 \t\r\n → 공백 1(cmd 는 바꾼 뒤 [:80]) ③ kit 짝 cmp0
+시험: ⓘ2 상한초 $'1\n2' → rc0 · 4200 · registered 아닌 줄 1 · «1\n2» 글자 그대로 / ⓘ3 seat $'S\tX' cmd $'a\tb\nc' → rc0 · 그 pid 줄 1 · 칸 7
+변이: ⑥c 이스케이프 끔 → ⓘ2 빨강(원본 1 · 변이 2) · ⑥d 공백화 끔(정규식 2곳 모두) → ⓘ3 빨강(원본 1/7 · 변이 0/0) — 원문 06-mutation-r4.txt
+01-before-red-r4  : 옛 bin(56f430d9) + 새 시험 → FAILED 7 (새 ⓘ2·ⓘ3 3건 + ⑥c·⑥d 앵커·대조 4건 · 기존 73건 PASS) rc=1
+02-after-green-r4 : 기본 bash 5.3.9 → 78 PASS · ALL PASS rc=0
+03-bash32-r4      : /bin/bash 3.2.57 → 78 PASS · ALL PASS rc=0
+04-adj-r4-*       : da_codex_wrapper · install_hook_check · kit_bin_sync · leak_reap · scratch_repo · seat_close · seat_retire 전부 rc=0
+범위 밖 고침 0 · handover <후계> 인자도 장부 seat 칸에 들어가나 결정문 범위(register 의 seat·cmd) 밖이라 손대지 않음(관찰만)

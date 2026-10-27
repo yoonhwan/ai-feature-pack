@@ -1,0 +1,57 @@
+PASS ⓐ 내용 같음(squash 착지·카드 착지 줄 없음) → FINISHED · E1f ok files=3 · WARN 1줄
+PASS ⓑ 1개만 다름 → ACTIVE · E1f no files=1 first=p3.txt
+PASS ⓒ 가지가 지운 파일을 main 도 지움 → 같음(FINISHED)
+PASS ⓒ 가지가 지웠는데 main 에 있음 → 다름(ACTIVE)
+PASS ⓓ E1f 참 + 좌석 살아 있음 → ACTIVE(E3 no)
+PASS ⓓ E1f 참 + 미커밋 → ACTIVE(E0 no)
+PASS ⓔ blob 조회 rc≠0 → rc2 판정 불가(FINISHED 0)
+PASS ⓔ 7초 룰(시험값 0.3s) 초과 → rc2 판정 불가(FINISHED 0)
+PASS ⓓ' 빈 커밋만 가지 → E1f 대상 아님(ACTIVE · 카드 규칙)
+PASS ⓕ E1f FINISHED → refs/archive 생성 · 폴더 쓰는 중이라 가지 유지 · 폴더 그대로
+PASS ⓕ 폴더 정리 뒤 같은 판정으로 가지 목록에서 뺌(보관 ref 유지)
+PASS ⓕ `git branch -D` 호출 0
+PASS ⓕ ACTIVE(E1f no) 가지 → 이동 0
+PASS ⓖ wt-sweep --launchd: E1f 끝난 가지 이동(archived=5 archive_skip=3 replanned=0 hil_files=0 orphans=0 freed_kb=0) · ACTIVE 가지는 그대로(정리 도구 코드 변경 0)
+PASS ⓗ diff.ignoreSubmodules=all 이어도 gitlink 다름 → ACTIVE(E1f no files=1 first=sub)
+FAIL ⓘ small [ACTIVE nano/i1-small
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+E1f no files=1 first=tr2
+branch=nano/i1-small sha=e8befad1fd4952ce6d5a45f6546ee775d293b5c5 ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.D2VzPeN3Kc/R/design/teams/lecture/indices/진행/i1-small.md dir=<없음>]
+FAIL ⓘ bulk [ACTIVE nano/i2-bulk
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+E1f no files=1 first=tr
+branch=nano/i2-bulk sha=f4c2096bef81dedf97c10d04947e334924eec124 ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.D2VzPeN3Kc/R/design/teams/lecture/indices/진행/i2-bulk.md dir=<없음>]
+PASS ⓘ 501 경로 가지를 지난 뒤에도 «내용 같음» 판정 그대로(FINISHED · files=3)
+PASS ⓙ criss-cross(merge-base 2개) → rc2 판정 불가(FINISHED 0)
+FAIL ⓚ [ERROR ft-finished-check E1f: git rc=128 ls-tree -z origin/main -- * -x :(glob)* :(literal)x [ab] fatal: :(glob)*: 경로명세 지시어가 이 명령어에서 지원하지 않습니다: 'glob'
+ERROR E1f 판정 불가 — git 읽기 실패·시간 초과(«안 끝남» 쪽)]
+FAIL ⓚ ok [ERROR ft-finished-check E1f: git rc=128 ls-tree -z origin/main -- :(glob)? :(literal)y w[1] fatal: :(glob)?: 경로명세 지시어가 이 명령어에서 지원하지 않습니다: 'glob'
+ERROR E1f 판정 불가 — git 읽기 실패·시간 초과(«안 끝남» 쪽)]
+FAIL ⓛ rc=0 calls=22 el=89s [FINISHED nano/l1-many
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+E1f ok files=5000
+branch=nano/l1-many sha=1cf7d021d0b79904641feec7bad5a56814c20dc6 ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.D2VzPeN3Kc/R/design/teams/lecture/indices/진행/l1-many.md dir=<없음>
+WARN card /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.D2VzPeN3Kc/R/design/teams/lecture/indices/진행/l1-many.md — E1f ok 로 끝 처리(착지 줄·완성/ 불일치) · 카드 이동은 이 도구 몫 아님]
+FAIL ⓛ deadline rc=0 [FINISHED nano/l1-many
+E0 ok 폴더 없음
+E1 no 착지 줄 없음
+E2 no 진행/
+E3 ok 좌석 0
+E1f ok files=5000
+branch=nano/l1-many sha=1cf7d021d0b79904641feec7bad5a56814c20dc6 ahead=1 main=origin/main card=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.D2VzPeN3Kc/R/design/teams/lecture/indices/진행/l1-many.md dir=<없음>
+WARN card /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.D2VzPeN3Kc/R/design/teams/lecture/indices/진행/l1-many.md — E1f ok 로 끝 처리(착지 줄·완성/ 불일치) · 카드 이동은 이 도구 몫 아님]
+FAIL ⓛ 기본 마감 70 아님
+PASS ⓜ 모드(실행권한)만 다름 → ACTIVE(E1f no files=1 first=sh.txt)
+PASS ⓜ 파일↔심링크 교체 → ACTIVE(E1f no files=1 first=ln.txt)
+(7 failed)
+REAL-STATE-GUARD WARN 번호표 늘었으나 실 좌석 계획(동시 실행): /private/tmp/h179 ← /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/state/u8-live-refund-wrapper-20261025.sh.hil
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

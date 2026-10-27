@@ -15,7 +15,7 @@ import magazine_doc_md as dm
 import magazine_guide_check as gc
 import magazine_hermes as mh
 
-H2 = ["오빠 할 일", "지난 판 뒤로 바뀐 것", "눈여겨볼 열린 일", "팀은 지금", "드러난 문제"]
+H2 = ["끝낸 일", "오빠 할 일", "지난 판 뒤로 바뀐 것", "눈여겨볼 열린 일", "팀은 지금", "드러난 문제"]  # r867 — ① 끝낸 일 축하 · ② 남은 일(아래 다섯)
 
 
 @pytest.fixture

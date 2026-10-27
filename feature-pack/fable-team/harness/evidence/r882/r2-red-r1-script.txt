@@ -1,0 +1,34 @@
+PASS bash -n head-sync
+PASS ⓐ wt-a 안 --apply rc0 · A 최신화
+PASS ⓐ 남의 워크트리(wt-b·wt-c) git 호출 0 (실측 0)
+PASS ⓐ 표에 B·C 줄 0 · B HEAD 불변
+PASS ⓑ --table = 전 워크트리 표(A·B·C) rc0
+PASS ⓑ --table --apply → usage rc2
+PASS ⓒ 겹친 3개 → 표 1 · «이미 실행 중 pid N · 시작 HH:MM» 2 · rc 전부 0 (표 1 · 대기 2)
+PASS ⓒ 끝나면 잠금 풀림(쥔 프로세스 0 · 다음 실행 정상)
+PASS ⓐ r2 두 실행 동시 → 둘째 «이미 실행 중 pid N · 시작 HH:MM» 1줄 rc0 · 스캔 git 0 (실측 0)
+FAIL ⓑ r2 신호 9 로 죽은 주인 → 다음 실행이 바로 잡음(회수 문구 0 · 고아 0) :: rc=0 out=잠금 고아 회수: pid 75611(주인 없음) /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.2Sq532nzWS/f1/w/.git/ft-head-sync.lock
+base=b38227d1761071f07adc2a8bc50f64615237dc5f (origin/main) apply=0 all=0
+브랜치  워크트리  분류   contains_main  미랜딩  결과
+nano/a  wt-a      FRESH  yes            1       최신
+nano/b  w
+PASS ⓒ r2 잠금 파일의 옛 pid 글자만으로는 막지 않음
+FAIL ⓒ 살아 있는 주인 → 1줄 rc0 · 남의 잠금 글자 그대로 :: rc=0 out=base=b38227d1761071f07adc2a8bc50f64615237dc5f (origin/main) apply=0 all=0
+브랜치  워크트리  분류   contains_main  미랜딩  결과
+nano/a  wt-a      FRESH  yes            1       최신
+nano/b  wt-b      STALE  no             1       최신화 필요
+nano/c  wt-c      STALE  no             1       최신화 필요
+요약: 총 3 · 최신 1 · 최신화함 0 · 
+PASS ⓒ 전수 잠금 중에도 자기 워크트리 --apply 는 돈다(잠금 범위 = 그 워크트리)
+PASS ⓓ 쪽지에 --apply 0
+PASS ⓓ 쪽지 = 자기 워크트리 스스로(merge 만 · main sha 고정) · 팩 작업 무관
+FAIL ⓕ 변이1(flock 줄 제거)이 실제로 줄을 바꿨다 :: rc=0 out=[베이스 뒤처짐] main aaaaaaaaaa 위에 있지 않은 워크트리 1곳 (이 팀 좌석이 앉은 곳):
+- wtA(nano/a) /tmp/wtA · main 보다 2커밋 · 5시간
+조치: 그 워크트리 안에서(cd /tmp/wtA) 앉은 좌석이 자기 일 사이에 스스로 받는다 — 미커밋 0 이면 그 자리에서 merge --no-edit aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa (merge 만 · rebase·force 0 · 남의 워크트리 대신 맞추기 0) · 팩(ai-feature-pack) 작업 폴
+FAIL ⓕ 변이(flock 제거) → 겹친 실행이 표 1 개 = ⓒ 단언이 잡는다 :: rc=0 out=[베이스 뒤처짐] main aaaaaaaaaa 위에 있지 않은 워크트리 1곳 (이 팀 좌석이 앉은 곳):
+- wtA(nano/a) /tmp/wtA · main 보다 2커밋 · 5시간
+조치: 그 워크트리 안에서(cd /tmp/wtA) 앉은 좌석이 자기 일 사이에 스스로 받는다 — 미커밋 0 이면 그 자리에서 merge --no-edit aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa (merge 만 · rebase·force 0 · 남의 워크트리 대신 맞추기 0) · 팩(ai-feature-pack) 작업 폴
+FAIL ⓕ 변이(flock 제거) → 둘째도 스캔 git 0 = r2 ⓐ 단언이 잡는다 :: rc=0 out=이미 실행 중 pid 94611 · 시작 03:59 — 겹쳐 돌지 않고 끝낸다(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.2Sq532nzWS/f2/w/.git/ft-head-sync.lock)
+PASS ⓕ 변이2 가 실제로 줄을 바꿨다
+PASS ⓕ 변이(cwd 제한 제거) → 남의 워크트리 git 호출 50 = ⓐ 단언이 잡는다
+FAILED 5

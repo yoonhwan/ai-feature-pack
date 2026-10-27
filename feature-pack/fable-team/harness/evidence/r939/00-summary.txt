@@ -1,0 +1,40 @@
+# r939 r2 — 승계는 «스스로 등록한 곧 끝나는 일»(DA·설치·격리 사본)을 넘긴다 (DA⑥ r1 HOLD 반송 반영)
+
+카드: design/harness/indices/진행/r939-seat-retire-hands-over-bg-jobs-not-reap.md (arch 145 · master#114 #169282)
+반송 원문: design/harness/evidence/r939-da6/REWORK-r939-r2.md (§반례 5 · H1~H3 · 시험 ⓐ~ⓖ · 변이 4 · 범위 고정)
+브랜치: nano/r939-seat-retire-hands-over-bg-jobs-not- (팩 worktree · main 병합 먼저 = head-lag 해소 · push 금지)
+
+## r1 → r2 : 무엇을 버리고 무엇으로 바꿨나
+| r1 (HOLD) | r2 (고침) |
+|---|---|
+| 명령줄 허용 목록·env 로 «끝나는 일» 을 짐작 | ★없앴다★ — 도구가 스스로 등록한 장부 줄만 넘긴다 (반례 1: `bash watcher.sh`·`timeout 999999 bash watcher.sh` 가 넘어감 / 등록된 DA 가 «인자 속 while» 때문에 reap) |
+| 넘김 기록 = 재개 기록 handed 칸(보기용) 이 판정 근거 | 장부가 판정 근거 · 재개 기록 handed 칸은 보기용 사본으로 강등 (반례 2) |
+| 곁파일을 읽지 않고 덮어 이전 넘김 유실 | 장부 쓰기는 ft-bg-finite.sh 하나 — flock + 읽기-병합-원자 교체, 덮어쓰기 0 (반례 3) |
+| press 미룸이 넘김보다 먼저 → press 끝 뒤 digest 가 DA 를 reap | 넘김 분리를 미룸보다 먼저 (반례 4) |
+| 시험 ⓔ 1건·변이 1종이 여러 시험을 함께 깨뜨림 | ⓐ~ⓖ + 변이 4종(각각 «그 시험만» 빨강) (반례 5) |
+
+## H1 등록 장부 (ft-bg-finite.sh 신규)
+- 한 줄 = `좌석 <TAB> pid <TAB> pgid <TAB> lstart(LC_ALL=C TZ=UTC 5토큰) <TAB> 상한 epoch <TAB> 상태(ok|handed|stale) <TAB> 명령 앞 80자`
+- 자리 = `<데이터 루트>/.fable-team/state/bg-finite.tsv` (env FT_BG_FINITE_LEDGER 로 바꿀 수 있다 — 시험이 임시로 쓴다)
+- 쓰기 5종 = register(같은 pid+lstart 는 교체 · 다른 줄 보존) · unregister(trap EXIT) · handover(H2 좌석 칸) · stale(상한 지난 줄 표시) · prune(죽은 줄). 모두 sidecar flock + tmp→rename.
+- 등록하는 도구 3종 = ft-da-codex.sh(상한 70분) · install.sh(10분) · ft-scratch-repo.sh(20분). 등록 실패는 조용히 넘긴다 — 그 도구의 stdout 계약을 흔들지 않고, 결과는 «넘김 대상 아님 = 오늘과 같은 reap» 으로 드러난다(reap 이 `reap-unregistered` 1줄로 보이게 남긴다).
+
+## H2 / H3
+- H2: retire 가 넘긴 줄의 좌석 칸을 후계로 → 후계의 다음 retire(B→C)가 같은 장부로 그 작업을 다시 넘긴다 · 그 좌석 닫기(후계 없음)는 자기 등록 작업을 정리하고 줄을 prune.
+- H3: `--handover` 는 등록 작업 분리를 press 미룸보다 먼저 — press 점유 중에도 DA 는 넘어가고, press 가 끝난 뒤 정리에서 reap 0.
+- 상한 지난 줄 = 자동 사살·넘김 0 → ft-leak-reap 이 `handover-stale` 1줄 보고(죽이지 않음) + 상태 stale 표시 · 죽은 pid 줄은 지움.
+
+## 증거
+- `01-before-red-r2.txt` — r1 구현(c161bc25)에서 r2 시험: FAILED 32 / PASS 18 (장부 판정·ⓓ 재넘김·ⓔ 덮어쓰기·ⓕ 순서·ⓖ trap 모두 빨강)
+- `02-after-green-r2.txt` — r2 구현: ALL PASS (ⓐ~ⓖ + 정적 5 + 변이 4)
+- `03-bash32-r2.txt` — /bin/bash 3.2.57 같은 시험: ALL PASS (rc 0)
+- `04-adj-*.txt` — 인접 20건(닫기·reap·retire·leak·kit cmp·da_codex·scratch 4종·install 2종) 전부 rc 0
+- `06-mutation-r2.txt` — 변이 4종 diff + 관측 줄
+
+## press
+press 필요 없음 — 프로세스 정지/넘김 판정이라 단위·실프로세스 픽스처로 닫힌다. 라이브 오디오 관측 0.
+
+## 남은 확인 (master·arch 몫)
+- 다음 실 승계 1회 출력의 `reap-handover pid=… to=<후계>` + `stopped=… handed=… left=0` 줄
+- 설치 cmp0(설치본 bin 5파일 + 신규 ft-bg-finite.sh)
+- 정본 1줄(COMM-GUIDE-BOOT·인계서): «승계 때 DA·설치는 넘김 줄로 남는다 — 후계는 장부(state/bg-finite.tsv)와 재개 기록 handed 칸을 본다»

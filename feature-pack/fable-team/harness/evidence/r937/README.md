@@ -1,0 +1,99 @@
+# r937 증거 — ft-index-move 착지 sha 리포 판정 1곳 · 설치·정본·close-landed 세 게이트가 같은 리포를 본다
+
+카드 = `design/harness/indices/진행/r937-index-move-landed-sha-repo-resolve-both-gates.md`
+브랜치 = `nano/r937-index-move-landed-sha-repo-resolve-` · base = `63ae5209`(origin/main) · push 0(master).
+
+## 고친 자리 3 + 공용 함수 1 + 짝 사본
+
+| 파일 | 무엇 |
+|---|---|
+| `feature-pack/fable-team/harness/bin/ft-team-lib.sh` (`ft_landed_repo` · `_ft_landed_git`) | **ⓐ 리포 판정 1곳.** sha 를 카드 리포·팩 리포에서 `rev-parse`(각 7초 상한) → 한 곳에만 있으면 그 리포 · 둘 다 = 판정문 표식 줄(`main(팩)` = 팩 · `main` = 카드 리포) · 둘 다 없음 = `REJECT 착지 sha 를 어느 리포에서도 못 찾음` · 표식과 실제가 어긋나면 `REJECT … 표식 오기(숨김 0)` · 앞자리(7~39)는 그 리포에서 유일할 때만, 두 리포가 **다른** 커밋을 가리키면 표식 필수 · 팩 리포를 못 풀면 카드 리포만 본다 |
+| `…/bin/ft-index-move-install.sh` | 설치 게이트가 `ft_landed_repo` 값을 씀 — 팩 착지 = 지금처럼 `--range` 대조 · **카드 리포 착지 = `--all`(«설치 파일 = 라이브» 전수)** — 그 sha 를 팩에서 찾지 않는다(ⓑ) · 하네스 루트를 못 풀면 REJECT(후퇴 0 · ⓓ) |
+| `…/bin/ft-index-move-canon.sh` | 정본 게이트의 조상·diff 검사가 판정 리포(카드/팩)와 그 리포의 `FT_LAND_REF`(기본 `origin/main`)를 씀 · 표식 줄은 §절 본문에서 «닫힘 … main …» 줄로 뽑는다(헤더 줄 `## §N 닫힘: <카드>` 는 표식이 아니다 — main 글자 없음) |
+| `…/bin/ft-index-close-landed.sh` | 판정문 행 꼴에 `main(팩) `<40hex>`` 를 더 읽고(행마다 `pack|card`), 조상 검사도 같은 리포·같은 ref 로 · 못 찾은 sha = `LANDED-INVALID not-found` · dry-run 표 6칸 그대로 |
+| `…/bin/ft-index-move.sh` | 완성 이동 «전»에 그 카드의 «닫힘 — <카드> — main…» 줄을 `FT_LANDED_MARKER` 로 export — 정본·설치 게이트가 같은 표식을 쓴다 |
+| `…/bin/ft_da_hold_gate.py` (`landed_repo` · `landed_check`) | **2b(범위 넓힘 · arch 145).** 착지 검사도 `ft_landed_repo`(bash 단일 출처 호출)로 리포를 정하고 그 리포의 `FT_LAND_REF` 로 조상 검사 · 판정문 행 «닫힘 — <카드> — main(팩) `<40hex>`» 도 읽음 · 표식과 실제가 어긋나면 `LANDED-INVALID marker-mismatch` · 어느 리포에도 없으면 `LANDED-INVALID not-found` |
+| `feature-pack/fable-team/harness/bin/ft-team-lib.sh` (`ft_git_capped` · `_ft_git_retry`) | **r2 T1·T2.** git 조회 1회를 7초 상한으로 감싼다 — `timeout`/`gtimeout` 이 있으면 그것, 없거나 `FT_GIT_CAP_BUILTIN=1` 이면 bash 내장(백그라운드 + 7초 뒤 kill · bash 3.2). 시간 초과만 재시도 1(총 ≤ 14초) · rc 137→124 정규화 · rc 규약 = 0 있음 / 1 «그 리포에 없음» / 그 밖 = «조회 실패» |
+| `…/kit/fable-team/bin/{위 6개}` | 짝 사본 cmp0 |
+| `…/tests/test_index_move_landed_repo.sh` | 새 시험(ⓐⓑⓒⓓⓔ). `SRC=<bin>` 으로 옛 판·변이를 같은 시험으로 돌린다 |
+| `…/tests/test_index_move_install_harness_repo.sh` | 시험 사본 목록에 `ft-harness-root.sh` 추가(설치 게이트가 하네스 루트를 직접 푼다) |
+
+## 시험
+
+```
+cd feature-pack/fable-team/harness && bash tests/test_index_move_landed_repo.sh
+```
+
+| 파일 | 무엇 | rc |
+|---|---|---|
+| `before.txt` | 고치기 전 판(`origin/main` 의 bin 10개)으로 새 시험 → 22 빨강 · 초록 3(ⓓ 설치: 없음 = 지금 통과하던 길 · ⓕ 오염 0 · «표식 main 인데 옛 판이 카드 리포만 봐서 우연히 랜딩 안 됨» 1건) = 이 카드가 메우는 구멍 그대로 | 1 |
+| `after.txt` | 고친 판 → 24/24 PASS · `ALL PASS`(조상 검사 상한·조회 실패 구분·bash 3.2 칸 포함) | 0 |
+| `mutate1-landed-repo-off.txt` | 변이 1 = «리포 판정 끔(카드 리포 고정)» → **ⓑ 팩 착지·정본 게이트 빨강 + ⓔ 보류 가드 3건 빨강**(+ⓐ 표식 4건) — 판정 함수 하나를 끄면 네 게이트가 같이 흔들린다 | 1 |
+| `mutate2-marker-off.txt` | 변이 2 = «표식 대조 끔» → **ⓒ 빨강 + ⓔ 표식 오기 빨강** + ⓑ 표식이 리포를 가르는 시험 빨강 | 1 |
+| `mutate3-git-cap-off.txt` | 변이 3 = «상한 함수 우회(7초 없는 git)» → **ⓕ·ⓖ·ⓗ 빨강** | 1 |
+| `mutate4-lookup-fail-as-absent.txt` | 변이 4 = «조회 실패를 객체 없음으로 복귀» → **ⓗ 빨강**(다른 리포로 넘어가 통과) | 1 |
+
+회귀(같은 커밋에서 다시 돌린 기존 시험 12개): `test_index_move_canon_landed` · `test_index_move_install_harness_repo` · `test_da_hold_gate_landed` · `test_index_move_canon_route` · `test_index_move_canonize` · `test_index_move_rule_line` · `test_index_move_slack` · `test_live_install_check` · `test_live_install_check_tip` · `test_install_check_repo_outside` · `test_nano_close_pack_wt` — 전부 rc0.
+(`test_team_literal_paths2.sh` 는 이 카드 전에도 같은 자리(`ft_ledger_fill.py:336` 줄 길이 lint)에서 rc1 = 선행 결함 · 이 커밋과 무관.)
+
+## DA⑥ r1 반송(r2) — 7초 상한 · 조회 실패 구분 · bash 3.2
+
+| 반례(DA 원문) | 고침 | 시험 |
+|---|---|---|
+| ① 조상 검사 상한 없음(merge-base 8초 → 게이트가 8초 넘게 통과) | canon·close-landed·`ft_da_hold_gate.py` 의 merge-base 도 `ft_git_capped`(7초 · 재시도 1)로 · 초과 = «조회 실패» REJECT | ⓕ 3칸(정본·보류 가드·close-landed · 각 ≤ 16초) |
+| ② `timeout`/`gtimeout` 이 없으면 무제한 | bash 내장 경로(백그라운드 + «초» 뒤 kill -9 · 감시자 stdio 닫음 · bash 3.2) · `FT_GIT_CAP_BUILTIN=1` 로 그 경로를 고정해 시험 | ⓖ |
+| ③ 한 후보 시간 초과를 «객체 없음» 으로 읽어 다른 리포로 넘어감 | `ft_landed_repo`: rc 0 있음 / 1 없음 / 그 밖(124·128) = «조회 실패» → **리포 판정 자체를 안 한다**(REJECT «<리포> 조회 실패 … 통과 0») | ⓗ · 변이 4 |
+| ④ `/bin/bash`(3.2) 에서 `ft-index-close-landed.sh` 문법 오류(선행 결함 · `$( )` 안 heredoc 의 백틱) | 판정문 행 정규식의 백틱을 `\x60` 로 씀 · 고친 파일 6개 `/bin/bash -n` rc0 · 이 시험도 `/bin/bash` 로 1회 돌려 초록 확인 | ⓘ |
+
+정본 게이트의 조상·ref·정본 blob 조회는 `gq`(허용 rc 초과 = REJECT)로 묶었고, `rej` 가 `$( )` 안에서 돌면 거절이 출력만 되고 통과하던 함정을 피하려고 `gq` 는 결과를 `GQ_OUT`/`GQ_RC` 로 넘긴다(ⓕ 첫 칸이 그 함정을 잡는다).
+
+## 범위 넓힘(2b) 뒤
+
+`ft_da_hold_gate.py` 의 착지 검사도 같은 판정을 쓴다(arch 145 · master#114 #169175) — 팩 착지 카드는 이제 `ft-index-move.sh` 보류 가드에서 `LANDED-CLOSE` 로 통과하고,
+표식이 실제와 어긋나면 `LANDED-INVALID marker-mismatch` 로 막힌다(시험 ⓔ 3건). 이 카드로 설치·정본·close-landed·보류 가드 **네 게이트가 한 값을 본다**.
+
+## DA⑥ r2 HOLD(보류 2회째) → r3 — 7초 상한 남은 3곳 · 범위 고정 · 재DA 0 (arch 145 DECISION-r937-r3-final.md)
+
+| 반례(DA r2 원문) | 고침 | 시험 |
+|---|---|---|
+| ① 루트 조회 `rev-parse --show-toplevel` 이 상한 밖(canon·close-landed·install·보류 가드 스크립트) | 전부 `ft_git_capped` 로 · **후보 리포 루트 조회가 rc≠0(시간 초과 포함)이면 빈 값으로 넘기지 않고 REJECT «<리포> 루트 조회 실패 — 통과 0»**(canon `REJECT` · 보류 가드 `LANDED-INVALID lookup-failed` · close-landed `ERROR` rc2 · install `REJECT`) · 카드 리포 루트도 같다(옛 `|| dirname "$CARD"` 후퇴 제거) | ⓙ 4칸(팩 루트 조회 `--show-toplevel` 만 8초) · ⓝ 게이트 4파일에 ft_git_capped 밖 git 호출 줄 0 (grep 으로 센다) |
+| ② 재시도 1회가 실제로 안 돎(bash 3.2 내장 경로는 재시도 없음) · 시간 초과 때 자식 git 이 남음 | **`ft_git_capped` = python 실행기 1개(`bin/ft_git_capped.py`)**: `Popen(start_new_session=True)` → 7초 초과 시 그룹 `SIGTERM` → 0.5초 뒤 `SIGKILL`(자식까지) → 재시도 1회 → 또 초과면 rc124. `timeout`/`gtimeout`·bash 버전과 무관. bash `ft_git_capped`·`_ft_git_retry` 는 이 실행기를 부르는 얇은 껍질 · `ft_da_hold_gate.py` 도 같은 모듈을 import(단일 출처) · `FT_GIT_CAP_BUILTIN` 제거 | ⓚ(첫 merge-base 만 8초·둘째 정상 → 재시도로 OK, 호출 2회, ≤16초) · ⓛ(SIGTERM 무시하는 자식 sleep 을 띄우는 git 대역 → rc124 · git 2회 기동 · 자식 생존 0) · ⓘ2(/bin/bash 3.2 에서 실행기 경로) |
+| ③ 시험 ⓖⓗ 가 반송서 뜻과 달랐다 | ⓖ = `rev-parse --verify` 만 8초 지연 + PATH 에서 timeout·gtimeout 을 «실제로 뺀» 디렉터리(그 사실을 시험이 `command -v` 로 확인) · ⓗ = **리포 경로로 구별**해 «팩 객체 조회만» 8초(카드 리포는 정상) → REJECT | ⓖ · ⓗ |
+
+r3 에서 시험 사본 목록에 `ft_git_capped.py` 를 더했다(실행기가 형제 짝이므로): `test_da_hold_gate.sh`(2곳) · `test_da_hold_gate_landed` · `test_index_move_{canon_landed,canon_route,canonize,rule_line,slack,install_harness_repo}`. 시험 이름 정리: 옛 «ⓙ 오염 0» → ⓜ.
+
+| 파일 | 무엇 | rc |
+|---|---|---|
+| `before-r3.txt` | r2 판(`34a7f8e1` bin)으로 r3 시험 → **7 빨강**(ⓙ 4 · ⓚ · ⓛ · ⓝ) · 25 초록 | 1 |
+| `after-r3.txt` | 고친 판 → **32/32 PASS** `ALL PASS` (ⓐ~ⓜ · 병렬 시험 ≈ 75초) | 0 |
+| `after-r3-bin-bash32.txt` | 같은 시험을 `/bin/bash`(3.2)로 통째 → **32/32 PASS** | 0 |
+| `mutate1-landed-repo-off.txt` | 변이 1 = 리포 판정 끔 → 15 빨강(ⓐⓑⓒⓔⓗⓚ…) | 1 |
+| `mutate2-marker-off.txt` | 변이 2 = 표식 대조 끔 → 8 빨강(ⓐⓑⓒⓔ) | 1 |
+| `mutate3-git-cap-off.txt` | 변이 3 = 상한 우회(7초 없는 git) → 6 빨강(ⓕⓖⓗⓚⓛ) | 1 |
+| `mutate4-lookup-fail-as-absent.txt` | 변이 4 = 조회 실패를 «없음» 으로 복귀 → 2 빨강(ⓖⓗ) | 1 |
+| `mutate5-retry-off.txt` | **변이 5 = 실행기 재시도 끔** → ⓚ·ⓛ 빨강 | 1 |
+| `mutate6-group-kill-off.txt` | **변이 6 = 자식 정리 끔(그룹 kill → 본 프로세스만)** → ⓛ 빨강(자식 생존 2) | 1 |
+| `mutate7-root-lookup-ignored.txt` | **변이 7 = 루트 조회 실패를 빈 값으로 넘김** → ⓙ 4칸 빨강 | 1 |
+
+회귀(r3 뒤 다시 돌린 기존 시험): `test_index_move_{canon_landed,install_harness_repo,canon_route,canonize,rule_line}` · `test_da_hold_gate_landed` · `test_live_install_check(_tip)` · `test_install_check_repo_outside` · `test_nano_close_{pack_wt,rerun_early}` · `test_evidence_inject_scan` · `test_baseline_lint` · `test_tracked_bin_call_gate` · `test_old_team_path_deny` · `test_root_bin_shim` rc0.
+기준판(`34a7f8e1`)과 같은 선행 결함(변화 0): `test_da_hold_gate.sh` 7 FAIL · `test_index_move_slack.sh` 1 FAIL · `test_team_lib_twin.py` rc1 · `test_team_literal_paths(2).sh` (기준판 13 → 4, 트리 위치 의존). 병렬 부하에서 `canon_landed`/`canon_route` 가 한 번씩 흔들렸고 단독 재실행은 둘 다 rc0.
+
+## astra DA r1 HOLD 1곳 → r3b — 보류 가드 바깥 상한 (REWORK-r937-astra-r1.md)
+
+| 반례 | 고침 | 시험 |
+|---|---|---|
+| `ft_da_hold_gate.py` `landed_repo()` 바깥 `timeout=20` 이 안쪽 조회 재시도 합(조회 1개 최악 ≈15초 × 3회)보다 짧아 먼저 끊고, 그 순간 안쪽 자식이 남음 | 바깥 상한 = `min(2 + 15 × 조회 수(3), 70)` = 47초(하드 룰 12). 바깥 실행은 `ft_git_capped.run_cmd`(새 프로세스 그룹 · 초과 시 그룹 SIGTERM→SIGKILL). 안쪽 실행기는 SIGTERM 을 받으면 자기 git 그룹에 즉시 SIGKILL 하고 종료 → 바깥이 끊어도 자식 생존 0 | ⓞ(세 조회 첫 호출 모두 TERM 무시 자식 + 8초 지연, 재시도 정상 → LANDED-CLOSE · 소요 30초(20 초과 ≤ 70) · 자식 생존 0) · ⓞ2(바깥이 끊으면 rc124 · 안쪽 git 그룹 정리) |
+
+- `after-r3b.txt` 34/34 PASS · `after-r3b-bin-bash32.txt` `/bin/bash` 3.2 로 34/34 PASS
+- `mutate8-outer-timeout-20.txt` 바깥 20초 복귀 → ⓞ 빨강(소요 20초에 끊김) · `mutate9-term-cleanup-off.txt` 안쪽 SIGTERM 정리 끔 → ⓞ2 빨강(자식 생존 1)
+- 부수: `subprocess` import 가 안 쓰여 ruff F401 → 제거(`test_da_hold_gate_landed` ruff 칸 통과) · 회귀 `test_da_hold_gate` 7 FAIL(기준판과 같음) · 나머지 기존 시험 rc0
+
+## astra DA r2 HOLD 1곳 → r3c — 재시도는 «실제 시간 초과» 만 (REWORK-r937-astra-r2.md)
+
+| 반례 | 고침 | 시험 |
+|---|---|---|
+| `ft_git_capped.py` 가 git 이 스스로 낸 rc124(시간 초과 아님)도 재시도하고 출력을 버림 → «sentinel + exit 124» 가 1회·출력 보존에서 2회·출력 소실로 바뀜 | `_once` 가 `(rc, 출력, 실제 시간 초과 여부)` 를 돌려주고 `run` 은 세 번째 값이 참일 때만 재시도. git 자신의 종료 코드(124 포함)와 출력은 그대로. 부수로 SIGKILL 뒤 그룹이 빌 때까지(최대 1초) 확인해 반환 직후 자식 생존 0 을 보장 | ⓟ(git 대역 «SENTINEL + exit 124» 지연 0 → 호출 1회 · rc124 · 출력 보존 / 첫 호출 rc124+출력 → 둘째 호출로 성공 출력을 만들지 않음) · ⓛⓞⓞ2 의 자식 검사 앞 `sleep 0.5` 제거(반환 직후 검사) |
+
+- `after-r3c.txt` 36/36 PASS · `after-r3c-bin-bash32.txt` `/bin/bash` 3.2 로 36/36 PASS
+- `mutate10-retry-any-rc124.txt` 재시도를 rc124 전부로 복귀 → ⓟ 2건 빨강(호출 2회)
+- 회귀: `test_da_hold_gate` 7 FAIL(기준판과 같음) · 나머지 기존 시험 rc0 · 사본 cmp0 7개

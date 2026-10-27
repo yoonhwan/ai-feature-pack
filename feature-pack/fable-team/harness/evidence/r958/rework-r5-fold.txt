@@ -1,0 +1,35 @@
+# r958 r5 — «쪼개기 접음» 근거 (2026-10-27 · 카드 r4 절 §구현 범위 «a921dfe4 는 보존만» · DA⑥ r3 HOLD 3 반례 1)
+
+## 왜 접나
+r4 세트(93bf3f06)는 r3 쪼개기 커밋(a921dfe4) «위에» 쌓여 있었다. 카드 r4 절은 «7초 쪼개기는 접고 비교 기준 한 자리만 고친다 · 새 가지 · a921dfe4 는 보존만» 이라 적는데,
+그대로 착지하면 쪼개기 코드가 같이 랜딩한다. DA⑥ r3 반례 1 은 «여러 경로를 한 번에 조회하면 git 이 보여 주는 이력이 달라진다»(history simplification) = 쪼개기 자체의 성질이라, 쪼개기가 착지물에 남아 있으면 동결된 반례 집합을 닫을 수 없다.
+그래서 r5 는 r1~r3 의 게이트 변경을 «되돌려» 기준판(팩 a1fccaf7)과 같은 게이트로 만들고, 카드 r4 의 한 자리(ft-nano-close.sh 비교 기준)만 남긴다. 커밋은 r4 세트 위 1개 — 가지·폴더는 그대로(보존).
+
+## 되돌린 것 (git a1fccaf7 = 팩 기준판)
+- bin/ft-nano-cherry-gate.sh · kit/fable-team/bin/ft-nano-cherry-gate.sh → 기준판 그대로(차이 0)
+- tests/test_cherry_gate_identical_head.sh → 기준판 그대로(게이트 줄 수 상한 400 → 200 되돌림)
+- tests/test_cherry_gate_batch_r958.sh → 삭제(r1 이 만든 쪼개기 전용 시험 · 기준판에 없는 파일)
+- tests/test_nano_close_step_timing_r938.sh → 기준판 ⓘ «배수 = 커밋 수» 로 되돌리고, r4 의 setbase() 만 남김
+- bin/ft-nano-close.sh · kit 사본 → nf_mult_batches() 삭제 · ⑤ 배수 = nf_mult_commits() 복귀(r938 그대로)
+
+## 남긴 것 (카드 r4 §구현 범위 1~2)
+- ft-nano-close.sh base 정합 = 좌석 .worktree-info base «먼저» · FT_NANO_FEAT 는 base 없을 때만 · 둘 다 있고 다르면 WARN 1줄
+- tests(test_nano_close_suspended.sh) ⓐ/ⓑ/ⓐ-2 · tests(test_nano_close_step_timing_r938.sh) setbase()
+
+## 실측 (읽기만 · 이 워크트리에서 실행)
+$ git diff --stat a1fccaf7 -- <게이트 2벌> <identical_head 시험>
+(출력 없음 = 기준판과 바이트 동일)
+
+$ cmp bin/ft-nano-close.sh kit/fable-team/bin/ft-nano-close.sh
+cmp0
+$ cmp bin/ft-nano-cherry-gate.sh kit/fable-team/bin/ft-nano-cherry-gate.sh
+cmp0
+$ grep -c nf_mult_batches bin/ft-nano-close.sh
+0
+$ git diff --stat a1fccaf7..HEAD -- feature-pack/fable-team/harness/bin feature-pack/fable-team/harness/kit feature-pack/fable-team/harness/tests  (r5 커밋 뒤 최종)
+  .../harness/bin/ft-nano-close.sh        | 19 ++++++++++-----
+  .../harness/kit/fable-team/bin/ft-nano-close.sh | 19 ++++++++++-----
+  tests/test_nano_close_step_timing_r938.sh |  7 +++++-
+  tests/test_nano_close_suspended.sh        | 27 ++++++++++++++++++++--
+  4 files changed, 57 insertions(+), 15 deletions(-)
+→ 착지물(기준판 대비)에 남는 코드·시험 변경 = ft-nano-close.sh 짝 2 + 시험 2 뿐. 게이트·identical_head 시험 = 변경 0.

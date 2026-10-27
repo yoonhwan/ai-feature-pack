@@ -1,0 +1,55 @@
+PASS bash -n ft-leak-reap.sh
+PASS bash -n ft-leak-watch.sh
+PASS 키트 사본 cmp 0 ft-leak-reap.sh
+PASS 키트 사본 cmp 0 ft-leak-watch.sh
+PASS ⓑ DEFAULT_PS = 판정 필드 5(pid ppid lstart time command)
+PASS ⓑ ps 명령에서 pgid 제거(판정에 안 씀)
+PASS ⓑ ps 명령에서 stat 제거(판정에 안 씀)
+PASS ⓑ 필드 5 표 → 발견 (rc=10)
+PASS ⓑ 필드 5 검출
+PASS ⓑ 필드 5 부모 생존 제외
+PASS ⓑ 필드 5 보호 exe 제외
+PASS ⓑ 필드 5 검출 1건
+PASS ⓑ 옛 필드 7 표(설치 직후 옛 스냅샷·ft-agent-alive 계약)도 읽는다 (rc=10)
+PASS ⓑ 필드 7 검출
+PASS ⓑ 3000자 명령 줄도 파싱·검출 (rc=10)
+PASS ⓑ 긴 명령 줄은 앞 512자만 판정(실제 160자)
+PASS ⓐ 첫 호출 시간 초과해도 조사 성공(stderr 에 timeout 없음)
+PASS ⓐ ps 2회(1회 재시도)
+PASS ⓐ 재시도 뒤 발견 rc=10
+PASS ⓐ 8초 잠 1회 + 즉시 1회 = 7s(12초 안)
+PASS ⓒ 두 번 다 시간 초과 → rc 20(0 으로 숨기지 않음) (rc=20)
+PASS ⓒ ps 2회(재시도 1회)
+PASS ⓒ 사유 = ps timeout
+PASS ⓒ 사유에 재시도 사실 표시
+PASS ⓒ traceback 0
+PASS ⓔ 총 마감 = 7+7 = 14s(14초 이하 · 실제 경과)
+PASS ⓒ 출력 없는 rc≠0 → rc 20 (rc=20)
+PASS ⓒ 사유 = ps rc=1
+PASS ⓒ 출력 뒤 rc≠0 → rc 20 (rc=20)
+PASS ⓒ 출력이 나온 뒤 실패는 재시도 0(ps 1회)
+PASS ⓕ 스냅샷 소비는 재시도와 무관하게 발견 (rc=10)
+PASS ⓕ 스냅샷 경로는 ps 호출 0
+PASS ⓕ 스냅샷 소비 0s(ps 대기 0)
+PASS ⓓ 조사 실패 경보 1통
+PASS ⓓ 틱 로그용 ERROR 줄
+PASS ⓓ 경보 본문에 연속 1회
+PASS ⓓ 경보 본문에 다음 재조사 60초 뒤
+PASS ⓓ 실패 상태 파일 저장
+PASS ⓓ 연속 횟수 1
+PASS ⓓ 다음 재조사 시각 = 실패 +60초(60s)
+PASS ⓓ 같은 오류 600초 억제 = 추가 통 0
+PASS ⓓ 억제 중에도 연속 횟수는 오른다(2)
+PASS ⓓ 억제 중에도 다음 재조사 시각 전진
+PASS ⓓ 예정 시각을 넘긴 틱이 그 재조사를 한다(로그 1줄)
+PASS ⓓ 조사가 다시 되면 해소 줄
+PASS ⓓ 해소 줄에 연속 횟수
+PASS ⓓ 해소 뒤 실패 상태 삭제
+PASS ⓓ 오류만 있던 경우 유출 해소 통 0
+PASS ⓓ 송신 실패 stderr 1줄
+PASS ⓓ 송신 실패 = 상태 미저장(다음 틱 재시도)
+PASS ⓓ 다음 틱 재시도 1통
+--- 증거: 시험 로케일 ko_KR.UTF-8
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+rc=0

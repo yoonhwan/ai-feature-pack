@@ -1,0 +1,7 @@
+PASS 무변이 기준(전부)
+KILLED ①건너뛰기제거
+KILLED ②OSError전부삼키기
+KILLED ③목록재대조제거
+KILLED ④폴더사라짐검사제거
+KILLED ⑤재시도제거
+KILLED ⑥표꼬리칸제거

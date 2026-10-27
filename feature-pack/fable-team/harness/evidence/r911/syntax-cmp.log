@@ -1,0 +1,7 @@
+=== bash -n
+bash -n rc=0
+bash -n test rc=0
+=== python 블록 compile(판정기 E1f)
+python blocks=2 compile OK
+=== 짝 사본 cmp0
+cmp rc=0

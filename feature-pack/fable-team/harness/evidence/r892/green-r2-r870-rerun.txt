@@ -1,0 +1,75 @@
+......F...                                                               [100%]
+=================================== FAILURES ===================================
+________________ test_d_push_skips_hook_only_for_ledger_refspec ________________
+
+repo = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-580/test_d_push_skips_hook_only_fo0/repo')
+a = ('fetch', '--quiet', 'origin', 'main')
+
+    def _remote(repo: Path, *a: str) -> subprocess.CompletedProcess[str]:
+        try:
+>           return subprocess.run(["git", "-C", str(repo), *a], capture_output=True, text=True, timeout=REMOTE_S, check=False)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r892-news-disk-cards-skip-moved-card/feature-pack/fable-team/harness/bin/ft_ledger_fill.py:240: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/subprocess.py:550: in run
+    stdout, stderr = process.communicate(input, timeout=timeout)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/subprocess.py:1209: in communicate
+    stdout, stderr = self._communicate(input, endtime, timeout)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/subprocess.py:2116: in _communicate
+    self._check_timeout(endtime, orig_timeout, stdout, stderr)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <Popen: returncode: -9 args: ['git', '-C', '/private/var/folders/vm/j7_jw805...>
+endtime = 20872.729268583, orig_timeout = 2.0, stdout_seq = [], stderr_seq = []
+skip_check_and_raise = False
+
+    def _check_timeout(self, endtime, orig_timeout, stdout_seq, stderr_seq,
+                       skip_check_and_raise=False):
+        """Convenience for checking if a timeout has expired."""
+        if endtime is None:
+            return
+        if skip_check_and_raise or _time() > endtime:
+>           raise TimeoutExpired(
+                    self.args, orig_timeout,
+                    output=b''.join(stdout_seq) if stdout_seq else None,
+                    stderr=b''.join(stderr_seq) if stderr_seq else None)
+E           subprocess.TimeoutExpired: Command '['git', '-C', '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-580/test_d_push_skips_hook_only_fo0/repo', 'fetch', '--quiet', 'origin', 'main']' timed out after 2.0 seconds
+
+/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/subprocess.py:1253: TimeoutExpired
+
+The above exception was the direct cause of the following exception:
+
+wrap = {'mag': PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-580/test_d_push_...test-580/test_d_push_skips_hook_only_fo0/origin.git'), 'pushes': <function wrap.<locals>.<lambda> at 0x1059e4cc0>, ...}
+
+    def test_d_push_skips_hook_only_for_ledger_refspec(wrap):
+>       fill(wrap)
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r892-news-disk-cards-skip-moved-card/feature-pack/fable-team/harness/tests/scripts/test_ledger_fill_r870.py:135: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r892-news-disk-cards-skip-moved-card/feature-pack/fable-team/harness/tests/scripts/test_ledger_fill_r851.py:133: in fill
+    return lf.fill(w["root"], w["repo"], REL, "origin/main", at, do_fetch=True, push=True)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r892-news-disk-cards-skip-moved-card/feature-pack/fable-team/harness/bin/ft_ledger_fill.py:260: in fill
+    fetch(repo)
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r892-news-disk-cards-skip-moved-card/feature-pack/fable-team/harness/bin/ft_ledger_fill.py:249: in fetch
+    if (r := _remote(repo, "fetch", "--quiet", "origin", spec)).returncode == 0 or (spec != "main" and "couldn't find remote ref" in r.stderr):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+repo = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-580/test_d_push_skips_hook_only_fo0/repo')
+a = ('fetch', '--quiet', 'origin', 'main')
+
+    def _remote(repo: Path, *a: str) -> subprocess.CompletedProcess[str]:
+        try:
+            return subprocess.run(["git", "-C", str(repo), *a], capture_output=True, text=True, timeout=REMOTE_S, check=False)
+        except (OSError, subprocess.TimeoutExpired) as e:
+>           raise FillError(f"git {a[0]} 실행 실패: {e}") from e
+E           ft_ledger_fill_src.FillError: git fetch 실행 실패: Command '['git', '-C', '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-580/test_d_push_skips_hook_only_fo0/repo', 'fetch', '--quiet', 'origin', 'main']' timed out after 2.0 seconds
+
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r892-news-disk-cards-skip-moved-card/feature-pack/fable-team/harness/bin/ft_ledger_fill.py:242: FillError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_ledger_fill_r870.py::test_d_push_skips_hook_only_for_ledger_refspec
+1 failed, 9 passed in 71.33s (0:01:11)

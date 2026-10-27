@@ -1,0 +1,122 @@
+r703 재실행 — 팩 origin/main(aad778cf) 위 시험 자리 고침 판정 (r2 좌석)
+산출 가지 = nano/r703-orch-gate-master-test-targets-byz-h-r2 · 옛 산출 6943a21b cherry-pick(-x) = 023ba365 · 시험 파일 1 + 증거 1
+BYZ origin/main = 793bd3222c10dcea35b096d270b34d036c0694ec (FT_BYZ_REPO=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents) · BASE_REV 43eb52ed632a 는 BYZ 에 실재(cat-file OK)
+
+# ⓐ 고치기 전 — base aad778cf 판 시험 그대로 · cwd=팩 워크트리(aad778cf) · FT_BYZ_REPO 미지정
+$ bash harness/tests/test_orch_gate_master.sh
+rc=1
+fatal: invalid object name '43eb52ed632a'.
+수정 전 훅 추출 실패(43eb52ed632a)
+
+# ⓑ 고친 뒤 — 팩 origin/main(aad778cf) 위 · FT_BYZ_REPO=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents (BYZ origin/main=793bd3222c10dcea35b096d270b34d036c0694ec)
+$ FT_BYZ_REPO=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents bash harness/tests/test_orch_gate_master.sh
+rc=0
+ok   byz-v65-master-claude#143 .worktrees ts Write → 2
+ok   byz-v65-master-claude#143 .worktrees html Edit → 2
+ok   byz-v65-master-claude#143 카드 진행 md Edit → 2
+ok   byz-v65-master-claude#143 카드 완성 md Edit → 2
+ok   byz-v65-master-claude#143 판정 문서 md Edit → 0
+ok   byz-v65-master-claude#143 카드 대기 md Write → 0
+ok   byz-v65-master-claude#143 seats.json Edit → 0
+ok   byz-v65-master-claude#143 Bash sed -i 코드 → 2
+ok   byz-v65-master-claude#143 Bash cp 훅 설치 → 0
+ok   ft-v65-master-claude#142 .worktrees ts Write → 2
+ok   ft-v65-master-claude#142 .worktrees html Edit → 2
+ok   ft-v65-master-claude#142 카드 진행 md Edit → 2
+ok   ft-v65-master-claude#142 카드 완성 md Edit → 2
+ok   ft-v65-master-claude#142 판정 문서 md Edit → 0
+ok   ft-v65-master-claude#142 카드 대기 md Write → 0
+ok   ft-v65-master-claude#142 seats.json Edit → 0
+ok   ft-v65-master-claude#142 Bash sed -i 코드 → 2
+ok   ft-v65-master-claude#142 Bash cp 훅 설치 → 0
+--- 회귀 대조표 (구 훅 = 43eb52ed632a) ---
+ok   회귀 arch html Edit (구=0 신=0) → 0
+ok   회귀 arch html Edit 구=신 → 0
+ok   회귀 arch ts Edit (구=0 신=0) → 0
+ok   회귀 arch ts Edit 구=신 → 0
+ok   회귀 nano ts Edit (구=0 신=0) → 0
+ok   회귀 nano ts Edit 구=신 → 0
+ok   회귀 TMUX_PANE 없음 ts Edit (구=0 신=0) → 0
+ok   회귀 TMUX_PANE 없음 ts Edit 구=신 → 0
+ok   회귀 agent_id 있는 ts Edit (구=0 신=0) → 0
+ok   회귀 agent_id 있는 ts Edit 구=신 → 0
+ok   회귀 TOP 모델 html Edit (구=0 신=0) → 0
+ok   회귀 TOP 모델 html Edit 구=신 → 0
+ok   회귀 TOP 모델 .worktrees ts (구=0 신=0) → 0
+ok   회귀 TOP 모델 .worktrees ts 구=신 → 0
+ok   회귀 TOP 모델 코드 한도 0 deny (구=2 신=2) → 2
+ok   회귀 TOP 모델 코드 한도 0 deny 구=신 → 2
+ok   회귀 TOP 모델 Bash sed -i deny (구=2 신=2) → 2
+ok   회귀 TOP 모델 Bash sed -i deny 구=신 → 2
+pass=36 fail=0
+
+# ⓒ FT_BYZ_REPO 없이 — cwd=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents (LIVE_ROOT 1행 = /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live)
+$ (cd ) bash <팩>/feature-pack/fable-team/harness/tests/test_orch_gate_master.sh
+rc=0
+ok   회귀 TOP 모델 Bash sed -i deny (구=2 신=2) → 2
+ok   회귀 TOP 모델 Bash sed -i deny 구=신 → 2
+pass=36 fail=0
+
+# ⓓ 변이 — BYZ origin/main 훅에서 master 판별 줄 1줄 삭제한 사본(임시 리포 /tmp/r703mut.ivBJsp · 삭제 줄 = return len(parts) >= 3 and parts[2] == "master")
+$ FT_BYZ_REPO=/tmp/r703mut.ivBJsp OLD_HOOK_REV=bd30aff54da663cc1183e104168a6f934e807414 bash harness/tests/test_orch_gate_master.sh
+rc=1
+FAIL byz-v65-master-claude#143 .worktrees ts Write → 기대 2 · 실제 0
+FAIL byz-v65-master-claude#143 .worktrees html Edit → 기대 2 · 실제 0
+FAIL byz-v65-master-claude#143 카드 진행 md Edit → 기대 2 · 실제 0
+FAIL byz-v65-master-claude#143 카드 완성 md Edit → 기대 2 · 실제 0
+ok   byz-v65-master-claude#143 판정 문서 md Edit → 0
+ok   byz-v65-master-claude#143 카드 대기 md Write → 0
+ok   byz-v65-master-claude#143 seats.json Edit → 0
+FAIL byz-v65-master-claude#143 Bash sed -i 코드 → 기대 2 · 실제 0
+ok   byz-v65-master-claude#143 Bash cp 훅 설치 → 0
+FAIL ft-v65-master-claude#142 .worktrees ts Write → 기대 2 · 실제 0
+FAIL ft-v65-master-claude#142 .worktrees html Edit → 기대 2 · 실제 0
+FAIL ft-v65-master-claude#142 카드 진행 md Edit → 기대 2 · 실제 0
+FAIL ft-v65-master-claude#142 카드 완성 md Edit → 기대 2 · 실제 0
+ok   ft-v65-master-claude#142 판정 문서 md Edit → 0
+ok   ft-v65-master-claude#142 카드 대기 md Write → 0
+ok   ft-v65-master-claude#142 seats.json Edit → 0
+FAIL ft-v65-master-claude#142 Bash sed -i 코드 → 기대 2 · 실제 0
+ok   ft-v65-master-claude#142 Bash cp 훅 설치 → 0
+--- 회귀 대조표 (구 훅 = bd30aff54da663cc1183e104168a6f934e807414) ---
+ok   회귀 arch html Edit (구=0 신=0) → 0
+ok   회귀 arch html Edit 구=신 → 0
+ok   회귀 arch ts Edit (구=0 신=0) → 0
+ok   회귀 arch ts Edit 구=신 → 0
+ok   회귀 nano ts Edit (구=0 신=0) → 0
+ok   회귀 nano ts Edit 구=신 → 0
+ok   회귀 TMUX_PANE 없음 ts Edit (구=0 신=0) → 0
+ok   회귀 TMUX_PANE 없음 ts Edit 구=신 → 0
+ok   회귀 agent_id 있는 ts Edit (구=0 신=0) → 0
+ok   회귀 agent_id 있는 ts Edit 구=신 → 0
+ok   회귀 TOP 모델 html Edit (구=0 신=0) → 0
+ok   회귀 TOP 모델 html Edit 구=신 → 0
+ok   회귀 TOP 모델 .worktrees ts (구=0 신=0) → 0
+ok   회귀 TOP 모델 .worktrees ts 구=신 → 0
+ok   회귀 TOP 모델 코드 한도 0 deny (구=2 신=2) → 2
+ok   회귀 TOP 모델 코드 한도 0 deny 구=신 → 2
+ok   회귀 TOP 모델 Bash sed -i deny (구=2 신=2) → 2
+ok   회귀 TOP 모델 Bash sed -i deny 구=신 → 2
+pass=26 fail=10
+
+# ⓔ 잘못된 리포·경로 = 조용한 통과 0 (R1) · BASE_REV 없음 = 구분 문구 (R3)
+$ FT_BYZ_REPO=/nonexistent/byz bash harness/tests/test_orch_gate_master.sh
+rc=1
+FAIL BYZ 리포 훅 없음 — /nonexistent/byz origin/main:.claude/hooks/orchestration-gate.sh
+$ FT_BYZ_REPO=/tmp/r703notgit.QR8Cq1 bash harness/tests/test_orch_gate_master.sh
+rc=1
+FAIL BYZ 리포 훅 없음 — /tmp/r703notgit.QR8Cq1 origin/main:.claude/hooks/orchestration-gate.sh
+$ FT_BYZ_REPO=/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r703-orch-gate-master-test-targets-byz-h-r2 bash harness/tests/test_orch_gate_master.sh
+rc=1
+FAIL BYZ 리포 훅 없음 — /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r703-orch-gate-master-test-targets-byz-h-r2 origin/main:.claude/hooks/orchestration-gate.sh
+$ (cwd=/tmp/r703nocwd.AEokPh · FT_BYZ_REPO 없음 · LIVE_ROOT 없음) bash harness/tests/test_orch_gate_master.sh
+rc=1
+FAIL BYZ 리포 못 찾음 — FT_BYZ_REPO 미지정 · cwd 리포 .fable-team/LIVE_ROOT 없음
+# R3 — 훅은 있으나 BASE_REV(43eb52ed632a) 가 없는 임시 리포: /tmp/r703mut.ivBJsp
+$ FT_BYZ_REPO=/tmp/r703mut.ivBJsp bash harness/tests/test_orch_gate_master.sh
+rc=1
+fatal: invalid object name '43eb52ed632a'.
+FAIL 수정 전 훅 추출 실패(/tmp/r703mut.ivBJsp 43eb52ed632a)
+
+판정: ⓐ rc=1(늘 빨강 재현) → ⓑ 36/0 rc=0 (옛 36 과 같은 수 — BYZ 훅에 늘어난 master 칸 없음) · ⓒ 기본 LIVE_ROOT 36/0 rc=0 · ⓓ 변이 26/10 rc=1 · ⓔ 잘못된 경로 3종 + LIVE_ROOT 없음 + BASE_REV 없음 전부 rc=1 사유 출력
+press 필요: 없음 (훅 단위 시험 · 라이브 오디오 시험 0)

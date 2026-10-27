@@ -1,0 +1,22 @@
+PASS ⓐ 문서 줄기 6개 뒤처짐 → ft_head_lag 알림 0
+PASS ⓑ 일반 nano 줄기 뒤처짐 → 알림 1(팀당 1통)
+PASS ⓐ 문서 줄기 6개 → ft-head-sync 표에서 제외
+PASS ⓑ nano/gen → ft-head-sync 표에 있음
+PASS ⓒ 환경변수 값이 파일 대신 — ft_head_lag
+PASS ⓒ 환경변수 값이 파일 대신 — ft-head-sync
+PASS ⓔ 파일에서 1줄 삭제 → ft_head_lag 가 그 줄기만 알림
+PASS ⓔ 같은 파일 → ft-head-sync 도 그 줄기만 표에 나옴
+PASS ⓓ missing → ft_head_lag ERROR rc≠0 알림 0
+PASS ⓓ missing → ft-head-sync ERROR rc≠0
+PASS ⓓ empty → ft_head_lag ERROR rc≠0 알림 0
+PASS ⓓ empty → ft-head-sync ERROR rc≠0
+PASS ⓓ comments → ft_head_lag ERROR rc≠0 알림 0
+PASS ⓓ comments → ft-head-sync ERROR rc≠0
+PASS ⓕ feat/v6-realtime-live 뒤처짐 → ft_head_lag 알림 0(공용 라이브 뿌리 제외)
+PASS ⓖ feat/v6-realtime-live → ft-head-sync 표에서 제외(같은 파일 1줄)
+PASS ⓗ 다른 기능 브랜치 nano/r549fn → 알림 1 · 표 1(제외 안 넓어짐 · 앵커 ^(…)$)
+PASS 정적: 기본값 4개 줄 보존
+PASS 정적: 하드코딩 기본 정규식 2곳 삭제
+PASS 정적: 키트 사본 ft-head-skip.txt 일치
+PASS core.bare 오염 0
+ALL PASS

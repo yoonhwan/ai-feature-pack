@@ -1,0 +1,20 @@
+test_nano_close_cwd_holders_skip_self_r680.sh rc=1 REAL-STATE-GUARD PASS 실 루트 없음(cwd=/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r888-nano-close-research-seat-evidence-e/fe91595a-3fff-46e2-a957-59808c8710e3/scratchpad)
+test_nano_close_fail_closed.sh rc=0 REAL-STATE-GUARD PASS 실 루트 없음(cwd=/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r888-nano-close-research-seat-evidence-e/fe91595a-3fff-46e2-a957-59808c8710e3/scratchpad)
+test_nano_close_named_wt.sh rc=0 REAL-STATE-GUARD PASS 실 루트 없음(cwd=/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r888-nano-close-research-seat-evidence-e/fe91595a-3fff-46e2-a957-59808c8710e3/scratchpad)
+test_nano_close_never_started.sh rc=0 REAL-STATE-GUARD PASS 실 루트 없음(cwd=/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r888-nano-close-research-seat-evidence-e/fe91595a-3fff-46e2-a957-59808c8710e3/scratchpad)
+test_nano_close_pack_wt.sh rc=0 REAL-STATE-GUARD PASS 실 루트 없음(cwd=/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r888-nano-close-research-seat-evidence-e/fe91595a-3fff-46e2-a957-59808c8710e3/scratchpad)
+test_nano_close_rerun_early.sh rc=0 REAL-STATE-GUARD PASS 실 루트 없음(cwd=/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r888-nano-close-research-seat-evidence-e/fe91595a-3fff-46e2-a957-59808c8710e3/scratchpad)
+test_nano_close_rerun_named_equal.sh rc=0 REAL-STATE-GUARD PASS 실 루트 없음(cwd=/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r888-nano-close-research-seat-evidence-e/fe91595a-3fff-46e2-a957-59808c8710e3/scratchpad)
+test_nano_close_rerun_wt_clean.sh rc=0 REAL-STATE-GUARD PASS 실 루트 없음(cwd=/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r888-nano-close-research-seat-evidence-e/fe91595a-3fff-46e2-a957-59808c8710e3/scratchpad)
+test_nano_close_sha_base.sh rc=0 ALL PASS
+test_nano_close_std_wt_other_branch.sh rc=0 REAL-STATE-GUARD PASS 실 루트 없음(cwd=/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r888-nano-close-research-seat-evidence-e/fe91595a-3fff-46e2-a957-59808c8710e3/scratchpad)
+test_nano_close_superseded_by.sh rc=0 REAL-STATE-GUARD PASS 실 루트 없음(cwd=/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r888-nano-close-research-seat-evidence-e/fe91595a-3fff-46e2-a957-59808c8710e3/scratchpad)
+test_nano_close_suspended.sh rc=0 REAL-STATE-GUARD PASS 실 루트 없음(cwd=/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r888-nano-close-research-seat-evidence-e/fe91595a-3fff-46e2-a957-59808c8710e3/scratchpad)
+test_nano_close_worktree_list_pipe.sh rc=0 REAL-STATE-GUARD PASS 실 루트 없음(cwd=/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r888-nano-close-research-seat-evidence-e/fe91595a-3fff-46e2-a957-59808c8710e3/scratchpad)
+test_nano_close_wt_deletion_only.sh rc=0 REAL-STATE-GUARD PASS 실 루트 없음(cwd=/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-r888-nano-close-research-seat-evidence-e/fe91595a-3fff-46e2-a957-59808c8710e3/scratchpad)
+--- r680 origin/main 코드 대조:
+FAIL ⓑ 계획 생성 실패 ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.aCRiVoae6C/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+FAIL ⓒ 계획 생성 실패 ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.aCRiVoae6C/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+FAIL ⓓ 계획 생성 실패 ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.aCRiVoae6C/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+FAIL ⓔ 계획 생성 실패 ← WARN ft-team-lib.sh 없음(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.aCRiVoae6C/bin) — 카드 쌍둥이 경로 후보 0(R382 전환 기간 역호환 꺼짐)
+FAILED 4

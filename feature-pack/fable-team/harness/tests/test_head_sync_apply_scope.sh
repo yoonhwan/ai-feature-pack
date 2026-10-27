@@ -14,7 +14,7 @@ syn() {  # syn <cwd> [인자…] — 그 자리에서 ft-head-sync 를 부른다
 head_of() { sha "$1" HEAD; }
 snapall() { for d in a b c; do head_of "$T/f1/wt-$d"; git -C "$T/f1/wt-$d" status --porcelain; done | shasum; }
 lagmsg() { python3 -I -c 'import sys; sys.path.insert(0, sys.argv[2]); from ft_head_lag import build
-print(build([{"path": "/tmp/wtA", "branch": "nano/a", "n": 2, "secs": 18000}], "a" * 40, sys.argv[1]))' "$1" "$2"; }
+print(build([{"path": "/tmp/wtA", "branch": "nano/a", "n": 2, "secs": 18000}], "a" * 40))' "$1" "$2"; }   # R886 이후 build(items, msha) — 도구 경로 인자 0
 
 # ── 픽스처 1: main 이 한 번 전진한 뒤, M0 에서 딴 워크트리 3개(A·B·C)가 전부 뒤처짐 · 미커밋 0
 mkrepo "$T/f1"; W="$T/f1/w"
@@ -39,7 +39,7 @@ syn "$T/f1/wt-a" --apply --repo "$W"
 [ "$rc" = 0 ] && printf '%s\n' "$out" | awk '$1=="nano/a"' | grep -q '최신화함'; ck "ⓑ A 안 --apply rc=0 · a 줄 «최신화함»" $?
 [ "$(head_of "$T/f1/wt-a")" != "$H0a" ] && git -C "$T/f1/wt-a" merge-base --is-ancestor "$M1" HEAD && [ "$(git -C "$T/f1/wt-a" rev-list --parents -n1 HEAD | wc -w | tr -d ' ')" = 3 ]; ck "ⓑ A 만 merge 1커밋(부모 2) · main 조상" $?
 [ "$(head_of "$T/f1/wt-b")" = "$H0b" ] && [ "$(head_of "$T/f1/wt-c")" = "$H0c" ] && [ -z "$(git -C "$T/f1/wt-b" status --porcelain)" ] && [ -z "$(git -C "$T/f1/wt-c" status --porcelain)" ]; ck "ⓑ 비파괴 대조: B·C HEAD 전후 같음 · 미커밋 0" $?
-printf '%s\n' "$out" | awk '$1=="nano/b"' | grep -q '다른 워크트리 — 그 자리에서' && printf '%s\n' "$out" | awk '$1=="nano/c"' | grep -q '다른 워크트리 — 그 자리에서'; ck "ⓑ 표에 B·C = «다른 워크트리 — 그 자리에서»" $?
+[ "$(printf '%s\n' "$out" | grep -cE '^nano/(b|c) ')" = 0 ]; ck "ⓑ 표에 B·C 줄 0(R882 — --apply 는 cwd 1곳만 본다)" $?
 [[ "$out" == *"비파괴 증거"* ]]; ck "ⓑ 비파괴 증거 줄 출력" $?
 
 # ── ⓒ 리포 공용 루트·제외 목록 가지(main)·비-repo 자리 = REJECT rc 2 · 쓰기 0
@@ -64,7 +64,7 @@ syn "$T" --apply --all --confirm 2 --repo "$W"
 # ── ⓖ 알림 조치문 = «그 워크트리 안에서(cd <절대경로>)» · 목록에 절대 경로 · 문구에 --all 0
 out="$(lagmsg "$BIN" "$BIN")"
 [[ "$out" == *"/tmp/wtA"* ]]; ck "ⓖ 목록 줄에 절대 경로" $?
-[[ "$out" == *"그 워크트리 안에서(cd /tmp/wtA)"* ]] && [[ "$out" == *"--apply (그 워크트리만"* ]]; ck "ⓖ 조치문 = 그 워크트리 안에서(cd <경로>) … --apply (그 워크트리만)" $?
+[[ "$out" == *"그 워크트리 안에서(cd /tmp/wtA)"* ]] && [[ "$out" == *"스스로 받는다"* ]]; ck "ⓖ 조치문 = 그 워크트리 안에서(cd <경로>) … 스스로 받는다(R882 — 실행 지시 0)" $?
 ! printf '%s\n' "$out" | grep -q -- '--all'; ck "ⓖ 조치문에 --all 0" $?
 ! printf '%s\n' "$out" | grep -q '조치: 미커밋 0 이면'; ck "ⓖ 옛 조치문(어디서 쳐야 하는지 없음) 0" $?
 
@@ -73,7 +73,7 @@ mkbin() { local d="$1"; mkdir -p "$d"; for f in "$BIN"/*; do ln -s "$f" "$d/$(ba
 mkrepo "$T/f2"; W="$T/f2/w"; M2="$(sha "$W" HEAD)"
 for d in a b c; do git -C "$W" worktree add -q -b "nano/$d" "$T/f2/wt-$d" "$M2"; git -C "$T/f2/wt-$d" config user.name t; git -C "$T/f2/wt-$d" config user.email t@t; echo "$d" > "$T/f2/wt-$d/$d.txt"; cm "$T/f2/wt-$d" "work $d"; done
 echo m > "$W/m.txt"; cm "$W" "main moves"; git -C "$W" push -q origin main
-mkbin "$T/mut1"; sed -e '/elif ! awk -F/d' -e '/다른 워크트리 — 그 자리에서/d' "$SYNC" > "$T/mut1/ft-head-sync.sh"
+mkbin "$T/mut1"; sed -e '/R882 cwd 한정/d' -e '/다른 워크트리 — 그 자리에서/d' "$SYNC" > "$T/mut1/ft-head-sync.sh"
 H0b2="$(head_of "$T/f2/wt-b")"
 out="$( ( cd "$T/f2/wt-a" && bash "$T/mut1/ft-head-sync.sh" --apply --repo "$W" ) 2>&1 )"; rc=$?
 [ "$rc" = 0 ] && [ "$(head_of "$T/f2/wt-b")" != "$H0b2" ]; ck "ⓘ 변이(cwd 한정 삭제) → B 도 병합됨 = ⓑ 단언이 잡는다" $?

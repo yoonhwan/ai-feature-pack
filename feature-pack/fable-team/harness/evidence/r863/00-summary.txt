@@ -1,0 +1,34 @@
+r863 — 자동 모델 교대 상태 파일의 알림 키 값 손상 = ERROR 1줄 + 그 키 그대로 · 가지 nano/r863-model-swap-corrupt-key-value · base 팩 origin/main ba445cce(r838 착지)
+
+원인 1: 키 값 읽기 실패의 처리가 자리마다 달랐다
+- close_keys: blocked 값 null → «키 유지» ERROR 뒤 keep 이 None 을 돌려 «닫힘» 으로 읽혀 키 제거 → hil 이 다시 «교대 불가» 1통 + {at,seen} 재기록
+- outage_open 값 {} · null → «값 있음» 검사가 falsy 로 읽어 ERROR 0 · account 가 «닫힘» 으로 보고 «교대 보류» 1통 + {at,seen} 덮어씀
+
+고침 (읽기 함수 하나 · Account.read_key)
+- as_kv(v) = 정수>0 · {at,seen 정수} 외 = None(손상) · 출력 0
+- read_key(name, v) = 손상이면 ERROR 1줄(실행·키당 1 · self.bad) + None
+- close_keys: 닫힘 표지 = CLOSE(sentinel) — 손상 값(None 포함)은 원래 값 그대로 · outage_open 열림 판정 = shut(v)(키 없음·정수 0 만 닫힘)
+- account: 손상 outage_open = 보류 판정은 이번 정지로만 · 보내기·덮어쓰기 0(보내기 조건 = shut(raw))
+- hil: 이번 실행 손상 키와 같은 계보(mute) = 알림 0
+- 범위 밖 그대로: 손상 키 자동 복구 · 상태 파일 JSON 깨짐 · ft_api_outage
+- 줄 수: ft_model_swap.py 200 · ft_model_swap_account.py 70 · kit↔bin cmp0
+
+시험 (test_model_swap_account_outage_r838.py 끝 r863 칸 3)
+- ⓐ test_k1: blocked 값 null·{}·"x"·[] → 같은 정지 다음 실행 «교대 불가» 합 1 · ERROR 1줄 · 값 그대로 · 생존 좌석 0 실행도 ERROR 1줄 + 값 그대로
+- ⓑ test_k2: outage_open 값 {}·null·"x" → 같은 한도 다음 실행 HOLD · «교대 보류» 합 1 · ERROR 1줄 · 값 그대로 · 교대 0
+- ⓒ test_k3: 다른 계보 손상 키(null) 옆 정상 키 = 정상 턴 뒤 닫힘 · 다시 막히면 새 1통(합 2) · 손상 키는 그대로
+- 기준판 빨강: red-base-pytest.txt (k1·k2·k3 3 failed · kit_copies 1 = 시험 중 bin 만 기준판으로 바꾼 탓)
+- 초록 ⓓ: green-pytest.txt (test_model_swap*.py + test_ft_api_outage.py 55 passed rc=0) · green-successor_open.txt (ALL PASS) · green-other.txt (kit_bin_sync·tick_line·tick_team_msg rc 0)
+- 변이 ⓔ: mutations.txt — ①손상 값 지우기 되살림 → k1·k2·k3 RED ②손상 outage_open 덮어쓰기 되살림 → k2 RED
+press 필요: 없음
+
+## r2 (DA⑥ r1 HOLD 1 · REWORK-r863-r2.md) — save 원자 교체
+- 반례: 생존 좌석 0 + outage_open = "\ud800"(단독 surrogate · json.loads 정상) → write_text 가 파일을 먼저 자르고 UTF-8 인코딩 실패 → rc1 + state.json 0바이트(상태 전체 소실)
+- 고침: Swap.save() = write_atomic(state.json, st) 1줄 · write_atomic(ft_model_swap_account.py · 200줄 상한) = 직렬화+encode 먼저(실패 = raise · 파일 손대기 0) → 같은 폴더 state.json.tmp-<pid> 쓰기·flush·fsync → os.replace · 실패 = 임시 파일만 지우고 raise
+- 시험 k4(test_model_swap_account_outage_r838.py 끝): 생존 좌석 0 + outage_open·blocked 값 "\ud800" → rc≠0 이어도 state.json 바이트 그대로 · ERROR 줄 있음 · 임시 파일 남김 0
+- 기준판 빨강: r2-red-k4-base.txt (d414f89d save · state.json b'' · rc=1)
+- 초록: green-pytest.txt 56 passed rc=0(55+1) · green-successor_open.txt ALL PASS · green-other.txt rc 0
+- 변이 ③: mutations.txt 끝 — write_text 되살림 → k4 RED
+- 줄 수: ft_model_swap.py 199 · ft_model_swap_account.py 87 · kit↔bin cmp0 · 범위 밖 그대로: ensure_ascii 정책 · 손상 키 자동 복구 · 다른 저장소 파일
+- 참고: 1차 전체 시험에서 test_model_swap.py::test_c 가 가짜 tmux 7초 시간 초과로 1회 실패(load 40) — 재실행 56 passed · 코드 무관
+press 필요: 없음

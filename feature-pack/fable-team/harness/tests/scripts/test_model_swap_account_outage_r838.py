@@ -141,6 +141,11 @@ def test_r1_user_retry_only_keeps_outage_key_one_note(tmp_path):  # ⓡ1 후보 
 
 
 def test_r2_normal_then_restuck_between_checks_new_note(tmp_path):  # ⓡ2 알린 시각 뒤 정상 → 그 구간 끝 · 지금 정지 = 새 1통
+    """★r912 r3 — r838 ⓡ2 의 «새 1통» 은 r912 창(10분) 밖에서만 성립한다★
+
+    r912 가 «같은 좌석·같은 사유가 마지막 알림 뒤 10분 안에 또 정지하면 0통» 을 더했으므로,
+    같은 픽스처에서 실행 시각만 바꿔 «창 안 = 1통 유지 · 창 밖 = 2통» 두 경계를 함께 본다.
+    """
     fx = Fx(tmp_path)
 
     def block(tag: str, at: int) -> None:
@@ -148,13 +153,19 @@ def test_r2_normal_then_restuck_between_checks_new_note(tmp_path):  # ⓡ2 알�
         fx.add("byz-x-nano-a#0", _err(f"o{tag}", at - 10, _limit("claude-opus-5-5")))
         fx.add("byz-x-nano-b#0", _err(f"s{tag}", at - 20, _limit("claude-sonnet-5-5")))
 
+    def notes() -> int:
+        return len([h for h in _heads(fx) if h.startswith("[자동 교대 불가]")])
+
     block("1", N - 240)
     assert fx.run().returncode == 0
     fx.add(ARCH, _ok("a-ok", N + 60, "claude-fable-5-1"))  # 검사 사이 정상 → 곧 다시 정지
     block("2", N + 120)
-    r = fx.run(N + 300)
+    r = fx.run(N + 300)   # ★r912 창(10분) 안 재정지 = 알림 0통★
     assert r.returncode == 0, r.stderr
-    assert len([h for h in _heads(fx) if h.startswith("[자동 교대 불가]")]) == 2
+    assert notes() == 1
+    r = fx.run(N + 700)   # ★창 밖(601초 이상) = 새 1통★
+    assert r.returncode == 0, r.stderr
+    assert notes() == 2
 
 
 def test_r3_same_model_two_role_seats_is_single_model_swap(tmp_path):  # ⓡ3 같은 모델 2석 = 모델 하나 한도 → r497 교대
@@ -259,3 +270,86 @@ def test_r9b_outage_key_closes_after_day_with_no_live_lineage(tmp_path):  # ⓡ9
     r = fx.run(N + 86900)
     assert r.returncode == 0 and "HOLD" in r.stdout, r.stdout + r.stderr
     assert _heads(fx) == [HOLD_HEAD, HOLD_HEAD] and not fx.argv.exists()
+
+
+# r863 — 알림 키 값 손상(null · {} · "x" · []) = ERROR 1줄 + 그 키 그대로(지우기·덮어쓰기 0) · 그 실행 그 계보 알림 0
+def _st(fx: Fx) -> dict[str, object]:
+    return json.loads((fx.ft / "state" / "model-swap" / "state.json").read_text(encoding="utf-8"))
+
+
+def _corrupt(fx: Fx, field: str, key: str, bad: object) -> None:
+    st = _st(fx)
+    if key:
+        st[field][key] = bad  # pyright: ignore[reportIndexIssue]
+    else:
+        st[field] = bad
+    _ = (fx.ft / "state" / "model-swap" / "state.json").write_text(json.dumps(st), encoding="utf-8")
+
+
+def _errs(r) -> int:
+    return len([ln for ln in r.stderr.splitlines() if ln.startswith("ERROR model_swap: 알림 키 값 깨짐")])
+
+
+def _block(fx: Fx, tag: str, at: int) -> None:  # ARCH 정지 · 대체 모델(opus·sonnet)도 나노에서 한도 → «교대 불가»
+    fx.add(ARCH, _err(f"a{tag}", at, _limit()))
+    fx.add("byz-x-nano-a#0", _err(f"o{tag}", at - 10, _limit("claude-opus-5-5")))
+    fx.add("byz-x-nano-b#0", _err(f"s{tag}", at - 20, _limit("claude-sonnet-5-5")))
+
+
+def _stuck(fx: Fx) -> int:
+    return len([h for h in _heads(fx) if h.startswith("[자동 교대 불가]")])
+
+
+def test_k1_corrupt_blocked_value_kept_one_note(tmp_path):  # ⓐ blocked 값 손상 → 같은 정지 다음 실행 알림 합 1 · ERROR 1줄 · 값 그대로 · 생존 좌석 0 도 같음
+    for i, bad in enumerate((None, {}, "x", [])):
+        fx = Fx(tmp_path / str(i))
+        _block(fx, "1", N - 240)
+        assert fx.run().returncode == 0 and _stuck(fx) == 1
+        (key,) = list(_st(fx)["blocked"])  # pyright: ignore[reportArgumentType]
+        _corrupt(fx, "blocked", key, bad)
+        _block(fx, "2", N + 50)
+        r = fx.run(N + 300)
+        assert r.returncode == 0 and _stuck(fx) == 1 and _errs(r) == 1, (bad, r.stdout, r.stderr)
+        assert _st(fx)["blocked"] == {key: bad}, bad
+        fx.sessions.clear()  # 생존 좌석 0
+        r = fx.run(N + 360)
+        assert r.returncode == 0 and _errs(r) == 1 and _st(fx)["blocked"] == {key: bad}, (bad, r.stderr)
+
+
+def test_k2_corrupt_outage_open_value_kept_one_hold_note(tmp_path):  # ⓑ outage_open 값 손상 → 같은 한도 다음 실행 보류 합 1 · ERROR 1줄 · 값 그대로
+    for i, bad in enumerate(({}, None, "x")):
+        fx = _fx(tmp_path / str(i))
+        _all_limited(fx, "1", N - 240)
+        assert fx.run().returncode == 0 and _heads(fx) == [HOLD_HEAD]
+        _corrupt(fx, "outage_open", "", bad)
+        _all_limited(fx, "2", N + 30)
+        r = fx.run(N + 300)
+        assert r.returncode == 0 and "HOLD" in r.stdout and _errs(r) == 1, (bad, r.stdout, r.stderr)
+        assert _heads(fx) == [HOLD_HEAD] and _st(fx)["outage_open"] == bad and not fx.argv.exists(), bad
+
+
+def test_k3_corrupt_key_isolated_other_key_closes_and_notes(tmp_path):  # ⓒ 다른 계보의 손상 키가 있어도 정상 키 닫힘·알림은 지금처럼
+    fx = Fx(tmp_path)
+    _block(fx, "1", N - 240)
+    assert fx.run().returncode == 0 and _stuck(fx) == 1
+    _corrupt(fx, "blocked", "byz-y-arch-claude|대체 모델 없음(x)", None)
+    fx.add(ARCH, _ok("a-ok", N + 400, "claude-fable-5-1"))
+    r = fx.run(N + 450)  # 정상 키 = 닫힘
+    assert r.returncode == 0 and _errs(r) == 1 and list(_st(fx)["blocked"]) == ["byz-y-arch-claude|대체 모델 없음(x)"], r.stderr  # pyright: ignore[reportArgumentType]
+    _block(fx, "3", N + 500)
+    r = fx.run(N + 800)
+    assert r.returncode == 0 and _stuck(fx) == 2 and _errs(r) == 1, r.stdout + r.stderr
+
+
+def test_k4_unencodable_value_keeps_state_file_bytes(tmp_path):  # r863 r2 — 단독 surrogate 값 → 저장 실패여도 state.json 바이트 그대로(자르고 쓰기 0)
+    fx = _fx(tmp_path)
+    _all_limited(fx, "1", N - 240)
+    assert fx.run().returncode == 0 and _heads(fx) == [HOLD_HEAD]
+    _corrupt(fx, "outage_open", "", "\ud800")
+    _corrupt(fx, "blocked", "byz-y-arch-claude|대체 모델 없음(x)", "\ud800")
+    path = fx.ft / "state" / "model-swap" / "state.json"
+    before = path.read_bytes()
+    fx.sessions.clear()  # 생존 좌석 0
+    r = fx.run(N + 300)
+    assert path.read_bytes() == before and "ERROR model_swap" in r.stderr, (r.returncode, r.stderr)
+    assert not list(path.parent.glob("state.json.tmp-*"))  # 임시 파일 남김 0

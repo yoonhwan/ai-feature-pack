@@ -1,0 +1,8 @@
+PASS 닫힘 집합 ⊆ 설치 목록
+PASS 변이 복사본: magazine_collect_open 제거됨
+PASS 변이 → rc=1 · magazine_collect_open.py 출력
+PASS 변이 복사본: mirror_lib 제거됨
+PASS 변이 → rc=1 · mirror_lib.py 출력
+PASS 변이 복사본: magazine_doc_md 제거됨
+PASS 변이 → rc=1 · magazine_doc_md.py 출력
+ALL PASS
