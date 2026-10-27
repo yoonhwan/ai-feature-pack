@@ -6,7 +6,8 @@ export FT_ALLOW_TRACKED_BIN=1
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO="$HERE/../.."; BIN="$REPO/harness/bin"; KIT="${R655_SUT_KIT:-$REPO/harness/kit/fable-team/bin}"; SKILL="$REPO/skill/scripts"
-T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T"' EXIT
+. "$HERE/lib/tmux_isolate.sh"   # r957: 실 tmux 서버 격리(TMUX·TMUX_PANE 제거 + TMUX_TMPDIR) — 가짜 tmuxc 가 없는 경로도 격리 소켓만 본다
+T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'tmux_isolate_end; rm -rf "$T"' EXIT
 export HIL_DIR="$T/hil"; mkdir -p "$HIL_DIR"   # ★실 /tmp/h<N> 번호표 누수 0★(2026-10-22 master 발주 #135523 — ft-tick «HIL 미실행» 오경보) — ft-hil.sh 진입점은 이 폴더에만
 fail=0
 ok()  { echo "PASS $1"; }
@@ -263,4 +264,6 @@ for f in ft-nano-spawn.sh ft-nano-close.sh ft-nano-spawn-undo.sh ft-press-gate.s
   cmp -s "$BIN/$f" "$KIT/$f" && ok "짝 cmp 0 $f" || bad "짝 불일치 $f"
 done
 
+# ── r957 누수 검사: 실 tmux 서버에 시험 세션(byz-alpha-·byz-v65-·ft-v65-temp-)이 남으면 FAIL ──
+tmux_isolate_leak_check || fail=$((fail+1))
 [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }

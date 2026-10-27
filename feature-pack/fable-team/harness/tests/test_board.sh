@@ -5,7 +5,8 @@
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 BIN="$HERE/../../harness/bin"
-T="$(mktemp -d)"; trap 'chmod -R u+rwx "$T" 2>/dev/null; rm -rf "$T"' EXIT
+T="$(mktemp -d)"; trap 'tmux_isolate_end; chmod -R u+rwx "$T" 2>/dev/null; rm -rf "$T"' EXIT
+. "$HERE/lib/tmux_isolate.sh"   # r957: 실 tmux 서버 격리(TMUX·TMUX_PANE 제거 + TMUX_TMPDIR)
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }
@@ -225,4 +226,6 @@ rm -rf "$FT_ROOT/zeta" "$FB/seats-zeta.json"
 printf '{"_label":"감마"}' > "$FB/seats-gamma.json"
 has "팀 추가 = 명부 1개만으로 나타남" "$(board render --term)" "- 감마 | 지금: 카드 폴더 미지정"
 
+# ── r957 누수 검사: 실 tmux 서버에 시험 세션(byz-alpha-·byz-v65-·ft-v65-temp-)이 남으면 FAIL ──
+tmux_isolate_leak_check || fail=$((fail+1))
 [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }

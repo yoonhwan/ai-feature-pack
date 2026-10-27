@@ -1,0 +1,22 @@
+r844 r2 — 외부 DA r1 HOLD(da-20261024-100322-81585.out) 반송 처리 · 나노 byz-harness-nano-r844-wt-sweep-git-env-and-error-kind#0 · 2026-10-24
+반례: K 미커밋 3 · .git = 정상 gitfile 의 심링크 · 대상 상위 폴더만 000 → ft-wt-sweep.sh `[ -e "$p/.git" ]` 가 접근 불가를 «없음» 으로 → rev-parse 전에 «git 연결 끊김(.git 없음)» 경보
+
+고침(kit/fable-team/bin/ft-wt-sweep.sh · 짝 harness/bin cmp0):
+- seat_busy: `.git` 은 `[ -e ] || [ -L ]` 로 «있음» 만 본다 · 있으면 항상 rev-parse 먼저 (폴더 r·x 확인 뒤라 이름 없음 판정은 정확)
+- pstat <경로>(새 함수): perl stat errno — 0 있음 · 1 없음(ENOENT·ENOTDIR) · 2 접근 불가 등(EACCES·ELOOP…)
+- git_gone: «가리킨 곳» 확인을 `-e` 위로 올라가기 → pstat 로 교체 · 없음만 끊김 · 접근 불가 = 판정 못 함(이어받기) · 있음 = 읽을 수 있을 때만 «저장소 아님»
+
+시험(test_wt_shell_scan_live_seat_r832.sh · 98 → 110 칸):
+- 새 칸 r2: K4(심링크 .git · 대상 상위 000 · 미커밋 3) → «판정 못 함(git rev-parse rc=128» · 끊김 0 · 경보 0 · 서명 = 1회차 · 한국어 로캘 같음 · 권한 복구 → SKIP 미커밋 3 · 경보 0 · 복구 전후 서명 같음
+- 새 칸 r2: K5(매달린 심링크 .git · 대상 없음) → 끊김 그대로(진짜 끊김을 놓치지 않음)
+- green ×4: green-run1~4.txt rc=0 · 110 PASS · ALL PASS
+- 빨강 72566039 판(r1 산출): red-before-72566039.txt rc=1 · FAIL 7(r2 칸)
+- 변이 4 `.git` 판정 -e 되살림(-L 삭제): mut-4-dotgit-e-restored.txt rc=1 · FAIL 7
+- 변이 5 pstat 를 -e 로: mut-5-pstat-as-e.txt rc=1 · FAIL 9(ⓐ' K2 2 + r2 7)
+- 변이 1~3 재확인(현행 코드 기준): mut-1-no-env-unset rc=1 FAIL 5 · mut-2-all-rc-gone rc=1 FAIL 17 · mut-3-no-lc-all-c rc=1 FAIL 2
+- 기존: test_wt_clean_two_stage · test_ft_wt_sweep_route_timeout · test_wt_sweep_budget_replan_r535 ALL PASS(FAIL 0)
+  test_finished_cleanup_auto FAIL 1 = «ⓒ swept [] … ERROR tmux unreadable» — r1·r832 기준판과 같은 줄(PASS 29 같음)
+
+범위 밖(손대지 않음): 껍데기 기준(부재 ≥ 2 · 316줄 tracked 항목 -e) · 실제 정리 경로 · r535 목록 · pane 판정
+남은 생각(DA 참고): 가리킨 gitdir 이 «있고 읽히는데» 그 안 HEAD 등이 못 읽혀 git 이 «저장소 아님» 이라 답하는 길은 r1 그대로 «저장소 아님 → 끊김» (이 반송 범위 밖)
+press 필요: 없음
