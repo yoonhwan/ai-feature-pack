@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# ft-news-verify --kind news|magazine --body <발행본 글> [--tail] … — 발행 직후 9칸(ⓐ~ⓘ) 재측정(r853) 얇은 입구
+# 본체·옵션 설명 = _news_verify.py · 칸 정의 = _news_verify_cells.py · 발행은 안 막는다(rc 만 다르다)
+set -uo pipefail
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
+exec python3 "$HERE/_news_verify.py" "$@"
