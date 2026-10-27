@@ -11,13 +11,16 @@ KIT="$HERE/../../harness/kit/fable-team/bin"
 for f in "$KIT"/ft-{nano-spawn,proposal-gate,gh-as-tank}.sh; do bash -n "$f" && ok "bash -n $(basename "$f")" || bad "bash -n $f"; done
 
 # ── spawn --dry-run: lint 는 항상 통과하는 가짜 · 게이트는 진짜 · gh 는 가짜 ──
-mkdir -p "$T/bin" "$T/idx/대기"; cp "$KIT/ft-nano-spawn.sh" "$KIT/ft-proposal-gate.sh" "$KIT/ft-resource-gate.sh" "$KIT/ft_raised.py" "$KIT/ft_teamset.py" "$KIT/ft_spawn_queue.py" "$KIT/ft-team-lib.sh" "$T/bin/"; printf '#!/usr/bin/env bash\nexit 0\n' > "$T/bin/ft-index-lint.sh"; echo '{}' > "$T/seats.json"
+. "$HERE/lib/fake_tmm.sh"; fake_tmm "$T/fake" byz-harness-master-claude#1 byz-v65-master-claude#1   # r975 r4: 살아 있는 좌석 목록 대역
+mkdir -p "$T/bin" "$T/idx/대기"; cp "$KIT/ft-nano-spawn.sh" "$KIT/ft-proposal-gate.sh" "$KIT/ft-resource-gate.sh" "$KIT/ft_raised.py" "$KIT/ft_teamset.py" "$KIT/ft_spawn_queue.py" "$KIT/ft-team-lib.sh" "$KIT/ft-name-lint.sh" "$T/bin/"   # r975 r6: ft-name-lint = 역할 집합 출처
+printf '#!/usr/bin/env bash\nexit 0\n' > "$T/bin/ft-index-lint.sh"
+echo '{"_master":"byz-harness-master-claude#1","byz-harness-master-claude#1":{"role":"master"}}' > "$T/seats.json"
 printf '#!/usr/bin/env bash\nexit 0\n' > "$T/bin"/ft-all-stop.sh   # r626 DA⑥ r2: spawn 이 .fable-team 있으면 늘 전팀 정지 check — 사본 bin 에 없으면 REJECT · 이 시험 주제 밖이라 통과 스텁
 . "$HERE/lib/bin_source_deps.sh"; copy_source_deps "$KIT" "$T/bin" || bad "r686 사본 source 대상 채우기"   # r686: 고른 도구가 source 하는 같은 폴더 lib(r672 swap · research-seat …)
 card() {  # card <파일이름> <머리 제안서 줄|-> [머리 Issue 줄|-] [구현 범위 줄 · 기본 x] [본문 추가 줄]
   { echo "# 인덱스: $1"; [ "${3:--}" = "-" ] && echo "- Issue: 없음" || echo "$3"; echo "- 상태: 대기"; echo "- 선행: 없음"; echo "- 시험 입력: 없음"; echo "- 기준값: 없음 → 대체 축 x"
     [ "$2" = "-" ] || echo "$2"; echo "## 구현 범위"; echo "${4:-x}"; [ -n "${5:-}" ] && echo "$5"; } > "$T/idx/대기/$1.md"; }
-spawn() { out="$(cd "$HERE/../.." && FT_SEATS_JSON="$T/seats.json" FT_NANO_PREFIX=zz- bash "$T/bin/ft-nano-spawn.sh" "$T/idx/대기/$1.md" --dry-run 2>&1)"; rc=$?; }
+spawn() { out="$(cd "$HERE/../.." && PATH="$T/fake:$PATH" FT_SEATS_JSON="$T/seats.json" FT_NANO_PREFIX=zz- bash "$T/bin/ft-nano-spawn.sh" "$T/idx/대기/$1.md" --dry-run 2>&1)"; rc=$?; }
 rejected() { [ "$rc" = 1 ] && echo "$out" | grep -q "^REJECT 제안서 승인 증거 부족 — REJECT .*$1" && ! echo "$out" | grep -q '^PLAN '; }   # 워크트리·tmux 0 = PLAN 줄 0
 passed() { ! echo "$out" | grep -q 'REJECT 제안서'; }
 WR='1. `design/team/PROPOSAL-foo-20261010.md` 제안서 1개만 쓴다 · 읽기 `design/team/GOAL.md`'
@@ -32,7 +35,7 @@ reset; fx 12; card c-issue "- 제안서: 없음 — 이슈로 진행" "- Issue: 
 rejected 'proposal 라벨 Issue' && ok "4 spawn: 「없음」 + 「- Issue: #12」(proposal 라벨 Issue) → REJECT(우회 차단)" || bad "4 rc=$rc $out"
 reset; printf '{"number":30,"author":{"login":"yoonhwan"},"labels":[{"name":"bug"}],"body":"x","comments":[]}' > "$T/view-30.json"; card c-plain-issue "- 제안서: 없음 — 버그 수정" "- Issue: #30"; spawn c-plain-issue
 passed && ok "5 spawn: 「없음」 + 일반(bug) Issue 연결 → 통과" || bad "5 rc=$rc $out"
-reset; card c-ghfail "- 제안서: 없음 — 버그 수정" "- Issue: #30"; out="$(GH_FAIL=1 bash -c ". /dev/null; cd '$HERE/../..' && FT_SEATS_JSON='$T/seats.json' FT_NANO_PREFIX=zz- bash '$T/bin/ft-nano-spawn.sh' '$T/idx/대기/c-ghfail.md' --dry-run" 2>&1)"; rc=$?
+reset; card c-ghfail "- 제안서: 없음 — 버그 수정" "- Issue: #30"; out="$(GH_FAIL=1 bash -c ". /dev/null; cd '$HERE/../..' && PATH='$T/fake:$PATH' FT_SEATS_JSON='$T/seats.json' FT_NANO_PREFIX=zz- bash '$T/bin/ft-nano-spawn.sh' '$T/idx/대기/c-ghfail.md' --dry-run" 2>&1)"; rc=$?
 [ "$rc" = 1 ] && echo "$out" | grep -q '^REJECT 제안서 승인 증거 부족' && ok "6 spawn: 「- Issue:」 라벨 조회 gh 실패 → REJECT(조용한 통과 0)" || bad "6 rc=$rc $out"
 reset; card c-path "- 제안서: design/team/PROPOSAL-foo-20261010.md"; spawn c-path
 [ "$rc" = 1 ] && echo "$out" | grep -q '^REJECT 제안서 승인 증거 부족 — REJECT 머리 「- 제안서:」 값은 #<제안 Issue 번호>' && ok "7 spawn: 경로 값(옛 r0 방식) → REJECT" || bad "7 rc=$rc $out"
