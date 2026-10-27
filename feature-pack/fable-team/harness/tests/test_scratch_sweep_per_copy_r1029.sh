@@ -7,6 +7,9 @@ HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO="$(cd -- "$HERE/.." && pwd)"
 SUT="${FT_SUT:-$REPO/bin/ft-scratch-repo.sh}"   # FT_SUT = 변이 판(고장 주입) 대조 실행용
 fail=0
+# FT_TEST_ONLY=ⓕ,변이-ⓖ = 그 칸만(하드 룰 22 · 한 칸 70초 안 · 고정 sleep 0)
+ONLY="${FT_TEST_ONLY:-}"
+want() { [ -z "$ONLY" ] && return 0; printf '%s\n' "$ONLY" | tr ',' '\n' | grep -qx "$1"; }
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }
 [ -f "$SUT" ] || { bad "ft-scratch-repo.sh 없음 ($SUT)"; echo "(1 failed)"; exit 1; }
@@ -38,11 +41,24 @@ EOF
 chmod 755 "$BIN/tmux" "$BIN/lsof"
 printf 'p1\ncinit\nfcwd\nn/\n' > "$T/lsof.all"   # 전체 지도 = 아무 사본도 점유하지 않음(대조 조회가 «본다» 는 증거)
 lrows() { local c="$1" f; shift; f="$T/lsof.d/$(basename "$c").rows"; : > "$f"; while [ "$#" -ge 3 ]; do printf 'p%s\nc%s\nfcwd\nn%s\n' "$2" "$3" "$1" >> "$f"; shift 3; done; }   # <사본> <경로> <pid> <명령> …
+
+# 가짜 du — 호출마다 1초 자고 호출 수를 센다(ⓕ·변이-ⓖ 대역 · 고정 sleep 은 여기 안에서만)
+mkdu() {
+cat > "$BIN/du" <<EOF
+#!/bin/sh
+n=\$(cat "$T/du.calls" 2>/dev/null || echo 0); echo \$((n+1)) > "$T/du.calls"
+sleep 1
+printf '1024\t%s\n' "\$2"
+EOF
+chmod 755 "$BIN/du"
+: > "$T/du.calls"
+}
 sc() { OUT="$(env PATH="$BIN:$PATH" FT_RES_ROOT="$R" FT_SCRATCH_DIR="$SCR" TMPDIR="$TMPD" FT_SCRATCH_OWNER="${OWN:-live-owner}" ${BUDGET:+FT_SCRATCH_JUDGE_BUDGET=$BUDGET} bash "${FT_SUT:-$SUT}" "$@" 2>&1)"; RC=$?; }
 mk() { OWN="$1" sc "$SHA" --repo "$G"; printf '%s' "$OUT"; }
 age_reg() { awk -F'\t' -v p="$1" -v t="$(( $(date +%s) - $2 ))" 'BEGIN{OFS="\t"} $1==p{$3=t} {print}' "$TSV" > "$TSV.n" && mv "$TSV.n" "$TSV"; }
 fresh() { rm -rf "$R/.fable-team/state" "$SCR" "$TMPD"; mkdir -p "$STATE" "$SCR" "$TMPD" "$T/lsof.d"; : > "$T/lsof.all"; printf 'p1\ncinit\nfcwd\nn/\n' > "$T/lsof.all"; }
 
+if want ⓐ; then
 # ⓐ 사본 하나의 조회가 멈춰도(7초 상한) 그 사본만 보류 · 나머지는 계속 판정 · 한 회차 ≤ 20초
 fresh
 A="$(mk gone-a)";  age_reg "$A" 90000; printf '8\n' > "$T/lsof.d/$(basename "$A").sleep"     # 조회 8초 = 7초 상한 초과
@@ -63,7 +79,9 @@ t0=$SECONDS; sc --sweep; t1=$SECONDS
 grep -q "붙잡음 $A (점유 조회 실패 · 삭제 보류 · 주인 gone-a)" "$SLOG" \
   && ok "ⓐ4 로그에 «붙잡음 … 점유 조회 실패 · 삭제 보류» 1줄" || bad "ⓐ4 로그: $(grep '붙잡음' "$SLOG" | tail -1)"
 { [ $(( t1 - t0 )) -le 20 ]; } && ok "ⓐ5 회차 시간 $(( t1 - t0 ))초 ≤ 20초" || bad "ⓐ5 회차 $(( t1 - t0 ))초 > 20초"
+fi
 
+if want ⓑ; then
 # ⓑ 나이 문턱 기본 240분 — 241분·주인 없음 = 삭제 / 239분 = 보존 / 주인 살아 있음(24시간) = 보존 / cwd 보유 = 붙잡음
 fresh
 mkdir -p "$STATE" && : > "$ARMED"                                                 # armed = 다음부터 자동 삭제
@@ -75,7 +93,9 @@ sc --sweep
 { [ $RC = 0 ] && [ ! -d "$D241" ] && [ -d "$D239" ] && [ -d "$PALV" ] && [ -d "$HELD" ] \
   && printf '%s' "$OUT" | grep -q "\[장비 정리\] 주인 gone-f 사본 $HELD 에서 pid 777 pytest 실행 중 — 삭제 보류"; } \
   && ok "ⓑ 241분=삭제 · 239분=보존 · 주인 살아 있음=보존 · cwd 보유=붙잡음(기본 문턱 240분)" || bad "ⓑ rc=$RC out=$OUT d241=$([ -d "$D241" ] && echo 남음 || echo 지움) d239=$([ -d "$D239" ] && echo 남음 || echo 지움) palv=$([ -d "$PALV" ] && echo 남음 || echo 지움) held=$([ -d "$HELD" ] && echo 남음 || echo 지움)"
+fi
 
+if want ⓒ; then
 # ⓒ 판정 예산(FT_SCRATCH_JUDGE_BUDGET) — 넘긴 사본은 조용한 0 이 아니라 «다음 틱» 1줄 · 이번 회차 삭제 0
 fresh
 : > "$ARMED"
@@ -86,7 +106,9 @@ BUDGET=1 sc --sweep
 { [ $RC = 0 ] && [ -d "$X" ] && [ -d "$Y" ] && [ -d "$Z" ] \
   && printf '%s' "$OUT" | grep -q "판정 예산(1초) 초과 · 남은 사본" ; } \
   && ok "ⓒ 예산 1초 — 넘긴 사본 «다음 틱» 1줄 · 삭제 0(조용한 0 아님)" || bad "ⓒ rc=$RC out=$OUT"
+fi
 
+if want ⓓ; then
 # ⓓ 변이 1 «점유 조회를 전체 1회로 되돌림» → ⓐ 의 «멈춘 조회 = 그 사본만 보류» 가 깨진다(A 가 «아무도 안 씀» 으로 읽혀 지워진다)
 sed 's/lsof -w -a -d cwd -Fpcn +D "\$1" 2>\/dev\/null/lsof -w -d cwd -Fpcn 2>\/dev\/null/' "$SUT" > "$T/mut1.sh"
 cmp -s "$SUT" "$T/mut1.sh" && bad "ⓓ 변이 1 주입 실패(바꾼 줄 없음)" || {
@@ -97,7 +119,9 @@ M2="$(mk gone-m2)"; age_reg "$M2" 90000
 FT_SUT="$T/mut1.sh" sc --sweep
 { [ ! -d "$M1" ]; } && ok "ⓓ 변이 1(전체 1회 복원) → 멈춘 사본 M1 이 지워져 FAIL(변이 잡힘 · 올바른 판은 M1 을 보류한다)" || bad "ⓓ 변이 1 을 못 잡음 — 전체 1회로 되돌려도 M1 이 보류됨"
 }
+fi
 
+if want ⓔ; then
 # ⓔ 변이 2 «나이 문턱 1440 복원» → ⓑ 의 «241분 = 자격» 이 깨진다
 sed 's/FT_SCRATCH_AGE_MIN:-240}/FT_SCRATCH_AGE_MIN:-1440}/' "$SUT" > "$T/mut2.sh"
 cmp -s "$SUT" "$T/mut2.sh" && bad "ⓔ 변이 2 주입 실패(바꾼 줄 없음)" || {
@@ -107,6 +131,33 @@ N="$(mk gone-n)"; age_reg "$N" $((241*60))
 FT_SUT="$T/mut2.sh" sc --sweep
 [ -d "$N" ] && ok "ⓔ 변이 2(문턱 1440 복원) → 241분 사본이 안 지워져 FAIL(변이 잡힘)" || bad "ⓔ 변이 2 를 못 잡음 — 문턱 1440 인데 241분 사본이 지워짐"
 }
+fi
+
+if want ⓕ; then
+# ⓕ (반송 r2) 판정 예산이 바닥이면 크기(du)도 부르지 않는다 — 사본 30 · 가짜 du 1초/회 · 예산 3초 → 회차 ≤ 10초 · du 호출 ≤ 10(30 아님) · «다음 틱» 1줄 · 삭제 0
+fresh
+: > "$ARMED"
+mkdu
+for i in $(seq 1 30); do d="$SCR/repo-$(printf '%08d' "$i")-111-222"; mkdir -p "$d"; printf '%s\tgone-%s\t%s\n' "$d" "$i" "$(( $(date +%s) - 90000 ))" >> "$TSV"; done
+t0=$SECONDS; BUDGET=3 sc --sweep; t1=$SECONDS
+CALLS="$(cat "$T/du.calls" 2>/dev/null || echo 0)"
+{ [ "$RC" = 0 ] && [ $(( t1 - t0 )) -le 10 ] && [ "$CALLS" -le 10 ] && printf '%s' "$OUT" | grep -q "판정 예산(3초) 초과 · 남은 사본" ; } \
+  && ok "ⓕ 예산 3초 · 사본 30 — 회차 $(( t1 - t0 ))초 ≤ 10초 · du 호출 $CALLS ≤ 10(30 아님) · «다음 틱» 1줄" || bad "ⓕ rc=$RC 시간=$(( t1 - t0 ))초 du호출=$CALLS out=$OUT"
+fi
+
+if want 변이-ⓖ; then
+# ⓖ 변이 3 «예산이 바닥이어도 du 를 부른다(가드 제거)» → ⓕ 의 «du 호출 ≤ 10 · 회차 ≤ 10초» 가 깨진다
+sed 's/\[ "\$oleft" = 0 \]/[ 0 = 1 ]/' "$SUT" > "$T/mut3.sh"
+cmp -s "$SUT" "$T/mut3.sh" && bad "ⓖ 변이 3 주입 실패(바꾼 줄 없음)" || {
+fresh
+: > "$ARMED"
+mkdu
+for i in $(seq 1 12); do d="$SCR/repo-$(printf '%08d' "$i")-111-222"; mkdir -p "$d"; printf '%s\tgone-%s\t%s\n' "$d" "$i" "$(( $(date +%s) - 90000 ))" >> "$TSV"; done
+BUDGET=3 FT_SUT="$T/mut3.sh" sc --sweep
+MCALLS="$(cat "$T/du.calls" 2>/dev/null || echo 0)"
+[ "$MCALLS" -gt 10 ] && ok "ⓖ 변이 3(du 가드 제거) → du 호출 $MCALLS > 10 = FAIL 검출(올바른 판은 예산 안에서만 du)" || bad "ⓖ 변이 3 을 못 잡음 — 가드를 없애도 du 호출 $MCALLS"
+}
+fi
 
 [ $fail -eq 0 ] && echo "ALL PASS" || echo "($fail failed)"
 exit $fail
