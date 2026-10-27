@@ -1,3 +1,9 @@
+## 2026-10-27 — r845 재설계 r8 (DA 2/2 동작 반례 1 · 오빠 결정 3 = 1번) — «같은 sha·같은 주인» 재사용 조기 반환이 완전성 확인을 건너뛰어, 훅이나 시험이 더럽힌 기존 사본(a.txt 가 moved.txt 로 옮겨짐)을 rc0 으로 그대로 돌려줬다 → 재사용 조건에 `verify_complete`(그 사본의 HEAD == 요청 sha ∧ `git status` 깨끗) 추가 — 불완전 사본은 건너뛰고 WARN 1줄 + 새 사본 생성(삭제 0 · 장부 줄 유지) · 로직 추가 0, 함수 호출 1곳(같은 함수를 생성 뒤 확인과 재사용 판정이 함께 쓴다) (r845 r8 · 1.1.262 · ft-scratch-repo.sh 1곳 + 짝 사본 + 시험 1)
+
+- 반송서 `design/harness/evidence/r845-da6/REWORK-r845-r8.md` · DA 원문 `harness/evidence/r845-da6/da-20261027-121705-17143.out` · 오빠 결정 3(`desk #174265`) · 계약·반례 집합은 그대로, 구현만 교체.
+- 증거 `harness/evidence/r845/r8-*`: 기준판(df9df4c1 = r7 세트) ⓚ 3 FAIL rc=3 → 새 판 34 PASS ×3 rc=0 · scratch 기존 4종 ALL PASS · 변이 6종 전부 해당 칸 FAIL(«재사용 완전성 확인 끔» → ⓚ FAIL 포함) · bash 3.2 · kit↔harness/bin cmp0.
+- 되돌림 = revert 1커밋 · press 필요 없음(단위 시험만).
+
 ## 2026-10-27 — r845 재설계 r7 (DA 1/2 HOLD 2 반려) — 지우기 판단에 «owner 폴더 경계 0» 이라 장부에 적힌 detached 사본이면 남의 사본 폴더·폴더 밖 경로도 지웠고, 체크아웃 훅이 rc0 이면 «온전한 사본인지» 확인을 건너뛰어 반쯤 사본(파일 옮김·HEAD 바뀜)도 등록됐다 → ① `--done`/`--sweep` 삭제 = «그 줄 주인의 사본 자리(FT_SCRATCH_DIR 또는 `$TMPDIR/ft-scratch/<주인>/`) 아래» ∧ «장부 3열 같은 글자» ∧ «분리 워크트리» 세 조건 모두(자리 밖·남의 owner = 건너뜀 + WARN · 삭제 0 · 장부 줄 유지) ② 사본 완전성(요청 sha == HEAD ∧ status 깨끗)은 훅 rc 와 무관하게 항상 확인(어긋나면 die 4 · 등록 0) (r845 r7 · 1.1.261 · ft-scratch-repo.sh 1곳 + 짝 사본 + 시험 1)
 
 - 반송서 `design/harness/evidence/r845-da6/REWORK-r845-r7.md` (DA da-20261027-111456-12089.out · gpt-6.1-sol) · 계약·반례 집합은 r6 그대로 · 구현만 고침.

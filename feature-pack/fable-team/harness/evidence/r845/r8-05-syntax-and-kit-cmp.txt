@@ -1,0 +1,6 @@
+bash -n OK
+bash3.2 -n OK
+kit ↔ harness/bin cmp0
+세트 = 이 커밋(가지 끝 · 앞 커밋 df9df4c1 = r7) · base 6f354dbf · push 0
+시험 = bash feature-pack/fable-team/harness/tests/test_scratch_repo_register_on_hook_fail_r845.sh (34 PASS ×3 rc=0)
+파일 = ft-scratch-repo.sh(kit + harness/bin) + 시험 1 · manifest·CHANGES

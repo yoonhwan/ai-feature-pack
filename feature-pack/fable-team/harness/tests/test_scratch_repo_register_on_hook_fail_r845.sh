@@ -8,9 +8,10 @@
 #   ⓕ FT_SCRATCH_DIR 없으면 기본 생성 자리 = $TMPDIR/ft-scratch/<주인>/ (재부팅이 지우는 임시 자리)
 #   ⓗ (r7 반송서 ⓕ) 지우기 3조건 = «그 줄 주인의 사본 자리 아래» ∧ 장부 3열 같은 글자 ∧ 분리 워크트리 — 남의 owner 폴더·자리 밖 등록 사본은 --done/--sweep 모두 삭제 0 · WARN · 장부 유지
 #   ⓘ (r7 반송서 ⓖ) 훅 rc0 이어도 완전성 확인은 항상 — 생성 중 파일 이동·HEAD 바꿈(--full·sparse 둘 다) = rc4 · 등록 0
+#   ⓚ (r8 반송서) 같은 sha 재사용도 «온전한 사본» 일 때만 — 더러운 기존 사본은 돌려주지 않고 WARN 1줄 + 새 사본(그 사본은 status 깨끗) · 더러운 사본은 삭제 0 · 장부 유지 · --full·sparse 둘 다
 #   ⓖ 기존 scratch 시험 4종 ALL PASS(동작 변화 0) · kit 짝 cmp0 · /bin/bash(bash 3.2) 로 같은 시험 1회
-#   변이 5: «장부 실패 = die» → ⓒ FAIL · «장부 줄로 삭제(워크트리 확인 없이)» → ⓓ FAIL · «입구 거절 삭제» → ⓔ FAIL
-#           «owner 경계 제거» → ⓗ FAIL · «rc0 훅 완전성 건너뜀» → ⓘ FAIL
+#   변이 6: «장부 실패 = die» → ⓒ FAIL · «장부 줄로 삭제(워크트리 확인 없이)» → ⓓ FAIL · «입구 거절 삭제» → ⓔ FAIL
+#           «owner 경계 제거» → ⓗ FAIL · «rc0 훅 완전성 건너뜀» → ⓘ FAIL · «재사용 완전성 확인 끔» → ⓚ FAIL
 # 임시 git 저장소·임시 훅 폴더·가짜 tmux·가짜 lsof·임시 TMPDIR 만 쓴다 — 실 저장소·실 장부·실 사본·실 TMPDIR 0.
 # SCR_SUT=<경로> 로 시험 대상을 바꿀 수 있다(기준판 before-red · 변이). R845_FAST=1 = 변이·기존 4종·bash32 생략(변이 재귀용).
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
@@ -144,6 +145,24 @@ for mode in --full --sparse; do
 done
 hook ok
 
+# ── ⓚ (r8) 같은 sha 재사용도 온전한 사본만 (더러운 기존 사본은 돌려주지 않는다) ──────────────
+reuse_case() { # <mode: --full|--sparse> <owner> — 재사용은 «같은 주인·같은 sha·같은 체크아웃 규칙» 일 때만 타진다
+  local mode="$1" own="$2" p1 p2 n1
+  if [ "$mode" = --full ]; then OWN="$own" sc "$SHA" --repo "$G" --full; else OWN="$own" sc "$SHA" --repo "$G"; fi
+  p1="$OUT"; [ -d "$p1" ] || { bad "ⓚ($mode) 첫 사본을 안 만들었다 rc=$RC err=[$ERR]"; return; }
+  mv "$p1/a.txt" "$p1/moved.txt"   # DA 반례 그대로: 첫 사본의 a.txt 가 moved.txt 로 옴겨졌다(rc0 · 끝은 정상)
+  n1="$(nreg)"
+  if [ "$mode" = --full ]; then OWN="$own" sc "$SHA" --repo "$G" --full; else OWN="$own" sc "$SHA" --repo "$G"; fi
+  p2="$OUT"
+  { [ $RC = 0 ] && [ -n "$p2" ] && [ "$p2" != "$p1" ] && [ -d "$p2" ] && [ -z "$(git -C "$p2" status --porcelain 2>/dev/null)" ] \
+    && printf '%s' "$ERR" | grep -q '불완전 사본 건너뜀' && [ -d "$p1" ] && [ "$(regline "$p1")" = 1 ] && [ "$(nreg)" = "$((n1+1))" ]; } \
+    && ok "ⓚ ($mode) 더러운 사본 재사용 0 → 새 사본(깨끗) · WARN 1줄 · 더러운 사본 삭제 0 · 장부 유지" \
+    || bad "ⓚ ($mode) rc=$RC p1=[$p1] p2=[$p2] err=[$ERR] p1있음=$([ -d "$p1" ] && echo Y || echo N) reg=$(regline "$p1") nreg=$(nreg)/$((n1+1))"
+}
+reuse_case --full k-full
+reuse_case --sparse k-sparse
+reuse_case --sparse k-sparse2   # 같은 주인의 sparse 사본이 이미 더러운 상태에서 한 번 더(반복 요청)
+
 if [ -z "${R845_FAST:-}" ]; then
   # ── ⓖ 기존 scratch 시험 4종(동작 변화 0) · kit 짝 cmp0 · bash 3.2 ─────────────────
   for t in test_scratch_repo.sh test_scratch_judged_r645.sh test_scratch_sweep_live_cwd_r548.sh test_scratch_repo_sparse_auto_done_r891.sh; do
@@ -161,7 +180,8 @@ if [ -z "${R845_FAST:-}" ]; then
   grep -v -F -e 'has_ctl "${FT_SCRATCH_DIR:-}"' -e 'has_ctl "$OWNER"' -e 'has_ctl "$BASE"' -e 'has_ctl "$DEST"' "$SUT" > "$T/mut3.sh"
   grep -v -F -e 'under_base "$p" "$(owner_base "$o")"' -e 'under_base "$P" "$OB"' "$SUT" > "$T/mut4.sh"   # owner 경계 제거
   grep -v -F 'verify_complete || {' "$SUT" > "$T/mut5.sh"   # 훅 rc0 일 때 완전성 확인 건너뜀
-  for m in 1 2 3 4 5; do
+  awk 'index($0, "if verify_complete \"$p\"; then echo") > 0 { sub(/if verify_complete "\$p"; then echo/, "if true; then echo"); print; next } { print }' "$SUT" > "$T/mut6.sh"   # 재사용 완전성 확인 끔
+  for m in 1 2 3 4 5 6; do
     cmp -s "$SUT" "$T/mut$m.sh" && bad "변이$m 이 안 바뀜"
     "$SH" -n "$T/mut$m.sh" 2>/dev/null || bad "변이$m 문법 깨짐(가짜 변이)"
   done
@@ -171,6 +191,7 @@ if [ -z "${R845_FAST:-}" ]; then
   mut 3; grep -q '^FAIL ⓔ' "$T/m3.txt" && ok "변이3(입구 거절 삭제) → ⓔ FAIL" || bad "변이3 이 살아남음 $(grep '^FAIL' "$T/m3.txt" | head -2 | tr '\n' ' ')"
   mut 4; grep -q '^FAIL ⓗ' "$T/m4.txt" && ok "변이4(owner 경계 제거) → ⓗ FAIL" || bad "변이4 가 살아남음 $(grep '^FAIL' "$T/m4.txt" | head -2 | tr '\n' ' ')"
   mut 5; grep -q '^FAIL ⓘ' "$T/m5.txt" && ok "변이5(rc0 훅 완전성 건너뜀) → ⓘ FAIL" || bad "변이5 가 살아남음 $(grep '^FAIL' "$T/m5.txt" | head -2 | tr '\n' ' ')"
+  mut 6; grep -q '^FAIL ⓚ' "$T/m6.txt" && ok "변이6(재사용 완전성 확인 끔) → ⓚ FAIL" || bad "변이6 이 살아남음 $(grep '^FAIL' "$T/m6.txt" | head -2 | tr '\n' ' ')"
 fi
 
 [ $fail -eq 0 ] && echo "ALL PASS" || echo "($fail failed)"
