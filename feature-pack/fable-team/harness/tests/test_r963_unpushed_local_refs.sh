@@ -9,6 +9,9 @@
 #        ⓛ 모든 git 호출 자리(루트·worktree 목록·추적 ref·rev-list·가지 ref) × (rc128 · TERM 무시) → 어느 자리든 표식 0 + 확인 불가
 # 변이: «시간 초과도 표식» → ⓑ·ⓐ1 · «절대 경로 본문» → ⓒ · «ls-remote 로 upstream 확인» → ⓕ · «시간 초과 = 없음» → ⓖ · «종료값 안 봄» → ⓗ
 #        «gq 안 rc 검사 삭제» → ⓐ1 · «중간 exit 되살림» → ⓐ5(사유 수) · «맨 git 1줄 삽입» → ⓐ4(안전망) · «표식 검사를 루트 탐색 앞으로» → ⓙ · «KILL 승격 제거» → ⓚ
+#  r1021(호출 묶기 · 확인 불가 쪽지 날짜당 1통): ⓜ 셈 = 직접 센 값(추적 ref 있음/없음 · HEAD 분리 · 폴더 사라짐·가지 있음 · 폴더·가지 둘 다 없음)
+#        ⓝ 확인 불가 쪽지 = 같은 날 실패 2회 → 1통 · ERROR 는 회차마다 · 다음 날 → 다시 1통
+#        변이 추가: «옛 반복부 복원(폴더별 -C)» → ⓐ3 · «failmail 검사 삭제» → ⓝ
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 BIN="$HERE/../../harness/bin"; MIR="$HERE/../../harness/kit/fable-team/bin"
@@ -88,7 +91,7 @@ case_a() {
 case_b() {
   cfail=0; local err n0 n1 SB; SB="$(newst)"
   n0="$(cnt "$T/mbox.calls")"
-  runs "$SCRIPT" "$T/root-a" "$SB" "$T/b.err" FAKE_SLEEP_ARG='rev-list --count refs/remotes/origin/brA..HEAD' >/dev/null
+  runs "$SCRIPT" "$T/root-a" "$SB" "$T/b.err" FAKE_SLEEP_ARG='rev-list --count refs/remotes/origin/brA..refs/heads/brA' >/dev/null
   err="$(cat "$T/b.err")"; RRC="$(cat "$T/rc")"
   eqv 'ⓑ rc=4(미완주)' "$RRC" 4
   has 'ⓑ ERROR 1줄' "$err" 'ERROR r963 미완주'
@@ -143,18 +146,18 @@ case_f() {
   env PATH="$T/fakebin:$PATH" TRACE="$T/trace" FT_ROOT="$T/root-a" FT_UNPUSHED_STATE_DIR="$(newst)" FT_UNPUSHED_NOW="$NOW" \
       FT_UNPUSHED_MIN=1 bash "$SCRIPT" --repo "$T/repo" >/dev/null 2>&1
   if remote_calls; then f "ⓕ 원격 접촉 0 (원격 호출 있음: $(grep -E '(^| )(ls-remote|fetch|pull|push)( |$)' "$T/trace" | head -1))"; else p 'ⓕ 원격 접촉 0'; fi
-  has 'ⓕ 로컬 ref 만 씀' "$(cat "$T/trace")" 'show-ref --verify --quiet refs/remotes/origin/brA'
+  has 'ⓕ 로컬 ref 만 씀' "$(cat "$T/trace")" 'for-each-ref refs/remotes/origin'
   return $cfail
 }
 # ── ⓖ 추적 ref 확인만 sleep 8 → 시간 초과를 «없음» 으로 접지 않는다(표식 0 · ERROR · 발신 0) ──
 case_g() {
   cfail=0; local err n0 SG; SG="$(newst)"
   n0="$(cnt "$T/mbox.calls")"
-  runs "$SCRIPT" "$T/root-a" "$SG" "$T/g.err" FAKE_SLEEP_ARG='show-ref --verify --quiet refs/remotes/origin/brA' >/dev/null
+  runs "$SCRIPT" "$T/root-a" "$SG" "$T/g.err" FAKE_SLEEP_ARG='for-each-ref refs/remotes/origin' >/dev/null
   err="$(cat "$T/g.err")"; RRC="$(cat "$T/rc")"
   eqv 'ⓖ rc=4(미완주)' "$RRC" 4
   has 'ⓖ ERROR 1줄' "$err" 'ERROR r963 미완주'
-  has 'ⓖ 까닭에 ref 확인 실패' "$err" '추적 ref 확인 실패'
+  has 'ⓖ 까닭에 묶음 조회 실패' "$err" '추적 ref 묶음 조회 실패'
   lacks 'ⓖ 표식 0' "$(ls "$SG" 2>/dev/null)" "$MARKNAME"
   eqv 'ⓖ 발신 1통(확인 불가)' "$(( $(cnt "$T/mbox.calls") - n0 ))" 1
   lacks 'ⓖ 발신 본문에 «문턱» 0' "$(tail -1 "$T/mbox.calls")" '문턱'
@@ -163,7 +166,7 @@ case_g() {
 # ── ⓗ rev-list 가 «0» 을 찍고 rc128 → 정상 0 으로 받지 않는다(표식 0 · ERROR) ──
 case_h() {
   cfail=0; local err SH; SH="$(newst)"
-  runs "$SCRIPT" "$T/root-a" "$SH" "$T/h.err" FAKE_BADRC_ARG='rev-list --count refs/remotes/origin/brA..HEAD' FAKE_BADRC_OUT=0 >/dev/null
+  runs "$SCRIPT" "$T/root-a" "$SH" "$T/h.err" FAKE_BADRC_ARG='rev-list --count refs/remotes/origin/brA..refs/heads/brA' FAKE_BADRC_OUT=0 >/dev/null
   err="$(cat "$T/h.err")"; RRC="$(cat "$T/rc")"
   eqv 'ⓗ rc=4(미완주)' "$RRC" 4
   has 'ⓗ ERROR 1줄' "$err" 'ERROR r963 미완주'
@@ -178,7 +181,7 @@ case_i() {
   runs "$SCRIPT" "$T/root-a" "$SI" "$T/i.err" >/dev/null; err="$(cat "$T/i.err")"; RRC="$(cat "$T/rc")"
   eqv '⒤ rc=0(없음은 정상)' "$RRC" 0
   lacks '⒤ ERROR 0' "$err" 'ERROR'
-  has '⒤ ref 없음도 확인함(종료값 사용)' "$(cat "$T/trace")" 'show-ref --verify --quiet refs/remotes/origin/brB'
+  has '⒤ 추적 ref 없음도 묶음에서 봄' "$(cat "$T/trace")" 'for-each-ref refs/remotes/origin'
   eqv '⒤ 표식 1' "$([ -e "$SI/$MARKNAME" ] && echo 있음 || echo 없음)" 있음
   return $cfail
 }
@@ -203,14 +206,16 @@ case_a1() {
   lacks 'ⓐ1 본문에 «문턱» 0' "$(cat "$T/a1.out")" '문턱'
   return $cfail
 }
-# ── ⓐ3 정상: git 호출 수 = 1+2N(FT_ROOT 있음) · 2+2N(없음) — 실행기 도입으로 늘지 않는다 ──
+# ── ⓐ3 정상: git 호출 수 = 3 + (추적 ref 있는 가지 수) · 폴더별 -C 호출 0(r1021) ──
 case_a3() {
   cfail=0; local n S; S="$(newst)"; : > "$T/trace"
   runs "$SCRIPT" "$T/root-a" "$S" "$T/a3.err" >/dev/null
-  n="$(cnt "$T/trace")"; eqv 'ⓐ3 호출 수 = 1+2N(FT_ROOT 있음 · N=3)' "$n" 7
+  n="$(cnt "$T/trace")"; eqv 'ⓐ3 호출 수 = 3+1(추적 brA 만 · master 는 추적 ref 없음)=4' "$n" 4
+  lacks 'ⓐ3 폴더별 -C 호출 0' "$(cat "$T/trace")" "-C $T/wt-"
   S="$(newst)"; : > "$T/trace"
   runs_nr "$SCRIPT" "$S" "$T/a3b.err" >/dev/null
-  n="$(cnt "$T/trace")"; eqv 'ⓐ3 호출 수 = 2+2N(FT_ROOT 없음)' "$n" 8
+  n="$(cnt "$T/trace")"; eqv 'ⓐ3 호출 수 = 4+1(루트 탐색)=5' "$n" 5
+  lacks 'ⓐ3 폴더별 -C 호출 0(루트 없음)' "$(cat "$T/trace")" "-C $T/wt-"
   return $cfail
 }
 # ── ⓐ4 안전망: 본문에 «실행기 밖 git » 0줄 ──
@@ -233,17 +238,16 @@ case_a4() {
 # ── ⓐ5 실패 3곳(본 리포 rev-list rc128 + wt-a 추적 ref 시간 초과 + wt-b rev-list rc128) → 모아서 1줄·표식 0·발신 1 ──
 case_a5() {
   cfail=0; local err n0 S; S="$(newst)"; n0="$(cnt "$T/mbox.calls")"
-  runs "$SCRIPT" "$T/root-a" "$S" "$T/a5.err" FAKE_SLEEP_ARG='show-ref --verify --quiet refs/remotes/origin/brA' \
-    FAKE_BADRC_ARG='rev-list --count origin/main..HEAD' FAKE_BADRC_OUT=0 FAKE_BADRC=128 >"$T/a5.out"
+  runs "$SCRIPT" "$T/root-a" "$S" "$T/a5.err" FAKE_SLEEP_ARG='for-each-ref refs/remotes/origin' \
+    FAKE_BADRC_ARG='for-each-ref refs/heads' FAKE_BADRC_OUT=0 FAKE_BADRC=128 >"$T/a5.out"
   err="$(cat "$T/a5.err")"; RRC="$(cat "$T/rc")"
   eqv 'ⓐ5 rc=4' "$RRC" 4
-  has 'ⓐ5 사유 3 모음' "$err" '확인 불가 3곳: repo rev-list 실패 rc=128'
-  has 'ⓐ5 사유에 wt-a 추적 ref 시간 초과' "$err" 'wt-a 추적 ref 확인 실패 rc=124'
-  has 'ⓐ5 사유에 wt-b rev-list 실패' "$err" 'wt-b rev-list 실패 rc=128'
+  has 'ⓐ5 사유 2곳 모음' "$err" '확인 불가 2곳: 가지 묶음 조회 실패 rc=128'
+  has 'ⓐ5 사유에 추적 묶음 시간 초과' "$err" '추적 ref 묶음 조회 실패 rc=124'
   eqv 'ⓐ5 ERROR 1줄' "$(printf '%s\n' "$err" | grep -c '^ERROR r963 미완주')" 1
   lacks 'ⓐ5 표식 0' "$(ls "$S" 2>/dev/null)" "$MARKNAME"
   eqv 'ⓐ5 발신 1통' "$(( $(cnt "$T/mbox.calls") - n0 ))" 1
-  has 'ⓐ5 발신 본문 «확인 불가 3곳»' "$(tail -1 "$T/mbox.calls")" '확인 불가 3곳'
+  has 'ⓐ5 발신 본문 «확인 불가 2곳»' "$(tail -1 "$T/mbox.calls")" '확인 불가 2곳'
   return $cfail
 }
 # ── ⓙ 오늘 표식이 있어도 루트 탐색이 실패하면 삼키지 않는다(r3 보류 반례 ① · r4 고침 1) ──
@@ -288,13 +292,10 @@ case_k() {
   lacks 'ⓚ 표식 0' "$(ls "$S" 2>/dev/null)" "$MARKNAME"
   return $cfail
 }
-# ── ⓛ 모든 git 호출 자리 × (rc128 · TERM 무시) → 어느 자리든 표식 0 + 확인 불가 ──
+# ── ⓛ 모든 git 호출 자리 × (rc128 · TERM 무시) → 어느 자리든 표식 0 + 확인 불가 (r1021: 묶음 3자리 + rev-list) ──
 case_l() {
   cfail=0; local spec mode S n0 err nm
-  "$REALGIT" -C "$T/repo" worktree prune >/dev/null 2>&1; rm -rf "$T/wt-d" "$T/wt-d.gone"
-  "$REALGIT" -C "$T/repo" worktree add -q -b brD "$T/wt-d" "$BASE" 2>/dev/null || "$REALGIT" -C "$T/repo" worktree add -q "$T/wt-d" brD
-  mv "$T/wt-d" "$T/wt-d.gone"   # 폴더가 사라진 등록 = 가지 ref 확인 자리를 지나간다
-  for spec in '루트 탐색:--git-common-dir' 'worktree 목록:worktree list --porcelain' '추적 ref:show-ref --verify --quiet refs/remotes/origin/brA' 'rev-list:rev-list --count refs/remotes/origin/brA..HEAD' '가지 ref:show-ref --verify --quiet refs/heads/brD'; do
+  for spec in '루트 탐색:--git-common-dir' 'worktree 목록:worktree list --porcelain' '가지 묶음:for-each-ref refs/heads' '추적 묶음:for-each-ref refs/remotes/origin' 'rev-list:rev-list --count refs/remotes/origin/brA..refs/heads/brA'; do
     nm="${spec%%:*}"
     for mode in rc128 term; do
       S="$(newst)"; n0="$(cnt "$T/mbox.calls")"
@@ -310,7 +311,46 @@ case_l() {
       eqv "ⓛ $nm $mode 발신 1통" "$(( $(cnt "$T/mbox.calls") - n0 ))" 1
     done
   done
-  mv "$T/wt-d.gone" "$T/wt-d" 2>/dev/null; "$REALGIT" -C "$T/repo" worktree remove --force "$T/wt-d" >/dev/null 2>&1; "$REALGIT" -C "$T/repo" worktree prune >/dev/null 2>&1
+  return $cfail
+}
+# ── ⓜ r1021 C1: 새 판 셈 = 직접 센 값(추적 ref 있음/없음 · HEAD 분리 · 폴더 사라짐·가지 있음 · 폴더·가지 둘 다 없음) ──
+case_m() {
+  cfail=0; local out err R2 B2 S D; S="$(newst)"; D="$(mktemp -d "$T/mc-XXXXXX")"; R2="$D/repo"
+  B2="$(mkrepo "$R2")" || { f 'ⓜ 픽스처 리포'; return 1; }
+  "$REALGIT" -C "$R2" worktree add -q -b mTracked "$D/wt1" "$B2" && commits "$R2" "$D/wt1" 4 k
+  "$REALGIT" -C "$R2" update-ref refs/remotes/origin/mTracked "$B2"
+  "$REALGIT" -C "$R2" worktree add -q -b mBare "$D/wt2" "$B2" && commits "$R2" "$D/wt2" 5 j
+  "$REALGIT" -C "$R2" worktree add -q --detach "$D/wt3" "$B2"
+  "$REALGIT" -C "$R2" worktree add -q -b mGone "$D/wt4" "$B2" && commits "$R2" "$D/wt4" 3 g
+  mv "$D/wt4" "$D/wt4.gone"                                                          # 폴더 사라짐 · 가지 ref 있음
+  "$REALGIT" -C "$R2" worktree add -q -b mDrop "$D/wt5" "$B2"; mv "$D/wt5" "$D/wt5.gone"
+  "$REALGIT" -C "$R2" update-ref -d refs/heads/mDrop                                   # 폴더·가지 ref 둘 다 없음(등록은 남는다)
+  : > "$T/trace"
+  out="$(env PATH="$T/fakebin:$PATH" TRACE="$T/trace" FT_ROOT="$T/root-a" FT_UNPUSHED_STATE_DIR="$S" FT_UNPUSHED_NOW="$NOW" \
+        FT_UNPUSHED_MIN=1 FT_UNPUSHED_DRY=1 bash "$SCRIPT" --repo "$R2" 2>"$T/m.err")"; RRC=$?
+  err="$(cat "$T/m.err")"
+  eqv 'ⓜ rc=0' "$RRC" 0
+  has 'ⓜ 추적 ref 있음 = 4' "$err" 'LIST wt1 · mTracked · 로컬 추적 ref=4'
+  has 'ⓜ 추적 ref 없음 = 5' "$err" 'LIST wt2 · mBare · 원격 가지 없음 · main 에 없는 커밋=5'
+  has 'ⓜ 폴더 사라짐·가지 있음 = 3' "$err" 'LIST wt4 · mGone · 원격 가지 없음 · main 에 없는 커밋=3'
+  has 'ⓜ 셈 3곳 · HEAD 분리 1곳' "$out" '미push 3곳 · HEAD 분리 1곳'
+  has 'ⓜ 폴더·가지 둘 다 없음 = 사라진 등록(실패 아님)' "$err" '이미 사라진 등록 1곳'
+  lacks 'ⓜ 사라진 등록을 실패로 세지 않음' "$err" 'ERROR'
+  lacks 'ⓜ 폴더별 -C 호출 0' "$(cat "$T/trace")" "-C $D/wt"
+  return $cfail
+}
+# ── ⓝ r1021 C4: 확인 불가 쪽지 = 날짜당 1통 · ERROR 는 회차마다 · 다음 날 → 다시 1통 ──
+case_n() {
+  cfail=0; local n0 n1 SN; SN="$(newst)"; n0="$(cnt "$T/mbox.calls")"
+  runs "$SCRIPT" "$T/root-a" "$SN" "$T/n1.err" FAKE_BADRC_ARG='for-each-ref refs/remotes/origin' FAKE_BADRC_OUT=0 FAKE_BADRC=128 >/dev/null
+  runs "$SCRIPT" "$T/root-a" "$SN" "$T/n2.err" FAKE_BADRC_ARG='for-each-ref refs/remotes/origin' FAKE_BADRC_OUT=0 FAKE_BADRC=128 >/dev/null
+  eqv 'ⓝ 같은 날 실패 2회 → 쪽지 1통' "$(( $(cnt "$T/mbox.calls") - n0 ))" 1
+  has 'ⓝ 둘째 회차도 ERROR 는 남김' "$(cat "$T/n2.err")" 'ERROR r963 미완주'
+  eqv 'ⓝ failmail 표식 있음' "$([ -e "$SN/$NOW.failmail" ] && echo 있음 || echo 없음)" 있음
+  n1="$(cnt "$T/mbox.calls")"
+  runs "$SCRIPT" "$T/root-a" "$SN" "$T/n3.err" FT_UNPUSHED_NOW=2026-10-27 FAKE_BADRC_ARG='for-each-ref refs/remotes/origin' FAKE_BADRC_OUT=0 FAKE_BADRC=128 >/dev/null
+  eqv 'ⓝ 다음 날 첫 실패 → 다시 1통' "$(( $(cnt "$T/mbox.calls") - n1 ))" 1
+  lacks 'ⓝ 표식은 여전히 0' "$(ls "$SN" 2>/dev/null)" "$NOW.done"
   return $cfail
 }
 run_case() { local out; out="$( SCRIPT="${2:-$SCRIPT}" "case_$1" 2>&1 )"; local rc=$?; [ "${3:-}" = q ] || printf '%s\n' "$out"; return $rc; }
@@ -345,8 +385,8 @@ bash -n "$SCRIPT" && ok 'bash -n' || bad 'bash -n'
 [ "$(wc -l < "$SCRIPT")" -le 200 ] && ok '≤200줄' || bad '200줄 초과'
 cmp -s "$SCRIPT" "$MIR/ft-unpushed-summary.sh" && ok 'kit 짝 cmp0' || bad 'kit 짝 불일치'
 cmp -s "$TICK" "$MIR/ft-tick.sh" && ok 'ft-tick 짝 cmp0' || bad 'ft-tick 짝 불일치'
-for c in a a1 a3 a4 a5 b c d e f g h i j k l; do run_case "$c" >/dev/null 2>&1 && ok "케이스 $c" || bad "케이스 $c"; done
-run_case a; run_case a1; run_case a3; run_case a4; run_case a5; run_case b; run_case c; run_case d; run_case e; run_case f; run_case g; run_case h; run_case i; run_case j; run_case k; run_case l
+for c in a a1 a3 a4 a5 b c d e f g h i j k l m n; do run_case "$c" >/dev/null 2>&1 && ok "케이스 $c" || bad "케이스 $c"; done
+run_case a; run_case a1; run_case a3; run_case a4; run_case a5; run_case b; run_case c; run_case d; run_case e; run_case f; run_case g; run_case h; run_case i; run_case j; run_case k; run_case l; run_case m; run_case n
 # ── 변이 3종이 각각 잡히는가 ──
 GQL1='  out="$(nf_bound "$left" git -c gc.auto=0 "$@" 2>/dev/null)"; rc=$?'
 if mut m1 '  err "ERROR r963 미완주' '  : > "$MARK" 2>/dev/null; err "ERROR r963 미완주' &&
@@ -356,7 +396,7 @@ if mut m1 '  err "ERROR r963 미완주' '  : > "$MARK" 2>/dev/null; err "ERROR r
    mut m4 "$GQL1
   GQ_RC=\"\$rc\"; GQ_OUT=\"\"
   case \"\$rc\" in 124|128) hard=1;; *) hard=0;; esac" "$GQL1
-  [ \"\$rc\" = 124 ] && rc=1
+  [ \"\$rc\" = 124 ] && rc=0
   GQ_RC=\"\$rc\"; GQ_OUT=\"\"
   case \"\$rc\" in 124|128) hard=1;; *) hard=0;; esac" &&
    mut m5 "$GQL1
@@ -371,6 +411,9 @@ if mut m1 '  err "ERROR r963 미완주' '  : > "$MARK" 2>/dev/null; err "ERROR r
   gq 0 "루트 탐색" rev-parse --show-toplevel' '[ -e "$FT_UNPUSHED_STATE_DIR/$FT_UNPUSHED_NOW.done" ] && exit 0   # 변이: 표식 검사를 루트 탐색 앞으로
 if [ -z "$REPO" ]; then
   gq 0 "루트 탐색" rev-parse --show-toplevel' &&
+   mut m12 '  [ -n "${p:-}" ] || continue' '  [ -n "${p:-}" ] || continue
+  gq 0 "변이 옛 반복부" -C "$p" show-ref --verify --quiet "refs/heads/$br" || continue' &&
+   mut m13 ' && [ ! -e "$STATE/$TODAY.failmail" ]' '' &&
    kn m11 '    hit(pids, signal.SIGKILL)' '    pass'; then
   run_case b  "$T/mut-m1.sh" q && bad '변이 ① «시간 초과도 표식» → ⓑ FAIL 해야 함' || ok '변이 ① «시간 초과도 표식» → ⓑ FAIL(잡음)'
   run_case a1 "$T/mut-m1.sh" q && bad '변이 ① «끝 한 곳 밖 표식» → ⓐ1 FAIL 해야 함' || ok '변이 ① «끝 한 곳 밖 표식» → ⓐ1 FAIL(잡음)'
@@ -383,6 +426,8 @@ if [ -z "$REPO" ]; then
   [ -n "$(safety_lines "$T/mut-m9.sh")" ] && ok '변이 ⑧ «맨 git 1줄» → 안전망 FAIL(잡음)' || bad '변이 ⑧ «맨 git 1줄» → 안전망이 못 잡음'
   run_case j "$T/mut-m10.sh" q && bad '변이 ⑨ «표식 검사를 루트 탐색 앞으로» → ⓙ FAIL 해야 함' || ok '변이 ⑨ «표식 검사를 루트 탐색 앞으로» → ⓙ FAIL(잡음)'
   run_case k "$T/kn-m11/ft-unpushed-summary.sh" q && bad '변이 ⑩ «KILL 승격 제거» → ⓚ FAIL 해야 함' || ok '변이 ⑩ «KILL 승격 제거» → ⓚ FAIL(잡음)'
+  run_case a3 "$T/mut-m12.sh" q && bad '변이 ⑪ «옛 반복부 복원(폴더별 -C)» → ⓐ3 FAIL 해야 함' || ok '변이 ⑪ «옛 반복부 복원» → ⓐ3 FAIL(잡음)'
+  run_case n "$T/mut-m13.sh" q && bad '변이 ⑫ «failmail 검사 삭제» → ⓝ FAIL 해야 함' || ok '변이 ⑫ «failmail 검사 삭제» → ⓝ FAIL(잡음)'
 else bad '변이본 생성 실패'; fi
 echo "── r963 결과: fail=$fail"
 [ "$fail" = 0 ] || exit 1
