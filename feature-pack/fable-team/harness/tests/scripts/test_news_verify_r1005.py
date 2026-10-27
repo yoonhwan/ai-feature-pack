@@ -10,6 +10,7 @@ import logging
 import os
 import subprocess
 import sys
+import time
 import types
 from pathlib import Path
 
@@ -160,6 +161,17 @@ def git_behind(repo, t0, *a):
 def git_failed(repo, t0, *a):
     """ⓖ 대역 — ls-remote 실패(rc 128 · 출력 0) = 판정 불가."""
     return 128, "", "ssh: connect to host github.com port 22: Undefined error: 0"
+
+
+def git_slow(repo, t0, *a):
+    """ⓖ 대역 — 명령마다 4초 걸림(각각은 7초 안) · 남은 예산은 «공유 t0» 로만 잰다(실 _git_capped 과 같은 규칙)."""
+    cap = ledger._attempt_timeout(time.monotonic() - t0)  # 예산 = _capped 이 넣는 FT_NEWS_FETCH_BUDGET=7
+    if cap <= 0:
+        return None, "", "총 마감 안에 시작 못 함"
+    time.sleep(min(4.0, cap))
+    if cap < 4.0:
+        return None, "", f"시도 상한 {cap:.0f}초 초과"
+    return (0, f"{SHA_A}\trefs/heads/main\n", "") if a and a[0] == "ls-remote" else (0, _local(a), "")
 
 
 def git_timeout(repo, t0, *a):
@@ -557,6 +569,15 @@ def test_r2_6_magazine_tilde_out_dir_is_expanded(world, tmp_path_factory):
                             ("--publish", "--out-dir", "~/tilde-out"), {"HOME": str(home)})
     assert r.returncode == 0, r.stderr
     assert "--kind magazine" in calls and str(home / "tilde-out") in calls
+
+
+def test_r5_1_shared_budget_over_7s_is_unavailable_not_unknown(world, monkeypatch):
+    """반송 r5 ⓖ4 — ls-remote 4초 + rev-parse 4초(각각 7초 안 · 합 8초) → 시작 t0 공유로 안쪽이 먼저 끊겨
+    «검증 불가»(9/9 아님 · ERROR 0 · 쪽지 0) · 바깥 «7초 초과 — 모름» 0(합계 7초면 안쪽 rc None 이 먼저)."""
+    monkeypatch.setattr(ledger, "_git_capped", git_slow)
+    rc, out = world.run()
+    assert rc == 1 and "검증 8/9" in out and "[검증 불가]" in out and "rc=None" in out
+    assert "7초 초과 — 모름" not in out and world.sends() == []
 
 
 # ── r1005 반송 r1 · 상태 파일 손상(깨진 JSON) = 자체 오류 길 · 9/9 금지 · 덮어쓰기 0 ──────────

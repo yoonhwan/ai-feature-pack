@@ -7,6 +7,7 @@ KILLED ⑤ 꼬리 쓰기 실패 삼킴
 KILLED ⑥ 자체 오류 사건 닫기 삭제
 KILLED ⑦ 발행본 읽기 예외 안 받음
 KILLED ⑨ JSON 오류 → {} (조용한 초기화)
+KILLED ⑬ 예산 공유 되돌림(호출마다 t0 새로)
 KILLED ⑫ ls-remote 실패를 참으로
 KILLED ⑧ 매거진 «~» 펼침 삭제
 OK 전부 KILLED

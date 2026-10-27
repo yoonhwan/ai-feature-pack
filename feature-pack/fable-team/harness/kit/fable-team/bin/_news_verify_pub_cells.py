@@ -28,12 +28,13 @@ def _br() -> str:
         raise Missing(f"원장 브랜치 이름 못 읽음 — {type(e).__name__}: {e}") from e
 
 
-def _capped(ctx: Ctx, *a: str) -> tuple[int | None, str, str]:
-    """ft_news_ledger._git_capped 재호출 — 이 칸의 총 마감 7초(첫 묻기 5.5초 · 칸 상한 7초 안 · rc None = 시간 초과)."""
+def _capped(ctx: Ctx, t0: float, *a: str) -> tuple[int | None, str, str]:
+    """ft_news_ledger._git_capped 재호출 — 세 호출이 «같은 t0» 를 쓴다(이 칸 합계 마감 7초 · 첫 묻기 5.5초 ·
+    합계가 7초에 닿으면 안쪽이 먼저 rc None 으로 끊는다 = 바깥 칸 상한(CELL_S)보다 항상 먼저 · r1005 반송 r5)."""
     old = os.environ.get(CAP_ENV)
     os.environ[CAP_ENV] = "7"
     try:
-        return need("ft_news_ledger", "_git_capped")(ctx.repo, time.monotonic(), *a)
+        return need("ft_news_ledger", "_git_capped")(ctx.repo, t0, *a)
     finally:
         if old is None:
             os.environ.pop(CAP_ENV, None)
@@ -45,14 +46,14 @@ def _capped(ctx: Ctx, *a: str) -> tuple[int | None, str, str]:
 def cell_g(ctx: Ctx) -> tuple[str, str]:
     """ⓖ 원천 가져오기 = «지금» 원격 ref 와 로컬 ref 를 1회 직접 비교(r1005 반송 r4 · 결정 3 · 로그·표식 추측 0).
     같음 = 참 · 다름 = 거짓 · ls-remote 실패·시간 초과·로컬 ref 조회 실패 = 검증 불가(C2 · 9/9 아님 · 쪽지 0)."""
-    br = _br()
-    rc, out, err = _capped(ctx, "ls-remote", "origin", "refs/heads/main", f"refs/heads/{br}")
+    br, t0 = _br(), time.monotonic()  # 시작 시각 1번 — 아래 세 호출이 이 t0 를 나눠 쓴다(합계 7초)
+    rc, out, err = _capped(ctx, t0, "ls-remote", "origin", "refs/heads/main", f"refs/heads/{br}")
     remote = dict(reversed(r.split("\t")) for r in out.splitlines() if r.count("\t") == 1) if rc == 0 else {}
     if rc != 0 or "refs/heads/main" not in remote:
         return UNAVAILABLE, f"ls-remote 실패 — rc={rc} {(err.strip() or out.strip() or '출력 없음')[:120]}"
     bad = []
     for name in ("main", br):
-        lrc, lout, lerr = _capped(ctx, "rev-parse", "--verify", "-q", f"refs/remotes/origin/{name}")
+        lrc, lout, lerr = _capped(ctx, t0, "rev-parse", "--verify", "-q", f"refs/remotes/origin/{name}")
         if lrc not in (0, 1):
             return UNAVAILABLE, f"로컬 ref 조회 실패 — {name} rc={lrc} {lerr.strip()[:80]}"
         want, got = remote.get(f"refs/heads/{name}", ""), lout.strip()
