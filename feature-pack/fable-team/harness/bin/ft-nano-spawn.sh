@@ -82,7 +82,7 @@ if [ -z "${FT_NANO_PREFIX:-}" ]; then
 fi
 # ★r975 r4 (오빠 결정 3 · 10-27 09:3x «tmuxc tmm 에서 현팀 리스트 보고 판단»)· 보고 대상은 «지금 살아 있는 좌석 목록» 에서 고른다★
 #   명부 파일(seats.json · 팀 env · FT_SEATS_JSON) 해석은 «하지 않는다» — 그 입력이 답을 바꿀 수 있으면 그 자체가 결함이다(r1~r3 반례 전부).
-#   순서: tmm ls byz-<팀> 1회(7초 상한) → byz-<팀>-master-*#<N> 현역 중 번호 최대 1명 → `--from`/FT_SEND_FROM 은 «목록 안» 일 때만 인정(승계 추적 0).
+#   순서(r5): tmm ls byz-<팀> 1회(7초 상한) → «byz-<팀>- + 역할 토큰» 경계로 이 팀 좌석만 남김 → --from > FT_SEND_FROM(둘 다 «이 팀 좌석 현역» 만 인정) > 기본 = master 현역 1명(0·2명+ = REJECT).
 #   목록 0 · 2명 이상 · rc≠0 · 빈 출력 · 7초 초과 = REJECT 1줄 rc≠0 · 개설 0 (조용한 루트 팀장·옛 이름 대체 0).
 _nano_team() { local t="${FT_TEAM:-}" seg; [ -n "$t" ] || { case "$IDX" in */indices/*) seg="${IDX%/indices/*}"; t="${seg##*/}" ;; esac; }; printf '%s\n' "${t:-v65}"; }
 _nano_reply_target() {  # rc0 = stdout 보고 대상 1줄 · rc1 = stdout REJECT 1줄(부작용 0 — 워크트리·tmux·명부 등록 전부 앞)
@@ -95,14 +95,19 @@ _nano_reply_target() {  # rc0 = stdout 보고 대상 1줄 · rc1 = stdout REJECT
   if [ "$rc" != 0 ]; then out="$(head -2 "$tmp" 2>/dev/null | tr '\n' ' ')"; rm -f "$tmp"
     echo "REJECT 보고 대상을 못 풀었다 — tmm ls byz-$team 실패(rc=$rc · ${out:0:120}) · 개설 0"; return 1; fi
   [ -s "$tmp" ] || { rm -f "$tmp"; echo "REJECT 보고 대상을 못 풀었다 — tmm ls byz-$team 빈 출력(살아 있는 좌석 0) · 개설 0"; return 1; }
-  python3 - "$team" "$FROM_SET" "$FROM" "$tmp" <<'PY'
+  python3 - "$team" "$FROM_SET" "$FROM" "${FT_SEND_FROM:-}" "$tmp" <<'PY'
 import re, sys
-team, from_set, arg, path = sys.argv[1:5]
+team, from_set, arg, env_from, path = sys.argv[1:6]
 text = open(path, encoding="utf-8", errors="replace").read()
+# ★목록 경계(r5 ②)★ — `tmm ls byz-<팀>` 은 «글자 포함» 검색이라 다른 팀(`byz-harness-tools-…`)도 섞여 온다.
+#   그래서 «byz-<팀>- + 역할 토큰 + 나머지» 인 줄만 «이 팀 좌석» 으로 센다(팀 이름에 한글·대시 허용 · 공백 팀은 [범위 밖]).
+ROLES = ("master", "arch", "da", "desk", "pm", "nano", "tester", "checker",
+         "planner", "plan", "ops", "research", "impl", "search", "issue", "issues", "seat")
 head = "byz-" + team + "-"
-seat = re.compile(r"^[^#\s]+#[0-9]+$")                            # 좌석 이름 꼴(공백 없음 · `#N` 으로 끝 · 팀 글자는 한글도 허용)
-mpat = re.compile(r"^byz-" + re.escape(team) + r"-master-[^#\s]+#([0-9]+)$")
-names, masters, cut_master = set(), [], False
+seat = re.compile(r"^" + re.escape(head) + r"(" + "|".join(ROLES) + r")(-[^#\s]+)?#([0-9]+)$")   # `byz-<팀>-arch#0`(에이전트 생략)도 이 팀 좌석
+mpat = re.compile(r"^" + re.escape(head) + r"master-[^#\s]+#([0-9]+)$")
+seat_any = re.compile(r"^[^#\s]+#[0-9]+$")
+names, masters, odd, cut_master = [], [], set(), False
 for line in text.splitlines():
     line = re.sub(r"\x1b\[[0-9;]*m", "", line)
     for tok in line.split():
@@ -110,24 +115,38 @@ for line in text.splitlines():
             if tok.startswith(head) and "-master-" in tok:
                 cut_master = True
             continue
-        if not seat.match(tok):
+        if not seat.match(tok):                        # 다른 팀·꼴 밖 = «이 팀 좌석» 이 아니다
+            if (not tok.startswith("byz-")) and seat_any.match(tok):
+                odd.add(tok)                           # `byz-` 접두가 없는 이름(옛 시험·비표준) — «다른 팀» 이 될 수 없다
             continue
-        names.add(tok)                                 # 목록에 «실재하는 이름» 이면 --from 으로 인정(③)
+        if tok not in names:
+            names.append(tok)
         m = mpat.match(tok)
         if m:
-            masters.append((int(m.group(1)), tok))     # 보고 대상 후보 = «그 팀 + 역할 master» 만
+            masters.append((int(m.group(1)), tok))     # 기본 선택 후보 = «이 팀 + 역할 master»
 def reject(msg):
     print("REJECT 보고 대상을 못 풀었다 — " + msg); sys.exit(1)
-if from_set == "1":                                  # ③ --from 명시 = 목록 안만 인정(승계 추적 0)
-    v = arg.strip()
-    if not v:
-        reject("--from 값이 비었다")
-    if v not in names:
-        reject("--from 가 살아 있는 좌석 목록에 없다: %s (목록: %s)" % (v, " ".join(sorted(names)) or "0명"))
-    print(v); sys.exit(0)
-if not masters:
-    reject("목록에 byz-%s-master-* 좌석이 없다%s (목록: %s)" % (team, " — master 이름이 잘려 읽혔다" if cut_master else "", " ".join(sorted(names)) or "0명"))
+def note(s):                                           # INFO 는 stderr — 판정 줄(stdout)은 언제나 1줄
+    sys.stderr.write("INFO " + s + "\n")
 masters.sort()
+master_state = ("1명(%s)" % masters[0][1]) if len(masters) == 1 else ("0명" if not masters else "%d명" % len(masters))
+# ③ 순서(r5 ①) = ⓑ 명시 --from > ⓒ FT_SEND_FROM > ⓓ 기본(팀장 1명). 명시·env 는 «이 팀 좌석 집합 안 현역» 이면 그것으로 확정(팀장 셈과 무관).
+want, src = ("", "")
+if from_set == "1":
+    want, src = arg.strip(), "--from"
+    if not want:
+        reject("--from 값이 비었다")
+elif env_from.strip():
+    want, src = env_from.strip(), "FT_SEND_FROM"
+if want:
+    if want not in names and want not in odd:
+        reject("%s 가 이 팀(byz-%s) 살아 있는 좌석 목록에 없다: %s (목록: %s) — 다른 팀·은퇴·목록 밖은 인정하지 않는다"
+               % (src, team, want, " ".join(sorted(names) + sorted(odd)) or "0명"))
+    if len(masters) != 1:
+        note("%s 로 확정 = %s (팀장 %s — 명시가 기본 선택을 대신한다 · 계약 ③)" % (src, want, master_state))
+    print(want); sys.exit(0)
+if not masters:
+    reject("이 팀(byz-%s) master 좌석이 목록에 없다%s (목록: %s)" % (team, " — master 이름이 잘려 읽혔다" if cut_master else "", " ".join(names) or "0명"))
 if len(masters) > 1:                                  # ② 현역 2명 = 어느 쪽인지 조용히 고르지 않는다
     reject("현역 master 가 %d명이다(하나여야 한다): %s" % (len(masters), " ".join(n for _, n in masters)))
 print(masters[0][1])

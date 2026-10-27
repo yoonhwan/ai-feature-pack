@@ -155,20 +155,46 @@ o="$(run1 "$D" --from byz-harness-arch-claude#1)"
 o="$(run1 "$D" --from byz-v65-master-claude#2)"; rc=$?
 { [ "$rc" != 0 ] && one_line "$o"; } && ok "ⓔ-2 다른 팀 좌석 → REJECT 1줄" || bad "ⓔ-2 rc=$rc $o"
 
-# ── ⓕ 팀 폴더 이름에 공백·한글 → 그 팀 접두로 tmm 목록을 읽는다 ──
+# ── ⓘ 팀 폴더 이름에 공백·한글 → 그 팀 접두로 tmm 목록을 읽는다 ──
 setteam '하네스'; D="$T/f-1"; mkfix "$D"
 tl "$T/tmm.lst" "byz-하네스-master-claude#3" "byz-하네스-arch-claude#1"
 o="$(run1 "$D")"
 { [[ "$o" == *"INFO 회신 대상 = byz-하네스-master-claude#3"* ]] && [[ "$o" == *"SPAWNED"* ]]; } \
-  && ok "ⓕ 한글 팀 → tmm ls byz-하네스 목록에서 고른다" || bad "ⓕ 한글 팀 $o"
+  && ok "ⓘ 한글 팀 → tmm ls byz-하네스 목록에서 고른다" || bad "ⓘ 한글 팀 $o"
 # [범위 밖] 팀·좌석 이름에 «공백» 은 우리 도구가 만들지 않는다(하드 룰 18 결 · arch 161 판단 ⒝) —
 #   목록 토큰은 공백으로 갈리므로 «공백 팀 접두» 는 매치될 수 없다. 그래도 조용히 다른 좌석을 고르지 않고 REJECT 1줄인지만 본다.
 setteam 'harness team'; D="$T/f-2"; mkfix "$D"
 tl "$T/tmm.lst" "byz-harness-master-claude#3"
 o="$(run1 "$D")"; rc=$?
 { [ "$rc" != 0 ] && one_line "$o" && [ ! -f "$T/opened" ]; } \
-  && ok "ⓕ 공백 팀 접두 → REJECT 1줄 · 개설 0([범위 밖] 이름에 공백 없음)" || bad "ⓕ 공백 팀 rc=$rc $o"
+  && ok "ⓘ 공백 팀 접두 → REJECT 1줄 · 개설 0([범위 밖] 이름에 공백 없음)" || bad "ⓘ 공백 팀 rc=$rc $o"
 setteam harness
+
+# ── ⓕ (r5 ①) master 0명 + 현역 arch + --from 그 arch → 개설(명시가 기본 선택을 대신) · 다른 팀 master 명시 → REJECT ──
+D="$T/f5"; mkfix "$D"; tl "$T/tmm.lst" byz-harness-arch-claude#1 byz-harness-nano-x#0
+o="$(run1 "$D" --from byz-harness-arch-claude#1)"; rc=$?
+{ [ "$rc" = 0 ] && [[ "$o" == *"INFO 회신 대상 = byz-harness-arch-claude#1"* ]] && [[ "$o" == *"[byz-harness-arch-claude#1->"* ]] \
+  && [ "$(cat "$T/sent-from.txt" 2>/dev/null)" = "byz-harness-arch-claude#1" ] && [[ "$o" == *"SPAWNED"* ]]; } \
+  && ok "ⓕ master 0명 + --from 현역 arch → 그 이름으로 개설·송신" || bad "ⓕ rc=$rc $o"
+[[ "$o" == *"INFO --from 로 확정"* ]] && ok "ⓕ 팀장 0명 사유 INFO 1줄" || bad "ⓕ INFO 없음: $o"
+o="$(run1 "$D" --from byz-harness-tools-master-claude#2)"; rc=$?
+{ [ "$rc" != 0 ] && one_line "$o" && [ ! -f "$T/opened" ]; } && ok "ⓕ 다른 팀 좌석 명시 → REJECT 1줄 · 개설 0" || bad "ⓕ 다른 팀 rc=$rc $o"
+
+# ── ⓖ (r5 ③) FT_SEND_FROM 이 이 팀 좌석이면 --from 없이도 그 값(팀장 아님) · 목록 밖이면 REJECT ──
+D="$T/g5"; mkfix "$D"; tl "$T/tmm.lst" byz-harness-master-claude#3 byz-harness-arch-claude#1
+EXTRA_ENV=(FT_SEND_FROM=byz-harness-arch-claude#1); o="$(run1 "$D")"; rc=$?; EXTRA_ENV=()
+{ [ "$rc" = 0 ] && [[ "$o" == *"INFO 회신 대상 = byz-harness-arch-claude#1"* ]] && [[ "$o" == *"[byz-harness-arch-claude#1->"* ]] \
+  && [ "$(cat "$T/sent-from.txt" 2>/dev/null)" = "byz-harness-arch-claude#1" ]; } \
+  && ok "ⓖ FT_SEND_FROM(이 팀 좌석) → 그 값으로 개설·송신(팀장 아님)" || bad "ⓖ rc=$rc $o"
+EXTRA_ENV=(FT_SEND_FROM=byz-v65-master-claude#2); o="$(run1 "$D")"; rc=$?; EXTRA_ENV=()
+{ [ "$rc" != 0 ] && one_line "$o" && [ ! -f "$T/opened" ]; } && ok "ⓖ FT_SEND_FROM 목록 밖 → REJECT 1줄(조용히 팀장으로 0)" || bad "ⓖ 밖 rc=$rc $o"
+
+# ── ⓗ (r5 ②) tmm 부분일치 — 다른 팀(byz-harness-tools-…)은 «이 팀 좌석» 이 아니다 ──
+D="$T/h5"; mkfix "$D"; tl "$T/tmm.lst" byz-harness-master-claude#3 byz-harness-tools-master-claude#2
+o="$(run1 "$D" --dry-run)"
+[[ "$o" == *"INFO 회신 대상 = byz-harness-master-claude#3"* ]] && ok "ⓗ 기본 선택 = 이 팀 master(#3) — 다른 팀 이름은 안 센다" || bad "ⓗ 기본 $o"
+o="$(run1 "$D" --dry-run --from byz-harness-tools-master-claude#2)"; rc=$?
+{ [ "$rc" != 0 ] && one_line "$o"; } && ok "ⓗ 다른 팀 좌석 명시 → REJECT 1줄" || bad "ⓗ 다른 팀 rc=$rc $o"
 
 # ── 계약 ④ 실제 송신 도구 경유: 선택 이름 = mbox from/to ──
 D="$T/g"; mkfix "$D"; tl "$T/tmm.lst" byz-harness-master-claude#3
@@ -202,7 +228,7 @@ else bad "변이① 계약을 안 깼다(rc=$rc): $o"; fi
 
 # 변이 ② «master 가 없으면 루트 팀장으로 대체»(조용한 대체 = 계약 ② 위반) → 목록에 없는 이름으로 개설
 M2="$T/mut2"; mk_mut "$M2" 'if not masters:
-    reject("목록에 byz-%s-master-* 좌석이 없다%s (목록: %s)" % (team, " — master 이름이 잘려 읽혔다" if cut_master else "", " ".join(sorted(names)) or "0명"))' 'if not masters:
+    reject("이 팀(byz-%s) master 좌석이 목록에 없다%s (목록: %s)" % (team, " — master 이름이 잘려 읽혔다" if cut_master else "", " ".join(names) or "0명"))' 'if not masters:
     print("byz-v65-master-claude#2"); sys.exit(0)'
 bash -n "$M2/ft-nano-spawn.sh" && ok "변이② bash -n rc0(실행 가능)" || bad "변이② bash -n 실패"
 D="$T/m2"; mkfix "$D"; tl "$T/tmm.lst" byz-harness-arch-claude#1   # 살아 있는 좌석은 있지만 master 없음
@@ -216,6 +242,24 @@ o="$( cd "$D" && "$TO" 20 env -i HOME="$HOME" LC_ALL=en_US.UTF-8 PATH="$T/fake:$
 if [ "$rc" = 124 ]; then ok "변이② 20초 안에 안 끝남 → 변이 검출(arch 161 ⒜)"
 elif [ "$rc" = 0 ] && [[ "$o" == *"INFO 회신 대상 = byz-v65-master-claude#2"* ]]; then ok "변이② master 없음 → 루트 팀장 대체 = 계약② 위반 검출"
 else bad "변이② 계약을 안 깼다(rc=$rc): $o"; fi
+
+# 변이 ③ «경계 정규식 제거(포함 검색 그대로)» → ⓗ 위반: 다른 팀 좌석이 이 팀 좌석으로 센다
+M3="$T/mut3"; mk_mut "$M3" '        if not seat.match(tok):' '        if False:   # 변이: 경계 검사 제거(포함 검색 그대로)'
+bash -n "$M3/ft-nano-spawn.sh" && ok "변이③ bash -n rc0(실행 가능)" || bad "변이③ bash -n 실패"
+D="$T/m3"; mkfix "$D"; tl "$T/tmm.lst" byz-harness-master-claude#3 byz-harness-tools-master-claude#2
+rm -f "$T/opened"; mkpanes; o="$(sp "$D" "$M3" --dry-run --from byz-harness-tools-master-claude#2)"; rc=$?
+{ [ "$rc" = 0 ] && [[ "$o" == *"INFO 회신 대상 = byz-harness-tools-master-claude#2"* ]]; } \
+  && ok "변이③ 경계 제거 → 다른 팀 이름 수용 = ⓗ 위반 검출" || bad "변이③ 계약을 안 깼다(rc=$rc): $o"
+# 변이 ④ «FT_SEND_FROM 무시 복원» → ⓖ 위반: env 값 대신 팀장으로 간다
+M4="$T/mut4"; mk_mut "$M4" 'elif env_from.strip():
+    want, src = env_from.strip(), "FT_SEND_FROM"' 'elif False:                                   # 변이: FT_SEND_FROM 무시
+    want, src = env_from.strip(), "FT_SEND_FROM"'
+bash -n "$M4/ft-nano-spawn.sh" && ok "변이④ bash -n rc0(실행 가능)" || bad "변이④ bash -n 실패"
+D="$T/m4"; mkfix "$D"; tl "$T/tmm.lst" byz-harness-master-claude#3 byz-harness-arch-claude#1
+rm -f "$T/opened"; mkpanes
+o="$(EXTRA_ENV=(FT_SEND_FROM=byz-harness-arch-claude#1); sp "$D" "$M4" --dry-run)"; EXTRA_ENV=()
+[[ "$o" == *"INFO 회신 대상 = byz-harness-master-claude#3"* ]] \
+  && ok "변이④ FT_SEND_FROM 무시 → 팀장 선택 = ⓖ 위반 검출" || bad "변이④ 계약을 안 깼다: $o"
 
 # ── /bin/bash 3.2.57 1회 ──
 if /bin/bash --version | head -1 | grep -q '3\.2'; then
