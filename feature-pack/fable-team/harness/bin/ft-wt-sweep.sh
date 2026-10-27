@@ -227,6 +227,14 @@ for r in out: sys.stdout.write(r + "\n")
   LIVE="$RUN7_OUT"
   return 0
 }
+# mtime_frac <경로> — mtime 을 «소수 초» 로. 같은 초 안의 변경도 잡는다(r7 · DA r5 ①): macOS `stat -f %Fm`, 없으면 perl HiRes.
+mtime_frac() {
+  local v
+  v="$(stat -f %Fm "$1" 2>/dev/null)"
+  case "$v" in ''|*[!0-9.]*) v="$(perl -MTime::HiRes=stat -e 'print((Time::HiRes::stat($ARGV[0]))[9])' "$1" 2>/dev/null)";; esac
+  case "$v" in ''|*[!0-9.]*) v='?';; esac
+  printf '%s' "$v"
+}
 # land_check <리포> <사본> <만든 때 sha|빈 값> — 0 = 지워도 됨(stdout HEAD sha) · 1 = 남김(stdout 이유 1줄). LIVE·LAND_REF 를 쓴다.
 land_check() {
   local root="$1" p="$2" want="$3" want_mt="${4:-}" h m st rp mt
@@ -240,7 +248,7 @@ land_check() {
   if printf '%s\n' "$LIVE" | awk -v a="$p" -v b="$rp" '$0==a||$0==b||index($0,a"/")==1||index($0,b"/")==1{f=1} END{exit !f}'; then echo "좌석·프로세스 살아 있음(cwd/pane 이 안에)"; return 1; fi
   # ★r880 고침 8(DA r2 ③)★ 만든 때의 폴더 mtime 과 다르면 «낡은 계획» — 쓸 수 있는 사본·사라진 사본을 낡은 목록으로 지우는 길 0.
   if [ -n "$want_mt" ]; then
-    mt="$(stat -f %m "$p" 2>/dev/null || stat -c %Y "$p" 2>/dev/null)"
+    mt="$(mtime_frac "$p")"
     [ "$mt" = "$want_mt" ] || { echo "mtime 바뀜(${mt:-?} ≠ 계획 $want_mt)"; return 1; }
   fi
   echo "$h"
@@ -263,11 +271,11 @@ land_plan() {
     echo "# land 사본 정리 계획 — ft-wt-sweep.sh --land-plan (r880) · 만든 때 $(date '+%F %T') · 실행 = 오빠 h · 지우기 직전 같은 검사를 다시 잰다"
     echo 'set -uo pipefail'
     printf 'LAND_REF=%q; LSOFB=%q; TMUXB=%q; ROOT=%q; RUN7_SEC=%q\n' "$LAND_REF" "$LSOFB" "$TMUXB" "$SCAN_ROOT" "$RUN7_SEC"
-    declare -f run7 land_live land_check
-    echo 'land_live || { echo "중단 — $LAND_ERR(지우기 0)"; exit 1; }'
+    declare -f run7 land_live land_check mtime_frac
+    echo 'BADN=0; BADLIST=""; land_live || { echo "중단 — $LAND_ERR(지우기 0)"; exit 1; }'
     # ★r880 고침 1(DA r1 반례 1)★ 지우기 직전마다 좌석 목록을 «그 사본 직전에» 새로 읽는다 — 실행 중 새로 열린 좌석을 놓친 목록으로 지우는 길 0. 못 읽으면 그 사본만 남긴다.
     echo 'land_rm() { local why; if [ ! -d "$1" ]; then echo "skip $1 — 이미 없음"; return 0; fi
-  land_live || { echo "skip $1 — 좌석 목록 못 읽음($LAND_ERR)"; return 0; }
+  land_live || { echo "skip $1 — 좌석 목록 못 읽음($LAND_ERR)"; BADN=$((BADN+1)); BADLIST="$BADLIST ${1##*/}"; return 0; }
   if why="$(land_check "$ROOT" "$1" "$2" "$3")"; then git -C "$ROOT" worktree remove "$1" && echo "removed $1" || echo "skip $1 — worktree remove 실패"; else echo "skip $1 — $why"; fi; }'
   } > "$tmp"
   while IFS=$'\t' read -r p lk; do
@@ -281,9 +289,12 @@ land_plan() {
     h="$(land_check "$SCAN_ROOT" "$p" "")" || { echo "KEEP ${p##*/} — $h"; continue; }
     kb="$(perl -e 'setpgrp(0,0); $SIG{ALRM}=sub{ local $SIG{TERM}="IGNORE"; kill "TERM", -$$; exit 124 }; alarm shift; exit(system(@ARGV)>>8)' "$DU_SEC" "$DU" -sk "$p" 2>/dev/null | awk 'NR==1{print $1}')"
     case "$kb" in ''|*[!0-9]*) kb='?';; *) tk=$((tk+kb));; esac
-    mt="$(stat -f %m "$p" 2>/dev/null || stat -c %Y "$p" 2>/dev/null)"   # 고침 8(DA r2 ③): 낡은 계획 판정 근거(계획에 박고 지우기 직전에 대조)
+    mt="$(mtime_frac "$p")"   # 고침 8(DA r2 ③)+r7: 소수 초까지 박는다(같은 초 안의 변경도 «바뀜»)
     printf 'land_rm %q %q %q  # %s KB\n' "$p" "$h" "$mt" "$kb" >> "$tmp"; n=$((n+1)); echo "LAND ${p##*/} sha=${h:0:12} kb=$kb"
   done < <(printf '%s\n' "$wl" | awk '/^worktree /{if(p!="")print p"\t"l; p=substr($0,10); l=""} /^locked/{l="y"} END{if(p!="")print p"\t"l}')
+  # ★r880 재설계 r7(오빠 결정 5 · DA r5 ②)★ 계획 «실행» 단계도 실패 셈 1자리 — 조회 실패 ≥1 이면 그 사본 skip · 마지막 ERROR 1줄 · 최종 rc≠0(실패를 성공으로 보고 0).
+  { echo '[ "$BADN" -eq 0 ] || { echo "ERROR 판정 불가 ${BADN}곳 — 건너뜀:$(printf '"'"'%s'"'"' "$BADLIST" | sed '"'"'s/^ //'"'"') (그 사본 지우기 0)" >&2; exit 1; }'
+    echo 'exit 0'; } >> "$tmp"
   new="$(grep '^land_rm ' "$tmp" | sed 's/  #.*//' | sort)"; sig="$(printf '%s' "$new" | cksum | awk '{print $1"-"$2}')"
   if [ "$n" -eq 0 ]; then rm -f "$tmp" "$out" "$out.sig" "$out.sent"; echo "LAND-PLAN 0곳$([ "$bad" -gt 0 ] && echo " · 판정 불가 $bad곳")"; land_rc; return; fi
   mv "$tmp" "$out"; printf '%s\n' "$sig" > "$out.sig"; echo "LAND-PLAN ${n}곳 ${tk}KB → $out"

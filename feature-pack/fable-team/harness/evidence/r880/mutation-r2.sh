@@ -148,6 +148,26 @@ open(p, "w", encoding="utf-8").write(s.replace(old, 'echo "ERROR 판정 불가 �
 MPY12
 mut hilerror "ⓖ" "$T/m12.py"
 
+echo "== 변이 13: 초 단위 mtime 비교 복귀(DA r5 ①) — ⓘ 이 잡아야 한다"
+cat > "$T/m13.py" <<'MPY13'
+import sys
+p = sys.argv[1]; s = open(p, encoding="utf-8").read()
+old = '  v="$(stat -f %Fm "$1" 2>/dev/null)"'
+assert old in s, "소수 초 읽기 줄 없음"
+open(p, "w", encoding="utf-8").write(s.replace(old, '  v="$(stat -f %m "$1" 2>/dev/null)"   # 변이: 초 단위', 1))
+MPY13
+mut seconly "ⓘ" "$T/m13.py"
+
+echo "== 변이 14: 계획 실행 단계 실패 셈 제거(DA r5 ②) — ⓙ 가 잡아야 한다"
+cat > "$T/m14.py" <<'MPY14'
+import sys
+p = sys.argv[1]; s = open(p, encoding="utf-8").read()
+old = 'BADN=$((BADN+1)); BADLIST="$BADLIST ${1##*/}"; '
+assert old in s, "실행 단계 셈 줄 없음"
+open(p, "w", encoding="utf-8").write(s.replace(old, "", 1))
+MPY14
+mut noexeccount "ⓙ" "$T/m14.py"
+
 echo
-if [ "$fail" -eq 0 ]; then echo "ALL MUTATIONS KILLED (12)"; exit 0; fi
+if [ "$fail" -eq 0 ]; then echo "ALL MUTATIONS KILLED (14)"; exit 0; fi
 echo "MUTATION PROBLEM $fail"; exit 1

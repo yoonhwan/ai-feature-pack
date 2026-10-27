@@ -1,0 +1,20 @@
+r880 재설계 r7 — 오빠 결정 5(«1 두 자리 고침» · 반례 집합·계약 동결 · 구현만 교체) · arch 161 반송서 REWORK-r880-r7.md
+
+DA(결정 4 뒤 1/1 · da-20261027-121412-10302.out) 동작 반례 2 = 대조 단위(초)와 실행 단계의 실패 셈 누락.
+  ① 계획 생성 뒤 mtime 만 «같은 초 안»에서 바뀜(예 1793071315.4859 → .0000) → 초 단위 비교라 못 보고 낡은 계획이 삭제 대역까지 호출 · 재생성 해시도 그대로
+  ② 생성된 계획(h 스크립트) 실행에서 조회 실패를 skip 처리하고 최종 rc0(실패를 성공으로 보고)
+
+구현
+  ① `mtime_frac()` = mtime 을 «소수 초» 로 읽는다(macOS `stat -f %Fm` · 없으면 `perl -MTime::HiRes=stat`). 계획 줄의 3번째 인자(경로+HEAD+mtime)·계획 지문·실행 때 재검사가 같은 값을 쓴다 → 같은 초 안의 변경도 «mtime 바뀜» 으로 skip.
+  ② 계획 «실행» 단계에 생성 단계와 같은 실패 셈 1자리(BADN·BADLIST): 조회(tmux·lsof·realpath) 실패 ≥1 이면 그 사본 skip(지우기 0) · 마지막 ERROR 1줄 «판정 불가 N곳 — 건너뜀: …» · 최종 rc≠0.
+
+시험 (임시 리포 · 가짜 tmux·lsof·du·ft-hil·mbox·python3 · 실 워크트리·실 tmux·실 mbox 0)
+  ⓘ 계획 뒤 같은 초 안에서 mtime 소수부만 변경(perl HiRes utime) → 실행은 그 사본을 skip(«mtime 바뀜») · 폴더 남음 · 재생성 지문이 달라짐 — r7-green.txt
+  ⓙ 실행 단계 조회 실패 3자리(tmux·lsof·realpath 각 1회) → 그 사본 skip · 앞 사본은 정상 삭제 · ERROR 정확히 1줄(마지막 요약) · 최종 rc≠0 — r7-green.txt
+  green: rc=0 · PASS 171 · ALL PASS (기존 147 칸 포함)
+  red-base(8b12d010 코드 그대로 · 새 시험): rc=1 · FAIL 11 — r7-red-base.txt
+  회귀: test_wt_clean_two_stage 62 PASS rc0 · route_timeout rc0 · budget_replan_r535 rc0 · kit_bin_sync rc0 — r7-regress-*.txt
+  변이 14 전부 KILLED — mutation-r2.sh · r7-mutation.txt («초 단위 비교 복귀» → ⓘ · «실행 단계 실패 셈 제거» → ⓙ)
+
+bin·kit 두 사본 cmp 0 · /bin/bash 3.2 · 삭제 실행 0(계획 파일만) · 바뀐 파일 = ft-wt-sweep.sh 짝 2 + 시험 1
+press 필요: 없음(오디오 경로 무관)

@@ -35,7 +35,7 @@ fi
 [ -s "$FAKE_PANES" ] && { cat "$FAKE_PANES"; exit 0; }
 exit 0   # 서버는 있고 pane 0 = 정상 rc0 빈 출력(문구 면제 0 이라 rc≠0 은 실패다)
 EOF
-printf '#!/usr/bin/env bash\necho p1; sed "s/^/n/" "$FAKE_CWDS"\n[ "${FAKE_LSOF_RC:-0}" = 0 ] || exit "${FAKE_LSOF_RC}"\n' > "$T/fake/lsof"
+printf '#!/usr/bin/env bash\nif [ -n "${FAKE_LSOF_RC_AT:-}" ]; then c="$(cat "$FAKE_LSOF_CNT" 2>/dev/null || echo 0)"; c=$((c+1)); echo "$c" > "$FAKE_LSOF_CNT"; [ "$c" -ge "$FAKE_LSOF_RC_AT" ] && { echo p1; exit 1; }; fi\necho p1; sed "s/^/n/" "$FAKE_CWDS"\n[ "${FAKE_LSOF_RC:-0}" = 0 ] || exit "${FAKE_LSOF_RC}"\n' > "$T/fake/lsof"
 printf '#!/usr/bin/env bash\nprintf "%%s\\t%%s\\n" 1000 "$2"\n' > "$T/fake/du"
 chmod +x "$T/fake/"*; : > "$T/panes"; echo /usr > "$T/cwds"
 
@@ -70,6 +70,10 @@ EOF
 REALPY="$(command -v python3)"   # realpath 실패 주입용 대역(정상일 때는 진짜 python3)
 cat > "$T/fake/python3" <<PYEOF
 #!/usr/bin/env bash
+if [ -n "\${FAKE_PY_FAIL_AT:-}" ]; then
+  c="\$(cat "\$FAKE_PY_CNT" 2>/dev/null || echo 0)"; c=\$((c+1)); echo "\$c" > "\$FAKE_PY_CNT"
+  [ "\$c" -ge "\$FAKE_PY_FAIL_AT" ] && { echo "python3 실패"; exit 1; }
+fi
 [ "\${FAKE_PY_FAIL:-0}" = 1 ] && { echo "python3 실패"; exit 1; }
 exec "$REALPY" "\$@"
 PYEOF
@@ -226,7 +230,7 @@ chk "ⓔ① 남은 대상 2곳" "$(grep -c '^land_rm ' "$PLAN")" 2
 echo "== ⓔ③ DA r2 ③: 계획에 mtime 을 박고, 낡은 계획은 실행하지 않는다"
 land_reset; rm -f "$PLAN" "$PLAN.sig" "$PLAN.sent"
 o="$(lp)"; chk "ⓔ③ 계획 3곳" "$(grep -c '^land_rm ' "$PLAN")" 3
-chk "ⓔ③ 계획 줄에 mtime 3번째 인자" "$(grep -cE '^land_rm .+ [0-9]+  # [0-9]+ KB$' "$PLAN")" 3
+chk "ⓔ③ 계획 줄에 mtime(소수 초) 3번째 인자" "$(grep -cE '^land_rm .+ [0-9]+(\.[0-9]+)?  # [0-9]+ KB$' "$PLAN")" 3
 sig0="$(cat "$PLAN.sig")"; cp "$PLAN" "$T/stale.hil"         # ① 낡을 계획을 먼저 떠 둔다
 sleep 1.1; touch "$W/land-done"                                    # mtime 만 바꾼다(HEAD·내용 그대로)
 o2="$(lp)"; chk "ⓔ③ mtime 이 바뀌면 재생성 해시도 달라짐" "$([ "$(cat "$PLAN.sig")" != "$sig0" ] && echo yes || echo no)" yes
@@ -348,6 +352,38 @@ hsite() {   # hsite <이름> — 자리별 실패 주입. per-copy 자리(tmux3�
   chk "ⓗ$nm 표지 있음 → ERROR 1줄" "$(printf '%s\n' "$o2" | grep -c '^ERROR')" 1
 }
 for site in tmux1 tmux3 tmux4 lsof realpath hil; do hsite "$site"; done
+
+echo "== ⓘ DA r5 ①: 같은 초 안의 mtime 변경도 «바뀜» — 계획 해시·실행 재검사 둘 다"
+land_reset; rm -f "$PLAN" "$PLAN.sig" "$PLAN.sent"
+o="$(lp)"; sig0="$(cat "$PLAN.sig")"
+chk "ⓘ 계획 3곳" "$(grep -c '^land_rm ' "$PLAN")" 3
+sec="$(perl -MTime::HiRes=stat -e 'print int((Time::HiRes::stat($ARGV[0]))[9])' "$W/land-done")"
+perl -MTime::HiRes=utime -e 'utime $ARGV[1], $ARGV[1], $ARGV[0]' "$W/land-done" "$sec"   # 같은 초 · 소수부만 .0 으로
+chk "ⓘ 초는 그대로" "$(stat -f %m "$W/land-done")" "$sec"
+r="$( cd "$T" && env -i HOME="$HOME" PATH="$T/fake:$PATH" FAKE_PANES="$T/panes" FAKE_CWDS="$T/cwds" bash "$PLAN" 2>&1 )"; rc=$?
+chk "ⓘ 낡은 계획 실행 rc 0" "$rc" 0
+has "$r" "skip $W/land-done — mtime 바뀜" "ⓘ 같은 초 안 변경도 skip(삭제 대역 호출 0)"
+chk "ⓘ land-done 남음" "$(isd "$W/land-done")" yes
+o="$(lp)"; chk "ⓘ 재생성 해시가 달라짐" "$([ "$(cat "$PLAN.sig")" != "$sig0" ] && echo yes || echo no)" yes
+
+echo "== ⓙ DA r5 ②: 계획 «실행» 단계의 조회 실패 = 그 사본 skip · ERROR 1줄 · 최종 rc≠0"
+jcase() {   # jcase <tmux|lsof|realpath> — 실행 단계에서만 실패(2~3번째 조회)
+  local nm="$1" r rc ev
+  case "$nm" in
+    tmux)     ev="FAKE_TMUX_CNT=$T/cntJ_$1 FAKE_TMUX_ERR_AT=3" ;;
+    lsof)     ev="FAKE_LSOF_CNT=$T/cntJ_$1 FAKE_LSOF_RC_AT=3" ;;
+    realpath) ev="FAKE_PY_CNT=$T/cntJ_$1 FAKE_PY_FAIL_AT=3" ;;
+  esac
+  land_reset; rm -f "$PLAN" "$PLAN.sig" "$PLAN.sent" "$T/cntJ_$1"; o="$(lp)"
+  r="$( cd "$T" && env -i HOME="$HOME" PATH="$T/fake:$PATH" FAKE_PANES="$T/panes" FAKE_CWDS="$T/cwds" $ev bash "$PLAN" 2>&1 )"; rc=$?
+  chk "ⓙ$nm 실행 최종 rc≠0" "$([ "$rc" -ne 0 ] && echo yes || echo no)" yes
+  chk "ⓙ$nm ERROR 1줄" "$(printf '%s\n' "$r" | grep -c '^ERROR')" 1
+  has "$r" "removed $W/land-done" "ⓙ$nm 실패 전 사본은 정상 삭제"
+  has "$r" "skip $W/land-done2 — 좌석 목록 못 읽음" "ⓙ$nm 실패한 사본은 지우지 않음"
+  chk "ⓙ$nm land-done2 남음" "$(isd "$W/land-done2")" yes
+  has "$r" "ERROR 판정 불가 " "ⓙ$nm ERROR = 마지막 요약 1줄"
+}
+for j in tmux lsof realpath; do jcase "$j"; done
 
 echo
 [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }
