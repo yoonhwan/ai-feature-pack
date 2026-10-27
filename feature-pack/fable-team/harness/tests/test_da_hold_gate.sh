@@ -7,7 +7,8 @@ unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO="$HERE/../.."; BIN="$REPO/harness/bin"; KIT="$REPO/harness/kit/fable-team/bin"; SRC="$REPO/harness/comm"
 GATE="$KIT/ft_da_hold_gate.py"
-T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T"' EXIT
+T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'tmux_isolate_end; rm -rf "$T"' EXIT
+. "$HERE/lib/tmux_isolate.sh"   # r957: 실 tmux 서버 격리(TMUX·TMUX_PANE 제거 + TMUX_TMPDIR) — spr() 의 dry-run 도 진짜 tmuxc 를 부른다
 mkdir -p "$T/design"; printf '| 팀 | 폴더 | 팀장 | 상태 |\n|---|---|---|---|\n| planner | `design/planner/` | p | 현역 |\n| v65 | `design/v65/` | v | 현역 |\n' > "$T/design/TEAMS.md"   # R383: 린트가 planner·v65 폴더를 명단으로 푼다(lint 시험 cwd = $T)
 fail=0; ok() { echo "PASS $1"; }; bad() { echo "FAIL $1"; fail=$((fail+1)); }
 
@@ -233,4 +234,6 @@ o="$(spr design/alpha/indices/대기/y.md --agent claude --model 'claude-fable-5
 { [ "$rc" = 1 ] && [[ "$o" == *"--research 는 진행/"* ]]; } && ok "spawn --research 는 진행/ 부모 카드만" || bad "spawn 대기카드 rc=$rc $o"
 o="$(spr design/alpha/indices/진행/x.md --agent claude --model 'claude-fable-5-1[1m]' --raise "r" --dry-run)"; [[ "$o" == *"REJECT 대기/ 에 있는 인덱스만 연다"* ]] && ok "spawn 기본(--research 없음): 진행/ 카드는 여전히 REJECT" || bad "spawn 기본 동작 변함 $o"
 
+# ── r957 누수 검사: 실 tmux 서버에 시험 세션(byz-alpha-·byz-v65-·ft-v65-temp-)이 남으면 FAIL ──
+tmux_isolate_leak_check || fail=$((fail+1))
 echo "fail=$fail"; [ "$fail" = 0 ]

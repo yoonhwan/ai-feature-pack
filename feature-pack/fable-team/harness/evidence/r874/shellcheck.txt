@@ -1,0 +1,1 @@
+shellcheck ft-tick rc=0

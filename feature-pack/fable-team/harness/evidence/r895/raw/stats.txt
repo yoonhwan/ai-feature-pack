@@ -1,0 +1,49 @@
+## class × count × GiB (BYZ / pack) — r3(2026-10-27 03:1x) 는 r2 raw 를 classify.py --replay 로 다시 분류한 값(재측정 0)
+### BYZ-Agents: rows=517 total=409.6 GiB
+  밖:미착지	206	228.9
+  밖:미커밋	56	58.6
+  안:scratch-sweep	111	37.0
+  안:nano-close	37	33.1
+  밖:나노 밖 워크트리	57	22.4
+  keep:쓰는중	26	20.5
+  안후보:nano-close(census 확인)	9	4.4
+  밖:등록 밖 사본	12	3.9
+  사라짐(측정 뒤)	3	0.7
+### ai-feature-pack: rows=626 total=29.5 GiB
+  밖:미착지	204	10.9
+  안:scratch-sweep	174	8.8
+  안:nano-close	196	7.5
+  밖:나노 밖 워크트리	25	1.1
+  안후보:nano-close(census 확인)	20	0.9
+  밖:미커밋	4	0.1
+  keep:쓰는중	3	0.1
+
+## sparse 분포 (classified × sparse)
+### BYZ-Agents
+  keep:쓰는중	sparse=false	11	16.3
+  keep:쓰는중	sparse=true	15	4.2
+  밖:나노 밖 워크트리	sparse=false	8	13.8
+  밖:나노 밖 워크트리	sparse=true	49	8.6
+  밖:등록 밖 사본	sparse=false	1	1.5
+  밖:등록 밖 사본	sparse=true	11	2.4
+  밖:미착지	sparse=false	124	197.5
+  밖:미착지	sparse=true	82	31.5
+  밖:미커밋	sparse=false	43	49.3
+  밖:미커밋	sparse=true	13	9.4
+  사라짐(측정 뒤)	sparse=-	1	0.2
+  사라짐(측정 뒤)	sparse=true	2	0.5
+  안:nano-close	sparse=false	21	29.2
+  안:nano-close	sparse=true	16	3.9
+  안:scratch-sweep	sparse=false	8	11.7
+  안:scratch-sweep	sparse=true	103	25.2
+  안후보:nano-close(census 확인)	sparse=true	9	4.4
+### ai-feature-pack
+  keep:쓰는중	sparse=false	3	0.1
+  밖:나노 밖 워크트리	sparse=false	25	1.1
+  밖:미착지	sparse=false	203	10.9
+  밖:미착지	sparse=true	1	0.0
+  밖:미커밋	sparse=false	3	0.1
+  밖:미커밋	sparse=true	1	0.1
+  안:nano-close	sparse=false	196	7.5
+  안:scratch-sweep	sparse=true	174	8.8
+  안후보:nano-close(census 확인)	sparse=false	20	0.9

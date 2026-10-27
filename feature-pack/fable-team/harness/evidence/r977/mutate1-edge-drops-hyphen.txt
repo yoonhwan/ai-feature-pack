@@ -1,0 +1,11 @@
+FAILED tests/scripts/test_ft_secret_shapes.py::test_a_token_prefix_masked_at_all_four_positions[hyphen-ghp_]
+FAILED tests/scripts/test_ft_secret_shapes.py::test_a_token_prefix_masked_at_all_four_positions[hyphen-gho_]
+FAILED tests/scripts/test_ft_secret_shapes.py::test_a_token_prefix_masked_at_all_four_positions[hyphen-github_pat_]
+FAILED tests/scripts/test_ft_secret_shapes.py::test_a_token_prefix_masked_at_all_four_positions[hyphen-xoxb-]
+FAILED tests/scripts/test_ft_secret_shapes.py::test_a_token_prefix_masked_at_all_four_positions[hyphen-sk-]
+FAILED tests/scripts/test_ft_secret_shapes.py::test_a_token_prefix_masked_at_all_four_positions[hyphen-AIza]
+FAILED tests/scripts/test_ft_secret_shapes.py::test_b_secret_shape_true_at_all_four_positions[hyphen-ghp]
+FAILED tests/scripts/test_ft_secret_shapes.py::test_b_secret_shape_true_at_all_four_positions[hyphen-xoxb]
+FAILED tests/scripts/test_ft_secret_shapes.py::test_b_secret_shape_true_at_all_four_positions[hyphen-sk]
+FAILED tests/scripts/test_ft_secret_shapes.py::test_b_secret_shape_true_at_all_four_positions[hyphen-AKIA]
+10 failed, 35 passed, 103 deselected in 1.25s

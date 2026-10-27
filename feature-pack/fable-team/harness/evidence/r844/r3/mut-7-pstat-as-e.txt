@@ -1,0 +1,176 @@
+PASS bash -n
+== ⓐⓑⓒⓔ 한 회차
+PASS ⓐ pane 이 A/d3(하위) → A 경보 목록에서 빠짐
+PASS ⓐ SKIP 1줄(세션 있음)
+PASS ⓐ SKIP 줄은 경보가 아님
+PASS ⓐ 경로 앞부분만 같은 형제 A-r2 = 세션 없음 → 경보 목록에
+PASS ⓑ pane 0 · 미커밋 → B 빠짐
+PASS ⓑ SKIP 1줄(미커밋 2 · 지워짐 줄은 안 셈)
+PASS ⓒ pane 0 · 미커밋 0(지워짐만) → C 경보 목록에
+PASS ⓒ 경보 문구에 «세션 0 · 미커밋 0»
+PASS ⓔ 포인터 없는 .deleting-* = 지금 규칙 그대로(pane 있어도 검사 밖)
+PASS   └ 멀쩡한 폴더(OK)는 안 셈
+PASS   └ 판정 다 끝난 회차 = 판정 못 함 NOTE 0
+PASS   └ 완전한 회차 = 서명 저장
+PASS ⓐ tmux pane 목록 = 회차당 1회
+PASS   └ list-panes -a -F '#{pane_current_path}'
+== r2 ① pane 경로 별칭 → 실제 경로로 맞춤(각각 A SKIP «세션 있음» · A 경보 0)
+PASS ① /var 표기 준비(/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.9WCe96OAVS/repo/.worktrees/A)
+PASS ① pane=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.9WCe96OAVS/alias → A SKIP «세션 있음»
+PASS ① pane=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.9WCe96OAVS/alias → A 경보 0
+PASS   └ 별칭이어도 형제 A-r2 는 세션 없음(경보 목록에)
+PASS ① pane=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.9WCe96OAVS/alias/d2 → A SKIP «세션 있음»
+PASS ① pane=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.9WCe96OAVS/alias/d2 → A 경보 0
+PASS   └ 별칭이어도 형제 A-r2 는 세션 없음(경보 목록에)
+PASS ① pane=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.9WCe96OAVS/repo/.worktrees/A → A SKIP «세션 있음»
+PASS ① pane=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.9WCe96OAVS/repo/.worktrees/A → A 경보 0
+PASS   └ 별칭이어도 형제 A-r2 는 세션 없음(경보 목록에)
+== r2 없는 pane 경로(지워진 폴더) → 글자 비교만 · 진짜 껍데기 C 는 경보(회귀)
+PASS 없는 pane 경로 섞여도 C 경보 목록에
+PASS   └ 글자 그대로 pane(A) 은 그대로 맞춤
+PASS   └ 없는 pane 경로는 판정 못 함 아님
+== r2 ② 정상 → git status rc128 → 정상 : 2·3회차 경보 0 · 서명 1회차와 같음
+PASS ② 1회차 경보(C)
+PASS ② 2회차(git rc128) 경보 0
+PASS ② 2회차 C 판정 못 함
+PASS ② 2회차 NOTE «판정 못 함 3곳(이전 판정 이어받음)»
+PASS ② 2회차 서명 = 1회차(판정 못 한 A-r2·C 이어받음)
+PASS ② 3회차(정상) 경보 0 — 서명 같음
+== ⓓ tmux 목록 못 읽음 → 경보 0 · 서명 그대로
+PASS ⓓ 경보 0
+PASS ⓓ NOTE 1줄
+PASS ⓓ 서명 파일 안 바꿈
+== ⓕ git status 상한 초과 → 판정 못 함 SKIP · 경보 0(그 폴더)
+PASS ⓕ 상한 1s · git status 4s → C 판정 못 함 SKIP
+PASS ⓕ 상한 초과 = 판정 못 함 NOTE(이전 서명 없음 → 이어받을 것 0)
+PASS ⓕ C 경보 0
+PASS ⓕ 상한이 먹음(4s · 후보 4 × 4s 를 기다리지 않음)
+PASS ⓕ 기본 상한 7 s
+PASS ⓕ status --porcelain --untracked-files=normal
+== r2b 나노 지적 꼴 — X(연결됨 · git status 실패) + 진짜 껍데기 C → C 경보 · X 빠짐 · NOTE 1
+PASS r2b X 판정 못 함 SKIP
+PASS r2b 한 폴더 판정 못 함이 회차 전체를 막지 않음 → C 경보
+PASS r2b X(이전 서명에 없음) 빠짐
+PASS r2b NOTE 1곳
+PASS   └ gitdir 가 있는 X 는 «git 연결 끊김» 아님
+== r2b .git 없는 폴더 Y(F) = 껍데기 «(git 연결 끊김)» · pane 있으면 SKIP
+PASS r2b .git 없는 F(세션 0) → 경보 목록에
+PASS r2b 경보 줄에 «F (git 연결 끊김)»
+PASS   └ 부모 리포 «?? .worktrees/» 를 F 의 미커밋으로 셈 0
+PASS   └ F 는 판정 못 함 아님
+PASS   └ 표시는 F 에만
+PASS r2b F 에 pane 있음 → SKIP «세션 있음»(세션 검사 먼저)
+PASS r2b pane 있는 F 경보 0
+PASS r2b gitdir 가 가리키는 곳 없음 → «X (git 연결 끊김)»
+PASS r844 r3 gitdir 는 있으나 저장소 아님(git rc≠0) → 끊김 아님 · X 판정 못 함
+PASS   └ gitdir 경로가 있으면 «git 연결 끊김» 아님(r844 r3 개정)
+== r3 DA r2 반례 — CRLF 줄끝 .git(gitdir 실재) + 수정 1 · 새 파일 1 → SKIP «미커밋 2» · 경보 0
+PASS r3 CRLF .git → 연결됨 · SKIP «미커밋 2»
+PASS r3 CRLF G 경보 0
+== r3 .git 파일 변형 — git 이 받아들이면 연결됨(git 답 = 판정)
+PASS r3 상대경로 .git — git 이 받아들임 → 연결됨 · SKIP «미커밋 1»
+PASS r3 끝공백 .git — git 거절 · gitdir: 뒤 경로 없음 → «git 연결 끊김»
+PASS r844 r3 앞빈줄 .git — gitdir: 줄 꼴 아님 → 판정 못 함
+== r3 rev-parse 지연 7.5 s(상한 7) → 판정 못 함 · 이전 서명 이어받음
+PASS r3 1회차 C 경보
+PASS r3 지연 → C 판정 못 함
+PASS   └ 시간 초과를 연결 끊김으로 읽지 않음
+PASS r3 2회차 경보 0(이어받음)
+PASS r3 2회차 서명 = 1회차
+== r844 ⓐ DA r3 반례 ① — K 미커밋 3(수정·새 파일·staged) · K/.git 권한 000 → 판정 못 함 · 이어받기 · 복구 전후 서명 같음 · C 경보 반복 0
+PASS ⓐ 1회차 K SKIP «미커밋 3»
+PASS ⓐ 1회차 C 경보
+PASS ⓐ .git 000 → K 판정 못 함(rc128 · git 원문)
+PASS ⓐ 권한 실패를 «연결 끊김» 으로 읽지 않음
+PASS ⓐ K 경보 0
+PASS ⓐ 2회차 경보 0(서명 그대로)
+PASS ⓐ 권한 000 회차 서명 = 1회차
+PASS ⓐ 권한 복구 회차 경보 0(C 경보 반복 0)
+PASS ⓐ 복구 전후 서명 같음
+== r844 ⓐ' 가리킨 gitdir 못 읽음(권한) · 위 폴더 권한으로 있는지 모름 → 판정 못 함(끊김 아님)
+PASS ⓐ' 등록 폴더(.git/worktrees/K) 000 → K 경보 0(worktree list 가 후보에서 뺌)
+PASS ⓐ' 등록 폴더 권한을 «연결 끊김» 으로 읽지 않음
+PASS ⓐ' 서명 = 1회차
+PASS ⓐ' K2 준비(gitdir = /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.9WCe96OAVS/hide/K2 · 연결됨)
+PASS ⓐ' K2 평소 = SKIP «미커밋 1»
+FAIL ⓐ' gitdir 위 폴더 000(git «저장소 아님») → 있는지 모름 = K2 판정 못 함 — 없음: «SKIP 껍데기 후보 K2 — 판정 못 함(git rev-parse rc=128 · fatal: not a git repository» ← SKIP 껍데기 후보 A — 세션 있음(pane /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.9WCe96OAVS/repo/.worktrees/A/d3)
+SKIP 껍데기 후보 B — 미커밋 2
+SKIP 껍데기 후보 G — 미커밋 2
+SKIP 껍데기 후보 H1 — 미커밋 1
+SKIP 껍데기 후보 H3 — 판정 못 함(git rev-parse rc=128 · fatal: invalid gitfile format: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.9WCe96OAVS/repo/.worktrees/H3/.git)
+SKIP 껍데기 후보 K — 미커밋 3
+SKIP 껍데기 후보 X — 판정 못 함(git rev-parse rc=128 · fatal: not a git repository: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.9WCe96OAVS/bogus)
+NOTE 껍데기 판정 못 함 2곳(이전 판정 이어받음)
+[HIL] seat=byz-harness-wt-shel
+FAIL ⓐ' 위 폴더 권한을 «연결 끊김» 으로 읽지 않음 — 있으면 안 됨: «K2 (git 연결 끊김)»
+== r844 ⓑ DA r3 반례 ② — 물려받은 GIT_DIR·GIT_WORK_TREE·GIT_INDEX_FILE(상위 리포) → B SKIP «미커밋 2»
+PASS ⓑ env 상위 리포 → B SKIP «미커밋 2»(env 영향 0)
+PASS ⓑ B 경보 0
+PASS ⓑ 서명 = env 없는 회차
+PASS ⓑ env 다른 깨끗한 리포 → B SKIP «미커밋 2»
+PASS ⓑ 다른 리포 env 에도 폴더 목록·서명 같음(SCAN_ROOT 호출도 env 지움)
+== r844 ⓒ(r3 개정) 끊김 = .git 없음 · gitdir 경로 없음 하나 — 저장소 아닌 폴더 · gitfile 꼴 틀림 = 판정 못 함
+PASS ⓒ X(gitdir = 있는 폴더 · 저장소 아님) → 판정 못 함
+PASS ⓒ F(.git 없음) → 끊김 그대로
+PASS ⓒ K3(.git 내용 틀림 · gitdir: 줄 없음) → 판정 못 함
+PASS   └ gitfile 꼴 틀림을 «연결 끊김» 으로 읽지 않음
+PASS ⓒ X(gitdir 가리킨 곳 없음) → 끊김 그대로
+PASS ⓒ X(gitdir: 대상 없음) 첫 회차 경보
+PASS ⓒ 진짜 끊김은 판정 못 함 아님
+== r844 ⓓ 오류 문구 판별 = LC_ALL=C 고정 — 한국어 로캘에서도 같은 판정
+PASS ⓓ 준비 — 한국어 로캘 git 문구 «fatal: 깃 저장소가 아닙니다: /private/var/folders/vm/j7_jw8050t553wj5»
+PASS ⓓ 한국어 로캘 · X(가리킨 곳 없음) → 끊김
+PASS ⓓ 한국어 로캘 · K .git 000 → 판정 못 함
+== r844 r2 외부 DA r1 반례 — K4 미커밋 3 · .git = 정상 gitfile 의 심링크 · 대상 상위 폴더만 000 → 판정 못 함 · 서명 그대로 · 복구 회차 경보 0
+PASS r2 1회차 K4(심링크 .git) SKIP «미커밋 3»
+FAIL r2 심링크 대상 상위 000 → K4 판정 못 함(rev-parse 먼저 · 접근 불가) — 없음: «SKIP 껍데기 후보 K4 — 판정 못 함(git rev-parse rc=128» ← SKIP 껍데기 후보 A — 세션 있음(pane /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.9WCe96OAVS/repo/.worktrees/A/d3)
+SKIP 껍데기 후보 B — 미커밋 2
+SKIP 껍데기 후보 G — 미커밋 2
+SKIP 껍데기 후보 H1 — 미커밋 1
+SKIP 껍데기 후보 H3 — 판정 못 함(git rev-parse rc=128 · fatal: invalid gitfile format: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.9WCe96OAVS/repo/.worktrees/H3/.git)
+SKIP 껍데기 후보 K — 미커밋 3
+SKIP 껍데기 후보 K2 — 미커밋 1
+SKIP 껍데기 후보 K3 — 판정 못 함(git rev-parse rc=128 · fatal: invalid gitfile format: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.9WCe96OAVS/repo/.worktrees/K3/.git)
+NOTE 껍데기 판정 못 함 2
+FAIL r2 접근 불가를 «.git 없음»·«연결 끊김» 으로 읽지 않음 — 있으면 안 됨: «K4 (git 연결 끊김)»
+FAIL r2 미커밋 3 인 K4 가 경보에
+FAIL r2 000 회차 경보 0(서명 그대로) — 있으면 안 됨: «[HIL]»
+FAIL r2 서명 바뀜: 1«harness:A-r2 harness:C harness:E.deleting-123 harness:F harness:H2 harness:X » 2«harness:A-r2 harness:C harness:E.deleting-123 harness:F harness:H2 harness:K4 harness:X »
+FAIL r2 한국어 로캘에서도 K4 판정 못 함 — 없음: «SKIP 껍데기 후보 K4 — 판정 못 함» ← SKIP 껍데기 후보 A — 세션 있음(pane /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.9WCe96OAVS/repo/.worktrees/A/d3)
+SKIP 껍데기 후보 B — 미커밋 2
+SKIP 껍데기 후보 G — 미커밋 2
+SKIP 껍데기 후보 H1 — 미커밋 1
+SKIP 껍데기 후보 H3 — 판정 못 함(git rev-parse rc=128 · fatal: invalid gitfile format: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.9WCe96OAVS/repo/.worktrees/H3/.git)
+SKIP 껍데기 후보 K — 미커밋 3
+SKIP 껍데기 후보 K2 — 미커밋 1
+SKIP 껍데기 후보 K3 — 판정 못 함(git rev-parse rc=128 · fatal: invalid gitfile format: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.9WCe96OAVS/repo/.worktrees/K3/.git)
+NOTE 껍데기 판정 못 함 2
+PASS r2 권한 복구 → K4 SKIP «미커밋 3»
+FAIL r2 권한 복구 회차 경보 0 — 있으면 안 됨: «[HIL]»
+PASS r2 복구 전후 서명 같음
+== r844 r2 진짜 끊김은 그대로 — 심링크 .git 대상 없음(매달린 심링크) → 끊김
+PASS r2 매달린 심링크 .git(대상 없음 ENOENT) → 끊김
+PASS r2 매달린 심링크 → SKIP 아님
+PASS r3 깨진 심링크 K5 첫 회차 경보
+== r844 r3 외부 DA r2 반례 — K6 미커밋 3 · 정상 gitdir · gitdir 의 HEAD 만 000 → 판정 못 함 · 서명 그대로 · 복구 회차 경보 0
+PASS r3 1회차 K6 SKIP «미커밋 3»
+PASS r3 K6 준비 — HEAD 000 에 git «not a git repository»(DA r2 꼴)
+PASS r3 HEAD 000(git «저장소 아님») → K6 판정 못 함
+PASS r3 gitdir 안 파일 권한을 «연결 끊김» 으로 읽지 않음
+PASS r3 K6 경보 0
+PASS r3 000 회차 경보 0(서명 그대로)
+PASS r3 000 회차 서명 = 1회차
+PASS r3 한국어 로캘에서도 K6 판정 못 함
+PASS r3 권한 복구 → K6 SKIP «미커밋 3»
+PASS r3 권한 복구 회차 경보 0(C 경보 반복 0)
+PASS r3 복구 전후 서명 같음
+== r844 r3 진짜 끊김 — gitdir 대상 삭제(등록은 그대로 · 폴더 .git 이 가리킨 사본을 지움) → 첫 회차 경보
+PASS r3 K7 준비(gitdir = /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.9WCe96OAVS/hide2/K7 · 연결됨)
+PASS r3 gitdir 대상 삭제 → K7 끊김
+PASS r3 K7 첫 회차 경보
+== 위생
+PASS 경보는 읽기만 — 폴더 손 0
+PASS B 미커밋 그대로
+
+FAILED 9
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
