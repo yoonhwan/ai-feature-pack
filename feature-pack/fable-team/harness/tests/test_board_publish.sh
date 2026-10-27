@@ -18,10 +18,14 @@ LOG="$T/slack.log"; : > "$LOG"
 
 # 가짜 슬랙 API — chat.postMessage / chat.update 만. 한 줄 = METHOD|channel|ts|thread_ts|text 바이트수|text(개행→\n). $T/fail_reply 가 있으면 스레드 답글만 ok=false.
 python3 - "$T" <<'PY' &
-import http.server, json, os, sys
+import http.server, json, os, sys, urllib.parse
 T = sys.argv[1]
 class H(http.server.BaseHTTPRequestHandler):
     n = 0
+    TEXT = {}  # ts → 게시·갱신된 text — 되읽기(conversations.history GET)가 그 글을 돌려준다(r1022)
+    def _send(self, out):
+        b = json.dumps(out).encode()
+        self.send_response(200); self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b)
     def do_POST(self):
         p = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
         m = self.path.rsplit("/", 1)[-1]
@@ -30,10 +34,14 @@ class H(http.server.BaseHTTPRequestHandler):
         else:
             H.n += 1
             out = {"ok": True, "ts": p.get("ts") or f"1700000000.{H.n:06d}"}
+            H.TEXT[out["ts"]] = p["text"]
             with open(f"{T}/slack.log", "a") as f:
                 f.write(f"{m}|{p.get('channel')}|{out['ts']}|{p.get('thread_ts', '')}|{len(p['text'].encode())}|{p['text'].replace(chr(10), chr(92) + 'n')}\n")
-        b = json.dumps(out).encode()
-        self.send_response(200); self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b)
+        self._send(out)
+    def do_GET(self):  # 되읽기 가드(r1004) — oldest/latest 로 그 글 하나
+        q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+        ts = (q.get("latest") or q.get("oldest") or [""])[0]
+        self._send({"ok": True, "messages": [{"ts": ts, "text": H.TEXT[ts]}] if ts in H.TEXT else []})
     def log_message(self, *a): pass
 s = http.server.HTTPServer(("127.0.0.1", 0), H)
 open(f"{T}/port", "w").write(str(s.server_port))
@@ -119,7 +127,7 @@ rc="$(publish)"
 # 5) 실제 크기 본문(①절 25KB · ⓪ 9팀) → 뿌리 글 ≤ 3500B · ⓪ 9팀·④·끝줄 있음 · ①②③ 절 머리 0
 root_ok() {  # root_ok <팀 수> — 마지막 슬랙 호출의 바이트·내용 검사
   local t="$(tail -1 "$LOG")" n="$1"
-  [ "$(last_bytes)" -le 3500 ] && echo "$t" | grep -q "팀$n |" && echo "$t" | grep -q '\*④ 오늘 판정표\*' && echo "$t" | grep -q '터미널 보드' \
+  [ "$(last_bytes)" -le 3500 ] && echo "$t" | grep -qE "팀$n (\||·)" && echo "$t" | grep -q '\*④ 오늘 판정표\*' && echo "$t" | grep -q '터미널 보드' \
     && ! echo "$t" | grep -q '\*① \|\*② \|\*③ '
 }
 export FT_BOARD_NOW="$D2"; snap '{"snap":"eeee5555→ffff6666","prev":"eeee5555","changes":[],"prev_day_last":null}'; mkbody F 9 25000

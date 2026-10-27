@@ -2,7 +2,7 @@
 
 슬랙 chat.update 는 약 3.9KB 에서 msg_too_long 으로 거부한다(R49) — render --slack 전체(수십 KB)를 그대로 못 보낸다.
   root < render --slack 출력   → 머리 + ⓪ 팀 요약 + ④ 오늘 판정표 + 고정 끝줄 (①②③ 은 터미널 보드 · 변화는 스레드 답글)
-  cap [--tail T] < 본문        → 본문 + T 가 상한 안이 되게 «본문»을 UTF-8 안전하게 자른다(T 는 항상 남는다 · 동결 본문용)
+  cap [--tail T] < 본문        → 본문 + T 가 상한 안이 되게 «뒷쪽 줄부터» 버린다(끝줄은 남긴다 · T 는 항상 남는다 · 동결 본문용)
 ⓪·④ 안의 표 줄은 «• » 목록 줄로 바꾼다(r1022 · 슬랙은 표를 못 그리고 되읽기 가드 r1004 가 표 줄을 지운다) — 칸 사이 « · » · 구분 줄 제거 · 표 아닌 줄은 그대로.
 상한 = CAP(3500) 바이트. 절 머리(`*⓪ `~`*④ `)를 못 찾으면 raise(조용한 대체 0 · rc 1). ft_board_render.py 는 건드리지 않는다.
 """
@@ -100,7 +100,17 @@ def root_text(body: str) -> str:
 
 
 def cap_text(text: str, tail: str = "") -> str:
-    out = _cut(text.rstrip("\n"), CAP - _b(tail) - 1) + tail if _b(text) + _b(tail) > CAP else text.rstrip("\n") + tail
+    """상한을 넘으면 «끝줄을 남기고» 뒷쪽 줄부터 버린다(r1022 — 글자 자르기의 «…» 가 되읽기 가드 r1004 와 부딪혔다: 본문에 이미 «…» 2개면 3개 = 위반)."""
+    body = text.rstrip("\n")
+    if _b(body) + _b(tail) <= CAP:
+        return body + tail
+    lines = body.split("\n")
+    if len(lines) > 1:  # 끝줄(FOOT)은 남긴다 — 앞 부분을 뒤에서부터 버린다
+        for k in range(len(lines) - 1, 0, -1):
+            out = "\n".join([*lines[:k], lines[-1]]) + tail
+            if _b(out) <= CAP:
+                return out
+    out = _cut(body, CAP - _b(tail) - 1) + tail
     if _b(out) > CAP:
         raise ValueError("상한 단언 실패(코드 결함)")
     return out

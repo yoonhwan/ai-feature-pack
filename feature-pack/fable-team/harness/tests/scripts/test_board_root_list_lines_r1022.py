@@ -76,6 +76,17 @@ def test_상한_넘으면_자르고_말줄임은_3개_미만():
     assert out.count("…") < guard.ELLIPSIS_MAX
 
 
+def test_동결_cap_도_가드를_통과한다():
+    long = [f"- 팀{i} | 지금: 진행 1(카드 {i}) | 큐: 대기 2 | 오빠 할 일 0 | " + "가" * 30 for i in range(40)]
+    root = br.root_text(body(teams=long))
+    assert root.count("…") == 2  # «… 외 N팀» + FOOT — 글자 자르기로 «…» 를 하나 더 붙이면 가드가 지운다
+    fz = br.cap_text(root, "\n동결 — 마지막 스냅샷 ffff6666")
+    assert len(fz.encode("utf-8")) <= br.CAP
+    assert fz.endswith("동결 — 마지막 스냅샷 ffff6666")  # 끝줄·꼬리는 남는다
+    assert br.FOOT in fz.split("\n")  # 끝줄(FOOT)도 남는다
+    assert guard.check(fz) is None
+
+
 def test_절_머리_없으면_raise():
     with pytest.raises(ValueError):
         br.root_text("결론만 있고 절 머리 0")
