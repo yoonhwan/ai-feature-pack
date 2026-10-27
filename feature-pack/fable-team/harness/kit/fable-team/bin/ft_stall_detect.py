@@ -1,16 +1,24 @@
 """R320b — 멈춘 좌석 감지 4종의 «판정» (읽기 전용 · 처리는 ft_stall_scan.py).
 
+r1001 — `lead_heartbeat` = 팀장이 보낸 mbox 쪽지 중 본문 머리 `[정리]` 인 마지막 줄의 ts(팀장 심박).
+  팀장 좌석의 b·d 경보는 이 심박이 LEAD_HEARTBEAT_MIN(15분) 안이면 0, 끊기면 팀 단위 1통(ft_stall_scan f).
+
+
 a 대기 카드 있는데 master IDLE · b 선언 뒤 IDLE · c 정책 정지(하네스 1건) · d 답 기다리며 3분+ (멈춘 쪽 = 받는이).
 좌석 상태는 ft-seat-status.sh turn(jsonl IDLE/WORKING) 출력을 그대로 쓴다 — pane·mtime 을 쓰지 않는다.
 """
 import json
+import os
 import re
 import subprocess
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 IDLE_MIN = 3.0
+LEAD_HEARTBEAT_MIN = 15.0  # 팀장 심박 주기 10분 + 여유 5 — 이보다 오래 조용하면 «멈춤»
+HEARTBEAT_TOKEN = "[정리]"  # 팀장이 틱마다 보내는 «한 일 정리» 쪽지의 본문 머리
 FUTURE = re.compile(r"하겠습니다|할게요|진행하겠|착수하겠|진행할게")
 REST = "[완료·휴식]"
 REF = re.compile(r"indices/(대기|진행|완성)/([\w.\-]+)\.md")
@@ -267,3 +275,64 @@ def pending_mail(comm: Path, now: float) -> dict[str, tuple[int, float]]:
         if age >= IDLE_MIN and (r["to"] not in out or age > out[r["to"]][1]):
             out[r["to"]] = (int(r["seq"]), age)
     return out
+
+
+def lead_names(root: Path, master: str | None) -> set[str]:
+    """그 팀장 + 그 팀장이 승계한 옛 팀장 이름(새 행의 `_replaces`) — 승계 직후 옛 이름이 보낸 심박도 인정한다."""
+    if not master:
+        return set()
+    names = {master}
+    for f in sorted((root / ".fable-team").glob("seats*.json")):
+        try:
+            d = json.loads(f.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        row = d.get(master)
+        old = row.get("_replaces") if isinstance(row, dict) else None
+        if isinstance(old, list):
+            names |= {x for x in old if isinstance(x, str) and x}
+    return names
+
+
+def lead_heartbeat(comm: Path, masters: set[str], now: float) -> tuple[str, float | None, str]:
+    """팀장 심박 = masters 가 보낸 mbox 쪽지 중 본문 머리가 `[정리]` 인 «마지막» 줄의 ts(epoch · 읽기 전용).
+    → ("ok", ts|None, 깨진 줄 안내) · ("ERROR", None, 이유) = 판정 불가(파일 없음·읽기 실패·예산 초과).
+    미래 ts(시계 어긋남)는 «신선» 으로 인정하지 않고 그 줄을 버린다 — 신선으로 읽으면 영영 조용해진다.
+    예산 = FT_STALL_HEARTBEAT_BUDGET(기본 7초). 넘으면 부분 결과를 쓰지 않고 판정 불가를 돌려준다(7초 룰)."""
+    budget = float(os.environ.get("FT_STALL_HEARTBEAT_BUDGET") or 7)
+    path = comm / "mailbox.jsonl"
+    t0, best, broken, n = time.monotonic(), None, 0, 0
+    try:
+        fh = open(path, encoding="utf-8")
+    except FileNotFoundError:
+        return "ERROR", None, f"mailbox.jsonl 없음({path})"
+    except OSError as e:
+        return "ERROR", None, f"mailbox.jsonl 읽기 실패 {e.__class__.__name__}"
+    with fh:
+        for line in fh:
+            n += 1
+            if n % 256 == 0 and time.monotonic() - t0 > budget:
+                return "ERROR", None, f"심박 읽기 {budget:g}초 초과(줄 {n})"
+            try:
+                r = json.loads(line)
+            except ValueError:
+                broken += 1
+                continue
+            if not isinstance(r, dict) or r.get("from") not in masters:
+                continue
+            body = r.get("body")
+            if not isinstance(body, str) or not body.lstrip().startswith(HEARTBEAT_TOKEN):
+                continue
+            try:
+                ts = datetime.strptime(str(r.get("ts"))[:19], "%Y-%m-%dT%H:%M:%S").timestamp()
+            except ValueError:
+                broken += 1
+                continue
+            if ts > now + 5:  # 미래 ts = 시계 어긋남 — 신선으로 읽지 않는다
+                broken += 1
+                continue
+            if best is None or ts > best:
+                best = ts
+    if time.monotonic() - t0 > budget:
+        return "ERROR", None, f"심박 읽기 {budget:g}초 초과(줄 {n})"
+    return "ok", best, (f"깨진 줄 {broken}개 건너뜀" if broken else "")
