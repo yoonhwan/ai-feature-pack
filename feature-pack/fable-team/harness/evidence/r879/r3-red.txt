@@ -1,0 +1,14 @@
+PASS ⓐ 남의 카드 증거 폴더 미디어(wav·MP4·png·zip)·자기 팀 notes/wav 0 · 남의 팀 0
+FAIL ⓑ 빠진 것: design/teams/lecture/evidence/other/note.md design/teams/lecture/evidence/other/a.txt design/teams/lecture/evidence/other/d.json design/teams/lecture/evidence/my report.md design/teams/lecture/evidence/INV(final).md design/teams/lecture/evidence/top.md (/* !/design/teams/*/ /design/teams/lecture/ !/design/teams/lecture/**/*.wav /design/teams/lecture/**/fixtures/** !/design/teams/lecture/**/evid*/ /design/teams/lecture/evidence/r9-sparse-card/** /design/teams/lecture/20261025/evidence-t1/** /design/teams/lecture/evidence/INV /design/teams/lecture/evidence/my )
+FAIL ⓒ 카드 글자 0 에서 결과가 달라짐 (작업 트리 준비 중 (새 브랜치 'nano/W2')
+SPARSE team=lecture 남의 팀 design·남의 카드 증거·wav 제외 · 새 증거 = design/teams/lecture/evidence/r9-sparse-card/ (다른 폴더는 git sparse-checkout add <폴더> · 되돌림: git -C /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.PGr4FOoYT3/W2 sparse-checkout disable))
+PASS ⓓ 자기 stem 폴더(evidence/r9-sparse-card/)의 wav·md 있음 + 새 wav·md git add rc0
+PASS ⓔ fixtures/ 아래 wav·mp4 IN(기존 그대로) · 팀 밖 tests/fixtures 도 IN
+PASS ⓓ' 남의 카드 증거 폴더 새 wav add 는 막힘(sparse 밖)
+FAIL ⓑ' 남의 카드 증거 폴더 새 md add 막힘
+PASS ⓖ FT_NANO_SPARSE=0 → 전체 체크아웃
+MUT NOT APPLIED: ext
+PASS 변이: 확장자 줄 제거 → ⓐ FAIL
+PASS 변이: 자기 카드 허용 줄 제거 → ⓓ FAIL
+FAILED 3
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
