@@ -1,0 +1,8 @@
+=== 옛 판(origin/main) ===
+§32 r462-approve-merge-equiv-head-with-main-merge-only :: 닫힘 — r462-approve-merge-equiv-head-with-main-merge-only — main(팩) :: REJECT	랜딩 안 됨 — d2f8eecbfd38573d6e70fa46d3a3045d35f273b2 가 origin/main 의 조상이 아니다 (/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-ops)
+§56 r560-approval-equiv-main-moves-and-hook-candidates :: 닫힘 — r560-approval-equiv-main-moves-and-hook-candidates — main(팩) :: REJECT	랜딩 안 됨 — bd1dcc2fa41190317177aac1fae91a34195274db 가 origin/main 의 조상이 아니다 (/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-ops)
+§116 r737-news-map-canon-sha-change-trigger :: 닫힘 — r737-news-map-canon-sha-change-trigger — main(팩) :: OK	정본 영향 없음: 소급 닫기 — 착지 커밋 2e0bb16660 이 docs/architect 를 안 바꿈
+§120 r756-desk-planner-seat-on-main-based-worktree :: 닫힘 — r756-desk-planner-seat-on-main-based-worktree — main(팩) :: REJECT	랜딩 안 됨 — 008e509575451a7a1ceb0db8559657ec87935bf7 가 origin/main 의 조상이 아니다 (/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-ops)
+§128 r847-news-ledger-fetch-lsremote-30s :: 닫힘 — r847-news-ledger-fetch-lsremote-30s — main(팩) :: OK	정본 영향 없음: 소급 닫기 — 착지 커밋 c91bee891f 이 docs/architect 를 안 바꿈
+§135 r888-nano-close-research-seat-evidence-exempt-card-origin-main :: 닫힘 — r888-nano-close-research-seat-evidence-exempt-card-origin-main — main(팩) :: REJECT	판정문 표식 main 인데 카드 리포에 그 sha 가 없다 — 표식 오기(숨김 0): 3b1bdb5173113ee32571410d07bc5bf5cbeab973
+§142 r911-finished-branch-archive-file-content-equal-main :: 닫힘 — r911-finished-branch-archive-file-content-equal-main — main(팩) :: REJECT	판정문 표식 main 인데 카드 리포에 그 sha 가 없다 — 표식 오기(숨김 0): 759aeedafc00f11ccb5f97eaa4cf520b2b5b7535

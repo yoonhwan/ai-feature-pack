@@ -6,7 +6,8 @@ export FT_ALLOW_TRACKED_BIN=1
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO="$HERE/../.."; BIN="$REPO/harness/bin"; KIT="$REPO/harness/kit/fable-team/bin"
-T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T"' EXIT
+T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'tmux_isolate_end; rm -rf "$T"' EXIT
+. "$HERE/lib/tmux_isolate.sh"   # r957: 실 tmux 서버 격리(TMUX·TMUX_PANE 제거 + TMUX_TMPDIR)
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }
@@ -188,5 +189,7 @@ roster alpha "byz-alpha-master-claude#1" "byz-alpha-arch-claude#1"
 for f in ft-teamset-check.sh ft_teamset.py ft_spawn_queue.py; do cmp -s "$BIN/$f" "$KIT/$f" && ok "키트 사본 cmp 0 $f" || bad "키트 사본 불일치 $f"; done
 [ "$(git config --get core.bare)" = false ] && ok "core.bare=false" || bad "core.bare != false"
 
+# ── r957 누수 검사: 실 tmux 서버에 시험 세션(byz-alpha-·byz-v65-·ft-v65-temp-)이 남으면 FAIL ──
+tmux_isolate_leak_check || fail=$((fail+1))
 [ "$fail" = 0 ] && echo "ALL PASS" || echo "FAILED $fail"
 exit $fail

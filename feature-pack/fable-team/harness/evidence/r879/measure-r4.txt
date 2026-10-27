@@ -1,0 +1,56 @@
+# r879 r4 디스크 실측 — git sparse-checkout check-rules --no-cone --rules-file (실제 체크아웃 0 · BYZ 설정 손대지 않음)
+# REWORK-r879-r4 §결과계약 ⓖ = v65 팀 폴더 기준 제외량 ≥ 599M 유지(r3b 663.7M)
+BYZ 44f807e3d0 · design/teams/v65 tracked 14250 파일 824.9M
+r4 규칙 IN 13475 파일 161.2M · OUT 775 파일 663.7M (80.5% 제외)
+r3b 판 663.7M 의 100.0% · 목표 599.0M 통과=True (폴더 되살림 줄을 더해도 v65 트리에 «확장자로 끝나는 폴더» 가 없어 증감 0)
+
+-- r4 규칙 전문 (sparse_patterns v65 '' M5-1812 · 41줄 · 함수가 만든 꼴 그대로)
+/*
+!/design/teams/*/
+/design/teams/v65/
+!/design/teams/v65/**/*.[Ww][Aa][Vv]
+/design/teams/v65/**/*.[Ww][Aa][Vv]/
+... (미디어 16종 × 2줄 · 제외 + 폴더 되살림 · result.json · *.jsonl 동일)
+/design/teams/v65/**/fixtures/**
+/design/teams/v65/evidence/M5-1812/**
+/*
+!/design/teams/*/
+/design/teams/v65/
+!/design/teams/v65/**/*.[Ww][Aa][Vv]
+/design/teams/v65/**/*.[Ww][Aa][Vv]/
+!/design/teams/v65/**/*.[Mm][Pp]3
+/design/teams/v65/**/*.[Mm][Pp]3/
+!/design/teams/v65/**/*.[Mm]4[Aa]
+/design/teams/v65/**/*.[Mm]4[Aa]/
+!/design/teams/v65/**/*.[Ff][Ll][Aa][Cc]
+/design/teams/v65/**/*.[Ff][Ll][Aa][Cc]/
+!/design/teams/v65/**/*.[Oo][Gg][Gg]
+/design/teams/v65/**/*.[Oo][Gg][Gg]/
+!/design/teams/v65/**/*.[Mm][Pp]4
+/design/teams/v65/**/*.[Mm][Pp]4/
+!/design/teams/v65/**/*.[Ww][Ee][Bb][Mm]
+/design/teams/v65/**/*.[Ww][Ee][Bb][Mm]/
+!/design/teams/v65/**/*.[Mm][Oo][Vv]
+/design/teams/v65/**/*.[Mm][Oo][Vv]/
+!/design/teams/v65/**/*.[Pp][Nn][Gg]
+/design/teams/v65/**/*.[Pp][Nn][Gg]/
+!/design/teams/v65/**/*.[Jj][Pp][Gg]
+/design/teams/v65/**/*.[Jj][Pp][Gg]/
+!/design/teams/v65/**/*.[Jj][Pp][Ee][Gg]
+/design/teams/v65/**/*.[Jj][Pp][Ee][Gg]/
+!/design/teams/v65/**/*.[Gg][Ii][Ff]
+/design/teams/v65/**/*.[Gg][Ii][Ff]/
+!/design/teams/v65/**/*.[Zz][Ii][Pp]
+/design/teams/v65/**/*.[Zz][Ii][Pp]/
+!/design/teams/v65/**/*.[Tt][Aa][Rr]
+/design/teams/v65/**/*.[Tt][Aa][Rr]/
+!/design/teams/v65/**/*.[Gg][Zz]
+/design/teams/v65/**/*.[Gg][Zz]/
+!/design/teams/v65/**/*.[Tt][Gg][Zz]
+/design/teams/v65/**/*.[Tt][Gg][Zz]/
+!/design/teams/v65/**/[Rr][Ee][Ss][Uu][Ll][Tt].[Jj][Ss][Oo][Nn]
+/design/teams/v65/**/[Rr][Ee][Ss][Uu][Ll][Tt].[Jj][Ss][Oo][Nn]/
+!/design/teams/v65/**/*.[Jj][Ss][Oo][Nn][Ll]
+/design/teams/v65/**/*.[Jj][Ss][Oo][Nn][Ll]/
+/design/teams/v65/**/fixtures/**
+/design/teams/v65/evidence/M5-1812/**

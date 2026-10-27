@@ -1,0 +1,24 @@
+# r849 r2 — bash feature-pack/fable-team/harness/tests/test_seat_logged_out_r849.sh (2026-10-24 18:10:37 · 반송 r2 코드)
+PASS ⓐ~ⓔ 12 passed
+PASS ⓕ LOGGEDOUT 분기 삭제 → test_a_logged_out FAIL
+PASS ⓕ 쪽지 중복 키 삭제 → test_c_tick_notifies_team_master_once FAIL
+PASS ⓕ ring 제외(로그아웃) 삭제 → test_d_idle_wake_skips_logged_out_and_rested FAIL
+PASS ⓕ ring 제외(닫기 대기) 삭제 → test_d_idle_wake_skips_logged_out_and_rested FAIL
+PASS ⓕ 키에 첫 실패 시각 되살림 → test_c_long_streak_over_tail_cap_one_notice FAIL
+PASS ⓕ 글자 찾기 되살림 → test_d_idle_wake_skips_logged_out_and_rested FAIL
+PASS ⓕ 서명 먼저 저장 → test_c_send_failure_retries_next_scan FAIL
+PASS ⓕ ③ 면제 삭제 → test_e_nano_close_gate FAIL
+PASS ⓕ [재개] 제외 삭제 → test_api_outage_never_resumes_logged_out FAIL
+PASS 짝 사본 ft_api_outage_util.py
+PASS 짝 사본 ft_api_outage.py
+PASS 짝 사본 ft_seat_turn.py
+PASS 짝 사본 ft-seat-status.sh
+PASS 짝 사본 ft_stall_scan.py
+PASS 짝 사본 ft_stall_detect.py
+PASS 짝 사본 ft_card_rest.py
+PASS 짝 사본 ft-idle-wake.sh
+PASS 짝 사본 ft-jsonl-last-ts.py
+PASS 짝 사본 ft-nano-close.sh
+FAIL=0
+REAL-STATE-GUARD WARN 번호표 늘었으나 실 좌석 계획(동시 실행): /private/tmp/h265 ← /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/state/approve-merge-docs-3084-20261024.sh.hil
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
