@@ -1,0 +1,33 @@
+# r843 r8 — DA r6 반례 3 닫기 (base = 466348c3 위 커밋 1 · 나노 byz-harness-nano-r843-wt-sparse-mark-write-verify#0 · 2026-10-27)
+
+오빠 결정 4 = 1번 «빈자리 + 시험». 반송서(REWORK-r843-r8.md)의 표 그대로 구현했습니다.
+
+## 반례 → 고침
+
+| # | DA r6 반례 | 고침 |
+|---|---|---|
+| ① | 공용 설정까지 false 로 덮음 · pending 읽기 실패에서 mv 전에 설정이 바뀜 (`:35`) | `_ftw_pre_capture` 가 **스코프별**(`--worktree` · `--local`)로 설정 전 값을 읽고, `_ftw_restore` 는 «값이 달라진 스코프» 만 되돌린다. worktreeConfig 가 꺼져 있으면 워크트리 스코프는 아예 건드리지 않는다 → 공용 값 불변이면 **쓰기 0** |
+| ② | 설정 성공 «전» 최종 자리에서 sparse 표식이 읽힘 · 그 뒤 rc1 로 삭제 (`:49`) | 순서를 `_ftw_pending`(임시 자리 쓰기+검증) → sparse 설정(rc0) → `_ftw_commit`(mv 1회 + 최종 자리 재검증) 으로 나눴다. 설정이 rc0 이기 전엔 최종 자리에 표식 0 · 실패는 임시 자리 삭제 |
+| ③ | `custom-marker`(읽히지만 rc≠0) → `_ftw_slot_bad` 분기로 ERROR 만 내고 **표식이 남아** 다음 실행이 rc0 으로 성공 (`:66`) | 기존 표식 읽기 실패(rc≠0 · 내용 무관)는 `_ftw_fail "표식 읽기"` = fail_closed(표식 삭제 · 설정 원복 · ERROR 1줄 · rc1) · `_ftw_slot_bad` 는 «일반 파일 아님»(심링크·폴더)에만 남긴다 |
+
+추가로 r6 에서 남아 있던 반쪽: `git sparse-checkout set` 이 성공한 뒤 `mv` 가 실패하면 config 만 되돌아가고 **푸른 파일은 빠진 채** 남았다(ⓔ2/ⓔ3 가 그 자리). `_ftw_restore` 첫 줄에 `git sparse-checkout disable`(git 자신의 되돌림 = 파일 복원 + 설정 제거)을 넣어 «설정 원복» 이 파일까지 되돌리게 했고, 그 뒤 스코프별 값 복원이 마무리한다(worktreeConfig 실측: disable 은 워크트리 값만 false 로 두고 공용 true 는 그대로).
+
+## 시험(칸 1 + 칸 3)
+
+- **ⓖ0 실패 자리 전수(칸 1)** — 6 자리 각각을 따로 실패시킨다: 표식 pending 쓰기(sandbox `file-write-create` regex) · pending 검증 읽기(가짜 cat: pending 경로만 rc1) · sparse 설정(`<gitdir>/info` 를 일반 파일로) · 표식 mv(표식 경로 쓰기 거부) · 최종 자리 검증 읽기(가짜 cat: non-pending 경로만 rc1) · 기존 표식 읽기(0200). 자리마다 «ERROR 1줄 · rc≠0 · 최종 표식 0 · 임시 자리 0 · 설정 원상 · b 팀 파일 복원» 을 확인하고, 자리 수를 훅 소스 grep 으로 세어 `6` 과 대조한다(모르는 자리 0).
+- **ⓖ1ⓖ1b (DA①)** — `extensions.worktreeConfig=true` 리포 · 공용(local)=true · 워크트리=false 에서 pending 읽기 실패 / sparse 설정 실패 → 공용 `true` 불변 · 워크트리 `false` 불변 · 표식 0 · rc≠0.
+- **ⓖ2 (DA②)** — sparse 설정 실패 시점에 최종 자리 표식 0 · 실패는 임시 자리만 정리 · rc≠0.
+- **ⓖ3ⓖ3b (DA③)** — 읽히는 `custom-marker` + 읽기 rc≠0 → fail_closed(표식 삭제 · ERROR 1줄 · rc≠0) · 다음 실행은 «처음부터»(표식 없음 → sparse 적용 · `[r835]` 안내 1회).
+- r4~r6 칸은 계약 변화에 맞춰 3칸만 갱신(ⓡ7 ⓡ8 ⓡ9 — ③ 이 바뀌었으므로).
+
+## 값
+
+- green: `test_post_checkout_sparse_r835.sh` **96 PASS** 0 FAIL rc=0(변이 포함) · `test_worktree_add_gate_r835.sh` 47 PASS · `test_wt_add_r835.sh` 27 PASS · `test_disk_alarm.sh` 37 PASS
+- red: **466348c3**(r6 판) FAIL 8 — ⓡ7·ⓡ8·ⓖ0-기존표식·자리수·ⓖ1·ⓖ1b·ⓖ3·ⓖ3b (DA r6 반례 ① ② ③ 이 같은 입력으로 그대로 재현) · **730e2886**(r2 판) FAIL 42
+- 변이 **21**(전부 빨강): 신규 `r843r8-read-branch-back`(③ 분기 부활 → ⓖ3) · `r843r8-shared-write`(공용 설정 쓰기 부활 → ⓖ1) · `r843r8-move-before-set`(설정 전 mv → ⓖ2) + 기존 18종
+- lint: `sh -n` 1 · `/bin/bash 3.2.57 -n` 4파일 rc=0 · stamp 짝 cmp0 · manifest 1.1.256 그대로 · 훅 142줄
+- 바뀐 파일: `kit/fable-team/githooks/post-checkout` · `tests/test_post_checkout_sparse_r835.sh` · 증거 `evidence/r843/r8-*.txt`
+- press 필요: 없음(임시 리포 단위 시험만)
+
+## 범위 밖(그대로)
+- 표식 권한·폴더·심링크 판정(하드 룰 19 · `_ftw_slot_bad`) · 파일명 줄바꿈·탭 · ft-team-lib.sh 변경 0.

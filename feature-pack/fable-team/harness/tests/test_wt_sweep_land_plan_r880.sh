@@ -84,6 +84,7 @@ cat > "$T/fake/stat" <<SEOF
 case "\${FAKE_STAT_MODE:-native}" in
   nomode) exit 1 ;;
   gnu) [ "\$1" = "-c" ] && [ "\$2" = "%.9Y" ] && { echo "\${FAKE_STAT_GNU:-1793000000.123451000}"; exit 0; }; exit 1 ;;
+  badrc) [ "\$1" = "-c" ] && [ "\$2" = "%.9Y" ] && { echo "\${FAKE_STAT_GNU:-1793000000.123451000}"; exit 1; }; exit 1 ;;   # rc≠0 인데 숫자를 찍는다
   *) exec "$REALSTAT" "\$@" ;;
 esac
 SEOF
@@ -417,6 +418,19 @@ chk "ⓚ3 계획에 나노초 꼴 그대로" "$(grep -c '1793000000\.123450000' 
 r="$( cd "$T" && env -i HOME="$HOME" PATH="$T/fake:$PATH" FAKE_PANES="$T/panes" FAKE_CWDS="$T/cwds" FAKE_STAT_MODE=gnu FAKE_STAT_GNU=1793000000.123451000 bash "$PLAN" 2>&1 )"
 has "$r" "skip $W/land-done — mtime 바뀜(1793000000.123451000 ≠ 계획 1793000000.123450000)" "ⓚ3 나노초 차이를 «바뀜» 으로"
 chk "ⓚ3 land-done 남음" "$(isd "$W/land-done")" yes
+
+echo "== ⓛ DA r8 ①: stat rc≠0 의 출력은 값으로 쓰지 않는다(숫자를 찍어도 실패)"
+land_reset; rm -f "$PLAN" "$PLAN.sig" "$PLAN.sent"
+o="$(lp FAKE_STAT_MODE=badrc)"; rc=$?
+chk "ⓛ1 생성 rc≠0" "$([ "$rc" -ne 0 ] && echo yes || echo no)" yes
+has "$o" "판정 불가 land-done: mtime 못 읽음(계획 제외 · 삭제 0)" "ⓛ1 rc≠0 → 판정 불가"
+chk "ⓛ1 계획 줄 0(계획 파일 없음 = 0곳)" "$([ -f "$PLAN" ] && grep -c '^land_rm ' "$PLAN" || echo 0)" 0
+chk "ⓛ1 ERROR 1줄" "$(printf '%s\n' "$o" | grep -c '^ERROR')" 1
+chk "ⓛ1 삭제 대역 호출 0 — 워크트리 수 그대로" "$(NWT)" "$N0"
+land_reset; rm -f "$PLAN" "$PLAN.sig" "$PLAN.sent"; o="$(lp)"
+r="$( cd "$T" && env -i HOME="$HOME" PATH="$T/fake:$PATH" FAKE_PANES="$T/panes" FAKE_CWDS="$T/cwds" FAKE_STAT_MODE=badrc bash "$PLAN" 2>&1 )"; rc=$?
+has "$r" "skip $W/land-done — mtime 못 읽음(판정 불가)" "ⓛ2 실행 때도 rc≠0 출력 = 못 읽음(KEEP)"
+chk "ⓛ2 land-done 남음(삭제 0)" "$(isd "$W/land-done")" yes
 
 echo
 [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }

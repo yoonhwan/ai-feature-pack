@@ -275,13 +275,18 @@ for r in out: sys.stdout.write(r + "\n")
 #   ★r880 재설계 r9(오빠 결정 6 · arch 166)★ 읽기는 둘뿐 — ⓐ macOS `stat -f %Fm` ⓑ 없으면 GNU `stat -c %.9Y`(글자 그대로). 소수를 «다시 계산» 하는 대안(perl HiRes)은 삭제(유효숫자 15자리에서 두 값이 같아져 낡은 계획이 통과했다).
 #   둘 다 안 되거나 출력이 «숫자·점» 꼴이 아니면 «값 없음 = 실패» — `?` 같은 대체 값을 값으로 적지 않는다(그러면 `?`=`?` 가 «같음» 이 되는 구멍이 생긴다).
 mtime_frac() {
-  local v
-  v="$(stat -f %Fm "$1" 2>/dev/null)"
-  case "$v" in ''|*[!0-9.]*|.*|*.|*.*.*) v="$(stat -c %.9Y "$1" 2>/dev/null)";; esac
-  case "$v" in
-    ''|*[!0-9.]*|.*|*.|*.*.*) return 1;;
-    *[0-9]*) printf '%s' "$v"; return 0;;
-  esac
+  local v rc
+  # ★r880 재설계 r10(arch 167 · DA r8 ①)★ 각 호출의 rc 를 본다 — rc≠0 인 호출의 출력은 «어떤 경우에도» 값으로 쓰지 않는다(실제 macOS stat 도 실패 때 숫자와 rc1 을 같이 낸다).
+  v="$(stat -f %Fm "$1" 2>/dev/null)"; rc=$?
+  if [ "$rc" -ne 0 ]; then v=""; else
+    case "$v" in ''|*[!0-9.]*|.*|*.|*.*.*) v="";; esac
+  fi
+  if [ -z "$v" ]; then
+    v="$(stat -c %.9Y "$1" 2>/dev/null)"; rc=$?
+    [ "$rc" -eq 0 ] || return 1
+    case "$v" in ''|*[!0-9.]*|.*|*.|*.*.*) return 1;; esac
+  fi
+  case "$v" in *[0-9]*) printf '%s' "$v"; return 0;; esac
   return 1
 }
 # land_check <리포> <사본> <만든 때 sha|빈 값> — 0 = 지워도 됨(stdout HEAD sha) · 1 = 남김(stdout 이유 1줄). LIVE·LAND_REF 를 쓴다.

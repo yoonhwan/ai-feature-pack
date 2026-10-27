@@ -7,6 +7,7 @@
 #   ft_team_rel <팀>                : 칸에 적힌 원문 경로(치환 전) — 이동 도구의 before/after 줄용
 #   env: FT_REPO_ROOT(기본 git 루트) · FT_TEAMS_MD(기본 <루트>/design/TEAMS.md) · FT_HARNESS_ROOT(꼴3 치환값 · 없으면 꼴3 팀은 ERROR rc1)
 #   ft_from_current <값> [<명부>]   : 보내는 사람 이름의 «명부 현역» 해석 — 송신 from 단일 출처 (r730)
+#   ft_sparse_patterns <팀> [경로…] : sparse-checkout --no-cone 패턴(자기 팀 design + 추가 경로) — ft-wt-add.sh (r835)
 #   실패는 stderr `ERROR …` + rc1 — 옛 `design/<팀>/` 으로 되돌아가지 않는다(#0 RULE).
 ft_team_repo_root() { local r="${FT_REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null)}"
   [ -n "$r" ] || { echo "ERROR 리포 루트를 못 찾았다(FT_REPO_ROOT 또는 git 안에서 실행)" >&2; return 1; }; printf '%s\n' "$r"; }
@@ -264,6 +265,11 @@ ft_team_has() { local t="$1" p="$2" sub="${3:-}" rel c md
   case "$p" in *"$rel$sub"*) return 0;; esac
   c="$(ft_index_twin "$rel")" && case "$p" in *"$c$sub"*) return 0;; esac
   return 1; }
+# r835: sparse 체크아웃 패턴 단일 출처 — ft-nano-spawn 424행과 같은 3줄(남의 팀 design 제외) + 추가 경로마다 `/<경로>` 1줄(끝 / 는 그대로)
+ft_sparse_patterns() { local t="$1" p; shift
+  printf '/*\n!/design/teams/*/\n/design/teams/%s/\n' "$t"
+  for p in "$@"; do printf '/%s\n' "${p#/}"; done; }
+
 # ── r978 r2 — «바뀐 경로 목록» 읽기 «한 곳» (리서치 닫기 ft-nano-close.sh · 완성 판정 ft_doc_card_landed 가 같이 부른다)
 #   반송 r1(DA HOLD 3)의 원인 하나: 세 자리가 git 경로 출력을 «그대로» 읽어 ①이름 변경의 옛 경로를 건너뛰고 ②인용된(quotePath) 경로를 원래 글자와 비교했다.
 #   r2 반송 r2(DA r2 HOLD 3): `-c core.quotePath=false` 로도 git 은 «따옴표·역슬래시 든 경로» 와 «공백 든 미추적 경로» 를 따옴표로 감싼다 → 인용 해제 코드 0 을 위해 `-z`(NUL 구분)로 받는다.

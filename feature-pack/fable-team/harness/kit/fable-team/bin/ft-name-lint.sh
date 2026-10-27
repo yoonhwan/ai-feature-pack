@@ -17,6 +17,10 @@ ROLES="master arch da tester checker analyst pm nano repro tool desk"
 AGENTS="claude codex opencode cmd pi"
 MAXLEN=60
 
+# ★역할 집합 노출(r975 r6 · 오빠 결정 5 = 4번)★ — «한 값은 한 곳». ft-nano-spawn.sh 의 «이 팀 좌석» 경계 판정이
+#   자기 목록을 따로 적지 않고 이 값을 그대로 읽는다(`ft-name-lint.sh --roles`). 판정 로직은 그대로.
+[ "${1:-}" = --roles ] && { printf '%s\n' "$ROLES"; exit 0; }
+
 [ $# -eq 1 ] && [ -n "$1" ] || { echo "usage: ft-name-lint.sh <세션명>" >&2; exit 2; }
 NAME="$1"
 

@@ -1,0 +1,5 @@
+## bash -n · kit 짝 cmp0 · 세트
+bash -n OK
+bash3.2 -n OK
+kit ↔ harness/bin cmp0
+97be2056b09e36f69776451d5edb3d49824124e8

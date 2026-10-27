@@ -85,7 +85,7 @@ probe "$PURL"
 
 echo "== ⓔ 둘 다 실패 = 진짜 장애 → spawn exit 7 · 순번 큐 1줄(사유 proxy) · 좌석 0"
 B="$T/bin"; mkdir -p "$B"
-cp "$KIT/ft-nano-spawn.sh" "$KIT/ft-spawn-issue-gate.sh" "$KIT/ft-agent-ready.sh" "$KIT/ft_spawn_queue.py" "$KIT/ft_teamset.py" "$B/"
+cp "$KIT/ft-nano-spawn.sh" "$KIT/ft-spawn-issue-gate.sh" "$KIT/ft-agent-ready.sh" "$KIT/ft_spawn_queue.py" "$KIT/ft_teamset.py" "$KIT/ft-name-lint.sh" "$B/"   # r975 r6: 역할 집합 출처
 printf '#!/bin/bash\necho "{\\"number\\":1,\\"state\\":\\"OPEN\\",\\"url\\":\\"https://github.com/o/r/issues/1\\"}"\n' > "$B/gh-open"   # r823: 착수 게이트 = 픽스처 카드 #1 열린 이슈(가짜 gh)
 . "$(dirname -- "${BASH_SOURCE[0]}")/lib/bin_source_deps.sh"; copy_source_deps "$KIT" "$B" || bad "r686 사본 source 대상 채우기"   # r686: spawn 이 source 하는 같은 폴더 lib(r672 research-seat …) · 아래 가짜(team-lib 등)는 그 뒤에 덮는다
 printf '#!/bin/bash\nexit 0\n' > "$B/ft-index-lint.sh"                       # 카드 lint = 이 카드 소관 아님
@@ -103,15 +103,16 @@ chmod 755 "$B"/*
 mkdir -p "$T/repo/.fable-team/state" "$T/repo/.fable-team/comm" "$T/repo/design/harness/indices/대기"
 env -u GIT_DIR -u GIT_WORK_TREE git init -q "$T/repo"
 git -C "$T/repo" -c user.name=t -c user.email=t@t commit -q --allow-empty -m init
-printf '{"_parent":null}\n' > "$T/repo/.fable-team/seats.json"
-printf '{"_parent":null}\n' > "$T/repo/.fable-team/seats-harness.json"   # 순번 큐가 그 팀 명부를 읽는다
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/fake_tmm.sh"; fake_tmm "$T/fake" byz-harness-master-claude#1   # r975 r4: 살아 있는 좌석 목록 대역
+printf '{"_master":"byz-harness-master-claude#1","byz-harness-master-claude#1":{"role":"master"}}\n' > "$T/repo/.fable-team/seats.json"   # r975: 회신 대상 = 명부 _master
+printf '{"_master":"byz-harness-master-claude#1","byz-harness-master-claude#1":{"role":"master"}}\n' > "$T/repo/.fable-team/seats-harness.json"   # 순번 큐가 그 팀 명부를 읽는다
 printf '2026-10-22T00:00:00\toff\tinstall\tinit\n' > "$T/repo/.fable-team/state/all-stop.log"
 printf '#!/bin/sh\necho "SENT stub"\n' > "$T/repo/.fable-team/comm/mbox.sh"; chmod 755 "$T/repo/.fable-team/comm/mbox.sh"
 CARD="$T/repo/design/harness/indices/대기/x.md"; printf '# 카드\n- Issue: #1\n' > "$CARD"
 Q="$T/repo/.fable-team/state/spawn-queue-harness.tsv"
-spawn() { ( cd "$T/repo" && FT_SEATS_JSON="$T/repo/.fable-team/seats.json" FT_NANO_PREFIX=byz-harness-nano- \
+spawn() { ( cd "$T/repo" && PATH="$T/fake:$PATH" FT_SEATS_JSON="$T/repo/.fable-team/seats.json" FT_NANO_PREFIX=byz-harness-nano- \
   FT_TEAMSET=0 FT_ROUTE_STATUS_CMD="$ROUTE" FT_PROXY_PROBE_URL="$1" FT_GH_READ="$B/gh-open" \
-  env -u FT_PROXY_PROBE_MAX bash "$B/ft-nano-spawn.sh" "$CARD" --from dispatch 2>&1 ); }
+  env -u FT_PROXY_PROBE_MAX bash "$B/ft-nano-spawn.sh" "$CARD" --from byz-harness-master-claude#1 2>&1 ); }
 S=$SECONDS; o="$(spawn "$PURL")"; rc=$?; el=$((SECONDS - S))
 { [ "$rc" = 7 ] && ok "ⓔ 진짜 장애 → exit 7 (옛 판: exit 1 · 큐 0)"; } || bad "ⓔ exit=$rc (옛 판 1) ← $(printf '%s' "$o" | tail -2 | tr '\n' '|')"
 has "$o" "QUEUED" "ⓔ 순번 큐에 남는다(QUEUED)"

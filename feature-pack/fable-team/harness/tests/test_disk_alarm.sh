@@ -23,6 +23,7 @@ run() { : > "$MLOG"; env FT_RES_ROOT="$R" FT_DISK_FREE_GIB="$1" FT_DISK_NOW=$((N
   FT_SEATS_JSON="$T/seats.json" FT_RES_WATCH_SH="$T/watch.sh" FT_SCRATCH_REPO_SH="${SCR_STUB:-$T/noscratch.sh}" FT_MBOX_SH="${MBOX_STUB:-$T/mbox.sh}" bash "$SUT" >"$T/out" 2>&1; RC=$?; }
 printf '#!/bin/sh\nexit 0\n' > "$T/noscratch.sh"; chmod 755 "$T/noscratch.sh"   # 실 TMPDIR 을 건드리지 않게 항상 가짜 주입
 export FT_DOCKER_REAP_SH="$T/noscratch.sh"   # 실 docker 를 건드리지 않게 시험 컨테이너 리퍼도 항상 가짜(기본 = 출력 0 → 쪽지 0)
+export FT_WT_MODE_STAMP_SH="$T/noscratch.sh"   # r843 r2: 표식 탐지도 기본 가짜(출력 0 → 쪽지 0)
 sent() { grep -c . "$MLOG"; }
 has()  { grep -q -- "$1" "$MLOG"; }
 
@@ -87,6 +88,21 @@ printf '#!/bin/sh\necho x >> "%s/reap.calls"\necho "OK 후보 0 — 겉보기 �
 FT_DOCKER_REAP_SH="$T/reap_ok20.sh" run 60 600000
 { [ "$(sent)" = 1 ] && has '\[시험 컨테이너 정리 실패\] rc=20 OK 후보 0'; } && ok "ⓟ2 rc20 + 본문 OK → 경보 1" || bad "ⓟ2 $(cat "$MLOG")"
 rm -f "$T/reap.fail"
+
+# r843 r2: 하루 1회 표식 없는 풀 팀 워크트리 탐지(ft-wt-mode-stamp --unmarked) — 목록은 planner 1통 · 지우기 0 · 탐지 실패도 쪽지
+printf '#!/bin/sh\necho "$*" >> "%s/unm.calls"\n[ -e "%s/unm.fail" ] && { echo "REJECT 루트 폴더 없음"; exit 1; }\necho "UNMARKED /w/a teams=3 kib=1048576"\necho "UNMARKED /w/b teams=4 kib=524288"\necho "TOTAL worktrees=5 has=3 unmarked=2 mode=unmarked"\n' "$T" "$T" > "$T/unm.sh"; chmod 755 "$T/unm.sh"
+FT_WT_MODE_STAMP_SH="$T/unm.sh" run 60 700000
+{ [ "$(grep -c . "$T/unm.calls")" = 1 ] && grep -qx -- "--root $R --unmarked" "$T/unm.calls" && [ "$(sent)" = 1 ] && has 'byz-planner-master-claude#99|' \
+  && has '\[표식 없는 풀 팀 워크트리\] 2곳 · 합 1.5GiB · 지우기 0' && has '앞 5: /w/a, /w/b' && [ "$(grep -c '^UNMARKED ' "$R/.fable-team/state/wt-unmarked.txt")" = 2 ]; } \
+  && ok "ⓦ1 표식 탐지 24h 경과 → --unmarked 1회 · planner 1통(2곳 · 1.5GiB) · 전체 목록 파일" || bad "ⓦ1 calls=$(cat "$T/unm.calls") $(cat "$MLOG")"
+FT_WT_MODE_STAMP_SH="$T/unm.sh" run 60 701000
+{ [ "$(grep -c . "$T/unm.calls")" = 1 ] && [ "$(sent)" = 0 ]; } && ok "ⓦ2 하루 안 재호출 0" || bad "ⓦ2 calls=$(grep -c . "$T/unm.calls") sent=$(sent)"
+touch "$T/unm.fail"; FT_WT_MODE_STAMP_SH="$T/unm.sh" run 60 800000
+{ [ "$(sent)" = 1 ] && has '\[표식 탐지 실패\] rc=1 REJECT 루트 폴더 없음' && grep -q 'wt-unmarked rc=1' "$R/.fable-team/state/disk-alarm.log"; } \
+  && ok "ⓦ3 탐지 실패 rc1 → 로그 + planner 쪽지(조용한 0 없음)" || bad "ⓦ3 $(cat "$MLOG")"
+rm -f "$T/unm.fail"
+printf '#!/bin/sh\necho "TOTAL worktrees=5 has=5 unmarked=0 mode=unmarked"\n' > "$T/unm0.sh"; chmod 755 "$T/unm0.sh"
+FT_WT_MODE_STAMP_SH="$T/unm0.sh" run 60 900000; [ "$(sent)" = 0 ] && ok "ⓦ4 목록 0 → 쪽지 0(로그만)" || bad "ⓦ4 $(cat "$MLOG")"
 
 # R262: 명부 env 를 «안 넣은» 기본 경로 — 임시 루트의 .fable-team/ 에 명부를 직접 둔다(env 주입이 기본값 결함을 가렸다)
 # newroot <이름> <seats.json 내용> <seats-planner.json 내용> [seats-harness.json 내용] — 임시 루트 R_<이름> 만들기

@@ -1,0 +1,28 @@
+# r843 r6 — 외부 DA r4 반례 3 닫기 (base = 0522b777 위 커밋 1 · 나노 byz-harness-nano-r843-wt-sparse-mark-write-verify#0 · 2026-10-27)
+
+오빠 결정 3(«이동 전 구조 루트 하위 → 완성 시 이동» · 추천 1번) 그대로 구현했습니다.
+
+## 반례 → 고침
+
+| DA r4 반례 | 원인 | 고침 |
+|---|---|---|
+| ① 읽기 실패 코드 무시 — 기록한 내용을 출력한 뒤 rc1 을 돌려주는 cat 주입 → ERROR 없이 rc0 · sparse=true · stamp 도 rc0 | 읽기 명령의 성공 여부 없이 출력값만 비교 | 읽기 확인을 `_ftw_read` 한 자리로 모으고 **rc 와 출력을 둘 다** 본다. stamp 의 표식 읽기·`--apply` 쓰기 확인도 같다 |
+| ② 실패한 쓰기의 표식 잔존 — 쓰기 실패/검증 실패 주입 뒤 빈 표식 또는 미검증 표식이 남고, 같은 주입의 다음 실행은 조용한 rc0 | 쓰기·검증 실패 경로가 만든 표식을 남김 | 산출은 `<표식>.pending.<pid>/ft-wt-mode` 에 먼저 만들고 검증을 통과한 뒤 **mv 1회** 로 진짜 자리에 옮긴다. 실패는 `_ftw_fail` 한 자리 = pending 삭제 + 표식 삭제 + config 원복 + ERROR 1줄 + rc1 |
+| ③ sparse 실패 뒤 재시도 누락 — `sparse-checkout set` 실패 뒤 표식만 지우고 core.sparseCheckout=true 가 남아, 다음 실행이 적용 재시도 없이 sparse 표식을 쓴다 | 실패 시 표식만 지움(설정은 그대로) | `_ftw_fail` 이 **core.sparseCheckout 을 설정 전 값으로 원복**(unset 이면 `--worktree`/`--local` 둘 다 unset · info/sparse-checkout 도 되돌림) → 다음 실행은 «표식 없음 + 설정 없음» 에서 처음부터 다시 적용 |
+
+`_ftw_fail <단계> <사유>` = 한 자리 실패 처리(① pending 삭제 ② 표식 삭제 ③ config 원복 ④ ERROR 1줄 ⑤ rc1). 단계 함수 3개(pending 쓰기 · 표식 mv · sparse 설정)의 실패 분기가 전부 이 한 줄을 부릅니다.
+
+## 시험(ⓐⓑⓒ = 3 반례 · 단언 7줄)
+
+- ⓕ1 · ⓕ1b · ⓕ1c = DA① 읽기 rc 무시: 훅(정확한 값 + rc1) → ERROR·rc≠0·표식 0·pending 잔존 0 · stamp `--apply` → ERROR 표식 쓰기 실패·표식 원복 0 · stamp 표식 읽기 rc≠0 → `못 읽음(읽기 rc≠0)` ERROR·HAS 0·값 그대로
+- ⓕ2 · ⓕ2b = DA② 쓰기 검증 실패(빈 출력): 빈 표식 0 · 풀 그대로 · rc≠0 · 같은 주입의 다음 실행도 ERROR(조용한 rc0 0)
+- ⓕ3 · ⓕ3b = DA② sparse 실패: `<gitdir>/info` 를 일반 파일로 만들어 `sparse-checkout set` 을 실패시킴 → config 원복(unset) · 표식 0 · rc≠0 · 파일 치운 다음 checkout 은 처음부터 다시 적용(sparse · 표식 · `[r835]` 안내 1회)
+
+## 값
+
+- green: `test_post_checkout_sparse_r835.sh` **82 PASS** 0 FAIL rc=0 (변이 포함) · `test_worktree_add_gate_r835.sh` 47 PASS · `test_wt_add_r835.sh` 27 PASS · `test_disk_alarm.sh` 37 PASS — 기존 74 칸 전부 유지
+- red: **0522b777**(r5 판) FAIL 11 — ⓕ1~ⓕ3 계열이 그대로 재현(읽기 rc 무시·표식 잔존·config 반쪽) · **730e2886**(r2 판) FAIL 30
+- 변이 **19**(전부 빨강): `r843r5-*` 4종 · `r843-r6-fail-noop`(fail_closed 비우기 → ⓕ1·ⓕ1b·ⓕ2·ⓕ3 계열 FAIL) · `r843-no-verify`(rc·빈값 무시 → ⓕ1) · `r843-exist-only`(stamp 읽기 rc 무시 → ⓕ1c) · 기존 12종
+- lint: `sh -n` 1 · `/bin/bash 3.2.57 -n` 4파일 rc=0 · stamp 짝(키트↔harness/bin) `cmp` rc=0 · manifest 1.1.256 그대로
+- 바뀐 파일: `kit/fable-team/githooks/post-checkout` · `kit/fable-team/bin/ft-wt-mode-stamp.sh` · `harness/bin/ft-wt-mode-stamp.sh`(짝) · `tests/test_post_checkout_sparse_r835.sh` · 증거 `evidence/r843/r6-*.txt`
+- press 필요: 없음(임시 리포 단위 시험만)

@@ -1,3 +1,9 @@
+## 2026-10-27 — r880 재설계 r9·r10: mtime 읽기 «대안 삭제 + rc≠0 출력 버림»(DA r6·r8 반례)
+
+- ★재설계 r9(오빠 결정 6 «대체 경로 삭제» · arch 166)★ mtime 읽기 대안(perl HiRes)이 유효숫자 15자리에서 서로 다른 나노초 값을 같은 글자로 출력해 낡은 계획이 삭제 단계까지 가던 것 → 읽기는 ⓐ macOS `stat -f %Fm` ⓑ 없으면 GNU `stat -c %.9Y`(글자 그대로) ⓒ 둘 다 안 되면 «값 없음 = 실패» 만 남기고 대안·`?` 대체값을 삭제. 못 읽은 사본은 판정 불가(계획 생성 = 계획 제외 · 삭제 0 · ERROR 요약 1줄 · rc≠0 / 실행 = KEEP «mtime 못 읽음(판정 불가)» · 삭제 0). 시험 칸 ⓚ(생성·실행·GNU 나노초) · 183 PASS · 변이 15. 증거 `harness/evidence/r880/r9-*`.
+- ★재설계 r10(arch 167 · DA r8 ①)★ `stat` 이 rc≠0 인데 숫자를 찍으면 그 숫자를 값으로 쓰던 것(실제 macOS stat 도 실패 때 값과 rc1 을 같이 낸다) → 각 호출의 rc 를 보고 rc≠0 인 출력은 «어떤 경우에도» 값으로 쓰지 않는다. 계획 생성·실행 두 자리 모두 못 읽음 = 판정 불가(KEEP · 삭제 0). 시험 칸 ⓛ(생성·실행) · 190 PASS · 변이 16 · 증거 `harness/evidence/r880/r10-*`.
+- 이 세트는 r7 위에 origin/main 을 병합한 상태다(충돌 2 = CHANGES.md·manifest.json 만 · 양쪽 보존 · 버전 번호는 착지 때 올린다).
+
 ## 2026-10-27 — r880 재설계 r7: land 계획의 mtime 은 소수 초 · 실행 단계도 실패 셈 1자리(DA r5 반례 2)(1.1.237)
 
 - 착지용 사본(`<리포>/.worktrees/land-*`)이 풀 체크아웃으로 만들어진 뒤 착지가 끝나도 닫는 사건이 없어 쌓였다(BYZ 실측 12곳 · 17GB · sparse 0). → `ft-wt-sweep.sh --land-plan` = ①HEAD 가 `FT_WT_LAND_REF`(기본 origin/main) 조상 ②미커밋 0(추적 밖 파일 포함) ③그 폴더 안에 cwd 를 둔 프로세스(lsof)·tmux pane 0 — 셋 다인 사본만 목록(이름·착지 sha·크기) → 계획 1개 `<state>/wt-clean/land-copies.sh.hil` · ★이 도구는 지우지 않는다★(실행 = 오빠 h). 나머지·잠김 = `KEEP <이름> — <이유>` 1줄 · 좌석을 못 읽으면(lsof·tmux 실패) 목록 0 + ERROR rc1.
@@ -9,6 +15,41 @@
 - ★재설계 r5(오빠 결정 3 «구조 교체» · arch 157 반송서 · 반례 집합·계약 동결)★ 외부 명령 호출을 `run7()` 한 함수로 모았다 — 7초 상한(124 = 실패) · 성공 = rc0 «만»(출력 유무로 판단 0) · 실패는 단계 이름 + rc(문구로 면제 0) · 출력은 성공일 때만 쓴다. land-plan 의 lsof·tmux·경로 정규화(python3 realpath)·h 등록이 전부 run7 경유다. 경로는 바이트 그대로(`strip`·`splitlines` 삭제 · 개행 하나만 자름 — 뒤 공백·수직탭 이름이 바뀌어 «쓰는 사본» 이 목록에 들던 길 0). 실패 처리도 한 자리 = 사본별 «판정 불가(계획 제외 · 삭제 0)» + ERROR 1줄 · 등록 실패 = 알림 0 · `.sent` 0 · 다음 실행 재시도 · `--launchd` 는 `--land-plan` 의 rc 를 최종 rc 에 반영(rc0 으로 덮던 길 0). 시험 칸 5(ⓐ~ⓔ) 더해 114 PASS · 8bdc40a7 기준판 FAIL 18 · 변이 10 전부 KILLED · two_stage 62 PASS 포함 회귀 4종 rc0 · 증거 `harness/evidence/r880/r5-*`.
 - ★재설계 r6(오빠 결정 4 «빈자리+시험» · arch 159 반송서)★ ① 표지 해시가 같아 알림을 생략하는 경로에서 최종 rc0 으로 끝나던 것 → `land_rc()` 한 자리에서 판정 불가(`bad`) ≥1 이면 요약 ERROR 1줄 + rc1 «무조건»(보냄 표지 일치·알림 생략과 무관) · `--launchd` 기록도 같은 rc. ② 한 건 실패에 ERROR 가 두 줄(사본별 + 요약)이던 것 → ERROR 는 마지막 요약 1줄만 · 사본별 줄은 `판정 불가 <사본>:<단계>` 로그(접두 ERROR 0). 시험 칸 3(ⓕ 표지 있는 상태 · ⓖ ERROR 1줄 · ⓗ 전수 6자리 × 표지 유무 + run7 자리 수 가드) 더해 147 PASS · 3790c0db 기준판 FAIL 14 · 변이 12 전부 KILLED · 회귀 4종 rc0 · 증거 `harness/evidence/r880/r6-*`.
 - ★재설계 r7(오빠 결정 5 «1 두 자리 고침» · arch 161 반송서)★ ① 계획 생성 뒤 mtime 이 «같은 초 안»에서 바뀌면 초 단위 비교라 못 보고 낡은 계획이 삭제 단계까지 가던 것 → `mtime_frac()` 로 mtime 을 소수 초로(`stat -f %Fm` · 없으면 `perl -MTime::HiRes=stat`) 읽어 계획 줄·계획 지문·실행 재검사가 같은 값을 쓴다. ② 계획(h 스크립트) «실행» 단계에서 조회 실패를 skip 하고 rc0 으로 끝나던 것 → 생성 단계와 같은 실패 셈 1자리(BADN·BADLIST) — 조회 실패 ≥1 이면 그 사본 skip(지우기 0) · 마지막 ERROR 1줄 «판정 불가 N곳 — 건너뜀: …» · 최종 rc≠0. 시험 칸 2(ⓘ 같은 초 안 mtime · ⓙ 실행 단계 조회 실패 3자리) 더해 171 PASS · 8b12d010 기준판 FAIL 11 · 변이 14 전부 KILLED · 회귀 4종 rc0 · 증거 `harness/evidence/r880/r7-*`. 시험 `tests/test_wt_sweep_land_plan_r880.sh` 39 · 기준판 빨강 22 · 변이 2(착지 조상 검사 제거 · 계획 대신 바로 정리) 빨강 · 증거 `harness/evidence/r880/`.
+## 2026-10-27 — r845 재설계 r8 (DA 2/2 동작 반례 1 · 오빠 결정 3 = 1번) — «같은 sha·같은 주인» 재사용 조기 반환이 완전성 확인을 건너뛰어, 훅이나 시험이 더럽힌 기존 사본(a.txt 가 moved.txt 로 옮겨짐)을 rc0 으로 그대로 돌려줬다 → 재사용 조건에 `verify_complete`(그 사본의 HEAD == 요청 sha ∧ `git status` 깨끗) 추가 — 불완전 사본은 건너뛰고 WARN 1줄 + 새 사본 생성(삭제 0 · 장부 줄 유지) · 로직 추가 0, 함수 호출 1곳(같은 함수를 생성 뒤 확인과 재사용 판정이 함께 쓴다) (r845 r8 · 1.1.262 · ft-scratch-repo.sh 1곳 + 짝 사본 + 시험 1)
+
+- 반송서 `design/harness/evidence/r845-da6/REWORK-r845-r8.md` · DA 원문 `harness/evidence/r845-da6/da-20261027-121705-17143.out` · 오빠 결정 3(`desk #174265`) · 계약·반례 집합은 그대로, 구현만 교체.
+- 증거 `harness/evidence/r845/r8-*`: 기준판(df9df4c1 = r7 세트) ⓚ 3 FAIL rc=3 → 새 판 34 PASS ×3 rc=0 · scratch 기존 4종 ALL PASS · 변이 6종 전부 해당 칸 FAIL(«재사용 완전성 확인 끔» → ⓚ FAIL 포함) · bash 3.2 · kit↔harness/bin cmp0.
+- 되돌림 = revert 1커밋 · press 필요 없음(단위 시험만).
+
+## 2026-10-27 — r845 재설계 r7 (DA 1/2 HOLD 2 반려) — 지우기 판단에 «owner 폴더 경계 0» 이라 장부에 적힌 detached 사본이면 남의 사본 폴더·폴더 밖 경로도 지웠고, 체크아웃 훅이 rc0 이면 «온전한 사본인지» 확인을 건너뛰어 반쯤 사본(파일 옮김·HEAD 바뀜)도 등록됐다 → ① `--done`/`--sweep` 삭제 = «그 줄 주인의 사본 자리(FT_SCRATCH_DIR 또는 `$TMPDIR/ft-scratch/<주인>/`) 아래» ∧ «장부 3열 같은 글자» ∧ «분리 워크트리» 세 조건 모두(자리 밖·남의 owner = 건너뜀 + WARN · 삭제 0 · 장부 줄 유지) ② 사본 완전성(요청 sha == HEAD ∧ status 깨끗)은 훅 rc 와 무관하게 항상 확인(어긋나면 die 4 · 등록 0) (r845 r7 · 1.1.261 · ft-scratch-repo.sh 1곳 + 짝 사본 + 시험 1)
+
+- 반송서 `design/harness/evidence/r845-da6/REWORK-r845-r7.md` (DA da-20261027-111456-12089.out · gpt-6.1-sol) · 계약·반례 집합은 r6 그대로 · 구현만 고침.
+- 증거 `harness/evidence/r845/r7-*`: 기준판(origin/main 6f354dbf) 17 FAIL rc=17 → 새 판 30 PASS ×3 rc=0 · 기존 scratch 시험 4종 ALL PASS · 변이 5종(장부 실패=die · 장부 줄만 보고 삭제 · 입구 거절 삭제 · owner 경계 제거 · rc0 훅 완전성 건너뜀) 전부 해당 칸 FAIL · bash 3.2 동일 · kit↔harness/bin cmp0.
+- 되돌림 = revert 1커밋 · press 필요 없음(단위 시험만).
+
+## 2026-10-27 — 임시 사본(scratch repo)이 «훅이 죽으면 장부에 안 남아 아무도 못 지우는» 고아가 됐다(beads post-checkout SIGSEGV → worktree add rc=4 · 사본은 그 sha 로 생겼는데 등록 전 die) → 설계를 접는다: 사본은 재부팅이 지우는 임시 자리(`$TMPDIR/ft-scratch/<주인>/`)에 만들고 장부는 «있으면 참고»(쓰기 실패 = WARN · die 0) · 훅 실패여도 사본이 «요청 sha 그대로 + status 깨끗» 이면 경로 rc0 + WARN · 지우기(`--done`/`--sweep`)는 «장부 3열 같은 글자 ∧ 분리(detached) 워크트리» 둘 다일 때만 · 생성 경로에 제어 문자 = 입구 거절 rc2 (r845 재설계 r6 · 1.1.260 · ft-scratch-repo.sh 1곳 + 짝 사본 + 시험 1)
+
+- 오빠 결정 10-27 08:5x «tmp 에 임시를 쌓으면 재부팅에 정리된다» · arch 157 재설계 r6 · 인터뷰 묶음 INTERVIEW-arch156-after-decision-20261027.md · DA r3 반례(경로 탭·줄바꿈으로 장부 줄이 깨져 남의 폴더를 지움)는 «입구 거절 + 장부 옛 줄 건너뜀» 으로 닫음.
+- 증거 `harness/evidence/r845/`: 기준판(origin/main 6f354dbf) 10 FAIL rc=10(ⓔ 는 탭 경로에 사본을 만들고 장부 줄을 깨뜨림) → 새 판 20 PASS ×3 rc=0 · 기존 scratch 시험 4종 ALL PASS(23·10·18·27 PASS) · 변이 3종(장부 실패=die · 장부 줄만 보고 삭제 · 입구 거절 삭제) 전부 해당 칸 FAIL · bash 3.2 동일 · kit↔harness/bin cmp0 · bash -n OK.
+- 해석 1줄: r6 «장부 3열·옛 줄 해석 0» 은 «옛/깨진 줄로는 지우지 않는다(건너뜀 + WARN)» 로 읽었다 — 기존 시험 r548 ⓗ 가 3열 나이 칸 계약을 잡고 있어 장부 3열 자체는 유지. 되돌림 = revert 1커밋.
+- press 필요: 없음(단위 시험만 · 라이브 오디오·말풍선·제품 키 경로 0).
+## 2026-10-27 — r843 r5~r9 팀 워크트리 표식 — 값 해석 0 · 실패는 fail_closed 한 자리 · 설정 값(config)을 읽어 믿는 길 삭제 (1.1.259)
+
+- 외부 DA r3·r4·r6·r8 반례를 5회에 걸쳐 닫았다(반례 집합·계약 동결 · 구현만 교체).
+- r5 = 표식 값 글자 꼴 해석 0(읽히는 일반 파일이면 값 무관 «있음» = 손대지 않음) · 표식을 상태 변경 «전» 에 쓰고 다시 읽어 확인.
+- r6 = 실패 처리를 `_ftw_fail` 한 자리로(pending 삭제 · 표식 삭제 · 설정 원복 · ERROR 1줄 · rc1) · 산출은 `<표식>.pending.<pid>` → 검증 뒤 mv 1회 · 읽기 확인은 rc와 출력 둘 다.
+- r8 = 설정 원복은 스코프별(`--worktree`/`--local`) · 표식은 sparse 설정 rc0 뒤 최종 자리 mv · 기존 표식 읽기 실패 = fail_closed · 실패 자리 전수(6자리) 시험.
+- r9 = `core.sparseCheckout` 을 읽어 «이미 sparse» 로 건너뛰는 분기 삭제(표식 없으면 항상 set) · 실패 뒤 우리가 켠 `extensions.worktreeConfig` 까지 «없음» 복원 · 판정 입력은 패턴 파일(`info/sparse-checkout` · 읽기 rc 검사 · 실패 fail_closed).
+- 값: `test_post_checkout_sparse_r835.sh` 103 PASS 0 FAIL(변이 23 전부 빨강 · 빨강 r8 판 FAIL 3 · r2 판 FAIL 45) · gate 47 · wt_add 27 · disk_alarm 37 PASS · `/bin/bash 3.2 -n` rc0 · stamp 짝 cmp0. 증거 `harness/evidence/r843/r5-*`~`r9-*`.
+
+## 2026-10-27 — r843 r4 팀 워크트리 표식 «자리 있음/없음» 판별 — 못 읽는·심링크·폴더 표식은 ERROR(1.1.256)
+
+- 외부 DA r843 r2 HOLD 3건(표식 0200 을 «없음» 으로 보고 full 을 sparse 로 덮음 · 끊긴 심링크 표식 자리에 sparse 적용 · `--unmarked` 읽기 오류 묻힘)을 재설계 r4 로 닫는다. 계약 = «표식 자리 있음/없음» 하나.
+- `kit/fable-team/githooks/post-checkout`: 표식 «있음» = `-e` 또는 `-L`(끊긴 심링크 포함). 있으면 읽어 정상 값(`sparse` · `legacy-full` · `full <사유 10자+>`)일 때만 그대로 두고, 못 읽음·값 아님·심링크·폴더는 `ERROR ft-wt-mode 표식 자리 이상 <표식>` + rc 1 + 체크아웃 상태 변경 0. «없음» = ENOENT 하나뿐이며 그때만 sparse 를 적용하고, 적용 «전» 별도 이름 시험 파일로 표식 자리 쓰기를 먼저 확인한다.
+- `kit/fable-team/bin/ft-wt-mode-stamp.sh`(+`harness/bin` 짝 cmp0): 같은 판별 · `--apply` 는 «없음» 에만 씀 · 있음인데 정상 값 아니면 경로마다 ERROR 줄 + 쓰기 0 + 끝 rc 1 · `--unmarked` 는 표식·design/teams 읽기 실패를 묻지 않고 경로별 ERROR + rc≠0.
+- 시험은 기존 r835 시험 3종에 칸 추가(새 파일 0): R1(0200) ⓡ7·ⓡ8·ⓡ9 · R2(끊긴 심링크) ⓡ10·ⓡ11 · R3(design/teams 000) ⓡ12 · 쓰기 확인 ⓓ1·ⓓ2 · r843 r1·r2 칸은 r4 계약으로 기대값 조정. 변이 18종 전부 빨강(r4 요구 3 = 있음 `-e` 되돌림 · 읽기 실패를 없음으로 · unmarked 오류 삼킴).
+- 값: post-checkout 69 PASS ×1 rc=0 · worktree-add-gate 47 PASS · wt-add 27 PASS · disk-alarm 37 PASS · evidence-log-gate ALL PASS · red = r843 r2 판 FAIL 17(ⓡ7 `sparse=true` 로 DA 반례 1 재현) · a7feee9b 판 FAIL 21 · lint(shellcheck 4파일) rc=0. 증거 `harness/evidence/r843/r4-*`.
+
 ## 2026-10-26 — r850 r5 뉴스 팀 지도 — 「원천 1회 · 하위 1개 흘려 받기 · 팀 단위 격리 · 빈 원천 오류 · 발행 등급」 (1.1.254)
 
 - DA⑥ r4 보류 2(팀마다 하위 1개 동시 → 파일 핸들 한도에서 생성 실패가 지도 전체 중단 · ERROR 0 · 빈 스냅샷 seats 가 모양 검사 통과)를 재설계 r5 로 고친다(REWORK-r850-r5.md · 하드 룰 14 · 리서치 r864 표 · fable-5.1 검토 보강 3줄).
@@ -68,6 +109,7 @@
 - 명령마다 7초 상한 · lsof +L1 은 7초 × ceil(프로세스/500) · 70초 천장 · 넘으면 «시간 초과» · 실패 «실패(…)» 칸(0·빈 칸 0).
 - 상태 `<루트>/.fable-team/state/postboot-measure.tsv`(행 = 1회 · 14일 지난 행은 다음 기록 때 정리 = 닫는 사건) · 날이 바뀐 첫 회 = 전날 요약 1장 `<루트>/design/teams/planner/postboot/SUMMARY-postboot-<날짜>.md`(기준선 열 · 회차 열 · 차이 열 · 커밋 0) · `--summary` = 오늘 요약 지금. stdout 1회 1줄(`/tmp/byz-ft-postboot-measure.log`).
 - 시험 `tests/test_postboot_measure_r868.sh` 49(ⓐ~ⓕ · 변이 2: 시간 초과→0 · colima stop) · 렌더 목록 개수 고정 시험 2개 9 → 10.
+
 
 ## 2026-10-27 — 워크트리 정리 도구(`ft-wt-sweep.sh`)의 껍데기 경보가 «일시 실패» 를 «끊김» 으로 읽어 일하는 폴더를 올리고, 밖에서 물려받은 git 설정 때문에 남의 저장소를 판정했다 → ① 스크립트 시작(자동 스캔 루트 결정 전)에서 GIT_DIR·GIT_WORK_TREE·GIT_INDEX_FILE·GIT_COMMON_DIR 지움 + LC_ALL=C ② worktree list·ls-tree 실패(rc≠0 · 시간 초과 · SHA 0) = 그 폴더 «판정 못 함»(이전 판정 이어받기 · 후보에서 빼지 않음 · 서명 유지 · NOTE 1줄) (r844 r5 · 1.1.259 · 껍데기 경보만 · 정리 경로 변경 0)
 

@@ -1,0 +1,113 @@
+PASS bash -n ft-tick.sh
+PASS bash -n ft-resume-attempt.sh
+PASS bash -n ft-nano-spawn.sh
+PASS bash -n zombie-clean.sh
+PASS 키트 사본 cmp 0 ft-tick.sh
+PASS 키트 사본 cmp 0 ft-resume-attempt.sh
+PASS 키트 사본 cmp 0 ft-nano-spawn.sh
+PASS ⓐ master 스냅샷 생김
+PASS ⓐ 스냅샷 키(uuid·source=live·engine·model)
+PASS ⓐ codex 좌석 스냅샷 0
+PASS ⓐ tmp 잔존 0(tmp→mv 원자 쓰기)
+PASS ⓐ jsonl 안 바뀐 좌석은 다시 쓰지 않는다
+PASS ⓐ jsonl 이 바뀌면 다시 쓴다
+PASS ⓐ resume --from-live dry-run 세션
+PASS ⓐ resume --from-live 명령 불변(래퍼 경유)
+PASS ⓐ --from-live 없으면 은퇴 기록 경로(스냅샷 안 읽음)
+PASS ⓒ OFF 이면 재개 0
+PASS ⓒ OFF 죽음 목록 1통
+PASS ⓒ 목록은 planner 에게
+PASS ⓑ 죽은 claude 나노 표기
+PASS ⓑ 죽은 codex 좌석은 기록 없음(사람 판정)
+PASS ⓑ stop-ready 좌석은 죽음 대상 아님
+PASS ⓑ 은퇴(_replaced_by) 좌석은 죽음 대상 아님
+PASS ⓒ 같은 목록은 다시 안 보낸다(바뀐 때만)
+PASS ⓒ 목록이 바뀌면 다시 보낸다
+PASS ⓓ 한 루프 1석
+PASS ⓓ 첫 순번 = master
+PASS ⓓ 순서 master→planner→arch→그 밖
+PASS ⓔ 재개했으나 세션이 안 떠 있으면(조기 종료) failed
+PASS ⓔ 실패한 좌석을 다시 시도하지 않는다(틱 재시작 5회 뒤에도 4회뿐)
+PASS ⓔ 소진 좌석은 목록으로 사람에게
+PASS ⓔ 원장 선점 1번째 호출
+PASS ⓔ 원장 선점은 동시에 온 두 번째 호출을 막는다(mkdir lock)
+PASS ① allow → 토큰+log 줄
+PASS ① allow.log 에 같은 줄
+PASS ① 토큰 1개 = 정확히 1회 더
+PASS ① 소비 뒤 재시도 0
+PASS ① 토큰은 mv 로 소비돼 .used 로 남는다
+PASS ② .allow 직접 쓰기(allow.log 줄 없음) = 소비 0·resume 0
+PASS ① 원장 없는 좌석 allow 는 REJECT
+PASS ③① 다른 좌석 토큰 → can-try 거부
+PASS ③① 다른 좌석 토큰 → consume 거부
+PASS ③① 거부 뒤 lock·토큰 그대로(소비 0)
+PASS ③② 같은 좌석 다른 uuid 토큰 → 거부
+PASS ③② 거부 뒤 lock 그대로
+PASS ③③ 잘못된 형식 «resume-allow sC uC» → 거부
+PASS ③③ 잘못된 형식 «resume-allow sC uC abc» → 거부
+PASS ③③ 잘못된 형식 «resume-allow sC uC 123 extra» → 거부
+PASS ③③ 잘못된 형식 «allow sC uC 123» → 거부
+PASS ③③ 거부 뒤 lock 그대로
+PASS ③④ 맞는 토큰 → 소비
+PASS ③④ 두 번째 소비 거부
+PASS ③④ 소비 뒤 claim 정확히 1회
+PASS ③④ 두 번째 claim 거부
+PASS ④ 자원 REJECT 면 zombie-clean 호출 0
+PASS ④ 자원 REJECT 면 원장·lock 0
+PASS ④ REJECT 사유는 planner 에게
+PASS ④ 자원이 풀리면 1회(REJECT 때 원장을 태우지 않았다)
+PASS ⓔ resume 명령이 실패하면 그 자리에서 failed
+PASS ⓔ 실패 알림
+PASS 재개 직후 pending
+PASS 세션이 살아 있고 jsonl 이 자라면 ok
+PASS ok 뒤 같은 uuid 로 다시 죽으면 자동 재개 0
+PASS 새 uuid 일 때만 새 원장
+PASS ⓑ 완료·휴식 좌석은 재개 0
+PASS ⓑ 쪽지가 없으면 같은 좌석을 재개(대조)
+PASS ⓖ 일반 좌석 정지는 master 에게
+PASS ⓖ master 정지는 planner 에게(master 도 대상)
+PASS ⓖ 10분 미만은 알리지 않는다
+PASS ⓖ 받은 발주가 있으면(pending=1) 정지 아님
+PASS ⓖ 완료·휴식 좌석은 정지 아님
+PASS ⓖ 같은 정지는 반복 알림 0
+PASS ⓖ 새 정지(turn_end 변화)는 다시 알린다
+FAIL ⓕ spawn 성공 출력 그대로 — 없음: «SPAWNED » ← ENV team=v65 prefix=byz-v65-nano- seats=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.x4QgvDsYU8/repo/.fable-team/seats.json
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp
+FAIL ⓕ 기준선 파일 없음
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import json,sys;d=json.load(open(sys.argv[1]));print(d["card_path"],d["branch"])
+                                ~~~~^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.x4QgvDsYU8/cb/.json'
+FAIL ⓕ card_path·branch — «» ≠ «design/v65/indices/진행/r163x.md nano/r163x»
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import json,sys;print(json.load(open(sys.argv[1]))["card_blob"])
+                                    ~~~~^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.x4QgvDsYU8/cb/.json'
+fatal: '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.x4QgvDsYU8/repo/design/v65/indices/진행/r163x.md'을(를) 읽기용으로 열 수 없습니다: No such file or directory
+PASS ⓕ card_blob = git hash-object
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import json,sys;print(json.load(open(sys.argv[1]))["worktree"])
+                                    ~~~~^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.x4QgvDsYU8/cb/.json'
+FAIL ⓕ worktree — 없음: «/.worktrees/v65-r163x» ← 
+ls: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.x4QgvDsYU8/cb: No such file or directory
+PASS ⓕ tmp 잔존 0
+FAIL ⓕ 기준선 쓰기 실패여도 spawn 결과 그대로 — 없음: «SPAWNED » ← ENV team=v65 prefix=byz-v65-nano- seats=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.x4QgvDsYU8/repo/.fable-team/seats.json
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp
+FAIL ⓕ 쓰기 실패 = stderr 1줄 — 없음: «WARN spawn 카드 기준선 쓰기 실패» ← 
+PASS 변이 1(원장 선점 삭제) → ⓔ 실패 검출
+PASS 변이 2(log 대조 삭제) → ② 실패 검출
+PASS 변이 3(문지기 검사 삭제) → ④ 실패 검출
+PASS 변이 4(좌석·uuid 대조 제거) → ③① 실패 검출
+FAILED=6
+REAL-STATE-GUARD WARN 시험 밖 변경일 수 있음: /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/seats-harness.json
+REAL-STATE-GUARD WARN 번호표 늘었으나 실 좌석 계획(동시 실행): /private/tmp/h186 ← /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/state/approve-merge-feature-2965-1133594d55-20261024.sh.hil
+REAL-STATE-GUARD WARN 번호표 늘었으나 실 좌석 계획(동시 실행): /private/tmp/h187 ← /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/state/approve-merge-knowledge-2963-ef9581e20d-20261024.sh.hil
+REAL-STATE-GUARD WARN 번호표 늘었으나 실 좌석 계획(동시 실행): /private/tmp/h188 ← /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/state/approve-merge-ops-2967-3ecf6099c9-20261024.sh.hil
+REAL-STATE-GUARD WARN 우편함 줄어듦/없음(회전?): /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/comm/mailbox.jsonl
+REAL-STATE-GUARD FAIL 실 상태 바뀜: /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live/.fable-team/state/autonomy-merge-approved/1133594d554b8cfb97b54ef590c3b1a0ee1bf55b
+REAL-STATE-GUARD FAIL 실 상태 바뀜: /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live/.fable-team/state/autonomy-merge-approved/ef9581e20dc7e492e20c8299d3f17c9034b3175d
+REAL-STATE-GUARD FAIL 실 상태 바뀜: /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live/.fable-team/state/autonomy.log

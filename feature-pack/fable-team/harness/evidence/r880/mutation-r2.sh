@@ -170,21 +170,30 @@ mut noexeccount "ⓙ" "$T/m14.py"
 
 echo "== 변이 15: mtime 실패를 «?» 값으로 되돌림(DA r6 ①) — ⓚ 가 잡아야 한다"
 cat > "$T/m15.py" <<'MPY15'
-import sys
+import sys, re
 p = sys.argv[1]; s = open(p, encoding="utf-8").read()
-old = """    ''|*[!0-9.]*|.*|*.|*.*.*) return 1;;
-    *[0-9]*) printf '%s' "$v"; return 0;;
-  esac
-  return 1"""
-assert old in s, "mtime 실패 갈래 없음"
-new = """    ''|*[!0-9.]*|.*|*.|*.*.*) printf '?'; return 0;;
-    *[0-9]*) printf '%s' "$v"; return 0;;
-  esac
-  printf '?'; return 0"""
-open(p, "w", encoding="utf-8").write(s.replace(old, new, 1))
+i = s.index("mtime_frac() {")
+j = s.index("\n}\n", i) + 3
+body = s[i:j]
+assert "return 1" in body, "mtime_frac 실패 갈래 없음"
+mut = body.replace("return 1", "printf '?'; return 0")
+open(p, "w", encoding="utf-8").write(s[:i] + mut + s[j:])
 MPY15
 mut qmark "ⓚ" "$T/m15.py"
 
+echo "== 변이 16: -c 호출 rc 무시(숫자만 검사 · DA r8 ①) — ⓛ 이 잡아야 한다"
+cat > "$T/m16.py" <<'MPY16'
+import sys
+p = sys.argv[1]; s = open(p, encoding="utf-8").read()
+old = """    v="$(stat -c %.9Y "$1" 2>/dev/null)"; rc=$?
+    [ "$rc" -eq 0 ] || return 1
+"""
+assert old in s, "-c rc 검사 줄 없음"
+open(p, "w", encoding="utf-8").write(s.replace(old, """    v="$(stat -c %.9Y "$1" 2>/dev/null)"
+""", 1))
+MPY16
+mut noccmd "ⓛ" "$T/m16.py"
+
 echo
-if [ "$fail" -eq 0 ]; then echo "ALL MUTATIONS KILLED (15)"; exit 0; fi
+if [ "$fail" -eq 0 ]; then echo "ALL MUTATIONS KILLED (16)"; exit 0; fi
 echo "MUTATION PROBLEM $fail"; exit 1

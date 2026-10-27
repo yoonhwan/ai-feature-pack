@@ -1,0 +1,56 @@
+$ bash tests/test_worktree_add_gate_r835.sh  (반복 3)
+== ⓕ BYZ 꼴 리포의 맨손 worktree add = 안내(deny 0)
+PASS ⓕ cwd=B · git worktree add .worktrees/x -b y main
+PASS ⓕ cwd=P · git -C <B> worktree add
+PASS ⓕ cwd=B 하위 폴더 · 상대경로
+PASS ⓕ cwd=B 연결 워크트리(주 워크트리로 판정)
+PASS ⓕ git -C sub -C dir (누적 -C)
+PASS ⓕ cd <B> && git worktree add (cwd=P)
+PASS ⓕ /usr/bin/git · 전역 옵션 -c k=v --no-pager
+PASS ⓕ bash -c '…' 감싸기
+PASS ⓕ bash --norc -lc "…" 감싸기
+PASS ⓕ eval '…' 감싸기
+PASS ⓕ 앞 명령 뒤 줄바꿈
+PASS ⓕ cwd=P · git --git-dir=<B>/.git worktree add
+PASS ⓕ cwd=P · git --git-dir <B>/.git (띄움 꼴)
+PASS ⓕ cwd=P · env X=1 git -C <B>
+PASS ⓕ cd $X 뒤 절대 -C <B>
+== ⓕ 조용히 통과
+PASS ⓕ DA r2 반례②-1 · cwd=B · git --git-dir=.git -C <P>(상대 git-dir = -C 뒤 기준)
+PASS ⓕ DA r2 반례②-2 · cwd=P · (cd <B>); git worktree add(서브셸 cd 는 안 샘)
+PASS ⓕ DA r1 오탐1 · cwd=B · --git-dir=<P>/.git
+PASS ⓕ DA r1 오탐2 · git ls-files -- git worktree add
+PASS ⓕ echo 인자 속 git worktree add
+PASS ⓕ heredoc 본문 속 git worktree add
+PASS ⓕ 미전개 git -C $W (cwd=B)
+PASS ⓕ 미전개 --git-dir="$B/.git"
+PASS ⓕ cd $X 뒤 맨 git worktree add
+PASS ⓕ 팩 리포(design/teams/ 없음) · 발주문 꼴
+PASS ⓕ cwd=P · 맨손 worktree add
+PASS ⓕ ft-wt-add.sh 호출
+PASS ⓕ ft-nano-spawn.sh 호출
+PASS ⓕ ft-scratch-repo.sh 호출
+PASS ⓕ worktree list
+PASS ⓕ worktree remove
+PASS ⓕ worktree prune
+PASS ⓕ 커밋 메시지 속 글자
+PASS ⓕ git 밖 폴더 cwd
+PASS ⓕ Bash 아닌 도구
+PASS ⓕ 훅이 worktree add 를 실행하지 않음(폴더 0)
+== ⓕ DA r2 반례② 실제 실행 — rc0 · 팩 워크트리 sparse 0
+PASS ⓕ 반례②-1 실행 rc0 · 팩 워크트리 sparse 0
+PASS ⓕ 반례②-2 실행 rc0 · 팩 워크트리 sparse 0
+== ⓖ 입력 깨짐 = 통과(fail-open) + stderr 1줄
+PASS ⓖ {not json → 통과 + WARN 1줄
+PASS ⓖ {"tool_name":"Bash","tool_input":{}} → 통과 + WARN 1줄
+PASS ⓖ {"tool_name":"Bash","tool_input":{"comma → 통과 + WARN 1줄
+PASS ⓖ 훅 원문 permissionDecision 0(deny 0)
+== 결과: FAIL=0
+== ⓘ 변이(사본 한 줄 · 그 칸이 FAIL 이어야)
+PASS ⓘ no-note → FAIL ⓕ cwd=B · git worktree add .worktrees/x -b y main — 안내 아님 rc=0 · o= · e=
+PASS ⓘ no-pack-pass → FAIL ⓕ 팩 리포(design/teams/ 없음) · 발주문 꼴 — 조용한 통과 아님 rc=0 · o={"hookSpecificOutput": 
+PASS ⓘ anywhere-git → FAIL ⓕ DA r1 오탐2 · git ls-files -- git worktree add — 조용한 통과 아님 rc=0 · o={"hookSpecificOutput": 
+PASS ⓘ early-gitdir → FAIL ⓕ DA r2 반례②-1 · cwd=B · git --git-dir=.git -C <P>(상대 git-dir = -C 뒤 기준) — 조용한 통과 �
+PASS ⓘ subshell-leak → FAIL ⓕ DA r2 반례②-2 · cwd=P · (cd <B>); git worktree add(서브셸 cd 는 안 샘) — 조용한 통과 아님 
+== 결과(변이 포함): FAIL=0
+rc=0

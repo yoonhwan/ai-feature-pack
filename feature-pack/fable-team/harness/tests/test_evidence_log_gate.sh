@@ -126,12 +126,12 @@ out="$(bash "$UNT" "$S" 2>&1)"; rc=$?
 P="$T/proj"; mkdir -p "$P/.fable-team/bin" "$P/.fable-team/githooks" "$T/home/.claude/hooks"; git init -q -b main "$P"; echo old > "$P/.fable-team/githooks/pre-commit"
 out="$(bash "$H/install.sh" --apply --project "$P" --home "$T/home" 2>&1)"; rc=$?
 VER="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["version"])' "$H/../manifest.json")"
-[ "$rc" = 0 ] && cmp -s "$KIT/githooks/pre-commit" "$P/.fable-team/githooks/pre-commit" && [ -x "$P/.fable-team/githooks/pre-commit" ] && [ "$(cat "$P/.fable-team/githooks/pre-commit.bak-$VER")" = old ] && [[ "$out" == *"GITHOOKS copied=2 same=0"* ]]
+[ "$rc" = 0 ] && cmp -s "$KIT/githooks/pre-commit" "$P/.fable-team/githooks/pre-commit" && [ -x "$P/.fable-team/githooks/pre-commit" ] && [ "$(cat "$P/.fable-team/githooks/pre-commit.bak-$VER")" = old ] && [[ "$out" == *"GITHOOKS copied=3 same=0"* ]]
 ck "ⓖ install --apply → githooks/pre-commit cmp0 · 실행 비트 · .bak-$VER" $?
 # r511: 키트 githooks = pre-commit + pre-push
 cmp -s "$KIT/githooks/pre-push" "$P/.fable-team/githooks/pre-push" && [ -x "$P/.fable-team/githooks/pre-push" ]; ck "ⓖ install --apply → githooks/pre-push cmp0 · 실행 비트" $?
 out="$(bash "$H/install.sh" --apply --project "$P" --home "$T/home" 2>&1)"; rc=$?
-[ "$rc" = 0 ] && [[ "$out" == *"GITHOOKS copied=0 same=2"* ]]; ck "ⓖ 2회째 same=2(멱등)" $?
+[ "$rc" = 0 ] && [[ "$out" == *"GITHOOKS copied=0 same=3"* ]]; ck "ⓖ 2회째 same=3(멱등 · r835 post-checkout 포함 3개)" $?
 git -C "$P" config core.hooksPath /elsewhere; out="$(bash "$H/install.sh" --dry-run --project "$P" --home "$T/home" 2>&1)"; rc=$?
 [ "$rc" = 0 ] && [[ "$out" == *"WARN core.hooksPath=/elsewhere"* ]] && [[ "$out" == *"GITHOOK $(cd "$P" && pwd -P)/.fable-team/githooks/pre-commit"* ]]; ck "ⓖ dry-run GITHOOK 줄 · hooksPath 어긋남 WARN" $?
 

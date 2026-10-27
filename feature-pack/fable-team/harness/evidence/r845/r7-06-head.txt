@@ -1,0 +1,5 @@
+세트 = 가지 nano/r845-scratch-repo-register-before-hook-f-r3 의 끝 커밋(앞 커밋 97be2056 = r6 · 이 커밋 sha 는 쪽지와 git log 에 적는다)
+base = 6f354dbf(팩 origin/main) · push 0 (master 몫)
+시험 = bash feature-pack/fable-team/harness/tests/test_scratch_repo_register_on_hook_fail_r845.sh (30 PASS ×3 rc=0 (안정성 재확인 ×5))
+기존 4종 = test_scratch_repo · test_scratch_judged_r645 · test_scratch_sweep_live_cwd_r548 · test_scratch_repo_sparse_auto_done_r891 ALL PASS
+파일 = ft-scratch-repo.sh(kit + harness/bin 짝 cmp0) + 시험 1 · manifest 1.1.261 · CHANGES 1항

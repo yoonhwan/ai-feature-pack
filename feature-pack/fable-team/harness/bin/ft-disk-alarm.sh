@@ -5,7 +5,8 @@
 #   수신자 = planner 명부(seats-planner.json) `_hil_route`(없으면 ERROR rc3 — 경보를 옛 이름·다른 좌석으로 대신 보내지 않는다).
 #   그때 고장 신호만 하네스 master(seats-harness.json `_master`)에 1시간 1통. 삭제·정리 0 — 알리기만.
 #   R320: 경고·긴급 쪽지 끝에 «원인 좌석»(ft-resource-cause.sh disk · 최근 60분 증가 상위 폴더 3 + 만든 좌석) 1줄.
-#   env(시험용): FT_RESOURCE_CAUSE_SH · FT_RES_ROOT · FT_DISK_FREE_GIB(숫자|fail) · FT_DISK_NOW · FT_MBOX_SH · FT_SEATS_JSON · FT_HARNESS_SEATS_JSON · FT_RES_WATCH_SH · FT_SCRATCH_REPO_SH
+#   r843 r2: 하루 1회 «표식 없는 풀 팀 워크트리»(reset·read-tree 처럼 post-checkout 을 안 거친 길) 탐지 → planner 1통 · 지우기 0
+#   env(시험용): FT_WT_MODE_STAMP_SH · FT_RESOURCE_CAUSE_SH · FT_RES_ROOT · FT_DISK_FREE_GIB(숫자|fail) · FT_DISK_NOW · FT_MBOX_SH · FT_SEATS_JSON · FT_HARNESS_SEATS_JSON · FT_RES_WATCH_SH · FT_SCRATCH_REPO_SH
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="${FT_RES_ROOT:-}"   # r385: 리포 공용 루트 = env → ft_repo_root(옛 설치 꼴 · cwd) → ERROR (새 설치본이 git 밖이라 자기 위치로 풀지 않는다)
@@ -16,6 +17,7 @@ WATCH="${FT_RES_WATCH_SH:-$HERE/ft-resource-watch.sh}"
 SCRATCH="${FT_SCRATCH_REPO_SH:-$HERE/ft-scratch-repo.sh}"
 REAP="${FT_DOCKER_REAP_SH:-$HERE/ft-docker-test-reap.sh}"   # R352: 주인 죽은 시험 컨테이너(라벨 byz.test=1 만) 하루 1회
 CAUSE="${FT_RESOURCE_CAUSE_SH:-$HERE/ft-resource-cause.sh}"   # R320: 만든 좌석 한 줄
+STAMP="${FT_WT_MODE_STAMP_SH:-$HERE/ft-wt-mode-stamp.sh}"   # r843 r2: --unmarked 탐지만
 WARN="${FT_DISK_WARN_GIB:-50}"; URG="${FT_DISK_URGENT_GIB:-30}"; ADD="${FT_DISK_RECOVER_ADD:-5}"; PERIOD="${FT_DISK_PERIOD_SEC:-900}"
 NOW="${FT_DISK_NOW:-$(date +%s)}"
 mkdir -p "$STATE" 2>/dev/null || { echo "ERROR 상태 폴더 생성 실패: $STATE" >&2; exit 4; }
@@ -23,9 +25,9 @@ logline() { printf '%s\t%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$1" >> "$LOG"; }
 stget() { sed -n "s/^$1=//p" "$ST" 2>/dev/null | tail -1; }
 num() { case "$1" in ''|*[!0-9]*) echo 0;; *) echo "$1";; esac; }
 
-last=$(num "$(stget last)"); stage="$(stget stage)"; [ -n "$stage" ] || stage=ok; sent=$(num "$(stget sent)"); rf=$(num "$(stget routefail)"); swept=$(num "$(stget swept)"); reaped=$(num "$(stget reaped)")
+last=$(num "$(stget last)"); stage="$(stget stage)"; [ -n "$stage" ] || stage=ok; sent=$(num "$(stget sent)"); rf=$(num "$(stget routefail)"); swept=$(num "$(stget swept)"); reaped=$(num "$(stget reaped)"); wts=$(num "$(stget wtscan)")
 [ $((NOW-last)) -ge "$PERIOD" ] || [ "$last" = 0 ] || exit 0
-save() { printf 'last=%s\nstage=%s\nsent=%s\nswept=%s\nreaped=%s\nroutefail=%s\n' "${2:-$NOW}" "$1" "$sent" "$swept" "$reaped" "$rf" > "$ST"; }
+save() { printf 'last=%s\nstage=%s\nsent=%s\nswept=%s\nreaped=%s\nroutefail=%s\nwtscan=%s\n' "${2:-$NOW}" "$1" "$sent" "$swept" "$reaped" "$rf" "$wts" > "$ST"; }
 jget() { python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get(sys.argv[2],""))' "$1" "$2" 2>/dev/null; }
 
 free="${FT_DISK_FREE_GIB:-$(df -Pk /System/Volumes/Data 2>/dev/null | awk 'NR==2 && $4+0>0{print int($4/1048576)}')}"
@@ -75,6 +77,17 @@ reap() { # 하루 1회 주인 죽은 시험 컨테이너 정리(R352) — 결과
   case "$s" in ''|OK*) return 0;; esac
   reap_alert "[시험 컨테이너 정리] rc=$rc $s"
 }
+wtscan() { # 하루 1회 표식 없는 풀 팀 워크트리 목록(r843 r2) — 전체 목록은 상태 폴더 파일 · 쪽지는 앞 5곳. 탐지 실패도 쪽지(조용한 0 없음)
+  [ $((NOW-wts)) -ge 86400 ] || return 0; local s rc l n kib; s="$(bash "$STAMP" --root "$ROOT" --unmarked 2>&1)"; rc=$?; wts=$NOW
+  logline "wt-unmarked rc=$rc $(tail -n 1 <<<"$s")"
+  if [ "$rc" != 0 ]; then l="[표식 탐지 실패] rc=$rc $(tail -n 1 <<<"$s")"
+  else
+    grep '^UNMARKED ' <<<"$s" > "$STATE/wt-unmarked.txt"; n=$(grep -c . "$STATE/wt-unmarked.txt"); [ "$n" -gt 0 ] || return 0
+    kib=$(awk '{sub(/^kib=/,"",$4); t+=$4} END{print int(t/1048576*10)/10}' "$STATE/wt-unmarked.txt")
+    l="[표식 없는 풀 팀 워크트리] ${n}곳 · 합 ${kib}GiB · 지우기 0 — 표식 찍기(ft-wt-mode-stamp.sh --apply) 또는 sparse-checkout set · 앞 5: $(head -n 5 "$STATE/wt-unmarked.txt" | awk '{printf "%s%s", (NR>1?", ":""), $2}') · 전체 $STATE/wt-unmarked.txt"
+  fi
+  bash "$MBOX" send "$ROUTE" ft-disk-alarm "$l" >/dev/null 2>>"$LOG" || logline "ERROR 표식 탐지 쪽지 발신 실패"
+}
 
 gap=$((NOW-sent)); body=""
 case "$new" in
@@ -87,5 +100,6 @@ esac
 if [ -n "$body" ]; then post "$body" || exit 3; fi
 sweep
 reap
+wtscan
 save "$new"
 exit 0

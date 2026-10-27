@@ -1,0 +1,3 @@
+# 이 회차(try3)만 lsof 환경 실패로 자식 시험 2칸 FAIL — 같은 시험 단독 재실행 8/8 PASS · r548 단독 3/3 PASS (기록용)
+FAIL ⓖ 기존 test_scratch_repo.sh rc=1 FAIL ⓒ ERROR lsof 실패 — 삭제 0 (cwd 판정 불가) 
+FAIL ⓖ 기존 test_scratch_sweep_live_cwd_r548.sh rc=1 FAIL ⓖ 기존 셸 시험 rc=2 (2 FAIL) 
