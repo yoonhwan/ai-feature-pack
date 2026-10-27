@@ -1,0 +1,15 @@
+INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.dKCiStypmw/bin
+INFO 카드 위치 ← main:design/planner/indices/진행/ns.md (읽기 · 쓰기 = /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.dKCiStypmw/repo/design/planner/indices/진행/ns.md)
+WARN ④checkpoint 면제 — 나노 브랜치에 press 산출 0(poller_dom.jsonl 없음)
+STEP ⑥증거검사 +1s
+OK 증거 줄 — 세트 HEAD 99bae20a6 · 시험 rc=0 · 이슈 0
+STEP ⑤cherry +1s
+STEP fetch +1s
+STEP freshness +15s
+REJECT byz-planner-nano-ns#0
+  - ⑤REJECT cherry-gate 대역
+    origin/main fetch 시간 초과(7초+재시도 1) 또는 실패 — 옛 ref 로 대조하지 않는다(R22)
+  - ⑤-생애 branch    nano/ns
+    base      99bae20 (2026-10-26 13:15) · 루트가 그 뒤로 0 커밋 앞섬
+    branch    마지막 커밋 2026-10-26 13:15 · 루트에 없는 패치 0
+    VERDICT   LANDED — 브랜치 변경이 전부 루트에 있다 → 생애 ⑤ 닫기만(ft-nano-close)

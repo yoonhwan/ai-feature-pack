@@ -6,7 +6,8 @@ export FT_ALLOW_TRACKED_BIN=1
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO="$HERE/../.."; BIN="$REPO/harness/bin"; KIT="$REPO/harness/kit/fable-team/bin"
-T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T"' EXIT
+T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'tmux_isolate_end; rm -rf "$T"' EXIT
+. "$HERE/lib/tmux_isolate.sh"   # r957: 실 tmux 서버 격리(TMUX·TMUX_PANE 제거 + TMUX_TMPDIR)
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }
@@ -155,17 +156,21 @@ printf '{"_name":"alpha","_master":"byz-alpha-master-claude#1","_arch":"byz-alph
 q stuck >/dev/null; { [ "$(grep -c . "$Q")" = 1 ] && grep -q 'c1.md' "$Q" && ! grep -q 'c2.md' "$Q"; } && ok "ⓛ 진행/ + 명부 index 일치(spawn 성공) → c2 만 완료로 지운다" || bad "ⓛ-4 $(cat "$Q")"
 rm -f "$Q"
 
-# ⓝ 알림 = teamset-check 가 매 실행 «빈 석 ∧ 큐 비지 않음» 이면 현역 _master 에 멱등 쪽지 (같은 카드 10분 1번 · 쪽지 실패면 표식 0 → 다음 실행 재시도)
+# ⓝ 알림 = teamset-check 가 «큐가 비지 않으면» 현역 _master 에 멱등 쪽지 (같은 카드 10분 1번 · 쪽지 실패면 표식 0 → 다음 실행 재시도)
+#   ★r921★ 빈 석 수(free) 조건은 없어졌다 — AT-CAP 이 더 이상 spawn 을 세우지 않으므로 «빈 석 0 = 큐를 못 연다» 가 성립하지 않는다.
+#   쌓인 큐는 다음 tick 의 이 알림으로 맨 앞 카드부터 열린다(오빠 2026-10-25 «멈춰 있으면 머할건데»).
 roster alpha "byz-alpha-master-claude#1" "byz-alpha-arch-claude#1"; rm -f "${Q%.tsv}.notified" "$T/mbox.log"; : > "$T/cards/대기/c2.md"; q add --card "$T/cards/대기/c2.md" --from m#1 >/dev/null
-sess "byz-alpha-master-claude#1" "byz-alpha-arch-claude#1" "byz-alpha-nano-x#0" "byz-alpha-nano-y#0" "byz-alpha-nano-z#0"
-o="$(chk alpha)"; { [ ! -f "$T/mbox.log" ] && [[ "$o" != *"큐 알림"* ]]; } && ok "ⓝ 빈 석 0(3/3) → 쪽지 0" || bad "ⓝ-1 $o"
-sess "byz-alpha-master-claude#1" "byz-alpha-arch-claude#1" "byz-alpha-nano-x#0"
-touch "$T/mbox.fail"; o="$(chk alpha)"; { [[ "$o" == *WARN* ]] && [ ! -f "${Q%.tsv}.notified" ]; } && ok "ⓝ 쪽지 실패 → 표식 0 · 큐 유지" || bad "ⓝ-2 $o"
-: > "$T/mbox.log"
-rm -f "$T/mbox.fail"; o="$(chk alpha)"
-{ [[ "$o" == *"큐 알림 c2.md"* ]] && [ "$(grep -c . "$T/mbox.log")" = 1 ] && grep -F 'send byz-alpha-master-claude#1 ft-teamset-check' "$T/mbox.log" | grep -qF 'c2.md'; } && ok "ⓝ 빈 석 ∧ 큐 → 현역 _master 에 쪽지 1통" || bad "ⓝ-3 $o / $(cat "$T/mbox.log" 2>/dev/null)"
-o="$(chk alpha)"; [ "$(grep -c . "$T/mbox.log")" = 1 ] && ok "ⓝ 같은 카드 10분 안 재실행 → 재발신 0(멱등)" || bad "ⓝ-4 $o"
-printf '%s\t0' "$T/cards/c2.md" > "${Q%.tsv}.notified"; o="$(chk alpha)"; [ "$(grep -c . "$T/mbox.log")" = 2 ] && ok "ⓝ 10분 지난 표식 → 다시 알림(승계·쪽지 유실 대비)" || bad "ⓝ-5 $o"
+sess "byz-alpha-master-claude#1" "byz-alpha-arch-claude#1" "byz-alpha-nano-x#0" "byz-alpha-nano-y#0" "byz-alpha-nano-z#0"   # 상한 3/3 = 빈 석 0
+o="$(chk alpha)"; { [[ "$o" == *"큐 알림 c2.md"* ]] && [ "$(grep -c . "$T/mbox.log")" = 1 ] && grep -F 'send byz-alpha-master-claude#1 ft-teamset-check' "$T/mbox.log" | grep -qF 'c2.md'; } && ok "ⓝ-1 r921 상한(3/3)이어도 큐 알림 1통 → 현역 _master" || bad "ⓝ-1 $o / $(cat "$T/mbox.log" 2>/dev/null)"
+o="$(chk alpha)"; [ "$(grep -c . "$T/mbox.log")" = 1 ] && ok "ⓝ-2 같은 카드 10분 안 재실행 → 재발신 0(멱등)" || bad "ⓝ-2 $o"
+printf '%s\t0' "$T/cards/c2.md" > "${Q%.tsv}.notified"; o="$(chk alpha)"; [ "$(grep -c . "$T/mbox.log")" = 2 ] && ok "ⓝ-3 10분 지난 표식 → 다시 알림(승계·쪽지 유실 대비)" || bad "ⓝ-3 $o"
+# 쪽지 실패 → WARN 1줄 · 표식 0(다음 실행 재시도) · 큐 유지
+rm -f "${Q%.tsv}.notified"; : > "$T/mbox.log"
+touch "$T/mbox.fail"; o="$(chk alpha)"; { [[ "$o" == *WARN* ]] && [ ! -f "${Q%.tsv}.notified" ]; } && ok "ⓝ-4 쪽지 실패 → 표식 0 · 큐 유지" || bad "ⓝ-4 $o"
+rm -f "$T/mbox.fail"
+# 빈 석이 있어도 같은 규칙(기존 의미 보존) — 1/3
+sess "byz-alpha-master-claude#1" "byz-alpha-arch-claude#1" "byz-alpha-nano-x#0"; : > "$T/mbox.log"; rm -f "${Q%.tsv}.notified"
+o="$(chk alpha)"; { [[ "$o" == *"큐 알림 c2.md"* ]] && [ "$(grep -c . "$T/mbox.log")" = 1 ]; } && ok "ⓝ-5 빈 석 ∧ 큐 → 쪽지 1통(그대로)" || bad "ⓝ-5 $o"
 rm "$T/cards/대기/c2.md"; rm -f "$T/cards/진행/c2.md"; : > "$T/mbox.log"; rm -f "${Q%.tsv}.notified"; o="$(chk alpha)"   # r681: ⓛ 가 만든 진행/ 사본도 지운다 — «어디에도 없는 카드» 시나리오
 { [ ! -s "$T/mbox.log" ] && [[ "$o" == "alpha WARN "*"큐 확인 필요 1"* ]] && [ -s "$Q" ]; } && ok "ⓝ 카드가 사라진 항목 → 쪽지 0 · 큐 유지 · WARN 확인 필요" || bad "ⓝ-6 $o"
 # DA⑥ ① — 활성 팀 _master 검증: 없음·다른 팀 master·형식 위반 → ERR + 쪽지 0
@@ -184,5 +189,7 @@ roster alpha "byz-alpha-master-claude#1" "byz-alpha-arch-claude#1"
 for f in ft-teamset-check.sh ft_teamset.py ft_spawn_queue.py; do cmp -s "$BIN/$f" "$KIT/$f" && ok "키트 사본 cmp 0 $f" || bad "키트 사본 불일치 $f"; done
 [ "$(git config --get core.bare)" = false ] && ok "core.bare=false" || bad "core.bare != false"
 
+# ── r957 누수 검사: 실 tmux 서버에 시험 세션(byz-alpha-·byz-v65-·ft-v65-temp-)이 남으면 FAIL ──
+tmux_isolate_leak_check || fail=$((fail+1))
 [ "$fail" = 0 ] && echo "ALL PASS" || echo "FAILED $fail"
 exit $fail

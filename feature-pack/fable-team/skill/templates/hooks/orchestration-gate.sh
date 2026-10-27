@@ -25,7 +25,8 @@ INPUT=$(cat 2>/dev/null)
 MAX_CODE_FILES="${OMC_GATE_MAX_CODE_FILES:-2}"   # 한 턴 코드파일 직접수정 허용 상한
 # TOP 오케스트레이터 모델 토큰 (정규화된 문자열에 부분일치, 소문자·하이픈형). 목록 밖 = 워커 = 면제.
 # sonnet-?5 → "sonnet 5"·"sonnet-5"·"sonnet5"·"claude-sonnet-5[1m]"·"Claude Sonnet 5" 모두 매치 (sonnet-4-6 비매치).
-TOP_MODELS="${OMC_GATE_TOP_MODELS:-fable|sonnet-?5}"
+# 단 sonnet-5-5(Sonnet 5.5: 나노·tester 워커 모델)는 (?!-?5) 로 제외 — 정규식은 python re 로 평가되므로 lookahead 사용 가능.
+TOP_MODELS="${OMC_GATE_TOP_MODELS:-fable|sonnet-?5(?!-?5)}"   # (?!-?5): sonnet-5-5(Sonnet 5.5)는 워커 면제 — 2026-09-29
 
 python3 - "$INPUT" "$MAX_CODE_FILES" "$TOP_MODELS" <<'PYEOF'
 import json, sys, os, re, hashlib, shlex
@@ -36,24 +37,6 @@ def allow():   # fail-open / 통과
 def deny(msg): # PreToolUse 차단 (stderr → 위임 안내가 모델에 피드백)
     sys.stderr.write(msg + "\n")
     sys.exit(2)
-
-# ⓪ 생명주기 명령 패턴 (§1-5 — DA-R3 #2 / DA-R4 #1):
-#   경계 클래스에 따옴표 구분자(" ')·`/`(절대경로 프리픽스) 포함 → `bash -c "tmuxc kill …"`
-#   인용 내부·`/usr/local/bin/tmuxc open`도 매치. 언이스케이프된 command 문자열 전역(re.M) 매치.
-LIFECYCLE_RE = re.compile(r'''(^|[/\s;&|"'])tmuxc\s+(open|kill|clean|distill)''', re.M)
-
-def in_ft_tmux():
-    # env 미주입(env_passthrough=false) 폴백: tmux 내부이고 현재 세션명이 ^ft- 이면 워커/ft-세션.
-    # 어떤 오류에서도 False(면제 안 함 — fail-open이되 과면제 방지).
-    if not os.environ.get("TMUX"):
-        return False
-    try:
-        import subprocess
-        r = subprocess.run(["tmux", "display-message", "-p", "#S"],
-                           capture_output=True, text=True, timeout=2)
-        return bool(re.match(r"^ft-", (r.stdout or "").strip()))
-    except Exception:
-        return False
 
 TAIL_CAP = 16 * 1024 * 1024   # 마지막 레코드가 멀티MB여도 통째로 읽되 폭주 방지 상한
 TAIL_CHUNK = 262144
@@ -100,25 +83,6 @@ tool = data.get("tool_name", "")
 tin  = data.get("tool_input", {}) or {}
 sid  = data.get("session_id", "nosess")
 tpath = data.get("transcript_path", "")
-
-# ── ⓪ 생명주기 deny — 전 LLM 세션 최우선 (면제 판별보다 먼저 평가, R4 — DA-R3 #2) ──
-# tmuxc open|kill|clean|distill 직접 호출은 역할·세션명 무관 deny(exit 2). 통과 경로는
-# .fable-team/bin/ft-tmux-*.sh 래퍼 경유뿐(래퍼 내부 tmuxc 실행은 스크립트 프로세스 — 훅 대상 아님).
-# 이 deny는 아래 워커/서브에이전트/모델 면제보다 먼저 평가되며 면제가 적용되지 않는다.
-if tool == "Bash":
-    _cmd0 = tin.get("command", "") or ""
-    if LIFECYCLE_RE.search(_cmd0):
-        deny("🚫 [orchestration-gate] tmuxc 생명주기 명령(open/kill/clean/distill) 직접 호출은 물리 차단됩니다.\n"
-             "→ 반드시 래퍼 경유: .fable-team/bin/ft-tmux-{spawn,kill,distill}.sh (승인·토큰·가드 검증).\n"
-             "  (워커·ft-* 세션도 예외 없음 — 생명주기 명령은 래퍼만 통과.)")
-
-# ── ⓐ 워커 면제 (§1-5 — 코드파일 수정 게이트에만 적용, ⓪에는 미적용) ──
-# ① FT_WORKER_ROLE 주입(raw_launch_fallback 셸 env) → 워커 세션 → 면제.
-# ② env 미주입(env_passthrough=false) 폴백: tmux 내부 + 세션명 ^ft- → 워커/ft-세션 → 면제.
-if os.environ.get("FT_WORKER_ROLE"):
-    allow()
-if in_ft_tmux():
-    allow()
 
 # ── 0) 서브에이전트(위임된 워커) 면제 — 제1 판별 ──
 # 서브에이전트(Agent/Task/Workflow) tool-call은 메인 세션의 transcript_path·session_id를 그대로
@@ -241,6 +205,13 @@ def bash_write_target(cmd):
                 args = [t for t in toks[1:] if not t.startswith('-')]
                 if args and is_code_file(args[-1]):
                     return args[-1]
+                # cp/install 목적지가 폴더(원본 2+ · 끝 / · 있는 폴더)면 폴더/원본이름 도 코드 검사(r695)
+                if head in ('cp', 'install') and len(args) >= 2:
+                    dest, srcs = args[-1], args[:-1]
+                    if len(srcs) > 1 or dest.endswith('/') or os.path.isdir(os.path.join(CWD, os.path.expanduser(dest))):
+                        for s in srcs:
+                            if is_code_file(os.path.basename(s.rstrip('/'))):
+                                return os.path.join(dest, os.path.basename(s.rstrip('/')))
             elif head == 'tee':
                 for t in toks[1:]:
                     if not t.startswith('-') and is_code_file(t):
@@ -253,12 +224,55 @@ def bash_write_target(cmd):
     except Exception:
         return None
 
+CWD = data.get("cwd") or os.getcwd()
+PACK_ROOT = os.path.realpath(os.path.expanduser(os.environ.get("FT_PACK_ROOT") or "~/Project/ai-feature-pack"))
+ONE_COMMAND = re.compile(r"[;&|$`()<>\\\n\r]")   # 명령 잇기·치환·리다이렉트·이스케이프 글자
+
+# ── 설치 복사 허용(r695 · COMM-GUIDE-BOOT 15 «검증된 파일의 설치 복사 cp+cmp») ──
+# 허용 꼴은 정확히 하나: 명령 1개 «cp [-p] <절대 원본> <절대 목적지 파일>» ∧ 원본 = 일반 파일(심링크 아님)
+# ∧ 팩 리포 kit/ 아래 ∧ origin/main 판과 바이트 같음. 그 밖의 cp/install 은 (C) 그대로.
+# 이 허용만 FAIL-CLOSED: git 실패·7초 초과·경로 이상 = 허용 안 함.
+def kit_install_copy(cmd):
+    try:
+        import stat, subprocess
+        if ONE_COMMAND.search(cmd):
+            return False
+        toks = shlex.split(cmd)
+        if not toks or toks[0] != "cp":
+            return False
+        opts = [t for t in toks[1:] if t.startswith("-")]
+        args = [t for t in toks[1:] if not t.startswith("-")]
+        if opts not in ([], ["-p"]) or len(args) != 2:
+            return False
+        src, dest = args
+        if not (os.path.isabs(src) and os.path.isabs(dest)) or dest.endswith("/"):
+            return False
+        if not stat.S_ISREG(os.lstat(src).st_mode):
+            return False
+        if os.path.lexists(dest) and not stat.S_ISREG(os.lstat(dest).st_mode):
+            return False
+        real = os.path.realpath(src)
+        rel = os.path.relpath(real, PACK_ROOT)
+        if rel == ".." or rel.startswith(".." + os.sep) or "kit" not in rel.split(os.sep)[:-1]:
+            return False
+        r = subprocess.run(["git", "-C", PACK_ROOT, "show", "origin/main:" + rel],
+                           capture_output=True, timeout=7)
+        if r.returncode != 0:
+            return False
+        with open(real, "rb") as f:
+            return f.read() == r.stdout
+    except Exception:
+        return False
+
 if tool == "Bash":
     cmd = tin.get("command", "") or ""
+    if kit_install_copy(cmd):
+        allow()
     hit = bash_write_target(cmd)
     if hit:
         deny("🚫 [orchestration-gate] 오케스트레이터는 Bash로 코드 파일을 직접 수정할 수 없습니다.\n"
-             "감지: %s\n→ 코드 수정은 ft-implementer에 위임하세요 (redirect/sed/mv/cp/tee 우회 금지)." % hit.strip())
+             "감지: %s\n→ 코드 수정은 ft-implementer에 위임하세요 (redirect/sed/mv/cp/tee 우회 금지).\n"
+             "  (설치 복사는 명령 1개 «cp [-p] <절대 kit 원본> <절대 목적지 파일>» ∧ origin/main 판 cmp0 일 때만 통과)" % hit.strip())
     allow()
 
 # ── 3) Edit/Write/NotebookEdit — 턴당 distinct 코드파일 카운트 ──

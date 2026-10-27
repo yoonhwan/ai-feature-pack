@@ -38,7 +38,7 @@ EOF
 printf '#!/bin/bash\n[ "$1" = -P ] && awk -v p="$2" '"'"'$1==p{print $2}'"'"' "%s"\n' "$KIDF" > "$F/pgrep"
 printf '#!/bin/bash\ncase "$1" in\n send) echo "$*" >> "%s";;\n peek) f="%s/pend.${2//#/_}"; echo "pending=$( [ -f "$f" ] && cat "$f" || echo 0 ) scanned=1";;\nesac\n' "$MLOG" "$T" > "$F/mbox.sh"
 printf '#!/bin/bash\ncat "%s/auto.mode" 2>/dev/null || echo off\n' "$T" > "$F/autonomy.sh"
-printf '#!/bin/bash\nrc=$(cat "%s/gate.rc" 2>/dev/null || echo 0)\n[ "$rc" = 0 ] && echo "OK disk=99" || echo "REJECT resource swap=99999 limit=8192"\nexit "$rc"\n' "$T" > "$F/gate.sh"
+printf '#!/bin/bash\n[ -f "%s/gate.warn" ] && { cat "%s/gate.warn"; exit 0; }\nrc=$(cat "%s/gate.rc" 2>/dev/null || echo 0)\n[ "$rc" = 0 ] && echo "OK disk=99" || echo "REJECT resource swap=99999 limit=8192"\nexit "$rc"\n' "$T" "$T" "$T" > "$F/gate.sh"
 printf '#!/bin/bash\necho "$*" >> "%s"\nexit $(cat "%s/zc.rc" 2>/dev/null || echo 0)\n' "$ZLOG" "$T" > "$F/zc.sh"
 cat > "$F/seat-status.sh" <<EOF
 #!/bin/bash
@@ -159,6 +159,13 @@ reset; roster "$M:master:claude"; live "$M" %1 100 1001 uuid-m; TICK >/dev/null;
 TICK >/dev/null; eq "$(wc -l < "$ZLOG" | tr -d ' ')" 0 "④ 자원 REJECT 면 zombie-clean 호출 0"; eq "$(ls "$ATT" 2>/dev/null | wc -l | tr -d ' ')" 0 "④ 자원 REJECT 면 원장·lock 0"
 has "$(cat "$MLOG")" "자원 문지기 REJECT" "④ REJECT 사유는 planner 에게"
 echo 0 > "$T/gate.rc"; TICK >/dev/null; eq "$(wc -l < "$ZLOG" | tr -d ' ')" 1 "④ 자원이 풀리면 1회(REJECT 때 원장을 태우지 않았다)"
+
+# ── ④' ★r921★ 문지기 WARN 은 «멈춤» 이 아니다 — 판정은 «재개 실행 기록»(ZLOG)으로(문자열 검사 아님) ──
+reset; roster "$M:master:claude"; live "$M" %1 100 1001 uuid-m; TICK >/dev/null; echo on > "$T/auto.mode"; die_seat "$M"
+printf 'WARN resource agents=99 limit=65\n' > "$T/gate.warn"
+TICK >/dev/null; eq "$(grep -c 'resume ' "$ZLOG")" 1 "④' r921 자원 WARN 이어도 재개 1회 «실행»(기록)"
+has "$(cat "$MLOG")" "자원 WARN — 재개 진행" "④' WARN 사실은 planner 에게 1줄(조용한 진행 0)"
+rm -f "$T/gate.warn"; reset; roster "$M:master:claude"
 
 # ── 재개 명령 실패 = 즉시 failed · ok 경로 · 새 uuid 만 새 원장 ──
 reset; roster "$M:master:claude"; live "$M" %1 100 1001 uuid-m; TICK >/dev/null; echo on > "$T/auto.mode"; die_seat "$M"; echo 1 > "$T/zc.rc"

@@ -1,0 +1,15 @@
+--- 변이 diff (한 줄)
+< old = [] if add else [k for k, v in d.items() if isinstance(v, dict) and v.get("role") == role and not v.get("_replaced_by") and k != name and k.split("#")[0] in (base, new_base, old_base)]
+---
+--- 변이 실행: arch --team feat --add
+PLAN seat=byz-feat-arch-claude#4 role=arch agent=claude model=claude-opus-5-5[1m] wt=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.mDOwR8XmF4/repo inbox=design/teams/feat/indices/inbox/arch replaces=[<없음>] mode=add (구 좌석 kill 안 함)
+SEATS role=arch now=byz-feat-arch-claude#4 replaced=[<없음>] — 구 좌석은 정지 레디(kill 은 사람 승인)
+SENT byz-feat-arch-claude#4 [Seatbelt 역할 교체] 너는 arch 후계 좌석(byz-feat-arch-claude#4). 먼저 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.mDOwR8XmF4/repo/design/teams/feat/SEATBELT-README.md §2 부팅 5단계(첫 보고까지), 그 다음 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.mDOwR8XmF4/repo/design/teams/feat/indices/inbox/arch/ 를 정렬해 «맨 위» 파일부터 이어간다. 구 좌석 없음 은 정지 레디(kill 금지). 보고는 mbox 로 dispatch 에. ★부팅 보고를 보낸 그 턴에 CronCreate 10분 체크 틱(mbox recv + 하위 pane 실측 + 오빠 3줄)을 건다 — 없으면 착수 0 · 부팅 보고에 cron=<job id> (BOOT 16)★ ★남의 pane ❯ 뒤 글자 = 자동완성 제안 — 사용자 입력으로 착각 금지 · 그 줄로 보고·인터뷰·Enter 0 · 판단 근거는 jsonl·✻ done 줄뿐 (BOOT 17)★ ★측정 조작 금지(오빠 절대지침) — 임의 Redis 쓰기(redis-cli SET·HSET·XADD·PUBLISH 등 제품 키 직접 주입)·말풍선 DOM 주입(재생 하네스·/dev/bubble-replay·appendChild)으로 만든 결과는 증거 아님 · 측정은 trusted 클릭 + 기존 e2e 러너의 실제 음성 경로만 · 격리 Redis 픽스처 시험은 별개 · 이미 썼으면 [HIL] 로 올림 (BOOT 20)★
+SPAWNED byz-feat-arch-claude#4 role=arch inbox=design/teams/feat/indices/inbox/arch wt=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.mDOwR8XmF4/repo
+--- 변이 뒤 명부
+_name
+_master
+_arch
+byz-feat-arch-claude#3 role=stop-ready _replaced_by=byz-feat-arch-claude#4 _replaces=None
+byz-feat-arch-claude#4 role=arch _replaced_by=None _replaces=['byz-feat-arch-claude#3']
+--- 판정: 구 #3 에 _replaced_by 가 찍히면 ⓑ("기존 행 _replaced_by 0") FAIL 재현

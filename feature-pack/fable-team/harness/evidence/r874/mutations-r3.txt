@@ -1,0 +1,30 @@
+# r874 r3 변이 — 새 시험 칸(ⓓ0·ⓓ1·ⓓ2·ⓔ)이 빨강이 되는가 · 2026-10-27 02:54:03
+# 기준판 = c74e9a11 의 bin/ft-tick.sh(빈 stamp 취약판)
+== base-tick
+FAIL ⓓ0 stamp 직접 쓰기 남음: 102:  echo "$sig" > "$sf"; log "ERROR master news row invalid (_master=${2:-none} · news rows=$news) — master news 0" 140:    
+FAIL ⓓ1 빈 stamp 에서 바퀴가 죽었다 (runs=0 · 로그: 2026-10-27 02:54:19 idle_watch disabled (FT_TICK_IDLE_ENABLED=0) /tmp/r874r3/base-tick.sh: 줄 205: 1793037259 
+FAIL ⓓ1 WARN 줄 0 (조용한 처리)
+FAIL ⓓ1 산술 오류 남음 (/tmp/r874r3/base-tick.sh: 줄 205: 1793037259 -  : 산술 문법 오류: 피연산자 필요함 (오류 토큰은 "-  " 임))
+FAIL ⓓ1 바퀴 뒤에도 stamp 가 숫자 아님 ('')
+FAIL ⓓ2 빈 stamp 에서 바퀴가 죽었다 (runs=0 · 로그: 2026-10-27 02:54:20 idle_watch disabled (FT_TICK_IDLE_ENABLED=0) /tmp/r874r3/base-tick.sh: 줄 205: 1793037260 
+FAIL ⓓ2 WARN 줄 0 (조용한 처리)
+FAIL ⓓ2 산술 오류 남음 (/tmp/r874r3/base-tick.sh: 줄 205: 1793037260 -  : 산술 문법 오류: 피연산자 필요함 (오류 토큰은 "-  " 임))
+FAIL ⓓ2 바퀴 뒤에도 stamp 가 숫자 아님 ('')
+FAIL ⓔ ERROR 줄 0 (조용한 계속) · 로그: 2026-10-27 02:54:30 wt-sweep: rc=0 sweep 계획 0 2026-10-27 02:54:30 seats.json unreadable (/var/folders/vm/j7_jw8050t553
+FAIL ⓔ ERROR 줄 0개 (1통 아님)
+RESULT fail=11
+== m2-direct-write
+FAIL ⓓ0 stamp 직접 쓰기 남음: 253:      now > "$wstamp"; log "stall-wake sent to $seat (age=${age}s pane=$pane cnt=$cnt)" 
+RESULT fail=1
+== m3-no-zero
+FAIL ⓓ1 WARN 줄 0 (조용한 처리)
+FAIL ⓓ1 산술 오류 남음 (/tmp/r874r3/m3-no-zero.sh: 줄 93: 1793037312 -  : 산술 문법 오류: 피연산자 필요함 (오류 토큰은 "-  " 임))
+FAIL ⓓ1 바퀴 뒤에도 stamp 가 숫자 아님 ('')
+FAIL ⓓ2 WARN 줄 0 (조용한 처리)
+FAIL ⓓ2 산술 오류 남음 (/tmp/r874r3/m3-no-zero.sh: 줄 93: 1793037313 -  : 산술 문법 오류: 피연산자 필요함 (오류 토큰은 "-  " 임))
+FAIL ⓓ2 바퀴 뒤에도 stamp 가 숫자 아님 ('')
+RESULT fail=6
+# 변이 정의
+#  base-tick        = git show c74e9a11:bin/ft-tick.sh 그대로(고침 전)
+#  m2-direct-write  = write_stamp "$wstamp"(stall-wake) → now > "$wstamp" (리다이렉션 직접 쓰기 되살림)
+#  m3-no-zero       = read_stamp 의 «숫자 아니면 0 + WARN» 제거(빈값 그대로 echo)

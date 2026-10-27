@@ -5,13 +5,12 @@
 #   명부 = --seats · FT_SEATS_JSON · <루트>/.fable-team/seats*.json 중 키 <구> 를 가진 파일 정확히 1개. r465 같은 폴더의 다른 명부 = 값이 <구> 인 `_*` 칸 전부(역할 roles + 라우팅 routes · 공유 arch) → <후계> · 전부 검증 뒤 쓰기(손상 1개 = ERROR rc 1 · 쓰기 0) · 출력 files=N roles=[…] routes=[…].
 #   r465 재실행(이미 은퇴)도 남은 칸을 보정 → FIXED … · 옛 이름 칸 0 + 후계 행 실재 + 후계 역할 칸(_master·_arch·_da·_tester) 빈 값/없음 → 채움 ` FILLED <명부>:<칸>` · 그 칸이 살아 있는 다른 좌석 = REJECT rc 1(쓰기 0).
 #   rc 0 = RETIRED/NOOP · 1 = 명부 못 정함·구 행 없음 · 2 = usage · 3 = 후계 행이 이미 은퇴(쓰기 0). 쓰기 전 <파일>.bak-retire-<ts>.
-#   RETIRED 줄 다음에 재개 기록 결과 1줄 — `RESUME ok <~/.claude/state/seat-resume/<구>.json>` 또는 `NORECORD <구> <이유>` (rc 에 섞지 않음 · 판정 1344). 부팅 보고 retire 칸 옆에 복붙.
+#   RETIRED 줄 다음에 재개 기록 결과 1줄 — `RESUME ok <~/.claude/state/seat-resume/<구>.json>` 또는 `NORECORD <구> <이유>` (rc 에 섞지 않음 · 판정 1344). 부팅 보고 retire 칸 옆에 복붙. · r960 pi 좌석(agent=pi)은 근거가 pi 세션 파일(~/.pi/agent/sessions · pane cwd 같은 폴더 · 가장 최근 1개 · 좌석 시작 뒤) → RESUME ok, 없으면 `NORECORD … pi 세션 없음 — 산출 커밋 보존`(ft-seat-close 가 «명부 agent 칸 = pi» 일 때만 살아 있는 좌석을 닫는다 · claude 는 지금처럼 HELD) · 본문은 ft_roster_lib.pi_seat_resume(retire 200줄 상한).
 #   `<구> --record-only [--seats <파일>]` (R110 · 판정 1380) — 이미 은퇴한 «살아 있는» 옛 좌석에 재개 기록만 쓴다. 명부 쓰기·.bak 0 · 구 행에 _replaced_by 없으면 REJECT rc 1(현역 좌석에 닫기 근거를 만들지 않는다) · retired_by = 그 _replaced_by. <후계> 와 같이 주면 usage rc 2.
 #   R282 ① 재개 기록 model 우선순위(r2) = 실행 프로세스 argv `--model` → 명부(바탕이 jsonl 과 같으면 `[1m]` 접미사 유지) → 대화 기록(jsonl) 마지막 assistant 의 message.model → 명부 · 모두 없으면 NORECORD · 명부와 «바탕이» 다를 때만 기록에 roster_model + 출력 끝 `(명부 model 다름: <값>)`.
 #   R282 ② 은퇴인데 옛 행이 어느 명부에도 없으면(--seats 없음) 이름(ft-name-lint 통과)의 팀 명부(seats.json=v65 · seats-<팀>.json)에 은퇴 행을 만든 뒤 은퇴 — 옛 이름이 «다른» 명부 `_*` 칸에 현역이면 REJECT. 옛 이름이 lint 를 못 넘으면 «후계» 이름(r573 · 후계도 lint 실패 = REJECT)에서 팀·역할·에이전트를 뽑는다.
 #   R282 ③ 후계 행 model = 도달 파일(<루트>/.fable-team/state/successor/<구>.json · env FT_SUCCESSOR_DIR)의 model → 없으면 옛 값.
-#   R296 ④ `--record-only` + 행 없음 — ⓐ 옛 이름이 어느 명부 `_*` 칸의 값도 아님 ⓑ 같은 계보로 더 큰 번호가 `_*` 칸에 현역 ⓒ 그 tmux 세션 생존 — 셋 다 참일 때만 기록(retired_by = 그 현역 이름) · 명부 쓰기 0.
-#   R400 `<구> --record-only --verdict <번호>` (판정 2304) — 승계가 아닌 «판정에 의한 닫기»(ft-seat-close --verdict 가 부른다): _replaced_by·R296 ⓑⓒ 없이 결속만으로 기록(retired_by = `verdict <번호>`) · 행 없음(다른 리포 좌석)은 ⓐ 만 · 명부 쓰기 0.
+#   r296 ④ `--record-only` + 행 없음 — ⓐ 옛 이름이 어느 명부 `_*` 칸의 값도 아님 ⓑ 같은 계보로 더 큰 번호가 `_*` 칸에 현역 ⓒ 그 tmux 세션 생존 — 셋 다 참일 때만 기록(retired_by = 그 현역 이름) · 명부 쓰기 0.#   R400 `<구> --record-only --verdict <번호>` (판정 2304) — 승계가 아닌 «판정에 의한 닫기»(ft-seat-close --verdict 가 부른다): _replaced_by·R296 ⓑⓒ 없이 결속만으로 기록(retired_by = `verdict <번호>`) · 행 없음(다른 리포 좌석)은 ⓐ 만 · 명부 쓰기 0.
 #   r427 `--record-only --keep-existing` (죽은 좌석 · ft-seat-close 가 tmux 세션 없을 때 부른다): 기존 기록 있으면 새 시도 0 → `RESUME kept <경로>` · 없고 세션도 없으면 대화 기록 탐색 1회
 #     (~/.claude/history.jsonl 의 그 좌석 이름 줄 → project·sessionId → 그 jsonl 머리 64KB 에 `"agentName":"<구>"` «정확히 1개») → `RESUME ok` · 아니면 NORECORD.
 #   r427 기록 실패(NORECORD)는 옛 기록을 건드리지 않는다(무효화 0 — 닫기는 zombie-clean 이 binding --expect 로 다시 본다) · 새 기록 «성공» 때만 옛 것을 <경로>.prev-<ts> 로.
@@ -27,7 +26,7 @@ python3 - "${ARG:-${FT_SEATS_JSON:-}}" "${ROOT:-.}" "$OLD" "$NEW" "$RECONLY" "$(
 import json, os, re, sys, glob, shutil, shlex, datetime, subprocess, collections
 arg, root, old, new, reconly, here, verdict, keep = sys.argv[1:9]
 sys.path.insert(0, here)   # 소유 결속 판정기 하나(R364) — 같은 폴더(자기 번들) 고정 경로 · 없으면 명시 rc 2(닫기 근거 0 · 옛 판정 후퇴 0)
-try: import ft_seat_bind; from ft_roster_lib import load, dump, scan_cells, apply_cells, role_cell, held_roles, succ_role, fix_role   # 명부 읽기·원자 쓰기·남의 명부 칸 쓸기(r429→r465)·후계 role 도출(r499) = 같은 폴더 lib
+try: import ft_seat_bind; from ft_roster_lib import load, dump, scan_cells, apply_cells, role_cell, held_roles, succ_role, fix_role, pi_seat_resume   # 명부 읽기·원자 쓰기·남의 명부 칸 쓸기(r429→r465)·후계 role 도출(r499)·pi 재개 기록(r960) = 같은 폴더 lib
 except ImportError as e: print(f"ERROR 결속 판정기·명부 lib 없음 {here}/ft_seat_bind.py · ft_roster_lib.py ({e}) — 은퇴·기록 0"); sys.exit(2)
 def sh(*a):
     try: return subprocess.run(a, capture_output=True, text=True, timeout=7).stdout.split()
@@ -51,7 +50,8 @@ def argv_model(pid):   # 실행 중 프로세스의 `--model X`(접미사 포함
         if t.startswith("--model="): return t[8:] or None
         if t in ("-c", "--config") and i + 1 < len(a) and a[i + 1].startswith("model="): return a[i + 1][6:].strip("\"'") or None   # codex `-c model=X` (R400)
     return None
-def find_resume(model, retired_by):   # (기록|None, 이유) — 소유 결속은 ft_seat_bind.py 하나(R364): pane pid 자신 ∪ 직계 자식 중 세션 파일 «정확히 1개» + tmux 칸(세션·window·pane)·pid·시작시각. 이름·mtime 추측 0
+def find_resume(model, retired_by, agent=None):   # (기록|None, 이유) — 소유 결속은 ft_seat_bind.py 하나(R364): pane pid 자신 ∪ 직계 자식 중 세션 파일 «정확히 1개» + tmux 칸(세션·window·pane)·pid·시작시각. 이름·mtime 추측 0
+    if agent == "pi": return pi_seat_resume(old, model, retired_by)   # r960-mut:pi ⓒ pi 좌석 재개 기록 근거 = claude jsonl 아닌 pi 세션 파일(명부 lib)
     b = ft_seat_bind.bind(old)
     if b["rc"] != 0: return None, ("조회 불가: " if b["rc"] == 2 else "") + b["reason"]
     pid, uuid, cwd, jsonl = str(b["pid"]), b["uuid"], b["cwd"], b["jsonl"]
@@ -91,7 +91,7 @@ def dead_resume(model, retired_by):   # r427 죽은 좌석(tmux 없음 · pane �
                                    at=datetime.datetime.now().isoformat(timespec="seconds"), binding=dict(source=DEAD_SRC)), ""
 RD = os.environ.get("ZC_RESUME_DIR") or os.path.expanduser("~/.claude/state/seat-resume"); RP = f"{RD}/{old}.json"
 def write_record(rec, why):   # 재개 기록(zombie-clean 이 직전 세대를 닫아도 되는 근거) — 실패는 NORECORD 로 보이고 직전 세대는 keep-last-2 로 남는다
-    if rec and rec["binding"].get("source") != DEAD_SRC:   # 기록 직전 재확인 1회(R364) — 결속이 그새 바뀌었으면(pane·pid 교체) 기록 0
+    if rec and rec["binding"].get("source") not in (DEAD_SRC, "pi-session"):   # 기록 직전 재확인 1회(R364) — 결속이 그새 바뀌었으면(pane·pid 교체) 기록 0 · r960 pi 세션 결속은 결속 비교 대상 아님(파일 경로가 증거)
         b2 = ft_seat_bind.bind(old)
         if b2["rc"] != 0 or b2["binding"] != rec["binding"]: rec, why = None, "기록 직전 재확인 불일치"
     rd, rp = RD, RP
@@ -104,9 +104,9 @@ def write_record(rec, why):   # 재개 기록(zombie-clean 이 직전 세대를 
         print(f"RESUME ok {rp}" + (f" (명부 model 다름: {rec['roster_model']})" if rec.get("roster_model") else "") + (f" · 이전 기록 {prev}" if prev else ""))
     except (OSError, ValueError) as e:   # r427 — 옛 기록 무효화 0(죽은 좌석의 유일한 재개 근거를 지우던 길) · 닫기 판정은 zombie-clean 의 binding --expect 가 다시 본다
         print(f"NORECORD {old} {e}" + (f" · 기존 기록 보존 {rp}" if os.path.exists(rp) else ""))
-def record(model, retired_by):   # 기록 모드 공통 — r427 --keep-existing: 기존 기록 있으면 새 시도 0 · 세션 없으면 대화 기록 탐색
+def record(model, retired_by, agent=None):   # 기록 모드 공통 — r427 --keep-existing: 기존 기록 있으면 새 시도 0 · 세션 없으면 대화 기록 탐색(r960 pi 는 세션 파일 탐색)
     if keep == "1" and os.path.exists(RP): print(f"RESUME kept {RP}"); return True
-    rec, why = dead_resume(model, retired_by) if keep == "1" and not alive(old) else find_resume(model, retired_by)
+    rec, why = dead_resume(model, retired_by) if keep == "1" and not alive(old) and agent != "pi" else find_resume(model, retired_by, agent)
     write_record(rec, why); return rec
 rosters = sorted(glob.glob(root + "/.fable-team/seats*.json"))
 def reject(why): print(f"REJECT {why}"); sys.exit(1)
@@ -126,7 +126,7 @@ if verdict:   # R400 판정 닫기 — 현역 역할 좌석도 기록(판정 번
         for f in rosters:
             if active_in(f): reject(f"{old} 은 {os.path.basename(f)} 의 `_*` 칸 값인데 행이 없음 — 명부 확인 — 다른 리포 좌석이면: FT_ROOT=<그 설치본 루트> … --seats <그 루트>/.fable-team/seats.json")
         o = None
-    rec = record((o or {}).get("model"), f"verdict {verdict}")
+    rec = record((o or {}).get("model"), f"verdict {verdict}", (o or {}).get("agent"))
     if o is None and not rec: print("  - 다른 리포 좌석이면: FT_ROOT=<그 설치본 루트> … --seats <그 루트>/.fable-team/seats.json")   # R400 r3 §D — 행 없음 NORECORD 에도 같은 안내(첫 줄 꼴 그대로)
     sys.exit(0)
 if not cand and not arg and "#" in old and reconly == "1":   # R296 ④ — 행 없는 옛 좌석: ⓐⓑⓒ 셋 다 참일 때만 기록(명부 쓰기 0)
@@ -141,7 +141,7 @@ if not cand and not arg and "#" in old and reconly == "1":   # R296 ④ — 행 
     if not later: reject(f"{old} 보다 번호가 큰 같은 계보 현역 이름이 어느 명부 `_*` 칸에도 없음 — 다른 리포 좌석이면: FT_ROOT=<그 설치본 루트> … --seats <그 루트>/.fable-team/seats.json")
     rb = max(later)[1]
     if not alive(rb): reject(f"현역 {rb} 의 tmux 세션이 없음 — 다른 리포 좌석이면: FT_ROOT=<그 설치본 루트> … --seats <그 루트>/.fable-team/seats.json")
-    record(None, rb); sys.exit(0)
+    record(None, rb, None); sys.exit(0)
 if not cand and not arg and reconly != "1":   # R282 ② — 옛 행이 어느 명부에도 없는 «지금 승계 중»: 팀 명부에 은퇴 행을 만든다
     lint = lambda n: subprocess.run(["bash", f"{here}/ft-name-lint.sh", n], capture_output=True, text=True).returncode; ok, okn = lint(old) == 0, bool(new) and lint(new) == 0   # R573 — 옛 이름 lint 실패 = «칸 뽑을 이름» 만 후계로 후퇴(새 이름 lint 규칙 불변)
     if not ok and not (okn and not any(active_in(f) for f in rosters)): reject(f"명부 후보 0개 (키 {old}) · 이름 lint 실패" + (" · 후계도 이름 lint 실패" if not okn else " · 다른 명부 `_*` 칸의 현역 — --seats 로 지정"))
@@ -152,12 +152,12 @@ if not cand and not arg and reconly != "1":   # R282 ② — 옛 행이 어느 �
     cand, mkrow = [tf], True
 if len(cand) != 1: print(f"REJECT 명부 후보 {len(cand)}개 (키 {old}) — --seats 로 지정"); sys.exit(1)
 p = cand[0]; d = load(p); o = d.get(old) if isinstance(d, dict) else None
-if mkrow: rec0, _ = find_resume(None, new); o = collections.OrderedDict([("role", parts[2]), ("agent", parts[3]), ("model", rec0["model"] if rec0 else None), ("tick", None), ("_created_by", "retire")])
+if mkrow: rec0, _ = find_resume(None, new, parts[3]); o = collections.OrderedDict([("role", parts[2]), ("agent", parts[3]), ("model", rec0["model"] if rec0 else None), ("tick", None), ("_created_by", "retire")])
 if not isinstance(o, dict): print(f"REJECT {p} 에 구 행 {old} 없음"); sys.exit(1)
 if reconly == "1":   # 기록 모드 — 명부 쓰기 0(.bak 도 0) · 은퇴한 행(_replaced_by 있음)만
     rb = o.get("_replaced_by")
     if not (isinstance(rb, str) and rb): print(f"REJECT {old} 은 현역 행(_replaced_by 없음) — 기록 모드는 은퇴한 좌석만 file={p}"); sys.exit(1)
-    record(o.get("model"), rb); sys.exit(0)
+    record(o.get("model"), rb, o.get("agent")); sys.exit(0)
 noop, n = o.get("_replaced_by") == new, d.get(new)   # r465 재실행도 남은 칸 보정·빈 칸 채우기 — 바꿀 것 0 일 때만 옛 NOOP
 if not noop and isinstance(n, dict) and n.get("_replaced_by"): print(f"REJECT 후계 {new} 가 이미 은퇴(_replaced_by={n['_replaced_by']}) — 쓰기 0"); sys.exit(3)
 others, cells, bad = scan_cells(p, old)   # r465 같은 폴더(루트 .fable-team) 다른 명부 전부 — 값이 <구> 인 `_*` 칸 전부(역할·라우팅)
@@ -170,7 +170,7 @@ own, ts, rec, why = not noop or bool(keys or fc or rfx),datetime.datetime.now().
 if own: shutil.copy(p, p + ".bak-retire-" + ts)
 if not noop:
     if mkrow: d[old] = o   # .bak 뒤에 — 아래 은퇴 흐름이 이 행을 닫는다
-    rec, why = find_resume(o.get("model"), new)   # 읽기만 — 실패해도 은퇴는 그대로(기록 결과는 rc 에 섞지 않는다 · H3)
+    rec, why = find_resume(o.get("model"), new, o.get("agent"))   # 읽기만 — 실패해도 은퇴는 그대로(기록 결과는 rc 에 섞지 않는다 · H3)
     if rec: o["_resume_uuid"] = rec["uuid"]
     else: o.pop("_resume_uuid", None)   # 옛 은퇴가 남긴 값이 닫기 근거로 남지 않게(DA⑥ H1)
     role, tick, sr = o.get("role"), o.get("tick"), succ_role(o, rc_, new)   # r499 후계 role = 옛 role · 옛 role 이 stop-ready 면 _retired_role → 옮기는 역할 칸 → 이름 토큰(사슬 상속 0)
@@ -192,9 +192,9 @@ print(f"RETIRED {old} -> {new} file={p} {tail}")
 write_record(rec, why)
 PY
 prc=$?
-# r448: 은퇴 뒤 옛 좌석의 «고아(ppid 1)» 백그라운드 루프만 정지(--orphans-only — 살아 있는 에이전트·pane 나무는 zombie-clean 이 재개 기록으로 닫는다) · 기록 모드·실패는 0 · r690 --defer-press: press 중이면 «미룸»(관측기 보존 · 다음 reap 이 소화 · CLOSE-FAIL 아님)
+# r448: 은퇴 뒤 옛 좌석의 «고아(ppid 1)» 백그라운드 루프만 정지(--orphans-only — 살아 있는 에이전트·pane 나무는 zombie-clean 이 재개 기록으로 닫는다) · 기록 모드·실패는 0 · r690 --defer-press: press 중이면 «미룸»(관측기 보존 · 다음 reap 이 소화 · CLOSE-FAIL 아님) · r939: 승계는 닫기가 아니다 — 재개 기록을 쓴 «뒤» `--handover <후계>` 로 부른다. «곧 끝나는 일»(ft-da-codex.sh·install.sh·ft-scratch-repo.sh·timeout 묶인 것·FT_BG_FINITE=1)은 죽이지 않고 넘기고, 넘김 목록은 재개 기록의 "handed" 칸에 남는다(ⓑ) · 감시 루프만 정지 — left≠0 판정 그대로.
 [ "$prc" -eq 0 ] && [ "$RECONLY" = 0 ] || exit "$prc"
-RO="$(bash "${FT_SEAT_REAP_BIN:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)/ft-seat-reap.sh}" "$OLD" --orphans-only --defer-press 2>&1)"; rrc=$?; RL="$(printf '%s\n' "$RO" | grep -oE 'left=[0-9?]+' | tail -1)"; printf '%s\n' "$RO" >&2
+RO="$(bash "${FT_SEAT_REAP_BIN:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)/ft-seat-reap.sh}" "$OLD" --orphans-only --defer-press --handover "$NEW" 2>&1)"; rrc=$?; RL="$(printf '%s\n' "$RO" | grep -oE 'left=[0-9?]+' | tail -1)"; printf '%s\n' "$RO" >&2
 [ "$rrc" -eq 0 ] && [ "$RL" = left=0 ] || { echo "CLOSE-FAIL reap ${RL:-left=?} rc=$rrc — $OLD 은퇴 기록은 끝남 · 고아 루프 잔존(사람 판단)"; exit 1; }
 RD="$(printf '%s\n' "$RO" | tail -1 | grep -oE 'deferred=[0-9]+' | cut -d= -f2)"; [ "${RD:-0}" -gt 0 ] && echo "reap deferred=$RD (press 중 · 끝난 뒤 다음 정리에서)"
 echo "reap left=0 rc=0"

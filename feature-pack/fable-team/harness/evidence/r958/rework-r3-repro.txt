@@ -1,0 +1,22 @@
+================ 반례 1 — 따옴표 경로(a"b.py) ================
+--- base(origin/main) 판:
+rc=1
+--- r2 판(88bbabb3):
+rc=0
+--- r3 판(HEAD):
+rc=1
+==> r3 stdout = base stdout (전문 동일)
+--- r2 판 출력(누출 재현):
+INFO cherry 게이트 — nano/x 의 «+» 커밋 1개: 경로 1개 tip 내용이 분기 뒤 main 구간에 새 blob 으로 있음(예 없음) · feat HEAD 와 동일 0개 — 통과 (사유 content_landed_then_superseded)
+
+================ 반례 2 — rev-parse 가 7초 상한 밖 ================
+--- r2 판(88bbabb3):
+OK cherry 게이트 — nano/x 의 모든 커밋이 main 에 patch 단위로 존재(+ 0)
+rc=0 · 16초
+--- r3 판(HEAD):
+REJECT cherry 게이트 — rev-parse 7초 초과(묶음 1 · 마지막 refs/heads/main) — 쪼개도 넘어 판정 불가(조용한 통과 0)
+rc=1 · 15초
+
+================ 성능 — «+» 300 커밋 · 경로 2000 · git 1회 0.08초 ================
+base 판: rc=0 · 100초 · 첫 줄 = WARN cherry 게이트 — nano/x 의 design/ 문서 커밋 300개가 main 에 없음(코드 0 · 브랜치 보존으로 복구 가능) — 통과:
+r3 판  : rc=0 · 2초 · 외부 호출 6회 · 첫 줄 = WARN cherry 게이트 — nano/x 의 design/ 문서 커밋 300개가 main 에 없음(코드 0 · 브랜치 보존으로 복구 가능) — 통과:

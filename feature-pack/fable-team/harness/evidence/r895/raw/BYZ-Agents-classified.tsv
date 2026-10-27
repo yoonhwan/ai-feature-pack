@@ -1,0 +1,518 @@
+path	branch	head	kib	dirty	land	class
+/private/tmp/__chk	(detached)	b79c465468	263612	0	조상	밖:나노 밖 워크트리
+/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-ops/de545889-1987-4ba7-9b01-c13e0094efe9/scratchpad/closeout-wt	docs/harness-closeout-20261027	692642afbe	40	0	미착지	밖:미착지
+/private/tmp/claude-501/-Users-yoonhwan-Project-Agent-BYZ-Work-BYZ-Agents--worktrees-harness-ops/de545889-1987-4ba7-9b01-c13e0094efe9/scratchpad/closeout-wt-2	docs/harness-closeout-next-20261027	276f780912	16	0	내용착지	밖:나노 밖 워크트리
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-00ac2898-1792927169-40159	(detached)	00ac2898c3	254516	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-03dad935-1792922267-90088	(detached)	03dad93530	269420	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-045dea30-1793007958-19150	fix/ops-tts-zh-voice-sarah-20261026	68b576ffe3	275480	0	내용착지	밖:나노 밖 워크트리
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-04f04d18-1793007305-64688	(detached)	04f04d1826	253708	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-0512fd9b-1792910701-79861	(detached)	0512fd9bd5	253312	0	조상	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-06ee02de-1792905391-24427	(detached)	06ee02dea9	258448	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-095805a1-1793008448-36009	docs/ops-tts-cards-da-20261026	a5b82ffa13	257700	0	내용착지	밖:나노 밖 워크트리
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-09c3201c-1792930032-6590	(detached)	09c3201c05	254596	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-0a68ee33-1792929987-74099	(detached)	0a68ee3395	253568	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-0a97017a-1793024230-65211	(detached)	0a97017abf	264656	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-1051267d-1792927934-80381	(detached)	1051267d15	253448	0	조상	밖:등록 밖 사본
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-11ce68f4-1792969355-468	da-throwaway-budget-impl-20261026	11ce68f470	22860	48038	미착지	밖:등록 밖 사본
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-13168fae-1792926683-72341	da-throwaway-receipt-r2-20261025	13168fae70	263476	0	미착지	밖:나노 밖 워크트리
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-15be3f2b-1792932640-51866	(detached)	15be3f2bdd	254172	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-16b36e5f-1792978221-46222	(detached)	e60ee384f0	267080	0	내용착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-1ce03386-1792912689-27522	da-wire3-surface-throwaway	9c3086678e	253496	0	미착지	밖:나노 밖 워크트리
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-1fecc69d-1792927571-61010	(detached)	1fecc69db8	253548	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-22667815-1792907650-76114	(detached)	226678159c	253208	0	조상	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-23d1d4db-1792914264-40302	(detached)	23d1d4db22	253368	0	내용착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-2421a8bb-1792907028-45642	docs/ops-account-card-progress-20261025	2ae0f5f7d9	254696	0	미착지	밖:나노 밖 워크트리
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-2611e13b-1793032259-9525	(detached)	2611e13b5c	1551980	0	내용착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-2832ecae-1792909519-38217	(detached)	2832ecae0b	253988	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-295c573a-1793021570-53848	(detached)	295c573a3a	253824	0	조상	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-2a19160f-1793027988-48418	docs/ops-da-qwen-stt-chain-code-20261026	84ab3ddb3f	1536880	0	내용착지	밖:나노 밖 워크트리
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-2a44cb3a-1793005737-66239	(detached)	2a44cb3ac6	265116	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-2a972d78-1792913013-48058	(detached)	322a17c6d9	254968	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-2a9af39d-1792922226-55889	(detached)	2e61fae9c6	255024	0	내용착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-310d6c1d-1792981821-66414	docs/ops-handoff-58-59-20261026	4233c23cae	253724	0	내용착지	밖:나노 밖 워크트리
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-314de12e-1792904160-11335	(detached)	7956e7bc3e	253124	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-34a2dd60-1792925803-78266	(detached)	34a2dd6074	254472	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-38b15323-1793006842-798	docs/ops-da-tts-zh-20261026	f2541b1a5e	256024	0	내용착지	밖:나노 밖 워크트리
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-39b16cf1-1792925045-95009	(detached)	39b16cf117	255172	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-3a4261e1-1792903932-64830	(detached)	3a4261e19c	253136	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-3bf49e53-1792893609-12879	(detached)	3bf49e53a9	252892	0	미착지	밖:등록 밖 사본
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-3cb7786f-1793030948-90934	docs/ops-chat-base-seed-card-20261027	fb07ecc924	280212	0	미착지	밖:나노 밖 워크트리
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-4038d604-1792929840-84622	(detached)	4038d60480	257800	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-423698ea-1792923807-65042	(detached)	423698eae8	253420	0	조상	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-423698ea-1792923841-98391	(detached)	635ec32c38	253536	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-436b8aa8-1792912213-65884	(detached)	2608b42da2	253404	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-448877e7-1793033528-16095	(detached)	448877e731	1537748	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-45391082-1793024968-38054	(detached)	4539108289	254000	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-45c149de-1792932658-68639	(detached)	e7ed4bbf72	267080	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-45c149de-1792933024-28374	(detached)	45c149de0f	253708	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-45c149de-1792933057-54954	(detached)	45c149de0f	267076	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-45f05c3a-1792914198-51282	da6-surface-throwaway	cb563cd32a	256924	0	미착지	밖:나노 밖 워크트리
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-468f2e2e-1792906634-51373	(detached)	468f2e2ee6	266580	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-477c7cba-1792927992-38000	(detached)	477c7cbae7	253564	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-49aa2117-1793004937-54800	docs/ops-tts-lang-research-20261026	1c4d0d80d4	255452	0	내용착지	밖:나노 밖 워크트리
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-49bd042e-1792912870-37181	(detached)	49bd042ece	253480	1	조상	밖:미커밋
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-4b030cb9-1792906771-53659	(detached)	4b030cb9ed	266600	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-4ba21839-1792924810-85405	(detached)	36ede0ee9f	266744	0	내용착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-4e2ff42e-1792892293-47501	(detached)	4e2ff42e04	252620	0	미착지	밖:등록 밖 사본
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-52a2f4e9-1793023033-85509	(detached)	52a2f4e9d5	264572	0	조상	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-52a99460-1792892582-10474	(detached)	52a99460fa	252712	0	미착지	밖:등록 밖 사본
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-56c78f90-1792913518-66166	(detached)	ffa2a607ab	253420	0	변경없음	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-5ed5b37f-1793007053-57128	docs/ops-tts-lang-rule-land-20261026	c713b8fa40	253764	0	내용착지	밖:나노 밖 워크트리
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-6000fa63-1792933139-48749	(detached)	6000fa63fe	268912	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-619f9c09-1792929583-80856	(detached)	619f9c09f0	253696	0	내용착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-636033b6-1792924310-4416	(detached)	636033b678	254420	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-64356322-1792928482-51229	da-throwaway-receipt-r3-20261025	643563228a	261968	0	미착지	밖:나노 밖 워크트리
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-64fd5747-1793005054-5798	(detached)	64fd574759	254840	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-66d4f570-1792929313-46376	(detached)	66d4f57004	253456	0	내용착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-6748b25a-1792931354-13648	(detached)	e08305b3ac	258196	0	내용착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-6842e407-1792909654-89528	(detached)	6842e4077b	253996	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-68def21a-1793006290-69592	fix/ops-tts-zh-route-elevenlabs-20261026	144297a73a	1556120	0	미착지	밖:나노 밖 워크트리
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-6ba2550f-1793025506-43635	(detached)	6ba2550ffd	256680	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-6fa646b6-1792927103-89058	(detached)	6fa646b68d	253448	0	내용착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-707d8085-1792913809-11867	(detached)	707d808540	254308	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-71eed42f-1792912453-83542	(detached)	00f56c3c61	255724	0	내용착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-732bff12-1792922017-53334	(detached)	732bff12a8	258316	0	조상	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-735d898c-1792911846-42520	(detached)	735d898c31	254100	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-75db4acb-1792912934-89956	(detached)	75db4acbf6	269380	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-7925c7bb-1792924038-41061	(detached)	7925c7bb38	1532164	0	조상	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-79572051-1792906672-80471	(detached)	7957205141	253124	0	조상	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-7af40ed4-1793008778-20578	docs/ops-da-tts-zh-voice-20261026	87f8aa9a4b	256060	0	내용착지	밖:나노 밖 워크트리
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-7d81dfde-1792933149-60499	(detached)	7d81dfdefb	253800	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-7eb3902c-1792909004-28599	(detached)	7eb3902cf7	253172	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-7f540b81-1792910243-66931	(detached)	476e6f3462	254816	0	내용착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-82bbfa47-1792932588-87665	(detached)	82bbfa4710	254620	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-82bf37aa-1792910110-29153	(detached)	82bf37aa7a	253172	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-86d5c2a8-1793022320-34990	(detached)	86d5c2a8aa	268948	10	조상	밖:미커밋
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-86dacd99-1793005640-1056	fix/ops-tts-invalid-lang-4xx-20261026	21625b218b	254176	0	내용착지	밖:나노 밖 워크트리
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-86faef95-1793032483-78953	docs/ops-m10-card-close-20261027	12aec0d154	269260	0	미착지	밖:나노 밖 워크트리
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-8b156d50-1792905271-8480	(detached)	8b156d50fb	253524	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-8d2717b9-1792906969-10283	(detached)	8d2717b9ce	253532	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-8da504ae-1793005988-60418	docs/ops-da-tts-4xx-20261026	adefa02116	255996	0	내용착지	밖:나노 밖 워크트리
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-8e1c956a-1792907897-10785	docs/ops-cleanup-cards-close-20261025	a12e995d36	254756	0	미착지	밖:나노 밖 워크트리
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-90bcd565-1792978464-74717	docs/ops-handoff-56-58-20261026	4b77c31fdf	253736	0	내용착지	밖:나노 밖 워크트리
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-90bcd565-1792978485-5437	(detached)	90bcd565d4	253736	0	조상	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-943707e2-1792975681-82466	(detached)	943707e208	254144	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-94ce982b-1792925316-45718	(detached)	94ce982b86	255172	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-961f2a4a-1793027640-6344	(detached)	961f2a4a9c	264776	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-9777fc7a-1792925690-24678	(detached)	9209d9156f	255192	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-97b8058c-1792926266-37893	(detached)	97b8058cf2	253448	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-9a7f8fc1-1793006254-15980	docs/ops-usage-loss-card-20261026	e9590a2e46	253812	0	내용착지	밖:나노 밖 워크트리
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-9b059aa9-1792904848-15500	(detached)	9b059aa933	253124	0	조상	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-9b059aa9-1792904933-99174	(detached)	9b059aa933	253204	0	조상	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-9cf9c63c-1792909332-13065	(detached)	9cf9c63c8f	253972	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-9df35373-1792922012-45730	(detached)	9df3537376	253132	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-9f72dcd2-1792909393-87839	(detached)	9f72dcd2f3	253176	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-a182ab06-1792907687-10404	(detached)	a182ab0608	253540	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-a51e59ec-1792930701-89194	(detached)	a51e59ecc5	257804	0	미착지	밖:등록 밖 사본
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-a51e59ec-1792931000-83166	(detached)	a51e59ecc5	257804	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-a5f0e9d0-1792910423-57737	(detached)	a5f0e9d02c	253172	0	내용착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-a993ce24-1792911777-51803	(detached)	a993ce24be	255060	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-ab8adb8c-1792899463-66746	(detached)	ab8adb8cdc	252940	0	미착지	밖:등록 밖 사본
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-ae751a83-1792923625-40337	(detached)	ae751a835f	269428	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-af59b713-1792909956-96517	(detached)	af59b71321	254004	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-b03fc948-1792910539-94095	(detached)	b03fc948e4	267292	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-b2cafc32-1792929376-91927	chatbot/k12-wire3-reenable-20261025	0dd5d6dc42	259088	0	미착지	밖:나노 밖 워크트리
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-b616e3c9-1792914011-17276	(detached)	b93f8abad7	254980	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-b634f110-1792927000-11027	(detached)	b634f11023	253456	0	미착지	밖:등록 밖 사본
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-b634f110-1792927024-26202	(detached)	b634f11023	253556	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-b79c4654-1793009814-2594	docs/ops-research-c1-c12-20261026	ec4e306535	1546924	2	미착지	밖:나노 밖 워크트리
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-b887ef7b-1792905447-77441	docs/chatbot-wire3-plan-json-design	516eb9c77a	255504	0	미착지	밖:나노 밖 워크트리
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-b9b42738-1793028483-33576	(detached)	b9b42738e7	269144	1	조상	밖:미커밋
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-b9b42738-1793028657-30617	(detached)	b9b42738e7	254148	0	조상	밖:등록 밖 사본
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-b9b42738-1793028659-33122	(detached)	b9b42738e7	265088	0	조상	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-b9b42738-1793028680-45414	(detached)	b9b42738e7	1536880	0	조상	밖:등록 밖 사본
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-b9b42738-1793028712-66688	docs/ops-cards-progress-20261027	99f640fd24	1537692	2	내용착지	keep:쓰는중
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-bdb77579-1792905452-81223	(detached)	bdb775792a	253124	0	미착지	밖:등록 밖 사본
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-bdb77579-1792905469-94114	(detached)	d23a39c8dc	1529604	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-bf2cd5c5-1792905452-82015	(detached)	bf2cd5c544	252828	0	조상	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-c2c3fbb4-1792913267-2865	(detached)	c2c3fbb45f	253356	0	조상	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-c4457d32-1792906254-14742	(detached)	00a9c65605	253208	0	내용착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-c860b3c6-1792969337-76485	(detached)	c860b3c682	253708	0	조상	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-c8ee5fcd-1793032180-59390	(detached)	c8ee5fcd74	1543332	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-c9099a1c-1793023577-24307	(detached)	c9099a1c85	264616	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-cd4eeb22-1793031733-57909	(detached)	cd4eeb2208	1547936	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-ce136131-1793004201-12701	docs/ops-tts-zhcn-cards-20261026	593677556d	253808	0	미착지	밖:나노 밖 워크트리
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-d20f51dd-1793026884-11868	fix/ops-qwen-stt-chain-b-20261026	b309f3f240	263884	0	내용착지	밖:나노 밖 워크트리
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-d4ec0cd2-1792930317-27579	(detached)	d4ec0cd2d8	257800	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-da63a90a-1792905815-93955	(detached)	da63a90aed	258456	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-e029041b-1792914418-70491	(detached)	5d5671a559	253428	0	내용착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-e1a44453-1792926436-47362	(detached)	5efe10f8ed	255440	0	내용착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-e5de194c-1792931117-89618	(detached)	e5de194ca6	253436	0	미착지	밖:등록 밖 사본
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-e5de194c-1792931136-6727	(detached)	e5de194ca6	254628	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-e64acbf8-1792930949-48223	da-throwaway-slot-budget-20261025	e64acbf83e	253740	0	조상	밖:나노 밖 워크트리
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-e64acbf8-1792931044-23945	da-throwaway-consumer-card-20261025	e64acbf83e	253692	0	조상	밖:나노 밖 워크트리
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-e6c0effb-1792906288-56346	(detached)	e6c0effb85	258456	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-e7345dbe-1792933308-13134	(detached)	e7345dbec3	254136	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-e9ffac2a-1792907351-80813	(detached)	e9ffac2ac0	253540	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-ebecb0b5-1792983601-85637	docs/ops-inbox-sort-20261026	2ae2643ab9	267108	0	내용착지	밖:나노 밖 워크트리
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-ec94aadb-1793025365-33493	docs/ops-inventory-chat-selfhost-20261026	a00e44b060	1536476	0	미착지	밖:나노 밖 워크트리
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-ec94aadb-1793026243-91697	(detached)	ec94aadb63	254168	0	조상	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-ed2e6629-1792930572-10647	(detached)	ed2e662997	253572	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-f0bd6e68-1792929529-31623	(detached)	f0bd6e682e	257796	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-f0fc79b0-1793028225-42650	(detached)	f0fc79b089	264796	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-f17a83b2-1792931185-49672	(detached)	f17a83b239	253572	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-f695685a-1792930599-27857	chatbot/k12-wire3-rollback4-20261025	840bae388d	256020	0	미착지	밖:나노 밖 워크트리
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-f6bbdcd7-1792910723-13656	(detached)	d37505eb38	266584	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-f7e4e6df-1792924600-97918	(detached)	f7e4e6df4c	255168	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-f81c1629-1792906317-38577	(detached)	f81c162903	258460	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-f9350514-1793006454-49106	(detached)	f93505147d	1534440	0	조상	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-f9efc949-1792910309-38678	(detached)	f9efc94974	267276	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-fb9377ec-1792924666-83473	da-throwaway-receipt-20261025	fb9377ec31	256064	0	미착지	밖:나노 밖 워크트리
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-fefc3e5e-1792913991-87563	(detached)	fefc3e5ea8	254316	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-ffaba334-1793009166-36694	docs/ops-arch-handoff-62-land-20261026	46970cb493	253764	0	내용착지	밖:나노 밖 워크트리
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees-tmp-c19base	(detached)	1668f8eee3	405500	1	조상	밖:미커밋
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/actor-attr	docs/llm-tts-actor-attribution	be938c2bc1	86104	3	내용착지	밖:미커밋
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/c-level-planning	docs/cfo-main	f03b5f7af1	1642092	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ccu-main	docs/ccu-r1-20261025	73cb009d98	166924	0	미착지	keep:쓰는중
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ccu-stress	feat/ccu-stress-cloud	1b62a7136f	572556	1	미착지	밖:미커밋
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/cfo-cfo-2605-s4-expiry-soon-notice-r3	nano/cfo-2605-s4-expiry-soon-notice-r3	8c3b4cabe0	1177496	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/cfo-cfo-2605-s6-sub-live-pay-test-r2	nano/cfo-2605-s6-sub-live-pay-test-r2	a48603d582	314100	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/cfo-cfo-held-audit-scan-marker-r3	nano/cfo-held-audit-scan-marker-r3	46139ee8a2	326424	0	내용착지	안후보:nano-close(census 확인)
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/cfo-closeout-101	docs/cfo-closeout-101	f94f8d7bbe	1379092	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/cfo-consume-da2-land	nano/cfo-credit-consume-order-sub-first-da2	98dbef8d72	1495952	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/cfo-design-land	docs/cfo-b2b-design-main-20261024	d16afc5117	1500664	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/cfo-land-2382	nano/cfo-e2e-payment-mode-explicit-inject	b0cbbe46f6	1385632	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/cfo-land-2404	nano/cfo-e2e-c6-insufficient-overdraft-expect	aced16a132	1437760	0	변경없음	안:nano-close
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/cfo-land-2447	nano/cfo-tests-team-path-sparse-hidden	c3b2c1ca50	1437104	0	변경없음	안:nano-close
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/cfo-land-2449	nano/cfo-llm-cost-observe-and-bedrock-cache	7d07162ba4	1448764	0	변경없음	안:nano-close
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/cfo-land-2454	nano/cfo-1087-credits-uiux-close-live-check	1330b005aa	1436404	0	변경없음	안:nano-close
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/cfo-land-2455	nano/cfo-772-open-9-read	6bc60ea21e	1436404	0	변경없음	안:nano-close
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/cfo-land-2456	nano/cfo-773-a-reconcile-2week-read	042483d633	1436404	0	변경없음	안:nano-close
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/cfo-land-972	docs/cfo-land-972	c37ab51a37	549696	8865	미착지	밖:미커밋
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/cfo-live-keys-usage	docs/cfo-live-keys-usage-20261025	16a4095f5e	120	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/cfo-pg	feat/cfo-pg-seoul-land	4aac733d4e	3291364	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/cfo-terms-art8-date	nano/cfo-terms-art8-b2b-exhaustion-revision	aad94e9162	46312	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/cfo-track-c	fix/slack-channel-unify	03a0e45808	92972	7	미착지	밖:미커밋
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/chatbot-c-brain-e2-chat-assemble-budget-tool-r2	nano/c-brain-e2-chat-assemble-budget-tool-r2	23a8b73570	1742924	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/chatbot-c-brain-k12-wire-prod	nano/c-brain-k12-wire-prod	fe85f093bf	319360	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/chatbot-c-fix-k12-tool-results-slot-budget	nano/c-fix-k12-tool-results-slot-budget	0f3da1ecd8	326644	0	미착지	keep:쓰는중
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/chatbot-c-fix-worker-uvicorn-encoder-preload	nano/c-fix-worker-uvicorn-encoder-preload	2769f238c5	286508	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/chatbot-c-k3d-land	nano/c-k3d-answer-lang-when-member-lang-missi	f48cf01372	1492492	0	변경없음	안:nano-close
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/chatbot-canon-ctx5	docs/chatbot-canon-ctx5-140	6b58cf2200	124	0	내용착지	밖:나노 밖 워크트리
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/chatbot-close-line	docs/chatbot-close-selfhost-oppa-check	99167b7230	12592	0	내용착지	밖:나노 밖 워크트리
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/chatbot-closings	docs/chatbot-master33-closings	dc12af6a21	21548	0	내용착지	밖:나노 밖 워크트리
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/chatbot-e1-seed	docs/chatbot-e1-seed-originals	f67439bba4	20	0	내용착지	밖:나노 밖 워크트리
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/chatbot-guide-land	docs/chatbot-guide-org-only	64eb6967ad	1378424	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/chatbot-lead	docs/chatbot-arch30-ctxwin	16e7c95338	1538320	3	내용착지	keep:쓰는중
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/chatbot-ledger-selfhost	docs/chatbot-ledger-ctx-window	a6557db785	5140	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/chatbot-m22	feat/chatbot-m22	93882e6c1a	1483248	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/chatbot-main	feat/chatbot-main	864f98aaa0	1856688	1	미착지	밖:미커밋
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/chatbot-master-land	docs/chatbot-master29-handoff	ada1e1fda4	1371176	0	미착지	keep:쓰는중
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/chatbot-master33-bundle	docs/chatbot-master33-bundle	34a6dc8276	21508	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/concierge-c-demo-feedback-deep	nano/c-demo-feedback-deep	abc990572f	1553032	1	조상	밖:미커밋
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/concierge-c-demo-feedback-recorder	nano/c-demo-feedback-recorder	abc990572f	1552996	0	조상	안:nano-close
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/concierge-main	feat/concierge-main	2585c84924	1297660	1	미착지	밖:미커밋
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/credit-welcome-evidence	feat/credit-welcome-evidence	3cabccca1d	406416	18928	미착지	밖:미커밋
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/desk-main	(detached)	46959959ae	1534712	0	조상	keep:쓰는중
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/docs-chatbudget	docs/planner-chat-budget-20261026	93919145d0	48	0	내용착지	밖:나노 밖 워크트리
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/docs-ci-hardrule-20261022	docs/ci-hardrule-root-main-20261022	4ba8f905bf	1441800	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/docs-ctxres	docs/planner-ctx512k-research-20261026	70a0ce1fd6	24	0	내용착지	밖:나노 밖 워크트리
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/docs-ops-canon-1810-metrics	docs/ops-canon-1810-metrics	85c302b82a	1377408	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/docs-ops-canon-ia2c	docs/ops-canon-ta4	5fefb4db81	1216860	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/docs-ops-canon-s4a	docs/ops-canon-s4a-conv-records	9c3dc7e2bd	1387680	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/docs-ops-canon-stage3-step1	docs/ops-canon-stage3-step1	f1281893e5	1378516	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/docs-ops-canon-stage3-step2	docs/ops-canon-stage3-step2	781e164348	1378536	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/docs-ops-main-r3	docs/ops-main-r3	8e0fca97c5	1502044	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/docs-opsintake	docs/planner-opsintake-20261026	c7d26faf10	28	0	내용착지	밖:나노 밖 워크트리
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/docs-planner100-handoff	docs/planner100-handoff	7dffd559e5	1432592	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/docs-planner100-ledger	docs/planner100-ledger	bf8bd6fe2a	1432136	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/docs-satnano	docs/planner-satnano-team-20261026	a94c7a52d0	24	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/docs-teamset-close-mgmt	docs/harness-teamset-close-mgmt	6c3a35738e	12	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/docs-v65-billing-card-hash	docs/v65-arch306-billing-card-hash	b9b973ced8	873380	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/docs-v65-m243-card-moves	docs/v65-m244-respawn	75138fbde2	873908	2	조상	밖:미커밋
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/fb-mr-new	feat/mr-bugs-345	5be4a35295	1827896	3	미착지	밖:미커밋
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/feature-a1-fixbase-tmp	feature-a1-fix-base	f4fb1eb9b5	1382284	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/feature-a1-splitbase-tmp	feature-a1-split-base	cb57c899ca	1383064	1	미착지	밖:미커밋
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/feature-brain-canon	docs/feature-brain-canon-20261022	83bc51806b	1471700	1	미착지	밖:미커밋
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/feature-close-1879	docs/feature-close-1879	a012155568	1444416	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/feature-close-m8	(detached)	77e8f58e1a	1518844	0	조상	밖:나노 밖 워크트리
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/feature-doc-canon13	docs/feature-canon-13-guidance-kinds-20261023	55755dbf20	1495844	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/feature-doc-canon14	docs/feature-canon-14-ops-blanks-20261023	1dc529369e	1498444	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/feature-doc-canon15	docs/feature-canon-15-contracts-impl-20261024	d3c8d98d09	1499748	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/feature-f-1550-runner-chain	nano/f-1550-runner-approval-unlock	1b46d46998	1436172	0	변경없음	안:nano-close
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/feature-f-a1-decl-model-key-and-caps-read	nano/f-a1-decl-model-key-and-caps-read	b180bd060c	280908	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/feature-f-exp-m-ctx-3-chars-per-token-origin	nano/f-exp-m-ctx-3-chars-per-token-origin	237984ec3f	277824	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/feature-land-c3	feat/a1-chat-contracts-c3-20261023	1e969b3476	1500372	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/feature-lead	(detached)	2a923f42f6	1483344	1	조상	밖:미커밋
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/feature-main	feat/feature-main	677d0e879b	1556828	4	미착지	밖:미커밋
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/fix-credit-expire-alert-and-safeguards	feat/credit-consumptions-chain	5b22ec0523	375192	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/fix/v5-sse-seam-gap	feat/fix/v5-sse-seam-gap	66ea8c8a2c	68732	3	미착지	밖:미커밋
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/g-closeout-1022	docs/graphics-closeout-20261022	d9f743aca4	1426076	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/g-credits-sub3	docs/g-credits-sub3-plan	a8fc4e9eb9	1407120	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/g-ledger-recon	docs/g-ledger-recon-20261020	45946b734e	1335864	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/g-nano-cards	docs/g-nano-cards	4ea2460b05	1471528	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/g-pr-g2309-docs	docs/graphics-g2309-two-cards	329e4c87e5	149328	0	내용착지	밖:나노 밖 워크트리
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/g-pr-profile-settings-ds	pr/g2309-account-profile-settings-ds	db2a3d142c	3884	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/g-pr-rooms-ds	pr/g2309-account-rooms-ds	8d81d436f9	149700	0	내용착지	밖:나노 밖 워크트리
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/g-pr-stt-selector	pr/g2309-stt-selector-no-external-names	eea975b0d9	9996	0	내용착지	밖:나노 밖 워크트리
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/g-superbrain-ux	docs/g-superbrain-ux	9e52cbc81b	1441552	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/g-support-plan	docs/g-support-lecture-room	bc3fe933cc	1435320	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/g-team-main	docs/g-team-main	5612baf7fe	1531564	1	내용착지	밖:미커밋
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/g-toolbar-plan	docs/g-toolbar-space-plan	55e107638a	1433704	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/g2303-plan	docs/g2303-mic-settings-plan	439f59e05e	1439164	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/g2303-pr	pr/g2303-mic-processing-settings	25df96e277	1388756	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/g2305-pr	feat/g2305-status-chip-compact	4062b6fecc	1383544	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/g2309-plan	docs/g2309-account-pages-plan	dda6b70f16	1427200	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/g2309-pr	pr/g2309-account-routes-shell	245d8bf76b	1387584	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/g2365-plan	docs/g2365-bubble-replay-plan	9641f0ddab	1435320	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/gce-guard-24x7	fix/gce-guard-24x7-monitoring	082ddc9b30	83432	3	미착지	밖:미커밋
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/gphone-pr	pr/g-phone-status-toolbar-row	f7681e97b8	1388764	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/graphics-arch	graphics/g1227-card-change-fe	25b4ee9557	1541136	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/graphics-arch-main	graphics/arch-main	ca822181e1	1287136	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/graphics-g1087-credits-r2-card	graphics/g1087-credits-r2-card	a5c16e0b6b	1216692	1	미착지	밖:미커밋
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/graphics-landing	landing/bi1152-5screens	2d37d9fbf6	1439088	1	미착지	밖:미커밋
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/graphics-master	docs/g-closeout-1153-1160	3992274fc7	2394544	2	미착지	밖:미커밋
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/graphics-nano-g1205-chat-notice	nano/g1205-chat-notice	cff9935507	1900548	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/graphics-nano-g1599-wave-calm-idle-impl	nano/g1599-wave-calm-idle-impl	19aeecfd63	3468272	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/graphics-nano-g1600-bubble-feedback-impl	nano/g1600-bubble-feedback-impl	ff7d231d1f	3315028	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/graphics-nano-g2303-mic-processing-settings-menu	nano/g2303-mic-processing-settings-menu	2313e7943c	352624	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/graphics-nano-g2305-mobile-toolbar-status-overlap	nano/g2305-mobile-toolbar-status-overlap	617a00f468	1262088	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-ops	ops/main-base	929df556a9	674188	17	미착지	keep:쓰는중
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r27-master-seat-single-source	nano/r27-master-seat-single-source	6dc923936d	510728	1	미착지	밖:미커밋
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r447-team-path-oldpath-lint-md-and-twin-	nano/r447-team-path-oldpath-lint-md-and-twin-	abc990572f	1553020	1	조상	밖:미커밋
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r624-slack-inbound-marker-scan-parse-cac	nano/r624-slack-inbound-marker-scan-parse-cac	aa1a4cb1b7	529192	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r625-planner-desk-boot-adhd-load-and-rep	nano/r625-planner-desk-boot-adhd-load-and-rep	0c6a73f0e7	529160	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r626-all-teams-stop-switch-core	nano/r626-all-teams-stop-switch-core	aa1a4cb1b7	529192	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r630-mailbox-ring-full-alarm-all-rosters	nano/r630-mailbox-ring-full-alarm-all-rosters	7c470f70d4	529276	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r631-pi-nano-effort-by-kind-short-low-im	nano/r631-pi-nano-effort-by-kind-short-low-im	7c470f70d4	529248	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r633-resource-freeze-to-idle-close-list-	nano/r633-resource-freeze-to-idle-close-list-	7150195fed	529300	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r638-stall-scan-wake-idle-age-single-rea	nano/r638-stall-scan-wake-idle-age-single-rea	349f400f3a	529340	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r639-queue-watch-dead-seat-and-send-time	nano/r639-queue-watch-dead-seat-and-send-time	263fe108df	529380	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r663-da-hold-gate-landed-ref-follows-ft-	nano/r663-da-hold-gate-landed-ref-follows-ft-	125646d301	247728	0	조상	안:nano-close
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r700-tmuxc-open-boot-sentence-enter-lost	nano/r700-tmuxc-open-boot-sentence-enter-lost	6297af40e8	248788	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r757-role-seat-stale-branch-gate	nano/r757-role-seat-stale-branch-gate	d22fd900b3	531628	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r763-team-env-ft-bin-root	nano/r763-team-env-ft-bin-root	94129b0903	531696	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r764-merge-deny-tip-sha-in-kit	nano/r764-merge-deny-tip-sha-in-kit	94129b0903	531696	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r765-proposal-approve-ledger-table-row	nano/r765-proposal-approve-ledger-table-row	f9eebc1ded	531732	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r768-llm-tunnel-launchd-and-prune-listen	nano/r768-llm-tunnel-launchd-and-prune-listen	c8834fd2ad	531924	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r769-press-gate-team-port-slot	nano/r769-press-gate-team-port-slot	832500c123	532068	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r770-secret-judge-set-paren-fa-research	nano/r770-secret-judge-set-paren-fa-research	f80b2fb025	532180	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r770-secret-judge-set-paren-false-positi-r2	nano/r770-secret-judge-set-paren-false-positi-r2	744eadd370	532232	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r773-preverify-exempt-planner-verdict	nano/r773-preverify-exempt-planner-verdict	92c486796a	532132	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r774-head-lag-alert-once-per-worktree-he	nano/r774-head-lag-alert-once-per-worktree-he	8c67059182	532248	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r777-pack-root-main-commit-guard	nano/r777-pack-root-main-commit-guard	b92a13ed2a	532272	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r779-research-seat-per-team	nano/r779-research-seat-per-team	328759895b	532324	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r850-news-team-map-three-states-r3	nano/r850-news-team-map-three-states-r3	ec94aadb63	257232	0	조상	안:nano-close
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r858-disk-growth-since-1021-research-r2	nano/r858-disk-growth-since-1021-research-r2	dd1dab9fdb	258420	0	미착지	keep:쓰는중
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r867-morning-magazine-celebration-eli5-r	nano/r867-morning-magazine-celebration-eli5-r	ed322881e7	255360	0	내용착지	안후보:nano-close(census 확인)
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r868-postboot-baseline-2h-remeasure-clos	nano/r868-postboot-baseline-2h-remeasure-clos	39f3dcf44c	255220	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r879-nano-spawn-sparse-exclude-evidence--r6	nano/r879-nano-spawn-sparse-exclude-evidence--r6	ec94aadb63	257232	0	조상	안:nano-close
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r895-disk-survey-worktrees-branches-scra-r2	nano/r895-disk-survey-worktrees-branches-scra-r2	c43bbb9893	257336	0	조상	keep:쓰는중
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r899-team-move-cleanup-stale-paths	nano/r899-team-move-cleanup-stale-paths	dcdced4be7	255804	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r902-satellite-nano-mini-tool	nano/r902-satellite-nano-mini-tool	dec00bab18	256560	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r903-archive-untracked-standard-v65-date	nano/r903-archive-untracked-standard-v65-date	7efb3f0c70	255820	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r911-finished-branch-archive-file-conten	nano/r911-finished-branch-archive-file-conten	9df3537376	262048	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r921-resource-stop-to-warn-and-proceed	nano/r921-resource-stop-to-warn-and-proceed	9997644f25	256792	0	조상	안:nano-close
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r922a-news-draft-goal-gate-warn-not-urge	nano/r922a-news-draft-goal-gate-warn-not-urge	e46ab319d5	256800	0	조상	안:nano-close
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r928-watch-alarm-rearm-grace-and-evidenc-r2	nano/r928-watch-alarm-rearm-grace-and-evidenc-r2	ce1361312d	256780	0	조상	안:nano-close
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r937-index-move-landed-sha-repo-resolve-	nano/r937-index-move-landed-sha-repo-resolve-	fbbef1eb2a	256800	0	조상	안:nano-close
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r939-seat-retire-hands-over-bg-jobs-not-	nano/r939-seat-retire-hands-over-bg-jobs-not-	fbbef1eb2a	256800	0	조상	안:nano-close
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r945-wt-shell-scan-skip-sparse-outside	nano/r945-wt-shell-scan-skip-sparse-outside	32edfd049c	256804	0	조상	안:nano-close
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r947-d1-standing-approve-external-da-pac-r4	nano/r947-d1-standing-approve-external-da-pac-r4	ec94aadb63	257232	0	조상	안:nano-close
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r949-sat-nano-roster-name-ledger-guard-r4	nano/r949-sat-nano-roster-name-ledger-guard-r4	0524129218	257068	0	조상	안:nano-close
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r954-card-flow-tick-line-and-spawn-move--r3	nano/r954-card-flow-tick-line-and-spawn-move--r3	ec94aadb63	257232	0	조상	안:nano-close
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r960-pi-nano-close-two-paths-r4	nano/r960-pi-nano-close-two-paths-r4	ec94aadb63	257232	0	조상	안:nano-close
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r961-install-check-kit-path-from-harness-r3	nano/r961-install-check-kit-path-from-harness-r3	61d833c7bd	257328	0	조상	keep:쓰는중
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r962-daemon-start-path-root-bin-realpath-r4	nano/r962-daemon-start-path-root-bin-realpath-r4	61d833c7bd	257328	0	조상	사라짐(측정 뒤)
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r963-unpushed-daily-summary-local-refs-o-r4	nano/r963-unpushed-daily-summary-local-refs-o-r4	0524129218	257068	0	조상	안:nano-close
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r975-nano-spawn-reply-target-roster-mast	nano/r975-nano-spawn-reply-target-roster-mast	52a2f4e9d5	257068	0	조상	안:nano-close
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r977-secret-shapes-one-boundary-all-copi	nano/r977-secret-shapes-one-boundary-all-copi	61d833c7bd	257328	0	조상	keep:쓰는중
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r978-research-doc-output-landing-path-r2	nano/r978-research-doc-output-landing-path-r2	ec94aadb63	257232	0	조상	안:nano-close
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r983-da-metrics-read-only	nano/r983-da-metrics-read-only	5e1b510925	256060	0	조상	keep:쓰는중
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r989-role-spawn-add-second-seat	nano/r989-role-spawn-add-second-seat	5e1b510925	257328	0	조상	사라짐(측정 뒤)
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r990-da-wrapper-exhaustive-one-batch	nano/r990-da-wrapper-exhaustive-one-batch	809dd6d13c	257340	0	미착지	keep:쓰는중
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-resume-block-thread-post	nano/resume-block-thread-post	15a2081450	515820	1	미착지	밖:미커밋
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/headroom-poc	feat/headroom-poc	538285b87a	1585656	6	미착지	밖:미커밋
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/issue-manager	feat/issue-manager	5cde9cc850	1544528	3	미착지	밖:미커밋
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/issues-inbox-1026	docs/issues-inbox-1026	e4551146df	8200	0	내용착지	밖:나노 밖 워크트리
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/issues-lead	docs/issues-team-1026	651332922e	1546640	0	미착지	keep:쓰는중
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/issues-repro-2910	docs/issues-night-cards-20261025	2f691c40e2	8188	0	내용착지	밖:나노 밖 워크트리
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/kk-lang	feat/kk-lang	8c4b49d9d9	428092	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-1017b-card	docs/knowledge-b2-da6-r1-20261025	45dd77b246	7752	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-land-2842-sb3	nano/knowledge-sb3-dev-apply-backfill	244407cda0	1495968	0	변경없음	안:nano-close
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-lead	docs/knowledge-main-b-20261025	cec2c0f4e1	1538560	0	미착지	keep:쓰는중
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-main	knowledge/main-work	b1421aadfb	1484960	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-nano-loom-1450-search-document-id-provenance	nano/loom-1450-search-document-id-provenance	194ecd02af	307292	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-port-docs	docs/knowledge-port-loom-main-session	4198bc850b	1435500	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/land-2326	(detached)	0066a75538	1380268	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/land-docs-harness-research7	docs/harness-research7-20261026	e5fa2d316d	128	0	내용착지	밖:나노 밖 워크트리
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/land-docs-harness7	docs/harness-docs7-20261026	ee2258a20f	212	0	내용착지	밖:나노 밖 워크트리
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/land-m6-41	(detached)	343d3b3f8a	1285512	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/land-m7-poller	(detached)	d9197d7abd	1337276	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/land-m7-runner-rc	(detached)	07b4cab8df	1336224	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/land-v65-main-20261015	land/v65-main-20261015	c4837e1241	2584088	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/land-v65-watchdog	nano/m5-redis-outage-watchdog-impl-r2	479bfe1823	1385964	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/landing-g1087	landing/g1087-subscription	1da8b7f27f	2775472	1	미착지	밖:미커밋
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/law-5cases-4to8	docs/law-5cases-script-4to8	2f6ad348b7	99796	1	미착지	밖:미커밋
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/lecture-docs-21	docs/lecture-stop-20261026	2c0a321be5	9752	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/lecture-l23-press-set	land/l37-set-r9	d571cdf95e	2908672	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/lecture-master-17	(detached)	eb628db18a	1533580	0	조상	keep:쓰는중
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/lecture-master-docs8	docs/lecture-l19-read	56d6735409	1391680	1	내용착지	밖:미커밋
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/lecture-merge-tmp	(detached)	0c23582554	1380088	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/lecture-nano-l10-lecture-main-bubble-key-stable-on-se	nano/l10-lecture-main-bubble-key-stable-on-se	f28aba96bb	247244	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/lecture-nano-l14-lecture-station-v65-translation-bloc	nano/l14-lecture-station-v65-translation-bloc	68ab03425b	249392	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/lecture-nano-l63-l39-readout-number-normalize-best-ma	nano/l63-l39-readout-number-normalize-best-ma	3b98e6241f	2089444	0	못잼	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/lecture-p3-r7-set	land/l37-set-r7	044c79685f	3788500	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/llm-migration-2610	feat/gce-stt-tts-startup-idempotency	0d67d8a2af	164248	8	미착지	밖:미커밋
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/llm-payer	feat/llm-payer-actor	ba4b7c17cb	86144	3	미착지	밖:미커밋
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/loom-contract-c-infra-publishers	loom-contract-c-infra-publishers	4f15dac711	1525276	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/loom-domain-hierarchy	feat/loom-oi23-followup	fc078fa233	3602724	1	미착지	밖:미커밋
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/loom-land-2122	nano/loom-1442b-retired-revision-body-30d-pur	3fcb414981	1446956	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/loom-land-2137	nano/loom-old-l2-crud-retire-org-add	3aa99bc07a	1436512	0	변경없음	안:nano-close
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/loom-land-guards-g1-terminal-rows	nano-land/loom-main-guards-g1-terminal-rows	2c187a9adb	1444848	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/loom-land-promote-deadline	nano/loom-promote-deadline-base-400	a049f818ba	1384096	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/loom-land-r5-code	nano/loom-promote-r5-code-slices	39e074f4ea	1395528	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/loom-land-r5-ddl	nano/loom-promote-r5-ddl-48-49	cf9dd65129	1385872	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/loom-land-translate-ctx	nano/loom-translate-ctx-compose-seed	e9178929ff	1436512	0	변경없음	안:nano-close
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/loom-main	feat/loom-main	71c5799b40	1469000	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/news-ledger-main	(detached)	fdb6d26320	1549672	0	조상	밖:나노 밖 워크트리
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-409-r2	nano/ops-1810-topup-409-reason-text-r2	5d08692595	1437020	0	변경없음	안:nano-close
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-alert-failloud	fix/ops-alert-fail-loud	eda5bb6928	439284	2	미착지	밖:미커밋
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-arch-card-fix-20261024	docs/ops-live-check-card-proposal-20261024	6682ec40b3	1498448	1	미착지	밖:미커밋
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-arch-ccu-plan-20261024	docs/ops-ccu-restart-plan-20261024	6aa58cfc51	1499760	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-arch-drift-card-20261024	docs/ops-card-schema-drift-ext-20261024	ee3eadeae4	1504208	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-arch-drift-issue-20261024	docs/ops-drift-card-issue-2948	b456173351	71716	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-arch-handoff-55-20261024	docs/ops-arch-55-to-56-handoff	a7c0f5c46a	71752	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-arch-j1-def-20261024	docs/ops-j1-def-redis-pg-20261024	d1f2dcaf27	1503720	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-arch-judge-20261023	docs/ops-arch-judge-1640-2365-20261023	359035f2d6	1495988	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-arch59-docs	docs/ops-arch-59-to-60-handoff-20261025	afc2cdc4e9	76620	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-arch60-cards	docs/ops-arch-60-to-61-handoff-20261025	4ba218394e	81984	1	내용착지	밖:미커밋
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-arch60-ccu00	docs/ops-ccu-brace-vars-20261025	e029041b08	8084	0	내용착지	밖:나노 밖 워크트리
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-arch60-ccu03	docs/ops-ccu03-egress-meta-20261025	603f2edf5a	8072	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-arch61-handoff	docs/ops-arch-61-to-62-handoff-20261026	ffaba3341d	912	0	내용착지	keep:쓰는중
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-arch61-perp	docs/ops-perplexity-rotate-v3-20261025	9777fc7a27	76380	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-arch61-perpdoc	docs/ops-perplexity-v3-confirm-20261025	ca26f1086d	76388	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-arch61-redisha	docs/ops-redis-dev-ha-plan-20261025	48a6207696	76428	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-arch61-ttsrule	docs/ops-tts-lang-rule-20261026	5ed5b37fee	16	0	내용착지	밖:나노 밖 워크트리
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-canon-4-3-knowledge-cap	docs/ops-canon-4-3-knowledge-cap	9d09c54fe5	591424	1	조상	밖:미커밋
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-canon-concierge-o3	docs/ops-canon-1532	4a22e8167c	1217600	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-domain-dynamic-s2	feat/ops-domain-dynamic-s2	0b15967061	370932	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-kb-cards	docs/ops-kb-cards-20261023	0071b4ba75	1497636	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-kb-cards2	docs/ops-ddl-card-spawn-20261024	168f9d1071	1501096	1	미착지	밖:미커밋
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-land-dash-1202-b	nano/dash-1202-b-test-account-flag	82d2c12dac	1436512	0	변경없음	안:nano-close
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-lead	docs/ops-canon-card-close-20261023	09854414aa	1522148	6	미착지	keep:쓰는중
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-magazine	ops/magazine	2bb9ea7c8b	1440516	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-main	feat/ops-main	f65b04c5dd	2117696	2	미착지	밖:미커밋
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-nano-nano-777-uid-lookup	nano/nano-777-uid-lookup	537f2cd579	510832	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-nano-ops-canon-o4-request-flow	nano/ops-canon-o4-request-flow	ec715e6242	283644	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-nano-ops-chat-base-seed-3rows	nano/ops-chat-base-seed-3rows	448877e731	335692	0	미착지	keep:쓰는중
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-nano-ops-elevenlabs-stt-scribe-v1-v2-cost	nano/ops-elevenlabs-stt-scribe-v1-v2-cost	cf785ef1f8	336652	0	조상	keep:쓰는중
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-nano-ops-fix-inventory-pending-o4-s4d-migrati	nano/ops-fix-inventory-pending-o4-s4d-migrati	ffdeff1916	284652	0	내용착지	안후보:nano-close(census 확인)
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-nano-ops-llm-qwen3-8b-stale-defaults	nano/ops-llm-qwen3-8b-stale-defaults	2611e13b5c	349812	0	내용착지	keep:쓰는중
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-nano-ops-retention-gcs-menu	nano/ops-retention-gcs-menu	34a9c47a75	320088	0	내용착지	안후보:nano-close(census 확인)
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-nano-ops-solo-interp-zhcn-tts-path	nano/ops-solo-interp-zhcn-tts-path	02123fd18c	335620	0	내용착지	안후보:nano-close(census 확인)
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-nano-ops-tts-invalid-lang-4xx	nano/ops-tts-invalid-lang-4xx	86dacd99c4	335856	0	내용착지	안후보:nano-close(census 확인)
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-nano-ops-tts-zh-no-voice-b	nano/ops-tts-zh-no-voice-b	045dea307e	349260	0	내용착지	안후보:nano-close(census 확인)
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-sched-cards-20261024	docs/ops-sched-cards-20261024	b621daf454	80944	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-schedule-unify-20261024	docs/ops-schedule-unify-20261024	629a0f9d53	79944	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-stop-note	docs/ops-stop-note-20261023	ee92876713	1495460	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-sweep-merge-20261024	(detached)	4123d672c9	77532	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/p102-ledger	docs/planner102-magazine-ledger-2	ca7ee62d90	1433212	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/planner-arch-main	(detached)	ff807b126a	1521828	0	조상	밖:나노 밖 워크트리
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/planner-arch16-g78	docs/planner-arch16-handoff-17-20261025	39cfc97431	5776	0	내용착지	밖:나노 밖 워크트리
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/planner-arch16-ledger	docs/planner-arch16-ledger-0245-20261025	1db116246d	5760	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/planner-arch16-ledger2	docs/planner-arch16-ledger-0400-20261025	8a3cf5125d	5760	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/planner-arch16-ledger3	docs/planner-arch16-ledger-fix-0805-20261025	22364e0735	5780	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/planner-arch17-research-b	docs/planner-arch17-research-b-balancing-20261025	77d9be423f	6172	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/planner-arch18-g78	docs/planner-arch18-gates-7-8	3114e6469b	5772	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/planner-arch18-ops-interview	docs/planner-arch18-goal-status-decisions-20261025	c9b70ea297	5856	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/planner-arch18-research-b	docs/planner-arch18-research-b-land	02ccb91513	5832	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/planner-ledger-move-20261019	docs/planner-chatbot-proposal-r2-land	380a8ef156	1273288	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/planner-main	docs/planner-harness-converge-order-20261027	6ccc72f722	1544060	0	변경없음	keep:쓰는중
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/planner-master-docs	(detached)	149974aaf0	12624	0	내용착지	keep:쓰는중
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/planner103-land-tmp	(detached)	5878c4542d	1433980	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/planner104-handoff	docs/planner104-handoff	6977e1495f	1435320	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/planner105-ledger	docs/planner105-handoff	d8f3f8a3b5	1435328	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/planner109-goal-budget	docs/planner109-handoff	016ff0af83	1435320	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/planner109-goal78	docs/planner109-goal78	43124ab73e	1434172	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/planner110-verdict-2646	docs/planner110-handoff	33fb00d65d	1435320	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/planner87-ledger	docs/planner87-handoff	0ac9e55ec3	1435316	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/planner88-goal	docs/planner88-goal-vad	edd02a8786	1379376	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/planner88-handoff	docs/planner88-handoff	22ad9e9468	1435320	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/planner88-ledger2	docs/planner88-ledger2	a905c96e35	1379112	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/planner88-mag	docs/planner88-magazine	00704c69ca	1379376	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/planner89-ledger	docs/planner90-handoff	be5a9dd5c3	1476684	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/planner91-ledger	docs/planner91-goals	5f0fbaf24c	1383044	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/planner92-ledger	docs/planner92-handoff	242b291346	1435320	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/planner93-align	docs/planner93-align	55d4bbdf3c	1385672	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/planner96-ledger	docs/planner98-ledger2	96a5ab3c2b	1430528	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/planner99-ledger	docs/planner99-ledger	cab1f232c9	1432116	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/room-master-12	docs/room-handoff-18-20261026	7a46bf77c9	2569388	0	미착지	keep:쓰는중
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/room-nano-m7-room-1723-purge	nano/m7-room-1723-purge	8ce6d44f2b	4519612	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/room-nano-m7-room-legacy-utterance-subscription-cl	nano/m7-room-1731-copy-ensure	b58041bad7	4524048	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/room-nano-r-room-goal7-close-audio-and-rejoin-main	nano/r-room-goal7-close-audio-and-rejoin-main	ea4b2babd2	2187336	1	조상	밖:미커밋
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/room-nano-r-room-lifecycle-mr-fe-released-open-pre	nano/r-room-lifecycle-mr-fe-released-open-pre	61ef72fba7	261172	1	내용착지	밖:미커밋
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/room-nano-r-room-lifecycle-mr-fixture-frozen-press	nano/r-room-lifecycle-mr-fixture-frozen-press	8004dcb342	303284	1	미착지	밖:미커밋
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/room-nano-r-room-note-whole-doc-rw-trim	nano/r-room-note-whole-doc-rw-trim	0eac680d56	307392	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/room-spawn-ctx	docs/room-master-6-to-7-handoff	b17e6e26be	1435320	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/room-test-card4-card3	test/room-card4-card3	9996852eff	2416084	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/set-k4-sse-lsttrim-r2	nano/k4-sse-lsttrim-r2-set	d7f62b01ed	1379672	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/set-m6-mic-s1	set/m6-mic-s1	aa57cfe5aa	1336012	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/set-m6-mic-switch	set/m6-mic-switch	aaaa72614d	1335880	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/single-rt-uiux	feat/single-rt-uiux	fef9ae8884	1838796	6	미착지	밖:미커밋
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v5-be-spine	feat/v5-be-spine	a8a1fe717b	69576	3	미착지	밖:미커밋
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-integration	feat/v6-integration	93dc3cd6a1	99268	4	미착지	밖:미커밋
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-main-integration	feat/v6-main-integration	6293bf9d1d	73796	4	미착지	밖:미커밋
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live	feat/v6-realtime-live	8a1bef421a	못잼	0	못잼	keep:쓰는중
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live/.worktrees/m1a-implcc32	feat/m1a-observation-join-implcc32	2243277646	4381116	1	미착지	밖:미커밋
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live/.worktrees/room-3issues-design	docs/room-3issues-design	61a2348c57	1370500	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live/.worktrees/room-card-close-r-dev-overlap	docs/room-arch-1-to-2-handoff	17a963d84f	1370464	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live/.worktrees/room-card4-baseline-frame	docs/room-card4-baseline-frame	bdc696185d	1370460	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live/.worktrees/room-card4-close-record	docs/room-card4-close-record	d90de930f7	1369976	1	내용착지	밖:미커밋
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-arch-main	v65-cards-main-restart-arch299	35b1bc24f9	1520560	4	변경없음	밖:미커밋
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-corpus-land	nano/m5-corpus-local-storage-unset-fix	bd50493c41	1443676	0	변경없음	안:nano-close
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-corpus-sent-land	nano/m5-corpus-sentence-count-abbrev-decimal	202eda1ddd	1450944	0	변경없음	안:nano-close
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-critical-fixset5	nano/v65-critical-fixset5	6a52f5f348	1380324	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-docs-2381	docs/v65-master222-docs-20261021	0c398ed1eb	1436528	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-docs-from-v6	docs/v65-cards-from-v6-20261023	8cbd497bfd	875008	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-fixset5-land	nano/v65-fixset5-land	e8a29ae9d0	1425964	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-inbox-sort	docs/v65-inbox-sort-20261026	99eb381e49	876144	0	내용착지	밖:나노 밖 워크트리
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-inv-land	nano/m7-test-data-pg-inventory-pending-concie	364125f807	1392752	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-ja-contract-land	nano/v65-ja-contract-land	2eb05c40d2	1478416	0	변경없음	안:nano-close
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-jsdom-land	nano/m7-test-poller-jsdom-missing-named-fail	8d06e2a808	1437780	0	변경없음	안:nano-close
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-lab-publication-split	exp/v65-lab-publication-split	d81256d830	185096	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-land-2385	(detached)	d8eba6950d	1410516	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-land-2406	(detached)	a92b2856b7	1400292	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-land-2411 nano/m5-ops-fb-2373-worklet-stereo-downmix-r2	(detached)	823e4d055f	1403844	2	미착지	밖:미커밋
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-land-2412 nano/m5-tts-replay-gcs-server-api-r3	(detached)	8c07d160d3	1437960	2	미착지	밖:미커밋
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-land-2429	(detached)	d85c9cde46	1434680	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-land-2430	(detached)	13fcdb71b4	1406912	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-land-2460	(detached)	8616c1ccaf	1392980	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-land-2561	land/v65-2561-stt-call-budget	775ed53e6e	1548652	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-land-fepress	(detached)	30834453cc	1387728	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-land-runner-channel	land/v65-runner-play-channel	23da8e9417	1505564	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-lst-exp	exp/v65-lst-chunk-system	8f98564ada	167520	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-m5-1922-1-release-tail-relative-energy-g	nano/m5-1922-1-release-tail-relative-energy-g	185f724d37	3573088	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-m5-1927-mic-pass-user-exposure	nano/m5-1927-mic-pass-user-exposure-main	601f0818b2	7100192	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-m5-autovad-background-wave-toolbar-toggl	nano/m5-autovad-background-wave-toolbar-toggl	382d65bc8c	1422816	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-m5-corpus-exit-release-census-research	nano/m5-corpus-exit-release-census-research	cb8c707f14	1121144	0	내용착지	안후보:nano-close(census 확인)
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-m5-corpus-send-survives-session-rotation-r2	nano/m5-corpus-send-survives-session-rotation-r2	06356ec114	1121808	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-m5-first-press-stale-psid-409-input-loss	nano/m5-first-press-stale-psid-409-input-loss	3e1f1b2f17	1446128	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-m5-g1-loom-contract-c-infra-publishers-r2	nano/m5-g1-loom-contract-c-infra-publishers-r2	9d94ae8a21	1130632	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-m5-room-live-translation-during-ptt	nano/m5-room-live-translation-during-ptt	f4763ab69b	2678124	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-m5-spectrum-v13-unified	nano/m5-spectrum-v13-unified	e0789e1da8	1319056	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-m5-stt-chunk-fail-drops-whole-segment	nano/m5-stt-chunk-fail-alert-counter	a1e5ed4065	1183776	1	내용착지	밖:미커밋
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-m6-pool-ab-measure	nano/m6-pool-ab-measure	02125fdc62	401212	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-m6-r1-session-owned-keys-impl	nano/m6-r1-session-owned-keys-impl	048726d726	429644	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-m6-vad-carryover-bounded-impl	nano/m6-vad-carryover-bounded-impl	593d876101	426924	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-m6-worker-serial-bottleneck-experiment	nano/m6-worker-serial-bottleneck-experiment	6b1e2293be	435772	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-m7-audit-env-name-generalize-structure	nano/m7-audit-env-name-generalize-structure	a6c5d177e9	6699512	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-m7-rt-typed-no-translation-flicker-locat	nano/m7-rt-typed-no-translation-flicker-locat	b6e88fafcf	1322892	0	내용착지	안후보:nano-close(census 확인)
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-m7-runtime-superseded-latch-owner-gone-c	nano/m7-runtime-superseded-latch-owner-gone-c	8268e1a064	1170340	1	미착지	밖:미커밋
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-m7-test-open-scheduler-r4-first-admissio	nano/m7-test-open-scheduler-r4-first-admissio	cdee19f555	1478488	0	변경없음	안:nano-close
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-m7-typed-residual-only-release-seals-con	nano/m7-typed-residual-only-release-seals-con	6a8ca88102	1184488	1	내용착지	밖:미커밋
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-main-only-red-2fix	nano/v65-main-only-red-2fix	3052912796	1478060	0	변경없음	안:nano-close
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-mainmerge-v65-rt-main-sync-20260923	merge/v65-main-20261003	f6f39eabec	443668	0	미착지	밖:미착지
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-5bf9e211-1793033999-88621	(detached)	5bf9e211d3	1537980	0	미착지	안:scratch-sweep
+/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/repo-c43bbb98-1793034348-38816	(detached)	c43bbb9893	269280	0	조상	안:scratch-sweep
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/chatbot-peg	docs/chatbot-selfhost-peg-result	6e5abc516e	21556	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/docs-harness-cap18	docs/harness-nano-cap-18	c06eb17a55	12	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r699-orch-gate-tests-proj-copy-after-rel-r2	nano/r699-orch-gate-tests-proj-copy-after-rel-r2	c43bbb9893	257336	0	조상	사라짐(측정 뒤)
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/chatbot-handoff31	docs/chatbot-master33-arch31-handoff	fe555030d9	21564	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-master-main	docs/v65-master246-batch3	c5ccc3af55	1537144	0	미착지	keep:쓰는중
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-mic2-settings-land	nano/v65-mic2-settings-land	4f2cd9c918	1426540	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-poller-land	nano/m7-test-poller-perf-late-reply-interval-	047a1a56e8	1454244	0	변경없음	안:nano-close
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-sb-ctx-diet-remaining-five	nano/sb-ctx-diet-remaining-five	d7c82cb39d	6676884	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-sb-harness-0-4-unit1-hook-r3	nano/sb-harness-0-4-unit1-hook-r3	c4be6db42c	3333504	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-sb-harness-0-5-row5-boot-gap-decompositi	nano/sb-harness-0-5-row5-boot-gap-decompositi	8ae29f04a4	383060	0	미착지	밖:미착지
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-tester-main	(detached)	7e50c4408b	3712452	0	조상	밖:나노 밖 워크트리

@@ -1,0 +1,3 @@
+FAILED tests/scripts/test_ft_secret_shapes.py::test_kit_copy_is_byte_identical
+FAILED tests/scripts/test_ft_secret_shapes.py::test_c_five_copies_byte_identical[shapes]
+2 failed, 1 passed, 147 deselected in 0.45s

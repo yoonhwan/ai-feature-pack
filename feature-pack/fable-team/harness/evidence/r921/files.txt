@@ -1,0 +1,25 @@
+# 이 카드가 바꾼 코드 파일(base↔branch)
+bin/ft-resource-gate.sh
+kit/fable-team/bin/ft-resource-gate.sh
+bin/ft-nano-spawn.sh
+kit/fable-team/bin/ft-nano-spawn.sh
+bin/ft-role-spawn.sh
+kit/fable-team/bin/ft-role-spawn.sh
+bin/ft-tick.sh
+kit/fable-team/bin/ft-tick.sh
+bin/ft-research-seat-lib.sh
+kit/fable-team/bin/ft-research-seat-lib.sh
+bin/ft-resource-reclaim.sh
+kit/fable-team/bin/ft-resource-reclaim.sh
+bin/ft-successor-open.sh
+kit/fable-team/bin/ft-successor-open.sh
+bin/ft_spawn_queue.py
+kit/fable-team/bin/ft_spawn_queue.py
+bin/ft-reclaim-capped.sh
+kit/fable-team/bin/ft-reclaim-capped.sh
+# 이 카드가 바꾼·추가한 시험
+tests/test_resource_warn_proceed_r921.sh (신규 ⓐ~ⓖ + 변이 4종)
+tests/test_resource_gate.sh · tests/test_resource_gate_pressure.sh · tests/test_resource_freeze_exempt.sh (기대값을 WARN+진행으로 갱신)
+tests/test_resource_reclaim.sh · tests/test_nano_spawn_teamset_cap.sh (회수·AT-CAP 갈래 갱신)
+tests/test_role_spawn_team.sh · tests/test_raised_seat.sh (임시 bin 짝 누락 = 사전 결함 보충)
+tests/lib/fake_reclaim_world.sh (NOW 재앵커 = 사전 시간 flake 제거)
