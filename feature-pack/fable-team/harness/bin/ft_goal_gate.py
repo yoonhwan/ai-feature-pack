@@ -1,7 +1,7 @@
 """ft_goal_gate — 뉴스 발행 경로의 골 표 문 (R362 · ft_news_publish·ft_news_post·ft_news_ledger 가 부른다 · 판정은 ft_goal_table.check 하나).
 
 무장 표식 = <루트>/.fable-team/state/goal-gate.armed — 있으면 REJECT(발행 0 + planner [긴급] 1통) · 없으면 WOULD-REJECT 로그(state/mbox-guard-goal.log)만 남기고 진행(설치 전환 · 되돌림 = 표식 삭제).
-첫 판 = 골 표 블록 필수(check --block-only · 후속 표지가 있어도 첫 원소는 «무조건» 실제 블록 검사). 후속 판 `(n/N)` n>1 = 머리에 `골표 <sha10>·<run id>` + 같은 묶음의 «검증 영수증»(state/goal-bundle.json)과 일치해야 한다.
+첫 판 = 본문에 골 표 블록 0 + 머리 끝 `골표 <sha10>·<run id>` 표지 1줄(r1006: 슬랙이 표를 못 그린다) — 표지 sha10 = «지금 렌더한 골 표 블록» 의 sha10 이고 그 블록이 check --block-only 통과여야 한다. 후속 판 `(n/N)` n>1 = 머리에 `골표 <sha10>·<run id>` + 같은 묶음의 «검증 영수증»(state/goal-bundle.json)과 일치해야 한다.
 영수증 = ft_news_post 가 판 묶음 «전체»(첫 판 블록 · 묶음 표지 · 판번호 2..N 연속 · 총수 · run id 동일)를 보내기 전에 검증한 뒤 쓴다 — 단독 publisher 는 영수증 없는 후속 표지·이미 나간 판번호를 REJECT.
 무장 거절 통지 = refuse() 한 곳(공통 함수 1개 · 같은 거절 10분 안 중복 억제 · 쪽지는 [긴급] 이라 가드 재귀 0). CLI: `python3 ft_goal_gate.py notify <루트> <진입점> <사유>`(매거진 등 다른 프로세스용).
 """
@@ -24,6 +24,7 @@ from ft_goal_receipt import first as _first
 
 LOG = logging.getLogger("ft_goal_gate")
 MSG_CHARS = 280  # 쪽지에 싣는 사유 글자 수(시간 상한 아님)
+RENDER_S = 7  # 하드 룰 12: 기준량 1회 7초 — 넘으면 문제(조용한 통과 0)
 DEDUP_S = 10 * 60  # 같은 거절 통지 억제 창
 SHA = re.compile(r"^★골 표 A6 \((?:(?:[^()\s]+@)|(?:file:))?([0-9a-f]{10}) ", re.M)  # r545: 출처 표지(`origin/main@`|`file:`) 붙은 새 꼴 + 옛 꼴
 
@@ -38,8 +39,7 @@ def problem(body: str, state_dir: Path) -> str:
         first = _first(body)
         m = CONT.search(first)
         if not (m and int(m[1]) > 1):
-            rc, msg = gt.check(body, block_only=True)
-            return "" if rc == 0 else msg.removeprefix("REJECT ")
+            return first_problem(body)
         if not (t := TOKEN.search(first)):
             return "이어진 판 머리에 `골표 <sha10>·<run id>` 묶음 표지가 없다"
         return check_part(state_dir, body, int(m[1]), int(m[2]), t)
@@ -47,25 +47,50 @@ def problem(body: str, state_dir: Path) -> str:
         return f"골 표 판정 실패 {type(e).__name__}: {e}"
 
 
+def _rendered() -> tuple[str, str]:
+    """지금 렌더한 골 표 블록과 그 머리 sha10 — 렌더가 7초를 넘거나 머리 표지가 없으면 예외(problem 이 «문제» 로 받는다)."""
+    t0 = time.monotonic()
+    block = gt.render()
+    spent = time.monotonic() - t0
+    if spent > RENDER_S:
+        raise TimeoutError(f"골 표 렌더 {spent:.1f}초 > {RENDER_S}초")
+    if not (m := SHA.search(block)):
+        raise gt.GoalError("렌더한 골 표 블록에 머리 표지(★골 표 A6 …)가 없다")
+    return block, m[1]
+
+
+def first_problem(body: str) -> str:
+    """첫 판 하나의 문제(없으면 빈 글) — 본문에 블록 0 · 표지 sha10 = 지금 렌더한 골 표 sha10 ∧ 그 블록 check 통과(r1006)."""
+    if any(gt.HEAD.match(ln.strip()) for ln in body.splitlines()):
+        return "첫 판 본문에 골 표 블록이 실렸다 — `골표 <sha10>` 표지 1줄만 남긴다(표는 HTML 지도가 그린다)"
+    t = TOKEN.search(_first(body))
+    if not t:
+        return "첫 판 머리에 `골표 <sha10>·<run id>` 표지가 없다"
+    block, sha = _rendered()
+    if t[1] != sha:
+        return f"표지 sha10 {t[1]} 이 지금 렌더한 골 표 {sha} 와 다르다(옛 정본·다른 표지)"
+    rc, msg = gt.check(block, block_only=True)
+    return "" if rc == 0 else msg.removeprefix("REJECT ")
+
+
 def verify_bundle(parts: list[str]) -> str:
-    """판 목록 «전체» 사전검증 — 첫 원소는 무조건 실제 블록 check · 이어진 판은 판번호 2..N 연속·총수·sha10·run id 동일."""
+    """판 목록 «전체» 사전검증 — 첫 원소는 표지 sha10 = 지금 렌더한 골 표(r1006) · 이어진 판은 판번호 2..N 연속·총수·sha10·run id 동일."""
     try:
         if not parts:
             return ""
-        rc, msg = gt.check(parts[0], block_only=True)
-        if rc != 0:
-            return f"1/{len(parts)}판: {msg.removeprefix('REJECT ')}"
+        if why := first_problem(parts[0]):
+            return f"1/{len(parts)}판: {why}"
         head = CONT.search(_first(parts[0]))
         if head and int(head[1]) != 1:
             return f"1/{len(parts)}판: 첫 판 머리가 {head[1]}/{head[2]} 판으로 표기됐다"
-        sha, runs = SHA.search(parts[0])[1], set()  # type: ignore[index]
+        sha, runs = TOKEN.search(_first(parts[0]))[1], set()  # type: ignore[index] — first_problem 이 표지 있음을 이미 확인했다
         for i, p in enumerate(parts[1:], 2):
             first = _first(p)
             c, t = CONT.search(first), TOKEN.search(first)
             if not c or (int(c[1]), int(c[2])) != (i, len(parts)):
                 return f"{i}/{len(parts)}판: 판번호·총수 표기가 순서와 다르다(누락·중복)"
             if not t or t[1] != sha:
-                return f"{i}/{len(parts)}판: 묶음 표지(골표 sha10)가 첫 판 블록과 다르다"
+                return f"{i}/{len(parts)}판: 묶음 표지(골표 sha10)가 첫 판 표지와 다르다"
             runs.add(t[2])
         return "" if len(runs) <= 1 else "판마다 run id 가 다르다(다른 묶음 혼합)"
     except Exception as e:  # noqa: BLE001
@@ -120,7 +145,7 @@ def refuse(state_dir: Path, who: str, why: str) -> bool:
 
 
 def goal_block(state_dir: Path) -> str:
-    """뉴스에 실을 골 표 블록 — 무장이면 렌더 실패 = 로그 + 통지 + 예외(발행 0) · 비무장이면 WOULD-REJECT 로그 + 빈 글(블록 없이 진행)."""
+    """뉴스 머리 표지에 쓸 골 표 블록(r1006 — 본문에는 안 싣고 sha10 만 뽑는다) — 무장이면 렌더 실패 = 로그 + 통지 + 예외(발행 0) · 비무장이면 WOULD-REJECT 로그 + 빈 글(표지 없이 진행)."""
     try:
         return gt.render()
     except (gt.GoalError, OSError, ValueError) as e:
