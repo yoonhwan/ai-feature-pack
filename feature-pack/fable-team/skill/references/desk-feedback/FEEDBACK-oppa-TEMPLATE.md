@@ -1,6 +1,6 @@
 # FEEDBACK — 오빠 화면 피드백 장부 (<YYYY-MM-DD> · <팀> desk 좌석 byz-<팀>-desk-claude#0 이 받아 적는다)
 
-> 쓰는 법 = `design/teams/<팀>/GUIDE-desk-feedback.md`. 설계 = `design/teams/planner/DESIGN-desktop-feedback-to-issues-<YYYYMMDD>.md` §4.
+> 쓰는 법 = `design/teams/<팀>/GUIDE-desk-feedback.md`. 설계 = `design/teams/planner/DESIGN-desktop-feedback-to-issues-20261027.md` §4.
 > 행은 오빠 말 그대로 한 줄 = 한 행이다. `n` 은 지우지 않는다. 모르는 칸은 `[확인 필요]` 로 적는다. 스크린샷은 `design/teams/<팀>/evidence/feedback-<YYYYMMDD>/` 에 저장하고 경로를 «증거» 칸에 적는다.
 
 ## 장부
