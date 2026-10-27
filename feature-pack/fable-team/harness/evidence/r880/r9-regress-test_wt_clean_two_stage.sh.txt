@@ -1,0 +1,80 @@
+PASS bash -n 2종
+== ⓐ 상한 초과(baton 8s > 계획 상한 4s)에도 원래 경로 껍데기 0 · 이름 바뀐 .deleting-<ts> 만
+PASS   └ 계획 머리 # plan-ver: <40hex>
+PASS ⓐ 원래 경로 비어 있음 · .deleting-<ts> 로 이름 바뀜 · 계획 cleaned
+PASS   └ 원장 표식에 이름 바꿈 기록
+PASS   └ 브랜치 tip 그대로
+PASS ⓑ 분리 정리가 상한 밖에서 끝남(.deleting-<ts> · 포인터 사라짐)
+PASS   └ worktree 목록에 deleting 0(prune)
+PASS ⓕ 브랜치 tip 그대로(삭제 0)
+PASS ⓕ 브랜치 nano/del 실재
+== ⓑ 이어정리 — 분리 정리가 실패/중단된 .deleting-<ts> 를 다음 sweep 이 이어서 지운다
+PASS ⓑ 계획 cleaned(이름 바꿈까지)
+PASS   └ baton 실패 → .deleting-<ts> 남김(삭제 보류)
+PASS   └ 실패 횟수 1 기록
+PASS ⓑ 다음 sweep 이 RESUME(이어정리)
+PASS ⓑ 반쯤 지워진 .deleting-<ts> 를 이어서 끝까지 정리
+PASS   └ worktree 목록에 deleting 0
+PASS ⓑ 연속 실패 3 → [HIL] seat=
+PASS   └ 포인터 .hil 로 이동(다음 sweep 재시도 0)
+PASS   └ 이름 안전장치: .deleting-<ts> 아닌 경로 삭제 거부(rc=1)
+== ⓒ 껍데기 인식 — ' D' 만 남은(info 도 사라진) 워크트리는 가드 5번 건너뛰고 정리만 · 진짜 미커밋은 기존 그대로 HIL
+PASS   └ 전제: 작업 트리에서만 지워진 줄(' D')
+PASS ⓒ 껍데기(' D' 만 · info 없음) → cleaned
+PASS   └ 원래 경로 비어 있음
+PASS   └ 브랜치 tip 그대로([wip]·삭제 커밋 0)
+PASS ⓒ ' D' + 수정(' M') + info 없음 → 기존 그대로 HIL
+PASS   └ 워크트리 그대로
+PASS ⓒ ' D' + 수정 1(info 있음) → 실작업물 미커밋 1파일 HIL
+PASS   └ 워크트리 그대로
+PASS ⓒ ' D' + 새 파일('??') + info 없음 → HIL
+PASS   └ 워크트리 그대로
+== ⓓ 계획 plan-ver ≠ 라이브 생성기 = 옛 계획 실행 거부 → 재생성(r535)
+PASS ⓓ 생성기가 달라진 뒤 sweep → REPLAN 1줄 · 옛 계획 .replanned · 새 계획만 실행
+PASS   └ 요약 줄에 replanned 1
+PASS ⓓ plan-ver 표식 없는 옛 생성기 계획도 옛 판 → 재생성
+PASS ⓓ 재생성 불가(가지 nano/* 아님) → 지금처럼 STALE
+PASS   └ 요약 줄에 stale 1
+PASS   └ 계획 .stale
+PASS   └ 워크트리 그대로
+PASS ⓓ 생성기 그대로면 정상 실행
+PASS   └ STALE 0
+PASS ⓓ 생성기 계획이 아닌 스텁 계획은 plan-ver 대상 아님(기존 시험 호환)
+== ⓔ 껍데기 경보 — 바뀐 때만 1줄
+PASS ⓔ 껍데기 1곳 → [HIL] 1줄(sa · 팀 미상 = harness · r444)
+PASS   └ 멀쩡한 워크트리(ok1)는 안 셈
+PASS ⓔ 그대로면 두 번째 sweep 은 경보 0
+PASS ⓔ 목록이 바뀌면(2곳) 다시 1줄
+PASS   └ 바뀐 뒤 그대로면 다시 0
+PASS   └ 스캔 간격 안(3600s)에선 훑지도 않음
+PASS   └ 경보는 읽기만 — 껍데기 손 0
+== ⓕ 브랜치 삭제 코드 0
+PASS ⓕ sweep 에 브랜치 삭제 코드 0
+PASS ⓕ 계획 2단 블록에 브랜치 삭제 코드 0
+== ⓖ 보관 tar 없는 삭제 0 — 잔여 삭제는 검증된 tar 가 있을 때만(marker 무관)
+PASS ⓖ①② marker 없음·tar 없음 + 보관 실패 → 삭제 0 · 원래 경로 없음 · .deleting·포인터·파일 유지 · 다음 sweep 재시도
+PASS   └ 재시도 경로(RESUME) 작동
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r880-land-copy-tool-sparse-and-cleanup-p/feature-pack/fable-team/harness/tests/test_wt_clean_two_stage.sh: line 247: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.n6Csj1cIwB/repo/.baton/archive/INDEX.jsonl: No such file or directory
+PASS ⓖ③ 검증된 tar 있음 → 이어정리(RESUME)
+PASS ⓖ③ 검증된 tar 가 있으면 baton 실패와 무관하게 잔여 정리
+PASS ⓖ 0바이트 tar 는 증거 아님 → 삭제 0
+PASS ⓖ④ 보관 성공 뒤 정리 끝
+PASS ⓖ④ tar 실재(.baton/archive/*.tar.gz)
+PASS ⓖ④ INDEX 행이 이름 바뀐 경로를 가리킴
+== 변이 시험 — 검사가 정말 결함을 잡는가
+PASS 변이 1 적용(move 줄 제거)
+PASS 변이 1(move 제거) → ⓐ 실패 검출: 계획이 cleaned 로 안 끝남 ← 판정 불가 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.n6Csj1cIwB:init — 워크트리/리포 조회 실패(rc=128 · 오빠 판정 0 · 삭제 0)
+[HIL] seat=byz-planner-nano-del#0 move 뒤에도 원래 경로 남음 · ! bash /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.n6Csj1cIwB/hil/h1
+sweep 계획 1 · cleaned/none 0 · wait 0
+PASS 변이 2 적용(plan-ver 대조 무력화)
+PASS 변이 2(plan-ver 대조 제거) → ⓓ 실패 검출: REPLAN 줄 없음 ← 판정 불가 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.n6Csj1cIwB:init — 워크트리/리포 조회 실패(rc=128 · 오빠 판정 0 · 삭제 0)
+[HIL] seat=byz-planner-nano-del#0 실행 실패(rc=3: STALE byz-planner-nano-del#0 — 옛 생성기 계획 실행 거부(plan-ver=c6d024ab4f4a45be3eff468cde0cca26958540c7 ≠ 라이브 생성기=a15b3f6ca2dc7eeaf889e043
+PASS 변이 3 적용(tar 실재 검사 무력화)
+PASS 변이 3(tar 검사 제거) → ⓖ 실패 검출: 다음 sweep 이 재시도하지 않음(fail=)
+== 위생 — 공용 .git 설정 불변
+PASS core.bare=false
+
+ALL PASS
+REAL-STATE-GUARD WARN 번호표 늘었으나 실 좌석 계획(동시 실행): /private/tmp/h434 ← /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/state/approve-batch90-20261027-1955.sh
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+test_wt_clean_two_stage.sh rc=0

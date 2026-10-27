@@ -1,4 +1,3 @@
-### test_wt_sweep_budget_replan_r535.sh
 PASS bash -n 2종
 == ⓐ 한 pass = 시간 상한 안의 막히지 않은 계획 여러 건
 PASS ⓐ 막힘 없는 계획 5 → 한 pass 에 .done 5
@@ -60,4 +59,4 @@ PASS core.bare=false
 
 ALL PASS
 REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
-rc=0
+test_wt_sweep_budget_replan_r535.sh rc=0

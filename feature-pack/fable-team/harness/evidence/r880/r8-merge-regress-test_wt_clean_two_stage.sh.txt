@@ -1,4 +1,3 @@
-### test_wt_clean_two_stage.sh
 PASS bash -n 2종
 == ⓐ 상한 초과(baton 8s > 계획 상한 4s)에도 원래 경로 껍데기 0 · 이름 바뀐 .deleting-<ts> 만
 PASS   └ 계획 머리 # plan-ver: <40hex>
@@ -55,7 +54,7 @@ PASS ⓕ 계획 2단 블록에 브랜치 삭제 코드 0
 == ⓖ 보관 tar 없는 삭제 0 — 잔여 삭제는 검증된 tar 가 있을 때만(marker 무관)
 PASS ⓖ①② marker 없음·tar 없음 + 보관 실패 → 삭제 0 · 원래 경로 없음 · .deleting·포인터·파일 유지 · 다음 sweep 재시도
 PASS   └ 재시도 경로(RESUME) 작동
-/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r880-land-copy-tool-sparse-and-cleanup-p/feature-pack/fable-team/harness/tests/test_wt_clean_two_stage.sh: line 247: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.szPiy47gzN/repo/.baton/archive/INDEX.jsonl: No such file or directory
+/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r880-land-copy-tool-sparse-and-cleanup-p/feature-pack/fable-team/harness/tests/test_wt_clean_two_stage.sh: line 247: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.lu041S6Ksp/repo/.baton/archive/INDEX.jsonl: No such file or directory
 PASS ⓖ③ 검증된 tar 있음 → 이어정리(RESUME)
 PASS ⓖ③ 검증된 tar 가 있으면 baton 실패와 무관하게 잔여 정리
 PASS ⓖ 0바이트 tar 는 증거 아님 → 삭제 0
@@ -64,11 +63,11 @@ PASS ⓖ④ tar 실재(.baton/archive/*.tar.gz)
 PASS ⓖ④ INDEX 행이 이름 바뀐 경로를 가리킴
 == 변이 시험 — 검사가 정말 결함을 잡는가
 PASS 변이 1 적용(move 줄 제거)
-PASS 변이 1(move 제거) → ⓐ 실패 검출: 계획이 cleaned 로 안 끝남 ← 판정 불가 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.szPiy47gzN:init — 워크트리/리포 조회 실패(rc=128 · 오빠 판정 0 · 삭제 0)
-[HIL] seat=byz-planner-nano-del#0 move 뒤에도 원래 경로 남음 · ! bash /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.szPiy47gzN/hil/h1
+PASS 변이 1(move 제거) → ⓐ 실패 검출: 계획이 cleaned 로 안 끝남 ← 판정 불가 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.lu041S6Ksp:init — 워크트리/리포 조회 실패(rc=128 · 오빠 판정 0 · 삭제 0)
+[HIL] seat=byz-planner-nano-del#0 move 뒤에도 원래 경로 남음 · ! bash /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.lu041S6Ksp/hil/h1
 sweep 계획 1 · cleaned/none 0 · wait 0
 PASS 변이 2 적용(plan-ver 대조 무력화)
-PASS 변이 2(plan-ver 대조 제거) → ⓓ 실패 검출: REPLAN 줄 없음 ← 판정 불가 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.szPiy47gzN:init — 워크트리/리포 조회 실패(rc=128 · 오빠 판정 0 · 삭제 0)
+PASS 변이 2(plan-ver 대조 제거) → ⓓ 실패 검출: REPLAN 줄 없음 ← 판정 불가 /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.lu041S6Ksp:init — 워크트리/리포 조회 실패(rc=128 · 오빠 판정 0 · 삭제 0)
 [HIL] seat=byz-planner-nano-del#0 실행 실패(rc=3: STALE byz-planner-nano-del#0 — 옛 생성기 계획 실행 거부(plan-ver=c6d024ab4f4a45be3eff468cde0cca26958540c7 ≠ 라이브 생성기=a15b3f6ca2dc7eeaf889e043
 PASS 변이 3 적용(tar 실재 검사 무력화)
 PASS 변이 3(tar 검사 제거) → ⓖ 실패 검출: 다음 sweep 이 재시도하지 않음(fail=)
@@ -76,6 +75,5 @@ PASS 변이 3(tar 검사 제거) → ⓖ 실패 검출: 다음 sweep 이 재시�
 PASS core.bare=false
 
 ALL PASS
-REAL-STATE-GUARD WARN 번호표 늘었으나 실 좌석 계획(동시 실행): /private/tmp/h425 ← /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/state/approve-batch81-20261027-1730.sh
 REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
-rc=0
+test_wt_clean_two_stage.sh rc=0

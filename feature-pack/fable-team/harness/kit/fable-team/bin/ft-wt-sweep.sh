@@ -271,13 +271,18 @@ for r in out: sys.stdout.write(r + "\n")
   LIVE="$RUN7_OUT"
   return 0
 }
-# mtime_frac <경로> — mtime 을 «소수 초» 로. 같은 초 안의 변경도 잡는다(r7 · DA r5 ①): macOS `stat -f %Fm`, 없으면 perl HiRes.
+# mtime_frac <경로> — 0 = mtime «소수 초» 값(stdout) · 1 = 못 읽음(값 없음). 같은 초 안의 변경도 잡는다(r7 · DA r5 ①).
+#   ★r880 재설계 r9(오빠 결정 6 · arch 166)★ 읽기는 둘뿐 — ⓐ macOS `stat -f %Fm` ⓑ 없으면 GNU `stat -c %.9Y`(글자 그대로). 소수를 «다시 계산» 하는 대안(perl HiRes)은 삭제(유효숫자 15자리에서 두 값이 같아져 낡은 계획이 통과했다).
+#   둘 다 안 되거나 출력이 «숫자·점» 꼴이 아니면 «값 없음 = 실패» — `?` 같은 대체 값을 값으로 적지 않는다(그러면 `?`=`?` 가 «같음» 이 되는 구멍이 생긴다).
 mtime_frac() {
   local v
   v="$(stat -f %Fm "$1" 2>/dev/null)"
-  case "$v" in ''|*[!0-9.]*) v="$(perl -MTime::HiRes=stat -e 'print((Time::HiRes::stat($ARGV[0]))[9])' "$1" 2>/dev/null)";; esac
-  case "$v" in ''|*[!0-9.]*) v='?';; esac
-  printf '%s' "$v"
+  case "$v" in ''|*[!0-9.]*|.*|*.|*.*.*) v="$(stat -c %.9Y "$1" 2>/dev/null)";; esac
+  case "$v" in
+    ''|*[!0-9.]*|.*|*.|*.*.*) return 1;;
+    *[0-9]*) printf '%s' "$v"; return 0;;
+  esac
+  return 1
 }
 # land_check <리포> <사본> <만든 때 sha|빈 값> — 0 = 지워도 됨(stdout HEAD sha) · 1 = 남김(stdout 이유 1줄). LIVE·LAND_REF 를 쓴다.
 land_check() {
@@ -292,8 +297,8 @@ land_check() {
   if printf '%s\n' "$LIVE" | awk -v a="$p" -v b="$rp" '$0==a||$0==b||index($0,a"/")==1||index($0,b"/")==1{f=1} END{exit !f}'; then echo "좌석·프로세스 살아 있음(cwd/pane 이 안에)"; return 1; fi
   # ★r880 고침 8(DA r2 ③)★ 만든 때의 폴더 mtime 과 다르면 «낡은 계획» — 쓸 수 있는 사본·사라진 사본을 낡은 목록으로 지우는 길 0.
   if [ -n "$want_mt" ]; then
-    mt="$(mtime_frac "$p")"
-    [ "$mt" = "$want_mt" ] || { echo "mtime 바뀜(${mt:-?} ≠ 계획 $want_mt)"; return 1; }
+    mt="$(mtime_frac "$p")" || { echo "mtime 못 읽음(판정 불가)"; return 1; }   # r9: 못 읽으면 KEEP(삭제 0)
+    [ "$mt" = "$want_mt" ] || { echo "mtime 바뀜($mt ≠ 계획 $want_mt)"; return 1; }
   fi
   echo "$h"
 }
@@ -320,7 +325,7 @@ land_plan() {
     # ★r880 고침 1(DA r1 반례 1)★ 지우기 직전마다 좌석 목록을 «그 사본 직전에» 새로 읽는다 — 실행 중 새로 열린 좌석을 놓친 목록으로 지우는 길 0. 못 읽으면 그 사본만 남긴다.
     echo 'land_rm() { local why; if [ ! -d "$1" ]; then echo "skip $1 — 이미 없음"; return 0; fi
   land_live || { echo "skip $1 — 좌석 목록 못 읽음($LAND_ERR)"; BADN=$((BADN+1)); BADLIST="$BADLIST ${1##*/}"; return 0; }
-  if why="$(land_check "$ROOT" "$1" "$2" "$3")"; then git -C "$ROOT" worktree remove "$1" && echo "removed $1" || echo "skip $1 — worktree remove 실패"; else echo "skip $1 — $why"; fi; }'
+  if why="$(land_check "$ROOT" "$1" "$2" "$3")"; then git -C "$ROOT" worktree remove "$1" && echo "removed $1" || echo "skip $1 — worktree remove 실패"; else case "$why" in "mtime 못 읽음(판정 불가)") BADN=$((BADN+1)); BADLIST="$BADLIST ${1##*/}";; esac; echo "skip $1 — $why"; fi; }'
   } > "$tmp"
   while IFS=$'\t' read -r p lk; do
     case "$p" in "$SCAN_ROOT"/.worktrees/*) ;; *) continue;; esac
@@ -333,7 +338,8 @@ land_plan() {
     h="$(land_check "$SCAN_ROOT" "$p" "")" || { echo "KEEP ${p##*/} — $h"; continue; }
     kb="$(perl -e 'setpgrp(0,0); $SIG{ALRM}=sub{ local $SIG{TERM}="IGNORE"; kill "TERM", -$$; exit 124 }; alarm shift; exit(system(@ARGV)>>8)' "$DU_SEC" "$DU" -sk "$p" 2>/dev/null | awk 'NR==1{print $1}')"
     case "$kb" in ''|*[!0-9]*) kb='?';; *) tk=$((tk+kb));; esac
-    mt="$(mtime_frac "$p")"   # 고침 8(DA r2 ③)+r7: 소수 초까지 박는다(같은 초 안의 변경도 «바뀜»)
+    # r9: mtime 을 못 읽는 사본은 «판정 불가» — 계획 줄 0 · 삭제 0 · bad 셈(land_rc 가 최종 ERROR 1줄 + rc≠0).
+    mt="$(mtime_frac "$p")" || { echo "판정 불가 ${p##*/}: mtime 못 읽음(계획 제외 · 삭제 0)" >&2; bad=$((bad+1)); badlist="$badlist ${p##*/}"; continue; }
     printf 'land_rm %q %q %q  # %s KB\n' "$p" "$h" "$mt" "$kb" >> "$tmp"; n=$((n+1)); echo "LAND ${p##*/} sha=${h:0:12} kb=$kb"
   done < <(printf '%s\n' "$wl" | awk '/^worktree /{if(p!="")print p"\t"l; p=substr($0,10); l=""} /^locked/{l="y"} END{if(p!="")print p"\t"l}')
   # ★r880 재설계 r7(오빠 결정 5 · DA r5 ②)★ 계획 «실행» 단계도 실패 셈 1자리 — 조회 실패 ≥1 이면 그 사본 skip · 마지막 ERROR 1줄 · 최종 rc≠0(실패를 성공으로 보고 0).

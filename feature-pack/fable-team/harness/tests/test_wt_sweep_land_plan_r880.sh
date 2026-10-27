@@ -77,7 +77,17 @@ fi
 [ "\${FAKE_PY_FAIL:-0}" = 1 ] && { echo "python3 실패"; exit 1; }
 exec "$REALPY" "\$@"
 PYEOF
-chmod +x "$T/fake/ft-hil" "$T/fake/mbox.sh" "$T/fake/python3"; : > "$T/hil.log"; : > "$T/mbox.log"
+REALSTAT="$(command -v stat)"   # mtime 읽기 대역(ⓚ) — 기본은 진짜 stat
+cat > "$T/fake/stat" <<SEOF
+#!/usr/bin/env bash
+[ -n "\${FAKE_STAT_FAIL_PATH:-}" ] && [ "\${!#}" = "\$FAKE_STAT_FAIL_PATH" ] && exit 1
+case "\${FAKE_STAT_MODE:-native}" in
+  nomode) exit 1 ;;
+  gnu) [ "\$1" = "-c" ] && [ "\$2" = "%.9Y" ] && { echo "\${FAKE_STAT_GNU:-1793000000.123451000}"; exit 0; }; exit 1 ;;
+  *) exec "$REALSTAT" "\$@" ;;
+esac
+SEOF
+chmod +x "$T/fake/ft-hil" "$T/fake/mbox.sh" "$T/fake/python3" "$T/fake/stat"; : > "$T/hil.log"; : > "$T/mbox.log"
 lp() { ( cd "$T" && env -i HOME="$HOME" PATH="$T/fake:$PATH" FT_WT_CLEAN_DIR="$T/state/wt-clean" FT_WT_SCAN_ROOT="$REPO" \
   FT_TMUX_BIN="$T/fake/tmux" FT_LSOF_BIN="$T/fake/lsof" FT_DU_BIN="$T/fake/du" FAKE_PANES="$T/panes" FAKE_CWDS="$T/cwds" \
   FT_HIL_BIN="$T/fake/ft-hil" FAKE_HIL_LOG="$T/hil.log" "$@" \
@@ -384,6 +394,29 @@ jcase() {   # jcase <tmux|lsof|realpath> — 실행 단계에서만 실패(2~3�
   has "$r" "ERROR 판정 불가 " "ⓙ$nm ERROR = 마지막 요약 1줄"
 }
 for j in tmux lsof realpath; do jcase "$j"; done
+
+echo "== ⓚ DA r6 ①: mtime 못 읽는 사본 = 판정 불가(계획 제외 · 삭제 0 · ERROR 1줄 · rc≠0) · GNU 나노초 글자 그대로"
+chk "ⓚ 대안(perl HiRes) 삭제" "$(grep -c 'Time::HiRes' "$T/bin/ft-wt-sweep.sh")" 0
+land_reset; rm -f "$PLAN" "$PLAN.sig" "$PLAN.sent"
+o="$(lp FAKE_STAT_FAIL_PATH="$W/land-done")"; rc=$?
+chk "ⓚ1 rc≠0" "$([ "$rc" -ne 0 ] && echo yes || echo no)" yes
+has "$o" "판정 불가 land-done: mtime 못 읽음(계획 제외 · 삭제 0)" "ⓚ1 그 사본 = 판정 불가"
+chk "ⓚ1 그 사본은 계획 줄 0" "$(grep -c "^land_rm .*land-done " "$PLAN")" 0
+chk "ⓚ1 다른 사본은 계획에 남음" "$(grep -c '^land_rm ' "$PLAN")" 2
+chk "ⓚ1 ERROR 1줄" "$(printf '%s\n' "$o" | grep -c '^ERROR')" 1
+# ⓚ2 실행 단계 — 계획에 적힌 사본의 mtime 읽기 실패 → KEEP · 삭제 0
+land_reset; rm -f "$PLAN" "$PLAN.sig" "$PLAN.sent"; o="$(lp)"
+r="$( cd "$T" && env -i HOME="$HOME" PATH="$T/fake:$PATH" FAKE_PANES="$T/panes" FAKE_CWDS="$T/cwds" FAKE_STAT_FAIL_PATH="$W/land-done" bash "$PLAN" 2>&1 )"; rc=$?
+has "$r" "skip $W/land-done — mtime 못 읽음(판정 불가)" "ⓚ2 실행 때 mtime 못 읽으면 KEEP"
+chk "ⓚ2 land-done 남음(삭제 호출 0)" "$(isd "$W/land-done")" yes
+chk "ⓚ2 최종 rc≠0" "$([ "$rc" -ne 0 ] && echo yes || echo no)" yes
+# ⓚ3 GNU 꼴(-c %.9Y) — 소수 9자리 «글자 그대로» 비교
+land_reset; rm -f "$PLAN" "$PLAN.sig" "$PLAN.sent"
+o="$(lp FAKE_STAT_MODE=gnu FAKE_STAT_GNU=1793000000.123450000)"
+chk "ⓚ3 계획에 나노초 꼴 그대로" "$(grep -c '1793000000\.123450000' "$PLAN")" 3
+r="$( cd "$T" && env -i HOME="$HOME" PATH="$T/fake:$PATH" FAKE_PANES="$T/panes" FAKE_CWDS="$T/cwds" FAKE_STAT_MODE=gnu FAKE_STAT_GNU=1793000000.123451000 bash "$PLAN" 2>&1 )"
+has "$r" "skip $W/land-done — mtime 바뀜(1793000000.123451000 ≠ 계획 1793000000.123450000)" "ⓚ3 나노초 차이를 «바뀜» 으로"
+chk "ⓚ3 land-done 남음" "$(isd "$W/land-done")" yes
 
 echo
 [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }
