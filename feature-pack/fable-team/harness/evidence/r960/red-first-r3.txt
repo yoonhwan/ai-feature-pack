@@ -1,0 +1,15 @@
+# r960 r3 빨강 먼저 — 고치기 «전»(HEAD 5fc418c8 · r2 판)으로 같은 시험을 돌린 원문 (rc=1)
+FAIL 변이 표지 finish NORECORD 줄 1줄 (got=[0] want=[1])
+FAIL ⓡ 변이 «수용 뒤 출력 생략» → NORECORD 줄 0 (ⓡ FAIL) (got=[1] want=[0])
+FAIL ⓣ NORECORD 줄 1개 (got=[0] want=[1])
+FAIL   └ NORECORD 줄에 좌석·사유 — 없음: «NORECORD pi#dead pi 세션 없음 — 산출 커밋 보존» ← CLOSED-DEAD pi#dead record=NORECORD handoff=-
+FAIL ⓤ 죽음+세션파일 → 재개 기록 경로(RESUME ok 줄1) (got=[no 0] want=[yes 1])
+FAIL ⓤ 죽음+세션없음 → NORECORD 줄 1 (got=[no 0] want=[yes 1])
+FAIL ⓤ HELD(claude 기록 없음) rc 3 · NORECORD 줄 1 (got=[3 0] want=[3 1])
+FAIL 변이 표지 죽은 갈래 finish 앞 exit 1줄 (got=[0] want=[1])
+FAIL finish() 밖 exit 0 = 0 (got=[2] want=[0])
+FAIL finish() 밖 결과 줄 직접 echo = 0 (got=[8] want=[0])
+FAIL finish() 갈래 호출 ≥ 5 (got=[no] want=[yes])
+FAILED 11
+
+(고친 판 = ALL PASS · test-green.txt)

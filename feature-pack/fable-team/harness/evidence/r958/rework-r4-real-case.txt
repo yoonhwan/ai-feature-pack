@@ -1,0 +1,25 @@
+# r958 r4 실사건 실측 — chatbot 나노 c-fix-k12-tool-results-slot-budget (읽기만 · 쓰기 0 · 2026-10-27)
+
+이 카드의 뿌리 증거. ⑤ cherry 게이트가 «71s/70s 시간 초과» 로 REJECT 2회 한 그 나노의 비교 기준을 실측한다.
+
+## 좌석 워크트리 .worktree-info.json (base 칸)
+```
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/chatbot-c-fix-k12-tool-results-slot-budget/.worktree-info.json
+{"branch":"nano/c-fix-k12-tool-results-slot-budget","base":"origin/main","base_sha":"f33723b43a","created_at":"2026-10-25 21:39:38","purpose":"nano · design/teams/chatbot/…"}
+```
+→ 나노가 스스로 적어 둔 랜딩 기준 = `origin/main`.
+
+## 팀 env (종전 «우선» 값)
+```
+/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/bin-chatbot/chatbot-env.sh:12:export FT_NANO_FEAT=feat/chatbot-main
+```
+→ main 보다 850여 커밋 뒤진 feat 가지만 가리킨다.
+
+## 그래서 git 이 얼마나 더 세는가 (git rev-list --count · git cherry — 읽기만)
+| 비교 기준 | 가지까지 커밋 수 | «+»(미랜딩) 수 |
+|---|---|---|
+| `origin/main`(좌석 base · r4 판이 쓰는 값) | **11** | **5** |
+| `feat/chatbot-main`(팀 env · 종전 판이 쓰던 값) | **854** | **848** |
+
+«+» 커밋이 848 이면 게이트가 커밋·경로마다 git 을 부르는 종전 구조에서 70초 상한을 넘긴다(실측 REJECT 2회).
+r4 판은 base(origin/main)를 먼저 읽고 env 와 다르면 `WARN 비교 기준 = …` 1줄을 남긴 뒤 base 로만 판정한다 = 이 입력이 11커밋 · 5«+» 로 줄어든다.

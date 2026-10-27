@@ -1,0 +1,24 @@
+== m1 diff:
+251d250
+<     case "$q" in "$p"|"$p"/*|"${rp:-$p}"|"${rp:-$p}"/*) echo "세션 있음(pane $q)"; return 0;; esac
+m1 rc=1
+FAIL ⓐ pane 있는 A 가 경보 목록에 있음 ← SKIP 껍데기 후보 B — 미커밋 2
+FAIL ⓐ SKIP 1줄(세션 있음) — 없음: «SKIP 껍데기 후보 A — 세션 있음» ← SKIP 껍데기 후보 B — 미커밋 2
+FAILED 2
+== m2 diff:
+256d255
+<   [ "$n" -eq 0 ] || { echo "미커밋 $n"; return 0; }
+m2 rc=1
+FAIL ⓑ 미커밋 B 가 경보 목록에 있음
+FAIL ⓑ SKIP 1줄(미커밋 2 · 지워짐 줄은 안 셈) — 없음: «SKIP 껍데기 후보 B — 미커밋 2» ← SKIP 껍데기 후보 A — 세션 있음(pane /private/var/folders/vm/j7_jw8050t553wj5wqlvnm
+FAILED 2
+== m3 diff:
+266c266
+<   panes="$(cap 7 "$tb" list-panes -a -F '#{pane_current_path}' 2>/dev/null)" || { echo "NOTE 껍데기 판정 생략 — tmux 목록 못 읽음($tb)"; return 0; }
+---
+>   panes="$(cap 7 "$tb" list-panes -a -F '#{pane_current_path}' 2>/dev/null)" || panes=""
+m3 rc=1
+FAIL ⓓ 경보 0 — 있으면 안 됨: «[HIL]»
+FAIL ⓓ NOTE 1줄 — 없음: «NOTE 껍데기 판정 생략 — tmux 목록 못 읽음» ← SKIP 껍데기 후보 B — 미커밋 2
+FAIL ⓓ 서명 바뀜: harness:A harness:A-r2 harness:C harness:E.deleting-123 
+FAILED 3

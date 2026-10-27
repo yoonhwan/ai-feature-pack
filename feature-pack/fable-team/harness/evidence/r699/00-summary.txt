@@ -1,0 +1,21 @@
+r699 — test_orch_gate_top_models PROJ 자리 고치기 + orchestration-gate 팩 사본 정리 (1.1.202)
+
+기반: origin/land/r695-squash c70fa21f (카드 «선행: r695 착지 · skill 사본은 r695 판 기준» — r695 가 아직 팩 main 에 없어 그 위에 쌓음.
+      r695 가 c70fa21f 그대로 착지하면 이 커밋은 그 위 1커밋. 다르게 착지하면 rebase 후 시험 재실행 필요)
+
+ⓐ 고치기 전: 01-before-red.txt(팩 origin/main 74c95ed4) · 02-before-red-on-r695.txt(c70fa21f) — 둘 다 PROJ 5칸 FAIL(bash -n 1 · 127 ×4) pass=5 fail=5 rc=1
+ⓑ PROJ 판단 1줄: BYZ 리포 설치 사본을 기본값으로 두면 팩 시험이 다른 리포 유무에 묶이므로, 기본값 = 팩 안 두 번째 사본(skill/templates) · 설치 사본은 ORCH_GATE_PROJ 로 준다(단순한 쪽).
+   03-test-fixed-copy-stale.txt — 시험만 고친 중간 판: skill 사본 옛 TOP_MODELS(sonnet-?5) 로 Sonnet 5.5 칸 FAIL + cmp 단언 FAIL rc=1
+ⓒ 사본 목록(git ls-files '*orchestration-gate.sh'): harness/kit/fable-team/templates/hooks/orchestration-gate.sh(정본) · skill/templates/hooks/orchestration-gate.sh
+   skill 사본은 manifest.json hooks 항목(template-only)·SKILL.md 설치 표가 부르므로 지우지 않고 정본을 cp 해 맞춤.
+   시험에 «사본 수 ≥ 2» + «사본 전부 = 정본 cmp0» 2칸 추가. 04-after-green.txt pass=12 fail=0 rc=0
+ⓓ 변이: 05-mutation-fail.txt — skill 사본 끝 주석 1줄 → cmp 단언 FAIL rc=1(복원 후 cmp0). 단언 삭제·skip 0.
+
+참고(단언 아님): 06-env-byz-proj.txt — ORCH_GATE_PROJ=BYZ 리포 .claude/hooks/orchestration-gate.sh → «Sonnet 5 3번째 Edit» 기대 2·실제 0 (그 설치 사본은 TOP 모델 정규식이 다름 — 별건)
+별건 2: harness/tests/test_orch_gate_master.sh 도 같은 옛 자리($ROOT/.claude/hooks) + 팩에 없는 BASE_REV 43eb52ed632a 로 rc=1 «수정 전 훅 추출 실패» — 이 카드 범위 밖
+별건 3: 옛 skill 사본에만 있던 tmuxc 생명주기 deny(LIFECYCLE_RE)·ft-* 세션 면제는 맞춤으로 skill 템플릿에서 빠짐 — 라이브(~/.claude/hooks = kit 판)에는 원래 없던 것이라 동작 변화 0
+설치: kit 판은 이 커밋에서 불변(r695 판 그대로) → 설치 0 · r695 설치 뒤 ~/.claude/hooks/orchestration-gate.sh = kit cmp0 확인 1줄
+
+— r2 기반 재측정 (2026-10-27 · 팩 origin/main aad778cf 위 762adf89 옮김 · r695 squash 08054bbf 는 main 에 이미 있음 = 같은 나무 c70fa21f)
+07-base-r2-recheck.txt — 새 기반 고치기 전 pass=5 fail=5 rc=1(PROJ 5칸) · 후판 pass=12 fail=0 rc=0
+08-counters-r2.txt — 반례 3종: R1 없는 PROJ 경로 → «사본 없음» 1줄 FAIL rc=1(127 다발 0) · R2 skill 사본 1줄 변이 → cmp FAIL rc=1(복원 cmp0) · R3 라이브 없음 → «LIVE 없음» 1줄 rc=0 · 팩 사본 2벌 전부 정본 cmp0 · 라이브 ~/.claude/hooks = 정본 cmp0(설치 0)

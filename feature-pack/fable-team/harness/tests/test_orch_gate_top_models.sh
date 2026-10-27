@@ -1,9 +1,11 @@
 #!/bin/bash
-# 시험: orchestration-gate 키트·프로젝트 사본의 TOP_MODELS 기본값 정합
+# 시험: orchestration-gate 키트·두 번째 사본의 TOP_MODELS 기본값 정합 + 팩 안 사본 전부 = 정본(키트) cmp0
 # Sonnet 5 · Fable = 오케(3번째 코드 파일 Edit exit 2) / Sonnet 5.5 · agent_id 있음 = 면제(exit 0).
+# PROJ = 팩 안 두 번째 사본(skill/templates) — 1.1.0 재배치(3b25f81d) 뒤 옛 <팩>/.claude/hooks 자리는 없다(r699).
+#   프로젝트에 설치된 사본을 보려면 ORCH_GATE_PROJ=<리포>/.claude/hooks/orchestration-gate.sh 로 준다.
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 KIT="$ROOT/harness/kit/fable-team/templates/hooks/orchestration-gate.sh"
-PROJ="$ROOT/.claude/hooks/orchestration-gate.sh"
+PROJ="${ORCH_GATE_PROJ:-$ROOT/skill/templates/hooks/orchestration-gate.sh}"
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 
 transcript() {  # transcript <model> -> 경로 (마지막 assistant model 한 줄)
@@ -39,12 +41,35 @@ check() {  # check <이름> <기대> <실제>
 
 for NAME in KIT PROJ; do
   HOOK="${!NAME}"
+  if [ ! -f "$HOOK" ]; then  # R1: 없는 파일을 «파일 없음 127» 로 다섯 칸 때리지 않고 사유 1줄 FAIL (조용한 SKIP 0)
+    fail=$((fail+1)); echo "FAIL $NAME 사본 없음 — $HOOK (경로를 ORCH_GATE_PROJ 로 주거나 skill/templates 사본을 둔다)"
+    continue
+  fi
   bash -n "$HOOK" && check "$NAME bash -n" 0 0 || check "$NAME bash -n" 0 1
   check "$NAME Sonnet 5 3번째 Edit"     2 "$(third_edit_rc "$HOOK" 'claude-sonnet-5[1m]')"
   check "$NAME Sonnet 5.5 3번째 Edit"   0 "$(third_edit_rc "$HOOK" 'claude-sonnet-5-5[1m]')"
   check "$NAME Fable 3번째 Edit"        2 "$(third_edit_rc "$HOOK" 'claude-fable-5-1')"
   check "$NAME agent_id 있음 3번째 Edit" 0 "$(third_edit_rc "$HOOK" 'claude-fable-5-1' w1)"
 done
+
+# 팩 안 orchestration-gate.sh 사본(git ls-files) 전부 = 정본(KIT) cmp0 — 사본이 1벌뿐이면 단언이 빈 것이라 FAIL
+copies=0; diff_copies=""
+while IFS= read -r p; do
+  copies=$((copies+1))
+  cmp -s "$KIT" "$ROOT/$p" || diff_copies="$diff_copies $p"
+done < <(git -C "$ROOT" ls-files -- '*orchestration-gate.sh')
+check "사본 수 ≥ 2" yes "$([ "$copies" -ge 2 ] && echo yes || echo "no($copies)")"
+check "팩 안 사본 전부 = 정본 cmp0" "" "$diff_copies"
+
+# R3: 라이브 설치 사본(있으면)과 정본 대조 — 어긋나면 그 사실 1줄(설치 판정은 master 몫이라 FAIL 아님)
+LIVE="${ORCH_GATE_LIVE:-$HOME/.claude/hooks/orchestration-gate.sh}"
+if [ ! -f "$LIVE" ]; then
+  echo "LIVE 없음 — $LIVE"
+elif cmp -s "$KIT" "$LIVE"; then
+  echo "LIVE 정본과 cmp0 — $LIVE"
+else
+  echo "LIVE 정본과 다름(설치 어긋남) — $LIVE"
+fi
 
 echo "pass=$pass fail=$fail"
 [ "$fail" = 0 ]

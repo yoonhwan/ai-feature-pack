@@ -1,0 +1,82 @@
+PASS bash -n
+== ⓐⓑⓒⓔ 한 회차
+PASS ⓐ pane 이 A/d3(하위) → A 경보 목록에서 빠짐
+PASS ⓐ SKIP 1줄(세션 있음)
+PASS ⓐ SKIP 줄은 경보가 아님
+PASS ⓐ 경로 앞부분만 같은 형제 A-r2 = 세션 없음 → 경보 목록에
+PASS ⓑ pane 0 · 미커밋 → B 빠짐
+PASS ⓑ SKIP 1줄(미커밋 2 · 지워짐 줄은 안 셈)
+PASS ⓒ pane 0 · 미커밋 0(지워짐만) → C 경보 목록에
+PASS ⓒ 경보 문구에 «세션 0 · 미커밋 0»
+PASS ⓔ 포인터 없는 .deleting-* = 지금 규칙 그대로(pane 있어도 검사 밖)
+PASS   └ 멀쩡한 폴더(OK)는 안 셈
+PASS   └ 판정 다 끝난 회차 = 판정 못 함 NOTE 0
+PASS   └ 완전한 회차 = 서명 저장
+PASS ⓐ tmux pane 목록 = 회차당 1회
+PASS   └ list-panes -a -F '#{pane_current_path}'
+== r2 ① pane 경로 별칭 → 실제 경로로 맞춤(각각 A SKIP «세션 있음» · A 경보 0)
+PASS ① /var 표기 준비(/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.TzeNCtpP2S/repo/.worktrees/A)
+PASS ① pane=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.TzeNCtpP2S/alias → A SKIP «세션 있음»
+PASS ① pane=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.TzeNCtpP2S/alias → A 경보 0
+PASS   └ 별칭이어도 형제 A-r2 는 세션 없음(경보 목록에)
+PASS ① pane=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.TzeNCtpP2S/alias/d2 → A SKIP «세션 있음»
+PASS ① pane=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.TzeNCtpP2S/alias/d2 → A 경보 0
+PASS   └ 별칭이어도 형제 A-r2 는 세션 없음(경보 목록에)
+PASS ① pane=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.TzeNCtpP2S/repo/.worktrees/A → A SKIP «세션 있음»
+PASS ① pane=/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.TzeNCtpP2S/repo/.worktrees/A → A 경보 0
+PASS   └ 별칭이어도 형제 A-r2 는 세션 없음(경보 목록에)
+== r2 없는 pane 경로(지워진 폴더) → 글자 비교만 · 진짜 껍데기 C 는 경보(회귀)
+PASS 없는 pane 경로 섞여도 C 경보 목록에
+PASS   └ 글자 그대로 pane(A) 은 그대로 맞춤
+PASS   └ 없는 pane 경로는 판정 못 함 아님
+== r2 ② 정상 → git status rc128 → 정상 : 2·3회차 경보 0 · 서명 1회차와 같음
+PASS ② 1회차 경보(C)
+PASS ② 2회차(git rc128) 경보 0
+PASS ② 2회차 C 판정 못 함
+PASS ② 2회차 NOTE «판정 못 함 3곳(이전 판정 이어받음)»
+PASS ② 2회차 서명 = 1회차(판정 못 한 A-r2·C 이어받음)
+PASS ② 3회차(정상) 경보 0 — 서명 같음
+== ⓓ tmux 목록 못 읽음 → 경보 0 · 서명 그대로
+PASS ⓓ 경보 0
+PASS ⓓ NOTE 1줄
+PASS ⓓ 서명 파일 안 바꿈
+== ⓕ git status 상한 초과 → 판정 못 함 SKIP · 경보 0(그 폴더)
+PASS ⓕ 상한 1s · git status 4s → C 판정 못 함 SKIP
+PASS ⓕ 상한 초과 = 판정 못 함 NOTE(이전 서명 없음 → 이어받을 것 0)
+PASS ⓕ C 경보 0
+PASS ⓕ 상한이 먹음(3s · 후보 4 × 4s 를 기다리지 않음)
+PASS ⓕ 기본 상한 7 s
+PASS ⓕ status --porcelain --untracked-files=normal
+== r2b 나노 지적 꼴 — X(.git 있음 · git status 실패) + 진짜 껍데기 C → C 경보 · X 빠짐 · NOTE 1
+PASS r2b X 판정 못 함 SKIP
+FAIL r2b C 경보 없음 ← SKIP 껍데기 후보 A — 세션 있음(pane /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.TzeNCtpP2S/repo/.worktrees/A/d3)
+SKIP 껍데기 후보 B — 미커밋 2
+SKIP 껍데기 후보 X — 판정 못 함(git status rc=128)
+NOTE 껍데기 판정 못 함 1곳(이전 판정 이어받음)
+sweep 계획 0 · cleaned/none 0 · wait 0 · hil 0
+PASS r2b X(이전 서명에 없음) 빠짐
+PASS r2b NOTE 1곳
+PASS   └ gitdir 가 있는 X 는 «git 연결 끊김» 아님
+== r2b .git 없는 폴더 Y(F) = 껍데기 «(git 연결 끊김)» · pane 있으면 SKIP
+FAIL r2b F 경보 없음 ← SKIP 껍데기 후보 A — 세션 있음(pane /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.TzeNCtpP2S/repo/.worktrees/A/d3)
+SKIP 껍데기 후보 B — 미커밋 2
+SKIP 껍데기 후보 X — 판정 못 함(git status rc=128)
+NOTE 껍데기 판정 못 함 1곳(이전 판정 이어받음)
+sweep 계획 0 · cleaned/none 0 · wait 0 · hil 0
+FAIL r2b 경보 줄에 «F (git 연결 끊김)» — 없음: « F (git 연결 끊김) » ← SKIP 껍데기 후보 A — 세션 있음(pane /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.TzeNCtpP2S/repo/.worktrees/A/d3)
+SKIP 껍데기 후보 B — 미커밋 2
+SKIP 껍데기 후보 X — 판정 못 함(git status rc=128)
+NOTE 껍데기 판정 못 함 1곳(이전 판정 이어받음)
+sweep 계획 0 · cleaned/none 0 · wait 0 · hil 0
+PASS   └ 부모 리포 «?? .worktrees/» 를 F 의 미커밋으로 셈 0
+PASS   └ F 는 판정 못 함 아님
+PASS   └ 표시는 F 에만
+PASS r2b F 에 pane 있음 → SKIP «세션 있음»(세션 검사 먼저)
+PASS r2b pane 있는 F 경보 0
+PASS r2b gitdir 가 가리키는 곳 없음 → «X (git 연결 끊김)»
+== 위생
+PASS 경보는 읽기만 — 폴더 손 0
+PASS B 미커밋 그대로
+
+FAILED 3
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

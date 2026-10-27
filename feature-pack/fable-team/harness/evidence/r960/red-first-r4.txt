@@ -1,0 +1,10 @@
+# r960 r4 빨강 먼저 — 고치기 전 판(HEAD 90b8272c 의 ft-seat-close.sh)으로 새 시험 실행 (2026-10-26)
+# 명령: git checkout HEAD -- bin/ft-seat-close.sh && bash tests/test_seat_close_pi_resume_r960.sh
+# 핵심: ⓥ(DA r3 반례 = agent=claude · 경로에 «pi 세션 없음») 가 rc 0 · kill 1 · role stop-ready 로 FAIL = 반례 재현
+#      새 변이 표지(agent 칸 판정)는 옛 판에 없으므로 0줄 = 표지 부재 확인(변이 칸 자체도 빨강)
+#      cmp retire 다름 = r4 헤더 문구를 이미 고친 상태에서 옛 close 판을 돌린 탓(시험 대역, 결함 아님)
+FAIL cmp ft-seat-retire.sh 다름
+FAIL 변이 표지 agent 칸 판정 1줄 (got=[0] want=[1])
+FAIL ⓥ rc 3 · HELD (got=[0 reap] want=[3 HELD])
+FAIL ⓥ 명부 role 불변(nano) · kill 0 (got=[stop-ready 1] want=[nano 0])
+FAILED 4

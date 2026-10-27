@@ -1,0 +1,7 @@
+# r849 실 좌석 기록 판정 (읽기 전용 · byz-v65-tester-claude#90 jsonl 52c7679a… · 실측 2026-10-24 14:22:06)
+## 판정기 기준판(origin/main f1cbd005) → 새 판
+before: IDLE 2026-10-23T13:14:05.020Z 142 - jsonl
+after : LOGGEDOUT 2026-10-23T13:12:55.701Z 2 - jsonl
+## nano-close ③ 마지막 기록 (ft-jsonl-last-ts.py)
+before(기본) : 1792761245 system/turn_duration  = 2026-10-23T13:14:05Z
+after(--skip-logged-out): 1792750906 system/turn_duration  = 2026-10-23T10:21:46Z (인증 실패 0초 턴 2개 뺌 → 10:21 server_error 턴 끝)
