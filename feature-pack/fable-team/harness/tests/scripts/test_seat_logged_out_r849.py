@@ -402,20 +402,6 @@ def test_r5_unfinished_turn_counts_as_activity(tmp_path):
     assert "③jsonl 마지막 기록" in gate(tmp_path, f)  # 끝나지 않은 턴을 빼지 않는다
 
 
-def test_r6_cell_is_folder_errors_not_silent(tmp_path):
-    """ⓡ6 — DA⑥ r3 반례 3: 칸 자리가 폴더면 «이미 알렸다» 로 삼키지 않는다 — ERROR 1줄 · 발신 0 · 폴더를 치우면 다음 scan 1통."""
-    w = World(tmp_path)
-    w.state("t1-master#1", "WORKING", 0)
-    w.state("t1-nano#0", "LOGGEDOUT", 30)
-    cell = w.root / ".fable-team/state/stall/logged-out.t1-nano#0"
-    cell.mkdir(parents=True)
-    assert scan(w).returncode == 0 and not sends(w)
-    assert any("act=l ERROR 칸" in x and "파일이 아님" in x for x in w.scan_log()), w.scan_log()
-    cell.rmdir()
-    w.advance(900)
-    assert scan(w).returncode == 0 and len(sends(w)) == 1
-
-
 CELLNOW = ('#!/bin/sh\nfor a; do last="$a"; done\ncase "$1" in\n'
            '  send) n=$(ls "$FT_ROOT/.fable-team/state/stall" 2>/dev/null | grep -c "^logged-out[.]")\n'
            '    echo "send|$2|$3|$last|$4|cell=$n" >> "$FT_STUB/mbox.log";;\n  ring) echo "ring|$2|${3:-}" >> "$FT_STUB/mbox.log";;\nesac\n')

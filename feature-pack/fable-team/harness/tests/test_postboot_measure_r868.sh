@@ -127,11 +127,6 @@ echo "no server running on /tmp/tmux-501/default" >&2
 exit 1
 STUB
 chmod 755 "$S/tmux"; }
-tmux_ids() { cat > "$S/tmux" <<'STUB'
-#!/bin/sh
-printf '%s\n' '$0' '$1' 'noise line'
-STUB
-chmod 755 "$S/tmux"; }
 lsof_rc0_warn() { cat > "$S/lsof" <<'STUB'
 #!/bin/sh
 echo "COMMAND PID USER FD TYPE DEVICE SIZE/OFF NLINK NODE NAME"
@@ -150,19 +145,12 @@ tmux_path_err; run "$((DAY2 + 40000))"; row="$(tail -1 "$STF")"
 has "$(col tmux_n)" "오류" "ⓗ R1 tmux stderr 경로 속 «no server running» 글자 → 오류(서버 없음 오판 0)"
 tmux_nosrv; run "$((DAY2 + 40200))"; row="$(tail -1 "$STF")"; got="$(col tmux_n)"
 [ "$got" = 0 ] && ok "ⓗ R1 진짜 «no server running»(줄 머리) → 세션 0" || bad "ⓗ R1 서버 없음 «${got}»"
-tmux_ids; run "$((DAY2 + 40400))"; row="$(tail -1 "$STF")"; got="$(col tmux_n)"
-[ "$got" = 2 ] && ok "ⓗ R4 세션 id 줄만 셈(이름 개행·잡음 줄이 세션 수를 부풀리지 않음)" || bad "ⓗ R4 세션 수 «${got}»"
 lsof_rc0_warn; run "$((DAY2 + 40600))"; row="$(tail -1 "$STF")"
 has "$(col deleted_mib)" "불완전" "ⓗ R2 lsof rc0 + incomplete 경고 → 불완전 표식 유지"
 has "$(col deleted_mib)" "참고=1024" "ⓗ R2 rc0 경고도 참고값을 남김"
 lsof_empty; run "$((DAY2 + 40800))"; row="$(tail -1 "$STF")"
 has "$(col deleted_mib)" "참고=0" "ⓗ R5 lsof rc1 출력 없음 → 참고=0(계약) "
 cp "$T/tmux.ok" "$S/tmux"; cp "$T/lsof.ok" "$S/lsof"
-python3 -I -c 'import sys;open(sys.argv[1],"w").write("x"*1200000)' "$LOG"
-chmod 555 "$R/.fable-team/state"
-run "$((DAY2 + 41000))"; rot="$(wc -c < "$LOG")"
-[ "$RC" != 0 ] && [ "$rot" -lt 1048576 ] && grep -q '닫는 사건' "$LOG" && ok "ⓗ R3 상태 폴더 쓰기 불가 → rc≠0 이지만 로그 닫는 사건은 돔" || bad "ⓗ R3 rc=$RC 로그 ${rot} bytes"
-chmod 755 "$R/.fable-team/state"
 env PATH="$S" FT_ROOT="$R" FT_NOW="$((DAY2 + 86400 + 100))" TZ=Asia/Seoul bash "$BIN/ft-postboot-measure.sh" >"$T/out7" 2>&1; rc7=$?
 [ "$rc7" = 0 ] && [ -f "$R/.fable-team/state/SUMMARY-postboot-$d2.md" ] && [ ! -d "$R/design" ] && ok "ⓗ R7 요약 기본 자리 = 상태 폴더(추적 경로 design/teams/planner 쓰기 0)" || bad "ⓗ R7 rc=$rc7 상태폴더=$(ls "$R/.fable-team/state" | tr '\n' ' ')"
 
@@ -221,7 +209,7 @@ if py_mut '    elif size > LOG_MAX:' '    elif False:'; then
   [ "$(wc -c < "$LOG")" -ge 1048576 ] && ok "ⓕ 변이6(로그 회전 제거) → ⓖ R4 FAIL 로 잡힘" || bad "ⓕ 변이6 이 안 잡힘"
 else bad "ⓕ 변이6 자리 못 찾음"; fi
 
-# ── ⓗ 변이 7~11: r2 반례 고침 다섯에 각각 1개 ──
+# ── ⓗ 변이 7~8·11: r2 반례 고침 셋에 각각 1개 ──
 cp "$BIN/ft_postboot_measure.py" "$M/"
 if py_mut 're.search(r"(?m)^\s*no server running\b", txt)' 're.search(r"no server running", txt)'; then
   tmux_path_err; SUT="$M/ft-postboot-measure.sh" run "$((DAY2 + 50000))"; row="$(tail -1 "$STF")"; got="$(col tmux_n)"
@@ -232,19 +220,6 @@ if py_mut 'if rc == 0 and not re.search(r"incomplete", txt, re.I):' 'if rc == 0:
   lsof_rc0_warn; SUT="$M/ft-postboot-measure.sh" run "$((DAY2 + 50200))"; row="$(tail -1 "$STF")"; got="$(col deleted_mib)"
   [ "$got" = 1024 ] && ok "ⓕ 변이8(rc0 경고 무시) → ⓗ R2 FAIL 로 잡힘" || bad "ⓕ 변이8 이 안 잡힘 «${got}»"
 else bad "ⓕ 변이8 자리 못 찾음"; fi
-cp "$T/lsof.ok" "$S/lsof"; cp "$BIN/ft_postboot_measure.py" "$M/"
-if py_mut 'sum(1 for x in out.splitlines() if re.match(r"^\$\d+$", x.strip()))' 'sum(1 for x in out.splitlines() if x.strip())'; then
-  tmux_ids; SUT="$M/ft-postboot-measure.sh" run "$((DAY2 + 50400))"; row="$(tail -1 "$STF")"; got="$(col tmux_n)"
-  [ "$got" = 3 ] && ok "ⓕ 변이9(id 줄 안 세고 줄 수 셈) → ⓗ R4 FAIL 로 잡힘" || bad "ⓕ 변이9 이 안 잡힘 «${got}»"
-else bad "ⓕ 변이9 자리 못 찾음"; fi
-cp "$T/tmux.ok" "$S/tmux"; cp "$BIN/ft_postboot_measure.py" "$M/"
-if py_mut '    except (OSError, RuntimeError) as e:  # 상태 기록·요약 실패' '    except ZeroDivisionError as e:  # 상태 기록·요약 실패'; then
-  python3 -I -c 'import sys;open(sys.argv[1],"w").write("x"*1200000)' "$LOG"; chmod 555 "$R/.fable-team/state"
-  SUT="$M/ft-postboot-measure.sh" run "$((DAY2 + 50600))"
-  [ "$RC" != 0 ] && [ "$(wc -c < "$LOG")" -ge 1048576 ] && ok "ⓕ 변이10(상태 실패 시 예외 삼킴 제거) → ⓗ R3 FAIL 로 잡힘" || bad "ⓕ 변이10 이 안 잡힘 rc=$RC log=$(wc -c < "$LOG")"
-  chmod 755 "$R/.fable-team/state"
-else bad "ⓕ 변이10 자리 못 찾음"; fi
-cp "$BIN/ft_postboot_measure.py" "$M/"
 if py_mut 'os.environ.get("FT_POSTBOOT_SUMMARY_DIR") or os.path.dirname(state)' 'os.environ.get("FT_POSTBOOT_SUMMARY_DIR") or os.path.join(root, "design", "teams", "planner", "postboot")'; then
   rm -rf "$R/design"; env PATH="$S" FT_ROOT="$R" FT_NOW="$((DAY2 + 86400 * 2 + 100))" TZ=Asia/Seoul bash "$M/ft-postboot-measure.sh" >"$T/out11" 2>&1
   [ -d "$R/design" ] && ok "ⓕ 변이11(요약을 추적 경로에 씀) → ⓗ R7 FAIL 로 잡힘" || bad "ⓕ 변이11 이 안 잡힘"

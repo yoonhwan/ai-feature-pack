@@ -4,6 +4,8 @@ xClaw 라우터(xclaw-stream-router.py _slack_post)의 요청 모양을 가져�
 ok!=true·네트워크 오류는 전부 MirrorError 로 raise 한다(BYZ #0 RULE).
 포맷 = 역할 파일 §1-4(사람 말 3줄) · §1-5(작업 1개 = 스레드 1개).
 """
+from __future__ import annotations  # mini python 3.9.6 — `str | None` 주석을 문자열로 미뤄 import TypeError 를 막는다
+
 import json
 import os
 import re

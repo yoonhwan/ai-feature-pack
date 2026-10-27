@@ -16,7 +16,7 @@ hasnt(){ case "$1" in *"$2"*) bad "$3 — 있으면 안 됨: «$2»";; *) ok "$3
 bash -n "$SRC/ft-nano-close.sh" && ok "bash -n ft-nano-close.sh" || bad "bash -n ft-nano-close.sh"
 
 mkdir -p "$T/bin" "$T/fake"
-cp "$SRC/ft-nano-close.sh" "$SRC/ft-nano-evidence-check.sh" "$SRC/ft-wt-sweep.sh" "$SRC/ft-hil.sh" "$T/bin/"
+cp "$SRC/ft-nano-close.sh" "$SRC/ft-nano-evidence-check.sh" "$SRC/ft-wt-sweep.sh" "$SRC/ft-hil.sh" "$SRC/ft-team-lib.sh" "$T/bin/"   # r842: 단계 판정(ft_card_stage_ref) = ft-team-lib.sh 필수(없으면 ERROR + REJECT)
 cp "$SRC/ft_teamset.py" "$T/bin/"
 cp "$SRC/ft-sheet-events.sh" "$SRC/ft_sheet_events.py" "$SRC/ft_sheet_confirm.py" "$SRC/ft_sheet_key.py" "$SRC/ft_board_env.py" "$SRC/ft_board_mail.py" "$T/bin/"
 export FT_SHEET_ROOT="$T/sheet-root"; mkdir -p "$FT_SHEET_ROOT/.fable-team/state"
@@ -51,10 +51,12 @@ chmod +x "$T/bin/"* "$T/fake/"*
 
 GC() { git -C "$1" -c user.email=t@t -c user.name=t "${@:2}"; }
 R="$T/repo"; mkdir -p "$R"; git -C "$R" init -q -b main; GC "$R" commit -q --allow-empty -m init
+git -C "$R" update-ref refs/remotes/origin/main HEAD   # r842: 카드 단계 ref 실재(없으면 단계 판정 실패 = ERROR + REJECT) · ref 에 카드 없음 = ABSENT → 지금 규칙
 GC "$R" worktree add -q "$R/.worktrees/harness-k" -b nano/k
 RW="$R/.worktrees/harness-k"
 git init -q --bare -b main "$T/P-origin.git"
 P="$T/pack"; mkdir -p "$P"; git -C "$P" init -q -b main; GC "$P" commit -q --allow-empty -m pinit
+git -C "$P" update-ref refs/remotes/origin/main HEAD   # r842: 카드 단계 ref 실재(없으면 단계 판정 실패 = ERROR + REJECT) · ref 에 카드 없음 = ABSENT → 지금 규칙
 git -C "$P" remote add origin "$T/P-origin.git"; git -C "$P" push -q origin main; git -C "$P" fetch -q origin
 GC "$P" worktree add -q "$P/.worktrees/k" -b nano/k origin/main
 PW="$P/.worktrees/k"; echo kit > "$PW/kit.sh"; GC "$PW" add kit.sh; GC "$PW" commit -q -m work
