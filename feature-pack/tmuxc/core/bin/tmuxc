@@ -986,6 +986,10 @@ open_remote() {  # <host> <path> <root> <name> <agent> <role> <model> <effort> <
   local host="$1" path="$2" root="$3" name="$4" agent="$5" role="$6" model="$7" effort="$8" ctx="$9" fast="${10}" dry_run="${11}" prompt="${12:-}"
   local run_cmd
   run_cmd="$(agent_cmd "$agent" "$name" "$role" "$model" "$effort" "$ctx" "$fast" 0)"
+  # r1047 r2: agent_cmd 는 «이 맥» 기준으로 $HOME 을 풀어 놓는다 — 그대로 보내면 원격 pane 이 없는
+  # 로컬 경로(/Users/<로컬>/.headroom/…)를 실행한다(h135 실측). 접두를 글자 «$HOME» 으로 바꿔
+  # 원격 pane 셸이 풀게 한다. dry-run 출력도 같은 글자를 보인다.
+  run_cmd="${run_cmd//"$HOME"/\$HOME}"
   local rc=0
   hl h_run "$host" --idempotent test -d "$path" || rc=$?
   case "$rc" in
