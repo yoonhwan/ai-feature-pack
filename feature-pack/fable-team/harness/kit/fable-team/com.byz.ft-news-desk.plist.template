@@ -5,7 +5,7 @@
   <key>Label</key><string>com.byz.ft-news-desk</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/usr/bin/python3</string>
+    <string>/opt/homebrew/bin/python3</string>
     <string>__BYZ_ROOT__/.fable-team/bin/ft_news_desk.py</string>
     <string>run</string>
   </array>
