@@ -1143,6 +1143,7 @@ class TestMboxDirH2(unittest.TestCase):
         if not h.is_file():
             raise unittest.SkipTest(f"h 스크립트 없음(팩 밖): {h} — H2_SCRIPT 로 넘긴다")
         env = dict(os.environ, FT_HB2_LOCAL_HOME=str(self.home))
+        env["PATH"] = f"{self.home}/.testbin:{env.get('PATH', '')}"  # 가짜 launchctl·timeout 이 먼저 잡히게(h 의 외부 호출 자리)
         env.pop("MBOX_DIR", None)
         env.pop("MHOME", None)
         return subprocess.run(["bash", str(h), *args], capture_output=True, text=True, env=env, cwd=str(self.t))
@@ -1208,6 +1209,43 @@ class TestMboxDirH2(unittest.TestCase):
         # 기준점 = ⓐ 끝 — ⓐ 출력에 LOGSIZE 가 실려 ⓒ 로 넘어간다
         self.assertRegex(r.stdout, r"BOOTOUT ok waited=\d+ LOGSIZE=\d+")
 
+    def write_fake_timeout(self, fail_at: int) -> None:
+        """가짜 timeout — fail_at 번째 외부 호출만 rc255(쉬던 Tailscale «첫 접속» 7초 초과 흉내).
+
+        h 는 모든 외부 호출을 timeout 7 로 감싸므로, 호출 횟수를 세는 자리가 여기다.
+        """
+        p = self.home / ".testbin/timeout"
+        p.write_text(
+            '#!/bin/bash\n'
+            'C="$(dirname "$0")/../.testbin-calls"\n'
+            'n=0; [ -f "$C" ] && n=$(cat "$C")\n'
+            'n=$((n+1)); echo "$n" > "$C"\n'
+            f'[ "$n" = "{int(fail_at)}" ] && {{ echo "fake-ssh: 7초 초과(첫 접속)" >&2; exit 255; }}\n'
+            'exec /opt/homebrew/bin/timeout "$@"\n', encoding="utf-8")
+        p.chmod(0o755)
+
+    def calls(self) -> int:
+        c = self.home / ".testbin-calls"
+        return int(c.read_text().strip()) if c.is_file() else 0
+
+    def test_mboxdir_h_readonly_retry_once(self) -> None:
+        """반송 r3 — 0단계(읽기 전용)만 1회 다시 · 그 밖(쓰기)은 재시도 0."""
+        self.write_fake_timeout(fail_at=1)
+        r = self.run_h("--dry-run")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("RETRY 0단계(읽기 전용) 1회 다시", r.stdout)
+        self.assertEqual(self.calls(), 3, "dry-run 호출 수 = 0단계 2회(실패 1 + 재시도 1) + 문서 검사 1회")
+        (self.home / ".testbin-calls").unlink()
+        self.write_fake_timeout(fail_at=3)  # 3 = 백업(첫 쓰기 호출) — 여기서는 재시도하지 않는다
+        before = {p: p.read_bytes() for p in (self.skill, self.guide, self.plist)}
+        w = self.run_h("--apply")
+        self.assertEqual(w.returncode, 1, w.stdout + w.stderr)
+        self.assertIn("판정 불가", w.stdout + w.stderr)
+        self.assertNotIn("RETRY", w.stdout, "쓰기 단계에서 재시도했다")
+        self.assertEqual(self.calls(), 3, "쓰기 호출이 재시도로 늘었다")
+        for p, raw in before.items():
+            self.assertEqual(p.read_bytes(), raw, f"실패했는데 {p} 가 바뀌었다")
+
     def test_mboxdir_h_calls_capped_7s(self) -> None:
         """R5 — 외부 호출 정적 확인(ConnectTimeout=7 · timeout 7 · 30/300/600초 없음)."""
         h = h2_script()
@@ -1269,6 +1307,8 @@ MUTATIONS = {
     # r1044 반송 r2 — 로그 기준점을 0단계 값으로 되돌리면 사이에 쓴 옛 게시기 줄이 판정에 섭여 ⓒ FAIL
     "h-logbase-step0": ("H2:", "LOGBEFORE=\"$(printf '%s\\n' \"${OUT}\" | sed -n 's/.*LOGSIZE=//p' | tail -1)\"",
                         "LOGBEFORE=\"$(sed -n 's/^LOGSIZE=//p' \"${T}/pre.txt\" | tail -1)\"", "h2"),
+    # r1044 반송 r3 — 0단계 재시도를 지우면 첫 ssh 접속 실패에서 dry-run 이 멈춘다 → ⓒ FAIL
+    "h-no-readonly-retry": ("H2:", 'if [ "${ATTEMPT}" -ge 2 ]; then', 'if [ "${ATTEMPT}" -ge 1 ]; then', "h2"),
     # 잠금 범위를 원장에만(카드 쓰기는 밖) → ⓣ FAIL
     "lock-scope-off": ("ops_intake_write.py", '        with c.locked("ops-intake"):  # ★한도 확인부터 쪽지 예약까지 한 잠금★ (DA r3 반례 3)\n            return _write_locked(doc)',
                        "        return _write_locked(doc)", "t_"),
