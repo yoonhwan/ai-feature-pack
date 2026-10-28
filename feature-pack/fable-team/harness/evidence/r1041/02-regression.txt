@@ -1,0 +1,16 @@
+# r1041 회귀 — 이 카드가 건드린 파일을 쓰는 기존 시험 (2026-10-28 · 단독 실행 · timeout 70)
+# 주: 손대지 않은 baseline 사본(/tmp/base · git archive HEAD)과 같은 결과인지도 함께 봤다.
+test_nano_spawn_body_press.sh              rc=0  1s   FAIL 0
+test_nano_spawn_body_search_roster.sh      rc=0  0s   FAIL 0
+test_nano_spawn_body_after_report_r1035.sh rc=0  1s   FAIL 0
+test_baseline_lint.sh                      rc=0  2s   FAIL 0
+test_resource_cpu_owner.sh                 rc=0  6s   FAIL 0
+test_resource_selflink_r589.sh             rc=0  4s   FAIL 0
+test_resource_watch_incremental_r534.sh    rc=0 29s   FAIL 0
+test_resource_freeze_exempt.sh             rc=0 48s   FAIL 0   (감시자 줄 수 ≤245 칸 포함)
+test_resource_watch.sh                     rc=0 156s  FAIL 0   ★70초 초과 — 손대기 전 baseline 사본도 156s rc=0 으로 같다(이 카드가 늘린 것이 아니다 · 하드 룰 22 위반은 별건)
+test_kit_exec_modes.sh                     rc=1  FAIL 4 — baseline 사본도 같은 4 FAIL(미착지 스크립트 모드 · 이 카드 소관 아님)
+test_da_hold_gate.sh                       rc=1  FAIL 7 — baseline 사본과 FAIL 목록 동일(staged 사본 ↔ 홈 차이)
+test_graphics_install.sh                   rc=1  FAIL 6 — baseline 19 FAIL · 둘 다 rc≠0(선재)
+test_graphics_690.sh                       rc=1  FAIL 5 — baseline 과 동일
+test_live_bin_drift_check.sh               rc=1  FAIL 6 — baseline 과 동일(라이브 설치 미갱신 = master 착지 뒤 일)

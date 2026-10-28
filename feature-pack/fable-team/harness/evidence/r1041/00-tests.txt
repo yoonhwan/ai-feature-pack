@@ -1,0 +1,91 @@
+# r1041 단위 시험 (2026-10-28 · 나노 byz-harness-nano-r1041-nano-test-self-reinvoke-forkbomb-g#0)
+
+## ft-test-reentry-lint · tests/test_test_reentry_lint.sh
+PASS bash -n lint
+PASS 키트 사본 cmp 0 lint
+PASS 실행 비트
+PASS ⓐ R1 가드 없는 자기 호출 rc3
+PASS ⓐ 첫 줄 = REENTRY <파일>:<줄>
+PASS ⓑ R2 한 줄 가드 rc0
+PASS ⓑ rc0 출력 = OK <파일>
+PASS ⓒ R2b 여러 줄 가드 rc0
+PASS ⓓ R3 자기 호출 없음 rc0
+PASS ⓔ R4 다른 시험 호출 rc0
+PASS ⓕ 주석 속 자기 호출 rc0
+PASS ⓕ-2 bash -c 의 $0 은 판정 밖 rc0
+PASS ⓖ 여러 파일일 때 첫 줄이 REENTRY
+PASS ⓖ 통과 파일도 OK 줄로 남는다
+PASS ⓗ 인자 없음 rc2
+PASS ⓗ 없는 파일 rc2
+PASS ⓗ 없는 파일 = «판정 불가» 1줄
+PASS ⓘ 변이(가드 삭제) rc3
+PASS ⓘ 변이 REENTRY 줄 번호
+PASS ⓙ 실사건 꼴(가드 0 자기 호출) rc3
+PASS ⓚ 추적본 _RLX 줄 있음
+PASS ⓚ 추적본 ulimit -u
+PASS ⓚ 추적본 timeout 70
+PASS ⓚ 추적본 lint 도구 이름
+PASS ⓚ 추적본 재진입 표지 요구
+PASS ⓚ 추적본 BODY 에 _RLX 반영
+PASS ⓚ 키트 _RLX 줄 있음
+PASS ⓚ 키트 ulimit -u
+PASS ⓚ 키트 timeout 70
+PASS ⓚ 키트 lint 도구 이름
+PASS ⓚ 키트 재진입 표지 요구
+PASS ⓚ 키트 BODY 에 _RLX 반영
+PASS ⓚ 정본 §15 제목
+PASS ⓚ 정본에 lint 도구
+PASS ⓚ 정본에 단계별 초
+PASS ⓚ 정본에 시험 상한
+PASS ⓚ _RLX 정의 1개
+PASS ⓛ 이 시험 자신 lint rc0
+PASS ⓛ proc 시험 lint rc0
+---- fail=0
+rc=0 1s
+
+## proc count · tests/test_resource_watch_proc_count.sh
+PASS 키트 사본 cmp 0 ft-resource-watch.sh
+PASS 키트 사본 cmp 0 ft-resource-proc-lib.sh
+PASS bash -n proc-lib
+PASS 감시자 줄 수 ≤245(새 함수는 proc-lib)
+PASS tick 이 proc_watch 를 부른다
+PASS proc_watch 가 문지기·동결 분기보다 앞
+PASS R5 수 임계 미만 → 쪽지 0
+PASS R5 수 임계 미만 → 정지 0
+PASS R5 proc-flood.log 없음
+PASS R7 같은 명령줄 210개 → SIGSTOP 210회
+PASS R7 정지가 아닌 신호 0(kill 0)
+PASS R7 정지 대상 = 그 명령줄 pid 만
+PASS R7 같은 명령줄 폭주 → 쪽지 1통
+PASS R7 수신자 = planner 명부 _master
+PASS R7 정리 kill 은 HIL 로 적는다
+PASS R7 proc-flood.log 1줄
+PASS R7 같은 서명 다음 tick → 쪽지 0
+PASS R7 같은 서명 다음 tick → 정지 0
+PASS R7 폭주 종료 뒤 재발 → 새 사건 쪽지 1통
+PASS R6 4005개 → 쪽지 1통
+PASS R6 쪽지에 프로세스 수
+PASS R6 같은 서명 다음 tick → 쪽지 0
+PASS R6 총량만 폭주면 정지 0(같은 명령줄 200 미만)
+PASS R6 FT_RES_PROC_MAX=40 이면 50개도 폭주(값이 하드코딩 아님)
+PASS R6 같은 서명 → 쪽지 0(같은 사건)
+PASS R6 임계를 올리면 조용
+PASS 억제: 첫 쪽지 1통
+PASS 억제: 서명 같으면 0
+PASS 억제: 같은 사건 재발신은 창 안에서 0
+PASS 억제: 로그에 억제 1줄
+PASS R8 표본 실패 → 판정 불가 1줄
+PASS R8 표본 실패 → 쪽지 0
+PASS R8 표본 실패 → 정지 0
+PASS 다른 사용자 행은 판정 밖
+PASS 다른 사용자 행은 정지 0
+PASS 회귀: cpu 경로 정지 0
+PASS 회귀: proc 축 ERROR 0(다른 축 로그는 이 시험 소관 아님)
+---- fail=0
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
+rc=0 11s
+
+## 자기 시험 lint(자가 위반 0) · 팩 전체 시험 423개 일회 점검
+OK harness/tests/test_test_reentry_lint.sh
+OK harness/tests/test_resource_watch_proc_count.sh
+전체 423 파일 REENTRY 수 = 0 (2s · 소급 수정은 카드 범위 밖)
