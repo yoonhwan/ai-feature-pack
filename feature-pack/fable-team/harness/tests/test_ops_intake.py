@@ -1103,19 +1103,32 @@ class TestMboxDirH2(unittest.TestCase):
         self.skill.write_text(f"# SKILL\n- **내가 실행하는 명령은 하나**: `{cmd}`\n", encoding="utf-8")
         self.guide.write_text(f"# GUIDELINES\n   `{cmd}`\n", encoding="utf-8")
 
-    def write_fake_launchctl(self) -> None:
-        """가짜 launchctl — 실 launchd 를 건드리지 않는다. kickstart = 게시기 1패스 흉내(로그 1줄)."""
+    def write_fake_launchctl(self, print_hold: int = 0, log_delay: int = 0) -> None:
+        """가짜 launchctl — 실 launchd 를 건드리지 않는다. kickstart = 게시기 1패스 흉내(로그 1줄).
+
+        print_hold = bootout 뒤 «아직 잡혀 있는» 것처럼 보이는 초(실 launchd 가 늦게 놓는 꼴) ·
+        log_delay = kickstart 뒤 로그가 자라기까지의 초(게시기가 느리게 도는 꼴).
+        """
         p = self.home / ".testbin/launchctl"
         p.write_text(
             '#!/bin/bash\n'
             'S="$HOME/.launchd-state"\n'
+            'BO="$HOME/.launchd-bootout-ts"\n'
             'LOG="$HOME/.hermes/logs/ops-intake-poster.log"\n'
+            f'PRINT_HOLD={int(print_hold)}\n'
+            f'LOG_DELAY={int(log_delay)}\n'
             'case "$1" in\n'
-            '  bootout) rm -f "$S"; exit 0 ;;\n'
-            '  print) [ -f "$S" ] || { echo "Could not find service"; exit 1; }\n'
-            '         echo "state = running"; echo "last exit code = 0"; exit 0 ;;\n'
-            '  bootstrap) : > "$S"; exit 0 ;;\n'
-            '  kickstart) printf "POST idle n=0\\n" >> "$LOG"; exit 0 ;;\n'
+            '  bootout) rm -f "$S"; date +%s > "$BO"; exit 0 ;;\n'
+            '  print)\n'
+            '    if [ ! -f "$S" ]; then\n'
+            '      if [ -f "$BO" ] && [ $(( $(date +%s) - $(cat "$BO") )) -lt "$PRINT_HOLD" ]; then\n'
+            '        echo "state = stopping"; exit 0\n'
+            '      fi\n'
+            '      echo "Could not find service"; exit 1\n'
+            '    fi\n'
+            '    echo "state = running"; echo "last exit code = 0"; exit 0 ;;\n'
+            '  bootstrap) : > "$S"; rm -f "$BO"; exit 0 ;;\n'
+            '  kickstart) ( sleep "$LOG_DELAY"; printf "POST idle n=0\\n" >> "$LOG" ) >/dev/null 2>&1 & exit 0 ;;\n'
             'esac\n'
             'exit 0\n', encoding="utf-8")
         p.chmod(0o755)
@@ -1167,6 +1180,17 @@ class TestMboxDirH2(unittest.TestCase):
         self.assertEqual(r.stdout.count("PLAN "), 3)
         for p, raw in before.items():
             self.assertEqual(p.read_bytes(), raw, f"dry-run 인데 {p} 가 바뀌었다")
+
+    def test_mboxdir_h_reload_three_calls(self) -> None:
+        """반송 r1 — bootout 대기(3초) + 로그 대기(5초): 합치면 8초 > 7초로 끊긴다 · 3호출이면 rc0."""
+        self.write_fake_launchctl(print_hold=3, log_delay=5)
+        start = __import__("time").monotonic()
+        r = self.run_h("--apply")
+        elapsed = __import__("time").monotonic() - start
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("BOOTOUT ok", r.stdout)
+        self.assertIn("POSTER-OK", r.stdout)
+        self.assertGreater(elapsed, 7.0, "지연 픽스처가 안 먹었다 — 합친 구현도 7초 안이면 변이를 못 잡는다")
 
     def test_mboxdir_h_calls_capped_7s(self) -> None:
         """R5 — 외부 호출 정적 확인(ConnectTimeout=7 · timeout 7 · 30/300/600초 없음)."""
@@ -1222,6 +1246,10 @@ MUTATIONS = {
                           "    <key>FT_MBOX_DIR</key><string>__HOME__/.fable-team/comm</string>\n", "", "mboxdir"),
     # r1044 — h 의 «정확 1건» 검사를 끄면 0건 픽스처에서 STOP 하지 않고 계속 간다 → ⓒ FAIL
     "h-exact-one-off": ("H2:", "    if n != 1:", "    if False:", "h2"),
+    # r1044 반송 r1 — 4단계를 «한 호출로 합치면» bootout 대기+로그 대기가 한 timeout 7 안에 들어가 끊긴다 → ⓒ FAIL
+    "h-reload-single-call": ("H2:", 'OUT="$(RT "/bin/bash -s" < "${T}/stage-a.sh")"',
+                             'OUT="$(RT "/bin/bash -s" < <(cat "${T}/stage-a.sh" "${T}/stage-b.sh" "${T}/stage-c.sh"))"',
+                             "h2"),
     # 잠금 범위를 원장에만(카드 쓰기는 밖) → ⓣ FAIL
     "lock-scope-off": ("ops_intake_write.py", '        with c.locked("ops-intake"):  # ★한도 확인부터 쪽지 예약까지 한 잠금★ (DA r3 반례 3)\n            return _write_locked(doc)',
                        "        return _write_locked(doc)", "t_"),
