@@ -107,6 +107,7 @@ PR·Issue 는 본문에서 번호 인덱스(`#836`)로만 부르고, 글 맨 아
 3. **이월 1 의 효과 = 알림줄 꼬리 하나.** `--carry 1` 이면 검증 송신과 링 재시도에 `FT_DOORBELL_TAIL=ultrathink`(r1036)가 켜지고 발주문 끝 줄이 «승계 이월 1: 앞 세션의 확대 사고를 이어 받는다. 문제가 풀리면 다음 승계에서 이월 0.» 이 된다. 생략·`0` 이면 r1034 와 같다(«승계 이월 0» 한 줄). **그 낱말 자체는 발주문 본문에 적지 않는다** — 적으면 후계 세션이 바로 켜진다.
 4. **그래도 안 풀리면 Opus 5.5**(`claude-opus-5-5`)로 승계한다. `--model op`(또는 풀네임) 를 명시하고, 문제가 이어지는 중이면 `--carry 1` 을 같이 적는다. 풀리면 다음 승계에서 `--model sn` + `--carry 0` 으로 돌아온다.
 5. **사용례 한 줄**: `ft-successor-open.sh <구 좌석> <워크트리> --name <후계> --agent claude --model sn|op [--carry 0|1] --body-file <본문>` — `sn` = `claude-sonnet-5-5` · `op` = `claude-opus-5-5` (그 밖의 값은 그대로 넘어간다). `--carry` 는 값 `0`·`1` 만 받고, 팀장(master) 이름이 아닌 후계에 적으면 usage rc2 로 열지 않는다.
+6. **arch 기본 = Opus 5.5(`claude-opus-5-5`) · 팀장만 Sonnet 5.5** (오빠 2026-10-28 13:5x · r1043). `--model` 을 안 적으면 `ft-successor-open.sh` 는 arch 이름(claude)에 Opus, 팀장(master) 이름에 Sonnet 을 준다. `ft-role-spawn.sh` 는 `--model` 생략 + role=master(claude) 일 때만 Sonnet(`claude-sonnet-5-5[1m]`), 그 밖(arch 포함)은 Opus(`claude-opus-5-5[1m]`). 명시한 `--model` 은 두 도구 모두 덮지 않는다.
 
 ## 14. 나노 산출 보고 뒤 (오빠 2026-10-28 «왜 멈춰있었어?» · r1035)
 > 근거: 10-28 ops 나노가 REWORK 완료 보고(#177374) 뒤 약 20분 유휴. 닫을 수 있는 행 3개가 카드에 남아 있었고, 지적 뒤 5분 만에 끝났다(#177377 · 커밋 65510610f3). 원인 = 보고 다음 턴의 행동이 어디에도 정의돼 있지 않았다.

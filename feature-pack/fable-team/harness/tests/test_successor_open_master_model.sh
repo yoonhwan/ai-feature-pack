@@ -47,6 +47,7 @@ printf '골 원문 1줄\n골 원문 2줄\n골 원문 3줄\n본문 나머지\n' >
 mkdir -p "$REPO/.fable-team" "$TMP/live-root"; printf '%s\n' "$TMP/live-root" > "$REPO/.fable-team/LIVE_ROOT"
 M_OLD='byz-t-harness-master-claude#1'; M_NEW='byz-t-harness-master-claude#2'
 A_OLD='byz-t-harness-arch-claude#1';   A_NEW='byz-t-harness-arch-claude#2'
+N_OLD='byz-t-harness-nano-claude#1';   N_NEW='byz-t-harness-nano-claude#2'   # r1043: arch 생략은 이제 Opus(rc0) — «팀장 아닌 이름 생략 = usage» 는 nano 로 본다
 # run <구 좌석> <후계> [환경…] — MODEL_ARG: 없음 = --model 생략 · 그 밖 = 그 값을 --model 로 넘긴다
 run() {
   local old="$1" new="$2"; shift 2
@@ -74,8 +75,8 @@ MODEL_ARG='claude-opus-5-5' run "$M_OLD" "$M_NEW"
   && ok "R2 팀장 + --model 명시 → 그 값 그대로 · 기본값 덮음 0" || bad "R2 rc=$RC log=$(tr '\n' ' ' < "$LOG") out=$(cat "$TMP/out")"
 MODEL_ARG=''
 
-# R3 팀장 아닌 이름 + --model 생략 → usage rc2 · 열기 0(지금과 같음)
-run "$A_OLD" "$A_NEW"
+# R3 팀장 아닌 이름 + --model 생략 → usage rc2 · 열기 0(지금과 같음) — 이름은 nano(r1043: arch 생략은 Opus rc0)
+run "$N_OLD" "$N_NEW"
 { [ "$RC" -eq 2 ] && grep -q 'usage:' "$TMP/out" && [ "$(count tmuxc)" = 0 ] && [ "$(count send)" = 0 ]; } \
   && ok "R3 팀장 아닌 이름 + 생략 → usage rc2 · open·송신 0" || bad "R3 rc=$RC log=$(tr '\n' ' ' < "$LOG") out=$(cat "$TMP/out")"
 

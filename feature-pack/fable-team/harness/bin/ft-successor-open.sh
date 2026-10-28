@@ -10,7 +10,7 @@
 #   env(시험용): FT_SEND_VERIFIED · FT_MBOX_SH · FT_REACH_CHECK · FT_SO_WAIT_MAX(기동 대기 횟수 60) · FT_SO_POLL(간격 초 1)
 set -uo pipefail
 [ -f "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" ] && . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" "$@"   # R201: 비설치 위치면 LIVE_BIN 으로 exec
-usage() { echo "usage: $0 <구 좌석> <워크트리> --name <후계> --agent claude|codex|cmd|opencode|pi --model M(sn=claude-sonnet-5-5 · op=claude-opus-5-5 · 팀장 이름이면 생략 시 claude-sonnet-5-5) [--carry 0|1] [--ctx C] [--effort E] --body-file F" >&2; exit 2; }
+usage() { echo "usage: $0 <구 좌석> <워크트리> --name <후계> --agent claude|codex|cmd|opencode|pi --model M(sn=claude-sonnet-5-5 · op=claude-opus-5-5 · 팀장 이름이면 생략 시 claude-sonnet-5-5 · arch 이름(agent claude)이면 생략 시 claude-opus-5-5) [--carry 0|1] [--ctx C] [--effort E] --body-file F" >&2; exit 2; }
 [ $# -ge 2 ] || usage
 OLD="$1"; WT="$2"; shift 2
 NAME=""; AGENT=""; MODEL=""; CTX=""; EFFORT=""; BODY=""; CARRY=""; CARRY_SET=0
@@ -24,6 +24,9 @@ case "$MODEL" in sn) MODEL="claude-sonnet-5-5";; op) MODEL="claude-opus-5-5";; e
 # ★r1034 팀장 모델 사다리★ (정본 `main-team-governance.md` §13 · 오빠 2026-10-28): 이름에 «-master-» 가 있고 `--model` 을 생략하면 기본 브레인 = Sonnet 5.5.
 #   명시한 값(--model claude-opus-5-5 등)은 덮지 않는다 = 팀장이 막혀 올리는 승계. 팀장 아닌 이름에서 생략은 지금처럼 usage(rc2).
 [ -z "$MODEL" ] && [ "${NAME#*-master-}" != "$NAME" ] && MODEL="claude-sonnet-5-5"
+# ★r1043 arch 기본 모델★ (오빠 2026-10-28 13:5x · 카드 r1043 · 정본 `main-team-governance.md` §13): 이름에 «-arch-» 가 있고 `--agent claude` 이며 `--model` 을 생략하면 기본 브레인 = Opus 5.5.
+#   명시한 값은 덮지 않고, arch 라도 agent 가 codex·pi 등이면 지금처럼 usage(rc2) — 기본값은 «claude 좌석»에만 준다.
+[ -z "$MODEL" ] && [ "$AGENT" = claude ] && [ "${NAME#*-arch-}" != "$NAME" ] && MODEL="claude-opus-5-5"
 [ -n "$NAME" ] && [ -n "$AGENT" ] && [ -n "$MODEL" ] && [ -n "$BODY" ] || usage
 case "$AGENT" in claude|codex|cmd|opencode|pi) ;; *) usage;; esac
 # ★r1037 이월 축★ (오빠 2026-10-28 «이제 완료시 다음 증류시 이월0 일때는 ultrathink가 이월 안되고»): `--carry 0|1` 은 모델과 «따로» 받는다.
