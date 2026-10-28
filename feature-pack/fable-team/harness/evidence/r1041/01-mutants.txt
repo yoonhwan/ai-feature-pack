@@ -1,0 +1,12 @@
+# r1041 변이 5종 — 고친 자리를 하나씩 없애면 그 칸이 FAIL 하는가 (사본 = /tmp 사본 · 실 파일 무손상)
+# 결과: 5/5 KILLED
+M1 ft-resource-watch.sh 의 `cpu_watch; proc_watch` → `cpu_watch` (경보 호출 제거)
+   test_resource_watch_proc_count.sh FAIL: R7 SIGSTOP 210회 → 0 · R7 쪽지 1통 → 0 · R7 HIL 문구 없음 (fail=3 이상)
+M2 ft-resource-proc-lib.sh 의 SIGSTOP 루프 삭제 (sent=0 으로 대체)
+   FAIL: R7 SIGSTOP 210회 → 0 · R7 -STOP 아닌 호출 있음 · R7 다른 pid 를 정지 (fail=3)
+M3 ft-test-reentry-lint.sh 의 `if (self==1 && g==0)` → `if (0)` (자기 호출 판정 무력화)
+   FAIL: ⓐ R1 rc3→0 · ⓖ 첫 줄 REENTRY→OK · ⓘ 변이 rc3→0 · ⓙ 실사건 꼴 rc3→0 (6 FAIL)
+M4 ft-nano-spawn.sh BODY 에서 `${_RLX}` 제거
+   FAIL: ⓚ 추적본/키트 «BODY 에 ${_RLX} 없음(발주문에 안 붙는다)» (2 FAIL)
+M5 main-team-governance.md §15 삭제
+   FAIL: ⓚ 정본 §15 제목 · 정본에 lint 도구 · 단계별 초 · 시험 상한 (4 FAIL)
