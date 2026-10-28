@@ -7,7 +7,8 @@
 #   판정 칸: DEAD-SAFE(dead ∧ held 0 ∧ idle ≥1440 ∧ dirty 0 ∧ unique 0) · DEAD-KEEP(사유) · LIVE · UNKNOWN(판정 불가)
 #   출력: 표 .fable-team/state/scratchpad-census.tsv (tmp+mv 통째 교체 · 일반 파일) · stdout 요약 1줄. 회차 상한 FT_SP_BUDGET_SEC(기본 60) — 외부 호출 앞마다 남은 예산을 보고 상한을 줄이고, 넘으면 커서로 넘긴다(«부분 k/N»).
 #   ★삭제 스위치(기본 끔)★ .fable-team/state/scratchpad-sweep.enabled 가 있을 때만 DEAD-SAFE 를 지운다: 지우기 직전 같은 사본 재판정 → 로그(경로·HEAD·remote·MB) 먼저 → clone = 폴더 삭제 · linked = 원 저장소에서 그 경로 하나만 worktree remove(prune 0).
-#   env(시험용): FT_RES_ROOT · FT_SP_ROOT · FT_SP_STATE · FT_SP_BUDGET_SEC · FT_SP_PS_OUT(파일|읽기 실패면 판정 불가) · FT_SP_LSOF_OUT · FT_SP_GIT
+#   ★r1081 — LIVE 행 쪽지 갈래(삭제 0)★ 표를 쓴 뒤 LIVE 행 중 «72h 안 바뀜(≥4320분) ∧ 미커밋 0 ∧ 유일커밋 0 ∧ cwd사용중 0» 을 세션별로 묶어 그 세션 좌석에 쪽지 1통: «[scratchpad 사본] N개 X.X GiB · 72h 안 바뀜 · 깨끗 — 필요 없으면 지우고, 다시 쓸 거면 ft-scratch-repo.sh <sha> --repo <저장소> 로 옮겨라 · 앞 3: 경로…». 좌석 이름 = 같은 ps 줄의 `--name <좌석>`(없으면 그 세션 건너뛰고 요약 «이름 없음 N»). 중복 방지 .fable-team/state/scratchpad-mailed.tsv(경로·HEAD·보낸 날) — 같은 경로·같은 HEAD 는 다시 안 보냄. 발신 실패 = 기록 0 + 로그 1줄(다음 회차 재시도). FT_SP_MAIL_DRY=1 이면 발신 0 으로 목록만.
+#   env(시험용): FT_RES_ROOT · FT_SP_ROOT · FT_SP_STATE · FT_SP_BUDGET_SEC · FT_SP_PS_OUT(파일|읽기 실패면 판정 불가) · FT_SP_LSOF_OUT · FT_SP_GIT · FT_SP_MAILED · FT_SP_MBOX · FT_SP_MAIL_DRY
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="${FT_RES_ROOT:-}"
@@ -17,6 +18,7 @@ STATE="${FT_SP_STATE:-$ROOT/.fable-team/state}"
 mkdir -p "$STATE" 2>/dev/null || { echo "ERROR 상태 폴더 생성 실패: $STATE" >&2; exit 4; }
 OUT="$STATE/scratchpad-census.tsv"; CUR="$STATE/scratchpad-census.cursor"
 SLOG="$STATE/scratchpad-sweep.log"; SWITCH="$STATE/scratchpad-sweep.enabled"
+MAILED="${FT_SP_MAILED:-$STATE/scratchpad-mailed.tsv}"; MAILLOG="$STATE/scratchpad-mail.log"
 SPROOT="${FT_SP_ROOT:-/private/tmp/claude-$UID}"
 BUDGET="${FT_SP_BUDGET_SEC:-60}"
 GITBIN="${FT_SP_GIT:-git}"
@@ -33,13 +35,13 @@ snapshot_lsof() { LS_SNAP=""; if [ -n "${FT_SP_LSOF_OUT:-}" ]; then [ -r "$FT_SP
   else local c; c="$(cap)" || return 1; LS_SNAP="$(timeout "$c" lsof -a -d cwd -Fn 2>/dev/null)" || return 1; fi
   [ -n "$LS_SNAP" ]; }
 git_c() { local d="$1"; shift; local c; c="$(cap)" || return 1; timeout "$c" "$GITBIN" -C "$d" "$@" 2>/dev/null; }
-idle_of() { # "<b" 또는 ">=1440" — find 실패·시간 초과면 rc1
-  local d="$1" c o; c="$(cap)" || return 1
-  o="$(timeout "$c" find "$d" -name .git -prune -o -mmin -1440 -print -quit 2>/dev/null)" || return 1
-  if [ -z "$o" ]; then echo ">=1440"; return 0; fi
-  local b; for b in 15 30 60 180 360 720; do c="$(cap)" || return 1
+idle_of() { # $2 = 문턱(분 · 기본 1440) · 결과 "<b" 또는 ">=<문턱>" — find 실패·시간 초과면 rc1
+  local d="$1" th="${2:-1440}" c o; c="$(cap)" || return 1
+  o="$(timeout "$c" find "$d" -name .git -prune -o -mmin -"$th" -print -quit 2>/dev/null)" || return 1
+  if [ -z "$o" ]; then echo ">=$th"; return 0; fi
+  local b; for b in 15 30 60 180 360 720 1440; do [ "$b" -ge "$th" ] && break; c="$(cap)" || return 1
     [ -n "$(timeout "$c" find "$d" -name .git -prune -o -mmin -"$b" -print -quit 2>/dev/null)" ] && { echo "<$b"; return 0; }; done
-  echo "<1440"; }
+  echo "<$th"; }
 size_of() { local d="$1" c sk; c="$(cap)" || { echo "?"; return 0; }
   sk="$(timeout "$c" du -sk "$d" 2>/dev/null | awk 'NR==1{print $1}')"
   case "$sk" in ''|*[!0-9]*) echo "?";; *) awk -v k="$sk" 'BEGIN{printf "%.1f", k/1024}';; esac; }
@@ -83,6 +85,66 @@ delete_one() { # 0 = 지움 · 1 = 거절(로그 1줄). 로그를 먼저 쓰고 
   [ -e "$p" ] && return 1
   return 0; }
 
+# ── r1081: LIVE 행 중 «72h 묵음 ∧ 깨끗» 사본 → 그 세션 좌석에 쪽지(좌석당 1통 · 삭제 0) ──
+MBOX="${FT_SP_MBOX:-$ROOT/.fable-team/comm/mbox.sh}"
+SEAT=""
+seat_of() { local line; line="$(grep -F -- "--session-id $1" <<<"$PS_SNAP" | head -1)"
+  [ -n "$line" ] || return 1
+  SEAT="$(awk '{for(i=1;i<NF;i++) if($i=="--name"){print $(i+1); exit}}' <<<"$line")"
+  [ -n "$SEAT" ]; }
+mailed_already() { [ -s "$MAILED" ] || return 1
+  awk -F'\t' -v p="$1" -v h="$2" '$1==p && $2==h{f=1} END{exit f?0:1}' "$MAILED"; }
+send_group() { # <좌석> <N> <GiB> <sha> <저장소> <경로들> — 0 = 보냄 · 3 = 발신 0 모드(목록만) · 1 = 실패
+  local body
+  body="[scratchpad 사본] $2개 $3GiB · 72h 안 바뀜 · 깨끗 — 필요 없으면 지우고, 다시 쓸 거면 \`ft-scratch-repo.sh $4 --repo $5\` 로 옮겨라 · 앞 3: $6"
+  [ -z "${FT_SP_MAIL_DRY:-}" ] || { printf '[scratchpad 사본 쪽지·발신 0] %s ← %s\n' "$1" "$body"; return 3; }
+  bash "$MBOX" send "$1" ft-scratchpad-census "$body" >/dev/null 2>>"$MAILLOG" && return 0
+  printf '%s\t%s\t발신 실패 — 기록 0(다음 회차 재시도)\n' "$(iso)" "$1" >> "$MAILLOG"; return 1; }
+G_CUR=""; G_N=0; G_MB=0; G_SHA=""; G_REPO=""; G_PATHS=""; G_REC=""
+flush_group() { # 모인 묶음 1통 발신 + 경로·HEAD 기록(발신 성공일 때만 · 발신 0 모드는 기록도 0)
+  [ -n "$G_CUR" ] && [ "$G_N" -gt 0 ] || return 0
+  send_group "$G_CUR" "$G_N" "$(awk -v m="$G_MB" 'BEGIN{printf "%.2f", m/1024}')" "$G_SHA" "$G_REPO" "$G_PATHS"
+  case $? in
+    0) SENT=$((SENT+1))
+       while IFS=$'\t' read -r rp rh; do [ -n "$rp" ] && printf '%s\t%s\t%s\n' "$rp" "$rh" "$(iso)" >> "$MAILED"; done <<<"$G_REC";;
+    3) DRY=$((DRY+1));;
+  esac
+  G_CUR=""; G_N=0; G_MB=0; G_SHA=""; G_REPO=""; G_PATHS=""; G_REC=""; return 0; }
+mail_live() { # 표의 LIVE 행을 좌석별로 묶어 1통씩 — 예산 0 이면 아무 외부 호출도 하지 않는다
+  local list="$STATE/.sp-mail.$$" v kind mb idle uuid p reason head remote d u flag seat
+  SENT=0; DUP=0; NONAME=0; DRY=0
+  : > "$list"
+  while IFS=$'\t' read -r v kind mb idle uuid p reason head remote; do
+    [ "$v" = LIVE ] || continue
+    [ "$(left)" -gt 0 ] || break
+    held_of "$p" && continue
+    [ "$(idle_of "$p" 4320)" = ">=4320" ] || continue
+    d="$(git_c "$p" status --porcelain)" || continue
+    [ -z "$d" ] || continue
+    u="$(git_c "$p" for-each-ref --contains HEAD --format='%(refname)' refs/heads refs/remotes)" || continue
+    [ -n "$u" ] || continue
+    head="$(git_c "$p" rev-parse --short=8 HEAD)" || continue
+    flag=0; mailed_already "$p" "$head" && flag=1
+    remote="$(git_c "$p" config --get remote.origin.url)"; [ -n "$remote" ] || remote="-"
+    seat=""; seat_of "$uuid" && seat="$SEAT"
+    [ -n "$seat" ] || { NONAME=$((NONAME+1)); continue; }   # 이름 없음 = 목록에 안 넣는다(IFS 탭은 빈 칸을 삼킨다)
+    printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$seat" "$flag" "$p" "$head" "$remote" "$(size_of "$p")" >> "$list"
+  done < "$OUT"
+  while IFS=$'\t' read -r seat flag p head remote mb; do
+    [ -n "$seat" ] || continue
+    [ "$seat" = "$G_CUR" ] || { flush_group; G_CUR="$seat"; }
+    [ "$flag" = 1 ] && { DUP=$((DUP+1)); continue; }
+    G_N=$((G_N+1)); G_MB="$(awk -v a="$G_MB" -v b="$mb" 'BEGIN{print a+b}')"
+    [ -n "$G_SHA" ] || G_SHA="$head"
+    { [ "$G_REPO" = "-" ] || [ -z "$G_REPO" ]; } && { [ "$remote" = "-" ] || G_REPO="$remote"; }
+    G_REC="${G_REC}${p}"$'\t'"${head}"$'\n'
+    [ "$G_N" -gt 3 ] || G_PATHS="${G_PATHS:+$G_PATHS ; }$p"
+  done < <(sort -t$'\t' -k1,1 "$list")
+  flush_group
+  rm -f "$list"
+  printf '[scratchpad 사본 쪽지] %s통 · 이미 보냄 %s · 이름 없음 %s\n' "$SENT" "$DUP" "$NONAME"
+  return 0; }
+
 # ── 사본 목록(중첩 제외 = scratchpad 바로 아래만) ──
 fresh=""; for d in "$SPROOT"/*/*/scratchpad/*/; do [ -d "$d" ] || continue; [ -e "${d%/}/.git" ] || continue; fresh="$fresh${d%/}"$'\n'; done
 TOTAL="$(printf '%s' "$fresh" | grep -c .)"
@@ -115,4 +177,5 @@ gib="$(awk -v m="$mbsum" 'BEGIN{printf "%.2f", m/1024}')"
 part=""; [ -z "$rest" ] || part=" · 부분 $judged/$TOTAL"
 printf '[scratchpad 사본] DEAD-SAFE %s개 %sGiB · DEAD-KEEP %s · LIVE %s · UNKNOWN %s · 삭제 %s%s\n' \
   "$safe" "$gib" "$keeps" "$lives" "$unks" "$dels" "$part"
+mail_live
 exit 0
