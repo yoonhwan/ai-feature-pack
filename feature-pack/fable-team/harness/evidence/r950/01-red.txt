@@ -1,0 +1,6 @@
+FAIL ⓐ park 30 → 명부 PARKED(만료 = 지금+30분) · 만료 전 sweep 닫힘 0 · 만료 뒤 sweep = close 경로 + 원장 «만료 자동 닫음» 1줄 + 장부 줄 삭제 — AttributeError: module 'ft_sat_nano' has no attribute 'R_LS'
+FAIL ⓑ 연장 1회 OK(총 60분) · 2회째 rc2 · 31분 이상 rc2 · 0분 rc2 · OPEN 에 --extend rc2 · 없는 slug rc2 원격 0 — AttributeError: module 'ft_sat_nano' has no attribute 'R_LS'
+FAIL ⓒ PARKED 도 상한 3 에 셈(남긴 둘 + 열린 하나 → 4번째 open rc8 · 원격 0) — AttributeError: module 'ft_sat_nano' has no attribute 'R_LS'
+FAIL ⓓ reap = 계획 파일 reap-<시각>.sh.hil 만 · kill 0 · 명부 밖 세션 + 오래된 OPEN · 후보 0 = 파일 0 · 조회 실패 rc5 — AttributeError: module 'ft_sat_gate' has no attribute 'iso_of'
+FAIL ⓔ 닫기 실패 → 명부 «닫기 실패» + 원장 1줄(close) + 장부 유지 · 다음 sweep 재시도로 닫힘 — AttributeError: module 'ft_sat_nano' has no attribute 'R_LS'
+PASS ⓕ test_sat_nano_r902.sh ALL PASS (/bin/bash 3.2.57(1)-release)
