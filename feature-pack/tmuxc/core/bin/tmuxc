@@ -18,9 +18,13 @@ Usage:
   tmuxc list
   tmuxc attach <name>
   tmuxc send <name> <message>
+  tmuxc send <name> <message>        # 원격: tmuxc send mini/<name> MSG 또는 --host mini (도달 판정 = 원격 ft-reach-check)
   tmuxc submit <name> [--retype]  # 입력줄 판별 후 제출 — real / ghost-delivered(건드리지 말 것) / ghost-lost(유실, --retype 으로 되살림)
   tmuxc boot-enter <name>         # 이어가기: open·fork 가 넣은 부팅 문장이 입력줄에 «전문 그대로» 남았을 때만 Enter 1회 · 제출 판정 = 그 좌석 기록(--session-id) 한 파일
-  tmuxc ask <name> [lines]
+  tmuxc ask <name> [lines]        # 원격: --host mini (또는 mini/<name>)
+  tmuxc list [--host H]           # 원격 목록은 HOST 열이 앞에 붙는다
+  tmuxc open <path> --host H      # 경로는 «원격 경로» — 원격에 세션을 만든다
+  tmuxc kill <name>               # 원격: --host mini / mini/<name> — HIL 그대로(삭제는 사람 확인)
   tmuxc model <name>              # 세션의 라이브 --model/--effort 조회 (증류 모델 승계용)
   tmuxc probe <name>              # 세션의 live agent/model/effort/session-id (KEY=VALUE)
   tmuxc msg <name> <message>
@@ -45,6 +49,128 @@ EOF
 die() {
   printf 'tmuxc: %s\n' "$*" >&2
   exit 1
+}
+
+# ---------- 호스트 라우팅 (r1047 · 설계 multihost DESIGN-tail-remote-and-light-git-20261028.md §1.4 보강 4·5) ----------
+# 호스트를 «아는 유일한 자리» 는 tmm 의 host-lib.sh 다 — 여기서는 그 파일을 찾아 «별도 bash» 안에서 부른다.
+# ★왜 별도 bash 인가★ — host-lib 는 첫 줄에서 `set +e` 를 한다. 이 파일에서 직접 source 하면 tmuxc 의
+#  set -euo pipefail 이 풀려 기존 경로 전부의 실패 처리가 바뀐다(수술적 변경 위반).
+HOSTLIB_PATH=""
+hostlib_path() {
+  [[ -n "$HOSTLIB_PATH" ]] && { printf '%s' "$HOSTLIB_PATH"; return 0; }
+  local self d c
+  self="$(readlink -f "$0" 2>/dev/null || printf '%s' "$0")"
+  d="$(dirname "$self")"
+  for c in "${TMUXC_HOSTLIB:-}" "$HOME/.tmm/current/core/libexec/host-lib.sh" \
+           "$d/../../../tmm/core/libexec/host-lib.sh" \
+           "$d/../../tmm/core/libexec/host-lib.sh"; do
+    if [[ -n "$c" && -f "$c" ]]; then HOSTLIB_PATH="$c"; printf '%s' "$c"; return 0; fi
+  done
+  return 1
+}
+
+# hl <host-lib 함수> [인자…] — host-lib 함수를 별도 bash 에서 호출(rc 그대로). 없으면 97 = 판정 불가.
+hl() {
+  local lib
+  lib="$(hostlib_path)" || return 97
+  bash -c 'source "$1" >/dev/null 2>&1; shift; "$@"' _ "$lib" "$@"
+}
+
+local_host() {
+  [[ -n "${_TMUXC_LOCAL_HOST:-}" ]] || _TMUXC_LOCAL_HOST="$(hl h_local_name 2>/dev/null)"
+  printf '%s' "${_TMUXC_LOCAL_HOST:-m3}"
+}
+
+# 주소 분리 — 첫 '/' 만 구분자(계약 보강 5 ④: 둘째 '/' 는 좌석 이름 문자열로 남겨 lint 가 REJECT 하게 둔다).
+addr_split() {
+  case "$1" in
+    */*) printf '%s %s\n' "${1%%/*}" "${1#*/}" ;;
+    *)   printf '%s %s\n' "$(local_host)" "$1" ;;
+  esac
+}
+
+# ft 도구 경로 — TMUXC_<종류> 환경변수 → 팩 사본 → 홈 사본.
+ft_tool_path() {  # <env 값> <이름>
+  local envv="$1" n="$2" self d c
+  self="$(readlink -f "$0" 2>/dev/null || printf '%s' "$0")"
+  d="$(dirname "$self")"
+  for c in "$envv" "$d/../../../fable-team/harness/kit/fable-team/bin/$n" \
+           "$HOME/.fable-team/bin/$n" "$HOME/.claude/skills/fable-team/bin/$n"; do
+    [[ -n "$c" && -f "$c" ]] && { printf '%s' "$c"; return 0; }
+  done
+  return 1
+}
+
+# host_resolve <주소> [--host 값] — 0 = 원격 라우팅(R_HOST/R_SESS 채움) · 1 = 로컬(지금 동작 그대로).
+# 순서 고정(계약 보강 5): ①분리 ②--host 와 접두 충돌이면 exit 2 ③좌석 부분만 ft-name-lint ④원격 판정.
+host_resolve() {
+  local addr="$1" flag="${2:-}" ah as h s lh kind lint out
+  # ★빠른 길(R6)★ — --host 도 없고 접두(/) 도 없으면 로컬이다. host-lib 호출 0(기존 경로 속도 그대로).
+  if [[ -z "$flag" && "$addr" != */* ]]; then R_HOST=""; R_SESS="$addr"; return 1; fi
+  read -r ah as <<<"$(addr_split "$addr")"
+  lh="$(local_host)"
+  if [[ -n "$flag" ]]; then
+    if [[ "$addr" == */* && "$ah" != "$flag" ]]; then
+      printf 'tmuxc: 주소 접두(%s)와 --host(%s)가 다르다 — 사용법 오류\n' "$ah" "$flag" >&2
+      exit 2
+    fi
+    h="$flag"
+    if [[ "$addr" == */* ]]; then s="${addr#*/}"; else s="$addr"; fi
+  else
+    h="$ah"; s="$as"
+  fi
+  R_HOST="$h"; R_SESS="$s"
+  kind="$(hl h_field "$h" kind 2>/dev/null)"
+  if [[ "$h" == "$lh" && "$kind" != "tail-remote" ]]; then return 1; fi   # 로컬 = 기존 경로(R6)
+  if [[ "$s" == */* ]]; then
+    printf 'tmuxc: 좌석 이름에 "/" 가 둘 이상 있다 — 이름 규칙 위반(보내지 않는다)\n' >&2
+    exit 1
+  fi
+  lint="$(ft_tool_path "${TMUXC_NAME_LINT:-}" ft-name-lint.sh)" || {
+    printf 'tmuxc: ft-name-lint.sh 없음 — 이름 검증 불가(보내지 않는다)\n' >&2; exit 1; }
+  out="$("$lint" "$s" 2>&1)" || { printf '%s\n' "$out" >&2; printf 'tmuxc: 이름 규칙 위반 — 보내지 않는다\n' >&2; exit 1; }
+  return 0
+}
+
+# 송신 락 = <host>/<session> 쌍 하나 (설계 보강 4). /tmp 고정 금지 — HOME 안 ControlPath 폴더를 쓴다.
+send_lock_path() { printf '%s/send-lock-%s-%s' "$(hl h_control_dir 2>/dev/null || printf '%s' "$HOME/.ssh/ft-cm")" "$1" "$2"; }
+
+# 원격 send-keys 묶음(게이트 → 본문 → Enter)을 락 안에서 «한 ssh» 로. rc 그대로.
+remote_send_locked() {  # <host> <sess> <text>
+  local host="$1" sess="$2" text="$3" lock d
+  lock="$(send_lock_path "$host" "$sess")"
+  d="$(dirname "$lock")"
+  mkdir -p "$d" 2>/dev/null || true; chmod 700 "$d" 2>/dev/null || true
+  hl _h_with_lock "$lock" h_run "$host" --write bash -c '
+sess=$1; text=$2
+cmd=$(tmux display -p -t "=$sess:" "#{pane_current_command}" 2>/dev/null) || cmd=""
+case "$cmd" in
+  zsh|bash|sh|fish|-zsh|-bash|"") echo "tmuxc: $sess 에 에이전트가 실행 중이 아님 — 셸 오타이핑 방지로 차단" >&2; exit 3 ;;
+esac
+tmux send-keys -t "=$sess:" -l "$text" || exit 3
+sleep 0.3
+tmux send-keys -t "=$sess:" Enter
+' _ "$sess" "$text"
+}
+
+# 원격 도달 판정 = 그 호스트에서 돈 ft-reach-check.sh (계약 보강 5 · capture-pane 판정 금지).
+# ★baseline 을 «보내기 전»에 잡는다★ — 기본 baseline 은 «호출 시점» 이라 jsonl 이 빨리 쓰이면 방금 쓴 내 기록이
+#  baseline 에 섮여 NOT_REACHED 로 오판된다(ft-reach-check 헤더의 FT_REACH_COUNT_ONLY 계약).
+remote_reach_baseline() {  # <host> <sess> <marker> → 제출 건수
+  local host="$1" sess="$2" marker="$3" reach w rc
+  reach="$(ft_tool_path "${TMUXC_REACH_CHECK:-}" ft-reach-check.sh)" || return 97
+  w="$(mktemp "${TMPDIR:-/tmp}/tmuxc-reach-count.XXXXXX")" || return 97
+  { printf 'export FT_REACH_COUNT_ONLY=1\n'; cat "$reach"; } > "$w"
+  hl h_pipe "$host" "$w" "$sess" "$marker"; rc=$?
+  rm -f "$w"
+  return "$rc"
+}
+remote_reach_check() {  # <host> <sess> <marker> [baseline]
+  local host="$1" sess="$2" marker="$3" base="${4:-}" reach to
+  reach="$(ft_tool_path "${TMUXC_REACH_CHECK:-}" ft-reach-check.sh)" || {
+    printf 'tmuxc: ft-reach-check.sh 없음 — 도달 판정 불가\n' >&2; return 5; }
+  to="${TMUXC_REACH_TIMEOUT:-6}"
+  hl h_pipe "$host" "$reach" "$sess" "$marker" "$to" "$base"
 }
 
 prepare_color_environment() {
@@ -854,6 +980,46 @@ cmd_boot_enter() {
   return 1
 }
 
+# 원격 세션 열기 (r1047 · 설계 「열기」 행) — new-session + 에이전트 명령 주입을 «한 ssh(쓰기)» 로.
+# ★로컬 파일 의존 0★: serena ensure·worktree·snapshot 은 원격에서 하지 않는다(카드3·후속).
+open_remote() {  # <host> <path> <root> <name> <agent> <role> <model> <effort> <ctx> <fast> <dry_run> <prompt>
+  local host="$1" path="$2" root="$3" name="$4" agent="$5" role="$6" model="$7" effort="$8" ctx="$9" fast="${10}" dry_run="${11}" prompt="${12:-}"
+  local run_cmd
+  run_cmd="$(agent_cmd "$agent" "$name" "$role" "$model" "$effort" "$ctx" "$fast" 0)"
+  local rc=0
+  hl h_run "$host" --idempotent test -d "$path" || rc=$?
+  case "$rc" in
+    0) ;;
+    1) die "원격 경로 없음: $host:$path" ;;
+    *) die "원격 경로 확인 불가: $host:$path rc=$rc" ;;
+  esac
+  if [[ "$dry_run" -eq 1 ]]; then
+    printf 'host=%s\nsession=%s\nroot=%s\nagent=%s\nrole=%s\ncommand=%s\n' \
+      "$host" "$name" "$root" "$agent" "$role" "$run_cmd"
+    return 0
+  fi
+  local envp=()
+  [[ "$agent" == "pi" ]] && envp=("TMUXC_PI_MODEL=${model:-}" "TMUXC_PI_THINKING=${effort:-medium}")
+  hl _h_with_lock "$(send_lock_path "$host" "$name")" h_run "$host" --write bash -c '
+name=$1; root=$2; run=$3; prompt=$4; shift 4
+if tmux has-session -t "$name" 2>/dev/null; then echo "tmuxc: session already exists: $name" >&2; exit 1; fi
+tmux new-session -d -s "$name" -c "$root" -e "FT_SEAT=$name" || exit 1
+tmux set -wu -t "=$name:" window-size 2>/dev/null
+for kv in "$@"; do tmux set-environment -t "$name" "${kv%%=*}" "${kv#*=}" 2>/dev/null; done
+tmux send-keys -t "$name" -l "$run" || exit 1
+sleep 0.3
+tmux send-keys -t "$name" Enter || exit 1
+if [ -n "$prompt" ]; then sleep 0.8; tmux send-keys -t "$name" -l "$prompt"; sleep 0.3; tmux send-keys -t "$name" Enter; fi
+' _ "$name" "$root" "$run_cmd" "$prompt" ${envp[@]+"${envp[@]}"} || rc=$?
+  if [[ "$rc" -ne 0 ]]; then
+    printf 'tmuxc: %s open 실패 rc=%s\n' "$host" "$rc" >&2
+    return "$rc"
+  fi
+  printf 'tmuxc open created (host=%s)\nsession=%s\nroot=%s\nagent=%s\nrole=%s\ncommand=%s\nattach=ssh -t %s tmux attach -t %s\n' \
+    "$host" "$name" "$root" "$agent" "$role" "$run_cmd" "$(hl h_field "$host" ssh_alias 2>/dev/null)" "$name"
+  return 0
+}
+
 cmd_open() {
   local path=""
   local name=""
@@ -880,6 +1046,8 @@ cmd_open() {
       --like) like="${2:-}"; shift 2 ;;
       --prompt) prompt="${2:-}"; shift 2 ;;
       --serena) serena=1; shift ;;
+      --host) TMUXC_HOST="${2:-}"; shift 2 ;;
+      --host=*) TMUXC_HOST="${1#--host=}"; shift ;;
       --dry-run) dry_run=1; shift ;;
       --help|-h) usage; exit 0 ;;
       --*) die "unknown option for open: $1" ;;
@@ -894,10 +1062,13 @@ cmd_open() {
   done
 
   [[ -n "$path" ]] || die "open requires <path>"
-  [[ -d "$path" ]] || die "path does not exist: $path"
+  local remote_open=0
+  if [[ -n "${TMUXC_HOST:-}" ]] && [[ "$(local_host)" != "$TMUXC_HOST" ]]; then remote_open=1; fi
+  # 원격 좌석의 경로는 «원격 경로» 다 — 이 맥에서 -d 로 볼 수 없다(존재 확인은 원격에서).
+  [[ "$remote_open" -eq 1 ]] || [[ -d "$path" ]] || die "path does not exist: $path"
 
   local root
-  root="$(repo_root_for "$path")"
+  if [[ "$remote_open" -eq 1 ]]; then root="$path"; else root="$(repo_root_for "$path")"; fi
   if [[ -z "$name" ]]; then
     name="$(basename "$root")"
   fi
@@ -944,6 +1115,13 @@ cmd_open() {
   case "$serena" in 1|on|true) serena=1 ;; *) serena=0 ;; esac
   if [[ "$serena" == "1" && "$agent" != "pi" ]]; then
     die "--serena 는 --agent pi 에서만 사용 (agent=$agent) — claude 는 tmuxc 가 공유 serena 를 따로 ensure 한다"
+  fi
+  # 원격 open(카드2 · 계약 보강 4) — serena 파일 쓰기·--like 라이브 probe 는 로컬 파일을 쓰므로 원격에서는 미지원(카드3).
+  if [[ "$remote_open" -eq 1 ]]; then
+    [[ "$serena" != "1" ]] || die "--serena 는 원격 미지원 (로컬 .pi/mcp.json 을 쓴다)"
+    [[ -z "$like" ]] || die "--like 는 원격 미지원 (라이브 세션 argv 를 로컬에서 읽는다)"
+    open_remote "$TMUXC_HOST" "$path" "$root" "$name" "$agent" "$role" "$model" "$effort" "$ctx" "$fast" "$dry_run" "${prompt:-}"
+    return $?
   fi
   local pi_sid=""
   if [[ "$agent" == "pi" ]]; then
@@ -1243,6 +1421,18 @@ cmd_fork() {
 }
 
 cmd_list() {
+  if [[ -n "${TMUXC_HOST:-}" ]] && [[ "$(local_host)" != "$TMUXC_HOST" ]]; then
+    # 원격 목록 — ssh 1회로 받아 HOST 열을 앞에 붙인다(설계 「목록」 행)
+    local out rc
+    out="$(hl h_run "$TMUXC_HOST" --idempotent tmux list-sessions -F $'#S\t#{session_path}\t#{session_attached}')" || rc=$?
+    if [[ "${rc:-0}" -ne 0 ]]; then
+      printf 'tmuxc: %s 목록 판정 불가 rc=%s\n' "$TMUXC_HOST" "$rc" >&2
+      return "$rc"
+    fi
+    [[ -n "$out" ]] || return 0
+    printf '%s\n' "$out" | awk -v h="$TMUXC_HOST" -F'\t' '{ printf "%s\t%s\t%s\t%s\n", h, $1, $2, $3 }'
+    return 0
+  fi
   tmux list-sessions -F '#S	#{session_path}	#{session_attached}' 2>/dev/null || return 0
 }
 
@@ -1250,6 +1440,13 @@ cmd_ask() {
   local name="${1:-}"
   local lines="${2:-40}"
   [[ -n "$name" ]] || die "ask requires <name>"
+  if host_resolve "$name" "${TMUXC_HOST:-}"; then
+    local out rc=0
+    out="$(hl h_run "$R_HOST" --idempotent tmux capture-pane -t "=$R_SESS:" -p)" || rc=$?
+    [[ "$rc" -eq 0 ]] || die "remote capture failed rc=$rc: $R_HOST/$R_SESS"
+    printf '%s\n' "$out" | tail -n "$lines"
+    return 0
+  fi
   tmux has-session -t "$name" 2>/dev/null || die "session not found: $name"
   tmux capture-pane -t "$name" -p | tail -n "$lines"
 }
@@ -1259,6 +1456,24 @@ cmd_send() {
   shift || true
   [[ -n "$name" ]] || die "send requires <name>"
   [[ $# -gt 0 ]] || die "send requires <message>"
+  if host_resolve "$name" "${TMUXC_HOST:-}"; then
+    local rc=0 base=""
+    base="$(remote_reach_baseline "$R_HOST" "$R_SESS" "$*" 2>/dev/null)" || base=""
+    remote_send_locked "$R_HOST" "$R_SESS" "$*" || rc=$?
+    if [[ "$rc" -ne 0 ]]; then
+      printf 'tmuxc: %s/%s 송신 실패 rc=%s\n' "$R_HOST" "$R_SESS" "$rc" >&2
+      return "$rc"
+    fi
+    remote_reach_check "$R_HOST" "$R_SESS" "$*" "$base"
+    rc=$?
+    case "$rc" in
+      0) printf 'delivered=%s/%s\n' "$R_HOST" "$R_SESS" ;;
+      4) printf 'sent=%s/%s verification=not-reached\n' "$R_HOST" "$R_SESS" ;;
+      5) printf 'sent=%s/%s verification=unverifiable\n' "$R_HOST" "$R_SESS" ;;
+      *) printf 'tmuxc: %s/%s 도달 판정 불가 rc=%s\n' "$R_HOST" "$R_SESS" "$rc" >&2 ;;
+    esac
+    return "$rc"
+  fi
   tmux has-session -t "$name" 2>/dev/null || die "session not found: $name"
   inject_message "$name" "$*"
   sleep 1
@@ -2181,6 +2396,16 @@ main() {
   local cmd="${1:-}"
   [[ -n "$cmd" ]] || { usage; exit 1; }
   shift || true
+  # 전 명령 공통 --host (r1047) — 없으면 지금 동작 그대로(R6). 인자 자리에서는 빠진다.
+  local -a argv=()
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --host) TMUXC_HOST="${2:-}"; shift 2 || shift ;;
+      --host=*) TMUXC_HOST="${1#--host=}"; shift ;;
+      *) argv+=("$1"); shift ;;
+    esac
+  done
+  set -- ${argv[@]+"${argv[@]}"}
   case "$cmd" in
     open|wt) cmd_open "$@" ;;
     fork) cmd_fork "$@" ;;
@@ -2216,6 +2441,13 @@ main() {
       ;;
     kill)
       [[ -n "${1:-}" ]] || die "kill requires <name>"
+      if host_resolve "$1" "${TMUXC_HOST:-}"; then
+        local krc=0
+        hl h_run "$R_HOST" --write tmux kill-session -t "$R_SESS" || krc=$?
+        [[ "$krc" -eq 0 ]] || die "remote kill 실패 rc=$krc: $R_HOST/$R_SESS"
+        printf 'killed=%s/%s\n' "$R_HOST" "$R_SESS"
+        return 0
+      fi
       tmux kill-session -t "$1"
       ;;
     clean) cmd_clean ;;
