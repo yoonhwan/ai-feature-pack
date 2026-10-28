@@ -1247,21 +1247,33 @@ fi
 #   FT_CARD_REF(기본 origin/main)의 <IDX>·쌍둥이 indices/{진행,완성,대기}/<파일> 첫 판을 임시 파일로 꺼낸 CARD_READ · 쓰기(리서치 닫힘·중단 줄)는 위 CARD(작업 트리) 그대로.
 #   원격 ref 는 그 ref 하나만 fetch — 실패면 옛 ref 판을 믿지 않는다(WARN · CARD_READ=CARD) · ref 에 없으면 CARD_READ=CARD(기존 순서 그대로).
 CARD_READ="$CARD"; _CR_TMP=""
+#   r1070: 명부 index 가 «.worktrees/<이름>/»(또는 «<절대경로>/.worktrees/<이름>/») 접두를 달고 있어도 — 그 접두를 뗀 경로를 «원래 경로 다음» 후보로 조회한다(접두는 좌석 워크트리 표기라 ref 트리에 없다). 뗀 경로로 찾았으면 INFO 끝에 «(워크트리 접두 뗌)».
+_r1070_strip_wt() {  # $1 → 접두 한 토막 뗀 경로(접두 없으면 빈 출력)
+  [[ "$1" =~ ^(.*/)?\.worktrees/[^/]+/(.+)$ ]] && printf '%s' "${BASH_REMATCH[2]}"
+  return 0
+}
 _card_ref_read() {
-  local ref="${FT_CARD_REF:-origin/main}" rel d hit=""
+  local ref="${FT_CARD_REF:-origin/main}" rel d hit="" rels=() _i _norig strp=0 note=""
   [ -n "$IDX" ] || return 0
   if [[ "$ref" == */* ]] && git -C "$ROOT" remote get-url "${ref%%/*}" >/dev/null 2>&1; then
     nf_fetch "$ROOT" "${ref%%/*}" "${ref#*/}" >/dev/null 2>&1 || { echo "WARN 카드 ref fetch 실패/시간 초과($ref · 7초+재시도 1) — 옛 ref 판은 읽지 않는다 · 작업 트리 후보로"; return 0; }
   fi
+  for rel in "$IDX" ${_tw:+"$_tw"}; do [ -n "$rel" ] && rels+=("$rel"); done
+  _norig="${#rels[@]}"
+  for rel in "${rels[@]}"; do
+    rels+=("$(_r1070_strip_wt "$rel")")   # r1070-mut:wtreffix — 접두 한 토막 뗀 후보를 «원래 후보 뒤» 에 붙인다(이 줄을 끄면 접두 후보 0)
+  done
   for d in 진행 완성 대기; do [ -z "$hit" ] || break
-    for rel in "$IDX" ${_tw:+"$_tw"}; do [ -z "$hit" ] || break
+    for _i in "${!rels[@]}"; do [ -z "$hit" ] || break
+      rel="${rels[$_i]}"; [ -n "$rel" ] || continue
       [[ "$rel" =~ ^(.*/indices)/[^/]+/([^/]+)$ ]] || continue
-      git -C "$ROOT" cat-file -e "$ref:${BASH_REMATCH[1]}/$d/${BASH_REMATCH[2]}" 2>/dev/null && hit="${BASH_REMATCH[1]}/$d/${BASH_REMATCH[2]}"
+      git -C "$ROOT" cat-file -e "$ref:${BASH_REMATCH[1]}/$d/${BASH_REMATCH[2]}" 2>/dev/null && { hit="${BASH_REMATCH[1]}/$d/${BASH_REMATCH[2]}"; [ "$_i" -lt "$_norig" ] || strp=1; }
     done; done
   [ -n "$hit" ] || return 0
   _CR_TMP="$(mktemp)" || { _CR_TMP=""; echo "WARN 카드 임시 파일 생성 실패 — 작업 트리 후보로"; return 0; }
   git -C "$ROOT" show "$ref:$hit" > "$_CR_TMP" 2>/dev/null || { echo "WARN 카드 꺼내기 실패($ref:$hit) — 작업 트리 후보로"; return 0; }
-  CARD_READ="$_CR_TMP"; echo "INFO 카드 위치 ← $ref:$hit (읽기 · 쓰기 = ${CARD:-작업 트리 사본 없음})"
+  [ "$strp" = 0 ] || note=" (워크트리 접두 뗌)"
+  CARD_READ="$_CR_TMP"; echo "INFO 카드 위치 ← $ref:$hit (읽기 · 쓰기 = ${CARD:-작업 트리 사본 없음})$note"
 }
 trap 'rm -f "${_CR_TMP:-}" "${_CB_TMP:-}"' EXIT   # r960: 가지 판 임시 파일도 같이
 _card_ref_read   # r888-mut:cardref
