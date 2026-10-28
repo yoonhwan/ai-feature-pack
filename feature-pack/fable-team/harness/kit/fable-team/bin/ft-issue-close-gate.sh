@@ -3,6 +3,7 @@
 #   close-check --gate 를 돌려 7항(원인 확정)·8항(같은 증상 보류) 또는 관찰 조건이 비었거나 N·보류면 «닫지 않고 관찰 중» 으로 둔다.
 #   exit 0 = 통과(래퍼가 close 계속) · 3 = 거절 · 1 = 거절 기록 쓰기 실패(fail-closed · 이슈는 열린 채) · 2 = usage/조회 실패
 #   dry-run(apply=0) = 거절 문장 + «apply 면 할 쓰기» 목록만. apply=1 = ①거절된 닫는 코멘트 보존 ②관찰 시작 마커(없을 때만) ③라벨 status:observing(없을 때만) — 순서 고정.
+#   r1040: 거절 사유가 «빈 칸»(7·8항 미기입)이면 ①②③ 을 하나도 쓰지 않는다 — 읽기 점검 + 안내 1줄(관찰 조건이 성립한 거절만 표식을 남긴다).
 #   쓰기 1회 = timeout 7 + 재시도 1(재시도 전 token 이 이미 올라갔는지 확인 → 결과 불명 중복 방지).
 #   시험 훅: FT_TANK_WRAPPER(래퍼 대체) · FT_CLOSE_CHECK_FROM_JSON(조회 대체) · FT_CLOSE_CHECK_REPO · FT_GATE_TIMEOUT_S.
 set -uo pipefail
@@ -22,6 +23,12 @@ GL="$(bash "$HERE/ft-issue-close-check.sh" "${CARGS[@]}")"; RC=$?   # 거절 문
 KIND="$(sed -n 's/^GATE .*kind=\([^ ]*\).*/\1/p' <<<"$GL")"; MARKER="$(sed -n 's/^GATE .*marker=\([01]\).*/\1/p' <<<"$GL")"
 LABEL="$(sed -n 's/^GATE .*label=\([01]\).*/\1/p' <<<"$GL")"; REASON="$(sed -n 's/^GATE .* reason=//p' <<<"$GL")"
 case "$KIND" in proposal_unapproved|proposal_incomplete) exit 3;; esac   # R234 · 승인 전·링크 없는 제안 Issue — 관찰 상태가 아니라 «아직 닫을 수 없음» · 쓰기 0
+# r1040: 7·8항이 «빈 칸» 인 거절 = 아직 안 쓴 실수(관찰 조건 성립 0) — 관찰 표식(코멘트·라벨)을 남기지 않고 거절 문장 + 점검 안내만. 진짜 관찰 조건(n_or_hold 등)만 지금처럼 쓴다.
+if [ "$KIND" = blank ]; then   # r1040-mut:blank
+  echo "DRY 빈 칸 거절 — 쓰기 0(관찰 표식 안 남김)"
+  echo "안내: 닫기 전에 ft-issue-close-check.sh $N 을 먼저 돌려 7·8항(원인 확정·같은 증상 보류)을 점검하라 — 이 거절은 이슈에 아무것도 쓰지 않았다." >&2
+  exit 3
+fi
 
 if [ "$APPLY" != 1 ]; then
   echo "DRY 거절 시 쓰기(apply 면): ${CFILE:+①거절 코멘트 보존(comment) }$([ "$MARKER" = 0 ] && echo '②관찰 시작 마커(comment) ')$([ "$LABEL" = 0 ] && echo '③라벨 status:observing(label)')"
