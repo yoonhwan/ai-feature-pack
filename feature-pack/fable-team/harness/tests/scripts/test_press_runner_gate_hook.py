@@ -10,7 +10,7 @@ from real_state_guard import guard_begin_module  # noqa: E402,F401  r541: 실 �
 ROOT = Path(__file__).resolve().parents[3]
 HOOK = ROOT / "harness/kit/fable-team/templates/hooks/press-runner-gate.sh"
 RUNNER = "tests/e2e/realtime_multi_e2e.py"
-STUB = '#!/bin/bash\necho "$@" > "$STUB_OUT"\nenv | grep -E "^(FT_PRESS_CARD|TMUX_PANE|BYZ_PRESS_HUMAN)=" | sort >> "$STUB_OUT"\n[ "${STUB_RC:-0}" = "0" ] || echo "✗ ⑦ 역할 nano — press 는 tester·checker 만(R15)"\nexit "${STUB_RC:-0}"\n'
+STUB = '#!/bin/bash\necho "$@" > "$STUB_OUT"\nenv | grep -E "^(FT_PRESS_CARD|TMUX_PANE|BYZ_PRESS_HUMAN|FT_NANO_FEAT[A-Z]*|FT_ROOT)=" | sort >> "$STUB_OUT"\n[ "${STUB_RC:-0}" = "0" ] || echo "✗ ⑦ 역할 nano — press 는 tester·checker 만(R15)"\nexit "${STUB_RC:-0}"\n'
 EXEC_FORMS = [
     f"python3 {RUNNER} --quick",
     f"cd /x/wt && .venv/bin/python /x/wt/{RUNNER} --n 3",
@@ -104,6 +104,18 @@ def test_inline_assignment_forwarded_over_env(tmp_path):
     run(f"FT_PRESS_CARD=inline.md python3 {RUNNER}", tmp_path, extra_env={"FT_PRESS_CARD": "env.md"})
     seen = (tmp_path / "stub.out").read_text(encoding="utf-8")
     assert "FT_PRESS_CARD=inline.md" in seen and "env.md" not in seen
+
+
+def test_inline_nano_feat_forwarded(tmp_path):  # v65 #183593: 인라인 FT_NANO_FEAT 가 게이트 ① 기준 줄기로 넘어가야 한다(버리면 기본 feat 로 «선언 모순»)
+    run(f"FT_NANO_FEAT=origin/main FT_PRESS_CARD=c.md python3 {RUNNER}", tmp_path, extra_env={"FT_NANO_FEAT": "feat/env"})
+    seen = (tmp_path / "stub.out").read_text(encoding="utf-8")
+    assert "FT_NANO_FEAT=origin/main" in seen and "feat/env" not in seen and "FT_PRESS_CARD=c.md" in seen
+
+
+def test_inline_other_names_still_dropped(tmp_path):  # 접두 밖 이름(FT_NANO_FEATX · FT_ROOT)은 지금처럼 게이트에 안 넘긴다
+    run(f"FT_NANO_FEATX=x FT_ROOT=/tmp/r python3 {RUNNER}", tmp_path)
+    seen = (tmp_path / "stub.out").read_text(encoding="utf-8")
+    assert "FT_NANO_FEATX" not in seen and "FT_ROOT=/tmp/r" not in seen
 
 
 # arch#39 반송 표(staged-r106c-rework-arch39.md) 11줄 — 실행 꼴 양성 일치: 부분 문자열·쪽지 본문·린트·pgrep 은 allow, 모듈 실행(-m)은 deny

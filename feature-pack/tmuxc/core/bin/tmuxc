@@ -18,9 +18,13 @@ Usage:
   tmuxc list
   tmuxc attach <name>
   tmuxc send <name> <message>
+  tmuxc send <name> <message>        # 원격: tmuxc send mini/<name> MSG 또는 --host mini (도달 판정 = 원격 ft-reach-check)
   tmuxc submit <name> [--retype]  # 입력줄 판별 후 제출 — real / ghost-delivered(건드리지 말 것) / ghost-lost(유실, --retype 으로 되살림)
   tmuxc boot-enter <name>         # 이어가기: open·fork 가 넣은 부팅 문장이 입력줄에 «전문 그대로» 남았을 때만 Enter 1회 · 제출 판정 = 그 좌석 기록(--session-id) 한 파일
-  tmuxc ask <name> [lines]
+  tmuxc ask <name> [lines]        # 원격: --host mini (또는 mini/<name>)
+  tmuxc list [--host H]           # 원격 목록은 HOST 열이 앞에 붙는다
+  tmuxc open <path> --host H      # 경로는 «원격 경로» — 원격에 세션을 만든다
+  tmuxc kill <name>               # 원격: --host mini / mini/<name> — HIL 그대로(삭제는 사람 확인)
   tmuxc model <name>              # 세션의 라이브 --model/--effort 조회 (증류 모델 승계용)
   tmuxc probe <name>              # 세션의 live agent/model/effort/session-id (KEY=VALUE)
   tmuxc msg <name> <message>
@@ -45,6 +49,150 @@ EOF
 die() {
   printf 'tmuxc: %s\n' "$*" >&2
   exit 1
+}
+
+# ---------- claude 주입 «한 벌» (r1075 · arch#173 재판단 r2) ----------
+# 판독·제출 판정 함수(capture_input_line·input_is_message·claude_jsonl_of·claude_submitted_since·agent_inject …)는
+# core/libexec/agent-inject.sh 하나에 있다 — 로컬 open·fork 는 source 해서, 원격 send 는 h_pipe_write 로 «같은 파일을
+# 원격 bash 가 실행» 해서 쓴다(복사본 두 벌 금지 · arch 재판단 r2).
+AGENT_INJECT_LIB=""
+agent_inject_lib() {
+  [[ -n "$AGENT_INJECT_LIB" ]] && { printf '%s' "$AGENT_INJECT_LIB"; return 0; }
+  local self d c
+  self="$(readlink -f "$0" 2>/dev/null || printf '%s' "$0")"
+  d="$(dirname "$self")"
+  for c in "${TMUXC_AGENT_INJECT_LIB:-}" "$d/../libexec/agent-inject.sh" \
+           "$HOME/.tmuxc/current/core/libexec/agent-inject.sh"; do
+    if [[ -n "$c" && -f "$c" ]]; then AGENT_INJECT_LIB="$c"; printf '%s' "$c"; return 0; fi
+  done
+  return 1
+}
+agent_inject_lib >/dev/null || die 'core/libexec/agent-inject.sh 없음 — claude 주입 판정 불가(설치본 확인)'
+# shellcheck source=/dev/null
+. "$AGENT_INJECT_LIB"
+
+# ---------- 호스트 라우팅 (r1047 · 설계 multihost DESIGN-tail-remote-and-light-git-20261028.md §1.4 보강 4·5) ----------
+# 호스트를 «아는 유일한 자리» 는 tmm 의 host-lib.sh 다 — 여기서는 그 파일을 찾아 «별도 bash» 안에서 부른다.
+# ★왜 별도 bash 인가★ — host-lib 는 첫 줄에서 `set +e` 를 한다. 이 파일에서 직접 source 하면 tmuxc 의
+#  set -euo pipefail 이 풀려 기존 경로 전부의 실패 처리가 바뀐다(수술적 변경 위반).
+HOSTLIB_PATH=""
+hostlib_path() {
+  [[ -n "$HOSTLIB_PATH" ]] && { printf '%s' "$HOSTLIB_PATH"; return 0; }
+  local self d c
+  self="$(readlink -f "$0" 2>/dev/null || printf '%s' "$0")"
+  d="$(dirname "$self")"
+  for c in "${TMUXC_HOSTLIB:-}" "$HOME/.tmm/current/core/libexec/host-lib.sh" \
+           "$d/../../../tmm/core/libexec/host-lib.sh" \
+           "$d/../../tmm/core/libexec/host-lib.sh"; do
+    if [[ -n "$c" && -f "$c" ]]; then HOSTLIB_PATH="$c"; printf '%s' "$c"; return 0; fi
+  done
+  return 1
+}
+
+# hl <host-lib 함수> [인자…] — host-lib 함수를 별도 bash 에서 호출(rc 그대로). 없으면 97 = 판정 불가.
+hl() {
+  local lib
+  lib="$(hostlib_path)" || return 97
+  bash -c 'source "$1" >/dev/null 2>&1; shift; "$@"' _ "$lib" "$@"
+}
+
+local_host() {
+  [[ -n "${_TMUXC_LOCAL_HOST:-}" ]] || _TMUXC_LOCAL_HOST="$(hl h_local_name 2>/dev/null)"
+  printf '%s' "${_TMUXC_LOCAL_HOST:-m3}"
+}
+
+# 주소 분리 — 첫 '/' 만 구분자(계약 보강 5 ④: 둘째 '/' 는 좌석 이름 문자열로 남겨 lint 가 REJECT 하게 둔다).
+addr_split() {
+  case "$1" in
+    */*) printf '%s %s\n' "${1%%/*}" "${1#*/}" ;;
+    *)   printf '%s %s\n' "$(local_host)" "$1" ;;
+  esac
+}
+
+# ft 도구 경로 — TMUXC_<종류> 환경변수 → 팩 사본 → 홈 사본.
+ft_tool_path() {  # <env 값> <이름>
+  local envv="$1" n="$2" self d c
+  self="$(readlink -f "$0" 2>/dev/null || printf '%s' "$0")"
+  d="$(dirname "$self")"
+  for c in "$envv" "$d/../../../fable-team/harness/kit/fable-team/bin/$n" \
+           "$HOME/.fable-team/bin/$n" "$HOME/.claude/skills/fable-team/bin/$n"; do
+    [[ -n "$c" && -f "$c" ]] && { printf '%s' "$c"; return 0; }
+  done
+  return 1
+}
+
+# host_resolve <주소> [--host 값] — 0 = 원격 라우팅(R_HOST/R_SESS 채움) · 1 = 로컬(지금 동작 그대로).
+# 순서 고정(계약 보강 5): ①분리 ②--host 와 접두 충돌이면 exit 2 ③좌석 부분만 ft-name-lint ④원격 판정.
+host_resolve() {
+  local addr="$1" flag="${2:-}" ah as h s lh kind lint out
+  # ★빠른 길(R6)★ — --host 도 없고 접두(/) 도 없으면 로컬이다. host-lib 호출 0(기존 경로 속도 그대로).
+  if [[ -z "$flag" && "$addr" != */* ]]; then R_HOST=""; R_SESS="$addr"; return 1; fi
+  read -r ah as <<<"$(addr_split "$addr")"
+  lh="$(local_host)"
+  if [[ -n "$flag" ]]; then
+    if [[ "$addr" == */* && "$ah" != "$flag" ]]; then
+      printf 'tmuxc: 주소 접두(%s)와 --host(%s)가 다르다 — 사용법 오류\n' "$ah" "$flag" >&2
+      exit 2
+    fi
+    h="$flag"
+    if [[ "$addr" == */* ]]; then s="${addr#*/}"; else s="$addr"; fi
+  else
+    h="$ah"; s="$as"
+  fi
+  R_HOST="$h"; R_SESS="$s"
+  kind="$(hl h_field "$h" kind 2>/dev/null)"
+  if [[ "$h" == "$lh" && "$kind" != "tail-remote" ]]; then return 1; fi   # 로컬 = 기존 경로(R6)
+  if [[ "$s" == */* ]]; then
+    printf 'tmuxc: 좌석 이름에 "/" 가 둘 이상 있다 — 이름 규칙 위반(보내지 않는다)\n' >&2
+    exit 1
+  fi
+  lint="$(ft_tool_path "${TMUXC_NAME_LINT:-}" ft-name-lint.sh)" || {
+    printf 'tmuxc: ft-name-lint.sh 없음 — 이름 검증 불가(보내지 않는다)\n' >&2; exit 1; }
+  out="$("$lint" "$s" 2>&1)" || { printf '%s\n' "$out" >&2; printf 'tmuxc: 이름 규칙 위반 — 보내지 않는다\n' >&2; exit 1; }
+  return 0
+}
+
+# 송신 락 = <host>/<session> 쌍 하나 (설계 보강 4). /tmp 고정 금지 — HOME 안 ControlPath 폴더를 쓴다.
+send_lock_path() { printf '%s/send-lock-%s-%s' "$(hl h_control_dir 2>/dev/null || printf '%s' "$HOME/.ssh/ft-cm")" "$1" "$2"; }
+
+# 원격 송신 = 로컬 agent_inject 와 «같은 절차» 를 원격에서(r1075 · arch 재판단 r2).
+#   ① 입력 상자 기다림(상한 TMUXC_READY_MAX 기본 30) ② 입력줄 = 전문일 때만 Enter ③ 그 좌석 --session-id 기록으로 제출 판정
+#   ④ 절반 시점 재전송 1회 — 판독 함수는 agent-inject.sh «한 벌» 을 h_pipe_write 로 원격에 흘려 실행한다(복사본 0).
+#   rc = 0 제출 확인 · 3 에이전트 없음 · 4 마감까지 기록 없음 · 5 판정 불가(상자 안 뜸·입력줄 불일치·판독 불가) ·
+#        6 기록 id 없음(=보냈다 · 제출 판정은 호출자 ft-reach-check 몫) · 97 도구 없음
+remote_send_locked() {  # <host> <sess> <text>
+  local host="$1" sess="$2" text="$3" lock d lib rmax swait cap runcap
+  lib="$(agent_inject_lib)" || { printf 'tmuxc: agent-inject.sh 없음 — 판정 불가\n' >&2; return 97; }
+  lock="$(send_lock_path "$host" "$sess")"
+  d="$(dirname "$lock")"
+  mkdir -p "$d" 2>/dev/null || true; chmod 700 "$d" 2>/dev/null || true
+  rmax="${TMUXC_READY_MAX:-30}"; [[ "$rmax" =~ ^[0-9]+$ ]] || rmax=30
+  swait="${TMUXC_SUBMIT_WAIT:-7}"; [[ "$swait" =~ ^[0-9]+$ ]] || swait=7
+  # 하드 룰 12: 쪼갤 수 없는 기다림 «하나» = min(고정비 + 7×배수, 70). 여기 = 상자 기다림 + 제출 마감 + 왕복.
+  cap=$(( rmax + swait + 7 )); (( cap > 70 )) && cap=70
+  runcap=$(( cap + 5 )); (( runcap > 70 )) && runcap=70
+  ( export H_CALL_TIMEOUT="$cap" H_RUN_CAP="$runcap"
+    hl _h_with_lock "$lock" h_pipe_write "$host" "$lib" "$sess" "$text" - "$rmax" "$swait" )
+}
+
+# 원격 도달 판정 = 그 호스트에서 돈 ft-reach-check.sh (계약 보강 5 · capture-pane 판정 금지).
+# ★baseline 을 «보내기 전»에 잡는다★ — 기본 baseline 은 «호출 시점» 이라 jsonl 이 빨리 쓰이면 방금 쓴 내 기록이
+#  baseline 에 섮여 NOT_REACHED 로 오판된다(ft-reach-check 헤더의 FT_REACH_COUNT_ONLY 계약).
+remote_reach_baseline() {  # <host> <sess> <marker> → 제출 건수
+  local host="$1" sess="$2" marker="$3" reach w rc
+  reach="$(ft_tool_path "${TMUXC_REACH_CHECK:-}" ft-reach-check.sh)" || return 97
+  w="$(mktemp "${TMPDIR:-/tmp}/tmuxc-reach-count.XXXXXX")" || return 97
+  { printf 'export FT_REACH_COUNT_ONLY=1\n'; cat "$reach"; } > "$w"
+  hl h_pipe "$host" "$w" "$sess" "$marker"; rc=$?
+  rm -f "$w"
+  return "$rc"
+}
+remote_reach_check() {  # <host> <sess> <marker> [baseline]
+  local host="$1" sess="$2" marker="$3" base="${4:-}" reach to
+  reach="$(ft_tool_path "${TMUXC_REACH_CHECK:-}" ft-reach-check.sh)" || {
+    printf 'tmuxc: ft-reach-check.sh 없음 — 도달 판정 불가\n' >&2; return 5; }
+  to="${TMUXC_REACH_TIMEOUT:-6}"
+  hl h_pipe "$host" "$reach" "$sess" "$marker" "$to" "$base"
 }
 
 prepare_color_environment() {
@@ -565,182 +713,6 @@ session_live_launch() {
   return 0
 }
 
-# 입력 상자가 «그려질 때까지» 기다린다(r925). 안 그려진 TUI 에 넣은 글자는 제출되지 않고 남는다.
-wait_input_box() {
-  local pane="$1" timeout="${2:-30}" deadline
-  deadline=$(( SECONDS + timeout ))
-  while :; do
-    capture_input_line "$pane" >/dev/null 2>&1 && return 0
-    (( SECONDS < deadline )) || return 1
-    sleep 0.5
-  done
-}
-
-# claude 세션 기록 «한 파일» — tmuxc 가 발급한 --session-id 로 <id>.jsonl 만 찾는다(r925 r3 R1 · 디렉터리 전수 판독 0).
-#   rc0 = 경로 출력 · rc1 = 아직 없음(새 세션은 첫 제출 때 파일을 만든다) · rc2 = 판정 불가(id 꼴 아님 · 같은 id 둘 이상)
-claude_jsonl_of() {
-  local sid="$1" base="${TMUXC_CLAUDE_PROJECTS:-${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects}" f found="" n=0
-  [[ "$sid" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]] || return 2
-  for f in "$base"/*/"$sid".jsonl; do
-    [[ -f "$f" ]] || continue
-    found="$f"; n=$((n + 1))
-  done
-  [[ "$n" -eq 0 ]] && return 1
-  [[ "$n" -eq 1 ]] || return 2
-  printf '%s\n' "$found"
-}
-
-# 그 기록의 지금 크기(바이트 · 파일 없음 = 0) — «주입 시작 뒤에 쓰인 레코드» 의 기준 위치. rc2 = 판정 불가.
-claude_jsonl_size() {
-  local f rc=0
-  f="$(claude_jsonl_of "$1")" || rc=$?
-  case "$rc" in
-    0) wc -c < "$f" | tr -d '[:space:]' ;;
-    1) printf '0\n' ;;
-    *) return 2 ;;
-  esac
-}
-
-# 제출 판정 = 세션 기록(r925 r3 R1) — <id>.jsonl 의 <바이트 위치> 뒤에 쓰인 type=="user" 레코드가 우리 글자 앞 30자(공백 제거)를 담는가.
-#   화면(입력 상자 «위») 은 보지 않는다 — 옛 출력이 거짓 증거가 된다(DA⑥ r2).
-#   rc0 = 제출됨 · rc1 = 아직 아님 · rc2 = 판정 불가(같은 id 둘 이상 · 파일 못 읽음 · 빈 글자)
-claude_submitted_since() {
-  local sid="$1" off="$2" text="$3" f rc=0
-  f="$(claude_jsonl_of "$sid")" || rc=$?
-  [[ "$rc" -eq 1 ]] && return 1
-  [[ "$rc" -eq 0 ]] || return 2
-  python3 - "$f" "$off" "$text" <<'PY'
-import json, sys
-path, off, text = sys.argv[1], int(sys.argv[2]), sys.argv[3]
-want = "".join(text.split())[:30]
-if not want:
-    sys.exit(2)
-try:
-    with open(path, "rb") as fh:
-        fh.seek(off)
-        data = fh.read()
-except OSError:
-    sys.exit(2)
-for raw in data.splitlines():
-    try:
-        rec = json.loads(raw)
-    except ValueError:
-        continue  # 쓰는 중인 마지막 줄 · 기준 위치가 줄 가운데
-    if not isinstance(rec, dict) or rec.get("type") != "user":
-        continue
-    msg = rec.get("message")
-    c = msg.get("content") if isinstance(msg, dict) else None
-    if isinstance(c, list):
-        c = "".join(p["text"] for p in c if isinstance(p, dict) and isinstance(p.get("text"), str))
-    if isinstance(c, str) and want in "".join(c.split()):
-        sys.exit(0)
-sys.exit(1)
-PY
-}
-
-# 입력줄이 «이번 메시지 전문» 인가(r925 r4 R2) — 완전 일치 · 문장 안 공백도 그대로 비교(«통신 표준» ≠ «통 신표준»).
-#   정규화 = SGR 벗김 + -J 줄 합침 + 줄 끝 공백 제거뿐. 단 claude TUI 가 스스로 감은 «화면 줄 경계» 에서만
-#   원문의 공백·줄바꿈 0개 이상을 건너뛴다(감는 자리에서 공백이 사라지고 이어지는 줄은 들여 쓴다 · 실측 10-26).
-#   화면 줄 하나하나는 원문의 그 자리 글자와 바이트까지 같아야 한다. 접두·잘림 인정 0 · 색·흐림 판정 0.
-#   rc0 = 전문 · rc1 = 다른 글자(빈 줄·자리표시·사람 글자·잘린 글자·공백 위치 다름) · rc2 = 판독 불가
-input_is_message() {
-  local cur
-  cur="$(capture_input_line "$1" lines)" || return 2
-  python3 - "$cur" "$2" <<'PY'
-import sys
-lines = [l for l in sys.argv[1].split("\n") if l != ""]
-msg = sys.argv[2].rstrip(" \t\n")
-if not lines:
-    sys.exit(1)
-pos = 0
-for i, line in enumerate(lines):
-    if i > 0:
-        while pos < len(msg) and msg[pos] in " \t\n":
-            pos += 1
-    if msg[pos:pos + len(line)] != line:
-        sys.exit(1)
-    pos += len(line)
-sys.exit(0 if pos == len(msg) else 1)
-PY
-}
-
-# Claude TUI 주입(r925 r3) — open·fork 가 «방금 만든» 세션에만 쓴다(사람 입력 0 · 입력줄 글자는 자리표시 «Try "…"» 뿐 · 실측 10-26).
-#   ① 입력 상자가 그려질 때까지 기다린다(고정 sleep 대신 · 상한 TMUXC_READY_MAX 30초)
-#   ② 글자를 넣고 입력줄이 «이번 메시지 전문» 이 됐을 때만 Enter(R2) — 아니면 Enter 0 · rc≠0
-#   ③ 제출 판정 = 세션 기록(R1) — 넣기 직전 위치 뒤에 우리 글자 앞 30자를 담은 user 레코드(마감 = 첫 Enter + TMUXC_SUBMIT_WAIT 7초 벽시계)
-#   ④ 절반 시점까지 기록이 없고 입력줄이 아직 전문이고 직전 재조회에도 없으면 Enter 1회 재전송(R3) · 그 밖은 재전송 0, 마감까지 늦은 기록만 본다
-#   ⑤ 판독 불가(capture rc≠0 · 입력줄 못 찾음 · 기록 판정 불가) = rc≠0(R4)
-agent_inject() {
-  local session="$1" pane="$2" message="$3" sid="$4"
-  local ready_max="${TMUXC_READY_MAX:-30}" wait_s="${TMUXC_SUBMIT_WAIT:-7}"
-  local off st i round enters=0
-  [[ "$wait_s" =~ ^[0-9]+$ ]] || { printf 'state=bad-env session=%s — TMUXC_SUBMIT_WAIT=%s 정수 아님, 주입 0\n' "$session" "$wait_s" >&2; return 1; }
-  if ! wait_input_box "$pane" "$ready_max"; then
-    printf 'state=not-ready session=%s — 입력 상자가 %s초 안에 안 떴다, 주입 0\n' "$session" "$ready_max" >&2
-    return 1
-  fi
-  if ! off="$(claude_jsonl_size "$sid")"; then
-    printf 'state=unreadable session=%s — 세션 기록(%s.jsonl) 판정 불가, 주입 0\n' "$session" "$sid" >&2
-    return 1
-  fi
-  tmux send-keys -t "$pane" -l "$message"
-  # ② 그리기 지연을 짧게 기다린다(상한 3초) — 전문이 그려진 입력줄 = TUI 가 우리 글자를 받았다
-  st=1
-  for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
-    sleep 0.2
-    st=0; input_is_message "$pane" "$message" || st=$?
-    [[ "$st" -eq 1 ]] || break
-  done
-  case "$st" in
-    0) ;;
-    2) printf 'state=unreadable session=%s — 입력줄 판독 불가, Enter 0\n' "$session" >&2; return 1 ;;
-    *) printf 'state=input-mismatch session=%s — 입력줄이 이번 메시지 전문이 아니다(다른 글자·잘림), Enter 0\n' "$session" >&2; return 1 ;;
-  esac
-  local now t_end t_mid resent=0 sub
-  now="$(now_ms)"; t_end=$(( now + wait_s * 1000 )); t_mid=$(( now + wait_s * 500 ))
-  tmux send-keys -t "$pane" Enter; enters=1
-  # r925 r4: 마감 = 첫 Enter 시각 + TMUXC_SUBMIT_WAIT초 «벽시계»(조회 횟수 아님 · 조회가 느려도 늘지 않는다).
-  #   재전송 판정은 그 절반 시점에 1회(R3) — 기록 없음 ∧ 입력줄 = 전문 ∧ «두 번째 Enter 직전 기록 다시 읽기» 도 없음일 때만.
-  #   r7 결과 계약 ① Enter = 첫 1 + 재전송 ≤1 · 재전송은 마감 전에만 · 마감 뒤 Enter 0 (Enter 시각 = send-keys 직전 판정 시각)
-  #   ② 증거 없는 rc0 = 0: 기준 위치(inject = 글자 넣기 직전 · boot-enter = Enter 직전 기록 끝) 뒤 우리 글자(공백 뺀 앞 30자) 새 user 레코드만
-  #   ③ 총(첫 Enter → rc) ≤ WAIT + 3×D + 1초 · D = 가장 느린 외부 호출 1회(기록 조회·화면 읽기·tmux 입력) (내부 순서·횟수·쉼 값은 계약 아님)
-  while :; do
-    st=0; claude_submitted_since "$sid" "$off" "$message" || st=$?
-    case "$st" in
-      0) printf 'state=submitted session=%s enters=%s\n' "$session" "$enters"; return 0 ;;
-      2) printf 'state=unreadable session=%s — 세션 기록 판정 불가, 제출 판정 0\n' "$session" >&2; return 1 ;;
-    esac
-    now="$(now_ms)"
-    (( now < t_end )) || break
-    if [[ "$resent" -eq 0 && "$now" -ge "$t_mid" ]]; then
-      resent=1
-      # R3 재전송 판정 — 기록 없음 ∧ 입력줄 = 전문(접두·잘림 인정 0)
-      st=0; input_is_message "$pane" "$message" || st=$?
-      case "$st" in
-        0)
-          # 두 번째 Enter 직전에 기록을 한 번 더 읽는다 — 그사이 첫 Enter 가 기록됐으면 재전송 0
-          sub=0; claude_submitted_since "$sid" "$off" "$message" || sub=$?
-          case "$sub" in
-            0) printf 'state=submitted session=%s enters=%s\n' "$session" "$enters"; return 0 ;;
-            2) printf 'state=unreadable session=%s — 재전송 전 세션 기록 판정 불가, Enter 0\n' "$session" >&2; return 1 ;;
-          esac
-          now="$(now_ms)"
-          if (( now < t_end )); then tmux send-keys -t "$pane" Enter; enters=2; fi ;;
-        2) printf 'state=unreadable session=%s — 재전송 전 입력줄 판독 불가, Enter 0\n' "$session" >&2; return 1 ;;
-        *) printf 'state=no-resend session=%s — 입력줄이 전문이 아니다, 재전송 0 · 마감까지 늦은 기록만 본다\n' "$session" >&2 ;;
-      esac
-    fi
-    sleep 0.2
-  done
-  printf 'state=submit-failed session=%s enters=%s — 제출 실패: %s초 안에 세션 기록에 우리 글자가 없다(글자 재입력 0)\n' "$session" "$enters" "$wait_s" >&2
-  return 1
-}
-
-# 벽시계 밀리초(bash 3.2 에는 EPOCHREALTIME 이 없다).
-now_ms() {
-  python3 -c 'import time;print(int(time.time()*1000))'
-}
-
 # kind = shell·plain(종전 그대로 — 확인 없음) · agent(Claude TUI — 위 agent_inject · 4번째 인자 = 발급한 --session-id 필수)
 #   agent 는 open·fork 가 방금 만든 claude 세션에만 쓴다. send·restore 등 나머지 호출은 종전 그대로(r925 P3).
 inject_message() {
@@ -854,6 +826,59 @@ cmd_boot_enter() {
   return 1
 }
 
+# 원격 세션 열기 (r1047 · 설계 「열기」 행) — new-session + 에이전트 명령 주입을 «한 ssh(쓰기)» 로.
+# ★로컬 파일 의존 0★: serena ensure·worktree·snapshot 은 원격에서 하지 않는다(카드3·후속).
+open_remote() {  # <host> <path> <root> <name> <agent> <role> <model> <effort> <ctx> <fast> <dry_run> <prompt>
+  local host="$1" path="$2" root="$3" name="$4" agent="$5" role="$6" model="$7" effort="$8" ctx="$9" fast="${10}" dry_run="${11}" prompt="${12:-}"
+  local run_cmd
+  run_cmd="$(agent_cmd "$agent" "$name" "$role" "$model" "$effort" "$ctx" "$fast" 0)"
+  # r1047 r2: agent_cmd 는 «이 맥» 기준으로 $HOME 을 풀어 놓는다 — 그대로 보내면 원격 pane 이 없는
+  # 로컬 경로(/Users/<로컬>/.headroom/…)를 실행한다(h135 실측). 접두를 글자 «$HOME» 으로 바꿔
+  # 원격 pane 셸이 풀게 한다. dry-run 출력도 같은 글자를 보인다.
+  run_cmd="${run_cmd//"$HOME"/\$HOME}"
+  # r1075: claude 도 로컬 open 과 «같게» --session-id 를 발급하고 원격 세션 env 에 심는다 —
+  #   원격 송신의 제출 판정(agent-inject.sh ③)과 ft-reach-check 의 좌석 파일 특정이 이 값을 쓴다(반례 R4).
+  #   ★dry-run 출력보다 앞★ 에 붙여야 --dry-run 으로도 계약을 볼 수 있다.
+  local claude_sid=""
+  if [[ "$agent" == "claude" ]]; then
+    claude_sid="$(python3 -c 'import uuid;print(uuid.uuid4())')" || die "claude --session-id 발급 실패(python3 uuid)"
+    run_cmd="$run_cmd --session-id $claude_sid"
+  fi
+  local rc=0
+  hl h_run "$host" --idempotent test -d "$path" || rc=$?
+  case "$rc" in
+    0) ;;
+    1) die "원격 경로 없음: $host:$path" ;;
+    *) die "원격 경로 확인 불가: $host:$path rc=$rc" ;;
+  esac
+  if [[ "$dry_run" -eq 1 ]]; then
+    printf 'host=%s\nsession=%s\nroot=%s\nagent=%s\nrole=%s\ncommand=%s\n' \
+      "$host" "$name" "$root" "$agent" "$role" "$run_cmd"
+    return 0
+  fi
+  local envp=()
+  [[ "$agent" == "pi" ]] && envp=("TMUXC_PI_MODEL=${model:-}" "TMUXC_PI_THINKING=${effort:-medium}")
+  [[ -n "$claude_sid" ]] && envp+=("TMUXC_CLAUDE_SESSION_ID=$claude_sid")
+  hl _h_with_lock "$(send_lock_path "$host" "$name")" h_run "$host" --write bash -c '
+name=$1; root=$2; run=$3; prompt=$4; shift 4
+if tmux has-session -t "$name" 2>/dev/null; then echo "tmuxc: session already exists: $name" >&2; exit 1; fi
+tmux new-session -d -s "$name" -c "$root" -e "FT_SEAT=$name" || exit 1
+tmux set -wu -t "=$name:" window-size 2>/dev/null
+for kv in "$@"; do tmux set-environment -t "$name" "${kv%%=*}" "${kv#*=}" 2>/dev/null; done
+tmux send-keys -t "$name" -l "$run" || exit 1
+sleep 0.3
+tmux send-keys -t "$name" Enter || exit 1
+if [ -n "$prompt" ]; then sleep 0.8; tmux send-keys -t "$name" -l "$prompt"; sleep 0.3; tmux send-keys -t "$name" Enter; fi
+' _ "$name" "$root" "$run_cmd" "$prompt" ${envp[@]+"${envp[@]}"} || rc=$?
+  if [[ "$rc" -ne 0 ]]; then
+    printf 'tmuxc: %s open 실패 rc=%s\n' "$host" "$rc" >&2
+    return "$rc"
+  fi
+  printf 'tmuxc open created (host=%s)\nsession=%s\nroot=%s\nagent=%s\nrole=%s\ncommand=%s\nattach=ssh -t %s tmux attach -t %s\n' \
+    "$host" "$name" "$root" "$agent" "$role" "$run_cmd" "$(hl h_field "$host" ssh_alias 2>/dev/null)" "$name"
+  return 0
+}
+
 cmd_open() {
   local path=""
   local name=""
@@ -880,6 +905,8 @@ cmd_open() {
       --like) like="${2:-}"; shift 2 ;;
       --prompt) prompt="${2:-}"; shift 2 ;;
       --serena) serena=1; shift ;;
+      --host) TMUXC_HOST="${2:-}"; shift 2 ;;
+      --host=*) TMUXC_HOST="${1#--host=}"; shift ;;
       --dry-run) dry_run=1; shift ;;
       --help|-h) usage; exit 0 ;;
       --*) die "unknown option for open: $1" ;;
@@ -894,10 +921,13 @@ cmd_open() {
   done
 
   [[ -n "$path" ]] || die "open requires <path>"
-  [[ -d "$path" ]] || die "path does not exist: $path"
+  local remote_open=0
+  if [[ -n "${TMUXC_HOST:-}" ]] && [[ "$(local_host)" != "$TMUXC_HOST" ]]; then remote_open=1; fi
+  # 원격 좌석의 경로는 «원격 경로» 다 — 이 맥에서 -d 로 볼 수 없다(존재 확인은 원격에서).
+  [[ "$remote_open" -eq 1 ]] || [[ -d "$path" ]] || die "path does not exist: $path"
 
   local root
-  root="$(repo_root_for "$path")"
+  if [[ "$remote_open" -eq 1 ]]; then root="$path"; else root="$(repo_root_for "$path")"; fi
   if [[ -z "$name" ]]; then
     name="$(basename "$root")"
   fi
@@ -944,6 +974,13 @@ cmd_open() {
   case "$serena" in 1|on|true) serena=1 ;; *) serena=0 ;; esac
   if [[ "$serena" == "1" && "$agent" != "pi" ]]; then
     die "--serena 는 --agent pi 에서만 사용 (agent=$agent) — claude 는 tmuxc 가 공유 serena 를 따로 ensure 한다"
+  fi
+  # 원격 open(카드2 · 계약 보강 4) — serena 파일 쓰기·--like 라이브 probe 는 로컬 파일을 쓰므로 원격에서는 미지원(카드3).
+  if [[ "$remote_open" -eq 1 ]]; then
+    [[ "$serena" != "1" ]] || die "--serena 는 원격 미지원 (로컬 .pi/mcp.json 을 쓴다)"
+    [[ -z "$like" ]] || die "--like 는 원격 미지원 (라이브 세션 argv 를 로컬에서 읽는다)"
+    open_remote "$TMUXC_HOST" "$path" "$root" "$name" "$agent" "$role" "$model" "$effort" "$ctx" "$fast" "$dry_run" "${prompt:-}"
+    return $?
   fi
   local pi_sid=""
   if [[ "$agent" == "pi" ]]; then
@@ -1243,6 +1280,18 @@ cmd_fork() {
 }
 
 cmd_list() {
+  if [[ -n "${TMUXC_HOST:-}" ]] && [[ "$(local_host)" != "$TMUXC_HOST" ]]; then
+    # 원격 목록 — ssh 1회로 받아 HOST 열을 앞에 붙인다(설계 「목록」 행)
+    local out rc
+    out="$(hl h_run "$TMUXC_HOST" --idempotent tmux list-sessions -F $'#S\t#{session_path}\t#{session_attached}')" || rc=$?
+    if [[ "${rc:-0}" -ne 0 ]]; then
+      printf 'tmuxc: %s 목록 판정 불가 rc=%s\n' "$TMUXC_HOST" "$rc" >&2
+      return "$rc"
+    fi
+    [[ -n "$out" ]] || return 0
+    printf '%s\n' "$out" | awk -v h="$TMUXC_HOST" -F'\t' '{ printf "%s\t%s\t%s\t%s\n", h, $1, $2, $3 }'
+    return 0
+  fi
   tmux list-sessions -F '#S	#{session_path}	#{session_attached}' 2>/dev/null || return 0
 }
 
@@ -1250,6 +1299,13 @@ cmd_ask() {
   local name="${1:-}"
   local lines="${2:-40}"
   [[ -n "$name" ]] || die "ask requires <name>"
+  if host_resolve "$name" "${TMUXC_HOST:-}"; then
+    local out rc=0
+    out="$(hl h_run "$R_HOST" --idempotent tmux capture-pane -t "=$R_SESS:" -p)" || rc=$?
+    [[ "$rc" -eq 0 ]] || die "remote capture failed rc=$rc: $R_HOST/$R_SESS"
+    printf '%s\n' "$out" | tail -n "$lines"
+    return 0
+  fi
   tmux has-session -t "$name" 2>/dev/null || die "session not found: $name"
   tmux capture-pane -t "$name" -p | tail -n "$lines"
 }
@@ -1259,6 +1315,36 @@ cmd_send() {
   shift || true
   [[ -n "$name" ]] || die "send requires <name>"
   [[ $# -gt 0 ]] || die "send requires <message>"
+  if host_resolve "$name" "${TMUXC_HOST:-}"; then
+    local rc=0 base="" baserc=0
+    # baseline 은 «보내기 전» 에 잡는다 — rc6(기록 id 없음)일 때만 쓰지만, 보낸 뒤에는 잡을 수 없다.
+    base="$(remote_reach_baseline "$R_HOST" "$R_SESS" "$*" 2>/dev/null)" || baserc=$?
+    remote_send_locked "$R_HOST" "$R_SESS" "$*" || rc=$?
+    case "$rc" in
+      0) printf 'delivered=%s/%s\n' "$R_HOST" "$R_SESS"; return 0 ;;
+      # 4·5 = 주입 절차가 직접 낸 판정(기록 마감·판독 불가). ft-reach-check 로 다시 묻지 않는다.
+      4) printf 'sent=%s/%s verification=not-reached\n' "$R_HOST" "$R_SESS"; return 4 ;;
+      5) printf 'sent=%s/%s verification=unverifiable\n' "$R_HOST" "$R_SESS"; return 5 ;;
+      6) ;;   # 기록 id 없음 = 종전 그대로 ft-reach-check 판정
+      *) printf 'tmuxc: %s/%s 송신 실패 rc=%s\n' "$R_HOST" "$R_SESS" "$rc" >&2; return "$rc" ;;
+    esac
+    # ★baseline 실패를 «빈 값» 으로 삼키지 않는다★(r1047 r3 · 하드 룰 #0) — 빈 값이면 ft-reach-check 가
+    #  판정 «직전» 에 자기 baseline 을 잡아 1 > 1 이 거짓이 되고, 도착한 메시지가 NOT_REACHED 로 뒤집힌다.
+    #  송신은 그대로 하고 최종 판정만 «판정 불가 rc5» 로 낸다(REACHED·NOT_REACHED 둘 다 아님).
+    if [[ "$baserc" -ne 0 ]]; then
+      printf 'sent=%s/%s verification=unverifiable (baseline rc=%s)\n' "$R_HOST" "$R_SESS" "$baserc" >&2
+      return 5
+    fi
+    remote_reach_check "$R_HOST" "$R_SESS" "$*" "$base"
+    rc=$?
+    case "$rc" in
+      0) printf 'delivered=%s/%s\n' "$R_HOST" "$R_SESS" ;;
+      4) printf 'sent=%s/%s verification=not-reached\n' "$R_HOST" "$R_SESS" ;;
+      5) printf 'sent=%s/%s verification=unverifiable\n' "$R_HOST" "$R_SESS" ;;
+      *) printf 'tmuxc: %s/%s 도달 판정 불가 rc=%s\n' "$R_HOST" "$R_SESS" "$rc" >&2 ;;
+    esac
+    return "$rc"
+  fi
   tmux has-session -t "$name" 2>/dev/null || die "session not found: $name"
   inject_message "$name" "$*"
   sleep 1
@@ -2056,42 +2142,6 @@ pane_id_of() {
     | awk -F'|' -v s="$1" '$1==s{print $2; exit}'
 }
 
-# 입력 박스 내용을 읽는다. Claude Code TUI 는 「세션명 붙은 구분선 / 입력줄 / 구분선 / 상태줄」
-# 구조라, 아래에서부터 구분선 두 개를 찾아 그 사이를 입력줄로 본다.
-# 구조가 안 맞으면(codex 등 다른 UI) 비-0 으로 끝낸다 — 추측해서 제출하지 않는다.
-capture_input_line() {
-  local pane="$1" cap
-  # r925 P1: 둘째 인자 "join" = -J 로 감긴 줄을 합쳐 읽는다(긴 글자가 폭에 걸려도 한 줄로 본다).
-  # r925 r3 R4: capture-pane rc≠0 = 판독 불가(rc2) — 정상 모양 출력이 함께 와도 믿지 않는다.
-  # r925 r4: "lines" = -J 로 읽되 입력 상자의 «화면 줄» 을 한 줄씩 그대로 낸다(합치지 않음 · 이어지는 줄의 들여쓰기만 벗김).
-  #   claude TUI 는 긴 글을 스스로 여러 줄로 감는다(실측 10-26) — 줄 경계는 input_is_message 가 따로 다룬다.
-  if [[ "${2:-}" == "join" || "${2:-}" == "lines" ]]; then
-    cap="$(tmux capture-pane -J -t "$pane" -p 2>/dev/null)" || return 2
-  else
-    cap="$(tmux capture-pane -t "$pane" -p 2>/dev/null)" || return 2
-  fi
-  # r925 r3 R2: SGR(색·흐림) 은 전부 벗기고 글자만 본다 — 색으로 «우리 글자» 를 가리지 않는다.
-  printf '%s\n' "$cap" | awk -v mode="${2:-}" '
-    { l[NR] = $0 }
-    END {
-      for (i = NR; i >= 1; i--)
-        if (l[i] ~ /^─────/) { if (!b) { b = i } else { a = i; break } }
-      if (!a || !b) exit 1
-      out = ""
-      for (i = a + 1; i < b; i++) {
-        s = l[i]
-        gsub(/\033\[[0-9;:]*m/, "", s)
-        if (i == a + 1 || mode != "lines") sub(/^[[:space:]]*❯[[:space:]]?/, "", s)
-        else sub(/^[[:space:]]+/, "", s)
-        sub(/[[:space:]]+$/, "", s)
-        if (s == "") continue
-        if (mode == "lines") out = (out == "" ? s : out "\n" s)
-        else out = (out == "" ? s : out " " s)
-      }
-      print out
-    }'
-}
-
 # 박스 «위»(=처리 이력)에 그 문장이 있는지. 잔상의 「전달됨 vs 유실」을 가르는 유일한 축.
 transcript_has() {
   local pane="$1" text="$2"
@@ -2181,6 +2231,16 @@ main() {
   local cmd="${1:-}"
   [[ -n "$cmd" ]] || { usage; exit 1; }
   shift || true
+  # 전 명령 공통 --host (r1047) — 없으면 지금 동작 그대로(R6). 인자 자리에서는 빠진다.
+  local -a argv=()
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --host) TMUXC_HOST="${2:-}"; shift 2 || shift ;;
+      --host=*) TMUXC_HOST="${1#--host=}"; shift ;;
+      *) argv+=("$1"); shift ;;
+    esac
+  done
+  set -- ${argv[@]+"${argv[@]}"}
   case "$cmd" in
     open|wt) cmd_open "$@" ;;
     fork) cmd_fork "$@" ;;
@@ -2216,6 +2276,13 @@ main() {
       ;;
     kill)
       [[ -n "${1:-}" ]] || die "kill requires <name>"
+      if host_resolve "$1" "${TMUXC_HOST:-}"; then
+        local krc=0
+        hl h_run "$R_HOST" --write tmux kill-session -t "$R_SESS" || krc=$?
+        [[ "$krc" -eq 0 ]] || die "remote kill 실패 rc=$krc: $R_HOST/$R_SESS"
+        printf 'killed=%s/%s\n' "$R_HOST" "$R_SESS"
+        return 0
+      fi
       tmux kill-session -t "$1"
       ;;
     clean) cmd_clean ;;

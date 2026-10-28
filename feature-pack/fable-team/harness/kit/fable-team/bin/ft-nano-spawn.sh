@@ -538,11 +538,11 @@ _PKX="$(pack_wt_line "$IDX" "$SLUG" "$BRANCH")"
 if grep -q '^- 슬랙:' "$IDX"; then _TP="${FT_THREAD_POST:-$HOME/.hermes/scripts/byz_thread_post.py}"
   if [ -f "$_TP" ]; then if [ -x "$_TP" ]; then "$_TP" check --card "$IDX"; else python3 "$_TP" check --card "$IDX"; fi >/dev/null 2>&1; _src=$?; else _src=127; fi
   case "$_src" in 0|1) ;; 3) echo "REJECT 슬랙 장부 불명 — byz_thread_post.py repair --card $IDX (부작용 0)"; exit 1;; *) echo "REJECT 슬랙 장부 확인 실패 rc=$_src(127=도구 없음) — 부작용 0"; exit 1;; esac; fi
-# r444 ⑤ 디스크 여유 검사 — 새 워크트리를 만들 때만 · 여유 < FT_NANO_MIN_FREE_GI(40)Gi 면 spawn 0(부작용 «전»). 회수 연결(r440)은 착지 뒤 — 지금은 REJECT 1줄 + [HIL]. 측정 실패도 REJECT(여유 미상 ≠ 충분).
+# r1078: r444 ⑤ 디스크 여유 검사 — 새 워크트리를 만들 때만 · 여유 < FT_NANO_MIN_FREE_GI(40)Gi 면 WARN 1줄 + 진행(r921 «멈추는 것은 디스크 하한 1GiB·측정 실패 둘뿐» · 회수 권장은 WARN 줄에). 측정 실패는 REJECT(여유 미상 ≠ 충분).
 if [ ! -d "$WTDIR" ]; then
   _free="${FT_DISK_FREE_GIB:-$(df -Pk "$ROOT" 2>/dev/null | awk 'NR==2 && $4+0>0{print int($4/1048576)}')}"
   case "$_free" in ''|*[!0-9]*) echo "REJECT [HIL] 디스크 여유 측정 실패(df $ROOT · 값 '${_free}') — spawn 0 · 여유 미상은 충분하다는 뜻 아님"; exit 1;; esac
-  [ "$_free" -ge "${FT_NANO_MIN_FREE_GI:-40}" ] || { echo "REJECT [HIL] 디스크 여유 ${_free}Gi < ${FT_NANO_MIN_FREE_GI:-40}Gi — spawn 0 · 회수 먼저(유휴·완료 좌석 ft-resource-reclaim.sh · 정리 계획 ft-wt-sweep.sh) 뒤 다시"; exit 1; }
+  [ "$_free" -ge "${FT_NANO_MIN_FREE_GI:-40}" ] || echo "WARN 디스크 여유 ${_free}Gi < ${FT_NANO_MIN_FREE_GI:-40}Gi — 진행(r1078 · 정지는 디스크 하한 1GiB·측정 실패 둘뿐) · 회수 권장 ft-resource-reclaim.sh · ft-wt-sweep.sh" >&2
 fi
 if [ "$DRY" = 1 ]; then [ "$RESEARCH" != 1 ] || echo "RESEARCH seat=$NAME allow=$_RS_ALLOW card=$IDX_REL body=$_RSP"; [ -d "$WTDIR" ] || echo "PLAN shim-init $WTDIR (워크트리 생성 직후 ft-root-bin-shim.sh --init)"; "${OPEN[@]}" --dry-run; exit 0; fi
 # R251 ⓐ 추론 프록시 사전 확인(7초 룰 · 부작용 0 지점) — 순간 장애는 넘기고 진짜 장애면 직결로 바꾸지 않는다
@@ -587,6 +587,32 @@ link_web_node_modules() {
     echo "node_modules=link lock=differ (루트 node_modules 판이 이 base 와 다름 — 웹 시험 RED 는 환경 원인 후보)"
   fi
 }
+
+# ★r1072 SEATBELT-README 경로 = 좌석·명부·카드 «손대기 전»(워크트리·tmux·seats·git mv 앞)에 푼다★
+#   자리 = --dry-run 종료 줄 «뒤»(dry-run 은 좌석을 열지 않아 README 가 필요 없다 — 기존 동작 보존) · ② 워크트리 «앞».
+#   옛 자리(⑦⑧)는 좌석을 열고 명부를 쓰고 카드를 옮긴 «뒤» 였다 — ccu 처럼 sparse 워크트리(v65 폴더 없음)에서
+#   경로를 못 풀면 REJECT 가 그 뒤에 떠서 «좌석만 열리고 첫 발주 0» 이 남았다(실측 2026-10-28 ccu#18).
+#   해석 순서: ① FT_SEATBELT_README(명시 = 그대로) ② 디스크(ft_team_file_ref · 실재 1개)
+#   ③ ref 판 사본 — <루트>/.fable-team/state/seatbelt-readme/<ref sha 12>-SEATBELT-README.md (같은 sha = 재사용 · tmp+mv)
+#   셋 다 실패 = rc1(부르는 쪽이 REJECT — 좌석·명부·카드 손 0). 결과 = 전역 _SBR(경로) · _SBR_REF(사본일 때만 ref 이름)
+#   ★$( ) 로 부르지 않는다★ — 서브셸이면 _SBR_REF 가 부르는 쪽으로 안 온다.
+seatbelt_readme_path() {
+  local ref sha doc dest tmp
+  _SBR=""; _SBR_REF=""
+  if [ -n "${FT_SEATBELT_README:-}" ]; then _SBR="$WT/$FT_SEATBELT_README"; return 0; fi   # R406: 명시 지정은 그대로
+  if doc="$(ft_team_file_ref "$WT" v65 SEATBELT-README.md)"; then _SBR="$doc"; return 0; fi   # R406: 기본값 = 명단 ref 의 v65 폴더 꼴·쌍둥이 중 WT 에 실재하는 1개
+  ref="${FT_TEAMS_REF:-origin/main}"
+  sha="$(git -C "$WT" rev-parse --verify -q "$ref^{commit}" 2>/dev/null)" || return 1
+  doc="$(ft_team_doc_ref "$WT" v65 SEATBELT-README.md "$ref")" || return 1
+  dest="$ROOT/.fable-team/state/seatbelt-readme/${sha:0:12}-SEATBELT-README.md"
+  if [ ! -f "$dest" ]; then   # 같은 ref sha = 이미 꺼낸 사본 재사용(두 번 spawn 해도 1개)
+    { mkdir -p "${dest%/*}" && tmp="$dest.tmp.$$" && cp "$doc" "$tmp" && mv -f "$tmp" "$dest"; } 2>/dev/null || { rm -f "${tmp:-}" "$doc" 2>/dev/null; return 1; }
+  fi
+  ft_team_doc_tmp "$doc" && rm -f "$doc"
+  _SBR="$dest"; _SBR_REF="$ref"
+  return 0
+}
+seatbelt_readme_path || { echo "REJECT SEATBELT-README 경로를 못 풀었다(디스크 0 · ${FT_TEAMS_REF:-origin/main} 판 0) — 좌석·명부·카드 손대기 전"; exit 1; }
 
 # ② 워크트리 — 이미 있으면 재사용(재발주), 없으면 기준 브랜치에서 분기
 # r444 ⑤ sparse — 남의 팀 폴더(design/teams/<남>/)는 체크아웃하지 않는다(나노 1개 1.5Gi 중 design 1.34Gi).
@@ -747,9 +773,8 @@ PY
 bash "$HERE/ft-sheet-events.sh" commit "$_SK" >/dev/null || true   # 좌석 열림+명부+카드 이동까지 끝 = 착수 사건 성공 (append 실패는 stderr SHEET-EVENT-PENDING · rc 그대로)
 
 # ⑦⑧ 첫 발주 = 인덱스 경로 한 줄 + README. 본문은 파일에 있다. 도달은 jsonl 층(ft-send-verified)
-if [ -n "${FT_SEATBELT_README:-}" ]; then _SBR="$WT/$FT_SEATBELT_README"   # R406: 기본값 = 명단 ref(FT_TEAMS_REF · 기본 origin/main) 의 v65 폴더 꼴·쌍둥이 중 WT 에 실재하는 1개
-else _SBR="$(ft_team_file_ref "$WT" v65 SEATBELT-README.md)" || { echo "REJECT v65 팀 폴더를 못 풀었다(명단 ${FT_TEAMS_REF:-origin/main}:design/TEAMS.md · 후보 실재 1개) — SEATBELT-README 경로 없음"; exit 1; }; fi
-BODY="[Seatbelt 발주] 네 인덱스: $WT/$NEW_IDX — 먼저 $_SBR §2 부팅 5단계(첫 보고까지), 그 다음 인덱스 §구현 범위만. 커밋은 브랜치 $BRANCH, push 금지. 산출 경로를 mbox 로 $FROM 에. ★press(라이브 오디오 시험) 금지 — 나노는 쏘지 않는다(ft-press-gate ⑦ 이 tester·checker 좌석만 허가 · 오빠 10-07) · 시험은 단위·캡처·기존 로그만, press 가 필요하면 산출에 「press 필요: <무엇을 볼지>」 1줄로 적어 $FROM 에 넘긴다★ ★측정 조작 금지(오빠 절대지침) — 임의 Redis 쓰기(redis-cli SET·HSET·XADD·PUBLISH 등 제품 키 직접 주입)·말풍선 DOM 주입(재생 하네스·/dev/bubble-replay·appendChild)으로 만든 결과는 증거 아님 · 측정은 trusted 클릭 + 기존 e2e 러너의 실제 음성 경로만 · 격리 Redis 픽스처 시험은 별개 · 이미 썼으면 [HIL] 로 올림 (BOOT 20)★ ★편집은 Edit 절대경로($WTDIR/…)만★ ★읽기는 Read · 코드 찾기는 ci, Bash 는 실행(git·pytest·ruff·mbox)만★ — cat/sed -n/grep 으로 파일을 읽으면 전문이 컨텍스트에 쌓인다(2026-09-14 나노 16좌석 실측: Bash 100~156회 중 절반이 파일 읽기). ★증거 줄(세트: … · 시험: … rc=… · 이슈: …)은 완료 턴에 네가 인덱스 «상태» 절에 직접 쓴다($WT/$NEW_IDX 절대경로 Edit) — master 는 커밋만(판정 1125)★ 증거 줄 템플릿(그대로 복사해 <> 만 채움): 세트: <나노 HEAD 40자> · 시험: <명령 — «(N passed)» 같은 꼬리는 여기> rc=<n> · 이슈: 0 — rc= 바로 뒤는 « · 이슈:» — 괄호·설명은 rc= 앞에. ★팀 구조: 각 팀 = master(집행) + arch(설계·발주·DA 소환) + DA(반박 게이트) 상시 · 실제 작업은 전부 나노(카드 1장 = 나노 1석) · master·arch·DA 는 코드·시안·카드 증거 줄을 쓰지 않는다★${_SPX}${_SRX}${_AFX}${_RLX}$_PKX${_EBN}"
+#   r1072: $_SBR 은 좌석 열기 «전»(seatbelt_readme_path)에 이미 풀렸다 — 여기서 다시 풀지 않는다(경로가 두 벌이 되면 갈린다).
+BODY="[Seatbelt 발주] 네 인덱스: $WT/$NEW_IDX — 먼저 $_SBR${_SBR_REF:+ (ref $_SBR_REF 판 사본)} §2 부팅 5단계(첫 보고까지), 그 다음 인덱스 §구현 범위만. 커밋은 브랜치 $BRANCH, push 금지. 산출 경로를 mbox 로 $FROM 에. ★press(라이브 오디오 시험) 금지 — 나노는 쏘지 않는다(ft-press-gate ⑦ 이 tester·checker 좌석만 허가 · 오빠 10-07) · 시험은 단위·캡처·기존 로그만, press 가 필요하면 산출에 「press 필요: <무엇을 볼지>」 1줄로 적어 $FROM 에 넘긴다★ ★측정 조작 금지(오빠 절대지침) — 임의 Redis 쓰기(redis-cli SET·HSET·XADD·PUBLISH 등 제품 키 직접 주입)·말풍선 DOM 주입(재생 하네스·/dev/bubble-replay·appendChild)으로 만든 결과는 증거 아님 · 측정은 trusted 클릭 + 기존 e2e 러너의 실제 음성 경로만 · 격리 Redis 픽스처 시험은 별개 · 이미 썼으면 [HIL] 로 올림 (BOOT 20)★ ★편집은 Edit 절대경로($WTDIR/…)만★ ★읽기는 Read · 코드 찾기는 ci, Bash 는 실행(git·pytest·ruff·mbox)만★ — cat/sed -n/grep 으로 파일을 읽으면 전문이 컨텍스트에 쌓인다(2026-09-14 나노 16좌석 실측: Bash 100~156회 중 절반이 파일 읽기). ★증거 줄(세트: … · 시험: … rc=… · 이슈: …)은 완료 턴에 네가 인덱스 «상태» 절에 직접 쓴다($WT/$NEW_IDX 절대경로 Edit) — master 는 커밋만(판정 1125)★ 증거 줄 템플릿(그대로 복사해 <> 만 채움): 세트: <나노 HEAD 40자> · 시험: <명령 — «(N passed)» 같은 꼬리는 여기> rc=<n> · 이슈: 0 — rc= 바로 뒤는 « · 이슈:» — 괄호·설명은 rc= 앞에. ★팀 구조: 각 팀 = master(집행) + arch(설계·발주·DA 소환) + DA(반박 게이트) 상시 · 실제 작업은 전부 나노(카드 1장 = 나노 1석) · master·arch·DA 는 코드·시안·카드 증거 줄을 쓰지 않는다★${_SPX}${_SRX}${_AFX}${_RLX}$_PKX${_EBN}"
 [ "$RESEARCH" != 1 ] || BODY="$BODY$_RSP"
 [ "$TIER" != search ] || BODY="$BODY ★검색 나노($AGENT · r286)★ 읽고 모으기만 — 코드 수정·커밋 0 · 산출 = 파일 1개 + mbox relay · 끝나면 [완료·휴식] (닫기 = master ft-nano-close · $AGENT 프로세스 left=0 확인)."
 # ★r1025: 송신 «직전» 최종 본문 검사★ 전역 하드 룰 16 은 «사람·나노·스크립트 모두 ci» 인데 이 스크립트의 고정 문구가

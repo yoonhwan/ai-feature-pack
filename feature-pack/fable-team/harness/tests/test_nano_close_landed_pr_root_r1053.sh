@@ -3,10 +3,10 @@
 # 임시 git 리포 + 가짜 tmux·gh(PATH 앞)만 쓴다 — 실 리포·seats·tmux·gh(네트워크) 0 · 자기 재호출 0 · 고정 sleep 0 · GIT_* env 0.
 # ⓐ R1 대상 줄 0 · 카드 = ROOT 작업 트리 파일 · MERGED → CLOSED + INFO «카드 위치 근거 → ROOT» + gh -R ROOT 1회
 #    ⓐ2 같은 입력 · 카드 = ROOT 의 ref 판(임시 파일 · 실사건 꼴 = origin/main 판) → 같음
-# ⓑ R2 같은 입력 + OPEN · CLOSED(미병합) → REJECT state=… · 닫기 0
+# ⓑ R2 같은 입력 + OPEN · CLOSED + main 에 산출 없음(r1058: 판정 = origin/main) → REJECT state=… · 닫기 0
 # ⓔ R5 카드가 ROOT 밖 다른 리포에 삶 + 대상 줄 0 → REJECT «≠ ROOT» · gh 0
 # ⓓ R7 마지막 증거 줄에 «시험:» 칸 없음 + MERGED → 통과(형식 검사 0) · + OPEN → REJECT · R8 --landed-pr 없음 → «형식 불일치» REJECT
-# 변이: «ROOT 갈래 끔» → ⓐ FAIL · «카드 리포 대조 끔» → ⓔ FAIL · «MERGED 검사 끔(면제를 PR 상태와 무관하게)» → ⓓ OPEN 칸 FAIL
+# 변이: «ROOT 갈래 끔» → ⓐ FAIL · «카드 리포 대조 끔» → ⓔ FAIL · «착지 판정 끔(r1058: _lp_landed_gate)» → ⓓ OPEN 칸 FAIL
 # ③ 기존 갈래(R3 팩·섞임 · R4 카드 없음 · R6 --wt 팩) = test_nano_close_landed_pr_r1011.sh 회귀
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"
 set -uo pipefail
@@ -116,10 +116,10 @@ out="$(CARD_REF=refs/cardref close --landed-pr 363)"; rc=$?
 has "$out" "INFO 카드 위치 ← refs/cardref:$CARD_REL" "  └ 읽기 판 = ref 판(임시 파일)"
 [ "$rc" -eq 0 ] && has "$out" "카드 위치 근거 → ROOT" "ⓐ2 ref 판 → ROOT · rc=0" || bad "ⓐ2 rc=$rc ← ${out:0:900}"
 
-echo "== ⓑ R2 같은 입력 + OPEN · CLOSED(미병합) → REJECT · 닫기 0"
+echo "== ⓑ R2 같은 입력 + OPEN · CLOSED + main 에 산출 없음 → REJECT · 닫기 0"
 for st in OPEN CLOSED; do
   setup "$st"; out="$(close --landed-pr 363)"; rc=$?
-  [ "$rc" -eq 1 ] && has "$out" "state=$st — MERGED 만 닫는다" "ⓑ $st → REJECT" || bad "ⓑ $st rc=$rc ← ${out:0:600}"
+  [ "$rc" -eq 1 ] && has "$out" "state=$st · main 에 산출 없음" "ⓑ $st → REJECT" || bad "ⓑ $st rc=$rc ← ${out:0:600}"
   untouched "ⓑ $st"
 done
 
@@ -151,10 +151,10 @@ mutant 'if [ -n "$t" ] && [ "$t" = "$nw" ]; then repo="$ROOT"' 'if true; then re
 setup MERGED; mkdir -p "$OTHER/$(dirname "$CARD_REL")"; mv "$CARD" "$OTHER/$CARD_REL"
 out="$(LWT="$OTHER" CLOSE_BIN="$T/mutbin/ft-nano-close.sh" close --landed-pr 363)"; rc=$?
 [ "$rc" -eq 0 ] && ok "변이(대조 끔) → ROOT 밖 카드가 닫힘 = ⓔ 가 잡는다(변이 FAIL)" || bad "변이 안 먹음 rc=$rc ← $(printf '%s' "$out" | tail -3)"
-echo "== 변이 «면제를 PR 상태와 무관하게(MERGED 검사 끔)» → ⓓ OPEN 칸이 잡는다"
-mutant 'if [ "$_lp_state" != MERGED ]; then' 'if false; then'
+echo "== 변이 «착지 판정 끔(상태 칸과 무관하게 면제)» → ⓓ OPEN 칸이 잡는다"
+mutant '  _lp_landed_gate || return 1' '  :'
 setup OPEN no-test; out="$(CLOSE_BIN="$T/mutbin/ft-nano-close.sh" close --landed-pr 363)"; rc=$?
-[ "$rc" -eq 0 ] && ok "변이(MERGED 검사 끔) → OPEN 카드가 닫힘 = ⓓ OPEN 칸이 잡는다(변이 FAIL)" || bad "변이 안 먹음 rc=$rc ← $(printf '%s' "$out" | tail -3)"
+[ "$rc" -eq 0 ] && ok "변이(착지 판정 끔) → OPEN 카드가 닫힘 = ⓓ OPEN 칸이 잡는다(변이 FAIL)" || bad "변이 안 먹음 rc=$rc ← $(printf '%s' "$out" | tail -3)"
 
 echo
 [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }

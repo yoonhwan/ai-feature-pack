@@ -189,5 +189,79 @@ sed "s#$TPL_NEW#$TPL_OLD#" "$TPL" > "$T/old.template"
 rbin "$T/old.template" > "$T/old.plist"; rc_m2=$?
 eq "ⓔ 변이(/usr/bin/python3) → R2 칸이 깨진다" "$([ "$rc_m2" = 0 ] && [ "$(plutil -extract ProgramArguments.0 raw "$T/old.plist" 2>/dev/null)" != "/opt/homebrew/bin/python3" ] && echo broken || echo same)" "broken"
 
+# ── ⓕ 정본 폴더 = env FT_HARNESS_ROOT · 지도 폴백 아님 (r1064 · R1) ─────────
+OPS2="$T/ops2"; mkdir -p "$OPS2/design/harness/indices/대기" "$OPS2/design/harness/indices/진행" "$OPS2/design/harness/indices/완성"
+for i in 1 2 3 4; do echo "- q$i" > "$OPS2/design/harness/indices/진행/q$i.md"; done
+F="$(FT_HARNESS_ROOT="$OPS2" render)"
+eq "ⓕ env 폴더 숫자(대기 0·진행 4·완성 0)" "$(printf '%s' "$F" | grep -c '^| harness | .* | 0 | 4 | 0 | ')" "1"
+eq "ⓕ 처음 픽스처 숫자(5·2·1) 아님" "$(printf '%s' "$F" | grep -c '^| harness | .* | 5 | 2 | 1 | ')" "0"
+mutant ft_news_desk_blocks.py 's|team_root(team, root)|Path(str(root)) / "design" / "harness"|' >/dev/null
+eq "ⓕ 변이(env 폴더 무시) → 이 시험 문장이 깨진다" "$(FT_HARNESS_ROOT="$OPS2" mrender | grep -c '^| harness | .* | 0 | 4 | 0 | ')" "0"
+
+# ── ⓖ env 없음 → 지도 폴백 0 · «확인 불가» (R2) ─────────────────────────────
+G2="$(FT_HARNESS_ROOT='' render)"
+NOENV='| 확인 불가(FT_HARNESS_ROOT 없음) | 확인 불가(FT_HARNESS_ROOT 없음) | 확인 불가(FT_HARNESS_ROOT 없음) | '
+eq "ⓖ harness 카드 세 칸 = 확인 불가(FT_HARNESS_ROOT 없음)" "$(printf '%s' "$G2" | grep -c "^| harness | .*${NOENV}")" "1"
+eq "ⓖ 다른 팀(feature) 행은 그대로(«확인 불가» 아님)" "$(printf '%s' "$G2" | grep '^| feature |' | grep -c 'FT_HARNESS_ROOT 없음')" "0"
+eq "ⓖ feature 행 숫자 칸 실재" "$(printf '%s' "$G2" | grep -c '^| feature | .* | [0-9]\{1,\} | [0-9]\{1,\} | [0-9]\{1,\} | ')" "1"
+: > "$T/mbox.log"; : > "$T/err"
+FT_HARNESS_ROOT='' FT_DESK_STATE="$T/state-noenv" FT_DESK_NOW="2026-10-28 18:02" runs; rc_g=$?
+eq "ⓖ env 없어도 relay 는 나감 rc0" "$rc_g" "0"
+eq "ⓖ relay 1통" "$(relays)" "1"
+eq "ⓖ ERROR 로그 1줄" "$(grep -c 'harness 카드 숫자 확인 불가: env FT_HARNESS_ROOT 없음' "$T/err")" "1"
+mutant ft_news_desk_blocks.py 's/if _needs_env(team, root):/if False:/' >/dev/null
+eq "ⓖ 변이(지도 폴백 복원) → 이 시험 문장이 깨진다" "$(FT_HARNESS_ROOT='' mrender | grep -c '확인 불가(FT_HARNESS_ROOT 없음)')" "0"
+
+# ── ⓗ 도구 7초 상한 + 재시도 1 (R3) ────────────────────────────────────────
+H1="$T/hil1.mark"; rm -f "$H1"; export H1
+cat > "$T/hil-slow1.sh" <<'SH'
+#!/usr/bin/env bash
+if [ -f "$H1" ]; then printf 'h1 12\n'; else : > "$H1"; sleep 2; printf 'h1 12\n'; fi
+SH
+chmod +x "$T/hil-slow1.sh"
+H3="$(FT_DESK_HIL="$T/hil-slow1.sh" FT_DESK_TOOL_TIMEOUT=1 render)"
+eq "ⓗ 첫 호출 상한 초과 → 재시도 성공 값" "$(printf '%s' "$H3" | grep -c '^- 실행할 스크립트: 1개 (미실행 h 1개 · 가장 오래된 12분)')" "1"
+eq "ⓗ 성공했으니 «직전 값» 0" "$(printf '%s' "$H3" | grep -c '직전 값')" "0"
+
+# ── ⓘ 둘 다 실패 → 직전 값(HH:MM) · 없으면 확인 불가 (R4·R5) ─────────────────
+cat > "$T/hil-fail.sh" <<'SH'
+#!/usr/bin/env bash
+sleep 2
+SH
+chmod +x "$T/hil-fail.sh"
+FT_DESK_NOW="2026-10-28 16:50" render >/dev/null   # 성공 1회 = 상태 파일에 16:50 이 박힌다
+I4="$(FT_DESK_HIL="$T/hil-fail.sh" FT_DESK_TOOL_TIMEOUT=1 render)"
+eq "ⓘ R4 직전 값(HH:MM) 줄" "$(printf '%s' "$I4" | grep -c '^- 실행할 스크립트: 직전 값(16:50) · 지금 확인 불가: ')" "1"
+eq "ⓘ R4 질문 칸은 성공값(직전 값 아님)" "$(printf '%s' "$I4" | grep -cF -- '- 답 대기 질문: 결정 인터뷰 27건')" "1"
+: > "$T/err"
+FT_DESK_HIL="$T/hil-fail.sh" FT_DESK_TOOL_TIMEOUT=1 render >/dev/null
+eq "ⓘ R4 ERROR 로그 1줄(칸당)" "$(grep -c '오빠 손 실행할 스크립트 칸 확인 불가' "$T/err")" "1"
+mv "$ROOT/.fable-team/state/ft-news-desk-last.json" "$T/sticky.bak"
+I5="$(FT_DESK_HIL="$T/hil-fail.sh" FT_DESK_TOOL_TIMEOUT=1 render)"
+eq "ⓘ R5 상태 파일 없음 → 확인 불가 1줄" "$(printf '%s' "$I5" | grep -c '^- 확인 불가(')" "1"
+eq "ⓘ R5 «직전 값» 0" "$(printf '%s' "$I5" | grep -c '직전 값')" "0"
+mv "$T/sticky.bak" "$ROOT/.fable-team/state/ft-news-desk-last.json"
+mutant ft_news_desk.py 's/if prev.get("at")/if False/' >/dev/null
+eq "ⓘ 변이(직전 값 표시 끔) → 이 시험 문장이 깨진다" "$(FT_DESK_HIL="$T/hil-fail.sh" FT_DESK_TOOL_TIMEOUT=1 mrender | grep -c '직전 값(16:50)')" "0"
+
+# ── ⓙ ft-hil 호출 = 틱당 1 (R6) ────────────────────────────────────────────
+cat > "$T/hil-count.sh" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$HCALL"
+printf 'h1 9\nh2 4\n'
+SH
+chmod +x "$T/hil-count.sh"
+HCALL="$T/hil-calls.log"; : > "$HCALL"; export HCALL
+FT_DESK_HIL="$T/hil-count.sh" render >/dev/null
+eq "ⓙ ft-hil 호출 횟수 1" "$(wc -l < "$HCALL" | tr -d ' ')" "1"
+eq "ⓙ 인자 = --pending --each" "$(cat "$HCALL")" "--pending --each"
+eq "ⓙ 두 번째 --pending 호출 0" "$(grep -c -- '--pending$' "$HCALL" || true)" "0"
+
+# ── ⓚ plist 템플릿 FT_HARNESS_ROOT (R7) ────────────────────────────────────
+rbin "$TPL" > "$T/news2.plist"
+eq "ⓚ FT_HARNESS_ROOT 키 1개" "$(grep -c '<key>FT_HARNESS_ROOT</key>' "$T/news2.plist")" "1"
+eq "ⓚ 값 = <루트>/.worktrees/harness-ops" "$(plutil -extract EnvironmentVariables.FT_HARNESS_ROOT raw "$T/news2.plist" 2>/dev/null)" "$G/.worktrees/harness-ops"
+eq "ⓚ 렌더본 자리표시 잔재 0" "$(grep -c '__[A-Z_]\{1,\}__' "$T/news2.plist" || true)" "0"
+
 echo "RESULT fail=$fail"
 [ "$fail" = 0 ]

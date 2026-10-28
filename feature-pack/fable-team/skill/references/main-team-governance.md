@@ -86,6 +86,7 @@ PR·Issue 는 본문에서 번호 인덱스(`#836`)로만 부르고, 글 맨 아
 2. **30초 넘는 집행(착지·h 검증·설치·시험)은 전경에서 돌리지 않는다.** `run_in_background` 로 띄우거나, 여러 건이면 Haiku 집행 워커 1개(서브에이전트)에 직렬로 맡기고 턴을 돌려준다. 결과는 알림이 온 턴에 묶어 한 번에 보고한다.
 3. **착지는 각 팀 master 가 한다.** planner 는 h 발급·결정만 한다(팩 PR = 하네스 master).
 4. **틱마다 «나노 유휴 60분+» 를 본다.** 팀장은 자기 팀 것을 그 틱에 닫고([완료] 뒤 오빠 턴 없음 확인), planner 는 전 팀을 보고 걸린 팀장에 닫기를 지시한다.
+5. **desk 가 오빠께 내는 모든 보고(화면·슬랙)는 결론 바로 다음 줄에 «카운터 줄»을 싣는다**(오빠 2026-10-28 18:5x «이거 왜 카운팅 메세지마다 공유안하냐. 막혀있는거 한줄로 알려야하는거» · «왜 잃었어?» · «다신 안잊게 지침»). 꼴 = `카운터: <ft-autonomy.sh scope-status 출력 원문> · 오빠 손 h <N>개 · 막힘: <한 줄 | 0>`. 오빠 손 h = `.ran`·`.superseded` 없는 `/tmp/hN` 중 오빠가 칠 것. 막힘 = 오빠 답 대기·실패 h·멈춘 팀 중 가장 큰 1건. 승계 인계서 «일하는 방식» 첫 줄에도 이 줄을 복사한다(desk#72 가 승계 뒤 14통 내내 빠뜨림).
 강제 = 하네스 카드(`desk-bash-fg-gate` 를 master·planner 좌석까지 넓힘).
 
 ## 12. 팀별 Desktop 피드백 좌석 (오빠 2026-10-27 11:3x «오 잘되네. 이방법을 공식 하네스팀 랜딩.»)
@@ -108,6 +109,9 @@ PR·Issue 는 본문에서 번호 인덱스(`#836`)로만 부르고, 글 맨 아
 4. **그래도 안 풀리면 Opus 5.5**(`claude-opus-5-5`)로 승계한다. `--model op`(또는 풀네임) 를 명시하고, 문제가 이어지는 중이면 `--carry 1` 을 같이 적는다. 풀리면 다음 승계에서 `--model sn` + `--carry 0` 으로 돌아온다.
 5. **사용례 한 줄**: `ft-successor-open.sh <구 좌석> <워크트리> --name <후계> --agent claude --model sn|op [--carry 0|1] --body-file <본문>` — `sn` = `claude-sonnet-5-5` · `op` = `claude-opus-5-5` (그 밖의 값은 그대로 넘어간다). `--carry` 는 값 `0`·`1` 만 받고, 팀장(master) 이름이 아닌 후계에 적으면 usage rc2 로 열지 않는다.
 6. **arch 기본 = Opus 5.5(`claude-opus-5-5`) · 팀장만 Sonnet 5.5** (오빠 2026-10-28 13:5x · r1043). `--model` 을 안 적으면 `ft-successor-open.sh` 는 arch 이름(claude)에 Opus, 팀장(master) 이름에 Sonnet 을 준다. `ft-role-spawn.sh` 는 `--model` 생략 + role=master(claude) 일 때만 Sonnet(`claude-sonnet-5-5[1m]`), 그 밖(arch 포함)은 Opus(`claude-opus-5-5[1m]`). 명시한 `--model` 은 두 도구 모두 덮지 않는다.
+7. **DA 기본 = `gpt-6.1-sol` effort low** (오빠 2026-10-28 19:2x 슬랙 1793182921.486359). `ft-da-codex.sh` 는 `--effort` 를 안 적으면 low 다(r1066). 어려운 판정에서만 부르는 쪽이 `--effort high` 를 적는다.
+8. **상황별 최상위 = fable(`claude-fable-5-1`)·astra(`gpt-6-astra`)** (같은 오빠 슬랙). 하드 룰 14 로 arch·DA 를 올리는 시점에 arch 는 fable, DA 는 astra(또는 sol high)로 승계한다. 문제가 풀리면 다음 승계에서 기본(arch Opus 5.5 · DA sol low)으로 내린다.
+9. **증류·승계 때 모델 = 명시가 없으면 역할 기본** (같은 오빠 슬랙). `ft-successor-open.sh`·`ft-role-spawn.sh`·`ft-tmux-distill.sh`(r1067) 모두 같다. 옛 좌석 모델을 그냥 잇지 않는다. 올린 모델을 이어야 하면 `--model` 을 적는다.
 
 ## 14. 나노 산출 보고 뒤 (오빠 2026-10-28 «왜 멈춰있었어?» · r1035)
 > 근거: 10-28 ops 나노가 REWORK 완료 보고(#177374) 뒤 약 20분 유휴. 닫을 수 있는 행 3개가 카드에 남아 있었고, 지적 뒤 5분 만에 끝났다(#177377 · 커밋 65510610f3). 원인 = 보고 다음 턴의 행동이 어디에도 정의돼 있지 않았다.
@@ -125,3 +129,11 @@ PR·Issue 는 본문에서 번호 인덱스(`#836`)로만 부르고, 글 맨 아
 2. **함께 싣는 값 = `ft-test-reentry-lint.sh <시험파일…>` rc.** rc3 이면 그 시험은 자기 자신을 가드 없이 다시 부르는 것이다 — 격리 통과가 아니다.
 3. **시험 상한은 단독 70초 · 한 회차 7분**(하드 룰 22). 넘으면 «통과» 가 아니라 «쪼갠다» — 돌리는 사람이 아니라 설계가 고친다.
 4. 프로세스 수가 이상하게 늘면 `ft-resource-watch.sh tick` 의 `[프로세스 폭주]` 쪽지(임계 4000 · 같은 명령줄 200개면 그 프로세스만 SIGSTOP)를 먼저 본다. 정리 `kill` 은 HIL 이다.
+
+## 16. 검토·격리 사본 = ft-scratch-repo (오빠 2026-10-29 디스크 긴급 · r1079)
+> 근거: 10-29 새벽 arch#174 실측 — 세션 scratchpad(`/private/tmp/claude-501`) 아래 `.git` 140개, 114GiB. 사본이 장부 밖이라 하루 1회 정리(ft-scratch-repo --sweep)가 보지 못했다. 하네스 arch 인계서(`design/harness/HANDOFF-arch173-to-174-20261029.md` §2)가 «`git clone --shared` 로 `<scratchpad>/x` 에 만든다» 는 꼴을 그대로 적어 두었던 것이 원인이다.
+
+1. **세션 scratchpad 안에 git 사본을 만들지 않는다.** `git clone`·`git worktree add` 의 대상 경로가 `…/scratchpad/…` 이면 안 된다. 근거 = 10-29 `/private/tmp/claude-501` 114GiB(사본 140개 · 장부 밖이라 정리 0).
+2. **검토·격리 사본은 `ft-scratch-repo.sh <sha> [--repo <저장소>]` 로 만든다.** 출력 1줄이 사본 경로다. 팩 저장소는 `--repo /Users/yoonhwan/Project/ai-feature-pack` 를 적는다. 이 도구는 사본을 장부(`.fable-team/state/scratch-repos.tsv`)에 적고, 주인이 없어지면 sweep 이 정리한다.
+3. **끝나면 `ft-scratch-repo.sh --done <경로>` 로 닫는다.** 격리 보고를 보낸 그 턴에 닫는다. 같은 sha 를 다시 볼 일이 있으면 닫기 전까지 그 사본을 다시 쓴다(같은 sha·같은 주인은 재사용).
+4. **변이 시험은 사본 안에서 하고 `git checkout -- .` 로 되돌린 뒤 `--done` 한다.** 되돌리지 않은 더러운 사본은 `--done` 이 거절한다(더러운 사본 = 삭제 0).

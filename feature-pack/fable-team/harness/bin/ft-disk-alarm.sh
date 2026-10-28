@@ -5,6 +5,7 @@
 #   수신자 = planner 명부(seats-planner.json) `_hil_route`(없으면 ERROR rc3 — 경보를 옛 이름·다른 좌석으로 대신 보내지 않는다).
 #   그때 고장 신호만 하네스 master(seats-harness.json `_master`)에 1시간 1통. 삭제·정리 0 — 알리기만.
 #   R320: 경고·긴급 쪽지 끝에 «원인 좌석»(ft-resource-cause.sh disk · 최근 60분 증가 상위 폴더 3 + 만든 좌석) 1줄.
+#   r1080: 하루 1회 scratchpad 사본 표(ft-scratchpad-census.sh · 삭제는 스위치 파일이 있을 때만) — 요약 1줄을 planner 로, rc≠0 은 실패 1통(조용한 0 없음).
 #   r843 r2: 하루 1회 «표식 없는 풀 팀 워크트리»(reset·read-tree 처럼 post-checkout 을 안 거친 길) 탐지 → planner 1통 · 지우기 0
 #   env(시험용): FT_WT_MODE_STAMP_SH · FT_RESOURCE_CAUSE_SH · FT_RES_ROOT · FT_DISK_FREE_GIB(숫자|fail) · FT_DISK_NOW · FT_MBOX_SH · FT_SEATS_JSON · FT_HARNESS_SEATS_JSON · FT_RES_WATCH_SH · FT_SCRATCH_REPO_SH
 set -uo pipefail
@@ -18,6 +19,7 @@ SCRATCH="${FT_SCRATCH_REPO_SH:-$HERE/ft-scratch-repo.sh}"
 REAP="${FT_DOCKER_REAP_SH:-$HERE/ft-docker-test-reap.sh}"   # R352: 주인 죽은 시험 컨테이너(라벨 byz.test=1 만) 하루 1회
 CAUSE="${FT_RESOURCE_CAUSE_SH:-$HERE/ft-resource-cause.sh}"   # R320: 만든 좌석 한 줄
 STAMP="${FT_WT_MODE_STAMP_SH:-$HERE/ft-wt-mode-stamp.sh}"   # r843 r2: --unmarked 탐지만
+SPC="${FT_SCRATCHPAD_CENSUS_SH:-$HERE/ft-scratchpad-census.sh}"   # r1080: scratchpad 사본 표(기본 삭제 0)
 WARN="${FT_DISK_WARN_GIB:-50}"; URG="${FT_DISK_URGENT_GIB:-30}"; ADD="${FT_DISK_RECOVER_ADD:-5}"; PERIOD="${FT_DISK_PERIOD_SEC:-900}"
 NOW="${FT_DISK_NOW:-$(date +%s)}"
 mkdir -p "$STATE" 2>/dev/null || { echo "ERROR 상태 폴더 생성 실패: $STATE" >&2; exit 4; }
@@ -25,9 +27,9 @@ logline() { printf '%s\t%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$1" >> "$LOG"; }
 stget() { sed -n "s/^$1=//p" "$ST" 2>/dev/null | tail -1; }
 num() { case "$1" in ''|*[!0-9]*) echo 0;; *) echo "$1";; esac; }
 
-last=$(num "$(stget last)"); stage="$(stget stage)"; [ -n "$stage" ] || stage=ok; sent=$(num "$(stget sent)"); rf=$(num "$(stget routefail)"); swept=$(num "$(stget swept)"); reaped=$(num "$(stget reaped)"); wts=$(num "$(stget wtscan)")
+last=$(num "$(stget last)"); stage="$(stget stage)"; [ -n "$stage" ] || stage=ok; sent=$(num "$(stget sent)"); rf=$(num "$(stget routefail)"); swept=$(num "$(stget swept)"); reaped=$(num "$(stget reaped)"); wts=$(num "$(stget wtscan)"); spc=$(num "$(stget spcensus)")
 [ $((NOW-last)) -ge "$PERIOD" ] || [ "$last" = 0 ] || exit 0
-save() { printf 'last=%s\nstage=%s\nsent=%s\nswept=%s\nreaped=%s\nroutefail=%s\nwtscan=%s\n' "${2:-$NOW}" "$1" "$sent" "$swept" "$reaped" "$rf" "$wts" > "$ST"; }
+save() { printf 'last=%s\nstage=%s\nsent=%s\nswept=%s\nreaped=%s\nroutefail=%s\nwtscan=%s\nspcensus=%s\n' "${2:-$NOW}" "$1" "$sent" "$swept" "$reaped" "$rf" "$wts" "$spc" > "$ST"; }
 jget() { python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get(sys.argv[2],""))' "$1" "$2" 2>/dev/null; }
 
 free="${FT_DISK_FREE_GIB:-$(df -Pk /System/Volumes/Data 2>/dev/null | awk 'NR==2 && $4+0>0{print int($4/1048576)}')}"
@@ -77,6 +79,17 @@ reap() { # 하루 1회 주인 죽은 시험 컨테이너 정리(R352) — 결과
   case "$s" in ''|OK*) return 0;; esac
   reap_alert "[시험 컨테이너 정리] rc=$rc $s"
 }
+spcensus() { # 하루 1회 scratchpad 사본 표(r1080) — 표 파일은 도구가 남기고, 요약 1줄만 planner 로. 실패도 쪽지(조용한 0 없음)
+  [ $((NOW-spc)) -ge 86400 ] || return 0; local s rc line sd sk su l; s="$(bash "$SPC" 2>&1)"; rc=$?; spc=$NOW
+  line="$(tail -n 1 <<<"$s")"; logline "scratchpad-census rc=$rc $line"
+  if [ "$rc" != 0 ]; then l="[scratchpad 사본 표 실패] rc=$rc $line"
+  else
+    sd="$(sed -n 's/.*DEAD-SAFE \([0-9]*\)개.*/\1/p' <<<"$line")"; sk="$(sed -n 's/.*DEAD-KEEP \([0-9]*\).*/\1/p' <<<"$line")"; su="$(sed -n 's/.*UNKNOWN \([0-9]*\).*/\1/p' <<<"$line")"
+    [ -n "$sd$sk$su" ] && [ "${sd:-0}" = 0 ] && [ "${sk:-0}" = 0 ] && [ "${su:-0}" = 0 ] && return 0
+    l="${line:-[scratchpad 사본 표] 요약 줄 없음 — 표 파일 확인}"
+  fi
+  bash "$MBOX" send "$ROUTE" ft-disk-alarm "$l" >/dev/null 2>>"$LOG" || logline "ERROR scratchpad 사본 표 쪽지 발신 실패"
+}
 wtscan() { # 하루 1회 표식 없는 풀 팀 워크트리 목록(r843 r2) — 전체 목록은 상태 폴더 파일 · 쪽지는 앞 5곳. 탐지 실패도 쪽지(조용한 0 없음)
   [ $((NOW-wts)) -ge 86400 ] || return 0; local s rc l n kib; s="$(bash "$STAMP" --root "$ROOT" --unmarked 2>&1)"; rc=$?; wts=$NOW
   logline "wt-unmarked rc=$rc $(tail -n 1 <<<"$s")"
@@ -99,6 +112,7 @@ case "$new" in
 esac
 if [ -n "$body" ]; then post "$body" || exit 3; fi
 sweep
+spcensus
 reap
 wtscan
 save "$new"

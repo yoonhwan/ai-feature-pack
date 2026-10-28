@@ -245,7 +245,7 @@ git -C "$W" checkout -q -B main origin/main
 # 변이: trap 등록(lr_trap)을 지우면 E1 칸(ref 잔여 0)이 FAIL
 MB2="$T/mutbin2"; mkdir -p "$MB2"; cp "$LAND" "$MB2/ft-merge-land.sh"
 for f in "$BIN"/*; do [ "$(basename "$f")" = ft-merge-land.sh ] || ln -sf "$f" "$MB2/"; done
-sed -i '' 's/lr_trap; fm_fetch/fm_fetch/' "$MB2/ft-merge-land.sh"
+sed -i '' 's/lr_trap; if /if /' "$MB2/ft-merge-land.sh"   # r1069: fetch 줄이 «lr_trap; if [지정] … else fm_fetch» 꼴이 됐다 — 변이 의도(EXIT trap 등록 삭제)는 그대로
 ! cmp -s "$LAND" "$MB2/ft-merge-land.sh"; ck "⑤ 변이본 적용(lr_trap 등록 삭제)" $?
 asle; git -C "$W" fetch -q origin; mkpr 62 pr62 origin/main; P62="$PRSHA"; apv --approve-sha "$P62"
 out="$(PATH="$SE:$PATH" FT_LAND_TOTAL_S=2 bash "$MB2/ft-merge-land.sh" 62 --approve-sha "$P62" --repo "$W" 2>&1)"; rc=$?

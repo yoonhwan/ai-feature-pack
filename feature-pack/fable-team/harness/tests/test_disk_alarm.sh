@@ -24,6 +24,8 @@ run() { : > "$MLOG"; env FT_RES_ROOT="$R" FT_DISK_FREE_GIB="$1" FT_DISK_NOW=$((N
 printf '#!/bin/sh\nexit 0\n' > "$T/noscratch.sh"; chmod 755 "$T/noscratch.sh"   # 실 TMPDIR 을 건드리지 않게 항상 가짜 주입
 export FT_DOCKER_REAP_SH="$T/noscratch.sh"   # 실 docker 를 건드리지 않게 시험 컨테이너 리퍼도 항상 가짜(기본 = 출력 0 → 쪽지 0)
 export FT_WT_MODE_STAMP_SH="$T/noscratch.sh"   # r843 r2: 표식 탐지도 기본 가짜(출력 0 → 쪽지 0)
+printf '#!/bin/sh\necho "[scratchpad 사본] DEAD-SAFE 0개 0.00GiB · DEAD-KEEP 0 · LIVE 0 · UNKNOWN 0 · 삭제 0"\n' > "$T/spc0.sh"; chmod 755 "$T/spc0.sh"
+export FT_SCRATCHPAD_CENSUS_SH="$T/spc0.sh"   # r1080: scratchpad 사본 표도 기본 가짜(사본 0 = 쪽지 0 · 실 scratchpad 스캔 0)
 sent() { grep -c . "$MLOG"; }
 has()  { grep -q -- "$1" "$MLOG"; }
 

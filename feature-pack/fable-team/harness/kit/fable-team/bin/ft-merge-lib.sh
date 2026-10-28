@@ -1,14 +1,42 @@
 #!/usr/bin/env bash
 # ft-merge-lib.sh — 병합·랜딩 도구 공용 함수 (R230 · source 전용 · 7초 룰 판정 666)
+#   fm_try <초> <명령…>       : 한 번 시도 · timeout 도구 없으면 rc 127 (조용한 통과 0) — 초는 부른 쪽이 정한다
 #   fm_t7 <명령…>            : 시도당 timeout 7 초 + 재시도 1 (총 14 초 상한) — timeout 도구 없으면 rc 127 (조용한 통과 0)
-#   fm_fetch <repo> <remote> <ref> : fm_t7 로 한 ref 만 받는다
+#   fm_fetch <repo> <remote> <ref> : 한 ref 만 받는다 · 시도당 상한 = fm_fetch_sec(기본 7 · FT_FETCH_TIMEOUT_SEC 1~70 = 오빠 예외 판정 · r1069) + 재시도 1
+#   ★7 초 고정은 gh·push·게이트 등 나머지 그대로★ — 늘어나는 칸은 «PR head fetch» 하나뿐이고, 값을 준 실행은 ft-merge-land 첫 줄에 «오빠 예외 판정» 을 남긴다.
 fm_timeout_bin() { command -v timeout || command -v gtimeout; }
+fm_try() {
+  local s="$1"; shift; local tb; tb="$(fm_timeout_bin)" || { echo "timeout/gtimeout 없음 — 상한을 걸 수 없어 외부 호출 거절" >&2; return 127; }
+  "$tb" "$s" "$@"
+}
 fm_t7() {
-  local tb rc=0 i; tb="$(fm_timeout_bin)" || { echo "timeout/gtimeout 없음 — 7초 상한을 걸 수 없어 외부 호출 거절" >&2; return 127; }
-  for i in 1 2; do "$tb" 7 "$@" && return 0; rc=$?; done
+  local rc=0 i; for i in 1 2; do fm_try 7 "$@" && return 0; rc=$?; done
   return "$rc"
 }
-fm_fetch() { fm_t7 git -c gc.auto=0 -C "$1" fetch --quiet "$2" "$3"; }
+#   fm_fetch_sec : fetch 상한 초 — FT_FETCH_TIMEOUT_SEC(정수 1~70 · 오빠 예외 판정) · 없으면 7 · 꼴이 틀리거나 70 초과면 WARN(stderr) 1줄 + 7
+#     stdout = 초 · 결과를 FM_FETCH_SEC 에, «유효 지정» 여부를 FM_FETCH_SEC_VALID(1|0) 에 남긴다 ⇒ 부른 쪽은 `fm_fetch_sec >/dev/null` 꼴로 부른다(명령 치환 = 서브셸이면 표지가 안 남는다)
+fm_fetch_sec() {
+  local v="${FT_FETCH_TIMEOUT_SEC:-}"; FM_FETCH_SEC=7; FM_FETCH_SEC_VALID=0
+  if [ -n "$v" ]; then
+    case "$v" in
+      *[!0-9]*) echo "WARN FT_FETCH_TIMEOUT_SEC=$v 는 1~70 정수가 아님 → 7 로" >&2;;
+      *) if [ "$v" -ge 1 ] 2>/dev/null && [ "$v" -le 70 ] 2>/dev/null; then FM_FETCH_SEC="$v"; FM_FETCH_SEC_VALID=1
+         else echo "WARN FT_FETCH_TIMEOUT_SEC=$v 는 1~70 밖 → 7 로" >&2; fi;;
+    esac
+  fi
+  echo "$FM_FETCH_SEC"
+}
+#   fm_fetch_banner : 「오빠 예외 판정[ <N>] · 지정 <초>」 한 줄 — FT_FETCH_TIMEOUT_SEC 가 유효 지정일 때만(아니면 출력 0). N = FT_FETCH_EXCEPTION_ID(영숫자만 · 없으면 빈칸)
+fm_fetch_banner() {
+  local id; [ "${FM_FETCH_SEC_VALID:-0}" = 1 ] || return 0
+  id="$(printf '%s' "${FT_FETCH_EXCEPTION_ID:-}" | tr -cd 'A-Za-z0-9')"
+  echo "오빠 예외 판정${id:+ $id} · 지정 $FM_FETCH_SEC"
+}
+fm_fetch() {
+  local s rc=0 i; s="$(fm_fetch_sec)"
+  for i in 1 2; do fm_try "$s" git -c gc.auto=0 -C "$1" fetch --quiet "$2" "$3" && return 0; rc=$?; done
+  return "$rc"
+}
 #   fm_push_calc <객체수|?> : push «시도당 상한»(정수 초 · 소수 버림) = min(F + 7 × ceil(N/U0), 70) — 규칙 12 «쪼갤 수 없는 크기 아는 배치»(판정 1375). N 모름(?) = F + 7.
 #     F = FT_PUSH_FIXED_S(기본 4.5 · ssh 접속 2.9 + pre-push 훅 1.1 실측 + 여유 · 7 초과는 7 로 클램프) · U0 = FT_PUSH_UNIT_OBJECTS(기본 100 객체/7 s 잠정 · 양의 정수 아니면 기본) · 잘못된 env 는 WARN(stderr)
 #   fm_push_bound <repo> <M> <Q> : stdout "<객체수|?> <시도당 상한>" — 객체수 = rev-list --objects M..Q · 조회 실패는 WARN 1줄 + 호환값(F+7) (조용한 통과 0)

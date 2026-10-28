@@ -82,6 +82,17 @@ seat_files() {
         | sed 's/[][\.*^$/]/\\&/g')\"" "$dir"/*.jsonl 2>/dev/null
 }
 
+# r1075: 좌석 기록 id 우선 — 원격 open 이 세션 env 에 심은 `TMUXC_CLAUDE_SESSION_ID` 의 <id>.jsonl «한 파일» 만 본다.
+#   있으면 디렉터리 전수·이름 레코드 폴백을 안 쓴다(warn 줄 0). 없으면 빈 출력 — 호출자는 지금 폴백 그대로(조용한 확대 금지).
+seat_id_file() {  # <dir>
+    local sid
+    sid="$(tmux show-environment -t "$SESSION" TMUXC_CLAUDE_SESSION_ID 2>/dev/null)" || return 1
+    case "$sid" in TMUXC_CLAUDE_SESSION_ID=*) sid="${sid#TMUXC_CLAUDE_SESSION_ID=}" ;; *) return 1 ;; esac
+    [ -n "$sid" ] || return 1
+    [ -f "$1/$sid.jsonl" ] || return 1
+    printf '%s\n' "$1/$sid.jsonl"
+}
+
 count_submitted() {
     local dir="$1"
     local cands
@@ -89,7 +100,9 @@ count_submitted() {
     # 1단계: 후보 좁히기. ★좌석 파일이 특정되면 거기서만 센다★ — 안 그러면 다른
     #        좌석이 받은 브로드캐스트가 내 도달로 계산된다(위 헤더 실측 20/291).
     local mine
-    mine="$(seat_files "$dir")"
+    # r1075: id 로 특정되는 좌석 파일이 있으면 그것만 — 없으면 이름 레코드 → 전수(폴백 · warn) 종전 그대로.
+    mine="$(seat_id_file "$dir")"
+    [ -n "$mine" ] || mine="$(seat_files "$dir")"
     if [ -n "$mine" ]; then
         cands="$(printf '%s\n' "$mine" | xargs grep -lF -- "$MARKER" 2>/dev/null)"
     else
@@ -210,27 +223,35 @@ print(n)
 '
 }
 PI=0; seat_is_pi && PI=1
-if [ "$PI" = 1 ] && [ ! -d "$(pi_root)" ]; then
-    echo "UNVERIFIABLE session=$SESSION — pi 대화 기록 뿌리 없음: $(pi_root)" >&2
-    exit 5
-fi
 # ─ pi 좌석 끝 ─────────────────────────────────────────────────────────────────
 
 DIR="$(seat_projects_dir)" || {
     echo "UNVERIFIABLE session=$SESSION — pane cwd 를 못 읽었다(세션 없음?)" >&2
     exit 5
 }
+
+# 보내기 «전» 기준값을 재는 모드. 같은 텍스트를 두 번 보내면 이전 것과 구분이
+# 안 되므로, 호출자는 send 전에 이걸로 기준을 잡고 send 후 그 값을 넘겨야 한다.
+# ★이 모드는 «기록 디렉터리 없음» 검사보다 «앞» 이다★ (r1047 r3 · h146 반송 2026-10-28)
+#   새 좌석은 첫 제출 «전» 에 jsonl 디렉터리가 없다. 그때의 제출 수는 판정 불가가 아니라 «0» 이다.
+#   순서가 뒤집혀 있으면 baseline 이 rc5 로 죽고, 호출자가 그 실패를 삼키면 «보낸 뒤» 잰
+#   1 > 1 이 거짓이 되어 ★도착한 메시지가 NOT_REACHED 로 뒤집힌다★(h146 실측: mini jsonl 에
+#   21:07:36 사용자 턴이 찍혔는데 desk 에는 NOT_REACHED submitted=1 (baseline=1) 이 갔다).
+#   판정 불가로 남길 것은 «pane cwd 를 못 읽었다»(세션 없음) 하나뿐이다 — 바로 위에서 갈랐다.
+#   호출자 계약: rc≠0 을 «빈 값» 으로 삼키지 말고 최종 판정을 판정 불가(rc5)로 내야 한다(하드 룰 #0).
+if [ -n "${FT_REACH_COUNT_ONLY:-}" ]; then
+    count_submitted "$DIR" 2>/dev/null
+    exit 0
+fi
+
+if [ "$PI" = 1 ] && [ ! -d "$(pi_root)" ]; then
+    echo "UNVERIFIABLE session=$SESSION — pi 대화 기록 뿌리 없음: $(pi_root)" >&2
+    exit 5
+fi
 if [ "$PI" = 0 ] && [ ! -d "$DIR" ]; then
     echo "UNVERIFIABLE session=$SESSION — jsonl 디렉터리 없음: $DIR" >&2
     echo "  (비-ASCII 경로이거나 아직 첫 프롬프트 전이다. 화면으로 폴백하지 않는다.)" >&2
     exit 5
-fi
-
-# 보내기 «전» 기준값을 재는 모드. 같은 텍스트를 두 번 보내면 이전 것과 구분이
-# 안 되므로, 호출자는 send 전에 이걸로 기준을 잡고 send 후 그 값을 넘겨야 한다.
-if [ -n "${FT_REACH_COUNT_ONLY:-}" ]; then
-    count_submitted "$DIR" 2>/dev/null
-    exit 0
 fi
 
 if [ -z "$BASELINE" ]; then

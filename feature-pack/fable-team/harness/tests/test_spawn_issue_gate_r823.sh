@@ -5,7 +5,7 @@
 #   ⓓ 판독 = 머리 Issue 줄 첫 #숫자만 · owner/repo#N REJECT   ⓔ 면제 0(proposal-*·템플릿)   ⓕ --research·--dry-run 대상 아님
 #   ⓖ 순서 = lint 뒤 · 부작용 전   ⓘ 변이 7   ⓙ r2: 값 맨 앞 #숫자만 · 링크·주소·owner/repo 꼴 = 꼴 오류(외부 DA r1 반례)
 #   ⓚ r3: 시간 상수 7 s(env 조절 0 · 스텁 지연으로 시험) · #012·8자리 = 꼴 오류 · number = JSON 정수 비교(외부 DA r2 반례)
-# 실 gh·실 tmux·실 명부 0 — 가짜 gh(FT_GH_READ) · 가짜 tmux/tmuxc · 임시 리포 · spawn 은 디스크 문턱(FT_DISK_FREE_GIB=0)에서 멈춘다(PLAN 뒤 · 부작용 전).
+# 실 gh·실 tmux·실 명부 0 — 가짜 gh(FT_GH_READ) · 가짜 tmux/tmuxc · 임시 리포 · spawn 은 디스크 «측정 실패»(FT_DISK_FREE_GIB=fail)에서 멈춘다(PLAN 뒤 · 부작용 전).
 set -uo pipefail
 export FT_ALLOW_TRACKED_BIN=1
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
@@ -70,7 +70,7 @@ card() { # <이름> <머리 Issue 줄(빈 = 줄 없음)> [폴더] [본문 추가
 spawn() { # <bin> <카드> [인자…]
   local b="$1" c="$2"; shift 2
   ( cd "$R" && PATH="$T/fake:$PATH" FT_SEATS_JSON="$R/.fable-team/seats.json" FT_NANO_PREFIX=byz-harness-nano- FT_TEAMSET=0 \
-    FT_DISK_FREE_GIB=0 bash "$b/ft-nano-spawn.sh" "$c" --from dispatch "$@" 2>&1 ); }
+    FT_DISK_FREE_GIB=fail bash "$b/ft-nano-spawn.sh" "$c" --from dispatch "$@" 2>&1 ); }   # r1078: 예전 디스크 문턱 REJECT 자리는 «측정 실패 REJECT» 로 옮겼다(같은 자리·PLAN 뒤·부작용 전) — 문턱 미만은 이제 WARN + 진행
 G="$B/ft-spawn-issue-gate.sh"
 wts() { git -C "$R" worktree list | grep -c .; }
 

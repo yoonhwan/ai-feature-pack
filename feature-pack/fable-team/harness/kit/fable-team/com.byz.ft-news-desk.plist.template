@@ -15,6 +15,7 @@
   <key>EnvironmentVariables</key>
   <dict>
     <key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <key>FT_HARNESS_ROOT</key><string>__BYZ_ROOT__/.worktrees/harness-ops</string>
   </dict>
   <key>StandardOutPath</key><string>/tmp/ft-news-desk.log</string>
   <key>StandardErrorPath</key><string>/tmp/ft-news-desk.log</string>

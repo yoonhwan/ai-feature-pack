@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # tmm — 모바일(Termius/SSH) 전용 tmux 좌석 TUI. 폰 60~80열 기준. fzf 기반 커서 이동·필터·미리보기.
 #   tmm              TUI 피커 (↑↓ 커서 · 타이핑=필터 · Enter=attach · 아래 키 참조)
-#   tmm ls [PAT]     텍스트 목록 (비대화용)
+#   tmm ls [PAT] [--host H|all]   텍스트 목록 (비대화용) — --host 면 HOST 열이 앞에 붙는다(원격 좌석 포함)
 #   tmm a NAME [-i]  attach (기본 폰 크기 추종 · -i 면 데스크탑 크기 고정+점 채움)
-#   tmm p NAME [N]   pane 최근 N줄 (기본 30)
+#   tmm p [HOST/]NAME [N]   pane 최근 N줄 (기본 30) — mini/좌석 처럼 호스트 접두를 받는다
 #   tmm s NAME MSG   메시지 (에이전트 없는 좌석 차단 + 도달확인)
-#   tmm ss           전 좌석 상태 스캔 (seat-scan)
+#   tmm ss [--host H|all]   전 좌석 상태 스캔 (seat-scan) — 호스트 접두를 붙여 보여준다
 #   tmm h            HUMAN/BLOCK/STUCK 좌석만
 #   tmm save         tmuxc save
 #   tmm menu         숫자 메뉴 (fzf 없을 때 폴백)
@@ -81,6 +81,87 @@ SCAN="${TMM_SCAN:-}"
 [ -n "$SCAN" ] || for c in "$HERE/../libexec/seat-scan.sh" "$HOME/.claude/skills/tmuxc/scripts/seat-scan.sh"; do
   [ -f "$c" ] && { SCAN="$c"; break; }
 done
+# 호스트 명부·ssh 래퍼 (tail-remote). 파일이 없거나 source 가 안 되면 로컬(m3) 전용 — 지금 동작 그대로
+HOSTLIB="$HERE/../libexec/host-lib.sh"
+# shellcheck source=/dev/null
+if [ -f "$HOSTLIB" ]; then . "$HOSTLIB"; fi
+type -t h_run >/dev/null 2>&1 || {
+  h_local_name() { printf '%s\n' "${TMM_LOCAL_HOST:-m3}"; }
+  h_split() { case "$1" in */*) printf '%s %s\n' "${1%%/*}" "${1#*/}" ;; *) printf '%s %s\n' "$(h_local_name)" "$1" ;; esac; }
+  h_field() { printf ''; }
+  h_targets() { [ "$1" = all ] && h_local_name || printf '%s\n' "$1"; }
+  h_run()  { printf 'tmm: host-lib 없음 — 원격 불가\n' >&2; return 97; }
+  h_tmux() { printf 'tmm: host-lib 없음 — 원격 불가\n' >&2; return 97; }
+  h_pipe() { printf 'tmm: host-lib 없음 — 원격 불가\n' >&2; return 97; }
+  h_control_dir() { printf '%s\n' "$HOME/.ssh/ft-cm"; }
+  h_remote_path() { printf '/opt/homebrew/bin\n'; }
+  _h_with_lock() { shift; "$@"; }
+}
+
+# ---------- 원격 쓰기 라우팅 (r1047 · 설계 multihost DESIGN-tail-remote-and-light-git-20261028.md §1.4 보강 4·5) ----------
+# 주소 «호스트/좌석» 이고 그 호스트가 로컬이 아니면 원격 tmux 로 라우팅한다. 로컬이면 지금 동작 그대로(R6).
+is_remote_addr() {  # <host>  → 0 = 원격
+  local host="$1"
+  [ -n "$host" ] || return 1
+  [ "$host" = "$(h_local_name)" ] && [ "$(h_field "$host" kind)" != tail-remote ] && return 1
+  return 0
+}
+# 송신 락 = <host>/<session> 쌍 하나 (설계 보강 4). /tmp 고정 금지 — HOME 안 ControlPath 폴더를 쓴다.
+send_lock_path() { printf '%s/send-lock-%s-%s' "$(h_control_dir)" "$1" "$2"; }
+ft_tool_path() {  # <환경변수 값> <이름>
+  local envv="$1" n="$2" c
+  for c in "$envv" "$HERE/../../../fable-team/harness/kit/fable-team/bin/$n" \
+           "$HOME/.fable-team/bin/$n" "$HOME/.claude/skills/fable-team/bin/$n"; do
+    [ -n "$c" ] && [ -f "$c" ] && { printf '%s' "$c"; return 0; }
+  done
+  return 1
+}
+# 원격 송신 = 로컬 agent_inject 와 «같은 절차» 를 원격에서(r1075 · arch 재판단 r2).
+#   ① 입력 상자 기다림(상한 TMUXC_READY_MAX 기본 30) ② 입력줄 = 전문일 때만 Enter ③ 그 좌석 --session-id 기록으로 제출 판정
+#   ④ 절반 시점 재전송 1회 — 판독 함수는 tmuxc core/libexec/agent-inject.sh «한 벌» 을 h_pipe_write 로 원격에 흘려 실행(복사본 0).
+#   rc = 0 제출 확인 · 3 에이전트 없음 · 4 마감까지 기록 없음 · 5 판정 불가 · 6 기록 id 없음(판정은 ft-reach-check) · 97 도구 없음
+agent_inject_lib() {  # claude 주입 «한 벌» 경로 — tmm 은 쓰기만 한다(실행은 원격)
+  local c
+  for c in "${TMM_AGENT_INJECT_LIB:-}" "$HERE/../../../tmuxc/core/libexec/agent-inject.sh" \
+           "$HOME/.tmuxc/current/core/libexec/agent-inject.sh" \
+           "$HOME/.claude/skills/tmuxc/core/libexec/agent-inject.sh"; do
+    [ -n "$c" ] && [ -f "$c" ] && { printf '%s' "$c"; return 0; }
+  done
+  return 1
+}
+remote_send_locked() {  # <host> <sess> <text>
+  local host="$1" sess="$2" text="$3" lock d lib rmax swait cap runcap
+  lib="$(agent_inject_lib)" || { printf 'tmm: agent-inject.sh 없음 — 판정 불가\n' >&2; return 97; }
+  lock="$(send_lock_path "$host" "$sess")"
+  d="$(dirname "$lock")"
+  mkdir -p "$d" 2>/dev/null && chmod 700 "$d" 2>/dev/null
+  rmax="${TMUXC_READY_MAX:-30}"; case "$rmax" in ''|*[!0-9]*) rmax=30 ;; esac
+  swait="${TMUXC_SUBMIT_WAIT:-7}"; case "$swait" in ''|*[!0-9]*) swait=7 ;; esac
+  # 하드 룰 12: 쪼갤 수 없는 기다림 «하나» = min(고정비 + 7×배수, 70). 여기 = 상자 기다림 + 제출 마감 + 왕복.
+  cap=$(( rmax + swait + 7 )); [ "$cap" -gt 70 ] && cap=70
+  runcap=$(( cap + 5 )); [ "$runcap" -gt 70 ] && runcap=70
+  ( export H_CALL_TIMEOUT="$cap" H_RUN_CAP="$runcap"
+    _h_with_lock "$lock" h_pipe_write "$host" "$lib" "$sess" "$text" - "$rmax" "$swait" )
+}
+# 원격 도달 판정 = 그 호스트에서 돈 ft-reach-check.sh (계약 보강 5 · capture-pane 판정 금지).
+# ★baseline 을 «보내기 전»에 잡는다★ — ft-reach-check 의 기본 baseline 은 «호출 시점» 이라, jsonl 이 빨리 쓰이면
+#  방금 쓴 내 기록이 baseline 에 섮여 NOT_REACHED 로 오판된다(스크립트 헤더의 FT_REACH_COUNT_ONLY 계약).
+remote_reach_baseline() {  # <host> <sess> <marker> → 제출 건수(숫자)
+  local host="$1" sess="$2" marker="$3" reach w rc
+  reach="$(ft_tool_path "${TMM_REACH_CHECK:-}" ft-reach-check.sh)" || return 97
+  w="$(mktemp "${TMPDIR:-/tmp}/tmm-reach-count.XXXXXX")" || return 97
+  { printf 'export FT_REACH_COUNT_ONLY=1\n'; cat "$reach"; } > "$w"
+  h_pipe "$host" "$w" "$sess" "$marker"; rc=$?
+  rm -f "$w"
+  return "$rc"
+}
+remote_reach_check() {  # <host> <sess> <marker> [baseline]
+  local host="$1" sess="$2" marker="$3" base="${4:-}" reach to
+  reach="$(ft_tool_path "${TMM_REACH_CHECK:-}" ft-reach-check.sh)" || {
+    printf 'tmm: ft-reach-check.sh 없음 — 도달 판정 불가\n' >&2; return 5; }
+  to="${TMM_REACH_TIMEOUT:-6}"
+  h_pipe "$host" "$reach" "$sess" "$marker" "$to" "$base"
+}
 CAT_FILE="${TMM_CATEGORIES:-$HOME/.tmm/categories}"
 MODELS_FILE="${TMM_MODELS:-$HOME/.tmm/models}"          # fork 모델 별칭 (agent<TAB>alias<TAB>id<TAB>extra) — 사용자
 MODELS_GEN="${TMM_MODELS_GEN:-$HOME/.tmm/models.generated}"  # `tmm models refresh` 생성본 — 사용자 파일이 우선
@@ -1356,12 +1437,90 @@ auto_loop() {
   done
 }
 
-cmd_ls() { local pat="${1:-}"; cmd_rows time | cut -f1 | { [ -n "$pat" ] && grep -i -- "$pat" || cat; }; }
+cmd_ls() {  # [PAT] [--host H|all]
+  local pat="" host="" h rc=0
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --host)   host="${2:-}"; shift; [ $# -gt 0 ] && shift ;;
+      --host=*) host="${1#--host=}"; shift ;;
+      *)        pat="${pat:+$pat }$1"; shift ;;
+    esac
+  done
+  if [ -z "$host" ]; then cmd_rows time | cut -f1 | { [ -n "$pat" ] && grep -i -- "$pat" || cat; }; return; fi
+  # ★HOST 열★ — --host 를 준 경우에만 앞에 붙는다(접두 없는 지금 출력은 그대로 — R6)
+  # ★실패한 호스트는 «조용한 0줄» 이 아니라 rc≠0 + stderr 1줄★ — 다른 호스트 행은 그대로 낸다(arch 반송 r2 ②)
+  local dir r rows; dir="$(mktemp -d "${TMPDIR:-/tmp}/tmm-ls.XXXXXX")" || return 1
+  : > "$dir/all"
+  for h in $(h_targets "$host"); do
+    if [ "$h" = "$(h_local_name)" ] || [ "$(h_field "$h" kind)" = local ]; then
+      cmd_rows time | cut -f1 | sed "s/^/$h /" >> "$dir/all"
+    else
+      rows="$dir/$h.rows"
+      cmd_rows_remote "$h" > "$rows"; r=$?
+      if [ "$r" -ne 0 ]; then rc="$r"; rm -f "$rows"; continue; fi
+      cut -f1 "$rows" | sed "s/^/$h /" >> "$dir/all"
+    fi
+  done
+  if [ -n "$pat" ]; then grep -i -- "$pat" "$dir/all" || true; else cat "$dir/all"; fi
+  rm -rf "$dir"
+  return "$rc"
+}
+
+# 원격 좌석 행 — ssh 한 번(h_pipe)으로 상태·활동·cwd 를 받아 로컬 cmd_rows 와 «같은 모양» 으로 편다.
+# 모델·완료 마커는 원격 트랜스크립트를 읽어야 하므로 «-» 로 둔다(정본 확장은 카드3 후속).
+cmd_rows_remote() {  # <host>  — 원격 실패는 «판정 불가» 1줄 + 그 rc(하드 룰 20 · 조용한 0줄 금지)
+  local h="$1" s st act pcmd cwd tl live cat nw cw now scr out err rc
+  read -r nw cw <<<"$(col_widths)"
+  now=$(date +%s)
+  scr="$(mktemp "${TMPDIR:-/tmp}/tmm-rrows.XXXXXX")" && out="$(mktemp "${TMPDIR:-/tmp}/tmm-rrows.out.XXXXXX")" \
+    && err="$(mktemp "${TMPDIR:-/tmp}/tmm-rrows.err.XXXXXX")" || { rm -f "$scr" "$out" "$err"; return 1; }
+  rows_remote_script > "$scr"
+  h_pipe "$h" "$scr" > "$out" 2>"$err"; rc=$?
+  if [ "$rc" -ne 0 ]; then
+    printf 'tmm: 판정 불가 %s rc=%s %s\n' "$h" "$rc" "$(head -1 "$err" 2>/dev/null)" >&2
+    rm -f "$scr" "$out" "$err"
+    return "$rc"
+  fi
+  while IFS=$'\t' read -r s st act pcmd cwd; do
+    [ -n "$s" ] || continue
+    case "$pcmd" in zsh|bash|sh|fish|-zsh|-bash) live="○" ;; *) live="●" ;; esac
+    cat="$(cat_of "$s" key)"; tl="${cat#*/}"
+    printf '%s\t%s\t%s\t%-5s %s %-*s %-5s %-8s %s %s %s\t%s\t%s\n' \
+      "$(wait_rank "$st")" "${act:-0}" "$cat" \
+      "${tl:0:5}" "$live" "$nw" "$(clip_name "$s" "$nw")" "$st" "-" "$(fmt_hm "${act:-0}" "~")" "$(age_of "${act:-0}" "$now")" "${cwd##*/}" \
+      "$s" "$cat"
+  done < "$out" | sort -t$'\t' -k2,2nr | cut -f4-
+  rm -f "$scr" "$out" "$err"
+}
+
+# 원격에서 돌 스크립트 본문 — seat-scan 을 «설치 없이» 그대로 싣고 tmux 목록과 이름으로 잇는다.
+rows_remote_script() {
+  printf '#!/bin/bash\n'
+  printf 'SEAT_STATE="$(\n'
+  [ -n "$SCAN" ] && [ -f "$SCAN" ] && sed -e '1{/^#!/d;}' "$SCAN"
+  printf ')"\nexport SEAT_STATE\n'
+  # ★awk -v 대신 ENVIRON★ — BSD awk(/usr/bin/awk 20200816)는 -v 값에 개행이 있으면 «awk: newline in string»
+  #  rc2 로 죽는다(실 mini 실사건 2026-10-28: 좌석 0줄). ENVIRON 은 다중행을 그대로 받는다.
+  cat <<'EOS'
+tmux list-panes -a -F $'#{session_name}\t#{window_activity}\t#{pane_current_command}\t#{pane_current_path}' 2>/dev/null |
+awk -F'\t' '!seen[$1]++' |
+awk -F'\t' 'BEGIN { n = split(ENVIRON["SEAT_STATE"], L, "\n"); for (i = 1; i <= n; i++) { split(L[i], P, " "); if (P[1] != "") S[P[1]] = P[2] } }
+{ print $1 "\t" (S[$1] != "" ? S[$1] : "?") "\t" $2 "\t" $3 "\t" $4 }'
+EOS
+}
 
 # ---------- 동작 ----------
 cmd_attach() {
   local n="${1:-}" flags=""
   [ -n "$n" ] || { echo "(목록 로딩 중 — 잠시 후 다시 Enter)"; sleep 1; return 0; }
+  local ahost asess aalias
+  read -r ahost asess <<<"$(h_split "$n")"
+  if is_remote_addr "$ahost"; then
+    aalias="$(h_field "$ahost" ssh_alias)"
+    [ -n "$aalias" ] && [ "$aalias" != - ] || { echo "❌ $ahost ssh_alias 없음 — 붙기 불가"; sleep 1; return 97; }
+    # 붙기는 tty 가 필요하다 — h_run(stdin 프레임) 으로는 안 되므로 ssh -t 하나만 직접 쓴다(PATH 는 h_remote_path).
+    exec ssh -t "$aalias" -- "export PATH=$(h_remote_path "$ahost"):\$PATH; exec tmux attach -t $(printf '%q' "$asess")"
+  fi
   tmux has-session -t "=$n" 2>/dev/null || { echo "❌ 세션 없음: $n"; sleep 1; return 1; }
   [ "${2:-}" = "-i" ] && flags="-f ignore-size"
   # ★attach 직전에 창 옵션 window-size 를 푼다★ — 좌석들이 ctx 게이지를 읽으려고 `resize-window -x 200` → 원복을
@@ -1381,9 +1540,16 @@ cmd_attach() {
   else tmux attach -t "=$n" $flags; fi
 }
 
-cmd_peek() {  # 비대화용(tmm p): 색 없음·빈 줄 제거·폭 자름
-  local n="$1" k="${2:-30}"
-  tmux capture-pane -t "=$n:" -p 2>/dev/null | grep -vE '^\s*$' | tail -n "$k" | cut -c1-"${COLUMNS:-80}"
+cmd_peek() {  # 비대화용(tmm p): 색 없음·빈 줄 제거·폭 자름 — 주소는 «호스트/좌석»
+  local addr="${1:-}" k="${2:-30}" host sess out rc
+  read -r host sess <<<"$(h_split "$addr")"
+  if [ "$host" != "$(h_local_name)" ]; then
+    out="$(h_tmux "$host" --idempotent capture-pane -t "=$sess:" -p 2>/dev/null)"; rc=$?
+    [ "$rc" -eq 0 ] || echo "tmm: $host/$sess 읽기 실패 (rc=$rc)" >&2
+    printf '%s\n' "$out" | grep -vE '^\s*$' | tail -n "$k" | cut -c1-"${COLUMNS:-80}"
+    return "$rc"
+  fi
+  tmux capture-pane -t "=$sess:" -p 2>/dev/null | grep -vE '^\s*$' | tail -n "$k" | cut -c1-"${COLUMNS:-80}"
 }
 
 # TUI 미리보기 전용 렌더러 — 폰 가독성 3축을 여기서 푼다:
@@ -1435,6 +1601,9 @@ live_mark() {  # ● 에이전트 실행 중 / ○ shell only  (send 가드용 �
 
 cmd_send() {
   local n="$1"; shift
+  local host sess
+  read -r host sess <<<"$(h_split "$n")"
+  if is_remote_addr "$host"; then cmd_send_remote "$host" "$sess" "[mobile→$n] $*"; return; fi
   # HARD GATE: pane 자식(에이전트) 없으면 셸에 타이핑되므로 차단 (tmuxc send 자체엔 가드 없음)
   [ "$(live_mark "$n")" = "●" ] || { echo "❌ $n 에 에이전트가 실행 중이 아님 — 셸 오타이핑 방지로 차단"; return 1; }
   if command -v tmuxc >/dev/null; then
@@ -1442,6 +1611,37 @@ cmd_send() {
   else
     tmux send-keys -t "=$n:" -l "[mobile→$n] $*"; sleep 0.3; tmux send-keys -t "=$n:" Enter
   fi && { sleep 2; echo "── 도달 확인 ──"; cmd_peek "$n" 6; }
+}
+
+# 원격 좌석 송신 — 게이트+send-keys+Enter 를 한 ssh · 발신 락 <host>/<session> · 도달은 원격 ft-reach-check
+cmd_send_remote() {  # <host> <sess> <text>
+  local host="$1" sess="$2" text="$3" rc=0 base="" baserc=0
+  # baseline 은 «보내기 전» 에 잡는다 — rc6(기록 id 없음)일 때만 쓰지만, 보낸 뒤에는 잡을 수 없다.
+  base="$(remote_reach_baseline "$host" "$sess" "$text" 2>/dev/null)" || baserc=$?
+  remote_send_locked "$host" "$sess" "$text" || rc=$?
+  case "$rc" in
+    0) echo "delivered=$host/$sess"; return 0 ;;
+    # 4·5 = 주입 절차가 직접 낸 판정(기록 마감·판독 불가). ft-reach-check 로 다시 묻지 않는다.
+    4) echo "sent=$host/$sess verification=not-reached"; return 4 ;;
+    5) echo "sent=$host/$sess verification=unverifiable"; return 5 ;;
+    6) ;;   # 기록 id 없음 = 종전 그대로 ft-reach-check 판정
+    *) echo "tmm: $host/$sess 송신 실패 rc=$rc" >&2; return "$rc" ;;
+  esac
+  # ★baseline 실패를 «빈 값» 으로 삼키지 않는다★(r1047 r3 · 하드 룰 #0) — 빈 값이면 ft-reach-check 가
+  #  판정 «직전» 에 자기 baseline 을 잡아 1 > 1 이 거짓이 되고, 도착한 메시지가 NOT_REACHED 로 뒤집힌다.
+  #  송신은 그대로 하고 최종 판정만 «판정 불가 rc5» 로 낸다(REACHED·NOT_REACHED 둘 다 아님).
+  if [ "$baserc" -ne 0 ]; then
+    echo "sent=$host/$sess verification=unverifiable (baseline rc=$baserc)" >&2
+    return 5
+  fi
+  remote_reach_check "$host" "$sess" "$text" "$base"; rc=$?
+  case "$rc" in
+    0) echo "delivered=$host/$sess" ;;
+    4) echo "sent=$host/$sess verification=not-reached" ;;
+    5) echo "sent=$host/$sess verification=unverifiable" ;;
+    *) echo "tmm: $host/$sess 도달 판정 불가 rc=$rc" >&2 ;;
+  esac
+  return "$rc"
 }
 
 # TUI 안 ^S: fzf 밖(정상 tty)에서 프롬프트
@@ -1460,6 +1660,22 @@ cmd_kill() {  # NAME [--yes]
   local n="${1:-}" yes="${2:-}" a
   [ -n "$n" ] || { echo "(선택된 좌석 없음)"; sleep 1; return 0; }
   [ -n "${TMM_SESSION:-}" ] && [ "$n" = "$TMM_SESSION" ] && { echo "❌ 피커 자신($n)은 여기서 못 닫는다 — ^X 로 끝내세요"; sleep 1.5; return 1; }
+  local khost ksess krc=0
+  read -r khost ksess <<<"$(h_split "$n")"
+  if is_remote_addr "$khost"; then
+    h_run "$khost" --idempotent tmux has-session -t "=$ksess" >/dev/null 2>&1 \
+      || { echo "❌ 세션 없음: $khost/$ksess"; sleep 1; return 1; }
+    if [ "$yes" != --yes ]; then
+      printf '좌석 «%s» 를 종료합니다 — %s 의 tmux 세션과 그 안의 에이전트가 끝납니다.\n' "$n" "$khost"
+      h_run "$khost" --idempotent tmux capture-pane -t "=$ksess:" -p 2>/dev/null | grep -vE '^\s*$' | tail -n 4
+      read -r -p "종료? [y/N] " a
+      case "$a" in y|Y) ;; *) echo "(취소)"; sleep 0.8; return 0 ;; esac
+    fi
+    h_run "$khost" --write tmux kill-session -t "$ksess" || krc=$?
+    if [ "$krc" -eq 0 ]; then echo "✅ 종료됨: $n"; else echo "⚠ 종료 실패 rc=$krc: $n"; fi
+    [ "$yes" = --yes ] || read -r -n1 -p "[아무 키] " _
+    return "$krc"
+  fi
   tmux has-session -t "=$n" 2>/dev/null || { echo "❌ 세션 없음: $n"; sleep 1; return 1; }
   if [ "$yes" != --yes ]; then
     printf '좌석 «%s» 를 종료합니다 — tmux 세션과 그 안의 에이전트가 끝납니다.\n' "$n"
@@ -1473,7 +1689,22 @@ cmd_kill() {  # NAME [--yes]
   [ "$yes" = --yes ] || read -r -n1 -p "[아무 키] " _
 }
 
-cmd_scan()  { [ -n "$SCAN" ] && bash "$SCAN" || echo "seat-scan 없음 (TMM_SCAN 지정)"; }
+cmd_scan() {  # [--host H|all]
+  local host="" h
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --host)   host="${2:-}"; shift; [ $# -gt 0 ] && shift ;;
+      --host=*) host="${1#--host=}"; shift ;;
+      *)        shift ;;
+    esac
+  done
+  [ -n "$SCAN" ] || { echo "seat-scan 없음 (TMM_SCAN 지정)"; return 0; }
+  if [ -z "$host" ]; then bash "$SCAN"; return; fi
+  for h in $(h_targets "$host"); do
+    if [ "$h" = "$(h_local_name)" ] || [ "$(h_field "$h" kind)" = local ]; then bash "$SCAN" | sed "s/^/$h /"
+    else h_pipe "$h" "$SCAN" 2>/dev/null | sed "s/^/$h /"; fi
+  done
+}
 cmd_human() { cmd_scan | grep -E '^\S+\s+(HUMAN|BLOCK|STUCK)\b' || echo "(사람 입력 대기·차단 좌석 없음)"; }
 
 cmd_doctor() {
@@ -1722,15 +1953,15 @@ case "${1:-}" in
   pw)        cmd_pw "${2:-}";;                   # 미리보기 창 배치 (폭 기준)
   pw-action) printf 'change-preview-window(%s)' "$(cmd_pw "${2:-}")";;   # fzf transform() 용 액션 문자열
   __post)    cmd_post "$2" "$3";;                # 핑거 → fzf --listen 소켓 액션 전송
-  ls|l)      cmd_ls "${2:-}";;
+  ls|l)      shift; cmd_ls "$@";;
   a|attach)  cmd_attach "${2:-}" "${3:-}";;
-  p|peek)    cmd_peek "$2" "${3:-30}";;
+  p|peek)    cmd_peek "${2:-}" "${3:-30}";;
   preview)   cmd_preview "$2" "${3:-}";;         # TUI 미리보기 (색·문단 재접기·바닥 상태줄 제거)
   __render)  render_pane;;                       # stdin 렌더 (verify 골든용)
   s|send)    n="$2"; shift 2; cmd_send "$n" "$@";;
   kill)      cmd_kill "${2:-}" "${3:-}";;
   sendp)     cmd_sendp "$2";;
-  ss|scan)   cmd_scan;;
+  ss|scan)   shift; cmd_scan "$@";;
   h|human)   cmd_human;;
   save)      tmuxc save;;
   menu)      menu;;
