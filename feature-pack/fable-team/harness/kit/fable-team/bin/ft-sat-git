@@ -1,0 +1,181 @@
+#!/usr/bin/env bash
+# ft-sat-git — 가벼운 git 스냅샷: push(복사) → 원격 작업 → fetch(되가져오기) → sweep(삭제).
+# 설계 정본: docs/multihost/DESIGN-tail-remote-and-light-git-20261028.md §3.3 5단 · 계약 보강 11~15 (DA 3회 끝 · 구현만).
+#
+# 사용: ft-sat-git push <slug> [--base <ref>]   원격 bare 에 고아 스냅샷 1개 + 작업 worktree
+#       ft-sat-git fetch <slug>                 원격 커밋을 이 맥 base 위에 cherry-pick (design/·병합 커밋 거부)
+#       ft-sat-git sweep <slug>                 네 값 대조 → archive ref 보존 → worktree remove → branch -D (한 왕복)
+# slug = ^[a-z0-9]{1,32}$ (ft-name-lint.sh 카드 slug 문자집합과 같다) · 원장 = $FT_SAT_GIT_STATE/<slug>.json
+#
+# 환경(기본값 1곳): FT_SAT_GIT_HOST=mini · FT_SAT_GIT_SSH="ssh -o BatchMode=yes -o ConnectTimeout=5"
+#   FT_SAT_GIT_BARE_REL=Project/sat-git/byz-agents.git · FT_SAT_GIT_WORK_REL=Project/sat-work (둘 다 원격 $HOME 기준)
+#   FT_SAT_GIT_STATE=~/.fable-team/state/sat-git · FT_SAT_GIT_REGEN='(^|/)(node_modules|venv|\.venv)(/|$)'
+#   FT_SAT_GIT_TIMEOUT=98 (원격 왕복 1회 상한 · 넘으면 rc=98)
+# 종료: 0 성공 · 1 거부/판정 · 2 사용법 · 97 판정 불가(원격 응답 불명) · 98 집행 상한 초과 · 124→98
+set -uo pipefail
+
+HOST=${FT_SAT_GIT_HOST:-mini}
+SSH=${FT_SAT_GIT_SSH:-ssh -o BatchMode=yes -o ConnectTimeout=5}
+STATE=${FT_SAT_GIT_STATE:-$HOME/.fable-team/state/sat-git}
+BARE_REL=${FT_SAT_GIT_BARE_REL:-Project/sat-git/byz-agents.git}
+WORK_REL=${FT_SAT_GIT_WORK_REL:-Project/sat-work}
+REGEN=${FT_SAT_GIT_REGEN:-'(^|/)(node_modules|venv|\.venv)(/|$)'}
+TMO=${FT_SAT_GIT_TIMEOUT:-98}
+# 비밀 파일 금지 패턴 — push 사전검사 · 원격 pre-commit 훅 · fetch 이중 방어 3곳이 «같은» 값을 쓴다(계약 보강 13)
+SECRET=${FT_SAT_GIT_SECRET_PATTERN:-'(^|/)\.env(\.[^/]*)?$|\.pem$|_key'}
+RC=1
+
+die()  { echo "ft-sat-git: $*" >&2; exit "$RC"; }
+usage(){ echo "usage: ft-sat-git push <slug> [--base <ref>] | fetch <slug> | sweep <slug>" >&2; exit 2; }
+check_slug() { case "$1" in ''|*[!a-z0-9]*) die "slug 은 소문자·숫자만(1~32자): '$1'";; esac
+               [ "${#1}" -le 32 ] || die "slug 길이 ${#1} > 32"; }
+
+# ── 원장(계약 보강 12: 세대는 영구 증가 · sweep 뒤에도 gen 보존) ─────────────────────────
+led() { python3 - "$STATE" "$@" <<'PY'
+import json, os, sys
+state, op, slug = sys.argv[1], sys.argv[2], sys.argv[3]
+p = os.path.join(state, slug + ".json")
+d = json.load(open(p)) if os.path.exists(p) else {"slug": slug, "gen": 0, "in_use": False}
+if op == "get":
+    v = d.get(sys.argv[4], "")
+    print("1" if v is True else "0" if v is False else v)
+else:
+    for kv in sys.argv[4:]:
+        k, _, v = kv.partition("=")
+        d[k] = int(v) if k == "gen" else (v == "1") if k == "in_use" else v
+    os.makedirs(state, exist_ok=True)
+    json.dump(d, open(p, "w"), ensure_ascii=False, indent=1)
+PY
+}
+
+# ── 원격 실행 — 스크립트는 stdin(quoted heredoc), 값은 argv. 문자열 조립 0(설계 §1.4 계약 보강 1의 축소판) ──
+rem() { timeout "$TMO" $SSH "$HOST" -- bash -s "$@"; }
+rem_rc() { local r=$?; [ "$r" = 124 ] && r=98; [ "$r" = 0 ] || RC=$r; return "$r"; }
+rhome() { printf 'printf %%s "$HOME"\n' | rem 2>/dev/null || true; }
+gurl() { echo "ssh://$HOST$(rhome)/$BARE_REL"; }
+GIT_SSH_COMMAND=${GIT_SSH_COMMAND:-$SSH}; export GIT_SSH_COMMAND
+
+# ── 1단 push ────────────────────────────────────────────────────────────────────────
+do_push() {
+  local slug=$1 base_ref=${2:-origin/main} gen prev base_sha tmpidx tree snap url out rc
+  local t0=$SECONDS t1 t2 t3
+  check_slug "$slug"
+  [ "$(led get "$slug" in_use)" = "1" ] && die "slug '$slug' 사용 중 — 동시 재사용 차단(계약 보강 12)"
+  prev=$(led get "$slug" gen); prev=${prev:-0}; gen=$((prev + 1))
+  base_sha=$(git rev-parse --verify "$base_ref^{commit}" 2>/dev/null) || die "base '$base_ref' 해석 실패"
+  led set "$slug" in_use=1 gen="$gen" base_sha="$base_sha" host="$HOST" bare="$BARE_REL"
+
+  tmpidx=$(mktemp -u "${TMPDIR:-/tmp}/sat-idx.XXXXXX")
+  GIT_INDEX_FILE=$tmpidx git read-tree "$base_sha" || die "read-tree 실패"
+  GIT_INDEX_FILE=$tmpidx git rm -r -q --cached --ignore-unmatch design >/dev/null 2>&1
+  tree=$(GIT_INDEX_FILE=$tmpidx git write-tree) || die "write-tree 실패"; rm -f "$tmpidx"
+  snap=$(printf 'sat-git snapshot base=%s gen=%s slug=%s' "$base_sha" "$gen" "$slug" | git commit-tree "$tree") \
+    || die "commit-tree 실패"
+  if git ls-tree -r --name-only "$snap" | grep -Eq "$SECRET"; then      # R3 — push 0
+    led set "$slug" in_use=0
+    die "비밀 파일 패턴 검출 — push 하지 않는다: $(git ls-tree -r --name-only "$snap" | grep -E "$SECRET" | head -3 | tr '\n' ' ')"
+  fi
+  t1=$SECONDS
+
+  url=$(gurl); case "$url" in ssh://"$HOST"/?*) ;; *) led set "$slug" in_use=0; die "원격 홈 해석 실패 — $url";; esac
+  if ! out=$(git push -q "$url" "$snap:refs/heads/snap/$slug-g$gen" 2>&1); then
+    led set "$slug" in_use=0; die "push 실패: $out"
+  fi
+  t2=$SECONDS
+
+  out=$(rem "$slug" "$gen" "$BARE_REL" "$WORK_REL" "$SECRET" <<'RSH'
+set -e
+bare="$HOME/$3"; wt="$HOME/$4/$1-g$2"; br="snap/$1-g$2"
+[ -d "$bare" ] || { echo "NO-BARE $bare" >&2; exit 1; }
+git -C "$bare" worktree add -q "$wt" "$br" || exit 1
+gd=$(git -C "$wt" rev-parse --absolute-git-dir); mkdir -p "$gd/hooks"
+cat > "$gd/hooks/pre-commit" <<HOOK
+#!/usr/bin/env bash
+# ft-sat-git pre-commit — 비밀 파일 커밋 거부(설계 계약 보강 13). 손대지 말 것(도구가 다시 심는다).
+bad=\$(git diff --cached --name-only --diff-filter=ACMR | grep -E '$5' || true)
+[ -z "\$bad" ] || { echo "ft-sat-git: 비밀 파일 커밋 거부: \$bad" >&2; exit 1; }
+HOOK
+chmod +x "$gd/hooks/pre-commit"
+echo "WORKTREE $wt"
+RSH
+); rc=$?; rem_rc; [ "$rc" = 0 ] || { led set "$slug" in_use=0; die "원격 worktree 준비 실패 rc=$rc: $out"; }
+  t3=$SECONDS
+  led set "$slug" snap_sha="$snap" url="$url"
+  echo "ft-sat-git push: slug=$slug gen=$gen snap=$snap create=$((t1 - t0))s transfer=$((t2 - t1))s worktree=$((t3 - t2))s"
+  printf '%s\n' "$out" | sed 's/^/  /'
+}
+
+# ── 3단 fetch (계약 보강 11: 부모→자식 순서 · design/·병합 거부 · base 트리 동등성) ──────────
+do_fetch() {
+  local slug=$1 gen base_sha url ref snap snap_led c parents names bad=""
+  local -a list=()
+  check_slug "$slug"; gen=$(led get "$slug" gen); [ -n "$gen" ] && [ "$gen" != 0 ] || die "원장에 '$slug' 없음(push 먼저)"
+  base_sha=$(led get "$slug" base_sha); url=$(led get "$slug" url); snap_led=$(led get "$slug" snap_sha)
+  case "$url" in ssh://*) ;; *) url=$(gurl);; esac
+  ref="refs/sat/$slug-g$gen"
+  git fetch -q "$url" "+snap/$slug-g$gen:$ref" || die "fetch 실패"
+  snap=$(git rev-parse "$ref")
+  bad=$(git diff --name-only "$base_sha" "${snap_led:-$snap}" | grep -Ev '^design/' || true)
+  [ -z "$bad" ] || die "base↔snapshot 차이가 design/ 밖: $(printf '%s' "$bad" | head -3 | tr '\n' ' ')"
+  # ③ 부모→자식 순서 — 스냅샷 커밋 자신(고아 뿌리)은 «나노 작업» 이 아니므로 뺀다
+  if [ -n "$snap_led" ] && git rev-parse --verify -q "$snap_led" >/dev/null; then
+    while read -r c; do [ -n "$c" ] && list+=("$c"); done < <(git rev-list --reverse "$ref" --not "$snap_led")
+  else
+    while read -r c; do [ -n "$c" ] && list+=("$c"); done < <(git rev-list --reverse "$ref")
+  fi
+  [ "${#list[@]}" -gt 0 ] || die "가져올 커밋 0 — 원격 작업 커밋 대기"
+  for c in "${list[@]}"; do
+    parents=$(git rev-list --parents -n 1 "$c" | wc -w | tr -d ' ')
+    [ "$parents" -le 2 ] || die "병합 커밋 거부 $c (부모 $((parents - 1))개)"
+    names=$(git diff-tree --no-commit-id --name-only -r -M "$c")
+    printf '%s\n' "$names" | grep -Eq '^design/' && die "design/ 변경 커밋 거부 $c: $(printf '%s\n' "$names" | grep -E '^design/' | head -3 | tr '\n' ' ')"
+    printf '%s\n' "$names" | grep -Eq "$SECRET" && die "비밀 파일 패턴 커밋 거부 $c (계약 보강 13)"
+  done
+  git checkout -q -B "nano/$slug-g$gen" "$base_sha" || die "base 에서 가지 생성 실패"
+  for c in "${list[@]}"; do
+    git cherry-pick "$c" >/dev/null 2>&1 || { git cherry-pick --abort >/dev/null 2>&1; die "cherry-pick 실패 $c"; }
+  done
+  echo "ft-sat-git fetch: slug=$slug gen=$gen tip=$snap commits=${#list[@]} branch=nano/$slug-g$gen"
+}
+
+# ── 5단 sweep (계약 보강 14: 같은 왕복에서 네 값 대조 → archive ref → remove → branch -D) ────
+do_sweep() {
+  local slug=$1 gen ref tip out rc
+  check_slug "$slug"; gen=$(led get "$slug" gen); [ -n "$gen" ] && [ "$gen" != 0 ] || die "원장에 '$slug' 없음"
+  ref="refs/sat/$slug-g$gen"
+  git rev-parse --verify "$ref" >/dev/null 2>&1 || die "이 맥 tip($ref) 없음 — fetch 먼저(삭제 조건 ①)"
+  tip=$(git rev-parse "$ref")
+  RC=97
+  out=$(rem "$slug" "$gen" "$BARE_REL" "$WORK_REL" "$REGEN" "$tip" <<'RSH'
+bare="$HOME/$3"; wt="$HOME/$4/$1-g$2"; br="snap/$1-g$2"; ar="refs/archive/sat-git/$1-g$2"
+st=$(git -C "$bare" rev-parse --verify "refs/heads/$br" 2>/dev/null) || { echo "JUDGE-UNKNOWN 원격 snap 가지 없음" >&2; exit 97; }
+hd=$(git -C "$wt" rev-parse --verify HEAD 2>/dev/null) || { echo "JUDGE-UNKNOWN 원격 worktree HEAD 없음" >&2; exit 97; }
+dirty=$(git -C "$wt" status --porcelain --ignored | grep -Ev "$5" || true)
+echo "CHECK local=$6 snap=$st head=$hd dirty=${dirty:-none}"
+RC=1
+[ "$6" = "$st" ] || { echo "REJECT tip 불일치(local=$6 snap=$st)" >&2; exit 1; }
+[ "$hd" = "$st" ] || { echo "REJECT HEAD 불일치" >&2; exit 1; }
+[ -z "$dirty" ] || { echo "REJECT 미커밋/미추적: $dirty" >&2; exit 1; }
+git -C "$bare" update-ref "$ar" "$st" || { echo "REJECT archive ref 실패 — 삭제 0" >&2; exit 1; }
+echo "ARCHIVE $ar -> $st"
+git -C "$bare" worktree remove --force "$wt" || exit 1
+echo "WORKTREE-REMOVED $wt"
+git -C "$bare" branch -D "$br" >/dev/null || exit 1
+echo "BRANCH-DELETED $br"
+RSH
+); rc=$?; [ "$rc" = 124 ] && rc=98
+  [ "$rc" = 0 ] || RC=$rc
+  printf '%s\n' "$out" | sed 's/^/  /'
+  [ "$rc" = 0 ] || die "sweep 거부/불가 rc=$rc — 삭제 0 또는 부분 상태"
+  led set "$slug" in_use=0
+  echo "ft-sat-git sweep: slug=$slug gen=$gen tip=$tip archive=refs/archive/sat-git/$slug-g$gen"
+}
+
+[ $# -ge 1 ] || usage
+sub=$1; shift; [ $# -ge 1 ] || usage; slug=$1; shift
+case "$sub" in
+  push)  if [ "${1:-}" = "--base" ]; then [ -n "${2:-}" ] || usage; do_push "$slug" "$2"; else do_push "$slug"; fi ;;
+  fetch) do_fetch "$slug" ;;
+  sweep) do_sweep "$slug" ;;
+  *) usage ;;
+esac
