@@ -201,7 +201,7 @@ untouched "ⓗ"
 set_origin "$REMOTE"
 
 echo "== 변이 «끝줄 찾기 끔» → ⓐ 가 잡는다(변이 FAIL)"
-mutant 'out="$(nf_bound "$cap" git -C "$repo" log refs/remotes/origin/main --fixed-strings --grep="$want" --format=%H 2>&1)"; rc=$?' 'out=""; rc=0'
+mutant 'out="$(nf_bound "$cap" git -C "$repo" log refs/remotes/origin/main --fixed-strings --grep="$grepw" --format=%H 2>&1)"; rc=$?' 'out=""; rc=0'   # r1074: grep 인자가 ««PR #N (head » 접두로 바뀌었다(변이 자리만 따라옮김)
 setup CLOSED; squash_commit "squash 착지
 
 PR #363 (head $SET)"

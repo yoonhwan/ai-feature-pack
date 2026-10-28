@@ -792,7 +792,18 @@ _lp_repo_pick() {  # 리포(·slug) 하나를 정한다 — 못 정하면 _lp_re
   return 0
 }
 _lp_state=""; _lp_head=""; _lp_mrg=""; _lp_pr_err=""
-_lp_landed=""; _lp_landed_short=""
+_lp_landed=""; _lp_landed_short=""; _lp_equiv_x=""; _lp_equiv_sha=""
+# ★r1074★ 끝줄에서 head 를 «꼴 그대로» 뽑는다 — «PR #<N> (head <40hex>)» 정확히 그 꼴일 때만 40hex, 아니면 빈 값.
+#   접두 겹침(끝줄 «PR #44 (head …)» 인데 N=4)·꼬리 붙은 줄(«… (head <hex>) (cherry-picked)»)·본문 가운데 줄은 전부 빈 값 = 후보 0.
+_lp_lastline_head() {  # <N> <끝줄> → 40hex 또는 빈 값
+  local n="$1" l="$2" h
+  case "$l" in "PR #$n (head "*) ;; *) return 0;; esac
+  h="${l#PR #$n (head }"
+  case "$h" in *')') h="${h%')'}" ;; *) return 0;; esac
+  [ "${#h}" -eq 40 ] || return 0
+  case "$h" in *[!0-9a-f]*) return 0;; esac
+  printf '%s\n' "$h"
+}
 _lp_lastline() {  # <repo> <sha> — 커밋 메시지의 «마지막 비어 있지 않은 줄»(끝 공백 제거) · 없으면 빈 값
   local l
   l="$(git -C "$1" log -1 --format=%B "$2" 2>/dev/null | sed -e 's/[[:space:]]*$//' | awk 'NF{l=$0} END{if (l!="") print l}')"
@@ -803,9 +814,9 @@ _lp_lastline() {  # <repo> <sha> — 커밋 메시지의 «마지막 비어 있�
 #   ⓐ PR head 가 origin/main 의 조상 = 빨리감기 착지(R392 --ff)  ⓑ origin/main 커밋의 «끝줄» 이 정확히 «PR #<N> (head <PR head 40hex>)» = squash 착지(ft-merge-land 끝줄 꼴)
 #   둘 다 없으면 REJECT(«main 에 산출 없음») · fetch 실패 = «판정 불가» 1줄 REJECT(하드 룰 20 · 옛 ref 로 통과 0).
 _lp_landed_gate() {
-  local repo cap out rc cand want last
+  local repo cap out rc cand want grepw last x ecap eout erc efirst emerges mb rc3 mout merges
   repo="${_lp_repo:-}"
-  _lp_landed=""; _lp_landed_short=""
+  _lp_landed=""; _lp_landed_short=""; _lp_equiv_x=""; _lp_equiv_sha=""
   cap="${FT_NANO_LANDED_PR_CAP_S:-7}"; case "$cap" in ''|*[!0-9]*|0) cap=7;; esac
   [ -n "$repo" ] || { _lp_pr_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · 리포 없음 — 판정 불가로 닫지 않는다"; return 1; }
   step landed-ancestry
@@ -818,8 +829,14 @@ _lp_landed_gate() {
     echo "INFO ⑥--landed-pr 착지 확인: ff · PR state=$_lp_state"
     return 0
   fi
+  # ★r1074★ 후보 찾기를 «끝줄 head = 지금 PR head» 정확 일치에서 «PR #<N> (head » 접두로 넓힌다.
+  #   착지 도구가 squash 를 main 에 올린 «뒤» PR 가지에 main 을 병합하면 PR head 가 바뀌어 끝줄의 head 와 달라진다(ccu 4166 실측 2병합).
+  #   그때 «끝줄 head X 이후 가지에 새 내용이 없다 + 가지 내용이 전부 main 에 있다» 면 산출은 main 에 있다.
+  #   ★r1074 r2(arch#173 재판단 · #182378 ②)★ 승인 판정기(ft-approval-equiv)는 «승인 때 자기 변경 = 지금 자기 변경» 을 본다 — squash 착지 뒤에는
+  #   main 이 이미 그 변경을 가졌서 지금 자기 변경이 0 이 돼 «착지된 가지일수록» NOT-EQUIV 가 난다(ccu 4166 실측). 그래서 이 자리엔 도구가 다르다 — git 3칸으로 본다.
   want="PR #$LANDED_PR (head $_lp_head)"
-  out="$(nf_bound "$cap" git -C "$repo" log refs/remotes/origin/main --fixed-strings --grep="$want" --format=%H 2>&1)"; rc=$?
+  grepw="PR #$LANDED_PR (head "
+  out="$(nf_bound "$cap" git -C "$repo" log refs/remotes/origin/main --fixed-strings --grep="$grepw" --format=%H 2>&1)"; rc=$?
   if [ "$rc" -eq 124 ]; then _lp_pr_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · main 끝줄 찾기 시간 초과(${cap}초 상한 · 하드 룰 12) — 판정 불가로 닫지 않는다"; return 1; fi
   if [ "$rc" -ne 0 ]; then _lp_pr_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · git log 실패(rc=$rc: $(printf '%s' "$out" | head -1 | cut -c1-160)) — 판정 불가로 닫지 않는다"; return 1; fi
   while IFS= read -r cand; do
@@ -831,7 +848,41 @@ _lp_landed_gate() {
       echo "INFO ⑥--landed-pr 착지 확인: squash ${_lp_landed_short:-${cand:0:9}} · PR state=$_lp_state"
       return 0
     fi
+    x="$(_lp_lastline_head "$LANDED_PR" "$last")"   # 꼴 밖(접두 겹침·꼬리·가운데 줄) = 빈 값 → 후보 0
+    [ -n "$x" ] || continue
+    [ -n "$_lp_equiv_x" ] || { _lp_equiv_x="$x"; _lp_equiv_sha="$cand"; }
   done <<< "$out"
+  if [ -n "$_lp_equiv_x" ]; then
+    # 3칸 판정(전부 참 = 착지): ⓐ X 가 S 의 조상 · ⓑ 첫 부모 줄에 main 병합 아닌 일반 커밋 0 · ⓒ merge-base(S,origin/main) 대비 S 의 차이 0.
+    # 각 호출은 nf_bound 상한 · 실패·시간 초과 = «판정 불가» 1줄 REJECT(하드 룰 20 · 추측 통과 0).
+    ecap="$(nf_cap "$(nf_fixed equiv)" 1)"
+    if ! git -C "$repo" merge-base --is-ancestor "$_lp_equiv_x" "$_lp_head" 2>/dev/null; then
+      _lp_pr_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · main 에 산출 없음(ff 0 · squash 끝줄 0 — ⓐ 거짓: 끝줄 head ${_lp_equiv_x:0:9} 가 지금 PR head ${_lp_head:0:9} 의 조상 아님 = 가지를 갈아엎었다)"
+      return 1
+    fi
+    eout="$(nf_bound "$ecap" git -C "$repo" rev-list --first-parent --no-merges "$_lp_equiv_x..$_lp_head" 2>&1)"; erc=$?
+    if [ "$erc" -eq 124 ]; then _lp_pr_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · 끝줄 head 이후 일반 커밋 검사 시간 초과(${ecap}초 상한 · 하드 룰 12) — 판정 불가로 닫지 않는다"; return 1; fi
+    if [ "$erc" -ne 0 ]; then _lp_pr_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · git rev-list 실패(rc=$erc: $(printf '%s' "$eout" | head -1 | cut -c1-160)) — 판정 불가로 닫지 않는다"; return 1; fi
+    if [ -n "$eout" ]; then
+      efirst="$(printf '%s' "$eout" | grep -c .)"
+      _lp_pr_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · main 에 산출 없음(ff 0 · squash 끝줄 0 — ⓑ 거짓: 끝줄 head ${_lp_equiv_x:0:9} 이후 main 병합 아닌 일반 커밋 ${efirst}개 · 첫 = $(printf '%s' "$eout" | head -1 | cut -c1-12))"
+      return 1
+    fi
+    mb="$(git -C "$repo" merge-base "$_lp_head" refs/remotes/origin/main 2>/dev/null)"
+    if [ -z "$mb" ]; then _lp_pr_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · merge-base(PR head, origin/main) 없음 — 판정 불가로 닫지 않는다"; return 1; fi
+    nf_bound "$ecap" git -C "$repo" diff --quiet "$mb" "$_lp_head" 2>/dev/null; rc3=$?
+    if [ "$rc3" -eq 124 ]; then _lp_pr_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · main 대비 자기 변경 검사 시간 초과(${ecap}초 상한 · 하드 룰 12) — 판정 불가로 닫지 않는다"; return 1; fi
+    if [ "$rc3" -ne 0 ]; then
+      _lp_pr_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · main 에 산출 없음(ff 0 · squash 끝줄 0 — ⓒ 거짓: PR head ${_lp_head:0:9} 가 main(${mb:0:9}) 대비 바뀐 내용이 있다 = main 에 없는 변경)"
+      return 1
+    fi
+    mout="$(nf_bound "$ecap" git -C "$repo" rev-list --count --merges "$_lp_equiv_x..$_lp_head" 2>&1)"
+    merges="$mout"; case "$merges" in ''|*[!0-9]*) merges=0;; esac
+    _lp_landed=squash
+    _lp_landed_short="$(git -C "$repo" rev-parse --short "$_lp_equiv_sha" 2>/dev/null)"
+    echo "INFO ⑥--landed-pr 착지 확인: squash ${_lp_landed_short:-${_lp_equiv_sha:0:9}} · 끝줄 head ${_lp_equiv_x:0:9} → PR head ${_lp_head:0:9} = main 병합 ${merges}개뿐 · main 대비 자기 변경 0 · PR state=$_lp_state"
+    return 0
+  fi
   _lp_pr_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · main 에 산출 없음(ff 0 · squash 끝줄 0)"
   return 1
 }
