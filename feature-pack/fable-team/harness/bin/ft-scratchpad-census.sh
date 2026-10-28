@@ -175,7 +175,8 @@ if ! mv -f "$TMP" "$OUT" 2>/dev/null; then cp -f "$TMP" "$OUT"; fi; rm -f "$TMP"
 if [ -n "$rest" ]; then printf '%s' "$rest" > "$CUR"; else rm -f "$CUR"; fi
 gib="$(awk -v m="$mbsum" 'BEGIN{printf "%.2f", m/1024}')"
 part=""; [ -z "$rest" ] || part=" · 부분 $judged/$TOTAL"
+# ★쪽지 갈래는 반드시 요약 «앞» 이다★ — ft-disk-alarm 은 stdout 의 tail -1 을 요약으로 읽어 DEAD-SAFE·DEAD-KEEP·UNKNOWN 수를 뽑는다(뒤에 두면 세 값이 비어 매일 쪽지 1통이 나간다 · arch#174 격리 r1)
+mail_live
 printf '[scratchpad 사본] DEAD-SAFE %s개 %sGiB · DEAD-KEEP %s · LIVE %s · UNKNOWN %s · 삭제 %s%s\n' \
   "$safe" "$gib" "$keeps" "$lives" "$unks" "$dels" "$part"
-mail_live
 exit 0

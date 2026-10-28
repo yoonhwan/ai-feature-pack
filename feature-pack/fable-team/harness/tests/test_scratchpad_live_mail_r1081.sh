@@ -91,6 +91,16 @@ env FT_SP_MAIL_DRY=1 FT_RES_ROOT="$F/R" FT_SP_ROOT="$F/sp" FT_SP_PS_OUT="$F/ps.t
 { [ "$RC" = 0 ] && [ "$(mails)" = 0 ] && [ ! -s "$MAILED" ] && grep -q '발신 0\] byz-f#5 ← .*앞 3: '"$F1" "$F/out"; } \
   && ok "ⓕ 발신 0 모드 → 쪽지 0 · 기록 0 · 목록 1줄" || bad "ⓕ rc=$RC $(cat "$F/out")"
 
+# ⓗ ft-disk-alarm 은 stdout «마지막 줄» 을 요약으로 읽는다(tail -1) — 쪽지 줄이 뒤에 오면 매일 오보 1통
+mkfix h; mkseat u-h byz-h#7; mkcopy u-h c1 >/dev/null; aged; run
+{ [ "$RC" = 0 ] && [ "$(mails)" = 1 ] && tail -n 1 "$F/out" | grep -q '^\[scratchpad 사본\] DEAD-SAFE'; } \
+  && ok "ⓗ 쪽지 줄이 있어도 마지막 줄 = census 요약" || bad "ⓗ 마지막줄 $(tail -n 1 "$F/out")"
+# 변이 ③: mail_live 를 다시 요약 «뒤» 로 → 마지막 줄이 쪽지 줄 → ⓗ FAIL
+awk '{ if ($0=="mail_live") next; if ($0=="exit 0") print "mail_live"; print }' "$SUT" > "$T/mut-order.sh"
+: > "$MAILED"; SUT_BIN="$T/mut-order.sh" run; SUT_BIN=""
+{ [ "$(mails)" = 1 ] && ! tail -n 1 "$F/out" | grep -q '^\[scratchpad 사본\] DEAD-SAFE'; } \
+  && ok "변이③ 쪽지 줄을 요약 뒤로 → 마지막 줄이 쪽지 ⓗ FAIL(잡힘)" || bad "변이③ 못 잡음 $(tail -n 1 "$F/out")"
+
 # ⓔ bin·kit 같은 내용
 cmp -s "$SUT" "$KIT" && ok "ⓔ bin·kit cmp0" || bad "ⓔ bin·kit 다름"
 
