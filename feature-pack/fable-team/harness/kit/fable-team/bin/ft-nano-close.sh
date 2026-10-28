@@ -793,6 +793,7 @@ _lp_repo_pick() {  # 리포(·slug) 하나를 정한다 — 못 정하면 _lp_re
 }
 _lp_state=""; _lp_head=""; _lp_mrg=""; _lp_pr_err=""
 _lp_landed=""; _lp_landed_short=""; _lp_equiv_x=""; _lp_equiv_sha=""; _lp_squash_sha=""   # r1083: _lp_squash_sha = «이 PR 의 squash 착지 커밋» 40hex(정확 일치 = cand · 3칸 = _lp_equiv_sha)
+_lp_land_x=""   # r1084: _lp_land_x = 착지 경로가 고른 «main 끝줄 head X»(정확 일치 경로 = _lp_head · r1074 3칸 경로 = _lp_equiv_x · _lp_equiv_x 는 정확 일치 «전» 후보가 남을 수 있어 X 로 쓰지 않는다)
 # ★r1074★ 끝줄에서 head 를 «꼴 그대로» 뽑는다 — «PR #<N> (head <40hex>)» 정확히 그 꼴일 때만 40hex, 아니면 빈 값.
 #   접두 겹침(끝줄 «PR #44 (head …)» 인데 N=4)·꼬리 붙은 줄(«… (head <hex>) (cherry-picked)»)·본문 가운데 줄은 전부 빈 값 = 후보 0.
 _lp_lastline_head() {  # <N> <끝줄> → 40hex 또는 빈 값
@@ -816,7 +817,7 @@ _lp_lastline() {  # <repo> <sha> — 커밋 메시지의 «마지막 비어 있�
 _lp_landed_gate() {
   local repo cap out rc cand want grepw last x ecap eout erc efirst emerges mb rc3 mout merges
   repo="${_lp_repo:-}"
-  _lp_landed=""; _lp_landed_short=""; _lp_equiv_x=""; _lp_equiv_sha=""; _lp_squash_sha=""
+  _lp_landed=""; _lp_landed_short=""; _lp_equiv_x=""; _lp_equiv_sha=""; _lp_squash_sha=""; _lp_land_x=""   # r1084: _lp_land_x 도 비운다(두 번 불러도 앞 PR 의 X 가 안 남게)
   cap="${FT_NANO_LANDED_PR_CAP_S:-7}"; case "$cap" in ''|*[!0-9]*|0) cap=7;; esac
   [ -n "$repo" ] || { _lp_pr_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · 리포 없음 — 판정 불가로 닫지 않는다"; return 1; }
   step landed-ancestry
@@ -844,6 +845,7 @@ _lp_landed_gate() {
     last="$(_lp_lastline "$repo" "$cand")"
     if [ "$last" = "$want" ]; then   # 포함이 아니라 «끝줄 정확 일치» — 접두 겹침(«PR #44» vs N=4)·본문 가운데 줄은 통과 0
       _lp_squash_sha="$cand"   # r1083: 이 PR 의 squash = 끝줄 정확 일치 후보
+      _lp_land_x="$_lp_head"   # r1084: 이 경로의 끝줄 head = 지금 PR head(끝줄 «PR #N (head <_lp_head>)» 정확 일치)
       _lp_landed=squash
       _lp_landed_short="$(git -C "$repo" rev-parse --short "$cand" 2>/dev/null)"
       echo "INFO ⑥--landed-pr 착지 확인: squash ${_lp_landed_short:-${cand:0:9}} · PR state=$_lp_state"
@@ -880,6 +882,7 @@ _lp_landed_gate() {
     mout="$(nf_bound "$ecap" git -C "$repo" rev-list --count --merges "$_lp_equiv_x..$_lp_head" 2>&1)"
     merges="$mout"; case "$merges" in ''|*[!0-9]*) merges=0;; esac
     _lp_squash_sha="$_lp_equiv_sha"   # r1083: r1074 3칸 경로의 squash 후보
+    _lp_land_x="$_lp_equiv_x"   # r1084: 이 경로의 끝줄 head
     _lp_landed=squash
     _lp_landed_short="$(git -C "$repo" rev-parse --short "$_lp_equiv_sha" 2>/dev/null)"
     echo "INFO ⑥--landed-pr 착지 확인: squash ${_lp_landed_short:-${_lp_equiv_sha:0:9}} · 끝줄 head ${_lp_equiv_x:0:9} → PR head ${_lp_head:0:9} = main 병합 ${merges}개뿐 · main 대비 자기 변경 0 · PR state=$_lp_state"
@@ -887,6 +890,52 @@ _lp_landed_gate() {
   fi
   _lp_pr_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · main 에 산출 없음(ff 0 · squash 끝줄 0)"
   return 1
+}
+# ★r1084★ 세트가 «끝줄 head 의 조상» 인 꼴 — 착지 도구가 PR 가지에 main 을 병합하면 카드 세트(= 승인 직전 head S)가 끝줄 head X 의 조상이 되고
+#   sha 만 달라진다(산출은 바이트까지 같다 · arch#174 실측 ops 나노 4324·4338·4302: S ⊂ X ⊂ PR head H · S..X 첫 부모 일반 커밋 0 · patch-id S = X).
+#   S→X 첫 부모 줄에 일반 커밋이 없고(main 병합뿐) merge-base 대비 «자기 변경» 이 같으면(patch-id 일치 · 둘 다 비어 있지 않음) 같은 산출이다 → 통과(판정기 호출 0).
+#   X = _lp_land_x(착지 경로가 고른 끝줄 head). 각 git 호출은 nf_bound 상한 · 실패·시간 초과 = «판정 불가» 1줄 REJECT(하드 룰 20 · 추측 통과 0).
+#   rc 0 = 통과 · 1 = 거짓(지금 판정기 경로로 내려간다) · 2 = 판정 불가(REJECT).
+_lp_sx_err=""; _lp_sx_merges=""
+_lp_sx_gate() {  # <카드 세트 S>
+  local repo s x ecap rc out mb1 mb2 p1 p2 n
+  repo="${_lp_repo:-}"; s="$1"; x="${_lp_land_x:-}"
+  _lp_sx_err=""; _lp_sx_merges=""
+  [ -n "$x" ] || return 1   # 끝줄 head 를 못 찾았으면 이 칸은 판정하지 않는다(지금 경로)
+  [ -n "$repo" ] || { _lp_sx_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · 리포 없음 — 판정 불가로 닫지 않는다"; return 2; }
+  ecap="$(nf_cap "$(nf_fixed equiv)" 1)"
+  step landed-pr-sx
+  # ⓐ S 가 X 의 조상 (git merge-base --is-ancestor: rc 1 = «아니오» = 조건 거짓 · 그 밖 rc·시간 초과 = 판정 불가)
+  nf_bound "$ecap" git -C "$repo" merge-base --is-ancestor "$s" "$x" >/dev/null 2>&1; rc=$?
+  if [ "$rc" -eq 1 ]; then return 1; fi
+  if [ "$rc" -eq 124 ]; then _lp_sx_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · 세트 ${s:0:9}→끝줄 head ${x:0:9} 조상 검사 시간 초과(${ecap}초 상한 · 하드 룰 12) — 판정 불가로 닫지 않는다"; return 2; fi
+  if [ "$rc" -ne 0 ]; then _lp_sx_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · 세트 ${s:0:9}→끝줄 head ${x:0:9} 조상 검사 실패(rc=$rc) — 판정 불가로 닫지 않는다(하드 룰 20)"; return 2; fi
+  # ⓑ S..X 첫 부모 줄에 «main 병합 아닌 일반 커밋» 0 (0줄 = 병합뿐)
+  out="$(nf_bound "$ecap" git -C "$repo" rev-list --first-parent --no-merges "$s..$x" 2>&1)"; rc=$?
+  if [ "$rc" -eq 124 ]; then _lp_sx_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · 세트..끝줄 일반 커밋 검사 시간 초과(${ecap}초 상한 · 하드 룰 12) — 판정 불가로 닫지 않는다"; return 2; fi
+  if [ "$rc" -ne 0 ]; then _lp_sx_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · git rev-list 실패(rc=$rc: $(printf '%s' "$out" | head -1 | cut -c1-160)) — 판정 불가로 닫지 않는다"; return 2; fi
+  [ -z "$out" ] || return 1
+  # ⓒ merge-base 대비 «자기 변경» 이 같다 — patch-id 두 값 모두 비어 있지 않고 같아야 한다(빈 diff = 조건 거짓)
+  mb1="$(nf_bound "$ecap" git -C "$repo" merge-base "$s" refs/remotes/origin/main 2>&1)"; rc=$?
+  if [ "$rc" -eq 124 ]; then _lp_sx_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · merge-base(세트, origin/main) 시간 초과(${ecap}초 상한 · 하드 룰 12) — 판정 불가로 닫지 않는다"; return 2; fi
+  if [ "$rc" -ne 0 ] || [ -z "$mb1" ]; then _lp_sx_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · merge-base(세트 ${s:0:9}, origin/main) 없음(rc=$rc: $(printf '%s' "$mb1" | head -1 | cut -c1-120)) — 판정 불가로 닫지 않는다"; return 2; fi
+  mb2="$(nf_bound "$ecap" git -C "$repo" merge-base "$x" refs/remotes/origin/main 2>&1)"; rc=$?
+  if [ "$rc" -eq 124 ]; then _lp_sx_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · merge-base(끝줄 head, origin/main) 시간 초과(${ecap}초 상한 · 하드 룰 12) — 판정 불가로 닫지 않는다"; return 2; fi
+  if [ "$rc" -ne 0 ] || [ -z "$mb2" ]; then _lp_sx_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · merge-base(끝줄 head ${x:0:9}, origin/main) 없음(rc=$rc: $(printf '%s' "$mb2" | head -1 | cut -c1-120)) — 판정 불가로 닫지 않는다"; return 2; fi
+  p1="$(nf_bound "$ecap" bash -c 'set -o pipefail; git -C "$1" diff "$2" "$3" | git patch-id --stable' _ "$repo" "$mb1" "$s" 2>&1)"; rc=$?
+  if [ "$rc" -eq 124 ]; then _lp_sx_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · 세트 자기 변경 patch-id 시간 초과(${ecap}초 상한 · 하드 룰 12) — 판정 불가로 닫지 않는다"; return 2; fi
+  if [ "$rc" -ne 0 ]; then _lp_sx_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · 세트 자기 변경 patch-id 실패(rc=$rc: $(printf '%s' "$p1" | head -1 | cut -c1-160)) — 판정 불가로 닫지 않는다"; return 2; fi
+  p2="$(nf_bound "$ecap" bash -c 'set -o pipefail; git -C "$1" diff "$2" "$3" | git patch-id --stable' _ "$repo" "$mb2" "$x" 2>&1)"; rc=$?
+  if [ "$rc" -eq 124 ]; then _lp_sx_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · 끝줄 head 자기 변경 patch-id 시간 초과(${ecap}초 상한 · 하드 룰 12) — 판정 불가로 닫지 않는다"; return 2; fi
+  if [ "$rc" -ne 0 ]; then _lp_sx_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · 끝줄 head 자기 변경 patch-id 실패(rc=$rc: $(printf '%s' "$p2" | head -1 | cut -c1-160)) — 판정 불가로 닫지 않는다"; return 2; fi
+  p1="$(printf '%s\n' "$p1" | awk 'NF{print $1; exit}')"; p2="$(printf '%s\n' "$p2" | awk 'NF{print $1; exit}')"
+  [ -n "$p1" ] && [ -n "$p2" ] || return 1
+  [ "$p1" = "$p2" ] || return 1
+  # 통과 문구의 «main 병합 <m>개» — 같은 상한으로 센다(못 세면 판정 불가)
+  n="$(nf_bound "$ecap" git -C "$repo" rev-list --first-parent --merges --count "$s..$x" 2>&1)"; rc=$?
+  if [ "$rc" -eq 124 ]; then _lp_sx_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · main 병합 수 세기 시간 초과(${ecap}초 상한 · 하드 룰 12) — 판정 불가로 닫지 않는다"; return 2; fi
+  case "$rc:$n" in 0:[0-9]*) _lp_sx_merges="$n";; *) _lp_sx_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · main 병합 수를 못 셈(rc=$rc: $(printf '%s' "$n" | head -1 | cut -c1-120)) — 판정 불가로 닫지 않는다"; return 2;; esac
+  return 0
 }
 _lp_fetch_pr() {
   local cap out rc
@@ -1481,6 +1530,9 @@ elif [ -n "$LANDED_PR" ]; then
       #   기획 나노가 착지 «뒤» 세트 줄에 main 의 squash sha 를 적는 꼴(lecture L69 실사건)은 종전까지 NOT-EQUIV 로 막혔다.
       #   세트가 «다른 PR 의 squash»·«아무 main 커밋»이면 _lp_squash_sha 와 다르므로 지금 경로(아래 판정기)로 내려가 그대로 막힌다.
       if [ -n "$_lp_squash_sha" ] && [ "$_lp_set" = "$_lp_squash_sha" ]; then echo "LANDED-PR-OK #$LANDED_PR merged=${_lp_mrg:0:9} state=$_lp_state head=${_lp_head:0:9} repo=${_lp_slug} 카드 세트 = squash ${_lp_landed_short:-${_lp_squash_sha:0:9}} (이 PR 의 착지 커밋) · «- 착지:» 줄 있음 (⑤ cherry·⑥ 증거 줄 면제)"
+      # ★r1084★ 세트 S 가 «끝줄 head X 의 조상» 이고 S→X 가 main 병합뿐이며 자기 변경(patch-id)이 같으면 같은 착지다 — 판정기 호출 0 으로 통과.
+      elif _lp_sx_gate "$_lp_set"; then echo "LANDED-PR-OK #$LANDED_PR merged=${_lp_mrg:0:9} state=$_lp_state head=${_lp_head:0:9} repo=${_lp_slug} 카드 세트 ${_lp_set:0:9} → 끝줄 head ${_lp_land_x:0:9} = main 병합 ${_lp_sx_merges}개뿐 · 자기 변경 같음 · «- 착지:» 줄 있음 (⑤ cherry·⑥ 증거 줄 면제)"
+      elif [ -n "$_lp_sx_err" ]; then bad+=("$_lp_sx_err")
       elif _lp_equiv_gate; then echo "LANDED-PR-OK #$LANDED_PR merged=${_lp_mrg:0:9} state=$_lp_state head=${_lp_head:0:9} repo=${_lp_slug} ≡ 카드 세트 ${_lp_set:0:9} + main 병합 ${_lp_equiv_merges} equiv=${_lp_equiv_merges} · «- 착지:» 줄 있음 (⑤ cherry·⑥ 증거 줄 면제)"
       else bad+=("$_lp_equiv_err"); fi
     else echo "LANDED-PR-OK #$LANDED_PR merged=${_lp_mrg:0:9} state=$_lp_state head=${_lp_head:0:9} repo=${_lp_slug} == 카드 세트 · «- 착지:» 줄 있음 (⑤ cherry·⑥ 증거 줄 면제)"; fi
