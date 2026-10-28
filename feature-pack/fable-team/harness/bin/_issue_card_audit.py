@@ -24,7 +24,8 @@ ALIAS_DEFAULT = os.path.join(HERE, "team_aliases.json")
 
 REF_RE = re.compile(r"#(\d+)(?![0-9])")          # 번호 규칙 «한 곳» — R4
 ISSUE_LINE_RE = re.compile(r"^\s*[-*]\s*Issue\s*[:：]")
-CARD_PATH_RE = re.compile(r"^design/[^/]+/indices/(?P<bucket>[^/.][^/]*)/.+\.md$")
+# 카드 경로 두 꼴 — origin/main = design/teams/<팀>/indices/… · ops/main-base = design/<팀>/indices/… (arch#173 반송 r2)
+CARD_PATH_RE = re.compile(r"^design/(?:teams/)?[^/]+/indices/(?P<bucket>[^/.][^/]*)/.+\.md$")
 FINISHED = ("완성", "아카이브")                   # 닫기 후보 = 연결 카드가 «전부» 여기 (R7)
 
 RC_OK, RC_USAGE, RC_UNJUDGEABLE = 0, 2, 5
