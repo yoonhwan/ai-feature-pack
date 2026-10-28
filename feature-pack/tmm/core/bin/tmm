@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # tmm — 모바일(Termius/SSH) 전용 tmux 좌석 TUI. 폰 60~80열 기준. fzf 기반 커서 이동·필터·미리보기.
 #   tmm              TUI 피커 (↑↓ 커서 · 타이핑=필터 · Enter=attach · 아래 키 참조)
-#   tmm ls [PAT]     텍스트 목록 (비대화용)
+#   tmm ls [PAT] [--host H|all]   텍스트 목록 (비대화용) — --host 면 HOST 열이 앞에 붙는다(원격 좌석 포함)
 #   tmm a NAME [-i]  attach (기본 폰 크기 추종 · -i 면 데스크탑 크기 고정+점 채움)
-#   tmm p NAME [N]   pane 최근 N줄 (기본 30)
+#   tmm p [HOST/]NAME [N]   pane 최근 N줄 (기본 30) — mini/좌석 처럼 호스트 접두를 받는다
 #   tmm s NAME MSG   메시지 (에이전트 없는 좌석 차단 + 도달확인)
-#   tmm ss           전 좌석 상태 스캔 (seat-scan)
+#   tmm ss [--host H|all]   전 좌석 상태 스캔 (seat-scan) — 호스트 접두를 붙여 보여준다
 #   tmm h            HUMAN/BLOCK/STUCK 좌석만
 #   tmm save         tmuxc save
 #   tmm menu         숫자 메뉴 (fzf 없을 때 폴백)
@@ -81,6 +81,19 @@ SCAN="${TMM_SCAN:-}"
 [ -n "$SCAN" ] || for c in "$HERE/../libexec/seat-scan.sh" "$HOME/.claude/skills/tmuxc/scripts/seat-scan.sh"; do
   [ -f "$c" ] && { SCAN="$c"; break; }
 done
+# 호스트 명부·ssh 래퍼 (tail-remote). 파일이 없거나 source 가 안 되면 로컬(m3) 전용 — 지금 동작 그대로
+HOSTLIB="$HERE/../libexec/host-lib.sh"
+# shellcheck source=/dev/null
+if [ -f "$HOSTLIB" ]; then . "$HOSTLIB"; fi
+type -t h_run >/dev/null 2>&1 || {
+  h_local_name() { printf '%s\n' "${TMM_LOCAL_HOST:-m3}"; }
+  h_split() { case "$1" in */*) printf '%s %s\n' "${1%%/*}" "${1#*/}" ;; *) printf '%s %s\n' "$(h_local_name)" "$1" ;; esac; }
+  h_field() { printf ''; }
+  h_targets() { [ "$1" = all ] && h_local_name || printf '%s\n' "$1"; }
+  h_run()  { printf 'tmm: host-lib 없음 — 원격 불가\n' >&2; return 97; }
+  h_tmux() { printf 'tmm: host-lib 없음 — 원격 불가\n' >&2; return 97; }
+  h_pipe() { printf 'tmm: host-lib 없음 — 원격 불가\n' >&2; return 97; }
+}
 CAT_FILE="${TMM_CATEGORIES:-$HOME/.tmm/categories}"
 MODELS_FILE="${TMM_MODELS:-$HOME/.tmm/models}"          # fork 모델 별칭 (agent<TAB>alias<TAB>id<TAB>extra) — 사용자
 MODELS_GEN="${TMM_MODELS_GEN:-$HOME/.tmm/models.generated}"  # `tmm models refresh` 생성본 — 사용자 파일이 우선
@@ -1356,7 +1369,59 @@ auto_loop() {
   done
 }
 
-cmd_ls() { local pat="${1:-}"; cmd_rows time | cut -f1 | { [ -n "$pat" ] && grep -i -- "$pat" || cat; }; }
+cmd_ls() {  # [PAT] [--host H|all]
+  local pat="" host="" h
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --host)   host="${2:-}"; shift; [ $# -gt 0 ] && shift ;;
+      --host=*) host="${1#--host=}"; shift ;;
+      *)        pat="${pat:+$pat }$1"; shift ;;
+    esac
+  done
+  if [ -z "$host" ]; then cmd_rows time | cut -f1 | { [ -n "$pat" ] && grep -i -- "$pat" || cat; }; return; fi
+  # ★HOST 열★ — --host 를 준 경우에만 앞에 붙는다(접두 없는 지금 출력은 그대로 — R6)
+  for h in $(h_targets "$host"); do
+    if [ "$h" = "$(h_local_name)" ] || [ "$(h_field "$h" kind)" = local ]; then
+      cmd_rows time | cut -f1 | sed "s/^/$h /"
+    else
+      cmd_rows_remote "$h" | cut -f1 | sed "s/^/$h /"
+    fi
+  done | { [ -n "$pat" ] && grep -i -- "$pat" || cat; }
+}
+
+# 원격 좌석 행 — ssh 한 번(h_pipe)으로 상태·활동·cwd 를 받아 로컬 cmd_rows 와 «같은 모양» 으로 편다.
+# 모델·완료 마커는 원격 트랜스크립트를 읽어야 하므로 «-» 로 둔다(정본 확장은 카드3 후속).
+cmd_rows_remote() {  # <host>
+  local h="$1" s st act pcmd cwd tl live cat nw cw now scr
+  read -r nw cw <<<"$(col_widths)"
+  now=$(date +%s)
+  scr="$(mktemp "${TMPDIR:-/tmp}/tmm-rrows.XXXXXX")" || return 1
+  rows_remote_script > "$scr"
+  h_pipe "$h" "$scr" 2>/dev/null | while IFS=$'\t' read -r s st act pcmd cwd; do
+    [ -n "$s" ] || continue
+    case "$pcmd" in zsh|bash|sh|fish|-zsh|-bash) live="○" ;; *) live="●" ;; esac
+    cat="$(cat_of "$s" key)"; tl="${cat#*/}"
+    printf '%s\t%s\t%s\t%-5s %s %-*s %-5s %-8s %s %s %s\t%s\t%s\n' \
+      "$(wait_rank "$st")" "${act:-0}" "$cat" \
+      "${tl:0:5}" "$live" "$nw" "$(clip_name "$s" "$nw")" "$st" "-" "$(fmt_hm "${act:-0}" "~") " "$(age_of "${act:-0}" "$now")" "${cwd##*/}" \
+      "$s" "$cat"
+  done | sort -t$'\t' -k2,2nr | cut -f4-
+  rm -f "$scr"
+}
+
+# 원격에서 돌 스크립트 본문 — seat-scan 을 «설치 없이» 그대로 싣고 tmux 목록과 이름으로 잇는다.
+rows_remote_script() {
+  printf '#!/bin/bash\n'
+  printf 'SEAT_STATE="$(\n'
+  [ -n "$SCAN" ] && [ -f "$SCAN" ] && sed -e '1{/^#!/d;}' "$SCAN"
+  printf ')"\n'
+  cat <<'EOS'
+tmux list-panes -a -F $'#{session_name}\t#{window_activity}\t#{pane_current_command}\t#{pane_current_path}' 2>/dev/null |
+awk -F'\t' '!seen[$1]++' |
+awk -F'\t' -v st="$SEAT_STATE" 'BEGIN { n = split(st, L, "\n"); for (i = 1; i <= n; i++) { split(L[i], P, " "); if (P[1] != "") S[P[1]] = P[2] } }
+{ print $1 "\t" (S[$1] != "" ? S[$1] : "?") "\t" $2 "\t" $3 "\t" $4 }'
+EOS
+}
 
 # ---------- 동작 ----------
 cmd_attach() {
@@ -1381,9 +1446,16 @@ cmd_attach() {
   else tmux attach -t "=$n" $flags; fi
 }
 
-cmd_peek() {  # 비대화용(tmm p): 색 없음·빈 줄 제거·폭 자름
-  local n="$1" k="${2:-30}"
-  tmux capture-pane -t "=$n:" -p 2>/dev/null | grep -vE '^\s*$' | tail -n "$k" | cut -c1-"${COLUMNS:-80}"
+cmd_peek() {  # 비대화용(tmm p): 색 없음·빈 줄 제거·폭 자름 — 주소는 «호스트/좌석»
+  local addr="${1:-}" k="${2:-30}" host sess out rc
+  read -r host sess <<<"$(h_split "$addr")"
+  if [ "$host" != "$(h_local_name)" ]; then
+    out="$(h_tmux "$host" --idempotent capture-pane -t "=$sess:" -p 2>/dev/null)"; rc=$?
+    [ "$rc" -eq 0 ] || echo "tmm: $host/$sess 읽기 실패 (rc=$rc)" >&2
+    printf '%s\n' "$out" | grep -vE '^\s*$' | tail -n "$k" | cut -c1-"${COLUMNS:-80}"
+    return "$rc"
+  fi
+  tmux capture-pane -t "=$sess:" -p 2>/dev/null | grep -vE '^\s*$' | tail -n "$k" | cut -c1-"${COLUMNS:-80}"
 }
 
 # TUI 미리보기 전용 렌더러 — 폰 가독성 3축을 여기서 푼다:
@@ -1473,7 +1545,22 @@ cmd_kill() {  # NAME [--yes]
   [ "$yes" = --yes ] || read -r -n1 -p "[아무 키] " _
 }
 
-cmd_scan()  { [ -n "$SCAN" ] && bash "$SCAN" || echo "seat-scan 없음 (TMM_SCAN 지정)"; }
+cmd_scan() {  # [--host H|all]
+  local host="" h
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --host)   host="${2:-}"; shift; [ $# -gt 0 ] && shift ;;
+      --host=*) host="${1#--host=}"; shift ;;
+      *)        shift ;;
+    esac
+  done
+  [ -n "$SCAN" ] || { echo "seat-scan 없음 (TMM_SCAN 지정)"; return 0; }
+  if [ -z "$host" ]; then bash "$SCAN"; return; fi
+  for h in $(h_targets "$host"); do
+    if [ "$h" = "$(h_local_name)" ] || [ "$(h_field "$h" kind)" = local ]; then bash "$SCAN" | sed "s/^/$h /"
+    else h_pipe "$h" "$SCAN" 2>/dev/null | sed "s/^/$h /"; fi
+  done
+}
 cmd_human() { cmd_scan | grep -E '^\S+\s+(HUMAN|BLOCK|STUCK)\b' || echo "(사람 입력 대기·차단 좌석 없음)"; }
 
 cmd_doctor() {
@@ -1722,15 +1809,15 @@ case "${1:-}" in
   pw)        cmd_pw "${2:-}";;                   # 미리보기 창 배치 (폭 기준)
   pw-action) printf 'change-preview-window(%s)' "$(cmd_pw "${2:-}")";;   # fzf transform() 용 액션 문자열
   __post)    cmd_post "$2" "$3";;                # 핑거 → fzf --listen 소켓 액션 전송
-  ls|l)      cmd_ls "${2:-}";;
+  ls|l)      shift; cmd_ls "$@";;
   a|attach)  cmd_attach "${2:-}" "${3:-}";;
-  p|peek)    cmd_peek "$2" "${3:-30}";;
+  p|peek)    cmd_peek "${2:-}" "${3:-30}";;
   preview)   cmd_preview "$2" "${3:-}";;         # TUI 미리보기 (색·문단 재접기·바닥 상태줄 제거)
   __render)  render_pane;;                       # stdin 렌더 (verify 골든용)
   s|send)    n="$2"; shift 2; cmd_send "$n" "$@";;
   kill)      cmd_kill "${2:-}" "${3:-}";;
   sendp)     cmd_sendp "$2";;
-  ss|scan)   cmd_scan;;
+  ss|scan)   shift; cmd_scan "$@";;
   h|human)   cmd_human;;
   save)      tmuxc save;;
   menu)      menu;;
