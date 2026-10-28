@@ -174,11 +174,11 @@ gate "$S" 0 "$CF"; [ $RC -eq 0 ] && ok "⑦c proposal 라벨 없는 이슈는 �
 setbody() { jq --arg b "$1" '.body=$b' "$S" > "$S.t" && mv "$S.t" "$S"; }
 LNK='제안서: design/harness/PROPOSAL-x.md'
 mkstate "$S" '[{"name":"proposal"},{"name":"approved"}]'; setbody "$LNK"$'\n처리: 마무리'; w ""; : > "$LOG"
-gate "$S" 1 ""; K="$(bash "$BIN/ft-issue-close-check.sh" 9000 --gate --from-json "$S" 2>&1)"
+gate "$S" 1 ""; K="$(bash "$BIN/ft-issue-close-check.sh" 9000 --gate --from-json "$S" --repo "$R" 2>&1)"
 [ $RC -eq 0 ] && grep -q "kind=proposal_close" <<<"$K" && [ ! -s "$LOG" ] && ok "⑧ 링크+처리: 마무리 → rc0 proposal_close(7·8항 없이)" || bad "⑧ rc=$RC $OUT $K"
-bash "$BIN/ft-issue-close-check.sh" 9000 --from-json "$S" >/dev/null 2>&1 && ok "⑧ 전체 검사도 PASS(PR·재현 8항 평가 0)" || bad "⑧ 전체 검사 실패"
+bash "$BIN/ft-issue-close-check.sh" 9000 --from-json "$S" --repo "$R" >/dev/null 2>&1 && ok "⑧ 전체 검사도 PASS(PR·재현 8항 평가 0)" || bad "⑧ 전체 검사 실패"
 mkstate "$S" '[{"name":"proposal"},{"name":"approved"}]'; setbody $'처리: 마무리'; : > "$LOG"
-gate "$S" 1 ""; K="$(bash "$BIN/ft-issue-close-check.sh" 9000 --gate --from-json "$S" 2>&1)"
+gate "$S" 1 ""; K="$(bash "$BIN/ft-issue-close-check.sh" 9000 --gate --from-json "$S" --repo "$R" 2>&1)"
 [ $RC -eq 3 ] && grep -q "kind=proposal_incomplete" <<<"$K" && grep -q "링크" <<<"$OUT" && [ ! -s "$LOG" ] && ! has_label "$S" && ok "⑧b 링크 없음 → rc3 proposal_incomplete · 쓰기 0" || bad "⑧b rc=$RC log=$(cat "$LOG") $OUT $K"
 mkstate "$S" '[{"name":"proposal"},{"name":"approved"}]'; setbody "$LNK"$'\n처리: 발주(harness)'; gate "$S" 0 ""
 [ $RC -eq 3 ] && grep -q "비었거나 무효" <<<"$OUT" && ok "⑧c 처리: 발주 → 일반 경로(7·8항 요구)" || bad "⑧c rc=$RC $OUT"
