@@ -79,7 +79,7 @@ logged_del() { grep -qF "삭제 $1 " "$SLOG" 2>/dev/null; }
 mkdir -p "$SCR/reg" "$SCR/other"
 N3="$(mk live-owner "$SHA")"; age_reg "$N3" 90000                       # 살아 있는 주인 사본(25시간)
 N4="$(mk gone-n4 "$YSHA")"; git -C "$N4" -c user.name=t -c user.email=t@t commit -q --allow-empty -m n4   # 젊은 사본(커밋 추가 = 빠른 길 아님)
-N5="$(mk gone-n5 "$SHA")"; git -C "$N5" checkout -q -b n5side; age_reg "$N5" 90000   # 가지 워크트리 사본(25시간 · 주인 없음 → 게이트 G7 이 거절)
+N5="$(mk gone-n5 "$SHA")"; git -C "$N5" checkout -q -b n5side; printf 'd\n' >> "$N5/a.txt"; age_reg "$N5" 90000   # 가지 사본(25시간 · 주인 없음) — r1085: 더러운 가지 사본만 게이트 G7 이 거절한다(깨끗한 가지 사본 삭제 칸 = test_scratch_repo.sh r1085-ⓐ)
 N6="$TMPD/tmp.young"; mkdir -p "$N6"                                     # 젊은 tmp
 cp "$TSV" "$T/neigh.tsv"
 NEIGH="$SCR/reg $SCR/other $N3 $N4 $N5 $N6 $SCR $TMPD $R $HOMEX"
@@ -87,6 +87,7 @@ neighbors_alive() { local x miss=""; for x in $NEIGH; do [ -d "$x" ] || miss="$m
   for x in "$N3" "$N4" "$N5"; do [ -e "$x/.git" ] || miss="$miss $x/.git"; done
   [ -z "$miss" ] || { echo "  이웃 사라짐:$miss"; return 1; }; }
 reset() { cat "$T/neigh.tsv" > "$TSV"; : > "$ARMED"; : > "$SLOG"; cwd_rows / 1 zsh; printf 'live-owner\n' > "$T/sessions"; }
+reset_q() { reset; awk -F'\t' -v p="$N5" '$1!=p' "$TSV" > "$TSV.n" && mv "$TSV.n" "$TSV"; }   # r1085: 가지 후보(N5)를 빼고 돌리는 칸 — 주입 «호출 번호» 가 후보 수에 안 흔들리게(폴더는 그대로 두고 등록 줄만 빼서 이웃 검사는 그대로)
 cell() { # <칸 이름> <조건 식(문자열)> — 끝에 이웃 생존을 같이 본다
   if eval "$2" && neighbors_alive; then ok "$1"; else bad "$1 [rc=$RC] $(printf '%s' "$OUT" | tail -2 | tr '\n' ' ')"; fi; }
 reset
@@ -103,7 +104,7 @@ if want Ⓖ; then
   cwd_rows "$A/sub" 4242 vite; sc --gate "$A"; cell "Ⓖ G4 점유 = HELD rc1" '[ $RC = 1 ] && printf "%s" "$OUT" | grep -q "^G4 HELD"'; cwd_rows / 1 zsh
   printf 'live-owner\ngone-g\n' > "$T/sessions"; sc --gate "$A"; cell "Ⓖ G6 주인 살아 있음 = HELD rc1" '[ $RC = 1 ] && printf "%s" "$OUT" | grep -q "^G6 HELD"'; printf 'live-owner\n' > "$T/sessions"
   INJ_CMD=date INJ_SPOT="+%s" INJ_OUT=empty sc --gate "$A"; cell "Ⓖ G3 시계 못 읽음 = UNREADABLE rc2" '[ $RC = 2 ] && printf "%s" "$OUT" | grep -q "^G3 UNREADABLE"'
-  sc --gate "$N5"; cell "Ⓖ G7 가지 워크트리 = REFUSED rc3" '[ $RC = 3 ] && printf "%s" "$OUT" | grep -q "^G7 REFUSED"'
+  sc --gate "$N5"; cell "Ⓖ G7 가지 워크트리(더러움) = REFUSED rc3" '[ $RC = 3 ] && printf "%s" "$OUT" | grep -q "^G7 REFUSED"'
   Y="$(mk gone-gy "$YSHA")"; sc --gate "$Y"; cell "Ⓖ 자격: 젊음 ∧ 판정 안 끝남 = rc3" '[ $RC = 3 ] && printf "%s" "$OUT" | grep -q "^G6 REFUSED (자격 없음"'
 fi
 
@@ -113,7 +114,7 @@ if want Ⓝ; then
   TO="$TMPD/tmp.old1"; mkdir -p "$TO"; touch -t 202001010000 "$TO"
   sc --sweep; cell "Ⓝ 첫 sweep = 목록만 · 삭제 0" '[ -d "$A" ] && [ -d "$F" ] && [ -d "$TO" ] && printf "%s" "$OUT" | grep -q "목록 보고"'
   sc --sweep; cell "Ⓝ 둘째 sweep = 셋 삭제 · swept=3 · 등록 줄 빠짐" 'gone "$A" && gone "$F" && gone "$TO" && grep -q "swept=3" "$SLOG" && ! grep -qF "$A" "$TSV" && ! grep -qF "$F" "$TSV"'
-  cell "Ⓝ 가지 워크트리 = gate refused(G7) 줄 · 그 항목만 건너뜀" 'printf "%s" "$OUT" | grep -q "gate refused $N5 (G7"'
+  cell "Ⓝ 가지 워크트리(더러움) = gate refused(G7) 줄 · 그 항목만 건너뜀" 'printf "%s" "$OUT" | grep -q "gate refused $N5 (G7"'
   [ -z "$(ls -A "$TMPD/.reaping" 2>/dev/null)" ] && ok "Ⓝ 격리 폴더 비었음(이동한 tmp 는 지워짐)" || bad "Ⓝ .reaping 잔존 $(ls -A "$TMPD/.reaping")"
 fi
 
@@ -148,10 +149,10 @@ if want Ⓔ; then
   cell "Ⓔ 베이스 밖(등록 베이스 SCR · 나머지 참) = 거절(G1)" '[ -d "$O" ] && printf "%s" "$OUT" | grep -q "gate refused $O (G1"'
 fi
 
-# ── Ⓕ 가지 워크트리 — 여러 번 sweep 해도 거절만(이웃 N5 가 매 칸 본다 · 여기선 명시) ──────────────
+# ── Ⓕ 더러운 가지 사본 — 여러 번 sweep 해도 거절만(이웃 N5 가 매 칸 본다 · 여기선 명시) ──────────────
 if want Ⓕ; then
   reset; sc --sweep; sc --sweep
-  cell "Ⓕ 가지 워크트리 사본 = sweep 2회 뒤에도 생존 · REFUSED 로그" '[ -d "$N5" ] && grep -q "REFUSED $N5 (G7" "$SLOG"'
+  cell "Ⓕ 가지 워크트리(더러움) = sweep 2회 뒤에도 생존 · REFUSED 로그" '[ -d "$N5" ] && grep -q "REFUSED $N5 (G7" "$SLOG"'
 fi
 
 # ── Ⓗ tmp: git 폴더 · 남의 uid · find 가 틀림(젊은데 «오래됨») ───────────────────────────────
@@ -178,23 +179,23 @@ fi
 # ── Ⓚ 고침 칸(DECISION 고침 2·5·7·8 각 1칸 — 1·3·4·6 은 Ⓖ 자격 · Ⓓ/변이 rc2-continue · r10 ⓥ 마감 · Ⓝ 등록 줄 빠짐) ──────
 if want Ⓚ; then
   # 고침 2: 게이트는 «자기» lsof 를 판정에 쓴다 — orphans 의 lsof 는 깨끗하고 게이트의 lsof(3번째: orphans·N5·대상)만 점유를 보인다
-  reset; A="$(mk gone-k2 "$SHA")"; age_reg "$A" 90000
+  reset_q; A="$(mk gone-k2 "$SHA")"; age_reg "$A" 90000
   INJ_CMD=lsof INJ_SPOT="-d cwd" INJ_N=3 INJ_OUT=fake INJ_FAKE="$(printf 'p4242\ncvite\nfcwd\nn%s/sub' "$A")" sc --sweep
   cell "Ⓚ 고침2 게이트 자기 lsof 가 점유 = 붙잡음 · 삭제 0" '[ -s "$T/inj.fired" ] && [ -d "$A" ] && printf "%s" "$OUT" | grep -q "재확인에서 쓰는 중"'
   # 고침 5: 확인한 객체 = 지운 객체 — 제거 직전 장치·inode 가 다르면 삭제 0(등록 사본 · tmp 이동 뒤)
-  reset; A="$(mk gone-k5 "$SHA")"; age_reg "$A" 90000; KB="${A##*/}"
+  reset_q; A="$(mk gone-k5 "$SHA")"; age_reg "$A" 90000; KB="${A##*/}"
   INJ_CMD=stat INJ_SPOT="$KB" INJ_N=2 INJ_OUT=fake INJ_FAKE="1:1" sc --sweep
   cell "Ⓚ 고침5 reg 제거 직전 inode 다름 = 삭제 0(G8)" '[ -s "$T/inj.fired" ] && [ -d "$A" ] && printf "%s" "$OUT" | grep -q "G8 제거 직전 장치·inode"'
-  reset; TK="$TMPD/tmp.k5"; mkdir -p "$TK"; touch -t 202001010000 "$TK"
+  reset_q; TK="$TMPD/tmp.k5"; mkdir -p "$TK"; touch -t 202001010000 "$TK"
   INJ_CMD=stat INJ_SPOT=".reaping/tmp.k5" INJ_N=1 INJ_OUT=fake INJ_FAKE="1:1" sc --sweep
   cell "Ⓚ 고침5 tmp 이동 뒤 inode 다름 = 원위치 복원 · 삭제 0" '[ -s "$T/inj.fired" ] && [ -d "$TK" ] && printf "%s" "$OUT" | grep -q "원위치 복원"'
   rm -rf "$TK"
   # 고침 7: 옛 3칸 등록 줄(베이스 칸 없음) = 기본 TMPDIR·지금 FT_SCRATCH_DIR 아래면 통과
-  reset; A="$(mk gone-k7 "$SHA")"; age_reg "$A" 90000
+  reset_q; A="$(mk gone-k7 "$SHA")"; age_reg "$A" 90000
   awk -F'\t' -v p="$A" 'BEGIN{OFS="\t"} $1==p{NF=3} {print}' "$TSV" > "$TSV.n" && mv "$TSV.n" "$TSV"
   sc --sweep; cell "Ⓚ 고침7 옛 3칸 줄(지금 FT_SCRATCH_DIR 아래) = 삭제" 'gone "$A" && logged_del "$A"'
   # 고침 8: bare 원 저장소의 사본도 연결 워크트리로 인정(경로 글자 */.git/worktrees/* 가정 0)
-  reset; BARE="$T/bare.git"; [ -d "$BARE" ] || git clone -q --bare "$G" "$BARE"
+  reset_q; BARE="$T/bare.git"; [ -d "$BARE" ] || git clone -q --bare "$G" "$BARE"
   OWN=gone-k8 sc "$SHA" --repo "$BARE"; A="$OUT"; age_reg "$A" 90000
   sc --sweep; cell "Ⓚ 고침8 bare 원 저장소 사본 = 삭제" '[ -n "$A" ] && gone "$A" && logged_del "$A"'
 fi
@@ -204,7 +205,7 @@ xwant() { [ -z "$XONLY" ] || printf '%s\n' "$1" | grep -qE "$XONLY"; }
 cnt() { awk -v c="$1" -v s="$2" '$1==c && (s=="" || index(" " substr($0, length(c)+2) " ", s)){n++} END{print n+0}' "$T/inj.calls.ctl"; }
 if want ⓧ; then
   xi=0
-  xmk() { xi=$((xi+1)); reset; if [ "$1" = reg ]; then CP="$(mk "gone-x$xi" "$XSHA")"; else CP="$TMPD/tmp.x$xi"; mkdir -p "$CP"; touch -t 202001010000 "$CP"; fi; CB="${CP##*/}"; }
+  xmk() { xi=$((xi+1)); reset_q; if [ "$1" = reg ]; then CP="$(mk "gone-x$xi" "$XSHA")"; else CP="$TMPD/tmp.x$xi"; mkdir -p "$CP"; touch -t 202001010000 "$CP"; fi; CB="${CP##*/}"; }
   xrun() { # <reg|tmp> <명령> <자리> <N> <모드> <칸 이름>
     xwant "$6" || return 0
     xmk "$1"; [ -d "$CP" ] || { bad "ⓧ $6 대상 생성 실패"; return; }
@@ -217,7 +218,8 @@ if want ⓧ; then
     cell "ⓧ $kind 대조(주입 0) = 지운다" 'gone "$CP" && logged_del "$CP"'
     CTLB="$CB"
     if [ "$kind" = reg ]; then
-      SPOTS=("git|@B@ rev-parse HEAD" "git|@B@ symbolic-ref" "git|--git-dir" "git|--show-toplevel" "git|--git-common-dir" "git|merge-base" "git|grep -F" "git|log -1" \
+      # r1085: 후보가 «더러운 가지 사본» 이면 게이트마다 git status 를 한 번 더 부른다 — 주입 자리는 «대상 사본 + 인자 꼬리» 로 좁혀 다른 후보·전역 호출(원 저장소 장부 찾기)의 호출 수에 안 흔들리게 한다
+      SPOTS=("git|@B@ rev-parse HEAD" "git|@B@ symbolic-ref" "git|@B@ rev-parse --path-format=absolute --git-dir" "git|@B@ rev-parse --show-toplevel" "git|@B@ rev-parse --path-format=absolute --git-common-dir" "git|merge-base" "git|grep -F" "git|log -1" \
              "date|+%s" "tmux|list-sessions" "lsof|-d cwd" "awk|/^p/" "cat|scratch-repos.tsv" "stat|@B@" "pwd|")
       [ "$(cnt cut "")" = 0 ] && ok "ⓧ cut = 지우는 길에서 호출 0" || bad "ⓧ cut 호출 $(cnt cut "")회"
     else
@@ -280,7 +282,7 @@ if want M; then
   mut g1 's#^  gfail G1 3 "베이스 바로 아래 아님"#  GB="${P%/*}"; return 0#' 'Ⓔ' 'Ⓔ (사본/sub|베이스 밖)'
   mut g2 's,\[\[ \${P##\*/} =~ \$re \]\] || { gfail G2 3,[[ x =~ x ]] || { gfail G2 3,' 'Ⓔ' 'Ⓔ 이름꼴'
   mut g5-count 's#\[ "\$n" = 1 \] || { gfail G5 3#[ "$n" -ge 1 ] || { gfail G5 3#' 'Ⓓ' 'Ⓓ '
-  mut g7-detached 's#case "\$r" in 1) ;; 0) gfail G7 3 "가지 워크트리#case "$r" in 1|0) ;; 9) gfail G7 3 "가지 워크트리#' 'Ⓕ' 'Ⓕ '
+  mut g7-dirty 's#\[ "\$ST" = 0 \] || { gfail G7 3 "가지 사본 더러움#: || { gfail G7 3 "가지 사본 더러움#' 'Ⓕ' 'Ⓕ '
   mut g6t-age 's#\[ \$(( now - M )) -ge \$((AGE\*60)) \] || { gfail G6 3#: || { gfail G6 3#' 'Ⓗ' 'Ⓗ find'
   mut g6t-uid 's#isnum "\$U" \&\& isnum "\$ME" \&\& \[ "\$U" = "\$ME" \] || { gfail G6 3#: || { gfail G6 3#' 'Ⓗ' 'Ⓗ 남의 uid'
   mut g5t-git 's#\[ ! -e "\$P/.git" \] || { gfail G5 3#: || { gfail G5 3#' 'Ⓗ' 'Ⓗ tmp 안에'

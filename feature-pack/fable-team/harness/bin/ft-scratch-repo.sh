@@ -104,6 +104,13 @@ kb() { # <경로> [초] → 크기(kb) 1줄 · 초 상한(기본 7) · r1029 r2:
 has_ctl() { case "$1" in *"$TAB"*|*$'\n'*) return 0;; esac; return 1; }   # r897 r10.2: 등록부는 TSV — 탭·개행이 든 경로는 표현할 수 없다
 has_line() { case $'\n'"$1"$'\n' in *$'\n'"$2"$'\n'*) return 0;; esac; return 1; }   # <목록> <이름> → 0 = 그 줄이 «정확히» 있다 · r10.5: 외부 명령·리다이렉트 0(grep <<< 는 임시 파일 실패가 rc1 = «주인 없음» 으로 읽혔다)
 phys() { ( cd "$1" 2>/dev/null && pwd -P ); }   # r897 r10: 물리 경로(/private/var…) — 못 읽으면 rc≠0
+gstat_lines() { # <사본> <초> → 작업 트리 변경 줄 수(status --porcelain) 1줄 · rc≠0 = 못 읽음/시간 초과 · r1085: 가지 사본은 «깨끗함» 을 증명해야 지운다(추적 안 한 파일 포함)
+  local o rc
+  cap o bounded "$2" git -C "$1" status --porcelain --untracked-files=normal 2>/dev/null; rc=$?
+  [ "$rc" = 0 ] || return "$rc"
+  [ -n "$o" ] || { printf '0\n'; return 0; }
+  printf '%s\n' "$o" | awk 'END{print NR}'
+}
 drop_reg() { # <등록 원문 경로> [<등록부들>] 그 줄을 «모든 등록부» 에서 삭제(r996 장부 둘) — «경로 정확 대조»(r10.1: awk -v 는 역슬래시를 해석해 `\161`→`q` 로 남의 줄과 맞는다 · ENVIRON 은 바이트 그대로) · 하나도 못 지우면 rc≠0
   #   목록을 안 주면 «지금» 계산하되 REGS 캐시를 먼저 쓴다 — 사본을 지운 뒤에는 copy_reg 이 그 사본의 .git 을 못 읽어 원 저장소 장부를 놓친다(게이트가 사본이 살아 있을 때 읽은 목록)
   local f n=0 fl
@@ -557,7 +564,7 @@ gate_base() { # <P> <베이스 후보…> → G1: P = B/<성분 하나> 인 후�
   gfail G1 3 "베이스 바로 아래 아님"
 }
 delete_copy() { # <경로> <reg|tmp> <주인|-> [sweep|done] → 위 rc 표 · GWHY = 막은 조건
-  local p="$1" kind="$2" own="$3" mode="${4:-sweep}" P now RAW ROWS S T TP G C GP CP DI DI2 T2 G2 U ME M r x re dest
+  local p="$1" kind="$2" own="$3" mode="${4:-sweep}" P now RAW ROWS S T TP G C GP CP DI DI2 T2 G2 U ME M r x re dest ST GBR
   GWHY=""; HPID=""; HCMD=""; GB=""
   # G0 경로 글자
   case "$p" in ''|*"$TAB"*|*$'\n'*) gfail G0 3 "빈 경로·탭·개행"; return;; esac
@@ -604,7 +611,7 @@ delete_copy() { # <경로> <reg|tmp> <주인|-> [sweep|done] → 위 rc 표 · G
         JUDGE_TMO=7
       fi
     fi
-    # G7 git 사본 증명: 사본 루트 · 연결 워크트리(<공용 git>/worktrees/<이름> · bare 원 저장소 포함) · detached(rc1 만)
+    # G7 git 사본 증명: 사본 루트 · 연결 워크트리(<공용 git>/worktrees/<이름> · bare 원 저장소 포함) · detached(rc1) 또는 깨끗한 가지(rc0 ∧ status 0줄 · r1085)
     gq T git -C "$P" rev-parse --show-toplevel 2>/dev/null || { gfail G7 2 "toplevel 못 읽음"; return; }
     cap TP phys_tmo "$T" || { gfail G7 2 "toplevel 물리 경로 못 읽음"; return; }
     [ "$TP" = "$P" ] || { gfail G7 3 "사본 루트 아님"; return; }
@@ -615,7 +622,17 @@ delete_copy() { # <경로> <reg|tmp> <주인|-> [sweep|done] → 위 rc 표 · G
     case "${GP#"$CP"/worktrees/}" in "$GP"|''|*/*) gfail G7 3 "연결 워크트리 아님"; return;; esac
     cap r remtmo; [ "$r" -gt 0 ] || { gfail G7 2 "예산 소진"; return; }
     bounded "$r" git -C "$P" symbolic-ref -q HEAD >/dev/null 2>&1; r=$?
-    case "$r" in 1) ;; 0) gfail G7 3 "가지 워크트리(detached 아님)"; return;; *) gfail G7 2 "symbolic-ref 못 읽음(rc=$r)"; return;; esac
+    # r1085: 가지 사본도 지운다 — 단 «깨끗함» 을 지금 읽어 증명할 때만(커밋 안 한 변경·추적 안 한 파일 0) · 가지 ref 는 지우지 않는다(worktree remove 는 ref 를 남긴다 · 브랜치 삭제 = HIL)
+    GBR=""
+    case "$r" in
+      1) ;;
+      0) cap r remtmo; [ "$r" -gt 0 ] || { gfail G7 2 "예산 소진"; return; }
+         cap ST gstat_lines "$P" "$r" || { gfail G7 2 "status 못 읽음"; return; }
+         isnum "$ST" || { gfail G7 2 "status 못 읽음"; return; }
+         [ "$ST" = 0 ] || { gfail G7 3 "가지 사본 더러움(${ST}줄)"; return; }
+         GBR=1 ;;
+      *) gfail G7 2 "symbolic-ref 못 읽음(rc=$r)"; return;;
+    esac
     gok G7
   else
     # G5′ git 아님 · 주인 없음 표시 · G6′ 내 소유 ∧ 나이(find 를 믿지 않고 다시 잰다)
@@ -637,6 +654,12 @@ delete_copy() { # <경로> <reg|tmp> <주인|-> [sweep|done] → 위 rc 표 · G
     gq T2 git -C "$P" rev-parse --show-toplevel 2>/dev/null && [ "$T2" = "$T" ] || { gfail G8 2 "제거 직전 toplevel 다름·못 읽음"; return; }
     gq G2 git -C "$P" rev-parse --path-format=absolute --git-dir 2>/dev/null && [ "$G2" = "$G" ] || { gfail G8 2 "제거 직전 git-dir 다름·못 읽음"; return; }
     gq DI2 stat -f %d:%i "$P" && [ "$DI2" = "$DI" ] || { gfail G8 2 "제거 직전 장치·inode 다름·못 읽음"; return; }
+    if [ -n "$GBR" ]; then   # r1085: 가지 사본은 «지우기 직전» 깨끗함을 다시 잰다(앞 값 재사용 0 · G7 과 G8 사이에 쓰인 변경을 놓치지 않는다)
+      cap r remtmo; [ "$r" -gt 0 ] || { gfail G8 2 "예산 소진"; return; }
+      cap ST gstat_lines "$P" "$r" || { gfail G8 2 "삭제 직전 status 못 읽음"; return; }
+      isnum "$ST" || { gfail G8 2 "삭제 직전 status 못 읽음"; return; }
+      [ "$ST" = 0 ] || { gfail G8 3 "삭제 직전 가지 사본 더러움(${ST}줄)"; return; }
+    fi
     past_deadline && { gfail G8 2 "삭제 직전 마감 초과"; return; }
     git -C "$P" worktree remove --force "$P" >/dev/null 2>&1 || { r=$?; GWHY="삭제 명령 실패(worktree remove rc=$r) · 등록 줄 유지"; return 4; }
     [ ! -e "$P" ] || { GWHY="삭제 명령 rc0 인데 폴더 남음 · 등록 줄 유지"; return 4; }

@@ -5,7 +5,7 @@
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO="$(cd -- "$HERE/../.." && pwd)"
-SUT="$REPO/harness/bin/ft-scratch-repo.sh"
+SUT="${FT_SUT:-$REPO/harness/bin/ft-scratch-repo.sh}"
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }
@@ -17,7 +17,8 @@ git -C "$G" init -q && echo a > "$G/a.txt" && git -C "$G" add a.txt && git -C "$
 SHA="$(git -C "$G" rev-parse HEAD)"
 printf '#!/bin/sh\n[ -f "%s/tmuxfail" ] && { echo "no server running" >&2; exit 1; }\n[ "$1" = list-sessions ] && cat "%s/sessions" 2>/dev/null\nexit 0\n' "$T" "$T" > "$T/bin/tmux"; chmod 755 "$T/bin/tmux"
 printf 'live-owner\n' > "$T/sessions"
-sc() { OUT="$(env PATH="$T/bin:$PATH" FT_RES_ROOT="$R" FT_SCRATCH_DIR="$SCR" TMPDIR="$TMPD" FT_SCRATCH_OWNER="${OWN:-live-owner}" bash "$SUT" "$@" 2>&1)"; RC=$?; }
+sc() { OUT="$(env PATH="$T/gbin:$T/bin:$PATH" FT_RES_ROOT="$R" FT_SCRATCH_DIR="$SCR" TMPDIR="$TMPD" FT_SCRATCH_OWNER="${OWN:-live-owner}" \
+  GS_AT="${GS_AT:-0}" GS_FAIL="${GS_FAIL:-}" GS_SLEEP="${GS_SLEEP:-}" GS_DIRTY="${GS_DIRTY:-}" bash "$SUT" "$@" 2>&1)"; RC=$?; }
 TSV="$R/.fable-team/state/scratch-repos.tsv"
 age_reg() { awk -F'\t' -v p="$1" -v t="$(( $(date +%s) - $2 ))" 'BEGIN{OFS="\t"} $1==p{$3=t} {print}' "$TSV" > "$TSV.n" && mv "$TSV.n" "$TSV"; }   # 등록 시각을 <초> 전으로
 
@@ -60,6 +61,90 @@ rm -f "$T/tmuxfail"
 before="$(git -C "$G" worktree list | wc -l)"; OWN=- sc "$SHA" --repo "$G"
 { [ $RC != 0 ] && [ "$(git -C "$G" worktree list | wc -l)" = "$before" ] && echo "$OUT" | grep -q '주인'; } && ok "ⓠ 주인 '-' → 등록 거부 rc≠0 · worktree 0" || bad "ⓠ rc=$RC out=$OUT"
 sc "nosuchref" --repo "$G"; [ $RC != 0 ] && ok "ⓘ 없는 ref → 실패 rc≠0(조용한 성공 0)" || bad "ⓘ rc=$RC"
+
+# ── r1085: 사본 안에서 만든 «가지 사본» — 깨끗할 때만 지운다 · 더러우면 지금처럼 거절 · 가지 ref 는 남긴다 ──────
+#   ⓐ 깨끗한 가지 사본 삭제·ref 남김(R1) ⓑ 더러움 거절(R2·R3) ⓒ detached 길 불변(R4) ⓓ status 못 읽음(R5 · G7·G8 두 자리)
+#   ⓔ 지우기 직전 더러워짐 = G8 거절(R6) ⓕ 주인 살아 있음(R7) ⓖ bin·kit 같은 내용 · 변이 3종(FT_CASES=M)
+want() { case "${FT_CELLS:-all}" in all|*r1085*) return 0;; esac; return 1; }
+if want r1085; then
+  ARM="$R/.fable-team/state/scratch-sweep.armed"
+  GITBIN="$(command -v git)"; mkdir -p "$T/gbin"
+  # 가짜 git: «깨끗함 검사 --untracked-files=normal» 호출만 N번째를 실패·지연·늦은 수정으로 바꾼다(나머지는 진짜 git 그대로) — 사본 생성 때의 status 호출과 섞이지 않게 이 자국만 센다
+  cat > "$T/gbin/git" <<EOF
+#!/bin/sh
+case "\$*" in
+  *"--untracked-files=normal"*)
+    n=\$(( \$(/bin/cat "$T/gs.n" 2>/dev/null || echo 0) + 1 )); echo "\$n" > "$T/gs.n"
+    if [ "\$n" = "\${GS_AT:-0}" ]; then
+      p=""; prev=""; for a in "\$@"; do [ "\$prev" = -C ] && p="\$a"; prev="\$a"; done
+      [ -z "\${GS_DIRTY:-}" ] || { [ -n "\$p" ] && printf 'late\\n' > "\$p/\${GS_DIRTY}"; }
+      [ -z "\${GS_FAIL:-}" ] || exit "\$GS_FAIL"
+      [ -z "\${GS_SLEEP:-}" ] || sleep "\$GS_SLEEP"
+    fi;;
+esac
+exec "$GITBIN" "\$@"
+EOF
+  chmod 755 "$T/gbin/git"
+  arm() { mkdir -p "$R/.fable-team/state"; date +%s > "$ARM"; }   # 실삭제 단계로(첫 sweep 의 목록 보고만 건너뜀)
+  gsrst() { rm -f "$T/gs.n"; }   # 주입 호출 번호를 0 에서 시작
+  drop_tr() { awk -F'\t' -v p="$1" '$1!=p' "$TSV" > "$TSV.n" && mv "$TSV.n" "$TSV"; }
+  brreg() { # <주인> <가지 이름> → 사본 경로 · 사본 안에서 가지를 만들고 등록 시각을 25시간 전으로
+    OWN="$1" sc "$SHA" --repo "$G"; local p="$OUT"
+    git -C "$p" checkout -q -b "$2" >/dev/null 2>&1
+    age_reg "$p" 90000; printf '%s' "$p"; }
+  # ⓐ R1: 깨끗한 가지 사본 = 삭제 · 가지 ref 남음 · 등록 줄 삭제
+  BA="$(brreg gone-ba brAlpha)"; arm; sc --sweep
+  { [ $RC = 0 ] && [ -n "$BA" ] && [ ! -d "$BA" ] && git -C "$G" show-ref --verify --quiet refs/heads/brAlpha && ! grep -qF "$BA" "$TSV"; } \
+    && ok "r1085-ⓐ 깨끗한 가지 사본 = 삭제 · 가지 ref 그대로 · 등록 줄 삭제" || bad "r1085-ⓐ rc=$RC out=$OUT 남음=$([ -d "$BA" ] && echo y) ref=$(git -C "$G" show-ref refs/heads/brAlpha 2>&1)"
+  # ⓑ R2·R3: 추적 파일 1줄 수정 / 추적 안 한 새 파일 = 거절(G7 가지 사본 더러움) · 폴더·등록 줄 그대로
+  BB="$(brreg gone-bb brBeta)"; arm; printf 'z\n' >> "$BB/a.txt"
+  sc --sweep
+  { [ -d "$BB" ] && grep -qF "$BB" "$TSV" && printf '%s' "$OUT" | grep -q '가지 사본 더러움'; } \
+    && ok "r1085-ⓑ 추적 파일 수정 = 거절 · 폴더·등록 줄 그대로" || bad "r1085-ⓑ rc=$RC [$OUT]"
+  BB2="$(brreg gone-bb2 brBeta2)"; arm; printf 'u\n' > "$BB2/new.txt"
+  sc --sweep
+  { [ -d "$BB2" ] && printf '%s' "$OUT" | grep -q '가지 사본 더러움'; } \
+    && ok "r1085-ⓑ 추적 안 한 새 파일 = 거절" || bad "r1085-ⓑ2 rc=$RC [$OUT]"
+  drop_tr "$BB"; drop_tr "$BB2"; rm -rf "$BB" "$BB2"
+  # ⓒ R4: detached 길 불변
+  OWN=gone-bc sc "$SHA" --repo "$G"; BC="$OUT"; age_reg "$BC" 90000; arm; sc --sweep
+  { [ ! -d "$BC" ] && ! grep -qF "$BC" "$TSV"; } && ok "r1085-ⓒ detached 사본 = 지금처럼 삭제" || bad "r1085-ⓒ rc=$RC [$OUT]"
+  # ⓓ R5: status 못 읽음 = rc2 · 삭제 0 (G7 자리 / G8 자리)
+  BD="$(brreg gone-bd brDelta)"; arm; gsrst; GS_AT=1 GS_FAIL=128 sc --sweep
+  { [ $RC = 0 ] && [ -d "$BD" ] && printf '%s' "$OUT" | grep -q 'G7 status 못 읽음'; } \
+    && ok "r1085-ⓓ status 못 읽음(G7 자리) = 거절 rc2 · 삭제 0" || bad "r1085-ⓓ1 rc=$RC [$OUT]"
+  arm; gsrst; GS_AT=2 GS_FAIL=128 sc --sweep
+  { [ -d "$BD" ] && printf '%s' "$OUT" | grep -q '삭제 직전 status 못 읽음'; } \
+    && ok "r1085-ⓓ status 못 읽음(G8 자리) = 거절 rc2 · 삭제 0" || bad "r1085-ⓓ2 rc=$RC [$OUT]"
+  # ⓔ R6: G7 통과 뒤 · 지우기 직전 더러워짐 = G8 거절 · 삭제 0
+  arm; gsrst; GS_AT=2 GS_DIRTY=late.txt sc --sweep
+  { [ -d "$BD" ] && printf '%s' "$OUT" | grep -q '삭제 직전 가지 사본 더러움'; } \
+    && ok "r1085-ⓔ 지우기 직전 더러워짐 = G8 거절 · 삭제 0" || bad "r1085-ⓔ rc=$RC [$OUT]"
+  drop_tr "$BD"; rm -rf "$BD"
+  # ⓕ R7: 주인 세션 살아 있음 = G6 거절(가지 판정까지 안 감)
+  BF="$(brreg live-owner brZeta)"
+  sc --sweep; { [ -d "$BF" ] && grep -qF "$BF" "$TSV"; } && ok "r1085-ⓕ 주인 살아 있음 = 삭제 0" || bad "r1085-ⓕ rc=$RC [$OUT]"
+  rm -rf "$BF"; drop_tr "$BF"
+  # ⓖ bin·kit 같은 내용
+  cmp -s "$REPO/harness/bin/ft-scratch-repo.sh" "$REPO/harness/kit/fable-team/bin/ft-scratch-repo.sh" \
+    && ok "r1085-ⓖ bin·kit 같은 내용(cmp0)" || bad "r1085-ⓖ bin·kit 다름"
+  # 변이 3종 — 조건 하나만 끄는 패치로 기대 칸만 빨강일 때만 검출(FT_CASES=M 일 때만 돈다)
+  if [ "${FT_CASES:-all}" = M ]; then
+    mut() { # <이름> <sed 식> <기대 FAIL 정규식>
+      local m="$T/mut-$1.sh" nf nx r
+      sed "$2" "$SUT" > "$m"
+      cmp -s "$SUT" "$m" && { bad "변이 $1 이 안 바뀜"; return; }
+      bash -n "$m" 2>/dev/null || { bad "변이 $1 문법 깨짐(가짜 변이)"; return; }
+      FT_MUT_CHILD=1 FT_CELLS=r1085 FT_CASES=none FT_SUT="$m" bash "${BASH_SOURCE[0]}" > "$T/mut-$1.log" 2>&1; r=$?
+      nf="$(grep -c '^FAIL' "$T/mut-$1.log")"; nx="$(grep -cE "^FAIL $3" "$T/mut-$1.log")"
+      { [ "$r" != 0 ] && [ "$nf" -gt 0 ] && [ "$nf" = "$nx" ]; } && ok "변이2 $1 → 기대 칸만 빨강($3 · ${nf}칸)" \
+        || bad "변이 $1 이 기대 칸으로 안 잡힘(rc=$r · FAIL $nf · 기대 $nx) $(grep '^FAIL' "$T/mut-$1.log" | head -2 | tr '\n' ' ')"
+    }
+    mut clean-off 's#\[ "\$ST" = 0 \] || { gfail G7 3#: || { gfail G7 3#;s#\[ "\$ST" = 0 \] || { gfail G8 3#: || { gfail G8 3#' 'r1085-ⓑ|r1085-ⓔ'
+    mut g8-off 's#^      \[ "\$ST" = 0 \] || { gfail G8 3#      : || { gfail G8 3#' 'r1085-ⓔ'
+    mut newpath-off 's#^      0) cap r remtmo; \[ "\$r" -gt 0 \] || { gfail G7 2 "예산 소진"; return; }#      0) gfail G7 3 "가지 워크트리(detached 아님)"; return;#' 'r1085-ⓐ|r1085-ⓑ|r1085-ⓓ|r1085-ⓔ'
+  fi
+fi
 
 [ $fail -eq 0 ] && echo "ALL PASS" || echo "($fail failed)"
 exit $fail
