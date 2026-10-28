@@ -69,6 +69,8 @@ while [ $# -gt 0 ]; do
       #  이중으로 이스케이프해 버린다(실측: bash: <부트스트랩>: No such file or directory).
       c="$*"
       FAKE_VIA_SSH=1; export FAKE_VIA_SSH
+      # 원격 HOME 시뮬레이션(ⓕ) — 주면 «원격 셸» 의 HOME 을 다른 폴더로 바꾼다(이 맥 HOME 과 분리).
+      if [ -n "${FAKE_REMOTE_HOME:-}" ]; then HOME="$FAKE_REMOTE_HOME"; export HOME; fi
       exec bash -c "$c"
       ;;
     -o|-p|-i|-l) shift 2 ;;
@@ -196,6 +198,7 @@ run_tool() {  # <환경> <도구경로> <인자…>
       TMUXC_HOSTLIB="$e/lib/host-lib.sh" TMM_REACH_CHECK="$REACH" TMUXC_REACH_CHECK="$REACH" \
       TMUXC_NAME_LINT="$LINT" TMM_REACH_TIMEOUT="${REACH_TO:-2}" TMUXC_REACH_TIMEOUT="${REACH_TO:-2}" \
       FAKE_ENTER_DELAY="${FAKE_ENTER_DELAY:-}" FAKE_RECORD_DELAY="${FAKE_RECORD_DELAY:-0}" \
+      FAKE_REMOTE_HOME="${FAKE_REMOTE_HOME:-}" \
       TERM=dumb "$tool" "$@"
 }
 
@@ -331,6 +334,50 @@ grep -q 'new-session' "$e/state/calls.log" && grep -q 'kill-session' "$e/state/c
   && pass "ⓓ 원격 호출 2회(생성·종료)" || fail "ⓓ 원격 호출 흔적 없음"
 el=$(( $(now_ms) - t0 ))
 [ "$el" -le 30000 ] && pass "ⓓ 단계 초 ${el}ms (≤30000)" || fail "ⓓ 단계 초 ${el}ms > 30000"
+
+# ── ⓕ 원격 open 의 에이전트 명령 = «원격» HOME (r1047 r2 · h135 반송) ────────
+# h135 실측: 원격 pane 이 /Users/<이 맥>/.headroom/claude-hr.sh 를 받아 실행 실패(그 경로 없음).
+# 가짜 원격 HOME 을 이 맥과 다르게 두고, 보낸 글자에 «이 맥 홈 경로 0 · $HOME/.headroom 1» 을 본다.
+e="$T/f"; mk_env "$e"
+mkdir -p "$e/remote/home"
+export FAKE_REMOTE_HOME="$e/remote/home"
+mf="claude-sonnet-5-5"
+out="$(run_tool "$e" "$TMUXC" open "$e/remote/repo" --host mini --name byz-satnano-nano-zeta#0 --agent claude --model "$mf" --dry-run 2>&1)"; rc=$?
+case "$out" in
+  *'command=$HOME/.headroom/claude-hr.sh'*) pass "ⓕ dry-run command = \$HOME/.headroom" ;;
+  *) fail "ⓕ dry-run command 이상 rc=$rc out=$out" ;;
+esac
+case "$out" in
+  *"$e/home"*|*"$HOME/"*) fail "ⓕ dry-run 에 이 맥 홈 경로 노출" ;;
+  *) pass "ⓕ dry-run 이 맥 홈 경로 0" ;;
+esac
+out="$(run_tool "$e" "$TMUXC" open "$e/remote/repo" --host mini --name byz-satnano-nano-zeta#0 --agent claude --model "$mf" 2>&1)"; rc=$?
+[ -d "$e/state/sessions/byz-satnano-nano-zeta#0" ] && pass "ⓕ 원격 open 세션 생성" || fail "ⓕ open rc=$rc out=$out"
+sent="$(awk -F'\t' '$2=="TEXT"{print $3}' "$e/state/sent.log" 2>/dev/null)"
+nrh="$(printf '%s\n' "$sent" | grep -oF '$HOME/.headroom/claude-hr.sh' | wc -l | tr -d ' ')"
+nlh="$(printf '%s\n' "$sent" | grep -cF "$e/home" | tr -d ' ')"
+nlh="${nlh:-0}"
+if [ "$nrh" = 1 ] && [ "$nlh" = 0 ]; then pass "ⓕ 원격 pane 에 보낸 글자 = \$HOME/.headroom 1 · 이 맥 홈 0"
+else fail "ⓕ 원격 명령 글자 rh=$nrh localhome=$nlh sent=$sent"; fi
+
+# 변이: 치환을 끄면 이 맥 홈 경로가 그대로 나간다(원격에서 실행 실패) → 시험이 잡는다.
+mvar="$T/tmuxc-mut-homelit"; cp "$TMUXC" "$mvar"
+python3 - "$mvar" <<'PY'
+import sys
+p = sys.argv[1]
+s = open(p, encoding="utf-8").read()
+old = '  run_cmd="${run_cmd//"$HOME"/\\$HOME}"\n'
+assert old in s, "변이 지점 없음"
+open(p, "w", encoding="utf-8").write(s.replace(old, "", 1))
+PY
+: > "$e/state/sent.log"
+mout="$(run_tool "$e" "$mvar" open "$e/remote/repo" --host mini --name byz-satnano-nano-eta#0 --agent claude --model "$mf" 2>&1)"; mrc=$?
+msent="$(awk -F'\t' '$2=="TEXT"{print $3}' "$e/state/sent.log" 2>/dev/null)"
+mlh="$(printf '%s\n' "$msent" | grep -cF "$e/home" | tr -d ' ')"
+mlh="${mlh:-0}"
+[ "$mlh" -ge 1 ] && pass "ⓕ 변이 FAIL 확인(치환 끔 → 이 맥 홈 경로 그대로)" \
+  || fail "ⓕ 변이 미검출 rc=$mrc localhome=$mlh sent=$msent"
+unset FAKE_REMOTE_HOME
 
 echo "---"
 [ "$FAIL" = 0 ] && { echo "ALL PASS"; exit 0; }
