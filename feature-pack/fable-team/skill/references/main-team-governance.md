@@ -129,3 +129,11 @@ PR·Issue 는 본문에서 번호 인덱스(`#836`)로만 부르고, 글 맨 아
 2. **함께 싣는 값 = `ft-test-reentry-lint.sh <시험파일…>` rc.** rc3 이면 그 시험은 자기 자신을 가드 없이 다시 부르는 것이다 — 격리 통과가 아니다.
 3. **시험 상한은 단독 70초 · 한 회차 7분**(하드 룰 22). 넘으면 «통과» 가 아니라 «쪼갠다» — 돌리는 사람이 아니라 설계가 고친다.
 4. 프로세스 수가 이상하게 늘면 `ft-resource-watch.sh tick` 의 `[프로세스 폭주]` 쪽지(임계 4000 · 같은 명령줄 200개면 그 프로세스만 SIGSTOP)를 먼저 본다. 정리 `kill` 은 HIL 이다.
+
+## 16. 검토·격리 사본 = ft-scratch-repo (오빠 2026-10-29 디스크 긴급 · r1079)
+> 근거: 10-29 새벽 arch#174 실측 — 세션 scratchpad(`/private/tmp/claude-501`) 아래 `.git` 140개, 114GiB. 사본이 장부 밖이라 하루 1회 정리(ft-scratch-repo --sweep)가 보지 못했다. 하네스 arch 인계서(`design/harness/HANDOFF-arch173-to-174-20261029.md` §2)가 «`git clone --shared` 로 `<scratchpad>/x` 에 만든다» 는 꼴을 그대로 적어 두었던 것이 원인이다.
+
+1. **세션 scratchpad 안에 git 사본(clone·worktree add)을 만들지 않는다.** `git clone`·`git worktree add` 의 대상 경로가 `…/scratchpad/…` 이면 안 된다. 근거 = 10-29 `/private/tmp/claude-501` 114GiB(사본 140개 · 장부 밖이라 정리 0).
+2. **검토·격리 사본은 `ft-scratch-repo.sh <sha> [--repo <저장소>]` 로 만든다.** 출력 1줄이 사본 경로다. 팩 저장소는 `--repo /Users/yoonhwan/Project/ai-feature-pack` 를 적는다. 이 도구는 사본을 장부(`.fable-team/state/scratch-repos.tsv`)에 적고, 주인이 없어지면 sweep 이 정리한다.
+3. **끝나면 `ft-scratch-repo.sh --done <경로>` 로 닫는다.** 격리 보고를 보낸 그 턴에 닫는다. 같은 sha 를 다시 볼 일이 있으면 닫기 전까지 그 사본을 다시 쓴다(같은 sha·같은 주인은 재사용).
+4. **변이 시험은 사본 안에서 하고 `git checkout -- .` 로 되돌린 뒤 `--done` 한다.** 되돌리지 않은 더러운 사본은 `--done` 이 거절한다(더러운 사본 = 삭제 0).
