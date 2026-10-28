@@ -1370,7 +1370,7 @@ auto_loop() {
 }
 
 cmd_ls() {  # [PAT] [--host H|all]
-  local pat="" host="" h
+  local pat="" host="" h rc=0
   while [ $# -gt 0 ]; do
     case "$1" in
       --host)   host="${2:-}"; shift; [ $# -gt 0 ] && shift ;;
@@ -1380,33 +1380,49 @@ cmd_ls() {  # [PAT] [--host H|all]
   done
   if [ -z "$host" ]; then cmd_rows time | cut -f1 | { [ -n "$pat" ] && grep -i -- "$pat" || cat; }; return; fi
   # ★HOST 열★ — --host 를 준 경우에만 앞에 붙는다(접두 없는 지금 출력은 그대로 — R6)
+  # ★실패한 호스트는 «조용한 0줄» 이 아니라 rc≠0 + stderr 1줄★ — 다른 호스트 행은 그대로 낸다(arch 반송 r2 ②)
+  local dir r rows; dir="$(mktemp -d "${TMPDIR:-/tmp}/tmm-ls.XXXXXX")" || return 1
+  : > "$dir/all"
   for h in $(h_targets "$host"); do
     if [ "$h" = "$(h_local_name)" ] || [ "$(h_field "$h" kind)" = local ]; then
-      cmd_rows time | cut -f1 | sed "s/^/$h /"
+      cmd_rows time | cut -f1 | sed "s/^/$h /" >> "$dir/all"
     else
-      cmd_rows_remote "$h" | cut -f1 | sed "s/^/$h /"
+      rows="$dir/$h.rows"
+      cmd_rows_remote "$h" > "$rows"; r=$?
+      if [ "$r" -ne 0 ]; then rc="$r"; rm -f "$rows"; continue; fi
+      cut -f1 "$rows" | sed "s/^/$h /" >> "$dir/all"
     fi
-  done | { [ -n "$pat" ] && grep -i -- "$pat" || cat; }
+  done
+  if [ -n "$pat" ]; then grep -i -- "$pat" "$dir/all" || true; else cat "$dir/all"; fi
+  rm -rf "$dir"
+  return "$rc"
 }
 
 # 원격 좌석 행 — ssh 한 번(h_pipe)으로 상태·활동·cwd 를 받아 로컬 cmd_rows 와 «같은 모양» 으로 편다.
 # 모델·완료 마커는 원격 트랜스크립트를 읽어야 하므로 «-» 로 둔다(정본 확장은 카드3 후속).
-cmd_rows_remote() {  # <host>
-  local h="$1" s st act pcmd cwd tl live cat nw cw now scr
+cmd_rows_remote() {  # <host>  — 원격 실패는 «판정 불가» 1줄 + 그 rc(하드 룰 20 · 조용한 0줄 금지)
+  local h="$1" s st act pcmd cwd tl live cat nw cw now scr out err rc
   read -r nw cw <<<"$(col_widths)"
   now=$(date +%s)
-  scr="$(mktemp "${TMPDIR:-/tmp}/tmm-rrows.XXXXXX")" || return 1
+  scr="$(mktemp "${TMPDIR:-/tmp}/tmm-rrows.XXXXXX")" && out="$(mktemp "${TMPDIR:-/tmp}/tmm-rrows.out.XXXXXX")" \
+    && err="$(mktemp "${TMPDIR:-/tmp}/tmm-rrows.err.XXXXXX")" || { rm -f "$scr" "$out" "$err"; return 1; }
   rows_remote_script > "$scr"
-  h_pipe "$h" "$scr" 2>/dev/null | while IFS=$'\t' read -r s st act pcmd cwd; do
+  h_pipe "$h" "$scr" > "$out" 2>"$err"; rc=$?
+  if [ "$rc" -ne 0 ]; then
+    printf 'tmm: 판정 불가 %s rc=%s %s\n' "$h" "$rc" "$(head -1 "$err" 2>/dev/null)" >&2
+    rm -f "$scr" "$out" "$err"
+    return "$rc"
+  fi
+  while IFS=$'\t' read -r s st act pcmd cwd; do
     [ -n "$s" ] || continue
     case "$pcmd" in zsh|bash|sh|fish|-zsh|-bash) live="○" ;; *) live="●" ;; esac
     cat="$(cat_of "$s" key)"; tl="${cat#*/}"
     printf '%s\t%s\t%s\t%-5s %s %-*s %-5s %-8s %s %s %s\t%s\t%s\n' \
       "$(wait_rank "$st")" "${act:-0}" "$cat" \
-      "${tl:0:5}" "$live" "$nw" "$(clip_name "$s" "$nw")" "$st" "-" "$(fmt_hm "${act:-0}" "~") " "$(age_of "${act:-0}" "$now")" "${cwd##*/}" \
+      "${tl:0:5}" "$live" "$nw" "$(clip_name "$s" "$nw")" "$st" "-" "$(fmt_hm "${act:-0}" "~")" "$(age_of "${act:-0}" "$now")" "${cwd##*/}" \
       "$s" "$cat"
-  done | sort -t$'\t' -k2,2nr | cut -f4-
-  rm -f "$scr"
+  done < "$out" | sort -t$'\t' -k2,2nr | cut -f4-
+  rm -f "$scr" "$out" "$err"
 }
 
 # 원격에서 돌 스크립트 본문 — seat-scan 을 «설치 없이» 그대로 싣고 tmux 목록과 이름으로 잇는다.
@@ -1414,11 +1430,13 @@ rows_remote_script() {
   printf '#!/bin/bash\n'
   printf 'SEAT_STATE="$(\n'
   [ -n "$SCAN" ] && [ -f "$SCAN" ] && sed -e '1{/^#!/d;}' "$SCAN"
-  printf ')"\n'
+  printf ')"\nexport SEAT_STATE\n'
+  # ★awk -v 대신 ENVIRON★ — BSD awk(/usr/bin/awk 20200816)는 -v 값에 개행이 있으면 «awk: newline in string»
+  #  rc2 로 죽는다(실 mini 실사건 2026-10-28: 좌석 0줄). ENVIRON 은 다중행을 그대로 받는다.
   cat <<'EOS'
 tmux list-panes -a -F $'#{session_name}\t#{window_activity}\t#{pane_current_command}\t#{pane_current_path}' 2>/dev/null |
 awk -F'\t' '!seen[$1]++' |
-awk -F'\t' -v st="$SEAT_STATE" 'BEGIN { n = split(st, L, "\n"); for (i = 1; i <= n; i++) { split(L[i], P, " "); if (P[1] != "") S[P[1]] = P[2] } }
+awk -F'\t' 'BEGIN { n = split(ENVIRON["SEAT_STATE"], L, "\n"); for (i = 1; i <= n; i++) { split(L[i], P, " "); if (P[1] != "") S[P[1]] = P[2] } }
 { print $1 "\t" (S[$1] != "" ? S[$1] : "?") "\t" $2 "\t" $3 "\t" $4 }'
 EOS
 }
