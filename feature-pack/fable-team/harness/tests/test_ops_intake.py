@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import os
+import plistlib
 import re
 import shutil
 import subprocess
@@ -28,6 +29,25 @@ FT_MBOX_SH = Path(os.path.expanduser("~/.claude/skills/fable-team/scripts/ft-mbo
 FT_MBOX_PY = Path(os.path.expanduser("~/.claude/skills/fable-team/scripts/ft-mbox.py"))
 PY = sys.executable
 SEATS = ("byz-opsintake-tool-cmd#0", "byz-opsintake-master-claude#0", "byz-opsintake-other-claude#9", "byz-issues-master-claude#32")
+
+H2_NAME = "h-B2-ops-intake-mini-mbox-dir.sh"  # r1044 mini 쪽지함 경로 고침 h 스크립트(팩 밖 · 하네스 증거 폴더)
+
+
+def h2_script() -> Path:
+    """r1044 h 스크립트 자리 — H2_SCRIPT 로 다른 사본을 가리킬 수 있다(변이용).
+
+    팩 저장소 밖(하네스 증거 폴더)에 살기 때문에 후보를 «알려진 폴더 안에서만» 훑는다(저장소 전체 검색 0).
+    """
+    env = os.environ.get("H2_SCRIPT")
+    if env:
+        return Path(env)
+    base = Path(os.path.expanduser("~/Project/Agent/BYZ-Work/BYZ-Agents"))
+    cands = [base / "design/harness/evidence/mini-sat" / H2_NAME]
+    cands += sorted(base.glob(".worktrees/*/design/harness/evidence/mini-sat/" + H2_NAME))
+    for p in cands:
+        if p.is_file():
+            return p
+    return cands[0]
 
 
 class Slack:
@@ -986,6 +1006,179 @@ class TestR6(Base):
         self.assertEqual([v["state"] for v in ledger.values()], ["failed"])
 
 
+class TestMboxDir(Base):
+    """ⓐⓑ r1044 — 게시기 plist·쓰기 명령의 쪽지함 경로(FT_MBOX_DIR)"""
+
+    def render(self) -> str:
+        tpl = (KIT / "com.hermes.ops-intake-poster.plist.template").read_text(encoding="utf-8")
+        kit = self.e.home / ".fable-team/ops-intake/kit/ops-intake"
+        return tpl.replace("__HOME__", str(self.e.home)).replace("__KIT__", str(kit)).replace("__PY__", PY)
+
+    def env_of(self) -> dict:
+        return plistlib.loads(self.render().encode("utf-8"))["EnvironmentVariables"]
+
+    def run_kit(self, script: str, with_env: bool, stdin: str = "") -> subprocess.CompletedProcess:
+        """FT_MBOX_DIR 만 «렌더한 plist 그 칸» 에서 가져오고 나머지는 픽스처 env — 없음 갈래는 그 칸을 뺀다."""
+        env = dict(self.e.env)
+        env.pop("FT_MBOX_DIR", None)
+        if with_env:
+            env["FT_MBOX_DIR"] = self.env_of()["FT_MBOX_DIR"]
+        return subprocess.run([PY, str(KIT / script)], input=stdin, capture_output=True, text=True,
+                              env=env, cwd=str(self.e.home))
+
+    def test_mboxdir_a_template_env_exact(self) -> None:
+        """R1 — 렌더본에 FT_MBOX_DIR 1칸 · 다른 env 칸은 값도 이름도 불변."""
+        text = self.render()
+        self.assertNotRegex(text, r"__[A-Z_]+__", "자리표시 잔재")
+        self.assertEqual(
+            self.env_of(),
+            {
+                "PATH": f"/opt/homebrew/bin:{self.e.home}/.local/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+                "OPS_INTAKE_ROOT": f"{self.e.home}/.fable-team/ops-intake",
+                "OPS_SLACK_LIB": f"{self.e.home}/.fable-team/ops-intake/kit/ops-intake/../slack-mirror",
+                "OPS_HERMES_ENV": f"{self.e.home}/.hermes/.env",
+                "OPS_INTAKE_SECRET_DIR": f"{self.e.home}/.fable-team/ops-intake/kit/ops-intake",
+                "FT_MBOX_DIR": f"{self.e.home}/.fable-team/comm",
+            },
+            "env 칸이 늘거나 값이 바뀌었다",
+        )
+
+    def test_mboxdir_b_poster_rc0_only_with_env(self) -> None:
+        """R2 — 빈 쪽지함 1패스: plist env 있으면 rc0 · 없으면 NO_MAILBOX_ROOT 로 rc≠0(기준값 재현)."""
+        ok = self.run_kit("ops_intake_poster.py", True)
+        self.assertEqual(ok.returncode, 0, ok.stdout + ok.stderr)
+        self.assertIn("POST idle", ok.stdout)
+        bad = self.run_kit("ops_intake_poster.py", False)
+        self.assertNotEqual(bad.returncode, 0, "env 없이도 게시기가 돌았다(기준값 재현 실패)")
+        self.assertIn("NO_MAILBOX_ROOT", bad.stdout + bad.stderr)
+
+    def test_mboxdir_b_write_same_defect(self) -> None:
+        """R3 — write.py 도 같은 결함: env 있으면 카드 1 + [OPS-NEW] 1 · 없으면 rc≠0 카드 0."""
+        ok = self.run_kit("ops_intake_write.py", True, json.dumps(CARD))
+        self.assertEqual(ok.returncode, 0, ok.stdout + ok.stderr)
+        self.assertEqual(len(self.e.cards()), 1)
+        self.assertEqual(len([n for n in self.e.notes() if "[OPS-NEW]" in str(n.get("body", ""))]), 1)
+        for card in self.e.cards():
+            card.unlink()
+        (self.e.home / ".fable-team/comm/mailbox.jsonl").unlink(missing_ok=True)
+        bad = self.run_kit("ops_intake_write.py", False, json.dumps(CARD))
+        self.assertNotEqual(bad.returncode, 0, "env 없이도 카드가 쓰였다")
+        self.assertIn("NO_MAILBOX_ROOT", bad.stdout + bad.stderr)
+        self.assertEqual(self.e.cards(), [], "쪽지 0 인데 카드가 남았다")
+
+
+class TestMboxDirH2(unittest.TestCase):
+    """ⓒⓓ r1044 — h 스크립트: 멱등 · 정확 1건 STOP · 7초 상한(FT_HB2_LOCAL_HOME 픽스처 · ssh 0)."""
+
+    def setUp(self) -> None:
+        self.t = Path(tempfile.mkdtemp(prefix="h2mbox-"))
+        self.home = self.t / "mini"
+        self.comm = self.home / ".fable-team/comm"
+        self.skill = self.home / ".hermes/skills/operations/howto-talk-ops/SKILL.md"
+        self.guide = self.home / ".hermes/workspace/projects/howto-talk-ops/GUIDELINES.md"
+        self.plist = self.home / "Library/LaunchAgents/com.hermes.ops-intake-poster.plist"
+        self.logf = self.home / ".hermes/logs/ops-intake-poster.log"
+        for d in (self.skill.parent, self.guide.parent, self.plist.parent, self.logf.parent,
+                  self.home / ".testbin", self.comm):
+            d.mkdir(parents=True)
+        self.write_plist()
+        self.write_docs()
+        self.logf.write_text("NO_MAILBOX_ROOT: .fable-team 조상 없음 — FT_MBOX_DIR 를 지정하라\n", encoding="utf-8")
+        self.write_fake_launchctl()
+
+    def tearDown(self) -> None:
+        shutil.rmtree(self.t, ignore_errors=True)
+
+    def write_plist(self, with_env: bool = False) -> None:
+        """r956 설치본 그대로(FT_MBOX_DIR 칸 없음) = 기준값. with_env 면 고친 뒤 모습."""
+        kit = self.home / ".fable-team/ops-intake/kit/ops-intake"
+        text = (KIT / "com.hermes.ops-intake-poster.plist.template").read_text(encoding="utf-8")
+        text = text.replace("__HOME__", str(self.home)).replace("__KIT__", str(kit)).replace("__PY__", "/usr/bin/python3")
+        if not with_env:
+            text = text.replace(f"    <key>FT_MBOX_DIR</key><string>{self.home}/.fable-team/comm</string>\n", "")
+        self.plist.write_text(text, encoding="utf-8")
+
+    def write_docs(self) -> None:
+        cmd = f"python3 {self.home}/.fable-team/ops-intake/kit/ops-intake/ops_intake_write.py < card.json"
+        self.skill.write_text(f"# SKILL\n- **내가 실행하는 명령은 하나**: `{cmd}`\n", encoding="utf-8")
+        self.guide.write_text(f"# GUIDELINES\n   `{cmd}`\n", encoding="utf-8")
+
+    def write_fake_launchctl(self) -> None:
+        """가짜 launchctl — 실 launchd 를 건드리지 않는다. kickstart = 게시기 1패스 흉내(로그 1줄)."""
+        p = self.home / ".testbin/launchctl"
+        p.write_text(
+            '#!/bin/bash\n'
+            'S="$HOME/.launchd-state"\n'
+            'LOG="$HOME/.hermes/logs/ops-intake-poster.log"\n'
+            'case "$1" in\n'
+            '  bootout) rm -f "$S"; exit 0 ;;\n'
+            '  print) [ -f "$S" ] || { echo "Could not find service"; exit 1; }\n'
+            '         echo "state = running"; echo "last exit code = 0"; exit 0 ;;\n'
+            '  bootstrap) : > "$S"; exit 0 ;;\n'
+            '  kickstart) printf "POST idle n=0\\n" >> "$LOG"; exit 0 ;;\n'
+            'esac\n'
+            'exit 0\n', encoding="utf-8")
+        p.chmod(0o755)
+
+    def run_h(self, *args: str) -> subprocess.CompletedProcess:
+        h = h2_script()
+        if not h.is_file():
+            raise unittest.SkipTest(f"h 스크립트 없음(팩 밖): {h} — H2_SCRIPT 로 넘긴다")
+        env = dict(os.environ, FT_HB2_LOCAL_HOME=str(self.home))
+        env.pop("MBOX_DIR", None)
+        env.pop("MHOME", None)
+        return subprocess.run(["bash", str(h), *args], capture_output=True, text=True, env=env, cwd=str(self.t))
+
+    def plist_env(self) -> dict:
+        return plistlib.loads(self.plist.read_bytes())["EnvironmentVariables"]
+
+    def test_mboxdir_h_apply_twice_idempotent(self) -> None:
+        """R4 앞 — 두 번 apply: 1회차 바꾼 것 3(plist 1칸 + 문서 2줄) · 2회차 0."""
+        first = self.run_h("--apply")
+        self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+        self.assertIn("CHANGED n=3", first.stdout)
+        self.assertEqual(self.plist_env()["FT_MBOX_DIR"], f"{self.home}/.fable-team/comm")
+        prefix = f"FT_MBOX_DIR={self.home}/.fable-team/comm python3 "
+        for p in (self.skill, self.guide):
+            self.assertEqual((p.read_text(encoding="utf-8").count(prefix)), 1, f"{p} 접두 1개가 아니다")
+        self.assertEqual(len(list((self.home / ".hermes/backups").glob("ops-intake-mbox-*"))), 1, "백업 폴더 1개가 아니다")
+        self.assertNotIn("NO_MAILBOX_ROOT", self.logf.read_text(encoding="utf-8").split("\n", 1)[1],
+                         "늘어난 로그에 아직 NO_MAILBOX_ROOT")
+        second = self.run_h("--apply")
+        self.assertEqual(second.returncode, 0, second.stdout + second.stderr)
+        self.assertIn("CHANGED n=0", second.stdout)
+
+    def test_mboxdir_h_target_zero_stops_before_write(self) -> None:
+        """R4 뒤 — 대상 문자열 0건이면 STOP rc1 · 대상 파일 쓰기 0."""
+        self.skill.write_text("# SKILL\n명령 없음\n", encoding="utf-8")
+        before = {p: p.read_bytes() for p in (self.skill, self.guide, self.plist)}
+        r = self.run_h("--apply")
+        self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
+        self.assertIn("STOP", r.stdout + r.stderr)
+        for p, raw in before.items():
+            self.assertEqual(p.read_bytes(), raw, f"STOP 인데 {p} 가 바뀌었다")
+
+    def test_mboxdir_h_dry_run_writes_nothing(self) -> None:
+        """--dry-run 기본 — 계획 줄만 · plist·문서 쓰기 0."""
+        before = {p: p.read_bytes() for p in (self.skill, self.guide, self.plist)}
+        r = self.run_h("--dry-run")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("DRY-ONLY", r.stdout)
+        self.assertEqual(r.stdout.count("PLAN "), 3)
+        for p, raw in before.items():
+            self.assertEqual(p.read_bytes(), raw, f"dry-run 인데 {p} 가 바뀌었다")
+
+    def test_mboxdir_h_calls_capped_7s(self) -> None:
+        """R5 — 외부 호출 정적 확인(ConnectTimeout=7 · timeout 7 · 30/300/600초 없음)."""
+        h = h2_script()
+        if not h.is_file():
+            raise unittest.SkipTest(f"h 스크립트 없음(팩 밖): {h}")
+        text = h.read_text(encoding="utf-8")
+        self.assertIn("ConnectTimeout=7", text)
+        self.assertIn("timeout 7", text)
+        self.assertNotRegex(text, r"timeout (?:30|60|70|300|600)\b")
+
+
 MUTATIONS = {
     # 이름: (파일, 원문, 바꿀 글, 이 변이가 깨야 하는 축)
     "mask-off": ("ops_intake_common.py", "        masked, cnt = rx.subn(ph, masked)", "        masked, cnt = masked, 0", "b-secrets"),
@@ -1024,6 +1217,11 @@ MUTATIONS = {
                       "                import re as _re\n                _RX = _re.compile(r'sk-[A-Za-z0-9]{16,}')\n"
                       "                def _local(t):\n                    h = [('sk-key', 1)] if _RX.search(t) else []\n                    return _RX.sub('***', t), h\n"
                       "                return _local", "s_"),
+    # r1044 — 템플릿에서 FT_MBOX_DIR 칸을 지우면 ⓐ 가 빨개진다(칸이 다시 빠지는 회귀)
+    "mbox-dir-item-off": ("com.hermes.ops-intake-poster.plist.template",
+                          "    <key>FT_MBOX_DIR</key><string>__HOME__/.fable-team/comm</string>\n", "", "mboxdir"),
+    # r1044 — h 의 «정확 1건» 검사를 끄면 0건 픽스처에서 STOP 하지 않고 계속 간다 → ⓒ FAIL
+    "h-exact-one-off": ("H2:", "    if n != 1:", "    if False:", "h2"),
     # 잠금 범위를 원장에만(카드 쓰기는 밖) → ⓣ FAIL
     "lock-scope-off": ("ops_intake_write.py", '        with c.locked("ops-intake"):  # ★한도 확인부터 쪽지 예약까지 한 잠금★ (DA r3 반례 3)\n            return _write_locked(doc)',
                        "        return _write_locked(doc)", "t_"),
@@ -1068,6 +1266,25 @@ def mutate(name: str) -> int:
     work = Path(tempfile.mkdtemp(prefix="opsmut-"))
     kit = work / "kit"
     shutil.copytree(KIT, kit)
+    if script.startswith("H2:"):  # r1044: 팩 밖(하네스 증거 폴더) h 스크립트 변이 — H2_SCRIPT 로 사본을 가리킨다
+        target = work / "h2.sh"
+        target.write_text(h2_script().read_text(encoding="utf-8"), encoding="utf-8")
+        src = target.read_text(encoding="utf-8")
+        if old not in src:
+            print(f"MUTATE {name}: 원문을 못 찾음 — 검사가 낡았다", file=sys.stderr)
+            return 1
+        target.write_text(src.replace(old, new, 1), encoding="utf-8")
+        os.environ["H2_SCRIPT"] = str(target)
+        try:
+            rc = run_cases(axis)
+        finally:
+            os.environ.pop("H2_SCRIPT", None)
+            shutil.rmtree(work, ignore_errors=True)
+        if rc == 0:
+            print(f"MUTATE {name}: 살아남음(변이를 못 잡았다) → FAIL")
+            return 1
+        print(f"MUTATE {name}: 잡았다(축 {axis}) → PASS")
+        return 0
     src = (kit / script).read_text()
     if old not in src:
         print(f"MUTATE {name}: 원문을 못 찾음 — 검사가 낡았다", file=sys.stderr)
