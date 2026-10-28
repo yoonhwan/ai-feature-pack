@@ -5,7 +5,8 @@
 #   ⓑ R2 byz-cfo-master-claude#118 (옛 argv opus) · 생략 → claude-sonnet-5-5[1m]
 #   ⓒ R3 arch 이름 + --model claude-fable-5-1 명시 → 그 값 그대로 (변이: 명시도 덮음 → FAIL)
 #   ⓓ R4 ft-v65-temp-sb-x#0 나노 이름 · 옛 argv sonnet → sonnet (지금 동작)
-#   ⓔ R5 ft-v65-arch-claude#110 · 생략 → claude-opus-5-5[1m]
+#   ⓕ R6 슬러그에 arch 가 든 «나노»(명부 실재) · 옛 argv sonnet → sonnet 그대로 (변이: 글자 비교로 되돌림 → ⓕ FAIL)
+#   R6 = 반송 r1(arch#172) 반례: byz-cfo-nano-cfo-ops-arch-stage0-values-capture#0 는 역할 칸이 nano — 이름에 arch 가 있다고 Opus 로 뜨면 안 된다.
 # 가짜 tmux·tmuxc·spawn(PATH 아님 · 같은 bin 디렉터리) — 실 세션·tmux·명부 쓰기 0 · sleep 0(스텁이 handover 토큰을 즉시 씀).
 # 변이: FT_R1067_MUTATE=arch|explicit — 계약을 «지운» 사본으로 같은 시험을 돌린다(그 행이 FAIL 이어야 한다).
 set -uo pipefail
@@ -27,11 +28,13 @@ bash -n "$DISTILL" && ok "bash -n ft-tmux-distill.sh" || bad "bash -n ft-tmux-di
 # 변이 = 계약을 지운 사본(같은 시험을 다시 돌린다 — 자기 파일 재호출 아님)
 case "${FT_R1067_MUTATE:-}" in
   '') ;;
-  arch)     sed -i.bak '/\*-arch-\*)/d' "$DISTILL" && rm -f "$DISTILL.bak"
-            grep -q 'opus-5-5\[1m\]";' "$DISTILL" && { echo "FAIL 변이 arch 적용 실패"; exit 1; } ;;
+  arch)     sed -i.bak '/^    arch)   MODEL=/d' "$DISTILL" && rm -f "$DISTILL.bak"
+            grep -q '^    arch)   MODEL=' "$DISTILL" && { echo "FAIL 변이 arch 적용 실패"; exit 1; } ;;
   explicit) awk 'BEGIN{d=0} { if(!d && index($0,"[ \"$AGENT\" = \"claude\" ] && [ -z \"$MODEL\" ]")){ sub(/ && \[ -z "\$MODEL" \]/,""); d=1 } print }' \
               "$DISTILL" > "$TMP/mut" && mv "$TMP/mut" "$DISTILL"
             [ "$(grep -c '&& \[ -z "\$MODEL" \]' "$DISTILL")" -eq 2 ] || { echo "FAIL 변이 explicit 적용 실패"; exit 1; } ;;
+  substr)   sed -i.bak 's|^  case "\$(ft_role_slot "\$FT_BASE")" in$|  case "$FT_BASE" in *-arch-*) ROLE_SLOT=arch;; *-master-*) ROLE_SLOT=master;; *) ROLE_SLOT="";; esac; case "$ROLE_SLOT" in|' "$DISTILL" && rm -f "$DISTILL.bak"
+            grep -q 'case "\$FT_BASE" in \*-arch-\*) ROLE_SLOT=arch' "$DISTILL" || { echo "FAIL 변이 substr 적용 실패"; exit 1; } ;;
   *) echo "FAIL 모르는 변이: $FT_R1067_MUTATE"; exit 1 ;;
 esac
 
@@ -91,5 +94,11 @@ run 'ft-v65-arch-claude#110' 'claude-sonnet-5-5[1m]'
 { [ "$RC" -eq 0 ] && [ "$(argv_model)" = 'claude-opus-5-5[1m]' ]; } \
   && ok "ⓔ R5 ft-v65-arch-claude#110 + 생략 → claude-opus-5-5[1m] · rc0" \
   || bad "ⓔ rc=$RC model=$(argv_model) argv=$(tr '\n' ' ' < "$LOG" 2>/dev/null) err=$(cat "$TMP/err")"
+
+# ⓕ R6 역할 칸이 nano 인데 슬러그에 arch 가 든 이름(반송 r1 반례) → sonnet 그대로 (변이 대상)
+run 'byz-cfo-nano-cfo-ops-arch-stage0-values-capture#0' 'claude-sonnet-5-5[1m]'
+{ [ "$RC" -eq 0 ] && [ "$(argv_model)" = 'claude-sonnet-5-5[1m]' ] && ! grep -q 'claude-opus-5-5' "$LOG" && [ ! -s "$TMP/err" ]; } \
+  && ok "ⓕ R6 나노(슬러그에 arch) + 생략 → 라이브 argv sonnet 그대로(Opus 0) · rc0" \
+  || bad "ⓕ rc=$RC model=$(argv_model) argv=$(tr '\n' ' ' < "$LOG" 2>/dev/null) err=$(cat "$TMP/err")"
 
 [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }

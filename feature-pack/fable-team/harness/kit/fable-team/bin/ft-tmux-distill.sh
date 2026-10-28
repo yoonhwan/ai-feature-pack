@@ -58,13 +58,22 @@ NEWSESS="$BASE#$NEWN"
 AGENT="claude"
 [ "$FT_ROLE" = "da" ] && AGENT="codex"
 
-# r1067: 역할 기본 모델 — claude 이고 --model 생략이면 이름으로 정한다(옛 좌석 모델 복사보다 우선).
-#   arch = claude-opus-5-5[1m] · 팀장(master) = claude-sonnet-5-5[1m] · 그 밖(나노 등)은 아래 승계 순서 그대로.
-#   명시 --model 은 어떤 경우에도 그대로다(MODEL 이 차 있으면 이 블록을 지나지 않는다).
+# r1067: 역할 기본 모델 — claude 이고 --model 생략이면 이름의 «역할 칸» 으로 정한다(옛 좌석 모델 복사보다 우선).
+#   역할 칸 = byz-<팀>-<역할>-… 의 셋째 토막 · ft-<…>-<역할>-<에이전트> 의 끝에서 둘째 토막.
+#   역할 칸이 arch = claude-opus-5-5[1m] · master = claude-sonnet-5-5[1m].
+#   ★글자 비교(*-arch-*)를 쓰지 않는 이유★: 슬러그에 arch 가 든 나노(byz-cfo-nano-cfo-ops-arch-stage0-…#0)가 Opus 로 떴다(arch#172 격리 r1).
+#   그 밖(nano·temp 등)은 아래 승계 순서 그대로 · 명시 --model 은 어떤 경우에도 그대로다(MODEL 이 차 있으면 이 블록을 지나지 않는다).
+ft_role_slot() {  # <세션 베이스(#N 제외)> → 역할 칸(모르는 꼴은 빈 값)
+  case "$1" in
+    ft-*)  printf '%s\n' "$1" | awk -F- '{ if (NF >= 3) print $(NF-1) }' ;;
+    byz-*) printf '%s\n' "$1" | awk -F- '{ if (NF >= 4) print $3 }' ;;
+    *)     ;;
+  esac
+}
 if [ "$AGENT" = "claude" ] && [ -z "$MODEL" ]; then
-  case "$FT_BASE" in
-    *-arch-*)   MODEL="claude-opus-5-5[1m]";   echo "ft-tmux-distill: 역할 기본 arch → claude-opus-5-5[1m]" >&2;;
-    *-master-*) MODEL="claude-sonnet-5-5[1m]"; echo "ft-tmux-distill: 역할 기본 팀장 → claude-sonnet-5-5[1m]" >&2;;
+  case "$(ft_role_slot "$FT_BASE")" in
+    arch)   MODEL="claude-opus-5-5[1m]";   echo "ft-tmux-distill: 역할 기본 arch → claude-opus-5-5[1m]" >&2;;
+    master) MODEL="claude-sonnet-5-5[1m]"; echo "ft-tmux-distill: 역할 기본 팀장 → claude-sonnet-5-5[1m]" >&2;;
   esac
 fi
 
