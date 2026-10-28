@@ -32,9 +32,9 @@
 #     «카드 ## 상태 맨 끝 줄 = 대체됨: <카드> · 사유: <글>» + 대체 카드(design/[teams/]<팀>/indices/{대기,진행,완성,완료}/*.md) 실재 + 자기 자신 아님을 요구하고, ⑤ cherry 게이트엔 --override "superseded-by <카드>"(원장 1행)를 넘긴다.
 #     --cherry-override 와 동시 = usage 2 · 인자 없으면 동작 불변 · 브랜치 삭제 0 · 명부는 기존 CLOSED 경로가 갱신(손 편집 불필요) · 출력 `CLOSED <좌석> superseded-by=<카드> …`.
 #   --landed-pr <PR 번호> = 「이미 착지(squash)가 끝난」 나노 좌석을 닫는다(r1011). ⑤ cherry(가지 «+» 커밋 0)와 ⑥ 증거 줄 세트 대조(«세트 == 지금 HEAD»)를
-#     «gh pr view <N> --json state,mergeCommit,headRefOid 가 MERGED ∧ headRefOid == 카드 «## 상태» 절 «안» 의 마지막 «세트:» sha(40-hex 정확 일치) ∧ 카드에 «- 착지:» 줄 실재» 로「대체»한다.
+#     «gh pr view <N> --json state,mergeCommit,headRefOid 가 MERGED ∨ (r1058: 상태가 MERGED 가 아니어도 PR head 가 origin/main 의 조상(ff) 이거나 origin/main 커밋 «끝줄» 이 정확히 «PR #<N> (head <PR head>)»(squash)) ∧ headRefOid == 카드 «## 상태» 절 «안» 의 마지막 «세트:» sha(40-hex 정확 일치) ∧ 카드에 «- 착지:» 줄 실재» 로「대체»한다.
 #     ★r2(DA⑥ HOLD ①): 세트 줄은 «## 상태» 절 안에서만 고른다(절 경계 = 다음 `## ` 머리) — 파일 뒤 «## 참고» 절의 세트 줄을 집으면 거짓 통과·거짓 거절이 난다 · 상태 절에 세트 줄 0 = REJECT.
-#     ★r2(DA⑥ HOLD ②): PR 검증은 «명부 부재·조기 재실행» 경로보다 «먼저» 돈다 — gh 1회 · 실패·시간 초과·MERGED 아님 = 그 자리 REJECT 1줄(닫기 0 · kill·명부·원장 손 0). 명부에 행이 없어 카드 index 를 모르면 같은 자리 REJECT.
+#     ★r2(DA⑥ HOLD ②): PR 검증은 «명부 부재·조기 재실행» 경로보다 «먼저» 돈다 — gh 1회 · 실패·시간 초과 = 그 자리 REJECT 1줄(닫기 0 · kill·명부·원장 손 0). ★r1058: 상태≠MERGED 면 origin/main 을 fetch 1회(7초+재시도 1) 해 ff 조상·squash 끝줄을 본다 — 둘 다 없으면 REJECT · fetch 실패 = «판정 불가» REJECT★ 명부에 행이 없어 카드 index 를 모르면 같은 자리 REJECT.
 #     착지가 squash 면 세트 sha 는 main 의 조상이 아니고 워크트리 HEAD 도 움직여 기존 ⑤⑥ 이 전부 어긋난다 — 그 자리를 PR 하나로 바꾼다.
 #     나머지(①②③④ · 세션 kill · 워크트리 정리 계획 · 명부 CLOSED · 원장 행)는 기존 경로 그대로 · 원장 행·출력 꼬리에 `landed-pr=<N>`.
 #     gh 호출은 «1회 · 7초 상한»(FT_NANO_LANDED_PR_CAP_S 로만 줄인다) — 시간 초과·rc≠0 = REJECT 1줄(닫기 0 · 조용한 통과 0). 브랜치 삭제 0.
@@ -722,7 +722,7 @@ _seat_reap() {
 #   원장 행이 없으면(처음 보는 좌석) 이 길로 오지 않는다 — 아래 기존 검사 그대로. --plan-only 는 대상 아님. 워크트리 = --wt › 원장 행 wt=<절대경로>(pack-wt·named-wt 꼴) › 없음(reap 은 세션 경로).
 _lrow=""; [ "$PLAN_ONLY" = 1 ] || _lrow="$(grep -F "\`$SEAT\` 닫힘(ft-nano-close)" "$LEDGER" 2>/dev/null | tail -1)"
 jq -e --arg s "$SEAT" 'has($s)' "$SEATS" >/dev/null 2>&1; _hrc=$?
-# ★r1011 r2(DA⑥ HOLD ②)★ --landed-pr 검증은 «명부 부재·조기 재실행» 경로보다 먼저 — gh 1회 · 실패·시간 초과·MERGED 아님 = 그 자리 REJECT(닫기 0 · kill·명부·원장 손 0).
+# ★r1011 r2(DA⑥ HOLD ②)★ --landed-pr 검증은 «명부 부재·조기 재실행» 경로보다 먼저 — gh 1회 · 실패·시간 초과 = 그 자리 REJECT(닫기 0 · kill·명부·원장 손 0). r1058: 상태≠MERGED 면 그 아래 _lp_landed_gate 가 origin/main 기준으로 한 번 더 본다.
 #   결과(_lp_state·_lp_head·_lp_mrg)는 ⑥ 이 그대로 쓰다 — 두 번 부르지 않는다(호출 1회 · 7초 상한).
 # ★r1023★ --landed-pr 의 리포 = «카드 세트 가지가 사는 리포» 하나 — 호출 cwd·인자와 무관(추측 0). r1019 설치 뒤 실사건 3/3: BYZ cwd 에서 닫으면
 #   gh 가 cwd 리포의 «같은 번호» PR 을 읽어 head 가 틀리고(팩 PR 402 head 73b03a4f vs BYZ PR 402 7464fd052) 판정기도 BYZ 에서 돌아 rc3(객체 없음)이었다.
@@ -792,6 +792,49 @@ _lp_repo_pick() {  # 리포(·slug) 하나를 정한다 — 못 정하면 _lp_re
   return 0
 }
 _lp_state=""; _lp_head=""; _lp_mrg=""; _lp_pr_err=""
+_lp_landed=""; _lp_landed_short=""
+_lp_lastline() {  # <repo> <sha> — 커밋 메시지의 «마지막 비어 있지 않은 줄»(끝 공백 제거) · 없으면 빈 값
+  local l
+  l="$(git -C "$1" log -1 --format=%B "$2" 2>/dev/null | sed -e 's/[[:space:]]*$//' | awk 'NF{l=$0} END{if (l!="") print l}')"
+  printf '%s\n' "$l"
+}
+# ★r1058★ --landed-pr 의 착지 판정 = GitHub 상태 칸이 아니라 git 사실 «origin/main 에 산출이 있는가».
+#   우리 착지 도구(ft-merge-land)는 병합 버튼을 쓰지 않는다 — squash 커밋을 main 에 직접 올리고 PR 은 CLOSED 또는 OPEN 으로 남긴다(실측 3/3).
+#   ⓐ PR head 가 origin/main 의 조상 = 빨리감기 착지(R392 --ff)  ⓑ origin/main 커밋의 «끝줄» 이 정확히 «PR #<N> (head <PR head 40hex>)» = squash 착지(ft-merge-land 끝줄 꼴)
+#   둘 다 없으면 REJECT(«main 에 산출 없음») · fetch 실패 = «판정 불가» 1줄 REJECT(하드 룰 20 · 옛 ref 로 통과 0).
+_lp_landed_gate() {
+  local repo cap out rc cand want last
+  repo="${_lp_repo:-}"
+  _lp_landed=""; _lp_landed_short=""
+  cap="${FT_NANO_LANDED_PR_CAP_S:-7}"; case "$cap" in ''|*[!0-9]*|0) cap=7;; esac
+  [ -n "$repo" ] || { _lp_pr_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · 리포 없음 — 판정 불가로 닫지 않는다"; return 1; }
+  step landed-ancestry
+  if ! nf_fetch "$repo" origin "+refs/heads/main:refs/remotes/origin/main" >/dev/null 2>&1; then
+    _lp_pr_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · origin/main 을 받지 못했다(fetch 실패 · 7초 상한 + 재시도 1) — 판정 불가로 닫지 않는다(옛 ref 대조 0)"
+    return 1
+  fi
+  if git -C "$repo" merge-base --is-ancestor "${_lp_head}" refs/remotes/origin/main 2>/dev/null; then
+    _lp_landed=ff
+    echo "INFO ⑥--landed-pr 착지 확인: ff · PR state=$_lp_state"
+    return 0
+  fi
+  want="PR #$LANDED_PR (head $_lp_head)"
+  out="$(nf_bound "$cap" git -C "$repo" log refs/remotes/origin/main --fixed-strings --grep="$want" --format=%H 2>&1)"; rc=$?
+  if [ "$rc" -eq 124 ]; then _lp_pr_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · main 끝줄 찾기 시간 초과(${cap}초 상한 · 하드 룰 12) — 판정 불가로 닫지 않는다"; return 1; fi
+  if [ "$rc" -ne 0 ]; then _lp_pr_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · git log 실패(rc=$rc: $(printf '%s' "$out" | head -1 | cut -c1-160)) — 판정 불가로 닫지 않는다"; return 1; fi
+  while IFS= read -r cand; do
+    [ -n "$cand" ] || continue
+    last="$(_lp_lastline "$repo" "$cand")"
+    if [ "$last" = "$want" ]; then   # 포함이 아니라 «끝줄 정확 일치» — 접두 겹침(«PR #44» vs N=4)·본문 가운데 줄은 통과 0
+      _lp_landed=squash
+      _lp_landed_short="$(git -C "$repo" rev-parse --short "$cand" 2>/dev/null)"
+      echo "INFO ⑥--landed-pr 착지 확인: squash ${_lp_landed_short:-${cand:0:9}} · PR state=$_lp_state"
+      return 0
+    fi
+  done <<< "$out"
+  _lp_pr_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · main 에 산출 없음(ff 0 · squash 끝줄 0)"
+  return 1
+}
 _lp_fetch_pr() {
   local cap out rc
   cap="${FT_NANO_LANDED_PR_CAP_S:-7}"; case "$cap" in ''|*[!0-9]*|0) cap=7;; esac
@@ -804,7 +847,8 @@ _lp_fetch_pr() {
   _lp_head="$(printf '%s' "$out" | jq -r '.headRefOid // empty' 2>/dev/null)"
   _lp_mrg="$(printf '%s' "$out" | jq -r 'if (.mergeCommit|type)=="object" then (.mergeCommit.oid // "") else (.mergeCommit // "") end' 2>/dev/null)"
   if [ -z "$_lp_state" ] || [ -z "$_lp_head" ]; then _lp_pr_err="⑥--landed-pr gh 응답을 못 읽음(state·headRefOid 없음): $(printf '%s' "$out" | head -1 | cut -c1-160)"; return 1; fi
-  if [ "$_lp_state" != MERGED ]; then _lp_pr_err="⑥--landed-pr #$LANDED_PR state=$_lp_state — MERGED 만 닫는다(OPEN·CLOSED 미병합 = 산출이 main 에 없다)"; return 1; fi
+  if [ "$_lp_state" = MERGED ]; then return 0; fi   # R7: MERGED 는 지금처럼 통과(동작 불변) · r1058: 그 밖은 아래 «origin/main 에 산출 있음» 판정으로 간다
+  _lp_landed_gate || return 1
   return 0
 }
 # ★r1019★ ⑥ «세트 대조» 를 «세트 + main 병합뿐» 까지 넓힌다 — ft-merge-land 는 main 이 앞서 있으면 승인판 위에 합침 커밋 1개를 올려 합치므로 PR head 는 «언제나» 카드 세트가 아니다(r1011 경로가 오늘 착지 6건을 0/6 으로 막았다).
@@ -1357,7 +1401,7 @@ elif [ "$RESEARCH" = 1 ]; then   # r888-mut:research
     fi
   fi
 elif [ -n "$LANDED_PR" ]; then
-  # r1011 착지 끝 나노: ⑥ «세트 == 지금 HEAD» 대신 «PR #N 이 MERGED ∧ PR head == 카드 «## 상태» 절 «안» 의 마지막 «세트:» sha ∧ 카드 «- 착지:» 줄» — ⑤ cherry 도 이 한 값이 대신한다(아래 ⑤ INFO).
+  # r1011 착지 끝 나노: ⑥ «세트 == 지금 HEAD» 대신 «PR #N 이 착지됨(r1058: MERGED ∨ ff 조상 ∨ squash 끝줄) ∧ PR head == 카드 «## 상태» 절 «안» 의 마지막 «세트:» sha ∧ 카드 «- 착지:» 줄» — ⑤ cherry 도 이 한 값이 대신한다(아래 ⑤ INFO).
   #   PR 값은 ⑥ 자리에서 _lp_fetch_pr 한 번으로 받는다(호출 1회 · 7초 상한 · 리포 선택 먼저). 세트·착지 줄은 카드(읽기 판 CARD_READ 먼저)에서만 읽는다(추론 0).
   if [ -z "$CARD_READ" ] || [ ! -f "$CARD_READ" ]; then bad+=("⑥카드 못 찾음: seats.json index=${IDX:-<빈 값>} — 착지 대조(«세트:» sha·«- 착지:» 줄)를 할 카드가 없다")
   elif ! _lp_fetch_pr; then bad+=("$_lp_pr_err")   # r1023: 리포 선택·gh 1회가 리포 결정 «뒤» — 못 정함(섞임·대상 줄 0·url)·gh 실패 모두 같은 자리 REJECT
@@ -1368,9 +1412,9 @@ elif [ -n "$LANDED_PR" ]; then
     if [ -z "$_lp_set" ]; then bad+=("⑥--landed-pr 카드 «## 상태» 절에 «세트:» 40-hex 줄이 없다: $CARD_READ — 대조할 세트가 없으면 닫지 않는다")
     elif [ -z "$_lp_land" ]; then bad+=("⑥--landed-pr 카드에 «- 착지:» 줄이 없다: $CARD_READ — 착지 기록 없는 좌석은 이 경로로 닫지 않는다")
     elif [ "$_lp_head" != "$_lp_set" ]; then   # r1019: head ≠ 세트 = 판정기 1회 — EQUIV(세트 + main 병합뿐)만 통과   # r1011-mut:head
-      if _lp_equiv_gate; then echo "LANDED-PR-OK #$LANDED_PR merged=${_lp_mrg:0:9} state=MERGED head=${_lp_head:0:9} repo=${_lp_slug} ≡ 카드 세트 ${_lp_set:0:9} + main 병합 ${_lp_equiv_merges} equiv=${_lp_equiv_merges} · «- 착지:» 줄 있음 (⑤ cherry·⑥ 증거 줄 면제)"
+      if _lp_equiv_gate; then echo "LANDED-PR-OK #$LANDED_PR merged=${_lp_mrg:0:9} state=$_lp_state head=${_lp_head:0:9} repo=${_lp_slug} ≡ 카드 세트 ${_lp_set:0:9} + main 병합 ${_lp_equiv_merges} equiv=${_lp_equiv_merges} · «- 착지:» 줄 있음 (⑤ cherry·⑥ 증거 줄 면제)"
       else bad+=("$_lp_equiv_err"); fi
-    else echo "LANDED-PR-OK #$LANDED_PR merged=${_lp_mrg:0:9} state=MERGED head=${_lp_head:0:9} repo=${_lp_slug} == 카드 세트 · «- 착지:» 줄 있음 (⑤ cherry·⑥ 증거 줄 면제)"; fi
+    else echo "LANDED-PR-OK #$LANDED_PR merged=${_lp_mrg:0:9} state=$_lp_state head=${_lp_head:0:9} repo=${_lp_slug} == 카드 세트 · «- 착지:» 줄 있음 (⑤ cherry·⑥ 증거 줄 면제)"; fi
   fi
 elif [ "$_role" = nano ] && [ -z "$CARD_READ" ]; then
   # 카드를 못 찾으면 증거를 대조할 수 없다 — 건너뛰고 CLOSED 하면 무음 통과(#0 RULE · DA⑥ 관측 A3). grandfather 와 무관하게 REJECT.
