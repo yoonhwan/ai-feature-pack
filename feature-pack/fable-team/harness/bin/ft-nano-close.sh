@@ -792,7 +792,7 @@ _lp_repo_pick() {  # 리포(·slug) 하나를 정한다 — 못 정하면 _lp_re
   return 0
 }
 _lp_state=""; _lp_head=""; _lp_mrg=""; _lp_pr_err=""
-_lp_landed=""; _lp_landed_short=""; _lp_equiv_x=""; _lp_equiv_sha=""
+_lp_landed=""; _lp_landed_short=""; _lp_equiv_x=""; _lp_equiv_sha=""; _lp_squash_sha=""   # r1083: _lp_squash_sha = «이 PR 의 squash 착지 커밋» 40hex(정확 일치 = cand · 3칸 = _lp_equiv_sha)
 # ★r1074★ 끝줄에서 head 를 «꼴 그대로» 뽑는다 — «PR #<N> (head <40hex>)» 정확히 그 꼴일 때만 40hex, 아니면 빈 값.
 #   접두 겹침(끝줄 «PR #44 (head …)» 인데 N=4)·꼬리 붙은 줄(«… (head <hex>) (cherry-picked)»)·본문 가운데 줄은 전부 빈 값 = 후보 0.
 _lp_lastline_head() {  # <N> <끝줄> → 40hex 또는 빈 값
@@ -816,7 +816,7 @@ _lp_lastline() {  # <repo> <sha> — 커밋 메시지의 «마지막 비어 있�
 _lp_landed_gate() {
   local repo cap out rc cand want grepw last x ecap eout erc efirst emerges mb rc3 mout merges
   repo="${_lp_repo:-}"
-  _lp_landed=""; _lp_landed_short=""; _lp_equiv_x=""; _lp_equiv_sha=""
+  _lp_landed=""; _lp_landed_short=""; _lp_equiv_x=""; _lp_equiv_sha=""; _lp_squash_sha=""
   cap="${FT_NANO_LANDED_PR_CAP_S:-7}"; case "$cap" in ''|*[!0-9]*|0) cap=7;; esac
   [ -n "$repo" ] || { _lp_pr_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · 리포 없음 — 판정 불가로 닫지 않는다"; return 1; }
   step landed-ancestry
@@ -843,6 +843,7 @@ _lp_landed_gate() {
     [ -n "$cand" ] || continue
     last="$(_lp_lastline "$repo" "$cand")"
     if [ "$last" = "$want" ]; then   # 포함이 아니라 «끝줄 정확 일치» — 접두 겹침(«PR #44» vs N=4)·본문 가운데 줄은 통과 0
+      _lp_squash_sha="$cand"   # r1083: 이 PR 의 squash = 끝줄 정확 일치 후보
       _lp_landed=squash
       _lp_landed_short="$(git -C "$repo" rev-parse --short "$cand" 2>/dev/null)"
       echo "INFO ⑥--landed-pr 착지 확인: squash ${_lp_landed_short:-${cand:0:9}} · PR state=$_lp_state"
@@ -878,6 +879,7 @@ _lp_landed_gate() {
     fi
     mout="$(nf_bound "$ecap" git -C "$repo" rev-list --count --merges "$_lp_equiv_x..$_lp_head" 2>&1)"
     merges="$mout"; case "$merges" in ''|*[!0-9]*) merges=0;; esac
+    _lp_squash_sha="$_lp_equiv_sha"   # r1083: r1074 3칸 경로의 squash 후보
     _lp_landed=squash
     _lp_landed_short="$(git -C "$repo" rev-parse --short "$_lp_equiv_sha" 2>/dev/null)"
     echo "INFO ⑥--landed-pr 착지 확인: squash ${_lp_landed_short:-${_lp_equiv_sha:0:9}} · 끝줄 head ${_lp_equiv_x:0:9} → PR head ${_lp_head:0:9} = main 병합 ${merges}개뿐 · main 대비 자기 변경 0 · PR state=$_lp_state"
@@ -1475,7 +1477,11 @@ elif [ -n "$LANDED_PR" ]; then
     if [ -z "$_lp_set" ]; then bad+=("⑥--landed-pr 카드 «## 상태» 절에 «세트:» 40-hex 줄이 없다: $CARD_READ — 대조할 세트가 없으면 닫지 않는다")
     elif [ -z "$_lp_land" ]; then bad+=("⑥--landed-pr 카드에 «- 착지:» 줄이 없다: $CARD_READ — 착지 기록 없는 좌석은 이 경로로 닫지 않는다")
     elif [ "$_lp_head" != "$_lp_set" ]; then   # r1019: head ≠ 세트 = 판정기 1회 — EQUIV(세트 + main 병합뿐)만 통과   # r1011-mut:head
-      if _lp_equiv_gate; then echo "LANDED-PR-OK #$LANDED_PR merged=${_lp_mrg:0:9} state=$_lp_state head=${_lp_head:0:9} repo=${_lp_slug} ≡ 카드 세트 ${_lp_set:0:9} + main 병합 ${_lp_equiv_merges} equiv=${_lp_equiv_merges} · «- 착지:» 줄 있음 (⑤ cherry·⑥ 증거 줄 면제)"
+      # ★r1083★ 세트 == «이 PR 의 squash 착지 커밋»이면 같은 착지를 가리킨다 — 판정기 호출 0 으로 통과.
+      #   기획 나노가 착지 «뒤» 세트 줄에 main 의 squash sha 를 적는 꼴(lecture L69 실사건)은 종전까지 NOT-EQUIV 로 막혔다.
+      #   세트가 «다른 PR 의 squash»·«아무 main 커밋»이면 _lp_squash_sha 와 다르므로 지금 경로(아래 판정기)로 내려가 그대로 막힌다.
+      if [ -n "$_lp_squash_sha" ] && [ "$_lp_set" = "$_lp_squash_sha" ]; then echo "LANDED-PR-OK #$LANDED_PR merged=${_lp_mrg:0:9} state=$_lp_state head=${_lp_head:0:9} repo=${_lp_slug} 카드 세트 = squash ${_lp_landed_short:-${_lp_squash_sha:0:9}} (이 PR 의 착지 커밋) · «- 착지:» 줄 있음 (⑤ cherry·⑥ 증거 줄 면제)"
+      elif _lp_equiv_gate; then echo "LANDED-PR-OK #$LANDED_PR merged=${_lp_mrg:0:9} state=$_lp_state head=${_lp_head:0:9} repo=${_lp_slug} ≡ 카드 세트 ${_lp_set:0:9} + main 병합 ${_lp_equiv_merges} equiv=${_lp_equiv_merges} · «- 착지:» 줄 있음 (⑤ cherry·⑥ 증거 줄 면제)"
       else bad+=("$_lp_equiv_err"); fi
     else echo "LANDED-PR-OK #$LANDED_PR merged=${_lp_mrg:0:9} state=$_lp_state head=${_lp_head:0:9} repo=${_lp_slug} == 카드 세트 · «- 착지:» 줄 있음 (⑤ cherry·⑥ 증거 줄 면제)"; fi
   fi
