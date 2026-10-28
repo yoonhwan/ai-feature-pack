@@ -29,6 +29,17 @@ case "$MODEL" in sn) MODEL="claude-sonnet-5-5";; op) MODEL="claude-opus-5-5";; e
 [ -z "$MODEL" ] && [ "$AGENT" = claude ] && [ "${NAME#*-arch-}" != "$NAME" ] && MODEL="claude-opus-5-5"
 [ -n "$NAME" ] && [ -n "$AGENT" ] && [ -n "$MODEL" ] && [ -n "$BODY" ] || usage
 case "$AGENT" in claude|codex|cmd|opencode|pi) ;; *) usage;; esac
+# ★r1060 --ctx 꼴 검사★ (오빠 2026-10-28 · 실사건 planner#152): 승계 호출자가 창 크기 자리에 «지금 쓴 토큰 수»(554k)를 넣었고
+#   도구가 값을 보지 않고 넘겨 모델 이름이 claude-sonnet-5-5[554k] 가 되어 API 400 이 났다. 창 크기 꼴(숫자+m)만 받는다.
+#   빈 값·생략 = 지금과 같다(넘기지 않음). agent≠claude 라도 값이 틀리면 거절 — 맞는 값의 «무시» 규칙은 아래 열기 줄 그대로.
+_ctx_bad=0
+if [ -n "$CTX" ]; then
+  case "$CTX" in
+    *m) _ctx_pre="${CTX%m}"; case "$_ctx_pre" in ""|*[!0-9]*) _ctx_bad=1;; esac;;
+    *) _ctx_bad=1;;
+  esac
+fi
+[ "$_ctx_bad" = 0 ] || { echo "REJECT --ctx 는 창 크기(예 1m)만 — 받은 값 '$CTX' · 토큰 사용량 아님" >&2; exit 2; }
 # ★r1037 이월 축★ (오빠 2026-10-28 «이제 완료시 다음 증류시 이월0 일때는 ultrathink가 이월 안되고»): `--carry 0|1` 은 모델과 «따로» 받는다.
 #   값은 0·1 만 · `--carry` 를 적었으면 팀장(master) 이름에서만 — 팀장 아닌 좌석에 적으면 조용히 무시하지 않고 usage(rc2). 생략·0 = r1034 와 같다.
 if [ "$CARRY_SET" = 1 ]; then
