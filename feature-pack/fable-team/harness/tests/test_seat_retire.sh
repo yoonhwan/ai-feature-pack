@@ -75,7 +75,7 @@ sed -n '/^python3 - "\$SEATS" "\$NAME"/,/^PY$/p' "$SPAWN" | sed '1d;$d' > "$TMP/
 chk "⑦블록 추출(비어 있지 않음)" "$([ -s "$TMP/spawn_block.py" ] && echo yes || echo no)" yes
 S="$TMP/seats-c.json"; printf '%s' '{"_master": "B#1", "_hil_route": "B#1", "B#1": {"role": "master", "agent": "claude", "tick": "ft-master-tick"}, "B#0": {"role": "master", "_replaced_by": "B#1", "tick": null}}' > "$S"
 N_BLOCK="$(sed -n "s/^python3 - \(.*\) <<'PY'\$/\1/p" "$SPAWN" | grep -o '"\$[A-Z_]*"' | wc -l | tr -d ' ')"
-BLOCK_ARGS=("$S" 'B#2' master claude m2 design/inbox/master B B "" "" "" v65)  # SEATS NAME ROLE AGENT MODEL INBOX NEW_BASE OLD_BASE RAISE RAISE_CARD FROM TEAM(R437)
+BLOCK_ARGS=("$S" 'B#2' master claude m2 design/inbox/master B B "" "" "" v65 "")  # SEATS NAME ROLE AGENT MODEL INBOX NEW_BASE OLD_BASE RAISE RAISE_CARD FROM TEAM(R437) ADD(r989)
 chk "⑦블록 인자 수 = 시험 인자 수 (스크립트 호출 줄 기준)" "$N_BLOCK" "${#BLOCK_ARGS[@]}"
 python3 "$TMP/spawn_block.py" "${BLOCK_ARGS[@]}"
 chk "⑦옛 행 B#1 닫힘" "$(J "$S" '.["B#1"]|[._replaced_by,.role,._retired_role,(.tick|tostring)]|join(",")')" "B#2,stop-ready,master,null"
@@ -224,7 +224,27 @@ chk "⑫도달 파일 model → 후계 행 model" "$(J "$S" '.["M#2"].model')" a
 H="$(rs_home ad2)"; S="$TMP/seats-ad2.json"; rs_seats "$S"; FT_SUCCESSOR_DIR="$TMP/noarrive" rs_run "$H" "$S" > /dev/null
 chk "⑫도달 파일 없음 → 옛 행 값(m1)" "$(J "$S" '.["M#2"].model')" m1
 H="$(rs_home ad3)"; jl "$H" jm-only; S="$TMP/seats-ad3.json"; rs_seats "$S" ''; FT_SUCCESSOR_DIR="$TMP/noarrive" rs_run "$H" "$S" > /dev/null
-chk "⑫도달 파일·명부 둘 다 없음 → jsonl 값" "$(J "$S" '.["M#2"].model')" jm-only
+chk "⓪도달 파일·명부 둘 다 없음 → jsonl 값" "$(J "$S" '.["M#2"].model')" jm-only
+
+# ⑰ r1065 후계 행 model = 후계 좌석 argv --model 우선(도달 파일 없어도) · 다름 경고 · 확인 불가 표식
+ms_seats() { printf '{"M#1": {"role": "master", "agent": "claude", "model": "claude-sonnet-5-5", "tick": "t"}}' > "$1"; }
+AD2="$TMP/arrive2"; mkdir -p "$AD2"; printf '{"successor":"M#2","model":"claude-sonnet-5-5"}' > "$AD2/M#1.json"   # 도달 파일 = 옛 값(sonnet)
+H="$(rs_home av1)"; S="$TMP/seats-av1.json"; ms_seats "$S"   # ⓐ R1 도달 파일 없음 · 옛 sonnet · argv opus[1m]
+out="$(FAKE_ARGV="claude --model claude-opus-5-5[1m]" FT_SUCCESSOR_DIR="$TMP/noarrive" rs_run "$H" "$S" 2>&1)"
+chk "⑰ⓐR1 도달 파일 없음 + argv → 후계 행 model = argv" "$(J "$S" '.["M#2"].model')" "claude-opus-5-5[1m]"
+chk "⑰ⓐR1 표식 0 · 경고 0" "$(J "$S" '.["M#2"]|has("_model_unverified")') $(grep -c '확인 불가\|도달 파일과 다름' <<< "$out")" "false 0"
+H="$(rs_home av2)"; S="$TMP/seats-av2.json"; ms_seats "$S"   # ⓑ R3 도달 파일 sonnet · argv opus
+out="$(FAKE_ARGV="claude --model claude-opus-5-5" FT_SUCCESSOR_DIR="$AD2" rs_run "$H" "$S" 2>&1)"
+chk "⑰ⓑR3 argv 값(도달 파일 아님)" "$(J "$S" '.["M#2"].model')" "claude-opus-5-5"
+chk "⑰ⓑR3 stderr «도달 파일과 다름» 1줄" "$(grep -c '도달 파일과 다름' <<< "$out")" 1
+H="$(rs_home av3)"; S="$TMP/seats-av3.json"; ms_seats "$S"   # ⓒ R4 후계 pane 없음 · 도달 파일 없음
+out="$(FAKE_PANE_PID="" FT_SUCCESSOR_DIR="$TMP/noarrive" rs_run "$H" "$S" 2>&1)"; rc=$?
+chk "⑰ⓒR4 rc 0(옛 동작 그대로)" "$rc" 0
+chk "⑰ⓒR4 stderr «확인 불가» 1줄" "$(grep -c '확인 불가' <<< "$out")" 1
+chk "⑰ⓒR4 `_model_unverified` + 옛 값 유지" "$(J "$S" '.["M#2"]|[has("_model_unverified"),.model]|join(",")')" "true,claude-sonnet-5-5"
+H="$(rs_home av4)"; S="$TMP/seats-av4.json"; ms_seats "$S"   # ⓓ R5 codex 후계 `-c model=X`
+out="$(FAKE_ARGV="/v/bin/codex -c model_reasoning_effort=low -c model=gpt-6.1-sol" FT_SUCCESSOR_DIR="$TMP/noarrive" rs_run "$H" "$S" 2>&1)"
+chk "⑰ⓓR5 codex -c model= → 후계 행 model" "$(J "$S" '.["M#2"].model')" "gpt-6.1-sol"
 
 # ⑬ R282 ② 옛 행 없음 → 팀 명부 은퇴 행 생성 (scratch 리포 · 가짜 tmux/pgrep · 임시 HOME)
 SEATS_ROOM='{"_master": "byz-room-master-claude#1", "_hil_route": "P#1"}'
