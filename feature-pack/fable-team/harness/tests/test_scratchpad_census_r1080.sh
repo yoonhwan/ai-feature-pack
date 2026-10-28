@@ -14,6 +14,7 @@ ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }
 
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
+export FT_SP_PROJECTS="$T/projects"   # r1082: 실 ~/.claude/projects 를 읽지 않는다(모든 run 이 상속)
 G() { git -c user.email=a@b -c user.name=a -c advice.detachedHead=false "$@"; }
 printf '#!/bin/sh\nexit 0\n' > "$T/noop.sh"; chmod 755 "$T/noop.sh"
 OLD="202601010000"   # 25시간보다 오래된 mtime(고정) — «죽은 세션 · 오래된 사본» 조건
@@ -132,6 +133,74 @@ alarm2() { : > "$MLOG"; env FT_RES_ROOT="$F/R" FT_DISK_FREE_GIB=60 FT_DISK_NOW=$
 alarm2 90000 "$T/spc0.sh"; [ "$(grep -c . "$MLOG")" = 0 ] && ok "ⓗ 모두 0 → 쪽지 0" || bad "ⓗ 0 인데 쪽지 $(cat "$MLOG")"
 alarm2 190000 "$T/spcf.sh"; { [ "$(grep -c . "$MLOG")" = 1 ] && grep -q '\[scratchpad 사본 표 실패\] rc=2' "$MLOG" && grep -q 'scratchpad-census rc=2' "$F/R/.fable-team/state/disk-alarm.log"; } \
   && ok "ⓗ rc2 → 실패 1통 + 로그(조용한 0 없음)" || bad "ⓗ 실패 $(cat "$MLOG")"
+
+# ── r1082: 세션 판정 3단(②기록 24h · ③인자 없는 좌석) ──
+PROJ="-x-proj"   # cwd /x/proj → 인코딩(-f·-p) = -x-proj
+mkfix2() { local n="$1"; F="$T/$n"; mkdir -p "$F/R/.fable-team/state" "$F/projects/$PROJ" "$F/sp/$PROJ/u-x/scratchpad"
+  G init -q "$F/src"; ( cd "$F/src"; echo a > f; G add f; G commit -qm init )
+  G clone -q "$F/src" "$F/sp/$PROJ/u-x/scratchpad/c1"
+  find "$F/sp" -depth -exec touch -h -t "$OLD" {} + 2>/dev/null
+  F_X="$F/sp/$PROJ/u-x/scratchpad/c1"; F_PS="$F/ps.txt"; F_LS="$F/lsof.txt"; F_REC="$F/projects/$PROJ/u-x.jsonl"; F_TR="$F/trace"
+  printf '900 python -m x --name other#1\n' > "$F_PS"; printf 'p900\nn/tmp/elsewhere\n' > "$F_LS"; }
+run2() { env PATH="${TFIND:-$PATH}" FT_RES_ROOT="$F/R" FT_SP_ROOT="$F/sp" FT_SP_PROJECTS="$F/projects" \
+  FT_SP_PS_OUT="$F_PS" FT_SP_LSOF_OUT="$F_LS" FT_SP_TRACE="$F_TR" FT_SP_BUDGET_SEC="${BUD:-60}" bash "${SUT_BIN:-$SUT}" > "$F/out" 2>"$F/err"; RC=$?; }
+row2() { grep -F "$F_X" "$F/R/.fable-team/state/scratchpad-census.tsv" 2>/dev/null | head -1; }
+RLOG() { printf %s "$F/R/.fable-team/state/scratchpad-sweep.log"; }
+mkfind() { mkdir -p "$T/fakefind"; printf '#!/bin/sh\ncase "$1" in %s) %s;; esac\nexec %s "$@"\n' "$1" "$2" "$(command -v find)" > "$T/fakefind/find"; chmod 755 "$T/fakefind/find"; }
+
+# ⓐ R1 — argv 없음 · 기록 30분 전 · 깨끗 · idle 25h → LIVE «기록 24h 안» · 스위치 켜도 삭제 0
+mkfix2 a2; touch -t "$(date -v-30M +%Y%m%d%H%M)" "$F_REC" 2>/dev/null
+: > "$F/R/.fable-team/state/scratchpad-sweep.enabled"; run2
+{ [ "$RC" = 0 ] && row2 | grep -q '^LIVE' && row2 | grep -q '기록 24h 안' && [ -d "$F_X" ] && grep -q '삭제 0' "$F/out"; } \
+  && ok "ⓐ R1 기록 30분 전 → LIVE «기록 24h 안» · 스위치 켜도 삭제 0" || bad "ⓐ rc=$RC $(cat "$F/out") $(row2)"
+# 변이 ①: ② 단계 case 갈래를 지우면 R1 사본이 DEAD-SAFE 로 내려가 지워져야 한다(잡히면 ok)
+grep -v -F '0) V_VERDICT=LIVE; V_REASON="기록 24h 안"; return 0;;' "$SUT" > "$T/mut-rec.sh"
+mkfix2 am; touch -t "$(date -v-30M +%Y%m%d%H%M)" "$F_REC" 2>/dev/null; : > "$F/R/.fable-team/state/scratchpad-sweep.enabled"; SUT_BIN="$T/mut-rec.sh" run2; SUT_BIN=""
+[ ! -e "$F_X" ] && ok "변이① ② 단계 끔 → R1 사본 삭제 ⓐ FAIL(잡힘)" || bad "변이① 못 잡음($(row2))"
+
+# ⓑ R2 — 기록 30h 전 · 같은 프로젝트에서 --session-id 없는 claude(pid 900 · cwd /x/proj) → DEAD-KEEP «세션 모름» · 삭제 0
+mkfix2 b2; touch -t "$(date -v-30H +%Y%m%d%H%M)" "$F_REC" 2>/dev/null
+printf '900 /usr/local/bin/claude --name other#1\n' > "$F_PS"; printf 'p900\nn/x/proj\n' > "$F_LS"
+: > "$F/R/.fable-team/state/scratchpad-sweep.enabled"; run2
+{ [ "$RC" = 0 ] && row2 | grep -q '^DEAD-KEEP' && row2 | grep -q '세션 모름(인자 없는 좌석 900)' && [ -d "$F_X" ] && grep -q '삭제 0' "$F/out"; } \
+  && ok "ⓑ R2 인자 없는 좌석 같은 프로젝트 → DEAD-KEEP «세션 모름» · 삭제 0" || bad "ⓑ rc=$RC $(cat "$F/out") $(row2)"
+mut_b2() { mkfix2 "$1"; touch -t "$(date -v-30H +%Y%m%d%H%M)" "$F_REC" 2>/dev/null
+  printf '900 /usr/local/bin/claude --name other#1\n' > "$F_PS"; printf 'p900\nn/x/proj\n' > "$F_LS"
+  : > "$F/R/.fable-team/state/scratchpad-sweep.enabled"; SUT_BIN="$2" run2; SUT_BIN=""; [ ! -e "$F_X" ]; }
+grep -v -F 'if unk_pid_of "$(proj_of "$p")"; then V_VERDICT=DEAD-KEEP; V_REASON="세션 모름(인자 없는 좌석 $U_PID)"; return 0; fi' "$SUT" > "$T/mut-unk.sh"
+mut_b2 bm1 "$T/mut-unk.sh" && ok "변이②a ③ 단계 끔 → R2 사본 삭제 ⓑ FAIL(잡힘)" || bad "변이②a 못 잡음"
+sed 's/pid=substr(\$0,2)+0; next/next/' "$SUT" > "$T/mut-pair.sh"
+mut_b2 bm2 "$T/mut-pair.sh" && ok "변이②b 짝 짓기(cwd_pairs)를 옛 -Fn 읽기로 되돌림 → pid 짝 0 → R2 사본 삭제 ⓑ FAIL(잡힘)" || bad "변이②b 못 잡음"
+
+# ⓒ R3·R4 — 다른 프로젝트에서만 돎(R3) · 기록 없음(R4) → 지금 규칙대로 dead(깨끗·idle 25h) → DEAD-SAFE · 스위치 끔 → 삭제 0
+mkfix2 c2; touch -t "$(date -v-30H +%Y%m%d%H%M)" "$F_REC" 2>/dev/null
+printf '900 /usr/local/bin/claude --name other#1\n' > "$F_PS"; printf 'p900\nn/y/other\n' > "$F_LS"
+run2; { row2 | grep -q '^DEAD-SAFE' && [ -d "$F_X" ] && grep -q '삭제 0' "$F/out"; } \
+  && ok "ⓒ R3 인자 없는 claude 는 다른 프로젝트에만 → DEAD-SAFE · 삭제 0" || bad "ⓒR3 $(row2) $(cat "$F/out")"
+mkfix2 c4; rm -f "$F_REC"; run2
+{ row2 | grep -q '^DEAD-SAFE' && [ -d "$F_X" ] && ! grep -q '^rec$' "$F_TR" 2>/dev/null; } \
+  && ok "ⓒ R4 기록 없음 · 인자 없는 claude 0 → dead(지금 규칙) · 기록 find 호출 0" || bad "ⓒR4 $(row2) trace=$(cat "$F_TR" 2>/dev/null)"
+
+# ⓓ R5 — argv 에 --session-id 있음 → LIVE · 기록 find 호출 0 · ③ 짝 짓기 호출 0
+mkfix2 d2; printf '777 /usr/local/bin/claude --name other#2 --session-id u-x\n' > "$F_PS"
+printf 'p900\nn/x/proj\n' > "$F_LS"; TFIND="$T/fakefind:$PATH"; mkfind '*.jsonl' ':'
+run2; TFIND=""
+{ row2 | grep -q '^LIVE' && row2 | grep -q '세션 살아 있음' && ! grep -q 'rec' "$F_TR" 2>/dev/null && ! grep -q 'unk' "$F_TR" 2>/dev/null; } \
+  && ok "ⓓ R5 --session-id 있음 → LIVE · 기록 find 0 · ③ 짝 짓기 0" || bad "ⓓ $(row2) trace=$(cat "$F_TR" 2>/dev/null)"
+
+# ⓔ R6 — 기록 find 시간 초과 → 그 사본 UNKNOWN · 삭제 0
+mkfix2 e2; touch -t "$(date -v-30H +%Y%m%d%H%M)" "$F_REC" 2>/dev/null
+mkdir -p "$T/slowfind"; printf '#!/bin/sh\ncase "$1" in *.jsonl) sleep 5;; esac\nexec %s "$@"\n' "$(command -v find)" > "$T/slowfind/find"; chmod 755 "$T/slowfind/find"
+: > "$F/R/.fable-team/state/scratchpad-sweep.enabled"; BUD=3 TFIND="$T/slowfind:$PATH" run2; TFIND=""
+{ row2 | grep -q '^UNKNOWN' && [ -d "$F_X" ] && grep -q '삭제 0' "$F/out"; } \
+  && ok "ⓔ R6 기록 find 시간 초과 → UNKNOWN · 삭제 0" || bad "ⓔ $(row2) $(cat "$F/out")"
+
+# ⓕ R7 — 스위치 켬 · 판정 때 dead · 지우기 직전 재판정에서 기록이 방금 쓰임 → «재판정 거절» · 삭제 0
+mkfix2 f2; touch -t "$(date -v-30H +%Y%m%d%H%M)" "$F_REC" 2>/dev/null
+mkdir -p "$T/freshfind"; printf '#!/bin/sh\ncase "$1" in *.jsonl) n=$(cat "%s/n" 2>/dev/null || echo 0); n=$((n+1)); echo $n > "%s/n"; [ $n -ge 2 ] && { echo "$1"; exit 0; };; esac\nexec %s "$@"\n' "$F" "$F" "$(command -v find)" > "$T/freshfind/find"; chmod 755 "$T/freshfind/find"
+: > "$F/R/.fable-team/state/scratchpad-sweep.enabled"; TFIND="$T/freshfind:$PATH" run2; TFIND=""
+{ [ "$RC" = 0 ] && [ -d "$F_X" ] && grep -q '재판정 거절' "$(RLOG)" 2>/dev/null && grep -q '삭제 0' "$F/out"; } \
+  && ok "ⓕ R7 재판정에서 기록 방금 쓰임 → «재판정 거절» · 삭제 0" || bad "ⓕ rc=$RC $(cat "$F/out") $(cat "$(RLOG)" 2>/dev/null)"
 
 # ⓘ bin·kit 같은 내용
 cmp -s "$SUT" "$KIT" && cmp -s "$ALARM" "$HARNESS/kit/fable-team/bin/ft-disk-alarm.sh" && ok "ⓘ bin·kit cmp0 (2쌍)" || bad "ⓘ bin·kit 다름"
