@@ -7,10 +7,10 @@
          (베이스 이름 같음 · 번호 작음 · seat-resume/<이름>.json 실재) ∧ to 도 `_arch` 계보 같은 규칙 · 같은 seq 2번째부터 DUP.
   입장 기록 = 가드가 입장을 허용하는 순간(--entry --record) 카드 상태 끝에 `- DA 입장: <단계>r<N> · 발주서 <경로> · 해제 #<seq|없음> · <시각>` 1줄(유일한 쓰기 · 실패 = 입장 REJECT) · 같은 (단계, rN) 입장 줄이 이미 있으면 DUP-ENTRY.
   소진 = 해제 줄 «뒤» 의 `DA 입장` 줄(해제 하나당 1 · 입장 줄 없는 라운드의 CLOSE·HOLD 판정 줄도 소진) · arch 의 `발주` 줄은 입장 전제일 뿐 소진 아님.
-  입장(§10) = 사건 < 2 또는 미소진 유효 해제 ≥ 1 — 사건은 «이력», 해제는 «입장권»(사건 2 이상이면 미소진 해제 1건 = 입장 1회 · 사건 수를 더 깎지 않는다).
-    budget_left = 사건<2 ? 2−사건 : 미소진 유효 해제 수 · rc3 ⇔ budget_left ≤ 0.
+  입장(§10) = 사건 < CAP 또는 미소진 유효 해제 ≥ 1 — 사건은 «이력», 해제는 «입장권»(사건 CAP 이상이면 미소진 해제 1건 = 입장 1회 · 사건 수를 더 깎지 않는다).
+    budget_left = 사건<CAP ? CAP−사건 : 미소진 유효 해제 수 · rc3 ⇔ budget_left ≤ 0. CAP = 3 (r1042 · 문서 r1038 «DA 기본 3회» 와 같은 숫자 · 상한은 이 상수 하나가 정한다).
 출력 첫 줄 `HOLD events=<n> reviews=<m> releases=<유효>/<소진> budget_left=<b>` | `UNPARSED <줄>` | `NO-ORDER-LINE <단계> r<N>` | `DUP-ENTRY <단계>r<N>` | `ENTRY-WRITE-FAIL …` (+ 해제 줄들 RELEASE-OK·INVALID·DUP).
-rc 0 = 통과 · 3 = 막음 · 2 = 인자·파일 오류. --closing = 완성 이동 검사(사건 ≥ 2 인데 유효 해제 0 이면 막음) · --lint = ft-index-lint 용 `INFO`/`BAD` 줄(항상 rc 0).
+rc 0 = 통과 · 3 = 막음 · 2 = 인자·파일 오류. --closing = 완성 이동 검사(사건 ≥ CAP 인데 유효 해제 0 이면 막음) · --lint = ft-index-lint 용 `INFO`/`BAD` 줄(항상 rc 0).
   착지(r456 · --closing 만) = 카드 «## 상태» `- 착지: <sha>`(또는 --landed · 둘 다면 일치) ∧ sha 가 착지 ref 조상(env FT_LAND_REF · 기본 origin/main) ∧ --da 판정문(§N 절)에
     «닫힘 — <카드 stem> — main `<같은 sha>`» 행 → 첫 줄 `LANDED-CLOSE sha=<sha> da=<--da>` rc0. 하나라도 빠지면 기존 판정 불변 + `LANDED-INVALID <사유>` 줄.
   r937: 착지 리포는 ft-team-lib.sh 의 ft_landed_repo(bash · 리포 판정 단일 출처)가 정한다 — sha 가 카드 리포에 없고 팩(하네스 코드 루트) 리포에 있으면 그 리포 ·
@@ -34,6 +34,7 @@ ORDER = re.compile(r"DA([②⑥])\s*r(\d+)\s*발주")
 CLOSEV = re.compile(r"DA([②⑥])\s*r(\d+)\s*CLOSE")
 ENTRY = re.compile(r"^- DA 입장:\s*([②⑥])r(\d+)")
 SEAT = re.compile(r"^(.*)#(\d+)$")
+CAP = 3              # DA 보류 상한 — 입장·closing·budget_left 가 전부 이 값 하나를 쓴다 (r1042 · 문서 r1038 과 같은 숫자)
 LANDED_LOOKUPS = 3   # landed_repo 의 bash 쪽 git 조회 수: 팩 루트 · 카드 리포 rev-parse · 팩 리포 rev-parse
 LANDED = re.compile(r"^- 착지:\s*`?([0-9a-f]{7,40})\b")
 
@@ -229,7 +230,7 @@ def landed_check(card: str, lines: list[str], root: str, landed: str, da: str) -
 def lint(txt: str, events: int) -> None:
     lines = txt.splitlines()
     if events >= 2 and not any(re.match(r"^- (재설계|리서치):", ln) for ln in lines):
-        print("INFO DA 보류 2회 이상인데 «- 재설계:»·«- 리서치:» 줄 없음 (3번째 DA 발주는 쪽지 가드가 막는다 · BOOT 40)")
+        print(f"INFO DA 보류 {events}회인데 «- 재설계:»·«- 리서치:» 줄 없음 ({CAP + 1}번째 DA 발주는 쪽지 가드가 막는다 · BOOT 40)")
     viol = False
     for ln in lines:
         viol = True if ln.startswith("- 리서치 위반:") else False if ln.startswith("- 리서치:") else viol
@@ -280,7 +281,7 @@ def main() -> int:
         if j is not None:
             used[seq] = j
     free = [seq for _, seq in valid if seq not in used]
-    budget = 2 - len(s["events"]) if len(s["events"]) < 2 else len(free)  # §10: 사건은 이력 · 해제는 입장권
+    budget = CAP - len(s["events"]) if len(s["events"]) < CAP else len(free)  # §10: 사건은 이력 · 해제는 입장권
     summary = f"HOLD events={len(s['events'])} reviews={s['reviews']} releases={len(valid)}/{len(used)} budget_left={budget}"
     if a.lint:
         lint(txt, len(s["events"]))
@@ -306,9 +307,9 @@ def main() -> int:
         if land_bad:
             print(land_bad)
         return 3
-    blocked = (len(s["events"]) >= 2 and not valid) if a.closing else budget <= 0
+    blocked = (len(s["events"]) >= CAP and not valid) if a.closing else budget <= 0
     if ekey and not blocked and a.record:
-        err = record_entry(card, ekey, a.order_file or "본문", free[0] if len(s["events"]) >= 2 and free else "없음")
+        err = record_entry(card, ekey, a.order_file or "본문", free[0] if len(s["events"]) >= CAP and free else "없음")
         if err:
             print("ENTRY-WRITE-FAIL " + err[:100])
             print(summary)
