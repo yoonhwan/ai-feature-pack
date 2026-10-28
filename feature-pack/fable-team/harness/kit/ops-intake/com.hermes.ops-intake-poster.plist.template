@@ -18,6 +18,7 @@
     <key>OPS_SLACK_LIB</key><string>__KIT__/../slack-mirror</string>
     <key>OPS_HERMES_ENV</key><string>__HOME__/.hermes/.env</string>
     <key>OPS_INTAKE_SECRET_DIR</key><string>__KIT__</string>
+    <key>FT_MBOX_DIR</key><string>__HOME__/.fable-team/comm</string>
   </dict>
   <key>StandardOutPath</key><string>__HOME__/.hermes/logs/ops-intake-poster.log</string>
   <key>StandardErrorPath</key><string>__HOME__/.hermes/logs/ops-intake-poster.log</string>
