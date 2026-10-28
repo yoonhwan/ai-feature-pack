@@ -10,13 +10,16 @@
 #   env(시험용): FT_SEND_VERIFIED · FT_MBOX_SH · FT_REACH_CHECK · FT_SO_WAIT_MAX(기동 대기 횟수 60) · FT_SO_POLL(간격 초 1)
 set -uo pipefail
 [ -f "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" ] && . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" "$@"   # R201: 비설치 위치면 LIVE_BIN 으로 exec
-usage() { echo "usage: $0 <구 좌석> <워크트리> --name <후계> --agent claude|codex|cmd|opencode|pi --model M [--ctx C] [--effort E] --body-file F" >&2; exit 2; }
+usage() { echo "usage: $0 <구 좌석> <워크트리> --name <후계> --agent claude|codex|cmd|opencode|pi --model M(팀장 이름이면 생략 시 claude-sonnet-5-5) [--ctx C] [--effort E] --body-file F" >&2; exit 2; }
 [ $# -ge 2 ] || usage
 OLD="$1"; WT="$2"; shift 2
 NAME=""; AGENT=""; MODEL=""; CTX=""; EFFORT=""; BODY=""
 while [ $# -gt 0 ]; do case "$1" in
   --name) NAME="${2:-}"; shift 2;; --agent) AGENT="${2:-}"; shift 2;; --model) MODEL="${2:-}"; shift 2;;
   --ctx) CTX="${2:-}"; shift 2;; --effort) EFFORT="${2:-}"; shift 2;; --body-file) BODY="${2:-}"; shift 2;; *) usage;; esac; done
+# ★r1034 팀장 모델 사다리★ (정본 `main-team-governance.md` §13 · 오빠 2026-10-28): 이름에 «-master-» 가 있고 `--model` 을 생략하면 기본 브레인 = Sonnet 5.5.
+#   명시한 값(--model claude-opus-5-5 등)은 덮지 않는다 = 팀장이 막혀 올리는 승계. 팀장 아닌 이름에서 생략은 지금처럼 usage(rc2).
+[ -z "$MODEL" ] && [ "${NAME#*-master-}" != "$NAME" ] && MODEL="claude-sonnet-5-5"
 [ -n "$NAME" ] && [ -n "$AGENT" ] && [ -n "$MODEL" ] && [ -n "$BODY" ] || usage
 case "$AGENT" in claude|codex|cmd|opencode|pi) ;; *) usage;; esac
 printf '%s\n%s\n' "$OLD" "$NAME" | grep -qvE '^[A-Za-z0-9._#-]+$' && { echo "REJECT 좌석명은 [A-Za-z0-9._#-] 만" >&2; exit 2; }
@@ -205,7 +208,11 @@ while [ "$i" -lt "$WAIT_MAX" ]; do i=$((i+1))
 [ "$seen" = 1 ] && echo "SessionStart 관측 $NAME" || echo "SessionStart 미관측 $NAME (${WAIT_MAX}회) — 송신 후 도달 판정으로 확인"
 
 # ⓓ 검증 송신 — 본문은 mbox 큐 · 창엔 doorbell 한 줄 · 도달은 jsonl 층(ft-send-verified exit 0 만 성공)
-OUT="$(FT_REACH_AGENT="$AGENT" FT_MBOX_SH="$MBOX" FT_SEND_FROM="$OLD" bash "$SEND" "$NAME" "$(cat "$BODY")" 2>&1)"; RC=$?
+# ★r1034 팀장 승계 «이월 0» 줄★: 사고 확대 키워드의 효과는 세션을 넘어가지 않는다 — 팀장 후계 본문 끝에 그 뜻을 한 줄 붙인다.
+#   그 낱말 자체는 적지 않는다(적으면 후계 세션이 그 낱말 때문에 바로 켜진다) · --body-file 원본은 바이트 그대로(파일에 쓰지 않는다).
+SEND_TEXT="$(cat "$BODY")"
+[ "${NAME#*-master-}" != "$NAME" ] && SEND_TEXT="$SEND_TEXT"$'\n'"승계 이월 0: 앞 세션에서 쓴 사고 확대 키워드의 효과는 이 세션에 없다. 막히면 이 세션에서 판단해 다시 쓴다."
+OUT="$(FT_REACH_AGENT="$AGENT" FT_MBOX_SH="$MBOX" FT_SEND_FROM="$OLD" bash "$SEND" "$NAME" "$SEND_TEXT" 2>&1)"; RC=$?
 printf '%s\n' "$OUT"
 SEQ="$(printf '%s\n' "$OUT" | grep -oE 'seq=[0-9]+' | head -1 | cut -d= -f2)"
 # ⓕ 2·5 → 같은 seq 로 ring 1회 + 도달 재확인(본문 재큐잉 0). 1(SEND_FAILED)·seq 없음 = 그대로 실패.

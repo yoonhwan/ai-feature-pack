@@ -98,3 +98,11 @@ PR·Issue 는 본문에서 번호 인덱스(`#836`)로만 부르고, 글 맨 아
 - **넘김**: 묶음·초안이 끝나면 planner 로 넘기고 이슈 등록은 **이슈 진입로 ③**(§2)대로 issues master 가 한다. desk 좌석은 Issue 직접 등록 0 · 커밋·push 0 · 팀에 직접 발주 0.
 - **제안서**: «종류 = 설계» 그룹에만 붙는다. 작성은 그 팀 arch · 승인은 오빠의 `approved` 라벨 · 발주는 그 팀 master.
 - **틀 경로 3**(이 저장소 `feature-pack/fable-team/skill/references/desk-feedback/`): ①`GUIDE-desk-feedback.md`(좌석 지침) ②`FEEDBACK-oppa-TEMPLATE.md`(장부 틀) ③`GUIDE-oppa-open-desk.md`(오빠용 여는 법). 날짜·팀 이름 자리표시만 채워 그 팀 `design/teams/<팀>/` 에 둔다.
+
+## 13. 팀장 모델 사다리 (오빠 2026-10-28 10:0x «각 팀장들은 sn5.5를 기본 브레인으로 사용» · desk #177328)
+> 「문제해결되지 않을때 아키랑 da를 상위로 올릴 타이밍에 사용 · 다음 세션 넘어가면 자연스럽게 울트라 종료」 · 「팀장도 문제해결되지 않을때 op5.5로 증류 가능」
+
+1. **기본 브레인 = Sonnet 5.5**(`claude-sonnet-5-5`). 승계·개설 때 `--model` 을 안 적어도 팀장(master) 좌석은 이 값이다(도구: `ft-successor-open.sh`).
+2. **ultrathink = 올리는 그 시점에 한 번.** 하드 룰 14 로 arch·DA 모델을 올릴 때 팀장도 자기 프롬프트에 `ultrathink` 를 쓴다. 쓸지는 팀장이 판단한다. 자동 삽입 훅은 없다.
+3. **세션 한정.** 승계하면 효과가 끝난다. 승계 발주문에는 그 낱말을 적지 않고 «이월 0» 한 줄만 둔다(낱말을 그대로 적으면 후계 세션이 바로 켜진다).
+4. **그래도 안 풀리면 Opus 5.5**(`claude-opus-5-5`)로 승계한다. `--model claude-opus-5-5` 를 명시한다. 풀리면 다음 승계에서 Sonnet 5.5 로 돌아간다.
