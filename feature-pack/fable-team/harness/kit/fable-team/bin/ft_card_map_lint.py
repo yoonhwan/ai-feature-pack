@@ -5,8 +5,10 @@
 검사 3: ⓐ 계약 행마다 시험 ≥ 1 · ⓑ 같은 입력에 다른 기대 0(입력·기대 열이 둘 다 있을 때) · ⓒ 시험 번호 순서 = 계약 순서.
 표 분할 = 셀 안 `\\|` 보존(이스케이프된 `|` 는 열 경계가 아니다) — 머리·구분선·본문 행이 같은 함수를 쓴다.
 출력 = «STATUS<TAB>카드경로<TAB>사유» · STATUS ∈ OK·INFO·WARN·BAD · 경로가 빈 줄 = 실행 전체 사유(이력 조회 판정 불가).
-첫 추가일은 배치 1회로 본다 — lint 가 사전(FT_CARD_ADDED_MAP)을 주면 git 호출 0, 단독 실행이면 git log 1번(--diff-filter=A · 7초 상한 · 넘으면 rc3 «판정 불가» · WARN 으로 숨기기 0).
+첫 추가일은 배치 1회로 본다 — lint 가 사전(FT_CARD_ADDED_MAP)을 주면 git 호출 0, 단독 실행이면 git log 1번(--diff-filter=A · --since=스위치 · 7초 상한 · 넘으면 rc3 «판정 불가» · WARN 으로 숨기기 0).
 날짜 스위치 1곳 = FT_CARD_GATE_STRICT_FROM(기본 2026-10-30 · 20장 뒤 · r986 이 같은 값을 재사용) — 그 날 이후 추가 카드만 REJECT, 그 전·이력 없는 카드는 WARN 만.
+읽는 범위는 스위치 «뒤» 커밋뿐이다(r1062) — 이 날짜의 쓰임은 «스위치 뒤 추가인가» 한 비교뿐이라 판정은 그대로고, 카드 폴더 이력이 길어도 7초를 넘지 않는다.
+창 밖으로 밀린 카드는 두 가지 표식으로 적는다 — ① 제안서 문턱(PROPOSAL_FROM 2026-10-11) 스냅숏에 이미 있던 카드 = BEFORE(그 전 추가) ② 스냅숏에 없고 지금 추적되는 카드 = PROPOSAL_FROM(10-11 뒤·창 이전 추가). 사전 날짜를 보는 둘째 문턱(ft-index-lint.sh ⑨ 제안서 줄)도 날짜를 잃지 않는다. 사전에 «아예 없는» 카드 = 이력 없음(미커밋) 이다.
 rc 0 = BAD 0 · 1 = BAD 있음 · 2 = usage · 3 = 스위치·이력 꼴 오류(통과 0).
 """
 import os
@@ -24,6 +26,8 @@ ORD = {**{c: i + 1 for i, c in enumerate(CIRCLED)}, **{c: i + 1 for i, c in enum
 SEP_CELL = re.compile(r"^:?-{3,}:?$")
 DATE_LINE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 MAPFILE_ENV = "FT_CARD_ADDED_MAP_FILE"
+PROPOSAL_FROM = "2026-10-11"   # 사전 날짜를 쓰는 둘째 문턱(ft-index-lint.sh ⑨ 제안서 줄 · r984) — 창 밖 카드가 «그 뒤» 인지 가르는 데 쓴다
+BEFORE = "0000-00-00"          # PROPOSAL_FROM 스냅숏에 이미 있던 카드 = 그 전 추가 · 두 문턱 다 «옛 카드» 로 본다
 EMPTY_MARK = "!EMPTY"
 TIMEOUT_MARK = "!TIMEOUT"
 TIMEOUT_WHY = "이력 조회 판정 불가 — git log 7초 상한 초과(통과 0 · WARN 으로 숨기지 않는다)"
@@ -159,12 +163,30 @@ def findings(path):
     return out, infos(rows, ti, free)
 
 
-def build_map(paths):
-    """경로 basename → «이름\t날짜» 텍스트. git 호출 1회(7초 상한) — 넘치면 subprocess.TimeoutExpired."""
+def git_names(base, args, timeout=7):
+    """git 출력의 이름 줄 → basename 집합(빈 줄·실패는 빈 집합) — 이력 diff 0(트리·색인만 읽는다)."""
+    r = subprocess.run(["git", "-C", base] + args, capture_output=True, text=True, timeout=timeout)
+    return {os.path.basename(ln.strip()) for ln in r.stdout.splitlines() if ln.strip()}
+
+
+def old_names(base, spec):
+    """PROPOSAL_FROM 직전 커밋 트리에 있던 카드들 — 창 밖 카드를 «그 전» 과 «그 뒤» 로 가른다."""
+    r = subprocess.run(["git", "-C", base, "rev-list", "-1", f"--before={PROPOSAL_FROM} 00:00:00", "HEAD"],
+                       capture_output=True, text=True, timeout=7)
+    rev = r.stdout.split()
+    return git_names(base, ["ls-tree", "-r", "--name-only", rev[0], "--"] + spec) if rev else set()
+
+
+def build_map(paths, sw):
+    """경로 basename → «이름\t날짜» 텍스트. git 호출 1회(7초 상한) — 넘치면 subprocess.TimeoutExpired.
+
+    --since=<스위치> 1개로 그 «뒤» 커밋만 읽는다(r1062) — 판정은 report 의 같은 비교 하나뿐이라 그대로다.
+    창 밖 카드는 실제 날짜 대신 표식(BEFORE · PROPOSAL_FROM)을 쓴다 — 두 문턱의 판정은 같고, 읽는 이력이 짧다.
+    """
     base = os.path.dirname(os.path.abspath(paths[0]))
     dirs = sorted({os.path.dirname(os.path.abspath(p)) for p in paths})
     spec = ["."] if dirs == [base] else dirs
-    r = subprocess.run(["git", "-C", base, "log", "--diff-filter=A", "--format=%ad", "--date=short", "--name-only", "--"] + spec,
+    r = subprocess.run(["git", "-C", base, "log", "--diff-filter=A", f"--since={sw} 00:00:00", "--format=%ad", "--date=short", "--name-only", "--"] + spec,
                        capture_output=True, text=True, timeout=7)
     out, cur = {}, None
     for line in r.stdout.splitlines():
@@ -173,10 +195,14 @@ def build_map(paths):
             cur = line
         elif line and cur:
             out.setdefault(os.path.basename(line), cur)   # 사전 키 = basename(카드 이름) — 같은 이름 2장은 같은 날로 본다
+    for name in old_names(base, spec):
+        out.setdefault(name, BEFORE)
+    for name in git_names(base, ["ls-files", "--"] + spec):
+        out.setdefault(name, PROPOSAL_FROM)   # 창 밖인데 10-11 스냅숏에 없음 = 10-11 뒤·창 이전 추가
     return "".join(f"{k}\t{v}\n" for k, v in out.items()) or EMPTY_MARK + "\n"
 
 
-def load_map(paths):
+def load_map(paths, sw):
     """(사전, 판정 불가 사유). 사전 파일이 있으면 재조회 0 — 빈 사전도 «제공됨» 으로 읽는다."""
     f = os.environ.get(MAPFILE_ENV, "")
     text = ""
@@ -186,7 +212,7 @@ def load_map(paths):
             return {}, TIMEOUT_WHY
     if not text.strip():
         try:
-            text = build_map(paths)
+            text = build_map(paths, sw)
         except (subprocess.TimeoutExpired, OSError):
             if f:
                 open(f, "w", encoding="utf-8").write(TIMEOUT_MARK + "\n")
@@ -212,6 +238,15 @@ def strict_from():
     return sw
 
 
+def shown(added):
+    """added= 칸의 사람용 표기 — 표식·빈 값도 읽을 수 있게."""
+    if added == BEFORE:
+        return f"{PROPOSAL_FROM} 이전"
+    if added == PROPOSAL_FROM:
+        return f"{PROPOSAL_FROM} 이후·창 이전"
+    return added or "이력 없음"
+
+
 def report(path, added, sw):
     """카드 1장 출력 — BAD 수를 돌려준다."""
     strict = added >= sw
@@ -219,7 +254,7 @@ def report(path, added, sw):
     for line in info:
         print(f"INFO\t{path}\t{line}")
     if not bad:
-        print(f"OK\t{path}\tadded={added} · 스위치 {sw} · strict={int(strict)}")
+        print(f"OK\t{path}\tadded={shown(added)} · 스위치 {sw} · strict={int(strict)}")
         return 0
     for line in bad:
         tail = "" if strict else f" (스위치 전 WARN · {sw} 이후 추가 카드부터 REJECT)"
@@ -233,13 +268,12 @@ def main(argv):
     if not args:
         print(f"usage: {argv[0]} <card.md> [more…] [--map-only]", file=sys.stderr)
         return 2
-    if "--map-only" not in flags:
-        sw = strict_from()
-        if sw is None:
-            print(f"BAD\t*\t날짜 스위치 꼴 오류 — {SWITCH_ENV}={os.environ.get(SWITCH_ENV, STRICT_DEFAULT)} (YYYY-MM-DD)")
-            print(f"ERROR {SWITCH_ENV} 꼴 오류 rc3", file=sys.stderr)
-            return 3
-    dates, why = load_map([p for p in args if os.path.isfile(p)] or args)
+    sw = strict_from()
+    if sw is None and "--map-only" not in flags:
+        print(f"BAD\t*\t날짜 스위치 꼴 오류 — {SWITCH_ENV}={os.environ.get(SWITCH_ENV, STRICT_DEFAULT)} (YYYY-MM-DD)")
+        print(f"ERROR {SWITCH_ENV} 꼴 오류 rc3", file=sys.stderr)
+        return 3
+    dates, why = load_map([p for p in args if os.path.isfile(p)] or args, sw or STRICT_DEFAULT)
     if why:
         print(f"BAD\t*\t{why}")
         print("ERROR 이력 조회 판정 불가 rc3", file=sys.stderr)
@@ -252,7 +286,7 @@ def main(argv):
             print(f"BAD\t{path}\t파일 없음")
             nb += 1
             continue
-        nb += report(path, dates.get(os.path.basename(os.path.abspath(path)), date.today().isoformat()), sw)
+        nb += report(path, dates.get(os.path.basename(os.path.abspath(path)), date.today().isoformat()), sw)   # 사전에 없음 = 이력 없음(미커밋) → 지금처럼 오늘 날짜
     return 1 if nb else 0
 
 
