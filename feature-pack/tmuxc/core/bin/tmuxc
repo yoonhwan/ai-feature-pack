@@ -986,6 +986,10 @@ open_remote() {  # <host> <path> <root> <name> <agent> <role> <model> <effort> <
   local host="$1" path="$2" root="$3" name="$4" agent="$5" role="$6" model="$7" effort="$8" ctx="$9" fast="${10}" dry_run="${11}" prompt="${12:-}"
   local run_cmd
   run_cmd="$(agent_cmd "$agent" "$name" "$role" "$model" "$effort" "$ctx" "$fast" 0)"
+  # r1047 r2: agent_cmd 는 «이 맥» 기준으로 $HOME 을 풀어 놓는다 — 그대로 보내면 원격 pane 이 없는
+  # 로컬 경로(/Users/<로컬>/.headroom/…)를 실행한다(h135 실측). 접두를 글자 «$HOME» 으로 바꿔
+  # 원격 pane 셸이 풀게 한다. dry-run 출력도 같은 글자를 보인다.
+  run_cmd="${run_cmd//"$HOME"/\$HOME}"
   local rc=0
   hl h_run "$host" --idempotent test -d "$path" || rc=$?
   case "$rc" in
@@ -1457,12 +1461,19 @@ cmd_send() {
   [[ -n "$name" ]] || die "send requires <name>"
   [[ $# -gt 0 ]] || die "send requires <message>"
   if host_resolve "$name" "${TMUXC_HOST:-}"; then
-    local rc=0 base=""
-    base="$(remote_reach_baseline "$R_HOST" "$R_SESS" "$*" 2>/dev/null)" || base=""
+    local rc=0 base="" baserc=0
+    base="$(remote_reach_baseline "$R_HOST" "$R_SESS" "$*" 2>/dev/null)" || baserc=$?
     remote_send_locked "$R_HOST" "$R_SESS" "$*" || rc=$?
     if [[ "$rc" -ne 0 ]]; then
       printf 'tmuxc: %s/%s 송신 실패 rc=%s\n' "$R_HOST" "$R_SESS" "$rc" >&2
       return "$rc"
+    fi
+    # ★baseline 실패를 «빈 값» 으로 삼키지 않는다★(r1047 r3 · 하드 룰 #0) — 빈 값이면 ft-reach-check 가
+    #  판정 «직전» 에 자기 baseline 을 잡아 1 > 1 이 거짓이 되고, 도착한 메시지가 NOT_REACHED 로 뒤집힌다.
+    #  송신은 그대로 하고 최종 판정만 «판정 불가 rc5» 로 낸다(REACHED·NOT_REACHED 둘 다 아님).
+    if [[ "$baserc" -ne 0 ]]; then
+      printf 'sent=%s/%s verification=unverifiable (baseline rc=%s)\n' "$R_HOST" "$R_SESS" "$baserc" >&2
+      return 5
     fi
     remote_reach_check "$R_HOST" "$R_SESS" "$*" "$base"
     rc=$?
