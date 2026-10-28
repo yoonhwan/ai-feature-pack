@@ -24,17 +24,23 @@ DOC=0
 if [[ "$line" =~ $re_doc ]]; then DOC=1; set_head="${BASH_REMATCH[1]}"; rc=0; issue="${BASH_REMATCH[3]}"
 elif [[ "$line" =~ $re_code ]]; then set_head="${BASH_REMATCH[1]}"; rc="${BASH_REMATCH[3]}"; issue="${BASH_REMATCH[4]}"
 else echo "REJECT 증거 줄 — 형식 불일치(40-hex HEAD·rc·이슈 칸 필요 · 문서 전용은 «시험: 없음(문서) — 이유»). 형식: $FORMAT · 받은 줄: ${line:0:160}"; exit 1; fi
-[ "$set_head" = "$head_now" ] || { echo "REJECT 증거 줄 — 세트 HEAD ${set_head:0:9} != 현재 나노 HEAD ${head_now:0:9} (시험 뒤 커밋이 생김 — 다시 시험하고 줄을 갱신)"; exit 1; }
+EQ="$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-approval-equiv.sh"; MERGED=0; tip="$set_head"   # r1071: 세트 ≠ HEAD 라도 main 병합뿐 + 자기 변경 같으면 통과(판정기 EQUIV)
+if [ "$set_head" != "$head_now" ]; then
+  [ -f "$EQ" ] || { echo "REJECT 증거 줄 — 세트 HEAD ${set_head:0:9} != 현재 나노 HEAD ${head_now:0:9} · 동일성 판정기 없음: $EQ"; exit 1; }
+  EQUIV="$(bash "$EQ" "$set_head" "$head_now" --repo "$REPO" 2>&1)" || { echo "REJECT 증거 줄 — 세트 HEAD ${set_head:0:9} != 현재 나노 HEAD ${head_now:0:9} (시험 뒤 커밋이 생김 — 다시 시험하고 줄을 갱신) · 판정기: $(printf '%s' "$EQUIV" | head -1)"; exit 1; }
+  MERGED=1
+fi
 [ "$rc" = "0" ] || { echo "REJECT 증거 줄 — 시험 rc=$rc (0 아님)"; exit 1; }
 if [ "$DOC" = 1 ]; then
   git -C "$REPO" rev-parse --verify -q "refs/heads/$FEAT" >/dev/null || { echo "REJECT 증거 줄 — 문서 전용 검증용 feat 브랜치 없음: $FEAT (--feat)"; exit 1; }
-  mb="$(git -C "$REPO" merge-base "$FEAT" HEAD 2>/dev/null)" || { echo "REJECT 증거 줄 — merge-base($FEAT, HEAD) 실패"; exit 1; }
-  paths="$(git -C "$REPO" -c core.quotepath=off diff --name-only "$mb" HEAD)" || { echo "REJECT 증거 줄 — git diff 실패(문서 전용 검증)"; exit 1; }
+  mb="$(git -C "$REPO" merge-base "$FEAT" "$tip" 2>/dev/null)" || { echo "REJECT 증거 줄 — merge-base($FEAT, $tip) 실패"; exit 1; }
+  paths="$(git -C "$REPO" -c core.quotepath=off diff --name-only "$mb" "$tip")" || { echo "REJECT 증거 줄 — git diff 실패(문서 전용 검증)"; exit 1; }
   code="$(printf '%s\n' "$paths" | grep -vE '^(design/|docs/)|\.md$' | grep . || true)"
   [ -z "$code" ] || { echo "REJECT 증거 줄 — «시험: 없음(문서)» 인데 코드 경로 변경이 있음(예 $(printf '%s' "$code" | head -1)) — 시험하고 rc= 형식으로 쓴다"; exit 1; }
 fi
 if [ "$issue" != "0" ]; then
   [ -f "$issue" ] || [ -f "$REPO/$issue" ] || { echo "REJECT 증거 줄 — 이슈 칸이 0 도 실재 카드 경로도 아님: $issue"; exit 1; }
 fi
-echo "OK 증거 줄 — 세트 HEAD ${head_now:0:9} · $([ "$DOC" = 1 ] && echo "시험 없음(문서)" || echo "시험 rc=0") · 이슈 $issue"
+NOTE=""; [ "$MERGED" = 1 ] && NOTE=" — 증거 EQUIV: 세트 ${set_head:0:9} + main 병합뿐($(printf '%s' "$EQUIV" | sed -nE 's/.*(merges=[0-9]+).*/\1/p' | head -1)) → HEAD ${head_now:0:9}"
+echo "OK 증거 줄 — 세트 HEAD ${head_now:0:9}${NOTE} · $([ "$DOC" = 1 ] && echo "시험 없음(문서)" || echo "시험 rc=0") · 이슈 $issue"
 exit 0

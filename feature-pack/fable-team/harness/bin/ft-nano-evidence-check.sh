@@ -8,6 +8,7 @@
 #     통과 = ①카드 `- 의도 결과: RED rc=<n> — …` 가 카드가 원장 git 에 «처음 들어간 판»에 있다(나노가 뒤에 넣은 줄 무효) ②n≠0 ∧ 선언 rc 와 같다 ③변경 경로가 전부 tests/ · design/ · docs/ · *.md. 하나라도 빠지면 REJECT(override 0).
 #     feat = --feat <브랜치> 또는 FT_NANO_FEAT(기본 feat/v6-realtime-live). ref 가 없으면 REJECT(값 추론 금지).
 #   통과 = 줄 존재 ∧ 세트 HEAD == 현재 나노 HEAD(git rev-parse HEAD) ∧ rc=0 ∧ 이슈 칸이 `0` 또는 실재 경로. 값 추론 금지 — 줄이 없으면 REJECT.
+#   ★r1071★ 세트 HEAD ≠ 현재 HEAD 여도 그 차이가 main 병합뿐이고 자기 변경이 같으면(ft-approval-equiv EQUIV) 통과 — 출력에 «세트 <9> + main 병합뿐(EQUIV merges=N) → HEAD <9>». 일반 커밋·손댄 병합·판정기 없음 = 지금대로 REJECT. 이때 경로 검사(문서·RED)의 tip 은 세트 sha 로 둔다(병합으로 들어온 남의 코드를 «내 변경» 으로 세지 않음).
 #   --ancestor-of <ref> (공유 워크트리 좌석 · ft-nano-close --shared-wt): «세트 HEAD == 현재 HEAD» 대신 «세트 sha 가 <ref>(--repo 기준) 의 조상» — 공유 HEAD 는 다른 세션이 계속 옮긴다. 문서 전용·RED 경로 검사도 현재 HEAD 가 아니라 그 세트 sha 까지의 변경만 본다. 인자 없으면 지금 동작.
 #   루트(feat HEAD) 포함 검사는 여기 없다 — ft-nano-cherry-gate.sh --mode land 가 맡는다. ft-nano-close.sh 가 호출한다.
 #   exit 0 = 통과 · 1 = REJECT(사유 stdout) · 2 = usage
@@ -32,11 +33,13 @@ else echo "REJECT 증거 줄 — 형식 불일치(40-hex HEAD·rc·이슈 칸 �
 if [ -n "$ANC" ]; then
   git -C "$REPO" merge-base --is-ancestor "$set_head" "$ANC" 2>/dev/null \
     || { echo "REJECT 증거 줄 — 세트 ${set_head:0:9} 가 $ANC(${head_now:0:9}) 의 조상이 아니다(없는 커밋이거나 다른 가지 — 시험한 커밋이 이 워크트리에 들어와 있어야 한다)"; exit 1; }
-  tip="$set_head"
-else
-  [ "$set_head" = "$head_now" ] || { echo "REJECT 증거 줄 — 세트 HEAD ${set_head:0:9} != 현재 나노 HEAD ${head_now:0:9} (시험 뒤 커밋이 생김 — 다시 시험하고 줄을 갱신)"; exit 1; }
-  tip="HEAD"
+elif [ "$set_head" != "$head_now" ]; then   # 세트 뒤가 main 병합뿐 + 자기 변경 같으면(ft-approval-equiv EQUIV) 통과 · 일반 커밋·손댄 병합은 REJECT · 판정기 없음 = REJECT
+  EQ="$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-approval-equiv.sh"
+  [ -f "$EQ" ] || { echo "REJECT 증거 줄 — 세트 HEAD ${set_head:0:9} != 현재 나노 HEAD ${head_now:0:9} · 동일성 판정기 없음: $EQ"; exit 1; }
+  EQUIV="$(bash "$EQ" "$set_head" "$head_now" --repo "$REPO" 2>&1)" || { echo "REJECT 증거 줄 — 세트 HEAD ${set_head:0:9} != 현재 나노 HEAD ${head_now:0:9} (시험 뒤 커밋이 생김 — 다시 시험하고 줄을 갱신) · 판정기: $(printf '%s' "$EQUIV" | head -1)"; exit 1; }
+  MERGED=1
 fi
+tip="$set_head"
 scope() {  # scope <허용 경로 정규식> — merge-base(feat, $tip)..$tip 변경 경로 중 허용 밖 → $code (feat 없음·git 실패는 그 자리에서 REJECT)
   git -C "$REPO" rev-parse --verify -q "refs/heads/$FEAT" >/dev/null || git -C "$REPO" rev-parse --verify -q "refs/remotes/$FEAT" >/dev/null \
     || { echo "REJECT 증거 줄 — 문서 전용 검증용 feat 브랜치 없음: $FEAT (refs/heads/ · refs/remotes/ · --feat)"; exit 1; }
@@ -67,5 +70,6 @@ if [ "$issue" != "0" ]; then
   [ -f "$issue" ] || [ -f "$REPO/$issue" ] || { echo "REJECT 증거 줄 — 이슈 칸이 0 도 실재 카드 경로도 아님: $issue"; exit 1; }
 fi
 how="시험 rc=0"; [ "$DOC" = 1 ] && how="시험 없음(문서)"; [ "$RED" = 1 ] && how="시험 RED rc=$rc(선언 일치 · 시험 경로만)"
-echo "OK 증거 줄 — 세트 HEAD ${head_now:0:9} · $how · 이슈 $issue"
+M=""; [ "${MERGED:-0}" = 1 ] && M=" — 증거 EQUIV: 세트 ${set_head:0:9} + main 병합뿐($(printf '%s' "$EQUIV" | sed -nE 's/.*(merges=[0-9]+).*/\1/p' | head -1)) → HEAD ${head_now:0:9}"
+echo "OK 증거 줄 — 세트 HEAD ${head_now:0:9}${M} · $how · 이슈 $issue"
 exit 0
