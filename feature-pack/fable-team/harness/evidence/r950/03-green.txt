@@ -1,0 +1,15 @@
+PASS ⓐ park 30 → 명부 PARKED(만료 = 지금+30분) · 만료 전 sweep 닫힘 0 · 만료 뒤 sweep = close 경로 + 원장 «만료 자동 닫음» 1줄 + 장부 줄 삭제
+PASS ⓑ 연장 1회 OK(총 60분) · 2회째 rc2 · 31분 이상 rc2 · 0분 rc2 · OPEN 에 --extend rc2 · 없는 slug rc2 원격 0
+PASS ⓒ PARKED 도 상한 3 에 셈(남긴 둘 + 열린 하나 → 4번째 open rc8 · 원격 0)
+PASS ⓓ reap = 계획 파일 reap-<시각>.sh.hil 만 · kill 0 · 명부 밖 세션 + 오래된 OPEN · 후보 0 = 파일 0 · 조회 실패 rc5
+PASS ⓔ 닫기 실패 → 명부 «닫기 실패» + 원장 1줄(close) + 장부 유지 · 다음 sweep 재시도로 닫힘
+FAIL ⓕ test_sat_nano_r949.sh: FAILED — FAIL ⓖ test_satellite_rosters.sh: FAILED — FAIL ⓗ spawn rc=1: hold=none FAILED  FAIL ⓚ test_ft_secret_shapes.py: =========================== short test summary info ============================ FAILED tests/scripts/test_ft_secret_shapes.py::test_named_lookahead_worst_one_mb_under_200ms[named-ctx-repeat] 1 failed, 149 passed in 41.36s  FAILED 
+PASS ⓖ 변이 만료 검사 끔 → 칸 park 빨강 = 감지
+PASS ⓖ 변이 연장 횟수 검사 끔 → 칸 extend 빨강 = 감지
+PASS ⓖ 변이 reap 이 kill 하게 → 칸 reap 빨강 = 감지
+PASS 정적 kit 사본 cmp0 ft_sat_nano.py
+PASS 정적 kit 사본 cmp0 ft_sat_gate.py
+PASS 정적 kit 사본 cmp0 ft_sat_rt.py
+PASS 정적 kit 사본 cmp0 ft-sat-nano.sh
+PASS 정적 /bin/bash -n
+FAILED

@@ -1,0 +1,11 @@
+# 공용 perf 시험의 부하 의존 — 이 카드 파일(ft_secret_shapes.py) diff 0줄
+# 2026-10-28 15:48:36 load=92.62 procs=731
+## perf 아닌 나머지 전건:
+...................................................................      [100%]
+139 passed, 11 deselected in 21.43s
+## 같은 perf 묶음 — 부하 낮은 창(14:47 · load 26)에서는 전건 통과했다:
+  14:47 → 6 passed, 144 deselected in 3.97s
+## 지금(load 49~70) 폴링:
+  load=52.81 | 5 failed, 5 passed / load=52.38 | 1 failed, 9 passed / load=53.26 | 1 failed, 9 passed
+  load=49.79 | 2 failed, 8 passed / load=60.90 | 1 failed, 9 passed / load=69.92 | 5 failed, 5 passed
+## 결론: 벽시계 200ms·2s 상한이 다른 좌석 부하에 흔들린다 — 동작 반례 0
