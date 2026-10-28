@@ -44,15 +44,15 @@ chk "ⓐ UNPARSED + 착지(조상) + 판정문 행 → LANDED-CLOSE rc0" 0 "LAND
 [[ "${o%%$'\n'*}" == LANDED-CLOSE* ]] && ok "ⓐ 첫 줄 = LANDED-CLOSE" || bad "ⓐ 첫 줄 ${o%%$'\n'*}"
 o="$(gate --closing --da "$DAF#§1" --landed "$S1")"; chk "ⓐ' 카드 줄 + --landed 일치 → rc0" 0 "LANDED-CLOSE" "$o" $?
 # ⓑ events=2 + 같은 조건(카드 줄 없이 --landed) → rc0
-card c-hold 진행 '- DA⑥ r1 HOLD 4' '- DA⑥ r2 HOLD 1'
-o="$(gate --closing)"; chk "ⓑ 전제: 착지 증거 없으면 HOLD events=2 rc3" 3 "HOLD events=2" "$o" $?
-o="$(gate --closing --da "$DAF#§2" --landed "$S2")"; rc=$?; chk "ⓑ events=2 + --landed + 판정문 행 → LANDED-CLOSE rc0" 0 "LANDED-CLOSE sha=$S2" "$o" $rc; echo "  ⓑ 원문: ${o%%$'\n'*}"
+card c-hold 진행 '- DA⑥ r1 HOLD 4' '- DA⑥ r2 HOLD 1' '- DA② r1 HOLD 2'
+o="$(gate --closing)"; chk "ⓑ 전제: 착지 증거 없으면 HOLD events=3(=CAP) rc3" 3 "HOLD events=3" "$o" $?
+o="$(gate --closing --da "$DAF#§2" --landed "$S2")"; rc=$?; chk "ⓑ events=3 + --landed + 판정문 행 → LANDED-CLOSE rc0" 0 "LANDED-CLOSE sha=$S2" "$o" $rc; echo "  ⓑ 원문: ${o%%$'\n'*}"
 # ⓒ 착지 줄만 · 판정문 행 없음 / sha 불일치 → 기존 첫 줄 rc3
 card c-unp 진행 "$UNP" "- 착지: $S1"
 o="$(gate --closing)"; rc=$?; chk "ⓒ 착지 줄만(--da 없음) → UNPARSED 그대로 rc3" 3 "UNPARSED" "$o" $rc; [[ "${o%%$'\n'*}" == UNPARSED* ]] && ok "ⓒ 첫 줄 UNPARSED 불변" || bad "ⓒ 첫 줄 ${o%%$'\n'*}"
 o="$(gate --closing --da "$DAF#§2")"; rc=$?; chk "ⓒ 다른 카드 절(§2) → 행 없음 → UNPARSED rc3 + LANDED-INVALID no-da-row" 3 "LANDED-INVALID no-da-row" "$o" $rc; [[ "${o%%$'\n'*}" == UNPARSED* ]] && ok "ⓒ 행 없음 첫 줄 UNPARSED" || bad "ⓒ 행없음 첫 줄 ${o%%$'\n'*}"
-card c-hold 진행 '- DA⑥ r1 HOLD 4' '- DA⑥ r2 HOLD 1' "- 착지: $S1"
-o="$(gate --closing --da "$DAF#§2")"; rc=$?; chk "ⓒ sha 불일치(카드 S1 · 판정문 S2) → HOLD … budget_left=0 rc3" 3 "budget_left=0" "$o" $rc; [[ "${o%%$'\n'*}" == "HOLD events=2"* ]] && ok "ⓒ 불일치 첫 줄 HOLD" || bad "ⓒ 불일치 첫 줄 ${o%%$'\n'*}"
+card c-hold 진행 '- DA⑥ r1 HOLD 4' '- DA⑥ r2 HOLD 1' '- DA② r1 HOLD 2' "- 착지: $S1"
+o="$(gate --closing --da "$DAF#§2")"; rc=$?; chk "ⓒ sha 불일치(카드 S1 · 판정문 S2) → HOLD … budget_left=0 rc3" 3 "budget_left=0" "$o" $rc; [[ "${o%%$'\n'*}" == "HOLD events=3"* ]] && ok "ⓒ 불일치 첫 줄 HOLD" || bad "ⓒ 불일치 첫 줄 ${o%%$'\n'*}"
 o="$(gate --closing --da "$DAF#§2" --landed "$S2")"; chk "ⓒ 카드 줄 ≠ --landed → rc3 LANDED-INVALID mismatch" 3 "LANDED-INVALID mismatch" "$o" $?
 # ⓓ sha 가 origin/main 조상 아님 → rc3 + LANDED-INVALID not-ancestor
 card c-side 진행 "$UNP" "- 착지: $SX"; o="$(gate --closing --da "$DAF#§4")"; rc=$?
@@ -68,8 +68,8 @@ chk "ⓖⓑ FT_LAND_REF 미설정 → 기본 origin/main · not-ancestor rc3(기
 card c-side 진행 "$UNP" "- 착지: $SX"; o="$(FT_LAND_REF=refs/pack-landing/nope gate --closing --da "$DAF#§4")"; rc=$?
 chk "ⓖⓒ FT_LAND_REF=없는 ref → not-ancestor rc3(통과 0)" 3 "LANDED-INVALID not-ancestor $SX" "$o" $rc
 # ⓔ --entry 는 착지 줄과 무관(입장 우회 0)
-card c-hold 진행 '- DA⑥ r1 HOLD 4' '- DA⑥ r2 HOLD 1' '- DA⑥ r3 발주'; e0="$(gate --entry ⑥ r3)"; r0=$?
-card c-hold 진행 '- DA⑥ r1 HOLD 4' '- DA⑥ r2 HOLD 1' '- DA⑥ r3 발주' "- 착지: $S2"; e1="$(gate --entry ⑥ r3 --da "$DAF#§2" --landed "$S2")"; r1=$?
+card c-hold 진행 '- DA⑥ r1 HOLD 4' '- DA⑥ r2 HOLD 1' '- DA② r1 HOLD 2' '- DA⑥ r3 발주'; e0="$(gate --entry ⑥ r3)"; r0=$?
+card c-hold 진행 '- DA⑥ r1 HOLD 4' '- DA⑥ r2 HOLD 1' '- DA② r1 HOLD 2' '- DA⑥ r3 발주' "- 착지: $S2"; e1="$(gate --entry ⑥ r3 --da "$DAF#§2" --landed "$S2")"; r1=$?
 { [ "$r0" = 3 ] && [ "$r1" = 3 ] && [ "$e0" = "$e1" ]; } && ok "ⓔ --entry: 착지 증거 있어도 판정 동일 rc3 («${e1}»)" || bad "ⓔ entry r0=$r0 r1=$r1 «${e0}» vs «${e1}»"
 [[ "$e1" != *LANDED* ]] && ok "ⓔ --entry 출력에 LANDED 0" || bad "ⓔ LANDED 섞임 $e1"
 
@@ -83,8 +83,8 @@ G add -A; G commit -qm cards
 card c-unp 진행 "$UNP"; o="$(run "$TB/ft-index-move.sh" "$CARD" 완성 --da "$DAF#§1" --seat s)"; rc=$?
 { [ "$rc" = 1 ] && [[ "$o" == *"REJECT DA 보류 가드: UNPARSED"* ]] && [[ "$o" == *"옛 표기"* ]] && [[ "$o" != *"보류 2회"* ]]; } && ok "ⓕ index-move: UNPARSED 거절 = 판정기 첫 줄 + 옛 표기 안내(«보류 2회» 0)" || bad "ⓕ UNPARSED 문구 rc=$rc $o"
 echo "  ⓕ 원문(UNPARSED): $(printf '%s' "$o" | grep -m1 '^REJECT' | cut -c1-240)"
-card c-hold 진행 '- DA⑥ r1 HOLD 4' '- DA⑥ r2 HOLD 1'; o="$(run "$TB/ft-index-move.sh" "$CARD" 완성 --da "$DAF#§2" --seat s)"; rc=$?
-{ [ "$rc" = 1 ] && [[ "$o" == *"REJECT DA 보류 가드: HOLD events=2"*"재설계 해제"* ]]; } && ok "ⓕ index-move: HOLD 거절 = «HOLD events=2 …» + 재설계 해제 안내" || bad "ⓕ HOLD 문구 rc=$rc $o"
+card c-hold 진행 '- DA⑥ r1 HOLD 4' '- DA⑥ r2 HOLD 1' '- DA② r1 HOLD 2'; o="$(run "$TB/ft-index-move.sh" "$CARD" 완성 --da "$DAF#§2" --seat s)"; rc=$?
+{ [ "$rc" = 1 ] && [[ "$o" == *"REJECT DA 보류 가드: HOLD events=3"*"재설계 해제"* ]]; } && ok "ⓕ index-move: HOLD 거절 = «HOLD events=3 …» + 재설계 해제 안내" || bad "ⓕ HOLD 문구 rc=$rc $o"
 o="$(run "$TB/ft-index-move.sh" "$CARD" 완성 --da "$DAF#§2" --seat s --landed "$S2")"; rc=$?
 { [[ "$o" != *"DA 보류 가드"* ]]; } && ok "ⓕ index-move: --landed + 판정문 행 → 보류 가드 통과(rc=$rc · ${o%%$'\n'*})" || bad "ⓕ index-move landed $o"
 [ -f "$TD/indices/완성/c-hold.md" ] && [ "$(grep -c "^- 착지: $S2" "$TD/indices/완성/c-hold.md")" = 1 ] && ok "ⓕ index-move 착지 → 완성/ + 착지 줄 1개" || bad "ⓕ index-move 완성 이동·착지 줄 $(ls "$TD/indices/완성")"

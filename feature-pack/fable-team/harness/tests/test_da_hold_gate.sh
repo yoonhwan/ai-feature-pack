@@ -35,49 +35,49 @@ chk() { { [ "$5" = "$2" ] && [[ "$4" == *"$3"* ]]; } && ok "$1" || bad "$1 → r
 # ── 1. 사건 셈 (판정기 단독) ──
 card h0 '- base_sha: x'; o="$(g)"; chk "HOLD 0 → rc0" 0 "events=0" "$o" $?
 card h1 '- 2026-10-18 — DA⑥ r1 HOLD 4'; o="$(g)"; chk "HOLD 1 사건 → rc0" 0 "events=1" "$o" $?
-card h2 '- 2026-10-18 — DA⑥ r1 HOLD 4' '- 2026-10-18 — DA⑥ r2 HOLD 1'; o="$(g)"; chk "r382d 꼴(⑥r1·⑥r2) → rc3 budget 0" 3 "events=2" "$o" $?
-card m7 '- 2026-10-12 — DA② HOLD(abc1234) 수용' '- 2026-10-13 — DA② r2 HOLD 1'; o="$(g)"; chk "v65 M7 꼴(r 없음 = r1 · 2사건) → rc3" 3 "events=2" "$o" $?
+card h2 '- 2026-10-18 — DA⑥ r1 HOLD 4' '- 2026-10-18 — DA⑥ r2 HOLD 1'; o="$(g)"; chk "r382d 꼴(⑥r1·⑥r2 · 사건 2 < CAP 3) → rc0 예산 1" 0 "events=2 reviews=2 releases=0/0 budget_left=1" "$o" $?
+card m7 '- 2026-10-12 — DA② HOLD(abc1234) 수용' '- 2026-10-13 — DA② r2 HOLD 1'; o="$(g)"; chk "v65 M7 꼴(r 없음 = r1 · 2사건 < CAP) → rc0" 0 "events=2 reviews=2 releases=0/0 budget_left=1" "$o" $?
 card pg '- 2026-10-10 — DA② r1 HOLD3 반영' '- 2026-10-10 — DA② r1 HOLD 재기록(보강 뒤)'; o="$(g)"; chk "cfo pg-pool 꼴(같은 키 재기록 2줄 → 1사건) → rc0" 0 "events=1" "$o" $?
 card rc '- 2026-10-11 — DA② r1 HOLD 2' '- 2026-10-11 — DA② r2 HOLD 1' '- 2026-10-12 — DA⑥ r1 HOLD 3'; o="$(g)"; chk "cfo reconcile 꼴(②r1·②r2·⑥r1 → 3사건) → rc3" 3 "events=3" "$o" $?
 card up '- 2026-10-12 — DA 확인 HOLD 몇 건'; o="$(g)"; chk "해석 못 하는 후보 줄 → UNPARSED rc3(fail-closed)" 3 "UNPARSED" "$o" $?
-card rd '- 2026-10-18 — DA⑥ r1 HOLD 4' '- 2026-10-18 — DA⑥ r2 HOLD 1' '- 재설계: design/alpha/DESIGN-x.md#r3 · 상향: 나노 Fable'; o="$(g)"; chk "재설계 줄은 카운트를 되돌리지 않는다 → rc3" 3 "events=2" "$o" $?
+card rd '- 2026-10-18 — DA⑥ r1 HOLD 4' '- 2026-10-18 — DA⑥ r2 HOLD 1' '- 재설계: design/alpha/DESIGN-x.md#r3 · 상향: 나노 Fable'; o="$(g)"; chk "재설계 줄은 카운트를 되돌리지 않는다(사건 2 < CAP → rc0)" 0 "events=2 reviews=2 releases=0/0 budget_left=1" "$o" $?
 card nd '- 2026-10-18 — DA⑥ r1 HOLD 1' '- 상위 설명: 이 줄은 DA⑥ 와 무관 HOLD 라는 글자만 있다'; o="$(g)"; chk "머리가 DA 가 아닌 줄은 후보 아님 → rc0" 0 "events=1" "$o" $?
 
 # ── 2. 해제 검증 (§8-1) ──
 rec 7001 "$M" "$A" "$(RELBODY rel)"; rec 7101 "$M" "$A" "$(RELBODY ex)"; rec 7102 "$M" "$A" "$(RELBODY cl)"
 card rel '- 2026-10-18 — DA② r1 HOLD 1' '- 2026-10-18 — DA② r2 HOLD 1' '- 재설계 해제: #7001'; o="$(g)"; chk "유효 해제 1 → 예산 1 → rc0" 0 "releases=1/0 budget_left=1" "$o" $?
 rec 7002 "$M" "$A" '[재설계 해제 rel2.md] 해제 보류 · 검토 결과만 보내라'
-card rel2 '- DA② r1 HOLD 1' '- DA② r2 HOLD 1' '- 재설계 해제: #7002'; o="$(g)"; chk "보류 쪽지(머리 다름/해제=1 없음) INVALID → rc3" 3 "RELEASE-INVALID #7002" "$o" $?
+card rel2 '- DA② r1 HOLD 1' '- DA② r2 HOLD 1' '- DA⑥ r1 HOLD 2' '- 재설계 해제: #7002'; o="$(g)"; chk "보류 쪽지(머리 다름/해제=1 없음) INVALID → rc3" 3 "RELEASE-INVALID #7002" "$o" $?
 rec 7003 "$M" "$A" 'rel3 카드 이야기입니다. 해제=1 새 범위 DESIGN r3 (머리 없음)'
-card rel3 '- DA② r1 HOLD 1' '- DA② r2 HOLD 1' '- 재설계 해제: #7003'; o="$(g)"; chk "카드명만 언급한 쪽지 INVALID → rc3" 3 "RELEASE-INVALID #7003" "$o" $?
+card rel3 '- DA② r1 HOLD 1' '- DA② r2 HOLD 1' '- DA⑥ r1 HOLD 2' '- 재설계 해제: #7003'; o="$(g)"; chk "카드명만 언급한 쪽지 INVALID → rc3" 3 "RELEASE-INVALID #7003" "$o" $?
 rec 7004 "byz-alpha-master-claude#9" "$A" "$(RELBODY rel4)"
-card rel4 '- DA② r1 HOLD 1' '- DA② r2 HOLD 1' '- 재설계 해제: #7004'; o="$(g)"; chk "from 이 명부 이름과 1글자 다름 INVALID → rc3" 3 "from 이 명부" "$o" $?
+card rel4 '- DA② r1 HOLD 1' '- DA② r2 HOLD 1' '- DA⑥ r1 HOLD 2' '- 재설계 해제: #7004'; o="$(g)"; chk "from 이 명부 이름과 1글자 다름 INVALID → rc3" 3 "from 이 명부" "$o" $?
 rec 7005 "$P" "$A" "$(RELBODY rel5)"
 card rel5 '- DA② r1 HOLD 1' '- DA② r2 HOLD 1' '- 재설계 해제: #7005'; o="$(g)"; chk "_hil_route(planner) 해제도 유효 → rc0" 0 "releases=1/0" "$o" $?
-card rel6 '- DA② r1 HOLD 1' '- DA② r2 HOLD 1' '- 재설계 해제: #7005'; o="$(g)"; chk "다른 카드 이름 머리의 쪽지 → INVALID" 3 "머리 불일치" "$o" $?
+card rel6 '- DA② r1 HOLD 1' '- DA② r2 HOLD 1' '- DA⑥ r1 HOLD 2' '- 재설계 해제: #7005'; o="$(g)"; chk "다른 카드 이름 머리의 쪽지 → INVALID" 3 "머리 불일치" "$o" $?
 card rel5 '- DA② r1 HOLD 1' '- DA② r2 HOLD 1' '- 재설계 해제: #7005' '- 재설계 해제: #7005'; o="$(g)"; chk "같은 seq 두 줄 → RELEASE-DUP" 0 "RELEASE-DUP #7005" "$o" $?
-card rel7 '- DA② r1 HOLD 1' '- DA② r2 HOLD 1' '- 재설계 해제: #9999'; o="$(g)"; chk "없는 seq → INVALID(쪽지 없음)" 3 "쪽지 없음" "$o" $?
+card rel7 '- DA② r1 HOLD 1' '- DA② r2 HOLD 1' '- DA⑥ r1 HOLD 2' '- 재설계 해제: #9999'; o="$(g)"; chk "없는 seq → INVALID(쪽지 없음)" 3 "쪽지 없음" "$o" $?
 
 # ── 3. 소진 (§9-2 입장 줄) · 입장 검사 ──
-card ex '- DA② r1 HOLD 1' '- DA② r2 HOLD 1' '- 재설계 해제: #7101' '- DA⑥ r1 발주 (arch 가 미리 쓰는 줄 = 소진 아님)'
-o="$(g)"; chk "해제 뒤 arch 발주 줄은 소진이 아니다 → releases=1/0" 0 "releases=1/0 budget_left=1" "$o" $?
-o="$(g --entry ⑥ r1)"; chk "입장 검사(기록 0) → rc0" 0 "budget_left=1" "$o" $?
-o="$(g --entry ⑥ r1 --record --order-file /x/발주서.md)"; rc=$?; chk "입장 허용 + --record → rc0" 0 "budget_left=1" "$o" $rc
-tail -1 "$CARD" | grep -qE '^- DA 입장: ⑥r1 · 발주서 /x/발주서.md · 해제 #7101 · 20[0-9]{2}-' && ok "입장 줄 기록(단계r라운드 · 발주서 · 해제 seq · 시각)" || bad "입장 줄 «$(tail -1 "$CARD")»"
-o="$(g)"; chk "입장 줄 뒤 → 해제 소진 releases=1/1 budget_left=-1 rc3" 3 "releases=1/1" "$o" $?
-o="$(g --entry ⑥ r1)"; chk "같은 (카드,단계,rN) 재입장 → DUP-ENTRY rc3" 3 "DUP-ENTRY ⑥r1" "$o" $?
-card ex '- DA② r1 HOLD 1' '- DA② r2 HOLD 1' '- 재설계 해제: #7101' '- DA⑥ r1 발주' '- DA 입장: ⑥r1 · 발주서 x · 해제 #7101 · 2026-10-18T18:00:00' '- DA⑥ r2 발주'
+card ex '- DA② r1 HOLD 1' '- DA② r2 HOLD 1' '- DA⑥ r1 HOLD 2' '- 재설계 해제: #7101' '- DA⑥ r2 발주 (arch 가 미리 쓰는 줄 = 소진 아님)'
+o="$(g)"; chk "해제 뒤 arch 발주 줄은 소진이 아니다 → releases=1/0 (사건 3 ≥ CAP → 예산 = 미소진 해제)" 0 "releases=1/0 budget_left=1" "$o" $?
+o="$(g --entry ⑥ r2)"; chk "입장 검사(기록 0) → rc0" 0 "budget_left=1" "$o" $?
+o="$(g --entry ⑥ r2 --record --order-file /x/발주서.md)"; rc=$?; chk "입장 허용 + --record → rc0" 0 "budget_left=1" "$o" $rc
+tail -1 "$CARD" | grep -qE '^- DA 입장: ⑥r2 · 발주서 /x/발주서.md · 해제 #7101 · 20[0-9]{2}-' && ok "입장 줄 기록(단계r라운드 · 발주서 · 해제 seq · 시각)" || bad "입장 줄 «$(tail -1 "$CARD")»"
+o="$(g)"; chk "입장 줄 뒤 → 해제 소진 releases=1/1 budget_left=0 rc3" 3 "releases=1/1" "$o" $?
+o="$(g --entry ⑥ r2)"; chk "같은 (카드,단계,rN) 재입장 → DUP-ENTRY rc3" 3 "DUP-ENTRY ⑥r2" "$o" $?
+card ex '- DA② r1 HOLD 1' '- DA② r2 HOLD 1' '- DA⑥ r1 HOLD 2' '- 재설계 해제: #7101' '- DA⑥ r1 발주' '- DA 입장: ⑥r1 · 발주서 x · 해제 #7101 · 2026-10-18T18:00:00' '- DA⑥ r2 발주'
 o="$(g --entry ⑥ r2)"; chk "소진된 해제로 다음 라운드 입장 → rc3(새 해제 필요)" 3 "budget_left=" "$o" $?
-card ex '- DA② r1 HOLD 1' '- DA② r2 HOLD 1' '- 재설계 해제: #7101' '- DA⑥ r1 발주' '- DA⑥ r1 CLOSE'
+card ex '- DA② r1 HOLD 1' '- DA② r2 HOLD 1' '- DA② r3 HOLD 1' '- 재설계 해제: #7101' '- DA⑥ r1 발주' '- DA⑥ r1 CLOSE'
 o="$(g)"; chk "입장 줄 없는 옛 꼴: 해제 뒤 CLOSE 판정 줄도 소진" 3 "releases=1/1" "$o" $?
 card ex '- DA② r1 HOLD 1' '- DA② r2 HOLD 1' '- 재설계 해제: #7101'
 o="$(g --entry ⑥ r1)"; chk "발주 줄 없는 입장 → NO-ORDER-LINE rc3" 3 "NO-ORDER-LINE DA⑥ r1" "$o" $?
-card ex '- DA② r1 HOLD 1' '- DA② r2 HOLD 1' '- DA⑥ r3 발주 (이름만 바꿔 재발주)'
+card ex '- DA② r1 HOLD 1' '- DA② r2 HOLD 1' '- DA⑥ r2 HOLD 1' '- DA⑥ r3 발주 (이름만 바꿔 재발주)'
 o="$(g --entry ⑥ r3)"; chk "해제 없이 r3 이름만 바꾼 재발주 → rc3" 3 "budget_left=0" "$o" $?
 card ex '- DA② r1 HOLD 1' '- DA② r2 발주 (검토 2회째 · HOLD 사건 1/2)' '- 2026 — 나노 범위 DA⑥ 1회 · 실사건 ⓒ = 이 카드(②r1·②r2 HOLD → 3번째)'
 o="$(g)"; chk "발주 줄·문맥 속 HOLD 글자는 사건이 아니다(사이 단계 기호·발주 금지) → events=1" 0 "events=1" "$o" $?
 card ex '- 2026-10-13 21:2x byz-x-arch#28 — 사전 DA② r1 HOLD 4 → 반영' '- 2026-10-13 nano#0 — DA⑥ r1 HOLD 3 보강'
-o="$(g)"; chk "작성자·«사전» prefix 가 붙은 실제 줄 꼴도 사건으로 센다 → events=2" 3 "events=2" "$o" $?
+o="$(g)"; chk "작성자·«사전» prefix 가 붙은 실제 줄 꼴도 사건으로 센다 → events=2" 0 "events=2" "$o" $?
 card ex '- 2026-10-13 — DA r1 HOLD 2 (단계 기호 없음)'
 o="$(g)"; chk "DA 와 HOLD 가 있는데 단계 기호 없음 → UNPARSED rc3" 3 "UNPARSED" "$o" $?
 
@@ -91,18 +91,18 @@ o="$(g --entry ⑥ r2)"; chk "§10 ①: 같은 상태에서 해제 B 없이 ⑥r
 card ab '- DA② r1 HOLD 1' '- DA② r2 HOLD 1' '- 재설계 해제: #7201' '- DA⑥ r1 발주' "$E1" '- DA⑥ r1 HOLD 2' '- 재설계 해제: #7202' '- DA⑥ r2 발주' "$E2" '- DA⑥ r2 HOLD 1' '- DA⑥ r3 발주'
 o="$(g --entry ⑥ r3)"; chk "§10 ②: 해제 B 소진 뒤 ⑥r3 입장 = rc3 (events=4 releases=2/2 budget_left=0 · 새 해제 필요)" 3 "events=4 reviews=7 releases=2/2 budget_left=0" "$o" $?
 card ab1 '- DA② r1 HOLD 1' '- 재설계 해제: #7201'
-o="$(g)"; chk "§10: 사건 < 2 면 기본 예산 2−사건(해제는 더하지 않는다) → budget_left=1" 0 "events=1 reviews=1 releases=0/0 budget_left=1" "$o" $?
+o="$(g)"; chk "§10: 사건 < CAP 면 기본 예산 CAP−사건(해제는 더하지 않는다) → budget_left=2" 0 "events=1 reviews=1 releases=0/0 budget_left=2" "$o" $?
 
 # ── 4. 완성 이동 모드(--closing) ──
-card cl '- DA② r1 HOLD 1' '- DA② r2 HOLD 1'; o="$(g --closing)"; chk "closing: 사건 2 · 해제 0 → rc3" 3 "events=2" "$o" $?
+card cl '- DA② r1 HOLD 1' '- DA② r2 HOLD 1' '- DA⑥ r1 HOLD 2'; o="$(g --closing)"; chk "closing: 사건 3(=CAP) · 해제 0 → rc3" 3 "events=3" "$o" $?
 card cl '- DA② r1 HOLD 1' '- DA② r2 HOLD 1' '- 재설계 해제: #7102' '- DA⑥ r1 발주' '- DA 입장: ⑥r1 · 발주서 x · 해제 #7102 · 2026-10-18T18:00:00'; o="$(g --closing)"; chk "closing: 소진된 유효 해제 있음 → rc0" 0 "releases=1/1" "$o" $?
 card cl '- DA② r1 HOLD 1'; o="$(g --closing)"; chk "closing: 사건 1 → rc0" 0 "events=1" "$o" $?
 
 # ── 4b. 실제 카드 3꼴 사본 회귀 + 이 카드(§9-3 · §9-1) ──
 FXD="$REPO/harness/fixtures/da_hold"
 fx() { python3 "$GATE" "$FXD/$1.md" --seats-dir "$T/nonexistent" --comm "$T/c" 2>&1; }
-o="$(fx v65-M7)"; chk "실제 v65 M7 카드 사본(작성자 prefix · r 없는 DA② HOLD + DA② r2 HOLD) → events=2" 3 "events=2" "$o" $?; echo "  실제 카드 출력: ${o%%$'\n'*}"
-o="$(fx cfo-pg-pool)"; chk "실제 cfo pg-pool 사본(②r1 · ⑥r1 두 단계) → events=2" 3 "events=2" "$o" $?; echo "  실제 카드 출력: ${o%%$'\n'*}"
+o="$(fx v65-M7)"; chk "실제 v65 M7 카드 사본(작성자 prefix · r 없는 DA② HOLD + DA② r2 HOLD → 사건 2 < CAP) → rc0" 0 "events=2" "$o" $?; echo "  실제 카드 출력: ${o%%$'\n'*}"
+o="$(fx cfo-pg-pool)"; chk "실제 cfo pg-pool 사본(②r1 · ⑥r1 두 단계 → 사건 2 < CAP) → rc0" 0 "events=2" "$o" $?; echo "  실제 카드 출력: ${o%%$'\n'*}"
 o="$(fx cfo-reconcile)"; chk "실제 cfo reconcile 사본(②r1·②r2·⑥r1) → events=3" 3 "events=3" "$o" $?; echo "  실제 카드 출력: ${o%%$'\n'*}"
 # 이 카드: 명부 master#68(현역) · 은퇴 기록 #67 · 해제 #108869 의 쪽지(승계 전 발신 #67)
 mkdir -p "$T/h/design/harness/indices/진행" "$T/h/.fable-team/comm"; git -C "$T/h" init -q; cp "$FXD/r387-card.md" "$T/h/design/harness/indices/진행/r387-da-hold2-redesign-research-loop.md"
@@ -130,7 +130,7 @@ send_da() { # <수신자> <본문>
 queued() { local n; n="$(grep -c '"to": *"byz-alpha-da-codex#1"' "$ENV/.fable-team/comm/mailbox.jsonl" 2>/dev/null)"; echo "${n:-0}"; }
 DA='byz-alpha-da-codex#1'
 new_env
-gcard bad '- DA⑥ r1 HOLD 4' '- DA⑥ r2 HOLD 1' '- DA⑥ r3 발주'
+gcard bad '- DA⑥ r1 HOLD 4' '- DA⑥ r2 HOLD 1' '- DA② r1 HOLD 2' '- DA⑥ r3 발주'
 send_da "$DA" "$(printf '[DA⑥ r3 발주] 3번째\n- 카드: %s' "$GC")"; { [ "$RC" = 3 ] && [[ "$OUT" == *"REJECT DA 보류 2회"* ]] && [ "$(queued)" = 0 ]; } && ok "가드: HOLD 2 카드 → REJECT DA 보류 2회 · 큐 적재 0" || bad "가드 HOLD2 rc=$RC $OUT"
 echo "REJECT 원문: $(printf "%s" "$OUT" | grep "^REJECT" | head -1 | cut -c1-220)"
 gcard good '- DA⑥ r1 HOLD 4' '- DA⑥ r2 발주'
@@ -176,7 +176,7 @@ mvcard() { MVC="$T/mv/design/alpha/indices/진행/$1.md"; shift; { echo '# c'; e
 mvrun() { ( cd "$T/mv" && PATH="$T/stub:$PATH" bash "$KIT/ft-index-move.sh" "$MVC" 완성 --da "$T/mv/da.md#§1" --seat s 2>&1 ); }
 mvcard mv1 '- 리서치: byz-alpha-nano-x-research#0 base=abc1234 허용=design/alpha/RESEARCH-*.md'; o="$(mvrun)"; { [[ "$o" == *"REJECT 리서치 좌석 열림 byz-alpha-nano-x-research#0"* ]]; } && ok "index-move: 리서치 닫힘 줄 없음 → REJECT 리서치 좌석 열림" || bad "index-move 닫힘줄없음 $o"
 mvcard mv1 '- 리서치: byz-alpha-nano-x-research#0 base=abc1234 허용=x' '- 리서치 닫힘: byz-alpha-nano-x-research#0 2026-10-18 reap 없음'; o="$(mvrun)"; [[ "$o" == *"REJECT 리서치 좌석 열림"* ]] && ok "index-move: 닫힘 줄에 left=0·kill rc=0 없음 → REJECT" || bad "index-move left0없음 $o"
-mvcard mv1 '- DA② r1 HOLD 1' '- DA② r2 HOLD 1'; o="$(mvrun)"; [[ "$o" == *"REJECT DA 보류 가드: HOLD events=2"* ]] && ok "index-move: 사건 2 · 해제 0 → REJECT DA 보류 가드: HOLD events=2(r456 판정기 첫 줄)" || bad "index-move 보류2 $o"
+mvcard mv1 '- DA② r1 HOLD 1' '- DA② r2 HOLD 1' '- DA⑥ r1 HOLD 2'; o="$(mvrun)"; [[ "$o" == *"REJECT DA 보류 가드: HOLD events=3"* ]] && ok "index-move: 사건 3(=CAP) · 해제 0 → REJECT DA 보류 가드: HOLD events=3(r456 판정기 첫 줄)" || bad "index-move 보류3 $o"
 mvcard mv1 '- 리서치: byz-alpha-nano-x-research#0 base=abc1234 허용=x' '- 리서치 닫힘: byz-alpha-nano-x-research#0 2026-10-18 kill rc=0'; o="$(mvrun)"; [[ "$o" != *"리서치 좌석 열림"* && "$o" != *"DA 보류 가드"* ]] && ok "index-move: 닫힘 줄(kill rc=0) + 보류 0 → 이 게이트 통과(뒤 검사로 진행)" || bad "index-move 통과 $o"
 
 # ── 8. ft-nano-close 리서치 위반 기록 블록(스크립트에서 python 블록을 꺼내 실행) ──
