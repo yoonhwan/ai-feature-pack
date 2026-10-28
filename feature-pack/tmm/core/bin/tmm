@@ -93,6 +93,64 @@ type -t h_run >/dev/null 2>&1 || {
   h_run()  { printf 'tmm: host-lib 없음 — 원격 불가\n' >&2; return 97; }
   h_tmux() { printf 'tmm: host-lib 없음 — 원격 불가\n' >&2; return 97; }
   h_pipe() { printf 'tmm: host-lib 없음 — 원격 불가\n' >&2; return 97; }
+  h_control_dir() { printf '%s\n' "$HOME/.ssh/ft-cm"; }
+  h_remote_path() { printf '/opt/homebrew/bin\n'; }
+  _h_with_lock() { shift; "$@"; }
+}
+
+# ---------- 원격 쓰기 라우팅 (r1047 · 설계 multihost DESIGN-tail-remote-and-light-git-20261028.md §1.4 보강 4·5) ----------
+# 주소 «호스트/좌석» 이고 그 호스트가 로컬이 아니면 원격 tmux 로 라우팅한다. 로컬이면 지금 동작 그대로(R6).
+is_remote_addr() {  # <host>  → 0 = 원격
+  local host="$1"
+  [ -n "$host" ] || return 1
+  [ "$host" = "$(h_local_name)" ] && [ "$(h_field "$host" kind)" != tail-remote ] && return 1
+  return 0
+}
+# 송신 락 = <host>/<session> 쌍 하나 (설계 보강 4). /tmp 고정 금지 — HOME 안 ControlPath 폴더를 쓴다.
+send_lock_path() { printf '%s/send-lock-%s-%s' "$(h_control_dir)" "$1" "$2"; }
+ft_tool_path() {  # <환경변수 값> <이름>
+  local envv="$1" n="$2" c
+  for c in "$envv" "$HERE/../../../fable-team/harness/kit/fable-team/bin/$n" \
+           "$HOME/.fable-team/bin/$n" "$HOME/.claude/skills/fable-team/bin/$n"; do
+    [ -n "$c" ] && [ -f "$c" ] && { printf '%s' "$c"; return 0; }
+  done
+  return 1
+}
+# 원격 send-keys 묶음(게이트 → 본문 → Enter)을 락 안에서 «한 ssh(쓰기)» 로. rc 그대로.
+remote_send_locked() {  # <host> <sess> <text>
+  local host="$1" sess="$2" text="$3" lock d
+  lock="$(send_lock_path "$host" "$sess")"
+  d="$(dirname "$lock")"
+  mkdir -p "$d" 2>/dev/null && chmod 700 "$d" 2>/dev/null
+  _h_with_lock "$lock" h_run "$host" --write bash -c '
+sess=$1; text=$2
+cmd=$(tmux display -p -t "=$sess:" "#{pane_current_command}" 2>/dev/null) || cmd=""
+case "$cmd" in
+  zsh|bash|sh|fish|-zsh|-bash|"") echo "❌ $sess 에 에이전트가 실행 중이 아님 — 셸 오타이핑 방지로 차단" >&2; exit 3 ;;
+esac
+tmux send-keys -t "=$sess:" -l "$text" || exit 3
+sleep 0.3
+tmux send-keys -t "=$sess:" Enter
+' _ "$sess" "$text"
+}
+# 원격 도달 판정 = 그 호스트에서 돈 ft-reach-check.sh (계약 보강 5 · capture-pane 판정 금지).
+# ★baseline 을 «보내기 전»에 잡는다★ — ft-reach-check 의 기본 baseline 은 «호출 시점» 이라, jsonl 이 빨리 쓰이면
+#  방금 쓴 내 기록이 baseline 에 섮여 NOT_REACHED 로 오판된다(스크립트 헤더의 FT_REACH_COUNT_ONLY 계약).
+remote_reach_baseline() {  # <host> <sess> <marker> → 제출 건수(숫자)
+  local host="$1" sess="$2" marker="$3" reach w rc
+  reach="$(ft_tool_path "${TMM_REACH_CHECK:-}" ft-reach-check.sh)" || return 97
+  w="$(mktemp "${TMPDIR:-/tmp}/tmm-reach-count.XXXXXX")" || return 97
+  { printf 'export FT_REACH_COUNT_ONLY=1\n'; cat "$reach"; } > "$w"
+  h_pipe "$host" "$w" "$sess" "$marker"; rc=$?
+  rm -f "$w"
+  return "$rc"
+}
+remote_reach_check() {  # <host> <sess> <marker> [baseline]
+  local host="$1" sess="$2" marker="$3" base="${4:-}" reach to
+  reach="$(ft_tool_path "${TMM_REACH_CHECK:-}" ft-reach-check.sh)" || {
+    printf 'tmm: ft-reach-check.sh 없음 — 도달 판정 불가\n' >&2; return 5; }
+  to="${TMM_REACH_TIMEOUT:-6}"
+  h_pipe "$host" "$reach" "$sess" "$marker" "$to" "$base"
 }
 CAT_FILE="${TMM_CATEGORIES:-$HOME/.tmm/categories}"
 MODELS_FILE="${TMM_MODELS:-$HOME/.tmm/models}"          # fork 모델 별칭 (agent<TAB>alias<TAB>id<TAB>extra) — 사용자
@@ -1445,6 +1503,14 @@ EOS
 cmd_attach() {
   local n="${1:-}" flags=""
   [ -n "$n" ] || { echo "(목록 로딩 중 — 잠시 후 다시 Enter)"; sleep 1; return 0; }
+  local ahost asess aalias
+  read -r ahost asess <<<"$(h_split "$n")"
+  if is_remote_addr "$ahost"; then
+    aalias="$(h_field "$ahost" ssh_alias)"
+    [ -n "$aalias" ] && [ "$aalias" != - ] || { echo "❌ $ahost ssh_alias 없음 — 붙기 불가"; sleep 1; return 97; }
+    # 붙기는 tty 가 필요하다 — h_run(stdin 프레임) 으로는 안 되므로 ssh -t 하나만 직접 쓴다(PATH 는 h_remote_path).
+    exec ssh -t "$aalias" -- "export PATH=$(h_remote_path "$ahost"):\$PATH; exec tmux attach -t $(printf '%q' "$asess")"
+  fi
   tmux has-session -t "=$n" 2>/dev/null || { echo "❌ 세션 없음: $n"; sleep 1; return 1; }
   [ "${2:-}" = "-i" ] && flags="-f ignore-size"
   # ★attach 직전에 창 옵션 window-size 를 푼다★ — 좌석들이 ctx 게이지를 읽으려고 `resize-window -x 200` → 원복을
@@ -1525,6 +1591,9 @@ live_mark() {  # ● 에이전트 실행 중 / ○ shell only  (send 가드용 �
 
 cmd_send() {
   local n="$1"; shift
+  local host sess
+  read -r host sess <<<"$(h_split "$n")"
+  if is_remote_addr "$host"; then cmd_send_remote "$host" "$sess" "[mobile→$n] $*"; return; fi
   # HARD GATE: pane 자식(에이전트) 없으면 셸에 타이핑되므로 차단 (tmuxc send 자체엔 가드 없음)
   [ "$(live_mark "$n")" = "●" ] || { echo "❌ $n 에 에이전트가 실행 중이 아님 — 셸 오타이핑 방지로 차단"; return 1; }
   if command -v tmuxc >/dev/null; then
@@ -1532,6 +1601,25 @@ cmd_send() {
   else
     tmux send-keys -t "=$n:" -l "[mobile→$n] $*"; sleep 0.3; tmux send-keys -t "=$n:" Enter
   fi && { sleep 2; echo "── 도달 확인 ──"; cmd_peek "$n" 6; }
+}
+
+# 원격 좌석 송신 — 게이트+send-keys+Enter 를 한 ssh · 발신 락 <host>/<session> · 도달은 원격 ft-reach-check
+cmd_send_remote() {  # <host> <sess> <text>
+  local host="$1" sess="$2" text="$3" rc=0 base=""
+  base="$(remote_reach_baseline "$host" "$sess" "$text" 2>/dev/null)" || base=""
+  remote_send_locked "$host" "$sess" "$text" || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    echo "tmm: $host/$sess 송신 실패 rc=$rc" >&2
+    return "$rc"
+  fi
+  remote_reach_check "$host" "$sess" "$text" "$base"; rc=$?
+  case "$rc" in
+    0) echo "delivered=$host/$sess" ;;
+    4) echo "sent=$host/$sess verification=not-reached" ;;
+    5) echo "sent=$host/$sess verification=unverifiable" ;;
+    *) echo "tmm: $host/$sess 도달 판정 불가 rc=$rc" >&2 ;;
+  esac
+  return "$rc"
 }
 
 # TUI 안 ^S: fzf 밖(정상 tty)에서 프롬프트
@@ -1550,6 +1638,22 @@ cmd_kill() {  # NAME [--yes]
   local n="${1:-}" yes="${2:-}" a
   [ -n "$n" ] || { echo "(선택된 좌석 없음)"; sleep 1; return 0; }
   [ -n "${TMM_SESSION:-}" ] && [ "$n" = "$TMM_SESSION" ] && { echo "❌ 피커 자신($n)은 여기서 못 닫는다 — ^X 로 끝내세요"; sleep 1.5; return 1; }
+  local khost ksess krc=0
+  read -r khost ksess <<<"$(h_split "$n")"
+  if is_remote_addr "$khost"; then
+    h_run "$khost" --idempotent tmux has-session -t "=$ksess" >/dev/null 2>&1 \
+      || { echo "❌ 세션 없음: $khost/$ksess"; sleep 1; return 1; }
+    if [ "$yes" != --yes ]; then
+      printf '좌석 «%s» 를 종료합니다 — %s 의 tmux 세션과 그 안의 에이전트가 끝납니다.\n' "$n" "$khost"
+      h_run "$khost" --idempotent tmux capture-pane -t "=$ksess:" -p 2>/dev/null | grep -vE '^\s*$' | tail -n 4
+      read -r -p "종료? [y/N] " a
+      case "$a" in y|Y) ;; *) echo "(취소)"; sleep 0.8; return 0 ;; esac
+    fi
+    h_run "$khost" --write tmux kill-session -t "$ksess" || krc=$?
+    if [ "$krc" -eq 0 ]; then echo "✅ 종료됨: $n"; else echo "⚠ 종료 실패 rc=$krc: $n"; fi
+    [ "$yes" = --yes ] || read -r -n1 -p "[아무 키] " _
+    return "$krc"
+  fi
   tmux has-session -t "=$n" 2>/dev/null || { echo "❌ 세션 없음: $n"; sleep 1; return 1; }
   if [ "$yes" != --yes ]; then
     printf '좌석 «%s» 를 종료합니다 — tmux 세션과 그 안의 에이전트가 끝납니다.\n' "$n"
