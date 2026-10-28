@@ -83,6 +83,7 @@ SCAN="${TMM_SCAN:-}"
 done
 # 호스트 명부·ssh 래퍼 (tail-remote). 파일이 없거나 source 가 안 되면 로컬(m3) 전용 — 지금 동작 그대로
 HOSTLIB="$HERE/../libexec/host-lib.sh"
+# shellcheck source=/dev/null
 if [ -f "$HOSTLIB" ]; then . "$HOSTLIB"; fi
 type -t h_run >/dev/null 2>&1 || {
   h_local_name() { printf '%s\n' "${TMM_LOCAL_HOST:-m3}"; }

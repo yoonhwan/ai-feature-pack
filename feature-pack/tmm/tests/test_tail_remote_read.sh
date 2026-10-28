@@ -10,16 +10,18 @@ T0=$(date +%s)
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TMM="$ROOT/core/bin/tmm"
-HOSTLIB="$ROOT/core/libexec/host-lib.sh"
+LIBDIR="$ROOT/core/libexec"
+HOSTLIB="$LIBDIR/host-lib.sh"
+# 락은 «HOME 안»($H_LOCK_DIR 기본 ~/.ssh/ft-cm/lock-<host>) — 시험은 그 기본값을 쓴다
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/tmm-r1046.XXXXXX")"
 PASS=0; FAIL=0; FAILED=""
-HOSTN=tmmini          # 시험용 호스트 이름 — 실 mini 의 락(/tmp/.ft-cm-lock-mini.d)·소켓과 섞이지 않는다
+HOSTN=tmmini          # 시험용 호스트 이름 — 실 mini 의 소켓·락과 섞이지 않는다(락은 각 시험의 임시 HOME 안)
 
 ok()   { PASS=$((PASS + 1)); printf '  ✓ %s\n' "$1"; }
 bad()  { FAIL=$((FAIL + 1)); FAILED="$FAILED\n  ✗ $1"; printf '  ✗ %s\n' "$1"; }
 want() { if [ "$2" = "$3" ]; then ok "$1 ($2)"; else bad "$1 — 기대 [$3] 실제 [$2]"; fi; }
 
-cleanup() { pkill -f "$WORK/" 2>/dev/null; rm -rf "$WORK" /tmp/.ft-cm-lock-"$HOSTN"* 2>/dev/null; }
+cleanup() { pkill -f "$WORK/" 2>/dev/null; rm -rf "$WORK"; }   # ★$WORK 안만★ — /tmp 전역 삭제 금지(arch 반송 r1)
 trap cleanup EXIT
 
 # ---------- 가짜 ssh: 실제 ssh 처럼 «-- 뒤 인자를 공백으로 이어 원격 셸에서 실행» 한다 ----------
@@ -178,11 +180,13 @@ case_c() {
   n1="$(grep -c '^MASTER ' "$WORK/c1.log" 2>/dev/null || true)"
   want "수립 1회(락 직렬화)" "${n1:-0}" 1
   want "2병렬 시간 ≤20초" "$(( t1 - t0 <= 20 ))" 1
-  # 변이: 락 호출을 지우면 수립이 2회 (검사식이 잡아야 한다)
-  local mut="$WORK/hostlib-nolock"
-  sed 's/_h_with_lock "\$lock" _h_locked_attempt/_h_locked_attempt/' "$HOSTLIB" > "$mut"
-  if cmp -s "$HOSTLIB" "$mut"; then bad "변이 문자열 없음 — 변이 시험 무효"; return; fi
-  run2 "$mut" "$WORK/c2.log"
+  # 변이: 락 호출을 지우면 수립이 2회 (검사식이 잡아야 한다) — 락은 host-run.sh 에 있다
+  local mdir="$WORK/c-mut"
+  mkdir -p "$mdir"
+  cp "$LIBDIR/host-lib.sh" "$mdir/host-lib.sh"
+  sed 's/_h_with_lock "\$(h_lock_path "\$host")" _h_locked_attempt/_h_locked_attempt/' "$LIBDIR/host-run.sh" > "$mdir/host-run.sh"
+  if cmp -s "$LIBDIR/host-run.sh" "$mdir/host-run.sh"; then bad "변이 문자열 없음 — 변이 시험 무효"; return; fi
+  run2 "$mdir/host-lib.sh" "$WORK/c2.log"
   local n2; n2="$(grep -c '^MASTER ' "$WORK/c2.log" 2>/dev/null || true)"
   if [ "${n2:-0}" -ge 2 ]; then ok "변이(락 제거) → 수립 ${n2}회 = 검사식이 잡음"; else bad "변이를 못 잡음(수립 ${n2:-0}회)"; fi
 }
@@ -210,12 +214,28 @@ case_d() {
   want "--write 는 재시도 0 → 97" "$?" 97
 }
 
+# ---------- ⓔ 4칸 동시 실행(하드 룰 22) + 변이(잠금을 «전역 고정 폴더» 로 되돌림 → 동시 회차 FAIL) ----------
+case_x() {
+  echo "[ⓔ] 4칸 동시 실행 + 변이(전역 고정 잠금)"
+  local x p fail=0 mfail=0
+  local -a p1=() p2=()
+  for x in a b c d; do bash "$0" "$x" > "$WORK/x1-$x.log" 2>&1 & p1+=($!); done
+  for p in "${p1[@]}"; do wait "$p" || fail=1; done
+  want "동시 4칸 rc0" "$fail" 0
+  # 변이: 잠금 폴더를 «네 칸이 공유하는 하나» 로 되돌린다 = arch 반송 r1 의 원래 사고 재현
+  local shared="$WORK/x-locks"; mkdir -p "$shared"
+  for x in a b c d; do H_LOCK_DIR="$shared" bash "$0" "$x" > "$WORK/x2-$x.log" 2>&1 & p2+=($!); done
+  for p in "${p2[@]}"; do wait "$p" || mfail=1; done
+  if [ "$mfail" -eq 1 ]; then ok "변이(전역 고정 잠금) → 동시 회차 FAIL = 검사식이 잡음"
+  else bad "변이를 못 잡음(동시 회차가 전부 통과)"; fi
+}
+
 sel="a b c d"
 [ $# -gt 0 ] && sel="$*"
 for x in $sel; do
   case "$x" in
-    a) case_a ;; b) case_b ;; c) case_c ;; d) case_d ;;
-    *) echo "usage: $0 [a|b|c|d]" >&2; exit 2 ;;
+    a) case_a ;; b) case_b ;; c) case_c ;; d) case_d ;; x) case_x ;;
+    *) echo "usage: $0 [a|b|c|d|x]" >&2; exit 2 ;;
   esac
 done
 
