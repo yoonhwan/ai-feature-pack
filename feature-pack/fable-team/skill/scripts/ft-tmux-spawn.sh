@@ -227,7 +227,7 @@ if [ "$AGENT" = "claude" ] && [ -n "$ROLE" ] && [ "$ROLE" != "orch" ]; then
     exp_n="$(ft_norm_model "$EXPECT_MODEL")"
     mdl_disp=""; mtry=0
     while [ "$mtry" -lt 5 ]; do
-      mdl_disp="$(tmux capture-pane -p -t "$NAME" 2>/dev/null | grep -oE 'Model:[[:space:]]*[A-Za-z]+[[:space:]]*[0-9][0-9.]*' | tail -1 | sed 's/.*Model:[[:space:]]*//')"
+      mdl_disp="$(tmux capture-pane -p -t "$NAME" 2>/dev/null | "$(dirname "$0")/ft-status-model.sh")"
       [ -n "$mdl_disp" ] && break
       sleep 3; mtry=$((mtry+1))
     done
