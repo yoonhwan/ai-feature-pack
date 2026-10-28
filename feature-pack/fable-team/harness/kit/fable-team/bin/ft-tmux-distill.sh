@@ -58,6 +58,16 @@ NEWSESS="$BASE#$NEWN"
 AGENT="claude"
 [ "$FT_ROLE" = "da" ] && AGENT="codex"
 
+# r1067: 역할 기본 모델 — claude 이고 --model 생략이면 이름으로 정한다(옛 좌석 모델 복사보다 우선).
+#   arch = claude-opus-5-5[1m] · 팀장(master) = claude-sonnet-5-5[1m] · 그 밖(나노 등)은 아래 승계 순서 그대로.
+#   명시 --model 은 어떤 경우에도 그대로다(MODEL 이 차 있으면 이 블록을 지나지 않는다).
+if [ "$AGENT" = "claude" ] && [ -z "$MODEL" ]; then
+  case "$FT_BASE" in
+    *-arch-*)   MODEL="claude-opus-5-5[1m]";   echo "ft-tmux-distill: 역할 기본 arch → claude-opus-5-5[1m]" >&2;;
+    *-master-*) MODEL="claude-sonnet-5-5[1m]"; echo "ft-tmux-distill: 역할 기본 팀장 → claude-sonnet-5-5[1m]" >&2;;
+  esac
+fi
+
 # 신세션 모델/effort 승계 — 미지정 시 ① spawn-audit ② 라이브 argv(tmuxc model) 순.
 # self-distill(사람이 zsh alias로 띄운 최상위 오케 세션)은 spawn-audit에 자기 항목이 없어
 # ①이 빈 값 → ②에서 tmuxc model 로 구세션의 라이브 --model([1m] 포함)·--effort 를 회수한다.
