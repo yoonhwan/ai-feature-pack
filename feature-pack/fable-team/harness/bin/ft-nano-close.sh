@@ -39,7 +39,8 @@
 #     나머지(①②③④ · 세션 kill · 워크트리 정리 계획 · 명부 CLOSED · 원장 행)는 기존 경로 그대로 · 원장 행·출력 꼬리에 `landed-pr=<N>`.
 #     gh 호출은 «1회 · 7초 상한»(FT_NANO_LANDED_PR_CAP_S 로만 줄인다) — 시간 초과·rc≠0 = REJECT 1줄(닫기 0 · 조용한 통과 0). 브랜치 삭제 0.
 #   ★r1023★ PR 번호를 읽는 리포는 «카드 세트 가지가 사는 리포» 하나에서 정한다(_lp_repo_pick) — 호출 cwd 와 무관(추측 0). ⓐ 함께 온 --wt 가 팩 등록 워크트리면 팩 ·
-#     ⓑ 카드 «대상:» 줄 경로가 전부 FT_PACK_ROOT 아래면 팩 · 전부 밖이면 ROOT · 섞임·절대경로 0·origin 에서 owner/repo 못 풀음 = REJECT 1줄(닫기 0 · gh 호출 0). gh 는 `-R <owner/repo>` 로 1회 부르고
+#     ⓑ 카드 «대상:» 줄 경로가 전부 FT_PACK_ROOT 아래면 팩 · 전부 밖이면 ROOT · 섞임·origin 에서 owner/repo 못 풀음 = REJECT 1줄(닫기 0 · gh 호출 0). gh 는 `-R <owner/repo>` 로 1회 부르고
+#     ★r1053★ «대상:» 절대경로 0 이면 카드 «읽기 판» 이 사는 리포(ref 판 = ROOT · 가지 판 = SEAT_REPO · 파일 = 그 폴더 git 공통 루트)가 ROOT 일 때만 ROOT(INFO «카드 위치 근거 → ROOT») · 그 밖 = 지금처럼 REJECT(추측 0).
 #     판정기(fetch 포함)도 같은 리포에서 돈다 · 원장 행·출력 꼬리에 `repo=<owner/repo>`. (r1019 설치 뒤 실사건 3/3: BYZ cwd 에서 닫으면 gh 가 cwd 리포의 같은 번호 PR 을 읽어 head 가 틀렸다.)
 #     다른 모드(--never-started·--superseded-by·--suspended·--research·--cherry-override·--shared-wt·--branch·--plan-only·--replan)와 동시 = usage 2 · --wt 만 함께 오면 «리포 힌트» 하나(좌석 워크트리 해석·정리는 기존 그대로) · 인자 없으면 동작 불변.
 #   --plan-only <워크트리 경로> = 이미 좌석이 사라졌는데 정리 계획이 없는 나노 워크트리의 «계획만» 만든다(r-disk-drop-worktree-scratch-census · ft-disk-census.sh --plan 이 부른다). ①②③ 종료조건·cherry 게이트·명부·원장 행·kill 전부 건너뛰고
@@ -725,7 +726,7 @@ jq -e --arg s "$SEAT" 'has($s)' "$SEATS" >/dev/null 2>&1; _hrc=$?
 #   결과(_lp_state·_lp_head·_lp_mrg)는 ⑥ 이 그대로 쓰다 — 두 번 부르지 않는다(호출 1회 · 7초 상한).
 # ★r1023★ --landed-pr 의 리포 = «카드 세트 가지가 사는 리포» 하나 — 호출 cwd·인자와 무관(추측 0). r1019 설치 뒤 실사건 3/3: BYZ cwd 에서 닫으면
 #   gh 가 cwd 리포의 «같은 번호» PR 을 읽어 head 가 틀리고(팩 PR 402 head 73b03a4f vs BYZ PR 402 7464fd052) 판정기도 BYZ 에서 돌아 rc3(객체 없음)이었다.
-#   ⓐ 함께 온 --wt 가 팩 등록 워크트리 → 팩  ⓑ 카드 «대상:» 줄 경로가 전부 FT_PACK_ROOT 아래 → 팩 · 전부 밖 → ROOT  ⓒ 섞임·절대경로 0·origin 꼴 못 품 = REJECT 1줄(닫기 0 · gh 호출 0).
+#   ⓐ 함께 온 --wt 가 팩 등록 워크트리 → 팩  ⓑ 카드 «대상:» 줄 경로가 전부 FT_PACK_ROOT 아래 → 팩 · 전부 밖 → ROOT  ⓒ 섞임·origin 꼴 못 품 = REJECT 1줄(닫기 0 · gh 호출 0) · r1053: 절대경로 0 = 카드 읽기 판이 ROOT 리포에 살 때만 ROOT · 아니면 REJECT.
 _lp_repo=""; _lp_slug=""; _lp_repo_err=""; _lp_slug_url=""
 _lp_pack_root() { ( cd "${FT_PACK_ROOT:-$HOME/Project/ai-feature-pack}" 2>/dev/null && pwd -P ); }
 _lp_is_pack_wt() {  # <경로> → 팩 리포에 등록된 .worktrees/ 아래면 그 팩 루트를 찍고 rc0(읽기만 · _pack_wt 같은 부수효과 0)
@@ -757,6 +758,15 @@ _lp_card_targets() {  # 카드 «대상:» 줄(마지막)의 절대경로만 —
   grep -E '^[[:space:]]*-?[[:space:]]*대상:' "$CARD_READ" 2>/dev/null | tail -1 \
     | sed 's/·/ /g; s/[()]/ /g; s/,/ /g' | tr ' ' '\n' | grep -E '^/' | sed 's/\.$//'
 }
+_lp_card_home() {  # r1053: 읽기 판 CARD_READ 가 «사는» 리포 루트(실경로) — ref 판(_CR_TMP) = ROOT · 가지 판(_CB_TMP) = SEAT_REPO · 파일 = 그 폴더의 git 공통 루트 · 못 정하면 빈 값
+  local d
+  if [ -n "${_CR_TMP:-}" ] && [ "$CARD_READ" = "$_CR_TMP" ]; then d="$ROOT"
+  elif [ -n "${_CB_TMP:-}" ] && [ "$CARD_READ" = "$_CB_TMP" ]; then d="${SEAT_REPO:-}"
+  else d="$(dirname -- "$CARD_READ")"; fi
+  [ -n "$d" ] || return 0
+  d="$(git -C "$d" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')"
+  [ -n "$d" ] && ( cd "$d" 2>/dev/null && pwd -P )
+}
 _lp_repo_pick() {  # 리포(·slug) 하나를 정한다 — 못 정하면 _lp_repo_err 1줄(REJECT · gh 호출 0)
   local nw pk t n=0 nin=0 nout=0 repo=""
   _lp_repo=""; _lp_slug=""; _lp_repo_err=""
@@ -769,9 +779,12 @@ _lp_repo_pick() {  # 리포(·slug) 하나를 정한다 — 못 정하면 _lp_re
       n=$((n+1))
       case "$pk" in '') nout=$((nout+1));; *) case "$t" in "$pk"|"$pk"/*) nin=$((nin+1));; *) nout=$((nout+1));; esac;; esac
     done <<< "$(_lp_card_targets)"
-    if [ "$n" -eq 0 ]; then _lp_repo_err="⑥--landed-pr 리포를 정할 수 없다(카드 «대상:» 줄에 절대경로 0 · ${CARD_READ:-카드 없음}) — 닫지 않음(추측 0)"; return 1; fi
-    if [ "$nin" -gt 0 ] && [ "$nout" -gt 0 ]; then _lp_repo_err="⑥--landed-pr 리포를 정할 수 없다(카드 «대상:» 줄 경로가 팩 ${nin}개·밖 ${nout}개로 섞임 · ${CARD_READ:-카드 없음}) — 한 카드 = 한 리포 · 닫지 않음"; return 1; fi
-    if [ "$nin" -gt 0 ]; then repo="$pk"; else repo="$ROOT"; fi
+    if [ "$n" -eq 0 ]; then   # r1053: 대상 줄 0 · --wt 팩 아님 → 카드 파일이 사는 리포가 ROOT 면 ROOT(카드 위치 근거) · 아니면 지금처럼 REJECT
+      t="$(_lp_card_home)"; nw="$(cd "$ROOT" 2>/dev/null && pwd -P)"
+      if [ -n "$t" ] && [ "$t" = "$nw" ]; then repo="$ROOT"; echo "INFO ⑥--landed-pr 카드 위치 근거 → ROOT($ROOT · 카드 «대상:» 줄 절대경로 0)"   # r1053-mut:root
+      else _lp_repo_err="⑥--landed-pr 리포를 정할 수 없다(카드 «대상:» 줄에 절대경로 0 · 카드가 사는 리포 ${t:-모름} ≠ ROOT $ROOT · ${CARD_READ:-카드 없음}) — 닫지 않음(추측 0)"; return 1; fi
+    elif [ "$nin" -gt 0 ] && [ "$nout" -gt 0 ]; then _lp_repo_err="⑥--landed-pr 리포를 정할 수 없다(카드 «대상:» 줄 경로가 팩 ${nin}개·밖 ${nout}개로 섞임 · ${CARD_READ:-카드 없음}) — 한 카드 = 한 리포 · 닫지 않음"; return 1
+    elif [ "$nin" -gt 0 ]; then repo="$pk"; else repo="$ROOT"; fi
   fi
   [ -n "$repo" ] || { _lp_repo_err="⑥--landed-pr 리포를 정할 수 없다(카드 «대상:» 줄·--wt 어느 쪽도 리포를 가리키지 않음) — 닫지 않음"; return 1; }
   _lp_slug="$(_lp_slug_of "$repo")" || { _lp_slug=""; _lp_repo_err="⑥--landed-pr 리포($repo) origin 꼴 밖(${_lp_slug_url:-빈 값}) — ssh «user@host:owner/repo» · https «http(s)://host/owner/repo» 만 푼다 · 판정 불가로 닫지 않는다(하드 룰 20)"; return 1; }
