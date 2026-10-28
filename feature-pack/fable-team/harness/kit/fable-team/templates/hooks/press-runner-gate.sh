@@ -39,7 +39,7 @@ def walk(cmd, depth=0):  # → (러너 «실행» 조각 있음, 인라인 대�
         except ValueError: w = seg.split()
         while w and (w[0] in ("export", "env") or ASSIGN.match(w[0])):
             m = ASSIGN.match(w.pop(0))
-            if m and m.group(1).startswith(("FT_PRESS_", "BYZ_PRESS_")): env[m.group(1)] = m.group(2)
+            if m and (m.group(1).startswith(("FT_PRESS_", "BYZ_PRESS_")) or m.group(1) == "FT_NANO_FEAT"): env[m.group(1)] = m.group(2)  # FT_NANO_FEAT = 게이트 ① 기준 줄기(없으면 게이트 기본 feat/v6-realtime-live) — v65 #183593
         if not w: continue
         head = os.path.basename(w[0])
         flag = [i for i, x in enumerate(w) if i and re.fullmatch(r"-\w*c\w*", x) and i + 1 < len(w)]
