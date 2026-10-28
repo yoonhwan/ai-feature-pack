@@ -538,11 +538,11 @@ _PKX="$(pack_wt_line "$IDX" "$SLUG" "$BRANCH")"
 if grep -q '^- 슬랙:' "$IDX"; then _TP="${FT_THREAD_POST:-$HOME/.hermes/scripts/byz_thread_post.py}"
   if [ -f "$_TP" ]; then if [ -x "$_TP" ]; then "$_TP" check --card "$IDX"; else python3 "$_TP" check --card "$IDX"; fi >/dev/null 2>&1; _src=$?; else _src=127; fi
   case "$_src" in 0|1) ;; 3) echo "REJECT 슬랙 장부 불명 — byz_thread_post.py repair --card $IDX (부작용 0)"; exit 1;; *) echo "REJECT 슬랙 장부 확인 실패 rc=$_src(127=도구 없음) — 부작용 0"; exit 1;; esac; fi
-# r444 ⑤ 디스크 여유 검사 — 새 워크트리를 만들 때만 · 여유 < FT_NANO_MIN_FREE_GI(40)Gi 면 spawn 0(부작용 «전»). 회수 연결(r440)은 착지 뒤 — 지금은 REJECT 1줄 + [HIL]. 측정 실패도 REJECT(여유 미상 ≠ 충분).
+# r1078: r444 ⑤ 디스크 여유 검사 — 새 워크트리를 만들 때만 · 여유 < FT_NANO_MIN_FREE_GI(40)Gi 면 WARN 1줄 + 진행(r921 «멈추는 것은 디스크 하한 1GiB·측정 실패 둘뿐» · 회수 권장은 WARN 줄에). 측정 실패는 REJECT(여유 미상 ≠ 충분).
 if [ ! -d "$WTDIR" ]; then
   _free="${FT_DISK_FREE_GIB:-$(df -Pk "$ROOT" 2>/dev/null | awk 'NR==2 && $4+0>0{print int($4/1048576)}')}"
   case "$_free" in ''|*[!0-9]*) echo "REJECT [HIL] 디스크 여유 측정 실패(df $ROOT · 값 '${_free}') — spawn 0 · 여유 미상은 충분하다는 뜻 아님"; exit 1;; esac
-  [ "$_free" -ge "${FT_NANO_MIN_FREE_GI:-40}" ] || { echo "REJECT [HIL] 디스크 여유 ${_free}Gi < ${FT_NANO_MIN_FREE_GI:-40}Gi — spawn 0 · 회수 먼저(유휴·완료 좌석 ft-resource-reclaim.sh · 정리 계획 ft-wt-sweep.sh) 뒤 다시"; exit 1; }
+  [ "$_free" -ge "${FT_NANO_MIN_FREE_GI:-40}" ] || echo "WARN 디스크 여유 ${_free}Gi < ${FT_NANO_MIN_FREE_GI:-40}Gi — 진행(r1078 · 정지는 디스크 하한 1GiB·측정 실패 둘뿐) · 회수 권장 ft-resource-reclaim.sh · ft-wt-sweep.sh" >&2
 fi
 if [ "$DRY" = 1 ]; then [ "$RESEARCH" != 1 ] || echo "RESEARCH seat=$NAME allow=$_RS_ALLOW card=$IDX_REL body=$_RSP"; [ -d "$WTDIR" ] || echo "PLAN shim-init $WTDIR (워크트리 생성 직후 ft-root-bin-shim.sh --init)"; "${OPEN[@]}" --dry-run; exit 0; fi
 # R251 ⓐ 추론 프록시 사전 확인(7초 룰 · 부작용 0 지점) — 순간 장애는 넘기고 진짜 장애면 직결로 바꾸지 않는다
