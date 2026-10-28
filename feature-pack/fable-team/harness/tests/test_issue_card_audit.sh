@@ -33,6 +33,10 @@ mkc design/feature/indices/대기/f4-card.md \
   '# 인덱스: f4-card' '' '- Issue: #4' '' '## 구현 범위' 'x'
 mkc design/teams/harness/indices/대기/t9-card.md \
   '# 인덱스: t9-card' '' '- Issue: #9' '' '## 구현 범위' 'x'   # origin/main 꼴(teams/ 한 단계 더)
+mkc design/teams/harness/indices/완성/t10-done.md \
+  '# 인덱스: t10-done' '' '- Issue: #10' '' '## 구현 범위' 'x'
+mkc design/harness/indices/진행/r10-wip.md \
+  '# 인덱스: r10-wip' '' '- Issue: #10' '' '## 구현 범위' 'x'   # R7 뒷부분: 한 장이라도 진행이면 후보 아님
 git -C "$REPO" init -q
 git -C "$REPO" config user.email t@t; git -C "$REPO" config user.name t
 git -C "$REPO" add -A; git -C "$REPO" commit -qm main-cards
@@ -56,6 +60,7 @@ cat > "$ISS" <<'JSON'
  {"number":6,"title":"[v65 뭔가] r6","labels":[{"name":"approved"}]},
  {"number":8,"title":"팀 근거 없음 r8","labels":[{"name":"approved"}]},
  {"number":9,"title":"teams 꼴 카드 r9","labels":[{"name":"approved"},{"name":"team:harness-ops"}]},
+ {"number":10,"title":"완성+진행 카드 r10","labels":[{"name":"approved"},{"name":"team:harness-ops"}]},
  {"number":12,"title":"r12 경계","labels":[{"name":"approved"}]},
  {"number":101,"title":"r101","labels":[{"name":"approved"}]},
  {"number":102,"title":"r102","labels":[{"name":"approved"}]},
@@ -66,7 +71,7 @@ cat > "$ISS" <<'JSON'
 JSON
 
 run() { "$TOOL" "$@"; }
-EXPECT="ISSUE-CARD approved=13 카드없음=7 #103 #102 #101 #12 #8 +2 언급만=1 닫기후보=1"
+EXPECT="ISSUE-CARD approved=14 카드없음=7 #103 #102 #101 #12 #8 +2 언급만=1 닫기후보=1"
 
 echo "== 왜: PLAN §2-1·§2-2 / §3 R1~R9 =="
 OUT="$(run --tick --from-json "$ISS" --repo "$REPO" 2>&1)"; RC=$?
@@ -84,6 +89,7 @@ has "#6 · [v65 뭔가] r6 · 없음 · — · v65 (제목 머리 [v65])" "$TABL
 has "#8 · 팀 근거 없음 r8 · 없음 · — · planner (없음 — planner 분류)" "$TABLE" "R8 둘 다 없음 → planner"
 has "#5 · r5 · 연결 · 대기 · harness (라벨 team:harness)" "$TABLE" "R5 ops/main-base 카드도 연결"
 has "#9 · teams 꼴 카드 r9 · 연결 · 대기 · harness (라벨 team:harness-ops)" "$TABLE" "teams/<팀>/indices 꼴도 카드"
+has "#10 · 완성+진행 카드 r10 · 연결 · " "$TABLE" "R7 뒷부분 — 완성+진행 2장 연결"
 
 MAIL="$(run --mail harness --from-json "$ISS" --repo "$REPO" 2>&1)"
 has "[카드 등록 요청 · approved 1건] 골좌표:" "$MAIL" "§2-3 쪽지 머리"
@@ -98,7 +104,7 @@ chk "§2-3 v65 몫" "1" "$(run --mail v65 --from-json "$ISS" --repo "$REPO" | gr
 
 # R5 변이 대조 — ref 하나를 끄면 #5 가 «없음» 으로 떨어진다
 chk "R5 대조 — ref-harness 끄면 카드없음 8" \
-  "ISSUE-CARD approved=13 카드없음=8 #103 #102 #101 #12 #8 +3 언급만=1 닫기후보=1" \
+  "ISSUE-CARD approved=14 카드없음=8 #103 #102 #101 #12 #8 +3 언급만=1 닫기후보=1" \
   "$(run --tick --from-json "$ISS" --repo "$REPO" --ref-harness origin/main 2>&1)"
 
 # R6 gh 실패 → 판정 불가 rc5 · 부분 결과 0
@@ -145,7 +151,7 @@ PY
   else echo "  OK   변이 $name — 잡힘 (rc=$rc · ${out:0:60})"; fi
 }
 
-echo "== 변이 4 =="
+echo "== 변이 5 =="
 # M1 번호 경계 끔: #123 이 #12 에도 걸린다 → R4(#12 = 없음) 무너져 카드없음/언급만이 달라진다
 mutate num-boundary \
   '    return {int(n) for n in REF_RE.findall(text or "")}' \
@@ -156,6 +162,11 @@ mutate ref-off \
   'ap.add_argument("--ref-harness", default="origin/ops/main-base")' \
   'ap.add_argument("--ref-harness", default="origin/main")' \
   "카드없음=7"
+# M5 닫기후보 조건 all( → any( → R7 뒷부분(한 장이라도 진행이면 후보 아님)이 무너진다
+mutate close-any \
+  'bool(conn) and all(c["bucket"] in FINISHED for c in conn)' \
+  'bool(conn) and any(c["bucket"] in FINISHED for c in conn)' \
+  ""
 # M4 카드 경로 정규식을 옛 «한 단계» 꼴로 되돌림 → teams/<팀>/indices 카드가 사라져 R5·teams 칸이 무너진다
 mutate teams-path \
   'CARD_PATH_RE = re.compile(r"^design/(?:teams/)?[^/]+/indices/(?P<bucket>[^/.][^/]*)/.+\.md$")' \
@@ -169,5 +180,5 @@ mutate git-empty \
 
 echo "== 요약 =="
 echo "  elapsed=$(($(date +%s) - START))s"
-if [ "$fail" -eq 0 ]; then echo "PASS issue-card-audit R1~R9 + 변이 4"; exit 0; fi
+if [ "$fail" -eq 0 ]; then echo "PASS issue-card-audit R1~R9 + 변이 5"; exit 0; fi
 echo "FAIL issue-card-audit — 위 FAIL 줄"; exit 1
