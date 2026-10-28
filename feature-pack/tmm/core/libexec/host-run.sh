@@ -160,5 +160,18 @@ h_pipe() {
   return $rc
 }
 
+# h_pipe_write <host> <스크립트파일> [args...] — 같은 실행인데 «쓰기»(재시도 0 · r1075).
+#   원격 send 처럼 두 번 돌면 두 번 송신되는 일에 h_pipe(읽기·재시도 1)를 쓰면 안 된다.
+#   기다림이 긴 호출은 호출자가 H_CALL_TIMEOUT·H_RUN_CAP 을 export 해 상한을 늘린다(하드 룰 12 — 쪼갤 수 없는 기다림 하나).
+h_pipe_write() {
+  local host="$1" f="$2"; shift 2
+  [ -f "$f" ] || { printf 'host-lib: 스크립트 없음 %s\n' "$f" >&2; return $H_RC_UNKNOWN; }
+  local rc
+  _h_timeout "$H_RUN_CAP" bash -c 'source "$0" >/dev/null 2>&1; _h_run_impl "$@"' "$H_SELF" "$host" --write "$f" "$@"
+  rc=$?
+  case "$rc" in 124|137) return $H_RC_CAP ;; esac
+  return $rc
+}
+
 # h_tmux <host> <--idempotent|--write> <tmux args...>
 h_tmux() { local host="$1" mode="$2"; shift 2; h_run "$host" "$mode" tmux "$@"; }

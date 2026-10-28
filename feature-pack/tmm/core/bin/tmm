@@ -116,22 +116,32 @@ ft_tool_path() {  # <환경변수 값> <이름>
   done
   return 1
 }
-# 원격 send-keys 묶음(게이트 → 본문 → Enter)을 락 안에서 «한 ssh(쓰기)» 로. rc 그대로.
+# 원격 송신 = 로컬 agent_inject 와 «같은 절차» 를 원격에서(r1075 · arch 재판단 r2).
+#   ① 입력 상자 기다림(상한 TMUXC_READY_MAX 기본 30) ② 입력줄 = 전문일 때만 Enter ③ 그 좌석 --session-id 기록으로 제출 판정
+#   ④ 절반 시점 재전송 1회 — 판독 함수는 tmuxc core/libexec/agent-inject.sh «한 벌» 을 h_pipe_write 로 원격에 흘려 실행(복사본 0).
+#   rc = 0 제출 확인 · 3 에이전트 없음 · 4 마감까지 기록 없음 · 5 판정 불가 · 6 기록 id 없음(판정은 ft-reach-check) · 97 도구 없음
+agent_inject_lib() {  # claude 주입 «한 벌» 경로 — tmm 은 쓰기만 한다(실행은 원격)
+  local c
+  for c in "${TMM_AGENT_INJECT_LIB:-}" "$HERE/../../../tmuxc/core/libexec/agent-inject.sh" \
+           "$HOME/.tmuxc/current/core/libexec/agent-inject.sh" \
+           "$HOME/.claude/skills/tmuxc/core/libexec/agent-inject.sh"; do
+    [ -n "$c" ] && [ -f "$c" ] && { printf '%s' "$c"; return 0; }
+  done
+  return 1
+}
 remote_send_locked() {  # <host> <sess> <text>
-  local host="$1" sess="$2" text="$3" lock d
+  local host="$1" sess="$2" text="$3" lock d lib rmax swait cap runcap
+  lib="$(agent_inject_lib)" || { printf 'tmm: agent-inject.sh 없음 — 판정 불가\n' >&2; return 97; }
   lock="$(send_lock_path "$host" "$sess")"
   d="$(dirname "$lock")"
   mkdir -p "$d" 2>/dev/null && chmod 700 "$d" 2>/dev/null
-  _h_with_lock "$lock" h_run "$host" --write bash -c '
-sess=$1; text=$2
-cmd=$(tmux display -p -t "=$sess:" "#{pane_current_command}" 2>/dev/null) || cmd=""
-case "$cmd" in
-  zsh|bash|sh|fish|-zsh|-bash|"") echo "❌ $sess 에 에이전트가 실행 중이 아님 — 셸 오타이핑 방지로 차단" >&2; exit 3 ;;
-esac
-tmux send-keys -t "=$sess:" -l "$text" || exit 3
-sleep 0.3
-tmux send-keys -t "=$sess:" Enter
-' _ "$sess" "$text"
+  rmax="${TMUXC_READY_MAX:-30}"; case "$rmax" in ''|*[!0-9]*) rmax=30 ;; esac
+  swait="${TMUXC_SUBMIT_WAIT:-7}"; case "$swait" in ''|*[!0-9]*) swait=7 ;; esac
+  # 하드 룰 12: 쪼갤 수 없는 기다림 «하나» = min(고정비 + 7×배수, 70). 여기 = 상자 기다림 + 제출 마감 + 왕복.
+  cap=$(( rmax + swait + 7 )); [ "$cap" -gt 70 ] && cap=70
+  runcap=$(( cap + 5 )); [ "$runcap" -gt 70 ] && runcap=70
+  ( export H_CALL_TIMEOUT="$cap" H_RUN_CAP="$runcap"
+    _h_with_lock "$lock" h_pipe_write "$host" "$lib" "$sess" "$text" - "$rmax" "$swait" )
 }
 # 원격 도달 판정 = 그 호스트에서 돈 ft-reach-check.sh (계약 보강 5 · capture-pane 판정 금지).
 # ★baseline 을 «보내기 전»에 잡는다★ — ft-reach-check 의 기본 baseline 은 «호출 시점» 이라, jsonl 이 빨리 쓰이면
@@ -1606,12 +1616,17 @@ cmd_send() {
 # 원격 좌석 송신 — 게이트+send-keys+Enter 를 한 ssh · 발신 락 <host>/<session> · 도달은 원격 ft-reach-check
 cmd_send_remote() {  # <host> <sess> <text>
   local host="$1" sess="$2" text="$3" rc=0 base="" baserc=0
+  # baseline 은 «보내기 전» 에 잡는다 — rc6(기록 id 없음)일 때만 쓰지만, 보낸 뒤에는 잡을 수 없다.
   base="$(remote_reach_baseline "$host" "$sess" "$text" 2>/dev/null)" || baserc=$?
   remote_send_locked "$host" "$sess" "$text" || rc=$?
-  if [ "$rc" -ne 0 ]; then
-    echo "tmm: $host/$sess 송신 실패 rc=$rc" >&2
-    return "$rc"
-  fi
+  case "$rc" in
+    0) echo "delivered=$host/$sess"; return 0 ;;
+    # 4·5 = 주입 절차가 직접 낸 판정(기록 마감·판독 불가). ft-reach-check 로 다시 묻지 않는다.
+    4) echo "sent=$host/$sess verification=not-reached"; return 4 ;;
+    5) echo "sent=$host/$sess verification=unverifiable"; return 5 ;;
+    6) ;;   # 기록 id 없음 = 종전 그대로 ft-reach-check 판정
+    *) echo "tmm: $host/$sess 송신 실패 rc=$rc" >&2; return "$rc" ;;
+  esac
   # ★baseline 실패를 «빈 값» 으로 삼키지 않는다★(r1047 r3 · 하드 룰 #0) — 빈 값이면 ft-reach-check 가
   #  판정 «직전» 에 자기 baseline 을 잡아 1 > 1 이 거짓이 되고, 도착한 메시지가 NOT_REACHED 로 뒤집힌다.
   #  송신은 그대로 하고 최종 판정만 «판정 불가 rc5» 로 낸다(REACHED·NOT_REACHED 둘 다 아님).
