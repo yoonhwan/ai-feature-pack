@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """ft-inbox.py — 메인팀 인박스(좌석 없는 스크립트 큐). 판정 425-B·430 · 설계 DESIGN-news-tree-workqueue-viz-20261009 §6-3·§8.
 
-명령: ingest <seq> | show <좌석> [--compact] | mark <seq|group> 처리|위임|보류 "<1줄>" [--seat <좌석>] | report <seq|group…> [--seat <좌석>] | close <seq|group…> "<사유>" [--seat <좌석>] | waive <좌석> --before <ISO ts> "<판정 N 사유>" | archive <좌석>
+명령: ingest <seq> | show <좌석> [--compact|--seqs] | mark <seq|group> 처리|위임|보류 "<1줄>" [--seat <좌석>] | report <seq|group…> [--seat <좌석>] | close <seq|group…> "<사유>" [--seat <좌석>] | waive <좌석> --before <ISO ts> "<판정 N 사유>" | archive <좌석>
 경로: FT_ROOT/.fable-team/comm/{mailbox.jsonl,mailbox.log.jsonl,bodies/}(읽기) · FT_ROOT/.fable-team/state/inbox/<계보>.jsonl(큐) · Haiku: FT_INBOX_HAIKU(기본 `claude -p --model claude-haiku-5-5`) 일회 호출 — 분류 미상·show --compact 때만(상주·자발 압축·삭제 0) · 실패는 전부 stderr + exit≠0 (조용한 강등 0).
+show --seqs = 기계용(r1052) — 큐 파일 끝 창(ft_inbox_window.SEQ_N)만 읽고 본문 파일을 열지 않는다 · 창 위가 잘린 첫 묶음은 «보류(범위 밖)» 로 보수 보고.
 """
 import glob
 import json
@@ -15,6 +16,7 @@ from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ft_inbox_core import COMM, HOOK_ERRORS, INBOX, PRIO, answered_seqs, die, find_mail, find_seq, group_closed, haiku, haiku_class, hits, lineage, locked, mail_files, norm_key, obligation_closed, qpath, read_q, rule_class, take_seat, write_q  # noqa: E402
+from ft_inbox_window import tail_rows, view_seqs  # noqa: E402
 
 
 def cmd_ingest(seq, mail=None):
@@ -32,12 +34,10 @@ def cmd_ingest(seq, mail=None):
             print(f"SKIP seq={seq} 이미 적재")
             return
         cls = rule_class(mail["body"])  # 규칙표만 — 즉시 적재(Haiku 대기 0)
-        rows.append({"seq": mail["seq"], "ts": mail["ts"], "from": mail["from"], "cls": cls, "prio": PRIO[cls], "group": norm_key(mail["from"], mail["body"]), "body_path": bp,
-                     "mark": None, "reported": False, "via": "unknown" if cls == "미상" else "rule"})  # 분류 출처 — 셈 전용(표시·mark·report 무관)
+        rows.append({"seq": mail["seq"], "ts": mail["ts"], "from": mail["from"], "cls": cls, "prio": PRIO[cls], "group": norm_key(mail["from"], mail["body"]), "body_path": bp, "mark": None, "reported": False, "via": "unknown" if cls == "미상" else "rule"})  # 분류 출처 — 셈 전용(표시·mark·report 무관)
         write_q(q, rows)
     if cls == "미상":  # 분리 백그라운드(부모 대기 0) — 라벨은 나중에 같은 잠금 안에서 갱신
-        subprocess.Popen([sys.executable, os.path.abspath(__file__), "classify", str(seq), mail["to"]], stdin=subprocess.DEVNULL,
-                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True, close_fds=True)
+        subprocess.Popen([sys.executable, os.path.abspath(__file__), "classify", str(seq), mail["to"]], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True, close_fds=True)
     print(f"INGEST seq={seq} queue={lineage(mail['to'])} cls={cls} group={rows[-1]['group']}")
 
 
@@ -72,8 +72,8 @@ def view(rows):
     return out
 
 
-def cmd_show(seat, compact):
-    lines = view(read_q(qpath(seat)))
+def cmd_show(seat, compact, seqs=False):
+    lines = view_seqs(*tail_rows(qpath(seat))) if seqs else view(read_q(qpath(seat)))
     if not compact or not lines:  # r593: 두 빈 분기 합침(동작 동일) — 파일 200줄 한도
         print("\n".join(lines) if lines else "EMPTY")
         return
@@ -178,7 +178,7 @@ def main(a):
         if c == "classify" and len(a) == 3:  # 내부용 — ingest 가 미상 줄에만 분리 실행
             return cmd_classify(a[1], a[2])
         if c == "show" and len(a) in (2, 3):
-            return cmd_show(a[1], a[2:] == ["--compact"])
+            return cmd_show(a[1], a[2:] == ["--compact"], a[2:] == ["--seqs"])
         if c in ("mark", "report", "close"):
             seat, r = take_seat(a[1:])
             if c == "mark" and len(r) == 3:
@@ -193,7 +193,7 @@ def main(a):
             return cmd_archive(a[1])
     except (ValueError, TypeError, OSError, json.JSONDecodeError) as e:
         die(f"{c}: {e}", 2 if c == "waive" else 1)
-    die("usage: ft-inbox.sh ingest <seq> | show <좌석> [--compact] | mark <seq|group> 처리|위임|보류 \"<1줄>\" [--seat <좌석>] | report <seq|group…> [--seat <좌석>] | close <seq|group…> \"<사유>\" [--seat <좌석>] | waive <좌석> --before <ISO ts> \"<판정 N 사유>\" | archive <좌석>", 2)
+    die("usage: ft-inbox.sh ingest <seq> | show <좌석> [--compact|--seqs] | mark <seq|group> 처리|위임|보류 \"<1줄>\" [--seat <좌석>] | report <seq|group…> [--seat <좌석>] | close <seq|group…> \"<사유>\" [--seat <좌석>] | waive <좌석> --before <ISO ts> \"<판정 N 사유>\" | archive <좌석>", 2)
 
 
 if __name__ == "__main__":

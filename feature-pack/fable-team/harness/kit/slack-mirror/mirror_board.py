@@ -1,10 +1,9 @@
 """mirror_board — 질문 보드 글(UTF-8 바이트 상한 · 가장 오래된 5건 + `… 외 n건`)과 닫는 사건(planner 인박스 `미닫힘=`).
 
 정본 설계: design/harness/DESIGN-r49-question-board-20261008.md §2-r2 — A-r2(바이트 예산 = 실제 게시 문자열 전체) · B-r2(show 파싱 · fail-closed).
-닫힘 판단은 `ft-inbox.sh show` 출력만 쓴다(정본 술어 obligation_closed 재구현 0). 큐 파일은 «있는가» 만 읽는다.
+닫힘 판단은 `ft-inbox.sh show --seqs` 출력만 쓴다(정본 술어 obligation_closed 재구현 0). 큐 파일은 «끝 1MB 창» 만 글자로 훑는다(r1052 · 파일 전체 json 해석 0 · 창 밖 seq 는 닫지 않는다 = 보류).
 실패는 «닫기 0 + stderr ERROR + 보드 첫 줄 경고» — 보드 갱신·다른 카드 발행은 계속한다(조용한 대체 0).
 """
-import json
 import os
 import re
 import subprocess
@@ -22,6 +21,8 @@ MAX_LINES = 5
 ELLIPSIS = "…"
 SHOW_LINE = re.compile(r"^\[[^\]]+\] \S+ seq=[0-9,]+ 미닫힘=(\d+(?:,\d+)*)? from=")
 TIMEOUT = 30
+TAIL_BYTES = 1 << 20  # r1052 — 큐 파일 끝 1MB 창(ft_inbox_window.SEQ_B 와 같은 범위 · 오빠 15:4x «최근 유효한 라인만»)
+SEQ_ID = re.compile(rb'"seq":\s*(\d+)')
 _INGEST_FAILED: set[int] = set()  # 이 프로세스에서 적재가 실패한 seq — 다시 부르지 않는다(경고 `인박스 밖 n건` 은 매 패스 보드에 남는다 · 재기동 뒤 1회 재시도)
 
 
@@ -75,8 +76,19 @@ def _run(argv: list[str], root: Path) -> subprocess.CompletedProcess:
     return subprocess.run(argv, capture_output=True, text=True, timeout=TIMEOUT, env={**os.environ, "FT_ROOT": str(root)})
 
 
-def _queue_seqs(path: Path) -> set[int]:
-    return {int(json.loads(x)["seq"]) for x in path.read_text(encoding="utf-8").splitlines() if x.strip()} if path.exists() else set()
+def _queue_seqs(path: Path, want: set[int] | None = None) -> set[int]:
+    """큐 파일 끝 TAIL_BYTES 창의 `"seq": N` 만 글자로 뽑는다(json 해석 0 · r1052). 줄 수 ≠ seq 수 = 깨진 큐 → ValueError(닫기 0)."""
+    if not path.exists():
+        return set()
+    with open(path, "rb") as f:
+        size = f.seek(0, os.SEEK_END)
+        f.seek(max(0, size - TAIL_BYTES))
+        rows = [x for x in f.read().split(b"\n")[:-1] if x.strip()]  # 안 끝난 끝 줄은 버린다
+    lines = rows[1:] if size > TAIL_BYTES else rows  # 앞 조각 = 바이트 경계에서 잘린 줄
+    if len(ids := SEQ_ID.findall(b"\n".join(lines))) != len(lines):
+        raise ValueError(f"깨진 큐 줄: {path.name} {len(lines)}줄 · seq {len(ids)}개")
+    found = {int(x) for x in ids}
+    return found & want if want else found
 
 
 def parse_show(out: str) -> set[int]:
@@ -123,14 +135,16 @@ def close_from_inbox(qpath: Path, inbox_bin: str, planner_name: str | None, root
     inbox = Path(root) / ".fable-team" / "state" / "inbox"
     mine = inbox / f"{planner_name.split('#')[0]}.jsonl"  # 계보 = 이름의 #앞 (ft_inbox_core.lineage 와 같은 이름 규칙)
     try:
-        anywhere = set().union(*(_queue_seqs(p) for p in inbox.glob("*.jsonl"))) if inbox.is_dir() else set()
-        _ingest_missing(inbox_bin, root, [s for s in open_ if s not in anywhere])
+        miss = set(open_)  # 어느 큐 창에도 없는 쪽지 = 적재 대상(r1052 — 큐 6,960파일 전체 json 해석 0)
+        for p in (inbox.glob("*.jsonl") if inbox.is_dir() else ()):
+            miss -= _queue_seqs(p, miss)
+        _ingest_missing(inbox_bin, root, sorted(miss))
         have = _queue_seqs(mine)
     except (ValueError, KeyError, TypeError, OSError) as e:
         return _fail("큐 파일 오류", type(e).__name__)
     notes = [f"인박스 밖 {n}건"] if (n := len([s for s in open_ if s not in have])) else []
     try:
-        r = _run([inbox_bin, "show", planner_name], root)
+        r = _run([inbox_bin, "show", planner_name, "--seqs"], root)
         if r.returncode:
             return " — ".join([*notes, _fail(f"show rc={r.returncode}", r.stderr.strip()[:80])])
         unclosed = parse_show(r.stdout)
