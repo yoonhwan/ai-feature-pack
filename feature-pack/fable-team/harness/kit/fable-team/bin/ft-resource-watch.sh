@@ -4,10 +4,10 @@
 #   tick (기본, launchd 호출): - ft-resource-sample.sh 로 압력 표본 1줄(pressure.tsv · R213) 뒤 gate status 로 disk/swap/memfree 측정(측정 실패 rc4 → 로그 ERROR·동결 손대지 않음).
 #     - 동결 트리거(disk<25GiB | memfree<10% | (swap>12288MiB & level>=2 & memfree<FT_SWAP_MEMFREE_MAX(30)) — R357: swap 절대량 단독 동결 폐기 · r672: 빈 메모리 AND 결함(문지기와 «같은 함수» ft-resource-swap-lib.sh — 한 값이 두 곳을 움직인다)) + 동결파일 없으면: 즉시 스냅샷 → RESOURCE_FREEZE 생성(사유·시각·증가1위 1줄) + osascript 알림 + 로그 1줄.
 #     - 회복(R320 · disk>=35 & memfree>=20 & level=1 & swap 비증가, 압력 표본 «최근 3개 연속» — swap 절대량은 조건 아님: macOS swap 은 줄지 않는다 · R320c: 추가로 문지기와 같은 rate(gate status 의 마지막 6표본 MiB/분) ≤ 허용치 512 · na 면 유지) + 동결파일 있으면: RESOURCE_FREEZE 제거(우리 마커 · 사용자 데이터 아님) + 로그 1줄.
-#     - (r522) 표본 뒤 CPU 폭주 감지 1회(ft-resource-cause.sh cpu · 상한 FT_RES_CPU_CAP_SEC 7초): 주인 줄 → state/runaway-cpu.log 1줄 · 서명(명령·주인·개수)이 바뀌면 planner 명부(FT_SEATS_JSON) _master 에 [CPU 폭주] 쪽지 1통(FT_MBOX_SH) · 프로세스 끄기 0.
+#     - (r522) 표본 뒤 CPU 폭주 감지 1회(ft-resource-cause.sh cpu · 상한 FT_RES_CPU_CAP_SEC 7초): 주인 줄 → state/runaway-cpu.log 1줄 · 서명(명령·주인·개수)이 바뀌면 planner 명부(FT_SEATS_JSON) _master 에 [CPU 폭주] 쪽지 1통(FT_MBOX_SH) · 프로세스 끄기 0. (r1041) 같은 자리에서 proc_watch 1회(ft-resource-proc-lib.sh): 사용자 프로세스 수 ≥ FT_RES_PROC_MAX(4000) 면 [프로세스 폭주] 쪽지 1통 · 같은 명령줄 ≥ FT_RES_PROC_DUP(200) 개면 그 명령줄 프로세스만 SIGSTOP(다른 프로세스 0 · kill 0 · 정리 kill 은 HIL).
 #     - 10분마다(틱 10번째 ≈ 590초 경과) 원인 스냅샷: disk-attrib.tsv · mem-attrib.tsv 에 누적. 3일 넘은 줄은 같은 실행에서 잘라낸다(회전).  scan: 직전/1시간 대비 증가 상위 5(항목·+GiB·MB/min) + 디스크 여유·바닥까지 N분 + 메모리 상위 5·claude 수.
 #   R323: 스냅샷의 du 는 전부 nice 19 · 호출당 상한 FT_RES_DU_CAP_SEC(7초 · 넘으면 죽이고 TIMEOUT) · 스냅샷 전체에 잠금 1개(du-scan.lock.d · 살아 있는 스캔이 있으면 이번 스냅샷 건너뜀) — 39분짜리 du 가 틱을 붙잡던 사고(2026-10-17).
-#   r534: 워크트리·claude.projects·caches·pytest 는 통째 du 대신 1단계 폴더별 «증분»(틱당 FT_RES_WT_PER_TICK(25)개 · 폴더별 캐시 du-cache.tsv · 합 = 캐시 합 + «<칸>.known 앎/전체») · 스냅샷 측정 예산 FT_RES_SNAP_BUDGET_SEC(55) · 상한 넘긴 폴더는 1단계 하위로 나눔(깊이 FT_RES_SPLIT_DEPTH(3)).  env(시험용): FT_SWAP_LEVEL_MIN(2 · R357) · FT_SWAP_MEMFREE_MAX(30 · r672 — 문지기와 같은 env 하나 · 전용 변수 없음(DA⑥ r1 H2)) · FT_RES_ROOT · FT_WORKTREES · FT_RES_DISK_MIN(25) · FT_RES_SWAP_MAX(12288) · FT_RES_MEM_MIN(10) · FT_RES_SNAP_SEC(590) · FT_RES_DU_CAP_SEC · FT_RES_WT_PER_TICK · FT_RES_SNAP_BUDGET_SEC · FT_RES_SPLIT_DEPTH · FT_RECLAIM_PREVENT_SEC(600) · FT_RECLAIM_SH · FT_PREVENTIVE_SH
+#   r534: 워크트리·claude.projects·caches·pytest 는 통째 du 대신 1단계 폴더별 «증분»(틱당 FT_RES_WT_PER_TICK(25)개 · 폴더별 캐시 du-cache.tsv · 합 = 캐시 합 + «<칸>.known 앎/전체») · 스냅샷 측정 예산 FT_RES_SNAP_BUDGET_SEC(55) · 상한 넘긴 폴더는 1단계 하위로 나눔(깊이 FT_RES_SPLIT_DEPTH(3)).  env(시험용): FT_SWAP_LEVEL_MIN(2 · R357) · FT_SWAP_MEMFREE_MAX(30 · r672 — 문지기와 같은 env 하나 · 전용 변수 없음(DA⑥ r1 H2)) · FT_RES_ROOT · FT_WORKTREES · FT_RES_DISK_MIN(25) · FT_RES_SWAP_MAX(12288) · FT_RES_MEM_MIN(10) · FT_RES_SNAP_SEC(590) · FT_RES_DU_CAP_SEC · FT_RES_WT_PER_TICK · FT_RES_SNAP_BUDGET_SEC · FT_RES_SPLIT_DEPTH · FT_RECLAIM_PREVENT_SEC(600) · FT_RECLAIM_SH · FT_PREVENTIVE_SH · FT_RES_PROC_MAX(4000) · FT_RES_PROC_DUP(200) · FT_RES_PROC_PS · FT_RES_PROC_USER · FT_RES_KILL_CMD · FT_RES_PROC_QUIET_SEC(600 · r1041)
 set -uo pipefail
 PATH="$PATH:${FT_RECLAIM_EXTRA_PATH:-/opt/homebrew/bin:/usr/local/bin}"; export PATH   # r502: launchd 기본 PATH 에 홈브루 경로를 덧붙인다 — 표본·문지기·선제 회수 하위 호출 전부 같은 tmux·도구를 본다(plist 손 생성물 수정 0)
 
@@ -58,7 +58,7 @@ run_capped() {
   wait "$pid"; rc=$?; cat "$out"; rm -f "$out"; return $rc
 }
 . "$HERE/ft-resource-du-lib.sh" || exit 3   # r534 du 함수(du_line · du_lock · 증분 inc_group 등) — 감시자 줄 수 상한(≤245) 때문에 따로 둔다
-. "$HERE/ft-resource-selflink-lib.sh" || exit 3   # r589 루트 clients/web/node_modules 자기 링크 감시(지우기 0 · 쪽지 1통) — 같은 이유로 lib
+. "$HERE/ft-resource-selflink-lib.sh" || exit 3; . "$HERE/ft-resource-proc-lib.sh" || exit 3   # r589 자기 링크 감시(지우기 0 · 쪽지 1통) · r1041 프로세스 수 경보 proc_watch — 감시자 줄 수 상한(≤245) 때문에 둘 다 lib
 
 snapshot_disk() { # now
   local now="$1" raw rc freek cnt rec logk end g kn pf dr
@@ -196,7 +196,7 @@ tick() {
   FT_RES_ROOT="$RES_ROOT" bash "${FT_PREVENTIVE_SH:-$HERE/ft-resource-preventive.sh}" >/dev/null 2>&1 || logline "ERROR ft-resource-preventive rc=$? (tick 은 계속)"   # R332 선제 회수 · 조기 종료(측정 오류·동결 생성)보다 앞 · 실패가 tick 을 바꾸지 않음
   bash "$HERE/ft-resource-sample.sh" >/dev/null 2>>"$LOG" || logline "ERROR sample rc=$? (표본 끊김 — 문지기 stale 로 이어짐)"
   [ -z "$SLM_WARN" ] || { logline "$SLM_WARN"; echo "$SLM_WARN" >&2; }   # R357: 설정이 바뀐 사실을 숨기지 않는다(조용한 후퇴 금지)
-  cpu_watch   # r522: 표본 뒤 · 문지기·동결 분기보다 앞(측정 오류·동결 생성으로 tick 이 일찍 끝나도 CPU 축은 본다)
+  cpu_watch; proc_watch   # r522/r1041: 표본 뒤 · 문지기·동결 분기보다 앞(측정 오류·동결 생성으로 tick 이 일찍 끝나도 이 두 축은 본다 · fork 폭주 때는 쪽지 도구도 못 뜨므로 막는 곳은 여기다)
   selflink_watch   # r589: 동결 분기보다 앞(이른 return 에도 돈다) · test -L 1회 · 삭제 0 · 쪽지 1통
   gout="$(bash "$GATE" status 2>&1)"; rc=$?
   printf '%s\n' "$gout" | grep '^WARN ' | grep -v FT_SWAP_LEVEL_MIN | while IFS= read -r _w; do logline "gate $_w"; done   # R357: 문지기 WARN 은 rc0 이어도 버리지 않고 로그로(SWAP_LEVEL_MIN WARN 은 위 줄과 중복이라 제외)
