@@ -101,10 +101,10 @@ mkdir -p "$T/SPW/design/teams/lecture/evidence/n" && echo n > "$T/SPW/design/tea
   && ok "ⓖ 자기 팀 새 증거 파일 git add 가능" || bad "ⓖ 자기 팀 새 증거 add 막힘"
 grep -q 'sparse-checkout set --no-cone --stdin' "$B/ft-nano-spawn.sh" && grep -q 'worktree add --no-checkout' "$B/ft-nano-spawn.sh" && ok "ⓖ spawn 배선(--no-checkout → sparse set → checkout)" || bad "ⓖ spawn 배선 없음"
 
-# ⓗ spawn 여유 검사 블록 — 38Gi(<40) → REJECT [HIL] · spawn 0 / 측정 실패 → REJECT / 50Gi 통과
-BLK="$(awk '/^# r444 ⑤ 디스크 여유 검사/{f=1} f{print} f&&/^fi$/{exit}' "$B/ft-nano-spawn.sh")"
+# ⓗ spawn 여유 검사 블록 — 38Gi(<40) → WARN 1줄 + 진행(r1078: REJECT 아님) / 측정 실패 → REJECT / 50Gi 통과
+BLK="$(awk '/^# r1078: r444 ⑤ 디스크 여유 검사/{f=1} f{print} f&&/^fi$/{exit}' "$B/ft-nano-spawn.sh")"
 run_blk() { OUT="$( WTDIR="$T/none" ROOT="$R" FT_DISK_FREE_GIB="$1" bash -c "$BLK"$'\n''echo PASSED' 2>&1)"; RC=$?; }
-run_blk 38; { [ "$RC" = 1 ] && printf '%s' "$OUT" | grep -q 'REJECT \[HIL\] 디스크 여유 38Gi < 40Gi' && ! printf '%s' "$OUT" | grep -q PASSED; } && ok "ⓗ 여유 38Gi → spawn 0 + REJECT [HIL] 1줄" || bad "ⓗ 38 rc=$RC [$OUT]"
+run_blk 38; { [ "$RC" = 0 ] && printf '%s' "$OUT" | grep -q 'WARN 디스크 여유 38Gi < 40Gi' && printf '%s' "$OUT" | grep -q PASSED && ! printf '%s' "$OUT" | grep -q REJECT; } && ok "ⓗ 여유 38Gi → WARN 1줄 + 진행(PASSED)" || bad "ⓗ 38 rc=$RC [$OUT]"
 run_blk fail; [ "$RC" = 1 ] && printf '%s' "$OUT" | grep -q '측정 실패' && ok "ⓗ 측정 실패 → REJECT(여유 미상 ≠ 충분)" || bad "ⓗ fail rc=$RC [$OUT]"
 run_blk 50; printf '%s' "$OUT" | grep -q PASSED && ok "ⓗ 여유 50Gi → 통과" || bad "ⓗ 50 [$OUT]"
 
