@@ -120,6 +120,27 @@ section_c() {
 }
 section_c
 
+section_r1040() {   # r1040 · R6-a(arch #177970) · R7 — «정상 순서»(착지 → 완성 이동 → 나노 닫기): 완성 카드는 origin/main 에만 있고 디스크 사본이 없다
+  echo "== r1040 ⓡ6-a origin/main 완성 카드(증거 줄 있음) · 디스크 사본 어느 단계에도 없음 → 통과 (ops 실입력 꼴)"
+  gitc checkout -q -B r1040b "$SHA_B"; printf '%s\n' "$EVL" >> "$REPO/$DONE"; gitc add design; gitc commit -q -m "B2: 완성 카드 + 증거 줄"
+  B2="$(git -C "$REPO" rev-parse HEAD)"; gitc push -q origin r1040b:main; gitc checkout -q main
+  setup "$PRG"; rm -f "$REPO/$PRG" "$LW/$DONE"
+  { [ ! -e "$REPO/$PRG" ] && [ ! -e "$LW/$DONE" ]; } && ok "  준비: 디스크 사본 0(진행·완성 모두)" || bad "r1040 준비 실패"
+  out="$(close)"; rc=$?
+  has "$out" "INFO 카드 단계 origin/main=완성 · 디스크 사본 없음 → ref 완성 카드로 ⑥ 검사" "ⓡ6-a 완성 카드 판독 INFO 1줄"
+  has "$out" "INFO 카드 위치 ← origin/main:$DONE" "  └ 카드 읽기 = origin/main 완성 판"
+  [ "$rc" -eq 0 ] && has "$out" "CLOSED" "  └ 닫기 rc0(통과)" || bad "ⓡ6-a rc=$rc ← ${out:0:700}"
+  echo "== r1040 ⓡ7 origin/main=진행 · 디스크 사본 없음 → 지금처럼 REJECT(후퇴 0)"
+  git -C "$ORIGIN" update-ref refs/heads/main "$SHA_A"; gitc update-ref refs/remotes/origin/main "$SHA_A"
+  setup "$PRG"; rm -f "$REPO/$PRG" "$LW/$DONE"
+  out="$(close)"; rc=$?
+  [ "$rc" -eq 1 ] && has "$out" "카드 단계 origin/main=진행 · 디스크 사본 없음" "ⓡ7 진행 단계 + 사본 없음 → REJECT" || bad "ⓡ7 rc=$rc ← ${out:0:700}"
+  hasnt "$out" "CLOSED" "  └ 닫힘 0"
+  untouched "ⓡ7"
+  git -C "$ORIGIN" update-ref refs/heads/main "$B2"; gitc update-ref refs/remotes/origin/main "$B2"
+}
+section_r1040
+
 section_d() {
   echo "== ⓓ ref 못 읽음(FT_CARD_REF=없는 ref) → ERROR 1줄 + REJECT"
   setup "$PRG"; out="$(CREF=nope/main close)"; rc=$?
@@ -343,6 +364,9 @@ mutate_lib "# r842-mut:teams" '  git -C "$r" cat-file -e "$ref:design/TEAMS.md" 
 sub="$(section_d3)"
 case "$sub" in *FAIL*) ok "ⓖ «명부 없음 = ABSENT» → ⓓ3 FAIL";; *) bad "ⓖ 명부 없음에 ABSENT 를 내도 ⓓ3 통과";; esac
 restore_lib
+mutate "# r1040-mut:donecard" '    if false; then'   # r1040 변이 — 완성 카드 분기 제거
+CLOSE_BIN="$T/bin/ft-nano-close.mut.sh"; sub="$(section_r1040)"; CLOSE_BIN="$T/bin/ft-nano-close.sh"
+case "$sub" in *FAIL*) ok "ⓖ «완성 단계 + 디스크 사본 없음 = 통과» 분기 제거 → ⓡ6-a FAIL(r1040)";; *) bad "ⓖ 완성 카드 분기를 없애도 ⓡ6-a 통과";; esac
 mutate "# r842-mut:absentidx" '  if false; then'
 CLOSE_BIN="$T/bin/ft-nano-close.mut.sh"; sub="$(section_e2)"; CLOSE_BIN="$T/bin/ft-nano-close.sh"
 case "$sub" in *FAIL*) ok "ⓖ «ABSENT 에도 IDX 우선 집기» → ⓔ' FAIL(DA⑥ r4)";; *) bad "ⓖ ABSENT 에서 IDX 를 먼저 집어도 ⓔ' 통과";; esac

@@ -1126,9 +1126,22 @@ if [ -n "$IDX" ]; then   # r842-mut:libskip
     [ -z "$CARD" ] || echo "INFO 카드 위치(팀 폴더) ← $CARD"
   fi
   if [ -n "$_cs" ] && [ -z "$CARD" ]; then _cold=""   # r842-mut:nostage
-    for _d in 진행 완성 대기; do [ "$_d" = "$_cs" ] && continue
-      for _b in "${_cbases[@]}"; do for _rt in "${_rts[@]}"; do [ -f "$_b/$_rt/indices/$_d/$_cf" ] && _cold+="${_cold:+ · }$_d($_b/$_rt)"; done; done; done
-    echo "REJECT $SEAT"; echo "  - ⑥카드 단계 $_cref=$_cs · 디스크 사본 없음(다른 단계 사본 = ${_cold:-없음}${_cold:+ — 낡은 사본}) — 옛 단계 사본으로 후퇴 0: index=$IDX"; exit 1
+    # r1040: 정상 순서(착지 → 완성 이동 → 나노 닫기)에서는 완성/ 카드가 ref 에만 있다 — ref 완성 카드에 증거 줄(세트:)이 있으면 디스크 사본 없이 통과.
+    #   읽기는 아래 _card_ref_read 가 ref 사본으로 잡고, ⑥ 증거 검사가 «세트 == 지금 HEAD» 로 다시 검증한다(줄만 있고 세트가 낡으면 그 자리 REJECT). 진행·대기 단계는 지금 규칙(디스크 사본 필수) 그대로.
+    if [ "$_cs" = 완성 ]; then   # r1040-mut:donecard
+      for _rt in "${_rts[@]}"; do
+        _rcf="$_rt/indices/완성/$_cf"
+        git -C "$ROOT" cat-file -e "$_cref:$_rcf" 2>/dev/null || continue
+        git -C "$ROOT" show "$_cref:$_rcf" 2>/dev/null | grep -qE '세트:[[:space:]]*[0-9a-f]{40}' || continue
+        echo "INFO 카드 단계 $_cref=완성 · 디스크 사본 없음 → ref 완성 카드로 ⑥ 검사($_rcf)"
+        _cs_refok=1; break
+      done
+    fi
+    if [ -z "${_cs_refok:-}" ]; then
+      for _d in 진행 완성 대기; do [ "$_d" = "$_cs" ] && continue
+        for _b in "${_cbases[@]}"; do for _rt in "${_rts[@]}"; do [ -f "$_b/$_rt/indices/$_d/$_cf" ] && _cold+="${_cold:+ · }$_d($_b/$_rt)"; done; done; done
+      echo "REJECT $SEAT"; echo "  - ⑥카드 단계 $_cref=$_cs · 디스크 사본 없음(다른 단계 사본 = ${_cold:-없음}${_cold:+ — 낡은 사본}) — 옛 단계 사본으로 후퇴 0: index=$IDX"; exit 1
+    fi
   fi
   # ABSENT(카드 없음) = «단계 판정 없음» → 지금 규칙 그대로(r444 ⑥): 팀 폴더 후보 × 단계 진행→완성→대기 × WT→ROOT→LEDGER_WT.
   #   DA⑥ r4 반례: 아래 :IDX 경로 고리(명부 index 의 대기/ 등)를 먼저 집으면 나노 WT 의 진행/ 증거 사본을 가려 «증거 줄 없음» REJECT — IDX 우선 집기는 단계가 정해졌을 때만.

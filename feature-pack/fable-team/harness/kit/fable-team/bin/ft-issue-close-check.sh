@@ -2,7 +2,7 @@
 # ft-issue-close-check.sh <Issue#> [--from-json <file>] [--repo <dir>] [--gate] [--extra-comment <file>] [--has-token <tok>]
 #   C4 · Issue close 완료 8항 검사 (읽기 전용 — gh issue view 만 부른다 · edit/close/label 0).
 #   8항 = 닫는 사건 · PR · 재현 PASS · 정리 · 기록 · 정본 · 원인 확정 · 같은 증상 보류 (design/harness/ISSUE-TRANSITIONS.md §3).
-#   통과 = ①코멘트 어딘가에 6항 줄이 «값과 함께» 전부 있다 ②Closes 로 연결된 PR 이 있다(closedByPullRequestsReferences) ③7·8항(아래) 또는 관찰 조건.
+#   통과 = ①코멘트 어딘가에 6항 줄이 «값과 함께» 전부 있다 ②Closes 로 연결된 PR 이 있다(closedByPullRequestsReferences · 없으면 이슈 코멘트의 «연결 PR: #<번호>» + 그 PR 병합 상태 — r1040) ③7·8항(아래) 또는 관찰 조건.
 #   7·8항 = `원인 확정: Y — <근거 ≥10자>` · `같은 증상 보류: 0` — 키로 «가장 마지막 줄»을 고른 뒤 그 줄만 검증한다(R102 · 판정 1059·1060).
 #     관찰 중(`관찰 시작:` 마커 · 라벨 status:observing · 미완료 거절 기록)이면 7·8항 대신 «현재 구간에서 서로 다른 판 2회 재현 0» 을 요구한다.
 #   --gate = 7·8항+관찰 조건만(1~6항·Closes 생략) · exit 0 통과 / 3 거절(stderr 문장 + stdout `GATE rc=3 kind=… marker=… label=… reason=…`).
@@ -14,6 +14,7 @@
 #   exit 0 = 통과 · 1 = 미비(사유 stdout) · 2 = usage 또는 조회 실패
 #   --from-json = gh 호출 대신 같은 모양의 JSON 파일(시험용 · tests/fixtures/issue_close/).
 #   --repo = 정본 sha 를 조회할 git 리포(기본 = 이 스크립트가 있는 리포 루트).
+#   r1040: Closes 없이 이슈 «연결 PR: #<번호>» 코멘트를 인정하려면 그 PR 병합 상태를 본다 — gh pr view 1회(7초+재시도 1) 또는 시험용 FT_PR_STATE_FROM_JSON([{number,state}] 또는 {"prs":[…]}) · 판정 불가면 «판정 불가» 1줄 + MISS.
 set -uo pipefail
 unset GH_TOKEN
 N="${1:-}"; shift || true
@@ -186,8 +187,37 @@ fi
 gate_eval   # 7·8항(또는 관찰 조건) — 원인 확정 · 같은 증상 보류
 if [ "$G_RC" -eq 0 ]; then echo "  OK   7·8항 원인 확정·같은 증상 보류 ($G_KIND)"; else PFX="REJECT close #$N — "; echo "  MISS 7·8항 — ${G_MSG#"$PFX"}"; MISS=1; fi
 
+# r1040: Closes 연결이 비었을 때 — 이슈 코멘트의 «연결 PR: #<번호>» 를 인정한다(이미 병합된 PR 본문은 고칠 수 없다). 그 PR 이 병합 상태일 때만 OK · 아니면 지금처럼 MISS + 안내 1줄.
+linked_pr() { # 코멘트의 «가장 마지막» 연결 PR 번호(없으면 빈 값) — 앞 줄로 내려가지 않는다
+  jq -r '[.comments[].body | split("\n")[] | select(test("연결\\s*PR\\s*[:：]\\s*#[0-9]+"))] | last // empty
+    | (capture("연결\\s*PR\\s*[:：]\\s*#(?<n>[0-9]+)") | .n)' <<<"$JSON" 2>/dev/null
+}
+pr_merged() { # <번호> → 0 병합(MERGED) · 1 아니오 · 2 판정 불가 (gh 1회 = 7초 + 재시도 1 · 실패는 «판정 불가» 1줄)
+  local n="$1" st out TOA TRY
+  if [ -n "${FT_PR_STATE_FROM_JSON:-}" ]; then   # 시험 대체(gh 호출 0) — [{number,state}] 또는 {"prs":[…]}
+    [ -f "$FT_PR_STATE_FROM_JSON" ] || { echo "  판정 불가 PR #$n — 상태 파일 없음: $FT_PR_STATE_FROM_JSON"; return 2; }
+    st="$(jq -r --arg n "$n" '(if type == "array" then . else (.prs // []) end) as $p | [$p[] | select((.number|tostring) == $n)] | last | .state // empty' "$FT_PR_STATE_FROM_JSON" 2>/dev/null)"
+    case "$st" in MERGED) return 0;; "") echo "  판정 불가 PR #$n — 상태 파일에 그 번호가 없다"; return 2;; *) return 1;; esac
+  fi
+  TOA="$(command -v timeout || command -v gtimeout)" || { echo "  판정 불가 PR #$n — timeout(coreutils) 없음"; return 2; }
+  for TRY in 1 2; do
+    out="$("$TOA" "${FT_GATE_TIMEOUT_S:-7}" gh pr view "$n" --json number,state 2>&1)" && break
+    [ "$TRY" = 2 ] && { echo "  판정 불가 PR #$n — gh pr view 실패: $(printf '%s' "$out" | head -1)"; return 2; }
+  done
+  st="$(jq -r '.state // empty' <<<"$out" 2>/dev/null)"
+  case "$st" in MERGED) return 0;; "") echo "  판정 불가 PR #$n — 상태를 못 읽었다"; return 2;; *) return 1;; esac
+}
 PRS="$(jq -r '[.closedByPullRequestsReferences[]?.number] | map("#"+tostring) | join(" ")' <<<"$JSON")"
-if [ -n "$PRS" ]; then echo "  OK   Closes 연결 PR $PRS"; else echo "  MISS Closes 연결 PR 없음 — 랜딩 PR 본문에 「Closes #${N}」 필요"; MISS=1; fi
+if [ -n "$PRS" ]; then echo "  OK   Closes 연결 PR $PRS"; else
+  LPR="$(linked_pr)"
+  if [ -n "$LPR" ] && pr_merged "$LPR"; then   # r1040-mut:linkedpr
+    echo "  OK   Closes 연결 PR 없음 · 이슈 «연결 PR: #${LPR}» 병합 확인 → 인정"
+  else
+    echo "  MISS Closes 연결 PR 없음 — 랜딩 PR 본문에 「Closes #${N}」(착지 전) — 이미 병합됐으면 이슈에 「연결 PR: #<번호>」 코멘트 1줄"
+    [ -z "$LPR" ] || echo "  MISS 연결 PR #${LPR} — 병합 상태로 확인 0(판정 불가 또는 미병합)"
+    MISS=1
+  fi
+fi
 
 if [ "$MISS" -eq 0 ]; then echo "PASS #$N 완료 8항 + Closes 연결"; exit 0; fi
 echo "FAIL #$N 미비 — 소유 오케에 1통(보완 또는 ft-issue-reopen.sh)"; exit 1
