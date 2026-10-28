@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# test_news_desk.sh — ft_news_desk.py(r1055 · Issue #4004) 시험 ⓐ~ⓓ + 변이 3.
+# test_news_desk.sh — ft_news_desk.py(r1055 · Issue #4004) 시험 ⓐ~ⓓ + 변이 3 · r1061 plist 해석기 칸 ⓔ + 변이 2.
 # 전부 mktemp 임시 FT_ROOT(원장·명단·좌석·카드 폴더·보드 스냅샷 픽스처) + 가짜 ft-card-flow·ft-hil·ft-decision-count·mbox 스텁.
 # 실 슬랙·실 desk·실 mbox·실 좌석 호출 0 · 자기 재호출 0 · 고정 sleep 0 · 실행 1회 timeout 70(하드 룰 22).
 set -uo pipefail
@@ -165,6 +165,29 @@ import ft_news_publish as p, ft_news_ledger_text as t
 print(p.MAX_BYTES, t.MAX_BYTES, p.MAX_BYTES == t.MAX_BYTES == 3500)
 PY
 )" "3500 3500 True"
+
+# ── ⓔ plist 해석기 = 3.10+ (r1061 · Issue #4064) ────────────────────────────
+# 실사건: launchd 가 맥 기본 python(3.9.6)으로 ft_news_desk.py 를 불러 ft_board_env.py 의 «Path | None»(3.10 문법)에서 TypeError.
+ENV_PY="$KITBIN/ft_plist_env.py"
+TPL="$REPO/harness/kit/fable-team/com.byz.ft-news-desk.plist.template"
+G="$T/gitroot"; mkdir -p "$G/.git"   # render_bin 은 <루트>/.git 폴더 유무만 본다(임시 루트 · 실 git 0)
+rbin() { timeout 70 python3 "$ENV_PY" render-bin "$1" "$G" 2>&1; }
+TPL_OLD='<string>/usr/bin/python3</string>'; TPL_NEW='<string>/opt/homebrew/bin/python3</string>'
+rbin "$TPL" > "$T/news.plist"; rc_e=$?
+eq "ⓔ R1 렌더 성공" "$rc_e" "0"
+eq "ⓔ R1 렌더본 해석기 = /opt/homebrew/bin/python3" "$(plutil -extract ProgramArguments.0 raw "$T/news.plist" 2>/dev/null)" "/opt/homebrew/bin/python3"
+eq "ⓔ R2 렌더본에 /usr/bin/python3 0" "$(grep -c '/usr/bin/python3' "$T/news.plist" || true)" "0"
+eq "ⓔ R3 템플릿에 __PY__ 0" "$(grep -c '__PY__' "$TPL" || true)" "0"
+eq "ⓔ R1 렌더본 자리표시 잔재 0" "$(grep -c '__[A-Z_]\{1,\}__' "$T/news.plist" || true)" "0"
+# 변이① 8행을 __PY__ 로 → render_bin 이 채우지 않는 자리표시라 «자리표시 잔재» RenderError
+sed "s#$TPL_NEW#<string>__PY__</string>#" "$TPL" > "$T/py.template"
+rbin "$T/py.template" > "$T/py.out"; rc_m1=$?
+eq "ⓔ 변이(__PY__) → 렌더 실패" "$([ "$rc_m1" -ne 0 ] && echo fail || echo pass)" "fail"
+eq "ⓔ 변이(__PY__) → «자리표시 잔재» 1줄" "$(grep -c '자리표시 잔재' "$T/py.out" || true)" "1"
+# 변이② 해석기를 /usr/bin/python3 로 되돌림 → 렌더는 되지만 위 R2 칸이 깨진다
+sed "s#$TPL_NEW#$TPL_OLD#" "$TPL" > "$T/old.template"
+rbin "$T/old.template" > "$T/old.plist"; rc_m2=$?
+eq "ⓔ 변이(/usr/bin/python3) → R2 칸이 깨진다" "$([ "$rc_m2" = 0 ] && [ "$(plutil -extract ProgramArguments.0 raw "$T/old.plist" 2>/dev/null)" != "/opt/homebrew/bin/python3" ] && echo broken || echo same)" "broken"
 
 echo "RESULT fail=$fail"
 [ "$fail" = 0 ]
