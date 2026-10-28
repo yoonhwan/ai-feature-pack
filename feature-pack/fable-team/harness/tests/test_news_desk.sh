@@ -98,8 +98,9 @@ export FT_CARD_FLOW="$T/card-flow.sh" FT_DESK_HIL="$T/hil.sh" FT_DESK_DECISION="
 export FT_DESK_STATE="$T/state" MBOX_LOG="$T/mbox.log"
 render() { timeout 70 python3 "${1:-$DESK}" render 2>>"$T/err"; }
 runs()   { timeout 70 python3 "${1:-$DESK}" run 2>>"$T/err"; }
-mutant() {  # <sed 식> → 변이판 경로 (같은 bin 폴더 import 는 PYTHONPATH 로)
-  sed "$1" "$DESK" > "$T/mut/ft_news_desk.py"; printf '%s' "$T/mut/ft_news_desk.py"
+mutant() {  # <파일 이름> <sed 식> → 변이판 진입점 경로 (짝 모듈은 그대로 사본 · import 는 PYTHONPATH 로)
+  cp "$KITBIN/ft_news_desk.py" "$KITBIN/ft_news_desk_blocks.py" "$T/mut/"
+  sed "$2" "$KITBIN/$1" > "$T/mut/$1"; printf '%s' "$T/mut/ft_news_desk.py"
 }
 mrender() { PYTHONPATH="$KITBIN" timeout 70 python3 "$T/mut/ft_news_desk.py" render 2>>"$T/err"; }
 mruns()   { PYTHONPATH="$KITBIN" timeout 70 python3 "$T/mut/ft_news_desk.py" run 2>>"$T/err"; }
@@ -111,7 +112,7 @@ eq "ⓐ 골 표 7행" "$(printf '%s' "$OUT" | grep -c '^| [0-9]* | ')" "7"
 eq "ⓐ 골 칸 글자 그대로(80자 자르기 0)" "$(printf '%s' "$OUT" | grep -cF '| 7 | 운영 아키텍처 — 대규모 분산(사용자·세션·방 → 엔드포인트 → GPU) · GCP 표준 분산 리서치 · 메인 아키텍처 (#3077) |')" "1"
 eq "ⓐ 다른 절 표 안 섞임" "$(printf '%s' "$OUT" | grep -c '골 표 아님')" "0"
 eq "ⓐ 머리 = 블록 순서 ①골 ②팀 ③오빠 손" "$(printf '%s' "$OUT" | grep -n '^## ' | cut -d: -f2 | tr '\n' ' ')" "## 골 7줄 지금 상태 ## 팀별 작업 상황 ## 오빠 손 "
-mutant 's/{c\[0\]} | {c\[1\]}/{c[0][:30]} | {c[1]}/' >/dev/null
+mutant ft_news_desk_blocks.py 's/{c\[0\]} | {c\[1\]}/{c[0][:30]} | {c[1]}/' >/dev/null
 eq "ⓐ 변이(골 칸 30자 자르기) → 이 시험 문장이 깨진다" "$(mrender | grep -cF '| 7 | 운영 아키텍처 — 대규모 분산(사용자·세션·방 → 엔드포인트 → GPU) · GCP 표준 분산 리서치 · 메인 아키텍처 (#3077) |')" "0"
 printf '#!/bin/sh\nsleep 3\nexit 1\n' > "$T/git-slow.sh"; chmod +x "$T/git-slow.sh"
 SLOW="$(FT_DESK_LEDGER_FILE='' FT_LEDGER_REPO="$ROOT" FT_DESK_GIT="$T/git-slow.sh" FT_DESK_LEDGER_TIMEOUT=1 render)"
@@ -127,7 +128,7 @@ eq "ⓑ 휴면 팀(kk) 줄 없음" "$(printf '%s' "$OUT" | grep -c '^| kk |')" "
 eq "ⓑ 지금 하는 일 = 보드 스냅샷 팀 줄" "$(printf '%s' "$OUT" | grep -cF '| feature | 진행: 챗 도구 루프 켜기 / 다음 대기: 파일 일반화 카드 |')" "1"
 eq "ⓑ harness 열린 좌석 4(은퇴 행 제외)" "$(printf '%s' "$OUT" | grep '^| harness |' | awk -F'|' '{gsub(/ /,"",$7); print $7}')" "4"
 eq "ⓑ 명부 없는 팀은 «확인 불가»(0 으로 내지 않음)" "$(printf '%s' "$OUT" | grep '^| ops |' | grep -c '확인 불가')" "1"
-mutant 's/team_root(team, root)/root \/ "design" \/ "teams" \/ team/' >/dev/null
+mutant ft_news_desk_blocks.py 's/team_root(team, root)/root \/ "design" \/ "teams" \/ team/' >/dev/null
 eq "ⓑ 변이(main 만 셈) → harness 숫자가 틀려 이 시험 문장이 깨진다" "$(mrender | grep -c '^| harness | .* | 5 | 2 | 1 | ')" "0"
 
 # ── ⓒ 바뀐 틱만 relay (R4) · desk 좌석 (R5) ─────────────────────────────
@@ -139,7 +140,7 @@ eq "ⓒ 첫 전문 파일 UTF-8 로 남음" "$(ls "$T/state"/*.md 2>/dev/null | 
 echo "- w3" > "$ROOT/design/teams/feature/indices/대기/w3.md"
 FT_DESK_NOW="2026-10-28 17:05" runs
 eq "ⓒ 내용이 바뀐 틱 → relay 1통 더(누적 2통)" "$(relays)" "2"
-mutant 's/CLOCK.sub("HH:MM", text)/"고정"/' >/dev/null
+mutant ft_news_desk.py 's/CLOCK.sub("HH:MM", text)/"고정"/' >/dev/null
 : > "$T/mbox.log"
 export FT_DESK_STATE="$T/state4"
 FT_DESK_NOW="2026-10-28 17:11" mruns
