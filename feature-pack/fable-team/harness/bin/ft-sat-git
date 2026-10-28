@@ -48,8 +48,15 @@ else:
 PY
 }
 
-# ── 원격 실행 — 스크립트는 stdin(quoted heredoc), 값은 argv. 문자열 조립 0(설계 §1.4 계약 보강 1의 축소판) ──
-rem() { timeout "$TMO" $SSH "$HOST" -- bash -s "$@"; }
+# ── 원격 실행 — 스크립트는 stdin(quoted heredoc), 값은 stdin 첫 줄 «set -- <bash 인용>». 문자열 조립 0 ──
+# ★ssh 는 명령줄을 원격 «로그인 셸» 에 그대로 넘긴다 — mini 로그인 셸은 zsh 다(r1063 · h93 rc=127 bad pattern).
+#   괄호·세로줄·달러가 든 값(SECRET·REGEN)을 argv 로 붙이면 zsh 가 먼저 해석해 깨진다. 그래서 값은
+#   명령줄이 아니라 stdin 첫 줄에 bash 인용으로 넣는다. 원격에서 값을 읽는 셸은 bash 하나뿐이다.
+rem() {
+  local q=""
+  [ $# -gt 0 ] && q=$(printf '%q ' "$@")
+  { [ -z "$q" ] || printf 'set -- %s\n' "$q"; cat; } | timeout "$TMO" $SSH "$HOST" -- bash -s
+}
 rem_rc() { local r=$?; [ "$r" = 124 ] && r=98; [ "$r" = 0 ] || RC=$r; return "$r"; }
 rhome() { printf 'printf %%s "$HOME"\n' | rem 2>/dev/null || true; }
 gurl() { echo "ssh://$HOST$(rhome)/$BARE_REL"; }
