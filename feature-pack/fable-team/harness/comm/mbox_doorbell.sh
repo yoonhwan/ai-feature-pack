@@ -44,7 +44,7 @@ DOORBELL_MIN="${FT_MBOX_DOORBELL_MIN:-3}"   # 같은 좌석에 이 초 안에 �
 #   ★없으면 지금까지의 문자열 그대로다★ — 큐에 넣지 않고 울리기만 하는 호출부는 실을
 #   seq 가 없다. 없는 번호를 지어내면 그 번호가 가리키는 것이 아무것도 없다.
 doorbell() {
-  local to="$1" dbforce="${2:-0}" dbseq="${3:-}" pane seat stamp recvstamp last recvlast now msg
+  local to="$1" dbforce="${2:-0}" dbseq="${3:-}" pane seat stamp recvstamp last recvlast now msg _tail
   # ★숫자만 통과시킨다★ — 이 값은 send-keys 명령 문자열에 삽입된다. 호출부가 우리 자신의
   #   py 출력에서 파싱하므로 이미 숫자지만, 명령 삽입 차단을 «호출부 신뢰»에 맡기지 않는다.
   case "$dbseq" in ''|*[!0-9]*) dbseq="" ;; esac
@@ -102,10 +102,23 @@ doorbell() {
   #   653자 본문도 «통째로» 한 줄에 담고 줄바꿈이 0개다(pane 의 폭 기반 줄바꿈은 기록에
   #   안 섞인다). ⇒ 마커 길이는 판정에 무관하다. ★이 구분을 지우지 마라★ — 근거를
   #   「짧아야 판정된다」로 잘못 적으면 다음 사람이 판정 층을 다시 pane 으로 되돌린다.
+  # ★알림줄 꼬리 — `FT_DOORBELL_TAIL=ultrathink` 일 때만 « ultrathink» 한 낱말★ (r1039 · r1036 과 같은 글자)
+  #   기본 우편함 경로(comm/mbox.sh)는 이 함수로 알림줄을 만든다 — r1036 은 ft-mbox.sh 만 고쳐서
+  #   승계 알림(#177518)에 꼬리가 안 붙었다. allowlist(낱말 하나) 이유도 같다 — 이 값은 send-keys
+  #   문자열에 들어간다. allowlist 밖은 조용히 무시하지 않고 WARN 1줄(stderr).
+  #   환경변수가 없거나 빈 값이면 지금까지와 «바이트 동일»(WARN 0).
+  _tail=""
+  if [ -n "${FT_DOORBELL_TAIL:-}" ]; then
+    if [ "$FT_DOORBELL_TAIL" = "ultrathink" ]; then
+      _tail=" ultrathink"
+    else
+      echo "WARN doorbell 꼬리 allowlist 밖 — 붙이지 않음" >&2
+    fi
+  fi
   if [ -n "$dbseq" ]; then
-    msg="[발주 #$dbseq] bash $SELF recv $to — 실행하고 그 안의 지시를 즉시 착수하라"
+    msg="[발주 #$dbseq] bash $SELF recv $to — 실행하고 그 안의 지시를 즉시 착수하라${_tail}"
   else
-    msg="[발주 도착] bash $SELF recv $to — 실행하고 그 안의 지시를 즉시 착수하라"
+    msg="[발주 도착] bash $SELF recv $to — 실행하고 그 안의 지시를 즉시 착수하라${_tail}"
   fi
   tmux send-keys -t "$pane" -l "$msg" 2>/dev/null || true
   sleep 0.3
