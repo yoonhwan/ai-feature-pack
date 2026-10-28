@@ -339,6 +339,35 @@ d=json.load(open(sys.argv[1])); print(d['base'] + '\t' + d['base_sha'])" "$w/.wo
   fi
   say "  ⚠" "base 선언 확인 실패($(basename "$w") · base=$base) — FEAT 기준으로 센다"; return 1
 }
+# ★r1076: press 카드의 «선언 제외»★ — 이 press 가 «시험하지 않는» 나노를 카드가 한 줄로 선언하면 ① 셈에서 뺀다(모순·꼴은 막는다).
+#   꼴(정확히 이 꼴만): `- press 제외 나노: <워크트리 이름>[, <이름>…] — <사유 1글자 이상>` · 이름 = .worktrees/ 아래 폴더 이름 그대로
+#   왜: 게이트는 «이 press 가 무엇을 시험하려는지» 모른다 — 선언이 없으면 지금처럼 막는다(09-17 사고 보존).
+DECL=(); DECL_HIT=(); DECL_BAD=0
+_decl_read(){ # 카드 → DECL(선언된 이름) · 꼴 틀림은 DECL_BAD=1
+  local card="$1" line names n
+  [ -n "$card" ] && [ -f "$card" ] || return 0     # 카드 미지정·파일 없음 = 선언 0(지금과 같다)
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in *"press 제외 나노"*) ;; *) continue ;; esac
+    if [[ "$line" =~ ^-\ press\ 제외\ 나노:\ ([^—]+)\ —\ (.+)$ ]]; then
+      names="${BASH_REMATCH[1]}"
+    else
+      say "✗" "press 제외 선언 꼴 틀림 — «- press 제외 나노: <이름>[, <이름>…] — <사유>» 만 읽는다: $line"; DECL_BAD=1; continue
+    fi
+    local IFS=','
+    for n in $names; do
+      n="${n#"${n%%[![:space:]]*}"}"; n="${n%"${n##*[![:space:]]}"}"
+      case "$n" in
+        ''|*[!A-Za-z0-9._-]*) say "✗" "press 제외 선언 꼴 틀림 — 이름 «${n}» 이 워크트리 폴더 이름 꼴이 아니다(이름은 쉼표로 구분): $line"; DECL_BAD=1 ;;
+        *) DECL+=("$n") ;;
+      esac
+    done
+  done < "$card"
+}
+_declared(){ local d; for d in ${DECL[@]+"${DECL[@]}"}; do [ "$d" = "$1" ] && return 0; done; return 1; }
+_decl_hit(){ local d; for d in ${DECL_HIT[@]+"${DECL_HIT[@]}"}; do [ "$d" = "$1" ] && return 0; done; return 1; }
+_decl_read "${FT_PRESS_CARD:-}"
+[ "$DECL_BAD" = "0" ] || FAIL=1
+
 for W in $LIVE_WT; do
   W="$ROOT/.worktrees/$W"
   [ -e "$W/.git" ] || continue
@@ -351,7 +380,7 @@ for W in $LIVE_WT; do
   #   ⒜같은 제목이 feat 에 있다(cherry-pick -x)
   #   ⒝feat 커밋 «본문»에 그 sha 가 인용돼 있다(통행증 규격으로 «재작성»해 올린 경우 — 실제로 있었다)
   #   ⒞sha 가 feat 의 조상이다
-  P=0
+  P=0; IN_SET=0
   FEAT_SUBJ=$(git log "$FEAT" --format='%s' -400)
   FEAT_BODY=$(git log "$FEAT" --format='%H%n%B' -60)
   while IFS=$'\t' read -r h t; do
@@ -360,9 +389,26 @@ for W in $LIVE_WT; do
     printf '%s\n' "$FEAT_BODY" | grep -q "${h:0:9}" && continue
     git merge-base --is-ancestor "$h" "$FEAT" 2>/dev/null && continue
     P=$((P+1)); say "  ·" "미랜딩 후보: $t"
+    # r1076 모순 검사 재료 — 이 미랜딩 커밋이 press 세트 HEAD 의 조상인가(이미 세트에 있으면 «제외» 가 아니라 «모순»)
+    #   ★${h:0:40}★ 위 로그 꼴의 %t 는 «탭» 이 아니라 «축약 tree 해시»(git 이 7자를 붙인다) — 40자만 쓰면 sha 다(기존 ① 판정은 손대지 않는다).
+    git merge-base --is-ancestor "${h:0:40}" HEAD 2>/dev/null && IN_SET=$((IN_SET+1))
   done < <(git -C "$W" log --format='%H%t%s' "$FEAT"..HEAD -- worker shared gateway clients ':(exclude)*__tests__*' ':(exclude)tests/*' 2>/dev/null | sed 's/\(^[0-9a-f]*\)/\1\t/' )
-  [ "${P:-0}" != "0" ] && { say "✗" "미랜딩 제품 커밋 $P — $(basename "$W")"; UNLANDED=$((UNLANDED+P)); }
+  if [ "${P:-0}" != "0" ]; then
+    if _declared "$(basename "$W")"; then
+      DECL_HIT+=("$(basename "$W")")
+      if [ "$IN_SET" != "0" ]; then
+        say "✗" "선언 모순 — $(basename "$W") 의 커밋이 이미 세트에 있다(미랜딩 $P)"; UNLANDED=$((UNLANDED+P))
+      else
+        say "⊘" "선언 제외($(basename "$W")) — 이 press 는 이 수정을 시험하지 않는다(카드: ${FT_PRESS_CARD:-}) · 미랜딩 $P"
+      fi
+    else
+      say "✗" "미랜딩 제품 커밋 $P — $(basename "$W")"; UNLANDED=$((UNLANDED+P))
+    fi
+  fi
   [ "${#SETP[@]}" != "0" ] && _set_member "$W"
+done
+for _d in ${DECL[@]+"${DECL[@]}"}; do   # r1076 R6: 선언했는데 ✗ 워크트리에 없으면 경고만(rc 영향 0)
+  _decl_hit "$_d" || say "⚠" "선언 이름 없음: $_d"
 done
 [ "$UNLANDED" = "0" ] && say "✓" "미랜딩 제품 커밋 0" || FAIL=1
 
