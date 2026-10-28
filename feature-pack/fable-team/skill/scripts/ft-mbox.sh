@@ -35,7 +35,7 @@ pane_of() {
 #   ★없으면 지금까지의 문자열 그대로다★ — ring 처럼 «큐에 넣지 않고 울리기만» 하는
 #   호출부는 실을 seq 가 없다. 없는 번호를 지어내면 그 번호가 가리키는 것이 아무것도 없다.
 doorbell() {
-  local to="$1" dbforce="${2:-0}" dbseq="${3:-}" dbcomm="${4:-}" cap pane _seat _db_stamp _db_recv _db_last _db_recv_last _ppid _msg _env
+  local to="$1" dbforce="${2:-0}" dbseq="${3:-}" dbcomm="${4:-}" cap pane _seat _db_stamp _db_recv _db_last _db_recv_last _ppid _msg _env _tail
   # ★숫자만 통과시킨다★ — 이 값은 send-keys 명령 문자열에 삽입된다. 지금 호출부는 우리
   #   자신의 py 출력(`seq=<digits>`)에서 파싱하므로 이미 숫자지만, 명령 삽입 차단을 «호출부
   #   신뢰»에 맡기지 않는다(세션명 allowlist 와 같은 이유). 이상하면 조용히 버리고 무번호로 간다.
@@ -124,10 +124,23 @@ doorbell() {
   case "$dbcomm" in
     /*) case "$dbcomm" in *[!A-Za-z0-9._/#-]*) echo "WARN doorbell 우편함 경로 allowlist 밖 — env 없이 주입: $dbcomm" >&2 ;; *) _env="FT_MBOX_DIR=$dbcomm " ;; esac ;;
   esac
+  # ★알림줄 꼬리 — `FT_DOORBELL_TAIL=ultrathink` 일 때만 « ultrathink» 한 낱말★ (r1036)
+  #   왜 allowlist(낱말 하나)인가: 이 값도 send-keys 문자열에 들어간다 — 바로 위 r403 경로
+  #   allowlist 와 같은 이유다. 아무 글자나 통과시키면 `ultrathink; …` 가 창에 «지시문» 으로 떨어진다.
+  #   allowlist 밖은 조용히 무시하지 않고 WARN 1줄(stderr) — 붙기를 기대한 쪽이 «안 붙었다» 를 알아야 한다.
+  #   환경변수가 없거나 빈 값이면 지금까지와 «바이트 동일»(WARN 0).
+  _tail=""
+  if [ -n "${FT_DOORBELL_TAIL:-}" ]; then
+    if [ "$FT_DOORBELL_TAIL" = "ultrathink" ]; then
+      _tail=" ultrathink"
+    else
+      echo "WARN doorbell 꼬리 allowlist 밖 — 붙이지 않음" >&2
+    fi
+  fi
   if [ -n "$dbseq" ]; then
-    _msg="[발주 #$dbseq] ${_env}bash $BINDIR/ft-mbox.sh recv $to — 실행하고 그 안의 지시를 즉시 착수하라"
+    _msg="[발주 #$dbseq] ${_env}bash $BINDIR/ft-mbox.sh recv $to — 실행하고 그 안의 지시를 즉시 착수하라${_tail}"
   else
-    _msg="[발주 도착] ${_env}bash $BINDIR/ft-mbox.sh recv $to — 실행하고 그 안의 지시를 즉시 착수하라"
+    _msg="[발주 도착] ${_env}bash $BINDIR/ft-mbox.sh recv $to — 실행하고 그 안의 지시를 즉시 착수하라${_tail}"
   fi
   tmux send-keys -t "$pane" -l "$_msg" 2>/dev/null || true
   sleep 0.3
