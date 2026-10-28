@@ -3,7 +3,7 @@
 #   ⑤ cherry(가지 «+» 커밋 0)와 ⑥ 증거 줄 세트 대조(«세트 == 지금 HEAD»)를 «PR MERGED ∧ PR head == 카드 «세트:» sha ∧ 카드 «- 착지:» 줄» 로 대체한다.
 # 임시 git 리포 + 가짜 tmux·gh(PATH 앞)만 쓴다 — 실제 리포·seats·tmux·gh(네트워크)는 건드리지 않는다. GIT_* 환경 변수는 쓰지 않는다.
 # 축 ⓐ 통과 = LANDED-PR-OK · CLOSED-ABSENT <좌석> landed-pr=<N> · 원장 행 · 명부 삭제 · 브랜치 보존 · ⑤ INFO 건너뜀
-#    ⓑ PR head ≠ 카드 세트 → REJECT ⓒ OPEN · CLOSED(미병합) → REJECT ⓓ 카드 «- 착지:» 줄 없음 → REJECT(gh 호출 0)
+#    ⓑ PR head ≠ 카드 세트 → REJECT ⓒ OPEN · CLOSED + main 에 산출 없음 → REJECT(r1058: 판정 = origin/main, 상태 칸 아님) ⓓ 카드 «- 착지:» 줄 없음 → REJECT(gh 호출 0)
 #    ⓔ gh rc≠0 → REJECT · gh 3초(상한 1초 시험값) → REJECT ⓕ 모드 충돌·빈 번호 → usage 2 · 인자 없으면 불변
 #    ⓖ 변이 «head 대조 끔» → ⓑ 가 닫힘(FAIL) ⓗ kit 짝 cmp0 · /bin/bash 3.2 · 600/300·GIT_* 0
 #    ⓘ 세트 줄 = «## 상태» 절 «안» 만 (절 밖 세트 줄이 head 와 같아도 REJECT · 상태 절 세트 = head 면 CLOSED · 상태 절에 세트 줄 0 = REJECT)
@@ -162,11 +162,11 @@ out="$(close --landed-pr 363)"; rc=$?
 has "$out" "≠ 카드 세트" "  └ 사유 = head ≠ 카드 세트"
 untouched "ⓑ"
 
-echo "== ⓒ PR 이 MERGED 가 아님(OPEN · CLOSED 미병합) → REJECT · 닫기 0"
+echo "== ⓒ PR 이 MERGED 가 아니고 main 에 산출도 없음(OPEN · CLOSED 미착지) → REJECT · 닫기 0"
 for st in OPEN CLOSED; do
   setup; printf '{"state":"%s","mergeCommit":null,"headRefOid":"%s"}\n' "$st" "$SHA0" > "$T/gh.json"
   out="$(close --landed-pr 363)"; rc=$?
-  [ "$rc" -eq 1 ] && has "$out" "state=$st — MERGED 만 닫는다" "ⓒ state=$st → REJECT" || bad "ⓒ $st rc=$rc ← ${out:0:600}"
+  [ "$rc" -eq 1 ] && has "$out" "state=$st · main 에 산출 없음" "ⓒ state=$st → REJECT" || bad "ⓒ $st rc=$rc ← ${out:0:600}"
   untouched "ⓒ $st"
 done
 
