@@ -32,6 +32,10 @@ mk_ssh() {  # <bin dir>
 echo "SSH $*" >> "${H_FAKE_LOG:-/dev/null}"
 case "${H_FAKE_MODE:-ok}" in
   hang) trap '' TERM; sleep 25; exit 255 ;;                     # 바깥 timeout 16 이 발동해야 하는 상황
+  fail)                                                          # 원격 스크립트가 rc1 + stderr 로 죽는다
+    cat >/dev/null 2>&1
+    echo "awk: newline in string" >&2
+    exit 1 ;;
   drop)                                                          # 첫 호출은 stdin 일부만 먹고 끊긴다
     if [ ! -f "$H_FAKE_STATE/dropped" ]; then
       mkdir -p "$H_FAKE_STATE"; touch "$H_FAKE_STATE/dropped"
@@ -80,6 +84,16 @@ esac
 exit 0
 EOS
   chmod +x "$1/tmux"
+}
+
+# ---------- 여러 줄 seat-scan 픽스처 (Ⓨ: 원격 awk 로 넘어가는 다중행 값) ----------
+mk_scan_fixture() {  # <path>
+  cat > "$1" <<'EOS'
+#!/bin/bash
+printf '%-26s %-6s %s\n' 'byz-demo-master-claude#0' IDLE ''
+printf '%-26s %-6s %s\n' 'aifp-mini-worker-claude#0' HUMAN ''
+EOS
+  chmod +x "$1"
 }
 
 # ---------- 명부 ----------
@@ -214,28 +228,102 @@ case_d() {
   want "--write 는 재시도 0 → 97" "$?" 97
 }
 
+# ---------- Ⓨ 여러 줄 seat-scan + BSD awk → 원격 행 (arch 반송 r2 ③) ----------
+case_y() {
+  echo "[Ⓨ] 다중행 seat-scan 픽스처 + /usr/bin/awk → 원격 행"
+  local h="$WORK/y"
+  mkdir -p "$h"
+  mk_tmux "$h/.local/bin" 'byz-demo-master-claude#0' '/Users/x/localproj'
+  mk_tmux "$WORK/y-bin-remote" 'aifp-mini-worker-claude#0' '/Users/byz/miniproj'
+  mk_ssh "$h/.local/bin"
+  mk_hosts "$h" "$WORK/y-bin-remote"
+  mk_scan_fixture "$WORK/y-scan.sh"
+  # awk 는 «시스템 BSD awk» 를 쓴다(가짜 bin 에 awk 없음 = mini 와 같은 조건)
+  local -a E=(env HOME="$h" TMM_HOSTS="$h/.tmm/hosts.tsv" NO_COLOR=1 H_FAKE_LOG="$WORK/y.log"
+              TMM_SCAN="$WORK/y-scan.sh" TMM_CACHE_TTL=0)
+  local d0 d1 out rc
+  d0=$(date +%s)
+  out="$("${E[@]}" bash "$TMM" ls --host all 2>"$WORK/y.err")"; rc=$?
+  d1=$(date +%s)
+  want "다중행 픽스처 조회 rc" "$rc" 0
+  want "시간 ≤10초" "$(( d1 - d0 <= 10 ))" 1
+  case "$out" in *"$HOSTN "*"HUMAN"*) ok "원격 상태가 픽스처 2번째 줄(HUMAN)" ;; *) bad "원격 상태 매핑 실패 — [$out]" ;; esac
+  case "$out" in "m3 "*"IDLE"*) ok "로컬 상태가 픽스처 1번째 줄(IDLE)" ;; *) bad "로컬 상태 매핑 실패 — [$out]" ;; esac
+  case "$(cat "$WORK/y.err")" in "") ok "stderr 0줄" ;; *) bad "stderr 오염 — [$(cat "$WORK/y.err")]" ;; esac
+
+  # 변이: awk -v 로 되돌리면 BSD awk 가 다중행을 못 받아 원격 행이 사라져야 한다
+  local mut="$WORK/y-tmm-mut"
+  python3 - "$TMM" "$mut" <<'PYMUT'
+import sys
+s = open(sys.argv[1], encoding='utf-8').read()
+old = r"""awk -F'\t' 'BEGIN { n = split(ENVIRON["SEAT_STATE"], L, "\n")"""
+new = r"""awk -F'\t' -v st="$SEAT_STATE" 'BEGIN { n = split(st, L, "\n")"""
+if old not in s:
+    sys.exit(3)
+open(sys.argv[2], 'w', encoding='utf-8').write(s.replace(old, new))
+PYMUT
+  if [ $? -ne 0 ] || cmp -s "$TMM" "$mut"; then bad "변이 문자열 없음 — 변이 시험 무효"; return; fi
+  out="$("${E[@]}" bash "$mut" ls --host all 2>/dev/null)"
+  case "$out" in *"$HOSTN "*"aifp-mini-worker"*) bad "변이를 못 잡음(awk -v 인데도 원격 행이 나옴)" ;; *) ok "변이(awk -v) → 원격 행 0 = 검사식이 잡음" ;; esac
+}
+
+# ---------- Ⓩ 원격 실패 → rc≠0 + 판정 불가 1줄 (arch 반송 r2 ②③) ----------
+case_z() {
+  echo "[Ⓩ] 원격 스크립트 실패 → rc≠0 + 판정 불가 1줄"
+  local h="$WORK/z" rc out
+  mkdir -p "$h"
+  mk_tmux "$h/.local/bin" 'byz-demo-master-claude#0' '/Users/x/localproj'
+  mk_ssh "$h/.local/bin"
+  mk_hosts "$h" "$h/.local/bin"
+  local -a E=(env HOME="$h" TMM_HOSTS="$h/.tmm/hosts.tsv" NO_COLOR=1 H_FAKE_LOG="$WORK/z.log"
+              H_FAKE_MODE=fail TMM_CACHE_TTL=0)
+  out="$("${E[@]}" bash "$TMM" ls --host "$HOSTN" 2>"$WORK/z.err")"; rc=$?
+  want "단일 호스트 실패 rc≠0" "$([ "$rc" -ne 0 ] && echo yes || echo no)" yes
+  want "행 0줄(성공처럼 보이지 않음)" "[$out]" "[]"
+  case "$(cat "$WORK/z.err")" in *"판정 불가 $HOSTN rc=1"*) ok "판정 불가 1줄 + rc" ;; *) bad "판정 불가 줄 없음 — [$(cat "$WORK/z.err")]" ;; esac
+  out="$("${E[@]}" bash "$TMM" ls --host all 2>"$WORK/z2.err")"; rc=$?
+  want "--host all 도 rc≠0" "$([ "$rc" -ne 0 ] && echo yes || echo no)" yes
+  case "$out" in "m3 "*) ok "--host all 은 다른 호스트 행을 그대로 냄" ;; *) bad "--host all 이 다른 호스트 행을 안 냄 — [$out]" ;; esac
+
+  # 변이: 2>/dev/null 로 되돌리면 실패가 «조용한 0줄 rc0» 이 되어야 한다
+  local mut="$WORK/z-tmm-mut"
+  python3 - "$TMM" "$mut" <<'PYMUT'
+import sys
+s = open(sys.argv[1], encoding='utf-8').read()
+old = '''h_pipe "$h" "$scr" > "$out" 2>"$err"; rc=$?'''
+new = '''h_pipe "$h" "$scr" > "$out" 2>/dev/null; rc=0'''
+if old not in s:
+    sys.exit(3)
+open(sys.argv[2], 'w', encoding='utf-8').write(s.replace(old, new))
+PYMUT
+  if [ $? -ne 0 ] || cmp -s "$TMM" "$mut"; then bad "변이 문자열 없음 — 변이 시험 무효"; return; fi
+  out="$("${E[@]}" bash "$mut" ls --host "$HOSTN" 2>"$WORK/z3.err")"; rc=$?
+  if [ "$rc" -eq 0 ] && [ -z "$(cat "$WORK/z3.err")" ]; then ok "변이(2>/dev/null 복원) → rc0 조용한 0줄 = 검사식이 잡음"
+  else bad "변이를 못 잡음(rc=$rc · stderr=[$(cat "$WORK/z3.err")])"; fi
+}
+
 # ---------- ⓔ 4칸 동시 실행(하드 룰 22) + 변이(잠금을 «전역 고정 폴더» 로 되돌림 → 동시 회차 FAIL) ----------
 case_x() {
   echo "[ⓔ] 4칸 동시 실행 + 변이(전역 고정 잠금)"
   local x p fail=0 mfail=0
   local -a p1=() p2=()
-  for x in a b c d; do bash "$0" "$x" > "$WORK/x1-$x.log" 2>&1 & p1+=($!); done
+  for x in a b c d; do timeout 70 bash "$0" "$x" > "$WORK/x1-$x.log" 2>&1 & p1+=($!); done
   for p in "${p1[@]}"; do wait "$p" || fail=1; done
   want "동시 4칸 rc0" "$fail" 0
   # 변이: 잠금 폴더를 «네 칸이 공유하는 하나» 로 되돌린다 = arch 반송 r1 의 원래 사고 재현
   local shared="$WORK/x-locks"; mkdir -p "$shared"
-  for x in a b c d; do H_LOCK_DIR="$shared" bash "$0" "$x" > "$WORK/x2-$x.log" 2>&1 & p2+=($!); done
+  for x in a b c d; do H_LOCK_DIR="$shared" timeout 70 bash "$0" "$x" > "$WORK/x2-$x.log" 2>&1 & p2+=($!); done
   for p in "${p2[@]}"; do wait "$p" || mfail=1; done
   if [ "$mfail" -eq 1 ]; then ok "변이(전역 고정 잠금) → 동시 회차 FAIL = 검사식이 잡음"
   else bad "변이를 못 잡음(동시 회차가 전부 통과)"; fi
 }
 
-sel="a b c d"
+sel="a b c d y z"
 [ $# -gt 0 ] && sel="$*"
 for x in $sel; do
   case "$x" in
-    a) case_a ;; b) case_b ;; c) case_c ;; d) case_d ;; x) case_x ;;
-    *) echo "usage: $0 [a|b|c|d|x]" >&2; exit 2 ;;
+    a) case_a ;; b) case_b ;; c) case_c ;; d) case_d ;; y) case_y ;; z) case_z ;; x) case_x ;;
+    *) echo "usage: $0 [a|b|c|d|y|z|x]" >&2; exit 2 ;;
   esac
 done
 
