@@ -1,0 +1,17 @@
+{
+  "_doc": "팀 이름 별칭 — team:* 라벨과 제목 머리 [xxx] 를 design/TEAMS.md 이름으로 옮긴다 (ft-issue-card-audit.sh · PLAN-issue-card-audit-20261028 §2-2)",
+  "teams": ["harness", "planner", "cfo", "ops", "graphics", "issues", "feature", "kk", "v65", "loom", "lecture", "room", "concierge"],
+  "labels": {
+    "harness-ops": "harness",
+    "shared-harness": "harness",
+    "loom": "knowledge"
+  },
+  "title_prefix": {
+    "하네스": "harness",
+    "harness": "harness",
+    "v65": "v65",
+    "planner": "planner"
+  },
+  "default": "planner",
+  "goals": {}
+}
