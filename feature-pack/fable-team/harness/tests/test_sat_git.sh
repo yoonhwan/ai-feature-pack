@@ -2,6 +2,7 @@
 # test_sat_git.sh — r1051 ft-sat-git(가벼운 git 스냅샷 · 설계 §3.3 5단 · 계약 보강 11~15) 단위 시험.
 # 반례 R1~R6 + 계약↔시험 대응표 ⓐ~ⓓ(로컬 원격 흉내 = 임시 bare + 가짜 ssh · 실 mini 접속 0 · 실 상태 0).
 # 변이 3종(비밀검사 제거 · design/ 거부 제거 · archive 를 삭제 뒤로)이 «잡히면» PASS.
+# r1063 — 원격 «로그인 셸 zsh» 칸 추가(macOS 기본 zsh · mini 실측 $SHELL=/bin/zsh). 값은 stdin 첫 줄 set --.
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -u   # pipefail 안 쓴다 — `cmd | grep -q` 의 SIGPIPE(141) 거짓 FAIL 방지
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
@@ -19,6 +20,9 @@ mkdir -p "$RHOME/Project/sat-git" "$RHOME/Project/sat-work" "$FAKE"
 BARE="$RHOME/Project/sat-git/byz-agents.git"; WT="$RHOME/Project/sat-work"; LED="$TMP/state"
 git init -q --bare "$BARE" || { echo "FAIL bare 준비"; exit 1; }
 # 가짜 ssh — «원격» = 임시 HOME. rem 경로(`-- bash -s …`, stdin 스크립트)와 git 날것 명령 둘 다 받는다.
+#   FAKE_SHELL=zsh    → 원격 «로그인 셸» = zsh: 실 ssh 처럼 인자를 공백으로 «이어» zsh -c 에 넘긴다(r1063 반례).
+#                       GIT_SSH_COMMAND 쪽(git 자체 인용)은 카드 범위 밖이라 bash 로 둔다.
+#   FAKE_SSH_REC=dir  → 받은 명령줄(argv 이어붙임)과 stdin 스크립트를 그 폴더에 남긴다(캡처 전용).
 cat > "$FAKE/ssh" <<'EOS'
 #!/usr/bin/env bash
 while [ $# -gt 0 ]; do
@@ -28,7 +32,13 @@ while [ $# -gt 0 ]; do
 done
 host=$1; shift
 if [ "${1:-}" = "--" ]; then
-  shift; [ "${1:-}" = bash ] && shift; [ "${1:-}" = -s ] && shift
+  shift; cmd="$*"; [ "${1:-}" = bash ] && shift; [ "${1:-}" = -s ] && shift
+  if [ -n "${FAKE_SSH_REC:-}" ]; then
+    mkdir -p "$FAKE_SSH_REC"; printf '%s' "$cmd" > "$FAKE_SSH_REC/cmd"; cat > "$FAKE_SSH_REC/in"
+    if [ "${FAKE_SHELL:-bash}" = zsh ]; then exec env HOME="$FAKE_RHOME" /bin/zsh -c "$cmd" < "$FAKE_SSH_REC/in"; fi
+    exec env HOME="$FAKE_RHOME" bash -s "$@" < "$FAKE_SSH_REC/in"
+  fi
+  if [ "${FAKE_SHELL:-bash}" = zsh ]; then exec env HOME="$FAKE_RHOME" /bin/zsh -c "$cmd"; fi
   exec env HOME="$FAKE_RHOME" bash -s "$@"
 fi
 exec env HOME="$FAKE_RHOME" bash -c "$*"
@@ -110,5 +120,70 @@ sat push r1 --base HEAD; sat fetch r1; chmod 500 "$BARE/refs/archive/sat-git"
 out="$(cd "$REPO" && bash "$TMP/mut_arc.sh" sweep r1 2>&1)"; rc=$?
 chmod 700 "$BARE/refs/archive/sat-git" 2>/dev/null
 [ "$rc" = 0 ] && [ ! -d "$WT/r1-g3" ] && ck "변이④ archive 를 삭제 뒤로 → R5 칸 무의미(변이 검출)" 0 || ck "변이④ archive 를 삭제 뒤로 → 변이 검출 실패" 1
+# ══ r1063 — 원격 셸 zsh 에서도 값이 그대로 전달된다(값 = ssh 명령줄이 아니라 stdin 첫 줄 «set --») ══
+# 기준값(고치기 전) = mini 로그인 셸 zsh 가 SECRET 의 괄호·세로줄·달러를 해석 → rc=127 bad pattern
+SEC_DEF='(^|/)\.env(\.[^/]*)?$|\.pem$|_key'
+REGEN_DEF='(^|/)(node_modules|venv|\.venv)(/|$)'
+BREL='Project/sat-git/byz-agents.git'; WREL='Project/sat-work'
+newrepo_ign() { local r="$TMP/$1"; mkdir -p "$r"; ( cd "$r" && git init -q && git config user.email t@t && git config user.name t \
+  && mkdir -p pkg design && printf '%s\n' 'node_modules/' "o'brien/" > .gitignore && echo one > pkg/a.txt \
+  && echo card > design/card.md && git add -A && git commit -qm init ); echo "$r"; }
+# stdin 첫 줄 «set -- …» 을 bash 로 되풀이해 «원격이 받은 값» 6개를 탭으로 낸다
+pvals() { bash -c 'l="$1"; eval "$l"; printf "%s\t%s\t%s\t%s\t%s\t%s" "$1" "$2" "$3" "$4" "$5" "$6"' _ "$1"; }
+if [ ! -x /bin/zsh ]; then echo "SKIP zsh 칸 — /bin/zsh 없음(zsh 흉내 불가)"; else
+RECZ="$TMP/recz"; export FAKE_SHELL=zsh FAKE_SSH_REC="$RECZ"
+# ── ⓐ R1 원격 셸 zsh + 기본 SECRET → push rc0 · 훅 정규식 원본 바이트 · 값은 stdin 첫 줄 ────────
+RZ="$(newrepo_ign repoz)"
+t0=$SECONDS; out="$(cd "$RZ" && bash "$TOOL" push rz1 --base HEAD 2>&1)"; rc=$?; el=$((SECONDS - t0))
+wz="$WT/rz1-g1"; hz="$(git -C "$wz" rev-parse --absolute-git-dir 2>/dev/null)/hooks/pre-commit"
+cmdline="$(cat "$RECZ/cmd" 2>/dev/null)"; line1="$(head -1 "$RECZ/in" 2>/dev/null)"
+IFS=$'\t' read -r v1 v2 v3 v4 v5 v6 <<< "$(pvals "$line1")"
+[ "$rc" = 0 ] && [ -d "$wz" ] && [ -x "$hz" ] && [ "$(led "$LED/rz1.json" "['gen']")" = 1 ] \
+  && grep -qF "grep -E '$SEC_DEF' || true" "$hz" \
+  && [ "$cmdline" = "bash -s" ] && [ "${line1%% *}" = "set" ] \
+  && [ "$v1" = rz1 ] && [ "$v2" = 1 ] && [ "$v3" = "$BREL" ] && [ "$v4" = "$WREL" ] && [ "$v5" = "$SEC_DEF" ] \
+  && ck "ⓐ R1 zsh 원격 push rc0 · 훅 정규식 원본 바이트 · 명령줄 인자 0(=[$cmdline]) · set -- 값 5개 · ${el}s≤40" 0 \
+  || ck "ⓐ R1 zsh 원격 push rc0 · 훅 정규식 원본 바이트 · 명령줄 인자 0(=[$cmdline]) · set -- 값 5개 · ${el}s≤40" 1
+mut nq 's/-- bash -s$/-- bash -s "$@"/'   # 변이⑤ = 값을 다시 명령줄(argv)로 되돌림
+out="$(cd "$RZ" && FT_SAT_GIT_STATE="$TMP/statez2" bash "$TMP/mut_nq.sh" push rz2 --base HEAD 2>&1)"; rc=$?
+[ "$rc" != 0 ] && ck "변이⑤ 값을 명령줄로 되돌림 → zsh 원격에서 push 실패(변이 검출)" 0 \
+  || ck "변이⑤ 값을 명령줄로 되돌림 → 변이 검출 실패" 1
+# ── ⓑ R2 원격 셸 zsh → sweep 의 REGEN·tip 값 그대로 · 순서 그대로 ──────────────────────────
+git -C "$wz" config user.email t@t; git -C "$wz" config user.name t
+printf 'three\n' > "$wz/pkg/a.txt"; git -C "$wz" commit -qam 'nano zsh change'
+out="$(cd "$RZ" && bash "$TOOL" fetch rz1 2>&1)"; rc=$?; f1=$rc
+ztip="$(cd "$RZ" && git rev-parse refs/sat/rz1-g1 2>/dev/null)"
+mkdir -p "$wz/node_modules/dep"
+t0=$SECONDS; out="$(cd "$RZ" && bash "$TOOL" sweep rz1 2>&1)"; rc=$?; el=$((SECONDS - t0))
+zord=$(printf '%s' "$out" | grep -o 'ARCHIVE\|WORKTREE-REMOVED\|BRANCH-DELETED' | tr '\n' ' ')
+line1="$(head -1 "$RECZ/in" 2>/dev/null)"; IFS=$'\t' read -r v1 v2 v3 v4 v5 v6 <<< "$(pvals "$line1")"
+[ "$f1" = 0 ] && [ "$rc" = 0 ] && [ "$zord" = "ARCHIVE WORKTREE-REMOVED BRANCH-DELETED " ] && [ ! -d "$wz" ] \
+  && [ "$v5" = "$REGEN_DEF" ] && [ "$v6" = "$ztip" ] \
+  && ck "ⓑ R2 zsh 원격 sweep rc0 · set -- 로 REGEN·tip 그대로(tip=${ztip:0:8}) · ${el}s≤40" 0 \
+  || ck "ⓑ R2 zsh 원격 sweep rc0 · set -- 로 REGEN·tip 그대로 · ${el}s≤40" 1
+# ── ⓒ R3 공백·작은따옴표 값 → 그대로 도달(값 줄기 %q) ──────────────────────────────────────
+RECC="$TMP/recc"; export FAKE_SSH_REC="$RECC"
+SPW='Project/sat work'; RGN="(^|/)o'brien(/|$)"; mkdir -p "$RHOME/$SPW"
+RC3="$(newrepo_ign repoc)"
+czsat() { ( cd "$RC3" && FT_SAT_GIT_WORK_REL="$SPW" FT_SAT_GIT_REGEN="$RGN" FT_SAT_GIT_STATE="${1:-$TMP/statec}" bash "$TOOL" "${@:2}" 2>&1 ); }
+out="$(czsat "$TMP/statec" push rc1 --base HEAD)"; rc=$?; wc1="$RHOME/$SPW/rc1-g1"
+line1="$(head -1 "$RECC/in" 2>/dev/null)"; IFS=$'\t' read -r v1 v2 v3 v4 v5 v6 <<< "$(pvals "$line1")"
+[ "$rc" = 0 ] && [ -d "$wc1" ] && [ "$v4" = "$SPW" ] && [ "$v5" = "$SEC_DEF" ] \
+  && ck "ⓒ R3 공백 값(«${SPW}») 그대로 도착 · worktree 실재" 0 \
+  || ck "ⓒ R3 공백 값(«${SPW}») 그대로 도착 · worktree 실재 — rc=$rc line1=$line1" 1
+git -C "$wc1" config user.email t@t; git -C "$wc1" config user.name t
+printf 'two\n' > "$wc1/pkg/a.txt"; git -C "$wc1" commit -qam 'nano quoted change'
+out="$(czsat "$TMP/statec" fetch rc1)"; rc=$?; f1=$rc
+mkdir -p "$wc1/o'brien/x"
+out="$(czsat "$TMP/statec" sweep rc1)"; rc=$?
+line1="$(head -1 "$RECC/in" 2>/dev/null)"; IFS=$'\t' read -r v1 v2 v3 v4 v5 v6 <<< "$(pvals "$line1")"
+[ "$f1" = 0 ] && [ "$rc" = 0 ] && [ "$v4" = "$SPW" ] && [ "$v5" = "$RGN" ] \
+  && ck "ⓒ R3 작은따옴표 값(REGEN) 그대로 도착 · 그 값으로 걸러 sweep rc0" 0 \
+  || ck "ⓒ R3 작은따옴표 값(REGEN) 그대로 도착 · 그 값으로 걸러 sweep rc0 — rc=$rc line1=$line1" 1
+mut pct 's/%q /%s /'   # 변이⑥ = %q 대신 그대로 이음
+out="$(cd "$RC3" && FT_SAT_GIT_WORK_REL="$SPW" FT_SAT_GIT_STATE="$TMP/statec2" bash "$TMP/mut_pct.sh" push rc2 --base HEAD 2>&1)"; rc=$?
+[ "$rc" != 0 ] && ck "변이⑥ %q 대신 그대로 이음 → 공백 값에서 push 실패(변이 검출)" 0 \
+  || ck "변이⑥ %q 대신 그대로 이음 → 변이 검출 실패" 1
+fi
 [ "$fail" = 0 ] && { echo "OK test_sat_git ($((SECONDS))s · 실패 0)"; exit 0; }
 echo "FAIL test_sat_git — 실패 $fail 칸"; exit 1
