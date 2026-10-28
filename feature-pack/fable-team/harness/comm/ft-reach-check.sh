@@ -82,6 +82,17 @@ seat_files() {
         | sed 's/[][\.*^$/]/\\&/g')\"" "$dir"/*.jsonl 2>/dev/null
 }
 
+# r1075: 좌석 기록 id 우선 — 원격 open 이 세션 env 에 심은 `TMUXC_CLAUDE_SESSION_ID` 의 <id>.jsonl «한 파일» 만 본다.
+#   있으면 디렉터리 전수·이름 레코드 폴백을 안 쓴다(warn 줄 0). 없으면 빈 출력 — 호출자는 지금 폴백 그대로(조용한 확대 금지).
+seat_id_file() {  # <dir>
+    local sid
+    sid="$(tmux show-environment -t "$SESSION" TMUXC_CLAUDE_SESSION_ID 2>/dev/null)" || return 1
+    case "$sid" in TMUXC_CLAUDE_SESSION_ID=*) sid="${sid#TMUXC_CLAUDE_SESSION_ID=}" ;; *) return 1 ;; esac
+    [ -n "$sid" ] || return 1
+    [ -f "$1/$sid.jsonl" ] || return 1
+    printf '%s\n' "$1/$sid.jsonl"
+}
+
 count_submitted() {
     local dir="$1"
     local cands
@@ -89,7 +100,9 @@ count_submitted() {
     # 1단계: 후보 좁히기. ★좌석 파일이 특정되면 거기서만 센다★ — 안 그러면 다른
     #        좌석이 받은 브로드캐스트가 내 도달로 계산된다(위 헤더 실측 20/291).
     local mine
-    mine="$(seat_files "$dir")"
+    # r1075: id 로 특정되는 좌석 파일이 있으면 그것만 — 없으면 이름 레코드 → 전수(폴백 · warn) 종전 그대로.
+    mine="$(seat_id_file "$dir")"
+    [ -n "$mine" ] || mine="$(seat_files "$dir")"
     if [ -n "$mine" ]; then
         cands="$(printf '%s\n' "$mine" | xargs grep -lF -- "$MARKER" 2>/dev/null)"
     else
