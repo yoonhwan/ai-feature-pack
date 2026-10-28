@@ -10,18 +10,29 @@
 #   env(시험용): FT_SEND_VERIFIED · FT_MBOX_SH · FT_REACH_CHECK · FT_SO_WAIT_MAX(기동 대기 횟수 60) · FT_SO_POLL(간격 초 1)
 set -uo pipefail
 [ -f "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" ] && . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" "$@"   # R201: 비설치 위치면 LIVE_BIN 으로 exec
-usage() { echo "usage: $0 <구 좌석> <워크트리> --name <후계> --agent claude|codex|cmd|opencode|pi --model M(팀장 이름이면 생략 시 claude-sonnet-5-5) [--ctx C] [--effort E] --body-file F" >&2; exit 2; }
+usage() { echo "usage: $0 <구 좌석> <워크트리> --name <후계> --agent claude|codex|cmd|opencode|pi --model M(sn=claude-sonnet-5-5 · op=claude-opus-5-5 · 팀장 이름이면 생략 시 claude-sonnet-5-5) [--carry 0|1] [--ctx C] [--effort E] --body-file F" >&2; exit 2; }
 [ $# -ge 2 ] || usage
 OLD="$1"; WT="$2"; shift 2
-NAME=""; AGENT=""; MODEL=""; CTX=""; EFFORT=""; BODY=""
+NAME=""; AGENT=""; MODEL=""; CTX=""; EFFORT=""; BODY=""; CARRY=""; CARRY_SET=0
 while [ $# -gt 0 ]; do case "$1" in
   --name) NAME="${2:-}"; shift 2;; --agent) AGENT="${2:-}"; shift 2;; --model) MODEL="${2:-}"; shift 2;;
-  --ctx) CTX="${2:-}"; shift 2;; --effort) EFFORT="${2:-}"; shift 2;; --body-file) BODY="${2:-}"; shift 2;; *) usage;; esac; done
+  --ctx) CTX="${2:-}"; shift 2;; --effort) EFFORT="${2:-}"; shift 2;; --body-file) BODY="${2:-}"; shift 2;;
+  --carry) CARRY="${2:-}"; CARRY_SET=1; shift 2;; *) usage;; esac; done
+# ★r1037 모델 약어★ (오빠 2026-10-28 «sn5.5 → sn5.5 · op5.5 → op5.5 · sn5.5 → op5.5»): `sn` = claude-sonnet-5-5 · `op` = claude-opus-5-5.
+#   비어 있지 않을 때만 풀고, 그 밖의 값(풀네임 포함)은 그대로 둔다 — 모델을 모르는 도구가 값을 고치지 않는다.
+case "$MODEL" in sn) MODEL="claude-sonnet-5-5";; op) MODEL="claude-opus-5-5";; esac
 # ★r1034 팀장 모델 사다리★ (정본 `main-team-governance.md` §13 · 오빠 2026-10-28): 이름에 «-master-» 가 있고 `--model` 을 생략하면 기본 브레인 = Sonnet 5.5.
 #   명시한 값(--model claude-opus-5-5 등)은 덮지 않는다 = 팀장이 막혀 올리는 승계. 팀장 아닌 이름에서 생략은 지금처럼 usage(rc2).
 [ -z "$MODEL" ] && [ "${NAME#*-master-}" != "$NAME" ] && MODEL="claude-sonnet-5-5"
 [ -n "$NAME" ] && [ -n "$AGENT" ] && [ -n "$MODEL" ] && [ -n "$BODY" ] || usage
 case "$AGENT" in claude|codex|cmd|opencode|pi) ;; *) usage;; esac
+# ★r1037 이월 축★ (오빠 2026-10-28 «이제 완료시 다음 증류시 이월0 일때는 ultrathink가 이월 안되고»): `--carry 0|1` 은 모델과 «따로» 받는다.
+#   값은 0·1 만 · `--carry` 를 적었으면 팀장(master) 이름에서만 — 팀장 아닌 좌석에 적으면 조용히 무시하지 않고 usage(rc2). 생략·0 = r1034 와 같다.
+if [ "$CARRY_SET" = 1 ]; then
+  case "$CARRY" in 0|1) ;; *) usage;; esac
+  [ "${NAME#*-master-}" = "$NAME" ] && usage
+fi
+CARRY="${CARRY:-0}"
 printf '%s\n%s\n' "$OLD" "$NAME" | grep -qvE '^[A-Za-z0-9._#-]+$' && { echo "REJECT 좌석명은 [A-Za-z0-9._#-] 만" >&2; exit 2; }
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 # ★spawn 정지 파일 (R320)★: 승계는 1석 교대(순증 0)라 정지 중이어도 막지 않고 WARN 1줄만(문지기 --succession 과 같은 원칙).
@@ -210,14 +221,22 @@ while [ "$i" -lt "$WAIT_MAX" ]; do i=$((i+1))
 # ⓓ 검증 송신 — 본문은 mbox 큐 · 창엔 doorbell 한 줄 · 도달은 jsonl 층(ft-send-verified exit 0 만 성공)
 # ★r1034 팀장 승계 «이월 0» 줄★: 사고 확대 키워드의 효과는 세션을 넘어가지 않는다 — 팀장 후계 본문 끝에 그 뜻을 한 줄 붙인다.
 #   그 낱말 자체는 적지 않는다(적으면 후계 세션이 그 낱말 때문에 바로 켜진다) · --body-file 원본은 바이트 그대로(파일에 쓰지 않는다).
+# ★r1037 이월 1★: 알림줄 꼬리(r1036 · FT_DOORBELL_TAIL)를 «송신과 링 재시도 둘 다»에 켠다 — 낱말은 본문에 싣지 않는다(본문은 도구 결과라 효과가 불확실하고 둘째 경로로 샌다).
 SEND_TEXT="$(cat "$BODY")"
-[ "${NAME#*-master-}" != "$NAME" ] && SEND_TEXT="$SEND_TEXT"$'\n'"승계 이월 0: 앞 세션에서 쓴 사고 확대 키워드의 효과는 이 세션에 없다. 막히면 이 세션에서 판단해 다시 쓴다."
-OUT="$(FT_REACH_AGENT="$AGENT" FT_MBOX_SH="$MBOX" FT_SEND_FROM="$OLD" bash "$SEND" "$NAME" "$SEND_TEXT" 2>&1)"; RC=$?
+if [ "${NAME#*-master-}" != "$NAME" ]; then
+  if [ "$CARRY" = 1 ]; then
+    SEND_TEXT="$SEND_TEXT"$'\n'"승계 이월 1: 앞 세션의 확대 사고를 이어 받는다. 문제가 풀리면 다음 승계에서 이월 0."
+  else
+    SEND_TEXT="$SEND_TEXT"$'\n'"승계 이월 0: 앞 세션에서 쓴 사고 확대 키워드의 효과는 이 세션에 없다. 막히면 이 세션에서 판단해 다시 쓴다."
+  fi
+fi
+TAILENV=""; [ "$CARRY" = 1 ] && TAILENV="FT_DOORBELL_TAIL=ultrathink"
+OUT="$(env $TAILENV FT_REACH_AGENT="$AGENT" FT_MBOX_SH="$MBOX" FT_SEND_FROM="$OLD" bash "$SEND" "$NAME" "$SEND_TEXT" 2>&1)"; RC=$?
 printf '%s\n' "$OUT"
 SEQ="$(printf '%s\n' "$OUT" | grep -oE 'seq=[0-9]+' | head -1 | cut -d= -f2)"
 # ⓕ 2·5 → 같은 seq 로 ring 1회 + 도달 재확인(본문 재큐잉 0). 1(SEND_FAILED)·seq 없음 = 그대로 실패.
 if [ "$RC" -ne 0 ] && { [ "$RC" -eq 2 ] || [ "$RC" -eq 5 ]; } && [ -n "$SEQ" ]; then
-  bash "$MBOX" ring "$NAME" "$SEQ" 2>&1 && FT_REACH_AGENT="$AGENT" bash "$REACH" "$NAME" "[발주 #$SEQ]" 20 0 >/dev/null 2>&1 && RC=0
+  env $TAILENV bash "$MBOX" ring "$NAME" "$SEQ" 2>&1 && FT_REACH_AGENT="$AGENT" bash "$REACH" "$NAME" "[발주 #$SEQ]" 20 0 >/dev/null 2>&1 && RC=0
 fi
 [ "$RC" -eq 0 ] || { hil "send-verified rc=$RC"; exit 5; }
 
