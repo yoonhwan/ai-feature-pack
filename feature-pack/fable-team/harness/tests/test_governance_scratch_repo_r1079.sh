@@ -17,8 +17,8 @@ bad() { echo "FAIL $1"; fail=$((fail+1)); }
   && ok "ⓐ §16 절 머리 1줄" || bad "ⓐ §16 절 머리 $(grep -cF '## 16. 검토·격리 사본 = ft-scratch-repo' "$DOC")줄"
 
 # ── ⓑ R2 금지 문장 ──
-[ "$(grep -cF '세션 scratchpad 안에 git 사본(clone·worktree add)을 만들지 않는다' "$DOC")" = 1 ] \
-  && ok "ⓑ 금지 문장 1줄" || bad "ⓑ 금지 문장 $(grep -cF '세션 scratchpad 안에 git 사본(clone·worktree add)을 만들지 않는다' "$DOC")줄"
+[ "$(grep -cF '세션 scratchpad 안에 git 사본을 만들지 않는다' "$DOC")" = 1 ] \
+  && ok "ⓑ 금지 문장 1줄" || bad "ⓑ 금지 문장 $(grep -cF '세션 scratchpad 안에 git 사본을 만들지 않는다' "$DOC")줄"
 
 # ── ⓒ R3 만들기·닫기 명령 ──
 for p in 'ft-scratch-repo.sh <sha> [--repo <저장소>]' 'ft-scratch-repo.sh --done <경로>'; do
