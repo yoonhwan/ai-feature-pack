@@ -1,0 +1,19 @@
+PASS ⓐ park 30 → 명부 PARKED(만료 = 지금+30분) · 만료 전 sweep 닫힘 0 · 만료 뒤 sweep = close 경로 + 원장 «만료 자동 닫음» 1줄 + 장부 줄 삭제
+PASS ⓑ 연장 1회 OK(총 60분) · 2회째 rc2 · 31분 이상 rc2 · 0분 rc2 · OPEN 에 --extend rc2 · 없는 slug rc2 원격 0
+PASS ⓒ PARKED 도 상한 3 에 셈(남긴 둘 + 열린 하나 → 4번째 open rc8 · 원격 0)
+PASS ⓓ reap = 계획 파일 reap-<시각>.sh.hil 만 · kill 0 · 명부 밖 세션 + 오래된 OPEN · 후보 0 = 파일 0 · 조회 실패 rc5
+PASS ⓔ 닫기 실패 → 명부 «닫기 실패» + 원장 1줄(close) + 장부 유지 · 다음 sweep 재시도로 닫힘
+⏱ 칸 ⓐ~ⓔ 1초
+⏭ ⓕ 건너뜀(알려진 한계 · FT_R950_SKIP_F=1)
+⏱ ⓕ 기존 시험 0초 (누적 1초)
+PASS ⓖ 변이 만료 검사 끔 → 칸 park 빨강 = 감지
+PASS ⓖ 변이 연장 횟수 검사 끔 → 칸 extend 빨강 = 감지
+PASS ⓖ 변이 총 시한 60분 검사 끔(60→90) → 칸 extend 빨강 = 감지
+PASS ⓖ 변이 reap 이 kill 하게 → 칸 reap 빨강 = 감지
+⏱ ⓖ 변이 4종 1초 (누적 2초)
+PASS 정적 kit 사본 cmp0 ft_sat_nano.py
+PASS 정적 kit 사본 cmp0 ft_sat_gate.py
+PASS 정적 kit 사본 cmp0 ft_sat_rt.py
+PASS 정적 kit 사본 cmp0 ft-sat-nano.sh
+PASS 정적 /bin/bash -n
+ALL PASS

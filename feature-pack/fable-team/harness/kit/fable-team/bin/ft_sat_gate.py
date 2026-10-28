@@ -1,11 +1,13 @@
 """ft_sat_gate — ft-sat-nano «열 때의 문» (r949 · 위성 나노 팀 운영 체계 1/2).
 
-명부 roster.json(상태 폴더) = 이 도구가 연 세션 표 · 상태 OPENING → OPEN → CLOSED · 표식 by=ft-sat-nano
+명부 roster.json(상태 폴더) = 이 도구가 연 세션 표 · 상태 OPENING → OPEN → PARKED(남김) → CLOSED · 표식 by=ft-sat-nano
+남김(PARKED·r950)은 시한(expire_epoch)을 가진 열림 상태다 — 상한에도 세고(ⓒ) 만료 뒤 park --sweep 이 close 경로로 닫는다.
 원장 ledger.tsv(추가 전용) = 시각 · 종류 · slug · 이름 · free · warn · 결과(사유) — 종류는 open·close·reject 셋뿐(r949 r4) · 경고는 open 줄의 칸이다(독립 줄 0) · 비밀은 «종류»만(값 0)
-문 4개: 상한 SAT_MAX(기본 3 · OPENING+OPEN 을 센다 · 원격 전) · mini free% 경고 SAT_FREE_MIN(기본 25 · R_PRE 와 같은 ssh 1회 · 값은 ssh rc0 ∧ 측정 rc0 ∧ 숫자 파싱 셋 다 맞을 때만 · 아니면 「측정 불가」 경고 1줄 · 어느 갈래도 열고 진행)
+문 4개: 상한 SAT_MAX(기본 3 · OPENING+OPEN+PARKED 를 센다 · 원격 전) · mini free% 경고 SAT_FREE_MIN(기본 25 · R_PRE 와 같은 ssh 1회 · 값은 ssh rc0 ∧ 측정 rc0 ∧ 숫자 파싱 셋 다 맞을 때만 · 아니면 「측정 불가」 경고 1줄 · 어느 갈래도 열고 진행)
         이름 = ft-name-lint.sh 규칙 그대로(기본 byz-satnano-nano-<slug>#0) · 입력 비밀 = 공용 판정만(ft_secret_shapes.mask + autonomy_scope_secret.SECRET_SHAPE)
 명부·원장 쓰기는 rt.ledger 잠금(opened.flock) 안에서만 — 잠금 밖 쓰기 = rc2(코드 결함).
 """
+import calendar
 import json
 import os
 import re
@@ -15,7 +17,8 @@ import ft_sat_rt as rt
 from ft_sat_rt import Fail
 
 MARK = "ft-sat-nano"
-LIVE = ("OPENING", "OPEN")
+PARKED = "PARKED"
+LIVE = ("OPENING", "OPEN", PARKED)  # r950 — 남김도 상한에 센다(ⓒ)
 BIN = os.path.dirname(os.path.abspath(__file__))
 NAME_PREFIX = "byz-satnano-nano-"
 
@@ -32,6 +35,30 @@ def stamp():
             raise Fail(2, f"설정 오류: FT_NOW={v!r}")
         return v
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+
+def iso_of(ep):
+    """epoch(초) → 시각 칸 글자 — 남김 만료를 명부에 사람이 읽게 적는다."""
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(int(ep)))
+
+
+def parse_iso(s):
+    """시각 칸 글자 → epoch(초) · 못 읽으면 None(0 으로 떨어져 «만료» 로 오판하지 않는다)."""
+    try:
+        return int(calendar.timegm(time.strptime(str(s), "%Y-%m-%dT%H:%M:%SZ")))
+    except (ValueError, TypeError):
+        return None
+
+
+def epoch_now():
+    """지금(초) — FT_NOW 는 시험 전용 고정값 · 남김 만료 계산의 유일한 시계."""
+    v = os.environ.get("FT_NOW", "")
+    if v:
+        ep = parse_iso(v)
+        if ep is None:
+            raise Fail(2, f"설정 오류: FT_NOW={v!r} — %Y-%m-%dT%H:%M:%SZ 만")
+        return ep
+    return int(time.time())
 
 
 # ── 이름 — 명부 규칙(ft-name-lint) 그대로 ──
@@ -119,14 +146,32 @@ def live(rows):
     return [r for r in rows if r.get("status") in LIVE]
 
 
+def save(rows):
+    """명부 다시 쓰기 — 장부 잠금(rt.ledger) 안에서만 · 남김 명령이 쓴다."""
+    _save(rows)
+
+
+def roster_fail(name, why):
+    """남김 만료 닫기 실패 — 명부 «닫기 실패» 표시(상태 그대로) + 원장 close 1줄.
+    상태를 CLOSED 로 바꾸지 않는다(조용한 성공 0) — 다음 sweep 이 같은 줄을 다시 시도한다(ⓔ)."""
+    rows = roster_rows()
+    hit = [r for r in rows if r.get("name") == name]
+    if len(hit) != 1:
+        raise Fail(6, f"명부 손상 — name={name} 줄이 정확히 1개가 아니다({len(hit)}) · 건드림 0")
+    hit[0]["park_fail"] = "닫기 실패 " + stamp()
+    _save(rows)
+    ledger_add("close", slug(hit[0].get("run", "")), name, result="닫기 실패: " + (why or "-")[:160])
+    return hit[0]
+
+
 def cap():
     return rt.cfg_int("SAT_MAX", 3, 1, 99)
 
 
 def board(rows):
     out = [f"명부 열림 {len(live(rows))}/{cap()} · 전체 {len(rows)}행",
-           "slug\t이름\t상태\t소켓\t연 시각\t닫은 시각\t표식"]
-    keys = ("slug", "name", "status", "sock", "opened_at", "closed_at", "by")
+           "slug\t이름\t상태\t소켓\t연 시각\t닫은 시각\t표식\t남김 만료\t닫기 실패"]
+    keys = ("slug", "name", "status", "sock", "opened_at", "closed_at", "by", "expire_at", "park_fail")
     out += ["\t".join(str(r.get(k) or "-") for k in keys) for r in rows]
     return out
 

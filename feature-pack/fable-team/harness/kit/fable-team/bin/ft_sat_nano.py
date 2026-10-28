@@ -4,11 +4,15 @@
 골 축: 하네스 골 C «메인 하네스를 유니크하게 머신들에 완전히 독립 배분해 운용» — 이 맥 대신 mini 에 작업 좌석을 열고 쓰고 닫는다.
 명령: open <카드> [--run R] [--name N] · task <세션> <파일> [--retry] · pull --seats A,B [--every N] · fetch <세션>
       close <세션> [--adopt | --forget --why '<1~200자>'] · roster(명부 표 1장 · 읽기)
+      park <slug> <분> [--extend] · park --sweep · reap(r950 · 남김 시한·고아 계획)
 열 때의 문(r949 · ft_sat_gate): 상한 SAT_MAX 3 · mini free% 경고 SAT_FREE_MIN 25(값은 ssh rc0 ∧ 측정 rc0 ∧ 숫자 셋 다일 때만 · 아니면 「측정 불가」 1줄 · 어느 갈래도 열고 진행) · 이름 = ft-name-lint(기본 byz-satnano-nano-<slug>#0)
       입력 비밀 꼴 = rc2 · 명부 roster.json(OPENING→OPEN→CLOSED · 표식 by=ft-sat-nano) · 원장 ledger.tsv(종류 = open·close·reject 셋뿐 · 경고는 open 줄의 칸)
 보장: 쪽지 = 최소 한 번(꼬리표 · 재발신 상한 · dead 격리) · 지시 입력·원격 열기 = 최대 한 번(결과 모름 = rc4 · 자동 해소 0)
       close = 신원이 확인된 줄만 닫는다 · 열기 불확실 줄은 도구가 지우지 않는다(--forget = 사람·master 명시 · 원격 0)
 장부(r5): R1 열쇠 = run(기본 이름 byz-sat-nano-<run>#0) · open·close·--adopt·--forget 은 장부 잠금을 명령 내내 쥔다
+남김(r950): park = 시한(30분 · 연장 1회 · 총 60분)을 명부에 적고 mkdir·kill 0 · 만료 뒤 park --sweep 이 기존 close 경로로 닫는다
+      닫기 실패 = 명부 «닫기 실패» 표시 + 원장 close 1줄 «닫기 실패:»(조용한 성공 0 · 다음 sweep 재시도)
+      reap = 명부 ↔ mini tmux ls 대조해 계획 파일 <상태>/reap-<시각>.sh.hil 만 쓴다 · kill 0(고아 실제 kill = HIL)
       R2 삭제 길 = close(gone 확인)·--forget 둘 + R_PRE 만 돈 open 실패 · 줄 = 정확히 8칸(아니면 rc6)
       R3 확인된 줄의 원격 조회·kill·입력 = 기록 소켓(tmux -S)만
 원격 쓰기 = mini ~/<SAT_ROOT_REMOTE>/<run>/ · 쪽지함(+quarantine/) 뿐 · 사용자 값은 위치 인자(shlex 인용)로만.
@@ -86,6 +90,9 @@ tm send-keys -t "=$3:" -l "$msg" && sleep 1 && tm send-keys -t "=$3:" Enter || {
 echo SENDOK
 """
 R_CAT = 'cat "$HOME/$1/$2"\n'
+R_LS = """tmux list-sessions -F '#{session_name}' 2>/dev/null
+echo "ls_rc=$?"
+"""
 R_LOOKUP = SESS + """h="$(sess "$1")"; echo "has=$h"
 if [ "$h" = 0 ]; then
   i="$(tm display -p -t "=$1:" """ + IDENT_FMT + """ 2>/dev/null)"; echo "drc=$?"
@@ -567,6 +574,156 @@ def close_row(dl, row, adopt):
     return 0
 
 
+def cmd_park(argv):
+    """park <slug> <분> [--extend] = 남김 시한 · park --sweep = 만료된 남김을 close 경로로 닫는다."""
+    pos, o = opts(argv, ("--extend", "--sweep"), ())
+    if "--sweep" in o:
+        if pos or "--extend" in o:
+            raise Fail(2, "usage park <slug> <분> [--extend] | park --sweep")
+        return sweep()
+    if len(pos) != 2:
+        raise Fail(2, "usage park <slug> <분> [--extend] | park --sweep")
+    slug_, raw = pos
+    rt.need("run", slug_, "slug")
+    minutes = park_minutes(raw)
+    cfg = rt.config()
+    dl = rt.Deadline(cfg["total"], cfg["tmo"])
+    rt.ensure_state()
+    with rt.ledger(dl):
+        rows = gate.roster_rows()
+        row = park_pick(rows, slug_)
+        new = park_set(row, minutes, "--extend" in o)
+        gate.save(rows)
+    say(f"PARK ok {row.get('name')} 만료 {gate.iso_of(new)} ({minutes}분{' 연장' if o.get('--extend') else ''})"
+        f" — 만료 뒤 `park --sweep` 이 닫는다 · 지금 kill 0")
+    return 0
+
+
+def sweep():
+    """만료 지난 남김을 r902 close 경로로 닫는다(ⓐ) — 실패는 «닫기 실패» 표시 뒤 다음 sweep 이 다시 시도한다(ⓔ)."""
+    cfg = rt.config()
+    rt.ensure_state()
+    now = gate.epoch_now()
+    due = [r for r in gate.roster_rows()
+           if r.get("status") == gate.PARKED and int(r.get("expire_epoch") or 0) <= now]
+    if not due:
+        say("SWEEP 남김 만료 0 — 닫힘 0 · kill 0")
+        return 0
+    worst = done = 0
+    for row in due:
+        name = row.get("name") or ""
+        try:
+            dl = rt.Deadline(cfg["total"], cfg["tmo"])
+            with rt.ledger(dl):
+                hold = rt.opened_find(name)
+                if not hold:
+                    raise Fail(6, f"장부에 이 세션 줄이 없다(건드림 0 · 기록 유지): {name}")
+                gate.roster_marked(name)
+                close_row(dl, hold, False)
+                gate.closed(hold, PARK_CLOSE)
+            done += 1
+            say(f"SWEEP 닫음 {name} — {PARK_CLOSE}")
+        except Fail as e:
+            worst = worst or e.rc or 2
+            say(f"SWEEP 실패 {name} rc={e.rc} {e.msg}")
+            try:
+                with rt.ledger(rt.Deadline(cfg["total"], cfg["tmo"])):
+                    gate.roster_fail(name, e.msg)
+            except Fail as e2:
+                worst = worst or e2.rc or 2
+                say(f"SWEEP 실패 기록도 못 남겼다 rc={e2.rc} {e2.msg}")
+    say(f"SWEEP 끝 만료={len(due)} 닫음={done} 실패={len(due) - done}")
+    return worst
+
+
+def cmd_reap(argv):
+    """reap — 명부 ↔ mini tmux ls 대조 · 계획 파일만 쓴다 · kill 0(고아 실제 kill = HIL · ⓓ)."""
+    if argv:
+        raise Fail(2, "usage reap")
+    cfg = rt.config()
+    dl = rt.Deadline(cfg["total"], cfg["tmo"])
+    rt.ensure_state()
+    rc, out, err = rt.rcall(dl, R_LS)
+    if rc != 0:
+        raise Fail(5, f"mini 세션 목록 조회 실패(rc={rc}) — 계획 파일 0 · kill 0: {tail(out, err)}")
+    names = [ln for ln in out.decode("utf-8", "replace").splitlines() if ln.startswith(gate.NAME_PREFIX)]
+    rows = gate.roster_rows()
+    known = {r.get("name") for r in rows}
+    now = gate.epoch_now()
+    cands = []
+    for n in names:
+        if n not in known:
+            cands.append(("명부 밖 세션", n))
+    for r in rows:
+        opened = gate.parse_iso(r.get("opened_at") or "")
+        if r.get("status") == "OPEN" and opened is not None and now - opened > PARK_OLD * 60:
+            cands.append(("오래된 OPEN", r.get("name") or ""))
+    if not cands:
+        say(f"REAP 후보 0 — mini 세션 {len(names)} · 명부 {len(rows)}행 · 계획 파일 0 · kill 0")
+        return 0
+    p = write_plan(cands)
+    say(f"REAP 후보 {len(cands)} — 계획 파일 {p} (kill 0 · 사람 판단) · 표식 있는 남김 만료만 sweep 이 자율로 닫는다")
+    return 0
+
+
+def write_plan(cands):
+    """계획 파일 1장 — 일반 파일(표식·장부와 같은 권한 · 하드 룰 19) · 실행하는 곳은 사람이다."""
+    lines = [f"# reap 계획 — 자동 kill 0 · 사람 판단(HIL) — 시각 {gate.stamp()}",
+             f"# 후보 {len(cands)} · 승인 뒤 아래 주석을 풀어 실행한다(이 도구는 kill 하지 않는다)"]
+    for kind, name in cands:
+        lines.append(f"# {kind}: {name}")
+        lines.append(f"# tmux kill-session -t {name}")
+    p = os.path.join(rt.state_dir(), "reap-" + re.sub(r"[^0-9A-Za-z-]", "", gate.stamp()) + ".sh.hil")
+    with open(p, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
+    return p
+
+
+# ── 남김 시한 · 고아 계획 (r950) — 남긴 나노가 mini 자리를 영영 차지하지 않게 ──
+PARK_MAX = 30    # 한 번에 남기는 최대(분) · 31분 이상 요청 = rc2
+PARK_TOTAL = 60  # 연장 포함 총 시한(분)
+PARK_OLD = 60    # reap 이 «오래된 OPEN» 으로 보는 나이(분)
+PARK_CLOSE = "만료 자동 닫음"
+
+
+def park_minutes(raw):
+    if not re.fullmatch(r"[0-9]{1,3}", raw or ""):
+        raise Fail(2, f"남김 시한은 1~{PARK_MAX}분(10진 정수)만: {raw!r} — 원격 0")
+    v = int(raw, 10)
+    if not 1 <= v <= PARK_MAX:
+        raise Fail(2, f"남김 시한은 1~{PARK_MAX}분만(요청 {v}) — 원격 0")
+    return v
+
+
+def park_pick(rows, slug_):
+    hit = [r for r in rows if r.get("slug") == slug_ and r.get("status") in gate.LIVE]
+    if len(hit) != 1:
+        raise Fail(2, f"명부에 slug={slug_} 인 열린 줄이 정확히 1개가 아니다({len(hit)}) — 원격 0")
+    return hit[0]
+
+
+def park_set(row, minutes, extend):
+    """남김 1회 — 처음 = 만료 지금+N분 · 연장 = 1회뿐 · 총 시한 60분을 못 넘는다(ⓑ). 명부 칸만 바꾼다."""
+    now = gate.epoch_now()
+    if extend:
+        if row.get("status") != gate.PARKED:
+            raise Fail(2, f"연장은 남김(PARKED) 줄만 — 지금 {row.get('status')} · 원격 0: {row.get('name')}")
+        if int(row.get("park_extend") or 0) >= 1:
+            raise Fail(2, f"연장은 1회뿐 — 이미 연장했다(총 시한 {PARK_TOTAL}분) · 원격 0: {row.get('name')}")
+        base = gate.parse_iso(row.get("parked_at") or "")
+        new = max(int(row.get("expire_epoch") or 0), now) + minutes * 60
+        if base is not None and new - base > PARK_TOTAL * 60:
+            raise Fail(2, f"연장하면 총 시한 {PARK_TOTAL}분을 넘는다 — 요청 {minutes}분 · 원격 0: {row.get('name')}")
+        row["park_extend"] = 1
+    else:
+        if row.get("status") != "OPEN":
+            raise Fail(2, f"남김은 열린(OPEN) 줄만 — 지금 {row.get('status')} · 원격 0: {row.get('name')}")
+        new, row["park_extend"] = now + minutes * 60, 0
+        row["parked_at"], row["park_fail"] = gate.stamp(), ""
+    row["status"], row["expire_epoch"], row["expire_at"] = gate.PARKED, new, gate.iso_of(new)
+    return new
+
+
 def forget(dl, row, why):
     """--forget = 기록만 지운다(원격 호출 0) · pending 줄에만 · 이유 필수 · forgotten.tsv 1줄."""
     w = (why or "").strip()
@@ -583,10 +740,12 @@ def forget(dl, row, why):
 
 
 def main(argv):
-    cmds = {"open": cmd_open, "task": cmd_task, "pull": cmd_pull, "fetch": cmd_fetch, "close": cmd_close, "roster": gate.cmd_roster}
+    cmds = {"open": cmd_open, "task": cmd_task, "pull": cmd_pull, "fetch": cmd_fetch, "close": cmd_close,
+            "roster": gate.cmd_roster, "park": cmd_park, "reap": cmd_reap}
     if not argv or argv[0] not in cmds:
         print("usage: ft-sat-nano.sh {open <카드> [--run R] [--name N] | task <세션> <파일> [--retry] | pull --seats A,B [--every N]"
-              " | fetch <세션> | close <세션> [--adopt | --forget --why '<사유>'] | roster}", file=sys.stderr)
+              " | fetch <세션> | close <세션> [--adopt | --forget --why '<사유>'] | park <slug> <분> [--extend]"
+              " | park --sweep | reap | roster}", file=sys.stderr)
         return 2
     try:
         return cmds[argv[0]](argv[1:])
