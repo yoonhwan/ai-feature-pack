@@ -15,9 +15,10 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 from ft_news_status import latest_snapshot  # noqa: E402
-from ft_team_lib import TeamPathError, team_root, teams_md  # noqa: E402
+from ft_team_lib import TeamPathError, team_rel, team_root, teams_md  # noqa: E402
 
 LOG = logging.getLogger("ft_news_desk")
+NO_ENV = "확인 불가(FT_HARNESS_ROOT 없음)"  # r1064 R2: 꼴3 인데 env 가 비면 지도 폴백 대신 이 글자
 GOAL = re.compile(r"^##\s+메인 골")
 CLOCK = re.compile(r"\b\d{1,2}:\d{2}\b")
 TABLE_SEP = re.compile(r"^\|[\s:|-]+\|$")
@@ -166,6 +167,14 @@ def doing(team: dict | None) -> str:
     return head + (f" / 다음 대기: {queue[0]}" if queue and queue[0] else "")
 
 
+def _needs_env(team: str, root: Path) -> bool:
+    """명단 폴더가 꼴3($FT_HARNESS_ROOT 꼴)인데 env 가 비었다 — 뉴스 데몬은 지도로 안 넘어간다(r1064 · R2)."""
+    try:
+        return team_rel(team, root).startswith(("$FT_HARNESS_ROOT/", "${FT_HARNESS_ROOT}/")) and not os.environ.get("FT_HARNESS_ROOT")
+    except (TeamPathError, OSError):
+        return False
+
+
 def team_block(root: Path, snap: dict[str, dict]) -> list[str]:
     try:
         teams = team_list(root)
@@ -174,6 +183,10 @@ def team_block(root: Path, snap: dict[str, dict]) -> list[str]:
         return [f"확인 불가 — 팀 명단을 못 읽었다({_why(e)})"]
     body = []
     for team in teams:
+        if _needs_env(team, root):
+            LOG.error("%s 카드 숫자 확인 불가: env FT_HARNESS_ROOT 없음(지도 폴백 0)", team)
+            body.append(f"| {team} | {doing(snap.get(team))} | {NO_ENV} | {NO_ENV} | {NO_ENV} | {open_seats(root, team)} |")
+            continue
         try:
             folder: Path | None = team_root(team, root)
         except (TeamPathError, OSError) as e:
