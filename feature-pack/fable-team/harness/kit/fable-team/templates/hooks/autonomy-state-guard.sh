@@ -18,6 +18,7 @@
 #   읽기 목록 밖을 전부 막는 방향은 오탐 폭발(r106c 실측)이라 금지 — cat·jq·grep·tail·ft-autonomy.sh status|mode|event·따옴표 안 글자·heredoc 본문은 allow.
 # 한계(설계 §1): bypass 좌석의 적대적 우회(python -c 로 쓰기 등)까지는 못 막는다 — 그건 ft-autonomy.sh 의 위변조 표시가 잡는다.
 # ★FAIL-OPEN★: 파싱 불가 = 허용 + 로그(FT_AUTONOMY_HOOK_LOG · 기본 ~/.claude/logs/autonomy-hooks.log). 외부 호출 0 — 로컬 git rev-parse 뿐.
+# ★r1073★ mode 읽기 = 1회 상한 FT_AUTONOMY_HOOK_CAP_S(기본 7) + 실패 1회 재시도 · 2회 실패는 원인(시간 초과 N초·rc=n·값)을 로그에 남긴다(하드 룰 12).
 # ★설치(~/.claude/hooks/ 복사 · settings.json PreToolUse 등록)는 이 파일 범위 밖 — 설치 카드★
 # ★r546★ env -S 분해는 공용 모듈 merge_cmd.env_split 하나 — 같은 폴더의 merge_cmd.py 가 없으면 rc2(막음). 사본 0.
 set +e
@@ -76,16 +77,45 @@ def byz_root(cwd):
     return root if root and os.path.isdir(os.path.join(root, ".fable-team")) else ""
 
 
+def hook_cap():   # r1073: 1회 상한 — FT_AUTONOMY_HOOK_CAP_S(기본 7 · 숫자 아니면 7 · 하드 룰 12)
+    try:
+        v = float(os.environ.get("FT_AUTONOMY_HOOK_CAP_S") or "")
+    except (TypeError, ValueError):
+        return 7.0
+    return v if v > 0 else 7.0
+
+
+def _why(causes):   # r1073: 2회 실패 원인 1개 — 같으면 그 원인, 다르면 «첫 → 둘»
+    return causes[-1] if len(set(causes)) == 1 else " → ".join(causes)
+
+
 def autonomy_mode(root):   # r466: ft-autonomy.sh mode — FT_AUTONOMY_SH → 루트 shim → $FT_HARNESS_ROOT/bin · 못 읽으면 ""
     hr = os.environ.get("FT_HARNESS_ROOT") or ""
     cands = [os.environ.get("FT_AUTONOMY_SH") or "", os.path.join(root, ".fable-team/bin/ft-autonomy.sh"), hr and os.path.join(hr, "bin/ft-autonomy.sh")]
     sh = next((c for c in cands if c and os.path.isfile(c)), None)
-    try:
-        p = subprocess.run(["bash", sh, "mode"], capture_output=True, text=True, timeout=5) if sh else None
-    except (OSError, subprocess.SubprocessError):
-        p = None
-    m = p.stdout.strip() if p is not None and p.returncode == 0 else ""
-    return m if m in ("on", "off", "tamper") else ""
+    if not sh:
+        return ""
+    cap, causes = hook_cap(), []   # ★r1073★ 1회 상한 + 실패 1회 재시도(하드 룰 12)
+    for _ in (1, 2):
+        try:
+            p = subprocess.run(["bash", sh, "mode"], capture_output=True, text=True, timeout=cap)
+        except subprocess.TimeoutExpired:
+            causes.append("시간 초과 %g초" % cap)
+            continue
+        except (OSError, subprocess.SubprocessError):
+            causes.append("실행 실패")
+            continue
+        m = p.stdout.strip() if p.returncode == 0 else ""
+        if p.returncode != 0:
+            causes.append("rc=%d" % p.returncode)
+        elif m not in ("on", "off", "tamper"):
+            causes.append("값 %s" % (m[:20] or "빈 값"))
+        else:
+            if causes:
+                note("mode 재시도 통과(1회차 %s)" % causes[0])
+            return m
+    note("ft-autonomy.sh mode 를 못 읽음 — 진입 파일 판정은 deny 쪽(R176 · 판정 1675 ①) (%s ×2)" % _why(causes))
+    return ""
 
 
 def hil_text(path):   # 진입 파일·계획 파일 본문(진입 파일이면 plan= 이 가리키는 계획 파일까지 1단) → (계획 경로, 본문) · 못 읽음 = None

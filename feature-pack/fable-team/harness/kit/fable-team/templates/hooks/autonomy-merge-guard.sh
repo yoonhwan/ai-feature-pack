@@ -8,6 +8,7 @@
 #   · main 대상 `git push`(main·HEAD:main·x:main·refs/heads/main · `--repo` 포함 · 맨 push+현재 브랜치 main) → 보내는 쪽 ref(없으면 HEAD)의 rev-parse sha. 삭제(:main·--delete/-d)·--all·--mirror·와일드카드는 항상 deny. --dry-run allow.
 #   `env -S '<명령>'` 는 `bash -c` 처럼 안쪽을 재검사. OFF·위변조·따옴표/heredoc/mbox 본문 글자만 = allow.
 #   ★R725★ 문서 전용 PR 예외는 `ft-merge-land` 경유(squash 1커밋) «한 길»뿐 — 판정은 그 도구 안 `ft_doc_exempt.py` 한 곳이 한다(팀 폴더 직속 .md 추가·수정). ★이 훅은 직접 `git push`·`gh pr merge` 에 예외를 주지 않는다★ — 그 경로는 승인 파일 필요 그대로(DA⑥ r1 질문 6: 직접 경로는 목적지·ref 이동 검사를 건너뛰었다).
+# ★r1073★ mode 읽기 = 1회 상한 FT_AUTONOMY_HOOK_CAP_S(기본 7) + 실패 1회 재시도 · 2회 실패는 원인(시간 초과 N초·rc=n·값)을 로그 줄 끝에 남긴다(하드 룰 12).
 # ★못 읽음(R176 · 판정 1675 ①)★: ft-autonomy.sh 못 찾음·rc≠0 = 병합·main push 는 deny + 이유 + 로그(FT_AUTONOMY_HOOK_LOG). 파싱 불가(JSON·예외)는 그대로 허용+로그. 외부 호출 0.
 #   ★r560★ ①판정기 자리 = <루트>/.fable-team/LIVE_BIN 1줄 + ft_approval_equiv.py (첫 줄이 bash 대리 파일(shim)이면 안 쓴다 — shim 폴더를 도구 자리로 잡으면 python3 -I 가 SyntaxError 로 «판정기 출력 없음» 만 남겼다) ②후보 순서 = `git rev-list <S> ^origin/main` 에 든 승인 먼저(병합 경로) → 그다음 최신순(rebase 경로) ③autonomy.log 는 «한 번» 읽어 집합(후보마다 다시 읽지 않음) ④판정기 stderr·rc·시간 초과·마감 소진을 거절 이유에 남긴다(마감 21초·후보당 7초는 그대로 — 판정 666).
 # 도구·상태 해석 = 오빠 `!` 와 같은 곳: FT_AUTONOMY_SH → harness-env.sh 의 FT_BIN → 루트 2경로 · 상태는 FT_ROOT 가 env 에 있을 때만 그것, 아니면 도구 자기 루트.
@@ -75,15 +76,45 @@ def autonomy_state(sh):
     return os.path.join(base, ".fable-team/state")
 # --- R176 resolve end ---
 
-def mode_of(root):
-    """(도구 경로, on|off|tamper) — 못 읽으면 모드 ""(R176 · 판정 1675 ①: 못 읽음 = 병합 deny)."""
-    sh = autonomy_sh(root)
+def hook_cap():   # r1073: 1회 상한 — FT_AUTONOMY_HOOK_CAP_S(기본 7 · 숫자 아니면 7 · 하드 룰 12)
     try:
-        p = subprocess.run(["bash", sh, "mode"], capture_output=True, text=True, timeout=5) if sh else None
-    except (OSError, subprocess.SubprocessError):
-        p = None
-    mode = p.stdout.strip() if p is not None and p.returncode == 0 else ""
-    return sh, mode if mode in ("on", "off", "tamper") else ""
+        v = float(os.environ.get("FT_AUTONOMY_HOOK_CAP_S") or "")
+    except (TypeError, ValueError):
+        return 7.0
+    return v if v > 0 else 7.0
+
+
+def _why(causes):   # r1073: 2회 실패 원인 1개 — 같으면 그 원인, 다르면 «첫 → 둘»
+    return causes[-1] if len(set(causes)) == 1 else " → ".join(causes)
+
+
+def mode_of(root):
+    """(도구 경로, on|off|tamper, 실패 원인) — 못 읽으면 모드 ""(R176 · 판정 1675 ①: 못 읽음 = 병합 deny).
+
+    ★r1073★ 읽기 = 1회 상한 hook_cap() + 실패 1회 재시도(하드 룰 12) · 재시도로 통과하면 로그 1줄."""
+    sh = autonomy_sh(root)
+    if not sh:
+        return None, "", "(도구 없음)"
+    cap, causes = hook_cap(), []
+    for _ in (1, 2):
+        try:
+            p = subprocess.run(["bash", sh, "mode"], capture_output=True, text=True, timeout=cap)
+        except subprocess.TimeoutExpired:
+            causes.append("시간 초과 %g초" % cap)
+            continue
+        except (OSError, subprocess.SubprocessError):
+            causes.append("실행 실패")
+            continue
+        m = p.stdout.strip() if p.returncode == 0 else ""
+        if p.returncode != 0:
+            causes.append("rc=%d" % p.returncode)
+        elif m not in ("on", "off", "tamper"):
+            causes.append("값 %s" % (m[:20] or "빈 값"))
+        else:
+            if causes:
+                note("mode 재시도 통과(1회차 %s)" % causes[0])
+            return sh, m, ""
+    return sh, "", "(%s ×2)" % _why(causes)
 
 def strip_heredocs(cmd):
     out, delim = [], None
@@ -323,9 +354,9 @@ try:
     root = byz_root(cwd)
     if not root:
         sys.exit(0)
-    sh, mode = mode_of(root)
+    sh, mode, why = mode_of(root)
     if not mode:
-        note(f"ft-autonomy.sh mode 를 못 읽음(도구={sh}) — 병합·main push 는 deny(R176 · 판정 1675 ①)")
+        note(f"ft-autonomy.sh mode 를 못 읽음(도구={sh}) — 병합·main push 는 deny(R176 · 판정 1675 ①) {why}")
     elif mode != "on":
         sys.exit(0)
     guard = Guard(autonomy_state(sh) if mode else "", cwd, sh, root)

@@ -7,6 +7,7 @@
 # ★못 읽음(R176 · 판정 1675 ①)★: ft-autonomy.sh 못 찾음/실패 = 허용 + 로그 1줄 + 화면 경고(stderr·systemMessage) — 인터뷰는 되돌릴 수 있다. stdin 파싱 불가 = 허용 + 로그.
 #   로그 FT_AUTONOMY_HOOK_LOG · 기본 ~/.claude/logs/autonomy-hooks.log. 도구 해석 = FT_AUTONOMY_SH → harness-env.sh 의 FT_BIN → 루트 2경로(오빠 `!` 와 같은 곳).
 # 환경: FT_ROOT(루트 고정) · FT_AUTONOMY_SH(ft-autonomy.sh 경로) · FT_AUTONOMY_STATE_DIR(ft-autonomy.sh 가 읽음). 외부 호출 0 — 로컬 git rev-parse·파일 읽기뿐.
+# ★r1073★ mode/status 읽기 = 1회 상한 FT_AUTONOMY_HOOK_CAP_S(기본 7) + 실패 1회 재시도 · 2회 실패는 원인(시간 초과 N초·rc=n·값)을 로그에 남긴다(하드 룰 12).
 # ★설치(~/.claude/hooks/ 복사 · settings.json PreToolUse AskUserQuestion 기존 인터뷰 훅 2개 뒤 등록)는 이 파일 범위 밖 — 설치 카드★
 set +e
 INPUT=$(cat 2>/dev/null)
@@ -63,20 +64,47 @@ def autonomy_state(sh):
 # --- R176 resolve end ---
 
 
+def hook_cap():   # r1073: 1회 상한 — FT_AUTONOMY_HOOK_CAP_S(기본 7 · 숫자 아니면 7 · 하드 룰 12)
+    try:
+        v = float(os.environ.get("FT_AUTONOMY_HOOK_CAP_S") or "")
+    except (TypeError, ValueError):
+        return 7.0
+    return v if v > 0 else 7.0
+
+
+def _why(causes):   # r1073: 2회 실패 원인 1개 — 같으면 그 원인, 다르면 «첫 → 둘»
+    return causes[-1] if len(set(causes)) == 1 else " → ".join(causes)
+
+
 def autonomy(root, *args):
-    """ft-autonomy.sh <args> → stdout 한 줄. 못 찾거나 실패하면 None (허용 + 화면 경고 — R176 · 판정 1675 ①)."""
+    """ft-autonomy.sh <args> → stdout 한 줄. 못 찾거나 실패하면 None (허용 + 화면 경고 — R176 · 판정 1675 ①).
+
+    ★r1073★ 읽기 = 1회 상한 hook_cap() + 실패 1회 재시도(하드 룰 12) · 재시도로 통과하면 로그 1줄."""
     sh = autonomy_sh(root)
     if not sh:
         note("ft-autonomy.sh 를 못 찾음 — 허용(인터뷰는 되돌릴 수 있음) + 경고")
         return None
-    try:
-        p = subprocess.run(["bash", sh, *args], capture_output=True, text=True, timeout=5)
-    except (OSError, subprocess.SubprocessError):
-        p = None
-    if p is None or p.returncode != 0:
-        note(f"ft-autonomy.sh {' '.join(args)} 실패 — 허용 + 경고")
-        return None
-    return p.stdout.strip()
+    cap, causes = hook_cap(), []
+    for _ in (1, 2):
+        try:
+            p = subprocess.run(["bash", sh, *args], capture_output=True, text=True, timeout=cap)
+        except subprocess.TimeoutExpired:
+            causes.append("시간 초과 %g초" % cap)
+            continue
+        except (OSError, subprocess.SubprocessError):
+            causes.append("실행 실패")
+            continue
+        out = p.stdout.strip()
+        if p.returncode != 0:
+            causes.append("rc=%d" % p.returncode)
+        elif not out:
+            causes.append("값 빈 값")
+        else:
+            if causes:
+                note("%s 재시도 통과(1회차 %s)" % (args[0] if args else "mode", causes[0]))
+            return out
+    note(f"ft-autonomy.sh {' '.join(args)} 실패 — 허용 + 경고 ({_why(causes)} ×2)")
+    return None
 
 
 def deny(reason):
