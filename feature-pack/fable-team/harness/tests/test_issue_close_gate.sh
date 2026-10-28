@@ -41,16 +41,21 @@ Y0=$'원인 확정: Y — 로그·코드·재현으로 원인 확정함\n같은 
 SIX=$'[close-6항]\n- 닫는 사건: 재현 스텝 3회 PASS\n- PR: #9100 squash 랜딩\n- 재현 PASS: repro-e2e 코멘트\n- 정리: 워크트리·나노 세션 정리 확인\n- 기록: design/harness/CLOSEOUT-x.md\n- 정본 영향 없음: 하네스 키트 시험 입력'
 w() { printf '%s\n' "$1" > "$CF"; }
 
-# ① 빈 칸 거절 — 1~6항만(7·8 없음) · 래퍼 dry-run
+# ① 빈 칸 거절 — 1~6항만(7·8 없음) · 래퍼 dry-run · r1040: 쓰기 목록도 «쓰기 0»(관찰 표식 안 남김)
 mkstate "$S" '[]' "소유 오케=x"; w "$SIX"; : > "$LOG"
 wrap close 9000 --comment "$CF"
-[ $RC -eq 3 ] && grep -q "비었거나 무효" <<<"$OUT" && grep -q "status:observing" <<<"$OUT" && grep -q "보존" <<<"$OUT" && grep -q "마커" <<<"$OUT" && grep -q "라벨" <<<"$OUT" && ! grep -q "DRY as=byz-tank gh issue close" <<<"$OUT" \
-  && ok "① 빈 칸 거절 rc=3 · 쓸 것 목록 · close 출력 0" || bad "① rc=$RC $OUT"
+[ $RC -eq 3 ] && grep -q "비었거나 무효" <<<"$OUT" && grep -q "쓰기 0" <<<"$OUT" && grep -q "ft-issue-close-check.sh" <<<"$OUT" && ! grep -q "(comment)" <<<"$OUT" && ! grep -q "(label)" <<<"$OUT" && ! grep -q "DRY as=byz-tank gh issue close" <<<"$OUT" \
+  && ok "① 빈 칸 거절 rc=3 · 쓰기 0 · 점검 안내 · close 출력 0" || bad "① rc=$RC $OUT"
 [ ! -s "$LOG" ] && ok "① dry-run 은 쓰기 0" || bad "① dry-run 인데 쓰기 호출: $(cat "$LOG")"
-# ①b 옛 유효 Y·0 → 최신(extra) 무효 줄 = 빈 칸 (옛 값으로 내려가지 않음)
+# ①' r1040 · R1 — 빈 칸 거절 apply=1 도 코멘트·라벨 쓰기 호출 0(관찰 표식 안 남김) · 거절 문장 + 점검 안내 1줄
+mkstate "$S" '[]' "소유 오케=x"; w "$SIX"; : > "$LOG"
+gate "$S" 1 "$CF"
+[ $RC -eq 3 ] && [ ! -s "$LOG" ] && [ "$(mcount "$S")" = 0 ] && ! has_label "$S" && grep -q "비었거나 무효" <<<"$OUT" && grep -q "닫기 전에 ft-issue-close-check.sh" <<<"$OUT" \
+  && ok "①' 빈 칸 거절 apply=1 → 코멘트·라벨 쓰기 0 · 안내 1줄" || bad "①' rc=$RC log=$(cat "$LOG") mark=$(mcount "$S") $OUT"
+# ①b 옛 유효 Y·0 → 최신(extra) 무효 줄 = 빈 칸 (옛 값으로 내려가지 않음) · apply=1 이어도 쓰기 0
 mkstate "$S" '[]' "$Y0"; w $'원인 확정: <근거>\n같은 증상 보류: 0'
-gate "$S" 0 "$CF"
-[ $RC -eq 3 ] && grep -q "비었거나 무효" <<<"$OUT" && ok "①b 옛 유효 → 최신 무효 = 거절(내려가지 않음)" || bad "①b rc=$RC $OUT"
+gate "$S" 1 "$CF"
+[ $RC -eq 3 ] && grep -q "비었거나 무효" <<<"$OUT" && [ ! -s "$LOG" ] && [ "$(mcount "$S")" = 0 ] && ok "①b 옛 유효 → 최신 무효 = 거절(내려가지 않음) · 쓰기 0" || bad "①b rc=$RC $OUT"
 # ①c 근거 글자 수 경계 (9자 거절 · 10자 통과)
 mkstate "$S" '[]'; w $'원인 확정: Y — 가나다라마바사아자\n같은 증상 보류: 0'; gate "$S" 0 "$CF"
 [ $RC -eq 3 ] && ok "①c 근거 9자 → 거절" || bad "①c 9자 rc=$RC $OUT"
@@ -213,6 +218,49 @@ pcase 3 "H2 마무리 · 발주 연계(발주 포함)"  $'제안서: design/harn
 pcase 3 "H2 마무리·설명(공백 없음)"         $'제안서: design/harness/P.md\n처리: 마무리·조사 끝'
 pcase 0 "H2 마무리 · 설명"                 $'제안서: design/harness/P.md\n처리: 마무리 · 조사 끝'
 pcase 0 "H2 마무리 — 설명"                 $'제안서: design/harness/P.md\n처리: 마무리 — 조사 끝'
+
+# ⓒ r1040 · R4·R5 — Closes 연결 PR 이 비었을 때: 이슈 «연결 PR: #<번호>» 코멘트 + 그 PR 이 병합 → OK · 아니면 MISS + 안내 1줄
+PRJ="$T/pr.json"; SIXF="$SIX"$'\n'"$Y0"
+addpr() { jq --arg b "$1" '.comments += [{body:$b}]' "$S" > "$S.t" && mv "$S.t" "$S"; }
+chk() { OUT="$(FT_PR_STATE_FROM_JSON="$PRJ" bash "$BIN/ft-issue-close-check.sh" 9000 --from-json "$S" --repo "$R" 2>&1)"; RC=$?; }
+mkstate "$S" '[]' "$SIXF"; addpr '연결 PR: #9100'; printf '[{"number":9100,"state":"MERGED"}]' > "$PRJ"; chk
+[ $RC -eq 0 ] && grep -q "연결 PR: #9100" <<<"$OUT" && grep -q "PASS #9000" <<<"$OUT" && ok "ⓒ Closes 없음 + 연결 PR 코멘트(병합) → OK" || bad "ⓒ rc=$RC $OUT"
+printf '[{"number":9100,"state":"OPEN"}]' > "$PRJ"; chk
+[ $RC -eq 1 ] && grep -q "MISS Closes 연결 PR 없음" <<<"$OUT" && grep -q '이미 병합됐으면 이슈에 「연결 PR: #<번호>」 코멘트 1줄' <<<"$OUT" && grep -q "MISS 연결 PR #9100" <<<"$OUT" && ok "ⓒ2 연결 PR 이 미병합 → MISS · 안내 1줄" || bad "ⓒ2 rc=$RC $OUT"
+printf '{"prs":[{"number":9100,"state":"MERGED"}]}' > "$PRJ"; chk
+[ $RC -eq 0 ] && ok "ⓒ3 상태 파일 {prs:[…]} 꼴도 인정" || bad "ⓒ3 rc=$RC $OUT"
+printf '[]' > "$PRJ"; chk
+[ $RC -eq 1 ] && grep -q "판정 불가" <<<"$OUT" && grep -q "MISS Closes 연결 PR 없음" <<<"$OUT" && ok "ⓒ4 상태 판정 불가 → MISS + 판정 불가 1줄" || bad "ⓒ4 rc=$RC $OUT"
+printf '[{"number":9100,"state":"MERGED"}]' > "$PRJ"; mkstate "$S" '[]' "$SIXF"; chk
+[ $RC -eq 1 ] && grep -q "MISS Closes 연결 PR 없음" <<<"$OUT" && ok "ⓒ5 연결 PR 코멘트 0 → MISS(코멘트 없으면 상태 조회도 0)" || bad "ⓒ5 rc=$RC $OUT"
+jq '.closedByPullRequestsReferences=[{"number":9100}]' "$S" > "$S.t" && mv "$S.t" "$S"; chk
+[ $RC -eq 0 ] && grep -q "OK   Closes 연결 PR #9100" <<<"$OUT" && ok "ⓒ6 Closes 연결 있음 → 지금과 같은 OK(R5)" || bad "ⓒ6 rc=$RC $OUT"
+
+# ⑪ 변이(r1040) — 빈 칸 분기 제거 → ①' FAIL · 연결 PR 코멘트 인정 제거 → ⓒ FAIL
+MB="$T/bin"; mkdir -p "$MB"
+for f in ft-issue-close-gate.sh ft-issue-close-check.sh ft-gh-as-tank.sh ft-harness-root.sh; do cp "$BIN/$f" "$MB/$f"; done
+mutsrc() { python3 - "$1" "$2" "$3" <<'PY'
+import sys
+p, mark, repl = sys.argv[1:4]
+lines = open(p, encoding="utf-8").read().split("\n")
+hit = [i for i, l in enumerate(lines) if mark in l]
+assert len(hit) == 1, hit
+lines[hit[0]] = repl
+open(p, "w", encoding="utf-8").write("\n".join(lines))
+PY
+}
+mutgate() { OUT="$(FT_CLOSE_CHECK_FROM_JSON="$1" FT_TANK_WRAPPER="$STUB" FAKE_STATE="$1" FAKE_LOG="$LOG" bash "$MB/ft-issue-close-gate.sh" 9000 "${2:-}" 1 2>&1)"; RC=$?; }
+# 변이 감 — 사본이 기준판과 같은 결과를 내는지 먼저 확인(아니면 변이 판정이 의미 없다)
+mkstate "$S" '[]' "소유 오케=x"; w "$SIX"; : > "$LOG"; mutgate "$S" "$CF"
+[ $RC -eq 3 ] && [ ! -s "$LOG" ] && ok "⑪ 변이 전 사본 = 기준판(빈 칸 쓰기 0)" || bad "⑪ 사본 rc=$RC log=$(cat "$LOG")"
+mutsrc "$MB/ft-issue-close-gate.sh" '# r1040-mut:blank' 'if false; then'
+mkstate "$S" '[]' "소유 오케=x"; w "$SIX"; : > "$LOG"; mutgate "$S" "$CF"
+[ -s "$LOG" ] && ok "⑪ 변이(빈 칸 분기 제거) → ①' 가 빨강(쓰기 호출 생김)" || bad "⑪ 빈 칸 분기 없어도 쓰기 0 — 시험이 안 잡는다"
+cp "$BIN/ft-issue-close-gate.sh" "$MB/ft-issue-close-gate.sh"
+mutsrc "$MB/ft-issue-close-check.sh" '# r1040-mut:linkedpr' '  if false; then'
+mkstate "$S" '[]' "$SIXF"; addpr '연결 PR: #9100'; printf '[{"number":9100,"state":"MERGED"}]' > "$PRJ"
+MUT_OUT="$(FT_PR_STATE_FROM_JSON="$PRJ" bash "$MB/ft-issue-close-check.sh" 9000 --from-json "$S" --repo "$R" 2>&1)"; MUT_RC=$?
+[ $MUT_RC -eq 1 ] && ok "⑪ 변이(코멘트 인정 제거) → ⓒ 가 빨강" || bad "⑪ 인정 제거에도 rc=$MUT_RC — 시험이 안 잡는다"
 
 # 래퍼 1줄 · 줄 수 · 미러
 [ "$(wc -l < "$BIN/ft-gh-as-tank.sh" | tr -d ' ')" -le 200 ] && ok "ft-gh-as-tank.sh ≤ 200줄" || bad "ft-gh-as-tank.sh 줄 수 $(wc -l < "$BIN/ft-gh-as-tank.sh")"
