@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ft-da-codex.sh — DA(적대검증) 용 codex exec 호출 1곳 (r513).
 # r990: 머리말 둘째 줄 [DA 전수] — DA 는 1회차에 기준 «전체» 를 훑어 반례를 한 묶음으로 낸다(한 건 왕복 금지).
-# 사용: ft-da-codex.sh --cwd <폴더> --prompt-file <파일> --out-dir <폴더> [--model gpt-6.1-sol] [--effort high]
+# 사용: ft-da-codex.sh --cwd <폴더> --prompt-file <파일> --out-dir <폴더> [--model gpt-6.1-sol] [--effort low|high · 기본 low]
 # 헤드룸 «건너뛰기» 헤더(x-headroom-bypass)를 provider 요청 머리에 싣는다 — 경로(8790→8317)·계정 회전·모델은 그대로,
 # 본문 접힘(캐시 참조)만 0. DA 는 승인 정책 never 라 headroom_retrieve 로 원문을 다시 못 받기 때문.
 # ★조건(r782)★ 설정(${CODEX_HOME:-$HOME/.codex}/config.toml)에 `[model_providers.headroom]` 절이 «있을 때만» 싣는다 —
@@ -16,7 +16,7 @@ PREAMBLE='[DA 머리말] 파일은 sed -n 으로 400줄 이하씩 나눠 읽는�
 BYPASS='model_providers.headroom.http_headers={"x-headroom-bypass"="true"}'
 usage() { echo "usage: ft-da-codex.sh --cwd <폴더> --prompt-file <파일> --out-dir <폴더> [--model M] [--effort E]" >&2; exit 2; }
 
-cwd="" prompt_file="" out_dir="" model="gpt-6.1-sol" effort="high"
+cwd="" prompt_file="" out_dir="" model="gpt-6.1-sol" effort="low"   # r1066: 기본 low — 어려운 판정에서만 부르는 쪽이 --effort high 를 적는다
 while [ $# -gt 0 ]; do
   [ $# -ge 2 ] || usage
   case "$1" in

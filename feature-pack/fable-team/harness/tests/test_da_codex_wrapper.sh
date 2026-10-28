@@ -4,6 +4,7 @@
 # r782 추가: 건너뛰기 헤더는 설정(${CODEX_HOME:-$HOME/.codex}/config.toml)에 `[model_providers.headroom]` 절이 «있을 때만»
 # r990 추가: 머리 둘째 줄 [DA 전수] — DA 가 1회차에 기준 전체를 훑어 반례를 한 묶음으로 낸다(WS-ⓐ·ⓑ·ⓒ).
 # 실린다 — 절이 없는데 머리만 남으면 codex 가 «provider name must not be empty» 로 rc1(전 팀 DA 정지).
+# r1066 추가: 기본 effort = low — --effort 생략 시 low(인자 + .meta) · high 는 --effort high 명시일 때만. 변이 = 기본 high 로 되돌린 사본 → FAIL.
 # 픽스처 = PATH 앞 가짜 codex(받는 인자·stdin 을 적고, 설정에 절이 없는데 머리가 오면 그 오류를 흉내) · 외부 호출 0 · 헤드룸 0 · GIT_* env 0.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
@@ -56,7 +57,7 @@ rc="$(run --cwd "$T/cwd" --prompt-file "$T/p.txt" --out-dir "$T/d")"
 [ "$rc" = 0 ] && ok "ⓐ rc0" || bad "ⓐ rc=$rc ($(cat "$T/stderr"))"
 has_arg "$HDR" && ok "ⓐ bypass 헤더 인자" || bad "ⓐ bypass 헤더 인자 없음"
 has_arg 'model="gpt-6.1-sol"' && ok "ⓐ 기본 모델 sol" || bad "ⓐ model=\"gpt-6.1-sol\" 없음"
-has_arg 'model_reasoning_effort="high"' && ok "ⓐ 기본 effort high" || bad "ⓐ effort high 없음"
+has_arg 'model_reasoning_effort="low"' && ok "ⓐ 기본 effort low(r1066)" || bad "ⓐ effort low 없음"
 has_arg '--skip-git-repo-check' && ok "ⓐ --skip-git-repo-check" || bad "ⓐ --skip-git-repo-check 없음"
 has_arg "$T/cwd" && ok "ⓐ -C <cwd>" || bad "ⓐ cwd 인자 없음"
 grep -qx 'STDIN_BYTES=0' "$T/args.log" && ok "ⓐ stdin = /dev/null(0 바이트)" || bad "ⓐ stdin 이 비어 있지 않음: $(grep STDIN "$T/args.log")"
@@ -126,6 +127,33 @@ EOF
 chmod +x "$T/slowbin/codex"; rm -f "$FAKE_LOG.slow"
 PATH="$T/slowbin:$PATH" bash "$TOOL" --cwd "$T/cwd" --prompt-file "$T/p.txt" --out-dir "$T/d" > "$T/stdout" 2> "$T/stderr"
 [ -s "$FAKE_LOG.slow" ] && ok "ⓔ 래퍼 종료 시점에 codex 끝남(전경)" || bad "ⓔ 래퍼가 codex 보다 먼저 끝남"
+
+# ── r1066: 기본 effort = low (high 는 --effort high 명시일 때만) ────────────
+cfg_present
+: > "$FAKE_LOG"
+rc="$(run --cwd "$T/cwd" --prompt-file "$T/p.txt" --out-dir "$T/ef")"
+o_low="$(tail -1 "$T/stdout" | sed -n 's/^OUT \(.*\) rc=0$/\1/p')"
+[ "$rc" = 0 ] && has_arg 'model_reasoning_effort="low"' \
+  && ok "R1 effort 생략 → codex 인자 low" || bad "R1 인자 low 아님 rc=$rc"
+[ -n "$o_low" ] && grep -q ' effort=low ' "$o_low.meta" \
+  && ok "R1 .meta effort=low" || bad "R1 .meta: $(cat "$o_low.meta" 2>/dev/null)"
+has_arg 'model="gpt-6.1-sol"' && ok "R3 모델 기본 sol 유지" || bad "R3 모델 인자 없음"
+: > "$FAKE_LOG"
+rc="$(run --cwd "$T/cwd" --prompt-file "$T/p.txt" --out-dir "$T/ef" --effort high)"
+o_hi="$(tail -1 "$T/stdout" | sed -n 's/^OUT \(.*\) rc=0$/\1/p')"
+[ "$rc" = 0 ] && has_arg 'model_reasoning_effort="high"' \
+  && ok "R2 --effort high 명시 → high" || bad "R2 명시 high 무시 rc=$rc"
+[ -n "$o_hi" ] && grep -q ' effort=high ' "$o_hi.meta" \
+  && ok "R2 .meta effort=high" || bad "R2 .meta: $(cat "$o_hi.meta" 2>/dev/null)"
+
+# ── r1066 변이: 기본값을 high 로 되돌린 사본 → R1 FAIL ──────────────
+if [ "${FT_DA_WRAPPER_MUTANT_CHECK:-1}" = 1 ]; then
+  sed 's/ model="gpt-6.1-sol" effort="low"/ model="gpt-6.1-sol" effort="high"/' "$TOOL" > "$T/mut_effhigh.sh"
+  cmp -s "$TOOL" "$T/mut_effhigh.sh" && bad "R1변 변이 생성 실패(기본값 줄 미일치)" || ok "R1변 변이 생성"
+  FT_DA_WRAPPER_MUTANT_CHECK=0 DA_CODEX_TOOL="$T/mut_effhigh.sh" bash "${BASH_SOURCE[0]:-$0}" > "$T/mutD.log" 2>&1 \
+    && bad "R1변 변이(기본 high)가 통과함" || ok "R1변 변이(기본 high) = 실패"
+  grep -q 'FAIL R1' "$T/mutD.log" && ok "R1변 변이 → R1 FAIL" || bad "R1변 변이에 R1 FAIL 없음"
+fi
 
 # ── r782: 설정에 `[model_providers.headroom]` 절이 있을 때만 건너뛰기 머리 ─────────────────
 cfg_absent()  { printf '[model_providers.cliproxy]\nname = "cliproxy"\n' > "$CODEX_HOME/config.toml"; }
