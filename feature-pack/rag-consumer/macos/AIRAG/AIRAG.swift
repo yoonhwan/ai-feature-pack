@@ -389,6 +389,157 @@ final class PassController {
     }
 }
 
+// MARK: - 1b. `--once`: one tick, one absolute deadline
+
+/// Seconds after the app started: TERM to the group, KILL to the group, give up. Every wait is "deadline minus now",
+/// never a chain of relative waits, so the whole command cannot pass `giveUp` (R3).
+struct OnceDeadlines: Equatable {
+    var term: TimeInterval = 45
+    var kill: TimeInterval = 52
+    var giveUp: TimeInterval = 57
+}
+
+struct OnceState: Equatable {
+    var termSent = false
+    var killSent = false
+    /// A signal was sent because of a deadline (not just to clean up orphans): the result is then 124, not the tick's code.
+    var deadlineHit = false
+
+    func applying(_ step: OnceStep, elapsed: TimeInterval, deadlines: OnceDeadlines) -> OnceState {
+        var next = self
+        switch step {
+        case .sendTerm:
+            next.termSent = true
+            if elapsed >= deadlines.term { next.deadlineHit = true }
+        case .sendKill:
+            next.termSent = true
+            next.killSent = true
+            next.deadlineHit = true
+        default: break
+        }
+        return next
+    }
+}
+
+enum OnceStep: Equatable {
+    case refuse(Int32, String)
+    case done(Int32, String)
+    case sendTerm
+    case sendKill
+    case wait(TimeInterval)
+}
+
+let oncePollSeconds: TimeInterval = 0.2
+
+/// Pure decision for one look at the tick: exit codes 78 (wrong location, tick never started), 124 (deadline, group
+/// emptied), 125 (deadline, group still there), else the tick's own code.
+func onceStep(elapsed: TimeInterval, path: PathCheck, leaderExited: Bool, leaderStatus: Int32, groupAlive: Bool,
+              state: OnceState, deadlines: OnceDeadlines) -> OnceStep {
+    switch path {
+    case .translocated: return .refuse(78, "translocated")
+    case .wrongLocation: return .refuse(78, "wrong_location")
+    case .ok: break
+    }
+    if leaderExited && !groupAlive {
+        return state.deadlineHit ? .done(124, "deadline") : .done(leaderStatus, "tick_exit")
+    }
+    if elapsed >= deadlines.giveUp { return .done(125, "deadline_dirty") }
+    if elapsed >= deadlines.kill && !state.killSent { return .sendKill }
+    if elapsed >= deadlines.term && !state.termSent { return .sendTerm }
+    if leaderExited && groupAlive && !state.termSent { return .sendTerm }
+    let next = !state.termSent ? deadlines.term : (!state.killSent ? deadlines.kill : deadlines.giveUp)
+    return .wait(max(0.01, min(oncePollSeconds, next - elapsed)))
+}
+
+/// One value-free JSON line `{ts,result,code,elapsed_s}`, overwritten each run: mode 0600, never through a symlink,
+/// only onto a regular file. Returns false when it could not be written.
+@discardableResult
+func writeOnceLog(dir: String, result: String, code: Int32, elapsed: TimeInterval, now: Date = Date()) -> Bool {
+    try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true,
+                                             attributes: [.posixPermissions: 0o700])
+    let formatter = ISO8601DateFormatter()
+    formatter.formatOptions = [.withInternetDateTime]
+    let object: [String: Any] = ["ts": formatter.string(from: now), "result": result, "code": Int(code),
+                                 "elapsed_s": (elapsed * 10).rounded() / 10]
+    guard let data = try? JSONSerialization.data(withJSONObject: object, options: [.sortedKeys]) else { return false }
+    let fd = open(dir + "/app.once.log", O_WRONLY | O_CREAT | O_NOFOLLOW | O_NONBLOCK, 0o600)
+    guard fd >= 0 else { return false }
+    defer { close(fd) }
+    var info = stat()
+    guard fstat(fd, &info) == 0, (info.st_mode & S_IFMT) == S_IFREG, ftruncate(fd, 0) == 0, fchmod(fd, 0o600) == 0 else { return false }
+    let line = data + Data("\n".utf8)
+    return line.withUnsafeBytes { write(fd, $0.baseAddress, $0.count) == $0.count }
+}
+
+func printToStandardError(_ text: String) {
+    FileHandle.standardError.write(Data((text + "\n").utf8))
+}
+
+/// `--once`: check the app location first (the tick is never started from a wrong place), run one tick as its own
+/// group, and end by the deadlines above. Writes `app.once.log` and one fixed stderr line.
+func runOnce(ops: ProcessOps, path: PathCheck, logDir: String, startUptime: TimeInterval,
+             deadlines: OnceDeadlines = OnceDeadlines(),
+             clock: () -> TimeInterval = { ProcessInfo.processInfo.systemUptime },
+             stderrLine: (String) -> Void = printToStandardError) -> Int32 {
+    func finish(_ result: String, _ code: Int32) -> Int32 {
+        writeOnceLog(dir: logDir, result: result, code: code, elapsed: clock() - startUptime)
+        stderrLine("AIRAG once: \(result)")
+        return code
+    }
+    let lock = NSLock()
+    var leaderExited = false
+    var leaderStatus: Int32 = 0
+    let wake = DispatchSemaphore(value: 0)
+    var group: Int32?
+    if path == .ok {
+        guard let started = ops.spawn(onExit: { status in
+            lock.lock(); leaderExited = true; leaderStatus = status; lock.unlock()
+            wake.signal()
+        }) else { return finish("launch_failed", 69) }
+        group = started
+    }
+    var state = OnceState()
+    while true {
+        lock.lock()
+        let exited = leaderExited
+        let status = leaderStatus
+        lock.unlock()
+        let alive = group.map { ops.groupAlive($0) } ?? false
+        let elapsed = clock() - startUptime
+        let next = onceStep(elapsed: elapsed, path: path, leaderExited: exited, leaderStatus: status, groupAlive: alive,
+                            state: state, deadlines: deadlines)
+        switch next {
+        case .refuse(let code, let result), .done(let code, let result):
+            return finish(result, code)
+        case .sendTerm:
+            if let group = group { ops.signalGroup(group, SIGTERM) }
+            state = state.applying(next, elapsed: elapsed, deadlines: deadlines)
+        case .sendKill:
+            if let group = group { ops.signalGroup(group, SIGKILL) }
+            state = state.applying(next, elapsed: elapsed, deadlines: deadlines)
+        case .wait(let seconds):
+            _ = wake.wait(timeout: .now() + seconds)
+        }
+    }
+}
+
+/// The program's first decision. The app location is checked here, before the mode split, so `--once` and the menu
+/// app both get the verdict (R4). Returns the exit code for `--once`; nil after the menu app has run.
+func dispatchMode(arguments: [String], bundlePath: String, home: String, startUptime: TimeInterval, settings: AppSettings,
+                  makeOnceOps: (AppSettings) -> ProcessOps,
+                  deadlines: OnceDeadlines = OnceDeadlines(),
+                  clock: () -> TimeInterval = { ProcessInfo.processInfo.systemUptime },
+                  stderrLine: (String) -> Void = printToStandardError,
+                  runMenuApp: (AppSettings, PathCheck) -> Void) -> Int32? {
+    let path = checkAppPath(bundlePath: bundlePath, home: home)
+    if arguments.contains("--once") {
+        return runOnce(ops: makeOnceOps(settings), path: path, logDir: settings.logDir, startUptime: startUptime,
+                       deadlines: deadlines, clock: clock, stderrLine: stderrLine)
+    }
+    runMenuApp(settings, path)
+    return nil
+}
+
 // MARK: - 2. App
 
 #if !AIRAG_TEST
@@ -404,20 +555,6 @@ private func loadSettings() -> AppSettings {
         try? handle.close()
     }
     return resolveSettings(home: home, json: json)
-}
-
-/// `--once` (interim, replaced by the absolute-deadline version): one tick, then exit with the tick's exit code.
-private func runOnce(_ settings: AppSettings) -> Int32 {
-    let ops = makeTickOps(settings, callbackQueue: .global())
-    let done = DispatchSemaphore(value: 0)
-    var status: Int32 = 124
-    guard let group = ops.spawn(onExit: { code in status = code; done.signal() }) else { return 69 }
-    if done.wait(timeout: .now() + 65) == .timedOut {
-        ops.signalGroup(group, SIGTERM)
-        if done.wait(timeout: .now() + 5) == .timedOut { ops.signalGroup(group, SIGKILL) }
-        return 124
-    }
-    return status
 }
 
 private func readNewestStatus(logDir: String) -> TickStatus? {
@@ -436,6 +573,7 @@ private func readNewestStatus(logDir: String) -> TickStatus? {
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let settings: AppSettings
+    private let path: PathCheck
     private let appStart = Date()
     private var controller: PassController!
     private var statusItem: NSStatusItem!
@@ -448,8 +586,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var quitting = false
     private var loginError = false
 
-    init(settings: AppSettings) {
+    init(settings: AppSettings, path: PathCheck) {
         self.settings = settings
+        self.path = path
         super.init()
         controller = makeLiveController(settings: settings)
         controller.onChange = { [weak self] in self?.stateChanged() }
@@ -470,7 +609,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         for item in [statusLineItem, warningItem, .separator(), startItem!, stopItem!, .separator(), loginItem!,
                      logsItem, .separator(), quitItem] { menu.addItem(item) }
         statusItem.menu = menu
-        switch checkAppPath(bundlePath: Bundle.main.bundlePath, home: NSHomeDirectory()) {
+        switch path {
         case .ok: break
         case .translocated, .wrongLocation:
             warningItem.title = "경고: ~/Applications/AIRAG.app 에서 실행해야 합니다"
@@ -541,13 +680,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 @main
 enum AIRAGMain {
     static func main() {
+        let startUptime = ProcessInfo.processInfo.systemUptime
         let settings = loadSettings()
-        if CommandLine.arguments.contains("--once") { exit(runOnce(settings)) }
-        let app = NSApplication.shared
-        let delegate = AppDelegate(settings: settings)
-        app.delegate = delegate
-        app.setActivationPolicy(.accessory)
-        app.run()
+        if let code = dispatchMode(
+            arguments: CommandLine.arguments, bundlePath: Bundle.main.bundlePath, home: NSHomeDirectory(),
+            startUptime: startUptime, settings: settings,
+            makeOnceOps: { makeTickOps($0, callbackQueue: .global()) },
+            runMenuApp: { settings, path in
+                let app = NSApplication.shared
+                let delegate = AppDelegate(settings: settings, path: path)
+                app.delegate = delegate
+                app.setActivationPolicy(.accessory)
+                app.run()
+            }) {
+            exit(code)
+        }
     }
 }
 #endif

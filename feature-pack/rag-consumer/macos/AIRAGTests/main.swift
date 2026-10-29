@@ -528,12 +528,12 @@ check(step(57, state: OnceState(termSent: true, killSent: true, deadlineHit: tru
 check(step(100) == .done(125, "deadline_dirty"), "R3: far past 57 s still gives up")
 check(step(3, exited: true, status: 0, alive: false) == .done(0, "tick_exit"), "tick exit 0 with an empty group")
 check(step(3, exited: true, status: 3, alive: false) == .done(3, "tick_exit"), "tick exit code is passed through")
-check(step(60, exited: true, alive: false, state: OnceState(termSent: true, killSent: true, deadlineHit: true)) == .done(124, "deadline"),
+check(step(60, exited: true, status: 0, alive: false, state: OnceState(termSent: true, killSent: true, deadlineHit: true)) == .done(124, "deadline"),
       "R3: group emptied after the deadline kill gives 124")
 check(step(3, exited: true, alive: true) == .sendTerm, "R2: leader gone with orphans gives TERM at once")
 check(waitSeconds(step(3, exited: true, alive: true, state: OnceState(termSent: true))) == 0.2, "orphans already TERMed: wait")
 check(step(57, exited: true, alive: true, state: OnceState(termSent: true)) == .done(125, "deadline_dirty"), "orphans past 57 s: 125")
-check(step(100, exited: true, alive: false, status: 0) == .done(0, "tick_exit"), "empty group after a normal exit wins even late")
+check(step(100, exited: true, status: 0, alive: false) == .done(0, "tick_exit"), "empty group after a normal exit wins even late")
 
 let applied1 = OnceState().applying(.sendTerm, elapsed: 45, deadlines: dl)
 check(applied1 == OnceState(termSent: true, killSent: false, deadlineHit: true), "deadline TERM marks the deadline")
