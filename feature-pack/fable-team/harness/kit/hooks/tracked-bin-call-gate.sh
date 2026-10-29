@@ -4,11 +4,11 @@
 #     loom#27 spawn 이 loom-main 의 52커밋 뒤진 사본으로 REJECT(planner#49 #92812). 사본은 추적 파일이라 연결 파일로 바꿀 수 없다 → 호출 순간에 막고 라이브 경로를 안내한다.
 # 동작: 명령을 구분자(; && || | 개행 $( `)로 나눠 «실행되는 첫 낱말» 이 `*/harness/bin/<입구 도구>` 또는 `*/harness/kit/fable-team/bin/<입구 도구>`(+ BYZ freeze 옛 위치 두 곳) 이면 deny.
 #       입구 도구 = spawn · close · role-spawn · successor-open · resource-gate · resource-reclaim.
-#       ★r1145★ 그 밖 ft-* 도 «그 파일이 든 체크아웃의 HEAD 가 origin/main 을 품지 않으면»(뒤처진 체크아웃) deny — lecture#30 이 273커밋 뒤 팩 체크아웃의 ft-merge-land 로 옛 안내를 9개 팀에 퍼뜨림.
+#       ★r1145·r1146★ 그 밖 ft-* 도 «그 파일이 든 체크아웃의 가지가 main 이고 HEAD 가 origin/main 을 품지 않으면»(뒤처진 main 체크아웃) deny — lecture#30 이 273커밋 뒤 팩 체크아웃의 ft-merge-land 로 옛 안내를 9개 팀에 퍼뜨림. 가지 ≠ main(나노·팀 — squash 착지라 origin/main 을 못 품음)·분리 HEAD(격리 사본)는 통과(r1145 오탐 2).
 #       같은 명령 앞 조각의 `NAME=값`(대입만 있는 조각 · export 허용)을 모아 뒤 조각의 `$NAME`·`${NAME}` 를 풀고, `cd <폴더>` 조각을 따라 상대 경로를 푼다.
 #       읽기(cat·grep·sed -n·git show·bash -n)와 `$FT_BIN/…`·`.fable-team/bin/…` 호출·최신 체크아웃의 입구 밖 도구·`FT_ALLOW_TRACKED_BIN=1`(시험 하네스) 은 통과.
 # ★못 읽음★: 입력 JSON 을 못 읽거나 파싱 실패 = 통과 + stderr 경고(fail-open · 다른 홈 훅과 같은 꼴 · 파괴 아님). git 판정 불가 = 통과 + 경고 1줄.
-#       외부 호출: git rev-parse 1회(deny 때만) + git merge-base 1회(입구 밖 ft-* 경로일 때만 · timeout 5).
+#       외부 호출: git rev-parse 1회(deny 때만) + 입구 밖 ft-* 경로일 때만 git symbolic-ref 1회 + (가지 main 일 때만) git merge-base 1회(각 timeout 5).
 # 환경: FT_ROOT(루트 고정) · FT_BIN(안내용 라이브 위치 보조). ★설치(~/.claude/hooks/ 복사 · settings.json PreToolUse Bash 등록)는 master — 이 파일 범위 밖★
 # ★r546★ 명령 조각내기는 공용 모듈 merge_cmd.segments 하나 — 같은 폴더의 merge_cmd.py 가 없으면 rc2(막음). 사본 0.
 set +e
@@ -98,11 +98,17 @@ def note_assign(toks, env):
 
 
 def stale(word, cwd):
-    """그 도구가 든 체크아웃의 HEAD 가 origin/main 을 품지 않으면 True(r1145). 폴더 없음 = False(돌 것이 없다) · git 판정 불가 = False + 경고 1줄."""
+    """체크아웃이 «가지 main 인데 HEAD ⊉ origin/main» 이면 True(r1146). 가지 ≠ main·분리 HEAD·폴더 없음 = False · git 판정 불가 = False + 경고 1줄."""
     d = os.path.dirname(os.path.join(cwd, os.path.expanduser(word.strip("'\""))))
     if not os.path.isdir(d):
         return False
     try:
+        b = subprocess.run(["git", "-C", d, "symbolic-ref", "-q", "--short", "HEAD"], capture_output=True, text=True, timeout=5)
+        if b.returncode not in (0, 1):
+            print(f"WARN tracked-bin-call-gate: 판정 불가 git rc={b.returncode} ({d}) — 통과", file=sys.stderr)
+            return False
+        if b.stdout.strip() != "main":
+            return False
         p = subprocess.run(["git", "-C", d, "merge-base", "--is-ancestor", "origin/main", "HEAD"], capture_output=True, text=True, timeout=5)
     except (OSError, subprocess.SubprocessError) as e:
         print(f"WARN tracked-bin-call-gate: 판정 불가 git {type(e).__name__} ({d}) — 통과", file=sys.stderr)
@@ -177,7 +183,7 @@ def main():
     except (OSError, subprocess.SubprocessError):
         live = ""
     where = live if live else "<LIVE_BIN 미설치 — master 에 ft-root-bin-shim.sh 설치 요청>"
-    head = (f"REJECT 뒤처진 체크아웃의 도구 직접 호출({stale_path} · 그 HEAD 가 origin/main 을 품지 않음 · r1145)" if stale_path
+    head = (f"REJECT 뒤처진 체크아웃의 도구 직접 호출({stale_path} · 가지 main 인데 HEAD 가 origin/main 을 품지 않음 · r1146)" if stale_path
             else "REJECT 추적 사본 직접 호출")
     reason = (
         f"{head} — $FT_BIN/{hit} 으로 다시 부르세요 (FT_BIN={where}). "
