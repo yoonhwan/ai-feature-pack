@@ -473,6 +473,13 @@ if [ -n "${BASE_REF:-}" ] && ! git -C "$ROOT" rev-parse --verify -q "refs/heads/
    && git -C "$ROOT" rev-parse --verify -q "$BASE_REF^{commit}" >/dev/null; then
   INFO_BASE="${FT_NANO_FEAT:-$(git -C "$WT" rev-parse --abbrev-ref HEAD)}"
 fi
+# r1120: detached HEAD(임시 사본 ft-scratch)면 --abbrev-ref 가 글자 «HEAD» — info base 에는 그 커밋 40hex(닫기 = R42 sha 길).
+#   worktree add 기준(BASE_BRANCH)도 같은 40hex — 사본은 --detach linked worktree 라 «HEAD» 를 $ROOT 에서 풀면 메인 체크아웃 HEAD 가 된다.
+_BASE_SHOW="$BASE_BRANCH"
+if [ -z "${BASE_REF:-}" ] && [ "$BASE_BRANCH" = HEAD ]; then
+  INFO_BASE="$(git -C "$WT" rev-parse --verify HEAD)" || { echo "REJECT detached HEAD 커밋 판정 불가($WT)"; exit 1; }
+  BASE_BRANCH="$INFO_BASE"; _BASE_SHOW="$INFO_BASE(detached)"
+fi
 # R387 --research 고정 문단 — 산출 1개·코드 0·arch relay·즉시 [완료·휴식]. 허용 경로 = 부모 카드가 있는 팀 폴더의 RESEARCH-*.md
 _RS_DIR="$(dirname "$(dirname "$(dirname "$IDX_REL")")")"; _RS_ALLOW="$_RS_DIR/RESEARCH-*.md"; _RS_OUT="$_RS_DIR/RESEARCH-$(basename "$IDX" .md)-$(date +%F).md"
 _RSP=" ★리서치 워커(판정 2282 · R387)★ 네 일 = 부모 카드가 막힌 문제의 자료 조사·가설 조정·BTS 결과 수집뿐이다 — 산출 1개 = $WT/$_RS_OUT (출처·가설·BTS 결과 표기) · 이 경로($_RS_ALLOW) 밖 파일·코드 수정 0(닫을 때 도구가 허용 밖 변경을 카드에 «- 리서치 위반:» 으로 기록한다) · 끝나면 mbox relay 로 arch 에 산출 경로 + 3줄 요약을 보내고 카드 «상태» 에 «- 리서치 산출: <경로> · relay #<seq>» 줄을 쓴다 · 증거 줄 시험 칸 = «RESEARCH 파일 작성 rc=0» · 그 뒤 즉시 [완료·휴식] — 후속 일·재질문 대기 외 작업 0(opencode 좌석은 relay 직후 닫힌다)."
@@ -506,7 +513,7 @@ SERENA="off(은퇴 10-22)"
 _PLANX=""; [ "$AGENT" != pi ] || _PLANX=" effort=$EFFORT($EFFORT_WHY) serena=$SERENA"
 # r476: opencode 2.0.32 TUI 는 --model 플래그가 없다 — tmuxc 가 모델을 세션 env OPENCODE_CONFIG_CONTENT 로 심는다(PLAN 에 경로 표기)
 _VIA=""; [ "$AGENT" = opencode ] && _VIA=" via=OPENCODE_CONFIG_CONTENT"
-echo "PLAN seat=$NAME agent=$AGENT model=$MODEL$_VIA${TIER:+ tier=$TIER}${FAST:+ fast=$FAST} wt=$WTDIR branch=$BRANCH base=$BASE_BRANCH index=$IDX_REL$_PLANX"
+echo "PLAN seat=$NAME agent=$AGENT model=$MODEL$_VIA${TIER:+ tier=$TIER}${FAST:+ fast=$FAST} wt=$WTDIR branch=$BRANCH base=${_BASE_SHOW:-$BASE_BRANCH} index=$IDX_REL$_PLANX"
 # r486: 나노 워크트리 = sparse(r444 ⑤ · 남의 팀 design 없음) → 광역·다른 팀 자료 시험은 «평범한 실패» 로 보인다 — 발주문 1줄(BODY) · dry-run 에도 같은 글자
 _SPX=" ★광역 pytest 금지 — 이 워크트리는 sparse(다른 팀 design 없음 · r444) · 자기 카드 시험만 · 광역·다른 팀 자료 시험은 ft-scratch-repo.sh <base> 사본에서 · 도구는 SPARSE-HIDDEN <경로> 로 말한다(r486)★"
 echo "BODY+${_SPX}"
