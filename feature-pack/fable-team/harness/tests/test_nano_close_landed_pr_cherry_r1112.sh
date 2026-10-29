@@ -75,9 +75,12 @@ H1="$(mk "$M1" pr501 'tools/seg.py=print(1)' 'tests/test_seg.py=assert 1' 'desig
 H2="$(mk "$M1" pr502 'tools/seg.py=print(2)' 'tests/test_seg.py=assert 1')"                                        # R2 한 줄 고침
 S3="$(mk "$DOC" set3 'design/teams/x/c.md=c')"; H3="$(mk "$M1" pr503 'design/teams/x/z.md=z')"                     # R3 팀 문서만
 S4="$(mk "$DOC" set4 'tools/seg.py=print(1)' 'lib/old.py=-')"; H4="$(mk "$M1" pr504 'tools/seg.py=print(1)')"      # R4 세트는 삭제 · PR 엔 있음
-# main = squash 착지 4개(끝줄 «PR #N (head <H>)» · ft-merge-land 꼴) — PR head 는 main 조상 아님
+# r1112 r2(DA① HOLD): 한글 경로 — core.quotePath=true 에서 이름이 «"…"» 로 감싸지면 안 된다
+S5="$(mk "$DOC" set5 'tools/한글.py=print(1)')"; H5="$(mk "$M1" pr505 'tools/한글.py=print(2)')"                    # R2 꼴 한글 코드 blob 다름
+S6="$(mk "$DOC" set6 'docs/한글.md=doc')"; H6="$(mk "$M1" pr506 'docs/다른.md=other')"                              # R3 꼴 한글 .md 만(코드 0)
+# main = squash 착지(끝줄 «PR #N (head <H>)» · ft-merge-land 꼴) — PR head 는 main 조상 아님
 Q="$M1"
-for nh in "501:$H1" "502:$H2" "503:$H3" "504:$H4"; do
+for nh in "501:$H1" "502:$H2" "503:$H3" "504:$H4" "505:$H5" "506:$H6"; do
   Q="$(git -C "$REPO" commit-tree "$M1^{tree}" -p "$Q" -m "squash ${nh%%:*}" -m "PR #${nh%%:*} (head ${nh#*:})")"
 done
 git -C "$REPO" update-ref refs/heads/main "$Q"; git -C "$REPO" reset -q --hard "$Q"; git -C "$REPO" update-ref refs/remotes/origin/main "$Q"
@@ -136,6 +139,22 @@ setup 503 "$S3" "$H3"; out="$(close --landed-pr 503)"; rc=$?
 [ "$rc" -eq 1 ] && has "$out" "«세트 + main 병합뿐» 도 아님(판정기 rc=" "ⓒ R3 → 판정기 사유 그대로 REJECT" || bad "ⓒ R3 rc=$rc ← ${out:0:900}"
 hasnt "$out" "cherry 착지" "  └ cherry 문구 0(이 길 아님)"
 untouched "ⓒ R3"
+
+echo "== ⓕ core.quotePath=true(git 기본) · R2 꼴 한글 코드 blob 다름 → REJECT"
+git -C "$REPO" config core.quotePath true
+setup 505 "$S5" "$H5"; out="$(close --landed-pr 505)"; rc=$?
+[ "$rc" -eq 1 ] && has "$out" "cherry 착지 아님: tools/한글.py" "ⓕ R2 한글 → REJECT 첫 경로(따옴표 0)" || bad "ⓕ R2 한글 rc=$rc ← ${out:0:900}"
+untouched "ⓕ R2 한글"
+echo "== ⓖ core.quotePath=true · R3 꼴 한글 .md 만 → 이 길 아님(판정기 사유 그대로 REJECT)"
+setup 506 "$S6" "$H6"; out="$(close --landed-pr 506)"; rc=$?
+[ "$rc" -eq 1 ] && has "$out" "«세트 + main 병합뿐» 도 아님(판정기 rc=" "ⓖ R3 한글 .md → 판정기 사유 그대로 REJECT" || bad "ⓖ R3 한글 rc=$rc ← ${out:0:900}"
+hasnt "$out" "cherry 착지" "  └ cherry 문구 0(.md 제외가 먹음)"
+untouched "ⓖ R3 한글"
+echo "== ⓗ 변이 «-z 제거» → ⓕ 가 닫힌다(변이 FAIL)"
+mutant 'diff -z --no-renames --name-only' 'diff --no-renames --name-only'
+setup 505 "$S5" "$H5"; out="$(CLOSE_BIN="$T/mutbin/ft-nano-close.sh" close --landed-pr 505)"; rc=$?
+[ "$rc" -eq 0 ] && ok "ⓗ 변이(-z 제거) → 한글 blob 다름인데 닫힘 = ⓕ 가 잡는다" || bad "ⓗ 변이 -z rc=$rc — 변이가 안 먹었다: $(printf '%s' "$out" | grep -m1 -A1 REJECT)"
+git -C "$REPO" config --unset core.quotePath
 
 echo "== ⓔ 변이 «cherry 길 끔» → ⓐ 가 REJECT 로 바뀐다(변이 FAIL)"
 mutant '_lp_cherry_gate; rc=$?   # r1112-mut:cherry' 'rc=1'

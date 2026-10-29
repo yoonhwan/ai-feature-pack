@@ -1006,7 +1006,8 @@ _lp_cherry_gate() {
   step landed-pr-cherry
   mb="$(nf_bound "$ecap" git -C "$repo" merge-base "$_lp_set" refs/remotes/origin/main 2>&1)"; rc=$?
   if [ "$rc" -ne 0 ] || [ -z "$mb" ]; then _lp_cherry_err="⑥--landed-pr #$LANDED_PR cherry 착지 판정 불가 — merge-base(세트 ${_lp_set:0:9}, origin/main) rc=$rc: $(printf '%s' "$mb" | head -1 | cut -c1-120)"; return 2; fi
-  out="$(nf_bound "$ecap" git -C "$repo" diff --no-renames --name-only "$mb" "$_lp_set" 2>&1)"; rc=$?
+  # r1112 r2(DA① HOLD): -z = 따옴표 0 — core.quotePath=true(git 기본)면 한글·역슬래시 경로가 «"…"» 로 감싸져 제외 규칙·blob 조회가 빗나간다
+  out="$(nf_bound "$ecap" bash -c 'set -o pipefail; git -C "$1" diff -z --no-renames --name-only "$2" "$3" | tr "\0" "\n"' _ "$repo" "$mb" "$_lp_set" 2>&1)"; rc=$?
   if [ "$rc" -ne 0 ]; then _lp_cherry_err="⑥--landed-pr #$LANDED_PR cherry 착지 판정 불가 — 세트 변경 경로 목록 rc=$rc: $(printf '%s' "$out" | head -1 | cut -c1-120)"; return 2; fi
   while IFS= read -r p; do
     [ -n "$p" ] || continue
