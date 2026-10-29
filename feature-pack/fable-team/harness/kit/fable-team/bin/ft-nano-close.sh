@@ -984,11 +984,52 @@ _lp_equiv_gate() {
     case "$_lp_equiv_merges" in ''|*[!0-9]*) _lp_equiv_merges=0;; esac
     # r1019 r2(DA 1/2 동작①): rc0 이어도 «세트 위 main 병합(mode=merge ∧ merges≥1)» 만 통과 — rebase 머리는 이 경로의 증거가 아니다.
     if [ "$_lp_equiv_mode" = merge ] && [ "$_lp_equiv_merges" -ge 1 ]; then return 0; fi
-    _lp_equiv_err="⑥--landed-pr head ${_lp_head:0:9} 가 세트 위 main 병합이 아니라 rebase 머리(mode=${_lp_equiv_mode:-없음} merges=$_lp_equiv_merges) — 세트 줄을 고치거나 새 카드"; return 1
-  fi
-  if [ "$rc" -eq 124 ]; then _lp_equiv_err="⑥--landed-pr 판정기 시간 초과(${cap}초 상한 · 하드 룰 12) — ${first:-출력 없음}"; return 1; fi
-  _lp_equiv_err="⑥--landed-pr #$LANDED_PR head ${_lp_head:0:9} ≠ 카드 세트 ${_lp_set:0:9} · «세트 + main 병합뿐» 도 아님(판정기 rc=$rc) — ${first:-출력 없음}"
+    _lp_equiv_err="⑥--landed-pr head ${_lp_head:0:9} 가 세트 위 main 병합이 아니라 rebase 머리(mode=${_lp_equiv_mode:-없음} merges=$_lp_equiv_merges) — 세트 줄을 고치거나 새 카드"
+  elif [ "$rc" -eq 124 ]; then _lp_equiv_err="⑥--landed-pr 판정기 시간 초과(${cap}초 상한 · 하드 룰 12) — ${first:-출력 없음}"
+  else _lp_equiv_err="⑥--landed-pr #$LANDED_PR head ${_lp_head:0:9} ≠ 카드 세트 ${_lp_set:0:9} · «세트 + main 병합뿐» 도 아님(판정기 rc=$rc) — ${first:-출력 없음}"; fi
+  # ★r1112★ 판정기가 못 맞춘 머리 — 착지 판정(_lp_landed_gate)을 통과한 PR 이면 «cherry 착지» 를 본다(0 통과 · 1 이 길 아님 = 위 사유 그대로 · 2 REJECT)
+  _lp_cherry_gate; rc=$?   # r1112-mut:cherry
+  if [ "$rc" -eq 0 ]; then _lp_equiv_merges=""; return 0; fi
+  [ "$rc" -ne 2 ] || _lp_equiv_err="$_lp_cherry_err"
   return 1
+}
+# ★r1112★ «cherry 착지» — 착지 PR 이 카드 세트의 코드 커밋만 골라 옮기면(나노 가지가 문서 가지 위 = 팀 문서 변경도 품음) PR head ≠ 세트 · 병합 꼴도 아니다.
+#   세트가 바꾼 경로(merge-base(세트, origin/main)..세트 · 이름 바꿈은 삭제+추가로) 중 design/teams/ 아래와 *.md 를 뺀 «코드 경로» 가 1개 이상이고
+#   그 전부의 blob 이 PR head 의 같은 경로 blob 과 같을 때만 통과(둘 다 없음 = 같음 · 한쪽만 없음 = 다름). blob 대조는 cat-file 1회(전체 diff 0).
+#   rc 0 = 통과 · 1 = 이 길 아님(착지 판정 전 · 코드 경로 0) · 2 = REJECT(blob 다름 · git 실패·시간 초과 = 판정 불가 · 하드 룰 20).
+_lp_cherry=""; _lp_cherry_err=""
+_lp_cherry_gate() {
+  local repo ecap mb rc out codes="" p n=0 m=0 in="" i a b first=""
+  repo="${_lp_repo:-${SEAT_REPO:-$ROOT}}"; _lp_cherry=""; _lp_cherry_err=""
+  [ -n "${_lp_landed:-}" ] || return 1
+  ecap="$(nf_cap "$(nf_fixed equiv)" 1)"
+  step landed-pr-cherry
+  mb="$(nf_bound "$ecap" git -C "$repo" merge-base "$_lp_set" refs/remotes/origin/main 2>&1)"; rc=$?
+  if [ "$rc" -ne 0 ] || [ -z "$mb" ]; then _lp_cherry_err="⑥--landed-pr #$LANDED_PR cherry 착지 판정 불가 — merge-base(세트 ${_lp_set:0:9}, origin/main) rc=$rc: $(printf '%s' "$mb" | head -1 | cut -c1-120)"; return 2; fi
+  # r1112 r2(DA① HOLD): -z = 따옴표 0 — core.quotePath=true(git 기본)면 한글·역슬래시 경로가 «"…"» 로 감싸져 제외 규칙·blob 조회가 빗나간다
+  out="$(nf_bound "$ecap" bash -c 'set -o pipefail; git -C "$1" diff -z --no-renames --name-only "$2" "$3" | tr "\0" "\n"' _ "$repo" "$mb" "$_lp_set" 2>&1)"; rc=$?
+  if [ "$rc" -ne 0 ]; then _lp_cherry_err="⑥--landed-pr #$LANDED_PR cherry 착지 판정 불가 — 세트 변경 경로 목록 rc=$rc: $(printf '%s' "$out" | head -1 | cut -c1-120)"; return 2; fi
+  while IFS= read -r p; do
+    [ -n "$p" ] || continue
+    case "$p" in design/teams/*|*.md) m=$((m+1)); continue;; esac   # r1112-mut:exclude
+    codes="$codes$p"$'\n'; n=$((n+1))
+  done <<< "$out"
+  [ "$n" -ge 1 ] || return 1   # 코드 0 = 이 길 아님(R3 · 지금 REJECT 그대로)
+  while IFS= read -r p; do [ -n "$p" ] && in="$in$_lp_set:$p"$'\n'; done <<< "$codes"
+  while IFS= read -r p; do [ -n "$p" ] && in="$in$_lp_head:$p"$'\n'; done <<< "$codes"
+  out="$(nf_bound "$ecap" bash -c 'printf "%s" "$2" | git -C "$1" cat-file --batch-check="%(objectname)"' _ "$repo" "$in" 2>&1)"; rc=$?
+  if [ "$rc" -ne 0 ]; then _lp_cherry_err="⑥--landed-pr #$LANDED_PR cherry 착지 판정 불가 — blob 조회 rc=$rc: $(printf '%s' "$out" | head -1 | cut -c1-120)"; return 2; fi
+  i=0
+  while IFS= read -r p; do
+    [ -n "$p" ] || continue; i=$((i+1))
+    a="$(printf '%s\n' "$out" | sed -n "${i}p")"; b="$(printf '%s\n' "$out" | sed -n "$((i+n))p")"
+    [ "$a" = "$_lp_set:$p missing" ] && a=missing; [ "$b" = "$_lp_head:$p missing" ] && b=missing
+    [ "$a" = "$b" ] || { first="$p"; break; }   # r1112-mut:blob
+  done <<< "$codes"
+  if [ -n "$first" ]; then _lp_cherry_err="⑥--landed-pr #$LANDED_PR head ${_lp_head:0:9} ≠ 카드 세트 ${_lp_set:0:9} · cherry 착지 아님: $first (세트와 PR head 의 blob 다름)"; return 2; fi
+  _lp_cherry=1
+  echo "INFO ⑥--landed-pr cherry 착지: 코드 ${n}개 blob 같음 · 팀 문서 ${m}개 제외 · PR head ${_lp_head:0:9}"
+  return 0
 }
 # r1023: 여기서 gh 를 부르지 않는다 — 리포를 카드 «대상:» 줄에서 정해야 하는데 카드 해석은 아래(④ 뒤)에서 끝난다. PR 검증 호출은 ⑥ «--landed-pr» 자리로 옮겼고,
 #   명부 부재·조기 재실행 경로(바로 아래)만 카드 없이(_lp_nocard=1 · ROOT) 지금처럼 PR 을 먼저 본다 — 그 자리 REJECT 순서(gh 실패 › 사유) 불변.
@@ -1539,7 +1580,8 @@ elif [ -n "$LANDED_PR" ]; then
       # ★r1084★ 세트 S 가 «끝줄 head X 의 조상» 이고 S→X 가 main 병합뿐이며 자기 변경(patch-id)이 같으면 같은 착지다 — 판정기 호출 0 으로 통과.
       elif _lp_sx_gate "$_lp_set"; then echo "LANDED-PR-OK #$LANDED_PR merged=${_lp_mrg:0:9} state=$_lp_state head=${_lp_head:0:9} repo=${_lp_slug} 카드 세트 ${_lp_set:0:9} → 끝줄 head ${_lp_land_x:0:9} = main 병합 ${_lp_sx_merges}개뿐 · 자기 변경 같음 · «- 착지:» 줄 있음 (⑤ cherry·⑥ 증거 줄 면제)"
       elif [ -n "$_lp_sx_err" ]; then bad+=("$_lp_sx_err")
-      elif _lp_equiv_gate; then echo "LANDED-PR-OK #$LANDED_PR merged=${_lp_mrg:0:9} state=$_lp_state head=${_lp_head:0:9} repo=${_lp_slug} ≡ 카드 세트 ${_lp_set:0:9} + main 병합 ${_lp_equiv_merges} equiv=${_lp_equiv_merges} · «- 착지:» 줄 있음 (⑤ cherry·⑥ 증거 줄 면제)"
+      elif _lp_equiv_gate; then [ -z "$_lp_cherry" ] || echo "LANDED-PR-OK #$LANDED_PR merged=${_lp_mrg:0:9} state=$_lp_state head=${_lp_head:0:9} repo=${_lp_slug} 카드 세트 ${_lp_set:0:9} 코드 = PR head 코드(cherry 착지) · «- 착지:» 줄 있음 (⑤ cherry·⑥ 증거 줄 면제)"   # r1112
+        [ -n "$_lp_cherry" ] || echo "LANDED-PR-OK #$LANDED_PR merged=${_lp_mrg:0:9} state=$_lp_state head=${_lp_head:0:9} repo=${_lp_slug} ≡ 카드 세트 ${_lp_set:0:9} + main 병합 ${_lp_equiv_merges} equiv=${_lp_equiv_merges} · «- 착지:» 줄 있음 (⑤ cherry·⑥ 증거 줄 면제)"
       else bad+=("$_lp_equiv_err"); fi
     else echo "LANDED-PR-OK #$LANDED_PR merged=${_lp_mrg:0:9} state=$_lp_state head=${_lp_head:0:9} repo=${_lp_slug} == 카드 세트 · «- 착지:» 줄 있음 (⑤ cherry·⑥ 증거 줄 면제)"; fi
   fi
@@ -1661,7 +1703,7 @@ _su_tag=""; [ "$SUSP" -eq 0 ] || _su_tag=" suspended=1 reason=$SUSP_REASON set=$
 [ -z "$NS_SUCC" ] || _su_tag=" never-started (공유 워크트리 → 후계 $NS_SUCC · 워크트리 정리 0)"
 [ -z "$NS_LAND" ] || _su_tag=" never-started (착지 가지 $NS_LAND · 워크트리 정리 0)"   # 개정 r3 규칙 2b   # r506 r2 규칙 2 출력 꼴(사유는 원장 행 wt= 칸)
 [ "$RESEARCH" -eq 0 ] || _su_tag=" research=1"   # r888: 원장 행·출력 꼬리(⑥ 증거 줄 면제 표기)
-[ -z "$LANDED_PR" ] || _su_tag=" landed-pr=$LANDED_PR${_lp_equiv_merges:+ equiv=$_lp_equiv_merges}${_lp_slug:+ repo=$_lp_slug}"   # r1011: 원장 행·출력 꼬리(⑤⑥ 을 PR 이 대신했다는 표기) · r1019: head ≠ 세트로 통과했으면 equiv=<병합 수> · r1023: repo=<owner/repo>
+[ -z "$LANDED_PR" ] || _su_tag=" landed-pr=$LANDED_PR${_lp_cherry:+ cherry}${_lp_equiv_merges:+ equiv=$_lp_equiv_merges}${_lp_slug:+ repo=$_lp_slug}"   # r1112: cherry 착지면 « cherry» · r1011: 원장 행·출력 꼬리(⑤⑥ 을 PR 이 대신했다는 표기) · r1019: head ≠ 세트로 통과했으면 equiv=<병합 수> · r1023: repo=<owner/repo>
 # R387 판정 2282 §7-2 — 리서치 좌석(카드 `- 리서치: <좌석> base=<sha> 허용=<경로 패턴>`): 허용 밖 변경(base..HEAD + 작업트리)이 있으면 카드에 `- 리서치 위반:` 1줄 — 기록만(닫기·WIP 보존·회수는 막지 않는다 · 새 sandbox 0)
 RS_LINE=""; RS_AGENT="$(jq -r --arg s "$SEAT" '.[$s].agent // empty' "$SEATS" 2>/dev/null)"   # r286: 에이전트는 카드 유무와 무관(opencode 회수)
 RC_AG=""; case "$RS_AGENT" in opencode|pi) RC_AG="$RS_AGENT";; esac   # r542: 회수 대상 에이전트(명부 값 그대로 · 그 밖·빈 값 = 판정기 기본 opencode)
