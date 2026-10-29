@@ -21,11 +21,12 @@ chmod +x "$FAKE/tmux" "$FAKE/pgrep"; : > "$T/sessions"; : > "$T/procs"
 export PATH="$FAKE:$PATH" HOME="$T/home" FT_INDEX_STATE_DIR="$T/state" FT_SEATS_JSON="$T/none.json" FT_MBOX=/bin/true FT_LAND_REF=HEAD
 mkdir -p "$HOME/.claude" "$T/state"
 
-# mkbin <폴더> [기준판] — 시험 대상 bin 사본(기준판 = 팩 HEAD 의 ft-index-move.sh)
+# mkbin <폴더> [기준판] — 시험 대상 bin 사본(기준판 = r1125 직전 main 고정 sha 의 ft-index-move.sh · HEAD 면 커밋 뒤 새 코드가 된다)
+BASE_SHA=948ae223ae5bc1f9bb871775b9e80158943b7d6b
 mkbin() {
   mkdir -p "$1"
   cp "$SRCDIR/ft-index-move.sh" "$SRCDIR/ft-index-move-canon.sh" "$SRCDIR/ft-index-move-install.sh" "$SRCDIR/ft_da_hold_gate.py" "$SRCDIR/ft_git_capped.py" "$SRCDIR/ft-evidence-inject-scan.sh" "$SRCDIR/ft-team-lib.sh" "$1/"
-  [ "${2:-}" != base ] || git -C "$SRCDIR" show HEAD:./ft-index-move.sh > "$1/ft-index-move.sh"
+  [ "${2:-}" != base ] || git -C "$SRCDIR" show "$BASE_SHA:./ft-index-move.sh" > "$1/ft-index-move.sh"
   printf '#!/usr/bin/env bash\nexit 0\n' > "$1/ft-index-lint.sh"
 }
 BIN="$T/bin"; mkbin "$BIN"; BASE="$T/base"; mkbin "$BASE" base
