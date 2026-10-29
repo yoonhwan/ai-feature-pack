@@ -208,6 +208,8 @@ do {  // R2 direct cause: the leader exits, orphans stay; the kill timer must su
     rig.ops.exits[0](15)  // leader gone, group still has members
     check(rig.controller.group == 101 && rig.controller.isStopping, "R2: leader exit with orphans keeps the stop open")
     check(rig.live(10).count == 1, "R2: kill timer is not cancelled by the leader's exit")
+    check(rig.timers.filter { $0.delay == 10 }.count == 1 && rig.signalCount(SIGTERM) == 1,
+          "R2: the leader's exit neither re-arms the kill timer nor repeats TERM")
     check(rig.live(0.2).count == 1, "R2: the group is polled after the leader is gone")
     rig.controller.start()
     check(rig.ops.spawns == 1, "R2: start is refused while orphans live")
@@ -443,8 +445,11 @@ do {  // T-stop: a leader with a child; stop must empty the whole group before s
 }
 
 do {  // T-kill: the whole group ignores TERM; only SIGKILL after the grace ends it
-    let (controller, ops) = liveController("trap '' TERM; sleep 30 & sleep 30", killGrace: 0.5)
+    let ready = NSTemporaryDirectory() + "airag-ready-\(getpid())"
+    let (controller, ops) = liveController("trap '' TERM; : > '\(ready)'; sleep 30 & sleep 30", killGrace: 0.5)
     controller.start()
+    check(pump { FileManager.default.fileExists(atPath: ready) }, "T-kill: the TERM trap is installed before stop")
+    try? FileManager.default.removeItem(atPath: ready)
     let begin = Date()
     controller.stop()
     check(pump { controller.group == nil }, "T-kill: group ended within 3 s")

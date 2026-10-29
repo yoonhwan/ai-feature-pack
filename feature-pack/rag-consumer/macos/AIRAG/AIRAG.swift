@@ -58,7 +58,8 @@ func parseLastLogLine(_ text: String) -> TickStatus? {
 
 /// Icon colour. Gray = stopped. Red = bad status, or no pass for more than 15 minutes (K4).
 /// The staleness clock never starts before the app itself started, so an old log line does not turn a fresh app red.
-func lightFor(last: TickStatus?, now: Date, appStart: Date, stopped: Bool) -> Light {
+func lightFor(last: TickStatus?, now: Date, appStart: Date, stopped: Bool, cleanupFailed: Bool = false) -> Light {
+    if cleanupFailed { return .red }
     if stopped { return .gray }
     let reference = max(last?.ts ?? .distantPast, appStart)
     if now.timeIntervalSince(reference) > staleAfterSeconds { return .red }
@@ -71,9 +72,10 @@ func lightFor(last: TickStatus?, now: Date, appStart: Date, stopped: Bool) -> Li
 }
 
 func statusLine(last: TickStatus?, now: Date, light: Light, running: Bool, stopped: Bool, launchFailed: Bool,
-                timeZone: TimeZone = .current) -> String {
+                draining: Bool = false, cleanupFailed: Bool = false, timeZone: TimeZone = .current) -> String {
     var parts: [String] = []
-    if stopped { parts.append("정지됨") } else if running { parts.append("패스 실행 중") }
+    if cleanupFailed { parts.append("앞 패스 정리 실패, 앱을 다시 여세요") }
+    if stopped { parts.append("정지됨") } else if draining { parts.append("패스 정리 중") } else if running { parts.append("패스 실행 중") }
     if launchFailed { parts.append("tick 실행 실패 (python 경로 확인)") }
     if let last = last {
         var text = last.status
@@ -90,7 +92,7 @@ func statusLine(last: TickStatus?, now: Date, light: Light, running: Bool, stopp
     } else {
         parts.append("아직 패스 기록 없음")
     }
-    if light == .red && !stopped && !launchFailed && last != nil { parts.append("15분 넘게 멈춤 또는 실패") }
+    if light == .red && !stopped && !launchFailed && !cleanupFailed && last != nil { parts.append("15분 넘게 멈춤 또는 실패") }
     return parts.joined(separator: " / ")
 }
 
@@ -153,41 +155,154 @@ func tickLogNamesNewestFirst(_ names: [String]) -> [String] {
 
 protocol Cancellable { func cancel() }
 
-/// Start / stop / pass loop with injected clock, child launcher and signal sender, so K5 is testable without a child.
-/// Main-thread only. Stop = cancel the next pass + SIGTERM to the running child, SIGKILL after the grace (K5).
+func mainSchedule(_ delay: TimeInterval, _ action: @escaping () -> Void) -> Cancellable {
+    let item = DispatchWorkItem(block: action)
+    DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: item)
+    return DispatchWorkItemCancellable(item)
+}
+
+private final class DispatchWorkItemCancellable: Cancellable {
+    private let item: DispatchWorkItem
+    init(_ item: DispatchWorkItem) { self.item = item }
+    func cancel() { item.cancel() }
+}
+
+/// The real process wiring, kept in this tested section on purpose: the tick runs as the leader of its own
+/// process group, and every signal and every "is it over" question goes to the whole group.
+protocol ProcessOps: AnyObject {
+    /// Starts one tick. `onExit(status)` is called later (never inside `spawn`), when the group leader has exited.
+    /// Returns the group number (= the leader's pid), or nil if nothing started.
+    func spawn(onExit: @escaping (Int32) -> Void) -> Int32?
+    func signalGroup(_ pgid: Int32, _ sig: Int32)
+    func groupAlive(_ pgid: Int32) -> Bool
+}
+
+private final class SpawnGate {
+    private let lock = NSLock()
+    private var abandoned = false
+    func abandon() { lock.lock(); abandoned = true; lock.unlock() }
+    var isAbandoned: Bool { lock.lock(); defer { lock.unlock() }; return abandoned }
+}
+
+final class LiveProcessOps: ProcessOps {
+    let executable: String
+    let arguments: [String]
+    let environment: [String: String]
+    let stderrPath: String?
+    private let callbackQueue: DispatchQueue
+
+    init(executable: String, arguments: [String], environment: [String: String], stderrPath: String?,
+         callbackQueue: DispatchQueue = .main) {
+        self.executable = executable
+        self.arguments = arguments
+        self.environment = environment
+        self.stderrPath = stderrPath
+        self.callbackQueue = callbackQueue
+    }
+
+    /// Foundation `Process` makes the child the leader of a new group (child pgid == child pid, measured; the
+    /// contract is not documented). If that ever changes, the child is killed and nothing is reported as started.
+    /// stdout is dropped (the tick writes its own log line); stderr goes to `stderrPath`, truncated every pass.
+    func spawn(onExit: @escaping (Int32) -> Void) -> Int32? {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: executable)
+        process.arguments = arguments
+        process.environment = environment
+        process.standardInput = FileHandle.nullDevice
+        process.standardOutput = FileHandle.nullDevice
+        var errorFD: Int32 = -1
+        if let path = stderrPath { errorFD = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW, 0o600) }
+        process.standardError = errorFD >= 0 ? FileHandle(fileDescriptor: errorFD, closeOnDealloc: true) : FileHandle.nullDevice
+        let gate = SpawnGate()
+        let queue = callbackQueue
+        process.terminationHandler = { finished in
+            let status = finished.terminationStatus
+            queue.async { if !gate.isAbandoned { onExit(status) } }
+        }
+        do { try process.run() } catch { return nil }
+        let pid = process.processIdentifier
+        let group = getpgid(pid)
+        if group != pid && group != -1 {
+            gate.abandon()
+            kill(pid, SIGKILL)
+            return nil
+        }
+        return pid
+    }
+
+    /// Group numbers 0 and 1 (and negatives) would address the caller's own group or every process: never signalled.
+    func signalGroup(_ pgid: Int32, _ sig: Int32) {
+        guard pgid > 1 else { return }
+        _ = kill(-pgid, sig)
+    }
+
+    func groupAlive(_ pgid: Int32) -> Bool {
+        guard pgid > 1 else { return false }
+        return kill(-pgid, 0) == 0 || errno == EPERM
+    }
+}
+
+let tickEnvironmentPATH = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+
+func makeTickOps(_ settings: AppSettings, callbackQueue: DispatchQueue) -> LiveProcessOps {
+    var environment = ProcessInfo.processInfo.environment
+    environment["PATH"] = tickEnvironmentPATH
+    return LiveProcessOps(executable: settings.python, arguments: tickArguments(settings), environment: environment,
+                          stderrPath: settings.logDir + "/app.err.log", callbackQueue: callbackQueue)
+}
+
+func makeLiveController(settings: AppSettings,
+                        schedule: @escaping (TimeInterval, @escaping () -> Void) -> Cancellable = mainSchedule) -> PassController {
+    PassController(schedule: schedule, ops: makeTickOps(settings, callbackQueue: .main))
+}
+
+/// Start / stop / pass loop. A pass is over only when its whole process group is empty (R2): the leader's exit
+/// alone is not enough, because grandchildren (`op`, the pass child) may outlive it. Main-thread only.
+///
+///   stopped -start-> running -leader exits, group empty-> waiting(5 min) -> running
+///                       |  leader exits, group not empty -> draining (TERM to the group now, KILL after the grace)
+///   stop: cancel the next pass, TERM to the group, KILL after `killGrace`; the stop ends when the group is empty.
+/// `start` works only when stopped and no group is left. If the group survives SIGKILL for `cleanupGrace`,
+/// `cleanupFailed` is set (start stays off) and polling continues until the group empties.
 final class PassController {
-    enum State: Equatable { case stopped, waiting, running }
+    enum State: Equatable { case stopped, waiting, running, draining }
 
     private(set) var state: State = .stopped
-    private(set) var pid: Int32?
+    /// Group number of the pass whose group may still have members (nil = nothing left to wait for).
+    private(set) var group: Int32?
     private(set) var lastLaunchFailed = false
+    private(set) var cleanupFailed = false
     var onChange: () -> Void = {}
 
     private let interval: TimeInterval
     private let killGrace: TimeInterval
+    private let pollInterval: TimeInterval
+    private let cleanupGrace: TimeInterval
     private let schedule: (TimeInterval, @escaping () -> Void) -> Cancellable
-    /// Starts one tick; `onExit` must be called later (never inside `launch`). Returns the child pid, or nil if it did not start.
-    private let launch: (@escaping () -> Void) -> Int32?
-    private let signal: (Int32, Int32) -> Void
+    private let ops: ProcessOps
+    private var leaderExited = false
     private var nextPass: Cancellable?
     private var killTimer: Cancellable?
+    private var cleanupTimer: Cancellable?
+    private var pollTimer: Cancellable?
 
     init(interval: TimeInterval = passIntervalSeconds, killGrace: TimeInterval = killGraceSeconds,
+         pollInterval: TimeInterval = 0.2, cleanupGrace: TimeInterval = 5,
          schedule: @escaping (TimeInterval, @escaping () -> Void) -> Cancellable,
-         launch: @escaping (@escaping () -> Void) -> Int32?,
-         signal: @escaping (Int32, Int32) -> Void) {
+         ops: ProcessOps) {
         self.interval = interval
         self.killGrace = killGrace
+        self.pollInterval = pollInterval
+        self.cleanupGrace = cleanupGrace
         self.schedule = schedule
-        self.launch = launch
-        self.signal = signal
+        self.ops = ops
     }
 
-    /// True while a stop was asked but the old child has not exited yet.
-    var isStopping: Bool { state == .stopped && pid != nil }
+    /// True while a stop was asked but the old group still has members.
+    var isStopping: Bool { state == .stopped && group != nil }
 
     func start() {
-        guard state == .stopped, pid == nil else { return }
+        guard state == .stopped, group == nil else { return }
         runPass()
     }
 
@@ -195,35 +310,73 @@ final class PassController {
         nextPass?.cancel()
         nextPass = nil
         state = .stopped
-        if let child = pid, killTimer == nil {
-            signal(child, SIGTERM)
-            killTimer = schedule(killGrace) { [weak self] in
-                guard let self = self, self.pid == child else { return }
-                self.signal(child, SIGKILL)
-            }
-        }
+        if let current = group { terminate(current) }
         onChange()
     }
 
     private func runPass() {
         nextPass = nil
         state = .running
-        if let child = launch({ [weak self] in self?.passFinished() }) {
-            pid = child
+        leaderExited = false
+        if let started = ops.spawn(onExit: { [weak self] _ in self?.leaderDidExit() }) {
+            group = started
             lastLaunchFailed = false
         } else {
-            pid = nil
+            group = nil
             lastLaunchFailed = true
             scheduleNext()
         }
         onChange()
     }
 
-    private func passFinished() {
-        pid = nil
-        killTimer?.cancel()
-        killTimer = nil
-        if state == .running { scheduleNext() }
+    private func leaderDidExit() {
+        guard let current = group else { return }
+        leaderExited = true
+        if !ops.groupAlive(current) {
+            finish()
+            return
+        }
+        if state == .running { state = .draining }
+        terminate(current)
+        poll()
+        onChange()
+    }
+
+    /// TERM to the whole group once, KILL after the grace if it is still there, then watch for `cleanupFailed`.
+    private func terminate(_ current: Int32) {
+        guard killTimer == nil else { return }
+        ops.signalGroup(current, SIGTERM)
+        killTimer = schedule(killGrace) { [weak self] in
+            guard let self = self, self.group == current, self.ops.groupAlive(current) else { return }
+            self.ops.signalGroup(current, SIGKILL)
+            self.cleanupTimer = self.schedule(self.cleanupGrace) { [weak self] in
+                guard let self = self, self.group == current, self.ops.groupAlive(current) else { return }
+                self.cleanupFailed = true
+                self.onChange()
+            }
+        }
+        if leaderExited { poll() }
+    }
+
+    /// While the leader is gone, ask the group every `pollInterval` until it is empty.
+    private func poll() {
+        guard pollTimer == nil, group != nil else { return }
+        pollTimer = schedule(pollInterval) { [weak self] in
+            guard let self = self else { return }
+            self.pollTimer = nil
+            guard let current = self.group, self.leaderExited else { return }
+            if self.ops.groupAlive(current) { self.poll() } else { self.finish() }
+        }
+    }
+
+    private func finish() {
+        pollTimer?.cancel(); pollTimer = nil
+        killTimer?.cancel(); killTimer = nil
+        cleanupTimer?.cancel(); cleanupTimer = nil
+        group = nil
+        leaderExited = false
+        cleanupFailed = false
+        if state == .running || state == .draining { scheduleNext() }
         onChange()
     }
 
@@ -242,18 +395,6 @@ final class PassController {
 import AppKit
 import ServiceManagement
 
-private final class DispatchCancellable: Cancellable {
-    private let item: DispatchWorkItem
-    init(_ item: DispatchWorkItem) { self.item = item }
-    func cancel() { item.cancel() }
-}
-
-private func mainSchedule(_ delay: TimeInterval, _ action: @escaping () -> Void) -> Cancellable {
-    let item = DispatchWorkItem(block: action)
-    DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: item)
-    return DispatchCancellable(item)
-}
-
 private func loadSettings() -> AppSettings {
     let home = NSHomeDirectory()
     let path = home + "/.config/airag/app.json"
@@ -265,36 +406,18 @@ private func loadSettings() -> AppSettings {
     return resolveSettings(home: home, json: json)
 }
 
-/// The tick child: python run directly. stdout is dropped (the tick writes its own log line); stderr goes to
-/// `app.err.log`, truncated every pass so it cannot grow.
-private func makeTickProcess(_ settings: AppSettings, onTerminate: @escaping () -> Void) -> Process {
-    let process = Process()
-    process.executableURL = URL(fileURLWithPath: settings.python)
-    process.arguments = tickArguments(settings)
-    var environment = ProcessInfo.processInfo.environment
-    environment["PATH"] = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
-    process.environment = environment
-    process.standardInput = FileHandle.nullDevice
-    process.standardOutput = FileHandle.nullDevice
-    let errPath = settings.logDir + "/app.err.log"
-    let fd = open(errPath, O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW, 0o600)
-    process.standardError = fd >= 0 ? FileHandle(fileDescriptor: fd, closeOnDealloc: true) : FileHandle.nullDevice
-    process.terminationHandler = { _ in onTerminate() }
-    return process
-}
-
-/// `--once`: one tick, then exit with the tick's exit code. 65 s cap (SIGTERM, then SIGKILL after 5 s) keeps it under 70 s.
+/// `--once` (interim, replaced by the absolute-deadline version): one tick, then exit with the tick's exit code.
 private func runOnce(_ settings: AppSettings) -> Int32 {
+    let ops = makeTickOps(settings, callbackQueue: .global())
     let done = DispatchSemaphore(value: 0)
-    let process = makeTickProcess(settings) { done.signal() }
-    do { try process.run() } catch { return 69 }
-    if done.wait(timeout: .now() + 65) == .success { return process.terminationStatus }
-    process.terminate()
-    if done.wait(timeout: .now() + 5) == .timedOut {
-        kill(process.processIdentifier, SIGKILL)
-        _ = done.wait(timeout: .now() + 5)
+    var status: Int32 = 124
+    guard let group = ops.spawn(onExit: { code in status = code; done.signal() }) else { return 69 }
+    if done.wait(timeout: .now() + 65) == .timedOut {
+        ops.signalGroup(group, SIGTERM)
+        if done.wait(timeout: .now() + 5) == .timedOut { ops.signalGroup(group, SIGKILL) }
+        return 124
     }
-    return 124
+    return status
 }
 
 private func readNewestStatus(logDir: String) -> TickStatus? {
@@ -328,14 +451,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     init(settings: AppSettings) {
         self.settings = settings
         super.init()
-        controller = PassController(
-            schedule: mainSchedule,
-            launch: { [settings] onExit in
-                let process = makeTickProcess(settings) { DispatchQueue.main.async { onExit() } }
-                do { try process.run() } catch { return nil }
-                return process.processIdentifier
-            },
-            signal: { pid, sig in _ = kill(pid, sig) })
+        controller = makeLiveController(settings: settings)
         controller.onChange = { [weak self] in self?.stateChanged() }
     }
 
@@ -365,14 +481,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         refresh()
     }
 
+    /// Quit waits until the whole group is empty; a group that survives SIGKILL (`cleanupFailed`) does not hold the app.
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         quitting = true
         controller.stop()
-        return controller.pid == nil ? .terminateNow : .terminateLater
+        return controller.group == nil ? .terminateNow : .terminateLater
     }
 
     private func stateChanged() {
-        if quitting, controller.pid == nil { NSApp.reply(toApplicationShouldTerminate: true) }
+        if quitting, controller.group == nil || controller.cleanupFailed { NSApp.reply(toApplicationShouldTerminate: true) }
         refresh()
     }
 
@@ -380,12 +497,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let last = readNewestStatus(logDir: settings.logDir)
         let stopped = controller.state == .stopped
         let now = Date()
-        let light = lightFor(last: last, now: now, appStart: appStart, stopped: stopped)
+        let light = lightFor(last: last, now: now, appStart: appStart, stopped: stopped, cleanupFailed: controller.cleanupFailed)
         var line = statusLine(last: last, now: now, light: light, running: controller.state == .running,
-                              stopped: stopped, launchFailed: controller.lastLaunchFailed)
-        if controller.isStopping { line = "정지 중 (도는 패스를 끝내는 중) / " + line }
+                              stopped: stopped, launchFailed: controller.lastLaunchFailed,
+                              draining: controller.state == .draining, cleanupFailed: controller.cleanupFailed)
+        if controller.isStopping && !controller.cleanupFailed { line = "정지 중 (도는 패스를 끝내는 중) / " + line }
         statusLineItem.title = line
-        startItem.isEnabled = controller.state == .stopped && controller.pid == nil
+        startItem.isEnabled = controller.state == .stopped && controller.group == nil
         stopItem.isEnabled = controller.state != .stopped
         loginItem.state = SMAppService.mainApp.status == .enabled ? .on : .off
         loginItem.title = loginError ? "로그인 시 실행 (변경 실패)" : "로그인 시 실행"
