@@ -9,7 +9,7 @@ set -u
 # 경로·feat 브랜치는 env 로 바꾼다(ai-feature-pack 일반화 · 기본값 = BYZ 현행 — 동작 변경 0)
 WT="${FT_PRESS_WT:-/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live}"
 ROOT="${FT_PRESS_ROOT:-/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents}"
-FEAT="${FT_NANO_FEAT:-feat/v6-realtime-live}"
+FEAT="${FT_NANO_FEAT:-origin/main}"   # r1128: 옛 기본 feat/v6-realtime-live 는 10-23 에 멈춰 main 위 작업을 «미랜딩» 으로 셌다(460 오탐)
 HERE="$(cd "$(dirname "$0")" && pwd)"  # cd 전에 절대화 — 상대경로로 불러도 형제 스크립트(ft-press-set-check.sh)를 찾는다
 cd "$WT" || exit 1
 FAIL=0
@@ -330,7 +330,7 @@ import json,sys
 d=json.load(open(sys.argv[1])); print(d['base'] + '\t' + d['base_sha'])" "$w/.worktree-info.json" 2>/dev/null) || return 1
   base=${decl%%$'\t'*}; sha=${decl#*$'\t'}
   [ -n "$base" ] && [ -n "$sha" ] || return 1
-  case "$base" in "$FEAT"|"origin/$FEAT") return 1;; esac
+  case "$base" in "$FEAT"|"origin/$FEAT"|"${FEAT#origin/}") return 1;; esac   # r1128: FEAT=origin/main 이면 선언 base «main» 도 같은 줄기
   if git -C "$w" rev-parse --verify -q "$base^{commit}" >/dev/null 2>&1 && git -C "$w" merge-base --is-ancestor "$sha" HEAD 2>/dev/null \
      && git -C "$w" merge-base --is-ancestor "$sha" "$base" 2>/dev/null; then  # ⒟ base_sha ⊂ 선언 base(정상 spawn 은 그때 tip) — 선언과 sha 의 계보 결합(DA r2)
     git -C "$w" merge-base --is-ancestor "$sha" "$FEAT" 2>/dev/null; rc=$?  # base_sha ⊂ FEAT 면 «다른 줄기» 근거 없음(옛 main 조상 오기 · DA Q1) — rc=1 만 «조상 아님»
@@ -367,6 +367,11 @@ _declared(){ local d; for d in ${DECL[@]+"${DECL[@]}"}; do [ "$d" = "$1" ] && re
 _decl_hit(){ local d; for d in ${DECL_HIT[@]+"${DECL_HIT[@]}"}; do [ "$d" = "$1" ] && return 0; done; return 1; }
 _decl_read "${FT_PRESS_CARD:-}"
 [ "$DECL_BAD" = "0" ] || FAIL=1
+# r1128: 기준 줄기를 못 풀면 셈이 빈 결과(= 0건 통과 꼴)가 된다 — 셀 나노가 있을 때 판정 불가로 막고 셈 0
+FEAT_OK=1
+if [ -n "$LIVE_WT" ] && ! git rev-parse --verify -q "$FEAT^{commit}" >/dev/null 2>&1; then
+  say "✗" "① 판정 불가 — 기준 줄기 $FEAT 를 못 풂(FT_NANO_FEAT 확인)"; FAIL=1; FEAT_OK=0; LIVE_WT=""
+fi
 
 for W in $LIVE_WT; do
   W="$ROOT/.worktrees/$W"
@@ -410,7 +415,7 @@ done
 for _d in ${DECL[@]+"${DECL[@]}"}; do   # r1076 R6: 선언했는데 ✗ 워크트리에 없으면 경고만(rc 영향 0)
   _decl_hit "$_d" || say "⚠" "선언 이름 없음: $_d"
 done
-[ "$UNLANDED" = "0" ] && say "✓" "미랜딩 제품 커밋 0" || FAIL=1
+[ "$FEAT_OK" = "1" ] && { [ "$UNLANDED" = "0" ] && say "✓" "미랜딩 제품 커밋 0" || FAIL=1; }
 
 # r769: 로컬 갈래 포트 해석 «1곳» — 팀이 선언한 슬롯을 따르고, 선언이 없으면 지금과 똑같다(조용한 바뀜 0).
 #   FT_PRESS_PORTS("gw,worker,fe") > FT_PRESS_PORT_BASE(+0/+1/+2) > 기본 8080·8081·3001
