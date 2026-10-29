@@ -7,7 +7,7 @@
 #   handover = kill 0 · 나무 표를 state/handover/<후계>.tsv 에 적는다(오빠 «증류할때는 인계가능») · 후계의 done 이 그 표를 내린다
 #   --orphans (좌석 대신) = ppid 1 ∧ 내 uid ∧ 이름 집합(LSP·probe lsp·uvx serena·next dev — 크롬·RSS 규칙 0) ∧ launchd 목록 밖 · --survey = 조회 표(S 좌석 줄 · P 프로세스 줄 · 신호 0)
 #   보호(모든 모드): --remote-debugging-port=9333 크롬과 그 자손 · launchctl list 의 pid(kill 0 · `quiesce-keep … why=launchd`) · 이 명령 자신·조상·자손
-#   정지: TERM → 최대 FT_QUIESCE_WAIT_SEC(7)초 폴링 → 남은 것 KILL(lstart 같을 때만) → 최대 2초 → 다시 셈
+#   정지: TERM → 최대 FT_QUIESCE_WAIT_SEC(7)초 폴링 → 남은 것 KILL(lstart 같을 때만) → 최대 2초 → ps 재조회로 새 자식·손자도 같은 정지(상한 FT_QUIESCE_RESCAN_MAX 3회 · 넘으면 남은 것) → 다시 셈
 #   출력 끝 2줄: `QUIESCED <좌석> mode=<m> before=<MB> after=<MB> term=<n> kill=<n> left=<n>` · `남은 자식|남은 대상 <n>[ <pid> <이름>…]`
 #   rc 0 = left 0 · 1 = left>0 (닫기 도구가 CLOSE-FAIL) · 2 = usage · 20 = 판정 불가(ps·tmux·launchctl 실패 → 1줄 · 신호 0 · 하드 룰 20)
 #   장부 <state>/quiesce.log · state = FT_QUIESCE_STATE_DIR 또는 <데이터 루트>/.fable-team/state · 외부 호출 각 7초 상한
@@ -39,6 +39,7 @@ HEAVY_CMD = re.compile(r"Google Chrome|" + ORPHAN_CMD.pattern)
 KEEP_CDP = re.compile(r"--remote-debugging-port=" + re.escape(os.environ.get("FT_QUIESCE_KEEP_CDP_PORT", "9333")) + r"\b")
 PRESS_RE = re.compile(os.environ.get("FT_PRESS_RUNNER_RE") or r"tests/e2e/\S*press\S*\.py|realtime_multi_e2e\.py")
 RSS_MB = float(os.environ.get("FT_QUIESCE_RSS_MB") or 200); WAIT = float(os.environ.get("FT_QUIESCE_WAIT_SEC") or 7)
+RESCAN = int(os.environ.get("FT_QUIESCE_RESCAN_MAX") or 3)   # 정지 뒤 재조회 상한(DA② 반례 3)
 NOSIG = {int(x) for x in (os.environ.get("FT_QUIESCE_NOSIGNAL") or "").split(",") if x.strip().isdigit()}
 def tool(env, name): return ["bash", os.environ[env]] if os.environ.get(env) else [name]
 class Unknown(Exception): pass
@@ -200,14 +201,19 @@ def main():
     for p, r in cand.items(): print(f"quiesce-{'cand' if dry else 'stop'} pid={p} name={r['name']} rss={int(r['rss'])}MB")
     nk, left, extra = 0, [], {}
     if cand and not dry:
-        nk, left = stop(cand)
-        T2 = ps_table(); pg = {r["pgid"] for r in cand.values()}   # DA① 3 — 종료 뒤 재조회: 나무에 새로 생긴 것 ∪ 후보 프로세스 묶음에서 시작 뒤 새로 생긴 고아
-        fresh = {p for p, r in T2.items() if r["ppid"] == 1 and r["uid"] == ME and r["pgid"] in pg and r["epoch"] and r["epoch"] >= int(t0) and (mode == "close" or heavy(r))}
-        extra, keeps2 = guard(T2, (targets(T2, roots, {}) | fresh) - set(cand), desc(T2, roots) - set(roots))
-        for k in keeps2: print(k)
-        extra = {p: T2[p] for p in sorted(extra)}
-        for p, r in extra.items(): print(f"quiesce-stop-new pid={p} name={r['name']} rss={int(r['rss'])}MB")
-        if extra: k2, l2 = stop(extra); nk += k2; left += l2
+        nk, left = stop(cand); seen = set(cand)
+        for rnd in range(RESCAN + 1):   # DA①② 3 — 정지 뒤 ps 재조회를 «새 pid 0» 이 될 때까지(상한 RESCAN 회 · 넘으면 그 pid = 남은 것 · rc 1)
+            T2 = ps_table(); pg = {r["pgid"] for r in {**cand, **extra}.values()}
+            fresh = {p for p, r in T2.items() if r["ppid"] == 1 and r["uid"] == ME and r["pgid"] in pg and r["epoch"] and r["epoch"] >= int(t0) and (mode == "close" or heavy(r))}
+            spawned = {p for p in desc(T2, [q for q in seen if q in T2]) if mode == "close" or heavy(T2[p])}   # 정지 중인 대상이 아직 붙들고 있는 자식·손자
+            new, keeps2 = guard(T2, (targets(T2, roots, {}) | fresh | spawned) - seen, desc(T2, roots) - set(roots))
+            for k in keeps2: print(k)
+            new = {p: T2[p] for p in sorted(new)}
+            if not new: break
+            for p, r in new.items(): print(f"quiesce-{'stop' if rnd < RESCAN else 'over'}-new pid={p} name={r['name']} rss={int(r['rss'])}MB round={rnd + 1}")
+            extra.update(new); seen |= set(new)
+            if rnd == RESCAN: left += list(new); print(f"quiesce-rescan-limit {RESCAN} — 새 pid 가 계속 생김 · 남은 것으로 셈"); break
+            k2, l2 = stop(new); nk += k2; left += l2
     allc = {**cand, **extra}
     after = before - (0 if dry else mb([r for p, r in cand.items() if p not in left]))
     if inh and not dry: write_table(seat, [r for p, r in inh.items() if p in alive([p])])   # 넘겨받은 표 = 살아 있는 줄만 남김

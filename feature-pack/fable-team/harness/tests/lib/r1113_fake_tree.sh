@@ -3,6 +3,7 @@
 #   실 tmux·실 LSP·실 크롬·실 launchd 0 · 신호는 이 파일이 띄운 스텁에만 닿는다(ps 필터 = 띄운 pid 만 보임).
 #   쓰는 쪽: TMP(빈 임시 폴더) 를 정한 뒤 source → fake_init → tree <좌석> <유휴분> <스펙…> · 끝에 fake_cleanup(trap).
 #   스펙: <이름> = `exec -a <이름> sleep 300` · trap:<이름> = TERM 무시 · busy = 도구 셸(bash -c 루프) · spawner = TERM 받으면 새 자식 r1113-newkid 를 띄우고 끝남
+#         spawner2 = TERM 받으면 자식 r1113-mid 를 띄우고 끝남 → mid 도 TERM 받으면 손자 r1113-newkid 를 띄우고 끝남(DA② 반례 3)
 #         nest:<부모>:<자식> = 부모 밑 자식 1개(자식 pid 는 FAKE_KEEP_RE 로 보임) · orphan <이름> = ppid 1(부모 셸이 곧 끝남)
 fake_init() {
   mkdir -p "$TMP/fake" "$TMP/state" "$TMP/permits"
@@ -15,6 +16,7 @@ EOF
 echo "PID	Status	Label"; awk '{print $1"\t0\tcom.fake."$1}' "$FAKE_LAUNCHD"
 EOF
   cat > "$TMP/fake/ps" <<'EOF'
+case " $* " in *" -p "*) exec /bin/ps "$@";; esac   # pid 지정 생존 조회(-o pid=,stat= -p …)는 거르지 않는다 — 명령 글자가 없어 필터가 «죽음» 으로 읽게 만든다
 /bin/ps "$@" | awk -v re="$FAKE_KEEP_RE" 'NR==FNR { k[$1] = 1; next } ($1 in k) || (re != "" && $0 ~ re)' "$FAKE_PIDS" -
 EOF
   cat > "$TMP/fake/agent.sh" <<'EOF'
@@ -24,6 +26,7 @@ for spec in "$@"; do
     trap:*) bash -c 'trap "" TERM; exec -a "$0" sleep 300' "${spec#trap:}" & ;;
     busy) bash -c 'while :; do sleep 1; done' & ;;
     spawner) bash -c 'trap "bash -c \"exec -a r1113-newkid sleep 300\" & exit 0" TERM; while :; do sleep 0.2; done' & ;;
+    spawner2) bash "$(dirname "$0")/spawner2.sh" & ;;
     nest:*) x="${spec#nest:}"; bash -c 'bash -c "exec -a \"\$0\" sleep 300" "$1" & exec -a "$0" sleep 300' "${x%%:*}" "${x#*:}" & spec="${x%%:*}" ;;
     *) bash -c 'exec -a "$0" sleep 300' "$spec" & ;;
   esac
@@ -31,10 +34,20 @@ for spec in "$@"; do
 done
 exec -a claude sleep 300
 EOF
+  cat > "$TMP/fake/spawner2.sh" <<'EOF'
+mid="$(dirname "$0")/mid.sh"; rdy="$mid.ready.$$"
+trap 'bash "$mid" r1113-mid "$rdy" & until [ -e "$rdy" ]; do sleep 0.05; done; exit 0' TERM
+while :; do sleep 0.2; done
+EOF
+  cat > "$TMP/fake/mid.sh" <<'EOF'
+trap 'bash -c "exec -a r1113-newkid sleep 300" & exit 0' TERM
+: > "$2"
+while :; do sleep 0.2; done
+EOF
   export FT_TMUX="$TMP/fake/tmux" FT_LAUNCHCTL="$TMP/fake/launchctl" FT_PS="$TMP/fake/ps"
   export FAKE_PANES="$TMP/panes" FAKE_LAUNCHD="$TMP/launchd" FAKE_PIDS="$TMP/pids"
   export FT_QUIESCE_RSS_TSV="$TMP/rss" FT_QUIESCE_STATE_DIR="$TMP/state" FT_PERMIT_DIR="$TMP/permits"
-  export FT_QUIESCE_WAIT_SEC=2 FT_PRESS_RUNNER_RE='^r1113-no-press-runner$' FAKE_KEEP_RE='r1113-(newkid|lchild)'
+  export FT_QUIESCE_WAIT_SEC=2 FT_PRESS_RUNNER_RE='^r1113-no-press-runner$' FAKE_KEEP_RE='r1113-(newkid|lchild|mid)'
 }
 # tree <좌석> <유휴분> <스펙…> — 띄운 pid 는 $TMP/tree-<좌석>.pids (`pid 이름`) · 에이전트 pid = 첫 줄 «root»
 tree() {
