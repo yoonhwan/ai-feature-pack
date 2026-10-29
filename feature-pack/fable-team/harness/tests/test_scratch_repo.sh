@@ -214,7 +214,8 @@ if want r1090; then
     [ "${FT_HEAVY:-0}" != 1 ] || { [ "$ROUNDS" -le 2 ] && [ "$left" = 0 ] && ok "r1090-ⓗ HEAVY 34개 = 호출 ${ROUNDS}회 ≤ 2회(호출별 최대 ${SLOW}초)" || bad "r1090-ⓗ HEAVY 호출 ${ROUNDS}회(≤2 이어야) 남은 $left"; }
   fi
   # ── ⓗ2(R3 단독 · 기본 시험 필수): 추적 안 한 파일 4864개 사본 1개 = 보관 성공 · tar 항목 4864 · 삭제 · 호출 70초 안 ──
-  if [ "${FT_CASES:-all}" != none ]; then
+  #   변이 자식 회차(FT_MUT_CHILD)에서는 건너뛴다 — 변이 검출은 그 변이가 건드리는 칸만 보면 되고, 시험 1개 70초(하드 룰 22)를 지킨다
+  if [ "${FT_CASES:-all}" != none ] && [ -z "${FT_MUT_CHILD:-}" ]; then
     arm; BIG="$(mkcopy 60)"; mkdir -p "$BIG/u"
     TB=$(date +%s)
     python3 -c 'import sys; [open("%s/u/f%d" % (sys.argv[1], i), "w").close() for i in range(int(sys.argv[2]))]' "$BIG" 4864
@@ -300,6 +301,33 @@ EOF
   KEEP_ON=1 KEEP_MAX=1 scs --sweep
   { [ -d "$PF" ] && printf '%s' "$OUT" | grep -q '보관 상한 초과'; } && ok "r1090-ⓕ 보관 상한 초과(1MB) = 거절(R7)" || bad "r1090-ⓕ rc=$RC [$OUT]"
   rm -rf "$PF"; awk -F'\t' -v a="$PF" '$1!=a' "$TSV" > "$TSV.n" && mv "$TSV.n" "$TSV"
+  # ── ⓙ(계약⑧ · DA② 결정 1·2): stat 은 «호출마다» 남은 예산을 다시 잰다 · 남은 예산 1초 + 2초 stat = «보관 시간 초과» 거절 · 사본 남음 ──
+  #   제품 함수 keep_copy 를 그대로 부르고 «예산 시계만» 스텁한다(remtmo = 앞 5번 7초, 그 뒤 1초 — 6번째가 stat 첫 호출) · bounded 는 진짜로 자식을 끊는다
+  KSLOW="$T/gbin4"; mkdir -p "$KSLOW"; STATREAL="$(command -v stat)"
+  printf '#!/bin/sh\necho x >> "%s"\nsleep 2\nexec %s "$@"\n' "$T/stat.n" "$STATREAL" > "$KSLOW/stat"; chmod 755 "$KSLOW/stat"
+  ukeep() { # <RBUD|0> → "rc=<n> why=<KEEP_WHY>"
+    local URBUD="$1"
+    ( PATH="$KSLOW:$PATH"; KEEPDIR="$T/unit-keep"; KEEP_MAX_MB=500; RBUD="$URBUD"
+      cap() { local v="$1"; shift; local oc orc; oc="$("$@")"; orc=$?; printf -v "$v" '%s' "$oc"; return "$orc"; }
+      bounded() { local s="$1"; shift; local p w r; "$@" & p=$!; ( sleep "$s"; kill -TERM "$p" 2>/dev/null ) & w=$!; wait "$p"; r=$?; kill "$w" 2>/dev/null; wait "$w" 2>/dev/null; [ "$r" -lt 124 ] || return 124; return "$r"; }
+      isnum() { case "$1" in ''|*[!0-9]*) return 1;; esac; }
+      remtmo() { local cn; cn=$(( $(/bin/cat "$T/rn.n" 2>/dev/null || echo 0) + 1 )); echo "$cn" > "$T/rn.n"; if [ "$cn" -le 5 ]; then printf '7\n'; else printf '1\n'; fi; }
+      . "$(dirname -- "$SUT")/_scratch_keep.sh"
+      keep_copy "$UP" gone-rd branch "$UN"; echo "rc=$? why=$KEEP_WHY" )
+  }
+  UP="$T/unit-copy"; git -C "$G" worktree add -q --detach "$UP" "$SHA" >/dev/null 2>&1; printf 'z\n' >> "$UP/a.txt"
+  UN=$(git -C "$UP" status --porcelain --untracked-files=all | awk 'END{print NR+0}'); rm -f "$T/stat.n" "$T/rn.n"
+  TU="$(ukeep 0)"; echo "UNIT keep_copy(stat 예산 1초): $TU"
+  KU="$T/unit-keep/gone-rd/unit-copy"; NS=$(awk 'END{print NR+0}' "$T/stat.n" 2>/dev/null)
+  { [ -d "$UP" ] && printf '%s' "$TU" | grep -q 'rc=3' && printf '%s' "$TU" | grep -q '보관 시간 초과' && [ "$NS" = 2 ]; } \
+    && ok "r1090-ⓙ 남은 예산 1초 + 2초 stat = «보관 시간 초과» 거절(rc3) · 사본 남음 · stat 2회에서 끊김(3번째 호출 0 · 계약⑧)" \
+    || bad "r1090-ⓙ [$TU] stat 호출 ${NS}회 남음=$([ -d "$UP" ] && echo y)"
+  # ── ⓙ2(DA② 결정 2): 남은 예산 0 이면 keeptmo 가 0 = tar 호출 0 · 1초로 올리지 않는다 ──
+  rm -rf "$T/unit-keep"; rm -f "$T/rn.n" "$T/stat.n"; TU2="$(ukeep "$(date +%s)")"; echo "UNIT keep_copy(예산 0): $TU2"
+  NS2=0; [ ! -f "$T/stat.n" ] || NS2=$(awk 'END{print NR+0}' "$T/stat.n" 2>/dev/null)
+  { printf '%s' "$TU2" | grep -q 'rc=3' && printf '%s' "$TU2" | grep -q '보관 시간 초과' && [ ! -f "$KU/untracked.tar" ] && [ "$NS2" = 0 ]; } \
+    && ok "r1090-ⓙ2 예산 0 = «보관 시간 초과» 거절 · tar·stat 호출 0(1초 올림 0)" || bad "r1090-ⓙ2 [$TU2] stat ${NS2}회"
+  rm -rf "$T/unit-keep"; git -C "$G" worktree remove --force "$UP" >/dev/null 2>&1
   # ── ⓖ2·ⓖ3(DA② 결정 3): 끝 줄의 held / held-lsof 칸이 «실제 사유» 와 같나 — lsof 조회 실패만 held-lsof · 실제 점유는 held ──
   RLSOF="$(command -v lsof)"; mkdir -p "$T/gbin3"
   printf '#!/bin/sh\ncase " $* " in *"+D %s/repo-%s-9-70 "*) exit 2;; esac\nexec %s "$@"\n' "$SCR" "$SH8" "$RLSOF" > "$T/gbin3/lsof"; chmod 755 "$T/gbin3/lsof"
@@ -339,9 +367,10 @@ EOF
     mut keepverify-off lib 's#^  \[ -z "\$why" \] || { KEEP_WHY="\$why · 보관 폴더 \$kd"; return 3; }#  :#' 'r1090-ⓓ|r1090-ⓖ'
     mut detach-off ft 's#^         \[ "\$ST" = 0 \] || { gfail G7 3 "detached 사본 더러움#         : || { gfail G7 3 "detached 사본 더러움#' 'r1090-ⓒ|r1090-ⓖ'
     mut count-off ft 's#\*더러움\*) RD=\$((RD+1));;#*더러움*) :;;#' 'r1090-ⓖ'
-    # ※ 계약④(meta 재읽기)는 «메모리 $head 와 meta 3칸이 같은 실행 안에서 항상 같은 값» 이라 변이로 갈리지 않는다 — 변이 대신 ⓓ2(가짜 HEAD 주입) 가 그 자리를 지킨다
+    # ※ 계약④(meta 재읽기)는 «재읽기 자체» 를 변이로 구별하지 못한다(메모리 $head 와 meta 3칸이 같은 실행 안에서 항상 같은 값) = 알려진 한계 · 대신 ⓓ2(가짜 HEAD 주입) 가 그 자리를 지킨다
     mut heldlsof-off ft 's#"\${HLSOF:-0}"#$((0))#' 'r1090-ⓖ2'
     mut tartmo-off lib 's#^  t=\$(( 5 + 7 \* ( (n + 999) / 1000 ) ))#  t=1#' 'r1090-ⓗ3'
+    mut statbudget-off lib 's#^    cap r remtmo$#    r=7#' 'r1090-ⓙ'
   fi
 fi
 

@@ -590,7 +590,9 @@ delete_copy() { # <경로> <reg|tmp> <주인|-> [sweep|done] → 위 rc 표 · G
     cap r remtmo; [ "$r" -gt 0 ] || { gfail G7 2 "예산 소진"; return 2; }
     cap STA gstat_all "$P" "$r" || { gfail G7 2 "status 못 읽음(-uall)"; return 2; }
     isnum "$STA" || { gfail G7 2 "status 못 읽음(-uall)"; return 2; }
-    keep_copy "$P" "$own" "$how" "$STA" || { gfail G7 3 "$KEEP_WHY"; return 3; }
+    keep_copy "$P" "$own" "$how" "$STA" || {   # DA② 결정 1: «보관 시간 초과» 는 rc2(남은 항목 전부 삭제 0) · 그 밖 보관 거절은 rc3(그 항목만)
+      case "$KEEP_WHY" in 보관\ 시간\ 초과*) gfail G7 2 "$KEEP_WHY"; return 2;; esac
+      gfail G7 3 "$KEEP_WHY"; return 3; }
     ST=0; GKST="$STA"; KEPT_THIS=1
     return 0
   }
