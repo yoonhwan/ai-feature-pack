@@ -424,14 +424,15 @@ def lead_heartbeat_min() -> float:
 
 def lead_recipients(root: Path) -> set[str]:
     """심박 받는이 = 명부 «전체» 의 현역 role=master + 현역 planner(planner 팀장도 role=master) — DA r2 반례 2.
-    자기 팀 _master 로 좁히면 «다른 팀 현역 master 에게 보낸 신선한 [정리]» 를 놓쳐 멀쩡한 팀장이 멈춤으로 읽힌다."""
+    자기 팀 _master 로 좁히면 «다른 팀 현역 master 에게 보낸 신선한 [정리]» 를 놓쳐 멀쩡한 팀장이 멈춤으로 읽힌다.
+    r1143 — 현역 role=desk 도 받는이다: planner 팀장의 보고처 = desk 라 [정리] 가 전부 desk 앞이다(planner#166~#171 54통)."""
     out: set[str] = set()
     for f in sorted((root / ".fable-team").glob("seats*.json")):
         try:
             d = json.loads(f.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             continue
-        out |= {k for k, v in d.items() if not k.startswith("_") and isinstance(v, dict) and v.get("role") == "master"
+        out |= {k for k, v in d.items() if not k.startswith("_") and isinstance(v, dict) and v.get("role") in ("master", "desk")
                 and not v.get("_replaced_by") and not v.get("_closed")}
     return out
 
@@ -442,6 +443,6 @@ def lead_alert(root: Path, comm: Path, master: str, now: float) -> tuple[bool, f
     if state == "ERROR":
         return False, None, True
     if ts is None:
-        return True, None, False  # 한 번도 안 보냄 = 멈춤
+        return True, None, False  # 심박 창(15분) 안 [정리] 0 = 멈춤 — 로그는 창 안만 읽으므로 «한 번도 안 보냄» 이 아니다(r1143)
     age = (now - ts) / 60
     return age > lead_heartbeat_min(), age, False
