@@ -14,7 +14,7 @@ ck()  { if [ "$2" = 0 ]; then ok "$1"; else bad "$1"; fi; }
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 . "$HERE/lib/fake_resource_env.sh"; fake_resource_env "$TMP/sensors" ok
 REPO="$TMP/repo"; FAKE="$TMP/fakebin"; mkdir -p "$REPO" "$FAKE"
-printf '#!/usr/bin/env bash\ncase "$1" in has-session) t="${3#=}"; case " ${FAKE_ALIVE:-} " in *" $t "*) exit 0;; esac; echo "can'"'"'t find session: $t" >&2; exit 1;; display-message) echo "${FAKE_SEAT:-}";; *) exit 0;; esac\n' > "$FAKE/tmux"   # r2: has-session = FAKE_ALIVE 목록
+printf '#!/usr/bin/env bash\ncase "$1" in has-session) t="${3#=}"; case " ${FAKE_ALIVE:-} " in *" $t "*) exit 0;; esac; if [ -n "${FAKE_TMUX_ERR:-}" ]; then echo "$FAKE_TMUX_ERR" >&2; else echo "can'"'"'t find session: $t" >&2; fi; exit 1;; display-message) echo "${FAKE_SEAT:-}";; *) exit 0;; esac\n' > "$FAKE/tmux"   # r2: has-session = FAKE_ALIVE 목록 · FAKE_TMUX_ERR = 실패 문구(r1094)
 printf '#!/usr/bin/env bash\nexit 0\n' > "$FAKE/tmuxc"; chmod +x "$FAKE/tmux" "$FAKE/tmuxc"
 fake_comm_root "$REPO" || bad "fake_comm_root"   # git init + .fable-team/comm · FT_ROOT=REPO
 MAIL="$TMP/mail.log"; printf '#!/usr/bin/env bash\nprintf "%%s\\t" "$@" >> "%s"; echo >> "%s"\n' "$MAIL" "$MAIL" > "$TMP/mbox.sh"
@@ -260,6 +260,18 @@ export FAKE_ALIVE='byz-aa-master-claude#1'; unset FT_BOOT_EPOCH
 as check --succession 'byz-aa-master-claude#1' 'byz-aa-master-claude#2'
 [ "$rc" = 0 ] && echo "$out" | grep -q '구 좌석 세션 살아 있음'; ck "r1094 R5 세션 살아 있음 = 부팅 시각 없이 지금처럼 통과(생존 길 그대로)" $?
 unset FAKE_ALIVE
+# r1094 DA① HOLD: 재부팅 직후 = tmux 서버 자체가 없다 — «no server running on» · «error connecting … (No such file)» 도 «세션 없음»
+export FT_BOOT_EPOCH=1793004000
+export FAKE_TMUX_ERR='no server running on /private/tmp/tmux-501/default'
+as check --succession 'byz-aa-master-claude#1' 'byz-aa-master-claude#2'
+[ "$rc" = 0 ] && echo "$out" | grep -q '재부팅 승계'; ck "r1094 ⓖ tmux 서버 없음(no server running) = 세션 없음 → 재부팅 승계 통과" $?
+export FAKE_TMUX_ERR='error connecting to /private/tmp/tmux-501/definitely-no (No such file or directory)'
+as check --succession 'byz-aa-master-claude#1' 'byz-aa-master-claude#2'
+[ "$rc" = 0 ] && echo "$out" | grep -q '재부팅 승계'; ck "r1094 ⓗ error connecting (No such file or directory) = 세션 없음 → 재부팅 승계 통과" $?
+export FAKE_TMUX_ERR='permission denied on socket'
+as check --succession 'byz-aa-master-claude#1' 'byz-aa-master-claude#2'
+[ "$rc" = 1 ] && echo "$out" | grep -q 'tmux 세션 목록 못 읽음'; ck "r1094 ⓘ 다른 오류 문구(permission denied) = 지금처럼 «목록 못 읽음» 거절" $?
+unset FAKE_TMUX_ERR
 CB="$TMP/copybin"; mkdir -p "$CB"; cp -R "$BIN"/. "$CB"/   # r686: 이름 골라 복사 0 — 새 lib(r672 swap·research) 가 생겨도 사본에 실재
 . "$HERE/lib/bin_source_deps.sh"; out="$(missing_source_deps "$CB")"; rc=0; [ -z "$out" ]; ck "r686 사본 bin 의 같은 폴더 source 대상 전부 실재" $?
 out="$(cd "$REPO" && bash "$CB/ft-nano-spawn.sh" "design/teams/aa/indices/대기/x.md" --dry-run 2>&1)"; rc=$?

@@ -265,14 +265,20 @@ def status() -> int:
 
 
 def _alive(seat: str) -> bool | None:
-    """tmux 세션 생존 — True 살아 있음 · False 없음 · None 세션 목록 못 읽음."""
+    """tmux 세션 생존 — True 살아 있음 · False 없음(서버 없음 포함) · None 세션 목록 못 읽음.
+
+    ★r1094 DA① HOLD★: 재부팅 직후엔 tmux 서버 자체가 없다 — «can't find session»·«no server running on»·
+    «error connecting to … (No such file or directory)» 는 모두 «세션 0» 과 같은 뜻이다(False). 그 밖 rc≠0 = None.
+    """
     try:
         p = subprocess.run(["tmux", "has-session", "-t", f"={seat}"], capture_output=True, text=True, timeout=7)
     except (OSError, subprocess.SubprocessError):
         return None
     if p.returncode == 0:
         return True
-    return False if "can't find session" in p.stderr else None
+    err = (p.stderr or "").lower()
+    no_session = ("can't find session", "no server running on", "no such file or directory")
+    return False if any(s in err for s in no_session) else None
 
 
 def boot_epoch() -> int | None:
