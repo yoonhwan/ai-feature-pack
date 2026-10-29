@@ -6,6 +6,8 @@
 #              + state/handover/<좌석>.tsv(옛 좌석이 넘긴 표 · lstart 같은 pid 만) · press 진행 중 = 건너뜀 1줄(term=0)
 #   handover = kill 0 · 나무 표를 state/handover/<후계>.tsv 에 적는다(오빠 «증류할때는 인계가능») · 후계의 done 이 그 표를 내린다
 #   --orphans (좌석 대신) = ppid 1 ∧ 내 uid ∧ 이름 집합(LSP·probe lsp·uvx serena·next dev — 크롬·RSS 규칙 0) ∧ launchd 목록 밖 · --survey = 조회 표(S 좌석 줄 · P 프로세스 줄 · 신호 0)
+#   --scope test <pid> [--pgid <g>] (r1113b · 시험 끝마다) = 그 pid 의 나무 ∪ 프로세스 묶음 g(시험 러너가 시험을 따로 묶은 것 · ppid 1 고아 포함 · <pid> 보다 늦게 시작한 것만)
+#              안에서 HEAVY_NAME 이름만(RSS·크롬 규칙 0) · 남의 좌석·사람이 띄운 LSP = 그 나무·묶음 밖 → 0 · 출력 머리 `[시험 정리]` · ft-test-run.sh 가 시험 rc 직후 부른다
 #   보호(모든 모드): --remote-debugging-port=9333 크롬과 그 자손 · launchctl list 의 pid(kill 0 · `quiesce-keep … why=launchd`) · 이 명령 자신·조상·자손
 #   정지: TERM → 최대 FT_QUIESCE_WAIT_SEC(7)초 폴링 → 남은 것 KILL(lstart 같을 때만) → 최대 2초 → ps 재조회로 새 자식·손자도 같은 정지(상한 FT_QUIESCE_RESCAN_MAX 3회 · 넘으면 남은 것) → 다시 셈
 #   출력 끝 2줄: `QUIESCED <좌석> mode=<m> before=<MB> after=<MB> term=<n> kill=<n> left=<n>` · `남은 자식|남은 대상 <n>[ <pid> <이름>…]`
@@ -13,19 +15,23 @@
 #   장부 <state>/quiesce.log · state = FT_QUIESCE_STATE_DIR 또는 <데이터 루트>/.fable-team/state · 외부 호출 각 7초 상한
 #   시험: FT_PS·FT_TMUX·FT_LAUNCHCTL = 스텁 스크립트 · FT_QUIESCE_RSS_TSV(pid<TAB>MB) · FT_QUIESCE_NOSIGNAL=<pid,…>(신호 0 = 못 내린 프로세스 재현) · FT_PERMIT_DIR
 set -uo pipefail
-USAGE="usage: $0 <좌석> --mode close|done|handover [--to <후계>] [--reason <머리>] [--dry-run] | $0 --orphans [--dry-run] | $0 --survey"
-SEAT=""; MODE=""; TO=""; REASON=""; DRY=0
-case "${1:-}" in --orphans) MODE=orphans; shift;; --survey) MODE=survey; shift;; ""|--*) echo "$USAGE" >&2; exit 2;; *) SEAT="$1"; shift;; esac
+USAGE="usage: $0 <좌석> --mode close|done|handover [--to <후계>] [--reason <머리>] [--dry-run] | $0 --orphans [--dry-run] | $0 --survey | $0 --scope test <pid> [--pgid <g>] [--dry-run]"
+SEAT=""; MODE=""; TO=""; REASON=""; DRY=0; ROOT=""; PGID=""
+case "${1:-}" in --orphans) MODE=orphans; shift;; --survey) MODE=survey; shift;; --scope) [ "${2:-}" = test ] || { echo "$USAGE" >&2; exit 2; }; MODE=test; ROOT="${3:-}"; shift; shift; [ $# -gt 0 ] && shift;;
+  ""|--*) echo "$USAGE" >&2; exit 2;; *) SEAT="$1"; shift;; esac
 while [ $# -gt 0 ]; do case "$1" in
-  --mode) MODE="${2:-}"; shift 2;; --to) TO="${2:-}"; shift 2;;
+  --mode) MODE="${2:-}"; shift 2;; --to) TO="${2:-}"; shift 2;; --pgid) PGID="${2:-}"; shift 2;;
   --reason) REASON="${2:-}"; shift 2;; --dry-run) DRY=1; shift;; *) echo "$USAGE" >&2; exit 2;; esac; done
-case "$MODE" in close|done) [ -n "$SEAT" ];; handover) [ -n "$SEAT" ] && [ -n "$TO" ];; orphans|survey) [ -z "$SEAT" ];; *) false;; esac || { echo "$USAGE" >&2; exit 2; }
+case "$MODE" in close|done) [ -n "$SEAT" ];; handover) [ -n "$SEAT" ] && [ -n "$TO" ];; orphans|survey) [ -z "$SEAT" ];;
+  test) [[ "$ROOT" =~ ^[0-9]+$ ]] && [[ "$PGID" =~ ^[0-9]*$ ]];; *) false;; esac || { echo "$USAGE" >&2; exit 2; }
+[ -z "$PGID" ] || [ "$MODE" = test ] || { echo "$USAGE" >&2; exit 2; }
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 SD="${FT_QUIESCE_STATE_DIR:-}"; PD="${FT_PERMIT_DIR:-}"
 if [ -z "$SD" ] || [ -z "$PD" ]; then DR="$(. "$HERE/ft-harness-root.sh" && ft_data_root "$HERE" 2>/dev/null)" || DR=""; SD="${SD:-${DR:+$DR/.fable-team/state}}"; PD="${PD:-${DR:+$DR/.fable-team/state/permits}}"; fi
-exec python3 - "$SEAT" "$MODE" "$TO" "$REASON" "$DRY" "$SD" "$PD" <<'PY'
+exec python3 - "$SEAT" "$MODE" "$TO" "$REASON" "$DRY" "$SD" "$PD" "$ROOT" "$PGID" <<'PY'
 import calendar, json, os, re, signal, subprocess, sys, time
-seat, mode, to, reason, dry, sdir, pdir = sys.argv[1:8]; dry = dry == "1"
+seat, mode, to, reason, dry, sdir, pdir, troot, tpg = sys.argv[1:10]; dry = dry == "1"
+troot = int(troot) if troot else 0; tpg = int(tpg) if tpg else 0   # --scope test 의 나무 뿌리 · 시험 묶음
 ME = os.getuid()
 AGENT_EXE = {"claude", "codex", "pi", "opencode", "cursor-agent", "gemini", "tmux", "zsh", "bash", "sh", "fish", "login"}
 SHELL_EXE = {"zsh", "bash", "sh", "fish"}
@@ -95,6 +101,7 @@ def protected(t, kids):   # 이 명령 자신·조상·자손 + 9333 크롬 나�
     return anc | desc(t, [me], kids) | cdp | desc(t, cdp, kids)
 def agent(r): return r["name"] in AGENT_EXE or bool(AGENT_CMD.search(r["cmd"][:300]))   # DA① 1 — node …/claude-code/cli.js 같은 런타임 꼴 본체도 보호
 def heavy(r): return not agent(r) and r["name"] not in KEEP_EXE and (r["name"] in HEAVY_NAME or bool(HEAVY_CMD.search(r["cmd"])) or r["rss"] >= RSS_MB)
+def pick(r): return mode == "close" or (not agent(r) and r["name"] not in KEEP_EXE and r["name"] in HEAVY_NAME if mode == "test" else heavy(r))   # test = 이름 집합만(r1113b)
 def orphan(p, r): return r["ppid"] == 1 and r["uid"] == ME and not agent(r) and r["name"] not in KEEP_EXE and (r["name"] in HEAVY_NAME or bool(ORPHAN_CMD.search(r["cmd"])))
 def busy(t, pids): return sorted(p for p in pids if t[p]["name"] in SHELL_EXE and " -c " in f" {t[p]['cmd']} ")   # 작업 중 신호 = 도구 셸(sh -c …) 실행 중
 def press():   # r690 꼴 — 내 uid 의 python 이 press 러너를 실행 중 ∨ 장치 허가 device.json held=true
@@ -171,6 +178,10 @@ def targets(t, roots, inh):   # 모드별 후보(보호 전) — 좌석 나무 �
     tree = desc(t, roots) - set(roots)
     if mode == "orphans": return {p for p, r in t.items() if orphan(p, r)}
     if mode == "close": return tree | set(inh)
+    if mode == "test":   # 나무 ∪ 시험 묶음(고아 포함 · 뿌리보다 늦게 시작 = pgid 재사용 방어)
+        ep = t[troot]["epoch"] if troot in t else None
+        grp = {p for p, r in t.items() if tpg and r["pgid"] == tpg and r["uid"] == ME and ep and r["epoch"] and r["epoch"] >= ep}
+        return {p for p in tree | grp if pick(t[p])}
     return {p for p in tree | set(inh) if heavy(t[p])}
 def guard(t, cand, scope):   # 보호 빼기 — 자기·9333 + launchd 등록 pid «와 그 하위 나무 전체»(DA① 4 · 등록 pid 는 좌석 나무·후보 안에서만 찾는다) · (남은 후보, 보호 줄)
     cand = {p for p in cand - protected(t, kids_of(t)) if t[p]["uid"] == ME}
@@ -179,9 +190,10 @@ def guard(t, cand, scope):   # 보호 빼기 — 자기·9333 + launchd 등록 p
     return cand - keep, [f"quiesce-keep pid={p} why=launchd name={t[p]['name']} subtree={len(desc(t, [p]) & cand)}" for p in sorted(lp & (cand | keep))]
 def main():
     global T
-    T = ps_table(); pl = panes(); t0 = time.time()
+    T = ps_table(); pl = panes() if mode != "test" else []; t0 = time.time()
     if mode == "survey": return survey(pl)
-    label = seat or "orphans"; roots = [pp for s, pp, _ in pl if s == seat]
+    if mode == "test" and troot not in T: raise Unknown(f"시험 뿌리 pid {troot} 가 ps 에 없음")
+    label = seat or ("orphans" if mode == "orphans" else f"test:{troot}"); roots = [troot] if mode == "test" else [pp for s, pp, _ in pl if s == seat]
     inh = inherited(seat) if seat else {}
     if mode == "handover":   # 나무 ∪ 내가 넘겨받은 표 → 후계 표 · 내 표는 지움(책임 이동 · DA① 5)
         tree = desc(T, roots) - set(roots) - protected(T, kids_of(T))
@@ -204,8 +216,8 @@ def main():
         nk, left = stop(cand); seen = set(cand)
         for rnd in range(RESCAN + 1):   # DA①② 3 — 정지 뒤 ps 재조회를 «새 pid 0» 이 될 때까지(상한 RESCAN 회 · 넘으면 그 pid = 남은 것 · rc 1)
             T2 = ps_table(); pg = {r["pgid"] for r in {**cand, **extra}.values()}
-            fresh = {p for p, r in T2.items() if r["ppid"] == 1 and r["uid"] == ME and r["pgid"] in pg and r["epoch"] and r["epoch"] >= int(t0) and (mode == "close" or heavy(r))}
-            spawned = {p for p in desc(T2, [q for q in seen if q in T2]) if mode == "close" or heavy(T2[p])}   # 정지 중인 대상이 아직 붙들고 있는 자식·손자
+            fresh = {p for p, r in T2.items() if r["ppid"] == 1 and r["uid"] == ME and r["pgid"] in pg and r["epoch"] and r["epoch"] >= int(t0) and pick(r)}
+            spawned = {p for p in desc(T2, [q for q in seen if q in T2]) if pick(T2[p])}   # 정지 중인 대상이 아직 붙들고 있는 자식·손자
             new, keeps2 = guard(T2, (targets(T2, roots, {}) | fresh | spawned) - seen, desc(T2, roots) - set(roots))
             for k in keeps2: print(k)
             new = {p: T2[p] for p in sorted(new)}
@@ -217,8 +229,8 @@ def main():
     allc = {**cand, **extra}
     after = before - (0 if dry else mb([r for p, r in cand.items() if p not in left]))
     if inh and not dry: write_table(seat, [r for p, r in inh.items() if p in alive([p])])   # 넘겨받은 표 = 살아 있는 줄만 남김
-    word = "남은 자식" if mode == "close" else "남은 대상"
-    summ = f"QUIESCED {label} mode={mode} before={before} after={after} term={0 if dry else len(allc)} kill={nk} left={len(left)} new={len(extra)}" + (" dry-run" if dry else "") + (f" reason={reason}" if reason else "")
+    word = "남은 자식" if mode in ("close", "test") else "남은 대상"
+    summ = f"{'[시험 정리]' if mode == 'test' else 'QUIESCED'} {label} mode={mode} before={before} after={after} term={0 if dry else len(allc)} kill={nk} left={len(left)} new={len(extra)}" + (" dry-run" if dry else "") + (f" reason={reason}" if reason else "")
     print(summ); print(f"{word} {len(left)}" + "".join(f" {p} {allc[p]['name']}" for p in left)); log(summ)
     return 1 if left else 0
 try: sys.exit(main())
