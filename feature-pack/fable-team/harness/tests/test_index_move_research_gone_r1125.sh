@@ -26,10 +26,11 @@ BASE_SHA=948ae223ae5bc1f9bb871775b9e80158943b7d6b
 mkbin() {
   mkdir -p "$1"
   cp "$SRCDIR/ft-index-move.sh" "$SRCDIR/ft-index-move-canon.sh" "$SRCDIR/ft-index-move-install.sh" "$SRCDIR/ft_da_hold_gate.py" "$SRCDIR/ft_git_capped.py" "$SRCDIR/ft-evidence-inject-scan.sh" "$SRCDIR/ft-team-lib.sh" "$1/"
-  [ "${2:-}" != base ] || git -C "$SRCDIR" show "$BASE_SHA:./ft-index-move.sh" > "$1/ft-index-move.sh"
   printf '#!/usr/bin/env bash\nexit 0\n' > "$1/ft-index-lint.sh"
+  [ "${2:-}" != base ] || git -C "$SRCDIR" show "$BASE_SHA:./ft-index-move.sh" > "$1/ft-index-move.sh" 2>/dev/null
 }
-BIN="$T/bin"; mkbin "$BIN"; BASE="$T/base"; mkbin "$BASE" base
+BIN="$T/bin"; mkbin "$BIN"; BASE="$T/base"; HAVE_BASE=1
+mkbin "$BASE" base || { HAVE_BASE=0; echo "SKIP 기준판 칸(기준판 R1 · R5 출력 대조) — base_sha $BASE_SHA 객체 없음(git 사본 아님 · git archive 사본)"; }
 
 REPO="$T/repo"; IDX="$REPO/design/harness/indices"; mkdir -p "$IDX"/{대기,진행,완성} "$REPO/.fable-team"
 NAMES="r1 r2 r3 r4 r5 r6 b1 b5 m1 m2"
@@ -58,8 +59,8 @@ S=byz-lecture-nano-l74-x-research#0
 out="$(mv_ "$BIN" "$(card r1 "$S")")"
 moved r1 "$out" && echo "$out" | grep -qF "INFO 리서치 좌석 잔재 0 — $S(세션 0 · 명부 행 0 · 프로세스 0)" && ok "ⓐ R1 잔재 0 → INFO · 이동" || bad "ⓐ R1: $out"
 # 기준판 대조 — 지금(HEAD) 판은 같은 꼴을 REJECT
-out="$(mv_ "$BASE" "$(card b1 "$S")")"
-held b1 "$out" "줄 없음" && ok "기준판 R1 = REJECT(지금 값)" || bad "기준판 R1: $out"
+if [ "$HAVE_BASE" = 1 ]; then out="$(mv_ "$BASE" "$(card b1 "$S")")"
+  held b1 "$out" "줄 없음" && ok "기준판 R1 = REJECT(지금 값)" || bad "기준판 R1: $out"; fi
 # R2 세션 있음
 echo "$S" > "$T/sessions"; out="$(mv_ "$BIN" "$(card r2 "$S")")"; : > "$T/sessions"
 held r2 "$out" "세션 남음" && ok "ⓑ R2 세션 남음 → REJECT" || bad "ⓑ R2: $out"
@@ -78,8 +79,10 @@ out="$(mv_ "$M2" "$(card m2 "$S")")"; : > "$T/procs"
 if held m2 "$out" "프로세스 남음"; then bad "변이2(pgrep 생략) 살아남음: $out"; else ok "변이2(pgrep 생략) → R4 판정 FAIL(잡힘)"; fi
 # R5 닫힘 줄 있음 → 출력이 기준판과 같다
 L="- 리서치 닫힘: $S 2026-10-29T22:00 left=0"
-o5="$(mv_ "$BIN" "$(card r5 "$S" "$L")")"; ob="$(mv_ "$BASE" "$(card b5 "$S" "$L")")"
-moved r5 "$o5" && [ "${o5//r5/X}" = "${ob//b5/X}" ] && ok "ⓒ R5 닫힘 줄 길 출력 동일" || bad "ⓒ R5: [$o5] vs [$ob]"
+o5="$(mv_ "$BIN" "$(card r5 "$S" "$L")")"
+moved r5 "$o5" && ! echo "$o5" | grep -q '^INFO 리서치' && ok "ⓒ R5 닫힘 줄 길 → 이동 · 대안 판정 0" || bad "ⓒ R5: $o5"
+if [ "$HAVE_BASE" = 1 ]; then ob="$(mv_ "$BASE" "$(card b5 "$S" "$L")")"
+  [ "${o5//r5/X}" = "${ob//b5/X}" ] && ok "ⓒ R5 출력 = 기준판 출력" || bad "ⓒ R5 기준판 대조: [$o5] vs [$ob]"; fi
 # R6 명부 읽기 실패 → 판정 불가 REJECT
 echo '{broken' > "$REPO/.fable-team/seats-lecture.json"; out="$(mv_ "$BIN" "$(card r6 "$S")")"
 echo '{"_name": "lecture"}' > "$REPO/.fable-team/seats-lecture.json"
