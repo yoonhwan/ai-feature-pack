@@ -119,7 +119,7 @@ done
 [ -z "$(ls "$JD" | grep '^h[0-9]')" ] && [ ! -e "$T/INJECTED" ] && [ ! -e "$PWD/INJECTED" ] && ok "  └ 등록 0 · 계획 밖 명령 0" || bad "등록·주입 발생"
 SP="$T/inj/sp ace 'q' \"dq\" \$x \`y\`.sh.hil"; printf 'echo SAFE\n' > "$SP"
 out="$(hj --add "$SP")"; [ "$out" = "! bash $JD/h1" ] && ok "공백·따옴표·\$·백틱 경로 등록" || bad "특수 경로 등록 out=$out"
-[ "$(bash "$JD/h1" 2>&1)" = SAFE ] && ok "  └ 실행 = 계획 본문만(SAFE)" || bad "특수 경로 실행"
+[ "$(bash "$JD/h1" 2>/dev/null)" = SAFE ] && ok "  └ 실행 stdout = 계획 본문만(SAFE)" || bad "특수 경로 실행"   # r1117: 끝 결과 쪽지 실패 줄은 stderr — stdout 만 본다(주입 0 은 아래 INJECTED 검사)
 [ "$(sed -n 's/^# ft-hil-entry plan=//p' "$JD/h1")" = "$SP" ] && ok "  └ 표식 줄 왕복 = 원래 경로" || bad "왕복 불일치"
 [ "$(hj --add "$SP")" = "! bash $JD/h1" ] && ok "  └ 재등록 = 같은 h1 재사용(왕복)" || bad "재등록 불일치"
 printf 'exit 0\n' > "$T/inj/z.sh.hil"; zn="$(hj --add "$T/inj/z.sh.hil")"; zn="${zn##*/h}"

@@ -156,8 +156,8 @@ printf 'seat=aifp-worker-master-claude#90\ncomm=%s\n' "$AIFPMB" > "$Q/hil/h$h.no
 echo "== ⓚ 진입 파일 본문 변경 0 — 표식이 붙어도 옛 h 는 그대로 실행"
 H="$T/hd"; mkdir -p "$H"; plan K
 env -i HOME="$T/home" PATH="/usr/bin:/bin" HIL_DIR="$H" HIL_CLIP=0 FT_SECRET_JUDGE="$T/none.py" FT_MBOX_DIR="$BYZ" bash "$HIL" --add "$T/K.sh.hil" --notify 'byz-planner-master-claude#91' >/dev/null
-[ "$(bash "$H" 2>/dev/null; bash "$H/h1" 2>&1)" = "ran-K" ] && ok "h1 실행 = 계획 본문만(ran-K)" || bad "실행: $(bash "$H/h1" 2>&1)"
-[ -z "$(grep -v '^#' "$H/h1" | grep -E 'notify|FT_MBOX_DIR|hil_marker')" ] && ok "  └ 진입 파일 본문에 표식 코드 0" || bad "진입 파일이 바뀌었다"
+[ "$(bash "$H" 2>/dev/null; bash "$H/h1" 2>/dev/null)" = "ran-K" ] && ok "h1 실행 stdout = 계획 본문만(ran-K)" || bad "실행: $(bash "$H/h1" 2>&1)"   # r1117: 끝 결과 쪽지(ft-hil-notify.sh)의 실패 줄은 stderr — stdout 만 본다
+[ -z "$(grep -v '^#' "$H/h1" | grep -E '\.notify|FT_MBOX_DIR|hil_marker')" ] && ok "  └ 진입 파일 본문에 r718 표식 코드 0" || bad "진입 파일이 바뀌었다"   # r1117: ft-hil-notify.sh 경로는 r718 표식(h<N>.notify)이 아니다
 
 echo "== 변이 1: 틱 표식 분기 삭제 → ⓖ 가 FAIL(검출)"
 M="$T/mut"; mkdir -p "$M"; sed 's|^    mk="$(hil_marker "$h")"|    mk=""|' "$TICK" > "$M/ft-tick.sh"

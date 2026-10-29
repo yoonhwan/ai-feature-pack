@@ -1,3 +1,9 @@
+## 2026-10-29 — r1117 승인 h 결과·승인 도착을 요청 팀장에 자동 쪽지(Issue #4712)
+
+- h<N> 진입 파일이 끝나면 `ft-hil-notify.sh done` 이 `[완료 h<N>] rc=<rc> · <=== 결과 === 줄> · 계획 <경로>` 를 계획 머리 `# ft-hil-request seat=<좌석…>`(≤3 · 린트 실패 REJECT rc2 · 없으면 stderr WARN) + planner `_master` 에 1통씩 보낸다. 계획 stdout 사본 = `h<N>.out`(600). 알림 실패는 stderr 1줄이고 h rc 는 계획 rc 그대로다.
+- `ft-merge-land` 가 «오빠 승인 파일 없음» 으로 거절하면 `autonomy-merge-wait/<sha>`(seat=FT_SEAT epoch=) 1줄을 남긴다(덧쓰기 0 · REJECT 줄 끝 «기다림 등록 <경로>»). `approve-merge` 가 그 sha 를 승인하면 그 좌석에 `[승인 도착 <sha10>]` 1통 → 표식 `.sent`(두 번 0). seat=unknown 이면 planner `_master` 에 «수신자 모름» 1통.
+- 발신자 = `ft-hil-h<N>`·`ft-hil-approve`(도구 발신자 · 같은 본문 2좌석 발신이 FANOUT 에 막히지 않게). 이미 발급된 옛 h 는 알림 0(알려진 한계).
+
 ## 2026-10-27 — r880 재설계 r9·r10: mtime 읽기 «대안 삭제 + rc≠0 출력 버림»(DA r6·r8 반례)
 
 - ★재설계 r9(오빠 결정 6 «대체 경로 삭제» · arch 166)★ mtime 읽기 대안(perl HiRes)이 유효숫자 15자리에서 서로 다른 나노초 값을 같은 글자로 출력해 낡은 계획이 삭제 단계까지 가던 것 → 읽기는 ⓐ macOS `stat -f %Fm` ⓑ 없으면 GNU `stat -c %.9Y`(글자 그대로) ⓒ 둘 다 안 되면 «값 없음 = 실패» 만 남기고 대안·`?` 대체값을 삭제. 못 읽은 사본은 판정 불가(계획 생성 = 계획 제외 · 삭제 0 · ERROR 요약 1줄 · rc≠0 / 실행 = KEEP «mtime 못 읽음(판정 불가)» · 삭제 0). 시험 칸 ⓚ(생성·실행·GNU 나노초) · 183 PASS · 변이 15. 증거 `harness/evidence/r880/r9-*`.

@@ -8,6 +8,7 @@
 #   ft-hil.sh                     → 목록 `h<N>  <대상>  <대상 실재 여부>  <미실행 N분 | 실행 HH:MM rc=n | 대체됨 → h<N>>  <수신=좌석@쪽지함 | 수신=- | 수신=표식 손상>`
 #   ft-hil.sh --pending [--each]  → 미실행·미대체 h 요약 1줄(0개면 출력 없음) · --each 는 `h<N> <분>` 줄만
 # h<N> = «실행되면 h<N>.ran(시작 시각 · rc)을 남기고 계획을 그대로 실행하는» 진입 파일. 계획 파일 수정 0 · 실행 권한 변경 0.
+#   ★r1117: 끝나면 ft-hil-notify.sh 가 `[완료 h<N>] rc=…` 를 계획 머리 `# ft-hil-request seat=<좌석…>`(≤3 · 린트 실패 REJECT rc2 · 없으면 WARN) + planner _master 에 1통씩(stdout 사본 h<N>.out)★
 # 진입점 폴더 = ${HIL_DIR:-/tmp}(시험만 바꾼다) · 홈($HOME) 아래 쓰기 0 · 등록기 자신의 실행 기능 0(실행은 사람이 `bash /tmp/h<N>`)
 # 기존 h<N>(링크·파일) 덮기·지우기 0 · 계획 파일 수정·삭제 0 · eval 0. 옛 링크 h<N> 은 그대로 둔다(표식 없음 · 대체 표시 불가).
 # 등록 전 검사(R135a): 같은 폴더 ft_secret_judge.py --plan — 비밀을 화면으로 흘리는 줄이 있으면 `REJECT 계획 파일 비밀 출력 경로 — <줄> <이유>` rc 1(등록 0).
@@ -42,14 +43,17 @@ plan_of() {  # $1=h 파일 → 계획 절대경로(진입 파일 표식 줄 · �
   fi
 }
 
-entry_body() {  # $1=계획 절대경로 $2=표식 접두(=진입 파일 경로) — 대체됨이면 거절 · 시작 시각 → 계획 실행 → rc 기록
-  printf '#!/usr/bin/env bash\n# ft-hil-entry plan=%s\nP=%q; M=%q\n' "$1" "$1" "$2"
+entry_body() {  # $1=계획 $2=표식 접두(=진입 파일) $3=쪽지함 $4=요청 좌석(공백) — 대체됨 거절 · 시작 시각 → 계획 실행(stdout 사본 .out) → rc 기록 → r1117 결과 쪽지(실패해도 rc 그대로)
+  printf '#!/usr/bin/env bash\n# ft-hil-entry plan=%s\nP=%q; M=%q; N=%q; C=%q; S=%q\n' "$1" "$1" "$2" "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)/ft-hil-notify.sh" "$3" "$4"
   cat <<'EOS'
 [ ! -f "$M.superseded" ] || { echo "REJECT 대체됨 → $(cat "$M.superseded")" >&2; exit 1; }
 [ -f "$P" ] || { echo "REJECT 계획 파일이 없다: $P" >&2; exit 1; }
 date +%s > "$M.ran"
-bash "$P" "$@"; rc=$?
-echo "rc=$rc $(date +%s)" >> "$M.ran"; exit "$rc"
+( umask 077; : > "$M.out" )
+bash "$P" "$@" | tee "$M.out"; rc=${PIPESTATUS[0]}
+echo "rc=$rc $(date +%s)" >> "$M.ran"
+bash "$N" done "$M" "$rc" "$C" $S || echo "WARN 결과 쪽지 실패 — h rc 는 그대로($rc)" >&2
+exit "$rc"
 EOS
 }
 
@@ -89,8 +93,13 @@ comm_default() {  # 부른 곳의 공용 루트 쪽지함(ft_comm_dir · 못 풀
 }
 
 add() {
-  local f="${1:-}" sup="${2:-}" ns="${3:-}" nc="${4:-}" t l n="" i=0 m=""
+  local f="${1:-}" sup="${2:-}" ns="${3:-}" nc="${4:-}" t l n="" i=0 m="" rq=() rc_c=""
   [ -f "$f" ] || die "계획 파일이 없다: $f"
+  read -ra rq <<< "$(sed -n 's/^# ft-hil-request seat=//p' "$f" | head -1)"   # r1117: 결과 쪽지 받을 요청 좌석(최대 3) — 린트 실패 = REJECT rc2(등록 0)
+  [ "${#rq[@]}" -le 3 ] || { echo "REJECT 요청 좌석은 3개까지: ${rq[*]}" >&2; exit 2; }
+  for l in ${rq[@]+"${rq[@]}"}; do seat_lint "$l" || exit 2; done
+  [ "${#rq[@]}" -gt 0 ] || echo "WARN 요청 좌석 표식 없음 — planner 에만 알린다(# ft-hil-request seat=<좌석>)" >&2
+  rc_c="$(comm_default 2>/dev/null)" || echo "WARN 쪽지함 폴더를 못 풂 — 결과 쪽지는 실행 때 다시 푼다" >&2
   [ -z "$sup" ] || { [[ "$sup" =~ ^h[0-9]+$ ]] || die "--supersedes 값은 h<번호> 꼴이다: $sup"; m="$((10#${sup#h}))"; }
   if [ -n "$ns" ]; then  # 표식 검사는 등록 «전» — 실패면 h 파일을 만들지 않는다
     seat_lint "$ns" || exit 2
@@ -117,7 +126,7 @@ add() {
   fi
   if [ -z "$n" ]; then
     n="$(($(max_n) + 1))"
-    [ ! -e "$D/h$n" ] && [ ! -L "$D/h$n" ] && ( set -C; entry_body "$t" "$D/h$n" > "$D/h$n" ) 2>/dev/null || die "등록 실패(이미 있는 이름은 덮지 않는다): $D/h$n"
+    [ ! -e "$D/h$n" ] && [ ! -L "$D/h$n" ] && ( set -C; entry_body "$t" "$D/h$n" "$rc_c" "${rq[*]-}" > "$D/h$n" ) 2>/dev/null || die "등록 실패(이미 있는 이름은 덮지 않는다): $D/h$n"
   fi
   [ -z "$m" ] || echo "h$n" > "$D/h$m.superseded" || die "대체 표시를 못 썼다: $D/h$m.superseded"
   [ -z "$ns" ] || printf 'seat=%s\ncomm=%s\n' "$ns" "$nc" > "$D/h$n.notify" || die "수신자 표식을 못 썼다: $D/h$n.notify"

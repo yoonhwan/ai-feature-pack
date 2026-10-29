@@ -1,0 +1,9 @@
+r1117 나노 시험 요약 (2026-10-29 · ulimit -u + timeout 70 · 고정 sleep 0 · 실 mbox 0)
+단계별 초: green 2 · 변이1 2 · 변이2 1 · 회귀(hil 6·autonomy 2·merge-land 2·kit_sync·doc_exempt) 약 250
+green: test_hil_result_notify_r1117.sh rc=0 (35 PASS · R1~R8 · cmp0 x4)
+변이1 (진입 파일 끝 알림 줄 삭제): rc=6 FAIL — ⓐ 쪽지 0통 등
+변이2 (.sent 이름 바꾸기 삭제): rc=2 FAIL — 표식 남음 · 재승인 1통(총 2통)
+회귀 rc0: test_hil · test_hil_notify_marker(ⓚ 2줄 수정) · test_hil_run_marker(1줄 수정) · test_hil_pending_single_pass · test_hil_route_team · test_autonomy_hooks · test_merge_land_off_approval · test_kit_bin_sync
+회귀 test_merge_land: ALL PASS 67 (≤120줄 칸 포함) · rc=124 = 부하 22 에서 실상태 가드 마무리가 70초 상한 초과(이전 회 63초 rc1 은 120줄 칸 FAIL → 고침)
+기준판과 같은 FAIL(이 카드 무관): test_hil_ledger 14(쪽지함 경로 env) · test_autonomy_core 3(H3 큐·7초) · test_doc_exempt_r725 1(ⓝ②a 옛 판 빨강) — 같은 워크트리에 기준판 파일을 넣어 대조
+재진입 린트: ft-test-reentry-lint.sh tests/test_hil_result_notify_r1117.sh rc=0

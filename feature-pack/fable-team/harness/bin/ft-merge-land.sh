@@ -37,7 +37,7 @@ AST="$(bash "$AUT" state-dir 2>/dev/null)"   # r648: 승인 폴더 = 이 정식 
 [ -n "$AST" ] || { echo "REJECT 자율 상태 폴더 해석 실패 — 실행 0"; exit 2; }
 [ -z "$AP" ] || { AF="$AST/autonomy-merge-approved/$AP"   # R725: 승인 값을 준 경우만 승인 파일을 본다(빈 값 = doc-exempt 판정이 가른다)
 [ "$(wc -l < "$AF" 2>/dev/null | tr -d ' ')" = 1 ] && grep -q "^approve-merge $AP " "$AF" && grep -qxF "$(head -n1 "$AF")" "$AST/autonomy.log" 2>/dev/null \
-  || { echo "REJECT 오빠 승인 파일 없음 — 승인 h 한 줄 먼저(approve-merge $AP 승인 파일·로그 한 줄 없음) — 실행 0"; exit 2; }
+  || { echo "REJECT 오빠 승인 파일 없음 — 승인 h 한 줄 먼저(approve-merge $AP 승인 파일·로그 한 줄 없음) — 실행 0$(bash "$HERE/ft-hil-notify.sh" wait "$AP" "$AST")"; exit 2; }   # r1117: 거절 sha 기다림 표식 → approve-merge 가 그 좌석에 [승인 도착] 1통
 AFE="$(awk '{print $4}' "$AF")"; AFV="$(awk '{print $3}' "$AF")"; }   # 승인 epoch — merge-gate.log 에 «누가 언제 승인했나» 를 남긴다
 
 JSON="$(fm_t7 "$GH_R" pr view "$PR" ${SLUG:+-R "$SLUG"} --json headRefOid,headRefName,title,body,state,baseRefName)" || rej "gh pr view $PR 실패(7 s + 재시도 1)"; deadline
