@@ -3,6 +3,7 @@
 #   틱(ft-stall-scan 이 부름 · FT_CHILD_WATCH_EVERY_SEC 540초에 1회): ft-seat-quiesce.sh --survey 표 1장 → 명부 좌석마다 경보 2종 + 고아.
 #   ① [자식] <좌석> 유휴 <m>분 · 자식 <MB> · <top3> — 유휴 ≥ FT_CHILD_IDLE_MIN(20) ∧ 자식 RSS 합 ≥ FT_CHILD_RSS_MB(300) → 하네스 master 1통
 #      자율 ON(ft-autonomy.sh scope-status «[범위 승인 S…» · 시험 FT_CHILD_AUTONOMY=on|off) = 같은 틱에 --mode done 까지 · OFF = 경보만
+#      작업 중 신호(좌석 나무에 도구 셸 `sh -c …` 실행 중 = survey S 줄 9번째 칸)가 있으면 ON 이어도 경보만 · --kill 도 REJECT
 #   ② [유휴 나노] <좌석> 유휴 <m>분 · 카드 <상태> — 역할 nano(pi 포함) ∧ 유휴 ≥ FT_NANO_IDLE_MIN(30) ∧ 카드 «## 상태» 마지막 줄이 끝남 → 그 팀 _master 1통(닫기 = master · 이 도구 kill 0)
 #   고아 [고아] N개 · MB — ppid 1 무거운 프로세스(launchd 밖) · 자율 ON = --orphans 까지
 #   같은 좌석·같은 종류 경보 = 하루 1회(장부 state/child-watch.sent) · 유휴 = tmux window_activity(마지막 출력) 기준 분
@@ -36,7 +37,7 @@ def survey():   # ({좌석: S행}, [P행 고아])
     seats, orph = {}, []
     for ln in out.splitlines():
         f = ln.split("\t")
-        if f[0] == "S" and len(f) == 8: seats[f[1]] = dict(idle=int(f[2]) if f[2].isdigit() else None, mb=int(f[3]), heavy=int(f[4]), n=int(f[5]), age=int(f[6]), top=f[7])
+        if f[0] == "S" and len(f) == 9: seats[f[1]] = dict(idle=int(f[2]) if f[2].isdigit() else None, mb=int(f[3]), heavy=int(f[4]), n=int(f[5]), age=int(f[6]), top=f[7], busy=int(f[8]))
         elif f[0] == "P" and len(f) == 9 and f[1] == "-": orph.append(dict(pid=f[2], name=f[3], mb=int(f[4])))
     return seats, orph
 def roster():   # {좌석: (행, 그 명부 _master)} · 하네스 master
@@ -99,14 +100,15 @@ def main():
         v = seats.get(target)
         if not v: print(f"REJECT {target} — tmux 세션 없음(조회 표 --table 로 확인)"); return 1
         if v["idle"] is None or v["idle"] < IDLE: print(f"REJECT {target} — 쓰는 중(유휴 {v['idle']}분 < {int(IDLE)}분) · 안 죽임"); return 1
+        if v["busy"]: print(f"REJECT {target} — 쓰는 중(도구 셸 {v['busy']}개 실행 중 · 출력 없이 계산 중) · 안 죽임"); return 1
         rc, ln = quiesce(target, "--mode", "done"); print(ln); return 1 if rc == 1 else rc
     on, sk, acts, n = autonomy(), sent_keys(), {}, dict(child=0, nano=0, orphans=0, quiesced=0)
     for s, v in sorted(seats.items()):
         if s not in rows or v["idle"] is None: continue
         row, tm = rows[s]
         if v["idle"] >= IDLE and v["mb"] >= RSS and f"{TODAY}\tchild\t{s}" not in sk:
-            act = "경보만(자율 OFF)"
-            if on and not dry: rc, ln = quiesce(s, "--mode", "done"); act = ln; n["quiesced"] += rc == 0
+            act = "경보만(자율 OFF)" if not on else f"경보만(작업 중 신호 · 도구 셸 {v['busy']}개)" if v["busy"] else ""   # DA① 추가 — 유휴(출력 없음)만으로 자동 종료하지 않는다
+            if on and not v["busy"] and not dry: rc, ln = quiesce(s, "--mode", "done"); act = ln; n["quiesced"] += rc == 0
             acts[s] = act; n["child"] += 1
             if not dry and send(hmaster, f"[자식] {s} 유휴 {v['idle']}분 · 자식 {v['mb']}MB · {v['top']} · 조치: {act}"): mark(f"{TODAY}\tchild\t{s}")
         if "nano" in str(row.get("role", "")) and v["idle"] >= NIDLE and f"{TODAY}\tnano\t{s}" not in sk:

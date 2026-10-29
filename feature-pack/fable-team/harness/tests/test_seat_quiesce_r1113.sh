@@ -39,6 +39,29 @@ orph() { local a b; orphan basedpyright; a="$(cat "$TMP/orphan.pid")"; orphan ts
   q "$Q" --orphans; rc_is 0 && has "quiesce-keep pid=$b why=launchd" && dead "$a" && live "$b"; }
 survey() { tree SV 7 basedpyright; rss "$(pid_of SV basedpyright)" 300
   q "$Q" --survey; rc_is 0 && grep -qE "^S	SV	7	300	300	1	" "$TMP/last" && grep -qE "^P	SV	$(pid_of SV basedpyright)	basedpyright	300	" "$TMP/last" && live "$(pid_of SV basedpyright)"; }
+# DA① 반례 5 (r1113 재작업 · 반례 집합 그대로 · 구현만 교체)
+da1() { local s="$1" t="D1$2" c; tree "$t" 0 "node /x/@anthropic-ai/claude-code/cli.js" basedpyright; c="$(pid_of "$t" "node /x/@anthropic-ai/claude-code/cli.js")"; rss "$c" 400
+  q "$s" "$t" --mode done; rc_is 0 && live "$c" && dead "$(pid_of "$t" basedpyright)"; }
+da2() { local s="$1" t="D2$2" p; tree "$t" 0 basedpyright; p="$(pid_of "$t" basedpyright)"; echo 0 > "$TMP/reuse.n"
+  printf 'n=$(cat "%s"); echo $((n+1)) > "%s"\ncase " $* " in *" -axww "*) [ "$n" -ge 1 ] && { bash "%s" "$@" | awk -v p=%s '"'"'$1==p {$7="Mon";$8="Jan";$9="1";$10="00:00:00";$11="2001"} {print}'"'"'; exit; };; esac\nexec bash "%s" "$@"\n' \
+    "$TMP/reuse.n" "$TMP/reuse.n" "$TMP/fake/ps" "$p" "$TMP/fake/ps" > "$TMP/fake/ps-reuse"
+  FT_PS="$TMP/fake/ps-reuse" q "$s" "$t" --mode done; rc_is 0 && live "$p"; }
+da3() { local s="$1" t="D3$2" k; tree "$t" 0 spawner
+  q "$s" "$t" --mode close; local ok=1
+  rc_is 0 && has "new=1" && has "남은 자식 0" && [ -z "$(kid r1113-newkid | while read -r x; do alive "$x" && echo "$x"; done)" ] && ok=0
+  kid r1113-newkid | xargs kill -9 2>/dev/null; return $ok; }   # 변이 칸이 남긴 새 자식이 다음 칸의 «새로 생긴 고아» 로 섞이지 않게
+da3_link() { local t=D3L p fns line; tree "$t" 0 basedpyright; p="$(pid_of "$t" basedpyright)"
+  printf '#!/bin/sh\necho "reap $1 stopped=0 left=0 rc=0"\n' > "$TMP/fake/reap-ok"
+  fns="$(awk '/^_seat_reap\(\) \{/,/^\}/; /^_seat_quiesce\(\) \{/,/^\}/' "$BIN/ft-nano-close.sh")"; line="$(grep -m1 '^_seat_reap || { echo "CLOSE-FAIL reap' "$BIN/ft-nano-close.sh" | tail -1)"
+  FT_QUIESCE_NOSIGNAL="$p" FT_SEAT_REAP_BIN="$TMP/fake/reap-ok" FT_SEAT_QUIESCE_BIN="$Q" SEAT="$t" HERE="$BIN" bash -c "_wtarg=(); $fns
+$line
+echo NOT-FAILED" > "$TMP/last" 2>&1; echo $? > "$TMP/rc"
+  rc_is 1 && has "CLOSE-FAIL reap left=1(자식) rc=1 — $t" && ! has NOT-FAILED; }
+da4() { local s="$1" t="D4$2" pp c; tree "$t" 0 "nest:crew-parent:r1113-lchild"; pp="$(pid_of "$t" crew-parent)"; echo "$pp" >> "$TMP/launchd"; sleep 0.3; c="$(/bin/ps -axo pid=,ppid= | awk -v pp="$pp" '$2 == pp { print $1; exit }')"
+  q "$s" "$t" --mode close; rc_is 0 && has "quiesce-keep pid=$pp why=launchd" && [ -n "$c" ] && live "$pp" "$c"; }
+da5() { local s="$1" a="D5a$2" b="D5b$2" c="D5c$2" p; tree "$a" 0 basedpyright; tree "$b" 0; tree "$c" 0; p="$(pid_of "$a" basedpyright)"
+  q "$s" "$a" --mode handover --to "$b" && q "$s" "$b" --mode handover --to "$c"; rc_is 0 && has "inherited=1" && [ ! -e "$TMP/state/handover/$b.tsv" ] && [ "$(cut -f1 "$TMP/state/handover/$c.tsv")" = "$p" ] && live "$p" || return 1
+  q "$s" "$c" --mode close; rc_is 0 && has "term=1" && has "남은 자식 0" && dead "$p"; }
 wiring() {
   grep -q '_seat_quiesce; return \$?' "$BIN/ft-nano-close.sh" && grep -q 'ft-seat-quiesce.sh}" "\$SEAT" --mode close' "$BIN/ft-nano-close.sh" \
   && grep -q -- '"\$OLD" --mode handover --to "\$NEW"' "$BIN/ft-seat-retire.sh" && grep -q 'ft-child-watch.sh' "$BIN/ft-stall-scan.sh" \
@@ -59,9 +82,26 @@ ck "고아 ppid1 basedpyright 내림 · launchd 고아 보호" orph
 ck "조회 표 S·P 줄 · 신호 0" survey
 ck "호출 줄 4(nano-close·seat-retire·stall-scan·mbox)" wiring
 ck "kit 짝 cmp0 (5파일)" kit
+ck "DA①1 R4 node …/claude-code/cli.js 400MB = 본체 보호 · basedpyright 만 내림" da1 "$Q" ""
+ck "DA①2 TERM 직전 시작 시각 대조 — pid 재사용(시작 시각 바뀜) → 신호 0" da2 "$Q" ""
+ck "DA①3 R3 TERM 중 새 자식 → 재조회로 잡아 내림 · new=1 · 남은 자식 0" da3 "$Q" ""
+ck "DA①3 R3 남은 자식≠0 → nano-close 의 CLOSE-FAIL 줄·rc 1 (실제 함수·호출 줄 추출)" da3_link
+ck "DA①4 R7 launchd 등록 pid 와 그 밑 자식 전부 보호(kill 0)" da4 "$Q" ""
+ck "DA①5 R8 A→B→C 재승계 = 표 이어받음 · C close 가 인계 pid 내림" da5 "$Q" ""
 T1=$(date +%s)
 sed 's/sig(p, signal.SIGKILL)/pass/' "$Q" > "$TMP/m1.sh"; sed 's/^HEAVY_NAME = {/HEAVY_NAME = set() and {/' "$Q" > "$TMP/m2.sh"
+sed 's/^AGENT_CMD = re.compile(r"/AGENT_CMD = re.compile(r"(?!x)x" if 1 else r"/' "$Q" > "$TMP/m3.sh"
+sed 's/        if same(now, cand, p): sig(p, signal.SIGTERM)/        sig(p, signal.SIGTERM)/' "$Q" > "$TMP/m4.sh"
+sed 's/        extra, keeps2 = guard(T2,/        extra, keeps2 = ({}, []) if 1 else guard(T2,/' "$Q" > "$TMP/m5.sh"
+sed 's/    keep = lp | desc(t, lp)/    keep = lp/' "$Q" > "$TMP/m6.sh"
+sed 's/    if mode == "close": return tree | set(inh)/    if mode == "close": return tree/' "$Q" > "$TMP/m7.sh"
+for m in 3 4 5 6 7; do cmp -s "$Q" "$TMP/m$m.sh" && echo "WARN 변이 m$m 이 원본과 같음(sed 불일치)"; done
 ck "ⓜ1 KILL 제거 → R2 FAIL" eval '! r2 "$TMP/m1.sh" m'
 ck "ⓜ2 이름 집합 비움 → R6 FAIL" eval '! r6 "$TMP/m2.sh" m'
+ck "ⓜ3 런타임 꼴 본체 보호 제거 → DA①1 FAIL" eval '! da1 "$TMP/m3.sh" m'
+ck "ⓜ4 TERM 직전 대조 제거 → DA①2 FAIL" eval '! da2 "$TMP/m4.sh" m'
+ck "ⓜ5 종료 뒤 재조회 제거 → DA①3 FAIL" eval '! da3 "$TMP/m5.sh" m'
+ck "ⓜ6 launchd 하위 나무 보호 제거 → DA①4 FAIL" eval '! da4 "$TMP/m6.sh" m'
+ck "ⓜ7 close 의 인계 표 무시 → DA①5 FAIL" eval '! da5 "$TMP/m7.sh" m'
 echo "단계별 초: 본 시험 $((T1 - T0)) · 변이 $(( $(date +%s) - T1 ))"
 echo "pass=$pass fail=$fail"; [ "$fail" -eq 0 ]

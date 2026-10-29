@@ -32,6 +32,10 @@ r11() { [ "$(sent 'OM#1|\[유휴 나노\] R11done 유휴 40분 · 카드 - 2026-
 table() { w --table; grep -q '^좌석	역할	유휴분	자식MB' "$TMP/last" && grep -qE '^R10	arch	5	1200	1200	1	basedpyright:1200	-$' "$TMP/last" && [ -s "$TMP/cw/child-watch.tsv" ]; }
 kill_busy() { w --kill R10; [ "$(cat "$TMP/rc")" = 1 ] && grep -q 'REJECT R10 — 쓰는 중(유휴 5분 < 20분)' "$TMP/last" && alive "$(pid_of R10 basedpyright)"; }
 kill_idle() { w --kill R9a; [ "$(cat "$TMP/rc")" = 0 ] && grep -q '^QUIESCED R9a mode=done' "$TMP/last" && ! alive "$(pid_of R9a basedpyright)"; }
+busy_on() { echo '{"_master": "HM#1", "R9a": {"role": "arch"}, "R9b": {"role": "arch"}, "R10": {"role": "arch"}, "R11prog": {"role": "nano", "agent": "pi", "index": "card-prog.md"}, "BZ": {"role": "arch"}, "BZ2": {"role": "arch"}}' > "$R/.fable-team/seats-harness.json"
+  tree BZ 25 basedpyright busy; rss "$(pid_of BZ basedpyright)" 350; FT_CHILD_AUTONOMY=on w
+  [ "$(sent 'HM#1|\[자식\] BZ 유휴 25분 .* 조치: 경보만(작업 중 신호 · 도구 셸 1개)')" = 1 ] && alive "$(pid_of BZ basedpyright)" || return 1
+  w --kill BZ; [ "$(cat "$TMP/rc")" = 1 ] && grep -q 'REJECT BZ — 쓰는 중(도구 셸 1개 실행 중' "$TMP/last" && alive "$(pid_of BZ basedpyright)"; }
 ck "R9 유휴 25분 ∧ 350MB → [자식] 1통 · 자율 OFF = 경보만(생존)" r9_off
 ck "R9 다음 틱 0통(하루 1회)" r9_once
 ck "R9 자율 ON → QUIESCED mode=done · 내림" r9_on
@@ -40,6 +44,10 @@ ck "R11 pi 나노 유휴 40분 ∧ 완료·휴식 → 그 팀 master 1통 · 진
 ck "조회 표 --table(좌석·역할·유휴·MB·top3)" table
 ck "--kill 쓰는 중 좌석 REJECT rc 1 · 안 죽임" kill_busy
 ck "--kill 유휴 좌석 → QUIESCED · 내림" kill_idle
+ck "DA① 추가 유휴(출력 없음)+도구 셸 실행 중 → 자율 ON 이어도 경보만 · --kill REJECT · 생존" busy_on
+mkdir -p "$TMP/wbin"; cp -p "$BIN/ft-harness-root.sh" "$TMP/wbin/"; sed 's/            if on and not v\["busy"\] and not dry:/            if on and not dry:/' "$W" > "$TMP/wbin/ft-child-watch.sh"; cmp -s "$W" "$TMP/wbin/ft-child-watch.sh" && echo "WARN 변이 wm 이 원본과 같음"
+: > "$TMP/sent"; : > "$TMP/cw/child-watch.sent"
+ck "ⓜ8 작업 중 신호 무시 → 자동 정리가 basedpyright 를 내림(busy 칸 FAIL)" eval 'tree BZ2 25 basedpyright busy; rss "$(pid_of BZ2 basedpyright)" 350; FT_CHILD_AUTONOMY=on bash "$TMP/wbin/ft-child-watch.sh" >/dev/null 2>&1; ! alive "$(pid_of BZ2 basedpyright)"'
 T1=$(date +%s)
 
 # R12 zombie-clean — 가짜 ps 스냅샷(-axwwo 만 답함) · 가짜 launchctl(91002 = launchd 관리)
