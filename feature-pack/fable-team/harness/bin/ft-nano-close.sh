@@ -1298,6 +1298,21 @@ _fetch_remote_feat() {
   fi
 }
 _fetch_remote_feat "$_FEAT"
+# r1151: base_sha 가 어느 쪽 조상도 아니어도 merge-base(base_sha, origin/main)..base_sha 가 *.md 만 바꿨으면 squash 된 카드 문서 가지 — 랜딩 브랜치 origin/main.
+#   공통 조상 없음(rc1)·코드 섞임 = 지금 REJECT 그대로 · git 실패 = «판정 불가» 1줄(_DOCS_BASE_ERR) · 이름 바꾸기는 둘로 센다(--no-renames: .sh→.md 숨김 0) · 한글 경로(indices/대기)는 따옴표 없이(core.quotePath=false)
+_DOCS_BASE_N=0; _DOCS_BASE_ERR=""
+_docs_only_base() {
+  local sha="$1" repo="${SEAT_REPO:-$ROOT}" mb names rc
+  git -C "$repo" rev-parse --verify -q refs/remotes/origin/main >/dev/null || return 1
+  mb="$(git -C "$repo" merge-base "$sha" refs/remotes/origin/main 2>/dev/null)"; rc=$?
+  [ "$rc" = 1 ] && return 1
+  [ "$rc" = 0 ] || { _DOCS_BASE_ERR="base sha ${sha:0:9} 와 origin/main merge-base rc=$rc — 판정 불가"; return 1; }
+  names="$(git -C "$repo" -c core.quotePath=false diff --no-renames --name-only "$mb" "$sha" 2>/dev/null)" \
+    || { _DOCS_BASE_ERR="base sha ${sha:0:9} 문서 가지 diff 실패 — 판정 불가"; return 1; }
+  [ -n "$names" ] || return 1
+  ! grep -qv '\.md$' <<<"$names" || return 1   # here-string: 파이프 SIGPIPE·pipefail 로 판정이 뒤집히지 않게
+  _DOCS_BASE_N="$(grep -c . <<<"$names")"
+}
 if [ -n "$_BASE_SHA" ]; then
   if git -C "$SEAT_REPO" merge-base --is-ancestor "$_BASE_SHA" "$_FEAT" 2>/dev/null; then
     echo "INFO base sha ${_BASE_SHA:0:9} → 랜딩 브랜치 $_FEAT"
@@ -1306,6 +1321,11 @@ if [ -n "$_BASE_SHA" ]; then
        && git -C "$SEAT_REPO" merge-base --is-ancestor "$_BASE_SHA" refs/remotes/origin/main 2>/dev/null; then
     echo "INFO base sha ${_BASE_SHA:0:9} → 랜딩 브랜치 origin/main(팀 가지 $_FEAT 뒤처짐 · base_sha 가 그 가지 조상 아님)"
     _FEAT=origin/main
+  elif [ "$_FEAT_FETCH_FAIL" = 0 ] && _docs_only_base "$_BASE_SHA"; then
+    echo "INFO base sha ${_BASE_SHA:0:9} = squash 된 문서 가지(문서 ${_DOCS_BASE_N}개) → 랜딩 브랜치 origin/main"
+    _FEAT=origin/main
+  elif [ -n "$_DOCS_BASE_ERR" ]; then
+    bad+=("$_DOCS_BASE_ERR")
   else
     bad+=("base 가 sha ${_BASE_SHA:0:9} 이고 $_FEAT 의 조상이 아니다 — FT_NANO_FEAT=<랜딩 브랜치> 로 다시")
   fi
