@@ -40,7 +40,7 @@ mkdir -p "$T/bin"; printf '#!/bin/sh\necho "QUIESCED $1 stub left=0"\n' > "$T/bi
 printf '#!/bin/sh\necho "reap $1 stopped=0 left=0 rc=0"\n' > "$T/bin/ft-seat-reap.sh"   # reap = 같은 bin 스텁(실기계 프로세스 0)
 cp "$SRC/ft-nano-close.sh" "$SRC/ft-nano-evidence-check.sh" "$SRC/ft-nano-cherry-gate.sh" "$SRC/ft-nano-superseded-check.sh" \
    "$SRC/ft-nano-suspended-check.sh" "$SRC/ft-wt-sweep.sh" "$T/bin/"
-cp "$SRC/ft-team-lib.sh" "$SRC/ft_git_capped.py" "$T/bin/"   # r842 픽스처: 실 설치 꼴 — 단계 판정 lib + 캡 git
+cp "$SRC/ft-team-lib.sh" "$SRC/ft-card-target-lib.sh" "$SRC/ft_git_capped.py" "$T/bin/"   # r842 픽스처: 실 설치 꼴 — 단계 판정 lib + 캡 git
 cp "$SRC/ft_teamset.py" "$T/bin/"
 cp "$SRC/ft-sheet-events.sh" "$SRC/ft_sheet_events.py" "$SRC/ft_sheet_confirm.py" "$SRC/ft_sheet_key.py" "$SRC/ft_board_env.py" "$SRC/ft_board_mail.py" "$T/bin/"
 export FT_SHEET_ROOT="$T/sheet-root"; mkdir -p "$FT_SHEET_ROOT/.fable-team/state"

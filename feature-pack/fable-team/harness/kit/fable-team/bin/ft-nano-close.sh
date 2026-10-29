@@ -738,7 +738,12 @@ jq -e --arg s "$SEAT" 'has($s)' "$SEATS" >/dev/null 2>&1; _hrc=$?
 #   gh 가 cwd 리포의 «같은 번호» PR 을 읽어 head 가 틀리고(팩 PR 402 head 73b03a4f vs BYZ PR 402 7464fd052) 판정기도 BYZ 에서 돌아 rc3(객체 없음)이었다.
 #   ⓐ 함께 온 --wt 가 팩 등록 워크트리 → 팩  ⓑ 카드 «대상:» 줄 경로가 전부 FT_PACK_ROOT 아래 → 팩 · 전부 밖 → ROOT  ⓒ 섞임·origin 꼴 못 품 = REJECT 1줄(닫기 0 · gh 호출 0) · r1053: 절대경로 0 = 카드 읽기 판이 ROOT 리포에 살 때만 ROOT · 아니면 REJECT.
 _lp_repo=""; _lp_slug=""; _lp_repo_err=""; _lp_slug_url=""
-_lp_pack_root() { ( cd "${FT_PACK_ROOT:-$HOME/Project/ai-feature-pack}" 2>/dev/null && pwd -P ); }
+_lp_lib() {  # r1138: 대상 줄 뽑기·팩/밖 가르기 = 공용 파일 1개(ft-index-lint 와 같은 함수) — 없으면 판정 불가로 닫지 않는다(대체 경로 0)
+  declare -F ft_card_targets >/dev/null && return 0
+  [ -f "$HERE/ft-card-target-lib.sh" ] && . "$HERE/ft-card-target-lib.sh" && return 0
+  _lp_repo_err="⑥--landed-pr 공용 대상 판정 파일 없음($HERE/ft-card-target-lib.sh) — 닫지 않음"; return 1
+}
+_lp_pack_root() { ft_card_pack_root; }
 _lp_is_pack_wt() {  # <경로> → 팩 리포에 등록된 .worktrees/ 아래면 그 팩 루트를 찍고 rc0(읽기만 · _pack_wt 같은 부수효과 0)
   local pk pporc
   pk="$(_lp_pack_root)"; [ -n "$pk" ] || return 1
@@ -763,11 +768,7 @@ _lp_slug_of() {  # <리포> → owner/repo (ssh 꼴 · 꼴들 · 끝 .git 유무
   fi
   return 1
 }
-_lp_card_targets() {  # 카드 «대상:» 줄(마지막)의 절대경로만 — (…)·«·»·쉼표 = 구분자
-  [ -n "${CARD_READ:-}" ] && [ -f "$CARD_READ" ] || return 0
-  grep -E '^[[:space:]]*-?[[:space:]]*대상:' "$CARD_READ" 2>/dev/null | tail -1 \
-    | sed 's/·/ /g; s/[()]/ /g; s/,/ /g' | tr ' ' '\n' | grep -E '^/' | sed 's/\.$//'
-}
+_lp_card_targets() { ft_card_targets "${CARD_READ:-}"; }  # 카드 «대상:» 줄(마지막)의 절대경로만 — 공용 파일(r1138)
 _lp_card_home() {  # r1053: 읽기 판 CARD_READ 가 «사는» 리포 루트(실경로) — ref 판(_CR_TMP) = ROOT · 가지 판(_CB_TMP) = SEAT_REPO · 파일 = 그 폴더의 git 공통 루트 · 못 정하면 빈 값
   local d
   if [ -n "${_CR_TMP:-}" ] && [ "$CARD_READ" = "$_CR_TMP" ]; then d="$ROOT"
@@ -791,6 +792,7 @@ _lp_branch_repo() {  # r1123 backfill: 좌석 가지 nano/<키> 가 «사는» �
 _lp_repo_pick() {  # 리포(·slug) 하나를 정한다 — 못 정하면 _lp_repo_err 1줄(REJECT · gh 호출 0)
   local nw pk t n=0 nin=0 nout=0 repo=""
   _lp_repo=""; _lp_slug=""; _lp_repo_err=""
+  _lp_lib || return 1
   if [ -n "$NWT" ]; then nw="$(cd "$NWT" 2>/dev/null && pwd -P)"; [ -z "$nw" ] || repo="$(_lp_is_pack_wt "$nw")"; fi
   if [ -z "$repo" ] && [ "${BACKFILL:-0}" = 1 ] && { [ -z "${CARD_READ:-}" ] || [ ! -f "$CARD_READ" ]; }; then   # r1123: backfill · 카드 없음 → 좌석 가지가 사는 리포 하나
     repo="$(_lp_branch_repo)" || { _lp_repo_err="⑥--landed-pr 리포를 정할 수 없다(backfill · 카드 없음 · 좌석 가지 nano/$_KEY 가 ROOT·팩 중 정확히 한 곳에 있어야 한다 — 0곳 또는 2곳) — 닫지 않음(추측 0)"; return 1; }
@@ -802,7 +804,7 @@ _lp_repo_pick() {  # 리포(·slug) 하나를 정한다 — 못 정하면 _lp_re
     while IFS= read -r t; do
       [ -n "$t" ] || continue
       n=$((n+1))
-      case "$pk" in '') nout=$((nout+1));; *) case "$t" in "$pk"|"$pk"/*) nin=$((nin+1));; *) nout=$((nout+1));; esac;; esac
+      if [ "$(ft_card_target_side "$pk" "$t")" = pack ]; then nin=$((nin+1)); else nout=$((nout+1)); fi
     done <<< "$(_lp_card_targets)"
     if [ "$n" -eq 0 ]; then   # r1053: 대상 줄 0 · --wt 팩 아님 → 카드 파일이 사는 리포가 ROOT 면 ROOT(카드 위치 근거) · 아니면 지금처럼 REJECT
       t="$(_lp_card_home)"; nw="$(cd "$ROOT" 2>/dev/null && pwd -P)"
