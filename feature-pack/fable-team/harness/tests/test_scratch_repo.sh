@@ -17,8 +17,10 @@ git -C "$G" init -q && echo a > "$G/a.txt" && git -C "$G" add a.txt && git -C "$
 SHA="$(git -C "$G" rev-parse HEAD)"
 printf '#!/bin/sh\n[ -f "%s/tmuxfail" ] && { echo "no server running" >&2; exit 1; }\n[ "$1" = list-sessions ] && cat "%s/sessions" 2>/dev/null\nexit 0\n' "$T" "$T" > "$T/bin/tmux"; chmod 755 "$T/bin/tmux"
 printf 'live-owner\n' > "$T/sessions"
-sc() { OUT="$(env PATH="$T/gbin:$T/bin:$PATH" FT_RES_ROOT="$R" FT_SCRATCH_DIR="$SCR" TMPDIR="$TMPD" FT_SCRATCH_OWNER="${OWN:-live-owner}" \
-  GS_AT="${GS_AT:-0}" GS_FAIL="${GS_FAIL:-}" GS_SLEEP="${GS_SLEEP:-}" GS_DIRTY="${GS_DIRTY:-}" bash "$SUT" "$@" 2>&1)"; RC=$?; }
+sc() { OUT="$(env PATH="${GPRE:+$GPRE:}$T/gbin:$T/bin:$PATH" FT_RES_ROOT="$R" FT_SCRATCH_DIR="$SCR" TMPDIR="$TMPD" FT_SCRATCH_OWNER="${OWN:-live-owner}" \
+  FT_SCRATCH_KEEP_DIRTY="${KEEP_ON:-}" FT_SCRATCH_KEEP_MAX_MB="${KEEP_MAX:-}" \
+  GS_AT="${GS_AT:-0}" GS_FAIL="${GS_FAIL:-}" GS_SLEEP="${GS_SLEEP:-}" GS_DIRTY="${GS_DIRTY:-}" \
+  GT_AT="${GT_AT:-0}" GT_DIRTY="${GT_DIRTY:-}" GT_TAR_EXTRA="${GT_TAR_EXTRA:-}" GT_LS_SLEEP="${GT_LS_SLEEP:-}" bash "$SUT" "$@" 2>&1)"; RC=$?; }
 TSV="$R/.fable-team/state/scratch-repos.tsv"
 age_reg() { awk -F'\t' -v p="$1" -v t="$(( $(date +%s) - $2 ))" 'BEGIN{OFS="\t"} $1==p{$3=t} {print}' "$TSV" > "$TSV.n" && mv "$TSV.n" "$TSV"; }   # 등록 시각을 <초> 전으로
 
@@ -49,7 +51,7 @@ sc --sweep
   && ok "ⓛ 둘째 --sweep = 주인 없는 사본·24h 지난 tmp.* 삭제" || bad "ⓛ rc=$RC out=$OUT"
 { [ -d "$L" ] && [ -d "$TMPD/tmp.new1" ]; } && ok "ⓜ 주인 살아 있는 사본·새 tmp.* 는 남음" || bad "ⓜ 지워짐"
 git -C "$G" worktree list | grep -q "$D1" && bad "ⓛ worktree 목록에 남음" || ok "ⓛ git worktree 목록에서도 제거"
-sc --sweep; [ -z "$OUT" ] && ok "ⓝ 지울 것 없으면 출력 0" || bad "ⓝ [$OUT]"
+sc --sweep; { printf '%s\n' "$OUT" | grep -q '^swept=0 owner-dead=0 tmp=0 ' && [ "$(printf '%s\n' "$OUT" | wc -l | tr -d ' ')" = 1 ]; } && ok "ⓝ 지울 것 없으면 끝 줄 1줄만(R8 · r1090 DA②)" || bad "ⓝ [$OUT]"
 # DA⑥ HOLD3: ①tmux 목록 실패 ≠ 세션 0 ②주인 '-' 등록 거부 · ③(r444) 등록 사본은 나이 문턱 0 — 주인이 죽으면 즉시 후보
 OWN=gone-owner sc "$SHA" --repo "$G"; Y="$OUT"; age_reg "$Y" 90000
 sc --report; echo "$OUT" | grep -q "$Y" && ok "ⓞ 주인 없음+등록 25시간 → 후보(판정 1920 · r548 이 r444 문턱 0 을 되돌림)" || bad "ⓞ 주인 없음 25시간 후보 아님 $OUT"
@@ -65,7 +67,7 @@ sc "nosuchref" --repo "$G"; [ $RC != 0 ] && ok "ⓘ 없는 ref → 실패 rc≠0
 # ── r1085: 사본 안에서 만든 «가지 사본» — 깨끗할 때만 지운다 · 더러우면 지금처럼 거절 · 가지 ref 는 남긴다 ──────
 #   ⓐ 깨끗한 가지 사본 삭제·ref 남김(R1) ⓑ 더러움 거절(R2·R3) ⓒ detached 길 불변(R4) ⓓ status 못 읽음(R5 · G7·G8 두 자리)
 #   ⓔ 지우기 직전 더러워짐 = G8 거절(R6) ⓕ 주인 살아 있음(R7) ⓖ bin·kit 같은 내용 · 변이 3종(FT_CASES=M)
-want() { case "${FT_CELLS:-all}" in all|*r1085*) return 0;; esac; return 1; }
+want() { case "${FT_CELLS:-all}" in all) return 0;; *"$1"*) return 0;; esac; return 1; }
 if want r1085; then
   ARM="$R/.fable-team/state/scratch-sweep.armed"
   GITBIN="$(command -v git)"; mkdir -p "$T/gbin"
@@ -130,13 +132,14 @@ EOF
     && ok "r1085-ⓖ bin·kit 같은 내용(cmp0)" || bad "r1085-ⓖ bin·kit 다름"
   # 변이 3종 — 조건 하나만 끄는 패치로 기대 칸만 빨강일 때만 검출(FT_CASES=M 일 때만 돈다)
   if [ "${FT_CASES:-all}" = M ]; then
-    mut() { # <이름> <sed 식> <기대 FAIL 정규식>
+    mut() { # <이름> <sed 식> <기대 FAIL 정규식> — FT_MUTS 를 주면 그 이름만 돈다(시험 1개 70초 · 하드 룰 22)
+      case "${FT_MUTS:-}" in ''|*"$1"*) ;; *) return 0;; esac
       local m="$T/mut-$1.sh" nf nx r
       sed "$2" "$SUT" > "$m"
       cmp -s "$SUT" "$m" && { bad "변이 $1 이 안 바뀜"; return; }
       bash -n "$m" 2>/dev/null || { bad "변이 $1 문법 깨짐(가짜 변이)"; return; }
       FT_MUT_CHILD=1 FT_CELLS=r1085 FT_CASES=none FT_SUT="$m" bash "${BASH_SOURCE[0]}" > "$T/mut-$1.log" 2>&1; r=$?
-      nf="$(grep -c '^FAIL' "$T/mut-$1.log")"; nx="$(grep -cE "^FAIL $3" "$T/mut-$1.log")"
+      nf="$(grep -c '^FAIL' "$T/mut-$1.log")"; nx="$(grep -cE "^FAIL ($3)" "$T/mut-$1.log")"
       { [ "$r" != 0 ] && [ "$nf" -gt 0 ] && [ "$nf" = "$nx" ]; } && ok "변이2 $1 → 기대 칸만 빨강($3 · ${nf}칸)" \
         || bad "변이 $1 이 기대 칸으로 안 잡힘(rc=$r · FAIL $nf · 기대 $nx) $(grep '^FAIL' "$T/mut-$1.log" | head -2 | tr '\n' ' ')"
     }
@@ -145,6 +148,7 @@ EOF
     mut newpath-off 's#^      0) cap r remtmo; \[ "\$r" -gt 0 \] || { gfail G7 2 "예산 소진"; return; }#      0) gfail G7 3 "가지 워크트리(detached 아님)"; return;#' 'r1085-ⓐ|r1085-ⓑ|r1085-ⓓ|r1085-ⓔ'
   fi
 fi
+
 
 [ $fail -eq 0 ] && echo "ALL PASS" || echo "($fail failed)"
 exit $fail
