@@ -103,6 +103,14 @@ lines = body.strip().split("\n") if body.strip() else [""]
 m = re.match(r"\[[^\]]*\]", lines[0].strip()); head = m.group(0) if m else ""
 def emit(k, t): print(k + "\x1f\x1f" + t)
 def has(p): return any(re.match(p, l.strip()) for l in lines)
+def counter(l): return bool(re.match(r"\s*(카운터|골좌표)\s*:", l))
+# ★[정리]→[HIL] 승격(r1098 · 판정 4355)★ — [정리] 는 심박이라 보통 등급이고, 큐가 차면 먼저 버려진다.
+#   planner 현역 _master 앞 [정리] 본문에 사람 판정 낱말이 있으면 머리를 올린다(사람 글 등급 = 포화에도 안 버려진다).
+#   «카운터:»·«골좌표:» 줄은 안 본다 — 그 줄의 «막힘: 0» 은 상태값이지 질문이 아니다(거짓 [HIL] 금지).
+if head == "[정리]":
+    for w in ("승인 필요", "막힘", "오빠"):
+        if any(w in l for l in lines if not counter(l)):
+            emit("PROMOTE", w); emit("LOGH", "PROMOTED [정리]→[HIL] 낱말=" + w + " to=" + to); sys.exit(0)
 viol = ""
 if head == "[HIL·merge]": emit("ALIAS", "[합치기]"); emit("LOGH", "별칭 [HIL·merge]→[합치기] to=" + to); head = "[합치기]"
 if head == "[결정]":
@@ -166,7 +174,7 @@ _guard_hold_lint() {
 # guard_check <to> <body> [from] [relay 첨부] — GUARD_TO·GUARD_BODY(+relay 는 GUARD_FILE·GUARD_TMP)를 정한다. rc 3 = REJECT(큐 적재 0).
 guard_check() {
   GUARD_TO="$1"; GUARD_BODY="$2"; GUARD_FILE=""; GUARD_TMP=""
-  local first safe=0 out verb new msg rej=""
+  local first safe=0 out verb new msg rej="" _pf _pn
   first="${2%%$'\n'*}"; first="${first#"${first%%[![:space:]]*}"}"
   case "$first" in '[HIL]'*|'[HIL·'*|'[긴급]'*) safe=1;; esac
   out="$(_guard_py_recipient "$1" "$safe" 2>/dev/null)" || out="REJECT$US${US}가드 실행 실패 — 다시 보내라"
@@ -186,6 +194,10 @@ guard_check() {
       WARN)  echo "WARN $msg" >&2;;
       LOGH)  guard_log planner-head.log "$msg";;
       ALIAS) GUARD_BODY="$new${GUARD_BODY#\[HIL·merge\]}";;
+      PROMOTE)   # r1098 — 머리 [정리]→[HIL] · 첫 줄 끝에 «(원래 [정리])» 를 남긴다
+        _pf="${GUARD_BODY%%$'\n'*}"; _pn="[HIL]${_pf#\[정리\]} (원래 [정리])"
+        case "$GUARD_BODY" in *$'\n'*) GUARD_BODY="$_pn"$'\n'"${GUARD_BODY#*$'\n'}";; *) GUARD_BODY="$_pn";; esac
+        echo "PROMOTED [정리]→[HIL] 낱말=$msg" >&2;;
       REJECT) rej="$msg";;
     esac
   done <<< "$out"

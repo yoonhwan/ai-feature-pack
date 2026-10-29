@@ -10,7 +10,7 @@
 #       줄 = FT_SEAT=<이름> <FT_RR_HR(~/.headroom/claude-hr.sh)> --dangerously-skip-permissions --model <m> --effort <e|high> --resume <uuid> --name <이름>
 #     ⑥FT_RR_WAIT(60)초 안에 pane 자손 중 ANTHROPIC_BASE_URL 있는 프로세스(또는 claude) = OK · 8317 O/X · 못 보면 FAIL 기동 확인 없음.
 #   출력 = 좌석별 «이름 · 결과 · pid · 8317 O/X · uuid» + FAIL 목록 + 맨 끝 요약 1줄 · 원장 <루트>/.fable-team/state/reboot-restore.log(좌석이 끝날 때마다 1줄).
-#   맨 앞에서 r626 전팀 정지 스위치를 본다: `ft-all-stop.sh check` 가 rc≠0 이면 그 REJECT 줄을 그대로 내고 rc 1 · 새 세션 0(정지 우회 금지).
+#   맨 앞에서 r626 전팀 정지 스위치를 본다(검사 루트 = FT_ROOT → ft_repo_root · 원장은 리포 공용 루트에만 있다 · r1093): `ft-all-stop.sh check` 가 rc≠0 이면 그 REJECT 줄을 그대로 내고 rc 1 · 새 세션 0(정지 우회 금지).
 #   rc 0 · 3(FAIL 또는 8317 X 하나라도) · 2(ERROR) · 1(전팀 정지) — 살아 있는 세션은 보기만 한다(kill·send-keys 0) · 명부·쪽지 0 · claude 좌석만.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
@@ -19,7 +19,12 @@ ROOT="${FT_ROOT:-}"   # r385 라이브 루트 = FT_ROOT → ft_data_root(cwd LIV
 case "${1:-}" in -h|--help) sed -n '2,14p' "$0"; exit 0;; esac
 STOP="$HERE/ft-all-stop.sh"   # r626 전팀 정지 — 켜짐이면 새 세션 0(정지 우회 금지)
 [ -f "$STOP" ] || echo "WARN ft-all-stop.sh 없음 — 전팀 정지 검사 0($HERE)" >&2
-if [ -f "$STOP" ] && ! STOP_OUT="$(FT_ROOT="$ROOT" bash "$STOP" check 2>&1)"; then printf '%s\n' "$STOP_OUT"; exit 1; fi
+# r1093: 정지 원장은 리포 «공용» 루트(.fable-team/state/all-stop.log)에만 있다 — 라이브 루트(ROOT)로 찾으면 «원장 없음 = 정지» 거짓 REJECT(:18 의 좌석 데이터 루트는 그대로).
+#   검사 루트 = FT_ROOT(있으면 그대로 · 옛 꼴) → ft_repo_root(공용 루트 · ft-successor-open.sh 와 같은 길) · 못 풀면 ERROR rc 2(하드 룰 20).
+STOP_ROOT="${FT_ROOT:-}"
+[ -n "$STOP_ROOT" ] || { . "$HERE/ft-harness-root.sh" && STOP_ROOT="$(ft_repo_root "$HERE")"; }
+[ -n "$STOP_ROOT" ] || { echo "ERROR 공용 루트를 못 풂 — FT_ROOT=<리포 루트> 로 다시"; exit 2; }
+if [ -f "$STOP" ] && ! STOP_OUT="$(FT_ROOT="$STOP_ROOT" bash "$STOP" check 2>&1)"; then printf '%s\n' "$STOP_OUT"; exit 1; fi
 FT_ROOT="$ROOT" exec python3 -I - "$ROOT" "$HERE" "$@" <<'PY'
 import glob, json, os, re, shlex, subprocess, sys, threading, time
 from concurrent.futures import ThreadPoolExecutor
