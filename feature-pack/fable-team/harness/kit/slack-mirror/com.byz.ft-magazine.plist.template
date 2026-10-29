@@ -22,6 +22,8 @@
     <key>PATH</key><string>/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
     <key>BYZ_ROOT</key><string>__BYZ_ROOT__</string>
     <key>FT_ROOT</key><string>__BYZ_ROOT__</string>
+    <!-- r1086 — 하네스 루트(설계 워크트리): com.byz.ft-news-planner 와 같은 값. 없으면 검증기·뉴스 도구가 하네스 루트를 못 풀어 9칸 중 2칸이 «모름» -->
+    <key>FT_HARNESS_ROOT</key><string>__HARNESS_ROOT__</string>
     <key>GH_REPO</key><string>__REPO__</string>
     <key>MAGAZINE_CHANNEL</key><string>__CHANNEL__</string>
     <key>MAGAZINE_MALFORMED_CARDS</key><string>report</string>
