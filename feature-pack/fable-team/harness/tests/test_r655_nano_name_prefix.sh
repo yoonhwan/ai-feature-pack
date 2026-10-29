@@ -236,7 +236,7 @@ GR="$T/gate-repo"; GW="$GR/.worktrees/v65-g"
   && printf 'b\n' > "$GW/worker/foo.py" && git -C "$GW" -c user.name=t -c user.email=t@t commit -qam 'product change'; } >/dev/null 2>&1
 sess "byz-v65-nano-g#0"   # ★새 이름 하나만★ — 옛 코드는 여기서 LIVE_WT 가 비어 ① 이 «✓» 로 통과했다
 mkdir -p "$T/permits"
-o="$( cd "$GW" && PATH="$FAKE:$PATH" FT_PRESS_WT="$GW" FT_PRESS_ROOT="$GR" FT_PRESS_PERMIT_DIR="$T/permits" bash "$KIT/ft-press-gate.sh" 2>&1 )"; rc=$?
+o="$( cd "$GW" && PATH="$FAKE:$PATH" FT_PRESS_WT="$GW" FT_PRESS_ROOT="$GR" FT_PRESS_PERMIT_DIR="$T/permits" FT_NANO_FEAT=feat/v6-realtime-live bash "$KIT/ft-press-gate.sh" 2>&1 )"; rc=$?   # r1128: 기본 기준이 origin/main 이 됐다 — 이 픽스처는 옛 feat 가지만 있다
 { [ "$rc" = 1 ] && [[ "$o" == *"✗ 미랜딩 제품 커밋 1 — v65-g"* ]] && [[ "$o" == *"PRESS-GATE BLOCK"* ]]; } \
   && ok "H5③ press ① 이 새 이름 좌석의 워크트리를 막는다(✗ 미랜딩 제품 커밋 1 — v65-g · BLOCK)" \
   || bad "H5③ rc=$rc «$(printf '%s' "$o" | grep -E '미랜딩|BLOCK' | head -3 | tr '\n' ' ')»"
