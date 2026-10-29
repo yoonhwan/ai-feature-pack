@@ -23,6 +23,17 @@ OTHER = "  ⊘ 다른 줄기"
 WARN = "  ⚠ base 선언 확인 실패"
 
 
+def test_fixture_passes_all_stop_gate(fake):  # r1134 검증력 표지: fake 픽스처의 «꺼짐» 원장으로 ⓪ 를 지나 ① 셈까지 간다 · «켜짐» 을 덧붙이면 ⓪ 에서 막힌다
+    root, _ = fake
+    _main_nano(root, "z")
+    r = _gate(fake, ["z"])
+    assert "⓪" not in r.stdout and _section1(r), r.stdout
+    with open(root / ".fable-team" / "state" / "all-stop.log", "a") as f:
+        f.write("2026-10-21T00:00:01\ton\ttest\tr1134 변이\n")
+    r = _gate(fake, ["z"])
+    assert "✗ ⓪" in r.stdout and not _section1(r) and r.returncode == 1, r.stdout
+
+
 def _info(wt, base, base_sha):
     (wt / ".worktree-info.json").write_text(json.dumps({"base": base, "base_sha": base_sha}))
 
