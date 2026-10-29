@@ -26,7 +26,7 @@ mkdir -p "$T/bin" "$T/fake"
 printf '#!/bin/sh\necho "QUIESCED $1 stub left=0"\n' > "$T/bin/ft-seat-quiesce.sh"
 printf '#!/bin/sh\necho "reap $1 stopped=0 left=0 rc=0"\n' > "$T/bin/ft-seat-reap.sh"
 for f in ft-nano-close.sh ft-nano-evidence-check.sh ft-nano-cherry-gate.sh ft-nano-superseded-check.sh ft-nano-suspended-check.sh ft-wt-sweep.sh \
-         ft-team-lib.sh ft_git_capped.py ft_teamset.py ft-sheet-events.sh ft_sheet_events.py ft_sheet_confirm.py ft_sheet_key.py ft_board_env.py ft_board_mail.py \
+         ft-team-lib.sh ft-card-target-lib.sh ft_git_capped.py ft_teamset.py ft-sheet-events.sh ft_sheet_events.py ft_sheet_confirm.py ft_sheet_key.py ft_board_env.py ft_board_mail.py \
          ft-approval-equiv.sh ft_approval_equiv.py; do cp "$SRC/$f" "$T/bin/"; done
 export FT_SHEET_ROOT="$T/sheet-root"; mkdir -p "$FT_SHEET_ROOT/.fable-team/state"
 cat > "$T/fake/tmux" <<'EOF'
