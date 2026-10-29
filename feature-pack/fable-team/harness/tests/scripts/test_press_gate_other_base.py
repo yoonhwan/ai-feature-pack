@@ -15,12 +15,35 @@ import json
 import os
 import subprocess
 
+import pytest
 from ft_git_helpers import BIN, commit, git
 from test_press_gate_set_membership import _gate, _nano, _section1, fake  # noqa: F401
 from real_state_guard import guard_begin_module  # noqa: E402,F401  r541: 실 상태 지문 + git 밖 cwd(모듈 autouse)
 
 OTHER = "  ⊘ 다른 줄기"
 WARN = "  ⚠ base 선언 확인 실패"
+ALL_STOP_OFF = "2026-10-21T00:00:00\toff\tinstall\tinit\n"  # ft_all_stop 원장 «꺼짐» = 마지막 줄 off (설치 init 줄과 같은 꼴)
+
+
+@pytest.fixture(autouse=True)
+def _all_stop_off(fake):  # r1134: 게이트 ⓪ 전팀 정지 검사는 상태 폴더·원장이 없으면 막는다 → 픽스처에 «꺼짐» 원장을 둬 칸이 ⓪ 뒤로 간다
+    root, _ = fake
+    state = root / ".fable-team" / "state"
+    state.mkdir()
+    (state / "all-stop.log").write_text(ALL_STOP_OFF)
+    with open(root / ".git" / "info" / "exclude", "a") as f:  # commit() 의 add -A 가 원장을 main 커밋에 넣으면 checkout feat 가 지운다
+        f.write("/.fable-team/\n")
+
+
+def test_fixture_passes_all_stop_gate(fake):  # r1134 검증력 표지: ⓪ 를 지나 ① 셈까지 간다 · 꺼짐 원장을 «켜짐» 으로 바꾸면 ⓪ 에서 막힌다
+    root, _ = fake
+    _main_nano(root, "z")
+    r = _gate(fake, ["z"])
+    assert "⓪" not in r.stdout and _section1(r), r.stdout
+    with open(root / ".fable-team" / "state" / "all-stop.log", "a") as f:
+        f.write("2026-10-21T00:00:01\ton\ttest\tr1134 변이\n")
+    r = _gate(fake, ["z"])
+    assert "✗ ⓪" in r.stdout and not _section1(r) and r.returncode == 1, r.stdout
 
 
 def _info(wt, base, base_sha):

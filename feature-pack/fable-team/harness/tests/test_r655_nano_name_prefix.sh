@@ -19,13 +19,15 @@ FAKE_ERR="$T/tmux-err.txt"; FAKE_PANES="$T/panes.txt"; FAKE_CWD="$T/pane-cwd.txt
 cat > "$FAKE/tmux" <<EOF
 #!/bin/sh
 case "\$1" in
-  list-sessions) if [ -s "$FAKE_ERR" ]; then cat "$FAKE_ERR" >&2; exit 1; fi; cat "$SESS";;
+  list-sessions|ls) if [ -s "$FAKE_ERR" ]; then cat "$FAKE_ERR" >&2; exit 1; fi; cat "$SESS";;
   list-panes) cat "$FAKE_PANES";;
   display-message) if [ -s "$FAKE_CWD" ]; then cat "$FAKE_CWD"; else exit 1; fi;;
   *) exit 1;;
 esac
 EOF
 chmod 755 "$FAKE/tmux"; : > "$SESS"
+# 가짜 tmm(r1134) — r975 뒤 spawn 은 «tmm ls byz-<팀>» 에서 보고 대상을 고른다 · 격리 tmux 에는 좌석이 0 이라 실 tmm 이면 ⓐ 가 REJECT
+. "$HERE/lib/fake_tmm.sh" && fake_tmm "$FAKE" "byz-v65-master-claude#1"
 GIT="git -C $T/repo -c user.name=t -c user.email=t@t"
 git init -q "$T/repo"
 printf '2026-01-01T00:00:00\toff\tby test\tinit\n' > "$T/repo/.fable-team/state/all-stop.log"
@@ -34,7 +36,7 @@ printf '2026-01-01T00:00:00\toff\tby test\tinit\n' > "$T/repo/.fable-team/state/
 mkdir -p "$T/repo/design/teams/v65/indices/대기"
 printf '가짜 골 1줄\n가짜 골 2줄\n가짜 골 3줄\n' > "$T/goal.txt"
 printf '# GOAL-LEDGER v65\n| 좌표 | 닫는 증거 |\n|---|---|\n| M1 | 「가짜 닫는 증거 원문입니다 스물자 넘김 확인용」 |\n' > "$T/repo/design/teams/v65/GOAL-LEDGER-v65.md"
-printf '# 인덱스: x\n- 제안서: 없음 — 시험 픽스처\n## 골 원문 (항상 이 3줄)\n가짜 골 1줄\n가짜 골 2줄\n가짜 골 3줄\n## 골좌표\nM1 「가짜 닫는 증거 원문입니다 스물자 넘김 확인용」\n## 배경\n시험 픽스처 카드.\n## 구현 범위\n- a\n## 완료 조건\n- b\n## 상태\n- 2026-10-21 대기\n' > "$T/repo/design/teams/v65/indices/대기/x.md"
+printf '# 인덱스: x\n- 제안서: 없음 — 시험 픽스처\n## 골 원문 (항상 이 3줄)\n가짜 골 1줄\n가짜 골 2줄\n가짜 골 3줄\n## 골좌표\nM1 「가짜 닫는 증거 원문입니다 스물자 넘김 확인용」\n## 배경\n시험 픽스처 카드.\n## 구현 범위\n- a\n## 계약↔시험 대응표\n| 계약 | 시험 |\n|---|---|\n| a | b |\n## 완료 조건\n- b\n## 상태\n- 2026-10-21 대기\n' > "$T/repo/design/teams/v65/indices/대기/x.md"
 printf '| 팀 | 폴더 |\n|---|---|\n| v65 | `design/teams/v65/` |\n' > "$T/repo/design/TEAMS.md"
 cat > "$T/TEAMSET.md" <<'EOF'
 ## 표 1 — 역할
@@ -61,7 +63,7 @@ EOF
 sess() { : > "$SESS"; for n in "$@"; do echo "$n" >> "$SESS"; done; }
 sess "ft-v65-temp-oldone#0" "byz-v65-nano-newone#0" "byz-alpha-nano-otherone#0" "byz-v65-nano-doneone#0"
 
-sp() { ( cd "$T/repo" && PATH="$FAKE:$PATH" FT_GOAL_LINES_FILE="$T/goal.txt" FT_TEAMSET_MD="$T/TEAMSET.md" \
+sp() { ( cd "$T/repo" && PATH="$FAKE:$PATH" FT_RES_ROOT="$T/repo" FT_GOAL_LINES_FILE="$T/goal.txt" FT_TEAMSET_MD="$T/TEAMSET.md" \
   bash "$KIT/ft-nano-spawn.sh" design/teams/v65/indices/대기/x.md --dry-run --from byz-v65-master-claude#1 "$@" 2>&1 ); }
 tsx() { python3 "$KIT/ft_teamset.py" "$@"; }
 
