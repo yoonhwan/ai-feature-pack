@@ -122,3 +122,40 @@ fm_flag_off_new() {
   if [ "$rc" -eq 0 ]; then [ -z "$out" ] || printf '%s\n' "$out"; else echo "WARN flag-off 검사 실패 rc=$rc $(printf '%s' "$out" | tail -n1)"; fi
   return 0
 }
+#   fm_close_pending_add <장부> <repo키> <PR> <착지 sha> : r1131 — ⑦ 코멘트/닫기 실패 PR 을 «닫기 대기» 장부(jsonl)에 1줄 · 기록 실패는 WARN 1줄(착지 rc 불변)
+fm_close_pending_add() {
+  { mkdir -p "$(dirname "$1")" && python3 -c 'import json,sys,time;print(json.dumps({"repo":sys.argv[1],"pr":int(sys.argv[2]),"sha":sys.argv[3],"ts":int(time.time())},ensure_ascii=False))' "$2" "$3" "$4" >>"$1"; } 2>/dev/null \
+    || echo "WARN 닫기 대기 장부 기록 실패($1) — PR #$3 손으로(착지 sha $4)"
+}
+#   fm_close_pending_ls <장부> <repo키> : 같은 repo 항목 «pr sha» 줄(장부 순서 · 최대 3) — 꼴이 깨진 줄·다른 repo 는 건너뛴다(지우지 않는다)
+#   fm_close_pending_rm <장부> <repo키> <pr…> : 같은 repo 의 그 PR 줄만 지운다(임시 파일 + mv · 나머지 줄 바이트 그대로)
+FM_CP_PY='import json,sys
+f,key,mode=sys.argv[1],sys.argv[2],sys.argv[3]; drop=set(sys.argv[4:]); keep=[]; n=0
+def item(l):
+  try: d=json.loads(l); return d if isinstance(d,dict) and d.get("repo")==key and str(d.get("pr","")).isdigit() else None
+  except ValueError: return None
+for l in open(f,encoding="utf-8").read().splitlines():
+  d=item(l)
+  if mode=="ls" and d and n<3: print(d["pr"],d.get("sha","")); n+=1
+  if mode=="rm" and not (d and str(d["pr"]) in drop): keep.append(l)
+if mode=="rm": open(f+".tmp","w",encoding="utf-8").write("".join(x+"\n" for x in keep))'
+fm_close_pending_ls() { [ -s "$1" ] || return 0; python3 -c "$FM_CP_PY" "$1" "$2" ls; }
+fm_close_pending_rm() { python3 -c "$FM_CP_PY" "$1" "$2" rm "${@:3}" && mv -f "$1.tmp" "$1"; }
+#   fm_close_retry <장부> <repo키> <slug|빈> <닫기도구> <남은초> : r1131 — 착지 시작 때 장부의 같은 repo 항목(최대 3)을 pr-close --comment 로 다시 닫는다
+#     건마다 fm_t7 · 건 시작 때 남은 ≥ 20 s 일 때만(아니면 «재시도 미룸» 1줄 · 재시도 0) · 성공 = 장부에서 지움 · 실패 = 남김 + stdout 1줄 · rc 항상 0(착지 판정 불변)
+fm_close_retry() {
+  local f="$1" key="$2" slug="$3" gw="$4" r0="$5" t0=$SECONDS items pr sha rem o cb ok=""
+  items="$(fm_close_pending_ls "$f" "$key" 2>/dev/null)" || { echo "WARN 닫기 대기 장부 읽기 실패($f) — 재시도 0"; return 0; }
+  [ -n "$items" ] || return 0
+  cb="$(mktemp)" || { echo "WARN 닫기 재시도 코멘트 파일 실패 — 재시도 0"; return 0; }
+  while read -r pr sha; do
+    rem=$((r0 - (SECONDS - t0)))
+    [ "$rem" -ge 20 ] || { echo "INFO 닫기 재시도 미룸 — 남은 ${rem}s < 20s · 장부 그대로($f)"; break; }
+    printf '%s\n' "착지 sha $sha (ft-merge-land · 닫기 재시도 r1131)" > "$cb"
+    if o="$(fm_t7 ${slug:+env FT_ISSUE_REPO="$slug"} "$gw" pr-close "$pr" --comment "$cb" --apply 2>&1 </dev/null)"; then ok="$ok $pr"; echo "INFO 닫기 재시도 PR #$pr 닫음(착지 sha $sha)"
+    else echo "WARN 닫기 재시도 실패 PR #$pr — 장부에 남김: $(printf '%s' "$o" | tail -n1 | cut -c1-160)"; fi
+  done <<<"$items"
+  rm -f "$cb"
+  [ -z "$ok" ] || fm_close_pending_rm "$f" "$key" $ok || echo "WARN 닫기 대기 장부 정리 실패($f) — 닫힌 PR:$ok"
+  return 0
+}
