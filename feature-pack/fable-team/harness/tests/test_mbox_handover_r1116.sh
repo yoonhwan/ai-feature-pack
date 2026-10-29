@@ -13,7 +13,8 @@ O=byz-feature-master-claude#78; N=byz-feature-master-claude#79
 bash -c 'tail -f /dev/null; :' & BGP=$!
 mkdir -p "$T/stub"
 printf '#!/bin/sh\ncase "$1" in list-panes) echo %s;; *) exit 1;; esac\n' "$BGP" > "$T/stub/tmux"; chmod +x "$T/stub/tmux"
-printf '#!/bin/sh\n[ "$1 $2" = "pending --each" ] && echo "h62 3"\nexit 0\n' > "$T/stub/ft-hil.sh"
+# ft-hil 가짜 = 실제 옵션 꼴만 받는다(r1116b ① · 실제 usage: --pending [--each]) — 하위 명령 꼴 «pending» 은 usage rc 2
+printf '#!/bin/sh\n[ "$1 $2" = "--pending --each" ] && { echo "h62 3"; exit 0; }\necho "usage: ft-hil.sh ... --pending [--each]" >&2; exit 2\n' > "$T/stub/ft-hil.sh"
 
 roster() {   # roster <retired 0|1> — 옛 #78 · 후계 #79(spawn 이 이미 등록) · retired=1 = ft-seat-retire 뒤 꼴
   python3 - "$ENVROOT/seats/seats-feature.json" "$1" "$O" "$N" <<'PY'
@@ -37,6 +38,9 @@ sh_() { OUT="$(cd "$ENVROOT" && xenv bash "$C/mbox.sh" "$@" 2>&1)"; RC=$?; }
 py() { OUT="$(cd "$ENVROOT" && xenv python3 "$C/mbox.py" "$@" 2>&1)"; RC=$?; }
 nread() { printf '%s\n' "$OUT" | grep -c '^READ \['; }
 mut_norecord() { printf '\nrecord = lambda me, rows: None\n' >> "$C/mbox_handover.py"; }
+mut_hilform() { sed -i '' 's/"--pending", "--each"/"pending", "--each"/' "$C/mbox_handover.py"; grep -q '"pending", "--each"' "$C/mbox_handover.py"; }
+mut_noauto() { printf '\ndef record(me, rows):\n    _append(me, [{"seq": r["seq"], "from": r.get("from", ""), "ts": "t", "body": r.get("body", "")[:300]} for r in rows])\n' >> "$C/mbox_handover.py"; }
+mut_anyform() { printf '\ndef items(h):\n    return ITEM.findall(h.get("body", ""))\n' >> "$C/mbox_handover.py"; }
 
 # ① 증류 중: [HIL] 1통을 옛 #78 이 recv(영수 미표시) + 또 1통이 큐에 남음 → retire 관문(--no-ready) 거절
 chk_1() {
@@ -81,5 +85,29 @@ py close-check "$O"; [ "$RC" = 3 ] && case "$OUT" in *'«받음» 없는 항목 
 # ⑥ 후계 없는 닫기(나노·판정 닫기)는 검사 대상 아님 · 회귀: 자기가 보낸 쪽지는 안 받는다
 new_env; py close-check "$N"; [ "$RC" = 0 ] && ok "⑥ 후계 없는 좌석 close-check = 대상 아님 rc0" || bad "⑥ :: $OUT"
 sh_ send "$N" "$O" "[부팅 보고] x"; sh_ recv "$O"; [ "$(nread)" = 0 ] && ok "⑥ 같은 역할 자기 발신 행은 자기 recv 에 안 옴" || bad "⑥ 자기 발신 :: $OUT"
+
+# ⑦ r1116b ① handover 의 ft-hil 호출 = 옵션 꼴(--pending --each) · 하위 명령 꼴이면 usage rc 2 → handover 실패
+chk_7() { new_env "${1:-}"; row 1 "$O" "[HIL] q"; sh_ recv "$O"; sh_ handover "$O" "$N"; [ "$RC" = 0 ] && case "$OUT" in *"MARKED $O 인계 1"*) true;; *) false;; esac; }
+chk_7 mut_hilform && bad "⑦ 변이(하위 명령 꼴 pending)가 안 잡힘" || ok "⑦ 변이(ft-hil 하위 명령 꼴) → handover FAIL 확인"
+chk_7 && ok "⑦ ft-hil --pending --each 꼴로 handover rc0" || bad "⑦ handover ft-hil 꼴 :: $OUT"
+
+# ⑧ r1116b ③ 옛 세션이 받은 [레디] = 받는 순간 «처리함» — 레디 쪽지 자체가 미표시로 잡혀 retire/close 가 막히던 자리(#192566)
+chk_8() {
+  new_env "${1:-}"; row 1 "$O" "[HIL] q"; sh_ recv "$O"; sh_ handover "$O" "$N"; roster 1; sh_ recv "$N"; sh_ ready "$N" "$O"
+  sh_ recv "$O"; [ "$(nread)" = 1 ] || return 1
+  py close-check "$O" --no-ready; [ "$RC" = 0 ] || return 1; py close-check "$O"; [ "$RC" = 0 ]
+}
+chk_8 mut_noauto && bad "⑧ 변이(레디 자동 처리함 끔)가 안 잡힘" || ok "⑧ 변이(레디 자동 처리함 끔) → close-check FAIL 확인"
+chk_8 && ok "⑧ 옛 세션 [레디] recv 뒤에도 close-check(retire·닫기) rc0" || bad "⑧ 레디 자동 표시 :: $OUT"
+
+# ⑨ r1116b ④ 손으로 문장처럼 쓴 [인계](«- #N» 줄 0) = 형식 불명 거절 — 항목 0 으로 «전부 받음» 되던 자리(문장 속 #숫자는 PR·Issue 와 구분 불가라 안 센다)
+chk_9() {
+  new_env "${1:-}"; row 1 "$O" "[HIL] q"; sh_ recv "$O"; py mark "$O" 1 인계
+  sh_ send "$N" "$O" "[인계] 손으로 씀 — #1 TTS 질문 넘김 · PR #4700 확인 바람"; roster 1; sh_ recv "$N"
+  sh_ ready "$N" "$O"; [ "$RC" = 3 ] && case "$OUT" in *'형식 불명'*) true;; *) false;; esac || return 1
+  py close-check "$O"; [ "$RC" = 3 ] && case "$OUT" in *'형식 불명'*) true;; *) false;; esac
+}
+chk_9 mut_anyform && bad "⑨ 변이(형식 검사 끔)가 안 잡힘" || ok "⑨ 변이(형식 검사 끔 = 항목 0 통과) → FAIL 확인"
+chk_9 && ok "⑨ 문장형 [인계] → ready·close-check 형식 불명 REJECT" || bad "⑨ 문장형 [인계] :: $OUT"
 
 [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }
