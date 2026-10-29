@@ -25,7 +25,11 @@ SET_MARK, OUT_MARK = "⊕ press 세트 포함 예정", "⊘ 세트 밖"
 def fake(tmp_path):
     root = init_repo(tmp_path / "root")
     commit(root, {"worker/w.py": "w", "tests/e2e/r.py": "r", "docs/d.md": "d"}, "set files")
-    (root / ".fable-team").mkdir()
+    (root / ".fable-team" / "state").mkdir(parents=True)
+    # r1134: 게이트 ⓪ 전팀 정지 검사는 상태 폴더·원장이 없으면 막는다 → «꺼짐» 원장(설치 init 줄과 같은 꼴)을 둬 칸이 ⓪ 뒤로 간다
+    (root / ".fable-team" / "state" / "all-stop.log").write_text("2026-10-21T00:00:00\toff\tinstall\tinit\n")
+    with open(root / ".git" / "info" / "exclude", "a") as f:  # commit() 의 add -A 가 원장을 커밋에 넣으면 다른 가지 checkout 이 지운다
+        f.write("/.fable-team/\n")
     (root / ".worktrees").mkdir()
     fakebin = tmp_path / "fakebin"
     fakebin.mkdir()
@@ -117,6 +121,9 @@ def test_set_paths_single_source_in_set_check(fake, tmp_path):  # ⓓ
     alt = Path(tempfile.mkdtemp(dir=tmp_path))
     for n in ("ft-press-gate.sh", "ft-press-set-check.sh"):
         shutil.copy(BIN / n, alt / n)
+    for f in BIN.iterdir():  # r1134: 게이트는 형제(ft-all-stop.sh 등)를 자기 폴더에서 찾는다 — 두 사본 밖은 원본 링크
+        if not (alt / f.name).exists():
+            (alt / f.name).symlink_to(f)
     chk = alt / "ft-press-set-check.sh"
     chk.write_text(chk.read_text().replace("SET_PATHS=(worker ", "SET_PATHS=(docs worker "))
     out = _section1(_gate(fake, ["e"], bindir=alt))

@@ -3,7 +3,9 @@
 #   FT_PRESS_PORTS("gw,worker,fe") > FT_PRESS_PORT_BASE(+0/+1/+2) > 기본 8080·8081·3001 · 기본이 아닌 갈래는 로그·SSE 주소도 필수.
 #   ★일반 FT_PORT_BASE 는 «읽지 않는다»(팀 env 가 export 해도 press 갈래 불변 — lecture 꼴 회귀)★
 #   가짜 lsof·curl·tmux 만(그 밖의 실행은 실물) · 실 8080/8081/3001/8443 접촉 0 · 리포 파일 쓰기 0.
-#   ⓐ 빨강(옛 판 HEAD) ⓑ 슬롯 리스너를 찾음 ⓒ PORTS 우선 ⓓ 기본 바이트 불변 ⓔ 반쪽 선언 ⓕ 잘못된 값 ⓖ 변이 ⓗ 기존 r634 ⓘ 실 접촉 0
+#   ⓐ 빨강(옛 판 HEAD) ⓑ 슬롯 리스너를 찾음 ⓒ PORTS 우선 ⓓ 기본 바이트 불변 ⓔ 반쪽 선언 ⓕ 잘못된 값 ⓖ 변이 ⓘ 실 접촉 0
+#   r1134: 옛 ⓗ(r634 전부를 이 안에서 다시 돌림 · 그것만 ~130초)는 뺐다 — 기본 실행에선 r634 와 같은 판을 한 번 더 도는 중복이었다(하드 룰 22).
+#   R769_SUT 로 다른 판을 볼 땐 R634_SUT=<같은 판> 으로 test_press_gate_dev_target_r634_a.sh·_b.sh·_c.sh 를 각각 돌린다.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 GATE="${R769_SUT:-$HERE/../../harness/bin/ft-press-gate.sh}"
@@ -194,11 +196,6 @@ mut g2 'if [ -z "${FT_PRESS_WORKER_LOG:-}" ] || [ -z "${FT_PRESS_SSE_HEALTH_URL:
 gate "$T/mut-g2/ft-press-gate.sh" g2 FT_PRESS_PORT_BASE=38331 FT_PRESS_WORKER_LOG="$W/worker.log"
 n=$((n+1)); hasnt '슬롯 선언 회차는 worker 로그·SSE health 주소도 지정' && ok "$n. ⓖ2 변이(검사 삭제) → ⓔ 가 FAIL 할 모습 재현" \
   || bad "$n. ⓖ2 변이 g2 가 안 잡힘"
-
-# ══ ⓗ 기존 r634 시험 전부 PASS(dev 갈래 출력 불변)
-n=$((n+1)); if R634_SUT="$GATE" bash "$HERE/test_press_gate_dev_target_r634.sh" > "$T/r634.log" 2>&1; then
-  grep -q '^FAIL' "$T/r634.log" && { bad "$n. ⓗ r634 FAIL 줄 있음"; grep '^FAIL' "$T/r634.log" | sed 's/^/    /'; } || ok "$n. ⓗ 기존 test_press_gate_dev_target_r634.sh 전부 PASS"
-else bad "$n. ⓗ r634 rc≠0"; tail -20 "$T/r634.log" | sed 's/^/    /'; fi
 
 echo
 [ "$fail" = 0 ] && { echo "ALL PASS ($n)"; exit 0; }
