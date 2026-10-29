@@ -130,7 +130,7 @@ elif head == "[HIL]" or head.startswith("[HIL·"):
     if miss: emit("WARN", "[HIL] 본문에 " + ",".join(miss) + " 줄 없음 — 전송은 한다")
 elif head in ("[완료]", "[정지 레디]") or head.startswith("[완료·"):
     if not re.search(r"(세트|시험)\s*:", body): emit("WARN", head + " 증거 줄(세트:·시험:) 없음 — 전송은 한다")
-elif head not in ("[긴급]", "[합치기]", "[부팅 보고]"):
+elif head not in ("[긴급]", "[합치기]", "[부팅 보고]", "[인계]", "[레디]"):   # [인계]·[레디] = 같은 역할 승계 핸드셰이크(r1116)
     viol = "planner 앞 쪽지는 " + "[결정]·[HIL]·[긴급]·[합치기]·[정지 레디]·[완료]·[부팅 보고]" + " 만 — 진행·참고·마일스톤은 상태판(ft-board)이 나른다. 되돌릴 수 있고 사람 손도 안 필요한 것은 팀 master 가 선례(ft-precedent)로 결정한다(R-E). 머리=" + (head or "없음")
 if viol and mode == "reject": emit("REJECT", viol)
 elif viol: emit("WARN", "planner 머리 규칙 위반(warn 모드 · 전송) — " + viol); emit("LOGH", "to=" + to + " " + viol)

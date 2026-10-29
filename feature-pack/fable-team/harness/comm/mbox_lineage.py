@@ -91,11 +91,12 @@ def holder(name):
     return max(live, key=num) if live else name
 
 
-def claim(dirs, names, frm, limit):
+def claim(dirs, names, frm, limit, me=None, on_take=None, only=None):
     """★선택과 소비를 «같은 잠금» 안에서 한다★ — 조회 잠금과 소비 잠금이 갈라져 있으면 옛 좌석 recv 와 후계 recv 가
     같은 행을 둘 다 읽는다. 우편함이 여럿(legacy)이면 정해진 순서로 전부 잡고 한 번에 처리한다(send 는 CANON 하나만 잡아 교착 0).
     표시 상한 밖(held)은 소비하지 않는다. 반환 = (읽은 [(디렉터리, 행)] LIFO, 남긴 [(디렉터리, 행)]).
     ★비교 키 = 역할 이름(r1116)★ — names 의 역할 키 집합과 `to` 의 역할 키가 같으면 내 것(옛 번호·새 번호·번호 없음 전부).
+    me 가 보낸 행은 안 가져간다(같은 역할 옛·새 세션 사이 [인계]·[레디]) · only = 추가 거르개 · on_take(행들) = 소비 «전» 영수 기록(실패 = raise → 큐 무변경).
     """
     keys = {role_key(n) for n in names}
     def run(i):
@@ -103,11 +104,13 @@ def claim(dirs, names, frm, limit):
             return _locked(dirs[i], lambda: run(i + 1))
         per = [(d, _load(d)) for d in dirs]
         got = [(d, r) for d, rows in per for r in rows
-               if role_key(r.get("to")) in keys and (frm is None or r.get("from") == frm)]
+               if role_key(r.get("to")) in keys and (frm is None or r.get("from") == frm)
+               and (me is None or r.get("from") != me) and (only is None or only(r))]
         got.sort(key=lambda x: x[1]["seq"], reverse=True)   # LIFO
         held = []
         if limit is not None and len(got) > limit:
             got, held = got[:limit], got[limit:]
+        if on_take and got: on_take([r for _, r in got])
         for d, rows in per:
             gone = {r["seq"] for dd, r in got if dd == d}
             if gone: _save(d, [r for r in rows if r.get("seq") not in gone])

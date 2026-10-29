@@ -100,8 +100,8 @@ os.makedirs(CANON, exist_ok=True)
 
 # 분리 모듈(같은 폴더 — 이 파일이 링크면 «실제» 폴더에서 import 된다).
 # ★정본 자리는 이 파일 위치(__file__)로만 정해 묶어 준다★ — 모듈 위치로 정하면 링크 설치(.claude/fable-team/bin)에서 .fable-team 조상이 없어 NO_MAILBOX_ROOT.
-import mbox_store, mbox_guard, mbox_lineage, mbox_ops
-for _m in (mbox_store, mbox_guard, mbox_lineage, mbox_ops):
+import mbox_store, mbox_guard, mbox_lineage, mbox_ops, mbox_handover
+for _m in (mbox_store, mbox_guard, mbox_lineage, mbox_ops, mbox_handover):
     _m.CANON = CANON
 mbox_store._ROOT, mbox_store._SEQCTR, mbox_store.SEQ_FLOOR = _ROOT, _SEQCTR, SEQ_FLOOR
 mbox_guard._GUARD = os.path.join(CANON, ".mbox-guard.json")
@@ -117,7 +117,8 @@ if __name__ == "__main__":
     a = [x for x in a if x not in ("--force", "--all")]
     if not a: sys.exit("usage: mbox {send <to> <from> <body> [--force]"
                        "|relay <to> <from> <file> <summary>"
-                       "|recv <me> [<from>] [--all]|peek <me>|holder <name>}")
+                       "|recv <me> [<from>] [--all]|peek <me>|holder <name>"
+                       "|mark <me> <seq,…> 처리함|인계|unmarked <me>|close-check <seat> [--no-ready]}")
     c = a[0]
     if c == "send": send(a[1], a[2], " ".join(a[3:]), force)
     elif c == "relay": relay(a[1], a[2], a[3], " ".join(a[4:]))
@@ -125,4 +126,14 @@ if __name__ == "__main__":
     elif c == "peek": peek(a[1])
     elif c == "holder":   # doorbell·ring 대상 = 그 역할 현역 세션(r1116 R7) — 이름 규칙 밖이면 받은 이름 그대로
         h = mbox_lineage.holder(a[1]); print(h if NAME_RE.match(h) else a[1])
+    # ★승계 마무리(r1116 ②③④)★ — 보내기는 mbox.sh 가 같은 send 문(가드·doorbell)으로 한다. 여기는 본문·표시·검사만.
+    elif c in ("mark", "unmarked", "handover-body", "ready-body", "close-check"):
+        for n in a[1:3] if c in ("handover-body", "ready-body") else a[1:2]: _check_name(n)
+        H = mbox_handover
+        if c == "mark": H.mark(a[1], a[2] if len(a) > 2 else "", a[3] if len(a) > 3 else "")
+        elif c == "unmarked":
+            u = H.unmarked(a[1]); print("UNMARKED %d%s" % (len(u), "".join(" #%s" % r["seq"] for r in u))); sys.exit(1 if u else 0)
+        elif c == "handover-body": print(H.handover_body(a[1], a[2], [x for x in a[3:]]))
+        elif c == "ready-body": print(H.ready_body(a[1], a[2]))
+        else: sys.exit(H.close_check(a[1], "--no-ready" not in a))
     else: sys.exit("unknown cmd")

@@ -84,8 +84,8 @@ py recv "$D#78"; [ "$(nread)" = 0 ] && [ "$(rows_to "$D#78")" = 1 ] && case "$ER
 py recv "$D#79"; [ "$(nread)" = 1 ] && ok "ⓔ 후계 #79 첫 recv 에 옛 번호 앞 쪽지 READ 1" || bad "ⓔ 후계 recv :: $OUT"
 
 # ⓕ 라이브 설치 감시 — check-drift MAP 이 바뀐 파일을 전부 센다(한쪽만 깔리면 import 오류 · 감시 밖이면 무증상)
-miss=""; for f in mbox.py mbox.sh mbox_conf.py mbox_lineage.py mbox_ops.py mbox_guard.py mbox_guard.sh; do
+miss=""; for f in mbox.py mbox.sh mbox_conf.py mbox_lineage.py mbox_ops.py mbox_guard.py mbox_guard.sh mbox_handover.py; do
   grep -q "\"$f|" "$SRC/check-drift.sh" || miss="$miss $f"; done
-[ -z "$miss" ] && ok "ⓕ check-drift MAP 에 바뀐 7파일 전부" || bad "ⓕ MAP 누락:$miss"
+[ -z "$miss" ] && ok "ⓕ check-drift MAP 에 바뀐 8파일 전부" || bad "ⓕ MAP 누락:$miss"
 
 [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }

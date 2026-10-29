@@ -4,6 +4,7 @@ from mbox_store import _check_name, _clip, _legacy_dirs, _load, _locked, _mbox, 
 from mbox_guard import _guard_log, _guard_record, _guard_verdict, _log_sent, _reply_exempt
 import mbox_keep   # r912 — 넘칠 때 버리는 순서(시스템 → 일반 · 사람 글 보존)
 from mbox_lineage import claim, eligible, retired_to
+import mbox_handover   # r1116 ③ 영수(받은 쪽지마다 1줄) — 승계 마무리 검사(close-check)의 재료
 from mbox_desk_gate import verdict as _desk_verdict   # r660 · DA⑥ r1 ⓒ: 판정 자리 = python send 층 하나(셸·python 직접·relay 전부)
 CANON = None   # mbox.py 가 묶는다
 
@@ -151,11 +152,12 @@ def recv(me, frm=None, limit=None):
     if frm is not None: _check_name(frm)
     dirs = [CANON] + _legacy_dirs()
     names, joined = _lineage(me)
-    succ = retired_to(me)
-    if succ:   # ★현역만 recv(r1116)★ — 은퇴한 세션이 역할 우편함을 가져가면 후계가 못 본다
-        sys.stderr.write("WARN 현역 아님 %s → 현역 %s — 역할 우편함은 현역만 읽는다\n" % (me, succ)); names = []
+    succ, only = retired_to(me), None
+    if succ:   # ★현역만 recv(r1116)★ — 은퇴한 세션은 «나 앞 [레디]» 만(핸드셰이크 회신) · 역할 우편함은 후계 몫
+        sys.stderr.write("WARN 현역 아님 %s → 현역 %s — 역할 우편함은 현역만 읽는다([레디] 만 받음)\n" % (me, succ))
+        names, only = [me], lambda r: r.get("to") == me and r.get("body", "").lstrip().startswith("[레디]")
     # ★선택과 소비는 «같은 잠금 1회»★ — 표시한 것만 소비하고 상한 밖은 큐에 남긴다(전량 소비하면 나머지가 조용히 사라진다).
-    got, held = claim(dirs, names, frm, limit)
+    got, held = claim(dirs, names, frm, limit, me=me, on_take=lambda rows: mbox_handover.record(me, rows), only=only)
     # ★어느 파일들을 봤는지, 계보가 실제로 합류했는지 찍는다★ — 안 찍으면 union·합류가 도는지 아무도 모른다.
     print(f"SCANNED {len(dirs)} mailbox(es): " + " ".join(_mbox(d) for d in dirs) + f" lineage={joined}")
     if not got:

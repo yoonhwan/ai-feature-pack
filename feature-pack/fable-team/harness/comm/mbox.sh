@@ -158,6 +158,7 @@ case "$cmd" in
     done
     guard_check "$to" "${args[*]}" "$from" || exit $?   # rc 3 = REJECT(큐 적재 0) · 후계 전달·[합치기] 치환은 GUARD_TO·GUARD_BODY
     to="$GUARD_TO"; args=("$GUARD_BODY"); dbto="$(holder_of "$to")"
+    case "${args[*]}" in "[레디]"*) dbto="$to";; esac   # [레디] = 은퇴한 옛 세션 앞 핸드셰이크 회신 — 현역(후계 자신) 말고 그 pane 을 깨운다(r1116 ②)
     if [ "$urgent" = 1 ] || [ "$(notify_policy "$dbto")" = ring ]; then notify=1; else notify=0; fi
     # 가드 거부(exit 3) 시 doorbell 을 울리지 않는다 — 큐에 들어간 게 없다.
     # ★출력을 «잡는다»★ (2026-09-06, F5) — doorbell 에 실을 seq 가 그 안에 있다.
@@ -217,6 +218,16 @@ case "$cmd" in
          : > "${TMPDIR:-/tmp}/mbox-recv-$(printf '%s' "$me" | tr -c 'A-Za-z0-9._#-' '_')" 2>/dev/null || true
          exec python3 "$MBOXPY" recv "$me" "$@" ;;
   peek)  exec python3 "$MBOXPY" peek "${1:?me}" ;;
+  # ★승계 마무리(r1116)★ — handover <구> <후계> [«손 항목»…] = 남은 쪽지 끝까지 recv + 미표시·h·bg 를 [인계] 로 보내고 그 쪽지들을 «인계» 표시 ·
+  #   ready <후계> <구> = [인계] 항목마다 «받음» [레디] 회신 · mark·unmarked·close-check = 표시·검사(retire·닫기 관문이 부른다)
+  handover) old="${1:?old}"; new="${2:?new}"; shift 2; _check_name "$old" && _check_name "$new" || exit 1
+         b="$(python3 "$MBOXPY" handover-body "$old" "$new" "$@")" || exit $?
+         out="$(bash "$DIR/mbox.sh" send "$new" "$old" "$b")" || { _rc=$?; echo "REJECT [인계] 보내기 실패 rc=$_rc — 표시 0(다시 handover)" >&2; exit $_rc; }
+         echo "$out"; s="$(printf '%s\n' "$b" | sed -n 's/^- #\([0-9][0-9]*\) .*/\1/p' | paste -sd, -)"
+         [ -z "$s" ] || python3 "$MBOXPY" mark "$old" "$s" 인계 ;;
+  ready) new="${1:?new}"; old="${2:?old}"; b="$(python3 "$MBOXPY" ready-body "$new" "$old")" || exit $?
+         exec bash "$DIR/mbox.sh" send "$old" "$new" "$b" ;;
+  mark|unmarked|close-check) exec python3 "$MBOXPY" "$cmd" "$@" ;;
   # ring — ★큐를 건드리지 않고 doorbell 만 울린다★ (2026-09-06, 나)
   #   재발주가 이 경로로 온다. 이전엔 재발주가 `send` 재호출이라 ★같은 본문이 큐에 두 번★
   #   들어갔고, 좌석은 recv 에서 같은 발주를 2건 봤다(실측: pending=2, mailbox.jsonl 2행).
@@ -226,5 +237,5 @@ case "$cmd" in
   #   안 뜨고 그건 미도달과 구분이 안 된다(팩 ring 과 같은 계약).
   ring)  sess="${1:?sess}"; _check_name "$sess" || exit 1; sess="$(holder_of "$sess")"
          db="$(doorbell_status "$sess" 1 "${2:-}")"; echo "RING $sess doorbell=$db" ;;
-  *) echo "usage: mbox.sh {send <to> <from> <body> [--urgent] [--force]|relay <to> <from> <file> <summary>|recv <me> [<from>] [--all]|peek <me>|ring <sess> [seq]}" >&2; exit 2;;
+  *) echo "usage: mbox.sh {send <to> <from> <body> [--urgent] [--force]|relay <to> <from> <file> <summary>|recv <me> [<from>] [--all]|peek <me>|ring <sess> [seq]|handover <구> <후계>|ready <후계> <구>|mark <me> <seq,…> 처리함·인계|unmarked <me>|close-check <좌석> [--no-ready]}" >&2; exit 2;;
 esac
