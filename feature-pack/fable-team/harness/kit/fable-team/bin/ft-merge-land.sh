@@ -38,7 +38,7 @@ AST="$(bash "$AUT" state-dir 2>/dev/null)"   # r648: 승인 폴더 = 이 정식 
 [ "$(wc -l < "$AF" 2>/dev/null | tr -d ' ')" = 1 ] && grep -q "^approve-merge $AP " "$AF" && grep -qxF "$(head -n1 "$AF")" "$AST/autonomy.log" 2>/dev/null \
   || { echo "REJECT 오빠 승인 파일 없음 — 승인 h 한 줄 먼저(approve-merge $AP 승인 파일·로그 한 줄 없음) — 실행 0$(bash "$HERE/ft-hil-notify.sh" wait "$AP" "$AST")"; exit 2; }   # r1117: 거절 sha 기다림 표식 → approve-merge 가 그 좌석에 [승인 도착] 1통
 AFE="$(awk '{print $4}' "$AF")"; AFV="$(awk '{print $3}' "$AF")"; }   # 승인 epoch — merge-gate.log 에 «누가 언제 승인했나» 를 남긴다
-
+CPL="$AST/merge-close-pending.jsonl"; CPK="${SLUG:-$RROOT}"; fm_close_retry "$CPL" "$CPK" "$SLUG" "$GH_W" $((LIM - (SECONDS - T0)))   # r1131: ⑦ 실패로 «닫기 대기» 장부에 남은 같은 리포 PR(최대 3)을 먼저 다시 닫는다 — 남은 ≥ 20 s 일 때만 · 성공 = 장부에서 지움 · 착지 판정·rc 영향 0
 JSON="$(fm_t7 "$GH_R" pr view "$PR" ${SLUG:+-R "$SLUG"} --json headRefOid,headRefName,isCrossRepository,title,body,state,baseRefName)" || rej "gh pr view $PR 실패(7 s + 재시도 1)"; deadline
 pf() { printf '%s' "$JSON" | python3 -c 'import json,sys;print(json.load(sys.stdin).get(sys.argv[1]) or "")' "$1"; }
 [ "$(pf state)" = OPEN ] || rej "PR #$PR 가 OPEN 아님($(pf state))"; [ "$(pf baseRefName)" = "$TARGET" ] || rej "PR #$PR base 가 $TARGET 아님($(pf baseRefName))"
@@ -117,4 +117,4 @@ else printf '%s\n' "$IOUT" | sed 's/^/INSTALL /'; fi
 CB="$(mktemp)"; lr_trap 'rm -f "$CB"'   # R261: ft-gh-as-tank.sh 는 하이픈 동사 + 본문 «파일» + --apply(없으면 dry-run) · pr-close --comment 한 번이 코멘트+닫기
 printf '%s\n' "착지 sha $Q (ft-merge-land · 검사 트리 == 착지 트리 · 판정 1875)${EQ:+ · 동일승인 대조 EQUIV (${AP:0:10}→${S:0:10} · 판정 1917${EQM:+ · $EQM})}${S0:+ · main 자동 병합(문서 전용 · 겹침 0) C=${S:0:10}}" > "$CB"
 fm_t7 ${SLUG:+env FT_ISSUE_REPO="$SLUG"} "$GH_W" pr-close "$PR" --comment "$CB" --apply \
-  || { echo "WARN 착지는 성공 — PR #$PR 코멘트/닫기 실패: 손으로 처리(착지 sha $Q)"; exit 3; }
+  || { echo "WARN 착지는 성공 — PR #$PR 코멘트/닫기 실패: 손으로 처리(착지 sha $Q)"; fm_close_pending_add "$CPL" "$CPK" "$PR" "$Q"; exit 3; }   # r1131: 실패 PR 은 «닫기 대기» 장부 1줄 → 다음 착지 시작 때 다시 닫는다(조용히 OPEN 으로 쌓이지 않게)
