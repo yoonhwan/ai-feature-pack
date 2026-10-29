@@ -171,11 +171,15 @@ cmd_expire() {  # 끝 도달 기록 — 정합 ON ∧ until 지남일 때만 off
   echo "EXPIRED $ev"
 }
 
+live_match() {  # r1126: FT_ROOT 가 있고 그 공용 루트에 .fable-team/LIVE_ROOT 가 있는데 값(realpath)이 FT_ROOT 와 다르면 REJECT rc1 — 착지(FT_ROOT 없이 LIVE_ROOT 로 품)가 못 읽는 폴더에 승인 파일을 쓰지 않는다 · LIVE_ROOT 없음(옛 설치 꼴) = 지금 그대로
+  local g v; [ -n "${FT_ROOT:-}" ] && g="$(git -C "$FT_ROOT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" && [ -f "${g%/.git}/.fable-team/LIVE_ROOT" ] || return 0
+  v="$(sed -n '1p' "${g%/.git}/.fable-team/LIVE_ROOT" | tr -d '\r')"; [ "$(cd -- "$v" 2>/dev/null && pwd -P)" = "$(cd -- "$FT_ROOT" && pwd -P)" ] && return 0
+  echo "REJECT 승인 폴더 어긋남 — FT_ROOT=$FT_ROOT · 라이브 루트=$v · 착지는 $v/.fable-team/state 를 읽는다(FT_ROOT 를 지우고 다시)" >&2; return 1; }
 cmd_approve_merge() {  # <40hex>… — 검증을 전부 마친 뒤에만 쓴다. 쓰기 순서 = log 먼저, 승인 파일 나중(파일만 있고 log 줄 없음 = 병합 가드 deny)
   local sha ev now dir="$STATE/autonomy-merge-approved" line
   [ $# -ge 1 ] || { echo "REJECT sha 없음 (usage: approve-merge <40hex>…)" >&2; exit 2; }
   for sha in "$@"; do [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || { echo "REJECT sha 형식 틀림(40hex 소문자): $sha" >&2; exit 2; }; done
-  lock; [ "$(mode)" = tamper ] && { echo "REJECT 자율 상태 위변조(tamper) — 승인 기록 없음" >&2; exit 2; }   # R336: on·off 둘 다 기록(OFF 면 이벤트 칸 OFF)
+  live_match || exit 1; lock; [ "$(mode)" = tamper ] && { echo "REJECT 자율 상태 위변조(tamper) — 승인 기록 없음" >&2; exit 2; }   # R336: on·off 둘 다 기록(OFF 면 이벤트 칸 OFF)
   ev="$(event)"; [ "$(mode)" = off ] && ev=OFF; now="$(now_epoch)"
   mkdir -p "$dir" || { echo "REJECT 승인 폴더를 못 만들었다: $dir" >&2; exit 1; }
   for sha in "$@"; do
@@ -187,14 +191,10 @@ cmd_approve_merge() {  # <40hex>… — 검증을 전부 마친 뒤에만 쓴다
 }
 
 case "${1:-}" in
-  on) shift; cmd_on "$@" ;;
+  on) shift; cmd_on "$@" ;; approve-merge) shift; cmd_approve_merge "$@" ;;
   forget-kind|interview-note|on-check) c="cmd_${1//-/_}"; shift; "$c" "$@" ;;   # r466 학습표에서 종류 빼기(오빠 `!` 전용) · desk 에 [자율 인터뷰] 1통(틱 expire 뒤 · off 는 스스로) · on 인자 검사만(쓰기 0)
-  approve-merge) shift; cmd_approve_merge "$@" ;;
   approve-scope|scope-approve|scope-stop|scope-status) c="${1//-/_}"; shift; . "$HERE/ft-autonomy-scope.sh"; "cmd_$c" "$@" ;;  # 범위 사전 승인(R298) — approve-scope = 오빠 `!` 전용
-  off) cmd_off ;; expire) cmd_expire ;;
-  status) status ;;
+  off) cmd_off ;; expire) cmd_expire ;; status) status ;; mode) mode ;; event) event ;; state-dir) printf '%s\n' "$STATE" ;;
   approve-standing|standing-approve|standing-stop|standing-status) c="${1//-/_}"; shift; . "$HERE/ft-autonomy-standing.sh"; "cmd_$c" "$@" ;;  # r947 상시 승인 D1 — approve-standing = 오빠 `!` 전용 · standing-approve = planner master 좌석만
-  mode) mode ;; event) event ;;
-  state-dir) printf '%s\n' "$STATE" ;;
   *) echo "usage: ft-autonomy.sh on|off|expire|status|mode|event|state-dir|approve-merge <40hex>…|approve-scope|scope-approve|scope-stop|scope-status|approve-standing|standing-approve|standing-stop|standing-status|forget-kind <키>|interview-note <A<N>> <expire|off>" >&2; exit 2 ;;
 esac
