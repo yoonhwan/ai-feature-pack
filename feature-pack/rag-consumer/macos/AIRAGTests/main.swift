@@ -385,8 +385,9 @@ final class RecordingOps: ProcessOps {
     let inner: LiveProcessOps
     var groups: [Int32] = []
     var signals: [(Int32, Int32)] = []
-    init(script: String) {
-        inner = LiveProcessOps(executable: "/bin/sh", arguments: ["-c", script], environment: testEnvironment, stderrPath: nil)
+    init(script: String, callbackQueue: DispatchQueue = .main) {
+        inner = LiveProcessOps(executable: "/bin/sh", arguments: ["-c", script], environment: testEnvironment, stderrPath: nil,
+                               callbackQueue: callbackQueue)
     }
     var spawnCount: Int { groups.count }
     func spawn(onExit: @escaping (Int32) -> Void) -> Int32? {
@@ -501,6 +502,218 @@ do {  // the live factory wires the tick command from the settings
     check(ops.stderrPath == "/Users/tester/.local/share/airag/logs/app.err.log", "makeTickOps puts stderr in app.err.log")
     check(ops.environment["PATH"] == "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin", "makeTickOps sets PATH")
     check(makeLiveController(settings: settings).state == .stopped, "makeLiveController starts stopped")
+}
+
+// --- R3·R4: `--once` has one absolute deadline (kill chain at 45 / 52 / 57 s after start) and a path check first
+let dl = OnceDeadlines()
+check(dl.term == 45 && dl.kill == 52 && dl.giveUp == 57, "R3: default deadlines are 45 / 52 / 57 s")
+
+func step(_ elapsed: TimeInterval, path: PathCheck = .ok, exited: Bool = false, status: Int32 = 0, alive: Bool = true,
+          state: OnceState = OnceState(), deadlines: OnceDeadlines = OnceDeadlines()) -> OnceStep {
+    onceStep(elapsed: elapsed, path: path, leaderExited: exited, leaderStatus: status, groupAlive: alive, state: state, deadlines: deadlines)
+}
+func waitSeconds(_ s: OnceStep) -> TimeInterval? { if case .wait(let w) = s { return w }; return nil }
+
+check(step(0, path: .wrongLocation) == .refuse(78, "wrong_location"), "R4: wrong location refuses with 78")
+check(step(0, path: .translocated) == .refuse(78, "translocated"), "R4: translocated refuses with 78")
+check(step(30, path: .wrongLocation, exited: true, alive: false) == .refuse(78, "wrong_location"), "R4: refusal beats every other rule")
+check(waitSeconds(step(1)) == 0.2, "R3: far from a deadline the wait is the poll slice")
+check((waitSeconds(step(44.95)) ?? 9) <= 0.061 && (waitSeconds(step(44.95)) ?? 0) > 0, "R3: wait is cut at the TERM deadline")
+check(step(45) == .sendTerm, "R3: TERM at 45 s")
+check(waitSeconds(step(45, state: OnceState(termSent: true))) == 0.2, "R3: after TERM, wait for the KILL deadline")
+check(step(52, state: OnceState(termSent: true)) == .sendKill, "R3: KILL at 52 s")
+check(step(52) == .sendKill, "R3: a late first look at 52 s goes straight to KILL")
+check((waitSeconds(step(56.95, state: OnceState(termSent: true, killSent: true))) ?? 9) <= 0.061, "R3: wait is cut at the give-up deadline")
+check(step(57, state: OnceState(termSent: true, killSent: true, deadlineHit: true)) == .done(125, "deadline_dirty"), "R3: 57 s with a live group gives up with 125")
+check(step(100) == .done(125, "deadline_dirty"), "R3: far past 57 s still gives up")
+check(step(3, exited: true, status: 0, alive: false) == .done(0, "tick_exit"), "tick exit 0 with an empty group")
+check(step(3, exited: true, status: 3, alive: false) == .done(3, "tick_exit"), "tick exit code is passed through")
+check(step(60, exited: true, alive: false, state: OnceState(termSent: true, killSent: true, deadlineHit: true)) == .done(124, "deadline"),
+      "R3: group emptied after the deadline kill gives 124")
+check(step(3, exited: true, alive: true) == .sendTerm, "R2: leader gone with orphans gives TERM at once")
+check(waitSeconds(step(3, exited: true, alive: true, state: OnceState(termSent: true))) == 0.2, "orphans already TERMed: wait")
+check(step(57, exited: true, alive: true, state: OnceState(termSent: true)) == .done(125, "deadline_dirty"), "orphans past 57 s: 125")
+check(step(100, exited: true, alive: false, status: 0) == .done(0, "tick_exit"), "empty group after a normal exit wins even late")
+
+let applied1 = OnceState().applying(.sendTerm, elapsed: 45, deadlines: dl)
+check(applied1 == OnceState(termSent: true, killSent: false, deadlineHit: true), "deadline TERM marks the deadline")
+let applied2 = OnceState().applying(.sendTerm, elapsed: 3, deadlines: dl)
+check(applied2 == OnceState(termSent: true, killSent: false, deadlineHit: false), "orphan TERM does not mark the deadline")
+check(OnceState().applying(.sendKill, elapsed: 52, deadlines: dl) == OnceState(termSent: true, killSent: true, deadlineHit: true), "KILL marks the deadline")
+
+do {  // R3 property: no sequence of waits can carry the command past 57 s
+    var bad: [String] = []
+    var elapsed = 0.0
+    while elapsed < 70 {
+        for bits in 0..<8 {
+            let state = OnceState(termSent: bits & 1 != 0, killSent: bits & 2 != 0, deadlineHit: bits & 4 != 0)
+            for exited in [false, true] {
+                let result = step(elapsed, exited: exited, alive: true, state: state)
+                if let w = waitSeconds(result) {
+                    if w <= 0 || w > 0.2 { bad.append("wait \(w) at \(elapsed)") }
+                    if elapsed < 57 && elapsed + w > 57.011 { bad.append("wait passes 57 s at \(elapsed)") }
+                    if elapsed >= 57 { bad.append("waits at \(elapsed)") }
+                }
+            }
+        }
+        elapsed += 0.37
+    }
+    check(bad.isEmpty, "R3: waits never pass the give-up deadline \(bad.prefix(2))")
+}
+
+// --- once log (0600, O_NOFOLLOW, one overwritten line, no values)
+var onceDirCounter = 0
+func freshDir() -> String {
+    onceDirCounter += 1
+    return NSTemporaryDirectory() + "airag-once-\(getpid())-\(onceDirCounter)"
+}
+func onceLogObject(_ dir: String) -> [String: Any]? {
+    guard let data = FileManager.default.contents(atPath: dir + "/app.once.log"),
+          let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return nil }
+    return object
+}
+
+do {
+    let dir = freshDir()
+    check(writeOnceLog(dir: dir, result: "tick_exit", code: 0, elapsed: 1.234, now: t0), "once log: written into a new folder")
+    let object = onceLogObject(dir)
+    check(object?["result"] as? String == "tick_exit" && object?["code"] as? Int == 0 && object?["elapsed_s"] != nil
+          && (object?["ts"] as? String)?.hasPrefix("2026-10-29T10:00:00") == true, "once log: ts, result, code, elapsed_s")
+    check(Set((object ?? [:]).keys) == ["ts", "result", "code", "elapsed_s"], "once log: only the four fixed keys")
+    let attributes = try? FileManager.default.attributesOfItem(atPath: dir + "/app.once.log")
+    check((attributes?[.posixPermissions] as? Int) == 0o600, "once log: mode 0600")
+    check(writeOnceLog(dir: dir, result: "deadline", code: 124, elapsed: 9, now: t0), "once log: second write")
+    check(onceLogObject(dir)?["result"] as? String == "deadline", "once log: overwritten, not appended")
+    let text = (try? String(contentsOfFile: dir + "/app.once.log", encoding: .utf8)) ?? ""
+    check(text.split(separator: "\n").count == 1, "once log: exactly one line")
+    chmod(dir + "/app.once.log", 0o644)
+    check(writeOnceLog(dir: dir, result: "tick_exit", code: 0, elapsed: 1, now: t0), "once log: write over a loose file")
+    check(((try? FileManager.default.attributesOfItem(atPath: dir + "/app.once.log"))?[.posixPermissions] as? Int) == 0o600,
+          "once log: a loose file is tightened to 0600")
+}
+
+do {  // a symlink in the place of the log is refused and its target is left alone
+    let dir = freshDir()
+    try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+    let target = dir + "/victim.txt"
+    FileManager.default.createFile(atPath: target, contents: Data("keep".utf8))
+    try? FileManager.default.createSymbolicLink(atPath: dir + "/app.once.log", withDestinationPath: target)
+    check(!writeOnceLog(dir: dir, result: "tick_exit", code: 0, elapsed: 1, now: t0), "once log: symlink is refused")
+    check((try? String(contentsOfFile: target, encoding: .utf8)) == "keep", "once log: symlink target untouched")
+}
+
+do {  // a directory in the place of the log is refused
+    let dir = freshDir()
+    try? FileManager.default.createDirectory(atPath: dir + "/app.once.log", withIntermediateDirectories: true)
+    check(!writeOnceLog(dir: dir, result: "tick_exit", code: 0, elapsed: 1, now: t0), "once log: a directory is refused")
+}
+
+// --- runOnce
+let quick = OnceDeadlines(term: 0.9, kill: 1.2, giveUp: 1.8)
+
+func runOnceTest(script: String, path: PathCheck = .ok, deadlines: OnceDeadlines = quick, logDir: String? = nil)
+    -> (code: Int32, lines: [String], log: [String: Any]?, elapsed: TimeInterval, ops: RecordingOps) {
+    let dir = logDir ?? freshDir()
+    let ops = RecordingOps(script: script, callbackQueue: .global())
+    var lines: [String] = []
+    let begin = Date()
+    let code = runOnce(ops: ops, path: path, logDir: dir, startUptime: ProcessInfo.processInfo.systemUptime, deadlines: deadlines,
+                       stderrLine: { lines.append($0) })
+    let elapsed = Date().timeIntervalSince(begin)
+    ops.reapAll()
+    return (code, lines, onceLogObject(dir), elapsed, ops)
+}
+
+do {
+    let r = runOnceTest(script: "exit 7")
+    check(r.code == 7 && r.log?["result"] as? String == "tick_exit" && r.log?["code"] as? Int == 7, "T-once: tick exit code passes through")
+    check(r.lines == ["AIRAG once: tick_exit"], "T-once: one fixed stderr line")
+    check(r.elapsed < 1.5, "T-once: a quick tick ends quickly")
+}
+
+do {  // leader exits with an orphan: TERM at once, ends well before any deadline, keeps the tick's own code
+    let r = runOnceTest(script: "sleep 30 & exit 0")
+    check(r.code == 0 && r.log?["result"] as? String == "tick_exit", "T-once: orphan is ended, tick result kept")
+    check(r.elapsed < 0.9, "T-once: orphan cleanup does not wait for the deadline")
+    check(!r.ops.anyAlive(), "T-once: no group left after an orphan")
+    check(r.ops.signals.contains { $0.1 == SIGTERM } && !r.ops.signals.contains { $0.1 == SIGKILL }, "T-once: TERM only")
+}
+
+do {  // the whole group ignores TERM: KILL at the second deadline, 124, inside the third
+    let r = runOnceTest(script: "trap '' TERM; sleep 30")
+    check(r.code == 124 && r.log?["result"] as? String == "deadline", "T-once: stubborn tick ends with 124 deadline")
+    check(r.elapsed >= 1.15 && r.elapsed < 1.8, "T-once: ended between the KILL and the give-up deadline (\(r.elapsed))")
+    check(r.lines == ["AIRAG once: deadline"], "T-once: one fixed stderr line for the deadline")
+    check(!r.ops.anyAlive(), "T-once: group is empty after the deadline kill")
+    let order = r.ops.signals.map { $0.1 }
+    check(order == [SIGTERM, SIGKILL], "T-once: TERM then KILL, once each (\(order))")
+}
+
+do {  // a group nothing can end: give up at the third deadline with 125
+    let ops = FakeOps()
+    ops.killKills = false
+    var lines: [String] = []
+    let dir = freshDir()
+    let begin = Date()
+    let code = runOnce(ops: ops, path: .ok, logDir: dir, startUptime: ProcessInfo.processInfo.systemUptime,
+                       deadlines: OnceDeadlines(term: 0.05, kill: 0.08, giveUp: 0.12), stderrLine: { lines.append($0) })
+    let elapsed = Date().timeIntervalSince(begin)
+    check(code == 125 && onceLogObject(dir)?["result"] as? String == "deadline_dirty", "T-once: unkillable group gives 125")
+    check(elapsed >= 0.12 && elapsed < 0.6, "T-once: gave up right at the third deadline (\(elapsed))")
+    check(ops.signals.map { $0.1 } == [SIGTERM, SIGKILL], "T-once: TERM then KILL before giving up")
+    check(lines == ["AIRAG once: deadline_dirty"], "T-once: one fixed stderr line for giving up")
+}
+
+// --- T-path (R4): a wrong location never starts the tick
+for (path, word) in [(PathCheck.wrongLocation, "wrong_location"), (PathCheck.translocated, "translocated")] {
+    let ops = FakeOps()
+    var lines: [String] = []
+    let dir = freshDir()
+    let code = runOnce(ops: ops, path: path, logDir: dir, startUptime: ProcessInfo.processInfo.systemUptime, stderrLine: { lines.append($0) })
+    check(code == 78 && ops.spawns == 0, "T-path: \(word) gives 78 and no spawn")
+    check(onceLogObject(dir)?["result"] as? String == word && lines == ["AIRAG once: \(word)"], "T-path: \(word) is logged and printed")
+}
+
+do {  // launch failure
+    let ops = FakeOps()
+    ops.spawnResult = [nil]
+    let dir = freshDir()
+    let code = runOnce(ops: ops, path: .ok, logDir: dir, startUptime: ProcessInfo.processInfo.systemUptime, stderrLine: { _ in })
+    check(code == 69 && onceLogObject(dir)?["result"] as? String == "launch_failed", "launch failure gives 69")
+}
+
+// --- main order (R4): the path check runs before the mode split
+func menuAppCalls(arguments: [String], bundlePath: String) -> (code: Int32?, menuPaths: [PathCheck], spawns: Int, log: [String: Any]?) {
+    let dir = freshDir()
+    let settings = AppSettings(python: "/bin/sh", config: "c", credentials: "k", logDir: dir)
+    var menuPaths: [PathCheck] = []
+    var spawns = 0
+    let code = dispatchMode(arguments: arguments, bundlePath: bundlePath, home: "/Users/tester", startUptime: ProcessInfo.processInfo.systemUptime,
+                            settings: settings,
+                            makeOnceOps: { _ in
+                                let ops = FakeOps()
+                                spawns += 1
+                                return ops
+                            },
+                            stderrLine: { _ in },
+                            runMenuApp: { _, path in menuPaths.append(path) })
+    return (code, menuPaths, spawns, onceLogObject(dir))
+}
+
+let goodPath = "/Users/tester/Applications/AIRAG.app"
+let badPath = "/Users/tester/Downloads/AIRAG.app"
+do {
+    let wrong = menuAppCalls(arguments: ["AIRAG", "--once"], bundlePath: badPath)
+    check(wrong.code == 78 && wrong.menuPaths.isEmpty && wrong.log?["result"] as? String == "wrong_location",
+          "T-path: --once from Downloads ends with 78, no menu app")
+    let moved = menuAppCalls(arguments: ["AIRAG", "--once"], bundlePath: "/private/var/folders/x/T/AppTranslocation/ID/d/AIRAG.app")
+    check(moved.code == 78 && moved.log?["result"] as? String == "translocated", "T-path: --once from a translocated copy ends with 78")
+    let menuWrong = menuAppCalls(arguments: ["AIRAG"], bundlePath: badPath)
+    check(menuWrong.code == nil && menuWrong.menuPaths == [.wrongLocation], "T-path: menu mode still runs and gets the wrong-location verdict")
+    let menuGood = menuAppCalls(arguments: ["AIRAG"], bundlePath: goodPath)
+    check(menuGood.code == nil && menuGood.menuPaths == [.ok], "T-path: menu mode at the right place gets ok")
+    let lookalike = menuAppCalls(arguments: ["AIRAG", "--once-ish"], bundlePath: goodPath)
+    check(lookalike.code == nil && lookalike.menuPaths == [.ok], "T-path: only the exact --once argument selects the one-shot mode")
 }
 
 print("AIRAG tests: \(total - failures)/\(total) passed")
