@@ -153,7 +153,7 @@ for f in "$@"; do
     [ "$ok" = 1 ] || bad+=("구현 범위: 인용한 파일 경로가 하나도 실재하지 않는다 ($(printf '%s' "$paths" | head -3 | tr '\n' ' '))")
   fi
   check_proposal_line "$f"; check_da_hold "$f"; MAPL="${MAPL-$(python3 "$(dirname "${BASH_SOURCE[0]:-$0}")/ft_card_map_lint.py" "$@" 2>/dev/null)}"; while IFS=$'\t' read -r st cp msg; do { [ "$cp" = "*" ] && MAPERR=1; [ "$cp" = "*" ] || [ -z "$cp" ] || [ "$cp" = "$f" ]; } || continue; case "$st" in INFO*) echo "INFO $f — $msg";; WARN*) echo "WARN $f — $msg";; BAD*) bad+=("$msg");; esac; done < <(printf '%s\n' "$MAPL")   # ⑫ 계약↔시험 대응표(r984 · ft_card_map_lint.py — BAD=REJECT · WARN/INFO 통과 · «*» 줄=판정 불가)
-  inst="$(bash "$(dirname "${BASH_SOURCE[0]:-$0}")/ft-index-lint-install.sh" "$f")" || bad+=("$inst")   # ⑩ 하네스 카드 「- 설치:」 줄 (R245)
+  inst="$(bash "$(dirname "${BASH_SOURCE[0]:-$0}")/ft-index-lint-install.sh" "$f")" || bad+=("$inst"); tl="$( . "$(dirname "${BASH_SOURCE[0]:-$0}")/ft-card-target-lib.sh" && ft_card_target_lint "$f")" || bad+=("대상 줄 검사 불가 — 공용 파일 ft-card-target-lib.sh 를 못 읽었다"); while IFS= read -r l; do [ -z "$l" ] || bad+=("$l"); done <<< "$tl"   # ⑩ 하네스 카드 「- 설치:」 줄 (R245) · ⑬ 대상 줄 한 카드 = 한 리포 · 라이브 경로 0 (r1138 · 닫기 ⑥--landed-pr 와 같은 함수)
   if [ "${FT_CARD_REQUIRE_PREVERIFY:-}" = 1 ]; then check_preverify "$f"; check_evidence "$f"; fi
   if [ "${#bad[@]}" -eq 0 ]; then echo "OK $f (ledger=${LEDGER#$ROOT/})${allow_empty:+ (empty-body allowed)}"; else printf 'REJECT %s (ledger=%s)\n' "$f" "${LEDGER#$ROOT/}"; printf '  - %s\n' "${bad[@]}"; rc=1; fi
 done; [ "${MAPERR:-0}" = 1 ] && rc=3   # r984: «판정 불가»(스위치 꼴 오류 · 이력 조회 7초 초과) = rc3 — REJECT rc1 과 다른 층
