@@ -211,6 +211,7 @@ p_close() {  # ft-nano-close — 명부 index 는 «다른 꼴» 경로(쌍둥�
   cp "$KIT/ft-nano-slots.sh" "$KIT/ft-nano-close.sh" "$KIT/ft-nano-evidence-check.sh" "$KIT/ft-wt-sweep.sh" "$KIT/ft-team-lib.sh" "$KIT/ft-hil.sh" "$KIT/ft-sheet-events.sh" "$KIT"/ft_sheet_events.py "$KIT"/ft_sheet_confirm.py "$KIT"/ft_sheet_key.py "$KIT"/ft_board_env.py "$KIT"/ft_board_mail.py "$bin/"
   cp "$KIT/ft_teamset.py" "$bin/"
   exe "$bin/ft-nano-cherry-gate.sh" 'echo "OK cherry stub"; exit 0'
+  exe "$bin/ft-seat-quiesce.sh" 'echo "QUIESCED $1 stub left=0"; exit 0'   # r1113 자식 정리 = 같은 bin 스텁
   exe "$bin/ft-seat-reap.sh" 'echo "REAP stub left=0"; exit 0'   # r448: close 가 좌석 프로세스 회수를 부른다 — 시험은 실 프로세스 kill 0(대역)
   exe "$fake/tmux" 'case "$1" in list-panes) case "$*" in *pane_current_path*) cat "$FAKE_PANE_CWDS";; *) cat "$FAKE_PANES";; esac;; display-message) cat "$FAKE_CWD";; has-session) exit 1;; set-option|kill-session) echo "$*" >> "$FAKE_LOG";; esac'
   oi="design/v65/indices/진행/ovr.md"; si="design/teams/v65/indices/진행/ovr.md"; [ "$F" = 1 ] && oi="$si"   # oi = 명부에 적힌 «다른 꼴» 경로

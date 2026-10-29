@@ -97,6 +97,7 @@ kill "$P3" 2>/dev/null; wait "$P3" 2>/dev/null; : > "$T/panes"
 echo "== ⓕ 나노 닫기: 명부 agent=pi → 회수 단계 --agent pi · agent=claude → 회수 호출 0 (픽스처 = fail_closed 꼴)"
 SRC="$KITBIN"
 mkdir -p "$T/bin" "$T/fake"
+mkdir -p "$T/bin"; printf '#!/bin/sh\necho "QUIESCED $1 stub left=0"\n' > "$T/bin/ft-seat-quiesce.sh"   # r1113 자식 정리 = 같은 bin 스텁(실 프로세스 0)
 printf '#!/bin/sh\necho "reap $1 stopped=0 left=0 rc=0"\n' > "$T/bin/ft-seat-reap.sh"
 cp "$SRC/ft-nano-close.sh" "$SRC/ft-nano-evidence-check.sh" "$SRC/ft-wt-sweep.sh" "$SRC/ft-hil.sh" "$SRC/ft-team-lib.sh" "$T/bin/"
 cp "$SRC/ft_teamset.py" "$T/bin/"

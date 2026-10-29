@@ -123,6 +123,7 @@ BEGIN {
     addcat("E2E 크롬",     "agent-browser-chrome-|mcp-chrome-|Chrome for Testing|crashpad_handler")
     addcat("고아 tail",    "(^|/)tail -[fF] ")   # ^ 앵커는 /usr/bin/tail 형태를 놓친다
     addcat("고아 sleep",   "(^|/)sleep [0-9]")   # 2026-09-11 실증: `/bin/sleep 600` 이 ^sleep 에 안 걸렸다
+    zx = ("ZC_TARGET_EXTRA" in ENVIRON) ? ENVIRON["ZC_TARGET_EXTRA"] : "xclaw|nanoclaw"; if (zx != "") addcat("xclaw 잔존", zx)   # r1113 launchd 를 .off 로 내린 뒤 남은 크루 node(launchd 목록 pid = 위 hostpids 보호 그대로) · 빈 값 = 끔
 }
 function addcat(nm, re) { NC++; CN[NC] = nm; CR[NC] = re }
 {
