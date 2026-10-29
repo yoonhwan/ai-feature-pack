@@ -11,6 +11,10 @@ from pathlib import Path
 
 import pytest
 from _proposal_fakes import slack  # noqa: F401 — 가짜 Slack fixture(키트 경로를 sys.path 에)
+from _thread_fakes import (  # noqa: F401 — status_head_file 은 autouse fixture 로 등록된다(r1089)
+    body_after_status_head,
+    status_head_file,
+)
 
 import byz_thread_post as tp
 import thread_reply_slack as trs
@@ -59,18 +63,18 @@ def posted(slack) -> dict:  # noqa: F811 — 게시된 답글 1개
 
 def test_a_plain_answer_with_counts_is_posted_as_is(env, slack, capsys):  # ⓐ (지금 판 = REJECT → FAIL)  # noqa: F811
     assert run(env, slack, "--to-slack", T, "--asked", "1", "--answered", "1", "--text", PLAIN) == 0
-    assert posted(slack)["text"] == PLAIN and "reply ts=" in capsys.readouterr().out
+    assert body_after_status_head(posted(slack)["text"]) == PLAIN and "reply ts=" in capsys.readouterr().out
 
 
 def test_b_input_text_gets_no_added_characters(env, slack):  # ⓑ 앞뒤에 붙는 글자 0  # noqa: F811
     assert run(env, slack, "--to-slack", T, "--asked", "1", "--answered", "1", "--text", PLAIN) == 0
-    assert posted(slack)["text"] == PLAIN
+    assert body_after_status_head(posted(slack)["text"]) == PLAIN
     assert not any(ln.startswith(("아직 못 한 것", "요청")) for ln in posted(slack)["text"].splitlines())
 
 
 def test_c_partial_answer_appends_one_left_line(env, slack):  # ⓒ 덜 답한 것 1줄만 끝에  # noqa: F811
     assert run(env, slack, "--to-slack", T, "--asked", "3", "--answered", "2", "--left", LEFT, "--text", PLAIN) == 0
-    lines = posted(slack)["text"].splitlines()
+    lines = body_after_status_head(posted(slack)["text"]).splitlines()
     assert lines == [PLAIN, LEFT_LINE]
 
 

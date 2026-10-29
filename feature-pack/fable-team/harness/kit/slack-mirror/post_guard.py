@@ -86,6 +86,18 @@ def check(text: str, channel: str, *, human: bool = False) -> None:
         raise PostGuardError(f"게시 거부(post_guard) — {', '.join(found)} · 게시 0")
 
 
+def with_status_head(text: str) -> str:
+    """사람 채널 글 머리에 planner 카운팅 첫 줄을 붙인다(r1089) — 이미 같은 머리줄로 시작하면 그대로(재시도 중복 0)."""
+    from status_head import head  # 순환 import 회피 — status_head 가 루트 규칙을 post_guard 에서 가져온다
+
+    line = head()
+    return text if text.startswith(line) else f"{line}\n{text}"
+
+
 def guarded_post(base: str, token: str, channel: str, text: str, thread_ts: str | None = None, *, human: bool = False) -> str:
-    check(text, channel, human=human)
+    """사람 채널이면 카운팅 머리줄을 붙인 «뒤» 검사한다(머리줄도 내부어 검사를 지난다 · R7)."""
+    is_human = human or channel in human_channels()  # 명부는 한 번만 읽는다
+    if is_human:
+        text = with_status_head(text)
+    check(text, channel, human=is_human)
     return post(base, token, channel, text, thread_ts)

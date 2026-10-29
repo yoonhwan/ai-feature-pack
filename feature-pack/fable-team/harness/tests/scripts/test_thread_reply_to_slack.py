@@ -13,6 +13,10 @@ from pathlib import Path
 
 import pytest
 from _proposal_fakes import slack  # noqa: F401 — 가짜 Slack fixture(키트 경로를 sys.path 에)
+from _thread_fakes import (  # noqa: F401 — status_head_file 은 autouse fixture 로 등록된다(r1089)
+    body_after_status_head,
+    status_head_file,
+)
 
 import byz_thread_post as tp
 import mirror_inbound as ib
@@ -82,7 +86,7 @@ def test_to_slack_top_level_replies_under_that_post(env, slack):  # ⓐ  # noqa:
     inbound(env, {T: entry()})
     assert run(env, slack, "--to-slack", T, *CNT, "--text", ANSWER) == 0
     (r,) = slack.replies
-    assert r["thread_ts"] == T and r["text"] == ANSWER
+    assert r["thread_ts"] == T and body_after_status_head(r["text"]) == ANSWER
     rec = json.loads((env / "st" / "byz_slack_answered.json").read_text())["answered"]
     assert rec[T] == r["ts"] and started > 0
 
@@ -178,7 +182,7 @@ def test_r661_good_answer_posts_under_root_with_one_left_line(env, slack, capsys
     assert run(env, slack, "--to-slack", T, "--asked", "3", "--answered", "2", "--left", "r558 답 자리 — 오늘 안에 볼게요.",
                "--text", text) == 0
     (r,) = slack.replies
-    assert r["thread_ts"] == T and r["text"] == text + "\n아직 못 한 것: r558 답 자리 — 오늘 안에 볼게요."
+    assert r["thread_ts"] == T and body_after_status_head(r["text"]) == text + "\n아직 못 한 것: r558 답 자리 — 오늘 안에 볼게요."
     assert "reply ts=" in capsys.readouterr().out
 
 
