@@ -3,6 +3,7 @@
 #   판정 자리 = python send 층(셸·python 직접·relay 전부 이 한 곳을 지난다) · 판정기 없음·실행 실패 = REJECT(fail-closed · 사유 1줄).
 #   유일한 예외 = 판정기 «파일 자체가 없을 때» 의 설치 순서 가드(이름에 -desk- 가 걸린 쪽지만 막는다) — 그 밖에는 언제나 판정기를 부른다.
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -39,6 +40,9 @@ def seats_dir():
 def verdict(to, frm, body, attach="", comm=""):
     """통과면 None, 막으면 (reason, hint). 판정기 부재·예외 = REJECT(fail-closed)."""
     comm = comm or os.environ.get("FT_MBOX_DIR") or os.path.dirname(os.path.abspath(__file__))
+    # ★같은 역할 옛·새 세션 사이 승계 핸드셰이크(r1116 ②) = desk 경로 아님★ — desk#78 [인계] → desk#79 · [레디] 회신
+    if re.sub(r"#\d+$", "", to) == re.sub(r"#\d+$", "", frm) and re.match(r"\s*\[(인계|레디)\]", body or ""):
+        return None
     gate = judge_path()
     if not gate or not os.path.isfile(gate):
         if "-desk-" in to or "-desk-" in frm:

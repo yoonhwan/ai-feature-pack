@@ -5,6 +5,12 @@ MAX_PER_TO = int(os.environ.get("FT_MBOX_RING") or 10)
 # 세션명 allowlist — 세션명이 doorbell 명령 문자열에 삽입되므로 하드 거부(명령 삽입 원천 차단).
 NAME_RE = re.compile(r'^[A-Za-z0-9._#-]+$')
 
+
+def role_key(name):
+    """★우편함 키 = 역할 이름(r1116 · 판정 2777)★ — 세션 번호 «#N» 은 표시만. byz-planner-desk-claude#78 → byz-planner-desk-claude.
+    옛 번호·새 번호·번호 없는 역할 이름이 한 우편함이라 승계(증류·재부팅) 때 인계 장치 없이 후계 첫 recv 에 그대로 보인다."""
+    return re.sub(r"#\d+$", "", name or "")
+
 # ── 발신 규율 물리 가드 (COMM-GUIDE §1.5) ──────────────────────────────
 # 홍수는 사용자 입력을 막고, ring(MAX_PER_TO) 상한을 넘긴 메시지를 조용히 유실시킨다.
 # ★2026-09-05 — 길이는 «발신 차단»이 아니라 «수신 절단» 기준이다★

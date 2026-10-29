@@ -26,7 +26,7 @@ finish() {   # r960 — 닫기 결과 출력 «한 곳»: 결과 줄들 다음�
   exit "$rc"
 }
 FACTS="$(cd "$HERE" && python3 -c 'import sys;from ft_roster_lib import seat_facts;print("\x1f".join(seat_facts(*sys.argv[1:6])))' "$ARG" "${FT_SEATS_JSON:-}" "${ROOT:-.}" "$SEAT" "${ZC_RESUME_DIR:-$HOME/.claude/state/seat-resume}")" || finish 1 "${FACTS:-REJECT 좌석 사실 확정 실패 — 판정 안 함(명부 쓰기 0 · kill 0)}"   # r5 ①② — 명부 경로·행·agent·role·재개 기록 경로 «입구 1회» 확정(명부 후보 2개+ · 명부 불일치 = REJECT rc 1)
-IFS=$'\x1f' read -r SEATS_FILE AGENT ROLE RECF <<<"$FACTS"   # r5 ③ — 확정 값은 갈래·자식에 «값으로» 넘긴다(자식의 재해석 0)
+IFS=$'\x1f' read -r SEATS_FILE AGENT ROLE RECF <<<"$FACTS"; G="${FT_MBOX_PY:-${ROOT:-.}/.fable-team/comm/mbox.py}"; [ "$REOPEN" = 1 ] || [ ! -f "$G" ] || GO="$(python3 "$G" close-check "$SEAT" 2>&1)" || finish 1 "REJECT $SEAT 승계 마무리 전 닫기 거절(r1116 ②③ · 명부 쓰기 0 · kill 0) — ${GO:-close-check 실패}"   # r5 ③ 확정 값은 갈래·자식에 «값으로»(재해석 0) · r1116 ②③ 후계 있는 옛 세션 = 미표시 0 + [인계] 뒤 후계 [레디] 항목 전부 «받음»
 if [ -n "$VERDICT" ]; then   # R400 ⓪① — 원장 루트를 먼저 풀고(못 풀면 쓰기 0) 재개 기록 → 실패면 명부·kill 0
   [ "$BY" != "$SEAT" ] || { echo "REJECT $SEAT 은 지금 이 명령을 실행하는 세션 자신 — 다른 좌석에서 닫는다"; exit 1; }
   . "$HERE/ft-harness-root.sh" && DATA="$(ft_data_root "$HERE")" || { echo "REJECT 원장 루트를 못 풂 — FT_ROOT=<설치본 루트> 를 주고 --seats <그 루트>/.fable-team/seats.json 로 (쓰기 0 · kill 0)"; exit 1; }
