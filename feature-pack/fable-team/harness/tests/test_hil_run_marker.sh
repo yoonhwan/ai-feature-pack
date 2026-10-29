@@ -145,7 +145,7 @@ run_watch seats.json slow & run_watch seats.json slow & wait
 
 echo "== 변이 1: 표식 기록 제거 → ⓐ 가 FAIL(검출)"
 M="$T/mut"; mkdir -p "$M"; cp "$SRC/ft-hil.sh" "$SRC/ft_secret_judge.py" "$M/" 2>/dev/null
-sed '/^date +%s > "\$M.ran"$/d' "$SRC/ft-hil.sh" > "$M/ft-hil.sh"; ! cmp -s "$SRC/ft-hil.sh" "$M/ft-hil.sh" && ok "변이 사본이 원본과 다르다" || bad "변이 사본 = 원본"
+sed '/^date +%s >> "\$M.ran"$/d' "$SRC/ft-hil.sh" > "$M/ft-hil.sh"; ! cmp -s "$SRC/ft-hil.sh" "$M/ft-hil.sh" && ok "변이 사본이 원본과 다르다" || bad "변이 사본 = 원본"
 MD="$T/md"; mkdir -p "$MD"; plan M
 env -i HOME="$T/home" PATH="/usr/bin:/bin" HIL_DIR="$MD" HIL_CLIP=0 FT_SECRET_JUDGE="$T/none.py" bash "$M/ft-hil.sh" --add "$T/M.sh.hil" >/dev/null
 bash "$MD/h1" >/dev/null 2>&1
