@@ -33,21 +33,21 @@ for SP in "$HERE/../bin/ft-nano-spawn.sh" "$HERE/../kit/fable-team/bin/ft-nano-s
   # ⓐ(실패 시험 먼저) --agent pi --tier impl → high(impl:tier=impl) — 고치기 전 = low
   r="$(run impl pi 1 high 0 0)"
   has "ⓐ --agent pi --tier impl effort=high" "$r" "EFFORT=high"
-  has "ⓐ PLAN effort=high(impl:tier=impl)" "$r" "PLANX=[ effort=high(impl:tier=impl) serena=on]"
+  has "ⓐ PLAN effort=high(impl:tier=impl)" "$r" "PLANX=[ effort=high(impl:tier=impl) serena=off(은퇴 10-22)]"
   has "ⓐ tmuxc --effort high" "$r" "--effort high"
-  # ⓑ --agent pi 티어 없음(코드 나노 = serena on 조건) → high(impl:code-nano)
+  # ⓑ --agent pi 티어 없음(코드 나노) → high(impl:code-nano)
   r="$(run '' pi 1 high 0 0)"
-  has "ⓑ --agent pi 코드 나노 PLAN effort=high(impl:code-nano)" "$r" "PLANX=[ effort=high(impl:code-nano) serena=on]"
+  has "ⓑ --agent pi 코드 나노 PLAN effort=high(impl:code-nano)" "$r" "PLANX=[ effort=high(impl:code-nano) serena=off(은퇴 10-22)]"
   # ⓒ 짧은 나노 = low
-  r="$(run search pi 1 high 0 0)";  has "ⓒ --agent pi --tier search = low(short:tier=search)" "$r" "PLANX=[ effort=low(short:tier=search) serena=off(tier=search)]"
+  r="$(run search pi 1 high 0 0)";  has "ⓒ --agent pi --tier search = low(short:tier=search)" "$r" "PLANX=[ effort=low(short:tier=search) serena=off(은퇴 10-22)]"
   r="$(run search pi 0 high 0 0)";  has "ⓒ --tier search(기본 pi) = low(short:tier=search)" "$r" "effort=low(short:tier=search)"
-  r="$(run '' pi 1 high 0 1)";      has "ⓒ --agent pi --research = low(short:research)" "$r" "PLANX=[ effort=low(short:research) serena=off(research)]"
+  r="$(run '' pi 1 high 0 1)";      has "ⓒ --agent pi --research = low(short:research)" "$r" "PLANX=[ effort=low(short:research) serena=off(은퇴 10-22)]"
   r="$(run checker pi 1 high 0 0)"; has "ⓒ --agent pi --tier checker = low(short:tier=checker)" "$r" "effort=low(short:tier=checker)"
   r="$(run tester:2 pi 1 high 0 0)"; has "ⓒ --agent pi --tier tester:2 = low(short:tier=tester)" "$r" "effort=low(short:tier=tester)"
-  # serena 판별 동작 그대로 — checker·tester pi 나노는 지금처럼 --serena 붙음(짧은 effort 와 별개)
-  has "ⓒ checker·tester pi serena 판별 불변(on)" "$r" "serena=on]"
+  # r1107: Serena 은퇴 — checker·tester pi 나노도 serena off(짧은 effort 와 별개)
+  has "ⓒ checker·tester pi serena=off(은퇴 10-22)" "$r" "serena=off(은퇴 10-22)]"
   # ⓓ 직접 적은 --effort 가 이긴다
-  r="$(run impl pi 1 low 1 0)";     has "ⓓ --tier impl --effort low = low(explicit)" "$r" "PLANX=[ effort=low(explicit) serena=on]"
+  r="$(run impl pi 1 low 1 0)";     has "ⓓ --tier impl --effort low = low(explicit)" "$r" "PLANX=[ effort=low(explicit) serena=off(은퇴 10-22)]"
   r="$(run search pi 1 high 1 0)";  has "ⓓ --tier search --effort high = high(explicit)" "$r" "effort=high(explicit)"
   # ⓔ env 손잡이 — 새 이름 2개 · 옛 FT_PI_EFFORT 는 두 갈래 모두 + stderr WARN 1줄
   r="$(run search pi 1 high 0 0 FT_PI_EFFORT_SHORT=medium)"; has "ⓔ FT_PI_EFFORT_SHORT=medium → short 갈래" "$r" "effort=medium(short:tier=search)"

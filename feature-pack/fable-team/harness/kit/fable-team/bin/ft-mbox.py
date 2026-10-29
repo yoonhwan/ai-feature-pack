@@ -21,6 +21,11 @@ import shutil
 import glob
 import subprocess
 
+
+def _role_key(name):
+    """★우편함 키 = 역할 이름(r1116 · 판정 2777)★ — 세션 번호 «#N» 은 표시만(comm/mbox_conf.role_key 와 같은 규칙)."""
+    return re.sub(r"#\d+$", "", name or "")
+
 MAX_PER_TO = int(os.environ.get("FT_MBOX_RING") or 10)
 # 세션명 allowlist — 세션명이 doorbell 명령 문자열에 삽입되므로 하드 거부(명령 삽입 원천 차단).
 NAME_RE = re.compile(r"^[A-Za-z0-9._#-]+$")
@@ -501,12 +506,12 @@ def _guard_verdict(to, frm, body, dispatch=False):
         (
             r
             for r in _load(CANON)
-            if r.get("from") == frm and r.get("to") == to and _body_hash(r.get("body", "")) == h
+            if r.get("from") == frm and _role_key(r.get("to")) == _role_key(to) and _body_hash(r.get("body", "")) == h
         ),
         None,
     )
     last = max(
-        (r.get("t", 0) for r in log if r.get("f") == frm and r.get("to") == to and r.get("h") == h),
+        (r.get("t", 0) for r in log if r.get("f") == frm and _role_key(r.get("to")) == _role_key(to) and r.get("h") == h),
         default=0,
     )
     if dup and last and now - last < RESEND_COOL:
@@ -521,11 +526,11 @@ def _guard_verdict(to, frm, body, dispatch=False):
     tool, skipped = _is_tool_sender(frm), []
     others = sorted(
         {
-            r["to"]
+            _role_key(r["to"])
             for r in log
             if r.get("f") == frm
             and r.get("h") == h
-            and r.get("to") != to
+            and _role_key(r.get("to")) != _role_key(to)
             and now - r.get("t", 0) < FANOUT_WIN
         }
     )
@@ -633,7 +638,7 @@ def send(to, frm, body, force=False, dispatch=False, desk_attach=""):
         rows.append(row)
         byto = {}
         for r in rows:
-            byto.setdefault(r["to"], []).append(r)
+            byto.setdefault(_role_key(r["to"]), []).append(r)
         keep, dropped, overflow = [], 0, 0
         for t, rs in byto.items():
             rs.sort(key=lambda r: r["seq"])
@@ -642,7 +647,7 @@ def send(to, frm, body, force=False, dispatch=False, desk_attach=""):
             # ★버리는 순서 = 시스템 알림 → 일반 · 사람 글은 안 버린다★ (r912 · 위 공유 블록).
             k, d, _oldest, ov = trim(rs, MAX_PER_TO)
             keep.extend(k)
-            if t == to:
+            if t == _role_key(to):
                 dropped, overflow = d, ov
         _save(CANON, keep)
         _log_sent(CANON, row)  # r488 — 같은 잠금 안 · relay 는 send 를 타므로 여기 한 곳
@@ -654,7 +659,7 @@ def send(to, frm, body, force=False, dispatch=False, desk_attach=""):
             _guard_record(to, frm, body)
         except Exception:
             pass
-        return seq, sum(1 for r in keep if r["to"] == to), dropped, overflow
+        return seq, sum(1 for r in keep if _role_key(r["to"]) == _role_key(to)), dropped, overflow
 
     res = _locked(CANON, op)
     if res[0] == "__BLOCKED__":
@@ -740,7 +745,7 @@ def relay(to, frm, path, summary, force=False):
 
 
 def _rows_for(d, me, frm):
-    return [r for r in _load(d) if r.get("to") == me and (frm is None or r.get("from") == frm)]
+    return [r for r in _load(d) if _role_key(r.get("to")) == _role_key(me) and (frm is None or r.get("from") == frm)]
 
 
 def _consume(d, seqs):
@@ -793,7 +798,7 @@ def peek(me):
     dirs = [CANON] + _legacy_dirs()
     mine = []
     for d in dirs:
-        mine.extend(r for r in _locked(d, lambda d=d: _load(d)) if r.get("to") == me)
+        mine.extend(r for r in _locked(d, lambda d=d: _load(d)) if _role_key(r.get("to")) == _role_key(me))
     mine.sort(key=lambda r: r["seq"], reverse=True)
     head = f"pending={len(mine)}"
     if mine:

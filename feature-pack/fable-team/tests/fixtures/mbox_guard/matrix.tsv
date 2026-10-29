@@ -2,7 +2,7 @@
 ok	byz-planner-master-claude#9	0 3 0 0 0 0 0 3
 stopready	byz-planner-master-claude#9	0 3 0 0 0 0 0 3
 unreg	byz-planner-master-claude#9	0 3 0 0 0 0 0 3
-retired	byz-planner-master-claude#8	3 3 0 0 3 3 3 3
+retired	byz-planner-master-claude#8	0 3 0 0 0 0 0 3
 closed	byz-planner-master-claude#9	3 3 0 0 3 3 3 3
 dup	byz-planner-master-claude#9	3 3 0 0 3 3 3 3
 broken	byz-planner-master-claude#9	3 3 0 0 3 3 3 3

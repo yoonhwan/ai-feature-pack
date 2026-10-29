@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # test_nano_spawn_pi_effort_serena.sh — r556: ft-nano-spawn.sh 의 pi 나노 두 칸.
-#   ①pi 나노 기본 effort = low(직접 적은 --effort 만 이긴다 · FT_PI_EFFORT=high 로 되돌림) ②pi «코드» 나노에만 tmuxc --serena
+#   ①pi 나노 기본 effort = low(직접 적은 --effort 만 이긴다 · FT_PI_EFFORT=high 로 되돌림) ②(r1107) Serena 은퇴 — 어떤 나노에도 --serena 0 + BOOT 1번 안내문
 #   시험 꼴 = 기존 test_nano_spawn_tier.sh 와 같다 — 스크립트에서 블록을 꺼내 돌린다. 실제 tmux·워크트리·pi 실행 0 · tmuxc 는 가짜 2벌.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
@@ -46,20 +46,20 @@ for SP in "$HERE/../bin/ft-nano-spawn.sh" "$HERE/../kit/fable-team/bin/ft-nano-s
   op() { env -i PATH="$1:$ORIG_PATH" WTDIR=/tmp/wt NAME=n#0 AGENT="${2:-claude}" MODEL=m EFFORT="${3:-high}" EFFORT_WHY=impl:code-nano TIER="${4:-}" RESEARCH="${5:-0}" ${6:+FT_PI_SERENA="$6"} bash "$T/b.sh" 2>&1; }
   ORIG_PATH="$PATH"
 
-  # ⓔ pi 코드 나노 → --serena 붙음 · PLAN serena=on
-  r="$(op "$T/new" pi)"; case "$r" in *"SERENA=on"*"--serena"*) ok "$tag: ⓔ pi 코드 나노 --serena";; *) bad "$tag: ⓔ → $r";; esac
-  case "$r" in *"PLANX=[ effort=high(impl:code-nano) serena=on]"*) ok "$tag: ⓔ PLAN 줄 effort+serena";; *) bad "$tag: ⓔ PLANX → $r";; esac
-  # ⓓ --research(pi) 는 코드를 안 만든다 → --serena 없음
-  r="$(op "$T/new" pi high '' 1)"; case "$r" in *"SERENA=off(research)"*) ok "$tag: ⓓ --research pi = serena 없음";; *) bad "$tag: ⓓ → $r";; esac
-  case "$r" in *"--serena"*) bad "$tag: ⓓ research 인데 --serena 붙음";; *) ok "$tag: ⓓ research OPEN 에 --serena 없음";; esac
-  # ⓒ2 --tier search(pi) 도 읽기 전용 → --serena 없음
-  r="$(op "$T/new" pi low search)"; case "$r" in *"SERENA=off(tier=search)"*) ok "$tag: ⓒ --tier search pi = serena 없음";; *) bad "$tag: ⓒ search → $r";; esac
-  # ⓕ 설치 tmuxc 가 --serena 를 모르면 REJECT(조용히 빼고 열기 0)
-  r="$(op "$T/old" pi)"; case "$r" in *"REJECT 설치 tmuxc 가 --serena 모름"*"FT_PI_SERENA=0"*) ok "$tag: ⓕ --serena 모르는 tmuxc → REJECT";; *) bad "$tag: ⓕ → $r";; esac
-  case "$r" in *"OPEN="*) bad "$tag: ⓕ REJECT 인데 OPEN 출력(부작용)";; *) ok "$tag: ⓕ REJECT 는 OPEN 전에 끝남";; esac
-  # ⓕ2 FT_PI_SERENA=0 = 명시 끄기 — 붙이지 않고 stderr WARN + PLAN 에 사유
-  r="$(op "$T/new" pi high '' 0 0)"; case "$r" in *"WARN pi 나노 --serena 를 껐다(FT_PI_SERENA=0)"*) ok "$tag: FT_PI_SERENA=0 stderr WARN";; *) bad "$tag: FT_PI_SERENA=0 WARN 없음 → $r";; esac
-  case "$r" in *"SERENA=off(FT_PI_SERENA=0)"*"--serena"*) bad "$tag: FT_PI_SERENA=0 인데 --serena 붙음";; *) ok "$tag: FT_PI_SERENA=0 = serena 없이 연다(사유 표시)";; esac
+  # ★r1107★ Serena 은퇴(10-22) — pi 나노도 늘 off · --serena 0 · FT_PI_SERENA 무시 · tmuxc 판과 무관(REJECT 0)
+  nos() { case "$2" in *"--serena"*) bad "$tag: $1 OPEN 에 --serena";; *) ok "$tag: $1 OPEN 에 --serena 없음";; esac; }
+  # ⓐ R1 pi 코드 나노 · FT_PI_SERENA 미설정 → off · PLAN serena=off(은퇴 10-22)
+  r="$(op "$T/new" pi)"; nos "ⓐR1 코드 나노" "$r"
+  case "$r" in *"PLANX=[ effort=high(impl:code-nano) serena=off(은퇴 10-22)]"*) ok "$tag: ⓐR1 PLAN 줄 effort+serena=off(은퇴 10-22)";; *) bad "$tag: ⓐR1 PLANX → $r";; esac
+  # ⓐ R2 FT_PI_SERENA=1 이어도 off
+  r="$(op "$T/new" pi high '' 0 1)"; nos "ⓐR2 FT_PI_SERENA=1" "$r"
+  case "$r" in *"SERENA=off(은퇴 10-22)"*) ok "$tag: ⓐR2 FT_PI_SERENA=1 → off";; *) bad "$tag: ⓐR2 → $r";; esac
+  # ⓑ R3 --serena 모르는 tmuxc → REJECT 0 · OPEN 까지 간다
+  r="$(op "$T/old" pi)"; case "$r" in *"REJECT"*) bad "$tag: ⓑR3 옛 tmuxc 인데 REJECT → $r";; *"OPEN="*) ok "$tag: ⓑR3 옛 tmuxc REJECT 0";; *) bad "$tag: ⓑR3 → $r";; esac
+  # ⓒ R4 --research · --tier search(pi) 도 off
+  r="$(op "$T/new" pi high '' 1)"; nos "ⓒR4 research" "$r"
+  case "$r" in *"SERENA=off(은퇴 10-22)"*) ok "$tag: ⓒR4 research → off";; *) bad "$tag: ⓒR4 → $r";; esac
+  r="$(op "$T/new" pi low search)"; nos "ⓒR4 tier=search" "$r"
   # ⓖ claude·codex·cmd 출력 불변 — _PLANX 가 비고 --serena 가 안 붙는다
   for a in claude codex cmd; do
     r="$(op "$T/new" "$a")"; case "$r" in *"PLANX=[]"*) ok "$tag: ⓖ $a PLANX 빈칸";; *) bad "$tag: ⓖ $a PLANX → $r";; esac
@@ -72,6 +72,11 @@ BASE_LINE='echo "PLAN seat=$NAME agent=$AGENT model=$MODEL$_VIA${TIER:+ tier=$TI
 WANT_LINE="${BASE_LINE%\"}\$_PLANX\""
 NEW_PLAN="$(grep -m1 '^echo "PLAN ' "$HERE/../../harness/kit/fable-team/bin/ft-nano-spawn.sh")"
 [ "$WANT_LINE" = "$NEW_PLAN" ] && ok "ⓖ PLAN echo 줄 = base 글자 + \$_PLANX 1개" || bad "ⓖ PLAN echo 줄이 base 와 다르다 (want=[$WANT_LINE] new=[$NEW_PLAN])"
-cmp -s "$HERE/../bin/ft-nano-spawn.sh" "$HERE/../kit/fable-team/bin/ft-nano-spawn.sh" && ok "추적본 = 키트(cmp)" || bad "추적본 ≠ 키트"
+cmp -s "$HERE/../bin/ft-nano-spawn.sh" "$HERE/../kit/fable-team/bin/ft-nano-spawn.sh" && ok "ⓔ 추적본 = 키트(cmp)" || bad "ⓔ 추적본 ≠ 키트"
+# ⓓ 안내문 COMM-GUIDE-BOOT.md 1번 = Serena 활성화 지시 0(은퇴 문장) · 2번 첫 보고 칸 = ci
+BOOT="$HERE/../../../tmuxc/claude-code/skills/tmuxc/COMM-GUIDE-BOOT.md"
+b1="$(grep -m1 '^1\. ' "$BOOT")"; b2="$(grep -m1 '^2\. ' "$BOOT")"
+case "$b1" in *initial_instructions*|*activate_project*|'') bad "ⓓ BOOT 1번에 Serena 활성화 지시 → [$b1]";; *) ok "ⓓ BOOT 1번 Serena 활성화 지시 0";; esac
+case "$b2" in *"Serena 가부"*|'') bad "ⓓ BOOT 2번 첫 보고 칸 Serena 가부";; *"ci 가부"*) ok "ⓓ BOOT 2번 첫 보고 칸 = ci 가부";; *) bad "ⓓ BOOT 2번 → [$b2]";; esac
 echo
 [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }

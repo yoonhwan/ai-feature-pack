@@ -69,7 +69,13 @@ if auth in bad: stop("명부 읽기 실패 " + os.path.basename(auth) + " — �
 hold = [f for f, v in docs.items() if isinstance(v.get(to), dict)]   # 전역 검색 = 충돌 검사 전용
 if len(hold) > 1: stop("명부 충돌 " + " ".join(os.path.basename(f) for f in hold))
 row = docs.get(auth, {}).get(to)                                    # 상태는 authoritative 파일에서만
+def rk(n): return re.sub(r"#\d+$", "", n)                          # 우편함 키 = 역할 이름(r1116 · mbox_conf.role_key 와 같은 규칙)
+def live(f): return [k for k, v in docs.get(f, {}).items() if isinstance(v, dict) and rk(k) == rk(to)
+                     and not v.get("_replaced_by") and v.get("role") not in ("closed", "stopped")]
+def same_role(f): return [k for k, v in docs.get(f, {}).items() if isinstance(v, dict) and rk(k) == rk(to)]
 if not isinstance(row, dict):
+    if same_role(auth) and not live(auth): stop("역할 현역 0 " + rk(to) + " — 명부의 그 역할 행이 전부 닫힘")
+    if live(auth) and rk(to) == to: out("OK"); sys.exit(0)          # 번호 없는 역할 이름(R3) = 그 역할 우편함
     other = " (다른 명부 " + os.path.basename(hold[0]) + " 에만 있음 · 판정에 안 씀)" if hold else ""
     out("WARN", "", "미등록 " + to + " — 전송" + other); out("OK"); sys.exit(0)
 cur, seen, crow, cfile = to, {to}, row, auth
@@ -83,8 +89,11 @@ while crow.get("_replaced_by"):
     crow = nxt
 closed = crow.get("role") in ("closed", "stopped")
 def why(f, r): return "_closed=" + str(docs.get(f, {}).get("_closed") or r.get("_closed") or "?")
+# ★역할 키(r1116)★ — 옛 번호로 보내도 같은 역할 우편함에 쌓이고 현역이 읽는다 · REJECT 는 «그 역할 현역 0» 일 때만(R6)
+if closed and live(cfile): out("WARN", "", "닫힌 좌석 " + cur + " → 역할 현역 " + ",".join(live(cfile)) + " — 역할 우편함에 전송"); closed = False
 if cur != to and closed: stop("은퇴한 좌석 " + to + " → 후계 " + cur + " 도 닫힘(" + why(cfile, crow) + ")")
-if cur != to: stop("은퇴한 좌석 " + to + " → 현역 " + cur + " — 후계 이름으로 다시 보내라", forward=cur)
+if cur != to and rk(cur) != rk(to): stop("은퇴한 좌석 " + to + " → 현역 " + cur + " — 후계 이름으로 다시 보내라", forward=cur)   # 개명·팀 바뀜 = 다른 우편함
+if cur != to: out("WARN", "", "옛 번호 " + to + " → 역할 우편함(현역 " + cur + ") — 그대로 전송")
 if closed: stop("닫힌 좌석(" + team + " " + why(auth, row) + ")")
 if row.get("role") == "stop-ready": out("WARN", "", "정지 레디 좌석 " + to + " — 전송")
 out("OK")
@@ -98,7 +107,7 @@ import json, re, sys
 pj, to, mode, body = sys.argv[1:5]
 try: master = json.load(open(pj, encoding="utf-8")).get("_master")
 except Exception: sys.exit(0)
-if master != to: sys.exit(0)
+if not master or re.sub(r"#\d+$", "", master) != re.sub(r"#\d+$", "", to): sys.exit(0)   # 역할 키(r1116) — 옛 번호로 보내도 머리 규칙
 lines = body.strip().split("\n") if body.strip() else [""]
 m = re.match(r"\[[^\]]*\]", lines[0].strip()); head = m.group(0) if m else ""
 def emit(k, t): print(k + "\x1f\x1f" + t)
@@ -121,7 +130,7 @@ elif head == "[HIL]" or head.startswith("[HIL·"):
     if miss: emit("WARN", "[HIL] 본문에 " + ",".join(miss) + " 줄 없음 — 전송은 한다")
 elif head in ("[완료]", "[정지 레디]") or head.startswith("[완료·"):
     if not re.search(r"(세트|시험)\s*:", body): emit("WARN", head + " 증거 줄(세트:·시험:) 없음 — 전송은 한다")
-elif head not in ("[긴급]", "[합치기]", "[부팅 보고]"):
+elif head not in ("[긴급]", "[합치기]", "[부팅 보고]", "[인계]", "[레디]"):   # [인계]·[레디] = 같은 역할 승계 핸드셰이크(r1116)
     viol = "planner 앞 쪽지는 " + "[결정]·[HIL]·[긴급]·[합치기]·[정지 레디]·[완료]·[부팅 보고]" + " 만 — 진행·참고·마일스톤은 상태판(ft-board)이 나른다. 되돌릴 수 있고 사람 손도 안 필요한 것은 팀 master 가 선례(ft-precedent)로 결정한다(R-E). 머리=" + (head or "없음")
 if viol and mode == "reject": emit("REJECT", viol)
 elif viol: emit("WARN", "planner 머리 규칙 위반(warn 모드 · 전송) — " + viol); emit("LOGH", "to=" + to + " " + viol)

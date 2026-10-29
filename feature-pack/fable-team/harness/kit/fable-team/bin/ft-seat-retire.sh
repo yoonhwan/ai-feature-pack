@@ -18,7 +18,7 @@ shift; NEW=""; RECONLY=0; ARG=""; VERDICT=""; KEEP=0
 case "${1:-}" in ""|--*) ;; *) NEW="$1"; shift;; esac
 while [ $# -gt 0 ]; do case "$1" in --seats) ARG="${2:-}"; shift 2;; --record-only) RECONLY=1; shift;; --keep-existing) KEEP=1; shift;; --verdict) VERDICT="${2:-}"; [[ "$VERDICT" =~ ^[0-9][0-9A-Za-z._-]*$ ]] || { echo "$USAGE — --verdict <번호>" >&2; exit 2; }; shift 2;; *) echo "unknown $1" >&2; exit 2;; esac; done
 { [ "$RECONLY" = 1 ] && [ -z "$NEW" ]; } || { [ "$RECONLY" = 0 ] && [ "$KEEP" = 0 ] && [ -n "$NEW" ] && [ "$OLD" != "$NEW" ] && [ -z "$VERDICT" ]; } || { echo "$USAGE" >&2; exit 2; }
-ROOT="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')"
+ROOT="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')"; G="${FT_MBOX_PY:-${ROOT:-.}/.fable-team/comm/mbox.py}"; [ "$RECONLY" = 1 ] || [ ! -f "$G" ] || GO="$(python3 "$G" close-check "$OLD" --no-ready 2>&1)" || { echo "REJECT 승계 전 쪽지 마무리(r1116 ③ · 쓰기 0 · rc 4) — ${GO:-close-check 실패}"; exit 4; }   # 받은 쪽지 seq 마다 «처리함|인계» 표시 전 retire 거절 · 우편함 mbox.py 없는 루트 = 영수 원장 없음
 python3 - "${ARG:-${FT_SEATS_JSON:-}}" "${ROOT:-.}" "$OLD" "$NEW" "$RECONLY" "$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)" "$VERDICT" "$KEEP" <<'PY'
 import json, os, re, sys, glob, shutil, shlex, datetime, subprocess, collections
 arg, root, old, new, reconly, here, verdict, keep = sys.argv[1:9]

@@ -33,7 +33,7 @@ mut_split() { cat >> "$C/mbox_lineage.py" <<'PY'
 def claim(dirs, names, frm, limit):
     import time as _t
     d = dirs[0]
-    got = _locked(d, lambda: [(d, r) for r in _load(d) if r.get("to") in names])
+    got = _locked(d, lambda: [(d, r) for r in _load(d) if role_key(r.get("to")) in {role_key(n) for n in names}])
     _t.sleep(0.4)
     def op():
         s = {r["seq"] for _, r in got}
@@ -59,31 +59,32 @@ new_env lineage3; row 1 "$P#1" a1; row 2 "$P#1" a2; row 3 "$P#2" b1; row 4 other
 mbox "$ENVROOT/out" "$ENVROOT/err" peek "$P#3"
 grep -q '^pending=3 ' "$ENVROOT/out" && [ "$(wc -l < "$Q" | tr -d ' ')" = 4 ] && ok "ⓑ peek #3 pending=3 (소비 0)" || bad "ⓑ peek :: $(cat "$ENVROOT/out")"
 
-# ⓒ 동시성: 같은 seq 1건을 recv #2 와 recv #3 이 동시에 → READ 합계 1
+# ⓒ 동시성: 같은 seq 1건을 recv «역할 이름»(번호 없음 · 미등록 = 현역 취급) 과 recv #3 이 동시에 → READ 합계 1
+#   (r1116: 은퇴한 #2 는 현역 아님이라 READ 0 — 경합 두 쪽 모두 읽을 자격이 있는 쌍으로 본다)
 chk_c() {
   new_env lineage3 "${1:-}"; row 1 "$P#2" only
-  mbox "$ENVROOT/o2" "$ENVROOT/e2" recv "$P#2" & local p1=$!
+  mbox "$ENVROOT/o2" "$ENVROOT/e2" recv "$P" & local p1=$!
   mbox "$ENVROOT/o3" "$ENVROOT/e3" recv "$P#3" & local p2=$!
   wait "$p1" "$p2"; [ "$(( $(nread "$ENVROOT/o2") + $(nread "$ENVROOT/o3") ))" = 1 ]
 }
-chk_c && ok "ⓒ 동시 recv #2·#3 → READ 합계 1" || bad "ⓒ 동시 recv"
+chk_c && ok "ⓒ 동시 recv 역할 이름·#3 → READ 합계 1" || bad "ⓒ 동시 recv"
 chk_c mut_split && bad "변이② 잠금 분리가 ⓒ 에 안 잡힘" || ok "변이② 잠금 분리 → ⓒ FAIL 확인"
 
-# ⓓ 중단 규칙: 닫힌 행 · 명부 충돌 · 명부 파싱 실패 → 그 지점에서 중단 + WARN 정확히 1줄 + 그 이름 큐 원본 보존
-chk_d() {   # chk_d <variant> <읽는 사람> <보존 이름> <읽혀야 할 이름>
-  new_env "$1"; row 1 "$3" keep; row 2 "$4" mine
-  recv_as "$2"; [ "$(nread "$ENVROOT/out")" = 1 ] && [ "$(nwarn)" = 1 ] && [ "$(rows_to "$3")" = 1 ]
+# ⓓ 계보 중단(닫힌 행 · 명부 충돌 · 명부 파싱 실패) — 계보 WARN 은 정확히 1줄 그대로지만, 같은 역할이면 역할 키(r1116)로 읽는다
+chk_d() {   # chk_d <variant> <읽는 사람> <같은 역할 옛 이름> <읽는 사람 앞 이름>
+  new_env "$1"; row 1 "$3" old; row 2 "$4" mine
+  recv_as "$2"; [ "$(nread "$ENVROOT/out")" = 2 ] && [ "$(nwarn)" = 1 ] && [ "$(rows_to "$3")" = 0 ]
 }
-chk_d lineage_closed "$P#3" "$P#1" "$P#2" && ok "ⓓ 닫힌 행(role=closed) 에서 중단 + WARN 1 + #1 큐 보존" || bad "ⓓ 닫힌 행"
-chk_d lineage_dup "$P#2" "$P#1" "$P#2" && ok "ⓓ 명부 충돌에서 중단 + WARN 1 + #1 큐 보존" || bad "ⓓ 명부 충돌"
-chk_d broken "$P#9" "$P#8" "$P#9" && ok "ⓓ 명부 파싱 실패 → 계보 0 + WARN 1 + #8 큐 보존" || bad "ⓓ 명부 파싱 실패"
+chk_d lineage_closed "$P#3" "$P#1" "$P#2" && ok "ⓓ 닫힌 행: 계보 WARN 1 · 같은 역할 #1 도 READ(역할 키)" || bad "ⓓ 닫힌 행"
+chk_d lineage_dup "$P#2" "$P#1" "$P#2" && ok "ⓓ 명부 충돌: 계보 WARN 1 · 같은 역할 #1 도 READ(역할 키)" || bad "ⓓ 명부 충돌"
+chk_d broken "$P#9" "$P#8" "$P#9" && ok "ⓓ 명부 파싱 실패: 계보 0 WARN 1 · 같은 역할 #8 도 READ(역할 키)" || bad "ⓓ 명부 파싱 실패"
 
-# ⓔ 다른 팀 명부의 후계(팀 바뀜) = 합류 0
-chk_e() {   # chk_e <variant> <읽는 사람> <합류되면 안 되는 이름>
+# ⓔ 다른 팀 명부의 후계(팀 바뀜) = 계보 합류 0 · 역할이 다르면 READ 0 · 역할이 같으면 역할 키로 READ(r1116)
+chk_e() {   # chk_e <variant> <읽는 사람> <옛 이름> <기대 READ> <옛 큐 남는 수>
   new_env "$1"; row 1 "$3" keep; row 2 "$2" mine
-  recv_as "$2"; [ "$(nread "$ENVROOT/out")" = 1 ] && grep -q 'lineage=0$' "$ENVROOT/out" && [ "$(rows_to "$3")" = 1 ]
+  recv_as "$2"; [ "$(nread "$ENVROOT/out")" = "${4:-1}" ] && grep -q 'lineage=0$' "$ENVROOT/out" && [ "$(rows_to "$3")" = "${5:-1}" ]
 }
-chk_e foreign_retired "$P#10" "$P#9" && ok "ⓔ 타 팀 파일의 _replaced_by 로 합류 0" || bad "ⓔ foreign_retired"
+chk_e foreign_retired "$P#10" "$P#9" 2 0 && ok "ⓔ 타 팀 파일 _replaced_by 계보 0 · 같은 역할 #9 는 역할 키로 READ" || bad "ⓔ foreign_retired"
 chk_e succ_closed "$F#1" "$P#9" && ok "ⓔ 팀이 바뀐 후계(planner→feature) 합류 0" || bad "ⓔ succ_closed"
 
 # ⓐr 개명 별칭(r745): 명부 파일만 seats-new.json(_renamed_from=old) 로 바뀐 팀 — 옛 이름 앞 쪽지를 후계가 읽는다(원인이던 tfile 규칙)
