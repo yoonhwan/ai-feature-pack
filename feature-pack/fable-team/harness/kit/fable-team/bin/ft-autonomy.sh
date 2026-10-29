@@ -182,7 +182,7 @@ cmd_approve_merge() {  # <40hex>… — 검증을 전부 마친 뒤에만 쓴다
     line="approve-merge $sha $ev $now"
     printf '%s\n' "$line" >> "$LOG" || { echo "REJECT log 쓰기 실패" >&2; exit 1; }
     { printf '%s\n' "$line" > "$dir/$sha.tmp" && mv "$dir/$sha.tmp" "$dir/$sha"; } || { echo "REJECT 승인 파일 쓰기 실패: $dir/$sha" >&2; exit 1; }
-    echo "APPROVED $sha $ev"; learn_kind "$sha" "$now"   # r466: 거절 원장에 있던 sha 면 그 종류를 학습(ON ∧ full)
+    echo "APPROVED $sha $ev"; learn_kind "$sha" "$now"; bash "$HERE/ft-hil-notify.sh" approved "$sha" "$STATE" || true   # r466: 거절 원장 sha 면 종류 학습(ON ∧ full) · r1117: merge-land 거절 표식이 있으면 그 좌석에 [승인 도착] 1통 → .sent(실패 = stderr 1줄 · APPROVED 불변)
   done; echo "EQUIV 허용 범위: 이 승인은 같은 변경 집합(승인 sha 위에 main 병합만 더한 head)에도 유효 — 병합 훅이 ft_approval_equiv 로 대조(r462)" >&2
 }
 

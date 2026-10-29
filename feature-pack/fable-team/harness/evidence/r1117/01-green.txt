@@ -1,0 +1,46 @@
+== ⓐ R1 머리 표식 있음 → rc0 → 표식 좌석 1통 + planner master 1통 = 2통
+PASS --add → h1
+PASS h1 rc0
+PASS 계획 출력은 화면에 그대로(tee)
+PASS 쪽지 정확히 2통
+PASS   └ 요청 좌석 1통(결과 줄·계획 경로)
+PASS   └ planner master 1통
+== ⓑ R2 머리 표식 없음 → 등록 WARN 1줄 · 실행 뒤 planner master 1통만
+PASS --add → h2(stdout 1줄 그대로)
+PASS   └ WARN 1줄
+PASS planner master 1통만
+== ⓒ R3·R8 rc 보존 — 계획 rc7 → h rc7 · mbox rc1 이어도 rc7 + stderr «판정 불가» 1줄
+PASS h3 exit 7
+PASS   └ [완료 h3] rc=7
+PASS mbox 실패에도 h4 exit 7
+PASS   └ stderr «판정 불가»
+PASS   └ 쪽지 0(가짜 mbox 실패)
+== ⓓ R4 머리 표식 린트 실패·4좌석 → --add REJECT rc2 · h 파일 0
+PASS 린트 실패 = REJECT rc2
+PASS 4좌석 = REJECT rc2
+PASS   └ 새 h 파일 0
+== ⓔ R5 ft-merge-land 승인 파일 없음 → REJECT rc2 그대로 + 기다림 표식 1줄 · 재거절 덧쓰기 0
+PASS REJECT rc2 그대로
+PASS   └ REJECT 줄 끝 «기다림 등록 <경로>»
+PASS   └ 표식 1줄 seat=FT_SEAT
+PASS 재거절 = 파일 1개 그대로(덧쓰기 0)
+== ⓕ R6 approve-merge(표식 있음) → APPROVED 그대로 + [승인 도착] 1통 + .sent · 재승인 0통
+PASS APPROVED 줄 그대로
+PASS   └ 표식 좌석에 1통
+PASS   └ 표식 → .sent
+PASS 재승인 = 0통
+== ⓖ R7 approve-merge(표식 없음) → APPROVED 그대로 · 0통 · 새 파일 0 / seat=unknown → planner «수신자 모름» 1통
+PASS APPROVED 그대로
+PASS   └ 0통 · 새 표식 파일 0
+PASS seat=unknown → planner master «수신자 모름» 1통
+== ⓗ R8 승인 쪽 mbox rc1 → APPROVED·rc 불변 · stderr «판정 불가» · 표식 남음(.sent 0)
+PASS mbox 실패에도 APPROVED rc0
+PASS   └ stderr «판정 불가»
+PASS   └ 표식 남음(다음 승인에 다시 시도)
+== ⓘ 팩 추적본 bin = 키트 bin (cmp0 ×4)
+PASS cmp0 ft-hil.sh
+PASS cmp0 ft-hil-notify.sh
+PASS cmp0 ft-merge-land.sh
+PASS cmp0 ft-autonomy.sh
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
