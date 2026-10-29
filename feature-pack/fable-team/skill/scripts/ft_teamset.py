@@ -189,6 +189,28 @@ def arch_gap(spec, d, team, live):
     return "" if a in live else f"arch 없음 — 명부 _arch {a} 라이브 아님 {arch_open_hint(d, team)}"
 
 
+def standby_close(root, d, team, live):
+    """r1119 — 오빠 판정으로 arch 를 닫은 «대기 팀»이면 (좌석, 판정), 아니면 None. 읽기 전용 · 새 표식 0(ft-seat-close --verdict 기록만 읽는다).
+    ⓐ `_arch` == "" ⓑ `_closed_from` 에 «이 명부:_arch» 를 가진 행 중 `_closed.at` 가 가장 늦은 행에 verdict ⓒ `byz-<팀>-arch-` 행 중 라이브 0."""
+    if d.get("_arch") != "":
+        return None
+    me = os.path.realpath(roster_path(root, team))
+
+    def ours(ent):
+        f, _, k = str(ent).rpartition(":")
+        return k == "_arch" and bool(f) and os.path.realpath(os.path.join(root, f)) == me   # 절대경로면 join 이 그대로 둔다
+
+    closed = [(str((v.get("_closed") or {}).get("at", "")), k, v) for k, v in d.items()
+              if isinstance(v, dict) and isinstance(v.get("_closed"), dict) and any(ours(e) for e in v.get("_closed_from") or [])]
+    if not closed:
+        return None
+    _, seat, row = max(closed, key=lambda c: c[0])
+    verdict = str(row["_closed"].get("verdict") or "")
+    if not verdict or any(k.startswith(f"byz-{team}-arch-") and k in live for k in d):
+        return None
+    return seat, verdict
+
+
 def arch_open_hint(d, team):
     """R437 — arch 없음 사유 뒤 «있는 길» 1줄: 명부 `_arch` 에 이름이 있으면 그 좌석의 자기 교대(successor-open · arch-live 통과 · 구 좌석 생존 불요), 비었으면 ft-role-spawn --team."""
     a = d.get("_arch")
@@ -237,7 +259,12 @@ def cmd_arch_live(a):
     for t in teams_of(a.root):  # --seat: 교대 대상이 `_master`·`_desk` 로 적힌 팀만 — `_arch` 자신의 교대는 통과(교착 0)
         d = read_roster(a.root, t)
         keys = [k for k in ("_master", "_desk", "_arch") if d.get(k) == a.seat]  # 소유 역할 키만 — _hil_route·_parent 류 참조 키는 소속이 아니다(DA⑥ r1 H1)
-        gap = arch_gap(load(a.md, a.root), d, t, sessions()) if {"_master", "_desk"} & set(keys) else ""
+        live = sessions() if {"_master", "_desk"} & set(keys) else []
+        gap = arch_gap(load(a.md, a.root), d, t, live) if {"_master", "_desk"} & set(keys) else ""
+        sb = standby_close(a.root, d, t, live) if gap else None
+        if sb:   # r1119: 판정으로 arch 를 닫은 대기 팀 — 팀장 교대 통과
+            print(f"OK {t} {keys[0]} · 대기(arch 닫힘 판정 {sb[1]} {sb[0]})")
+            sys.exit(0)
         if gap:
             print(f"NO {t} {gap}")
             sys.exit(3)
@@ -262,7 +289,10 @@ def check_team(spec, root, team, live):
     if not any(s.startswith(f"byz-{team}-master-") for s in mine):
         err.append("master 없음")
     gap = arch_gap(spec, d, team, live)
-    if gap:
+    sb = standby_close(root, d, team, live) if gap else None
+    if sb:   # r1119: 판정으로 arch 를 닫은 대기 팀 — ERR 아님
+        info.append(f"대기(arch 닫힘 판정 {sb[1]})")
+    elif gap:
         err.append(gap)
     m = d.get("_master")
     master_ok = False
