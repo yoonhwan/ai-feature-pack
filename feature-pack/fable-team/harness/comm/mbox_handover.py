@@ -7,6 +7,7 @@ import subprocess
 import mbox_lineage
 CANON = None   # mbox.py 가 묶는다
 ITEM = re.compile(r"^- (#\d+|h\d+|bg:[\w.-]+) ", re.M)   # [인계] 항목 줄 = «- <id> …» · [레디] 는 «<id> 받음»
+HEAD_N = re.compile(r"^\[인계\] \S+ -> \S+ · 항목 (\d+) ")   # handover 가 쓰는 머리 — 항목 수가 «- <id>» 줄 수와 같아야 기계 [인계]
 ASK_HEADS = ("[HIL]", "[결정]", "[질문]", "[긴급]")
 IGNORE_BG = re.compile(r"(^|/)(claude|codex|node|pi|opencode|caffeinate|tmux|login|-?zsh|-?bash)( |$)|lsp|language-server|mcp|serena|pyright")
 
@@ -30,9 +31,14 @@ def _append(me, rows):   # 영수·표시는 추가 전용 — 못 쓰면 raise(
             f.write(json.dumps(r, ensure_ascii=False) + "\n")
 
 
-def record(me, rows):
-    _append(me, [{"seq": r["seq"], "from": r.get("from", ""), "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
-                  "body": r.get("body", "")[:300], "body_full": r.get("body_full", "")} for r in rows])
+def record(me, rows):   # [레디] 는 받는 순간 «처리함»(r1116b ③ — 핸드셰이크 회신 자체가 구세션 미표시로 잡혀 close-check 가 막던 자리)
+    now = time.strftime("%Y-%m-%dT%H:%M:%S")
+    out = []
+    for r in rows:
+        out.append({"seq": r["seq"], "from": r.get("from", ""), "ts": now, "body": r.get("body", "")[:300], "body_full": r.get("body_full", "")})
+        if _head(r.get("body")) == "[레디]":
+            out.append({"seq": r["seq"], "mark": "처리함", "ts": now, "auto": "[레디]"})
+    _append(me, out)
 
 
 def mark(me, seqs, kind):
@@ -70,11 +76,11 @@ def _head(body):
     m = re.match(r"\s*(\[[^\]]*\])", body or ""); return m.group(1) if m else ""
 
 
-def _h_items():   # 실행 중·미실행 h — ft-hil.sh pending --each(«h<N> <분>») · 도구 없음 = 칸 생략 · 실패 = 판정 불가(raise)
+def _h_items():   # 실행 중·미실행 h — ft-hil.sh --pending --each(«h<N> <분>») · 도구 없음 = 칸 생략 · 실패 = 판정 불가(raise)
     hil = os.environ.get("FT_HIL_BIN") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "bin", "ft-hil.sh")
     if not os.path.isfile(hil):
         return [], "h 목록 확인 불가(ft-hil.sh 없음 %s)" % hil
-    r = subprocess.run(["bash", hil, "pending", "--each"], capture_output=True, text=True, timeout=7)
+    r = subprocess.run(["bash", hil, "--pending", "--each"], capture_output=True, text=True, timeout=7)   # 옵션 꼴(r1116b · 하위 명령 꼴 = usage rc 2)
     if r.returncode not in (0, 1):
         raise RuntimeError("ft-hil.sh pending rc=%d %s" % (r.returncode, r.stderr.strip()[:80]))
     return ["- %s 실행 전·실행 중 %s분" % tuple((ln.split() + ["?"])[:2]) for ln in r.stdout.splitlines() if re.match(r"h\d+ ", ln)], ""
@@ -128,13 +134,23 @@ def last_handover(old):
     return hs[-1] if hs else None
 
 
+def items(h):
+    """[인계] 항목 id 목록 · 형식 불명이면 None(r1116b ④) — 손으로 문장처럼 쓴 [인계] 는 «- #N» 줄이 없어 항목 0 으로 «전부 받음» 이 되던 자리.
+    문장 속 «#숫자» 를 항목으로 세지 않는다: PR·Issue 번호와 구분이 안 돼 거짓 항목이 생긴다 → 머리 «항목 N» 과 줄 수가 다르면 거절이 더 단순하다."""
+    body = h.get("body", "")
+    m, ids = HEAD_N.match(body), ITEM.findall(body)
+    return ids if m and int(m.group(1)) == len(ids) else None
+
+
 def ready_body(new, old):
     h = last_handover(old)
     if not h:
         sys.stderr.write("REJECT %s 의 [인계] 없음 — 구세션이 bash mbox.sh handover %s %s 먼저\n" % (old, old, new)); sys.exit(3)
     if h["seq"] not in {r["seq"] for r in _rows(new)}:
         sys.stderr.write("REJECT [인계] #%s 를 %s 가 아직 recv 안 함 — recv 먼저\n" % (h["seq"], new)); sys.exit(3)
-    ids = ITEM.findall(h.get("body", ""))
+    ids = items(h)
+    if ids is None:
+        sys.stderr.write("REJECT [인계] #%s 형식 불명(기계 머리 «항목 N» 과 «- <id>» 줄 수 불일치) — 구세션이 bash mbox.sh handover %s %s 로 다시\n" % (h["seq"], old, new)); sys.exit(3)
     return "\n".join(["[레디] %s <- %s · [인계] #%s 받음 · 항목 %d" % (new, old, h["seq"], len(ids))] + ["%s 받음" % i for i in ids])
 
 
@@ -153,7 +169,9 @@ def close_check(seat, need_ready=True):
     h = last_handover(seat)
     if not h:
         print("REJECT %s [인계] 없음 — bash mbox.sh handover %s %s" % (seat, seat, succ)); return 3
-    ids = ITEM.findall(h.get("body", ""))
+    ids = items(h)
+    if ids is None:
+        print("REJECT %s [인계] #%s 형식 불명(손으로 쓴 [인계]) — bash mbox.sh handover %s %s 로 다시" % (seat, h["seq"], seat, succ)); return 3
     for r in reversed(_sent()):
         if r.get("seq", 0) > h["seq"] and _head(r.get("body")) == "[레디]" and r.get("from") != seat \
                 and role_key(r.get("from")) == role_key(seat) and "#%s 받음" % h["seq"] in r.get("body", ""):

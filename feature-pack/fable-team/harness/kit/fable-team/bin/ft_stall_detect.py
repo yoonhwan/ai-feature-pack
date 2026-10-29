@@ -18,6 +18,11 @@ from typing import Any
 
 IDLE_MIN = 3.0
 LEAD_HEARTBEAT_MIN = 15.0  # 팀장 심박 주기 10분 + 여유 5 — 이보다 오래 조용하면 «멈춤»
+def role_key(name: str) -> str:
+    """우편함 키 = 역할 이름(r1116 · comm/mbox_conf.role_key 와 같은 규칙) — 승계 뒤 옛 번호(planner#165) 앞 [정리] 도 그 역할(planner 현역 #166) 심박이다(r1116b ②)."""
+    return re.sub(r"#\d+$", "", name or "")
+
+
 HEARTBEAT_TOKEN = "[정리]"  # 팀장이 틱마다 보내는 «한 일 정리» 쪽지의 본문 머리
 FUTURE = re.compile(r"하겠습니다|할게요|진행하겠|착수하겠|진행할게")
 REST = "[완료·휴식]"
@@ -311,8 +316,8 @@ def _hb_line(line: str, masters: set[str], recipients: set[str], now: float) -> 
     body = r.get("body")
     if not isinstance(body, str) or not body.lstrip().startswith(HEARTBEAT_TOKEN):
         return ts, False, False  # 심박 아닌 쪽지(발주·보고)는 판정 대상이 아니다
-    if r.get("from") not in masters or r.get("to") not in recipients:
-        return ts, False, False  # 발신자가 현역 팀장이 아니거나, 받는이가 master/planner 가 아니면 심박이 아니다(반례 2·4·5)
+    if r.get("from") not in masters or role_key(str(r.get("to"))) not in {role_key(x) for x in recipients}:
+        return ts, False, False  # 발신자가 현역 팀장이 아니거나, 받는이가 master/planner «역할» 이 아니면 심박이 아니다(반례 2·4·5)
     return ts, True, False
 
 
