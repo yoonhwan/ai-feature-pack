@@ -19,7 +19,7 @@ import time
 from pathlib import Path
 
 import ft_penalty
-from ft_stall_detect import IDLE_MIN, agent_sessions, ctx_pct, lead_alert, lead_names, load_teams, off_roster_live, pending_mail, policy_stop, run, spawn_capacity, waiting_cards
+from ft_stall_detect import IDLE_MIN, agent_sessions, ctx_pct, lead_alert, lead_heartbeat_min, lead_names, load_teams, off_roster_live, pending_mail, policy_stop, run, spawn_capacity, waiting_cards
 from ft_stall_seats import Seats
 import ft_stall_state as stm
 
@@ -128,7 +128,7 @@ class Scan:
                         notes.append(f"f? {s} 팀장 심박 판정 불가 — b·d·f 세지 않음")
                     elif alert and not any(x["kind"] == "f" and x["team"] == t["team"] for x in out):  # 신선 = 0통 · 팀당 1통
                         out.append(dict(kind="f", seat=s, team=t["team"], key=f"f:{t['team']}", age=age, hb_age=hba, seq=mail[s][0] if s in mail else None,
-                                        why="팀장 " + ("심박 없음(한 번도 안 보냄)" if hba is None else f"심박 {hba:.0f}분")))
+                                        why="팀장 " + (f"심박 없음(최근 {lead_heartbeat_min():g}분 [정리] 0)" if hba is None else f"심박 {hba:.0f}분")))
                     continue
                 if self.flags(s)["future"]:
                     out.append(dict(kind="b", seat=s, team=t["team"], age=age, why="미래형 선언으로 끝나고 도구 0"))
