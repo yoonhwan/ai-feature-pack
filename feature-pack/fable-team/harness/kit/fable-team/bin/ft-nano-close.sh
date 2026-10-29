@@ -43,6 +43,10 @@
 #     ★r1053★ «대상:» 절대경로 0 이면 카드 «읽기 판» 이 사는 리포(ref 판 = ROOT · 가지 판 = SEAT_REPO · 파일 = 그 폴더 git 공통 루트)가 ROOT 일 때만 ROOT(INFO «카드 위치 근거 → ROOT») · 그 밖 = 지금처럼 REJECT(추측 0).
 #     판정기(fetch 포함)도 같은 리포에서 돈다 · 원장 행·출력 꼬리에 `repo=<owner/repo>`. (r1019 설치 뒤 실사건 3/3: BYZ cwd 에서 닫으면 gh 가 cwd 리포의 같은 번호 PR 을 읽어 head 가 틀렸다.)
 #     다른 모드(--never-started·--superseded-by·--suspended·--research·--cherry-override·--shared-wt·--branch·--plan-only·--replan)와 동시 = usage 2 · --wt 만 함께 오면 «리포 힌트» 하나(좌석 워크트리 해석·정리는 기존 그대로) · 인자 없으면 동작 불변.
+#   ★r1123 backfill★ --landed-pr 인데 좌석이 «세션 없음 ∧ 워크트리 없음»(③세션 없음 꼴)이면 ③ REJECT 를 미루고 위 착지 판정을 그대로 돈다 — 통과하면 명부 행만 닫는다
+#     (원장 꼬리 backfill=1 · 출력 `CLOSED-BACKFILL <좌석> landed-pr=<N> …` · tmux kill·태그·워크트리 정리 계획·브랜치 손 0). 이 길에서만 ⑥ «세트 ≠ PR head»(equiv·cherry 까지 실패)와
+#     «카드 못 찾음» 을 WARN 1줄로 바꾼다(꼬리 warn=세트불일치|카드없음 · 카드 없음이면 리포 = 좌석 가지 nano/<키> 가 사는 리포 하나(ROOT·팩 · 0곳·2곳 = REJECT)).
+#     gh 실패·착지 판정 실패·판정 불가·리포 못 정함 = REJECT 그대로(첫 줄 «③세션 없음: <좌석>» + 사유) · --landed-pr 없음·세션 있음·워크트리 있음(ABSENT) = 지금 길 그대로.
 #   --plan-only <워크트리 경로> = 이미 좌석이 사라졌는데 정리 계획이 없는 나노 워크트리의 «계획만» 만든다(r-disk-drop-worktree-scratch-census · ft-disk-census.sh --plan 이 부른다). ①②③ 종료조건·cherry 게이트·명부·원장 행·kill 전부 건너뛰고
 #     확인: 좌석 세션 0(tmux 조회 성공) · 그 경로가 이 리포 .worktrees/ 아래 등록 워크트리 · 가지가 nano/<좌석 키>[-rN]. 통과하면 <wt-clean>/<seat>.sh 생성 + `PLANNED <경로>` + exit 0 — 실행은 기존 ft-wt-sweep.sh. 착지 판정은 호출자(census) 몫이고, 원장에 닫힘 행이 없어도 계획은 표식 실패로 멈추지 않는다.
 #   --replan <옛 계획 파일> = 옛 판(plan-ver ≠ 이 생성기) 계획을 같은 좌석·같은 WT 로 다시 만든다(r535 · ft-wt-sweep.sh 가 부른다). 굽힌 값(SEAT·KEY·WT·PREFIX·LEDGER·FT_NANO_WIP·PLAN_ONLY·MAINREF)만 옛 계획에서 읽고
@@ -773,10 +777,25 @@ _lp_card_home() {  # r1053: 읽기 판 CARD_READ 가 «사는» 리포 루트(�
   d="$(git -C "$d" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')"
   [ -n "$d" ] && ( cd "$d" 2>/dev/null && pwd -P )
 }
+_lp_branch_repo() {  # r1123 backfill: 좌석 가지 nano/<키> 가 «사는» 리포 하나(ROOT·팩 · 로컬 가지 또는 origin 추적 ref) · 0곳·2곳 = rc1(추측 0)
+  local r rp hit="" n=0 seen="|"
+  for r in "$ROOT" "$(_lp_pack_root)"; do
+    rp="$(cd "$r" 2>/dev/null && pwd -P)"; [ -n "$rp" ] || continue
+    case "$seen" in *"|$rp|"*) continue;; esac; seen="$seen$rp|"
+    git -C "$rp" rev-parse -q --verify "refs/heads/nano/$_KEY" >/dev/null || git -C "$rp" rev-parse -q --verify "refs/remotes/origin/nano/$_KEY" >/dev/null || continue
+    hit="$rp"; n=$((n+1))
+  done
+  [ "$n" -eq 1 ] || return 1
+  printf '%s\n' "$hit"
+}
 _lp_repo_pick() {  # 리포(·slug) 하나를 정한다 — 못 정하면 _lp_repo_err 1줄(REJECT · gh 호출 0)
   local nw pk t n=0 nin=0 nout=0 repo=""
   _lp_repo=""; _lp_slug=""; _lp_repo_err=""
   if [ -n "$NWT" ]; then nw="$(cd "$NWT" 2>/dev/null && pwd -P)"; [ -z "$nw" ] || repo="$(_lp_is_pack_wt "$nw")"; fi
+  if [ -z "$repo" ] && [ "${BACKFILL:-0}" = 1 ] && { [ -z "${CARD_READ:-}" ] || [ ! -f "$CARD_READ" ]; }; then   # r1123: backfill · 카드 없음 → 좌석 가지가 사는 리포 하나
+    repo="$(_lp_branch_repo)" || { _lp_repo_err="⑥--landed-pr 리포를 정할 수 없다(backfill · 카드 없음 · 좌석 가지 nano/$_KEY 가 ROOT·팩 중 정확히 한 곳에 있어야 한다 — 0곳 또는 2곳) — 닫지 않음(추측 0)"; return 1; }
+    echo "INFO backfill: 카드 없음 → 리포 = 좌석 가지 nano/$_KEY 가 사는 곳($repo)"
+  fi
   if [ -z "$repo" ]; then
     if [ -z "${CARD_READ:-}" ] || [ ! -f "$CARD_READ" ]; then _lp_repo_err="⑥--landed-pr 리포를 정할 수 없다(카드 없음 · seats.json index=${IDX:-<빈 값>}) — 닫지 않음(추측 0)"; return 1; fi
     pk="$(_lp_pack_root)"
@@ -962,14 +981,14 @@ _lp_fetch_pr() {
 # ★r1019★ ⑥ «세트 대조» 를 «세트 + main 병합뿐» 까지 넓힌다 — ft-merge-land 는 main 이 앞서 있으면 승인판 위에 합침 커밋 1개를 올려 합치므로 PR head 는 «언제나» 카드 세트가 아니다(r1011 경로가 오늘 착지 6건을 0/6 으로 막았다).
 #   판정기는 승인 h 쪽이 이미 쓰는 ft-approval-equiv.sh(R247 · 판정 1917) 그대로 — 규칙 변경 0 · 호출 1곳만. rc0 만 통과 · rc1/rc3/rc2 는 사유 첫 줄 그대로 REJECT(조용한 통과 0 · #0 RULE).
 #   head 객체는 호출 전에 fetch 1회(하드 룰 12 = nf_fetch: 시도당 7초 + 재시도 1). 실패 = «판정 불가» 한 줄 REJECT(하드 룰 20).
-_lp_equiv_merges=""; _lp_equiv_mode=""; _lp_equiv_err=""
+_lp_equiv_merges=""; _lp_equiv_mode=""; _lp_equiv_err=""; _lp_undecided=""   # r1123: _lp_undecided=1 = «다르다» 가 아니라 판정 불가(fetch·시간 초과·판정기 rc≠0·1 · cherry 판정 불가) — backfill WARN 전환 0
 _lp_equiv_gate() {
   local repo cap out rc first
   repo="${_lp_repo:-${SEAT_REPO:-$ROOT}}"
-  _lp_equiv_merges=""; _lp_equiv_mode=""
+  _lp_equiv_merges=""; _lp_equiv_mode=""; _lp_undecided=""
   step landed-pr-equiv
   if ! nf_fetch "$repo" origin "$_lp_head" >/dev/null 2>&1; then
-    _lp_equiv_err="⑥--landed-pr head ${_lp_head:0:9} 객체를 받지 못했다(fetch origin 실패 · 7초 상한) — 판정 불가로 닫지 않는다"; return 1
+    _lp_undecided=1; _lp_equiv_err="⑥--landed-pr head ${_lp_head:0:9} 객체를 받지 못했다(fetch origin 실패 · 7초 상한) — 판정 불가로 닫지 않는다"; return 1
   fi
   # r1019 r2(DA 1/2 동작②): head 가 이미 origin/main 안 = «머지 커밋 PR». 우리 착지 도구(ft-merge-land)는 squash 만 만들므로 이 경로 밖 — 판정기를 부르지 않고 1줄로 끝낸다(하드 룰 20 · 틀린 사유 NOT-EQUIV 0).
   if git -C "$repo" merge-base --is-ancestor "$_lp_head" refs/remotes/origin/main 2>/dev/null; then
@@ -985,12 +1004,13 @@ _lp_equiv_gate() {
     # r1019 r2(DA 1/2 동작①): rc0 이어도 «세트 위 main 병합(mode=merge ∧ merges≥1)» 만 통과 — rebase 머리는 이 경로의 증거가 아니다.
     if [ "$_lp_equiv_mode" = merge ] && [ "$_lp_equiv_merges" -ge 1 ]; then return 0; fi
     _lp_equiv_err="⑥--landed-pr head ${_lp_head:0:9} 가 세트 위 main 병합이 아니라 rebase 머리(mode=${_lp_equiv_mode:-없음} merges=$_lp_equiv_merges) — 세트 줄을 고치거나 새 카드"
-  elif [ "$rc" -eq 124 ]; then _lp_equiv_err="⑥--landed-pr 판정기 시간 초과(${cap}초 상한 · 하드 룰 12) — ${first:-출력 없음}"
-  else _lp_equiv_err="⑥--landed-pr #$LANDED_PR head ${_lp_head:0:9} ≠ 카드 세트 ${_lp_set:0:9} · «세트 + main 병합뿐» 도 아님(판정기 rc=$rc) — ${first:-출력 없음}"; fi
+  elif [ "$rc" -eq 124 ]; then _lp_undecided=1; _lp_equiv_err="⑥--landed-pr 판정기 시간 초과(${cap}초 상한 · 하드 룰 12) — ${first:-출력 없음}"
+  else [ "$rc" -eq 1 ] || _lp_undecided=1; _lp_equiv_err="⑥--landed-pr #$LANDED_PR head ${_lp_head:0:9} ≠ 카드 세트 ${_lp_set:0:9} · «세트 + main 병합뿐» 도 아님(판정기 rc=$rc) — ${first:-출력 없음}"; fi
   # ★r1112★ 판정기가 못 맞춘 머리 — 착지 판정(_lp_landed_gate)을 통과한 PR 이면 «cherry 착지» 를 본다(0 통과 · 1 이 길 아님 = 위 사유 그대로 · 2 REJECT)
   _lp_cherry_gate; rc=$?   # r1112-mut:cherry
   if [ "$rc" -eq 0 ]; then _lp_equiv_merges=""; return 0; fi
-  [ "$rc" -ne 2 ] || _lp_equiv_err="$_lp_cherry_err"
+  # r1123: cherry 가 «blob 다름» 으로 답했으면 다르다는 판정 · «cherry 착지 판정 불가» 면 판정 불가
+  [ "$rc" -ne 2 ] || { _lp_equiv_err="$_lp_cherry_err"; case "$_lp_cherry_err" in *"cherry 착지 판정 불가"*) _lp_undecided=1;; *) _lp_undecided="";; esac; }
   return 1
 }
 # ★r1112★ «cherry 착지» — 착지 PR 이 카드 세트의 코드 커밋만 골라 옮기면(나노 가지가 문서 가지 위 = 팀 문서 변경도 품음) PR head ≠ 세트 · 병합 꼴도 아니다.
@@ -1288,10 +1308,12 @@ if [ -n "$_BASE_SHA" ]; then
     bad+=("base 가 sha ${_BASE_SHA:0:9} 이고 $_FEAT 의 조상이 아니다 — FT_NANO_FEAT=<랜딩 브랜치> 로 다시")
   fi
 fi
-ABSENT=0
+ABSENT=0; BACKFILL=0; _bf_warn=""
 if [ "$tmux_ok" = 1 ]; then
   if [ -z "$cwd" ]; then
-    if [ -n "$SEAT_WT" ]; then ABSENT=1; elif [ -z "$SEAT_WT_ERR" ]; then bad+=("③세션 없음: $SEAT"); fi
+    # r1123: 세션 없음 ∧ 워크트리 없음 ∧ --landed-pr = backfill 후보 — ③ REJECT 는 ⑥ 착지 판정 결과로 미룬다(실패면 아래 REJECT 첫 줄에 같은 문구)
+    if [ -n "$SEAT_WT" ]; then ABSENT=1; elif [ -n "$SEAT_WT_ERR" ]; then :; elif [ -n "$LANDED_PR" ]; then BACKFILL=1   # r1123-mut:branch
+    else bad+=("③세션 없음: $SEAT"); fi
   else
     enc="$(printf '%s' "$cwd" | LC_ALL=C sed 's|[^A-Za-z0-9]|-|g')"; dir="$HOME/.claude/projects/$enc"
     # r7(DA r6 MAJOR 1): 같은 좌석명 jsonl 이 여러 개(재기동)일 수 있다 — 「이름순 첫 파일」(head -1) 대신 «매칭 전부 중 mtime 최대».
@@ -1581,7 +1603,11 @@ elif [ "$RESEARCH" = 1 ]; then   # r888-mut:research
 elif [ -n "$LANDED_PR" ]; then
   # r1011 착지 끝 나노: ⑥ «세트 == 지금 HEAD» 대신 «PR #N 이 착지됨(r1058: MERGED ∨ ff 조상 ∨ squash 끝줄) ∧ PR head == 카드 «## 상태» 절 «안» 의 마지막 «세트:» sha ∧ 카드 «- 착지:» 줄» — ⑤ cherry 도 이 한 값이 대신한다(아래 ⑤ INFO).
   #   PR 값은 ⑥ 자리에서 _lp_fetch_pr 한 번으로 받는다(호출 1회 · 7초 상한 · 리포 선택 먼저). 세트·착지 줄은 카드(읽기 판 CARD_READ 먼저)에서만 읽는다(추론 0).
-  if [ -z "$CARD_READ" ] || [ ! -f "$CARD_READ" ]; then bad+=("⑥카드 못 찾음: seats.json index=${IDX:-<빈 값>} — 착지 대조(«세트:» sha·«- 착지:» 줄)를 할 카드가 없다")
+  if [ "$BACKFILL" = 1 ] && { [ -z "$CARD_READ" ] || [ ! -f "$CARD_READ" ]; }; then   # r1123: backfill 만 — 카드 없음 = WARN · 착지 판정(PR)은 그대로 · 세트·착지 줄 대조 0
+    if ! _lp_fetch_pr; then bad+=("$_lp_pr_err")   # r1123-mut:nocard
+    else _bf_warn="카드없음"; echo "WARN backfill: 카드 없음(index=${IDX:-<빈 값>}) — 착지 판정으로 닫음"
+      echo "LANDED-PR-OK #$LANDED_PR merged=${_lp_mrg:0:9} state=$_lp_state head=${_lp_head:0:9} repo=${_lp_slug} (backfill · 카드 없음 · 세트 대조 0)"; fi
+  elif [ -z "$CARD_READ" ] || [ ! -f "$CARD_READ" ]; then bad+=("⑥카드 못 찾음: seats.json index=${IDX:-<빈 값>} — 착지 대조(«세트:» sha·«- 착지:» 줄)를 할 카드가 없다")
   elif ! _lp_fetch_pr; then bad+=("$_lp_pr_err")   # r1023: 리포 선택·gh 1회가 리포 결정 «뒤» — 못 정함(섞임·대상 줄 0·url)·gh 실패 모두 같은 자리 REJECT
   else
     # 「## 상태」 절 «안» 의 마지막 «세트:» 만 — 절 경계 = 다음 `## ` 머리(DA⑥ r2 HOLD ①: 파일 뒤 절의 세트 줄을 집으면 거짓 통과)
@@ -1599,6 +1625,8 @@ elif [ -n "$LANDED_PR" ]; then
       elif [ -n "$_lp_sx_err" ]; then bad+=("$_lp_sx_err")
       elif _lp_equiv_gate; then [ -z "$_lp_cherry" ] || echo "LANDED-PR-OK #$LANDED_PR merged=${_lp_mrg:0:9} state=$_lp_state head=${_lp_head:0:9} repo=${_lp_slug} 카드 세트 ${_lp_set:0:9} 코드 = PR head 코드(cherry 착지) · «- 착지:» 줄 있음 (⑤ cherry·⑥ 증거 줄 면제)"   # r1112
         [ -n "$_lp_cherry" ] || echo "LANDED-PR-OK #$LANDED_PR merged=${_lp_mrg:0:9} state=$_lp_state head=${_lp_head:0:9} repo=${_lp_slug} ≡ 카드 세트 ${_lp_set:0:9} + main 병합 ${_lp_equiv_merges} equiv=${_lp_equiv_merges} · «- 착지:» 줄 있음 (⑤ cherry·⑥ 증거 줄 면제)"
+      elif [ "$BACKFILL" = 1 ] && [ -z "$_lp_undecided" ]; then _bf_warn="세트불일치"   # r1123: backfill 만 — «다르다» 판정은 WARN · 판정 불가는 아래 REJECT 그대로   # r1123-mut:setwarn
+        echo "WARN backfill: 세트 불일치(${_lp_set:0:9}≠${_lp_head:0:9}) — 착지 판정으로 닫음 · ${_lp_equiv_err#⑥}"
       else bad+=("$_lp_equiv_err"); fi
     else echo "LANDED-PR-OK #$LANDED_PR merged=${_lp_mrg:0:9} state=$_lp_state head=${_lp_head:0:9} repo=${_lp_slug} == 카드 세트 · «- 착지:» 줄 있음 (⑤ cherry·⑥ 증거 줄 면제)"; fi
   fi
@@ -1704,6 +1732,7 @@ elif [ -x "$HERE/ft-nano-cherry-gate.sh" ]; then
 else
   bad+=("⑤cherry 게이트 스크립트 없음: $HERE/ft-nano-cherry-gate.sh (런타임 bin 에 같이 복사)")
 fi
+[ "$BACKFILL" != 1 ] || [ "${#bad[@]}" -eq 0 ] || bad=("③세션 없음: $SEAT" "${bad[@]}")   # r1123: backfill 이 못 닫으면 지금 문구 그대로 + 착지·⑥ 사유
 if [ "${#bad[@]}" -gt 0 ]; then echo "REJECT $SEAT"; printf '  - %s\n' "${bad[@]}"; exit 1; fi
 # r450 중단: 조건이 전부 통과한 뒤에만 카드 «## 상태» 끝에 중단 줄(멱등) — 못 쓰면 명부·원장·세션 변경 전에 REJECT
 if [ "$SUSP" = 1 ]; then
@@ -1721,6 +1750,7 @@ _su_tag=""; [ "$SUSP" -eq 0 ] || _su_tag=" suspended=1 reason=$SUSP_REASON set=$
 [ -z "$NS_LAND" ] || _su_tag=" never-started (착지 가지 $NS_LAND · 워크트리 정리 0)"   # 개정 r3 규칙 2b   # r506 r2 규칙 2 출력 꼴(사유는 원장 행 wt= 칸)
 [ "$RESEARCH" -eq 0 ] || _su_tag=" research=1"   # r888: 원장 행·출력 꼬리(⑥ 증거 줄 면제 표기)
 [ -z "$LANDED_PR" ] || _su_tag=" landed-pr=$LANDED_PR${_lp_cherry:+ cherry}${_lp_equiv_merges:+ equiv=$_lp_equiv_merges}${_lp_slug:+ repo=$_lp_slug}"   # r1112: cherry 착지면 « cherry» · r1011: 원장 행·출력 꼬리(⑤⑥ 을 PR 이 대신했다는 표기) · r1019: head ≠ 세트로 통과했으면 equiv=<병합 수> · r1023: repo=<owner/repo>
+[ "$BACKFILL" != 1 ] || _su_tag+=" backfill=1${_bf_warn:+ warn=$_bf_warn}"   # r1123: 원장 행·출력 꼬리
 # R387 판정 2282 §7-2 — 리서치 좌석(카드 `- 리서치: <좌석> base=<sha> 허용=<경로 패턴>`): 허용 밖 변경(base..HEAD + 작업트리)이 있으면 카드에 `- 리서치 위반:` 1줄 — 기록만(닫기·WIP 보존·회수는 막지 않는다 · 새 sandbox 0)
 RS_LINE=""; RS_AGENT="$(jq -r --arg s "$SEAT" '.[$s].agent // empty' "$SEATS" 2>/dev/null)"   # r286: 에이전트는 카드 유무와 무관(opencode 회수)
 RC_AG=""; case "$RS_AGENT" in opencode|pi) RC_AG="$RS_AGENT";; esac   # r542: 회수 대상 에이전트(명부 값 그대로 · 그 밖·빈 값 = 판정기 기본 opencode)
@@ -1768,7 +1798,8 @@ d.pop(s, None)
 json.dump(d, open(p, "w", encoding="utf-8"), ensure_ascii=False, indent=2); open(p, "a").write("\n")
 PY
 _prc=$?; [ "$_prc" -eq 0 ] || { echo "REJECT $SEAT"; echo "  - 명부 쓰기 실패(rc=$_prc): $SEATS"; exit 1; }   # R400 r3 ③ — 사건 원장은 trap abort · CLOSED 0
-if [ -n "$NS_LAND" ]; then PLAN=""; WT_MARK="mode=never-started-landed landed=$NS_LAND reason=«${NEVER_REASON}» (정리 계획 0 · [wip] 0 · 브랜치 0)"   # 개정 r3 규칙 2b
+if [ "$BACKFILL" = 1 ]; then PLAN=""; WT_MARK="mode=backfill (세션 0 · 워크트리 0 · 정리 계획 0 · 브랜치 0)"   # r1123: 정리할 워크트리가 없다
+elif [ -n "$NS_LAND" ]; then PLAN=""; WT_MARK="mode=never-started-landed landed=$NS_LAND reason=«${NEVER_REASON}» (정리 계획 0 · [wip] 0 · 브랜치 0)"   # 개정 r3 규칙 2b
 elif [ -n "$NS_SUCC" ]; then PLAN=""; WT_MARK="mode=never-started-shared successor=$NS_SUCC reason=«${NEVER_REASON}» (정리 계획 0 · [wip] 0 · 브랜치 0)"   # r506 r2: 후계가 쓰는 워크트리 — 손대지 않는다
 elif [ "$PACK_WT" = 1 ]; then PLAN=""   # r508: 팩 워크트리 정리는 이 카드 밖(별 경로) — 계획 0
 else _wt_clean_plan; fi
@@ -1803,7 +1834,7 @@ elif [ "$RERUN" = 1 ] && [ "$_rowexists" = 1 ]; then
   [ -z "$_lock" ] || rmdir "$_lock"
 else
   printf -- '- **[%s KST, `date` 실측] `%s` 닫힘(ft-nano-close)**: ①결과 `%s` ②회수 seq %s ③%s. kill=%s%s · %s\n' \
-    "$(date '+%Y-%m-%d %H:%M')" "$SEAT" "$RESULT" "$RECV" "$([ "$ABSENT" = 1 ] && echo "세션 없음(백필)" || echo "유휴 jsonl 기록/mtime(codex) ≥${IDLE_MIN}분")" "$KILL" "$([ "$SUPER" = 1 ] && echo " · superseded-by=$SUPERSEDED")${_su_tag:+ ·$_su_tag}" "$([ "$SHARED" = 1 ] || [ "$NAMED" = 1 ] || [ "${SEAT_WT_OTHER:-0}" = 1 ] && echo "$WT_MARK" || echo "wt=$WT_MARK")" >> "$LEDGER"
+    "$(date '+%Y-%m-%d %H:%M')" "$SEAT" "$RESULT" "$RECV" "$(if [ "$ABSENT" = 1 ]; then echo "세션 없음(백필)"; elif [ "$BACKFILL" = 1 ]; then echo "세션·워크트리 없음(backfill · 착지 PR)"; else echo "유휴 jsonl 기록/mtime(codex) ≥${IDLE_MIN}분"; fi)" "$KILL" "$([ "$SUPER" = 1 ] && echo " · superseded-by=$SUPERSEDED")${_su_tag:+ ·$_su_tag}" "$([ "$SHARED" = 1 ] || [ "$NAMED" = 1 ] || [ "${SEAT_WT_OTHER:-0}" = 1 ] && echo "$WT_MARK" || echo "wt=$WT_MARK")" >> "$LEDGER"
   _arc=$?; [ -z "$_lock" ] || rmdir "$_lock"
   [ "$_arc" -eq 0 ] || { echo "FAIL $SEAT — 원장 append 실패(rc=$_arc · 명부는 삭제됨 · 같은 close 재실행이 RERUN 으로 이어간다): $LEDGER"; exit 1; }   # R400 r3 ④ — CLOSED 0
 fi
@@ -1822,6 +1853,7 @@ _sp_tag+="$_su_tag"   # r450
 _wtarg=(); [ "$SHARED" = 1 ] || [ -z "${SEAT_WT:-}" ] || _wtarg=(--wt "$SEAT_WT")
 _seat_reap || { echo "CLOSE-FAIL reap ${_rp_left:-left=?} rc=$_rp_rc — $SEAT 세션 보존(명부는 삭제됨 · 루프를 멈춘 뒤 같은 close 재실행)"; exit 1; }
 if [ "$ABSENT" = 1 ]; then _oc_close; echo "CLOSED-ABSENT $SEAT$_sp_tag (명부 삭제 · 원장 표식) — 워크트리 정리 계획만 · reap left=0 rc=0"; exit 0; fi
+if [ "$BACKFILL" = 1 ]; then _oc_close; echo "CLOSED-BACKFILL $SEAT$_sp_tag (명부 삭제 · 원장 append) — 세션·워크트리 없음 · kill 0 · 정리 계획 0 · 브랜치 보존 · reap left=0 rc=0"; exit 0; fi   # r1123
 echo "CLOSED $SEAT$_sp_tag (명부 삭제 · 원장 append) — 좌석은 정지 레디 · reap left=0 rc=0"
 # 슬롯 채움(오빠 2026-10-02): 닫은 같은 턴에 빈 석·후보를 보인다 — 출력만, 실패해도 close 결과는 그대로.
 step slots
