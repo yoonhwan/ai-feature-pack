@@ -57,10 +57,11 @@ chmod +x "$HOME/.hermes/scripts/byz_morning_magazine.py" "$HOME/.hermes/scripts/
 for LABEL in $LABELS; do
   PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
   PY="$PY" HOME_DIR="$HOME" BYZ_ROOT_V="$ROOT" REPO="$REPO" CHANNEL="$CHANNEL" \
+    HARNESS_ROOT_V="${FT_HARNESS_ROOT:-$ROOT/.worktrees/harness-ops}" \
     python3 - "$KIT/$LABEL.plist.template" "$PLIST" <<'PYEOF'
 import os, sys
 t = open(sys.argv[1], encoding="utf-8").read()
-for k, env in (("__PY__", "PY"), ("__HOME__", "HOME_DIR"), ("__BYZ_ROOT__", "BYZ_ROOT_V"), ("__REPO__", "REPO"), ("__CHANNEL__", "CHANNEL")):
+for k, env in (("__PY__", "PY"), ("__HOME__", "HOME_DIR"), ("__BYZ_ROOT__", "BYZ_ROOT_V"), ("__REPO__", "REPO"), ("__CHANNEL__", "CHANNEL"), ("__HARNESS_ROOT__", "HARNESS_ROOT_V")):
     t = t.replace(k, os.environ[env])
 open(sys.argv[2], "w", encoding="utf-8").write(t)
 PYEOF
