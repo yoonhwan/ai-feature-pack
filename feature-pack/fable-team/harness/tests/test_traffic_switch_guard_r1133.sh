@@ -54,8 +54,8 @@ last() { printf '%s\n' "$1" | tail -n 1; }
 check_r1() { local o rc; fx 0 "$E503" "$E503" "$OK200"; o="$(sw "$1" --to old-1=100)"; rc=$?
   [ "$rc" = 0 ] && [ "$(nupd)" = 1 ] && has "$(last "$o")" "health=200 consumer_ready=true · 성공" "R1 503→503→200 = 성공 rc0 · 원복 0" || bad "R1 rc=$rc upd=$(nupd) ← $o"; }
 check_r2() { local o rc; fx "0" "$E503"; o="$(sw "$1" --to old-1=100)"; rc=$?
-  [ "$rc" = 3 ] && [ "$(nupd)" = 2 ] && grep -q 'update-traffic svc --region=r1 --to-revisions=LATEST=100' "$FX/calls.log" \
-    && has "$(last "$o")" "health=503 consumer_ready=false · 원복 rc=3" "R2 끝까지 503 = 직전 표(LATEST=100)로 원복 1회 · rc3" || bad "R2 rc=$rc upd=$(nupd) ← $o"; }
+  [ "$rc" = 3 ] && [ "$(nupd)" = 2 ] && grep -q 'update-traffic svc --region=r1 --to-revisions=cur-1=100' "$FX/calls.log" \
+    && has "$(last "$o")" "health=503 consumer_ready=false · 원복 rc=3" "R2 끝까지 503 = 직전 표(LATEST 행 → cur-1=100 고정 · r1140)로 원복 1회 · rc3" || bad "R2 rc=$rc upd=$(nupd) ← $o"; }
 check_r3() { local o rc; fx "0" "$FALSE200"; o="$(sw "$1" --to old-1=100)"; rc=$?
   [ "$rc" = 3 ] && [ "$(nupd)" = 2 ] && has "$(last "$o")" "원복 rc=3" "R3 200 ∧ consumer_ready=false = 성공 아님 · 원복 rc3" || bad "R3 rc=$rc upd=$(nupd) ← $o"; }
 
@@ -71,7 +71,7 @@ fx 0 "$OK200"; o="$(sw "$BIN0" --to nr-1=100)"; rc=$?
 [ "$rc" = 1 ] && [ "$(nupd)" = 0 ] && has "$o" "REJECT 대상 nr-1 준비 안 됨(Ready=False)" "대상 Ready 아님 = rc1 · 전환 0" || bad "Ready rc=$rc ← $o"
 sec "R8 원복도 실패"
 fx "$(printf '0\n1')" "$E503"; o="$(sw "$BIN0" --to old-1=100)"; rc=$?
-[ "$rc" = 4 ] && has "$o" "원복 실패 — 손 원복: gcloud run services update-traffic svc --region=r1 --to-revisions=LATEST=100" "R8 rc4 + 손 원복 명령 1줄" || bad "R8 rc=$rc ← $o"
+[ "$rc" = 4 ] && has "$o" "원복 실패 — 손 원복: gcloud run services update-traffic svc --region=r1 --to-revisions=cur-1=100" "R8 rc4 + 손 원복 명령 1줄(이름 고정 표 · r1140)" || bad "R8 rc=$rc ← $o"
 has "$(last "$o")" "원복 실패 rc=4" "R8 결과 줄이 마지막 줄"
 
 sec "R6·R7 ft-hil --add 등록 거절"
