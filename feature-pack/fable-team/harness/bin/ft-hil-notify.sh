@@ -5,6 +5,7 @@
 #   wait <40hex> <상태 폴더>  ft-merge-land «오빠 승인 파일 없음» 거절 — <상태>/autonomy-merge-wait/<sha> 에 `seat=<FT_SEAT|unknown> epoch=<now>` 1줄(있으면 덧쓰기 0)
 #   approved <40hex> <상태 폴더>  approve-merge 끝(ft-autonomy.sh) — <상태>/autonomy-merge-wait/<sha>(ft-merge-land 거절 표식)가 있으면
 #        seat= 에 `[승인 도착 <sha10>]` 1통 → 표식을 <sha>.sent 로(두 번 0) · seat=unknown = planner _master 에 «수신자 모름» 1통 · 표식 없음 = 아무것도 안 함
+#   issue <h 진입 파일> <계획> <쪽지함> <좌석>  r1130: ft-hil.sh --add --notify 등록 직후 그 좌석에 `[HIL] h<N> 발급 — 오빠가 칠 줄 = ! bash <h> · 계획 <경로>` 1통(7초 · 재시도 0)
 #   발신자 = ft-hil-h<N> · ft-hil-approve(도구 발신자 = fan-out·속도 가드 면제 · mbox_guard._is_tool_sender) · 쪽지함 생략 = ft_comm_dir · 실패 = stderr «판정 불가» 1줄 + rc1(하드 룰 20)
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
@@ -37,8 +38,14 @@ approved_mail() {
   else send "$c" ft-hil-approve "[승인 도착 ${s:0:10}] 수신자 모름(거절 표식 seat=${seat:-빈 값}) — 거절받은 좌석에 ft-merge-land 다시 실행을 전한다" "$(master_of "$c")"; fi || exit 1
   mv -f "$w" "$w.sent" || die "표식 이름 바꾸기 실패: $w"
 }
+issue_mail() {  # r1130: <h 진입 파일> <계획> <쪽지함> <좌석> — ft-hil.sh --add --notify 등록 직후 1통 · 7초 · 재시도 0
+  local n="${1##*/}" to; to="$(command -v timeout || command -v gtimeout)" || to=""
+  [ -f "$3/mbox.sh" ] || die "쪽지함 도구 없음: $3/mbox.sh"
+  FT_MBOX_DIR="$3" ${to:+"$to" 7} bash "$3/mbox.sh" send "$4" "ft-hil-$n" "[HIL] $n 발급 — 오빠가 칠 줄 = ! bash $1 · 계획 $2" >/dev/null 2>&1 || die "mbox send rc≠0 to=$4"
+}
 case "${1:-}" in
   done) [ $# -ge 3 ] || die "usage: done <접두> <rc> [쪽지함] [좌석…]"; shift; done_mail "$@" ;;
+  issue) [ $# -eq 5 ] || die "usage: issue <h 진입 파일> <계획> <쪽지함> <좌석>"; shift; issue_mail "$@" ;;
   approved|wait) [ $# -eq 3 ] || die "usage: $1 <40hex> <상태 폴더>"; if [ "$1" = wait ]; then wait_mark "$2" "$3"; else approved_mail "$2" "$3"; fi ;;
   *) die "usage: ft-hil-notify.sh done|wait|approved …" ;;
 esac
