@@ -1302,6 +1302,8 @@ IDX="$(jq -r --arg s "$SEAT" '.[$s].index // empty' "$SEATS" 2>/dev/null)"; CARD
 _ic="$SEAT"; _iseen="|$SEAT|"; _in=0
 while [ -z "$IDX" ] && [ "$_in" -lt 10 ]; do _ic="$(jq -r --arg s "$_ic" '.[$s]._replaces[0]? // empty' "$SEATS" 2>/dev/null)"; { [ -n "$_ic" ] && [[ "$_iseen" != *"|$_ic|"* ]]; } || break
   _iseen+="$_ic|"; _in=$((_in+1)); IDX="$(jq -r --arg s "$_ic" '.[$s].index // empty' "$SEATS" 2>/dev/null)"; [ -z "$IDX" ] || echo "INFO index 상속 ← $_ic"; done
+# r1118: 명부 index 가 절대경로(스크래치·다른 체크아웃에서 spawn 된 옛 행)면 리포 상대 꼬리로 읽는다 — ⑥ 이 «origin/main:<절대경로>» ls-tree rc128 로 REJECT 하던 자리 · 명부 쓰기 0 · 꼴 밖은 그대로(아래 «팀 카드 꼴 아님» 길)
+case "$IDX" in /*) declare -F ft_index_rel >/dev/null && _irel="$(ft_index_rel "$IDX" 2>/dev/null)" && { echo "INFO index 정규화 ← $IDX → $_irel"; IDX="$_irel"; };; esac   # r1118-mut:close
 _tw=""; [ -z "$IDX" ] || { declare -F ft_index_twin >/dev/null && _tw="$(ft_index_twin "$IDX")"; }   # R382: design/teams/<팀>/ ↔ design/<팀>/ 쌍둥이 후보(미전환·전환 워크트리가 섞인 기간)
 # r444 ⑥(planner #111324 · L6b): 카드 = 팀 폴더 리졸버(ft_team_cands_ref · 명단 = ref · 폴더 = 각 루트)의 indices/<단계>/<파일> 먼저 — 단계 진행→완성→대기 순 · 루트 WT→ROOT→LEDGER_WT 순.
 #   옛 글자 경로(design/<팀>/indices/대기)에 남은 사본이 실제 카드(design/teams/<팀>/indices/진행 · 미커밋)를 가리지 않게. 못 찾으면 아래 기존 후보 그대로.

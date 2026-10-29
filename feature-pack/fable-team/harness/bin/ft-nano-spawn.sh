@@ -363,6 +363,12 @@ _EBN=""; if ft_team_has_ref "$WT" planner "$IDX" indices/ && awk '/^##[[:space:]
 # ①-0 보고 대상 검사는 위 _nano_reply_target 한 곳에서 끝났다(tmm 목록 1회 · 같은 칸 · REJECT 1줄).
 
 bash "$HERE/ft-index-lint.sh" "$IDX" || { echo "REJECT lint 실패"; exit 1; }
+# r1118: 명부 index = 리포 상대경로 — 카드가 호출 체크아웃(WT) 밖(스크래치·다른 워크트리)이면 접두가 안 떼져 절대경로가 명부에 들어가 닫기 ⑥ ls-tree 가 rc128 이던 자리.
+#   ft_index_rel 로 `design/…/indices/<단계>/<파일>` 꼬리 · 꼴 밖 절대경로 = REJECT(카드 base_sha 쓰기·워크트리·명부 «전») · IDX_WT = 카드가 있는 체크아웃(발주문·기준선의 카드 절대경로)
+IDX_ABS="$(cd "$(dirname "$IDX")" && pwd)/$(basename "$IDX")"
+IDX_REL="${IDX_ABS#"$WT"/}"
+IDX_REL="$(ft_index_rel "$IDX_REL")" || { echo "REJECT 카드는 design/…/indices/<단계>/ 아래에 — 리포 상대경로로 못 바꾼다: $IDX_ABS"; exit 1; }   # r1118-mut:spawn
+IDX_WT="${IDX_ABS%/"$IDX_REL"}"
 # ①-0 제안서 «오빠가 본 승인» 게이트 (R77 · 판정 816 — 로직은 ft-proposal-gate.sh --card)
 _pg="$(bash "$HERE/ft-proposal-gate.sh" --card "$IDX")" || { echo "REJECT 제안서 승인 증거 부족 — $_pg"; exit 1; }; echo "$_pg"
 # ①-0b 착수 = 열린 깃 이슈 (r823 · 오빠 «시작시 깃 이슈 기반으로 작업 시작») — 대기/ 카드 착수만(--research·--dry-run 대상 아님) · 새·옛 판별·면제 0 · ①b 카드 쓰기·워크트리 «전»
@@ -467,8 +473,6 @@ if [ -n "${BASE_REF:-}" ] && ! git -C "$ROOT" rev-parse --verify -q "refs/heads/
    && git -C "$ROOT" rev-parse --verify -q "$BASE_REF^{commit}" >/dev/null; then
   INFO_BASE="${FT_NANO_FEAT:-$(git -C "$WT" rev-parse --abbrev-ref HEAD)}"
 fi
-IDX_ABS="$(cd "$(dirname "$IDX")" && pwd)/$(basename "$IDX")"
-IDX_REL="${IDX_ABS#"$WT"/}"
 # R387 --research 고정 문단 — 산출 1개·코드 0·arch relay·즉시 [완료·휴식]. 허용 경로 = 부모 카드가 있는 팀 폴더의 RESEARCH-*.md
 _RS_DIR="$(dirname "$(dirname "$(dirname "$IDX_REL")")")"; _RS_ALLOW="$_RS_DIR/RESEARCH-*.md"; _RS_OUT="$_RS_DIR/RESEARCH-$(basename "$IDX" .md)-$(date +%F).md"
 _RSP=" ★리서치 워커(판정 2282 · R387)★ 네 일 = 부모 카드가 막힌 문제의 자료 조사·가설 조정·BTS 결과 수집뿐이다 — 산출 1개 = $WT/$_RS_OUT (출처·가설·BTS 결과 표기) · 이 경로($_RS_ALLOW) 밖 파일·코드 수정 0(닫을 때 도구가 허용 밖 변경을 카드에 «- 리서치 위반:» 으로 기록한다) · 끝나면 mbox relay 로 arch 에 산출 경로 + 3줄 요약을 보내고 카드 «상태» 에 «- 리서치 산출: <경로> · relay #<seq>» 줄을 쓴다 · 증거 줄 시험 칸 = «RESEARCH 파일 작성 rc=0» · 그 뒤 즉시 [완료·휴식] — 후속 일·재질문 대기 외 작업 0(opencode 좌석은 relay 직후 닫힌다)."
@@ -752,7 +756,7 @@ fi
 # ★R163 spawn 카드 기준선★ — 이 시각의 카드 내용 지문·브랜치·워크트리를 남겨 두면 자율 중 «nano-reopen» 대리 판정(r162)이 «승인 범위 그대로» 인지 비교한다.
 #   spawn 출력·exit 는 불변 — 쓰기 실패는 stderr 1줄뿐(tmp→mv 원자 쓰기).
 _CB_DIR="${FT_NANO_CARD_BASE_DIR:-$ROOT/.fable-team/state/nano-card-base}"
-{ mkdir -p "$_CB_DIR" && _cb_blob="$(git -C "$WT" hash-object "$WT/$NEW_IDX")" && python3 - "$_CB_DIR/$NAME.json" "$NAME" "$NEW_IDX" "$_cb_blob" "$BRANCH" "$WTDIR" <<'PY'
+{ mkdir -p "$_CB_DIR" && _cb_blob="$(git -C "$WT" hash-object "$IDX_WT/$NEW_IDX")" && python3 - "$_CB_DIR/$NAME.json" "$NAME" "$NEW_IDX" "$_cb_blob" "$BRANCH" "$WTDIR" <<'PY'
 import json, os, sys, datetime
 p, name, card, blob, branch, wt = sys.argv[1:7]
 tmp = f"{p}.tmp-{os.getpid()}"
@@ -765,7 +769,7 @@ bash "$HERE/ft-sheet-events.sh" commit "$_SK" >/dev/null || true   # 좌석 열�
 
 # ⑦⑧ 첫 발주 = 인덱스 경로 한 줄 + README. 본문은 파일에 있다. 도달은 jsonl 층(ft-send-verified)
 #   r1072: $_SBR 은 좌석 열기 «전»(seatbelt_readme_path)에 이미 풀렸다 — 여기서 다시 풀지 않는다(경로가 두 벌이 되면 갈린다).
-BODY="[Seatbelt 발주] 네 인덱스: $WT/$NEW_IDX — 먼저 $_SBR${_SBR_REF:+ (ref $_SBR_REF 판 사본)} §2 부팅 5단계(첫 보고까지), 그 다음 인덱스 §구현 범위만. 커밋은 브랜치 $BRANCH, push 금지. 산출 경로를 mbox 로 $FROM 에. ★press(라이브 오디오 시험) 금지 — 나노는 쏘지 않는다(ft-press-gate ⑦ 이 tester·checker 좌석만 허가 · 오빠 10-07) · 시험은 단위·캡처·기존 로그만, press 가 필요하면 산출에 「press 필요: <무엇을 볼지>」 1줄로 적어 $FROM 에 넘긴다★ ★측정 조작 금지(오빠 절대지침) — 임의 Redis 쓰기(redis-cli SET·HSET·XADD·PUBLISH 등 제품 키 직접 주입)·말풍선 DOM 주입(재생 하네스·/dev/bubble-replay·appendChild)으로 만든 결과는 증거 아님 · 측정은 trusted 클릭 + 기존 e2e 러너의 실제 음성 경로만 · 격리 Redis 픽스처 시험은 별개 · 이미 썼으면 [HIL] 로 올림 (BOOT 20)★ ★편집은 Edit 절대경로($WTDIR/…)만★ ★읽기는 Read · 코드 찾기는 ci, Bash 는 실행(git·pytest·ruff·mbox)만★ — cat/sed -n/grep 으로 파일을 읽으면 전문이 컨텍스트에 쌓인다(2026-09-14 나노 16좌석 실측: Bash 100~156회 중 절반이 파일 읽기). ★증거 줄(세트: … · 시험: … rc=… · 이슈: …)은 완료 턴에 네가 인덱스 «상태» 절에 직접 쓴다($WT/$NEW_IDX 절대경로 Edit) — master 는 커밋만(판정 1125)★ 증거 줄 템플릿(그대로 복사해 <> 만 채움): 세트: <나노 HEAD 40자> · 시험: <명령 — «(N passed)» 같은 꼬리는 여기> rc=<n> · 이슈: 0 — rc= 바로 뒤는 « · 이슈:» — 괄호·설명은 rc= 앞에. ★팀 구조: 각 팀 = master(집행) + arch(설계·발주·DA 소환) + DA(반박 게이트) 상시 · 실제 작업은 전부 나노(카드 1장 = 나노 1석) · master·arch·DA 는 코드·시안·카드 증거 줄을 쓰지 않는다★${_SPX}${_SRX}${_AFX}${_RLX}$_PKX${_EBN}"
+BODY="[Seatbelt 발주] 네 인덱스: $IDX_WT/$NEW_IDX — 먼저 $_SBR${_SBR_REF:+ (ref $_SBR_REF 판 사본)} §2 부팅 5단계(첫 보고까지), 그 다음 인덱스 §구현 범위만. 커밋은 브랜치 $BRANCH, push 금지. 산출 경로를 mbox 로 $FROM 에. ★press(라이브 오디오 시험) 금지 — 나노는 쏘지 않는다(ft-press-gate ⑦ 이 tester·checker 좌석만 허가 · 오빠 10-07) · 시험은 단위·캡처·기존 로그만, press 가 필요하면 산출에 「press 필요: <무엇을 볼지>」 1줄로 적어 $FROM 에 넘긴다★ ★측정 조작 금지(오빠 절대지침) — 임의 Redis 쓰기(redis-cli SET·HSET·XADD·PUBLISH 등 제품 키 직접 주입)·말풍선 DOM 주입(재생 하네스·/dev/bubble-replay·appendChild)으로 만든 결과는 증거 아님 · 측정은 trusted 클릭 + 기존 e2e 러너의 실제 음성 경로만 · 격리 Redis 픽스처 시험은 별개 · 이미 썼으면 [HIL] 로 올림 (BOOT 20)★ ★편집은 Edit 절대경로($WTDIR/…)만★ ★읽기는 Read · 코드 찾기는 ci, Bash 는 실행(git·pytest·ruff·mbox)만★ — cat/sed -n/grep 으로 파일을 읽으면 전문이 컨텍스트에 쌓인다(2026-09-14 나노 16좌석 실측: Bash 100~156회 중 절반이 파일 읽기). ★증거 줄(세트: … · 시험: … rc=… · 이슈: …)은 완료 턴에 네가 인덱스 «상태» 절에 직접 쓴다($IDX_WT/$NEW_IDX 절대경로 Edit) — master 는 커밋만(판정 1125)★ 증거 줄 템플릿(그대로 복사해 <> 만 채움): 세트: <나노 HEAD 40자> · 시험: <명령 — «(N passed)» 같은 꼬리는 여기> rc=<n> · 이슈: 0 — rc= 바로 뒤는 « · 이슈:» — 괄호·설명은 rc= 앞에. ★팀 구조: 각 팀 = master(집행) + arch(설계·발주·DA 소환) + DA(반박 게이트) 상시 · 실제 작업은 전부 나노(카드 1장 = 나노 1석) · master·arch·DA 는 코드·시안·카드 증거 줄을 쓰지 않는다★${_SPX}${_SRX}${_AFX}${_RLX}$_PKX${_EBN}"
 [ "$RESEARCH" != 1 ] || BODY="$BODY$_RSP"
 [ "$TIER" != search ] || BODY="$BODY ★검색 나노($AGENT · r286)★ 읽고 모으기만 — 코드 수정·커밋 0 · 산출 = 파일 1개 + mbox relay · 끝나면 [완료·휴식] (닫기 = master ft-nano-close · $AGENT 프로세스 left=0 확인)."
 # ★r1025: 송신 «직전» 최종 본문 검사★ 전역 하드 룰 16 은 «사람·나노·스크립트 모두 ci» 인데 이 스크립트의 고정 문구가
@@ -785,7 +789,7 @@ retired_line() {   # $1=검사용 사본 → 은퇴 도구 낱말 1개(없으면
     case "$1" in *"$_w"*) printf '%s\n' "$_w"; return 0;; esac
   done
 }
-_probe="$(retired_probe "$BODY" "$WT/$NEW_IDX" "$WTDIR" "$BRANCH" "$IDX_REL" "$NEW_IDX" "$_SBR" "$NAME" "$FROM" "$SLUG")"
+_probe="$(retired_probe "$BODY" "$IDX_WT/$NEW_IDX" "$WTDIR" "$BRANCH" "$IDX_REL" "$NEW_IDX" "$_SBR" "$NAME" "$FROM" "$SLUG")"
 _retired="$(retired_line "$_probe")"
 [ -z "$_retired" ] || fail_rb "REJECT 발주문에 은퇴 도구 지시(serena) — $_retired"
 # (에이전트 본체는 ③ 직후 ft-agent-ready.sh 가 확인했다 — 옛 sleep 8 대체 · R251)
