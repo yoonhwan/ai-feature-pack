@@ -10,7 +10,7 @@ set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="$HERE/../.."
 KM="${KIT_SLACK_MIRROR:-$ROOT/harness/kit/slack-mirror}"
-FILES="mirror_share.py mirror_lib.py post_guard.py"
+FILES="mirror_share.py mirror_lib.py post_guard.py status_head.py"  # status_head.py = r1089 post_guard 가 부른다
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }

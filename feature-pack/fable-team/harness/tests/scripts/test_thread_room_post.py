@@ -11,6 +11,10 @@ from pathlib import Path
 
 import pytest
 from _proposal_fakes import slack  # noqa: F401 — 가짜 Slack fixture(키트 경로를 sys.path 에)
+from _thread_fakes import (  # noqa: F401 — status_head_file 은 autouse fixture 로 등록된다(r1089)
+    body_after_status_head,
+    status_head_file,
+)
 
 import byz_thread_post as tp
 import mirror_inbound as ib
@@ -58,7 +62,7 @@ def inbound(env: Path, entries: dict) -> None:
 def test_post_to_name_writes_room_post_without_thread_ts(env, slack, capsys):  # ⓐ  # noqa: F811
     assert run(env, slack, "post", "--to", "desk", "--text", "승인 알림 1건") == 0
     (m,) = slack.msgs
-    assert m["channel"] == DESK_CH and m["thread_ts"] == "" and m["text"] == "승인 알림 1건"
+    assert m["channel"] == DESK_CH and m["thread_ts"] == "" and body_after_status_head(m["text"]) == "승인 알림 1건"
     assert capsys.readouterr().out.strip() == f"POSTED {m['ts']}"
     assert not (env / "st" / "byz_slack_answered.json").exists()  # 답 기록 쓰기 0
     assert json.loads((env / "threads.json").read_text())["desk"]["root_ts"] == "1792422462.316339"  # 등록부 불변

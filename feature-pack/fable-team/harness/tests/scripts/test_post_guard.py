@@ -2,12 +2,24 @@
 
 실행: python3 -m pytest tests/scripts/test_post_guard.py -q
 """
+import logging
+import os
+import time
+
 import pytest
 from _proposal_fakes import slack  # noqa: F401 — slack fixture (키트 경로를 sys.path 에)
-from _thread_fakes import card, ledger, resume_script
+from _thread_fakes import (  # noqa: F401 — status_head_file 은 autouse fixture 로 등록된다(r1089)
+    STATUS_HEAD,
+    body_after_status_head,
+    card,
+    ledger,
+    resume_script,
+    status_head_file,
+)
 
 import byz_thread_post as tp
 import post_guard as pg
+import status_head as sh
 
 UID = "feature/F-x-proposal"
 SECRET = {  # 1묶음 — 패턴 이름 : 샘플
@@ -95,7 +107,8 @@ def test_reply_posts_one_thread_answer_without_card_or_ledger_or_files(env, slac
     before = (env / "threads.json").read_text()
     assert reply(env, slack, "확인했어요. 팀에 전달했어요.", root) == 0
     (r,) = slack.replies
-    assert r["thread_ts"] == root and r["text"] == "확인했어요. 팀에 전달했어요." and not getattr(slack, "files", [])
+    assert r["thread_ts"] == root and r["text"] == f"{STATUS_HEAD}\n확인했어요. 팀에 전달했어요."  # r1089 머리줄 + 본문 그대로
+    assert not getattr(slack, "files", [])
     assert (env / "threads.json").read_text() == before and "reply ts=" in capsys.readouterr().out
 
 
@@ -162,3 +175,92 @@ def test_roster_channel_field_malformed_raises(tmp_path, monkeypatch, body):
     _roster(tmp_path, monkeypatch, body)
     with pytest.raises(pg.PostGuardError, match="사람 채널 판정 불가"):
         pg.human_channels()
+
+
+# ── r1089 — 사람 채널 슬랙 글 머리의 카운팅 머리줄(계약↔시험 ⓐ~ⓕ · 변이 3) ──
+
+
+def _posted(monkeypatch) -> list[dict]:
+    """가짜 post — 인자를 기록하고 ts 를 돌려준다(실 슬랙 0)."""
+    calls: list[dict] = []
+    monkeypatch.setattr(pg, "post", lambda base, token, channel, text, thread_ts=None: calls.append(
+        {"base": base, "channel": channel, "text": text, "thread_ts": thread_ts}) or "1793.000100")
+    return calls
+
+
+def _status(tmp_path, monkeypatch, first: str = STATUS_HEAD, age_min: float = 0.0) -> None:
+    """임시 TEAM-STATUS — 첫 줄·나이(mtime)를 정한다."""
+    f = tmp_path / "TEAM-STATUS.md"
+    f.write_text(f"{first}\n둘째 줄\n", encoding="utf-8")
+    os.utime(f, (time.time() - age_min * 60,) * 2)
+    monkeypatch.setenv(sh.FILE_ENV, str(f))
+
+
+def test_r1089_a_human_post_starts_with_the_status_first_line(tmp_path, monkeypatch):  # ⓐ · R1
+    _status(tmp_path, monkeypatch)
+    calls = _posted(monkeypatch)
+    pg.guarded_post("http://x", "t", "C1", "본문 첫 줄\n둘째 줄", human=True)
+    assert calls[0]["text"].split("\n")[0] == STATUS_HEAD and calls[0]["text"].endswith("본문 첫 줄\n둘째 줄")
+
+
+def test_r1089_b_stale_file_gets_the_age_suffix(tmp_path, monkeypatch):  # ⓑ · R2
+    _status(tmp_path, monkeypatch, age_min=40)
+    calls = _posted(monkeypatch)
+    pg.guarded_post("http://x", "t", "C1", "본문", human=True)
+    assert calls[0]["text"].split("\n")[0] == f"{STATUS_HEAD} (낡음 40분)"
+
+
+@pytest.mark.parametrize("first, reason", [(None, "파일 없음"), ("스크립트 셋 · 인터뷰 3 · 막힌 팀 대기 2", "형식")])
+def test_r1089_c_unreadable_or_wrong_format_says_cannot_and_logs_error(tmp_path, monkeypatch, caplog, first, reason):
+    # ⓒ · R3 · R4 — 파일 없음 / 형식 다름 → «카운팅 확인 불가(사유)» + ERROR 1줄 · 게시는 계속
+    if first is None:
+        monkeypatch.setenv(sh.FILE_ENV, str(tmp_path / "없는파일.md"))
+    else:
+        _status(tmp_path, monkeypatch, first=first)
+    calls = _posted(monkeypatch)
+    with caplog.at_level(logging.ERROR):
+        pg.guarded_post("http://x", "t", "C1", "본문", human=True)
+    assert calls[0]["text"].startswith(f"카운팅 확인 불가({reason})\n본문")
+    assert sum(1 for r in caplog.records if r.levelno == logging.ERROR) == 1
+
+
+def test_r1089_d_machine_channel_gets_no_head(tmp_path, monkeypatch):  # ⓓ · R5
+    _status(tmp_path, monkeypatch)
+    calls = _posted(monkeypatch)
+    pg.guarded_post("http://x", "t", "C-machine", "본문 그대로")
+    assert calls[0]["text"] == "본문 그대로"
+
+
+def test_r1089_e_the_same_head_is_not_added_twice(tmp_path, monkeypatch):  # ⓔ · R6
+    _status(tmp_path, monkeypatch)
+    calls = _posted(monkeypatch)
+    pg.guarded_post("http://x", "t", "C1", f"{STATUS_HEAD}\n본문", human=True)
+    assert calls[0]["text"] == f"{STATUS_HEAD}\n본문"
+
+
+def test_r1089_f_head_line_passes_the_internal_word_check(tmp_path, monkeypatch):  # ⓕ · R7
+    _status(tmp_path, monkeypatch)
+    calls = _posted(monkeypatch)
+    pg.guarded_post("http://x", "t", "C1", "번역 창은 확인했어요.", human=True)  # 거절 0(내부어 0)
+    assert body_after_status_head(calls[0]["text"]) == "번역 창은 확인했어요."
+
+
+# 변이 3 — 각각이 대응 시험을 실패시킨다(변이가 안 잡히면 그 시험은 계약을 안 재는 것이다)
+
+
+def test_r1089_mutation_a_no_head_is_caught(tmp_path, monkeypatch):
+    monkeypatch.setattr(pg, "with_status_head", lambda text: text)  # 붙이기 끔
+    with pytest.raises(AssertionError):  # 대응 시험이 실패해야 변이가 잡힌 것이다
+        test_r1089_a_human_post_starts_with_the_status_first_line(tmp_path, monkeypatch)
+
+
+def test_r1089_mutation_b_no_age_check_is_caught(tmp_path, monkeypatch):
+    monkeypatch.setattr(sh, "stale_minutes", lambda: 10**6)  # 나이 검사 끔
+    with pytest.raises(AssertionError):  # 대응 시험이 실패해야 변이가 잡힌 것이다
+        test_r1089_b_stale_file_gets_the_age_suffix(tmp_path, monkeypatch)
+
+
+def test_r1089_mutation_e_always_prepend_is_caught(tmp_path, monkeypatch):
+    monkeypatch.setattr(pg, "with_status_head", lambda text: f"{sh.head()}\n{text}")  # 중복 검사 끔
+    with pytest.raises(AssertionError):  # 대응 시험이 실패해야 변이가 잡힌 것이다
+        test_r1089_e_the_same_head_is_not_added_twice(tmp_path, monkeypatch)
