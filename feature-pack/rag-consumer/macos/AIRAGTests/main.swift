@@ -114,109 +114,388 @@ check(tickLogNamesNewestFirst(["tick.lock", "tick-20261018.log", "tick-20261029.
       == ["tick-20261029.log", "tick-20261018.log", "tick-20261017.log"], "log names: newest first, junk skipped")
 check(tickLogNamesNewestFirst([]).isEmpty, "log names: empty")
 
-// --- K5: stop = cancel next pass + SIGTERM, SIGKILL after 10 s
+
+// --- Pass controller, fake world (R2: the group, not the leader, decides when a pass is over)
 final class FakeTimer: Cancellable {
     let delay: TimeInterval
     let action: () -> Void
     var cancelled = false
+    var fired = false
     init(_ delay: TimeInterval, _ action: @escaping () -> Void) { self.delay = delay; self.action = action }
     func cancel() { cancelled = true }
 }
 
+/// A fake process world. `alive` = groups that still have members. TERM is ignored unless `termKills`;
+/// KILL empties the group at once (the leader's exit callback still arrives later, by hand).
+final class FakeOps: ProcessOps {
+    var spawns = 0
+    var exits: [(Int32) -> Void] = []
+    var signals: [(Int32, Int32)] = []
+    var spawnResult: [Int32?] = []
+    var alive = Set<Int32>()
+    var termKills = false
+    var killKills = true
+    func spawn(onExit: @escaping (Int32) -> Void) -> Int32? {
+        spawns += 1
+        let group = spawnResult.isEmpty ? Int32(100 + spawns) : spawnResult.removeFirst()
+        if let group = group { alive.insert(group); exits.append(onExit) }
+        return group
+    }
+    func signalGroup(_ pgid: Int32, _ sig: Int32) {
+        signals.append((pgid, sig))
+        if (sig == SIGTERM && termKills) || (sig == SIGKILL && killKills) { alive.remove(pgid) }
+    }
+    func groupAlive(_ pgid: Int32) -> Bool { alive.contains(pgid) }
+}
+
 final class Rig {
     var timers: [FakeTimer] = []
-    var launches = 0
-    var exits: [() -> Void] = []
-    var signals: [(Int32, Int32)] = []
-    var launchResult: [Int32?] = []
+    let ops = FakeOps()
     var changes = 0
     lazy var controller = PassController(
-        interval: 300, killGrace: 10,
+        interval: 300, killGrace: 10, pollInterval: 0.2, cleanupGrace: 5,
         schedule: { delay, action in
             let timer = FakeTimer(delay, action)
             self.timers.append(timer)
             return timer
         },
-        launch: { onExit in
-            self.launches += 1
-            let pid = self.launchResult.isEmpty ? Int32(100 + self.launches) : self.launchResult.removeFirst()
-            if pid != nil { self.exits.append(onExit) }
-            return pid
-        },
-        signal: { pid, sig in self.signals.append((pid, sig)) })
+        ops: ops)
     init() { controller.onChange = { self.changes += 1 } }
-    func live(delay: TimeInterval) -> [FakeTimer] { timers.filter { $0.delay == delay && !$0.cancelled } }
+    func live(_ delay: TimeInterval) -> [FakeTimer] { timers.filter { $0.delay == delay && !$0.cancelled && !$0.fired } }
+    func fire(_ timer: FakeTimer) { timer.fired = true; timer.action() }
+    func signalCount(_ sig: Int32) -> Int { ops.signals.filter { $0.1 == sig }.count }
 }
 
-do {
+do {  // K5 on the group: stop = TERM to the group, KILL after the grace
     let rig = Rig()
     rig.controller.start()
-    check(rig.launches == 1 && rig.controller.state == .running && rig.controller.pid == 101, "start launches one pass")
+    check(rig.ops.spawns == 1 && rig.controller.state == .running && rig.controller.group == 101, "start launches one pass")
     rig.controller.start()
-    check(rig.launches == 1, "start while running does nothing")
+    check(rig.ops.spawns == 1, "start while running does nothing")
     rig.controller.stop()
-    check(rig.signals.count == 1 && rig.signals[0] == (101, SIGTERM), "K5: stop sends SIGTERM to the running child")
-    check(rig.controller.state == .stopped && rig.controller.isStopping, "K5: stopping state while child lives")
-    check(rig.live(delay: 10).count == 1, "K5: SIGKILL is scheduled for 10 s later")
+    check(rig.ops.signals.count == 1 && rig.ops.signals[0] == (101, SIGTERM), "K5: stop sends SIGTERM to the group")
+    check(rig.controller.state == .stopped && rig.controller.isStopping, "K5: stopping while the group lives")
+    check(rig.live(10).count == 1, "K5: SIGKILL is scheduled for 10 s later")
     rig.controller.stop()
-    check(rig.signals.count == 1, "K5: second stop does not signal again")
+    check(rig.signalCount(SIGTERM) == 1, "K5: second stop does not signal again")
     rig.controller.start()
-    check(rig.launches == 1, "K5: start is refused while the old child is still stopping")
-    rig.live(delay: 10)[0].action()
-    check(rig.signals.count == 2 && rig.signals[1] == (101, SIGKILL), "K5: child still alive after 10 s gets SIGKILL")
-    rig.exits[0]()
-    check(rig.controller.pid == nil && !rig.controller.isStopping, "child exit clears the stop")
-    check(rig.live(delay: 300).isEmpty && rig.launches == 1, "K5: no next pass after stop")
+    check(rig.ops.spawns == 1, "K5: start is refused while the group is still there")
+    rig.fire(rig.live(10)[0])
+    check(rig.ops.signals.last! == (101, SIGKILL), "K5: group still alive after 10 s gets SIGKILL")
+    rig.ops.exits[0](9)
+    check(rig.controller.group == nil && !rig.controller.isStopping, "group empty and leader gone clears the stop")
+    check(rig.live(300).isEmpty && rig.ops.spawns == 1, "K5: no next pass after stop")
     rig.controller.start()
-    check(rig.launches == 2 && rig.controller.state == .running, "restart after stop launches a new pass")
+    check(rig.ops.spawns == 2 && rig.controller.state == .running, "restart after stop launches a new pass")
 }
 
-do {
+do {  // the whole group ends within the grace: the kill timer is cancelled
     let rig = Rig()
     rig.controller.start()
     rig.controller.stop()
-    rig.exits[0]()  // child ends within the grace
+    rig.ops.alive.remove(101)
+    rig.ops.exits[0](15)
     let kill = rig.timers.first { $0.delay == 10 }!
-    check(kill.cancelled, "K5: kill timer is cancelled when the child exits in time")
-    kill.action()
-    check(rig.signals.count == 1, "K5: late kill timer does not send SIGKILL")
+    check(kill.cancelled, "kill timer is cancelled once the group is empty")
+    rig.fire(kill)
+    check(rig.signalCount(SIGKILL) == 0, "late kill timer sends no SIGKILL")
 }
 
-do {
+do {  // R2 direct cause: the leader exits, orphans stay; the kill timer must survive
     let rig = Rig()
     rig.controller.start()
-    rig.exits[0]()
-    check(rig.controller.state == .waiting && rig.live(delay: 300).count == 1, "pass end schedules the next pass in 300 s")
-    let next = rig.live(delay: 300)[0]
     rig.controller.stop()
-    check(next.cancelled && rig.signals.isEmpty, "K5: stop while waiting cancels the next pass, no signal")
-    next.action()  // a timer that already fired must not launch
-    check(rig.launches == 1 && rig.controller.state == .stopped, "K5: cancelled timer that fires anyway does not launch")
+    rig.ops.exits[0](15)  // leader gone, group still has members
+    check(rig.controller.group == 101 && rig.controller.isStopping, "R2: leader exit with orphans keeps the stop open")
+    check(rig.live(10).count == 1, "R2: kill timer is not cancelled by the leader's exit")
+    check(rig.live(0.2).count == 1, "R2: the group is polled after the leader is gone")
+    rig.controller.start()
+    check(rig.ops.spawns == 1, "R2: start is refused while orphans live")
+    rig.fire(rig.live(10)[0])
+    check(rig.signalCount(SIGKILL) == 1, "R2: orphans get SIGKILL after the grace")
+    rig.fire(rig.live(0.2)[0])
+    check(rig.controller.group == nil && rig.live(300).isEmpty, "R2: group empty ends the stop, no pass is scheduled")
+    rig.controller.start()
+    check(rig.ops.spawns == 2, "R2: start works once the group is empty")
+}
+
+do {  // orphan after a normal pass: draining until the group is empty, only then waiting
+    let rig = Rig()
+    rig.controller.start()
+    rig.ops.exits[0](0)  // leader ends, a grandchild stays
+    check(rig.controller.state == .draining, "R2: orphans make the pass draining")
+    check(rig.signalCount(SIGTERM) == 1 && rig.ops.signals[0] == (101, SIGTERM), "R2: orphans get SIGTERM at once")
+    check(rig.live(300).isEmpty, "R2: no next pass while draining")
+    rig.controller.start()
+    check(rig.ops.spawns == 1, "R2: start while draining does nothing")
+    rig.fire(rig.live(0.2)[0])
+    check(rig.controller.state == .draining && rig.live(0.2).count == 1, "R2: still alive, poll again")
+    rig.ops.alive.remove(101)
+    rig.fire(rig.live(0.2)[0])
+    check(rig.controller.state == .waiting && rig.live(300).count == 1 && rig.controller.group == nil,
+          "R2: waiting only after the group is empty")
+}
+
+do {  // stubborn orphan after a pass: KILL after the grace, then normal flow
+    let rig = Rig()
+    rig.controller.start()
+    rig.ops.exits[0](0)
+    rig.fire(rig.live(10)[0])
+    check(rig.signalCount(SIGKILL) == 1 && !rig.ops.alive.contains(101), "R2: stubborn orphan gets SIGKILL")
+    rig.fire(rig.live(0.2)[0])
+    check(rig.controller.state == .waiting && rig.live(300).count == 1, "R2: next pass is scheduled after the orphan is gone")
+}
+
+do {  // stop while draining: no second TERM
+    let rig = Rig()
+    rig.controller.start()
+    rig.ops.exits[0](0)
+    rig.controller.stop()
+    check(rig.signalCount(SIGTERM) == 1, "stop while draining does not send TERM again")
+    check(rig.controller.state == .stopped && rig.controller.group == 101, "stop while draining stays stopping")
+    rig.ops.alive.remove(101)
+    rig.fire(rig.live(0.2)[0])
+    check(rig.controller.group == nil && rig.live(300).isEmpty, "stop while draining: empty group ends it without a new pass")
+}
+
+do {  // cleanupFailed: SIGKILL did not empty the group
+    let rig = Rig()
+    rig.ops.killKills = false
+    rig.controller.start()
+    rig.controller.stop()
+    rig.fire(rig.live(10)[0])
+    check(rig.live(5).count == 1 && !rig.controller.cleanupFailed, "KILL sent, cleanup timer waits 5 s")
+    rig.fire(rig.live(5)[0])
+    check(rig.controller.cleanupFailed, "group survives KILL for 5 s: cleanupFailed")
+    rig.controller.start()
+    check(rig.ops.spawns == 1, "cleanupFailed keeps start disabled")
+    rig.ops.alive.remove(101)
+    rig.ops.exits[0](9)
+    check(!rig.controller.cleanupFailed && rig.controller.group == nil, "cleanupFailed clears when the group finally empties")
+    rig.controller.start()
+    check(rig.ops.spawns == 2, "start works again after cleanupFailed cleared")
+}
+
+do {  // pass end schedules the next pass; stop cancels it; a timer that fires anyway does nothing
+    let rig = Rig()
+    rig.controller.start()
+    rig.ops.alive.remove(101)
+    rig.ops.exits[0](0)
+    check(rig.controller.state == .waiting && rig.live(300).count == 1, "pass end schedules the next pass in 300 s")
+    let next = rig.live(300)[0]
+    rig.controller.stop()
+    check(next.cancelled && rig.ops.signals.isEmpty, "K5: stop while waiting cancels the next pass, no signal")
+    next.action()
+    check(rig.ops.spawns == 1 && rig.controller.state == .stopped, "K5: cancelled timer that fires anyway does not launch")
 }
 
 do {
     let rig = Rig()
     rig.controller.start()
-    rig.exits[0]()
-    rig.live(delay: 300)[0].action()
-    check(rig.launches == 2 && rig.controller.state == .running, "timer fires the next pass")
+    rig.ops.alive.remove(101)
+    rig.ops.exits[0](0)
+    rig.fire(rig.live(300)[0])
+    check(rig.ops.spawns == 2 && rig.controller.state == .running, "timer fires the next pass")
 }
 
-do {
+do {  // launch failure
     let rig = Rig()
-    rig.launchResult = [nil]
+    rig.ops.spawnResult = [nil]
     rig.controller.start()
-    check(rig.controller.lastLaunchFailed && rig.controller.state == .waiting && rig.live(delay: 300).count == 1,
+    check(rig.controller.lastLaunchFailed && rig.controller.state == .waiting && rig.live(300).count == 1,
           "launch failure waits and retries in 300 s")
-    rig.live(delay: 300)[0].action()
+    rig.fire(rig.live(300)[0])
     check(!rig.controller.lastLaunchFailed && rig.controller.state == .running, "retry after launch failure clears the flag")
 }
 
 do {
     let rig = Rig()
     rig.controller.stop()
-    check(rig.signals.isEmpty && rig.controller.state == .stopped, "stop before start is harmless")
+    check(rig.ops.signals.isEmpty && rig.controller.state == .stopped, "stop before start is harmless")
     check(rig.changes >= 1, "stop reports a change to the UI")
+}
+
+// --- R2 fuzz: any order of leader exit, stop, start, timers, and group emptying never starts or schedules a
+// pass while a group still has members.
+struct LCG {
+    var state: UInt64
+    mutating func next(_ n: Int) -> Int {
+        state = state &* 6364136223846793005 &+ 1442695040888963407
+        return Int((state >> 33) % UInt64(n))
+    }
+}
+
+do {
+    var violations: [String] = []
+    runs: for seed in 1...1500 {
+        var rng = LCG(state: UInt64(seed))
+        let rig = Rig()
+        rig.ops.termKills = rng.next(3) == 0
+        var leaderExited = Set<Int>()
+        for step in 0..<14 {
+            let event = rng.next(7)
+            let spawnsBefore = rig.ops.spawns
+            let blocked = !rig.ops.alive.isEmpty || rig.controller.group != nil
+            switch event {
+            case 0: rig.controller.stop()
+            case 1: rig.controller.start()
+            case 2:
+                let pending = rig.timers.filter { !$0.cancelled && !$0.fired }
+                if !pending.isEmpty { rig.fire(pending[rng.next(pending.count)]) }
+            case 3:
+                let dead = rig.timers.filter { $0.cancelled && !$0.fired }
+                if !dead.isEmpty { let timer = dead[rng.next(dead.count)]; timer.fired = true; timer.action() }
+            case 4:
+                if let index = rig.ops.exits.indices.first(where: { !leaderExited.contains($0) }) {
+                    leaderExited.insert(index)
+                    rig.ops.exits[index](0)
+                }
+            case 5:
+                if let index = leaderExited.first, rig.ops.alive.contains(Int32(101 + index)) { rig.ops.alive.remove(Int32(101 + index)) }
+            default: break
+            }
+            let tag = "seed \(seed) step \(step) event \(event)"
+            if !rig.ops.alive.isEmpty && !rig.live(300).isEmpty { violations.append("\(tag): pass scheduled while a group lives") }
+            if !rig.ops.alive.isEmpty && rig.controller.state == .waiting { violations.append("\(tag): waiting while a group lives") }
+            if rig.controller.state == .waiting && rig.controller.group != nil { violations.append("\(tag): waiting with a group") }
+            if event == 1 && blocked && rig.ops.spawns != spawnsBefore { violations.append("\(tag): start while a group lives") }
+            if violations.count >= 3 { break runs }
+        }
+    }
+    for line in violations { print("FAIL R2 fuzz: \(line)") }
+    total += 1
+    if !violations.isEmpty { failures += 1 }
+}
+
+// --- Real processes (/bin/sh and sleep only). Every group is killed at the end of its test.
+@discardableResult func pump(_ timeout: TimeInterval = 3, until condition: () -> Bool) -> Bool {
+    let end = Date().addingTimeInterval(timeout)
+    while !condition() {
+        if Date() >= end { return false }
+        if !RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.02)) { Thread.sleep(forTimeInterval: 0.005) }
+    }
+    return true
+}
+
+let testEnvironment = ["PATH": "/usr/bin:/bin"]
+
+final class RecordingOps: ProcessOps {
+    let inner: LiveProcessOps
+    var groups: [Int32] = []
+    var signals: [(Int32, Int32)] = []
+    init(script: String) {
+        inner = LiveProcessOps(executable: "/bin/sh", arguments: ["-c", script], environment: testEnvironment, stderrPath: nil)
+    }
+    var spawnCount: Int { groups.count }
+    func spawn(onExit: @escaping (Int32) -> Void) -> Int32? {
+        let group = inner.spawn(onExit: onExit)
+        if let group = group { groups.append(group) }
+        return group
+    }
+    func signalGroup(_ pgid: Int32, _ sig: Int32) { signals.append((pgid, sig)); inner.signalGroup(pgid, sig) }
+    func groupAlive(_ pgid: Int32) -> Bool { inner.groupAlive(pgid) }
+    func reapAll() { for group in groups { inner.signalGroup(group, SIGKILL) } }
+    func anyAlive() -> Bool { groups.contains { inner.groupAlive($0) } }
+}
+
+func liveController(_ script: String, killGrace: TimeInterval = 10) -> (PassController, RecordingOps) {
+    let ops = RecordingOps(script: script)
+    let controller = PassController(interval: 300, killGrace: killGrace, pollInterval: 0.05, cleanupGrace: 5,
+                                    schedule: mainSchedule, ops: ops)
+    return (controller, ops)
+}
+
+do {  // T-pg
+    let ops = RecordingOps(script: "sleep 30")
+    let group = ops.spawn { _ in }
+    check(group != nil, "T-pg: spawn returns a pid")
+    if let group = group {
+        check(getpgid(group) == group, "T-pg: the child leads its own process group")
+        check(ops.groupAlive(group), "T-pg: group is alive after spawn")
+    }
+    ops.reapAll()
+    check(pump { !ops.anyAlive() }, "T-pg: test group is gone after SIGKILL")
+    check(!ops.inner.groupAlive(0) && !ops.inner.groupAlive(1) && !ops.inner.groupAlive(-5), "T-pg: group numbers 0, 1, negative are never alive")
+}
+
+do {  // T-stop: a leader with a child; stop must empty the whole group before start is allowed
+    let (controller, ops) = liveController("sleep 30 & sleep 30")
+    var staleView = false
+    controller.onChange = {
+        if controller.group == nil, let last = ops.groups.last, ops.inner.groupAlive(last) { staleView = true }
+    }
+    controller.start()
+    let group = controller.group
+    check(group != nil && getpgid(group ?? 0) == group, "T-stop: pass started as a group leader")
+    controller.stop()
+    check(controller.isStopping, "T-stop: stopping right after stop()")
+    controller.start()
+    check(ops.spawnCount == 1, "T-stop: start refused while the group lives")
+    check(pump { controller.group == nil }, "T-stop: controller idle within 3 s")
+    check(group.map { !ops.groupAlive($0) } ?? false, "T-stop: whole group is empty when the controller is idle")
+    check(!staleView, "T-stop: the controller never reported idle while the group had members")
+    controller.start()
+    check(ops.spawnCount == 2, "T-stop: start works after the group is empty")
+    controller.stop()
+    check(pump { controller.group == nil }, "T-stop: second stop ends too")
+    ops.reapAll()
+    check(pump { !ops.anyAlive() }, "T-stop: nothing left over")
+}
+
+do {  // T-kill: the whole group ignores TERM; only SIGKILL after the grace ends it
+    let (controller, ops) = liveController("trap '' TERM; sleep 30 & sleep 30", killGrace: 0.5)
+    controller.start()
+    let begin = Date()
+    controller.stop()
+    check(pump { controller.group == nil }, "T-kill: group ended within 3 s")
+    check(Date().timeIntervalSince(begin) >= 0.4, "T-kill: TERM-ignoring group lived through the grace")
+    check(ops.signals.contains { $0.1 == SIGKILL }, "T-kill: SIGKILL was sent")
+    ops.reapAll()
+    check(pump { !ops.anyAlive() }, "T-kill: nothing left over")
+}
+
+do {  // T-kill-orphan: the leader exits by itself, a TERM-ignoring orphan stays
+    let (controller, ops) = liveController("trap '' TERM; sleep 30 & exit 0", killGrace: 0.5)
+    var seen: [PassController.State] = []
+    var earlyWaiting = false
+    controller.onChange = {
+        seen.append(controller.state)
+        if controller.state == .waiting, let last = ops.groups.last, ops.inner.groupAlive(last) { earlyWaiting = true }
+    }
+    controller.start()
+    check(pump { controller.state == .waiting }, "T-kill-orphan: pass ends within 3 s")
+    check(seen.contains(.draining), "T-kill-orphan: the pass went through draining")
+    check(!earlyWaiting, "T-kill-orphan: waiting began only after the group was empty")
+    check(ops.signals.contains { $0.1 == SIGKILL }, "T-kill-orphan: SIGKILL ended the TERM-ignoring orphan")
+    controller.stop()
+    ops.reapAll()
+    check(pump { !ops.anyAlive() }, "T-kill-orphan: nothing left over")
+}
+
+do {  // T-orphan: a plain orphan is ended by the group TERM; waiting only after the group is empty
+    let (controller, ops) = liveController("sleep 30 & exit 0")
+    var seen: [PassController.State] = []
+    var earlyWaiting = false
+    controller.onChange = {
+        seen.append(controller.state)
+        if controller.state == .waiting, let last = ops.groups.last, ops.inner.groupAlive(last) { earlyWaiting = true }
+    }
+    controller.start()
+    check(pump { controller.state == .waiting }, "T-orphan: pass ends within 3 s")
+    check(seen.contains(.draining), "T-orphan: the leader's exit with a live child gives draining")
+    check(!earlyWaiting, "T-orphan: waiting began only after the group was empty")
+    controller.stop()
+    ops.reapAll()
+    check(pump { !ops.anyAlive() }, "T-orphan: nothing left over")
+}
+
+do {  // the live factory wires the tick command from the settings
+    let settings = resolveSettings(home: "/Users/tester", json: nil)
+    let ops = makeTickOps(settings, callbackQueue: .main)
+    check(ops.executable == settings.python && ops.arguments == tickArguments(settings), "makeTickOps wires python and tick arguments")
+    check(ops.stderrPath == "/Users/tester/.local/share/airag/logs/app.err.log", "makeTickOps puts stderr in app.err.log")
+    check(ops.environment["PATH"] == "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin", "makeTickOps sets PATH")
+    check(makeLiveController(settings: settings).state == .stopped, "makeLiveController starts stopped")
 }
 
 print("AIRAG tests: \(total - failures)/\(total) passed")
