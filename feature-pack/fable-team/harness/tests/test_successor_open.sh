@@ -44,6 +44,7 @@ mkstub send   'echo send >> "$LOG"; echo "QUEUED seq=777 to=$1 pending=1 doorbel
 mkstub mbox   'echo "mbox $1" >> "$LOG"; echo "RING seq=$3 doorbell=sent"; exit 0'
 : > "$FAKE/mbox_doorbell.sh"   # r607: 고른 mbox 폴더의 짝 파일 검사 — 열기 전 REJECT 를 피하려면 있어야 한다
 mkstub reach  'echo reach >> "$LOG"; exit "${REACH_RC:-0}"'
+mkstub ps     'case "$1 $2 $3" in "-o lstart= -p") echo "Thu Jan  1 09:00:00 2026"; exit 0;; esac; exec /bin/ps "$@"'   # r1116c R8: 이어가기 기준 시각 E(pane 첫 자식 lstart) 대역 · 그 밖은 진짜 ps
 # 자원 문지기 격리(R218) — 실 머신 압력·실 pressure.tsv 를 재지 않는다: 공통 가짜 센서 헬퍼(압력 1·에이전트 35 · 임시 FT_RES_ROOT).
 . "$HERE/lib/fake_resource_env.sh"; fake_resource_env "$TMP/sensors" ok; SENSORS="$TMP/sensors/fake-sensors"; RES="$FT_RES_ROOT"
 printf '골 원문 1줄\n골 원문 2줄\n골 원문 3줄\n본문 나머지\n' > "$BODY"
