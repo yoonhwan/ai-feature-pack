@@ -90,6 +90,14 @@ ft_index_twin() { local p="$1"
     *design/*/*)       printf '%s\n' "${p/design\//design/teams/}";;
     *) return 1;;
   esac; }
+#   ft_index_rel <경로>             : 명부 index 의 리포 상대경로 1줄(r1118 · spawn 등록·close 읽기 단일 출처) — 상대(`/` 로 시작 안 함)면 그대로 ·
+#                                    절대면 «마지막» `design/(teams/)?<팀>/indices/<단계>/<파일>` 꼬리(스크래치·다른 워크트리 체크아웃 접두를 뗀다) ·
+#                                    꼴 아님 = stderr ERROR rc1(조용한 통과 0) · 읽기 전용 · git 호출 0
+ft_index_rel() { local p="$1" t
+  case "$p" in /*) ;; *) printf '%s\n' "$p"; return 0;; esac
+  t="design/${p##*/design/}"   # r1118-mut:last — 가장 긴 접두(`##`)를 떼어 경로 안 `design/` 이 둘이어도 마지막 것
+  [[ "$t" =~ ^design/(teams/)?[a-z0-9][a-z0-9_-]*/indices/[^/]+/[^/]+$ ]] || { echo "ERROR index 꼴 아님(design/…/indices/<단계>/<파일>): $p" >&2; return 1; }
+  printf '%s\n' "$t"; }
 #   ft_team_in <루트> <팀>          : 그 «루트(워크트리 포함)» 의 design/TEAMS.md 로 푼 팀 폴더 절대경로 — 워크트리마다 이동 상태가 다를 수 있으니 도구가 읽는 루트의 명단을 쓴다. 명단·팀 없음 = ERROR rc1(옛 design/<팀>/ 후퇴 0)
 ft_team_in() { ( unset FT_TEAMS_MD; export FT_REPO_ROOT="$1"; ft_team_root "$2" ); }
 #   ft_team_cands <루트> <팀>       : 그 루트에서 팀 폴더 «후보» 절대경로 줄마다 — 명단 꼴 먼저 · 쌍둥이(--alt)가 있으면 뒤에(꼴3 은 쌍둥이 0). 이동 «전·후 둘 다 찾는» 도구용(R383 · 팀 이름 글자 0). 명단·팀 없음 = ERROR rc1
