@@ -14,7 +14,8 @@
 #   exit 0 = 통과 · 1 = 미비(사유 stdout) · 2 = usage 또는 조회 실패
 #   --from-json = gh 호출 대신 같은 모양의 JSON 파일(시험용 · tests/fixtures/issue_close/).
 #   --repo = 정본 sha 를 조회할 git 리포(기본 = 이 스크립트가 있는 리포 루트).
-#   r1040: Closes 없이 이슈 «연결 PR: #<번호>» 코멘트를 인정하려면 그 PR 병합 상태를 본다 — gh pr view 1회(7초+재시도 1) 또는 시험용 FT_PR_STATE_FROM_JSON([{number,state}] 또는 {"prs":[…]}) · 판정 불가면 «판정 불가» 1줄 + MISS.
+#   r1040: Closes 없이 이슈 «연결 PR: #<번호>» 코멘트를 인정하려면 그 PR 병합 상태를 본다 — gh pr view 1회(7초+재시도 1) 또는 시험용 FT_PR_STATE_FROM_JSON([{number,state,comments:[{body}]}] 또는 {"prs":[…]}) · 판정 불가면 «판정 불가» 1줄 + MISS.
+#   r1104: ft-merge-land 는 커밋을 main 에 직접 올리고 PR 을 «닫는다» — 상태가 MERGED 가 아니라 CLOSED 다. CLOSED PR 은 닫기 코멘트의 마지막 «착지 sha <40hex>» 가 랜딩 ref(env FT_LAND_REF · 기본 origin/main)의 조상이면 인정한다(정본 판정과 같은 merge-base --is-ancestor). 코멘트 없음·로컬에 없음·조상 아님 = 지금처럼 MISS.
 set -uo pipefail
 unset GH_TOKEN
 N="${1:-}"; shift || true
@@ -192,20 +193,32 @@ linked_pr() { # 코멘트의 «가장 마지막» 연결 PR 번호(없으면 빈
   jq -r '[.comments[].body | split("\n")[] | select(test("연결\\s*PR\\s*[:：]\\s*#[0-9]+"))] | last // empty
     | (capture("연결\\s*PR\\s*[:：]\\s*#(?<n>[0-9]+)") | .n)' <<<"$JSON" 2>/dev/null
 }
-pr_merged() { # <번호> → 0 병합(MERGED) · 1 아니오 · 2 판정 불가 (gh 1회 = 7초 + 재시도 1 · 실패는 «판정 불가» 1줄)
-  local n="$1" st out TOA TRY
-  if [ -n "${FT_PR_STATE_FROM_JSON:-}" ]; then   # 시험 대체(gh 호출 0) — [{number,state}] 또는 {"prs":[…]}
+pr_merged() { # <번호> → 0 병합(MERGED 또는 CLOSED+착지 sha 가 랜딩 ref 조상) · 1 아니오 · 2 판정 불가 (gh 1회 = 7초 + 재시도 1 · 실패는 «판정 불가» 1줄)
+  local n="$1" st out TOA TRY S BODIES REF="${FT_LAND_REF:-origin/main}"
+  if [ -n "${FT_PR_STATE_FROM_JSON:-}" ]; then   # 시험 대체(gh 호출 0) — [{number,state,comments:[{body}]}] 또는 {"prs":[…]}
     [ -f "$FT_PR_STATE_FROM_JSON" ] || { echo "  판정 불가 PR #$n — 상태 파일 없음: $FT_PR_STATE_FROM_JSON"; return 2; }
     st="$(jq -r --arg n "$n" '(if type == "array" then . else (.prs // []) end) as $p | [$p[] | select((.number|tostring) == $n)] | last | .state // empty' "$FT_PR_STATE_FROM_JSON" 2>/dev/null)"
-    case "$st" in MERGED) return 0;; "") echo "  판정 불가 PR #$n — 상태 파일에 그 번호가 없다"; return 2;; *) return 1;; esac
+    [ -n "$st" ] || { echo "  판정 불가 PR #$n — 상태 파일에 그 번호가 없다"; return 2; }
+    BODIES="$(jq -r --arg n "$n" '(if type == "array" then . else (.prs // []) end) as $p | [$p[] | select((.number|tostring) == $n)] | last | (.comments // [])[] | if type == "object" then (.body // "") else tostring end' "$FT_PR_STATE_FROM_JSON" 2>/dev/null)"
+  else
+    TOA="$(command -v timeout || command -v gtimeout)" || { echo "  판정 불가 PR #$n — timeout(coreutils) 없음"; return 2; }
+    for TRY in 1 2; do
+      out="$("$TOA" "${FT_GATE_TIMEOUT_S:-7}" gh pr view "$n" --json number,state,comments 2>&1)" && break
+      [ "$TRY" = 2 ] && { echo "  판정 불가 PR #$n — gh pr view 실패: $(printf '%s' "$out" | head -1)"; return 2; }
+    done
+    st="$(jq -r '.state // empty' <<<"$out" 2>/dev/null)"
+    [ -n "$st" ] || { echo "  판정 불가 PR #$n — 상태를 못 읽었다"; return 2; }
+    BODIES="$(jq -r '.comments // [] | .[] | if type == "object" then (.body // "") else tostring end' <<<"$out" 2>/dev/null)"
   fi
-  TOA="$(command -v timeout || command -v gtimeout)" || { echo "  판정 불가 PR #$n — timeout(coreutils) 없음"; return 2; }
-  for TRY in 1 2; do
-    out="$("$TOA" "${FT_GATE_TIMEOUT_S:-7}" gh pr view "$n" --json number,state 2>&1)" && break
-    [ "$TRY" = 2 ] && { echo "  판정 불가 PR #$n — gh pr view 실패: $(printf '%s' "$out" | head -1)"; return 2; }
-  done
-  st="$(jq -r '.state // empty' <<<"$out" 2>/dev/null)"
-  case "$st" in MERGED) return 0;; "") echo "  판정 불가 PR #$n — 상태를 못 읽었다"; return 2;; *) return 1;; esac
+  case "$st" in MERGED) return 0;; CLOSED) ;; *) return 1;; esac   # r1104-mut:closed-landed
+  # CLOSED = ft-merge-land 착지 PR — 닫기 코멘트의 마지막 «착지 sha <40hex>» 가 랜딩 ref 의 조상이면 인정(정본 판정과 같은 merge-base --is-ancestor)
+  S="$(printf '%s\n' "$BODIES" | grep -o '착지 sha [0-9a-fA-F]\{40\}' | tail -1 | grep -o '[0-9a-fA-F]\{40\}' | tr 'A-F' 'a-z')"
+  if [ -z "$S" ]; then echo "  MISS 연결 PR #$n — CLOSED · 착지 sha 없음(닫기 코멘트 0)"; return 1; fi
+  if ! git -C "$REPO" cat-file -e "$S^{commit}" 2>/dev/null; then echo "  MISS 연결 PR #$n — CLOSED · 착지 sha ${S:0:10} 로컬에 없음 — git fetch 후 다시"; return 1; fi
+  if ! git -C "$REPO" rev-parse --verify -q "${REF}^{commit}" >/dev/null; then echo "  MISS 연결 PR #$n — CLOSED · 랜딩 ref ${REF} 없음 — git fetch 후 다시"; return 1; fi
+  if git -C "$REPO" merge-base --is-ancestor "$S" "$REF" 2>/dev/null; then   # r1104-mut:ancestor
+    echo "  OK 연결 PR #$n CLOSED · 착지 sha ${S:0:10} ${REF} 조상"; return 0; fi
+  echo "  MISS 연결 PR #$n — CLOSED · 착지 sha ${S:0:10} ${REF} 조상 아님"; return 1
 }
 PRS="$(jq -r '[.closedByPullRequestsReferences[]?.number] | map("#"+tostring) | join(" ")' <<<"$JSON")"
 if [ -n "$PRS" ]; then echo "  OK   Closes 연결 PR $PRS"; else
