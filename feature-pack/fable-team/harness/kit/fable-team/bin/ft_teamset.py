@@ -370,13 +370,19 @@ def cmd_wt_v65(a):
 
 
 def cmd_name_rule(argv):
-    """이름 규칙 조회만 하는 하위명령(`prefix`·`prefixes`·`seat-info`·`wt-v65`) — 셸이 목록을 «복사»하지 않고 여기서 읽는다(두 벌 규칙 0)."""
+    """이름 규칙 조회만 하는 하위명령(`prefix`·`prefixes`·`seat-info`·`wt-v65`·`team-of`) — 셸이 목록을 «복사»하지 않고 여기서 읽는다(두 벌 규칙 0)."""
     ap = argparse.ArgumentParser(prog="ft_teamset.py")
-    ap.add_argument("cmd", choices=["prefix", "prefixes", "seat-info", "team-prefixes", "wt-v65"])
+    ap.add_argument("cmd", choices=["prefix", "prefixes", "seat-info", "team-prefixes", "wt-v65", "team-of"])
     ap.add_argument("--team")
     ap.add_argument("--seats")
+    ap.add_argument("--prefix")
     ap.add_argument("seat", nargs="?")
     a = ap.parse_args(argv)
+    if a.cmd == "team-of":  # r1144: 나노 접두 → 팀(옛 접두 포함) · 규칙 밖 = ERROR rc1
+        if not a.prefix:
+            die("--prefix 필수")
+        print(team_of(a.prefix))
+        sys.exit(0)
     if a.cmd == "wt-v65":
         if not a.seats:
             die("--seats 필수")
@@ -400,7 +406,7 @@ def cmd_name_rule(argv):
 
 
 def main():
-    if sys.argv[1:2] and sys.argv[1] in ("prefix", "prefixes", "seat-info", "team-prefixes", "wt-v65"):
+    if sys.argv[1:2] and sys.argv[1] in ("prefix", "prefixes", "seat-info", "team-prefixes", "wt-v65", "team-of"):
         return cmd_name_rule(sys.argv[1:])
     ap = argparse.ArgumentParser()
     ap.add_argument("cmd", choices=["check", "cap", "arch-live"])
