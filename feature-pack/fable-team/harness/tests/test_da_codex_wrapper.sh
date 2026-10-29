@@ -30,7 +30,8 @@ if grep -qx 'model_providers.headroom.http_headers={"x-headroom-bypass"="true"}'
 fi
 echo "model: fake-model"
 echo "provider: headroom" >&2
-echo "판정: APPROVE"
+[ -n "${FAKE_HOOK:-}" ] && echo "hook: UserPromptSubmit Blocked"
+printf '%s\n' "${FAKE_VERDICT-판정: APPROVE}"
 exit "${FAKE_RC:-0}"
 EOF
 chmod +x "$T/fakebin/codex"
@@ -236,6 +237,46 @@ if [ "${FT_DA_WRAPPER_MUTANT_CHECK:-1}" = 1 ]; then
     && bad "WS-ⓒ 변이(전수 줄 삭제)가 통과함" || ok "WS-ⓒ 변이(전수 줄 삭제) = 실패"
   grep -q 'FAIL WS-ⓐ' "$T/mutC.log" && ok "WS-ⓒ 변이 → WS-ⓐ FAIL" || bad "WS-ⓒ 변이에 WS-ⓐ FAIL 없음"
 fi
+
+# ⓕ R1: 훅 막힘 줄 + codex rc0 → 래퍼 rc3 «판정 불가» · .meta rc=3 · stderr 에 막힘 줄 인용
+cat > "$T/fakebin/codex" <<'EOF'
+#!/usr/bin/env bash
+: > "$FAKE_LOG"
+echo "model: fake-model"
+echo "provider: headroom" >&2
+[ -n "${FAKE_HOOK:-}" ] && echo "hook: UserPromptSubmit Blocked"
+printf '%s\n' "${FAKE_VERDICT-판정: APPROVE}"
+exit "${FAKE_RC:-0}"
+EOF
+chmod +x "$T/fakebin/codex"
+rc="$(FAKE_HOOK=1 run --cwd "$T/cwd" --prompt-file "$T/p.txt" --out-dir "$T/d")"
+outf="$(tail -1 "$T/stdout" | sed -n 's/^OUT \(.*\) rc=3$/\1/p')"
+[ "$rc" = 3 ] && [ -s "$outf" ] && ok "ⓕ R1 훅 막힘 = rc3 · 출력 파일 남김" || bad "ⓕ R1 rc=$rc out=$outf"
+grep -qE '(^| )rc=3( |$)' "$outf.meta" 2>/dev/null && grep -q '판정 불가 — 훅 막힘: hook: UserPromptSubmit Blocked' "$T/stderr" \
+  && ok "ⓕ R1 .meta rc=3 · stderr 막힘 줄 인용" || bad "ⓕ R1 meta/stderr: $(cat "$T/stderr")"
+grep -qx '판정: APPROVE' "$outf" && ok "ⓕ R1 판정이 있어도 훅 막힘이 이긴다" || bad "ⓕ R1 출력 본문 소실"
+
+# ⓖ R2: 판정 줄 없음 → rc3 · «마지막 codex 블록 뒤» 만 판정으로 센다(블록 앞 줄은 판정 0)
+rc="$(FAKE_VERDICT= run --cwd "$T/cwd" --prompt-file "$T/p.txt" --out-dir "$T/d")"
+outf="$(tail -1 "$T/stdout" | sed -n 's/^OUT \(.*\) rc=3$/\1/p')"
+[ "$rc" = 3 ] && grep -qE '(^| )rc=3( |$)' "$outf.meta" && grep -q '판정 불가 — 판정 줄 없음' "$T/stderr" \
+  && ok "ⓖ R2 판정 없음 = rc3 · .meta rc=3 · 사유 1줄" || bad "ⓖ R2 rc=$rc $(cat "$T/stderr")"
+rc="$(FAKE_VERDICT='판정: APPROVE
+codex
+검토만 했습니다.' run --cwd "$T/cwd" --prompt-file "$T/p.txt" --out-dir "$T/d")"
+[ "$rc" = 3 ] && ok "ⓖ R2 블록 앞 판정 줄은 안 센다(마지막 codex 블록 뒤 판정 0)" || bad "ⓖ R2 블록 범위 무시 rc=$rc"
+
+# ⓗ R3·R4: 정상 판정 APPROVE·HOLD 은 rc0(판정 내용은 안 본다) · .meta rc=0
+for v in '판정: APPROVE' '판정: HOLD — ②'; do
+  rc="$(FAKE_VERDICT="$v" run --cwd "$T/cwd" --prompt-file "$T/p.txt" --out-dir "$T/d")"
+  outf="$(tail -1 "$T/stdout" | sed -n 's/^OUT \(.*\) rc=0$/\1/p')"
+  [ "$rc" = 0 ] && grep -qE '(^| )rc=0( |$)' "$outf.meta" && ! grep -q '판정 불가' "$T/stderr" \
+    && ok "ⓗ «${v}» = rc0" || bad "ⓗ «${v}» rc=$rc $(cat "$T/stderr")"
+done
+
+# ⓘ R5: codex rc≠0 이면 판정 검사 0 · rc 그대로(판정 줄 없음이어도 rc1)
+rc="$(FAKE_RC=1 FAKE_VERDICT= run --cwd "$T/cwd" --prompt-file "$T/p.txt" --out-dir "$T/d")"
+[ "$rc" = 1 ] && ! grep -q '판정 불가' "$T/stderr" && ok "ⓘ R5 codex rc1 → 래퍼 rc1(검사 0)" || bad "ⓘ R5 rc=$rc $(cat "$T/stderr")"
 
 [ "$fail" = 0 ] && echo "ALL PASS" || echo "FAILED=$fail"
 exit "$fail"
