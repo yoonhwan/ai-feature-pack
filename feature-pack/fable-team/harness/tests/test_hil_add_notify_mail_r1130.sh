@@ -37,7 +37,8 @@ r1() {  # $1=bin $2=HIL_DIR — R1 --notify → 1통 · stdout 1줄 · rc0 (판�
   local out rc m; clr; out="$(hil "$1" "$2" --add "$T/P1.sh.hil" --notify "$DESK" --notify-comm "$MB" 2>"$T/r1.err")"; rc=$?
   m="$(msgs "$MB/mailbox.jsonl")"
   [ "$rc" = 0 ] && [ "$out" = "! bash $2/h1" ] && [ "$(rows "$MB/mailbox.jsonl")" = 1 ] \
-    && [ "$m" = "$DESK|ft-hil-h1|[HIL] h1 발급 — 오빠가 칠 줄 = ! bash $2/h1 · 계획 $T/P1.sh.hil" ] \
+    && [ "$m" = "$DESK|ft-hil-h1|[HIL] h1 발급 — 실행 줄 = ! bash $2/h1 (자율 ON = desk 가 PR head 확인 뒤 실행 · OFF = 오빠께) · 계획 $T/P1.sh.hil" ] \
+    && [[ "$m" != *"오빠가 칠 줄"* ]] \
     || { echo "rc=$rc out=$out rows=$(rows "$MB/mailbox.jsonl") msg=$m err=$(cat "$T/r1.err")"; return 1; }
 }
 r3() {  # $1=bin $2=HIL_DIR — R3 쪽지함 send 실패 → 등록·표식 그대로 · WARN 1줄 · rc0
@@ -93,6 +94,11 @@ echo "== 변이 2: 실패 때 WARN 대신 die → R3 rc≠0 = FAIL(검출)"
 M2="$T/mut2"; cp -R "$BIN" "$M2"; sed 's/|| echo "WARN \[HIL\] 쪽지 실패/|| die "WARN [HIL] 쪽지 실패/' "$BIN/ft-hil.sh" > "$M2/ft-hil.sh"
 ! cmp -s "$BIN/ft-hil.sh" "$M2/ft-hil.sh" && ok "변이 2 사본 ≠ 원본" || bad "변이 2 사본 = 원본"
 o="$(r3 "$M2" "$T/h-m2")" && bad "변이 2 가 R3 을 못 깬다" || ok "변이 2: R3 FAIL — $o"
+
+echo "== 변이 3 (r1142): 옛 문구 «오빠가 칠 줄» 되돌림 → R1 FAIL(검출)"
+M3="$T/mut3"; cp -R "$BIN" "$M3"; sed 's/실행 줄 = ! bash \$1 (자율 ON = desk 가 PR head 확인 뒤 실행 · OFF = 오빠께)/오빠가 칠 줄 = ! bash $1/' "$BIN/ft-hil-notify.sh" > "$M3/ft-hil-notify.sh"
+! cmp -s "$BIN/ft-hil-notify.sh" "$M3/ft-hil-notify.sh" && ok "변이 3 사본 ≠ 원본" || bad "변이 3 사본 = 원본"
+o="$(r1 "$M3" "$T/h-m3")" && bad "변이 3 이 R1 을 못 깬다" || ok "변이 3: R1 FAIL — $o"
 
 [ "$fail" = 0 ] && echo "ALL PASS" || echo "FAILED $fail"
 exit "$fail"
