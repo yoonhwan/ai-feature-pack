@@ -164,7 +164,7 @@ M="$T/mut"; mkdir -p "$M"; sed 's|^    mk="$(hil_marker "$h")"|    mk=""|' "$TIC
 ! cmp -s "$TICK" "$M/ft-tick.sh" && ok "변이 사본이 원본과 다르다" || bad "변이 사본 = 원본"
 mfn="$(mseat "$TICK")"$'\n'"$(awk '/^route_seat\(\) \{/{p=1} /^hil_marker\(\) \{/{p=1} /^hil_notify_marker\(\) \{/{p=1} /^notify_team\(\) \{/{p=1} /^hil_watch\(\) \{/{p=1} p{print} p&&/^\}/{p=0}' "$M/ft-tick.sh")"
 rm -f "$Q"/hil/h[0-9]*; rm -rf "$Q/state/hil-notified"; clear_mb
-plan V1; qh --add "$T/V1.sh.hil" --notify 'aifp-worker-master-claude#90' --notify-comm "$AIFPMB" >/dev/null; aging "$Q/hil/h1"
+plan V1; qh --add "$T/V1.sh.hil" --notify 'aifp-worker-master-claude#90' --notify-comm "$AIFPMB" >/dev/null; aging "$Q/hil/h1"; clear_mb   # r1130: 등록 직후 [HIL] 발급 1통은 틱 쪽지가 아니다
 watch "$mfn"
 [ "$(rows "$AIFPMB/mailbox.jsonl")" = 0 ] && has "$(lastmsg "$BYZMB/mailbox.jsonl")" "byz-planner-master-claude#91|ft-tick|[HIL 미실행] h1" "변이: 표식 쪽 0행 · planner 로 감 = ⓖ FAIL" || bad "변이가 ⓖ 를 못 깬다: $(rows "$AIFPMB/mailbox.jsonl") $(lastmsg "$AIFPMB/mailbox.jsonl")"
 
@@ -183,7 +183,7 @@ sed 's|^  FT_MBOX_DIR="$2" bash "$MBOX" send|  bash "$MBOX" send|' "$TICK" > "$M
 ! cmp -s "$TICK" "$M/ft-tick3.sh" && ok "변이 사본이 원본과 다르다" || bad "변이 3 사본 = 원본"
 mfn3="$(mseat "$TICK")"$'\n'"$(awk '/^route_seat\(\) \{/{p=1} /^hil_marker\(\) \{/{p=1} /^hil_notify_marker\(\) \{/{p=1} /^notify_team\(\) \{/{p=1} /^hil_watch\(\) \{/{p=1} p{print} p&&/^\}/{p=0}' "$M/ft-tick3.sh")"
 rm -f "$Q"/hil/h[0-9]*; rm -rf "$Q/state/hil-notified"; clear_mb
-plan V3; qh --add "$T/V3.sh.hil" --notify 'aifp-worker-master-claude#90' --notify-comm "$AIFPMB" >/dev/null; aging "$Q/hil/h1"
+plan V3; qh --add "$T/V3.sh.hil" --notify 'aifp-worker-master-claude#90' --notify-comm "$AIFPMB" >/dev/null; aging "$Q/hil/h1"; clear_mb
 watch "$mfn3"
 [ "$(rows "$AIFPMB/mailbox.jsonl")" = 0 ] && has "$(lastmsg "$BYZMB/mailbox.jsonl")" "aifp-worker-master-claude#90|ft-tick|[HIL 미실행] h1" "변이: 대상 쪽지함 0행(틱 명부 쪽지함으로 샘) = ⓖ FAIL" || bad "변이 3 이 ⓖ 를 못 깬다: $(rows "$AIFPMB/mailbox.jsonl") $(lastmsg "$AIFPMB/mailbox.jsonl")"
 
@@ -191,7 +191,7 @@ echo "== 변이 4: 도어벨 격리(TMUX_TMPDIR) 삭제 → 격리 칸 FAIL(검�
 rm -f "$T/tmux.log"
 ISOENV=""            # 격리 삭제 = 진짜 tmux 기본 소켓을 보게 된다(가짜 tmux 가 마지막 방어)
 rm -f "$Q"/hil/h[0-9]*; rm -rf "$Q/state/hil-notified"; clear_mb
-plan V4; qh --add "$T/V4.sh.hil" --notify 'aifp-worker-master-claude#90' --notify-comm "$AIFPMB" >/dev/null; aging "$Q/hil/h1"
+plan V4; qh --add "$T/V4.sh.hil" --notify 'aifp-worker-master-claude#90' --notify-comm "$AIFPMB" >/dev/null; aging "$Q/hil/h1"; clear_mb
 watch
 ISOENV="TMUX_TMPDIR='$ISO'"
 [ -n "$(grep -cv "^$ISO	" "$T/tmux.log" 2>/dev/null)" ] && ok "변이: 격리 밖 tmux 호출 = 격리 칸 FAIL" || bad "변이 4 가 격리 칸을 못 깬다"

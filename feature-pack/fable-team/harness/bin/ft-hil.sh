@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ft-hil.sh — 사람이 `!` 로 칠 계획 파일(*.sh.hil 등)을 짧은 진입 파일 /tmp/h<N> 으로 등록한다 (R83 · 판정 850·853 · R186 판정 1720). 도구·오케가 부른다.
 #   ft-hil.sh --add <계획 파일> [--supersedes h<M>] [--notify <좌석> [--notify-comm <쪽지함 폴더>]]  → stdout `! bash $HIL_DIR/h<N>` 1줄 (클립보드는 보조: pbcopy 가 있고 HIL_CLIP≠0)
-#                                  ★r718: --notify = «[HIL 미실행] 알림 받을 좌석» 을 h<N>.notify(seat= · comm= 두 줄)에 적는다 — 틱 hil_watch 가 그 쪽지함의 그 좌석으로 보낸다.
+#                                  ★r718: --notify = «[HIL 미실행] 알림 받을 좌석» 을 h<N>.notify(seat= · comm= 두 줄)에 적는다 — 틱 hil_watch 가 그 쪽지함의 그 좌석으로 보낸다. r1130: 새 h 는 등록 직후에도 `[HIL] h<N> 발급` 1통(ft-hil-notify.sh issue · 실패 = WARN 1줄 · rc 0).
 #                                  --notify-comm 생략 = 부른 곳의 공용 루트 쪽지함(ft_comm_dir). 좌석 이름 린트 실패·쪽지함 폴더 없음 = REJECT rc2(등록 0).
 #                                  h<M> 을 «대체됨» 으로 적는다 — h<M> 을 치면 `REJECT 대체됨 → h<N>` rc 1 · 계획 실행 0
 #   ft-hil.sh --cmd '<명령>'      → 명령 1줄 계획을 $HIL_DIR/hil-cmd/<시각>.sh 로 쓰고 --add 와 같은 처리
@@ -95,7 +95,7 @@ comm_default() {  # 부른 곳의 공용 루트 쪽지함(ft_comm_dir · 못 풀
 }
 
 add() {
-  local f="${1:-}" sup="${2:-}" ns="${3:-}" nc="${4:-}" t l n="" i=0 m="" rq=() rc_c=""
+  local f="${1:-}" sup="${2:-}" ns="${3:-}" nc="${4:-}" t l n="" i=0 m="" rq=() rc_c="" new=""
   [ -f "$f" ] || die "계획 파일이 없다: $f"
   read -ra rq <<< "$(sed -n 's/^# ft-hil-request seat=//p' "$f" | head -1)"   # r1117: 결과 쪽지 받을 요청 좌석(최대 3) — 린트 실패 = REJECT rc2(등록 0)
   [ "${#rq[@]}" -le 3 ] || { echo "REJECT 요청 좌석은 3개까지: ${rq[*]}" >&2; exit 2; }
@@ -128,11 +128,12 @@ add() {
   fi
   if [ -z "$n" ]; then
     n="$(($(max_n) + 1))"
-    [ ! -e "$D/h$n" ] && [ ! -L "$D/h$n" ] && ( set -C; entry_body "$t" "$D/h$n" "$rc_c" "${rq[*]-}" > "$D/h$n" ) 2>/dev/null || die "등록 실패(이미 있는 이름은 덮지 않는다): $D/h$n"
+    [ ! -e "$D/h$n" ] && [ ! -L "$D/h$n" ] && ( set -C; entry_body "$t" "$D/h$n" "$rc_c" "${rq[*]-}" > "$D/h$n" ) 2>/dev/null || die "등록 실패(이미 있는 이름은 덮지 않는다): $D/h$n"; new=1
   fi
   [ -z "$m" ] || echo "h$n" > "$D/h$m.superseded" || die "대체 표시를 못 썼다: $D/h$m.superseded"
   [ -z "$ns" ] || printf 'seat=%s\ncomm=%s\n' "$ns" "$nc" > "$D/h$n.notify" || die "수신자 표식을 못 썼다: $D/h$n.notify"
   rmdir "$D/.hil.lock"; trap - EXIT
+  [ -z "$ns" ] || [ -z "$new" ] || bash "$(dirname "${BASH_SOURCE[0]}")/ft-hil-notify.sh" issue "$D/h$n" "$t" "$nc" "$ns" 2>/dev/null || echo "WARN [HIL] 쪽지 실패 — h$n 은 등록됨 · 틱 30분 알림이 남는다(to=$ns comm=$nc)" >&2   # r1130: 새 h 만 1통
   echo "! bash $D/h$n"
   clip "bash $D/h$n"
 }
