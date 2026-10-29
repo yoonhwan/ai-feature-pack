@@ -50,7 +50,7 @@ C() { out="$(env FT_ROOT="$R" FT_DECISION_NOW=2026-10-15T18:00:00 FT_DECISION_HI
 # ===== ⓐ 본문 없는 열린 행 = «본문 없음» 1 + 계속 · WARN 1줄(seq·경로) =====
 q all; C
 [ "$rc" = 0 ] && grep -qx '결정 인터뷰 1건 · 스크립트 0건 · 팀 대기 1건(가장 오래 byz-cfo-master-claude#1 5분) · 본문 없음 1건 (MERGE-QUEUE 파일 없음)' <<<"$out"; ck "ⓐ rc0 · 결정 인터뷰 1건 · «본문 없음 1건»" $?
-[ "$(grep -c . <<<"$err")" = 1 ] && grep -qx "WARN ft-decision-count: 쪽지 본문 없음 #2 $B/2.txt" <<<"$err"; ck "ⓐ stderr = WARN 1줄(seq #2 · 경로)" $?
+[ "$(grep -c . <<<"$err")" = 1 ] && grep -qx "WARN ft-decision-count: 쪽지 본문 없음 1건(첫 #2 · 끝 #2) $B/2.txt" <<<"$err"; ck "ⓐ stderr = WARN 1줄(건수 · seq #2 · 경로 · r1135 묶음 꼴)" $?
 q all; C --detail
 [ "$rc" = 0 ] && grep -qx '  #2 byz-cfo-master-claude#1 5분 본문 없음 *' <<<"$out"; ck "ⓔ --detail 이 그 행을 «본문 없음» 으로 보여준다" $?
 [ "$(grep -c '본문 없음' <<<"$out")" = 2 ]; ck "ⓔ --detail 본문 없음 낱말 2(첫 줄 칸 + 그 행)" $?

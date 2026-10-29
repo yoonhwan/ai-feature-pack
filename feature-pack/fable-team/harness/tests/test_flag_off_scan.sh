@@ -92,8 +92,8 @@ has "$(count "$T/FD2.md")" "결정 인터뷰 2건" "판정 칸 비면 미결정"
 printf '| 플래그 | 결정(켬/끔) | 판정 | 날짜 |\n|---|---|---|---|\n| NEXT_PUBLIC_FOO | 끔 | 판정 1 | 10-16 |\n| NEXT_PUBLIC_BAR | 켬 | 판정 2 | 10-16 |\n' > "$T/FD3.md"
 o="$(count "$T/FD3.md")"; has "$o" "결정 인터뷰 0건" "전부 결정 → 0"; hasnt "$o" "(꺼진 플래그" "0이면 메모 생략"
 
-echo "== ⓙ 도구 git 실패 → rc 4"
-o="$(FR_REF=nonexistent count)"; has "$o" "RC=4" "rc 4"; has "$o" "ERROR ft-decision-count" "ERROR 줄"
+echo "== ⓙ 꺼진 플래그 칸의 git 실패 → 그 칸만 «판정 불가» 메모 · rc 0 (r1135 칸 격리 · 하드 룰 20)"
+o="$(FR_REF=nonexistent count)"; has "$o" "RC=0" "rc 0"; has "$o" "(꺼진 플래그 판정 불가 — git rev-parse nonexistent rc=" "판정 불가 메모"; hasnt "$o" "ERROR ft-decision-count" "ERROR 줄 0"
 
 echo "== ⓚ 랜딩 검사 — --new-between: 새로 생긴 미결정 플래그만 출력 · 기존 플래그는 침묵"
 R="$(mk k)"; echo "x(process.env.NEXT_PUBLIC_OLD === '1');" > "$R/clients/web/src/old.ts"; commit "$R"; B="$(git -C "$R" rev-parse HEAD)"
