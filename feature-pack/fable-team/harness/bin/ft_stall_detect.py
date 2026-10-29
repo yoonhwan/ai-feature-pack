@@ -1,6 +1,6 @@
 """R320b — 멈춘 좌석 감지 4종의 «판정» (읽기 전용 · 처리는 ft_stall_scan.py).
 
-r1001 — `lead_heartbeat` = 팀장이 보낸 mbox 쪽지 중 본문 머리 `[정리]` 인 마지막 줄의 ts(팀장 심박).
+r1001 — `lead_heartbeat` = 팀장이 보낸 mbox 쪽지 중 본문 머리 `[정리]` 인 마지막 줄의 ts(팀장 심박 · r1154: 승격분 `[HIL] … (원래 [정리])` 도).
   팀장 좌석의 b·d 경보는 이 심박이 LEAD_HEARTBEAT_MIN(15분) 안이면 0, 끊기면 팀 단위 1통(ft_stall_scan f).
 
 
@@ -15,6 +15,8 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+from ft_decision_kind import PROMOTED  # r1154: 승격 표식 정규식 한 벌(r1148) — 가져오기 실패는 예외 그대로
 
 IDLE_MIN = 3.0
 LEAD_HEARTBEAT_MIN = 15.0  # 팀장 심박 주기 10분 + 여유 5 — 이보다 오래 조용하면 «멈춤»
@@ -299,6 +301,14 @@ def lead_names(root: Path, master: str | None) -> set[str]:
     return {master}
 
 
+def _is_heartbeat_body(body: object) -> bool:
+    """머리 [정리] ∨ mbox_guard 승격분(머리 [HIL] · 첫 줄 끝 «(원래 [정리])» · r1098) — 판정 정규식은 ft_decision_kind.PROMOTED 한 벌(r1154)."""
+    if not isinstance(body, str):
+        return False
+    head = body.lstrip()
+    return head.startswith(HEARTBEAT_TOKEN) or (head.startswith("[HIL]") and bool(PROMOTED.search(head.split("\n", 1)[0].strip())))
+
+
 def _hb_line(line: str, masters: set[str], recipients: set[str], now: float) -> tuple[float | None, bool, bool]:
     """쪽지 1줄 → (ts, 심박인가, 깨진 줄인가). ts 는 «모든» 줄에서 뽑는다 — 로그를 끝에서 읽으며 창 밖에서 멈추는 기준(r1020)."""
     try:
@@ -314,7 +324,7 @@ def _hb_line(line: str, masters: set[str], recipients: set[str], now: float) -> 
     if ts > now + 5:  # 미래 ts = 시계 어긋남 — 신선으로 읽지 않는다
         return ts, False, True
     body = r.get("body")
-    if not isinstance(body, str) or not body.lstrip().startswith(HEARTBEAT_TOKEN):
+    if not _is_heartbeat_body(body):
         return ts, False, False  # 심박 아닌 쪽지(발주·보고)는 판정 대상이 아니다
     if r.get("from") not in masters or role_key(str(r.get("to"))) not in {role_key(x) for x in recipients}:
         return ts, False, False  # 발신자가 현역 팀장이 아니거나, 받는이가 master/planner «역할» 이 아니면 심박이 아니다(반례 2·4·5)
