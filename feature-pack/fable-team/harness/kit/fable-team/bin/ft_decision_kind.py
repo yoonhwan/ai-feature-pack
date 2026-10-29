@@ -3,6 +3,7 @@
 결정 인터뷰·팀 대기 = 보고 의무 급(MUST_REPORT) 미닫힘 중 본문 첫 줄 «머리»(앞 대괄호 묶음)에 질문 표식이 있는 것만.
   질문표식 = [결정]·[HIL]·[인터뷰 요청](«·» 변형 포함) 또는 [긴급] + 첫 줄의 «?»·«예/아니오»·«①…②» 선택지
   통보 = 통보 머리([완료]·[완료·휴식…]·[정지 레디]·[수령]·[회신…]·[보고]) — 물음표가 있어도 0 · 표식 없는 쪽지도 통보
+       · 첫 줄 끝 «(원래 [정리])»(mbox_guard r1098 승격분 · r1148) — 머리가 [HIL] 이어도 통보
   묵음 = 24시간 넘은 질문 — 첫 줄 N 에서 빼고 «묵은 M건» 칸으로(숨기지 않는다)
   본문 없음 = 본문 파일이 사라진 행(r738) — 셈을 멈추지 않고 «본문 없음» 으로 세고 stderr 경고 1줄 · 그 밖의 읽기 실패는 그대로 ReadError
 닫힘 = obligation_closed(줄, answered_seqs(planner)) — 정본 술어 1곳.
@@ -19,6 +20,7 @@ HEAD = re.compile(r"(?:\s*\[[^\]]*\])+")
 NOTICE = re.compile(r"\[(?:완료|정지 레디|수령|회신|보고)[^\]]*\]")
 ASK = re.compile(r"\[(?:결정|HIL|인터뷰 요청)(?:·[^\]]*)?\]")  # [결정 대기 경보] 같은 이름 겹침은 질문 아님
 CHOICE = re.compile(r"[?？]|예\s*/\s*아니오|①.*②")
+PROMOTED = re.compile(r"\(원래 \[정리\]\)\s*$")  # r1148: mbox_guard 승격(r1098)이 첫 줄 끝에 붙인 표식 — 머리는 [HIL] 이어도 원래 [정리](통보)
 BODY_MISSING = "본문 없음"
 ORDER = {"질문표식": 0, BODY_MISSING: 1, "묵음": 2, "통보": 3}
 
@@ -38,7 +40,7 @@ def head_line(path):
 def kind(first, mins):
     m = HEAD.match(first)
     head = m.group() if m else ""
-    if NOTICE.search(head) or not (ASK.search(head) or ("[긴급" in head and CHOICE.search(first))):
+    if NOTICE.search(head) or PROMOTED.search(first) or not (ASK.search(head) or ("[긴급" in head and CHOICE.search(first))):
         return "통보"
     return "묵음" if mins >= STALE_MIN else "질문표식"
 
