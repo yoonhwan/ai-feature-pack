@@ -74,6 +74,33 @@ sed 's/^ENTRY_TOOLS=.*/ENTRY_TOOLS=""/' "$HK" > "$T/hook-mut.sh"; grep -q '^ENTR
 hook 'bash /w/scripts/fable-team-bin/ft-nano-spawn.sh x' "$T/hook-mut.sh"
 denied && bad "변이 훅이 여전히 deny — 시험이 이빨이 없다" || ok "변이 시 ⓕ deny 단언이 깨진다(시험이 변이를 잡는다)"
 
+# ── r1145: 뒤처진 체크아웃(HEAD 가 origin/main 을 안 품음)의 ft-* 전부 + 같은 명령 안 변수 경로 ──
+KB=feature-pack/fable-team/harness/bin
+for nm in fresh stale; do
+  P="$T/$nm"; mkdir -p "$P/$KB"; git init -q -b main "$P"
+  for t in ft-merge-land ft-head-sync ft-test-reentry-lint ft-nano-spawn; do printf '#!/bin/bash\nexit 0\n' > "$P/$KB/$t.sh"; done
+  git -C "$P" add -A && git -C "$P" -c user.email=t@t -c user.name=t commit -q -m kit
+  for i in 1 2 3; do git -C "$P" -c user.email=t@t -c user.name=t commit -q --allow-empty -m "n$i"; done
+  git -C "$P" update-ref refs/remotes/origin/main HEAD
+done
+git -C "$T/stale" reset -q --hard HEAD~3   # 3커밋 뒤처짐
+ST="$T/stale/$KB"; FR="$T/fresh/$KB"
+hook "B=$ST; bash \$B/ft-merge-land.sh 4969 --approve-sha x"; chk denied "R1 변수 경로 + 뒤처진 ft-merge-land → deny"
+has "$out" "뒤처진 체크아웃" "R1 문구 «뒤처진 체크아웃»"; has "$out" "$ST/ft-merge-land.sh" "R1 문구에 풀린 경로"; has "$out" "$LIVE" "R1 안내에 라이브 경로"
+hook "bash $ST/ft-head-sync.sh --apply"; chk denied "R2 뒤처진 ft-head-sync → deny"; has "$out" 'FT_BIN/ft-head-sync.sh' "R2 안내에 \$FT_BIN/<이름>"
+hook "cd $T/stale && bash $KB/ft-head-sync.sh --apply"; chk denied "R2b cd 뒤 상대 경로 → deny"
+hook "bash $FR/ft-test-reentry-lint.sh x.sh"; chk allowed "R3 origin/main 품은 사본 lint → 통과"
+hook "bash $FR/ft-nano-spawn.sh x"; chk denied "R4 최신 사본이어도 입구 도구 → deny(불변)"
+hook "cat $ST/ft-head-sync.sh"; chk allowed "R5 cat 뒤처진 사본 → 통과"
+hook "git -C $T/stale show HEAD:$KB/ft-merge-land.sh"; chk allowed "R5 git show → 통과"
+hook "FT_ALLOW_TRACKED_BIN=1 bash $ST/ft-merge-land.sh"; chk allowed "R6 FT_ALLOW_TRACKED_BIN=1 → 통과"
+# 변이 ⓐ: origin/main 포함 검사 삭제(늘 뒤처짐) → R3 deny / 변이 ⓑ: 변수 풀기 삭제 → R1 통과
+sed 's/^    return p.returncode == 1$/    return True/' "$HK" > "$T/mut-a.sh"; cmp -s "$HK" "$T/mut-a.sh" && bad "변이 ⓐ 생성 실패" || ok "변이 ⓐ 생성"
+sed 's/^        toks = \[expand(t, env) for t in toks\]$/        pass/' "$HK" > "$T/mut-b.sh"; cmp -s "$HK" "$T/mut-b.sh" && bad "변이 ⓑ 생성 실패" || ok "변이 ⓑ 생성"
+cp -p "$(dirname "$HK")/merge_cmd.py" "$T/merge_cmd.py"
+hook "bash $FR/ft-test-reentry-lint.sh x.sh" "$T/mut-a.sh"; allowed && bad "변이 ⓐ 인데 R3 통과 — 이빨 없음" || ok "변이 ⓐ → R3 단언이 깨진다"
+hook "B=$ST; bash \$B/ft-merge-land.sh 4969" "$T/mut-b.sh"; denied && bad "변이 ⓑ 인데 R1 deny — 이빨 없음" || ok "변이 ⓑ → R1 단언이 깨진다"
+
 # ── 축 ⓖ: 입구 도구의 비설치 위치 실행 = LIVE_BIN 으로 exec ──
 for t in $TOOLS; do
   out="$(printf 'IN\n' | env -u FT_ALLOW_TRACKED_BIN bash "$R/harness/bin/$t.sh" one "two w" 2>&1)"; rc=$?
