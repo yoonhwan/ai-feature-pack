@@ -17,8 +17,10 @@ git -C "$G" init -q && echo a > "$G/a.txt" && git -C "$G" add a.txt && git -C "$
 SHA="$(git -C "$G" rev-parse HEAD)"
 printf '#!/bin/sh\n[ -f "%s/tmuxfail" ] && { echo "no server running" >&2; exit 1; }\n[ "$1" = list-sessions ] && cat "%s/sessions" 2>/dev/null\nexit 0\n' "$T" "$T" > "$T/bin/tmux"; chmod 755 "$T/bin/tmux"
 printf 'live-owner\n' > "$T/sessions"
-sc() { OUT="$(env PATH="$T/gbin:$T/bin:$PATH" FT_RES_ROOT="$R" FT_SCRATCH_DIR="$SCR" TMPDIR="$TMPD" FT_SCRATCH_OWNER="${OWN:-live-owner}" \
-  GS_AT="${GS_AT:-0}" GS_FAIL="${GS_FAIL:-}" GS_SLEEP="${GS_SLEEP:-}" GS_DIRTY="${GS_DIRTY:-}" bash "$SUT" "$@" 2>&1)"; RC=$?; }
+sc() { OUT="$(env PATH="${GPRE:+$GPRE:}$T/gbin:$T/bin:$PATH" FT_RES_ROOT="$R" FT_SCRATCH_DIR="$SCR" TMPDIR="$TMPD" FT_SCRATCH_OWNER="${OWN:-live-owner}" \
+  FT_SCRATCH_KEEP_DIRTY="${KEEP_ON:-}" FT_SCRATCH_KEEP_MAX_MB="${KEEP_MAX:-}" \
+  GS_AT="${GS_AT:-0}" GS_FAIL="${GS_FAIL:-}" GS_SLEEP="${GS_SLEEP:-}" GS_DIRTY="${GS_DIRTY:-}" \
+  GT_AT="${GT_AT:-0}" GT_DIRTY="${GT_DIRTY:-}" GT_TAR_EXTRA="${GT_TAR_EXTRA:-}" bash "$SUT" "$@" 2>&1)"; RC=$?; }
 TSV="$R/.fable-team/state/scratch-repos.tsv"
 age_reg() { awk -F'\t' -v p="$1" -v t="$(( $(date +%s) - $2 ))" 'BEGIN{OFS="\t"} $1==p{$3=t} {print}' "$TSV" > "$TSV.n" && mv "$TSV.n" "$TSV"; }   # 등록 시각을 <초> 전으로
 
@@ -65,7 +67,7 @@ sc "nosuchref" --repo "$G"; [ $RC != 0 ] && ok "ⓘ 없는 ref → 실패 rc≠0
 # ── r1085: 사본 안에서 만든 «가지 사본» — 깨끗할 때만 지운다 · 더러우면 지금처럼 거절 · 가지 ref 는 남긴다 ──────
 #   ⓐ 깨끗한 가지 사본 삭제·ref 남김(R1) ⓑ 더러움 거절(R2·R3) ⓒ detached 길 불변(R4) ⓓ status 못 읽음(R5 · G7·G8 두 자리)
 #   ⓔ 지우기 직전 더러워짐 = G8 거절(R6) ⓕ 주인 살아 있음(R7) ⓖ bin·kit 같은 내용 · 변이 3종(FT_CASES=M)
-want() { case "${FT_CELLS:-all}" in all|*r1085*) return 0;; esac; return 1; }
+want() { case "${FT_CELLS:-all}" in all) return 0;; *"$1"*) return 0;; esac; return 1; }
 if want r1085; then
   ARM="$R/.fable-team/state/scratch-sweep.armed"
   GITBIN="$(command -v git)"; mkdir -p "$T/gbin"
@@ -136,13 +138,142 @@ EOF
       cmp -s "$SUT" "$m" && { bad "변이 $1 이 안 바뀜"; return; }
       bash -n "$m" 2>/dev/null || { bad "변이 $1 문법 깨짐(가짜 변이)"; return; }
       FT_MUT_CHILD=1 FT_CELLS=r1085 FT_CASES=none FT_SUT="$m" bash "${BASH_SOURCE[0]}" > "$T/mut-$1.log" 2>&1; r=$?
-      nf="$(grep -c '^FAIL' "$T/mut-$1.log")"; nx="$(grep -cE "^FAIL $3" "$T/mut-$1.log")"
+      nf="$(grep -c '^FAIL' "$T/mut-$1.log")"; nx="$(grep -cE "^FAIL ($3)" "$T/mut-$1.log")"
       { [ "$r" != 0 ] && [ "$nf" -gt 0 ] && [ "$nf" = "$nx" ]; } && ok "변이2 $1 → 기대 칸만 빨강($3 · ${nf}칸)" \
         || bad "변이 $1 이 기대 칸으로 안 잡힘(rc=$r · FAIL $nf · 기대 $nx) $(grep '^FAIL' "$T/mut-$1.log" | head -2 | tr '\n' ' ')"
     }
     mut clean-off 's#\[ "\$ST" = 0 \] || { gfail G7 3#: || { gfail G7 3#;s#\[ "\$ST" = 0 \] || { gfail G8 3#: || { gfail G8 3#' 'r1085-ⓑ|r1085-ⓔ'
     mut g8-off 's#^      \[ "\$ST" = 0 \] || { gfail G8 3#      : || { gfail G8 3#' 'r1085-ⓔ'
     mut newpath-off 's#^      0) cap r remtmo; \[ "\$r" -gt 0 \] || { gfail G7 2 "예산 소진"; return; }#      0) gfail G7 3 "가지 워크트리(detached 아님)"; return;#' 'r1085-ⓐ|r1085-ⓑ|r1085-ⓓ|r1085-ⓔ'
+  fi
+fi
+
+# ── r1090: 더러운 사본 = «보관 뒤 삭제»(KEEP_DIRTY) · detached 더러움 조용한 삭제 0 · 끝 줄 거절 분류 ────────
+#   ⓐ 깨끗 26 = 보관 0 · 삭제(R1) ⓑ 더러운 8 = 보관 8 + 삭제 · diff 줄 · tar 4864(R2·R3) ⓒ KEEP 없음 = 거절(R4)
+#   ⓓ 보관 확인 실패(tar 항목 수) = 거절 · 사본·보관 폴더 남음(R5) ⓔ 보관 뒤 새 파일 = G8 거절(R6)
+#   ⓕ 보관 상한 초과 = 거절(R7) ⓖ 끝 줄 수 == 로그 줄 수(R8) ⓗ 34개 회차 시간(단계별 초) ⓘ bin·kit cmp0 · 변이 3종(FT_CASES=M)
+if want r1090; then
+  KEEP="$R/.fable-team/state/scratch-keep"; ARM="$R/.fable-team/state/scratch-sweep.armed"; SLOG="$R/.fable-team/state/scratch-sweep.log"
+  mkdir -p "$R/.fable-team/state"
+  arm() { date +%s > "$ARM"; }                      # 실삭제 단계로(첫 sweep 의 목록 보고만 건너뜀)
+  SH8="${SHA:0:8}"; ONW=0
+  mkcopy() { # <번호> → detached 사본 + 등록 줄(주인 죽음 · 25시간 전) · 사본 1개
+    local p="$SCR/repo-$SH8-9-$1"
+    git -C "$G" worktree add -q --detach "$p" "$SHA" >/dev/null 2>&1
+    printf '%s\t%s\t%s\n' "$p" gone-rd "$(( $(date +%s) - 90000 ))" >> "$TSV"
+    printf '%s' "$p"
+  }
+  kd() { printf '%s' "$KEEP/gone-rd/${1##*/}"; }   # <사본> → 보관 폴더
+  # lsof 는 다른 프로세스가 사라지는 순간 rc≠0 을 낼 수 있다 — 제품은 그때 «삭제 0» 으로 멈추는 게 맞고(보수적),
+  # 시험은 그 «정상 동작» 회차를 다시 잰다(같은 조건 3회까지 · 사유가 lsof 가 아니면 그대로 실패)
+  scs() { local i; for i in 1 2 3; do sc "$@"; printf '%s' "$OUT" | grep -q '재확인 못 읽음(rc=2 · G4 lsof' || return 0; done; }
+  kept() { [ -d "$(kd "$1")" ]; }
+  # ── ⓐⓑⓗ 대상 목록 모양(깨끗 N · 1줄 수정 M · 추적 안 한 파일 4864개 1) ──
+  #   ★기본 = 깨끗 1 · 수정 1 · 추적 안 한 파일 0 (사본 3개 · 회차 한 번) — lsof 1회가 1.1~1.6초(부하 시 5초+)라
+  #     34개를 기본 시험에 넣으면 «시험 1개 70초»(하드 룰 22)를 넘는다. 카드 숫자 그대로(깨끗 26 · 수정 7 · 4864 1 = 34개)는
+  #     FT_HEAVY=1 로 따로 1회 잰다(같은 칸·같은 판정 · 기본은 모양만 작게)★
+  if [ "${FT_CASES:-all}" != none ]; then
+    NC="${NCLEAN:-1}"; NDI="${NODIRTY:-1}"; NU="${NUNTRACKED:-0}"
+    [ "${FT_HEAVY:-0}" != 1 ] || { NC=26; NDI=7; NU=4864; }   # 카드 숫자 그대로(FT_HEAVY=1 · 1회 실측)
+    T0=$(date +%s); CLEAN=(); DIRTY=()
+    for i in $(seq 1 "$NC"); do CLEAN+=("$(mkcopy "$i")"); done
+    for i in $(seq $((NC+1)) $((NC+NDI))); do p="$(mkcopy "$i")"; printf 'z\n' >> "$p/a.txt"; DIRTY+=("$p"); done
+    PBIG="$(mkcopy $((NC+NDI+1)))"; mkdir -p "$PBIG/u"
+    [ "$NU" = 0 ] || python3 -c 'import sys; [open("%s/u/f%d" % (sys.argv[1], i), "w").close() for i in range(int(sys.argv[2]))]' "$PBIG" "$NU"
+    T_BUILD=$(( $(date +%s) - T0 )); ROUNDS=0; SLOW=0
+    while [ "$ROUNDS" -lt 6 ]; do   # 회차마다 70초 예산 — 남은 것은 다음 회차가 잇는다(하드 룰 12)
+      ROUNDS=$((ROUNDS+1)); T1=$(date +%s); KEEP_ON=1 scs --sweep; DT=$(( $(date +%s) - T1 ))
+      echo "TIME r1090 회차$ROUNDS: ${DT}초"
+      [ "$DT" -gt "$SLOW" ] && SLOW="$DT"
+      left=0; for p in "${CLEAN[@]}" "${DIRTY[@]}" "$PBIG"; do [ ! -d "$p" ] || left=$((left+1)); done
+      [ "$left" = 0 ] && break
+    done
+    nc=0; for p in "${CLEAN[@]}"; do [ ! -d "$p" ] && ! kept "$p" && nc=$((nc+1)); done
+    [ "$nc" = "$NC" ] && ok "r1090-ⓐ 깨끗 $NC = 전부 삭제 · 보관 0(R1)" || bad "r1090-ⓐ 남은/보관된 깨끗 사본 $((NC-nc))개 [$OUT]"
+    nd=0; for p in "${DIRTY[@]}"; do
+      [ ! -d "$p" ] && kept "$p" && grep -q '^+z' "$(kd "$p")/diff.patch" && [ -f "$(kd "$p")/meta.txt" ] && [ -f "$(kd "$p")/status.txt" ] && [ -f "$(kd "$p")/untracked.tar" ] && nd=$((nd+1))
+    done
+    [ "$nd" = "$NDI" ] && ok "r1090-ⓑ 1줄 수정 $NDI = 보관 4파일 + 삭제 · diff.patch 에 그 줄(R2)" || bad "r1090-ⓑ 보관/삭제 불일치 $((NDI-nd))개 [$OUT]"
+    ntar=$(tar -tf "$(kd "$PBIG")/untracked.tar" 2>/dev/null | awk 'END{print NR+0}')
+    if [ "$NU" = 0 ]; then
+      { [ ! -d "$PBIG" ] && ! kept "$PBIG"; } && ok "r1090-ⓑ 추적 안 한 파일 0 = 깨끗 = 삭제 · 보관 0(작은 기본 회차)" || bad "r1090-ⓑ 깨끗한 사본이 남음 [$OUT]"
+    else
+      { [ ! -d "$PBIG" ] && kept "$PBIG" && [ "$ntar" = "$NU" ] && [ "$(awk 'END{print NR}' "$(kd "$PBIG")/status.txt")" = "$NU" ]; } \
+        && ok "r1090-ⓑ 추적 안 한 파일 ${NU} = tar 항목 ${NU} + status ${NU}줄 + 삭제(R3)" || bad "r1090-ⓑ 추적 안 한 파일 ${NU} 인데 tar=$ntar 남음=$([ -d "$PBIG" ] && echo y) [$OUT]"
+    fi
+    { [ "$SLOW" -le 70 ]; } && ok "r1090-ⓗ 회차 최대 ${SLOW}초 ≤ 70초(사본 $((NC+NDI+1))개 · ${ROUNDS}회차 · 만들기 ${T_BUILD}초)" || bad "r1090-ⓗ 회차 ${SLOW}초 > 70초"
+  fi
+  # ── ⓒ(R4) + ⓖ 첫 회차(R8 · KEEP 없음): 더러운 detached·가지를 한 회차에 몰아 거절 ──
+  cnt() { sed -n 's/.*'"$1"'=\([0-9][0-9]*\).*/\1/p' <<<"$2"; }   # <키> <끝줄> → 수
+  arm; PC="$(mkcopy 40)"; printf 'z\n' >> "$PC/a.txt"
+  UB="$(mkcopy 41)"; git -C "$UB" checkout -q -b brKeep 2>/dev/null; printf 'z\n' >> "$UB/a.txt"
+  PG="$(mkcopy 42)"; printf 'z\n' >> "$PG/a.txt"
+  M1=$(awk 'END{print NR+0}' "$SLOG"); scs --sweep; L1="$(grep 'swept=' "$SLOG" | tail -1)"
+  NR1=$(awk -v m="$M1" 'NR>m && / REFUSED /{n++} END{print n+0}' "$SLOG")
+  { [ -d "$PC" ] && [ -d "$UB" ] && grep -qF "$PC" "$TSV" && printf '%s' "$OUT" | grep -q 'detached 사본 더러움' && printf '%s' "$OUT" | grep -q '가지 사본 더러움'; } \
+    && ok "r1090-ⓒ KEEP 없음 = 더러운 detached·가지 둘 다 거절 · 사본 남음(R4)" || bad "r1090-ⓒ rc=$RC [$OUT]"
+  { [ "$(cnt refused-dirty "$L1")" = 3 ] && [ "$NR1" = 3 ] && [ "$(cnt refused-keep "$L1")" = 0 ] && [ "$(cnt kept "$L1")" = 0 ]; } \
+    && ok "r1090-ⓖ 끝 줄 refused-dirty=3 = 로그 REFUSED 3줄(R8)" || bad "r1090-ⓖ 끝 줄 [$L1] REFUSED=$NR1 [$OUT]"
+  rm -rf "$PC" "$UB" "$PG"; awk -F'\t' -v a="$PC" -v b="$UB" -v c="$PG" '$1!=a && $1!=b && $1!=c' "$TSV" > "$TSV.n" && mv "$TSV.n" "$TSV"
+  # ── 주입용 가짜 git: -uall 호출 N번째에 «새 파일» 을 만들거나(ⓔ) / 추적 안 한 파일 목록에 없는 파일을 더한다(ⓓ) ──
+  GITREAL="$(command -v git)"; mkdir -p "$T/gbin2"
+  cat > "$T/gbin2/git" <<EOF
+#!/bin/sh
+case "\$*" in
+  *"--untracked-files=all"*)
+    n=\$(( \$(/bin/cat "$T/gt.n" 2>/dev/null || echo 0) + 1 )); echo "\$n" > "$T/gt.n"
+    if [ "\$n" = "\${GT_AT:-0}" ]; then
+      p=""; prev=""; for a in "\$@"; do [ "\$prev" = -C ] && p="\$a"; prev="\$a"; done
+      [ -z "\${GT_DIRTY:-}" ] || { [ -n "\$p" ] && printf 'late\\n' > "\$p/\${GT_DIRTY}"; }
+    fi;;
+  *"ls-files --others"*)
+    [ -z "\${GT_TAR_EXTRA:-}" ] || printf 'a.txt\\0';;
+  *) ;;
+esac
+exec "$GITREAL" "\$@"
+EOF
+  chmod 755 "$T/gbin2/git"
+  # ── ⓓ(R5) + ⓖ 둘째 회차(R8 · KEEP 켜짐): tar 항목 수가 안 맞는 사본 둘 = 보관 확인 실패로 거절 ──
+  arm; PD="$(mkcopy 50)"; printf 'u\n' > "$PD/new.txt"; PH="$(mkcopy 51)"; printf 'u\n' > "$PH/new.txt"; rm -f "$T/gt.n"
+  M2=$(awk 'END{print NR+0}' "$SLOG"); KEEP_ON=1 GPRE="$T/gbin2/" GT_TAR_EXTRA=1 scs --sweep; L2="$(grep 'swept=' "$SLOG" | tail -1)"
+  NR2=$(awk -v m="$M2" 'NR>m && / REFUSED /{n++} END{print n+0}' "$SLOG")
+  { [ -d "$PD" ] && kept "$PD" && [ -d "$PH" ] && kept "$PH" && printf '%s' "$OUT" | grep -q '보관 확인 실패' && printf '%s' "$OUT" | grep -q 'tar 항목'; } \
+    && ok "r1090-ⓓ 보관 확인 실패 = 거절 · 사본·보관 폴더 둘 다 남음(R5)" || bad "r1090-ⓓ rc=$RC [$OUT] tar=$(tar -tf "$(kd "$PD")/untracked.tar" 2>/dev/null | wc -l)"
+  { [ "$(cnt refused-keep "$L2")" = 2 ] && [ "$NR2" = 2 ] && [ "$(cnt kept "$L2")" = 0 ] && [ "$(cnt refused-dirty "$L2")" = 0 ]; } \
+    && ok "r1090-ⓖ 끝 줄 refused-keep=2 = 로그 REFUSED 2줄 · kept=0(R8)" || bad "r1090-ⓖ 끝 줄 [$L2] REFUSED=$NR2 [$OUT]"
+  rm -rf "$PD" "$PH"; awk -F'\t' -v a="$PD" -v b="$PH" '$1!=a && $1!=b' "$TSV" > "$TSV.n" && mv "$TSV.n" "$TSV"   # 다음 칸 주입이 이 사본에 걸리지 않게 먼저 치운다
+  # ── ⓔ 보관 뒤·지우기 직전 새 파일 = G8 거절(R6) ──
+  arm; PE="$(mkcopy 52)"; printf 'u\n' > "$PE/new.txt"; rm -f "$T/gt.n"
+  KEEP_ON=1 GPRE="$T/gbin2/" GT_AT=3 GT_DIRTY=late.txt scs --sweep
+  { [ -d "$PE" ] && kept "$PE" && printf '%s' "$OUT" | grep -q '보관 뒤 사본 더러움'; } \
+    && ok "r1090-ⓔ 보관 뒤 지우기 직전 새 파일 = G8 거절 · 사본 남음(R6)" || bad "r1090-ⓔ rc=$RC [$OUT]"
+  rm -rf "$PE"; awk -F'\t' -v b="$PE" '$1!=b' "$TSV" > "$TSV.n" && mv "$TSV.n" "$TSV"
+  # ── ⓕ 보관 상한 초과 = 거절(R7) ──
+  arm; PF="$(mkcopy 53)"; python3 -c 'import sys; open(sys.argv[1] + "/big.bin", "wb").write(b"x" * (2 * 1024 * 1024))' "$PF"
+  KEEP_ON=1 KEEP_MAX=1 scs --sweep
+  { [ -d "$PF" ] && printf '%s' "$OUT" | grep -q '보관 상한 초과'; } && ok "r1090-ⓕ 보관 상한 초과(1MB) = 거절(R7)" || bad "r1090-ⓕ rc=$RC [$OUT]"
+  rm -rf "$PF"; awk -F'\t' -v a="$PF" '$1!=a' "$TSV" > "$TSV.n" && mv "$TSV.n" "$TSV"
+  # ── ⓘ bin·kit 같은 내용(새 파일 _scratch_keep.sh 포함) ──
+  { cmp -s "$REPO/harness/bin/ft-scratch-repo.sh" "$REPO/harness/kit/fable-team/bin/ft-scratch-repo.sh" \
+    && cmp -s "$REPO/harness/bin/_scratch_keep.sh" "$REPO/harness/kit/fable-team/bin/_scratch_keep.sh"; } \
+    && ok "r1090-ⓘ bin·kit 같은 내용(cmp0 · ft-scratch-repo.sh + _scratch_keep.sh)" || bad "r1090-ⓘ bin·kit 다름"
+  # ── 변이 3종: 조건 하나만 끄는 패치로 기대 칸만 빨강일 때만 검출(FT_CASES=M) ──
+  if [ "${FT_CASES:-all}" = M ]; then
+    mut() { # <이름> <ft|lib> <sed 식> <기대 FAIL 정규식>
+      local m="$T/mut-$1" nf nx r src
+      mkdir -p "$m"; cp "$SUT" "$m/ft-scratch-repo.sh"; cp "$(dirname -- "$SUT")/_scratch_keep.sh" "$m/_scratch_keep.sh"
+      case "$2" in lib) src="$m/_scratch_keep.sh";; *) src="$m/ft-scratch-repo.sh";; esac
+      sed -i '' -e "$3" "$src" 2>/dev/null || { bad "변이 $1 sed 실패"; return; }
+      cmp -s "$(dirname -- "$SUT")/$([ "$2" = lib ] && echo _scratch_keep.sh || echo ft-scratch-repo.sh)" "$src" && { bad "변이 $1 이 안 바뀜"; return; }
+      bash -n "$src" 2>/dev/null || { bad "변이 $1 문법 깨짐(가짜 변이)"; return; }
+      FT_MUT_CHILD=1 FT_CELLS=r1090 FT_CASES=none FT_SUT="$m/ft-scratch-repo.sh" bash "${BASH_SOURCE[0]}" > "$T/mut-$1.log" 2>&1; r=$?
+      nf="$(grep -c '^FAIL' "$T/mut-$1.log")"; nx="$(grep -cE "^FAIL ($4)" "$T/mut-$1.log")"
+      { [ "$r" != 0 ] && [ "$nf" -gt 0 ] && [ "$nf" = "$nx" ]; } && ok "변이 $1 → 기대 칸만 빨강($4 · ${nf}칸)" \
+        || bad "변이 $1 이 기대 칸으로 안 잡힘(rc=$r · FAIL $nf · 기대 $nx) $(grep '^FAIL' "$T/mut-$1.log" | head -2 | tr '\n' ' ')"
+    }
+    mut keepverify-off lib 's#^  \[ -z "\$why" \] || { KEEP_WHY="\$why · 보관 폴더 \$kd"; return 3; }#  :#' 'r1090-ⓓ|r1090-ⓖ'
+    mut detach-off ft 's#^         \[ "\$ST" = 0 \] || { gfail G7 3 "detached 사본 더러움#         : || { gfail G7 3 "detached 사본 더러움#' 'r1090-ⓒ|r1090-ⓖ'
+    mut count-off ft 's#\*더러움\*) RD=\$((RD+1));;#*더러움*) :;;#' 'r1090-ⓖ'
   fi
 fi
 

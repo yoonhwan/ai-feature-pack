@@ -44,12 +44,14 @@
 #   env: FT_RES_ROOT · FT_SCRATCH_DIR(사본 부모, 기본 $TMPDIR) · FT_SCRATCH_OWNER(주인, 기본 현재 tmux 세션)
 #        FT_TMUX_BIN(기본 PATH → /opt/homebrew/bin → /usr/local/bin — launchd PATH 엔 homebrew 가 없다 · r444) · FT_TMUX_SOCKET(있으면 -S) · FT_TMUX_TMPDIR(있으면 TMUX_TMPDIR)
 #        FT_SCRATCH_JUDGE_BUDGET(판정 예산 초 · 기본 20 — 넘으면 남은 사본은 판정 안 함 · r645)
+#        r1090: FT_SCRATCH_KEEP_DIRTY=1 이면 «더러운 사본(가지·detached 모두)» 을 <STATE>/scratch-keep/<주인>/<사본>/ 에 4파일(meta·status·diff.patch·untracked.tar)로 보관하고 «다시 읽어 확인» 한 뒤에만 지운다 · 없으면 가지=거절 · detached 도 거절(detached 더러움 조용한 삭제 0) · FT_SCRATCH_KEEP_MAX_MB(기본 500) = 사본 1개 보관 상한 · 끝 줄에 refused-dirty·refused-keep·held-lsof·refused-other·kept 수(로그 + stdout 1줄)
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="${FT_RES_ROOT:-}"   # r385: 리포 공용 루트 = env → ft_repo_root(옛 설치 꼴 · cwd) → ERROR (새 설치본이 git 밖이라 자기 위치로 풀지 않는다)
 [ -n "$ROOT" ] || { . "$HERE/ft-harness-root.sh" && ROOT="$(ft_repo_root "$HERE")"; } || exit 3
 TAB=$'\t'
-STATE="$ROOT/.fable-team/state"; TSV="$STATE/scratch-repos.tsv"; ARMED="$STATE/scratch-sweep.armed"; SLOG="$STATE/scratch-sweep.log"; AGE="${FT_SCRATCH_AGE_MIN:-240}"   # r1029: 1440 → 240(오빠 결정 · 사본은 일회용 · 같은 sha 재생성 · 주인 살아 있음·cwd 보유는 그대로 보존)
+STATE="$ROOT/.fable-team/state"; TSV="$STATE/scratch-repos.tsv"; ARMED="$STATE/scratch-sweep.armed"; SLOG="$STATE/scratch-sweep.log"; AGE="${FT_SCRATCH_AGE_MIN:-240}"
+KEEP_ON="${FT_SCRATCH_KEEP_DIRTY:-0}"; KEEP_MAX_MB="${FT_SCRATCH_KEEP_MAX_MB:-500}"; KEEPDIR="$STATE/scratch-keep"   # r1090: 더러운 사본을 «보관 뒤 삭제» — 켜는 것은 planner h 의 env 하나(기본 꺼짐 · 꺼짐 = 지금 동작 + detached 더러움도 거절)   # r1029: 1440 → 240(오빠 결정 · 사본은 일회용 · 같은 sha 재생성 · 주인 살아 있음·cwd 보유는 그대로 보존)
 TIMEOUT_BIN=""; command -v gtimeout >/dev/null 2>&1 && TIMEOUT_BIN="$(command -v gtimeout)"; [ -n "$TIMEOUT_BIN" ] || { command -v timeout >/dev/null 2>&1 && TIMEOUT_BIN="$(command -v timeout)"; }
 TMO=""; [ -z "$TIMEOUT_BIN" ] || TMO="$TIMEOUT_BIN 7"
 JUDGE_TMO=7   # r645: judged 1회 검색 상한(초) — warn_many 가 남은 예산으로 줄여 넘긴다
@@ -111,6 +113,15 @@ gstat_lines() { # <사본> <초> → 작업 트리 변경 줄 수(status --porce
   [ -n "$o" ] || { printf '0\n'; return 0; }
   printf '%s\n' "$o" | awk 'END{print NR}'
 }
+gstat_all() { # <사본> <초> → 변경 줄 수(status --porcelain --untracked-files=all) — r1090: 보관 판정·status.txt·G8 대조가 «같은 눈금» 을 쓴다(추적 안 한 파일을 폴더 한 줄로 접지 않는다)
+  local o
+  cap o bounded "$2" git -C "$1" status --porcelain --untracked-files=all 2>/dev/null || return $?
+  [ -n "$o" ] || { printf '0\n'; return 0; }
+  printf '%s\n' "$o" | awk 'END{print NR}'
+}
+# r1090: 보관 구현은 같은 bin 옆 _scratch_keep.sh(source 전용 · 새 도구 아님) — 없으면 보관 못 함(조용한 삭제 0)
+KEEP_LIB="$HERE/_scratch_keep.sh"
+if [ -r "$KEEP_LIB" ]; then . "$KEEP_LIB"; else keep_copy() { KEEP_WHY="보관 도구 없음($KEEP_LIB)"; return 3; }; fi
 drop_reg() { # <등록 원문 경로> [<등록부들>] 그 줄을 «모든 등록부» 에서 삭제(r996 장부 둘) — «경로 정확 대조»(r10.1: awk -v 는 역슬래시를 해석해 `\161`→`q` 로 남의 줄과 맞는다 · ENVIRON 은 바이트 그대로) · 하나도 못 지우면 rc≠0
   #   목록을 안 주면 «지금» 계산하되 REGS 캐시를 먼저 쓴다 — 사본을 지운 뒤에는 copy_reg 이 그 사본의 .git 을 못 읽어 원 저장소 장부를 놓친다(게이트가 사본이 살아 있을 때 읽은 목록)
   local f n=0 fl
@@ -564,8 +575,21 @@ gate_base() { # <P> <베이스 후보…> → G1: P = B/<성분 하나> 인 후�
   gfail G1 3 "베이스 바로 아래 아님"
 }
 delete_copy() { # <경로> <reg|tmp> <주인|-> [sweep|done] → 위 rc 표 · GWHY = 막은 조건
-  local p="$1" kind="$2" own="$3" mode="${4:-sweep}" P now RAW ROWS S T TP G C GP CP DI DI2 T2 G2 U ME M r x re dest ST GBR
-  GWHY=""; HPID=""; HCMD=""; GB=""
+  local p="$1" kind="$2" own="$3" mode="${4:-sweep}" P now RAW ROWS S T TP G C GP CP DI DI2 T2 G2 U ME M r x re dest ST GBR sym STA GKST
+  # r1090: keep_dirty — 더러운 사본(가지·detached 모두)을 보관하고 지운다 · 보관 확인이 끝나면 그 사본의 ST 를 0 으로 «처리됨» 표시하고 GKST 에 보관 줄 수를 남긴다(부른 쪽 지역값 — dynamic scope)
+  keep_dirty() { # <0=가지|1=detached> <ST 줄수> → 0 = 보관 꺼짐/깨끗/보관 확인 완료 · 그 밖 = 이미 gfail 로 막음(호출자가 return)
+    local r STA
+    [ "$2" != 0 ] || return 0
+    [ "$KEEP_ON" = 1 ] || return 0
+    [ "$GATE_DRY" = 0 ] || return 0   # --gate 는 진단(삭제 0 · 보관 폴더에 쓰지 않는다)
+    cap r remtmo; [ "$r" -gt 0 ] || { gfail G7 2 "예산 소진"; return 2; }
+    cap STA gstat_all "$P" "$r" || { gfail G7 2 "status 못 읽음(-uall)"; return 2; }
+    isnum "$STA" || { gfail G7 2 "status 못 읽음(-uall)"; return 2; }
+    keep_copy "$P" "$own" - "$STA" || { gfail G7 3 "$KEEP_WHY"; return 3; }
+    ST=0; GKST="$STA"; KEPT_THIS=1
+    return 0
+  }
+  GWHY=""; HPID=""; HCMD=""; GB=""; KEPT_THIS=0   # KEPT_THIS = 이 사본을 «보관한 뒤 지웠나»(r1090 · 부른 쪽이 센다)
   # G0 경로 글자
   case "$p" in ''|*"$TAB"*|*$'\n'*) gfail G0 3 "빈 경로·탭·개행"; return;; esac
   case "$p" in /*) ;; *) gfail G0 3 "상대 경로"; return;; esac
@@ -621,17 +645,23 @@ delete_copy() { # <경로> <reg|tmp> <주인|-> [sweep|done] → 위 rc 표 · G
     cap CP phys_tmo "$C" || { gfail G7 2 "git-common-dir 물리 경로 못 읽음"; return; }
     case "${GP#"$CP"/worktrees/}" in "$GP"|''|*/*) gfail G7 3 "연결 워크트리 아님"; return;; esac
     cap r remtmo; [ "$r" -gt 0 ] || { gfail G7 2 "예산 소진"; return; }
-    bounded "$r" git -C "$P" symbolic-ref -q HEAD >/dev/null 2>&1; r=$?
+    bounded "$r" git -C "$P" symbolic-ref -q HEAD >/dev/null 2>&1; sym=$?
     # r1085: 가지 사본도 지운다 — 단 «깨끗함» 을 지금 읽어 증명할 때만(커밋 안 한 변경·추적 안 한 파일 0) · 가지 ref 는 지우지 않는다(worktree remove 는 ref 를 남긴다 · 브랜치 삭제 = HIL)
-    GBR=""
-    case "$r" in
-      1) ;;
+    # r1090: 더러운 사본은 «영영 거절»(가지)도 «조용한 삭제»(detached)도 아니다 — KEEP_DIRTY 가 켜져 있으면 보관 확인 뒤에 지우고, 꺼져 있으면 둘 다 거절한다(변경 소실 0)
+    GBR=""; GKST=""
+    case "$sym" in
+      1) cap r remtmo; [ "$r" -gt 0 ] || { gfail G7 2 "예산 소진"; return; }
+         cap ST gstat_lines "$P" "$r" || { gfail G7 2 "status 못 읽음"; return; }
+         isnum "$ST" || { gfail G7 2 "status 못 읽음"; return; }
+         keep_dirty 1 "$ST" || return
+         [ "$ST" = 0 ] || { gfail G7 3 "detached 사본 더러움(${ST}줄)"; return; } ;;
       0) cap r remtmo; [ "$r" -gt 0 ] || { gfail G7 2 "예산 소진"; return; }
          cap ST gstat_lines "$P" "$r" || { gfail G7 2 "status 못 읽음"; return; }
          isnum "$ST" || { gfail G7 2 "status 못 읽음"; return; }
+         keep_dirty 0 "$ST" || return
          [ "$ST" = 0 ] || { gfail G7 3 "가지 사본 더러움(${ST}줄)"; return; }
-         GBR=1 ;;
-      *) gfail G7 2 "symbolic-ref 못 읽음(rc=$r)"; return;;
+         [ -n "$GKST" ] || GBR=1 ;;
+      *) gfail G7 2 "symbolic-ref 못 읽음(rc=$sym)"; return;;
     esac
     gok G7
   else
@@ -654,6 +684,12 @@ delete_copy() { # <경로> <reg|tmp> <주인|-> [sweep|done] → 위 rc 표 · G
     gq T2 git -C "$P" rev-parse --show-toplevel 2>/dev/null && [ "$T2" = "$T" ] || { gfail G8 2 "제거 직전 toplevel 다름·못 읽음"; return; }
     gq G2 git -C "$P" rev-parse --path-format=absolute --git-dir 2>/dev/null && [ "$G2" = "$G" ] || { gfail G8 2 "제거 직전 git-dir 다름·못 읽음"; return; }
     gq DI2 stat -f %d:%i "$P" && [ "$DI2" = "$DI" ] || { gfail G8 2 "제거 직전 장치·inode 다름·못 읽음"; return; }
+    if [ -n "$GKST" ]; then   # r1090: 보관한 사본은 «보관 때 줄 수» 와 지금 줄 수를 대조한다(보관 뒤 새 변경 = 거절 · 보관은 이미 끝났으니 사본을 남긴다)
+      cap r remtmo; [ "$r" -gt 0 ] || { gfail G8 2 "예산 소진"; return; }
+      cap ST gstat_all "$P" "$r" || { gfail G8 2 "삭제 직전 status 못 읽음"; return; }
+      isnum "$ST" || { gfail G8 2 "삭제 직전 status 못 읽음"; return; }
+      [ "$ST" = "$GKST" ] || { gfail G8 3 "보관 뒤 사본 더러움(${ST}줄 ≠ 보관 ${GKST}줄)"; return; }
+    fi
     if [ -n "$GBR" ]; then   # r1085: 가지 사본은 «지우기 직전» 깨끗함을 다시 잰다(앞 값 재사용 0 · G7 과 G8 사이에 쓰인 변경을 놓치지 않는다)
       cap r remtmo; [ "$r" -gt 0 ] || { gfail G8 2 "예산 소진"; return; }
       cap ST gstat_lines "$P" "$r" || { gfail G8 2 "삭제 직전 status 못 읽음"; return; }
@@ -695,7 +731,7 @@ done_run() { # <경로> --done: 등록된 «내» 사본만 지운다(r897 r10: 
   esac
 }
 sweep_run() { # --sweep: 주인 없는 사본 정리(판정 1920 · r548 · r444 · r897 r10) — 하나라도 못 읽으면 삭제 0
-  local k p ty why own rc now today g l DEL=0 DK=0 DREG=0 RSTART RSTOP=0
+  local k p ty why own rc now today g l DEL=0 DK=0 DREG=0 RSTART RSTOP=0 RD=0 RK=0 RO=0 KEPT=0
   cap today date +%F   # 표시 전용(로그 날짜)
   orphans
   # r10.5: 시계를 못 읽었으면 24시간·빠른 길을 못 가린다 — 로그·stdout ERROR 1줄 + 삭제 0
@@ -721,13 +757,19 @@ sweep_run() { # --sweep: 주인 없는 사본 정리(판정 1920 · r548 · r444
     [ -n "$p" ] || continue
     [ "$RSTOP" = 0 ] || continue
     cap now date +%s && isnum "$now" || { RSTOP=1; echo "WARN ft-scratch-repo — 시계 못 읽음 · 남은 항목 삭제 0" >&2; continue; }
+    # r1090: 회차 상한 70초는 «시작 시각» 기준이다 — 새 사본은 남은 예산 15초 이상일 때만 시작한다(진행 중인 조회가 최대 7초×2 를 더 쓸 수 있다 · bore 80초 돌파 실측)
     if [ $(( now - RSTART )) -gt 70 ]; then RSTOP=1; echo "WARN ft-scratch-repo — 재확인 70초 초과 · 남은 항목은 다음 정리로" >&2; continue; fi
+    if [ $(( 70 - (now - RSTART) )) -lt 15 ]; then RSTOP=1; echo "WARN ft-scratch-repo — 회차 예산 15초 미만 · 남은 항목은 다음 정리로" >&2; continue; fi
     delete_copy "$p" "$ty" "${own:--}" sweep; rc=$?
     case "$rc" in
-      0) DEL=$((DEL+1)); case "$k" in ''|*[!0-9]*) ;; *) DK=$((DK+k));; esac; [ "$ty" != reg ] || DREG=$((DREG+1)); printf '%s 삭제 %s (%s)\n' "$today" "$p" "$why" >> "$SLOG";;
+      0) DEL=$((DEL+1)); case "$k" in ''|*[!0-9]*) ;; *) DK=$((DK+k));; esac; [ "$ty" != reg ] || DREG=$((DREG+1)); [ "$KEPT_THIS" = 0 ] || KEPT=$((KEPT+1)); printf '%s 삭제 %s (%s)\n' "$today" "$p" "$why" >> "$SLOG";;
       1) HELD=$((HELD+1)); printf '%s 붙잡음 %s (%s · 주인 %s)\n' "$today" "$p" "$GWHY" "${own:--}" >> "$SLOG"
          echo "[장비 정리] 사본 $p — 재확인에서 쓰는 중·주인 생김($GWHY) — 삭제 보류";;
-      3) printf '%s REFUSED %s (%s)\n' "$today" "$p" "$GWHY" >> "$SLOG"
+      3) case "$GWHY" in   # r1090: 거절 사유별로 센다(끝 줄에서 «몇 개가 왜 남았나» 가 한 눈금으로 보이게)
+           *보관*) RK=$((RK+1));;
+           *더러움*) RD=$((RD+1));;
+           *) RO=$((RO+1));;
+         esac; printf '%s REFUSED %s (%s)\n' "$today" "$p" "$GWHY" >> "$SLOG"
          echo "WARN ft-scratch-repo — gate refused $p ($GWHY) · 이 항목만 건너뜀" >&2;;
       4) printf '%s ERROR 삭제 실패 %s (%s)\n' "$today" "$p" "$GWHY" >> "$SLOG"
          echo "ERROR 삭제 실패: $p ($GWHY) — 다음 정리에서 재시도" >&2;;
@@ -737,7 +779,8 @@ sweep_run() { # --sweep: 주인 없는 사본 정리(판정 1920 · r548 · r444
   done <<EOF
 $ORPH
 EOF
-  printf '%s swept=%s owner-dead=%s tmp=%s held=%s\n' "$today" "$DEL" "$DREG" "$((DEL-DREG))" "$HELD" >> "$SLOG"
+  printf '%s swept=%s owner-dead=%s tmp=%s held=%s refused-dirty=%s refused-keep=%s held-lsof=%s refused-other=%s kept=%s\n' "$today" "$DEL" "$DREG" "$((DEL-DREG))" "$HELD" "$RD" "$RK" "$HELD" "$RO" "$KEPT" >> "$SLOG"
+  printf 'swept=%s owner-dead=%s tmp=%s held=%s refused-dirty=%s refused-keep=%s held-lsof=%s refused-other=%s kept=%s\n' "$DEL" "$DREG" "$((DEL-DREG))" "$HELD" "$RD" "$RK" "$HELD" "$RO" "$KEPT"   # r1090: 로그와 같은 1줄을 stdout 에도(호출자·planner 쪽지가 같은 눈금을 본다)
   cap g gib "$DK"   # 표시 전용
   [ "$DEL" = 0 ] || printf '[임시 사본 자동 삭제] 주인 없는 사본 %s개 %s GiB 삭제(되살릴 수 있는 사본만) — 목록: .fable-team/state/scratch-sweep.log\n' "$DEL" "$g"
 }
