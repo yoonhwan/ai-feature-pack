@@ -22,7 +22,7 @@ n=$((n+1)); s0=$SECONDS; gate "${DEV[@]}" FAKE_SLOW_SVC="$SVC_WK"; got=$?; el=$(
   || { bad "$n. ⓛ1 TERM 무시 (el=${el}s exit $got)"; printf '%s\n' "$OUT" | sed 's/^/    /'; }
 # ⓛ1b _bounded 단위 — timeout/gtimeout 이 «없는» PATH 에서 TERM 무시 자식을 KILL 로 끊는가(실제 경과 단언)
 sed -n '/^_bounded(){/,/^}/p' "$GATE" > "$T/bounded.sh"
-printf '#!/bin/sh\ntrap "" TERM\nsleep 30\n' > "$T/termsh"; chmod +x "$T/termsh"   # TERM 을 무시하는 자식
+printf '#!/bin/sh\ntrap "" TERM\nexec sleep 30\n' > "$T/termsh"; chmod +x "$T/termsh"   # TERM 을 무시하는 자식 · r1134: exec — KILL 이 sh 만 죽이고 손자 sleep 이 $( ) 파이프를 30초 붙잡던 것 제거
 n=$((n+1)); u="$(PATH=/usr/bin:/bin bash -c 'source "$1"; s=$SECONDS; _bounded 3 "$2"; echo "rc=$? el=$((SECONDS-s))"' _ "$T/bounded.sh" "$T/termsh" 2>&1)"
 urc="$(printf '%s' "$u" | sed -n 's/.*rc=\([0-9]*\).*/\1/p')"; uel="$(printf '%s' "$u" | sed -n 's/.*el=\([0-9]*\).*/\1/p')"
 [ -n "$urc" ] && [ "$urc" != 0 ] && [ "${uel:-99}" -le 8 ] \
