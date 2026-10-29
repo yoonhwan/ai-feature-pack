@@ -180,7 +180,8 @@ def peek(me):
     names, joined = _lineage(me)
     mine = []
     for d in dirs:
-        mine.extend(r for r in _locked(d, lambda d=d: _load(d)) if role_key(r.get("to")) in {role_key(n) for n in names})
+        mine.extend(r for r in _locked(d, lambda d=d: _load(d))
+                    if role_key(r.get("to")) in {role_key(n) for n in names} and r.get("from") != me)   # recv 와 같은 규칙(r1153)
     mine.sort(key=lambda r: r["seq"], reverse=True)
     head = f"pending={len(mine)}"
     if mine:
