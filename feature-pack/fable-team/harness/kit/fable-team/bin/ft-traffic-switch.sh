@@ -8,6 +8,7 @@
 # ⑦ 마지막 줄 `=== 결과 === <서비스> → <대상> · health=<코드> consumer_ready=<값> · <성공|원복 rc=3|원복 실패 rc=4|전환 0 rc=1|판정 불가 rc=5>`
 # r1137(사건 h254): LATEST = latestCreatedRevisionName(움직이는 이름 · latestReady 아님) · 그 리비전이 Ready 아니면 판정 불가 rc 5(전환 0)
 #   ④ 뒤 services describe 1회 → 켜진 리비전(percent>0) ⊄ 대조한 리비전 ∪ 지금 리비전 이면 자동 원복 rc 3 · 그 조회 실패도 원복(전환 뒤라 원복 쪽)
+# r1140: 직전 표의 LATEST 행 = 그 순간 revisionName 으로 고정(원복이 다시 LATEST 를 따라 새 리비전으로 가는 일 0) · 이름 없으면 판정 불가 rc 5
 # rc: 0 성공 · 1 전환 전 거절(의존 어긋남·Ready 아님) · 2 사용법 · 3 원복함 · 4 원복 실패 · 5 판정 불가(gcloud 조회 실패 — 전환 0 · 하드 룰 20)
 # 상한(하드 룰 12): gcloud 조회 7 s + 재시도 1 · update-traffic 60 s(쪼갤 수 없는 배치) · curl 7 s.
 #   도구 1회 계산 상한 ≈ 조회 14×3 + 전환 60 + 전환 뒤 조회 14 + health 67 + 원복 60 + 7 ≈ 250 s → h 계획 쪽 timeout 은 260 s 이상(그 안에서 끊으면 원복 전에 죽는다).
@@ -68,13 +69,19 @@ def deps(p):  # env 이름 + secret 참조 이름(env secretKeyRef · volume sec
         if ref:
             out.add("secret:" + ref)
     return out
-if mode == "table":  # 1줄 직전 표(rev=pct,… · latest 추종 = LATEST) · 2줄 최대 비율 리비전 · 3줄 latestReady · 4줄 latestCreated
+if mode == "table":  # 1줄 직전 표(rev=pct,… · LATEST 행 = 그 순간 revisionName 고정 · r1140) · 2줄 최대 비율 리비전 · 3줄 latestReady · 4줄 latestCreated · 5줄 pin|noname|빈
     st = load(files[0]).get("status") or {}
     rows = [t for t in st.get("traffic") or [] if (t.get("percent") or 0) > 0]
-    print(",".join("%s=%d" % ("LATEST" if t.get("latestRevision") else t.get("revisionName", "?"), t["percent"]) for t in rows))
+    prev = {}  # 같은 이름이 LATEST 행·이름 행 둘에 있으면 퍼센트를 합친다(원복 표 이름 중복 0)
+    for t in rows:
+        n = t.get("revisionName") or ("LATEST" if t.get("latestRevision") else "?")
+        prev[n] = prev.get(n, 0) + t["percent"]
+    print(",".join("%s=%d" % kv for kv in prev.items()))
     print(max(rows, key=lambda t: t["percent"]).get("revisionName", "") if rows else "")
     print(st.get("latestReadyRevisionName", ""))
     print(st.get("latestCreatedRevisionName", ""))
+    lt = [t for t in rows if t.get("latestRevision")]
+    print("noname" if any(not t.get("revisionName") for t in lt) else "pin" if lt else "")
 elif mode == "on":  # 켜진 리비전 이름(percent>0 · LATEST 행도 revisionName · 이름 없음 = ?)
     rows = ((load(files[0]).get("status") or {}).get("traffic")) or []
     print(" ".join(sorted({t.get("revisionName") or "?" for t in rows if (t.get("percent") or 0) > 0})))
@@ -110,9 +117,10 @@ restore() {  # $1=왜 — 직전 표로 되돌림 → health 1회 → rc 3 · �
 }
 
 gq "$TD/svc.json" run services describe "$S"
-{ read -r PREV; read -r CUR; read -r LREADY; read -r LCREATED; } < <(py table "$TD/svc.json")
+{ read -r PREV; read -r CUR; read -r LREADY; read -r LCREATED; read -r PIN; } < <(py table "$TD/svc.json")
+[ "${PIN:-}" != noname ] || fin "-" "-" "판정 불가 rc=5" 5 "판정 불가 — 직전 LATEST 행에 리비전 이름 없음 — 원복 표를 못 만든다($S)"
 [ -n "${PREV:-}" ] && [ -n "${CUR:-}" ] || fin "-" "-" "판정 불가 rc=5" 5 "판정 불가 — 지금 트래픽 표가 비었다($S)"
-echo "직전 표: $PREV (원복은 이 표로) · 지금 최대 비율 리비전: $CUR"
+echo "직전 표: $PREV ($([ "${PIN:-}" != pin ] || printf 'LATEST 고정 · ')원복은 이 표로) · 지금 최대 비율 리비전: $CUR"
 CUR_JSON=""; CHK=""
 for x in ${TO//,/ }; do
   n="${x%%=*}"; [ "${x#*=}" -gt 0 ] || continue
