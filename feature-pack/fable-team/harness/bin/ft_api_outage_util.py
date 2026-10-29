@@ -22,6 +22,8 @@ RETRY = r"retry[\s_-]*after\s*(\d+)\s*(min\w*|m\b|s\w*)?"
 
 
 TAIL = 1 << 20
+PS_MAX_S = 2.0  # r1086 ① 직기 — ps 1회 상한(넘으면 ② 지금 길 · 7초 룰 안쪽)
+SESSION_ID = re.compile(r"--session-id[= ]([0-9a-fA-F-]{8,})")  # r1086 ① 직기 — claude argv 의 기록 파일 이름
 
 
 def epoch(rec: Rec) -> int:
@@ -160,16 +162,92 @@ def list_panes(tmux: str) -> list[tuple[str, str]]:
     return [(s, cwd) for s, cwd in (ln.split("\t", 1) for ln in (r.stdout if r.returncode == 0 else "").splitlines() if "\t" in ln)]
 
 
-def find_jsonls(seats: list[str], tmux: str, projects: Path, days: int = 2, panes: list[tuple[str, str]] | None = None) -> dict[str, str]:
+def _cap(ceiling: float, deadline: float | None) -> float:
+    """외부 명령 1회 상한 — 마감(monotonic)이 있으면 남은 시간 안으로 줄인다(최소 0.1초)."""
+    return ceiling if deadline is None else max(0.1, min(ceiling, deadline - time.monotonic()))
+
+
+def ps_tree(deadline: float | None = None) -> dict[int, list[tuple[int, str]]] | None:
+    """r1086 ① ps 1회 → {ppid: [(pid, command)]} · 실패·시간 초과 = None(① 끔 · 전 좌석 ② = 지금과 같은 동작)."""
+    try:
+        r = subprocess.run(["ps", "-axo", "pid=,ppid=,command="], capture_output=True, text=True, timeout=_cap(PS_MAX_S, deadline))
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if r.returncode != 0:
+        return None
+    tree: dict[int, list[tuple[int, str]]] = {}
+    for ln in r.stdout.splitlines():
+        parts = ln.split(None, 2)
+        if len(parts) == 3 and parts[0].isdigit() and parts[1].isdigit():
+            tree.setdefault(int(parts[1]), []).append((int(parts[0]), parts[2]))
+    return tree
+
+
+def pane_pids(tmux: str, deadline: float | None = None) -> dict[str, int]:
+    """r1086 세션 이름 → pane pid 1회(상한 7초) · 실패·시간 초과 = {}(① 끔).
+    list-sessions 를 쓰는 까닭: pane 목록 1회 계약(r850)이 list-panes 를 세므로 여기서 또 부르지 않는다 — 결과는 «세션의 지금 pane»."""
+    try:
+        r = subprocess.run([tmux, "list-sessions", "-F", "#{session_name}\t#{pane_pid}"], capture_output=True, text=True, timeout=_cap(7.0, deadline))
+    except (OSError, subprocess.SubprocessError):
+        return {}
+    out: dict[str, int] = {}
+    for ln in (r.stdout if r.returncode == 0 else "").splitlines():
+        s, _, pid = ln.partition("\t")
+        if s and pid.strip().isdigit():
+            out.setdefault(s, int(pid.strip()))
+    return out
+
+
+def pinned_jsonl(pid: int, cwd: str, tree: dict[int, list[tuple[int, str]]], projects: Path) -> tuple[str, bool]:
+    """r1086 ① 짚기 — pane pid 자손 중 «실행 파일 끝이 /claude 이고 argv 에 --session-id U» 인 줄 → <projects>/<cwd 인코딩>/U.jsonl 이 있으면 그 경로.
+    돌려주는 것 = (경로, pane 자손에 claude 가 있었나). claude 가 없으면 그 좌석은 ② 에서 뺀다(파일 머리 읽기 0 · pi·opencode 나노)."""
+    stack, seen, has_claude = [pid], {pid}, False
+    while stack:
+        for child, cmd in tree.get(stack.pop(), []):
+            if child in seen:
+                continue
+            seen.add(child)
+            if (cmd.split(None, 1)[0] if cmd.strip() else "").rsplit("/", 1)[-1] != "claude":
+                stack.append(child)
+                continue
+            has_claude = True
+            if m := SESSION_ID.search(cmd):
+                cand = projects / re.sub(r"[^A-Za-z0-9]", "-", cwd) / f"{m.group(1)}.jsonl"
+                if cand.is_file():
+                    return str(cand), True
+    return "", has_claude
+
+
+def find_jsonls(seats: list[str], tmux: str, projects: Path, days: int = 2, panes: list[tuple[str, str]] | None = None,
+                deadline: float | None = None) -> dict[str, str]:
     """r497 좌석들 → 최신 jsonl 을 «한 번에». ft-seat-status.sh jsonl 은 좌석마다 폴더 jsonl 전부(5989개)의 머리 1MB 를 읽어
     부하 30 에서 1회 10초(실측) — 여기선 폴더 = tmux pane cwd 인코딩(같은 규칙) · 후보 = 최근 days 일 수정 파일만 · 파일 머리 1번 읽어 전 좌석 대조.
-    panes = 이미 읽은 list_panes() 값(r850 — cwd 재탐색과 pane 목록 1회를 나눠 쓴다) · None 이면 여기서 읽는다."""
+    panes = 이미 읽은 list_panes() 값(r850 — cwd 재탐색과 pane 목록 1회를 나눠 쓴다) · None 이면 여기서 읽는다.
+    r1086 찾는 순서 둘 — ① 짚기: pane 자손 claude 의 argv --session-id = 파일 이름이라 바로 짚는다(파일 머리 읽기 0).
+    ② 지금 길(머리 읽기)은 ① 에서 못 짚은 «claude 좌석» 에만 · pane 자손에 claude 가 없는 좌석(pi 나노)은 못 찾음 그대로.
+    deadline = time.monotonic() 기준 마감(있으면) — 넘기면 그 뒤 좌석은 못 찾음으로 남는다(호출자 «시간 초과» 그대로)."""
+    cwd_of: dict[str, str] = {}
     groups: dict[Path, list[str]] = {}
     for s, cwd in list_panes(tmux) if panes is None else panes:
-        if s in seats and not any(s in g for g in groups.values()):
+        if s in seats and s not in cwd_of:
+            cwd_of[s] = cwd
             groups.setdefault(projects / re.sub(r"[^A-Za-z0-9]", "-", cwd), []).append(s)
     out: dict[str, str] = {}
+    nonclaude: set[str] = set()
+    if (tree := ps_tree(deadline)) is not None:  # ① 짚기 — ps 1회(실패·시간 초과면 통째로 ②)
+        pids = pane_pids(tmux, deadline)
+        for s, cwd in cwd_of.items():
+            if s in out or (pid := pids.get(s)) is None:
+                continue
+            path, has_claude = pinned_jsonl(pid, cwd, tree, projects)
+            if path:
+                out[s] = path
+            elif not has_claude:
+                nonclaude.add(s)
     for d, group in groups.items():
+        group = [s for s in group if s not in nonclaude and s not in out]
+        if not group:  # ② 에 볼 좌석이 없다 — 폴더 훑기(수만 파일 stat) 부터 안 한다
+            continue
         try:
             files = sorted(((p.stat().st_mtime, p) for p in d.glob("*.jsonl")), reverse=True)
         except OSError:
@@ -177,6 +255,8 @@ def find_jsonls(seats: list[str], tmux: str, projects: Path, days: int = 2, pane
         for _, p in (f for f in files if time.time() - f[0] < days * 86400):
             if not (left := [s for s in group if s not in out]):
                 break
+            if deadline is not None and time.monotonic() > deadline:  # 마감 넘김 — 이 뒤 좌석은 못 찾음(반쯤 읽은 값 안 씀)
+                return out
             try:
                 with p.open("rb") as fh:
                     head = fh.read(1 << 20)

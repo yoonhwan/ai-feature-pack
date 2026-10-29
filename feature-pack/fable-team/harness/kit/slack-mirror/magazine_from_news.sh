@@ -123,7 +123,7 @@ if [ "${FT_NEWS_VERIFY:-1}" != 0 ]; then
     exit 7
   else
     VERIFY="${FT_NEWS_VERIFY_BIN:-$(cat "$ROOT/.fable-team/LIVE_BIN" 2>/dev/null || true)/ft-news-verify}"
-    if [ -e "$VERIFY" ]; then bash "$VERIFY" --kind magazine --body "$BODY" --tail || true
+    if [ -e "$VERIFY" ]; then PYTHONPATH="$HERE${PYTHONPATH:+:$PYTHONPATH}" bash "$VERIFY" --kind magazine --body "$BODY" --tail || true
     else echo "ERROR magazine_from_news: 검증기 없음 — $VERIFY (설치 확인 · 발행은 그대로)" >&2; fi
   fi
 fi
