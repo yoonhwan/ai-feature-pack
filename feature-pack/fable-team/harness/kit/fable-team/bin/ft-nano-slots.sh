@@ -10,7 +10,8 @@
 #     squash 는 조상 관계를 안 만들어 원장 없이는 랜딩된 브랜치가 영원히 «미랜딩» 으로 남는다. 행: 브랜치\t마지막 커밋 날짜\t미랜딩 커밋 수\t카드 상태(대기|진행|완성|없음).
 #   출력만 한다(판정·spawn 은 master). ft-nano-close.sh 가 CLOSED 직후 부른다 · ft-news-tick 에서도 부를 수 있다.
 #   r606: 카드 폴더를 찾는 «체크아웃» = 명부 `_cards_wt` 워크트리(있으면) — 낡은 루트 체크아웃에서 닫아도 옛 쌍둥이 폴더로 조용히 안 내려간다(내려가면 WARN 1줄).
-#   r667: 카드 폴더의 «팀» = FT_NANO_PREFIX 의 팀(`byz-<팀>-nano-`) — v65 고정이면 위성 팀이 v65 카드를 후보로 본다(원인 표 1-8). 옛 접두(ft-v65-temp-)·미설정 = v65 · 규칙 밖 접두 = ERROR(엉뚱한 팀으로 후퇴 0).
+#   r667: 카드 폴더의 «팀» = FT_NANO_PREFIX 의 팀(`byz-<팀>-nano-`) — v65 고정이면 위성 팀이 v65 카드를 후보로 본다(원인 표 1-8). 옛 접두(정본 ft_teamset.py)·미설정 = v65 · 규칙 밖 접두 = ERROR(엉뚱한 팀으로 후퇴 0).
+#     r1144: 팀 풀기 = `ft_teamset.py team-of`(정본 한 곳 · 손 규칙 두 벌 0).
 #     `--json` = 같은 셈을 기계용 1줄로(빈 석 채우기 장치 r667 이 읽는다 · 사람 글에서 후보를 긁지 않는다).
 WT="$(git rev-parse --show-toplevel)"
 ROOT="$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||')"
@@ -19,8 +20,8 @@ MAX="${FT_NANO_SLOTS:-5}"
 JSON_OUT=0; [ "${1:-}" = "--json" ] && JSON_OUT=1
 _team="v65"
 if [ -n "${FT_NANO_PREFIX:-}" ]; then
-  if [[ "$FT_NANO_PREFIX" =~ ^byz-([a-z0-9][a-z0-9_-]*)-nano- ]]; then _team="${BASH_REMATCH[1]}"
-  elif [[ "$FT_NANO_PREFIX" != ft-v65-temp-* ]]; then echo "ERROR FT_NANO_PREFIX 에서 팀을 못 풀었다: $FT_NANO_PREFIX (byz-<팀>-nano- 또는 ft-v65-temp-)" >&2; exit 1; fi
+  _team="$(python3 "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft_teamset.py" team-of --prefix "$FT_NANO_PREFIX" 2>&1)" \
+    || { echo "ERROR FT_NANO_PREFIX 에서 팀을 못 풀었다: $FT_NANO_PREFIX (byz-<팀>-nano- 또는 옛 접두 — 정본 ft_teamset.py)" >&2; exit 1; }
 fi
 if [ -n "${FT_INDEX_DIR:-}" ]; then IDX_DIR="$FT_INDEX_DIR"
 else   # R416: «명단 = ref · 폴더 = WT 실재»(R400 r3·R406 과 같은 함수) — 공유 루트의 옛 TEAMS.md 사본을 믿지 않는다 · ref 못 읽음 = ERROR(cwd 명단 후퇴 0)

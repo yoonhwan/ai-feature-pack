@@ -183,7 +183,7 @@ if [ -n "${FT_TEAM_SEAT_CAP:-}${FT_GROUP_SEAT_CAP:-}" ]; then
           elif [ "$_cl" -ge "$((_cc + 1))" ]; then
             printf '%s\n' "$_cap"
             [ -f "$HERE/ft_spawn_queue.py" ] || { echo "REJECT ft_spawn_queue.py 없음: $HERE (순번 큐를 쓸 수 없다)"; exit 1; }
-            python3 "$HERE/ft_spawn_queue.py" add --root "$ROOT" --prefix "${FT_NANO_PREFIX:-ft-v65-temp-}" --card "$IDX" --from "$FROM"
+            python3 "$HERE/ft_spawn_queue.py" add --root "$ROOT" --prefix "$FT_NANO_PREFIX" --card "$IDX" --from "$FROM"
             exit 7
           else
             echo "WARN resource seat-cap ${_cap%%$'\n'*} — 회수 1회 뒤 cap+1 까지 열어 준다(r921 · 순번 큐 적재 0)" >&2
@@ -553,7 +553,7 @@ _pxout="$(bash "$HERE/ft-agent-ready.sh" --proxy "$WT" --agent "$AGENT" 2>&1)"; 
 [ -z "$_pxout" ] || printf '%s\n' "$_pxout"
 if [ "$_pxrc" != 0 ]; then
   [ -f "$HERE/ft_spawn_queue.py" ] || { echo "REJECT 프록시 확인 실패(rc=$_pxrc) + ft_spawn_queue.py 없음: $HERE — 순번 큐를 쓸 수 없다(부작용 0)"; exit 1; }
-  python3 "$HERE/ft_spawn_queue.py" add --root "$ROOT" --prefix "${FT_NANO_PREFIX:-ft-v65-temp-}" --card "$IDX" --from "$FROM" || { echo "REJECT 프록시 확인 실패(rc=$_pxrc) + 순번 큐 실패 — 부작용 0"; exit 1; }
+  python3 "$HERE/ft_spawn_queue.py" add --root "$ROOT" --prefix "$FT_NANO_PREFIX" --card "$IDX" --from "$FROM" || { echo "REJECT 프록시 확인 실패(rc=$_pxrc) + 순번 큐 실패 — 부작용 0"; exit 1; }
   echo "INFO 프록시 확인 실패 = 진짜 장애 — 좌석 0 · 순번 큐에 남깁니다(사유 proxy · 다음 틱 재시도)"
   exit 7
 fi
