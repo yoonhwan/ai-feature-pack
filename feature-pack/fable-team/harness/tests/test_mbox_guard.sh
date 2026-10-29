@@ -29,14 +29,23 @@ new_env() {
   mkdir -p "$ENVROOT/seats"; cp "$FX/$1"/seats*.json "$ENVROOT/seats/"
   return 0
 }
-# send_as <to> <body> [reject|warn|none] — 모드는 env FT_PLANNER_HEAD_MODE(기본 reject · none = env 없이 queues.conf·기본값). rc·stderr = RC·OUT.
+# send_as <to> <body> [reject|warn|none] [from] — 모드는 env FT_PLANNER_HEAD_MODE(기본 reject · none = env 없이 queues.conf·기본값). rc·stderr = RC·OUT.
 send_as() {
-  local mode="${3:-reject}"; local -a menv=(); [ "$mode" = none ] || menv=(FT_PLANNER_HEAD_MODE="$mode")
+  local mode="${3:-reject}" frm="${4:-me#1}"; local -a menv=(); [ "$mode" = none ] || menv=(FT_PLANNER_HEAD_MODE="$mode")
   OUT="$(cd "$ENVROOT" && env -u FT_PLANNER_HEAD_MODE PATH="$T/stub:$PATH" FT_SEATS_JSON="$ENVROOT/seats/seats.json" ${menv[@]+"${menv[@]}"} \
-    FT_MBOX_DIR="$ENVROOT/.fable-team/comm" FT_MBOX_RATE_N=999 FT_MBOX_FANOUT_WINDOW=0 \
-    bash "$ENVROOT/.fable-team/comm/mbox.sh" send "$1" "me#1" "$2" 2>&1)"; RC=$?
+    FT_MBOX_DIR="$ENVROOT/.fable-team/comm" FT_MBOX_RATE_N=999 FT_MBOX_FANOUT_WINDOW=0 FT_NAME_LINT="$REPO/harness/bin/ft-name-lint.sh" \
+    bash "$ENVROOT/.fable-team/comm/mbox.sh" send "$1" "$frm" "$2" 2>&1)"; RC=$?
 }
 queued_to() { local n; n="$(grep -c "\"to\": *\"$1\"" "$ENVROOT/.fable-team/comm/mailbox.jsonl" 2>/dev/null)"; echo "${n:-0}"; }
+qbody() {   # qbody <to> — 그 수신자 큐의 마지막 본문(줄바꿈 그대로)
+  python3 - "$ENVROOT/.fable-team/comm/mailbox.jsonl" "$1" <<'PY'
+import json, sys
+p, to = sys.argv[1:3]
+rows = [json.loads(l) for l in open(p, encoding="utf-8") if l.strip()]
+b = [r for r in rows if r.get("to") == to]
+print(b[-1]["body"] if b else "")
+PY
+}
 
 # ── 1. 명부 8종 × 머리 8종 기대 rc 표 (reject 모드)
 while IFS=$'\t' read -r variant to rcs; do
@@ -226,6 +235,35 @@ new_env renamed; sed -i '' 's/if direct in docs or direct in bad:/if True:/' "$E
 send_as "$OLD" "일반 쪽지"
 [ "$RC" = 0 ] && case "$OUT" in *'미등록'*'은퇴한 좌석'*) false;; *'미등록'*) true;; *) false;; esac && [ "$(queued_to "$OLD")" = 1 ] \
   && ok "ⓗ 변이③ 별칭 해석 삭제 사본 = 미등록으로 되돌아감(빨강 확인)" || bad "ⓗ 변이가 안 잡힘 rc=$RC :: $OUT"
+
+# ── 12. r1098 [정리]→[HIL] 승격 — planner 현역 _master 앞 [정리] 본문에 사람 판정 낱말이 있으면 머리를 올린다(사람 글 등급 = 포화에도 안 버려진다)
+P_PLANNER='byz-planner-master-claude#9'
+R1_BODY="$(printf '[정리] r1091 닫기 cherry 우회 사람 승인 필요\n카운터: 진행 3 · 오빠 손 h 0 · 막힘: 0')"
+new_env ok; send_as "$P_PLANNER" "$R1_BODY"
+[ "$RC" = 0 ] && case "$OUT" in *'PROMOTED [정리]→[HIL] 낱말=승인 필요'*) true;; *) false;; esac && ok "ⓐ R1: «승인 필요» = 승격(reject 모드여도 rc 0) + PROMOTED 1줄" || bad "ⓐ rc=$RC :: $OUT"
+case "$(qbody "$P_PLANNER")" in '[HIL] r1091 닫기 cherry 우회 사람 승인 필요 (원래 [정리])'*'카운터: 진행 3'*) ok "ⓐ 큐 머리 [HIL] + 첫 줄 끝 «(원래 [정리])» + 본문 보존";; *) bad "ⓐ 큐 머리 :: $(qbody "$P_PLANNER")";; esac
+new_env ok; send_as "$P_PLANNER" '[정리] 막힘: r1091 닫기 REJECT'
+[ "$RC" = 0 ] && case "$(qbody "$P_PLANNER")" in '[HIL] 막힘: r1091 닫기 REJECT (원래 [정리])') true;; *) false;; esac && ok "ⓐ R3: «막힘» 본문 줄 = 승격" || bad "ⓐ R3 rc=$RC :: $(qbody "$P_PLANNER")"
+new_env ok; sed -i '' 's/if head == "\[정리\]":/if False:/' "$ENVROOT/.fable-team/comm/mbox_guard.sh"
+grep -q 'if False:' "$ENVROOT/.fable-team/comm/mbox_guard.sh" && ok "ⓐ 변이 사본 생성(승격 끔 · 원본 무변경)" || bad "ⓐ 변이 사본 생성 실패"
+send_as "$P_PLANNER" "$R1_BODY"
+[ "$RC" = 3 ] && case "$OUT" in *PROMOTED*) false;; *) true;; esac && ok "ⓐ 변이(승격 끔) = ⓐ 빨강([정리] 그대로 REJECT)" || bad "ⓐ 변이가 안 잡힘 rc=$RC :: $OUT"
+new_env ok; send_as "$P_PLANNER" "$(printf '[정리] 심박\n카운터: 진행 28 · 오빠 손 h 3 · 막힘: 0')" warn
+[ "$RC" = 0 ] && case "$OUT" in *PROMOTED*) false;; *) true;; esac && ok "ⓑ R2: «카운터:» 줄의 «막힘: 0·오빠» 만 = 승격 0(거짓 [HIL] 금지)" || bad "ⓑ rc=$RC :: $OUT"
+case "$(qbody "$P_PLANNER")" in '[정리] 심박'*) ok "ⓑ 큐 머리 [정리] 그대로";; *) bad "ⓑ 큐 머리 :: $(qbody "$P_PLANNER")";; esac
+new_env ok; sed -i '' 's/if not counter(l)/if True/' "$ENVROOT/.fable-team/comm/mbox_guard.sh"
+grep -q 'if True)' "$ENVROOT/.fable-team/comm/mbox_guard.sh" && ok "ⓑ 변이 사본 생성(카운터 줄 제외 끔)" || bad "ⓑ 변이 사본 생성 실패"
+send_as "$P_PLANNER" "$(printf '[정리] 심박\n카운터: 진행 28 · 오빠 손 h 3 · 막힘: 0')" warn
+case "$OUT" in *PROMOTED*) ok "ⓑ 변이(제외 끔) = ⓑ 빨강(카운터 줄만으로 승격됨)";; *) bad "ⓑ 변이가 안 잡힘 rc=$RC :: $OUT";; esac
+new_env ok; send_as "$P_PLANNER" "$(printf '[완료] 끝\n세트: abc · 시험: x rc=0 · 이슈: 0\n오빠 확인 필요')" warn
+case "$(qbody "$P_PLANNER")" in '[완료] 끝'*) ok "ⓒ R4: [완료] 본문 «오빠» = 머리 그대로";; *) bad "ⓒ R4 :: $(qbody "$P_PLANNER")";; esac
+new_env unreg; send_as 'ft-airag-x#1' '[정리] 승인 필요' warn
+[ "$RC" = 0 ] && case "$OUT" in *PROMOTED*) false;; *) true;; esac && case "$(qbody 'ft-airag-x#1')" in '[정리] 승인 필요') true;; *) false;; esac && ok "ⓒ R5: 다른 좌석 앞 [정리] «승인 필요» = 머리 그대로" || bad "ⓒ R5 rc=$RC :: $(qbody 'ft-airag-x#1')"
+new_env ok; for i in 1 2 3 4 5 6 7 8 9 10; do send_as "$P_PLANNER" "일반 채우기 $i" warn; done
+send_as "$P_PLANNER" '[정리] 닫기 막힘: r1091 닫기 REJECT' warn 'byz-planner-arch-claude#3'
+[ "$RC" = 0 ] && case "$OUT" in *'DROPPED 1'*) true;; *) false;; esac && [ "$(queued_to "$P_PLANNER")" = 10 ] \
+  && ok "ⓓ 큐 10 포화 + 승격 쪽지 = 버림 1(오래된 일반) · 승격 쪽지 보존(사람 글)" || bad "ⓓ 포화 rc=$RC :: $OUT"
+case "$(qbody "$P_PLANNER")" in '[HIL] 닫기 막힘: r1091 닫기 REJECT (원래 [정리])') ok "ⓓ 포화 뒤 큐 마지막 = 승격 쪽지";; *) bad "ⓓ 포화 뒤 큐 마지막 :: $(qbody "$P_PLANNER")";; esac
 
 # ── 7. 문법
 for f in "$SRC/mbox.sh" "$SRC/mbox_guard.sh" "$RETIRE"; do bash -n "$f" 2>/dev/null && ok "bash -n $(basename "$f")" || bad "bash -n $(basename "$f")"; done
