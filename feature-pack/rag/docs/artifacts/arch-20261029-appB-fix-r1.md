@@ -12,13 +12,13 @@ A03 닫는 증거: 「Sonnet 5.5 Nano 구현·GPT-6.1 Sol DA 루프」 — C12(c
 
 | 반례 | 고치는 곳 | 방식 (추천) | tick.py 변경 |
 |---|---|---|---|
-| R1 서명 키 재사용 | `build.sh` | 키체인 비밀번호를 0600 파일 1개로 보관하고, 서명 직전 `security -i` 표준 입력으로 해제한다. 해제 실패면 codesign 을 부르지 않는다. | 없음 |
+| R1 서명 키 재사용 | `build.sh` | **(§10 보정 · 안 1D)** 키체인 비밀번호를 1Password `develop` 볼트 항목에 둔다(평문 파일 0). 서명 직전 `op read` 로 읽어 `security -i` 표준 입력으로만 해제한다. 해제 실패면 codesign 을 부르지 않는다. | 없음 |
 | R2 손자 생존 | `AIRAG.swift` | tick 을 그룹장으로 둔 프로세스 그룹 전체에 신호를 보낸다. 그룹이 빌 때까지 «패스 끝» 으로 치지 않는다. | 없음 |
 | R3 75초 | `AIRAG.swift` | `--once` 는 기동 시각 기준 절대 마감 3개(종료 신호 45초, 강제 종료 52초, 포기 57초)로 돈다. | 없음 |
 | R4 경로 검사 누락 | `AIRAG.swift` | 경로 검사를 `main` 맨 앞에서 한 번 한다. `--once` 는 잘못된 위치면 tick 을 돌리지 않고 종료 코드 78 로 끝낸다. | 없음 |
 
 - tick.py 를 바꾸지 않는다. 그래서 R-H(82a5b73) 는 영향이 없고 R-H 회귀 대상도 아니다.
-- 오빠 결정 필요: 없음. R1 의 «비밀번호 파일 1개» 는 §3-3 의 위험 분석으로 정당화한다. 오빠가 비밀 사본 자체를 원치 않으시면 §3-2 의 안 1C 로 바꾼다.
+- 오빠 결정 필요: 없음. 오빠 답 «op developer» 에 따라 R1 은 §10 의 안 1D 로 바꿨다(발주 #3517). §3-3·§3-4 의 1A 는 기록으로만 남기고 구현하지 않는다.
 
 ## 1. 실측 사실 (이번 설계의 근거)
 
@@ -50,6 +50,8 @@ A03 닫는 증거: 「Sonnet 5.5 Nano 구현·GPT-6.1 Sol DA 루프」 — C12(c
 - pgid 재사용 위험은 없다. POSIX 는 그 번호의 프로세스 그룹이 남아 있는 동안 같은 번호를 새 pid 로 주지 않는다. 그룹장을 회수한 뒤에도 그룹원이 남아 있으면 번호가 보존된다.
 
 ## 3. R1: 같은 서명 키를 재부팅 뒤에도 쓰게 하기
+
+> 보정(발주 #3517): 구현 기준은 §10 의 안 1D 다. 이 절의 1A(0600 파일)는 오빠 결정으로 대체됐다. §3-1 요구와 «해제 실패면 codesign 0» 은 그대로 유효하다.
 
 ### 3-1. 요구
 
@@ -185,7 +187,7 @@ main
 |---|---|---|---|---|
 | 1 | N1 그룹 수명 | `macos/AIRAG/AIRAG.swift`, `macos/AIRAGTests/main.swift` | R2 (+판정서 변이 공백) | T-pg, T-stop, T-kill, T-orphan + 기존 73개 |
 | 2 | N2 `--once` 마감·공통 경로 | 같은 두 파일 (N1 위에서) | R3, R4 | T-once, T-path |
-| 1′ | N3 서명 키 보관·해제 | `macos/build.sh`, 새 `macos/tests/build_sign_test.sh` | R1 | 아래 목록 |
+| 1′ | N3 서명 키 보관·해제 (§10 안 1D 기준) | `macos/build.sh`, 새 `macos/tests/build_sign_test.sh` | R1 | 아래 목록 + §10-6 |
 
 - N1 → N2 는 같은 파일이라 한 Nano 가 차례로 한다. N3 은 다른 Nano 가 동시에 한다.
 - N3 시험은 `PATH` 앞에 `security`, `codesign`, `openssl` 가짜를 두고 `HOME` 을 임시 폴더로 바꿔서 돈다. 실제 키체인 쓰기는 0이다. 단언은 아래 다섯이다.
@@ -205,7 +207,7 @@ main
 
 | 반례 | 이 설계에서 닫는 위치 | 2회차에 볼 증거 |
 |---|---|---|
-| R1 | §3-4 | N3 시험 5단언 + 변이 3건 사망. h 단계 1의 잠금 뒤 재서명 (오빠 1줄) |
+| R1 | §10 (안 1D) | N3 시험 §10-6 단언 + 변이 사망. h-S1 인증서 만들기, h 단계 1의 잠금 뒤 재서명 (오빠 1줄씩) |
 | R2 | §2, §4-2 | T-stop·T-kill·T-orphan 통과. 판정서의 «`kill` 빈 함수» 변이 사망 |
 | R3 | §5-2 | T-once 6초 안 종료. 코드에 상대 대기 연결 0 |
 | R4 | §5-1 | T-path. `main` 에서 경로 검사가 모드 분기보다 앞 |
@@ -225,3 +227,112 @@ DA 2회차 질문 (R1~R4 안에서만):
 - 2구역의 `makeLiveController(...)` 호출 한 줄은 시험이 컴파일하지 않는다(§6).
 - 그룹을 스스로 벗어나는 손자(`setsid`)는 잡지 못한다. op 의 상주 프로세스 여부는 h 단계 2에서 확인한다(§4-3).
 - M1(Foundation 의 새 그룹 생성)은 문서화된 계약이 아니라 실측이다. T-pg 와 spawn 직후 확인이 바뀐 동작을 잡는다.
+
+## 10. §3 보정: 안 1D (1Password develop 볼트 보관 · 발주 #3517)
+
+오빠 결정 원문: «op developer». 키체인 비밀번호를 1Password `develop` 볼트에 둔다. 평문 파일은 0개다(하드 룰 15: develop 볼트, 토큰 `OP_SERVICE_ACCOUNT_TOKEN_DEVELOP`, kskill 토큰 금지). R2~R4 는 바뀌지 않는다. 이 절도 설계만 담았고 op 실행은 0회다.
+
+### 10-1. 비밀번호는 op 가 만든다 (값이 build.sh 를 거쳐 들어가지 않는다)
+
+- `make-identity` 는 비밀번호를 스스로 만들지 않는다. `op item create --vault develop --category password --generate-password=32,letters,digits` 로 1Password 가 만들게 한다. 그러면 값을 명령 인자나 템플릿 파일로 넘길 일이 없다.
+- 항목 규칙(값 아님, 출력 가능):
+  - 제목: `airag-sign-keychain-<LocalHostName>`. 키체인은 이 맥 전용이라 맥 이름을 붙인다.
+  - 태그: `airag`.
+  - 필드: 기본 `password` 1개.
+- 항목 ID 는 비밀이 아니다. `~/.config/airag/sign/op-item-id` (일반 파일, 0600, 심링크 거부)에 적는다. 이후 읽기는 제목이 아니라 ID 로 한다: `op://develop/<ID>/password`. 제목이 겹치거나 바뀌어도 흔들리지 않는다.
+- `op item create` 의 표준 출력에는 값이 들어 있다. 그래서 `--format json` 출력을 변수에 담지 않고 `python3 -I -c` 로 바로 넘겨 `id` 만 꺼낸다. 값은 파이프 안에만 머문다.
+
+### 10-2. make-identity 순서 (볼트 저장 = 마지막 직전 · 반쪽 상태 0)
+
+| 단계 | 동작 | 실패하면 |
+|---|---|---|
+| 1 | 상태 판정 (아래 표). `timeout`·`op`·`openssl`·`python3` 존재와 토큰 비어 있지 않음을 확인한다. 값은 보지 않고 길이만 본다. | 고정 rc, 아무것도 만들지 않음 |
+| 2 | `op whoami` 로 사전 점검(7초 룰 포장) | rc 31/34, 아무것도 만들지 않음 |
+| 3 | openssl 로 키·인증서·p12 를 mktemp 폴더(0700)에 만든다. p12 암호는 위의 볼트 비밀번호가 아니라 1회용이다. 이 폴더는 trap 으로 지운다. | 폴더만 지움, 볼트·키체인 0 |
+| 4 | **볼트 저장** (`op item create`, 10-1) → ID 파일 확정 → 곧바로 `op read` 로 되읽어 형식 `^[A-Za-z0-9]{32}$` 확인 | 저장 실패 = rc 33, 키체인 0. 되읽기 실패 = rc 34, 키체인 0 (ID 파일은 남겨 «이어서» 로 감) |
+| 5 | 키체인 생성·해제·import·partition-list. 비밀번호는 전부 `security -i` 표준 입력으로만 넘긴다. | 이 실행이 만든 키체인 파일만 지운다(같은 실행의 롤백). ID 파일과 볼트 항목은 남긴다. rc 35 |
+
+상태 판정 (단계 1):
+
+| 키체인 파일 | ID 파일 | make-identity |
+|---|---|---|
+| 없음 | 없음 | 단계 2~5 전부 |
+| 없음 | 있음 | «이어서»: 단계 4 의 생성은 건너뛰고, 같은 ID 로 되읽은 뒤 단계 3·5 만 한다. 볼트 항목이 2개가 되지 않는다. |
+| 있음 | 있음 | 거부: `identity_exists` (rc 36) |
+| 있음 | 없음 | 거부: `identity_state_invalid` (rc 36). 옛 1A·4be48d7d 상태다. M6 에 따라 지금은 0 이다. |
+
+- 볼트 항목은 롤백하지 않는다. 볼트 쪽 삭제는 오빠 데이터 삭제라서 HIL 이다. 대신 «이어서» 가 남은 항목을 다시 써서 고아 항목이 생기지 않게 한다.
+- 단계 5 의 롤백은 같은 실행이 몇 초 전에 만든 우리 키체인 파일 1개만 대상이다. `security delete-keychain` 대신 검색 목록에서 빼고 그 파일만 지운다 [확인 필요: `create-keychain` 이 검색 목록에 추가하는지 Nano 가 man 원문으로 확인].
+
+### 10-3. 서명 때 (sign_app)
+
+1. ID 파일 검사: 일반 파일, 0600, 소유자 본인, 심링크 아님, 26자 영숫자.
+2. `op read "op://develop/$ID/password"` 를 7초 룰로 감싸 부른다(10-4). 출력은 `$(...)` 변수 1개에만 담는다. 형식이 `^[A-Za-z0-9]{32}$` 가 아니면 rc 34 다.
+3. `printf 'unlock-keychain -p %s %s\n' "$pw" "$KC" | security -i >/dev/null 2>&1`. `printf` 는 bash 내장이라 명령 인자 목록(ps)에 값이 나오지 않는다(M4). rc 는 M5 로 판정한다.
+4. 해제 rc ≠ 0 이면 rc 35 로 끝낸다. codesign 호출은 0 이다.
+5. `unset pw` 한 뒤 codesign 을 부른다(지금과 같은 `--keychain`).
+
+### 10-4. op 호출 포장 (F9 · 하드 룰 12 · TCC 창)
+
+모든 op 호출(`whoami`, `item create`, `read`)은 함수 `op_call` 하나로만 간다.
+
+- 시간: 시도 1회 `timeout 10.5`, 출력 없이 시간 초과일 때만 1회 재시도, 합계 21초 이하. tick 의 `OP_ATTEMPT_TIMEOUT_S`·`OP_CALL_DEADLINE_S` 와 같은 값이다. 시험용 축소는 환경변수 `AIRAG_OP_ATTEMPT_S` 로만 하고, 10.5 를 넘는 값은 무시한다.
+- 환경: 아래 셋을 그 명령 앞의 셸 대입으로만 준다. `env VAR=값 op …` 처럼 쓰면 토큰이 `env` 의 명령 인자에 나오므로 쓰지 않는다(M4).
+  - `OP_SERVICE_ACCOUNT_TOKEN="$OP_SERVICE_ACCOUNT_TOKEN_DEVELOP"`
+  - `HOME=~/.config/airag/op-home`: R-H 폴더다. 0700, 소유자 본인, 심링크 아님이어야 하고, 없으면 0700 으로 만든다.
+  - `OP_CACHE=false` [확인 필요: op 2.32.1 의 변수 이름]
+- TCC 창: R-H 터미널 시험 T1 에서 op-home 아래 op 는 AppData 요청 0, PROMPTING 0 이었다. 실행 위치도 Ghostty(허용됨) 아래 `!` 한 줄이다. 그래서 창이 뜰 가능성은 낮다. 그래도 뜨면 h 판정은 «실패» 다. R-H 가 이 경로에서 깨졌다는 뜻이고, 새 카드로 연다.
+- F9: 앞 설계에서 `op --version` 이 120초 멈췄다. 원인은 확인하지 못했다 [확인 필요]. 이 포장의 timeout 이 멈춤을 21초 안에 끊는다.
+- 앱 쪽 확인: AIRAG.app 은 서명용 op 를 부르지 않는다. 현재 `AIRAG.swift` 에서 op 가 나오는 곳은 주석 2줄뿐이다(:3, :260). tick 의 소비자 키 `op read` 는 원래 있던 경로이고, 이 비밀번호와 관계가 없다. 서명 비밀번호를 읽는 곳은 build.sh 하나다.
+
+### 10-5. 고정 실패 문구와 rc
+
+출력 형식은 `build.sh: <code>` 1줄과, op 가 원인이면 다음 줄에 `op command: <값 없는 명령 모양>`, `op error: <원문>` 이다(하드 룰 15 의 «명령·오류 원문 보고»). 원문에 비밀번호나 토큰 문자열이 들어 있으면 그 줄을 `op error: [값 포함, 원문 비공개]` 로 바꾼다.
+
+| rc | code | 언제 | codesign |
+|---|---|---|---|
+| 31 | `op_unavailable` | op 또는 timeout 이 없음 / 시간 초과 2회 | 0 |
+| 32 | `op_token_missing` | `OP_SERVICE_ACCOUNT_TOKEN_DEVELOP` 이 비었음 (op 호출 0) | 0 |
+| 33 | `op_store_failed` | `item create` 실패 (권한 없음, 볼트 없음, 네트워크) | — |
+| 34 | `op_read_failed` | `read`·`whoami` 실패, 빈 값, 형식 불일치 | 0 |
+| 35 | `keychain_unlock_failed` | `security -i` 해제 rc ≠ 0, 또는 단계 5 실패 | 0 |
+| 36 | `identity_exists` / `identity_state_invalid` | 10-2 상태 표의 거부 두 줄 | 0 |
+
+### 10-6. N3 시험 (가짜 `op`·`security`·`codesign`·`openssl` 을 PATH 앞에 둠 · HOME 은 임시 폴더)
+
+- 가짜 `op` 는 `item create` 때 알려진 32자 값을 만들어 JSON 으로 내보낸다. `read` 때는 같은 값을 돌려준다. 받은 명령 인자는 기록하고, 값은 기록하지 않는다. 가짜 `security` 는 `-i` 표준 입력에서 «기대 값으로 해제가 왔는지» 만 예/아니오로 기록한다.
+
+| # | 단언 |
+|---|---|
+| A1 | 실행 뒤 비밀번호가 0회 나온다: 모든 가짜의 인자 기록, build.sh 의 stdout·stderr, 임시 HOME·빌드 폴더·TMPDIR 의 모든 파일 |
+| A2 | 토큰 문자열도 A1 의 모든 곳에 0회 나온다. 대입으로 넘겨 인자 기록에 없어야 한다. |
+| A3 | `item create` 가 실패하면(가짜 rc 1) `security create-keychain` 호출 0, 키체인 파일 0, ID 파일 0, rc 33 |
+| A4 | `read` 가 실패하거나 시간 초과면(`AIRAG_OP_ATTEMPT_S=0.3`) codesign 호출 0, rc 34. 시간 초과는 재시도 1회 뒤 끝난다. |
+| A5 | 호출 순서: `whoami` → openssl → `item create` → `read` → `security create-keychain`. 볼트 저장이 키체인 생성 바로 앞이다. |
+| A6 | 단계 5 실패 → 키체인 파일 0, ID 파일 남음, rc 35. 다시 부르면 «이어서»로 `item create` 호출 0, 키체인 생성 성공 |
+| A7 | 토큰이 비면 op 호출 0, rc 32 |
+| A8 | 해제 rc ≠ 0 이면 codesign 0, rc 35 (1A 의 단언 3 유지) |
+
+변이 확인(셋 다 시험이 죽어야 한다): `printf | security -i` 를 `security unlock-keychain -p` 로 바꿈 → A1, 볼트 저장을 키체인 생성 뒤로 옮김 → A3·A5, `op_call` 의 timeout 제거 → A4.
+
+시험 1개 대기는 가짜라 1초 이하다. 실제 op 와 키체인은 0이다.
+
+### 10-7. 오빠 손 (h-S1 · 인증서 만들기 1번)
+
+실행은 master 의 `ft-hil.sh --add` 가 준 `! bash /tmp/h<N>` 한 줄이다. 내용은 `build.sh make-identity` 후 `security find-identity -v -p codesigning <airag 키체인>` 의 «개수» 만 출력하는 것이다.
+
+| 결과 | 판정 | 다음 |
+|---|---|---|
+| rc 0, 신원 1개, 창 0 | 통과 | 빌드·설치 h 로 간다 |
+| rc 33 + `op error` 가 권한 없음 | 막힘 | 서비스 계정에 develop 쓰기 권한이 없다는 뜻이다. master 가 아래 선택지로 오빠 인터뷰를 연다. |
+| rc 31·34 (시간 초과, 네트워크) | 판정 불가 | 같은 h 를 1회만 다시 한다. 또 같으면 원문을 master 에 보낸다. |
+| 1Password·키체인·TCC 창이 뜸 | 실패 | 오빠는 «허용 안 함» 을 누르신다. 새 카드로 연다(R-H 경로가 깨짐). |
+| rc 35·36 | 실패 | 원문 1줄을 master 에 보낸다. 이어서 다시 실행하면 볼트 항목을 다시 쓴다. |
+
+쓰기 권한이 없을 때(rc 33 권한) master 에 보낼 선택지:
+
+1. 오빠가 1Password 관리 화면에서 그 서비스 계정에 develop 볼트 쓰기 권한을 준다. 추천이다. 결정이 그대로 지켜진다.
+2. 오빠가 1Password 앱에서 항목 1개를 손으로 만들고(제목 규칙 10-1, 비밀번호 생성 32자) ID 를 알려 준다. build.sh 는 «이어서» 로 키체인만 만든다. 쓰기 권한이 필요 없다.
+3. 1A(0600 파일)로 되돌린다. 오빠 결정을 바꾸는 일이라 오빠 답이 필요하다.
+
+쓰기 권한 유무는 지금 확인할 수 없다. 확인하려면 op 를 실행해야 하는데, 이번 발주가 금한다 [확인 필요: h-S1 결과로 판정].
