@@ -139,8 +139,8 @@ def test_feat_ref_lookup_failure_is_fail_closed(fake):  # ⓘ
            "FT_FAKE_TMUX_SESSIONS": "ft-v65-temp-i#0"}
     r = subprocess.run(["bash", str(BIN / "ft-press-gate.sh")], capture_output=True, text=True, env=env, timeout=120)
     out = _section1(r)
-    assert any(ln.startswith(WARN) for ln in out), r.stdout
-    assert not any(ln.startswith(OTHER) for ln in out), r.stdout
+    assert "✗ ① 판정 불가 — 기준 줄기 no-such-feat 를 못 풂(FT_NANO_FEAT 확인)" in r.stdout, r.stdout  # r1128 R4: 셈 전에 막고 셈 0
+    assert not any(ln.startswith((OTHER, "✓ 미랜딩", "✗ 미랜딩")) for ln in out), r.stdout
     assert r.returncode == 1
 
 
