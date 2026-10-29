@@ -240,6 +240,26 @@ as check --succession 'r626-probe#0' 'r626-probe#1'; [ "$rc" = 1 ] && echo "$out
 export FAKE_ALIVE="byz-aa-master-claude#1"
 as check --succession 'byz-aa-master-claude#1' 'byz-aa-master-claude#2'; ck "r4 명부 현역 행 ∧ 세션 생존 ∧ #N+1 = 통과" "$rc"
 unset FAKE_ALIVE
+# ── r1094: 재부팅 승계 — 부팅 시각이 정지 켠 시각보다 뒤면 «구 좌석 세션 없음» 이라도 통과 (정지 중 재부팅 뒤 100% 거절되던 길) ──
+SEATA="$REPO/.fable-team/seats-aa.json"; OPEN_ROW='{"_label":"aa","_master":"byz-aa-master-claude#1","byz-aa-master-claude#1":{"role":"master"}}'
+echo '{"since":1793000000,"by":"t","reason":"r1094"}' > "$AS"
+export FT_BOOT_EPOCH=1793004000
+as check --succession 'byz-aa-master-claude#1' 'byz-aa-master-claude#2'
+[ "$rc" = 0 ] && echo "$out" | grep -q '재부팅 승계'; ck "r1094 R1 재부팅 승계(부팅 > 정지 · 세션 없음 · 명부 현역 · #N+1) = 통과" $?
+FT_BOOT_EPOCH=1792990000
+as check --succession 'byz-aa-master-claude#1' 'byz-aa-master-claude#2'
+[ "$rc" = 1 ] && echo "$out" | grep -q '구 좌석 세션 없음'; ck "r1094 R2 재부팅 없음(부팅 < 정지 · 세션 없음) = REJECT «구 좌석 세션 없음»" $?
+FT_BOOT_EPOCH=1793004000
+echo '{"_label":"aa","_master":"byz-aa-master-claude#1","byz-aa-master-claude#1":{"role":"closed"}}' > "$SEATA"
+as check --succession 'byz-aa-master-claude#1' 'byz-aa-master-claude#2'
+[ "$rc" = 1 ] && echo "$out" | grep -q '명부 행 닫힘 표시'; ck "r1094 R3 재부팅 꼴 + 명부 행 닫힘 = REJECT(지금과 같음)" $?
+echo "$OPEN_ROW" > "$SEATA"
+as check --succession 'byz-aa-master-claude#1' 'byz-aa-master-claude#3'
+[ "$rc" = 1 ] && echo "$out" | grep -q '#N+1 아님'; ck "r1094 R4 재부팅 꼴 + 새 이름 #N+2 = REJECT «#N+1 아님»" $?
+export FAKE_ALIVE='byz-aa-master-claude#1'; unset FT_BOOT_EPOCH
+as check --succession 'byz-aa-master-claude#1' 'byz-aa-master-claude#2'
+[ "$rc" = 0 ] && echo "$out" | grep -q '구 좌석 세션 살아 있음'; ck "r1094 R5 세션 살아 있음 = 부팅 시각 없이 지금처럼 통과(생존 길 그대로)" $?
+unset FAKE_ALIVE
 CB="$TMP/copybin"; mkdir -p "$CB"; cp -R "$BIN"/. "$CB"/   # r686: 이름 골라 복사 0 — 새 lib(r672 swap·research) 가 생겨도 사본에 실재
 . "$HERE/lib/bin_source_deps.sh"; out="$(missing_source_deps "$CB")"; rc=0; [ -z "$out" ]; ck "r686 사본 bin 의 같은 폴더 source 대상 전부 실재" $?
 out="$(cd "$REPO" && bash "$CB/ft-nano-spawn.sh" "design/teams/aa/indices/대기/x.md" --dry-run 2>&1)"; rc=$?

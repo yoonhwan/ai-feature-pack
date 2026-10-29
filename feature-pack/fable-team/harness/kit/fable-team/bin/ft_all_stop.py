@@ -9,7 +9,7 @@ ALL_STOP.json(JSON: since·by·reason·notify_failed) = <리포 공용 루트>/.
   판정: 상태 폴더 없음 = 정지(사람 확인) · 상태 파일 있음 = 정지 · 원장 마지막 on = 정지(상태 파일이 사라져도) · 원장 깨짐 = 정지 · ★원장 없음 = 정지(r4)★ · 꺼짐 = 원장 마지막 off 뿐.
   init(설치 전용 · install.sh --apply) = 상태 폴더 + 원장 첫 줄 «<시각>\toff\tinstall\tinit»(이미 있으면 그대로).
 통지는 rc 를 돌려받는다 — on 실패분은 상태 파일 notify_failed · off 실패분은 원장 off 줄 notify_failed · rc 3 · 같은 on/off 를 다시 치면 실패분만 다시 보낸다.
-승계 예외 = 새 이름이 구 좌석 계보 #N+1 ∧ 구 좌석이 어느 명부에 현역 행(닫힘 표시 없음)으로 있음 ∧ 구 좌석 tmux 세션이 지금 살아 있음(목록 못 읽음 = 예외 0).
+승계 예외 = 새 이름이 구 좌석 계보 #N+1 ∧ 구 좌석이 어느 명부에 현역 행(닫힘 표시 없음)으로 있음 ∧ (구 좌석 tmux 세션이 지금 살아 있음 ∨ ★r1094 재부팅 승계★ 부팅 시각 > ALL_STOP.json since — 재부팅으로 세션이 꺼졌을 때만 · 부팅 시각 못 읽음 = 판정 불가 거절)(목록 못 읽음 = 예외 0).
 위협 모델(카드 «DA⑥ r1 HOLD → 고침»): 같은 uid 좌석의 고의 우회(변수 간접·명부 위조·가짜 tmux)는 밖 · 표준 도구·평범한 한 줄·깨진 상태·통지 실패는 안.
 팀 목록·루트 = ft_penalty(load_teams·now·root·state_dir) 재사용 — 페널티와 달리 복구 팀 면제 없음(오빠 «전팀»).
 env: FT_ROOT(리포 루트) · FT_NOW(시험) · FT_MBOX_SH(쪽지) · FT_ALL_STOP_BY(켠 사람 칸 · 없으면 tmux 세션 이름 · 그것도 없으면 unknown).
@@ -275,16 +275,56 @@ def _alive(seat: str) -> bool | None:
     return False if "can't find session" in p.stderr else None
 
 
+def boot_epoch() -> int | None:
+    """호스트 부팅 시각(초) — FT_BOOT_EPOCH(시험) 우선 · 없으면 `sysctl -n kern.boottime`. 못 읽음 = None."""
+    env = os.environ.get("FT_BOOT_EPOCH")
+    if env:
+        try:
+            return int(float(env))
+        except ValueError:
+            return None
+    try:
+        p = subprocess.run(["sysctl", "-n", "kern.boottime"], capture_output=True, text=True, timeout=7)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    m = re.search(r"sec\s*=\s*([0-9]+)", p.stdout or "")
+    return int(m.group(1)) if p.returncode == 0 and m else None
+
+
+def stop_since() -> int | None:
+    """ALL_STOP.json 의 since(정지 켠 시각 · 초) — 파일 없음·읽기 이상·칸 없음 = None."""
+    d = read(_file())
+    if not isinstance(d, dict):
+        return None
+    try:
+        return int(float(d.get("since")))  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
+
+
+def _hm(ts: int) -> str:
+    return time.strftime("%H:%M", time.localtime(ts))
+
+
 def succession(old: str, new: str) -> tuple[bool, str]:
-    """진짜 승계 = 새 이름이 구 좌석 계보 #N+1 ∧ 구 좌석 tmux 세션이 지금 살아 있음 · 명부 행이 닫힘 표시면 예외 0."""
+    """진짜 승계 = 새 이름이 구 좌석 계보 #N+1 ∧ (구 좌석 tmux 세션 생존 ∨ 재부팅 승계) · 명부 행이 닫힘 표시면 예외 0."""
     m = re.fullmatch(r"(.+)#([0-9]+)", old)
     if not m or new != f"{m.group(1)}#{int(m.group(2)) + 1}":
         return False, "새 이름이 구 좌석 계보 #N+1 아님"
     alive = _alive(old)
     if alive is None:
         return False, "tmux 세션 목록 못 읽음"
-    if not alive:
-        return False, f"구 좌석 세션 없음({old})"
+    reboot = ""
+    if not alive:  # r1094: 재부팅 뒤엔 모든 세션이 없다 — 부팅 시각이 정지 켠 시각보다 뒤면 재부팅으로 꺼진 것
+        since = stop_since()
+        if since is None:
+            return False, f"구 좌석 세션 없음({old})"
+        boot = boot_epoch()
+        if boot is None:
+            return False, "판정 불가 — 부팅 시각 못 읽음"
+        if boot <= since:
+            return False, f"구 좌석 세션 없음({old})"
+        reboot = f"재부팅 승계(부팅 {_hm(boot)} > 정지 {_hm(since)})"
     rows = []
     for f in glob.glob(str(root() / ".fable-team/seats*.json")):
         try:
@@ -299,7 +339,7 @@ def succession(old: str, new: str) -> tuple[bool, str]:
         role = str(row.get("role") or "")
         if role in ("closed", "stop-ready") or role.endswith("-retired") or row.get("_replaced_by") or row.get("_closed"):
             return False, f"명부 행 닫힘 표시(role={role or '-'})"
-    return True, ""
+    return True, reboot
 
 
 def check(succ: list[str]) -> int:
@@ -309,7 +349,8 @@ def check(succ: list[str]) -> int:
     if kind == "stop" and succ:
         ok, no = succession(succ[0], succ[1])
         if ok:
-            print(f"INFO 전팀 정지 중이나 진짜 승계({succ[0]} → {succ[1]} · 구 좌석 세션 살아 있음)라 통과 — 같은 자리 교대(순증 0)", file=sys.stderr)
+            how = f" · {no}" if no else " · 구 좌석 세션 살아 있음"
+            print(f"INFO 전팀 정지 중이나 진짜 승계({succ[0]} → {succ[1]}{how})라 통과 — 같은 자리 교대(순증 0)", file=sys.stderr)
             return 0
         why += f" · 승계 예외 아님({no} · {succ[0]} → {succ[1]})"
     tail = " · 사람 확인" if kind == "hard" else " (ft-all-stop.sh status)"
