@@ -11,7 +11,7 @@
 #   ★r1117: 끝나면 ft-hil-notify.sh 가 `[완료 h<N>] rc=…` 를 계획 머리 `# ft-hil-request seat=<좌석…>`(≤3 · 린트 실패 REJECT rc2 · 없으면 WARN) + planner _master 에 1통씩(stdout 사본 h<N>.out)★
 # 진입점 폴더 = ${HIL_DIR:-/tmp}(시험만 바꾼다) · 홈($HOME) 아래 쓰기 0 · 등록기 자신의 실행 기능 0(실행은 사람이 `bash /tmp/h<N>`)
 # 기존 h<N>(링크·파일) 덮기·지우기 0 · 계획 파일 수정·삭제 0 · eval 0. 옛 링크 h<N> 은 그대로 둔다(표식 없음 · 대체 표시 불가).
-# 등록 전 검사(R135a): 같은 폴더 ft_secret_judge.py --plan — 비밀을 화면으로 흘리는 줄이 있으면 `REJECT 계획 파일 비밀 출력 경로 — <줄> <이유>` rc 1(등록 0).
+# 등록 전 검사(R135a): 같은 폴더 ft_secret_judge.py --plan — 비밀을 화면으로 흘리는 줄이 있으면 `REJECT 계획 파일 비밀 출력 경로 — <줄> <이유>` rc 1(등록 0) · r1133: ft_traffic_plan_judge.py --plan — 날 update-traffic 줄·--health-url 없는 ft-traffic-switch.sh = REJECT rc 1.
 set -uo pipefail
 D="${HIL_DIR:-/tmp}"
 die() { echo "REJECT $*" >&2; exit 1; }
@@ -68,14 +68,14 @@ since_min() { local s; s="$(last_start "$1")"; [[ "$s" =~ ^[0-9]+$ ]] || { age_m
 done_rc() { [ -n "$(last_rc "$1")" ]; }
 hhmm() { date -r "$1" +%H:%M 2>/dev/null || date -d "@$1" +%H:%M; }
 
-lint() {  # R135a: 계획 파일의 비밀 출력 경로 검사 — 걸리면 등록 0(rc 1). 판정기 없음은 경고만 · 판정기 실행 실패는 ERROR 등록 0(R170)
-  local j="${FT_SECRET_JUDGE:-$(dirname "${BASH_SOURCE[0]}")/ft_secret_judge.py}" out rc l first=1
-  [ -f "$j" ] || { echo "WARN 비밀 출력 경로 검사를 건너뛴다(판정기 없음)" >&2; return 0; }
+lint() {  # <계획> <판정기> <검사 이름> <REJECT 머리> — R135a 비밀 출력 경로 · r1133 날 트래픽 전환. 걸리면 등록 0(rc 1). 판정기 없음은 경고만 · 판정기 실행 실패는 ERROR 등록 0(R170)
+  local j="$2" out rc l first=1
+  [ -f "$j" ] || { echo "WARN $3 검사를 건너뛴다(판정기 없음)" >&2; return 0; }
   out="$(python3 "$j" --plan "$1" 2>/dev/null)"; rc=$?
   [ "$rc" != 0 ] || return 0
   case "$out" in reject*) ;; *) echo "ERROR ft-hil 판정기 실행 실패(rc=$rc): $j — 등록 0" >&2; return 1;; esac  # reject 글 없는 rc≠0 = 판정기가 죽은 것(빈 사유 REJECT 금지 · #0 RULE)
   while IFS= read -r l; do
-    if [ "$first" = 1 ]; then echo "REJECT 계획 파일 비밀 출력 경로 — ${l#reject }" >&2; first=0; else echo "  — ${l#reject }" >&2; fi
+    if [ "$first" = 1 ]; then echo "REJECT $4${l#reject }" >&2; first=0; else echo "  — ${l#reject }" >&2; fi
   done <<< "$out"
   return 1
 }
@@ -108,7 +108,7 @@ add() {
     [ -n "$nc" ] || nc="$(comm_default)" || { echo "REJECT 쪽지함 폴더를 못 풂 — --notify-comm <폴더> 를 줘라" >&2; exit 2; }
     [ -d "$nc" ] || { echo "REJECT 쪽지함 폴더가 없다: $nc" >&2; exit 2; }
   fi
-  lint "$f" || exit 1
+  l="$(dirname "${BASH_SOURCE[0]}")"; lint "$f" "${FT_SECRET_JUDGE:-$l/ft_secret_judge.py}" "비밀 출력 경로" "계획 파일 비밀 출력 경로 — " && lint "$f" "${FT_TRAFFIC_JUDGE:-$l/ft_traffic_plan_judge.py}" "트래픽 전환" "" || exit 1
   t="$(rp "$(cd "$(dirname "$f")" && pwd -P)/$(basename "$f")")"
   case "$t" in *[[:cntrl:]]*) die "계획 경로에 개행·제어문자가 있다(진입 파일 주입 방지): ${t//[[:cntrl:]]/?}";; esac
   mkdir -p "$D" || die "진입점 폴더를 못 만들었다: $D"
