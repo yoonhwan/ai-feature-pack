@@ -4,8 +4,11 @@
 #     loom#27 spawn 이 loom-main 의 52커밋 뒤진 사본으로 REJECT(planner#49 #92812). 사본은 추적 파일이라 연결 파일로 바꿀 수 없다 → 호출 순간에 막고 라이브 경로를 안내한다.
 # 동작: 명령을 구분자(; && || | 개행 $( `)로 나눠 «실행되는 첫 낱말» 이 `*/harness/bin/<입구 도구>` 또는 `*/harness/kit/fable-team/bin/<입구 도구>`(+ BYZ freeze 옛 위치 두 곳) 이면 deny.
 #       입구 도구 = spawn · close · role-spawn · successor-open · resource-gate · resource-reclaim.
-#       읽기(cat·grep·sed -n·git show·bash -n)와 `$FT_BIN/…`·`.fable-team/bin/…` 호출·입구 도구 밖 이름·`FT_ALLOW_TRACKED_BIN=1`(시험 하네스) 은 통과.
-# ★못 읽음★: 입력 JSON 을 못 읽거나 파싱 실패 = 통과 + stderr 경고(fail-open · 다른 홈 훅과 같은 꼴 · 파괴 아님). 외부 호출 0(git rev-parse 1회만).
+#       ★r1145·r1146★ 그 밖 ft-* 도 «그 파일이 든 체크아웃의 가지가 main 이고 HEAD 가 origin/main 을 품지 않으면»(뒤처진 main 체크아웃) deny — lecture#30 이 273커밋 뒤 팩 체크아웃의 ft-merge-land 로 옛 안내를 9개 팀에 퍼뜨림. 가지 ≠ main(나노·팀 — squash 착지라 origin/main 을 못 품음)·분리 HEAD(격리 사본)는 통과(r1145 오탐 2).
+#       같은 명령 앞 조각의 `NAME=값`(대입만 있는 조각 · export 허용)을 모아 뒤 조각의 `$NAME`·`${NAME}` 를 풀고, `cd <폴더>` 조각을 따라 상대 경로를 푼다.
+#       읽기(cat·grep·sed -n·git show·bash -n)와 `$FT_BIN/…`·`.fable-team/bin/…` 호출·최신 체크아웃의 입구 밖 도구·`FT_ALLOW_TRACKED_BIN=1`(시험 하네스) 은 통과.
+# ★못 읽음★: 입력 JSON 을 못 읽거나 파싱 실패 = 통과 + stderr 경고(fail-open · 다른 홈 훅과 같은 꼴 · 파괴 아님). git 판정 불가 = 통과 + 경고 1줄.
+#       외부 호출: git rev-parse 1회(deny 때만) + 입구 밖 ft-* 경로일 때만 git symbolic-ref 1회 + (가지 main 일 때만) git merge-base 1회(각 timeout 5).
 # 환경: FT_ROOT(루트 고정) · FT_BIN(안내용 라이브 위치 보조). ★설치(~/.claude/hooks/ 복사 · settings.json PreToolUse Bash 등록)는 master — 이 파일 범위 밖★
 # ★r546★ 명령 조각내기는 공용 모듈 merge_cmd.segments 하나 — 같은 폴더의 merge_cmd.py 가 없으면 rc2(막음). 사본 0.
 set +e
@@ -63,12 +66,82 @@ def first_exec(tokens):
 
 
 def tracked_hit(word):
+    """(표시 이름, 입구 도구 여부). 추적 사본 자리의 입구 도구 = (이름, True) · 그 밖 ft-* = (이름, False) · 해당 없음 = (None, False)."""
     w = word.strip("'\"")
     # 팩 추적 사본(harness/bin · harness/kit/fable-team/bin · r385) + BYZ freeze 사본(r386 삭제 전까지 남는 옛 위치)
     m = re.search(r"(?:^|/)(?:harness/(?:bin|kit/fable-team/bin)|scripts/(?:fable-team-bin|harness-install/fable-team/bin))/([^/\s]+?)(?:\.sh)?$", w)
     if m and m.group(1) in ENTRY:
-        return m.group(1) + ".sh"
-    return None
+        return m.group(1) + ".sh", True
+    if m and m.group(1).startswith("ft-"):
+        return w.rsplit("/", 1)[-1], False
+    return None, False
+
+
+def expand(tok, env):
+    """같은 명령 안에서 모은 셸 변수만 푼다(r1145). 모르는 변수($FT_BIN 등)는 그대로 둔다."""
+    return re.sub(r"\$\{([A-Za-z_]\w*)\}|\$([A-Za-z_]\w*)", lambda m: env.get(m.group(1) or m.group(2), m.group(0)), tok)
+
+
+def note_assign(toks, env):
+    """조각 전체가 대입(NAME=값 … · export 허용)이면 셸 변수로 모으고 True. 값에 $·` 가 남으면 모르는 값이라 버린다."""
+    t = toks[1:] if toks[:1] == ["export"] else toks
+    if not t or not all(re.match(r"^[A-Za-z_]\w*=", x) for x in t):
+        return False
+    for x in t:
+        n, v = x.split("=", 1)
+        v = os.path.expanduser(v)
+        if "$" in v or "`" in v:
+            env.pop(n, None)
+        else:
+            env[n] = v
+    return True
+
+
+def stale(word, cwd):
+    """체크아웃이 «가지 main 인데 HEAD ⊉ origin/main» 이면 True(r1146). 가지 ≠ main·분리 HEAD·폴더 없음 = False · git 판정 불가 = False + 경고 1줄."""
+    d = os.path.dirname(os.path.join(cwd, os.path.expanduser(word.strip("'\""))))
+    if not os.path.isdir(d):
+        return False
+    try:
+        b = subprocess.run(["git", "-C", d, "symbolic-ref", "-q", "--short", "HEAD"], capture_output=True, text=True, timeout=5)
+        if b.returncode not in (0, 1):
+            print(f"WARN tracked-bin-call-gate: 판정 불가 git rc={b.returncode} ({d}) — 통과", file=sys.stderr)
+            return False
+        if b.stdout.strip() != "main":
+            return False
+        p = subprocess.run(["git", "-C", d, "merge-base", "--is-ancestor", "origin/main", "HEAD"], capture_output=True, text=True, timeout=5)
+    except (OSError, subprocess.SubprocessError) as e:
+        print(f"WARN tracked-bin-call-gate: 판정 불가 git {type(e).__name__} ({d}) — 통과", file=sys.stderr)
+        return False
+    if p.returncode not in (0, 1):
+        print(f"WARN tracked-bin-call-gate: 판정 불가 git rc={p.returncode} ({d}) — 통과", file=sys.stderr)
+    return p.returncode == 1
+
+
+def find_hit(cmd, cwd):
+    """(표시 이름, 뒤처진 경로 또는 None). 입구 도구 = 늘 hit · 그 밖 ft-* = 뒤처진 체크아웃일 때만 hit."""
+    import shlex
+    env = {}
+    for seg in segments(cmd):
+        try:
+            toks = shlex.split(seg, comments=False, posix=True)
+        except ValueError:
+            toks = seg.split()
+        toks = [expand(t, env) for t in toks]
+        if note_assign(toks, env):
+            continue
+        if toks[:1] == ["cd"] and len(toks) == 2:
+            cwd = os.path.join(cwd, os.path.expanduser(toks[1]))
+            continue
+        word, allow = first_exec(toks)
+        if not word or allow:
+            continue
+        name, entry = tracked_hit(word)
+        if entry:
+            return name, None
+        if name and stale(word, cwd):
+            return name, os.path.normpath(os.path.join(cwd, os.path.expanduser(word.strip("'\""))))
+    return None, None
 
 
 def live_bin(cwd):
@@ -101,20 +174,7 @@ def main():
     if os.environ.get("FT_ALLOW_TRACKED_BIN") == "1":
         sys.exit(0)
 
-    hit = None
-    for seg in segments(cmd):
-        try:
-            import shlex
-            toks = shlex.split(seg, comments=False, posix=True)
-        except ValueError:
-            toks = seg.split()
-        word, allow = first_exec(toks)
-        if not word or allow:
-            continue
-        name = tracked_hit(word)
-        if name:
-            hit = name
-            break
+    hit, stale_path = find_hit(cmd, d.get("cwd") or os.getcwd())
     if not hit:
         sys.exit(0)
 
@@ -123,8 +183,10 @@ def main():
     except (OSError, subprocess.SubprocessError):
         live = ""
     where = live if live else "<LIVE_BIN 미설치 — master 에 ft-root-bin-shim.sh 설치 요청>"
+    head = (f"REJECT 뒤처진 체크아웃의 도구 직접 호출({stale_path} · 가지 main 인데 HEAD 가 origin/main 을 품지 않음 · r1146)" if stale_path
+            else "REJECT 추적 사본 직접 호출")
     reason = (
-        f"REJECT 추적 사본 직접 호출 — $FT_BIN/{hit} 으로 다시 부르세요 (FT_BIN={where}). "
+        f"{head} — $FT_BIN/{hit} 으로 다시 부르세요 (FT_BIN={where}). "
         f"harness/bin·harness/kit/fable-team/bin(및 BYZ freeze 옛 위치)의 사본은 그 워크트리 시점의 옛 코드라 옛 한도·옛 검사로 돕니다(R201). "
         f"읽기(cat·grep·git show·bash -n)는 막지 않습니다. 시험 하네스만 FT_ALLOW_TRACKED_BIN=1."
     )
