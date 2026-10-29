@@ -1236,6 +1236,16 @@ _ENV_FEAT="${FT_NANO_FEAT:-}"
 _FEAT=""
 [ -z "$SEAT_WT" ] || _FEAT="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("base",""))' "$SEAT_WT/.worktree-info.json" 2>/dev/null)"
 _INFO_FEAT="$_FEAT"   # R42 판정 대상 = info 에서 온 값뿐 — env «명시» 값은 sha 로 되읽지 않는다(옛 규칙 그대로)
+# r1120: 옛 detached spawn 은 base 에 글자 «HEAD» — 닫는 리포의 지금 HEAD 로 풀지 않고 같은 info 의 base_sha 로 바꿔 읽는다(못 풀면 판정 불가 · #0 RULE)
+if [ "$_INFO_FEAT" = HEAD ]; then
+  _HSHA="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("base_sha",""))' "$SEAT_WT/.worktree-info.json" 2>/dev/null)"
+  _INFO_FEAT=""; _FEAT=""
+  if [ -n "$_HSHA" ] && _INFO_FEAT="$(git -C "$SEAT_REPO" rev-parse --verify -q "$_HSHA^{commit}")"; then
+    _FEAT="$_INFO_FEAT"; echo "INFO base «HEAD» → base_sha ${_INFO_FEAT:0:10}"
+  else
+    _INFO_FEAT=""; bad+=("base 가 «HEAD»(detached spawn)인데 base_sha(${_HSHA:-없음})를 $SEAT_REPO 에서 못 푼다 — 판정 불가")
+  fi
+fi
 if [ -n "$_INFO_FEAT" ]; then
   [ -z "$_ENV_FEAT" ] || [ "$_ENV_FEAT" = "$_INFO_FEAT" ] || echo "WARN 비교 기준 = 좌석 .worktree-info base($_INFO_FEAT) · FT_NANO_FEAT=$_ENV_FEAT 무시(둘 다 있고 다름)"
 else
