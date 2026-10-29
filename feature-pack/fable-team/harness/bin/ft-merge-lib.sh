@@ -37,6 +37,11 @@ fm_fetch() {
   for i in 1 2; do fm_try "$s" git -c gc.auto=0 -C "$1" fetch --quiet "$2" "$3" && return 0; rc=$?; done
   return "$rc"
 }
+#   fm_head_branch <gh pr view JSON> : stdout = headRefName — isCrossRepository 가 «정확히 false»(같은 리포 PR) ∧ 가지 이름 꼴일 때만 · 아니면 rc 1(포크·칸 없음·빈 값 · r1127)
+fm_head_branch() {
+  local b; b="$(printf '%s' "$1" | python3 -c 'import json,sys;d=json.load(sys.stdin);sys.exit(1) if d.get("isCrossRepository") is not False else print(d.get("headRefName") or "")')" || return 1
+  [ -n "$b" ] && git check-ref-format --branch "$b" >/dev/null 2>&1 && printf '%s' "$b"
+}
 #   fm_push_calc <객체수|?> : push «시도당 상한»(정수 초 · 소수 버림) = min(F + 7 × ceil(N/U0), 70) — 규칙 12 «쪼갤 수 없는 크기 아는 배치»(판정 1375). N 모름(?) = F + 7.
 #     F = FT_PUSH_FIXED_S(기본 4.5 · ssh 접속 2.9 + pre-push 훅 1.1 실측 + 여유 · 7 초과는 7 로 클램프) · U0 = FT_PUSH_UNIT_OBJECTS(기본 100 객체/7 s 잠정 · 양의 정수 아니면 기본) · 잘못된 env 는 WARN(stderr)
 #   fm_push_bound <repo> <M> <Q> : stdout "<객체수|?> <시도당 상한>" — 객체수 = rev-list --objects M..Q · 조회 실패는 WARN 1줄 + 호환값(F+7) (조용한 통과 0)
