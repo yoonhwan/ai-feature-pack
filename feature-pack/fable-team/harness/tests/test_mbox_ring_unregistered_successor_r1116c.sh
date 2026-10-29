@@ -17,6 +17,7 @@ mkstub tmuxc 'echo bootenter >> "$LOG"; exit 4'
 mkstub pgrep 'case "$*" in "-a -x claude"|"-a -x codex") exec "$SENSORS/pgrep" "$@";; esac; echo 5555; exit 0'
 mkstub send 'echo send >> "$LOG"; exit 1'
 mkstub reach 'exit 4'
+mkstub ps 'case "$1 $2 $3" in "-o lstart= -p") echo "Thu Oct 29 17:00:00 2026"; exit 0;; esac; exec /bin/ps "$@"'   # 기준 시각 E(R8) — 후계 발신 17:40 보다 앞
 . "$HERE/lib/fake_resource_env.sh"; fake_resource_env "$TMP/sensors" ok; SENSORS="$TMP/sensors/fake-sensors"; RES="$FT_RES_ROOT"
 printf '골 원문 1줄\n골 원문 2줄\n골 원문 3줄\n본문\n' > "$TMP/body.txt"
 
@@ -30,7 +31,7 @@ world() {   # 임시 리포 · 명부(구 #78 현역 · 후계 #79 미등록) ·
 }
 holder() { (cd "$REPO" && env PATH="$FAKE:$PATH" FT_SEATS_JSON="$REPO/.fable-team/seats.json" FT_MBOX_DIR="$C" python3 "$C/mbox.py" holder "$1" 2>&1); }
 run() {   # run <successor-open 경로>
-  (env HOME="$TMP/home" PANE_CWD="$REPO" PATH="$FAKE:$PATH" LOG="$LOG" FT_SO_POLL=0 FT_SO_WAIT_MAX=2 \
+  (env TZ=Asia/Seoul HOME="$TMP/home" PANE_CWD="$REPO" PATH="$FAKE:$PATH" LOG="$LOG" FT_SO_POLL=0 FT_SO_WAIT_MAX=2 \
     FT_RES_ROOT="$RES" SENSORS="$SENSORS" FT_SEND_VERIFIED="$FAKE/send" FT_MBOX_SH="$C/mbox.sh" FT_REACH_CHECK="$FAKE/reach" \
     bash "$1" "$OLD" "$REPO" --name "$NEW" --agent claude --model claude-sonnet-5-5 --body-file "$TMP/body.txt") > "$TMP/out" 2>&1
   RC=$?
@@ -51,7 +52,7 @@ run "$TMP/mut/ft-successor-open.sh"; hm="$(holder "$OLD")"
 # ⓔ R7: 이어가기 «이미 도달(mail)» → 같은 호출에서 진짜 retire → 명부 _replaced_by 후계 → holder(구·역할 이름) = 후계
 world; run "$SO0"; h1="$(holder "$OLD")"; h2="$(holder byz-zz-master-claude)"; rn="$(roster_new)"
 { [ "$RC" = 0 ] && grep -q '이미 도달(근거=mail)' "$TMP/out" && grep -q 'retire rc=0' "$TMP/out" && [ "$rn" = "$NEW $NEW" ]; } \
-  && ok "ⓓ R7 도달 직후 retire rc0 → 명부 _replaced_by·_master = $NEW" || bad "ⓓ R7 rc=$RC roster=$rn $(tr '\n' ' ' < "$TMP/out" | cut -c1-400)"
+  && ok "ⓓ R7 도달 직후 retire rc0 → 명부 _replaced_by·_master = $NEW" || bad "ⓓ R7 rc=$RC roster=$rn $(tr '\n' ' ' < "$TMP/out" | cut -c1-1600)"
 { [ "$h1" = "$NEW" ] && [ "$h2" = "$NEW" ]; } && ok "ⓔ ring 대상 holder($OLD)·역할 이름 = 후계 $NEW" || bad "ⓔ holder :: $h1 $h2"
 { [ "$(grep -c '^bootenter' "$LOG")" = 0 ] && [ "$(grep -c '^send' "$LOG")" = 0 ]; } && ok "ⓔ' boot-enter·송신 0(입력줄 빔 · 재송신 0)" || bad "ⓔ' log=$(tr '\n' ' ' < "$LOG")"
 [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }

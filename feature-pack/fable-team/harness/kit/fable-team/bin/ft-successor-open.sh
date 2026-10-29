@@ -233,10 +233,20 @@ SKEYS=(-e "\"agentName\":\"$NAME\"" -e "\"customTitle\":\"$NAME\""); SMARK=Sessi
 # ⓒ-0 이어가기 «이미 도달» (r1116c) — 후계가 부팅 문장을 이미 제출해 일하는 중이면 입력줄이 비어 boot-enter 가 rc4 를 낸다(v65 #253→#254).
 #   boot-enter «전에» 근거 셋: ①후계 jsonl SessionStart 뒤 user 레코드(claude) ②후계 이름 발신 쪽지(mailbox.log.jsonl·.1) ③ft-reach-check <후계> <부팅 문장 앞 40자>.
 #   하나라도 참 = 도달 파일 + retire · 송신 0 · rc0 · 근거를 못 읽으면 «판정 불가» exit 5(추측 0 · 하드 룰 20) · 셋 다 거짓 = 아래 boot-enter 순서 그대로.
+#   R8(격리 arch#28): 같은 이름 세션의 «새 생명»(crash·재시작 뒤 다시 켜짐)이면 앞 생명 기록이 남는다 — ①② 는 기준 시각 E(pane 첫 자식 ps lstart) 이후만 · ③ 은 baseline = 지금 수.
 if [ "$RESUMED" = 1 ]; then
-  EV="$(python3 - "$JDIR" "$NAME" "$MDIR" "$AGENT" <<'PYEV'
-import glob, json, os, sys
-jdir, name, mdir, agent = sys.argv[1:5]
+  CPID="$(pgrep -P "$PID" 2>/dev/null | head -1)"
+  LST="$([ -n "$CPID" ] && LC_ALL=C ps -o lstart= -p "$CPID" 2>/dev/null)"
+  [ -n "${LST//[[:space:]]/}" ] || { hil "이어가기 도달 근거 판정 불가 — 에이전트 생명 시작 시각(ps lstart) 못 구함 pid=${CPID:-없음}"; exit 5; }
+  EV="$(python3 - "$JDIR" "$NAME" "$MDIR" "$AGENT" "$LST" <<'PYEV'
+import datetime, glob, json, os, sys, time
+jdir, name, mdir, agent, lst = sys.argv[1:6]
+try: E = time.mktime(time.strptime(" ".join(lst.split()), "%a %b %d %H:%M:%S %Y"))
+except ValueError: print(f"생명 시작 시각 꼴 모름 {lst!r}"); sys.exit(3)
+def new(r, k):   # 기록 시각(ISO · Z=UTC · 꼴 없음=로컬) ≥ E 만 이번 생명 기록
+    try: t = datetime.datetime.fromisoformat(str(r.get(k) or "").replace("Z", "+00:00")).timestamp()
+    except ValueError: return False
+    return t >= E
 def rows(p):
     try: return open(p, encoding="utf-8", errors="replace").read().splitlines()
     except OSError as e: print(f"못 읽음 {p} ({e})"); sys.exit(3)
@@ -250,15 +260,15 @@ if agent == "claude" and os.path.lexists(jdir):
         ls = rows(f)
         if not any(f'"agentName":"{name}"' in l or f'"customTitle":"{name}"' in l for l in ls): continue
         st = next((i for i, l in enumerate(ls) if "SessionStart" in l), None)
-        if st is not None and any(obj(l).get("type") == "user" and not obj(l).get("isMeta") for l in ls[st + 1:]): print("jsonl"); sys.exit(0)
+        if st is not None and any(obj(l).get("type") == "user" and not obj(l).get("isMeta") and new(obj(l), "timestamp") for l in ls[st + 1:]): print("jsonl"); sys.exit(0)
 for p in (os.path.join(mdir, "mailbox.log.jsonl"), os.path.join(mdir, "mailbox.log.jsonl.1")):
-    if os.path.lexists(p) and any(obj(l).get("from") == name for l in rows(p)): print("mail"); sys.exit(0)
+    if os.path.lexists(p) and any(obj(l).get("from") == name and new(obj(l), "ts") for l in rows(p)): print("mail"); sys.exit(0)
 PYEV
 )" || { hil "이어가기 도달 근거 판정 불가 — $EV"; exit 5; }
   if [ -z "$EV" ]; then
     BT="$(tmux show-environment -t "=$NAME" TMUXC_BOOT_TEXT 2>/dev/null | sed -n '1s/^TMUXC_BOOT_TEXT=//p')"
     if [ -n "$BT" ]; then
-      FT_REACH_AGENT="$AGENT" bash "$REACH" "$NAME" "${BT:0:40}" 1 0 >/dev/null 2>&1; RRC=$?
+      FT_REACH_AGENT="$AGENT" bash "$REACH" "$NAME" "${BT:0:40}" 1 >/dev/null 2>&1; RRC=$?   # baseline 생략 = 지금 수(앞 생명 제출은 세지 않는다 · R8)
       case "$RRC" in 0) EV=reach;; 4) ;; *) hil "이어가기 도달 근거 판정 불가 — ft-reach-check rc=$RRC"; exit 5;; esac
     fi
   fi

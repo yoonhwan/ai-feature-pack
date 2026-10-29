@@ -23,23 +23,26 @@ mkstub pgrep 'case "$*" in "-a -x claude"|"-a -x codex") exec "$SENSORS/pgrep" "
 mkstub send 'echo send >> "$LOG"; echo "QUEUED seq=777 to=$1"; exit 0'
 mkstub mbox 'echo "mbox $1" >> "$LOG"; exit 0'
 : > "$FAKE/mbox_doorbell.sh"
-mkstub reach 'echo "reach $2" >> "$LOG"; exit "${REACH_RC:-4}"'
+mkstub reach 'echo "reach $2 argc=$#" >> "$LOG"; exit "${REACH_RC:-4}"'
+# R8 기준 시각 E = pane 첫 자식 ps lstart(로컬 18:00 · TZ=Asia/Seoul 고정) — 그 밖의 ps 호출은 진짜로 넘긴다
+mkstub ps 'case "$1 $2 $3" in "-o lstart= -p") [ -n "${LSTART:-}" ] && echo "$LSTART"; exit 0;; esac; exec /bin/ps "$@"'
 mkstub retire 'echo "retire $1 $2 $(pwd -P)" >> "$LOG"; [ "${RETIRE_RC:-0}" = 0 ] && echo "RETIRED $1 -> $2" || echo "REJECT 승계 전 쪽지 마무리(r1116 ③ · 쓰기 0 · rc 4) — 미표시 3건"; exit "${RETIRE_RC:-0}"'
 . "$HERE/lib/fake_resource_env.sh"; fake_resource_env "$TMP/sensors" ok; SENSORS="$TMP/sensors/fake-sensors"; RES="$FT_RES_ROOT"
 printf '골 원문 1줄\n골 원문 2줄\n골 원문 3줄\n본문\n' > "$BODY"
 JDIR="$TMP/home/.claude/projects/$(printf '%s' "$REPO" | LC_ALL=C sed 's|[^A-Za-z0-9]|-|g')"
-world() {   # world jsonl|mail|none|badjdir — 후계 기록·발신 쪽지 상태
+world() {   # world jsonl|mail|none|badjdir [old] — 후계 기록·발신 쪽지 상태 · old = 앞 생명(E 전) 시각(R8)
+  local jt=2026-10-29T09:05:00.000Z mt=2026-10-29T18:05:00; [ "${2:-}" = old ] && { jt=2026-10-29T08:55:00.000Z; mt=2026-10-29T17:55:00; }
   rm -rf "$TMP/home" "$STATE"; rm -f "$FAKE"/mailbox.log.jsonl*; : > "$LOG"; mkdir -p "$TMP/home/.claude/projects"
   case "$1" in
-    jsonl) mkdir -p "$JDIR"; printf '%s\n' "{\"type\":\"agent-name\",\"agentName\":\"$NEW\"}" '{"type":"attachment","attachment":{"type":"hook_success","hookEvent":"SessionStart"}}' '{"type":"user","message":{"content":"부팅 문장"}}' > "$JDIR/a.jsonl";;
+    jsonl) mkdir -p "$JDIR"; printf '%s\n' "{\"type\":\"agent-name\",\"agentName\":\"$NEW\"}" '{"type":"attachment","attachment":{"type":"hook_success","hookEvent":"SessionStart"}}' "{\"type\":\"user\",\"timestamp\":\"$jt\",\"message\":{\"content\":\"부팅 문장\"}}" > "$JDIR/a.jsonl";;
     mail) mkdir -p "$JDIR"; printf '%s\n' "{\"type\":\"agent-name\",\"agentName\":\"$NEW\"}" '{"type":"attachment","attachment":{"hookEvent":"SessionStart"}}' > "$JDIR/a.jsonl"
-          printf '{"seq": 192720, "to": "byz-planner-master-claude#166", "from": "%s", "body": "[보고] 부팅"}\n' "$NEW" > "$FAKE/mailbox.log.jsonl";;
+          printf '{"seq": 192720, "ts": "%s", "to": "byz-planner-master-claude#166", "from": "%s", "body": "[보고] 부팅"}\n' "$mt" "$NEW" > "$FAKE/mailbox.log.jsonl";;
     none) mkdir -p "$JDIR"; printf '%s\n' "{\"type\":\"agent-name\",\"agentName\":\"$NEW\"}" '{"type":"attachment","attachment":{"hookEvent":"SessionStart"}}' '{"type":"user","isMeta":true}' > "$JDIR/a.jsonl";;
     badjdir) printf 'x\n' > "$JDIR";;   # 폴더 자리에 일반 파일 = 못 읽음(권한 변경 0 · 하드 룰 19)
   esac
 }
 run() {
-  env HOME="$TMP/home" PANE_CWD="$REPO" PATH="$FAKE:$PATH" LOG="$LOG" FT_SO_POLL=0 FT_SO_WAIT_MAX=2 \
+  env TZ=Asia/Seoul LSTART="Thu Oct 29 18:00:00 2026" HOME="$TMP/home" PANE_CWD="$REPO" PATH="$FAKE:$PATH" LOG="$LOG" FT_SO_POLL=0 FT_SO_WAIT_MAX=2 \
       FT_RES_ROOT="$RES" SENSORS="$SENSORS" FT_SEND_VERIFIED="$FAKE/send" FT_MBOX_SH="$FAKE/mbox" \
       FT_REACH_CHECK="$FAKE/reach" FT_SEAT_RETIRE="$FAKE/retire" "$@" \
       bash "$SO" "$OLD" "$REPO" --name "$NEW" --agent claude --model claude-opus-5-5 --body-file "$BODY" > "$TMP/out" 2>&1
@@ -59,7 +62,20 @@ SO="$TMP/mut/ft-successor-open.sh"; r1
 sed 's/^  \[ -f "\$RETIRE" \] || {.*$/  return 0/' "$SO0" > "$TMP/mut/ft-successor-open.sh"
 [ "$(grep -c '^  return 0$' "$TMP/mut/ft-successor-open.sh")" = 1 ] || bad "변이② 적용 실패"
 r1; [ "$RC" = 0 ] && [ "$(n retire)" = 0 ] && ok "변이② retire 끔 → ⓓ retire 호출 0(R1 retire 칸 FAIL 재현)" || bad "변이② rc=$RC retire=$(n retire)"
+# 변이 ③ 시각 비교 끔 → R8(앞 생명 기록) 이 «이미 도달» 오판으로 돌아가야 한다
+sed 's/^    return t >= E$/    return True/' "$SO0" > "$TMP/mut/ft-successor-open.sh"
+[ "$(grep -c '^    return True$' "$TMP/mut/ft-successor-open.sh")" = 1 ] || bad "변이③ 적용 실패"
+world jsonl old; printf '{"seq": 1, "ts": "2026-10-29T17:55:00", "from": "%s"}\n' "$NEW" > "$FAKE/mailbox.log.jsonl"; run BE_RC=4
+[ "$RC" = 0 ] && grep -q '이미 도달' "$TMP/out" && ok "변이③ 시각 비교 끔 → R8 FAIL 재현(앞 생명 기록으로 이미 도달 오판)" || bad "변이③ 이 R8 에 안 잡힘 rc=$RC"
 SO="$SO0"
+
+# ⓐ' R8 같은 이름 세션 새 생명: jsonl 제출·발신 쪽지가 E(18:00) 전 · reach 지금 수 기준 증가 0 · 입력줄 빔 → 근거 0 → boot-enter rc4 → exit 5
+world jsonl old; printf '{"seq": 1, "ts": "2026-10-29T17:55:00", "from": "%s"}\n' "$NEW" > "$FAKE/mailbox.log.jsonl"; run BE_RC=4 BOOT_TEXT="부팅 문장" REACH_RC=4
+{ [ "$RC" = 5 ] && ! reached_ok && ! grep -q '이미 도달' "$TMP/out" && [ "$(n bootenter)" = 1 ] && [ "$(n retire)" = 0 ] && grep -qx 'reach 부팅 문장 argc=3' "$LOG"; } \
+  && ok "ⓐ' R8 앞 생명 기록(E 전) = 근거 0 → boot-enter rc4 → exit 5 · reach baseline 생략(지금 수)" || bad "ⓐ' R8 rc=$RC $(tr '\n' ' ' < "$LOG")"
+# ⓒ'' 생명 시작 시각 못 구함 → 판정 불가 exit 5(추측 0)
+world jsonl; run BE_RC=0 LSTART=
+{ [ "$RC" = 5 ] && grep -q '생명 시작 시각(ps lstart) 못 구함' "$TMP/out" && [ "$(n bootenter)" = 0 ] && ! reached_ok; } && ok "ⓒ'' lstart 못 구함 → 판정 불가 exit 5" || bad "ⓒ'' rc=$RC $(tail -1 "$TMP/out")"
 
 # ⓐ R1 v65 #253→#254 꼴: 입력줄 빔(boot-enter 라면 rc4) · 후계 jsonl SessionStart 뒤 제출 1
 r1; { [ "$RC" = 0 ] && reached_ok && grep -q '이미 도달(근거=jsonl)' "$TMP/out" && [ "$(n bootenter)" = 0 ] && [ "$(n send)" = 0 ]; } \
@@ -72,7 +88,7 @@ world mail; run BE_RC=4
 { [ "$RC" = 0 ] && reached_ok && grep -q '이미 도달(근거=mail)' "$TMP/out" && [ "$(n bootenter)" = 0 ]; } && ok "ⓐ R2 이미 도달(mail) rc0" || bad "ⓐ R2 rc=$RC"
 # ⓐ ③ ft-reach-check(부팅 문장 앞 40자) rc0
 world none; run BE_RC=4 BOOT_TEXT="통신 표준: COMM-GUIDE-BOOT 를 지금 읽고 그대로 따를 것 — 너의 세션명은 $NEW" REACH_RC=0
-{ [ "$RC" = 0 ] && reached_ok && grep -q '이미 도달(근거=reach)' "$TMP/out" && grep -qx 'reach 통신 표준: COMM-GUIDE-BOOT 를 지금 읽고 그대로 따를 것 ' "$LOG"; } \
+{ [ "$RC" = 0 ] && reached_ok && grep -q '이미 도달(근거=reach)' "$TMP/out" && grep -qx 'reach 통신 표준: COMM-GUIDE-BOOT 를 지금 읽고 그대로 따를 것  argc=3' "$LOG"; } \
   && ok "ⓐ ③ reach-check 앞 40자 rc0 → 이미 도달(reach)" || bad "ⓐ ③ rc=$RC log=$(tr '\n' ' ' < "$LOG")"
 # ⓑ R3 근거 0 · 입력줄 = 부팅 문장(boot-enter rc0) → 지금처럼 boot-enter 1회 → 송신 → 도달
 world none; run BE_RC=0
