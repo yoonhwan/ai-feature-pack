@@ -44,25 +44,28 @@ plan_of() {  # $1=h 파일 → 계획 절대경로(진입 파일 표식 줄 · �
 }
 
 entry_body() {  # $1=계획 $2=표식 접두(=진입 파일) $3=쪽지함 $4=요청 좌석(공백) — 대체됨 거절 · 시작 시각 → 계획 실행(stdout 사본 .out) → rc 기록 → r1117 결과 쪽지(실패해도 rc 그대로)
+  # r1126 진입 머리: 계획 리포 공용 루트로 cd + FT_ROOT unset(리졸버 = 그 리포 LIVE_ROOT = 착지가 읽는 폴더) · 리포 밖(--cmd·시험) = 지금처럼 + INFO · 리포 안 ∧ LIVE_ROOT 없음 = 판정 불가 rc3(계획 실행 0)
   printf '#!/usr/bin/env bash\n# ft-hil-entry plan=%s\nP=%q; M=%q; N=%q; C=%q; S=%q\n' "$1" "$1" "$2" "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)/ft-hil-notify.sh" "$3" "$4"
   cat <<'EOS'
 [ ! -f "$M.superseded" ] || { echo "REJECT 대체됨 → $(cat "$M.superseded")" >&2; exit 1; }
 [ -f "$P" ] || { echo "REJECT 계획 파일이 없다: $P" >&2; exit 1; }
-date +%s > "$M.ran"
+date +%s >> "$M.ran"
 ( umask 077; : > "$M.out" )
-bash "$P" "$@" | tee "$M.out"; rc=${PIPESTATUS[0]}
+rc=""; R="$(git -C "$(dirname "$P")" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"; R="${R%/.git}"
+if [ -z "$R" ]; then echo "INFO 리포 밖 계획 — cd 0 ($P)" >&2; elif [ ! -f "$R/.fable-team/LIVE_ROOT" ]; then echo "판정 불가 — 계획 $P 의 리포($R)에 .fable-team/LIVE_ROOT 없음" | tee "$M.out" >&2; rc=3
+elif cd "$R"; then unset FT_ROOT; else echo "판정 불가 — 계획 리포 루트로 cd 실패: $R" | tee "$M.out" >&2; rc=3; fi
+[ -n "$rc" ] || { bash "$P" "$@" | tee "$M.out"; rc=${PIPESTATUS[0]}; }
 echo "rc=$rc $(date +%s)" >> "$M.ran"
 bash "$N" done "$M" "$rc" "$C" $S || echo "WARN 결과 쪽지 실패 — h rc 는 그대로($rc)" >&2
 exit "$rc"
 EOS
 }
-
+# .ran = 실행마다 «시작 epoch» + «rc=<n> <epoch>» 이어 쓰기(r1124) — 읽기는 마지막 시작 줄·마지막 줄 기준
 age_min() { local t; t="$(stat -f %m "$1" 2>/dev/null || stat -c %Y "$1")"; echo $(( ($(date +%s) - t) / 60 )); }
-since_min() {  # 진입 파일 .ran 1행(시작 epoch) 이후 분 — 읽을 수 없으면 파일 mtime 기준
-  local s; s="$(sed -n 1p "$1.ran" 2>/dev/null)"; [[ "$s" =~ ^[0-9]+$ ]] || { age_min "$1.ran"; return; }
-  echo $(( ($(date +%s) - s) / 60 ))
-}
-done_rc() { grep -q '^rc=[0-9]* ' "$1.ran" 2>/dev/null; }  # 종료 rc 행이 있나
+last_start() { sed -n '/^[0-9][0-9]*$/h; ${x;p;}' "$1.ran" 2>/dev/null; }
+last_rc() { tail -n 1 "$1.ran" 2>/dev/null | sed -n 's/^rc=\([0-9]*\) .*/\1/p'; }  # 마지막 줄이 rc 행일 때만(= 마지막 실행이 끝남)
+since_min() { local s; s="$(last_start "$1")"; [[ "$s" =~ ^[0-9]+$ ]] || { age_min "$1.ran"; return; }; echo $(( ($(date +%s) - s) / 60 )); }  # 읽을 수 없으면 mtime 기준
+done_rc() { [ -n "$(last_rc "$1")" ]; }
 hhmm() { date -r "$1" +%H:%M 2>/dev/null || date -d "@$1" +%H:%M; }
 
 lint() {  # R135a: 계획 파일의 비밀 출력 경로 검사 — 걸리면 등록 0(rc 1). 판정기 없음은 경고만 · 판정기 실행 실패는 ERROR 등록 0(R170)
@@ -76,7 +79,6 @@ lint() {  # R135a: 계획 파일의 비밀 출력 경로 검사 — 걸리면 �
   done <<< "$out"
   return 1
 }
-
 seat_lint() {  # R718: 좌석 이름 = P6 문법(ft-name-lint.sh) — 실패면 REJECT rc2(등록 0)
   local l="$(dirname "${BASH_SOURCE[0]}")/ft-name-lint.sh" why
   if [ -f "$l" ]; then
@@ -150,11 +152,10 @@ state_of() {  # $1=h 파일 → 대체됨 → h<N> | 실행 HH:MM rc=<n> | 미�
   [ -n "$(plan_of "$f")" ] || { echo "-"; return; }
   [ ! -e "$f.superseded" ] || { echo "대체됨 → $(cat "$f.superseded")"; return; }
   [ -e "$f.ran" ] || { echo "미실행 $(age_min "$f")분"; return; }
-  s="$(sed -n 1p "$f.ran")"; r="$(sed -n 's/^rc=\([0-9]*\) .*/\1/p' "$f.ran" | tail -1)"
+  s="$(last_start "$f")"; r="$(last_rc "$f")"
   [ -n "$r" ] || { echo "중단/실행 중 $(since_min "$f")분"; return; }  # rc 행 없음 = 끝났는지 모른다(완료로 세지 않는다)
   echo "실행 $(hhmm "$s") rc=$r"
 }
-
 marker_of() {  # $1=h 파일 → `수신=<좌석>@<쪽지함>` | `수신=표식 손상` | `수신=-` (r718)
   local nf="$1.notify" s c
   [ -e "$nf" ] || { echo "수신=-"; return; }
@@ -162,7 +163,6 @@ marker_of() {  # $1=h 파일 → `수신=<좌석>@<쪽지함>` | `수신=표식 
   [ -n "$s" ] && [ -n "$c" ] || { echo "수신=표식 손상"; return; }
   echo "수신=$s@$c"
 }
-
 list() {
   local i l any=0 m; m="$(max_n)"
   for ((i = 1; i <= m; i++)); do
