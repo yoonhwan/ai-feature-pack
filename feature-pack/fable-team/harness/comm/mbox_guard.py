@@ -40,11 +40,11 @@ def _reply_seqs(body):
 
 def _received_seqs(frm):
     """frm 이 받은 쪽지 seq — 큐(아직 안 읽은 것) + 보낸 행 사본(읽혀 큐에서 빠진 것)."""
-    got = {r.get("seq") for r in _load(CANON) if r.get("to") == frm}
+    got = {r.get("seq") for r in _load(CANON) if role_key(r.get("to")) == role_key(frm)}   # 역할 키(r1116) — 앞 판이 받은 쪽지 회신도 면제
     for p in (os.path.join(CANON, SENT_LOG) + ".1", os.path.join(CANON, SENT_LOG)):
         try:
             with open(p, encoding="utf-8") as f:
-                got |= {r.get("seq") for r in map(_json_or_empty, f) if r.get("to") == frm}
+                got |= {r.get("seq") for r in map(_json_or_empty, f) if role_key(r.get("to")) == role_key(frm)}
         except OSError:
             pass
     return got
@@ -109,9 +109,9 @@ def _guard_verdict(to, frm, body, exempt=()):
     #   불러주므로, 동시에 들어온 다른 send 가 이미 큐에 넣은 행을 «본다». 그전에는
     #   판정이 잠금 밖이라 두 send 가 서로의 큐를 못 보고 ★둘 다 통과★ 했다(실측 5회 중 4회).
     dup = next((r for r in _load(CANON) if r.get("from") == frm
-                and r.get("to") == to and _body_hash(r.get("body", "")) == h), None)
+                and role_key(r.get("to")) == role_key(to) and _body_hash(r.get("body", "")) == h), None)
     last = max((r.get("t", 0) for r in log
-                if r.get("f") == frm and r.get("to") == to and r.get("h") == h), default=0)
+                if r.get("f") == frm and role_key(r.get("to")) == role_key(to) and r.get("h") == h), default=0)
     if dup and last and now - last < RESEND_COOL:
         return ("RESEND_COOLDOWN from=%s to=%s seq=%s %ds<%ds"
                 % (frm, to, dup.get("seq"), int(now - last), RESEND_COOL),
@@ -120,8 +120,8 @@ def _guard_verdict(to, frm, body, exempt=()):
                 "%ds 경과 후 1회만 재발신한다(소비되거나 시간이 지나면 자동 통과)."
                 % (dup.get("seq"), RESEND_COOL))
     tool, skipped = _is_tool_sender(frm), []
-    others = sorted({r["to"] for r in log
-                     if r.get("f") == frm and r.get("h") == h and r.get("to") != to
+    others = sorted({role_key(r["to"]) for r in log   # 같은 역할 옛·새 번호 = 한 좌석(r1116)
+                     if r.get("f") == frm and r.get("h") == h and role_key(r.get("to")) != role_key(to)
                      and now - r.get("t", 0) < FANOUT_WIN})
     if others and tool:
         others, skipped = [], skipped + ["fanout"]

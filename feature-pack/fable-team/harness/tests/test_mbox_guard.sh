@@ -57,12 +57,12 @@ while IFS=$'\t' read -r variant to rcs; do
   done
 done < "$FX/matrix.tsv"
 
-# ── 2. REJECT 문구·후계 이름·전달
-new_env retired; send_as 'byz-planner-master-claude#8' "$(body_of PROGRESS)"
-case "$OUT" in *'현역 byz-planner-master-claude#10'*) ok "은퇴 REJECT 에 후계 체인 끝 이름";; *) bad "후계 이름 없음 :: $OUT";; esac
-[ "$(queued_to 'byz-planner-master-claude#8')" = 0 ] && ok "REJECT 는 큐 적재 0" || bad "REJECT 인데 큐에 들어감"
+# ── 2. 옛 번호 = 같은 역할 우편함(r1116) · 후계 이름은 WARN 에 · 큐엔 받은 이름 그대로
+new_env retired; send_as 'byz-planner-master-claude#8' "$(body_of BOOT)"
+[ "$RC" = 0 ] && case "$OUT" in *'옛 번호 byz-planner-master-claude#8'*'현역 byz-planner-master-claude#10'*) true;; *) false;; esac && ok "옛 번호 = WARN 에 사슬 끝 현역 이름 + 전송" || bad "옛 번호 WARN rc=$RC :: $OUT"
+[ "$(queued_to 'byz-planner-master-claude#8')" = 1 ] && ok "큐 to = 받은 이름 그대로(표시 보존)" || bad "큐 to 가 바뀜"
 new_env retired; send_as 'byz-planner-master-claude#8' "$(body_of HIL)"
-[ "$RC" = 0 ] && [ "$(queued_to 'byz-planner-master-claude#10')" = 1 ] && ok "은퇴 수신자 + [HIL] → 후계로 전달" || bad "HIL 후계 전달 rc=$RC :: $OUT"
+[ "$RC" = 0 ] && [ "$(queued_to 'byz-planner-master-claude#8')" = 1 ] && ok "옛 번호 + [HIL] → 역할 우편함 적재(전달 불필요)" || bad "HIL 옛 번호 rc=$RC :: $OUT"
 new_env broken; send_as 'byz-planner-master-claude#9' "$(body_of HIL)"
 [ "$RC" = 0 ] && case "$OUT" in *'명부 미확인'*) true;; *) false;; esac && ok "깨진 명부 + [HIL] → WARN 명부 미확인 + 전송" || bad "깨진 명부 HIL rc=$RC :: $OUT"
 grep -q . "$ENVROOT/.fable-team/state/mbox-guard.log" 2>/dev/null && ok "mbox-guard.log 1줄 이상" || bad "mbox-guard.log 없음"
@@ -103,7 +103,7 @@ case "$OUT" in *'[결정]·[HIL]·[긴급]·[합치기]·[정지 레디]·[완�
 new_env retired; printf '긴 본문\n' > "$ENVROOT/long.txt"
 OUT="$(cd "$ENVROOT" && PATH="$T/stub:$PATH" FT_SEATS_JSON="$ENVROOT/seats/seats.json" FT_MBOX_DIR="$ENVROOT/.fable-team/comm" FT_MBOX_RELAY_DIR="$ENVROOT/relay" \
   bash "$ENVROOT/.fable-team/comm/mbox.sh" relay 'byz-planner-master-claude#8' me#1 "$ENVROOT/long.txt" "[진행] 요약" 2>&1)"; RC=$?
-[ "$RC" = 3 ] && ok "relay 도 은퇴 수신자 REJECT rc=3" || bad "relay rc=$RC :: $OUT"
+[ "$RC" = 0 ] && case "$OUT" in *'옛 번호'*) true;; *) false;; esac && ok "relay 도 같은 문(옛 번호 = 역할 우편함 · WARN)" || bad "relay rc=$RC :: $OUT"
 
 # ── 6. ft-seat-retire 원자 쓰기 — 쓰기 중 죽어도 원본 무손상
 mkdir -p "$T/sc"; cat > "$T/sc/sitecustomize.py" <<'PY'

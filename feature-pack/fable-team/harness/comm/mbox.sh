@@ -139,6 +139,9 @@ inbox_ingest() {
 # ①~④·미상(보고 의무 분류)이면 받는 좌석의 tick 유무와 무관하게 울린다. ⑤⑥·적재 실패·SKIP 은 notify_policy 그대로.
 inbox_must_ring() { case "$INBOX_CLS" in ①|②|③|④|미상) return 0;; *) return 1;; esac; }
 
+# ★doorbell 대상 = 그 역할의 현역 세션(r1116 R7)★ — 우편함 키가 역할이라 옛 번호·역할 이름으로 보내도 현역 pane 을 깨운다. 해석 실패 = 받은 이름 그대로.
+holder_of() { local h; h="$(python3 "$MBOXPY" holder "$1" 2>/dev/null)" && [ -n "$h" ] && _check_name "$h" 2>/dev/null && echo "$h" || echo "$1"; }
+
 cmd="${1:-}"; shift || true
 case "$cmd" in
   send)
@@ -154,8 +157,8 @@ case "$cmd" in
       esac
     done
     guard_check "$to" "${args[*]}" "$from" || exit $?   # rc 3 = REJECT(큐 적재 0) · 후계 전달·[합치기] 치환은 GUARD_TO·GUARD_BODY
-    to="$GUARD_TO"; args=("$GUARD_BODY")
-    if [ "$urgent" = 1 ] || [ "$(notify_policy "$to")" = ring ]; then notify=1; else notify=0; fi
+    to="$GUARD_TO"; args=("$GUARD_BODY"); dbto="$(holder_of "$to")"
+    if [ "$urgent" = 1 ] || [ "$(notify_policy "$dbto")" = ring ]; then notify=1; else notify=0; fi
     # 가드 거부(exit 3) 시 doorbell 을 울리지 않는다 — 큐에 들어간 게 없다.
     # ★출력을 «잡는다»★ (2026-09-06, F5) — doorbell 에 실을 seq 가 그 안에 있다.
     #   `$( )` 로 잡으면 py 의 stdout 이 여기서 멈추므로 ★아래에서 반드시 그대로 다시 찍는다★.
@@ -179,7 +182,7 @@ case "$cmd" in
     if inbox_must_ring; then notify=1; fi
     uf=0; if user_facing "$to"; then notify=0; uf=1; fi
     # ★`[ ] && doorbell` 로 쓰지 않는다★ — set -e 에서 notify=0 이면 리스트가 실패로 끝나 exit 1.
-    if [ "$notify" = 1 ]; then db="$(doorbell_status "$to" "$dbf" "$seq")"; else db=quiet; fi
+    if [ "$notify" = 1 ]; then db="$(doorbell_status "$dbto" "$dbf" "$seq")"; else db=quiet; fi
     if [ "$uf" = 1 ]; then uf_watch "$to" "$seq"; fi
     echo "$py_out doorbell=$db"
     ;;
@@ -195,17 +198,17 @@ case "$cmd" in
       esac
     done
     guard_check "$to" "${args[*]}" "$from" "$file" || { _rc=$?; guard_tmp_clean; exit $_rc; }
-    to="$GUARD_TO"; args=("$GUARD_BODY")
+    to="$GUARD_TO"; args=("$GUARD_BODY"); dbto="$(holder_of "$to")"
     [ -z "$GUARD_TMP" ] || trap guard_tmp_clean EXIT   # 검사 사본 폴더는 끝에 지운다
     [ -z "$GUARD_FILE" ] || file="$GUARD_FILE"          # 대상 relay 는 «검사한 그 사본» 만 전달한다(R362 · 사본 실패는 가드가 REJECT — 원본 후퇴 0)
-    if [ "$urgent" = 1 ] || [ "$(notify_policy "$to")" = ring ]; then notify=1; else notify=0; fi
+    if [ "$urgent" = 1 ] || [ "$(notify_policy "$dbto")" = ring ]; then notify=1; else notify=0; fi
     # relay 도 결국 send 를 타므로 출력에 `seq=` 가 있다 — 같은 번호를 창에도 싣는다.
     py_out="$(python3 "$MBOXPY" relay "$to" "$from" "$file" "${args[*]}")" || exit $?
     seq="$(seq_of "$py_out")" || seq=""
     inbox_ingest "$seq"
     if inbox_must_ring; then notify=1; fi
     uf=0; if user_facing "$to"; then notify=0; uf=1; fi
-    if [ "$notify" = 1 ]; then db="$(doorbell_status "$to" 0 "$seq")"; else db=quiet; fi
+    if [ "$notify" = 1 ]; then db="$(doorbell_status "$dbto" 0 "$seq")"; else db=quiet; fi
     if [ "$uf" = 1 ]; then uf_watch "$to" "$seq"; fi
     echo "$py_out doorbell=$db"
     ;;
@@ -221,7 +224,7 @@ case "$cmd" in
   #   ★seq 를 그대로 다시 싣는다★ — 새 번호를 만들지 않으므로 1차 마커가 그대로 유효하다.
   #   ★force=1 로 억제를 뚫는다★ — 재발주는 «반드시» 창에 떠야 한다. 억제되면 아무것도
   #   안 뜨고 그건 미도달과 구분이 안 된다(팩 ring 과 같은 계약).
-  ring)  sess="${1:?sess}"; _check_name "$sess" || exit 1
+  ring)  sess="${1:?sess}"; _check_name "$sess" || exit 1; sess="$(holder_of "$sess")"
          db="$(doorbell_status "$sess" 1 "${2:-}")"; echo "RING $sess doorbell=$db" ;;
   *) echo "usage: mbox.sh {send <to> <from> <body> [--urgent] [--force]|relay <to> <from> <file> <summary>|recv <me> [<from>] [--all]|peek <me>|ring <sess> [seq]}" >&2; exit 2;;
 esac

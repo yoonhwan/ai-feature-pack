@@ -60,17 +60,50 @@ def eligible(me):
     return names, warns
 
 
+def _team_rows(name):   # (그 이름 팀 명부의 좌석 행 dict, 그 이름 행) — 명부 없음·깨짐 = ({}, None)
+    d = os.path.dirname(_seats_json()) or "."
+    docs, bad = _load_docs(d)
+    auth = mbox_teamfile.teamfile(d, name, docs, bad)[0]
+    rows = {k: v for k, v in docs.get(auth, {}).items() if isinstance(v, dict)}
+    return rows, rows.get(name)
+
+
+def retired_to(me):
+    """★현역만 recv(r1116)★ — me 행에 `_replaced_by` 가 있으면 사슬 끝 후계 이름, 현역·미등록이면 "". 옛·새 동시 생존 때 옛 세션이 역할 우편함을 못 가져가게."""
+    rows, row = _team_rows(me)
+    cur, seen = me, {me}
+    while isinstance(row, dict) and row.get("_replaced_by") and row["_replaced_by"] not in seen:
+        cur = row["_replaced_by"]; seen.add(cur); row = rows.get(cur)
+    return "" if cur == me else cur
+
+
+def holder(name):
+    """doorbell·ring 대상 = 그 역할의 현역 세션(r1116 R7). 명부 이름이면 사슬 끝 · 번호 없는 역할 이름이면 같은 역할 현역 행(번호 큰 것) · 못 찾으면 그대로."""
+    cur = retired_to(name)
+    if cur:
+        return cur
+    rows, row = _team_rows(name)
+    if isinstance(row, dict):
+        return name
+    live = [k for k, v in rows.items() if role_key(k) == role_key(name) and not v.get("_replaced_by")
+            and v.get("role") not in ("closed", "stopped")]
+    num = lambda k: int(k.rsplit("#", 1)[1]) if re.search(r"#\d+$", k) else -1
+    return max(live, key=num) if live else name
+
+
 def claim(dirs, names, frm, limit):
     """★선택과 소비를 «같은 잠금» 안에서 한다★ — 조회 잠금과 소비 잠금이 갈라져 있으면 옛 좌석 recv 와 후계 recv 가
     같은 행을 둘 다 읽는다. 우편함이 여럿(legacy)이면 정해진 순서로 전부 잡고 한 번에 처리한다(send 는 CANON 하나만 잡아 교착 0).
     표시 상한 밖(held)은 소비하지 않는다. 반환 = (읽은 [(디렉터리, 행)] LIFO, 남긴 [(디렉터리, 행)]).
+    ★비교 키 = 역할 이름(r1116)★ — names 의 역할 키 집합과 `to` 의 역할 키가 같으면 내 것(옛 번호·새 번호·번호 없음 전부).
     """
+    keys = {role_key(n) for n in names}
     def run(i):
         if i < len(dirs):
             return _locked(dirs[i], lambda: run(i + 1))
         per = [(d, _load(d)) for d in dirs]
         got = [(d, r) for d, rows in per for r in rows
-               if r.get("to") in names and (frm is None or r.get("from") == frm)]
+               if role_key(r.get("to")) in keys and (frm is None or r.get("from") == frm)]
         got.sort(key=lambda x: x[1]["seq"], reverse=True)   # LIFO
         held = []
         if limit is not None and len(got) > limit:
