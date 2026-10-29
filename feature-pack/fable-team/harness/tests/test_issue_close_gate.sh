@@ -236,6 +236,23 @@ printf '[{"number":9100,"state":"MERGED"}]' > "$PRJ"; mkstate "$S" '[]' "$SIXF";
 jq '.closedByPullRequestsReferences=[{"number":9100}]' "$S" > "$S.t" && mv "$S.t" "$S"; chk
 [ $RC -eq 0 ] && grep -q "OK   Closes 연결 PR #9100" <<<"$OUT" && ok "ⓒ6 Closes 연결 있음 → 지금과 같은 OK(R5)" || bad "ⓒ6 rc=$RC $OUT"
 
+# ⓓ r1104 · R1~R5 — ft-merge-land 착지 PR 은 GitHub 상태가 CLOSED 다: 닫기 코멘트의 «착지 sha» 가 랜딩 ref 조상이면 인정
+LAND="$(git -C "$R" rev-parse HEAD)"   # main 끝 = 착지된 sha
+prc() { # prc <PR state> <PR 코멘트 본문(없으면 "")> → OUT·RC
+  mkstate "$S" '[]' "$SIXF"; addpr '연결 PR: #9100'
+  jq -n --arg st "$1" --arg b "$2" '[{number:9100,state:$st,comments:(if $b == "" then [] else [{body:$b}] end)}]' > "$PRJ"; chk; }
+prc CLOSED "착지 sha $LAND (ft-merge-land #9200)"
+[ $RC -eq 0 ] && grep -q "OK 연결 PR #9100 CLOSED" <<<"$OUT" && grep -q "main 조상" <<<"$OUT" && grep -q "PASS #9000" <<<"$OUT" \
+  && ok "ⓓ1 R1 CLOSED + 착지 sha(main 조상) → OK" || bad "ⓓ1 rc=$RC $OUT"
+prc CLOSED ""
+[ $RC -eq 1 ] && grep -q "MISS Closes 연결 PR 없음" <<<"$OUT" && grep -q "착지 sha 없음" <<<"$OUT" && ok "ⓓ2 R2 CLOSED · 코멘트 없음 → MISS" || bad "ⓓ2 rc=$RC $OUT"
+prc CLOSED "착지 sha $E (ft-merge-land #9200)"
+[ $RC -eq 1 ] && grep -q "조상 아님" <<<"$OUT" && grep -q "MISS Closes 연결 PR 없음" <<<"$OUT" && ok "ⓓ3 R3 CLOSED · 착지 sha 가 다른 가지 → MISS(조상 아님)" || bad "ⓓ3 rc=$RC $OUT"
+prc MERGED ""
+[ $RC -eq 0 ] && ok "ⓓ4 R4 MERGED → OK(지금과 같음)" || bad "ⓓ4 rc=$RC $OUT"
+prc OPEN "착지 sha $LAND (ft-merge-land #9200)"
+[ $RC -eq 1 ] && grep -q "MISS 연결 PR #9100" <<<"$OUT" && ok "ⓓ5 R5 OPEN → MISS" || bad "ⓓ5 rc=$RC $OUT"
+
 # ⑪ 변이(r1040) — 빈 칸 분기 제거 → ①' FAIL · 연결 PR 코멘트 인정 제거 → ⓒ FAIL
 MB="$T/bin"; mkdir -p "$MB"
 for f in ft-issue-close-gate.sh ft-issue-close-check.sh ft-gh-as-tank.sh ft-harness-root.sh; do cp "$BIN/$f" "$MB/$f"; done
@@ -261,6 +278,17 @@ mutsrc "$MB/ft-issue-close-check.sh" '# r1040-mut:linkedpr' '  if false; then'
 mkstate "$S" '[]' "$SIXF"; addpr '연결 PR: #9100'; printf '[{"number":9100,"state":"MERGED"}]' > "$PRJ"
 MUT_OUT="$(FT_PR_STATE_FROM_JSON="$PRJ" bash "$MB/ft-issue-close-check.sh" 9000 --from-json "$S" --repo "$R" 2>&1)"; MUT_RC=$?
 [ $MUT_RC -eq 1 ] && ok "⑪ 변이(코멘트 인정 제거) → ⓒ 가 빨강" || bad "⑪ 인정 제거에도 rc=$MUT_RC — 시험이 안 잡는다"
+cp "$BIN/ft-issue-close-check.sh" "$MB/ft-issue-close-check.sh"
+mutsrc "$MB/ft-issue-close-check.sh" '# r1104-mut:closed-landed' '  case "$st" in MERGED) return 0;; *) return 1;; esac'
+mkstate "$S" '[]' "$SIXF"; addpr '연결 PR: #9100'
+jq -n --arg b "착지 sha $LAND (ft-merge-land #9200)" '[{number:9100,state:"CLOSED",comments:[{body:$b}]}]' > "$PRJ"
+MUT_OUT="$(FT_PR_STATE_FROM_JSON="$PRJ" bash "$MB/ft-issue-close-check.sh" 9000 --from-json "$S" --repo "$R" 2>&1)"; MUT_RC=$?
+[ $MUT_RC -eq 1 ] && ok "⑪ 변이(CLOSED 길 끔) → ⓓ1 이 빨강" || bad "⑪ CLOSED 길을 끄어도 rc=$MUT_RC — 시험이 안 잡는다"
+cp "$BIN/ft-issue-close-check.sh" "$MB/ft-issue-close-check.sh"
+mutsrc "$MB/ft-issue-close-check.sh" '# r1104-mut:ancestor' '  if true; then'
+jq -n --arg b "착지 sha $E (ft-merge-land #9200)" '[{number:9100,state:"CLOSED",comments:[{body:$b}]}]' > "$PRJ"
+MUT_OUT="$(FT_PR_STATE_FROM_JSON="$PRJ" bash "$MB/ft-issue-close-check.sh" 9000 --from-json "$S" --repo "$R" 2>&1)"; MUT_RC=$?
+[ $MUT_RC -eq 0 ] && ok "⑪ 변이(조상 검사 끔) → ⓓ3 이 빨강" || bad "⑪ 조상 검사를 끄어도 rc=$MUT_RC — 시험이 안 잡는다"
 
 # 래퍼 1줄 · 줄 수 · 미러
 [ "$(wc -l < "$BIN/ft-gh-as-tank.sh" | tr -d ' ')" -le 200 ] && ok "ft-gh-as-tank.sh ≤ 200줄" || bad "ft-gh-as-tank.sh 줄 수 $(wc -l < "$BIN/ft-gh-as-tank.sh")"
