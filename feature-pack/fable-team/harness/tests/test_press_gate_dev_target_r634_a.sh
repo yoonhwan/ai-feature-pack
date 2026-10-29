@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # test_press_gate_dev_target_r634_a.sh — r634 press 게이트 «dev 대상» 갈래 시험의 1/3 — ⓐ~ⓚ (r1134: 한 파일 132초 → 3파일 · 하드 룰 22 «시험 1개 단독 70초»).
 #   공용 준비(스텁·mkroot·gate·expect) = lib/press_gate_dev_target_r634.sh · 칸 내용은 쪼개기 전 test_press_gate_dev_target_r634.sh 그대로.
-#   짝: test_press_gate_dev_target_r634_a.sh(ⓐ~ⓚ) · _b.sh(ⓝ) · _c.sh(ⓞ ⓛ ⓜ 정적) — 셋을 다 돌려야 r634 전부다.
+#   짝: test_press_gate_dev_target_r634_a.sh(ⓐ~ⓚ) · _b.sh(ⓝ · ⓞ1~ⓞ7) · _c.sh(ⓞ8 ⓛ ⓜ 정적) — 셋을 다 돌려야 r634 전부다.
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
