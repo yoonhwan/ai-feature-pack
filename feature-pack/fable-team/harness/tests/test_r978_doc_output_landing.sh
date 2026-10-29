@@ -27,6 +27,7 @@ for f in ft-nano-close.sh ft-finished-check.sh ft-index-move-canon.sh ft-team-li
 done
 
 mkdir -p "$T/bin" "$T/fake" "$T/tmp"
+mkdir -p "$T/bin"; printf '#!/bin/sh\necho "QUIESCED $1 stub left=0"\n' > "$T/bin/ft-seat-quiesce.sh"   # r1113 자식 정리 = 같은 bin 스텁(실 프로세스 0)
 printf '#!/bin/sh\necho "reap $1 stopped=0 left=0 rc=0"\n' > "$T/bin/ft-seat-reap.sh"
 cp "$SRC/ft-nano-close.sh" "$SRC/ft-nano-suspended-check.sh" "$SRC/ft-nano-superseded-check.sh" "$SRC/ft-nano-evidence-check.sh" "$SRC/ft-nano-cherry-gate.sh" "$SRC/ft-wt-sweep.sh" "$T/bin/"
 cp "$SRC/ft_teamset.py" "$SRC/ft-team-lib.sh" "$SRC/ft_git_capped.py" "$SRC/ft-finished-check.sh" "$SRC/ft-index-move-canon.sh" "$T/bin/"

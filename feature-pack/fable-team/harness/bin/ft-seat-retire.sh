@@ -197,4 +197,4 @@ prc=$?
 RO="$(bash "${FT_SEAT_REAP_BIN:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)/ft-seat-reap.sh}" "$OLD" --orphans-only --defer-press --handover "$NEW" 2>&1)"; rrc=$?; RL="$(printf '%s\n' "$RO" | grep -oE 'left=[0-9?]+' | tail -1)"; printf '%s\n' "$RO" >&2
 [ "$rrc" -eq 0 ] && [ "$RL" = left=0 ] || { echo "CLOSE-FAIL reap ${RL:-left=?} rc=$rrc — $OLD 은퇴 기록은 끝남 · 고아 루프 잔존(사람 판단)"; exit 1; }
 RD="$(printf '%s\n' "$RO" | tail -1 | grep -oE 'deferred=[0-9]+' | cut -d= -f2)"; [ "${RD:-0}" -gt 0 ] && echo "reap deferred=$RD (press 중 · 끝난 뒤 다음 정리에서)"
-echo "reap left=0 rc=0"
+bash "${FT_SEAT_QUIESCE_BIN:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)/ft-seat-quiesce.sh}" "$OLD" --mode handover --to "$NEW" --reason retire >/dev/null 2>&1 || echo "WARN 자식 인계 표 실패 rc=$? — 후계 --mode done 이 옛 자식을 못 본다(은퇴는 그대로 · r1113)" >&2; echo "reap left=0 rc=0"   # r1113 승계 = 자식 인계 표(kill 0 · 오빠 판정 2770)

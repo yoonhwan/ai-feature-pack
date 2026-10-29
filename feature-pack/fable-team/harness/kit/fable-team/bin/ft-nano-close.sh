@@ -714,9 +714,15 @@ _seat_reap() {
     if [ "$i" = 2 ]; then echo "reap 재시도 1 — 1회째 ${_rp_left:-left=?} rc=$_rp_rc · ${FT_REAP_RETRY_SLEEP:-3}초 뒤"; sleep "${FT_REAP_RETRY_SLEEP:-3}"; fi
     out="$(bash "${FT_SEAT_REAP_BIN:-$HERE/ft-seat-reap.sh}" "$SEAT" ${_wtarg[@]+"${_wtarg[@]}"} 2>&1)"; _rp_rc=$?; _rp_left="$(printf '%s\n' "$out" | grep -oE 'left=[0-9?]+' | tail -1)"
     printf '%s\n' "$out" >&2
-    [ "$_rp_rc" -eq 0 ] && [ "$_rp_left" = left=0 ] && return 0
+    [ "$_rp_rc" -eq 0 ] && [ "$_rp_left" = left=0 ] && { _seat_quiesce; return $?; }
   done
   return 1
+}
+# r1113: reap 통과 뒤 좌석 나무 전부(LSP·node·dev 서버·크롬·pi) 강제 정리 + «남은 자식 0» 확인(kill-session 앞 · 오빠 판정 2770) — 0 아니면 _rp_left=left=<n>(자식) 로 CLOSE-FAIL
+_seat_quiesce() {
+  local out; out="$(bash "${FT_SEAT_QUIESCE_BIN:-$HERE/ft-seat-quiesce.sh}" "$SEAT" --mode close --reason nano-close 2>&1)"; _rp_rc=$?; printf '%s\n' "$out" >&2
+  _rp_left="left=$(printf '%s\n' "$out" | sed -n 's/^QUIESCED .* left=\([0-9]*\).*/\1/p' | tail -1)"; [ "$_rp_left" != left= ] || _rp_left="left=?"; _rp_left+="(자식)"
+  [ "$_rp_rc" -eq 0 ]
 }
 # ★r520 조기 재실행★ — reap CLOSE-FAIL 뒤 같은 close 재호출은 명부 행이 이미 지워져 아래 카드 찾기(명부 index)에서 REJECT 되던 자리.#   명부에 행 없음(jq has = false · rc 1 만) ∧ 원장에 이 좌석 닫힘 행 1개 이상 = 1차에서 검사를 통과한 증거 → 카드·증거·cherry 검사 0 · 남은 정리(reap·회수·태그·kill)만 · 원장 append 0 · 명부 쓰기 0.
 #   원장 행이 없으면(처음 보는 좌석) 이 길로 오지 않는다 — 아래 기존 검사 그대로. --plan-only 는 대상 아님. 워크트리 = --wt › 원장 행 wt=<절대경로>(pack-wt·named-wt 꼴) › 없음(reap 은 세션 경로).

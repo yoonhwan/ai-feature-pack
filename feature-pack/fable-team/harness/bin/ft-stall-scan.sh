@@ -7,4 +7,5 @@
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 [ -f "$HERE/ft_stall_scan.py" ] && [ -f "$HERE/ft_stall_detect.py" ] && [ -f "$HERE/ft_penalty.py" ] || { echo "REJECT ft_stall_*.py 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
+[ "${1:-}" = --dry-run ] || [ ! -f "$HERE/ft-child-watch.sh" ] || bash "$HERE/ft-child-watch.sh" >/dev/null 2>&1 || true   # r1113 자식·유휴 나노 감시(자체 주기 540초 · 결과 = state/child-watch.log · 실패해도 멈춤 판정은 그대로)
 exec python3 "$HERE/ft_stall_scan.py" "$@"

@@ -175,6 +175,7 @@ case "$cmd" in
     py_out="$(python3 "$MBOXPY" send "$to" "$from" "${args[*]}" ${force[@]+"${force[@]}"})" || { _rc=$?; [ -z "$SK" ] || bash "$SE" abort "$SK"; exit $_rc; }
     seq="$(seq_of "$py_out")" || seq=""
     [ -z "$SK" ] || bash "$SE" commit "$SK" --ref "seq $seq" >/dev/null || true
+    case "${args[*]}" in "[정지 레디]"*|"[완료]"*|"[완료·휴식]"*) SQ="${FT_BIN:-$DIR/../bin}/ft-seat-quiesce.sh"; [ "${FT_SEAT:-}" != "$from" ] || [ ! -f "$SQ" ] || { nohup bash "$SQ" "$from" --mode done --reason "${args[*]%%]*}]" >/dev/null 2>&1 & } ;; esac   # r1113 일 끝 = 무거운 자식 정리(발신 좌석 자신일 때만 · 뒤에서 · send 결과 무관)
     inbox_ingest "$seq"
     if inbox_must_ring; then notify=1; fi
     uf=0; if user_facing "$to"; then notify=0; uf=1; fi

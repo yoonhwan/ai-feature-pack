@@ -21,6 +21,7 @@ cp "$SRC/ft_teamset.py" "$T/bin/"
 cp "$SRC/ft-sheet-events.sh" "$SRC/ft_sheet_events.py" "$SRC/ft_sheet_confirm.py" "$SRC/ft_sheet_key.py" "$SRC/ft_board_env.py" "$SRC/ft_board_mail.py" "$T/bin/"
 export FT_SHEET_ROOT="$T/sheet-root"; mkdir -p "$FT_SHEET_ROOT/.fable-team/state"
 # 가짜 reap — 모드 파일: ok = left=0 · always1 = 늘 left=1 · once1 = 1회째 left=1 뒤 left=0. 호출마다 $T/reap.calls 에 1줄.
+mkdir -p "$T/bin"; printf '#!/bin/sh\necho "QUIESCED $1 stub left=0"\n' > "$T/bin/ft-seat-quiesce.sh"   # r1113 자식 정리 = 같은 bin 스텁(실 프로세스 0)
 cat > "$T/bin/ft-seat-reap.sh" <<EOF
 #!/usr/bin/env bash
 echo "\$*" >> "$T/reap.calls"; n="\$(grep -c . "$T/reap.calls")"

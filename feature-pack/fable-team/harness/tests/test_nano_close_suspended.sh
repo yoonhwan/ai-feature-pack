@@ -21,6 +21,7 @@ for f in ft-nano-close.sh ft-nano-suspended-check.sh; do
 done
 
 mkdir -p "$T/bin" "$T/fake"
+mkdir -p "$T/bin"; printf '#!/bin/sh\necho "QUIESCED $1 stub left=0"\n' > "$T/bin/ft-seat-quiesce.sh"   # r1113 자식 정리 = 같은 bin 스텁(실 프로세스 0)
 printf '#!/bin/sh\necho "reap $1 stopped=0 left=0 rc=0"\n' > "$T/bin/ft-seat-reap.sh"   # r448: 닫기의 reap = 같은 bin 스텁(env -i 시험 · 실기계 프로세스 0) · reap 자체는 test_seat_reap_left0.sh
 cp "$SRC/ft-nano-close.sh" "$SRC/ft-nano-suspended-check.sh" "$SRC/ft-nano-superseded-check.sh" "$SRC/ft-nano-evidence-check.sh" "$SRC/ft-nano-cherry-gate.sh" "$SRC/ft-wt-sweep.sh" "$SRC/ft-team-lib.sh" "$T/bin/"   # r842: 단계 판정(ft_card_stage_ref) = ft-team-lib.sh 필수(없으면 ERROR + REJECT)
 cp "$SRC/ft_teamset.py" "$T/bin/"

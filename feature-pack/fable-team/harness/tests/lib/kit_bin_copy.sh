@@ -10,7 +10,7 @@ KIT="$LIB/../../kit/fable-team/bin"; STUB="$LIB/../stubs/kit-side-effect.sh"
 DST="${1:?usage: kit_bin_copy.sh <임시 bin>}"
 [ -d "$KIT" ] && [ -f "$STUB" ] || { echo "kit_bin_copy: 키트 bin 또는 스텁 없음($KIT · $STUB)" >&2; exit 1; }
 mkdir -p "$DST" || { echo "kit_bin_copy: 임시 bin 못 만듦($DST)" >&2; exit 1; }
-SIDE_EFFECT="ft-seat-reap.sh ft-opencode-reap.sh ft-leak-reap.sh ft-docker-test-reap.sh ft-seat-retire.sh ft-tmux-kill.sh ft-tmux-spawn.sh ft-tmux-send.sh ft-tmux-distill.sh"
+SIDE_EFFECT="ft-seat-reap.sh ft-opencode-reap.sh ft-leak-reap.sh ft-docker-test-reap.sh ft-seat-retire.sh ft-tmux-kill.sh ft-tmux-spawn.sh ft-tmux-send.sh ft-tmux-distill.sh ft-seat-quiesce.sh ft-child-watch.sh"   # r1113 자식 정리·감시 = 신호 도구
 n=0
 for f in "$KIT"/*; do
   [ -f "$f" ] || continue

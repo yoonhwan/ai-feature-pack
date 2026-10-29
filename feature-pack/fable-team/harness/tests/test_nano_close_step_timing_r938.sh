@@ -23,6 +23,7 @@ for f in ft-nano-close.sh ft-merge-lib.sh; do
 done
 
 mkdir -p "$T/bin" "$T/fake" "$T/home" "$T/comm"
+mkdir -p "$T/bin"; printf '#!/bin/sh\necho "QUIESCED $1 stub left=0"\n' > "$T/bin/ft-seat-quiesce.sh"   # r1113 자식 정리 = 같은 bin 스텁(실 프로세스 0)
 printf '#!/bin/sh\necho "reap $1 stopped=0 left=0 rc=0"\n' > "$T/bin/ft-seat-reap.sh"
 printf '#!/bin/sh\necho "oc-reap $1 left=0 rc=0"\n' > "$T/bin/ft-opencode-reap.sh"
 printf '#!/bin/sh\necho "SLOTS"\n' > "$T/bin/ft-nano-slots.sh"   # 슬롯 대역(실 스크립트는 명부·tmux 를 본다)
