@@ -7,7 +7,8 @@
 #   재실행(r609) = 같은 이름 세션이 이미 있고 그 pane 작업 폴더가 $WT 면 열기를 건너뛰고 ⓒ~ⓔ 를 잇는다(도달 파일이 이미 있으면 «이미 도달» rc0 · 송신 0). 남의 세션이면 REJECT. 판 폴더를 못 읽으면 «다르다» 가 아니라 «못 읽음(판정 불가)» 로 REJECT(r622 — 창·판 대상은 «=이름:» 꼴만 pane 을 고른다).
 #   송신 판정은 ft-send-verified 의 jsonl 도달 하나뿐이다(exit 0 만 성공). 2·5 면 같은 seq 로 ring 1회 + 재확인.
 #   mbox(R343·r607) = 대상 워크트리의 리포 것($ROOT 의 .fable-team/comm/mbox.sh · 워크트리 안 사본은 보지 않는다) — 없으면 REJECT rc2. 고른 폴더에 짝 파일 mbox_doorbell.sh 가 없으면 열기 «전» REJECT rc2. ★ft-role-spawn·ft-nano-spawn 은 «워크트리 = 이 리포(BYZ)» 전제라 이 결정 대상이 아니다★.
-#   env(시험용): FT_SEND_VERIFIED · FT_MBOX_SH · FT_REACH_CHECK · FT_SO_WAIT_MAX(기동 대기 횟수 60) · FT_SO_POLL(간격 초 1)
+#   r1116c: 이어가기는 boot-enter «전에» 도달 근거(후계 jsonl 제출 · 후계 발신 쪽지 · ft-reach-check)를 본다 · 도달 파일을 쓴 직후 같은 호출에서 ft-seat-retire <구> <후계>(실패해도 rc 는 도달 쪽 0).
+#   env(시험용): FT_SEND_VERIFIED · FT_MBOX_SH · FT_REACH_CHECK · FT_SEAT_RETIRE · FT_SO_WAIT_MAX(기동 대기 횟수 60) · FT_SO_POLL(간격 초 1)
 set -uo pipefail
 [ -f "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" ] && . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" "$@"   # R201: 비설치 위치면 LIVE_BIN 으로 exec
 usage() { echo "usage: $0 <구 좌석> <워크트리> --name <후계> --agent claude|codex|cmd|opencode|pi --model M(sn=claude-sonnet-5-5 · op=claude-opus-5-5 · 팀장 이름이면 생략 시 claude-sonnet-5-5 · arch 이름(agent claude)이면 생략 시 claude-opus-5-5) [--carry 0|1] [--ctx C] [--effort E] --body-file F" >&2; exit 2; }
@@ -126,6 +127,16 @@ MDIR="$(dirname -- "$MBOX")"
 [ -f "$MDIR/mbox_doorbell.sh" ] || { echo "REJECT mbox 짝 파일 없음: $MDIR/mbox_doorbell.sh (mbox.sh 가 source 하는 mbox_doorbell.sh · 짝이 빠진 폴더는 쓰지 않는다)"; exit 2; }
 STATE="$ROOT/.fable-team/state/successor"
 hil() { echo "[HIL] 후계 $NAME 도달 미확인 — 구 좌석 닫기 0 (구=$OLD) · 도달 파일 없음 · $1"; }
+RETIRE="${FT_SEAT_RETIRE:-$HERE/ft-seat-retire.sh}"
+# ⓔ 도달 파일 + ⓔ-1(r1116c) 명부 승계 — 후계가 retire 전이면 역할 우편함·ring 이 구 좌석으로만 간다(v65 #254 · planner arch#28). retire 실패는 사유만 출력 · rc 는 도달 쪽(0).
+reached() {   # reached <seq|null>
+  mkdir -p "$STATE" && printf '{"successor":"%s","seq":%s,"reached_at":"%s","rc":0,"model":"%s"}\n' "$NAME" "$1" "$(date +%FT%T%z)" "$MODEL" > "$STATE/$OLD.json" \
+    || { hil "도달 파일 쓰기 실패 $STATE"; exit 5; }
+  [ -f "$RETIRE" ] || { echo "WARN retire 0 — $RETIRE 없음 · 후계가 부팅 때 retire"; return 0; }
+  _rt="$(cd "$WT" && bash "$RETIRE" "$OLD" "$NAME" 2>&1)"; _rtrc=$?
+  [ -n "$_rt" ] && printf '%s\n' "$_rt" | sed 's/^/retire: /'
+  [ "$_rtrc" = 0 ] && echo "retire rc=0 — 명부 후계 $NAME" || echo "WARN retire rc=$_rtrc — 도달은 됨 · 구 좌석 쪽지 표시 뒤 후계·planner 가 다시 retire"
+}
 
 # ⓐ 본문 첫 3줄 = 골 원문 자리(하드 룰 7) — 하나라도 비면 열지 않는다
 [ -f "$BODY" ] || { echo "REJECT 본문 파일 없음: $BODY"; exit 1; }
@@ -214,6 +225,58 @@ while [ "$i" -lt "$WAIT_MAX" ]; do i=$((i+1)); pgrep -P "$PID" >/dev/null 2>&1 &
 #   발급 --session-id(기록 «한 파일» · 전수 판독 0) + 넣은 전문(완전 일치만 Enter 1회 · 접두·색 판정 0 · 하드 룰 10·17).
 #   rc0 = 제출 확인 → 송신으로 잇는다 · 그 밖(입력줄 판독 불가 · 다른 글자 · 기록 없음 · 근거 없음) = HIL exit 5.
 #   claude 만 — 다른 에이전트 이어가기는 종전 그대로(Enter 0).
+CWD="$(tmux display-message -p -t "=$NAME:" '#{pane_current_path}' 2>/dev/null)"   # r622: «=이름:» — «=이름» 은 창 대상에서 빈 값(새 좌석 jsonl 폴더가 엉뚱해진다)
+JDIR="$HOME/.claude/projects/$(printf '%s' "$CWD" | LC_ALL=C sed 's|[^A-Za-z0-9]|-|g')"
+SKEYS=(-e "\"agentName\":\"$NAME\"" -e "\"customTitle\":\"$NAME\""); SMARK=SessionStart
+# r540: pi 좌석 = pi 대화 기록 폴더(ft-reach-check 와 같은 규칙)의 session_info.name — pi 는 tmuxc 부팅 문장이 제출된 뒤에야 파일을 쓴다
+[ "$AGENT" = pi ] && { JDIR="${FT_PI_SESSIONS_DIR:-$HOME/.pi/agent/sessions}/--$(printf '%s' "$CWD" | sed -e 's|^[/\\]||' -e 's|[/\\:]|-|g')--"; SKEYS=(-e "\"name\":\"$NAME\""); SMARK='"type":"session_info"'; }
+# ⓒ-0 이어가기 «이미 도달» (r1116c) — 후계가 부팅 문장을 이미 제출해 일하는 중이면 입력줄이 비어 boot-enter 가 rc4 를 낸다(v65 #253→#254).
+#   boot-enter «전에» 근거 셋: ①후계 jsonl SessionStart 뒤 user 레코드(claude) ②후계 이름 발신 쪽지(mailbox.log.jsonl·.1) ③ft-reach-check <후계> <부팅 문장 앞 40자>.
+#   하나라도 참 = 도달 파일 + retire · 송신 0 · rc0 · 근거를 못 읽으면 «판정 불가» exit 5(추측 0 · 하드 룰 20) · 셋 다 거짓 = 아래 boot-enter 순서 그대로.
+#   R8(격리 arch#28): 같은 이름 세션의 «새 생명»(crash·재시작 뒤 다시 켜짐)이면 앞 생명 기록이 남는다 — ①② 는 기준 시각 E(pane 첫 자식 ps lstart) 이후만 · ③ 은 baseline = 지금 수.
+if [ "$RESUMED" = 1 ]; then
+  CPID="$(pgrep -P "$PID" 2>/dev/null | head -1)"
+  LST="$([ -n "$CPID" ] && LC_ALL=C ps -o lstart= -p "$CPID" 2>/dev/null)"
+  [ -n "${LST//[[:space:]]/}" ] || { hil "이어가기 도달 근거 판정 불가 — 에이전트 생명 시작 시각(ps lstart) 못 구함 pid=${CPID:-없음}"; exit 5; }
+  EV="$(python3 - "$JDIR" "$NAME" "$MDIR" "$AGENT" "$LST" <<'PYEV'
+import datetime, glob, json, os, sys, time
+jdir, name, mdir, agent, lst = sys.argv[1:6]
+try: E = time.mktime(time.strptime(" ".join(lst.split()), "%a %b %d %H:%M:%S %Y"))
+except ValueError: print(f"생명 시작 시각 꼴 모름 {lst!r}"); sys.exit(3)
+def new(r, k):   # 기록 시각(ISO · Z=UTC · 꼴 없음=로컬) ≥ E 만 이번 생명 기록
+    try: t = datetime.datetime.fromisoformat(str(r.get(k) or "").replace("Z", "+00:00")).timestamp()
+    except ValueError: return False
+    return t >= E
+def rows(p):
+    try: return open(p, encoding="utf-8", errors="replace").read().splitlines()
+    except OSError as e: print(f"못 읽음 {p} ({e})"); sys.exit(3)
+def obj(l):
+    try: r = json.loads(l)
+    except ValueError: return {}
+    return r if isinstance(r, dict) else {}
+if agent == "claude" and os.path.lexists(jdir):
+    if not (os.path.isdir(jdir) and os.access(jdir, os.R_OK | os.X_OK)): print(f"jsonl 폴더 못 읽음 {jdir}"); sys.exit(3)
+    for f in glob.glob(os.path.join(jdir, "*.jsonl")):
+        ls = rows(f)
+        if not any(f'"agentName":"{name}"' in l or f'"customTitle":"{name}"' in l for l in ls): continue
+        st = next((i for i, l in enumerate(ls) if "SessionStart" in l), None)
+        if st is not None and any(obj(l).get("type") == "user" and not obj(l).get("isMeta") and new(obj(l), "timestamp") for l in ls[st + 1:]): print("jsonl"); sys.exit(0)
+for p in (os.path.join(mdir, "mailbox.log.jsonl"), os.path.join(mdir, "mailbox.log.jsonl.1")):
+    if os.path.lexists(p) and any(obj(l).get("from") == name and new(obj(l), "ts") for l in rows(p)): print("mail"); sys.exit(0)
+PYEV
+)" || { hil "이어가기 도달 근거 판정 불가 — $EV"; exit 5; }
+  if [ -z "$EV" ]; then
+    BT="$(tmux show-environment -t "=$NAME" TMUXC_BOOT_TEXT 2>/dev/null | sed -n '1s/^TMUXC_BOOT_TEXT=//p')"
+    if [ -n "$BT" ]; then
+      FT_REACH_AGENT="$AGENT" bash "$REACH" "$NAME" "${BT:0:40}" 1 >/dev/null 2>&1; RRC=$?   # baseline 생략 = 지금 수(앞 생명 제출은 세지 않는다 · R8)
+      case "$RRC" in 0) EV=reach;; 4) ;; *) hil "이어가기 도달 근거 판정 불가 — ft-reach-check rc=$RRC"; exit 5;; esac
+    fi
+  fi
+  if [ -n "$EV" ]; then
+    echo "이미 도달(근거=$EV): successor=$NAME — boot-enter·송신 0"
+    reached null; echo "OK successor=$NAME seq=null file=$STATE/$OLD.json mbox=$MBOX"; exit 0
+  fi
+fi
 if [ "$RESUMED" = 1 ] && [ "$AGENT" = claude ]; then
   BE_OUT="$(tmuxc boot-enter "$NAME" 2>&1)"; BE_RC=$?
   [ -n "$BE_OUT" ] && printf '%s\n' "$BE_OUT"
@@ -221,11 +284,6 @@ if [ "$RESUMED" = 1 ] && [ "$AGENT" = claude ]; then
 fi
 
 # ⓒ-2 새 좌석 jsonl 의 SessionStart — 실측 꼴(SessionStart 뒤 16초 Enter 미제출)을 줄이려 기다린다. 못 봐도 «미관측» 을 드러내고 송신(도달 판정은 아래 send-verified 몫).
-CWD="$(tmux display-message -p -t "=$NAME:" '#{pane_current_path}' 2>/dev/null)"   # r622: «=이름:» — «=이름» 은 창 대상에서 빈 값(새 좌석 jsonl 폴더가 엉뚱해진다)
-JDIR="$HOME/.claude/projects/$(printf '%s' "$CWD" | LC_ALL=C sed 's|[^A-Za-z0-9]|-|g')"
-SKEYS=(-e "\"agentName\":\"$NAME\"" -e "\"customTitle\":\"$NAME\""); SMARK=SessionStart
-# r540: pi 좌석 = pi 대화 기록 폴더(ft-reach-check 와 같은 규칙)의 session_info.name — pi 는 tmuxc 부팅 문장이 제출된 뒤에야 파일을 쓴다
-[ "$AGENT" = pi ] && { JDIR="${FT_PI_SESSIONS_DIR:-$HOME/.pi/agent/sessions}/--$(printf '%s' "$CWD" | sed -e 's|^[/\\]||' -e 's|[/\\:]|-|g')--"; SKEYS=(-e "\"name\":\"$NAME\""); SMARK='"type":"session_info"'; }
 seen=0; i=0
 while [ "$i" -lt "$WAIT_MAX" ]; do i=$((i+1))
   f="$(grep -lF "${SKEYS[@]}" "$JDIR"/*.jsonl 2>/dev/null)"
@@ -254,7 +312,6 @@ if [ "$RC" -ne 0 ] && { [ "$RC" -eq 2 ] || [ "$RC" -eq 5 ]; } && [ -n "$SEQ" ]; 
 fi
 [ "$RC" -eq 0 ] || { hil "send-verified rc=$RC"; exit 5; }
 
-# ⓔ 도달 파일 — 훅(context-distill-gate.sh)이 이 파일이 있어야 550k 넘은 좌석의 recv 를 푼다
-mkdir -p "$STATE" && printf '{"successor":"%s","seq":%s,"reached_at":"%s","rc":0,"model":"%s"}\n' "$NAME" "${SEQ:-null}" "$(date +%FT%T%z)" "$MODEL" > "$STATE/$OLD.json" \
-  || { hil "도달 파일 쓰기 실패 $STATE"; exit 5; }
+# ⓔ 도달 파일 — 훅(context-distill-gate.sh)이 이 파일이 있어야 550k 넘은 좌석의 recv 를 푼다 · 이어서 retire(r1116c)
+reached "${SEQ:-null}"
 echo "OK successor=$NAME seq=${SEQ:-null} file=$STATE/$OLD.json mbox=$MBOX"
