@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # test_merge_land_doc_exempt_auto_merge_r1141.sh — r1141: 승인 값 없이 «문서 면제» 로 착지하는 PR 도 main 이 앞서면 r1121 자동 병합 C 를 탄다(재승인 0)
-#   반례 R1~R5(카드 동결 집합) + 안전 대조 R1x(면제 아닌 문서 PR · 승인 없음 → C 를 만들어도 문서 면제 판정이 C 에서 거절) · 변이 1(조건 되돌림) · 기준판(origin/main 판 = REJECT)
+#   반례 R1~R5(카드 동결 집합) + 안전 대조 R1x(면제 아닌 문서 PR · 승인 없음 → C 를 만들어도 문서 면제 판정이 C 에서 거절) · 변이 1(조건 되돌림) · 기준판(r1141 직전 main 고정 sha 판 = REJECT · r1132)
 #   임시 origin(bare)+clone · gh·tmux 는 스텁 — 실 gh·실 원격·실 push 0 · 자기 재호출은 real_state_guard 의 RSG_ACTIVE 재진입 표지 하나뿐
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
@@ -57,10 +57,15 @@ cmp -s "$LAND" "$KIT/ft-merge-land.sh"; ck "ⓒ 짝 사본 bin·kit cmp0" $?
 
 # ===== 기준판 + 변이 + R1: 승인 값 없음 · 문서 면제 PR · main 이 다른 문서 1커밋 앞섬 =====
 mkpr 1 doc1 "design/teams/planner/HANDOFF-r1.md=PR-1"; P1="$PRSHA"; adv "design/teams/planner/NOTE-main1.md=MAIN-1"; M1="$(omain)"
-TOP="$(git -C "$HERE" rev-parse --show-toplevel)"; PFX="$(cd "$HERE/.." && pwd)"; PFX="${PFX#$TOP/}"
-git -C "$TOP" show "origin/main:$PFX/kit/fable-team/bin/ft-merge-land.sh" > "$T/red.sh" && [ -s "$T/red.sh" ] || { echo "FAIL 기준판을 못 꺼냄"; exit 1; }
-binof "$T/red" "$T/red.sh"
-land "$T/red/ft-merge-land.sh" 1; notauto "$M1"; ck "기준판(origin/main 판): R1 → REJECT «최신화 먼저» · main 불변(사람 왕복 재현)" $?
+# 기준판 = r1141 착지 a965e948d7 의 첫 부모 고정 sha(r1132 — origin/main 은 착지 뒤 새 코드가 된다) · 경로는 실경로(/var↔/private/var)
+BASE_SHA=32b8c0a0bf654f24a6bb558cc23b28f88ed01cc4
+TOP="$(git -C "$HERE" rev-parse --show-toplevel 2>/dev/null)" && TOP="$(cd "$TOP" && pwd -P)"; PFX="$(cd "$HERE/.." && pwd -P)"; PFX="${PFX#$TOP/}"
+HAVE_BASE=0; [ -n "$TOP" ] && git -C "$TOP" cat-file -e "$BASE_SHA^{commit}" 2>/dev/null && HAVE_BASE=1
+if [ "$HAVE_BASE" = 1 ]; then
+  git -C "$TOP" show "$BASE_SHA:$PFX/kit/fable-team/bin/ft-merge-land.sh" > "$T/red.sh" && [ -s "$T/red.sh" ] || { echo "FAIL 기준판을 못 꺼냄"; exit 1; }
+  binof "$T/red" "$T/red.sh"
+  land "$T/red/ft-merge-land.sh" 1; notauto "$M1"; ck "기준판(r1141 직전 main 판): R1 → REJECT «최신화 먼저» · main 불변(사람 왕복 재현)" $?
+else echo "SKIP 기준판 칸(R1 REJECT 재현) — base_sha $BASE_SHA 객체 없음(git 사본 아님 · git archive 사본)"; fi
 python3 - "$LAND" "$T/mut.sh" <<'PY' || { echo "FAIL 변이 대상 없음"; exit 1; }
 import sys
 s = open(sys.argv[1], encoding="utf-8").read(); old = '{ [ -z "$AP" ] || [ "$AP" = "$S" ]; }'

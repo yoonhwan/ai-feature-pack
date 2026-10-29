@@ -41,16 +41,21 @@ printf '^big -\n' > "$T/deny/notab.txt"; printf '^big\txyz\n' > "$T/deny/badsha.
 printf 'l1\nMAIN-LINE\nl2\nl3\n' > "$W/a.txt"; cm "$W" "main adds"; git -C "$W" push -q origin main; git -C "$W" fetch -q origin
 M1="$(omain)"
 
-# ===== ⓐ 빨강: 옛 판(origin/main) ft-merge-land 는 main 을 품은 거대 가지만 보면 착지한다 =====
-TOP="$(git -C "$HERE" rev-parse --show-toplevel)"; PFX="$(cd "$HERE/.." && pwd)"; PFX="${PFX#$TOP/}"
-for f in "$BIN"/*; do ln -s "$f" "$T/red/$(basename "$f")"; done; rm -f "$T/red/ft-merge-land.sh"
-git -C "$TOP" show "origin/main:$PFX/kit/fable-team/bin/ft-merge-land.sh" > "$T/red/ft-merge-land.sh" || { echo "FAIL 옛 판을 못 꺼냄"; exit 1; }
-[ -s "$T/red/ft-merge-land.sh" ] || { echo "FAIL 옛 판이 비었다"; exit 1; }
+# ===== ⓐ 빨강: 옛 판(r755 착지 직전 main) ft-merge-land 는 main 을 품은 거대 가지만 보면 착지한다 =====
+# 기준판 = r755 착지 squash 008e509575 의 첫 부모 고정 sha(r1132 — origin/main·HEAD 는 착지 뒤 새 코드가 된다) · 경로는 실경로(/var↔/private/var)
+BASE_SHA=8375e8a795be6cd1329d75512277cc02fb5dc309
+TOP="$(git -C "$HERE" rev-parse --show-toplevel 2>/dev/null)" && TOP="$(cd "$TOP" && pwd -P)"; PFX="$(cd "$HERE/.." && pwd -P)"; PFX="${PFX#$TOP/}"
+HAVE_BASE=0; [ -n "$TOP" ] && git -C "$TOP" cat-file -e "$BASE_SHA^{commit}" 2>/dev/null && HAVE_BASE=1
 git -C "$W" checkout -q -B big origin/main; for i in 1 2 3; do echo "big$i" > "$W/big$i.txt"; cm "$W" "big $i"; done
 git -C "$W" fetch -q origin; git -C "$W" merge -q --no-edit origin/main; BIG1="$(sha "$W" HEAD)"
 pushpr 1 big
-landb "$T/red/ft-merge-land.sh" 1 --approve-sha "$PRSHA"
-[ "$rc" = 0 ] && [[ "$out" == LANDED* ]] && [ "$(omain)" != "$M1" ]; ck "ⓐ 빨강(옛 판): main 을 품은 big 가지가 그대로 착지(구멍 재현)" $?
+if [ "$HAVE_BASE" = 1 ]; then
+  for f in "$BIN"/*; do ln -s "$f" "$T/red/$(basename "$f")"; done; rm -f "$T/red/ft-merge-land.sh"
+  git -C "$TOP" show "$BASE_SHA:$PFX/kit/fable-team/bin/ft-merge-land.sh" > "$T/red/ft-merge-land.sh" || { echo "FAIL 옛 판을 못 꺼냄"; exit 1; }
+  [ -s "$T/red/ft-merge-land.sh" ] || { echo "FAIL 옛 판이 비었다"; exit 1; }
+  landb "$T/red/ft-merge-land.sh" 1 --approve-sha "$PRSHA"
+  [ "$rc" = 0 ] && [[ "$out" == LANDED* ]] && [ "$(omain)" != "$M1" ]; ck "ⓐ 빨강(옛 판): main 을 품은 big 가지가 그대로 착지(구멍 재현)" $?
+else echo "SKIP 기준판 칸(ⓐ 빨강) — base_sha $BASE_SHA 객체 없음(git 사본 아님 · git archive 사본)"; fi
 M2="$(omain)"
 
 # ===== ⓑ 후판: 같은 꼴(방금 착지한 main 을 합친 big) → 이름 검사로 REJECT · 쓰기 0 =====

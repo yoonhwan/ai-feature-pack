@@ -7,7 +7,9 @@ set -uo pipefail
 export FT_AUTONOMY_LEVEL=each   # r466: --level 생략 = full(범위 승인 + 슬랙 게시) — 이 시험은 레벨 밖이라 each(실 슬랙 0)
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 BIN="$(cd "$HERE/../../harness/bin" && pwd -P)"; LAND="$BIN/ft-merge-land.sh"; AUT="$BIN/ft-autonomy.sh"
-TOP="$(git -C "$HERE" rev-parse --show-toplevel)"; BASEREF="${FT_R648_BASE:-origin/main}"
+# 기준판 = r648 착지 0bb71216c9 의 첫 부모 고정 sha(r1132 — origin/main 은 착지 뒤 새 코드가 된다) · 경로는 실경로(/var↔/private/var)
+TOP="$(git -C "$HERE" rev-parse --show-toplevel 2>/dev/null)" && TOP="$(cd "$TOP" && pwd -P)"; BASE_SHA="${FT_R648_BASE:-52264ef138071433cc216f08c1452ccc93f06f9f}"
+HAVE_BASE=0; [ -n "$TOP" ] && git -C "$TOP" cat-file -e "$BASE_SHA^{commit}" 2>/dev/null && HAVE_BASE=1
 . "$HERE/_merge_fixture.sh"
 fail=0; rc=0; out=""
 ck() { if [ "$2" = 0 ]; then echo "PASS $1"; else echo "FAIL $1 :: rc=$rc out=${out:0:400}"; fail=$((fail+1)); fi; }
@@ -37,12 +39,14 @@ printf '#!/bin/bash\necho "GL $* repo=${FT_ISSUE_REPO:-}" >> "$STUB_LOG"\n[ "$1 
 printf '#!/bin/bash\nexit 0\n' > "$T/stub/noop"; chmod +x "$T/stub"/*
 export FT_GH="$T/stub/gh" FT_GH_WRITE="$T/stub/gh" STUB_LOG="$T/gh.log" PACK_JSON="$T/pack.json" BYZ_JSON="$T/byz.json" FT_INSTALL_CHECK="$T/stub/noop"
 
-# ── 지금 판(base HEAD) 도구 사본 — ⓐ «실패 시험 먼저» 의 전(前) 판
+# ── 전(前) 판(r648 직전 main 고정 sha) 도구 사본 — ⓐ «실패 시험 먼저» · 목록 = 그 판에 있던 파일만(r755 뒤 ft-merge-deny.sh 등은 없다)
 mkdir -p "$T/base"
-for f in ft-merge-land.sh ft-merge-lib.sh ft-evidence-lib.sh ft-merge-gate.sh ft_merge_lines.py ft-autonomy.sh ft-autonomy-level.sh ft-harness-root.sh ft_flag_off.py; do
-  git -C "$TOP" show "$BASEREF:${BIN#"$TOP"/}/$f" > "$T/base/$f" || { echo "FAIL base 사본 $f"; fail=$((fail+1)); }
-done
-chmod +x "$T/base"/*.sh; printf '#!/bin/bash\nexit 0\n' > "$T/base/ft-head-lag.sh"; chmod +x "$T/base/ft-head-lag.sh"
+if [ "$HAVE_BASE" = 1 ]; then
+  for f in ft-merge-land.sh ft-merge-lib.sh ft-evidence-lib.sh ft-merge-gate.sh ft_merge_lines.py ft-autonomy.sh ft-autonomy-level.sh ft-harness-root.sh ft_flag_off.py; do
+    git -C "$TOP" show "$BASE_SHA:${BIN#"$TOP"/}/$f" > "$T/base/$f" || { echo "FAIL base 사본 $f"; fail=$((fail+1)); }
+  done
+  chmod +x "$T/base"/*.sh; printf '#!/bin/bash\nexit 0\n' > "$T/base/ft-head-lag.sh"; chmod +x "$T/base/ft-head-lag.sh"
+else echo "SKIP 기준판 칸(ⓐ1~ⓐ4 · ⓕ3a·ⓕ3) — base_sha $BASE_SHA 객체 없음(git 사본 아님 · git archive 사본)"; fi
 
 omain() { sha "$1" refs/heads/main; }   # omain <bare>
 json() { python3 -c 'import json,sys;print(json.dumps({"headRefOid":sys.argv[1],"title":"feat: "+sys.argv[2],"body":"본문","state":sys.argv[3],"baseRefName":"main"}))' "$1" "$2" "$3"; }
@@ -63,14 +67,18 @@ mled() { tail -n1 "$BSTATE/merge-gate.log" | sed -E 's/^[0-9T:+-]+ //; s/[0-9a-f
 json "$(sha "$BYZ" HEAD)" "byz PR" CLOSED > "$BYZ_JSON"
 BSTATE="$T/byz/.fable-team/state"; export FT_ROOT="$T/byz" FT_AUTONOMY_STATE_DIR="$BSTATE"
 M0="$(omain "$PACKORIGIN")"; mkpr "$PACK" "$PACKORIGIN" 5 "$PACK_JSON"; P5="$PRSHA"
-land "$T/base/ft-merge-land.sh" -u FT_ROOT FT_AUTONOMY_STATE_DIR=
-[ "$rc" != 0 ] && [[ "$out" == *"자율 상태 폴더 해석 실패"* ]]; ck "ⓐ1 전판 · FT_ROOT 없음 → REJECT «자율 상태 폴더 해석 실패»" $?
-land "$T/base/ft-merge-land.sh"
-[ "$rc" != 0 ] && [[ "$out" == *"OPEN 아님"* ]] && grep -q "pr view 5 " "$STUB_LOG" && ! grep -q -- ' -R ' "$STUB_LOG"; ck "ⓐ2 전판 · gh -R 없음 → BYZ 쪽 PR #5 로 조회(OPEN 아님)" $?
+if [ "$HAVE_BASE" = 1 ]; then
+  land "$T/base/ft-merge-land.sh" -u FT_ROOT FT_AUTONOMY_STATE_DIR=
+  [ "$rc" != 0 ] && [[ "$out" == *"자율 상태 폴더 해석 실패"* ]]; ck "ⓐ1 전판 · FT_ROOT 없음 → REJECT «자율 상태 폴더 해석 실패»" $?
+  land "$T/base/ft-merge-land.sh"
+  [ "$rc" != 0 ] && [[ "$out" == *"OPEN 아님"* ]] && grep -q "pr view 5 " "$STUB_LOG" && ! grep -q -- ' -R ' "$STUB_LOG"; ck "ⓐ2 전판 · gh -R 없음 → BYZ 쪽 PR #5 로 조회(OPEN 아님)" $?
+fi
 printf '%s\n' "$(sha "$BYZ" HEAD)" > "$BSTATE/base-head"
-land "$T/base/ft-merge-land.sh" FT_GH="$T/stub/gh-all"
-[ "$rc" != 0 ] && [[ "$out" == *"기준 헤드"*"객체 없음"* ]]; ck "ⓐ3 전판 · BYZ 기준 헤드를 팩 리포 객체로 찾음 → REJECT «객체 없음»" $?
-[ "$(omain "$PACKORIGIN")" = "$M0" ]; ck "ⓐ4 전판 3꼴 전부 착지 0(팩 main 불변)" $?
+if [ "$HAVE_BASE" = 1 ]; then
+  land "$T/base/ft-merge-land.sh" FT_GH="$T/stub/gh-all"
+  [ "$rc" != 0 ] && [[ "$out" == *"기준 헤드"*"객체 없음"* ]]; ck "ⓐ3 전판 · BYZ 기준 헤드를 팩 리포 객체로 찾음 → REJECT «객체 없음»" $?
+  [ "$(omain "$PACKORIGIN")" = "$M0" ]; ck "ⓐ4 전판 3꼴 전부 착지 0(팩 main 불변)" $?
+fi
 
 land "$LAND"; Q="${out#*sha=}"; Q="${Q%% *}"; [ "$rc" = 0 ] || Q=""
 [ "$rc" = 0 ] && [[ "$out" == LANDED* ]] && [ -n "$Q" ] && [ "$(omain "$PACKORIGIN")" = "$Q" ]; ck "ⓐ5 고친 판 · 같은 입력 → LANDED · 팩 origin main = 착지 sha" $?
@@ -122,12 +130,14 @@ mkpr "$BYZ" "$BYZ_ORIGIN" 7 "$BYZ_JSON"; B7="$PRSHA"; MB="$(omain "$BYZ_ORIGIN")
 L_NEW="$(mled)"
 [ "$rc" = 0 ] && [[ "$out" == LANDED* ]] && [ "$(omain "$BYZ_ORIGIN")" != "$MB" ] && ! grep -q -- ' -R ' "$STUB_LOG"; ck "ⓕ --repo 없음 = 지금 그대로 LANDED · gh -R 0" $?
 [ "$(head -n1 "$BSTATE/base-head")" = "$(omain "$BYZ_ORIGIN")" ]; ck "ⓕ2 같은 리포는 기준 헤드도 지금 그대로(base-head)" $?
-mkpr "$BYZ" "$BYZ_ORIGIN" 8 "$BYZ_JSON"; B8="$PRSHA"; MB8="$(omain "$BYZ_ORIGIN")"
-LN0="$(grep -c . "$BSTATE/merge-gate.log" 2>/dev/null | tr -d ' ')"
-out="$(cd "$BYZ" && bash "$T/base/ft-merge-land.sh" 8 --approve-sha "$B8" 2>&1)"; rc=$?
-LN1="$(grep -c . "$BSTATE/merge-gate.log" 2>/dev/null | tr -d ' ')"
-[ "$rc" = 0 ] && [[ "$out" == LANDED* ]] && [ "$(omain "$BYZ_ORIGIN")" != "$MB8" ] && [ "${LN1:-0}" -gt "${LN0:-0}" ]; ck "ⓕ3a 전판이 «실제로» 착지했다(rc0·LANDED·main 전진·원장 +1 — 아니면 아래 비교는 무효)" $?
-[ -n "$L_NEW" ] && [ "$(mled)" = "$L_NEW" ]; ck "ⓕ3 CROSS=0 원장 줄 = 전판과 바이트 동일(repo= 칸 포함 · 시각·sha·PR번호만 가림)" $?
+if [ "$HAVE_BASE" = 1 ]; then
+  mkpr "$BYZ" "$BYZ_ORIGIN" 8 "$BYZ_JSON"; B8="$PRSHA"; MB8="$(omain "$BYZ_ORIGIN")"
+  LN0="$(grep -c . "$BSTATE/merge-gate.log" 2>/dev/null | tr -d ' ')"
+  out="$(cd "$BYZ" && bash "$T/base/ft-merge-land.sh" 8 --approve-sha "$B8" 2>&1)"; rc=$?
+  LN1="$(grep -c . "$BSTATE/merge-gate.log" 2>/dev/null | tr -d ' ')"
+  [ "$rc" = 0 ] && [[ "$out" == LANDED* ]] && [ "$(omain "$BYZ_ORIGIN")" != "$MB8" ] && [ "${LN1:-0}" -gt "${LN0:-0}" ]; ck "ⓕ3a 전판이 «실제로» 착지했다(rc0·LANDED·main 전진·원장 +1 — 아니면 아래 비교는 무효)" $?
+  [ -n "$L_NEW" ] && [ "$(mled)" = "$L_NEW" ]; ck "ⓕ3 CROSS=0 원장 줄 = 전판과 바이트 동일(repo= 칸 포함 · 시각·sha·PR번호만 가림)" $?
+fi
 
 # ══ ⓐ7/ⓐ8 승인 폴더 = 정식 리졸버(LIVE_ROOT) — 공용 루트에만 승인이 있으면 착지 0
 mkrepo "$T/byz2"; B2="$T/byz2/w"; mkdir -p "$T/live2/.fable-team/state" "$B2/.fable-team/state" "$B2/.fable-team"
@@ -147,10 +157,6 @@ cmp -s "$BIN/ft-merge-land.sh" "$BIN/../kit/fable-team/bin/ft-merge-land.sh" && 
 [ "$(wc -l < "$LAND" | tr -d ' ')" -le 120 ]; ck "ft-merge-land.sh ≤ 120줄" $?
 bash -n "$BIN/ft-merge-lib.sh"; ck "bash -n ft-merge-lib.sh" $?
 
-# ══ ⓗ 기존 merge-land·merge-gate·approval-equiv 시험 전부 PASS(base 대조 원문은 evidence 03)
-for t in test_merge_land test_merge_land_state_dir test_merge_land_off_approval test_merge_land_equiv test_merge_land_push_reason test_merge_head_gate; do
-  bash "$HERE/$t.sh" > "$T/$t.out" 2>&1; r=$?
-  [ "$r" = 0 ]; ck "ⓗ $t rc=0 ($(grep -c '^PASS' "$T/$t.out" | tr -d ' ') PASS)" $?
-done
+# ══ ⓗ(옛 칸) 기존 merge-land 시험 6개 재실행은 뺐다(r1132 — 그것만 ~106초 = 단독 70초 상한 초과 · 하드 룰 22) · 회귀는 각 시험을 따로 돌린다
 
 [ "$fail" = 0 ] && echo "ALL PASS" || { echo "FAILED $fail"; exit 1; }

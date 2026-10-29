@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # test_test_reentry_lint.sh — r1041 ft-test-reentry-lint.sh: «시험이 자기 파일을 가드 없이 다시 부르는 줄» 을 rc3 으로 막는다.
+#   r1132 ⓜ: «기준판을 떠다니는 이름(HEAD·origin/…·main)으로 꺼내는 줄» 도 FLOATBASE rc3 (반례 R1~R4·R7 + 변이 1 · R5·R6 = test_merge_land_baseline_paths_r1132.sh)
 #   계기: 10-28 나노 r1038 시험의 변이 칸이 자기 파일(BASH_SOURCE)을 다시 불러 무한 재귀 → 사용자 프로세스 상한 도달, 전 좌석 셸 fork 실패.
 # 시험은 표본 «파일 글자» 만 본다 — 표본을 실행하지 않고(그러면 이 카드의 사고를 재현한다) 실제 프로세스 증가 0 · tmux·네트워크 0.
 # 상한: 이 시험 자신은 70초 안에 끝나고 자기 자신을 다시 부르지 않는다(하드 룰 22 · r1041).
@@ -96,6 +97,60 @@ cat > "$T/test_da_rounds_three_r1038.sh" <<'EOF'
 bash "$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)/test_da_rounds_three_r1038.sh" --mutate
 EOF
 "$LINT" "$T/test_da_rounds_three_r1038.sh" >/dev/null 2>&1; eq "$?" 3 "ⓙ 실사건 꼴(가드 0 자기 호출) rc3"
+
+# ⓜ r1132 FLOATBASE — 기준판을 떠다니는 이름으로 꺼내면 rc3 · 고정 40hex 통과 · 면제 꼬리는 «면제» 1줄
+#   표본 줄은 GIT 로 써 두고 sed 로 git 으로 바꾼다(이 시험 파일 자신이 FLOATBASE 로 걸리지 않게 · ⓛ)
+fb() { sed 's/GIT/git/' > "$T/$1"; }
+fb f1_origin.sh <<'EOF'
+#!/usr/bin/env bash
+GIT -C "$TOP" show "origin/main:x/ft-merge-land.sh" > "$T/red.sh"
+EOF
+fb f2_head.sh <<'EOF'
+#!/usr/bin/env bash
+BASE="$(GIT show HEAD:./x.sh)"
+EOF
+fb f3_pinned.sh <<'EOF'
+#!/usr/bin/env bash
+GIT show "948ae223ae5bc1f9bb871775b9e80158943b7d6b:./x.sh" > "$T/base.sh"
+EOF
+fb f4_fixture.sh <<'EOF'
+#!/usr/bin/env bash
+v="$(GIT -C "$ORIGIN" show "main:$1")"   # baseline-ref: ok 픽스처 원격
+EOF
+fb f7_default.sh <<'EOF'
+#!/usr/bin/env bash
+TOP=x; BASEREF="${FT_R648_BASE:-origin/main}"
+for f in a b; do
+  GIT -C "$TOP" show "$BASEREF:${BIN#"$TOP"/}/$f" > "$T/base/$f"
+done
+EOF
+out="$("$LINT" "$T/f1_origin.sh" 2>/dev/null)"; rc=$?
+eq "$rc" 3 "ⓜ R1 show origin/main:… > 파일 rc3"
+eq "$(printf '%s' "$out" | head -1)" "FLOATBASE $T/f1_origin.sh:2" "ⓜ R1 첫 줄 = FLOATBASE <파일>:<줄>"
+out="$("$LINT" "$T/f2_head.sh" 2>/dev/null)"; rc=$?
+eq "$rc" 3 "ⓜ R2 HEAD 판을 \$(…) 로 받음 rc3"
+eq "$(printf '%s' "$out" | head -1)" "FLOATBASE $T/f2_head.sh:2" "ⓜ R2 FLOATBASE 줄"
+out="$("$LINT" "$T/f3_pinned.sh" 2>/dev/null)"; rc=$?
+eq "$rc" 0 "ⓜ R3 고정 40hex rc0"; eq "$out" "OK $T/f3_pinned.sh" "ⓜ R3 OK 줄"
+out="$("$LINT" "$T/f4_fixture.sh" 2>/dev/null)"; rc=$?
+eq "$rc" 0 "ⓜ R4 면제 꼬리 rc0"
+has "$out" "면제 FLOATBASE $T/f4_fixture.sh:2 — 픽스처 원격" "ⓜ R4 «면제» 1줄 + 이유"
+has "$out" "OK $T/f4_fixture.sh" "ⓜ R4 OK 줄"
+out="$("$LINT" "$T/f7_default.sh" 2>/dev/null)"; rc=$?
+eq "$rc" 3 "ⓜ R7 기본값에 숨은 이름(\${X:-origin/main}) rc3"
+eq "$(printf '%s' "$out" | head -1)" "FLOATBASE $T/f7_default.sh:4" "ⓜ R7 FLOATBASE 줄"
+out="$("$LINT" "$T/f3_pinned.sh" "$T/s1_noguard.sh" "$T/f1_origin.sh" 2>&1)"; rc=$?
+eq "$rc" 3 "ⓜ 여러 파일 · REENTRY+FLOATBASE 섞임 rc3"
+eq "$(printf '%s\n' "$out" | head -2 | tr '\n' '|')" "REENTRY $T/s1_noguard.sh:3|FLOATBASE $T/f1_origin.sh:2|" "ⓜ 위반 줄이 OK 줄보다 앞"
+has "$out" "고정 40hex sha" "ⓜ stderr 처방 1줄"
+# ⓜ 변이 — FLOATBASE 출력 줄을 지운 사본은 R1 을 통과시킨다(= 검사가 판정을 흔든다는 증거)
+python3 - "$LINT" "$T/mut/lint.sh" <<'PY' || bad "ⓜ 변이 대상 없음"
+import sys
+s = open(sys.argv[1], encoding="utf-8").read(); old = '  printf "FLOATBASE %s:%d\\n", FILENAME, FNR\n'
+assert old in s
+open(sys.argv[2], "w", encoding="utf-8").write(s.replace(old, "", 1))
+PY
+bash "$T/mut/lint.sh" "$T/f1_origin.sh" >/dev/null 2>&1; eq "$?" 0 "ⓜ 변이(FLOATBASE 검사 삭제) → R1 rc0 = 시험이 잡음"
 
 # ⓚ 정적 — 발주문(_RLX · 두 사본)과 정본(governance §15)에 «ulimit -u · timeout 70 · lint rc0» 줄이 있다
 rlx_of() { grep '^_RLX="' "$1"; }

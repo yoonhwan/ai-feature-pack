@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # test_merge_land_doc_auto_merge_r1121.sh — r1121: 문서 전용 PR 은 승인 뒤 main 이 앞서도 ft-merge-land 가 병합 커밋 C(첫 부모 S · 둘째 M)로 착지(재승인 0)
-#   반례 R1~R9(카드 동결 집합) · 변이 3(C 대신 S · --no-renames 제거 · C 부모 순서 뒤집기) · 기준판(origin/main 판 = REJECT)
+#   반례 R1~R9(카드 동결 집합) · 변이 3(C 대신 S · --no-renames 제거 · C 부모 순서 뒤집기) · 기준판(r1121 직전 main 고정 sha 판 = REJECT · r1132)
 #   임시 origin(bare)+clone · gh 는 스텁 — 실 gh·실 원격·실 push 0 · 자기 재호출은 real_state_guard 의 RSG_ACTIVE 재진입 표지 하나뿐
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
@@ -57,11 +57,16 @@ cmp -s "$LAND" "$KIT/ft-merge-land.sh"; ck "ⓕ 짝 사본 bin·kit cmp0" $?
 
 # ===== 기준판 + R1: 문서 PR 승인 뒤 main 이 다른 문서 1커밋 앞섬 =====
 mkpr 1 doc1 "design/x/a.md=PR-A"; A1="$PRSHA"; adv "design/y/b.md=MAIN-B"; M1="$(omain)"
-TOP="$(git -C "$HERE" rev-parse --show-toplevel)"; PFX="$(cd "$HERE/.." && pwd)"; PFX="${PFX#$TOP/}"; mkdir -p "$T/red"
-for f in "$BIN"/*; do ln -s "$f" "$T/red/$(basename "$f")"; done; rm -f "$T/red/ft-merge-land.sh"
-git -C "$TOP" show "origin/main:$PFX/kit/fable-team/bin/ft-merge-land.sh" > "$T/red/ft-merge-land.sh" && [ -s "$T/red/ft-merge-land.sh" ] || { echo "FAIL 기준판을 못 꺼냄"; exit 1; }
-land "$T/red/ft-merge-land.sh" 1 --approve-sha "$A1"
-[ "$rc" = 1 ] && [[ "$out" == *"$STALE"* ]] && [ "$(omain)" = "$M1" ]; ck "기준판(origin/main 판): R1 → REJECT «최신화 먼저» · main 불변(사람 왕복 1회 재현)" $?
+# 기준판 = r1121 착지 3959eb0144 의 첫 부모 고정 sha(r1132 — origin/main 은 착지 뒤 새 코드가 된다) · 경로는 실경로(/var↔/private/var)
+BASE_SHA=c392b5e288e055ad61fba6cfb8b1763c9da1c99e
+TOP="$(git -C "$HERE" rev-parse --show-toplevel 2>/dev/null)" && TOP="$(cd "$TOP" && pwd -P)"; PFX="$(cd "$HERE/.." && pwd -P)"; PFX="${PFX#$TOP/}"; mkdir -p "$T/red"
+HAVE_BASE=0; [ -n "$TOP" ] && git -C "$TOP" cat-file -e "$BASE_SHA^{commit}" 2>/dev/null && HAVE_BASE=1
+if [ "$HAVE_BASE" = 1 ]; then
+  for f in "$BIN"/*; do ln -s "$f" "$T/red/$(basename "$f")"; done; rm -f "$T/red/ft-merge-land.sh"
+  git -C "$TOP" show "$BASE_SHA:$PFX/kit/fable-team/bin/ft-merge-land.sh" > "$T/red/ft-merge-land.sh" && [ -s "$T/red/ft-merge-land.sh" ] || { echo "FAIL 기준판을 못 꺼냄"; exit 1; }
+  land "$T/red/ft-merge-land.sh" 1 --approve-sha "$A1"
+  [ "$rc" = 1 ] && [[ "$out" == *"$STALE"* ]] && [ "$(omain)" = "$M1" ]; ck "기준판(r1121 직전 main 판): R1 → REJECT «최신화 먼저» · main 불변(사람 왕복 1회 재현)" $?
+else echo "SKIP 기준판 칸(R1 REJECT 재현) — base_sha $BASE_SHA 객체 없음(git 사본 아님 · git archive 사본)"; fi
 land "$LAND" 1 --approve-sha "$A1"
 [ "$rc" = 0 ] && [[ "$out" == *"$AUTO"* ]] && [[ "$out" == *"LANDED pr=1 "* ]] && [ "$(oshow design/x/a.md)" = PR-A ] && [ "$(oshow design/y/b.md)" = MAIN-B ] && [ "$(sha "$ORIGIN" main^)" = "$M1" ]
 ck "ⓐ R1 → 착지 rc0 · INFO 자동 병합 줄 · a.md(PR 판)·b.md(main 판) 둘 다 · squash 1커밋(부모 = 앞선 main)" $?
