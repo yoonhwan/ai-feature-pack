@@ -311,7 +311,6 @@ case "$TIER" in
 esac
 if [ "$AGENT_SET" = 1 ]; then AGENT="$_A0"; MODEL="$_M0"; EFFORT="$_E0"; FAST="$_F0"; fi   # 명시 --agent 우선(위 주석)
 # ★r631(planner «짧은 나노 low · 구현 high» · r556 개정)★ pi 나노 종류 판별 1곳 — short = 티어 search·checker·tester 또는 --research · impl = 그 밖(티어 impl · 티어 없는 코드 나노).
-#   아래 serena 판별도 이 함수를 쓴다(동작 그대로: research·search 만 off).
 pi_kind() { if [ "$RESEARCH" = 1 ]; then echo "short:research"; else case "${TIER%%:*}" in search|checker|tester) echo "short:tier=${TIER%%:*}";; impl) echo "impl:tier=impl";; *) echo "impl:code-nano";; esac; fi; }
 # pi 기본 effort = short FT_PI_EFFORT_SHORT(low) · impl FT_PI_EFFORT_IMPL(high) — 13행 high·티어 기본값은 pi 에서 덮는다 · 직접 적은 --effort 가 이긴다(explicit)
 #   옛 이름 FT_PI_EFFORT(r556)는 두 갈래 모두에 적용 + stderr WARN(새 이름이 있으면 새 이름이 이긴다) · 되돌림 = FT_PI_EFFORT_IMPL=low
@@ -497,17 +496,9 @@ OPEN=(tmuxc open "$WTDIR" --name "$NAME" --agent "$AGENT" --model "$MODEL")
 [ "$AGENT" = claude ] && OPEN+=(--ctx 1m)
 case "$AGENT" in claude|cmd|codex|pi) OPEN+=(--effort "$EFFORT");; esac
 [ "$AGENT" = codex ] && [ -n "$FAST" ] && OPEN+=(--fast "$FAST")
-# ★r556(오빠 «기동때 serena에 경로를 지정해두고»)★ pi «코드» 나노에만 tmuxc --serena(0.4.3) — 읽고 모으기만 하는 검색·리서치 나노엔 안 붙인다.
-#   설치 tmuxc 가 --serena 를 모르면 조용히 빼고 열지 않는다(REJECT) · 끄기는 FT_PI_SERENA=0 + stderr WARN + PLAN 표시.
-SERENA="off(tier=search)"
-if [ "$AGENT" = pi ]; then
-  _pk="$(pi_kind)"   # r631: 종류 판별 1곳(위 effort 와 같은 함수)
-  if [ "$_pk" = short:research ]; then SERENA="off(research)"
-  elif [ "$_pk" = short:tier=search ]; then SERENA="off(tier=search)"
-  elif [ "${FT_PI_SERENA:-1}" = 0 ]; then SERENA="off(FT_PI_SERENA=0)"; echo "WARN pi 나노 --serena 를 껐다(FT_PI_SERENA=0) — 코드 탐색 도구 없이 연다" >&2
-  elif tmuxc help 2>/dev/null | grep -q -- '--serena'; then SERENA="on"; OPEN+=(--serena)
-  else echo "REJECT 설치 tmuxc 가 --serena 모름(0.4.3+ 필요) — FT_PI_SERENA=0 으로 끄면 serena 없이 연다"; exit 1; fi
-fi
+# ★r1107(오빠 «꺼야하고 누가 살렸냐. 안뜨게해라» · r556 뒤집음)★ Serena 는 10-22 은퇴 — 어떤 나노에도 tmuxc --serena 를 붙이지 않는다.
+#   FT_PI_SERENA 는 읽지 않는다(1 이어도 off) · 코드 탐색은 ci · PLAN 표시만 남긴다(사람이 보는 확인).
+SERENA="off(은퇴 10-22)"
 _PLANX=""; [ "$AGENT" != pi ] || _PLANX=" effort=$EFFORT($EFFORT_WHY) serena=$SERENA"
 # r476: opencode 2.0.32 TUI 는 --model 플래그가 없다 — tmuxc 가 모델을 세션 env OPENCODE_CONFIG_CONTENT 로 심는다(PLAN 에 경로 표기)
 _VIA=""; [ "$AGENT" = opencode ] && _VIA=" via=OPENCODE_CONFIG_CONTENT"

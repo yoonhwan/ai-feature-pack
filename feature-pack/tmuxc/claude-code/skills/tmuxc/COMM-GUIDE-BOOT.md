@@ -4,8 +4,8 @@
 > 전문 Read·cat·큰 limit 은 PreToolUse 훅(`boot-read-gate.sh`)이 막는다. (하네스 0.4 단위 5 · GOAL-harness-v2 축 A)
 > 매핑표 기준 전문: COMM-GUIDE.md sha256 앞16 = `d64777274c4b371a` (2026-09-23). 전문이 바뀌면 이 값과 줄 범위를 같이 갱신한다 — 대조는 `ft-version.sh check`(단위 2).
 
-1. **Serena**: `initial_instructions` 를 먼저 1회 호출해 `session_id` 를 받은 뒤 `activate_project(project="<현재 워크트리 절대경로>", session=…)` (이름 아님 · `get_current_config` 먼저 부르지 말 것 · session 없이 부르면 `Field required` 로 실패한다 — 2026-09-23 두 좌석 실측). 미노출이면 재시작 말고 grep 진행 + 보고에 「Serena 미사용」 명시.
-2. **부팅 첫 보고 3항(+1)**: 세션명 / 모델+창 크기(`[1m]` 여부) / Serena 가부 (+ master·architect·DA·pm·desk 은 i-have-adhd 로드 여부 · ★planner 팀장·desk 는 `adhd=O` 칸 필수 — 없으면 부팅 보고 가드 반송★) — mbox 로 오케에 발신 전엔 착수하지 않는다. ★오빠에게 가는 글(pane·슬랙·인터뷰)은 GUIDE-human-report 틀(결론→할 일→바뀐 것→근거) · mbox 는 예외.★
+1. **Serena 은퇴(10-22)**: Serena 도구는 부르지 않는다(등록이 보여도 무시) · 코드 탐색은 `ci`(sym·refs·outline·search) · `ci` 가 없으면 멈추지 말고 rg+Read 로 진행하고 보고에 1줄 적는다 (r1107 · 오빠 10-29 «안뜨게해라»).
+2. **부팅 첫 보고 3항(+1)**: 세션명 / 모델+창 크기(`[1m]` 여부) / ci 가부 (+ master·architect·DA·pm·desk 은 i-have-adhd 로드 여부 · ★planner 팀장·desk 는 `adhd=O` 칸 필수 — 없으면 부팅 보고 가드 반송★) — mbox 로 오케에 발신 전엔 착수하지 않는다. ★오빠에게 가는 글(pane·슬랙·인터뷰)은 GUIDE-human-report 틀(결론→할 일→바뀐 것→근거) · mbox 는 예외.★
 3. **발주(오케→좌석)** = 본문은 mbox 파일 큐 + 창엔 `[발주 #seq] … recv …` 지시문 한 줄. **보고(좌석→오케)** = mbox. 도달 판정은 pane capture 가 아니라 jsonl 층(`ft-reach-check.sh`). ★재발주는 `{mbox} ring <좌석> <최초 seq>` — 다시 send 하면 좌석이 같은 발주를 2건 본다(pending=2 실측). 발주 뒤 3초에 busy 확인, 안 돌면 ring.★
 4. **mbox**: `{mbox} send {to} {me} "본문"`(3~5줄 · 700자 넘으면 수신측 절단+전문경로) · `{mbox} recv {me}`(READ 라인을 화면에 인용) · `{mbox} peek {me}` · 긴 내용은 `{mbox} relay {to} {me} <파일> "요약"`. `{mbox}` 경로는 주입문의 것을 쓴다. 알림 여부는 seats.json 의 tick 유무가 정한다(`--no-notify` 는 무시·경고만, 급하면 `--urgent`). 진행보고는 mbox 가 아니라 파일에. **master 로는 두 가지만**: 집행 요청(커밋·push·좌석 개설) · 사람 판정이 필요한 것. fan-out 금지(한 값은 한 좌석) · 답 안 받은 상대에게 겹쳐 보내지 않는다.
 5. **메시지 포맷**: `[{from}->{to}] 내용` — 화살표는 ASCII `->` 만.
@@ -26,7 +26,7 @@
 
 | 절 | 줄 | HARD | BOOT (조항 단위) |
 |---|---|---|---|
-| Serena 활성화 | 8–31 | | O(1) |
+| Serena 활성화(옛 기록 · 10-22 은퇴 — 따르지 않는다) | 8–31 | | O(1): 은퇴 문장 |
 | Command Code 특이사항 | 33–61 | | 포인터(12) — 계약 아님 |
 | i-have-adhd | 63–71 | | O(9) |
 | §1 채널 선택 · #seq · ring 재발주 · 3초 busy | 73–99 | HARD | O(3): 채널·ring·3초 전부 실림 |
