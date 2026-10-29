@@ -6,6 +6,7 @@
 CLI: --ref <ref>(기본 origin/main) --repo <루트>  → 행당 `FLAG-OFF <플래그> <파일:줄> ARG=<있음|없음> 배포값=<없음|값>`
      --new-between <옛> <새>  → 새로 생긴 플래그만 `FLAG-OFF 새로 생김 …` (랜딩 직후 검사 · ft-merge-lib.sh fm_flag_off_new)
 """
+import json
 import os
 import re
 import subprocess
@@ -80,9 +81,45 @@ def scan(repo, ref, timeout=7.0, deadline=None):
     return rows
 
 
+def head_sha(repo, ref, deadline=None):
+    p = git(repo, per_call(7.0, deadline), "rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}")
+    if p.returncode != 0:
+        raise ReadError(f"git rev-parse {ref} rc={p.returncode} {p.stderr.strip()[:120]}")
+    return p.stdout.strip()
+
+
+def scan_cached(repo, ref, cache, deadline=None):
+    """scan 을 ref 커밋 sha 마다 1번만(r1135) — 캐시 sha 같음 = 저장된 행 그대로(git grep 0) · 캐시 없음·깨짐 = 다시 scan 후 덮어씀(성능용 · 판정 불변)."""
+    sha = head_sha(repo, ref, deadline)
+    try:
+        with open(cache, encoding="utf-8") as f:
+            c = json.load(f)
+        if c.get("sha") == sha and all(isinstance(r, dict) and "flag" in r for r in c["rows"]):
+            return c["rows"]
+    except (OSError, ValueError, AttributeError, KeyError, TypeError):
+        pass  # 캐시 없음과 같다 — 아래에서 다시 센다
+    rows = scan(repo, ref, deadline=deadline)
+    try:
+        os.makedirs(os.path.dirname(cache), exist_ok=True)
+        with open(f"{cache}.{os.getpid()}.tmp", "w", encoding="utf-8") as f:
+            json.dump({"sha": sha, "rows": rows}, f, ensure_ascii=False)
+        os.replace(f"{cache}.{os.getpid()}.tmp", cache)
+    except OSError as e:
+        print(f"WARN ft_flag_off: 캐시 못 씀 {cache} {type(e).__name__} — 다음 회차도 다시 센다", file=sys.stderr)
+    return rows
+
+
 def open_flags(rows, decided):
     """결정 기록에 없는(켬/끔 + 판정 칸 채워진 행이 없는) 플래그만."""
     return [r for r in rows if r["flag"] not in decided]
+
+
+def open_count(repo, ref, cache, decided, deadline=None):
+    """(미결정 행 | None, 메모) — git 조회 실패·예산 초과는 이 칸만 «판정 불가» 메모로 끝낸다(r1135 · 하드 룰 20 · 다른 칸 판정·rc 불변)."""
+    try:
+        return open_flags(scan_cached(repo, ref, cache, deadline), decided), ""
+    except ReadError as e:
+        return None, f"(꺼진 플래그 판정 불가 — {e})"
 
 
 def line(r):

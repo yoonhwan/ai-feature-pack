@@ -4,7 +4,7 @@
   결정 인터뷰 = 인박스 미닫힘 중 머리 질문 표식(ft_decision_kind · R337) + MERGE-QUEUE 상태 «대기» 행 + AUTONOMY-QUEUE 행(파일 없음 = 0)
   스크립트 = ft-hil.sh --pending (R186 표식) · 팀 대기 = 그 질문 중 다른 팀 현역 좌석('#' 있는 이름)이 보낸 것 · 24시간 넘은 질문 = « · 묵은 M건»
 --detail 현역 다른 팀 좌석 미닫힘 + 이유 낱말(질문표식/묵음/통보/본문 없음) · --alarm 30분(FT_DECISION_WAIT_MIN) 넘은 팀 대기 seq 마다 planner 에 쪽지 1통(상태 파일로 seq 당 1회).
-읽기 실패 = stderr ERROR + rc 4 (숫자 지어내기 0) · 본문 파일 없음 = «본문 없음 N건» 칸 + WARN 1줄(r738). 시험 env: FT_ROOT · FT_DECISION_{NOW,MBOX,FROM,MERGE_QUEUE,AUTONOMY_QUEUE} · HIL_DIR.
+읽기 실패 = stderr ERROR + rc 4 (숫자 지어내기 0) · 꺼진 플래그 칸의 git 실패·예산 초과만 그 칸 «판정 불가» 메모 + rc 0(r1135) · 본문 파일 없음 = «본문 없음 N건» 칸 + WARN 1줄(r738 · 건수 묶음 r1135). 시험 env: FT_ROOT · FT_DECISION_{NOW,MBOX,FROM,MERGE_QUEUE,AUTONOMY_QUEUE} · HIL_DIR.
 """
 import json
 import os
@@ -17,7 +17,7 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ft_decision_alarm import ReadError, alarm, first_line  # noqa: E402
-from ft_flag_off import open_flags, scan  # noqa: E402
+from ft_flag_off import open_count  # noqa: E402
 from ft_decision_kind import BODY_MISSING, ORDER, open_rows  # noqa: E402
 from ft_inbox_core import R, answered_seqs, lineage, qpath, read_q  # noqa: E402
 from ft_team_lib import TeamPathError, data_root, planner_queue, team_doc_ref, team_in  # noqa: E402
@@ -153,8 +153,8 @@ def flag_off(wt):
     if t:
         i, j, k = (column("FLAG-DECISIONS", t, c) for c in ("플래그", "결정(켬/끔)", "판정"))
         decided = {r[i] for r in t[0] if r[j] in ("켬", "끔") and r[k]}
-    rows = open_flags(scan(os.environ.get("FT_FLAG_OFF_REPO", R), os.environ.get("FT_FLAG_OFF_REF", "origin/main"), deadline=T0 + BUDGET_S), decided)
-    return len(rows), (f"(꺼진 플래그 {len(rows)})" + ("" if t else " (플래그 결정 파일 없음)") if rows else "")
+    rows, why = open_count(os.environ.get("FT_FLAG_OFF_REPO", R), os.environ.get("FT_FLAG_OFF_REF", "origin/main"), f"{R}/.fable-team/state/flag-off-cache.json", decided, deadline=T0 + BUDGET_S)
+    return (0, why) if why else (len(rows), (f"(꺼진 플래그 {len(rows)})" + ("" if t else " (플래그 결정 파일 없음)") if rows else ""))
 
 
 def summary(now):
@@ -162,9 +162,9 @@ def summary(now):
     box = inbox(me, now)
     mq, aq = table("FT_DECISION_MERGE_QUEUE", "MERGE-QUEUE.md", wt), table("FT_DECISION_AUTONOMY_QUEUE", "AUTONOMY-QUEUE.md", wt, (lambda: planner_queue(data_root(R))) if os.environ.get("FT_PLANNER_DIR") else None, lambda: data_root(R))  # r839: 큐 본문 = origin/main 판(루트 체크아웃 디스크 0)
     a, note = autonomy_open(aq) if aq else (0, "")  # 리졸버가 낸 자리에 파일 없음 = 큐 0행(메모 0 · r2 ㉡) — 리졸버 실패만 ReadError
-    f, fnote = flag_off(wt)
+    m, (f, fnote) = scripts(), flag_off(wt)  # r1135: 꺼진 플래그 칸은 맨 끝 — 남은 예산만 쓰고 넘쳐도 그 칸만 «판정 불가»(앞 칸 예산을 굶기지 않는다)
     notes = " ".join(x for x in (f"(옛 좌석 미닫힘 {box['old']})" if box["old"] else "", fnote, note, "" if mq else "(MERGE-QUEUE 파일 없음)") if x)
-    return {**box, "me": me, "n": box["n"] + (merge_waiting(mq) if mq else 0) + a + f, "m": scripts(), "notes": notes}
+    return {**box, "me": me, "n": box["n"] + (merge_waiting(mq) if mq else 0) + a + f, "m": m, "notes": notes}
 
 
 def line(s):

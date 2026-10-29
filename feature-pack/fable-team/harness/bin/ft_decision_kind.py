@@ -55,7 +55,8 @@ def open_rows(rows, answered, now):
         if x["cls"] in MUST_REPORT and not obligation_closed(x, answered):
             mins = minutes(x["ts"], now)
             first = head_line(x["body_path"])
-            if first is None:  # r738: 본문 파일이 없어도 셈은 계속한다 — 조용한 0 이 아니도록 seq·경로를 남긴다
-                print(f"WARN ft-decision-count: 쪽지 본문 없음 #{x['seq']} {x['body_path'] or '(body_path 빈 값)'}", file=sys.stderr)
             out.append((x, BODY_MISSING if first is None else kind(first, mins), mins))
+    miss = sorted((x for x, k, _ in out if k == BODY_MISSING), key=lambda x: x["seq"])
+    if miss:  # r738: 본문 파일이 없어도 셈은 계속한다 — 조용한 0 이 아니도록 건수·seq 범위·첫 경로를 남긴다(r1135: 건마다 1줄 → 1줄로 묶음)
+        print(f"WARN ft-decision-count: 쪽지 본문 없음 {len(miss)}건(첫 #{miss[0]['seq']} · 끝 #{miss[-1]['seq']}) {miss[0]['body_path'] or '(body_path 빈 값)'}", file=sys.stderr)
     return out

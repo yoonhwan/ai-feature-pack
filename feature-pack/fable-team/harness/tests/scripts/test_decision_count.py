@@ -260,7 +260,8 @@ def test_q_default_budget_survives_a_loaded_machine_but_stays_under_callers_7s(e
 
 
 def test_r_slow_git_flag_lookups_share_one_total_deadline(env):
-    """R303 DA⑥ H1: 플래그 조회 git 3회가 각각 «남은 예산 한 번 계산한 값» 을 쓰면 5 s 예산이 7.5 s 로 샌다 — 마감 시각으로 조회마다 남은 시간만 허용한다."""
+    """R303 DA⑥ H1: 플래그 조회 git 3회가 각각 «남은 예산 한 번 계산한 값» 을 쓰면 5 s 예산이 7.5 s 로 샌다 — 마감 시각으로 조회마다 남은 시간만 허용한다.
+    r1135: 넘치면 그 칸만 «판정 불가» 메모 · rc 0(다른 칸은 그대로 · 칸 격리)."""
     put(env, [row(1, "④", "byz-cfo-master-claude#1", ago=40)])
     fake = env["root"] / "fakebin"
     fake.mkdir()
@@ -269,7 +270,7 @@ def test_r_slow_git_flag_lookups_share_one_total_deadline(env):
     git.chmod(0o755)
     t0 = time.time()
     r = run(env, extra={"PATH": f"{fake}{os.pathsep}{os.environ['PATH']}"})
-    assert r.returncode == 4 and "git" in r.stderr and time.time() - t0 <= 5.5, (time.time() - t0, r.stdout, r.stderr)  # 총 ≤ 예산 5 s + 0.5 s
+    assert r.returncode == 0 and "(꺼진 플래그 판정 불가 — git " in r.stdout and time.time() - t0 <= 5.5, (time.time() - t0, r.stdout, r.stderr)  # 총 ≤ 예산 5 s + 0.5 s
 
 
 @pytest.mark.parametrize("bad", ["0", "-1", "abc", "600", "6.5", "nan"])
