@@ -1279,6 +1279,11 @@ _fetch_remote_feat "$_FEAT"
 if [ -n "$_BASE_SHA" ]; then
   if git -C "$SEAT_REPO" merge-base --is-ancestor "$_BASE_SHA" "$_FEAT" 2>/dev/null; then
     echo "INFO base sha ${_BASE_SHA:0:9} → 랜딩 브랜치 $_FEAT"
+  # r1122: 팀 가지(env)가 main 보다 뒤처졌고 base_sha 가 origin/main 에 있으면 main 줄기 나노 — 랜딩 브랜치를 origin/main 으로(R22 fetch 뒤 조상 확인)
+  elif [ "$_FEAT" != origin/main ] && _fetch_remote_feat origin/main && [ "$_FEAT_FETCH_FAIL" = 0 ] \
+       && git -C "$SEAT_REPO" merge-base --is-ancestor "$_BASE_SHA" refs/remotes/origin/main 2>/dev/null; then
+    echo "INFO base sha ${_BASE_SHA:0:9} → 랜딩 브랜치 origin/main(팀 가지 $_FEAT 뒤처짐 · base_sha 가 그 가지 조상 아님)"
+    _FEAT=origin/main
   else
     bad+=("base 가 sha ${_BASE_SHA:0:9} 이고 $_FEAT 의 조상이 아니다 — FT_NANO_FEAT=<랜딩 브랜치> 로 다시")
   fi
