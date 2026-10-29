@@ -6,6 +6,8 @@
 #   ⓗ --dry-run = 세션 0 · tmuxc restore 계획 모드 출력 맨 위 안내 1줄
 #   ⓘ r626 전팀 정지 켜짐 = 세션 0 · rc 1 · 그 REJECT 줄 그대로(변이: 검사 줄 삭제 → 이 칸 FAIL)
 #   ⓙ dry-run 에도 FAIL 있으면 rc 3 ⓚ 끝난 나노 + model null = SKIP · 끝나지 않은 나노 + model null = FAIL model 없음
+#   ⓛ~ⓝ r1093 전팀 정지 «검사 루트» = 리포 공용 루트 — ⓛ FT_ROOT 없이 공용 루트 원장 off = 통과(거짓 REJECT 0)
+#     ⓜ 같은 꼴 · 공용 루트 정지 켜짐 = REJECT rc 1 · 새 세션 0 ⓝ FT_ROOT 지정 = 지금과 같음(라이브 루트 원장 없음 → REJECT · 공용 루트 → 통과)
 # 전부 mktemp 안 — 임시 HOME(스냅샷·seat-live·projects·가짜 claude-hr.sh) · 임시 FT_ROOT ·
 #   ★tmux 는 격리 소켓(-L ftrr-test-<pid>) 셔임을 PATH 앞에 — 사용자 tmux 서버의 세션은 보지도 건드리지도 않는다(실좌석 kill·send-keys 0)★.
 # base 대조: R641_BIN=<origin/main 판 키트 bin 폴더> bash <이 파일> — 그 폴더에 ft-reboot-restore.sh 가 없으면 전부 FAIL.
@@ -214,6 +216,34 @@ printf '{"type":"user"}\n' > "$(jsonl_of $N $UN)"
 run --dry-run
 eq "$RC" 3 "ⓚ 끝나지 않은 나노 + model null → rc 3"
 has "$OUT" "$N · FAIL model 없음" "ⓚ model 없음 FAIL"
+
+# ── ⓛⓜⓝ r1093: 정지 검사 루트 = 리포 공용 루트 — 라이브 루트(ROOT)에는 원장이 없다(사건 그대로) ──
+MR="$T/minirepo"; CR="$T/comroot"
+mkdir -p "$MR/.fable-team/state" "$CR/.fable-team/state"
+git init -q "$MR" 2>/dev/null && ok "ⓛ 임시 리포 git init" || bad "ⓛ 임시 리포 git init"
+printf '%s\n' "$CR" > "$MR/.fable-team/LIVE_ROOT"     # cwd 리포의 LIVE_ROOT = 원장 없는 다른 폴더
+FT_ROOT="$MR" bash "$BIN/ft-all-stop.sh" init > /dev/null 2>&1 && ok "ⓛ 공용 루트 원장 init" || bad "ⓛ 공용 루트 원장 init"
+sub() { OUTC="$(cd "$MR" && env -u FT_ROOT bash "$TOOL" "$@" 2>&1)"; RCC=$?; }
+reset_tmux; rm -f "$T"/args.*; mkseat $A $UA; snap "$A:$UA"
+sub --dry-run
+[ "$RCC" = 0 ] && ok "ⓛ FT_ROOT 없이 공용 루트 원장 off → rc 0" || bad "ⓛ rc=$RCC — ${OUTC:0:300}"
+has "$OUTC" "$A · 계획 열기" "ⓛ 계획 표 나옴"
+hasnt "$OUTC" "REJECT 전팀 정지 중" "ⓛ 거짓 REJECT 0"
+# ⓜ 공용 루트 켜짐 = 거절 · 새 세션 0
+printf '{"since":1761000000,"by":"r1093-test","reason":"시험"}\n' > "$MR/.fable-team/state/ALL_STOP.json"
+reset_tmux; rm -f "$T"/args.*
+sub
+[ "$RCC" = 1 ] && ok "ⓜ 공용 루트 켜짐 → rc 1" || bad "ⓜ rc=$RCC — ${OUTC:0:300}"
+has "$OUTC" "REJECT 전팀 정지 중(" "ⓜ REJECT 줄 그대로"
+alive $A && bad "ⓜ 정지인데 세션 열림" || ok "ⓜ 새 세션 0"
+[ ! -e "$T/args.$A" ] && ok "ⓜ 래퍼 호출 0" || bad "ⓜ 정지인데 래퍼 호출"
+rm -f "$MR/.fable-team/state/ALL_STOP.json"
+# ⓝ FT_ROOT 지정 = 지금과 같음 — 라이브 루트(원장 없음)를 주면 REJECT, 공용 루트를 주면 통과
+OUTC="$(cd "$MR" && FT_ROOT="$CR" bash "$TOOL" --dry-run 2>&1)"; RCC=$?
+[ "$RCC" = 1 ] && ok "ⓝ FT_ROOT=라이브 루트(원장 없음) → rc 1(옛 거동 그대로)" || bad "ⓝ rc=$RCC — ${OUTC:0:300}"
+has "$OUTC" "원장 없음" "ⓝ 원장 없음 REJECT"
+OUTC="$(cd "$MR" && FT_ROOT="$MR" bash "$TOOL" --dry-run 2>&1)"; RCC=$?
+[ "$RCC" = 0 ] && ok "ⓝ FT_ROOT=공용 루트 → rc 0" || bad "ⓝ rc=$RCC — ${OUTC:0:300}"
 
 echo "== r641 fail=$fail"
 [ "$fail" -eq 0 ] && echo "ALL PASS" || exit 1
