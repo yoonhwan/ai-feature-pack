@@ -133,7 +133,7 @@ mkworld d
 gate "$OLD" old
 OLD_OUT="$OUT"
 gate "$GATE" new FT_PORT_BASE=38341
-NEW_OUT="$(printf '%s\n' "$OUT" | grep -v '^포트 갈래: 기본$' | grep -v '^[✓✗⚠] 부하 5분 평균')"   # 갈래 줄 + r769b 부하 줄은 뺀다
+NEW_OUT="$(printf '%s\n' "$OUT" | grep -v '^포트 갈래: 기본$' | grep -v '^[✓✗⚠] 부하 5분 평균' | grep -v '^[✓✗] ④-b 화면 env')"   # 갈래 줄 + r769b 부하 줄 + r1196 ④-b 줄은 뺀다
 n=$((n+1)); has '포트 갈래: 기본' \
   && [ "$(printf '%s\n' "$OUT" | grep -c '^포트 갈래:')" = "1" ] \
   && grep -q ':8081' "$W/stub-new.log" && grep -q ':8080' "$W/stub-new.log" && grep -q ':3001' "$W/stub-new.log" \
