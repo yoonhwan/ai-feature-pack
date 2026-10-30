@@ -84,6 +84,8 @@ STAMPED="$(mktemp)"; trap 'rm -f "$STAMPED"' EXIT
 URL="$(GH_TOKEN="$BOT_TOKEN" gh issue create --title "$TITLE" ${LABEL[@]+"${LABEL[@]}"} --body-file "$STAMPED" 2>&1)" || die "gh issue create 실패: $URL"
 NUM="$(printf '%s' "$URL" | sed -n 's#.*/issues/\([0-9][0-9]*\).*#\1#p' | tail -1)"
 [ -n "$NUM" ] || die "Issue 는 만들어졌을 수 있다 — 번호를 못 읽음: $URL"
+# r1185: 매니저가 직접 등록하면 자기 알림 0 — recv 는 from == 나 인 행을 안 가져간다(r1155) → 못 읽는 쪽지가 쌓인다
+[ "$FROM" = "$MANAGER" ] && { echo "PAIR issue=#$NUM team=$TEAM manager=$MANAGER 알림 0(등록 좌석 = 매니저)"; exit 0; }
 OUT="$(bash "$MBOX" send "$MANAGER" "$FROM" "$(notify_body "$NUM")" 2>&1)" \
   || die "Issue #$NUM 은 만들어졌다 · 매니저 알림 실패 — 알림만 다시 보낼 것: $OUT"
 echo "PAIR issue=#$NUM team=$TEAM manager=$MANAGER $(printf '%s' "$OUT" | sed -n 's/.*\(seq=[0-9]*\).*/\1/p' | head -1)"
