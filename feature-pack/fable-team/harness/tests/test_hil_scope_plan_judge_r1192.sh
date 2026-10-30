@@ -33,19 +33,27 @@ plan() { printf '#!/usr/bin/env bash\n# ft-hil-request seat=byz-planner-master-c
 plan merge "bash \"\$A\" approve-merge $SHA"
 plan scope "bash \"\$A\" scope-approve $SHA --pr 5234 --card design/x.md"
 plan quiet "# 옛 길: bash \"\$A\" approve-merge $SHA
-echo \"승인은 approve-merge 말고 scope-approve\"; bash \"\$A\" scope-approve $SHA --pr 1 # approve-merge 아님"
+echo \"승인은 approve-merge 말고 scope-approve\"; bash \"\$A\" scope-approve $SHA --pr 1 # approve-merge 아님
+echo 'x \$(bash \"\$A\" approve-merge)'"
+plan r1b "echo \"\$(bash \"\$A\" approve-merge \"$SHA\")\""
+plan r1c "printf '%s\\\\n' '# approval'; bash \"\$A\" approve-merge \"$SHA\""
+plan r1d "eval \"bash \$A approve-merge $SHA\""
+plan r1e "bash -c \"bash \$A approve-merge $SHA\""
 
 check_r1() { local o rc n0; n0="$(nh)"; o="$(hil "$1" alive "" merge)"; rc=$?
   [ "$rc" = 1 ] && [ "$(nh)" = "$n0" ] && has "$o" "REJECT 범위 승인 S4 중 approve-merge — scope-approve <sha> --pr <N> [--card <카드>] [--repo byz|pack] 로 (판정 2904) — 줄 5" "R1 범위 S4 살아 있음 + approve-merge = REJECT · 등록 0" || bad "R1 rc=$rc h=$(nh) ← $o"; }
+check_r1x() { local o rc n0; n0="$(nh)"; o="$(hil "$1" alive "" "$2")"; rc=$?   # R1b~R1e: 실행되는 $( )·따옴표 벗긴 '#' 인자·eval·bash -c
+  [ "$rc" = 1 ] && [ "$(nh)" = "$n0" ] && has "$o" "REJECT 범위 승인 S4 중 approve-merge" "R1 $2 $(sed -n 5p "$T/$2.sh.hil") = REJECT · 등록 0" || bad "R1 $2 rc=$rc h=$(nh) ← $o"; }
 sec "R1~R4 범위 상태별"
 check_r1 "$BIN0"
+for k in r1b r1c r1d r1e; do check_r1x "$BIN0" "$k"; done
 o="$(hil "$BIN0" alive "" scope)"; rc=$?; [ "$rc" = 0 ] && [ "$(nh)" = 1 ] && ok "R2 scope-approve 계획 = 등록 rc0" || bad "R2 rc=$rc h=$(nh) ← $o"
 o="$(hil "$BIN0" none "" merge)"; rc=$?; [ "$rc" = 0 ] && [ "$(nh)" = 2 ] && ok "R3 범위 승인 없음 + approve-merge = 등록 rc0" || bad "R3 rc=$rc h=$(nh) ← $o"
 rm -rf "$HD"; mkdir -p "$HD"
 o="$(hil "$BIN0" stop "" merge)"; rc=$?; [ "$rc" = 0 ] && [ "$(nh)" = 1 ] && ok "R4 범위 정지 + approve-merge = 등록 rc0" || bad "R4 rc=$rc h=$(nh) ← $o"
 sec "R5 주석·echo 글자만 = 후보 0 · 범위 조회 0"
 : > "$T/calls.log"; o="$(hil "$BIN0" alive "" quiet)"; rc=$?
-[ "$rc" = 0 ] && [ "$(nc)" = 0 ] && ok "R5 주석 줄·echo 문자열·줄 안 주석 = 등록 rc0 · scope-status 호출 0" || bad "R5 rc=$rc calls=$(nc) ← $o"
+[ "$rc" = 0 ] && [ "$(nc)" = 0 ] && ok "R5 주석 줄·echo 문자열·줄 끝 주석·작은따옴표 안 \$( ) = 등록 rc0 · scope-status 호출 0" || bad "R5 rc=$rc calls=$(nc) ← $o"
 sec "R6 범위 조회 실패 = ERROR 등록 0"
 for k in fail weird; do rm -rf "$HD"; mkdir -p "$HD"; o="$(hil "$BIN0" "$k" "" merge)"; rc=$?
   [ "$rc" != 0 ] && [ "$(nh)" = 0 ] && has "$o" "ERROR ft-hil 판정기 실행 실패" "R6 조회 $k = ERROR · rc=$rc · 등록 0" || bad "R6 $k rc=$rc h=$(nh) ← $o"
@@ -67,12 +75,14 @@ for f in ft_scope_plan_judge.py ft-hil.sh ft-autonomy-scope.sh; do
   cmp -s "$BIN0/$f" "$KIT/$f" && ok "bin=kit $f" || bad "bin≠kit $f"
 done
 n="$(wc -l < "$BIN0/ft-hil.sh" | tr -d ' ')"; [ "$n" -le 200 ] && ok "ft-hil.sh ${n}줄 ≤200" || bad "ft-hil.sh ${n}줄 > 200"
-n="$(wc -l < "$BIN0/ft_scope_plan_judge.py" | tr -d ' ')"; [ "$n" -le 90 ] && ok "판정기 ${n}줄 ≤90" || bad "판정기 ${n}줄 > 90"
+n="$(wc -l < "$BIN0/ft_scope_plan_judge.py" | tr -d ' ')"; [ "$n" -le 130 ] && ok "판정기 ${n}줄 ≤130" || bad "판정기 ${n}줄 > 130"
 
-sec "변이 1 — 판정 호출 삭제 → R1 FAIL 검출"
+sec "변이 2 — 판정 호출 삭제 → R1 FAIL · 재귀 삭제 → R1b FAIL 검출"
 mutv() { local f0=$fail; "$@" > /dev/null 2>&1; local d=$((fail - f0)); fail=$f0; [ "$d" -gt 0 ]; }
 m="$T/mut-judge"; cp -R "$BIN0" "$m" && sed 's/ && lint "\$f" "\${FT_SCOPE_JUDGE[^}]*}" "범위 승인 경로" ""//' "$BIN0/ft-hil.sh" > "$m/ft-hil.sh"
 if cmp -s "$BIN0/ft-hil.sh" "$m/ft-hil.sh"; then bad "변이 사본 = 원본"; else rm -rf "$HD"; mkdir -p "$HD"; mutv check_r1 "$m" && ok "변이 1(판정 호출 삭제) → R1 FAIL 검출" || bad "변이 1 을 못 잡음"; fi
+m="$T/mut-rec"; cp -R "$BIN0" "$m" && sed 's/if q or any(is_candidate(s) for s in subs):/if q:/' "$BIN0/ft_scope_plan_judge.py" > "$m/ft_scope_plan_judge.py"
+if cmp -s "$BIN0/ft_scope_plan_judge.py" "$m/ft_scope_plan_judge.py"; then bad "변이 2 사본 = 원본"; else rm -rf "$HD"; mkdir -p "$HD"; mutv check_r1x "$m" r1b && ok "변이 2(\$( )·백틱 재귀 삭제) → R1b FAIL 검출" || bad "변이 2 를 못 잡음"; fi
 
 sec "끝"
 [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAIL $fail"; exit 1; }
