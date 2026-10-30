@@ -23,7 +23,8 @@
        indices·inbox·keys·baselines·점 폴더 제외 = ft_doc_exempt_paths.EXCLUDE_DIRS) ∧ 이름이 *.md 이고 정본·승인근거·판정 입력
        이름(ft_doc_exempt_paths.CANON·EXCLUDE_NAMES · key(NFKC+casefold) 비교 · 어느 깊이에서든) 아님
        ∧ ★하위 폴더는 «추가(A)» 만★ — 수정·삭제·이름바꾸기(M/D/R)는 직속만(오빠 결정 2026-10-22 · 선택지 1)
-    ④ 추가(A)·수정(M)만 — 삭제·이름바꿈·복사 0(--no-renames · --find-copies=0)
+    ④ 추가(A)·수정(M)만 — 삭제·이름바꿈·복사 0(--no-renames · 복사 탐지 기본 꺼짐 · r1175)
+       예외 r1175: ft-index-move 가 만든 «indices/진행/X.md D + indices/완성/X.md A» 한 꼴(판정 = ft_doc_exempt_moves.py) · 출력 끝 `index-move=<짝 수>`
     ⑤ 모드 100644 만(링크·실행비트·gitlink 0) · 바이너리 0 — numstat rc≠0 = rc2 · 바이너리 판정은 git diff 속성이 아니라
        head 의 blob 내용(NUL 바이트·UTF-8 아님)으로 본다(DA⑥ r1 질문 3: 속성 강제·numstat 실패로 바이너리가 통과하던 자리)
     ⑥ 경로 정규화로 범위를 넓히지 않음(대소문자 그대로 · NFC 아님·제어문자 0)
@@ -47,6 +48,7 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # R741: 같은 폴더 모듈(경로 조각 판정) — 설치본도 키트 트리 참조
 import ft_doc_exempt_paths as paths   # noqa: E402  (제외 폴더·CANON·경로 모양 = 한 곳 · 본 판정기 줄 수 상한)
 import ft_teamset as teamset   # noqa: E402  (r810: 명부 경로 규칙 roster_path 공용 한 곳)
+import ft_doc_exempt_moves as moves   # noqa: E402  (r1175: ft-index-move 진행→완성 이동 꼴 판정 한 곳)
 
 SHA = re.compile(r"^[0-9a-f]{40}$")
 PLANNER = "planner"
@@ -185,13 +187,14 @@ def blob_bad(repo, head, path):
 
 
 def diff_paths(repo, base, head):
-    """(status, path) 목록 — 이름바꿈·복사 판정 0(--no-renames · --find-copies=0) · numstat rc≠0 = 판정 불가."""
-    rc, out, err = git(repo, "diff", "--name-status", "-z", "--no-renames", "--find-copies=0", base, head)
+    """(status, path) 목록 — 이름바꿈·복사 판정 0(--no-renames 만 · 복사 탐지는 기본 꺼짐) · numstat rc≠0 = 판정 불가.
+    r1175: 옛 «--no-renames --find-copies=0» 은 뒤 옵션이 탐지를 다시 켜 이동이 R0xx(경로 3토큰 · 짝 어긋남)로 나왔다(git 2.52 실측)."""
+    rc, out, err = git(repo, "diff", "--name-status", "-z", "--no-renames", base, head)
     if rc != 0:
         notx("diff 실패: %s" % err, 2)
     tok = out.decode("utf-8", "surrogateescape").split("\0")
     pairs = [(tok[i], tok[i + 1]) for i in range(0, len(tok) - 1, 2) if tok[i]]
-    rc, _num, err = git(repo, "diff", "--numstat", "-z", "--no-renames", "--find-copies=0", base, head)
+    rc, _num, err = git(repo, "diff", "--numstat", "-z", "--no-renames", base, head)
     if rc != 0:
         notx("numstat 실패(%s) — 바이너리 판정 불가 · 면제 0" % err, 2)
     return pairs
@@ -265,7 +268,14 @@ def main(argv):
                 notx("문서(.md) 아닌 파일: %s" % p)
         print("DOC-FILES %s files=%d" % (head, len(pairs)))
         return 0
-    teams = set()
+    nfiles = len(pairs)
+    def read_blob(rev, q):
+        brc, data, _e = git(repo, "cat-file", "blob", "%s:%s" % (rev, q))
+        return data if brc == 0 else None
+    pairs, moved, why = moves.index_move_pair(pairs, read_blob, mb, head)   # r1175: ft-index-move 진행→완성 짝만 뺀다
+    if why:
+        notx(why)
+    teams = {t for t, _p in moved}
     for st, p in pairs:
         if st not in ("A", "M"):
             notx("추가·수정 아닌 변경(%s): %s" % (st, p))
@@ -284,13 +294,13 @@ def main(argv):
         notx("%s 명부에 _master 없음 — 그 팀 master 는 착지 불가 · planner 좌석만" % team, 2)
     if seat not in (planner, tm):
         notx("부른 좌석(%s)이 %s 팀 master(%s)도 planner(%s)도 아님" % (seat, team, tm or "없음", planner), 2)
-    for _st, p in pairs:
+    for _st, p in pairs + moved:
         rc, out, _ = git(repo, "ls-tree", "-z", head, "--", p)
         rec = out.decode("utf-8", "surrogateescape").split("\0")[0]
         mode_s = rec.split(" ")[0] if rec else ""
         if mode_s != GOOD_MODE:
             notx("모드 %s 는 100644 아님: %s" % (mode_s or "없음", p))
-    print("DOC-EXEMPT %s files=%d team=%s by=%s" % (head, len(pairs), team, seat))
+    print("DOC-EXEMPT %s files=%d team=%s by=%s%s" % (head, nfiles, team, seat, " index-move=%d" % len(moved) if moved else ""))
     if os.environ.get("FT_DOC_EXEMPT_SELFTEST") == "1":   # 시험 판정은 «착지 근거»가 아니다 — 성공도 rc3(ft-press-gate 자체시험과 같은 꼴)
         print("SELFTEST 시험 판정 — 착지에 못 쓴다(FT_DOC_EXEMPT_SELFTEST=1 · 실경로는 env -u 로 지운다)", file=sys.stderr)
         return 3
