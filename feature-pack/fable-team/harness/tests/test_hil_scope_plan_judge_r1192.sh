@@ -25,8 +25,7 @@ st fail 1 'boom'
 st weird 0 '[자율 ON A23]'
 SHA=6d5975bc0123456789abcdef0123456789abcdef
 HD="$T/hil"; mkdir -p "$HD"
-hil() { env -i HOME="$T/home" PATH="/usr/bin:/bin" HIL_DIR="$HD" HIL_CLIP=0 FT_SECRET_JUDGE="$T/none.py" FT_MBOX_DIR="$T/comm" \
-  FT_SCOPE_STATUS_CMD="$T/st/$2" ${3:+FT_ROOT="$3"} bash "$1/ft-hil.sh" --add "$T/$4.sh.hil" 2>&1; }
+hil() { env -i HOME="$T/home" PATH="/usr/bin:/bin" HIL_DIR="$HD" HIL_CLIP=0 FT_SECRET_JUDGE="$T/none.py" FT_MBOX_DIR="$T/comm" FT_SCOPE_STATUS_CMD="$T/st/$2" bash "$1/ft-hil.sh" --add "$T/$4.sh.hil" 2>&1; }   # <bin> <scope-status 대역> <빈 칸> <계획> — 한 줄(ft_secret_judge 가 env 뒤 명령을 글자로 확정)
 nh() { find "$HD" -maxdepth 1 -name 'h[0-9]*' ! -name '*.*' | wc -l | tr -d ' '; }
 nc() { wc -l < "$T/calls.log" 2>/dev/null | tr -d ' ' || echo 0; }
 plan() { printf '#!/usr/bin/env bash\n# ft-hil-request seat=byz-planner-master-claude#1\n# 자율 A2 · 범위 S4(code)\nA=/x/ft-autonomy.sh\n%s\n' "$2" > "$T/$1.sh.hil"; }
@@ -39,6 +38,7 @@ plan r1b "echo \"\$(bash \"\$A\" approve-merge \"$SHA\")\""
 plan r1c "printf '%s\\\\n' '# approval'; bash \"\$A\" approve-merge \"$SHA\""
 plan r1d "eval \"bash \$A approve-merge $SHA\""
 plan r1e "bash -c \"bash \$A approve-merge $SHA\""
+plan r1f "M=approve-merge; bash \"\$A\" \"\$M\" \"$SHA\""
 
 check_r1() { local o rc n0; n0="$(nh)"; o="$(hil "$1" alive "" merge)"; rc=$?
   [ "$rc" = 1 ] && [ "$(nh)" = "$n0" ] && has "$o" "REJECT 범위 승인 S4 중 approve-merge — scope-approve <sha> --pr <N> [--card <카드>] [--repo byz|pack] 로 (판정 2904) — 줄 5" "R1 범위 S4 살아 있음 + approve-merge = REJECT · 등록 0" || bad "R1 rc=$rc h=$(nh) ← $o"; }
@@ -46,7 +46,7 @@ check_r1x() { local o rc n0; n0="$(nh)"; o="$(hil "$1" alive "" "$2")"; rc=$?   
   [ "$rc" = 1 ] && [ "$(nh)" = "$n0" ] && has "$o" "REJECT 범위 승인 S4 중 approve-merge" "R1 $2 $(sed -n 5p "$T/$2.sh.hil") = REJECT · 등록 0" || bad "R1 $2 rc=$rc h=$(nh) ← $o"; }
 sec "R1~R4 범위 상태별"
 check_r1 "$BIN0"
-for k in r1b r1c r1d r1e; do check_r1x "$BIN0" "$k"; done
+for k in r1b r1c r1d r1e r1f; do check_r1x "$BIN0" "$k"; done
 o="$(hil "$BIN0" alive "" scope)"; rc=$?; [ "$rc" = 0 ] && [ "$(nh)" = 1 ] && ok "R2 scope-approve 계획 = 등록 rc0" || bad "R2 rc=$rc h=$(nh) ← $o"
 o="$(hil "$BIN0" none "" merge)"; rc=$?; [ "$rc" = 0 ] && [ "$(nh)" = 2 ] && ok "R3 범위 승인 없음 + approve-merge = 등록 rc0" || bad "R3 rc=$rc h=$(nh) ← $o"
 rm -rf "$HD"; mkdir -p "$HD"

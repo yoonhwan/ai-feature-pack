@@ -19,6 +19,7 @@ from ft_traffic_plan_judge import logical_lines
 OPS = {";", "&&", "||", "|", "&", "(", ")", "$(", "`"}
 TEXT = {"echo", "printf", ":", "grep", "rg"}  # 인자가 글자일 뿐인 명령(단 그 안의 $( )·백틱은 재귀로 본다)
 WORD = re.compile(r"(?<![\w-])approve-merge(?![\w-])")
+ASSIGN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 ALIVE = re.compile(r"^\[범위 승인 (S[0-9]+) · ")
 IDLE = re.compile(r"^\[범위 승인 (없음|S[0-9]+ 정지: )")
 WHY = "범위 승인 %s 중 approve-merge — scope-approve <sha> --pr <N> [--card <카드>] [--repo byz|pack] 로 (판정 2904) — 줄 %d"
@@ -79,6 +80,9 @@ def is_candidate(line: str) -> bool:
     for t in toks:
         if t in OPS or t.endswith("$"):
             cmd = ""
+        elif not cmd and ASSIGN.match(t):  # 명령 앞·홀로 선 대입(M=approve-merge; bash "$A" "$M")
+            if WORD.search(t):
+                return True
         elif not cmd:
             cmd = t
         elif cmd not in TEXT and WORD.search(t):  # 토큰 안 낱말도 — eval·bash -c 문자열 인자
