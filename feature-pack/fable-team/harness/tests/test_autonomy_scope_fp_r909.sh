@@ -160,10 +160,11 @@ mut() { rm -rf "$MUT"; mkdir -p "$MUT"; cp "$BIN"/autonomy_scope_*.py "$BIN"/ft_
 mutcls() { out="$(python3 "$MUT/autonomy_scope_classify.py" classify "$1" --repo "$W" --scope S1 2>&1)"; rc=$?; }
 mut; python3 - "$MUT/autonomy_scope_secret.py" <<'EOF'
 import sys; p = sys.argv[1]; t = open(p, encoding="utf-8").read()
-assert "shield_set_call(full)" in t
-open(p, "w", encoding="utf-8").write(t.replace("shield_set_call(full)", "full"))
+old = 'c if m or c == "\\n" else " "'   # r1195: 코드 파일 «리터럴 밖 가림» 이 set( 가림을 흡수했다
+assert old in t
+open(p, "w", encoding="utf-8").write(t.replace(old, "c"))
 EOF
-mutcls "$(git -C "$W" rev-parse a1)"; want "변이: 칸1 좁힘 끔(set( 가리기 끔) → ⓐ 빨강(FORBID secret)" 3 "FORBID kind=secret"
+mutcls "$(git -C "$W" rev-parse a1)"; want "변이: 칸1 좁힘 끔(리터럴 밖 가림 끔) → ⓐ 빨강(FORBID secret)" 3 "FORBID kind=secret"
 mut; python3 - "$MUT/autonomy_scope_secret.py" <<'EOF'
 import sys; p = sys.argv[1]; t = open(p, encoding="utf-8").read()
 assert 'if full and full.split("\\n", 1)[0].startswith("#!"):' in t

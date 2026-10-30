@@ -141,7 +141,7 @@ def _promptless(t):   # «$ »·«! » 는 셸 프롬프트 표시 — 판정기
 
 SHELL_EXT = (".sh", ".bash", ".zsh", ".ksh", ".dash", ".command", ".bats")
 YAML_EXT = (".yml", ".yaml")
-# 코드 확장자 — «식별자 set(» 만 셸 판정에서 뺀다(H5 · DA⑥ 반례 1)
+# 코드 확장자 — «문자열 리터럴 안» 글만 셸 판정에 넘긴다(r1195 · 옛 H5 «식별자 set(» 가림을 흡수)
 CODE_EXT = (".py", ".pyi", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".go", ".rb", ".java", ".kt", ".kts",
              ".rs", ".c", ".h", ".cc", ".cpp", ".hpp", ".cs", ".php", ".swift", ".scala", ".pl", ".lua", ".dart",
              ".ex", ".exs", ".vue", ".svelte")
@@ -232,9 +232,10 @@ def shell_text(path, is_doc, items, full):   # plan() 에 넘길 글 · "" = 이
         return doc_cmds(full, items)   # 문서는 «셔뱅 없는» 파일만(실행될 수 있는 줄)
     if ext in YAML_EXT:
         return yaml_added(items)       # 기준판 동작 + 추가 줄만
-    if ext in CODE_EXT and full is not None:
-        shielded = shield_set_call(full).split("\n")   # 줄 번호는 그대로(글자만 바뀐다)
-        return "\n".join(shielded[n - 1] if 0 < n <= len(shielded) else t for n, t in items)
+    if ext in CODE_EXT and full is not None:   # 코드 = «문자열 리터럴 안» 글만(r1195 · 식별자 괄호 «(env)» 는 부분 셸 아님)
+        mask = _in_literals(full)
+        kept = "".join(c if m or c == "\n" else " " for c, m in zip(full, mask)).split("\n")   # 줄 번호는 그대로
+        return "\n".join(kept[n - 1] if 0 < n <= len(kept) else t for n, t in items)
     return text   # 그 밖 = 판정한다(닫힌 쪽)
 
 

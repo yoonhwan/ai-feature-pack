@@ -372,11 +372,41 @@ FEAT_OK=1
 if [ -n "$LIVE_WT" ] && ! git rev-parse --verify -q "$FEAT^{commit}" >/dev/null 2>&1; then
   say "✗" "① 판정 불가 — 기준 줄기 $FEAT 를 못 풂(FT_NANO_FEAT 확인)"; FAIL=1; FEAT_OK=0; LIVE_WT=""
 fi
+# ★r1201: 가지 단위 착지 판정★ — ft-merge-land 의 squash 는 PR 제목 + 끝줄 «PR #N (head X)» 만 남겨 아래 ⒜⒝⒞(커밋 단위)가 셋 다 거짓이다.
+#   FEAT 최근 60커밋(FEAT_BODY 와 같은 범위)의 끝줄(문서 자동 병합 꼬리 «main 자동 병합(문서 전용 · 겹침 0) C=<40hex>» 1줄은 건너뜀)이
+#   정확히 «PR #<수> (head <40hex>)» 인 X 를 모은다(ft-nano-close _lp_lastline_head 와 같은 꼴).
+_hex40(){ [ "${#1}" -eq 40 ] && case "$1" in *[!0-9a-f]*) return 1;; esac; }
+_squash_heads(){ # → «<FEAT 커밋>\t<X>\t<N>» 줄들
+  local rec c l prev x n
+  while IFS= read -r -d '' rec || [ -n "$rec" ]; do
+    c="${rec%%$'\n'*}"; l=""; prev=""
+    while IFS= read -r x; do x="${x%"${x##*[![:space:]]}"}"; [ -n "$x" ] && { prev="$l"; l="$x"; }; done <<< "${rec#*$'\n'}"
+    case "$l" in "main 자동 병합(문서 전용 · 겹침 0) C="*) _hex40 "${l#*C=}" && l="$prev";; esac
+    case "$l" in "PR #"*" (head "*")") ;; *) continue;; esac
+    n="${l#PR #}"; n="${n%% (head *}"; x="${l##* (head }"; x="${x%)}"
+    case "$n" in ''|*[!0-9]*) continue;; esac
+    [ "$l" = "PR #$n (head $x)" ] && _hex40 "$x" && printf '%s\t%s\t%s\n' "$c" "$x" "$n"
+  done < <(git log -z "$FEAT" --format='%H%n%B' -60 2>/dev/null)
+}
+_squash_landed(){ # 워크트리 → rc0 = 착지됨(⊘ 한 줄) · rc1 = 판정 안 함(X 없음·git 실패 = 지금처럼 커밋 단위로 센다)
+  local w="$1" c x n nm
+  while IFS=$'\t' read -r c x n; do
+    git -C "$w" cat-file -e "$x^{commit}" 2>/dev/null || continue
+    if git -C "$w" merge-base --is-ancestor HEAD "$x" 2>/dev/null; then :     # ⓐ 나노가 PR head 뒤에 머묾
+    elif git -C "$w" merge-base --is-ancestor "$x" HEAD 2>/dev/null \
+      && nm="$(git -C "$w" rev-list --no-merges "$x"..HEAD ^"$FEAT" 2>/dev/null)" && [ -z "$nm" ]; then :   # ⓑ X 뒤 병합 아닌 커밋이 전부 이미 FEAT 에 있음(main 병합만 · 미착지 옆 가지 병합은 센다)
+    else continue; fi
+    say "  ⊘" "착지됨($(basename "$w") · PR #$n squash ${c:0:10}) — ① 셈 제외"; return 0
+  done <<< "$SQUASH_HEADS"
+  return 1
+}
+SQUASH_HEADS=""; [ -n "$LIVE_WT" ] && SQUASH_HEADS="$(_squash_heads)"
 
 for W in $LIVE_WT; do
   W="$ROOT/.worktrees/$W"
   [ -e "$W/.git" ] || continue
   _other_trunk "$W" && continue
+  _squash_landed "$W" && continue
   # 제품 경로를 건드린 미랜딩만 센다(문서만이면 press 에 영향 0)
   # ★cherry-pick -x 로 이미 feat 에 올라간 것은 «미랜딩이 아니다»★ — 원본 sha 는 조상이 아니므로
   # 제목으로 대조한다(이 오탐 때문에 9건이 미랜딩으로 잡혔다).
@@ -528,6 +558,18 @@ if [ -n "$wpid" ]; then
     ps eww "$wpid" 2>/dev/null | tr ' ' '\n' | grep -q "^${k}=" || { say "✗" "env 없음: $k"; miss=$((miss+1)); }
   done < <(sed -n '/^WORKER_ENV_SPEC=(/,/^)/p' scripts/server/ready-check.sh | grep -oE '"[A-Z0-9_]+=' | tr -d '"=')
   [ "$miss" = "0" ] && say "✓" "필수 env 전부 실림" || FAIL=1
+fi
+
+# ④-b 화면 env(r1196) — poller 화면 축(data-dbg-*)은 FE 를 NEXT_PUBLIC_BUBBLE_DEBUG=true 로 띄워야 붙는다(#8 RULE)
+#   읽기 = ready-check.sh FE 세대 env 와 같다: FE 리스너의 «부모» pid env · 값 true 만 통과
+fpid=$(lsof -ti:"$FE_PORT" -sTCP:LISTEN 2>/dev/null | head -1)
+fppid=$([ -n "$fpid" ] && ps -o ppid= -p "$fpid" 2>/dev/null | tr -d ' ')
+if [ -z "$fppid" ]; then
+  say "✗" "④-b 화면 env 판정 불가 — FE 리스너(:$FE_PORT) 부모 env 못 읽음"; FAIL=1
+elif ps eww "$fppid" 2>/dev/null | tr ' ' '\n' | grep -qx 'NEXT_PUBLIC_BUBBLE_DEBUG=true'; then
+  say "✓" "④-b 화면 env NEXT_PUBLIC_BUBBLE_DEBUG=true"
+else
+  say "✗" "④-b 화면 env NEXT_PUBLIC_BUBBLE_DEBUG=true 없음 — poller 화면 축 0(#8 RULE) · FE 를 NEXT_PUBLIC_BUBBLE_DEBUG=true bash scripts/client/web/run.command 로 다시 띄운다"; FAIL=1
 fi
 
 # ⑤ 세트 축(M7 · single_set_testing §1 규칙 1) — 러너 파일 워크트리 HEAD == worker·gateway pid cwd 워크트리 HEAD · 세트 경로 dirty 0. 정의 본체는 ft-press-set-check.sh.
