@@ -159,6 +159,7 @@ case "$cmd" in
     guard_check "$to" "${args[*]}" "$from" || exit $?   # rc 3 = REJECT(큐 적재 0) · 후계 전달·[합치기] 치환은 GUARD_TO·GUARD_BODY
     to="$GUARD_TO"; args=("$GUARD_BODY"); dbto="$(holder_of "$to")"
     case "${args[*]}" in "[레디]"*) dbto="$to";; esac   # [레디] = 은퇴한 옛 세션 앞 핸드셰이크 회신 — 현역(후계 자신) 말고 그 pane 을 깨운다(r1116 ②)
+    case "${args[*]}" in "[인계]"*|"[레디]"*) dbf=1;; esac   # 승계 핸드셰이크 두 쪽지 = 발주처럼 doorbell 시간 억제를 뚫는다(r1160) · py --force(가드 우회)는 안 넘긴다
     if [ "$urgent" = 1 ] || [ "$(notify_policy "$dbto")" = ring ]; then notify=1; else notify=0; fi
     # 가드 거부(exit 3) 시 doorbell 을 울리지 않는다 — 큐에 들어간 게 없다.
     # ★출력을 «잡는다»★ (2026-09-06, F5) — doorbell 에 실을 seq 가 그 안에 있다.
