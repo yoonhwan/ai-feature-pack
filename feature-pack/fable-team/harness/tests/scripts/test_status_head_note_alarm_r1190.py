@@ -77,6 +77,20 @@ def test_r5_new_broken_edition_sends_one_more(root, tmp_path, monkeypatch):  # �
     assert len(calls(root)) == 2
 
 
+@pytest.mark.parametrize("last", ["3(메모", "3(a)(b)", "3(a\n메모)", "34(메모"])
+def test_c1_c4_unclosed_or_double_note_on_the_last_number_is_broken(root, tmp_path, monkeypatch, last):  # ⓑ · DA① C1~C3 (+C4 숫자 되짚기)
+    now = status(tmp_path, monkeypatch, f"스크립트 1 · 인터뷰 2 · 막힌 팀 대기 {last}")
+    assert sh.head(now=now) == "카운팅 확인 불가(형식)"
+    assert len(calls(root)) == 1
+
+
+@pytest.mark.parametrize("first", [f"{NOTE[:-1]}3(x) · 갱신 23:10", "스크립트 1 · 인터뷰 2 · 막힌 팀 대기 34", f"{PLAIN} · 갱신 23:10"])
+def test_c_tail_after_the_last_number_still_passes(root, tmp_path, monkeypatch, first):  # 기준판이 받던 뒤꼬리 유지($ 앵커 0)
+    now = status(tmp_path, monkeypatch, first)
+    assert sh.head(now=now) == first
+    assert calls(root) == []
+
+
 @pytest.mark.parametrize("break_mbox", ["missing", "rc2"])
 def test_r6_alarm_failure_keeps_head_logs_one_error_and_writes_no_mark(root, tmp_path, monkeypatch, caplog, break_mbox):  # ⓒ · R6
     if break_mbox == "missing":
