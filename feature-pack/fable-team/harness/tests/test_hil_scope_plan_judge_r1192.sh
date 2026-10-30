@@ -39,6 +39,9 @@ plan r1c "printf '%s\\\\n' '# approval'; bash \"\$A\" approve-merge \"$SHA\""
 plan r1d "eval \"bash \$A approve-merge $SHA\""
 plan r1e "bash -c \"bash \$A approve-merge $SHA\""
 plan r1f "M=approve-merge; bash \"\$A\" \"\$M\" \"$SHA\""
+plan r1g "args=(approve-merge \"$SHA\"); bash \"\$A\" \"\${args[@]}\""
+plan r1h "approve-merge \"$SHA\""
+plan greponly "grep -c approve-merge /dev/null; bash \"\$A\" scope-approve $SHA --pr 2"
 
 check_r1() { local o rc n0; n0="$(nh)"; o="$(hil "$1" alive "" merge)"; rc=$?
   [ "$rc" = 1 ] && [ "$(nh)" = "$n0" ] && has "$o" "REJECT 범위 승인 S4 중 approve-merge — scope-approve <sha> --pr <N> [--card <카드>] [--repo byz|pack] 로 (판정 2904) — 줄 5" "R1 범위 S4 살아 있음 + approve-merge = REJECT · 등록 0" || bad "R1 rc=$rc h=$(nh) ← $o"; }
@@ -46,7 +49,7 @@ check_r1x() { local o rc n0; n0="$(nh)"; o="$(hil "$1" alive "" "$2")"; rc=$?   
   [ "$rc" = 1 ] && [ "$(nh)" = "$n0" ] && has "$o" "REJECT 범위 승인 S4 중 approve-merge" "R1 $2 $(sed -n 5p "$T/$2.sh.hil") = REJECT · 등록 0" || bad "R1 $2 rc=$rc h=$(nh) ← $o"; }
 sec "R1~R4 범위 상태별"
 check_r1 "$BIN0"
-for k in r1b r1c r1d r1e r1f; do check_r1x "$BIN0" "$k"; done
+for k in r1b r1c r1d r1e r1f r1g r1h; do check_r1x "$BIN0" "$k"; done
 o="$(hil "$BIN0" alive "" scope)"; rc=$?; [ "$rc" = 0 ] && [ "$(nh)" = 1 ] && ok "R2 scope-approve 계획 = 등록 rc0" || bad "R2 rc=$rc h=$(nh) ← $o"
 o="$(hil "$BIN0" none "" merge)"; rc=$?; [ "$rc" = 0 ] && [ "$(nh)" = 2 ] && ok "R3 범위 승인 없음 + approve-merge = 등록 rc0" || bad "R3 rc=$rc h=$(nh) ← $o"
 rm -rf "$HD"; mkdir -p "$HD"
@@ -54,6 +57,8 @@ o="$(hil "$BIN0" stop "" merge)"; rc=$?; [ "$rc" = 0 ] && [ "$(nh)" = 1 ] && ok 
 sec "R5 주석·echo 글자만 = 후보 0 · 범위 조회 0"
 : > "$T/calls.log"; o="$(hil "$BIN0" alive "" quiet)"; rc=$?
 [ "$rc" = 0 ] && [ "$(nc)" = 0 ] && ok "R5 주석 줄·echo 문자열·줄 끝 주석·작은따옴표 안 \$( ) = 등록 rc0 · scope-status 호출 0" || bad "R5 rc=$rc calls=$(nc) ← $o"
+: > "$T/calls.log"; o="$(hil "$BIN0" alive "" greponly)"; rc=$?
+[ "$rc" = 0 ] && [ "$(nc)" = 0 ] && ok "R5 grep 인자 approve-merge + scope-approve = 등록 rc0 · 조회 0" || bad "R5 grep rc=$rc calls=$(nc) ← $o"
 sec "R6 범위 조회 실패 = ERROR 등록 0"
 for k in fail weird; do rm -rf "$HD"; mkdir -p "$HD"; o="$(hil "$BIN0" "$k" "" merge)"; rc=$?
   [ "$rc" != 0 ] && [ "$(nh)" = 0 ] && has "$o" "ERROR ft-hil 판정기 실행 실패" "R6 조회 $k = ERROR · rc=$rc · 등록 0" || bad "R6 $k rc=$rc h=$(nh) ← $o"

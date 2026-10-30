@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """ft_scope_plan_judge — 범위 승인(S) 중 h 계획의 `approve-merge` 줄 검사 (r1192 · 오빠 판정 2904 · S3 뒤 approve-merge 159 · scope-use 2).
 CLI: ft_scope_plan_judge.py --plan <파일> → `ok`(rc0) | `reject <이유> — 줄 <n>`(줄마다 · rc1) | 범위 조회 실패·내부 오류 rc2
-- 주석 아닌 줄에서 낱말 `approve-merge` 가 명령 인자(명령 첫 낱말 아님 · echo/printf/grep 인자 아님 · eval·bash -c 문자열 안 포함)로 있으면 후보 — 후보 0 이면 범위 조회 0
+- 주석 아닌 줄에서 낱말 `approve-merge` 가 echo/printf/:/grep/rg 인자가 «아닌» 토큰(명령 자리·대입·배열·eval·bash -c 문자열 안 포함)에 있으면 후보 — 후보 0 이면 범위 조회 0
   글자 훑기(r1192 반송 1): 따옴표 밖 낱말 머리 `#` 뒤 = 주석 · 작은따옴표 밖 `$( )`·백틱 본문 = 실행되므로 재귀 판정
 - 후보가 있으면 scope-status 1회(FT_SCOPE_STATUS_CMD 또는 같은 폴더 ft-autonomy.sh · 7초): «[범위 승인 S<n> · …» = 살아 있음 → reject
   «[범위 승인 없음…» · «[범위 승인 S<n> 정지: …» = ok(오빠 손 승인 h 그대로) · 그 밖(도구 없음·rc≠0·시간 초과·꼴 모름) = rc2
@@ -76,16 +76,15 @@ def is_candidate(line: str) -> bool:
         toks = list(lex)
     except ValueError:
         return True
-    cmd = ""  # 지금 명령의 첫 낱말(빈 값 = 다음 낱말이 명령)
+    cmd = ""  # 지금 명령의 첫 낱말(빈 값 = 다음 낱말이 명령 · 대입은 명령이 아니다)
     for t in toks:
         if t in OPS or t.endswith("$"):
             cmd = ""
-        elif not cmd and ASSIGN.match(t):  # 명령 앞·홀로 선 대입(M=approve-merge; bash "$A" "$M")
-            if WORD.search(t):
-                return True
-        elif not cmd:
+            continue
+        text_arg = cmd in TEXT  # TEXT 명령의 인자만 글자로 본다
+        if not cmd and not ASSIGN.match(t):
             cmd = t
-        elif cmd not in TEXT and WORD.search(t):  # 토큰 안 낱말도 — eval·bash -c 문자열 인자
+        if not text_arg and WORD.search(t):  # 명령 자리·대입·배열·eval·bash -c 문자열 안 낱말 전부
             return True
     return False
 
