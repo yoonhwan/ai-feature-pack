@@ -26,7 +26,7 @@ for i, x in enumerate(a):
     if x == "-H" and a[i + 1].lower().startswith("authorization:"):
         tok = a[i + 1].split("Bearer ", 1)[-1].strip()
 d = os.environ["FAKE_DIR"]
-open(os.path.join(d, "log"), "a").write(tok + "\t" + url + "\n")
+open(os.path.join(d, "log"), "a").write(f"{time.time():.3f}\t" + tok + "\t" + url + "\n")
 mt = 0.0
 for i, x in enumerate(a):
     if x == "-m" and i + 1 < len(a):
@@ -232,7 +232,7 @@ chip_d2() { # DA2: 응답 꼴이 틀려도 traceback·토큰이 stderr 에 새�
   leak_check D2 TOK-D2-SECRET
 }
 
-chip_d3() { # DA3: 창은 limit_window_seconds 로 고른다(5시간 18000 · 7일 604800 · 순서 가정 0)
+chip_d3() { # DA3: 창은 limit_window_seconds 로 고르고 · 리셋 값은 그 창 응답값과 «정확히» 같다(순서 가정 0)
   local A S J; A="$(newdir d3)"; S="$(newdir d3s)"
   printf '{"type":"codex","access_token":"tok-w","expired":"2030-01-01T00:00:00+09:00","disabled":false,"account_id":"acc"}\n' \
     > "$A/codex-cccc1111-y@byourz.com-pro.json"
@@ -240,10 +240,12 @@ chip_d3() { # DA3: 창은 limit_window_seconds 로 고른다(5시간 18000 · 7�
     > "$FAKE_DIR/body.tok-w"
   J="$(jq_row "$A" "$S" "")"
   printf '%s' "$J" | python3 -c '
-import json,sys
+import json,sys,datetime as dt
 r=json.load(sys.stdin)[0]
-ok = r["five_hour"]==30 and r["seven_day"]==70 and r["reset_5h"]!="근거 없음" and r["reset_7d"]!="근거 없음"
-sys.exit(0 if ok else 1)' && ok "D3 5h=30 · 7d=70 · 리셋 각 칸" || bad "D3 창 매핑 ($J)"
+def iso(e): return dt.datetime.fromtimestamp(e, dt.timezone.utc).isoformat(timespec="seconds")
+ok = (r["five_hour"]==30 and r["seven_day"]==70
+      and r["reset_5h"]==iso(1793500000) and r["reset_7d"]==iso(1793900000))
+sys.exit(0 if ok else 1)' && ok "D3 5h=30 · 7d=70 · 리셋 값 정확히 일치" || bad "D3 창·리셋 매핑 ($J)"
 }
 
 chip_d4() { # DA4: 계정 id 에 이메일 전문 0
@@ -280,14 +282,24 @@ chip_d6() { # DA6: 429 결과도 60초 캐시 → 두 번째 실행 curl 0
   printf '%s\n' "$OUT" | grep -q '429' && ok "D6 캐시에서도 429 행" || bad "D6 429 행"
 }
 
-chip_d7() { # DA7: 부모가 7초에 끊고 재시도 1회만 · 전체 상한 안
-  local A S el n; A="$(newdir d7)"; S="$(newdir d7s)"
+chip_d7() { # DA7: 부모가 «정확히 7초»에 끊고 재시도 1회 · 단일 계정 전체 10초 안
+  local A S el n blk tot; A="$(newdir d7)"; S="$(newdir d7s)"
   mk_auth "$A" claude-aaaa1111-x@byourz.com.json tok-hang 2030-01-01T00:00:00+09:00 false
   echo 8 > "$FAKE_DIR/delay.tok-hang"; : > "$FAKE_DIR/ignore_m"; : > "$FAKE_DIR/log"
-  el=0; local t0; t0=$(date +%s); run "$A" "$S"; el=$(( $(date +%s) - t0 ))
+  local t0 t1; t0="$(python3 -c 'import time;print(f"{time.time():.3f}")')"
+  run "$A" "$S"
+  t1="$(python3 -c 'import time;print(f"{time.time():.3f}")')"
+  read -r blk tot < <(python3 - "$t0" "$t1" "$FAKE_DIR/log" <<'PY'
+import sys
+t0, t1, log = float(sys.argv[1]), float(sys.argv[2]), sys.argv[3]
+ts = [float(l.split("\t")[0]) for l in open(log) if l.strip()]
+print(f"{(ts[1] - ts[0]) if len(ts) > 1 else 0.0:.2f} {t1 - t0:.2f}")
+PY
+)
   n=$(calls); rm -f "$FAKE_DIR/ignore_m"
   [ "$n" -eq 2 ] && ok "D7 재시도 1회(호출 2)" || bad "D7 재시도 횟수 (n=$n)"
-  [ "$el" -le 12 ] && ok "D7 7초 차단 상한 안 (${el}s)" || bad "D7 7초 차단 (${el}s)"
+  awk "BEGIN{exit !($blk<=7.2)}" && ok "D7 첫 차단 7.2초 안 (${blk}s)" || bad "D7 첫 차단 (${blk}s)"
+  awk "BEGIN{exit !($tot<=10)}" && ok "D7 단일 계정 전체 10초 안 (${tot}s)" || bad "D7 단일 계정 전체 (${tot}s)"
   printf '%s\n' "$OUT" | grep -q '판정 불가 시간 초과' && ok "D7 시간 초과 행" || bad "D7 시간 초과 행"
 }
 
@@ -312,7 +324,7 @@ M = {
        "    core = local if at else stem"),
  "5": ("        cache[row[\"account\"]] = {\"at\": NOW, \"row\": mask_row(row, secrets)}",
        "        if row[\"result\"] == \"OK\": cache[row[\"account\"]] = {\"at\": NOW, \"row\": mask_row(row, secrets)}"),
- "6": (", timeout=timeout + 0.5)", ")"),
+ "6": ("timeout=timeout)", "timeout=timeout + 0.5)"),
  "7": ("    return (j, \"\") if isinstance(j, dict) else (None, \"판정 불가 응답 꼴\")", "    return (j, \"\")"),
 }
 old, new = M[n]

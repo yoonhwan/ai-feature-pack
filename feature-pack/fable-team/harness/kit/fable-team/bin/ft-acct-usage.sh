@@ -99,8 +99,8 @@ def make_http(deadline):
         cmd = [CURL, "-s", "-m", str(timeout), "-w", "\n%{http_code}", url]
         for k, v in headers:
             cmd += ["-H", f"{k}: {v}"]
-        try:  # 부모가 시간을 강제한다 — -m 을 무시하는 curl 도 7초에 끊긴다(DA 반송 7)
-            r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout + 0.5)
+        try:  # 부모가 시간을 강제한다 — -m 을 무시하는 curl 도 «정확히» 7초에 끊긴다(DA 반송 2 · 여유 0)
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
         except subprocess.TimeoutExpired:
             return None, "", "시간 초과"
         except OSError:
