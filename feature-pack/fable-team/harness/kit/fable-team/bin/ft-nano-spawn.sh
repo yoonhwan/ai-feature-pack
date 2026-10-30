@@ -542,8 +542,9 @@ _RLX=" ★시험 안전선(r1041) — 시험은 «ulimit -u»(지금 사용자 �
 echo "BODY+${_RLX}"
 # r519: 하네스 카드(머리 `- 설치: 있음`) 나노는 팩 리포에 따로 작업 폴더를 만든다 — 자리를 발주문 1줄로 정한다.
 #   세션 스크래치에 만들면 nano-close --wt 팩 모드(r508 · 팩 .worktrees/ 아래만)가 거절한다(r517 실사건) · 그 밖 카드 = 출력 0
+# r1205: 판별 = nano-close r621·r688 과 같은 «첫 5줄 원장 줄» — `- 설치:` 줄로 보면 시험만 고치는 하네스 카드(설치: 없음)가 스크래치에서 일해 닫기가 막힌다(r1197·r1204)
 pack_wt_line() {
-  grep -qE '^- 설치: 있음' "$1" || return 0
+  head -5 "$1" | grep -qE '<!-- ledger: [^ ]*/GOAL-harness\.md -->' || return 0
   local pk="${FT_PACK_ROOT:-$HOME/Project/ai-feature-pack}"
   printf ' ★팩 작업 폴더 = %s/.worktrees/%s (git -C %s worktree add %s/.worktrees/%s -b %s origin/main · 세션 스크래치 0 — 닫기 = nano-close --wt %s/.worktrees/%s --branch %s)★' \
     "$pk" "$2" "$pk" "$pk" "$2" "$3" "$pk" "$2" "$3"
