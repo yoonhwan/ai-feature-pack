@@ -107,7 +107,10 @@ def index_move_pair(rows, read_blob, base, head):
         if st != "A" or not c or c[1] != TO_DIR or (c[0], c[2]) not in gone:
             continue
         src = gone[(c[0], c[2])]
-        old, new = _lines(read_blob(base, src)), _lines(read_blob(head, p))
+        raw_old, raw_new = read_blob(base, src), read_blob(head, p)
+        if b"\r" in (raw_old or b"") or b"\r" in (raw_new or b""):   # DA ① C1·C2: CR 정규화 0 — 그 짝은 면제 아님
+            return rows, [], "추가·수정 아닌 변경(D): %s — 이동 꼴 아님: CRLF 줄 있음(ft-index-move 는 LF 만 씀)" % src
+        old, new = _lines(raw_old), _lines(raw_new)
         if old is None or new is None:
             return rows, [], "이동 꼴 아님(카드를 못 읽음·UTF-8 아님): %s" % p
         tail, why = appended_lines(old, new)

@@ -93,6 +93,14 @@ mkmove r2d "$RUN" "$DONE" "$T/r2d.md"; dx "$HS"
 [ "$rc" = 1 ] && [[ "$out" == *"기록 줄 2개"* ]]; ck "ⓑ R2 변형: 기록 줄 2개 → 거절" $?
 done_card "$DA_OK" | sed '/^1\. 본문 줄$/d' > "$T/r2e.md"; mkmove r2e "$RUN" "$DONE" "$T/r2e.md"; dx "$HS"
 [ "$rc" = 1 ] && [[ "$out" == *"이동 꼴 아님"* ]]; ck "ⓑ R2 변형: 옛 줄 1개 삭제 → 거절" $?
+# DA ① C1·C2 — «\r» 바이트가 있는 짝은 면제 아님(ft-index-move 는 LF 만 쓴다 · CR 정규화 0)
+{ done_card "$DA_OK"; printf -- '- 2026-10-30 22:01 — 진행→완성 · DA %s\r\n' "$DA_OK"; } > "$T/c1.md"
+mkmove c1 "$RUN" "$DONE" "$T/c1.md"; dx "$HS"
+[ "$rc" = 1 ] && [[ "$out" == *"CRLF 줄 있음"* ]]; ck "ⓑ C1 정상 기록 LF 1줄 + CRLF 기록 1줄 → 면제 아님 «CRLF 줄 있음»" $?
+git -C "$W" checkout -q -B c2-base c-main; printf '%s\n' "$OLD_CARD" | sed 's/$/\r/' > "$W/$RUN"; cm "$W" c2-base; C2B="$(sha "$W" c2-base)"
+git -C "$W" rm -q "$RUN"; mkdir -p "$W/$(dirname "$DONE")"; { printf '%s\n' "$OLD_CARD" | sed 's/$/\r/'; printf -- '- 2026-10-30 22:00 — 진행→완성 · DA %s\r\n' "$DA_OK"; } > "$W/$DONE"; cm "$W" c2-head
+out="$(FT_SEAT="$SEAT" python3 "$DX" --mode doc-exempt --repo "$W" --root "$W" --base "$C2B" --head "$(sha "$W" HEAD)" 2>&1)"; rc=$?
+[ "$rc" = 1 ] && [[ "$out" == *"CRLF 줄 있음"* ]]; ck "ⓑ C2 CRLF 카드 + CRLF 기록 1개 → 면제 아님 «CRLF 줄 있음»" $?
 mkmove r5 "$RUN" "$TD/indices/완성/Y.md" "$T/r1.md"; dx "$HS"
 [ "$rc" = 1 ] && [[ "$out" == NOT* ]] && [[ "$out" != *"이동 꼴"* ]]; ck "ⓑ R5 진행/X 삭제 + 완성/Y 추가(이름 다름) → 짝 아님 · 지금 규칙으로 거절(${out:0:60})" $?
 mkmove r6 "$TD/indices/대기/X.md" "$DONE" "$T/r1.md"; dx "$HS"
