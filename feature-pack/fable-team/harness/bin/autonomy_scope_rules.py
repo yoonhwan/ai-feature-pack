@@ -8,6 +8,7 @@ import re
 
 KIND_RE = re.compile(r"^[a-z][a-z0-9-]*$")
 NEVER_LEARN = {"secret"}
+NEVER_LEARN = NEVER_LEARN | {"repo-outside", "scope-table", "mode"}   # 경계 종류 = 한 번 학습되면 범위 전체가 열린다(r1208 · h569)
 LABEL = {"ddl": "DDL", "deploy": "배포·인프라", "key": "키", "billing": "과금", "deps": "의존", "global-rule": "전역 규칙"}
 BYZ_TABLE = [(c, k, re.compile(rx, re.I)) for c, k, rx in [
     ("forbid", "ddl", r"(^|/)migrations/|\.sql$|^alembic/"),
