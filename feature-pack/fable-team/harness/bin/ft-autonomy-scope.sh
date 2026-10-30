@@ -29,7 +29,7 @@ scope_load() {  # 마지막 approve-scope 줄 → G_S G_A G_UNTIL G_MAX G_DAILY 
 
 scope_validate() {  # <max> <daily|""> <classes> <codemax|""> <repos> → SV_MX SV_DL SV_CL SV_CM(0 = 없음) SV_REPOS · 틀리면 SCOPE-REJECT rc 2(쓰기 0)
   local mx="$1" dl="$2" cl="$3" cm="$4" c seen="," NUM_RE='^0*[0-9]{1,3}$'   # r908: 산술 «전» 자릿수 거름 — 앞자리 0 허용 · 의미 있는 자리 3자리 넘으면 거절(넘침 불가)
-  [[ "$mx" =~ $NUM_RE ]] && mx=$((10#$mx)) && [ "$mx" -ge 1 ] && [ "$mx" -le 100 ] || scope_err "--max 는 1~100(받은 값: ${mx:-없음})"   # r908: 자릿수 거름(«산술 전») — 긴 수는 bash 산술 넘침으로 100 이 될 수 있다(DA⑥ r1)
+  [[ "$mx" =~ $NUM_RE ]] && mx=$((10#$mx)) && [ "$mx" -ge 1 ] && [ "$mx" -le 200 ] || scope_err "--max 는 1~200(받은 값: ${mx:-없음})"   # r908: 자릿수 거름(«산술 전») — 긴 수는 bash 산술 넘침으로 200 이하가 될 수 있다(DA⑥ r1) · r1207: 상한 100→200(판정 2914)
   if [ -z "$dl" ]; then dl=10; [ "$dl" -le "$mx" ] || dl="$mx"; fi
   [[ "$dl" =~ $NUM_RE ]] && dl=$((10#$dl)) && [ "$dl" -ge 1 ] && [ "$dl" -le "$mx" ] || scope_err "--daily 는 1~max($mx)(받은 값: $dl)"   # r908 자릿수 거름
   [ -n "$cl" ] || scope_err "--classes 없음"
