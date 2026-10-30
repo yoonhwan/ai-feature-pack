@@ -51,16 +51,17 @@ mkdir -p "$T/elsewhere" "$R/.fable-team" "$R/design/harness/indices/진행" "$T/
 echo seq > "$T/comm/bodies/1.txt"; echo res > "$T/result.md"
 SEAT='byz-harness-nano-k#0'; CARD="$R/design/harness/indices/진행/k.md"
 
-run() { ( cd "$R" && env -i HOME="$HOME" FT_SHEET_ROOT="$FT_SHEET_ROOT" HIL_DIR="$T/hil" HIL_CLIP=0 PATH="$T/fake:$PATH" FAKE_PANES="$T/panes" FAKE_CWD="$T/cwd" FAKE_PANE_CWDS="$T/pane-cwds" FAKE_LOG="$T/tlog" "$@" 2>&1 ); }
 setup() {
   printf '{"%s":{"role":"nano","index":"design/harness/indices/진행/k.md"}}\n' "$SEAT" > "$R/.fable-team/seats-harness.json"
   printf '%s|%%1\n' "$SEAT" > "$T/panes"; printf '%s|%s\n' "$SEAT" "$RW" > "$T/pane-cwds"; printf '%s' "$RW" > "$T/cwd"
   : > "$T/tlog"; : > "$T/ledger.md"; rm -rf "$T/wtclean"
   printf '# 인덱스: k\n<!-- ledger: design/harness/GOAL-harness.md -->\n- 설치: 있음 — 팩 키트 1\n\n## 상태\n- 세트: %s · 시험: bash t.sh rc=0 · 이슈: 0\n' "$SHA" > "$CARD"
 }
-close() { local bin="$1"; shift; run FT_NANO_PREFIX=byz-harness-nano- FT_NANO_WT_PREFIX=harness- FT_NANO_FEAT=origin/main FT_PACK_ROOT="$P" \
+close() { local bin="$1"; shift; ( cd "$R" && env -i HOME="$HOME" FT_SHEET_ROOT="$FT_SHEET_ROOT" HIL_DIR="$T/hil" HIL_CLIP=0 PATH="$T/fake:$PATH" \
+  FAKE_PANES="$T/panes" FAKE_CWD="$T/cwd" FAKE_PANE_CWDS="$T/pane-cwds" FAKE_LOG="$T/tlog" \
+  FT_NANO_PREFIX=byz-harness-nano- FT_NANO_WT_PREFIX=harness- FT_NANO_FEAT=origin/main FT_PACK_ROOT="$P" \
   FT_SEATS_JSON="$R/.fable-team/seats-harness.json" FT_NANO_LEDGER="$T/ledger.md" FT_INBOX_ROOT="$T/comm" FT_NANO_IDLE_MIN=0 FT_WT_CLEAN_DIR="$T/wtclean" \
-  bash "$bin/ft-nano-close.sh" "$SEAT" --result "$T/result.md" --recv 1 "$@"; }
+  bash "$bin/ft-nano-close.sh" "$SEAT" --result "$T/result.md" --recv 1 "$@" 2>&1 ); }
 aline() { printf '%s\n' "$1" | grep -F 'ⓐ--wt(' | head -1; }
 SUSP_TAIL=' · 착지 전 휴식 닫기 = --suspended "<사유>"(브랜치·PR 보존)'
 OLD_HEAD="가 이 리포($R)에 등록된 .worktrees/ 아래 워크트리가 아니다 · 팩 경로는 하네스 카드(첫 5줄 원장 줄 GOAL-harness)만"
