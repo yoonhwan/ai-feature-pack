@@ -7,7 +7,9 @@
 #     대상 파일이 없으면 stdout «죽은 예약 <Label> exit=<N> — 대상 없음: <경로>» 1줄 + 현역 master 앞 [급] 1통(Label·날짜당 1회 · 표식 파일)
 #     대상 파일이 있으면 stdout «죽은 예약 <Label> exit=<N>(대상 있음)» 1줄 + 같은 알림. 접두 밖 Label 은 안 본다. 켜기·끄기·plist 쓰기 0.
 #   로컬 파일·launchctl 만 읽는다(외부 호출 0). 켜지도 끄지도 않는다. 기록 작성 규칙 = install-magazine.sh 머리 주석.
-#   env: FT_LDC_EXPECTED · FT_LDC_RECORDS · FT_LDC_STATE · FT_LDC_NOW(YYYY-MM-DD · 시험) · FT_LDC_MBOX · FT_LDC_NOTIFY(기본 SEATS 의 _master) · FT_LDC_SEATS · FT_LDC_LAUNCHCTL
+#   env: FT_LDC_EXPECTED · FT_LDC_RECORDS · FT_LDC_STATE · FT_LDC_NOW(YYYY-MM-DD · 시험) · FT_LDC_MBOX · FT_LDC_SEATS · FT_LDC_LAUNCHCTL
+#        FT_LDC_NOTIFY(수신 좌석 덮기) → 없으면 FT_LDC_OWNER_SEATS(기본 <ROOT>/.fable-team/seats-harness.json · 장치 주인 명부)의 _master
+#        → 주인 명부 «파일이 없을» 때만 FT_LDC_SEATS 의 _master (r1158 · 주인 명부가 있는데 _master 가 비면 rc3)
 #        FT_LDC_DEAD_PREFIX(기본 «com.byz. com.airag. com.hermes.») · FT_LDC_DEAD=0 이면 죽은 예약 점검 끔
 #   rc: 0 · 3 수신 좌석 없음 · 4 print-disabled 못 읽음 · 5 mbox 실패(표식 안 씀 → 다음 루프 재시도)
 set -uo pipefail
@@ -22,7 +24,12 @@ SEATS="${FT_LDC_SEATS:-$ROOT/.fable-team/seats.json}"
 LCTL="${FT_LDC_LAUNCHCTL:-launchctl}"
 TODAY="${FT_LDC_NOW:-$(date +%F)}"
 
-to="${FT_LDC_NOTIFY:-$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("_master") or "")' "$SEATS" 2>/dev/null)}"
+# r1158: 경보 수신 = 예약 장치 주인(harness 팀) 명부의 _master — 틱을 돈 팀의 명부(FT_LDC_SEATS)가 아니다
+OWNER_SEATS="${FT_LDC_OWNER_SEATS:-$ROOT/.fable-team/seats-harness.json}"
+_master_of() { python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("_master") or "")' "$1" 2>/dev/null; }
+if [ -n "${FT_LDC_NOTIFY:-}" ]; then to="$FT_LDC_NOTIFY"; to_src="FT_LDC_NOTIFY"
+elif [ -f "$OWNER_SEATS" ]; then to="$(_master_of "$OWNER_SEATS")"; to_src="$OWNER_SEATS"   # _master 가 비면 수신 좌석 없음(rc3) — 틱 명부로 후퇴하지 않는다(#0 RULE)
+else to="$(_master_of "$SEATS")"; to_src="$SEATS"; fi   # 주인 명부 파일이 없는 설치(팀 1개)만 틱 명부
 rc=0
 # ── 죽은 예약(켜진 채 실패 · 대상 스크립트 없음) — r612 ──
 DEAD_PREFIX="${FT_LDC_DEAD_PREFIX:-com.byz. com.airag. com.hermes.}"
@@ -52,10 +59,10 @@ if [ -n "$DEAD_PREFIX" ] && listing="$("$LCTL" list 2>/dev/null)"; then
     if [ -n "$script" ] && [ ! -e "$script" ]; then note="대상 없음: $script"; echo "죽은 예약 $label exit=$st — $note"
     else note="대상 있음${script:+: $script}"; echo "죽은 예약 $label exit=$st($note)"; fi
     [ -f "$STATE/dead-$label.$TODAY" ] && continue
-    [ -n "$to" ] || { echo "ERROR ft-launchd-check: 수신 좌석 없음(_master) $SEATS" >&2; rc=3; continue; }
+    [ -n "$to" ] || { echo "ERROR ft-launchd-check: 수신 좌석 없음(_master) $to_src" >&2; rc=3; continue; }
     if bash "$MBOX" send "$to" ft-launchd-check "[급] 예약 $label 이 죽어 있음(launchctl PID 없음 · 마지막 종료 exit=$st) — $note · plist 실행 경로/인자를 그 팀이 확인할 것" --urgent >/dev/null 2>&1; then
       mkdir -p "$STATE" && : > "$STATE/dead-$label.$TODAY"
-    else echo "ERROR ft-launchd-check: mbox 실패 to=$to" >&2; rc=5; fi
+    else echo "ERROR ft-launchd-check: mbox 실패 to=$to($to_src)" >&2; rc=5; fi
   done <<< "$(printf '%s\n' "$listing" | tail -n +2)"
 fi
 [ -f "$EXPECTED" ] || exit $rc   # 기대 예약표가 없으면 꺼짐 점검 대상 0 (죽은 예약 점검은 표와 무관하게 이미 돌았다)
@@ -75,10 +82,10 @@ while IFS= read -r label; do
   note="내림 기록 없음"; [ -f "$rec" ] && note="내림 기록 불완전($missing)"
   echo "꺼짐 — $label disabled · $note"
   [ -f "$STATE/$label.$TODAY" ] && continue
-  [ -n "$to" ] || { echo "ERROR ft-launchd-check: 수신 좌석 없음(_master) $SEATS" >&2; rc=3; continue; }
+  [ -n "$to" ] || { echo "ERROR ft-launchd-check: 수신 좌석 없음(_master) $to_src" >&2; rc=3; continue; }
   if bash "$MBOX" send "$to" ft-launchd-check "[급] 예약 $label 이 launchd 에서 꺼져 있음(disabled) — $note · 내림 기록을 쓰거나 다시 올릴 것(install-magazine.sh 머리 주석 참조)" --urgent >/dev/null 2>&1; then
     mkdir -p "$STATE" && : > "$STATE/$label.$TODAY"
-  else echo "ERROR ft-launchd-check: mbox 실패 to=$to" >&2; rc=5; fi
+  else echo "ERROR ft-launchd-check: mbox 실패 to=$to($to_src)" >&2; rc=5; fi
 done < "$EXPECTED"
 
 exit $rc
