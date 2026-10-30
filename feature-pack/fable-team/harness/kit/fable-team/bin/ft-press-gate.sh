@@ -530,6 +530,18 @@ if [ -n "$wpid" ]; then
   [ "$miss" = "0" ] && say "✓" "필수 env 전부 실림" || FAIL=1
 fi
 
+# ④-b 화면 env(r1196) — poller 화면 축(data-dbg-*)은 FE 를 NEXT_PUBLIC_BUBBLE_DEBUG=true 로 띄워야 붙는다(#8 RULE)
+#   읽기 = ready-check.sh FE 세대 env 와 같다: FE 리스너의 «부모» pid env · 값 true 만 통과
+fpid=$(lsof -ti:"$FE_PORT" -sTCP:LISTEN 2>/dev/null | head -1)
+fppid=$([ -n "$fpid" ] && ps -o ppid= -p "$fpid" 2>/dev/null | tr -d ' ')
+if [ -z "$fppid" ]; then
+  say "✗" "④-b 화면 env 판정 불가 — FE 리스너(:$FE_PORT) 부모 env 못 읽음"; FAIL=1
+elif ps eww "$fppid" 2>/dev/null | tr ' ' '\n' | grep -qx 'NEXT_PUBLIC_BUBBLE_DEBUG=true'; then
+  say "✓" "④-b 화면 env NEXT_PUBLIC_BUBBLE_DEBUG=true"
+else
+  say "✗" "④-b 화면 env NEXT_PUBLIC_BUBBLE_DEBUG=true 없음 — poller 화면 축 0(#8 RULE) · FE 를 NEXT_PUBLIC_BUBBLE_DEBUG=true bash scripts/client/web/run.command 로 다시 띄운다"; FAIL=1
+fi
+
 # ⑤ 세트 축(M7 · single_set_testing §1 규칙 1) — 러너 파일 워크트리 HEAD == worker·gateway pid cwd 워크트리 HEAD · 세트 경로 dirty 0. 정의 본체는 ft-press-set-check.sh.
 _cwd_of(){ lsof -a -p "$1" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | head -1; }
 # 기동 stamp = 서비스 pid 프로세스 시작시각(epoch) — set-check 가 «워크트리 HEAD 가 기동 뒤 움직였나» 를 가른다(A4). 못 구하면 빈 값 → set-check 가 REJECT.
