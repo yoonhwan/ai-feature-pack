@@ -6,6 +6,8 @@
 #   R612: 켜져 있는데(launchctl list 에 PID «-») 마지막 종료가 실패(≠0)인 예약은 «죽은 예약» 이다 — print 의 실행 스크립트 경로를 읽어
 #     대상 파일이 없으면 stdout «죽은 예약 <Label> exit=<N> — 대상 없음: <경로>» 1줄 + 현역 master 앞 [급] 1통(Label·날짜당 1회 · 표식 파일)
 #     대상 파일이 있으면 stdout «죽은 예약 <Label> exit=<N>(대상 있음)» 1줄 + 같은 알림. 접두 밖 Label 은 안 본다. 켜기·끄기·plist 쓰기 0.
+#   r1184: 예외 표(FT_LDC_EXIT_OK · 기본 <ROOT>/.fable-team/state/launchd-exit-ok.txt · 줄 꼴 «<Label> <lo>-<hi>» 또는 «<Label> <n>» · 1~255 · # 주석)에 든 Label 의 exit 가 범위 안이면
+#     stdout «예약 <Label> exit=<N> — 예외 표 허용(<범위>)» 1줄 · [급]·표식 0. 표 없음·표 밖·범위 밖 = 위와 같음. 형식 틀린 줄 = stderr ERROR 1줄 + 그 줄 무시(경보 쪽).
 #   로컬 파일·launchctl 만 읽는다(외부 호출 0). 켜지도 끄지도 않는다. 기록 작성 규칙 = install-magazine.sh 머리 주석.
 #   env: FT_LDC_EXPECTED · FT_LDC_RECORDS · FT_LDC_STATE · FT_LDC_NOW(YYYY-MM-DD · 시험) · FT_LDC_MBOX · FT_LDC_SEATS · FT_LDC_LAUNCHCTL
 #        FT_LDC_NOTIFY(수신 좌석 덮기) → 없으면 FT_LDC_OWNER_SEATS(기본 <ROOT>/.fable-team/seats-harness.json · 장치 주인 명부)의 _master
@@ -47,6 +49,35 @@ _dead_script() {
   done <<< "$paths"
   return 1
 }
+# r1184: 예외 표 — 첫 조회 때 한 번만 읽어 «Label lo hi» 줄로 둔다 · 형식 틀린 줄은 ERROR 1줄 + 무시
+EXIT_OK="${FT_LDC_EXIT_OK:-$ROOT/.fable-team/state/launchd-exit-ok.txt}"
+_exit_ok_rows=""; _exit_ok_loaded=0; _exit_rng=""
+_exit_ok_load() {
+  local n=0 raw line lbl rng extra lo hi
+  _exit_ok_loaded=1
+  [ -f "$EXIT_OK" ] || return 0
+  while IFS= read -r raw || [ -n "$raw" ]; do
+    n=$((n+1)); raw="${raw%$'\r'}"; line="${raw%%#*}"
+    read -r lbl rng extra <<< "$line"
+    [ -n "$lbl" ] || continue
+    lo="${rng%%-*}"; hi="${rng#*-}"
+    if [ -z "$extra" ] && [[ "$lo" =~ ^[1-9][0-9]{0,2}$ && "$hi" =~ ^[1-9][0-9]{0,2}$ ]] && [ $((10#$lo)) -ge 1 ] && [ $((10#$lo)) -le $((10#$hi)) ] && [ $((10#$hi)) -le 255 ]; then
+      _exit_ok_rows+="$lbl $((10#$lo)) $((10#$hi))"$'\n'
+    else echo "ERROR ft-launchd-check: 예외 표 줄 형식 틀림 $n: $raw" >&2; fi
+  done < "$EXIT_OK"
+}
+# rc0 = 이 Label 의 이 exit 는 표 범위 안(_exit_rng 에 범위) · rc1 = 표 밖(지금처럼 경보)
+_exit_allowed() {
+  local lbl lo hi
+  [[ "$2" =~ ^-?[0-9]+$ ]] || return 1
+  [ "$_exit_ok_loaded" = 1 ] || _exit_ok_load
+  while read -r lbl lo hi; do
+    [ "$lbl" = "$1" ] && [ "$2" -ge "$lo" ] && [ "$2" -le "$hi" ] || continue
+    if [ "$lo" = "$hi" ]; then _exit_rng="$lo"; else _exit_rng="$lo-$hi"; fi
+    return 0
+  done <<< "$_exit_ok_rows"
+  return 1
+}
 if [ -n "$DEAD_PREFIX" ] && listing="$("$LCTL" list 2>/dev/null)"; then
   while IFS=$'\t' read -r pid st label; do
     label="${label%$'\r'}"; [ -n "$label" ] || continue
@@ -55,6 +86,7 @@ if [ -n "$DEAD_PREFIX" ] && listing="$("$LCTL" list 2>/dev/null)"; then
     [ "$st" != "0" ] || continue
     hit=0; for pfx in $DEAD_PREFIX; do case "$label" in "$pfx"*) hit=1; break ;; esac; done
     [ "$hit" = 1 ] || continue
+    if _exit_allowed "$label" "$st"; then echo "예약 $label exit=$st — 예외 표 허용($_exit_rng)"; continue; fi
     script="$(_dead_script "$label" || true)"
     if [ -n "$script" ] && [ ! -e "$script" ]; then note="대상 없음: $script"; echo "죽은 예약 $label exit=$st — $note"
     else note="대상 있음${script:+: $script}"; echo "죽은 예약 $label exit=$st($note)"; fi
