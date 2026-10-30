@@ -34,8 +34,8 @@ finish() { # $1 = 통과 사유
   printf 'BLOCK %s\n' "${problems[@]}"; echo "BASELINE-CHECK BLOCK — 카드 $CARD_ARG"; exit 1
 }
 card_from_ref() { # r1177: 작업 트리(세트 sha)에 카드 없음 → FT_CARD_REF(기본 origin/main) 판을 임시 파일로 꺼낸다(ft-nano-close r888 과 같은 ref · fetch 0)
-  local ref="${FT_CARD_REF:-origin/main}" rel="${CARD#./}" rc
-  case "$CARD" in "$REPO"/*) rel="${CARD#"$REPO"/}" ;; /*) block "카드: 파일 없음($CARD)"; finish "" ;; esac
+  local ref="${FT_CARD_REF:-origin/main}" rel="${CARD#./}" r="${REPO%/}" rc   # r: --repo 끝 슬래시 제거(DA① r1177)
+  case "$CARD" in "$r"/*) rel="${CARD#"$r"/}" ;; /*) block "카드: 파일 없음($CARD)"; finish "" ;; esac
   git -C "$REPO" cat-file -e "$ref:$rel" 2>/dev/null || { block "카드: 파일 없음($CARD) · $ref 에도 없음"; finish ""; }
   CARD_TMP="$(mktemp "${TMPDIR:-/tmp}/ft-press-card.XXXXXX")" || { block "카드: 판정 불가 — mktemp 실패"; finish ""; }
   trap 'rm -f "$CARD_TMP"' EXIT
