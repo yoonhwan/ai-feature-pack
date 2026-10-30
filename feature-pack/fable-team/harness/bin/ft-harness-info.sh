@@ -59,7 +59,10 @@ case "$CMD" in
     ALIVE="${FT_AGENT_ALIVE_BIN:-}"   # r385 r3: 설치본엔 ../comm 없음 — 데이터 루트의 comm
     # r455a: comm 을 못 풀면(판정 불가) ALIVE 비움 = ⚠ 표시 0 · 목록·팀 명부 절은 그대로 찍는다
     [ -n "$ALIVE" ] || { . "$HERE/ft-harness-root.sh"; _CM="$(ft_comm_dir "$HERE" 2>/dev/null)" && ALIVE="$_CM/ft-agent-alive.sh"; }
-    tmux ls -F '#{session_name}' 2>/dev/null | sort | while IFS= read -r n; do
+    # r1191: tmux ls 1회 — 세션 절과 명부 절 «열림» 셈이 같은 집합을 쓴다(행마다 has-session 0 · 실패 = 빈 집합 = 열림 0)
+    LIVE="$(tmux ls -F '#{session_name}' 2>/dev/null | sort)"
+    printf '%s\n' "$LIVE" | while IFS= read -r n; do
+      [ -n "$n" ] || continue
       r="$(bash "$HERE/ft-name-lint.sh" "$n")"
       case "$r" in PASS*) r="PASS";; *) r="REJECT ${r#*: }";; esac
       # R346: 세션은 살아 있는데 전경이 맨 셸·본체 정지면 표시 — 판정기는 ft-agent-alive.sh 하나(없거나 판정 불가면 표시 0)
@@ -70,14 +73,15 @@ case "$CMD" in
     echo "== 팀 명부 (루트 .fable-team/seats-*.json) =="
     for f in "$ROOT"/.fable-team/seats*.json; do
       [ -f "$f" ] || continue
-      python3 -I - "$f" <<'PY'
-import json, subprocess, sys
+      FT_LIVE_SESSIONS="$LIVE" python3 -I - "$f" <<'PY'
+import json, os, sys
 p = sys.argv[1]
 name = p.rsplit("/", 1)[-1]
+live = set(os.environ.get("FT_LIVE_SESSIONS", "").splitlines())
 try:
     d = json.load(open(p))
     rows = [k for k, v in d.items() if not k.startswith("_") and isinstance(v, dict)]
-    up = sum(1 for k in rows if subprocess.run(["tmux", "has-session", "-t", "=" + k], capture_output=True).returncode == 0)
+    up = sum(1 for k in rows if k in live)
     print("%s master=%s arch=%s hil=%s 좌석=%d 열림=%d" % (name, d.get("_master", "-"), d.get("_arch", "-"), d.get("_hil_route", "-"), len(rows), up))
 except Exception:
     print("ERR %s 파싱 실패" % name)
