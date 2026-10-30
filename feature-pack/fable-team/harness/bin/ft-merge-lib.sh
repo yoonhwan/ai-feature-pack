@@ -152,10 +152,21 @@ fm_close_retry() {
     rem=$((r0 - (SECONDS - t0)))
     [ "$rem" -ge 20 ] || { echo "INFO 닫기 재시도 미룸 — 남은 ${rem}s < 20s · 장부 그대로($f)"; break; }
     printf '%s\n' "착지 sha $sha (ft-merge-land · 닫기 재시도 r1131)" > "$cb"
-    if o="$(fm_t7 ${slug:+env FT_ISSUE_REPO="$slug"} "$gw" pr-close "$pr" --comment "$cb" --apply 2>&1 </dev/null)"; then ok="$ok $pr"; echo "INFO 닫기 재시도 PR #$pr 닫음(착지 sha $sha)"
+    if o="$(fm_pr_close "$slug" "$pr" "$cb" "$gw" 2>&1 </dev/null)"; then ok="$ok $pr"; echo "INFO 닫기 재시도 PR #$pr 닫음(착지 sha $sha)"
     else echo "WARN 닫기 재시도 실패 PR #$pr — 장부에 남김: $(printf '%s' "$o" | tail -n1 | cut -c1-160)"; fi
   done <<<"$items"
   rm -f "$cb"
   [ -z "$ok" ] || fm_close_pending_rm "$f" "$key" $ok || echo "WARN 닫기 대기 장부 정리 실패($f) — 닫힌 PR:$ok"
   return 0
+}
+#   fm_pr_close <slug|빈> <pr> <본문파일> <쓰기도구> : r1179 — PR 코멘트+닫기 1회(fm_t7) · slug 가 FT_PR_CLOSE_AS_USER(공백 구분 · 기본 yoonhwan/ai-feature-pack · 빈 값 = 목록 0)에
+#     정확히 있으면 사람 gh(GH_TOKEN·GITHUB_TOKEN 비움 = 로그인 계정 · 봇 토큰이 개인 리포에 코멘트 못 함) · 그 밖은 Tank 래퍼 그대로 · rc 그대로 · 실패 때 다른 도구로 갈아타기 0(#0 RULE)
+fm_pr_close() {
+  local slug="$1" pr="$2" cb="$3" gw="$4" u
+  for u in ${FT_PR_CLOSE_AS_USER-yoonhwan/ai-feature-pack}; do
+    [ -n "$slug" ] && [ "$u" = "$slug" ] || continue
+    fm_t7 env -u GH_TOKEN -u GITHUB_TOKEN "${FT_GH:-gh}" pr close "$pr" -R "$slug" --comment "$(cat "$cb")" || return
+    echo "INFO PR #$pr 닫기 = 사람 gh($slug)"; return 0
+  done
+  fm_t7 ${slug:+env FT_ISSUE_REPO="$slug"} "$gw" pr-close "$pr" --comment "$cb" --apply
 }
