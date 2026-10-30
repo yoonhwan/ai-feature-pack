@@ -46,6 +46,7 @@ if [ "$DST" = 완성 ]; then
   printf '%s' "$body" | grep -qE '닫힘|CLOSE' || { echo "REJECT $DAF $SEC 에 「닫힘」/「CLOSE」 없음 — DA 가 닫지 않았다"; exit 1; }
   # R387 판정 2282 부모 완성 게이트 — ①리서치 좌석마다 `- 리서치 닫힘:` 줄(opencode = left=0 · Fable = kill rc=0) + tmux 에 그 세션 0 ②DA 보류 사건 ≥ 2 인데 유효한 재설계 해제 0 이면 완성 이동 거절(판정기 하나 = ft_da_hold_gate.py)
   # r1125: 닫힘 줄이 없으면 좌석이 이미 사라졌는지 직접 잰다 — 세션 0 ∧ 명부 행 0(리포 공용 루트 .fable-team/seats*.json 전부) ∧ 그 이름의 프로세스 0. 출력 = 남은 것 꼬리(빈 값 = 잔재 0)
+  # r1173: ft-seat-close 로 닫은 행(role=stop-ready ∧ _closed dict)은 «행 남음» 이 아니다 — 잔재 0 이면 출력 «_closed»(INFO 문구만 다름)
   research_left() {
     if tmux has-session -t "=$1" 2>/dev/null; then echo "세션 남음"; return; fi
     local _cr; _cr="$(git -C "$IDX_ROOT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || { echo "판정 불가 — 리포 공용 루트를 못 읽음"; return; }
@@ -53,22 +54,30 @@ if [ "$DST" = 완성 ]; then
 import glob, json, os, sys
 fs = sorted(glob.glob(os.path.join(sys.argv[2], "seats*.json")))
 if not fs: print("판정 불가 — 명부 seats*.json 없음: " + sys.argv[2]); sys.exit(1)
+closed = False
 for f in fs:
     try: d = json.load(open(f, encoding="utf-8"))
     except (OSError, ValueError) as e: print("판정 불가 — 명부 읽기 실패 " + os.path.basename(f) + ": " + type(e).__name__); sys.exit(1)
-    if isinstance(d, dict) and sys.argv[1] in d: print("명부 행 남음 " + os.path.basename(f)); sys.exit(1)
+    if not (isinstance(d, dict) and sys.argv[1] in d): continue
+    v = d[sys.argv[1]]
+    if isinstance(v, dict) and isinstance(v.get("_closed"), dict) and v.get("role") == "stop-ready": closed = True; continue
+    print("명부 행 남음 " + os.path.basename(f)); sys.exit(1)
+if closed: print("_closed")
 PY
 )"; _rc=$?
     [ "$_rc" = 0 ] || { echo "${_s:-판정 불가 — 명부 검사 rc=$_rc}"; return; }
     command -v pgrep >/dev/null || { echo "판정 불가 — pgrep 없음"; return; }
     local _p; _p="$(pgrep -f -- "$1")"; _rc=$?
-    case "$_rc" in 0) echo "프로세스 남음 pid ${_p%%$'\n'*}";; 1) ;; *) echo "판정 불가 — pgrep rc=$_rc";; esac
+    case "$_rc" in 0) echo "프로세스 남음 pid ${_p%%$'\n'*}";; 1) [ -z "$_s" ] || echo "$_s";; *) echo "판정 불가 — pgrep rc=$_rc";; esac
   }
   while IFS= read -r _rs; do _rseat="${_rs%% *}"; [ -n "$_rseat" ] || continue
     if ! grep -F -- "- 리서치 닫힘: $_rseat " "$SRC" | grep -qE 'left=0|kill rc=0'; then
       _left="$(research_left "$_rseat")"
-      [ -z "$_left" ] || { echo "REJECT 리서치 좌석 열림 $_rseat — 카드에 «- 리서치 닫힘: $_rseat <시각> left=0|kill rc=0» 줄 없음(ft-nano-close 출력 복붙 · 이동 0) · $_left"; exit 1; }
-      echo "INFO 리서치 좌석 잔재 0 — $_rseat(세션 0 · 명부 행 0 · 프로세스 0) · 닫힘 줄 대신"; continue
+      case "$_left" in
+        "") echo "INFO 리서치 좌석 잔재 0 — $_rseat(세션 0 · 명부 행 0 · 프로세스 0) · 닫힘 줄 대신"; continue;;
+        _closed) echo "INFO 리서치 좌석 잔재 0 — $_rseat(세션 0 · 명부 _closed 표기 · 프로세스 0) · 닫힘 줄 대신"; continue;;
+      esac
+      echo "REJECT 리서치 좌석 열림 $_rseat — 카드에 «- 리서치 닫힘: $_rseat <시각> left=0|kill rc=0» 줄 없음(닫기 = ft-seat-close $_rseat --reason \"<1줄>\"(리서치 정식 경로) 또는 ft-nano-close 출력의 «- 리서치 닫힘:» 줄 복붙 · 이동 0) · $_left"; exit 1
     fi
     ! tmux has-session -t "=$_rseat" 2>/dev/null || { echo "REJECT 리서치 좌석 열림 $_rseat — tmux 세션이 아직 있다(이동 0)"; exit 1; }
   done < <(sed -n 's/^- 리서치: \([^ ]*\) base=.*$/\1/p' "$SRC")
