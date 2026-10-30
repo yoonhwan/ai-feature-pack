@@ -24,8 +24,8 @@ from ft_team_lib import TeamPathError, data_root, planner_queue, team_doc_ref, t
 
 T0 = time.monotonic()
 # 도구 1회 전체 예산 — 외부 조회(tmux·ft-hil.sh)는 남은 예산만큼만 기다린다. 2.0 → 5.0 (R303 · 판정 1395): 실측 중앙 1.47 s · 최대 1.59 s(CPU 28개 부하) · 실사용 rc4 62건 전부 ft-hil.sh 시간 초과(swap) · 호출자 ft_news_ledger 가 timeout=7 이라 그 밑(7초 룰)
-# FT_DECISION_BUDGET_S = 시험 전용(예산 기전 시험이 짧은 값을 준다) — 라이브 plist·훅에는 넣지 않는다
-BUDGET_S = 5.0
+BUDGET_S = 5.0  # FT_DECISION_BUDGET_S = 시험 전용(예산 기전 시험이 짧은 값을 준다) — 라이브 plist·훅에는 넣지 않는다
+CALL_FLOOR_S = 1.5  # r1178: 외부 조회 1건의 최소 대기 — 앞 단계(쪽지함 읽기)가 예산을 다 써도 마지막 ft-hil 이 0.1 s 로 굶지 않게(실측 0.08~0.15 s 의 10배 · 5.0+1.5 < 호출자 7 s)
 BUDGET_MAX_S = 6.0  # 호출자 timeout=7 밑 — 이 위 값은 7초 룰(판정 666) 밖이라 받지 않는다
 HERE = os.path.dirname(os.path.abspath(__file__))
 NO_MARK = "(자율 큐 처리 표식 없음)"
@@ -117,8 +117,8 @@ def inbox(me, now):
 
 
 def left():
-    """전체 예산에서 남은 초 — 외부 조회(tmux·ft-hil.sh)는 min(자기 상한, 이 값)만 기다린다."""
-    return max(0.1, BUDGET_S - (time.monotonic() - T0))
+    """전체 예산에서 남은 초(바닥 CALL_FLOOR_S) — 외부 조회(tmux·ft-hil.sh)는 min(자기 상한, 이 값)만 기다린다."""
+    return max(CALL_FLOOR_S, BUDGET_S - (time.monotonic() - T0))
 
 
 def live_sessions():
