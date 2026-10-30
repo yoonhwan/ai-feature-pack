@@ -372,11 +372,41 @@ FEAT_OK=1
 if [ -n "$LIVE_WT" ] && ! git rev-parse --verify -q "$FEAT^{commit}" >/dev/null 2>&1; then
   say "✗" "① 판정 불가 — 기준 줄기 $FEAT 를 못 풂(FT_NANO_FEAT 확인)"; FAIL=1; FEAT_OK=0; LIVE_WT=""
 fi
+# ★r1201: 가지 단위 착지 판정★ — ft-merge-land 의 squash 는 PR 제목 + 끝줄 «PR #N (head X)» 만 남겨 아래 ⒜⒝⒞(커밋 단위)가 셋 다 거짓이다.
+#   FEAT 최근 60커밋(FEAT_BODY 와 같은 범위)의 끝줄(문서 자동 병합 꼬리 «main 자동 병합(문서 전용 · 겹침 0) C=<40hex>» 1줄은 건너뜀)이
+#   정확히 «PR #<수> (head <40hex>)» 인 X 를 모은다(ft-nano-close _lp_lastline_head 와 같은 꼴).
+_hex40(){ [ "${#1}" -eq 40 ] && case "$1" in *[!0-9a-f]*) return 1;; esac; }
+_squash_heads(){ # → «<FEAT 커밋>\t<X>\t<N>» 줄들
+  local rec c l prev x n
+  while IFS= read -r -d '' rec || [ -n "$rec" ]; do
+    c="${rec%%$'\n'*}"; l=""; prev=""
+    while IFS= read -r x; do x="${x%"${x##*[![:space:]]}"}"; [ -n "$x" ] && { prev="$l"; l="$x"; }; done <<< "${rec#*$'\n'}"
+    case "$l" in "main 자동 병합(문서 전용 · 겹침 0) C="*) _hex40 "${l#*C=}" && l="$prev";; esac
+    case "$l" in "PR #"*" (head "*")") ;; *) continue;; esac
+    n="${l#PR #}"; n="${n%% (head *}"; x="${l##* (head }"; x="${x%)}"
+    case "$n" in ''|*[!0-9]*) continue;; esac
+    [ "$l" = "PR #$n (head $x)" ] && _hex40 "$x" && printf '%s\t%s\t%s\n' "$c" "$x" "$n"
+  done < <(git log -z "$FEAT" --format='%H%n%B' -60 2>/dev/null)
+}
+_squash_landed(){ # 워크트리 → rc0 = 착지됨(⊘ 한 줄) · rc1 = 판정 안 함(X 없음·git 실패 = 지금처럼 커밋 단위로 센다)
+  local w="$1" c x n nm
+  while IFS=$'\t' read -r c x n; do
+    git -C "$w" cat-file -e "$x^{commit}" 2>/dev/null || continue
+    if git -C "$w" merge-base --is-ancestor HEAD "$x" 2>/dev/null; then :     # ⓐ 나노가 PR head 뒤에 머묾
+    elif git -C "$w" merge-base --is-ancestor "$x" HEAD 2>/dev/null \
+      && nm="$(git -C "$w" rev-list --first-parent --no-merges "$x"..HEAD 2>/dev/null)" && [ -z "$nm" ]; then :   # ⓑ 착지 뒤 main 병합만
+    else continue; fi
+    say "  ⊘" "착지됨($(basename "$w") · PR #$n squash ${c:0:10}) — ① 셈 제외"; return 0
+  done <<< "$SQUASH_HEADS"
+  return 1
+}
+SQUASH_HEADS=""; [ -n "$LIVE_WT" ] && SQUASH_HEADS="$(_squash_heads)"
 
 for W in $LIVE_WT; do
   W="$ROOT/.worktrees/$W"
   [ -e "$W/.git" ] || continue
   _other_trunk "$W" && continue
+  _squash_landed "$W" && continue
   # 제품 경로를 건드린 미랜딩만 센다(문서만이면 press 에 영향 0)
   # ★cherry-pick -x 로 이미 feat 에 올라간 것은 «미랜딩이 아니다»★ — 원본 sha 는 조상이 아니므로
   # 제목으로 대조한다(이 오탐 때문에 9건이 미랜딩으로 잡혔다).
