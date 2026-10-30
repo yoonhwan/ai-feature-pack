@@ -387,6 +387,20 @@ print(' '.join(k.replace(' ', '_') for k in ('Issue', '상태', '선행', '시�
 awk '/^##[[:space:]]/{exit} {print}' "$IDX" | grep -Eq '^[[:space:]]*[-*]?[[:space:]]*기준값:[[:space:]]*[^[:space:]]' \
   || echo "WARN 후보 제외 — 카드 머리줄 기준값 없음 또는 빈칸 (REJECT 아님 · 지표 없으면 「기준값: 없음 → 대체 축 <무엇>」 · 하네스 팀 폴더의 BASELINE-TEMPLATE.md): $IDX"
 
+# r1162: --base 없음 ∧ 호출 워크트리 detached(임시 사본 · r1120 길) → 그 커밋이 origin/main 의 조상인지 «열기 전» 확인.
+#   미착지·squash 착지 커밋을 base 로 굽으면 닫기 R42 조상 판정이 막힌다(lecture L89 2석) · 카드·워크트리·명부·tmux 쓰기 «전» · --dry-run 도 같은 판정.
+#   origin main 1 ref fetch(7초 · 재시도 1 = ft_git_capped) · git 실패 = «판정 불가» REJECT 1줄(하드 룰 20 · 열지 않음).
+if [ -z "${BASE_REF:-}" ] && [ "$(git -C "$WT" rev-parse --abbrev-ref HEAD)" = HEAD ]; then
+  _dh="$(git -C "$WT" rev-parse --verify HEAD)" && ft_git_capped 7 "$WT" fetch -q origin +refs/heads/main:refs/remotes/origin/main >/dev/null \
+    || { echo "REJECT detached HEAD 기준 커밋 판정 불가 — origin main fetch 실패($WT)"; exit 1; }
+  _arc=0; ft_git_capped 7 "$WT" merge-base --is-ancestor "$_dh" refs/remotes/origin/main || _arc=$?
+  case "$_arc" in
+    0) ;;
+    1) echo "REJECT 기준 커밋 ${_dh:0:10} 가 origin/main 에 없다(미착지·squash) — --base origin/main 으로 다시"; exit 1;;
+    *) echo "REJECT detached HEAD 기준 커밋 ${_dh:0:10} 조상 판정 불가(rc=$_arc)"; exit 1;;
+  esac
+fi
+
 # ①b 카드 base_sha 대조 (M7 · single_set_testing §1 규칙 2 · 오빠 ORDERS 102): 09-25 카드를 10-02 코드에 재대조 없이 집행한 사고 차단.
 #   카드 «## 상태» 에 `base_sha: <40-hex>` 가 없으면 첫 개설 = 현재 기준 브랜치 HEAD 를 써넣고 진행(REJECT 0).
 #   있으면 재개·재spawn = base_sha..HEAD 사이에 카드 «## 구현 범위» 가 인용한 파일(경로 토큰 · `관련 파일:` 줄 포함 · 인용 0 이면 세트 경로 전체 worker/ gateway/ shared/ clients/web/src/ tests/e2e/ scripts/server/)이 바뀌었으면 REJECT.
