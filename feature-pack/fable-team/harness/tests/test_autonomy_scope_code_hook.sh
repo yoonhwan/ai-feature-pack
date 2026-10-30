@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# test_autonomy_scope_code_hook.sh — 범위 승인 시험 3/3: r3 grants.audit · R411 종류 code(임시 origin+clone) · 상태 폴더 훅 (r1197 · 옛 test_autonomy_scope.sh 177행~끝 그대로)
-# 격리·공용 준비 = lib/autonomy_scope_setup.sh · 다른 두 파일(grant · stop_tamper)과 상태를 나누지 않는다(구역마다 fresh).
+# test_autonomy_scope_code_hook.sh — 범위 승인 시험 4/4: r3 grants.audit · R411 종류 code(임시 origin+clone) · 상태 폴더 훅 (r1197 · 옛 test_autonomy_scope.sh 177행~끝 그대로)
+# 격리·공용 준비 = lib/autonomy_scope_setup.sh · 다른 세 파일(grant · approve_limits · stop_tamper)과 상태를 나누지 않는다(구역마다 fresh).
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/autonomy_scope_setup.sh"
 

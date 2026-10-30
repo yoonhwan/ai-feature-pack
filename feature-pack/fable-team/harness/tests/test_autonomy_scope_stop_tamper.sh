@@ -1,19 +1,8 @@
 #!/usr/bin/env bash
-# test_autonomy_scope_stop_tamper.sh — 범위 승인 시험 2/3: until·사건 번호 정지 · check-revert · scope-stop · 위변조 판정 (r1197 · 옛 test_autonomy_scope.sh 113~122·135~175행 그대로)
-# 격리·공용 준비 = lib/autonomy_scope_setup.sh · 다른 두 파일(grant · code_hook)과 상태를 나누지 않는다(구역마다 fresh).
+# test_autonomy_scope_stop_tamper.sh — 범위 승인 시험 3/4: check-revert · scope-stop · 위변조 판정 (r1197 · 옛 test_autonomy_scope.sh 135~175행 그대로)
+# 격리·공용 준비 = lib/autonomy_scope_setup.sh · 다른 세 파일(grant · approve_limits · code_hook)과 상태를 나누지 않는다(구역마다 fresh).
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/autonomy_scope_setup.sh"
-
-# until 지남 · 사건 번호 바뀜
-fresh; grant --for 1h --max 5 --classes docs >/dev/null
-NOW=$((T0+3600)); run a scope-approve "$(sha 21)"; [ $rc = 2 ] && has '기간 끝 도달'; ck "until 지남 → REJECT" $?
-[ -f "$S/autonomy-scope/S1.stopped" ]; ck "until 지남 → 자동 정지" $?
-fresh; grant --for 10h --max 5 --classes docs >/dev/null
-a off >/dev/null; a on >/dev/null 2>&1; run a scope-approve "$(sha 22)"; [ $rc = 2 ] && has '사건 번호 바뀜\(A1→A2\)'; ck "OFF→ON 다시 켬(A2) → 옛 S1 REJECT" $?
-[ -f "$S/autonomy-scope/S1.stopped" ]; ck "사건 번호 바뀜 → 자동 정지" $?
-fresh; grant --for 10h --max 5 --classes docs >/dev/null; a off >/dev/null
-run a scope-approve "$(sha 23)"; [ $rc = 2 ] && has '자율 모드 OFF'; ck "자율 OFF → REJECT" $?
-[ ! -e "$AP/$(sha 23)" ]; ck "OFF REJECT 쓰기 0" $?
 
 # check-revert(r298b) — 분류 «전» 첫 단계: rc 4 = 정지 + REJECT · rc 1 = REJECT · rc 0 = 진행
 fresh; grant --for 10h --max 5 --classes docs >/dev/null; export STUB_ARGS_LOG="$T/stub-args.log"; : > "$STUB_ARGS_LOG"
