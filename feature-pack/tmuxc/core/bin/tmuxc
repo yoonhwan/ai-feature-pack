@@ -782,7 +782,6 @@ cmd_open() {
       --effort) effort="${2:-}"; shift 2 ;;
       --like) like="${2:-}"; shift 2 ;;
       --prompt) prompt="${2:-}"; shift 2 ;;
-      --serena) die_serena_retired ;;
       --host) TMUXC_HOST="${2:-}"; shift 2 ;;
       --host=*) TMUXC_HOST="${1#--host=}"; shift ;;
       --dry-run) dry_run=1; shift ;;
@@ -990,7 +989,6 @@ cmd_fork() {
       --ctx) ctx="${2:-}"; shift 2 ;;
       --effort) effort="${2:-}"; shift 2 ;;
       --prompt) prompt="${2:-}"; shift 2 ;;
-      --serena) die_serena_retired ;;
       --dry-run) dry_run=1; shift ;;
       --help|-h) usage; exit 0 ;;
       --*) die "unknown option for fork: $1" ;;
@@ -1417,7 +1415,6 @@ cmd_save() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --keep) keep="${2:-}"; shift 2 ;;
-      --serena) die_serena_retired ;;
       --dry-run) dry_run=1; shift ;;
       --help|-h) usage; exit 0 ;;
       *) die "unknown option for save: $1" ;;
@@ -2087,6 +2084,11 @@ cmd_submit() {
 }
 
 main() {
+  # Serena 은퇴 — 명령·인자 위치·--help 와 상관없이 분기 «전» 한 곳에서 거부(r1182 DA ①).
+  local a
+  for a in "$@"; do
+    case "$a" in --serena|--serena=*) die_serena_retired ;; esac
+  done
   local cmd="${1:-}"
   [[ -n "$cmd" ]] || { usage; exit 1; }
   shift || true
