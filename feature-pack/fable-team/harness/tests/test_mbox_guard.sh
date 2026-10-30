@@ -118,12 +118,14 @@ PYTHONPATH="$T/sc" bash "$RETIRE" 'byz-planner-master-claude#9' 'byz-planner-mas
 [ "$rc" = 137 ] && ok "쓰기 중 kill 흉내 rc=137" || bad "kill 흉내 rc=$rc"
 cmp -s "$S" "$T/seats-r.orig" && python3 -c 'import json,sys;json.load(open(sys.argv[1]))' "$S" && ok "쓰기 중 죽어도 원본 무손상(cmp 동일·JSON 유효)" || bad "원본이 깨졌다/바뀌었다"
 rm -f "$T"/seats-r.json.tmp-*   # 죽은 실행이 남긴 tmp 는 원본이 아니다 — 아래는 «정상 실행이 잔류 0» 을 본다
-mkdir -p "$T/succ-empty"   # r1157: 후계 pane·도달 파일 없음 → r1065 계약대로 stderr «확인 불가» 1줄 · stdout·stderr 를 따로 단언
-out="$(FT_SUCCESSOR_DIR="$T/succ-empty" bash "$RETIRE" 'byz-planner-master-claude#9' 'byz-planner-master-claude#10' --seats "$S" 2>"$T/retire.err")"; rc=$?
+mkdir -p "$T/succ-empty" "$T/home-r1157" "$T/stub-noserver"   # r1157: 후계 pane·도달 파일 없음 → r1065 계약대로 stderr «확인 불가» 1줄 · stdout·stderr 를 따로 단언
+printf '#!/bin/sh\necho "no server running on /tmp/tmux-stub/default" >&2\nexit 1\n' > "$T/stub-noserver/tmux"; chmod +x "$T/stub-noserver/tmux"   # 실 tmux·실 HOME 재개 기록 0(DA① r1157)
+out="$(HOME="$T/home-r1157" PATH="$T/stub-noserver:$PATH" FT_SUCCESSOR_DIR="$T/succ-empty" bash "$RETIRE" 'byz-planner-master-claude#9' 'byz-planner-master-claude#10' --seats "$S" 2>"$T/retire.err")"; rc=$?
 err="$(grep -v '^bash: warning: setlocale' "$T/retire.err")"   # 없는 LC_ALL 이면 bash 가 stderr 첫 줄에 내는 경고만 뺀다(다른 출력은 그대로 단언)
 [ "$rc" = 0 ] && case "$out" in 'RETIRED byz-planner-master-claude#9 -> byz-planner-master-claude#10 file='*'keys=['*) true;; *) false;; esac \
   && [ "$(printf '%s\n' "$out" | grep -c '^RETIRED ')" = 1 ] && ok "정상 은퇴 stdout = 첫 줄 RETIRED 1개" || bad "정상 은퇴 rc=$rc out=$out"
 case "$err" in *'MODEL 확인 불가 byz-planner-master-claude#10'*) ok "정상 은퇴 stderr = r1065 후계 model 확인 불가 1줄";; *) bad "정상 은퇴 stderr 확인 불가 줄 없음 err=$err";; esac
+printf '%s\n' "$out" | grep -qx 'NORECORD byz-planner-master-claude#9 tmux 세션 없음' && ok "정상 은퇴 격리: tmux stub → NORECORD(실 재개 기록 0)" || bad "정상 은퇴 NORECORD 줄 없음 out=$out"
 python3 -c 'import json,sys;d=json.load(open(sys.argv[1]));assert d["byz-planner-master-claude#9"]["_replaced_by"]=="byz-planner-master-claude#10" and d["_master"]=="byz-planner-master-claude#10"' "$S" && ok "은퇴 결과(_replaced_by·_master 전환)" || bad "은퇴 결과 틀림"
 ls "$T" | grep -q 'seats-r.json.tmp' && bad "tmp 파일 잔류" || ok "tmp 파일 잔류 0"
 ls "$T"/seats-r.json.tmp* >/dev/null 2>&1 && bad "tmp 파일 잔류(glob)" || ok "tmp 파일 잔류 0(glob)"
