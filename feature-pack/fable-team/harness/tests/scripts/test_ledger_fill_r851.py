@@ -105,9 +105,11 @@ def world(tmp_path, monkeypatch):
     queue.write_text("| 자율 | 시각 | 종류 | 질문 | 추천안 | 사유 | 처리됨 |\n|---|---|---|---|---|---|---|\n"
                      "| A2 | t | ddl | 개발 DB 표 한 칸 추가 | 지금 적용 | 운영 값 |  |\n| A2 | t | card | 끝난 것 | x | y | 판정 1715 |\n", encoding="utf-8")
     mag = tmp_path / "magazine-doc.json"
+    (tmp_path / "LaunchAgents").mkdir()  # r1156 — 실 ~/Library 0 · 채움 job 켜짐/꺼짐 표식 없음 = 꺼짐 아님
     for k, v in {"FT_ROOT": root, "FT_HARNESS_ROOT": hroot, "FT_LEDGER_QUESTIONS": q, "FT_LEDGER_HIL": tmp_path / "hil.sh",
                  "FT_LEDGER_QUEUE": queue, "FT_MAGAZINE_STATE": mag, "FT_MBOX": tmp_path / "mbox.sh",
-                 "FT_LEDGER_FILL_STATE": tmp_path / "state", "FT_LEDGER_NOW": f"{NOW:%Y-%m-%d %H:%M}"}.items():
+                 "FT_LEDGER_FILL_STATE": tmp_path / "state", "FT_LEDGER_NOW": f"{NOW:%Y-%m-%d %H:%M}",
+                 "FT_LAUNCH_AGENTS_DIR": tmp_path / "LaunchAgents"}.items():
         monkeypatch.setenv(k, str(v))
     monkeypatch.setattr(lf, "goal_teams", lambda: ["cfo (byz-cfo-master-claude)", "v65 · lecture"])
     return {"origin": origin, "repo": repo, "root": root, "mlog": mlog, "q": q, "mag": mag, "tmp": tmp_path}
@@ -176,8 +178,8 @@ def test_b_no_change_no_commit_and_todo_rows_equal_ledger_sum(world):
 
 def test_c_freshness_61_min_note_and_one_urgent(world):
     stale = ledger(NOW - timedelta(minutes=61))
-    assert lf.fresh_note(world["root"], stale, NOW) == "원장 61분 낡음 · 담당 planner arch#14"
-    assert lf.fresh_note(world["root"], stale, NOW + timedelta(minutes=1)) == "원장 62분 낡음 · 담당 planner arch#14"
+    assert lf.fresh_note(world["root"], stale, NOW) == "원장 61분 낡음 · 담당 byz-planner-master-claude#9"  # r1156 — 담당 = 명부 _master
+    assert lf.fresh_note(world["root"], stale, NOW + timedelta(minutes=1)) == "원장 62분 낡음 · 담당 byz-planner-master-claude#9"
     sent = world["mlog"].read_text(encoding="utf-8").splitlines()
     assert len(sent) == 1 and sent[0].startswith("send byz-planner-master-claude#9 ft-ledger-fill [긴급] 원장 61분 낡음")  # 같은 사건 두 번째 = 0
     assert lf.fresh_note(world["root"], ledger(NOW - timedelta(minutes=60)), NOW) == ""
