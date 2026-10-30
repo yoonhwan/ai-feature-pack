@@ -49,9 +49,11 @@ run -u FT_CARD_REF
 CARD_IN="cards/press.md"; run -u FT_CARD_REF
 { [ "$RC" -eq 0 ] && has "INFO 카드 출처 = origin/main:cards/press.md"; } && ok "R1b 상대 경로 rc0" || bad "R1b rc=$RC: $OUT"
 CARD_IN="$R/cards/press.md"
-# R1c --repo 끝 슬래시(DA① r1177) → 리포 안 절대 경로로 읽혀 ref 판 통과
-REPO_IN="$R/"; run -u FT_CARD_REF; REPO_IN=""
-{ [ "$RC" -eq 0 ] && has "INFO 카드 출처 = origin/main:cards/press.md"; } && ok "R1c --repo 끝 슬래시 rc0" || bad "R1c rc=$RC: $OUT"
+# R1c --repo 끝 슬래시 1·2·3개(DA①② r1177) → 리포 안 절대 경로로 읽혀 ref 판 통과
+for REPO_IN in "$R/" "$R//" "$R///"; do
+  run -u FT_CARD_REF
+  { [ "$RC" -eq 0 ] && has "INFO 카드 출처 = origin/main:cards/press.md"; } && ok "R1c --repo ${REPO_IN#"$R"} rc0" || bad "R1c ${REPO_IN#"$R"} rc=$RC: $OUT"
+done; REPO_IN=""
 # R2작업 트리에 카드 있음 · ref 판은 머리줄 다름 → 작업 트리 판 판정 · INFO 줄 0
 card "$R/cards/press.md"; run FT_CARD_REF="$C"
 { [ "$RC" -eq 0 ] && ! has "INFO 카드 출처"; } && ok "R2 작업 트리 판 우선 rc0 · INFO 0" || bad "R2 rc=$RC: $OUT"
