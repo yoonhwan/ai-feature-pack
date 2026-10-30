@@ -31,9 +31,20 @@ hdr() { # 파일 키 → 첫 «키:» 줄의 값(앞뒤 공백 제거) · 그 �
 abspath() { case "$1" in /*) printf '%s' "$1" ;; *) printf '%s/%s' "$REPO" "$1" ;; esac; }
 finish() { # $1 = 통과 사유
   if [ "${#problems[@]}" -eq 0 ]; then echo "OK $1"; exit 0; fi
-  printf 'BLOCK %s\n' "${problems[@]}"; echo "BASELINE-CHECK BLOCK — 카드 $CARD"; exit 1
+  printf 'BLOCK %s\n' "${problems[@]}"; echo "BASELINE-CHECK BLOCK — 카드 $CARD_ARG"; exit 1
 }
-[ -f "$CARD" ] || { block "카드: 파일 없음($CARD)"; finish ""; }
+card_from_ref() { # r1177: 작업 트리(세트 sha)에 카드 없음 → FT_CARD_REF(기본 origin/main) 판을 임시 파일로 꺼낸다(ft-nano-close r888 과 같은 ref · fetch 0)
+  local ref="${FT_CARD_REF:-origin/main}" rel="${CARD#./}" rc
+  case "$CARD" in "$REPO"/*) rel="${CARD#"$REPO"/}" ;; /*) block "카드: 파일 없음($CARD)"; finish "" ;; esac
+  git -C "$REPO" cat-file -e "$ref:$rel" 2>/dev/null || { block "카드: 파일 없음($CARD) · $ref 에도 없음"; finish ""; }
+  CARD_TMP="$(mktemp "${TMPDIR:-/tmp}/ft-press-card.XXXXXX")" || { block "카드: 판정 불가 — mktemp 실패"; finish ""; }
+  trap 'rm -f "$CARD_TMP"' EXIT
+  git -C "$REPO" show "$ref:$rel" >"$CARD_TMP" 2>/dev/null; rc=$?
+  [ "$rc" -eq 0 ] || { block "카드: 판정 불가 — git show $ref:$rel rc=$rc"; finish ""; }
+  echo "INFO 카드 출처 = $ref:$rel"; CARD="$CARD_TMP"
+}
+CARD_ARG="$CARD"
+[ -f "$CARD" ] || card_from_ref
 BASE="$(hdr "$CARD" 기준선)" || block "카드 기준선: 머리줄 없음 — 기준선 없는 발사 차단(#834)"
 EXP="$(hdr "$CARD" 실험)" || block "카드 실험: 머리줄 없음(바꾸는 토글 key=value · 없으면 «없음»)"
 LANGS="$(hdr "$CARD" '비교 언어')" || LANGS="right=ko,left=en"
