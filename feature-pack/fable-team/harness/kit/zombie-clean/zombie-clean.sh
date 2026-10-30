@@ -550,7 +550,7 @@ roster_root() {   # 명부 리포 루트 1개 — env(ZC_ROSTER_ROOT·FT_RES_ROO
 roster_scan() {   # 실행당 1회: $WORK/roster.names(현역 이름) · $WORK/roster.broken(판정 불가 파일)
     [[ -n "$ZC_ROSTER_READY" ]] && return 0
     ZC_ROSTER_READY=1
-    : > "$WORK/roster.names"; : > "$WORK/roster.broken"; : > "$WORK/roster.broken.skip"; : > "$WORK/roster.noroot"
+    : > "$WORK/roster.names"; : > "$WORK/roster.broken"; : > "$WORK/roster.broken.skip"; : > "$WORK/roster.broken.retired"; : > "$WORK/roster.noroot"
     local root; root="$(roster_root)" || {             # R3: 루트 못 찾음 = 판정 불가(하드 룰 20) — launchd 는 env 없이 돈다
         echo "명부 루트 없음" > "$WORK/roster.noroot"
         return 0
@@ -567,7 +567,7 @@ signal.alarm(7)                      # 7초 상한(외부 호출 7초 룰) — �
 root, nout, bout = sys.argv[1:4]
 sout = bout + ".skip"
 files = sorted(glob.glob(os.path.join(root, ".fable-team", "seats*.json")))
-names, broken, skip = set(), [], set()
+names, broken, skip, retired = set(), [], set(), set()
 if not files:
     broken.append(os.path.join(root, ".fable-team", "seats.json"))
 for f in files:
@@ -582,7 +582,7 @@ for f in files:
 
     # r4(오빠 결정 17:3x «명부가 엇갈려도 지킨다»): 은퇴 집합은 «명부마다» 따로 모은다 —
     #   A 명부가 현역이라고 적은 좌석을 B 명부의 은퇴 행이 지우지 못한다(reclaim 과 같은 판정 · 두 경로 한 집합).
-    fnames, fskip, fretired = set(), set(), set()
+    fnames, fskip, fretired, fgate = set(), set(), set(), set()
 
     def walk(v, closing):
         # closing = 닫힌 세트(_closed) 안 — 그 안 이름은 현역이 아니라 «jsonl 판정 건너뛸 이름»(r3 R7)
@@ -609,11 +609,18 @@ for f in files:
                 fskip.add(k)
             if "_closed" in v:
                 fretired.add(k)           # r3 R4: 역할 칸이 «은퇴 행» 을 가리키면 현역 아님
+            rb = v.get("_replaced_by")
+            if "_closed" in v or (isinstance(rb, str) and rb.strip()):
+                fgate.add(k)              # r1172: 승계 닫기 관문 대상 = _closed ∪ _replaced_by(ft-seat-retire 꼴 · 실사건 #136)
     # 명부마다: 이 명부의 은퇴 행만 이 명부의 현역에서 뺀다(다른 명부의 은퇴 행은 보호를 지우지 못한다 — r4)
     names |= (fnames - fretired)
     skip |= fskip
+    retired |= fgate
 with open(nout, "w", encoding="utf-8") as fh:
     for n in sorted(names):
+        fh.write(n + "\n")
+with open(bout + ".retired", "w", encoding="utf-8") as fh:   # r1172: 은퇴 행(_closed) — kill 전 승계 닫기 관문을 묻는 이름
+    for n in sorted(retired):
         fh.write(n + "\n")
 with open(sout, "w", encoding="utf-8") as fh:
     for n in sorted(skip):
@@ -658,6 +665,24 @@ roster_active() {   # $1=세션명 → rc0 현역 · rc1 아님 · rc2 판정 �
 roster_jsonl_skip() {   # $1=세션명 → rc0 = 그 명부 행이 stop-ready 이거나 _closed (jsonl 판정 건너뛰기)
     roster_scan
     grep -Fxq -- "$1" "$WORK/roster.broken.skip" 2>/dev/null
+}
+# ── 은퇴 좌석 승계 닫기 관문 (r1172 · 2026-10-30 실사건 #136: retire 86초 뒤 sweep 이 [인계] 전 구세션을 kill) ──
+# 명부 은퇴 행(_closed)이면 kill 직전에 `mbox.sh close-check <이름>`([인계] 뒤 후계 [레디] 항목 전부 «받음»)을 묻는다.
+# rc 0 = 닫아도 됨(은퇴 아님 · CLOSE-OK) · 1 = keep(줄은 여기서 낸다 · REJECT 또는 판정 불가 — 하드 룰 20·23).
+retired_close_gate() {   # $1=세션명
+    roster_scan
+    grep -Fxq -- "$1" "$WORK/roster.broken.retired" 2>/dev/null || return 0
+    local root out rc
+    root="$(roster_root)" || { echo "  tmux keep $1 (판정 불가: close-check rc=2)"; return 1; }
+    # 7초 상한(외부 호출 7초 룰) — coreutils timeout 이 없는 맥에서도 돌게 perl alarm(넘으면 rc 142 = 판정 불가)
+    out=$(perl -e 'alarm shift; exec @ARGV' 7 bash "$root/.fable-team/comm/mbox.sh" close-check "$1" 2>&1); rc=$?
+    [[ "$rc" -eq 0 ]] && return 0
+    if [[ "$rc" -eq 3 ]]; then
+        echo "  tmux keep $1 (승계 마무리 전: $(printf '%s\n' "$out" | grep -m1 'REJECT' | cut -c1-120))"
+    else
+        echo "  tmux keep $1 (판정 불가: close-check rc=$rc)"
+    fi
+    return 1
 }
 # ── «일하는 좌석» 판정: jsonl 활동 (r1014 r2 · 2026-10-27) ────────────────────────
 # 입력(tmux session_activity)은 «사람이 친 시각» 만 센다. 발주 뒤 출력만 내는 좌석은 6시간 idle 로 보인다 —
@@ -800,6 +825,7 @@ tmux_prune() {
             srvhit=""
             [[ -n "$pp" ]] && srvhit=$(pgrep -P "$pp" 2>/dev/null | while read -r k; do ps -o command= -p "$k" 2>/dev/null; done | grep -aoE "$SRVRE" | head -1)
             [[ -n "$srvhit" ]] && continue                 # 라이브 서버 보호
+            retired_close_gate "$name" || continue          # r1172: 은퇴 좌석은 승계 마무리([레디]) 뒤에만 — dry 도 같은 판정
             if $DRY; then
                 echo "  [dry] tmux kill $name (lineage=$base idle=${idle}분)"; killed=$((killed+1)); continue
             fi
