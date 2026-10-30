@@ -394,7 +394,7 @@ _squash_landed(){ # 워크트리 → rc0 = 착지됨(⊘ 한 줄) · rc1 = 판�
     git -C "$w" cat-file -e "$x^{commit}" 2>/dev/null || continue
     if git -C "$w" merge-base --is-ancestor HEAD "$x" 2>/dev/null; then :     # ⓐ 나노가 PR head 뒤에 머묾
     elif git -C "$w" merge-base --is-ancestor "$x" HEAD 2>/dev/null \
-      && nm="$(git -C "$w" rev-list --first-parent --no-merges "$x"..HEAD 2>/dev/null)" && [ -z "$nm" ]; then :   # ⓑ 착지 뒤 main 병합만
+      && nm="$(git -C "$w" rev-list --no-merges "$x"..HEAD ^"$FEAT" 2>/dev/null)" && [ -z "$nm" ]; then :   # ⓑ X 뒤 병합 아닌 커밋이 전부 이미 FEAT 에 있음(main 병합만 · 미착지 옆 가지 병합은 센다)
     else continue; fi
     say "  ⊘" "착지됨($(basename "$w") · PR #$n squash ${c:0:10}) — ① 셈 제외"; return 0
   done <<< "$SQUASH_HEADS"
