@@ -40,8 +40,37 @@ MANAGER="$(jq -r '._master // empty' "$ISSUES_SEATS" 2>/dev/null)"
 SHORT="$(clean "$TITLE")"
 notify_body() { echo "[Issue 등록] Issue #$1 등록 — 제목: ${SHORT:0:120} / 경로: 세션 에이전트(ft-origin: seat) / 등록 좌석: $FROM — 접수 검사(라벨 6) 요청."; }
 
+# r1174: team 라벨 1개 — 이슈팀 확정 순서(PLAN-issue-autonomy-system §5-2). 명단은 10-30 실측 고정 — 새 team 라벨이 생기면 이 줄을 같이 고친다. 라벨 신설 0.
+TEAMS=" planner v65 ccu cfo kk shared-harness harness-ops feature ops loom graphics concierge room chatbot knowledge lecture "
+norm_team() {  # 대괄호·공백 떼고 소문자 → 별칭 → 명단에 있을 때만 출력(rc0)
+  local t; t="$(printf '%s' "$1" | tr -d '[] \t' | tr '[:upper:]' '[:lower:]')"
+  case "$t" in harness) t=harness-ops;; mobile) t=room;; esac
+  [ -n "$t" ] && [[ "$TEAMS" == *" $t "* ]] && echo "$t"
+}
+seat_team() {  # 순 3: byz-<팀>-<역할>-… 의 팀(가장 긴 이름 일치) · 접수자(planner·issues·desk) = 보류
+  local seat="${1#byz-}" c best="" role
+  [[ "$1" == byz-* ]] || { echo "HOLD 좌석 이름이 byz- 꼴 아님: $1"; return; }
+  for c in $TEAMS harness mobile issues; do [[ "$seat" == "$c"-* ]] && [ ${#c} -gt ${#best} ] && best="$c"; done
+  [ -n "$best" ] || { echo "HOLD 좌석 팀이 명단 밖: $1"; return; }
+  role="${seat#"$best"-}"; role="${role%%-*}"
+  case "$best:$role" in planner:*|issues:*|*:desk) echo "HOLD 접수자 좌석: $1"; return;; esac
+  norm_team "$best"
+}
+team_of() {  # <제목> <본문파일> <등록 좌석> → 팀 | «HOLD <이유>»
+  local t rest="$1" n=0 first="" re='^[[:space:]]*\[([^]]*)\](.*)$'
+  t="$(sed -n 's/^[[:space:]]*담당 팀[[:space:]]*:[[:space:]]*//p' "$2" | head -1)"
+  t="$(norm_team "${t%%[[:space:]]*}")" && { echo "$t"; return; }
+  while [[ "$rest" =~ $re ]]; do n=$((n+1)); [ $n -eq 1 ] && first="${BASH_REMATCH[1]}"; rest="${BASH_REMATCH[2]}"; done
+  [ $n -ge 2 ] && { echo "HOLD 제목 접두 ${n}개"; return; }
+  [ $n -eq 0 ] && { seat_team "$3"; return; }
+  norm_team "$first" || echo "HOLD 명단 밖 접두: [$first]"
+}
+TEAM="$(team_of "$TITLE" "$BODYFILE" "$FROM")"
+LABEL=()
+case "$TEAM" in HOLD\ *) echo "TEAM-HOLD ${TEAM#HOLD }"; TEAM=보류;; *) LABEL=(--label "team:$TEAM");; esac
+
 if [ $APPLY -eq 0 ]; then
-  echo "DRY gh issue create --title '$TITLE' --body-file <$BODYFILE + 마지막 줄 $MARKER>"
+  echo "DRY gh issue create --title '$TITLE'${LABEL[*]:+ ${LABEL[*]}} --body-file <$BODYFILE + 마지막 줄 $MARKER>"
   echo "DRY send to=$MANAGER from=$FROM body=$(notify_body '<번호>')"
   exit 0
 fi
@@ -52,9 +81,9 @@ BOT_TOKEN="${FT_ISSUE_BOT_TOKEN:-}"
 [ -n "$BOT_TOKEN" ] || die "봇 토큰 없음 — FT_ISSUE_BOT_TOKEN 또는 ${FT_ISSUE_BOT_TOKEN_FILE:-$HOME/.config/byz-harness/issue-bot.token} (오빠 계정으로 폴백하지 않는다)" 2
 STAMPED="$(mktemp)"; trap 'rm -f "$STAMPED"' EXIT
 { cat "$BODYFILE"; printf '\n%s\n' "$MARKER"; } > "$STAMPED"
-URL="$(GH_TOKEN="$BOT_TOKEN" gh issue create --title "$TITLE" --body-file "$STAMPED" 2>&1)" || die "gh issue create 실패: $URL"
+URL="$(GH_TOKEN="$BOT_TOKEN" gh issue create --title "$TITLE" ${LABEL[@]+"${LABEL[@]}"} --body-file "$STAMPED" 2>&1)" || die "gh issue create 실패: $URL"
 NUM="$(printf '%s' "$URL" | sed -n 's#.*/issues/\([0-9][0-9]*\).*#\1#p' | tail -1)"
 [ -n "$NUM" ] || die "Issue 는 만들어졌을 수 있다 — 번호를 못 읽음: $URL"
 OUT="$(bash "$MBOX" send "$MANAGER" "$FROM" "$(notify_body "$NUM")" 2>&1)" \
   || die "Issue #$NUM 은 만들어졌다 · 매니저 알림 실패 — 알림만 다시 보낼 것: $OUT"
-echo "PAIR issue=#$NUM manager=$MANAGER $(printf '%s' "$OUT" | sed -n 's/.*\(seq=[0-9]*\).*/\1/p' | head -1)"
+echo "PAIR issue=#$NUM team=$TEAM manager=$MANAGER $(printf '%s' "$OUT" | sed -n 's/.*\(seq=[0-9]*\).*/\1/p' | head -1)"
