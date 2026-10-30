@@ -13,6 +13,8 @@ for p in sys.argv[3:]: print("%s %s %s" % ((p,) + r.path_class(t, p)))
 ' "$HERE/../bin" "$TABLE" \
   "$H/comm/mbox_lineage.py" "$H/comm/README.md" \
   "$H/kit/fable-team/templates/scope-classes-pack.tsv" "$H/kit/fable-team/templates/scope-ddl-record.tsv" \
+  "$H/kit/fable-team/templates/scope-classes-pack.TSV" "$H/kit/fable-team/templates/Scope-Classes-Pack.tsv" \
+  "$H/KIT/fable-team/templates/scope-classes-pack.tsv" \
   "$H/bin/ft-hil.sh" "$H/tests/x.sh" "$H/evidence/y.md" "README.md" 2>&1)"; rc=$?
 fail=0
 ck() { if grep -qxF -- "$2" <<<"$out"; then echo "PASS $1"; else echo "FAIL $1 :: want «$2»"; fail=$((fail+1)); fi; }
@@ -20,6 +22,9 @@ ck() { if grep -qxF -- "$2" <<<"$out"; then echo "PASS $1"; else echo "FAIL $1 :
 ck "ⓐ R1 comm/*.py → code pack-comm" "$H/comm/mbox_lineage.py code pack-comm"
 ck "ⓐ R2 comm/README.md → code pack-comm(md 줄보다 위)" "$H/comm/README.md code pack-comm"
 ck "ⓑ R3 표 자신 → forbid scope-table" "$H/kit/fable-team/templates/scope-classes-pack.tsv forbid scope-table"
+ck "ⓑ 반송1 ① 대문자 확장자 .TSV → forbid scope-table(대소문자 무시 FS)" "$H/kit/fable-team/templates/scope-classes-pack.TSV forbid scope-table"
+ck "ⓑ 반송1 ② Scope-Classes-Pack.tsv → forbid scope-table" "$H/kit/fable-team/templates/Scope-Classes-Pack.tsv forbid scope-table"
+ck "ⓑ 반송1 ③ KIT/ 폴더 대문자 → forbid scope-table" "$H/KIT/fable-team/templates/scope-classes-pack.tsv forbid scope-table"
 ck "ⓒ R4 다른 kit 표(ddl 기록표) → code pack-kit" "$H/kit/fable-team/templates/scope-ddl-record.tsv code pack-kit"
 ck "ⓓ R5 bin → code pack-bin" "$H/bin/ft-hil.sh code pack-bin"
 ck "ⓓ R5 tests → code pack-tests" "$H/tests/x.sh code pack-tests"
