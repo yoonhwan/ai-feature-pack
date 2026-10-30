@@ -86,6 +86,8 @@ def queue(mbox: str) -> dict[str, list[int]]:
             r = json.loads(ln)
         except ValueError:
             continue
+        if r.get("from") == r.get("to"):  # r1185: recv 가 안 가져가는 자기 행(r1155 _rows_for 와 같은 규칙)은 셈 밖
+            continue
         by.setdefault(str(r.get("to")), []).append(int(r.get("seq") or 0))
     return by
 
