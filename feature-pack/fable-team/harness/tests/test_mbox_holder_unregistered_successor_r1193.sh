@@ -43,10 +43,12 @@ new_env() {   # new_env [변이함수]
   printf '{}\n' > "$ENVROOT/seats/seats.json"; roster 0; : > "$C/mailbox.jsonl"; rm -f "$T"/tmp/mbox-*
   if [ -n "${1:-}" ]; then "$1"; fi
 }
-xenv() { env -u FT_PLANNER_HEAD_MODE -u FT_DOORBELL_TAIL PATH="$T/stub:$PATH" TMPDIR="$T/tmp" FAKE_TMUX_LOG="$T/log" \
-  FAKE_SESSIONS="$P41|%1 $P42|%2" FT_PS_SNAPSHOT="$T/ps.snapshot" FT_AGENT_ALIVE_TIMEOUT=2 \
-  FT_SEATS_JSON="$ENVROOT/seats/seats.json" FT_MBOX_DIR="$C" FT_MBOX_RATE_N=999 FT_MBOX_FANOUT_WINDOW=0 \
-  FT_NAME_LINT="$REPO/harness/bin/ft-name-lint.sh" FT_MBOX_PY="$C/mbox.py" "$@"; }
+xenv() { ( unset FT_PLANNER_HEAD_MODE FT_DOORBELL_TAIL
+  export PATH="$T/stub:$PATH" TMPDIR="$T/tmp" FAKE_TMUX_LOG="$T/log"
+  export FAKE_SESSIONS="$P41|%1 $P42|%2" FT_PS_SNAPSHOT="$T/ps.snapshot" FT_AGENT_ALIVE_TIMEOUT=2
+  export FT_SEATS_JSON="$ENVROOT/seats/seats.json" FT_MBOX_DIR="$C" FT_MBOX_RATE_N=999 FT_MBOX_FANOUT_WINDOW=0
+  export FT_NAME_LINT="$REPO/harness/bin/ft-name-lint.sh" FT_MBOX_PY="$C/mbox.py"
+  "$@" ); }
 sh_() { : > "$T/log"; OUT="$(cd "$ENVROOT" && xenv bash "$C/mbox.sh" "$@" 2>&1)"; RC=$?; }
 hold() { (cd "$ENVROOT" && xenv python3 "$C/mbox.py" holder "$1" 2>&1); }
 keys() { grep -c "^$1|" "$T/log" 2>/dev/null || true; }
