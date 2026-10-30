@@ -16,7 +16,7 @@ import sys
 
 from ft_traffic_plan_judge import logical_lines
 
-OPS = {";", "&&", "||", "|", "&", "(", ")", "$(", "`"}
+PUNCT, SEP = set("();<>|&"), set(";&|()")  # shlex 구두점 토큰(«;(»·«&&(»·«>(» 처럼 붙어 나온다) — SEP 글자가 있으면 명령 구분 · <>만 = 리다이렉트
 TEXT = {"echo", "printf", ":", "grep", "rg"}  # 인자가 글자일 뿐인 명령(단 그 안의 $( )·백틱은 재귀로 본다)
 WORD = re.compile(r"(?<![\w-])approve-merge(?![\w-])")
 ASSIGN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
@@ -78,7 +78,10 @@ def is_candidate(line: str) -> bool:
         return True
     cmd = ""  # 지금 명령의 첫 낱말(빈 값 = 다음 낱말이 명령 · 대입은 명령이 아니다)
     for t in toks:
-        if t in OPS or t.endswith("$"):
+        if t and set(t) <= PUNCT:
+            cmd = "" if set(t) & SEP else cmd  # 리다이렉트(>·>>·<)는 명령을 바꾸지 않는다
+            continue
+        if t.endswith("$"):  # «x=$» 다음 «(» — $( ) 본문은 scan 이 재귀로 본다
             cmd = ""
             continue
         text_arg = cmd in TEXT  # TEXT 명령의 인자만 글자로 본다
