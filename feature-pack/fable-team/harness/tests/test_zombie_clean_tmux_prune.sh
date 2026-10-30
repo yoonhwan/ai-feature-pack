@@ -283,6 +283,10 @@ mkroster() { # <디렉토리 이름> <seats 파일에 쓸 JSON 본문> [추가 �
   local f; for f in "$@"; do printf '%s\n' "${f#*:}" > "$d/.fable-team/${f%%:*}"; done
   echo "$d"
 }
+mkcloseok() { # <명부 루트> — r1172: 은퇴 행(_closed) 좌석은 kill 전 close-check 를 묻는다 · 승계 마무리 끝(CLOSE-OK)인 세계
+  mkdir -p "$1/.fable-team/comm"
+  printf '#!/usr/bin/env bash\necho "CLOSE-OK $2 [인계] #1 → [레디] #2 항목 1 전부 받음"\nexit 0\n' > "$1/.fable-team/comm/mbox.sh"
+}
 CASE="ⓐ"
 # ⓐ 계보 3세대 · 현역(_arch) = 순번 3 · idle 999 → keep 1줄 · kill 0 (순번·idle 무관)
 RA="$(mkroster ra '{"_arch": "ZA#1"}')"
@@ -349,7 +353,7 @@ RG="$(mkroster rg '{"ZG#1": {"role": "stop-ready"}}')"
 expect "ⓖ stop-ready 는 jsonl 판정 건너뜀 → kill" "ZG#1" "$(run YELLOW 'ZG#3 10 0
 ZG#2 200 0
 ZG#1 300 0 jsonl=1' ZC_ROSTER_ROOT="$RG")"
-RG2="$(mkroster rg2 '{"ZG9#1": {"role": "arch", "_closed": "2026-10-27 02:38 은퇴"}}')"
+RG2="$(mkroster rg2 '{"ZG9#1": {"role": "arch", "_closed": "2026-10-27 02:38 은퇴"}}')"; mkcloseok "$RG2"
 expect "ⓖ_closed 좌석도 jsonl 판정 건너뜀 → kill" "ZG9#1" "$(run YELLOW 'ZG9#3 10 0
 ZG9#2 200 0
 ZG9#1 300 0 jsonl=1' ZC_ROSTER_ROOT="$RG2")"
@@ -369,7 +373,7 @@ expect "R3 명부 루트 없음 → kill 0" "" "$(sed -n 's/^.*\[dry\] tmux kill
 grep -q '명부 판정 불가: 명부 루트 없음' "$TMP/out3" && ok "R3 판정 불가 1줄(루트 없음)" || bad "R3 판정 불가 줄 없음: $(cat "$TMP/out3")"
 CASE="R4"
 # R4: `_arch` 가 은퇴(_closed) 행을 가리킨다 → 현역 아님 · 기존 회수 규칙
-RR4="$(mkroster rr4 '{"_arch": "CL#1", "CL#1": {"role": "arch", "_closed": "2026-10-27 02:38 은퇴"}}')"
+RR4="$(mkroster rr4 '{"_arch": "CL#1", "CL#1": {"role": "arch", "_closed": "2026-10-27 02:38 은퇴"}}')"; mkcloseok "$RR4"
 rm -f "$RECD"/*
 expect "R4 은퇴 행을 가리키는 역할 칸 = 현역 아님" "CL#1" "$(run YELLOW 'CL#3 10 0
 CL#2 200 0
