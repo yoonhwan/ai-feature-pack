@@ -745,15 +745,36 @@ def relay(to, frm, path, summary, force=False):
 
 
 def _rows_for(d, me, frm):
-    return [r for r in _load(d) if _role_key(r.get("to")) == _role_key(me) and (frm is None or r.get("from") == frm)]
+    # ★내가 보낸 행은 안 가져간다(r1155)★ — comm/mbox_lineage.claim 과 같은 규칙. 후계가 구 좌석에 보낸 [레디] 를 후계가 지우던 자리.
+    return [r for r in _load(d) if _role_key(r.get("to")) == _role_key(me) and (frm is None or r.get("from") == frm)
+            and r.get("from") != me]
 
 
-def _consume(d, seqs):
+def _receipt(me, rows):
+    """recv 가 가져간 쪽지마다 영수 1줄(r1155) — comm/mbox_handover.record 와 같은 꼴·같은 파일(<쪽지함>/receipts/<me>.jsonl).
+    [레디] 는 받는 순간 «처리함». 못 쓰면 raise → recv 는 소비하지 않는다(조용한 소비 0)."""
+    now = time.strftime("%Y-%m-%dT%H:%M:%S")
+    out = []
+    for r in rows:
+        out.append({"seq": r["seq"], "from": r.get("from", ""), "ts": now, "body": r.get("body", "")[:300], "body_full": r.get("body_full", "")})
+        if re.match(r"\s*\[레디\]", r.get("body") or ""):
+            out.append({"seq": r["seq"], "mark": "처리함", "ts": now, "auto": "[레디]"})
+    p = os.path.join(CANON, "receipts", me + ".jsonl")
+    os.makedirs(os.path.dirname(p), exist_ok=True)
+    with open(p, "a", encoding="utf-8") as f:
+        for o in out:
+            f.write(json.dumps(o, ensure_ascii=False) + "\n")
+
+
+def _consume(d, seqs, me):
+    """★영수는 소비 잠금 안에서 «실제로 지운 행» 에만(r1155 DA②)★ — 조회 잠금이 소비 전에 풀려 겹친 recv 2개가
+    같은 seq 를 둘 다 고르면 영수가 두 줄이 되던 자리. 영수 쓰기 실패 = raise → 이 우편함 소비 0."""
     def op():
         rows = _load(d)
-        keep = [r for r in rows if r.get("seq") not in seqs]
-        if len(keep) != len(rows):
-            _save(d, keep)
+        gone = [r for r in rows if r.get("seq") in seqs]
+        if gone:
+            _receipt(me, gone)
+            _save(d, [r for r in rows if r.get("seq") not in seqs])
 
     _locked(d, op)
 
@@ -780,7 +801,11 @@ def recv(me, frm=None, limit=None):
     for d, r in got:
         byd.setdefault(os.path.abspath(d), (d, set()))[1].add(r["seq"])
     for d, seqs in byd.values():
-        _consume(d, seqs)
+        try:
+            _consume(d, seqs, me)
+        except OSError as e:
+            sys.stderr.write("ERROR 영수 기록 실패 — 소비 0 · %s\n" % e)
+            sys.exit(1)
     for d, r in got:
         tag = "" if os.path.abspath(d) == os.path.abspath(CANON) else " (legacy)"
         shown, note = _clip(r)
@@ -798,7 +823,8 @@ def peek(me):
     dirs = [CANON] + _legacy_dirs()
     mine = []
     for d in dirs:
-        mine.extend(r for r in _locked(d, lambda d=d: _load(d)) if _role_key(r.get("to")) == _role_key(me))
+        mine.extend(r for r in _locked(d, lambda d=d: _load(d))
+                    if _role_key(r.get("to")) == _role_key(me) and r.get("from") != me)   # recv 와 같은 규칙(r1155)
     mine.sort(key=lambda r: r["seq"], reverse=True)
     head = f"pending={len(mine)}"
     if mine:
