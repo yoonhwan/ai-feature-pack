@@ -62,7 +62,7 @@ OUT="$(bash "$BIN/ft-issue-create-pair.sh" "[bug] 시험 제목" "$T/body.md" 2>
 [ $rc -eq 0 ] && ok "pair dry-run rc=0" || bad "pair rc=$rc $(cat "$T/err")"
 printf '%s\n' "$OUT" | grep -q "^DRY gh issue create --title '\[bug\] 시험 제목' --body-file" && ok "gh 명령 줄" || bad "gh 줄: $OUT"
 printf '%s\n' "$OUT" | grep -q '^DRY send to=ft-issue-manager#0 from=ft-test-seat#0 body=\[Issue 등록\] Issue #<번호> 등록' && ok "알림 1통 · 번호 자리표시" || bad "알림 줄: $OUT"
-[ "$(printf '%s\n' "$OUT" | wc -l | tr -d ' ')" = 2 ] && ok "출력 2줄(명령 1 · 알림 1)" || bad "줄 수"
+[ "$(printf '%s\n' "$OUT" | wc -l | tr -d ' ')" = 3 ] && printf '%s\n' "$OUT" | grep -q '^TEAM-HOLD 명단 밖 접두: \[bug\]' && ok "출력 3줄(r1174 TEAM-HOLD 1 · 명령 1 · 알림 1)" || bad "줄 수"
 printf '%s\n' "$OUT" | grep -q '`' && bad "백틱(mbox 가드 위반)" || ok "백틱 0"
 
 # 쌍 래퍼 — 수신자 없음 raise(폴백 0) · 입력 오류
