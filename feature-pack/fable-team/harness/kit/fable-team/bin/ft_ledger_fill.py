@@ -2,7 +2,7 @@
 """ft_ledger_fill — 원장 자동 채움(r851 · planner 계획 PLAN-news-magazine-normalize-20261024 §3 A1·A2·C1).
 
   ft-ledger-fill fill  [--repo R] [--path P] [--ref origin/main] [--no-fetch] [--push]   표 세 개 다시 쓰기 + 닫힌 줄 내림 → 바뀌었을 때만 커밋 1
-  ft-ledger-fill fresh [--repo R] [--path P] [--ref origin/main]                        신선도 — «FRESH N분» rc0 · «STALE 원장 N분 낡음 · 담당 X» rc6(+ planner [긴급] 1통 · 같은 사건 1번)
+  ft-ledger-fill fresh [--repo R] [--path P] [--ref origin/main]                        신선도 — «FRESH N분» rc0 · «STALE 원장 N분 낡음 · 담당 X» rc6(+ planner [긴급] 1통 · 같은 사건 1번 · 채움 job 꺼짐이면 0 + «채움 꺼짐(…)» 꼬리 · r1156)
 
 커밋 = 작업 트리·로컬 가지 손대지 않음(임시 인덱스 + commit-tree) · --push 면 원장 사본 브랜치(FT_LEDGER_FILL_BRANCH · 기본 ledger/auto · ledger/ 로 시작하는 이름만 — 그 밖 rc1)에만
 `git push origin <sha>:refs/heads/<브랜치>`(강제 0 · ff 만 · main 쓰기 0 — r2 planner 결정 ②). 판 = 브랜치가 main 을 품으면 브랜치 머리 위 · 아니면 main 위
@@ -14,6 +14,7 @@ ff 거절 = 다시 받고 새 판 위에서 1번 더 · 또 거절이면 rc1 —
 신선도 = 지금 − max(원장 «마지막 갱신» 시각, 마지막 채움 성공 시각) > FT_LEDGER_FRESH_MIN(60)분 = 낡음.
 env: FT_ROOT · FT_LEDGER_REPO · FT_LEDGER_PATH · FT_LEDGER_FILL_STATE · FT_LEDGER_NOW(시험) · FT_LEDGER_QUESTIONS(콜론 구분 · 기본 ~/.hermes/state/byz_slack_questions.*.json)
      · FT_LEDGER_HIL(ft-hil.sh) · FT_LEDGER_QUEUE(AUTONOMY-QUEUE.md) · FT_MAGAZINE_STATE · FT_MBOX · FT_LEDGER_FRESH_MIN · FT_HARNESS_ROOT
+     · FT_LAUNCH_AGENTS_DIR(기본 ~/Library/LaunchAgents · 채움 job 꺼짐 판정)
 """
 from __future__ import annotations
 
@@ -39,6 +40,7 @@ REMOTE_S = 10.5  # 원격 1회 = CLI 기동 고정비 3.5 + 7(7초 룰 · r569 �
 WHO = "ft-ledger-fill"
 MSG = "[docs] 원장 표 기계 채움 — 지금 상태·오빠 할 일·팀 작업 (ft-ledger-fill · r851)"
 UPDATED = re.compile(r"마지막 갱신:\s*(\d{4}-\d{2}-\d{2}) (\d{2}):(\d)([\dx])")
+FILL_JOB = "com.byz.ft-news-planner.plist"  # 원장 채움 launchd job(r1156)
 
 
 def now() -> datetime:
@@ -292,24 +294,48 @@ def _ok(st: Path, at: datetime, errs: list[str]) -> None:
         _save(st / "last-ok.json", {"at": f"{at:%Y-%m-%d %H:%M}"})
 
 
-def freshness(text: str, at: datetime, last_ok: str) -> tuple[int | None, str, str]:
-    """(낡은 분 · 못 정하면 None, 담당 좌석, 사건 키) — 기준 = max(«마지막 갱신» 시각(…x 는 그 10분의 끝), 채움 성공 시각)."""
+def freshness(text: str, at: datetime, last_ok: str) -> tuple[int | None, str]:
+    """(낡은 분 · 못 정하면 None, 사건 키) — 기준 = max(«마지막 갱신» 시각(…x 는 그 10분의 끝), 채움 성공 시각)."""
     m = UPDATED.search(text)
-    line = next((ln for ln in text.splitlines() if "마지막 갱신:" in ln), "")
     hand = datetime.strptime(f"{m[1]} {m[2]}:{int(m[3]) * 10 + (9 if m[4] == 'x' else int(m[4])):02d}", "%Y-%m-%d %H:%M") if m else None
-    owner = (re.search(r"갱신 담당 ([^)·]+)", line) or re.search(r"\d[\dx]\s*·\s*([^(·]+)", line))
-    who = owner[1].strip() if owner else "모름"
     basis = max([d for d in (hand, datetime.strptime(last_ok, "%Y-%m-%d %H:%M") if last_ok else None) if d], default=None)
-    return (int((at - basis).total_seconds() // 60) if basis else None), who, f"{m[0] if m else '없음'}|{last_ok}"
+    return (int((at - basis).total_seconds() // 60) if basis else None), f"{m[0] if m else '없음'}|{last_ok}"
+
+
+def owner(root: Path) -> str:
+    """담당 = 명부 seats-planner.json _master(r1156 · 원장 «갱신 담당» 글자는 옛 좌석 이름이 남는다)."""
+    try:
+        return json.loads((root / ".fable-team/seats-planner.json").read_text(encoding="utf-8"))["_master"]
+    except (OSError, ValueError, KeyError) as e:
+        LOG.error("원장 담당 못 읽음(seats-planner.json _master): %s", e)
+        return "모름"
+
+
+def fill_off() -> str:
+    """'' = 채움 job 켜짐·모름 · 아니면 꺼짐 표식 파일 이름 — FILL_JOB plist 없음 ∧ .off-* 있음(r1156 · 꺼진 장치를 경보로 재촉 0)."""
+    d = Path(os.environ.get("FT_LAUNCH_AGENTS_DIR") or Path.home() / "Library/LaunchAgents")
+    try:
+        if (d / FILL_JOB).exists():
+            return ""
+        offs = sorted(p.name for p in d.iterdir() if p.name.startswith(FILL_JOB + ".off-"))
+    except OSError as e:
+        LOG.error("채움 job 폴더 못 읽음(꺼짐 아님으로 봄): %s", e)
+        return ""
+    return offs[-1] if offs else ""
 
 
 def fresh_note(root: Path, text: str, at: datetime) -> str:
-    """'' = 신선 · 아니면 «원장 N분 낡음 · 담당 X» 1줄 — planner [긴급] 1통(같은 사건 = 같은 기준 시각이면 0)."""
+    """'' = 신선 · 아니면 «원장 N분 낡음 · 담당 X» 1줄 — planner [긴급] 1통(같은 사건 = 같은 기준 시각이면 0 · 채움 job 꺼짐이면 0)."""
     st = state_dir(root)
-    mins, who, event = freshness(text, at, _load(st / "last-ok.json", {}).get("at", ""))
+    mins, event = freshness(text, at, _load(st / "last-ok.json", {}).get("at", ""))
     if mins is not None and mins <= int(os.environ.get("FT_LEDGER_FRESH_MIN", "60")):
         return ""
+    who = owner(root)
     note = f"원장 {mins}분 낡음 · 담당 {who}" if mins is not None else f"원장 «마지막 갱신» 줄 못 읽음 · 담당 {who}"
+    off = fill_off()
+    if off:
+        LOG.warning("원장 낡음 [긴급] 안 보냄 — 채움 job 꺼짐(%s)", off)
+        return f"{note} · 채움 꺼짐({off})"
     if _load(st / "fresh-alarm.json", {}).get("event") != event and _alarm(root, note) == 0:
         _save(st / "fresh-alarm.json", {"event": event, "at": f"{at:%Y-%m-%d %H:%M}"})
     return note
