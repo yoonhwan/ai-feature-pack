@@ -1220,9 +1220,23 @@ _pack_move_hint() {
   local pk
   pk="$(cd "${FT_PACK_ROOT:-$HOME/Project/ai-feature-pack}" 2>/dev/null && pwd -P)" || return 0
   [[ "$1" == "$pk/.worktrees/"?* ]] && return 0
+  [ "$1" = "$pk" ] && return 0   # r1202: 팩 루트 = 본 워크트리(옮길 수 없다) — 안내는 _pack_wt_hint 가 한다
   git -C "$pk" worktree list --porcelain 2>/dev/null | grep -qxF "worktree $1" || return 0
   printf ' · 표준 자리 밖 — mkdir -p %s/.worktrees && git -C %s worktree move %s %s/.worktrees/%s 뒤 같은 명령(--wt %s/.worktrees/%s)' \
     "$pk" "$pk" "$1" "$pk" "${NBR#nano/}" "$pk" "${NBR#nano/}"
+}
+# r1202: --wt 가 팩 루트·팩 안 다른 경로(등록 .worktrees/<이름> 아님)면 «맞는 --wt» 와 «미착지 휴식 닫기» 한 줄 — 판정(REJECT)은 그대로 · 출력만 · 팩 밖 입력 = 빈 값
+_pack_wt_hint() {
+  local pk porc w
+  pk="$(cd "${FT_PACK_ROOT:-$HOME/Project/ai-feature-pack}" 2>/dev/null && pwd -P)" || return 0
+  [[ "$1" == "$pk" || "$1" == "$pk/"* ]] || return 0
+  porc="$(git -C "$pk" worktree list --porcelain 2>/dev/null)"
+  [[ "$1" == "$pk/.worktrees/"?* ]] && grep -qxF "worktree $1" <<<"$porc" && return 0
+  w="$(awk -v b="refs/heads/$2" '/^worktree /{p=substr($0,10)} /^branch /{if(substr($0,8)==b){print p; exit}}' <<<"$porc")"
+  [ "$w" = "$1" ] && w=""
+  if [ -n "$w" ]; then printf ' · 팩 나노는 --wt %s --branch %s' "$w" "$2"
+  else printf ' · 팩 나노는 --wt %s/.worktrees/%s(이 가지 등록 워크트리 0)' "$pk" "${2#nano/}"; fi
+  printf ' · 착지 전 휴식 닫기 = --suspended "<사유>"(브랜치·PR 보존)'
 }
 if [ "$NAMED" = 1 ]; then
   _std_wt="$SEAT_WT"; SEAT_WT=""; SEAT_BR=""; SEAT_WT_ERR=""   # 표준 해석 결과·«추측 금지» 에러는 이 모드에서 명시 인자가 대신한다(표준 후보가 따로 있으면 아래서 REJECT)
@@ -1230,7 +1244,7 @@ if [ "$NAMED" = 1 ]; then
   _porc="$(git -C "$ROOT" worktree list --porcelain 2>/dev/null)"
   if [ -z "$_nw" ]; then bad+=("ⓐ--wt 경로가 없다: $NWT")
   elif { [[ "$_nw" != "$ROOT/.worktrees/"?* ]] || ! grep -qxF "worktree $_nw" <<<"$_porc"; } && ! _pack_wt "$_nw"; then
-    bad+=("ⓐ--wt($_nw)가 이 리포($ROOT)에 등록된 .worktrees/ 아래 워크트리가 아니다 · 팩 경로는 하네스 카드(- 설치: 있음)만$(_pack_move_hint "$_nw")")
+    bad+=("ⓐ--wt($_nw)가 이 리포($ROOT)에 등록된 .worktrees/ 아래 워크트리가 아니다 · 팩 경로는 하네스 카드(첫 5줄 원장 줄 GOAL-harness)만$(_pack_move_hint "$_nw")$(_pack_wt_hint "$_nw" "$NBR")")   # r1202-mut:hint
   else
     _nb="$(printf '%s\n' "$_porc" | awk -v t="$_nw" '/^worktree /{p=substr($0,10)} /^branch /{if(p==t){b=substr($0,8); sub("^refs/heads/","",b); print b}}')"
     if [ "$_nb" != "$NBR" ]; then bad+=("ⓑ--wt($_nw)에 체크아웃된 브랜치(${_nb:-detached})가 --branch($NBR)와 다르다")
