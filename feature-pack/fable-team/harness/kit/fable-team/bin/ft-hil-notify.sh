@@ -12,10 +12,11 @@ HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 die() { echo "ft-hil-notify 판정 불가 — $*" >&2; exit 1; }
 comm() { [ -n "${1:-}" ] && { printf '%s\n' "$1"; return; }; . "$HERE/ft-harness-root.sh" && ft_comm_dir "$HERE"; }
 master_of() { python3 -c 'import json,sys;m=json.load(open(sys.argv[1])).get("_master");print(m if isinstance(m,str) else "")' "$1/../seats-planner.json" 2>/dev/null; }
-send() {  # <쪽지함> <발신자> <본문> <수신…> — 빈 이름·같은 좌석은 건너뛴다
-  local c="$1" f="$2" b="$3" to seen=" " bad=0; shift 3
+send() {  # <쪽지함> <발신자> <본문> <수신…> — 빈 이름·같은 역할(끝 #N 뺀 이름 = mbox_conf.role_key · r1159)은 건너뛴다
+  local c="$1" f="$2" b="$3" to k seen=" " bad=0; shift 3
   [ -f "$c/mbox.sh" ] || die "쪽지함 도구 없음: $c/mbox.sh"
-  for to in "$@"; do [ -n "$to" ] && [[ "$seen" != *" $to "* ]] || continue; seen="$seen$to "
+  for to in "$@"; do k="$to"; [[ "$to" =~ ^(.*)#[0-9]+$ ]] && k="${BASH_REMATCH[1]}"
+    [ -n "$to" ] && [[ "$seen" != *" $k "* ]] || continue; seen="$seen$k "
     bash "$c/mbox.sh" send "$to" "$f" "$b" >/dev/null 2>&1 || { echo "ft-hil-notify 판정 불가 — mbox send rc≠0 to=$to" >&2; bad=1; }; done
   [ "$seen" != " " ] || die "수신자 0(요청 좌석 표식 없음 · planner _master 없음)"
   return "$bad"
