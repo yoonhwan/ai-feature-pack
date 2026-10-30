@@ -582,7 +582,7 @@ for f in files:
 
     # r4(오빠 결정 17:3x «명부가 엇갈려도 지킨다»): 은퇴 집합은 «명부마다» 따로 모은다 —
     #   A 명부가 현역이라고 적은 좌석을 B 명부의 은퇴 행이 지우지 못한다(reclaim 과 같은 판정 · 두 경로 한 집합).
-    fnames, fskip, fretired = set(), set(), set()
+    fnames, fskip, fretired, fgate = set(), set(), set(), set()
 
     def walk(v, closing):
         # closing = 닫힌 세트(_closed) 안 — 그 안 이름은 현역이 아니라 «jsonl 판정 건너뛸 이름»(r3 R7)
@@ -609,10 +609,13 @@ for f in files:
                 fskip.add(k)
             if "_closed" in v:
                 fretired.add(k)           # r3 R4: 역할 칸이 «은퇴 행» 을 가리키면 현역 아님
+            rb = v.get("_replaced_by")
+            if "_closed" in v or (isinstance(rb, str) and rb.strip()):
+                fgate.add(k)              # r1172: 승계 닫기 관문 대상 = _closed ∪ _replaced_by(ft-seat-retire 꼴 · 실사건 #136)
     # 명부마다: 이 명부의 은퇴 행만 이 명부의 현역에서 뺀다(다른 명부의 은퇴 행은 보호를 지우지 못한다 — r4)
     names |= (fnames - fretired)
     skip |= fskip
-    retired |= fretired
+    retired |= fgate
 with open(nout, "w", encoding="utf-8") as fh:
     for n in sorted(names):
         fh.write(n + "\n")

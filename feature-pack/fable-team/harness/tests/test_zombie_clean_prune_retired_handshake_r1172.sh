@@ -88,6 +88,15 @@ R2="$(mkroot r2 "$RETIRED" rc0)"
 expect "R2 은퇴 + CLOSE-OK → kill-session 1" "1" "$(run "$R2" "$SEATS")"
 grep -q 'tmux kill RT#1 ' "$TMP/out" && ok "R2 kill 줄" || bad "R2 kill 줄 없음: $(cat "$TMP/out")"
 
+# R1b·R2b — 실사건 #136 꼴: 행 = role stop-ready + _replaced_by(_closed 없음 · ft-seat-retire 가 쓰는 꼴)도 같은 관문
+REPLACED='{"_master": "RT#2", "RT#2": {"role": "master"}, "RT#1": {"role": "stop-ready", "_replaced_by": "RT#2"}}'
+R1B="$(mkroot r1b "$REPLACED" rc3)"
+expect "R1b stop-ready+_replaced_by + REJECT → kill-session 0" "0" "$(run "$R1B" "$SEATS")"
+expect "R1b keep 줄 1" "1" "$(grep -c '  tmux keep RT#1 (승계 마무리 전: REJECT RT#1 \[인계\] 없음' "$TMP/out")"
+R2B="$(mkroot r2b "$REPLACED" rc0)"
+expect "R2b stop-ready+_replaced_by + CLOSE-OK → kill-session 1" "1" "$(run "$R2B" "$SEATS")"
+expect "R2b close-check 호출 = close-check RT#1" "close-check RT#1" "$(cat "$TMP/cc.log")"
+
 # R3 — 도구 없음 · rc 2 → kill 0 · «판정 불가: close-check rc=<n>» 1줄
 R3A="$(mkroot r3a "$RETIRED" none)"
 expect "R3a 도구 없음 → kill-session 0" "0" "$(run "$R3A" "$SEATS")"
