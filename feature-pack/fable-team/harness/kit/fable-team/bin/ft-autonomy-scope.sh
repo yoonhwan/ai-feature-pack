@@ -299,5 +299,5 @@ cmd_scope_status() {
   scope_block
   if [ -n "$BLOCK" ]; then echo "[범위 승인 $G_S 정지: $BLOCK]"; return 0; fi
   local c=""; [ "$G_CODEMAX" -gt 0 ] && c=" · code $(scope_code_used "$G_S")/$G_CODEMAX"
-  echo "[범위 승인 $G_S · $G_A · ~$(hhmm "$G_UNTIL")까지 · $(scope_used "$G_S")/$G_MAX · 오늘 $(scope_today "$G_S")/$G_DAILY · $G_CLASSES$c]"
+  echo "[범위 승인 $G_S · $G_A · ~$(fmt "$G_UNTIL" '%m-%d %H:%M' || echo '--:--')까지 · $(scope_used "$G_S")/$G_MAX · 오늘 $(scope_today "$G_S")/$G_DAILY · $G_CLASSES$c]"
 }
