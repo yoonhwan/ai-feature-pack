@@ -4,7 +4,7 @@
 # R2 같은 표 · exit 1 → 죽은 예약 + [급] 1통 + 표식(범위 밖)
 # R3 같은 표 · com.byz.other exit 91 → 죽은 예약 + [급](표 밖 Label)
 # R4 표 파일 없음 · exit 91 → 죽은 예약 + [급]
-# R5 표 줄 뒤집힘(99-90) · 글자(abc) → stderr «예외 표 줄 형식 틀림» 1줄 · exit 91 은 죽은 예약 + [급]
+# R5 표 줄 뒤집힘(99-90) · 글자(abc) · 앞자리 0(091 · 090-099 · DA① HOLD) → stderr «예외 표 줄 형식 틀림» 1줄 · exit 91 은 죽은 예약 + [급]
 # R6 표 «com.byz.gce-guard-check 91» · exit 91 → 허용 · exit 92 → 죽은 예약
 # ⓓ bin·kit 같은 내용(cmp0)
 # FT_LDC_BASE_BIN=<기준판> 이면 R2~R4 stdout 이 기준판과 같은지도 본다.
@@ -74,7 +74,7 @@ rm -f "$T/exit-ok.txt"; dead "$G" 91; reset; ldc "$SCRIPT"; rc=$?
 alarmed "$G" 91 && ok "R4 표 없음 · exit 91 → 죽은 예약 + [급]" || bad "R4 rc=$rc calls=$(calls) marks=$(marks): $(cat "$T/out" "$T/err")"
 
 # R5 형식 틀림(뒤집힘 · 글자) → ERROR 1줄 · 경보 쪽
-for bad_row in "$G 99-90" "$G abc"; do
+for bad_row in "$G 99-90" "$G abc" "$G 091" "$G 090-099"; do
   table "$bad_row"; dead "$G" 91; reset; ldc "$SCRIPT"; rc=$?
   errs="$(grep -c '^ERROR ft-launchd-check: 예외 표 줄 형식 틀림 1: ' "$T/err")"
   [ "$errs" = 1 ] && [ "$(wc -l < "$T/err" | tr -d ' ')" = 1 ] && alarmed "$G" 91 \

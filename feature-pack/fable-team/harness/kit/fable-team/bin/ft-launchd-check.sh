@@ -61,7 +61,7 @@ _exit_ok_load() {
     read -r lbl rng extra <<< "$line"
     [ -n "$lbl" ] || continue
     lo="${rng%%-*}"; hi="${rng#*-}"
-    if [ -z "$extra" ] && [[ "$lo" =~ ^[0-9]{1,3}$ && "$hi" =~ ^[0-9]{1,3}$ ]] && [ $((10#$lo)) -ge 1 ] && [ $((10#$lo)) -le $((10#$hi)) ] && [ $((10#$hi)) -le 255 ]; then
+    if [ -z "$extra" ] && [[ "$lo" =~ ^[1-9][0-9]{0,2}$ && "$hi" =~ ^[1-9][0-9]{0,2}$ ]] && [ $((10#$lo)) -ge 1 ] && [ $((10#$lo)) -le $((10#$hi)) ] && [ $((10#$hi)) -le 255 ]; then
       _exit_ok_rows+="$lbl $((10#$lo)) $((10#$hi))"$'\n'
     else echo "ERROR ft-launchd-check: 예외 표 줄 형식 틀림 $n: $raw" >&2; fi
   done < "$EXIT_OK"
