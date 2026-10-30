@@ -745,7 +745,25 @@ def relay(to, frm, path, summary, force=False):
 
 
 def _rows_for(d, me, frm):
-    return [r for r in _load(d) if _role_key(r.get("to")) == _role_key(me) and (frm is None or r.get("from") == frm)]
+    # ★내가 보낸 행은 안 가져간다(r1155)★ — comm/mbox_lineage.claim 과 같은 규칙. 후계가 구 좌석에 보낸 [레디] 를 후계가 지우던 자리.
+    return [r for r in _load(d) if _role_key(r.get("to")) == _role_key(me) and (frm is None or r.get("from") == frm)
+            and r.get("from") != me]
+
+
+def _receipt(me, rows):
+    """recv 가 가져간 쪽지마다 영수 1줄(r1155) — comm/mbox_handover.record 와 같은 꼴·같은 파일(<쪽지함>/receipts/<me>.jsonl).
+    [레디] 는 받는 순간 «처리함». 못 쓰면 raise → recv 는 소비하지 않는다(조용한 소비 0)."""
+    now = time.strftime("%Y-%m-%dT%H:%M:%S")
+    out = []
+    for r in rows:
+        out.append({"seq": r["seq"], "from": r.get("from", ""), "ts": now, "body": r.get("body", "")[:300], "body_full": r.get("body_full", "")})
+        if re.match(r"\s*\[레디\]", r.get("body") or ""):
+            out.append({"seq": r["seq"], "mark": "처리함", "ts": now, "auto": "[레디]"})
+    p = os.path.join(CANON, "receipts", me + ".jsonl")
+    os.makedirs(os.path.dirname(p), exist_ok=True)
+    with open(p, "a", encoding="utf-8") as f:
+        for o in out:
+            f.write(json.dumps(o, ensure_ascii=False) + "\n")
 
 
 def _consume(d, seqs):
@@ -776,6 +794,11 @@ def recv(me, frm=None, limit=None):
     if not got:
         print("READ none")
         return
+    try:
+        _receipt(me, [r for _, r in got])
+    except OSError as e:
+        sys.stderr.write("ERROR 영수 기록 실패 — 소비 0 · %s\n" % e)
+        sys.exit(1)
     byd = {}
     for d, r in got:
         byd.setdefault(os.path.abspath(d), (d, set()))[1].add(r["seq"])
@@ -798,7 +821,8 @@ def peek(me):
     dirs = [CANON] + _legacy_dirs()
     mine = []
     for d in dirs:
-        mine.extend(r for r in _locked(d, lambda d=d: _load(d)) if _role_key(r.get("to")) == _role_key(me))
+        mine.extend(r for r in _locked(d, lambda d=d: _load(d))
+                    if _role_key(r.get("to")) == _role_key(me) and r.get("from") != me)   # recv 와 같은 규칙(r1155)
     mine.sort(key=lambda r: r["seq"], reverse=True)
     head = f"pending={len(mine)}"
     if mine:
