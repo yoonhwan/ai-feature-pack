@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# test_autonomy_scope_grant.sh — 범위 승인 시험 1/3: bash -n·kit cmp · approve-scope · scope-approve · max 자동 정지 · 분류기 (r1197 · 옛 test_autonomy_scope.sh 43~111·124~133행 그대로)
-# 격리·공용 준비 = lib/autonomy_scope_setup.sh · 다른 두 파일(stop_tamper · code_hook)과 상태를 나누지 않는다(구역마다 fresh).
+# test_autonomy_scope_grant.sh — 범위 승인 시험 1/4: bash -n·kit cmp · approve-scope · scope-approve (r1197 · 옛 test_autonomy_scope.sh 43~99행 그대로)
+# 격리·공용 준비 = lib/autonomy_scope_setup.sh · 다른 세 파일(approve_limits · stop_tamper · code_hook)과 상태를 나누지 않는다(구역마다 fresh).
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/autonomy_scope_setup.sh"
 
@@ -61,28 +61,5 @@ run a scope-approve "$(sha 2)"; run a scope-approve "$(sha 3)"; [ $rc = 0 ]; ck 
 run a scope-approve "$(sha 4)"; [ $rc = 2 ] && has '하루 건수 도달'; ck "daily 도달 → REJECT" $?
 [ ! -e "$AP/$(sha 4)" ] && ! grep -q "$(sha 4)" "$LOG"; ck "daily REJECT 쓰기 0" $?
 run a scope-status; ! has '정지' && has '^\[범위 승인 S1 · A1 .* 3/5 · 오늘 3/3 · docs,ff,revert\]$'; ck "daily 도달은 정지 아님(내일 풀림)" $?
-
-# max · 자동 정지 · revert 건수 0
-fresh; grant --for 10h --max 2 --daily 2 --classes docs,ff,revert >/dev/null
-STUB_OUT="CLASS revert"; export STUB_OUT
-run a scope-approve "$(sha 11)"; run a scope-approve "$(sha 12)"; [ $rc = 0 ] && has 'used=0/2'; ck "revert 는 건수 0 (used=0/2)" $?
-STUB_OUT="CLASS docs"
-run a scope-approve "$(sha 13)"; run a scope-approve "$(sha 14)"; [ $rc = 0 ] && has 'used=2/2'; ck "docs 2건 = max" $?
-run a scope-approve "$(sha 15)"; [ $rc = 2 ] && has '건수 도달'; ck "max 도달 → REJECT" $?
-[ -f "$S/autonomy-scope/S1.stopped" ] && grep -q '^scope-stop S1 ' "$LOG"; ck "max 도달 → 자동 정지(log + .stopped)" $?
-STUB_OUT="CLASS revert"; run a scope-approve "$(sha 16)"; [ $rc = 2 ] && has '정지'; ck "정지 뒤 revert 도 REJECT" $?
-run a scope-status; has '^\[범위 승인 S1 정지: 건수 도달\(2/2\)\]$'; ck "status 정지 꼴" $?
-STUB_OUT="CLASS docs"
-
-# 분류기
-fresh; grant --for 10h --max 5 --classes docs,ff >/dev/null; n0="$(lines)"
-STUB_OUT="FORBID code-touch" STUB_RC=2 run a scope-approve "$(sha 31)"; [ $rc = 2 ] && has '분류기 거절 rc=2: FORBID code-touch'; ck "분류기 FORBID → REJECT(사유 그대로)" $?
-FT_SCOPE_CLASSIFY=/nonexistent run a scope-approve "$(sha 32)"; [ $rc = 2 ] && has '분류기 없음'; ck "분류기 없음 → REJECT" $?
-STUB_OUT="garbage" run a scope-approve "$(sha 33)"; [ $rc = 2 ] && has '꼴 틀림'; ck "분류기 출력 꼴 틀림 → REJECT" $?
-STUB_OUT="CLASS code" run a scope-approve "$(sha 34)"; [ $rc = 2 ] && has '범위\(docs,ff\) 밖'; ck "종류 code → 범위 밖 REJECT" $?
-STUB_OUT="CLASS revert" run a scope-approve "$(sha 35)"; [ $rc = 2 ] && has '범위\(docs,ff\) 밖'; ck "grant 에 없는 종류(revert) → REJECT" $?
-[ "$(lines)" = "$n0" ] && [ ! -d "$AP" ]; ck "분류기 REJECT 5종 전부 쓰기 0" $?
-run a scope-approve "xyz"; [ $rc = 2 ]; ck "sha 형식 틀림 → REJECT" $?
-rm -rf "$S"; mkdir -p "$S"; a on >/dev/null 2>&1; run a scope-approve "$(sha 36)"; [ $rc = 2 ] && has '활성 범위 승인 없음'; ck "grant 없음 → REJECT" $?
 
 echo "fail=$fail"; [ "$fail" = 0 ]
