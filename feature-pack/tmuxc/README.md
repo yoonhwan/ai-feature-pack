@@ -63,20 +63,23 @@ tmuxc open . --name PI_REVIEW --agent pi --role orchestrator --effort high
 - `--like <pi-session>`으로 live pi의 model/thinking을 상속할 수 있다.
 - Pi 자체 스킬은 `~/.agents/skills/pi-ops` 및 `/skill:pi-ops` 참고.
 
-### Pi + Serena (0.4.3)
+### Pi + code-intel (0.4.9 — Serena 은퇴)
+
+**0.4.9 부터 `--serena` 는 폐기(거부 · rc 2)다.** Serena 는 2026-10-22 하네스 공통 **code-intel** 로 대체됐다(공유 HTTP 서버 9493 종료 · claude/codex MCP 등록 제거).
 
 ```bash
-tmuxc open .worktrees/my-task --name PI_IMPL --agent pi --serena --role worker
+ci doctor                          # 설치·데몬·smoke 1줄 진단
+ci search "<질의>" <path> --max 5   # 의미/키워드 검색(BM25+AST 블록)
+ci sym <sym> --callers --scope .   # 정의·호출자
+ci outline <file>                  # 구조 + 토큰수
+ci refs "<file>#<sym>"             # LSP 정밀 참조(온디맨드)
 ```
 
-- `--serena`는 **`--agent pi` 전용**. 그 워크트리의 `.pi/mcp.json`에 serena를 **stdio · `--project <그 경로>`**로 적고, pi 명령에 `--approve`(이번 실행만 프로젝트 신뢰 · `trust.json` 저장 0)를 붙인다.
-- `--context codex`를 쓴다: pi도 codex처럼 자체 파일·셸 도구를 갖고 있어, serena의 `read_file`·`create_text_file`·`execute_shell_command` 같은 중복 도구를 빼고 심볼 도구만 남기는 context가 맞다.
-- 노출은 화이트리스트(`exposure:"hidden"` + `toolExposure`)뿐 — `activate_project`·`find_symbol`·`find_referencing_symbols`·`get_symbols_overview`·`find_implementations`·`onboarding`·`list_memories`·`read_memory`·`write_memory`만 direct. 나머지는 등록되지만 호출 불가.
-- 기동 때 활성 프로젝트가 이미 지정되므로 **첫 `find_symbol`에 `activate_project` 선행 호출이 필요 없다**. 온보딩은 `list_memories`에 온보딩 기억이 없으면 `onboarding` 1회.
-- 워크트리의 `.pi/`·`.serena/`를 `.git/info/exclude`에 넣는다(커밋 금지 · 좌석 로컬).
-- 공유 HTTP serena를 쓰지 않는 이유: serena 1개는 **활성 프로젝트 1개**만 갖는다 — 여러 좌석이 공유하면 서로 `activate`를 밀어낸다. stdio는 pi 세션이 끝날 때 프로세스 그룹째 회수된다.
-- `--dry-run`은 **파일을 쓰지 않는다** — `mcp=`(경로)와 `mcp_json=`(쓸 내용)만 출력한다.
-- 플래그가 없으면 이전과 동작 차이 0. 다른 에이전트에 `--serena`를 주면 거부한다.
+- **사전 활성화·인덱싱 절차 없음** — `activate_project`·`initial_config` 같은 선행 호출을 하지 않는다. 탐색 전에 아무것도 켜지 않는다.
+- 편집은 에이전트 네이티브 Edit. 심볼 편집 도구는 없다.
+- `tmuxc open --agent pi --serena` 는 이제 **rc 2 로 거부**(세션 열기 0)하고 위 대체를 안내한다 — 좌석이 죽은 서버를 가리키는 일을 막기 위해서다.
+- 이미 만들어진 `<워크트리>/.pi/mcp.json` 의 `serena` 항목은 지운다(좌석 로컬 · `.pi/` 는 `.git/info/exclude` 에).
+- `bash`/셸 코드는 `ci sym` 이 못 잡는다(LSP 한계) → `rg -n` 병행. 한국어 `.md` 가 많은 디렉토리에서 `ci search` 가 markdown 파서 panic 후 `*.md` 를 제외하고 재시도하므로 **문서 검색은 `rg` 를 쓴다**.
 
 ### opencode 좌석 모델 (0.4.1 · r476)
 

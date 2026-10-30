@@ -6,10 +6,10 @@ usage() {
 tmuxc - tmux session launcher for Claude, Codex, OMX, Pi
 
 Usage:
-  tmuxc open <path> [--name NAME] [--agent claude|codex|omx|opencode|cmd|pi] [--role worker|analysis|orchestrator|implementer|planner] [--model ID] [--ctx 1m] [--effort E] [--fast on|off] [--like SESSION] [--prompt TEXT] [--serena] [--dry-run]
+  tmuxc open <path> [--name NAME] [--agent claude|codex|omx|opencode|cmd|pi] [--role worker|analysis|orchestrator|implementer|planner] [--model ID] [--ctx 1m] [--effort E] [--fast on|off] [--like SESSION] [--prompt TEXT] [--dry-run]
       --effort: claude·cmd·codex(-c model_reasoning_effort)·pi(--thinking) / --fast: codex 전용(-c service_tier=priority)
-      --serena: --agent pi 전용(0.4.3). 그 워크트리의 .pi/mcp.json 에 serena(stdio·--project <경로>·--context codex)를
-        쓰고 pi 에 --approve(이번 실행만 신뢰 · trust.json 저장 0)를 붙인다. --dry-run 은 쓰지 않고 mcp=/mcp_json= 만 출력.
+      --serena: **0.4.9 에서 폐기**(거부 rc 2). Serena 는 2026-10-22 은퇴 — 공유서버 9493 종료·MCP 등록 제거.
+        코드 탐색은 code-intel 스킬(`ci search / ci sym / ci outline / ci refs / ci doctor`)을 쓴다. 사전 활성화 없음.
   tmuxc wt <worktree-path> [same options as open]
   tmuxc fork <path> --name NEW_NAME (--from LIVE_SESSION | --source ID --agent claude|codex|opencode|cmd|pi) [--model ID] [--ctx 1m] [--effort E] [--role R] [--prompt TEXT] [--dry-run]
       네이티브 fork — 부모 대화를 건드리지 않고 새 세션ID로 분기한다 (claude --fork-session / codex fork / opencode --fork / cmd --fork-session / pi --fork).
@@ -49,6 +49,12 @@ EOF
 die() {
   printf 'tmuxc: %s\n' "$*" >&2
   exit 1
+}
+
+# Serena 은퇴(2026-10-22) — --serena 는 어느 명령·에이전트에서도 거부(rc 2 · 세션 열기 0).
+die_serena_retired() {
+  printf 'tmuxc: --serena 는 Serena 은퇴(10-22)로 없어졌다 — 코드 탐색은 ci(sym·refs·outline·search)\n' >&2
+  exit 2
 }
 
 # ---------- claude 주입 «한 벌» (r1075 · arch#173 재판단 r2) ----------
@@ -234,64 +240,8 @@ repo_root_for() {
   fi
 }
 
-# Serena 공유 MCP (UC1-7): 프로젝트 serena 설정의 --project 경로를 해석한다.
-# 출처: {root}/.mcp.json (stdio --project) → ~/.claude.json 프로젝트 항목(동일 검색,
-# worktree면 메인 저장소 항목까지). 없으면 빈값 = serena 미구성 프로젝트.
-serena_project_for() {
-  local root="$1"
-  python3 - "$root" <<'PYEOF' 2>/dev/null
-import json, os, subprocess, sys
-root = sys.argv[1]
-def from_mcp_json(d):
-    for v in (d.get("mcpServers") or {}).values():
-        if v.get("command") and "serena" in json.dumps(v):
-            a = v.get("args") or []
-            if "--project" in a: return a[a.index("--project") + 1]
-    return None
-def from_claude_json(d, keys):
-    for k in keys:
-        s = (d.get("projects", {}).get(k, {}) or {}).get("mcpServers", {}).get("serena")
-        if not s: continue
-        if s.get("type") == "http":
-            port = (s.get("url") or "").rsplit(":", 1)[-1].split("/")[0]
-            sf = os.path.expanduser(f"~/.serena/bridges/{port}.json")
-            if os.path.exists(sf):
-                return json.load(open(sf)).get("project")
-        else:
-            a = s.get("args") or []
-            if "--project" in a: return a[a.index("--project") + 1]
-    return None
-if os.path.isfile(f"{root}/.mcp.json"):
-    p = from_mcp_json(json.load(open(f"{root}/.mcp.json")))
-    if p: print(p); sys.exit(0)
-cj = os.path.expanduser("~/.claude.json")
-if os.path.isfile(cj):
-    d = json.load(open(cj))
-    keys = [root]
-    common = subprocess.run(["git", "-C", root, "rev-parse", "--git-common-dir"],
-                            capture_output=True, text=True).stdout.strip()
-    if common and not common.startswith("/"):
-        common = os.path.join(root, common)
-    main_root = os.path.dirname(common) if common else ""
-    if main_root and main_root != root: keys.append(main_root)
-    p = from_claude_json(d, keys)
-    if p: print(p)
-PYEOF
-}
-
-# UC1-7: 세션 스폰 전 serena 공유서버 ensure (미구성 프로젝트는 무음 no-op, 실패해도 open은 계속)
-ensure_serena() {
-  local root="$1"
-  command -v python3 >/dev/null 2>&1 || return 0
-  local sproj
-  sproj="$(serena_project_for "$root")"
-  [[ -z "$sproj" ]] && return 0
-  if [[ -x "$HOME/.claude/scripts/serena-mcp.sh" ]]; then
-    local out
-    out="$("$HOME/.claude/scripts/serena-mcp.sh" ensure "$sproj" 2>&1)" \
-      || printf '⚠️  serena 공유서버 ensure 실패 (세션은 계속 생성, serena만 미가능): %s\n' "$out" >&2
-  fi
-}
+# (제거 0.4.9) serena_project_for·ensure_serena — Serena 은퇴로 공유서버(9493) 자체가 없다.
+#   대체 = code-intel 스킬(`ci`). 좌석 기동 전에 켤 것이 없다.
 
 role_alias() {
   case "${1:-worker}" in
@@ -486,7 +436,6 @@ resolve_pi_cmd() {
   local role="$2"
   local model="${3:-}"
   local effort="${4:-}"
-  local serena="${5:-0}"
   local tools thinking sid
   case "$role" in
     worker|implementer|crew|plugin) tools="read,bash,edit,write,grep,find,ls" ;;
@@ -494,86 +443,16 @@ resolve_pi_cmd() {
     *) tools="read,grep,find,bash" ;;
   esac
   thinking="${effort:-medium}"
-  # ★MCP 도구는 --tools 에 «이름/패턴» 으로 들어 있어야 모델에 선언된다★(pi docs/cli.md «An MCP tool that no entry
-  #   names or matches is never declared directly, whatever its exposure»). 실측 2026-10-20: --tools 만 주면
-  #   mcp__serena__* 가 0개로 선언돼 좌석이 JSON-RPC 를 손으로 부르는 우회로 갔다. 화이트리스트(exposure:"hidden")
-  #   는 그대로라, 이 패턴이 실제로 열어 주는 것은 toolExposure 에서 direct 로 정한 도구뿐이다.
-  #   --tools 는 두 번 주면 뒤엣것이 앞엣것을 «대체» 하므로 한 목록에 합친다(실측). `*` 는 셸 글로빙을 피해 %q 로 감싼다.
-  if [[ "$serena" == "1" ]]; then
-    tools="$tools,mcp__serena__*"
-    tools="$(printf "'%s'" "$tools")"
-  fi
   sid="${TMUXC_PI_SESSION_ID:-$(python3 -c 'import uuid;print(uuid.uuid4())' 2>/dev/null)}"
   local cmd="pi --name $(printf '%q' "$name") --session-id $(printf '%q' "$sid") --tools $tools --thinking $(printf '%q' "$thinking")"
   [[ -n "$model" ]] && cmd="$cmd --model $(printf '%q' "$model")"
-  # --serena(0.4.3): 워크트리 .pi/mcp.json 을 쓰고 «이번 실행만» 프로젝트 신뢰(--approve)한다.
-  #   trust.json 에 저장하지 않는다 — 오빠 확정(2026-10-20) «~/Project 전체 trust 는 안 한다,
-  #   기동 때 serena 에 경로를 지정해 두고 온보딩해서 간다». --approve 는 저장 0 인 1회 신뢰다.
-  [[ "$serena" == "1" ]] && cmd="$cmd --approve"
   printf '%s' "$cmd"
 }
 
-# ─ pi --serena (0.4.3) ────────────────────────────────────────────────────────
-# 워크트리마다 «자기 경로» 로 serena 를 띄운다(MCP stdio · 프로젝트 고정). 공유 HTTP 서버를 쓰지 않는 이유:
-#   serena 1개는 활성 프로젝트 1개만 갖는다 — 여러 좌석이 공유하면 서로 activate 를 밀어낸다.
-#   stdio 는 pi 세션이 끝날 때 프로세스 그룹째 회수된다(pi docs/mcp.md · SIGTERM→SIGKILL).
-TMUXC_PI_SERENA_SHA="cd04838be9a92fd5c4963e59ecbe88419482d741"
-# --context codex 를 고른 근거(1줄): pi 도 codex 처럼 «자기 파일·셸 도구» 를 이미 갖고 있어,
-#   serena 의 read_file·create_text_file·execute_shell_command 같은 중복 도구를 빼고 심볼 도구만 남기는 context 가 맞다.
-TMUXC_PI_SERENA_CONTEXT="codex"
-
-pi_serena_mcp_json() {   # <root> → mcp.json 한 덩어리(기존 파일이 있으면 다른 서버는 보존)
-  python3 - "$1" "$TMUXC_PI_SERENA_SHA" "$TMUXC_PI_SERENA_CONTEXT" <<'PYEOF'
-import json, os, sys
-root, sha, ctx = sys.argv[1], sys.argv[2], sys.argv[3]
-p = os.path.join(root, ".pi", "mcp.json")
-cur = {}
-try:
-    with open(p, encoding="utf-8") as fh:
-        cur = json.load(fh)
-except (OSError, ValueError):
-    cur = {}
-if not isinstance(cur, dict):
-    cur = {}
-servers = cur.get("mcpServers")
-if not isinstance(servers, dict):
-    servers = {}
-cmd = ("exec /opt/homebrew/bin/uvx --from git+https://github.com/oraios/serena@" + sha +
-       " serena start-mcp-server --transport stdio --context " + ctx +
-       " --project " + root + " --open-web-dashboard False")
-# 심볼 + 온보딩 도구만 direct. serena 실측 이름: check_onboarding_performed 는 삭제됐고(tools_base.py _deleted_tools)
-# 온보딩은 onboarding + 기억 도구(list_memories 로 확인 · write_memory 로 산출)로 한다.
-tools = ["activate_project", "find_symbol", "find_referencing_symbols", "get_symbols_overview",
-         "find_implementations", "onboarding", "list_memories", "read_memory", "write_memory"]
-servers["serena"] = {
-    "command": "sh",
-    "args": ["-c", cmd],
-    "timeout": 90,
-    "description": "Serena 코드 심볼 인덱스(LSP) — 이 워크트리 고정 · 정의·참조·개요·온보딩",
-    "exposure": "hidden",
-    "toolExposure": {t: "direct" for t in tools},
-}
-cur["mcpServers"] = servers
-print(json.dumps(cur, ensure_ascii=False, separators=(",", ":")))
-PYEOF
-}
-
-pi_serena_write_files() {   # <root> — 실제 쓰기(실전 open 에서만 · --dry-run 은 쓰지 않는다)
-  local root="$1" out ex
-  out="$(pi_serena_mcp_json "$root")" || return 1
-  [[ -n "$out" ]] || return 1
-  mkdir -p "$root/.pi" || return 1
-  printf '%s\n' "$out" > "$root/.pi/mcp.json.tmp.$$" && mv "$root/.pi/mcp.json.tmp.$$" "$root/.pi/mcp.json" || return 1
-  ex="$(git -C "$root" rev-parse --git-path info/exclude 2>/dev/null)" || return 0
-  [[ -n "$ex" ]] || return 0
-  case "$ex" in /*) ;; *) ex="$root/$ex" ;; esac
-  [[ -f "$ex" ]] || return 0
-  local ln
-  for ln in '.pi/' '.serena/'; do
-    grep -qxF "$ln" "$ex" || printf '%s\n' "$ln" >> "$ex"
-  done
-  return 0
-}
+# ─ (제거) pi --serena · serena 공유서버 ensure ────────────────────────────────
+#   0.4.9: Serena 은퇴(2026-10-22 · 공유서버 9493 종료 · claude/codex MCP 등록 제거 · Phase 4 관측).
+#   대체 = 하네스 공통 code-intel 스킬(`ci search/sym/outline/refs/doctor`). 사전 활성화·인덱싱 절차 없음.
+#   남겨 둔 것: 아무것도 없다 — 좌석이 스스로 serena 를 스폰하지 않도록 «쓰기·ensure» 를 전부 없앴다.
 
 agent_cmd() {
   local agent="$1"
@@ -588,7 +467,7 @@ agent_cmd() {
     codex|omx) resolve_codex_cmd "$agent" "$role" "$model" "$effort" "$fast" ;;
     opencode) resolve_opencode_cmd "$model" ;;
     cmd) resolve_cmdcode_cmd "$name" "$model" "$effort" ;;
-    pi) resolve_pi_cmd "$name" "$role" "$model" "$effort" "${8:-0}" ;;
+    pi) resolve_pi_cmd "$name" "$role" "$model" "$effort" ;;
     *) die "unknown agent: $agent" ;;
   esac
 }
@@ -827,7 +706,7 @@ cmd_boot_enter() {
 }
 
 # 원격 세션 열기 (r1047 · 설계 「열기」 행) — new-session + 에이전트 명령 주입을 «한 ssh(쓰기)» 로.
-# ★로컬 파일 의존 0★: serena ensure·worktree·snapshot 은 원격에서 하지 않는다(카드3·후속).
+# ★로컬 파일 의존 0★: worktree·snapshot 은 원격에서 하지 않는다(카드3·후속).
 open_remote() {  # <host> <path> <root> <name> <agent> <role> <model> <effort> <ctx> <fast> <dry_run> <prompt>
   local host="$1" path="$2" root="$3" name="$4" agent="$5" role="$6" model="$7" effort="$8" ctx="$9" fast="${10}" dry_run="${11}" prompt="${12:-}"
   local run_cmd
@@ -891,7 +770,6 @@ cmd_open() {
   local like=""
   local ctx=""
   local fast=""
-  local serena="${TMUXC_PI_SERENA:-0}"
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -904,7 +782,7 @@ cmd_open() {
       --effort) effort="${2:-}"; shift 2 ;;
       --like) like="${2:-}"; shift 2 ;;
       --prompt) prompt="${2:-}"; shift 2 ;;
-      --serena) serena=1; shift ;;
+      --serena) die_serena_retired ;;
       --host) TMUXC_HOST="${2:-}"; shift 2 ;;
       --host=*) TMUXC_HOST="${1#--host=}"; shift ;;
       --dry-run) dry_run=1; shift ;;
@@ -970,14 +848,8 @@ cmd_open() {
     [[ -n "$effort" ]] || effort="$(printf '%s\n' "$like_out" | sed -n 's/^effort=//p' | head -1)"
   fi
 
-  # --serena 는 pi 전용(0.4.3) — 다른 에이전트는 조용히 무시하지 않고 거부한다.
-  case "$serena" in 1|on|true) serena=1 ;; *) serena=0 ;; esac
-  if [[ "$serena" == "1" && "$agent" != "pi" ]]; then
-    die "--serena 는 --agent pi 에서만 사용 (agent=$agent) — claude 는 tmuxc 가 공유 serena 를 따로 ensure 한다"
-  fi
-  # 원격 open(카드2 · 계약 보강 4) — serena 파일 쓰기·--like 라이브 probe 는 로컬 파일을 쓰므로 원격에서는 미지원(카드3).
+  # 원격 open(카드2 · 계약 보강 4) — --like 라이브 probe 는 로컬 파일을 쓰므로 원격에서는 미지원(카드3).
   if [[ "$remote_open" -eq 1 ]]; then
-    [[ "$serena" != "1" ]] || die "--serena 는 원격 미지원 (로컬 .pi/mcp.json 을 쓴다)"
     [[ -z "$like" ]] || die "--like 는 원격 미지원 (라이브 세션 argv 를 로컬에서 읽는다)"
     open_remote "$TMUXC_HOST" "$path" "$root" "$name" "$agent" "$role" "$model" "$effort" "$ctx" "$fast" "$dry_run" "${prompt:-}"
     return $?
@@ -988,7 +860,7 @@ cmd_open() {
     export TMUXC_PI_SESSION_ID="$pi_sid"
   fi
   local run_cmd
-  run_cmd="$(agent_cmd "$agent" "$name" "$role" "$model" "$effort" "$ctx" "$fast" "$serena")"
+  run_cmd="$(agent_cmd "$agent" "$name" "$role" "$model" "$effort" "$ctx" "$fast")"
   local seat_env=()
   # r925 r3 R1: claude 는 tmuxc 가 --session-id 를 발급한다 — 제출 판정 = 그 id 의 기록 «한 파일»(pi 의 TMUXC_PI_SESSION_ID 와 같은 꼴).
   #   호출자 env 의 같은 이름 값은 쓰지 않는다(호출 좌석 자신의 id 를 물려받으면 두 좌석이 한 기록을 쓴다).
@@ -1017,19 +889,10 @@ cmd_open() {
   if [[ "$dry_run" -eq 1 ]]; then
     printf 'session=%s\nroot=%s\nagent=%s\nrole=%s\ncommand=%s\n' "$name" "$root" "$agent" "$role" "$run_cmd"
     [[ ${#seat_env[@]} -eq 0 ]] || printf 'env=%s\n' "${seat_env[@]}"
-    # --dry-run 은 «아무것도 쓰지 않는다» — mcp.json 은 경로와 내용만 보여준다(쓰기는 실전 open 에서만).
-    if [[ "$serena" == "1" ]]; then
-      printf 'mcp=%s\n' "$root/.pi/mcp.json"
-      printf 'mcp_json=%s\n' "$(pi_serena_mcp_json "$root")"
-    fi
     return 0
   fi
 
   tmux has-session -t "$name" 2>/dev/null && die "session already exists: $name"
-  if [[ "$serena" == "1" ]]; then
-    pi_serena_write_files "$root" || die "--serena: $root/.pi/mcp.json 쓰기 실패 (프로젝트 신뢰·serena 미적용 상태로 열지 않는다)"
-  fi
-  ensure_serena "$root"   # UC1-7: serena 공유서버 선기동 (미구성 프로젝트 no-op)
   create_tmux_session "$name" "$root" ${seat_env[@]+"${seat_env[@]}"}
   inject_message "$name" "$run_cmd" shell
   # r925: claude 경로는 아래 guide 주입이 «입력 상자가 그려졌나» 로 스스로 기다린다(고정 sleep 삭제).
@@ -1127,7 +990,7 @@ cmd_fork() {
       --ctx) ctx="${2:-}"; shift 2 ;;
       --effort) effort="${2:-}"; shift 2 ;;
       --prompt) prompt="${2:-}"; shift 2 ;;
-      --serena) serena=1; shift ;;
+      --serena) die_serena_retired ;;
       --dry-run) dry_run=1; shift ;;
       --help|-h) usage; exit 0 ;;
       --*) die "unknown option for fork: $1" ;;
@@ -1234,10 +1097,6 @@ cmd_fork() {
   fi
 
   tmux has-session -t "$name" 2>/dev/null && die "session already exists: $name"
-  if [[ "$serena" == "1" ]]; then
-    pi_serena_write_files "$root" || die "--serena: $root/.pi/mcp.json 쓰기 실패 (프로젝트 신뢰·serena 미적용 상태로 열지 않는다)"
-  fi
-  ensure_serena "$root"
   create_tmux_session "$name" "$root" ${seat_env[@]+"${seat_env[@]}"}
   inject_message "$name" "$run_cmd" shell
   [[ "$agent" == "claude" ]] || sleep 4   # r925 P3: claude 외 경로는 종전 그대로
@@ -1558,7 +1417,7 @@ cmd_save() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --keep) keep="${2:-}"; shift 2 ;;
-      --serena) serena=1; shift ;;
+      --serena) die_serena_retired ;;
       --dry-run) dry_run=1; shift ;;
       --help|-h) usage; exit 0 ;;
       *) die "unknown option for save: $1" ;;
