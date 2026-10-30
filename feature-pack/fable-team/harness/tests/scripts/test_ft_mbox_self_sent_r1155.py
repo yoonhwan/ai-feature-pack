@@ -5,6 +5,7 @@
 «[X#2->X#2]» 로 읽고 지우면 구 좌석은 [레디] 를 못 받는다. 영수가 없으면 comm ready 가 «recv 안 함» 으로 거절한다.
 가짜 쪽지함 폴더(FT_MBOX_DIR) + 가짜 명부(FT_SEATS_JSON) 만 쓴다 · 실 우편함 0 · 자기 재호출 0.
 """
+import importlib.util
 import json
 import os
 import re
@@ -88,6 +89,30 @@ def test_r5b_ready_receipt_auto_marked_done(tmp_path: Path):
     _run(box, FT_MBOX, "recv", OLD)
     rows = [json.loads(l) for l in (box / "receipts" / f"{OLD}.jsonl").read_text(encoding="utf-8").splitlines()]
     assert {"seq": seq, "mark": "처리함"}.items() <= rows[-1].items(), rows
+
+
+def test_r7_overlapping_recv_same_seq_one_receipt(tmp_path: Path, monkeypatch):
+    """DA② — 같은 좌석 recv 2개가 겹쳐 같은 seq 를 둘 다 고른다 → 실제로 지운 쪽만 영수 1줄."""
+    box = _box(tmp_path)
+    seq = _send(box, NEW, OLD, "[인계] 마지막 작업 목록")
+    for k, v in {"FT_MBOX_DIR": str(box), "FT_MBOX_RELAY_DIR": str(box / "relay"), "FT_SEATS_JSON": str(box / "seats.json")}.items():
+        monkeypatch.setenv(k, v)
+    spec = importlib.util.spec_from_file_location("ft_mbox_r1155", FT_MBOX)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    real, raced = mod._consume, []
+
+    def racing(*a, **kw):   # 첫 recv 가 고른 뒤·지우기 전에 두 번째 recv 가 끝까지 돈다
+        if not raced:
+            raced.append(1)
+            mod.recv(NEW)
+        return real(*a, **kw)
+
+    monkeypatch.setattr(mod, "_consume", racing)
+    mod.recv(NEW)
+    rows = [json.loads(l) for l in (box / "receipts" / f"{NEW}.jsonl").read_text(encoding="utf-8").splitlines()]
+    assert [x["seq"] for x in rows] == [seq], rows
+    assert _queue(box) == []
 
 
 def test_r6_receipt_write_failure_consumes_nothing(tmp_path: Path):

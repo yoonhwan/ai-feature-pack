@@ -766,12 +766,15 @@ def _receipt(me, rows):
             f.write(json.dumps(o, ensure_ascii=False) + "\n")
 
 
-def _consume(d, seqs):
+def _consume(d, seqs, me):
+    """★영수는 소비 잠금 안에서 «실제로 지운 행» 에만(r1155 DA②)★ — 조회 잠금이 소비 전에 풀려 겹친 recv 2개가
+    같은 seq 를 둘 다 고르면 영수가 두 줄이 되던 자리. 영수 쓰기 실패 = raise → 이 우편함 소비 0."""
     def op():
         rows = _load(d)
-        keep = [r for r in rows if r.get("seq") not in seqs]
-        if len(keep) != len(rows):
-            _save(d, keep)
+        gone = [r for r in rows if r.get("seq") in seqs]
+        if gone:
+            _receipt(me, gone)
+            _save(d, [r for r in rows if r.get("seq") not in seqs])
 
     _locked(d, op)
 
@@ -794,16 +797,15 @@ def recv(me, frm=None, limit=None):
     if not got:
         print("READ none")
         return
-    try:
-        _receipt(me, [r for _, r in got])
-    except OSError as e:
-        sys.stderr.write("ERROR 영수 기록 실패 — 소비 0 · %s\n" % e)
-        sys.exit(1)
     byd = {}
     for d, r in got:
         byd.setdefault(os.path.abspath(d), (d, set()))[1].add(r["seq"])
     for d, seqs in byd.values():
-        _consume(d, seqs)
+        try:
+            _consume(d, seqs, me)
+        except OSError as e:
+            sys.stderr.write("ERROR 영수 기록 실패 — 소비 0 · %s\n" % e)
+            sys.exit(1)
     for d, r in got:
         tag = "" if os.path.abspath(d) == os.path.abspath(CANON) else " (legacy)"
         shown, note = _clip(r)
