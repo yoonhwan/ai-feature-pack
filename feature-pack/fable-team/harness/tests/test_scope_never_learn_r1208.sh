@@ -43,7 +43,7 @@ M="$T/mut"; mkdir -p "$M"; cp "$BIN"/*.py "$M/"   # 분류기가 함수 안에�
 python3 -I - "$M/autonomy_scope_rules.py" <<'PY'
 import sys, re
 p = sys.argv[1]; s = open(p, encoding="utf-8").read()
-t = re.sub(r'^NEVER_LEARN = \{[^}]*\}', 'NEVER_LEARN = {"secret", "scope-table", "mode"}', s, count=1, flags=re.M)
+t = re.sub(r'^NEVER_LEARN = NEVER_LEARN \| \{[^}]*\}', 'NEVER_LEARN = NEVER_LEARN | {"scope-table", "mode"}', s, count=1, flags=re.M)
 assert t != s; open(p, "w", encoding="utf-8").write(t)
 PY
 ck "ⓐ 변이 사본 만들기" $?
