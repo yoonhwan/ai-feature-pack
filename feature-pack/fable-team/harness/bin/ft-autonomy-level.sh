@@ -5,7 +5,7 @@
 #   종류 학습: scope-approve 거절 `FORBID kind=X` = denied.tsv 1행 → 오빠 approve-merge(ON ∧ 레벨 full) = learned-kinds.tsv 1행 → 다음 같은 종류 = 분류기 docs(learned)
 #   forget-kind <키>                    오빠 `!` 전용 — 학습표에서 그 종류를 뺀다(scope-stop·OFF 는 학습표를 지우지 않는다)
 #   interview-note <A<N>> <expire|off>   planner 명부 `_desk` 에 `[자율 인터뷰]` 1통(연장/종료/레벨 변경 · 추천 1) · 같은 사건·종류 10분 중복 억제 · 명부 자리 = ①$ROOT ②$ROOT 가 속한 리포 공용 루트(r926 r2 · cwd·설치 위치는 보지 않는다) · 둘 다 없음 = WARN + rc1(조용한 건너뜀 0)
-NEVER_LEARN=",secret,"   # 비밀 꼴 줄은 오빠 승인으로도 «종류» 저장 0 (분류기 rules.NEVER_LEARN 과 같다)
+NEVER_LEARN=",secret,repo-outside,scope-table,mode,"   # 비밀 꼴 줄·경계 종류(r1208)는 오빠 승인으로도 «종류» 저장 0 (분류기 rules.NEVER_LEARN 과 같다)
 level_label() { case "$1" in full) echo 풀자동 ;; mid) echo 중간 ;; each) echo "건마다 확인" ;; *) echo "$1" ;; esac; }
 tpl_file() { local d; for d in "$HERE/../templates" "$HERE/../kit/fable-team/templates"; do [ -f "$d/$1" ] && { printf '%s\n' "$d/$1"; return 0; }; done; return 1; }
 
