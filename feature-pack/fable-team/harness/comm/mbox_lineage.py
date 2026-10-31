@@ -78,7 +78,8 @@ def retired_to(me):
 
 
 def holder(name):
-    """doorbell·ring 대상 = 그 역할의 현역 세션(r1116 R7). 명부 이름이면 사슬 끝 · 번호 없는 역할 이름이면 같은 역할 현역 행(번호 큰 것) · 못 찾으면 그대로."""
+    """doorbell·ring 대상 = 그 역할의 현역 세션(r1116 R7). 명부 이름이면 사슬 끝 · 번호 없는 역할 이름이면 같은 역할 현역 행(번호 큰 것) · 못 찾으면 그대로.
+    ★r1193★ 명부에 없는데 현역보다 번호가 큰 이름 = retire 전 «새로 여는 후계» → 그 이름 자신(첫 doorbell·RESEND ring 이 구 좌석 창으로 가던 자리)."""
     cur = retired_to(name)
     if cur:
         return cur
@@ -88,7 +89,8 @@ def holder(name):
     live = [k for k, v in rows.items() if role_key(k) == role_key(name) and not v.get("_replaced_by")
             and v.get("role") not in ("closed", "stopped")]
     num = lambda k: int(k.rsplit("#", 1)[1]) if re.search(r"#\d+$", k) else -1
-    return max(live, key=num) if live else name
+    top = max(live, key=num) if live else name
+    return name if num(name) > num(top) else top
 
 
 def claim(dirs, names, frm, limit, me=None, on_take=None, only=None):
