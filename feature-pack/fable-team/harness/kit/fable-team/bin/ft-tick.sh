@@ -68,7 +68,9 @@ STATE_DIR="${FT_TICK_STATE_DIR:-/tmp/ft-tick-state$([ "$DRY" = 1 ] && echo -dry)
 FIXTURE_DIR="${FT_TICK_TURN_FIXTURE_DIR:-}"
 
 log() { echo "$(date '+%F %T') $*"; }
-now() { date +%s; }
+# r1253: 가상 시각 — FT_TICK_NOW_BASE 가 있으면 «기준 + 실제 경과» (시계는 흐른다 · 시험 전용) · 없으면 date (기존 호출자 동작 불변). 시계는 이 함수 하나.
+NOW_BASE="${FT_TICK_NOW_BASE:-}"; NOW_P0=0; [ -z "$NOW_BASE" ] || NOW_P0="$(date +%s)"
+now() { if [ -n "$NOW_BASE" ]; then echo $(( NOW_BASE + $(date +%s) - NOW_P0 )); else date +%s; fi; }
 STAMP_PREFIX="${FT_TICK_STAMP_PREFIX:-/tmp/ft-tick-}"   # R27: 시험이 scratch 로 돌릴 수 있게(기본값=원본 동작)
 stamp_of() { echo "${STAMP_PREFIX}$1${2:+.$2}.last"; }
 # ★r874 r3 stamp 쓰기·읽기 — 끊김(TERM→SIGKILL) 뒤에도 stamp 는 «옛 값» 이거나 «새 값» 이다(빈 파일 0)★
@@ -1038,34 +1040,95 @@ acct_notice() {
   return 0
 }
 
-pass_core() {
-  local rows seat tick role report_to master mok
-  watch_sample_tick
-  autonomy_expire
-  leak_watch
-  hil_watch
-  live_snapshot
-  dead_seat_watch
-  idle_watch
-  idle_long_watch
-  outage_watch
-  acct_pause_watch
-  model_swap
-  stall
-  sweep_wt
-  drift_watch
-  raised_watch
-  renamed_watch
-  queue_full_watch
-  queue_watch
-  card_assign_watch
-  launchd_watch
-  unpushed_daily
-  news_ledger
-  rows="$(read_seats 2>&1)" || { echo "$(date '+%F %T') seats.json unreadable ($SEATS): ${rows//$'\n'/ | }" >&2; return 1; }
-  [ -n "$rows" ] || { log "no active seat with tick in $SEATS"; return 0; }
+# ── r1253 단계 측정(측정만 · 고침 0) ──────────────────────────────────────────────────────────────
+# 바퀴(pass)의 «실행한» 단계가 시작 시각·소요 초를 남긴다(조기 반환이면 실행 항목만 · 0초로 꾸미기 0). 끄는 스위치 FT_TICK_STEPS=0 → step 은 함수만 부른다.
+#   표식 <STATE_DIR>/tick-steps/ — cur.log(«바퀴id·이름·시작 epoch·이 바퀴 최대 단계·그 초·바퀴 시작» · 바퀴 시작에 부모가 비우고 단계마다 1줄 덧붙임 · 내장 printf >> = fork 0) · done-<id>.tsv(자식이 바퀴 끝에 씀) ·
+#   last.tsv(«이름<TAB>초» · ★부모가 자식 정상 종료(over=0)를 확인한 뒤에만★ done 에서 게시 · 끊긴 바퀴는 불변).
+#   바퀴 id = 부모가 바퀴 시작에 정해 env FT_TICK_PASS_ID 로 자식에 넘긴다(낡은 cur 표식 = id 불일치 = «?»). 시계 = now() 하나만(가상 시각 FT_TICK_NOW_BASE 가 우회되지 않게).
+#   바퀴 끝 log «pass steps: <이름>=<초> … total=<초>» 1줄(부모) · 끊김 ERROR 줄에는 cut_note 가 «끊긴 단계 · 이 바퀴 최대 · 직전 완주 최대» 를 붙인다.
+STEPS_ON="${FT_TICK_STEPS:-1}"; STEP_DIR="$STATE_DIR/tick-steps"
+STEP_NAMES=(); STEP_SECS=(); STEP_MAXN="-"; STEP_MAXS=0; STEP_LAST=""; PASS_T0=0; PASS_S0=0; PASS_ROUND=0
+step() {   # step <이름> <함수…> — 같은 셸 호출(서브셸 0) · stdout/stderr 무간섭 · 함수 rc 그대로 · 지역 변수 접두 _st_
+  local _st_name="$1" _st_t0 _st_rc _st_d
+  shift
+  if [ "$STEPS_ON" != 1 ]; then "$@"; return $?; fi
+  # 시계: now() 는 바퀴 시작에 1번(PASS_T0 = 부모가 넘긴 t0) — 단계 안에서는 내장 SECONDS 의 차만 쓴다(fork 0 · 가상 시각 now() 기준 유지).
+  #   시작 = 앞 단계 끝(단계 사이 코드는 0에 가깝다) · 단계 시작 epoch = PASS_T0 + (SECONDS − 바퀴 시작 SECONDS) · 외부 호출은 표식 mv 1회뿐.
+  _st_t0="${STEP_LAST:-$SECONDS}"
+  [ "$DRY" = 1 ] || { printf '%s\t%s\t%s\t%s\t%s\t%s\n' "${FT_TICK_PASS_ID:-}" "$_st_name" "$(( PASS_T0 + _st_t0 - PASS_S0 ))" "$STEP_MAXN" "$STEP_MAXS" "${FT_TICK_PASS_T0:-}" >> "$STEP_DIR/cur.log" 2>/dev/null; }   # 내장 printf + O_APPEND(fork 0) — 바퀴 시작에 부모가 비운 로그에 단계마다 1줄 · 읽는 쪽은 «개행으로 끝난 줄» 만 쓴다
+  "$@"; _st_rc=$?
+  STEP_LAST=$SECONDS; _st_d=$(( STEP_LAST - _st_t0 ))
+  STEP_NAMES+=("$_st_name"); STEP_SECS+=("$_st_d")
+  if [ "$STEP_MAXN" = "-" ] || [ "$_st_d" -gt "$STEP_MAXS" ]; then STEP_MAXN="$_st_name"; STEP_MAXS="$_st_d"; fi
+  return "$_st_rc"
+}
+steps_done() {   # 자식: 바퀴가 끝까지 갔다 — DRY 는 1줄 · 실전은 done-<id>.tsv 만 쓴다(게시는 부모)
+  [ "$STEPS_ON" = 1 ] || return 0
+  local i n=${#STEP_NAMES[@]} tsv f
+  if [ "$DRY" = 1 ]; then echo "DRY kind=steps n=$n"; return 0; fi
+  [ -n "${FT_TICK_PASS_ID:-}" ] || return 0
+  f="$STEP_DIR/done-$FT_TICK_PASS_ID"
+  tsv="#total"$'\t'"$(( SECONDS - PASS_S0 ))"$'\n'
+  for ((i = 0; i < n; i++)); do tsv="$tsv${STEP_NAMES[i]}"$'\t'"${STEP_SECS[i]}"$'\n'; done
+  printf '%s' "$tsv" > "$f.tmp" 2>/dev/null && mv -f "$f.tmp" "$f.tsv" 2>/dev/null || echo "$(date '+%F %T') WARN steps: done 파일 쓰기 실패 $f.tsv — 이번 바퀴는 게시 0" >&2
+  return 0
+}
+steps_publish() {   # 부모: $1 = 바퀴 id — 자식이 정상 종료(over=0)한 바퀴만 · 요약 1줄 + last.tsv 게시 + cur.tsv 삭제 · done 없음 = 게시 0
+  [ "$STEPS_ON" = 1 ] || return 0
+  local f="$STEP_DIR/done-$1.tsv" name secs line="" total="?"
+  [ -f "$f" ] || return 0
+  while IFS=$'\t' read -r name secs; do
+    case "$name" in '#total') total="$secs";; *) line="$line$name=$secs ";; esac
+  done < "$f"
+  if grep -v '^#' "$f" > "$STEP_DIR/last.tsv.tmp.$$" 2>/dev/null && mv -f "$STEP_DIR/last.tsv.tmp.$$" "$STEP_DIR/last.tsv" 2>/dev/null; then :
+  else rm -f "$STEP_DIR/last.tsv.tmp.$$" 2>/dev/null; echo "$(date '+%F %T') WARN steps: last.tsv 게시 실패 $STEP_DIR — 이번 바퀴 값은 로그 줄에만" >&2; fi
+  log "pass steps: ${line}total=$total"
+  rm -f "$f" "$STEP_DIR/cur.log" 2>/dev/null
+  return 0
+}
+# prep 단계 = read_seats · master_seat · master_news_ok(준비 구간 1단계) — pass_core 의 rows·master·report_to·mok(동적 범위)를 채운다.
+#   rc: 0 계속 · 1 명부 읽기 실패(바퀴 rc 1) · 2 현역 좌석 0(조기 반환 rc 0) — 원래 pass_core 의 두 조기 반환과 같다.
+prep_seats() {
+  rows="$(read_seats 2>&1)" || return 1
+  [ -n "$rows" ] || return 2
   master="$(master_seat)"; report_to="${FT_TICK_PM_REPORT_TO:-${master:-ft-v65-master}}"
   master_news_ok "$rows" "$master"; mok=$?
+  return 0
+}
+
+pass_core() {
+  local rows seat tick role report_to master mok prc
+  step watch_sample_tick watch_sample_tick
+  step autonomy_expire autonomy_expire
+  step leak_watch leak_watch
+  step hil_watch hil_watch
+  step live_snapshot live_snapshot
+  step dead_seat_watch dead_seat_watch
+  step idle_watch idle_watch
+  step idle_long_watch idle_long_watch
+  step outage_watch outage_watch
+  step acct_pause_watch acct_pause_watch
+  step model_swap model_swap
+  step stall stall
+  step sweep_wt sweep_wt
+  step drift_watch drift_watch
+  step raised_watch raised_watch
+  step renamed_watch renamed_watch
+  step queue_full_watch queue_full_watch
+  step queue_watch queue_watch
+  step card_assign_watch card_assign_watch
+  step launchd_watch launchd_watch
+  step unpushed_daily unpushed_daily
+  step news_ledger news_ledger
+  step prep prep_seats; prc=$?
+  case "$prc" in
+    1) echo "$(date '+%F %T') seats.json unreadable ($SEATS): ${rows//$'\n'/ | }" >&2; return 1;;
+    2) log "no active seat with tick in $SEATS"; return 0;;
+  esac
+  step fire fire_seats
+}
+# 좌석 while 묶음(fire·goal) — 한 단계 «fire» 로만 잰다(좌석별 세분은 2단계). 변수는 pass_core 의 것(동적 범위).
+fire_seats() {
   while IFS=$'\t' read -r seat tick role; do
     case "$tick" in
       ft-master-tick)
@@ -1089,8 +1152,12 @@ pass_core() {
 # r1215: 본 바퀴(pass_core) 뒤 «마지막» 에 acct_notice — 후속 함수가 0 이라 발사·stall·goal 을 굶길 경로가 없다. 마감 = 바퀴 시작 + PASS_MAX(시험은 FT_TICK_DEADLINE 로 주입).
 pass() {
   local prc FT_TICK_DEADLINE="${FT_TICK_DEADLINE:-$(( $(now) + ${PASS_MAX:-70} ))}"
+  STEP_NAMES=(); STEP_SECS=(); STEP_MAXN="-"; STEP_MAXS=0
+  STEP_LAST=""
+  [ "$STEPS_ON" != 1 ] || { PASS_T0="${FT_TICK_PASS_T0:-$(now)}"; PASS_S0=$SECONDS; STEP_LAST=$SECONDS; }   # 부모가 넘긴 바퀴 시작 epoch(없으면 지금) = 첫 단계 시작
   pass_core; prc=$?
-  acct_notice
+  step acct_notice acct_notice
+  steps_done
   return "$prc"
 }
 
@@ -1127,19 +1194,49 @@ kill_tree() {   # $1 pid — 묶음을 TERM 전에 한 번 떠 둔다(부모가 
   # shellcheck disable=SC2086
   kill -KILL $alive 2>/dev/null; return 0
 }
+cut_note() {   # $1 = 바퀴 id → « · 끊긴 단계 <이름> <경과>s · 이 바퀴 최대 <이름> <초>s · 직전 완주 최대 <이름> <초>s» · 못 본 값은 «?» (생략 0) · r1253
+  [ "$STEPS_ON" = 1 ] || return 0
+  local cid="" cname="" cstart="" cmaxn="" cmaxs="" cp0="" lid lname lstart lmaxn lmaxs lp0 cur="?" mine="?" last="?(기록 없음)" name secs mx=-1 sn=""
+  # cur.log = 단계마다 1줄 덧붙인 로그 — «바퀴 id 가 맞는 마지막 완전한 줄»(개행으로 끝난 줄)만 쓴다. 개행 없는 꼬리는 while read 가 본문을 돌리지 않아 버려진다.
+  if [ -f "$STEP_DIR/cur.log" ]; then
+    while IFS=$'\t' read -r lid lname lstart lmaxn lmaxs lp0; do
+      [ "$lid" = "$1" ] || continue
+      cid="$lid"; cname="$lname"; cstart="$lstart"; cmaxn="$lmaxn"; cmaxs="$lmaxs"; cp0="$lp0"
+    done < "$STEP_DIR/cur.log"
+  fi
+  case "${cstart:-x}" in *[!0-9]*) ;; *)   # 낡은 표식(다른 바퀴 id)·빈 표식 = 전부 «?»
+    if [ "$cid" = "$1" ] && [ -n "$cname" ]; then
+      cur="$cname $(( $(now) - cstart ))s"
+      case "${cmaxs:-x}" in *[!0-9]*) ;; *) if [ "$cmaxn" = "-" ]; then mine="없음(첫 단계)"; else mine="$cmaxn ${cmaxs}s"; fi;; esac
+    fi;;
+  esac
+  if [ -f "$STEP_DIR/last.tsv" ]; then
+    while IFS=$'\t' read -r name secs; do
+      case "${secs:-x}" in *[!0-9]*) continue;; esac
+      if [ "$secs" -gt "$mx" ]; then mx="$secs"; sn="$name"; fi
+    done < "$STEP_DIR/last.tsv"
+    [ "$mx" -lt 0 ] || last="$sn ${mx}s"
+  fi
+  printf ' · 끊긴 단계 %s · 이 바퀴 최대 %s · 직전 완주 최대 %s' "$cur" "$mine" "$last"
+}
 on_term() { kill_tree "$POLL"; kill_tree "$CHILD"; rm -f "$PIDFILE"; log "ft-tick stopped"; exit 0; }
 trap on_term INT TERM
 log "ft-tick started pid=$$ seats=$SEATS loop=${LOOP_SEC}s master=${MASTER_INTERVAL}s pm=${PM_INTERVAL}s goal=${GOAL_INTERVAL}s pass_max=${PASS_MAX}s"
 while :; do
-  pass & CHILD=$!; t0="$(now)"; over=0
+  # r1253: 바퀴 id(부모가 정해 자식에 env 로) · 바퀴 시작에 옛 표식(끊김 잔존) 삭제
+  PASS_ROUND=$(( PASS_ROUND + 1 )); PASS_ID="$(now)-$$-$PASS_ROUND"
+  if [ "$STEPS_ON" = 1 ]; then mkdir -p "$STEP_DIR" 2>/dev/null; rm -f "$STEP_DIR"/done-*.tsv "$STEP_DIR/cur.tsv" 2>/dev/null; : > "$STEP_DIR/cur.log" 2>/dev/null; fi   # 바퀴 시작 = 옛 표식 삭제 · cur.log 는 내장 : > 로 비운다(구버전 cur.tsv 잔존도 지운다)
+  t0="$(now)"; FT_TICK_PASS_ID="$PASS_ID" FT_TICK_PASS_T0="$t0" pass & CHILD=$!; over=0
   while kill -0 "$CHILD" 2>/dev/null; do
     if [ $(( $(now) - t0 )) -ge "$PASS_MAX" ]; then
-      echo "$(date '+%F %T') ERROR pass over ${PASS_MAX}s — 바퀴 끊음(자식 묶음 정리 · 다음 바퀴 처음부터)" >&2
+      echo "$(date '+%F %T') ERROR pass over ${PASS_MAX}s — 바퀴 끊음(자식 묶음 정리 · 다음 바퀴 처음부터)$(cut_note "$PASS_ID")" >&2
       kill_tree "$CHILD"; over=1; break
     fi
     sleep 1 & POLL=$!; wait "$POLL"; POLL=""
   done
   wait "$CHILD" 2>/dev/null; prc=$?; CHILD=""
+  # r1253 완주 게시는 부모만 — 끊은 바퀴(over=1)는 done 삭제 · last.tsv 불변
+  if [ "$over" = 0 ]; then steps_publish "$PASS_ID"; else rm -f "$STEP_DIR/done-$PASS_ID.tsv" 2>/dev/null; fi
   # ★r874 r3★ 배경 바퀴(pass) rc≠0 → 부모가 ERROR 1줄. 조용한 계속 0 · 같은 원인(rc) 연속은 1통(서명 = rc).
   #   바퀴 상한으로 끊은 바퀴(over=1)는 위에서 이미 ERROR 를 냈다 — 여기서 겹쳐 쓰지 않는다.
   if [ "$over" = 0 ]; then
