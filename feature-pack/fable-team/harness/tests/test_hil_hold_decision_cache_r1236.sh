@@ -43,18 +43,21 @@ eq "R3 stderr 1줄" "$(printf '%s\n' "$E" | grep -c .)" 1
 [ ! -e "$H/h99.held" ] && ok "R3 표식 파일 0" || bad "R3 표식 파일이 생겼다"
 
 # ── R4 뉴스 칸 ────────────────────────────────────────────────────────────
+cat > "$T/cell.py" <<'PYC'
+import sys
+from datetime import datetime
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+import ft_news_desk_oppa as o
+print(o._hil(Path(sys.argv[2]), datetime.now()))
+PYC
+cell() { ( export HIL_DIR="$H" HIL_CLIP=0 FT_DESK_HIL="$KIT/ft-hil.sh"; "$PY" "$T/cell.py" "$KIT" "$T" ); }   # 하위 셸 — env 명령·비밀 조회 0
 hil --hold h2 --why r4 >/dev/null 2>&1
-R4="$(env -i HOME="$T" PATH="/usr/bin:/bin" HIL_DIR="$H" HIL_CLIP=0 FT_DESK_HIL="$KIT/ft-hil.sh" "$PY" -c "
-import sys; from datetime import datetime; from pathlib import Path
-sys.path.insert(0, '$KIT'); import ft_news_desk_oppa as o
-print(o._hil(Path('$T'), datetime.now()))")"
-eq "R4 뉴스 칸 = 2개(h1·h3) · 보류 1(h2)" "$(sed 's/ · 가장 오래된 [0-9]*분//' <<<"$R4")" "2개(h1·h3) · 보류 1(h2)"
+CELL1="$(cell)"
+eq "R4 뉴스 칸 = 2개(h1·h3) · 보류 1(h2)" "$(sed 's/ · 가장 오래된 [0-9]*분//' <<<"$CELL1")" "2개(h1·h3) · 보류 1(h2)"
 hil --unhold h2 >/dev/null 2>&1; hil --hold h1 --why a >/dev/null 2>&1; hil --hold h2 --why b >/dev/null 2>&1; hil --hold h3 --why c >/dev/null 2>&1
-R4b="$(env -i HOME="$T" PATH="/usr/bin:/bin" HIL_DIR="$H" HIL_CLIP=0 FT_DESK_HIL="$KIT/ft-hil.sh" "$PY" -c "
-import sys; from datetime import datetime; from pathlib import Path
-sys.path.insert(0, '$KIT'); import ft_news_desk_oppa as o
-print(o._hil(Path('$T'), datetime.now()))")"
-eq "R4 전부 보류 = 0개 · 보류 3(h1·h2·h3)" "$R4b" "0개 · 보류 3(h1·h2·h3)"
+CELL2="$(cell)"
+eq "R4 전부 보류 = 0개 · 보류 3(h1·h2·h3)" "$CELL2" "0개 · 보류 3(h1·h2·h3)"
 
 # ── R5~R8 머리 캐시 ───────────────────────────────────────────────────────
 R="$T/root"; B="$R/.fable-team/comm/bodies"; mkdir -p "$B" "$R/.fable-team/state/inbox"
