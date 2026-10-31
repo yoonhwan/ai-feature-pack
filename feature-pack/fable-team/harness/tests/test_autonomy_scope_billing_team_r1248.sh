@@ -32,7 +32,8 @@ PR5535 = [P + "evidence/cfo-orgsub-7-7a-press/" + n for n in (
 ok("R2 PR 5535 파일 목록(.json 4개 제외) 전부 billing forbid 0", all(jr(A(p))[1] != "billing" and jr(A(p))[0] != "forbid" for p in PR5535))
 R3 = ["billing-run.ts", "billing.js", "billing.tsx", "billing.mjs", "billing.ipynb", "billing.yaml", "billing.command", "billing/Makefile", "billing/run",
       "credit_tool.py", "evidence/billing-run.sh", "ops/sched/PLAN-ddl-dev-apply-credit-expire-runs.sh.hil", "credit-run.sh.txt",
-      "evidence/credit-run.json", "evidence/credit-run.html", "credit-notes.txt", "credit.csv"]
+      "evidence/credit-run.json", "evidence/credit-run.html", "credit-notes.txt", "credit.csv",
+      "billing.sh.png", "evidence/billing.sh.png", "evidence/x/credit.js.pdf"]   # 마지막 이름의 .sh.·.js. 중간 이름 — 팀 폴더 바로 아래·깊은 폴더 둘 다(반송 1)
 ok("R3 실행·설정·데이터·.hil 전부 forbid billing", all(jr(A(P + p)) == ("forbid", "billing") for p in R3))
 ok("R3b 실행기 입력 .json → forbid billing", jr(A(P + "evidence/ccu-test-credit-rows-p2-supabase-20261007.json")) == ("forbid", "billing"))
 R4 = ["design/teams/graphics/evidence/g1087-credits-sub2-impl/fixture_test.tsx", P + "billing/test_credential.ts", P + "billing.test.ts"]
@@ -78,6 +79,7 @@ PY
 mut m1-no-row 's = "\n".join(l for l in s.split("\n") if "team-billing-doc\", r" not in l)' "R1 "
 mut m2-json 's = s.replace("png|jpe?g|gif|webp|pdf", "png|json|jpe?g|gif|webp|pdf")' "R3b "
 mut m3-no-mode 's = s.replace("if wrong_mode:", "if False:")' "R7 심링크"
+mut m5-old-lookahead 's = s.replace("(?!(?:.*/)?[^/]*\\.(?:sh|py|bash|zsh|command|js|ts)\\.[^/]*$)", "(?![^/]*\\.(?:sh|py|bash|zsh|command|js|ts)\\.[^/]*$)")' "R3 "
 mut m4-mode-billing 's = s.replace("return \"forbid\", \"mode\", \"모드 %s→%s: %s\" % (om, nm, wrong_mode)", "return \"forbid\", \"billing\", \"모드 %s→%s: %s\" % (om, nm, wrong_mode)")' "R7 learned"
 
 echo "---- fail=$fail"

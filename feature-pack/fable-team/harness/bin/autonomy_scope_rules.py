@@ -21,7 +21,7 @@ BYZ_TABLE = [(c, k, re.compile(rx, re.I)) for c, k, rx in [
     ("docs", "docs", r"^(design|docs)/.*\.md$"),   # 확장자만으로 문서 판정 0 — design/ 아래 .py·.sh 는 code, 루트 .md 는 docs 아님
     # 낱말 금지는 문서 줄 아래 — 경로로 지정한 문서 금지만 문서 줄 위(r514)
     # 팀 폴더의 «그림·PDF 증거» 는 과금 낱말 줄 «위»(r1248 · 판정 2997) — credential 낱말·실행 확장자 중간 이름 없음 · 모드는 judge_row 가 100644 로 닫는다
-    ("docs", "team-billing-doc", r"^design/teams/[^/]+/(?!.*credential)(?=.*(?:billing|credit|payment|pricing|toss|subscription))(?![^/]*\.(?:sh|py|bash|zsh|command|js|ts)\.[^/]*$).*\.(?:png|jpe?g|gif|webp|pdf)$"),
+    ("docs", "team-billing-doc", r"^design/teams/[^/]+/(?!.*credential)(?=.*(?:billing|credit|payment|pricing|toss|subscription))(?!(?:.*/)?[^/]*\.(?:sh|py|bash|zsh|command|js|ts)\.[^/]*$).*\.(?:png|jpe?g|gif|webp|pdf)$"),
     ("forbid", "billing", r"billing|credit|payment|pricing|toss|subscription"),
     # 시험 파일 경로는 «credential» 낱말 금지 밖(r909 칸 2 · room 3395 · DA⑥ 반례 2 로 좁힘): 파일 이름이 *.test.*·*_test.*·test_*.* 인
     # 코드 파일(.py .ts .tsx .js .sh)만 — 경로 어디든 .json·.pem·.key·.env·secrets/ 가 있으면 예외 0(실값 파일은 그대로 막는다)
