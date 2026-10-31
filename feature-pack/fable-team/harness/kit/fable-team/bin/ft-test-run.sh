@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ft-test-run.sh <시험 명령…> — 나노 시험 1회 러너 (r1113b · 오빠 «테스트 끝나면 그때마다 정리» · r1041 시험 안전선)
-#   ① 인자 중 있는 *.sh 파일 = ft-test-reentry-lint.sh 먼저(rc≠0 = 시험 안 돌림 · 그 rc 그대로)
+#   ① 인자 중 있는 *.sh 파일 = ft-test-reentry-lint.sh 먼저(rc≠0 = 시험 안 돌림 · 그 rc 그대로 — 단 위반이 BGNOTRAP·TIMEOUTNOK 뿐이면 «WARN <그 줄>» stderr 뒤 시험 실행 · r1234)
 #   ② 시험 = 따로 묶은 프로세스 묶음(set -m · 묶음 번호 = 시험 pid) 안에서 `ulimit -S -u <지금 내 프로세스 수 + FT_TEST_PROC_SLACK(256)>`(소프트만 — 하드까지 낮추면 안쪽 러너가 다시 못 정한다) + `timeout -k FT_TEST_KILL_AFTER_SEC(5) FT_TEST_TIMEOUT_SEC(70)`(r1234: TERM 무시 자식도 상한+5초에 KILL)
 #   ③b r1234 ③ 뒤(quiesce 가 LSP·node 를 가려 센 다음) 시험 묶음(pgid=시험 pid)에 남은 프로세스를 TERM → KILL 로 끝정리 · 1줄 `[묶음 정리] 남은 <n> · TERM <a> · KILL <b> · 남은 묶음 <c>` (pgrep 실패 = «묶음 판정 불가» 1줄 · 시험 rc 그대로)
 #   ③ 시험 rc 를 받은 직후`ft-seat-quiesce.sh --scope test $$ --pgid <시험 pid>` = 이 시험이 띄운 LSP·node 자식(HEAVY_NAME)만 정리 · 마지막 2줄 `[시험 정리] …` · `남은 자식 <n>`
@@ -11,7 +11,15 @@ set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 Q="${FT_SEAT_QUIESCE_BIN:-$HERE/ft-seat-quiesce.sh}"; L="${FT_TEST_REENTRY_LINT_BIN:-$HERE/ft-test-reentry-lint.sh}"
 files=(); for a in "$@"; do case "$a" in *.sh) [ -f "$a" ] && files+=("$a");; esac; done
-if [ "${#files[@]}" -gt 0 ]; then bash "$L" "${files[@]}" || exit $?; fi
+if [ "${#files[@]}" -gt 0 ]; then
+  lo="$(bash "$L" "${files[@]}")"; lrc=$?; [ -z "$lo" ] || printf '%s\n' "$lo"
+  # r1234 반송 1: 위반이 BGNOTRAP·TIMEOUTNOK 뿐(rc3)이면 «WARN » 줄로 알리고 시험을 돌린다 · REENTRY·FLOATBASE·그 밖 rc 는 지금처럼 lint rc 로 멈춤
+  if [ "$lrc" != 0 ]; then
+    if [ "$lrc" = 3 ] && printf '%s\n' "$lo" | grep -Eq '^(BGNOTRAP|TIMEOUTNOK) ' && ! printf '%s\n' "$lo" | grep -Eq '^(REENTRY|FLOATBASE) '; then
+      printf '%s\n' "$lo" | grep -E '^(BGNOTRAP|TIMEOUTNOK) ' | sed 's/^/WARN /' >&2
+    else exit "$lrc"; fi
+  fi
+fi
 n="$(ps -U "$(id -u)" -o pid= 2>/dev/null | wc -l | tr -d ' ')"
 [ "${n:-0}" -gt 0 ] || { echo "TEST-RUN 판정 불가 — ps 로 내 프로세스 수를 못 셈(ulimit -u 상한 0 방지 · 시험 0)"; exit 20; }
 grp() { local o r; o="$(pgrep -g "$1" 2>/dev/null)"; r=$?; case $r in 0) printf '%s\n' "$o" | grep -c .;; 1) echo 0;; *) echo -1;; esac; }

@@ -134,5 +134,25 @@ eq "$rc" 3 "R7 REENTRY rc3 그대로"; eq "$(printf '%s' "$out" | head -1)" "REE
 out="$("$LINT" "$T/s7b.sh" 2>/dev/null)"; rc=$?
 eq "$rc" 3 "R7 FLOATBASE rc3 그대로"; eq "$(printf '%s' "$out" | head -1)" "FLOATBASE $T/s7b.sh:2" "R7 FLOATBASE 줄"
 
+# R8(반송 1) — 위반이 BGNOTRAP 뿐인 시험을 러너로 → WARN 뒤 시험 실행 · rc = 시험 rc · REENTRY 시험 → 러너 rc3 · 시험 안 돌림
+mk "$T/s8a.sh" <<'EOF'
+#!/usr/bin/env bash
+touch "$R1234_RAN"
+sleep 0.2 __AMP__
+exit 4
+EOF
+mk "$T/s8b.sh" <<'EOF'
+#!/usr/bin/env bash
+touch "$R1234_RAN"
+bash "$0" --again
+EOF
+export R1234_RAN="$T/ran8a"; bash "$RUN" bash "$T/s8a.sh" > "$T/o8a" 2> "$T/e8a"; rc=$?
+eq "$rc" 4 "R8 BGNOTRAP 뿐 → 시험 rc 4 그대로"
+[ -e "$T/ran8a" ] && ok "R8 시험이 실제로 실행됨" || bad "R8 시험 미실행"
+eq "$(grep -c '^WARN BGNOTRAP ' "$T/e8a")" 1 "R8 stderr WARN BGNOTRAP 1줄"
+export R1234_RAN="$T/ran8b"; bash "$RUN" bash "$T/s8b.sh" > "$T/o8b" 2> "$T/e8b"; rc=$?
+eq "$rc" 3 "R8 REENTRY → 러너 rc3 그대로"
+[ -e "$T/ran8b" ] && bad "R8 REENTRY 인데 시험이 실행됨" || ok "R8 REENTRY 시험 미실행"
+
 echo "---"; [ "$fail" = 0 ] && echo "ALL PASS" || echo "FAIL $fail"
 exit "$fail"
