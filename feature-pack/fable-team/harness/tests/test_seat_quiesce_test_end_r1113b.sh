@@ -43,7 +43,7 @@ r5lim() { local ok=1; mkspawner
   sweep --newkid; sweep --spawner; return $ok; }
 mktest() {   # mktest <rc> <꼬리> — 시험 끝 뒤 남는 LSP 둘(중간 셸이 끝난 고아 1 · 시험 셸 자식 1) · 둘 다 시험 묶음 안
   printf '%s\n' "( exec -a \"node /r1113b/bin/basedpyright-langserver --from-test$2\" sleep 300 & )" \
-    "bash -c 'exec -a \"node /r1113b/bin/pyright-langserver --from-test$2\" sleep 300' &" "sleep 0.3; exit $1" > "$TMP/t$2.sh"; }
+    "bash -c 'exec -a \"node /r1113b/bin/pyright-langserver --from-test$2\" sleep 300' & # bg-ok: 끝정리 시험 — 일부러 남기는 자식(r1234 lint 면제)" "sleep 0.3; exit $1" > "$TMP/t$2.sh"; }
 runner() { local r="$1" rc="$2" sfx="$3" h ok=1; mktest "$rc" "$sfx"; orphan "$PY --human-run$sfx"; h="$(cat "$TMP/orphan.pid")"
   FT_SEAT_QUIESCE_BIN="$Q" FT_TEST_REENTRY_LINT_BIN="$BIN/ft-test-reentry-lint.sh" q "$r" bash "$TMP/t$sfx.sh"
   rc_is "$rc" && has "OK $TMP/t$sfx.sh" && has "[시험 정리]" && has "term=2 kill=0 left=0" && has "남은 자식 0" && [ -z "$(byarg "--from-test$sfx" | while read -r x; do alive "$x" && echo "$x"; done)" ] && live "$h" && ok=0
