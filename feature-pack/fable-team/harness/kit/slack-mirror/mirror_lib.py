@@ -115,7 +115,7 @@ def has_marker(texts: list[str], marker: str) -> bool:
 
 
 _PREFIX = re.compile(r"^\s*\[[^\]]*->[^\]]*\]\s*")
-_TAG = re.compile(r"^\s*\[(HIL|BLOCK)\]\s*", re.IGNORECASE)
+_TAG = re.compile(r"^\s*\[(HIL|BLOCK|긴급)\]\s*", re.IGNORECASE)
 # Issue 키 = «명시된 것»만: 「Issue/이슈/PR #N」 또는 본문 맨 앞 「#N」·「[#N]」. 좌석명 #N(승계 #0->#1)·5자리 mbox seq·#0 은 키가 아니다.
 _ISSUE = re.compile(r"(?:\b(?:Issue|issue|이슈|PR|pr)\s*#|^\s*\[?#)([1-9]\d{0,3})(?!\d)")
 _FULL = re.compile(r"상세\(전문\):\s*(\S+)")
@@ -125,7 +125,7 @@ OTHER_KEY = "기타"
 
 
 def classify(body: str) -> tuple[str, str]:
-    """(라벨, 태그 뗀 본문) — 라벨은 보고|HIL|BLOCK."""
+    """(라벨, 태그 뗀 본문) — 라벨은 보고|HIL|BLOCK|긴급."""
     text = _PREFIX.sub("", body, count=1)
     m = _TAG.match(text)
     return (m.group(1).upper(), text[m.end():]) if m else ("보고", text)
@@ -196,9 +196,9 @@ def format_row(row: dict[str, object], label: str, mention: str, summary: dict[s
     """사람 말 — 1줄 [머리표] 무슨 일 · 2줄 정할 것 · (HIL) 결정 자리 줄(멘션은 여기만) · (요약 실패 시 「원문 그대로」 1줄) · 이어가기 블록 2줄(꼬리 · resume_block)."""
     what, todo, fixed = ms.share_lines(summary["what"] if summary else first_sentence(text), summary["todo"] if summary else None, text, label)
     what, fixed = (first_sentence(text), False) if plain and summary is None else (what, fixed)  # plain = 원문이 사실인 글(GitHub 제목) — 요약 실패 경로는 검사 제외
-    who = f"<@{mention}> " if label == "HIL" and mention else ""
-    place = f"\n{who}{ms.decision_line(str(row.get('from') or ''), seats)}" if label == "HIL" else ""
-    first = ms.tag(kind or ("이슈보고" if label in ("HIL", "BLOCK") else "작업상황"), esc(what) + (f" {ms.CORRECTED}" if fixed else ""))
+    who = f"<@{mention}> " if label in ("HIL", "긴급") and mention else ""
+    place = f"\n{who}{ms.decision_line(str(row.get('from') or ''), seats)}" if label == "HIL" else (f"\n{who}긴급 쪽지예요" if label == "긴급" else "")
+    first = ms.tag(kind or ("이슈보고" if label in ("HIL", "BLOCK", "긴급") else "작업상황"), esc(what) + (f" {ms.CORRECTED}" if fixed else ""))
     head = f"{first}\n{esc(todo) if todo else '할 일 없음'}{place}" + ("\n(원문 그대로)" if summary is None else "") + f"\n{block}"
     head = head + (f"\n{options_text}" if options_text else "")
     head = head + ("\n링크: " + " ".join(esc(u) for u in urls) if urls else "")
