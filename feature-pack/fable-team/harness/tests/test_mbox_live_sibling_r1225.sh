@@ -37,8 +37,10 @@ new_env() {   # new_env <roster> [변이함수]
   if [ -n "${2:-}" ]; then "$2"; fi
 }
 row() { printf '{"seq": %s, "ts": "2026-10-31T00:00:00", "to": "%s", "from": "%s", "body": "%s"}\n' "$1" "$2" "${4:-x#1}" "$3" >> "$Q"; }
-xenv() { env -u FT_PLANNER_HEAD_MODE PATH="$T/stub:$PATH" FT_SEATS_JSON="$ENVROOT/seats/seats.json" FT_MBOX_DIR="$C" \
-  FT_MBOX_RATE_N=999 FT_MBOX_FANOUT_WINDOW=0 FT_NAME_LINT="$REPO/harness/bin/ft-name-lint.sh" "$@"; }
+xenv() { ( unset FT_PLANNER_HEAD_MODE
+  export PATH="$T/stub:$PATH" FT_SEATS_JSON="$ENVROOT/seats/seats.json" FT_MBOX_DIR="$C"
+  export FT_MBOX_RATE_N=999 FT_MBOX_FANOUT_WINDOW=0 FT_NAME_LINT="$REPO/harness/bin/ft-name-lint.sh"
+  "$@" ); }
 rcv() { OUT="$(cd "$ENVROOT" && xenv timeout 20 python3 "$C/mbox.py" recv "$1" --all 2>"$ENVROOT/err")"; ERR="$(cat "$ENVROOT/err")"; }
 krcv() { OUT="$(cd "$ENVROOT" && xenv timeout 20 python3 "$K/ft-mbox.py" recv "$1" --all 2>"$ENVROOT/err")"; ERR="$(cat "$ENVROOT/err")"; }
 nread() { printf '%s\n' "$OUT" | grep -c '^READ \['; }
