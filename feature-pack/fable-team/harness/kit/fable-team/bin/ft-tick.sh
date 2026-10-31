@@ -174,6 +174,7 @@ agent_gate() {   # $1 seat $2 kind → rc 0 발사 가능 · 1 발사 0
   rmdir "$mark.lock" 2>/dev/null; return "$rc"
 }
 fire() {
+  acct_paused "$1" "$2" || return 0    # r1214: 계정 정지 중인 풀의 좌석에는 발사 0(첫 줄 — 아래 디바운스보다 앞)
   local seat="$1" kind="$2" interval="$3" min_gap="$4" msg="$5" stamp gap pane tail tailn=3 busy='esc to interrupt|Working|Thinking' sub='^[›❯] +\[cron-tick\]' subn=2
   [ "$FIRE_V2" = 1 ] && { tailn=14; busy="$busy|↓ [0-9,]+ tokens|\| *thinking"; sub='^[›❯] +[^ ]'; subn=6; }
   stamp="$(stamp_of "$seat" "$kind")"; gap=$(stamp_gap "$stamp")
@@ -199,6 +200,7 @@ goal() {
   local seat="$1" stamp gap
   stamp="$(stamp_of "$seat" goal)"; gap=$(stamp_gap "$stamp")
   [ -x "$GOAL_TICK" ] || [ -f "$GOAL_TICK" ] || { echo "$(date '+%F %T') goal-tick script missing: $GOAL_TICK" >&2; return 0; }
+  acct_paused "$seat" goal-tick || return 0   # r1214: 계정 정지 중이면 goal 발주 0
   if [ "$DRY" = 1 ]; then
     echo "DRY seat=$seat kind=goal-tick interval=${GOAL_INTERVAL}s gap=${gap}s msg=(ft-goal-tick.sh 결과 → rc≠0 일 때만 relay)"; return 0
   fi
@@ -247,6 +249,7 @@ stall() {
       fi
       wstamp="$(stamp_of "$seat" stall)"; wgap=$(stamp_gap "$wstamp")
       [ "$wgap" -ge "$STALL_WAKE_GAP" ] || continue
+      acct_paused "$seat" stall || continue   # r1214: 계정 정지 중이면 깨움 0(횟수도 안 센다 — 풀린 뒤 첫 깨움은 1회)
       cnt=$(( $(read_stamp "$wstamp.count") + 1 )); write_stamp "$wstamp.count" "$cnt"
       msg="[stall-wake $((age/60))분 정지 · ${cnt}회] 멈춰 있지 마라. ① bash $MBOX recv $seat ② $SEATS 의 내 행 index/inbox 를 열어 다음 단위 착수 ③ 정말 할 일이 없으면 ${master:-master} 에 mbox 로 «정지 레디» 1줄 보고 후 대기. 판단이 갈리면 묻지 말고 값과 함께 ${master:-master} 에."
       tmux send-keys -t "$p" -l "$msg"; sleep 0.3; tmux send-keys -t "$p" Enter
@@ -370,6 +373,49 @@ outage_watch() {
   done <<< "$rows"
   out="$(printf '%s' "$lines" | python3 "$API_OUTAGE" --state "$state" --mbox "$MBOX" --notify "$notify" 2>&1)"; rc=$?
   [ "$rc" = 0 ] || echo "$(date '+%F %T') outage_watch: ERROR api_outage rc=$rc: $(printf '%s\n' "$out" | tail -1 | cut -c1-200)" >&2
+  return 0
+}
+
+# ── r1214 계정 풀 정지 (ACCT_PAUSE) ────────────────────────────────────────────────────────────────
+#   계정 한도로 풀이 막히면 pane 입력을 «멈춘다» — 문은 발사뿐이다(좌석 kill 0 · pane Escape 0 · 하드 룰 2·7).
+#   acct_paused <좌석> <kind> = 판정 1회 · rc1 이면 그 자리에서 발사 0(회차당 좌석 1줄 기록 · clear→set 새 회차는 다시 1줄).
+#   호출 3곳 = fire() 첫 줄 · stall() 깨움 send-keys 직전 · goal() 직전. 읽기 전용 감시(idle_watch·뉴스·표식)는 그대로.
+#   acct_pause_watch() = 한 바퀴 1회 판정기(만료·풀림·부분 재시도 주체) — rc4 는 ERROR 1줄만, 틱은 계속. FT_TICK_ACCT_PAUSE=0 으로 끔.
+ACCT_PAUSE="${FT_TICK_ACCT_PAUSE_BIN:-$HERE/ft-acct-pause.sh}"
+ACCT_FILE="${FT_TICK_ACCT_PAUSE_FILE:-${ROOT:-$WT}/.fable-team/state/ACCT_PAUSE}"
+acct_paused() {   # $1 좌석 $2 kind → rc0 발사 가능 · rc1 정지(그 회차 첫 1줄만 기록) · 판정 불가·도구 실패는 «발사 유지» + ERROR 1줄
+  local seat="$1" kind="$2" out rc lab hhmm round mark
+  [ "${FT_TICK_ACCT_PAUSE:-1}" = 1 ] || return 0
+  [ -f "$ACCT_FILE" ] || return 0          # 정지 파일 없음 = 정지 아님(비정지 양성 경로에 프로세스를 안 띄운다)
+  [ -f "$ACCT_PAUSE" ] || { log "ERROR acct_paused $seat — 도구 없음 $ACCT_PAUSE (설치 누락) · 발사 유지"; return 0; }
+  # 좌석 이름만 넘긴다 — agent/model 판별(명부 행 · 명부 model 빈칸이면 pane argv `--model`)은 도구 한 곳이 한다(빈 모델 전달 금지 · r1214 DA① ⑤).
+  out="$(bash "$ACCT_PAUSE" status --check --seat "$seat" 2>&1)"; rc=$?
+  case "$rc" in
+    0) return 0;;
+    3) lab="$(printf '%s\n' "$out" | sed -n 's/^PAUSED \([^ ]*\) .*/\1/p' | head -1)"
+       hhmm="$(printf '%s\n' "$out" | sed -n 's/.*until_hhmm=\([0-9:]*\).*/\1/p' | head -1)"
+       round="$(printf '%s\n' "$out" | sed -n 's/.*round=\([^ ]*\).*/\1/p' | head -1)"
+       mark="$(stamp_of "$seat" "acct.${round:-?}")"
+       if [ ! -f "$mark" ]; then
+         [ "$DRY" = 1 ] || write_stamp "$mark"
+         log "skip $seat/$kind — acct-pause ${lab:-?} until ${hhmm:-?} round=${round:-?}"
+       fi
+       return 1;;
+    *) log "ERROR acct_paused $seat $(printf '%s\n' "$out" | tail -1 | cut -c1-160) · 발사 유지"; return 0;;
+  esac
+}
+acct_pause_watch() {   # 한 바퀴 1회 — 만료·풀림·부분 재시도 주체(ft-acct-pause.sh status)
+  local out rc
+  [ "${FT_TICK_ACCT_PAUSE:-1}" = 1 ] || return 0
+  if [ "$DRY" = 1 ]; then echo "DRY kind=acct-pause bin=$ACCT_PAUSE file=$ACCT_FILE"; return 0; fi
+  [ -f "$ACCT_FILE" ] || return 0
+  [ -f "$ACCT_PAUSE" ] || { log "ERROR acct_pause — 도구 없음 $ACCT_PAUSE (설치 누락)"; return 0; }
+  out="$(bash "$ACCT_PAUSE" status 2>&1)"; rc=$?
+  case "$rc" in
+    0) printf '%s\n' "$out" | grep -E '^(RELEASED|EXPIRED|CLEARED) ' | while IFS= read -r l; do log "acct_pause: $l"; done;;
+    3) printf '%s\n' "$out" | grep -E '^(PAUSED|RELEASING) ' | while IFS= read -r l; do log "acct_pause: $l"; done;;
+    *) log "ERROR acct_pause rc=$rc: $(printf '%s\n' "$out" | tail -1 | cut -c1-200)";;
+  esac
   return 0
 }
 
@@ -863,6 +909,7 @@ pass() {
   idle_watch
   idle_long_watch
   outage_watch
+  acct_pause_watch
   model_swap
   stall
   sweep_wt
