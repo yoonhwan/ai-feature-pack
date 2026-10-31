@@ -517,6 +517,18 @@ queue_watch() {
   return 0
 }
 
+# ★r1224 카드→좌석 배정 감시★ — 배정 원장 + 카드 루트 표(directive-roots.tsv)의 대기·진행 카드를 세어 임계(없음 즉시 · 대기 4시간 · 긴급 1시간 · 카드 없는 발주 2시간)를 넘으면
+#   그 팀 master·planner 에 [긴급] 1통(60분 억제 · 판정 불가 = planner 1통). 셈·발신·표식은 본체 ft_card_assign_watch.py tick 이 한다(첫 prepare 는 설치 때 1회 · 없으면 rc3 [긴급]). FT_TICK_CARD_ASSIGN=0 으로 끔.
+card_assign_watch() {
+  local out rc
+  [ "${FT_TICK_CARD_ASSIGN:-1}" = 1 ] || return 0
+  if [ "$DRY" = 1 ]; then echo "DRY kind=card-assign"; return 0; fi
+  out="$(env ${ROOT:+FT_ROOT="$ROOT"} FT_MBOX_SH="$MBOX" python3 "$HERE/ft_card_assign_watch.py" tick 2>&1)"; rc=$?
+  [ "$rc" -le 1 ] || echo "$(date '+%F %T') card_assign_watch: rc=$rc $(printf '%s\n' "$out" | head -1 | cut -c1-200)" >&2
+  printf '%s\n' "$out" | grep '^tick ' | while IFS= read -r l; do log "card_assign_watch: $l"; done
+  return 0
+}
+
 # R125(판정 1437): 뉴스 입력 = 오빠 원장 한 파일 — 지금 커밋 ≠ 기준선이면 바뀐 줄만 발행(R118b 30분 무초안 감시는 초안이 없어져 삭제).
 # 원장 갱신 0 인 새 판정 알림도 같은 스크립트가 보므로 매 루프 부른다(기준선이 같으면 git log 1번). FT_TICK_NEWS_LEDGER=0 으로 끔.
 news_ledger() {
@@ -871,6 +883,7 @@ pass() {
   renamed_watch
   queue_full_watch
   queue_watch
+  card_assign_watch
   launchd_watch
   unpushed_daily
   news_ledger
