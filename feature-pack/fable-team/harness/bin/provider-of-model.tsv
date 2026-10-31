@@ -1,0 +1,9 @@
+# provider-of-model.tsv — 모델 id → provider 정규식표 (r1214 · ft-acct-pause.sh 가 읽는다)
+#   왼쪽 = 정규식(정규화한 모델 id 에 re.search) · 오른쪽 = provider 이름 · 위에서부터 첫 일치 · 주석·빈 줄은 무시.
+#   정규화 = 창 꼬리 `[…]` 를 뗀 값(ft_api_outage_util.base_model 과 같은 규칙) — `claude-fable-5-1[1m]` → `claude-fable-5-1`.
+#   표에 없으면 agent 기본표(claude→claude · codex→codex · pi→deepseek · cmd→deepseek · opencode 는 모델 필수) → 둘 다 없으면 «판정 불가».
+#   새 풀을 붙일 때는 이 파일에 1행만 더한다(코드 수정 0).
+^claude-	claude
+^(gpt-|codex|o[0-9])	codex
+^(opengateway/)?deepseek/	deepseek
+^deepseek-	deepseek
