@@ -33,7 +33,7 @@ s1=$SECONDS
 
 # ⓑ R2 — 실제 잠금 파일 13종 → FORBID deps(대소문자 무시 포함)
 for p in yarn.lock package-lock.json pnpm-lock.yaml poetry.lock uv.lock Cargo.lock bun.lockb packages.lock.json \
-         Pipfile.lock Gemfile.lock deno.lock flake.lock X.LOCK; do
+         Pipfile.lock Gemfile.lock deno.lock flake.lock X.LOCK gradle.lockfile .terraform.lock.hcl; do
   add "$p"; cls "$CLS"; is_deps; ck "ⓑ R2 $p → FORBID kind=deps" $?
 done
 # ⓒ R3 — npm-shrinkwrap.json → FORBID deps
@@ -47,7 +47,7 @@ M="$T/mut"; mkdir -p "$M"; cp "$BIN"/*.py "$M/"
 python3 -I - "$M/autonomy_scope_rules.py" <<'PY'
 import sys
 p = sys.argv[1]; s = open(p, encoding="utf-8").read()
-new = r'(^|/)([^/]*[-.]lock(b|\.(json|ya?ml|toml))?|npm-shrinkwrap\.json)$'
+new = r'(^|/)([^/]*[-.]lock(b|file|\.(json|ya?ml|toml|hcl))?|npm-shrinkwrap\.json)$'
 old = r'(^|/)[^/]*[-.]lock[^/]*$'
 assert s.count(new) == 1; open(p, "w", encoding="utf-8").write(s.replace(new, old))
 PY
