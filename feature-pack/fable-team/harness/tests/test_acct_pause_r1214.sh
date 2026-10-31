@@ -282,11 +282,11 @@ H clear >/dev/null
 # 잠금 8초 점유 → rc4 «판정 불가 잠금»
 python3 - "$R/.fable-team/state/acct-pause/lock" <<'PY' &
 import fcntl, sys, time
-fh = open(sys.argv[1], "a+"); fcntl.flock(fh, fcntl.LOCK_EX); time.sleep(8)
+fh = open(sys.argv[1], "a+"); fcntl.flock(fh, fcntl.LOCK_EX); time.sleep(3)
 PY
 HOLD=$!; sleep 0.6
-out="$(H status --check claude)"; rc=$?
-{ [ "$rc" = 4 ] && has "$out" "판정 불가 잠금" "R7 잠금 8초 점유 → rc4 «판정 불가 잠금»"; } || bad "R7 잠금 rc=$rc $out"
+out="$(FT_ACCT_LOCK_WAIT=1 H status --check claude)"; rc=$?
+{ [ "$rc" = 4 ] && has "$out" "판정 불가 잠금" "R7 잠금 점유 > 대기(7초 계약 · 시험은 1초) → rc4 «판정 불가 잠금»"; } || bad "R7 잠금 rc=$rc $out"
 kill "$HOLD" 2>/dev/null; wait "$HOLD" 2>/dev/null
 # 동시 status 2 → 좌석당 send 1회(잠금)
 H set --provider claude --until "$(ISO $((NOW0+600)))" --reason 'R7 동시 status 겹침 시험' >/dev/null
