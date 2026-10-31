@@ -102,18 +102,28 @@ def holder(name):
     return _resolve(_team_rows(name)[0], name)
 
 
+def _replaces_chain(rows, me):   # me 와 me 의 `_replaces` 사슬(앞 좌석들) 이름 집합
+    out, todo = {me}, [me]
+    while todo:
+        for p in (rows.get(todo.pop()) or {}).get("_replaces") or []:
+            if p not in out: out.add(p); todo.append(p)
+    return out
+
+
 def _mine(names, me):
-    """★r1225★ 같은 이름에 현역이 둘(arch#189·#190)이면 `to` 를 holder 로 풀어 «나보다 번호 큰 다른 좌석» 몫은 안 가져간다.
-    번호 작은 현역 몫은 가져간다(retire 전 후계 recv · r1116 ⓐ). 명부 못 읽음 = 역할 키 그대로 + stderr 1줄."""
+    """★r1225★ 같은 이름에 현역이 둘(arch#189·#190)이면 `to` 를 holder 로 풀어 «다른 좌석» 몫은 안 가져간다.
+    me 행에 `_replaces` 키가 있으면 me·계보·_replaces 사슬 몫만 · 키 없는 옛 꼴 행은 번호 작은 현역 몫도 가져간다(retire 전 후계 · r1116 ⓐ).
+    명부 못 읽음 = 역할 키 그대로 + stderr 1줄."""
     rows = _team_rows(me)[0]
     if not rows:
         sys.stderr.write("NOTE 명부 못 읽음 — 역할 키로 받음 (%s)\n" % me)   # WARN 아님 — 계보 WARN 은 정확히 1줄(test_mbox_lineage ⓓ)
         return lambda to: True
-    own, memo = set(names), {}
+    own, memo = set(names) | _replaces_chain(rows, me), {}
+    strict = "_replaces" in (rows.get(me) or {})   # 실 spawn 은 늘 _replaces 를 쓴다 · 키 없는 옛 꼴 행 = 번호 비교(r1116 ⓐ)
     def mine(to):
         if to not in memo:
             h = _resolve(rows, to)
-            memo[to] = to in own or h in own or _num(h) < _num(me)
+            memo[to] = to in own or h in own or (not strict and _num(h) < _num(me))
         return memo[to]
     return mine
 

@@ -15,7 +15,7 @@ fail=0; ok() { echo "PASS $1"; }; bad() { echo "FAIL $1"; fail=$((fail+1)); }
 mkdir -p "$T/stub"; printf '#!/bin/sh\nexit 1\n' > "$T/stub/tmux"; chmod +x "$T/stub/tmux"
 A=byz-zz-arch-claude; M=byz-zz-master-claude#50
 
-roster() {   # roster <live2|r7|solo|broken>
+roster() {   # roster <live2|r7|solo|legacy|broken> — 실 spawn 꼴 = 행마다 _replaces 키(ft-role-spawn) · legacy = 키 없는 옛 꼴(r1116 ⓐ)
   [ "$1" = broken ] && { printf '{"%s#190": ' "$A" > "$ENVROOT/seats/seats-zz.json"; return; }
   python3 - "$ENVROOT/seats/seats-zz.json" "$1" "$A" "$M" <<'PY'
 import json, sys
@@ -23,8 +23,9 @@ p, kind, a, m = sys.argv[1:5]
 d = {"_master": m, m: {"role": "master"},
      a + "#188": {"role": "stop-ready", "_replaced_by": a + "#190"},
      a + "#190": {"role": "arch", "_replaces": [a + "#188"]}}
-if kind in ("live2", "r7"): d[a + "#189"] = {"role": "arch"}
-if kind == "r7": d[a + "#189"] = {"role": "stop-ready", "_replaced_by": a + "#191"}; d[a + "#191"] = {"role": "arch", "_replaces": [a + "#189"]}
+if kind in ("live2", "r7"): d[a + "#189"] = {"role": "arch", "_replaces": []}
+if kind == "legacy": d = {"_master": m, m: {"role": "master"}, a + "#189": {"role": "arch"}, a + "#190": {"role": "arch"}}
+if kind == "r7": d[a + "#189"] = {"role": "stop-ready", "_replaced_by": a + "#191", "_replaces": []}; d[a + "#191"] = {"role": "arch", "_replaces": [a + "#189"]}
 json.dump(d, open(p, "w", encoding="utf-8"))
 PY
 }
@@ -52,6 +53,15 @@ r1() { new_env live2 "${1:-}" || return 2; row 1 "$A#190" r1
   rcv "$A#190"; [ "$(nread)" = 1 ] && [ "$(left)" = 0 ] && [ "$(rcpt "$A#190" 1)" = 1 ] && [ "$(rcpt "$A#189" 1)" = 0 ]; }
 r1 && ok "R1 to=#190 → #189 READ 0 · #190 READ 1 · 영수 #190 만" || bad "R1 :: $OUT :: $ERR"
 r1 mut; [ $? = 1 ] && ok "변이(claim 거르개 mine 제거) → R1 FAIL 확인" || bad "변이가 R1 에 안 잡힘"
+
+# R1′ — 현역 둘 다 명부 행 있음 · to=#189 → #190 READ 0(번호 큰 쪽도 남의 것 안 가져감) · #189 READ 1
+new_env live2; row 1 "$A#189" r1p
+rcv "$A#190"; a=$(nread); rcv "$A#189"; b=$(nread)
+[ "$a" = 0 ] && [ "$b" = 1 ] && ok "R1′ to=#189 → #190 READ 0 · #189 READ 1" || bad "R1′ a=$a b=$b :: $OUT"
+
+# ⓐ 옛 꼴(_replaces 키 없음 · r1116 ⓐ) — to=#189 → 번호 큰 #190 이 가져감(지금 규칙 그대로)
+new_env legacy; row 1 "$A#189" la; rcv "$A#190"
+[ "$(nread)" = 1 ] && [ "$(left)" = 0 ] && ok "ⓐ 키 없는 옛 꼴 to=#189 → #190 READ 1(r1116 그대로)" || bad "ⓐ 옛 꼴 :: $OUT"
 
 # R2 — to=#188(은퇴 사슬 → #190)
 new_env live2; row 1 "$A#188" r2
@@ -89,6 +99,10 @@ k1() { new_env live2 "${1:-}" || return 2; row 1 "$A#190" k1
   krcv "$A#190"; [ "$(nread)" = 1 ] && [ "$(left)" = 0 ]; }
 k1 && ok "키트 R1 to=#190 → #189 READ 0 · #190 READ 1" || bad "키트 R1 :: $OUT :: $ERR"
 k1 kmut; [ $? = 1 ] && ok "키트 변이(_rows_for mine 제거) → R1 FAIL 확인" || bad "키트 변이가 R1 에 안 잡힘"
+new_env live2; row 1 "$A#189" k1p; krcv "$A#190"; a=$(nread); krcv "$A#189"; b=$(nread)
+[ "$a" = 0 ] && [ "$b" = 1 ] && ok "키트 R1′ to=#189 → #190 READ 0 · #189 READ 1" || bad "키트 R1′ a=$a b=$b :: $OUT"
+new_env legacy; row 1 "$A#189" kla; krcv "$A#190"
+[ "$(nread)" = 1 ] && ok "키트 ⓐ 키 없는 옛 꼴 to=#189 → #190 READ 1" || bad "키트 ⓐ 옛 꼴 :: $OUT"
 new_env live2; row 1 "$A" k3; row 2 "$A#188" k2
 krcv "$A#189"; a=$(nread); krcv "$A#190"; b=$(nread)
 [ "$a" = 0 ] && [ "$b" = 2 ] && ok "키트 R2·R3 #188·역할 이름 → #190 만" || bad "키트 R2·R3 a=$a b=$b :: $OUT"

@@ -778,9 +778,14 @@ def _mine(me):
         if cur != name or isinstance(rows.get(name), dict):
             return cur
         return name if _seat_num(name) > _seat_num(top) else top
+    own, todo = {me}, [me]   # me 와 `_replaces` 사슬(앞 좌석들)
+    while todo:
+        for p in (rows.get(todo.pop()) or {}).get("_replaces") or []:
+            if p not in own: own.add(p); todo.append(p)
+    strict = "_replaces" in (rows.get(me) or {})   # 키 없는 옛 꼴 행 = 번호 비교(r1116 ⓐ)
     def mine(to):
         h = resolve(to)
-        return to == me or h == me or _seat_num(h) < _seat_num(me)
+        return to in own or h in own or (not strict and _seat_num(h) < _seat_num(me))
     return mine
 
 
