@@ -34,6 +34,11 @@ mkbin() {   # $1 = ft-tick 소스 → $TMP/bin-<n> 경로를 stdout
 #!/bin/bash
 # 뉴스 원장 대역: FAKE_CUR_INJECT 가 있으면 낡은 cur 표식(다른 바퀴 id)을 덮어쓴 뒤 FAKE_NEWS_SLEEP 초 쉰다.
 [ -z "${FAKE_CUR_INJECT:-}" ] || printf 'old-round\tnews_ledger\t%s\t-\t0\n' "$(date +%s)" > "$FAKE_CUR_INJECT"
+# FAKE_TORN=<cur.log 경로>: 현재 바퀴 id 의 완전한 줄 1개 + 개행 없는 꼬리 1개를 덧붙인다(끊김 도중 반쪽 쓰기 대역).
+if [ -n "${FAKE_TORN:-}" ]; then
+  e="$(date +%s)"; printf '%s\tfake_step\t%s\t-\t0\t%s\n' "$FT_TICK_PASS_ID" "$e" "$e" >> "$FAKE_TORN"
+  printf '%s\tpartial_step\t17' "$FT_TICK_PASS_ID" >> "$FAKE_TORN"
+fi
 sleep "${FAKE_NEWS_SLEEP:-0}"
 exit 0
 EOF
@@ -81,7 +86,8 @@ mutate() {   # mutate <원본> <변이본> <awk 프로그램> — 바뀌지 않�
 BD="$(mkbin "$SRC_TICK")"
 # 느린 칸(끊김 3초·6초)은 병렬로 미리 돌려 한 회차 시간을 줄인다(시험 상한 70초) — 단언은 wait 뒤에.
 ( run_tick r4a "$BD" "$TMP/seats-0.json" FAKE_NEWS_SLEEP=8 FT_TICK_NEWS_LEDGER=1 FT_TICK_PASS_MAX_SEC=3 -- --once ) &
-( run_tick r4b "$BD" "$TMP/seats-0.json" FAKE_NEWS_SLEEP=8 FT_TICK_NEWS_LEDGER=1 FT_TICK_PASS_MAX_SEC=3 FAKE_CUR_INJECT="$TMP/r4b/state/tick-steps/cur.tsv" -- --once ) &
+( run_tick r4b "$BD" "$TMP/seats-0.json" FAKE_NEWS_SLEEP=8 FT_TICK_NEWS_LEDGER=1 FT_TICK_PASS_MAX_SEC=3 FAKE_CUR_INJECT="$TMP/r4b/state/tick-steps/cur.log" -- --once ) &
+( run_tick r4c "$BD" "$TMP/seats-0.json" FAKE_NEWS_SLEEP=8 FT_TICK_NEWS_LEDGER=1 FT_TICK_PASS_MAX_SEC=3 FAKE_TORN="$TMP/r4c/state/tick-steps/cur.log" -- --once ) &
 ( run_tick r5cut1 "$BD" "$TMP/seats-0.json" FT_TICK_STEPS=1 FAKE_SWEEP_SLEEP=30 FT_TICK_PASS_MAX_SEC=3 -- --once ) &
 ( run_tick r5cut0 "$BD" "$TMP/seats-0.json" FT_TICK_STEPS=0 FAKE_SWEEP_SLEEP=30 FT_TICK_PASS_MAX_SEC=3 -- --once ) &
 # 변이판 R2/R3 도 병렬(단언 = FAIL 이어야 함 · 결과는 $TMP/<m>.res / .reason). cell_r2_r3 는 원본에서 이미 통과해야 의미가 있다(아래 R2/R3 칸이 그 기준판).
@@ -104,7 +110,7 @@ cell_r1() {   # cell_r1 <이름> <bin> <seats> <기대 이름 목록> → 0 PASS
   done
   [ "$bigv" = 0 ] || { REASON="대역 단계가 2초 넘음: $line"; return 1; }
   [ "$(rows "$(SD "$n")/last.tsv")" = "$(echo $exp | wc -w | tr -d ' ')" ] || { REASON="last.tsv 행 수 $(rows "$(SD "$n")/last.tsv") ≠ $(echo $exp | wc -w | tr -d ' ')"; return 1; }
-  [ ! -e "$(SD "$n")/cur.tsv" ] || { REASON="cur.tsv 남음"; return 1; }
+  [ ! -e "$(SD "$n")/cur.log" ] || { REASON="cur.log 남음"; return 1; }
   ls "$(SD "$n")"/done-* >/dev/null 2>&1 && { REASON="done 임시 남음"; return 1; }
   [ "$(cat "$TMP/$n.rc")" = 0 ] || { REASON="--once rc=$(cat "$TMP/$n.rc")"; return 1; }
   return 0
@@ -115,9 +121,9 @@ grep -q 'no active seat with tick' "$TMP/r1a.log" && ok "R1 좌석 0 조기 반�
 
 # ── R2 느린 단계 3초 → 완주 → R3 끊김(같은 상태 폴더) ─────────────────────────────────────────────
 cell_r2_r3() {   # cell_r2_r3 <이름> <bin> → R2 + R3 (REASON)
-  local n="$1" bd="$2" line v E S cs p0 f
+  local n="$1" bd="$2" line v E S cs p0 f lastcur
   REASON=""
-  run_tick "$n" "$bd" "$TMP/seats-0.json" FAKE_SWEEP_SLEEP=3 FT_TICK_PASS_MAX_SEC=6 -- --once
+  run_tick "$n" "$bd" "$TMP/seats-0.json" FAKE_SWEEP_SLEEP=3 FT_TICK_PASS_MAX_SEC=12 -- --once   # R2 상한은 부하 여유(병렬 칸 동시 실행) — R3 가 카드값 6
   line="$(steps_line "$n")"; v="$(val_of "$line" sweep_wt)"
   case "$v" in 2|3|4) ;; *) REASON="R2 sweep_wt=$v (기대 3±1) · $line"; return 1;; esac
   cp "$(SD "$n")/last.tsv" "$TMP/$n.last0"
@@ -127,7 +133,7 @@ cell_r2_r3() {   # cell_r2_r3 <이름> <bin> → R2 + R3 (REASON)
   [ -n "$f" ] || { REASON="R3 ERROR 줄 0"; return 1; }
   case "$f" in *'끊긴 단계 news_ledger '*) ;; *) REASON="R3 끊긴 단계 이름 불일치: $f"; return 1;; esac
   E="$(echo "$f" | sed -n 's/.*끊긴 단계 news_ledger \([0-9]*\)s.*/\1/p')"
-  cs="$(awk -F'\t' '{print $3}' "$(SD "$n")/cur.tsv" 2>/dev/null)"; p0="$(awk -F'\t' '{print $6}' "$(SD "$n")/cur.tsv" 2>/dev/null)"
+  lastcur="$(tail -1 "$(SD "$n")/cur.log" 2>/dev/null)"; cs="$(echo "$lastcur" | awk -F'\t' '{print $3}')"; p0="$(echo "$lastcur" | awk -F'\t' '{print $6}')"
   case "$cs$p0" in ''|*[!0-9]*) REASON="R3 cur 표식 시작·바퀴 시작 칸 없음: [$cs][$p0]"; return 1;; esac
   S=$(( cs - p0 )); [ "$S" -ge 0 ] || S=0   # 앞 단계 합 = 단계 시작 epoch − 바퀴 시작 epoch(같은 표식 두 칸의 차)
   [ -n "$E" ] && [ "$E" -ge $(( 6 - S - 2 )) ] || { REASON="R3 경과 ${E:-?}s < 6−앞단계합(${S})−2"; return 1; }
@@ -135,15 +141,15 @@ cell_r2_r3() {   # cell_r2_r3 <이름> <bin> → R2 + R3 (REASON)
   case "$f" in *'직전 완주 최대 sweep_wt '[234]s*) ;; *) REASON="R3 «직전 완주 최대 sweep_wt» 불일치: $f"; return 1;; esac
   cmp -s "$TMP/$n.last0" "$(SD "$n")/last.tsv" || { REASON="R3 끊긴 바퀴에 last.tsv 바뀜"; return 1; }
   ls "$(SD "$n")"/done-* >/dev/null 2>&1 && { REASON="R3 done 임시 남음"; return 1; }
-  [ "$(cut -f2 "$(SD "$n")/cur.tsv")" = news_ledger ] || { REASON="R3 cur 표식 이름 ≠ news_ledger"; return 1; }
+  [ "$(echo "$lastcur" | cut -f2)" = news_ledger ] || { REASON="R3 cur 표식 이름 ≠ news_ledger"; return 1; }
   grep -q 'pass steps:' "$TMP/$n.log" && { REASON="R3 끊긴 바퀴에 steps 줄이 나옴"; return 1; }
   # 다음 바퀴(완주)가 cur 삭제 + last.tsv 갱신
   run_tick "$n" "$bd" "$TMP/seats-0.json" FT_TICK_PASS_MAX_SEC=6 -- --once
-  [ ! -e "$(SD "$n")/cur.tsv" ] || { REASON="R3 다음 바퀴 뒤 cur 남음"; return 1; }
+  [ ! -e "$(SD "$n")/cur.log" ] || { REASON="R3 다음 바퀴 뒤 cur 남음"; return 1; }
   [ -n "$(steps_line "$n")" ] || { REASON="R3 다음 바퀴 steps 줄 0"; return 1; }
   return 0
 }
-if mutate "$SRC_TICK" "$TMP/m1.sh" 'index($0,"cur.tsv.$$") && index($0,"printf") { next } { print }'; then run_mut m1 "$(mkbin "$TMP/m1.sh")"; fi
+if mutate "$SRC_TICK" "$TMP/m1.sh" 'index($0,"printf '"'"'%s") && index($0,"cur.log") { next } { print }'; then run_mut m1 "$(mkbin "$TMP/m1.sh")"; fi
 if mutate "$SRC_TICK" "$TMP/m2.sh" '{ print } index($0,"STEP_NAMES+=(\"$_st_name\")") { print "  printf \"%s\\t%s\\n\" \"$_st_name\" \"$_st_d\" >> \"$STEP_DIR/last.tsv\" 2>/dev/null" }'; then run_mut m2 "$(mkbin "$TMP/m2.sh")"; fi
 if cell_r2_r3 r23 "$BD"; then ok "R2 sweep_wt 3±1 · R3 끊김(이름·경과≥6−앞합−2·최대 2종·last.tsv 불변·done 0·다음 바퀴 cur 삭제)"; else bad "R2/R3: $REASON"; fi
 
@@ -153,6 +159,9 @@ f="$(grep -m1 'ERROR pass over 3s' "$TMP/r4a.log")"
 case "$f" in *'끊긴 단계 news_ledger '*'직전 완주 최대 ?(기록 없음)'*) ok "R4 첫 바퀴 끊김 = 직전 완주 ?(기록 없음)";; *) bad "R4 첫 바퀴: $f";; esac
 f="$(grep -m1 'ERROR pass over 3s' "$TMP/r4b.log")"
 case "$f" in *'끊긴 단계 ? '*'이 바퀴 최대 ? '*) ok "R4 낡은 cur(다른 바퀴 id) = 끊긴 단계 ? · 이 바퀴 최대 ?";; *) bad "R4 낡은 cur: $f";; esac
+
+f="$(grep -m1 'ERROR pass over 3s' "$TMP/r4c.log")"
+case "$f" in *'끊긴 단계 fake_step '*) case "$f" in *partial_step*) bad "R4 개행 없는 꼬리를 읽음: $f";; *) ok "R4 cur.log 꼬리(개행 없음) 버림 · 마지막 완전한 줄만";; esac;; *) bad "R4 꼬리 칸: $f";; esac
 
 # ── R5 켬/끔 대조 ───────────────────────────────────────────────────────────────────────────────
 norm() { sed -E 's/[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9:]{8} ?//g; s/pid=[0-9]+/pid=N/g' "$1" | grep -v 'pass steps:' | sed "s#$TMP/[^ /]*#T#g"; }
@@ -177,7 +186,8 @@ n="$(grep -c '^DRY kind=steps n=' "$TMP/r6.log")"; l="$(grep -m1 '^DRY kind=step
 
 # ── 변이 ─────────────────────────────────────────────────────────────────────────────────────────
 for m in m1 m2; do
-  if [ -f "$TMP/$m.res" ] && [ "$(cat "$TMP/$m.res")" != 0 ]; then ok "변이 $m → R2/R3 FAIL ($(cat "$TMP/$m.reason"))"
+  if [ -f "$TMP/$m.res" ] && [ "$(cat "$TMP/$m.res")" != 0 ]; then
+    case "$(cat "$TMP/$m.reason")" in R3*) ok "변이 $m → R3 FAIL ($(cat "$TMP/$m.reason" | cut -c1-120))";; *) bad "변이 $m 가 R3 가 아닌 곳에서 실패(원인이 다름): $(cat "$TMP/$m.reason" | cut -c1-120)";; esac
   elif [ -f "$TMP/$m.res" ]; then bad "변이 $m 가 R2/R3 를 통과함 — 시험이 약하다"
   else bad "변이 $m 만들기 실패(대상 줄 없음)"; fi
 done

@@ -1042,7 +1042,7 @@ acct_notice() {
 
 # ── r1253 단계 측정(측정만 · 고침 0) ──────────────────────────────────────────────────────────────
 # 바퀴(pass)의 «실행한» 단계가 시작 시각·소요 초를 남긴다(조기 반환이면 실행 항목만 · 0초로 꾸미기 0). 끄는 스위치 FT_TICK_STEPS=0 → step 은 함수만 부른다.
-#   표식 <STATE_DIR>/tick-steps/ — cur.tsv(«바퀴id·이름·시작 epoch·이 바퀴 최대 단계·그 초» · 단계 시작마다 tmp+mv) · done-<id>.tsv(자식이 바퀴 끝에 씀) ·
+#   표식 <STATE_DIR>/tick-steps/ — cur.log(«바퀴id·이름·시작 epoch·이 바퀴 최대 단계·그 초·바퀴 시작» · 바퀴 시작에 부모가 비우고 단계마다 1줄 덧붙임 · 내장 printf >> = fork 0) · done-<id>.tsv(자식이 바퀴 끝에 씀) ·
 #   last.tsv(«이름<TAB>초» · ★부모가 자식 정상 종료(over=0)를 확인한 뒤에만★ done 에서 게시 · 끊긴 바퀴는 불변).
 #   바퀴 id = 부모가 바퀴 시작에 정해 env FT_TICK_PASS_ID 로 자식에 넘긴다(낡은 cur 표식 = id 불일치 = «?»). 시계 = now() 하나만(가상 시각 FT_TICK_NOW_BASE 가 우회되지 않게).
 #   바퀴 끝 log «pass steps: <이름>=<초> … total=<초>» 1줄(부모) · 끊김 ERROR 줄에는 cut_note 가 «끊긴 단계 · 이 바퀴 최대 · 직전 완주 최대» 를 붙인다.
@@ -1055,7 +1055,7 @@ step() {   # step <이름> <함수…> — 같은 셸 호출(서브셸 0) · std
   # 시계: now() 는 바퀴 시작에 1번(PASS_T0 = 부모가 넘긴 t0) — 단계 안에서는 내장 SECONDS 의 차만 쓴다(fork 0 · 가상 시각 now() 기준 유지).
   #   시작 = 앞 단계 끝(단계 사이 코드는 0에 가깝다) · 단계 시작 epoch = PASS_T0 + (SECONDS − 바퀴 시작 SECONDS) · 외부 호출은 표식 mv 1회뿐.
   _st_t0="${STEP_LAST:-$SECONDS}"
-  [ "$DRY" = 1 ] || { printf '%s\t%s\t%s\t%s\t%s\t%s\n' "${FT_TICK_PASS_ID:-}" "$_st_name" "$(( PASS_T0 + _st_t0 - PASS_S0 ))" "$STEP_MAXN" "$STEP_MAXS" "${FT_TICK_PASS_T0:-}" > "$STEP_DIR/cur.tsv.$$" 2>/dev/null && mv -f "$STEP_DIR/cur.tsv.$$" "$STEP_DIR/cur.tsv" 2>/dev/null; }
+  [ "$DRY" = 1 ] || { printf '%s\t%s\t%s\t%s\t%s\t%s\n' "${FT_TICK_PASS_ID:-}" "$_st_name" "$(( PASS_T0 + _st_t0 - PASS_S0 ))" "$STEP_MAXN" "$STEP_MAXS" "${FT_TICK_PASS_T0:-}" >> "$STEP_DIR/cur.log" 2>/dev/null; }   # 내장 printf + O_APPEND(fork 0) — 바퀴 시작에 부모가 비운 로그에 단계마다 1줄 · 읽는 쪽은 «개행으로 끝난 줄» 만 쓴다
   "$@"; _st_rc=$?
   STEP_LAST=$SECONDS; _st_d=$(( STEP_LAST - _st_t0 ))
   STEP_NAMES+=("$_st_name"); STEP_SECS+=("$_st_d")
@@ -1083,7 +1083,7 @@ steps_publish() {   # 부모: $1 = 바퀴 id — 자식이 정상 종료(over=0)
   if grep -v '^#' "$f" > "$STEP_DIR/last.tsv.tmp.$$" 2>/dev/null && mv -f "$STEP_DIR/last.tsv.tmp.$$" "$STEP_DIR/last.tsv" 2>/dev/null; then :
   else rm -f "$STEP_DIR/last.tsv.tmp.$$" 2>/dev/null; echo "$(date '+%F %T') WARN steps: last.tsv 게시 실패 $STEP_DIR — 이번 바퀴 값은 로그 줄에만" >&2; fi
   log "pass steps: ${line}total=$total"
-  rm -f "$f" "$STEP_DIR/cur.tsv" 2>/dev/null
+  rm -f "$f" "$STEP_DIR/cur.log" 2>/dev/null
   return 0
 }
 # prep 단계 = read_seats · master_seat · master_news_ok(준비 구간 1단계) — pass_core 의 rows·master·report_to·mok(동적 범위)를 채운다.
@@ -1196,8 +1196,14 @@ kill_tree() {   # $1 pid — 묶음을 TERM 전에 한 번 떠 둔다(부모가 
 }
 cut_note() {   # $1 = 바퀴 id → « · 끊긴 단계 <이름> <경과>s · 이 바퀴 최대 <이름> <초>s · 직전 완주 최대 <이름> <초>s» · 못 본 값은 «?» (생략 0) · r1253
   [ "$STEPS_ON" = 1 ] || return 0
-  local cid="" cname="" cstart="" cmaxn="" cmaxs="" cp0="" cur="?" mine="?" last="?(기록 없음)" name secs mx=-1 sn=""
-  [ -f "$STEP_DIR/cur.tsv" ] && IFS=$'\t' read -r cid cname cstart cmaxn cmaxs cp0 < "$STEP_DIR/cur.tsv"
+  local cid="" cname="" cstart="" cmaxn="" cmaxs="" cp0="" lid lname lstart lmaxn lmaxs lp0 cur="?" mine="?" last="?(기록 없음)" name secs mx=-1 sn=""
+  # cur.log = 단계마다 1줄 덧붙인 로그 — «바퀴 id 가 맞는 마지막 완전한 줄»(개행으로 끝난 줄)만 쓴다. 개행 없는 꼬리는 while read 가 본문을 돌리지 않아 버려진다.
+  if [ -f "$STEP_DIR/cur.log" ]; then
+    while IFS=$'\t' read -r lid lname lstart lmaxn lmaxs lp0; do
+      [ "$lid" = "$1" ] || continue
+      cid="$lid"; cname="$lname"; cstart="$lstart"; cmaxn="$lmaxn"; cmaxs="$lmaxs"; cp0="$lp0"
+    done < "$STEP_DIR/cur.log"
+  fi
   case "${cstart:-x}" in *[!0-9]*) ;; *)   # 낡은 표식(다른 바퀴 id)·빈 표식 = 전부 «?»
     if [ "$cid" = "$1" ] && [ -n "$cname" ]; then
       cur="$cname $(( $(now) - cstart ))s"
@@ -1219,7 +1225,7 @@ log "ft-tick started pid=$$ seats=$SEATS loop=${LOOP_SEC}s master=${MASTER_INTER
 while :; do
   # r1253: 바퀴 id(부모가 정해 자식에 env 로) · 바퀴 시작에 옛 표식(끊김 잔존) 삭제
   PASS_ROUND=$(( PASS_ROUND + 1 )); PASS_ID="$(now)-$$-$PASS_ROUND"
-  if [ "$STEPS_ON" = 1 ]; then mkdir -p "$STEP_DIR" 2>/dev/null; rm -f "$STEP_DIR/cur.tsv" "$STEP_DIR"/done-*.tsv 2>/dev/null; fi
+  if [ "$STEPS_ON" = 1 ]; then mkdir -p "$STEP_DIR" 2>/dev/null; rm -f "$STEP_DIR"/done-*.tsv "$STEP_DIR/cur.tsv" 2>/dev/null; : > "$STEP_DIR/cur.log" 2>/dev/null; fi   # 바퀴 시작 = 옛 표식 삭제 · cur.log 는 내장 : > 로 비운다(구버전 cur.tsv 잔존도 지운다)
   t0="$(now)"; FT_TICK_PASS_ID="$PASS_ID" FT_TICK_PASS_T0="$t0" pass & CHILD=$!; over=0
   while kill -0 "$CHILD" 2>/dev/null; do
     if [ $(( $(now) - t0 )) -ge "$PASS_MAX" ]; then
