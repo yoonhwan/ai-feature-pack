@@ -68,27 +68,64 @@ def _team_rows(name):   # (그 이름 팀 명부의 좌석 행 dict, 그 이름 
     return rows, rows.get(name)
 
 
-def retired_to(me):
-    """★현역만 recv(r1116)★ — me 행에 `_replaced_by` 가 있으면 사슬 끝 후계 이름, 현역·미등록이면 "". 옛·새 동시 생존 때 옛 세션이 역할 우편함을 못 가져가게."""
-    rows, row = _team_rows(me)
-    cur, seen = me, {me}
+def _chain_end(rows, name):   # 은퇴 사슬(`_replaced_by`) 끝 이름 — 사슬 없으면 name
+    cur, seen, row = name, {name}, rows.get(name)
     while isinstance(row, dict) and row.get("_replaced_by") and row["_replaced_by"] not in seen:
         cur = row["_replaced_by"]; seen.add(cur); row = rows.get(cur)
+    return cur
+
+
+def _num(k):   # 좌석 번호 #N · 번호 없는 역할 이름 = -1
+    return int(k.rsplit("#", 1)[1]) if re.search(r"#\d+$", k or "") else -1
+
+
+def retired_to(me):
+    """★현역만 recv(r1116)★ — me 행에 `_replaced_by` 가 있으면 사슬 끝 후계 이름, 현역·미등록이면 "". 옛·새 동시 생존 때 옛 세션이 역할 우편함을 못 가져가게."""
+    cur = _chain_end(_team_rows(me)[0], me)
     return "" if cur == me else cur
 
 
-def holder(name):
-    """doorbell·ring 대상 = 그 역할의 현역 세션(r1116 R7). 명부 이름이면 사슬 끝 · 번호 없는 역할 이름이면 같은 역할 현역 행(번호 큰 것) · 못 찾으면 그대로."""
-    cur = retired_to(name)
-    if cur:
+def _resolve(rows, name):   # holder 본체 — 명부 행 dict 를 받아 푼다(같은 recv 안에서 명부 1회 읽기)
+    cur = _chain_end(rows, name)
+    if cur != name or isinstance(rows.get(name), dict):
         return cur
-    rows, row = _team_rows(name)
-    if isinstance(row, dict):
-        return name
     live = [k for k, v in rows.items() if role_key(k) == role_key(name) and not v.get("_replaced_by")
             and v.get("role") not in ("closed", "stopped")]
-    num = lambda k: int(k.rsplit("#", 1)[1]) if re.search(r"#\d+$", k) else -1
-    return max(live, key=num) if live else name
+    num = _num
+    top = max(live, key=num) if live else name
+    return name if num(name) > num(top) else top
+
+
+def holder(name):
+    """doorbell·ring 대상 = 그 역할의 현역 세션(r1116 R7). 명부 이름이면 사슬 끝 · 번호 없는 역할 이름이면 같은 역할 현역 행(번호 큰 것) · 못 찾으면 그대로.
+    ★r1193★ 명부에 없는데 현역보다 번호가 큰 이름 = retire 전 «새로 여는 후계» → 그 이름 자신(첫 doorbell·RESEND ring 이 구 좌석 창으로 가던 자리)."""
+    return _resolve(_team_rows(name)[0], name)
+
+
+def _replaces_chain(rows, me):   # me 와 me 의 `_replaces` 사슬(앞 좌석들) 이름 집합
+    out, todo = {me}, [me]
+    while todo:
+        for p in (rows.get(todo.pop()) or {}).get("_replaces") or []:
+            if p not in out: out.add(p); todo.append(p)
+    return out
+
+
+def _mine(names, me):
+    """★r1225★ 같은 이름에 현역이 둘(arch#189·#190)이면 `to` 를 holder 로 풀어 «다른 좌석» 몫은 안 가져간다.
+    me 행에 `_replaces` 키가 있으면 me·계보·_replaces 사슬 몫만 · 키 없는 옛 꼴 행은 번호 작은 현역 몫도 가져간다(retire 전 후계 · r1116 ⓐ).
+    명부 못 읽음 = 역할 키 그대로 + stderr 1줄."""
+    rows = _team_rows(me)[0]
+    if not rows:
+        sys.stderr.write("NOTE 명부 못 읽음 — 역할 키로 받음 (%s)\n" % me)   # WARN 아님 — 계보 WARN 은 정확히 1줄(test_mbox_lineage ⓓ)
+        return lambda to: True
+    own, memo = set(names) | _replaces_chain(rows, me), {}
+    strict = "_replaces" in (rows.get(me) or {})   # 실 spawn 은 늘 _replaces 를 쓴다 · 키 없는 옛 꼴 행 = 번호 비교(r1116 ⓐ)
+    def mine(to):
+        if to not in memo:
+            h = _resolve(rows, to)
+            memo[to] = to in own or h in own or (not strict and _num(h) < _num(me))
+        return memo[to]
+    return mine
 
 
 def claim(dirs, names, frm, limit, me=None, on_take=None, only=None):
@@ -99,12 +136,13 @@ def claim(dirs, names, frm, limit, me=None, on_take=None, only=None):
     me 가 보낸 행은 안 가져간다(같은 역할 옛·새 세션 사이 [인계]·[레디]) · only = 추가 거르개 · on_take(행들) = 소비 «전» 영수 기록(실패 = raise → 큐 무변경).
     """
     keys = {role_key(n) for n in names}
+    mine = _mine(names, me or names[0])
     def run(i):
         if i < len(dirs):
             return _locked(dirs[i], lambda: run(i + 1))
         per = [(d, _load(d)) for d in dirs]
         got = [(d, r) for d, rows in per for r in rows
-               if role_key(r.get("to")) in keys and (frm is None or r.get("from") == frm)
+               if role_key(r.get("to")) in keys and mine(r.get("to")) and (frm is None or r.get("from") == frm)
                and (me is None or r.get("from") != me) and (only is None or only(r))]
         got.sort(key=lambda x: x[1]["seq"], reverse=True)   # LIFO
         held = []

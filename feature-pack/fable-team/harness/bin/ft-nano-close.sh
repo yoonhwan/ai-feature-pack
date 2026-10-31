@@ -833,9 +833,23 @@ _lp_lastline_head() {  # <N> <끝줄> → 40hex 또는 빈 값
   printf '%s\n' "$h"
 }
 _lp_lastline() {  # <repo> <sha> — 커밋 메시지의 «마지막 비어 있지 않은 줄»(끝 공백 제거) · 없으면 빈 값
-  local l
-  l="$(git -C "$1" log -1 --format=%B "$2" 2>/dev/null | sed -e 's/[[:space:]]*$//' | awk 'NF{l=$0} END{if (l!="") print l}')"
+  # ★r1169★ ft-merge-land 문서 자동 병합(docam) 길은 «PR #N (head …)» 뒤에 꼬리 1줄 «main 자동 병합(문서 전용 · 겹침 0) C=<40hex>» 를 더 쓴다.
+  #   마지막 줄이 정확히 그 꼴이면 그 앞의 비어 있지 않은 줄을 끝줄로 본다(1줄만 · 반복 0) · 그 밖 꼴(짧은 sha·다른 문구)은 지금처럼 그 줄이 끝줄.
+  local all l p t
+  all="$(git -C "$1" log -1 --format=%B "$2" 2>/dev/null | sed -e 's/[[:space:]]*$//' | awk 'NF{p=l; l=$0} END{if (l!="") {print p; print l}}')"
+  p="${all%%$'\n'*}"; l="${all#*$'\n'}"
+  case "$l" in
+    "main 자동 병합(문서 전용 · 겹침 0) C="*)
+      t="${l#main 자동 병합(문서 전용 · 겹침 0) C=}"
+      if [ "${#t}" -eq 40 ] && [ -n "$p" ]; then case "$t" in *[!0-9a-f]*) ;; *) l="$p";; esac; fi   # r1169-mut:skip
+      ;;
+  esac
   printf '%s\n' "$l"
+}
+# ★r1169 2b★ squash 착지 확인 줄 안내(문구만 · 판정 불변) — MERGED 가 아니면 «state·mergedAt 없음 = 정상» 을 붙인다(ops 요청 #207233).
+_lp_state_note() {
+  [ "$_lp_state" = MERGED ] && return 0
+  printf ' — PR state=%s·mergedAt 없음은 정상(ft-merge-land 는 병합 버튼 없이 squash 를 main 에 올리고 PR 을 닫는다 · r1058)' "$_lp_state"
 }
 # ★r1058★ --landed-pr 의 착지 판정 = GitHub 상태 칸이 아니라 git 사실 «origin/main 에 산출이 있는가».
 #   우리 착지 도구(ft-merge-land)는 병합 버튼을 쓰지 않는다 — squash 커밋을 main 에 직접 올리고 PR 은 CLOSED 또는 OPEN 으로 남긴다(실측 3/3).
@@ -875,7 +889,7 @@ _lp_landed_gate() {
       _lp_land_x="$_lp_head"   # r1084: 이 경로의 끝줄 head = 지금 PR head(끝줄 «PR #N (head <_lp_head>)» 정확 일치)
       _lp_landed=squash
       _lp_landed_short="$(git -C "$repo" rev-parse --short "$cand" 2>/dev/null)"
-      echo "INFO ⑥--landed-pr 착지 확인: squash ${_lp_landed_short:-${cand:0:9}} · PR state=$_lp_state"
+      echo "INFO ⑥--landed-pr 착지 확인: squash ${_lp_landed_short:-${cand:0:9}} · PR state=$_lp_state$(_lp_state_note)"
       return 0
     fi
     x="$(_lp_lastline_head "$LANDED_PR" "$last")"   # 꼴 밖(접두 겹침·꼬리·가운데 줄) = 빈 값 → 후보 0
@@ -912,7 +926,7 @@ _lp_landed_gate() {
     _lp_land_x="$_lp_equiv_x"   # r1084: 이 경로의 끝줄 head
     _lp_landed=squash
     _lp_landed_short="$(git -C "$repo" rev-parse --short "$_lp_equiv_sha" 2>/dev/null)"
-    echo "INFO ⑥--landed-pr 착지 확인: squash ${_lp_landed_short:-${_lp_equiv_sha:0:9}} · 끝줄 head ${_lp_equiv_x:0:9} → PR head ${_lp_head:0:9} = main 병합 ${merges}개뿐 · main 대비 자기 변경 0 · PR state=$_lp_state"
+    echo "INFO ⑥--landed-pr 착지 확인: squash ${_lp_landed_short:-${_lp_equiv_sha:0:9}} · 끝줄 head ${_lp_equiv_x:0:9} → PR head ${_lp_head:0:9} = main 병합 ${merges}개뿐 · main 대비 자기 변경 0 · PR state=$_lp_state$(_lp_state_note)"
     return 0
   fi
   _lp_pr_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · main 에 산출 없음(ff 0 · squash 끝줄 0)"
