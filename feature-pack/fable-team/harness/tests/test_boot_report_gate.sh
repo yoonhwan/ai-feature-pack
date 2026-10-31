@@ -15,8 +15,9 @@ new_env() {  # <variant> — 정본 사본 + lint + 명부 픽스처
   cp "$SRC"/mbox*.py "$SRC"/mbox*.sh "$ENVROOT/.fable-team/comm/"; cp "$SRC"/ft-boot-report-lint.py "$ENVROOT/.fable-team/comm/" 2>/dev/null
   git -C "$ENVROOT" init -q; mkdir -p "$ENVROOT/seats"; cp "$FX/$1"/seats*.json "$ENVROOT/seats/"
   mkdir -p "$ENVROOT/seats/state/directive-watch"; printf '%s\t0\t0\n' "$STAMP" > "$ENVROOT/seats/state/directive-watch/stamps.tsv"  # r1212 ④ 판본 행
+  mkdir -p "$ENVROOT/seats/state/card-assign"; printf '%s\t0\t0\t0\tabcd\n' "$STAMP" > "$ENVROOT/seats/state/card-assign/stamps.tsv"  # r1224 ⑤ 배정 판본 행
 }
-STAMP="$(date +%s)-0000abcd"; DIRECTIVE="담당 없는 오빠 지시 0 · 멈춘 오빠 지시 0 · 판본 $STAMP"  # r1212 ④ — 승계 보고 지시 칸(본문 끝에 덧붙임 · 다른 칸 판정 무변경)
+STAMP="$(date +%s)-0000abcd"; DIRECTIVE="담당 없는 오빠 지시 0 · 멈춘 오빠 지시 0 · 판본 $STAMP 배정 없는 카드 0 · 대기 초과 0 · 정지 중 0 · 카드 없는 발주 0 · 판본 $STAMP"  # r1212 ④ — 승계 보고 지시 칸(본문 끝에 덧붙임 · 다른 칸 판정 무변경)
 send_from() {  # <from> <to> <body> → RC·OUT (planner 머리 모드 reject 고정)
   OUT="$(cd "$ENVROOT" && env PATH="$T/stub:$PATH" FT_SEATS_JSON="$ENVROOT/seats/seats.json" FT_PLANNER_HEAD_MODE=reject \
     FT_MBOX_DIR="$ENVROOT/.fable-team/comm" FT_MBOX_RATE_N=999 FT_MBOX_FANOUT_WINDOW=0 \

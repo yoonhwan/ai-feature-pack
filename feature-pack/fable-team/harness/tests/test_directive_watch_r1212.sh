@@ -108,7 +108,7 @@ lap R6real
 # R7 — 부팅 보고 판본 칸(stamps.tsv 대조) · 승계 master
 op_env; run status; HEAD1="$(printf '%s' "$OUT" | head -1)"; ST="$(printf '%s' "$HEAD1" | sed -n 's/.*판본 \([0-9]*-[0-9a-f]*\).*/\1/p')"
 mkdir -p "$T/seats7"; printf '%s\n' '{"_master":"byz-harness-master-claude#33","byz-harness-master-claude#32":{"role":"stop-ready","_replaced_by":"byz-harness-master-claude#33"},"byz-harness-master-claude#33":{"role":"master","_replaces":["byz-harness-master-claude#32"]},"byz-harness-nano-x#0":{"role":"nano"}}' > "$T/seats7/seats-harness.json"
-BOOT='[부팅 보고] 세션=x retire=byz-harness-master-claude#32->byz-harness-master-claude#33 rc=0 cron=abc123'
+BOOT='[부팅 보고] 세션=x retire=byz-harness-master-claude#32->byz-harness-master-claude#33 rc=0 cron=abc123 배정 감시 판정 불가 · r1212 시험(배정 칸은 r1224 시험이 본다)'
 lint() { LOUT="$(printf '%s' "$2" | env FT_DIRECTIVE_STAMPS="$R/.fable-team/state/directive-watch/stamps.tsv" ${LENV:-} python3 "${LINT_RUN:-$LINT}" --from "$1" --seats-dir "$T/seats7" 2>&1)"; LRC=$?; }
 lint "$HMASTER" "$BOOT"; r_none=$LRC; lint "$HMASTER" "$BOOT ${HEAD1/판본 $ST/판본 ${ST%%-*}-00000000}"; r_row=$LRC
 lint "$HMASTER" "$BOOT ${HEAD1/멈춘 오빠 지시 1/멈춘 오빠 지시 2}"; r_num=$LRC

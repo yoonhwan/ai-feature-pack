@@ -76,11 +76,21 @@ _acct_paused() {   # $1 = agent $2 = model(확정값)
     *) printf '%s\n' "REJECT acct-pause 판정 실패 rc=$rc — $(printf '%s\n' "$out" | tail -1)"; return 1;;
   esac
 }
+# ★r1224 배정 원장(state/card-assign/<stem>.json)★ — 카드 식별 = 첫 줄(아래 init · 정지 판정보다 앞): 옛 카드도 원장 «없음» 행이 생긴다.
+#   종료 분기 = 정지(SPAWN_HOLD · 판정 번호를 원장 pause.key 로) · 정지(ACCT_PAUSE · r1214 _acct_paused 게이트 rc3 · key = 출력의 acct-pause <P/M>) · 석(큐 적재 rc7 ×2) · 부하(자원 문지기) · lint · DA(lint 사전검증 사유) · 선행(기준 커밋 미착지)
+#   → «waiting <사유>»(같은 사유 재거절 = 변경 0 · since 유지) · 면제대기 = 이 스크립트에 분기 없음(master·planner 가 `ft-card-assign-watch.sh record <카드> waiting 면제대기`)
+#   · 성공 = 이동 «전» «seat <이름>» + 카드 거울 1줄(원장 잠금 안 · 다른 줄 바이트 보존 · 거울은 init·거절·성공 셋 다) → ft-index-move 가 그 파일을 옮겨 이동 커밋에 함께.
+#   공용 1함수 = ft_card_assign_watch.py record · --dry-run·--research = 쓰기 0 · 실패 = stderr WARN 1줄(spawn rc 불변). 틱 감시(ft-card-assign-watch)가 원장을 세어 [긴급].
+card_assign_record() {  # $1 카드 $2 init|waiting|seat $3 사유|이름 [$4 hold|acct $5 key]
+  { [ "$DRY" = 1 ] || [ "$RESEARCH" = 1 ]; } && return 0
+  python3 "$HERE/ft_card_assign_watch.py" record "$@" >&2 || echo "WARN 배정 원장 기록 실패($*)" >&2
+}
+card_assign_record "$IDX" init
 # ★spawn 정지 파일 (R320 · 판정 2166)★: 정지는 기한·해제 조건이 있는 SPAWN_HOLD 파일 하나로만 걸린다 — 문장·쪽지로 받은 정지는 효력 0. 출력 `hold=none` = 정지 아님. 없는 도구는 설치 누락(라이브 드리프트 검사가 잡는다).
 if [ -f "$HERE/ft-spawn-hold.sh" ]; then
   _hold="$(bash "$HERE/ft-spawn-hold.sh" status 2>&1)"; _hrc=$?
   if [ "$_hrc" != 0 ]; then
-    printf '%s\n' "$_hold"
+    printf '%s\n' "$_hold"; card_assign_record "$IDX" waiting 정지 hold "$(printf '%s\n' "$_hold" | sed -n 's/^REJECT hold \([0-9][0-9]*\) .*/\1/p' | head -1)"
     # r1214: 정지 사유를 «둘 다 모아» 낸다 — 자원 정지에 걸려도 계정 정지가 같이 있으면 그 1줄도 함께 보인다(여기서 아는 모델 = --model 로 준 값 또는 기본 agent).
     #   (모델이 확정된 뒤의 «본» 계정 게이트는 아래 — 여기는 자원 정지로 먼저 끝나는 길에서 두 번째 사유를 잃지 않기 위한 자리다.)
     _apout="$(_acct_paused "$AGENT" "$MODEL")"; _aprc=$?
@@ -109,7 +119,7 @@ if [ "$_rgrc" = 0 ] && [ -n "$_WARN_AXES" ] && printf '%s\n' "$_WARN_AXES" | gre
     _rgout="$(bash "$HERE/ft-resource-gate.sh" "${RG_ARGS[@]}" 2>&1)"; _rgrc=$?
   fi
 fi
-[ "$_rgrc" = 0 ] || { printf '%s\n' "$_rgout"; exit "$_rgrc"; }
+[ "$_rgrc" = 0 ] || { printf '%s\n' "$_rgout"; card_assign_record "$IDX" waiting 부하; exit "$_rgrc"; }
 printf '%s\n' "$_rgout" | grep '^WARN ' >&2 || true   # r672: 넘은 채 진행한다는 사실(WARN)을 숨기지 않는다 · r921: 진행은 한다
 # ★r921 리서치 좌석 상한 삭제★: 리서치는 일반 나노와 같은 규칙으로 열린다(옛 r672 «1석 고정» 은 오빠 «멈추지 마라» 로 폐기). 잠금만 아래 ③ 열기 직전에 잡는다.
 [ -f "$HERE/ft-research-seat-lib.sh" ] || { echo "REJECT ft-research-seat-lib.sh 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
@@ -251,7 +261,7 @@ if [ -n "${FT_TEAM_SEAT_CAP:-}${FT_GROUP_SEAT_CAP:-}" ]; then
             printf '%s\n' "$_cap"
             [ -f "$HERE/ft_spawn_queue.py" ] || { echo "REJECT ft_spawn_queue.py 없음: $HERE (순번 큐를 쓸 수 없다)"; exit 1; }
             python3 "$HERE/ft_spawn_queue.py" add --root "$ROOT" --prefix "$FT_NANO_PREFIX" --card "$IDX" --from "$FROM"
-            exit 7
+            card_assign_record "$IDX" waiting 석; exit 7
           else
             echo "WARN resource seat-cap ${_cap%%$'\n'*} — 회수 1회 뒤 cap+1 까지 열어 준다(r921 · 순번 큐 적재 0)" >&2
           fi
@@ -289,7 +299,7 @@ _ts_fields() { # <cap 출력> → "live cap" (못 읽으면 빈 값)
 _ts_queue() { # <사유> — 순번 큐에 넣고 master 알림(있으면) · rc7
   echo "QUEUED $2 — $1" >&2
   [ "$DRY" = 1 ] || python3 "$HERE/ft_spawn_queue.py" add --root "$ROOT" --prefix "$_tsp" --card "$IDX" --from "$FROM" || true
-  exit 7
+  card_assign_record "$IDX" waiting 석; exit 7
 }
 if [ "${FT_TEAMSET:-1}" != 0 ]; then
   [ -f "$HERE/ft_teamset.py" ] && [ -f "$HERE/ft_spawn_queue.py" ] || { echo "REJECT ft_teamset.py·ft_spawn_queue.py 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
@@ -355,7 +365,7 @@ esac
 # ★계정 풀 정지 (r1214 · ACCT_PAUSE · Issue #5345 ③⑤)★: 모델은 위(:20 블록)에서 «이미 확정»됐다(--model·--tier·기본값 분기). 카드 쓰기·워크트리·tmux «전»에 판정한다.
 #   정지 rc3 = `REJECT 정지 중 · 풀림 HH:MM` · 판정 불가 rc4 = `REJECT 판정 불가`(통과 0). 없는 도구는 WARN 1줄(판단하지 않음 · ft-spawn-hold.sh 와 같은 틀).
 _apout="$(_acct_paused "$AGENT" "$MODEL")"; _aprc=$?
-if [ "$_aprc" != 0 ]; then printf '%s\n' "$_apout"; exit "$_aprc"; fi
+if [ "$_aprc" != 0 ]; then printf '%s\n' "$_apout"; [ "$_aprc" != 3 ] || card_assign_record "$IDX" waiting 정지 acct "$(printf '%s\n' "$_apout" | sed -n 's/.*— acct-pause \([^ ]*\) .*/\1/p' | head -1)"; exit "$_aprc"; fi   # r1224: 계정 정지 = 원장 pause acct <P/M>(감시가 같은 key 로 --check)
 if [ ! -f "$IDX" ] && [ -f "$HERE/ft-team-lib.sh" ]; then . "$HERE/ft-team-lib.sh"; _tw="$(ft_index_twin "$IDX")" && [ -f "$_tw" ] && { echo "INFO 인덱스 쌍둥이 경로로 해석: $IDX → $_tw (R382 전환 기간 역호환)"; IDX="$_tw"; }; fi
 [ -f "$IDX" ] || { echo "REJECT 인덱스 없음: $IDX"; exit 1; }
 [ ! -f "$HERE/ft-team-lib.sh" ] || ( . "$HERE/ft-team-lib.sh" && ft_card_location_ok "$IDX" ) || exit 1   # r447: 명단 새 꼴 팀 카드가 옛 꼴 폴더(쌍둥이 해석 포함)면 REJECT
@@ -377,13 +387,45 @@ esac
 # R387 --research: opencode 리서치 좌석은 «쓰고 바로 닫기»(메모리 버그 · r286 reap)가 전제 — 회수 도구가 없으면 부작용 «전» REJECT. Fable 등 다른 에이전트는 통과.
 [ "$RESEARCH" != 1 ] || [ "$AGENT" != opencode ] || [ -f "$HERE/ft-opencode-reap.sh" ] || { echo "REJECT --research --agent opencode 는 ft-opencode-reap.sh(r286) 미설치 — 닫을 때 프로세스를 못 회수한다: $HERE · Fable(--agent claude --model claude-fable-5-1[1m])로 열거나 r286 설치 뒤"; exit 1; }
 
+# ★r1217 계정 주간 한도 배정(#5345 ⑦)★ — 모델 확정 뒤 · 카드·워크트리 쓰기 «전» 1회. 대체 = 그 모델로 열기 · 정지 중·가용 0 = rc3 중단(부작용 0)
+#   불명 = 원래 모델로 열되 WARN + 발주문 «[배정 불명]» · 기록(발주문·카드 «상태» 절)은 이동 «뒤» · --dry-run 은 판정 줄만 · FT_ACCT_ASSIGN=0 = 호출 0
+card_note() {  # <진행/ 카드 경로> "<줄>" — «## 상태» 절 끝에 1줄 · 진행/ 밖·절 없음 = «판정 불가 카드 경로» rc3
+  case "$1" in */진행/*) ;; *) echo "판정 불가 카드 경로 $1 (진행/ 아님)"; return 3;; esac
+  python3 - "$1" "$2" <<'PY' || return 3
+import sys
+p, note = sys.argv[1:3]
+ls = open(p, encoding="utf-8").read().splitlines()
+i = next((k for k, s in enumerate(ls) if s.strip() == "## 상태"), None)
+if i is None:
+    print(f"판정 불가 카드 경로 {p} (## 상태 절 없음)"); sys.exit(3)
+j = next((k for k in range(i + 1, len(ls)) if ls[k].startswith("## ")), len(ls))
+while j > i + 1 and not ls[j - 1].strip():
+    j -= 1
+ls.insert(j, f"- {note}")
+open(p, "w", encoding="utf-8").write("\n".join(ls) + "\n")
+PY
+}
+_ASG_LINE=""
+if [ "${FT_ACCT_ASSIGN:-1}" != 0 ] && [ -f "$HERE/ft-acct-assign.sh" ]; then
+  _asg="$(FT_ROOT="$ROOT" bash "$HERE/ft-acct-assign.sh" "$MODEL" --seat-kind nano | tail -1)"   # INFO·오류는 stderr 그대로 보인다
+  echo "ASSIGN $MODEL → $_asg"
+  _am=""; case "$_asg" in "대체 없음"*) ;; "대체 "*) _am="${_asg#대체 }"; _am="${_am%% · *}";; esac   # «대체 없음 · 선택 불명» 은 대체가 아니다
+  case "$_asg" in
+    "허용 "*) ;;
+    "정지 중"*|"가용 0"*) echo "REJECT 계정 배정 $_asg — 부작용 0"; exit 3;;
+    *) if [ -n "$_am" ]; then _ASG_LINE="[배정] $MODEL → $_am · ${_asg#* · }"; MODEL="$_am"
+       else echo "WARN 계정 배정 ${_asg:-출력 없음} — 원래 모델($MODEL)로 연다" >&2; _ASG_LINE="[배정 불명] ${_asg:-출력 없음}"; fi;;
+  esac
+fi
+
 # ① lint — 누가 읽어도 착수 가능한가 (P2: planner 카드 머리 「- 템플릿: 빈 카드(나노가 채움)」 = lint ⑤⑥ 만 건너뜀 · 그 밖 팀·검사는 그대로)
 [ -f "$HERE/ft-team-lib.sh" ] || { echo "REJECT ft-team-lib.sh 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
 . "$HERE/ft-team-lib.sh"   # R383: planner 카드 판정·SEATBELT 경로를 팀 폴더 명단으로 푼다(팀 이름 글자 0)
 _EBN=""; if ft_team_has_ref "$WT" planner "$IDX" indices/ && awk '/^##[[:space:]]/{exit} {print}' "$IDX" | grep -q '^- 템플릿: 빈 카드(나노가 채움)'; then export FT_INDEX_ALLOW_EMPTY_BODY=1; _EBN=" ★빈 카드 템플릿: 카드 구현 범위·완료 조건 절을 네가 먼저 채우고 arch 1줄 확인 뒤 착수★"; else unset FT_INDEX_ALLOW_EMPTY_BODY; fi
 # ①-0 보고 대상 검사는 위 _nano_reply_target 한 곳에서 끝났다(tmm 목록 1회 · 같은 칸 · REJECT 1줄).
 
-bash "$HERE/ft-index-lint.sh" "$IDX" || { echo "REJECT lint 실패"; exit 1; }
+_lint="$(bash "$HERE/ft-index-lint.sh" "$IDX")"; _lintrc=$?; printf '%s\n' "$_lint"
+[ "$_lintrc" = 0 ] || { echo "REJECT lint 실패"; case "$_lint" in *사전검증*) card_assign_record "$IDX" waiting DA;; *) card_assign_record "$IDX" waiting lint;; esac; exit 1; }
 # r1118: 명부 index = 리포 상대경로 — 카드가 호출 체크아웃(WT) 밖(스크래치·다른 워크트리)이면 접두가 안 떼져 절대경로가 명부에 들어가 닫기 ⑥ ls-tree 가 rc128 이던 자리.
 #   ft_index_rel 로 `design/…/indices/<단계>/<파일>` 꼬리 · 꼴 밖 절대경로 = REJECT(카드 base_sha 쓰기·워크트리·명부 «전») · IDX_WT = 카드가 있는 체크아웃(발주문·기준선의 카드 절대경로)
 IDX_ABS="$(cd "$(dirname "$IDX")" && pwd)/$(basename "$IDX")"
@@ -417,7 +459,7 @@ if [ -z "${BASE_REF:-}" ] && [ "$(git -C "$WT" rev-parse --abbrev-ref HEAD)" = H
   _arc=0; ft_git_capped 7 "$WT" merge-base --is-ancestor "$_dh" refs/remotes/origin/main || _arc=$?
   case "$_arc" in
     0) ;;
-    1) echo "REJECT 기준 커밋 ${_dh:0:10} 가 origin/main 에 없다(미착지·squash) — --base origin/main 으로 다시"; exit 1;;
+    1) echo "REJECT 기준 커밋 ${_dh:0:10} 가 origin/main 에 없다(미착지·squash) — --base origin/main 으로 다시"; card_assign_record "$IDX" waiting 선행; exit 1;;
     *) echo "REJECT detached HEAD 기준 커밋 ${_dh:0:10} 조상 판정 불가(rc=$_arc)"; exit 1;;
   esac
 fi
@@ -793,9 +835,12 @@ PY
 if [ "$RESEARCH" = 1 ]; then   # R387: 부모 카드는 이미 진행/ — 옮기지 않고 «리서치: 좌석 · base · 허용» 줄만 상태 절에 덧붙인다(닫을 때 위반 검사·완성 게이트가 읽는다)
   NEW_IDX="$IDX_REL"; printf -- '- 리서치: %s base=%s 허용=%s\n' "$NAME" "$CUR_HEAD" "$_RS_ALLOW" >> "$IDX" || human "⑥ 리서치 카드 줄"
 else
+  card_assign_record "$IDX" seat "$NAME"   # r1224: 거울 «좌석 <이름>» 을 이동 «전» 카드에 — ft-index-move 가 옮기는 그 파일에 실려 이동 커밋에 함께 간다
   bash "$HERE/ft-index-move.sh" "$IDX" 진행 --seat "$NAME" || human "⑥ 인덱스 이동"
   NEW_IDX="${IDX_REL/\/대기\//\/진행\/}"
+  git -C "$IDX_WT" ls-files --error-unmatch -- "$NEW_IDX" >/dev/null 2>&1 && { git -C "$IDX_WT" add -- "$NEW_IDX" || human "⑥ 거울 줄 준비"; }   # r1224: 이동이 준비한 진행 카드 1개를 거울 줄째 다시 준비 — 이동 커밋에 «좌석 <이름>» 이 실린다
 fi
+[ -z "$_ASG_LINE" ] || { _cn="$(card_note "$IDX_WT/$NEW_IDX" "$_ASG_LINE")" || echo "WARN 카드 배정 줄 기록 실패 — ${_cn:-rc≠0}" >&2; }   # r1217: 이동 «뒤» 경로
 # ★R163 spawn 카드 기준선★ — 이 시각의 카드 내용 지문·브랜치·워크트리를 남겨 두면 자율 중 «nano-reopen» 대리 판정(r162)이 «승인 범위 그대로» 인지 비교한다.
 #   spawn 출력·exit 는 불변 — 쓰기 실패는 stderr 1줄뿐(tmp→mv 원자 쓰기).
 _CB_DIR="${FT_NANO_CARD_BASE_DIR:-$ROOT/.fable-team/state/nano-card-base}"
@@ -813,6 +858,7 @@ bash "$HERE/ft-sheet-events.sh" commit "$_SK" >/dev/null || true   # 좌석 열�
 # ⑦⑧ 첫 발주 = 인덱스 경로 한 줄 + README. 본문은 파일에 있다. 도달은 jsonl 층(ft-send-verified)
 #   r1072: $_SBR 은 좌석 열기 «전»(seatbelt_readme_path)에 이미 풀렸다 — 여기서 다시 풀지 않는다(경로가 두 벌이 되면 갈린다).
 BODY="[Seatbelt 발주] 네 인덱스: $IDX_WT/$NEW_IDX — 먼저 $_SBR${_SBR_REF:+ (ref $_SBR_REF 판 사본)} §2 부팅 5단계(첫 보고까지), 그 다음 인덱스 §구현 범위만. 커밋은 브랜치 $BRANCH, push 금지. 산출 경로를 mbox 로 $FROM 에. ★press(라이브 오디오 시험) 금지 — 나노는 쏘지 않는다(ft-press-gate ⑦ 이 tester·checker 좌석만 허가 · 오빠 10-07) · 시험은 단위·캡처·기존 로그만, press 가 필요하면 산출에 「press 필요: <무엇을 볼지>」 1줄로 적어 $FROM 에 넘긴다★ ★측정 조작 금지(오빠 절대지침) — 임의 Redis 쓰기(redis-cli SET·HSET·XADD·PUBLISH 등 제품 키 직접 주입)·말풍선 DOM 주입(재생 하네스·/dev/bubble-replay·appendChild)으로 만든 결과는 증거 아님 · 측정은 trusted 클릭 + 기존 e2e 러너의 실제 음성 경로만 · 격리 Redis 픽스처 시험은 별개 · 이미 썼으면 [HIL] 로 올림 (BOOT 20)★ ★편집은 Edit 절대경로($WTDIR/…)만★ ★읽기는 Read · 코드 찾기는 ci, Bash 는 실행(git·pytest·ruff·mbox)만★ — cat/sed -n/grep 으로 파일을 읽으면 전문이 컨텍스트에 쌓인다(2026-09-14 나노 16좌석 실측: Bash 100~156회 중 절반이 파일 읽기). ★증거 줄(세트: … · 시험: … rc=… · 이슈: …)은 완료 턴에 네가 인덱스 «상태» 절에 직접 쓴다($IDX_WT/$NEW_IDX 절대경로 Edit) — master 는 커밋만(판정 1125)★ 증거 줄 템플릿(그대로 복사해 <> 만 채움): 세트: <나노 HEAD 40자> · 시험: <명령 — «(N passed)» 같은 꼬리는 여기> rc=<n> · 이슈: 0 — rc= 바로 뒤는 « · 이슈:» — 괄호·설명은 rc= 앞에. ★팀 구조: 각 팀 = master(집행) + arch(설계·발주·DA 소환) + DA(반박 게이트) 상시 · 실제 작업은 전부 나노(카드 1장 = 나노 1석) · master·arch·DA 는 코드·시안·카드 증거 줄을 쓰지 않는다★${_SPX}${_SRX}${_AFX}${_RLX}$_PKX${_EBN}"
+[ -z "$_ASG_LINE" ] || BODY="[Seatbelt 발주] $_ASG_LINE — ${BODY#\[Seatbelt 발주\] }"   # r1217: 머리 뒤 배정 1줄
 [ "$RESEARCH" != 1 ] || BODY="$BODY$_RSP"
 [ "$TIER" != search ] || BODY="$BODY ★검색 나노($AGENT · r286)★ 읽고 모으기만 — 코드 수정·커밋 0 · 산출 = 파일 1개 + mbox relay · 끝나면 [완료·휴식] (닫기 = master ft-nano-close · $AGENT 프로세스 left=0 확인)."
 # ★r1025: 송신 «직전» 최종 본문 검사★ 전역 하드 룰 16 은 «사람·나노·스크립트 모두 ci» 인데 이 스크립트의 고정 문구가

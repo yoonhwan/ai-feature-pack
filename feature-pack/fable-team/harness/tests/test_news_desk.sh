@@ -254,7 +254,7 @@ chmod +x "$T/hil-count.sh"
 HCALL="$T/hil-calls.log"; : > "$HCALL"; export HCALL
 FT_DESK_HIL="$T/hil-count.sh" render >/dev/null
 eq "ⓙ ft-hil 호출 횟수 1" "$(wc -l < "$HCALL" | tr -d ' ')" "1"
-eq "ⓙ 인자 = --pending --each" "$(cat "$HCALL")" "--pending --each"
+eq "ⓙ 인자 = --pending --each --held (r1236 — 보류 줄을 같은 1회 호출에서)" "$(cat "$HCALL")" "--pending --each --held"
 eq "ⓙ 두 번째 --pending 호출 0" "$(grep -c -- '--pending$' "$HCALL" || true)" "0"
 
 # ── ⓚ plist 템플릿 FT_HARNESS_ROOT (R7) ────────────────────────────────────
