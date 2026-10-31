@@ -377,6 +377,37 @@ esac
 # R387 --research: opencode 리서치 좌석은 «쓰고 바로 닫기»(메모리 버그 · r286 reap)가 전제 — 회수 도구가 없으면 부작용 «전» REJECT. Fable 등 다른 에이전트는 통과.
 [ "$RESEARCH" != 1 ] || [ "$AGENT" != opencode ] || [ -f "$HERE/ft-opencode-reap.sh" ] || { echo "REJECT --research --agent opencode 는 ft-opencode-reap.sh(r286) 미설치 — 닫을 때 프로세스를 못 회수한다: $HERE · Fable(--agent claude --model claude-fable-5-1[1m])로 열거나 r286 설치 뒤"; exit 1; }
 
+# ★r1217 계정 주간 한도 배정(#5345 ⑦)★ — 모델 확정 뒤 · 카드·워크트리 쓰기 «전» 1회. 대체 = 그 모델로 열기 · 정지 중·가용 0 = rc3 중단(부작용 0)
+#   불명 = 원래 모델로 열되 WARN + 발주문 «[배정 불명]» · 기록(발주문·카드 «상태» 절)은 이동 «뒤» · --dry-run 은 판정 줄만 · FT_ACCT_ASSIGN=0 = 호출 0
+card_note() {  # <진행/ 카드 경로> "<줄>" — «## 상태» 절 끝에 1줄 · 진행/ 밖·절 없음 = «판정 불가 카드 경로» rc3
+  case "$1" in */진행/*) ;; *) echo "판정 불가 카드 경로 $1 (진행/ 아님)"; return 3;; esac
+  python3 - "$1" "$2" <<'PY' || return 3
+import sys
+p, note = sys.argv[1:3]
+ls = open(p, encoding="utf-8").read().splitlines()
+i = next((k for k, s in enumerate(ls) if s.strip() == "## 상태"), None)
+if i is None:
+    print(f"판정 불가 카드 경로 {p} (## 상태 절 없음)"); sys.exit(3)
+j = next((k for k in range(i + 1, len(ls)) if ls[k].startswith("## ")), len(ls))
+while j > i + 1 and not ls[j - 1].strip():
+    j -= 1
+ls.insert(j, f"- {note}")
+open(p, "w", encoding="utf-8").write("\n".join(ls) + "\n")
+PY
+}
+_ASG_LINE=""
+if [ "${FT_ACCT_ASSIGN:-1}" != 0 ] && [ -f "$HERE/ft-acct-assign.sh" ]; then
+  _asg="$(FT_ROOT="$ROOT" bash "$HERE/ft-acct-assign.sh" "$MODEL" --seat-kind nano | tail -1)"   # INFO·오류는 stderr 그대로 보인다
+  echo "ASSIGN $MODEL → $_asg"
+  _am=""; case "$_asg" in "대체 없음"*) ;; "대체 "*) _am="${_asg#대체 }"; _am="${_am%% · *}";; esac   # «대체 없음 · 선택 불명» 은 대체가 아니다
+  case "$_asg" in
+    "허용 "*) ;;
+    "정지 중"*|"가용 0"*) echo "REJECT 계정 배정 $_asg — 부작용 0"; exit 3;;
+    *) if [ -n "$_am" ]; then _ASG_LINE="[배정] $MODEL → $_am · ${_asg#* · }"; MODEL="$_am"
+       else echo "WARN 계정 배정 ${_asg:-출력 없음} — 원래 모델($MODEL)로 연다" >&2; _ASG_LINE="[배정 불명] ${_asg:-출력 없음}"; fi;;
+  esac
+fi
+
 # ① lint — 누가 읽어도 착수 가능한가 (P2: planner 카드 머리 「- 템플릿: 빈 카드(나노가 채움)」 = lint ⑤⑥ 만 건너뜀 · 그 밖 팀·검사는 그대로)
 [ -f "$HERE/ft-team-lib.sh" ] || { echo "REJECT ft-team-lib.sh 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
 . "$HERE/ft-team-lib.sh"   # R383: planner 카드 판정·SEATBELT 경로를 팀 폴더 명단으로 푼다(팀 이름 글자 0)
@@ -796,6 +827,7 @@ else
   bash "$HERE/ft-index-move.sh" "$IDX" 진행 --seat "$NAME" || human "⑥ 인덱스 이동"
   NEW_IDX="${IDX_REL/\/대기\//\/진행\/}"
 fi
+[ -z "$_ASG_LINE" ] || { _cn="$(card_note "$IDX_WT/$NEW_IDX" "$_ASG_LINE")" || echo "WARN 카드 배정 줄 기록 실패 — ${_cn:-rc≠0}" >&2; }   # r1217: 이동 «뒤» 경로
 # ★R163 spawn 카드 기준선★ — 이 시각의 카드 내용 지문·브랜치·워크트리를 남겨 두면 자율 중 «nano-reopen» 대리 판정(r162)이 «승인 범위 그대로» 인지 비교한다.
 #   spawn 출력·exit 는 불변 — 쓰기 실패는 stderr 1줄뿐(tmp→mv 원자 쓰기).
 _CB_DIR="${FT_NANO_CARD_BASE_DIR:-$ROOT/.fable-team/state/nano-card-base}"
@@ -813,6 +845,7 @@ bash "$HERE/ft-sheet-events.sh" commit "$_SK" >/dev/null || true   # 좌석 열�
 # ⑦⑧ 첫 발주 = 인덱스 경로 한 줄 + README. 본문은 파일에 있다. 도달은 jsonl 층(ft-send-verified)
 #   r1072: $_SBR 은 좌석 열기 «전»(seatbelt_readme_path)에 이미 풀렸다 — 여기서 다시 풀지 않는다(경로가 두 벌이 되면 갈린다).
 BODY="[Seatbelt 발주] 네 인덱스: $IDX_WT/$NEW_IDX — 먼저 $_SBR${_SBR_REF:+ (ref $_SBR_REF 판 사본)} §2 부팅 5단계(첫 보고까지), 그 다음 인덱스 §구현 범위만. 커밋은 브랜치 $BRANCH, push 금지. 산출 경로를 mbox 로 $FROM 에. ★press(라이브 오디오 시험) 금지 — 나노는 쏘지 않는다(ft-press-gate ⑦ 이 tester·checker 좌석만 허가 · 오빠 10-07) · 시험은 단위·캡처·기존 로그만, press 가 필요하면 산출에 「press 필요: <무엇을 볼지>」 1줄로 적어 $FROM 에 넘긴다★ ★측정 조작 금지(오빠 절대지침) — 임의 Redis 쓰기(redis-cli SET·HSET·XADD·PUBLISH 등 제품 키 직접 주입)·말풍선 DOM 주입(재생 하네스·/dev/bubble-replay·appendChild)으로 만든 결과는 증거 아님 · 측정은 trusted 클릭 + 기존 e2e 러너의 실제 음성 경로만 · 격리 Redis 픽스처 시험은 별개 · 이미 썼으면 [HIL] 로 올림 (BOOT 20)★ ★편집은 Edit 절대경로($WTDIR/…)만★ ★읽기는 Read · 코드 찾기는 ci, Bash 는 실행(git·pytest·ruff·mbox)만★ — cat/sed -n/grep 으로 파일을 읽으면 전문이 컨텍스트에 쌓인다(2026-09-14 나노 16좌석 실측: Bash 100~156회 중 절반이 파일 읽기). ★증거 줄(세트: … · 시험: … rc=… · 이슈: …)은 완료 턴에 네가 인덱스 «상태» 절에 직접 쓴다($IDX_WT/$NEW_IDX 절대경로 Edit) — master 는 커밋만(판정 1125)★ 증거 줄 템플릿(그대로 복사해 <> 만 채움): 세트: <나노 HEAD 40자> · 시험: <명령 — «(N passed)» 같은 꼬리는 여기> rc=<n> · 이슈: 0 — rc= 바로 뒤는 « · 이슈:» — 괄호·설명은 rc= 앞에. ★팀 구조: 각 팀 = master(집행) + arch(설계·발주·DA 소환) + DA(반박 게이트) 상시 · 실제 작업은 전부 나노(카드 1장 = 나노 1석) · master·arch·DA 는 코드·시안·카드 증거 줄을 쓰지 않는다★${_SPX}${_SRX}${_AFX}${_RLX}$_PKX${_EBN}"
+[ -z "$_ASG_LINE" ] || BODY="[Seatbelt 발주] $_ASG_LINE — ${BODY#\[Seatbelt 발주\] }"   # r1217: 머리 뒤 배정 1줄
 [ "$RESEARCH" != 1 ] || BODY="$BODY$_RSP"
 [ "$TIER" != search ] || BODY="$BODY ★검색 나노($AGENT · r286)★ 읽고 모으기만 — 코드 수정·커밋 0 · 산출 = 파일 1개 + mbox relay · 끝나면 [완료·휴식] (닫기 = master ft-nano-close · $AGENT 프로세스 left=0 확인)."
 # ★r1025: 송신 «직전» 최종 본문 검사★ 전역 하드 룰 16 은 «사람·나노·스크립트 모두 ci» 인데 이 스크립트의 고정 문구가
