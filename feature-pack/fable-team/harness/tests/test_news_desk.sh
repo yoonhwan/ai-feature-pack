@@ -220,7 +220,7 @@ if [ -f "$H1" ]; then printf 'h1 12\n'; else : > "$H1"; sleep 2; printf 'h1 12\n
 SH
 chmod +x "$T/hil-slow1.sh"
 H3="$(FT_DESK_HIL="$T/hil-slow1.sh" FT_DESK_TOOL_TIMEOUT=1 render)"
-eq "ⓗ 첫 호출 상한 초과 → 재시도 성공 값" "$(printf '%s' "$H3" | grep -c '^- 실행할 스크립트: 1개 (미실행 h 1개 · 가장 오래된 12분)')" "1"
+eq "ⓗ 첫 호출 상한 초과 → 재시도 성공 값" "$(printf '%s' "$H3" | grep -c '^- 실행할 스크립트: 1개(h1) · 가장 오래된 12분$')" "1"
 eq "ⓗ 성공했으니 «직전 값» 0" "$(printf '%s' "$H3" | grep -c '직전 값')" "0"
 
 # ── ⓘ 둘 다 실패 → 직전 값(HH:MM) · 없으면 확인 불가 (R4·R5) ─────────────────
@@ -230,19 +230,19 @@ sleep 2
 SH
 chmod +x "$T/hil-fail.sh"
 FT_DESK_NOW="2026-10-28 16:50" render >/dev/null   # 성공 1회 = 상태 파일에 16:50 이 박힌다
-I4="$(FT_DESK_HIL="$T/hil-fail.sh" FT_DESK_TOOL_TIMEOUT=1 render)"
-eq "ⓘ R4 직전 값(HH:MM) 줄" "$(printf '%s' "$I4" | grep -c '^- 실행할 스크립트: 직전 값(16:50) · 지금 확인 불가: ')" "1"
+I4="$(FT_DESK_NOW="2026-10-28 17:00" FT_DESK_HIL="$T/hil-fail.sh" FT_DESK_TOOL_TIMEOUT=1 render)"
+eq "ⓘ R4 «확인 불가 · (HH:MM 기준 직전 값)» 줄(r1229 R2′)" "$(printf '%s' "$I4" | grep -c '^- 실행할 스크립트: 확인 불가 · (16:50 기준 2개(h12·h9) · 가장 오래된 161분) · 사유 ')" "1"
 eq "ⓘ R4 질문 칸은 성공값(직전 값 아님)" "$(printf '%s' "$I4" | grep -cF -- '- 답 대기 질문: 결정 인터뷰 27건')" "1"
 : > "$T/err"
-FT_DESK_HIL="$T/hil-fail.sh" FT_DESK_TOOL_TIMEOUT=1 render >/dev/null
+FT_DESK_NOW="2026-10-28 17:00" FT_DESK_HIL="$T/hil-fail.sh" FT_DESK_TOOL_TIMEOUT=1 render >/dev/null
 eq "ⓘ R4 ERROR 로그 1줄(칸당)" "$(grep -c '오빠 손 실행할 스크립트 칸 확인 불가' "$T/err")" "1"
-mv "$ROOT/.fable-team/state/ft-news-desk-last.json" "$T/sticky.bak"
+mv "$FT_DESK_STATE/ft-news-desk-last.json" "$T/sticky.bak"   # r1229: 직전 값 파일 = FT_DESK_STATE 아래
 I5="$(FT_DESK_HIL="$T/hil-fail.sh" FT_DESK_TOOL_TIMEOUT=1 render)"
-eq "ⓘ R5 상태 파일 없음 → 확인 불가 1줄" "$(printf '%s' "$I5" | grep -c '^- 확인 불가(')" "1"
-eq "ⓘ R5 «직전 값» 0" "$(printf '%s' "$I5" | grep -c '직전 값')" "0"
-mv "$T/sticky.bak" "$ROOT/.fable-team/state/ft-news-desk-last.json"
-mutant ft_news_desk_oppa.py 's/if prev.get("at")/if False/' >/dev/null
-eq "ⓘ 변이(직전 값 표시 끔) → 이 시험 문장이 깨진다" "$(FT_DESK_HIL="$T/hil-fail.sh" FT_DESK_TOOL_TIMEOUT=1 mrender | grep -c '직전 값(16:50)')" "0"
+eq "ⓘ R5 상태 파일 없음 → 칸 이름 + 확인 불가 1줄" "$(printf '%s' "$I5" | grep -c '^- 실행할 스크립트: 확인 불가(')" "1"
+eq "ⓘ R5 «기준» 0" "$(printf '%s' "$I5" | grep -c ' 기준 ')" "0"
+mv "$T/sticky.bak" "$FT_DESK_STATE/ft-news-desk-last.json"
+mutant ft_news_desk_oppa.py 's/if not prev.get("at"):/if True:/' >/dev/null
+eq "ⓘ 변이(직전 값 표시 끔) → 이 시험 문장이 깨진다" "$(FT_DESK_NOW="2026-10-28 17:00" FT_DESK_HIL="$T/hil-fail.sh" FT_DESK_TOOL_TIMEOUT=1 mrender | grep -c '16:50 기준')" "0"
 
 # ── ⓙ ft-hil 호출 = 틱당 1 (R6) ────────────────────────────────────────────
 cat > "$T/hil-count.sh" <<'SH'
