@@ -6,6 +6,7 @@
 #   approved <40hex> <상태 폴더>  approve-merge 끝(ft-autonomy.sh) — <상태>/autonomy-merge-wait/<sha>(ft-merge-land 거절 표식)가 있으면
 #        seat= 에 `[승인 도착 <sha10>]` 1통 → 표식을 <sha>.sent 로(두 번 0) · seat=unknown = planner _master 에 «수신자 모름» 1통 · 표식 없음 = 아무것도 안 함
 #   issue <h 진입 파일> <계획> <쪽지함> <좌석>  r1130: ft-hil.sh --add --notify 등록 직후 그 좌석에 `[HIL] h<N> 발급 — 실행 줄 = ! bash <h> (자율 ON = desk … · OFF = 오빠께) · 계획 <경로>` 1통(7초 · 재시도 0 · r1142 실행 주체 고정 문구 · 자율 상태 읽기 0)
+#   void-scan <상태 폴더> <리포…>  r1200: 기다림 표식 중 어느 리포에도 커밋이 아닌 sha(오타)만 <sha>.void 로 · «VOID <sha> seat=…» 줄 + 끝 줄 «void-scan 끝 바꿈=N 그대로=M»
 #   발신자 = ft-hil-h<N> · ft-hil-approve(도구 발신자 = fan-out·속도 가드 면제 · mbox_guard._is_tool_sender) · 쪽지함 생략 = ft_comm_dir · 실패 = stderr «판정 불가» 1줄 + rc1(하드 룰 20)
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
@@ -39,6 +40,13 @@ approved_mail() {
   else send "$c" ft-hil-approve "[승인 도착 ${s:0:10}] 수신자 모름(거절 표식 seat=${seat:-빈 값}) — 거절받은 좌석에 ft-merge-land 다시 실행을 전한다" "$(master_of "$c")"; fi || exit 1
   mv -f "$w" "$w.sent" || die "표식 이름 바꾸기 실패: $w"
 }
+void_scan() {  # r1200: <상태 폴더> <리포…> — 확장자 없는 40hex 기다림 표식 중 어느 리포에도 커밋이 아닌 것만 <sha>.void 로(지우기 0 · 되돌림 = mv) · 리포 git 실패 = 판정 불가 rc1 · 바꿈 0
+  local d="$1/autonomy-merge-wait" r f s n=0 k=0; shift
+  for r in "$@"; do git -C "$r" rev-parse --git-dir >/dev/null 2>&1 || die "리포 판정 불가: $r(바꿈 0)"; done
+  for f in "$d"/*; do s="${f##*/}"; [[ "$s" =~ ^[0-9a-f]{40}$ ]] && [ -f "$f" ] || continue
+    for r in "$@"; do git -C "$r" cat-file -e "$s^{commit}" 2>/dev/null && { k=$((k+1)); continue 2; }; done
+    mv -- "$f" "$f.void" || die "표식 이름 바꾸기 실패: $f"; echo "VOID $s seat=$(sed -n 's/^seat=\([^ ]*\).*/\1/p' "$f.void" | head -1)"; n=$((n+1)); done
+  echo "void-scan 끝 바꿈=$n 그대로=$k"; }
 issue_mail() {  # r1130: <h 진입 파일> <계획> <쪽지함> <좌석> — ft-hil.sh --add --notify 등록 직후 1통 · 7초 · 재시도 0
   local n="${1##*/}" to; to="$(command -v timeout || command -v gtimeout)" || to=""
   [ -f "$3/mbox.sh" ] || die "쪽지함 도구 없음: $3/mbox.sh"
@@ -48,5 +56,6 @@ case "${1:-}" in
   done) [ $# -ge 3 ] || die "usage: done <접두> <rc> [쪽지함] [좌석…]"; shift; done_mail "$@" ;;
   issue) [ $# -eq 5 ] || die "usage: issue <h 진입 파일> <계획> <쪽지함> <좌석>"; shift; issue_mail "$@" ;;
   approved|wait) [ $# -eq 3 ] || die "usage: $1 <40hex> <상태 폴더>"; if [ "$1" = wait ]; then wait_mark "$2" "$3"; else approved_mail "$2" "$3"; fi ;;
-  *) die "usage: ft-hil-notify.sh done|wait|approved …" ;;
+  void-scan) [ $# -ge 3 ] || die "usage: void-scan <상태 폴더> <리포…>"; shift; void_scan "$@" ;;
+  *) die "usage: ft-hil-notify.sh done|wait|approved|issue|void-scan …" ;;
 esac
