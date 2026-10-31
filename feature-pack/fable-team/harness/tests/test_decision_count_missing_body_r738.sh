@@ -65,6 +65,7 @@ q onlymissing; C
 [ "$rc" = 0 ] && grep -qx '결정 인터뷰 0건 · 스크립트 0건 · 팀 대기 0건 · 본문 없음 1건 (MERGE-QUEUE 파일 없음)' <<<"$out"; ck "ⓒ 본문 없는 행만 → rc0 · 결정 인터뷰 0건 · 본문 없음 1건" $?
 
 # ===== ⓓ 그 밖의 읽기 실패(권한 없음)는 지금처럼 rc4 + 숫자 0 =====
+rm -f "$R/.fable-team/state/ft-decision-heads.tsv"   # r1236: 앞 단계가 머리 캐시에 남긴 첫 줄을 지워야 본문을 «실제로» 연다
 chmod 000 "$B/1.txt"; q nobody; C; chmod 644 "$B/1.txt"
 [ "$rc" = 4 ] && [ -z "$out" ] && grep -q '^ERROR ft-decision-count: 쪽지 본문 못 읽음: .*PermissionError' <<<"$err"; ck "ⓓ 권한 없음 → rc4 + 숫자 0(조용한 후퇴 0)" $?
 
