@@ -151,7 +151,10 @@ if [ -z "${FT_TEST_ACCT_BIN:-}" ]; then
   for f in ft-acct-pause.sh provider-of-model.tsv ft-tick.sh ft-nano-spawn.sh ft-role-spawn.sh ft_model_swap.py; do
     cmp -s "$BIN/$f" "$KIT/$f" && ok "bin·kit cmp0 $f" || bad "bin·kit 어긋남 $f"
   done
-  [ -x "$TOOL" ] && ok "ft-acct-pause.sh 100755" || bad "실행 권한 없음"
+  # 신설 .sh 3종 = 100644(승인 경로 · FORBID mode 는 실행 비트 .sh 를 막는다 · 판정 2941/2918) — 기존 .sh 는 기준판 그대로
+  MX=0
+  for f in "$TOOL" "$KIT/ft-acct-pause.sh" "$HERE/test_acct_pause_r1214.sh"; do [ -x "$f" ] && MX=1; done
+  [ "$MX" = 0 ] && ok "신설 .sh 3종 0o644(실행 비트 0)" || bad "신설 .sh 에 실행 비트가 붙었다"
   [ -f "$TOOL" ] && [ ! -L "$TOOL" ] && ok "일반 파일(심링크 0)" || bad "일반 파일 아님"
 else
   ok "변이 사본 모드 — bin·kit cmp0 검사 생략"
