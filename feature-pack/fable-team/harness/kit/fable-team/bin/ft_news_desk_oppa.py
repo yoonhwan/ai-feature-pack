@@ -41,13 +41,17 @@ def _tool(cmd: list[str], env_name: str) -> subprocess.CompletedProcess[str]:
 
 
 def _hil(root: Path, now: datetime) -> str:
-    """ft-hil 1번(--pending --each · `h<N> <분>` 줄)으로 번호·개수·가장 오래된 분(R6 — 두 번째 --pending 호출 0)."""
+    """ft-hil 1번(--pending --each --held)으로 번호·개수·가장 오래된 분(R6 — 두 번째 --pending 호출 0).
+    `h<N> <분>` 줄 = 실행할 스크립트 · `held h<N> <분> <사유>` 줄 = 보류(r1236 — 개수에서 빠지고 « · 보류 M(h번호)» 로 따로)."""
     tool = os.environ.get("FT_DESK_HIL") or str(HERE / "ft-hil.sh")
-    each = _tool(["bash", tool, "--pending", "--each"], "FT_DESK_TOOL_TIMEOUT")
-    rows = [x.split() for x in each.stdout.splitlines() if x.strip()]
+    each = _tool(["bash", tool, "--pending", "--each", "--held"], "FT_DESK_TOOL_TIMEOUT")
+    split = [x.split() for x in each.stdout.splitlines() if x.strip()]
+    rows = [r for r in split if r[0] != "held"]
+    held = "·".join(r[1] for r in split if r[0] == "held" and len(r) > 1)
     oldest = max((int(r[-1]) for r in rows if r[-1].isdigit()), default=0)
     names = "·".join(r[0] for r in rows)
-    return f"{len(rows)}개" + (f"({names})" if names else "") + (f" · 가장 오래된 {oldest}분" if oldest else "")
+    return (f"{len(rows)}개" + (f"({names})" if names else "") + (f" · 가장 오래된 {oldest}분" if oldest else "")
+            + (f" · 보류 {held.count('·') + 1}({held})" if held else ""))
 
 
 def _questions(root: Path, now: datetime) -> str:

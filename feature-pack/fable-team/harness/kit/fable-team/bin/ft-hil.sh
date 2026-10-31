@@ -6,7 +6,8 @@
 #                                  h<M> 을 «대체됨» 으로 적는다 — h<M> 을 치면 `REJECT 대체됨 → h<N>` rc 1 · 계획 실행 0
 #   ft-hil.sh --cmd '<명령>'      → 명령 1줄 계획을 $HIL_DIR/hil-cmd/<시각>.sh 로 쓰고 --add 와 같은 처리
 #   ft-hil.sh                     → 목록 `h<N>  <대상>  <대상 실재 여부>  <미실행 N분 | 실행 HH:MM rc=n | 대체됨 → h<N>>  <수신=좌석@쪽지함 | 수신=- | 수신=표식 손상>`
-#   ft-hil.sh --pending [--each]  → 미실행·미대체 h 요약 1줄(0개면 출력 없음) · --each 는 `h<N> <분>` 줄만
+#   ft-hil.sh --pending [--each] [--held] → 미실행·미대체·«보류 아님» h 요약 1줄(0개면 출력 없음) · --each 는 `h<N> <분>` 줄만 · --held 는 보류 `h<N> <분> <사유>` 줄(r1236)
+#   ft-hil.sh --hold h<N> --why <사유> | --unhold h<N>  → <h>.held 에 `hold|unhold <epoch> <좌석> [사유]` 1줄 이어 쓰기 · 마지막 줄이 hold = 보류 · 없는 h = rc 2 (r1236)
 # h<N> = «실행되면 h<N>.ran(시작 시각 · rc)을 남기고 계획을 그대로 실행하는» 진입 파일. 계획 파일 수정 0 · 실행 권한 변경 0.
 #   ★r1117: 끝나면 ft-hil-notify.sh 가 `[완료 h<N>] rc=…` 를 계획 머리 `# ft-hil-request seat=<좌석…>`(≤3 · 린트 실패 REJECT rc2 · 없으면 WARN) + planner _master 에 1통씩(stdout 사본 h<N>.out)★
 # 진입점 폴더 = ${HIL_DIR:-/tmp}(시험만 바꾼다) · 홈($HOME) 아래 쓰기 0 · 등록기 자신의 실행 기능 0(실행은 사람이 `bash /tmp/h<N>`)
@@ -15,7 +16,7 @@
 set -uo pipefail
 D="${HIL_DIR:-/tmp}"
 die() { echo "REJECT $*" >&2; exit 1; }
-usage() { echo "usage: ft-hil.sh [--add <계획 파일> [--supersedes h<M>] [--notify <좌석> [--notify-comm <쪽지함 폴더>]] | --cmd '<명령>' | --pending [--each]]" >&2; exit 2; }
+usage() { echo "usage: ft-hil.sh [--add <계획 파일> [--supersedes h<M>] [--notify <좌석> [--notify-comm <쪽지함 폴더>]] | --cmd '<명령>' | --pending [--each] [--held] | --hold h<N> --why <사유> | --unhold h<N>]" >&2; exit 2; }
 
 clip() {  # 클립보드 실패는 출력을 막지 않는다
   [ "${HIL_CLIP:-1}" != 0 ] && command -v pbcopy >/dev/null 2>&1 || return 0
@@ -174,9 +175,8 @@ list() {
   [ "$any" = 1 ] || echo "(등록 없음)"
 }
 
-pending() {  # 진입 파일만 센다(옛 링크는 실행 여부를 모른다) · 미실행 + 중단/실행 중(.ran 에 rc 행 없음) · $1=--each 면 `h<N> <분>` 줄만
-  # r521: 파일마다 sed·grep·stat 를 띄우던 훑기를 파이썬 1회로(같은 규칙·같은 출력) · 읽기 실패 = stderr 1줄 + rc 3
-  python3 "$(dirname "${BASH_SOURCE[0]}")/ft_hil_pending.py" "$D" "${1:-}"
+pending() {  # 진입 파일만 센다 · 미실행 + 중단/실행 중 · r521 파이썬 1회 훑기(읽기 실패 = rc 3) · r1236 --hold/--unhold 도 같은 본체 · $@ = --each/--held 또는 --hold h<N> --why <사유>
+  python3 "$(dirname "${BASH_SOURCE[0]}")/ft_hil_pending.py" "$D" "$@"
 }
 
 case "${1:-}" in
@@ -195,6 +195,6 @@ case "${1:-}" in
          [ -z "$ac" ] || [ -n "$an" ] || { echo "usage: --notify-comm 은 --notify 와 함께 쓴다" >&2; exit 2; }
          add "$af" "$as" "$an" "$ac" ;;
   --cmd) cmdplan "${2:-}" ;;
-  --pending) pending "${2:-}" ;;
+  --pending|--hold|--unhold) [ "$1" != --pending ] || shift; pending "$@" ;;
   *) usage ;;
 esac
