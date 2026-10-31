@@ -352,7 +352,7 @@ rm -f "$R/.fable-team/state/ACCT_PAUSE"
 PH "R9"
 NOWS=$NOW0
 # ── R9 ft_model_swap 목적지 검사 ─────────────────────────────────────────────
-swapchk() { PYTHONPATH="$BIN" FT_ACCT_ROOT="$R" FT_ACCT_MBOX="$FB/mbox.sh" FT_ACCT_TMUX="$FB/tmux" python3 - "$BIN" "$R" "$1" <<'PY'
+swapchk() { PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$BIN" FT_ACCT_ROOT="$R" FT_ACCT_MBOX="$FB/mbox.sh" FT_ACCT_TMUX="$FB/tmux" python3 - "$BIN" "$R" "$1" <<'PY'
 import argparse, importlib.util, sys
 b, root, model = sys.argv[1:4]
 spec = importlib.util.spec_from_file_location("ftms", b + "/ft_model_swap.py")
