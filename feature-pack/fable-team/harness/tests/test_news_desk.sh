@@ -99,7 +99,7 @@ export FT_DESK_STATE="$T/state" MBOX_LOG="$T/mbox.log"
 render() { timeout 70 python3 "${1:-$DESK}" render 2>>"$T/err"; }
 runs()   { timeout 70 python3 "${1:-$DESK}" run 2>>"$T/err"; }
 mutant() {  # <파일 이름> <sed 식> → 변이판 진입점 경로 (짝 모듈은 그대로 사본 · import 는 PYTHONPATH 로)
-  cp "$KITBIN/ft_news_desk.py" "$KITBIN/ft_news_desk_blocks.py" "$T/mut/"
+  cp "$KITBIN/ft_news_desk.py" "$KITBIN/ft_news_desk_blocks.py" "$KITBIN/ft_news_desk_oppa.py" "$T/mut/"
   sed "$2" "$KITBIN/$1" > "$T/mut/$1"; printf '%s' "$T/mut/ft_news_desk.py"
 }
 mrender() { PYTHONPATH="$KITBIN" timeout 70 python3 "$T/mut/ft_news_desk.py" render 2>>"$T/err"; }
@@ -241,7 +241,7 @@ I5="$(FT_DESK_HIL="$T/hil-fail.sh" FT_DESK_TOOL_TIMEOUT=1 render)"
 eq "ⓘ R5 상태 파일 없음 → 확인 불가 1줄" "$(printf '%s' "$I5" | grep -c '^- 확인 불가(')" "1"
 eq "ⓘ R5 «직전 값» 0" "$(printf '%s' "$I5" | grep -c '직전 값')" "0"
 mv "$T/sticky.bak" "$ROOT/.fable-team/state/ft-news-desk-last.json"
-mutant ft_news_desk.py 's/if prev.get("at")/if False/' >/dev/null
+mutant ft_news_desk_oppa.py 's/if prev.get("at")/if False/' >/dev/null
 eq "ⓘ 변이(직전 값 표시 끔) → 이 시험 문장이 깨진다" "$(FT_DESK_HIL="$T/hil-fail.sh" FT_DESK_TOOL_TIMEOUT=1 mrender | grep -c '직전 값(16:50)')" "0"
 
 # ── ⓙ ft-hil 호출 = 틱당 1 (R6) ────────────────────────────────────────────
