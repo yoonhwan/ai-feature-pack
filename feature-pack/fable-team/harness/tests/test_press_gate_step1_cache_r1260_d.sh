@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# test_press_gate_step1_cache_r1260_d.sh — r1260 press 게이트 ① 판정 캐시(4/4): 변이 4 — 변이마다 해당 칸이 FAIL 해야 하고 변이 없는 판은 PASS(대조)
-#   변이 1 키에서 나노 HEAD 빼기 → R2 FAIL · 변이 2 키에서 FEAT 빼기 → R3 FAIL · 변이 3 저장 판정을 늘 OK 로 → R7 FAIL · 변이 4 키에서 카드 해시 빼기 → R5c FAIL · 변이 5 판 해시를 cd 뒤 상대 경로로 읽기 → R10 FAIL
+# test_press_gate_step1_cache_r1260_d.sh — r1260 press 게이트 ① 판정 캐시(4/5): 변이 3 — 변이마다 해당 칸이 FAIL 해야 하고 변이 없는 판은 PASS(대조)
+#   변이 1 키에서 나노 HEAD 빼기 → R2 FAIL · 변이 2 키에서 FEAT 빼기 → R3 FAIL · 변이 3 저장 판정을 늘 OK 로 → R7 FAIL (변이 4~6 은 e)
 set -uo pipefail
 . "$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)/_press_gate_cache_r1260_lib.sh"
 P="$(mkprobe "$GATE")" || { bad "probe 사본"; echo "FAILED"; exit 1; }
@@ -12,7 +12,5 @@ mut(){ # 이름 칸 sed식
 mut "변이 1(키에서 나노 HEAD)" r2 's/p="\$p|\$w:\$h:\$ih:\$bres"/p="$p|$w:$ih:$bres"/'
 mut "변이 2(키에서 FEAT)" r3 's/feat="\$(git rev-parse --verify -q "\$FEAT^{commit}")"/feat=x/'
 mut "변이 3(저장 판정 늘 OK)" r7 's/"\$(\[ "\$UNLANDED" = "0" \] && echo OK || echo UNLANDED)"/OK/'
-mut "변이 5(판 해시를 cd 뒤 상대 경로로)" r10 's/shasum -a 256 "\$SELF"/shasum -a 256 "${BASH_SOURCE[0]}"/'
-mut "변이 4(키에서 카드 해시)" r5c 's/p="\$p|card=\$ch"/p="$p|card=x"/'
 [ "$fail" = 0 ] && { echo "ALL PASS"; exit 0; }
 echo "FAILED $fail"; exit 1

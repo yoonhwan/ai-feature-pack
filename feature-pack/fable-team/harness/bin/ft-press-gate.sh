@@ -468,14 +468,19 @@ _s1_key(){ # ① 입력 전부 → 키(sha256) · 하나라도 못 구하면 rc1
   sh=""; [ "${#SETP[@]}" != "0" ] && sh="$(printf '%s\n' "${SETP[@]}" | shasum -a 256 | cut -d' ' -f1)"
   [ -n "$feat" ] && [ -n "$wth" ] && [ -n "$gh" ] && [ -n "$sh" ] || return 1   # 키 입력 각각 취득 성공일 때만 · 하나라도 비면 캐시 0
   p="feat=$feat|wt=$WT@$wth|root=$ROOT|gate=$gh|set=$sh"
-  c="${FT_PRESS_CARD:-}"; ch="nocard"; [ -n "$c" ] && [ -f "$c" ] && ch="$(cd "$(dirname "$c")" && pwd -P)/$(basename "$c"):$(shasum -a 256 < "$c" | cut -d' ' -f1)"
+  c="${FT_PRESS_CARD:-}"; ch="nocard"   # 카드 미지정 = 설계상 «카드 없음»(빈 칸 허용) · 경로가 있으면 절대 경로·해시 둘 다 얻어야 한다(파일 아님·해시 실패 = 캐시 0)
+  if [ -n "$c" ]; then
+    [ -f "$c" ] || return 1
+    ch="$(cd "$(dirname "$c")" && pwd -P)/$(basename "$c")"; h="$(shasum -a 256 < "$c" | cut -d' ' -f1)"
+    [ -n "$h" ] && [ "${ch#/}" != "$ch" ] || return 1; ch="$ch:$h"
+  fi
   p="$p|card=$ch"
   for w in $LIVE_WT; do w="$ROOT/.worktrees/$w"
     [ -e "$w/.git" ] || { p="$p|$w:absent"; continue; }
     h="$(git -C "$w" rev-parse HEAD 2>/dev/null)" && [ -n "$h" ] || return 1
-    ih=noinfo; bres=noinfo
+    ih="info=none"; bres="-"   # info 파일 없음 = 정상 상태(고정 표식) · 있는데 해시가 비면 캐시 0
     if [ -f "$w/.worktree-info.json" ]; then
-      ih="$(shasum -a 256 < "$w/.worktree-info.json" | cut -d' ' -f1)"; bres=undeclared
+      ih="$(shasum -a 256 < "$w/.worktree-info.json" | cut -d' ' -f1)"; [ -n "$ih" ] || return 1; bres=undeclared
       decl="$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['base'])" "$w/.worktree-info.json" 2>/dev/null)"
       [ -z "$decl" ] || { bres="$(git -C "$w" rev-parse --verify -q "$decl^{commit}" 2>/dev/null)" && [ -n "$bres" ] || return 1; }   # 선언 base ref 해석 실패 = 캐시 0(DA② 1)
     fi

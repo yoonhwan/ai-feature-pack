@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# test_press_gate_step1_cache_r1260_c.sh — r1260 press 게이트 ① 판정 캐시(3/4): 실제 게이트 전체 · ② 이후는 캐시와 무관 · 단계별 초 줄 · bin·kit 같은 판
+# test_press_gate_step1_cache_r1260_c.sh — r1260 press 게이트 ① 판정 캐시(3/5): 실제 게이트 전체 · ② 이후는 캐시와 무관 · 단계별 초 줄 · bin·kit 같은 판
 #   R8 캐시 적중 실행의 ① 밖 출력(②~⑧ 줄 전부)이 캐시 0 실행과 같다 · 적중 실행에 health 200 으로 바꾸면 «✓ worker health 200» 이 새로 나온다(② 이후는 매번 돈다)
 #   단계 줄: «단계 초: ⓪ a · ① b(실행|캐시) · ② · ③ · ④ · ⑤ · ⑥⑦⑧» 꼴
 set -uo pipefail

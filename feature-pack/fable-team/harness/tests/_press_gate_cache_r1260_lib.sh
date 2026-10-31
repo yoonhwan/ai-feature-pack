@@ -115,6 +115,12 @@ case_r10(){ # 상대 경로 호출 · 호출 위치 ≠ FT_PRESS_WT — 다른 �
   runbin "$(rel "$p1" "$CASE")"; ! hit && [ "$(ncache)" = "1" ] || return 1
   runbin "$(rel "$p1" "$CASE")"; hit || return 1
   runbin "$(rel "$p2" "$CASE")"; ! hit && [ "$(ncache)" = "2" ]; }
+case_r11(){ # 카드 경로가 있는데 파일이 아님(디렉터리) = 해시를 못 얻음 → 캐시 0(DA② HOLD) · 카드 없음·정상 카드는 그대로 캐시
+  mkcase r11; mkdir "$CASE/carddir"; GENV="FT_PRESS_CARD=$CASE/carddir"
+  runbin "$1"; ! hit && [ "$(ncache)" = "0" ] && [ "$NG" -gt 0 ] || return 1
+  runbin "$1"; ! hit && [ "$(ncache)" = "0" ] && [ "$NG" -gt 0 ] || return 1
+  GENV="FT_PRESS_CARD=$CASE/nosuchcard.md"; runbin "$1"; ! hit && [ "$(ncache)" = "0" ] || return 1
+  printf '# card\n' > "$CASE/ok.md"; GENV="FT_PRESS_CARD=$CASE/ok.md"; runbin "$1"; runbin "$1"; hit && [ "$(ncache)" = "1" ]; }
 run_cases(){ # 게이트 칸… → 실패 칸은 BAD · 마지막 실패 출력은 LAST
   local sut="$1" c; shift; BAD=""
   for c in "$@"; do
