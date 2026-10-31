@@ -102,6 +102,22 @@ def holder(name):
     return _resolve(_team_rows(name)[0], name)
 
 
+def _mine(names, me):
+    """★r1225★ 같은 이름에 현역이 둘(arch#189·#190)이면 `to` 를 holder 로 풀어 «나보다 번호 큰 다른 좌석» 몫은 안 가져간다.
+    번호 작은 현역 몫은 가져간다(retire 전 후계 recv · r1116 ⓐ). 명부 못 읽음 = 역할 키 그대로 + stderr 1줄."""
+    rows = _team_rows(me)[0]
+    if not rows:
+        sys.stderr.write("NOTE 명부 못 읽음 — 역할 키로 받음 (%s)\n" % me)   # WARN 아님 — 계보 WARN 은 정확히 1줄(test_mbox_lineage ⓓ)
+        return lambda to: True
+    own, memo = set(names), {}
+    def mine(to):
+        if to not in memo:
+            h = _resolve(rows, to)
+            memo[to] = to in own or h in own or _num(h) < _num(me)
+        return memo[to]
+    return mine
+
+
 def claim(dirs, names, frm, limit, me=None, on_take=None, only=None):
     """★선택과 소비를 «같은 잠금» 안에서 한다★ — 조회 잠금과 소비 잠금이 갈라져 있으면 옛 좌석 recv 와 후계 recv 가
     같은 행을 둘 다 읽는다. 우편함이 여럿(legacy)이면 정해진 순서로 전부 잡고 한 번에 처리한다(send 는 CANON 하나만 잡아 교착 0).
@@ -110,12 +126,13 @@ def claim(dirs, names, frm, limit, me=None, on_take=None, only=None):
     me 가 보낸 행은 안 가져간다(같은 역할 옛·새 세션 사이 [인계]·[레디]) · only = 추가 거르개 · on_take(행들) = 소비 «전» 영수 기록(실패 = raise → 큐 무변경).
     """
     keys = {role_key(n) for n in names}
+    mine = _mine(names, me or names[0])
     def run(i):
         if i < len(dirs):
             return _locked(dirs[i], lambda: run(i + 1))
         per = [(d, _load(d)) for d in dirs]
         got = [(d, r) for d, rows in per for r in rows
-               if role_key(r.get("to")) in keys and (frm is None or r.get("from") == frm)
+               if role_key(r.get("to")) in keys and mine(r.get("to")) and (frm is None or r.get("from") == frm)
                and (me is None or r.get("from") != me) and (only is None or only(r))]
         got.sort(key=lambda x: x[1]["seq"], reverse=True)   # LIFO
         held = []
