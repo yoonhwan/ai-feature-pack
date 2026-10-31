@@ -1047,15 +1047,17 @@ acct_notice() {
 #   바퀴 id = 부모가 바퀴 시작에 정해 env FT_TICK_PASS_ID 로 자식에 넘긴다(낡은 cur 표식 = id 불일치 = «?»). 시계 = now() 하나만(가상 시각 FT_TICK_NOW_BASE 가 우회되지 않게).
 #   바퀴 끝 log «pass steps: <이름>=<초> … total=<초>» 1줄(부모) · 끊김 ERROR 줄에는 cut_note 가 «끊긴 단계 · 이 바퀴 최대 · 직전 완주 최대» 를 붙인다.
 STEPS_ON="${FT_TICK_STEPS:-1}"; STEP_DIR="$STATE_DIR/tick-steps"
-STEP_NAMES=(); STEP_SECS=(); STEP_MAXN="-"; STEP_MAXS=0; STEP_LAST=""; PASS_T0=0; PASS_ROUND=0
+STEP_NAMES=(); STEP_SECS=(); STEP_MAXN="-"; STEP_MAXS=0; STEP_LAST=""; PASS_T0=0; PASS_S0=0; PASS_ROUND=0
 step() {   # step <이름> <함수…> — 같은 셸 호출(서브셸 0) · stdout/stderr 무간섭 · 함수 rc 그대로 · 지역 변수 접두 _st_
   local _st_name="$1" _st_t0 _st_rc _st_d
   shift
   if [ "$STEPS_ON" != 1 ]; then "$@"; return $?; fi
-  _st_t0="${STEP_LAST:-}"; [ -n "$_st_t0" ] || _st_t0="$(now)"   # 시작 = 앞 단계가 끝난 시각(단계 사이 코드는 0에 가깝다) · 첫 단계만 now() — 단계당 now() 1회(7초 룰 · 오버헤드)
-  [ "$DRY" = 1 ] || { printf '%s\t%s\t%s\t%s\t%s\t%s\n' "${FT_TICK_PASS_ID:-}" "$_st_name" "$_st_t0" "$STEP_MAXN" "$STEP_MAXS" "${FT_TICK_PASS_T0:-}" > "$STEP_DIR/cur.tsv.$$" 2>/dev/null && mv -f "$STEP_DIR/cur.tsv.$$" "$STEP_DIR/cur.tsv" 2>/dev/null; }
+  # 시계: now() 는 바퀴 시작에 1번(PASS_T0 = 부모가 넘긴 t0) — 단계 안에서는 내장 SECONDS 의 차만 쓴다(fork 0 · 가상 시각 now() 기준 유지).
+  #   시작 = 앞 단계 끝(단계 사이 코드는 0에 가깝다) · 단계 시작 epoch = PASS_T0 + (SECONDS − 바퀴 시작 SECONDS) · 외부 호출은 표식 mv 1회뿐.
+  _st_t0="${STEP_LAST:-$SECONDS}"
+  [ "$DRY" = 1 ] || { printf '%s\t%s\t%s\t%s\t%s\t%s\n' "${FT_TICK_PASS_ID:-}" "$_st_name" "$(( PASS_T0 + _st_t0 - PASS_S0 ))" "$STEP_MAXN" "$STEP_MAXS" "${FT_TICK_PASS_T0:-}" > "$STEP_DIR/cur.tsv.$$" 2>/dev/null && mv -f "$STEP_DIR/cur.tsv.$$" "$STEP_DIR/cur.tsv" 2>/dev/null; }
   "$@"; _st_rc=$?
-  STEP_LAST="$(now)"; _st_d=$(( STEP_LAST - _st_t0 ))
+  STEP_LAST=$SECONDS; _st_d=$(( STEP_LAST - _st_t0 ))
   STEP_NAMES+=("$_st_name"); STEP_SECS+=("$_st_d")
   if [ "$STEP_MAXN" = "-" ] || [ "$_st_d" -gt "$STEP_MAXS" ]; then STEP_MAXN="$_st_name"; STEP_MAXS="$_st_d"; fi
   return "$_st_rc"
@@ -1066,7 +1068,7 @@ steps_done() {   # 자식: 바퀴가 끝까지 갔다 — DRY 는 1줄 · 실전
   if [ "$DRY" = 1 ]; then echo "DRY kind=steps n=$n"; return 0; fi
   [ -n "${FT_TICK_PASS_ID:-}" ] || return 0
   f="$STEP_DIR/done-$FT_TICK_PASS_ID"
-  tsv="#total"$'\t'"$(( $(now) - PASS_T0 ))"$'\n'
+  tsv="#total"$'\t'"$(( SECONDS - PASS_S0 ))"$'\n'
   for ((i = 0; i < n; i++)); do tsv="$tsv${STEP_NAMES[i]}"$'\t'"${STEP_SECS[i]}"$'\n'; done
   printf '%s' "$tsv" > "$f.tmp" 2>/dev/null && mv -f "$f.tmp" "$f.tsv" 2>/dev/null || echo "$(date '+%F %T') WARN steps: done 파일 쓰기 실패 $f.tsv — 이번 바퀴는 게시 0" >&2
   return 0
@@ -1152,7 +1154,7 @@ pass() {
   local prc FT_TICK_DEADLINE="${FT_TICK_DEADLINE:-$(( $(now) + ${PASS_MAX:-70} ))}"
   STEP_NAMES=(); STEP_SECS=(); STEP_MAXN="-"; STEP_MAXS=0
   STEP_LAST=""
-  [ "$STEPS_ON" != 1 ] || { PASS_T0="${FT_TICK_PASS_T0:-$(now)}"; STEP_LAST="$PASS_T0"; }   # 부모가 넘긴 바퀴 시작 epoch(없으면 지금) = 첫 단계 시작
+  [ "$STEPS_ON" != 1 ] || { PASS_T0="${FT_TICK_PASS_T0:-$(now)}"; PASS_S0=$SECONDS; STEP_LAST=$SECONDS; }   # 부모가 넘긴 바퀴 시작 epoch(없으면 지금) = 첫 단계 시작
   pass_core; prc=$?
   step acct_notice acct_notice
   steps_done

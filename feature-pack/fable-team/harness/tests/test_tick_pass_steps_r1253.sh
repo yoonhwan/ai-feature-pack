@@ -56,8 +56,9 @@ run_tick() {
   while [ $# -gt 0 ] && [ "$1" != -- ]; do envs+=("$1"); shift; done
   [ "${1:-}" != -- ] || shift
   opts=("${@:-}")
-  mkdir -p "$TMP/$n"
+  mkdir -p "$TMP/$n/root"
   ( cd "$TMP/$n" && exec env FT_TICK_SEATS="$seats" FT_TICK_MBOX="$TMP/mbox.sh" FT_TICK_PIDFILE="$TMP/$n/tick.pid" \
+      FT_ROOT="$TMP/$n/root" FT_TICK_CARD_ASSIGN=0 \
       FT_TICK_STATE_DIR="$TMP/$n/state" FT_TICK_STAMP_PREFIX="$TMP/$n/p-" FT_TICK_LOOP_SEC=1 FT_TICK_SEAT_STATUS="$TMP/$n/none" \
       FT_TICK_NOW_BASE=1800000000 FT_TICK_WT_SWEEP=1 FT_TICK_WT_SWEEP_BIN="$bd/sweep.sh" \
       FT_TICK_AUTONOMY=0 FT_TICK_LEAK_REAP=0 FT_TICK_HIL=0 FT_TICK_LIVE_SNAPSHOT=0 FT_TICK_RESUME=0 \
@@ -88,15 +89,18 @@ run_mut() { local m="$1" bd="$2"; ( cell_r2_r3 "$m" "$bd"; echo $? > "$TMP/$m.re
 
 # ── R1 완주 ─────────────────────────────────────────────────────────────────────────────────────
 cell_r1() {   # cell_r1 <이름> <bin> <seats> <기대 이름 목록> → 0 PASS (REASON)
-  local n="$1" bd="$2" seats="$3" exp="$4" line got v bigv=0
+  local n="$1" bd="$2" seats="$3" exp="$4" line got v it bigv=0
   REASON=""
   run_tick "$n" "$bd" "$seats" -- --once
   line="$(steps_line "$n")"
   [ -n "$line" ] || { REASON="pass steps 줄 0 (로그: $(tail -2 "$TMP/$n.log" | tr '\n' ' '))"; return 1; }
   got="$(names_of "$line")"
   [ "$got" = "$exp" ] || { REASON="단계 이름·순서 불일치: [$got]"; return 1; }
-  for v in $(for it in ${line#*pass steps: }; do case "$it" in total=*) ;; *) echo "${it#*=}";; esac; done); do
-    case "$v" in ''|*[!0-9]*) REASON="초 값 숫자 아님: $v"; return 1;; esac; [ "$v" -le 2 ] || bigv=1
+  for it in ${line#*pass steps: }; do
+    case "$it" in total=*) continue;; esac
+    v="${it#*=}"
+    case "$v" in ''|*[!0-9]*) REASON="초 값 숫자 아님: $v"; return 1;; esac
+    [ "$v" -le 2 ] || bigv=1
   done
   [ "$bigv" = 0 ] || { REASON="대역 단계가 2초 넘음: $line"; return 1; }
   [ "$(rows "$(SD "$n")/last.tsv")" = "$(echo $exp | wc -w | tr -d ' ')" ] || { REASON="last.tsv 행 수 $(rows "$(SD "$n")/last.tsv") ≠ $(echo $exp | wc -w | tr -d ' ')"; return 1; }
