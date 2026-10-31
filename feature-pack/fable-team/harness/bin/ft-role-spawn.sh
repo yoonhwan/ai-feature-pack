@@ -33,24 +33,33 @@ case "$AGENT" in claude|codex|cmd|opencode|pi) ;; *) echo "usage: --agent 는 cl
 if [ "$MODEL_SET" = 0 ] && [ "$ROLE" = master ] && [ "$AGENT" = claude ]; then MODEL="claude-sonnet-5-5[1m]"; fi
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 # r730 ★보내는 사람 = 명부 현역★: --from 을 «안 줬을 때만» env FT_SEND_FROM 을 그 팀 명부 `_master` 로 해석한다(후계 좌석 첫 발주문이 옛 팀장을 가리키던 사고). 해석 함수 = ft-team-lib.sh 한 곳 · 명부(SEATS)가 정해진 뒤에 부른다.
-# ★spawn 정지 파일 (R320 · 판정 2166)★: 정지는 기한·해제 조건이 있는 SPAWN_HOLD 파일 하나로만 걸린다 — 문장·쪽지로 받은 정지는 효력 0. 출력 `hold=none` = 정지 아님. 없는 도구는 설치 누락(라이브 드리프트 검사가 잡는다).
-if [ -f "$HERE/ft-spawn-hold.sh" ]; then
-  _hold="$(bash "$HERE/ft-spawn-hold.sh" status 2>&1)"; _hrc=$?
-  [ "$_hrc" = 0 ] || { printf '%s\n' "$_hold"; exit "$_hrc"; }
-  printf '%s\n' "$_hold"
-fi
-# ★계정 풀 정지 (r1214 · ACCT_PAUSE · Issue #5345 ③⑤)★: 모델이 «확정된 뒤»(위 --model·--tier·기본값 분기) 판정하고, 카드 쓰기·워크트리·tmux «전»에 열지 않는다.
-#   정지 rc3 = `REJECT 정지 중 · 풀림 HH:MM` · 판정 불가 rc4 = `REJECT 판정 불가`(통과 0) · 도구 없음 = 설치 누락(그대로 진행하지 않는다).
-if [ -f "$HERE/ft-acct-pause.sh" ]; then
-  _apout="$(bash "$HERE/ft-acct-pause.sh" status --check --agent "$AGENT" --model "$MODEL" 2>&1)"; _aprc=$?
-  case "$_aprc" in
-    0) ;;
-    3) printf '%s\n' "REJECT 정지 중 · 풀림 $(printf '%s\n' "$_apout" | sed -n 's/.*until_hhmm=\([0-9:]*\).*/\1/p' | head -1) — acct-pause $(printf '%s\n' "$_apout" | sed -n 's/^PAUSED \([^ ]*\) .*/\1/p' | head -1) round=$(printf '%s\n' "$_apout" | sed -n 's/.*round=\([^ ]*\).*/\1/p' | head -1)"; exit 3;;
-    4) printf '%s\n' "REJECT 판정 불가 — $(printf '%s\n' "$_apout" | tail -1)"; exit 4;;
-    *) printf '%s\n' "REJECT acct-pause 판정 실패 rc=$_aprc — $(printf '%s\n' "$_apout" | tail -1)"; exit 1;;
+# ★spawn 정지 2종을 «한 자리에서 둘 다 모아» 판정한다 (r1214 DA① ⑥)★
+#   ①자원 정지 (R320 · 판정 2166) = 기한·해제 조건이 있는 SPAWN_HOLD 파일 하나 — 문장·쪽지로 받은 정지는 효력 0
+#   ②계정 풀 정지 (r1214 · ACCT_PAUSE · Issue #5345 ③⑤) = provider[/모델] 단위
+#   출력 = 사유마다 1줄(둘 다면 2줄) · rc3 · 모델은 위에서 «확정된» 값(--model·기본값 분기)이라 카드·워크트리·tmux «전»에 판정한다.
+#   없는 도구는 «판단하지 않는다»(설치 누락은 라이브 드리프트 검사가 잡는다 · 옛 동작 보존).
+_acct_paused() {   # $1 = agent $2 = model → rc3 정지(사유 1줄 stdout) · rc4 판정 불가 · rc0 통과
+  local out
+  [ -f "$HERE/ft-acct-pause.sh" ] || { echo "WARN acct-pause 판정 못 함 — ft-acct-pause.sh 없음: $HERE" >&2; return 0; }
+  out="$(bash "$HERE/ft-acct-pause.sh" status --check --agent "$1" --model "$2" 2>&1)"; local rc=$?
+  case "$rc" in
+    0) return 0;;
+    3) printf '%s\n' "REJECT 정지 중 · 풀림 $(printf '%s\n' "$out" | sed -n 's/.*until_hhmm=\([0-9:]*\).*/\1/p' | head -1) — acct-pause $(printf '%s\n' "$out" | sed -n 's/^PAUSED \([^ ]*\) .*/\1/p' | head -1) round=$(printf '%s\n' "$out" | sed -n 's/.*round=\([^ ]*\).*/\1/p' | head -1)"; return 3;;
+    4) printf '%s\n' "REJECT 판정 불가 — $(printf '%s\n' "$out" | tail -1)"; return 4;;
+    *) printf '%s\n' "REJECT acct-pause 판정 실패 rc=$rc — $(printf '%s\n' "$out" | tail -1)"; return 1;;
   esac
-else
-  echo "WARN acct-pause 판정 못 함 — ft-acct-pause.sh 없음: $HERE" >&2   # 없는 도구로 열지/막을지 판단하지 않는다(설치 누락은 라이브 드리프트 검사가 잡는다 · ft-spawn-hold.sh 와 같은 틀)
+}
+_hold_rc=0; _acct_rc=0; _hold_out=""; _acct_out=""
+if [ -f "$HERE/ft-spawn-hold.sh" ]; then
+  _hold_out="$(bash "$HERE/ft-spawn-hold.sh" status 2>&1)"; _hold_rc=$?
+  printf '%s\n' "$_hold_out"          # rc0 = `hold=none` · rc3 = `REJECT hold …` — 둘 다 그대로 낸다(사유 1줄)
+fi
+_acct_out="$(_acct_paused "$AGENT" "$MODEL")"; _acct_rc=$?
+[ "$_acct_rc" = 0 ] || printf '%s\n' "$_acct_out"
+if [ "$_hold_rc" != 0 ] || [ "$_acct_rc" != 0 ]; then
+  # rc = 더 센 쪽(판정 불가 4 > 정지 3 > 도구 고장 1) — 정지 사유는 위에서 이미 «둘 다» 냈다.
+  m=3; for r in "$_hold_rc" "$_acct_rc"; do case "$r" in 4) m=4;; 1|2) [ "$m" = 3 ] || m=1;; esac; done
+  exit "$m"
 fi
 # ★자원 게이트 (Res-1014 · r921 개정)★: 넘으면 «회수 먼저 → 다시 재고 → 그래도 넘으면 WARN 1줄 + 진행» — 멈추는 것은문지기의 REJECT(디스크 하드 하한·디스크 측정 실패)뿐이다(오빠 2026-10-25). 우회 플래그 없음 — 조정은 env 문턱만.
 # ★W3(DA⑥ r1)★ 회수 호출은 «7초 상한» — 넘으면 `WARN 회수 시간 초과 — 진행` 1줄 남기고 그대로 간다.

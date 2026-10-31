@@ -383,33 +383,13 @@ outage_watch() {
 #   acct_pause_watch() = 한 바퀴 1회 판정기(만료·풀림·부분 재시도 주체) — rc4 는 ERROR 1줄만, 틱은 계속. FT_TICK_ACCT_PAUSE=0 으로 끔.
 ACCT_PAUSE="${FT_TICK_ACCT_PAUSE_BIN:-$HERE/ft-acct-pause.sh}"
 ACCT_FILE="${FT_TICK_ACCT_PAUSE_FILE:-${ROOT:-$WT}/.fable-team/state/ACCT_PAUSE}"
-AM_LOADED=0; AM_ROWS=""
-am_of() {   # $1 좌석 → "agent<TAB>model" (좌석표는 한 바퀴에 한 번만 읽는다 · 없으면 두 빈칸)
-  if [ "$AM_LOADED" = 0 ]; then
-    AM_ROWS="$(python3 - "$SEATS" <<'PY'
-import json, sys
-try:
-    d = json.load(open(sys.argv[1]))
-except Exception:
-    sys.exit(0)
-for k, v in d.items():
-    if k.startswith('_') or not isinstance(v, dict):
-        continue
-    print(f"{k}\t{v.get('agent') or ''}\t{v.get('model') or ''}")
-PY
-)" || AM_ROWS=""
-    AM_LOADED=1
-  fi
-  printf '%s\n' "$AM_ROWS" | awk -F'\t' -v s="$1" '$1==s{print $2"\t"$3; exit}'
-}
 acct_paused() {   # $1 좌석 $2 kind → rc0 발사 가능 · rc1 정지(그 회차 첫 1줄만 기록) · 판정 불가·도구 실패는 «발사 유지» + ERROR 1줄
-  local seat="$1" kind="$2" am agent model out rc lab hhmm round mark
+  local seat="$1" kind="$2" out rc lab hhmm round mark
   [ "${FT_TICK_ACCT_PAUSE:-1}" = 1 ] || return 0
   [ -f "$ACCT_FILE" ] || return 0          # 정지 파일 없음 = 정지 아님(비정지 양성 경로에 프로세스를 안 띄운다)
   [ -f "$ACCT_PAUSE" ] || { log "ERROR acct_paused $seat — 도구 없음 $ACCT_PAUSE (설치 누락) · 발사 유지"; return 0; }
-  am="$(am_of "$seat")"
-  agent="${am%%$'\t'*}"; model="${am#*$'\t'}"; [ "$am" = "$agent" ] && model=""
-  out="$(bash "$ACCT_PAUSE" status --check --agent "$agent" --model "$model" 2>&1)"; rc=$?
+  # 좌석 이름만 넘긴다 — agent/model 판별(명부 행 · 명부 model 빈칸이면 pane argv `--model`)은 도구 한 곳이 한다(빈 모델 전달 금지 · r1214 DA① ⑤).
+  out="$(bash "$ACCT_PAUSE" status --check --seat "$seat" 2>&1)"; rc=$?
   case "$rc" in
     0) return 0;;
     3) lab="$(printf '%s\n' "$out" | sed -n 's/^PAUSED \([^ ]*\) .*/\1/p' | head -1)"

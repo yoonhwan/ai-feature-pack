@@ -145,9 +145,11 @@ class Swap(Account):
         bin = os.environ.get("FT_ACCT_PAUSE") or str(HERE / "ft-acct-pause.sh")
         if not Path(bin).exists():
             return ""
+        # 루트는 «이 교대가 보는 그 루트» 를 넘긴다(r1214 DA① ⑦) — 도구가 cwd 로 루트를 다시 풀면 다른 리포의 정지 파일을 읽는다.
+        env = dict(os.environ, FT_ACCT_ROOT=str(self.a.root))
         try:
             r = subprocess.run(["bash", bin, "status", "--check", "--agent", "claude", "--model", model],
-                               capture_output=True, text=True, timeout=15)
+                               capture_output=True, text=True, timeout=15, env=env)
         except (OSError, subprocess.SubprocessError) as exc:
             return f"판정 불가({exc.__class__.__name__})"
         if r.returncode == 0:
