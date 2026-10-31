@@ -14,11 +14,14 @@ new_env() {  # <variant> — 정본 사본 + lint + 명부 픽스처
   ENVROOT="$(mktemp -d "$T/env.XXXXXX")"; mkdir -p "$ENVROOT/.fable-team/comm" "$ENVROOT/.fable-team/state"
   cp "$SRC"/mbox*.py "$SRC"/mbox*.sh "$ENVROOT/.fable-team/comm/"; cp "$SRC"/ft-boot-report-lint.py "$ENVROOT/.fable-team/comm/" 2>/dev/null
   git -C "$ENVROOT" init -q; mkdir -p "$ENVROOT/seats"; cp "$FX/$1"/seats*.json "$ENVROOT/seats/"
+  mkdir -p "$ENVROOT/seats/state/directive-watch"; printf '%s\t0\t0\n' "$STAMP" > "$ENVROOT/seats/state/directive-watch/stamps.tsv"  # r1212 ④ 판본 행
 }
+STAMP="$(date +%s)-0000abcd"; DIRECTIVE="담당 없는 오빠 지시 0 · 멈춘 오빠 지시 0 · 판본 $STAMP"  # r1212 ④ — 승계 보고 지시 칸(본문 끝에 덧붙임 · 다른 칸 판정 무변경)
 send_from() {  # <from> <to> <body> → RC·OUT (planner 머리 모드 reject 고정)
   OUT="$(cd "$ENVROOT" && env PATH="$T/stub:$PATH" FT_SEATS_JSON="$ENVROOT/seats/seats.json" FT_PLANNER_HEAD_MODE=reject \
     FT_MBOX_DIR="$ENVROOT/.fable-team/comm" FT_MBOX_RATE_N=999 FT_MBOX_FANOUT_WINDOW=0 \
-    bash "$ENVROOT/.fable-team/comm/mbox.sh" send "$2" "$1" "$3" 2>&1)"; RC=$?
+    bash "$ENVROOT/.fable-team/comm/mbox.sh" send "$2" "$1" "$3
+$DIRECTIVE" 2>&1)"; RC=$?
 }
 queued_to() { local n; n="$(grep -c "\"to\": *\"$1\"" "$ENVROOT/.fable-team/comm/mailbox.jsonl" 2>/dev/null)"; echo "${n:-0}"; }
 BASE='[부팅 보고] 세션=x 모델=y Serena=가'

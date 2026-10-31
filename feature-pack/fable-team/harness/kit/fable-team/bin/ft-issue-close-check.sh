@@ -16,6 +16,7 @@
 #   --repo = 정본 sha 를 조회할 git 리포(기본 = 이 스크립트가 있는 리포 루트).
 #   r1040: Closes 없이 이슈 «연결 PR: #<번호>» 코멘트를 인정하려면 그 PR 병합 상태를 본다 — gh pr view 1회(7초+재시도 1) 또는 시험용 FT_PR_STATE_FROM_JSON([{number,state,comments:[{body}]}] 또는 {"prs":[…]}) · 판정 불가면 «판정 불가» 1줄 + MISS.
 #   r1104: ft-merge-land 는 커밋을 main 에 직접 올리고 PR 을 «닫는다» — 상태가 MERGED 가 아니라 CLOSED 다. CLOSED PR 은 닫기 코멘트의 마지막 «착지 sha <40hex>» 가 랜딩 ref(env FT_LAND_REF · 기본 origin/main)의 조상이면 인정한다(정본 판정과 같은 merge-base --is-ancestor). 코멘트 없음·로컬에 없음·조상 아님 = 지금처럼 MISS.
+#   r1167: Closes·«연결 PR: #N» 둘 다 없으면 코멘트 가장 마지막 «연결 PR: 없음 · 직접 착지 main <40hex>» 의 sha 가 랜딩 ref 조상일 때 인정(PR 없이 main 직접 착지) · 로컬에 없음·조상 아님·40hex 아님 = MISS · gh 호출 0.
 set -uo pipefail
 unset GH_TOKEN
 N="${1:-}"; shift || true
@@ -231,13 +232,30 @@ pr_merged() { # <번호> → 0 병합(MERGED 또는 CLOSED+착지 sha 가 랜딩
     echo "  OK 연결 PR #$n CLOSED · 착지 sha ${S:0:10} ${REF} 조상"; return 0; fi
   echo "  MISS 연결 PR #$n — CLOSED · 착지 sha ${S:0:10} ${REF} 조상 아님"; return 1
 }
+# r1167: Closes·«연결 PR: #N» 둘 다 없을 때 — 코멘트 가장 마지막 «연결 PR: 없음 · 직접 착지 main <40hex>» 의 sha 가 랜딩 ref 조상이면 인정(PR 없이 main 에 직접 착지 · #746).
+direct_sha() { # 가장 마지막 «연결 PR: 없음» 후보 줄 → 줄 전체가 계약 꼴이면 40hex(소문자) · 후보 없으면 빈 값 · 꼴 아님 = «-» — 앞 줄로 내려가지 않는다
+  jq -r --arg p "$KEYP" '[.comments[].body | split("\n")[] | select(test("연결\\s*PR\\s*[:：]\\s*없음"))] | last // empty
+    | [capture($p + "연결\\s*PR\\s*[:：]\\s*없음\\s*·\\s*직접\\s*착지\\s+main\\s+(?<s>[0-9a-fA-F]{40})\\s*$") | .s | ascii_downcase] | first // "-"' <<<"$JSON" 2>/dev/null
+}
+direct_landed() { # <sha|-> → 0 직접 착지 sha 가 랜딩 ref 조상 · 1 MISS(사유 1줄)
+  local S="$1" REF="${FT_LAND_REF:-origin/main}"
+  [ "$S" != - ] || { echo "  MISS 직접 착지 — 「연결 PR: 없음 · 직접 착지 main <40hex>」 꼴 아님(sha 40자)"; return 1; }
+  git -C "$REPO" cat-file -e "$S^{commit}" 2>/dev/null || { echo "  MISS 직접 착지 ${S:0:10} — 로컬에 없음 — git fetch 후 다시"; return 1; }
+  git -C "$REPO" rev-parse --verify -q "${REF}^{commit}" >/dev/null || { echo "  MISS 직접 착지 ${S:0:10} — 랜딩 ref ${REF} 없음 — git fetch 후 다시"; return 1; }
+  if git -C "$REPO" merge-base --is-ancestor "$S" "$REF" 2>/dev/null; then   # r1167-mut:direct-ancestor
+    echo "  OK 연결 PR 없음 · 직접 착지 ${S:0:10} ${REF} 조상"; return 0; fi
+  echo "  MISS 직접 착지 ${S:0:10} — ${REF} 조상 아님"; return 1
+}
 PRS="$(jq -r '[.closedByPullRequestsReferences[]?.number] | map("#"+tostring) | join(" ")' <<<"$JSON")"
 if [ -n "$PRS" ]; then echo "  OK   Closes 연결 PR $PRS"; else
   read -r LK LPR LS <<<"$(linked_pr)"
+  DS=""; [ -n "$LK" ] || DS="$(direct_sha)"   # «연결 PR: #N» 줄이 하나라도 있으면 그 길만 본다(R5)
   if [ "$LK" = P ] && pack_landed "$LPR" "$LS"; then   # r1106-mut:packpath
     echo "  OK   Closes 연결 PR 없음 · 이슈 «연결 PR: 팩 PR #${LPR}» 팩 착지 확인 → 인정"
   elif [ "$LK" = B ] && pr_merged "$LPR"; then   # r1040-mut:linkedpr
     echo "  OK   Closes 연결 PR 없음 · 이슈 «연결 PR: #${LPR}» 병합 확인 → 인정"
+  elif [ -n "$DS" ] && direct_landed "$DS"; then   # r1167-mut:direct-path
+    echo "  OK   Closes 연결 PR 없음 · 이슈 «연결 PR: 없음 · 직접 착지» 랜딩 ref 조상 확인 → 인정"
   else
     echo "  MISS Closes 연결 PR 없음 — 랜딩 PR 본문에 「Closes #${N}」(착지 전) — 이미 병합됐으면 이슈에 「연결 PR: #<번호>」 코멘트 1줄"
     [ "$LK" != B ] || echo "  MISS 연결 PR #${LPR} — 병합 상태로 확인 0(판정 불가 또는 미병합)"
