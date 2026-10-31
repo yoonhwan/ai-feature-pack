@@ -5,7 +5,7 @@
 set -uo pipefail
 export TZ=Asia/Seoul
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"; REPO="$HERE/../.."
-BIN="$REPO/harness/bin"; COMM="$REPO/harness/comm"; FX="$REPO/tests/fixtures/directive_watch"; KIT="$REPO/harness/kit/fable-team/bin"
+BIN="$REPO/harness/bin"; COMM="$REPO/harness/comm"; FX="$REPO/harness/tests/fixtures/directive_watch"; KIT="$REPO/harness/kit/fable-team/bin"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 fail=0; ok() { echo "PASS $1"; }; bad() { echo "FAIL $1"; fail=$((fail+1)); }
 T0=$(date +%s); STEP=""; lap() { STEP="$STEP $1=$(( $(date +%s) - T0 ))s"; T0=$(date +%s); }
