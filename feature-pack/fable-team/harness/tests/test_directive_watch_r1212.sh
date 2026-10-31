@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# test_directive_watch_r1212.sh — r1212 오빠 지시 감시(ft-directive-watch) 반례 R1~R10 + 부팅 보고 판본 칸(R7) + 변이 4.
+# test_directive_watch_r1212.sh — r1212 오빠 지시 감시(ft-directive-watch) 반례 R1~R10 + 부팅 보고 판본 칸(R7) + 변이 5.
 # 임시 루트(판정 원장 사본 · 임시 git 리포 카드 폴더 · 카드 루트 표) · 가상 시각 --now · 가짜 FT_MBOX_SH 수집기 · 실 STATE·실 쪽지 0 · 자기 재호출 0 · 고정 sleep 0.
 # 돌리기: ulimit -u <지금+여유>; timeout 70 bash harness/tests/test_directive_watch_r1212.sh
 set -uo pipefail
@@ -35,17 +35,18 @@ card() {  # <R> <상대경로> <날짜> <본문 줄...>
 run() { OUT="$(cd "$R" && env FT_ROOT="$R" FT_MBOX_SH="$R/mbox.sh" FT_DIRECTIVE_NANO_REPOS="$R" ${EXTRA_ENV:-} python3 "${TOOL_RUN:-$TOOL}" "$@" 2>&1)"; RC=$?; }
 sent() { grep -c . "$R/sent.log" 2>/dev/null || true; }
 row2888() { python3 -c 'import json,sys; [print(l.strip()) for l in open(sys.argv[1],encoding="utf-8") if json.loads(l).get("n")==2888]' "$FX/verdicts-20261031.jsonl"; }
-r1180_env() {  # R1·R2 사본 — 판정 2888(18:23:06) · r1180 대기 카드 18:43:29 · 10-31 09:14 커밋(평가 시각 뒤)
+r1180_env() {  # R1·R2 사본 — 판정 2888(18:23:06) · r1180 대기 카드 18:43:29 · 10-31 09:14 커밋 · 09:20 완성 이동(둘 다 평가 시각 뒤)
   new_root; row2888 > "$R/.fable-team/state/verdicts.jsonl"
   card "$R" "design/harness/indices/대기/r1180-news-normalize.md" "2026-10-30 18:43:29 +0900" "- 지시: 판정 2888" "## 상태" "- 대기"
   printf '%s\n' "- 2026-10-31 09:14 재개" >> "$R/design/harness/indices/대기/r1180-news-normalize.md"; git -C "$R" add -A design; gc "$R" "2026-10-31 09:14:00 +0900" "r1180 09:14"
+  mkdir -p "$R/design/harness/indices/완성"; git -C "$R" mv "design/harness/indices/대기/r1180-news-normalize.md" "design/harness/indices/완성/r1180-news-normalize.md"; gc "$R" "2026-10-31 09:20:00 +0900" "r1180 완성"
 }
 
 # ⓐ R1 — 가상 시각 10-31 01:00 → 멈춘 오빠 지시 1(2888 · r1180 · 18:43:29) · rc1 · 운영 파일 쓰기 0
 r1180_env; run status --now 2026-10-31T01:00:00
 case "$OUT" in "담당 없는 오빠 지시 0 · 멈춘 오빠 지시 1 · 판본 "*) h=1;; *) h=0;; esac
 [ "$RC" = 1 ] && [ "$h" = 1 ] && printf '%s' "$OUT" | grep -q '^멈춤 판정 2888 · r1180-news-normalize · 마지막 움직임 10-30 18:43:29' && [ ! -e "$R/.fable-team/state/directive-watch" ] \
-  && ok "R1 01:00 → 멈춤 1 · 2888 · r1180 · 18:43:29 · rc1 · 가상 시각 쓰기 0" || bad "R1 rc=$RC :: $OUT"
+  && ok "R1 01:00 → 멈춤 1 · 2888 · r1180 · 18:43:29 · rc1 · 평가 시각 뒤 완성 이동(09:20) 안 봄 · 가상 시각 쓰기 0" || bad "R1 rc=$RC :: $OUT"
 # ⓐ R2 — 같은 사본 23:00 → 멈춤 0(4시간 16분) · 09:14 커밋은 평가 시각 뒤라 안 셈 · rc0
 run status --now 2026-10-30T23:00:00
 [ "$RC" = 0 ] && case "$OUT" in "담당 없는 오빠 지시 0 · 멈춘 오빠 지시 0 · 판본 "*) true;; *) false;; esac && ok "R2 23:00 → 멈춤 0 · rc0" || bad "R2 rc=$RC :: $OUT"
@@ -57,10 +58,11 @@ run status --now 2026-10-31T01:00:00; a=$RC; run status --now 2026-10-31T04:30:0
 lap R1R2
 # R2b — 운영 캐시에 r1180 의 09:14 시각이 들어 있는 상태에서 --now 01:00 → 캐시 무시 · 멈춤 1(18:43:29) · 캐시 바이트 그대로
 r1180_env; run status; c="$(grep -l '^r1180-news-normalize' "$R"/.fable-team/state/directive-watch/commits-*.tsv 2>/dev/null | head -1)"
-grep -q "^r1180-news-normalize	$(date -j -f '%Y-%m-%d %H:%M:%S' '2026-10-31 09:14:00' +%s)$" "${c:-/x}"; pre=$?
-cp "$c" "$T/cache.before"; cp "$R/.fable-team/state/directive-watch/stamps.tsv" "$T/stamps.before"; run status --now 2026-10-31T01:00:00
-[ "$pre" = 0 ] && [ "$RC" = 1 ] && printf '%s' "$OUT" | grep -q '마지막 움직임 10-30 18:43:29' && cmp -s "$c" "$T/cache.before" && cmp -s "$R/.fable-team/state/directive-watch/stamps.tsv" "$T/stamps.before" \
-  && ok "R2b 운영 캐시(09:14) 있음 + 가상 01:00 → 캐시 무시 · 멈춤 1 · 캐시·stamps 바이트 그대로" || bad "R2b rc=$RC c=$c :: $OUT"
+a0=$RC; grep -q "^r1180-news-normalize	$(date -j -f '%Y-%m-%d %H:%M:%S' '2026-10-31 09:20:00' +%s)$" "${c:-/x}"; pre=$?
+cp "$c" "$T/cache.before"; cp "$R/.fable-team/state/directive-watch/stamps.tsv" "$T/stamps.before"; run status --now "$(( $(date +%s) - 30 ))"; r30=$RC
+ls -l "$R"/.fable-team/state/directive-watch > "$T/ls.before"; run status --now 2026-10-31T01:00:00
+[ "$a0" = 0 ] && [ "$pre" = 0 ] && [ "$r30" = 0 ] && [ "$RC" = 1 ] && printf '%s' "$OUT" | grep -q '마지막 움직임 10-30 18:43:29' && cmp -s "$c" "$T/cache.before" && cmp -s "$R/.fable-team/state/directive-watch/stamps.tsv" "$T/stamps.before" \
+  && ok "R2b 운영(지금 = 완성 · rc0) 캐시(09:20) 있음 + 30초 전·01:00 가상 → 캐시 무시 · 01:00 멈춤 1 · 캐시·stamps 바이트 그대로" || bad "R2b rc=$RC c=$c :: $OUT"
 lap R2b
 # R3 — 후보 · 연결 카드 0 · 판정 뒤 61분 → 담당 없음 1 · 59분 → 0 · 배경으로만 판정 N 을 인용한 카드는 연결 0
 new_root; row new 3001 2026-10-20T10:00:00 "오빠 지시(slack 1792900000.123456): 새 감시" harness > "$R/.fable-team/state/verdicts.jsonl"
@@ -115,8 +117,8 @@ lint "$HMASTER" "$BOOT 지시 감시 판정 불가 · git 상한 넘김"; r_und=
 [ "$r_none$r_row$r_num$r_old" = 1111 ] && [ "$r_und" = 0 ] && case "$und" in *WARN*) true;; *) false;; esac && [ "$r_ok" = 0 ] \
   && ok "R7 칸 없음·판본 행 없음·숫자 다름·31분 → 반송 · 판정 불가 → 통과+WARN · 맞는 칸 → OK" || bad "R7 $r_none$r_row$r_num$r_old und=$r_und ok=$r_ok :: $und :: $LOUT"
 lint 'byz-harness-nano-x#0' "[부팅 보고] 세션=x"; a=$LRC
-LOUT="$(printf '%s' "$BOOT" | env FT_DIRECTIVE_STAMPS="$T/none.tsv" python3 "$LINT" --from "$HMASTER" --seats-dir "$T/seats7" 2>&1)"; b=$?
-[ "$a" = 0 ] && [ "$b" = 0 ] && case "$LOUT" in *'판본 파일 없음'*) true;; *) false;; esac && ok "R7′ 나노(승계 아님) 검사 0 · 판본 파일 없음(미설치) = 통과+WARN" || bad "R7′ a=$a b=$b :: $LOUT"
+LOUT="$(printf '%s' "$BOOT $HEAD1" | env FT_DIRECTIVE_STAMPS="$T/none.tsv" python3 "$LINT" --from "$HMASTER" --seats-dir "$T/seats7" 2>&1)"; b=$?
+[ "$a" = 0 ] && [ "$b" = 1 ] && case "$LOUT" in *'REJECT'*'판본 파일 없음'*) true;; *) false;; esac && ok "R7′ 나노(승계 아님) 검사 0 · 판본 파일 없음 = 반송" || bad "R7′ a=$a b=$b :: $LOUT"
 lap R7
 # R8 — 원장 못 읽음 · git 상한 넘김(틱 예산 · 첫 실행 예산) → rc3 1줄 · tick = planner [긴급] 판정 불가 1통 · 60분 억제
 op_env; mv "$R/.fable-team/state/verdicts.jsonl" "$R/.fable-team/state/verdicts.off"; run status
@@ -141,11 +143,11 @@ c="$(grep -l '^r9021-old' "$R"/.fable-team/state/directive-watch/commits-*.tsv |
 [ "$a" = 1 ] && printf '%s' "$ao" | grep -q "마지막 움직임 $(date -r $((NOW - 28800)) '+%m-%d %H:%M:%S')" && grep -q "^r9021-old	$((NOW - 40000))$" "$c" && grep -q "^r9020-mv	$((NOW - 28800))$" "$c" \
   && ok "R10 폴더 이동 = stem 이음(8시간 전 이동 = 마지막 움직임) · 증분 뒤에도 오래된 카드 시각 유지" || bad "R10 a=$a :: $ao :: $(cat "$c")"
 mkdir -p "$R/design/harness/indices/완성"; git -C "$R" mv "design/harness/indices/진행/r9020-mv.md" "design/harness/indices/완성/r9020-mv.md"
-gc "$R" "$((NOW - 60)) +0900" "mv 완성"; run status
-[ "$RC" = 0 ] && ok "R10′ 완성 이동 → 닫힘(rc0)" || bad "R10′ rc=$RC :: $OUT"
+gc "$R" "$((NOW - 60)) +0900" "mv 완성"; run status --now "$((NOW - 120))"; a=$RC; run status
+[ "$a" = 1 ] && [ "$RC" = 0 ] && ok "R10′ 완성 이동 → 닫힘(rc0) · 이동 전 시각 평가는 진행 그대로(멈춤 rc1)" || bad "R10′ a=$a rc=$RC :: $OUT"
 lap R10
 
-# ── 변이 4 (그 칸만 다시 돈다)
+# ── 변이 5 (그 칸만 다시 돈다)
 mut() { python3 - "$1" "$2" "$3" "$4" <<'PY'
 import sys
 src, dst, a, b = sys.argv[1:5]; s = open(src, encoding="utf-8").read(); assert a in s, a
@@ -160,6 +162,8 @@ card "$R" "design/harness/indices/대기/r9001-bg.md" "2026-10-20 10:30:00 +0900
 case "$OUT" in "담당 없는 오빠 지시 0"*) ok "변이2(인용 아무 데나 연결) → R3 빨강(담당 없음 0)";; *) bad "변이2 가 R3 에 안 잡힘 :: $OUT";; esac
 mut "$TOOL" "$T/m4.py" "if not self.virtual and c.is_file():" "if c.is_file():"; r1180_env; run status; TOOL_RUN="$T/m4.py" run status --now 2026-10-31T01:00:00
 [ "$RC" = 0 ] && ok "변이4(가상 시각에 운영 캐시 재사용) → R2b 빨강(rc0)" || bad "변이4 가 R2b 에 안 잡힘 rc=$RC :: $OUT"
+mut "$TOOL" "$T/m5.py" '"rev-list", "-1", until(self.now), r[2]' '"rev-parse", r[2]'; r1180_env; TOOL_RUN="$T/m5.py" run status --now 2026-10-31T01:00:00
+[ "$RC" = 0 ] && ok "변이5(카드를 현재 ref 에서 읽음) → R1 빨강(미래 완성 이동으로 rc0)" || bad "변이5 가 R1 에 안 잡힘 rc=$RC :: $OUT"
 unset PYTHONPATH
 op_env; run status; HEAD1="$(printf '%s' "$OUT" | head -1)"; ST="$(printf '%s' "$HEAD1" | sed -n 's/.*판본 \([0-9]*-[0-9a-f]*\).*/\1/p')"
 mut "$LINT" "$T/m3.py" 'm.group(3) not in rows else "숫자 다름" if rows[m.group(3)] != [m.group(1), m.group(2)]' 'False else "숫자 다름" if False'

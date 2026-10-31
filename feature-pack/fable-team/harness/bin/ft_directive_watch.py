@@ -138,8 +138,10 @@ class Watch:
         tips = []
         for r in self.roots:
             repo = self.repo(r)
-            tip = self.git(repo, "rev-parse", r[2]).strip()
+            tip = self.git(repo, "rev-list", "-1", until(self.now), r[2]).strip()  # 평가 시각 이하 ref 커밋 — 카드 본문·폴더도 여기서(미래 이동 0)
             tips.append(tip)
+            if not tip:
+                continue
             times = self.card_times(r, tip)
             depth, star = len(r[3].split("/")), r[3].split("/").index("*") if "*" in r[3] else -1
             hits = self.git(repo, "grep", "-I", "-e", "^- 지시:", tip, "--", r[3].split("*")[0].rstrip("/"), ok=(0, 1))
@@ -260,7 +262,7 @@ def main(argv: list[str]) -> int:
     if now is None:
         print(f"지시 감시 판정 불가 · --now 꼴 아님({v})")
         return 3
-    virtual, R = now < real - 60, root()
+    virtual, R = now < real, root()  # 유예 0 — 지금보다 앞이면 운영 파일 읽기·쓰기 0
     if argv[0] == "tick" and virtual:
         print("지시 감시 판정 불가 · tick 은 가상 시각을 받지 않는다")
         return 3

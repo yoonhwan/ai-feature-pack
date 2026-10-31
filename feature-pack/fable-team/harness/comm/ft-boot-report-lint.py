@@ -67,12 +67,12 @@ def main():
         directive_cell(os.environ.get("FT_DIRECTIVE_STAMPS") or os.path.join(a.seats_dir, "state", "directive-watch", "stamps.tsv"), body)
     say("OK")
 
-def directive_cell(f, body):  # ④ r1212 승계 master·planner·desk·arch — 지시 칸을 다시 세지 않고 stamps.tsv 의 그 판본 행과 대조 · 판본 파일 없음(도구 미설치)·«판정 불가» 칸 = WARN 통과
-    if re.search(r"지시 감시 판정 불가 · \S", body) or not os.path.isfile(f):
-        return print("WARN 부팅 보고 lint — 지시 칸 " + ("«판정 불가»" if os.path.isfile(f) else "판본 파일 없음 " + f) + " · 대조 없이 통과", file=sys.stderr)
+def directive_cell(f, body):  # ④ r1212 승계 master·planner·desk·arch — 지시 칸을 다시 세지 않고 stamps.tsv 의 그 판본 행과 대조 · «판정 불가 · <사유>» 칸만 WARN 통과 · 판본 파일 없음 = 반송
+    if re.search(r"지시 감시 판정 불가 · \S", body):
+        return print("WARN 부팅 보고 lint — 지시 칸 «판정 불가» · 대조 없이 통과", file=sys.stderr)
     m = re.search(r"담당 없는 오빠 지시 (\d+) · 멈춘 오빠 지시 (\d+) · 판본 ((\d+)-[0-9a-f]{8})", body)
-    rows = {r[0]: r[1:3] for r in (ln.rstrip("\n").split("\t") for ln in open(f, encoding="utf-8")) if len(r) >= 3}
-    why = "칸 없음" if not m else "판본 행 없음" if m.group(3) not in rows else "숫자 다름" if rows[m.group(3)] != [m.group(1), m.group(2)] else "판본 30분 넘음" if float(os.environ.get("FT_DIRECTIVE_NOW") or time.time()) - int(m.group(4)) > 1800 else ""
+    rows = {r[0]: r[1:3] for r in (ln.rstrip("\n").split("\t") for ln in open(f, encoding="utf-8")) if len(r) >= 3} if os.path.isfile(f) else None
+    why = "칸 없음" if not m else "판본 파일 없음(" + f + ")" if rows is None else "판본 행 없음" if m.group(3) not in rows else "숫자 다름" if rows[m.group(3)] != [m.group(1), m.group(2)] else "판본 30분 넘음" if float(os.environ.get("FT_DIRECTIVE_NOW") or time.time()) - int(m.group(4)) > 1800 else ""
     if why:
         say("REJECT", "부팅 보고 반송 — 지시 " + why + ": 담당 없는 오빠 지시 N · 멈춘 오빠 지시 M · 판본 <stamp> (ft-directive-watch.sh status 를 새로 돌려 머리 1줄 복붙)")
 
