@@ -8,6 +8,7 @@
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -126,6 +127,8 @@ class Swap(Account):
             print(f"NOOP {seat} 같은 계보 30분 안 재교대 0")
         elif not (new := self.pick(cut.model, oks, cuts)):
             self.hil(seat, d, cut, f"대체 모델 없음({cut.model or '미상'} · model-fallback.tsv 끝)")
+        elif (why := self.pause_block(new)):
+            print(f"PLAN 정지 중 {why} · 후계 0")   # r1214: 목적지 풀이 계정 정지 중이면 교대 0(기록·부작용 0)
         elif not (src := goal_source(self.ft, base)):
             self.hil(seat, d, cut, "골 원문 출처 없음(도달 파일·발주 본문 0)")
         elif not (wt := jsonl_cwd(self.scan(seat, row)[0]) or str(row.get("worktree") or row.get("cwd") or "")):
@@ -133,6 +136,29 @@ class Swap(Account):
         else:
             return self.swap(seat, d, cut, base, new, wt, src)
         return False
+
+    def pause_block(self, model: str) -> str:
+        """목적지 모델의 계정 풀 정지 판정(r1214 · ft-acct-pause.sh status --check) — 정지·판정 불가면 사유, 아니면 ''.
+
+        정지 중인 풀에 후계를 또 열면 같은 오류 턴만 늘어난다(이 카드의 동기). 도구가 없으면 판단하지 않고 옛 동작 그대로.
+        """
+        bin = os.environ.get("FT_ACCT_PAUSE") or str(HERE / "ft-acct-pause.sh")
+        if not Path(bin).exists():
+            return ""
+        # 루트는 «이 교대가 보는 그 루트» 를 넘긴다(r1214 DA① ⑦) — 도구가 cwd 로 루트를 다시 풀면 다른 리포의 정지 파일을 읽는다.
+        env = dict(os.environ, FT_ACCT_ROOT=str(self.a.root))
+        try:
+            r = subprocess.run(["bash", bin, "status", "--check", "--agent", "claude", "--model", model],
+                               capture_output=True, text=True, timeout=15, env=env)
+        except (OSError, subprocess.SubprocessError) as exc:
+            return f"판정 불가({exc.__class__.__name__})"
+        if r.returncode == 0:
+            return ""
+        lab = re.search(r"^PAUSED (\S+)", r.stdout or "", re.M)
+        if r.returncode == 3 and lab:
+            return lab.group(1)
+        tail = (r.stdout or r.stderr or "").strip().splitlines()
+        return f"판정 불가({tail[-1][:60] if tail else r.returncode})"
 
     def pick(self, model: str, oks: list[tuple[int, str]], cuts: list[Cut]) -> str:
         """표 다음 칸 · 그 모델도 최근 10분 같은 한도 정지 ∧ 그 뒤 정상 0 이면 그다음 칸 · 끝 = ''."""
