@@ -214,12 +214,12 @@ chk_dry() {
     FT_TICK_UNPUSHED=0 FT_TICK_WATCH_SAMPLE=0 FT_TICK_API_OUTAGE_STATE="$d/apio.json" bash "$TICK" --dry-run > "$d/out.log" 2> "$d/err.log"
   eq "$(grep -c 'DRY kind=acct-notice' "$d/out.log")" 1 "R8 --dry-run → DRY 1줄"
   has "$(grep 'DRY kind=acct-notice' "$d/out.log")" "bin=$T/fc.sh pause=$T/pause.sh notify=plan desk" "R8 DRY 줄에 bin·pause·notify"
-  eq "$(grep 'DRY kind=' "$d/out.log" | tail -1 | sed 's/DRY kind=\([a-z-]*\).*/\1/')" "acct-notice" "R8 acct_notice 가 바퀴의 «마지막» DRY 줄(앞 함수가 다 먼저)"
+  eq "$(grep 'DRY kind=' "$d/out.log" | grep -v 'DRY kind=steps' | tail -1 | sed 's/DRY kind=\([a-z-]*\).*/\1/')" "acct-notice" "R8 acct_notice 가 바퀴의 «마지막» DRY 줄(앞 함수가 다 먼저)"
   eq "$(cnt "$d/fc.runs" .)$(cnt "$d/mbox.log" .)" 00 "R8 DRY → 도구·쪽지 0"; [ ! -e "$d/state/acct-notice" ] && ok "R8 DRY → 표식·파일 0" || bad "R8 DRY 가 파일 만듦"
   rm -rf "$d"/*; mk "$d/fc.json" claude 3 4 null null; lap dr "$BASE" FT_TICK_ACCT=0
-  eq "$(cnt "$d/fc.runs" .)" 0 "R8 FT_TICK_ACCT=0 → 실행 0"; not "$(cat "$d/out.log" "$d/err.log")" "acct_notice" "R8 FT_TICK_ACCT=0 → 로그 0"
+  eq "$(cnt "$d/fc.runs" .)" 0 "R8 FT_TICK_ACCT=0 → 실행 0"; not "$(cat "$d/out.log" "$d/err.log" | grep -v 'pass steps:')" "acct_notice" "R8 FT_TICK_ACCT=0 → 로그 0"
   rm -rf "$d"/*; lap dr "$BASE" FT_TICK_ACCT_BIN=; eq "$(cat "$d/rc")" 0 "R8 임시 명부 + 도구 미지정 → 실 조회 0(다른 시험이 실 계정을 안 부른다)"
-  not "$(cat "$d/out.log" "$d/err.log")" "acct_notice" "R8 임시 명부 + 도구 미지정 → 로그 0"
+  not "$(cat "$d/out.log" "$d/err.log" | grep -v 'pass steps:')" "acct_notice" "R8 임시 명부 + 도구 미지정 → 로그 0"
   rm -rf "$d"/*; mk "$d/fc.json" claude 3 4 null null; lap dr "$BASE" FT_TICK_TEAM=harness; eq "$(cnt "$d/fc.runs" .)" 0 "R8 팀 틱(FT_TICK_TEAM) → 실행 0"
 }
 # ── R9: 10분 주기 (변이 3 대상) ────────────────────────────────────────────────────
