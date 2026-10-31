@@ -103,6 +103,16 @@ chip_r1() {
 }
 
 # ── R6·R7·R8 공용: 표본 주입 ───────────────────────────────────────────────
+akey() { # $1=인증 파일 이름(stem) — 도구가 쓰는 «고정 식별자» 와 같은 규칙(uuid 전체 + 파일 이름 sha1 꼬리)
+  python3 -c '
+import hashlib,re,sys
+stem=sys.argv[1]
+m=(re.match(r"^[A-Za-z]+-([0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12})(?:-|$)",stem)
+   or re.match(r"^[A-Za-z]+-([0-9a-fA-F]{6,})(?:-|$)",stem))
+u=m.group(1).lower() if m else ""
+t=hashlib.sha1(stem.encode()).hexdigest()[:8]
+print(f"{u}-{t}" if u else hashlib.sha1(stem.encode()).hexdigest()[:20])' "$1"
+}
 put_sample() { # $1=state $2=at $3=key $4=kind $5=scope $6=percent $7=resets_at
   printf '%s\tclaude\t%s\t%s\t%s\t%s\t%s\n' "$2" "$3" "$4" "$5" "$6" "$7" >> "$(samples "$1")"
 }
@@ -126,8 +136,8 @@ chip_r2() {
   printf '%s\n' "$OUT" | grep -q '근거 없음' && ok "R2 null 리셋 = 근거 없음" || bad "R2 null 리셋 ($OUT)"
   jget "$(FT_ACCT_USAGE_AUTH_DIR="$A" FT_ACCT_USAGE_STATE="$S" bash "$TOOL" --json)" \
     'rows[0]["windows"][0]["percent"]==0' && ok "R2 관측된 0 은 0 그대로" || bad "R2 0 보존"
-  printf '{"aaaa1111":{"at":%s,"row":{"provider":"claude","account":"aaaa1111-x…b","result":"OK"}}}\n' \
-    "$NOW" > "$S/cache.json"
+  printf '{"%s":{"at":%s,"row":{"provider":"claude","account":"aaaa1111-x…b","result":"OK"}}}\n' \
+    "$(akey claude-aaaa1111-x@byourz.com)" "$NOW" > "$S/cache.json"
   run_usage "$A" "$S" --json
   jget "$OUT" 'rows[0]["windows"]=="근거 없음(구형 캐시)"' && ok "R2 구형 캐시 문구" || bad "R2 구형 캐시 문구 ($OUT)"
 }
@@ -153,7 +163,7 @@ chip_r4() {
   A="$(newdir r4)"; S="$(newdir r4s)"
   mk_auth "$A" claude-aaaa1111-x@byourz.com.json tok-a
   body tok-a '{"limits":[{"kind":"weekly_all","percent":50,"resets_at":"2026-11-04T05:59:59+00:00","scope":null}]}'
-  put_sample "$S" $((NOW - 3600)) aaaa1111 weekly_all "" 40.00 '2026-11-04T05:59:59+00:00'
+  put_sample "$S" $((NOW - 3600)) "$(akey claude-aaaa1111-x@byourz.com)" weekly_all "" 40.00 '2026-11-04T05:59:59+00:00'
   run_usage "$A" "$S" >/dev/null
   run_fc "$A" "$S" --json
   J="$OUT"; exp=$((NOW + 17280))
@@ -171,30 +181,30 @@ chip_r5() {
   A="$(newdir r5)"; S="$(newdir r5s)"
   mk_auth "$A" claude-aaaa1111-x@byourz.com.json tok-a
   body tok-a '{"limits":[{"kind":"weekly_all","percent":50,"resets_at":"2026-11-04T05:59:59+00:00","scope":null}]}'
-  put_sample "$S" $((NOW - 30)) aaaa1111 weekly_all "" 40.00 '2026-11-04T05:59:59+00:00'
+  put_sample "$S" $((NOW - 30)) "$(akey claude-aaaa1111-x@byourz.com)" weekly_all "" 40.00 '2026-11-04T05:59:59+00:00'
   run_usage "$A" "$S" >/dev/null; run_fc "$A" "$S" --json
   jget "$OUT" 'rows[0]["windows"][0]["windows"][0]["why"]=="간격"' && ok "R5 근거 없음(간격)" || bad "R5 간격 ($OUT)"
   # 감소 40→70→60 · 감소 뒤 표본 1개
   S="$(newdir r5s2)"; rm -rf "$S"; mkdir -p "$S"
-  put_sample "$S" $((NOW - 7200)) aaaa1111 weekly_all "" 40.00 '2026-11-04T05:59:59+00:00'
-  put_sample "$S" $((NOW - 3600)) aaaa1111 weekly_all "" 70.00 '2026-11-04T05:59:59+00:00'
+  put_sample "$S" $((NOW - 7200)) "$(akey claude-aaaa1111-x@byourz.com)" weekly_all "" 40.00 '2026-11-04T05:59:59+00:00'
+  put_sample "$S" $((NOW - 3600)) "$(akey claude-aaaa1111-x@byourz.com)" weekly_all "" 70.00 '2026-11-04T05:59:59+00:00'
   body tok-a '{"limits":[{"kind":"weekly_all","percent":60,"resets_at":"2026-11-04T05:59:59+00:00","scope":null}]}'
   run_usage "$A" "$S" >/dev/null; run_fc "$A" "$S" --json
   jget "$OUT" 'rows[0]["windows"][0]["windows"][0]["why"]=="감소"' && ok "R5 근거 없음(감소)" || bad "R5 감소 ($OUT)"
   # 감소 뒤 표본 2개 더(60→65→70) → 속도가 선다
   S="$(newdir r5s3)"; rm -rf "$S"; mkdir -p "$S"
-  put_sample "$S" $((NOW - 7200)) aaaa1111 weekly_all "" 40.00 '2026-11-04T05:59:59+00:00'
-  put_sample "$S" $((NOW - 3600)) aaaa1111 weekly_all "" 70.00 '2026-11-04T05:59:59+00:00'
-  put_sample "$S" $((NOW - 1800)) aaaa1111 weekly_all "" 60.00 '2026-11-04T05:59:59+00:00'
-  put_sample "$S" $((NOW - 900)) aaaa1111 weekly_all "" 65.00 '2026-11-04T05:59:59+00:00'
+  put_sample "$S" $((NOW - 7200)) "$(akey claude-aaaa1111-x@byourz.com)" weekly_all "" 40.00 '2026-11-04T05:59:59+00:00'
+  put_sample "$S" $((NOW - 3600)) "$(akey claude-aaaa1111-x@byourz.com)" weekly_all "" 70.00 '2026-11-04T05:59:59+00:00'
+  put_sample "$S" $((NOW - 1800)) "$(akey claude-aaaa1111-x@byourz.com)" weekly_all "" 60.00 '2026-11-04T05:59:59+00:00'
+  put_sample "$S" $((NOW - 900)) "$(akey claude-aaaa1111-x@byourz.com)" weekly_all "" 65.00 '2026-11-04T05:59:59+00:00'
   body tok-a '{"limits":[{"kind":"weekly_all","percent":70,"resets_at":"2026-11-04T05:59:59+00:00","scope":null}]}'
   run_usage "$A" "$S" >/dev/null; run_fc "$A" "$S" --json
   jget "$OUT" 'abs(float(rows[0]["windows"][0]["windows"][0]["why"].split()[1].rstrip("%"))-20.0)<0.2' \
     && ok "R5 감소 뒤 2개 = 시간당 20%" || bad "R5 감소 뒤 속도 ($OUT)"
   # resets_at 이 바뀌면 옛 표본은 다른 창이다
   S="$(newdir r5s4)"; rm -rf "$S"; mkdir -p "$S"
-  put_sample "$S" $((NOW - 7200)) aaaa1111 weekly_all "" 40.00 '2026-10-31T05:59:59+00:00'
-  put_sample "$S" $((NOW - 3600)) aaaa1111 weekly_all "" 45.00 '2026-10-31T05:59:59+00:00'
+  put_sample "$S" $((NOW - 7200)) "$(akey claude-aaaa1111-x@byourz.com)" weekly_all "" 40.00 '2026-10-31T05:59:59+00:00'
+  put_sample "$S" $((NOW - 3600)) "$(akey claude-aaaa1111-x@byourz.com)" weekly_all "" 45.00 '2026-10-31T05:59:59+00:00'
   run_usage "$A" "$S" >/dev/null; run_fc "$A" "$S" --json
   jget "$OUT" 'rows[0]["windows"][0]["windows"][0]["why"]=="표본"' && ok "R5 리셋 바뀐 옛 표본 제외" || bad "R5 리셋 제외 ($OUT)"
 }
@@ -205,7 +215,7 @@ chip_r6() {
   A="$(newdir r6)"; S="$(newdir r6s)"
   mk_auth "$A" claude-aaaa1111-x@byourz.com.json tok-a
   body tok-a '{"limits":[{"kind":"weekly_all","percent":50,"resets_at":"2026-11-04T05:59:59+00:00","scope":null}]}'
-  put_sample "$S" $((NOW - 3630)) aaaa1111 weekly_all "" 40.00 '2026-11-04T05:59:59+00:00'
+  put_sample "$S" $((NOW - 3630)) "$(akey claude-aaaa1111-x@byourz.com)" weekly_all "" 40.00 '2026-11-04T05:59:59+00:00'
   FT_ACCT_USAGE_NOW=$((NOW - 30)) run_usage "$A" "$S" >/dev/null
   run_fc "$A" "$S" --json   # 캐시 적중(30초) → 관측 시각 = NOW-30
   J="$OUT"
@@ -255,8 +265,8 @@ chip_r8() {
                           {"kind":"weekly_scoped","percent":47,"resets_at":"2026-11-04T06:00:00+00:00","scope":{"model":{"display_name":"A"}}}]}'
   body tok-b '{"limits":[{"kind":"weekly_all","percent":100,"resets_at":"2026-10-31T06:00:00+00:00","scope":null}]}'
   body tok-c '{"limits":[{"kind":"weekly_all","percent":40,"resets_at":"2026-11-04T05:59:59+00:00","scope":null}]}'
-  put_sample "$S" $((NOW - 3600)) cccc3333 weekly_all "" 30.00 '2026-11-04T05:59:59+00:00'
-  put_sample "$S" $((NOW - 3600)) aaaa1111 weekly_scoped '{"model":{"display_name":"A"}}' 47.00 '2026-11-04T06:00:00+00:00'
+  put_sample "$S" $((NOW - 3600)) "$(akey claude-cccc3333-x@byourz.com)" weekly_all "" 30.00 '2026-11-04T05:59:59+00:00'
+  put_sample "$S" $((NOW - 3600)) "$(akey claude-aaaa1111-x@byourz.com)" weekly_scoped '{"model":{"display_name":"A"}}' 47.00 '2026-11-04T06:00:00+00:00'
   run_usage "$A" "$S" --json >/dev/null
   J="$(FT_ACCT_USAGE_AUTH_DIR="$A" FT_ACCT_USAGE_STATE="$S" bash "$TOOL" --json)"
   run_fc "$A" "$S" --json
@@ -298,15 +308,15 @@ chip_r9() {
     "rows[0]['observed_at']=='$(iso $NOW)'" && ok "R9 관측 시각 = 지금(미래 캐시 안 씀)" || bad "R9 관측 시각"
   # 예측 도구도 epoch 0 에서 돈다(속도·예상이 0 기준)
   S3="$(newdir r9s0)"
-  put_sample "$S3" -3600 aaaa1111 weekly_all "" 40.00 '2026-11-04T05:59:59+00:00'
+  put_sample "$S3" -3600 "$(akey claude-aaaa1111-x@byourz.com)" weekly_all "" 40.00 '2026-11-04T05:59:59+00:00'
   FT_ACCT_USAGE_NOW=0 run_usage "$A" "$S3" >/dev/null
   FT_ACCT_USAGE_NOW=0 run_fc "$A" "$S3" --json
   [ "$RC" -eq 0 ] && jget "$OUT" 'abs(rows[0]["windows"][0]["windows"][0]["eta"]-17280)<2' \
     && ok "R9 예측 도구 epoch 0 직접" || bad "R9 예측 epoch 0 ($RC $OUT)"
   # 미래 표본 제외 — 미래 표본(90%)이 섞이면 속도가 42%대로 나온다(10% = 제외됨)
   S="$(newdir r9s2)"
-  put_sample "$S" $((NOW - 3600)) aaaa1111 weekly_all "" 40.00 '2026-11-04T05:59:59+00:00'
-  put_sample "$S" $((NOW + 600)) aaaa1111 weekly_all "" 90.00 '2026-11-04T05:59:59+00:00'
+  put_sample "$S" $((NOW - 3600)) "$(akey claude-aaaa1111-x@byourz.com)" weekly_all "" 40.00 '2026-11-04T05:59:59+00:00'
+  put_sample "$S" $((NOW + 600)) "$(akey claude-aaaa1111-x@byourz.com)" weekly_all "" 90.00 '2026-11-04T05:59:59+00:00'
   run_usage "$A" "$S" >/dev/null; run_fc "$A" "$S" --json
   jget "$OUT" 'rows[0]["windows"][0]["windows"][0]["why"]=="시간당 10.0%"' && ok "R9 미래 표본 제외" || bad "R9 미래 표본 ($OUT)"
 }
@@ -366,25 +376,30 @@ PY
 
 # ── R12 표본 키·접기·영속 기본 폴더 ─────────────────────────────────────────
 chip_r12() {
-  local A S n keys
+  local A S n keys k1 k2
   A="$(newdir r12)"; S="$(newdir r12s)"
-  mk_auth "$A" claude-aaaa1111-x@byourz.com.json tok-a     # uuid 같음 · 정렬 뒤
-  mk_auth "$A" claude-aaaa1111-x@bmail.com.json tok-b     # uuid 같음 · 정렬 앞(짧은 id -2)
-  body tok-a '{"limits":[{"kind":"weekly_all","percent":70,"resets_at":"2026-11-04T05:59:59+00:00","scope":null}]}'
+  # 사전 캐시 → 충돌 계정 추가 → 앞 계정 삭제 (DA② 반례 1 순서)
+  mk_auth "$A" claude-aaaa1111-x@byourz.com.json tok-b     # T : 10%
   body tok-b '{"limits":[{"kind":"weekly_all","percent":10,"resets_at":"2026-11-04T05:59:59+00:00","scope":null}]}'
   run_usage "$A" "$S" >/dev/null
-  keys="$(cut -f3 "$(samples "$S")" | sort -u | tr '\n' ' ')"
-  printf '%s' "$keys" | grep -q '^aaaa1111' && ok "R12 표본 키 = uuid" || bad "R12 표본 키 ($keys)"
-  printf '%s' "$keys" | grep -q '@' && bad "R12 표본 키에 이메일" || ok "R12 표본 키에 이메일 0"
+  k1="$(cut -f3 "$(samples "$S")" | sort -u | tr '\n' ' ')"
+  printf '%s' "$k1" | grep -q '^aaaa1111' && ok "R12 표본 키 = uuid 접두" || bad "R12 표본 키 ($k1)"
+  printf '%s' "$k1" | grep -q '@' && bad "R12 표본 키에 이메일" || ok "R12 표본 키에 이메일 0"
+  mk_auth "$A" claude-aaaa1111-x@bmail.com.json tok-a     # T+10s : 70% 충돌 계정
+  body tok-a '{"limits":[{"kind":"weekly_all","percent":70,"resets_at":"2026-11-04T05:59:59+00:00","scope":null}]}'
+  FT_ACCT_USAGE_NOW=$((NOW + 10)) run_usage "$A" "$S" >/dev/null
   n="$(cut -f3 "$(samples "$S")" | sort -u | grep -c .)"
-  [ "$n" -eq 2 ] && ok "R12 uuid 같은 계정 2개 → 표본 키 다름" || bad "R12 충돌 키 ($keys)"
-  # 앞 파일 삭제 뒤 «같은 상태 폴더» → 남은 계정이 삭제 계정 값을 받으면 안 된다(70% 단언)
-  rm -f "$A/claude-aaaa1111-x@bmail.com.json"
-  run_usage "$A" "$S" --json
+  [ "$n" -eq 2 ] && ok "R12 uuid 같은 계정 2개 → 표본 키 다름" || bad "R12 충돌 키 ($n)"
+  k1="$(awk -F'\t' '$6=="70.00"{print $3}' "$(samples "$S")" | sort -u | tr '\n' ' ')"
+  rm -f "$A/claude-aaaa1111-x@byourz.com.json"          # T+20s : 10% 계정 삭제
+  FT_ACCT_USAGE_NOW=$((NOW + 20)) run_usage "$A" "$S" --json
   jget "$OUT" 'rows[0]["windows"][0]["percent"]==70' && ok "R12 삭제 뒤 재조회 값 70%(섞임 0)" \
     || bad "R12 삭제 뒤 값 ($OUT)"
-  jget "$(cat "$S/cache.json")" 'rows["aaaa1111"]["row"]["windows"][0]["percent"]==70' \
-    && ok "R12 캐시 키 = uuid(전체)" || bad "R12 캐시 키"
+  k2="$(awk -F'\t' '$6=="70.00"{print $3}' "$(samples "$S")" | sort -u | tr '\n' ' ')"
+  [ "$k1" = "$k2" ] && [ -n "$k2" ] && ok "R12 키가 다른 계정 존재·수에 무관" \
+    || bad "R12 키 변동(k1=$k1 k2=$k2)"
+  jget "$(cat "$S/cache.json")" "'${k2%% }' in rows and rows['${k2%% }']['row']['windows'][0]['percent']==70" \
+    && ok "R12 캐시 키 = 그 파일 고정값" || bad "R12 캐시 키"
   S="$(newdir r12s2)"
   put_sample "$S" $((NOW - 86400 * 31)) aaaa1111 weekly_all "" 90.00 ''    # 31일 전 = 버린다
   local i

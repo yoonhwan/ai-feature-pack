@@ -154,12 +154,16 @@ def iso_at(t):
     return dt.datetime.fromtimestamp(float(t), dt.timezone.utc).isoformat(timespec="seconds")
 
 
-def account_key(stem):  # 표본·캐시·직전 값의 «고정 식별자» = uuid 전체(첫 하이픈에서 자르지 않는다)
+def account_key(stem):  # 표본·캐시·직전 값의 «고정 식별자» = uuid 전체 + 파일 이름 꼬리 «항상»
+    #   꼬리를 «충돌이 있을 때만» 붙이면 다른 계정의 존재·수에 따라 키가 바뀌어 남의 캐시를 받는다(DA② 반례 1).
+    #   꼬리 재료는 파일 «이름»이다 — 내용(토큰)이 갱신되도 표본 이력이 이어져야 속도가 선다.
     m = re.match(r"^[A-Za-z]+-([0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12})(?:-|$)", stem)
-    if m:
-        return m.group(1).lower()
-    m = re.match(r"^[A-Za-z]+-([0-9a-fA-F]{6,})(?:-|$)", stem)
-    return m.group(1).lower() if m else hashlib.sha1(stem.encode()).hexdigest()[:12]
+    uuid_seg = m.group(1).lower() if m else ""
+    if not uuid_seg:
+        m = re.match(r"^[A-Za-z]+-([0-9a-fA-F]{6,})(?:-|$)", stem)
+        uuid_seg = m.group(1).lower() if m else ""
+    tail = hashlib.sha1(stem.encode()).hexdigest()[:8]
+    return f"{uuid_seg}-{tail}" if uuid_seg else hashlib.sha1(stem.encode()).hexdigest()[:20]
 
 
 def iso(v):  # 응답의 리셋 값(ISO 문자열 또는 epoch 초) → ISO 문자열 · 근거 없으면 ""
@@ -513,7 +517,7 @@ def main(argv):
         prov = stem.split("-")[0]
         acc = short_id(stem)
         seen[acc] = seen.get(acc, 0) + 1
-        acc = acc if seen[acc] == 1 else f"{acc}-{seen[acc]}"  # 짧은 id 충돌은 번호로 가른다
+        acc = acc if seen[acc] == 1 else f"{acc}-{seen[acc]}"  # 짧은 id 충돌은 번호로 가른다(표시용)
         keys[acc] = account_key(stem)
         stem_of[acc] = stem
         row = {"provider": prov, "account": acc, "observed_at": now_iso()}
@@ -531,13 +535,7 @@ def main(argv):
         else:
             rows.append((p, dict(row, result=""), auth))
             targets.append(rows[-1])
-    counts = {}
-    for k in keys.values():
-        counts[k] = counts.get(k, 0) + 1
-    for acc in keys:
-        if counts[keys[acc]] > 1:  # 같은 uuid 접두 = 표본 키가 겹치지 않게 파일 꼬리로 가른다(섞임 0)
-            keys[acc] = keys[acc] + "-" + hashlib.sha1(stem_of[acc].encode()).hexdigest()[:8]
-    for _p, r, _a in rows:  # 예측 도구가 표본을 찾을 열쇠(이메일·토큰 0)
+    for _p, r, _a in rows:  # 예측 도구가 표본을 찾을 열쇠(이메일·토큰 0 · 다른 계정의 존재와 무관)
         r["account_key"] = keys.get(r["account"], "")
     if want and not rows:
         print(f"판정 불가 계정 없음 {want}")
