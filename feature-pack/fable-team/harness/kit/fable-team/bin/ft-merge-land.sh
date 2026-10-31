@@ -36,7 +36,7 @@ AST="$(bash "$AUT" state-dir 2>/dev/null)"   # r648: 승인 폴더 = 이 정식 
 [ -n "$AST" ] || { echo "REJECT 자율 상태 폴더 해석 실패 — 실행 0"; exit 2; }
 [ -z "$AP" ] || { AF="$AST/autonomy-merge-approved/$AP"   # R725: 승인 값을 준 경우만 승인 파일을 본다(빈 값 = doc-exempt 판정이 가른다)
 [ "$(wc -l < "$AF" 2>/dev/null | tr -d ' ')" = 1 ] && grep -q "^approve-merge $AP " "$AF" && grep -qxF "$(head -n1 "$AF")" "$AST/autonomy.log" 2>/dev/null \
-  || { echo "REJECT 오빠 승인 파일 없음 — 승인 h 한 줄 먼저(approve-merge $AP 승인 파일·로그 한 줄 없음) — 실행 0$(bash "$HERE/ft-hil-notify.sh" wait "$AP" "$AST")"; exit 2; }   # r1117: 거절 sha 기다림 표식 → approve-merge 가 그 좌석에 [승인 도착] 1통
+  || { fm_ap_wait "$REPO" "$REMOTE" "$TARGET" "$AP" "$AST"; exit 2; }   # r1117: 거절 sha 기다림 표식 → approve-merge 가 그 좌석에 [승인 도착] 1통 · r1200: 커밋 아님·승인된 조상 있음 = 표식 0(ft-merge-lib.sh)
 AFE="$(awk '{print $4}' "$AF")"; AFV="$(awk '{print $3}' "$AF")"; }   # 승인 epoch — merge-gate.log 에 «누가 언제 승인했나» 를 남긴다
 CPL="$AST/merge-close-pending.jsonl"; CPK="${SLUG:-$RROOT}"; fm_close_retry "$CPL" "$CPK" "$SLUG" "$GH_W" $((LIM - (SECONDS - T0)))   # r1131: ⑦ 실패로 «닫기 대기» 장부에 남은 같은 리포 PR(최대 3)을 먼저 다시 닫는다 — 남은 ≥ 20 s 일 때만 · 성공 = 장부에서 지움 · 착지 판정·rc 영향 0
 JSON="$(fm_t7 "$GH_R" pr view "$PR" ${SLUG:+-R "$SLUG"} --json headRefOid,headRefName,isCrossRepository,title,body,state,baseRefName)" || rej "gh pr view $PR 실패(7 s + 재시도 1)"; deadline
@@ -72,7 +72,7 @@ Q="$(G commit-tree "$S^{tree}" -p "$M" -m "$MSG")" || rej "commit-tree 실패"
 PBO="$(fm_push_bound "$REPO" "$M" "$Q")"
 fi
 [ ! -f "$HERE/ft-bg-loop-lint.sh" ] || BLO="$(bash "$HERE/ft-bg-loop-lint.sh" --range "$M..$S" --repo "$REPO")" || rej "$(printf '%s' "$BLO" | head -3 | tr '\n' ' ')"   # r448: 가지가 추가·수정한 design/·tests/e2e/ *.sh 의 while+sleep+>> 루프가 ft-bg-loop.sh 래퍼 밖 = 착지 0
-TB="$(fm_timeout_bin)" || rej "timeout 도구 없음"
+TB="$(fm_timeout_bin)" || rej "timeout 도구 없음"; PEV="$(bash "$HERE/ft-press-evidence.sh" check --repo "$REPO" --remote "$REMOTE" --main "$M" --head "$S" --landing "$Q" --pr "$PR" --title "$(pf title)" --body "$(pf body)" --root "$ROOT")" || rej "${PEV:-press 증거 검사 실패(출력 0) — 판정 2946}"; [ -z "$PEV" ] || echo "${PEV%%$'\n'*}"; deadline   # r1230 판정 2946: BYZ 리포 ∧ 배포 경로(cd-dev.yml paths-filter) 변경 = press 증거 묶음(원격 refs/press/<세트>-<run>) 필수 · 정확 역변경만 면제 + 빚 · 대상 밖 리포 = 출력 0
 PN="${PBO% *}"; PB="${PBO#* }"; PV="$(fm_push_calc '?' 2>/dev/null)"   # R354: PB = 크기 비례로 «계산한 최대 시도 시간» · AB = 그 시도에 실제로 건 상한 min(PB, 남은 시간) · PV = 최소 1단위(F+7)
 LANDVIA=""
 for i in 1 2; do
@@ -92,7 +92,7 @@ for i in 1 2; do
   elif [ "$lrc" -eq 0 ] && [ "$LSV" = "$M" ]; then rej "착지 0 확정(원격 $TARGET = $M) · push 응답 불명(rc=$PRC) · 재시도 0 — 총 마감 안에 끝내지 못함 · 다음 틱에 다시"
   else rej "원격 상태 불명 · 손 확인 필요(push rc=$PRC · ls-remote rc=$lrc 값=${LSO:0:80})"; fi
 done
-mkdir -p "$STATE" && printf '%s repo=%s main=%s head=%s method=ft-merge-land%s tree=%s landed=%s pr=%s approve=%s%s approve-file=%s%s%s%s\n' "$(date +%Y-%m-%dT%H:%M:%S)" "$(basename "${SLUG:-$ROOT}")" "$M" "$S" "${FF:+-ff}" "$(G rev-parse "$S^{tree}")" "$Q" "$PR" "$AP" "${EQM:+ $EQM}" "${AFE:-}" "${LANDVIA:+ push-confirmed=ls-remote}" "${DOCX:+ $DOCX}${S0:+ doc-auto-merge=$S0}" "$([ "${AFV:-}" != D1 ] || printf ' standing=D1')" >>"$STATE/merge-gate.log"   # r947: 상시 승인 착지만 끝에 standing=D1
+mkdir -p "$STATE" && printf '%s repo=%s main=%s head=%s method=ft-merge-land%s tree=%s landed=%s pr=%s approve=%s%s approve-file=%s%s%s%s%s\n' "$(date +%Y-%m-%dT%H:%M:%S)" "$(basename "${SLUG:-$ROOT}")" "$M" "$S" "${FF:+-ff}" "$(G rev-parse "$S^{tree}")" "$Q" "$PR" "$AP" "${EQM:+ $EQM}" "${AFE:-}" "${LANDVIA:+ push-confirmed=ls-remote}" "${DOCX:+ $DOCX}${S0:+ doc-auto-merge=$S0}" "$([ "${AFV:-}" != D1 ] || printf ' standing=D1')" "${PEV:+ ${PEV##*$'\n'}}" >>"$STATE/merge-gate.log"   # r947: 상시 승인 착지만 끝에 standing=D1
 echo "LANDED pr=$PR sha=$Q main_before=$M head=$S tree=$(G rev-parse "$Q^{tree}")${FF:+ mode=ff}"
 echo "push ok objects=$PN bound=$PB attempt=$AB took=$((SECONDS - PS))s${LANDVIA:+ confirmed=ls-remote(응답 후 timeout)}"   # R354: 착지마다 1줄 — bound=계산 최대 · attempt=실제 상한 · took=마지막 시도 소요 · 3건 모이면 기준량 U0 갱신 근거
 SN="$(awk -v ap="$AP" '$1=="scope-use" && $3==ap && $2 ~ /^S[0-9]+$/ {s=$2} END{print s}' "$STATE/autonomy.log" 2>/dev/null)"   # R298(DA⑥ H3): 그 승인 sha 의 «마지막 scope-use S<n>» 한 원장만 — 줄 없으면 0
@@ -115,6 +115,6 @@ if [ "$irc" -eq 124 ] || [ "$irc" -eq 143 ]; then echo "INSTALL-PENDING 설치 �
 else printf '%s\n' "$IOUT" | sed 's/^/INSTALL /'; fi
 [ "$irc" -eq 0 ] || { mkdir -p "$ROOT/.fable-team/state/install-pending" && printf '%s\n' "$IOUT" > "$ROOT/.fable-team/state/install-pending/$Q.txt"; } || echo "WARN install-pending 기록 실패"
 CB="$(mktemp)"; lr_trap 'rm -f "$CB"'   # R261: ft-gh-as-tank.sh 는 하이픈 동사 + 본문 «파일» + --apply(없으면 dry-run) · pr-close --comment 한 번이 코멘트+닫기
-printf '%s\n' "착지 sha $Q (ft-merge-land · 검사 트리 == 착지 트리 · 판정 1875)${EQ:+ · 동일승인 대조 EQUIV (${AP:0:10}→${S:0:10} · 판정 1917${EQM:+ · $EQM})}${S0:+ · main 자동 병합(문서 전용 · 겹침 0) C=${S:0:10}}" > "$CB"
+printf '%s\n' "착지 sha $Q (ft-merge-land · 검사 트리 == 착지 트리 · 판정 1875)${EQ:+ · 동일승인 대조 EQUIV (${AP:0:10}→${S:0:10} · 판정 1917${EQM:+ · $EQM})}${S0:+ · main 자동 병합(문서 전용 · 겹침 0) C=${S:0:10}}${PEV:+ · ${PEV%%$'\n'*}}" > "$CB"
 fm_pr_close "$SLUG" "$PR" "$CB" "$GH_W" \
   || { echo "WARN 착지는 성공 — PR #$PR 코멘트/닫기 실패: 손으로 처리(착지 sha $Q)"; fm_close_pending_add "$CPL" "$CPK" "$PR" "$Q"; exit 3; }   # r1131: 실패 PR 은 «닫기 대기» 장부 1줄 → 다음 착지 시작 때 다시 닫는다(조용히 OPEN 으로 쌓이지 않게)
