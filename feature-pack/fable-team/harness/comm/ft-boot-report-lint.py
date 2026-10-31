@@ -4,9 +4,9 @@
   ①승계(발신 이름 X#N 이고 명부에 X#N-1 행 있음, 또는 _replaces 있음)면 본문에 `retire=<구>-><후계> rc=0`(-> 또는 →) —
     구 ∈ {X#N-1, _replaces} · 후계 == 발신 좌석 · 구 행 _replaced_by == 발신 좌석(칸 글자가 아니라 명부 사실)
   ②발신 좌석 role 이 master·arch 면 `cron=<id>` 칸(BOOT 16)
-  ③planner 팀장(seats-planner.json `_master`)·desk(role=desk) 면 `adhd=O` 칸(BOOT 2·9 · r625) — 그 밖 좌석 검사 0
+  ③planner 팀장(seats-planner.json `_master`)·desk(role=desk) 면 `adhd=O` 칸(BOOT 2·9 · r625) — 그 밖 좌석 검사 0 · ④승계 master·planner·desk·arch 면 «담당 없는 오빠 지시 N · 멈춘 오빠 지시 M · 판본 <stamp>» 칸 = stamps.tsv 행 대조·30분(r1212)
 설계 정본 = PLAN-planner-no-stall-20261012 r5 §4-2 · 명부 파일 선택 = mbox_guard.sh tfile 규칙(v65 → seats.json, 그 외 seats-<팀>.json)."""
-import argparse, json, os, re, sys
+import argparse, json, os, re, sys, time
 from typing import NoReturn
 
 
@@ -63,7 +63,18 @@ def main():
     adhd_seat = (a.me == d.get("_master") and a.me.startswith(("byz-planner-", "ft-planner-"))) or (row or {}).get("role") == "desk"
     if adhd_seat and not re.search(r"(?<![A-Za-z0-9_])adhd=O(?![A-Za-z0-9_])", body):
         say("REJECT", "부팅 보고 반송 — adhd 칸 없음: adhd=O (i-have-adhd 로드 뒤 · BOOT 2·9)")
+    if cands and ((row or {}).get("role") in ("master", "arch", "desk") or a.me == d.get("_master")):
+        directive_cell(os.environ.get("FT_DIRECTIVE_STAMPS") or os.path.join(a.seats_dir, "state", "directive-watch", "stamps.tsv"), body)
     say("OK")
+
+def directive_cell(f, body):  # ④ r1212 승계 master·planner·desk·arch — 지시 칸을 다시 세지 않고 stamps.tsv 의 그 판본 행과 대조 · «판정 불가 · <사유>» 칸만 WARN 통과 · 판본 파일 없음 = 반송
+    if re.search(r"지시 감시 판정 불가 · \S", body):
+        return print("WARN 부팅 보고 lint — 지시 칸 «판정 불가» · 대조 없이 통과", file=sys.stderr)
+    m = re.search(r"담당 없는 오빠 지시 (\d+) · 멈춘 오빠 지시 (\d+) · 판본 ((\d+)-[0-9a-f]{8})", body)
+    rows = {r[0]: r[1:3] for r in (ln.rstrip("\n").split("\t") for ln in open(f, encoding="utf-8")) if len(r) >= 3} if os.path.isfile(f) else None
+    why = "칸 없음" if not m else "판본 파일 없음(" + f + ")" if rows is None else "판본 행 없음" if m.group(3) not in rows else "숫자 다름" if rows[m.group(3)] != [m.group(1), m.group(2)] else "판본 30분 넘음" if float(os.environ.get("FT_DIRECTIVE_NOW") or time.time()) - int(m.group(4)) > 1800 else ""
+    if why:
+        say("REJECT", "부팅 보고 반송 — 지시 " + why + ": 담당 없는 오빠 지시 N · 멈춘 오빠 지시 M · 판본 <stamp> (ft-directive-watch.sh status 를 새로 돌려 머리 1줄 복붙)")
 
 
 main()
