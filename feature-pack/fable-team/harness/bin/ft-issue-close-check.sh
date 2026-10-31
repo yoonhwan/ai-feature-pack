@@ -189,9 +189,20 @@ gate_eval   # 7·8항(또는 관찰 조건) — 원인 확정 · 같은 증상 �
 if [ "$G_RC" -eq 0 ]; then echo "  OK   7·8항 원인 확정·같은 증상 보류 ($G_KIND)"; else PFX="REJECT close #$N — "; echo "  MISS 7·8항 — ${G_MSG#"$PFX"}"; MISS=1; fi
 
 # r1040: Closes 연결이 비었을 때 — 이슈 코멘트의 «연결 PR: #<번호>» 를 인정한다(이미 병합된 PR 본문은 고칠 수 없다). 그 PR 이 병합 상태일 때만 OK · 아니면 지금처럼 MISS + 안내 1줄.
-linked_pr() { # 코멘트의 «가장 마지막» 연결 PR 번호(없으면 빈 값) — 앞 줄로 내려가지 않는다
-  jq -r '[.comments[].body | split("\n")[] | select(test("연결\\s*PR\\s*[:：]\\s*#[0-9]+"))] | last // empty
-    | (capture("연결\\s*PR\\s*[:：]\\s*#(?<n>[0-9]+)") | .n)' <<<"$JSON" 2>/dev/null
+# r1106: «연결 PR: 팩 PR #<N> · 착지 sha <40hex>» = 팩 리포 PR — gh 호출 0 · 팩 리포(FT_PACK_ROOT · 기본 $HOME/Project/ai-feature-pack)의 origin/main 조상이면 인정.
+linked_pr() { # 코멘트의 «가장 마지막» 연결 PR 줄 → «B <번호>»(BYZ) 또는 «P <번호> [<sha>]»(팩 · sha 는 같은 줄) · 없으면 빈 값 — 앞 줄로 내려가지 않는다
+  jq -r '[.comments[].body | split("\n")[] | select(test("연결\\s*PR\\s*[:：]\\s*(팩\\s*PR\\s*)?#[0-9]+"))] | last // empty
+    | . as $l | capture("연결\\s*PR\\s*[:：]\\s*(?<p>팩\\s*PR\\s*)?#(?<n>[0-9]+)")
+    | if .p then "P \(.n) " + ([$l | capture("착지 sha (?<s>[0-9a-fA-F]{40})") | .s | ascii_downcase] | first // "") else "B \(.n)" end' <<<"$JSON" 2>/dev/null
+}
+pack_landed() { # <번호> <sha|빈> → 0 착지 sha 가 팩 origin/main 조상 · 1 MISS(사유 1줄)
+  local n="$1" s="$2" pk="${FT_PACK_ROOT:-$HOME/Project/ai-feature-pack}"
+  [ -n "$s" ] || { echo "  MISS 연결 팩 PR #$n — 팩 PR 은 착지 sha 를 같은 줄에(«연결 PR: 팩 PR #$n · 착지 sha <40hex>»)"; return 1; }
+  [ -d "$pk" ] || { echo "  MISS 연결 팩 PR #$n — 팩 리포 없음: $pk"; return 1; }
+  git -C "$pk" cat-file -e "$s^{commit}" 2>/dev/null || { echo "  MISS 연결 팩 PR #$n — 착지 sha ${s:0:10} 팩 리포에 없음 — 팩 리포 git fetch 후 다시"; return 1; }
+  if git -C "$pk" merge-base --is-ancestor "$s" origin/main 2>/dev/null; then   # r1106-mut:pack-ancestor
+    echo "  OK 연결 팩 PR #$n · 착지 sha ${s:0:10} 팩 origin/main 조상"; return 0; fi
+  echo "  MISS 연결 팩 PR #$n — 착지 sha ${s:0:10} 팩 origin/main 조상 아님"; return 1
 }
 pr_merged() { # <번호> → 0 병합(MERGED 또는 CLOSED+착지 sha 가 랜딩 ref 조상) · 1 아니오 · 2 판정 불가 (gh 1회 = 7초 + 재시도 1 · 실패는 «판정 불가» 1줄)
   local n="$1" st out TOA TRY S BODIES REF="${FT_LAND_REF:-origin/main}"
@@ -222,12 +233,14 @@ pr_merged() { # <번호> → 0 병합(MERGED 또는 CLOSED+착지 sha 가 랜딩
 }
 PRS="$(jq -r '[.closedByPullRequestsReferences[]?.number] | map("#"+tostring) | join(" ")' <<<"$JSON")"
 if [ -n "$PRS" ]; then echo "  OK   Closes 연결 PR $PRS"; else
-  LPR="$(linked_pr)"
-  if [ -n "$LPR" ] && pr_merged "$LPR"; then   # r1040-mut:linkedpr
+  read -r LK LPR LS <<<"$(linked_pr)"
+  if [ "$LK" = P ] && pack_landed "$LPR" "$LS"; then   # r1106-mut:packpath
+    echo "  OK   Closes 연결 PR 없음 · 이슈 «연결 PR: 팩 PR #${LPR}» 팩 착지 확인 → 인정"
+  elif [ "$LK" = B ] && pr_merged "$LPR"; then   # r1040-mut:linkedpr
     echo "  OK   Closes 연결 PR 없음 · 이슈 «연결 PR: #${LPR}» 병합 확인 → 인정"
   else
     echo "  MISS Closes 연결 PR 없음 — 랜딩 PR 본문에 「Closes #${N}」(착지 전) — 이미 병합됐으면 이슈에 「연결 PR: #<번호>」 코멘트 1줄"
-    [ -z "$LPR" ] || echo "  MISS 연결 PR #${LPR} — 병합 상태로 확인 0(판정 불가 또는 미병합)"
+    [ "$LK" != B ] || echo "  MISS 연결 PR #${LPR} — 병합 상태로 확인 0(판정 불가 또는 미병합)"
     MISS=1
   fi
 fi
