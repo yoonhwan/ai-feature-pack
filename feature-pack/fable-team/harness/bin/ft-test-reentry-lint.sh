@@ -52,19 +52,39 @@ BEGIN{ F="(HEAD|origin/[A-Za-z0-9_./-]+|main|master)(~[0-9]+|\\^)*" }
 }
 '
 
+# BGNOTRAP·TIMEOUTNOK(r1234) — 파일을 두 번 읽는다(1회차 = 파일에 `trap … kill` 이 있는가 · 2회차 = 줄 끝 & 판정) · 면제 = 줄 꼬리 `# bg-ok: <이유>`
+BG='
+NR==FNR { t=$0; sub(/^[ \t]+/,"",t); if (t !~ /^#/ && t ~ /(^|[ \t;&|(])trap[ \t].*kill/) hastrap=1; next }
+{
+  l=$0; sub(/^[ \t]+/,"",l)
+  if (l ~ /^#/) next
+  why=""; ex=0
+  if (match(l, /[ \t]*#[ \t]*bg-ok:[ \t]*/)) { why=substr(l,RSTART+RLENGTH); l=substr(l,1,RSTART-1); ex=1 }
+  if (l !~ /(^|[^&>|])&[ \t]*$/) next
+  if (!hastrap) { if (ex) printf "면제 BGNOTRAP %s:%d — %s\n", FILENAME, FNR, why; else printf "BGNOTRAP %s:%d\n", FILENAME, FNR }
+  if (match(l, /(^|[ \t;&|(])g?timeout[ \t]+/) && l !~ /(^|[ \t])(-k[ \t]*[0-9]|--kill-after)/) {
+    if (ex) printf "면제 TIMEOUTNOK %s:%d — %s\n", FILENAME, FNR, why; else printf "TIMEOUTNOK %s:%d\n", FILENAME, FNR }
+}
+'
+
 RE_LINES=""; OK_LINES=""; rc=0
 for f in "$@"; do
   [ -f "$f" ] || { echo "ERROR $f 없음 — 판정 불가" >&2; exit 2; }
   o="$(awk -v base="$(basename -- "$f")" "$PROG" "$f")"; arc=$?
   fo="$(awk "$FLOAT" "$f")"; fb="$(printf '%s\n' "$fo" | grep '^FLOATBASE ')"; ex="$(printf '%s\n' "$fo" | grep '^면제 ')"
+  bo="$(awk "$BG" "$f" "$f")"; bv="$(printf '%s\n' "$bo" | grep -E '^(BGNOTRAP|TIMEOUTNOK) ')"; bx="$(printf '%s\n' "$bo" | grep '^면제 ')"
   case "$o" in REENTRY*) RE_LINES="${RE_LINES}${o}"$'\n';; esac
   [ -z "$fb" ] || { RE_LINES="${RE_LINES}${fb}"$'\n'; rc=3; }
+  [ -z "$bv" ] || { RE_LINES="${RE_LINES}${bv}"$'\n'; rc=3; }
   [ -z "$ex" ] || OK_LINES="${OK_LINES}${ex}"$'\n'
-  case "$o" in REENTRY*) ;; *) [ -n "$fb" ] || OK_LINES="${OK_LINES}${o}"$'\n';; esac
+  [ -z "$bx" ] || OK_LINES="${OK_LINES}${bx}"$'\n'
+  case "$o" in REENTRY*) ;; *) [ -n "$fb$bv" ] || OK_LINES="${OK_LINES}${o}"$'\n';; esac
   [ "$arc" = 0 ] || rc=3
 done
 [ -z "$RE_LINES" ] || printf '%s' "$RE_LINES"
 [ -z "$OK_LINES" ] || printf '%s' "$OK_LINES"
 case "$RE_LINES" in *REENTRY*) echo "REENTRY 위반 — 그 줄 앞에 표지 검사(환경변수 검사 + exit)를 둔다(자기 파일 재호출 = 무한 재귀 · r1041)" >&2;; esac
 case "$RE_LINES" in *FLOATBASE*) echo "FLOATBASE 위반 — 기준판은 고치기 직전 main 의 고정 40hex sha 로 꺼낸다(떠다니는 이름은 착지 뒤 새 코드 · r1132) · 픽스처 ref 면 줄 꼬리 # baseline-ref: ok <이유>" >&2;; esac
+case "$RE_LINES" in *BGNOTRAP*) echo "BGNOTRAP 위반 — & 로 띄운 자식이 있는데 파일에 trap … kill 이 없다(시험이 끝나도 자식이 남는다 · r1234) · 의도면 줄 꼬리 # bg-ok: <이유>" >&2;; esac
+case "$RE_LINES" in *TIMEOUTNOK*) echo "TIMEOUTNOK 위반 — timeout … & 에 -k(--kill-after)가 없다(TERM 무시 자식이 래퍼까지 붙잡는다 · r1234) · timeout -k 5 <수> … & · 의도면 줄 꼬리 # bg-ok: <이유>" >&2;; esac
 exit "$rc"

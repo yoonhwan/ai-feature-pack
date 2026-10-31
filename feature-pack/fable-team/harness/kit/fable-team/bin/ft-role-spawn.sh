@@ -89,6 +89,8 @@ case "$_rrc" in
 esac
 WT="$(git rev-parse --show-toplevel)"                       # 역할 좌석이 뜨는 자리 = 이 워크트리
 ROOT="$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||')"   # 리포 루트
+# r1217: 역할 좌석 모델은 사람이 정한다 — 계정 주간 한도 판정은 권고 1줄만(모델·rc 불변 · FT_ACCT_ASSIGN=0 = 호출 0)
+[ "${FT_ACCT_ASSIGN:-1}" = 0 ] || [ ! -f "$HERE/ft-acct-assign.sh" ] || echo "ASSIGN $MODEL → $(FT_ROOT="$ROOT" bash "$HERE/ft-acct-assign.sh" "$MODEL" --seat-kind role | tail -1)"
 # ★페널티 게이트 (R320b · 오빠 판정 2170)★: 전 세션 정지(PENALTY_STOP 파일) 중이면 재개 전 팀은 열지 않는다(부작용 전 · successor 는 대상 아님). 팀 = env FT_PENALTY_TEAM, 없으면 FT_ROLE_BASE_PREFIX(`byz-<팀>-`)에서 — 팀을 못 알면 정지 중엔 거절. 파일이 있는데 판정기가 없으면 REJECT(조용한 통과 0).
 if [ -f "$ROOT/.fable-team/state/PENALTY_STOP" ]; then
   [ -f "$HERE/ft-penalty.sh" ] || { echo "REJECT 전 세션 정지 중인데 ft-penalty.sh 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }

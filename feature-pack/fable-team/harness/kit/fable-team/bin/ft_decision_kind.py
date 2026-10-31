@@ -8,12 +8,13 @@
   본문 없음 = 본문 파일이 사라진 행(r738) — 셈을 멈추지 않고 «본문 없음» 으로 세고 stderr 경고 1줄 · 그 밖의 읽기 실패는 그대로 ReadError
 닫힘 = obligation_closed(줄, answered_seqs(planner)) — 정본 술어 1곳.
 """
+import os
 import re
 import sys
 from datetime import datetime
 
 from ft_decision_alarm import ReadError
-from ft_inbox_core import MUST_REPORT, obligation_closed
+from ft_inbox_core import INBOX, MUST_REPORT, obligation_closed
 
 STALE_MIN = 24 * 60
 HEAD = re.compile(r"(?:\s*\[[^\]]*\])+")
@@ -50,14 +51,57 @@ def minutes(ts, now):
     return int((now - (t.astimezone().replace(tzinfo=None) if t.tzinfo else t)).total_seconds() // 60)
 
 
+def heads_path():
+    return os.environ.get("FT_DECISION_HEADS") or f"{os.path.dirname(INBOX)}/ft-decision-heads.tsv"
+
+
+def heads_load(path):
+    """머리 캐시(seq<TAB>첫 줄) → {seq: 첫 줄}. 깨진 줄(탭·숫자 seq 없음 · 깨진 글자)만 무시 · 파일 없음 = 빈 캐시 · 못 읽음 = WARN 1줄 + 빈 캐시(느려질 뿐 값은 같다)."""
+    try:
+        with open(path, encoding="utf-8", errors="replace") as f:
+            lines = f.read().split("\n")
+    except FileNotFoundError:
+        return {}
+    except OSError as e:
+        print(f"WARN ft-decision-count: 머리 캐시 못 읽음 {path} {type(e).__name__}", file=sys.stderr)
+        return {}
+    out = {}
+    for ln in lines:
+        seq, tab, first = ln.partition("\t")
+        if tab and seq.isascii() and seq.isdigit() and "�" not in first:
+            out[seq] = first
+    return out
+
+
+def heads_append(path, fresh):
+    """새로 연 본문의 첫 줄을 캐시에 이어 쓴다. 마지막 줄이 개행 없이 끊겼으면 줄바꿈부터 · 실패 = WARN 1줄(집계는 그대로)."""
+    if not fresh:
+        return
+    try:
+        with open(path, "a+", encoding="utf-8") as f:
+            f.seek(0, 2)
+            lead = ""
+            if f.tell():
+                f.seek(f.tell() - 1)
+                lead = "" if f.read(1) == "\n" else "\n"
+            f.write(lead + "".join(f"{s}\t{' '.join(first.split(chr(9)))}\n" for s, first in fresh))
+    except OSError as e:
+        print(f"WARN ft-decision-count: 머리 캐시 못 씀 {path} {type(e).__name__}", file=sys.stderr)
+
+
 def open_rows(rows, answered, now):
-    """보고 의무 급 미닫힘 → [(줄, 이유 낱말, 경과 분)]."""
-    out = []
+    """보고 의무 급 미닫힘 → [(줄, 이유 낱말, 경과 분)]. 본문 첫 줄은 머리 캐시에서 읽고 캐시에 없는 본문만 연다(r1236)."""
+    out, cache, fresh = [], heads_load(heads_path()), []
     for x in rows:
         if x["cls"] in MUST_REPORT and not obligation_closed(x, answered):
             mins = minutes(x["ts"], now)
-            first = head_line(x["body_path"])
+            first = cache.get(str(x["seq"]))
+            if first is None:
+                first = head_line(x["body_path"])
+                if first is not None:  # 본문 없음은 캐시에 넣지 않는다(다음에 생길 수 있음)
+                    fresh.append((x["seq"], first))
             out.append((x, BODY_MISSING if first is None else kind(first, mins), mins))
+    heads_append(heads_path(), fresh)
     miss = sorted((x for x, k, _ in out if k == BODY_MISSING), key=lambda x: x["seq"])
     if miss:  # r738: 본문 파일이 없어도 셈은 계속한다 — 조용한 0 이 아니도록 건수·seq 범위·첫 경로를 남긴다(r1135: 건마다 1줄 → 1줄로 묶음)
         print(f"WARN ft-decision-count: 쪽지 본문 없음 {len(miss)}건(첫 #{miss[0]['seq']} · 끝 #{miss[-1]['seq']}) {miss[0]['body_path'] or '(body_path 빈 값)'}", file=sys.stderr)
