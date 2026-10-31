@@ -15,7 +15,8 @@ BYZ_TABLE = [(c, k, re.compile(rx, re.I)) for c, k, rx in [
     ("forbid", "deploy", r"^\.github/workflows/|^infra/|^terraform/|cloudbuild|(^|/)Dockerfile|^deploy/|^scripts/deploy"),
     ("forbid", "key", r"(^|/)secrets/|(^|/)[^/]*\.env[^/]*$|\.cred$"),
     ("forbid", "billing", r"^docs/architect/COST_BASE_TABLE\.md$"),
-    ("forbid", "deps", r"(^|/)(package\.json|pyproject\.toml|requirements[^/]*\.txt)$|(^|/)[^/]*[-.]lock[^/]*$"),
+    # 잠금 파일 이름만(r1211): «-lock»·«.lock» 뒤에 붙는 것은 b·.json·.yaml·.yml·.toml 만 — «-locked.png» 같은 보통 파일은 deps 아님
+    ("forbid", "deps", r"(^|/)(package\.json|pyproject\.toml|requirements[^/]*\.txt)$|(^|/)([^/]*[-.]lock(b|\.(json|ya?ml|toml))?|npm-shrinkwrap\.json)$"),
     ("forbid", "global-rule", r"(^|/)CLAUDE\.md$|(^|/)\.claude/|COMM-GUIDE|(^|/)harness/kit/|(^|/)scripts/harness-install/"),
     ("docs", "docs", r"^(design|docs)/.*\.md$"),   # 확장자만으로 문서 판정 0 — design/ 아래 .py·.sh 는 code, 루트 .md 는 docs 아님
     # 낱말 금지는 문서 줄 아래 — 경로로 지정한 문서 금지만 문서 줄 위(r514)
