@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # test_acct_assign_r1217.sh — r1217: ft-acct-assign.sh 판정(R1~R8) + ft-nano-spawn «실제 연결»(dry-run 아님 · R2·R3·R7·R8·R9) + 변이 3
-#   전부 mktemp — 대역 = 예측 도구(스냅샷 파일 · 호출 수 기록) · 정지 도구(r1214 status --check 계약 · 미착지라 대역) · tmux·tmuxc·tmm · mbox 만.
-#   기동 확인(ft-agent-ready)·전팀 정지(ft-all-stop)·송신(ft-send-verified)·카드 이동은 실 도구 · 가짜 scope 표 · 가상 시각.
+#   전부 mktemp — 대역 = 예측 도구(스냅샷 파일 · 호출 수 기록) · tmux·tmuxc·tmm · mbox 만.
+#   정지 도구(r1214 ft-acct-pause set·status --check)·기동 확인(ft-agent-ready)·전팀 정지(ft-all-stop)·송신(ft-send-verified)·카드 이동은 실 도구 · 가짜 scope 표 · 가상 시각.
 #   격리 = git 밖 임시 cwd + 실 상태 지문 비교(real_state_guard.py · 자기 재호출 0) · 실 네트워크·실 좌석·실 tmux 0 · 고정 sleep 0.
 set -uo pipefail
 export FT_ALLOW_TRACKED_BIN=1
@@ -19,8 +19,11 @@ hm() { python3 -c 'import sys,datetime as d;print(d.datetime.fromtimestamp(float
 # ── 사본 bin + 가짜 예측 도구(스냅샷 파일 그대로 · 호출 수 기록) + 가짜 scope 표(fable·opus·sonnet 각자 창) ──
 X="$T/bin"; cp -R "$KIT" "$X"; rm -rf "$X/__pycache__"
 printf '#!/usr/bin/env bash\necho x >> "$FAKE_FC_N"\n[ -z "${FAKE_FC_DELAY:-}" ] || /bin/sleep "$FAKE_FC_DELAY"\ncat "$FAKE_FC"\nexit "${FAKE_FC_RC:-0}"\n' > "$X/ft-acct-forecast.sh"
-# 정지 도구 대역(r1214 계약: status --check <P>/<M> → rc0 none · rc3 PAUSED … until=HH:MM · rc4 ERROR) — FAKE_PAUSE=HH:MM|err · FAKE_PAUSE_ON=그 대상만
-printf '#!/usr/bin/env bash\n[ "$1 $2" = "status --check" ] || exit 9\n[ -z "${FAKE_PAUSE_ON:-}" ] || [ "$3" = "$FAKE_PAUSE_ON" ] || { echo pause=none; exit 0; }\ncase "${FAKE_PAUSE:-}" in "") echo pause=none; exit 0;; err) echo "ERROR pause 손상"; exit 4;; *) echo "PAUSED $3 until=$FAKE_PAUSE release=— round=t"; exit 3;; esac\n' > "$X/ft-acct-pause.sh"
+# 정지 = 실 ft-acct-pause.sh(사본) · 상태 루트 = 임시 폴더(FT_ACCT_ROOT) · 좌석 0 이라 [정지 예고] 수신자 0 · pz <모델> <풀림 epoch> = 실 set · pz = 항목 지움
+PR="$T/pr"; mkdir -p "$PR/.fable-team/state"; export FT_ACCT_ROOT="$PR" FT_ACCT_NOW="$NOW"
+pz() { rm -f "$PR/.fable-team/state/ACCT_PAUSE"; [ "$#" = 0 ] && return 0
+  FT_ACCT_TMUX=/usr/bin/false FT_ACCT_MBOX=/usr/bin/false bash "$X/ft-acct-pause.sh" set --provider claude --model "$1" --reason "r1217 시험 정지 $1" \
+    --until "$(python3 -c 'import sys,datetime as d;print(d.datetime.fromtimestamp(int(sys.argv[1])).astimezone().isoformat())' "$2")" >/dev/null || bad "pz set $1"; }
 printf 'claude-fable-5-1\tclaude\tFable\nclaude-opus-5-5\tclaude\tOpus\nclaude-sonnet-5-5\tclaude\tSonnet\n' > "$X/model-scope.tsv"
 chmod +x "$X/"*.sh
 export FAKE_FC="$T/fc.json" FAKE_FC_N="$T/fc.n"
@@ -50,7 +53,9 @@ PY
 as() { : > "$FAKE_FC_N"; bash "${AB:-$X}/ft-acct-assign.sh" "$@"; }
 calls() { wc -l < "$FAKE_FC_N" | tr -d ' '; }
 chk() { local name="$1" want="$2" wrc="$3" got="$4" grc="$5"; { [ "$got" = "$want" ] && [ "$grc" = "$wrc" ]; } && ok "$name" || bad "$name — rc=$grc '$got' (기대 rc=$wrc '$want')"; }
+PART="${1:-all}"; case "$PART" in all|unit|spawn) ;; *) echo "usage: test_acct_assign_r1217.sh [all|unit|spawn]  (부하 높을 때 unit·spawn 따로 — 각각 70초 안)"; exit 2;; esac
 
+if [ "$PART" != spawn ]; then
 # ── 판정(계약 ①~④ · ⑥) ──
 fc "f=20,c=30" "f=30,c=50" "f=40,c=40"; o="$(as claude-fable-5-1)"; rc=$?
 chk "R1 전부 여유 → 허용" "허용 claude-fable-5-1 · 근거: fable 주간 후보 3계정 20~40% · 공통 30~50%" 0 "$o" "$rc"
@@ -83,13 +88,13 @@ chk "R6 대체 후보 표 없음 → 구분된 불명" "불명(scope 표 없음 
 o="$(as gpt-6-luna)"; rc=$?
 chk "R6 표 없는 모델 → 불명" "불명(scope 표 없음 gpt-6-luna)" 3 "$o" "$rc"
 [ "$(calls)" = 0 ] && ok "R6 표 없는 모델은 예측 호출 0" || bad "R6 예측 $(calls)회"
-o="$(FAKE_PAUSE="$(hm $((NOW + 600)))" FAKE_PAUSE_ON=claude/claude-fable-5-1 as claude-fable-5-1)"; rc=$?
-chk "R7 정지 중 → rc3 · 풀림(정지 도구 status --check)" "정지 중 · 풀림 $(hm $((NOW + 600))) · 근거: claude/claude-fable-5-1" 3 "$o" "$rc"
+pz claude-fable-5-1 $((NOW + 600)); o="$(as claude-fable-5-1)"; rc=$?
+chk "R7 정지 중 → rc3 · 풀림(실 정지 도구 status --check)" "정지 중 · 풀림 $(hm $((NOW + 600))) · 근거: claude/claude-fable-5-1" 3 "$o" "$rc"
 [ "$(calls)" = 0 ] && ok "R7 정지 = 예측 호출 0" || bad "R7 예측 $(calls)회"
-fc "f=95,o=40,s=40" "f=40,o=40,s=40" "f=40,o=40,s=40"; o="$(FAKE_PAUSE=12:00 FAKE_PAUSE_ON=claude/claude-opus-5-5 as claude-fable-5-1)"; rc=$?
+fc "f=95,o=40,s=40" "f=40,o=40,s=40" "f=40,o=40,s=40"; pz claude-opus-5-5 $((NOW + 3600)); o="$(as claude-fable-5-1)"; rc=$?
 chk "R7 대체 후보가 정지 → 다음 칸" "대체 claude-sonnet-5-5[1m] · 근거: fable 여유 2/3 · sonnet 여유 3/3" 0 "$o" "$rc"
-o="$(FAKE_PAUSE=err as claude-fable-5-1)"; rc=$?
-chk "R7 정지 도구 rc4 → 불명(정지 판정 불가)" "불명(정지 판정 불가 ERROR pause 손상)" 3 "$o" "$rc"
+pz; echo '[]' > "$PR/.fable-team/state/ACCT_PAUSE"; o="$(as claude-fable-5-1)"; rc=$?; pz
+chk "R7 정지 도구 rc4 → 불명(정지 판정 불가)" "불명(정지 판정 불가 ERROR pause ACCT_PAUSE 최상위가 사전이 아니다)" 3 "$o" "$rc"
 AB="$T/bin7"; cp -R "$X" "$AB"; rm -f "$AB/ft-acct-pause.sh"; fc "f=40" "f=40" "f=40"; o="$(as claude-fable-5-1 2>&1)"; rc=$?; AB=""
 { [ "$rc" = 0 ] && [[ "$o" == *"INFO 정지 판정 건너뜀 — ft-acct-pause.sh 없음"* ]] && [[ "$(printf '%s\n' "$o" | tail -1)" == 허용* ]]; } \
   && ok "R7 정지 도구 없음 → INFO 1줄 · 정지 판정 건너뜀(파일 직접 읽기 0)" || bad "R7 도구 없음 rc=$rc $o"
@@ -107,7 +112,9 @@ import sys; p = sys.argv[1]; s = open(p).read(); old = 'r["ok"] = r["A"] > 0 and
 assert old in s; open(p, "w").write(s.replace(old, 'r["ok"] = r["F"] > 0', 1))
 PY
 o="$(AB="$M1" as claude-fable-5-1)"; [[ "$o" == 허용* ]] && ok "변이1 최솟값 허용 → R2 허용 = 계약 ① 위반 검출" || bad "변이1 계약을 안 깼다: $o"
+fi
 
+if [ "$PART" != unit ]; then
 # ── spawn 실제 연결(계약 ⑤ · R2·R3·R7·R8·R9) — 가짜 tmux·tmuxc·tmm(인자 기록) · 송신 스텁 · 실 ft-index-move ──
 mkdir -p "$T/fake"
 printf '#!/usr/bin/env bash\ncase "$1" in has-session) [ -f "$FAKE_OPENED" ]; exit $?;; list-panes) [ -f "$FAKE_OPENED" ] || exit 1; echo "byz-harness-nano-x#0|%%1|1";; show-option) echo 1;; display-message) echo "$FAKE_PANE_PID";; esac\nexit 0\n' > "$T/fake/tmux"
@@ -137,8 +144,8 @@ mkfix() { local d="$T/fx"; rm -rf "$d"; mkdir -p "$d/.fable-team/state/acct-usag
 sp() { local bd="$1"; shift; rm -f "$T/opened" "$T/body.txt" "$T/tmuxc.log"; : > "$FAKE_FC_N"; mkfix
   ( cd "$T/fx" && env -i HOME="$HOME" LC_ALL=en_US.UTF-8 PATH="$T/fake:$PATH" FT_GH_READ="$T/fake/gh-open" GH_REPO=o/r FT_TEAMSET=0 \
       FT_RES_ROOT="$T/res" FT_SHEET_ROOT="$FT_SHEET_ROOT" FT_ROOT="$T/fx" FT_RECLAIM_SH="$T/reclaim.sh" FAKE_OPENED="$T/opened" \
-      FAKE_FC="$FAKE_FC" FAKE_FC_N="$FAKE_FC_N" FAKE_PAUSE="${FAKE_PAUSE:-}" FT_ACCT_USAGE_NOW="$NOW" FT_MBOX_SH="$T/fake-mbox.sh" \
-      FAKE_PANE_PID="$DUMMY" FT_ROUTE_STATUS_CMD="printf 'cliproxy x off\nheadroom x off\n'" GIT_CEILING_DIRECTORIES="$T" ${SPENV:-} \
+      FAKE_FC="$FAKE_FC" FAKE_FC_N="$FAKE_FC_N" FT_ACCT_ROOT="$PR" FT_ACCT_NOW="$NOW" FT_ACCT_USAGE_NOW="$NOW" FT_MBOX_SH="$T/fake-mbox.sh" \
+      FAKE_PANE_PID="$DUMMY" FT_ROUTE_STATUS_CMD="printf 'cliproxy x off\nheadroom x off\n'" GIT_CEILING_DIRECTORIES="$T" FT_ACCT_ASSIGN="${SP_ASSIGN:-1}" \
       bash "$bd/ft-nano-spawn.sh" "$CARD" --model claude-fable-5-1 --raise "시험 사유" "$@" 2>&1 ); }
 model_of() { sed -n 's/.*--model \([^ ]*\).*/\1/p' "$T/tmuxc.log" 2>/dev/null | tail -1; }   # 가짜 tmuxc 가 실제로 받은 --model(열기 호출만)
 card() { cat "$T/fx/design/harness/indices/진행/x.md" 2>/dev/null; }
@@ -150,13 +157,16 @@ card | awk '/^## 상태/{f=1;next} /^## /{f=0} f' | grep -qxF -- "- $L2" && ok "
 fc "f=95,o=95,s=95" "f=95,o=40,s=40" "f=40,o=40,s=40"; o="$(sp "$X")"; rc=$?
 { [ "$rc" = 5 ] && [ "$(model_of "$o")" = claude-fable-5-1 ] && [[ "$o" == *"WARN 계정 배정 대체 없음"* ]] && grep -qF '[배정 불명] 대체 없음 · 선택 불명(' "$T/body.txt"; } \
   && ok "R3 선택 불명 → 원래 모델 + WARN + [배정 불명]" || bad "R3 rc=$rc $o"
-o="$(FAKE_PAUSE=12:00 sp "$X")"; rc=$?
-{ [ "$rc" = 3 ] && [[ "$o" == *"REJECT 계정 배정 정지 중"* ]] && [ ! -f "$T/opened" ] && [ "$(git -C "$T/fx" worktree list | wc -l | tr -d ' ')" = 1 ] && [ -f "$T/fx/$CARD" ]; } \
-  && ok "R7 정지 중 → spawn rc3 · 워크트리·좌석·카드 이동 0" || bad "R7 rc=$rc $o"
+fc "f=40,c=99" "f=40,c=99" "f=40,c=99"; o="$(sp "$X")"; rc=$?
+{ [ "$rc" = 3 ] && [[ "$o" == *"REJECT 계정 배정 가용 0"* ]] && [ ! -f "$T/opened" ] && [ "$(git -C "$T/fx" worktree list | wc -l | tr -d ' ')" = 1 ] && [ -f "$T/fx/$CARD" ]; } \
+  && ok "R7 가용 0 → spawn rc3 · 워크트리·좌석·카드 이동 0" || bad "R7 rc=$rc $o"
+pz claude-fable-5-1 $((NOW + 600)); o="$(sp "$X")"; rc=$?; pz
+{ [ "$rc" = 3 ] && [[ "$o" == *"REJECT 정지 중"* ]] && [[ "$o" != *ASSIGN* ]] && [ "$(calls)" = 0 ] && [ ! -f "$T/opened" ] && [ -f "$T/fx/$CARD" ]; } \
+  && ok "R7 요청 모델 정지 → r1214 문지기가 먼저 rc3 · 배정·예측 호출 0 · 부작용 0" || bad "R7 정지 rc=$rc $o"
 fc "f=95,o=40,s=40" "f=40,o=40,s=40" "f=40,o=40,s=40"
-o="$(SPENV=FT_ACCT_ASSIGN=0 sp "$X")"; a0="$(model_of "$o")"; b0="$(cat "$T/body.txt")"
+o="$(SP_ASSIGN=0 sp "$X")"; a0="$(model_of "$o")"; b0="$(cat "$T/body.txt")"
 { [[ "$o" != *ASSIGN* ]] && [ "$a0" = claude-fable-5-1 ] && [ "$(calls)" = 0 ]; } && ok "R7 FT_ACCT_ASSIGN=0 → 호출 0 · 원래 모델" || bad "R7 끄기 $o"
-BASEB="$T/basebin"; cp -R "$X" "$BASEB"; git -C "$REPO/.." show "6ed59a5972741a7f8d1467b0e7f9ccc8a12acf20:feature-pack/fable-team/harness/kit/fable-team/bin/ft-nano-spawn.sh" > "$BASEB/ft-nano-spawn.sh"
+BASEB="$T/basebin"; cp -R "$X" "$BASEB"; git -C "$REPO/.." show "f038198a3dcf5a82d29dc28cbe84d0f3e3fac689:feature-pack/fable-team/harness/kit/fable-team/bin/ft-nano-spawn.sh" > "$BASEB/ft-nano-spawn.sh"
 o="$(sp "$BASEB")"; { [ "$(model_of "$o")" = "$a0" ] && [ "$(cat "$T/body.txt")" = "$b0" ]; } && ok "R7 끄기 = 기준판과 같은 spawn(모델·발주문)" || bad "R7 기준판과 다름"
 o="$(sp "$X" --dry-run)"; rc=$?
 { [ "$rc" = 0 ] && [[ "$o" == *"ASSIGN claude-fable-5-1 → 대체 claude-opus-5-5[1m]"* ]] && [ ! -f "$T/body.txt" ] && ! card | grep -q '배정' && ! grep -q '배정' "$T/fx/$CARD"; } \
@@ -175,10 +185,11 @@ fc "f=95,o=40,s=40" "f=40,o=40,s=40" "f=40,o=40,s=40"; o="$(sp "$T/mut2")"
 mut "$T/mut3" '; MODEL="$_am"' '' && ok "변이3 bash -n rc0" || bad "변이3 bash -n"
 o="$(sp "$T/mut3")"
 { [ "$(model_of "$o")" = claude-fable-5-1 ] && grep -qF "$L2" "$T/body.txt" && card | grep -qF "$L2"; } && ok "변이3 최종 모델 = 원래 모델 = 계약 ⑤ 위반 검출(판정·기록 그대로)" || bad "변이3 계약을 안 깼다 $(model_of "$o")"
+fi
 
 for f in ft-acct-assign.sh model-scope.tsv ft-nano-spawn.sh ft-role-spawn.sh; do cmp -s "$BIN/$f" "$KIT/$f" && ok "bin·kit cmp0 $f" || bad "bin·kit 다름 $f"; done
 NEWF="harness/bin/ft-acct-assign.sh harness/bin/model-scope.tsv harness/kit/fable-team/bin/ft-acct-assign.sh harness/kit/fable-team/bin/model-scope.tsv"; OLDF="harness/bin/ft-nano-spawn.sh harness/bin/ft-role-spawn.sh harness/kit/fable-team/bin/ft-nano-spawn.sh harness/kit/fable-team/bin/ft-role-spawn.sh"
-{ [ "$(cd "$REPO" && git ls-files -s $NEWF | cut -c1-6 | sort -u)" = 100644 ] && [ "$(cd "$REPO" && git ls-files -s $OLDF | cut -c1-6)" = "$(cd "$REPO" && git ls-tree 6ed59a5972741a7f8d1467b0e7f9ccc8a12acf20 -- $OLDF 2>/dev/null | cut -c1-6)" ]; } && ok "모드: 신설 100644 · 기존 .sh = 기준판(6ed59a59) 그대로" || bad "모드 단언"
+{ [ "$(cd "$REPO" && git ls-files -s $NEWF | cut -c1-6 | sort -u)" = 100644 ] && [ "$(cd "$REPO" && git ls-files -s $OLDF | cut -c1-6)" = "$(cd "$REPO" && git ls-tree f038198a3dcf5a82d29dc28cbe84d0f3e3fac689 -- $OLDF 2>/dev/null | cut -c1-6)" ]; } && ok "모드: 신설 100644 · 기존 .sh = 기준판(f038198a) 그대로" || bad "모드 단언"
 python3 "$RSG_PY" compare "$T/rsg.json" && ok "실 상태 그대로(지문 · 자기 재호출 0)" || bad "실 상태 바뀜"
 [ "$fail" = 0 ] && echo "ALL PASS" || echo "FAILED $fail"
 exit "$fail"

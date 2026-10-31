@@ -108,7 +108,7 @@ def pause_check(prov, model):
         return "none", None, ""
     if rc != 3:
         return "error", None, first
-    ends = [next_at(v) for v in re.findall(r"(?:until|release)=(\d\d:\d\d)", first)]
+    ends = [next_at(v) for v in re.findall(r"(?:until|release)_hhmm=(\d\d:\d\d)", first)]
     return "paused", (min(ends) if ends else None), first
 
 
