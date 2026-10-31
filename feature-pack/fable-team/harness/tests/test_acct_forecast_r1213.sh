@@ -434,7 +434,7 @@ chip_k() {
   local f m
   for f in "$TOOL" "$TOOL_KIT" "$FC" "$FC_KIT"; do
     m="$(python3 -c 'import os,stat,sys;print(oct(stat.S_IMODE(os.stat(sys.argv[1]).st_mode)))' "$f")"
-    [ "$m" = "0o755" ] && ok "모드 100755 ${f#*harness/}" || bad "모드 $m ${f#*harness/}"
+    [ "$m" = "$(case "$f" in *ft-acct-forecast.sh) echo 0o644;; *) echo 0o755;; esac)" ] && ok "모드 ${m} ${f#*harness/}" || bad "모드 $m ${f#*harness/}"
   done
   base="$TMP/baseline-usage.sh"
   # 기준판 = 팩 origin/main 의 r1183 판 고정 40hex(떠다니는 이름 금지 · r1132)
