@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """ft_op_token.py — 운영 계정 access_token 을 저장된 cred 로 발급·교체한다 (판정 675).
 
-사용: ft_op_token.py <email> | --init <email> (비밀번호는 stdin 1줄) | --init-from-op <op 항목 id> <email> | --list
+사용: ft_op_token.py <email> | --path <email> | --init <email> (비밀번호는 stdin 1줄) | --init-from-op <op 항목 id> <email> | --list
+토큰 원문은 파일에만 있다 — stdout 은 «OK … path=<절대경로>» 상태 줄이다. 변수로 받으려면 T="$(< "$(ft-op-token.sh --path <email>)")".
 설정(추적 밖): <secrets>/op-auth.conf · op-accounts.tsv · <계정>.cred(JSON {"email","password"})
 외부 호출 1곳(Supabase password grant) — 7초 룰(판정 666): 1회 7 s(소켓 연산 기준) · 재시도 1(네트워크·5xx 만).
 비밀번호·토큰 원문은 stdout·stderr·argv 어디에도 내지 않는다.
@@ -159,12 +160,12 @@ def atomic_write(path, text):
     os.replace(tmp, path)
 
 
-def ok_line(email, token, token_name):
+def ok_line(email, token, token_name, token_path):
     exp = exp_of(token)
     if exp is None:
-        return f"OK {email} exp=? file={token_name}"
+        return f"OK {email} exp=? file={token_name} path={token_path}"
     mins = int((exp - time.time()) // 60)
-    return f"OK {email} exp={datetime.fromtimestamp(exp, KST):%H:%M} ({mins}분) file={token_name}"
+    return f"OK {email} exp={datetime.fromtimestamp(exp, KST):%H:%M} ({mins}분) file={token_name} path={token_path}"
 
 
 def op_field(item_id, label):
@@ -319,8 +320,8 @@ def issue(email, init, get_password, get_username=None):
             cred.update({"email": email, "password": password})
             atomic_write(cred_path, json.dumps(cred, ensure_ascii=False))
         atomic_write(token_path, token)
-        line = ok_line(email, token, token_name)
-        return line + " (표 줄 추가)" if new_row else line
+        line = ok_line(email, token, token_name, token_path)
+        return (line + " (표 줄 추가)" if new_row else line), token_path
     finally:
         release_lock(lock_fd)
 
@@ -345,14 +346,22 @@ def main(argv):
             if len(argv) != 3 or not argv[1] or not argv[2]:
                 print("usage: ft-op-token.sh --init-from-op <op 항목 id> <email>", file=sys.stderr)
                 return 2
-            print(issue(argv[2], True, lambda: op_password(argv[1]), lambda: op_username(argv[1])))
+            print(issue(argv[2], True, lambda: op_password(argv[1]), lambda: op_username(argv[1]))[0])
             return 0
+        path_mode = argv[:1] == ["--path"]
         init = argv[:1] == ["--init"]
-        args = argv[1:] if init else argv
+        args = argv[1:] if init or path_mode else argv
         if len(args) != 1:
-            print("usage: ft-op-token.sh <email> | --init <email> | --init-from-op <op 항목 id> <email> | --list", file=sys.stderr)
+            print("usage: ft-op-token.sh <email> | --path <email> | --init <email> | --init-from-op <op 항목 id> <email> | --list", file=sys.stderr)
             return 2
-        print(issue(args[0], init, lambda: stdin_password(args[0])))
+        line, token_path = issue(args[0], init, lambda: stdin_password(args[0]))
+        if path_mode:  # 토큰 파일 절대경로만 stdout · 상태 줄은 stderr
+            print(line, file=sys.stderr)
+            print(token_path)
+        else:
+            if not init and not sys.stdout.isatty():
+                print(f"WARN ft-op-token: stdout 은 상태 줄이다 — 토큰 값은 파일 · 경로 = ft-op-token.sh --path {args[0]}", file=sys.stderr)
+            print(line)
         return 0
     except Fail as e:
         print(e.line)

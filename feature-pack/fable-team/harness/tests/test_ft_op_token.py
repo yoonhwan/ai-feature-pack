@@ -625,3 +625,83 @@ def test_r614_lock_timeout_err(env, stub, opstub):
         holder.communicate(timeout=30)
     assert r.returncode == 2 and "잠금 대기 초과" in r.stdout, r.stdout
     assert table_text(env) == before and stub.calls == 0
+
+
+# ---- r1237: --path 길 + 받기 경고 (R1~R5) ----
+WARN_HEAD = "WARN ft-op-token: stdout 은 상태 줄이다"
+
+
+def run_pty(env, *args, timeout=60):
+    """stdout 을 pty(터미널)로 받는 호출 — (rc, 출력, stderr). stderr 는 파이프."""
+    import pty
+    import select
+    master, slave = pty.openpty()
+    out = b""
+    try:
+        p = subprocess.Popen(["bash", str(TOOL), *args], env=env["env"], stdout=slave, stderr=subprocess.PIPE, text=True)
+        os.close(slave)  # 자식만 slave 를 쥐게 한다 — macOS 는 slave 가 닫히기 전에 master 를 읽어야 출력이 남는다
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if select.select([master], [], [], 0.1)[0]:
+                try:
+                    chunk = os.read(master, 4096)
+                except OSError:
+                    break
+                if not chunk:
+                    break
+                out += chunk
+            elif p.poll() is not None:
+                break
+        err = p.stderr.read()
+        p.wait(timeout=5)
+    finally:
+        os.close(master)
+    return p.returncode, out.decode("utf-8", "replace"), err
+
+
+def test_r1237_r1_path_prints_token_file_abs_path_only(env, stub):
+    r = run(env, "--path", EMAIL)
+    lines = r.stdout.splitlines()
+    tf = env["sdir"] / "acct.token"
+    assert r.returncode == 0 and lines == [str(tf)], r.stdout
+    assert os.path.isabs(lines[0]) and tf.read_text() == stub.token
+    assert r.stderr.startswith(f"OK {EMAIL} exp=") and WARN_HEAD not in r.stderr
+    assert_no_secret(r, stub)
+
+
+def test_r1237_r2_pipe_default_keeps_status_line_and_warns(env, stub):
+    r = run(env, EMAIL)
+    tf = env["sdir"] / "acct.token"
+    assert r.returncode == 0 and r.stdout.startswith(f"OK {EMAIL} exp=") and f"path={tf}" in r.stdout
+    warns = [ln for ln in r.stderr.splitlines() if ln.startswith(WARN_HEAD)]
+    assert len(warns) == 1 and "--path" in warns[0], r.stderr
+    assert_no_secret(r, stub)
+
+
+def test_r1237_r3_pty_default_has_no_warn(env, stub):
+    rc, out, err = run_pty(env, EMAIL)
+    assert rc == 0 and out.startswith(f"OK {EMAIL} exp=") and "file=acct.token" in out, out
+    assert WARN_HEAD not in err and WARN_HEAD not in out
+    assert stub.token not in out + err and PASSWORD not in out + err
+
+
+def test_r1237_r4_path_unknown_account_same_fail_line_no_path(env, stub):
+    default = run(env, "nobody@example.test")
+    r = run(env, "--path", "nobody@example.test")
+    assert r.returncode == default.returncode == 2
+    assert r.stdout == default.stdout and "계정 표에 없음" in r.stdout
+    assert str(env["sdir"]) not in r.stdout and stub.calls == 0
+
+
+def test_r1237_r5_regression_init_and_list_unchanged(env, stub):
+    (env["sdir"] / "acct.cred").unlink()
+    ri = run(env, "--init", EMAIL)
+    assert ri.returncode == 0 and ri.stdout.startswith("OK ") and WARN_HEAD not in ri.stderr
+    rl = run(env, "--list")
+    assert rl.returncode == 0 and rl.stdout.startswith(EMAIL + "\t") and WARN_HEAD not in rl.stderr
+    assert_no_secret(ri, stub)
+
+
+def test_r1237_path_usage_needs_one_email(env):
+    r = run(env, "--path")
+    assert r.returncode == 2 and "--path <email>" in r.stderr
