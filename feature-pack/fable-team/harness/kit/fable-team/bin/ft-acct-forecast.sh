@@ -39,30 +39,34 @@ def now_val():  # 시각 주입은 0 도 유효 — 없을 때만 실제 시각(
 NOW = now_val()
 
 
-def common_root():  # 조회 도구와 같은 방식 — 상태 폴더는 <리포 루트>/.fable-team/state/acct-usage
+def common_root():
     try:
         g = subprocess.run(["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
                            capture_output=True, text=True, timeout=7)
-    except (subprocess.SubprocessError, OSError):
-        return ""
+    except subprocess.TimeoutExpired:
+        return "", "git 시간 초과"
+    except (subprocess.SubprocessError, OSError) as e:
+        return "", f"git 실행 실패 {type(e).__name__}"
     root = (g.stdout or "").strip()
     if g.returncode != 0 or not root:
-        return ""
+        return "", f"git rc={g.returncode}"
     root = root[:-5] if root.endswith("/.git") else root
-    return root if os.path.isdir(os.path.join(root, ".fable-team")) else ""
+    if not os.path.isdir(os.path.join(root, ".fable-team")):
+        return "", f"{root} 에 .fable-team 없음"
+    return root, ""
 
 
 def state_dir():
     v = os.environ.get("FT_ACCT_USAGE_STATE")
     if v:
-        return v
-    root = common_root()
-    if root:
-        return os.path.join(root, ".fable-team", "state", "acct-usage")
-    return os.path.expanduser("~/.fable-team/state/acct-usage")
+        return v, ""
+    root, err = common_root()
+    if err:  # 조용한 홈 기본값 0 — 한 줄 «판정 불가 루트 <이유>» 로 끝난다(하드 룰 20)
+        return None, err
+    return os.path.join(root, ".fable-team", "state", "acct-usage"), ""
 
 
-STATE = state_dir()
+STATE, STATE_ERR = state_dir()
 
 
 def scope_str(scope):  # 표본 칸과 «같은» 직렬화여야 창과 표본이 만난다
@@ -108,7 +112,7 @@ def load_samples():
                 except ValueError:
                     continue
                 out.append({"at": at, "key": f7[2], "kind": f7[3], "scope": f7[4],
-                            "resets_at": f7[6], "percent": pct})
+                            "resets_at": ("" if f7[6] == NA else f7[6]), "percent": pct})
     except OSError:
         pass
     return out
@@ -140,6 +144,8 @@ def speed(samples, key, kind, scope, resets_at):
 def model_of(scope):
     if not isinstance(scope, dict):
         return None
+    if scope.get("surface") not in (None, ""):  # 해석 못 하는 surface = scope 미상(DA 반송 4)
+        return None
     m = scope.get("model")
     if isinstance(m, dict):
         name = m.get("id") or m.get("display_name")
@@ -164,17 +170,19 @@ def judge(win, row, key, samples):
     obs = epoch(row.get("observed_at"))
     rse = epoch(rs_clean)
     out = {"kind": kind, "scope": scope, "percent": pct, "resets_at": rs_clean,
-           "observed_at": row.get("observed_at"), "state": "", "eta": None, "why": ""}
+           "observed_at": row.get("observed_at"), "state": "", "eta": None, "speed": None, "why": ""}
     if not isinstance(pct, (int, float)):
         out.update(state=NA, why="값")
         return out
-    if rse is not None and rse < NOW:  # 캐시 유효 중 리셋이 지났다 = 재조회 없이 확정 0
-        out.update(state="재조회 필요", why="리셋 지남")
-        return out
-    if pct >= FULL:
-        out.update(state="소진")
+    if rse is not None and rse < NOW:  # 캐시 유효 중 리셋이 지났다 = 재조회 없이 확정 0 · 과거 시각 출력 0
+        out.update(state="재조회 필요", why="리셋 지남", resets_at="재조회 필요")
         return out
     rate, why = speed(samples, key, kind, scope, rs_clean)
+    if rate is not None:
+        out["speed"] = rate  # 양수 속도는 항상 표에 보인다(DA 반송 6)
+    if pct >= FULL:  # 소진은 속도보다 우선 — 표본이 없어도 100% 는 소진이다
+        out.update(state="소진")
+        return out
     if rate is None:
         out.update(state=NA, why=why)
         return out
@@ -184,6 +192,15 @@ def judge(win, row, key, samples):
         return out
     out.update(state="소진 예상", eta=eta, why=f"시간당 {rate:.1f}%")
     return out
+
+
+def applicable(win, want_model):  # 이 모델 판정에 걸리는 창인가(공통 창 + 그 모델 scope 창)
+    if not is_scoped(win):
+        return True
+    name = model_of(win.get("scope"))
+    if name is None:
+        return False
+    return (not want_model) or name.lower() == want_model.lower()
 
 
 def account_verdict(winlist, judged, want_model):
@@ -246,10 +263,11 @@ def build_pool(prov, rows, samples, want_model):
             free_times.append(free)
         accounts.append({"account": acc, "judge": why, "free": (iso_at(free) if free else None)})
         windows_out.append({"account": acc, "judge": why, "windows": judged})
-        for j in judged:
-            if j["state"] == "소진 예상" and j["eta"] is not None:
-                if earliest is None or j["eta"] < earliest["at"]:
-                    earliest = {"account": acc, "at": j["eta"], "kind": j["kind"]}
+        for w, j in zip(wins, judged):  # 후보 = «가용» 계정 × 이 모델에 걸리는 창만(DA 반송 5)
+            if not ok or j["state"] != "소진 예상" or j["eta"] is None or not applicable(w, want_model):
+                continue
+            if earliest is None or j["eta"] < earliest["at"]:
+                earliest = {"account": acc, "at": j["eta"], "kind": j["kind"]}
     available = sum(1 for a in accounts if a["judge"] == "가용")
     pool = {"pool": prov, "model": want_model or None, "available": available,
             "accounts": len(accounts),
@@ -271,6 +289,9 @@ def table(head, rows):
 
 
 def main(argv):
+    if not STATE:  # 루트를 못 풀면 한 줄로 끝난다(하드 룰 20 · 조용한 홈 기본값 0)
+        print(f"판정 불가 루트 {STATE_ERR}")
+        return 3
     want_model = ""
     want_pool = ""
     if "--model" in argv:
@@ -329,11 +350,12 @@ def main(argv):
             for acc in pool["windows"]:
                 for j in acc["windows"]:
                     wrows.append([acc["account"], j["kind"], j["scope"] or "-", j["percent"],
+                                  (f"시간당 {j['speed']:.1f}%" if j["speed"] else "—"),
                                   hhmm(j["observed_at"]),
                                   (hhmm(j["eta"]) if j["eta"] is not None else "—"),
                                   hhmm(j["resets_at"]) if j["state"] == "소진" else "—",
                                   j["state"] + (f"({j['why']})" if j["why"] and j["state"] == NA else "")])
-            table(["account", "창", "scope", "지금%", "관측", "소진 예상", "풀림", "판정"], wrows)
+            table(["account", "창", "scope", "지금%", "속도", "관측", "소진 예상", "풀림", "판정"], wrows)
     return 3 if bad_any else 0
 
 

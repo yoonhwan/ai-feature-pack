@@ -45,45 +45,66 @@ def now_val():  # 시각 주입은 0 도 유효(DA① 반례 9) — 없을 때�
         return time.time()
 
 
-def common_root():  # 상태 폴더의 뿌리 = cwd 의 git 공용 루트(ft_repo_root 와 같은 방식 · .fable-team 없으면 포기)
+def common_root():  # 상태 폴더의 뿌리 = cwd 의 git 공용 루트(ft_repo_root 와 같은 방식) · 실패는 «이유» 와 함께 돌려준다
     try:
         g = subprocess.run(["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
                            capture_output=True, text=True, timeout=7)
-    except (subprocess.SubprocessError, OSError):
-        return ""
+    except subprocess.TimeoutExpired:
+        return "", "git 시간 초과"
+    except (subprocess.SubprocessError, OSError) as e:
+        return "", f"git 실행 실패 {type(e).__name__}"
     root = (g.stdout or "").strip()
     if g.returncode != 0 or not root:
-        return ""
+        return "", f"git rc={g.returncode}"
     root = root[:-5] if root.endswith("/.git") else root
-    return root if os.path.isdir(os.path.join(root, ".fable-team")) else ""
+    if not os.path.isdir(os.path.join(root, ".fable-team")):
+        return "", f"{root} 에 .fable-team 없음"
+    return root, ""
 
 
 def state_dir():  # 영속 경로(재부팅 소실 0) — /tmp 기본값을 없앤다(DA① 반례 13)
     v = os.environ.get("FT_ACCT_USAGE_STATE")
     if v:
-        return v
-    root = common_root()
-    if root:
-        return os.path.join(root, ".fable-team", "state", "acct-usage")
-    return os.path.expanduser("~/.fable-team/state/acct-usage")
+        return v, ""
+    root, err = common_root()
+    if err:  # 조용히 홈 경로로 가지 않는다 — 한 함수가 «판정 불가 루트 <이유>» 로 끝낸다(하드 룰 20)
+        return None, err
+    return os.path.join(root, ".fable-team", "state", "acct-usage"), ""
 
 
 AUTH_DIR = os.environ.get("FT_ACCT_USAGE_AUTH_DIR") or os.path.expanduser("~/.cli-proxy-api")
-STATE = state_dir()
+STATE, STATE_ERR = state_dir()
 CURL = os.environ.get("FT_ACCT_USAGE_CURL") or "curl"
 TTL = int(os.environ.get("FT_ACCT_USAGE_TTL") or "60")
 NOW = now_val()
 ADAPTER_DIR = os.environ.get("FT_ACCT_USAGE_ADAPTER_DIR") or os.path.join(
     os.environ.get("FT_ACCT_USAGE_BIN", "."), "ft-acct-usage.adapters.d")
 SECRET_FIELDS = ("access_token", "refresh_token", "id_token")
+EMAIL = re.compile(r"[\w.+-]+@[\w-]+\.[\w.]+")  # display_name 등에 이메일 꼴이 오면 같이 가린다
 
 
-def mask(text, secrets):  # 모든 출력 길(표·json·캐시·result 문구)이 이 함수만 통과한다
+def mask(text, secrets):  # 모든 출력 길(표·json·캐시·표본·result 문구)이 이 함수만 통과한다
     s = str(text)
     for t in secrets:
         if t and len(str(t)) >= 6:
             s = s.replace(str(t), "[가림]")
-    return s
+    return EMAIL.sub("[가림]", s)
+
+
+def hide_scalar(v, secrets):  # 결측 정규화 + 가림 — 출력·캐시·표본이 «같은» 1함수를 쓴다(DA 반송 2)
+    if v is None or v == "":
+        return NA
+    return mask(v, secrets) if isinstance(v, str) else v
+
+
+def hide_deep(v, secrets):  # 사전·목록(scope 등)도 재귀 — null 은 꼴 그대로 둔다
+    if isinstance(v, str):
+        return mask(v, secrets)
+    if isinstance(v, list):
+        return [hide_deep(x, secrets) for x in v]
+    if isinstance(v, dict):
+        return {k: hide_deep(x, secrets) for k, x in v.items()}
+    return v
 
 
 def secrets_of(auth):
@@ -91,17 +112,32 @@ def secrets_of(auth):
 
 
 def mask_val(v, secrets):  # 목록·사전도 재귀 — 창 안 문자열까지 같은 가림 함수만 통과(DA① 반례 2)
+    return hide_deep(v, secrets)
+
+
+def mask_windows(v, secrets):  # 창은 scope 만 꼴 보존(null 가능) · 나머지 결측 → «근거 없음»
     if isinstance(v, str):
-        return mask(v, secrets)
-    if isinstance(v, list):
-        return [mask_val(x, secrets) for x in v]
-    if isinstance(v, dict):
-        return {k: mask_val(x, secrets) for k, x in v.items()}
-    return v
+        return hide_scalar(v, secrets)
+    if not isinstance(v, list):
+        return hide_scalar(v, secrets)
+    out = []
+    for w in v:
+        if not isinstance(w, dict):
+            continue
+        out.append({"kind": hide_scalar(w.get("kind"), secrets),
+                    "scope": hide_deep(w.get("scope"), secrets),
+                    "percent": hide_scalar(w.get("percent"), secrets),
+                    "resets_at": hide_scalar(w.get("resets_at"), secrets),
+                    "observed_at": hide_scalar(w.get("observed_at"), secrets)})
+    return out
 
 
 def mask_row(row, secrets):
-    return {k: mask_val(row.get(k), secrets) for k in KEYS}
+    out = {}
+    for k in KEYS:
+        v = row.get(k)
+        out[k] = mask_windows(v, secrets) if k == "windows" else hide_scalar(v, secrets)
+    return out
 
 
 def scope_str(scope):  # 창의 scope 를 한 칸 문자열로(표본 키 · 탭·개행 0)
@@ -118,8 +154,11 @@ def iso_at(t):
     return dt.datetime.fromtimestamp(float(t), dt.timezone.utc).isoformat(timespec="seconds")
 
 
-def account_key(stem):  # 표본 키 = auth 파일 stem 의 uuid 접두 전체(이메일·토큰 0 · 짧은 id 는 표시용)
-    m = re.match(r"^[A-Za-z]+-([0-9a-fA-F]{6,})", stem)
+def account_key(stem):  # 표본·캐시·직전 값의 «고정 식별자» = uuid 전체(첫 하이픈에서 자르지 않는다)
+    m = re.match(r"^[A-Za-z]+-([0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12})(?:-|$)", stem)
+    if m:
+        return m.group(1).lower()
+    m = re.match(r"^[A-Za-z]+-([0-9a-fA-F]{6,})(?:-|$)", stem)
     return m.group(1).lower() if m else hashlib.sha1(stem.encode()).hexdigest()[:12]
 
 
@@ -421,8 +460,8 @@ def record_samples(observed, keys):  # 관측 1회 = 창 1행 · 같은 (계정�
             if not isinstance(w, dict) or not isinstance(w.get("percent"), (int, float)):
                 continue
             f7 = [f"{NOW:.0f}", str(row.get("provider") or ""), key,
-                  mask(str(w.get("kind") or ""), secrets), scope_str(w.get("scope")),
-                  f"{float(w['percent']):.2f}", mask(str(w.get("resets_at") or ""), secrets)]
+                  hide_scalar(w.get("kind"), secrets), mask(scope_str(w.get("scope")), secrets),
+                  f"{float(w['percent']):.2f}", hide_scalar(w.get("resets_at"), secrets)]
             if tuple(f7) in seen:
                 continue
             seen.add(tuple(f7))
@@ -450,6 +489,9 @@ def table(head, rows):
 
 def main(argv):
     load_adapters()
+    if not STATE:  # 루트를 못 풀면 한 줄로 끝난다(하드 룰 20 · 조용한 홈 기본값 0)
+        print(f"판정 불가 루트 {STATE_ERR}")
+        return 3
     as_json = "--json" in argv
     want = ""
     if "--account" in argv:
@@ -513,7 +555,7 @@ def main(argv):
         observed = []
         for path, row, auth in targets:
             secrets = secrets_of(auth)
-            hit = cache.get(row["account"]) or {}
+            hit = cache.get(row["account_key"]) or {}
             at = hit.get("at")
             if hit.get("row") and isinstance(at, (int, float)) and 0 <= NOW - at < TTL:  # 음수 나이 = 시계 역행 = 캐시 무시
                 row.update({k: v for k, v in hit["row"].items() if k in KEYS})  # 실패 결과도 캐시(DA 반송 6)
@@ -527,12 +569,12 @@ def main(argv):
                 row["result"] = "OK"
             row["observed_at"] = now_iso()
             used = row.get("used")
-            prev = last.get(row["account"], {})
+            prev = last.get(row["account_key"], {})
             if isinstance(used, (int, float)) and isinstance(prev.get("used"), (int, float)):
                 row["spent"] = round(used - prev["used"], 2)
-            cache[row["account"]] = {"at": NOW, "row": mask_row(row, secrets)}
+            cache[row["account_key"]] = {"at": NOW, "row": mask_row(row, secrets)}
             if row["result"] == "OK" and isinstance(used, (int, float)):
-                last[row["account"]] = {"used": used, "at": NOW}
+                last[row["account_key"]] = {"used": used, "at": NOW}
             observed.append((row, auth))
         record_samples(observed, keys)
         for name, blob in (("cache.json", cache), ("last.json", last)):

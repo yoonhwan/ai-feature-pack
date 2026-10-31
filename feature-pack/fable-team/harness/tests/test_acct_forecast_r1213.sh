@@ -113,15 +113,21 @@ chip_r2() {
   A="$(newdir r2)"; S="$(newdir r2s)"
   mk_auth "$A" claude-aaaa1111-x@byourz.com.json TOK-R2
   body TOK-R2 '{"limits":[{"kind":"session","percent":0,"resets_at":"TOK-R2-rst","scope":null},
-                          {"kind":"weekly_all","percent":null,"resets_at":null,"scope":null}]}'
+                          {"kind":"weekly_all","percent":null,"resets_at":null,"scope":null},
+                          {"kind":"weekly_scoped","percent":5,"resets_at":"2026-11-04T06:00:00+00:00",
+                           "scope":{"model":{"id":null,"display_name":"yo@example.com"},"surface":null}}]}'
   run_usage "$A" "$S" --windows
   { printf '%s' "$OUT"; printf '%s' "$ERR"; cat "$S"/*.json "$(samples "$S")" 2>/dev/null; } | grep -q 'TOK-R2' \
     && bad "R2 창 안 토큰 노출" || ok "R2 창 안 토큰 0(출력·캐시·표본)"
+  { printf '%s' "$OUT"; cat "$S"/*.json "$(samples "$S")" 2>/dev/null; } | grep -q '@' \
+    && bad "R2 scope display_name 이메일 노출" || ok "R2 display_name 이메일 가림"
+  grep -q 'TOK-R2\|@' "$(samples "$S")" 2>/dev/null && bad "R2 표본에 토큰·이메일" || ok "R2 표본 토큰·이메일 0"
+  awk -F'\t' 'NF!=7 || $7=="" {exit 1}' "$(samples "$S")" && ok "R2 표본 결측 정규화(근거 없음)" || bad "R2 표본 리셋 빈 문자열"
   printf '%s\n' "$OUT" | grep -q '근거 없음' && ok "R2 null 리셋 = 근거 없음" || bad "R2 null 리셋 ($OUT)"
   jget "$(FT_ACCT_USAGE_AUTH_DIR="$A" FT_ACCT_USAGE_STATE="$S" bash "$TOOL" --json)" \
     'rows[0]["windows"][0]["percent"]==0' && ok "R2 관측된 0 은 0 그대로" || bad "R2 0 보존"
-  printf '{"%s":{"at":%s,"row":{"provider":"claude","account":"%s","result":"OK"}}}\n' \
-    "aaaa1111-x…b" "$NOW" "aaaa1111-x…b" > "$S/cache.json"
+  printf '{"aaaa1111":{"at":%s,"row":{"provider":"claude","account":"aaaa1111-x…b","result":"OK"}}}\n' \
+    "$NOW" > "$S/cache.json"
   run_usage "$A" "$S" --json
   jget "$OUT" 'rows[0]["windows"]=="근거 없음(구형 캐시)"' && ok "R2 구형 캐시 문구" || bad "R2 구형 캐시 문구 ($OUT)"
 }
@@ -156,6 +162,7 @@ chip_r4() {
   jget "$J" "rows[0]['windows'][0]['windows'][0]['why']=='시간당 10.0%'" && ok "R4 속도 시간당 10%" || bad "R4 속도 문구 ($J)"
   run_fc "$A" "$S"
   printf '%s\n' "$OUT" | head -1 | grep -q "$(hhmm $((NOW + 17280)))" && ok "R4 머리 줄 HH:MM 일치" || bad "R4 머리 줄 ($OUT)"
+  printf '%s\n' "$OUT" | grep -q '시간당 10.0%' && ok "R4 표에 속도 표시" || bad "R4 표 속도 열 ($OUT)"
 }
 
 # ── R5 간격 30초 · 감소 뒤 표본 1개 · 감소 뒤 2개 · 리셋 바뀐 옛 표본 제외 ──
@@ -204,14 +211,17 @@ chip_r6() {
   J="$OUT"
   jget "$J" "abs(rows[0]['windows'][0]['windows'][0]['eta']-($NOW-30+17280))<2" \
     && ok "R6 관측 시각 기준(밀림 0)" || bad "R6 관측 기준 ($J)"
-  # 캐시 유효 중 리셋이 지났다 → 재조회 필요 · 가용에 안 셈 · 과거 시각 0
+  # 캐시 적중 상태(30초)에서 리셋이 지나면 json 에도 과거 시각 0(«재조회 필요»)
   S="$(newdir r6s2)"
-  body tok-a "{\"limits\":[{\"kind\":\"weekly_all\",\"percent\":50,\"resets_at\":\"$(iso $((NOW - 1800)))\",\"scope\":null}]}"
-  FT_ACCT_USAGE_NOW=$((NOW - 60)) run_usage "$A" "$S" >/dev/null
+  body tok-a "{\"limits\":[{\"kind\":\"weekly_all\",\"percent\":50,\"resets_at\":\"$(iso $((NOW - 10)))\",\"scope\":null}]}"
+  FT_ACCT_USAGE_NOW=$((NOW - 30)) run_usage "$A" "$S" >/dev/null
+  run_fc "$A" "$S" --json
+  jget "$OUT" 'rows[0]["windows"][0]["windows"][0]["resets_at"]=="재조회 필요" and rows[0]["windows"][0]["windows"][0]["state"]=="재조회 필요"' \
+    && ok "R6 json 과거 시각 0(재조회 필요)" || bad "R6 json 재조회 ($OUT)"
   run_fc "$A" "$S"
   printf '%s\n' "$OUT" | grep -q '재조회 필요' && ok "R6 재조회 필요" || bad "R6 재조회 필요 ($OUT)"
   printf '%s\n' "$OUT" | grep -q '가용 0/1' && ok "R6 가용에 안 셈" || bad "R6 가용 ($OUT)"
-  printf '%s\n' "$OUT" | grep -q "$(hhmm $((NOW - 1800)))" && bad "R6 과거 시각 출력" || ok "R6 과거 시각 0"
+  printf '%s\n' "$OUT" | grep -q "$(iso $((NOW - 10)))" && bad "R6 과거 시각 출력" || ok "R6 과거 시각 0"
 }
 
 # ── R7 공통+모델 창 · scope 미상 ────────────────────────────────────────────
@@ -220,13 +230,17 @@ chip_r7() {
   A="$(newdir r7)"; S="$(newdir r7s)"
   mk_auth "$A" claude-aaaa1111-x@byourz.com.json tok-a
   mk_auth "$A" claude-bbbb2222-x@byourz.com.json tok-b
+  mk_auth "$A" claude-cccc3333-x@byourz.com.json tok-c
   body tok-a '{"limits":[{"kind":"session","percent":100,"resets_at":"2026-10-31T12:00:00+00:00","scope":null},
                           {"kind":"weekly_scoped","percent":40,"resets_at":"2026-11-04T06:00:00+00:00","scope":{"model":{"display_name":"A"}}}]}'
   body tok-b '{"limits":[{"kind":"weekly_scoped","percent":10,"resets_at":"2026-11-04T06:00:00+00:00","scope":null}]}'
+  body tok-c '{"limits":[{"kind":"weekly_scoped","percent":10,"resets_at":"2026-11-04T06:00:00+00:00","scope":{"model":{"display_name":"A"},"surface":"web"}}]}'
   run_fc "$A" "$S" --model A
   printf '%s\n' "$OUT" | grep -q '소진(공통 창)' && ok "R7 소진(공통 창)" || bad "R7 소진(공통 창) ($OUT)"
-  printf '%s\n' "$OUT" | grep -q '가용 0/2' && ok "R7 가용 0" || bad "R7 가용 0 ($OUT)"
+  printf '%s\n' "$OUT" | grep -q '가용 0/3' && ok "R7 가용 0" || bad "R7 가용 0 ($OUT)"
   printf '%s\n' "$OUT" | grep -q '근거 없음(scope)' && ok "R7 근거 없음(scope)" || bad "R7 scope 미상 ($OUT)"
+  printf '%s\n' "$OUT" | grep -c '근거 없음(scope)' | grep -qv '^1$' && ok "R7 surface 미상도 scope 미상" \
+    || bad "R7 surface 미상 ($OUT)"
 }
 
 # ── R8 계정 풀림 · 풀 풀림 · 풀 전체 소진 근거 없음 ─────────────────────────
@@ -237,10 +251,12 @@ chip_r8() {
   mk_auth "$A" claude-bbbb2222-x@byourz.com.json tok-b
   mk_auth "$A" claude-cccc3333-x@byourz.com.json tok-c
   body tok-a '{"limits":[{"kind":"session","percent":100,"resets_at":"2026-10-31T09:40:00+00:00","scope":null},
-                          {"kind":"weekly_all","percent":100,"resets_at":"2026-11-01T02:00:00+00:00","scope":null}]}'
+                          {"kind":"weekly_all","percent":100,"resets_at":"2026-11-01T02:00:00+00:00","scope":null},
+                          {"kind":"weekly_scoped","percent":47,"resets_at":"2026-11-04T06:00:00+00:00","scope":{"model":{"display_name":"A"}}}]}'
   body tok-b '{"limits":[{"kind":"weekly_all","percent":100,"resets_at":"2026-10-31T06:00:00+00:00","scope":null}]}'
   body tok-c '{"limits":[{"kind":"weekly_all","percent":40,"resets_at":"2026-11-04T05:59:59+00:00","scope":null}]}'
   put_sample "$S" $((NOW - 3600)) cccc3333 weekly_all "" 30.00 '2026-11-04T05:59:59+00:00'
+  put_sample "$S" $((NOW - 3600)) aaaa1111 weekly_scoped '{"model":{"display_name":"A"}}' 47.00 '2026-11-04T06:00:00+00:00'
   run_usage "$A" "$S" --json >/dev/null
   J="$(FT_ACCT_USAGE_AUTH_DIR="$A" FT_ACCT_USAGE_STATE="$S" bash "$TOOL" --json)"
   run_fc "$A" "$S" --json
@@ -255,13 +271,14 @@ one=[a for k,a in acc.items() if k.startswith("aaaa1111")][0]
 ok = one["free"] is not None and abs(d.datetime.fromisoformat(one["free"]).timestamp()-want)<2
 ok = ok and p["earliest"] is not None and p["earliest"]["account"].startswith("cccc3333")
 ok = ok and p["pool_reset"] is not None
-sys.exit(0 if ok else 1)' && ok "R8 계정 풀림=가장 늦은 리셋 · 가장 이른 소진=정상 계정" || bad "R8 풀림·가장 이른 ($OUT)"
+sys.exit(0 if ok else 1)' && ok "R8 계정 풀림=가장 늦은 리셋 · 가장 이른 소진=가용 계정만" \
+    || bad "R8 풀림·가장 이른 ($OUT)"
   jget "$OUT" 'rows[0]["pool_exhaust"]=="근거 없음(배정 순서)"' && ok "R8 풀 전체 소진 = 근거 없음(배정 순서)" || bad "R8 배정 순서"
 }
 
 # ── R9 시각 주입 0 유효 · 시계 역행 · 미래 표본 제외 ───────────────────────
 chip_r9() {
-  local A S n
+  local A S S2 S3 n
   A="$(newdir r9)"; S="$(newdir r9s)"
   mk_auth "$A" claude-aaaa1111-x@byourz.com.json tok-a
   body tok-a '{"limits":[{"kind":"weekly_all","percent":50,"resets_at":"2026-11-04T05:59:59+00:00","scope":null}]}'
@@ -270,10 +287,22 @@ chip_r9() {
   [ "$RC" -eq 0 ] && ok "R9 NOW=0 유효(rc0)" || bad "R9 NOW=0 (rc=$RC $OUT)"
   jget "$(FT_ACCT_USAGE_NOW=0 FT_ACCT_USAGE_AUTH_DIR="$A" FT_ACCT_USAGE_STATE="$S" bash "$TOOL" --json)" \
     'rows[0]["windows"][0]["observed_at"].startswith("1970-01-01")' && ok "R9 observed_at = epoch 0" || bad "R9 observed_at"
-  # 시계 역행: 캐시 at 이 미래 → 캐시 무시 + 재조회 1
+  # 미래 캐시(at > 지금) = 시계 역행 → 캐시 무시 + «정확히 1회» 재조회
+  S2="$(newdir r9sx)"
+  : > "$FAKE_DIR/log"
+  FT_ACCT_USAGE_NOW=$((NOW + 300)) run_usage "$A" "$S2" >/dev/null
   n="$(calls)"
-  FT_ACCT_USAGE_NOW=$((NOW + 300)) run_usage "$A" "$S" >/dev/null
-  [ "$(calls)" -gt "$n" ] && ok "R9 시계 역행 → 캐시 무시 + 재조회" || bad "R9 시계 역행"
+  run_usage "$A" "$S2"
+  [ "$(calls)" -eq $((n + 1)) ] && ok "R9 미래 캐시 무시 + 재조회 1회" || bad "R9 시계 역행 ($(calls) vs $((n + 1)))"
+  jget "$(FT_ACCT_USAGE_AUTH_DIR="$A" FT_ACCT_USAGE_STATE="$S2" bash "$TOOL" --json)" \
+    "rows[0]['observed_at']=='$(iso $NOW)'" && ok "R9 관측 시각 = 지금(미래 캐시 안 씀)" || bad "R9 관측 시각"
+  # 예측 도구도 epoch 0 에서 돈다(속도·예상이 0 기준)
+  S3="$(newdir r9s0)"
+  put_sample "$S3" -3600 aaaa1111 weekly_all "" 40.00 '2026-11-04T05:59:59+00:00'
+  FT_ACCT_USAGE_NOW=0 run_usage "$A" "$S3" >/dev/null
+  FT_ACCT_USAGE_NOW=0 run_fc "$A" "$S3" --json
+  [ "$RC" -eq 0 ] && jget "$OUT" 'abs(rows[0]["windows"][0]["windows"][0]["eta"]-17280)<2' \
+    && ok "R9 예측 도구 epoch 0 직접" || bad "R9 예측 epoch 0 ($RC $OUT)"
   # 미래 표본 제외 — 미래 표본(90%)이 섞이면 속도가 42%대로 나온다(10% = 제외됨)
   S="$(newdir r9s2)"
   put_sample "$S" $((NOW - 3600)) aaaa1111 weekly_all "" 40.00 '2026-11-04T05:59:59+00:00'
@@ -316,17 +345,22 @@ chip_r11() {
   [ "$n" -eq 1 ] && ok "R11 동시 실행 조회 1회(중복 0)" || bad "R11 동시 실행 조회 ($n)"
   n="$(grep -c . "$(samples "$S")")"
   [ "$n" -eq 4 ] && ok "R11 표본 4행(관측×창 수)" || bad "R11 표본 행 ($n)"
-  # 잠금 8초 점유 → 두 번째는 «판정 불가 잠금» rc3 (대기 상한은 시험 env 로 1초)
-  python3 - "$S" <<'PY' &
-import fcntl, sys, time
+  # 잠금 점유자는 «held» 파일로 신호하고 «release» 파일을 기다린다(고정 sleep 0) · 상한은 기본 7초
+  local sig="$TMP/lock.sig" i t0 t1
+  python3 - "$S" "$sig" <<'PY' &
+import fcntl, os, sys, time
 fh = open(sys.argv[1] + "/lock", "a+")
 fcntl.flock(fh, fcntl.LOCK_EX)
-time.sleep(8)
+open(sys.argv[2], "w").write("held")
+end = time.monotonic() + 30
+while not os.path.exists(sys.argv[2] + ".release") and time.monotonic() < end:
+    time.sleep(0.02)
 PY
-  sleep 0.4
-  FT_ACCT_LOCK_WAIT=1 run_usage "$A" "$S"
-  printf '%s\n' "$OUT" | grep -q '판정 불가 잠금' && [ "$RC" -eq 3 ] && ok "R11 잠금 초과 rc3" \
-    || bad "R11 잠금 초과 ($RC $OUT)"
+  for i in $(seq 1 500); do [ -f "$sig" ] && break; sleep 0.01; done
+  t0=$(date +%s); run_usage "$A" "$S"; t1=$(date +%s)
+  printf '%s\n' "$OUT" | grep -q '판정 불가 잠금' && [ "$RC" -eq 3 ] \
+    && ok "R11 잠금 초과 rc3(기본 상한 · 대기 $((t1 - t0))초)" || bad "R11 잠금 초과 ($RC $OUT)"
+  : > "$sig.release"
   wait
 }
 
@@ -334,16 +368,23 @@ PY
 chip_r12() {
   local A S n keys
   A="$(newdir r12)"; S="$(newdir r12s)"
-  mk_auth "$A" claude-aaaa1111-x@byourz.com.json tok-a
-  mk_auth "$A" claude-aaaa1111-x@bmail.com.json tok-b   # 짧은 id 충돌(-2) 후보
-  body tok-a "$W4"; body tok-b "$W4"
+  mk_auth "$A" claude-aaaa1111-x@byourz.com.json tok-a     # uuid 같음 · 정렬 뒤
+  mk_auth "$A" claude-aaaa1111-x@bmail.com.json tok-b     # uuid 같음 · 정렬 앞(짧은 id -2)
+  body tok-a '{"limits":[{"kind":"weekly_all","percent":70,"resets_at":"2026-11-04T05:59:59+00:00","scope":null}]}'
+  body tok-b '{"limits":[{"kind":"weekly_all","percent":10,"resets_at":"2026-11-04T05:59:59+00:00","scope":null}]}'
   run_usage "$A" "$S" >/dev/null
   keys="$(cut -f3 "$(samples "$S")" | sort -u | tr '\n' ' ')"
   printf '%s' "$keys" | grep -q '^aaaa1111' && ok "R12 표본 키 = uuid" || bad "R12 표본 키 ($keys)"
   printf '%s' "$keys" | grep -q '@' && bad "R12 표본 키에 이메일" || ok "R12 표본 키에 이메일 0"
   n="$(cut -f3 "$(samples "$S")" | sort -u | grep -c .)"
-  [ "$n" -eq 2 ] && ok "R12 짧은 id 충돌 → 표본 키 다름" || bad "R12 충돌 키 ($keys)"
+  [ "$n" -eq 2 ] && ok "R12 uuid 같은 계정 2개 → 표본 키 다름" || bad "R12 충돌 키 ($keys)"
+  # 앞 파일 삭제 뒤 «같은 상태 폴더» → 남은 계정이 삭제 계정 값을 받으면 안 된다(70% 단언)
   rm -f "$A/claude-aaaa1111-x@bmail.com.json"
+  run_usage "$A" "$S" --json
+  jget "$OUT" 'rows[0]["windows"][0]["percent"]==70' && ok "R12 삭제 뒤 재조회 값 70%(섞임 0)" \
+    || bad "R12 삭제 뒤 값 ($OUT)"
+  jget "$(cat "$S/cache.json")" 'rows["aaaa1111"]["row"]["windows"][0]["percent"]==70' \
+    && ok "R12 캐시 키 = uuid(전체)" || bad "R12 캐시 키"
   S="$(newdir r12s2)"
   put_sample "$S" $((NOW - 86400 * 31)) aaaa1111 weekly_all "" 90.00 ''    # 31일 전 = 버린다
   local i
@@ -358,6 +399,14 @@ chip_r12() {
   ( cd "$R" && FT_ACCT_USAGE_AUTH_DIR="$A" bash "$TOOL" >/dev/null 2>&1 )
   [ -f "$R/.fable-team/state/acct-usage/cache.json" ] && ok "R12 기본 상태 폴더 = 루트/.fable-team/state/acct-usage" \
     || bad "R12 기본 상태 폴더"
+  # 루트를 못 풀면 «판정 불가 루트 <이유>» 1줄 + rc≠0 (조용한 홈 기본값 0 · 하드 룰 20)
+  local N; N="$(newdir r12nogit)"
+  ( cd "$N" && FT_ACCT_USAGE_AUTH_DIR="$A" bash "$TOOL" > "$TMP/root.out" 2>&1 ); n=$?
+  [ "$n" -ne 0 ] && [ "$(grep -c . "$TMP/root.out")" -eq 1 ] && grep -q '판정 불가 루트' "$TMP/root.out" \
+    && ok "R12 루트 판정 불가 = 1줄 rc≠0($n)" || bad "R12 루트 판정 불가 ($n $(cat "$TMP/root.out"))"
+  ( cd "$N" && FT_ACCT_USAGE_AUTH_DIR="$A" bash "$FC" > "$TMP/root2.out" 2>&1 ); n=$?
+  [ "$n" -ne 0 ] && grep -q '판정 불가 루트' "$TMP/root2.out" && ok "R12 예측 도구도 루트 판정 불가" \
+    || bad "R12 예측 루트 ($n $(cat "$TMP/root2.out"))"
 }
 
 # ── ⓚ bin·kit 같음 · 기준판(origin/main) 14 값 동일 · 회귀 ─────────────────
@@ -367,6 +416,11 @@ chip_k() {
   bash -n "$FC" && ok "bash -n forecast" || bad "bash -n forecast"
   { [ -f "$TOOL_KIT" ] && cmp -s "$TOOL" "$TOOL_KIT"; } && ok "bin·kit cmp0 usage" || bad "bin·kit cmp0 usage"
   { [ -f "$FC_KIT" ] && cmp -s "$FC" "$FC_KIT"; } && ok "bin·kit cmp0 forecast" || bad "bin·kit cmp0 forecast"
+  local f m
+  for f in "$TOOL" "$TOOL_KIT" "$FC" "$FC_KIT"; do
+    m="$(python3 -c 'import os,stat,sys;print(oct(stat.S_IMODE(os.stat(sys.argv[1]).st_mode)))' "$f")"
+    [ "$m" = "0o755" ] && ok "모드 100755 ${f#*harness/}" || bad "모드 $m ${f#*harness/}"
+  done
   base="$TMP/baseline-usage.sh"
   # 기준판 = 팩 origin/main 의 r1183 판 고정 40hex(떠다니는 이름 금지 · r1132)
   if git -C "$HERE/.." show 4580028c98de911a180c4ec2d5b9ab4925ce807a:feature-pack/fable-team/harness/bin/ft-acct-usage.sh > "$base" 2>/dev/null; then
@@ -399,7 +453,7 @@ d, n = sys.argv[1], sys.argv[2]
 M = {
  "1": ("bin/ft-acct-usage.sh",
        '            if not isinstance(x, dict):\n                continue\n            out.append({"kind": x.get("kind")',
-       '            if not isinstance(x, dict) or str(x.get("kind") or "").endswith("_scoped"):\n                continue\n            out.append({"kind": x.get("kind")'),
+       '            if not isinstance(x, dict) or str(((x.get("scope") or {}).get("model") or {}).get("display_name")) == "Opus":\n                continue\n            out.append({"kind": x.get("kind")'),
  "2": ("bin/ft-acct-forecast.sh", 'or "98")', 'or "100")'),
  "3": ("bin/ft-acct-forecast.sh",
        "eta = (obs if obs is not None else NOW) + (FULL - pct) / rate * 3600.0",
