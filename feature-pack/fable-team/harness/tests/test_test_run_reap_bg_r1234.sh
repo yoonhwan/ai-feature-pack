@@ -15,7 +15,8 @@ eq()  { [ "$1" = "$2" ] && ok "$3" || bad "$3 — «${1}» ≠ «${2}»"; }
 rx()  { printf '%s' "$1" | grep -Eq -- "$2" && ok "$3" || bad "$3 — 패턴 없음: «${2}» ← ${1:0:300}"; }
 T="$(cd "$(mktemp -d)" && pwd -P)"
 export R1234_MARK="r1234-mark-$$-$RANDOM"
-trap 'pkill -f -- "$R1234_MARK" 2>/dev/null; rm -rf "$T"' EXIT
+sweep() { pkill -9 -f -- "$R1234_MARK" 2>/dev/null; return 0; }   # 표본은 TERM 을 무시하니 KILL(-9) 로만 끝낸다(반송 1 덧붙임 · 옛 러너에서도 표본이 안 남게)
+trap 'sweep; rm -rf "$T"' EXIT
 mk() { sed -e 's/__AMP__/\&/g' -e 's/__O__/origin/g' > "$1"; }  # 표본 줄이 이 시험 자신의 lint 에 안 걸리게 글자를 치환해 쓴다
 
 bash -n "$RUN" && ok "bash -n runner" || bad "bash -n runner"
@@ -70,7 +71,7 @@ rx "$(cat "$T/out_c")" '\[묶음 정리\] 남은 0 · TERM 0 · KILL 0 · 남은
 sed 's/kill -KILL -- "-\$1" 2>\/dev\/null/:/' "$RUN" > "$T/run_mut.sh"
 cmp -s "$RUN" "$T/run_mut.sh" && bad "변이 적용 안 됨(sed 가 줄을 못 찾음)" || ok "변이 적용됨"
 FT_SEAT_QUIESCE_BIN="$BIN/ft-seat-quiesce.sh" FT_TEST_REENTRY_LINT_BIN="$LINT" r1_check "$T/run_mut.sh" > "$T/mut_msg" 2>&1 && bad "변이(KILL 끔)인데 R1 이 통과 — 시험이 변이를 못 잡음" || ok "변이 R1 FAIL(= 시험이 변이를 잡음)"
-pkill -f -- "$R1234_MARK" 2>/dev/null
+sweep
 
 # R4 — timeout 70 … & (-k 없음) = TIMEOUTNOK rc3 · timeout -k 5 70 … & = OK
 mk "$T/s4a.sh" <<'EOF'
@@ -153,6 +154,10 @@ eq "$(grep -c '^WARN BGNOTRAP ' "$T/e8a")" 1 "R8 stderr WARN BGNOTRAP 1줄"
 export R1234_RAN="$T/ran8b"; bash "$RUN" bash "$T/s8b.sh" > "$T/o8b" 2> "$T/e8b"; rc=$?
 eq "$rc" 3 "R8 REENTRY → 러너 rc3 그대로"
 [ -e "$T/ran8b" ] && bad "R8 REENTRY 인데 시험이 실행됨" || ok "R8 REENTRY 시험 미실행"
+
+# 끝 — 표본을 KILL 하고 «남은 표본 0» 단언(폴링 최대 2초 · 고정 sleep 아님)
+sweep; for _ in 1 2 3 4 5 6 7 8 9 10; do pgrep -f -- "$R1234_MARK" >/dev/null || break; sleep 0.2; done
+pgrep -f -- "$R1234_MARK" >/dev/null && bad "끝 남은 표본 ≥1" || ok "끝 남은 표본 0"
 
 echo "---"; [ "$fail" = 0 ] && echo "ALL PASS" || echo "FAIL $fail"
 exit "$fail"
