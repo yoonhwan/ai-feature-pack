@@ -61,7 +61,8 @@ plan p6 "$RS $PM byz-ops-master-claude#64 byz-v65-master-claude#250"; o="$(hil -
 echo "== ⓔ R5 ft-merge-land 승인 파일 없음 → REJECT rc2 그대로 + 기다림 표식 1줄 · 재거절 덧쓰기 0"
 mkrepo "$T/r"; mkdir -p "$T/r/.fable-team"
 export FT_ROOT="$T/r" FT_AUTONOMY_STATE_DIR="$T/state" FT_AUTONOMY_LEVEL=each FT_MBOX_DIR="$C"
-S1="$(printf 'a%.0s' {1..40})"; WF="$T/state/autonomy-merge-wait/$S1"
+sib() { git -C "$W" commit-tree "$M0^{tree}" -p "$M0" -m "$1"; }   # r1200: 거절 표식은 실제 커밋 sha 만 — main 밖 형제 커밋(서로 조상 아님)
+S1="$(sib s1)"; WF="$T/state/autonomy-merge-wait/$S1"
 o="$(FT_SEAT="$RS" bash "$BIN/ft-merge-land.sh" 7 --approve-sha "$S1" --repo "$W" 2>&1)"; rc=$?
 [ "$rc" = 2 ] && has "$o" "REJECT 오빠 승인 파일 없음" "REJECT rc2 그대로" || bad "rc=$rc $o"
 has "$o" "기다림 등록 $WF" "  └ REJECT 줄 끝 «기다림 등록 <경로>»"
@@ -81,12 +82,12 @@ echo "== ⓖ R7 approve-merge(표식 없음) → APPROVED 그대로 · 0통 · �
 S2="$(printf 'b%.0s' {1..40})"; clr; o="$(bash "$BIN/ft-autonomy.sh" approve-merge "$S2" 2>&1)"
 has "$o" "APPROVED $S2" "APPROVED 그대로"
 [ "$(nsent)" = 0 ] && [ "$(ls "$T/state/autonomy-merge-wait" | grep -c .)" = 1 ] && ok "  └ 0통 · 새 표식 파일 0" || bad "쪽지 $(nsent) · $(ls "$T/state/autonomy-merge-wait")"
-S3="$(printf 'c%.0s' {1..40})"; env -u FT_SEAT bash "$BIN/ft-merge-land.sh" 7 --approve-sha "$S3" --repo "$W" >/dev/null 2>&1
+S3="$(sib s3)"; env -u FT_SEAT bash "$BIN/ft-merge-land.sh" 7 --approve-sha "$S3" --repo "$W" >/dev/null 2>&1
 clr; bash "$BIN/ft-autonomy.sh" approve-merge "$S3" >/dev/null 2>&1
 [ "$(nsent)" = 1 ] && grep -q "^$PM	ft-hil-approve	\[승인 도착 ${S3:0:10}\] 수신자 모름" "$C/sent.log" && ok "seat=unknown → planner master «수신자 모름» 1통" || bad "쪽지: $(cat "$C/sent.log" 2>&1)"
 
 echo "== ⓗ R8 승인 쪽 mbox rc1 → APPROVED·rc 불변 · stderr «판정 불가» · 표식 남음(.sent 0)"
-S4="$(printf 'd%.0s' {1..40})"; FT_SEAT="$RS" bash "$BIN/ft-merge-land.sh" 7 --approve-sha "$S4" --repo "$W" >/dev/null 2>&1
+S4="$(sib s4)"; FT_SEAT="$RS" bash "$BIN/ft-merge-land.sh" 7 --approve-sha "$S4" --repo "$W" >/dev/null 2>&1
 clr; touch "$C/fail"; o="$(bash "$BIN/ft-autonomy.sh" approve-merge "$S4" 2>"$T/e8")"; rc=$?
 [ "$rc" = 0 ] && has "$o" "APPROVED $S4" "mbox 실패에도 APPROVED rc0" || bad "rc=$rc $o"
 grep -q '판정 불가' "$T/e8" && ok "  └ stderr «판정 불가»" || bad "stderr: $(cat "$T/e8")"
