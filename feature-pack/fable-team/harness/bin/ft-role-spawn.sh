@@ -39,6 +39,19 @@ if [ -f "$HERE/ft-spawn-hold.sh" ]; then
   [ "$_hrc" = 0 ] || { printf '%s\n' "$_hold"; exit "$_hrc"; }
   printf '%s\n' "$_hold"
 fi
+# ★계정 풀 정지 (r1214 · ACCT_PAUSE · Issue #5345 ③⑤)★: 모델이 «확정된 뒤»(위 --model·--tier·기본값 분기) 판정하고, 카드 쓰기·워크트리·tmux «전»에 열지 않는다.
+#   정지 rc3 = `REJECT 정지 중 · 풀림 HH:MM` · 판정 불가 rc4 = `REJECT 판정 불가`(통과 0) · 도구 없음 = 설치 누락(그대로 진행하지 않는다).
+if [ -f "$HERE/ft-acct-pause.sh" ]; then
+  _apout="$(bash "$HERE/ft-acct-pause.sh" status --check --agent "$AGENT" --model "$MODEL" 2>&1)"; _aprc=$?
+  case "$_aprc" in
+    0) ;;
+    3) printf '%s\n' "REJECT 정지 중 · 풀림 $(printf '%s\n' "$_apout" | sed -n 's/.*until_hhmm=\([0-9:]*\).*/\1/p' | head -1) — acct-pause $(printf '%s\n' "$_apout" | sed -n 's/^PAUSED \([^ ]*\) .*/\1/p' | head -1) round=$(printf '%s\n' "$_apout" | sed -n 's/.*round=\([^ ]*\).*/\1/p' | head -1)"; exit 3;;
+    4) printf '%s\n' "REJECT 판정 불가 — $(printf '%s\n' "$_apout" | tail -1)"; exit 4;;
+    *) printf '%s\n' "REJECT acct-pause 판정 실패 rc=$_aprc — $(printf '%s\n' "$_apout" | tail -1)"; exit 1;;
+  esac
+else
+  echo "WARN acct-pause 판정 못 함 — ft-acct-pause.sh 없음: $HERE" >&2   # 없는 도구로 열지/막을지 판단하지 않는다(설치 누락은 라이브 드리프트 검사가 잡는다 · ft-spawn-hold.sh 와 같은 틀)
+fi
 # ★자원 게이트 (Res-1014 · r921 개정)★: 넘으면 «회수 먼저 → 다시 재고 → 그래도 넘으면 WARN 1줄 + 진행» — 멈추는 것은문지기의 REJECT(디스크 하드 하한·디스크 측정 실패)뿐이다(오빠 2026-10-25). 우회 플래그 없음 — 조정은 env 문턱만.
 # ★W3(DA⑥ r1)★ 회수 호출은 «7초 상한» — 넘으면 `WARN 회수 시간 초과 — 진행` 1줄 남기고 그대로 간다.
 [ -f "$HERE/ft-reclaim-capped.sh" ] || { echo "REJECT ft-reclaim-capped.sh 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }

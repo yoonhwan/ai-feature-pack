@@ -20,7 +20,17 @@ HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 # ★spawn 정지 파일 (R320 · 판정 2166)★: 정지는 기한·해제 조건이 있는 SPAWN_HOLD 파일 하나로만 걸린다 — 문장·쪽지로 받은 정지는 효력 0. 출력 `hold=none` = 정지 아님. 없는 도구는 설치 누락(라이브 드리프트 검사가 잡는다).
 if [ -f "$HERE/ft-spawn-hold.sh" ]; then
   _hold="$(bash "$HERE/ft-spawn-hold.sh" status 2>&1)"; _hrc=$?
-  [ "$_hrc" = 0 ] || { printf '%s\n' "$_hold"; exit "$_hrc"; }
+  if [ "$_hrc" != 0 ]; then
+    printf '%s\n' "$_hold"
+    # r1214: 정지 사유를 «둘 다 모아» 낸다 — 자원 정지에 걸려도 계정 정지가 같이 있으면 그 1줄도 함께 보인다(여기서 아는 모델 = --model 로 준 값 또는 기본 agent).
+    #   (모델이 확정된 뒤의 «본» 계정 게이트는 아래 — 여기는 자원 정지로 먼저 끝나는 길에서 두 번째 사유를 잃지 않기 위한 자리다.)
+    if [ -f "$HERE/ft-acct-pause.sh" ]; then
+      _apout="$(bash "$HERE/ft-acct-pause.sh" status --check --agent "$AGENT" --model "$MODEL" 2>&1)"; _aprc=$?
+      case "$_aprc" in 3|4) printf '%s\n' "$_apout";; esac
+      [ "$_aprc" = 4 ] && exit 4
+    fi
+    exit "$_hrc"
+  fi
   printf '%s\n' "$_hold"
 fi
 # ★자원 게이트 (Res-1014 · r921 개정)★: 넘으면 «회수 먼저 → 다시 재고 → 그래도 넘으면 WARN 1줄 + 진행» — 멈추는 것은 문지기의 REJECT(디스크 하드 하한·디스크 측정 실패)뿐이다(오빠 2026-10-25 «컴퓨터가 죽어도 개발은 해야지»). 우회 플래그 없음 — 조정은 env 문턱만.
@@ -335,6 +345,19 @@ if [ -z "$MODEL" ]; then case "$AGENT" in
   *) echo "REJECT --model 필수 (--agent $AGENT 는 기본 모델이 없다)"; exit 1;; esac
 fi
 # (r975: SEATS·회신 대상 해석은 :54 로 옮겼다 — 상한·회수 게이트의 --caller/--from 도 같은 값을 쓴다)
+# ★계정 풀 정지 (r1214 · ACCT_PAUSE · Issue #5345 ③⑤)★: 여기서 모델이 «확정됐다»(위 --model·--tier·기본값 분기). 카드 쓰기·워크트리·tmux «전»에 판정한다.
+#   정지 rc3 = `REJECT 정지 중 · 풀림 HH:MM` · 판정 불가 rc4 = `REJECT 판정 불가`(통과 0). 없는 도구는 WARN 1줄(판단하지 않음 · ft-spawn-hold.sh 와 같은 틀).
+if [ -f "$HERE/ft-acct-pause.sh" ]; then
+  _apout="$(bash "$HERE/ft-acct-pause.sh" status --check --agent "$AGENT" --model "$MODEL" 2>&1)"; _aprc=$?
+  case "$_aprc" in
+    0) ;;
+    3) printf '%s\n' "REJECT 정지 중 · 풀림 $(printf '%s\n' "$_apout" | sed -n 's/.*until_hhmm=\([0-9:]*\).*/\1/p' | head -1) — acct-pause $(printf '%s\n' "$_apout" | sed -n 's/^PAUSED \([^ ]*\) .*/\1/p' | head -1) round=$(printf '%s\n' "$_apout" | sed -n 's/.*round=\([^ ]*\).*/\1/p' | head -1)"; exit 3;;
+    4) printf '%s\n' "REJECT 판정 불가 — $(printf '%s\n' "$_apout" | tail -1)"; exit 4;;
+    *) printf '%s\n' "REJECT acct-pause 판정 실패 rc=$_aprc — $(printf '%s\n' "$_apout" | tail -1)"; exit 1;;
+  esac
+else
+  echo "WARN acct-pause 판정 못 함 — ft-acct-pause.sh 없음: $HERE" >&2
+fi
 if [ ! -f "$IDX" ] && [ -f "$HERE/ft-team-lib.sh" ]; then . "$HERE/ft-team-lib.sh"; _tw="$(ft_index_twin "$IDX")" && [ -f "$_tw" ] && { echo "INFO 인덱스 쌍둥이 경로로 해석: $IDX → $_tw (R382 전환 기간 역호환)"; IDX="$_tw"; }; fi
 [ -f "$IDX" ] || { echo "REJECT 인덱스 없음: $IDX"; exit 1; }
 [ ! -f "$HERE/ft-team-lib.sh" ] || ( . "$HERE/ft-team-lib.sh" && ft_card_location_ok "$IDX" ) || exit 1   # r447: 명단 새 꼴 팀 카드가 옛 꼴 폴더(쌍둥이 해석 포함)면 REJECT
