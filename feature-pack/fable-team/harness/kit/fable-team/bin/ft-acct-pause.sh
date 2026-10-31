@@ -198,10 +198,19 @@ def run(cmd, timeout=CALL_MAX):
         return None
 
 
-def panes():
-    r = run([TMUX, "list-panes", "-a", "-F", "#{session_name} #{pane_id}"], timeout=7)
+def panes(budget=None):
+    """좌석 pane 목록. 배치 남은 시간이 없으면 «조회 생략»(None) — 부르는 쪽이 그 좌석을 다음 호출로 넘긴다(⑧).
+    tmux 자체가 실패(rc≠0)하면 {} — «좌석 없음» 과 «조회 못 함» 을 가른다."""
+    left = None
+    if budget is not None:
+        left = budget["deadline"] - time.time()
+        if left <= 0.2:
+            return None
+    r = run([TMUX, "list-panes", "-a", "-F", "#{session_name} #{pane_id}"], timeout=min(7.0, left) if left else 7.0)
+    if r is None:
+        return None
     out = {}
-    if r is None or r.returncode != 0:
+    if r.returncode != 0:
         return out
     for line in r.stdout.splitlines():
         cols = line.split()
@@ -210,10 +219,18 @@ def panes():
     return out
 
 
-def pane_busy(pane):
-    """지금 턴 중이거나 미제출 입력이 있으면 True — 판정 불가도 True(깨우지 않는 쪽)."""
-    r = run([TMUX, "capture-pane", "-t", pane, "-p"], timeout=7)
-    if r is None or r.returncode != 0:
+def pane_busy(pane, budget=None):
+    """지금 턴 중이거나 미제출 입력이 있으면 True · 판정 불가도 True(깨우지 않는 쪽).
+    배치 남은 시간이 없으면 None(조회 생략) — 부르는 쪽이 그 좌석을 다음 호출로 넘긴다(⑧)."""
+    left = None
+    if budget is not None:
+        left = budget["deadline"] - time.time()
+        if left <= 0.2:
+            return None
+    r = run([TMUX, "capture-pane", "-t", pane, "-p"], timeout=min(7.0, left) if left else 7.0)
+    if r is None:
+        return None if budget is not None else True
+    if r.returncode != 0:
         return True
     tail = [ln for ln in r.stdout.splitlines() if ln.strip()][-14:]
     text = "\n".join(tail)
@@ -222,7 +239,7 @@ def pane_busy(pane):
 
 def pane_argv_model(pane):
     """그 pane 의 에이전트 argv 에서 `--model <id>` 를 읽어 정규화한다(명부 model 이 빈칸일 때 · ⑤)."""
-    r = run([TMUX, "display-message", "-t", pane, "-p", "#{pane_pid}"], timeout=7)
+    r = run([TMUX, "display-message", "-t", pane, "-p", "#{pane_pid}"], timeout=7)  # 한 번짜리 조회(좌석당 1회 · ⑤)
     pid = (r.stdout or "").strip() if r is not None and r.returncode == 0 else ""
     if not pid.isdigit():
         return ""
@@ -266,9 +283,11 @@ def seat_provider(seat, row, alive):
     return prov, model
 
 
-def recipients(prov, model):
+def recipients(prov, model, budget=None):
     """그 풀의 현역 좌석 — 명부 합집합 ∩ tmux 생존 ∩ provider 판별 일치(모델이 다르면 제외) · tick 유무를 함께 둔다."""
-    alive = panes()
+    alive = panes(budget)
+    if alive is None:
+        return []
     out = []
     for seat, row in seats_live().items():
         if seat not in alive:
@@ -309,12 +328,19 @@ def ring_seat(seat, budget):
 def ring_if_idle(r, budget):
     """재개 ring 은 «모든» 좌석(틱 좌석 포함)이 유휴일 때만 — 바쁘면 다음 호출이 재시도(④)."""
     seat = r.get("seat") or ""
-    alive = panes()
+    alive = panes(budget)
+    if alive is None:
+        r["last_err"] = "조회 시간 초과"
+        return False
     if seat not in alive:
         r["no_ring"] = True
         r["last_err"] = "absent"
         return False
-    if pane_busy(alive[seat]):
+    busy = pane_busy(alive[seat], budget)
+    if busy is None:
+        r["last_err"] = "조회 시간 초과"
+        return False
+    if busy:
         r["last_err"] = "busy"
         return False
     if not ring_seat(seat, budget):
@@ -359,15 +385,22 @@ def notice_pass(entry, rec, kind, budget):
                 if ring_if_idle(r, budget):
                     done += 1
             continue
-        joined = panes()
+        joined = panes(budget)
+        if joined is None:                       # ⑧ 조회 자체를 건너뛴다 — 남은 좌석은 다음 호출
+            break
         if seat not in joined:
             r["resume_at" if kind == "resume" else "notice_at"] = NOW
             r["no_ring"] = True
             r["last_err"] = "absent"
             continue
-        if not r.get("tick") and pane_busy(joined[seat]):
-            r["last_err"] = "busy"
-            continue
+        if not r.get("tick"):
+            busy = pane_busy(joined[seat], budget)
+            if busy is None:
+                r["last_err"] = "조회 시간 초과"
+                break
+            if busy:
+                r["last_err"] = "busy"
+                continue
         doorbell, err = send_seat(seat, body, budget)
         budget["seats"] -= 1
         done += 1
@@ -503,11 +536,13 @@ def do_set(opts):
                  "set_by": set_by, "set_at": NOW, "round_id": rid}
         state[prov] = entry
         write_json(FILE, state)
+        budget = {"deadline": time.time() + BATCH_SEC, "seats": BATCH_SEATS}
         rec = {"provider": prov, "model": model, "round_id": rid, "stage": "set", "set_at": NOW,
                "until": until, "release_at": rel or None, "reason": reason, "set_by": set_by,
-               "recipients": recipients(prov, model)}
+               "recipients": recipients(prov, model, budget)}
         write_json(REC / f"{rid}.json", rec)
-        budget = {"deadline": time.time() + BATCH_SEC, "seats": BATCH_SEATS}
+        if not rec["recipients"]:
+            print("WARN 좌석 목록 조회 시간 초과 또는 대상 0 — 예고 0(상태는 걸었다)")
         notice_pass(entry, rec, "set", budget)
         write_json(REC / f"{rid}.json", rec)
         left = sum(1 for r in rec["recipients"] if not r.get("notice_at"))

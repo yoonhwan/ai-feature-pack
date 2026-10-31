@@ -35,7 +35,8 @@ cat > "$FB/tmux" <<'EOF'
 log() { printf '%s\n' "$*" >> "${TMUX_LOG:-/dev/null}"; }
 pane_arg() { local prev=""; for a in "$@"; do [ "$prev" = "-t" ] && { echo "$a"; return; }; prev="$a"; done; }
 case "$1" in
-  list-panes) printf '%s\n' "${FAKE_PANES:-}" | awk 'NF>=2{print $1, $2}'; exit 0;;
+  list-panes) [ -n "${FAKE_TMUX_SLOW_PANES:-}" ] && sleep "$FAKE_TMUX_SLOW_PANES"
+    printf '%s\n' "${FAKE_PANES:-}" | awk 'NF>=2{print $1, $2}'; exit 0;;
   capture-pane) pane="$(pane_arg "$@")"
     busy="$(printf '%s\n' "${FAKE_PANES:-}" | awk -v p="$pane" '$2==p{print $3; exit}')"
     log "CAPTURE $pane busy=${busy:-0}"
@@ -441,11 +442,21 @@ H clear >/dev/null 2>&1
 export FAKE_PANES="$PANES"; rm -f "$MBOX_DIR/slow."*
 H set --provider claude --until "$(ISO $((NOW0+600)))" --release-at "$(ISO $((NOW0+60)))" --reason 'R12 느린 호출 배치 시험2' >/dev/null
 echo 60 > "$MBOX_DIR/slow.m#1"; : > "$MBOX_DIR/log"
-t_start="$(date +%s)"; NOWS=$((NOW0+120)); H status >/dev/null; rc=$?; t_end="$(date +%s)"; NOWS=$NOW0
+t_start="$(date +%s)"; NOWS=$((NOW0+120)); BATCH=3 H status >/dev/null; rc=$?; t_end="$(date +%s)"; NOWS=$NOW0
 el=$((t_end - t_start))
-[ "$el" -le 12 ] && ok "R12 느린 mbox(60초) → 배치 7초 안에 끊긴다(elapsed=${el}s)" || bad "R12 느린 호출이 배치를 넘겼다(elapsed=${el}s)"
+[ "$el" -le 6 ] && ok "R12 느린 mbox(60초) → 배치 3초 안에 끊긴다(elapsed=${el}s)" || bad "R12 느린 호출이 배치를 넘겼다(elapsed=${el}s)"
 has "$(REC err:m#1)" "시간 초과" "R12 배치 초과 → last_err 에 사유(⑧ 남은 시간을 timeout 으로)"
 rm -f "$MBOX_DIR/slow.m#1"; BATCH=60 BSEATS=60 H status >/dev/null; H clear >/dev/null
+# ⑧ tmux 조회(list-panes·capture-pane)도 «배치 남은 시간» 을 지킨다 — 4초짜리 조회가 두 번 성공하면 8초(계약 위반)
+H clear >/dev/null; : > "$MBOX_DIR/log"; echo quiet > "$MBOX_DIR/doorbell.m#1"
+H set --provider claude --until "$(ISO $((NOW0+600)))" --release-at "$(ISO $((NOW0+60)))" --reason 'R12 느린 조회 배치 시험' >/dev/null
+: > "$MBOX_DIR/log"
+t0="$(date +%s)"; NOWS=$((NOW0+120)); out="$(FAKE_TMUX_SLOW_PANES=3 BATCH=4 H status)"; rc=$?; NOWS=$NOW0; el=$(( $(date +%s) - t0 ))
+[ "$el" -le 6 ] && ok "R12 list-panes 3초 조회라도 배치(4초) 안에 끝난다(elapsed=${el}s)" || bad "R12 tmux 조회가 배치를 넘겼다(elapsed=${el}s)"
+has "$out" "RELEASING" "R12 남은 좌석은 다음 호출로(RELEASING 남김)"
+eq "$(grep -c '^SEND	a#1	ft-acct-pause	\[재개\]' "$MBOX_DIR/log")" 0 "R12 배치가 끝난 뒤 좌석은 손대지 않는다(둘째 좌석 다음 호출)"
+has "$(REC err:m#1)" "시간 초과" "R12 조회 시간 초과 → last_err 에 사유(⑧)"
+rm -f "$MBOX_DIR/slow."*; BATCH=60 BSEATS=60 H status >/dev/null; H clear >/dev/null
 
 PH "R2-R11"
 NOWS=$NOW0
@@ -494,13 +505,13 @@ runtick() { local n="$1"; shift; mkdir -p "$T/$n/state"
 keycount() { grep -cE "$2" "$1" 2>/dev/null || true; }
 ACCT="$T/repo/.fable-team/state/ACCT_PAUSE"
 rm -f "$ACCT"; : > "$TMUX_LOG"; : > "$T/goal.log"
-OUT="$(runtick pos)"
+PH "tick-pos-before"; OUT="$(runtick pos)"; PH "tick-pos-after"
 { [ "$(keycount "$TMUX_LOG" '^SENDKEYS %11 ')" -ge 1 ] && [ "$(keycount "$TMUX_LOG" '^SENDKEYS %12 ')" -ge 1 ] &&
   [ "$(keycount "$TMUX_LOG" '^SENDKEYS %13 ')" -ge 1 ] && [ "$(keycount "$TMUX_LOG" '^SENDKEYS %15 ')" -ge 1 ] &&
   [ -s "$T/goal.log" ]; } && ok "R2 양성 대조: 정지 없음 → claude 좌석 발사(≥3) + goal 호출" || bad "R2 양성 대조 실패"
 : > "$MBOX_DIR/log"; H set --provider claude --until "$(ISO $((NOW0+600)))" --reason 'R2 틱 가드 시험' >/dev/null
 : > "$TMUX_LOG"; : > "$T/goal.log"
-OUT="$(runtick r2a FT_TICK_STAMP_PREFIX="$T/r2stamp-")"
+PH "tick-r2a-before"; OUT="$(runtick r2a FT_TICK_STAMP_PREFIX="$T/r2stamp-")"; PH "tick-r2a-after"
 eq "$(keycount "$TMUX_LOG" '^SENDKEYS %11 ')" 0 "R2 fire 가드: master M#1 입력 0"
 eq "$(keycount "$TMUX_LOG" '^SENDKEYS %12 ')" 0 "R2 fire 가드: claude pm 좌석 C#1 입력 0"
 eq "$(keycount "$TMUX_LOG" '^SENDKEYS %15 ')" 0 "R2 stall 가드: 15분 멈춘 claude 좌석 S#1 깨움 0"
@@ -513,10 +524,10 @@ eq "$(keycount "$OUT" 'skip M#1/(master|stall|goal-tick) — acct-pause claude/'
 has "$(cat "$OUT")" "ERROR acct_paused O#1" "R4 판정 불가 → ERROR 1줄"
 has "$(cat "$OUT")" "round=" "R2 로그에 round_id"
 eq "$(keycount "$OUT" 'skip .* — acct-pause ')" 3 "R2 좌석×회차 1줄씩(정지 좌석 3)"
-: > "$TMUX_LOG"; OUT2="$(runtick r2b FT_TICK_STAMP_PREFIX="$T/r2stamp-")"
+: > "$TMUX_LOG"; PH "tick-r2b-before"; OUT2="$(runtick r2b FT_TICK_STAMP_PREFIX="$T/r2stamp-")"; PH "tick-r2b-after"
 eq "$(keycount "$OUT2" 'skip .* — acct-pause ')" 0 "R2 같은 회차 2바퀴째 = skip 로그 0(회차당 1줄)"
 H clear >/dev/null; H set --provider claude --until "$(ISO $((NOW0+900)))" --reason 'R2 새 회차 표식 시험' >/dev/null
-OUT3="$(runtick r2c)"
+PH "tick-r2c-before"; OUT3="$(runtick r2c)"; PH "tick-r2c-after"
 has "$(cat "$OUT3")" "skip M#1/master — acct-pause claude/" "R2 clear→set 새 회차 → 다시 1줄(옛 표식 재사용 0)"
 eq "$(keycount "$OUT3" 'skip .* — acct-pause ')" 3 "R2 새 회차도 좌석×회차 1줄씩(3)"
 # R11 DRY: 표식·쪽지·기록 0 · DRY 1줄 · FT_TICK_ACCT_PAUSE=0 → 함수 0
@@ -525,10 +536,11 @@ rm -rf "$T/dry"; : > "$TMUX_LOG"; : > "$MBOX_DIR/log"
       PATH="$FB:$PATH" bash "$LIVE" --once --dry-run > "$T/dry.out" 2>&1 )
 has "$(cat "$T/dry.out")" "DRY kind=acct-pause" "R11 DRY 1줄"
 eq "$(ls "$T/dry" 2>/dev/null | grep -c '^p-.*acct\.')" 0 "R11 DRY 는 표식 쓰기 0"
-: > "$TMUX_LOG"
-OUT4="$(runtick off FT_TICK_ACCT_PAUSE=0)"
-not "$(cat "$OUT4")" "acct_pause:" "R11 FT_TICK_ACCT_PAUSE=0 → 함수 0 실행"
-{ [ "$(keycount "$TMUX_LOG" '^SENDKEYS %11 ')" -ge 1 ] || [ "$(keycount "$TMUX_LOG" '^SENDKEYS %15 ')" -ge 1 ]; } && ok "R11 끄면 발사 다시 일어난다" || bad "R11 끄기 무시"
+# 끄기(FT_TICK_ACCT_PAUSE=0)는 DRY 한 바퀴로 본다 — 같은 판정 경로이고, 실제 발사(1.8초 sleep × 좌석)를 안 쓴다.
+( cd "$T/repo" && env "${BASE[@]}" FT_TICK_ACCT_PAUSE=0 FT_TICK_STATE_DIR="$T/off/state" FT_TICK_STAMP_PREFIX="$T/off/p-" \
+      PATH="$FB:$PATH" bash "$LIVE" --once --dry-run > "$T/off.out" 2>&1 )
+not "$(cat "$T/off.out")" "acct-pause" "R11 FT_TICK_ACCT_PAUSE=0 → 함수 0 실행(판정기·가드 줄 0)"
+has "$(cat "$T/off.out")" "DRY seat=M#1 kind=master" "R11 끄면 정지 중인데도 발사 판정이 다시 돈다"
 H clear >/dev/null
 
 if [ "$MUT" = 1 ]; then
