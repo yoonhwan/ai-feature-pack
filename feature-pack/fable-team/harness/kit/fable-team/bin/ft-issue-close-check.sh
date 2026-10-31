@@ -233,9 +233,9 @@ pr_merged() { # <번호> → 0 병합(MERGED 또는 CLOSED+착지 sha 가 랜딩
   echo "  MISS 연결 PR #$n — CLOSED · 착지 sha ${S:0:10} ${REF} 조상 아님"; return 1
 }
 # r1167: Closes·«연결 PR: #N» 둘 다 없을 때 — 코멘트 가장 마지막 «연결 PR: 없음 · 직접 착지 main <40hex>» 의 sha 가 랜딩 ref 조상이면 인정(PR 없이 main 에 직접 착지 · #746).
-direct_sha() { # 가장 마지막 «연결 PR: 없음» 줄의 40hex(소문자) · 줄 없으면 빈 값 · 줄은 있는데 40hex 꼴 아님 = «-» — 앞 줄로 내려가지 않는다
-  jq -r '[.comments[].body | split("\n")[] | select(test("연결\\s*PR\\s*[:：]\\s*없음"))] | last // empty
-    | [capture("직접\\s*착지\\s+main\\s+(?<s>[0-9a-fA-F]{40})(?![0-9a-zA-Z])") | .s | ascii_downcase] | first // "-"' <<<"$JSON" 2>/dev/null
+direct_sha() { # 가장 마지막 «연결 PR: 없음» 후보 줄 → 줄 전체가 계약 꼴이면 40hex(소문자) · 후보 없으면 빈 값 · 꼴 아님 = «-» — 앞 줄로 내려가지 않는다
+  jq -r --arg p "$KEYP" '[.comments[].body | split("\n")[] | select(test("연결\\s*PR\\s*[:：]\\s*없음"))] | last // empty
+    | [capture($p + "연결\\s*PR\\s*[:：]\\s*없음\\s*·\\s*직접\\s*착지\\s+main\\s+(?<s>[0-9a-fA-F]{40})\\s*$") | .s | ascii_downcase] | first // "-"' <<<"$JSON" 2>/dev/null
 }
 direct_landed() { # <sha|-> → 0 직접 착지 sha 가 랜딩 ref 조상 · 1 MISS(사유 1줄)
   local S="$1" REF="${FT_LAND_REF:-origin/main}"

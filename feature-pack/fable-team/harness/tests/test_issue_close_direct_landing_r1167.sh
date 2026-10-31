@@ -57,6 +57,11 @@ mkstate '[]' "$(DL "$Z")"; chk
 [ $RC -eq 1 ] && grep -q "MISS 직접 착지 ${Z:0:10} — 로컬에 없음 — git fetch 후 다시" <<<"$OUT" && ok "ⓑ R3 로컬에 없는 sha → MISS + git fetch 후 다시" || bad "ⓑ R3 rc=$RC $OUT"
 mkstate '[]' "연결 PR: 없음 · 직접 착지 main"; chk
 [ $RC -eq 1 ] && grep -q "꼴 아님(sha 40자)" <<<"$OUT" && grep -q "MISS Closes 연결 PR 없음" <<<"$OUT" && ok "ⓑ sha 없는 줄 → MISS" || bad "ⓑ sha 없음 rc=$RC $OUT"
+# ⓑ 반송 1(DA ① 반례) — 줄 전체가 계약 꼴이어야 한다: «없음아님» · 순서 뒤바뀜 → MISS
+mkstate '[]' "연결 PR: 없음아님 · 직접 착지 main $A"; chk
+[ $RC -eq 1 ] && grep -q "꼴 아님(sha 40자)" <<<"$OUT" && ok "ⓑ «연결 PR: 없음아님 · 직접 착지 main <조상>» → MISS" || bad "ⓑ 없음아님 rc=$RC $OUT"
+mkstate '[]' "직접 착지 main $A · 연결 PR: 없음"; chk
+[ $RC -eq 1 ] && grep -q "꼴 아님(sha 40자)" <<<"$OUT" && ok "ⓑ «직접 착지 main <조상> · 연결 PR: 없음»(순서 뒤집힘) → MISS" || bad "ⓑ 순서 rc=$RC $OUT"
 
 # ⓒ R4·R5 — PR 길 우선 그대로
 mkstate '[{"number":9100}]' "$(DL "$E")"; chk
