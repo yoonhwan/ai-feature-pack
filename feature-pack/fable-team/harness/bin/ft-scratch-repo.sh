@@ -11,6 +11,7 @@
 #     r845 (재설계 r6 · 오빠 결정 10-27 «tmp 에 임시를 쌓으면 재부팅에 정리된다»): 기본 생성 자리 = $TMPDIR/ft-scratch/<주인>/ · 장부는 «있으면 참고»(등록 쓰기 실패 = WARN · die 0) · 훅 실패로 add/checkout 이 rc≠0 이어도 DEST 가 «요청 sha 그대로 + status 깨끗» 이면 WARN + 경로 rc0(아니면 die 4 · 등록 0)
 #     r7: 지우기는 r897 출구 게이트(등록 정확히 1줄 ∧ 그 줄 베이스 바로 아래 ∧ 분리 워크트리)가 지킨다 — 자리 밖 등록 사본은 거절(삭제 0 · 장부 줄 유지) · 온전성 확인은 훅 rc 와 무관하게 항상
 #     r8: «같은 sha·같은 주인 재사용» 도 온전한 사본일 때만 — 더러운 사본은 건너뜀 + WARN 과 새 사본 생성(삭제 0 · 장부 유지)
+#   ft-scratch-repo.sh --prune-missing --owners <파일>   r1223: 경로가 없는 등록 줄 중 주인이 <파일>의 한 줄과 정확히 같은 것만 모든 등록부에서 지움 · `PRUNED <경로>`… + `PRUNED n=N` · 디스크 삭제 0 · 등록부 하나라도 못 읽음 = 지우기 0 rc 4 (ft-team-tidy 가 부른다)
 #   ft-scratch-repo.sh --report [--summary]          «주인 없는 사본» 크기 목록 — 삭제 0. --summary = `주인 없는 임시 사본 N개 N.N GiB` 한 줄(0개면 출력 없음)
 #   ft-scratch-repo.sh --sweep                       주인 없는 사본 정리(판정 1920): 첫 1회 = 목록 보고만(실삭제 0, 표식 scratch-sweep.armed) · 그 뒤부터 자동 삭제 · 지울 게 없으면 출력 0
 #     r897 r10.3 (DA⑥ r1 반송 r2): ⒜빠른 길의 «못 읽음» 은 전부 «빠른 길 아님» — detached 판정은 rc=1 «만»(rc≥2 오류를 detached 로 읽지 않는다) · ⒝지우기 직전 재확인의 tmux·lsof 호출은 남은 예산(min(7초, 마감-지금))으로 상한 · 예산 0 이하면 호출 0 · 호출 «뒤» 에도 마감 검사(넘었으면 그 항목 삭제 0 + WARN · 남은 항목 다음 정리)
@@ -801,6 +802,28 @@ EOF
   cap g gib "$DK"   # 표시 전용
   [ "$DEL" = 0 ] || printf '[임시 사본 자동 삭제] 주인 없는 사본 %s개 %s GiB 삭제(되살릴 수 있는 사본만) — 목록: .fable-team/state/scratch-sweep.log\n' "$DEL" "$g"
 }
+prune_missing() { # <주인 파일> r1223: «경로가 없고(-e·-L 둘 다 거짓) 주인이 그 파일의 한 줄과 정확히 같은» 등록 줄만 «모든 등록부» 에서 지운다 · 디스크 삭제 0 · 등록부 하나라도 못 읽으면 지우기 0(rc 4)
+  local owners p o rest gone="" n=0 f
+  [ -r "$1" ] && cap owners cat -- "$1" || die "주인 파일 못 읽음: ${1:-<없음>}" 2
+  reg_rows
+  for f in $REGS; do [ ! -e "$f" ] || [ -r "$f" ] || REG_BAD=1; done
+  [ "$REG_BAD" = 0 ] || { echo "판정 불가 등록부 못 읽음 — 지우기 0"; return 4; }
+  while IFS="$TAB" read -r p o rest; do
+    [ -n "$p" ] && [ -n "$o" ] && has_line "$owners" "$o" || continue
+    [ -e "$p" ] || [ -L "$p" ] && continue
+    has_line "$gone" "$p" || gone="$gone$p"$'\n'
+  done <<EOF
+$ROWS
+EOF
+  while IFS= read -r p; do
+    [ -n "$p" ] || continue
+    drop_reg "$p" "$REGS" || { echo "ERROR 장부 줄 못 지움: $p — 지운 수 $n"; return 4; }
+    n=$((n+1)); printf 'PRUNED %s\n' "$p"
+  done <<EOF
+$gone
+EOF
+  printf 'PRUNED n=%s\n' "$n"
+}
 
 case "${1:-}" in
   --done) done_run "${2:-}";;
@@ -814,6 +837,7 @@ case "${1:-}" in
     if [ "${2:-}" = --summary ]; then [ "$N" = 0 ] || printf '주인 없는 임시 사본 %s개 %s GiB\n' "$N" "$(gib "$K")"
     else printf '%s%s' "$ORPH" "$HOLD" | awk -F'\t' '$2!=""{k=$1; if (k !~ /^[0-9]+$/) k=0; printf "%s\t%s\t%s\n", sprintf("%.2f", k/1048576), $2, $4}'; fi;;   # r548: 붙잡은 사본도 «붙잡음 pid …» 칸으로 보인다 · --summary 는 지울 수 있는 것만 센다
   --sweep) sweep_run;;
+  --prune-missing) [ "${2:-}" = --owners ] && [ -n "${3:-}" ] || die "usage: --prune-missing --owners <주인 파일>" 2; prune_missing "$3"; exit $?;;
   --gate)   # r5: 출구 게이트를 «삭제 단계 없이» 돌린다 — 조건별 줄 + rc · 삭제 0
     P="${2:-}"; shift 2 2>/dev/null || shift $#; GK=""; GO=""
     while [ $# -gt 0 ]; do case "$1" in
