@@ -159,6 +159,17 @@ fm_close_retry() {
   [ -z "$ok" ] || fm_close_pending_rm "$f" "$key" $ok || echo "WARN 닫기 대기 장부 정리 실패($f) — 닫힌 PR:$ok"
   return 0
 }
+#   fm_ap_wait <repo> <remote> <target> <승인 sha> <승인 상태 폴더> : r1200 — 승인 파일 없는 거절 줄 1개(stdout) · 커밋 아님(로컬 없으면 fetch 1회 7 s) = 표식 0
+#     · 승인된 조상(main 밖 · 가장 가까운 1개) 있음 = 표식 0 + «--approve-sha <조상>» 안내 · 그 밖(git 실패 포함) = r1117 기다림 표식 그대로 · 종료는 부르는 쪽(exit 2)
+fm_ap_wait() {
+  local r="$1" rm="$2" tg="$3" ap="$4" st="$5" x d b="" bd=""
+  git -C "$r" cat-file -e "$ap^{commit}" 2>/dev/null || { fm_try 7 git -c gc.auto=0 -C "$r" fetch --quiet "$rm" "$ap" >/dev/null 2>&1; git -C "$r" cat-file -e "$ap^{commit}" 2>/dev/null; } \
+    || { echo "REJECT 승인 sha 가 이 리포 커밋이 아님(오타 또는 받기 실패) — ${ap:0:10} · 기다림 등록 0 — 실행 0"; return; }
+  for x in $(git -C "$r" rev-list "$ap" "^refs/remotes/$rm/$tg" 2>/dev/null | grep -vxF "$ap" | grep -xF -f <(ls "$st/autonomy-merge-approved" 2>/dev/null | grep -xE '[0-9a-f]{40}')); do
+    d="$(git -C "$r" rev-list --count "$x..$ap" 2>/dev/null)" || continue; [ -n "$bd" ] && [ "$d" -ge "$bd" ] || { b="$x"; bd="$d"; }; done
+  [ -z "$b" ] || { echo "REJECT 이 sha 는 승인 sha 가 아님 — 승인된 조상 ${b:0:10} 가 있다(승인 뒤 병합만 얹은 head 면 --approve-sha $b 로 다시 · 동일승인 대조가 받는다) · 기다림 등록 0 — 실행 0"; return; }
+  echo "REJECT 오빠 승인 파일 없음 — 승인 h 한 줄 먼저(approve-merge $ap 승인 파일·로그 한 줄 없음) — 실행 0$(bash "$(dirname -- "${BASH_SOURCE[0]}")/ft-hil-notify.sh" wait "$ap" "$st")"
+}
 #   fm_pr_close <slug|빈> <pr> <본문파일> <쓰기도구> : r1179 — PR 코멘트+닫기 1회(fm_t7) · slug 가 FT_PR_CLOSE_AS_USER(공백 구분 · 기본 yoonhwan/ai-feature-pack · 빈 값 = 목록 0)에
 #     정확히 있으면 사람 gh(GH_TOKEN·GITHUB_TOKEN 비움 = 로그인 계정 · 봇 토큰이 개인 리포에 코멘트 못 함) · 그 밖은 Tank 래퍼 그대로 · rc 그대로 · 실패 때 다른 도구로 갈아타기 0(#0 RULE)
 fm_pr_close() {

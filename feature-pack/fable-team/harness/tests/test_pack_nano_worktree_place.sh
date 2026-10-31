@@ -24,7 +24,7 @@ FN="$(awk '/^pack_wt_line\(\) \{/,/^\}/' "$SRC/ft-nano-spawn.sh")"
 if [ -n "$FN" ]; then ok "pack_wt_line 함수 추출"; eval "$FN"; else bad "pack_wt_line 함수 없음"; pack_wt_line() { :; }; fi
 grep -q '^BODY=.*\$_PKX' "$SRC/ft-nano-spawn.sh" && ok "BODY 가 \$_PKX 를 붙인다" || bad "BODY 에 \$_PKX 없음"
 grep -q '^_PKX="\$(pack_wt_line "\$IDX" "\$SLUG" "\$BRANCH")"' "$SRC/ft-nano-spawn.sh" && ok "_PKX = pack_wt_line IDX SLUG BRANCH" || bad "_PKX 정의 줄 없음"
-printf '# 인덱스: k\n- 설치: 있음 — 팩 키트 1\n\n## 상태\n' > "$T/hcard.md"
+printf '# 인덱스: k\n<!-- ledger: design/harness/GOAL-harness.md -->\n- 설치: 있음 — 팩 키트 1\n\n## 상태\n' > "$T/hcard.md"   # r1205: 하네스 카드 = 첫 5줄 원장 줄
 printf '# 인덱스: k\n- 설치: 없음\n\n## 상태\n' > "$T/pcard.md"
 o="$(FT_PACK_ROOT=/x/pack pack_wt_line "$T/hcard.md" kslug nano/kslug)"
 has "$o" "팩 작업 폴더 = /x/pack/.worktrees/kslug" "ⓐ 하네스 카드 → 팩 작업 폴더 줄"

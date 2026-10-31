@@ -3,7 +3,9 @@
 #   사건(arch#174 실측 · ops 나노 4324·4338·4302): 카드 세트 = 승인 직전 head S. 착지 도구가 PR 가지에 main 을 병합해 끝줄 head X·PR head H 가 됐고
 #     산출은 바이트까지 같다(patch-id S = X). 세 칸(== H · == squash · r1019 판정기) 중 «S 와 X 가 main 병합만 다르다» 를 보는 칸이 없어 전부 REJECT = 나노가 안 닫힌다.
 #   계약 ① S→X main 병합뿐 ∧ patch-id 같음 → LANDED-PR-OK «카드 세트 <9> → 끝줄 head <9> = main 병합 N개뿐» · 판정기 호출 0 · R1(병합 1·2)
-#   계약 ② 일반 커밋(R2) · 손댄 병합(R3) · 조상 아님(R4) → REJECT(지금 판정기 경로로 내려간다)
+#   계약 ② 일반 커밋(R2) · 손댄 병합(R3) · 조상 아님(R4) → S→X 칸 통과 0(지금 판정기 경로로 내려간다)
+#   r1204: r1112 cherry 칸 뒤 — 코드가 세트와 같은 꼴(빈 커밋 ⓒ · 메시지만 amend ⓔ)은 cherry 칸이 통과(rc0 · «코드 = PR head 코드») ·
+#     코드가 다른 꼴(ⓒ2 코드 1줄 커밋 · ⓔ2 코드 바꾼 amend)은 REJECT «cherry 착지 아님» · 변이 ⓐⓑ 는 rc 대신 «S→X 통과 줄» 로 가른다
 #   계약 ③ 착지 안 됨(R5 — landed 단계에서 REJECT · 새 칸 git 호출 0) · 앞 칸 통과는 동작 불변(R6 «== 카드 세트»·«= squash» · 새 칸 호출 0)
 #   계약 ④ bin·kit 같은 줄(cmp0)
 # 임시 git 리포(ROOT + bare REMOTE) + 가짜 tmux·gh·git(PATH 앞) + 가짜 판정기(로그만 남기고 rc1)만 쓴다 —
@@ -164,9 +166,14 @@ PY
 mutpass() {  # mutpass <출력> <이름> <rc> — 변이가 «통과» 로 오판했는가(= 변이 FAIL · 시험이 잡는다)
   case "$1" in *"LANDED-PR-OK"*) ok "$2";; *) bad "$2 — 변이 안 먹음 rc=$3 ← $(printf '%s' "$1" | tail -3)";; esac
 }
-mutreject() {  # mutreject <출력> <이름> <rc> — 변이가 «거절» 로 오판했는가(= 변이 FAIL · 시험이 잡는다)
-  if [ "$3" -eq 1 ]; then case "$1" in *"LANDED-PR-OK"*) bad "$2 — 변이 안 먹음(아직 통과) ← $(printf '%s' "$1" | tail -3)";; *) ok "$2";; esac
-  else bad "$2 — 변이 안 먹음 rc=$3 ← $(printf '%s' "$1" | tail -3)"; fi
+SXLINE="= main 병합"   # r1204: S→X 칸 통과 줄의 꼴(«끝줄 head <9> = main 병합 N개뿐») — r1112 뒤 코드 같은 꼴은 cherry 칸도 통과시켜 rc·LANDED-PR-OK 만으로는 칸을 못 가른다
+mutsx_pass() {  # mutsx_pass <출력> <이름> <rc> — 변이가 S→X 칸에서 «통과» 로 오판했는가(= 변이 FAIL)
+  case "$1" in *"LANDED-PR-OK"*"$SXLINE"*) ok "$2";; *) bad "$2 — 변이 안 먹음 rc=$3(S→X 통과 줄 없음) ← $(printf '%s' "$1" | tail -3)";; esac
+}
+mutsx_lost() {  # mutsx_lost <출력> <이름> <rc> — 변이가 S→X 칸을 놓쳤는가(통과 줄 0 + 판정기 호출 1줄 = 변이 FAIL)
+  local n; n="$(grep -c . "$EQ" 2>/dev/null)"; [ -n "$n" ] || n=0
+  case "$1" in *"$SXLINE"*) bad "$2 — 변이 안 먹음(아직 S→X 통과) ← $(printf '%s' "$1" | tail -3)";; *)
+    [ "$n" -eq 1 ] && ok "$2" || bad "$2 — 판정기 호출 ${n}줄(기대 1 · 변이가 S→X 칸을 건너뛰면 판정기로 내려간다) rc=$3";; esac
 }
 
 echo "== ⓐ 계약 ①·R1 실제 꼴 — 세트 S ⊂ 끝줄 head X · S..X main 병합 1개 · patch-id 같음 → LANDED-PR-OK «main 병합 1개뿐» · 판정기 0줄"
@@ -189,7 +196,7 @@ has "$out" "카드 세트 ${A:0:9} → 끝줄 head ${X:0:9} = main 병합 2개�
 eqcnt 0 "ⓑ"
 closed_ok "ⓑ"
 
-echo "== ⓒ 계약 ②·R2 S..X 첫 부모에 일반 커밋 1개(내용 변화 0 = 빈 커밋 · ⓑ 만 잡는다) → REJECT(지금 판정기 문구)"
+echo "== ⓒ r1204·R1 S..X 첫 부모에 빈 커밋 1개(코드 = 세트) → S→X 칸은 안 잡음 · r1112 cherry 칸 통과(코드 = PR head 코드)"
 setup CLOSED
 pr_reset
 git -C "$NW" commit -q --allow-empty -m "승인 뒤 고침"
@@ -197,12 +204,25 @@ main_add other1 g1.txt 1; merge_main 1
 X="$(git -C "$NW" rev-parse HEAD)"; SQ="$(sq_head "PR #363 (head $X)" "$X")"
 gh_head "$X"; card_body "$A" > "$CARD"
 out="$(close --landed-pr 363)"; rc=$?
-[ "$rc" -eq 1 ] && ok "ⓒ rc=1" || bad "ⓒ rc=$rc ← ${out:0:900}"
-hasnt "$out" "LANDED-PR-OK" "  └ 통과 0"
-has "$out" "«세트 + main 병합뿐» 도 아님" "  └ 지금 판정기 문구 유지"
-has "$out" "NOT-EQUIV" "  └ 판정기 rc1 사유 그대로"
+[ "$rc" -eq 0 ] && ok "ⓒ rc=0" || bad "ⓒ rc=$rc ← ${out:0:900}"
+has "$out" "카드 세트 ${A:0:9} 코드 = PR head 코드(cherry 착지)" "  └ r1112 cherry 통과 줄"
+hasnt "$out" "= main 병합" "  └ S→X 칸 통과 줄 0(빈 커밋은 이 칸이 안 잡는다)"
 eqcnt 1 "ⓒ"
-untouched "ⓒ"
+closed_ok "ⓒ"
+
+echo "== ⓒ2 r1204·R2 S..X 첫 부모에 코드 1줄 바꾼 커밋 → S→X 칸·cherry 칸 둘 다 안 잡음 → REJECT «cherry 착지 아님»"
+setup CLOSED
+pr_reset
+printf 'f1 later\n' > "$NW/pr/f.txt"; git -C "$NW" add pr/f.txt && git -C "$NW" commit -q -m "승인 뒤 코드 고침"
+main_add other1 g1.txt 1; merge_main 1
+X="$(git -C "$NW" rev-parse HEAD)"; SQ="$(sq_head "PR #363 (head $X)" "$X")"
+gh_head "$X"; card_body "$A" > "$CARD"
+out="$(close --landed-pr 363)"; rc=$?
+[ "$rc" -eq 1 ] && ok "ⓒ2 rc=1" || bad "ⓒ2 rc=$rc ← ${out:0:900}"
+hasnt "$out" "LANDED-PR-OK" "  └ 통과 0"
+has "$out" "cherry 착지 아님: pr/f.txt" "  └ cherry 칸 사유(blob 다름)"
+eqcnt 1 "ⓒ2"
+untouched "ⓒ2"
 
 echo "== ⓓ 계약 ②·R3 손댄 병합(첫 부모 줄은 병합뿐인데 내용이 달라짐 = patch-id 다름) → REJECT"
 setup CLOSED
@@ -221,7 +241,7 @@ gitcnt "patch-id --stable" 2 "ⓓ"
 eqcnt 1 "ⓓ"
 untouched "ⓓ"
 
-echo "== ⓔ 계약 ②·R4 세트가 끝줄 head 의 조상 아님(가지 갈아엎음 = amend) → REJECT"
+echo "== ⓔ r1204·R3 세트가 끝줄 head 의 조상 아님(메시지만 amend · 코드 = 세트) → S→X 칸은 안 잡음 · r1112 cherry 칸 통과"
 setup CLOSED
 pr_reset; S_OLD="$A"
 git -C "$NW" commit -q --amend -m "work f (rewritten)"; A="$(git -C "$NW" rev-parse HEAD)"
@@ -229,10 +249,26 @@ main_add other1 g1.txt 1; merge_main 1
 X="$(git -C "$NW" rev-parse HEAD)"; SQ="$(sq_head "PR #363 (head $X)" "$X")"
 gh_head "$X"; card_body "$S_OLD" > "$CARD"
 out="$(close --landed-pr 363)"; rc=$?
-[ "$rc" -eq 1 ] && ok "ⓔ rc=1" || bad "ⓔ rc=$rc ← ${out:0:900}"
-hasnt "$out" "LANDED-PR-OK" "  └ 통과 0"
+[ "$rc" -eq 0 ] && ok "ⓔ rc=0" || bad "ⓔ rc=$rc ← ${out:0:900}"
+has "$out" "카드 세트 ${S_OLD:0:9} 코드 = PR head 코드(cherry 착지)" "  └ r1112 cherry 통과 줄"
+hasnt "$out" "= main 병합" "  └ S→X 칸 통과 줄 0(조상 아님은 이 칸이 안 잡는다)"
 eqcnt 1 "ⓔ"
-untouched "ⓔ"
+closed_ok "ⓔ"
+
+echo "== ⓔ2 r1204·R4 amend 때 코드 1줄 바꿈(세트가 조상 아님 · 코드 다름) → REJECT «cherry 착지 아님»"
+setup CLOSED
+pr_reset; S_OLD="$A"
+printf 'f1 amended\n' > "$NW/pr/f.txt"; git -C "$NW" add pr/f.txt
+git -C "$NW" commit -q --amend -m "work f (rewritten · 코드 바꿈)"; A="$(git -C "$NW" rev-parse HEAD)"
+main_add other1 g1.txt 1; merge_main 1
+X="$(git -C "$NW" rev-parse HEAD)"; SQ="$(sq_head "PR #363 (head $X)" "$X")"
+gh_head "$X"; card_body "$S_OLD" > "$CARD"
+out="$(close --landed-pr 363)"; rc=$?
+[ "$rc" -eq 1 ] && ok "ⓔ2 rc=1" || bad "ⓔ2 rc=$rc ← ${out:0:900}"
+hasnt "$out" "LANDED-PR-OK" "  └ 통과 0"
+has "$out" "cherry 착지 아님: pr/f.txt" "  └ cherry 칸 사유(blob 다름)"
+eqcnt 1 "ⓔ2"
+untouched "ⓔ2"
 
 echo "== ⓕ 계약 ③·R5 착지 안 됨(squash 끝줄 0) → landed 단계 REJECT · 새 칸 git 호출 0(patch-id 0줄)"
 setup CLOSED; pr_reset; gh_head "$A"; card_body "$A" > "$CARD"
@@ -262,13 +298,13 @@ has "$out" "카드 세트 = squash $SSQ" "  └ 지금 «= squash» 줄 그대�
 gitcnt "patch-id --stable" 0 "ⓗ"
 eqcnt 0 "ⓗ"
 
-echo "== 변이 ⓐ 새 칸 끔 → R1(S ⊂ X · 병합뿐 · patch-id 같음)을 REJECT 로 오판한다(변이 FAIL = 이 시험이 잡는다)"
+echo "== 변이 ⓐ 새 칸 끔 → R1(S ⊂ X · 병합뿐 · patch-id 같음)이 S→X 칸을 놓친다 — r1112 뒤엔 cherry 칸이 받아 rc0 이라 «S→X 줄 사라짐 + 판정기 호출» 로 잡는다(r1204)"
 mutant '      elif _lp_sx_gate "$_lp_set"; then' '      elif false; then'
 setup CLOSED; sx_graph 1; gh_head "$X"; card_body "$A" > "$CARD"
 out="$(CLOSE_BIN="$T/mutbin/ft-nano-close.sh" close --landed-pr 363)"; rc=$?
-mutreject "$out" "변이(새 칸 끔) → R1 을 REJECT 로 오판 = 변이 FAIL(테스트가 잡는다)" "$rc"
+mutsx_lost "$out" "변이(새 칸 끔) → R1 의 S→X 통과 줄 사라짐 = 변이 FAIL(테스트가 잡는다)" "$rc"
 
-echo "== 변이 ⓑ «S..X 일반 커밋 0» 검사 끔 → R2(빈 커밋 1개)가 통과한다(변이 FAIL)"
+echo "== 변이 ⓑ «S..X 일반 커밋 0» 검사 끔 → R2(빈 커밋 1개)를 S→X 칸이 통과시킨다(변이 FAIL · r1204: cherry 줄 아닌 S→X 줄로 가른다)"
 mutant '  [ -z "$out" ] || return 1' '  : "$out"'
 setup CLOSED
 pr_reset
@@ -277,7 +313,7 @@ main_add other1 g1.txt 1; merge_main 1
 X="$(git -C "$NW" rev-parse HEAD)"; SQ="$(sq_head "PR #363 (head $X)" "$X")"
 gh_head "$X"; card_body "$A" > "$CARD"
 out="$(CLOSE_BIN="$T/mutbin/ft-nano-close.sh" close --landed-pr 363)"; rc=$?
-mutpass "$out" "변이(ⓑ 검사 끔) → R2 를 통과로 오판 = 변이 FAIL(테스트가 잡는다)" "$rc"
+mutsx_pass "$out" "변이(ⓑ 검사 끔) → R2 를 S→X 칸 통과로 오판 = 변이 FAIL(테스트가 잡는다)" "$rc"
 
 echo "== 변이 ⓒ patch-id 검사 끔 → R3(손댄 병합)이 통과한다(변이 FAIL)"
 mutant '  [ -n "$p1" ] && [ -n "$p2" ] || return 1
