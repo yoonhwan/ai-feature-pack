@@ -56,6 +56,7 @@ class Mirror:
         mb.check_args(a)
         self.a = a
         self.log, self.seat = Path(a.mailbox), re.compile(a.seat)
+        self.urgent = re.compile(a.urgent_seat) if getattr(a, "urgent_seat", "") else None  # r1257: 이 좌석 앞 [긴급] 만 올린다(기본 빈 값 = 지금 동작)
         self.state_path = Path(a.state_dir) / f"byz_mbox_slack_mirror.{a.project}.json"
         self.planner_seats = a.planner_seats or str(self.log.resolve().parent.parent / "seats-planner.json")  # 명부 «경로» 만 유도 — 현역 이름은 매번 live_planner
         self.resume_script = Path(a.resume_script) if a.resume_script else self.log.resolve().parent.parent / "bin" / "ft-resume-cmd.sh"
@@ -136,7 +137,7 @@ class Mirror:
             self.deliver(st, {"id": f"#GAP-{prev + 1}-{s - 1}", "seq": s - 1, "key": lib.OTHER_KEY,
                               "what": "슬랙 미러가 알리는 기록 공백", "text": format_gap(prev + 1, s - 1)})
         mb.post_handled(self.deliver, st, r, self.rows, self.seat, self.threads_path, self._summarize, self.deliv.has_thread if self.deliv.teams else None)  # planner 가 받은 쪽지에 답한 행 → 그 스레드에 「planner 처리」 1줄
-        if not bl.is_target(r, self.seat):  # 오빠 글(역방향이 넣은 행)은 메아리로 다시 올리지 않는다
+        if not bl.is_target(r, self.seat, self.urgent):  # 오빠 글(역방향이 넣은 행)은 메아리로 다시 올리지 않는다
             st["last_seq"] = s
             if not self.a.dry_run:
                 lib.save_state(self.state_path, st)
@@ -161,6 +162,7 @@ def parse() -> argparse.Namespace:
     p.add_argument("--project", required=True)
     p.add_argument("--mailbox", required=True, help="mailbox.log.jsonl 경로")
     p.add_argument("--seat", required=True, help="수신 좌석 정규식 예: ^byz-planner-arch#\\d+$")
+    p.add_argument("--urgent-seat", default="", help="이 좌석 앞으로 온 쪽지 중 머리 태그 [긴급] 인 것만 올릴 정규식 예: ^byz-planner-desk-claude#\\d+$ (기본 빈 값 = 안 올림)")
     p.add_argument("--channel", required=True)
     p.add_argument("--repo", default="", help="Issue 링크용 <소유자>/<저장소> — 비우면 링크 줄을 만들지 않는다")
     p.add_argument("--state-dir", default=str(Path.home() / ".hermes" / "state"))
