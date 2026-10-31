@@ -13,6 +13,7 @@ WT="${FT_PRESS_WT:-/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/
 ROOT="${FT_PRESS_ROOT:-/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents}"
 FEAT="${FT_NANO_FEAT:-origin/main}"   # r1128: 옛 기본 feat/v6-realtime-live 는 10-23 에 멈춰 main 위 작업을 «미랜딩» 으로 셌다(460 오탐)
 HERE="$(cd "$(dirname "$0")" && pwd)"  # cd 전에 절대화 — 상대경로로 불러도 형제 스크립트(ft-press-set-check.sh)를 찾는다
+SELF="$HERE/$(basename "$0")"          # r1260: 게이트 자기 파일도 cd 전에 절대화(① 캐시 키의 판 해시 — cd 뒤 상대 ${BASH_SOURCE[0]} 는 다른 파일을 가리킨다)
 cd "$WT" || exit 1
 FAIL=0
 say(){ printf '%s %s\n' "$1" "$2"; }
@@ -461,8 +462,12 @@ done
 # r1260: ① 판정 캐시 — 입력 키가 같고 FT_PRESS_GATE_CACHE_SEC(기본 300초) 안이면 지난 ① 출력·판정을 다시 쓴다(②~⑧·허가 파일은 매번 돈다)
 S1_MODE="실행"; CACHE_SEC="${FT_PRESS_GATE_CACHE_SEC:-300}"; CACHE_DIR="$(dirname "$PERMIT_DIR")/press-gate-cache"; S1_KEY=""
 _s1_key(){ # ① 입력 전부 → 키(sha256) · 하나라도 못 구하면 rc1(캐시 0)
-  local w h ih decl base bres c ch p
-  p="feat=$(git rev-parse --verify -q "$FEAT^{commit}")|wt=$WT@$(git -C "$WT" rev-parse HEAD 2>/dev/null)|root=$ROOT|gate=$(shasum -a 256 "${BASH_SOURCE[0]}" | cut -d' ' -f1)|set=$(printf '%s\n' ${SETP[@]+"${SETP[@]}"} | shasum -a 256 | cut -d' ' -f1)"
+  local w h ih decl base bres c ch p feat wth gh sh
+  feat="$(git rev-parse --verify -q "$FEAT^{commit}")"; wth="$(git -C "$WT" rev-parse HEAD 2>/dev/null)"
+  gh="$(shasum -a 256 "$SELF" 2>/dev/null | cut -d' ' -f1)"   # SELF = cd «전» 에 절대화한 이 게이트 파일(상대 경로 호출·다른 cwd 에서도 같은 파일)
+  sh=""; [ "${#SETP[@]}" != "0" ] && sh="$(printf '%s\n' "${SETP[@]}" | shasum -a 256 | cut -d' ' -f1)"
+  [ -n "$feat" ] && [ -n "$wth" ] && [ -n "$gh" ] && [ -n "$sh" ] || return 1   # 키 입력 각각 취득 성공일 때만 · 하나라도 비면 캐시 0
+  p="feat=$feat|wt=$WT@$wth|root=$ROOT|gate=$gh|set=$sh"
   c="${FT_PRESS_CARD:-}"; ch="nocard"; [ -n "$c" ] && [ -f "$c" ] && ch="$(cd "$(dirname "$c")" && pwd -P)/$(basename "$c"):$(shasum -a 256 < "$c" | cut -d' ' -f1)"
   p="$p|card=$ch"
   for w in $LIVE_WT; do w="$ROOT/.worktrees/$w"

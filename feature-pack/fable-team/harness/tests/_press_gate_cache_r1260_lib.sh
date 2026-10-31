@@ -28,9 +28,9 @@ chmod +x "$FB"/*
 g(){ git -C "$1" -c user.name=t -c user.email=t@t "${@:2}"; }
 cm(){ mkdir -p "$1/$(dirname "$2")"; echo "$3" > "$1/$2"; g "$1" add -A >/dev/null && g "$1" commit -qm "$3"; }
 
-SEQ=0; PSEQ=0; GENV=""; GWT=""; CURL_CODE=000
+SEQ=0; GENV=""; GWT=""; RCWD=""; CURL_CODE=000
 mkcase(){ # 이름 → CASE · R(러너·루트) · W(나노 워크트리 v65-k) · main 1커밋 push 완료 · seats·세션 목록
-  SEQ=$((SEQ+1)); CASE="$T/case-$SEQ-$1"; R="$CASE/root"; W="$R/.worktrees/v65-k"; GENV=""; GWT=""
+  SEQ=$((SEQ+1)); CASE="$T/case-$SEQ-$1"; R="$CASE/root"; W="$R/.worktrees/v65-k"; GENV=""; GWT=""; RCWD=""
   git init -q --bare -b main "$CASE/origin.git"
   git init -q -b main "$R"
   mkdir -p "$R/.fable-team/state"
@@ -48,7 +48,7 @@ ncache(){ find "$CASE/press-gate-cache" -name 'step1-*.json' 2>/dev/null | wc -l
 
 runbin(){ # $1 = 게이트 → OUT · RC · NG(① 이 부르는 git 하위 명령 log·diff·merge-base·cat-file 호출 수)
   : > "$CASE/gitlog"
-  OUT="$(cd "$R" && env -u FT_NANO_FEAT -u FT_PRESS_GATE_SELFTEST -u FT_PRESS_SEAT -u FT_PRESS_TARGET -u FT_PRESS_CARD -u FT_PRESS_GATE_CACHE_SEC \
+  OUT="$(cd "${RCWD:-$R}" && env -u FT_NANO_FEAT -u FT_PRESS_GATE_SELFTEST -u FT_PRESS_SEAT -u FT_PRESS_TARGET -u FT_PRESS_CARD -u FT_PRESS_GATE_CACHE_SEC \
     FT_PRESS_WT="${GWT:-$R}" FT_PRESS_ROOT="$R" FT_PRESS_PERMIT_DIR="$CASE/permits" FT_PRESS_EVID="$CASE/ev" TMUX_PANE=%1 \
     SESS_FILE="$CASE/sessions" GITLOG="$CASE/gitlog" REALGIT="$REALGIT" CURL_CODE="$CURL_CODE" PATH="$FB:$PATH" $GENV timeout 60 bash "$1" 2>&1)"; RC=$?
   NG=$(grep -cE ' (log|diff|merge-base|cat-file) ' "$CASE/gitlog")
@@ -108,6 +108,13 @@ case_r7(){ mkcase r7; work 2; runbin "$1"; has "S1STATE FAIL=1 UNLANDED=2" && ha
   runbin "$1"; ! hit && has "① 판정 불가" && [ "$(ncache)" = "0" ] && has "S1STATE FAIL=1"; }
 case_r9(){ mkcase r9; GENV="FT_PRESS_SEAT=byz-v65-tester-claude#0"; runbin "$1"; runbin "$1"; ! hit && [ "$(ncache)" = "0" ] || return 1
   GENV="FT_PRESS_GATE_SELFTEST=1"; runbin "$1"; ! has "S1STATE" && [ "$(ncache)" = "0" ]; }
+rel(){ python3 -c 'import os,sys;print(os.path.relpath(sys.argv[1],sys.argv[2]))' "$1" "$2"; }
+case_r10(){ # 상대 경로 호출 · 호출 위치 ≠ FT_PRESS_WT — 다른 문구 게이트 둘이 같은 캐시를 쓰지 않는다(착지 DA ① 반례 1)
+  local p1="$1" p2; p2="$(mkprobe "$1" 's/^FAIL=0$/FAIL=0  # alt/')" || return 1   # 변이 사본($1)을 그대로 쓴다
+  mkcase r10; RCWD="$CASE"; GWT="$R"
+  runbin "$(rel "$p1" "$CASE")"; ! hit && [ "$(ncache)" = "1" ] || return 1
+  runbin "$(rel "$p1" "$CASE")"; hit || return 1
+  runbin "$(rel "$p2" "$CASE")"; ! hit && [ "$(ncache)" = "2" ]; }
 run_cases(){ # 게이트 칸… → 실패 칸은 BAD · 마지막 실패 출력은 LAST
   local sut="$1" c; shift; BAD=""
   for c in "$@"; do
