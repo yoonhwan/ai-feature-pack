@@ -3,7 +3,7 @@
 #   ⓐ 예산 초과 픽스처(칸 40자 · 재조정 기록 없음) = 직전 판 rc1 «예산 초과» → 지금 판 rc0 (20자 폭에서 들어감)
 #   ⓑ 지금 판 출력 ≤1600B · 골 원문 6행 글자 그대로(절단 0 · «…» 0) · 팀·상태·증거 칸만 «…»(20자 폭 = 21자)
 #   ⓒ 축소 순서 = ①재조정 라벨 글자만(폭 24 그대로) ②칸 20 — 라벨 축소만으로 들어가는 픽스처는 칸이 24자(25자) 그대로
-#   ⓓ 12자로도 넘치면 ERROR rc1(골 원문은 끝까지 절단 0) · 짧은 정본 = 직전 판과 바이트 같은 출력(회귀 0)
+#   ⓓ 마지막 단계(12자 · r1210 뒤 8자)로도 넘치면 ERROR rc1(골 원문은 끝까지 절단 0) · 짧은 정본 = 직전 판과 바이트 같은 출력(회귀 0)
 #   ⓔ 변이: 폭 축소 단계 삭제 → ⓐ 픽스처 rc1(빨강이 잡힌다)
 #   ⓕ 격리 = 임시 git 리포·임시 루트·가짜 mbox(인자 기록만) — 실 리포·실 쪽지·외부 호출 0
 set -uo pipefail
@@ -99,7 +99,7 @@ printf '%s\n' "$OUT" | sed -n '4p' | grep -q '확장 |$' \
 canon 400 > "$R/$CPATH"; commit huge; rm -rf "$R/.fable-team/state"
 OUT="$(render)"; RC=$?
 { [ "$RC" = 1 ] && case "$OUT" in *'ERROR 골 표 예산 초과'*'골 원문 칸은 절단하지 않는다'*) true;; *) false;; esac; } \
-  && ok "ⓓ 400자 골 6행 = 12자 폭으로도 초과 → ERROR rc1(골 원문 절단 0)" || bad "ⓓ rc=$RC :: $OUT"
+  && ok "ⓓ 400자 골 6행 = 마지막 단계(8자 · r1210) 폭으로도 초과 → ERROR rc1(골 원문 절단 0)" || bad "ⓓ rc=$RC :: $OUT"
 canon_short > "$R/$CPATH"; ledger_short > "$R/$LPATH"; commit short
 OUT="$(render)"; RC=$?
 NOWF="$T/short_now.txt"; printf '%s' "$OUT" > "$NOWF"

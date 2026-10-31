@@ -744,10 +744,56 @@ def relay(to, frm, path, summary, force=False):
     )
 
 
+def _seat_num(k):   # 좌석 번호 #N · 번호 없는 역할 이름 = -1
+    return int(k.rsplit("#", 1)[1]) if re.search(r"#\d+$", k or "") else -1
+
+
+def _role_rows(me):   # (r1225) 명부(seats*.json) 전부에서 me 와 같은 역할 이름 행 — 못 읽음 = {}
+    sj = os.environ.get("FT_SEATS_JSON") or os.path.join(os.path.dirname(CANON), "seats.json")
+    rows = {}
+    for f in sorted(glob.glob(os.path.join(os.path.dirname(sj) or ".", "seats*.json"))):
+        try:
+            with open(f, encoding="utf-8") as fh:
+                v = json.load(fh)
+        except (OSError, ValueError):
+            continue
+        if isinstance(v, dict):
+            rows.update({k: r for k, r in v.items() if isinstance(r, dict) and _role_key(k) == _role_key(me)})
+    return rows
+
+
+def _mine(me):
+    """★r1225★ comm/mbox_lineage._mine 과 같은 규칙 — `to` 를 명부로 풀어(은퇴 사슬 끝 · 번호 없음·미등록 옛 번호 = 번호 큰 현역)
+    «나보다 번호 큰 다른 좌석» 몫이면 안 가져간다. 명부 못 읽음 = 역할 키 그대로 + stderr 1줄."""
+    rows = _role_rows(me)
+    if not rows:
+        sys.stderr.write("NOTE 명부 못 읽음 — 역할 키로 받음 (%s)\n" % me)
+        return lambda to: True
+    live = [k for k, v in rows.items() if not v.get("_replaced_by") and v.get("role") not in ("closed", "stopped")]
+    top = max(live, key=_seat_num) if live else me
+    def resolve(name):
+        cur, seen, row = name, {name}, rows.get(name)
+        while isinstance(row, dict) and row.get("_replaced_by") and row["_replaced_by"] not in seen:
+            cur = row["_replaced_by"]; seen.add(cur); row = rows.get(cur)
+        if cur != name or isinstance(rows.get(name), dict):
+            return cur
+        return name if _seat_num(name) > _seat_num(top) else top
+    own, todo = {me}, [me]   # me 와 `_replaces` 사슬(앞 좌석들)
+    while todo:
+        for p in (rows.get(todo.pop()) or {}).get("_replaces") or []:
+            if p not in own: own.add(p); todo.append(p)
+    strict = "_replaces" in (rows.get(me) or {})   # 키 없는 옛 꼴 행 = 번호 비교(r1116 ⓐ)
+    def mine(to):
+        h = resolve(to)
+        return to in own or h in own or (not strict and _seat_num(h) < _seat_num(me))
+    return mine
+
+
 def _rows_for(d, me, frm):
     # ★내가 보낸 행은 안 가져간다(r1155)★ — comm/mbox_lineage.claim 과 같은 규칙. 후계가 구 좌석에 보낸 [레디] 를 후계가 지우던 자리.
-    return [r for r in _load(d) if _role_key(r.get("to")) == _role_key(me) and (frm is None or r.get("from") == frm)
-            and r.get("from") != me]
+    mine = _mine(me)
+    return [r for r in _load(d) if _role_key(r.get("to")) == _role_key(me) and mine(r.get("to"))
+            and (frm is None or r.get("from") == frm) and r.get("from") != me]
 
 
 def _receipt(me, rows):

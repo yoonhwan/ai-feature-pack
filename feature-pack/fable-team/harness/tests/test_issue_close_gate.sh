@@ -253,6 +253,28 @@ prc MERGED ""
 prc OPEN "착지 sha $LAND (ft-merge-land #9200)"
 [ $RC -eq 1 ] && grep -q "MISS 연결 PR #9100" <<<"$OUT" && ok "ⓓ5 R5 OPEN → MISS" || bad "ⓓ5 rc=$RC $OUT"
 
+# ⓟ r1106 · R1~R6 — «연결 PR: 팩 PR #N · 착지 sha <40hex>» = 팩 리포(FT_PACK_ROOT) origin/main 조상 판정 · BYZ 상태 조회 0
+PK="$T/pack"; git init -q -b main "$PK"; git -C "$PK" config user.email t@t; git -C "$PK" config user.name t
+pkc() { echo "$1" >> "$PK/f"; git -C "$PK" add -A; git -C "$PK" commit -qm "$1"; git -C "$PK" rev-parse HEAD; }
+PL="$(pkc landed)"; git -C "$PK" update-ref refs/remotes/origin/main "$PL"
+git -C "$PK" checkout -q -b side; PO="$(pkc other)"; git -C "$PK" checkout -q main   # PO = 팩 다른 가지에만
+pchk() { # pchk <연결 PR 줄> <BYZ 상태 파일> [팩 루트] [bin 폴더] → OUT·RC
+  mkstate "$S" '[]' "$SIXF"; addpr "$1"
+  OUT="$(FT_PACK_ROOT="${3:-$PK}" FT_PR_STATE_FROM_JSON="$2" bash "${4:-$BIN}/ft-issue-close-check.sh" 9000 --from-json "$S" --repo "$R" 2>&1)"; RC=$?; }
+pchk "연결 PR: 팩 PR #487 · 착지 sha $PL" "$T/byz-none.json"
+[ $RC -eq 0 ] && grep -q "OK 연결 팩 PR #487 · 착지 sha ${PL:0:10} 팩 origin/main 조상" <<<"$OUT" && ! grep -q "판정 불가" <<<"$OUT" && grep -q "PASS #9000" <<<"$OUT" \
+  && ok "ⓟa R1 팩 PR + 착지 sha(팩 main 조상) → OK · BYZ 상태 조회 0" || bad "ⓟa rc=$RC $OUT"
+printf '[{"number":487,"state":"OPEN"}]' > "$PRJ"; pchk "연결 PR: 팩 PR #487 · 착지 sha $PL" "$PRJ"
+[ $RC -eq 0 ] && ! grep -q "MISS 연결 PR #487" <<<"$OUT" && ok "ⓟa2 R2 BYZ 같은 번호 OPEN 이어도 팩 판정만으로 OK" || bad "ⓟa2 rc=$RC $OUT"
+pchk "연결 PR: 팩 PR #487" "$PRJ"
+[ $RC -eq 1 ] && grep -q "착지 sha 를 같은 줄에" <<<"$OUT" && grep -q "MISS Closes 연결 PR 없음" <<<"$OUT" && ok "ⓟb R3 팩 PR · sha 없음 → MISS" || bad "ⓟb rc=$RC $OUT"
+pchk "연결 PR: 팩 PR #487 · 착지 sha $PO" "$PRJ"
+[ $RC -eq 1 ] && grep -q "팩 origin/main 조상 아님" <<<"$OUT" && ok "ⓟc R4 팩 다른 가지 sha → MISS 조상 아님" || bad "ⓟc rc=$RC $OUT"
+printf '[{"number":487,"state":"MERGED"}]' > "$PRJ"; pchk "연결 PR: #487" "$PRJ"
+[ $RC -eq 0 ] && grep -q "«연결 PR: #487» 병합 확인" <<<"$OUT" && ! grep -q "연결 팩 PR" <<<"$OUT" && ok "ⓟd R5 팩 표시 없음 → BYZ 판정(지금 그대로)" || bad "ⓟd rc=$RC $OUT"
+pchk "연결 PR: 팩 PR #487 · 착지 sha $PL" "$PRJ" "$T/no-pack"
+[ $RC -eq 1 ] && [ "$(grep -c "팩 리포 없음" <<<"$OUT")" = 1 ] && ok "ⓟe R6 팩 리포 폴더 없음 → MISS 1줄" || bad "ⓟe rc=$RC $OUT"
+
 # ⑪ 변이(r1040) — 빈 칸 분기 제거 → ①' FAIL · 연결 PR 코멘트 인정 제거 → ⓒ FAIL
 MB="$T/bin"; mkdir -p "$MB"
 for f in ft-issue-close-gate.sh ft-issue-close-check.sh ft-gh-as-tank.sh ft-harness-root.sh; do cp "$BIN/$f" "$MB/$f"; done
@@ -274,7 +296,7 @@ mutsrc "$MB/ft-issue-close-gate.sh" '# r1040-mut:blank' 'if false; then'
 mkstate "$S" '[]' "소유 오케=x"; w "$SIX"; : > "$LOG"; mutgate "$S" "$CF"
 [ -s "$LOG" ] && ok "⑪ 변이(빈 칸 분기 제거) → ①' 가 빨강(쓰기 호출 생김)" || bad "⑪ 빈 칸 분기 없어도 쓰기 0 — 시험이 안 잡는다"
 cp "$BIN/ft-issue-close-gate.sh" "$MB/ft-issue-close-gate.sh"
-mutsrc "$MB/ft-issue-close-check.sh" '# r1040-mut:linkedpr' '  if false; then'
+mutsrc "$MB/ft-issue-close-check.sh" '# r1040-mut:linkedpr' '  elif false; then'
 mkstate "$S" '[]' "$SIXF"; addpr '연결 PR: #9100'; printf '[{"number":9100,"state":"MERGED"}]' > "$PRJ"
 MUT_OUT="$(FT_PR_STATE_FROM_JSON="$PRJ" bash "$MB/ft-issue-close-check.sh" 9000 --from-json "$S" --repo "$R" 2>&1)"; MUT_RC=$?
 [ $MUT_RC -eq 1 ] && ok "⑪ 변이(코멘트 인정 제거) → ⓒ 가 빨강" || bad "⑪ 인정 제거에도 rc=$MUT_RC — 시험이 안 잡는다"
@@ -289,6 +311,15 @@ mutsrc "$MB/ft-issue-close-check.sh" '# r1104-mut:ancestor' '  if true; then'
 jq -n --arg b "착지 sha $E (ft-merge-land #9200)" '[{number:9100,state:"CLOSED",comments:[{body:$b}]}]' > "$PRJ"
 MUT_OUT="$(FT_PR_STATE_FROM_JSON="$PRJ" bash "$MB/ft-issue-close-check.sh" 9000 --from-json "$S" --repo "$R" 2>&1)"; MUT_RC=$?
 [ $MUT_RC -eq 0 ] && ok "⑪ 변이(조상 검사 끔) → ⓓ3 이 빨강" || bad "⑪ 조상 검사를 끄어도 rc=$MUT_RC — 시험이 안 잡는다"
+# r1106 변이 — 팩 분기 끔 → ⓟa2 빨강 · 팩 조상 검사 끔 → ⓟc 빨강
+cp "$BIN/ft-issue-close-check.sh" "$MB/ft-issue-close-check.sh"
+mutsrc "$MB/ft-issue-close-check.sh" '# r1106-mut:packpath' '  if false; then'
+printf '[{"number":487,"state":"OPEN"}]' > "$PRJ"; pchk "연결 PR: 팩 PR #487 · 착지 sha $PL" "$PRJ" "$PK" "$MB"
+[ $RC -eq 1 ] && ok "⑪ 변이(팩 분기 끔) → ⓟa2 가 빨강" || bad "⑪ 팩 분기를 끄어도 rc=$RC — 시험이 안 잡는다"
+cp "$BIN/ft-issue-close-check.sh" "$MB/ft-issue-close-check.sh"
+mutsrc "$MB/ft-issue-close-check.sh" '# r1106-mut:pack-ancestor' '  if true; then'
+pchk "연결 PR: 팩 PR #487 · 착지 sha $PO" "$PRJ" "$PK" "$MB"
+[ $RC -eq 0 ] && ok "⑪ 변이(팩 조상 검사 끔) → ⓟc 가 빨강" || bad "⑪ 팩 조상 검사를 끄어도 rc=$RC — 시험이 안 잡는다"
 
 # 래퍼 1줄 · 줄 수 · 미러
 [ "$(wc -l < "$BIN/ft-gh-as-tank.sh" | tr -d ' ')" -le 200 ] && ok "ft-gh-as-tank.sh ≤ 200줄" || bad "ft-gh-as-tank.sh 줄 수 $(wc -l < "$BIN/ft-gh-as-tank.sh")"
