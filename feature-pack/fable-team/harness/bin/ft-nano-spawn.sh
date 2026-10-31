@@ -17,6 +17,7 @@ while [ $# -gt 0 ]; do case "$1" in
   --cherry-override) HAVE_CO=1; CO="${2:-}"; shift 2 2>/dev/null || shift;; *) echo "unknown $1" >&2; exit 2;; esac; done
 CO_ARGS=(); [ "$HAVE_CO" -eq 0 ] || { [ -n "${CO//[[:space:]]/}" ] || { echo "usage: --cherry-override \"<사유>\" — 사유가 비었다(사유 없는 우회 거부)" >&2; exit 2; }; CO_ARGS=(--override "$CO"); }
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
+<<<<<<< 7995b7f5b1503f0b0f323de06d880a12e38d2af5
 # ★r1224 배정 원장(state/card-assign/<stem>.json)★ — 카드 식별 = 첫 줄(아래 init · 정지 판정보다 앞): 옛 카드도 원장 «없음» 행이 생긴다.
 #   종료 분기 = 정지(SPAWN_HOLD · 판정 번호를 원장 pause.key 로) · 정지(ACCT_PAUSE · r1214 ft-acct-pause.sh --agent/--model 판별 · key=P/M · 도구 없음 = INFO 1줄) · 석(큐 적재 rc7 ×2) · 부하(자원 문지기) · lint · DA(lint 사전검증 사유) · 선행(기준 커밋 미착지)
 #   → «waiting <사유>»(같은 사유 재거절 = 변경 0 · since 유지) · 면제대기 = 이 스크립트에 분기 없음(master·planner 가 `ft-card-assign-watch.sh record <카드> waiting 면제대기`)
@@ -31,6 +32,79 @@ card_assign_record "$IDX" init
 if [ -f "$HERE/ft-spawn-hold.sh" ]; then
   _hold="$(bash "$HERE/ft-spawn-hold.sh" status 2>&1)"; _hrc=$?
   [ "$_hrc" = 0 ] || { printf '%s\n' "$_hold"; card_assign_record "$IDX" waiting 정지 hold "$(printf '%s\n' "$_hold" | sed -n 's/^REJECT hold \([0-9][0-9]*\) .*/\1/p' | head -1)"; exit "$_hrc"; }
+=======
+_cmd_on="${FT_CMD_ENABLED:-0}"
+# ★일반화(2026-10-20 오빠 «ft-nano-spawn.sh 일반화 업그레이드»)★ — 티어는 «기본값 공급자»다: --agent 를 명시하면 티어가 에이전트·모델·effort·fast 를 덮어쓰지 않는다
+#   (chatbot #120064: `--agent pi --tier search` 가 pi 가 아니라 opencode 로 열렸다). 티어 이름 검사와 ROLE 은 그대로 한다.
+_A0="$AGENT"; _M0="$MODEL"; _E0="$EFFORT"; _F0="$FAST"
+case "$TIER" in
+  checker|tester|checker:1|tester:1)
+    if [ "$_cmd_on" = 1 ]; then AGENT="cmd"; MODEL="${FT_CMD_MODEL:-deepseek/deepseek-v4-flash}"; EFFORT="high";
+    else AGENT="codex"; MODEL="${FT_LUNA_MODEL:-gpt-6-luna}"; EFFORT="high"; FAST="on"; fi;;
+  checker:2|tester:2)
+    if [ "$_cmd_on" = 1 ]; then AGENT="codex"; MODEL="${FT_LUNA_MODEL:-gpt-6-luna}"; EFFORT="high"; FAST="on";
+    else AGENT="claude"; MODEL="${FT_SONNET_MODEL:-claude-sonnet-5-5[1m]}"; EFFORT="high"; fi;;
+  checker:3|tester:3)                AGENT="claude"; MODEL="${FT_SONNET_MODEL:-claude-sonnet-5-5[1m]}"; EFFORT="high";;
+  # impl = 구현 나노. 1순위 sonnet-5.5(기본값 — r286 오빠 하네스 뉴스 «Sonnet 5.5 가 Opus·sol 보다 처리 능력 우위» · 옛 09-28 opus5.5 · fable 은 --model 명시로만), :2 luna (cmd 는 FT_CMD_ENABLED=1 일 때 :2 로 끼어듦)
+  impl|impl:1) ;;
+  # search = 검색 나노 — 대용량 로그·코드 분석·정본화 서치 «읽고 모으기» 전용(코드 수정 0) · 기본 에이전트 = FT_SEARCH_AGENT(기본 pi: deepseek flash — opencode 무료 경로는 이 IP 에서 «abusive traffic» 으로 차단 · 2026-10-20) ·
+  #   FT_SEARCH_AGENT=opencode 로 r286 옛 경로(opencode/deepseek-v4.1-flash-free)로 되돌린다 · 모델은 아래 «에이전트별 기본»(FT_PI_MODEL · FT_OC_MODEL) · 닫기 = ft-nano-close(그 에이전트 프로세스 left=0 확인)
+  search) AGENT="${FT_SEARCH_AGENT:-pi}"; MODEL="";;
+  impl:2) if [ "$_cmd_on" = 1 ]; then AGENT="cmd"; MODEL="${FT_CMD_MODEL:-deepseek/deepseek-v4-flash}"; EFFORT="high";
+          else AGENT="codex"; MODEL="${FT_LUNA_MODEL:-gpt-6-luna}"; EFFORT="high"; FAST="on"; fi;;
+  impl:3) AGENT="codex"; MODEL="${FT_LUNA_MODEL:-gpt-6-luna}"; EFFORT="high"; FAST="on";;
+  '') ;; *) echo "unknown --tier $TIER (checker|tester[:1-3] · impl[:1-3] · search)" >&2; exit 2;;
+esac
+if [ "$AGENT_SET" = 1 ]; then AGENT="$_A0"; MODEL="$_M0"; EFFORT="$_E0"; FAST="$_F0"; fi   # 명시 --agent 우선(위 주석)
+# ★r631(planner «짧은 나노 low · 구현 high» · r556 개정)★ pi 나노 종류 판별 1곳 — short = 티어 search·checker·tester 또는 --research · impl = 그 밖(티어 impl · 티어 없는 코드 나노).
+pi_kind() { if [ "$RESEARCH" = 1 ]; then echo "short:research"; else case "${TIER%%:*}" in search|checker|tester) echo "short:tier=${TIER%%:*}";; impl) echo "impl:tier=impl";; *) echo "impl:code-nano";; esac; fi; }
+# pi 기본 effort = short FT_PI_EFFORT_SHORT(low) · impl FT_PI_EFFORT_IMPL(high) — 13행 high·티어 기본값은 pi 에서 덮는다 · 직접 적은 --effort 가 이긴다(explicit)
+#   옛 이름 FT_PI_EFFORT(r556)는 두 갈래 모두에 적용 + stderr WARN(새 이름이 있으면 새 이름이 이긴다) · 되돌림 = FT_PI_EFFORT_IMPL=low
+EFFORT_WHY=""
+if [ "$AGENT" = pi ]; then
+  if [ "$EFFORT_SET" = 1 ]; then EFFORT_WHY="explicit"
+  else
+    EFFORT_WHY="$(pi_kind)"
+    [ -z "${FT_PI_EFFORT:-}" ] || echo "WARN FT_PI_EFFORT 는 옛 이름(r556) — FT_PI_EFFORT_SHORT·FT_PI_EFFORT_IMPL 로 나눠 적어라(지금은 두 갈래 모두 $FT_PI_EFFORT)" >&2
+    case "$EFFORT_WHY" in short:*) EFFORT="${FT_PI_EFFORT_SHORT:-${FT_PI_EFFORT:-low}}";; *) EFFORT="${FT_PI_EFFORT_IMPL:-${FT_PI_EFFORT:-high}}";; esac
+  fi
+fi
+# 역할을 seats.json 에 남긴다 — 세션 상태 절·stall 대상 판정이 «checker/tester/impl» 을 가른다
+ROLE="${TIER%%:*}"; ROLE="${ROLE:-nano}"
+# --model 미지정(티어도 안 정함)이면 에이전트별 기본 — claude 는 FT_IMPL_MODEL, 그 밖은 모델을 지어내지 않고 정해진 것만(표에 없는 에이전트는 REJECT)
+if [ -z "$MODEL" ]; then case "$AGENT" in
+  claude) MODEL="${FT_IMPL_MODEL:-claude-sonnet-5-5[1m]}";;
+  codex)  MODEL="${FT_LUNA_MODEL:-gpt-6-luna}";;
+  cmd)    MODEL="${FT_CMD_MODEL:-deepseek/deepseek-v4-flash}";;
+  opencode) MODEL="${FT_OC_MODEL:-opencode/deepseek-v4.1-flash-free}";;   # r286
+  pi)     MODEL="${FT_PI_MODEL:-opengateway/deepseek/deepseek-v4.1-flash-ultrafast}";;   # Pi 1.3.0 · OpenGateway fast lane
+  *) echo "REJECT --model 필수 (--agent $AGENT 는 기본 모델이 없다)"; exit 1;; esac
+fi
+# 계정 풀 정지 판정 1곳 (r1214 DA① ⑥) — rc0 통과 · rc3 정지(사람 말 1줄 stdout) · rc4 판정 불가
+_acct_paused() {   # $1 = agent $2 = model(확정값)
+  local out rc
+  [ -f "$HERE/ft-acct-pause.sh" ] || { echo "WARN acct-pause 판정 못 함 — ft-acct-pause.sh 없음: $HERE" >&2; return 0; }
+  out="$(bash "$HERE/ft-acct-pause.sh" status --check --agent "$1" --model "$2" 2>&1)"; rc=$?
+  case "$rc" in
+    0) return 0;;
+    3) printf '%s\n' "REJECT 정지 중 · 풀림 $(printf '%s\n' "$out" | sed -n 's/.*until_hhmm=\([0-9:]*\).*/\1/p' | head -1) — acct-pause $(printf '%s\n' "$out" | sed -n 's/^PAUSED \([^ ]*\) .*/\1/p' | head -1) round=$(printf '%s\n' "$out" | sed -n 's/.*round=\([^ ]*\).*/\1/p' | head -1)"; return 3;;
+    4) printf '%s\n' "REJECT 판정 불가 — $(printf '%s\n' "$out" | tail -1)"; return 4;;
+    *) printf '%s\n' "REJECT acct-pause 판정 실패 rc=$rc — $(printf '%s\n' "$out" | tail -1)"; return 1;;
+  esac
+}
+# ★spawn 정지 파일 (R320 · 판정 2166)★: 정지는 기한·해제 조건이 있는 SPAWN_HOLD 파일 하나로만 걸린다 — 문장·쪽지로 받은 정지는 효력 0. 출력 `hold=none` = 정지 아님. 없는 도구는 설치 누락(라이브 드리프트 검사가 잡는다).
+if [ -f "$HERE/ft-spawn-hold.sh" ]; then
+  _hold="$(bash "$HERE/ft-spawn-hold.sh" status 2>&1)"; _hrc=$?
+  if [ "$_hrc" != 0 ]; then
+    printf '%s\n' "$_hold"
+    # r1214: 정지 사유를 «둘 다 모아» 낸다 — 자원 정지에 걸려도 계정 정지가 같이 있으면 그 1줄도 함께 보인다(여기서 아는 모델 = --model 로 준 값 또는 기본 agent).
+    #   (모델이 확정된 뒤의 «본» 계정 게이트는 아래 — 여기는 자원 정지로 먼저 끝나는 길에서 두 번째 사유를 잃지 않기 위한 자리다.)
+    _apout="$(_acct_paused "$AGENT" "$MODEL")"; _aprc=$?
+    [ "$_aprc" = 0 ] || printf '%s\n' "$_apout"
+    [ "$_aprc" = 4 ] && exit 4
+    exit "$_hrc"
+  fi
+>>>>>>> origin/main
   printf '%s\n' "$_hold"
 fi
 # ★자원 게이트 (Res-1014 · r921 개정)★: 넘으면 «회수 먼저 → 다시 재고 → 그래도 넘으면 WARN 1줄 + 진행» — 멈추는 것은 문지기의 REJECT(디스크 하드 하한·디스크 측정 실패)뿐이다(오빠 2026-10-25 «컴퓨터가 죽어도 개발은 해야지»). 우회 플래그 없음 — 조정은 env 문턱만.
@@ -293,58 +367,12 @@ case "$HERE" in
     printf '%s\n' "$_dout";;
   *) echo "INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: $HERE";;
 esac
-# ★--tier checker|tester[:N] = 싼 모델 순위 (오빠 2026-09-14 확정 「zcode > cmd > luna > sonnet」 · README §5-1)★
-#   N 생략 = 1순위. 한도·거부(usage_limit_reached·429·exit 10 크레딧)면 발주자가 :2 :3 :4 로 다음 순위. sonnet(4) 은 마지막.
-#   zcode 슬러그는 설치마다 다르다 — FT_ZCODE_MODEL 로 준다(없으면 REJECT — 없는 모델을 지어내지 않는다).
-# 2026-09-14 오빠 실측 정정 2회: 「zcode 구독 없네 제외」 → 「cmd 월제한이 18일날 풀린다.. cmd도 넘기자」 ⇒ 지금 순위 = luna > sonnet. cmd 는 FT_CMD_ENABLED=1 일 때만 1순위 복귀(월제한 해제 후 오빠가 켠다).
-_cmd_on="${FT_CMD_ENABLED:-0}"
-# ★일반화(2026-10-20 오빠 «ft-nano-spawn.sh 일반화 업그레이드»)★ — 티어는 «기본값 공급자»다: --agent 를 명시하면 티어가 에이전트·모델·effort·fast 를 덮어쓰지 않는다
-#   (chatbot #120064: `--agent pi --tier search` 가 pi 가 아니라 opencode 로 열렸다). 티어 이름 검사와 ROLE 은 그대로 한다.
-_A0="$AGENT"; _M0="$MODEL"; _E0="$EFFORT"; _F0="$FAST"
-case "$TIER" in
-  checker|tester|checker:1|tester:1)
-    if [ "$_cmd_on" = 1 ]; then AGENT="cmd"; MODEL="${FT_CMD_MODEL:-deepseek/deepseek-v4-flash}"; EFFORT="high";
-    else AGENT="codex"; MODEL="${FT_LUNA_MODEL:-gpt-6-luna}"; EFFORT="high"; FAST="on"; fi;;
-  checker:2|tester:2)
-    if [ "$_cmd_on" = 1 ]; then AGENT="codex"; MODEL="${FT_LUNA_MODEL:-gpt-6-luna}"; EFFORT="high"; FAST="on";
-    else AGENT="claude"; MODEL="${FT_SONNET_MODEL:-claude-sonnet-5-5[1m]}"; EFFORT="high"; fi;;
-  checker:3|tester:3)                AGENT="claude"; MODEL="${FT_SONNET_MODEL:-claude-sonnet-5-5[1m]}"; EFFORT="high";;
-  # impl = 구현 나노. 1순위 sonnet-5.5(기본값 — r286 오빠 하네스 뉴스 «Sonnet 5.5 가 Opus·sol 보다 처리 능력 우위» · 옛 09-28 opus5.5 · fable 은 --model 명시로만), :2 luna (cmd 는 FT_CMD_ENABLED=1 일 때 :2 로 끼어듦)
-  impl|impl:1) ;;
-  # search = 검색 나노 — 대용량 로그·코드 분석·정본화 서치 «읽고 모으기» 전용(코드 수정 0) · 기본 에이전트 = FT_SEARCH_AGENT(기본 pi: deepseek flash — opencode 무료 경로는 이 IP 에서 «abusive traffic» 으로 차단 · 2026-10-20) ·
-  #   FT_SEARCH_AGENT=opencode 로 r286 옛 경로(opencode/deepseek-v4.1-flash-free)로 되돌린다 · 모델은 아래 «에이전트별 기본»(FT_PI_MODEL · FT_OC_MODEL) · 닫기 = ft-nano-close(그 에이전트 프로세스 left=0 확인)
-  search) AGENT="${FT_SEARCH_AGENT:-pi}"; MODEL="";;
-  impl:2) if [ "$_cmd_on" = 1 ]; then AGENT="cmd"; MODEL="${FT_CMD_MODEL:-deepseek/deepseek-v4-flash}"; EFFORT="high";
-          else AGENT="codex"; MODEL="${FT_LUNA_MODEL:-gpt-6-luna}"; EFFORT="high"; FAST="on"; fi;;
-  impl:3) AGENT="codex"; MODEL="${FT_LUNA_MODEL:-gpt-6-luna}"; EFFORT="high"; FAST="on";;
-  '') ;; *) echo "unknown --tier $TIER (checker|tester[:1-3] · impl[:1-3] · search)" >&2; exit 2;;
-esac
-if [ "$AGENT_SET" = 1 ]; then AGENT="$_A0"; MODEL="$_M0"; EFFORT="$_E0"; FAST="$_F0"; fi   # 명시 --agent 우선(위 주석)
-# ★r631(planner «짧은 나노 low · 구현 high» · r556 개정)★ pi 나노 종류 판별 1곳 — short = 티어 search·checker·tester 또는 --research · impl = 그 밖(티어 impl · 티어 없는 코드 나노).
-pi_kind() { if [ "$RESEARCH" = 1 ]; then echo "short:research"; else case "${TIER%%:*}" in search|checker|tester) echo "short:tier=${TIER%%:*}";; impl) echo "impl:tier=impl";; *) echo "impl:code-nano";; esac; fi; }
-# pi 기본 effort = short FT_PI_EFFORT_SHORT(low) · impl FT_PI_EFFORT_IMPL(high) — 13행 high·티어 기본값은 pi 에서 덮는다 · 직접 적은 --effort 가 이긴다(explicit)
-#   옛 이름 FT_PI_EFFORT(r556)는 두 갈래 모두에 적용 + stderr WARN(새 이름이 있으면 새 이름이 이긴다) · 되돌림 = FT_PI_EFFORT_IMPL=low
-EFFORT_WHY=""
-if [ "$AGENT" = pi ]; then
-  if [ "$EFFORT_SET" = 1 ]; then EFFORT_WHY="explicit"
-  else
-    EFFORT_WHY="$(pi_kind)"
-    [ -z "${FT_PI_EFFORT:-}" ] || echo "WARN FT_PI_EFFORT 는 옛 이름(r556) — FT_PI_EFFORT_SHORT·FT_PI_EFFORT_IMPL 로 나눠 적어라(지금은 두 갈래 모두 $FT_PI_EFFORT)" >&2
-    case "$EFFORT_WHY" in short:*) EFFORT="${FT_PI_EFFORT_SHORT:-${FT_PI_EFFORT:-low}}";; *) EFFORT="${FT_PI_EFFORT_IMPL:-${FT_PI_EFFORT:-high}}";; esac
-  fi
-fi
-# 역할을 seats.json 에 남긴다 — 세션 상태 절·stall 대상 판정이 «checker/tester/impl» 을 가른다
-ROLE="${TIER%%:*}"; ROLE="${ROLE:-nano}"
-# --model 미지정(티어도 안 정함)이면 에이전트별 기본 — claude 는 FT_IMPL_MODEL, 그 밖은 모델을 지어내지 않고 정해진 것만(표에 없는 에이전트는 REJECT)
-if [ -z "$MODEL" ]; then case "$AGENT" in
-  claude) MODEL="${FT_IMPL_MODEL:-claude-sonnet-5-5[1m]}";;
-  codex)  MODEL="${FT_LUNA_MODEL:-gpt-6-luna}";;
-  cmd)    MODEL="${FT_CMD_MODEL:-deepseek/deepseek-v4-flash}";;
-  opencode) MODEL="${FT_OC_MODEL:-opencode/deepseek-v4.1-flash-free}";;   # r286
-  pi)     MODEL="${FT_PI_MODEL:-opengateway/deepseek/deepseek-v4.1-flash-ultrafast}";;   # Pi 1.3.0 · OpenGateway fast lane
-  *) echo "REJECT --model 필수 (--agent $AGENT 는 기본 모델이 없다)"; exit 1;; esac
-fi
+# (--tier·모델 확정 블록은 위 :20 — 정지 게이트가 «확정된 모델» 로 판정하려고 앞으로 옮겼다 · r1214 DA① ⑥)
 # (r975: SEATS·회신 대상 해석은 :54 로 옮겼다 — 상한·회수 게이트의 --caller/--from 도 같은 값을 쓴다)
+# ★계정 풀 정지 (r1214 · ACCT_PAUSE · Issue #5345 ③⑤)★: 모델은 위(:20 블록)에서 «이미 확정»됐다(--model·--tier·기본값 분기). 카드 쓰기·워크트리·tmux «전»에 판정한다.
+#   정지 rc3 = `REJECT 정지 중 · 풀림 HH:MM` · 판정 불가 rc4 = `REJECT 판정 불가`(통과 0). 없는 도구는 WARN 1줄(판단하지 않음 · ft-spawn-hold.sh 와 같은 틀).
+_apout="$(_acct_paused "$AGENT" "$MODEL")"; _aprc=$?
+if [ "$_aprc" != 0 ]; then printf '%s\n' "$_apout"; exit "$_aprc"; fi
 if [ ! -f "$IDX" ] && [ -f "$HERE/ft-team-lib.sh" ]; then . "$HERE/ft-team-lib.sh"; _tw="$(ft_index_twin "$IDX")" && [ -f "$_tw" ] && { echo "INFO 인덱스 쌍둥이 경로로 해석: $IDX → $_tw (R382 전환 기간 역호환)"; IDX="$_tw"; }; fi
 [ -f "$IDX" ] || { echo "REJECT 인덱스 없음: $IDX"; exit 1; }
 [ ! -f "$HERE/ft-team-lib.sh" ] || ( . "$HERE/ft-team-lib.sh" && ft_card_location_ok "$IDX" ) || exit 1   # r447: 명단 새 꼴 팀 카드가 옛 꼴 폴더(쌍둥이 해석 포함)면 REJECT

@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """ft_news_desk — 뉴스 틱마다 desk 세션 화면에 붙일 «전문» 3블록을 조립하고, 바뀐 틱에만 desk 로 relay 1통 (r1055 · Issue #4004).
 
-블록 = ①골 표(원장) ②팀별 표(명단·카드 흐름·명부·보드 스냅샷) ③오빠 손(h 목록·답 대기 질문). 이 파일 = ③ + 조립·digest·좌석·relay.
-①·② 재료 = ft_news_desk_blocks.py(파일 상한 200줄 분리). 블록 순서는 Q1=ⓐ(오빠 승인 본보기 그대로) · 그 밖 블록 0.
+relay 본문 = 직전에 보낸 전문 대비 «바뀐 칸» 요약 ≤ 2KB + 전문 경로 끝줄 · 바뀐 칸 0 = 쪽지 0 · 하루 12통 상한(r1229 · Issue #5341).
+블록 = ①골 표(원장) ②팀별 표(명단·카드 흐름·명부·보드 스냅샷) ③오빠 손(h 목록·답 대기 질문·오늘 착지). 이 파일 = 조립·digest·좌석·relay.
+①·② 재료 = ft_news_desk_blocks.py · ③ = ft_news_desk_oppa.py(파일 상한 200줄 분리). 블록 순서는 Q1=ⓐ(오빠 승인 본보기 그대로) · 그 밖 블록 0.
 digest = 머리의 «분»을 지운 본문 sha1 — 같은 내용이면 relay 0(판정 1430 «바뀐 것만» · R4).
 desk 좌석 = 명부(seats-planner.json) `_desk` 의 현역 — 못 찾으면 rc≠0 «판정 불가» 1줄 · 옛 이름으로 보내기 0(R5).
 env: FT_ROOT · FT_DESK_HIL · FT_DESK_DECISION · FT_DESK_TOOL_TIMEOUT · FT_MBOX · FT_DESK_SEATS
@@ -12,8 +13,6 @@ import hashlib
 import json
 import logging
 import os
-import re
-import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -22,84 +21,14 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import ft_board_env as env  # noqa: E402
 from ft_news_desk_blocks import (  # noqa: E402
-    CLOCK, DOING_CHARS, LOG, _run, _timeout, _why, goal_block, snapshot, team_block,
+    CLOCK, DOING_CHARS, LOG, TABLE_SEP, _run, _timeout, goal_block, snapshot, team_block,
 )
+from ft_news_desk_oppa import oppa_block  # noqa: E402
 
-def _tool(cmd: list[str], env_name: str) -> subprocess.CompletedProcess[str]:
-    """외부 도구 1회 + 재시도 1(하드 룰 12 · 상한은 _timeout(env_name)). rc≠0·시간 초과 둘 다 재시도 대상."""
-    err: Exception | None = None
-    for _ in range(2):
-        try:
-            done = _run(cmd, _timeout(env_name))
-        except RuntimeError as e:
-            err = e
-            continue
-        if done.returncode == 0:
-            return done
-        err = RuntimeError(f"{Path(cmd[1]).name} rc={done.returncode} {(done.stderr or done.stdout).strip()[:DOING_CHARS]}")
-    raise err  # type: ignore[misc]
+MAX_RELAY = 2048   # desk 쪽지 1통 상한(바이트 · r1229 K7 — 전문 9KB 를 붙이던 것)
+LINE_MAX = 400     # 바뀐 칸 1줄 상한(바이트) — 긴 골 행 하나가 요약을 다 먹지 않게
+DAY_CAP = 12       # 하루 desk 쪽지 상한(통 · 날짜 파일 relay-count-YYYYMMDD.txt)
 
-
-def _hil(root: Path) -> str:
-    """ft-hil 1번(--pending --each)으로 개수와 가장 오래된 분을 함께 만든다(R6 — 두 번째 --pending 호출 0)."""
-    tool = os.environ.get("FT_DESK_HIL") or str(HERE / "ft-hil.sh")
-    each = _tool(["bash", tool, "--pending", "--each"], "FT_DESK_TOOL_TIMEOUT")
-    rows = [x.strip() for x in each.stdout.splitlines() if x.strip()]
-    oldest = max((int(m[1]) for x in rows if (m := re.search(r"(\d+)\s*$", x))), default=0)
-    tail = f" · 가장 오래된 {oldest}분" if oldest else ""
-    return f"{len(rows)}개 (미실행 h {len(rows)}개{tail})"
-
-
-def _questions(root: Path) -> str:
-    done = _tool(["bash", os.environ.get("FT_DESK_DECISION") or str(HERE / "ft-decision-count.sh")], "FT_DESK_TOOL_TIMEOUT")
-    body = [x for x in done.stdout.strip().splitlines() if x.strip()]
-    if not body:
-        raise RuntimeError(f"ft-decision-count 빈 응답 rc={done.returncode}")
-    return body[-1]
-
-
-def _sticky_path(root: Path) -> Path:
-    return root / ".fable-team" / "state" / "ft-news-desk-last.json"
-
-
-def _sticky(root: Path) -> dict:
-    try:
-        data = json.loads(_sticky_path(root).read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return {}
-    return data if isinstance(data, dict) else {}
-
-
-def _sticky_put(root: Path, key: str, value: str, now: datetime) -> None:
-    """성공한 칸 값을 tmp+mv 로 남긴다 — 다음 틱이 실패하면 «직전 값(HH:MM)» 으로 보인다(R4)."""
-    data = _sticky(root)
-    data[key] = {"value": value, "at": f"{now:%H:%M}"}
-    path = _sticky_path(root)
-    tmp = path.parent / (path.name + ".tmp")
-    try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        tmp.write_text(json.dumps(data, ensure_ascii=False) + "\n", encoding="utf-8")
-        tmp.replace(path)
-    except OSError as e:
-        LOG.error("직전 값 저장 실패: %s", e)
-
-
-def oppa_block(root: Path, now: datetime | None = None) -> list[str]:
-    """③오빠 손 — 칸마다 7초+재시도 1 · 둘 다 실패하면 직전 값(HH:MM), 그도 없으면 확인 불가(R3~R5)."""
-    out = ["## 오빠 손"]
-    now = now or datetime.now()
-    for name, fn in (("실행할 스크립트", _hil), ("답 대기 질문", _questions)):
-        try:
-            value = fn(root)
-        except (RuntimeError, OSError) as e:
-            LOG.error("오빠 손 %s 칸 확인 불가: %s", name, e)
-            prev = _sticky(root).get(name) or {}
-            out.append(f"- {name}: 직전 값({prev['at']}) · 지금 확인 불가: {_why(e)}" if prev.get("at")
-                       else f"- 확인 불가({_why(e)})")
-            continue
-        _sticky_put(root, name, value, now)
-        out.append(f"- {name}: {value}")
-    return out
 
 def build(root: Path, now: datetime) -> str:
     head = [f"# 뉴스 전문 — {now:%m-%d %H:%M} (뉴스 틱 자동 생성 · 손글 0)"]
@@ -125,6 +54,47 @@ def desk_seat(root: Path) -> str:
     return seat
 
 
+def changed(prev: str, text: str) -> list[str]:
+    """직전에 보낸 전문에 없던 줄 = 바뀐 칸 «[절] 줄»(분 무시 · 머리·빈 줄 제외 · r1229 K7)."""
+    old = {CLOCK.sub("HH:MM", ln) for ln in prev.splitlines()}
+    out, sec = [], ""
+    for ln in text.splitlines():
+        if ln.startswith("## "):
+            sec = ln[3:].strip()
+        if ln.strip() and not ln.startswith("# ") and not TABLE_SEP.match(ln.strip()) and CLOCK.sub("HH:MM", ln) not in old:
+            out.append(f"[{sec}] {ln.strip()}")
+    return out
+
+
+def _cut(s: str, n: int) -> str:
+    return s.encode("utf-8")[:n].decode("utf-8", "ignore")
+
+
+def brief(rows: list[str], now: datetime, full: Path) -> str:
+    """desk 쪽지 본문 = 바뀐 칸 요약 + 전문 경로 끝줄 · 합계 ≤ MAX_RELAY 바이트(r1229 R4)."""
+    head, tail = f"뉴스 바뀐 칸 {len(rows)}개 · {now:%H:%M}", f"전문: {full}"
+    body, used = [head], len(head.encode()) + len(tail.encode()) + 2 + 64   # 64 = «외 N칸» 자리
+    for i, row in enumerate(rows):
+        line = _cut(row, LINE_MAX)
+        if used + len(line.encode()) + 1 > MAX_RELAY:
+            body.append(f"… 외 {len(rows) - i}칸(전문 참조)")
+            break
+        body.append(line)
+        used += len(line.encode()) + 1
+    return "\n".join([*body, tail]) + "\n"
+
+
+def _count_path(state: Path, now: datetime) -> Path:
+    return state / f"relay-count-{now:%Y%m%d}.txt"
+
+
+def _sent_today(state: Path, now: datetime) -> int:
+    try:
+        return int(_count_path(state, now).read_text(encoding="utf-8").strip() or 0)
+    except (OSError, ValueError):
+        return 0
+
+
 def relay(root: Path, path: Path, seat: str, summary: str) -> None:
     mbox = os.environ.get("FT_MBOX") or str(root / ".fable-team" / "comm" / "mbox.sh")
     done = _run(["bash", mbox, "relay", seat, "ft-news-desk", str(path), summary], _timeout("FT_DESK_TOOL_TIMEOUT") * 2)
@@ -142,19 +112,34 @@ def tick() -> int:
     if last.is_file() and last.read_text(encoding="utf-8").strip() == dg:
         LOG.info("바뀐 것 없음 — desk relay 0")
         return 0
+    sent = state / "last-sent.txt"
+    rows = changed(sent.read_text(encoding="utf-8") if sent.is_file() else "", text)
+    if not rows:
+        LOG.info("바뀐 칸 0 — desk relay 0")
+        return 0
+    out = state / f"{now:%Y%m%d-%H%M}.md"
+    if (n := _sent_today(state, now)) >= DAY_CAP:
+        LOG.info("오늘 desk 쪽지 %d통 = 상한 — relay 0 · 전문만 남김", n)
+        state.mkdir(parents=True, exist_ok=True)
+        top, _, rest = text.partition("\n")
+        out.write_text(f"{top}\n> 오늘 desk 쪽지 상한 {DAY_CAP}통 도달 — 쪽지 0 · 이 전문만 남김\n{rest}", encoding="utf-8")
+        return 0
     try:
         seat = desk_seat(root)
     except RuntimeError as e:
         print(f"판정 불가 desk 좌석 — {e}", file=sys.stderr)
         return 1
-    out = state / f"{now:%Y%m%d-%H%M}.md"
+    note = state / f"{now:%Y%m%d-%H%M}.brief.txt"
     try:
         state.mkdir(parents=True, exist_ok=True)
         out.write_text(text, encoding="utf-8")
-        relay(root, out, seat, f"뉴스 전문 3블록 · {now:%H:%M} · 골 표 + 팀 표 + 오빠 손 (전문 파일 첨부)")
+        note.write_text(brief(rows, now, out), encoding="utf-8")
+        relay(root, note, seat, f"뉴스 바뀐 칸 {len(rows)}개 · {now:%H:%M} (요약 ≤2KB · 끝줄 = 전문 경로)")
     except (RuntimeError, OSError) as e:
         print(f"판정 불가 relay — {e}", file=sys.stderr)
         return 1
+    _count_path(state, now).write_text(f"{n + 1}\n", encoding="utf-8")
+    sent.write_text(text, encoding="utf-8")
     last.write_text(dg + "\n", encoding="utf-8")
     return 0
 
