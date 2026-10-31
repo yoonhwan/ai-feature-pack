@@ -7,6 +7,9 @@ import re
 HEREDOC = re.compile(r"(?<!<)<<(?!<)-?\s*(?:(['\"])(?P<q>\w+)\1|(?P<b>\\)(?P<bn>\w+)|(?P<n>[A-Za-z_]\w*))")
 
 
+ARRAY_HEAD = re.compile(r"[A-Za-z_]\w*(\[[^\]]*\])?\+?=")  # 배열 대입 머리 «이름=»·«이름+=»·«이름[i]=» (r1249)
+
+
 class W(str):
     """따옴표를 벗긴 단어. subs = 안에 든 $(…)·백틱 치환 글(단어 안 그 자리는 \\x00 · 작은따옴표 안 $ 는 \\x01)."""
     subs: list[str]
@@ -68,6 +71,11 @@ def read_sub(t: str, i: int) -> tuple[str, int]:  # t[i:i+2] == '$(' → (안쪽
         d += (c == "(") - (c == ")")
         j += 1
     return t[i + 2:j - 1], j
+
+
+def read_array(t: str, i: int) -> tuple[list[W], int] | None:  # t[i]=='(' 배열 대입 → (치환이 든 원소 단어들, 짝 ')' 다음 위치) · 짝이 없으면 None(서브셸로 읽는다)
+    inner, j = read_sub(t, i - 1)  # '$(' 읽기를 «x(» 자리에 빌려 쓴다 — 따옴표·\ 를 건너뛰며 짝 ')' 를 찾는다
+    return None if t[j - 1:j] != ")" else ([w for _s, ws, _sep in scan(inner) for w in ws if w.subs], j)
 
 
 def scan(t: str) -> list[tuple[int, list[W], str]]:  # → [(시작 위치, 단어들, 구분자)]
@@ -159,6 +167,14 @@ def scan(t: str) -> list[tuple[int, list[W], str]]:  # → [(시작 위치, 단�
             subs.clear()
             st["has"] = False
             i = t.index(")", i) + 1
+        elif c == "(" and ARRAY_HEAD.fullmatch("".join(cur)) and all(ARRAY_HEAD.match(w) for w in words) and (arr := read_array(t, i)):
+            word()  # 배열 대입 «이름=(…)» — 괄호는 서브셸이 아니다 · 글자 원소는 버리고 치환($(…)·백틱) 든 원소만 같은 구간 인자로 남겨 지금처럼 판정(r1249)
+            for w in arr[0]:
+                subs.extend(w.subs)
+                cur.append("\x00" * len(w.subs))
+                st["has"] = True
+                word()
+            i = arr[1]
         elif c in "()":
             seg(c, i + 1)
             i += 1

@@ -5,6 +5,7 @@
 #        유효 끝 = min(until, release_at) · round_id = <P>-<set_at>-<4자> · 정지 진입 때 그 풀의 현역 좌석마다 «[정지 예고]» 1통(도구 발신자).
 #   clear [--provider <P>]   그 항목만(arg 있음) / 전부(arg 없음) 푼다 — ★status 의 «재개 절차» 를 그대로 탄다★(재개 쪽지 → 유휴 확인 뒤 quiet 좌석 ring → 전 좌석 완료 뒤 항목 삭제).
 #        아직 못 깨운 좌석이 있으면 항목을 남기고 `RELEASING … 남은=N` 만 내고 다음 status 호출이 이어받는다(조기 삭제 = 재개 유실 0).
+#        clear --provider <P> --round <round_id> (r1215) = 그 round 항목일 때만 푼다 · 다른 round(손 정지로 교체됨) = `REJECT … round 불일치` rc3 · 부작용 0.
 #   status                   판정기. 한 바퀴 1회 도는 주체 = 만료·풀림·부분 재시도.
 #        없음 `pause=none` rc0 · 유효 `PAUSED <P[/M]> until_hhmm=… round=…` rc3 · 유효 끝(min(until, release_at)) 지남 → stage=releasing →
 #        «[재개]» 적재 → 유휴 확인을 지난 좌석만 ring 1회 → 전 좌석이 끝나면 항목 삭제 + `RELEASED|EXPIRED <P[/M]>` rc0 · 손상 `ERROR pause …` rc4(정지 유지).
@@ -66,7 +67,7 @@ BUSY = re.compile(r"esc to interrupt|Working|Thinking|↓ [0-9,]+ tokens|\| *thi
 UNSUBMITTED = re.compile(r"^[›❯] +[^ ]")
 AGENT_DEFAULT = {"claude": "claude", "codex": "codex", "pi": "deepseek", "cmd": "deepseek"}
 USAGE = ('usage: ft-acct-pause.sh set --provider <P> [--model <M>] --until <ISO8601> [--release-at <ISO8601>] '
-         '--reason "<10자+>" [--set-by <이름>] | clear [--provider <P>] | '
+         '--reason "<10자+>" [--set-by <이름>] | clear [--provider <P> [--round <round_id>]] | '
          'status [--check [<P[/M]>] [--agent <A>] [--model <M>] [--seat <좌석>]]')
 
 
@@ -237,13 +238,18 @@ def pane_busy(pane, budget=None):
     return bool(BUSY.search(text)) or any(UNSUBMITTED.match(ln) for ln in tail)
 
 
-def pane_argv_model(pane):
-    """그 pane 의 에이전트 argv 에서 `--model <id>` 를 읽어 정규화한다(명부 model 이 빈칸일 때 · ⑤)."""
-    r = run([TMUX, "display-message", "-t", pane, "-p", "#{pane_pid}"], timeout=7)  # 한 번짜리 조회(좌석당 1회 · ⑤)
-    pid = (r.stdout or "").strip() if r is not None and r.returncode == 0 else ""
-    if not pid.isdigit():
+def pane_argv_model(pane, budget=None):
+    """그 pane 의 에이전트 argv 에서 `--model <id>` 를 읽어 정규화한다(명부 model 이 빈칸일 때 · ⑤).
+    budget 이 있으면 두 조회 모두 «남은 배치 예산» 안에서만 돈다(r1215 DA② — 개별 7초가 배치를 넘겨 set 이 끊기는 일 0) · 예산이 없으면 «» (모델 미상 → agent 기본 provider)."""
+    def left():
+        return 7.0 if budget is None else min(7.0, budget["deadline"] - time.time())
+    if left() <= 0.2:
         return ""
-    p = run(["ps", "-o", "args=", "-p", pid], timeout=7)
+    r = run([TMUX, "display-message", "-t", pane, "-p", "#{pane_pid}"], timeout=left())  # 한 번짜리 조회(좌석당 1회 · ⑤)
+    pid = (r.stdout or "").strip() if r is not None and r.returncode == 0 else ""
+    if not pid.isdigit() or left() <= 0.2:
+        return ""
+    p = run(["ps", "-o", "args=", "-p", pid], timeout=left())
     args = (p.stdout or "").strip() if p is not None and p.returncode == 0 else ""
     m = re.search(r"--model[= ]+([^\s]+)", args)
     return base_model(m.group(1)) if m else ""
@@ -274,11 +280,11 @@ def seats_live():
     return live
 
 
-def seat_provider(seat, row, alive):
-    """좌석의 (provider, model) — 명부 model 이 빈칸이면 pane argv 를 읽는다(⑤)."""
+def seat_provider(seat, row, alive, budget=None):
+    """좌석의 (provider, model) — 명부 model 이 빈칸이면 pane argv 를 읽는다(⑤ · 배치 예산 안에서)."""
     model = base_model(row.get("model") or "")
     if not model and seat in alive:
-        model = pane_argv_model(alive[seat])
+        model = pane_argv_model(alive[seat], budget)
     prov, _ = provider_of(row.get("agent") or "", model)
     return prov, model
 
@@ -292,7 +298,7 @@ def recipients(prov, model, budget=None):
     for seat, row in seats_live().items():
         if seat not in alive:
             continue
-        p, rm = seat_provider(seat, row, alive)
+        p, rm = seat_provider(seat, row, alive, budget)
         if p != prov:
             continue
         if model and rm and rm != model:
@@ -534,13 +540,15 @@ def do_set(opts):
         entry = {"provider": prov, "model": model, "until": until, "until_iso": until_iso,
                  "release_at": rel or None, "release_at_iso": rel_iso or None, "reason": reason,
                  "set_by": set_by, "set_at": NOW, "round_id": rid}
-        state[prov] = entry
-        write_json(FILE, state)
         budget = {"deadline": time.time() + BATCH_SEC, "seats": BATCH_SEATS}
         rec = {"provider": prov, "model": model, "round_id": rid, "stage": "set", "set_at": NOW,
                "until": until, "release_at": rel or None, "reason": reason, "set_by": set_by,
                "recipients": recipients(prov, model, budget)}
+        # r1215 DA②: 회차 기록을 «먼저» 쓰고 정지 파일을 «마지막» 에 쓴다 — 중간에 끊겨도 «기록만 있고 정지 없음»(무해)이지
+        #   «정지만 있고 회차 기록 없음»(status·check rc4 · 자동 재개 불가)이 아니다. 좌석 조회는 위에서 배치 예산 안에 끝난다.
         write_json(REC / f"{rid}.json", rec)
+        state[prov] = entry
+        write_json(FILE, state)
         if not rec["recipients"]:
             print("WARN 좌석 목록 조회 시간 초과 또는 대상 0 — 예고 0(상태는 걸었다)")
         notice_pass(entry, rec, "set", budget)
@@ -553,8 +561,9 @@ def do_set(opts):
         release(fh)
 
 
-def do_clear(prov):
-    """clear 도 «재개 절차» 를 탄다 — 쪽지·ring·기록이 끝나야 삭제(① · 조기 삭제 = 재개 유실)."""
+def do_clear(prov, rnd=""):
+    """clear 도 «재개 절차» 를 탄다 — 쪽지·ring·기록이 끝나야 삭제(① · 조기 삭제 = 재개 유실).
+    rnd(r1215) = 그 round_id 의 항목일 때만 푼다 — 확인과 해제가 같은 잠금 안(손 정지로 교체된 항목은 REJECT rc3 · 부작용 0)."""
     fh = acquire(False)
     if fh is False:
         return err("판정 불가 잠금 — 다른 status 가 잠금 중")
@@ -566,6 +575,9 @@ def do_clear(prov):
         if prov and prov not in state:
             print("pause=none")
             return 0
+        if rnd and (state.get(prov) or {}).get("round_id") != rnd:
+            print(f"REJECT acct-pause clear — {prov} round 불일치(지금 round={(state.get(prov) or {}).get('round_id', '?')} · 요청 round={rnd}) — 손대지 않음")
+            return 3
         if not state:
             drop_file_if_empty({})
             print("pause=none")
@@ -720,16 +732,23 @@ def main():
                 return 2
             return do_status()
         if cmd == "clear":
-            prov = ""
+            prov = rnd = ""
             i = 0
             while i < len(rest):
                 if rest[i] == "--provider" and i + 1 < len(rest):
                     prov = rest[i + 1]
                     i += 2
                     continue
+                if rest[i] == "--round" and i + 1 < len(rest):
+                    rnd = rest[i + 1]
+                    i += 2
+                    continue
                 print(USAGE, file=sys.stderr)
                 return 2
-            return do_clear(prov)
+            if rnd and not prov:   # round 는 provider 항목 하나를 가리킨다(전부 풀기와 섞지 않는다)
+                print(USAGE, file=sys.stderr)
+                return 2
+            return do_clear(prov, rnd)
         if cmd == "set":
             opts = {}
             i = 0
