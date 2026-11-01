@@ -344,11 +344,18 @@ if [ "${FT_TEAMSET:-1}" != 0 ]; then
       echo "WARN 팀셋 측정 실패(rc=$_tsrc) — 진행(r921: 정지는 디스크 하한·디스크 측정 실패 둘뿐)" >&2;;
   esac
 fi
-# ★카드 흐름 경보 (r954 · 오빠 10-26 «쌓이니까 하루를 다써도 완성이 안되지»)★: 진행 카드 > 일하는 좌석 + 2 또는 착지됐는데 진행인 카드가 있으면 `WARN 카드 흐름 … 이동 먼저: <카드>` 1줄을 내고 «계속» 연다 — rc·개설 불변(개발은 멈추지 않는다 · 읽기 전용 계산).
+# ★카드 흐름 게이트 (r954 경보 → r1292 상한)★: 진행 카드 > 일하는 좌석 + 2 또는 착지됐는데 진행인 카드가 있으면 --warn 줄을 낸다.
+#   r1292: «대기» 카드의 새 spawn 은 --gate 로 판정해 상한을 넘으면 막는다(REJECT 1줄 · exit 1 · card_assign_record waiting 석 · 워크트리·좌석·이동 0) — 진행 카드 재작업(진행/)·판정 불가(rc 3)·FT_CARD_CAP=0 은 지금처럼 통과.
 _cft="$(printf '%s' "${FT_NANO_PREFIX:-}" | sed -n 's/^byz-\([a-z0-9]*\)-nano-$/\1/p')"
 [ -n "$_cft" ] || _cft="$(printf '%s' "$IDX" | sed -n 's|.*design/\(teams/\)\{0,1\}\([a-z0-9_-]*\)/indices/.*|\2|p')"
 if [ "${FT_CARD_FLOW:-1}" != 0 ] && [ -n "$_cft" ]; then
-  if [ -f "$HERE/ft-card-flow.sh" ]; then bash "$HERE/ft-card-flow.sh" --team "$_cft" --root "$ROOT" --warn >&2 || true
+  _cfmode=--warn
+  case "$IDX" in */indices/대기/*) [ "${FT_CARD_CAP:-1}" = 0 ] || _cfmode=--gate;; esac
+  if [ -f "$HERE/ft-card-flow.sh" ]; then
+    _cfout="$(bash "$HERE/ft-card-flow.sh" --team "$_cft" --root "$ROOT" "$_cfmode" 2>&1)"; _cfrc=$?
+    [ -z "$_cfout" ] || printf '%s\n' "$_cfout" >&2
+    if [ "$_cfrc" = 4 ] && [ "$_cfmode" = --gate ]; then card_assign_record "$IDX" waiting 석; exit 1; fi   # r1292: 대기→진행 이동·좌석·워크트리 전에 막는다
+  elif [ "$_cfmode" = --gate ]; then echo "WARN 카드 상한 판정 불가 — 막지 않음(ft-card-flow.sh 없음: $HERE)" >&2
   else echo "WARN 카드 흐름 경보 못 냄 — ft-card-flow.sh 없음: $HERE" >&2; fi
 fi
 # ★라이브 bin 드리프트 입구 검사 (카드 live-bin-drift-check · Issue 816 ③)★: 설치 꼴(*/.fable-team/bin)에서 돌 때만 — 라이브 도구가 origin/main 키트와 다르면 열지 않는다(--dry-run 도 같다).
