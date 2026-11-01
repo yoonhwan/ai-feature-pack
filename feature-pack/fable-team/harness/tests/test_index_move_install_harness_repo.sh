@@ -5,18 +5,42 @@
 #   outside_repo() 가 fail-closed 로 막았다 = 팩 착지 카드 9장이 진행/ 에 묶임. 도구는 맞게 막았고 «문»이 틀린 리포를 넘겼다.
 #   임시 리포 2개(하네스 리포 = 팩 꼴 경로 · 카드 리포 = 그 객체를 fetch 해 둔 꼴) + 가짜 검사 도구 주입. 실 라이브·실 원격·쓰기 0.
 set -uo pipefail
+export LC_ALL=C
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 SRC="$(cd -- "$HERE/../kit/fable-team/bin" && pwd -P)"   # 정본 = 팩 키트
 fail=0; rc=0; out=""
 ck() { if [ "$2" = 0 ]; then echo "PASS $1"; else echo "FAIL $1 :: rc=$rc out=${out:0:600}"; fail=$((fail+1)); fi; }
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
-export HOME="$T/home"; mkdir -p "$HOME"; FTB="$T/ftbin"; mkdir -p "$FTB"
+export HOME="$T/home"; mkdir -p "$HOME/Library/LaunchAgents"; FTB="$T/ftbin"; mkdir -p "$FTB"
 unset FT_HARNESS_ROOT FT_INSTALL_CHECK FT_INSTALL_PENDING_DIR
 
 # ── 도구 사본 1벌(게이트 + 대조 도구) · 회수 불가 루트 시험용 사본 1벌(ⓓ)
 mkbin() { local d="$1"; mkdir -p "$d"; cp -p "$SRC/ft-index-move-install.sh" "$SRC/ft-team-lib.sh" "$SRC/ft_plist_env.py" "$SRC/ft_git_capped.py" \
   "$SRC/ft-harness-root.sh" "$SRC/ft-live-install-check.sh" "$SRC/ft_live_install_check.py" "$d/"; }
+mutgate() { local mode="$1" d="$T/mut-$1"; mkbin "$d"; python3 - "$d/ft-index-move-install.sh" "$mode" <<'PY'
+import sys
+p, mode = sys.argv[1:]
+s = open(p, encoding="utf-8").read()
+for i, line in enumerate(s.splitlines(keepends=True)):
+    if "FT_INSTALL_RESTART_GATE" not in line:
+        continue
+    if mode == "1":
+        start, end = line.index("else ROUT="), line.rfind("; fi")
+        line = line[:start] + "else :" + line[end:]
+    elif mode == "4":
+        line = line.replace('FT_INSTALL_RESTART_GATE:-1}" = 0', 'FT_INSTALL_RESTART_GATE:-1}" = 9', 1)
+    elif mode == "2e":
+        line = line.replace('"RESTART "*\' — launchctl kickstart\'*)', '"RESTART "*)', 1)
+    else:
+        raise SystemExit("unknown mutant " + mode)
+    break
+else:
+    raise SystemExit("gate target missing")
+lines = s.splitlines(keepends=True); lines[i] = line
+open(p, "w", encoding="utf-8").writelines(lines)
+PY
+}
 BIN="$T/bin"; mkbin "$BIN"
 GATE="$BIN/ft-index-move-install.sh"
 g() { git -C "$1" -c user.name=t -c user.email=t@t "${@:2}"; }
@@ -51,12 +75,39 @@ PD="$T/pending"; mkdir -p "$PD"; : > "$PD/$B.txt"
 out="$(FT_INSTALL_CHECK="$FAKE" FT_INSTALL_PENDING_DIR="$PD" FT_HARNESS_ROOT="$HRKIT" bash "$GATE" "$CARDC" --landed "$A..$B" 2>&1)"; rc=$?
 got="$(cat "$ARGS" 2>/dev/null)"
 if [ "$rc" = 0 ] && ! [[ "$got" == *"--repo"* ]]; then ck "ⓐ 검사 도구에 --repo 를 넘기지 않는다(도구 기본값 = 하네스 루트 리포) — got «${got}»" 0; else ck "ⓐ …got «${got}»" 1; fi
+if [[ "$out" == *"데몬 재기동 0"* ]]; then ck "ⓐ 재기동 scan 성공 출력" 0; else ck "ⓐ 재기동 scan 성공 출력" 1; fi
 if [ ! -e "$PD/$B.txt" ]; then ck "ⓐ 통과 시 install-pending 파일 제거 그대로" 0; else ck "ⓐ 통과 시 install-pending 파일 제거 그대로" 1; fi
 
 # ⓑ 실제 대조 도구로 같은 꼴 — 카드 리포를 넘기면 ERROR(옛 판 재현) · 기본값이면 OK
 : > "$ARGS"
 out="$(FT_BIN="$FTB" FT_INSTALL_CHECK="$BIN/ft-live-install-check.sh" FT_INSTALL_PENDING_DIR="$PD" FT_HARNESS_ROOT="$HRKIT" bash "$GATE" "$CARDC" --landed "$A..$B" 2>&1)"; rc=$?
 if [ "$rc" = 0 ] && [[ "$out" == *"OK 설치 확인"* ]] && [[ "$out" == *"OK n=1"* ]]; then ck "ⓑ 하네스 루트 리포로 대조 → OK n=1 rc0" 0; else ck "ⓑ 하네스 루트 리포로 대조 → OK n=1 rc0" 1; fi
+if [[ "$out" == *"데몬 재기동 0"* ]]; then ck "ⓑ 재기동 scan 성공 출력" 0; else ck "ⓑ 재기동 scan 성공 출력" 1; fi
+mutgate 2e; out="$(FT_BIN="$FTB" FT_INSTALL_CHECK="$FAKE" FT_INSTALL_PENDING_DIR="$PD" FT_HARNESS_ROOT="$HRKIT" bash "$T/mut-2e/ft-index-move-install.sh" "$CARDC" --landed "$A..$B" 2>&1)"; rc=$?
+if [ "$rc" = 1 ] && [[ "$out" == *"RESTART 0"* ]] && [[ "$out" == *"REJECT 오래된 데몬 재기동 필요"* ]]; then ck "변이 2e: RESTART 0 과잉 거절을 정상 설치가 잡는다" 0; else ck "변이 2e: RESTART 0 과잉 거절" 1; fi
+mkdir -p "$CR/.fable-team/bin"; touch -t 202601010000 "$CR/.fable-team/bin/tick.sh"
+python3 - "$HOME/Library/LaunchAgents/com.byz.test.plist" "$CR/.fable-team/bin/tick.sh" <<'PY'
+import plistlib, sys
+with open(sys.argv[1], "wb") as f:
+    plistlib.dump({"Label": "com.byz.test", "ProgramArguments": [sys.argv[2]]}, f)
+PY
+LC="$T/launchctl"; PS="$T/ps"
+cat > "$LC" <<'EOF'
+#!/bin/bash
+[ "${LC_FAIL:-0}" = 0 ] || exit "$LC_FAIL"
+printf '{\n\t"PID" = 4242;\n};\n'
+EOF
+printf '#!/bin/bash\necho "Thu Oct 15 10:00:00 2024"\n' > "$PS"; chmod 755 "$LC" "$PS"
+out="$(FT_LAUNCHCTL="$LC" FT_PS="$PS" FT_BIN="$FTB" FT_INSTALL_CHECK="$FAKE" FT_INSTALL_PENDING_DIR="$PD" FT_HARNESS_ROOT="$HRKIT" bash "$GATE" "$CARDC" --landed "$A..$B" 2>&1)"; rc=$?
+if [ "$rc" = 1 ] && [[ "$out" == *"REJECT 오래된 데몬 재기동 필요"* ]] && [[ "$out" == *"launchctl kickstart -k gui/$(id -u)/com.byz.test"* ]]; then ck "ⓑ 오래된 데몬 → REJECT + 라벨별 kickstart" 0; else ck "ⓑ 오래된 데몬 → REJECT + 라벨별 kickstart" 1; fi
+mutgate 1; out="$(FT_LAUNCHCTL="$LC" FT_PS="$PS" FT_BIN="$FTB" FT_INSTALL_CHECK="$FAKE" FT_INSTALL_PENDING_DIR="$PD" FT_HARNESS_ROOT="$HRKIT" bash "$T/mut-1/ft-index-move-install.sh" "$CARDC" --landed "$A..$B" 2>&1)"; rc=$?
+if [ "$rc" = 0 ] && [[ "$out" != *"REJECT"* ]]; then ck "변이 1: 게이트 제거를 stale daemon이 잡는다" 0; else ck "변이 1: 게이트 제거" 1; fi
+mutgate 4; out="$(FT_INSTALL_RESTART_GATE=0 FT_LAUNCHCTL="$LC" FT_PS="$PS" FT_BIN="$FTB" FT_INSTALL_CHECK="$FAKE" FT_INSTALL_PENDING_DIR="$PD" FT_HARNESS_ROOT="$HRKIT" bash "$T/mut-4/ft-index-move-install.sh" "$CARDC" --landed "$A..$B" 2>&1)"; rc=$?
+if [ "$rc" = 1 ] && [[ "$out" == *"REJECT 오래된 데몬 재기동 필요"* ]]; then ck "변이 4: 끄기 무시를 stale daemon이 잡는다" 0; else ck "변이 4: 끄기 무시" 1; fi
+out="$(FT_INSTALL_RESTART_GATE=0 FT_LAUNCHCTL="$LC" FT_PS="$PS" FT_BIN="$FTB" FT_INSTALL_CHECK="$FAKE" FT_INSTALL_PENDING_DIR="$PD" FT_HARNESS_ROOT="$HRKIT" bash "$GATE" "$CARDC" --landed "$A..$B" 2>&1)"; rc=$?
+if [ "$rc" = 0 ] && [[ "$out" == *"INFO 재기동 게이트 끔"* ]] && [[ "$out" != *"RESTART com.byz.test"* ]]; then ck "ⓑ 끄기 스위치 → INFO 한 줄·재기동 판정 생략" 0; else ck "ⓑ 끄기 스위치 → INFO 한 줄·재기동 판정 생략" 1; fi
+out="$(LC_FAIL=7 FT_LAUNCHCTL="$LC" FT_PS="$PS" FT_BIN="$FTB" FT_INSTALL_CHECK="$FAKE" FT_INSTALL_PENDING_DIR="$PD" FT_HARNESS_ROOT="$HRKIT" bash "$GATE" "$CARDC" --landed "$A..$B" 2>&1)"; rc=$?
+if [ "$rc" = 1 ] && [[ "$out" == *"ERROR 재기동 판정 불가: launchctl list com.byz.test 실패(rc=7)"* ]] && [[ "$out" == *"REJECT 재기동 판정 불가(rc=3)"* ]]; then ck "ⓑ 재기동 오류 줄을 보이고 fail-closed REJECT" 0; else ck "ⓑ 재기동 판정 실패 출력" 1; fi
 out="$(cd "$HR" && FT_BIN="$FTB" FT_HARNESS_ROOT="$HRKIT" bash "$BIN/ft-live-install-check.sh" --range "$A..$B" --repo "$CR" 2>&1)"; rc=$?
 if [ "$rc" = 3 ] && [[ "$out" == *"--repo("*"밖"* ]] && [[ "$out" == *"harness/kit/"* ]]; then ck "ⓑ 변이: 카드 리포를 --repo 로 넘기면 ERROR rc3(옛 판 재현 · fail-closed 그대로)" 0; else ck "ⓑ 변이: 카드 리포를 --repo 로 넘기면 ERROR rc3" 1; fi
 
