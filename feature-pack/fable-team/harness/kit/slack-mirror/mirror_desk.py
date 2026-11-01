@@ -40,7 +40,12 @@ def urgent_from(row: dict[str, object], names: frozenset[str]) -> bool:
 
 
 def row_label(row: dict[str, object], names: frozenset[str]) -> tuple[str, str]:
-    label, text = lib.classify(str(row.get("body", "")))
+    body = str(row.get("body", ""))
+    head = lib.desk_head(body)
+    if head in ("결정", "결정 대기"):
+        lead, rest = lib.strip_lead(body)
+        return "HIL", lead + rest.lstrip()[len(f"[{head}]"):].lstrip()
+    label, text = lib.classify(body)
     return ("긴급", text) if label == "보고" and urgent_from(row, names) else (label, text)
 
 

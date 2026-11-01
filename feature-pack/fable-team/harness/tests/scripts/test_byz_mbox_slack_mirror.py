@@ -13,6 +13,13 @@ SCRIPT = KIT / "byz_mbox_slack_mirror.py"
 SEAT = r"^byz-planner-arch#\d+$"
 INBOX = str(Path(__file__).resolve().parent / "_fake_inbox.sh")
 TO = "byz-planner-arch#2"
+R1294_BODY_224912 = "\n".join((
+    "골좌표: 2 — 말풍선 정상화 — 강의",
+    "[결정] 문서 PR 5918 착지 승인 요청(② 순수 이동 · 재요청): head f21434407decfabd3a4bfe62b921ee6cd888cdc9 (gh 재확인: OPEN · CLEAN · 3파일) · 카드 L86·L101·L103 진행→완성 R100 3개 · 내용 0 · base = ① 5917 착지 main be466043ba · 이게 착지돼야 나노 L86·L101·L103 ft-nano-close 가능(석 반납)",
+    "비가역: 없음(문서 PR · 카드 이동)",
+    "선례: 5917 착지(h5766)와 같은 문서 절차",
+    "선택지: A) 5918 승인 h(추천) B) 보류",
+))
 
 @pytest.fixture
 def slack():
@@ -558,3 +565,14 @@ def test_I2_block_issue_and_card_cells_are_none_whatever_the_body_quotes(env: Pa
     text = slack.replies(slack.roots[0])[0]["text"]
     assert "↳ 이어가기 · Issue 없음 · 카드 없음 · 담당 src#1 · 정본 bodies/2.txt@mbox" in text
     assert text.count("Issue ") == 1 and "F-old" not in text.split("↳ 이어가기")[1]  # 블록 안에 본문 인용 0
+
+
+def test_r1294_decision_body_keeps_question_format_in_desk(env: Path, slack: FakeSlack):
+    start(env, slack)
+    append_row(env, 2, TO, "byz-lecture-master-claude#201", R1294_BODY_224912)
+    result = run(env, slack, "--desk-channel", "C2")
+    assert result.returncode == 0, result.stderr
+    desk_root = next(message for message in slack.roots if message["channel"] == "C2")
+    (reply,) = slack.replies(desk_root)
+    assert reply["text"].startswith("[이슈보고]")
+    assert "정할 것:" in reply["text"] and "할 일 없음" not in reply["text"]
