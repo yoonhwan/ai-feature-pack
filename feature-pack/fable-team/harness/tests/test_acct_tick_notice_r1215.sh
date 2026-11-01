@@ -286,7 +286,7 @@ else
     python3 - "$BIN/ft-tick.sh" "$T/mutbin/ft-tick.sh" "$1" <<'PY' || { bad "변이 $1 — 치환 자리를 못 찾음"; return; }
 import sys
 pairs = {
-  "1": (r'''[ "$(cat "$sd/last-${t%%$'\t'*}.txt" 2>/dev/null)" = "${t#*$'\t'}" ] || changed=1''', "changed=1"),
+  "1": (r'''acct_head_changed "$(cat "$sd/last-${t%%$'\t'*}.txt" 2>/dev/null)" "${t#*$'\t'}" && changed=1''', "changed=1"),   # r1258: 비교가 acct_head_changed 함수로 바뀜 → 치환 대상 줄 갱신(변이 뜻은 그대로: 비교 제거 → 매 바퀴 1통)
   "2": (r'''--provider "$P" --round "$rid"''', '--provider "$P"'),
   "3": (r'''if [ -f "$sd/last-run" ] && [ "$left" -lt "${FT_TICK_ACCT_INTERVAL:-600}" ]; then''', "if false; then"),
 }

@@ -78,6 +78,11 @@ def until(now: float) -> str:
     return "--until=" + time.strftime("%Y-%m-%d %H:%M:%S +0000", time.gmtime(now))
 
 
+def card_pathspec(r: list[str]) -> str:
+    """카드 폴더 글롭 그대로(r1259) — 별표 앞 접두(design/teams/)로 자르면 팀 폴더 3만 파일을 훑어 부하에서 7초를 넘긴다."""
+    return ":(glob)" + r[3].rstrip("/") + "/**"
+
+
 def md_row(text: str) -> tuple[str, str] | None:
     """planner md 원장의 두 꼴(ft-verdict-row.sh 와 같다): 글머리 `- **N** 내용` · 표 `| N | 시각 | 내용 |` → (번호, 내용)."""
     m = MD_ROW.match(text)
@@ -134,7 +139,7 @@ class Watch:
             last = next((x[1] for x in rows if x[0] == "@sha"), None)
             times = {x[0]: float(x[1]) for x in rows if x[0] != "@sha"}
         span = f"{last}..{tip}" if last else tip
-        out = self.git(self.repo(r), "log", until(self.now), "--format=@%ct", "--name-only", span, "--", r[3].split("*")[0].rstrip("/"), long=last is None)
+        out = self.git(self.repo(r), "log", until(self.now), "--format=@%ct", "--name-only", span, "--", card_pathspec(r), long=last is None)
         ct = 0.0
         for ln in out.splitlines():
             if ln.startswith("@"):
@@ -161,7 +166,7 @@ class Watch:
                 continue
             times = self.card_times(r, tip)
             depth, star = len(r[3].split("/")), r[3].split("/").index("*") if "*" in r[3] else -1
-            hits = self.git(repo, "grep", "-I", "-e", "^- 지시:", tip, "--", r[3].split("*")[0].rstrip("/"), ok=(0, 1))
+            hits = self.git(repo, "grep", "-I", "-e", "^- 지시:", tip, "--", card_pathspec(r), ok=(0, 1))
             for ln in hits.splitlines():
                 path, _, text = ln[len(tip) + 1:].partition(":")
                 parts = path.split("/")
