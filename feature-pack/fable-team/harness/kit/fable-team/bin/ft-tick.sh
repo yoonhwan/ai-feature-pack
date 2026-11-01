@@ -918,6 +918,8 @@ unpushed_daily() {
 #   pass() 의 마지막 함수 · 도구 실패는 ERROR 1줄만 남기고 틱은 계속 · FT_TICK_ACCT=0 으로 끔.
 #   env: FT_TICK_ACCT_BIN · FT_TICK_ACCT_PAUSE_BIN(정지 도구 · acct_pause 와 공용) · FT_TICK_ACCT_NOTIFY(공백 목록) · FT_TICK_ACCT_NOW(시험 가상 시각)
 #        FT_TICK_ACCT_INTERVAL(600) · FT_TICK_ACCT_MAX(예측 상한 40) · FT_TICK_ACCT_MARGIN(5) · FT_TICK_ACCT_MIN_BUDGET(15) · FT_TICK_ACCT_POST(처리 상한 5)
+#        r1258: FT_TICK_ACCT_EXHAUST_MIN(30 · 소진 예상 시각이 지난 안내보다 이만큼(분) 이상 달라야 «바뀜» · 0 = 옛 글자 비교) · FT_TICK_ACCT_RELEASE_MIN(2 · 풀림 시각 · 0 = 옛 글자 비교)
+#              FT_TICK_ACCT_HELD_RETRY_SEC(120 · set 이 «옛 회차가 남아 있다» 로 거절된 바퀴 뒤 재시도까지 초)
 ACCT_BIN="${FT_TICK_ACCT_BIN:-$HERE/ft-acct-forecast.sh}"
 acct_rows() {   # $1 = 예측 JSON 파일 · $2 = 지금(epoch) → 풀마다 TSV 1줄: 풀 가용 계정수 소진(분) 풀림(분) 풀림ISO 불명 until_a(ISO) until_a(HH:MM) until_b(ISO) until_b(HH:MM)
   python3 - "$1" "$2" <<'PY'
@@ -948,12 +950,39 @@ acct_pause_run() {   # 정지 도구 호출 — 도구 내부 배치(FT_ACCT_BAT
   [ "$l" -ge 3 ] || return 124
   FT_ACCT_BATCH_SEC=$(( l - 2 )) timeout "$l" bash "$ACCT_PAUSE" "$@"
 }
+acct_mins() {   # r1258: «YYYY-MM-DD HH:MM»(지역 시각 글자) → ACCT_MINS(일련 분 · 서로 뺄 값 · 외부 호출 0) · 꼴이 아니면 rc1
+  local y m d mp
+  [[ "$1" =~ ^([0-9]{4})-([0-9]{2})-([0-9]{2})\ ([0-9]{2}):([0-9]{2})$ ]] || return 1
+  y=$((10#${BASH_REMATCH[1]})); m=$((10#${BASH_REMATCH[2]})); d=$((10#${BASH_REMATCH[3]}))
+  [ "$m" -gt 2 ] || y=$(( y - 1 )); mp=$(( (m + 9) % 12 ))
+  ACCT_MINS=$(( (365 * y + y / 4 - y / 100 + y / 400 + (153 * mp + 2) / 5 + d) * 1440 + 10#${BASH_REMATCH[4]} * 60 + 10#${BASH_REMATCH[5]} ))
+}
+acct_time_moved() {   # $1 지난 값 · $2 이번 값 · $3 문턱(분) → rc0 바뀜 · rc1 안 바뀜 (ⓐ 글자 같음=안 바뀜 ⓑ 값↔«—»=바뀜 ⓒ 둘 다 값: 문턱 0=바뀜 · >0 = |차| ≥ 문턱)
+  local a b
+  [ "$1" != "$2" ] || return 1
+  [ "$1" != "—" ] && [ "$2" != "—" ] || return 0
+  [ "${3:-0}" -gt 0 ] 2>/dev/null || return 0
+  acct_mins "$1" || return 0; a="$ACCT_MINS"; acct_mins "$2" || return 0; b="$ACCT_MINS"
+  [ $(( a > b ? a - b : b - a )) -ge "$3" ]
+}
+acct_head_changed() {   # r1258: $1 = 지난 안내 비교값(풀|가용/계정|소진|풀림|불명) · $2 = 이번 값 → rc0 바뀜 · rc1 같음 · 옛 꼴(칸 수 다름)은 바뀜 1회
+  local -a o n
+  IFS='|' read -r -a o <<< "$1"; IFS='|' read -r -a n <<< "$2"
+  [ "${#o[@]}" = 5 ] && [ "${#n[@]}" = 5 ] || return 0
+  [ "${o[0]}|${o[1]}|${o[4]}" = "${n[0]}|${n[1]}|${n[4]}" ] || return 0
+  acct_time_moved "${o[2]}" "${n[2]}" "${FT_TICK_ACCT_EXHAUST_MIN:-30}" && return 0
+  acct_time_moved "${o[3]}" "${n[3]}" "${FT_TICK_ACCT_RELEASE_MIN:-2}" && return 0
+  return 1
+}
+acct_held_note() {   # r1258: $1 상태 폴더 · $2 풀 · $3 남은 옛 회차 → 회차가 바뀔 때만 INFO 1줄(표식 held-<풀>.txt)
+  [ "$(cat "$1/held-$2.txt" 2>/dev/null)" = "$3" ] || { printf '%s\n' "$3" > "$1/held-$2.txt"; log "acct_notice: $2 옛 회차 $3 남음 — 재정지 대기"; }
+}
 acct_notice() {
   [ "${FT_TICK_ACCT:-1}" = 1 ] && [ -z "${FT_TICK_TEAM:-}" ] || return 0   # 팀 틱은 건너뜀(루트 틱 1곳 · 중복 안내·중복 정지 0)
   # 명부가 <루트>/.fable-team/seats.json 꼴이 아니면(임시 명부 시험) 실 계정 조회를 부르지 않는다 — 도구를 FT_TICK_ACCT_BIN 으로 직접 지정한 시험만 예외(model_swap 과 같은 틀)
   [ -n "${FT_TICK_ACCT_BIN:-}" ] || { [ "$(basename "$SEATS")" = seats.json ] && [ "$(basename "$(dirname "$SEATS")")" = .fable-team ]; } || return 0
   local sd="$STATE_DIR/acct-notice" notify nowe real left lim jf rc rows astate apio ACCT_POST_DL
-  local P av tot early reset repiso K ua uah ub ubh key human cause chk crc pf rid rrid rcause sout src rel why t fail changed body defer=0 c2
+  local P av tot early reset repiso K ua uah ub ubh key human cause chk crc pf rid rrid rcause sout src rel why t fail changed body defer=0 c2 held holdwait=0
   local -a pk=() hs=() ss=() acts=() targets=()
   notify="${FT_TICK_ACCT_NOTIFY:-$(python3 -c 'import json,sys;d=json.load(open(sys.argv[1]));print(" ".join(dict.fromkeys(x for x in (d.get("_hil_route"),d.get("_master")) if isinstance(x,str) and x)))' "$SEATS" 2>/dev/null)}"
   if [ "$DRY" = 1 ]; then echo "DRY kind=acct-notice bin=$ACCT_BIN pause=$ACCT_PAUSE notify=${notify:--}"; return 0; fi
@@ -980,7 +1009,8 @@ acct_notice() {
     key="$P|$av/$tot|$early|$reset|$K"
     human="풀 $P: 가용 $av/$tot · 가장 이른 소진 $([ "$early" = "—" ] && echo '근거 없음' || echo "$early") · 풀림 $reset · 불명 $K"
     # ②③ 원인: a = 가용 0 · b = claude 장애(api-outage 는 claude 좌석 jsonl 로만 판정하므로 claude 고정)
-    cause=""; if [ "$tot" -gt 0 ] && [ "$av" = 0 ]; then cause=a; elif [ "$P" = claude ] && [ "$apio" = OUTAGE ]; then cause=b; fi
+    #   r1258 결함 3: a 는 «알려진 계정(tot−불명) ≥ 1» 일 때만 — 풀 계정이 전부 불명이면 소진이 아니라 «모름» 이라 정지 원인이 아니다
+    cause=""; if [ "$tot" -gt 0 ] && [ "$av" = 0 ] && [ $(( tot - K )) -ge 1 ]; then cause=a; elif [ "$P" = claude ] && [ "$apio" = OUTAGE ]; then cause=b; fi
     pf="$sd/pause-$P.json"; src="없음"; why=""
     chk="$(acct_pause_run status --check "$P" 2>&1)"; crc=$?
     case "$crc" in
@@ -989,23 +1019,27 @@ acct_notice() {
            if [ "$cause" = a ]; then rel=""; [ "$repiso" = "—" ] || rel="$repiso"; why="a"; sout="$(acct_pause_run set --provider "$P" --until "$ua" ${rel:+--release-at "$rel"} --reason "acct_notice 자동(a): $human" 2>&1)"; src=$?
            else why="b"; sout="$(acct_pause_run set --provider "$P" --until "$ub" --reason "acct_notice 자동(b): $human" 2>&1)"; src=$?; fi
            rid="$(printf '%s\n' "$sout" | sed -n 's/.*round=\([^ ]*\).*/\1/p' | head -1)"
-           if [ "$src" != 0 ] || [ -z "$rid" ]; then   # 끊김·실패 → 도구가 정지를 걸었는지 확인(별도 2초 · 방금 «없음» 이었으니 지금 있으면 내 회차)
+           held=""; [ "$src" != 1 ] || held="$(printf '%s\n' "$sout" | sed -n 's/.*항목이 이미 있다(round=\([^)]*\)).*/\1/p' | head -1)"   # r1258: 옛 회차가 남아 있다(RELEASING·만료 대기)는 도구의 거절 = 정상 상태
+           if [ -z "$held" ] && { [ "$src" != 0 ] || [ -z "$rid" ]; }; then   # 끊김·실패 → 도구가 정지를 걸었는지 확인(별도 2초 · 방금 «없음» 이었으니 지금 있으면 내 회차)
              chk="$(timeout 2 bash "$ACCT_PAUSE" status --check "$P" 2>&1)"; c2=$?
              if [ "$c2" = 3 ]; then rid="$(printf '%s\n' "$chk" | sed -n 's/.*round=\([^ ]*\).*/\1/p' | head -1)"; src=0; fi
            fi
-           if [ "$src" = 0 ] && [ -n "$rid" ]; then
-             printf '{"round_id": "%s", "cause": "%s", "set_at": %s}\n' "$rid" "$why" "$nowe" > "$pf"
+           if [ -n "$held" ]; then
+             acct_held_note "$sd" "$P" "$held"; holdwait=1; acts+=("재정지 대기"); ss+=("$P 재정지 대기($held)")
+           elif [ "$src" = 0 ] && [ -n "$rid" ]; then
+             printf '{"round_id": "%s", "cause": "%s", "set_at": %s}\n' "$rid" "$why" "$nowe" > "$pf"; rm -f "$sd/held-$P.txt"
              acts+=("set"); ss+=("$P 있음 until $([ "$why" = a ] && echo "$uah" || echo "$ubh")(자동)")
            else
              echo "$(date '+%F %T') acct_notice: ERROR $P set rc=$src: $(printf '%s\n' "$sout" | tail -1 | cut -c1-200)" >&2
              defer=1; acts+=("보류"); ss+=("$P 보류")
            fi
-         else acts+=("없음"); ss+=("$P 없음"); fi;;
-      3) rrid="$(printf '%s\n' "$chk" | sed -n 's/.*round=\([^ ]*\).*/\1/p' | head -1)"
+         else rm -f "$sd/held-$P.txt"; acts+=("없음"); ss+=("$P 없음"); fi;;
+      3) rm -f "$sd/held-$P.txt"
+         rrid="$(printf '%s\n' "$chk" | sed -n 's/.*round=\([^ ]*\).*/\1/p' | head -1)"
          rcause="$([ -f "$pf" ] && sed -n 's/.*"cause": *"\([ab]\)".*/\1/p' "$pf" | head -1)"
          rid="$([ -f "$pf" ] && sed -n 's/.*"round_id": *"\([^"]*\)".*/\1/p' "$pf" | head -1)"
          if [ -n "$rid" ] && [ "$rid" = "$rrid" ]; then
-           if { [ "$rcause" = a ] && [ "$av" -ge 1 ]; } || { [ "$rcause" = b ] && [ "$apio" = OK ]; }; then
+           if { [ "$rcause" = a ] && { [ "$av" -ge 1 ] || { [ "$tot" -gt 0 ] && [ $(( tot - K )) -lt 1 ]; }; }; } || { [ "$rcause" = b ] && [ "$apio" = OK ]; }; then
              sout="$(acct_pause_run clear --provider "$P" --round "$rid" 2>&1)"; src=$?
              case "$src" in
                0) chk="$(acct_pause_run status --check "$P" 2>&1)"; crc=$?
@@ -1027,8 +1061,10 @@ acct_notice() {
   # 정지 도구를 못 부른 바퀴(예산 부족·끊김)는 안내 상태를 바꾸지 않는다 — 표식을 지워 다음 바퀴가 다시 하고, 정지가 걸린 «뒤 바퀴» 에 안내 1통(옛 «판정 불가» 안내가 남지 않는다)
   if [ "$defer" = 1 ]; then rm -f "$sd/last-run"; log "acct_notice: 보류(정지 도구를 못 마침) — 안내 0 · 다음 바퀴 재시도"; return 0; fi
   # ⑤ 안내 — ③④ 를 먼저 끝낸 최종 상태로 본문을 만들고, 머리 줄이 지난 것과 다를 때만 알림 대상 전부에 1통(전부 QUEUED 뒤에만 last 갱신)
+  #   r1258: 옛 회차가 남아 거절된 풀이 있으면 120초 뒤(HELD_RETRY_SEC) 다시 — 주기 표식을 «지금 − 주기 + 120» 으로 당겨 둔다(10분 기다림 0 · 매 바퀴 예측 0)
+  [ "$holdwait" = 0 ] || write_stamp "$sd/last-run" "$(( nowe - ${FT_TICK_ACCT_INTERVAL:-600} + ${FT_TICK_ACCT_HELD_RETRY_SEC:-120} ))"
   changed=0
-  for t in "${pk[@]}"; do [ "$(cat "$sd/last-${t%%$'\t'*}.txt" 2>/dev/null)" = "${t#*$'\t'}" ] || changed=1; done
+  for t in "${pk[@]}"; do acct_head_changed "$(cat "$sd/last-${t%%$'\t'*}.txt" 2>/dev/null)" "${t#*$'\t'}" && changed=1; done
   if [ "$changed" = 1 ]; then
     body="[계정 안내] $(acct_join ' / ' "${hs[@]}") · 정지: $(acct_join ' / ' "${ss[@]}")"
     read -r -a targets <<< "$notify"; fail=0
