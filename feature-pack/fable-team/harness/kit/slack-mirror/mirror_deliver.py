@@ -80,12 +80,19 @@ class Deliverer:
     def _post(self, text: str, thread_ts: str | None = None) -> str:
         return lib.post(self.api_base, self.token, self.channel, text, thread_ts)
 
+    def _root_text(self, item: dict[str, object]) -> str:
+        key, kind = str(item.get("key", lib.OTHER_KEY)), str(item.get("root_kind") or "작업상황")
+        q = item.get("question") if isinstance(item.get("question"), dict) else {}
+        todo = str(q.get("todo") or "")
+        todo_line = (todo if todo.startswith("정할 것:") else f"정할 것: {todo}") if todo else (lib.ms.HIL_FALLBACK if kind == "결정" else None)
+        return lib.root_text(key, str(item.get("what", "")) or key, str(item["url"]) if item.get("url") else None,
+                             kind, todo_line, str(q.get("options_text") or "") or None)
+
     def _find_root(self, item: str | dict[str, object]) -> str | None:
         if isinstance(item, dict):
             key = str(item.get("key", lib.OTHER_KEY))
             kind = str(item.get("root_kind") or "")
-            marker = lib.root_text(key, str(item.get("what", "")) or key,
-                                   str(item["url"]) if item.get("url") else None, kind) if kind else lib.root_marker(key)
+            marker = self._root_text(item) if kind else lib.root_marker(key)
         else:
             marker = lib.root_marker(item)
         for ts, text in lib.channel_roots(self.api_base, self.token, self.channel):
@@ -97,9 +104,8 @@ class Deliverer:
         key = str(item.get("key", lib.OTHER_KEY))
 
         def make_root() -> str:  # 루트만 올라가고 죽은 경우를 되찾는다(resume)
-            what, url, kind = str(item.get("what", "")) or key, str(item["url"]) if item.get("url") else None, str(item.get("root_kind") or "작업상황")
             found = self._find_root(item) if resume else None
-            return found or self._post(lib.root_text(key, what, url, kind))
+            return found or self._post(self._root_text(item))
 
         return ensure_thread(self.threads_path, key, make_root, self.max_threads)
 
