@@ -136,12 +136,14 @@ def resolve(R: Path, arg: str) -> tuple[Path, str | None]:
     if ispath and Path(arg).is_file() and not (R / ".fable-team/state/directive-roots.tsv").is_file():
         return Path(arg), None
     git, hits = Git(float(os.environ.get("FT_DIRECTIVE_GIT_SEC") or 7)), []
+    p = str(Path(arg).resolve())
+    self_ = lambda h: p == str((Path(h[0]) / h[2]).resolve()) or p.endswith("/" + h[2])  # noqa: E731 — 같은 카드(다른 체크아웃·워크트리 포함)
     for r in strict_roots(R):
         repo, base, depth = repo_of(R, r), r[3].split("*")[0].rstrip("/"), len(r[3].split("/"))
         tip = git(repo, "rev-list", "-1", r[2]).strip()
         paths = git(repo, "ls-tree", "-r", "--name-only", tip, "--", base).splitlines() if tip else []
         hits += [(repo, tip, p) for p in paths if p.endswith(".md") and fnmatch(p, r[3] + "/*") and len(p.split("/")) == depth + 2 and p.split("/")[depth] in ("대기", "진행", "완성") and p.rsplit("/", 1)[-1][:-3] == stem and (repo, p) not in {(h[0], h[2]) for h in hits}]
-    if len(hits) > 1:
+    if len(hits) > 1 or ispath and any(not self_(h) for h in hits):  # 경로 인자인데 자기 카드가 tip 에 없으면 남의 동명 카드 1건만으로도 원장 키가 겹친다(2b)
         raise Rejected(f"REJECT 배정 원장 — 이름 중복 {stem} ({', '.join(h[2] for h in hits)}) · 원장 키가 이름이라 기록 불가 · 카드 이름을 바꿔라")
     path = Path(arg) if ispath else Path(hits[0][0], hits[0][2]) if hits else Path(arg)
     if path.is_file():

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # test_card_assign_record_stem_r1306.sh — r1306 record 가 이름(stem)으로도 카드를 풀어 원장을 쓴다 · 못 찾거나 이름이 겹치면 REJECT rc1 ·
-#   디스크에 없고 tip 에만 있으면 원장만 + NOTE 1줄(거울 0). 반례 R1~R6·R4b + 변이 4(실파일 치환 → 그 칸만 실행 → 복구).
+#   디스크에 없고 tip 에만 있으면 원장만 + NOTE 1줄(거울 0). 반례 R1~R6·R4b·R4c + 변이 5(실파일 치환 → 그 칸만 실행 → 복구).
 # 임시 git 리포(카드 = tip 객체 + 디스크) · 실 STATE·실 좌석·실 쪽지 0 · 네트워크 0 · tmux 0 · 고정 sleep 0 · 자기 재호출 = 재진입 표지 + R1306_CHECK 칸 한정.
 # 돌리기: ulimit -u <지금+여유>; timeout 70 bash harness/tests/test_card_assign_record_stem_r1306.sh
 [ -z "${R1306_TEST_ACTIVE:-}" ] || { echo "재진입 금지 — R1306_TEST_ACTIVE 가 이미 켜져 있다(R1306_CHECK 칸만 자식 허용)"; exit 3; }; export R1306_TEST_ACTIVE=1
@@ -67,6 +67,15 @@ r4b() {  # 경로 인자도 같은 중복 거절(DA① 반례 1) · 다른 팀 s
   [ "$a" = "1|$DUP" ] && ! ledger dup && [ -n "$before" ] && [ "$before" = "$after" ] \
     && ok "R4b 경로 인자도 같은 중복 REJECT rc1 · 원장 0 · room status 줄 그대로" || bad "R4b a=$a :: before=$before after=$after"
 }
+r4c() {  # 경로 카드가 tip 에 없고(디스크만) 다른 팀 tip 에 같은 이름 → REJECT rc1 · 원장 0 · 그 팀 status 줄 그대로(arch#206 반송 r1)
+  new_root; card "$R" "design/teams/room/indices/대기/dup3.md" "$((NOW - 9000))" "- 상태: 대기"
+  printf '%s\n' "# 카드 dup3" "- 상태: 대기" "## 상태" "- 시험" > "$R/$H/대기/dup3.md"
+  prep; run status; local before; before="$(printf '%s\n' "$OUT" | grep '^없음 room dup3 · 원장 없음')"
+  rec "$R/$H/대기/dup3.md" waiting 정지; local a="$RC|$OUT"
+  prep; run status; local after; after="$(printf '%s\n' "$OUT" | grep '^없음 room dup3 · 원장 없음')"
+  [ "$a" = "1|REJECT 배정 원장 — 이름 중복 dup3 (design/teams/room/indices/대기/dup3.md) · 원장 키가 이름이라 기록 불가 · 카드 이름을 바꿔라" ] && ! ledger dup3 && [ -n "$before" ] && [ "$before" = "$after" ] \
+    && ok "R4c 경로 카드가 tip 에 없고 남의 동명 카드만 tip = REJECT rc1 · 원장 0 · room status 줄 그대로" || bad "R4c a=$a :: before=$before after=$after"
+}
 r5() {  # 경로 인자 = 지금 그대로(디스크 있음) · 디스크 없으면 REJECT rc1(옛 WARN rc0)
   new_root; card "$R" "$H/대기/s5.md" "$((NOW - 9000))" "- 상태: 대기"; rec "$R/$H/대기/s5.md" waiting 정지
   local a="$RC|$(jget s5 state)|$(grep -c -- "$MIRROR" "$R/$H/대기/s5.md")"
@@ -86,7 +95,7 @@ r6() {  # status 가 «원장 없음» 으로 보인 카드에 이름으로 reco
 }
 
 if [ "$CHECK" != all ]; then
-  case "$CHECK" in r1) r1;; r2) r2;; r3) r3;; r4) r4;; r4b) r4b;; r5) r5;; r6) r6;; *) echo "알 수 없는 칸 $CHECK"; exit 2;; esac
+  case "$CHECK" in r1) r1;; r2) r2;; r3) r3;; r4) r4;; r4b) r4b;; r4c) r4c;; r5) r5;; r6) r6;; *) echo "알 수 없는 칸 $CHECK"; exit 2;; esac
   [ "$fail" -eq 0 ] && exit 0 || exit 1
 fi
 
@@ -95,6 +104,7 @@ r2; lap R2
 r3; lap R3
 r4; lap R4
 r4b; lap R4b
+r4c; lap R4c
 r5; lap R5
 r6; lap R6
 
@@ -115,8 +125,10 @@ mutate() {  # <이름> <바꿀 문자열> <바꿀 값> <칸>
 mutate 1 '    print(f"NOTE 거울 줄 0 — 디스크에 카드 없음(tip 에만 · {hits[0][0]}:{hits[0][2]})")
     return path, git(hits[0][0], "show", f"{hits[0][1]}:{hits[0][2]}")' '    raise Rejected(f"REJECT 배정 원장 — 카드 없음 {stem}(tip·디스크)")' r2
 mutate 2 '            return 1' '            return 0' r3
-mutate 3 '    if len(hits) > 1:' '    if len(hits) > 1 and ispath:' r4
-mutate 4 '    if len(hits) > 1:' '    if len(hits) > 1 and not ispath:' r4b
+GUARD='len(hits) > 1 or ispath and any(not self_(h) for h in hits)'
+mutate 3 "$GUARD" 'len(hits) > 1 and ispath' r4
+mutate 4 "$GUARD" 'len(hits) > 1 and not ispath' r4b
+mutate 5 "$GUARD" 'len(hits) > 1' r4c
 SAVE=""
 [ "$(shasum "$TOOL" | cut -d' ' -f1)" = "$sha0" ] && ok "변이 복구 — 실파일 sha 같음(잔여 변이 0)" || bad "변이 복구 실패(실파일이 바뀌었다)"
 lap 변이
