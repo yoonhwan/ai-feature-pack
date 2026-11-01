@@ -249,7 +249,12 @@ def label_items(path, body, label):
 
 def restart_due(pid, scripts):
     """프로세스 시작 시각 < 스크립트 mtime 최대값 → True (R245 판정식 하나 · r459 설치기 restart_scan 도 이것)."""
-    ls = run([os.environ.get("FT_PS", "ps"), "-o", "lstart=", "-p", pid]).stdout.split()
+    r = run([os.environ.get("FT_PS", "ps"), "-o", "lstart=", "-p", pid])
+    if r.returncode:
+        die("재기동 판정 불가: ps lstart 실패(rc=%d)" % r.returncode)
+    ls = r.stdout.split()
+    if not ls:
+        die("재기동 판정 불가: ps lstart 결과 없음")
     try:
         started = time.mktime(time.strptime(" ".join(ls), "%a %b %d %H:%M:%S %Y"))
     except ValueError:
@@ -272,12 +277,21 @@ def shim_deps(script):
     return [d for d in deps if os.path.isfile(d)]
 
 
-def restart_scan(pdir):
+def restart_scan(pdir, project):
     """r459: <pdir>/*.plist 중 ProgramArguments 가 하네스 스크립트(.fable-team/bin · fable-team/live/<ver>/bin)이고 적재·PID 있는 데몬의
-    기동 시각 < 스크립트(shim 이면 LIVE_BIN 지도·라이브 도구까지) mtime → RESTART 줄. 실행 0 — 재기동은 master 가 줄의 명령으로."""
+    project 안에 있는 데몬만 검사한다. 기동 시각 < 스크립트(shim 이면 LIVE_BIN 지도·라이브 도구까지) mtime → RESTART 줄. 실행 0."""
     import plistlib
+    project = os.path.realpath(project)
+    if not os.path.isdir(project):
+        die("재기동 판정 불가: 프로젝트 루트 없음(%s)" % project)
+    try:
+        names = sorted(os.listdir(pdir))
+    except FileNotFoundError:
+        names = []
+    except OSError as e:
+        die("재기동 판정 불가: LaunchAgents 읽기 실패(%s)" % e)
     out = []
-    for name in sorted(os.listdir(pdir)) if os.path.isdir(pdir) else []:
+    for name in names:
         if not name.endswith(".plist"):
             continue
         try:
@@ -286,11 +300,30 @@ def restart_scan(pdir):
         except Exception:  # noqa: BLE001 — 손상 plist 는 이 스캔 밖(설치기 관리 plist 는 plist_sync 가 따로 본다)
             continue
         label = d.get("Label") or name[: -len(".plist")]
-        deps = [x for a in (d.get("ProgramArguments") or []) if isinstance(a, str) and HARNESS_SCRIPT.search(a) for x in shim_deps(a)]
+        args = [a for a in (d.get("ProgramArguments") or []) if isinstance(a, str) and HARNESS_SCRIPT.search(a)]
+        env = d.get("EnvironmentVariables") if isinstance(d.get("EnvironmentVariables"), dict) else {}
+        roots = [d.get("WorkingDirectory"), env.get("FT_ROOT")]
+        belongs = any(isinstance(root, str) and os.path.realpath(root) == project for root in roots)
+        if not belongs:
+            for arg in args:
+                for path in (os.path.abspath(arg), os.path.realpath(arg)):
+                    try:
+                        belongs = os.path.commonpath((project, path)) == project
+                    except ValueError:
+                        continue
+                    if belongs:
+                        break
+                if belongs:
+                    break
+        if not belongs:
+            continue
+        deps = [x for a in args for x in shim_deps(a)]
         if not deps:
             continue
         r = run([os.environ.get("FT_LAUNCHCTL", "launchctl"), "list", label])
-        pm = re.search(r'"PID"\s*=\s*(\d+)', r.stdout) if not r.returncode else None
+        if r.returncode not in (0, 113):
+            die("재기동 판정 불가: launchctl list %s 실패(rc=%d)" % (label, r.returncode))
+        pm = re.search(r'"PID"\s*=\s*(\d+)', r.stdout) if r.returncode == 0 else None
         if pm and restart_due(pm.group(1), deps):
             out.append("RESTART %s — launchctl kickstart -k gui/%d/%s" % (label, os.getuid(), label))
     return out
@@ -435,7 +468,9 @@ def is_shim(path):
 def main():
     sys.stdout.reconfigure(encoding="utf-8", errors="backslashreplace")  # 로케일과 무관하게 한글은 원형 · non-UTF8 경로는 \udcff 대신 이스케이프 출력
     if sys.argv[1:2] == ["--restart-scan"]:  # r459: install.sh --apply 끝 — RESTART 줄만(읽기 전용 · rc0)
-        print("\n".join(restart_scan(sys.argv[2] if len(sys.argv) > 2 else os.path.join(os.environ["HOME"], "Library", "LaunchAgents"))) or "RESTART 0")
+        if len(sys.argv) != 4 or sys.argv[2] != "--project":
+            sys.exit(2)
+        print("\n".join(restart_scan(os.path.join(os.environ["HOME"], "Library", "LaunchAgents"), sys.argv[3])) or "RESTART 0")
         sys.exit(0)
     o = parse_args(sys.argv[1:])
     repo = resolve_kit(o)

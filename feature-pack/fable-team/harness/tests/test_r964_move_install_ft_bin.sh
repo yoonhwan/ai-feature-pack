@@ -18,7 +18,7 @@ g() { git -C "$1" -c user.name=t -c user.email=t@t "${@:2}"; }
 
 # ── 도구 사본 1벌(게이트 + 부속) · 변이용으로 게이트만 갈아 끼운다
 mkbin() { local d="$1"; mkdir -p "$d"; cp -p "$SRC/ft-index-move-install.sh" "$SRC/ft-team-lib.sh" "$SRC/ft_plist_env.py" "$SRC/ft_git_capped.py" \
-  "$SRC/ft-harness-root.sh" "$d/"; }
+  "$SRC/ft-harness-root.sh" "$SRC/ft-live-install-check.sh" "$SRC/ft_live_install_check.py" "$d/"; }
 BIN="$T/bin"; mkbin "$BIN"
 BIN_P="$(cd "$BIN" && pwd -P)"
 FTB="$T/ftbin"; mkdir -p "$FTB"
