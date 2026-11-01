@@ -10,7 +10,6 @@ ROOT = Path(__file__).resolve().parents[3]
 BIN = ROOT / "harness/bin"
 sys.path.insert(0, str(BIN))
 
-import ft_card_assign_watch as assign  # noqa: E402
 import ft_decision_count as decision  # noqa: E402
 import ft_hil_pending as hil  # noqa: E402
 import ft_latest_write as latest_write_module  # noqa: E402
@@ -95,54 +94,59 @@ def test_decision_alarm_call_path_writes_after_summary_line(tmp_path, monkeypatc
     assert out[0] == data["line"] and out[1] == "ALARM"
 
 
-def test_assignment_status_writes_json_rows_even_when_hot(tmp_path, monkeypatch, capsys):
-    rows = [{"kind": "없음", "card": "c1"}]
-    monkeypatch.setenv("FT_ROOT", str(tmp_path))
-    monkeypatch.setattr(assign, "root", lambda: tmp_path)
-    monkeypatch.setattr(assign, "Status", lambda *_a: type("S", (), {"rows": lambda _self: (rows, "2026-11-02", [])})())
-    monkeypatch.setattr(assign, "render", lambda *_a: ["배정 없음 1"])
-    assign.adir(tmp_path).mkdir(parents=True)
-    rc = assign.main(["status", "--json", "--write-latest"])
-    out = capsys.readouterr().out.strip()
-    _, data = saved(tmp_path, "card-assign")
-    assert rc == 1 and json.loads(out) == rows and data["line"] == out
-    assert data["items"] == rows and data["stamp"] == "2026-11-02"
+def run_assignment(root, *args, now=None):
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")} | {"FT_ROOT": str(root), "LC_ALL": "C"}
+    env.update({"FT_CARD_ASSIGN_NOW": str(now)} if now is not None else {})
+    return subprocess.run(["bash", str(BIN / "ft-card-assign-watch.sh"), *args], capture_output=True, text=True,
+                          env=env, timeout=7)
 
 
-def test_assignment_failure_preserves_old_file(tmp_path, monkeypatch, capsys):
-    monkeypatch.setenv("FT_ROOT", str(tmp_path))
-    old = tmp_path / ".fable-team/state/card-assign/latest.json"
+def git(root, *args):
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")} | {"LC_ALL": "C", "GIT_AUTHOR_DATE": "2020-01-01T00:00:00+00:00", "GIT_COMMITTER_DATE": "2020-01-01T00:00:00+00:00"}
+    return subprocess.run(["git", "-C", str(root), *args], check=True, timeout=7, env=env)
+
+
+def assignment_root(root, prepare=True):
+    cards = root / "design/harness/indices/대기"
+    cards.mkdir(parents=True)
+    roots = root / ".fable-team/state/directive-roots.tsv"
+    roots.parent.mkdir(parents=True)
+    roots.write_text("harness\t.\tmain\tdesign/harness/indices\n*\t.\tmain\tdesign/teams/*/indices\n", encoding="utf-8")
+    git(root, "init", "-q", "-b", "main")
+    git(root, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "init")
+    (cards / "c.md").write_text("# Card c\n- 상태: 대기\n## 상태\n- 시험\n", encoding="utf-8")
+    git(root, "add", "design")
+    git(root, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "card")
+    if prepare:
+        assert run_assignment(root, "prepare").returncode == 0
+    return root
+
+
+def test_assignment_status_writes_json_rows_even_when_hot(tmp_path):
+    now = int(datetime.now().timestamp())
+    root = assignment_root(tmp_path)
+    result = run_assignment(root, "status", "--json", "--write-latest", now=now)
+    out, data = result.stdout.strip(), saved(root, "card-assign")[1]
+    assert result.returncode == 1 and json.loads(out)[0]["kind"] == "없음", f"rc={result.returncode} out={result.stdout} err={result.stderr} root={root}"
+    assert data["line"] == out and data["items"] == json.loads(out) and data["stamp"]
+    assert data["written_at"] == now
+
+
+def test_assignment_failure_preserves_old_file(tmp_path):
+    root = assignment_root(tmp_path, prepare=False)
+    old = root / ".fable-team/state/card-assign/latest.json"
     old.parent.mkdir(parents=True)
     old.write_text("old\n", encoding="utf-8")
-    monkeypatch.setattr(assign, "root", lambda: tmp_path)
-    monkeypatch.setattr(assign, "Status", lambda *_a: type("S", (), {"rows": lambda _self: (_ for _ in ()).throw(assign.Undecided("bad"))})())
-    assert assign.main(["status", "--write-latest"]) == 3
-    assert old.read_text(encoding="utf-8") == "old\n"
-    assert "latest 안 씀(rc 3)" in capsys.readouterr().err
+    result = run_assignment(root, "status", "--write-latest", now=int(datetime.now().timestamp()))
+    assert result.returncode == 3 and old.read_text(encoding="utf-8") == "old\n"
+    assert "latest 안 씀(rc 3)" in result.stderr
 
 
-def test_assignment_written_at_uses_fixed_now(tmp_path, monkeypatch, capsys):
-    monkeypatch.setenv("FT_ROOT", str(tmp_path))
-    monkeypatch.setenv("FT_CARD_ASSIGN_NOW", "1000")
-    monkeypatch.setattr(assign.time, "time", lambda: 2000)
-    monkeypatch.setattr(assign, "root", lambda: tmp_path)
-    monkeypatch.setattr(assign, "Status", lambda *_a: type("S", (), {"rows": lambda _self: ([], "2026-11-02", [])})())
-    monkeypatch.setattr(assign, "render", lambda *_a: ["배정 없음 0"])
-    assert assign.main(["status", "--write-latest"]) == 0
-    capsys.readouterr()
-    _, data = saved(tmp_path, "card-assign")
-    assert data["written_at"] == 1000
-
-
-def test_assignment_without_flag_keeps_file_absent(tmp_path, monkeypatch, capsys):
-    monkeypatch.setenv("FT_ROOT", str(tmp_path))
-    monkeypatch.setattr(assign, "root", lambda: tmp_path)
-    monkeypatch.setattr(assign, "Status", lambda *_a: type("S", (), {"rows": lambda _self: ([], "2026-11-02", [])})())
-    monkeypatch.setattr(assign, "render", lambda *_a: ["배정 없음 0"])
-    assign.adir(tmp_path).mkdir(parents=True)
-    assert assign.main(["status"]) == 0
-    assert capsys.readouterr().out == "배정 없음 0\n"
-    assert not (tmp_path / ".fable-team/state/card-assign/latest.json").exists()
+def test_assignment_without_flag_keeps_file_absent(tmp_path):
+    root = assignment_root(tmp_path)
+    result = run_assignment(root, "status", now=int(datetime.now().timestamp()))
+    assert result.returncode == 1 and "배정 없는 카드 1" in result.stdout
+    assert not (root / ".fable-team/state/card-assign/latest.json").exists()
 
 
 def test_hil_pending_writes_each_rows_and_uses_fixed_now(tmp_path, monkeypatch, capsys):
