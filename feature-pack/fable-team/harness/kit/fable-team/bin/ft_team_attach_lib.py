@@ -68,7 +68,8 @@ def teamset_row(root: Path, team: str) -> tuple[Path, list[str] | None]:
     _, rows = table_rows(path)
     return path, next((cells for _, cells in rows if cells and cells[0] == team), None)
 
-def set_teamset_row(root: Path, team: str, cells: list[str], dry: bool = False) -> bool:
+def set_teamset_row(root: Path, team: str, cells: list[str], dry: bool = False, keep_existing: bool = False) -> bool:
+    """표 2 의 그 팀 행을 cells 로 맞춘다. keep_existing=True 면 «있는 행은 그대로»(r1312 · apply 전용) — 쓰기 0 + KEEP 1줄."""
     path = safe(root, Path(os.environ.get("FT_TEAMSET_MD") or "design/TEAMSET.md"))
     text, rows = table_rows(path)
     lines = text.splitlines()
@@ -76,6 +77,9 @@ def set_teamset_row(root: Path, team: str, cells: list[str], dry: bool = False) 
     old = next(((i, vals) for i, vals in rows if vals and vals[0] == team), None)
     if old:
         i, vals = old
+        if keep_existing:
+            print(f"KEEP TEAMSET {team} 기존 행 유지({', '.join(vals[1:]) or '-'})")
+            return False
         if vals == cells:
             return False
         lines[i] = row
