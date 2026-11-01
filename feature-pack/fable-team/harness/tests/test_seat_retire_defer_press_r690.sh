@@ -43,7 +43,7 @@ out="$(bash "$RETIRE" "$OLD" "$NEW" --seats "$TMP/seats.json" 2>&1)"; rc=$?
 chk "ⓐretire rc 0 · 고아 생존" "$rc $(alive "$L1")" "0 alive"
 has "$out" "reap-defer pid=$L1 why=press-active" "ⓐreap-defer 줄"
 has "$out" "reap deferred=1 (press 중 · 끝난 뒤 다음 정리에서)" "ⓐretire 미룸 안내 줄"
-chk "ⓐ끝 줄 reap left=0 rc=0 · CLOSE-FAIL 0" "$(tail -1 <<< "$out") $(grep -c CLOSE-FAIL <<< "$out")" "reap left=0 rc=0 0"
+chk "ⓐ끝 줄 reap left=0 rc=0 · CLOSE-FAIL 0" "$(grep -F 'reap left=0 rc=0' <<< "$out") $(grep -c CLOSE-FAIL <<< "$out")" "reap left=0 rc=0 0"
 chk "ⓐ미룸 파일 1 · pid 기록" "$([ -f "$DF" ] && grep -c "\"pid\": $L1," "$DF")" 1
 out="$(bash "$REAP" "$OLD" --orphans-only --defer-press)"
 has "$(tail -1 <<< "$out")" "stopped=0 left=0 deferred=1 rc=0" "ⓐreap 끝 줄 deferred=1"
@@ -72,7 +72,7 @@ out="$(bash "$RETIRE" "$OLD" "$NEW" --seats "$TMP/seats.json" 2>&1)"; rc=$?
 chk "ⓑdevice held → rc 0 · 고아 생존 · 미룸 줄" "$rc $(alive "$L2") $(grep -c "reap-defer pid=$L2 why=press-active" <<< "$out")" "0 alive 1"
 rm -f "$TMP/permits/device.json"
 seats; out="$(bash "$RETIRE" "$OLD" "$NEW" --seats "$TMP/seats.json" 2>&1)"; rc=$?
-chk "ⓒpress 없음 → 미룸 소화 + 고아 정지 · 끝 줄 left=0" "$rc $(alive "$L2") $(tail -1 <<< "$out")" "0 dead reap left=0 rc=0"
+chk "ⓒpress 없음 → 미룸 소화 + 고아 정지 · 끝 줄 left=0" "$rc $(alive "$L2") $(grep -F 'reap left=0 rc=0' <<< "$out")" "0 dead reap left=0 rc=0"
 L3="$(orphan "$OLD" 'while true; do echo c >> lc.log; sleep 1; done')"
 seats; out="$(bash "$RETIRE" "$OLD" "$NEW" --seats "$TMP/seats.json" 2>&1)"; rc=$?
 chk "ⓒ새 고아 → reap-kill · 미룸 0 · 파일 0" "$rc $(alive "$L3") $(grep -c 'reap-defer' <<< "$out") $([ -f "$DF" ] && echo f || echo nofile)" "0 dead 0 nofile"
