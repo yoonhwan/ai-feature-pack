@@ -83,6 +83,9 @@ class Scan:
 
         teams, hbd = load_teams(self.root), {}
         for t in teams:
+            if t["diag"] != "OK":
+                unknown += 1
+                continue
             m = t["master"]
             leads = lead_names(self.root, m)  # 현역 role=master 전부 — 승계 직후 옛·새 둘 다
             if m in self.live and not stop and t["master_stop"]:  # r428 — 정지 레디 팀은 노는 게 맞다: a 대신 c(정지 파일 0 알림)
@@ -176,7 +179,7 @@ class Scan:
             sigs = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             sigs = {}
-        planner = next((t["master"] for t in load_teams(self.root) if t["team"] == "planner"), None)
+        planner = next((t["master"] for t in load_teams(self.root) if t["diag"] == "OK" and t["team"] == "planner"), None)
         log: list[str] = []
         for f in found:
             if f["kind"] != "e" or sigs.get(f["seat"]) == f["sig"]:
@@ -277,7 +280,7 @@ class Scan:
                            "없거나 주기가 10분이 아니면 CronCreate 10분 틱으로 다시 걸고 [정리] 에 cron=<id> (BOOT 16 · ft-stall-scan)",
                       urgent=False)
         else:
-            seat = next((t["master"] for t in load_teams(self.root) if t["team"] == "planner"), None)
+            seat = next((t["master"] for t in load_teams(self.root) if t["diag"] == "OK" and t["team"] == "planner"), None)
             if not seat:
                 return None
             if f.get("stopready"):
@@ -335,7 +338,10 @@ class Scan:
             _ = ft_penalty.turn_on("같은 멈춤을 처리 뒤에도 또 감지: " + ",".join(trig))
             log.append(f"{stamp} penalty-on keys={','.join(trig)}")
         per_team = {}
-        for t in load_teams(self.root):
+        for t in load_teams(self.root, warn=False):
+            if t["diag"] != "OK":
+              per_team[t["team"]] = {"diag": t["diag"]}
+              continue
             st_m, end_m = self.turn(t["master"]) if t["master"] in self.live else ("UNKNOWN", None)
             per_team[t["team"]] = {k: sum(1 for f in found if f["team"] == t["team"] and f["kind"] == k) for k in "abdf"}
             per_team[t["team"]]["master_end"] = end_m if st_m == "IDLE" else None

@@ -32,13 +32,8 @@ RETRY_SEC = 1800
 
 
 def teams(rosters: Path) -> list[dict]:
-    """깨진 명부는 ERROR 1줄 뒤 건너뜀(load_teams 는 조용히 건너뛴다) — 나머지 명부는 계속 본다."""
-    for f in sorted(rosters.glob("seats*.json")):
-        try:
-            json.loads(f.read_text(encoding="utf-8"))
-        except (OSError, ValueError) as e:
-            print(f"ERROR 명부를 못 읽음 {f}: {e} — 이 명부 좌석만 감시 건너뜀")
-    return load_teams(rosters.parent)
+    """현역 팀만 읽고 깨지거나 빠진 명부는 load_teams 의 WARN 줄로 드러낸다."""
+    return [team for team in load_teams(rosters.parent) if team["diag"] == "OK"]
 
 
 def target(ts: list[dict], seat: str) -> str | None:

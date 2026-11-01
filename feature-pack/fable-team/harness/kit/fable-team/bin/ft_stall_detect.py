@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from ft_decision_kind import PROMOTED  # r1154: 승격 표식 정규식 한 벌(r1148) — 가져오기 실패는 예외 그대로
+from ft_team_lib import rosters as team_rosters
 
 IDLE_MIN = 3.0
 LEAD_HEARTBEAT_MIN = 15.0  # 팀장 심박 주기 10분 + 여유 5 — 이보다 오래 조용하면 «멈춤»
@@ -41,30 +42,28 @@ def run(cmd: list[str], env: dict[str, str] | None = None, timeout: float = 15) 
     return r.returncode, r.stdout
 
 
-def load_teams(root: Path) -> list[dict[str, Any]]:
+def load_teams(root: Path, warn: bool = True, active: bool = True, include_orphans: bool = False) -> list[dict[str, Any]]:
     teams: list[dict[str, Any]] = []
-    for f in sorted((root / ".fable-team").glob("seats*.json")):
-        try:
-            d = json.loads(f.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            continue
-        label = d.get("_label") or ("v65" if f.name == "seats.json" else f.stem.removeprefix("seats-"))
+    for roster in team_rosters(root, active=active, include_orphans=include_orphans):
+        d = roster["doc"] or {}
+        team = roster["team"]
+        if warn and roster["diag"] != "OK":
+            print(f"WARN {team} 판정 불가({roster['diag']}) — stall 좌석 셈 제외")
         seats = {k: v for k, v in d.items() if not k.startswith("_") and isinstance(v, dict)
                  and v.get("role") not in OFF_ROLES and not v.get("_replaced_by") and not v.get("_closed")}
-        cards = root / ".worktrees" / d["_cards_wt"] / d["_cards"] if d.get("_cards_wt") and d.get("_cards") else (root / d["_cards"] if d.get("_cards") else None)
+        cards = roster["cards"]
         mrow = d.get(d.get("_master") or "")
-        teams.append({"team": label, "master": d.get("_master"), "cards": cards, "seats": set(seats),
-                      "master_stop": isinstance(mrow, dict) and mrow.get("role") == "stop-ready"})  # r428 — ft-seat-close R297 표기
+        teams.append({"team": team, "master": d.get("_master"), "cards": cards, "seats": set(seats),
+                      "master_stop": isinstance(mrow, dict) and mrow.get("role") == "stop-ready", "diag": roster["diag"]})  # r428 — ft-seat-close R297 표기
     return teams
 
 
 def _roster_rows(root: Path) -> dict[str, dict[str, Any]]:
     """좌석 → 그 좌석 행이 있는 명부 전체(현역·교대 표시 행 모두)."""
     where: dict[str, dict[str, Any]] = {}
-    for f in sorted((root / ".fable-team").glob("seats*.json")):
-        try:
-            d = json.loads(f.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
+    for roster in team_rosters(root):
+        d = roster["doc"]
+        if not isinstance(d, dict):
             continue
         where.update({k: d for k, v in d.items() if not k.startswith("_") and isinstance(v, dict)})
     return where
@@ -289,10 +288,9 @@ def lead_names(root: Path, master: str | None) -> set[str]:
     `_replaces` 에만 남은 옛 이름은 현역이 아니다: 인정하지 않는다(DA r1 반례 4·5)."""
     if not master:
         return set()
-    for f in sorted((root / ".fable-team").glob("seats*.json")):
-        try:
-            d = json.loads(f.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
+    for roster in team_rosters(root):
+        d = roster["doc"]
+        if not isinstance(d, dict):
             continue
         rows = {k for k, v in d.items() if not k.startswith("_") and isinstance(v, dict) and v.get("role") == "master"
                 and not v.get("_replaced_by") and not v.get("_closed")}
@@ -432,15 +430,16 @@ def lead_heartbeat_min() -> float:
     return v if v > 0 else LEAD_HEARTBEAT_MIN
 
 
-def lead_recipients(root: Path) -> set[str]:
+def lead_recipients(root: Path, warn: bool = False) -> set[str]:
     """심박 받는이 = 명부 «전체» 의 현역 role=master + 현역 planner(planner 팀장도 role=master) — DA r2 반례 2.
     자기 팀 _master 로 좁히면 «다른 팀 현역 master 에게 보낸 신선한 [정리]» 를 놓쳐 멀쩡한 팀장이 멈춤으로 읽힌다.
     r1143 — 현역 role=desk 도 받는이다: planner 팀장의 보고처 = desk 라 [정리] 가 전부 desk 앞이다(planner#166~#171 54통)."""
     out: set[str] = set()
-    for f in sorted((root / ".fable-team").glob("seats*.json")):
-        try:
-            d = json.loads(f.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
+    for roster in team_rosters(root):
+        d = roster["doc"]
+        if not isinstance(d, dict):
+            if warn and roster["diag"] != "OK":
+                print(f"WARN {roster['team']} 판정 불가({roster['diag']}) — 심박 수신자 셈 제외")
             continue
         out |= {k for k, v in d.items() if not k.startswith("_") and isinstance(v, dict) and v.get("role") in ("master", "desk")
                 and not v.get("_replaced_by") and not v.get("_closed")}

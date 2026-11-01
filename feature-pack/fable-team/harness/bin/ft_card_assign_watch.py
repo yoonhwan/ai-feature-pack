@@ -32,6 +32,7 @@ from ft_directive_watch import Git, Undecided, hhmm, team_master, tsv, until  # 
 from ft_penalty import root  # noqa: E402
 from ft_latest_write import write_latest  # noqa: E402
 from ft_card_assign_pause import DAY_S, held_add, held_once, held_prune, jload, jsave, notice, team_pause, team_paused, team_resume  # noqa: E402
+from ft_team_lib import TeamPathError, team_names  # noqa: E402
 
 REASONS = ("정지", "석", "부하", "면제대기", "선행", "lint", "DA", "사람")
 PAUSED = ("정지", "석", "부하")
@@ -271,6 +272,7 @@ class Status:
         self.tp: dict[str, tuple] = {}  # 팀 → team_paused 결과(팀마다 1회)
         self.notes: list[str] = []  # 정지 표식 판정 불가 팀마다 1줄(r1291)
         self.long: list[tuple[str, str]] = []  # 24시간 넘은 정지(팀 · 판정 N)
+        self.team_counts = (0, 0)
         self.seen, self.held = jload(self.d / "paused-seen.json"), jload(self.d / "held-once.json")
 
     def team_pause(self, team: str) -> tuple:
@@ -326,8 +328,13 @@ class Status:
         return v
 
     def rows(self) -> tuple[list[dict], str, int]:
+        try:
+            active_teams = set(team_names(self.R))
+        except TeamPathError as e:
+            raise Undecided(f"팀 명단 판정 불가 {e}") from None
         ledger = {p.stem: load(self.d, p.stem) for p in self.d.glob("*.json")} if self.d.is_dir() else {}
         rows, tips, opened, closed, allpaths, urgent_paths, inbox = [], [], set(), set(), set(), set(), []
+        outside_teams, ref_teams = set(), set()
         for r in self.roots:
             repo, base = repo_of(self.R, r), r[3].split("*")[0].rstrip("/")
             tip = self.git(repo, "rev-list", "-1", until(self.now), r[2]).strip()
@@ -336,7 +343,6 @@ class Status:
                 continue
             made = self.created(r, repo, tip)
             files = [p for p in self.git(repo, "ls-tree", "-r", "--name-only", tip, "--", base).splitlines() if p.endswith(".md") and fnmatch(p, r[3] + "/*")]
-            allpaths.update(p for p in files if len(p.split("/")) == len(r[3].split("/")) + 2 and p.split("/")[len(r[3].split("/"))] in ("대기", "진행", "완성"))  # 포인터 대상 = 카드 상태 폴더의 카드만
             for ln in self.git(repo, "grep", "-I", "-n", "-e", "^- 긴급:", "-e", "^## ", tip, "--", f":(glob){r[3].rstrip('/')}/**/*.md", ok=(0, 1)).splitlines():  # 카드 폴더의 .md 만(r1251 · 증거 포함 팀 폴더 전체 grep = 부하에서 «판정 불가»)
                 path, _, rest = ln[len(tip) + 1:].partition(":")
                 text = rest.partition(":")[2]
@@ -348,6 +354,12 @@ class Status:
             for path in files:
                 parts, stem = path.split("/"), path.rsplit("/", 1)[-1][:-3]
                 team = parts[star] if r[0] == "*" else r[0]
+                if team not in active_teams:
+                    outside_teams.add(team)
+                    continue
+                ref_teams.add(team)
+                if len(parts) == depth + 2 and parts[depth] in ("대기", "진행", "완성"):
+                    allpaths.add(path)
                 if len(parts) == depth + 2 and parts[depth] in CLOSED:
                     closed.add(stem)
                 elif len(parts) == depth + 2 and parts[depth] in OPEN:
@@ -369,6 +381,7 @@ class Status:
                     jsave(f, j)
         raw = "\n".join(sorted(ledger)) + "".join(tips)
         h = hashlib.sha1(raw.encode()).hexdigest()
+        self.team_counts = (len(outside_teams), len(active_teams - ref_teams))
         return sorted(rows, key=lambda x: x["since"]), f"{int(self.now)}-{h[:8]}", int(h[:8], 16)
 
     def judge(self, team: str, stem: str, L: dict | None, born: float, urgent: bool) -> list[dict]:
@@ -439,7 +452,7 @@ class Status:
         return out
 
 
-def render(rows: list[dict], stamp: str) -> list[str]:
+def render(rows: list[dict], stamp: str, team_counts: tuple[int, int] = (0, 0)) -> list[str]:
     n = {k: [x for x in rows if x["kind"] == k] for k in ("없음", "초과", "정지 중", "보류 중", "판정 불가", "발주")}
     by = [f"{r} {sum(1 for x in n['초과'] if x['reason'] == r)}" for r in dict.fromkeys(x["reason"] for x in n["초과"])]  # 사유는 가장 오래된 since 순
     when = lambda t: hhmm(t) if t else "-"  # noqa: E731
@@ -447,6 +460,8 @@ def render(rows: list[dict], stamp: str) -> list[str]:
     held = f" · 보류 중 {len(n['보류 중'])}"
     q = f" · 판정 불가 Q {len(n['판정 불가'])}"
     out = [f"배정 없는 카드 {len(n['없음'])} · 대기 초과 {len(n['초과'])}{by_s} · 정지 중 {len(n['정지 중'])}{held if n['보류 중'] else ''}{q if n['판정 불가'] else ''} · 카드 없는 발주 {len(n['발주'])} · 판본 {stamp}"]
+    outside, ref_missing = team_counts
+    out[0] += f" · 명단 밖 팀 {outside} · ref 미반영 팀 {ref_missing}"
     for x in rows:  # rows() 가 since 순으로 정렬해 준다 — tick 이 rows·lines[1:] 를 짝짓는다
         out.append(f"{x['kind']} {x['team']} {x['stem']} · {x['label']} · since {when(x['since'])}{' · 긴급' if x['urgent'] else ''}")
     return out
@@ -632,7 +647,7 @@ def main(argv: list[str]) -> int:
         if write:
             print("latest 안 씀(rc 3)", file=sys.stderr)
         return 3
-    lines = render(rows, stamp) + st.notes  # notes = 행 뒤 꼬리(tick 은 zip 으로 행만 짝짓는다)
+    lines = render(rows, stamp, st.team_counts) + st.notes  # notes = 행 뒤 꼬리(tick 은 zip 으로 행만 짝짓는다)
     output = json.dumps(rows, ensure_ascii=False) if "--json" in argv else "\n".join(lines)
     print(output)
     hot = [x for x in rows if x["kind"] not in QUIET]  # 정지 중·보류 중·Q 는 rc 에 안 셈(머리에만)

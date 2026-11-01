@@ -19,8 +19,10 @@ order() {  # <역할> <파일명> <본문 줄...> — 발주문 1개(생성 시�
   local d="$R/$TM/inbox/$1"; mkdir -p "$d"; local f="$2"; shift 2; printf '%s\n' "# 발주" "$@" > "$d/$f"
 }
 env_root() {  # <age 초> <발주문 수 m1> <m2> · 카드 c1 1장(원장 seat) + 발주문(m1 은 끝 3개가 미연결 꼴)
-  local age="$1" n1="$2" n2="$3" i; R="$(mktemp -d "$T/r.XXXXXX")"; mkdir -p "$R/.fable-team/state/card-assign"
+  local age="$1" n1="$2" n2="$3" i; R="$(mktemp -d "$T/r.XXXXXX")"; mkdir -p "$R/.fable-team/state/card-assign" "$R/design/teams/a/indices"
+  mkdir -p "$R/design"
   git -C "$R" init -q -b main; printf '.fable-team/\nmbox.sh\n' > "$R/.gitignore"; git -C "$R" add .gitignore; gc "$R" "$((NOW - 200000)) +0900" init
+  printf '| 팀 | 폴더 | 오케 | 상태 |\n|---|---|---|---|\n| a | design/teams/a/ | a | 현역 |\n' > "$R/design/TEAMS.md"
   printf '*\t.\tmain\tdesign/teams/*/indices\n' > "$R/.fable-team/state/directive-roots.tsv"
   printf '{"_master":"byz-planner-master-claude#9"}\n' > "$R/.fable-team/seats-planner.json"; printf '{"_master":"byz-a-master-claude#1"}\n' > "$R/.fable-team/seats-a.json"; printf '{}\n' > "$R/.fable-team/seats.json"
   printf '#!/bin/sh\necho "QUEUED seq=1 to=$2"\n' > "$R/mbox.sh"
