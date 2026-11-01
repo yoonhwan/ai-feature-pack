@@ -15,10 +15,12 @@ has() { case "$1" in *"$2"*) ok "$3";; *) bad "$3 — 없음: «${2}» ← ${1:0
 hasnt() { case "$1" in *"$2"*) bad "$3 — 있으면 안 됨: «${2}»";; *) ok "$3";; esac; }
 T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T"' EXIT
 S="$T/stub"; R="$T/R"; ST="$R/.fable-team/state"; mkdir -p "$S" "$ST"
+: > "$T/launchd-empty.txt"; export FT_RES_LAUNCHD="$T/launchd-empty.txt"   # r1304: 가짜 표(0행) — 실 launchctl 호출 0
 for f in ft-resource-cause.sh ft-resource-watch.sh; do cmp -s "$BIN/$f" "$KIT/$f" && ok "키트 사본 cmp 0 $f" || bad "키트 사본 어긋남 $f"; done
 
 # 가짜 kill·renice·pkill·killall — 불리면 기록(ⓕ)
 for k in kill renice pkill killall; do printf '#!/bin/sh\necho "%s $*" >> "%s/killed.log"\n' "$k" "$T" > "$S/$k"; done
+printf '#!/bin/sh\necho "launchctl $*" >> "%s/launchctl.log"\n' "$T" > "$S/launchctl"   # r1304: 불리면 기록 — 빈 표 주입 때 호출 0
 chmod 755 "$S"/*
 printf 'byz-v65-master-claude#0 100 /dev/ttys003\nbyz-t-other-claude#1 400 /dev/ttys009\n' > "$T/tmux.txt"
 PSF="$T/ps.txt"
@@ -97,5 +99,7 @@ code < "$BIN/ft-resource-cause.sh" | grep -qE "$KRE" && bad "ⓕ ft-resource-cau
 body="$(sed -n '/^cpu_watch()/,/^}/p' "$BIN/ft-resource-watch.sh")"
 [ -n "$body" ] && ok "ⓕ watch cpu_watch 본문 있음" || bad "ⓕ watch cpu_watch 없음"
 printf '%s\n' "$body" | code | grep -qE "$KRE" && bad "ⓕ cpu_watch 에 kill 계열" || ok "ⓕ cpu_watch 에 kill 계열 0"
+
+[ ! -s "$T/launchctl.log" ] && ok "r1304 빈 표 주입 → launchctl 호출 0" || bad "launchctl 호출됨: $(cat "$T/launchctl.log")"
 
 echo "---- fail=$fail"; [ "$fail" -eq 0 ]
