@@ -437,8 +437,30 @@ model_swap() {
   return 0
 }
 
+team_master_seat() {
+  python3 - "$ROOT" "$1" "$HERE" <<'PY'
+import sys
+from pathlib import Path
+
+sys.path.insert(0, sys.argv[3])
+from ft_team_lib import rosters
+
+team = sys.argv[2]
+row = next((item for item in rosters(Path(sys.argv[1])) if item["team"] == team), None)
+if row is None or row["diag"] != "OK":
+    diag = row["diag"] if row else "명단 밖 팀"
+    print(f"WARN {team} 판정 불가({diag}) — master 조회 불가", file=sys.stderr)
+    raise SystemExit(3)
+master = row["doc"].get("_master")
+if not master:
+    print(f"WARN {team} 판정 불가(_master 빔) — master 조회 불가", file=sys.stderr)
+    raise SystemExit(3)
+print(master)
+PY
+}
+
 sweep_wt() {
-  local out hil master rows tagged team lines hdr tf
+  local out hil master rows tagged team lines hdr
   [ "$WT_SWEEP_ENABLED" = 1 ] || return 0
   [ -x "$WT_SWEEP" ] || { echo "$(date '+%F %T') sweep_wt: missing $WT_SWEEP" >&2; return 0; }
   if [ "$DRY" = 1 ]; then echo "DRY kind=wt-sweep bin=$WT_SWEEP plans=$(bash "$WT_SWEEP" --dry-run 2>/dev/null | grep -c '^DRY ')"; return 0; fi
@@ -456,10 +478,10 @@ sweep_wt() {
     hdr=""; master=""
     case "$team" in
       -|v65) master="$(master_seat)";;
-      *) tf="$(dirname "$SEATS")/seats-$team.json"; [ -f "$tf" ] && master="$(master_seat "$tf" 2>/dev/null)"
+        *) master="$(team_master_seat "$team")" || master=""
          if [ -z "$master" ]; then
-           hdr="[라우팅 실패 $team] "; master="$(master_seat)"   # 표식은 «[HIL] 뒤» — planner 머리 검사(reject)는 본문이 [HIL] 로 시작해야 통과(DA⑥)
-           echo "$(date '+%F %T') sweep_wt: team '$team' master not found ($tf) — routed to own master" >&2
+             hdr="[라우팅 실패 $team] "; master="$(master_seat)"   # 표식은 «[HIL] 뒤» — planner 머리 검사(reject)는 본문이 [HIL] 로 시작해야 통과(DA⑥)
+             echo "$(date '+%F %T') sweep_wt: team '$team' master not found — routed to own master" >&2
          fi;;
     esac
     [ -n "$master" ] || { echo "$(date '+%F %T') sweep_wt: [HIL] pending (team $team) but no active master" >&2; continue; }

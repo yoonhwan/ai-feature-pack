@@ -102,6 +102,34 @@ if [ "${1:-}" = "--launchd" ]; then
     lpo="$(bash "$SELF" --land-plan 2>&1)"; lprc=$?; out="$out"$'\n'"$lpo"
     [ "$lprc" -ne 0 ] && rc="$lprc"   # ★r880 재설계 r5★ land-plan 의 rc 를 최종 rc 에 반영(rc0 으로 덮던 길 0 · DA r3 미종결 ⑥)
   fi
+    if [ "${FT_TEAM_ATTACH_DAILY:-1}" != 0 ]; then
+      ATTACH="$FT_ROOT/.fable-team/bin/ft-team-attach.sh"
+      MARKER="$FT_ROOT/.fable-team/state/team-attach-lint/$(date '+%F').sent"
+      if [ -f "$MARKER" ]; then
+        out="$out"$'\n'"team-roster-lint already checked today"
+      elif [ -x "$ATTACH" ]; then
+        planner="$(python3 - "$FT_ROOT" "$(dirname "$ATTACH")" <<'PY'
+import sys
+from pathlib import Path
+sys.path.insert(0, sys.argv[2])
+from ft_team_lib import rosters
+r = next((x for x in rosters(Path(sys.argv[1])) if x["team"] == "planner"), None)
+if r and r["diag"] == "OK": print(r["doc"].get("_master") or "")
+PY
+)"
+        if [ -n "$planner" ]; then
+          lint="$(FT_ROOT="$FT_ROOT" bash "$ATTACH" --all --check --notify "$planner" 2>&1)"; lrc=$?
+          out="$out"$'\n'"$lint"
+          [ "$lrc" -gt 1 ] && [ "$rc" = 0 ] && rc="$lrc"
+        else
+          out="$out"$'\n'"WARN 팀 명부 lint planner _master 판정 불가"
+          [ "$rc" = 0 ] && rc=1
+        fi
+      else
+        out="$out"$'\n'"WARN 팀 명부 lint 도구 없음: $ATTACH"
+        [ "$rc" = 0 ] && rc=1
+      fi
+    fi
   printf '%s\n' "$out"
   sm="$(printf '%s\n' "$out" | grep '^sweep 계획 ' | tail -1)"
   num() { local v; v="$(printf '%s' "$sm" | sed -nE "s#.*$1 ([0-9]+).*#\\1#p")"; echo "${v:-0}"; }

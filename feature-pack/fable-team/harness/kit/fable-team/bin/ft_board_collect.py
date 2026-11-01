@@ -15,6 +15,7 @@ from ft_board_mail import Mail
 from ft_board_seat import SeatCells
 from ft_board_tree import STATES, fold, parse_tree
 from ft_team_state import team_states
+from ft_team_lib import rosters as team_rosters
 
 FOLDERS = ("대기", "진행", "완성")
 QUEUE_TOP = 5
@@ -91,7 +92,7 @@ def _parent(root: Path, path: Path, seats: dict) -> str | None:
     parent = seats.get("_parent")
     if not parent:
         return None
-    known = {"v65" if f.stem == "seats" else f.stem.removeprefix("seats-") for f in (root / ".fable-team").glob("seats*.json")}
+    known = {row["team"] for row in team_rosters(root)}
     if parent in known:
         return parent
     print(f"WARN {path.name}: _parent={parent!r} 가 명부 목록에 없다 — 보고선 ?", file=sys.stderr)
@@ -166,10 +167,12 @@ def team_or_error(root: Path, path: Path, alive: set, date: str, vds: list, mail
 
 
 def decision(root: Path, alive: set) -> str:
-    p = root / ".fable-team" / "seats-planner.json"
-    if not p.exists():
-        return "확인 불가(seats-planner.json 없음)"
-    name = json.loads(p.read_text(encoding="utf-8")).get("_master")
+    row = next((item for item in team_rosters(root) if item["team"] == "planner"), None)
+    if row is None:
+        return "확인 불가(planner 현역 명단 없음)"
+    if row["diag"] != "OK":
+        return f"확인 불가(planner 판정 불가({row['diag']}))"
+    name = row["doc"].get("_master")
     if not name:
         return "확인 불가(seats-planner.json 에 _master 없음)"
     return name if name in alive else f"확인 불가({name} tmux 세션 없음)"
@@ -180,8 +183,20 @@ def collect(files: list[Path] | None = None) -> dict:
     ft_sheet_events.reconcile(root)  # 사건 원장 — .committed 만 append(dedup). .prepared 는 건드리지 않는다(시트 «확인 중 N» · 판단 0). dict 는 그대로
     alive = env.tmux_alive()
     vds = env.verdicts(root, date)
-    files = files or sorted((root / ".fable-team").glob("seats*.json"))
+    roster_rows = team_rosters(root)
+    if files:
+        wanted = {Path(p) for p in files}
+        roster_rows = [row for row in roster_rows if row["seats_path"] in wanted]
+    files = [row["seats_path"] for row in roster_rows]
     mail = Mail(root)
-    teams = [team_or_error(root, f, alive, date, vds, mail) for f in files]
+    teams = []
+    for row in roster_rows:
+        if row["diag"] != "OK":
+            doc = row["doc"] if isinstance(row["doc"], dict) else {}
+            msg = f"판정 불가({row['diag']})"
+            print(f"WARN {row['team']} {msg}", file=sys.stderr)
+            teams.append({"key": row["team"], "label": doc.get("_label") or row["team"], "error": msg})
+        else:
+            teams.append(team_or_error(root, row["seats_path"], alive, date, vds, mail))
     attach_team_states(root, alive, env.now(), teams, files)
     return {"date": date, "decision": decision(root, alive), "verdicts": vds, "issues": env.gh_issues(root), "teams": teams}

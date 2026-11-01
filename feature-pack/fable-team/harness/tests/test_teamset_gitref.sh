@@ -4,6 +4,7 @@
 # ★GIT_DIR 류 금지(R121) — 다른 리포 객체는 `git -C`.
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
+export LC_ALL=C
 export FT_ALLOW_TRACKED_BIN=1
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY FT_TEAMSET_MD FT_TEAMSET_ROOT
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
@@ -38,9 +39,11 @@ EOF
 G add design/TEAMSET.md; G commit -q -m "표 착지"; C2="$(G rev-parse HEAD)"; SHA10="$(G rev-parse --short=10 "$C2")"
 G update-ref refs/remotes/origin/main "$C2"
 # r921: all-stop 판정이 state 폴더+원장 init 줄을 요구한다(픽스처 구멍 — 사전 결함)
-mkdir -p "$T/repo/.fable-team/comm" "$T/repo/.fable-team/state"
+mkdir -p "$T/repo/.fable-team/comm" "$T/repo/.fable-team/state" "$T/repo/.worktrees/test/design/alpha/indices"
+mkdir -p "$T/repo/design"
+printf '| 팀 | 폴더 | 오케 | 상태 |\n|---|---|---|---|\n| alpha | `design/alpha/` | x | 현역 |\n' > "$T/repo/design/TEAMS.md"
 printf '2026-10-21T00:00:00\toff\tinstall\tinit\n' > "$T/repo/.fable-team/state/all-stop.log"
-echo '{"_name":"alpha","_master":"byz-alpha-master-claude#1","_arch":"byz-alpha-arch-claude#1"}' > "$T/repo/.fable-team/seats-alpha.json"
+echo '{"_name":"alpha","_label":"alpha","_master":"byz-alpha-master-claude#1","_arch":"byz-alpha-arch-claude#1","_cards":"design/alpha/indices","_cards_wt":"test"}' > "$T/repo/.fable-team/seats-alpha.json"
 G worktree add -q --detach "$T/wt" "$C1"   # 표 없는 커밋의 워크트리 = 팀 워크트리 상황
 [ ! -f "$T/wt/design/TEAMSET.md" ] && ok "전제: 워크트리에 표 파일 없음" || bad "전제 어긋남"
 mkdir -p "$T/wt/design/alpha/indices/대기"; echo "# 카드" > "$T/wt/design/alpha/indices/대기/x.md"

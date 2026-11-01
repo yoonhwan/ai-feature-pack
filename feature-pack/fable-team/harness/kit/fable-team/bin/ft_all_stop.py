@@ -15,7 +15,6 @@ ALL_STOP.json(JSON: since·by·reason·notify_failed) = <리포 공용 루트>/.
 env: FT_ROOT(리포 루트) · FT_NOW(시험) · FT_MBOX_SH(쪽지) · FT_ALL_STOP_BY(켠 사람 칸 · 없으면 tmux 세션 이름 · 그것도 없으면 unknown).
 rc: 0 통과·성공 · 1 check 켜짐(REJECT) · 2 usage · 3 상태는 바뀜·통지 일부 실패.
 """
-import glob
 import json
 import os
 import re
@@ -25,7 +24,7 @@ import time
 from pathlib import Path
 
 from ft_penalty import load_teams, now, root, state_dir
-from ft_team_lib import TeamPathError, team_rows_ref
+from ft_team_lib import TeamPathError, rosters as team_rosters, team_rows_ref
 
 HEAD = "## 정지 직전"
 LOG = "all-stop.log"  # 원장(덧붙이기 전용) — 꺼짐의 유일한 증거 = 마지막 off 줄 (DA⑥ r2 재설계)
@@ -122,7 +121,7 @@ def _off_body(t: dict[str, object]) -> str:
 def notify(p: Path | None, d: dict[str, object], only: list[str] | None, body) -> tuple[list[str], list[str]]:  # type: ignore[no-untyped-def]
     """명부 팀장에게 보냄(only = 이 좌석만) → (보낸 것, 실패) · 실패는 그 상태 파일(p) notify_failed 에 남긴다."""
     sent, failed = [], []
-    for t in load_teams(root()):
+    for t in (team for team in load_teams(root()) if team["diag"] == "OK"):
         m = str(t["master"] or "")
         if m and (only is None or m in only):
             try:
@@ -253,7 +252,7 @@ def status() -> int:
         return 0
     since = d.get("since", 0)
     print(f"all_stop=on since={_iso(since)} by={d.get('by')} reason={d.get('reason')} notify_failed={','.join(map(str, d.get('notify_failed') or [])) or '-'}")  # type: ignore[arg-type]
-    for t in load_teams(root()):
+    for t in (team for team in load_teams(root()) if team["diag"] == "OK"):
         try:
             cands = _cands(t)
         except TeamPathError as e:  # r688 H1: 그 팀 줄에 사유 · 다른 팀 줄은 계속
@@ -332,11 +331,14 @@ def succession(old: str, new: str) -> tuple[bool, str]:
             return False, f"구 좌석 세션 없음({old})"
         reboot = f"재부팅 승계(부팅 {_hm(boot)} > 정지 {_hm(since)})"
     rows = []
-    for f in glob.glob(str(root() / ".fable-team/seats*.json")):
-        try:
-            row = json.loads(Path(f).read_text(encoding="utf-8")).get(old)
-        except (OSError, ValueError, AttributeError):
+    for roster in team_rosters(root()):
+        doc = roster["doc"]
+        if roster["diag"] != "OK":
+            print(f"WARN {roster['team']} 판정 불가({roster['diag']}) — 승계 좌석 확인 제외")
             continue
+        if not isinstance(doc, dict):
+            continue
+        row = doc.get(old)
         if isinstance(row, dict):
             rows.append(row)
     if not rows:  # r4(DA⑥ r3): 명부 밖 이름 = 거절 — tmux 세션만으로는 좌석 증거가 아니다

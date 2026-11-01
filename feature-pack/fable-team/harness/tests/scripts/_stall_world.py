@@ -43,6 +43,9 @@ class World:
     def __init__(self, tmp: Path):
         self.root = tmp / "repo"
         self.stub = tmp / "stub"
+        teams = self.root / "design/TEAMS.md"
+        teams.parent.mkdir(parents=True)
+        _ = teams.write_text("| 팀 | 폴더 | 오케 | 상태 |\n|---|---|---|---|\n", encoding="utf-8")
         for d in ("turn", "jsonl"):
             (self.stub / d).mkdir(parents=True)
         (self.root / ".fable-team/state").mkdir(parents=True)
@@ -50,6 +53,7 @@ class World:
         self.env = dict(os.environ)
         self.env.update(
             FT_ROOT=str(self.root), FT_STUB=str(self.stub), FT_NOW=str(NOW),
+            FT_TEAMS_MD=str(teams),
             FT_SEAT_STATUS=str(_exe(self.stub / "seat-status.sh", STATUS)), FT_TMUX=str(_exe(self.stub / "tmux.sh", TMUX)),
             FT_MBOX_SH=str(_exe(self.stub / "mbox.sh", MBOX)), FT_INDEX_LINT=str(_exe(self.stub / "lint.sh", LINT)),
             FT_MBOX_DIR=str(self.root / ".fable-team/comm"),
@@ -70,12 +74,24 @@ class World:
         if replaces:
             rows[master] = {**rows[master], "_replaces": replaces}  # 승계 계보 — 옛 팀장 이름
         _ = (self.root / f".fable-team/seats-{label}.json").write_text(json.dumps(rows))
+        cards = self.root / f".worktrees/wt-{label}/design/{label}/indices"
+        cards.mkdir(parents=True, exist_ok=True)
+        self._team_row(label)
         self._tmux()
 
     def planner(self, seat: str) -> None:
         _ = (self.root / ".fable-team/seats-planner.json").write_text(json.dumps({"_master": seat, "_label": "planner", "_cards": "design/planner/indices", "_cards_wt": "wt-planner", seat: {"role": "master"}}))
+        (self.root / ".worktrees/wt-planner/design/planner/indices").mkdir(parents=True, exist_ok=True)
+        self._team_row("planner")
         self.live.append(seat)
         self._tmux()
+
+    def _team_row(self, team: str) -> None:
+        path = self.root / "design/TEAMS.md"
+        text = path.read_text(encoding="utf-8")
+        row = f"| {team} | `design/{team}/` | x | 현역 |\n"
+        if f"| {team} |" not in text:
+            _ = path.write_text(text + row, encoding="utf-8")
 
     def _tmux(self) -> None:
         _ = (self.stub / "tmux").write_text("".join(f"{s} 0\n" for s in self.live))

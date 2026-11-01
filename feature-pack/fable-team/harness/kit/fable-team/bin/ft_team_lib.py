@@ -11,6 +11,7 @@ sparse 판(r486): team_root·team_in·team_in_ref 가 «tracked 인데 sparse �
 """
 from __future__ import annotations
 
+import json
 import os
 import re
 import signal
@@ -19,6 +20,7 @@ import sys
 import tempfile
 import time
 from pathlib import Path
+from typing import Any
 
 _FORM = re.compile(r"^(\$FT_HARNESS_ROOT/|\$\{FT_HARNESS_ROOT\}/)?design/(teams/)?[a-z0-9][a-z0-9_-]*/$")
 
@@ -170,8 +172,78 @@ def _rows_text(text: str) -> dict[str, str]:
     return rows
 
 
-def team_names(root: Path | None = None) -> list[str]:
-    return list(team_rows(teams_md(root)))
+def team_names(root: Path | None = None, state: str = "현역") -> list[str]:
+    """TEAMS.md의 팀 식별자만 돌려준다. 기본은 현역 팀이며, 판정 불가는 빈 목록과 구분한다."""
+    if state not in ("현역", "휴면", "삭제", "전체"):
+        raise TeamPathError(f"ERROR 팀 명단 판정 불가: 알 수 없는 상태 {state}")
+    try:
+        md = teams_md(root)
+        lines = md.read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeError, TeamPathError) as e:
+        raise TeamPathError(f"ERROR 팀 명단 판정 불가: {e}") from None
+
+    header: list[str] | None = None
+    names: list[str] = []
+    seen: set[str] = set()
+    for line in lines:
+        if not line.startswith("|"):
+            continue
+        cells = [cell.strip().strip("`") for cell in line.strip().strip("|").split("|")]
+        if {"팀", "폴더", "상태"}.issubset(cells):
+            header = cells
+            continue
+        if header is None or not cells or all(re.fullmatch(r":?-{3,}:?", c.replace(" ", "")) for c in cells):
+            continue
+        if len(cells) < len(header):
+            raise TeamPathError(f"ERROR 팀 명단 판정 불가: 표 행이 깨짐: {line}")
+        row = dict(zip(header, cells))
+        rel = re.sub(r"[\s`]", "", row["폴더"])
+        name = rel.rstrip("/").rsplit("/", 1)[-1]
+        row_state = row["상태"]
+        if not _FORM.match(rel) or row_state not in ("현역", "휴면", "삭제"):
+            raise TeamPathError(f"ERROR 팀 명단 판정 불가: 팀 행이 깨짐: {line}")
+        if name not in seen and (state == "전체" or row_state == state):
+            names.append(name)
+            seen.add(name)
+    if header is None:
+        raise TeamPathError(f"ERROR 팀 명단 판정 불가: 표 머리글 없음: {md}")
+    return names
+
+
+def rosters(root: Path | None = None, active: bool = True) -> list[dict[str, Any]]:
+    """현역 명단을 seats*.json 문서 및 카드 경로와 결합해 진단 정보를 돌려준다."""
+    base = Path(root or repo_root())
+    teams = team_names(base, "현역" if active else "전체")
+    result: list[dict[str, Any]] = []
+    for team in teams:
+        seats_path = base / ".fable-team" / ("seats.json" if team == "v65" else f"seats-{team}.json")
+        row: dict[str, Any] = {"team": team, "seats_path": seats_path, "doc": None, "cards": None, "diag": "OK"}
+        if not seats_path.is_file():
+            row["diag"] = "명부 없음"
+        else:
+            try:
+                doc = json.loads(seats_path.read_text(encoding="utf-8"))
+            except (OSError, UnicodeError, ValueError):
+                row["diag"] = "JSON 실패"
+            else:
+                if not isinstance(doc, dict):
+                    row["diag"] = "JSON 실패"
+                else:
+                    row["doc"] = doc
+                    if not doc.get("_master"):
+                        row["diag"] = "_master 빔"
+                    elif not doc.get("_cards"):
+                        row["diag"] = "_cards 없음"
+                    else:
+                        cards_base = base / ".worktrees" / str(doc["_cards_wt"]) if doc.get("_cards_wt") else base
+                        cards = Path(str(doc["_cards"]))
+                        if not cards.is_absolute():
+                            cards = cards_base / cards
+                        row["cards"] = cards
+                        if not cards.is_dir():
+                            row["diag"] = "폴더 없음"
+        result.append(row)
+    return result
 
 
 def team_rel(team: str, root: Path | None = None) -> str:

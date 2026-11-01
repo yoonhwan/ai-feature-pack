@@ -65,7 +65,7 @@ def turn_on(reason: str) -> int:
     if load() is not None:
         print("penalty=on (이미 켜짐)")
         return 0
-    teams = load_teams(root())
+    teams = [team for team in load_teams(root()) if team["diag"] == "OK"]
     teams = [t for t in teams if t["team"] not in EXEMPT]
     order = [t["team"] for t in teams]
     (state_dir()).mkdir(parents=True, exist_ok=True)
@@ -131,7 +131,7 @@ def resume(team: str) -> int:
     else:
         _ = (state_dir() / "PENALTY_STOP").write_text(json.dumps(d, ensure_ascii=False), encoding="utf-8")
         print(f"resumed={team} · 남은 팀 {','.join(t for t in d.get('order') or [] if t not in resumed)}")  # type: ignore[union-attr]
-    for t in load_teams(root()):
+    for t in (team for team in load_teams(root()) if team["diag"] == "OK"):
         if t["team"] == team and t["master"]:
             mail(t["master"], f"[페널티 해제] 팀 {team} 재개 — 발주·spawn 가능. 멈춘 좌석이 다시 생기면 같은 페널티다.")
     return 0
