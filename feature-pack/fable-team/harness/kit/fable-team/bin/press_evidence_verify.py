@@ -4,7 +4,7 @@
   deploy : 배포 직전 검사(cd-dev·cd-prod) — 배포 커밋 C 의 배포 경로 트리 == 어떤 «통과» 묶음 세트 E 의 배포 경로 트리(문서 면제 0 · D8)
            · 미상환 빚(refs/press-debt/<착지> 중 C 의 조상 ∧ refs/press-debt-paid 없음)이면 그 빚 착지를 조상으로 가진 세트의 묶음이어야
   묶음 = 커밋 1개(부모 = 세트 E · 트리 = meta.txt·poller_dom.jsonl·table.md·turbopack.txt) · ref = refs/press/<E>-<run_id>(원격 · 머신 무관)
-  배포 경로 = 그 트리의 .github/workflows/cd-dev.yml paths-filter 합집합(못 읽으면 판정 불가 = 거절 · D1)
+  음성 경로(r1274) = 그 트리의 docs/rules/press_voice_paths.md «## 목록» 절 글롭(없음·빈 목록·꼴 틀림 = 판정 불가 = 거절 · D1) · env FT_PRESS_SCOPE=deploy = 옛 cd-dev.yml paths-filter 합집합
   외부 호출 = fetch 7 s + 재시도 1(실패 = 판정 불가 1줄) · push = min(고정비 9 + 7, 70) s + 재시도 1 + 끊긴 뒤 ls-remote 확인(r1254). rc 0 통과 · 1 거절 · 2 사용법.
 """
 import argparse
@@ -15,6 +15,8 @@ import subprocess
 import sys
 
 WORKFLOW = ".github/workflows/cd-dev.yml"
+VOICE_LIST = "docs/rules/press_voice_paths.md"   # r1274 BYZ 정본 음성 경로 목록(바꾸는 법 = 문서 PR)
+VOICE_GLOB = re.compile(r"^- `([^\s`]+)`$")
 POLLER_KEYS = ("axis", "epoch_ms")   # 실 poller_dom.jsonl 공통 칸(arch#190 질문 #211296)
 AXES = ("아키텍처 문서", "코드", "로그", "화면")
 FILES = ("meta.txt", "poller_dom.jsonl", "table.md", "turbopack.txt")
@@ -88,7 +90,23 @@ def fetch_refs(repo, remote):   # --prune: 원격에 없는 묶음·빚 ref 는 
     net(repo, "fetch", "--quiet", "--prune", remote, *["+%s/*:%s/*" % (n, n) for n in NS])
 
 
-def patterns(repo, rev):   # cd-dev.yml «filters: |» 블록의 «- '<글롭>'» 합집합
+def patterns(repo, rev):   # r1274: rev 트리의 BYZ 정본 음성 경로 목록 «## 목록» 절 · «- `<글롭>`» 줄만(빈 줄·한 줄 <!-- --> 만 건너뜀 · 다른 줄 = 판정 불가) · FT_PRESS_SCOPE=deploy = 옛 cd-dev.yml 범위
+    if os.environ.get("FT_PRESS_SCOPE") == "deploy":
+        return deploy_patterns(repo, rev)
+    rc, txt = run(repo, "show", "%s:%s" % (rev, VOICE_LIST))
+    out, ins = set(), False
+    for n, line in enumerate(txt.splitlines() if rc == 0 else [], 1):
+        s = line.rstrip()
+        ins = (s == "## 목록") if s.startswith("## ") else ins
+        m = VOICE_GLOB.match(s)
+        if ins and s and not s.startswith("## ") and not (s.startswith("<!--") and s.endswith("-->")):
+            if not m:
+                raise Reject("판정 불가: 음성 경로 목록 꼴 틀림(%s:%d)" % (rev[:10], n))
+            out.add(m.group(1))
+    return out
+
+
+def deploy_patterns(repo, rev):   # 옛 범위: cd-dev.yml «filters: |» 블록의 «- '<글롭>'» 합집합
     rc, txt = run(repo, "show", "%s:%s" % (rev, WORKFLOW))
     out, ind = set(), None
     for line in txt.splitlines() if rc == 0 else []:
@@ -104,7 +122,8 @@ def patterns(repo, rev):   # cd-dev.yml «filters: |» 블록의 «- '<글롭>'�
 
 def specs_of(repo, *revs):   # 첫 rev(검사 트리)의 표가 비면 판정 불가 · 나머지 rev 표는 합집합으로 더한다
     if not patterns(repo, revs[0]):
-        raise Reject("판정 불가: 배포 경로 표 없음(%s:%s paths-filter)" % (revs[0][:10], WORKFLOW))
+        raise Reject("판정 불가: 음성 경로 목록 없음(%s:%s)" % (revs[0][:10], VOICE_LIST) if os.environ.get("FT_PRESS_SCOPE") != "deploy"
+                     else "판정 불가: 배포 경로 표 없음(%s:%s paths-filter)" % (revs[0][:10], WORKFLOW))
     return [":(glob)" + p for p in sorted(set().union(*(patterns(repo, r) for r in revs)))]
 
 
@@ -193,17 +212,23 @@ def bundle(repo, ref, commit):   # 묶음 1개 결속(meta 세트 = 부모 = ref
     return {"ref": ref, "commit": commit, "set": s, "run": rid, "tp": tp}
 
 
-def pick(repo, target, specs):   # 배포 경로 트리가 target 과 같은 세트의 «통과» 묶음들 + 첫 거절 사유
+def pick(repo, target, specs):   # 음성 경로 트리가 target 과 같은 세트의 «통과» 묶음들 + 첫 거절 사유 · r1274 비교 목록 = specs ∪ 묶음 세트 E 의 목록(자기 경로 지우기 0)
     good, why, n = [], "", 0
     for ref, c in sorted(refs(repo, "refs/press").items()):
         n += 1
-        if not same(repo, git(repo, "rev-parse", c + "^").strip(), target, specs):
+        e = git(repo, "rev-parse", c + "^").strip()
+        try:
+            both = sorted({*specs, *(":(glob)" + p for p in patterns(repo, e))})
+        except Reject as r:
+            why = why or str(r)
+            continue
+        if not same(repo, e, target, both):
             continue
         try:
             good.append(bundle(repo, ref, c))
         except Reject as r:
             why = why or str(r)
-    return good, why or "묶음 없음(배포 경로 트리가 같은 세트의 refs/press/* 0 · 검사 %d개)" % n
+    return good, why or "묶음 없음(음성 경로 트리가 같은 세트의 refs/press/* 0 · 검사 %d개)" % n
 
 
 def unpaid(repo, upto):   # 빚 착지가 upto 의 조상(main 위)인데 상환 ref 없음 — 착지 못 한 빚 ref 는 조상 아님 = 무시
