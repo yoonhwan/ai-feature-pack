@@ -15,6 +15,8 @@ cut() {
     local fields
     if [ "${1:-}" = "-d·" ]; then fields="${2#-f}"; else fields="${3#-f}"; fi
     command python3 -c 'import sys; a=sys.argv[1]; lo,sep,hi=a.partition("-"); lo=int(lo); hi=int(hi) if sep and hi else lo; [print("·".join(line.rstrip("\n").split("·")[lo-1:hi])) for line in sys.stdin]' "$fields"
+  elif [[ "${1:-}" == -c* ]]; then
+    command python3 -c 'import sys; a=sys.argv[1][2:]; lo,sep,hi=a.partition("-"); lo=int(lo); hi=int(hi) if sep and hi else lo; [print(line.rstrip("\n")[lo-1:hi]) for line in sys.stdin]' "$1"
   else
     command cut "$@"
   fi
