@@ -19,6 +19,7 @@ import time
 from pathlib import Path
 
 import ft_penalty
+import ft_stall_headline as headline
 from ft_stall_detect import IDLE_MIN, agent_sessions, ctx_pct, lead_alert, lead_heartbeat_min, lead_names, load_teams, off_roster_live, pending_mail, policy_stop, run, spawn_capacity, waiting_cards
 from ft_stall_seats import Seats
 import ft_stall_state as stm
@@ -137,6 +138,10 @@ class Scan:
         if stop:
             out.append(dict(kind="c", seat="harness", team="-", age=0.0, why=stop))  # 정지 1건 = 하네스 전체
         out += self.find_e(teams)
+        headline_found, headline_unknown, headline_notes = headline.find(self.root, teams, self.now, stop)
+        out += headline_found
+        unknown += headline_unknown
+        notes += headline_notes
         for f in out:
             f["attached"] = self.live.get(f["seat"], 0) > 0
             f["held"] = held(f["team"])
@@ -239,6 +244,15 @@ class Scan:
     def send(self, to: str, body: str, urgent: bool = True) -> int:
         return run(["bash", self.mbox, "send", to, self.sender, body] + (["--urgent"] if urgent else []))[0]
 
+    def send_headline(self, to: str, body: str) -> int:
+        cmd = ["bash", self.mbox, "send", to, self.sender, body, "--urgent"]
+        rc = 99
+        for _ in range(2):
+            rc = run(cmd, timeout=7)[0]
+            if rc == 0:
+                break
+        return rc
+
     def wake(self, seat: str, seq: int | None) -> bool:
         self.live = self.sessions()  # 직전 재확인 — 그 사이 attached 되거나 WORKING 이 됐으면 0
         age = self.idle_age(seat, fresh=True)  # r638 — 한 번만 새로 읽는다(캐시를 다시 읽으면 그 사이 WORKING → None < float TypeError)
@@ -289,11 +303,11 @@ class Scan:
         pen = ft_penalty.load()
         found, unknown = self.find(pen)
         handled, prev = self.st.get("handled", {}), set(self.st.get("prev", []))
-        keys = {f"{f['kind']}:{f['seat']}": f for f in found}
-        counts = {k: sum(1 for f in found if f["kind"] == k) for k in "abcdef"}
+        keys = {f"{f['kind']}:{f['seat']}": f for f in found if f["kind"] != "h"}
+        counts = {k: sum(1 for f in found if f["kind"] == k) for k in "abcdefh"}
         trig = sorted(k for k, f in keys.items() if k[0] in "abd" and k in prev and f["seat"] in handled and not f["attached"] and not f["held"])
-        lines = [f"stall={len(found)} a={counts['a']} b={counts['b']} c={counts['c']} d={counts['d']} e={counts['e']} seats={len(self.live)} u={unknown} ts={int(self.now)} l={len(self.loggedout)} f={counts['f']}"]
-        lines += [f"{f['kind']} {f['seat']} {f['age']:.0f} {f['why']}" + ("" if f["kind"] == "e" else " (attached·처리 0)" if f["attached"] else " (정지 중 처리 0)" if f["held"] else "") for f in found]
+        lines = [f"stall={len(found) - counts['h']} a={counts['a']} b={counts['b']} c={counts['c']} d={counts['d']} e={counts['e']} seats={len(self.live)} u={unknown} ts={int(self.now)} l={len(self.loggedout)} f={counts['f']} h={counts['h']}"]
+        lines += [f"{f['kind']} {f['seat']} {f['age']:.0f} {f['why']}" + ("" if f["kind"] in ("e", "h") else " (attached·처리 0)" if f["attached"] else " (정지 중 처리 0)" if f["held"] else "") for f in found]
         lines += [f"l {s} 첫 실패 {e if e is None else int(e)} 로그아웃(재개 = 재시작)" for s, _, e in self.loggedout]
         lines += self.notes
         print("\n".join(lines))
@@ -308,8 +322,9 @@ class Scan:
         if not cell_err:
             log += self.act_e(found, stamp)  # e 는 알림만 — attached·페널티·10분 창과 무관, 서명으로만 1회
             log += self.act_l(stamp)  # r849 — 로그아웃 좌석 팀장 1통 · 칸(좌석 계보)으로만 1회
+            _ = headline.headline_alerts(self.root, found, self.live, self.now, self.send_headline)
         for f in found:
-            if cell_err or f["kind"] == "e" or f["kind"] == "b" and f["seat"] in d_seats:  # b+d 동시 = d 한 번(가장 오래된 pending seq ring · 새 send 생략)
+            if cell_err or f["kind"] in ("e", "h") or f["kind"] == "b" and f["seat"] in d_seats:  # b+d 동시 = d 한 번(가장 오래된 pending seq ring · 새 send 생략)
                 continue
             key = f.get("key", f["seat"])  # r1001 r3 — 팀장 경보 억제 키 = 팀(대상 좌석이 바뀌어도 같은 팀 10분 0통)
             if f["attached"] or f["held"] or self.now - float(handled.get(key, 0)) < REPEAT_S or f["kind"] != "f" and stm.recent_in_log(self.state_dir, f["seat"], self.now):
