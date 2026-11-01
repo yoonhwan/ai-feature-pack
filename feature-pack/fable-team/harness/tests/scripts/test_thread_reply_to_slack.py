@@ -23,8 +23,8 @@ import mirror_inbound as ib
 import thread_post_args as pa
 
 DESK = "byz-planner-desk-claude#29"
-T = "1792492349.071989"  # 오빠 새 최상위 글(10-20 19:32 실측)
-P = "1792422462.316339"  # 오빠 아침 최상위 글 = 스레드 뿌리
+T = f"{time.time() - 3600:.6f}"  # 오빠 새 최상위 글 · 재현 가능하게 현재 7일 창 안
+P = f"{time.time() - 3700:.6f}"  # 오빠 아침 최상위 글 = 스레드 뿌리
 OLD = f"{time.time() - 9 * 86400:.6f}"  # 창(7일) 밖
 # r585: 오빠 글 뿌리(스레드 첫 글) 원문 — 답 도구가 게시 전에 읽어 보여 준다
 ROOT = "오빠 글 뿌리: r558 답 자리 · desk 슬랙 · 번역 창 크기 — 3개 확인 부탁"
