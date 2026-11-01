@@ -277,13 +277,14 @@ def shim_deps(script):
     return [d for d in deps if os.path.isfile(d)]
 
 
-def restart_scan(pdir, project):
+def restart_scan(pdir, project=None):
     """r459: <pdir>/*.plist 중 ProgramArguments 가 하네스 스크립트(.fable-team/bin · fable-team/live/<ver>/bin)이고 적재·PID 있는 데몬의
-    project 안에 있는 데몬만 검사한다. 기동 시각 < 스크립트(shim 이면 LIVE_BIN 지도·라이브 도구까지) mtime → RESTART 줄. 실행 0."""
+    project가 주어지면 해당 프로젝트 소속만 검사한다. 기동 시각 < 스크립트(shim 이면 LIVE_BIN 지도·라이브 도구까지) mtime → RESTART 줄. 실행 0."""
     import plistlib
-    project = os.path.realpath(project)
-    if not os.path.isdir(project):
-        die("재기동 판정 불가: 프로젝트 루트 없음(%s)" % project)
+    if project is not None:
+        project = os.path.realpath(project)
+        if not os.path.isdir(project):
+            die("재기동 판정 불가: 프로젝트 루트 없음(%s)" % project)
     try:
         names = sorted(os.listdir(pdir))
     except FileNotFoundError:
@@ -301,20 +302,23 @@ def restart_scan(pdir, project):
             continue
         label = d.get("Label") or name[: -len(".plist")]
         args = [a for a in (d.get("ProgramArguments") or []) if isinstance(a, str) and HARNESS_SCRIPT.search(a)]
-        env = d.get("EnvironmentVariables") if isinstance(d.get("EnvironmentVariables"), dict) else {}
-        roots = [d.get("WorkingDirectory"), env.get("FT_ROOT")]
-        belongs = any(isinstance(root, str) and os.path.realpath(root) == project for root in roots)
-        if not belongs:
-            for arg in args:
-                for path in (os.path.abspath(arg), os.path.realpath(arg)):
-                    try:
-                        belongs = os.path.commonpath((project, path)) == project
-                    except ValueError:
-                        continue
+        if project is not None:
+            env = d.get("EnvironmentVariables") if isinstance(d.get("EnvironmentVariables"), dict) else {}
+            roots = [d.get("WorkingDirectory"), env.get("FT_ROOT")]
+            belongs = any(isinstance(root, str) and os.path.realpath(root) == project for root in roots)
+            if not belongs:
+                for arg in args:
+                    for path in (os.path.abspath(arg), os.path.realpath(arg)):
+                        try:
+                            belongs = os.path.commonpath((project, path)) == project
+                        except ValueError:
+                            continue
+                        if belongs:
+                            break
                     if belongs:
                         break
-                if belongs:
-                    break
+        else:
+            belongs = True
         if not belongs:
             continue
         deps = [x for a in args for x in shim_deps(a)]
@@ -468,9 +472,16 @@ def is_shim(path):
 def main():
     sys.stdout.reconfigure(encoding="utf-8", errors="backslashreplace")  # 로케일과 무관하게 한글은 원형 · non-UTF8 경로는 \udcff 대신 이스케이프 출력
     if sys.argv[1:2] == ["--restart-scan"]:  # r459: install.sh --apply 끝 — RESTART 줄만(읽기 전용 · rc0)
-        if len(sys.argv) != 4 or sys.argv[2] != "--project":
-            sys.exit(2)
-        print("\n".join(restart_scan(os.path.join(os.environ["HOME"], "Library", "LaunchAgents"), sys.argv[3])) or "RESTART 0")
+        args = sys.argv[2:]
+        pdir = os.path.join(os.environ["HOME"], "Library", "LaunchAgents")
+        if args and args[0] != "--project":
+            pdir, args = args[0], args[1:]
+        project = None
+        if args:
+            if len(args) != 2 or args[0] != "--project":
+                sys.exit(2)
+            project = args[1]
+        print("\n".join(restart_scan(pdir, project)) or "RESTART 0")
         sys.exit(0)
     o = parse_args(sys.argv[1:])
     repo = resolve_kit(o)
