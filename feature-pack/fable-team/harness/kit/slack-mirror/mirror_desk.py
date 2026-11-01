@@ -91,7 +91,14 @@ class Desk:
                   send_main: Callable[[dict[str, object], bool, str, dict[str, object] | None], None] | None = None) -> None:
         """메인 → desk 순서. 채널마다 스레드 ts 를 «먼저» 고정·저장하고, 끝낸 채널은 done 에 남긴다(실패는 그대로 raise · 재시작이 이어간다)."""
         threads, done = item.setdefault("threads", {}), item.setdefault("done", [])
-        for name, d, it in (("main", main, item), ("desk", self.deliv, {**item, "text": self.text(item)})):
+        desk_item = {**item, "text": self.text(item)}
+        label, _ = lib.classify(str(item["text"]))
+        head = lib.desk_head(str(item["text"]))
+        if isinstance(item.get("question"), dict) or head in ("결정", "결정 대기"):
+            desk_item["root_kind"] = "결정"
+        elif label == "긴급" or head == "긴급":
+            desk_item["root_kind"] = "긴급"
+        for name, d, it in (("main", main, item), ("desk", self.deliv, desk_item)):
             if name in done:
                 continue
             if name in threads:

@@ -126,7 +126,8 @@ r7_env; FAKE_FAIL_TO="$PLANNER" run tick; export -n FAKE_FAIL_TO 2>/dev/null; p1
 [ "$t1" = 1 ] && [ "$s1$s2$s3$s4" = 2244 ] && [ "$p2:$m2" = "$((p1 + 2)):1" ] && grep -qF '[긴급] 배정 없는 카드 — 배정 없는 카드 0 · 대기 초과 1(부하 1)' "$R/sent.log" \
   && ok "R7 2통 · 같은 집합 0 · 사유만 바뀜 → 각 1통 · 판본·경과만 0 · planner 실패 → 다음 틱 planner 만 재송" || bad "R7 t1=$t1 s=$s1$s2$s3$s4 p=$p1/$p2 m=$m2 :: $(cat "$R/sent.log")"
 mv "$R/.fable-team/state/directive-roots.tsv" "$R/.fable-team/state/roots.off"; run tick; u1=$RC; run tick
-[ "$u1" = 3 ] && [ "$(sent "^$PLANNER.*배정 감시 판정 불가")" = 1 ] && ok "R7′ 판정 불가 → planner [긴급] 1통 · 다음 틱 억제" || bad "R7′ u1=$u1 :: $(tail -2 "$R/sent.log")"
+  [ "$u1" = 3 ] && [ "$(sent "^$PLANNER.*배정 감시 판정 불가")" = 0 ] && [ "$(wc -l < "$R/.fable-team/state/card-assign/undecided.log" | tr -d ' ')" = 2 ] \
+    && ok "R7′ 판정 불가 → 즉시 [긴급] 없이 undecided.log 2줄 · rc3" || bad "R7′ u1=$u1 :: $(tail -2 "$R/sent.log")"
 r7_env; mkdir -p "$R/.fable-team/comm" "$T/stub"; cp "$COMM"/mbox*.py "$COMM"/mbox*.sh "$LINT" "$R/.fable-team/comm/"; printf '#!/bin/sh\nexit 1\n' > "$T/stub/tmux"; chmod +x "$T/stub/tmux"
 OUT="$(cd "$R" && env -u FT_MBOX_SH PATH="$T/stub:$PATH" FT_ROOT="$R" FT_SEATS_JSON="$R/.fable-team/seats.json" FT_PLANNER_HEAD_MODE=reject FT_MBOX_DIR="$R/.fable-team/comm" FT_MBOX_RATE_N=999 FT_MBOX_FANOUT_WINDOW=0 python3 "$TOOL" tick 2>&1)"
 q="$(grep -c "\"to\": *\"$PLANNER\"" "$R/.fable-team/comm/mailbox.jsonl" 2>/dev/null)"

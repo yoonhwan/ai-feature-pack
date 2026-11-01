@@ -402,24 +402,96 @@ def render(rows: list[dict], stamp: str) -> list[str]:
     return out
 
 
-def tick(R: Path, now: float, rows: list[dict] | None, why: str, lines: list[str]) -> list[str]:
-    wd = adir(R)
-    mf = wd / "alarm.state"  # 원장(*.json) 과 섞이지 않게 확장자 다름
-    alarm = None if rows is None else [(x, ln) for x, ln in zip(rows, lines[1:]) if x["kind"] not in ("정지 중", "판정 불가")]
-    if alarm == []:
-        mf.unlink(missing_ok=True)
-        return ["tick 경보 0 · 표식 지움"]
-    marks = json.loads(mf.read_text(encoding="utf-8")) if mf.is_file() else {}
-    planner, log, groups = team_master(R, "planner"), [], {}
-    mbox, me = os.environ.get("FT_MBOX_SH") or str(R / ".fable-team/comm/mbox.sh"), os.environ.get("FT_CARD_ASSIGN_FROM", "ft-card-assign-watch")
+def _empty_undecided(day: str) -> dict:
+    return {"day": day, "n": 0, "first": None, "last": None, "reasons": {}}
+
+
+def _undecided_text(bucket: dict) -> str:
+    first, last = (time.strftime("%H:%M", time.localtime(bucket[k])) for k in ("first", "last"))
+    reasons = sorted(bucket["reasons"].items(), key=lambda x: (-x[1], x[0]))[:3]
+    top = " · ".join(f"{why} {n}" for why, n in reasons) or "없음"
+    return f"[정리] 배정 감시 판정 불가 묶음 {bucket['day']} {bucket['n']}회 · 첫 {first} · 마지막 {last} · 사유 상위 3: {top} (ft-card-assign-watch · 숫자로 읽지 말 것)"
+
+
+def _send_undecided(bucket: dict, planner: str | None, mbox: str, me: str) -> tuple[bool, str]:
+    if not planner:
+        return False, "tick 정리 발신 판정 불가 · planner 명부 없음"
+    try:
+        p = subprocess.run(["bash", mbox, "send", planner, me, _undecided_text(bucket)], capture_output=True, text=True, timeout=7)
+    except (OSError, subprocess.SubprocessError) as e:
+        return False, f"tick 정리 발신 판정 불가 · {e.__class__.__name__}"
+    if "QUEUED" in p.stdout + p.stderr:
+        return True, f"tick [정리] 1통 → {planner}"
+    return False, f"tick 정리 발신 판정 불가 · rc={p.returncode}"
+
+
+def _record_undecided(R: Path, now: float, alarm: list | None, why: str, marks: dict,
+                      planner: str | None, mbox: str, me: str) -> list[str]:
+    day, log = time.strftime("%Y-%m-%d", time.localtime(now)), []
+    bucket = marks.get("undecided_day")
+    pending = list(marks.get("undecided_pending", []))
+    if bucket and bucket.get("day") != day:
+        if bucket.get("n", 0):
+            pending.append(bucket)
+        bucket = _empty_undecided(day)
     if alarm is None:
-        groups[planner] = ("_undecided", [f"[긴급] 배정 감시 판정 불가 — {why} (ft-card-assign-watch · 숫자로 읽지 말 것)"], [("_undecided", why)])
-    for x, ln in alarm or []:
+        bucket = bucket or _empty_undecided(day)
+        reason = " ".join(why.split())
+        d = adir(R)
+        d.mkdir(parents=True, exist_ok=True)
+        with open(d / "undecided.log", "a", encoding="utf-8") as f:
+            f.write(f"{int(now)} {reason}\n")
+        bucket["n"] += 1
+        bucket["first"] = bucket["first"] or now
+        bucket["last"] = now
+        reasons = bucket.setdefault("reasons", {})
+        reasons[reason] = reasons.get(reason, 0) + 1
+    if bucket:
+        marks["undecided_day"] = bucket
+    remaining = []
+    for prior in pending:
+        sent, result = _send_undecided(prior, planner, mbox, me)
+        log.append(result)
+        if not sent:
+            remaining.append(prior)
+    if remaining:
+        marks["undecided_pending"] = remaining
+    else:
+        marks.pop("undecided_pending", None)
+    return log
+
+
+def _save_alarm(mf: Path, marks: dict) -> None:
+    if marks:
+        mf.parent.mkdir(parents=True, exist_ok=True)
+        mf.write_text(json.dumps(marks, ensure_ascii=False), encoding="utf-8")
+    else:
+        mf.unlink(missing_ok=True)
+
+
+def tick(R: Path, now: float, rows: list[dict] | None, why: str, lines: list[str]) -> list[str]:
+    mf = adir(R) / "alarm.state"
+    alarm = None if rows is None else [(x, ln) for x, ln in zip(rows, lines[1:]) if x["kind"] not in ("정지 중", "판정 불가")]
+    marks = json.loads(mf.read_text(encoding="utf-8")) if mf.is_file() else {}
+    planner = team_master(R, "planner")
+    mbox = os.environ.get("FT_MBOX_SH") or str(R / ".fable-team/comm/mbox.sh")
+    me = os.environ.get("FT_CARD_ASSIGN_FROM", "ft-card-assign-watch")
+    log = _record_undecided(R, now, alarm, why, marks, planner, mbox, me)
+    if alarm is None:
+        log.append("tick 판정 불가 기록 · rc3 유지")
+        _save_alarm(mf, marks)
+        return log
+    if alarm == []:
+        marks = {k: v for k, v in marks.items() if k.startswith("undecided_")}
+        _save_alarm(mf, marks)
+        return log + ["tick 경보 0 · 표식 지움"]
+    groups = {}
+    for x, ln in alarm:
         for to in dict.fromkeys([planner, team_master(R, x["team"])]):
             g = groups.setdefault(to, (to, [], []))
             g[1].append(ln)
             g[2].append((x["stem"], x["reason"], x["kind"]))
-    old = min((x for x, _ in alarm or []), key=lambda x: x["since"], default=None)
+    old = min((x for x, _ in alarm), key=lambda x: x["since"], default=None)
     oldest = f" · 가장 오래된 {old['stem']} · {hhmm(old['since']) if old['since'] else '-'} · {old['label']}" if old else ""
     for to, (key, body, keys) in groups.items():
         if not to:
@@ -428,16 +500,15 @@ def tick(R: Path, now: float, rows: list[dict] | None, why: str, lines: list[str
         h, m = hashlib.sha1(repr(sorted(keys)).encode()).hexdigest()[:12], marks.get(key) or {}
         if m.get("h") == h and now - float(m.get("t", 0)) < MUTE_S:
             continue
-        text = body[0] if alarm is None else "\n".join([f"[긴급] 배정 없는 카드 — {lines[0]}{oldest} · 원장에 좌석·대기 사유를 남기거나 spawn (ft-card-assign-watch)",
-                                                         *body[:3], *([f"외 {len(body) - 3}건"] if len(body) > 3 else [])])
+        text = "\n".join([f"[긴급] 배정 없는 카드 — {lines[0]}{oldest} · 원장에 좌석·대기 사유를 남기거나 spawn (ft-card-assign-watch)",
+                           *body[:3], *([f"외 {len(body) - 3}건"] if len(body) > 3 else [])])
         p = subprocess.run(["bash", mbox, "send", to, me, text], capture_output=True, text=True, timeout=7)
         if "QUEUED" in p.stdout + p.stderr:
             marks[key] = {"h": h, "t": now}
             log.append(f"tick 1통 → {to}")
         else:
             log.append(f"tick 발신 실패 → {to} rc={p.returncode} · 다음 틱 다시")
-    wd.mkdir(parents=True, exist_ok=True)
-    mf.write_text(json.dumps(marks, ensure_ascii=False), encoding="utf-8")
+    _save_alarm(mf, marks)
     return log
 
 
