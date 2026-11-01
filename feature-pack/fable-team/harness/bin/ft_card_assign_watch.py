@@ -125,20 +125,45 @@ def mirror(card: Path, val: str) -> None:
     tmp.replace(card)
 
 
-def record(card: Path, kind: str, arg: str, now: float, pause: dict | None = None, verdict: str | None = None) -> int:
+class Rejected(Exception):
+    """record 진입 거절(r1306) — main 이 1줄 인쇄 + rc1(조용한 통과 0)."""
+
+
+def resolve(R: Path, arg: str) -> tuple[Path, str | None]:
+    """record 인자 → (디스크 경로, tip 본문|None). 이름(stem)이면 status 와 같은 곳(tip 객체의 대기·진행·완성 · 같은 깊이)에서 찾는다 — 0 = REJECT rc1 · 2+ = REJECT rc1(원장 키가 이름이라 못 가른다) · tip 에만 있으면 원장만 쓰고 거울 0 · 경로 인자는 디스크만 본다(r1306).
+    카드 루트 표가 없으면 이름 풀이·중복 검사가 불가 = Undecided(rc3) — 단 경로 인자이고 그 파일이 디스크에 있으면 카드는 아는 것이므로 그대로 쓴다(표 없음이면 status 자체가 rc3)."""
+    stem, ispath = (m[:-3] if (m := arg.rsplit("/", 1)[-1]).endswith(".md") else m), "/" in arg or arg.endswith(".md")
+    if ispath and Path(arg).is_file() and not (R / ".fable-team/state/directive-roots.tsv").is_file():
+        return Path(arg), None
+    git, hits = Git(float(os.environ.get("FT_DIRECTIVE_GIT_SEC") or 7)), []
+    for r in strict_roots(R):
+        repo, base, depth = repo_of(R, r), r[3].split("*")[0].rstrip("/"), len(r[3].split("/"))
+        tip = git(repo, "rev-list", "-1", r[2]).strip()
+        paths = git(repo, "ls-tree", "-r", "--name-only", tip, "--", base).splitlines() if tip else []
+        hits += [(repo, tip, p) for p in paths if p.endswith(".md") and fnmatch(p, r[3] + "/*") and len(p.split("/")) == depth + 2 and p.split("/")[depth] in ("대기", "진행", "완성") and p.rsplit("/", 1)[-1][:-3] == stem and (repo, p) not in {(h[0], h[2]) for h in hits}]
+    if len(hits) > 1:
+        raise Rejected(f"REJECT 배정 원장 — 이름 중복 {stem} ({', '.join(h[2] for h in hits)}) · 원장 키가 이름이라 기록 불가 · 카드 이름을 바꿔라")
+    path = Path(arg) if ispath else Path(hits[0][0], hits[0][2]) if hits else Path(arg)
+    if path.is_file():
+        return path, None
+    if ispath or not hits:
+        raise Rejected(f"REJECT 배정 원장 — 카드 없음 {arg if ispath else stem + '(tip·디스크)'}")
+    print(f"NOTE 거울 줄 0 — 디스크에 카드 없음(tip 에만 · {hits[0][0]}:{hits[0][2]})")
+    return path, git(hits[0][0], "show", f"{hits[0][1]}:{hits[0][2]}")
+
+
+def record(card: str | Path, kind: str, arg: str, now: float, pause: dict | None = None, verdict: str | None = None) -> int:
     """spawn 종료 분기·성공이 부르는 공용 1함수 — init(원장 없을 때만 none) · waiting <사유> [hold <판정 N>|acct <P[/M]>](같은 사유·같은 정지 = 변경 0 · since = 이른 쪽 · 정지 표식은 사유가 바뀌어도 유지)
-    · seat <이름>(since 삭제). 거울 줄(없음 · 대기(사유 · since) · 좌석 이름)은 셋 다 같은 잠금 안에서 쓴다."""
-    stem = card.name[:-3] if card.name.endswith(".md") else card.name
+    · seat <이름>(since 삭제). 거울 줄(없음 · 대기(사유 · since) · 좌석 이름)은 셋 다 같은 잠금 안에서 쓴다. 카드 = 경로 또는 이름(stem — status 와 같은 곳에서 풀고, 못 찾거나 이름이 겹치면 REJECT rc1 · tip 에만 있으면 원장만 + NOTE · r1306)."""
+    stem = n[:-3] if (n := str(card).rsplit("/", 1)[-1]).endswith(".md") else n
     if kind == "waiting" and arg not in REASONS or kind == "seat" and (not arg or re.search(r"\s", arg)) or kind not in ("init", "waiting", "seat"):
         print(f"REJECT 배정 원장 값 꼴 — init | waiting <{'|'.join(REASONS)}> | seat <이름> (받은 값: {kind} {arg})")
         return 2
     if kind == "waiting" and arg == "사람" and not (verdict or "").isdigit():
         print("REJECT 사람 보류는 판정 번호 필수 — record <카드> waiting 사람 verdict <N>")
         return 2
-    if not card.is_file():
-        print(f"WARN 배정 원장 — 카드 없음 {card} · 기록 0")
-        return 0
-    urgent = urgent_head(head(card.read_text(encoding="utf-8")))
+    card, body = resolve(root(), str(card))
+    urgent = urgent_head(head(body if body is not None else card.read_text(encoding="utf-8")))
     with locked(root()) as d:
         old = load(d, stem)
         if kind == "init" and old or kind == "waiting" and old.get("state") == "waiting" and old.get("reason") == arg and (not pause or old.get("pause", {}).get("key") == pause["key"]) and old.get("verdict") == verdict:
@@ -158,7 +183,8 @@ def record(card: Path, kind: str, arg: str, now: float, pause: dict | None = Non
             if verdict and arg == "사람":
                 new["verdict"] = verdict
         save(d, stem, new)
-        mirror(card, f"좌석 {arg}" if kind == "seat" else "없음" if kind == "init" else f"대기({arg} · {time.strftime('%Y-%m-%dT%H:%M:%S', time.localtime(new['since']))})")
+        if body is None:  # tip 에만 있는 카드 = 디스크 쓰기 0(거울 줄을 만들지 않는다)
+            mirror(card, f"좌석 {arg}" if kind == "seat" else "없음" if kind == "init" else f"대기({arg} · {time.strftime('%Y-%m-%dT%H:%M:%S', time.localtime(new['since']))})")
     if kind != "init":  # init(진입 식별)은 조용히 — spawn 출력 첫 줄을 바꾸지 않는다
         print(f"배정 원장 {stem} → {new['state']} {arg}".rstrip())
     return 0
@@ -612,7 +638,10 @@ def main(argv: list[str]) -> int:
         try:
             pz = {"kind": argv[4], "key": argv[5] if len(argv) > 5 else ""} if len(argv) > 4 and argv[4] in ("hold", "acct") else None
             vd = argv[5] if len(argv) > 5 and argv[4] == "verdict" else None
-            return record(Path(argv[1]), argv[2], argv[3] if len(argv) > 3 else "", now or real, pz, vd)
+            return record(argv[1], argv[2], argv[3] if len(argv) > 3 else "", now or real, pz, vd)
+        except Rejected as e:
+            print(e)
+            return 1
         except Undecided as e:
             print(f"배정 원장 판정 불가 · {e}")
             return 3
