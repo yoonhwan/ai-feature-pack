@@ -15,8 +15,15 @@ import urllib.request
 from pathlib import Path
 
 import mirror_share as ms
+import mirror_head
+
+DESK_HEADS = mirror_head.DESK_HEADS
+classify = mirror_head.classify
+desk_head = mirror_head.desk_head
+strip_lead = mirror_head.strip_lead
 
 
+DESK_MENTION = "U0AC2JF0M7D"
 EXTERNAL_CALL_TIMEOUT_S, MAX_RETRIES = 7.0, 1  # 하드 룰 12 — 외부 호출 1회 7초 + 재시도 1(상한 뒤 raise)
 NO_RETRY = frozenset({"files.completeUploadExternal"})  # GET 꼴이지만 공유를 만드는 쓰기
 
@@ -104,21 +111,12 @@ def channel_roots(base: str, token: str, channel: str, limit: int = 100) -> list
     return _msgs(api_call(base, token, "conversations.history", {"channel": channel, "limit": limit}, get=True))
 
 
-_PREFIX = re.compile(r"^\s*\[[^\]]*->[^\]]*\]\s*")
-_TAG = re.compile(r"^\s*\[(HIL|BLOCK|긴급)\]\s*", re.IGNORECASE)
 # Issue 키 = «명시된 것»만: 「Issue/이슈/PR #N」 또는 본문 맨 앞 「#N」·「[#N]」. 좌석명 #N(승계 #0->#1)·5자리 mbox seq·#0 은 키가 아니다.
 _ISSUE = re.compile(r"(?:\b(?:Issue|issue|이슈|PR|pr)\s*#|^\s*\[?#)([1-9]\d{0,3})(?!\d)")
 _FULL = re.compile(r"상세\(전문\):\s*(\S+)")
 FULL_ROOTS = ("/tmp/mbox/", "/private/tmp/mbox/")
 FULL_CAP = 3500
 OTHER_KEY = "기타"
-
-
-def classify(body: str) -> tuple[str, str]:
-    """(라벨, 태그 뗀 본문) — 라벨은 보고|HIL|BLOCK|긴급."""
-    text = _PREFIX.sub("", body, count=1)
-    m = _TAG.match(text)
-    return (m.group(1).upper(), text[m.end():]) if m else ("보고", text)
 
 
 def thread_key(row: dict[str, object], text: str) -> str:

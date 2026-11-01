@@ -23,12 +23,14 @@ def is_target(row: dict[str, object], seat: re.Pattern[str], urgent: re.Pattern[
 
 
 def pick(rows: list[dict[str, object]], last_seq: int, seat: re.Pattern[str], max_n: int,
-         urgent: re.Pattern[str] | None = None, urgent_senders: frozenset[str] = frozenset()) -> list[int]:
+         urgent: re.Pattern[str] | None = None, urgent_senders: frozenset[str] = frozenset(),
+         desk_on: bool | None = None) -> list[int]:
     """밀린 게시 대상 seq 목록 — 상한을 넘을 때만 돌려준다(그 외 빈 목록 = 지금처럼 한 줄씩)."""
     if max_n <= 0:  # 0 이면 묶음 끔
         return []
+    enabled = bool(urgent_senders) if desk_on is None else desk_on
     seqs = [int(str(r["seq"])) for r in rows if int(str(r["seq"])) > last_seq and
-            is_target(r, seat, urgent, urgent_senders) and not desk.is_desk_dup(r, urgent_senders)]
+            is_target(r, seat, urgent, urgent_senders) and not desk.wants_desk(r, urgent_senders, enabled)]
     return seqs if len(seqs) > max_n else []
 
 
@@ -56,10 +58,12 @@ SKIP_ANCHOR = "if bl.skip_backlog(self, st, rows):"  # 변이 시험(test_mirror
 def skip_backlog(mirror, st: dict[str, object], rows: list[dict[str, object]]) -> bool:
     """밀린 게시 대상이 상한을 넘으면 요약 1통만 올리고 True(이번 패스는 행 루프 생략) — 미러 한 패스의 첫 분기."""
     last_seq = int(str(st["last_seq"]))
+    desk_on = bool(mirror.desk)
     hot = [int(str(r["seq"])) for r in rows if int(str(r["seq"])) > last_seq and
-           is_target(r, mirror.seat, mirror.urgent, mirror.urgent_senders) and desk.is_desk_dup(r, mirror.urgent_senders)]
+           is_target(r, mirror.seat, mirror.urgent, mirror.urgent_senders) and
+           desk.wants_desk(r, mirror.urgent_senders, desk_on)]
     prefix = [r for r in rows if not hot or int(str(r["seq"])) < min(hot)]
-    seqs = pick(prefix, last_seq, mirror.seat, mirror.a.backlog_max, mirror.urgent, mirror.urgent_senders)
+    seqs = pick(prefix, last_seq, mirror.seat, mirror.a.backlog_max, mirror.urgent, mirror.urgent_senders, desk_on)
     if not seqs:
         return False
     beyond = min(hot) - 1 if hot else int(str(rows[-1]["seq"]))

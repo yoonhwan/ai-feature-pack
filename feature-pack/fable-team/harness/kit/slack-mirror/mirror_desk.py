@@ -14,7 +14,7 @@ import mirror_lib as lib
 import mirror_questions as mq
 from mirror_deliver import Deliverer
 
-DESK_LABELS = ("HIL", "BLOCK", "긴급")
+DESK_LABELS = lib.DESK_HEADS
 DEFAULT_URGENT_FROM = "ft-api-outage,ft-decision-count"
 NOT_ALARM = "[재개]"  # ft-api-outage 가 좌석마다 보내는 재개 쪽지 — 장애 알림이 아니다
 
@@ -35,7 +35,8 @@ def urgent_from(row: dict[str, object], names: frozenset[str]) -> bool:
     """발신자 표에 있는 행인가 — 수신 필터(is_target)와 라벨 결정(row_label)이 같은 이 함수를 쓴다."""
     if str(row.get("from", "")) not in names:
         return False
-    return not lib.classify(str(row.get("body", "")))[1].lstrip().startswith(NOT_ALARM)
+    _, rest = lib.strip_lead(str(row.get("body", "")))
+    return not rest.lstrip().startswith(NOT_ALARM)
 
 
 def row_label(row: dict[str, object], names: frozenset[str]) -> tuple[str, str]:
@@ -43,8 +44,16 @@ def row_label(row: dict[str, object], names: frozenset[str]) -> tuple[str, str]:
     return ("긴급", text) if label == "보고" and urgent_from(row, names) else (label, text)
 
 
-def is_desk_dup(row: dict[str, object], names: frozenset[str]) -> bool:
-    return bool(names) and row_label(row, names)[0] in DESK_LABELS
+def wants_desk(row: dict[str, object], names: frozenset[str], desk_on: bool | None = None) -> bool:
+    if desk_on is None:
+        desk_on = bool(names)
+    if not desk_on:
+        return False
+    body = str(row.get("body", ""))
+    return row_label(row, names)[0] in DESK_LABELS or lib.desk_head(body) is not None
+
+
+is_desk_dup = wants_desk
 
 
 def desk_text(text: str, mention: str) -> str:

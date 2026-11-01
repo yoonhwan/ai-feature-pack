@@ -23,7 +23,8 @@ print("```")
 
 class FakeSlack:
     def __init__(self) -> None:
-        self.msgs: list[dict[str, str]] = []  # {"ts","text","thread_ts"}
+        self.msgs: list[dict[str, str]] = []  # {"ts","text","thread_ts","channel"}
+        self.requests: list[tuple[str, str, str]] = []
         self.fail_post = False
         self.fail_read = False
         outer = self
@@ -42,6 +43,7 @@ class FakeSlack:
 
             def do_POST(self) -> None:
                 data = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+                outer.requests.append(("POST", urlparse(self.path).path, str(data.get("channel", ""))))
                 if outer.fail_post:
                     return self._reply({"ok": False, "error": "channel_not_found"})
                 if urlparse(self.path).path.endswith("chat.update"):
@@ -51,7 +53,8 @@ class FakeSlack:
                             return self._reply({"ok": True, "ts": m["ts"]})
                     return self._reply({"ok": False, "error": "message_not_found"})
                 ts = f"{1000000000 + len(outer.msgs) + 1}.000000"
-                outer.msgs.append({"ts": ts, "text": data["text"], "thread_ts": data.get("thread_ts", ""), "bot_id": "B1"})
+                outer.msgs.append({"ts": ts, "text": data["text"], "thread_ts": data.get("thread_ts", ""),
+                                   "channel": data["channel"], "bot_id": "B1"})
                 self._reply({"ok": True, "ts": ts})
 
             def do_GET(self) -> None:
@@ -59,14 +62,18 @@ class FakeSlack:
                     return self._reply({"ok": False, "error": "missing_scope"})
                 u = urlparse(self.path)
                 q = parse_qs(u.query)
+                channel = q.get("channel", ["C1"])[0]
+                outer.requests.append(("GET", u.path, channel))
                 if u.path.endswith("conversations.history"):
-                    roots = [{**m, **outer._thread_meta(m)} for m in outer.msgs if not m["thread_ts"] and m["ts"] > q.get("oldest", ["0"])[0]]
+                    roots = [{**m, **outer._thread_meta(m)} for m in outer.msgs if not m["thread_ts"] and
+                             m.get("channel", "C1") == channel and m["ts"] > q.get("oldest", ["0"])[0]]
                     return self._reply(outer._page(list(reversed(roots)), q))
                 if u.path.endswith("chat.getPermalink"):
                     return self._reply({"ok": True, "permalink": f"https://fake.slack.com/archives/C1/p{q['message_ts'][0]}"})
                 ts = q["ts"][0]
                 oldest = q.get("oldest", ["0"])[0]
-                got = [m for m in outer.msgs if (m["ts"] == ts or m["thread_ts"] == ts) and (m["ts"] == ts or m["ts"] > oldest)]
+                got = [m for m in outer.msgs if m.get("channel", "C1") == channel and
+                       (m["ts"] == ts or m["thread_ts"] == ts) and (m["ts"] == ts or m["ts"] > oldest)]
                 self._reply(outer._page(got, q))
 
         self.srv = HTTPServer(("127.0.0.1", 0), H)
@@ -79,6 +86,7 @@ class FakeSlack:
         start = int(q.get("cursor", ["0"])[0])
         end = start + min(int(q.get("limit", ["100"])[0]), self.page_size)
         body: dict[str, object] = {"ok": True, "messages": items[start:end]}
+        body["has_more"] = end < len(items)
         if end < len(items):
             body["response_metadata"] = {"next_cursor": str(end)}
         return body
@@ -87,10 +95,10 @@ class FakeSlack:
         kids = [m["ts"] for m in self.msgs if m["thread_ts"] == root["ts"]]
         return {"latest_reply": max(kids)} if kids else {}
 
-    def human(self, text: str, thread_ts: str = "", user: str = "U0AC2JF0M7D") -> str:
+    def human(self, text: str, thread_ts: str = "", user: str = "U0AC2JF0M7D", channel: str = "C1") -> str:
         """사람(봇 아님) 글 한 건을 심는다 — 오빠 reply·루트 글 시험용."""
         ts = f"{time.time() + len(self.msgs) * 0.001:.6f}"  # 실시간 기준 — 미러 baseline 이후 글로 읽힌다
-        self.msgs.append({"ts": ts, "text": text, "thread_ts": thread_ts, "user": user})
+        self.msgs.append({"ts": ts, "text": text, "thread_ts": thread_ts, "user": user, "channel": channel})
         return ts
 
     @property
@@ -98,4 +106,5 @@ class FakeSlack:
         return [m for m in self.msgs if not m["thread_ts"]]
 
     def replies(self, root: dict[str, str]) -> list[dict[str, str]]:
-        return [m for m in self.msgs if m["thread_ts"] == root["ts"]]
+        return [m for m in self.msgs if m["thread_ts"] == root["ts"] and
+                m.get("channel", "C1") == root.get("channel", "C1")]
