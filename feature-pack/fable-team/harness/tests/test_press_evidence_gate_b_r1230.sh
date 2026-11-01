@@ -9,7 +9,7 @@ set -uo pipefail
 # ===== R9: docs 만 · design 증거만 · scripts/server 만 → 대상 밖 · 착지 =====
 for n in 91:docs/a.md 92:design/t/evidence/a.json 93:scripts/server/run.sh; do
   mkpr "${n%%:*}" "b${n%%:*}" "${n#*:}=z"; land "$LAND" "${n%%:*}" --approve-sha "$PRSHA"
-  [ "$rc" = 0 ] && [[ "$out" == *"LANDED pr=${n%%:*} "* ]] && [[ "$out" == *"press 증거 대상 밖(배포 경로 변경 0)"* ]]; ck "R9 ${n#*:} 만 → 대상 밖 · 착지" $?
+  [ "$rc" = 0 ] && [[ "$out" == *"LANDED pr=${n%%:*} "* ]] && [[ "$out" == *"press 증거 대상 밖(음성 경로 변경 0)"* ]]; ck "R9 ${n#*:} 만 → 대상 밖 · 착지" $?
 done
 # ===== R10: 정확 역변경 → 통과 + 빚 · 역변경 + 새 worker 줄 섞임(제목 Revert) → REJECT =====
 mkpr 100 b100 "worker/l.py=L"; pk "$PRSHA" r100; land "$LAND" 100 --approve-sha "$PRSHA"; L="$(omain)"; [ "$rc" = 0 ]; ck "R10 준비: worker 착지 L" $?

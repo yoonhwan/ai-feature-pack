@@ -41,6 +41,16 @@ jobs:
   gateway:
     needs: [changes]
 EOF
+mkdir -p "$W/docs/rules"; cat > "$W/docs/rules/press_voice_paths.md" <<'EOF'
+# 음성 경로 목록(시험 틀 · r1274 — 옛 cd-dev.yml filters 와 같은 글롭이라 r1230 시험 기대가 그대로)
+## 목록
+<!-- 한 줄에 글롭 하나 -->
+- `.github/workflows/cd-dev.yml`
+- `gateway/**`
+- `worker/**`
+- `pyproject.toml`
+- `clients/web/**`
+EOF
 printf 'w0\n' > "$W/worker.keep"; mkdir -p "$W/worker"; printf 'l0\n' > "$W/worker/l.py"; cm "$W" "cd-dev"; git -C "$W" push -q origin main
 omain() { sha "$ORIGIN" refs/heads/main; }
 put() { mkdir -p "$(dirname "$REPO/$1")"; printf '%s\n' "$2" > "$REPO/$1"; }
