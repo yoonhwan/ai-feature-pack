@@ -74,7 +74,7 @@ def apply_team(root: Path, team: str, own_tick: bool, fix_fields: bool, dry: boo
     p = paths(root, team, include_tick=own_tick)
     rel = team_rel(team, root).strip("/")
     changed = 0
-    changed += int(set_teamset_row(root, team, [team, "3", "0", "상시"], dry))
+    changed += int(set_teamset_row(root, team, [team, "3", "0", "상시"], dry, keep_existing=True))
     if p["seats"].is_file():
         try:
             doc = json.loads(p["seats"].read_text(encoding="utf-8"))
