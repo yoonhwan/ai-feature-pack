@@ -321,9 +321,11 @@ class Status:
                     opened.add(stem)
                     rows.extend(self.judge(team, stem, ledger.get(stem), made.get(stem, 0.0), path in urgent_paths))
                 elif len(parts) == depth + 3 and parts[depth] == "inbox" and re.match(r"\d\d-", parts[-1]):
-                    inbox.append((repo, tip, team, path, made.get(stem)))
+                    inbox.append((repo, tip, team, path, self.born_of(repo, path, made.get(stem))))
+        old = [x for x in inbox if self.now - x[4] > ORDER_S]  # 나이로 먼저 거른다 · 본문은 루트마다 1회(r1269)
+        text = {k: v for rp, tp in dict.fromkeys((x[0], x[1]) for x in old) for k, v in self.bodies(rp, tp, [x[3] for x in old if (x[0], x[1]) == (rp, tp)]).items()}
         for repo, tip, team, path, born in inbox:
-            rows.extend(self.orders(repo, tip, team, path, born, allpaths, urgent_paths))
+            rows.extend(self.orders(team, path, born, allpaths, urgent_paths, text.get((repo, tip, path))))
         if not self.virtual:
             for stem in set(ledger) & closed - opened:
                 (self.d / f"{stem}.json").unlink(missing_ok=True)
@@ -345,15 +347,33 @@ class Status:
         start = max(row["since"], float(L.get("released_at") or 0))
         return [dict(row, kind="초과")] if self.now - start > (URGENT_S if row["urgent"] else WAIT_S) else []
 
-    def orders(self, repo: str, tip: str, team: str, path: str, born: float | None, allpaths: set, urgent_paths: set) -> list[dict]:
-        """발주문 번호 항목마다 «- 카드: <경로>» — 빈 값·없는 경로·긴급 항목인데 카드 «- 긴급: 예» 없음 = 미연결 · 나이 = 생성 커밋(없으면 mtime)."""
-        if born is None:
-            f = Path(repo) / path
-            born = f.stat().st_mtime if f.is_file() else self.now
-        if self.now - born <= ORDER_S:
+    def born_of(self, repo: str, path: str, born: float | None) -> float:
+        """발주문 나이 = 생성 커밋 시각(없으면 mtime · 파일도 없으면 지금)."""
+        return born if born is not None else Path(repo, path).stat().st_mtime if Path(repo, path).is_file() else self.now
+
+    def bodies(self, repo: str, tip: str, paths: list[str]) -> dict[tuple, str]:
+        """발주문 본문을 루트마다 «git cat-file --batch» 1회로(r1269 · 경로마다 git show 프로세스 N개 = 부하에서 3초 예산 넘김) · missing 하나라도 = 판정 불가 · 같은 Git 예산."""
+        if not paths:
+            return {}
+        try:
+            p = subprocess.run(["git", "-C", repo, "cat-file", "--batch"], input="".join(f"{tip}:{x}\n" for x in paths).encode(), capture_output=True, timeout=max(0.001, min(self.git.per, self.git.end - time.monotonic())))
+        except subprocess.TimeoutExpired:
+            raise Undecided(f"git 상한 넘김(cat-file {repo})")
+        out, i, got = p.stdout, 0, {}
+        for x in paths:
+            j = out.find(b"\n", i)
+            h = out[i:j].split(b" ") if p.returncode == 0 and j >= 0 else []
+            if len(h) != 3 or h[1] != b"blob":
+                raise Undecided(f"git cat-file rc={p.returncode} {repo} {x} {(h and h[-1] or p.stderr).decode(errors='replace').strip()[:80]}")
+            got[(repo, tip, x)], i = out[j + 1:j + 1 + int(h[2])].decode(errors="replace"), j + 2 + int(h[2])
+        return got
+
+    def orders(self, team: str, path: str, born: float, allpaths: set, urgent_paths: set, body: str | None) -> list[dict]:
+        """발주문 번호 항목마다 «- 카드: <경로>» — 빈 값·없는 경로·긴급 항목인데 카드 «- 긴급: 예» 없음 = 미연결 · 나이 = 생성 커밋(없으면 mtime) · 본문 = bodies() 가 미리 읽은 것(2시간 안 = None)."""
+        if body is None or self.now - born <= ORDER_S:
             return []
         tops: list[list[list[str]]] = []  # 상위 항목마다 [머리 본문, 하위1, 하위2 …]
-        for ln in self.git(repo, "show", f"{tip}:{path}").splitlines():
+        for ln in body.splitlines():
             if ITEM.match(ln):
                 tops.append([[ln]])
             elif tops and CIRCLED.match(ln):
