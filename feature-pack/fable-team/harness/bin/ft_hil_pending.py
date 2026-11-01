@@ -17,6 +17,8 @@ import re
 import subprocess
 import sys
 import time
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from ft_latest_write import write_latest  # noqa: E402
 
 NAME = re.compile(r"h([0-9]+)", re.ASCII)
 MARK = b"# ft-hil-entry plan="
@@ -67,12 +69,12 @@ def held_why(path):
     return (parts[3].strip() or "-") if len(parts) >= 3 and parts[0] == "hold" else None
 
 
-def scan(d):
+def scan(d, now=None):
     try:
         entries = sorted(os.scandir(d), key=lambda e: e.name)
     except FileNotFoundError:
         return []
-    now, rows = int(time.time()), []
+    now, rows = int(time.time()) if now is None else int(now), []
     for e in entries:
         m = NAME.fullmatch(e.name)
         if not m or e.is_symlink() or not e.is_file(follow_symlinks=False):
@@ -119,25 +121,39 @@ def main(argv):
     if len(argv) < 2:
         print("usage: ft_hil_pending.py <HIL_DIR> [--each] [--held] | --hold h<N> --why <사유> | --unhold h<N>", file=sys.stderr)
         return 2
+    write = "--write-latest" in argv[2:]
+    if write and len(argv) > 2 and argv[2] in ("--hold", "--unhold"):
+        print("usage: ft-hil.sh --pending [--each] [--write-latest]", file=sys.stderr)
+        print("latest 안 씀(rc 2)", file=sys.stderr)
+        return 2
     if len(argv) > 2 and argv[2] in ("--hold", "--unhold"):
         return mark(argv[1], argv[2:])
+    now = int(os.environ.get("FT_HIL_NOW", time.time()))
     try:
-        rows = scan(argv[1])
+        rows = scan(argv[1], now)
     except OSError as e:
         print("ERROR ft-hil --pending 읽기 실패: %s: %s" % (e.filename or argv[1], e.strerror or e), file=sys.stderr)
+        if write:
+            print("latest 안 씀(rc 3)", file=sys.stderr)
         return 3
     flags = set(argv[2:])
+    flags.discard("--write-latest")
     live, held = [r for r in rows if r[3] is None], [r for r in rows if r[3] is not None]
+    output = ""
     if "--each" in flags or "--held" in flags:
         pre = "held " if "--each" in flags else ""
-        sys.stdout.write("".join("h%s %d\n" % (n, a) for n, a, _, _ in live) if "--each" in flags else "")
+        output += "".join("h%s %d\n" % (n, a) for n, a, _, _ in live) if "--each" in flags else ""
         if "--held" in flags:
-            sys.stdout.write("".join("%sh%s %d %s\n" % (pre, n, a, w) for n, a, _, w in held))
+            output += "".join("%sh%s %d %s\n" % (pre, n, a, w) for n, a, _, w in held)
     elif live:
         old = max([0] + [a for _, a, _, _ in live])
         r = sum(1 for *_, run, _w in live if run)
         extra = " (중단/실행 중 %d개 포함)" % r if r else ""
-        print("미실행 h %d개%s · 가장 오래된 %d분%s" % (len(live), extra, old, " · 보류 %d개" % len(held) if held else ""))
+        output = "미실행 h %d개%s · 가장 오래된 %d분%s\n" % (len(live), extra, old, " · 보류 %d개" % len(held) if held else "")
+    sys.stdout.write(output)
+    if write:
+        items = [{"id": f"h{n}", "minutes": age} for n, age, _, _ in live]
+        write_latest(os.environ.get("FT_ROOT", "."), "hil", "ft-hil.sh --pending", output.splitlines()[0] if output else "", items, now)
     return 0
 
 

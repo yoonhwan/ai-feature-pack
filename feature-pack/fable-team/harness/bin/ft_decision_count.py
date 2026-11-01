@@ -16,7 +16,7 @@ from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from ft_decision_alarm import ReadError, alarm, first_line, line  # noqa: E402
+from ft_decision_alarm import ReadError, detail_lines, finish_latest, line, safe_alarm  # noqa: E402
 from ft_flag_off import open_count  # noqa: E402
 from ft_decision_kind import BODY_MISSING, ORDER, open_rows  # noqa: E402
 from ft_inbox_core import R, answered_seqs, lineage, qpath, read_q  # noqa: E402
@@ -169,27 +169,32 @@ def summary(now):
 
 def main(argv):
     global BUDGET_S
-    if argv not in ([], ["--detail"], ["--alarm"]):
-        print("usage: ft-decision-count.sh [--detail | --alarm]", file=sys.stderr)
+    write, detail, alarm_mode = "--write-latest" in argv, "--detail" in argv, "--alarm" in argv
+    if set(argv) - {"--detail", "--alarm", "--write-latest"} or len(set(argv)) != len(argv) or {"--detail", "--alarm"} <= set(argv):
+        print("usage: ft-decision-count.sh [--detail | --alarm] [--write-latest]", file=sys.stderr)
+        write and finish_latest(None, None, None, 2)
         return 2
     try:
         BUDGET_S = budget_from_env()
     except ValueError as e:
         print(f"ERROR ft-decision-count: FT_DECISION_BUDGET_S={e} — 0 초과 6 이하 숫자", file=sys.stderr)
+        write and finish_latest(None, None, None, 2)
         return 2
     now = datetime.fromisoformat(os.environ["FT_DECISION_NOW"]) if os.environ.get("FT_DECISION_NOW") else datetime.now()
     try:
         s = summary(now)
-        if argv == ["--alarm"]:
-            return alarm(s) or 0
     except ReadError as e:
         print(f"ERROR ft-decision-count: {e}", file=sys.stderr)
+        write and finish_latest(None, None, None, 4)
         return 4
+    if alarm_mode and not write:
+        return safe_alarm(s)
     print(line(s))
-    for seq, frm, mins, why, bp in s["detail"] if argv else []:
-        print(f"  #{seq} {frm} {mins}분 {why} {first_line(bp)}")
-    return 0
-
+    if detail:
+        print("\n".join(detail_lines(s)))
+    rc = safe_alarm(s) if alarm_mode else 0
+    write and finish_latest(os.environ.get("FT_ROOT", R), s, now, rc)
+    return rc
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv[1:]))

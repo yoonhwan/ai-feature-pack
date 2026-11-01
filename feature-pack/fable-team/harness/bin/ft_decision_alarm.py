@@ -10,6 +10,7 @@ from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ft_inbox_core import R  # noqa: E402
+from ft_latest_write import write_latest  # noqa: E402
 
 WAIT_MIN = int(os.environ.get("FT_DECISION_WAIT_MIN", "30"))
 
@@ -28,6 +29,26 @@ def first_line(path):
 def line(s):
     wait = f"팀 대기 {len(s['team'])}건" + (f"(가장 오래 {s['team'][0][1]} {s['team'][0][2]}분)" if s["team"] else "") + (f" · 묵은 {s['stale']}건" if s["stale"] else "")
     return f"결정 인터뷰 {s['n']}건 · 스크립트 {s['m']}건 · {wait}" + (f" · 본문 없음 {s['miss']}건" if s["miss"] else "") + (" " + s["notes"] if s["notes"] else "")
+
+
+def detail_lines(s):
+    return [f"  #{seq} {frm} {mins}분 {why} {first_line(bp)}" for seq, frm, mins, why, bp in s["detail"]]
+
+
+def safe_alarm(s):
+    try:
+        return alarm(s) or 0
+    except ReadError as e:
+        print(f"ERROR ft-decision-count: {e}", file=sys.stderr)
+        return 4
+
+
+def finish_latest(root, s, now, rc):
+    if rc:
+        print(f"latest 안 씀(rc {rc})", file=sys.stderr)
+        return
+    items = [f"#{seq} {frm} {mins}분 {why} {first_line(bp)}" for seq, frm, mins, why, bp in s["detail"]]
+    write_latest(root, "decision", "ft-decision-count.sh", line(s), items, int(now.timestamp()))
 
 
 def alarm(s):

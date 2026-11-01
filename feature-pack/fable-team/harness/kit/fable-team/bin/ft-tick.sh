@@ -571,7 +571,7 @@ card_assign_watch() {
   local out rc
   [ "${FT_TICK_CARD_ASSIGN:-1}" = 1 ] || return 0
   if [ "$DRY" = 1 ]; then echo "DRY kind=card-assign"; return 0; fi
-  out="$(env ${ROOT:+FT_ROOT="$ROOT"} FT_MBOX_SH="$MBOX" python3 "$HERE/ft_card_assign_watch.py" tick 2>&1)"; rc=$?
+    out="$(env ${ROOT:+FT_ROOT="$ROOT"} FT_MBOX_SH="$MBOX" python3 "$HERE/ft_card_assign_watch.py" tick --write-latest 2>&1)"; rc=$?
   [ "$rc" -le 1 ] || echo "$(date '+%F %T') card_assign_watch: rc=$rc $(printf '%s\n' "$out" | head -1 | cut -c1-200)" >&2
   printf '%s\n' "$out" | grep '^tick ' | while IFS= read -r l; do log "card_assign_watch: $l"; done
   return 0
@@ -658,7 +658,7 @@ hil_watch() {
   [ "${FT_TICK_HIL:-1}" = 1 ] || return 0
   [ "$(basename "$SEATS")" = seats.json ] || return 0
   [ -f "$HIL_BIN" ] || { echo "$(date '+%F %T') hil_watch: missing $HIL_BIN" >&2; return 0; }
-  out="$(bash "$HIL_BIN" --pending 2>&1)" || { echo "$(date '+%F %T') hil_watch: ERROR --pending: $(printf '%s\n' "$out" | tail -1 | cut -c1-200)" >&2; return 0; }
+    out="$(bash "$HIL_BIN" --pending --write-latest 2>&1)" || { echo "$(date '+%F %T') hil_watch: ERROR --pending: $(printf '%s\n' "$out" | tail -1 | cut -c1-200)" >&2; return 0; }
   if [ "$DRY" = 1 ]; then echo "DRY kind=hil pending=${out:--}"; return 0; fi
   sigf="$STATE_DIR/hil.sig"; mkdir -p "$STATE_DIR"
   [ -n "$out" ] || { rm -f "$sigf"; return 0; }
