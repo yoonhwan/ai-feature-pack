@@ -195,7 +195,32 @@ r12() {  # «이동 먼저» 목록 ≤5 · 7장이면 5장 + «외 2»
   eq "$(printf '%s' "$o" | sed -n 's/.*이동 먼저: //p' | sed 's/ 외 2$//' | wc -w | tr -d ' ')" 5 "R12 지목 카드 5장"
 }
 
-for n in 1 2 3 4 5 6 7 8 9 10 11 12; do
+r13() {  # r1292 재작업1: 진행→대기 되돌림 = «이동» — 상한 넘은 팀이라도 커밋 통과(실사건 02:50 r1281·r1285)
+  local r="$T/r13" i o rc; mkhookrepo "$r" "$HOOKCUR" alpha
+  for i in p1 p2 p3 p4 p5 p6; do card "$r" alpha 진행 "$i"; done
+  sesssp alpha byz-alpha-nano-p1#0 byz-alpha-nano-p2#0 byz-alpha-nano-p3#0
+  G "$r" add -A design >/dev/null; G "$r" commit -q -m cards
+  git -C "$r" mv design/alpha/indices/진행/p1.md design/alpha/indices/대기/p1.md
+  G "$r" add -A design >/dev/null; o="$(G "$r" commit -m back 2>&1)"; rc=$?
+  eq "$rc" 0 "R13 진행→대기 되돌림 커밋 통과(이동)"
+  nlike "$o" "REJECT 카드 상한" "R13 되돌림에 상한 줄 0"
+  # 디렉터리 이동이 git mv 로 R(rename) 로 잡혀도 --no-renames 가 A+D 로 펼치는지 확인
+  eq "$(git -C "$r" ls-tree -r --name-only HEAD | grep -c 'indices/대기/p1.md')" 1 "R13 대기로 되돌아간 카드가 커밋에 실렸다"
+}
+r14() {  # 진짜 새 대기 카드 + 진행 초과 = 여전히 막힘(D 대조에 휘말리지 않는다)
+  local r="$T/r14" i o rc; mkhookrepo "$r" "$HOOKCUR" alpha
+  for i in p1 p2 p3 p4 p5 p6; do card "$r" alpha 진행 "$i"; done
+  sesssp alpha byz-alpha-nano-p1#0 byz-alpha-nano-p2#0 byz-alpha-nano-p3#0
+  G "$r" add -A design >/dev/null; G "$r" commit -q -m cards
+  git -C "$r" mv design/alpha/indices/진행/p1.md design/alpha/indices/대기/p1.md
+  card "$r" alpha 대기 brandnew
+  G "$r" add -A design >/dev/null; o="$(G "$r" commit -m mix 2>&1)"; rc=$?
+  [ "$rc" != 0 ] && chk 0 || chk 1 "R14 진짜 새 카드 + 되돌림 섞인 커밋 → 막힘(rc=$rc)"
+  like "$o" "REJECT 카드 상한 — alpha" "R14 막을 때 1줄"
+  nlike "$o" "REJECT 카드 상한 — beta" "R14 다른 팀 줄 0"
+}
+
+for n in 1 2 3 4 5 6 7 8 9 10 11 12 13 14; do
   rfail=0; rmsg=""; "r$n"; if [ "$rfail" = 0 ]; then ok "R$n"; else bad "R$n —$rmsg"; fi
 done
 # ── 변이 9 — 하나라도 살아남으면 시험 실패 ───────────────────────────────────────
@@ -218,6 +243,7 @@ mut 6 ft-card-flow.sh 's/ && \[ -f "\$ROOT[^]]*\]//' 6                        # 
 mut 7 ft-card-flow.sh 's|echo "WARN 카드 상한 판정 불가 — 막지 않음(\$1)";|true;|' 7   # 판정 불가 조용한 통과
 mut 8 ft-nano-spawn.sh 's/\[ "\${FT_CARD_CAP:-1}" = 0 \] || _cfmode=--gate/_cfmode=--gate/' 8   # 끄기 무시
 mut 9 pre-commit 's/--team "\$_ft_cc_t"/--team beta/' 10                      # 팀 구분 없이 한 팀 숫자로 판정
+mut 10 pre-commit 's/--diff-filter=D --/--diff-filter=A --/' 13               # 진행/ D 대조 제거 → 되돌림을 새 카드로 오판
 
 [ "$fail" = 0 ] && echo "ALL PASS" || echo "FAILED $fail"
 exit "$fail"
