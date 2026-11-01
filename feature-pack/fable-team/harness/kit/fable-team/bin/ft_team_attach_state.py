@@ -115,29 +115,34 @@ def revert(root: Path, path: Path) -> int:
     if data.get("restored"):
         raise AttachError(f"REJECT 이미 복원된 스냅샷: {manifest_path}")
     for key, after_key in (("teamset", "teamset_after_sha"), ("directive", "directive_after_sha"), ("tick_tsv", "tick_tsv_after_sha")):
-        target = Path(data[key])
+        target = safe(root, Path(data[key]))
         expected = data.get(after_key)
         if expected is not None and (not target.is_file() or digest(target) != expected):
             raise AttachError(f"REJECT 복원 전 sha256 불일치: {target}")
+        if expected is None and target.exists():
+            raise AttachError(f"REJECT 복원 전 경로가 비어 있지 않다: {target}")
     moved = data.get("moved", [])
     for item in moved:
-        src, dst = Path(item["src"]), Path(item["dst"])
+        src, dst = safe(root, Path(item["src"])), safe(root, Path(item["dst"]))
         if not dst.exists() or src.exists() or tree_digest(dst) != item["sha256"]:
             raise AttachError(f"REJECT 복원 파일 sha256·경로 불일치: {dst}")
     for item in reversed(moved):
-        src, dst = Path(item["src"]), Path(item["dst"])
+        src, dst = safe(root, Path(item["src"])), safe(root, Path(item["dst"]))
         src.parent.mkdir(parents=True, exist_ok=True)
         os.replace(dst, src)
     snap = manifest_path.parent
     for key, backup, exists_key in (("teamset", "TEAMSET.before", "teamset_before_exists"),
                                     ("directive", "directive.before", "directive_before_exists"),
                                     ("tick_tsv", "team-tick.before", "tick_tsv_before_exists")):
-        target = Path(data[key])
+        target = safe(root, Path(data[key]))
         before = (snap / backup).read_bytes()
         if data[exists_key]:
             write(target, before)
         elif target.exists():
-            target.unlink()
+            moved_file = snap / f"{backup}.after"
+            if moved_file.exists():
+                raise AttachError(f"REJECT 복원 보관 경로가 이미 있다: {moved_file}")
+            os.replace(target, moved_file)
     if data.get("plist_loaded"):
         plist = next((Path(m["src"]) for m in data.get("moved", []) if Path(m["src"]).suffix == ".plist"), None)
         if plist:

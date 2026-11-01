@@ -9,6 +9,7 @@ from pathlib import Path
 from ft_team_lib import team_names, team_rel
 
 _ORIGIN_TEAMSET: dict[tuple[str, str], tuple[bool, dict[str, list[str]]]] = {}
+_LAUNCHD_LIST: tuple[int, set[str], str] | None = None
 
 class AttachError(RuntimeError):
     def __init__(self, message: str, rc: int = 1):
