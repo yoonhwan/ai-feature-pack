@@ -843,6 +843,9 @@ _lp_lastline() {  # <repo> <sha> — 커밋 메시지의 «마지막 비어 있�
       t="${l#main 자동 병합(문서 전용 · 겹침 0) C=}"
       if [ "${#t}" -eq 40 ] && [ -n "$p" ]; then case "$t" in *[!0-9a-f]*) ;; *) l="$p";; esac; fi   # r1169-mut:skip
       ;;
+    "main 자동 병합(코드 · 승인 EQUIV) C="*)   # r1278 — ft-merge-land.sh AMK 와 같은 글자
+      t="${l#main 자동 병합(코드 · 승인 EQUIV) C=}"; if [ "${#t}" -eq 40 ] && [ -n "$p" ]; then case "$t" in *[!0-9a-f]*) ;; *) l="$p";; esac; fi   # r1278-mut:skip
+      ;;
   esac
   printf '%s\n' "$l"
 }
