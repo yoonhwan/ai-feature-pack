@@ -179,4 +179,4 @@ def close_check(seat, need_ready=True):
             if miss:
                 print("REJECT %s [레디] #%s 에 «받음» 없는 항목 %s" % (seat, r["seq"], ",".join(miss))); return 3
             print("CLOSE-OK %s [인계] #%s → [레디] #%s 항목 %d 전부 받음" % (seat, h["seq"], r["seq"], len(ids))); return 0
-    print("REJECT %s [인계] #%s 뒤 후계 [레디] 없음(회신 0 = 안 닫음)" % (seat, h["seq"])); return 3
+    print("REJECT %s [인계] #%s 뒤 후계 [레디] 없음(회신 0 = 안 닫음) — 후계가 bash mbox.sh ready %s %s (pane 입력은 세지 않음)" % (seat, h["seq"], succ, seat)); return 3
