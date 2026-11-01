@@ -9,6 +9,8 @@ from typing import Any, Callable
 HEADLINE_MIN = 15.0
 SECOND_STAGE_MIN = 20.0
 CLOCK = re.compile(r"^\s*(\d{2}):(\d{2})(?:\s|·|$)")
+STATUS = re.compile(r"(?:✻\s+\d{2}:\d{2}|작업 중|오류\s+\d{2}:\d{2})")
+IDLE = re.compile(r"\+\d+석 유휴\(✻\s+\d{2}:\d{2}\)")
 
 
 def _path(root: Path, team: str) -> Path | None:
@@ -32,8 +34,16 @@ def headline_age(root: Path, team: str, now: float) -> tuple[dict[str, Any] | No
     match = CLOCK.match(first)
     if not match or int(match.group(1)) > 23 or int(match.group(2)) > 59:
         return None, "첫 줄 시각 없음 또는 꼴 틀림"
-    if "·" not in first or not first.split("·", 1)[1].strip():
-        return None, "화면 칸 없음"
+    cells = [cell.strip() for cell in first.split(" · ")]
+    lead_cell = next((i for i, cell in enumerate(cells) if cell.startswith("팀장=")), None)
+    if lead_cell is None or not any(STATUS.search(cell) for cell in cells[lead_cell:]):
+        return None, "구조 없음"
+    for cell in cells[lead_cell:]:
+        if "=" not in cell:
+            continue
+        value = cell.split("=", 1)[1]
+        if not STATUS.search(value) and not IDLE.search(value):
+            return None, "구조 없음"
     stamp = time.localtime(stat.st_mtime)
     if (stamp.tm_hour, stamp.tm_min) != (int(match.group(1)), int(match.group(2))):
         return None, "시각 불일치"
@@ -41,7 +51,7 @@ def headline_age(root: Path, team: str, now: float) -> tuple[dict[str, Any] | No
     if age < 0:
         return None, "미래 시각"
     return {"kind": "h", "team": team, "seat": "", "age": age,
-            "signature": f"{time.strftime('%Y-%m-%d', stamp)}:{first}",
+            "date": time.strftime("%Y%m%d", stamp), "clock": f"{int(match.group(1)):02d}:{int(match.group(2)):02d}",
             "why": f"헤드라인 멈춤 · {first[:100]}"}, None
 
 
@@ -60,15 +70,20 @@ def find(root: Path, teams: list[dict[str, Any]], now: float, policy_stop: str |
     notes: list[str] = []
     if os.environ.get("FT_STALL_HEADLINE", "1") == "0":
         return found, unknown, notes
-    if policy_stop and not policy_stop.startswith("ERROR"):
+    if policy_stop:
+        for team in teams:
+            label = str(team.get("team") or "")
+            if not label.startswith("m."):
+                continue
+            if policy_stop.startswith("ERROR"):
+                unknown += 1
+                notes.append(f"h? {label} 정책 정지 판정 불가 — {policy_stop}")
+            else:
+                notes.append(f"h? {label} 대상 밖(정책 정지)")
         return found, unknown, notes
     for team in teams:
         label = str(team.get("team") or "")
         if not label.startswith("m."):
-            continue
-        if policy_stop:
-            unknown += 1
-            notes.append(f"h? {label} 헤드라인 판정 불가 — 정책 정지 판정 실패")
             continue
         masters = team_masters(root, label)
         if masters is None:
@@ -82,7 +97,7 @@ def find(root: Path, teams: list[dict[str, Any]], now: float, policy_stop: str |
         if error:
             unknown += 1
             notes.append(f"h? {label} 헤드라인 판정 불가 — {error}")
-        elif item and item["age"] >= HEADLINE_MIN:
+        elif item and item["age"] > HEADLINE_MIN:
             item["masters"] = masters
             item["seat"] = str(team.get("master") or masters[0])
             found.append(item)
@@ -100,9 +115,65 @@ def planner_desk(root: Path) -> str | None:
     return None
 
 
-def headline_alerts(root: Path, found: list[dict[str, Any]], live: dict[str, int], now: float,
-                    send: Callable[[str, str], int]) -> list[str]:
-    path = root / ".fable-team/state/stall-scan.headline.json"
+def has_receipt(comm: Path, to: str, key: str) -> tuple[bool | None, str | None]:
+    paths = (comm / "mailbox.log.jsonl", comm / "mailbox.log.jsonl.1")
+    found_file = False
+    for path in paths:
+        if not path.exists():
+            continue
+        found_file = True
+        try:
+            with path.open("rb") as source:
+                source.seek(0, os.SEEK_END)
+                source.seek(max(0, source.tell() - 262144))
+                lines = source.read().splitlines()
+        except OSError as error:
+            return None, f"발신 로그 읽기 실패({error.__class__.__name__})"
+        for line in lines:
+            try:
+                row = json.loads(line)
+            except (UnicodeError, ValueError):
+                continue
+            if row.get("from") == "ft-stall-scan" and row.get("to") == to and key in str(row.get("body") or ""):
+                return True, None
+    if not found_file:
+        return None, "발신 로그 없음"
+    return False, None
+
+
+def send_with_receipt(comm: Path, to: str, key: str,
+                      send: Callable[[str, str], tuple[int, bool]]) -> tuple[bool, str | None]:
+    body = f"key={key}"
+    rc, timed_out = send(to, body)
+    if rc == 0:
+        return True, None
+    if not timed_out:
+        return False, f"발신 실패 rc={rc}"
+    present, error = has_receipt(comm, to, key)
+    if error:
+        return False, error
+    if present:
+        return True, None
+    rc, timed_out = send(to, body)
+    if rc == 0:
+        return True, None
+    if timed_out:
+        present, error = has_receipt(comm, to, key)
+        if error:
+            return False, error
+        if present:
+            return True, None
+    return False, f"발신 재시도 실패 rc={rc}"
+
+
+def _latest_live_master(masters: list[str], live: dict[str, int]) -> str | None:
+    alive = [seat for seat in masters if seat in live]
+    return max(alive, key=lambda seat: (int(re.search(r"#(\d+)$", seat).group(1)) if re.search(r"#(\d+)$", seat) else -1, seat), default=None)
+
+
+def headline_alerts(root: Path, comm: Path, found: list[dict[str, Any]], live: dict[str, int], now: float,
+                    send: Callable[[str, str], tuple[int, bool]]) -> list[str]:
+    path = root / ".fable-team/state/stall-headline.json"
     try:
         state = json.loads(path.read_text(encoding="utf-8"))
         if not isinstance(state, dict):
@@ -114,37 +185,37 @@ def headline_alerts(root: Path, found: list[dict[str, Any]], live: dict[str, int
     for item in found:
         if item.get("kind") != "h":
             continue
-        team, sig = item["team"], item["signature"]
-        old = state.get(team) if isinstance(state.get(team), dict) else {}
-        if old.get("signature") != sig:
-            old = {}
-        stage = int(old.get("stage") or 0)
-        if stage >= 2:
+        team = item["team"]
+        h1 = f"h1:{team}:{item['date']}:{item['clock']}"
+        h2 = f"h2:{team}:{item['date']}:{item['clock']}"
+        if h2 in state:
             continue
-        if stage == 1 and item["age"] < SECOND_STAGE_MIN:
+        first = state.get(h1) if isinstance(state.get(h1), dict) else None
+        if first and now - float(first.get("sent_at") or now) < SECOND_STAGE_MIN * 60:
             continue
-        if stage == 0 and item["age"] < HEADLINE_MIN:
-            continue
-        live_masters = [seat for seat in item["masters"] if seat in live]
-        if stage == 0 and live_masters:
-            targets, next_stage = item["masters"], 1
+        master = _latest_live_master(item["masters"], live)
+        if first and now - float(first.get("sent_at") or now) >= SECOND_STAGE_MIN * 60:
+            if planner is None:
+                planner = planner_desk(root)
+            to, key = planner, h2
+        elif master:
+            to, key = master, h1
         else:
             if planner is None:
                 planner = planner_desk(root)
-            targets, next_stage = ([planner] if planner else []), 2
-        if not targets:
+            to, key = planner, h2
+        if not to:
             log.append(f"h? {team} planner desk 판정 불가 — 활성 role=desk 없음")
             continue
-        level = "1단계" if next_stage == 1 else "2단계"
-        body = f"[헤드라인 멈춤] {team} {level} · {item['age']:.0f}분 · {item['why']}"
-        failures = [(to, send(to, body)) for to in targets]
-        failed = next(((to, rc) for to, rc in failures if rc != 0), None)
-        if failed:
-            to, rc = failed
-            log.append(f"act=h ERROR 발신 실패 rc={rc} to={to} team={team} — 다음 scan 재시도")
+        level = "1단계" if key == h1 else "2단계"
+        body = f"[헤드라인 멈춤] {team} {level} · {item['age']:.0f}분 · {item['why']} · key={key}"
+        sent, error = send_with_receipt(comm, to, key, lambda _to, _body: send(to, body))
+        if not sent:
+            log.append(f"h? {team} 발신 판정 불가 — {error}")
             continue
-        state[team] = {"signature": sig, "stage": next_stage}
-        log.append(f"act=h to={','.join(targets)} team={team} stage={next_stage} age={item['age']:.0f}")
-    if log or state:
-        _ = path.write_text(json.dumps(state, ensure_ascii=False), encoding="utf-8")
+        state[key] = {"sent_at": now}
+        try:
+            _ = path.write_text(json.dumps(state, ensure_ascii=False), encoding="utf-8")
+        except OSError:
+            log.append(f"h? {team} 상태 기록 실패 — 적재 확인됨 · 다음 실행에서 로그 확인")
     return log

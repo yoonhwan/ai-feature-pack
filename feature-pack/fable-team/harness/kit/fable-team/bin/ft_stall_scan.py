@@ -244,14 +244,10 @@ class Scan:
     def send(self, to: str, body: str, urgent: bool = True) -> int:
         return run(["bash", self.mbox, "send", to, self.sender, body] + (["--urgent"] if urgent else []))[0]
 
-    def send_headline(self, to: str, body: str) -> int:
-        cmd = ["bash", self.mbox, "send", to, self.sender, body, "--urgent"]
-        rc = 99
-        for _ in range(2):
-            rc = run(cmd, timeout=7)[0]
-            if rc == 0:
-                break
-        return rc
+    def send_headline(self, to: str, body: str) -> tuple[int, bool]:
+        cmd = ["bash", self.mbox, "send", to, "ft-stall-scan", body, "--urgent"]
+        rc, out = run(cmd, timeout=7)
+        return rc, rc == 99 and "timed out" in out.lower()
 
     def wake(self, seat: str, seq: int | None) -> bool:
         self.live = self.sessions()  # 직전 재확인 — 그 사이 attached 되거나 WORKING 이 됐으면 0
@@ -322,7 +318,9 @@ class Scan:
         if not cell_err:
             log += self.act_e(found, stamp)  # e 는 알림만 — attached·페널티·10분 창과 무관, 서명으로만 1회
             log += self.act_l(stamp)  # r849 — 로그아웃 좌석 팀장 1통 · 칸(좌석 계보)으로만 1회
-            _ = headline.headline_alerts(self.root, found, self.live, self.now, self.send_headline)
+            headline_notes = headline.headline_alerts(self.root, self.comm, found, self.live, self.now, self.send_headline)
+            for note in headline_notes:
+                print(note)
         for f in found:
             if cell_err or f["kind"] in ("e", "h") or f["kind"] == "b" and f["seat"] in d_seats:  # b+d 동시 = d 한 번(가장 오래된 pending seq ring · 새 send 생략)
                 continue
