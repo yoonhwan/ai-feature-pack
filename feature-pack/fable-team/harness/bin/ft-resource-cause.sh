@@ -5,9 +5,10 @@
 #          워크트리 합계(worktrees.total)가 오른 경우 = 감시자 폴더별 캐시(du-cache.tsv wt: 줄)의 1시간 증가 상위 3개를 같은 규칙으로 풀이(r534). 못 찾으면 «주인 미상» — 추측하지 않는다.
 #   mem  : claude·codex 프로세스 RSS 상위 3 좌석(조상 pane 의 tmux 세션별 합산).
 #   cpu  : (r522) 같은 이름 프로세스 «개수 ≥3 ∧ 각 CPU ≥30% ∧ 가장 오래 ≥5분» 묶음 → «cpu <명령>×<개수> CPU <합>% <분>분 · 주인 <세션>» (묶음마다 `; `).
-#          주인 = 조상 pane 의 tmux 세션(mem 과 같은 걸음 · 40단) → 없으면 프로세스 tty ↔ pane tty «<세션> (tty)» → 없으면 «미상»(추측 0). 해당 0 = 빈 출력 rc0 · ps 자료 0 = stderr ERROR rc4.
+#          주인 = 조상 pane 의 tmux 세션(mem 과 같은 걸음 · 40단) → 없으면 조상 중 launchd 잡(PID 일치만 · r1304) «launchd <Label>» → 없으면 프로세스 tty ↔ pane tty «<세션> (tty)» → 없으면 «미상»(추측 0). 해당 0 = 빈 출력 rc0 · ps 자료 0 = stderr ERROR rc4.
+#          (r1304) 표 = `launchctl list` 1회 — 묶음 ≥1 일 때만(0 이면 호출 0) · cap = min(2, 남은 예산) · 남은 예산 <1 이면 호출 0 · 실패 = WARN 1줄(stderr «와» state/resource-watch.log) 뒤 지금 길 그대로.
 #   출력 = 한 줄(개행 0) · 자료가 없으면 «자료 부족» 한 줄 · rc0 (잘못된 모드 rc2). 읽기 전용 — du·삭제·프로세스 끄기 0 (du 는 감시자가 7초 상한으로 이미 쌓은 표만 읽는다).
-#   env(시험): FT_RES_ROOT FT_WORKTREES · FT_RES_PS(가짜 ps 출력 파일: pid ppid tty etime pcpu comm) · FT_RES_TMUX(가짜 pane 파일: 세션 pane_pid pane_tty)
+#   env(시험): FT_RES_ROOT FT_WORKTREES · FT_RES_PS(가짜 ps 출력 파일: pid ppid tty etime pcpu comm) · FT_RES_TMUX(가짜 pane 파일: 세션 pane_pid pane_tty) · FT_RES_LAUNCHD(가짜 launchctl list 표 파일 · 있으면 호출 0) · FT_RES_LAUNCHD_OWNER(0 = launchd 걸음 끔) · FT_RES_CPU_BUDGET_SEC(기본 7 · 남은 예산)
 set -uo pipefail
 MODE="${1:-}"; case "$MODE" in disk|mem|cpu) ;; *) echo "usage: $0 disk|mem|cpu" >&2; exit 2;; esac
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
@@ -79,26 +80,54 @@ mem_line() {
   [ -n "$out" ] && echo "$out" || echo "자료 부족(claude·codex 프로세스를 좌석에 못 묶음)"
 }
 
+# r1304: launchd 표를 못 읽음/건너뜀 = 숨기지 않는다(하드 룰 20 «한 함수 1줄») — stderr «와» 감시자 로그(폴더 없으면 stderr 만 · 폴더 생성 0)
+launchd_warn() { local m="WARN launchd 잡 $1 — launchd 판정 없이 계속"; echo "$m" >&2; [ -d "$STATE" ] && printf '%s\t%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$m" >> "$STATE/resource-watch.log"; return 0; }
+
+# shellcheck disable=SC2016   # awk 프로그램(작은따옴표) — $0·$1 은 awk 필드지 셸 변수가 아니다
+# r1304: phase=1 = «묶음이 있나» 만(표 읽기 전) · phase=2 = 주인 치환(구획 3 = launchd 표 · 비어도 됨) · 표 행 = «<PID>\t<status>\t<Label>»(공백 구분도 · PID «-» = 주기 잡 = 제외)
+CPU_AWK='
+  function secs(s,  d, a, b, n) { d=0; if (index(s, "-")) { split(s, a, "-"); d=a[1]; s=a[2] }
+    n=split(s, b, ":"); return d*86400 + (n==3 ? b[1]*3600+b[2]*60+b[3] : b[1]*60+b[2]) }
+  function owner(p,  q, m, t) { q=p; m=0
+    while (q!="" && q+0>1 && m<40) { if (q in pane) return pane[q]; q=pp[q]; m++ }
+    q=p; m=0
+    while (q!="" && q+0>1 && m<40) { if (q in lpid) return "launchd " lpid[q]; q=pp[q]; m++ }
+    t=tty[p]; if (t in ttys) return ttys[t] " (tty)"; return "미상" }
+  /^---$/ { sec++; next }
+  sec==0 { if (NF<2) next; pane[$2]=$1; t=$3; sub(/^\/dev\//, "", t); if (t!="") ttys[t]=$1; next }
+  sec==2 { if ($0 ~ /^[0-9]+[[:space:]]+[^[:space:]]+[[:space:]]+/) { split($0, f, /[[:space:]]+/); l=$0
+      sub(/^[0-9]+[[:space:]]+[^[:space:]]+[[:space:]]+/, "", l); lpid[f[1]]=l } next }
+  NF>=6 { c=$6; for (i=7; i<=NF; i++) c=c " " $i; sub(/.*\//, "", c); pp[$1]=$2; tty[$1]=$3; u=$5; sub(/,/, ".", u)
+    if (u+0>=30) { n[c]++; cpu[c]+=u; e=secs($4); if (e>old[c]) old[c]=e; ids[c]=ids[c] " " $1 } }
+  END { g=0; for (c in n) if (n[c]>=3 && old[c]>=300) g++
+    if (phase==1) { print g; exit }
+    for (c in n) { if (n[c]<3 || old[c]<300) continue
+      k=split(substr(ids[c], 2), id, " "); ow=""; u=0
+      for (j=1; j<=k; j++) { o=owner(id[j]); if ((c SUBSEP o) in seen) continue; seen[c SUBSEP o]=1; u++; if (u<=3) ow=ow (ow=="" ? "" : ", ") o }
+      if (u>3) ow=ow " 외 " (u-3)
+      printf "%d\tcpu %s×%d CPU %d%% %d분 · 주인 %s\n", cpu[c], c, n[c], cpu[c], old[c]/60, ow } }'
+
 cpu_line() {
-  local ps_out panes
+  local ps_out panes src t0 el left cap tbl="" rc qual
+  t0=$SECONDS
   if [ -n "${FT_RES_PS:-}" ]; then ps_out="$(cat "$FT_RES_PS" 2>/dev/null)"; else ps_out="$(LC_ALL=C ps -axo pid=,ppid=,tty=,etime=,pcpu=,comm= 2>/dev/null)"; fi
   [ -n "$ps_out" ] || { echo "ERROR cpu: ps 읽기 실패(자료 0)" >&2; exit 4; }
   if [ -n "${FT_RES_TMUX:-}" ]; then panes="$(cat "$FT_RES_TMUX" 2>/dev/null)"; else panes="$(tmux list-panes -a -F '#{session_name} #{pane_pid} #{pane_tty}' 2>/dev/null)"; fi
-  printf '%s\n---\n%s\n' "$panes" "$ps_out" | awk '
-    function secs(s,  d, a, b, n) { d=0; if (index(s, "-")) { split(s, a, "-"); d=a[1]; s=a[2] }
-      n=split(s, b, ":"); return d*86400 + (n==3 ? b[1]*3600+b[2]*60+b[3] : b[1]*60+b[2]) }
-    function owner(p,  q, m, t) { q=p; m=0
-      while (q!="" && q+0>1 && m<40) { if (q in pane) return pane[q]; q=pp[q]; m++ }
-      t=tty[p]; if (t in ttys) return ttys[t] " (tty)"; return "미상" }
-    /^---$/ { sec=1; next }
-    sec==0 { if (NF<2) next; pane[$2]=$1; t=$3; sub(/^\/dev\//, "", t); if (t!="") ttys[t]=$1; next }
-    NF>=6 { c=$6; for (i=7; i<=NF; i++) c=c " " $i; sub(/.*\//, "", c); pp[$1]=$2; tty[$1]=$3; u=$5; sub(/,/, ".", u)
-      if (u+0>=30) { n[c]++; cpu[c]+=u; e=secs($4); if (e>old[c]) old[c]=e; ids[c]=ids[c] " " $1 } }
-    END { for (c in n) { if (n[c]<3 || old[c]<300) continue
-        k=split(substr(ids[c], 2), id, " "); ow=""; u=0
-        for (j=1; j<=k; j++) { o=owner(id[j]); if ((c SUBSEP o) in seen) continue; seen[c SUBSEP o]=1; u++; if (u<=3) ow=ow (ow=="" ? "" : ", ") o }
-        if (u>3) ow=ow " 외 " (u-3)
-        printf "%d\tcpu %s×%d CPU %d%% %d분 · 주인 %s\n", cpu[c], c, n[c], cpu[c], old[c]/60, ow } }' \
+  src="$(printf '%s\n---\n%s\n' "$panes" "$ps_out")"
+  qual="$(printf '%s\n' "$src" | awk -v phase=1 "$CPU_AWK")"   # ① 묶음 판정 먼저 — 묶음 0 이면 launchctl 호출 0
+  case "${qual:-0}" in ''|*[!0-9]*) qual=0;; esac
+  [ "$qual" -ge 1 ] || return 0
+  if [ "${FT_RES_LAUNCHD_OWNER:-1}" != 0 ]; then   # ② 표 1회: 주입 파일(FT_RES_LAUNCHD) → launchctl(timeout cap · 남은 예산)
+    if [ -n "${FT_RES_LAUNCHD:-}" ]; then tbl="$(cat "$FT_RES_LAUNCHD" 2>/dev/null)"
+    else el=$((SECONDS-t0)); left=$(( ${FT_RES_CPU_BUDGET_SEC:-7} - el - 1 )); cap=2; [ "$left" -lt 2 ] && cap="$left"
+      if [ "$left" -lt 1 ]; then launchd_warn "표 건너뜀(예산 부족 · 경과 ${el}초)"
+      else set -- timeout gtimeout; command -v "$1" >/dev/null 2>&1 || { shift; command -v "$1" >/dev/null 2>&1 || set --; }
+        if [ $# -eq 0 ]; then launchd_warn "표 건너뜀(timeout 도구 없음 · 호출 0)"
+        else tbl="$("$1" "$cap" launchctl list 2>/dev/null)"; rc=$?; [ "$rc" = 0 ] || { launchd_warn "표 못 읽음(rc=$rc)"; tbl=""; }; fi
+      fi
+    fi
+  fi
+  printf '%s\n---\n%s\n---\n%s\n' "$panes" "$ps_out" "$tbl" | awk -v phase=2 "$CPU_AWK" \
     | sort -t"$(printf '\t')" -k1,1rn | cut -f2- | awk '{printf "%s%s", (NR>1 ? "; " : ""), $0} END{if (NR) print ""}'
 }
 
