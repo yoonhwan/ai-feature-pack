@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# test_directive_watch_md_source_r1267.sh — r1267 판정 번호 권위 = md 원장: 감시 후보 원천(R1~R5·R7·R8) + ft-verdict new·seed 거절(R6) + 변이 2.
+# test_directive_watch_md_source_r1267.sh — r1267 판정 번호 권위 = md 원장: 감시 후보 원천(R1~R5·R7·R8) + ft-verdict new·seed 거절(R6) + 바닥값(R9) + 변이 3.
 # 임시 git 리포(가짜 md 원장 design/teams/planner/VERDICTS-planner-N-x.md · 가짜 verdicts.jsonl) · 실 STATE·실 쪽지 0 · 네트워크 0 · 자기 재호출 0 · 고정 sleep 0.
 # 돌리기: ulimit -u <지금+여유>; timeout 70 bash harness/tests/test_directive_watch_md_source_r1267.sh
 set -uo pipefail
@@ -23,7 +23,7 @@ ledger() {  # <R> <파일 번호> <행...> — design/teams/planner/VERDICTS-pla
   git -C "$r" add -A design; gc "$r" "$D0" "ledger $n"
 }
 jrow() { python3 -c 'import json,sys; print(json.dumps({"ev":"new","n":int(sys.argv[1]),"ts":sys.argv[2],"title":sys.argv[3],"teams":["harness"]},ensure_ascii=False))' "$@"; }
-run() { OUT="$(cd "$R" && env FT_ROOT="$R" FT_MBOX_SH="$R/mbox.sh" FT_DIRECTIVE_NANO_REPOS="$R" ${EXTRA_ENV:-} python3 "${TOOL_RUN:-$TOOL}" "$@" 2>&1)"; RC=$?; }
+run() { OUT="$(cd "$R" && env FT_ROOT="$R" FT_MBOX_SH="$R/mbox.sh" FT_DIRECTIVE_NANO_REPOS="$R" FT_DIRECTIVE_FLOOR="${FL-0}" ${EXTRA_ENV:-} python3 "${TOOL_RUN:-$TOOL}" "$@" 2>&1)"; RC=$?; }
 head1() { printf '%s' "$OUT" | head -1; }
 S_OLD=$((NOW - 7200)); S_NEW=$((NOW - 3000)); S_FUT=$((NOW + 7200))
 
@@ -76,7 +76,12 @@ new_root; ledger "$R" 99 "| 3000 | 11-01 09:1x | 오빠 slack $S_FUT.1 미래 |"
 [ "$RC" = 0 ] && case "$(head1)" in "담당 없는 오빠 지시 0 · 멈춘 오빠 지시 0"*) true;; *) false;; esac && ok "R8 평가 시각 뒤 슬랙 ts → 0" || bad "R8 rc=$RC :: $OUT"
 lap R8
 
-# ── 변이 2 (그 칸만 다시 돈다)
+# R9 — 바닥값(충돌 구간 끝 = jsonl 마지막 발급 2920 · 아키 결정): 2920 행 후보 0 · 2921 행 후보 1 (이 칸만 기본 바닥값 · 나머지 칸은 시험용 0)
+new_root; ledger "$R" 99 "| 2920 | 10-31 22:3x | 오빠 슬랙 $S_OLD.1 충돌 구간 끝 |" "| 2921 | 11-01 09:2x | 오빠 슬랙 $S_OLD.2 바로 다음 번호 |"; FL= run status
+[ "$(printf '%s\n' "$OUT" | grep -c '^담당 없음')" = 1 ] && printf '%s' "$OUT" | grep -q '^담당 없음 판정 2921 · ' && ! printf '%s' "$OUT" | grep -q '^담당 없음 판정 2920 ' && ok "R9 바닥값 2920: 2920 행 후보 0 · 2921 행 후보 1" || bad "R9 rc=$RC :: $OUT"
+lap R9
+
+# ── 변이 3 (그 칸만 다시 돈다)
 mut() { python3 - "$1" "$2" "$3" "$4" <<'PY'
 import sys
 src, dst, a, b = sys.argv[1:5]; s = open(src, encoding="utf-8").read(); assert a in s, a
@@ -92,6 +97,9 @@ mut "$VERD" "$T/ft-verdict-m2.sh" 'seed|new) die "번호 권위 = md 원장(VERD
 cp "$BIN/ft-verdict-lock.sh" "$T/"; new_root; V="$R/.fable-team"; printf '{"_name":"planner","_verdict_host":"host-a","_verdict_root":"%s"}\n' "$R" > "$V/seats-planner.json"
 printf '{"ev":"seed","n":425,"ts":"2026-10-01T09:00:00","by":"t"}\n' > "$V/state/verdicts.jsonl"; M2="$(FT_VERDICT_HOSTNAME=host-a FT_ROOT="$R" bash "$T/ft-verdict-m2.sh" new --title x --teams harness 2>&1)"; M2RC=$?
 { [ "$M2RC" = 0 ] && [ "$M2" = 426 ]; } && ok "변이2(new 거절 제거) → R6 빨강(번호 426 이 발급됨)" || bad "변이2 가 R6 에 안 잡힘 rc=$M2RC :: $M2"
+mut "$TOOL" "$T/m3.py" 'or 2920)' 'or 0)'; new_root; ledger "$R" 99 "| 2920 | 10-31 22:3x | 오빠 슬랙 $S_OLD.1 충돌 구간 끝 |" "| 2921 | 11-01 09:2x | 오빠 슬랙 $S_OLD.2 바로 다음 번호 |"
+FL= PYTHONPATH="$BIN" TOOL_RUN="$T/m3.py" run status
+printf '%s' "$OUT" | grep -q '^담당 없음 판정 2920 ' && ok "변이3(바닥값 제거) → R9 빨강(2920 후보)" || bad "변이3 이 R9 에 안 잡힘 rc=$RC :: $OUT"
 lap mutation
 
 # ⓘ bin·kit 같은 내용 · 문법

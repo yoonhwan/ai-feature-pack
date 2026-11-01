@@ -38,7 +38,7 @@ EOF
 card() {  # <R> <상대경로> <날짜> <본문 줄...>
   mdcommit; local r="$1" p="$2" d="$3"; shift 3; mkdir -p "$(dirname "$r/$p")"; printf '%s\n' "# 카드 $(basename "$p" .md)" "$@" > "$r/$p"; git -C "$r" add -A design; gc "$r" "$d" "card $p"
 }
-run() { mdcommit; OUT="$(cd "$R" && env FT_ROOT="$R" FT_MBOX_SH="$R/mbox.sh" FT_DIRECTIVE_NANO_REPOS="$R" ${EXTRA_ENV:-} python3 "${TOOL_RUN:-$TOOL}" "$@" 2>&1)"; RC=$?; }
+run() { mdcommit; OUT="$(cd "$R" && env FT_ROOT="$R" FT_MBOX_SH="$R/mbox.sh" FT_DIRECTIVE_NANO_REPOS="$R" FT_DIRECTIVE_FLOOR=0 ${EXTRA_ENV:-} python3 "${TOOL_RUN:-$TOOL}" "$@" 2>&1)"; RC=$?; }
 sent() { grep -c . "$R/sent.log" 2>/dev/null || true; }
 row2888() { python3 -c 'import json,sys; [print("| 2888 | 10-30 18:2x | %s |"%json.loads(l)["title"]) for l in open(sys.argv[1],encoding="utf-8") if json.loads(l).get("n")==2888]' "$FX/verdicts-20261031.jsonl"; }
 r1180_env() {  # R1·R2 사본 — 판정 2888(18:23:06) · r1180 대기 카드 18:43:29 · 10-31 09:14 커밋 · 09:20 완성 이동(둘 다 평가 시각 뒤)

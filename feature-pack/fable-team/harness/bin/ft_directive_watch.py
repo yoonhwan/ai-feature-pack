@@ -25,6 +25,7 @@ SLACK_TS = re.compile(r"(?<!\d)1\d{9}(?:\.\d{1,6})?(?!\d)")
 MD_ROW = re.compile(r"^(?:- \*\*(\d+)\*\*|\|\s*(\d+)\s*\|)")
 MD_GREP = (r"^- \*\*[0-9]+\*\*", r"^\|[[:space:]]*[0-9]+[[:space:]]*\|")  # 위 MD_ROW 와 같은 두 꼴(git grep -E)
 MD_GLOB = "design/teams/planner/VERDICTS-planner-*.md"
+CONFLICT_END = int(os.environ.get("FT_DIRECTIVE_FLOOR") or 2920)  # 충돌 구간 끝 = jsonl 마지막 발급 2920 · r1267 — 이 번호 이하 md 행은 후보 아님(2650~2920 은 두 원장이 같은 숫자를 따로 씀 · 그 앞은 감시 생기기 전) · env 는 시험용
 VOID = re.compile(r"[\s\[(*~]*(무효|철회)")  # 행 내용이 «무효»·«철회» 로 «시작»할 때만 제외 — 본문 중간 낱말은 오빠 지시를 가리지 않는다(2896 «… = 무효 rc≠0»)
 OPEN, CLOSED = ("대기", "진행"), ("완성", "아카이브")
 OWNER_S, STALL_S, MUTE_S = 60 * 60, 6 * 3600, 3600
@@ -119,7 +120,7 @@ class Watch:
         closed, out_rows = {x[0] for x in tsv(self.st / "directive-closed.tsv")}, []
         for n, (_, body) in rows.items():
             ts = SLACK_TS.search(body)
-            if n in closed or not ts or "오빠" not in body or VOID.match(body) or float(ts.group().split(".")[0]) > self.now:  # 평가 시각 뒤 오빠 글은 없던 것
+            if int(n) <= CONFLICT_END or n in closed or not ts or "오빠" not in body or VOID.match(body) or float(ts.group().split(".")[0]) > self.now:  # 평가 시각 뒤 오빠 글은 없던 것
                 continue
             out_rows.append((n, float(ts.group().split(".")[0]), {"title": body, "n": int(n)}))
         return out_rows, {"n": max(int(n) for n in rows)}
