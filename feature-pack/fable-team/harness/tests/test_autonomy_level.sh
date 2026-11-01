@@ -95,16 +95,17 @@ fresh; a on --for 12h >/dev/null 2>&1; printf 'approve-scope S2 A1 1 until=2 max
 # ⓚ 종류 학습 — FORBID 1회 → 오빠 approve-merge(ON ∧ full) = 저장 → 같은 종류 두 번째 = 자동
 fresh; a on --for 12h >/dev/null 2>&1; export STUB_KIND=move-changed
 run a scope-approve "$(sha 11)"; [ $rc = 2 ] && [ "$(cat "$SD/denied.tsv")" = "$(printf '%s\tmove-changed\t%s' "$(sha 11)" "$T0")" ]; ck "ⓚ FORBID kind=X → REJECT + denied.tsv 1행" $?
-run a approve-merge "$(sha 11)"; has "^LEARNED kind=move-changed sha=$(sha 11)" && [ "$(cat "$SD/learned-kinds.tsv")" = "$(printf 'move-changed\t%s\t%s\tfull' "$(sha 11)" "$T0")" ]; ck "ⓚ 오빠 approve-merge → learned-kinds 1행(레벨 full)" $?
+oppa_ap() { printf '{"ok":true,"messages":[{"ts":"1793500000.500000","text":"승인 %s"},{"ts":"1793500001.000000","user":"U0AC2JF0M7D","text":"ok"}]}' "$1" > "$T/replies.json"; FT_SLACK_REPLIES_CMD="cat $T/replies.json" run a approve-merge "$1" --oppa-slack 1793500000.500000; }   # r1275: 범위 승인이 살아 있으면 approve-merge 는 --oppa-slack 필요 — 가짜 슬랙 답글
+oppa_ap "$(sha 11)"; has "^LEARNED kind=move-changed sha=$(sha 11)" && [ "$(cat "$SD/learned-kinds.tsv")" = "$(printf 'move-changed\t%s\t%s\tfull' "$(sha 11)" "$T0")" ]; ck "ⓚ 오빠 approve-merge → learned-kinds 1행(레벨 full)" $?
 export STUB_ARGS_LOG="$T/args.log"; run a scope-approve "$(sha 12)"; [ $rc = 0 ] && has "^SCOPE-OK $(sha 12) class=docs .* learned=move-changed$"; ck "ⓚ 같은 종류 두 번째 sha → SCOPE-OK learned" $?
 grep -q -- "--learned move-changed" "$T/args.log" && grep -qx "scope-use S1 $(sha 12) docs $T0 learned=move-changed" "$LOG" && [ "$(a mode)" = on ]; ck "ⓚ 분류기에 --learned · log scope-use … learned= · 위변조 아님" $?
 STUB_KIND=deps run a scope-approve "$(sha 13)"; [ $rc = 2 ]; ck "ⓚ 다른 종류 → FORBID 그대로" $?
-run a approve-merge "$(sha 12)"; ! has LEARNED && [ "$(wc -l < "$SD/learned-kinds.tsv" | tr -d ' ')" = 1 ]; ck "ⓚ 같은 종류 재저장 0" $?
+oppa_ap "$(sha 12)"; ! has LEARNED && [ "$(wc -l < "$SD/learned-kinds.tsv" | tr -d ' ')" = 1 ]; ck "ⓚ 같은 종류 재저장 0" $?
 run a scope-status --audit; [ $rc = 0 ]; ck "ⓚ --audit OK" $?
 printf 'deps\t%s\t%s\tfull\n' "$(sha 99)" "$T0" >> "$SD/learned-kinds.tsv"; run a scope-status --audit; [ $rc = 3 ] && has '^AUDIT-MISMATCH learned deps'; ck "ⓚ 손 추가 학습 행 → AUDIT-MISMATCH" $?
-fresh; a on --level mid --for 12h >/dev/null 2>&1; run a scope-approve "$(sha 21)"; run a approve-merge "$(sha 21)"; ! has LEARNED && [ ! -s "$SD/learned-kinds.tsv" ]; ck "ⓚ 레벨 mid → 학습 0" $?
-fresh; a on --for 12h >/dev/null 2>&1; STUB_KIND=secret run a scope-approve "$(sha 31)"; run a approve-merge "$(sha 31)"; has 'LEARN-SKIP kind=secret' && [ ! -s "$SD/learned-kinds.tsv" ]; ck "ⓚ secret → 학습 불가" $?
-fresh; a on --for 12h >/dev/null 2>&1; run a scope-approve "$(sha 41)"; run a approve-merge "$(sha 41)"; a scope-stop S1 x >/dev/null; a off >/dev/null 2>&1
+fresh; a on --level mid --for 12h >/dev/null 2>&1; run a scope-approve "$(sha 21)"; oppa_ap "$(sha 21)"; ! has LEARNED && [ ! -s "$SD/learned-kinds.tsv" ]; ck "ⓚ 레벨 mid → 학습 0" $?
+fresh; a on --for 12h >/dev/null 2>&1; STUB_KIND=secret run a scope-approve "$(sha 31)"; oppa_ap "$(sha 31)"; has 'LEARN-SKIP kind=secret' && [ ! -s "$SD/learned-kinds.tsv" ]; ck "ⓚ secret → 학습 불가" $?
+fresh; a on --for 12h >/dev/null 2>&1; run a scope-approve "$(sha 41)"; oppa_ap "$(sha 41)"; a scope-stop S1 x >/dev/null; a off >/dev/null 2>&1
 [ -s "$SD/learned-kinds.tsv" ]; ck "ⓚ scope-stop·OFF 는 학습표를 지우지 않는다" $?
 run a forget-kind move-changed; [ $rc = 0 ] && [ ! -s "$SD/learned-kinds.tsv" ]; ck "ⓚ forget-kind → FORGOT · 표에서 빠짐" $?
 run a forget-kind move-changed; [ $rc = 2 ]; ck "ⓚ 없는 종류 forget → REJECT rc 2" $?

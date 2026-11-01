@@ -5,7 +5,7 @@
 #     같은 밤 재기동에서 화면(FE)만 1시간 뒤처져 회차가 또 오염됐다.
 #     규칙에 네 번 적었고 네 번 빠뜨렸다 — 기억이 아니라 종료코드로 막는다.
 # 쓰기: ft-press-gate.sh   → 통과 0 / 막힘 1. tester 는 이걸 통과해야만 쏜다.
-# r1260: 러너 훅은 게이트를 60초 상한으로 다시 돈다 → tester 는 러너 «전에» FT_PRESS_CARD=… FT_PRESS_EVID=… ft-press-gate.sh 를 1회(상한 없이) 돌려 두면
+# r1260: 러너 훅은 게이트를 70초 상한(r1283 · 하드 룰 12 · 옛 60)으로 다시 돈다 → tester 는 러너 «전에» FT_PRESS_CARD=… FT_PRESS_EVID=… ft-press-gate.sh 를 1회(상한 없이) 돌려 두면
 #        ① 판정(현역 나노 미랜딩 검사)이 300초 동안 재사용돼 러너 훅 안 게이트가 짧게 끝난다(FT_PRESS_GATE_CACHE_SEC=0 이면 재사용 0).
 set -u
 # 경로·feat 브랜치는 env 로 바꾼다(ai-feature-pack 일반화 · 기본값 = BYZ 현행 — 동작 변경 0)
@@ -394,7 +394,10 @@ _squash_heads(){ # → «<FEAT 커밋>\t<X>\t<N>» 줄들
   while IFS= read -r -d '' rec || [ -n "$rec" ]; do
     c="${rec%%$'\n'*}"; l=""; prev=""
     while IFS= read -r x; do x="${x%"${x##*[![:space:]]}"}"; [ -n "$x" ] && { prev="$l"; l="$x"; }; done <<< "${rec#*$'\n'}"
-    case "$l" in "main 자동 병합(문서 전용 · 겹침 0) C="*) _hex40 "${l#*C=}" && l="$prev";; esac
+    case "$l" in
+      "main 자동 병합(문서 전용 · 겹침 0) C="*) _hex40 "${l#*C=}" && l="$prev";;
+      "main 자동 병합(코드 · 승인 EQUIV) C="*) _hex40 "${l#*C=}" && l="$prev";;   # r1278-mut:skip — ft-merge-land.sh AMK 와 같은 글자
+    esac
     case "$l" in "PR #"*" (head "*")") ;; *) continue;; esac
     n="${l#PR #}"; n="${n%% (head *}"; x="${l##* (head }"; x="${x%)}"
     case "$n" in ''|*[!0-9]*) continue;; esac
@@ -414,6 +417,9 @@ _squash_landed(){ # 워크트리 → rc0 = 착지됨(⊘ 한 줄) · rc1 = 판�
   return 1
 }
 _step1_run(){   # r1260: ① 본문을 함수로 감쌌다(본문 불변) — 현재 셸에서 돈다 → UNLANDED·FAIL 이 그대로 남고, 출력은 redirect 로 담아 캐시에 쓴다
+# r1283: 기준 줄기 로그 2개는 워크트리마다 같은 값 — 루프 밖에서 «1회» 만 읽는다(나노 n 개 × 2 → 2 · 부하 50+ 에서 ① 44~95초의 한 원인)
+FEAT_SUBJ=$(git log "$FEAT" --format='%s' -400)
+FEAT_BODY=$(git log "$FEAT" --format='%H%n%B' -60)
 for W in $LIVE_WT; do
   W="$ROOT/.worktrees/$W"
   [ -e "$W/.git" ] || continue
@@ -426,15 +432,12 @@ for W in $LIVE_WT; do
   # 랜딩 판정 셋 — 하나라도 맞으면 랜딩된 것으로 본다:
   #   ⒜같은 제목이 feat 에 있다(cherry-pick -x)
   #   ⒝feat 커밋 «본문»에 그 sha 가 인용돼 있다(통행증 규격으로 «재작성»해 올린 경우 — 실제로 있었다)
-  #   ⒞sha 가 feat 의 조상이다
+  #   ⒞sha 가 feat 의 조상이다 — r1283: 후보 목록이 «git log FEAT..HEAD» 라 정의상 FEAT 의 조상이 아니다(항상 거짓이던 검사 · 또 $h 는 sha+축약 tree 47자라 git 이 sha 로 읽지도 못했다) → 호출 삭제
   P=0; IN_SET=0
-  FEAT_SUBJ=$(git log "$FEAT" --format='%s' -400)
-  FEAT_BODY=$(git log "$FEAT" --format='%H%n%B' -60)
   while IFS=$'\t' read -r h t; do
     [ -z "$h" ] && continue
     printf '%s\n' "$FEAT_SUBJ" | grep -qxF "$t" && continue
     printf '%s\n' "$FEAT_BODY" | grep -q "${h:0:9}" && continue
-    git merge-base --is-ancestor "$h" "$FEAT" 2>/dev/null && continue
     P=$((P+1)); say "  ·" "미랜딩 후보: $t"
     # r1076 모순 검사 재료 — 이 미랜딩 커밋이 press 세트 HEAD 의 조상인가(이미 세트에 있으면 «제외» 가 아니라 «모순»)
     #   ★${h:0:40}★ 위 로그 꼴의 %t 는 «탭» 이 아니라 «축약 tree 해시»(git 이 7자를 붙인다) — 40자만 쓰면 sha 다(기존 ① 판정은 손대지 않는다).

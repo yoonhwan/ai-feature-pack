@@ -65,8 +65,17 @@ def install_hint():  # r494: 새 워크트리 bin 없음 = 설치본 shim --init
     lb = lb or "<LIVE_BIN>"
     return f" · 설치(master) = bash {lb}/ft-root-bin-shim.sh --root {top} --live {lb} --init"
 if not os.access(gate, os.X_OK): deny(f"press 러너 실행인데 게이트가 없다({gate}) — fail-closed(R106c)" + GUIDE + install_hint())
-try: r = subprocess.run([gate], env={**os.environ, **inline}, capture_output=True, text=True, timeout=60)
-except (OSError, subprocess.TimeoutExpired) as e: deny(f"ft-press-gate 실행 실패({e}) — fail-closed(R106c)")
+def limit():  # r1283: 게이트 상한 = 하드 룰 12 «쪼갤 수 없는 배치» 70초 · env 는 10~70 정수만 받고 그 밖(빈 값·글자·소수)은 70
+    v = os.environ.get("FT_PRESS_RUNNER_GATE_TIMEOUT", "")
+    return int(v) if v.isascii() and v.isdigit() and 10 <= int(v) <= 70 else 70
+def stage_line(out):  # 시간초과 때 게이트가 그때까지 찍은 마지막 «단계 초» 줄(없으면 "")
+    out = out.decode("utf-8", "replace") if isinstance(out, bytes) else (out or "")
+    return next((l.strip() for l in reversed(out.splitlines()) if "단계 초" in l), "")
+T = limit()
+note(f"게이트 상한 {T}초")  # 어느 상한으로 돌았는지 한 줄(시험·tester 가 로그로 본다)
+try: r = subprocess.run([gate], env={**os.environ, **inline}, capture_output=True, text=True, timeout=T)
+except subprocess.TimeoutExpired as e: deny(f"ft-press-gate 실행 실패({e}) — fail-closed(R106c)" + (f" · {stage_line(e.stdout)}" if stage_line(e.stdout) else ""))
+except OSError as e: deny(f"ft-press-gate 실행 실패({e}) — fail-closed(R106c)")
 if r.returncode != 0:
     xs = " / ".join(l.strip() for l in r.stdout.splitlines() if "✗" in l)[:600]
     deny(f"ft-press-gate 막힘(rc={r.returncode}): {xs}" + GUIDE)
