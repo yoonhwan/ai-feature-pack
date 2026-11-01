@@ -558,3 +558,15 @@ def test_I2_block_issue_and_card_cells_are_none_whatever_the_body_quotes(env: Pa
     text = slack.replies(slack.roots[0])[0]["text"]
     assert "↳ 이어가기 · Issue 없음 · 카드 없음 · 담당 src#1 · 정본 bodies/2.txt@mbox" in text
     assert text.count("Issue ") == 1 and "F-old" not in text.split("↳ 이어가기")[1]  # 블록 안에 본문 인용 0
+
+
+def test_r1294_decision_body_keeps_question_format_in_desk(env: Path, slack: FakeSlack):
+    start(env, slack)
+    body = Path("/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/comm/bodies/224912.txt").read_text(encoding="utf-8")
+    append_row(env, 2, TO, "byz-lecture-master-claude#201", body)
+    result = run(env, slack, "--desk-channel", "C2")
+    assert result.returncode == 0, result.stderr
+    desk_root = next(message for message in slack.roots if message["channel"] == "C2")
+    (reply,) = slack.replies(desk_root)
+    assert reply["text"].startswith("[이슈보고]")
+    assert "정할 것:" in reply["text"] and "할 일 없음" not in reply["text"]
