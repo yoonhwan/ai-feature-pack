@@ -55,9 +55,13 @@ SKIP_ANCHOR = "if bl.skip_backlog(self, st, rows):"  # 변이 시험(test_mirror
 
 def skip_backlog(mirror, st: dict[str, object], rows: list[dict[str, object]]) -> bool:
     """밀린 게시 대상이 상한을 넘으면 요약 1통만 올리고 True(이번 패스는 행 루프 생략) — 미러 한 패스의 첫 분기."""
-    seqs = pick(rows, int(str(st["last_seq"])), mirror.seat, mirror.a.backlog_max, mirror.urgent,
-                mirror.urgent_senders)
+    last_seq = int(str(st["last_seq"]))
+    hot = [int(str(r["seq"])) for r in rows if int(str(r["seq"])) > last_seq and
+           is_target(r, mirror.seat, mirror.urgent, mirror.urgent_senders) and desk.is_desk_dup(r, mirror.urgent_senders)]
+    prefix = [r for r in rows if not hot or int(str(r["seq"])) < min(hot)]
+    seqs = pick(prefix, last_seq, mirror.seat, mirror.a.backlog_max, mirror.urgent, mirror.urgent_senders)
     if not seqs:
         return False
-    mirror.deliver(st, item(seqs, int(str(rows[-1]["seq"]))))
+    beyond = min(hot) - 1 if hot else int(str(rows[-1]["seq"]))
+    mirror.deliver(st, item(seqs, beyond))
     return True

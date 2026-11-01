@@ -80,8 +80,10 @@ class Desk:
         for name, d, it in (("main", main, item), ("desk", self.deliv, {**item, "text": self.text(item)})):
             if name in done:
                 continue
-            ts, ctx = d.resolve(it, resume)
-            if name not in threads:
+            if name in threads:
+                ts, ctx = str(threads[name]), None
+            else:
+                ts, ctx = d.resolve(it, resume)
                 threads[name] = ts
                 save and save()
             if name == "main" and send_main:

@@ -20,6 +20,7 @@ import byz_mbox_slack_mirror as bm
 import mirror_backlog as bl
 import mirror_lib as lib
 import mirror_marker as markers
+import mirror_questions as mq
 import mirror_summary as summ
 import mirror_team as mt
 
@@ -41,6 +42,8 @@ markers.thread_texts = lambda *a, **k: []
 lib.save_state = lambda path, st: (saved.__setitem__(str(path), json.loads(json.dumps(st))), Path(path).write_text(json.dumps(st), encoding="utf-8"))
 summ.summarize = lambda cmd, label, text, timeout: (sums.append(text), {"what": "요약", "todo": None})[1]
 mt.build = lambda *a, **k: None
+mq.on_roster = lambda *a, **k: False
+mq.update_board = lambda *a, **k: None
 
 tmp = Path(tempfile.mkdtemp())
 RESUME = tmp / "ft-resume-cmd.sh"
@@ -52,7 +55,7 @@ def row(seq, to="byz-planner-master-claude#12", frm="n#0", body=None):
     return {"seq": seq, "ts": "2026-10-22T18:00:00", "from": frm, "to": to,
             "body": body or f"[{frm}->{to}] 보고 {seq}"}
 
-def run(name, rows, last_seq, max_n=50, pending=None):
+def run(name, rows, last_seq, max_n=50, pending=None, desk_channel=""):
     """미러 1패스 — 임시 state·로그 · 게시 기록을 돌려준다."""
     global posts, sums
     posts, sums = [], []
@@ -65,7 +68,8 @@ def run(name, rows, last_seq, max_n=50, pending=None):
     a = argparse.Namespace(project="p", mailbox=str(log), seat=r"^byz-planner-master-claude#\d+$", channel="C1", repo="",
                            state_dir=str(d / "state"), token_file="~/.hermes/secrets/x.env", mention="", summarizer_cmd="stub",
                            summary_timeout=7.0, api_base="http://stub", planner_seats="", resume_script=str(RESUME),
-                           inbox_bin=str(INBOX), dry_run=False, backlog_max=max_n, interval=5.0, once=True)
+                             inbox_bin=str(INBOX), dry_run=False, backlog_max=max_n, interval=5.0, once=True,
+                             desk_channel=desk_channel, desk_mention="U0AC2JF0M7D", urgent_from="ft-api-outage,ft-decision-count")
     m = bm.Mirror(a)
     m.run_pass()
     out = json.loads((d / "state" / "byz_mbox_slack_mirror.p.json").read_text(encoding="utf-8"))
@@ -101,6 +105,16 @@ desk_rows = [row(s) for s in range(1, 49)] + [row(49, body="[HIL] 확인 필요"
              row(50, frm="ft-api-outage", body="[API 장애 시작] 오류")]
 picked = bl.pick(desk_rows, 0, SEAT, 48, urgent_senders=frozenset({"ft-api-outage"}))
 check("r1280 desk 중복 2건 제외 → BACKLOG 상한 48 미초과", picked == [], str(picked))
+
+# R14: 일반 49건을 요약하고 HIL·장애 알림은 다음 패스에 양 채널로 개별 게시.
+r14 = [row(s) for s in range(1, 50)] + [row(50, body="[HIL] 확인 필요"),
+       row(51, frm="ft-api-outage", body="[API 장애 시작] 오류")]
+p, s, st = run("r14-summary", r14, 0, max_n=48, desk_channel="Cdesk")
+check("R14 일반 49건 → BACKLOG 요약 1통", len(p) == 1 and "밀린 쪽지 49건" in p[0], str(p))
+check("R14 마지막 hot seq 전까지 처리선 유지", st.get("last_seq") == 49, str(st.get("last_seq")))
+p, s, st = run("r14-hot", r14, st["last_seq"], max_n=48, desk_channel="Cdesk")
+check("R14 HIL·장애 낱건 두 채널 게시", len(p) == 4 and sum("결정 자리:" in t for t in p) == 2 and
+      sum("[긴급]" in t for t in p) == 2 and sum("<@U0AC2JF0M7D>" in t for t in p) == 2, str(p))
 
 # ⓔ pending 먼저 1회 → 그 다음 묶음
 PEND = {"id": "#99", "seq": 100, "key": "byz-x#1", "what": "밀리기 전 쪽지", "text": "[상태] pending 원문"}

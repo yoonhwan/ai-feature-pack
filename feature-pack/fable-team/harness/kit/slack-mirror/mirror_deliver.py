@@ -108,6 +108,8 @@ class Deliverer:
     def send_fixed(self, item: dict[str, object], ts: str, resume: bool, ctx: dict[str, object] | None = None) -> None:
         if self.teams is None:
             return self._reply(item, ts, resume, str(item["text"]))
+        if ctx is None:
+            return self._reply(item, ts, resume, str(item["text"]))
         route, roots = ctx["route"], ctx["roots"]
         self._reply(item, ts, resume, self.teams.reply_text(item, route))
         self.teams.record(item, route, roots, ts if isinstance(item.get("question"), dict) else None)

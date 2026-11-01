@@ -29,6 +29,14 @@ def env(tmp_path: Path) -> Path:
     return tmp_path
 
 
+@pytest.fixture
+def run_env(tmp_path: Path) -> Path:
+    (tmp_path / "tok.env").write_text("YOONHWAN_BOT_TOKEN=xoxp-test\n", encoding="utf-8")
+    (tmp_path / "fake_sum.py").write_text(FAKE_SUMMARIZER, encoding="utf-8")
+    resume_script(tmp_path)
+    return tmp_path
+
+
 def rows_file(tmp: Path, *rows: tuple[int, str, str]) -> Path:
     (tmp / "seats-fixture.json").write_text(json.dumps({"src#1": {"role": "nano"}}), encoding="utf-8")  # r846 r2: 보낸 이 src#1 = 명부 좌석(질문을 열 수 있다)
     p = tmp / "mailbox.log.jsonl"
@@ -403,24 +411,60 @@ def test_block_team_report_is_mirrored_with_person_mention(env: Path, slack: Fak
 def test_nonurgent_rows_and_missing_desk_channel_keep_single_delivery(env: Path, slack: FakeSlack):
     start(env, slack)
     rows_file(env, (2, TO, "[정리] 정상 보고"))
-    r = run(env, slack)
+    r = run(env, slack, "--desk-channel", "C2")
     assert r.returncode == 0, r.stderr
     assert len(slack.roots) == 1 and len(slack.msgs) == 2
 
 
-def test_resume_checks_markers_in_both_channels_before_reposting(env: Path, slack: FakeSlack):
-    start(env, slack)
-    rows_file(env, (2, TO, "[BLOCK] #820 재시작 뒤 확인"))
-    r = run(env, slack, "--desk-channel", "C2")
+def test_resume_checks_markers_in_both_channels_before_reposting(run_env: Path, slack: FakeSlack):
+    start(run_env, slack)
+    rows_file(run_env, (2, TO, "[BLOCK] #820 재시작 뒤 확인"))
+    r = run(run_env, slack, "--desk-channel", "C2")
     assert r.returncode == 0, r.stderr
     before = len(slack.msgs)
-    st = state(env)
+    st = state(run_env)
     st.update(last_seq=1, pending={"id": "#2", "marker": "bodies/2.txt@mbox", "seq": 2, "key": "#820", "what": "확인",
                                    "text": slack.msgs[-1]["text"], "desk_dup": True, "threads": {}, "done": []})
-    (env / "st" / "byz_mbox_slack_mirror.byz.json").write_text(json.dumps(st), encoding="utf-8")
-    r = run(env, slack, "--desk-channel", "C2")
+    (run_env / "st" / "byz_mbox_slack_mirror.byz.json").write_text(json.dumps(st), encoding="utf-8")
+    r = run(run_env, slack, "--desk-channel", "C2")
     assert r.returncode == 0, r.stderr
     assert len(slack.msgs) == before
+
+
+def test_team_roots_resume_after_0800_after_main_post_before_done_save(tmp_path: Path, slack: FakeSlack, monkeypatch):
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    sys.path.insert(0, str(KIT))
+    from types import SimpleNamespace
+    from _team_fakes import World, kst
+    import mirror_desk
+    world = World(tmp_path, slack, labels={820: ["team:harness"]})
+    item = world.item("#820", "#2", "긴급 확인", marker="bodies/2.txt@mbox", desk_dup=True)
+    item["text"] += "\nbodies/2.txt@mbox"
+    args = SimpleNamespace(desk_channel="C2", desk_mention="U0AC2JF0M7D", mention="U0AC2JF0M7D",
+                           api_base=slack.base, state_dir=str(tmp_path))
+    desk = mirror_desk.Desk(args, "tok")
+    saves = []
+    def send_main(row, resume, ts, ctx):
+        world.deliv.send_fixed(row, ts, resume, ctx)
+    send_fixed = world.deliv.send_fixed
+    def crash_after_main_post(row, ts, resume, ctx):
+        send_fixed(row, ts, resume, ctx)
+        raise RuntimeError("crash after main POST")
+    monkeypatch.setattr(world.deliv, "send_fixed", crash_after_main_post)
+    with pytest.raises(RuntimeError, match="crash after main POST"):
+        desk.send_both(world.deliv, item, False, lambda: saves.append(dict(item)), send_main)
+    assert item["done"] == [] and "main" in item["threads"]
+    old_day = world.teams.route(item).day
+    world.clock.t = kst(2026, 10, 10, 9, 0)
+    world.rebuild()
+    assert world.teams.route(item).day != old_day
+    desk.send_both(world.deliv, item, True, lambda: saves.append(dict(item)), send_main)
+    team_roots = [root for root in slack.roots if "team:harness:" in root["text"]]
+    main_posts = [m for root in team_roots for m in slack.replies(root) if "bodies/2.txt@mbox" in m["text"]]
+    desk_ts = json.loads((tmp_path / "byz_slack_threads.C2.json").read_text())["threads"]["#820"]
+    desk_root = next(m for m in slack.roots if m["ts"] == desk_ts)
+    desk_posts = [m for m in slack.replies(desk_root) if "bodies/2.txt@mbox" in m["text"]]
+    assert len(team_roots) == 1 and len(main_posts) == 1 and len(desk_posts) == 1 and "desk" in item["done"]
 
 
 def test_desk_mention_is_removed_only_for_zero_decision_summary():
@@ -445,6 +489,65 @@ def test_resume_marker_on_later_thread_page_prevents_duplicate(tmp_path: Path, s
     deliverer = mirror_deliver.Deliverer(slack.base, "token", "C1", tmp_path / "threads.json")
     deliverer._reply({"id": "#2", "marker": "bodies/2.txt@mbox"}, root, True, "would duplicate")
     assert len(slack.msgs) == before
+
+
+def test_actual_decision_alarm_generator_output_is_mirrored(tmp_path: Path, run_env: Path, slack: FakeSlack):
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import test_decision_count as decision_count
+    start(run_env, slack)
+    alarm_env = tmp_path / "decision"
+    alarm_env.mkdir()
+    fixture = decision_count.make_env(alarm_env)
+    decision_count.put(fixture, [decision_count.row(7, "④", "byz-graphics-master-claude#3", ago=31)])
+    generated = decision_count.run(fixture, "--alarm")
+    assert generated.returncode == 0, generated.stderr
+    args = (fixture["root"] / "mbox.log").read_text(encoding="utf-8").split("\n", 1)[0].split(" ", 3)
+    assert args[2] == "ft-decision-count" and args[3].startswith("[결정 대기 경보]")
+    append_row(run_env, 2, TO, args[2], args[3])
+    r = run(run_env, slack, "--desk-channel", "C2")
+    assert r.returncode == 0, r.stderr
+    assert len(slack.roots) == 2 and all("[긴급]" in m["text"] for m in slack.msgs if m["thread_ts"])
+
+
+def test_actual_api_outage_generator_to_desk_is_mirrored(tmp_path: Path, run_env: Path, slack: FakeSlack, monkeypatch):
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import test_ft_api_outage as api_outage
+    desk_seat = "byz-planner-desk-claude#92"
+    monkeypatch.setattr(api_outage, "PLANNER", desk_seat)
+    start(run_env, slack)
+    outage_root = tmp_path / "outage"
+    outage_root.mkdir()
+    fixture = api_outage._outage_fx(outage_root)
+    generated = fixture.run(api_outage.T0)
+    assert generated.returncode == 0, generated.stderr
+    dest, sender, body = next(call for call in fixture.calls() if call[0] == desk_seat)
+    assert sender == "ft-api-outage" and body.startswith("[API 장애 시작")
+    append_row(run_env, 2, dest, sender, body)
+    r = run(run_env, slack, "--desk-channel", "C2", "--urgent-seat", r"^byz-planner-desk-claude#\d+$")
+    assert r.returncode == 0, r.stderr
+    assert len(slack.roots) == 2 and "[긴급]" in "\n".join(m["text"] for m in slack.msgs)
+
+
+def test_actual_api_outage_to_cfo_keeps_queue_and_message_unchanged(tmp_path: Path, run_env: Path,
+                                                                   slack: FakeSlack, monkeypatch):
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import test_ft_api_outage as api_outage
+    cfo = "byz-cfo-master-claude#1"
+    monkeypatch.setattr(api_outage, "PLANNER", cfo)
+    start(run_env, slack)
+    root = tmp_path / "cfo-outage"
+    root.mkdir()
+    fixture = api_outage._outage_fx(root)
+    generated = fixture.run(api_outage.T0)
+    assert generated.returncode == 0, generated.stderr
+    dest, sender, body = next(call for call in fixture.calls() if call[0] == cfo)
+    queue = tmp_path / "cfo-queue.jsonl"
+    queue.write_text("keep-1\nkeep-2\n", encoding="utf-8")
+    before = queue.read_bytes()
+    append_row(run_env, 2, dest, sender, body)
+    r = run(run_env, slack, "--desk-channel", "C2", "--urgent-seat", r"^byz-planner-desk-claude#\d+$")
+    assert r.returncode == 0, r.stderr
+    assert body.startswith("[API 장애 시작") and queue.read_bytes() == before and slack.msgs == []
 
 
 def test_I2_block_issue_and_card_cells_are_none_whatever_the_body_quotes(env: Path, slack: FakeSlack):
