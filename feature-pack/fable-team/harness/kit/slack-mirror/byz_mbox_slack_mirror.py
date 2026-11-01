@@ -18,6 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import mirror_backlog as bl  # noqa: E402
 import mirror_board as mb  # noqa: E402
 import mirror_lib as lib  # noqa: E402
+import mirror_desk as desk  # noqa: E402
 import mirror_summary as summ  # noqa: E402
 import mirror_team as mt  # noqa: E402
 import mirror_questions as mq  # noqa: E402
@@ -25,12 +26,6 @@ import resume_block as rb  # noqa: E402
 from mirror_deliver import Deliverer, seed_threads  # noqa: E402
 
 API = "https://slack.com/api"
-
-
-def format_gap(first: int, last: int) -> str:
-    n = last - first + 1
-    return (f"[상태] 슬랙에 못 올라간 보고가 {n}건 있어요 — 보낸 기록이 비어 있어요\n"
-            f"할 일 없음 — 하네스 담당이 확인해요\n(mirror · #GAP-{first}-{last})")
 
 
 def read_rows(log: Path) -> list[dict[str, object]]:
@@ -57,24 +52,21 @@ class Mirror:
         self.a = a
         self.log, self.seat = Path(a.mailbox), re.compile(a.seat)
         self.urgent = re.compile(a.urgent_seat) if getattr(a, "urgent_seat", "") else None  # r1257: 이 좌석 앞 [긴급] 만 올린다(기본 빈 값 = 지금 동작)
+        self.urgent_senders = desk.senders(a)
         self.state_path = Path(a.state_dir) / f"byz_mbox_slack_mirror.{a.project}.json"
         self.planner_seats = a.planner_seats or str(self.log.resolve().parent.parent / "seats-planner.json")  # 명부 «경로» 만 유도 — 현역 이름은 매번 live_planner
         self.resume_script = Path(a.resume_script) if a.resume_script else self.log.resolve().parent.parent / "bin" / "ft-resume-cmd.sh"
         if not self.resume_script.is_file():
             raise lib.MirrorError(f"재개 명령 스크립트 없음: {self.resume_script} (--resume-script)")
         self.token = "" if a.dry_run else lib.read_token(Path(a.token_file).expanduser())
+        self.desk = desk.Desk(a, self.token) if getattr(a, "desk_channel", "") else None
         self.threads_path, self.qpath = Path(a.state_dir) / f"byz_slack_threads.{a.channel}.json", Path(a.state_dir) / f"byz_slack_questions.{a.channel}.json"
         self.deliv = Deliverer(a.api_base, self.token, a.channel, self.threads_path, teams=None if a.dry_run else mt.build(a, self.token, self.threads_path))
         self.posted, self.rows = 0, []
 
-    def _send_item(self, item: dict[str, object], resume: bool) -> None:
-        q = item.get("question")
-        if isinstance(q, dict):  # 루트 확보 → 질문 등록 → 카드 게시: 카드 직후 답해도 열린 질문이 이미 있다
-            ts = self.deliv.thread_ts(item, resume)
-            if mq.on_roster(str(q.get("seat", "")), Path(self.planner_seats).parent):  # r846 r2: 명부 좌석만 질문을 연다 · 못 읽으면 0(카드는 게시)
-                mq.add(self.qpath, int(str(item["seq"])), {**q, "thread_ts": ts})
-            mq.update_board(self.qpath, self.a.api_base, self.token, self.a.channel, self.planner_seats)
-        self.deliv.send(item, resume)
+    def _send_item(self, item: dict[str, object], resume: bool, fixed_ts: str | None = None,
+                   ctx: dict[str, object] | None = None) -> None:
+        desk.send_item(self, item, resume, fixed_ts, ctx)
 
     def _close_answered(self, r: dict[str, object], key: str) -> None:
         """답이 전달된 질문은 «그 좌석이 같은 키로 다음 보고를 올릴 때» 닫힌다 — 좌석이 값으로 움직였다는 증거."""
@@ -88,16 +80,7 @@ class Mirror:
             mq.update_board(self.qpath, self.a.api_base, self.token, self.a.channel, self.planner_seats)
 
     def deliver(self, st: dict[str, object], item: dict[str, object], resume: bool = False) -> None:
-        if self.a.dry_run:
-            print(f"[thread {item.get('key')}]\n{item['text']}\n---")
-            st["last_seq"] = item["seq"]  # 메모리만 — 저장 0 (안 올리면 다음 행이 가짜 공백으로 보인다)
-        else:
-            st["pending"] = item
-            lib.save_state(self.state_path, st)
-            self._send_item(item, resume)
-            st.update(last_seq=item["seq"], pending=None)
-            lib.save_state(self.state_path, st)
-        self.posted += 1
+        desk.deliver(self, st, item, resume)
 
     def run_pass(self) -> int:
         self.posted = 0
@@ -135,14 +118,14 @@ class Mirror:
             return
         if s > prev + 1:
             self.deliver(st, {"id": f"#GAP-{prev + 1}-{s - 1}", "seq": s - 1, "key": lib.OTHER_KEY,
-                              "what": "슬랙 미러가 알리는 기록 공백", "text": format_gap(prev + 1, s - 1)})
+                                "what": "슬랙 미러가 알리는 기록 공백", "text": bl.format_gap(prev + 1, s - 1)})
         mb.post_handled(self.deliver, st, r, self.rows, self.seat, self.threads_path, self._summarize, self.deliv.has_thread if self.deliv.teams else None)  # planner 가 받은 쪽지에 답한 행 → 그 스레드에 「planner 처리」 1줄
-        if not bl.is_target(r, self.seat, self.urgent):  # 오빠 글(역방향이 넣은 행)은 메아리로 다시 올리지 않는다
+        if not bl.is_target(r, self.seat, self.urgent, self.urgent_senders):  # 오빠 글(역방향이 넣은 행)은 메아리로 다시 올리지 않는다
             st["last_seq"] = s
             if not self.a.dry_run:
                 lib.save_state(self.state_path, st)
             return
-        label, text = lib.classify(str(r.get("body", "")))
+        label, text = desk.row_label(r, self.urgent_senders)
         full = lib.read_full(r)
         summary = self._summarize(s, label, full or text)
         key = lib.thread_key(r, text)
@@ -152,9 +135,15 @@ class Mirror:
         opts = mq.parse_options(full or text) if label == "HIL" else []
         question = {"key": key, "seat": str(r.get("from", "")), "what": what, "options": opts} if label == "HIL" else None
         self._close_answered(r, key)
-        self.deliver(st, {"id": f"#{s}", "seq": s, "key": key, "url": url, "what": what, "question": question,
-                          "text": lib.format_row(r, label, self.a.mention, summary, text, block=rb.mirror_block(r, label, self.resume_script),
-                                                 full=full, urls=urls, options_text=mq.format_options(opts) if label == "HIL" else None, seats=self.planner_seats)})
+        desk_dup = bool(self.desk and label in desk.DESK_LABELS)
+        rendered = lib.format_row(r, label, self.a.mention, summary, text, kind="이슈보고" if label == "긴급" else None,
+                                  block=rb.mirror_block(r, label, self.resume_script), full=full, urls=urls,
+                                  options_text=mq.format_options(opts) if label == "HIL" else None, seats=self.planner_seats)
+        if label == "긴급":
+            rendered = desk.urgent_text(rendered)
+        self.deliver(st, {"id": f"#{s}", "marker": f"bodies/{s}.txt@mbox", "seq": s, "key": key, "url": url, "what": what, "question": question,
+                          "desk_dup": desk_dup,
+                          "text": rendered})
 
 
 def parse() -> argparse.Namespace:
@@ -173,6 +162,7 @@ def parse() -> argparse.Namespace:
     p.add_argument("--api-base", default=API)
     p.add_argument("--planner-seats", default="", help="planner 명부(seats-planner.json) 경로 (기본 <mailbox 폴더 상위>/seats-planner.json)")
     p.add_argument("--resume-script", default="", help="ft-resume-cmd.sh (기본 <mailbox 폴더 상위>/bin/ft-resume-cmd.sh)")
+    desk.add_args(p)
     mb.add_args(p)
     mt.add_args(p)
     p.add_argument("--interval", type=float, default=5.0)

@@ -19,6 +19,7 @@ sys.path.insert(0, KIT)
 import byz_mbox_slack_mirror as bm
 import mirror_backlog as bl
 import mirror_lib as lib
+import mirror_marker as markers
 import mirror_summary as summ
 import mirror_team as mt
 
@@ -36,7 +37,7 @@ posts, sums, saved = [], [], {}
 lib.read_token = lambda p: "tok"
 lib.post = lambda base, tok, ch, text, thread_ts=None: (posts.append(text), f"9.{len(posts)}")[1]
 lib.channel_roots = lambda *a, **k: []
-lib.thread_texts = lambda *a, **k: []
+markers.thread_texts = lambda *a, **k: []
 lib.save_state = lambda path, st: (saved.__setitem__(str(path), json.loads(json.dumps(st))), Path(path).write_text(json.dumps(st), encoding="utf-8"))
 summ.summarize = lambda cmd, label, text, timeout: (sums.append(text), {"what": "요약", "todo": None})[1]
 mt.build = lambda *a, **k: None
@@ -94,6 +95,12 @@ mixed = sorted(mine + others, key=lambda r: int(str(r["seq"])))
 p, s, st = run("mixed", mixed, 100)
 check("ⓓ 게시 대상 5건만 셈 → 묶음 0 · 원문 5회(+공백 알림 1)", len(p) == 6 and sum("못 올라간 보고가" in t for t in p) == 1 and not any("건너뛰었어요" in t for t in p), f"{len(p)}건: {[t[:20] for t in p]}")
 check("ⓓ last_seq=254(마지막 행까지 지나감)", st.get("last_seq") == 254, str(st.get("last_seq")))
+
+# r1280: desk 중복 대상은 BACKLOG 요약에 넣지 않는다.
+desk_rows = [row(s) for s in range(1, 49)] + [row(49, body="[HIL] 확인 필요"),
+             row(50, frm="ft-api-outage", body="[API 장애 시작] 오류")]
+picked = bl.pick(desk_rows, 0, SEAT, 48, urgent_senders=frozenset({"ft-api-outage"}))
+check("r1280 desk 중복 2건 제외 → BACKLOG 상한 48 미초과", picked == [], str(picked))
 
 # ⓔ pending 먼저 1회 → 그 다음 묶음
 PEND = {"id": "#99", "seq": 100, "key": "byz-x#1", "what": "밀리기 전 쪽지", "text": "[상태] pending 원문"}
