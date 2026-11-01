@@ -829,15 +829,32 @@ dead_seat_watch() {
   return 0
 }
 
+# r1300: 좌석 이름 → 팀. «byz-<팀>-<역할>-<에이전트>#<N>» 전체 꼴일 때만(팀 = 점·밑줄 허용, `-` 는 역할 경계라 뺀다) · 잘린 이름·M#1 꼴 = 빈 값(정지 억제 0).
+team_of_seat() {
+  if [[ "$1" =~ ^byz-([A-Za-z0-9_.]+)-(master|arch|da|tester|checker|analyst|pm|nano|repro|tool|planner|desk)-[A-Za-z0-9_.-]+#[0-9]+$ ]]; then
+    printf '%s\n' "${BASH_REMATCH[1]}"
+  fi
+  return 0
+}
+# r1300: r1291 정본 ft_card_assign_pause.team_paused 그대로 호출(R, team) — stdout «상태<TAB>판정번호<TAB>사유» 1줄 · 실행 실패·칸 수 ≠ 3 = q(하드 룰 20 · 조용한 통과 0).
+team_paused_state() {
+  local out rc
+  out="$(python3 -I -c 'import sys; sys.path.insert(0, sys.argv[1]); from pathlib import Path; from ft_card_assign_pause import team_paused; s, why, _, n = team_paused(Path(sys.argv[2]), sys.argv[3]); print(s, n, why, sep=chr(9))' "$HERE" "$ROOT" "$1" 2>/dev/null)"; rc=$?
+  if [ "$rc" != 0 ] || [ -z "$out" ] || [ "$(printf '%s' "$out" | awk -F'\t' '{print NF}')" != 3 ]; then
+    printf 'q\t\tpython 실행 실패 rc=%s' "$rc"
+  else printf '%s' "$out"; fi
+}
+
 # ③ 누적 정지 — IDLE 지속 ≥ IDLE_STALL_MIN 분 ∧ 받은 발주 0 ∧ 완료·휴식 아님. master 도 대상(master 정지 → planner · 그 밖 → master). 같은 정지(turn_end 같음)는 1회만.
 idle_long_watch() {
-  local rows master route seat role p st end dur rep src ep mins pend jl to sdir body nn lists nanotag
+  local rows master route seat role p st end dur rep src ep mins pend jl to sdir body nn lists nanotag team tp tp_cache tst tn
   local nanos="" nanos_read=0
   [ "${FT_TICK_IDLE_LONG:-1}" = 1 ] || return 0
   [ -f "$SEAT_STATUS" ] || return 0
   rows="$(all_seats 2>/dev/null)" || return 0
   master="$(master_seat)"; route="$(route_seat)"; [ -n "$route" ] || route="$master"
   sdir="$STATE_DIR/idlelong"; mkdir -p "$sdir"
+  tp_cache=""   # r1300 «팀<TAB>상태<TAB>번호<TAB>사유» 줄들 — 틱 1바퀴 지역(틱을 넘어 남는 상태 0)
   while IFS=$'\t' read -r seat role; do
     [ -n "$seat" ] || continue
     p="$(pane_of "$seat")"; [ -n "$p" ] || { rm -f "$sdir/$seat"; continue; }
@@ -846,6 +863,19 @@ idle_long_watch() {
     [ "$st" = IDLE ] && [ "$src" != pane ] || { rm -f "$sdir/$seat"; continue; }
     ep="$(iso_epoch "$end")"; [ -n "$ep" ] || continue
     mins=$(( ($(now) - ep) / 60 )); [ "$mins" -ge "$IDLE_STALL_MIN" ] || continue
+    # r1300: 팀 정지 표식(r1291 정본 · <루트>/.fable-team/state/<팀>-tick/PAUSED)이 있는 팀의 좌석은 «쉼» — 경보 0 · 로그 1줄. 표식 지우면 다음 틱부터 경보 재개.
+    team=""; [ "${FT_TICK_PAUSED_SKIP:-1}" = 1 ] && team="$(team_of_seat "$seat")"
+    if [ -n "$team" ]; then
+      tp="$(printf '%s\n' "$tp_cache" | awk -F'\t' -v t="$team" '$1==t{sub(/^[^\t]*\t/,""); print; exit}')"
+      if [ -z "$tp" ]; then tp="$(team_paused_state "$team")"; tp_cache="$tp_cache$team"$'\t'"$tp"$'\n'
+        [ "$(printf '%s' "$tp" | cut -f1)" = q ] && echo "$(date '+%F %T') WARN 정지 표식 판정 불가 — 경보 보냄($(printf '%s' "$tp" | cut -f3))" >&2; fi
+      tst="$(printf '%s' "$tp" | cut -f1)"; tn="$(printf '%s' "$tp" | cut -f2)"
+      if [ "$tst" = on ]; then
+        rm -f "$sdir/$seat"   # 표식이 사라지면 같은 turn_end 라도 다음 틱에 다시 경보한다(재개 뒤 재개)
+        if [ "$DRY" = 1 ]; then echo "DRY kind=idle-long-paused seat=$seat team=$team verdict=$tn"; else log "idle_long_watch: $seat 정지 ${mins}분 — 팀 $team 정지 표식(판정 $tn) · 경보 0"; fi
+        continue
+      fi
+    fi
     [ "$(cat "$sdir/$seat" 2>/dev/null)" = "$end" ] && continue
     pend="$(bash "$MBOX" peek "$seat" 2>/dev/null | sed -n 's/.*pending=\([0-9][0-9]*\).*/\1/p' | head -1)"; [ "$pend" = 0 ] || continue
     jl="$(bash "$SEAT_STATUS" jsonl "$seat" 2>/dev/null)"; [ -n "$jl" ] && [ -f "$RESUME_ATTEMPT" ] && bash "$RESUME_ATTEMPT" rested "$jl" && continue
