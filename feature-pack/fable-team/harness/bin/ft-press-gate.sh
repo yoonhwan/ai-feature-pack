@@ -394,7 +394,10 @@ _squash_heads(){ # → «<FEAT 커밋>\t<X>\t<N>» 줄들
   while IFS= read -r -d '' rec || [ -n "$rec" ]; do
     c="${rec%%$'\n'*}"; l=""; prev=""
     while IFS= read -r x; do x="${x%"${x##*[![:space:]]}"}"; [ -n "$x" ] && { prev="$l"; l="$x"; }; done <<< "${rec#*$'\n'}"
-    case "$l" in "main 자동 병합(문서 전용 · 겹침 0) C="*) _hex40 "${l#*C=}" && l="$prev";; esac
+    case "$l" in
+      "main 자동 병합(문서 전용 · 겹침 0) C="*) _hex40 "${l#*C=}" && l="$prev";;
+      "main 자동 병합(코드 · 승인 EQUIV) C="*) _hex40 "${l#*C=}" && l="$prev";;   # r1278-mut:skip — ft-merge-land.sh AMK 와 같은 글자
+    esac
     case "$l" in "PR #"*" (head "*")") ;; *) continue;; esac
     n="${l#PR #}"; n="${n%% (head *}"; x="${l##* (head }"; x="${x%)}"
     case "$n" in ''|*[!0-9]*) continue;; esac
