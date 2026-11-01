@@ -28,6 +28,7 @@ from pathlib import Path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ft_directive_watch import Git, Undecided, hhmm, team_master, tsv, until  # noqa: E402
 from ft_penalty import root  # noqa: E402
+from ft_latest_write import write_latest  # noqa: E402
 
 REASONS = ("정지", "석", "부하", "면제대기", "선행", "lint", "DA")
 PAUSED = ("정지", "석", "부하")
@@ -444,6 +445,11 @@ def main(argv: list[str]) -> int:
     real, v = time.time(), argv[argv.index("--now") + 1] if "--now" in argv[:-1] else os.environ.get("FT_CARD_ASSIGN_NOW")
     now = real if not v else float(v) if re.fullmatch(r"\d+(\.\d+)?", v) else iso(v[:19])
     cmd = argv[0] if argv else ""
+    write = "--write-latest" in argv
+    if write and cmd not in ("status", "tick"):
+        print("사용: ft-card-assign-watch.sh status|tick [--write-latest]", file=sys.stderr)
+        print("latest 안 씀(rc 2)", file=sys.stderr)
+        return 2
     if cmd == "lint" and len(argv) == 2:
         return lint(Path(argv[1]))
     if cmd == "record" and len(argv) >= 3:
@@ -454,14 +460,18 @@ def main(argv: list[str]) -> int:
             print(f"배정 원장 판정 불가 · {e}")
             return 3
     if cmd not in ("prepare", "status", "tick"):
-        print("사용: ft-card-assign-watch.sh prepare|status|tick [--now <YYYY-MM-DDTHH:MM:SS|epoch>] [--json] | record <카드> init|seat <이름>|waiting <사유> [hold <판정 N>|acct <P[/M]>] | lint <카드>")
+        print("사용: ft-card-assign-watch.sh prepare|status|tick [--now <YYYY-MM-DDTHH:MM:SS|epoch>] [--json] [--write-latest] | record <카드> init|seat <이름>|waiting <사유> [hold <판정 N>|acct <P[/M]>] | lint <카드>")
         return 2
     if now is None:
         print(f"배정 감시 판정 불가 · --now 꼴 아님({v})")
+        if write:
+            print("latest 안 씀(rc 3)", file=sys.stderr)
         return 3
     virtual, R = now < real - 1, root()
     if cmd != "status" and virtual:
         print(f"배정 감시 판정 불가 · {cmd} 은 가상 시각을 받지 않는다")
+        if write:
+            print("latest 안 씀(rc 3)", file=sys.stderr)
         return 3
     try:
         if cmd == "prepare":
@@ -473,9 +483,12 @@ def main(argv: list[str]) -> int:
         print(f"배정 감시 판정 불가 · {why}")
         if cmd == "tick":
             print("\n".join(tick(R, now, None, why, [])))
+        if write:
+            print("latest 안 씀(rc 3)", file=sys.stderr)
         return 3
     lines = render(rows, stamp)
-    print(json.dumps(rows, ensure_ascii=False) if "--json" in argv else "\n".join(lines))
+    output = json.dumps(rows, ensure_ascii=False) if "--json" in argv else "\n".join(lines)
+    print(output)
     hot = [x for x in rows if x["kind"] not in ("정지 중", "판정 불가")]  # Q 는 rc 에 안 셈(머리에만)
     if not virtual:
         c = {k: sum(1 for x in rows if x["kind"] == k) for k in ("없음", "초과", "발주")}
@@ -483,7 +496,10 @@ def main(argv: list[str]) -> int:
             fh.write(f"{stamp}\t{c['없음']}\t{c['초과']}\t{c['발주']}\t{stamp.split('-')[1]}\n")
     if cmd == "tick":
         print("\n".join(tick(R, now, rows, "", lines)))
-    return 1 if hot else 0
+    rc = 1 if hot else 0
+    if write:
+        write_latest(R, "card-assign", "ft-card-assign-watch.sh", output.splitlines()[0] if output else "", rows, int(now), stamp)
+    return rc
 
 
 if __name__ == "__main__":
