@@ -67,7 +67,7 @@ def main():
         directive_cell(os.environ.get("FT_DIRECTIVE_STAMPS") or os.path.join(a.seats_dir, "state", "directive-watch", "stamps.tsv"), body)
         directive_cell(os.environ.get("FT_CARD_ASSIGN_STAMPS") or os.path.join(a.seats_dir, "state", "card-assign", "stamps.tsv"), body, *ASSIGN)
     say("OK")
-ASSIGN = ("배정", r"배정 없는 카드 (\d+) · 대기 초과 (\d+)(?:\([^)]*\))?(?: · 정지 중 \d+)?(?: · 판정 불가 Q \d+)?(?: · 카드 없는 발주 \d+)?", "배정 없는 카드 N · 대기 초과 M", "ft-card-assign-watch.sh")  # ⑤ r1224 — 전용 stamps · 머리의 (사유별)·정지 중·발주 칸은 건너뛴다
+ASSIGN = ("배정", r"배정 없는 카드 (\d+) · 대기 초과 (\d+)(?:\([^)]*\))?(?: · 정지 중 \d+)?(?: · 보류 중 \d+)?(?: · 판정 불가 Q \d+)?(?: · 카드 없는 발주 \d+)?", "배정 없는 카드 N · 대기 초과 M", "ft-card-assign-watch.sh")  # ⑤ r1224 — 전용 stamps · 머리의 (사유별)·정지 중·발주 칸은 건너뛴다
 def directive_cell(f, body, what="지시", rx=r"담당 없는 오빠 지시 (\d+) · 멈춘 오빠 지시 (\d+)", fmt="담당 없는 오빠 지시 N · 멈춘 오빠 지시 M", tool="ft-directive-watch.sh"):  # ④ r1212 승계 master·planner·desk·arch — 지시 칸을 다시 세지 않고 stamps.tsv 의 그 판본 행과 대조 · «판정 불가 · <사유>» 칸만 WARN 통과 · 판본 파일 없음 = 반송
     if re.search(what + r" 감시 판정 불가 · \S", body):
         return print("WARN 부팅 보고 lint — " + what + " 칸 «판정 불가» · 대조 없이 통과", file=sys.stderr)
