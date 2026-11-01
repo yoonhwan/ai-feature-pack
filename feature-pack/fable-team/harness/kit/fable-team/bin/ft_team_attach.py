@@ -9,7 +9,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 from ft_team_lib import TeamPathError, team_names  # noqa: E402
 from ft_team_attach_lib import AttachError, root_path, safe  # noqa: E402
-from ft_team_attach_ops import apply_team, check_team, notify_daily  # noqa: E402
+from ft_team_attach_ops import apply_team, check_team, needs_publish, notify_daily  # noqa: E402
 from ft_team_attach_state import detach, revert  # noqa: E402
 
 def main(argv: list[str]) -> int:
@@ -56,6 +56,9 @@ def main(argv: list[str]) -> int:
         if action == "--apply":
             n = sum(apply_team(root, t, own_tick, fix_fields, dry) for t in teams)
             print(f"APPLY 팀={len(teams)} 변경={n}")
+            pending = [t for t in teams if needs_publish(root, t)]
+            if pending:
+                print(f"TEAMSET.md 행 {' '.join(pending)} 는 커밋·push 전까지 상한 판정 불가(rc3)")
             return 0
         if action == "--detach" and team != "--all":
             return detach(root, team)

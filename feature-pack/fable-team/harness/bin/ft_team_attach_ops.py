@@ -100,6 +100,12 @@ def apply_team(root: Path, team: str, own_tick: bool, fix_fields: bool, dry: boo
         changed += own_tick_apply(root, team, p, dry)
     return changed
 
+
+def needs_publish(root: Path, team: str) -> bool:
+    path, local = teamset_row(root, team)
+    ref_exists, remote = origin_teamset_row(root, path, team)
+    return local is not None and (not ref_exists or remote != local)
+
 def own_tick_apply(root: Path, team: str, p: dict[str, Path], dry: bool) -> int:
     if dry:
         print(f"DRY --own-tick {team}")
