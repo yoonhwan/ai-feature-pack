@@ -218,7 +218,7 @@ def pick(repo, target, specs):   # 음성 경로 트리가 target 과 같은 세
         n += 1
         e = git(repo, "rev-parse", c + "^").strip()
         try:
-            both = sorted(set(specs).union({":(glob)" + p for p in patterns(repo, e)}))
+            both = sorted({*specs, *(":(glob)" + p for p in patterns(repo, e))})
         except Reject as r:
             why = why or str(r)
             continue

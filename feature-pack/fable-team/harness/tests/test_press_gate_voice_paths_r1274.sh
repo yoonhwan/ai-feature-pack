@@ -73,7 +73,7 @@ mkpr 9 b9 "clients/web/src/domains/realtime/e9.ts=e"; E9="$PRSHA"; pk "$E9" r9; 
 git -C "$REPO" checkout -q -B bc9 "$E9"; put "$LIST" "$(list_md "$B")"; put gateway/routes/v5/c9.py c; cm "$REPO" "deploy C"; C9="$(sha "$REPO" HEAD)"
 out="$(python3 "$VP" deploy --commit "$C9" --repo "$REPO" 2>&1)"; rc=$?; [ "$rc" = 1 ] && [[ "$out" == *"press 증거 없음/틀림"* ]]; ck "R9 deploy: C 가 A 지움 + A 경로 변경 → REJECT(비교 목록 = C 목록 ∪ E 목록)" $?
 chk "$C9"; [ "$rc" = 1 ] && [[ "$out" == *"press 증거 없음/틀림"* ]]; ck "R9 같은 입력 land(check) → REJECT" $?
-mut "$T/mut5" 'both = sorted(set(specs).union({":(glob)" + p for p in patterns(repo, e)}))' 'both = sorted(set(specs))'
+mut "$T/mut5" 'both = sorted({*specs, *(":(glob)" + p for p in patterns(repo, e))})' 'both = sorted({*specs})'
 out="$(python3 "$T/mut5/press_evidence_verify.py" deploy --commit "$C9" --repo "$REPO" 2>&1)"; rc=$?; [ "$rc" = 0 ] && [[ "$out" == *"press 증거 OK"* ]]; ck "ⓜ변이 5(pick 의 E 목록 합집합 제거) → R9 deploy 통과 = 계약 깨짐 재현" $?
 echo "단계 초: R9·변이 5 $((SECONDS - T_START))s"
 
