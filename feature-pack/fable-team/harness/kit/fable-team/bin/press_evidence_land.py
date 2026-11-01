@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """press_evidence_land.py — r1230 착지 쪽(판정 2946) · 판정 함수는 press_evidence_verify.py 하나(BYZ scripts/ci 와 바이트 같음)를 import.
   land : ft-merge-land 가 부른다 — 대상 = 착지 리포의 remote URL(날 값·확장 값)이 SecondWindStudio/byz-agents(CROSS 무관 · D2) 일 때만
-         · 배포 경로 변경 0 = 대상 밖 · PR 전체 변경이 main 위 착지 하나의 정확 역 diff = 면제 + 빚 ref push(D6·D7)
-         · 그 밖 = 배포 경로 트리가 같은 «통과» 묶음 필수 · 미상환 빚이면 빚 착지를 조상으로 가진 세트여야 + 상환 ref push
+         · 음성 경로(docs/rules/press_voice_paths.md 목록) 변경 0 = 대상 밖 · PR 전체 변경이 main 위 착지 하나의 정확 역 diff = 면제 + 빚 ref push(D6·D7)
+         · 그 밖 = 음성 경로 트리가 같은 «통과» 묶음 필수 · 미상환 빚이면 빚 착지를 조상으로 가진 세트여야 + 상환 ref push
   pack : 묶음 커밋(부모 = 세트) → push refs/press/<세트>-<run_id> · 같은 칸 검사를 먼저(틀린 묶음은 만들지 않는다)
   debt : 미상환 빚 목록
   stdout(land 통과) = 사람 1줄 + 기록 토큰 1줄(press=out|ok:<세트10>:<run>|revert:<sha10>) · 대상 밖 리포 = 출력 0 · 거절 = 1줄 rc1.
@@ -83,7 +83,7 @@ def land(a):
         return 0
     specs = specs_of(a.repo, a.head, a.main)
     if same(a.repo, a.main, a.head, specs):
-        print("press 증거 대상 밖(배포 경로 변경 0)\npress=out")
+        print("press 증거 대상 밖(음성 경로 변경 0)\npress=out")
         return 0
     fetch_refs(a.repo, a.remote)
     rv = exact_revert(a.repo, a.main, a.head, "%s %s" % (a.title, a.body))
