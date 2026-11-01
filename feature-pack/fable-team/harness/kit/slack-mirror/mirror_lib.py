@@ -104,16 +104,6 @@ def channel_roots(base: str, token: str, channel: str, limit: int = 100) -> list
     return _msgs(api_call(base, token, "conversations.history", {"channel": channel, "limit": limit}, get=True))
 
 
-def thread_texts(base: str, token: str, channel: str, thread_ts: str, limit: int = 100) -> list[str]:
-    body = api_call(base, token, "conversations.replies", {"channel": channel, "ts": thread_ts, "limit": limit}, get=True)
-    return [t for _, t in _msgs(body)]
-
-
-def has_marker(texts: list[str], marker: str) -> bool:
-    pat = re.compile(re.escape(marker) + r"(?!\d)")
-    return any(pat.search(t) for t in texts)
-
-
 _PREFIX = re.compile(r"^\s*\[[^\]]*->[^\]]*\]\s*")
 _TAG = re.compile(r"^\s*\[(HIL|BLOCK|긴급)\]\s*", re.IGNORECASE)
 # Issue 키 = «명시된 것»만: 「Issue/이슈/PR #N」 또는 본문 맨 앞 「#N」·「[#N]」. 좌석명 #N(승계 #0->#1)·5자리 mbox seq·#0 은 키가 아니다.
