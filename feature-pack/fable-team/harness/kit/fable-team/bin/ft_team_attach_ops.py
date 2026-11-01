@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from ft_team_lib import team_rel
-from ft_team_attach_lib import AttachError, command, directive_ok, origin_teamset_row, paths, safe, set_teamset_row, state_of, teamset_row, tick_status, write
+from ft_team_attach_lib import AttachError, cards_path, command, directive_ok, origin_teamset_row, paths, safe, set_teamset_row, state_of, teamset_row, tick_status, write
 
 HERE = Path(__file__).resolve().parent
 
@@ -38,12 +38,14 @@ def check_team(root: Path, team: str) -> tuple[list[str], int, int]:
         lines.append(f"S3 판정 불가(JSON {type(e).__name__})")
         unknown += 1
     else:
-        expected = {"_label": team, "_cards": f"{rel}/indices"}
-        diff = [k for k, v in expected.items() if doc.get(k) not in (v, "")] if isinstance(doc, dict) else ["JSON"]
-        if not isinstance(doc, dict) or not all(k in doc for k in ("_master", "_cards", "_cards_wt")) or diff:
-            lines.append("S3 어긋남 " + ",".join(diff or ["필수 칸"]))
+        cards = cards_path(root, doc)
+        if not isinstance(doc, dict) or not all(k in doc for k in ("_master", "_cards", "_cards_wt")):
+            lines.append("S3 어긋남 필수 칸")
             bad += 1
-        elif not p["cards"].is_dir():
+        elif not doc.get("_label"):
+            lines.append("S3 어긋남 _label")
+            bad += 1
+        elif cards is None or not cards.is_dir():
             lines.append("S3 어긋남 폴더 없음")
             bad += 1
         else:
@@ -62,9 +64,11 @@ def check_team(root: Path, team: str) -> tuple[list[str], int, int]:
         bad += 1
     else:
         lines.append("S5 OK")
-    s6, ok = tick_status(root, team, p)
+    s6, s6ok = tick_status(root, team, p)
     lines.append(f"S6 {s6}")
-    if not ok:
+    if s6ok is None:
+        unknown += 1
+    elif not s6ok:
         bad += 1
     return lines, bad, unknown
 

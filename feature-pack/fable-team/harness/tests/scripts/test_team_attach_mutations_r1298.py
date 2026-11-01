@@ -88,7 +88,9 @@ def test_mutation_4_daily_lint_does_not_notify_is_caught(tmp_path):
     mbox.write_text("#!/bin/sh\necho sent >> \"$FT_SENT\"\n", encoding="utf-8")
     mbox.chmod(0o755)
     code = 'import os,sys,pathlib;sys.path.insert(0,sys.argv[1]);import ft_team_attach as a;assert a.main(["--all","--check","--notify","planner#1"])==1;assert pathlib.Path(os.environ["FT_SENT"]).read_text().count("sent")==1'
-    env = {"FT_MBOX_SH": str(mbox), "FT_SENT": str(sent)}
+    env = {"FT_MBOX_SH": str(mbox), "FT_SENT": str(sent), "FT_TICK_TEAM_TSV": str(root / ".fable-team/bin/team-tick-env.tsv")}
+    (root / ".fable-team/bin").mkdir(parents=True, exist_ok=True)
+    (root / ".fable-team/bin/team-tick-env.tsv").write_text("# header\n", encoding="utf-8")
     p = run_probe(code, b, root, env)
     assert p.returncode != 0
 
