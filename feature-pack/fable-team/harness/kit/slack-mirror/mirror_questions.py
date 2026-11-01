@@ -57,6 +57,11 @@ def format_options(options: list[str]) -> str:
     return "선택지(참고): " + " ".join(f"{i}) {lib.esc(o)}" for i, o in enumerate(options, 1)) if options else ""
 
 
+def options_line(text: str) -> str | None:
+    _, body = lib.strip_lead(text)
+    return next((lib.esc(line.strip()) for line in body.splitlines() if line.strip().startswith("선택지:")), None)
+
+
 def load(path: Path) -> dict[str, dict]:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
