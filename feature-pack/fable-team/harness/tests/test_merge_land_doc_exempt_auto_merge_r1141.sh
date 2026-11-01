@@ -4,7 +4,7 @@
 #   임시 origin(bare)+clone · gh·tmux 는 스텁 — 실 gh·실 원격·실 push 0 · 자기 재호출은 real_state_guard 의 RSG_ACTIVE 재진입 표지 하나뿐
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
-export FT_AUTONOMY_LEVEL=each
+export FT_AUTONOMY_LEVEL=each FT_MERGE_LAND_CODE_AUTOMERGE=0   # r1270: 이 시험은 문서 길 — 코드 자동 병합을 끄고 옛 동작을 고정
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 BIN="$HERE/../../harness/bin"; KIT="$BIN/../kit/fable-team/bin"; LAND="$BIN/ft-merge-land.sh"
 . "$HERE/_merge_fixture.sh"
