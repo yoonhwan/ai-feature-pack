@@ -16,7 +16,7 @@ from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from ft_decision_alarm import ReadError, alarm, first_line  # noqa: E402
+from ft_decision_alarm import ReadError, alarm, first_line, line  # noqa: E402
 from ft_flag_off import open_count  # noqa: E402
 from ft_decision_kind import BODY_MISSING, ORDER, open_rows  # noqa: E402
 from ft_inbox_core import R, answered_seqs, lineage, qpath, read_q  # noqa: E402
@@ -165,11 +165,6 @@ def summary(now):
     m, (f, fnote) = scripts(), flag_off(wt)  # r1135: 꺼진 플래그 칸은 맨 끝 — 남은 예산만 쓰고 넘쳐도 그 칸만 «판정 불가»(앞 칸 예산을 굶기지 않는다)
     notes = " ".join(x for x in (f"(옛 좌석 미닫힘 {box['old']})" if box["old"] else "", fnote, note, "" if mq else "(MERGE-QUEUE 파일 없음)") if x)
     return {**box, "me": me, "n": box["n"] + (merge_waiting(mq) if mq else 0) + a + f, "m": m, "notes": notes}
-
-
-def line(s):
-    wait = f"팀 대기 {len(s['team'])}건" + (f"(가장 오래 {s['team'][0][1]} {s['team'][0][2]}분)" if s["team"] else "") + (f" · 묵은 {s['stale']}건" if s["stale"] else "")
-    return f"결정 인터뷰 {s['n']}건 · 스크립트 {s['m']}건 · {wait}" + (f" · 본문 없음 {s['miss']}건" if s["miss"] else "") + (" " + s["notes"] if s["notes"] else "")
 
 
 def main(argv):
