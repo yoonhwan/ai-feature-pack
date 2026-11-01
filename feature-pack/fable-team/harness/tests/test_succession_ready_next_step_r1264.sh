@@ -22,9 +22,8 @@ roster() {
   fi
 }
 row() { printf '{"seq":%s,"ts":"t","to":"%s","from":"slack-oppa","body":"%s"}\n' "$1" "$2" "$3" >> "$Q"; }
-xenv() { env -u FT_PLANNER_HEAD_MODE PATH="$T/stub:$PATH" FT_SEATS_JSON="$ENVROOT/seats/seats-feature.json" FT_MBOX_DIR="$C" FT_HIL_BIN="$T/stub/ft-hil.sh" FT_MBOX_RATE_N=999 FT_MBOX_FANOUT_WINDOW=0 FT_NAME_LINT="$BIN/ft-name-lint.sh" FT_MBOX_PY="$C/mbox.py" "$@"; }
-sh_() { OUT="$(cd "$ENVROOT" && xenv bash "$C/mbox.sh" "$@" 2>&1)"; RC=$?; }
-py() { OUT="$(cd "$ENVROOT" && xenv python3 "$C/mbox.py" "$@" 2>&1)"; RC=$?; }
+sh_() { OUT="$(cd "$ENVROOT" && env -u FT_PLANNER_HEAD_MODE PATH="$T/stub:$PATH" FT_SEATS_JSON="$ENVROOT/seats/seats-feature.json" FT_MBOX_DIR="$C" FT_HIL_BIN="$T/stub/ft-hil.sh" FT_MBOX_RATE_N=999 FT_MBOX_FANOUT_WINDOW=0 FT_NAME_LINT="$BIN/ft-name-lint.sh" FT_MBOX_PY="$C/mbox.py" bash "$C/mbox.sh" "$@" 2>&1)"; RC=$?; }
+py() { OUT="$(cd "$ENVROOT" && env -u FT_PLANNER_HEAD_MODE PATH="$T/stub:$PATH" FT_SEATS_JSON="$ENVROOT/seats/seats-feature.json" FT_MBOX_DIR="$C" FT_HIL_BIN="$T/stub/ft-hil.sh" FT_MBOX_RATE_N=999 FT_MBOX_FANOUT_WINDOW=0 FT_NAME_LINT="$BIN/ft-name-lint.sh" FT_MBOX_PY="$C/mbox.py" python3 "$C/mbox.py" "$@" 2>&1)"; RC=$?; }
 retire() {
   local old="$1"; shift
   OUT="$(cd "$ENVROOT" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR -u GIT_OBJECT_DIRECTORY FT_SEATS_JSON="$ENVROOT/seats/seats-feature.json" FT_MBOX_DIR="$C" FT_MBOX_PY="$C/mbox.py" FT_SEAT_REAP_BIN="$T/reap-stub.sh" FT_SEAT_QUIESCE_BIN="$T/quiesce-stub.sh" bash "$BIN/ft-seat-retire.sh" "$old" "$@" 2>&1)"; RC=$?
