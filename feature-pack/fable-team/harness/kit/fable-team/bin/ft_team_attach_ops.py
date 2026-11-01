@@ -71,7 +71,7 @@ def check_team(root: Path, team: str) -> tuple[list[str], int, int]:
 def apply_team(root: Path, team: str, own_tick: bool, fix_fields: bool, dry: bool) -> int:
     if state_of(root, team) != "현역":
         raise AttachError(f"REJECT {team} 현역 팀만 --apply 가능")
-    p = paths(root, team)
+    p = paths(root, team, include_tick=own_tick)
     rel = team_rel(team, root).strip("/")
     changed = 0
     changed += int(set_teamset_row(root, team, [team, "3", "0", "상시"], dry))

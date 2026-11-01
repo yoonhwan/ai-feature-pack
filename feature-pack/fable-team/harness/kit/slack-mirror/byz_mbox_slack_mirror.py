@@ -136,7 +136,7 @@ class Mirror:
         urls = lib.links([text, full or ""], url)
         what = summary["what"] if summary else lib.first_sentence(text)
         opts = mq.parse_options(full or text) if label == "HIL" else []
-        question = {"key": key, "seat": str(r.get("from", "")), "what": what, "options": opts} if label == "HIL" else None
+        question = {"key": key, "seat": str(r.get("from", "")), "what": what, "options": opts, "todo": lib.ms.share_lines(summary["what"] if summary else lib.first_sentence(text), summary["todo"] if summary else None, text, label)[1], "options_text": mq.format_options(opts) if opts else mq.options_line(full or text)} if label == "HIL" else None
         self._close_answered(r, key)
         desk_dup = desk.wants_desk(r, self.urgent_senders, bool(self.desk))
         rendered = lib.format_row(r, label, self.a.mention, summary, text, kind="이슈보고" if label == "긴급" else None,
