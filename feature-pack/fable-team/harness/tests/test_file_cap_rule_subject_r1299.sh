@@ -58,6 +58,8 @@ r2() {  # R2 — codex 두 사본 == 정본(바이트)
 }
 
 first_body_line() { grep -m1 -F 'echo "BODY+' "$1" 2>/dev/null; }
+# BODY+ 로 echo 되는 고정 줄 변수 이름들
+bplus_vars() { grep -oE 'echo "BODY\+\$\{[A-Za-z0-9_]+\}"' "$1" 2>/dev/null | sed -E 's/.*\$\{([A-Za-z0-9_]+)\}.*/\1/'; }
 body_var_line()   { grep -m1 '^BODY=' "$1" 2>/dev/null; }
 wfx_def_count()   { grep -c '^_WFX="' "$1" 2>/dev/null || true; }
 
@@ -68,7 +70,17 @@ r3_one() {  # R3 — 파일 1개
   fb="$(first_body_line "$f")"
   [ "$fb" = 'echo "BODY+${_WFX}"' ] && ok "R3 $lbl BODY 첫 줄 = _WFX" || bad "R3 $lbl BODY 첫 줄이 _WFX 아님: ${fb:-<없음>}"
   bl="$(body_var_line "$f")"
-  case "$bl" in *'${_WFX}${_SPX}'*) ok "R3 $lbl BODY 구성 첫 자리 = \${_WFX}";; *) bad "R3 $lbl BODY 구성에서 \${_WFX} 가 첫 자리 아님";; esac
+  # r1305: BODY+ 둘째 자리에 새 고정 줄(_NFX)이 들어와 «_WFX 바로 뒤 = _SPX» 인접 가정은 깨졌다 — 의도(첫 BODY+ 자리 = _WFX)만 본다.
+  local pw p v moved=0
+  pw="$(BL="$bl" awk 'BEGIN{print index(ENVIRON["BL"], "${_WFX}")}')"
+  if [ "${pw:-0}" -le 0 ]; then bad "R3 $lbl BODY 구성에서 \${_WFX} 가 첫 자리 아님"; return 0; fi
+  for v in $(bplus_vars "$f"); do
+    [ "$v" = _WFX ] && continue
+    p="$(BL="$bl" V="$v" awk 'BEGIN{print index(ENVIRON["BL"], "${" ENVIRON["V"] "}")}')"
+    [ "${p:-0}" -gt 0 ] || continue
+    [ "$p" -gt "$pw" ] || moved=1
+  done
+  [ "$moved" = 0 ] && ok "R3 $lbl BODY 구성 첫 자리 = \${_WFX}" || bad "R3 $lbl BODY 구성에서 \${_WFX} 가 첫 자리 아님"
 }
 r3() { r3_one "추적본" "$SPAWN_BIN"; r3_one "키트" "$SPAWN_KIT"; }
 
