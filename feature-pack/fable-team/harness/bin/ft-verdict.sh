@@ -2,9 +2,11 @@
 # ft-verdict.sh — 판정 번호 원장 (루트 단일 물리 파일 · 단일 호스트 발급) (판정 421 설계 §2-1 · N1).
 #
 # 왜 있나: planner 의 «판정 N» 번호가 대화·BOARD 문장 안에만 있어 승계 때 구 좌석과 후계가 같은 번호를 두 번 냈다(408·410).
-#   번호의 유일한 권위 = <FT_ROOT>/.fable-team/state/verdicts.jsonl 한 파일. 이 도구만이 쓴다.
+#   (r1267 · 11-01) 번호의 권위는 md 원장(design/teams/planner/VERDICTS-planner-*.md · ft-proxy-decide.sh 발급) 하나가 됐다.
+#   seed·new 는 은퇴(rc 1 REJECT) — done·todo·list 만 옛 verdicts.jsonl 행을 읽는다(새 행 발급 0).
+#   옛 설명: 번호의 유일한 권위 = <FT_ROOT>/.fable-team/state/verdicts.jsonl 한 파일. 이 도구만이 쓴다.
 #
-# 사용:
+# 사용(seed·new 는 은퇴 — 아래 옛 설명):
 #   ft-verdict.sh seed <n> --by <좌석>                      첫 줄 기준값(legacy 마지막 번호). 이미 있으면 rc 1
 #   ft-verdict.sh new --title "<한 줄>" --teams a,b [--seq 62xxx,…] [--oppa-todo "<한 줄>"]   → 새 번호를 stdout
 #   ft-verdict.sh done <n> [--note "<한 줄>"]               같은 번호의 상태만 갱신(새 번호 0)
@@ -175,8 +177,7 @@ cmd_list() {
 }
 
 case "$CMD" in
-  seed) cmd_seed "$@";;
-  new)  cmd_new "$@";;
+  seed|new) die "번호 권위 = md 원장(VERDICTS-planner-*.md · ft-proxy-decide.sh 발급) — ft-verdict new·seed 은퇴(r1267)";;
   done) cmd_done "$@";;
   todo) cmd_todo "$@";;
   list) cmd_list "$@";;

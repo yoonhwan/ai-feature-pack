@@ -304,7 +304,7 @@ class Status:
             made = self.created(r, repo, tip)
             files = [p for p in self.git(repo, "ls-tree", "-r", "--name-only", tip, "--", base).splitlines() if p.endswith(".md") and fnmatch(p, r[3] + "/*")]
             allpaths.update(p for p in files if len(p.split("/")) == len(r[3].split("/")) + 2 and p.split("/")[len(r[3].split("/"))] in ("대기", "진행", "완성"))  # 포인터 대상 = 카드 상태 폴더의 카드만
-            for ln in self.git(repo, "grep", "-I", "-n", "-e", "^- 긴급:", "-e", "^## ", tip, "--", base, ok=(0, 1)).splitlines():
+            for ln in self.git(repo, "grep", "-I", "-n", "-e", "^- 긴급:", "-e", "^## ", tip, "--", f":(glob){r[3].rstrip('/')}/**/*.md", ok=(0, 1)).splitlines():  # 카드 폴더의 .md 만(r1251 · 증거 포함 팀 폴더 전체 grep = 부하에서 «판정 불가»)
                 path, _, rest = ln[len(tip) + 1:].partition(":")
                 text = rest.partition(":")[2]
                 if text.startswith("## "):

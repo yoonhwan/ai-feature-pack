@@ -33,7 +33,19 @@ FROM="$(basename "$(dirname "$SRC")")"
 [ "$FROM" != "$DST" ] || { echo "REJECT 이미 $DST 에 있다"; exit 1; }
 if [ "$DST" = 진행 ]; then
   [ -f "$HERE/ft-index-lint.sh" ] || { echo "REJECT ft-index-lint.sh 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
-  bash "$HERE/ft-index-lint.sh" "$SRC" || { echo "REJECT lint 실패 — 위 사유"; exit 1; }
+  # r1166: FT_GOAL_LINES_FILE 이 비면 카드 경로(…/<팀>/indices/)의 팀 env 에서 «하위 셸» 로 그 값만 읽는다(ft-nano-spawn 과 같은 팀 판별 · 명시값이 이긴다 · v65 는 손대지 않는다)
+  _gl_file="${FT_GOAL_LINES_FILE:-}"
+  if [ -z "$_gl_file" ]; then
+    _gl_team="${FT_TEAM:-}"; [ -n "$_gl_team" ] || { case "$SRC" in */indices/*) _gl_seg="${SRC%/indices/*}"; _gl_team="${_gl_seg##*/}";; esac; }
+    if [ -n "$_gl_team" ] && [ "$_gl_team" != v65 ]; then
+      _gl_root="$(git -C "$IDX_ROOT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" && _gl_root="${_gl_root%/.git}" || _gl_root=""
+      _gl_env="$_gl_root/.fable-team/bin-$_gl_team/$_gl_team-env.sh"
+      [ -n "$_gl_root" ] && [ -f "$_gl_env" ] && _gl_file="$( . "$_gl_env" >/dev/null 2>&1; printf '%s' "${FT_GOAL_LINES_FILE:-}" )"
+      if [ -n "$_gl_file" ]; then echo "INFO 골 줄 출처 = 팀 $_gl_team env ($_gl_file)" >&2
+      else echo "INFO 골 줄 출처 = v65 기본 — 팀 $_gl_team env 없음 또는 FT_GOAL_LINES_FILE 비음 (${_gl_env:-경로 못 풂})" >&2; fi
+    fi
+  fi
+  if [ -n "$_gl_file" ]; then FT_GOAL_LINES_FILE="$_gl_file" bash "$HERE/ft-index-lint.sh" "$SRC"; else bash "$HERE/ft-index-lint.sh" "$SRC"; fi || { echo "REJECT lint 실패 — 위 사유"; exit 1; }
   [ -n "$SEAT" ] || { echo "REJECT 대기→진행 은 --seat <좌석명> 필수"; exit 1; }
 fi
 if [ "$DST" = 완성 ]; then
