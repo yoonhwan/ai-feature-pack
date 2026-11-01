@@ -170,8 +170,14 @@ def first_sentence(text: str, cap: int = 120) -> str:
     return re.split(r"(?<=[.!?。])\s| · ", one, maxsplit=1)[0][:cap] or "(빈 본문)"
 
 
-def root_text(key: str, what: str, url: str | None = None) -> str:
-    return ms.tag("작업상황", f"{esc(key)} 시작 — {esc(ms.share_guard(what) or ms.OMITTED)}") + (f"\n{esc(url)}" if url else "")
+def root_text(key: str, what: str, url: str | None = None, kind: str = "작업상황") -> str:
+    body = esc(ms.share_guard(what) or ms.OMITTED)
+    if kind in ("결정", "긴급"):
+        head = f"[{kind}] {body}"
+    else:
+        body = f"{esc(key)} 시작 — {body}"
+        head = ms.tag("작업상황", body)
+    return head + (f"\n{esc(url)}" if url else "")
 
 
 def root_marker(key: str) -> str:

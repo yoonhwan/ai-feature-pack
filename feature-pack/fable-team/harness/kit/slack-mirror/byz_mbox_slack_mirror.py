@@ -141,7 +141,7 @@ class Mirror:
         desk_dup = desk.wants_desk(r, self.urgent_senders, bool(self.desk))
         rendered = lib.format_row(r, label, self.a.mention, summary, text, kind="이슈보고" if label == "긴급" else None,
                                   block=rb.mirror_block(r, label, self.resume_script), full=full, urls=urls,
-                                  options_text=mq.format_options(opts) if label == "HIL" else None, seats=self.planner_seats)
+                                    options_text=mq.format_options(opts) if opts else mq.options_line(full or text), seats=self.planner_seats)
         if label == "긴급":
             rendered = desk.urgent_text(rendered)
         self.deliver(st, {"id": f"#{s}", "marker": f"bodies/{s}.txt@mbox", "seq": s, "key": key, "url": url, "what": what, "question": question,

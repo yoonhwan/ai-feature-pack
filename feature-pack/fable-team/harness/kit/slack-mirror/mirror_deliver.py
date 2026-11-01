@@ -80,8 +80,14 @@ class Deliverer:
     def _post(self, text: str, thread_ts: str | None = None) -> str:
         return lib.post(self.api_base, self.token, self.channel, text, thread_ts)
 
-    def _find_root(self, key: str) -> str | None:
-        marker = lib.root_marker(key)
+    def _find_root(self, item: str | dict[str, object]) -> str | None:
+        if isinstance(item, dict):
+            key = str(item.get("key", lib.OTHER_KEY))
+            kind = str(item.get("root_kind") or "")
+            marker = lib.root_text(key, str(item.get("what", "")) or key,
+                                   str(item["url"]) if item.get("url") else None, kind) if kind else lib.root_marker(key)
+        else:
+            marker = lib.root_marker(item)
         for ts, text in lib.channel_roots(self.api_base, self.token, self.channel):
             if markers.has_marker([text], marker):
                 return ts
@@ -91,8 +97,9 @@ class Deliverer:
         key = str(item.get("key", lib.OTHER_KEY))
 
         def make_root() -> str:  # 루트만 올라가고 죽은 경우를 되찾는다(resume)
-            found = self._find_root(key) if resume else None
-            return found or self._post(lib.root_text(key, str(item.get("what", "")) or key, str(item["url"]) if item.get("url") else None))
+            what, url, kind = str(item.get("what", "")) or key, str(item["url"]) if item.get("url") else None, str(item.get("root_kind") or "작업상황")
+            found = self._find_root(item) if resume else None
+            return found or self._post(lib.root_text(key, what, url, kind))
 
         return ensure_thread(self.threads_path, key, make_root, self.max_threads)
 
