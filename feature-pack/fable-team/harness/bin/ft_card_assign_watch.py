@@ -443,7 +443,10 @@ def render(rows: list[dict], stamp: str) -> list[str]:
     n = {k: [x for x in rows if x["kind"] == k] for k in ("없음", "초과", "정지 중", "보류 중", "판정 불가", "발주")}
     by = [f"{r} {sum(1 for x in n['초과'] if x['reason'] == r)}" for r in dict.fromkeys(x["reason"] for x in n["초과"])]  # 사유는 가장 오래된 since 순
     when = lambda t: hhmm(t) if t else "-"  # noqa: E731
-    out = [f"배정 없는 카드 {len(n['없음'])} · 대기 초과 {len(n['초과'])}{'(' + ' · '.join(by) + ')' if by else ''} · 정지 중 {len(n['정지 중'])}{f" · 보류 중 {len(n['보류 중'])}" if n['보류 중'] else ''}{f" · 판정 불가 Q {len(n['판정 불가'])}" if n['판정 불가'] else ''} · 카드 없는 발주 {len(n['발주'])} · 판본 {stamp}"]
+    by_s = "(" + " · ".join(by) + ")" if by else ""
+    held = f" · 보류 중 {len(n['보류 중'])}"
+    q = f" · 판정 불가 Q {len(n['판정 불가'])}"
+    out = [f"배정 없는 카드 {len(n['없음'])} · 대기 초과 {len(n['초과'])}{by_s} · 정지 중 {len(n['정지 중'])}{held if n['보류 중'] else ''}{q if n['판정 불가'] else ''} · 카드 없는 발주 {len(n['발주'])} · 판본 {stamp}"]
     for x in rows:  # rows() 가 since 순으로 정렬해 준다 — tick 이 rows·lines[1:] 를 짝짓는다
         out.append(f"{x['kind']} {x['team']} {x['stem']} · {x['label']} · since {when(x['since'])}{' · 긴급' if x['urgent'] else ''}")
     return out
