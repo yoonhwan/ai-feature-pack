@@ -10,6 +10,7 @@ import json
 import os
 import re
 import sys
+from bisect import bisect_left
 from typing import NamedTuple
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -187,14 +188,19 @@ def func_lines(t: str) -> set[int]:  # `name() {` … `}` 본문 줄 — 옛 계
     return lines
 
 
+def line_no(nl: list[int], pos: int) -> int:  # r1277: pos 앞 개행 수 + 1 (옛 t.count("\n", 0, pos) + 1 과 같은 값) — nl = 개행 위치 오름차순 표
+    return bisect_left(nl, pos) + 1
+
+
 def plan(text: str) -> list[tuple[int, str]]:  # 계획 파일: judge 와 같은 검사 + set -x + 비밀 변수를 인자로 받은 명령의 출력이 화면으로
     t = strip_heredocs(text)
-    found = [(t.count("\n", 0, o) + 1, why) for o, why in check(t)]
+    nl = [m.start() for m in re.finditer("\n", t)]  # r1277: 개행 위치 표 1회 + 이분 탐색(옛 t.count 는 문장마다 처음부터 세어 제곱 시간)
+    found = [(line_no(nl, o), why) for o, why in check(t)]
     if re.match(r"#!.*\s-[a-z]*x", t):
         found.append((1, "셔뱅 -x 로 값이 추적 출력됨"))
     fn, tracked = func_lines(t), set()
     for s in parse(t):
-        line, to_file = t.count("\n", 0, s.start) + 1, out_state(s.redirs)[0]
+        line, to_file = line_no(nl, s.start), out_state(s.redirs)[0]
         if s.args[:1] == ["set"] and any(re.fullmatch(r"-[a-zA-Z]*x[a-zA-Z]*", a) or a == "xtrace" for a in s.args[1:]):
             found.append((line, "set -x 로 값이 추적 출력됨"))
         elif tracked and s.args and not s.decl and s.args[0] not in EXEMPT and not to_file and line not in fn and not any(a.startswith("--format") for a in s.args):
