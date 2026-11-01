@@ -588,6 +588,8 @@ def test_r1297_decision_root_uses_decision_head(env: Path, slack: FakeSlack):
     root = next(message for message in slack.roots if message["channel"] == "C2")
     assert root["text"].startswith("[결정] ")
     assert "시작 —" not in root["text"]
+    assert "정할 것: 전문 참고" in root["text"]
+    assert "선택지: A) 5918 승인 h(추천) B) 보류" in root["text"]
     main_root = next(message for message in slack.roots if message["channel"] == "C1")
     assert main_root["text"].startswith("[작업상황] ") and " 시작 —" in main_root["text"]
 
