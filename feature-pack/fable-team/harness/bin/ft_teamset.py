@@ -146,40 +146,20 @@ def cap_of(spec, team, active_teams=None):
     return spec["teams"].get(team, spec["default"])
 
 
-def published_team_row(root, team):
-    """상한 행이 origin/main 에 올라왔는지 확인한다. 외부 git 실패는 상한 판정 불가로 돌린다."""
-    try:
-        p = subprocess.run(["git", "-C", str(root), "show", "origin/main:design/TEAMSET.md"],
-                           capture_output=True, text=True, timeout=7)
-    except (OSError, subprocess.SubprocessError) as e:
-        return False, f"git show 실패({e})"
-    if p.returncode:
-        return False, f"git show rc={p.returncode}"
-    try:
-        rows, _ = table_rows(p.stdout, "팀별 덮어쓰기")
-    except SystemExit:
-        return False, "origin/main TEAMSET 표 판정 불가"
-    return any(row and row[0] == team for row in rows), "origin/main 행 없음"
-
-
 def cmd_cap(a):
     spec, team = load(a.md, a.root), team_of(a.prefix, strict=False)
     if team is None:  # 표 대상 아닌 접두(시험·외부 env) — 막지 않되 눈에 보이게
         print(f"SKIP 접두 {a.prefix!r} 는 팀셋 표 대상 아님({KNOWN_HINT}) — 상한 검사 0")
         sys.exit(0)
     try:
+        all_teams = set(team_names(Path(a.root), "전체"))
         active = set(team_names(Path(a.root)))
     except TeamPathError as e:
         print(f"ERROR 팀 명단 판정 불가({e})")
         sys.exit(3)
-    if team not in active:
+    if team not in active and (team in all_teams or a.md.startswith(GITREF) or team not in spec["teams"]):
         print(f"SKIP 접두 {a.prefix!r} 는 현역 팀이 아님({team}) — 상한 검사 0")
         sys.exit(0)
-    if not a.md.startswith(GITREF):
-        published, why = published_team_row(a.root, team)
-        if not published:
-            print(f"ERROR {team} TEAMSET {why} — 커밋·push 대기(상한 판정 불가)")
-            sys.exit(3)
     cap = cap_of(spec, team, active)
     if cap is None:
         print(f"ERROR 현역 팀 {team} 의 TEAMSET 행 없음 — 상한 판정 불가")
@@ -316,7 +296,6 @@ def check_team(spec, root, team, live, roster=None, active_teams=None):
     if roster is None:
         return "WARN", "판정 불가(현역 명단 밖 팀)"
     if roster["diag"] != "OK":
-        print(f"WARN {team} 판정 불가({roster['diag']})")
         return "WARN", f"판정 불가({roster['diag']})"
     d = roster["doc"]
     pre = (f"byz-{team}-",) + tuple(p for p in LEGACY_PREFIXES.get(team, ()))

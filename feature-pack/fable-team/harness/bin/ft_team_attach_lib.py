@@ -88,7 +88,7 @@ def set_teamset_row(root: Path, team: str, cells: list[str], dry: bool = False) 
         lines.insert(insert, row)
     return write(path, ("\n".join(lines).rstrip() + "\n").encode(), dry)
 
-def paths(root: Path, team: str) -> dict[str, Path]:
+def paths(root: Path, team: str, include_tick: bool = True) -> dict[str, Path]:
     rel = team_rel(team, root).strip("/")
     seats = root / ".fable-team" / ("seats.json" if team == "v65" else f"seats-{team}.json")
     expanded = os.path.expandvars(rel)
@@ -97,7 +97,12 @@ def paths(root: Path, team: str) -> dict[str, Path]:
     cards = Path(expanded) / "indices"
     if not cards.is_absolute():
         cards = root / cards
-    plist_dir = os.environ.get("FT_TICK_PLIST_DIR")
+    if include_tick:
+        tsv = Path(os.environ.get("FT_TICK_TEAM_TSV") or ".fable-team/bin/team-tick-env.tsv")
+        plist_dir = os.environ.get("FT_TICK_PLIST_DIR")
+    else:
+        tsv = Path(".fable-team/bin/team-tick-env.tsv")
+        plist_dir = None
     if not plist_dir:
         plist_dir = str(root / ".fable-team/state/launchd") if os.environ.get("FT_TEAM_ATTACH_SANDBOX") == "1" else str(Path.home() / "Library/LaunchAgents")
     return {
@@ -105,7 +110,7 @@ def paths(root: Path, team: str) -> dict[str, Path]:
         "cards": safe(root, cards),
         "directive": safe(root, Path(".fable-team/state/directive-roots.tsv")),
         "tick": safe(root, Path(f".fable-team/state/{team}-tick")),
-        "team_tsv": safe(root, Path(os.environ.get("FT_TICK_TEAM_TSV") or ".fable-team/bin/team-tick-env.tsv")),
+        "team_tsv": safe(root, tsv),
         "plist": safe(root, Path(plist_dir) / f"com.byz.ft-tick-{team}.plist"),
     }
 

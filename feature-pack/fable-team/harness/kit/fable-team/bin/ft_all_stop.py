@@ -121,7 +121,7 @@ def _off_body(t: dict[str, object]) -> str:
 def notify(p: Path | None, d: dict[str, object], only: list[str] | None, body) -> tuple[list[str], list[str]]:  # type: ignore[no-untyped-def]
     """명부 팀장에게 보냄(only = 이 좌석만) → (보낸 것, 실패) · 실패는 그 상태 파일(p) notify_failed 에 남긴다."""
     sent, failed = [], []
-    for t in (team for team in load_teams(root()) if team["diag"] == "OK"):
+    for t in load_teams(root(), active=False, include_orphans=True):
         m = str(t["master"] or "")
         if m and (only is None or m in only):
             try:
@@ -252,7 +252,7 @@ def status() -> int:
         return 0
     since = d.get("since", 0)
     print(f"all_stop=on since={_iso(since)} by={d.get('by')} reason={d.get('reason')} notify_failed={','.join(map(str, d.get('notify_failed') or [])) or '-'}")  # type: ignore[arg-type]
-    for t in (team for team in load_teams(root()) if team["diag"] == "OK"):
+    for t in load_teams(root(), active=False, include_orphans=True):
         try:
             cands = _cands(t)
         except TeamPathError as e:  # r688 H1: 그 팀 줄에 사유 · 다른 팀 줄은 계속
@@ -334,8 +334,7 @@ def succession(old: str, new: str) -> tuple[bool, str]:
     for roster in team_rosters(root()):
         doc = roster["doc"]
         if roster["diag"] != "OK":
-            print(f"WARN {roster['team']} 판정 불가({roster['diag']}) — 승계 좌석 확인 제외")
-            continue
+            print(f"WARN {roster['team']} 판정 불가({roster['diag']}) — 승계는 명부 행 기준으로 확인")
         if not isinstance(doc, dict):
             continue
         row = doc.get(old)

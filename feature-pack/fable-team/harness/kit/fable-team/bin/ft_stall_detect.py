@@ -42,9 +42,9 @@ def run(cmd: list[str], env: dict[str, str] | None = None, timeout: float = 15) 
     return r.returncode, r.stdout
 
 
-def load_teams(root: Path, warn: bool = True) -> list[dict[str, Any]]:
+def load_teams(root: Path, warn: bool = True, active: bool = True, include_orphans: bool = False) -> list[dict[str, Any]]:
     teams: list[dict[str, Any]] = []
-    for roster in team_rosters(root):
+    for roster in team_rosters(root, active=active, include_orphans=include_orphans):
         d = roster["doc"] or {}
         team = roster["team"]
         if warn and roster["diag"] != "OK":

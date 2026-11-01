@@ -210,8 +210,8 @@ def team_names(root: Path | None = None, state: str = "현역") -> list[str]:
     return names
 
 
-def rosters(root: Path | None = None, active: bool = True) -> list[dict[str, Any]]:
-    """현역 명단을 seats*.json 문서 및 카드 경로와 결합해 진단 정보를 돌려준다."""
+def rosters(root: Path | None = None, active: bool = True, include_orphans: bool = False) -> list[dict[str, Any]]:
+    """TEAMS 명단을 명부·카드 경로와 결합한다. include_orphans 는 정지 해제의 명단 밖 경보 전용이다."""
     base = Path(root or repo_root())
     teams = team_names(base, "현역" if active else "전체")
     result: list[dict[str, Any]] = []
@@ -243,6 +243,22 @@ def rosters(root: Path | None = None, active: bool = True) -> list[dict[str, Any
                         if not cards.is_dir():
                             row["diag"] = "폴더 없음"
         result.append(row)
+    if include_orphans:
+        known = set(team_names(base, "전체"))
+        for seats_path in sorted((base / ".fable-team").glob("seats-*.json")):
+            team = seats_path.stem.removeprefix("seats-")
+            if team in known:
+                continue
+            try:
+                doc = json.loads(seats_path.read_text(encoding="utf-8"))
+            except (OSError, UnicodeError, ValueError):
+                doc, diag = None, "JSON 실패"
+            else:
+                if not isinstance(doc, dict):
+                    doc, diag = None, "JSON 실패"
+                else:
+                    diag = "명단 밖"
+            result.append({"team": team, "seats_path": seats_path, "doc": doc, "cards": None, "diag": diag})
     return result
 
 
