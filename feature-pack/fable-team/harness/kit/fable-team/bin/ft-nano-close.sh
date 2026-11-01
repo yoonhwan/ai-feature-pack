@@ -796,7 +796,7 @@ _lp_branch_repo() {  # r1123 backfill: 좌석 가지 nano/<키> 가 «사는» �
   printf '%s\n' "$hit"
 }
 _lp_repo_pick() {  # 리포(·slug) 하나를 정한다 — 못 정하면 _lp_repo_err 1줄(REJECT · gh 호출 0)
-  local nw pk t n=0 nin=0 nout=0 repo=""
+  local nw pk s t n=0 nin=0 nout=0 repo=""
   _lp_repo=""; _lp_slug=""; _lp_repo_err=""
   _lp_lib || return 1
   if [ -n "$NWT" ]; then nw="$(cd "$NWT" 2>/dev/null && pwd -P)"; [ -z "$nw" ] || repo="$(_lp_is_pack_wt "$nw")"; fi
@@ -813,9 +813,20 @@ _lp_repo_pick() {  # 리포(·slug) 하나를 정한다 — 못 정하면 _lp_re
       if [ "$(ft_card_target_side "$pk" "$t")" = pack ]; then nin=$((nin+1)); else nout=$((nout+1)); fi
     done <<< "$(_lp_card_targets)"
     if [ "$n" -eq 0 ]; then   # r1053: 대상 줄 0 · --wt 팩 아님 → 카드 파일이 사는 리포가 ROOT 면 ROOT(카드 위치 근거) · 아니면 지금처럼 REJECT
-      t="$(_lp_card_home)"; nw="$(cd "$ROOT" 2>/dev/null && pwd -P)"
-      if [ -n "$t" ] && [ "$t" = "$nw" ]; then repo="$ROOT"; echo "INFO ⑥--landed-pr 카드 위치 근거 → ROOT($ROOT · 카드 «대상:» 줄 절대경로 0)"   # r1053-mut:root
-      else _lp_repo_err="⑥--landed-pr 리포를 정할 수 없다(카드 «대상:» 줄에 절대경로 0 · 카드가 사는 리포 ${t:-모름} ≠ ROOT $ROOT · ${CARD_READ:-카드 없음}) — 닫지 않음(추측 0)"; return 1; fi
+      # ★r1308★ 절대경로 0 — 카드 세트 객체가 «팩에만» 있으면 그 리포(팩)로 간다(ROOT 를 새로 고르는 길 0 · 둘 다 = REJECT). 아래 r1053 갈래는 그대로.
+      #   빈 팩 경로·같은 경로는 건너뜨린다(git -C "" 는 cwd 리포를 본다 · DA① 반례 1) · 세트 읽기는 _lp_card_set(= 40 소문자 hex 또는 빈 값).
+      s="$(_lp_card_set)"
+      if [ -n "$pk" ] && [ "${#s}" -eq 40 ] && [ "$(cd "$pk" 2>/dev/null && pwd -P)" != "$(cd "$ROOT" 2>/dev/null && pwd -P)" ]; then
+        if git -C "$pk" cat-file -e "$s^{commit}" 2>/dev/null; then
+          if git -C "$ROOT" cat-file -e "$s^{commit}" 2>/dev/null; then _lp_repo_err="⑥--landed-pr 리포를 정할 수 없다(세트 ${s:0:9} 객체가 ROOT·팩 둘 다 · 카드 «대상:» 줄에 절대경로로 리포를 적어라) — 닫지 않음(추측 0)"; return 1; fi
+          repo="$pk"; echo "INFO ⑥--landed-pr 세트 객체 근거 → 팩($pk · 카드 «대상:» 줄 절대경로 0)"   # r1308-mut:setrepo
+        fi
+      fi
+      if [ -z "$repo" ]; then   # r1053: 갈래 — 새 갈래(r1308)가 리포를 못 정했을 때만 돈다(그 밖에는 지금 그대로)
+        t="$(_lp_card_home)"; nw="$(cd "$ROOT" 2>/dev/null && pwd -P)"
+        if [ -n "$t" ] && [ "$t" = "$nw" ]; then repo="$ROOT"; echo "INFO ⑥--landed-pr 카드 위치 근거 → ROOT($ROOT · 카드 «대상:» 줄 절대경로 0)"   # r1053-mut:root
+        else _lp_repo_err="⑥--landed-pr 리포를 정할 수 없다(카드 «대상:» 줄에 절대경로 0 · 카드가 사는 리포 ${t:-모름} ≠ ROOT $ROOT · ${CARD_READ:-카드 없음}) — 닫지 않음(추측 0)"; return 1; fi
+      fi
     elif [ "$nin" -gt 0 ] && [ "$nout" -gt 0 ]; then _lp_repo_err="⑥--landed-pr 리포를 정할 수 없다(카드 «대상:» 줄 경로가 팩 ${nin}개·밖 ${nout}개로 섞임 · ${CARD_READ:-카드 없음}) — 한 카드 = 한 리포 · 닫지 않음"; return 1
     elif [ "$nin" -gt 0 ]; then repo="$pk"; else repo="$ROOT"; fi
   fi
