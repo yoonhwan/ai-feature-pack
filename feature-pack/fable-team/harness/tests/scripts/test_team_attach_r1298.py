@@ -38,7 +38,6 @@ def test_team_names_filters_by_state_and_rejects_broken_roster(tmp_path, monkeyp
     else:
         raise AssertionError("없는 명단을 빈 팀 목록으로 처리하면 안 된다")
 
-
 def test_rosters_reports_each_diagnostic_and_excludes_inactive_teams(tmp_path):
     teams_file(tmp_path, ("missing", "현역"), ("broken", "현역"), ("no_master", "현역"),
                ("no_cards", "현역"), ("no_folder", "현역"), ("good", "현역"), ("sleeping", "휴면"))
@@ -64,7 +63,6 @@ def test_rosters_reports_each_diagnostic_and_excludes_inactive_teams(tmp_path):
     assert [row["diag"] for row in result] == ["명부 없음", "JSON 실패", "_master 빔", "_cards 없음", "폴더 없음", "OK"]
     assert result[-1]["cards"] == good_cards
     assert set(result[0]) == {"team", "seats_path", "doc", "cards", "diag"}
-
 
 def test_stall_load_warns_and_keeps_cards_unread_when_cards_field_is_missing(tmp_path, capsys):
     teams_file(tmp_path, ("zztest", "현역"))
@@ -141,7 +139,10 @@ def test_detach_snapshot_revert_restores_files_and_refuses_second_revert(tmp_pat
     plist_bytes = b"test plist\n"
     plist.write_bytes(plist_bytes)
     launchctl = tmp_path / "launchctl"
-    launchctl.write_text("#!/bin/sh\necho \"$*\" >> \"$LC_LOG\"\nexit 0\n", encoding="utf-8")
+    launchctl.write_text(
+        "#!/bin/sh\ncase \"$1\" in list) echo '0 0 com.byz.ft-tick-zztest';; esac\necho \"$*\" >> \"$LC_LOG\"\nexit 0\n",
+        encoding="utf-8",
+    )
     launchctl.chmod(0o755)
     monkeypatch.setenv("FT_ROOT", str(tmp_path))
     monkeypatch.setenv("FT_TEAMS_MD", str(teams))

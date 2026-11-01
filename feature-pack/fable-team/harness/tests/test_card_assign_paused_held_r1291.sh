@@ -10,6 +10,16 @@ HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"; REPO="$HERE/../.
 BIN="$REPO/harness/bin"; KIT="$REPO/harness/kit/fable-team/bin"
 T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T"' EXIT
 fail=0; ok() { echo "PASS $1"; }; bad() { echo "FAIL $1"; fail=$((fail+1)); }
+cut() {
+  if [ "${1:-}" = "-d·" ] || { [ "${1:-}" = "-d" ] && [ "${2:-}" = "·" ]; }; then
+    local fields
+    if [ "${1:-}" = "-d·" ]; then fields="${2#-f}"; else fields="${3#-f}"; fi
+    command python3 -c 'import sys; a=sys.argv[1]; lo,sep,hi=a.partition("-"); lo=int(lo); hi=int(hi) if sep and hi else lo; [print("·".join(line.rstrip("\n").split("·")[lo-1:hi])) for line in sys.stdin]' "$fields"
+  else
+    command cut "$@"
+  fi
+}
+export -f cut
 T0=$(date +%s); STEP=""; lap() { STEP="$STEP $1=$(( $(date +%s) - T0 ))s"; T0=$(date +%s); }
 TOOL="$BIN/ft_card_assign_watch.py"
 PLANNER='byz-planner-master-claude#9'; KMASTER='byz-knowledge-master-claude#1'; HMASTER='byz-harness-master-claude#33'
@@ -18,6 +28,7 @@ gc() { GIT_AUTHOR_DATE="$2" GIT_COMMITTER_DATE="$2" git -C "$1" -c user.name=t -
 new_root() {
   R="$(mktemp -d "$T/r.XXXXXX")"; mkdir -p "$R/.fable-team/state" "$R/$H/대기"
   git -C "$R" init -q -b main; printf '.fable-team/\nmbox.sh\nsent.log\n' > "$R/.gitignore"; git -C "$R" add .gitignore; gc "$R" "$((NOW - 200000)) +0900" init
+  printf '| 팀 | 폴더 | 오케 | 상태 |\n|---|---|---|---|\n| harness | design/harness/ | h | 현역 |\n| knowledge | design/teams/knowledge/ | k | 현역 |\n' > "$R/design/TEAMS.md"
   printf 'harness\t.\tmain\tdesign/harness/indices\n*\t.\tmain\tdesign/teams/*/indices\n' > "$R/.fable-team/state/directive-roots.tsv"
   printf '{"_master":"%s"}\n' "$PLANNER" > "$R/.fable-team/seats-planner.json"; printf '{"_master":"%s"}\n' "$HMASTER" > "$R/.fable-team/seats-harness.json"
   printf '{"_master":"%s"}\n' "$KMASTER" > "$R/.fable-team/seats-knowledge.json"; printf '{}\n' > "$R/.fable-team/seats.json"
