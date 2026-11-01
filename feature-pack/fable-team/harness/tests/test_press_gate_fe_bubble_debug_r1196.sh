@@ -133,7 +133,7 @@ gate old r3old FAKE_FE_ENV='NEXT_PUBLIC_BUBBLE_DEBUG=true'; OLD_OUT="$(printf '%
 gate new r3 FAKE_FE_ENV='NEXT_PUBLIC_BUBBLE_DEBUG=true'
 n=$((n+1)); [ "$RC" = 0 ] && has '✓ ④-b 화면 env NEXT_PUBLIC_BUBBLE_DEBUG=true' && has 'PRESS-GATE PASS' && [ "$(permits r3)" -ge 1 ] \
   && ok "$n. R3 true → ✓ ④-b · PASS · 허가 발급" || { bad "$n. R3 (rc=$RC)"; dump; }
-NEW_OUT="$(printf '%s\n' "$OUT" | grep -v '④-b' | sed 's|r3|TAG|g')"
+NEW_OUT="$(printf '%s\n' "$OUT" | grep -v -e '④-b' -e '^· 단계 초' | sed 's|r3|TAG|g')"   # r1260: 단계 초 줄은 새 판에만 있는 덧붙임
 n=$((n+1)); [ "$NEW_OUT" = "$OLD_OUT" ] && ok "$n. R3 ④-b 줄 말고 출력 바이트 = 기준판(다른 단계 판정 그대로)" \
   || { bad "$n. R3 바이트"; diff <(printf '%s\n' "$OLD_OUT") <(printf '%s\n' "$NEW_OUT") | sed 's/^/    /'; }
 
@@ -145,7 +145,7 @@ n=$((n+1)); [ "$RC" = 1 ] && has '✗ 화면 리스너 없음(:3001)' && has '�
 # ── R5 dev 갈래 → ④-b 줄 0 · :3001 접촉 0 · 결과 기준판과 같음
 gate old r5old FT_PRESS_TARGET=dev; ORC=$RC; OLD_OUT="$(printf '%s\n' "$OUT" | sed 's|r5old|TAG|g')"
 gate new r5 FT_PRESS_TARGET=dev
-n=$((n+1)); lacks '④-b' && ! grep -q ':3001' "$W/stub-r5.log" 2>/dev/null && [ "$RC" = "$ORC" ] && [ "$(printf '%s\n' "$OUT" | sed 's|r5|TAG|g')" = "$OLD_OUT" ] \
+n=$((n+1)); lacks '④-b' && ! grep -q ':3001' "$W/stub-r5.log" 2>/dev/null && [ "$RC" = "$ORC" ] && [ "$(printf '%s\n' "$OUT" | grep -v '^· 단계 초' | sed 's|r5|TAG|g')" = "$OLD_OUT" ] \
   && ok "$n. R5 dev 갈래 → ④-b 줄 0 · :3001 접촉 0 · 출력·rc($RC) 기준판과 같음" || { bad "$n. R5 (rc=$RC old=$ORC)"; dump; }
 
 # ── 변이: ④-b 블록 삭제 → R1 이 PASS 로 바뀐다 ⇒ R1 의 rc 1·✗ 단언이 이 변이를 죽인다

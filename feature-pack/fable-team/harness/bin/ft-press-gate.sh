@@ -5,15 +5,27 @@
 #     같은 밤 재기동에서 화면(FE)만 1시간 뒤처져 회차가 또 오염됐다.
 #     규칙에 네 번 적었고 네 번 빠뜨렸다 — 기억이 아니라 종료코드로 막는다.
 # 쓰기: ft-press-gate.sh   → 통과 0 / 막힘 1. tester 는 이걸 통과해야만 쏜다.
+# r1260: 러너 훅은 게이트를 60초 상한으로 다시 돈다 → tester 는 러너 «전에» FT_PRESS_CARD=… FT_PRESS_EVID=… ft-press-gate.sh 를 1회(상한 없이) 돌려 두면
+#        ① 판정(현역 나노 미랜딩 검사)이 300초 동안 재사용돼 러너 훅 안 게이트가 짧게 끝난다(FT_PRESS_GATE_CACHE_SEC=0 이면 재사용 0).
 set -u
 # 경로·feat 브랜치는 env 로 바꾼다(ai-feature-pack 일반화 · 기본값 = BYZ 현행 — 동작 변경 0)
 WT="${FT_PRESS_WT:-/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live}"
 ROOT="${FT_PRESS_ROOT:-/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents}"
 FEAT="${FT_NANO_FEAT:-origin/main}"   # r1128: 옛 기본 feat/v6-realtime-live 는 10-23 에 멈춰 main 위 작업을 «미랜딩» 으로 셌다(460 오탐)
 HERE="$(cd "$(dirname "$0")" && pwd)"  # cd 전에 절대화 — 상대경로로 불러도 형제 스크립트(ft-press-set-check.sh)를 찾는다
+SELF="$HERE/$(basename "$0")"          # r1260: 게이트 자기 파일도 cd 전에 절대화(① 캐시 키의 판 해시 — cd 뒤 상대 ${BASH_SOURCE[0]} 는 다른 파일을 가리킨다)
 cd "$WT" || exit 1
 FAIL=0
 say(){ printf '%s %s\n' "$1" "$2"; }
+# r1260: 단계별 초(하드 룰 22 회차 요약 꼴) — perl 이 없으면 초 단위(date +%s)
+_now(){ perl -MTime::HiRes=time -e 'printf "%.2f",time' 2>/dev/null || date +%s; }
+_tick(){ eval "T_$1=\$(_now)"; }
+_dur(){ awk -v a="${1:-0}" -v b="${2:-0}" 'BEGIN{printf "%.1f",b-a}'; }
+_stage_line(){ local s2
+  if [ -n "${T_C:-}" ]; then s2="② $(_dur "$T_B" "$T_C") · ③ $(_dur "$T_C" "$T_D") · ④ $(_dur "$T_D" "$T_E") · ⑤ $(_dur "$T_E" "$T_F")"; else s2="②~⑤(dev) $(_dur "$T_B" "$T_F")"; fi
+  say "·" "단계 초: ⓪ $(_dur "$T_0" "$T_A") · ① $(_dur "$T_A" "$T_B")($S1_MODE) · $s2 · ⑥⑦⑧ $(_dur "$T_F" "$T_G")"
+}
+_tick 0
 # ★숫자 env 입력 검사 «한 곳»(r769 r2 반송 · DA⑥ r2 HOLD: 변수마다 case 로 검사해 구멍 2개가 났다)★
 #   _int_port = ^[1-9][0-9]{3,4}$ 이고 1024~65535 일 때만 rc0 — 앞 0(017620 은 8진으로 8080) · 부호 · 공백 · 빈 값 = rc1
 #   _decimal  = ^[0-9]+(\.[0-9]+)?$ 일 때만 rc0 — 60..0 · 1e2 · 60. · .5 · -1 = rc1
@@ -302,6 +314,7 @@ if [ "${FT_PRESS_GATE_SELFTEST:-}" = "1" ]; then
 fi
 
 _load_gate   # ⓪b 부하 — 자체시험(위 stub 경로)은 부하와 무관하게 돈다
+_tick A
 
 # ① 현역 나노 브랜치 미랜딩 0
 UNLANDED=0
@@ -400,8 +413,7 @@ _squash_landed(){ # 워크트리 → rc0 = 착지됨(⊘ 한 줄) · rc1 = 판�
   done <<< "$SQUASH_HEADS"
   return 1
 }
-SQUASH_HEADS=""; [ -n "$LIVE_WT" ] && SQUASH_HEADS="$(_squash_heads)"
-
+_step1_run(){   # r1260: ① 본문을 함수로 감쌌다(본문 불변) — 현재 셸에서 돈다 → UNLANDED·FAIL 이 그대로 남고, 출력은 redirect 로 담아 캐시에 쓴다
 for W in $LIVE_WT; do
   W="$ROOT/.worktrees/$W"
   [ -e "$W/.git" ] || continue
@@ -446,6 +458,78 @@ for _d in ${DECL[@]+"${DECL[@]}"}; do   # r1076 R6: 선언했는데 ✗ 워크�
   _decl_hit "$_d" || say "⚠" "선언 이름 없음: $_d"
 done
 [ "$FEAT_OK" = "1" ] && { [ "$UNLANDED" = "0" ] && say "✓" "미랜딩 제품 커밋 0" || FAIL=1; }
+}
+# r1260: ① 판정 캐시 — 입력 키가 같고 FT_PRESS_GATE_CACHE_SEC(기본 300초) 안이면 지난 ① 출력·판정을 다시 쓴다(②~⑧·허가 파일은 매번 돈다)
+S1_MODE="실행"; CACHE_SEC="${FT_PRESS_GATE_CACHE_SEC:-300}"; CACHE_DIR="$(dirname "$PERMIT_DIR")/press-gate-cache"; S1_KEY=""
+_s1_key(){ # ① 입력 전부 → 키(sha256) · 하나라도 못 구하면 rc1(캐시 0)
+  local w h ih decl base bres c ch p feat wth gh sh
+  feat="$(git rev-parse --verify -q "$FEAT^{commit}")"; wth="$(git -C "$WT" rev-parse HEAD 2>/dev/null)"
+  gh="$(shasum -a 256 "$SELF" 2>/dev/null | cut -d' ' -f1)"   # SELF = cd «전» 에 절대화한 이 게이트 파일(상대 경로 호출·다른 cwd 에서도 같은 파일)
+  sh=""; [ "${#SETP[@]}" != "0" ] && sh="$(printf '%s\n' "${SETP[@]}" | shasum -a 256 | cut -d' ' -f1)"
+  [ -n "$feat" ] && [ -n "$wth" ] && [ -n "$gh" ] && [ -n "$sh" ] || return 1   # 키 입력 각각 취득 성공일 때만 · 하나라도 비면 캐시 0
+  p="feat=$feat|wt=$WT@$wth|root=$ROOT|gate=$gh|set=$sh"
+  c="${FT_PRESS_CARD:-}"; ch="nocard"   # 카드 미지정 = 설계상 «카드 없음»(빈 칸 허용) · 경로가 있으면 절대 경로·해시 둘 다 얻어야 한다(파일 아님·해시 실패 = 캐시 0)
+  if [ -n "$c" ]; then
+    [ -f "$c" ] || return 1
+    ch="$(cd "$(dirname "$c")" && pwd -P)/$(basename "$c")"; h="$(shasum -a 256 < "$c" | cut -d' ' -f1)"
+    [ -n "$h" ] && [ "${ch#/}" != "$ch" ] || return 1; ch="$ch:$h"
+  fi
+  p="$p|card=$ch"
+  for w in $LIVE_WT; do w="$ROOT/.worktrees/$w"
+    [ -e "$w/.git" ] || { p="$p|$w:absent"; continue; }
+    h="$(git -C "$w" rev-parse HEAD 2>/dev/null)" && [ -n "$h" ] || return 1
+    ih="info=none"; bres="-"   # info 파일 없음 = 정상 상태(고정 표식) · 있는데 해시가 비면 캐시 0
+    if [ -f "$w/.worktree-info.json" ]; then
+      ih="$(shasum -a 256 < "$w/.worktree-info.json" | cut -d' ' -f1)"; [ -n "$ih" ] || return 1; bres=undeclared
+      decl="$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['base'])" "$w/.worktree-info.json" 2>/dev/null)"
+      [ -z "$decl" ] || { bres="$(git -C "$w" rev-parse --verify -q "$decl^{commit}" 2>/dev/null)" && [ -n "$bres" ] || return 1; }   # 선언 base ref 해석 실패 = 캐시 0(DA② 1)
+    fi
+    p="$p|$w:$h:$ih:$bres"
+  done
+  case "$p" in *"feat=|"*|*"@|"*) return 1;; esac
+  printf '%s' "$p" | shasum -a 256 | cut -d' ' -f1
+}
+_s1_read(){ # 키 → 첫 줄 «판정 미랜딩수 경과초» + 저장된 ① 출력 · rc1 = 없음·만료·키 다름
+  python3 - "$CACHE_DIR/step1-${1:0:16}.json" "$1" "$CACHE_SEC" <<'PY'
+import json,sys,time
+f,key,ttl=sys.argv[1:4]
+try: d=json.load(open(f,encoding="utf-8"))
+except Exception: sys.exit(1)
+age=time.time()-d.get("ts",0)
+if d.get("key")!=key or age<0 or age>int(ttl) or d.get("verdict") not in ("OK","UNLANDED"): sys.exit(1)
+print("%s %d %d" % (d["verdict"],d["unlanded"],age)); sys.stdout.write(d["out"])
+PY
+}
+_s1_write(){ # 키 판정 미랜딩수 출력파일 — 임시 파일 + mv · 만료된 옛 파일은 이때 지운다
+  mkdir -p "$CACHE_DIR" && python3 - "$CACHE_DIR" "$1" "$2" "$3" "$4" "$CACHE_SEC" <<'PY'
+import glob,json,os,sys,tempfile,time
+d,key,verdict,unl,outf,ttl=sys.argv[1:7]; now=time.time()
+for p in glob.glob(os.path.join(d,"step1-*.json")):
+    try:
+        if now-json.load(open(p,encoding="utf-8")).get("ts",0)>int(ttl): os.unlink(p)
+    except Exception: pass
+fd,tmp=tempfile.mkstemp(dir=d,prefix=".tmp.")
+with os.fdopen(fd,"w",encoding="utf-8") as f: json.dump({"key":key,"verdict":verdict,"unlanded":int(unl),"out":open(outf,encoding="utf-8").read(),"ts":now},f,ensure_ascii=False)
+os.replace(tmp,os.path.join(d,"step1-%s.json"%key[:16]))
+PY
+}
+case "$CACHE_SEC" in ''|*[!0-9]*) say "✗" "FT_PRESS_GATE_CACHE_SEC=$CACHE_SEC — 0 이상 정수(초)만"; FAIL=1; CACHE_SEC=0;; esac
+# 캐시 0 조건: 끔(0) · 시험 변수(DA① 5) · 판정 불가(FEAT_OK=0) · 셀 나노 0
+[ "$CACHE_SEC" != "0" ] && [ -z "${FT_PRESS_GATE_SELFTEST+x}" ] && [ -z "${FT_PRESS_SEAT+x}" ] && [ "$FEAT_OK" = "1" ] && [ -n "$LIVE_WT" ] && S1_KEY="$(_s1_key)"
+if [ -n "$S1_KEY" ] && S1_HIT="$(_s1_read "$S1_KEY")"; then
+  read -r _v UNLANDED _age <<< "${S1_HIT%%$'\n'*}"; S1_MODE="캐시"
+  [ "$_v" = "OK" ] || FAIL=1
+  [ "$S1_HIT" = "${S1_HIT#*$'\n'}" ] || printf '%s\n' "${S1_HIT#*$'\n'}"
+  say "·" "① 캐시 재사용(키 ${S1_KEY:0:12} · ${_age}초 전)"
+else
+  SQUASH_HEADS=""; [ -n "$LIVE_WT" ] && SQUASH_HEADS="$(_squash_heads)"
+  if [ -n "$S1_KEY" ]; then
+    S1_TMP="$(mktemp)"; _step1_run > "$S1_TMP"; cat "$S1_TMP"
+    _s1_write "$S1_KEY" "$([ "$UNLANDED" = "0" ] && echo OK || echo UNLANDED)" "$UNLANDED" "$S1_TMP" || say "⚠" "① 캐시 쓰기 실패($CACHE_DIR) — 판정은 그대로"
+    rm -f "$S1_TMP"
+  else _step1_run; fi
+fi
+_tick B
 
 # r769: 로컬 갈래 포트 해석 «1곳» — 팀이 선언한 슬롯을 따르고, 선언이 없으면 지금과 똑같다(조용한 바뀜 0).
 #   FT_PRESS_PORTS("gw,worker,fe") > FT_PRESS_PORT_BASE(+0/+1/+2) > 기본 8080·8081·3001
@@ -520,6 +604,7 @@ chk worker "$WK_PORT" worker shared
 chk gateway "$GW_PORT" gateway shared
 chk 화면 "$FE_PORT" clients/web ":(exclude)clients/web/__tests__/*"
 
+_tick C
 # ③ 활성화 lane + health
 grep -q 'activation bundle established' "$WORKER_LOG" \
   && say "✓" "[C2c-ACT] activation bundle established" \
@@ -550,6 +635,7 @@ else
   say "✗" "LOOM selfhost 프리워밍 진행 중/미완 — SUMMARY 줄이 뜬 뒤 발사(겹치면 번역 타임아웃으로 회차 무효)"; FAIL=1
 fi
 
+_tick D
 # ④ 워커 필수 env(WORKER_ENV_SPEC 키 이름만 대조 · 값 복제 0)
 wpid=$(lsof -ti:"$WK_PORT" -sTCP:LISTEN 2>/dev/null | head -1)
 if [ -n "$wpid" ]; then
@@ -572,6 +658,7 @@ else
   say "✗" "④-b 화면 env NEXT_PUBLIC_BUBBLE_DEBUG=true 없음 — poller 화면 축 0(#8 RULE) · FE 를 NEXT_PUBLIC_BUBBLE_DEBUG=true bash scripts/client/web/run.command 로 다시 띄운다"; FAIL=1
 fi
 
+_tick E
 # ⑤ 세트 축(M7 · single_set_testing §1 규칙 1) — 러너 파일 워크트리 HEAD == worker·gateway pid cwd 워크트리 HEAD · 세트 경로 dirty 0. 정의 본체는 ft-press-set-check.sh.
 _cwd_of(){ lsof -a -p "$1" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | head -1; }
 # 기동 stamp = 서비스 pid 프로세스 시작시각(epoch) — set-check 가 «워크트리 HEAD 가 기동 뒤 움직였나» 를 가른다(A4). 못 구하면 빈 값 → set-check 가 REJECT.
@@ -589,6 +676,7 @@ else
 fi
 fi   # r634: TARGET=local 갈래 끝(dev 면 _dev_gate 만)
 
+_tick F
 # ⑥ 기준선 — 보통 모드에 시험 환경 변수가 «있기만 해도» 막는다(상속된 SELFTEST 로 실발사 0 · §7 C2 잔여 2)
 [ -n "${FT_PRESS_GATE_SELFTEST+x}" ] && { say "✗" "⑥ 시험 모드 상속 — 발사 금지(FT_PRESS_GATE_SELFTEST=${FT_PRESS_GATE_SELFTEST} 를 unset)"; FAIL=1; }
 _baseline_gate
@@ -596,6 +684,7 @@ _baseline_gate
 [ -n "${FT_PRESS_SEAT+x}" ] && { say "✗" "⑦ 시험 변수 상속 — FT_PRESS_SEAT 는 SELFTEST 전용(unset)"; FAIL=1; }
 _role_gate
 _bts_gate
+_tick G; _stage_line
 
 echo
 if [ "$FAIL" = "0" ] && ! _issue_permit; then say "✗" "허가 파일 발급 실패($PERMIT_DIR) — 허가 없이 통과시키면 다음 회차 ⑧ 이 열리지 않으므로 BLOCK"; FAIL=1; fi
