@@ -122,7 +122,7 @@ def handover_body(old, new, extra=()):
     hs, note = _h_items()
     bg = _bg_items(old) + ["- bg:x%d %s" % (i + 1, e) for i, e in enumerate(extra)]
     n = len(asks) + len(rest) + len(hs) + len(bg)
-    parts = ["[인계] %s -> %s · 항목 %d · [레디] 는 항목마다 «<id> 받음»(bash mbox.sh ready %s %s)" % (old, new, n, new, old)]
+    parts = ["[인계] %s -> %s · 항목 %d · 후계는 항목마다 «<id> 받음» 표시 뒤 bash mbox.sh ready %s %s · 구세션은 bash mbox.sh recv %s 로 [레디] 수신 뒤에만 닫기" % (old, new, n, new, old, old)]
     for title, xs in (("답 안 한 오빠 질문", asks), ("남은 회신·쪽지", rest), ("실행 중 h", hs), ("백그라운드 명령", bg)):
         parts.append("%s: %s" % (title, len(xs) or "0")); parts += xs
     if note: parts.append(note)

@@ -80,7 +80,7 @@ echo "== ⓒ ft-seat-retire --orphans-only — 고아만 정지 · 살아 있는
 printf '{"%s": {"role": "tester", "agent": "claude", "model": "m", "tick": null}}\n' "$A1" > "$TMP/seats2.json"
 L5="$(orphan "$TMP/else" "$A1" "$BASH_X" 'while true; do echo r >> l5.log; sleep 1; done')"
 out="$(bash "$RETIRE" "$A1" "r448t-$$#2" --seats "$TMP/seats2.json" 2>/dev/null)"; rc=$?
-chk "ⓒRETIRED · reap left=0 rc=0 · rc 0" "$rc $(grep -c '^RETIRED' <<< "$out") $(tail -1 <<< "$out")" "0 1 reap left=0 rc=0"
+chk "ⓒRETIRED · reap left=0 rc=0 · rc 0" "$rc $(grep -c '^RETIRED' <<< "$out") $(grep -F 'reap left=0 rc=0' <<< "$out")" "0 1 reap left=0 rc=0"
 [ "$ENVOK" = 0 ] || chk "ⓒ고아 정지 · 세션 생존" "$(alive "$L5") $(tmux has-session -t "=$A1" 2>/dev/null && echo up)" "dead up"
 L6="$(orphan "$TMP/else" "$A1" "$BASH_X" 'while true; do echo s >> l6.log; sleep 1; done')"
 out="$(FT_REAP_NOSIGNAL=1 bash "$RETIRE" "$A1" "r448t-$$#2" --seats "$TMP/seats2.json" 2>/dev/null)"; rc=$?
