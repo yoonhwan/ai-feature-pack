@@ -27,12 +27,21 @@ over() { [ $((SECONDS - START)) -ge "$LIMIT" ]; }
 
 [ -n "$ROOT" ] || ROOT="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')"
 [ -n "$ROOT" ] && [ -d "$ROOT" ] || unavailable "리포 루트 없음"
+SUFFIX=""; RREF=""; RFOLD=""; RREPO=""   # r1256: --dir 없이 루트 표에 그 팀 행(정확히 · 없으면 «*»)이 있으면 카드를 그 ref 에서 읽는다 · 없으면 체크아웃 파일 + 출력 끝 표시
 if [ -z "$DIR" ]; then
+  _row="$(awk -F'\t' -v t="$TEAM" '$1==t{print;f=1;exit} $1=="*"&&!w{w=$0} END{if(!f&&w)print w}' "$ROOT/.fable-team/state/directive-roots.tsv" 2>/dev/null)"
+  IFS=$'\t' read -r _t _r RREF _p <<<"$_row"
+  if [ -n "$_t" ] && [ -n "$_r" ] && [ -n "$RREF" ] && [ -n "$_p" ]; then
+    case "$_r" in /*) RREPO="$_r";; .) RREPO="$ROOT";; *) RREPO="$ROOT/$_r";; esac; RFOLD="${_p//\*/$TEAM}"
+    git -C "$RREPO" rev-parse -q --verify "$RREF^{commit}" >/dev/null 2>&1 || unavailable "ref 없음 $RREF"
+  else RREF=""; SUFFIX=" (체크아웃 기준)"; fi
+fi
+if [ -z "$DIR" ] && [ -z "$RREF" ]; then
   . "$HERE/ft-team-lib.sh" 2>/dev/null || unavailable "ft-team-lib.sh 없음"
   DIR="$(ft_team_in "$ROOT" "$TEAM" 2>/dev/null)" || DIR=""
   [ -n "$DIR" ] || for c in "$ROOT/design/$TEAM" "$ROOT/design/teams/$TEAM"; do [ -d "$c/indices" ] && { DIR="$c"; break; }; done
 fi
-[ -n "$DIR" ] && [ -d "$DIR/indices" ] || unavailable "카드 폴더 없음 또는 못 읽음($DIR/indices)"   # 폴더 선택 층 — 권한 오류를 «없음» 으로 단정하지 않는다(r5)
+[ -n "$RREF" ] || { [ -n "$DIR" ] && [ -d "$DIR/indices" ]; } || unavailable "카드 폴더 없음 또는 못 읽음($DIR/indices)"   # 폴더 선택 층 — 권한 오류를 «없음» 으로 단정하지 않는다(r5)
 
 command -v python3 >/dev/null 2>&1 || unavailable "python3 없음"
 err="$(tmux ls -F '#{session_name}' 2>&1)"; rc=$?
@@ -47,7 +56,7 @@ git -C "$ROOT" rev-parse -q --verify "$MAIN^{commit}" >/dev/null 2>&1 || unavail
 FCHK="${FT_CARD_FLOW_FINISHED:-$HERE/ft-finished-check.sh}"
 
 # 카드 수·좌석·착지 판정은 python 한 번 + git rev-list 한 번(카드마다 git 호출 = 진행 207장에서 7초 초과 · 실측 10-26)
-PYOUT="$(CF_SESSIONS="$sessions" python3 -I - "$DIR" "$ROOT" "$MAIN" "$LIMIT" <<'PY'
+PYOUT="$(CF_SESSIONS="$sessions" CF_REF="$RREF" CF_REFDIR="$RFOLD" CF_REFREPO="$RREPO" python3 -I - "$DIR" "$ROOT" "$MAIN" "$LIMIT" <<'PY'
 import errno,os,re,subprocess,sys,time
 d,root,main,limit=sys.argv[1],sys.argv[2],sys.argv[3],float(sys.argv[4]); t0=time.time()
 sess=os.environ.get('CF_SESSIONS','').lower()
@@ -57,7 +66,24 @@ def esc(s):   # 이름·경로 안 제어 문자(개행·CR·탭)가 python→�
     return s.replace('\r','\\r').replace('\n','\\n').replace('\t','\\t')
 def fail(msg):   # 읽기·계산 실패는 «빈 목록» 도 «0» 도 아니다 — 확인 불가 · rc 3 으로 셸에 알린다(DA r4 반례 1 · r6 반례 3: 사유도 이스케이프한 한 줄)
     print(esc(msg)); sys.exit(3)
+RF,RFD,RFR=os.environ.get('CF_REF',''),os.environ.get('CF_REFDIR',''),os.environ.get('CF_REFREPO',''); blobs={}
+def left(): return max(limit-(time.time()-t0),0.1)
+def ref_load():   # r1256: 팀 ref 에서 카드 읽기 = git 2회(ls-tree 1 · cat-file --batch 1 · 카드 수 무관) · 읽기 실패 = 확인 불가
+    try: o=subprocess.run(['git','-C',RFR,'ls-tree','-r','-z','--name-only',RF,'--',RFD+'/대기',RFD+'/진행'],capture_output=True,timeout=left())
+    except subprocess.TimeoutExpired: print('TIMEOUT'); sys.exit(0)
+    if o.returncode!=0: fail('카드 폴더 못 읽음 (git ls-tree '+RF+' rc='+str(o.returncode)+')')
+    names=[n for n in o.stdout.decode('utf-8','replace').split('\0') if n.endswith('.md') and n.count('/')==RFD.count('/')+2]
+    prog=[n for n in names if n.startswith(RFD+'/진행/')]
+    try: b=subprocess.run(['git','-C',RFR,'cat-file','--batch'],input=''.join(RF+':'+n+'\n' for n in prog).encode(),capture_output=True,timeout=left())
+    except subprocess.TimeoutExpired: print('TIMEOUT'); sys.exit(0)
+    data,i=b.stdout,0
+    for n in prog:
+        j=data.find(b'\n',i); h=data[i:j].split() if j>=0 else []
+        if b.returncode!=0 or len(h)!=3 or h[1]!=b'blob': fail('카드 파일 못 읽음 '+RF+':'+n+' (git cat-file)')
+        z=int(h[2]); blobs[n]=data[j+1:j+1+z].decode('utf-8','replace'); i=j+1+z+1
+    return names
 def read_card(f):   # 카드 읽기 창구 1개(r6 보강 ②) — 대기·진행 모든 .md 가 같은 길 · 사전 isfile 판정 0
+    if RF: return blobs[f]
     try: return open(f,encoding='utf-8',errors='replace').read()
     except OSError as e: fail('카드 파일 못 읽음 '+f+' ('+ename(e)+' '+(e.strerror or str(e))+')')
 def read_dir(p):   # 폴더 읽기 창구 1개(r5) — os.path.* 선판정 0 · ENOENT 만 «없음»(None) · 그 밖 OSError = 확인 불가
@@ -68,14 +94,17 @@ def read_dir(p):   # 폴더 읽기 창구 1개(r5) — os.path.* 선판정 0 · 
         except OSError as e: fail('카드 폴더 못 읽음 '+p+' ('+ename(e)+' '+(e.strerror or str(e))+')')
         fail('카드 폴더 못 읽음 '+p+' (ENOENT 끊긴 심볼릭 링크)')
     except OSError as e: fail('카드 폴더 못 읽음 '+p+' ('+ename(e)+' '+(e.strerror or str(e))+')')
+refnames=ref_load() if RF else []
 def listmd(sub):   # read_dir 만 쓴다 — None = 그 상태 폴더 없음 = 카드 0장(정상)
+    if RF: return sorted(n for n in refnames if n.startswith(RFD+'/'+sub+'/'))
     p=os.path.join(d,'indices',sub)
     names=read_dir(p)
     if names is None: return []
     return sorted(os.path.join(p,n) for n in names if n.endswith('.md'))
 wait=0
 for _f in listmd('대기'):   # 대기 수도 «읽을 수 있는 카드» 수 — 못 읽는 카드 1장 = 확인 불가 rc3(DA r6 반례 2)
-    read_card(_f); wait+=1
+    if not RF: read_card(_f)
+    wait+=1
 cards=listmd('진행')
 pat=re.compile(r'^[ \t]*-[ \t]*착지:[ \t]*(\S+)',re.M)   # «착지:» 바로 뒤 첫 낱말 하나
 valid=re.compile(r'[0-9a-f]{7,40}\Z')   # 7~40자 소문자 16진수(보강 ①: 40자 고정은 7자 약식을 버린다)
@@ -136,10 +165,10 @@ emit() { # 모든 모드의 출력 — 확인 불가가 있으면 건강해도 �
   [ "$unk_t" -eq 0 ] || note=" · 확인 불가 ${unk_t}(가지 판정 시간 초과)"
   [ "$unk_f" -eq 0 ] || note="$note · 확인 불가 ${unk_f}(가지 판정 실패)"
   [ "$unk_s" -eq 0 ] || note="$note · 확인 불가 ${unk_s}(가지 판정 시작 실패)"
-  if [ "$WARN" != 1 ]; then echo "카드 대기 $wait_n · 진행 $prog(좌석 $seat) · 착지됐는데 진행 $landed$note"; return 0; fi
+  if [ "$WARN" != 1 ]; then echo "카드 대기 $wait_n · 진행 $prog(좌석 $seat) · 착지됐는데 진행 $landed$note$SUFFIX"; return 0; fi
   if [ "$landed" -gt 0 ] || [ "$prog" -gt $((seat + 2)) ] || [ -n "$note" ]; then
     pick=("${lcards[@]+"${lcards[@]}"}"); [ "${#pick[@]}" -gt 0 ] || pick=("${ocards[@]+"${ocards[@]}"}")
-    echo "WARN 카드 흐름 — $TEAM 진행 $prog(좌석 $seat) · 착지됐는데 진행 $landed$note$( [ "$landed" -gt 0 ] || [ "$prog" -gt $((seat + 2)) ] && echo " · 이동 먼저: $(printf '%s\n' "${pick[@]+"${pick[@]}"}" | head -5 | tr '\n' ' ' | sed 's/ $//')")"
+    echo "WARN 카드 흐름 — $TEAM 진행 $prog(좌석 $seat) · 착지됐는데 진행 $landed$note$( [ "$landed" -gt 0 ] || [ "$prog" -gt $((seat + 2)) ] && echo " · 이동 먼저: $(printf '%s\n' "${pick[@]+"${pick[@]}"}" | head -5 | tr '\n' ' ' | sed 's/ $//')")$SUFFIX"
   fi
 }
 while read -r _ st live slug; do
