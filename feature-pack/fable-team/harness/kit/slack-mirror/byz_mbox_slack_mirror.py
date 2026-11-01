@@ -22,6 +22,7 @@ import mirror_desk as desk  # noqa: E402
 import mirror_summary as summ  # noqa: E402
 import mirror_team as mt  # noqa: E402
 import mirror_questions as mq  # noqa: E402
+import mirror_reconcile as mr  # noqa: E402
 import resume_block as rb  # noqa: E402
 from mirror_deliver import Deliverer, seed_threads  # noqa: E402
 
@@ -92,13 +93,15 @@ class Mirror:
         if st is None:  # 첫 실행 — 과거 행을 쏟아내지 않는다
             base = int(str(rows[-1]["seq"])) if rows else 0
             if not self.a.dry_run:
-                lib.save_state(self.state_path, {"last_seq": base, "pending": None})
+                lib.save_state(self.state_path, {"last_seq": base, "pending": None, "reconcile_first": True})
             print(f"baseline last_seq={base}", file=sys.stderr)
             return 0
         if not self.a.dry_run:  # 옛 state 의 스레드 맵 → 공유 맵 이관(맵 파일이 없을 때만)
             seed_threads(self.threads_path, dict(st.get("threads") or {}))
         if st.get("pending"):
             self.deliver(st, st["pending"], resume=True)
+        if not self.a.dry_run and self.desk:
+            mr.reconcile(self, st, time.time())
         if bl.skip_backlog(self, st, rows):  # 밀린 게시 대상이 상한 초과 → 요약 1통 · 이 패스는 여기서 끝
             return self.posted
         for r in rows:
@@ -135,7 +138,7 @@ class Mirror:
         opts = mq.parse_options(full or text) if label == "HIL" else []
         question = {"key": key, "seat": str(r.get("from", "")), "what": what, "options": opts} if label == "HIL" else None
         self._close_answered(r, key)
-        desk_dup = bool(self.desk and label in desk.DESK_LABELS)
+        desk_dup = desk.wants_desk(r, self.urgent_senders, bool(self.desk))
         rendered = lib.format_row(r, label, self.a.mention, summary, text, kind="이슈보고" if label == "긴급" else None,
                                   block=rb.mirror_block(r, label, self.resume_script), full=full, urls=urls,
                                   options_text=mq.format_options(opts) if label == "HIL" else None, seats=self.planner_seats)

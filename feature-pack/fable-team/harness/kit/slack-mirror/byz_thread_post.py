@@ -84,7 +84,7 @@ def cmd_start(a: argparse.Namespace) -> int:
     check(text, a.channel)  # 카드에 「시도」 줄을 쓰기 «전» — 걸리면 카드·원격 모두 불변
     write_line(card, f"- 슬랙: {a.channel} · 시도 {datetime.now(KST).isoformat(timespec='seconds')}")
     t = target(a)
-    root = post(t.base, t.token, t.channel, text)
+    root = post(t.base, t.token, t.channel, text, head=a.text)
     write_line(card, f"- 슬랙: {a.channel} {root}")
     lg.create(ledger, uid, channel=a.channel, root_ts=root, kind="unit", card_path=a.card)
     attach(t, root, files)
@@ -97,7 +97,7 @@ def cmd_progress(a: argparse.Namespace) -> int:
     rec = record(a, uid)
     files = check_files(a.file, rec["channel"])  # 글 게시 «전» — 반쪽 게시(글만 나가고 파일 거부) 0
     t = target(a)
-    ts = post(t.base, t.token, rec["channel"], f"{tag('작업상황', esc(a.text))}\n{block_of(a)}", rec["root_ts"])
+    ts = post(t.base, t.token, rec["channel"], f"{tag('작업상황', esc(a.text))}\n{block_of(a)}", rec["root_ts"], head=a.text)
     lg.update(Path(a.ledger), uid, card_path=a.card, progress=ts)
     attach(Target(t.base, t.token, rec["channel"], ""), rec["root_ts"], files)
     print(f"progress {uid} ts={ts}")
