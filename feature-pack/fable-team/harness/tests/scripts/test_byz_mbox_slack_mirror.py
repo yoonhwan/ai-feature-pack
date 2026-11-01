@@ -359,8 +359,9 @@ def test_hil_is_mirrored_to_desk_with_mention(env: Path, slack: FakeSlack):
     rows_file(env, (2, TO, "[HIL] #820 어느 쪽으로 할까요?\n1) A\n2) B"))
     r = run(env, slack, "--desk-channel", "C2")
     assert r.returncode == 0, r.stderr
-    roots = [m for m in slack.roots if m["text"].startswith("[작업상황] #820 시작")]
+    roots = [m for m in slack.roots if m["text"].startswith(("[작업상황] #820 시작", "[결정] "))]
     assert len(roots) == 2 and all(len(slack.replies(root)) == 1 for root in roots)
+    assert any("선택지(참고): 1) A 2) B" in reply["text"] for root in roots for reply in slack.replies(root))
     assert "<@U0AC2JF0M7D>" in "\n".join(m["text"] for m in slack.msgs)
     assert "#820" in json.loads((env / "st" / "byz_slack_threads.C2.json").read_text())["threads"]
 
@@ -576,3 +577,43 @@ def test_r1294_decision_body_keeps_question_format_in_desk(env: Path, slack: Fak
     (reply,) = slack.replies(desk_root)
     assert reply["text"].startswith("[이슈보고]")
     assert "정할 것:" in reply["text"] and "할 일 없음" not in reply["text"]
+    assert "선택지: A) 5918 승인 h(추천) B) 보류" in reply["text"]
+
+
+def test_r1297_decision_root_uses_decision_head(env: Path, slack: FakeSlack):
+    start(env, slack)
+    append_row(env, 2, TO, "byz-lecture-master-claude#201", R1294_BODY_224912)
+    result = run(env, slack, "--desk-channel", "C2")
+    assert result.returncode == 0, result.stderr
+    root = next(message for message in slack.roots if message["channel"] == "C2")
+    assert root["text"].startswith("[결정] ")
+    assert "시작 —" not in root["text"]
+    main_root = next(message for message in slack.roots if message["channel"] == "C1")
+    assert main_root["text"].startswith("[작업상황] ") and " 시작 —" in main_root["text"]
+
+
+def test_r1297_root_text_urgent_kind_and_default():
+    sys.path.insert(0, str(KIT))
+    import mirror_lib as lib
+
+    assert lib.root_text("#225309", "작업이 멈췄어요", kind="긴급").startswith("[긴급] 작업이 멈췄어요")
+    assert lib.root_text("#225309", "일반 진행").startswith("[작업상황] #225309 시작 — 일반 진행")
+
+
+def test_r1297_explicit_options_line_fallback_only_when_needed(env: Path, slack: FakeSlack):
+    start(env, slack)
+    body = "\n".join(("골좌표: 5 — 선택지 줄 미러", "[결정] 진행 방식을 정해 주세요?", "선택지: 지금 착수 / 다음 회차"))
+    append_row(env, 2, TO, "byz-lecture-master-claude#201", body)
+    result = run(env, slack, "--desk-channel", "C2")
+    assert result.returncode == 0, result.stderr
+    root = next(message for message in slack.roots if message["channel"] == "C2")
+    (reply,) = slack.replies(root)
+    assert "선택지: 지금 착수 / 다음 회차" in reply["text"]
+
+
+def test_r1297_summary_notice_is_not_copied_to_desk(env: Path, slack: FakeSlack):
+    start(env, slack)
+    append_row(env, 2, TO, "ft-card-assign-watch", "[정리] 배정 감시 판정 불가 묶음 2026-11-01 2회")
+    result = run(env, slack, "--desk-channel", "C2")
+    assert result.returncode == 0, result.stderr
+    assert not any(message["channel"] == "C2" for message in slack.roots)
