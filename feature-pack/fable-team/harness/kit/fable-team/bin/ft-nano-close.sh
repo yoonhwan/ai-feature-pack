@@ -769,6 +769,12 @@ _lp_slug_of() {  # <리포> → owner/repo (ssh 꼴 · 꼴들 · 끝 .git 유무
   return 1
 }
 _lp_card_targets() { ft_card_targets "${CARD_READ:-}"; }  # 카드 «대상:» 줄(마지막)의 절대경로만 — 공용 파일(r1138)
+_lp_card_set() {  # r1308: 카드 «## 상태» 절 «안» 의 마지막 «세트:» 40-hex(소문자) — 없으면 빈 값 · 파일 없으면 awk 읽기 0(표준입력 대기 0)
+  local f="${1:-${CARD_READ:-}}"
+  [ -n "$f" ] && [ -f "$f" ] || return 0
+  # 절 경계 = 다음 `## ` 머리(DA⑥ r2 HOLD ①: 파일 뒤 절의 세트 줄을 집으면 거짓 통과)
+  awk '/^##[[:space:]]/{inb = ($0 ~ /^##[[:space:]]*상태[[:space:]]*$/)} inb && /세트:/{l=$0} END{if (l!="") print l}' "$f" 2>/dev/null | sed -nE 's/.*세트:[[:space:]]*([0-9a-f]{40}).*/\1/p'
+}
 _lp_card_home() {  # r1053: 읽기 판 CARD_READ 가 «사는» 리포 루트(실경로) — ref 판(_CR_TMP) = ROOT · 가지 판(_CB_TMP) = SEAT_REPO · 파일 = 그 폴더의 git 공통 루트 · 못 정하면 빈 값
   local d
   if [ -n "${_CR_TMP:-}" ] && [ "$CARD_READ" = "$_CR_TMP" ]; then d="$ROOT"
@@ -1663,8 +1669,7 @@ elif [ -n "$LANDED_PR" ]; then
   elif [ -z "$CARD_READ" ] || [ ! -f "$CARD_READ" ]; then bad+=("⑥카드 못 찾음: seats.json index=${IDX:-<빈 값>} — 착지 대조(«세트:» sha·«- 착지:» 줄)를 할 카드가 없다")
   elif ! _lp_fetch_pr; then bad+=("$_lp_pr_err")   # r1023: 리포 선택·gh 1회가 리포 결정 «뒤» — 못 정함(섞임·대상 줄 0·url)·gh 실패 모두 같은 자리 REJECT
   else
-    # 「## 상태」 절 «안» 의 마지막 «세트:» 만 — 절 경계 = 다음 `## ` 머리(DA⑥ r2 HOLD ①: 파일 뒤 절의 세트 줄을 집으면 거짓 통과)
-    _lp_set="$(awk '/^##[[:space:]]/{inb = ($0 ~ /^##[[:space:]]*상태[[:space:]]*$/)} inb && /세트:/{l=$0} END{if (l!="") print l}' "$CARD_READ" 2>/dev/null | sed -nE 's/.*세트:[[:space:]]*([0-9a-f]{40}).*/\1/p')"   # r1011-mut:set
+    _lp_set="$(_lp_card_set)"   # r1011-mut:set · r1308: 읽기 규칙은 _lp_card_set 한 곳(리포 고르기와 공용)
     _lp_land=""; grep -qE '^[[:space:]]*-[[:space:]]*착지:' "$CARD_READ" 2>/dev/null && _lp_land=1   # r1011-mut:land
     if [ -z "$_lp_set" ]; then bad+=("⑥--landed-pr 카드 «## 상태» 절에 «세트:» 40-hex 줄이 없다: $CARD_READ — 대조할 세트가 없으면 닫지 않는다")
     elif [ -z "$_lp_land" ]; then bad+=("⑥--landed-pr 카드에 «- 착지:» 줄이 없다: $CARD_READ — 착지 기록 없는 좌석은 이 경로로 닫지 않는다")
