@@ -43,7 +43,7 @@ mkpr 5 b5 "clients/web/b5.ts=x"; A5="$PRSHA"; pk "$A5" r5; adv "worker/m5.py=mai
 git -C "$W" checkout -q b5 && git -C "$W" merge -q --no-edit origin/main && pushpr 5 b5; S5="$PRSHA"
 land "$LAND" 5 --approve-sha "$A5"; rejected "press 증거 없음/틀림: 묶음 없음" "$M5"; ck "R5 main 쪽 worker 병합 → REJECT(배포 경로 트리 다름)" $?
 MUTA="$T/mut-tree"; mkdir -p "$MUTA"; for f in "$BIN"/*; do ln -s "$f" "$MUTA/$(basename "$f")"; done; rm -f "$MUTA/press_evidence_verify.py"
-python3 - "$BIN/press_evidence_verify.py" "$MUTA/press_evidence_verify.py" 'if not same(repo, git(repo, "rev-parse", c + "^").strip(), target, specs):' 'if False:' <<'PY' || { echo "FAIL 변이 대상 없음"; exit 1; }
+python3 - "$BIN/press_evidence_verify.py" "$MUTA/press_evidence_verify.py" 'if not same(repo, e, target, both):' 'if False:' <<'PY' || { echo "FAIL 변이 대상 없음"; exit 1; }
 import sys
 s = open(sys.argv[1], encoding="utf-8").read(); assert sys.argv[3] in s
 open(sys.argv[2], "w", encoding="utf-8").write(s.replace(sys.argv[3], sys.argv[4], 1))
