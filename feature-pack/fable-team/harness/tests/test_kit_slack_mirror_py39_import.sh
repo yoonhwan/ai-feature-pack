@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# test_kit_slack_mirror_py39_import.sh — kit/slack-mirror 3파일이 mini python 3.9.6 에서 import 된다 (r956 반송 · arch#165).
+# test_kit_slack_mirror_py39_import.sh — kit/slack-mirror all modules import; selected files also parse as mini python 3.9.6 (r956 · r1280).
 # 실측 근거: mini python3 = 3.9.6 · `def share_guard(s: str | None)` 의 PEP 604 유니언은 3.9 에서 «정의 시점» 평가 → TypeError
 #   → ops_intake_write rc2 «공용 비밀 꼴 적재 실패: TypeError» · 게시기도 같은 이유로 못 돈다.
 # 이 칸이 보는 것 = from __future__ import annotations 1줄이 «docstring 바로 뒤» 에 있고, 그 덕에 주석이 문자열(str)로 미뤄지는가
@@ -15,6 +15,18 @@ fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
+
+import_all() {
+  python3 -I - "$1" <<'PY'
+import importlib, pathlib, sys
+folder = pathlib.Path(sys.argv[1])
+sys.path.insert(0, str(folder))
+modules = sorted(p.stem for p in folder.glob("*.py"))
+for name in modules:
+    importlib.import_module(name)
+print(f"ALL-KIT-IMPORT-OK {len(modules)}")
+PY
+}
 
 # 주석 검사기 — 인자 = 폴더 · 모든 함수 주석이 str 이어야 rc0 (아니면 rc1 + 첫 위반 출력)
 cat > "$T/ann.py" <<'PY'
@@ -53,11 +65,29 @@ for f in $FILES; do
 done
 out=$(python3 "$T/ann.py" "$KM" 2>&1) && ok "ⓑ 3파일 import OK · 함수 주석 전부 str($out)" || bad "ⓑ import·주석 지연 실패: $out"
 
+# r1280: 키트 폴더의 모든 파이썬 모듈을 isolated mode 에서 import 한다.
+out=$(import_all "$KM" 2>&1) && ok "ⓔ 전체 .py import($out)" || bad "ⓔ 전체 .py import 실패: $out"
+
 # ⓒ 변이 — 사본에서 future 줄을 지우면 같은 검사가 «빨강» 이어야 한다(검사가 살아 있음)
 [ -d "$T/mut" ] || mkdir -p "$T/mut"
 for f in $FILES; do cp "$KM/$f" "$T/mut/$f"; done
 grep -v '^from __future__ import annotations' "$KM/mirror_share.py" > "$T/mut/mirror_share.py"
 out=$(python3 "$T/ann.py" "$T/mut" 2>&1) && bad "변이: future 줄 지워도 주석이 str(검사 무력)" || ok "변이: future 줄 삭제 → 주석 비-str 로 빨강(${out%%$'\n'*})"
+
+# M1: thread_reply_slack 의 제거된 mirror_lib export 를 되살리면 전체 import 검사에서 실패한다.
+mkdir -p "$T/mut-all"
+cp -R "$KM/." "$T/mut-all/"
+python3 -I - "$T/mut-all/thread_reply_slack.py" <<'PY'
+import pathlib, sys
+p = pathlib.Path(sys.argv[1])
+s = p.read_text(encoding="utf-8")
+old = "from mirror_lib import MirrorError, esc\nfrom mirror_marker import thread_texts"
+new = "from mirror_lib import MirrorError, esc, thread_texts"
+if old not in s:
+    raise SystemExit("M1 import anchor missing")
+p.write_text(s.replace(old, new), encoding="utf-8")
+PY
+out=$(import_all "$T/mut-all" 2>&1) && bad "M1: 오래된 import 복구에도 전체 import 성공(검사 무력)" || ok "M1: 오래된 import 복구 → ImportError FAIL(${out%%$'\n'*})"
 
 # ⓓ 실 python3.9 가 있으면 진짜 import 도 본다(없으면 SKIP — 이 맥 기본 python3 는 3.14)
 PY39="${PY39:-$(command -v python3.9 || true)}"
