@@ -122,7 +122,7 @@ def handover_body(old, new, extra=()):
     hs, note = _h_items()
     bg = _bg_items(old) + ["- bg:x%d %s" % (i + 1, e) for i, e in enumerate(extra)]
     n = len(asks) + len(rest) + len(hs) + len(bg)
-    parts = ["[인계] %s -> %s · 항목 %d · 후계는 항목마다 «<id> 받음» 표시 뒤 bash mbox.sh ready %s %s · 구세션은 bash mbox.sh recv %s 로 [레디] 수신 뒤에만 닫기" % (old, new, n, new, old, old)]
+    parts = ["[인계] %s -> %s · 항목 %d · [레디] 는 항목마다 «<id> 받음»(bash mbox.sh ready %s %s)" % (old, new, n, new, old)]
     for title, xs in (("답 안 한 오빠 질문", asks), ("남은 회신·쪽지", rest), ("실행 중 h", hs), ("백그라운드 명령", bg)):
         parts.append("%s: %s" % (title, len(xs) or "0")); parts += xs
     if note: parts.append(note)
@@ -179,4 +179,4 @@ def close_check(seat, need_ready=True):
             if miss:
                 print("REJECT %s [레디] #%s 에 «받음» 없는 항목 %s" % (seat, r["seq"], ",".join(miss))); return 3
             print("CLOSE-OK %s [인계] #%s → [레디] #%s 항목 %d 전부 받음" % (seat, h["seq"], r["seq"], len(ids))); return 0
-    print("REJECT %s [인계] #%s 뒤 후계 [레디] 없음(회신 0 = 안 닫음)" % (seat, h["seq"])); return 3
+    print("REJECT %s [인계] #%s 뒤 후계 [레디] 없음(회신 0 = 안 닫음) — 후계가 bash mbox.sh ready %s %s (pane 입력은 세지 않음)" % (seat, h["seq"], succ, seat)); return 3
