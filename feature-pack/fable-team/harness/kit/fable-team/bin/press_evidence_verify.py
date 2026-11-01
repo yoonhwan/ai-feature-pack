@@ -5,10 +5,11 @@
            · 미상환 빚(refs/press-debt/<착지> 중 C 의 조상 ∧ refs/press-debt-paid 없음)이면 그 빚 착지를 조상으로 가진 세트의 묶음이어야
   묶음 = 커밋 1개(부모 = 세트 E · 트리 = meta.txt·poller_dom.jsonl·table.md·turbopack.txt) · ref = refs/press/<E>-<run_id>(원격 · 머신 무관)
   배포 경로 = 그 트리의 .github/workflows/cd-dev.yml paths-filter 합집합(못 읽으면 판정 불가 = 거절 · D1)
-  외부 호출 = fetch 7 s + 재시도 1(실패 = 판정 불가 1줄). rc 0 통과 · 1 거절 · 2 사용법.
+  외부 호출 = fetch 7 s + 재시도 1(실패 = 판정 불가 1줄) · push = min(고정비 9 + 7, 70) s + 재시도 1 + 끊긴 뒤 ls-remote 확인(r1254). rc 0 통과 · 1 거절 · 2 사용법.
 """
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -37,17 +38,50 @@ def git(repo, *a, inp=None):
     return out
 
 
+def once(repo, secs, *a):   # git 네트워크 1회 → (성공 여부, 마지막 오류 줄)
+    try:
+        p = subprocess.run(["git", "-c", "gc.auto=0", "-C", repo, *a], capture_output=True, text=True, timeout=secs)
+    except subprocess.TimeoutExpired:
+        return False, "%g s 초과" % secs
+    return p.returncode == 0, (p.stderr.strip().splitlines() or [""])[-1][:160]
+
+
 def net(repo, *a):   # 7 s + 재시도 1 — 실패 = 판정 불가(하드 룰 20)
     err = ""
     for _ in (1, 2):
-        try:
-            p = subprocess.run(["git", "-c", "gc.auto=0", "-C", repo, *a], capture_output=True, text=True, timeout=7)
-            if p.returncode == 0:
-                return
-            err = (p.stderr.strip().splitlines() or [""])[-1][:160]
-        except subprocess.TimeoutExpired:
-            err = "7 s 초과"
+        ok, err = once(repo, 7, *a)
+        if ok:
+            return
     raise Reject("판정 불가: git %s 실패(7 s + 재시도 1) %s" % (a[0], err))
+
+
+def push_sec():   # push = 쪼갤 수 없는 배치(하드 룰 12): min(고정비 + 7, 70) · 고정비 = 원격 ref 광고 실측 8.56 s 올림 9 · FT_PRESS_PUSH_SEC 는 시험만
+    fixed = float(os.environ.get("FT_PRESS_PUSH_FIXED", "9"))
+    return float(os.environ.get("FT_PRESS_PUSH_SEC") or min(fixed + 7, 70))
+
+
+def remote_sha(repo, remote, ref):   # 원격 ref 가 지금 가리키는 sha · 없음·확인 실패 = None
+    try:
+        p = subprocess.run(["git", "-c", "gc.auto=0", "-C", repo, "ls-remote", remote, ref], capture_output=True, text=True, timeout=7)
+    except subprocess.TimeoutExpired:
+        return None
+    rows = [r.split() for r in p.stdout.splitlines()] if p.returncode == 0 else []
+    return next((r[0] for r in rows if r[1:] == [ref]), None)
+
+
+def push(repo, remote, sha, ref):   # 끊긴 뒤의 정본 = «원격에 그 ref 가 그 sha 로 있나» (서버는 받았는데 손님만 끊긴 꼴) · 다른 sha 는 덮어쓰지 않는다
+    secs, err = push_sec(), ""
+    for _ in (1, 2):
+        ok, err = once(repo, secs, "push", remote, "%s:%s" % (sha, ref))
+        if ok:
+            return
+        now = remote_sha(repo, remote, ref)
+        if now == sha:
+            print("INFO push 끊김 · 원격에 있음 · 성공으로 셈 %s" % ref, file=sys.stderr)
+            return
+        if now:
+            raise Reject("판정 불가: 원격 %s 가 다른 sha(%s) — 사람 판정" % (ref, now[:10]))
+    raise Reject("판정 불가: git push 실패(%g s + 재시도 1 · 원격 확인 0) %s" % (secs, err))
 
 
 def fetch_refs(repo, remote):   # --prune: 원격에 없는 묶음·빚 ref 는 로컬에서도 지운다(로컬만 만든 묶음 = 통과 0)

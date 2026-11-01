@@ -16,8 +16,8 @@ import sys
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from press_evidence_verify import (Reject, check_content, cover, debt_line, fetch_refs, git, net, ok_line,  # noqa: E402
-                                   pick, run, same, specs_of, unpaid)
+from press_evidence_verify import (Reject, check_content, cover, debt_line, fetch_refs, git, ok_line, pick, push,  # noqa: E402
+                                   run, same, specs_of, unpaid)
 
 BYZ_SLUG = "secondwindstudio/byz-agents"
 
@@ -90,7 +90,7 @@ def land(a):
     if rv:
         who = owner(a.root, a.title)
         msg = "press-debt landed=%s pr=%s reverted=%s owner=%s ts=%s" % (a.landing, a.pr, rv, who, time.strftime("%Y-%m-%dT%H:%M:%S"))
-        net(a.repo, "push", a.remote, "%s:refs/press-debt/%s" % (commit_tree(a.repo, git(a.repo, "mktree", inp="").strip(), msg), a.landing))
+        push(a.repo, a.remote, commit_tree(a.repo, git(a.repo, "mktree", inp="").strip(), msg), "refs/press-debt/%s" % a.landing)
         print("press 증거 면제 — 정확 역변경(되돌린 %s) · 빚 refs/press-debt/%s · 담당 %s · 복구 뒤 press 1회\npress=revert:%s"
               % (rv[:10], a.landing[:10], who, rv[:10]))
         return 0
@@ -102,7 +102,7 @@ def land(a):
     if b is None:
         raise Reject(debt_line(a.repo, debts[0]) + " — 판정 2946")
     for d in debts:   # 상환 = 갚은 묶음 커밋을 가리키는 원격 ref(D7 · 머신 무관)
-        net(a.repo, "push", a.remote, "%s:refs/press-debt-paid/%s" % (b["commit"], d))
+        push(a.repo, a.remote, b["commit"], "refs/press-debt-paid/%s" % d)
     print(ok_line(b) + (" · 빚 상환 %d" % len(debts) if debts else "") + "\npress=ok:%s:%s" % (b["set"][:10], b["run"]))
     return 0
 
@@ -125,7 +125,7 @@ def pack(a):
     blob["meta.txt"] = git(a.repo, "hash-object", "-w", "--stdin", inp=meta).strip()
     tree = git(a.repo, "mktree", inp="".join("100644 blob %s\t%s\n" % (blob[f], f) for f in sorted(blob))).strip()
     c, ref = commit_tree(a.repo, tree, "press evidence set=%s run=%s" % (e, a.run), e), "refs/press/%s-%s" % (e, a.run)
-    net(a.repo, "push", a.remote, "%s:%s" % (c, ref))
+    push(a.repo, a.remote, c, ref)
     git(a.repo, "update-ref", ref, c)
     print("PACKED ref=%s commit=%s" % (ref, c))
     return 0
