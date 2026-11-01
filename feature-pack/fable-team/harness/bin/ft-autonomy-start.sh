@@ -10,9 +10,11 @@ set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="${FT_ROOT:-}"   # r385: 라이브 루트 = FT_ROOT → ft_data_root(cwd LIVE_ROOT · 옛 설치 꼴) → ERROR (새 설치본 위치로 풀지 않는다)
 [ -n "$ROOT" ] || { . "$HERE/ft-harness-root.sh" && ROOT="$(ft_data_root "$HERE")"; } || exit 2
-# R383: planner 팀 폴더는 ROOT 의 design/TEAMS.md 로(팀 이름 글자 0) — 못 풀면 후퇴 없이 ERROR 종료(#0 RULE)
-if [ -n "${FT_PLANNER_DIR:-}" ]; then PLANNER="$FT_PLANNER_DIR"
-else . "$HERE/ft-team-lib.sh" && PLANNER="$(ft_team_in "$ROOT" planner)" || { echo "ERROR planner 팀 폴더를 못 풀었다(design/TEAMS.md · FT_ROOT=$ROOT) — FT_PLANNER_DIR 로 지정하거나 명단을 고친다" >&2; exit 1; }; fi
+# planner 경로는 실재하는 폴더만 받는다. sparse 숨김은 검증된 주 worktree에서 푼다.
+. "$HERE/ft-team-lib.sh" || exit 1
+FT_PLANNER_EVENT="${2:-A<N>}"
+ft_planner_dir_resolve "$ROOT" >/dev/null || exit 1
+PLANNER="$FT_PLANNER_DIR_RESOLVED"
 CALL_TIMEOUT_S=7; CALL_RETRIES=1
 [[ "${FT_CALL_TIMEOUT_S:-}" =~ ^[1-7]$ ]] && CALL_TIMEOUT_S="$FT_CALL_TIMEOUT_S"   # 시험용 — 줄이기만 된다(7 초과는 무시)
 
@@ -116,7 +118,7 @@ cmd_ledger() {  # <A<N>>
   body="$body
 ### 대기 카드 (우선순위 없음 · design/*/indices/대기)
 $(cards 대기)"
-  mkdir -p "$PLANNER" && printf '%s\n' "$body" > "$out" || { echo "ERROR 시작 장부 쓰기 실패: $out" >&2; return 1; }
+  printf '%s\n' "$body" > "$out" || { echo "ERROR 시작 장부 쓰기 실패: $out · $FT_PLANNER_RERUN" >&2; return 1; }
   echo "시작 장부 $out"
 }
 
