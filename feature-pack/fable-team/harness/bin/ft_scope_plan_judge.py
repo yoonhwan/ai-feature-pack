@@ -21,6 +21,7 @@ TEXT = {"echo", "printf", ":", "grep", "rg"}  # 인자가 글자일 뿐인 명�
 WORD = re.compile(r"(?<![\w-])approve-merge(?![\w-])")
 ASSIGN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 ALIVE = re.compile(r"^\[범위 승인 (S[0-9]+) · ")
+OPPA = re.compile(r"(?<![\w-])--oppa-slack[ =]+[0-9]+\.[0-9]{6}(?![\w.-])")
 IDLE = re.compile(r"^\[범위 승인 (없음|S[0-9]+ 정지: )")
 WHY = "범위 승인 %s 중 approve-merge — scope-approve <sha> --pr <N> [--card <카드>] [--repo byz|pack] 로 (판정 2904) — 줄 %d"
 
@@ -113,7 +114,7 @@ def main(argv: list[str]) -> int:
         return 2
     try:
         with open(argv[2], encoding="utf-8", errors="replace") as f:
-            hits = [n for n, line in logical_lines(f.read()) if is_candidate(line)]
+            hits = [n for n, line in logical_lines(f.read()) if is_candidate(line) and not OPPA.search(line)]  # r1275: --oppa-slack <ts> 줄은 통과 — 진짜 확인은 ft-autonomy.sh approve-merge 가 실행 때 한다
         s = scope_state() if hits else ""
     except (OSError, RuntimeError, subprocess.SubprocessError) as e:
         print("ft_scope_plan_judge 범위 조회·읽기 실패: %s" % e, file=sys.stderr)
