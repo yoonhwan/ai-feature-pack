@@ -176,10 +176,10 @@ live_match() {  # r1126: FT_ROOT 가 있고 그 공용 루트에 .fable-team/LIV
   v="$(sed -n '1p' "${g%/.git}/.fable-team/LIVE_ROOT" | tr -d '\r')"; [ "$(cd -- "$v" 2>/dev/null && pwd -P)" = "$(cd -- "$FT_ROOT" && pwd -P)" ] && return 0
   echo "REJECT 승인 폴더 어긋남 — FT_ROOT=$FT_ROOT · 라이브 루트=$v · 착지는 $v/.fable-team/state 를 읽는다(FT_ROOT 를 지우고 다시)" >&2; return 1; }
 cmd_approve_merge() {  # <40hex>… — 검증을 전부 마친 뒤에만 쓴다. 쓰기 순서 = log 먼저, 승인 파일 나중(파일만 있고 log 줄 없음 = 병합 가드 deny)
-  local sha ev now dir="$STATE/autonomy-merge-approved" line
+  local sha ev now dir="$STATE/autonomy-merge-approved" line; . "$HERE/ft-autonomy-oppa.sh"; oppa_parse "$@"; set -- ${OPPA_SHAS[@]+"${OPPA_SHAS[@]}"}   # r1275: --oppa-slack <ts> 떼기
   [ $# -ge 1 ] || { echo "REJECT sha 없음 (usage: approve-merge <40hex>…)" >&2; exit 2; }
   for sha in "$@"; do [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || { echo "REJECT sha 형식 틀림(40hex 소문자): $sha" >&2; exit 2; }; done
-  live_match || exit 1; lock; [ "$(mode)" = tamper ] && { echo "REJECT 자율 상태 위변조(tamper) — 승인 기록 없음" >&2; exit 2; }   # R336: on·off 둘 다 기록(OFF 면 이벤트 칸 OFF)
+  live_match || exit 1; lock; [ "$(mode)" = tamper ] && { echo "REJECT 자율 상태 위변조(tamper) — 승인 기록 없음" >&2; exit 2; }; oppa_gate "$@"   # r1275: 슬랙 확인·범위 중 인자 없음 거절(쓰기 전·잠금 안) · R336: on·off 둘 다 기록(OFF 면 이벤트 칸 OFF)
   ev="$(event)"; [ "$(mode)" = off ] && ev=OFF; now="$(now_epoch)"
   mkdir -p "$dir" || { echo "REJECT 승인 폴더를 못 만들었다: $dir" >&2; exit 1; }
   for sha in "$@"; do
