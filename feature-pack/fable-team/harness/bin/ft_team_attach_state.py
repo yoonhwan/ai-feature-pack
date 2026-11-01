@@ -74,30 +74,30 @@ def detach(root: Path, team: str) -> int:
     launchctl = os.environ.get("FT_TICK_LAUNCHCTL", "launchctl")
     loaded = False
     plist = p["plist"]
-      tsv_rows = [line.rstrip("\n").split("\t") for line in p["team_tsv"].read_text(encoding="utf-8").splitlines()
-                  if line and not line.startswith("#")] if p["team_tsv"].is_file() else []
-      configured = plist.exists() or any(row and row[0] == team for row in tsv_rows)
-      disabled = plist.with_name(plist.name + f".disabled-{stamp}")
-      if configured:
-          rc, out, err = command(launchctl, "list")
-          if rc:
-              raise AttachError(f"ERROR launchctl 판정 불가 rc={rc}: {(err or out).strip()[:120]}", 3)
-          labels = {line.split()[-1] for line in out.splitlines() if line.split()}
-          loaded = f"com.byz.ft-tick-{team}" in labels
+    tsv_rows = [line.rstrip("\n").split("\t") for line in p["team_tsv"].read_text(encoding="utf-8").splitlines()
+                if line and not line.startswith("#")] if p["team_tsv"].is_file() else []
+    configured = plist.exists() or any(row and row[0] == team for row in tsv_rows)
+    disabled = plist.with_name(plist.name + f".disabled-{stamp}")
+    if configured:
+        rc, out, err = command(launchctl, "list")
+        if rc:
+            raise AttachError(f"ERROR launchctl 판정 불가 rc={rc}: {(err or out).strip()[:120]}", 3)
+        labels = {line.split()[-1] for line in out.splitlines() if line.split()}
+        loaded = f"com.byz.ft-tick-{team}" in labels
         manifest["plist_loaded"] = loaded
         write(manifest_path, (json.dumps(manifest, ensure_ascii=False, indent=2) + "\n").encode())
-          if plist.exists() and disabled.exists():
-              raise AttachError(f"REJECT disabled plist 가 이미 있다: {disabled}")
+        if plist.exists() and disabled.exists():
+            raise AttachError(f"REJECT disabled plist 가 이미 있다: {disabled}")
         if loaded:
-              rc, out, err = command(launchctl, "bootout", f"gui/{os.getuid()}/com.byz.ft-tick-{team}")
+            rc, out, err = command(launchctl, "bootout", f"gui/{os.getuid()}/com.byz.ft-tick-{team}")
             if rc:
                 raise AttachError(f"ERROR launchctl bootout 실패 rc={rc}: {(err or out).strip()[:120]}")
-          if plist.exists():
-              item = move_record(plist, disabled)
-              if item:
-                  moved.append(item)
-                  manifest["moved"] = moved
-                  write(manifest_path, (json.dumps(manifest, ensure_ascii=False, indent=2) + "\n").encode())
+        if plist.exists():
+            item = move_record(plist, disabled)
+            if item:
+                moved.append(item)
+                manifest["moved"] = moved
+                write(manifest_path, (json.dumps(manifest, ensure_ascii=False, indent=2) + "\n").encode())
     if teamset.exists():
         set_teamset_row(root, team, [team, "0", "0", f"휴면 {stamp}"])
     if p["team_tsv"].exists():

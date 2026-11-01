@@ -43,6 +43,9 @@ def check_team(root: Path, team: str) -> tuple[list[str], int, int]:
         if not isinstance(doc, dict) or not all(k in doc for k in ("_master", "_cards", "_cards_wt")) or diff:
             lines.append("S3 어긋남 " + ",".join(diff or ["필수 칸"]))
             bad += 1
+        elif not p["cards"].is_dir():
+            lines.append("S3 어긋남 폴더 없음")
+            bad += 1
         else:
             lines.append("S3 OK")
     if directive_ok(root, team, rel, p["directive"]):
