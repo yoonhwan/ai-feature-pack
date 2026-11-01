@@ -7,7 +7,20 @@ import re
 from ft_secret_lex import W
 
 NAME = re.compile(r"PASSWORD|PASS|TOKEN|SECRET|DSN|KEY|WEBHOOK", re.I)
-SECRET_VAR = re.compile(r"\$\{?[A-Za-z_]*(?:" + NAME.pattern + ")", re.I)
+VAR_NAME = re.compile(r"\$\{?([A-Za-z_][A-Za-z0-9_]*)")
+STRONG_PIECE = re.compile(r"(?:PASSWORD|PASSWD|TOKEN|SECRET|DSN|KEY|WEBHOOK)S?$")
+
+
+def secret_name(name: str) -> bool:  # 변수 이름을 «_» 조각으로 본다 · 강한 낱말은 어느 조각이든 끝/같음이면 비밀 · PASS 는 «마지막 조각» 일 때만(DB_PASS · PGPASS) — PASS_MAX·PASS_ID 는 아니다
+    pieces = [p.rstrip("0123456789") for p in name.upper().split("_")]
+    pieces = [p for p in pieces if p]
+    return any(STRONG_PIECE.search(p) for p in pieces) or bool(pieces and pieces[-1].endswith("PASS"))
+
+
+def secret_var(word: str) -> bool:
+    return any(secret_name(m.group(1)) for m in VAR_NAME.finditer(word))
+
+
 READERS = {"cat", "head", "tail", "less", "more", "bat", "nl", "tac", "strings", "od", "xxd", "grep", "egrep", "fgrep"}
 
 
@@ -166,7 +179,7 @@ def target(a: list[W]) -> str | None:  # 비밀을 stdout 으로 내는 모양�
         return "printenv 의 비밀 출력"
     if h == "env" and not pos:
         return "env 전체 출력"
-    if h in ("echo", "printf") and any(SECRET_VAR.search(x) for x in r):
+    if h in ("echo", "printf") and any(secret_var(x) for x in r):
         return h + " 로 비밀 변수 출력"
     if h in READERS:
         grep = h.endswith("grep")
