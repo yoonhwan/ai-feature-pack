@@ -207,7 +207,8 @@ tk="$(cat "$SRC/ft-tick.sh")"
 has "$tk" $'  raised_watch\n  renamed_watch' "ⓖ ft-tick pass() 가 renamed_watch 를 부른다"; has "$tk" 'FT_TICK_RENAMED_SEC:-3600' "  └ 1시간 간격"; has "$tk" 'renamed.sig' "  └ 중복 억제 서명"
 tsv="$(grep -v '^#' "$SRC/team-tick-env.tsv")"
 [ "$(printf '%s\n' "$tsv" | grep -c FT_TICK_RENAMED)" = "$(printf '%s\n' "$tsv" | grep -c .)" ] && ok "ⓖ 팀 틱 표 전 행 = RENAMED 끔(전 명부 스캔은 메인 틱 1개)" || bad "ⓖ 팀 틱 표 RENAMED"
-has "$tsv" $'chatbot\tseats-chatbot.json\t/tmp/ft-tick-state-chatbot' "ⓖ 키트 틱 표 concierge → chatbot 행"; hasnt "$tsv" concierge "  └ concierge 행 0"
+tsv_fx="$(grep -v '^#' "$HERE/fixtures/team-tick-env-r199.tsv")"   # r1298 이행: 실 표에서 chatbot 행이 빠졌다(전용 틱 없음 · 판정 3125 B1) — 개명 결과 단언은 옛 5행 픽스처로
+has "$tsv_fx" $'chatbot\tseats-chatbot.json\t/tmp/ft-tick-state-chatbot' "ⓖ 키트 틱 표 concierge → chatbot 행"; hasnt "$tsv" concierge "  └ concierge 행 0"
 hasnt "$(grep -nE "\b($((6*100))|$((3*100)))\b" "$SRC/ft_team_rename.py" "$SRC/ft-team-rename.sh" || true)" ":" "ⓖ 이름 바꾸기 도구에 600/300 숫자 0"
 
 echo "== fail=$fail"; [ "$fail" = 0 ]
