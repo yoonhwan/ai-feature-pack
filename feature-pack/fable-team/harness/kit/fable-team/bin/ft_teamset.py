@@ -14,6 +14,8 @@ import sys
 from pathlib import Path
 from typing import Any, NoReturn
 
+from ft_team_lib import TeamPathError, rosters as team_rosters, team_names
+
 
 def die(msg: str) -> NoReturn:
     print(f"ERROR {msg}")
@@ -138,7 +140,9 @@ def sessions():
     return r.stdout.split()
 
 
-def cap_of(spec, team):
+def cap_of(spec, team, active_teams=None):
+    if active_teams is not None and team in active_teams and team not in spec["teams"]:
+        return None
     return spec["teams"].get(team, spec["default"])
 
 
@@ -147,9 +151,22 @@ def cmd_cap(a):
     if team is None:  # 표 대상 아닌 접두(시험·외부 env) — 막지 않되 눈에 보이게
         print(f"SKIP 접두 {a.prefix!r} 는 팀셋 표 대상 아님({KNOWN_HINT}) — 상한 검사 0")
         sys.exit(0)
+    try:
+        all_teams = set(team_names(Path(a.root), "전체"))
+        active = set(team_names(Path(a.root)))
+    except TeamPathError as e:
+        print(f"ERROR 팀 명단 판정 불가({e})")
+        sys.exit(3)
+    if team not in active and (team in all_teams or a.md.startswith(GITREF) or team not in spec["teams"]):
+        print(f"SKIP 접두 {a.prefix!r} 는 현역 팀이 아님({team}) — 상한 검사 0")
+        sys.exit(0)
+    cap = cap_of(spec, team, active)
+    if cap is None:
+        print(f"ERROR 현역 팀 {team} 의 TEAMSET 행 없음 — 상한 판정 불가")
+        sys.exit(3)
     # r655(DA⑥ r1 H1): 상한은 «그 팀의 접두 전부»(옛 이름 + 새 이름)를 센다 — 접두 하나만 세면 옛 1 + 새 N 이 상한을 통과한다.
     pf = prefixes_of(team)
-    live, cap = sum(1 for s in sessions() if any(s.startswith(p) for p in pf)), cap_of(spec, team)
+    live = sum(1 for s in sessions() if any(s.startswith(p) for p in pf))
     print(f"{'AT-CAP' if live >= cap else 'CAP'} {team} live={live} cap={cap}")
     sys.exit(4 if live >= cap else 0)
 
@@ -160,8 +177,7 @@ def roster_path(root, team):
 
 
 def teams_of(root):
-    names = sorted(f.stem.removeprefix("seats-") for f in (Path(root) / ".fable-team").glob("seats-*.json"))
-    return ["v65"] + names if (Path(root) / ".fable-team" / "seats.json").exists() else names
+    return team_names(Path(root))
 
 
 def gens_of(names):
@@ -274,16 +290,21 @@ def cmd_arch_live(a):
     print(f"SKIP {a.seat} 명부에 없음 — 검사 대상 아님")
 
 
-def check_team(spec, root, team, live):
-    p = roster_path(root, team)
-    try:
-        d = json.loads(p.read_text(encoding="utf-8"))
-    except (OSError, ValueError) as e:
-        die(f"명부 읽기 실패 {p.name}: {e}")
+def check_team(spec, root, team, live, roster=None, active_teams=None):
+    if roster is None:
+        roster = next((row for row in team_rosters(Path(root)) if row["team"] == team), None)
+    if roster is None:
+        return "WARN", "판정 불가(현역 명단 밖 팀)"
+    if roster["diag"] != "OK":
+        return "WARN", f"판정 불가({roster['diag']})"
+    d = roster["doc"]
     pre = (f"byz-{team}-",) + tuple(p for p in LEGACY_PREFIXES.get(team, ()))
     mine = [s for s in live if s.startswith(pre)]
     nano = [s for s in mine if any(s.startswith(p) for p in prefixes_of(team))]
-    cap, err, warn, info = cap_of(spec, team), [], [], []
+    cap, err, warn, info = cap_of(spec, team, active_teams), [], [], []
+    if cap is None:
+        warn.append("판정 불가(TEAMSET 행 없음)")
+        cap = spec["default"]
     if not mine:
         return "OK", f"휴면(라이브 좌석 0 · 나노 0/{cap})"
     if not any(s.startswith(f"byz-{team}-master-") for s in mine):
@@ -314,7 +335,8 @@ def check_team(spec, root, team, live):
             warn.append(f"{b} {len(g)}세대 동시 라이브(keep-last-2 밖 {len(g) - 2})")
         elif len(g) == 2 and sum(working(s) for _, s in g) == 2:
             warn.append(f"{b} 현역 2세대 동시 WORKING")
-    odd = sorted(k for k in d if k.startswith("_") and k not in spec["keys"])
+    roster_keys = {"_label", "_cards", "_cards_wt"}
+    odd = sorted(k for k in d if k.startswith("_") and k not in spec["keys"] and k not in roster_keys)
     if odd:
         warn.append("표에 없는 키 " + ",".join(odd))
     mis = sum(1 for k, v in d.items() if isinstance(v, dict) and k in live and spec["role_model"].get(v.get("role", ""))
@@ -334,14 +356,20 @@ def check_team(spec, root, team, live):
 
 def cmd_check(a):
     spec, live = load(a.md, a.root), sessions()
-    teams = teams_of(a.root) if a.all else [a.team]
-    if not a.all and not roster_path(a.root, a.team).exists():
-        die(f"명부 없음: {a.team} ({roster_path(a.root, a.team).name})")
+    try:
+        roster_rows = team_rosters(Path(a.root))
+        active = {row["team"] for row in roster_rows}
+        teams = teams_of(a.root) if a.all else [a.team]
+    except TeamPathError as e:
+        die(f"팀 명단 판정 불가({e})")
+    if not a.all and a.team not in active:
+        die(f"팀 명단 판정 불가: 현역 명단에 {a.team} 없음")
     if spec["head"]:
         print(spec["head"])
     rc = 0
     for t in teams:
-        st, msg = check_team(spec, a.root, t, live)
+        roster = next((row for row in roster_rows if row["team"] == t), None)
+        st, msg = check_team(spec, a.root, t, live, roster, active)
         print(f"{t} {st} {msg}")
         rc = 1 if st == "ERR" else rc
     sys.exit(rc)

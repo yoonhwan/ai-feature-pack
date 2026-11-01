@@ -437,8 +437,30 @@ model_swap() {
   return 0
 }
 
+team_master_seat() {
+  python3 - "$ROOT" "$1" "$HERE" <<'PY'
+import sys
+from pathlib import Path
+
+sys.path.insert(0, sys.argv[3])
+from ft_team_lib import rosters
+
+team = sys.argv[2]
+row = next((item for item in rosters(Path(sys.argv[1])) if item["team"] == team), None)
+if row is None or row["diag"] != "OK":
+    diag = row["diag"] if row else "명단 밖 팀"
+    print(f"WARN {team} 판정 불가({diag}) — master 조회 불가", file=sys.stderr)
+    raise SystemExit(3)
+master = row["doc"].get("_master")
+if not master:
+    print(f"WARN {team} 판정 불가(_master 빔) — master 조회 불가", file=sys.stderr)
+    raise SystemExit(3)
+print(master)
+PY
+}
+
 sweep_wt() {
-  local out hil master rows tagged team lines hdr tf
+  local out hil master rows tagged team lines hdr
   [ "$WT_SWEEP_ENABLED" = 1 ] || return 0
   [ -x "$WT_SWEEP" ] || { echo "$(date '+%F %T') sweep_wt: missing $WT_SWEEP" >&2; return 0; }
   if [ "$DRY" = 1 ]; then echo "DRY kind=wt-sweep bin=$WT_SWEEP plans=$(bash "$WT_SWEEP" --dry-run 2>/dev/null | grep -c '^DRY ')"; return 0; fi
@@ -456,10 +478,10 @@ sweep_wt() {
     hdr=""; master=""
     case "$team" in
       -|v65) master="$(master_seat)";;
-      *) tf="$(dirname "$SEATS")/seats-$team.json"; [ -f "$tf" ] && master="$(master_seat "$tf" 2>/dev/null)"
+        *) master="$(team_master_seat "$team")" || master=""
          if [ -z "$master" ]; then
-           hdr="[라우팅 실패 $team] "; master="$(master_seat)"   # 표식은 «[HIL] 뒤» — planner 머리 검사(reject)는 본문이 [HIL] 로 시작해야 통과(DA⑥)
-           echo "$(date '+%F %T') sweep_wt: team '$team' master not found ($tf) — routed to own master" >&2
+             hdr="[라우팅 실패 $team] "; master="$(master_seat)"   # 표식은 «[HIL] 뒤» — planner 머리 검사(reject)는 본문이 [HIL] 로 시작해야 통과(DA⑥)
+             echo "$(date '+%F %T') sweep_wt: team '$team' master not found — routed to own master" >&2
          fi;;
     esac
     [ -n "$master" ] || { echo "$(date '+%F %T') sweep_wt: [HIL] pending (team $team) but no active master" >&2; continue; }
@@ -501,12 +523,36 @@ drift_watch() {
   return 0
 }
 
+team_roster_paths() {
+  python3 - "$ROOT" "$HERE" <<'PY'
+import sys
+from pathlib import Path
+
+sys.path.insert(0, sys.argv[2])
+from ft_team_lib import TeamPathError, rosters
+
+try:
+    rows = rosters(Path(sys.argv[1]))
+except TeamPathError as e:
+    print(f"ERROR 팀 명단 판정 불가({e})", file=sys.stderr)
+    raise SystemExit(3)
+for row in rows:
+    if row["diag"] != "OK":
+        print(f"WARN {row['team']} 판정 불가({row['diag']}) — 틱 소비자 제외", file=sys.stderr)
+    else:
+        print(row["seats_path"])
+PY
+}
+
 raised_watch() {
-  local out rc sig sigf master shrc   # check 는 rc 0 일 때만 stdout 목록을 내고, rc 2 면 stderr 원인 줄만 낸다 → 2>&1 로 한 변수에 받아도 섞이지 않는다
+  local out rc sig sigf master shrc roster_paths roster   # check 는 rc 0 일 때만 stdout 목록을 내고, rc 2 면 stderr 원인 줄만 낸다 → 2>&1 로 한 변수에 받아도 섞이지 않는다
+  local -a roster_files=()
   [ "${FT_TICK_RAISED:-1}" = 1 ] || return 0
   if [ "$DRY" = 1 ]; then echo "DRY kind=raised bin=$RAISED"; return 0; fi
   sigf="$STATE_DIR/raised.sig"; mkdir -p "$STATE_DIR"
-  out="$(python3 "$RAISED" check "$SEATS" "$(dirname "$SEATS")/seats-*.json" ${ROOT:+--root "$ROOT"} 2>&1)"; rc=$?
+  roster_paths="$(team_roster_paths)" || return 0
+  while IFS= read -r roster; do [ -n "$roster" ] && [ "$roster" != "$SEATS" ] && roster_files+=("$roster"); done <<< "$roster_paths"
+  out="$(python3 "$RAISED" check "$SEATS" "${roster_files[@]}" ${ROOT:+--root "$ROOT"} 2>&1)"; rc=$?
   [ "$rc" = 0 ] || { echo "$(date '+%F %T') raised_watch: ERROR check rc=$rc: $(printf '%s\n' "$out" | head -1 | cut -c1-200)" >&2; return 0; }
   [ -n "$out" ] || { rm -f "$sigf"; return 0; }
   sig="$(printf '%s\n' "$out" | LC_ALL=C shasum)"; shrc=$?; sig="${sig:0:40}"   # 해시만 LC_ALL=C — drift_watch 와 같은 이유
@@ -518,14 +564,16 @@ raised_watch() {
 }
 
 renamed_watch() {   # r468 — 옛 계보 우편 «있음» 을 새 명부 _master 에 알린다(relay 는 master 손 · 계획 §4-4)
-  local out pend sig sigf stamp last to f seatfiles=()
+  local out pend sig sigf stamp last to f roster_paths roster
+  local -a seatfiles=()
   [ "${FT_TICK_RENAMED:-1}" = 1 ] || return 0
   if [ "$DRY" = 1 ]; then echo "DRY kind=renamed bin=$RENAMED"; return 0; fi
   mkdir -p "$STATE_DIR"; stamp="$STATE_DIR/renamed.last"; sigf="$STATE_DIR/renamed.sig"
   last="$(read_stamp "$stamp")"
   [ $(( $(now) - last )) -ge "${FT_TICK_RENAMED_SEC:-3600}" ] || return 0
+  roster_paths="$(team_roster_paths)" || return 0
+  while IFS= read -r f; do [ -n "$f" ] && [ "$f" != "$SEATS" ] && seatfiles+=("$f"); done <<< "$roster_paths"
   write_stamp "$stamp"
-  for f in "$(dirname "$SEATS")"/seats-*.json; do [ -e "$f" ] && seatfiles+=("$f"); done   # r507: ls 파싱 0 — 공백 이름·0개 안전
   out="$(python3 -I "$RENAMED" watch "$MBOX" "$SEATS" ${seatfiles[@]+"${seatfiles[@]}"} 2>&1)" \
     || { echo "$(date '+%F %T') renamed_watch: ERROR rc=$?: $(printf '%s\n' "$out" | head -1 | cut -c1-200)" >&2; return 0; }
   printf '%s\n' "$out" | grep '^ERROR' | head -3 | sed "s/^/$(date '+%F %T') renamed_watch: /" >&2
@@ -686,12 +734,21 @@ hil_watch() {
 live_snapshot() {   # ① claude 좌석의 대화 스냅샷 — jsonl 이 바뀐 좌석만 쓴다(ft-resume-attempt.sh snapshot · codex·cmd 는 쓰지 않음)
   #   R324: 틱 데몬이 없는 팀(harness·planner·graphics·issues·chatbot·room·lecture…)은 재개 기록이 0 이었다 — 이 틱은 자기 명부 «뒤에» 같은 폴더의 다른 명부(seats.json·seats-*.json)도 훑는다.
   #   다른 명부 훑기는 상태 폴더의 live-sweep stamp 로 FT_TICK_LIVE_SWEEP_SEC(300)마다 1번만(틱 여러 개가 같은 상태 폴더를 쓰면 하나만 돈다 · 스냅샷은 UNCHANGED 면 쓰기 0 이라 겹쳐도 무해) · dry-run 은 stamp 를 쓰지 않는다.
-  local rows seat role agent model out roster seen=" " sweep sstamp last
+  local rows seat role agent model out roster seen=" " sweep sstamp last roster_paths
+  local -a roster_files=() active_rosters=()
   [ "${FT_TICK_LIVE_SNAPSHOT:-1}" = 1 ] || return 0
   [ -f "$RESUME_ATTEMPT" ] || { echo "$(date '+%F %T') live_snapshot: missing $RESUME_ATTEMPT" >&2; return 0; }
   sweep=0; sstamp="$STATE_DIR/live-sweep"; last="$(read_stamp "$sstamp")"
   [ $(( $(now) - last )) -ge "${FT_TICK_LIVE_SWEEP_SEC:-300}" ] && sweep=1
-  for roster in "$SEATS" $([ "$sweep" = 1 ] && ls "$(dirname "$SEATS")"/seats.json "$(dirname "$SEATS")"/seats-*.json 2>/dev/null); do
+  roster_paths="$(team_roster_paths)" || return 0
+  active_rosters=()
+  while IFS= read -r roster; do [ -n "$roster" ] && active_rosters+=("$roster"); done <<< "$roster_paths"
+  if [ "$sweep" = 1 ]; then
+    roster_files=("${active_rosters[@]}")
+  else
+    for roster in "${active_rosters[@]}"; do [ "$roster" = "$SEATS" ] && roster_files+=("$roster"); done
+  fi
+  for roster in "${roster_files[@]}"; do
     [ -f "$roster" ] || continue
     rows="$(resume_rows "$roster" 2>/dev/null)" || { echo "$(date '+%F %T') live_snapshot: seats.json unreadable ($roster)" >&2; continue; }
     while IFS=$'\t' read -r seat role agent model; do

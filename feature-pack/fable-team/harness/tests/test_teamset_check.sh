@@ -2,6 +2,7 @@
 # test_teamset_check.sh — r-teamset-standard(판정 2170): design/TEAMSET.md 표 + ft-teamset-check.sh / ft_teamset.py check·cap·queue.
 # 전부 mktemp 안 — 가짜 명부·가짜 TEAMSET 표·가짜 tmux(PATH)·임시 재개 기록 폴더. 실 좌석 kill 0 · 실 tmux 0.
 set -uo pipefail
+export LC_ALL=C
 export FT_ALLOW_TRACKED_BIN=1
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
@@ -13,7 +14,13 @@ ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }
 
 MD="$T/TEAMSET.md"; ROOT="$T/root"; FAKE="$T/fake"; SESS="$T/sessions.txt"; RES="$T/resume"
-mkdir -p "$ROOT/.fable-team/state" "$FAKE" "$RES"
+mkdir -p "$ROOT/.fable-team/state" "$ROOT/design/teams/alpha/indices" "$ROOT/design/teams/beta/indices" "$FAKE" "$RES"
+cat > "$ROOT/design/TEAMS.md" <<'EOF'
+| 팀 | 폴더 | 오케 | 상태 |
+|---|---|---|---|
+| alpha | `design/teams/alpha/` | x | 현역 |
+| beta | `design/teams/beta/` | x | 현역 |
+EOF
 cat > "$MD" <<'EOF'
 # 가짜 팀셋
 ## 표 1 — 역할 표준
@@ -31,7 +38,7 @@ cat > "$MD" <<'EOF'
 | beta | 2 | 0 | 상시 |
 EOF
 printf '#!/bin/sh\ncase "$1" in list-sessions) cat %s;; *) exit 1;; esac\n' "$SESS" > "$FAKE/tmux"; chmod 755 "$FAKE/tmux"
-roster() { printf '{"_name":"%s","_master":"%s","_arch":"%s"%s}\n' "$1" "$2" "$3" "${4:-}" > "$ROOT/.fable-team/seats-$1.json"; }
+roster() { printf '{"_name":"%s","_label":"%s","_master":"%s","_arch":"%s","_cards":"design/teams/%s/indices","_cards_wt":""%s}\n' "$1" "$1" "$2" "$3" "$1" "${4:-}" > "$ROOT/.fable-team/seats-$1.json"; }
 sess() { : > "$SESS"; for n in "$@"; do echo "$n" >> "$SESS"; done; }
 FM="$T/fake-mbox.sh"; printf '#!/bin/sh\necho "$*" >> %s/mbox.log\n[ -f %s/mbox.fail ] && exit 3\nexit 0\n' "$T" "$T" > "$FM"
 FS="$T/fake-status.sh"; printf '#!/bin/sh\n[ -f %s/working.$(echo "$2" | tr "#" _) ] && echo "WORKING - - - jsonl" || echo "IDLE - - - jsonl"\n' "$T" > "$FS"
@@ -179,7 +186,7 @@ sess "byz-alpha-master-claude#1" "byz-alpha-arch-claude#1" "byz-alpha-nano-x#0" 
 roster alpha "byz-beta-master-claude#1" "byz-alpha-arch-claude#1"
 o="$(chk alpha)"; rc=$?; { [ "$rc" = 1 ] && [[ "$o" == "alpha ERR "*"형식·소속 위반"* ]] && [ ! -s "$T/mbox.log" ]; } && ok "ⓝ 다른 팀 라이브 master 를 _master 로 → ERR rc1 · 쪽지 0" || bad "ⓝ-8 rc=$rc $o / $(cat "$T/mbox.log")"
 printf '{"_name":"alpha","_arch":"byz-alpha-arch-claude#1"}\n' > "$ROOT/.fable-team/seats-alpha.json"
-o="$(chk alpha)"; rc=$?; { [ "$rc" = 1 ] && [[ "$o" == "alpha ERR "*"_master 없음"* ]] && [ ! -s "$T/mbox.log" ]; } && ok "ⓝ _master 칸 없음 → ERR · 쪽지 0" || bad "ⓝ-9 rc=$rc $o"
+o="$(chk alpha)"; rc=$?; { [ "$rc" = 0 ] && [[ "$o" == "alpha WARN "*"판정 불가(_master 빔)"* ]] && [ ! -s "$T/mbox.log" ]; } && ok "ⓝ _master 칸 없음 → 판정 불가 WARN · 쪽지 0" || bad "ⓝ-9 rc=$rc $o"
 roster alpha "alpha-master#1" "byz-alpha-arch-claude#1"; sess "alpha-master#1" "byz-alpha-nano-x#0" "byz-alpha-arch-claude#1"
 o="$(chk alpha)"; rc=$?; { [ "$rc" = 1 ] && [[ "$o" == *"형식·소속 위반"* ]] && [ ! -s "$T/mbox.log" ]; } && ok "ⓝ 이름 형식 위반 _master(라이브여도) → ERR · 쪽지 0" || bad "ⓝ-10 rc=$rc $o"
 roster alpha "byz-alpha-master-claude#1" "byz-alpha-arch-claude#1"
