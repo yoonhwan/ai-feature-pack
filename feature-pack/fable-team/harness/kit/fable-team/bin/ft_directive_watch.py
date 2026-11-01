@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # pyright: basic
 """ft_directive_watch.py status|tick [--now <ISO|epoch>] — 오빠 지시마다 «담당 카드가 있고 움직이는가» (r1212 · Issue #5342 · 사전 DA ③ APPROVE).
-후보 = 판정 원장을 번호로 접어 done(무효 포함)·닫음 표(state/directive-closed.tsv: n·사유·좌석·시각) 제외 · 남은 new 중 제목에 «오빠» 와 slack ts.
+후보 = 판정 번호의 권위인 planner md 원장(루트 표 ref 의 design/teams/planner/VERDICTS-planner-*.md · r1267 · verdicts.jsonl 은 읽지 않는다)에서 «오빠» 와 slack ts 가 든 행 · 시각 = 그 행 첫 slack ts · 닫음 표(state/directive-closed.tsv: n·사유·좌석·시각)·내용이 «무효»·«철회» 로 시작하는 행 제외.
 담당 = 카드의 «- 지시: 판정 N[, 판정 M]» 줄만 · 카드는 카드 루트 표(state/directive-roots.tsv: 팀·리포·ref·카드 폴더)의 ref 에서 읽는다(워크트리 무관).
 움직임 = max(카드 파일 마지막 커밋 · 나노 가지 nano/<stem 앞 40자> 의 base 밖 커밋) · 쪽지·경보·상태 보고는 움직임 아님 · git 은 전부 --until=<평가 시각>.
 판정: 담당 0 + 판정 뒤 60분 넘음 = 담당 없음 · 대기·진행 담당의 마지막 움직임이 6시간 넘음 = 멈춤 · 담당 전부 완성·아카이브 = 닫힘.
@@ -22,6 +22,10 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ft_penalty import root  # noqa: E402
 
 SLACK_TS = re.compile(r"(?<!\d)1\d{9}(?:\.\d{1,6})?(?!\d)")
+MD_ROW = re.compile(r"^(?:- \*\*(\d+)\*\*|\|\s*(\d+)\s*\|)")
+MD_GREP = (r"^- \*\*[0-9]+\*\*", r"^\|[[:space:]]*[0-9]+[[:space:]]*\|")  # 위 MD_ROW 와 같은 두 꼴(git grep -E)
+MD_GLOB = "design/teams/planner/VERDICTS-planner-*.md"
+VOID = re.compile(r"[\s\[(*~]*(무효|철회)")  # 행 내용이 «무효»·«철회» 로 «시작»할 때만 제외 — 본문 중간 낱말은 오빠 지시를 가리지 않는다(2896 «… = 무효 rc≠0»)
 OPEN, CLOSED = ("대기", "진행"), ("완성", "아카이브")
 OWNER_S, STALL_S, MUTE_S = 60 * 60, 6 * 3600, 3600
 DEFAULT_ROOTS = [["*", ".", "origin/main", "design/teams/*/indices"], ["harness", ".", "origin/ops/main-base", "design/harness/indices"]]
@@ -73,24 +77,12 @@ def until(now: float) -> str:
     return "--until=" + time.strftime("%Y-%m-%d %H:%M:%S +0000", time.gmtime(now))
 
 
-def candidates(st: Path, now: float) -> tuple[list[tuple[str, float, dict]], dict]:
-    f = st / "verdicts.jsonl"
-    try:
-        rows = [json.loads(ln) for ln in f.read_text(encoding="utf-8").splitlines() if ln.strip()]
-    except (OSError, ValueError) as e:
-        raise Undecided(f"판정 원장 못 읽음 {f} {e.__class__.__name__}")
-    closed, done, new = {r[0] for r in tsv(st / "directive-closed.tsv")}, set(), {}
-    for r in rows:
-        t, n = epoch(r.get("ts", "")), str(r.get("n"))
-        if t is None or t > now:  # 평가 시각 뒤 행은 없던 것
-            continue
-        if r.get("ev") == "done":
-            done.add(n)
-        elif r.get("ev") == "new" and n not in new:
-            new[n] = (t, r)
-    title = lambda r: r.get("title") or ""  # noqa: E731
-    out = [(n, t, r) for n, (t, r) in new.items() if n not in done | closed and "오빠" in title(r) and SLACK_TS.search(title(r))]
-    return out, rows[-1] if rows else {}
+def md_row(text: str) -> tuple[str, str] | None:
+    """planner md 원장의 두 꼴(ft-verdict-row.sh 와 같다): 글머리 `- **N** 내용` · 표 `| N | 시각 | 내용 |` → (번호, 내용)."""
+    m = MD_ROW.match(text)
+    if not m:
+        return None
+    return (m.group(1), text[m.end():].strip()) if m.group(1) else (m.group(2), "|".join(text[m.end():].split("|")[1:]).strip(" |"))
 
 
 class Watch:
@@ -107,6 +99,30 @@ class Watch:
 
     def cache(self, r: list[str]) -> Path:
         return self.wd / ("commits-" + hashlib.sha1("\t".join(r[1:4]).encode()).hexdigest()[:12] + ".tsv")
+
+    def candidates(self) -> tuple[list[tuple[str, float, dict]], dict]:
+        """판정 번호의 권위 = planner md 원장(VERDICTS-planner-*.md · ref 에서 읽음 · r1267) · 후보 = «오빠» + 슬랙 ts 가 든 행 · t = 그 행 첫 슬랙 ts."""
+        r = next((x for x in self.roots if x[0] == "planner"), None) or next((x for x in self.roots if x[0] == "*"), None)
+        if r is None:
+            raise Undecided("판정 원장 못 읽음 (카드 루트 표에 planner·* 행 없음)")
+        repo = self.repo(r)
+        tip = self.git(repo, "rev-list", "-1", until(self.now), r[2]).strip()
+        out = self.git(repo, "grep", "-I", "-E", "-e", MD_GREP[0], "-e", MD_GREP[1], tip, "--", MD_GLOB, ok=(0, 1)) if tip else ""
+        rows: dict[str, tuple[int, str]] = {}
+        for ln in out.splitlines():
+            path, _, text = ln[len(tip) + 1:].partition(":")
+            row, num = md_row(text), re.search(r"planner-(\d+)-", path)
+            if row and num and (row[0] not in rows or int(num.group(1)) >= rows[row[0]][0]):  # 같은 번호가 두 파일에 있으면 번호 큰 파일 행
+                rows[row[0]] = (int(num.group(1)), row[1])
+        if not rows:
+            raise Undecided(f"판정 원장 못 읽음 {repo}:{r[2]}:{MD_GLOB}")
+        closed, out_rows = {x[0] for x in tsv(self.st / "directive-closed.tsv")}, []
+        for n, (_, body) in rows.items():
+            ts = SLACK_TS.search(body)
+            if n in closed or not ts or "오빠" not in body or VOID.match(body) or float(ts.group().split(".")[0]) > self.now:  # 평가 시각 뒤 오빠 글은 없던 것
+                continue
+            out_rows.append((n, float(ts.group().split(".")[0]), {"title": body, "n": int(n)}))
+        return out_rows, {"n": max(int(n) for n in rows)}
 
     def card_times(self, r: list[str], tip: str) -> dict[str, float]:
         """카드 stem → 마지막 커밋 시각(폴더를 옮겨도 stem 으로 잇는다) · 운영 = 캐시의 «마지막 sha..tip» 만 · 가상 시각 = 캐시 무시·쓰기 0."""
@@ -175,7 +191,7 @@ class Watch:
         return best
 
     def evaluate(self) -> tuple[list[tuple], str, str]:
-        cands, last = candidates(self.st, self.now)
+        cands, last = self.candidates()
         found, tips = self.links()
         rows = []
         for n, t, r in cands:
@@ -194,7 +210,7 @@ class Watch:
         raw = json.dumps(last, ensure_ascii=False) + "".join(
             (self.st / f).read_text(encoding="utf-8") if (self.st / f).is_file() else "" for f in ("directive-closed.tsv", "directive-roots.tsv")) + "".join(tips)
         stamp = f"{int(self.now)}-{hashlib.sha1(raw.encode()).hexdigest()[:8]}"
-        return rows, stamp, str(last.get("ts", "?"))[5:16].replace("T", " ")
+        return rows, stamp, f"판정 {last['n']}"
 
 
 def render(rows: list[tuple], stamp: str, last_ts: str) -> list[str]:
