@@ -59,6 +59,9 @@ WT_SWEEP="${FT_TICK_WT_SWEEP_BIN:-$HERE/ft-wt-sweep.sh}"; WT_SWEEP_ENABLED="${FT
 # ★라이브 bin 드리프트 경고 (카드 live-bin-drift-check · Issue 816 ③)★ — 설치 꼴(*/.fable-team/bin)에서 돌 때만, 라이브 도구 ↔ origin/main 키트를 FT_TICK_DRIFT_INTERVAL(600s)마다 대조.
 #   어긋남 목록이 «바뀐 때만» master 우편함 1회(서명 $STATE_DIR/drift.sig). FT_TICK_DRIFT=0 으로 끔(경고만 끄는 스위치 — spawn·close 입구 BLOCK 은 끌 수 없다).
 DRIFT_CHECK="${FT_TICK_DRIFT_BIN:-$HERE/ft-live-bin-drift-check.sh}"; DRIFT_ENABLED="${FT_TICK_DRIFT:-1}"; DRIFT_INTERVAL="${FT_TICK_DRIFT_INTERVAL:-600}"
+# ★r1320 팀 메인 파일 주기 렌더 (지시 16 · 판정 3224)★ — ft-team-main.sh render --all 을 FT_TICK_TEAMMAIN_SEC(600s)마다 1회 · 0 = 끔.
+#   r1315 가 도구만 만들고 틱에 안 묶어 STATE.md 머리 시각이 첫 렌더(09:30) 뒤 멈췄다(arch#207 ls 실측) — 「늘 최신」(지시 16)이 안 지켜졌다.
+TEAMMAIN="${FT_TICK_TEAMMAIN_BIN:-$HERE/ft-team-main.sh}"; TEAMMAIN_SEC="${FT_TICK_TEAMMAIN_SEC:-600}"
 # ★상향 좌석 «내릴 것» 경보 (R149 · 판정 1641)★ — 명부 raised.card 가 완성/ 으로 갔거나 없어졌는데 행이 남은 좌석을 목록이 «바뀔 때만» master 우편함 1회(서명 $STATE_DIR/raised.sig). FT_TICK_RAISED=0 으로 끔. 판별은 형제 모듈 ft_raised.py.
 RAISED="${FT_TICK_RAISED_BIN:-$HERE/ft_raised.py}"
 # ★r468 개명 팀 옛 계보 우편 감시★ — 명부 _renamed_from 이 7일 안인 팀의 옛 이름 계보(byz-<옛>-*)에 쌓인 우편을 그 명부 _master 에 1줄(목록이 «바뀔 때만» · 서명 $STATE_DIR/renamed.sig).
@@ -529,6 +532,34 @@ drift_watch() {
       [ -n "$cause" ] || cause="$(printf '%s\n' "$err" | head -1)"
       echo "$(date '+%F %T') drift_watch: check rc=$rc: $(printf '%s\n' "$out" | head -1)${cause:+ [stderr] $cause}" >&2;;
   esac
+  return 0
+}
+
+# ★r1320 (지시 16 · 판정 3224)★ 팀 메인 파일(STATE.md) 주기 렌더 — ft-team-main.sh render --all 1회.
+#   간격 = TEAMMAIN_SEC(600s · 0 = 끔) · 표식 = 기존 stamp «_all teammain»(write_stamp 원자 교체 · read_stamp 숫자 보정).
+#   호출은 timeout 7(하드 룰 12) — 넘으면 rc124. 실패는 그 바퀴 ERROR 1줄이고 바퀴는 계속한다(stamp 는 쓴다 = 다음 간격 뒤 재시도).
+#   도구 없음 = WARN 1줄(같은 stamp 꼴 · 간격 안 반복 0) — 조용히 안 도는 일을 만들지 않는다.
+#   팀 명단(<루트>/design/TEAMS.md · FT_TEAMS_MD) 없는 루트 = 렌더 대상 0 — 조용히 건너뛴다(그 경우 틱 자신이 이미
+#   「좌석표 판정 불가」 ERROR 를 낸다). 시험 임시 루트가 «실 프로젝트» 를 렌더하는 일도 이 가드가 막는다.
+teammain_render() {
+  local stamp out rc t0 dt teams_md
+  [ "$TEAMMAIN_SEC" != 0 ] || return 0
+  stamp="$(stamp_of _all teammain)"
+  if [ "$DRY" != 1 ] && [ "$(stamp_gap "$stamp")" -lt "$TEAMMAIN_SEC" ]; then return 0; fi
+  teams_md="${FT_TEAMS_MD:-${ROOT:-$WT}/design/TEAMS.md}"
+  if [ "$DRY" = 1 ]; then echo "DRY kind=teammain bin=$TEAMMAIN sec=$TEAMMAIN_SEC"; return 0; fi
+  [ -f "$teams_md" ] || return 0
+  if [ ! -f "$TEAMMAIN" ]; then
+    write_stamp "$stamp"
+    echo "$(date '+%F %T') WARN teammain: 도구 없음 $TEAMMAIN — 팀 메인 렌더 건너뜀(다음 간격 뒤 다시 본다)" >&2
+    return 0
+  fi
+  t0="$(now)"
+  out="$(timeout 7 bash "$TEAMMAIN" render --all 2>&1)"; rc=$?
+  dt=$(( $(now) - t0 ))
+  write_stamp "$stamp"
+  if [ "$rc" = 0 ]; then log "TEAMMAIN render rc=0 ${dt}s"; return 0; fi
+  echo "$(date '+%F %T') ERROR teammain: render rc=$rc ${dt}s — $(printf '%s\n' "$out" | tail -1 | cut -c1-200)" >&2
   return 0
 }
 
@@ -1288,6 +1319,7 @@ pass() {
   STEP_LAST=""
   [ "$STEPS_ON" != 1 ] || { PASS_T0="${FT_TICK_PASS_T0:-$(now)}"; PASS_S0=$SECONDS; STEP_LAST=$SECONDS; }   # 부모가 넘긴 바퀴 시작 epoch(없으면 지금) = 첫 단계 시작
   pass_core; prc=$?
+  step teammain_render teammain_render   # r1320: 바퀴 끝 — 좌석 명부(rows)와 무관하게 돈다(현역 좌석 0 이어도 팀 메인은 최신)
   step acct_notice acct_notice
   steps_done
   return "$prc"
