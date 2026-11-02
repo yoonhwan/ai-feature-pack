@@ -5,6 +5,7 @@
 #   통과 = ①코멘트 어딘가에 6항 줄이 «값과 함께» 전부 있다 ②Closes 로 연결된 PR 이 있다(closedByPullRequestsReferences · 없으면 이슈 코멘트의 «연결 PR: #<번호>» + 그 PR 병합 상태 — r1040) ③7·8항(아래) 또는 관찰 조건.
 #   7·8항 = `원인 확정: Y — <근거 ≥10자>` · `같은 증상 보류: 0` — 키로 «가장 마지막 줄»을 고른 뒤 그 줄만 검증한다(R102 · 판정 1059·1060).
 #     관찰 중(`관찰 시작:` 마커 · 라벨 status:observing · 미완료 거절 기록)이면 7·8항 대신 «현재 구간에서 서로 다른 판 2회 재현 0» 을 요구한다.
+#   r1346: 남김 = 코멘트 «- 남김 #N — …»(남은 일 선언)·«남김: 0 — 사유»(해소) 줄 — 모든 코멘트(--extra-comment 포함)에서 가장 마지막 «남김» 줄 하나만 고른 뒤 검증한다(선택 먼저 · 검증 나중). «#N» = FAIL 남김 선언 · «0»/«0 — 사유» 정확 일치 = 통과 · 그 밖 = FAIL 남김 줄 무효 · 줄 없음 = 지금처럼. 제안 마무리 조기 통과·--gate 보다 앞(--gate kind=leftover rc3).
 #   --gate = 7·8항+관찰 조건만(1~6항·Closes 생략) · exit 0 통과 / 3 거절(stderr 문장 + stdout `GATE rc=3 kind=… marker=… label=… reason=…`).
 #   --extra-comment = 곧 올릴 닫는 코멘트 파일을 «가장 마지막» 코멘트로 붙여 읽는다 · --has-token = 코멘트에 `token=<tok>` 있으면 exit 0 없으면 1.
 #   gh view = timeout 7 + 재시도 1(env FT_GATE_TIMEOUT_S 시험 훅).
@@ -52,6 +53,14 @@ LREF="${FT_LAND_REF:-origin/main}"
 pick_last() { # <키> → «가장 마지막 키 줄»의 값 — 값이 무효여도 앞 줄로 내려가지 않는다(선택 먼저 · 검증 나중)
   jq -r --arg p "$KEYP" --arg k "$1" '[.comments[].body | split("\n")[] | select(test($p + $k + "\\s*[:：]"))] | last // empty
     | sub($p + $k + "\\s*[:：]\\s*"; "") | sub("\\s+$"; "")' <<<"$JSON"
+}
+leftover_eval() { # r1346 → LF_STATE: 빈 값(통과·줄 없음) · decl(남김 #N 선언) · invalid(무효 값) · LF_LINE: 고른 줄 앞 80자 — 마지막 후보 줄만 본다(앞 유효 줄로 내려가지 않는다)
+  local R
+  LF_STATE=""; LF_LINE=""
+  R="$(jq -r --arg p "$KEYP" '[.comments[].body | split("\n")[] | select(test($p + "남김(\\s*[:：]|\\s+#)"))] | last // empty
+    | . as $l | (sub($p + "남김(\\s*[:：]\\s*|\\s+)"; "") | sub("\\s+$"; "")) as $v | ($l | sub("^\\s+"; "") | .[0:80]) as $s
+    | if ($v | test("^0(\\s*$|\\s+[—–-]+\\s*\\S)")) then "ok" elif ($v | test("^#[0-9]+")) then "decl\t" + $s else "invalid\t" + $s end' <<<"$JSON")"   # r1346-mut:pick
+  case "$R" in decl*|invalid*) LF_STATE="${R%%$'\t'*}"; LF_LINE="${R#*$'\t'}";; esac
 }
 EVJQ='[.comments[].body | split("\n")[]] | .[] |
   (select(test($p + "관찰 시작\\s*[:：]")) | "M\t" + ((capture("수리 랜딩=(?<s>[0-9a-fA-F]{40})") | .s | ascii_downcase) // "")),
@@ -126,6 +135,11 @@ if [ "$GATE" = 1 ]; then
     echo "REJECT close #$N — 제안 Issue(proposal)에 approved 라벨 없음 — 오빠 승인(R77 게이트) 뒤에만 닫는다." >&2
     echo "GATE rc=3 kind=proposal_unapproved marker=1 label=1 reason=approved 라벨 없음"; exit 3
   fi
+  leftover_eval   # r1346 · 제안 마무리 조기 통과보다 앞 — 남김 FAIL 이면 kind=leftover(쓰기 0 갈래)
+  if [ -n "$LF_STATE" ]; then
+    if [ "$LF_STATE" = decl ]; then [[ "$LF_LINE" =~ \#([0-9]+) ]]; LF_WHY="남김 선언(#${BASH_REMATCH[1]}) — 남은 일을 새 Issue 로 떼고 «남김: 0 — #<새 번호> 으로 뗌» 줄을 올린 뒤 다시"; else LF_WHY="남김 줄 무효 — «남김: 0 — <사유>» 또는 «남김 #<번호> — …» 꼴로 다시"; fi
+    echo "REJECT close #$N — $LF_WHY" >&2; echo "GATE rc=3 kind=leftover marker=1 label=1 reason=남김 $LF_STATE"; exit 3
+  fi
   proposal_close_eval
   [ "$P_RC" -eq 0 ] && { echo "GATE rc=0 kind=$P_KIND"; exit 0; }   # 버그 8항·7·8항 평가 0
   [ "$P_RC" -eq 3 ] && { echo "$P_MSG" >&2; echo "GATE rc=3 kind=$P_KIND marker=1 label=1 reason=제안서 링크 없음"; exit 3; }
@@ -136,6 +150,9 @@ fi
 
 STATE="$(jq -r '.state' <<<"$JSON")"
 echo "Issue #$N state=$STATE title=$(jq -r '.title' <<<"$JSON")"
+leftover_eval   # r1346 · 남김 판정 — 제안 마무리 조기 통과(아래)보다 앞
+if [ "$LF_STATE" = decl ]; then echo "FAIL #$N 남김 선언 — $LF_LINE"; exit 1; fi
+if [ "$LF_STATE" = invalid ]; then echo "FAIL #$N 남김 줄 무효 — $LF_LINE"; exit 1; fi
 proposal_close_eval   # R234 교정 1 · 제안 마무리 경로는 버그용 8항 대신 링크+처리 줄만 본다
 [ "$P_RC" -eq 0 ] && { echo "PASS #$N 제안 마무리(approved + 제안서 링크 + 처리: 마무리)"; exit 0; }
 [ "$P_RC" -eq 3 ] && { echo "FAIL #$N ${P_MSG#REJECT close #$N — }"; exit 1; }

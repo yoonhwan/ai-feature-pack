@@ -22,7 +22,7 @@ GL="$(bash "$HERE/ft-issue-close-check.sh" "${CARGS[@]}")"; RC=$?   # 거절 문
 [ $RC -eq 3 ] || exit $RC
 KIND="$(sed -n 's/^GATE .*kind=\([^ ]*\).*/\1/p' <<<"$GL")"; MARKER="$(sed -n 's/^GATE .*marker=\([01]\).*/\1/p' <<<"$GL")"
 LABEL="$(sed -n 's/^GATE .*label=\([01]\).*/\1/p' <<<"$GL")"; REASON="$(sed -n 's/^GATE .* reason=//p' <<<"$GL")"
-case "$KIND" in proposal_unapproved|proposal_incomplete) exit 3;; esac   # R234 · 승인 전·링크 없는 제안 Issue — 관찰 상태가 아니라 «아직 닫을 수 없음» · 쓰기 0
+case "$KIND" in proposal_unapproved|proposal_incomplete|leftover) exit 3;; esac   # r1346 leftover = 남김 선언 — 쓰기 0   # R234 · 승인 전·링크 없는 제안 Issue — 관찰 상태가 아니라 «아직 닫을 수 없음» · 쓰기 0
 # r1040: 7·8항이 «빈 칸» 인 거절 = 아직 안 쓴 실수(관찰 조건 성립 0) — 관찰 표식(코멘트·라벨)을 남기지 않고 거절 문장 + 점검 안내만. 진짜 관찰 조건(n_or_hold 등)만 지금처럼 쓴다.
 if [ "$KIND" = blank ]; then   # r1040-mut:blank
   echo "DRY 빈 칸 거절 — 쓰기 0(관찰 표식 안 남김)"
