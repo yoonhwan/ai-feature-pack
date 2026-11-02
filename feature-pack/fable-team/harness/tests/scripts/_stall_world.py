@@ -89,7 +89,8 @@ class World:
     def _team_row(self, team: str) -> None:
         path = self.root / "design/TEAMS.md"
         text = path.read_text(encoding="utf-8")
-        row = f"| {team} | `design/{team}/` | x | 현역 |\n"
+        folder = team.removeprefix("m.")  # m.<팀> = 표시명(_label) — 폴더는 그 팀 이름(r1298 _FORM 은 «.» 를 받지 않는다 · 실 TEAMS.md 꼴 = design/teams/<팀>/)
+        row = f"| {team} | `design/teams/{folder}/` | x | 현역 |\n"
         if f"| {team} |" not in text:
             _ = path.write_text(text + row, encoding="utf-8")
 
