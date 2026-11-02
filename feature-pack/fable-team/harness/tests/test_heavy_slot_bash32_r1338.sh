@@ -63,9 +63,10 @@ B6(){ local S="$T/$2/s6" i out rc P ps=() sc="$4/ft-scratch-repo.sh" TSV
     awk -F'\t' -v p="$P" -v t="$(( $(date +%s) - 90000 ))" 'BEGIN{OFS="\t"} $1==p{$3=t} {print}' "$TSV" > "$TSV.n" && mv "$TSV.n" "$TSV"
   done
   out="$(env PATH="$S/bin:$PATH" FT_RES_ROOT="$S/R" FT_SCRATCH_DIR="$S/scr" TMPDIR="$S/tmpd" FT_SCRATCH_OWNER=live-owner FT_HEAVY_DIR="$S/R/.fable-team/state/heavy-slots" FT_HEAVY_WAIT_S=5 "$1" "$sc" --sweep 2>&1)"; rc=$?
-  [ "$rc" = 0 ] || { echo "  B6[$2] sweep rc=$rc out=[${out:0:200}]" >&2; return 1; }
+  printf '%s\n' "$out" > "$S/sweep.out"   # 출력은 파일로 남기고 화면엔 경로만(비밀 변수 환경 명령 출력 화면 금지 · 분류기 r1338)
+  [ "$rc" = 0 ] || { echo "  B6[$2] sweep rc=$rc 출력=$S/sweep.out" >&2; return 1; }
   [ ! -d "${ps[0]}" ] && [ ! -d "${ps[1]}" ] || { echo "  B6[$2] 사본 남음" >&2; return 1; }
-  printf '%s' "$out" | grep -q '^swept=' || { echo "  B6[$2] 끝 줄 없음 [${out:0:200}]" >&2; return 1; }; }
+  grep -q '^swept=' "$S/sweep.out" || { echo "  B6[$2] 끝 줄 없음 출력=$S/sweep.out" >&2; return 1; }; }
 # B 함수 인자: $1 해석기 $2 폴더이름 $3 lib $4 bin 폴더
 STAGE(){ echo "단계 $1: $((SECONDS-T0))초"; }
 LB="$(mkbin base "$LIB0")"
