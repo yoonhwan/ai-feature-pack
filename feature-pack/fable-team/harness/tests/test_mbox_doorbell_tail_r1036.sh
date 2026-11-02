@@ -43,7 +43,7 @@ chmod +x "$T/fakebin/tmux" "$T/fakebin/pgrep"
 mkroot() {  # <이름> → $T/<이름>/.fable-team/{bin,comm} 에 스크립트 사본
   local R="$T/$1"
   mkdir -p "$R/.fable-team/bin" "$R/.fable-team/comm"
-  cp "$KIT"/ft-mbox.sh "$KIT"/ft-mbox.py "$KIT"/ft-lib.sh "$KIT"/ft-inbox.sh "$KIT"/ft-inbox.py "$KIT"/ft_inbox_core.py "$R/.fable-team/bin/"
+  cp "$KIT"/ft-mbox.sh "$KIT"/ft-mbox.py "$KIT"/ft-lib.sh "$KIT"/ft-inbox.sh "$KIT"/ft-inbox.py "$KIT"/ft_inbox_window.py "$KIT"/ft_inbox_core.py "$R/.fable-team/bin/"
   echo "$R"
 }
 ROOT="$(mkroot main)"; BIN="$ROOT/.fable-team/bin"; C="$ROOT/.fable-team/comm"

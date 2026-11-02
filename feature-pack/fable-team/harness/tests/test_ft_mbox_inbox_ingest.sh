@@ -17,7 +17,7 @@ eq()  { [ "$2" = "$3" ] && ok "$1" || bad "$1 (기대 '$3' 실제 '$2')"; }
 
 mkroot() {  # <이름> → $T/<이름> 에 키트 bin 사본 (FT_ROOT 는 export 하지 않는다 — 스크립트 위치 유도를 시험)
   local R="$T/$1"; mkdir -p "$R/.fable-team/bin" "$R/.fable-team/comm"
-  cp "$KIT"/ft-mbox.sh "$KIT"/ft-mbox.py "$KIT"/ft-lib.sh "$KIT"/ft-inbox.sh "$KIT"/ft-inbox.py "$KIT"/ft_inbox_core.py "$R/.fable-team/bin/"
+  cp "$KIT"/ft-mbox.sh "$KIT"/ft-mbox.py "$KIT"/ft-lib.sh "$KIT"/ft-inbox.sh "$KIT"/ft-inbox.py "$KIT"/ft_inbox_window.py "$KIT"/ft_inbox_core.py "$R/.fable-team/bin/"
   echo "$R"
 }
 ROOT="$(mkroot main)"; BIN="$ROOT/.fable-team/bin"; Q="$ROOT/.fable-team/state/inbox"
