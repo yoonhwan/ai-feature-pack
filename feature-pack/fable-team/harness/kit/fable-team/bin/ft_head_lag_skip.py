@@ -73,7 +73,7 @@ def work_left(wt, msha):
         warn(f"status 실패 rc={rc}: {wt} — 지금처럼 셈")
         return True
     rc, gd = _run(wt, "rev-parse", "--absolute-git-dir")
-    if rc:
+    if rc is None or rc:   # [W15]
         warn(f"git 폴더 확인 실패: {wt} — 지금처럼 셈")
         return True
     return any(os.path.exists(os.path.join(gd.strip(), m)) for m in IN_PROGRESS)

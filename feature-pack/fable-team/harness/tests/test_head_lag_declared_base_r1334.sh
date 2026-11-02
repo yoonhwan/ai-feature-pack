@@ -76,7 +76,11 @@ c_H13() { cnt h13; [ "$N" = 1 ]; }
 c_H14() { cnt h14; [ "$N" = 1 ]; }
 c_H14b() { cnt h14 refs/remotes/origin/main; [ "$N" = 1 ]; }
 c_H15() { cnt h15; [ "$N" = 1 ]; }
-ALL="H1 H2 H3 H4 H5 H6 H7 H8 H9 H10 H11 H11b H12 H12b H12c H13 H14 H14b H15"
+c_S1() {  # 정적(r1334 반송 1): work_left 의 git 호출(_run)마다 시간 초과(None)를 거른다 — 맨 `if rc:` 는 None 을 통과시켜 조용한 제외가 된다(A6)
+  local calls none; calls="$(grep -c '= _run(wt, ' "$BD/ft_head_lag_skip.py")"; none="$(grep -cE 'if rc is None( or|:)' "$BD/ft_head_lag_skip.py")"
+  [ "$calls" -ge 4 ] && [ "$calls" = "$none" ]   # git 호출 수 = None 검사 수
+}
+ALL="H1 H2 H3 H4 H5 H6 H7 H8 H9 H10 H11 H11b H12 H12b H12c H13 H14 H14b H15 S1"
 
 # 변이 사본: rep <파일> <옛 문자열> <새 문자열> — 옛 문자열이 없으면 ERROR(변이가 헛돌지 않게)
 rep() {  # rep <파일> <옛> <새> — 지금 변이 사본(BD)에 치환 1개
@@ -132,6 +136,7 @@ if [ "$STAGE" = mut-b ] || [ "$STAGE" = all ]; then
   mut W12 ft_head_lag_skip.py '"--untracked-files=all", ' ''; expect_fail W12 "H11b"
   mut W13 ft_head_lag_skip.py ', "REVERT_HEAD", "sequencer"' ''; expect_fail W13 "H12b H12c"
   mut W14 ft_head_lag_skip.py '"--ignore-submodules=none", out.strip()' 'out.strip()'; expect_fail W14 "H15"
+  mut W15 ft_head_lag_skip.py 'if rc is None or rc:   # [W15]' 'if rc:   # [W15]'; expect_fail W15 "S1"
   echo "단계 mut-b $((SECONDS - S1))초"
 fi
 echo "총 $((SECONDS - SECS0))초"
