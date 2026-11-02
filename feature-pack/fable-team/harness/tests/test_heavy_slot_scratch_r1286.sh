@@ -19,9 +19,9 @@ bad(){ echo "FAIL $1" >&2; fail=$((fail+1)); BAD="$BAD $1"; }
 run(){ local n="$1" f="$2"; if "$f"; then return 0; fi; bad "$n"; return 1; }
 runv(){ local n="$1" f="$2"; if "$f"; then bad "변이 $n — $f 통과"; else echo "변이 $n → $f FAIL(정상)"; fi; }
 waitfor(){ local i; for i in $(seq 1 300); do [ -e "$1" ] && return 0; command sleep 0.03; done; return 1; }
-probe(){ local f="$1" fd; { exec {fd}>>"$f"; } 2>/dev/null || return 2
+probe(){ local f="$1" fd=9; { exec 9>>"$f"; } 2>/dev/null || return 2   # r1338: 고정 fd(bash 3.2)
   perl -MFcntl=:flock -e 'open(my $h, ">&=", $ARGV[0]) or exit 3; flock($h, LOCK_EX|LOCK_NB) or exit 1;' "$fd" 2>/dev/null
-  local rc=$?; eval "exec ${fd}>&-" 2>/dev/null; return $rc; }
+  local rc=$?; exec 9>&-; return $rc; }
 hold(){ # <자리폴더> <이름> → 자리를 쥔 holder(해제는 stop.<이름>)
   local d="$1" n="$2"; mkdir -p "$d"
   cat > "$T/hold-$n.sh" <<EOF

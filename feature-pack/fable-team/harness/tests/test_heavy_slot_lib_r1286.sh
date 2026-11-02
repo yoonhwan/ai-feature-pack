@@ -21,9 +21,9 @@ run(){ # <이름> <함수> — 케이스마다 자기 자리 폴더를 쓰고, �
   local n="$1" f="$2"; if "$f"; then return 0; fi; bad "$n"; return 1; }
 lib(){ local d="$1"; shift; FT_HEAVY_DIR="$d" FT_HEAVY_POLL_SEC=0.2 bash -c '. "$0"; '"$*" "$LIB"; }
 probe(){ # 밖에서 LOCK_NB → 0 잡힘(빈 자리) · 1 거절(쥠)
-  local f="$1" fd; { exec {fd}>>"$f"; } 2>/dev/null || return 2
+  local f="$1" fd=9; { exec 9>>"$f"; } 2>/dev/null || return 2   # r1338: 고정 fd(bash 3.2)
   perl -MFcntl=:flock -e 'open(my $h, ">&=", $ARGV[0]) or exit 3; flock($h, LOCK_EX|LOCK_NB) or exit 1;' "$fd" 2>/dev/null
-  local rc=$?; eval "exec ${fd}>&-" 2>/dev/null; return $rc
+  local rc=$?; exec 9>&-; return $rc
 }
 mkh(){ # <이름> [자리폴더] → 자리를 쥐고 stop.<이름> 표식을 기다리는 holder
   cat > "$T/h-$1.sh" <<EOF
@@ -124,7 +124,8 @@ PY
 for c in R1 R2 R3 R4 R5 R6 R7 R8 R10 R11; do run "$c" "$c"; done
 runv(){ local n="$1" f="$2"; if "$f"; then bad "변이 $n — $f 통과"; else echo "변이 $n → $f FAIL(정상)"; fi; }
 BASE="$D/../bin/ft-heavy-slot-lib.sh"
-LIB="$BASE"; mkvar v1 's = s.replace("""  { exec {HS_FD}>>"$f"; } 2>/dev/null || { unset HS_FD; return 3; }""", """  [ -e "$f" ] && return 1
+LIB="$BASE"; mkvar v1 's = s.replace("""  { exec 8>>"$f"; } 2>/dev/null || { unset HS_FD; return 3; }
+  HS_FD=8""", """  [ -e "$f" ] && return 1
   : > "$f"; HS_FD=99; return 0""")' && { LIB="$T/lib-v1.sh"; runv "1(있나 보고 만들기)" R6; }
 LIB="$BASE"; mkvar v2 's = s.replace("""if [ "$lim" -le 0 ] || [ "$waited" -ge "$lim" ]; then""", """if false; then""")' \
   && { LIB="$T/lib-v2.sh"; runv "2(대기 상한 제거)" R3; }
