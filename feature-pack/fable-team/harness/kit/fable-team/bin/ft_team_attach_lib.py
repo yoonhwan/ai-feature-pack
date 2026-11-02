@@ -129,8 +129,38 @@ def directive_ok(root: Path, team: str, rel: str, path: Path) -> bool:
         return True
     return any(len(row := line.rstrip("\n").split("\t")) >= 4 and row[0] == team for line in path.read_text(encoding="utf-8").splitlines(keepends=True)) if path.is_file() else False
 
-def tick_status(root: Path, team: str, p: dict[str, Path]) -> tuple[str, bool]:
-    rows = [line.rstrip("\n").split("\t") for line in p["team_tsv"].read_text(encoding="utf-8").splitlines() if line and not line.startswith("#")] if p["team_tsv"].is_file() else []
+def cards_path(root: Path, doc: object) -> Path | None:
+    """명부의 _cards·_cards_wt 로 카드 폴더를 센다 — ft_team_lib.rosters 와 같은 규칙 · _master 값과 무관(r1313)."""
+    if not isinstance(doc, dict) or not doc.get("_cards"):
+        return None
+    base = root / ".worktrees" / str(doc["_cards_wt"]) if doc.get("_cards_wt") else root
+    cards = Path(str(doc["_cards"]))
+    return cards if cards.is_absolute() else base / cards
+
+def tick_table(root: Path) -> Path:
+    """검사 전용 팀 틱 표 경로 — FT_TICK_TEAM_TSV > <루트>/.fable-team/LIVE_BIN 1줄 폴더의 team-tick-env.tsv. 쓰기 0 · paths() 무관(r1313)."""
+    raw = os.environ.get("FT_TICK_TEAM_TSV")
+    if raw:
+        return safe(root, Path(raw))
+    live = root / ".fable-team/LIVE_BIN"
+    first = live.read_text(encoding="utf-8").splitlines()[:1] if live.is_file() else []
+    if not first or not first[0].strip():
+        raise AttachError("판정 불가(LIVE_BIN 없음)" if not live.is_file() else "판정 불가(LIVE_BIN 빈 값)")
+    folder = safe(root, Path(first[0].strip()))
+    if not folder.is_dir():
+        raise AttachError(f"판정 불가(LIVE_BIN 폴더 없음 {folder})")
+    table = folder / "team-tick-env.tsv"
+    if not table.is_file():
+        raise AttachError("판정 불가(LIVE_BIN 표 없음)")
+    return table
+
+def tick_status(root: Path, team: str, p: dict[str, Path]) -> tuple[str, bool | None]:
+    """S6 — 표는 틱이 실제로 읽는 쪽(tick_table)에서 읽는다. 둘째 값 None = 판정 불가(r1313)."""
+    try:
+        table = tick_table(root)
+    except AttachError as e:
+        return str(e), None
+    rows = [line.rstrip("\n").split("\t") for line in table.read_text(encoding="utf-8").splitlines() if line and not line.startswith("#")] if table.is_file() else []
     tsv = any(row and row[0] == team for row in rows)
     plist = p["plist"].is_file()
     if not tsv and not plist:

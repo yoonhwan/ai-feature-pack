@@ -10,7 +10,7 @@ a·b·d 를 «처리한 뒤 다음 실행에도» 또 보면 ft-penalty.sh on (c
 r525 e = 명부 루프가 안 본 tmux 라이브 좌석(교대 표시·명부 밖) ∧ claude|codex ∧ IDLE ≥ FT_STALL_E_IDLE_MIN(30) ∧ (ctx ≥ 90 ∨ [완료·휴식] 없음)
 → planner + 계보 현역 master 에 [정지] 1통 · 같은 서명(좌석·IDLE 시작 시각) 재알림 0 · 깨우기·kill 0 · 요약 줄 d= 뒤 e= 칸.
 r849(재설계 r4 · r3) l = 로그아웃 좌석 — 쪽지는 «로그아웃 구간당 1통», 키 = 칸(state/stall/logged-out.<좌석 계보>) 하나(프로세스 시작 시각·첫 실패 시각·pid 를 키에 안 쓴다 · DA⑥ r2 반례 1) · r3(DA⑥ r3 반례 3·4): 칸은 «발신 전에» 세우고 발신 rc≠0 이면 지운다 · 칸 자리가 파일이 아니면(폴더 등) ERROR 1줄 + 그 좌석 발신 0.
-r1001 f = 팀장 심박 끊김 — 현역 role=master 좌석들의 b·d 를 «팀 단위» 로 묶고 판정은 ft_stall_detect.lead_alert 하나만 쓴다(신선 = 그 팀 0통 · 끊김·없음 = `[멈춤]` 1통 · 판정 불가 = u + 처리 0) · env FT_ROOT · FT_NOW · FT_SEAT_STATUS · FT_TMUX · FT_MBOX_SH · FT_INDEX_LINT · FT_MBOX_DIR · FT_STALL_STATE_DIR · FT_PS · FT_CTX_CMD · FT_LEAD_HEARTBEAT_MIN · FT_STALL_HEARTBEAT_BUDGET.
+r1001 f = 팀장 심박 끊김 — 현역 role=master 좌석들의 b·d 를 «팀 단위» 로 묶고 판정은 ft_stall_detect.lead_alert 하나만 쓴다(신선 = 그 팀 0통 · 끊김·없음 = `[멈춤]` 1통 · 판정 불가 = u + 처리 0) · env FT_ROOT · FT_NOW · FT_SEAT_STATUS · FT_TMUX · FT_MBOX_SH · FT_INDEX_LINT · FT_MBOX_DIR · FT_STALL_STATE_DIR · FT_PS · FT_CTX_CMD · FT_LEAD_HEARTBEAT_MIN · FT_STALL_HEARTBEAT_BUDGET · FT_STALL_PAUSED_SKIP(0 = 정지 표식 팀 판정 끔).
 """
 import json
 import os
@@ -18,6 +18,7 @@ import sys
 import time
 from pathlib import Path
 
+import ft_card_assign_pause as pause
 import ft_penalty
 import ft_stall_headline as headline
 from ft_stall_detect import IDLE_MIN, agent_sessions, ctx_pct, lead_alert, lead_heartbeat_min, lead_names, load_teams, off_roster_live, pending_mail, policy_stop, run, spawn_capacity, waiting_cards
@@ -78,8 +79,19 @@ class Scan:
         if stop and stop.startswith("ERROR"):
             notes.append(f"{stop} — a 독촉 0")  # 판정기가 죽었으면 a 를 세지 않는다
 
-        def held(team: str) -> bool:  # 정지 중이고 재개 전인 팀 — 처리 0 (복구 팀은 대상 아님)
-            return penalty is not None and team not in resumed and team not in exempt
+        pcache: dict[str, bool] = {}  # r1307 — 팀 정지 표식(.fable-team/state/<팀>-tick/PAUSED · r1291 정본) 판정 캐시(이번 scan 안 1회 · 넘어 남는 상태 0)
+        def paused(team: str) -> bool:  # r1307 on = 정지 중 · q = 막지 않음 + WARN 1줄(지역 notes — self.notes 대입에 덮이지 않게 · 하드 룰 20)
+            if team != "-" and team not in pcache and os.environ.get("FT_STALL_PAUSED_SKIP", "1") != "0":
+                try:
+                    st, why, _ts, _v = pause.team_paused(self.root, team)
+                except Exception as e:  # noqa: BLE001 — 판정 불가도 «막지 않음»(하드 룰 20)
+                    st, why = "q", f"판정 불가 {e.__class__.__name__}"
+                pcache[team] = st == "on"
+                if st == "q":
+                    notes.append(f"WARN 정지 표식 판정 불가 — 경보 보냄({team} · {why})")
+            return pcache.get(team, False)
+        def held(team: str) -> bool:  # 정지 중이고 재개 전인 팀 — 처리 0 (복구 팀은 대상 아님 · r1307 표식 팀 포함)
+            return (penalty is not None and team not in resumed and team not in exempt) or paused(team)
 
         teams, hbd = load_teams(self.root), {}
         for t in teams:
