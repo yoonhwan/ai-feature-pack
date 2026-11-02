@@ -137,17 +137,17 @@ elif viol: emit("WARN", "planner 머리 규칙 위반(warn 모드 · 전송) —
 PY
 }
 
-# [부팅 보고] 본문 검사(P4) — 승계 retire=<구>-><후계> rc=0 · master/arch cron=<id>. 발신자=$from · lint 부재·명부 불명 = WARN + 전송. 발동(R577) = 첫 줄 앞 발신 머리 `[<x>-><y>]`(또는 →) 1개 제거 뒤 첫 줄 머리 대괄호(첫 `]` 까지) 안 또는 첫 줄 시작에 «부팅 보고»(r1161 · 본문 속 «부팅 보고» 는 0 · lint 본문 무변경).
+# [부팅 보고] 본문 검사(P4 · r1319) — 승계 retire=<구>-><후계> rc=0 + 남은 `_*` 칸 · master/arch cron=<id>. 발신자=$from · lint 부재 = WARN + 전송.
+#   발동(R577 → r1319 C3 로 확장) = 앞 3줄 « · » 조각 머리가 «[부팅»·«부팅 보고»·«부팅 끝»·«부팅 완료»·«부팅:» 이고 머리 뒤 40자 안에 내 이름/«#N» · 또는 옛 첫 줄 판정(머리 대괄호 안 또는 첫 줄 시작 «부팅 보고») — 판정기 = ft-boot-report-lint.py(C3) · 남의 부팅 보고를 언급한 쪽지 = 0. lint rc≠0 = REJECT(fail-closed).
 _guard_boot_lint() {
-  local first lint="" f res rc; first="${1%%$'\n'*}"; first="${first#"${first%%[![:space:]]*}"}"
-  case "${first%%]*}" in \[*-\>* | \[*→*) first="${first#*]}"; first="${first#"${first%%[![:space:]]*}"}";; esac; case "$first" in \[*\]*) first="${first%%]*}]";; esac; case "$first" in \[*부팅\ 보고*\] | '부팅 보고' | 부팅\ 보고[:[:space:]]*) ;; *) return 0;; esac
+  local lint="" f res rc; case "$1" in *부팅*) ;; *) return 0;; esac   # r1319 값싼 선별만 — «앞 3줄»·머리·40자 판정은 lint(C3) 한 곳에서만 한다(규칙이 둘로 갈라지지 않게)
   for f in "$DIR/ft-boot-report-lint.py" "$DIR/../../.claude/fable-team/bin/ft-boot-report-lint.py"; do [ -f "$f" ] && { lint="$f"; break; }; done
   [ -n "$lint" ] || { echo "WARN 부팅 보고 lint 파일 없음 — 검사 없이 전송 (설치 순서)" >&2; return 0; }
   res="$(printf '%s' "$1" | python3 "$lint" --from "${from:-}" --seats-dir "$(dirname "$(_seats_json)")")"; rc=$?
   case "$rc" in
     0) return 0;;
     1) echo "REJECT ${res#REJECT }" >&2; return 3;;
-    *) echo "WARN 부팅 보고 lint 실행 실패 rc=$rc — 검사 없이 전송" >&2; return 0;;
+    *) echo "REJECT 부팅 보고 판정 불가 rc=$rc — ${res#REJECT } (하드 룰 20 — 확인 못 하면 통과가 아니다)" >&2; return 3;;   # r1319 C4·C6 fail-closed
   esac
 }
 
