@@ -114,6 +114,22 @@ def _spec() -> str:
     return os.environ.get("FT_GOAL_A6_MD") or default_spec(GoalError, DEFAULT_NAME)
 
 
+PINNED_FROM = "FT_TEAMS_REF_PINNED_FROM"  # r1348 — 뉴스 회차가 FT_TEAMS_REF 를 40자 sha 로 고정했을 때 «푼 ref 이름»(origin/main)
+GOAL_PIN = "FT_GOAL_REF_PIN"  # r1348 R7 — 골 표 리포가 원장 리포와 다를 때 골 표 리포에서 푼 sha
+
+
+def _pinned_refs() -> set[str]:
+    """회차가 고정한 sha 들(원장 리포 · 골 표 리포) — 고정 중이 아니면 빈 집합."""
+    if not os.environ.get(PINNED_FROM):
+        return set()
+    return {v for v in (os.environ.get("FT_TEAMS_REF"), os.environ.get(GOAL_PIN)) if v}
+
+
+def _ref_label(ref: str) -> str:
+    """r1348 — 회차 고정 sha 는 푼 ref 이름으로 부른다: 머리 출처 표지가 고정 전과 같은 글자(`origin/main@<sha10>`)가 된다."""
+    return os.environ[PINNED_FROM] if ref in _pinned_refs() else ref
+
+
 def _canon_render() -> bool:
     """r728 — «진짜 정본 렌더» 인가: 기본 ref(FT_TEAMS_REF·origin/main) 의 gitref + 정본 꼴 이름(AUTONOMY-GOAL-A6-<8자리>.md).
     기본 spec 글자와 같은 값도 이 규칙에 들어간다. 파일 경로(`file:` 표지)·다른 ref 의 gitref·다른 이름 = 시안·시험 렌더 → 공지·표식 쓰기 0.
@@ -123,7 +139,8 @@ def _canon_render() -> bool:
     if len(parts) != 3 or parts[0] != "gitref":
         return False
     ref, name = parts[1], parts[2].rsplit("/", 1)[-1]
-    return ref == (os.environ.get("FT_TEAMS_REF") or "origin/main") and CANON_NAME.match(name) is not None
+    allowed = _pinned_refs() or {os.environ.get("FT_TEAMS_REF") or "origin/main"}   # 고정 중이면 «푼 sha» 만 정본 — ref 이름(움직이는 ref)은 아니다(R5)
+    return ref in allowed and CANON_NAME.match(name) is not None
 
 
 def load_canon() -> tuple[str, str, str]:
@@ -132,7 +149,7 @@ def load_canon() -> tuple[str, str, str]:
     if spec.startswith("gitref:"):
         _, ref, rel = spec.split(":", 2)
         commit = _git(_repo(), "rev-parse", "--verify", ref).strip()
-        return _git(_repo(), "show", f"{commit}:{rel}"), commit[:10], f"{ref}@"
+        return _git(_repo(), "show", f"{commit}:{rel}"), commit[:10], f"{_ref_label(ref)}@"
     try:
         raw = Path(spec).read_bytes()
     except OSError as e:
