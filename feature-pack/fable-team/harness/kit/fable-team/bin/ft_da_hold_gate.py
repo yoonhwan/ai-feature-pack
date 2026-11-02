@@ -193,7 +193,7 @@ def landed_check(card: str, lines: list[str], root: str, landed: str, da: str) -
     path = ""
     sec_txt = ""
     if da:
-        path, _, sec = da.partition("#")
+        path, _, sec = da.rpartition("#") if "#" in da else (da, "", "")   # r1284: «마지막 #» — 경로 폴더 이름에 # 이 있어도 파일·절이 갈린다
         path = path if os.path.isfile(path) or not root else os.path.join(root, path)
         if os.path.isfile(path):
             sec_txt = da_section(path, sec)

@@ -72,7 +72,7 @@ def _header_hit(line, sec):
 
 def verdict_closed(da, read_head):
     """③ 판정문 재확인 — 사유(빈 값 = 통과). read_head(path) → bytes|None (head 트리)."""
-    path, _, sec = da.partition("#")
+    path, _, sec = da.rpartition("#") if "#" in da else (da, "", "")   # r1284: «마지막 #» — 경로 폴더 이름에 # 이 있어도 파일·절이 갈린다
     if shape_problem(path):
         return "판정문 경로 모양 틀림: %s" % da
     text = _lines(read_head(path))
