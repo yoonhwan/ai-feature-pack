@@ -416,6 +416,11 @@ _squash_landed(){ # 워크트리 → rc0 = 착지됨(⊘ 한 줄) · rc1 = 판�
   done <<< "$SQUASH_HEADS"
   return 1
 }
+_set_self(){ # r1332: 워크트리 $1 이 이 press 세트(FT_PRESS_WT) 자신(realpath 같음 + HEAD 같음)이면 rc0 · 경로·HEAD 를 못 구하면 rc1(= 지금처럼 센다)
+  local a b ha hb
+  a="$(cd "$1" 2>/dev/null && pwd -P)" && b="$(cd "$WT" 2>/dev/null && pwd -P)" && [ -n "$a" ] && [ "$a" = "$b" ] || return 1
+  ha="$(git -C "$1" rev-parse HEAD 2>/dev/null)" && hb="$(git -C "$WT" rev-parse HEAD 2>/dev/null)" && [ -n "$ha" ] && [ "$ha" = "$hb" ]
+}
 _step1_run(){   # r1260: ① 본문을 함수로 감쌌다(본문 불변) — 현재 셸에서 돈다 → UNLANDED·FAIL 이 그대로 남고, 출력은 redirect 로 담아 캐시에 쓴다
 # r1283: 기준 줄기 로그 2개는 워크트리마다 같은 값 — 루프 밖에서 «1회» 만 읽는다(나노 n 개 × 2 → 2 · 부하 50+ 에서 ① 44~95초의 한 원인)
 FEAT_SUBJ=$(git log "$FEAT" --format='%s' -400)
@@ -444,7 +449,10 @@ for W in $LIVE_WT; do
     git merge-base --is-ancestor "${h:0:40}" HEAD 2>/dev/null && IN_SET=$((IN_SET+1))
   done < <(git -C "$W" log --format='%H%t%s' "$FEAT"..HEAD -- worker shared gateway clients ':(exclude)*__tests__*' ':(exclude)tests/*' 2>/dev/null | sed 's/\(^[0-9a-f]*\)/\1\t/' )
   if [ "${P:-0}" != "0" ]; then
-    if _declared "$(basename "$W")"; then
+    if _set_self "$W"; then   # r1332: press 가 시험하는 세트 워크트리 자신 = «다른 나노의 미랜딩» 이 아니다 → 셈 0 · 한 줄로 보인다(선언했으면 선언 이름도 맞은 것으로 센다)
+      _declared "$(basename "$W")" && DECL_HIT+=("$(basename "$W")")
+      say "⊘" "세트 자신($(basename "$W")) — 이 press 가 시험하는 미랜딩 $P"
+    elif _declared "$(basename "$W")"; then
       DECL_HIT+=("$(basename "$W")")
       if [ "$IN_SET" != "0" ]; then
         say "✗" "선언 모순 — $(basename "$W") 의 커밋이 이미 세트에 있다(미랜딩 $P)"; UNLANDED=$((UNLANDED+P))
