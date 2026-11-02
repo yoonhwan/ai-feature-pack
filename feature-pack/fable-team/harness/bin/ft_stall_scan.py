@@ -125,6 +125,7 @@ class Scan:
                     listed = f"대기 카드 {n}장({', '.join(names[:5])}{f' +{n - 5}' if n > 5 else ''}) · 선행 미판정 {u}장 제외"
                     out.append(dict(kind="a", seat=m, team=t["team"], age=self.idle_age(m), why=f"{listed} · master IDLE", listed=listed))
             for s in sorted(t["seats"], key=lambda x: (x not in leads, x)):  # 현역 팀장 먼저(팀당 1통은 _master 것)
+                stm.progress(len(self.live))  # r1282 — 좌석마다 판정 기한 검사
                 if s not in self.live:
                     continue
                 state, end = self.turn(s)
@@ -320,6 +321,7 @@ class Scan:
     def run(self, dry: bool) -> int:
         pen = ft_penalty.load()
         found, unknown = self.find(pen)
+        stm.judge_done()  # r1282 — 판정 끝 기한 검사(넘으면 처리 0 · 저장 0) · 이후는 처리 단계(호출별 timeout 만)
         handled, prev = self.st.get("handled", {}), set(self.st.get("prev", []))
         keys = {f"{f['kind']}:{f['seat']}": f for f in found if f["kind"] != "h"}
         counts = {k: sum(1 for f in found if f["kind"] == k) for k in "abcdefh"}
@@ -376,11 +378,12 @@ class Scan:
 def main(argv: list[str]) -> int:
     dry = "--dry-run" in argv
     state_dir = Path(os.environ.get("FT_STALL_STATE_DIR") or ft_penalty.state_dir())
+    stm.begin()  # r1282 — 판정 기한 D 의 기준 시각 = main() 진입
     with stm.single_run(state_dir) as got:
         if not got:
             print("stall-scan 앞 실행이 아직 돈다 — 이번 틱 건너뜀")
             return 0
-        return Scan().run(dry)
+        return stm.judged(lambda: Scan().run(dry), state_dir)
 
 
 if __name__ == "__main__":

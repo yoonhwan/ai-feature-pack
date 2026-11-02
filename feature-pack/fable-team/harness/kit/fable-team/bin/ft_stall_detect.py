@@ -10,14 +10,14 @@ a 대기 카드 있는데 master IDLE · b 선언 뒤 IDLE · c 정책 정지(�
 import json
 import os
 import re
-import subprocess
-import tempfile
+import tempfile  # r1330 — ref 트리 대기 카드 읽기(임시 폴더)
 import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from ft_api_outage_util import epoch as api_epoch, is_error  # r1290: API 오류 표식 판정은 그쪽 한 벌(is_error)을 그대로 쓴다
+import ft_stall_state as stm  # r1282 — 판정 단계 기한 D · 외부 호출 자식 묶음 정리
 from ft_decision_kind import PROMOTED  # r1154: 승격 표식 정규식 한 벌(r1148) — 가져오기 실패는 예외 그대로
 from ft_team_lib import basis_ref, roots
 from ft_team_lib import rosters as team_rosters
@@ -38,11 +38,7 @@ AGENT = re.compile(r"(?:^|[\s/])(claude|codex)(?:\s|$)")
 
 
 def run(cmd: list[str], env: dict[str, str] | None = None, timeout: float = 15) -> tuple[int, str]:
-    try:
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, env=env)
-    except (OSError, subprocess.TimeoutExpired) as e:
-        return 99, str(e)
-    return r.returncode, r.stdout
+    return stm.grun(cmd, env, timeout)  # r1282 — 자식 묶음 정리 · 판정 단계 기한
 
 
 def load_teams(root: Path, warn: bool = True, active: bool = True, include_orphans: bool = False) -> list[dict[str, Any]]:
@@ -301,14 +297,12 @@ def _git(args: list[str], cwd: Path, stdin: bytes | None = None) -> tuple[int, b
         sec = float(os.environ.get("FT_STALL_GIT_SEC") or 7)
     except ValueError:
         sec = 7.0
-    try:
-        r = subprocess.run(["git", *args], cwd=cwd, input=stdin, capture_output=True, timeout=sec, env={**os.environ, "LC_ALL": "C"})
-    except subprocess.TimeoutExpired:
-        raise RefUnavailable("git 상한 넘김") from None
-    except OSError as e:
-        raise RefUnavailable(f"git 실행 실패({e.__class__.__name__})") from None
-    err = r.stderr.decode("utf-8", "replace").strip().splitlines()
-    return r.returncode, r.stdout, (err[-1] if err else "").lower()
+    # r1282 — git 도 같은 자식 묶음·판정 기한 경로(손자 고아 0 · 판정 기한 넘김 = 판정 불가) · 상한은 FT_STALL_GIT_SEC 그대로
+    rc, out, err_text = stm.grun_raw(["git", *args], {**os.environ, "LC_ALL": "C"}, sec, cwd=cwd, stdin_bytes=stdin)
+    if rc == 99:
+        raise RefUnavailable(f"git 상한 넘김·실행 실패({err_text.strip()[:40]})" if err_text.strip() else "git 상한 넘김")
+    lines = err_text.strip().splitlines()
+    return rc, out, (lines[-1] if lines else "").lower()
 
 
 def _ref_stems(cards: Path, ref: str) -> dict[str, set[str]] | None:
@@ -409,17 +403,20 @@ def pending_mail(comm: Path, now: float) -> dict[str, tuple[int, float]]:
     """받는이 → (가장 오래된 미읽음 seq, 그 나이 분). 큐(mailbox.jsonl)에 남은 줄 = 아직 안 읽은 쪽지."""
     out: dict[str, tuple[int, float]] = {}
     try:
-        lines = (comm / "mailbox.jsonl").read_text(encoding="utf-8").splitlines()
+        fh = open(comm / "mailbox.jsonl", encoding="utf-8")
     except OSError:
         return out
-    for line in lines:
-        try:
-            r = json.loads(line)
-            age = (now - datetime.strptime(r["ts"][:19], "%Y-%m-%dT%H:%M:%S").timestamp()) / 60
-        except (ValueError, KeyError):
-            continue
-        if age >= IDLE_MIN and (r["to"] not in out or age > out[r["to"]][1]):
-            out[r["to"]] = (int(r["seq"]), age)
+    with fh:  # r1282 — 줄 단위로 읽으며 200줄마다 판정 기한 검사(기한 예외에도 핸들이 닫힌다)
+        for i, line in enumerate(fh):
+            if i % 200 == 199:
+                stm.check()
+            try:
+                r = json.loads(line)
+                age = (now - datetime.strptime(r["ts"][:19], "%Y-%m-%dT%H:%M:%S").timestamp()) / 60
+            except (ValueError, KeyError):
+                continue
+            if age >= IDLE_MIN and (r["to"] not in out or age > out[r["to"]][1]):
+                out[r["to"]] = (int(r["seq"]), age)
     return out
 
 
@@ -498,6 +495,8 @@ def _read_mailbox(path: Path, masters: set[str], recipients: set[str], now: floa
     with fh:
         for line in fh:
             n += 1
+            if n % 200 == 0:
+                stm.check()  # r1282
             if n % 256 == 0 and time.monotonic() - t0 > budget:
                 return f"심박 읽기 {budget:g}초 초과(줄 {n})", None, 0, n
             ts, hb, bad = _hb_line(line, masters, recipients, now)
@@ -524,6 +523,8 @@ def _read_mailbox_log(path: Path, masters: set[str], recipients: set[str], now: 
             if not line.strip():
                 continue
             n += 1
+            if n % 200 == 0:
+                stm.check()  # r1282
             if n % 256 == 0 and time.monotonic() - t0 > budget:
                 return f"심박 읽기 {budget:g}초 초과(줄 {n})", None, 0, n
             ts, hb, bad = _hb_line(line, masters, recipients, now)
