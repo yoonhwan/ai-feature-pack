@@ -241,7 +241,7 @@ def _team_env(w: World, label: str, team_cap: int, group_cap: int | None = None,
 
 
 def test_a_zero_when_team_cap_full_or_policy_stop(w: World) -> None:
-    w.team("t3", "byz-t3-master-claude#1", ["byz-t3-nano-c#0"])
+    w.team("t3", "byz-t3-master-claude#1", ["byz-t3-nano-c#0", "byz-t3-nano-d#0"])  # r666 — 좌석 상한은 «나노» 만 센다(픽스처 상한 2 = 나노 2)
     w.cards("t3", ["c1"])
     w.state("byz-t3-master-claude#1", "IDLE", 6)
     _team_env(w, "t3", 2)
@@ -254,7 +254,7 @@ def test_a_zero_when_team_cap_full_or_policy_stop(w: World) -> None:
 
 
 def test_a_zero_when_group_cap_full_and_no_penalty_next_tick(w: World) -> None:  # DA⑥ 반례 ①
-    w.team("t3", "byz-t3-master-claude#1", ["byz-t3-nano-c#0"])
+    w.team("t3", "byz-t3-master-claude#1", ["byz-t3-nano-c#0", "byz-t3-nano-d#0"])  # r666 — 그룹 합도 «나노» 만 센다(합 2 = 나노 2)
     w.cards("t3", ["c1"])
     w.state("byz-t3-master-claude#1", "IDLE", 6)
     _team_env(w, "t3", 9, group_cap=2, parent="p")  # 팀 상한은 여유 · 그룹 합 2/2
@@ -276,6 +276,9 @@ def test_cap_checker_error_is_not_a_silent_pass(w: World) -> None:
 
 def test_a_recovers_for_resumed_team_during_partial_penalty(w: World) -> None:  # DA⑥ 반례 ②
     w.team("t2", "t2-master#1", ["t2-nano#0"])
+    # 심박 픽스처: 큐가 없으면 판정 불가(f? 줄)가 두 팀장에 붙어 stdout 꼬리 판정을 흐린다 — 둘 다 «신선» 으로 만든다
+    w.heartbeat("t1-master#1", 1)
+    w.heartbeat("t2-master#1", 1, seq=901)
     _ = w.penalty("on", "--reason", "시험")
     w.state("t1-master#1", "IDLE", -2)
     w.state("t2-master#1", "IDLE", -2)

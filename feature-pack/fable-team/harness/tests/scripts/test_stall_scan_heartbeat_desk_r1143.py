@@ -35,8 +35,11 @@ def sends(w: World, to: str) -> list[str]:
 
 
 def desk_roster(w: World, rows: dict[str, dict[str, str]]) -> None:
-    """desk 명부 — 현역 desk#2 (+ 닫힌 행)."""
-    _ = (w.root / ".fable-team/seats-desk.json").write_text(json.dumps({"_label": "desk", **rows}), encoding="utf-8")
+    """desk 명부 — 현역 desk#2 (+ 닫힌 행) · TEAMS.md 행 + 명부 칸(r1298 팀 명단 1곳 — 행·_cards 가 없으면 판정 불가 WARN 이 요약줄 앞을 막는다)."""
+    _ = (w.root / ".fable-team/seats-desk.json").write_text(
+        json.dumps({"_label": "desk", "_master": "desk#2", "_cards": "design/desk/indices", "_cards_wt": "wt-desk", **rows}), encoding="utf-8")
+    (w.root / ".worktrees/wt-desk/design/desk/indices").mkdir(parents=True, exist_ok=True)
+    w._team_row("desk")
 
 
 def log_mail(w: World, to: str, seq: int, minutes_ago: float, frm: str, body: str = "[정리] 한 일 3줄") -> None:
