@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # R1322 — 팀 메인 파일: 1행 제0목표 · 2행 옛 헤드라인 · ④ 배정표 절(팀장 손 ASSIGN.md 본문 그대로 · 낡음 20분 · 읽기 실패 판정 불가) ·
 #         ASSIGN.md 틀(없을 때만 · 있으면 바이트 무변경) · ft-team-attach 새 팀도 같은 틀.
-# 반례 A1~A7 + 변이 5(①1행 제0목표 제거 ②있어도 덮어씀 ③낡음 표시 제거 ④읽기 실패를 빈 절로 ⑤attach 틀 호출 제거).
+# 반례 A1~A9 + 변이 7(①1행 제0목표 제거 ②있어도 덮어씀 ③낡음 표시 제거 ④읽기 실패를 빈 절로 ⑤attach 틀 호출 제거 ⑥dry 무시 ⑦후퇴 복귀).
 set -uo pipefail
 export LC_ALL=C
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY FT_ROOT
@@ -24,6 +24,17 @@ latest() { mkdir -p "$R/.fable-team/state/$1"; printf '%s\n' "$2" > "$R/.fable-t
 fresh() { printf '{"tool":"t","kind":"%s","written_at":%s,"stamp":"1793600000-abcd1234","line":"","items":%s}' "$1" "$NOW" "$2"; }
 commit() { git -C "$R" add -A >/dev/null; git -C "$R" commit -qm "${1:-fixture}" >/dev/null; git -C "$R" update-ref refs/remotes/origin/main "$(git -C "$R" rev-parse HEAD)"; }
 mt() { python3 -c 'import os,sys; os.utime(sys.argv[1], (float(sys.argv[2]),)*2)' "$1" "$2"; }   # mt <파일> <epoch>
+mkroot() {  # mkroot <폴더> <팀> — attach 픽스처(git 루트 · TEAMS.md 현역 1팀 · TEAMSET.md · 틱 더미)
+  rm -rf "$1"; mkdir -p "$1/design/teams/$2/indices" "$1/.fable-team/bin" "$1/LaunchAgents"
+  printf '| 팀 | 폴더 | 오케 | 상태 |\n|---|---|---|---|\n| %s | design/teams/%s/ | x | 현역 |\n' "$2" "$2" > "$1/design/TEAMS.md"
+  printf '| 팀 | 나노 상한 | tester | arch 상시 |\n|---|---|---|---|\n| %s | 3 | 0 | 상시 |\n' "$2" > "$1/design/TEAMSET.md"
+  printf '#!/bin/sh\nexit 0\n' > "$1/.fable-team/bin/ft-tick.sh"
+  git -C "$1" init -q -b main; git -C "$1" add design >/dev/null; git -C "$1" -c user.name=t -c user.email=t@t commit -qm seed >/dev/null; }
+att() {  # att <루트> <팀> [추가 인자…] — FT_ROOT 를 그 루트로
+  local r="$1" t="$2"; shift 2
+  FT_ROOT="$r" FT_TEAMS_MD="$r/design/TEAMS.md" FT_TEAMSET_MD="$r/design/TEAMSET.md" \
+    FT_TEAM_ATTACH_SANDBOX=1 FT_TICK_PLIST_DIR="$r/LaunchAgents" bash "$BIN/ft-team-attach.sh" "$t" --apply "$@"; }
+chg() { printf '%s\n' "$1" | sed -n 's/^APPLY 팀=[0-9]* 변경=\([0-9]*\)$/\1/p' | head -1; }
 
 reset() {  # 임시 git 루트 · 데이터 루트(LIVE_ROOT) · TEAMS.md(현역 alpha · 휴면 sleep) · 지시 표 · 카드 1 · 집계 3종
   rm -rf "$R" "$D"; mkdir -p "$R/.fable-team/state" "$D" "$R/design/teams/planner" "$R/design/teams/alpha/indices/진행"
@@ -86,23 +97,36 @@ case_a6() {  # 휴면 팀 → 1행 제0목표 · 2행 «… [휴면]»
   return $CASEBAD; }
 
 case_a7() {  # attach 새 팀 → ASSIGN.md 틀 · 이미 있으면 무변경
-  rm -rf "$AR"; mkdir -p "$AR/design/teams/zznew/indices" "$AR/.fable-team/bin" "$AR/LaunchAgents"
-  printf '| 팀 | 폴더 | 오케 | 상태 |\n|---|---|---|---|\n| zznew | design/teams/zznew/ | x | 현역 |\n' > "$AR/design/TEAMS.md"
-  printf '| 팀 | 나노 상한 | tester | arch 상시 |\n|---|---|---|---|\n| zznew | 3 | 0 | 상시 |\n' > "$AR/design/TEAMSET.md"
-  printf '#!/bin/sh\nexit 0\n' > "$AR/.fable-team/bin/ft-tick.sh"
-  git -C "$AR" init -q -b main; git -C "$AR" add design >/dev/null; git -C "$AR" commit -qm seed >/dev/null
-  local aaf="$AR/.fable-team/state/team-main/zznew/ASSIGN.md" env
-  env() { FT_ROOT="$AR" FT_TEAMS_MD="$AR/design/TEAMS.md" FT_TEAMSET_MD="$AR/design/TEAMSET.md" \
-          FT_TEAM_ATTACH_SANDBOX=1 FT_TICK_PLIST_DIR="$AR/LaunchAgents" "$@"; }
-  env bash "$BIN/ft-team-attach.sh" zznew --apply >/dev/null 2>&1
+  mkroot "$AR" zznew
+  local aaf="$AR/.fable-team/state/team-main/zznew/ASSIGN.md"
+  att "$AR" zznew >/dev/null 2>&1
   ck "A7 attach 새 팀 → 틀 2행" sh -c "[ -f '$aaf' ] && [ \"\$(wc -l < '$aaf')\" -eq 2 ] && head -1 '$aaf' | grep -qxF '$GOAL0' && head -2 '$aaf' | tail -1 | grep -qxF '$HEADER'"
   printf '| 카드 | 좌석 | 선행 | 다음 수 | 줄 주인 |\n|---|---|---|---|---|\n| Z-m0 | seat | 없음 | 시험 | lead |\n' > "$aaf"
   local sha; sha="$(shasum -a 256 "$aaf" | cut -d' ' -f1)"
-  env bash "$BIN/ft-team-attach.sh" zznew --apply >/dev/null 2>&1
+  att "$AR" zznew >/dev/null 2>&1
   ck "A7 이미 있으면 무변경" test "$sha" = "$(shasum -a 256 "$aaf" | cut -d' ' -f1)"
   return $CASEBAD; }
 
-for c in case_a1 case_a2 case_a3 case_a4 case_a5 case_a6 case_a7; do case_ "$c" || BAD=1; done
+case_a8() {  # --apply --dry-run = 쓰기 0 · 변경 수에는 틀 1 이 센다(REWORK r1 반례 ①)
+  mkroot "$TMP/dry" zzdry; mkroot "$TMP/real" zzdry
+  local out_dry out_real
+  out_dry="$(att "$TMP/dry" zzdry --dry-run 2>&1)"; out_real="$(att "$TMP/real" zzdry 2>&1)"
+  ck "A8 dry → ASSIGN.md 0" test ! -e "$TMP/dry/.fable-team/state/team-main/zzdry/ASSIGN.md"
+  ck "A8 dry 변경 수 = 실제와 같다(틀 1 포함)" test -n "$(chg "$out_dry")" -a "$(chg "$out_dry")" = "$(chg "$out_real")"
+  ck "A8 실제 apply 는 틀 1개" test -f "$TMP/real/.fable-team/state/team-main/zzdry/ASSIGN.md"
+  return $CASEBAD; }
+
+case_a9() {  # 데이터 루트 판정 실패 → rc≠0 · 판정 불가 1줄 · 루트 아래 ASSIGN.md 0(후퇴 쓰기 0 · 반례 ②)
+  mkroot "$AR" zzund
+  printf '상대경로/아님\n' > "$AR/.fable-team/LIVE_ROOT"
+  local out rc
+  out="$( cd "$AR" && env -u FT_ROOT FT_TEAMS_MD="$AR/design/TEAMS.md" FT_TEAMSET_MD="$AR/design/TEAMSET.md" FT_TEAM_ATTACH_SANDBOX=1 \
+         FT_TICK_PLIST_DIR="$AR/LaunchAgents" bash "$BIN/ft-team-attach.sh" zzund --apply 2>&1 )"; rc=$?
+  ck "A9 rc≠0 · 판정 불가 1줄" sh -c "[ $rc -ne 0 ] && [ \"\$(printf '%s\n' \"\$1\" | grep -c '판정 불가')\" -eq 1 ]" _ "$out"
+  ck "A9 루트 아래 ASSIGN.md 0" test -z "$(find "$AR" -name ASSIGN.md -print -quit)"
+  return $CASEBAD; }
+
+for c in case_a1 case_a2 case_a3 case_a4 case_a5 case_a6 case_a7 case_a8 case_a9; do case_ "$c" || BAD=1; done
 
 mutant() {  # mutant <이름> <케이스들(공백)> <파일> <찾을 글자> <바꿀 글자>
   rm -rf "$TMP/mut"; mkdir -p "$TMP/mut"
@@ -132,7 +156,11 @@ mutant "있어도 덮어씀" "case_a1 case_a3" ft_team_main_assign.py '    if pa
         return'
 mutant "낡음 표시 제거" "case_a4" ft_team_main_assign.py 'if now - mtime > STALE_SEC:' 'if False:'
 mutant "읽기 실패를 빈 절로" "case_a5" ft_team_main_assign.py 'f"판정 불가(ASSIGN.md 읽기 실패 · {why})"' '""'
-mutant "attach 틀 호출 제거" "case_a7" ft_team_attach_ops.py '    ensure_team(root, team)   # r1322 G5' '    pass'
+mutant "attach 틀 호출 제거" "case_a7" ft_team_attach_ops.py '    try:
+        changed = int(ensure_team(root, team, dry))' '    try:
+        changed = 0'
+mutant "dry 무시(써 버림)" "case_a8" ft_team_main_assign.py '    if not dry:   # A8 — dry 면 쓰기 0' '    if True:'
+mutant "데이터 루트 후퇴 복귀" "case_a9" ft_team_main_assign.py '        raise OSError(f"데이터 루트 판정 불가 · {e}") from None' '        folder = Path(root) / TEAM_MAIN / team'
 
 [ "$BAD" -eq 0 ] && echo "ALL PASS r1322 제0목표·배정표 절"
 exit "$BAD"

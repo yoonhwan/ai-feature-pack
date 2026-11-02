@@ -21,7 +21,9 @@ def assign_template() -> list[str]:
     return [GOAL0, HEADER]
 
 
-def data_dir(root: Path) -> Path:   # FT_ROOT · 아니면 공용 루트의 LIVE_ROOT(ft_team_lib.data_root 규칙)
+def data_dir(root: Path) -> Path:   # FT_ROOT 우선 · 아니면 공용 루트의 LIVE_ROOT(ft_team_lib.data_root 규칙 그대로)
+    if os.environ.get("FT_ROOT"):
+        return Path(os.environ["FT_ROOT"])
     out = ft_team_lib._git_out(root, "rev-parse", "--path-format=absolute", "--git-common-dir")
     common = out.stdout.strip()
     if out.returncode or not common:
@@ -33,22 +35,24 @@ def team_folder(root: Path, team: str) -> Path:
     return data_dir(root) / TEAM_MAIN / team
 
 
-def ensure(folder: Path) -> None:   # 없을 때만 틀 · 있으면 바이트 무변경(G3·A3)
+def ensure(folder: Path, dry: bool = False) -> bool:   # 없을 때만 틀 · 있으면 바이트 무변경(G3·A3) · 반환 = «만들었다(만들 것이다)»
     path = folder / "ASSIGN.md"
     if path.exists():
-        return
-    folder.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8", newline="\n") as fh:
-        fh.write("\n".join(assign_template()) + "\n")
-        fh.flush(), os.fsync(fh.fileno())
+        return False
+    if not dry:   # A8 — dry 면 쓰기 0
+        folder.mkdir(parents=True, exist_ok=True)
+        with path.open("w", encoding="utf-8", newline="\n") as fh:
+            fh.write("\n".join(assign_template()) + "\n")
+            fh.flush(), os.fsync(fh.fileno())
+    return True
 
 
-def ensure_team(root: Path, team: str) -> None:   # ft-team-attach 새 팀 경로(G5) — 데이터 루트를 못 풀면 그 루트(ft_team_lib.data_root 후퇴와 같다)
+def ensure_team(root: Path, team: str, dry: bool = False) -> bool:   # ft-team-attach 새 팀 경로(G5) — 데이터 루트를 못 풀면 후퇴 쓰기 0(A9)
     try:
         folder = team_folder(root, team)
-    except OSError:
-        folder = Path(root) / TEAM_MAIN / team
-    ensure(folder)
+    except (OSError, ft_team_lib.TeamPathError) as e:
+        raise OSError(f"데이터 루트 판정 불가 · {e}") from None
+    return ensure(folder, dry)
 
 
 def section(folder: Path, now: float) -> list[str]:   # → «## ④ 배정표» 절 줄들(본문 그대로)

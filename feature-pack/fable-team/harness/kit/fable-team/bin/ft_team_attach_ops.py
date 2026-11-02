@@ -77,9 +77,12 @@ def apply_team(root: Path, team: str, own_tick: bool, fix_fields: bool, dry: boo
     if state_of(root, team) != "현역":
         raise AttachError(f"REJECT {team} 현역 팀만 --apply 가능")
     pre = own_tick_precheck(root, team) if own_tick else None  # 쓰기 0 — 반쪽 상태 0(r1314)
+    try:
+        changed = int(ensure_team(root, team, dry))   # r1322 G5 — 새 팀 배정표 틀(있으면 무변경 · dry 면 쓰기 0)
+    except OSError as e:
+        raise AttachError(f"{team} ASSIGN.md 판정 불가 · {' '.join(str(e).split())[:120]}") from None
     p = paths(root, team, include_tick=own_tick)
     rel = team_rel(team, root).strip("/")
-    changed = 0
     changed += int(set_teamset_row(root, team, [team, "3", "0", "상시"], dry, keep_existing=True))
     if p["seats"].is_file():
         try:
@@ -105,7 +108,6 @@ def apply_team(root: Path, team: str, own_tick: bool, fix_fields: bool, dry: boo
         if not dry:
             headline.parent.mkdir(parents=True, exist_ok=True)
         changed += int(write(headline, body.encode(), dry))
-    ensure_team(root, team)   # r1322 G5 — 새 팀도 배정표 틀 1개로 시작(이미 있으면 무변경)
     if own_tick:
         changed += own_tick_apply(root, team, p, dry, pre)
     return changed
