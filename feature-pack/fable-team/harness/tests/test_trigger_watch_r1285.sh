@@ -152,8 +152,8 @@ green() {
   t10() { env FT_TICK_SEATS="$T/t10/seats.json" FT_TICK_MBOX="$T/t10/mbox.sh" FT_TICK_STATE_DIR="$T/t10/state" FT_TICK_STAMP_PREFIX="$T/t10/p-" FT_TICK_SEAT_STATUS="$T/t10/none" FT_ROOT="$T/t10" \
       FT_TICK_AUTONOMY=0 FT_TICK_LEAK_REAP=0 FT_TICK_HIL=0 FT_TICK_LIVE_SNAPSHOT=0 FT_TICK_RESUME=0 FT_TICK_IDLE_ENABLED=0 FT_TICK_IDLE_LONG=0 FT_MODEL_SWAP=0 FT_TICK_DRIFT=0 FT_TICK_ACCT=0 \
       FT_TICK_RAISED=0 FT_TICK_RENAMED=0 FT_TICK_QUEUE_FULL=0 FT_TICK_QUEUE=0 FT_TICK_LAUNCHD=0 FT_TICK_MAGAZINE=0 FT_TICK_NEWS_LEDGER=0 FT_TICK_NEWS_WATCH=0 FT_TICK_WT_SWEEP=0 \
-      FT_TICK_UNPUSHED=0 FT_TICK_WATCH_SAMPLE=0 "$@" bash "${TICK_RUN:-$BIN/ft-tick.sh}" --dry-run 2>&1; }
-  on="$(t10 FT_TICK_TRIGGERS=1 | grep -c 'DRY kind=trigger-watch')"; off="$(t10 FT_TICK_TRIGGERS=0 | grep -c 'DRY kind=trigger-watch')"
+      FT_TICK_UNPUSHED=0 FT_TICK_WATCH_SAMPLE=0 FT_TICK_TRIGGERS="$1" bash "$BIN/ft-tick.sh" --dry-run 2>&1; }
+  on="$(t10 1 | grep -c 'DRY kind=trigger-watch')"; off="$(t10 0 | grep -c 'DRY kind=trigger-watch')"
   [ "$on" = 1 ] && [ "$off" = 0 ] && ok "R10 FT_TICK_TRIGGERS=1 → 단계 1 · 0 → 단계 0" || bad "R10 on=$on off=$off"
   fi
   PH R1-R10

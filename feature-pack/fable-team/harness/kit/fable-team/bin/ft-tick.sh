@@ -1191,7 +1191,7 @@ trigger_watch() {
   if [ "$DRY" = 1 ]; then echo "DRY kind=trigger-watch"; return 0; fi
   [ -n "${ROOT:-}" ] && [ -f "$ROOT/.fable-team/state/directive-roots.tsv" ] || return 0   # 루트 표가 없는 루트(시험 임시 루트·설치 전)는 건너뜀 — 감시 리포를 못 풀면 «판정 불가» 소음만 낸다
   local out rc ln
-  out="$(env ${ROOT:+FT_ROOT="$ROOT"} FT_MBOX_SH="$MBOX" FT_TICK_DEADLINE="${FT_TICK_DEADLINE:-}" python3 "${FT_TICK_TRIGGER_BIN:-$HERE/ft_trigger_watch.py}" tick 2>&1)"; rc=$?
+  out="$(env ${ROOT:+FT_ROOT="$ROOT"} FT_MBOX_SH="$MBOX" FT_TICK_DEADLINE="${FT_TICK_DEADLINE:-}" python3 "$HERE/ft_trigger_watch.py" tick 2>&1)"; rc=$?
   while IFS= read -r ln; do [ -z "$ln" ] || log "$ln"; done <<< "$out"
   [ "$rc" -le 1 ] || echo "$(date '+%F %T') trigger_watch: ERROR rc=$rc" >&2
   return 0
