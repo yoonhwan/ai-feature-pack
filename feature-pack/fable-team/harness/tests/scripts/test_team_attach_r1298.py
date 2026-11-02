@@ -87,6 +87,10 @@ def test_attach_check_lists_missing_derived_parts_and_apply_is_idempotent(tmp_pa
     monkeypatch.setenv("FT_TEAMS_MD", str(tmp_path / "design/TEAMS.md"))
     monkeypatch.setenv("FT_TEAMSET_MD", str(teamset))
     monkeypatch.setenv("FT_TEAM_ATTACH_SANDBOX", "1")
+    tsv = tmp_path / ".fable-team/bin/team-tick-env.tsv"
+    tsv.parent.mkdir(parents=True, exist_ok=True)
+    tsv.write_text("# header\n", encoding="utf-8")
+    monkeypatch.setenv("FT_TICK_TEAM_TSV", str(tsv))
 
     assert ft_team_attach.main(["zztest", "--check"]) == 1
     assert "S2 빠짐" in capsys.readouterr().out

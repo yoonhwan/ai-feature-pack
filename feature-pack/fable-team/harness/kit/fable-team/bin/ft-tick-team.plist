@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.byz.ft-tick-__TEAM__</string>
+  <key>ProgramArguments</key><array><string>/bin/bash</string><string>__SCRIPT__</string></array>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>WorkingDirectory</key><string>.</string>
+  <key>StandardOutPath</key><string>/tmp/ft-tick-__TEAM__.log</string>
+  <key>StandardErrorPath</key><string>/tmp/ft-tick-__TEAM__.log</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>FT_TICK_MASTER_MSG</key><string>__MASTER_MSG__</string>
+    <key>FT_TICK_PM_MSG</key><string>__PM_MSG__</string>
+    <key>FT_TICK_SEATS</key><string>__SEATS__</string>
+    <key>FT_ROOT</key><string>.</string>
+  </dict>
+</dict>
+</plist>
