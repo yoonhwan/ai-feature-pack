@@ -6,7 +6,7 @@ import re
 import subprocess
 from pathlib import Path
 
-from ft_team_lib import team_names, team_rel
+from ft_team_lib import roster_name, team_names, team_rel
 
 _ORIGIN_TEAMSET: dict[tuple[str, str], tuple[bool, dict[str, list[str]]]] = {}
 _LAUNCHD_LIST: tuple[int, set[str], str] | None = None
@@ -94,7 +94,7 @@ def set_teamset_row(root: Path, team: str, cells: list[str], dry: bool = False, 
 
 def paths(root: Path, team: str, include_tick: bool = True) -> dict[str, Path]:
     rel = team_rel(team, root).strip("/")
-    seats = root / ".fable-team" / ("seats.json" if team == "v65" else f"seats-{team}.json")
+    seats = root / ".fable-team" / roster_name(team, root)   # r1309: 명부 파일 이름도 TEAMS.md «명부» 칸 하나에서
     expanded = os.path.expandvars(rel)
     if "$FT_HARNESS_ROOT" in expanded:
         raise AttachError(f"ERROR 팀 폴더 판정 불가: FT_HARNESS_ROOT 없음({rel})", 3)
