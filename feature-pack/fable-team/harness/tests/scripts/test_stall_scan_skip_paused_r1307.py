@@ -116,7 +116,7 @@ def test_r3b_marker_is_symlink_warns_and_still_alerts(w: World) -> None:
     real = w.root / "elsewhere.txt"
     _ = real.write_text(FORM + "\n", encoding="utf-8")
     d = w.root / ".fable-team/state/t1-tick"
-    d.mkdir(parents=True)
+    d.mkdir(parents=True, exist_ok=True)  # r1323 — 시험 세계가 팀 헤드라인을 쓰므로 폴더가 이미 있다
     (d / "PAUSED").symlink_to(real)
     lead(w)
     r = scan(w)
@@ -129,7 +129,7 @@ def test_r3c_marker_wrong_form_warns_and_still_alerts(w: World) -> None:
     lead(w)
     r = scan(w)
     assert counts(r.stdout)["f"] == "1" and len(sends(w, "t1-master#1")) == 1, r.stdout
-    (warn,) = lines(r.stdout, "WARN")
+    (warn,) = [line for line in lines(r.stdout, "WARN") if line.startswith("WARN 정지 표식")]  # r1323 — 헤드라인 K4 도 같은 팀을 WARN 한다
     assert warn.startswith("WARN 정지 표식 판정 불가 — 경보 보냄(t1 · 표식 꼴 아님"), warn
 
 
@@ -148,8 +148,9 @@ def test_r4_two_teams_one_judgement_each(w: World, monkeypatch: pytest.MonkeyPat
     assert not [x for x in w.mbox_log() if "t1-" in x], w.mbox_log()  # 표식 팀 = 처리 0
     assert len(sends(w, "t2-master#1")) == 1, w.mbox_log()  # 표식 없는 팀만 1통
     calls = inproc_calls(w, monkeypatch)
-    assert calls.count("t1") == 1 and calls.count("t2") == 1, calls  # 팀마다 1회(캐시)
-    assert len(calls) == len(set(calls)), calls
+    # r1323 — 표식 판정기가 둘이다: ft_stall_scan 캐시(r1307) 1회 + ft_stall_headline K4 1회 → 팀마다 2회가 정상
+    assert calls.count("t1") == 2 and calls.count("t2") == 2, calls
+    assert set(calls) == {"t1", "planner", "t2"}, calls  # 세계 밖 팀 0
 
 
 # ── R5 — 표식 팀은 페널티 자동 켜기 제외(trig) · 표식 없는 팀은 지금처럼 켠다 ──────────────────
