@@ -50,7 +50,7 @@ if [ "$DST" = 진행 ]; then
 fi
 if [ "$DST" = 완성 ]; then
   [ -n "$DA" ] || { echo "REJECT 진행→완성 은 --da <판정문#§N> 필수 — DA 판정 없이 닫지 않는다"; exit 1; }
-  DAF="${DA%%#*}"; SEC="${DA#*#}"
+  DAF="${DA%#*}"; SEC="${DA##*#}"   # r1284: «마지막 #» 에서 자른다 — 경로 폴더 이름에 #(좌석 «…-claude#198») 이 있어도 파일·절이 갈린다 · 절 이름에 # 는 없다
   [ -f "$DAF" ] || { echo "REJECT DA 판정문 없음: $DAF"; exit 1; }
   # §N 절 = `## ` 헤더 안 §N 정확 일치(뒤가 숫자가 아님 — §5 가 §57 에 안 걸림, R37) · § 없는 절 이름은 포함 비교
   body="$(awk -v s="$SEC" 'index($0,"## ")==1{f=0; r=$0; while((i=index(r,s))>0){n=substr(r,i+length(s),1); if(index(s,"§")==0||n!~/[0-9]/){f=1;break}; r=substr(r,i+length(s))} if(f){print;next}} f' "$DAF")"
@@ -138,7 +138,7 @@ if [ "$DST" = 아카이브 ]; then
   case "$FROM" in 대기|진행) ;; *) echo "REJECT 아카이브 출발은 대기|진행 만 — $FROM 출발은 완성 갈래(착지·설치 대조)로 닫는다 (이동 0)"; exit 1;; esac
   [ -n "$DA" ] || { echo "REJECT 아카이브 는 --da <판정문#§N> 필수 — 판정문 없는 보관은 없다"; exit 1; }
   [ -n "$SEAT" ] || { echo "REJECT 아카이브 는 --seat <좌석명> 필수"; exit 1; }
-  DAF="${DA%%#*}"; SEC="${DA#*#}"
+  DAF="${DA%#*}"; SEC="${DA##*#}"   # r1284: «마지막 #» 에서 자른다(경로에 # 이 있어도 파일·절이 갈린다)
   [ -f "$DAF" ] || { echo "REJECT DA 판정문 없음: $DAF"; exit 1; }
   body="$(awk -v s="$SEC" 'index($0,"## ")==1{f=0; r=$0; while((i=index(r,s))>0){n=substr(r,i+length(s),1); if(index(s,"§")==0||n!~/[0-9]/){f=1;break}; r=substr(r,i+length(s))} if(f){print;next}} f' "$DAF")"
   [ -n "$body" ] || { echo "REJECT $DAF 에 절 «${SEC}» 없음"; exit 1; }

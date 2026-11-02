@@ -168,7 +168,7 @@ canon_check_sha() { # <파일> <sha 또는 T..S> → 0 통과 · 1 MISS(사유 s
 CANON="$(canon_lines '정본')"
 if [ -n "$CANON" ]; then
   while IFS= read -r V; do
-    X="${V%%#*}"; REST="${V#*#}"
+    X="${V%#*}"; REST="${V##*#}"   # r1284: «마지막 #» — 정본 경로 폴더 이름에 # 이 있어도 파일·절이 갈린다
     if [ "$X" = "$V" ] || [ "${REST#*@}" = "$REST" ]; then echo "  MISS 6항 정본 — 「${V}」 은 <파일>#<절>@<sha> 모양이 아님"; MISS=1; continue; fi
     X="$(sed -E 's/^[[:space:]]+|[[:space:]]+$//g' <<<"$X")"; SHAS="${REST##*@}"
     IFS=',' read -ra TOKS <<<"$SHAS"
