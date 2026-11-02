@@ -24,7 +24,16 @@ HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 head -3 "$HERE/ft_raised.py" 2>/dev/null | grep -qF 'ft-root-bin-shim' && { echo "$(date '+%F %T') ERROR shim 폴더에서 실행 — launchctl kickstart 로 LIVE_BIN 재기동 ($HERE)" >&2; exit 3; }
 WT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 ROOT="${FT_ROOT:-$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')}"   # R382: env FT_ROOT 우선(코드가 다른 리포로 가도 프로젝트 루트 고정) — 데이터 루트는 그 안의 .fable-team/LIVE_ROOT 파일
-SEATS="${FT_TICK_SEATS:-${ROOT:-$WT}/.fable-team/seats.json}"
+# r1309: 좌석 명부 파일 이름 = 루트 TEAMS.md «명부» 칸(ft_team_lib seats-file). 판정 불가면 «1줄» 남기고 기본값으로 돈다(조용한 기본값 0).
+SEATS="${FT_TICK_SEATS:-}"
+if [ -z "$SEATS" ]; then
+  if seats_out="$(python3 "$HERE/ft_team_lib.py" seats-file "${ROOT:-$WT}" 2>&1)"; then
+    SEATS="$seats_out"
+  else
+    SEATS="${ROOT:-$WT}/.fable-team/seats.json"
+    echo "$(date '+%F %T') ERROR 좌석표 판정 불가 — TEAMS.md «명부» 칸을 못 읽었다(FT_TICK_SEATS 로 고정하라) · 기본값 $SEATS 로 계속: $(printf '%s' "$seats_out" | tail -1)" >&2
+  fi
+fi
 GOAL_TICK="${FT_TICK_GOAL_TICK:-$HERE/ft-goal-tick.sh}"
 LOOP_SEC="${FT_TICK_LOOP_SEC:-60}"
 PIDFILE="${FT_TICK_PIDFILE:-/tmp/ft-tick.pid}"

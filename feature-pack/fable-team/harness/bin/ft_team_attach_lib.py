@@ -6,9 +6,9 @@ import re
 import subprocess
 from pathlib import Path
 
-from ft_team_lib import team_names, team_rel
+from ft_team_lib import basis_ref, roster_name, team_names, team_rel
 
-_ORIGIN_TEAMSET: dict[tuple[str, str], tuple[bool, dict[str, list[str]]]] = {}
+_ORIGIN_TEAMSET: dict[tuple[str, str, str], tuple[bool, dict[str, list[str]]]] = {}
 _LAUNCHD_LIST: tuple[int, set[str], str] | None = None
 
 class AttachError(RuntimeError):
@@ -94,7 +94,7 @@ def set_teamset_row(root: Path, team: str, cells: list[str], dry: bool = False, 
 
 def paths(root: Path, team: str, include_tick: bool = True) -> dict[str, Path]:
     rel = team_rel(team, root).strip("/")
-    seats = root / ".fable-team" / ("seats.json" if team == "v65" else f"seats-{team}.json")
+    seats = root / ".fable-team" / roster_name(team, root)   # r1309: 명부 파일 이름도 TEAMS.md «명부» 칸 하나에서
     expanded = os.path.expandvars(rel)
     if "$FT_HARNESS_ROOT" in expanded:
         raise AttachError(f"ERROR 팀 폴더 판정 불가: FT_HARNESS_ROOT 없음({rel})", 3)
@@ -108,7 +108,8 @@ def paths(root: Path, team: str, include_tick: bool = True) -> dict[str, Path]:
         tsv = Path(".fable-team/bin/team-tick-env.tsv")
         plist_dir = None
     if not plist_dir:
-        plist_dir = str(root / ".fable-team/state/launchd") if os.environ.get("FT_TEAM_ATTACH_SANDBOX") == "1" else str(Path.home() / "Library/LaunchAgents")
+        plist_dir = (str(root / ".fable-team/state/launchd") if os.environ.get("FT_TEAM_ATTACH_SANDBOX") == "1"
+                     else str(Path.home() / "Library/LaunchAgents"))   # r1309 ft_team_attach_roots.plist_dir() 와 같은 규칙
     return {
         "seats": safe(root, seats),
         "cards": safe(root, cards),
@@ -177,11 +178,13 @@ def tick_status(root: Path, team: str, p: dict[str, Path]) -> tuple[str, bool | 
         return f"판정 불가(launchctl {err.strip()[:80] or f'rc={rc}'})", False
     return ("전용 틱 OK", True) if f"com.byz.ft-tick-{team}" in labels else ("launchctl 실행 안 됨", False)
 
-def origin_teamset_row(root: Path, path: Path, team: str) -> tuple[bool, list[str] | None]:
-    key = (str(root), str(path))
+def origin_teamset_row(root: Path, path: Path, team: str, ref: str | None = None) -> tuple[bool, list[str] | None]:
+    """ref 판(TEAMSET.md) 대조 — 기준 ref = roots.tsv 의 그 루트 «기준 ref»(기본 origin/main · r1309) · fetch 0."""
+    want = ref or basis_ref(root)
+    key = (str(root), str(path), want)
     if key not in _ORIGIN_TEAMSET:
         rel = path.relative_to(root) if root in path.parents else Path("design/TEAMSET.md")
-        rc, out, _ = command("git", "-C", str(root), "show", f"origin/main:{rel}")
+        rc, out, _ = command("git", "-C", str(root), "show", f"{want}:{rel}")
         rows = table_rows_from_text(out)[1] if rc == 0 else []
         _ORIGIN_TEAMSET[key] = (rc == 0, {row[0]: row for row in rows if row})
     exists, rows = _ORIGIN_TEAMSET[key]
