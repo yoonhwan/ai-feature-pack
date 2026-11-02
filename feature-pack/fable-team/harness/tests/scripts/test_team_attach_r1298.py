@@ -96,16 +96,18 @@ def test_attach_check_lists_missing_derived_parts_and_apply_is_idempotent(tmp_pa
     assert "S2 빠짐" in capsys.readouterr().out
     assert ft_team_attach.main(["zztest", "--apply"]) == 0
     output = capsys.readouterr().out
-    assert "변경=3" in output
+    assert "변경=4" in output   # r1322: seats · HEADLINE · TEAMSET 행 · ASSIGN.md 틀 1
     seats = tmp_path / ".fable-team/seats-zztest.json"
     headline = tmp_path / ".fable-team/state/zztest-tick/HEADLINE.md"
-    stamp = (seats.stat().st_mtime_ns, headline.stat().st_mtime_ns, teamset.stat().st_mtime_ns)
-    sha = (seats.read_bytes(), headline.read_bytes(), teamset.read_bytes())
+    assign = tmp_path / ".fable-team/state/team-main/zztest/ASSIGN.md"
+    assert assign.is_file() and "제0목표: 진행 중 카드를 완성하고 닫는다" in assign.read_text(encoding="utf-8")
+    stamp = (seats.stat().st_mtime_ns, headline.stat().st_mtime_ns, teamset.stat().st_mtime_ns, assign.stat().st_mtime_ns)
+    sha = (seats.read_bytes(), headline.read_bytes(), teamset.read_bytes(), assign.read_bytes())
 
     assert ft_team_attach.main(["zztest", "--apply"]) == 0
     assert "변경=0" in capsys.readouterr().out
-    assert (seats.stat().st_mtime_ns, headline.stat().st_mtime_ns, teamset.stat().st_mtime_ns) == stamp
-    assert (seats.read_bytes(), headline.read_bytes(), teamset.read_bytes()) == sha
+    assert (seats.stat().st_mtime_ns, headline.stat().st_mtime_ns, teamset.stat().st_mtime_ns, assign.stat().st_mtime_ns) == stamp
+    assert (seats.read_bytes(), headline.read_bytes(), teamset.read_bytes(), assign.read_bytes()) == sha
 
 
 def test_attach_rejects_missing_team_table_without_writing(tmp_path, monkeypatch, capsys):
