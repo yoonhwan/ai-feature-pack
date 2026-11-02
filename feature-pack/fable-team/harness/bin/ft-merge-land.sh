@@ -61,7 +61,7 @@ EQM="$(printf '%s' "$EQ" | sed -n 's/.* mode=\([a-z]*\) overlap=\([0-9]*\).*/equ
 M="$(G rev-parse --verify -q "refs/remotes/$REMOTE/$TARGET^{commit}")" || rej "main 확인 실패"; [ -n "$AP" ] || { DOCX="$(fm_doc_exempt "$AST" "$REPO" "$ROOT" "$M" "$S")" || rej "승인 파일 없음 · $DOCX"; }   # R725: 승인 값이 없을 때만 문서 전용 예외(실패 = 면제 0)
 [ ! -f "$HERE/ft-team-lib.sh" ] || OLDP="$(. "$HERE/ft-team-lib.sh" && ft_old_form_added "$REPO" "$M" "$S")" || rej "$OLDP"   # r447: 명단 새 꼴 팀의 옛 꼴 위치에 새 파일 = 착지 0
 EVL="$(G diff --name-only -z --no-renames --diff-filter=AM "$M...$S" -- design | tr '\0' '\n' | ft_evidence_filter)"   # r449: 가지가 더하거나 고친 design/ 증거 로그 = 착지 0(pre-commit 을 우회한 커밋도 여기서 선다)
-[ -z "$EVL" ] || rej "증거 로그 $(printf '%s\n' "$EVL" | grep -c .) — git rm --cached 뒤 다시: $(printf '%s\n' "$EVL" | head -n 10 | tr '\n' ' ')"
+[ -z "$EVL" ] || rej "증거 로그 $(printf '%s\n' "$EVL" | grep -c .) — git rm --cached 뒤 다시: $(printf '%s\n' "$EVL" | head -n 10 | tr '\n' ' ')"; DDLG="$(fm_ddl_dev_gate "$REPO" "$M" "$S" "$PR" $((LIM - (SECONDS - T0))) "$(pf body)" "$SLUG" "$GH_R")" || rej "$DDLG"; [ -z "$DDLG" ] || printf '%s\n' "$DDLG"   # r1347: DDL 파일 + 코드를 같이 올리는 PR = DDL 마다 «DDL dev 적용: <파일> · h<N> rc=0|면제 — 사유» 줄 필수(squash·--ff·자동 병합 C 모두 지남 · 판정 3551)
 if [ -n "$FF" ]; then   # R392: 가지가 이미 원격에 있으면 squash Q 의 트리·블롭 전부를 다시 보낸다(have 가 edge 아님 · #1927 675 MB) — ref 만 S 로 전진
   G merge-base --is-ancestor "$M" "$S" || rej "main($M) 이 head 의 조상이 아님 — ff 불가 · --ff 빼고 squash 또는 최신화"
   Q="$S"; PBO="0 $(fm_push_calc 0)"
