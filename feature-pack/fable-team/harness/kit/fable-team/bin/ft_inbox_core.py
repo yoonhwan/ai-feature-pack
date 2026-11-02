@@ -168,10 +168,11 @@ def norm_key(frm, body):
 def haiku(prompt):
     cmd = shlex.split(os.environ.get("FT_INBOX_HAIKU") or "claude -p --model claude-haiku-5-5")
     t = float(os.environ.get("FT_INBOX_HAIKU_TIMEOUT", "7"))  # 외부 호출 7초 룰(전역 하드 룰 12) + 재시도 1회
+    os.makedirs(cwd := os.environ.get("FT_INBOX_HAIKU_CWD") or f"{INBOX}/haiku-cwd", exist_ok=True)  # 빈 폴더 cwd(r1343) — 못 만들면 OSError(경로에 haiku-cwd)가 올라가 classify 가 미상 유지+로그
     err = ""
     for _ in range(2):
         try:
-            p = subprocess.run(cmd, input=prompt, capture_output=True, text=True, timeout=t)
+            p = subprocess.run(cmd, input=prompt, capture_output=True, text=True, timeout=t, cwd=cwd)
         except subprocess.TimeoutExpired:
             err = f"timeout {t:g}s"
             continue
