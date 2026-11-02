@@ -26,6 +26,8 @@ export FT_DOCKER_REAP_SH="$T/noscratch.sh"   # 실 docker 를 건드리지 않�
 export FT_WT_MODE_STAMP_SH="$T/noscratch.sh"   # r843 r2: 표식 탐지도 기본 가짜(출력 0 → 쪽지 0)
 printf '#!/bin/sh\necho "[scratchpad 사본] DEAD-SAFE 0개 0.00GiB · DEAD-KEEP 0 · LIVE 0 · UNKNOWN 0 · 삭제 0"\n' > "$T/spc0.sh"; chmod 755 "$T/spc0.sh"
 export FT_SCRATCHPAD_CENSUS_SH="$T/spc0.sh"   # r1080: scratchpad 사본 표도 기본 가짜(사본 0 = 쪽지 0 · 실 scratchpad 스캔 0)
+printf '#!/bin/sh\necho "$*" >> "%s/accum.calls"\necho "[누적 정리] 옮김 0(헤드라인 0 · planner-tick 0 · 자기 기록 0) · 목록만(완성 카드 0 · 백업 0곳 0.0G) · 판정 불가 0 · 보관 합 0.0G"\n' "$T" > "$T/accum.sh"; chmod 755 "$T/accum.sh"
+export FT_ACCUM_SWEEP="$T/accum.sh"   # r1293: 누적 정리도 가짜(실 도구가 시험 루트 밖을 보지 않게 · R18)
 sent() { grep -c . "$MLOG"; }
 has()  { grep -q -- "$1" "$MLOG"; }
 
@@ -129,6 +131,14 @@ printf '{"_hil_route":"byz-planner-master-claude#77"}\n' > "$RJ/.fable-team/seat
 newroot m '{}' '{}'; rund "$RR" 25 0
 { [ $RC = 3 ] && [ "$(sent)" = 0 ] && [ "$(grep -c 'ERROR' "$RR/.fable-team/state/disk-alarm.log")" = 2 ]; } \
   && ok "ⓜ 두 명부 모두 키 없음 → rc3 · 쪽지 0 · ERROR 2줄" || bad "ⓜ rc=$RC sent=$(sent) $(cat "$RR/.fable-team/state/disk-alarm.log")"
+
+# r1293 R18: 누적 정리는 env FT_ACCUM_SWEEP 스텁만 부르고, 오래된 HEADLINE-log 를 «이 시험의 데이터 루트» 에서 건드리지 않는다(실 루트·실 /tmp 0).
+newroot acc '{}' '{"_hil_route":"byz-planner-master-claude#99"}'; mkdir -p "$RR/.fable-team/state/harness-tick"
+printf 'x\n' > "$RR/.fable-team/state/harness-tick/HEADLINE-log-20261001.md"
+: > "$T/accum.calls"
+rund "$RR" 60 0
+{ [ -f "$RR/.fable-team/state/harness-tick/HEADLINE-log-20261001.md" ] && [ "$(wc -l < "$T/accum.calls" 2>/dev/null | tr -d ' ')" = 1 ] && grep -q 'accum-sweep rc=0 \[누적 정리\] 옮김 0' "$RR/.fable-team/state/disk-alarm.log"; } \
+  && ok "R18 누적 정리 스텁 1회 호출 · 오래된 HEADLINE-log 그대로(실 정리 0)" || bad "R18 calls=$(wc -l < "$T/accum.calls" 2>/dev/null | tr -d ' ') 파일=$(ls "$RR/.fable-team/state/harness-tick" 2>/dev/null | tr '\n' ' ')"
 
 [ $fail -eq 0 ] && echo "ALL PASS" || echo "($fail failed)"
 exit $fail
