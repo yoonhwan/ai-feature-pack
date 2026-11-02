@@ -1365,6 +1365,18 @@ fire_seats() {
   done <<< "$rows"
 }
 
+# r1285: 기억·트리거 원장 감시 — 바퀴 맨 끝 단계 · 예산 = FT_TICK_DEADLINE(감시기가 −3초) · FT_TICK_TRIGGERS=0 끄기 · 팀 틱은 건너뜀(루트 틱 1곳) · 판정 불가(rc3)는 ERROR 1줄 · 바퀴 rc 에 안 섞음
+trigger_watch() {
+  [ "${FT_TICK_TRIGGERS:-1}" = 1 ] && [ -z "${FT_TICK_TEAM:-}" ] || return 0
+  if [ "$DRY" = 1 ]; then echo "DRY kind=trigger-watch"; return 0; fi
+  [ -n "${ROOT:-}" ] && [ -f "$ROOT/.fable-team/state/directive-roots.tsv" ] || return 0   # 루트 표가 없는 루트(시험 임시 루트·설치 전)는 건너뜀 — 감시 리포를 못 풀면 «판정 불가» 소음만 낸다
+  local out rc ln
+  out="$(env ${ROOT:+FT_ROOT="$ROOT"} FT_MBOX_SH="$MBOX" FT_TICK_DEADLINE="${FT_TICK_DEADLINE:-}" python3 "$HERE/ft_trigger_watch.py" tick 2>&1)"; rc=$?
+  while IFS= read -r ln; do [ -z "$ln" ] || log "$ln"; done <<< "$out"
+  [ "$rc" -le 1 ] || echo "$(date '+%F %T') trigger_watch: ERROR rc=$rc" >&2
+  return 0
+}
+
 # r1215: 본 바퀴(pass_core) 뒤 «마지막» 에 acct_notice — 후속 함수가 0 이라 발사·stall·goal 을 굶길 경로가 없다. 마감 = 바퀴 시작 + PASS_MAX(시험은 FT_TICK_DEADLINE 로 주입).
 pass() {
   local prc FT_TICK_DEADLINE="${FT_TICK_DEADLINE:-$(( $(now) + ${PASS_MAX:-70} ))}"
@@ -1374,6 +1386,7 @@ pass() {
   pass_core; prc=$?
   step teammain_render teammain_render   # r1320: 바퀴 끝 — 좌석 명부(rows)와 무관하게 돈다(현역 좌석 0 이어도 팀 메인은 최신)
   step acct_notice acct_notice
+  if [ "$DRY" = 1 ]; then trigger_watch; else step trigger_watch trigger_watch; fi   # DRY 는 «DRY kind=trigger-watch» 1줄만 · 단계 수(DRY n=)엔 안 센다
   steps_done
   return "$prc"
 }
