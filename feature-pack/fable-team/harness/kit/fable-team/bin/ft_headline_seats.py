@@ -4,6 +4,7 @@
 칸 값 = 이번 scan 이 이미 읽은 좌석 캐시(Seats.info: jsonl 턴 경계 + 마지막 assistant 기록의 API 오류 표식)뿐이다 —
 화면(capture-pane) 읽기 0 · 새 외부 호출 0 · 기록 0(파일 1개 덮어쓰기).
 파일 = `.fable-team/state/<팀>-tick/HEADLINE-seats.txt`(팀 이름의 «m.» 앞머리를 뗀다 · r1289 와 같은 규칙 · 늘 1줄 · FT_HEADLINE_SEATS=0 이면 초안 0).
+읽는 꼴 = parse(1줄 → {이름: 칸}) — 쓰는 꼴과 같은 모듈에 둔다(판정 3240: 읽는 쪽 TAB 꼴과 어긋나 좌석 칸이 전부 «?» 로 비었다).
 """
 from __future__ import annotations
 
@@ -21,6 +22,9 @@ TEAMED = re.compile(r"^byz-[^-]+-(?P<role>[^-]+)-.+?#(?P<n>\d+)$")
 TAIL = re.compile(r"^(?P<role>[^-]+)#(?P<n>\d+)$")
 TOKEN = re.compile(r"^[a-z]{0,3}[0-9]+[a-z]?$")
 FOLDER = re.compile(r"^[\w.-]+$")
+SEP, DRAFT = " · ", re.compile(r"^\d{2}:\d{2} 초안$")  # 초안 1줄의 칸 구분 · 머리(«HH:MM 초안»)
+LEAD, PAIR = re.compile(r"^팀장\((?P<cell>.*)\)$"), re.compile(r"^(?P<name>[^=()]+)=\?\((?P<cell>.*)\)$")
+FOLDED = re.compile(r"^\+\d+석 유휴\(.*\)$")
 
 
 def short_name(seat: str) -> str:
@@ -33,6 +37,29 @@ def short_name(seat: str) -> str:
         return (words[0] if words and TOKEN.match(words[0]) else "") or "-".join(words)[:20] or seat
     match = TEAMED.match(seat) or TAIL.match(seat)
     return f"{match.group('role')}#{match.group('n')}" if match else seat
+
+
+def parse(text: str) -> tuple[dict[str, str], bool]:
+    """초안 1줄(line 이 쓴 꼴) → ({이름: 칸}, 접힘 묶음 있음) · 꼴이 다르면 ({}, False)(W1·W2·W6·W7).
+    칸 안에 괄호가 들어가므로(«판정 불가(jsonl 없음)») 첫 «)» 에서 끊지 않고 줄 끝까지 받는다(변이 ⑬)."""
+    rows = [row for row in text.splitlines() if row.strip()]
+    parts = rows[0].strip().split(SEP) if len(rows) == 1 else []
+    if len(parts) < 2 or not DRAFT.match(parts[0]):
+        return {}, False
+    out: dict[str, str] = {}
+    folded = False
+    for part in parts[1:]:
+        if FOLDED.match(part):
+            folded = True
+            continue
+        lead, pair = LEAD.match(part), None
+        if lead is None and (pair := PAIR.match(part)) is None:
+            return {}, False
+        name, value = ("팀장", lead.group("cell")) if lead else (pair.group("name").strip(), pair.group("cell"))
+        if not name or not (value := value.strip()):
+            return {}, False
+        out[name] = value
+    return out, folded
 
 
 def clock(stamp: float | None, now: float) -> str:

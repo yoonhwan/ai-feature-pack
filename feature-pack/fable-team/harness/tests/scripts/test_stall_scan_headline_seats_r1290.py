@@ -1,6 +1,7 @@
-"""r1290 — 팀 헤드라인 좌석 칸 초안(ft_headline_seats) R1~R11.
+"""r1290 — 팀 헤드라인 좌석 칸 초안(ft_headline_seats) R1~R11 + 재작업 W1~W7.
 
 칸 값 = 이번 scan 이 이미 읽은 좌석 캐시(jsonl 턴 경계 + 마지막 assistant 기록의 API 오류 표식)뿐 — 화면(capture-pane) 읽기 0.
+W = 쓰는 꼴(초안 1줄)과 읽는 꼴(ft_team_main_inputs.tick_files → card_seat)이 같나 — 판정 3240 반송 뒤 동결된 반례.
 R1290_BIN = 시험할 bin 폴더(기본 kit · 셸 짝 tests/test_headline_seats_r1290.sh 가 변이 사본을 넣는다).
 """
 import fcntl
@@ -100,6 +101,83 @@ def module():
         return importlib.import_module("ft_headline_seats")
     finally:
         sys.path.remove(str(BIN))
+
+
+def modules():
+    """(쓰는 쪽 ft_headline_seats, 읽는 쪽 ft_team_main_inputs) — W1~W7 은 두 쪽을 함께 본다."""
+    sys.path.insert(0, str(BIN))
+    try:
+        return importlib.import_module("ft_headline_seats"), importlib.import_module("ft_team_main_inputs")
+    finally:
+        sys.path.remove(str(BIN))
+
+
+W1_LINE = "09:54 초안 · 팀장(작업 중) · r1290=?(판정 불가(jsonl 없음)) · arch#207=?(✻ 09:54)"
+W_CARD = "r1290-headline-seat-cells-autofill"
+
+
+def draft_only(tmp_path: Path, body: str | None) -> Path:
+    """가짜 데이터 루트 1팀 — body=None 이면 초안 파일 자체가 없다(W3)."""
+    folder = tmp_path / ".fable-team/state/harness-tick"
+    folder.mkdir(parents=True)
+    _ = (folder / "HEADLINE.md").write_text("09:54 · harness 헤드라인\n", encoding="utf-8")
+    if body is not None:
+        _ = (folder / "HEADLINE-seats.txt").write_text(body, encoding="utf-8")
+    return tmp_path
+
+
+# ── W1 — 초안 1줄 «이름=?(칸)» 을 풀어 카드 좌석 칸으로 쓴다(칸 안 괄호 포함) ──────────
+def test_w1_draft_line_parses_into_card_cells(tmp_path: Path) -> None:
+    headline, inputs = modules()
+    head, seats = inputs.tick_files(draft_only(tmp_path, W1_LINE + "\n"), "harness")
+    assert head == "09:54 · harness 헤드라인", head
+    assert headline.parse(W1_LINE) == ({"팀장": "작업 중", "r1290": "판정 불가(jsonl 없음)", "arch#207": "✻ 09:54"}, False)
+    assert inputs.card_seat(seats, W_CARD) == "판정 불가(jsonl 없음)", seats  # 카드 stem 첫 낱말 = r1290
+    assert inputs.card_seat(seats, W_CARD) != "?", seats  # 조용한 «?» 금지
+
+
+# ── W2 — 파일 있음 + 풀린 칸 0(쓰레기) = «판정 불가(초안 꼴 다름)» ──────────────────
+def test_w2_garbage_line_is_form_unknown(tmp_path: Path) -> None:
+    _, inputs = modules()
+    _, seats = inputs.tick_files(draft_only(tmp_path, "쓰레기 한 줄\n"), "harness")
+    assert inputs.card_seat(seats, W_CARD) == "판정 불가(초안 꼴 다름)", seats
+
+
+# ── W3 — 파일 없음 = «판정 불가(초안 없음)» ─────────────────────────────────────
+def test_w3_missing_file_is_no_draft(tmp_path: Path) -> None:
+    _, inputs = modules()
+    _, seats = inputs.tick_files(draft_only(tmp_path, None), "harness")
+    assert inputs.card_seat(seats, W_CARD) == "판정 불가(초안 없음)", seats
+
+
+# ── W4 — 칸 없는 카드 = «좌석 칸 없음»(접힘 없음) ─────────────────────────────────
+def test_w4_card_without_cell(tmp_path: Path) -> None:
+    _, inputs = modules()
+    _, seats = inputs.tick_files(draft_only(tmp_path, W1_LINE + "\n"), "harness")
+    assert inputs.card_seat(seats, "r9999-없는-카드") == "좌석 칸 없음", seats
+
+
+# ── W5 — 접힘 묶음이 있고 칸이 없으면 «유휴(접힘)» ──────────────────────────────────
+def test_w5_folded_group_cell(tmp_path: Path) -> None:
+    headline, inputs = modules()
+    line = "09:54 초안 · 팀장(작업 중) · r1290=?(✻ 09:45) · +3석 유휴(✻ 09:40)"
+    assert headline.parse(line) == ({"팀장": "작업 중", "r1290": "✻ 09:45"}, True), headline.parse(line)
+    _, seats = inputs.tick_files(draft_only(tmp_path, line + "\n"), "harness")
+    assert inputs.card_seat(seats, "r9999-없는-카드") == "유휴(접힘)", seats
+
+
+# ── W6 — 옛 TAB 꼴 = «판정 불가(초안 꼴 다름)»(이번 반송의 원인 꼴) ────────────────
+def test_w6_old_tab_form_is_form_unknown(tmp_path: Path) -> None:
+    _, inputs = modules()
+    _, seats = inputs.tick_files(draft_only(tmp_path, "r1290\t✻ 09:54\n"), "harness")
+    assert inputs.card_seat(seats, W_CARD) == "판정 불가(초안 꼴 다름)", seats
+
+
+# ── W7 — 빈 파일 = «판정 불가(초안 꼴 다름)» ──────────────────────────────────────
+def test_w7_empty_file_is_form_unknown(tmp_path: Path) -> None:
+    _, inputs = modules()
+    _, seats = inputs.tick_files(draft_only(tmp_path, "\n"), "harness")
+    assert inputs.card_seat(seats, W_CARD) == "판정 불가(초안 꼴 다름)", seats
 
 
 # ── R1 — jsonl IDLE · TURN_END 10:45Z → «✻ 19:45»(로컬 · 하루 안) ─────────────────────

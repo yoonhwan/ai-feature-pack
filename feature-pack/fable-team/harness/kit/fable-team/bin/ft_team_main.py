@@ -50,15 +50,13 @@ def _sec_directive(team: str, ctx: dict) -> list[str]:
 
 def _sec_cards(ctx: dict) -> tuple[list[str], dict[str, str]]:
     out = [f"## ② 카드 (render {ctx['hhmm']})"]
-    if ctx["seats"] is None:
-        out.append("좌석 칸 판정 불가(seats 파일 없음 · r1290 대기)")
     rows, seats = ctx["cards"], ctx["seats"] or {}
     if rows is None:
         return out + [f"판정 불가({ctx['cards_why']})"], {}
     prog, wait, done = rows.get("진행", []), rows.get("대기", []), rows.get("완성", [])
     out.append(f"진행 {len(prog)}장")
     cur = {r["stem"]: (f"- {r['stem']} · 지시 {'#' + str(r['n']) if r['n'] else '없음'}"
-                       f" · 좌석 {seats.get(r['stem'], '?')} · 상태 {r['status'] or '판정 불가'}") for r in prog}
+                       f" · 좌석 {inputs.card_seat(seats, r['stem'])} · 상태 {r['status'] or '판정 불가'}") for r in prog}
     out += list(cur.values())
     dated = sorted(m.group(0) for m in (re.search(r"\d{4}-\d{2}-\d{2}", r["status"] or "") for r in wait) if m)
     out.append(f"대기 {len(wait)}장 · 가장 오래 {dated[0] if dated else '판정 불가(날짜 없음)'}")
