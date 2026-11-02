@@ -10,6 +10,7 @@ from typing import Any
 
 from ft_team_lib import basis_ref, team_rel
 from ft_team_attach_lib import AttachError, cards_path, command, directive_ok, origin_teamset_row, paths, safe, set_teamset_row, state_of, teamset_row, tick_status, tick_table, write
+from ft_team_main_assign import ensure_team   # r1322 G5 — 새 팀 배정표 틀(render 와 같은 함수)
 
 HERE = Path(__file__).resolve().parent
 
@@ -104,6 +105,7 @@ def apply_team(root: Path, team: str, own_tick: bool, fix_fields: bool, dry: boo
         if not dry:
             headline.parent.mkdir(parents=True, exist_ok=True)
         changed += int(write(headline, body.encode(), dry))
+    ensure_team(root, team)   # r1322 G5 — 새 팀도 배정표 틀 1개로 시작(이미 있으면 무변경)
     if own_tick:
         changed += own_tick_apply(root, team, p, dry, pre)
     return changed

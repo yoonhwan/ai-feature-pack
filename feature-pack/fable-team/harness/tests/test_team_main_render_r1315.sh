@@ -40,7 +40,7 @@ reset() {  # 임시 git 루트 · TEAMS.md · 카드 루트 표 · 카드 · 지
 
 case_r1() {  # 고정 꼴 · 쓰기 위치(데이터 루트) · stderr 줄 · 루트에 새 파일 0
   reset; run --all; local s; s="$(sf alpha)"
-  ck "R1 머리줄 = HEADLINE 첫 줄" has "08:25 · alpha 헤드라인 1줄" <(head -1 "$s")
+  ck "R1 1행 제0목표 · 2행 = HEADLINE 첫 줄(r1322)" sh -c "head -1 '$s' | grep -qxF '제0목표: 진행 중 카드를 완성하고 닫는다' && head -2 '$s' | tail -1 | grep -qF '08:25 · alpha 헤드라인 1줄'"
   ck "R1 ①②③ 절" sh -c "grep -qF '## ① 절대 지침' '$s' && grep -qF '## ② 카드' '$s' && grep -qF '## ③ 배정받은 작업' '$s'"
   ck "R1 ② 카드 고정 꼴(진행·좌석 칸·대기·완성)" sh -c "grep -qF '진행 2장' '$s' && grep -qF -- '- A-m0 · 지시 #16 · 좌석 판정 불가(초안 없음) · 상태 2026-11-02T08:1x 진행' '$s' \\
     && ! grep -qF '좌석 ? ·' '$s' && grep -qF '대기 3장 · 가장 오래 2026-10-30' '$s' && grep -qF '완성(확인 전) 1장' '$s'"
@@ -105,7 +105,7 @@ case_r7b() {  # 본문에 «## 상태» 글자가 먼저 있어도 줄 머리 �
 
 case_r8() {  # 진행 41장 → 다 씀 + 머리 WARN
   reset; local i=0; while [ $i -lt 39 ]; do card "$R/design/teams/alpha" 진행 "A-x$i" 16 "2026-11-02T08:0x 진행"; i=$((i + 1)); done; commit r8; run --all
-  ck "R8 진행 41장 · 41줄 다 씀 · 머리 상한 초과" sh -c "s='$(sf alpha)'; grep -qF '진행 41장' \$s && [ \"\$(grep -c '^- A-' \$s)\" -eq 41 ] && head -1 \$s | grep -qF '[상한 초과 ②+1줄 — 닫기 우선]'"
+  ck "R8 진행 41장 · 41줄 다 씀 · 머리 상한 초과" sh -c "s='$(sf alpha)'; grep -qF '진행 41장' \$s && [ \"\$(grep -c '^- A-' \$s)\" -eq 41 ] && head -2 \$s | grep -qF '[상한 초과 ②+1줄 — 닫기 우선]'"
   return $CASEBAD; }
 
 case_r9() {  # 초안 1줄(r1290 꼴)의 좌석 칸을 그대로 쓴다 · «?» 0 · 없는 파일은 R1
@@ -132,7 +132,7 @@ case_r10() {  # harness = origin/ops/main-base · ① 은 언제나 origin/main 
 
 case_r11() {  # 휴면 팀 = 머리 «휴면» 1줄만
   reset; run --all
-  ck "R11 휴면 머리 1줄 · 휴면 글자" sh -c "[ \"\$(wc -l < '$(sf sleep)')\" -eq 1 ] && grep -qF '휴면' '$(sf sleep)'"
+  ck "R11 휴면 1행 제0목표 · 2행 휴면 글자(r1322)" sh -c "s='$(sf sleep)'; [ \"\$(wc -l < \$s)\" -eq 2 ] && head -1 \$s | grep -qxF '제0목표: 진행 중 카드를 완성하고 닫는다' && head -2 \$s | tail -1 | grep -qF '휴면'"
   return $CASEBAD; }
 
 case_r12() {  # 없는 ref 팀 = 그 팀 ② 만 판정 불가 · 다른 팀 정상
@@ -186,7 +186,7 @@ done
 
 mutant() {  # mutant <이름> <케이스> <파일> <찾을 글자> <바꿀 글자> — 무변이 대조 통과 + 변이 탐지 = PASS
   rm -rf "$TMP/mut"; mkdir -p "$TMP/mut"
-  cp "$BIN/ft_team_main.py" "$BIN/ft_team_main_inputs.py" "$BIN/ft_team_lib.py" "$BIN/ft_headline_seats.py" "$BIN/ft-team-main.sh" "$TMP/mut/"
+  cp "$BIN/ft_team_main.py" "$BIN/ft_team_main_assign.py" "$BIN/ft_team_main_inputs.py" "$BIN/ft_team_lib.py" "$BIN/ft_headline_seats.py" "$BIN/ft-team-main.sh" "$TMP/mut/"
   local keep="$BIN"
   BIN="$TMP/mut"; case_ "$2" >/dev/null 2>&1 || { echo "FAIL 무변이 대조 실패(변이 전에도 케이스 실패): $1"; BAD=1; BIN="$keep"; return; }
   python3 - "$TMP/mut/$3" "$4" "$5" <<'PY' || { echo "FAIL 변이 적용 실패: $1"; BAD=1; BIN="$keep"; return; }

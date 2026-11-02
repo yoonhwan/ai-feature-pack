@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""ft_team_main.py render <팀>|--all — r1315 1단계: 팀 메인 파일(STATE)을 «머리 + ①절대 지침 + ②카드 + ③배정받은 작업» 고정 꼴로 다시 쓴다.
-쓰기 = `<데이터 루트>/.fable-team/state/team-main/<팀>/{STATE.md,archive/STATE-closed-YYYYMM.md,cards-baseline.tsv}` 뿐(추적 파일 0 · 커밋 0 · 도구 실행 0).
+"""ft_team_main.py render <팀>|--all — 팀 메인 파일(STATE)을 «1행 제0목표 + 2행 헤드라인 + ①절대 지침 + ②카드 + ③배정받은 작업 + ④배정표» 고정 꼴로 다시 쓴다(r1315 · r1322).
+쓰기 = `<데이터 루트>/.fable-team/state/team-main/<팀>/{STATE.md,archive/STATE-closed-YYYYMM.md,cards-baseline.tsv}` + `ASSIGN.md`(없을 때만 틀 1개 · 있으면 읽기만 · 팀장 손) 뿐(추적 파일 0 · 커밋 0 · 도구 실행 0).
 닫힌 줄 = 직전 «정상 회차» 기준 파일에 있고 이번에 빠진 ② 진행 카드 → 그 달 archive append(삭제 0). ② 판정 불가 회차 = 비교·기준 갱신 0.
 절당 40줄 넘으면 계속 쓰고 머리줄 WARN · 실패는 그 칸만 «판정 불가(사유)» · stderr 팀마다 1줄 `team-main <팀> 진행 N 대기 N 완성미확인 N 발주 N 결정 N`
 env: FT_ROOT · FT_TEAMS_MD · FT_TEAM_MAIN_NOW(epoch) · FT_DIRECTIVE_TABLE · FT_DIRECTIVE_REF · FT_TEAM_MAIN_GIT_SEC(7)
@@ -17,17 +17,11 @@ from pathlib import Path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import ft_team_lib  # noqa: E402
+import ft_team_main_assign as assign  # noqa: E402
 import ft_team_main_inputs as inputs  # noqa: E402
 
 MAX_LINES = 40  # 절당 상한(넘으면 WARN · 내용 보존)
 USAGE = "사용: ft-team-main.sh render <팀>|--all"
-
-def _data_root(root: Path) -> Path:  # FT_ROOT · 아니면 공용 루트의 LIVE_ROOT(ft_team_lib.data_root 규칙)
-    out = ft_team_lib._git_out(root, "rev-parse", "--path-format=absolute", "--git-common-dir")
-    c = out.stdout.strip()
-    if not out.returncode and c:
-        return Path(ft_team_lib.data_root(Path(c).parent if c.endswith("/.git") else Path(c)))
-    raise inputs.Undecided("git 공용 루트 못 읽음")
 
 def _write(path: Path, lines: list[str]) -> None:  # 임시 파일 + os.replace = 중간에 잘린 STATE 0
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -122,8 +116,8 @@ def _archive(folder: Path, now: float, prev: dict[str, str], cur: dict[str, str]
 def one(team: str, root: Path, data: Path, now: float, dormant: tuple[str, ...] = ()) -> str:  # → stderr 1줄 · 휴면은 머리 «휴면» 1줄
     folder, (head, seats) = data / ".fable-team/state/team-main" / team, inputs.tick_files(root, team)
     head = head or "헤드라인 없음"
-    if team in dormant:
-        _write(folder / "STATE.md", [f"{head}  [휴면]"])
+    if team in dormant:   # r1322 G1 — 휴면 팀도 1행 제0목표 · 2행 옛 머리
+        _write(folder / "STATE.md", [assign.GOAL0, f"{head}  [휴면]"])
         return f"team-main {team} 휴면"
     ctx: dict = {"root": root, "now": now, "hhmm": time.strftime("%m-%d %H:%M", time.localtime(now)), "seats": seats,
                  "cards": None, "cards_why": "", "stamp": "", "repo": str(root),
@@ -143,7 +137,8 @@ def one(team: str, root: Path, data: Path, now: float, dormant: tuple[str, ...] 
     if ctx["cards"] is not None:
         _archive(folder, now, _baseline(folder / "cards-baseline.tsv"), cur)
         _write(folder / "cards-baseline.tsv", [f"{k}\t{v}" for k, v in sorted(cur.items())])
-    _write(folder / "STATE.md", [head_line, *_sec_directive(team, ctx), *sec2, *sec3])
+    _write(folder / "STATE.md", [assign.GOAL0, head_line, *_sec_directive(team, ctx), *sec2, *sec3,
+                                  *assign.section(folder, now)])
     rows, unk = ctx["cards"] or {}, "?"
     return (f"team-main {team} 진행 {len(rows.get('진행', [])) if rows else unk} 대기 {len(rows.get('대기', [])) if rows else unk}"
             f" 완성미확인 {len([r for r in rows.get('완성', []) if not r['check']]) if rows else unk} 발주 {nums['발주']} 결정 {nums['결정']}")
@@ -157,8 +152,8 @@ def main(argv: list[str]) -> int:
     root = Path(os.environ["FT_ROOT"]) if os.environ.get("FT_ROOT") else Path(ft_team_lib.repo_root())
     try:
         active, dormant = ft_team_lib.team_names(root), tuple(ft_team_lib.team_names(root, "휴면"))
-        data = _data_root(root)
-    except (ft_team_lib.TeamPathError, inputs.Undecided) as e:
+        data = assign.data_dir(root)
+    except (ft_team_lib.TeamPathError, inputs.Undecided, OSError) as e:
         print(f"ERROR 팀 메인 파일 렌더 판정 불가: {e}", file=sys.stderr)
         return 4
     teams = [*active, *dormant] if target == "--all" else [target]
