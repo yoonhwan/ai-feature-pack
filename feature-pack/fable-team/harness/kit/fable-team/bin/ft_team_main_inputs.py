@@ -12,8 +12,7 @@ import subprocess
 from pathlib import Path
 
 GIT_SEC, STALE_MIN = float(os.environ.get("FT_TEAM_MAIN_GIT_SEC") or 7), 20
-DIR, PRE = "design/teams/planner", "THREAD-oppa-directives-"
-KINDS = ("진행", "대기", "완성")
+DIR, PRE, KINDS = "design/teams/planner", "THREAD-oppa-directives-", ("진행", "대기", "완성")
 SEAT = re.compile(r"byz-([a-z0-9_-]+?)-(?:master|arch|da|pm|desk|nano|tester|checker|analyst|impl)")
 SEQ, NL = re.compile(r"^#(\d+)"), re.compile(r"^-\s*지시\s*#\s*:\s*(\d+)", re.M)
 CK, SPLIT = re.compile(r"^-\s*확인\s*:", re.M), re.compile(r"[,\s·/]+")
@@ -64,11 +63,8 @@ def _tables(text: str) -> list[tuple[list[str], list[list[str]]]]:  # 구분선 
             for k, i in enumerate(marks)]
 
 
-def _idx(header: list[str], *keys: str) -> int | None:
-    return next((i for i, c in enumerate(header) if any(k in c for k in keys)), None)
-
-
 def directive(repo: str, ref: str, team: str, override: str | None = None) -> tuple[list[dict], list[str]]:  # (이 팀 행, 팀 미지정 번호)
+    _idx = lambda h, *k: next((i for i, c in enumerate(h) if any(x in c for x in k)), None)  # noqa: E731
     if override:
         try:
             text = Path(override).read_text(encoding="utf-8")
@@ -122,9 +118,11 @@ def _blobs(repo: str, ref: str, paths: list[str]) -> dict[str, str]:  # `git cat
     return got
 
 
-def status_line(text: str) -> str | None:  # «## 상태» 절 마지막 줄(카드 상태 정본) · 70자 넘으면 «…»
-    parts = text.split("## 상태", 1)
-    lines = [ln.strip() for ln in parts[1].split("\n## ", 1)[0].splitlines() if ln.strip()] if len(parts) > 1 else []
+def status_line(text: str) -> str | None:  # 줄 머리 제목 «## 상태» 절의 마지막 줄(카드 상태 정본) · 70자 넘으면 «…»
+    m = re.search(r"(?m)^##[ \t]*상태", text)
+    tail = text[m.end():] if m else ""
+    nxt = re.search(r"(?m)^##[ \t]", tail)
+    lines = [ln.strip() for ln in (tail[:nxt.start()] if nxt else tail).splitlines() if ln.strip()]
     if not lines:
         return None
     line = re.sub(r"^[-*]\s*", "", lines[-1])
@@ -148,21 +146,21 @@ def cards(repo: str, ref: str, folder: str) -> dict[str, list[dict]]:  # → {�
     return out
 
 
-def latest(root: Path, kind: str, now: float) -> dict:  # 없음·JSON 아님·꼴 다름·20분 넘게 다름 = Undecided(그 종류만)
+def latest(root: Path, kind: str, now: float) -> dict:  # 없음·JSON 아님·최상위 객체 아님·꼴 다름·20분 넘게 다름 = Undecided
     path = root / ".fable-team/state" / kind / "latest.json"
     if not path.is_file():
-        raise Undecided(f"{kind} latest 없음")
+        raise Undecided("latest 없음")
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
+        doc = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeError, ValueError):
-        raise Undecided(f"{kind} latest JSON 아님") from None
-    w, items = data.get("written_at"), data.get("items") if isinstance(data, dict) else None
+        raise Undecided("latest JSON 아님") from None
+    w, items = (doc.get("written_at"), doc.get("items")) if isinstance(doc, dict) else (None, None)  # 최상위 []·null·문자열도 «꼴 다름»
     if not isinstance(w, int) or not isinstance(items, list):
-        raise Undecided(f"{kind} latest 꼴 다름(written_at·items)")
+        raise Undecided("latest 꼴 다름(written_at·items)")
     gap = int((now - w) / 60)
     if abs(gap) > STALE_MIN:
         raise Undecided(f"집계 {gap}분 전" if gap > 0 else f"집계 {-gap}분 뒤")
-    return {"items": items, "stamp": data.get("stamp")}
+    return {"items": items, "stamp": doc["stamp"] if "stamp" in doc else None}
 
 
 def _read(path: Path) -> list[str]:
