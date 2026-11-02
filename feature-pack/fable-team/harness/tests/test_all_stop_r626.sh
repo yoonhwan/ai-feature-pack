@@ -3,7 +3,9 @@
 # 격리: 임시 git 루트(FT_ROOT) + 임시 명부 2팀(+planner) + 가짜 mbox(FT_MBOX_SH · 받은 인자만 적는다) + 가짜 tmux/tmuxc + 가짜 자원 센서 — 실 mbox·명부·tmux 0.
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -u   # pipefail 쓰지 않는다 — `cmd | grep -q` 가 SIGPIPE(141)로 거짓 FAIL 을 낸다
+export LC_ALL=C
 export FT_ALLOW_TRACKED_BIN=1   # R201: 시험은 추적 사본 원본을 직접 부른다
+export FT_SEND_FROM='byz-v65-master-claude#1'   # r1244: 팀 기본값 = «부른 좌석 팀» — 이 시험의 부른 좌석은 v65 팀장(안 적으면 REJECT rc2)
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 BIN="$HERE/../../harness/kit/fable-team/bin"; HK="$HERE/../../harness/kit/fable-team/templates/hooks"
 fail=0; out=""; rc=0
@@ -19,15 +21,18 @@ printf '#!/usr/bin/env bash\nexit 0\n' > "$FAKE/tmuxc"; chmod +x "$FAKE/tmux" "$
 fake_comm_root "$REPO" || bad "fake_comm_root"   # git init + .fable-team/comm · FT_ROOT=REPO
 MAIL="$TMP/mail.log"; printf '#!/usr/bin/env bash\nprintf "%%s\\t" "$@" >> "%s"; echo >> "%s"\n' "$MAIL" "$MAIL" > "$TMP/mbox.sh"
 export FT_MBOX_SH="$TMP/mbox.sh" PATH="$FAKE:$PATH"
-mkdir -p "$REPO/.fable-team/state" "$REPO/design/v65/indices/inbox/master" "$REPO/design/teams/aa"; : > "$REPO/design/v65/SEATBELT-README.md"
-echo '{"_label":"aa","_master":"byz-aa-master-claude#1","byz-aa-master-claude#1":{"role":"master"}}' > "$REPO/.fable-team/seats-aa.json"
-echo '{"_label":"m.bb","_master":"byz-bb-master-claude#2","byz-bb-master-claude#2":{"role":"master"}}' > "$REPO/.fable-team/seats-bb.json"
+mkdir -p "$REPO/.fable-team/state" "$REPO/design/v65/indices/inbox/master" "$REPO/design/teams/aa/indices" "$REPO/design/teams/bb/indices"; : > "$REPO/design/v65/SEATBELT-README.md"
+echo '{"_label":"aa","_master":"byz-aa-master-claude#1","_cards":"design/teams/aa/indices","_cards_wt":"","byz-aa-master-claude#1":{"role":"master"}}' > "$REPO/.fable-team/seats-aa.json"
+echo '{"_label":"m.bb","_master":"byz-bb-master-claude#2","_cards":"design/teams/bb/indices","_cards_wt":"","byz-bb-master-claude#2":{"role":"master"}}' > "$REPO/.fable-team/seats-bb.json"
 echo '{"_label":"planner","_master":"byz-planner-master-claude#9","byz-planner-master-claude#9":{"role":"master"}}' > "$REPO/.fable-team/seats-planner.json"
 echo '{}' > "$REPO/.fable-team/seats.json"
 printf '# aa 상태\n' > "$REPO/design/teams/aa/STATE.md"
 # r688: STATE.md 자리 = 명단(origin/main:design/TEAMS.md) 칸 — 시험 팀 aa·bb 행 + 꼴3 harness 행을 명단에 싣고 origin/main 으로 고정
 printf '| aa | `design/teams/aa/` | a | 현역 |\n| bb | `design/teams/bb/` | b | 현역 |\n' >> "$REPO/design/TEAMS.md"
 sed -i '' 's#| harness | `design/harness/`#| harness | `$FT_HARNESS_ROOT/design/harness/`#' "$REPO/design/TEAMS.md"
+sed -i '' -e 's#| harness | `\$FT_HARNESS_ROOT/design/harness/` | h | 현역 |#| harness | `\$FT_HARNESS_ROOT/design/harness/` | h | 휴면 |#' \
+  -e 's#| planner | `design/planner/` | p | 현역 |#| planner | `design/planner/` | p | 휴면 |#' \
+  -e 's#| v65 | `design/v65/` | v | 현역 |#| v65 | `design/v65/` | v | 휴면 |#' "$REPO/design/TEAMS.md"
 git -C "$REPO" add design/TEAMS.md && git -C "$REPO" -c user.name=t -c user.email=t@t commit -q -m teams && git -C "$REPO" update-ref refs/remotes/origin/main HEAD || bad "r688 명단 고정"
 rc=0; out=""; o="$(cd "$REPO" && python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); import ft_all_stop as a; print(a.team_rel("m.bb"), a.team_rel("harness"))
 try: a.team_rel("zz"); print("NO-RAISE")
@@ -71,9 +76,9 @@ perm status; ck "ⓒ 켜짐 status 통과" "$rc"
 perm leave s1 mic; ck "ⓒ 켜짐 leave 통과" "$rc"
 
 # ── ⓓ status ──
-as status; [ "$rc" = 0 ] && echo "$out" | grep -q '^all_stop=on since=' && echo "$out" | grep -q 'team=aa state=X' && echo "$out" | grep -q 'team=m.bb state=X'; ck "ⓓ status on · 두 팀 X" $?
+as status; [ "$rc" = 0 ] && echo "$out" | grep -q '^all_stop=on since=' && echo "$out" | grep -q 'team=aa state=X' && echo "$out" | grep -q 'team=bb state=X'; ck "ⓓ status on · 두 팀 X" $?
 printf '# aa 상태\n\n## 정지 직전\n- 하던 일: r1\n' > "$REPO/design/teams/aa/STATE.md"; touch "$REPO/design/teams/aa/STATE.md"
-as status; echo "$out" | grep -q 'team=aa state=O' && echo "$out" | grep -q 'team=m.bb state=X'; ck "ⓓ STATE.md «정지 직전» 적은 팀 O" $?
+as status; echo "$out" | grep -q 'team=aa state=O' && echo "$out" | grep -q 'team=bb state=X'; ck "ⓓ STATE.md «정지 직전» 적은 팀 O" $?
 
 # ── ⓔ 끄기 ──
 echo '{"since":1,"reason":"벌칙","order":["aa"],"resumed":[]}' > "$ST/PENALTY_STOP"; PEN0="$(cat "$ST/PENALTY_STOP")"; : > "$MAIL"

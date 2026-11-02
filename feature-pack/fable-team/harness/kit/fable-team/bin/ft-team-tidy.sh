@@ -3,6 +3,7 @@
 #   팀 소속(접두 검색 0): 좌석 = <리포>/.fable-team/seats-<팀>.json 의 행 키 «정확히» · 사본 주인 = 그 키 + `_replaced_by`·`_replaces` 값 · 세션 = 키와 정확히 같은 tmux 이름 · 카드 = 팀 폴더 indices/{대기,진행,완성}
 #     --root = 명부·사본 장부가 있는 리포(기본 cwd 공용 루트) · --cards-root = 카드를 셀 최신 체크아웃(기본 --root · 전·후 같은 트리)
 #   세는 규칙(전·후 같음): 카드 = 상태 폴더 *.md 수 · 좌석 = 행마다 한 칸(은퇴 `_replaced_by` → 닫힘 `_closed` → 열림) + «닫힘·은퇴인데 세션 생존» 수 · 사본 = 팀 주인 장부 줄(경로 기준 1번) · 그중 경로 없음 · 주인 세션 없음
+#   r1226 사본 주인 = 명부 키 + `_replaced_by`/`_replaces` 값 ∪ `state/nano-card-base/<좌석>.json` 중 card_path 가 `design/<팀>/indices/…` 또는 `design/teams/<팀>/indices/…` 인 좌석(팀 칸 «정확히» · 접두 0 · ft-nano-close 가 지운 명부 행 몫) · 그 기록을 못 읽거나 card_path 없으면 그 파일만 건너뛰고 경고 1줄(rc 영향 0)
 #   --apply 집행(각 도구의 자기 게이트가 정한다 · rc1·3 = 게이트 거절 = 남김 + 원문 1줄):
 #     카드 = 착지(`- 착지:` sha 가 기준 가지 조상)된 진행 카드 중 카드 안에 `<판정문>.md#§N` 이 있는 것만 → ft-index-move.sh <카드> 완성 --da <그것> --landed <sha>(cwd = --cards-root)
 #            판정문 없는 착지 카드 · 착지 안 됐고 좌석 0 인 진행 카드 → 목록만(그 팀 master 판단)
@@ -62,6 +63,19 @@ def cards():
             if da: out('CARDMOVE',f,da,sha)
             else: out('CARDLIST',slug,'착지됐는데 진행 · 판정문#§N 없음 — %s master 판단'%team)
         elif not live: out('CARDLIST',slug,'좌석 0 진행 — %s master 판단(이동 sha 또는 남김 사유)'%team)
+def base_owners(): # r1226: 닫힌 나노의 카드 폴더가 그 팀이면 그 나노도 팀 사람(명부 행은 nano-close 가 지운다)
+    d=os.path.join(root,'.fable-team','state','nano-card-base')
+    if not os.path.isdir(d): return set()
+    got=set()
+    for f in sorted(glob.glob(os.path.join(d,'*.json'))):
+        seat=os.path.basename(f)[:-5]; rec=os.path.basename(f)
+        try: cp=json.load(open(f,encoding='utf-8')).get('card_path')
+        except (OSError,ValueError) as e: out('WARN','사본','%s — 기록 못 읽음(%s) · 건너뜀'%(rec,e)); continue
+        if not isinstance(cp,str) or not cp.strip(): out('WARN','사본','%s — card_path 없음 · 건너뜀'%rec); continue
+        p=[x for x in cp.split('/') if x]
+        if (len(p)>3 and p[0]=='design' and p[1]=='teams' and p[2]==team and p[3]=='indices') or (len(p)>2 and p[0]=='design' and p[1]==team and p[2]=='indices'): got.add(seat)
+    return got
+
 def role_of(k,v):
     r=v.get('_closed_role') or v.get('_retired_role')
     if r: return r
@@ -90,6 +104,7 @@ def seats():
         for x in (v.get('_replaced_by'),v.get('_replaces')):
             owners.update([x] if isinstance(x,str) else [y for y in x if isinstance(y,str)] if isinstance(x,list) else [])
     owners.discard('')
+    owners |= base_owners()
     return owners
 def copies(owners):
     for o in sorted(owners): out('OWNER',o)
@@ -125,7 +140,7 @@ verdict() { # <영역> <대상> — RC 0 = 집행 · 1·3 = 게이트 거절(남
   case "$RC" in 0) bump EX "$1"; add "집행 $1 $2 rc=0 — $O";; 1|3) bump RJ "$1"; add "거절 $1 $2 rc=$RC — $O";; *) bad "$1" "$2 도구 rc=$RC — $O";; esac
 }
 B="$(scan)" || { echo "판정 불가 스캔 실패(rc=$?) — $TEAM"; exit 3; }
-while IFS=$'\t' read -r k a v; do [ "$k" = ERR ] && bad "$a" "$v"; done <<<"$B"
+while IFS=$'\t' read -r k a v; do case "$k" in ERR) bad "$a" "$v";; WARN) echo "경고 $a — $v";; esac; done <<<"$B"
 run "$CROOT" bash "$CF" --team "$TEAM" --root "$CROOT" ${CDIR:+--dir "$CDIR"}; CFL="$O"; [ "$RC" = 0 ] || bad 카드 "ft-card-flow rc=$RC — $O"
 
 while IFS=$'\t' read -r _ f da sha; do   # 카드: 판정문#§N 있는 착지 카드만 ft-index-move 게이트로

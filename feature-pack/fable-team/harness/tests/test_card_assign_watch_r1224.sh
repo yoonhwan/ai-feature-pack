@@ -10,6 +10,18 @@ HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"; REPO="$HERE/../.
 BIN="$REPO/harness/bin"; COMM="$REPO/harness/comm"; KIT="$REPO/harness/kit/fable-team/bin"; FX="$REPO/harness/tests/fixtures/card_assign"
 T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T"' EXIT
 fail=0; ok() { echo "PASS $1"; }; bad() { echo "FAIL $1"; fail=$((fail+1)); }
+cut() {
+  if [ "${1:-}" = "-d·" ] || { [ "${1:-}" = "-d" ] && [ "${2:-}" = "·" ]; }; then
+    local fields
+    if [ "${1:-}" = "-d·" ]; then fields="${2#-f}"; else fields="${3#-f}"; fi
+    command python3 -c 'import sys; a=sys.argv[1]; lo,sep,hi=a.partition("-"); lo=int(lo); hi=int(hi) if sep and hi else lo; [print("·".join(line.rstrip("\n").split("·")[lo-1:hi])) for line in sys.stdin]' "$fields"
+  elif [[ "${1:-}" == -c* ]]; then
+    command python3 -c 'import sys; a=sys.argv[1][2:]; lo,sep,hi=a.partition("-"); lo=int(lo); hi=int(hi) if sep and hi else lo; [print(line.rstrip("\n")[lo-1:hi]) for line in sys.stdin]' "$1"
+  else
+    command cut "$@"
+  fi
+}
+export -f cut
 T0=$(date +%s); STEP=""; lap() { STEP="$STEP $1=$(( $(date +%s) - T0 ))s"; T0=$(date +%s); }
 TOOL="$BIN/ft_card_assign_watch.py"; LINT="$COMM/ft-boot-report-lint.py"
 PLANNER='byz-planner-master-claude#9'; HMASTER='byz-harness-master-claude#33'; RMASTER='byz-room-master-claude#1'
@@ -18,6 +30,7 @@ gc() { GIT_AUTHOR_DATE="$2" GIT_COMMITTER_DATE="$2" git -C "$1" -c user.name=t -
 new_root() {  # 임시 루트 R = git 리포(main) + 카드 루트 표 + 명부(_master) + 가짜 mbox · 원장 = R/.fable-team/state/card-assign
   R="$(mktemp -d "$T/r.XXXXXX")"; mkdir -p "$R/.fable-team/state" "$R/$H/대기"
   git -C "$R" init -q -b main; printf '.fable-team/\nmbox.sh\nsent.log\n' > "$R/.gitignore"; git -C "$R" add .gitignore; gc "$R" "$((NOW - 200000)) +0900" init
+  printf '| 팀 | 폴더 | 오케 | 상태 |\n|---|---|---|---|\n| harness | design/harness/ | h | 현역 |\n| room | design/teams/room/ | r | 현역 |\n' > "$R/design/TEAMS.md"
   printf 'harness\t.\tmain\tdesign/harness/indices\n*\t.\tmain\tdesign/teams/*/indices\n' > "$R/.fable-team/state/directive-roots.tsv"
   printf '{"_master":"%s"}\n' "$PLANNER" > "$R/.fable-team/seats-planner.json"; printf '{"_master":"%s"}\n' "$HMASTER" > "$R/.fable-team/seats-harness.json"
   printf '{"_master":"%s"}\n' "$RMASTER" > "$R/.fable-team/seats-room.json"; printf '{}\n' > "$R/.fable-team/seats.json"
@@ -121,12 +134,13 @@ lap R6
 # ⓖ R7 틱 — 2통 · 같은 집합 0통 · 사유만 바뀜 1통씩 · 판본·경과만 0통 · planner 실패 → 다음 틱 그만 재송 · 실제 mbox_guard · 판정 불가 1통
 r7_env() { new_root; card "$R" "$H/대기/t1.md" "$((NOW - 90000))" "- 상태: 대기"; led "$R" t1 '{"state":"waiting","reason":"부하","since":'$((NOW-18000))'}'; prep; }
 r7_env; run tick; t1=$RC; s1=$(sent); run tick; s2=$(sent)
-led "$R" t1 '{"state":"waiting","reason":"석","since":'$((NOW-18000))'}'; run tick; s3=$(sent); FT_CARD_ASSIGN_NOW=$((NOW + 600)) run tick; s4=$(sent)
+led "$R" t1 '{"state":"waiting","reason":"lint","since":'$((NOW-18000))'}'; run tick; s3=$(sent); FT_CARD_ASSIGN_NOW=$((NOW + 600)) run tick; s4=$(sent)
 r7_env; FAKE_FAIL_TO="$PLANNER" run tick; export -n FAKE_FAIL_TO 2>/dev/null; p1=$(sent "^$PLANNER"); FAKE_FAIL_TO=$PLANNER run tick; run tick; p2=$(sent "^$PLANNER"); m2=$(sent "^$HMASTER")
 [ "$t1" = 1 ] && [ "$s1$s2$s3$s4" = 2244 ] && [ "$p2:$m2" = "$((p1 + 2)):1" ] && grep -qF '[긴급] 배정 없는 카드 — 배정 없는 카드 0 · 대기 초과 1(부하 1)' "$R/sent.log" \
   && ok "R7 2통 · 같은 집합 0 · 사유만 바뀜 → 각 1통 · 판본·경과만 0 · planner 실패 → 다음 틱 planner 만 재송" || bad "R7 t1=$t1 s=$s1$s2$s3$s4 p=$p1/$p2 m=$m2 :: $(cat "$R/sent.log")"
 mv "$R/.fable-team/state/directive-roots.tsv" "$R/.fable-team/state/roots.off"; run tick; u1=$RC; run tick
-[ "$u1" = 3 ] && [ "$(sent "^$PLANNER.*배정 감시 판정 불가")" = 1 ] && ok "R7′ 판정 불가 → planner [긴급] 1통 · 다음 틱 억제" || bad "R7′ u1=$u1 :: $(tail -2 "$R/sent.log")"
+  [ "$u1" = 3 ] && [ "$(sent "^$PLANNER.*배정 감시 판정 불가")" = 0 ] && [ "$(wc -l < "$R/.fable-team/state/card-assign/undecided.log" | tr -d ' ')" = 2 ] \
+    && ok "R7′ 판정 불가 → 즉시 [긴급] 없이 undecided.log 2줄 · rc3" || bad "R7′ u1=$u1 :: $(tail -2 "$R/sent.log")"
 r7_env; mkdir -p "$R/.fable-team/comm" "$T/stub"; cp "$COMM"/mbox*.py "$COMM"/mbox*.sh "$LINT" "$R/.fable-team/comm/"; printf '#!/bin/sh\nexit 1\n' > "$T/stub/tmux"; chmod +x "$T/stub/tmux"
 OUT="$(cd "$R" && env -u FT_MBOX_SH PATH="$T/stub:$PATH" FT_ROOT="$R" FT_SEATS_JSON="$R/.fable-team/seats.json" FT_PLANNER_HEAD_MODE=reject FT_MBOX_DIR="$R/.fable-team/comm" FT_MBOX_RATE_N=999 FT_MBOX_FANOUT_WINDOW=0 python3 "$TOOL" tick 2>&1)"
 q="$(grep -c "\"to\": *\"$PLANNER\"" "$R/.fable-team/comm/mailbox.jsonl" 2>/dev/null)"
@@ -137,7 +151,7 @@ r1_env; run status; HEAD1="$(hd)"; ST="$(printf '%s' "$HEAD1" | sed -n 's/.*판�
 mkdir -p "$T/seats7/state/directive-watch"; printf '%s\n' '{"_master":"byz-harness-master-claude#33","byz-harness-master-claude#32":{"role":"stop-ready","_replaced_by":"byz-harness-master-claude#33"},"byz-harness-master-claude#33":{"role":"master","_replaces":["byz-harness-master-claude#32"]}}' > "$T/seats7/seats-harness.json"
 DST="$NOW-0000abcd"; printf '%s\t0\t0\n' "$DST" > "$T/seats7/state/directive-watch/stamps.tsv"; DIR="담당 없는 오빠 지시 0 · 멈춘 오빠 지시 0 · 판본 $DST"
 BOOT="[부팅 보고] 세션=x retire=byz-harness-master-claude#32->byz-harness-master-claude#33 rc=0 cron=abc123 $DIR"
-lint() { LOUT="$(printf '%s' "$1" | env FT_CARD_ASSIGN_STAMPS="${STAMPS:-$CS}" python3 "${LINT_RUN:-$LINT}" --from "$HMASTER" --seats-dir "$T/seats7" 2>&1)"; LRC=$?; }
+lint() { LOUT="$(printf '%s' "$1" | env FT_CARD_ASSIGN_STAMPS="${STAMPS:-$CS}" PYTHONPATH="$COMM${PYTHONPATH:+:$PYTHONPATH}" python3 "${LINT_RUN:-$LINT}" --from "$HMASTER" --seats-dir "$T/seats7" 2>&1)"; LRC=$?; }   # PYTHONPATH = 변이 사본이 mbox_retire_check 를 import 할 수 있게(r1319 뒤 변이3 거짓 빨강)
 lint "$BOOT"; r_none=$LRC; lint "$BOOT ${HEAD1/판본 $ST/판본 ${ST%%-*}-00000000}"; r_row=$LRC; lint "$BOOT ${HEAD1/배정 없는 카드 3/배정 없는 카드 4}"; r_num=$LRC
 FT_DIRECTIVE_NOW=$(( ${ST%%-*} + 1860 )) lint "$BOOT $HEAD1"; r_old=$LRC; STAMPS="$T/none.tsv" lint "$BOOT $HEAD1"; r_nof=$LRC; nof="$LOUT"
 lint "$BOOT 배정 감시 판정 불가 · git 상한 넘김"; r_und=$LRC; und="$LOUT"; lint "$BOOT $HEAD1"; r_ok=$LRC
@@ -170,7 +184,7 @@ src, dst, a, b = sys.argv[1:5]; s = open(src, encoding="utf-8").read(); assert a
 open(dst, "w", encoding="utf-8").write(s.replace(a, b))
 PY
 }
-mkdir -p "$T/m"; cp "$BIN"/ft_*.py "$T/m/"; mut "$TOOL" "$T/m/ft_card_assign_watch.py" "WAIT_S, URGENT_S, ORDER_S, MUTE_S = 4 * 3600," "WAIT_S, URGENT_S, ORDER_S, MUTE_S = 10 ** 9,"
+mkdir -p "$T/m"; cp "$BIN"/ft_*.py "$T/m/"; mut "$TOOL" "$T/m/ft_card_assign_watch.py" "WAIT_S, URGENT_S, ORDER_S, MUTE_S, CLAIM_S = 4 * 3600," "WAIT_S, URGENT_S, ORDER_S, MUTE_S, CLAIM_S = 10 ** 9,"
 r1_env; TOOL_RUN="$T/m/ft_card_assign_watch.py" run status
 r1_ok && bad "변이1(일반 임계 4시간 → 무한) 이 R1 에 안 잡힘" || { case "$(hd)" in *"대기 초과 1(석 1)"*) ok "변이1(일반 임계 → 무한) → R1 빨강(초과 2→1 · 긴급 1 남음)";; *) bad "변이1 꼴 :: $(hd)";; esac; }
 r1_env; run status; HEAD1="$(hd)"; ST="$(printf '%s' "$HEAD1" | sed -n 's/.*판본 \([0-9]*-[0-9a-f]*\).*/\1/p')"; CS="$R/.fable-team/state/card-assign/stamps.tsv"
@@ -184,7 +198,8 @@ for f in ft_card_assign_watch.py ft-card-assign-watch.sh ft-nano-spawn.sh ft-tic
 python3 -m py_compile "$TOOL" "$LINT" 2>/dev/null && bash -n "$BIN/ft-card-assign-watch.sh" "$BIN/ft-nano-spawn.sh" "$BIN/ft-tick.sh" "$KIT/ft-index-lint.sh" && ok "py_compile · bash -n" || bad "문법"
 m="$(stat -f %Lp "$BIN/ft_card_assign_watch.py" "$BIN/ft-card-assign-watch.sh" "$KIT/ft_card_assign_watch.py" "$KIT/ft-card-assign-watch.sh" | sort -u | tr '\n' ' ')"; [ "$m" = "644 " ] && ok "새 파일 4개 모드 644" || bad "새 파일 모드 $m"
 n1="$(wc -l < "$LINT" | tr -d ' ')"; n2="$(wc -l < "$KIT/ft-index-lint.sh" | tr -d ' ')"; [ "$n1" -le 80 ] && [ "$n2" -le 160 ] && ok "부팅 lint ${n1}줄 ≤80 · 키트 index-lint ${n2}줄 ≤160" || bad "줄 수 $n1/$n2"
-BASE="$(git -C "$REPO" merge-base HEAD origin/main 2>/dev/null)"; for f in harness/bin/ft-role-spawn.sh harness/kit/fable-team/bin/ft-role-spawn.sh; do
-  [ -n "$BASE" ] && [ "$(git -C "$REPO" rev-parse "$BASE:feature-pack/fable-team/$f")" = "$(git -C "$REPO" hash-object "$REPO/$f")" ] || bad "ft-role-spawn 변경 있음 $f"; done && ok "ft-role-spawn.sh bin·kit blob = 기준판(역할 좌석 범위 밖)"
+# r1244: ft-role-spawn.sh «팀 기본값 = 부른 좌석 팀» 개정이 기준판 blob 가드를 깨므로, 이 카드의 본래 뜻(«이 카드가 역할 좌석 파일을 안 건드렸다»)은
+#   bin·kit 동기 하나로 지킨다 — 기준판 blob 비교는 역할 좌석 파일을 고치는 다음 카드마다 거짓 FAIL 을 낸다.
+cmp -s "$BIN/ft-role-spawn.sh" "$KIT/ft-role-spawn.sh" && ok "ft-role-spawn.sh bin·kit 같은 판(기준판 blob 비교는 r1244 뒤 폐기)" || bad "ft-role-spawn.sh bin·kit 다름"
 echo "단계별 초:$STEP"
 [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }

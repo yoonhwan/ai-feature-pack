@@ -39,7 +39,14 @@ le "ⓑ 5000행 show 1초 이하" "$NEW_MS" 1000
 [ "$NEW_MS" -lt "$BASE_MS" ] && ok "ⓑ 전판보다 빠름 (${NEW_MS}ms < ${BASE_MS}ms)" || bad "ⓑ 전판보다 느림/같음 (${NEW_MS}ms vs ${BASE_MS}ms)"
 
 # ⓒ 정본 술어 = 전판 그대로(재작성 0) · show 경로에서 group_closed 를 다시 부르지 않는다(제곱 제거의 근거)
-cmp -s "$FIX/ft_inbox_core.py" "$BIN/ft_inbox_core.py" && ok "ⓒ obligation_closed·group_closed 바이트 동일(전판 그대로)" || bad "ⓒ 술어가 바뀜"
+python3 - "$FIX/ft_inbox_core.py" "$BIN/ft_inbox_core.py" <<'PY' && ok "ⓒ obligation_closed·group_closed 소스 동일(전판 그대로)" || bad "ⓒ 술어가 바뀜"
+import ast, sys
+def preds(p):  # 두 술어 함수의 소스 원문만 — 파일의 다른 함수(haiku 등)가 바뀌어도 술어 불변을 가른다
+    s = open(p, encoding="utf-8").read()
+    return {n.name: ast.get_source_segment(s, n) for n in ast.parse(s).body if isinstance(n, ast.FunctionDef) and n.name in ("obligation_closed", "group_closed")}
+a, b = preds(sys.argv[1]), preds(sys.argv[2])
+sys.exit(0 if len(a) == 2 and a == b else 1)
+PY
 python3 - "$BIN/ft-inbox.py" <<'PY'
 import ast, sys
 src = open(sys.argv[1], encoding="utf-8").read()

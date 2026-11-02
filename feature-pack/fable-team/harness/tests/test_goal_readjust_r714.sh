@@ -487,7 +487,7 @@ mkdir -p "$R/.fable-team"; printf '/no/such/live/root\n' > "$R/.fable-team/LIVE_
 out="$(FT_NOW="2026-10-22 07:35" bash "$KITBIN/ft-goal-readjust.sh" --request "$REQ" 2>&1)"; RC=$?
 { [ "$RC" = 1 ] && has "LIVE_ROOT 무효" && [ -z "$(rounds)" ]; }; chk "ⓥ13 H13 무효 LIVE_ROOT = ERROR rc1 · 회차 파일 0(FT_ROOT 로 조용히 안 간다)" $?
 out="$(FT_NOW="2026-10-22 07:40" bash "$KITBIN/ft-goal-table.sh" render 2>&1)"; RC=$?
-{ [ "$RC" = 0 ] && has "재조정 기록 없음"; }; chk "ⓥ13b H13 무효 LIVE_ROOT 라도 렌더는 rc0(«재조정 기록 없음»)" $?
+{ [ "$RC" = 0 ] && has "재조정 판정 불가/LIVE_ROOT 무효"; }; chk "ⓥ13b H13 무효 LIVE_ROOT 라도 렌더는 rc0 + «재조정 판정 불가(LIVE_ROOT 무효…)»(r1324 G2 — «기록 없음» 글자 0)" $?
 
 # ⓦ ★DA⑥ r2 HOLD 작은 고침 5개 재시험★ — 뒷판 PASS · r2 판 FAIL 로 갈리는 칸
 # ⓦ1 H7 손상 표식 — «r702» 글자가 없는 «대응 유지 모름(표식 손상)» 도 렌더가 «·대응 모름» 으로 본다(접두 판별)
@@ -520,7 +520,7 @@ mkdir -p "$R/.fable-team"; printf '\n' > "$R/.fable-team/LIVE_ROOT"
 out="$(FT_NOW="2026-10-22 07:35" bash "$KITBIN/ft-goal-readjust.sh" --request "$REQ" 2>&1)"; RC=$?
 { [ "$RC" = 1 ] && has "LIVE_ROOT" && [ -z "$(rounds)" ]; }; chk "ⓦ3 H13 LIVE_ROOT 빈 값 = ERROR rc1 · 회차 파일 0" $?
 out="$(FT_NOW="2026-10-22 07:40" bash "$KITBIN/ft-goal-table.sh" render 2>&1)"; RC=$?
-{ [ "$RC" = 0 ] && has "재조정 기록 없음"; }; chk "ⓦ3b H13 빈 값이라도 렌더는 rc0(«재조정 기록 없음» — 사람이 «재조정 없음» 을 본다)" $?
+{ [ "$RC" = 0 ] && has "재조정 판정 불가/LIVE_ROOT 값 비었음"; }; chk "ⓦ3b H13 빈 값이라도 렌더는 rc0 + «재조정 판정 불가(LIVE_ROOT 값 비었음…)»(r1324 G2)" $?
 new_fx w4; commit init
 mkdir -p "$R/.fable-team"; printf '.\n' > "$R/.fable-team/LIVE_ROOT"
 out="$(FT_NOW="2026-10-22 07:35" bash "$KITBIN/ft-goal-readjust.sh" --request "$REQ" 2>&1)"; RC=$?

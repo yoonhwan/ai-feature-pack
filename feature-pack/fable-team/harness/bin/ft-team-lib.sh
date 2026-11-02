@@ -100,6 +100,70 @@ ft_index_rel() { local p="$1" t
   printf '%s\n' "$t"; }
 #   ft_team_in <루트> <팀>          : 그 «루트(워크트리 포함)» 의 design/TEAMS.md 로 푼 팀 폴더 절대경로 — 워크트리마다 이동 상태가 다를 수 있으니 도구가 읽는 루트의 명단을 쓴다. 명단·팀 없음 = ERROR rc1(옛 design/<팀>/ 후퇴 0)
 ft_team_in() { ( unset FT_TEAMS_MD; export FT_REPO_ROOT="$1"; ft_team_root "$2" ); }
+#   ft_planner_dir_resolve <데이터 루트> : 기존 planner 폴더만 반환 · sparse 는 S 표식과 주 worktree를 검증한다.
+ft_planner_dir_resolve() { local root="${1:-}" dir="" rel="" tracked rc=0 line sparse=1 worktrees first primary primary_real top common_root primary_info common_primary rerun_dir reason="" team_error="" timeout_bin bin
+  bin="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+  [ -n "$root" ] && [ -d "$root" ] || reason="데이터 루트가 없다: ${root:-<없음>}"
+  if [ -z "${reason:-}" ] && [ -n "${FT_PLANNER_DIR:-}" ]; then
+    dir="$FT_PLANNER_DIR"; case "$dir" in /*) ;; *) dir="$PWD/$dir";; esac
+    [ -d "$dir" ] || reason="FT_PLANNER_DIR 폴더 없음: $dir"
+  elif [ -z "${reason:-}" ]; then
+    dir="$(FT_TEAM_SPARSE_CHECK=0 FT_TEAM_TWIN_WARN=0 ft_team_in "$root" planner 2>&1)" || { team_error="$dir"; dir=""; }
+    if [ -d "$dir" ]; then :
+    else
+      rerun_dir='(없음)'
+      rel="$( ( unset FT_TEAMS_MD; FT_REPO_ROOT="$root" ft_team_rel planner ) 2>/dev/null)" || rel=""
+      if [ -n "$rel" ]; then
+        timeout_bin="$(command -v timeout || command -v gtimeout || true)"
+        [ -n "$timeout_bin" ] || reason="판정 불가(timeout 없음)"
+      else reason="${team_error:-planner 명단 경로를 못 풀었다}"
+      fi
+      if [ -z "$reason" ]; then
+        tracked="$("$timeout_bin" 7 git -C "$root" ls-files -v -- "$rel" 2>/dev/null)" || { rc=$?; reason="git ls-files -v 판정 실패(rc=$rc)"; }
+        [ -n "$tracked" ] || [ -n "$reason" ] || reason="planner 경로에 tracked 파일이 없다"
+      fi
+      if [ -z "$reason" ]; then
+        while IFS= read -r line; do [[ "$line" == S\ * ]] || sparse=0; done <<< "$tracked"
+        [ "$sparse" = 1 ] || reason="planner 경로에 S 외 표식이 있다"
+      fi
+      if [ -z "$reason" ]; then
+        worktrees="$("$timeout_bin" 7 git -C "$root" worktree list --porcelain 2>/dev/null)" || { rc=$?; reason="git worktree list 실패(rc=$rc)"; }
+        if [ -z "$reason" ]; then
+          first="${worktrees%%$'\n'*}"
+          case "$first" in worktree\ *) primary="${first#worktree }";; *) primary="";; esac
+          [ -n "$primary" ] || reason="첫 worktree 경로가 없다"
+        fi
+      fi
+      if [ -z "$reason" ]; then
+        primary_real="$(cd -- "$primary" 2>/dev/null && pwd -P)" || primary_real=""
+        [ -n "$primary_real" ] || reason="첫 worktree 경로가 실재하지 않는다"
+        if [ -z "$reason" ]; then
+          primary_info="$("$timeout_bin" 7 git -C "$primary" rev-parse --show-toplevel --path-format=absolute --git-common-dir 2>/dev/null)" || { rc=$?; reason="주 worktree git 루트 조회 실패(rc=$rc)"; }
+        fi
+        if [ -z "$reason" ]; then
+          top="${primary_info%%$'\n'*}"; common_primary="${primary_info#*$'\n'}"
+          common_root="$("$timeout_bin" 7 git -C "$root" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || { rc=$?; reason="데이터 루트 git 공용 경로 조회 실패(rc=$rc)"; }
+          [ -n "$reason" ] || { [ "$top" = "$primary_real" ] && [ "$common_root" = "$common_primary" ] || reason="첫 worktree가 같은 저장소의 주 worktree가 아니다"; }
+        fi
+      fi
+      if [ -z "$reason" ]; then
+        dir="$(FT_TEAM_SPARSE_CHECK=0 FT_TEAM_TWIN_WARN=0 ft_team_in "$primary" planner 2>&1)" || { team_error="$dir"; dir=""; }
+        [ -d "$dir" ] || reason="${team_error:-주 worktree planner 폴더가 실재하지 않는다}"
+        [ -z "$reason" ] || rerun_dir='(없음)'
+        [ -n "$reason" ] || echo "NOTE planner 폴더 = 주 워크트리 $dir(데이터 루트 sparse)" >&2
+      fi
+    fi
+  fi
+  if [ -n "${reason:-}" ]; then
+    [ -n "${rerun_dir:-}" ] || rerun_dir="${dir:-${FT_PLANNER_DIR:-'(없음)'}}"
+    FT_PLANNER_RERUN="$(printf '재실행: FT_ROOT=%q FT_PLANNER_DIR=%q bash %q ledger %q' "$root" "$rerun_dir" "$bin/ft-autonomy-start.sh" "${FT_PLANNER_EVENT:-A<N>}")"
+    echo "ERROR $reason · $FT_PLANNER_RERUN" >&2; return 1
+  fi
+  case "$dir" in /*) ;; *) dir="$(cd -- "$dir" && pwd -P)" || { echo "ERROR planner 폴더 실경로 확인 실패: $dir" >&2; return 1; };; esac
+  FT_PLANNER_DIR_RESOLVED="$dir"
+  FT_PLANNER_RERUN="$(printf '재실행: FT_ROOT=%q FT_PLANNER_DIR=%q bash %q ledger %q' "$root" "$dir" "$bin/ft-autonomy-start.sh" "${FT_PLANNER_EVENT:-A<N>}")"
+  printf '%s\n' "$dir"
+}
 #   ft_team_cands <루트> <팀>       : 그 루트에서 팀 폴더 «후보» 절대경로 줄마다 — 명단 꼴 먼저 · 쌍둥이(--alt)가 있으면 뒤에(꼴3 은 쌍둥이 0). 이동 «전·후 둘 다 찾는» 도구용(R383 · 팀 이름 글자 0). 명단·팀 없음 = ERROR rc1
 ft_team_cands() { ( unset FT_TEAMS_MD; export FT_REPO_ROOT="$1" FT_TEAM_TWIN_WARN=0 FT_TEAM_SPARSE_CHECK=0; ft_team_root "$2" || exit 1; ft_team_root "$2" --alt 2>/dev/null; exit 0 ); }
 #   ft_team_cands_ref <루트> <팀> [<ref>] : «명단 = ref · 폴더 = 루트»(R400 r3) — 명단은 `git show <ref>:design/TEAMS.md`(기본 origin/main · 워크트리 사본이 옛 명단이어도 무관), 후보 폴더는 그 루트 아래(명단 꼴 먼저 · 쌍둥이 뒤 · 꼴3 은 쌍둥이 0). ref 못 읽음 = `ERROR … 못 읽음` · 팀 없음 = ERROR(ft_team_rel) · 둘 다 rc1

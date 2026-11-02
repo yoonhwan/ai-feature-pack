@@ -170,10 +170,21 @@ def _load(d):
 
 
 def _save(d, rows):
+    # r1333: 같은 폴더 임시 파일에 다 쓴 뒤 os.replace — 잠금 없이 읽는 도구가 반쪽 큐를 보지 않는다.
     rows.sort(key=lambda r: r["seq"])
-    with open(_mbox(d), "w", encoding="utf-8") as f:
-        for r in rows:
-            f.write(json.dumps(r, ensure_ascii=False) + "\n")
+    p = _mbox(d)
+    tmp = os.path.join(d, ".mailbox.jsonl.tmp-%d" % os.getpid())
+    mode = os.stat(p).st_mode & 0o777 if os.path.exists(p) else 0o644
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            for r in rows:
+                f.write(json.dumps(r, ensure_ascii=False) + "\n")
+            f.flush(); os.fsync(f.fileno())
+        os.chmod(tmp, mode)
+        os.replace(tmp, p)
+    except BaseException:
+        if os.path.exists(tmp): os.unlink(tmp)
+        raise
 
 
 def _locked(d, fn):

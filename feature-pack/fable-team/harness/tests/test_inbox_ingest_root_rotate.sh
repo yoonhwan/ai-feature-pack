@@ -17,7 +17,7 @@ eq()  { [ "$2" = "$3" ] && ok "$1" || bad "$1 (기대 '$3' 실제 '$2')"; }
 
 ROOT="$T/root"; BIN="$ROOT/.fable-team/bin"; COMM="$ROOT/.fable-team/comm"; Q="$ROOT/.fable-team/state/inbox"
 mkdir -p "$BIN" "$COMM" "$T/outside"
-cp "$KIT"/ft-inbox.sh "$KIT"/ft-inbox.py "$KIT"/ft_inbox_core.py "$BIN/"
+cp "$KIT"/ft-inbox.sh "$KIT"/ft-inbox.py "$KIT"/ft_inbox_window.py "$KIT"/ft_inbox_core.py "$BIN/"
 row() {  # <seq> <body> → mailbox 한 줄
   python3 -c 'import json,sys; print(json.dumps({"seq":int(sys.argv[1]),"ts":"2026-10-17T20:00:00","from":"snd#1","to":"rcv-x#1","body":sys.argv[2]}, ensure_ascii=False))' "$1" "$2"
 }

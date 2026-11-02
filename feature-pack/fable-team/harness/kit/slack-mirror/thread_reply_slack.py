@@ -13,7 +13,8 @@ import time
 from pathlib import Path
 
 from magazine_slack import Target
-from mirror_lib import MirrorError, esc, thread_texts
+from mirror_lib import MirrorError, esc
+from mirror_marker import thread_texts
 from post_guard import guarded_post as post
 from thread_room_shape import ROOM_HINT, refuse_room_post, room_shaped, topic_only  # noqa: F401 — 판정 정본은 한 파일(r617)
 

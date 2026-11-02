@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Iterator
 
 import mirror_lib as lib
+import mirror_marker as markers
 
 MAX_THREADS = 500  # 오래된 키부터 밀려난다(무한 증가 0)
 
@@ -79,10 +80,23 @@ class Deliverer:
     def _post(self, text: str, thread_ts: str | None = None) -> str:
         return lib.post(self.api_base, self.token, self.channel, text, thread_ts)
 
-    def _find_root(self, key: str) -> str | None:
-        marker = lib.root_marker(key)
+    def _root_text(self, item: dict[str, object]) -> str:
+        key, kind = str(item.get("key", lib.OTHER_KEY)), str(item.get("root_kind") or "작업상황")
+        q = item.get("question") if isinstance(item.get("question"), dict) else {}
+        todo = str(q.get("todo") or "")
+        todo_line = (todo if todo.startswith("정할 것:") else f"정할 것: {todo}") if todo else (lib.ms.HIL_FALLBACK if kind == "결정" else None)
+        return lib.root_text(key, str(item.get("what", "")) or key, str(item["url"]) if item.get("url") else None,
+                             kind, todo_line, str(q.get("options_text") or "") or None)
+
+    def _find_root(self, item: str | dict[str, object]) -> str | None:
+        if isinstance(item, dict):
+            key = str(item.get("key", lib.OTHER_KEY))
+            kind = str(item.get("root_kind") or "")
+            marker = self._root_text(item) if kind else lib.root_marker(key)
+        else:
+            marker = lib.root_marker(item)
         for ts, text in lib.channel_roots(self.api_base, self.token, self.channel):
-            if lib.has_marker([text], marker):
+            if markers.has_marker([text], marker):
                 return ts
         return None
 
@@ -90,10 +104,28 @@ class Deliverer:
         key = str(item.get("key", lib.OTHER_KEY))
 
         def make_root() -> str:  # 루트만 올라가고 죽은 경우를 되찾는다(resume)
-            found = self._find_root(key) if resume else None
-            return found or self._post(lib.root_text(key, str(item.get("what", "")) or key, str(item["url"]) if item.get("url") else None))
+            found = self._find_root(item) if resume else None
+            return found or self._post(self._root_text(item))
 
         return ensure_thread(self.threads_path, key, make_root, self.max_threads)
+
+    def resolve(self, item: dict[str, object], resume: bool) -> tuple[str, dict[str, object] | None]:
+        if self.teams is None:
+            return self.thread_ts(item, resume), None
+        route = self.teams.route(item)
+        roots = {k: ensure_thread(self.threads_path, k, lambda k=k: self._team_root(k, resume), self.max_threads)
+                 for k in route.root_keys}
+        ts = self.thread_ts(item, resume) if isinstance(item.get("question"), dict) else roots[route.post_key]
+        return ts, {"route": route, "roots": roots}
+
+    def send_fixed(self, item: dict[str, object], ts: str, resume: bool, ctx: dict[str, object] | None = None) -> None:
+        if self.teams is None:
+            return self._reply(item, ts, resume, str(item["text"]))
+        if ctx is None:
+            return self._reply(item, ts, resume, str(item["text"]))
+        route, roots = ctx["route"], ctx["roots"]
+        self._reply(item, ts, resume, self.teams.reply_text(item, route))
+        self.teams.record(item, route, roots, ts if isinstance(item.get("question"), dict) else None)
 
     def has_thread(self, key: str) -> bool:
         """reply_only 대상 스레드가 있나 — 팀 모드면 원래 키 스레드(결정 요청) 또는 오늘 그 팀 뿌리 글."""
@@ -103,7 +135,8 @@ class Deliverer:
 
     def _reply(self, item: dict[str, object], ts: str, resume: bool, text: str) -> None:
         if resume:  # 조회가 실패하면 raise — 중복보다 지연
-            if lib.has_marker(lib.thread_texts(self.api_base, self.token, self.channel, ts), str(item["id"])):
+            marker_text = str(item.get("marker", item["id"]))
+            if markers.has_marker(markers.thread_texts(self.api_base, self.token, self.channel, ts), marker_text):
                 return
         self._post(text, ts)
 

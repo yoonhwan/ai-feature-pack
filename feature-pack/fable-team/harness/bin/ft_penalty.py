@@ -14,7 +14,7 @@ import sys
 import time
 from pathlib import Path
 
-from ft_stall_detect import load_teams
+from ft_stall_detect import load_teams, run
 
 FRESH_S = 600
 EXEMPT = ("harness", "planner")  # 복구 담당 팀 — 정지 대상 아님
@@ -56,23 +56,28 @@ def load() -> dict[str, object] | None:
     return json.loads(p.read_text(encoding="utf-8")) if p.exists() else None
 
 
-def mail(to: str, body: str) -> None:
+def mail(to: str, body: str) -> int:
+    """쪽지 1통 — r1282: 자식 묶음 정리(손자 고아 0) · 상한(기본 30초 · 시험용 env FT_STALL_PENALTY_TIMEOUT) · 시간 초과 = 예외 아니라 실패 rc."""
     sh = os.environ.get("FT_MBOX_SH") or str(root() / ".fable-team/comm/mbox.sh")
-    subprocess.run(["bash", sh, "send", to, os.environ.get("FT_STALL_FROM", "ft-stall-scan"), body, "--urgent"], capture_output=True, text=True, timeout=30)
+    timeout = float(os.environ.get("FT_STALL_PENALTY_TIMEOUT") or 30)
+    rc, out = run(["bash", sh, "send", to, os.environ.get("FT_STALL_FROM", "ft-stall-scan"), body, "--urgent"], timeout=timeout)
+    if rc != 0:
+        print(f"ft_penalty: 쪽지 발신 실패 rc={rc} to={to} {out.strip()[:120]}", file=sys.stderr)
+    return rc
 
 
 def turn_on(reason: str) -> int:
     if load() is not None:
         print("penalty=on (이미 켜짐)")
         return 0
-    teams = load_teams(root())
+    teams = [team for team in load_teams(root()) if team["diag"] == "OK"]
     teams = [t for t in teams if t["team"] not in EXEMPT]
     order = [t["team"] for t in teams]
     (state_dir()).mkdir(parents=True, exist_ok=True)
     _ = (state_dir() / "PENALTY_STOP").write_text(json.dumps({"since": int(now()), "reason": reason, "order": order, "resumed": []}, ensure_ascii=False), encoding="utf-8")
     for t in teams:
         if t["master"]:
-            mail(t["master"], "[페널티] 전 세션 정지 — 새 발주·spawn 0 · 진행 중 도구 호출은 끝내고 멈춤 · 사유: " + reason + " · 재개는 팀 순서대로 `ft-penalty.sh resume <팀>` (stall 0 확인 뒤)")
+            _ = mail(t["master"], "[페널티] 전 세션 정지 — 새 발주·spawn 0 · 진행 중 도구 호출은 끝내고 멈춤 · 사유: " + reason + " · 재개는 팀 순서대로 `ft-penalty.sh resume <팀>` (stall 0 확인 뒤)")
     print(f"penalty=on teams={','.join(order)}")
     return 0
 
@@ -131,9 +136,9 @@ def resume(team: str) -> int:
     else:
         _ = (state_dir() / "PENALTY_STOP").write_text(json.dumps(d, ensure_ascii=False), encoding="utf-8")
         print(f"resumed={team} · 남은 팀 {','.join(t for t in d.get('order') or [] if t not in resumed)}")  # type: ignore[union-attr]
-    for t in load_teams(root()):
+    for t in (team for team in load_teams(root()) if team["diag"] == "OK"):
         if t["team"] == team and t["master"]:
-            mail(t["master"], f"[페널티 해제] 팀 {team} 재개 — 발주·spawn 가능. 멈춘 좌석이 다시 생기면 같은 페널티다.")
+            _ = mail(t["master"], f"[페널티 해제] 팀 {team} 재개 — 발주·spawn 가능. 멈춘 좌석이 다시 생기면 같은 페널티다.")
     return 0
 
 

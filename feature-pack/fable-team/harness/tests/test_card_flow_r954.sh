@@ -261,7 +261,13 @@ echo '{"_name":"alpha"}' > "$R/.fable-team/seats-alpha.json"; printf '2026-10-21
 echo "# 카드" > "$R/design/alpha/indices/대기/x.md"
 sp() { ( cd "$R" && export FT_ROOT="$R" FT_NANO_PREFIX="byz-alpha-nano-" FT_SEATS_JSON="$R/.fable-team/seats-alpha.json" FT_TEAMSET_MD="$MD" \
   && PATH="$FAKE:$PATH" bash "$KIT/ft-nano-spawn.sh" design/alpha/indices/대기/x.md --from byz-alpha-master-claude#1 --dry-run "$@" 2>&1 ); }
-sess "byz-alpha-nano-live1#0" "byz-alpha-nano-live2#0"
+# r1292: spawn 은 «보고 대상» 을 지금 살아 있는 좌석에서 고르므로(tmm ls byz-<팀> + ft-name-lint) 가짜 tmm 과 master 한석이 픽스처에 필요하다.
+cat > "$FAKE/tmm" <<EOF
+#!/bin/sh
+case "\$1" in ls) [ -f "$SESS" ] || exit 0; grep "^\${2}-" "$SESS"; exit 0;; *) exit 0;; esac
+EOF
+chmod 755 "$FAKE/tmm"
+sess "byz-alpha-master-claude#1" "byz-alpha-nano-live1#0" "byz-alpha-nano-live2#0"
 o="$(sp)"; rc_on=$?; o_off="$(FT_CARD_FLOW=0 sp)"; rc_off=$?
 has "$o" "WARN 카드 흐름 — alpha 진행 4(좌석 2) · 착지됐는데 진행 1 · 이동 먼저: done1.md" "ⓔ K>0 → WARN 이동 먼저(착지 카드 지목)"
 [ "$(printf '%s\n' "$o" | grep -c 'WARN 카드 흐름')" = 1 ] && ok "ⓔ WARN 정확히 1줄" || bad "ⓔ WARN 줄 수"
@@ -270,9 +276,10 @@ hasnt "$o_off" "WARN 카드 흐름" "ⓔ FT_CARD_FLOW=0 → 경보 0"
 # ⓔ-2 K=0 이고 진행 ≤ 좌석+2 → 경보 0 (건강)
 rm -f "$R/design/alpha/indices/진행/done1.md" "$R/design/alpha/indices/진행/stale1.md"
 o="$(sp)"; hasnt "$o" "WARN 카드 흐름" "ⓔ 건강(진행 2 ≤ 좌석 2+2 · K 0) → 경보 0"
-# ⓔ-3 K=0 이어도 진행 > 좌석 + 2 → WARN (좌석 0 · 고아 카드 지목)
-card 진행 o1; card 진행 o2; card 진행 o3; sess "byz-alpha-nano-other#0"
-o="$(sp)"; has "$o" "WARN 카드 흐름 — alpha 진행 5(좌석 0) · 착지됐는데 진행 0 · 이동 먼저:" "ⓔ 진행 > 좌석+2 → WARN"
+# ⓔ-3 r1292: 진행 > 좌석 + 2 인 팀의 «대기» 카드 spawn 은 이제 막는다(REJECT 1줄) — 옛 WARN 줄은 FT_CARD_CAP=0(끄기) 에서만
+card 진행 o1; card 진행 o2; card 진행 o3; sess "byz-alpha-master-claude#1" "byz-alpha-nano-other#0"
+o="$(sp)"; has "$o" "REJECT 카드 상한 — alpha 진행 5(좌석 0) > 0+2" "ⓔ-3 r1292 상한 넘으면 대기 spawn 막힘"
+o="$(FT_CARD_CAP=0 sp)"; has "$o" "WARN 카드 흐름 — alpha 진행 5(좌석 0) · 착지됐는데 진행 0 · 이동 먼저:" "ⓔ-3 끄면(FT_CARD_CAP=0) 진행 > 좌석+2 → WARN"
 
 # ⓕ 기존 시험(test_nano_spawn*·news 트리·harness_root) rc0 — /bin/bash 3.2 로
 for t in $(cd "$HERE" && ls test_nano_spawn_*.sh) test_news_tree_root.sh; do

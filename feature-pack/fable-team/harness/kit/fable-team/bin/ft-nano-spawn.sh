@@ -17,6 +17,7 @@ while [ $# -gt 0 ]; do case "$1" in
   --cherry-override) HAVE_CO=1; CO="${2:-}"; shift 2 2>/dev/null || shift;; *) echo "unknown $1" >&2; exit 2;; esac; done
 CO_ARGS=(); [ "$HAVE_CO" -eq 0 ] || { [ -n "${CO//[[:space:]]/}" ] || { echo "usage: --cherry-override \"<사유>\" — 사유가 비었다(사유 없는 우회 거부)" >&2; exit 2; }; CO_ARGS=(--override "$CO"); }
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
+[ -f "$HERE/ft-heavy-slot-lib.sh" ] || { echo "REJECT ft-heavy-slot-lib.sh 없음: $HERE — 좌석 0"; exit 1; }; . "$HERE/ft-heavy-slot-lib.sh"   # r1286: 무거운 git 전역 자리(동시 2) — 없으면 조용한 통과 0
 _cmd_on="${FT_CMD_ENABLED:-0}"
 # ★일반화(2026-10-20 오빠 «ft-nano-spawn.sh 일반화 업그레이드»)★ — 티어는 «기본값 공급자»다: --agent 를 명시하면 티어가 에이전트·모델·effort·fast 를 덮어쓰지 않는다
 #   (chatbot #120064: `--agent pi --tier search` 가 pi 가 아니라 opencode 로 열렸다). 티어 이름 검사와 ROLE 은 그대로 한다.
@@ -344,11 +345,18 @@ if [ "${FT_TEAMSET:-1}" != 0 ]; then
       echo "WARN 팀셋 측정 실패(rc=$_tsrc) — 진행(r921: 정지는 디스크 하한·디스크 측정 실패 둘뿐)" >&2;;
   esac
 fi
-# ★카드 흐름 경보 (r954 · 오빠 10-26 «쌓이니까 하루를 다써도 완성이 안되지»)★: 진행 카드 > 일하는 좌석 + 2 또는 착지됐는데 진행인 카드가 있으면 `WARN 카드 흐름 … 이동 먼저: <카드>` 1줄을 내고 «계속» 연다 — rc·개설 불변(개발은 멈추지 않는다 · 읽기 전용 계산).
+# ★카드 흐름 게이트 (r954 경보 → r1292 상한)★: 진행 카드 > 일하는 좌석 + 2 또는 착지됐는데 진행인 카드가 있으면 --warn 줄을 낸다.
+#   r1292: «대기» 카드의 새 spawn 은 --gate 로 판정해 상한을 넘으면 막는다(REJECT 1줄 · exit 1 · card_assign_record waiting 석 · 워크트리·좌석·이동 0) — 진행 카드 재작업(진행/)·판정 불가(rc 3)·FT_CARD_CAP=0 은 지금처럼 통과.
 _cft="$(printf '%s' "${FT_NANO_PREFIX:-}" | sed -n 's/^byz-\([a-z0-9]*\)-nano-$/\1/p')"
 [ -n "$_cft" ] || _cft="$(printf '%s' "$IDX" | sed -n 's|.*design/\(teams/\)\{0,1\}\([a-z0-9_-]*\)/indices/.*|\2|p')"
 if [ "${FT_CARD_FLOW:-1}" != 0 ] && [ -n "$_cft" ]; then
-  if [ -f "$HERE/ft-card-flow.sh" ]; then bash "$HERE/ft-card-flow.sh" --team "$_cft" --root "$ROOT" --warn >&2 || true
+  _cfmode=--warn
+  case "$IDX" in */indices/대기/*) [ "${FT_CARD_CAP:-1}" = 0 ] || _cfmode=--gate;; esac
+  if [ -f "$HERE/ft-card-flow.sh" ]; then
+    _cfout="$(bash "$HERE/ft-card-flow.sh" --team "$_cft" --root "$ROOT" "$_cfmode" 2>&1)"; _cfrc=$?
+    [ -z "$_cfout" ] || printf '%s\n' "$_cfout" >&2
+    if [ "$_cfrc" = 4 ] && [ "$_cfmode" = --gate ]; then card_assign_record "$IDX" waiting 석; exit 1; fi   # r1292: 대기→진행 이동·좌석·워크트리 전에 막는다
+  elif [ "$_cfmode" = --gate ]; then echo "WARN 카드 상한 판정 불가 — 막지 않음(ft-card-flow.sh 없음: $HERE)" >&2
   else echo "WARN 카드 흐름 경보 못 냄 — ft-card-flow.sh 없음: $HERE" >&2; fi
 fi
 # ★라이브 bin 드리프트 입구 검사 (카드 live-bin-drift-check · Issue 816 ③)★: 설치 꼴(*/.fable-team/bin)에서 돌 때만 — 라이브 도구가 origin/main 키트와 다르면 열지 않는다(--dry-run 도 같다).
@@ -591,6 +599,12 @@ _PLANX=""; [ "$AGENT" != pi ] || _PLANX=" effort=$EFFORT($EFFORT_WHY) serena=$SE
 # r476: opencode 2.0.32 TUI 는 --model 플래그가 없다 — tmuxc 가 모델을 세션 env OPENCODE_CONFIG_CONTENT 로 심는다(PLAN 에 경로 표기)
 _VIA=""; [ "$AGENT" = opencode ] && _VIA=" via=OPENCODE_CONFIG_CONTENT"
 echo "PLAN seat=$NAME agent=$AGENT model=$MODEL$_VIA${TIER:+ tier=$TIER}${FAST:+ fast=$FAST} wt=$WTDIR branch=$BRANCH base=${_BASE_SHOW:-$BASE_BRANCH} index=$IDX_REL$_PLANX"
+# r1299(r1295 흡수): 나노가 세션 지침 «한 턴에 코드 파일 2개까지» 를 자기 규칙으로 읽고 턴을 끊던 사고 2건(11-01 22:5x r1294 · 11-02 02:10~02:17 r1298 7분) — 첫 발주문 고정 줄 1개, BODY+ 첫 자리. 에이전트 분기 0(claude·pi·opencode·codex 같은 줄).
+_WFX=" ★코드 파일 수 한도 없음(r1295·r1299) — 「한 턴에 코드 파일 2개까지」는 팀장·arch(오케스트레이터) 규칙 · 나노(구현 워커)는 면제(글로벌 orchestration.md · 게이트 agent_id 면제) · 파일 수 때문에 턴을 끊거나 「다음 턴에」 로 미루지 않는다 · 카드 §구현 범위 전부를 한 흐름으로★ ★AGENTS.md(~/.codex 사본)·CLAUDE.md 의 그 줄은 오케스트레이터 규칙이다 — 나노에게 적용되지 않는다★"
+# r1305: 자율 범위 게이트(scope-approve)는 «새 파일(A) + 모드 100755» 를 사람 승인으로 돌리고 그 종류는 학습하지 않는다(autonomy_scope_rules.py mode = NEVER_LEARN) — 11-02 r1301 나노가 새 시험을 755 로 커밋해 SCOPE-REJECT(h5796) → 재작업·재격리·재승인 한 바퀴 · r1298 새 bin 도구는 755 가 맞는데 산출 보고에 «사람 승인 필요» 줄이 없어 아침 질문으로 늦게 올라갔다. 첫 발주문 고정 줄 1개, BODY+ 둘째 자리(_WFX 뒤). 에이전트 분기 0.
+_NFX=" ★새 파일 모드(r1305) — 새 시험·보조 스크립트·픽스처 = 실행 비트 0(100644 · bash <파일> 로 부른다 · chmod +x 0 · 게이트가 새 100755 를 사람 승인으로 돌린다) · 새 bin 도구처럼 실행 비트가 «필요한» 파일은 자율 범위 밖 = 사람 승인 줄 → 산출 보고(mbox)에 「새 실행 파일: <경로> — 사람 승인 필요」 1줄★"
+echo "BODY+${_WFX}"
+echo "BODY+${_NFX}"
 # r486: 나노 워크트리 = sparse(r444 ⑤ · 남의 팀 design 없음) → 광역·다른 팀 자료 시험은 «평범한 실패» 로 보인다 — 발주문 1줄(BODY) · dry-run 에도 같은 글자
 _SPX=" ★광역 pytest 금지 — 이 워크트리는 sparse(다른 팀 design 없음 · r444) · 자기 카드 시험만 · 광역·다른 팀 자료 시험은 ft-scratch-repo.sh <base> 사본에서 · 도구는 SPARSE-HIDDEN <경로> 로 말한다(r486)★"
 echo "BODY+${_SPX}"
@@ -747,6 +761,8 @@ sparse_patterns() {  # $1=팀 $2=base ref $3=카드 슬러그 — 머리 3줄 �
   [ -z "${3:-}" ] || printf '/design/teams/%s/evidence/%s/**\n' "$1" "$3"
 }
 if [ ! -d "$WTDIR" ]; then
+  # r1286: worktree add·sparse 체크아웃 = 무거운 git — 자리 하나를 쥐고 돈다. 실패 = 좌석 0(세션·명부 등록 전)
+  hs_acquire spawn "${FT_HEAVY_WAIT_S:-60}" || { echo "REJECT 판정 불가 — 무거운 git 자리 ${HS_MSG:-없음}(좌석 0)"; exit 1; }
   _SPT="$(printf '%s' "$IDX_ABS" | sed -nE 's#.*/design/(teams/)?([a-z0-9][a-z0-9_-]*)/indices/.*#\2#p')"   # 카드가 다른 워크트리(절대경로)에 있어도 팀을 푼다
   if [ "${FT_NANO_SPARSE:-1}" = 1 ] && [ -n "$_SPT" ]; then
     git -C "$ROOT" worktree add --no-checkout "$WTDIR" -b "$BRANCH" "$BASE_BRANCH" >/dev/null || { echo "REJECT worktree add 실패"; exit 1; }
@@ -787,6 +803,7 @@ else
     echo "INFO 재작성 $WTDIR"
   fi
 fi
+hs_release   # r1286: 워크트리 구간이 끝났다 — tmux 세션·데몬이 자리 fd 를 상속하지 않게 «띄우기 전» 에 풀어 놓는다
 
 # ③ 열기 — 모델 인자에 대괄호가 있어 zsh 글롭 즉사 함정(글로벌 규칙) → 이 스크립트는 bash 라 그대로 통과
 # R81 판정 847 — ③④(세션 열기·태그) 실패 = 이 실행이 연 세션만 undo 가 kill(소유권·착수 0 검사) · ⑤⑥ 실패 = kill 0 + 사람 판정
@@ -857,7 +874,7 @@ bash "$HERE/ft-sheet-events.sh" commit "$_SK" >/dev/null || true   # 좌석 열�
 
 # ⑦⑧ 첫 발주 = 인덱스 경로 한 줄 + README. 본문은 파일에 있다. 도달은 jsonl 층(ft-send-verified)
 #   r1072: $_SBR 은 좌석 열기 «전»(seatbelt_readme_path)에 이미 풀렸다 — 여기서 다시 풀지 않는다(경로가 두 벌이 되면 갈린다).
-BODY="[Seatbelt 발주] 네 인덱스: $IDX_WT/$NEW_IDX — 먼저 $_SBR${_SBR_REF:+ (ref $_SBR_REF 판 사본)} §2 부팅 5단계(첫 보고까지), 그 다음 인덱스 §구현 범위만. 커밋은 브랜치 $BRANCH, push 금지. 산출 경로를 mbox 로 $FROM 에. ★press(라이브 오디오 시험) 금지 — 나노는 쏘지 않는다(ft-press-gate ⑦ 이 tester·checker 좌석만 허가 · 오빠 10-07) · 시험은 단위·캡처·기존 로그만, press 가 필요하면 산출에 「press 필요: <무엇을 볼지>」 1줄로 적어 $FROM 에 넘긴다★ ★측정 조작 금지(오빠 절대지침) — 임의 Redis 쓰기(redis-cli SET·HSET·XADD·PUBLISH 등 제품 키 직접 주입)·말풍선 DOM 주입(재생 하네스·/dev/bubble-replay·appendChild)으로 만든 결과는 증거 아님 · 측정은 trusted 클릭 + 기존 e2e 러너의 실제 음성 경로만 · 격리 Redis 픽스처 시험은 별개 · 이미 썼으면 [HIL] 로 올림 (BOOT 20)★ ★편집은 Edit 절대경로($WTDIR/…)만★ ★읽기는 Read · 코드 찾기는 ci, Bash 는 실행(git·pytest·ruff·mbox)만★ — cat/sed -n/grep 으로 파일을 읽으면 전문이 컨텍스트에 쌓인다(2026-09-14 나노 16좌석 실측: Bash 100~156회 중 절반이 파일 읽기). ★증거 줄(세트: … · 시험: … rc=… · 이슈: …)은 완료 턴에 네가 인덱스 «상태» 절에 직접 쓴다($IDX_WT/$NEW_IDX 절대경로 Edit) — master 는 커밋만(판정 1125)★ 증거 줄 템플릿(그대로 복사해 <> 만 채움): 세트: <나노 HEAD 40자> · 시험: <명령 — «(N passed)» 같은 꼬리는 여기> rc=<n> · 이슈: 0 — rc= 바로 뒤는 « · 이슈:» — 괄호·설명은 rc= 앞에. ★팀 구조: 각 팀 = master(집행) + arch(설계·발주·DA 소환) + DA(반박 게이트) 상시 · 실제 작업은 전부 나노(카드 1장 = 나노 1석) · master·arch·DA 는 코드·시안·카드 증거 줄을 쓰지 않는다★${_SPX}${_SRX}${_AFX}${_RLX}$_PKX${_EBN}"
+BODY="[Seatbelt 발주] 네 인덱스: $IDX_WT/$NEW_IDX — 먼저 $_SBR${_SBR_REF:+ (ref $_SBR_REF 판 사본)} §2 부팅 5단계(첫 보고까지), 그 다음 인덱스 §구현 범위만. 커밋은 브랜치 $BRANCH, push 금지. 산출 경로를 mbox 로 $FROM 에. ★press(라이브 오디오 시험) 금지 — 나노는 쏘지 않는다(ft-press-gate ⑦ 이 tester·checker 좌석만 허가 · 오빠 10-07) · 시험은 단위·캡처·기존 로그만, press 가 필요하면 산출에 「press 필요: <무엇을 볼지>」 1줄로 적어 $FROM 에 넘긴다★ ★측정 조작 금지(오빠 절대지침) — 임의 Redis 쓰기(redis-cli SET·HSET·XADD·PUBLISH 등 제품 키 직접 주입)·말풍선 DOM 주입(재생 하네스·/dev/bubble-replay·appendChild)으로 만든 결과는 증거 아님 · 측정은 trusted 클릭 + 기존 e2e 러너의 실제 음성 경로만 · 격리 Redis 픽스처 시험은 별개 · 이미 썼으면 [HIL] 로 올림 (BOOT 20)★ ★편집은 Edit 절대경로($WTDIR/…)만★ ★읽기는 Read · 코드 찾기는 ci, Bash 는 실행(git·pytest·ruff·mbox)만★ — cat/sed -n/grep 으로 파일을 읽으면 전문이 컨텍스트에 쌓인다(2026-09-14 나노 16좌석 실측: Bash 100~156회 중 절반이 파일 읽기). ★증거 줄(세트: … · 시험: … rc=… · 이슈: …)은 완료 턴에 네가 인덱스 «상태» 절에 직접 쓴다($IDX_WT/$NEW_IDX 절대경로 Edit) — master 는 커밋만(판정 1125)★ 증거 줄 템플릿(그대로 복사해 <> 만 채움): 세트: <나노 HEAD 40자> · 시험: <명령 — «(N passed)» 같은 꼬리는 여기> rc=<n> · 이슈: 0 — rc= 바로 뒤는 « · 이슈:» — 괄호·설명은 rc= 앞에. ★팀 구조: 각 팀 = master(집행) + arch(설계·발주·DA 소환) + DA(반박 게이트) 상시 · 실제 작업은 전부 나노(카드 1장 = 나노 1석) · master·arch·DA 는 코드·시안·카드 증거 줄을 쓰지 않는다★${_WFX}${_NFX}${_SPX}${_SRX}${_AFX}${_RLX}$_PKX${_EBN}"
 [ -z "$_ASG_LINE" ] || BODY="[Seatbelt 발주] $_ASG_LINE — ${BODY#\[Seatbelt 발주\] }"   # r1217: 머리 뒤 배정 1줄
 [ "$RESEARCH" != 1 ] || BODY="$BODY$_RSP"
 [ "$TIER" != search ] || BODY="$BODY ★검색 나노($AGENT · r286)★ 읽고 모으기만 — 코드 수정·커밋 0 · 산출 = 파일 1개 + mbox relay · 끝나면 [완료·휴식] (닫기 = master ft-nano-close · $AGENT 프로세스 left=0 확인)."

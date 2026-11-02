@@ -10,13 +10,17 @@ a 대기 카드 있는데 master IDLE · b 선언 뒤 IDLE · c 정책 정지(�
 import json
 import os
 import re
-import subprocess
+import tempfile  # r1330 — ref 트리 대기 카드 읽기(임시 폴더)
 import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from ft_api_outage_util import epoch as api_epoch, is_error  # r1290: API 오류 표식 판정은 그쪽 한 벌(is_error)을 그대로 쓴다
+import ft_stall_state as stm  # r1282 — 판정 단계 기한 D · 외부 호출 자식 묶음 정리
 from ft_decision_kind import PROMOTED  # r1154: 승격 표식 정규식 한 벌(r1148) — 가져오기 실패는 예외 그대로
+from ft_team_lib import basis_ref, roots
+from ft_team_lib import rosters as team_rosters
 
 IDLE_MIN = 3.0
 LEAD_HEARTBEAT_MIN = 15.0  # 팀장 심박 주기 10분 + 여유 5 — 이보다 오래 조용하면 «멈춤»
@@ -34,37 +38,31 @@ AGENT = re.compile(r"(?:^|[\s/])(claude|codex)(?:\s|$)")
 
 
 def run(cmd: list[str], env: dict[str, str] | None = None, timeout: float = 15) -> tuple[int, str]:
-    try:
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, env=env)
-    except (OSError, subprocess.TimeoutExpired) as e:
-        return 99, str(e)
-    return r.returncode, r.stdout
+    return stm.grun(cmd, env, timeout)  # r1282 — 자식 묶음 정리 · 판정 단계 기한
 
 
-def load_teams(root: Path) -> list[dict[str, Any]]:
+def load_teams(root: Path, warn: bool = True, active: bool = True, include_orphans: bool = False) -> list[dict[str, Any]]:
     teams: list[dict[str, Any]] = []
-    for f in sorted((root / ".fable-team").glob("seats*.json")):
-        try:
-            d = json.loads(f.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            continue
-        label = d.get("_label") or ("v65" if f.name == "seats.json" else f.stem.removeprefix("seats-"))
+    for roster in team_rosters(root, active=active, include_orphans=include_orphans):
+        d = roster["doc"] or {}
+        team = roster["team"]
+        if warn and roster["diag"] != "OK":
+            print(f"WARN {team} 판정 불가({roster['diag']}) — stall 좌석 셈 제외")
         seats = {k: v for k, v in d.items() if not k.startswith("_") and isinstance(v, dict)
                  and v.get("role") not in OFF_ROLES and not v.get("_replaced_by") and not v.get("_closed")}
-        cards = root / ".worktrees" / d["_cards_wt"] / d["_cards"] if d.get("_cards_wt") and d.get("_cards") else (root / d["_cards"] if d.get("_cards") else None)
+        cards = roster["cards"]
         mrow = d.get(d.get("_master") or "")
-        teams.append({"team": label, "master": d.get("_master"), "cards": cards, "seats": set(seats),
-                      "master_stop": isinstance(mrow, dict) and mrow.get("role") == "stop-ready"})  # r428 — ft-seat-close R297 표기
+        teams.append({"team": team, "master": d.get("_master"), "cards": cards, "seats": set(seats),
+                      "master_stop": isinstance(mrow, dict) and mrow.get("role") == "stop-ready", "diag": roster["diag"]})  # r428 — ft-seat-close R297 표기
     return teams
 
 
 def _roster_rows(root: Path) -> dict[str, dict[str, Any]]:
     """좌석 → 그 좌석 행이 있는 명부 전체(현역·교대 표시 행 모두)."""
     where: dict[str, dict[str, Any]] = {}
-    for f in sorted((root / ".fable-team").glob("seats*.json")):
-        try:
-            d = json.loads(f.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
+    for roster in team_rosters(root):
+        d = roster["doc"]
+        if not isinstance(d, dict):
             continue
         where.update({k: d for k, v in d.items() if not k.startswith("_") and isinstance(v, dict)})
     return where
@@ -82,12 +80,56 @@ def _lineage_master(where: dict[str, dict[str, Any]], seat: str) -> str | None:
     return m if m and m != seat else None
 
 
+def other_root_seats(root: Path, warn: bool = True) -> set[str]:
+    """r1309 §3-8 — roots.tsv 의 «다른 현역 루트» 좌석 이름(읽기 전용 제외 목록 · 쓰기 0).
+    roots.tsv 없음 = 빈 집합(지금 동작) · TEAMS.md 가 없는 루트는 그 .fable-team/seats*.json 좌석 키로 본다.
+    한 루트라도 못 읽으면 WARN/ERROR 1줄(조용한 0통 0)."""
+    me = Path(root).resolve()
+    names: set[str] = set()
+    try:
+        rows = roots()
+    except Exception as e:  # noqa: BLE001 — 명부가 깨졌다: «제외 0» + 1줄
+        if warn:
+            print(f"ERROR 루트 명부 판정 불가({type(e).__name__}) — 다른 루트 좌석 제외 0")
+        return names
+    for row in rows:
+        if row["state"] != "현역" or Path(row["path"]).resolve() == me:
+            continue
+        try:
+            docs = [r["doc"] for r in team_rosters(Path(row["path"]))]
+        except Exception as e:  # noqa: BLE001 — TEAMS.md 없음·깨짐 둘 다 «제외 목록을 그 파일들로»
+            docs = _seat_docs(Path(row["path"]))
+            if not docs and warn:
+                print(f"WARN 다른 루트 {row['name']} 명부 판정 불가({type(e).__name__}) — 좌석 제외 0")
+        for d in docs:
+            if isinstance(d, dict):
+                names |= {k for k in d if not k.startswith("_")}
+    return names
+
+
+def _seat_docs(base: Path) -> list[Any]:
+    """그 루트의 .fable-team/seats*.json 본문들(명단 파일 없이 좌석 이름만 볼 때) · 못 읽은 파일은 건너뛴다."""
+    out: list[Any] = []
+    try:
+        files = sorted((base / ".fable-team").glob("seats*.json"))
+    except OSError:
+        return out
+    for f in files:
+        try:
+            out.append(json.loads(f.read_text(encoding="utf-8")))
+        except (OSError, ValueError):
+            continue
+    return out
+
+
 def off_roster_live(root: Path, live: Any, teams: list[dict[str, Any]]) -> list[tuple[str, str | None, str]]:
-    """r525 — tmux 라이브 좌석 중 명부 루프(load_teams 현역 행 · 팀 master)가 안 보는 것 → (좌석, 계보 현역 master|None, 교대 표시인데 라이브|명부 밖)."""
+    """r525 — tmux 라이브 좌석 중 명부 루프(load_teams 현역 행 · 팀 master)가 안 보는 것 → (좌석, 계보 현역 master|None, 교대 표시인데 라이브|명부 밖).
+    r1309 §3-8: roots.tsv 의 «다른 루트» 명부에 있는 좌석은 «명부 밖» 이 아니다 — 그 루트 stall-scan 이 판정한다."""
     seen = {s for t in teams for s in t["seats"]} | {t["master"] for t in teams}
     where = _roster_rows(root)
+    other = other_root_seats(root)
     return [(s, _lineage_master(where, s), "교대 표시인데 라이브") if s in where else (s, None, "명부 밖")
-            for s in sorted(set(live) - seen)]
+            for s in sorted(set(live) - seen) if s not in other]
 
 
 def _agent_pid(pid: str, kids: dict[str, list[str]], args: dict[str, str]) -> str | None:
@@ -177,14 +219,14 @@ def _texts(rec: dict[str, Any]) -> tuple[list[str], bool]:
 
 
 def last_turn(path: str, window: int = 524288) -> dict[str, Any]:
-    """마지막 턴의 assistant 기록만 본다 → {rest: [완료·휴식] 실재, future: 끝 글이 미래형 선언 · 그 뒤 도구 0}."""
+    """마지막 턴의 assistant 기록만 본다 → {rest: [완료·휴식] 실재, future: 끝 글이 미래형 선언 · 그 뒤 도구 0, err: 마지막 기록이 API 오류면 그 시각(r1290)}."""
     try:
         size = Path(path).stat().st_size
         with open(path, "rb") as fh:
             fh.seek(max(0, size - window))
             raw = fh.read()
     except OSError:
-        return {"rest": False, "future": False}
+        return {"rest": False, "future": False, "err": None}
     recs: list[dict[str, Any]] = []
     for line in raw.split(b"\n"):
         try:
@@ -199,7 +241,17 @@ def last_turn(path: str, window: int = 524288) -> dict[str, Any]:
     if turn:
         texts, tool = _texts(turn[-1])
         future = bool(texts) and not tool and bool(FUTURE.search(texts[-1].strip()[-100:]))
-    return {"rest": rest, "future": future}
+    return {"rest": rest, "future": future, "err": _error_at(turn[-1]) if turn else None}
+
+
+def _error_at(rec: dict[str, Any]) -> float | None:
+    """마지막 assistant 기록이 API 오류면 그 시각(epoch) · 아니면 None — 오류 판정은 ft_api_outage_util.is_error 한 벌(r1290)."""
+    if not is_error(rec):
+        return None
+    try:
+        return float(api_epoch(rec))
+    except (ValueError, KeyError, TypeError):
+        return None
 
 
 def _open_stems(cards_dir: Path) -> dict[str, set[str]]:
@@ -223,22 +275,103 @@ def _prereq(text: str, stems: dict[str, set[str]], me: str) -> str:
     return f"unknown:{rest[:40]}" if rest else "ready"
 
 
-def card_ready(card: Path, cards_dir: Path, lint: str) -> str:
-    """대기 카드 1장 → ready | blocked:<이름>(선행 카드가 대기/·진행/ 에 실재 · lint 실패 = blocked:(lint)) | unknown:<조건>(선행 자동 판정 불가 · 정상 대기로 보고 세지 않는다)."""
+def card_ready(card: Path, cards_dir: Path, lint: str, stems: dict[str, set[str]] | None = None, text: str | None = None) -> str:
+    """대기 카드 1장 → ready | blocked:<이름>(선행 카드가 대기/·진행/ 에 실재 · lint 실패 = blocked:(lint)) | unknown:<조건>(선행 자동 판정 불가 · 정상 대기로 보고 세지 않는다).
+    stems·text 를 주면(r1330 ref 트리 읽기) 디스크를 읽지 않는다 — 안 주면 지금처럼 cards_dir·card 파일."""
     if run(["bash", lint, str(card)])[0] != 0:
         return "blocked:(lint)"
-    stems = _open_stems(cards_dir)
+    stems = stems if stems is not None else _open_stems(cards_dir)
+    body = text if text is not None else card.read_text(encoding="utf-8")
     verdicts = [_prereq(line.removeprefix("- 선행:").strip(), stems, card.stem)
-                for line in card.read_text(encoding="utf-8").splitlines() if line.startswith("- 선행:")]
+                for line in body.splitlines() if line.startswith("- 선행:")]
     return next((v for v in verdicts if v.startswith("blocked:")), None) or next((v for v in verdicts if v.startswith("unknown:")), "ready")
 
 
-def waiting_cards(cards: Path | None, lint: str) -> tuple[list[str], int]:
-    """→ (지금 spawn 할 수 있는 대기 카드 이름들, 선행 미판정 장수)."""
-    d = cards / "대기" if cards else None
-    if not d or not d.is_dir():
+class RefUnavailable(Exception):
+    """r1330 A4 — 대기 카드를 ref 트리에서 못 읽었다(git 실패·상한 넘김·루트 명부 깨짐). 사유 1줄 = 그 팀 «a? … 판정 불가» (조용한 0 아님 · 하드 룰 #0)."""
+
+
+def _git(args: list[str], cwd: Path, stdin: bytes | None = None) -> tuple[int, bytes, str]:
+    """git 1회 → (rc, stdout, stderr 끝 줄 소문자) · 상한 = FT_STALL_GIT_SEC(기본 7초 · 하드 룰 12) · 못 끝내면 RefUnavailable. LC_ALL=C 로 «not a git repository» 문구를 고정한다."""
+    try:
+        sec = float(os.environ.get("FT_STALL_GIT_SEC") or 7)
+    except ValueError:
+        sec = 7.0
+    # r1282 — git 도 같은 자식 묶음·판정 기한 경로(손자 고아 0 · 판정 기한 넘김 = 판정 불가) · 상한은 FT_STALL_GIT_SEC 그대로
+    rc, out, err_text = stm.grun_raw(["git", *args], {**os.environ, "LC_ALL": "C"}, sec, cwd=cwd, stdin_bytes=stdin)
+    if rc == 99:
+        raise RefUnavailable(f"git 상한 넘김·실행 실패({err_text.strip()[:40]})" if err_text.strip() else "git 상한 넘김")
+    lines = err_text.strip().splitlines()
+    return rc, out, (lines[-1] if lines else "").lower()
+
+
+def _ref_stems(cards: Path, ref: str) -> dict[str, set[str]] | None:
+    """A1 — ref 트리의 대기/·진행/ 카드 stem(팀마다 ls-tree 1회 · README.md 뺌). git 리포 아님 = None(리포 밖 폴더엔 ref 트리가 없다 → 디스크) · 그 밖의 실패 = RefUnavailable."""
+    rc, out, err = _git(["ls-tree", "--name-only", "-z", ref, "--", "대기/", "진행/"], cards)
+    if rc != 0:
+        if "not a git repository" in err:
+            return None
+        raise RefUnavailable(f"git ls-tree rc={rc} {err[-60:]}")
+    stems: dict[str, set[str]] = {"대기": set(), "진행": set()}
+    for entry in out.decode("utf-8", "replace").split("\0"):
+        kind, _, name = entry.partition("/")
+        if kind in stems and name.endswith(".md") and "/" not in name and name != "README.md":
+            stems[kind].add(name[:-3])
+    return stems
+
+
+def _ref_bodies(cards: Path, ref: str, names: list[str]) -> dict[str, str]:
+    """A2 — 대기 카드 본문 묶음(cat-file --batch 1회). 한 장이라도 못 읽으면 RefUnavailable."""
+    rc, out, err = _git(["cat-file", "--batch"], cards, "".join(f"{ref}:./대기/{n}.md\n" for n in names).encode("utf-8"))
+    if rc != 0:
+        raise RefUnavailable(f"git cat-file rc={rc} {err[-60:]}")
+    bodies: dict[str, str] = {}
+    pos = 0
+    try:
+        for n in names:
+            eol = out.index(b"\n", pos)
+            head = out[pos:eol].split()
+            if len(head) != 3 or head[1] != b"blob":
+                raise RefUnavailable(f"카드 본문 읽기 실패({n})")
+            start = eol + 1
+            bodies[n] = out[start:start + int(head[2])].decode("utf-8")
+            pos = start + int(head[2]) + 1
+    except (ValueError, UnicodeError):
+        raise RefUnavailable("카드 본문 해석 실패") from None
+    return bodies
+
+
+def _ref_verdicts(cards: Path, lint: str, root: Path | None) -> dict[str, str] | None:
+    """A1~A3 — 그 팀 대기 카드 → 판정. 기준 ref = roots.tsv «기준 ref»(없으면 origin/main). git 리포 밖 폴더 = None(디스크로)."""
+    try:
+        ref = basis_ref(root) if root else "origin/main"
+    except Exception as e:  # noqa: BLE001 — 루트 명부 깨짐 = 판정 불가 1줄(조용한 기본값 0)
+        raise RefUnavailable(f"루트 명부 판정 불가({e.__class__.__name__})") from None
+    stems = _ref_stems(cards, ref)
+    if stems is None:
+        return None
+    names = sorted(stems["대기"])
+    bodies = _ref_bodies(cards, ref, names) if names else {}
+    verdicts: dict[str, str] = {}
+    with tempfile.TemporaryDirectory(prefix="ft-stall-ref-") as td:  # lint 는 파일을 받는다 — 같은 이름의 임시 파일
+        (Path(td) / "대기").mkdir()
+        for n in names:
+            f = Path(td) / "대기" / f"{n}.md"
+            _ = f.write_text(bodies[n], encoding="utf-8")
+            verdicts[n] = card_ready(f, cards, lint, stems, bodies[n])
+    return verdicts
+
+
+def waiting_cards(cards: Path | None, lint: str, root: Path | None = None) -> tuple[list[str], int]:
+    """→ (지금 spawn 할 수 있는 대기 카드 이름들, 선행 미판정 장수). r1330: git 리포 안이면 기준 ref 트리에서 읽는다(디스크 체크아웃이 뒤처져도 옛 카드 0) · 못 읽으면 RefUnavailable."""
+    if not cards:
         return [], 0
-    verdicts = {c.stem: card_ready(c, d.parent, lint) for c in sorted(d.glob("*.md")) if c.name != "README.md"}
+    verdicts = _ref_verdicts(cards, lint, root)
+    if verdicts is None:
+        d = cards / "대기"
+        if not d.is_dir():
+            return [], 0
+        verdicts = {c.stem: card_ready(c, d.parent, lint) for c in sorted(d.glob("*.md")) if c.name != "README.md"}
     return [n for n, v in verdicts.items() if v == "ready"], sum(1 for v in verdicts.values() if v.startswith("unknown:"))
 
 
@@ -270,17 +403,20 @@ def pending_mail(comm: Path, now: float) -> dict[str, tuple[int, float]]:
     """받는이 → (가장 오래된 미읽음 seq, 그 나이 분). 큐(mailbox.jsonl)에 남은 줄 = 아직 안 읽은 쪽지."""
     out: dict[str, tuple[int, float]] = {}
     try:
-        lines = (comm / "mailbox.jsonl").read_text(encoding="utf-8").splitlines()
+        fh = open(comm / "mailbox.jsonl", encoding="utf-8")
     except OSError:
         return out
-    for line in lines:
-        try:
-            r = json.loads(line)
-            age = (now - datetime.strptime(r["ts"][:19], "%Y-%m-%dT%H:%M:%S").timestamp()) / 60
-        except (ValueError, KeyError):
-            continue
-        if age >= IDLE_MIN and (r["to"] not in out or age > out[r["to"]][1]):
-            out[r["to"]] = (int(r["seq"]), age)
+    with fh:  # r1282 — 줄 단위로 읽으며 200줄마다 판정 기한 검사(기한 예외에도 핸들이 닫힌다)
+        for i, line in enumerate(fh):
+            if i % 200 == 199:
+                stm.check()
+            try:
+                r = json.loads(line)
+                age = (now - datetime.strptime(r["ts"][:19], "%Y-%m-%dT%H:%M:%S").timestamp()) / 60
+            except (ValueError, KeyError):
+                continue
+            if age >= IDLE_MIN and (r["to"] not in out or age > out[r["to"]][1]):
+                out[r["to"]] = (int(r["seq"]), age)
     return out
 
 
@@ -289,10 +425,9 @@ def lead_names(root: Path, master: str | None) -> set[str]:
     `_replaces` 에만 남은 옛 이름은 현역이 아니다: 인정하지 않는다(DA r1 반례 4·5)."""
     if not master:
         return set()
-    for f in sorted((root / ".fable-team").glob("seats*.json")):
-        try:
-            d = json.loads(f.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
+    for roster in team_rosters(root):
+        d = roster["doc"]
+        if not isinstance(d, dict):
             continue
         rows = {k for k, v in d.items() if not k.startswith("_") and isinstance(v, dict) and v.get("role") == "master"
                 and not v.get("_replaced_by") and not v.get("_closed")}
@@ -360,6 +495,8 @@ def _read_mailbox(path: Path, masters: set[str], recipients: set[str], now: floa
     with fh:
         for line in fh:
             n += 1
+            if n % 200 == 0:
+                stm.check()  # r1282
             if n % 256 == 0 and time.monotonic() - t0 > budget:
                 return f"심박 읽기 {budget:g}초 초과(줄 {n})", None, 0, n
             ts, hb, bad = _hb_line(line, masters, recipients, now)
@@ -386,6 +523,8 @@ def _read_mailbox_log(path: Path, masters: set[str], recipients: set[str], now: 
             if not line.strip():
                 continue
             n += 1
+            if n % 200 == 0:
+                stm.check()  # r1282
             if n % 256 == 0 and time.monotonic() - t0 > budget:
                 return f"심박 읽기 {budget:g}초 초과(줄 {n})", None, 0, n
             ts, hb, bad = _hb_line(line, masters, recipients, now)
@@ -432,15 +571,16 @@ def lead_heartbeat_min() -> float:
     return v if v > 0 else LEAD_HEARTBEAT_MIN
 
 
-def lead_recipients(root: Path) -> set[str]:
+def lead_recipients(root: Path, warn: bool = False) -> set[str]:
     """심박 받는이 = 명부 «전체» 의 현역 role=master + 현역 planner(planner 팀장도 role=master) — DA r2 반례 2.
     자기 팀 _master 로 좁히면 «다른 팀 현역 master 에게 보낸 신선한 [정리]» 를 놓쳐 멀쩡한 팀장이 멈춤으로 읽힌다.
     r1143 — 현역 role=desk 도 받는이다: planner 팀장의 보고처 = desk 라 [정리] 가 전부 desk 앞이다(planner#166~#171 54통)."""
     out: set[str] = set()
-    for f in sorted((root / ".fable-team").glob("seats*.json")):
-        try:
-            d = json.loads(f.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
+    for roster in team_rosters(root):
+        d = roster["doc"]
+        if not isinstance(d, dict):
+            if warn and roster["diag"] != "OK":
+                print(f"WARN {roster['team']} 판정 불가({roster['diag']}) — 심박 수신자 셈 제외")
             continue
         out |= {k for k, v in d.items() if not k.startswith("_") and isinstance(v, dict) and v.get("role") in ("master", "desk")
                 and not v.get("_replaced_by") and not v.get("_closed")}

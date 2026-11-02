@@ -8,9 +8,12 @@ ref 판(r479 · 셸 ft_team_cands_ref 와 같은 규칙): team_rows_ref · team_
 쌍둥이 판(r495 · 셸 ft_team_in_ref 와 같은 규칙): team_in_ref 가 쌍둥이 둘 다 실재면 ref 트리(ls-tree -d)에 있는 쪽 + stderr `WARN TWIN-STALE` · ref 에 둘 다 = 명단 꼴 + `WARN TWIN-BOTH` · ref 에 둘 다 없음 = TeamPathError
 문서 본문 ref 판(r517): team_doc_ref — ref 명단 후보의 `<ref>:<후보>/<파일>` 본문 · ref 에 없음 = None · 못 읽음 = TeamPathError(ft_decision_count 의 planner 표)
 sparse 판(r486): team_root·team_in·team_in_ref 가 «tracked 인데 sparse 로 디스크에 없음» 을 SparseHidden(TeamPathError) 로 말한다 — 메시지 `SPARSE-HIDDEN <경로> …`(셸 ft_team_root 와 같은 글자) · team_cands_ref 는 «실재 여부 무관» 그대로
+명부 칸(r1309): TEAMS.md 선택 열 «명부» = 그 팀의 좌석 명부 파일 이름(비면 seats-<팀>.json · v65 예외는 데이터로) — rosters()·ft-tick(--seats-file)·ft-team-attach 가 «같은 한 칸» 을 읽는다.
+루트 명부(r1309): ~/.claude/fable-team/roots.tsv(탭 6칸: 이름·경로·상태·기준ref·사람우편함·틱잠금접두) — roots()·basis_ref()·human_mail_dir(). 파일 없음 = BYZ 단일 루트 동작 그대로(빈 목록) · 깨짐 = RootsError(판정 불가 1줄 · 조용한 기본값 0).
 """
 from __future__ import annotations
 
+import json
 import os
 import re
 import signal
@@ -19,6 +22,7 @@ import sys
 import tempfile
 import time
 from pathlib import Path
+from typing import Any
 
 _FORM = re.compile(r"^(\$FT_HARNESS_ROOT/|\$\{FT_HARNESS_ROOT\}/)?design/(teams/)?[a-z0-9][a-z0-9_-]*/$")
 
@@ -144,7 +148,8 @@ def repo_root() -> Path:
 
 
 def teams_md(root: Path | None = None) -> Path:
-    path = Path(os.environ["FT_TEAMS_MD"]) if os.environ.get("FT_TEAMS_MD") else (root or repo_root()) / "design" / "TEAMS.md"
+    base = Path(root) if root else None
+    path = Path(os.environ["FT_TEAMS_MD"]) if os.environ.get("FT_TEAMS_MD") else (base or repo_root()) / "design" / "TEAMS.md"
     if not path.is_file():
         raise TeamPathError(f"ERROR 팀 명단 없음: {path}")
     return path
@@ -170,8 +175,210 @@ def _rows_text(text: str) -> dict[str, str]:
     return rows
 
 
-def team_names(root: Path | None = None) -> list[str]:
-    return list(team_rows(teams_md(root)))
+def _team_table(root: Path | None = None) -> tuple[list[str], list[tuple[str, dict[str, str], str]]]:
+    """TEAMS.md 표 → (머리글, [(팀, {열: 값}, 폴더 원문)]) · 깨짐 = TeamPathError(사유 문구 = team_names 와 같은 글자).
+    r1309: 선택 열 «명부» 를 더 읽는다 — 그 열이 있는데 그 행만 짧으면(옛 행) 그 한 칸은 «빈 값» 으로 본다."""
+    md = teams_md(Path(root) if root else None)
+    lines = md.read_text(encoding="utf-8").splitlines()
+    header: list[str] | None = None
+    rows: list[tuple[str, dict[str, str], str]] = []
+    for line in lines:
+        if not line.startswith("|"):
+            continue
+        cells = [cell.strip().strip("`") for cell in line.strip().strip("|").split("|")]
+        if {"팀", "폴더", "상태"}.issubset(cells):
+            header = cells
+            continue
+        if header is None or not cells or all(re.fullmatch(r":?-{3,}:?", c.replace(" ", "")) for c in cells):
+            continue
+        if len(cells) < len(header) - (1 if "명부" in header else 0):
+            raise TeamPathError(f"ERROR 팀 명단 판정 불가: 표 행이 깨짐: {line}")
+        row = dict(zip(header, cells))
+        rel = re.sub(r"[\s`]", "", row["폴더"])
+        name = rel.rstrip("/").rsplit("/", 1)[-1]
+        row_state = row["상태"]
+        if not _FORM.match(rel) or row_state not in ("현역", "휴면", "삭제"):
+            raise TeamPathError(f"ERROR 팀 명단 판정 불가: 팀 행이 깨짐: {line}")
+        roster = (row.get("명부") or "").strip()
+        if roster and ("/" in roster or roster in (".", "..")):
+            raise TeamPathError(f"ERROR 팀 명단 판정 불가: «명부» 칸은 .fable-team 안 파일 이름 하나다: {roster}")
+        rows.append((name, {**row, "명부": roster}, rel))
+    if header is None:
+        raise TeamPathError(f"ERROR 팀 명단 판정 불가: 표 머리글 없음: {md}")
+    return header, rows
+
+
+def _first_roster_names(root: Path | None = None) -> dict[str, str]:
+    """같은 팀이 두 행이면 «첫 행» 명부 칸(team_names 와 같은 규칙)."""
+    out: dict[str, str] = {}
+    for name, row, _rel in _team_table(root)[1]:
+        out.setdefault(name, row["명부"])
+    return out
+
+
+def roster_names(root: Path | None = None) -> dict[str, str]:
+    """팀 → «명부» 칸 값(빈 값 = 규칙 기본) · 못 읽음 = TeamPathError(판정 불가)."""
+    try:
+        return _first_roster_names(root)
+    except (OSError, UnicodeError, TeamPathError) as e:
+        raise TeamPathError(f"ERROR 팀 명단 판정 불가: {e}") from None
+
+
+def roster_name(team: str, root: Path | None = None) -> str:
+    """그 팀의 좌석 명부 파일 «이름» — «명부» 칸 우선 · 비면 seats-<팀>.json · v65 만 seats.json(r1309: 예외를 데이터로)."""
+    value = roster_names(root).get(team, "")
+    return value or ("seats.json" if team == "v65" else f"seats-{team}.json")
+
+
+def roster_path(team: str, root: Path | None = None) -> Path:
+    """그 팀의 좌석 명부 경로 = <루트>/.fable-team/<명부 이름>."""
+    return Path(root or repo_root()) / ".fable-team" / roster_name(team, root)
+
+
+def team_names(root: Path | None = None, state: str = "현역") -> list[str]:
+    """TEAMS.md의 팀 식별자만 돌려준다. 기본은 현역 팀이며, 판정 불가는 빈 목록과 구분한다."""
+    if state not in ("현역", "휴면", "삭제", "전체"):
+        raise TeamPathError(f"ERROR 팀 명단 판정 불가: 알 수 없는 상태 {state}")
+    try:
+        _header, rows = _team_table(root)
+    except (OSError, UnicodeError, TeamPathError) as e:
+        raise TeamPathError(f"ERROR 팀 명단 판정 불가: {e}") from None
+    names: list[str] = []
+    seen: set[str] = set()
+    for name, row, _rel in rows:
+        if name not in seen and (state == "전체" or row["상태"] == state):
+            names.append(name)
+            seen.add(name)
+    return names
+
+
+def rosters(root: Path | None = None, active: bool = True, include_orphans: bool = False) -> list[dict[str, Any]]:
+    """TEAMS 명단을 명부·카드 경로와 결합한다. include_orphans 는 정지 해제의 명단 밖 경보 전용이다."""
+    base = Path(root or repo_root())
+    teams = team_names(base, "현역" if active else "전체")
+    first = roster_names(base)
+    result: list[dict[str, Any]] = []
+    for team in teams:
+        name = first.get(team) or ("seats.json" if team == "v65" else f"seats-{team}.json")
+        seats_path = base / ".fable-team" / name
+        row: dict[str, Any] = {"team": team, "seats_path": seats_path, "doc": None, "cards": None, "diag": "OK"}
+        if not seats_path.is_file():
+            row["diag"] = "명부 없음"
+        else:
+            try:
+                doc = json.loads(seats_path.read_text(encoding="utf-8"))
+            except (OSError, UnicodeError, ValueError):
+                row["diag"] = "JSON 실패"
+            else:
+                if not isinstance(doc, dict):
+                    row["diag"] = "JSON 실패"
+                else:
+                    row["doc"] = doc
+                    if not doc.get("_master"):
+                        row["diag"] = "_master 빔"
+                    elif not doc.get("_cards"):
+                        row["diag"] = "_cards 없음"
+                    else:
+                        cards_base = base / ".worktrees" / str(doc["_cards_wt"]) if doc.get("_cards_wt") else base
+                        cards = Path(str(doc["_cards"]))
+                        if not cards.is_absolute():
+                            cards = cards_base / cards
+                        row["cards"] = cards
+                        if not cards.is_dir():
+                            row["diag"] = "폴더 없음"
+        result.append(row)
+    if include_orphans:
+        known = set(team_names(base, "전체"))
+        for seats_path in sorted((base / ".fable-team").glob("seats-*.json")):
+            team = seats_path.stem.removeprefix("seats-")
+            if team in known:
+                continue
+            try:
+                doc = json.loads(seats_path.read_text(encoding="utf-8"))
+            except (OSError, UnicodeError, ValueError):
+                doc, diag = None, "JSON 실패"
+            else:
+                if not isinstance(doc, dict):
+                    doc, diag = None, "JSON 실패"
+                else:
+                    diag = "명단 밖"
+            result.append({"team": team, "seats_path": seats_path, "doc": doc, "cards": None, "diag": diag})
+    return result
+
+
+class RootsError(TeamPathError):
+    """r1309: 기계 루트 명부(roots.tsv)가 있는데 못 읽었다 — «없음(BYZ 단일)» 과 가른다(조용한 기본값 0 · 하드 룰 20)."""
+
+
+ROOTS_TSV = "~/.claude/fable-team/roots.tsv"      # 기계 루트 명부(일반 파일 · 하드 룰 19) — env FT_ROOTS_TSV 로 덮는다(시험 전용)
+ROOT_STATES = ("현역", "휴면")                      # 휴면 행은 «읽는 장치» 가 건너뛴다
+ROOT_COLS = 6                                      # 이름 · 경로 · 상태 · 기준ref · 사람우편함 · 틱잠금접두
+
+
+def roots_tsv() -> Path:
+    return Path(os.path.expanduser(os.environ.get("FT_ROOTS_TSV") or ROOTS_TSV))
+
+
+def roots(path: Path | str | None = None) -> list[dict[str, Any]]:
+    """기계 루트 명부 → [{name,path,state,ref,human_mail,tick_lock}] · 파일 없음 = 빈 목록(지금 BYZ 단일 동작) · 깨짐 = RootsError(판정 불가 1줄).
+    사람우편함 «.» = 그 루트 자신의 .fable-team/comm · 틱잠금접두 «기본» = BYZ 메인 틱 기본값(/tmp/ft-tick)."""
+    file = Path(path) if path else roots_tsv()
+    if not file.is_file():
+        return []
+    out: list[dict[str, Any]] = []
+    names: set[str] = set()
+    for no, line in enumerate(file.read_text(encoding="utf-8").splitlines(), 1):
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        cells = [c.strip() for c in line.split("\t")]
+        if len(cells) < ROOT_COLS:
+            raise RootsError(f"ERROR 루트 명부 판정 불가: {file}:{no} 칸 {len(cells)}개({ROOT_COLS} 필요)")
+        name, where, state, ref, human, lock = cells[:ROOT_COLS]
+        if not name or not where.startswith("/") or state not in ROOT_STATES or not ref or not human or not lock:
+            raise RootsError(f"ERROR 루트 명부 판정 불가: {file}:{no} 값이 이상하다(경로는 절대경로 · 상태는 {'/'.join(ROOT_STATES)})")
+        if name in names:
+            raise RootsError(f"ERROR 루트 명부 판정 불가: {file}:{no} 루트 이름 중복 {name}")
+        names.add(name)
+        out.append({"name": name, "path": Path(where), "state": state, "ref": ref, "human_mail": human, "tick_lock": lock})
+    return out
+
+
+def root_row(root: Path | str | None = None, path: Path | str | None = None) -> dict[str, Any] | None:
+    """그 루트(절대경로)의 명부 행 — 없으면 None(roots.tsv 없음·이 루트가 명부에 없음 둘 다)."""
+    want = Path(root or repo_root()).resolve()
+    for row in roots(path):
+        if row["path"].resolve() == want:
+            return row
+    return None
+
+
+def basis_ref(root: Path | str | None = None, default: str = "origin/main") -> str:
+    """그 루트의 «기준 ref» — roots.tsv 행이 있으면 그 값(origin 없는 루트 = 로컬 가지) · 없으면 default(지금 동작)."""
+    row = root_row(root)
+    return str(row["ref"]) if row else default
+
+
+def human_mail_dir(name: str, path: Path | str | None = None) -> Path:
+    """그 루트의 «사람 우편함» 폴더 — «.» = 그 루트 자신의 .fable-team/comm · 행 없음/값 이상 = RootsError."""
+    for row in roots(path):
+        if row["name"] != name:
+            continue
+        human = str(row["human_mail"])
+        if human == ".":
+            return Path(row["path"]) / ".fable-team" / "comm"
+        if not human.startswith("/"):
+            raise RootsError(f"ERROR 루트 명부 판정 불가: {name} 사람우편함이 절대경로도 «.» 도 아니다: {human}")
+        return Path(human)
+    raise RootsError(f"ERROR 루트 명부 판정 불가: {name} 행이 없다({roots_tsv()})")
+
+
+def roots_info() -> str:
+    """진단 1줄 — 파일 없음 = «INFO 루트 명부 없음»(BYZ 단일 동작) · 깨짐 = RootsError 를 그대로 올린다."""
+    file = roots_tsv()
+    found = roots(file)
+    if not file.is_file():
+        return f"INFO 루트 명부 없음({file}) — BYZ 단일 루트 동작"
+    return f"INFO 루트 명부 {file} 현역 {sum(1 for r in found if r['state'] == '현역')}행"
 
 
 def team_rel(team: str, root: Path | None = None) -> str:
@@ -393,6 +600,23 @@ def main(argv: list[str]) -> int:
             return 0
         if cmd == "present":
             return 0 if _ref_present(argv[1], argv[2]) else 1
+        if cmd == "seats-file":   # r1309: ft-tick·설치 h 가 «명부» 칸을 읽는 창구 — 다팀 루트(>1 현역)는 지금 규칙(seats.json)
+            base = Path(argv[1])
+            team = argv[2] if len(argv) > 2 else ""
+            if not team:
+                active = team_names(base, "현역")
+                team = active[0] if len(active) == 1 else ""
+            print(base / ".fable-team" / (roster_name(team, base) if team else "seats.json"))
+            return 0
+        if cmd == "basis-ref":
+            print(basis_ref(argv[1]))
+            return 0
+        if cmd == "roots-info":
+            print(roots_info())
+            return 0
+        if cmd == "human-mail":
+            print(human_mail_dir(argv[1]))
+            return 0
     except TeamPathError as e:
         print(str(e), file=sys.stderr)
         return 4
@@ -409,7 +633,8 @@ def main(argv: list[str]) -> int:
     except TeamPathError as e:
         print(str(e), file=sys.stderr)
         return 1
-    print("usage: ft_team_lib.py ref-read <리포> <git 인자…> | present <리포> <ref:경로> | doc-ref <루트> <팀> <파일> [<ref>] | queue-ref <루트> [<ref>] [<리포>]", file=sys.stderr)
+    print("usage: ft_team_lib.py ref-read <리포> <git 인자…> | present <리포> <ref:경로> | doc-ref <루트> <팀> <파일> [<ref>] | queue-ref <루트> [<ref>] [<리포>]"
+          " | seats-file <루트> [<팀>] | basis-ref <루트> | roots-info | human-mail <루트이름>", file=sys.stderr)
     return 2
 
 

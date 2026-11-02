@@ -25,13 +25,18 @@ DEAD_BODY = f"[우편함 거의 참 · 죽은 좌석] {DEAD} 미읽음 8/10 — 
 def root(tmp_path: Path) -> Path:
     ft = tmp_path / ".fable-team"
     (ft / "comm").mkdir(parents=True)
+    teams = tmp_path / "design" / "TEAMS.md"
+    teams.parent.mkdir(parents=True)
+    teams.write_text("| 팀 | 폴더 | 오케 | 상태 |\n|---|---|---|---|\n| v65 | `design/teams/v65/` | x | 현역 |\n| harness | `design/teams/harness/` | x | 현역 |\n", encoding="utf-8")
     fake = HERE / "_fake_mbox.sh"
     # 큐에 먼저 넣고(실제 송신은 들어감) FAKE_SLEEP 초 걸림 — exec 라 상한 초과 kill 이 sleep 까지 끝낸다
     (ft / "comm" / "mbox.sh").write_text(f'bash "{fake}" "$@" || exit $?\n[ -n "${{FAKE_SLEEP:-}}" ] && exec sleep "$FAKE_SLEEP"\nexit 0\n')
-    (ft / "seats.json").write_text(json.dumps({"_master": V65M, V65M: {"role": "master"}, NANO: {"role": "nano"},
+    (ft / "seats.json").write_text(json.dumps({"_master": V65M, "_label": "v65", "_cards": "design/teams/v65/indices", "_cards_wt": "wt-v65", V65M: {"role": "master"}, NANO: {"role": "nano"},
                                                DEAD: {"role": "arch-canon"}}), encoding="utf-8")
-    (ft / "seats-harness.json").write_text(json.dumps({"_master": HARNESS_M, HARNESS_M: {"role": "master"},
+    (ft / "seats-harness.json").write_text(json.dumps({"_master": HARNESS_M, "_cards": "design/teams/harness/indices", "_cards_wt": "wt-harness", HARNESS_M: {"role": "master"},
                                                        HNANO: {"role": "nano"}}), encoding="utf-8")
+    for team in ("v65", "harness"):
+        (tmp_path / f".worktrees/wt-{team}/design/teams/{team}/indices").mkdir(parents=True, exist_ok=True)
     sessions(tmp_path, [V65M, NANO, DEAD, HARNESS_M, HNANO])
     return tmp_path
 

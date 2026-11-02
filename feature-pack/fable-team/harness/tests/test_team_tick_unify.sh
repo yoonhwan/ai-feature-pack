@@ -17,7 +17,7 @@ ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }
 chk() { if [ "$2" = "$3" ]; then ok "$1"; else bad "$1 (got=[$2] want=[$3])"; fi; }
 TEAMS="feature loom ops cfo"
-TSV="${R199_TSV:-$KIT/team-tick-env.tsv}"
+TSV="${R199_TSV:-$HERE/fixtures/team-tick-env-r199.tsv}"   # r1298 이행: 실 표는 팀이 바뀐다(loom·chatbot 행 0) — 시험 팀(feature loom ops cfo · chatbot 원본 plist 없음)은 옛 5행 픽스처로
 
 # ⓕ 키트 두 사본 동일
 for f in ft-tick.sh ft-tick-install.sh team-tick-env.tsv; do chk "ⓕ 키트 두 사본 동일 $f" "$(cmp -s "$KIT/$f" "$INST/$f" && echo same || echo differ)" same; done

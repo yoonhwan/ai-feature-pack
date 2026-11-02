@@ -9,7 +9,10 @@ r459: --restart-scan [<plist 폴더>] = 적재된 하네스 데몬 중 «기동 
 r538: com.byz.*.plist 실행 경로의 판 붙은 live 경로(판 ≠ 루트 LIVE_BIN 판) → DRIFT launchd <라벨> pinned=<판> (고침 = install.sh --apply 렌더).
 r544: com.byz.*.plist 실행 경로(ProgramArguments 의 .sh/.py)가 없는 파일 → DRIFT launchd <라벨> missing=<경로> (지운 워크트리를 가리키는 데몬이 매시간 실패 — gce-guard 사건 · 키트 템플릿 밖 plist 도 실재만 검사 · 고치기 0).
 r583: bin 행의 라이브 파일이 연결 파일(shim · SHIMMARK)이면 대조 대상 = <그 폴더>/../LIVE_BIN 의 판 폴더 같은 상대 경로 파일 · 줄 끝에 «via shim → <판 폴더>» (팀 env FT_BIN = 연결 파일 폴더 — 설치가 맞아도 DIFF 로 나오던 것).
-r961: 키트 상대 경로 = relpath(<HARNESS_ROOT>/kit, <HARNESS_ROOT 자기 show-toplevel>) — 라이브 하네스 루트가 같은 리포의 다른 워크트리여도 경로가 같다. «같은 리포» 판정 = 두 쪽 `git rev-parse --git-common-dir` 가 같음(r2 · 공용 루트 밖에 등록한 워크트리도 같은 리포) · 다르면 종전대로 outside_repo"""
+r961: 키트 상대 경로 = relpath(<HARNESS_ROOT>/kit, <HARNESS_ROOT 자기 show-toplevel>) — 라이브 하네스 루트가 같은 리포의 다른 워크트리여도 경로가 같다. «같은 리포» 판정 = 두 쪽 `git rev-parse --git-common-dir` 가 같음(r2 · 공용 루트 밖에 등록한 워크트리도 같은 리포) · 다르면 종전대로 outside_repo
+r1240: ~/.claude/skills/<이름> 이 «git 체크아웃 안을 가리키는 심링크» 면 그 체크아웃이 origin/main 보다 몇 커밋 뒤인지(behind) · skill 폴더 추적 파일 몇 개가 다른지(diff)를 `WARN skill-symlink` 1줄로 낸다(behind>0 또는 diff>0).
+심링크 아님(복사 설치) · 대상이 git 밖 = 줄 0 · git 이 못 읽음(깨진 .git · origin/main 없음) = `판정 불가` 1줄. WARN 은 PENDING 이 아니다 — 종료코드를 바꾸지 않는다(다른 점검 결과 그대로).
+"""
 import fnmatch
 import os
 import re
@@ -249,7 +252,12 @@ def label_items(path, body, label):
 
 def restart_due(pid, scripts):
     """프로세스 시작 시각 < 스크립트 mtime 최대값 → True (R245 판정식 하나 · r459 설치기 restart_scan 도 이것)."""
-    ls = run([os.environ.get("FT_PS", "ps"), "-o", "lstart=", "-p", pid]).stdout.split()
+    r = run([os.environ.get("FT_PS", "ps"), "-o", "lstart=", "-p", pid])
+    if r.returncode:
+        die("재기동 판정 불가: ps lstart 실패(rc=%d)" % r.returncode)
+    ls = r.stdout.split()
+    if not ls:
+        die("재기동 판정 불가: ps lstart 결과 없음")
     try:
         started = time.mktime(time.strptime(" ".join(ls), "%a %b %d %H:%M:%S %Y"))
     except ValueError:
@@ -272,12 +280,22 @@ def shim_deps(script):
     return [d for d in deps if os.path.isfile(d)]
 
 
-def restart_scan(pdir):
+def restart_scan(pdir, project=None):
     """r459: <pdir>/*.plist 중 ProgramArguments 가 하네스 스크립트(.fable-team/bin · fable-team/live/<ver>/bin)이고 적재·PID 있는 데몬의
-    기동 시각 < 스크립트(shim 이면 LIVE_BIN 지도·라이브 도구까지) mtime → RESTART 줄. 실행 0 — 재기동은 master 가 줄의 명령으로."""
+    project가 주어지면 해당 프로젝트 소속만 검사한다. 기동 시각 < 스크립트(shim 이면 LIVE_BIN 지도·라이브 도구까지) mtime → RESTART 줄. 실행 0."""
     import plistlib
+    if project is not None:
+        project = os.path.realpath(project)
+        if not os.path.isdir(project):
+            die("재기동 판정 불가: 프로젝트 루트 없음(%s)" % project)
+    try:
+        names = sorted(os.listdir(pdir))
+    except FileNotFoundError:
+        names = []
+    except OSError as e:
+        die("재기동 판정 불가: LaunchAgents 읽기 실패(%s)" % e)
     out = []
-    for name in sorted(os.listdir(pdir)) if os.path.isdir(pdir) else []:
+    for name in names:
         if not name.endswith(".plist"):
             continue
         try:
@@ -286,11 +304,33 @@ def restart_scan(pdir):
         except Exception:  # noqa: BLE001 — 손상 plist 는 이 스캔 밖(설치기 관리 plist 는 plist_sync 가 따로 본다)
             continue
         label = d.get("Label") or name[: -len(".plist")]
-        deps = [x for a in (d.get("ProgramArguments") or []) if isinstance(a, str) and HARNESS_SCRIPT.search(a) for x in shim_deps(a)]
+        args = [a for a in (d.get("ProgramArguments") or []) if isinstance(a, str) and HARNESS_SCRIPT.search(a)]
+        if project is not None:
+            env = d.get("EnvironmentVariables") if isinstance(d.get("EnvironmentVariables"), dict) else {}
+            roots = [d.get("WorkingDirectory"), env.get("FT_ROOT")]
+            belongs = any(isinstance(root, str) and os.path.realpath(root) == project for root in roots)
+            if not belongs:
+                for arg in args:
+                    for path in (os.path.abspath(arg), os.path.realpath(arg)):
+                        try:
+                            belongs = os.path.commonpath((project, path)) == project
+                        except ValueError:
+                            continue
+                        if belongs:
+                            break
+                    if belongs:
+                        break
+        else:
+            belongs = True
+        if not belongs:
+            continue
+        deps = [x for a in args for x in shim_deps(a)]
         if not deps:
             continue
         r = run([os.environ.get("FT_LAUNCHCTL", "launchctl"), "list", label])
-        pm = re.search(r'"PID"\s*=\s*(\d+)', r.stdout) if not r.returncode else None
+        if r.returncode not in (0, 113):
+            die("재기동 판정 불가: launchctl list %s 실패(rc=%d)" % (label, r.returncode))
+        pm = re.search(r'"PID"\s*=\s*(\d+)', r.stdout) if r.returncode == 0 else None
         if pm and restart_due(pm.group(1), deps):
             out.append("RESTART %s — launchctl kickstart -k gui/%d/%s" % (label, os.getuid(), label))
     return out
@@ -425,6 +465,73 @@ def stale_copies(repo, project=None):
     return out
 
 
+def git_soft(path, *args):
+    """7초 상한 git 한 번 · 실패는 죽지 않고 (None, 사유) 로 — 이 갈래는 «판정 불가 1줄» 이고 다른 점검을 멈추지 않는다(r1240 R5)."""
+    try:
+        r = subprocess.run(["git", "-C", path, "-c", "core.quotepath=false", *args], capture_output=True,
+                           timeout=7, env={**os.environ, "LC_ALL": "C"})
+    except (subprocess.TimeoutExpired, OSError) as e:
+        return None, "실행 실패/7초 초과 (%s)" % e
+    if r.returncode:
+        return None, (r.stderr.decode("utf-8", "surrogateescape").strip().splitlines() or ["rc=%d" % r.returncode])[-1][:120]
+    return r.stdout.decode("utf-8", "surrogateescape"), ""
+
+
+def has_dotgit(path):
+    """<path> 또는 위쪽 폴더에 .git 이 있나 — git 이 실패할 때 «리포 밖»(R4 · 줄 0)과 «깨진 리포»(R5 · 판정 불가)를 가른다."""
+    cur = os.path.realpath(path)
+    while True:
+        if os.path.exists(os.path.join(cur, ".git")):
+            return True
+        parent = os.path.dirname(cur)
+        if parent == cur:
+            return False
+        cur = parent
+
+
+def skill_symlink_drift(home=None):
+    """r1240: ~/.claude/skills/<이름> 이 git 체크아웃 안을 가리키는 심링크일 때, 그 체크아웃 HEAD 가 origin/main 보다
+    몇 커밋 뒤인지 · skill 폴더 추적 파일이 몇 개 다른지를 WARN 1줄로. 라이브 스킬이 «옛 판 체크아웃» 을 가리키는 것을 잡는다.
+    읽기만(fetch 0 · 쓰기 0) · HOME 기준(시험은 HOME 을 바꾼다) · 심링크 아님(R3) · git 밖(R4) = 줄 0 · git 실패(R5) = 판정 불가 1줄."""
+    base = os.path.join(home if home is not None else os.environ.get("HOME", ""), ".claude", "skills")
+    if not os.path.isdir(base) or os.path.islink(base):
+        return []
+    out = []
+    for name in sorted(os.listdir(base)):
+        p = os.path.join(base, name)
+        if not os.path.islink(p):  # R3: 복사 설치 = 이 갈래 대상 밖
+            continue
+        tgt = os.path.realpath(p)
+        if not os.path.isdir(tgt):  # 깨진 심링크 = 대상 밖
+            continue
+        top, err = git_soft(tgt, "rev-parse", "--show-toplevel")
+        if top is None:
+            if has_dotgit(tgt):  # R5: 리포 안인데 git 이 못 읽는다 → 판정 불가(다른 점검 그대로)
+                out.append("WARN skill-symlink %s 판정 불가 — git: %s -> %s" % (name, err, tgt))
+            continue  # R4: git 밖 = 대상 밖
+        top = os.path.realpath(top.strip())
+        rel = os.path.relpath(tgt, top)
+        if rel == ".." or rel.startswith(".." + os.sep):  # 리포 최상위 밖
+            continue
+        num, err = git_soft(top, "rev-list", "--count", "HEAD..origin/main")
+        if num is None:
+            out.append("WARN skill-symlink %s 판정 불가 — rev-list: %s -> %s" % (name, err, tgt))
+            continue
+        dfl, err = git_soft(top, "diff", "--name-only", "HEAD", "origin/main", "--", rel)
+        if dfl is None:
+            out.append("WARN skill-symlink %s 판정 불가 — diff: %s -> %s" % (name, err, tgt))
+            continue
+        try:
+            behind = int(num.strip() or 0)
+        except ValueError:  # 숫자가 아니면 재지 못한 것 — 조용히 0 으로 넘기지 않는다
+            out.append("WARN skill-symlink %s 판정 불가 — rev-list 값 %r -> %s" % (name, num.strip()[:40], tgt))
+            continue
+        diff = len([x for x in dfl.splitlines() if x.strip()])
+        if behind > 0 or diff > 0:
+            out.append("WARN skill-symlink %s behind=%d diff=%d -> %s (고침: git -C %s switch main && git -C %s merge --ff-only origin/main)" % (name, behind, diff, tgt, top, top))
+    return out
+
+
 def is_shim(path):
     if os.path.islink(path) or not os.path.isfile(path):
         return False
@@ -435,7 +542,16 @@ def is_shim(path):
 def main():
     sys.stdout.reconfigure(encoding="utf-8", errors="backslashreplace")  # 로케일과 무관하게 한글은 원형 · non-UTF8 경로는 \udcff 대신 이스케이프 출력
     if sys.argv[1:2] == ["--restart-scan"]:  # r459: install.sh --apply 끝 — RESTART 줄만(읽기 전용 · rc0)
-        print("\n".join(restart_scan(sys.argv[2] if len(sys.argv) > 2 else os.path.join(os.environ["HOME"], "Library", "LaunchAgents"))) or "RESTART 0")
+        args = sys.argv[2:]
+        pdir = os.path.join(os.environ["HOME"], "Library", "LaunchAgents")
+        if args and args[0] != "--project":
+            pdir, args = args[0], args[1:]
+        project = None
+        if args:
+            if len(args) != 2 or args[0] != "--project":
+                sys.exit(2)
+            project = args[1]
+        print("\n".join(restart_scan(pdir, project)) or "RESTART 0")
         sys.exit(0)
     o = parse_args(sys.argv[1:])
     repo = resolve_kit(o)
@@ -474,6 +590,7 @@ def main():
     bad += drift
     gone = missing_script_drift(os.path.join(os.environ["HOME"], "Library", "LaunchAgents"))  # r544: 실행 경로 스크립트가 없는 plist
     bad += gone
+    warns = skill_symlink_drift()  # r1240: 라이브 스킬 심링크가 «뒤처진 체크아웃» 을 가리키면 WARN — PENDING 아님(rc 불변)
     hl = []
     if drift:
         hl.append("bash %s/install.sh --apply --project %s" % (harness_root() or "<하네스>/harness", plist_root(repo, o["project"])))
@@ -528,10 +645,14 @@ def main():
             print("REMOVED %s (ref tip 에서 삭제 · 라이브 잔재 0)" % f)
     if not bad:
         print("OK n=%d skip=%d" % (checked, skip))
+        for w in warns:
+            print(w)
         return 0
     print("PENDING n=%d" % len(bad))
     print("\n".join(sorted(bad)))
     print("\n".join("HINT %s %s" % (k, hints[k]) for k in sorted(hints)))
+    for w in warns:
+        print(w)
     return 1
 
 

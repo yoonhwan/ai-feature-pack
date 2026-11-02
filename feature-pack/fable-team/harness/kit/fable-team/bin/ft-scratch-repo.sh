@@ -52,6 +52,7 @@ HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="${FT_RES_ROOT:-}"   # r385: 리포 공용 루트 = env → ft_repo_root(옛 설치 꼴 · cwd) → ERROR (새 설치본이 git 밖이라 자기 위치로 풀지 않는다)
 [ -n "$ROOT" ] || { . "$HERE/ft-harness-root.sh" && ROOT="$(ft_repo_root "$HERE")"; } || exit 3
 TAB=$'\t'
+[ -f "$HERE/ft-heavy-slot-lib.sh" ] || die "판정 불가 — ft-heavy-slot-lib.sh 없음: $HERE (사본 0·등록 0·삭제 0)" 4; . "$HERE/ft-heavy-slot-lib.sh"   # r1286: 무거운 git 전역 자리(동시 2) — 없으면 조용한 통과 0
 STATE="$ROOT/.fable-team/state"; TSV="$STATE/scratch-repos.tsv"; ARMED="$STATE/scratch-sweep.armed"; SLOG="$STATE/scratch-sweep.log"; AGE="${FT_SCRATCH_AGE_MIN:-240}"
 KEEP_ON="${FT_SCRATCH_KEEP_DIRTY:-0}"; KEEP_MAX_MB="${FT_SCRATCH_KEEP_MAX_MB:-500}"; KEEPDIR="$STATE/scratch-keep"   # r1090: 더러운 사본을 «보관 뒤 삭제» — 켜는 것은 planner h 의 env 하나(기본 꺼짐 · 꺼짐 = 지금 동작 + detached 더러움도 거절)   # r1029: 1440 → 240(오빠 결정 · 사본은 일회용 · 같은 sha 재생성 · 주인 살아 있음·cwd 보유는 그대로 보존)
 TIMEOUT_BIN=""; command -v gtimeout >/dev/null 2>&1 && TIMEOUT_BIN="$(command -v gtimeout)"; [ -n "$TIMEOUT_BIN" ] || { command -v timeout >/dev/null 2>&1 && TIMEOUT_BIN="$(command -v timeout)"; }
@@ -729,7 +730,9 @@ done_run() { # <경로> --done: 등록된 «내» 사본만 지운다(r897 r10: 
   ME="${FT_SCRATCH_OWNER:-${FT_ME:-}}"
   [ -n "$ME" ] || cap ME tmux display-message -p '#S' 2>/dev/null || ME=-
   [ "$REG_OWN" = "$ME" ] || die "주인 아님(등록 주인 $REG_OWN · 나 $ME) — 남의 사본은 sweep 이 지운다" 2
+  hs_acquire scratch-rm "${FT_HEAVY_WAIT_S:-60}" || die "판정 불가 — 무거운 git 자리 ${HS_MSG:-없음}(사본 0 · 삭제 0)" 5   # r1286: worktree remove = 무거운 git
   RBUD=0; delete_copy "$P" reg "$ME" done; rc=$?
+  hs_release   # r1286: 삭제 구간이 끝나면 풀어 놓는다(die 갈래는 프로세스 종료로 커널이 풂)
   case "$rc" in
     0) echo "DONE $P";;
     1) die "붙잡음($GWHY) — 쓰는 중인 사본은 지우지 않는다: $P" 4;;
@@ -770,6 +773,8 @@ sweep_run() { # --sweep: 주인 없는 사본 정리(판정 1920 · r548 · r444
     printf '[임시 사본 목록 보고 · 실삭제 0 · 다음 정리부터 자동] 주인 없는 사본 %s개 %s GiB: %s\n' "$N" "$g" "$l"; return 0
   fi
   # r897 r5: 삭제는 출구 게이트 delete_copy 한 곳 — 그 자리에서 신원·주인·점유·자격을 다시 읽는다 · rc2 = 남은 항목 전부 삭제 0 · rc3 = 그 항목만 건너뜀(하드 룰 12: 70초)
+  # r1286: 항목마다 «무거운 git 자리» 를 새로 잡고 그 항목 끝에 풀어 놓는다(EXIT 에 몰아 풀기 0 — 항목 사이에 남는 대기자가 자리를 얻는다) · 대기 상한 = min(60, 70 - 경과 - 15)
+  HS_STOP=0
   while IFS="$TAB" read -r k p ty why own; do
     [ -n "$p" ] || continue
     [ "$RSTOP" = 0 ] || continue
@@ -777,7 +782,15 @@ sweep_run() { # --sweep: 주인 없는 사본 정리(판정 1920 · r548 · r444
     # r1090: 회차 상한 70초는 «시작 시각» 기준이다 — 새 사본은 남은 예산 15초 이상일 때만 시작한다(진행 중인 조회가 최대 7초×2 를 더 쓸 수 있다 · bore 80초 돌파 실측)
     if [ $(( now - RSTART )) -gt 70 ]; then RSTOP=1; echo "WARN ft-scratch-repo — 재확인 70초 초과 · 남은 항목은 다음 정리로" >&2; continue; fi
     if [ $(( 70 - (now - RSTART) )) -lt 15 ]; then RSTOP=1; echo "WARN ft-scratch-repo — 회차 예산 15초 미만 · 남은 항목은 다음 정리로" >&2; continue; fi
+    HW=$(( 70 - (now - RSTART) - 15 )); [ "$HW" -gt 60 ] && HW=60; [ "$HW" -gt "${FT_HEAVY_WAIT_S:-60}" ] && HW="${FT_HEAVY_WAIT_S:-60}"
+    if ! hs_acquire scratch-rm "$HW"; then
+      HS_STOP=1; RSTOP=1
+      printf '%s 자리 대기 초과 %s (%s)\n' "$today" "$p" "${HS_MSG:-}" >> "$SLOG"
+      echo "WARN ft-scratch-repo — 무거운 git 자리 대기 초과 · 남은 항목 삭제 0 (${HS_MSG:-})" >&2
+      continue
+    fi
     delete_copy "$p" "$ty" "${own:--}" sweep; rc=$?
+    hs_release
     case "$rc" in
       0) DEL=$((DEL+1)); case "$k" in ''|*[!0-9]*) ;; *) DK=$((DK+k));; esac; [ "$ty" != reg ] || DREG=$((DREG+1)); [ "$KEPT_THIS" = 0 ] || KEPT=$((KEPT+1)); printf '%s 삭제 %s (%s)\n' "$today" "$p" "$why" >> "$SLOG";;
       1) HELD=$((HELD+1)); printf '%s 붙잡음 %s (%s · 주인 %s)\n' "$today" "$p" "$GWHY" "${own:--}" >> "$SLOG"
@@ -801,6 +814,7 @@ EOF
   printf '%s\n' "$l"   # r1090: 로그와 같은 1줄을 stdout 에도(호출자·planner 쪽지가 같은 눈금을 본다)
   cap g gib "$DK"   # 표시 전용
   [ "$DEL" = 0 ] || printf '[임시 사본 자동 삭제] 주인 없는 사본 %s개 %s GiB 삭제(되살릴 수 있는 사본만) — 목록: .fable-team/state/scratch-sweep.log\n' "$DEL" "$g"
+  [ "$HS_STOP" = 0 ] || return 5   # r1286: 무거운 git 자리 대기 초과 = «남은 항목 삭제 0» — 끝 줄은 그대로 찍고 rc 5 로 알린다(ft-disk-alarm 이 다음 틱 재시도)
 }
 prune_missing() { # <주인 파일> r1223: «경로가 없고(-e·-L 둘 다 거짓) 주인이 그 파일의 한 줄과 정확히 같은» 등록 줄만 «모든 등록부» 에서 지운다 · 디스크 삭제 0 · 등록부 하나라도 못 읽으면 지우기 0(rc 4)
   local owners p o rest gone="" n=0 f
@@ -877,10 +891,13 @@ EOF
     DEST="${BASE%/}/repo-$(printf '%.8s' "$SHA")-$(date +%s)-$$"
     has_ctl "$DEST" && die "등록 불가 경로(탭·개행): $DEST" 2   # r897 r10.2: TSV 로 표현 못 하는 경로면 사본을 만들지 않는다
     PRE=0; [ -e "$DEST" ] && PRE=1   # r996 ⓗ: 있던 폴더 = 이번 실행이 만든 것이 아니다(되돌림 0)
+    # r1286: worktree add·sparse 체크아웃 = 무거운 git — 자리 하나를 쥐고 돈다(등록·체크아웃 전에 잡는다)
+    hs_acquire scratch-add "${FT_HEAVY_WAIT_S:-60}" || die "판정 불가 — 무거운 git 자리 ${HS_MSG:-없음}(사본 0 · 등록 0)" 5
     # r996 ⓗ + r845 r6: 체크아웃 «전에» 등록(끊겨도 보인다) · 장부는 «있으면 참고» — 쓰기 실패는 WARN 1줄(die 0)
     reg_write "$DEST" "$OWNER" "$(date +%s)" "${BASE%/}" "$SRC" || echo "WARN ft-scratch-repo — 장부 등록 실패 · 사본은 그대로 만들고 쓴다(die 0): $DEST" >&2
     # r845 r6·r7 + r996 ⓗ: 훅이 죽어도 «그 sha 로 온전히 생긴» 사본은 쓴다 — 완전하면 WARN rc0(등록 유지) · 아니면 되돌림 + die 4
     addfail() { # <무엇이 실패했나>
+      hs_release   # r1286: 실패·성공 어느 길로 가든 사본 생성 구간이 끝나면 자리를 풀어 놓는다(아래 성공 길은 그냥 다시 부르는 것)
       if [ -d "$DEST" ] && verify_complete; then
         echo "WARN ft-scratch-repo — $1 rc≠0 이지만 사본 생성됨(HEAD=${SHA:0:8} · status 깨끗) · 장부 등록 · 그대로 쓴다: $DEST" >&2
         return 0
@@ -896,6 +913,7 @@ EOF
     fi
     # r845 r7: 훅 rc 가 0 이어도 «온전한 사본» 인지는 항상 확인 — 어긋나면 되돌림 + die 4
     verify_complete || { gen_rollback "$DEST" "온전성 확인"; die "사본이 온전하지 않음: $DEST (요청 ${SHA:0:8} · status 더러움/파일 누름 — 되돌림 · 등록 정리)" 4; }
+    hs_release   # r1286: sparse 체크아웃까지 끝났다 — 자리는 tmux·시험 쪽으로 넘기지 않는다
     # r996 ⓗ: 완성 표식 — 재사용과 «24시간 없이 바로 지우기» 의 조건 · 체크아웃이 다 끝난 뒤에만 생긴다
     mkdir -p "$READY" 2>/dev/null && : > "$READY/${DEST##*/}" 2>/dev/null || echo "WARN ft-scratch-repo — 완성 표식 못 씀(재사용·즉시 삭제 대상 아님): $DEST" >&2
     warn_many "$OWNER"; echo "$DEST";;

@@ -31,7 +31,7 @@ unset FT_R835_SPARSE_HOOK FT_WT_FULL FT_NANO_SPARSE
 here() { [ -e "$1" ]; }
 sparse_on() { [ "$(git -C "$1" config --bool core.sparseCheckout 2>/dev/null)" = true ]; }
 mark() { cat "$(git -C "$1" rev-parse --path-format=absolute --git-dir)/ft-wt-mode" 2>/dev/null; }
-beads_n() { grep -c "^$1 " "$T/beads.log" 2>/dev/null; }
+beads_n() { local n; n="$(grep -c "^$1 " "$T/beads.log" 2>/dev/null)"; echo "${n:-0}"; }   # r1345: 위임이 없어져 호출 기록 파일이 안 생길 수 있다 → 빈 값 = 0
 r835_n() { grep -c '\[r835\]' "$T/e"; }
 LOG="$B/.fable-team/state/wt-add-full.log"
 logn() { wc -l < "$LOG" 2>/dev/null | tr -d ' ' || echo 0; }
@@ -49,7 +49,7 @@ run() { (cd "${2:-$P}" && bash -c "$1") >"$T/o" 2>"$T/e"; }
 
 echo "== 빠짐 4꼴(DA r1) → sparse + 표식"
 run "git --git-dir=\"$B/.git\" worktree add \"$B/.worktrees/e1\" -b e1 main"; sparse_cell "빠짐1 cwd=P · git --git-dir=<B>/.git worktree add" "$B/.worktrees/e1"
-[ "$(beads_n "$B/.worktrees/e1")" = 1 ] && ok "beads 위임 1회(빠짐1)" || bad "beads e1=$(beads_n "$B/.worktrees/e1")"
+[ "$(beads_n "$B/.worktrees/e1")" = 0 ] && ok "beads 위임 0회(r1345 · 빠짐1)" || bad "beads e1=$(beads_n "$B/.worktrees/e1")"
 run "W=\"$B\"; git -C \"\$W\" worktree add .worktrees/e2 -b e2 main"; sparse_cell "빠짐2 W=<B>; git -C \"\$W\" worktree add" "$B/.worktrees/e2"
 printf '#!/bin/bash\ngit -C "$1" worktree add "$1/.worktrees/e3" -b e3 main\n' > "$T/mk.sh"
 run "bash $T/mk.sh $B"; sparse_cell "빠짐3 bash <스크립트 파일> 속 worktree add" "$B/.worktrees/e3"
@@ -94,7 +94,7 @@ sparse_cell "FULL 사유 9자 → 무시하고 sparse" "$B/.worktrees/short"; gr
 
 echo "== 동작 0 / 도구 경로"
 git -C "$B" worktree add -q "$T/outside" -b outside main >"$T/o" 2>"$T/e"
-here "$T/outside/design/teams/b/f.md" && ! sparse_on "$T/outside" && [ -z "$(mark "$T/outside")" ] && [ "$(r835_n)" = 0 ] && [ "$(beads_n "$T/outside")" = 1 ] && ok "무동작 .worktrees 밖(ft-scratch-repo 꼴) · beads 1회" || bad "outside · $(cat "$T/e")"
+here "$T/outside/design/teams/b/f.md" && ! sparse_on "$T/outside" && [ -z "$(mark "$T/outside")" ] && [ "$(r835_n)" = 0 ] && [ "$(beads_n "$T/outside")" = 0 ] && ok "무동작 .worktrees 밖(ft-scratch-repo 꼴) · beads 0회(r1345)" || bad "outside · $(cat "$T/e")"
 git -C "$P" worktree add -q "$P/.worktrees/p1" -b p1 main >"$T/o" 2>"$T/e"
 here "$P/.worktrees/p1/README.md" && ! sparse_on "$P/.worktrees/p1" && [ -z "$(mark "$P/.worktrees/p1")" ] && [ "$(r835_n)" = 0 ] && ok "무동작 팩 꼴 리포(design/teams 없음)" || bad "pack · $(cat "$T/e")"
 (cd "$B" && bash "$WT_ADD" wtadd --team a -b wtadd --base main) >"$T/o" 2>"$T/e"; rc=$?

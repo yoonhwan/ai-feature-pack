@@ -5,6 +5,7 @@
 from mbox_conf import *
 import subprocess
 import mbox_lineage
+import mbox_retire_check   # r1319 승계 retire 관문(C0~C2·C7) — 이 파일 182줄·200줄 규칙, 검사 함수는 그 모듈에
 CANON = None   # mbox.py 가 묶는다
 ITEM = re.compile(r"^- (#\d+|h\d+|bg:[\w.-]+) ", re.M)   # [인계] 항목 줄 = «- <id> …» · [레디] 는 «<id> 받음»
 HEAD_N = re.compile(r"^\[인계\] \S+ -> \S+ · 항목 (\d+) ")   # handover 가 쓰는 머리 — 항목 수가 «- <id>» 줄 수와 같아야 기계 [인계]
@@ -142,23 +143,32 @@ def items(h):
     return ids if m and int(m.group(1)) == len(ids) else None
 
 
+def _gate(g, out=sys.stderr):   # r1319 — (rc, 문구) 관문 결과를 그대로 내고 끝낸다(0 통과)
+    if g:
+        out.write(g[1] + "\n"); sys.exit(g[0])
+
+
 def ready_body(new, old):
     h = last_handover(old)
     if not h:
         sys.stderr.write("REJECT %s 의 [인계] 없음 — 구세션이 bash mbox.sh handover %s %s 먼저\n" % (old, old, new)); sys.exit(3)
     if h["seq"] not in {r["seq"] for r in _rows(new)}:
         sys.stderr.write("REJECT [인계] #%s 를 %s 가 아직 recv 안 함 — recv 먼저\n" % (h["seq"], new)); sys.exit(3)
+    _gate(mbox_retire_check.ready_gate(new, old, mbox_retire_check.handover_target(h)), sys.stderr)   # C1 retire 먼저 · C2 남은 `_*` 칸
     ids = items(h)
     if ids is None:
         sys.stderr.write("REJECT [인계] #%s 형식 불명(기계 머리 «항목 N» 과 «- <id>» 줄 수 불일치) — 구세션이 bash mbox.sh handover %s %s 로 다시\n" % (h["seq"], old, new)); sys.exit(3)
     return "\n".join(["[레디] %s <- %s · [인계] #%s 받음 · 항목 %d" % (new, old, h["seq"], len(ids))] + ["%s 받음" % i for i in ids])
 
 
-def close_check(seat, need_ready=True):
+def close_check(seat, need_ready=True, verdict=False):
     """rc 0 = 닫아도 됨 · 3 = 거절(사유 줄) — ③ 미표시 영수 · ② 후계가 있으면 [인계] 뒤 후계 [레디] 가 항목 전부 «받음».
     need_ready=False(retire 관문) = ③ 만 · True(닫기 관문) = 후계 있는 옛 세션만 ③+② — 후계 없는 닫기(나노·판정 닫기)는 승계 검사 대상 아님."""
     succ = mbox_lineage.retired_to(seat)
     if need_ready and not succ:
+        g = None if verdict else mbox_retire_check.close_gate(seat)   # C7 [인계] 는 보냈는데 retire 0 — 면제 = --verdict(사람 판정)
+        if g:
+            print(g[1]); return g[0]
         print("CLOSE-OK %s 후계 없음(승계 검사 대상 아님)" % seat); return 0
     bad = unmarked(seat)
     if bad:
@@ -179,4 +189,4 @@ def close_check(seat, need_ready=True):
             if miss:
                 print("REJECT %s [레디] #%s 에 «받음» 없는 항목 %s" % (seat, r["seq"], ",".join(miss))); return 3
             print("CLOSE-OK %s [인계] #%s → [레디] #%s 항목 %d 전부 받음" % (seat, h["seq"], r["seq"], len(ids))); return 0
-    print("REJECT %s [인계] #%s 뒤 후계 [레디] 없음(회신 0 = 안 닫음)" % (seat, h["seq"])); return 3
+    print("REJECT %s [인계] #%s 뒤 후계 [레디] 없음(회신 0 = 안 닫음) — 후계가 bash mbox.sh ready %s %s (pane 입력은 세지 않음)" % (seat, h["seq"], succ, seat)); return 3

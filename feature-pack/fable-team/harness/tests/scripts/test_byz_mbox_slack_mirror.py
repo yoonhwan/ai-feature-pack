@@ -13,6 +13,13 @@ SCRIPT = KIT / "byz_mbox_slack_mirror.py"
 SEAT = r"^byz-planner-arch#\d+$"
 INBOX = str(Path(__file__).resolve().parent / "_fake_inbox.sh")
 TO = "byz-planner-arch#2"
+R1294_BODY_224912 = "\n".join((
+    "골좌표: 2 — 말풍선 정상화 — 강의",
+    "[결정] 문서 PR 5918 착지 승인 요청(② 순수 이동 · 재요청): head f21434407decfabd3a4bfe62b921ee6cd888cdc9 (gh 재확인: OPEN · CLEAN · 3파일) · 카드 L86·L101·L103 진행→완성 R100 3개 · 내용 0 · base = ① 5917 착지 main be466043ba · 이게 착지돼야 나노 L86·L101·L103 ft-nano-close 가능(석 반납)",
+    "비가역: 없음(문서 PR · 카드 이동)",
+    "선례: 5917 착지(h5766)와 같은 문서 절차",
+    "선택지: A) 5918 승인 h(추천) B) 보류",
+))
 
 @pytest.fixture
 def slack():
@@ -23,6 +30,14 @@ def slack():
 
 @pytest.fixture
 def env(tmp_path: Path) -> Path:
+    (tmp_path / "tok.env").write_text("YOONHWAN_BOT_TOKEN=xoxp-test\n", encoding="utf-8")
+    (tmp_path / "fake_sum.py").write_text(FAKE_SUMMARIZER, encoding="utf-8")
+    resume_script(tmp_path)
+    return tmp_path
+
+
+@pytest.fixture
+def run_env(tmp_path: Path) -> Path:
     (tmp_path / "tok.env").write_text("YOONHWAN_BOT_TOKEN=xoxp-test\n", encoding="utf-8")
     (tmp_path / "fake_sum.py").write_text(FAKE_SUMMARIZER, encoding="utf-8")
     resume_script(tmp_path)
@@ -60,6 +75,11 @@ def state(env: Path) -> dict:
 
 def threads(env: Path) -> dict:
     return json.loads((env / "st" / "byz_slack_threads.C1.json").read_text(encoding="utf-8"))["threads"]
+
+
+def append_row(env: Path, seq: int, to: str, sender: str, body: str) -> None:
+    with (env / "mailbox.log.jsonl").open("a", encoding="utf-8") as f:
+        f.write(json.dumps({"seq": seq, "ts": "t", "to": to, "from": sender, "body": body}, ensure_ascii=False) + "\n")
 
 
 def test_first_run_is_baseline_then_root_and_reply_once(env: Path, slack: FakeSlack):
@@ -334,6 +354,210 @@ def test_rows_from_slack_oppa_are_not_echoed_back_to_slack(env: Path, slack: Fak
     assert state(env)["last_seq"] == 3  # 건너뛰되 처리선은 전진(가짜 공백 0)
 
 
+def test_hil_is_mirrored_to_desk_with_mention(env: Path, slack: FakeSlack):
+    start(env, slack)
+    rows_file(env, (2, TO, "[HIL] #820 어느 쪽으로 할까요?\n1) A\n2) B"))
+    r = run(env, slack, "--desk-channel", "C2")
+    assert r.returncode == 0, r.stderr
+    roots = [m for m in slack.roots if m["text"].startswith(("[작업상황] #820 시작", "[결정] "))]
+    assert len(roots) == 2 and all(len(slack.replies(root)) == 1 for root in roots)
+    assert any("선택지(참고): 1) A 2) B" in reply["text"] for root in roots for reply in slack.replies(root))
+    assert "<@U0AC2JF0M7D>" in "\n".join(m["text"] for m in slack.msgs)
+    assert "#820" in json.loads((env / "st" / "byz_slack_threads.C2.json").read_text())["threads"]
+
+
+@pytest.mark.parametrize("body", ["[긴급] API 장애 시작", "[결정 대기 경보] 선택이 필요합니다"])
+def test_alarm_sender_is_urgent_in_mirror_and_copied_to_desk(env: Path, slack: FakeSlack, body: str):
+    start(env, slack)
+    rows_file(env, (2, TO, body))
+    sender = "ft-api-outage" if body.startswith("[긴급]") else "ft-decision-count"
+    p = env / "mailbox.log.jsonl"
+    rows = [json.loads(line) for line in p.read_text(encoding="utf-8").splitlines()]
+    rows[1]["from"] = sender
+    p.write_text("".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows), encoding="utf-8")
+    r = run(env, slack, "--desk-channel", "C2")
+    assert r.returncode == 0, r.stderr
+    assert len(slack.roots) == 2 and len(slack.msgs) == 4
+    assert all("[긴급]" in m["text"] for m in slack.msgs if m["thread_ts"])
+
+
+def test_urgent_sender_to_desk_is_selected_by_urgent_seat(env: Path, slack: FakeSlack):
+    start(env, slack)
+    append_row(env, 2, "byz-planner-desk-claude#92", "ft-api-outage", "[API 장애 시작 14:33] 오류")
+    r = run(env, slack, "--desk-channel", "C2", "--urgent-seat", r"^byz-planner-desk-claude#\d+$")
+    assert r.returncode == 0, r.stderr
+    assert len(slack.roots) == 2 and "[긴급]" in "\n".join(m["text"] for m in slack.msgs)
+
+
+def test_explicit_urgent_row_to_desk_is_mirrored_in_same_pass(env: Path, slack: FakeSlack):
+    start(env, slack)
+    append_row(env, 2, "byz-planner-desk-claude#92", "src#1", "[긴급] API 장애 시작")
+    r = run(env, slack, "--desk-channel", "C2", "--urgent-seat", r"^byz-planner-desk-claude#\d+$")
+    assert r.returncode == 0, r.stderr
+    assert len(slack.roots) == 2 and all("[긴급]" in m["text"] for m in slack.msgs if m["thread_ts"])
+
+
+def test_explicit_urgent_row_without_desk_channel_keeps_single_delivery(env: Path, slack: FakeSlack):
+    start(env, slack)
+    append_row(env, 2, "byz-planner-desk-claude#92", "src#1", "[긴급] API 장애 시작")
+    r = run(env, slack, "--urgent-seat", r"^byz-planner-desk-claude#\d+$")
+    assert r.returncode == 0, r.stderr
+    assert len(slack.roots) == 1 and len(slack.msgs) == 2
+
+
+def test_block_team_report_is_mirrored_with_person_mention(env: Path, slack: FakeSlack):
+    start(env, slack)
+    rows_file(env, (2, TO, "[BLOCK] <@U0AC2JF0M7D> 이슈 #820 긴급 조치가 필요합니다"))
+    r = run(env, slack, "--desk-channel", "C2")
+    assert r.returncode == 0, r.stderr
+    roots = [m for m in slack.roots if m["text"].startswith("[작업상황] #820 시작")]
+    desk_ts = json.loads((env / "st" / "byz_slack_threads.C2.json").read_text())["threads"]["#820"]
+    desk_root = next(root for root in roots if root["ts"] == desk_ts)
+    assert len(roots) == 2 and "<@U0AC2JF0M7D>" in slack.replies(desk_root)[0]["text"]
+
+
+def test_nonurgent_rows_and_missing_desk_channel_keep_single_delivery(env: Path, slack: FakeSlack):
+    start(env, slack)
+    rows_file(env, (2, TO, "[정리] 정상 보고"))
+    r = run(env, slack, "--desk-channel", "C2")
+    assert r.returncode == 0, r.stderr
+    assert len(slack.roots) == 1 and len(slack.msgs) == 2
+
+
+def test_resume_checks_markers_in_both_channels_before_reposting(run_env: Path, slack: FakeSlack):
+    start(run_env, slack)
+    rows_file(run_env, (2, TO, "[BLOCK] #820 재시작 뒤 확인"))
+    r = run(run_env, slack, "--desk-channel", "C2")
+    assert r.returncode == 0, r.stderr
+    before = len(slack.msgs)
+    st = state(run_env)
+    st.update(last_seq=1, pending={"id": "#2", "marker": "bodies/2.txt@mbox", "seq": 2, "key": "#820", "what": "확인",
+                                   "text": slack.msgs[-1]["text"], "desk_dup": True, "threads": {}, "done": []})
+    (run_env / "st" / "byz_mbox_slack_mirror.byz.json").write_text(json.dumps(st), encoding="utf-8")
+    r = run(run_env, slack, "--desk-channel", "C2")
+    assert r.returncode == 0, r.stderr
+    assert len(slack.msgs) == before
+
+
+def test_team_roots_resume_after_0800_after_main_post_before_done_save(tmp_path: Path, slack: FakeSlack, monkeypatch):
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    sys.path.insert(0, str(KIT))
+    from types import SimpleNamespace
+    from _team_fakes import World, kst
+    import mirror_desk
+    world = World(tmp_path, slack, labels={820: ["team:harness"]})
+    item = world.item("#820", "#2", "긴급 확인", marker="bodies/2.txt@mbox", desk_dup=True)
+    item["text"] += "\nbodies/2.txt@mbox"
+    args = SimpleNamespace(desk_channel="C2", desk_mention="U0AC2JF0M7D", mention="U0AC2JF0M7D",
+                           api_base=slack.base, state_dir=str(tmp_path))
+    desk = mirror_desk.Desk(args, "tok")
+    saves = []
+    def send_main(row, resume, ts, ctx):
+        world.deliv.send_fixed(row, ts, resume, ctx)
+    send_fixed = world.deliv.send_fixed
+    def crash_after_main_post(row, ts, resume, ctx):
+        send_fixed(row, ts, resume, ctx)
+        raise RuntimeError("crash after main POST")
+    monkeypatch.setattr(world.deliv, "send_fixed", crash_after_main_post)
+    with pytest.raises(RuntimeError, match="crash after main POST"):
+        desk.send_both(world.deliv, item, False, lambda: saves.append(dict(item)), send_main)
+    assert item["done"] == [] and "main" in item["threads"]
+    old_day = world.teams.route(item).day
+    world.clock.t = kst(2026, 10, 10, 9, 0)
+    world.rebuild()
+    assert world.teams.route(item).day != old_day
+    desk.send_both(world.deliv, item, True, lambda: saves.append(dict(item)), send_main)
+    team_roots = [root for root in slack.roots if "team:harness:" in root["text"]]
+    main_posts = [m for root in team_roots for m in slack.replies(root) if "bodies/2.txt@mbox" in m["text"]]
+    desk_ts = json.loads((tmp_path / "byz_slack_threads.C2.json").read_text())["threads"]["#820"]
+    desk_root = next(m for m in slack.roots if m["ts"] == desk_ts)
+    desk_posts = [m for m in slack.replies(desk_root) if "bodies/2.txt@mbox" in m["text"]]
+    assert len(team_roots) == 1 and len(main_posts) == 1 and len(desk_posts) == 1 and "desk" in item["done"]
+
+
+def test_desk_mention_is_removed_only_for_zero_decision_summary():
+    sys.path.insert(0, str(KIT))
+    import mirror_desk
+    zero = "<@U0AC2JF0M7D> [정리] 할 일 없음 · 사람 결정 0"
+    work = "<@U0AC2JF0M7D> [정리] 실행 부탁 · h5701 실행 부탁"
+    plain = "<@U0AC2JF0M7D> 다른 건 할 일 없음. 오빠는 담당자에게 전화해 주세요."
+    assert mirror_desk.desk_text(zero, "U0AC2JF0M7D") == "[정리] 할 일 없음 · 사람 결정 0"
+    assert mirror_desk.desk_text(work, "U0AC2JF0M7D") == work
+    assert mirror_desk.desk_text(plain, "U0AC2JF0M7D") == plain
+
+
+def test_resume_marker_on_later_thread_page_prevents_duplicate(tmp_path: Path, slack: FakeSlack):
+    sys.path.insert(0, str(KIT))
+    import mirror_deliver
+    root = slack.human("thread root")
+    for i in range(120):
+        slack.human(f"older reply {i}", root)
+    slack.human("bodies/2.txt@mbox", root)
+    before = len(slack.msgs)
+    deliverer = mirror_deliver.Deliverer(slack.base, "token", "C1", tmp_path / "threads.json")
+    deliverer._reply({"id": "#2", "marker": "bodies/2.txt@mbox"}, root, True, "would duplicate")
+    assert len(slack.msgs) == before
+
+
+def test_actual_decision_alarm_generator_output_is_mirrored(tmp_path: Path, run_env: Path, slack: FakeSlack):
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import test_decision_count as decision_count
+    start(run_env, slack)
+    alarm_env = tmp_path / "decision"
+    alarm_env.mkdir()
+    fixture = decision_count.make_env(alarm_env)
+    decision_count.put(fixture, [decision_count.row(7, "④", "byz-graphics-master-claude#3", ago=31)])
+    generated = decision_count.run(fixture, "--alarm")
+    assert generated.returncode == 0, generated.stderr
+    args = (fixture["root"] / "mbox.log").read_text(encoding="utf-8").split("\n", 1)[0].split(" ", 3)
+    assert args[2] == "ft-decision-count" and args[3].startswith("[결정 대기 경보]")
+    append_row(run_env, 2, TO, args[2], args[3])
+    r = run(run_env, slack, "--desk-channel", "C2")
+    assert r.returncode == 0, r.stderr
+    assert len(slack.roots) == 2 and all("[긴급]" in m["text"] for m in slack.msgs if m["thread_ts"])
+
+
+def test_actual_api_outage_generator_to_desk_is_mirrored(tmp_path: Path, run_env: Path, slack: FakeSlack, monkeypatch):
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import test_ft_api_outage as api_outage
+    desk_seat = "byz-planner-desk-claude#92"
+    monkeypatch.setattr(api_outage, "PLANNER", desk_seat)
+    start(run_env, slack)
+    outage_root = tmp_path / "outage"
+    outage_root.mkdir()
+    fixture = api_outage._outage_fx(outage_root)
+    generated = fixture.run(api_outage.T0)
+    assert generated.returncode == 0, generated.stderr
+    dest, sender, body = next(call for call in fixture.calls() if call[0] == desk_seat)
+    assert sender == "ft-api-outage" and body.startswith("[API 장애 시작")
+    append_row(run_env, 2, dest, sender, body)
+    r = run(run_env, slack, "--desk-channel", "C2", "--urgent-seat", r"^byz-planner-desk-claude#\d+$")
+    assert r.returncode == 0, r.stderr
+    assert len(slack.roots) == 2 and "[긴급]" in "\n".join(m["text"] for m in slack.msgs)
+
+
+def test_actual_api_outage_to_cfo_keeps_queue_and_message_unchanged(tmp_path: Path, run_env: Path,
+                                                                   slack: FakeSlack, monkeypatch):
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import test_ft_api_outage as api_outage
+    cfo = "byz-cfo-master-claude#1"
+    monkeypatch.setattr(api_outage, "PLANNER", cfo)
+    start(run_env, slack)
+    root = tmp_path / "cfo-outage"
+    root.mkdir()
+    fixture = api_outage._outage_fx(root)
+    generated = fixture.run(api_outage.T0)
+    assert generated.returncode == 0, generated.stderr
+    dest, sender, body = next(call for call in fixture.calls() if call[0] == cfo)
+    queue = tmp_path / "cfo-queue.jsonl"
+    queue.write_text("keep-1\nkeep-2\n", encoding="utf-8")
+    before = queue.read_bytes()
+    append_row(run_env, 2, dest, sender, body)
+    r = run(run_env, slack, "--desk-channel", "C2", "--urgent-seat", r"^byz-planner-desk-claude#\d+$")
+    assert r.returncode == 0, r.stderr
+    assert body.startswith("[API 장애 시작") and queue.read_bytes() == before and slack.msgs == []
+
+
 def test_I2_block_issue_and_card_cells_are_none_whatever_the_body_quotes(env: Path, slack: FakeSlack):
     """본문 머리 발주 #seq · PR+Issue 혼합 · 이전 카드 인용 · 여러 단위 → 정형 필드만 권위: Issue·카드 칸 전부 `없음`(DA §4)."""
     start(env, slack)
@@ -342,3 +566,56 @@ def test_I2_block_issue_and_card_cells_are_none_whatever_the_body_quotes(env: Pa
     text = slack.replies(slack.roots[0])[0]["text"]
     assert "↳ 이어가기 · Issue 없음 · 카드 없음 · 담당 src#1 · 정본 bodies/2.txt@mbox" in text
     assert text.count("Issue ") == 1 and "F-old" not in text.split("↳ 이어가기")[1]  # 블록 안에 본문 인용 0
+
+
+def test_r1294_decision_body_keeps_question_format_in_desk(env: Path, slack: FakeSlack):
+    start(env, slack)
+    append_row(env, 2, TO, "byz-lecture-master-claude#201", R1294_BODY_224912)
+    result = run(env, slack, "--desk-channel", "C2")
+    assert result.returncode == 0, result.stderr
+    desk_root = next(message for message in slack.roots if message["channel"] == "C2")
+    (reply,) = slack.replies(desk_root)
+    assert reply["text"].startswith("[이슈보고]")
+    assert "정할 것:" in reply["text"] and "할 일 없음" not in reply["text"]
+    assert "선택지: A) 5918 승인 h(추천) B) 보류" in reply["text"]
+
+
+def test_r1297_decision_root_uses_decision_head(env: Path, slack: FakeSlack):
+    start(env, slack)
+    append_row(env, 2, TO, "byz-lecture-master-claude#201", R1294_BODY_224912)
+    result = run(env, slack, "--desk-channel", "C2")
+    assert result.returncode == 0, result.stderr
+    root = next(message for message in slack.roots if message["channel"] == "C2")
+    assert root["text"].startswith("[결정] ")
+    assert "시작 —" not in root["text"]
+    assert "정할 것: 전문 참고" in root["text"]
+    assert "선택지: A) 5918 승인 h(추천) B) 보류" in root["text"]
+    main_root = next(message for message in slack.roots if message["channel"] == "C1")
+    assert main_root["text"].startswith("[작업상황] ") and " 시작 —" in main_root["text"]
+
+
+def test_r1297_root_text_urgent_kind_and_default():
+    sys.path.insert(0, str(KIT))
+    import mirror_lib as lib
+
+    assert lib.root_text("#225309", "작업이 멈췄어요", kind="긴급").startswith("[긴급] 작업이 멈췄어요")
+    assert lib.root_text("#225309", "일반 진행").startswith("[작업상황] #225309 시작 — 일반 진행")
+
+
+def test_r1297_explicit_options_line_fallback_only_when_needed(env: Path, slack: FakeSlack):
+    start(env, slack)
+    body = "\n".join(("골좌표: 5 — 선택지 줄 미러", "[결정] 진행 방식을 정해 주세요?", "선택지: 지금 착수 / 다음 회차"))
+    append_row(env, 2, TO, "byz-lecture-master-claude#201", body)
+    result = run(env, slack, "--desk-channel", "C2")
+    assert result.returncode == 0, result.stderr
+    root = next(message for message in slack.roots if message["channel"] == "C2")
+    (reply,) = slack.replies(root)
+    assert "선택지: 지금 착수 / 다음 회차" in reply["text"]
+
+
+def test_r1297_summary_notice_is_not_copied_to_desk(env: Path, slack: FakeSlack):
+    start(env, slack)
+    append_row(env, 2, TO, "ft-card-assign-watch", "[정리] 배정 감시 판정 불가 묶음 2026-11-01 2회")
+    result = run(env, slack, "--desk-channel", "C2")
+    assert result.returncode == 0, result.stderr
+    assert not any(message["channel"] == "C2" for message in slack.roots)

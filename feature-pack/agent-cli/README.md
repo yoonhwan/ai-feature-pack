@@ -39,11 +39,38 @@ agent-cli/
 ├── scripts/
 │   ├── selftest.sh                ← 6종 비대화·자율·resume 일괄 점검(타임아웃·로그)
 │   ├── test_opencode.sh           ← opencode 단독(모델 자동탐색)
-│   └── resume_chain.sh            ← 페르소나+다회 resume 체인
+│   ├── resume_chain.sh            ← 페르소나+다회 resume 체인
+│   └── cloud-dataset-batch.sh     ← cloud session credits 로 학습·라벨링 데이터 대량 생성(+회수)
 ├── cli/install.md                 ← 에이전트 CLI 설치 안내
 ├── config/tools-section.md        ← TOOLS.md 추가 섹션
 └── test/verify.md                 ← 설치 검증
 ```
+
+## 클라우드 크레딧 배치 (학습·라벨링 데이터 생성)
+
+Claude **cloud session credits**(구독과 별도로 지급되는 $250류)는 *cloud session 에서만* 차감된다. 로컬 CLI·프록시 경유 호출로는 0. 그래서 데이터 생성 물량을 크레딧으로 태우려면 이 경로뿐이다.
+
+`scripts/cloud-dataset-batch.sh` 는 **repo·코드 없이** 빈 폴더에서 cloud session 을 띄우고, 완료되면 회수(teleport)해서 답변에 찍힌 JSONL 만 뽑아 데이터셋으로 적재한다.
+
+```bash
+bash scripts/cloud-dataset-batch.sh --task lexicon --lang ko,ja,th --count 300 --batch 25 --parallel 3 --budget 20
+bash scripts/cloud-dataset-batch.sh --task label   --lang ko --labels work,tech,legal,daily,billing,other --count 200
+bash scripts/cloud-dataset-batch.sh --task doc     --lang ko --count 4 --batch 4 --parallel 1 --budget 1   # 소량 시험
+```
+
+| task | 만드는 데이터 |
+|---|---|
+| `lexicon` | 언어학 사전 항목(lemma·pos·IPA·gloss·예문·register) |
+| `parallel` | 병렬 말뭉치(src/tgt·domain) |
+| `label` | 분류 라벨링(text·label·rationale) — `--labels` 로 폐쇄 집합 고정 |
+| `qa` | 언어 학습 Q/A(level·topic) |
+| `doc` | 장문 문서 섹션(520자/줄) — 대량 소진용 |
+| `free` | 자유 형식 |
+
+- 출력: `<out>/data.jsonl`(배치 간 중복 제거 + `id` 재부여) · `<out>/run-*/index.tsv`(세션·건수 원장) · `ledger.json`(크레딧 델타)
+- 실측: 세션 1개당 레코드 25건 수준, **레코드당 ≈ $0.03**, 병렬 2~4로 확장
+- 주의: cloud credits 는 만료일이 있어(예: 11-05) 그 전에 태워야 하고, `--budget` 으로 지출 상한을 건다. 대량 반복 생성은 계정 어뷰징 판정 여지가 있으니 **실제로 쓸 데이터**를 만들 것.
+- 전제: `~/.headroom/claude-credit.sh`(ccx/ccxt) · `claude ≥2.1.310` · tmux. 상세 절차·함정은 `~/.headroom/USAGE_CREDITS_PLAYBOOK.md` §13-5·§13-7·§13-8.
 
 ## 지원 환경
 

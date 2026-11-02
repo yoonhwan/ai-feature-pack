@@ -2,7 +2,7 @@
 # ft-role-spawn.sh <master|da|pm|arch|tester> [--team <팀>] [--agent claude|codex|cmd|opencode|pi] [--model ID] [--effort E] [--from <발주좌석>] [--dry-run] [--add]
 #   --add(r989): 같은 역할의 «추가 좌석» — 교체 0(기존 행·`_<역할>`·tick 불변 · _replaces=[]) · PLAN 에 mode=add. 없는 호출은 지금과 같다.
 #   Seatbelt 0.3 · 역할 좌석(master·da·pm)을 «갈아 끼운다» (SEATBELT-README §4 · DRAFT §0-A-2 · §4 표 4b).
-#   --team(R437 · 기본 v65): 명부 = v65 는 seats.json · 그 외 seats-<팀>.json · 인박스·README = TEAMS.md 의 그 팀 폴더 · 이름 byz-<팀>-<역할>-<에이전트>#N
+#   --team(R437 · r1244: 없으면 «부른 좌석» 팀 · 못 읽으면 REJECT rc2): 명부 = v65 는 seats.json · 그 외 seats-<팀>.json · 인박스·README = TEAMS.md 의 그 팀 폴더 · 이름 byz-<팀>-<역할>-<에이전트>#N
 #     팀 폴더·README·인박스·명부가 없으면 REJECT(v65 로 조용히 대체 0) · 명부 `_<역할>` 이 교체 대상 밖 좌석을 가리키면 REJECT(그 좌석은 ft-successor-open 교대)
 #   exit 0 = 열림+도달 · 1 = 실패(사유 stdout) · 2 = usage · 5 = 열렸으나 도달 미확인(사람 확인)
 #   상향 모델(claude-fable-*·*astra* · 판정 1641)은 --raise "<사유>" --raise-card <indices/…/X.md> 필수 — 명부 행에 raised{reason,card,by,at,close_on} (R149)
@@ -20,15 +20,30 @@ set -uo pipefail
 ROLE="${1:-}"; shift || { echo "usage: $0 <master|da|pm|arch|tester> [--agent A] [--model M] [--effort E] [--from SEAT] [--dry-run]" >&2; exit 2; }
 case "$ROLE" in master|da|pm|arch|tester) ;; *) echo "usage: role 은 master|da|pm|arch|tester (받은 값: $ROLE)" >&2; exit 2;; esac
 # 오빠 2026-09-29 「arch도 fable 쓰지말고 opus5.5 high 쓰자 이후로는」
-AGENT="claude"; MODEL="claude-opus-5-5[1m]"; MODEL_SET=0; EFFORT="high"; FROM="${FT_SEND_FROM:-dispatch}"; FROM_SET=0; DRY=0; ADD=0; RAISE=""; RAISE_CARD=""; TEAM="v65"
+AGENT="claude"; MODEL="claude-opus-5-5[1m]"; MODEL_SET=0; EFFORT="high"; FROM="${FT_SEND_FROM:-dispatch}"; FROM_SET=0; DRY=0; ADD=0; RAISE=""; RAISE_CARD=""; TEAM=""; TEAM_SET=0
 while [ $# -gt 0 ]; do case "$1" in
-  --agent) AGENT="$2"; shift 2;; --model) MODEL="$2"; MODEL_SET=1; shift 2;; --effort) EFFORT="$2"; shift 2;; --team) TEAM="${2:-}"; shift 2 2>/dev/null || shift;;
+  --agent) AGENT="$2"; shift 2;; --model) MODEL="$2"; MODEL_SET=1; shift 2;; --effort) EFFORT="$2"; shift 2;; --team) TEAM="${2:-}"; TEAM_SET=1; shift 2 2>/dev/null || shift;;
   --raise) RAISE="${2:-}"; shift 2 2>/dev/null || shift;; --raise-card) RAISE_CARD="${2:-}"; shift 2 2>/dev/null || shift;;
   --from) FROM="$2"; FROM_SET=1; shift 2;; --dry-run) DRY=1; shift;; --add) ADD=1; shift;; *) echo "unknown $1" >&2; exit 2;; esac; done
 # 오빠 확정(2026-09-24 · 09-28 재확인 · 09-29 세 번째 재발): v65 DA astra = low. 기본 high 로 뜨는 사고가 반복돼 여기서 막는다.
 case "$MODEL" in gpt-6-astra*) [ "$EFFORT" = "low" ] || { echo "REJECT: gpt-6-astra 는 --effort low 만 (받은 값: $EFFORT) — 오빠 확정" >&2; exit 2; };; esac
 case "$AGENT" in claude|codex|cmd|opencode|pi) ;; *) echo "usage: --agent 는 claude|codex|cmd|opencode|pi (받은 값: $AGENT)" >&2; exit 2;; esac
+# ★r1244 팀 풀기 (판정 2989 · ops tester 개설 막힘)★: --team 이 없으면 «부른 좌석» 이름에서 팀을 읽는다 —
+#   이름 문법(BOOT 13 · ft-name-lint.sh) = <프로젝트>-<팀>-<역할>[-<꼬리>]#<N> 이므로 둘째 토큰이 팀이다.
+#   못 읽으면 REJECT rc2 — v65 로 조용히 대체하지 않는다(다른 팀이 v65 명부·이름으로 열리던 사고).
+TEAM_FROM="--team"
+if [ "$TEAM_SET" = 0 ]; then
+  _caller="$FROM"; _team=""
+  case "$_caller" in *'#'*)
+    _base="${_caller%#*}"
+    case "$_base" in *-*-*) _tok="${_base#*-}"; _tok="${_tok%%-*}"
+      case "$_tok" in ''|*[!a-z0-9]*) ;; *) _team="$_tok" ;; esac;; esac;;
+  esac
+  [ -n "$_team" ] || { echo "REJECT --team 필수(부른 좌석 팀을 못 읽음: ${_caller:-<없음>}) — --team <팀> 로 명시하라" >&2; exit 2; }
+  TEAM="$_team"; TEAM_FROM="부른 좌석 $_caller"
+fi
 [[ "$TEAM" =~ ^[a-z0-9][a-z0-9_-]*$ ]] || { echo "usage: --team 은 팀 이름 [a-z0-9_-] (받은 값: $TEAM)" >&2; exit 2; }
+echo "team=$TEAM($TEAM_FROM)"   # 조용한 대체 0 — 어디서 팀이 왔는지 1줄
 # ★r1043 기본 브레인 = 역할로 정한다★: `--model` 을 «안 적었고» role=master·agent=claude 면 팀장 기본 = Sonnet 5.5. 명시한 값은 어떤 경우에도 덮지 않는다.
 if [ "$MODEL_SET" = 0 ] && [ "$ROLE" = master ] && [ "$AGENT" = claude ]; then MODEL="claude-sonnet-5-5[1m]"; fi
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"

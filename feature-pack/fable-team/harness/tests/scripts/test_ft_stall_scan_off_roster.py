@@ -51,8 +51,11 @@ def ctx(w: World, seat: str, pct: int) -> None:
 def handed_over(w: World) -> None:
     """chatbot 명부 — 옛 concierge master 6 은 교대 표시(stop-ready · _replaced_by) · 현역 master = chatbot master 7."""
     rows = {"_master": "chatbot-master#7", "_label": "chatbot", "chatbot-master#7": {"role": "master"},
+            "_cards": "design/chatbot/indices", "_cards_wt": "wt-chatbot",
             "concierge-master#6": {"role": "stop-ready", "_replaced_by": "chatbot-master#7"}}
     _ = (w.root / ".fable-team/seats-chatbot.json").write_text(json.dumps(rows))
+    (w.root / ".worktrees/wt-chatbot/design/chatbot/indices").mkdir(parents=True, exist_ok=True)
+    w._team_row("chatbot")
     live(w, "chatbot-master#7")
     w.state("chatbot-master#7", "WORKING", 0.1)
 

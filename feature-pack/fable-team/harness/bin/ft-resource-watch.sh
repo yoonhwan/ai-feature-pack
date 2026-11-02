@@ -4,7 +4,7 @@
 #   tick (기본, launchd 호출): - ft-resource-sample.sh 로 압력 표본 1줄(pressure.tsv · R213) 뒤 gate status 로 disk/swap/memfree 측정(측정 실패 rc4 → 로그 ERROR·동결 손대지 않음).
 #     - 동결 트리거(disk<25GiB | memfree<10% | (swap>12288MiB & level>=2 & memfree<FT_SWAP_MEMFREE_MAX(30)) — R357: swap 절대량 단독 동결 폐기 · r672: 빈 메모리 AND 결함(문지기와 «같은 함수» ft-resource-swap-lib.sh — 한 값이 두 곳을 움직인다)) + 동결파일 없으면: 즉시 스냅샷 → RESOURCE_FREEZE 생성(사유·시각·증가1위 1줄) + osascript 알림 + 로그 1줄.
 #     - 회복(R320 · disk>=35 & memfree>=20 & level=1 & swap 비증가, 압력 표본 «최근 3개 연속» — swap 절대량은 조건 아님: macOS swap 은 줄지 않는다 · R320c: 추가로 문지기와 같은 rate(gate status 의 마지막 6표본 MiB/분) ≤ 허용치 512 · na 면 유지) + 동결파일 있으면: RESOURCE_FREEZE 제거(우리 마커 · 사용자 데이터 아님) + 로그 1줄.
-#     - (r522) 표본 뒤 CPU 폭주 감지 1회(ft-resource-cause.sh cpu · 상한 FT_RES_CPU_CAP_SEC 7초): 주인 줄 → state/runaway-cpu.log 1줄 · 서명(명령·주인·개수)이 바뀌면 planner 명부(FT_SEATS_JSON) _master 에 [CPU 폭주] 쪽지 1통(FT_MBOX_SH) · 프로세스 끄기 0. (r1041) 같은 자리에서 proc_watch 1회(ft-resource-proc-lib.sh): 사용자 프로세스 수 ≥ FT_RES_PROC_MAX(4000) 면 [프로세스 폭주] 쪽지 1통 · 같은 명령줄 ≥ FT_RES_PROC_DUP(200) 개면 그 명령줄 프로세스만 SIGSTOP(다른 프로세스 0 · kill 0 · 정리 kill 은 HIL).
+#     - (r522) 표본 뒤 CPU 폭주 감지 1회(ft-resource-cause.sh cpu · 상한 FT_RES_CPU_CAP_SEC 7초): 주인 줄 → state/runaway-cpu.log 1줄 · 서명(명령·개수 · r1304 주인 제외)이 바뀌면 planner 명부(FT_SEATS_JSON) _master 에 [CPU 폭주] 쪽지 1통(FT_MBOX_SH) · 프로세스 끄기 0. (r1041) 같은 자리에서 proc_watch 1회(ft-resource-proc-lib.sh): 사용자 프로세스 수 ≥ FT_RES_PROC_MAX(4000) 면 [프로세스 폭주] 쪽지 1통 · 같은 명령줄 ≥ FT_RES_PROC_DUP(200) 개면 그 명령줄 프로세스만 SIGSTOP(다른 프로세스 0 · kill 0 · 정리 kill 은 HIL).
 #     - 10분마다(틱 10번째 ≈ 590초 경과) 원인 스냅샷: disk-attrib.tsv · mem-attrib.tsv 에 누적. 3일 넘은 줄은 같은 실행에서 잘라낸다(회전).  scan: 직전/1시간 대비 증가 상위 5(항목·+GiB·MB/min) + 디스크 여유·바닥까지 N분 + 메모리 상위 5·claude 수.
 #   R323: 스냅샷의 du 는 전부 nice 19 · 호출당 상한 FT_RES_DU_CAP_SEC(7초 · 넘으면 죽이고 TIMEOUT) · 스냅샷 전체에 잠금 1개(du-scan.lock.d · 살아 있는 스캔이 있으면 이번 스냅샷 건너뜀) — 39분짜리 du 가 틱을 붙잡던 사고(2026-10-17).
 #   r534: 워크트리·claude.projects·caches·pytest 는 통째 du 대신 1단계 폴더별 «증분»(틱당 FT_RES_WT_PER_TICK(25)개 · 폴더별 캐시 du-cache.tsv · 합 = 캐시 합 + «<칸>.known 앎/전체») · 스냅샷 측정 예산 FT_RES_SNAP_BUDGET_SEC(55) · 상한 넘긴 폴더는 1단계 하위로 나눔(깊이 FT_RES_SPLIT_DEPTH(3)).  env(시험용): FT_SWAP_LEVEL_MIN(2 · R357) · FT_SWAP_MEMFREE_MAX(30 · r672 — 문지기와 같은 env 하나 · 전용 변수 없음(DA⑥ r1 H2)) · FT_RES_ROOT · FT_WORKTREES · FT_RES_DISK_MIN(25) · FT_RES_SWAP_MAX(12288) · FT_RES_MEM_MIN(10) · FT_RES_SNAP_SEC(590) · FT_RES_DU_CAP_SEC · FT_RES_WT_PER_TICK · FT_RES_SNAP_BUDGET_SEC · FT_RES_SPLIT_DEPTH · FT_RECLAIM_PREVENT_SEC(600) · FT_RECLAIM_SH · FT_PREVENTIVE_SH · FT_RES_PROC_MAX(4000) · FT_RES_PROC_DUP(200) · FT_RES_PROC_PS · FT_RES_PROC_USER · FT_RES_KILL_CMD · FT_RES_PROC_QUIET_SEC(600 · r1041)
@@ -180,7 +180,7 @@ cpu_watch() {
   [ "$rc" = 0 ] || { logline "ERROR cpu 원인 rc=$rc$([ "$rc" = 124 ] && echo ' (상한 초과)') — 동결 판정은 계속"; return 0; }
   [ -n "$out" ] || { rm -f "$sigf"; return 0; }   # 폭주가 끝나면 서명을 지운다 — 다음 폭주는 새 사건으로 알린다
   printf '%s\t%s\n' "$(now_utc)" "$out" >> "$STATE/runaway-cpu.log"
-  sig="$(printf '%s' "$out" | sed 's/ CPU [0-9]*% [0-9]*분//g')"
+  sig="$(printf '%s' "$out" | sed -E 's/ CPU [0-9]*% [0-9]*분//g; s/ · 주인 [^;]*//g')"   # r1304: 주인 제외(묶음마다 · launchd↔미상 혐들림 = 쪽지 0) · CPU·분도 제외
   [ "$sig" != "$(cat "$sigf" 2>/dev/null)" ] || return 0
   seats="${FT_SEATS_JSON:-$RES_ROOT/.fable-team/seats-planner.json}"
   route="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("_master",""))' "$seats" 2>/dev/null)"

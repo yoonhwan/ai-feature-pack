@@ -16,7 +16,7 @@
 set -uo pipefail
 D="${HIL_DIR:-/tmp}"
 die() { echo "REJECT $*" >&2; exit 1; }
-usage() { echo "usage: ft-hil.sh [--add <계획 파일> [--supersedes h<M>] [--notify <좌석> [--notify-comm <쪽지함 폴더>]] | --cmd '<명령>' | --pending [--each] [--held] | --hold h<N> --why <사유> | --unhold h<N>]" >&2; exit 2; }
+usage() { echo "usage: ft-hil.sh [--add <계획 파일> [--supersedes h<M>] [--notify <좌석> [--notify-comm <쪽지함 폴더>]] | --cmd '<명령>' | --pending [--each] [--held] [--write-latest] | --hold h<N> --why <사유> | --unhold h<N>]" >&2; exit 2; }
 
 clip() {  # 클립보드 실패는 출력을 막지 않는다
   [ "${HIL_CLIP:-1}" != 0 ] && command -v pbcopy >/dev/null 2>&1 || return 0

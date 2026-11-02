@@ -154,6 +154,7 @@ Pi는 `--mode json`으로 JSONL 이벤트를 낸다(첫 줄 `session`, 마지막
 - **환경 자동감지** (먼저 권장): `scripts/detect-env.sh` — OS(macOS/Linux/**WSL**) + **지금 바로 쓸 수 있는 CLI** + 환경별 설치 힌트 + WSL 주의. 처음 쓰거나 WSL이면 이걸 먼저.
 - **셀프 테스트**: `scripts/selftest.sh [cli ...]` — 각 CLI ①PATH ②비대화+자율 R1 ③resume R2(회상). 로그 `logs/`(매 실행 삭제·재생성). 미설치는 SKIP. 모든 호출은 강제 타임아웃(프로세스그룹 SIGKILL)으로 보호.
 - **OpenCode 단독**: `scripts/test_opencode.sh [provider/model]`(모델 자동탐색).
+- **클라우드 크레딧 배치**: `scripts/cloud-dataset-batch.sh --task lexicon|parallel|label|qa|free --lang ko,ja --count 300 --parallel 3 --budget 20` — cloud session credits 로 학습·라벨링 데이터를 대량 생성. repo 불필요(빈 폴더) · 완료 후 teleport 회수로 JSONL 추출 · `data.jsonl`+`ledger.json`. 전제 `~/.headroom/claude-credit.sh`(ccx/ccxt) + claude≥2.1.310. `--dry-run` 으로 프롬프트만 미리 확인(크레딧 0).
 
 ## 참조
 
@@ -161,5 +162,5 @@ Pi는 `--mode json`으로 JSONL 이벤트를 낸다(첫 줄 `session`, 마지막
 - `references/install-and-compare.md` — 설치·인증, Trust Level, 래핑 적합도 비교, 컨텍스트 주입, 함정
 - `references/personas.md` — DA / designer / architect 프리셋
 - `scripts/detect-env.sh` — 환경/가용 CLI 자동감지 (macOS/Linux/WSL)
-- `scripts/selftest.sh · test_opencode.sh · resume_chain.sh`
+- `scripts/selftest.sh · test_opencode.sh · resume_chain.sh · cloud-dataset-batch.sh`
 - 원본: `cli-tools-reference.md` (2026-04 전수 조사 + 2026-06 실증 보정)

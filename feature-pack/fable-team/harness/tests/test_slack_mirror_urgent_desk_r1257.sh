@@ -80,7 +80,7 @@ check("R3 desk 앞 [HIL] → 게시 0", p == [], str(p))
 # R4
 p = run("r4", [row(1, PLAN, "byz-x-master-claude#1", "[긴급] GPU 켜져 있어요")])
 check("R4 planner 앞 [긴급] → 게시 1 · 멘션 1", len(p) == 1 and p[0].count(f"<@{MENTION}>") == 1, str(p[:1]))
-check("R4 라벨 긴급 → 머리표 이슈보고", bool(p) and p[0].startswith("[이슈보고]"), str(p[:1]))
+check("R4 라벨 긴급 → [긴급] 머리표 이슈보고", bool(p) and p[0].startswith("[긴급] [이슈보고]"), str(p[:1]))
 # R5
 p = run("r5", [row(1, DESK, "slack-oppa", "[긴급] 오빠 글")])
 check("R5 slack-oppa 발신 [긴급] → 게시 0(메아리 금지)", p == [], str(p))
@@ -107,10 +107,10 @@ p = run("m1", [URG])
 bl.is_target = real
 check("M1 변이: urgent 갈래 끔 → R1 게시 0(R1 FAIL 로 잡힘)", p == [], str(p))
 # 변이 M2 — 태그 검사 끔 → desk 앞 보고도 올라감(R2 FAIL)
-a2 = ' and lib.classify(str(row.get("body", "")))[0] == "긴급")'
+a2 = 'lib.classify(str(row.get("body", "")))[0] == "긴급"'
 assert src.count(a2) == 1
 ns2 = {"__name__": "mutant_backlog2"}
-exec(compile(src.replace(a2, ")"), "mutant2", "exec"), ns2)
+exec(compile(src.replace(a2, "True"), "mutant2", "exec"), ns2)
 bl.is_target = ns2["is_target"]
 p = run("m2", [row(1, DESK, PLAN, "보고 — 작업 끝났어요")])
 bl.is_target = real

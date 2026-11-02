@@ -13,6 +13,7 @@ import os
 import re
 from pathlib import Path
 
+import mirror_lib as lib
 from mirror_lib import MirrorError, post
 
 SECRETS = {
@@ -34,6 +35,8 @@ INTERNAL = {
 HUMAN_CHANNELS_ENV = "BYZ_HUMAN_CHANNELS"
 ROOT_ENV = "FT_ROOT"
 DEFAULT_ROOT = "/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents"  # ~/.hermes/scripts 에서 불려도 명부에 닿는 고정 기본값
+DESK_CHANNEL_ENV = "BYZ_DESK_CHANNEL"
+DESK_MENTION_ENV = "BYZ_DESK_MENTION"
 
 
 class PostGuardError(MirrorError):
@@ -94,10 +97,45 @@ def with_status_head(text: str) -> str:
     return text if text.startswith(line) else f"{line}\n{text}"
 
 
-def guarded_post(base: str, token: str, channel: str, text: str, thread_ts: str | None = None, *, human: bool = False) -> str:
+def desk_channel() -> str:
+    env = os.environ.get(DESK_CHANNEL_ENV, "").strip()
+    if env:
+        return env
+    roster = Path(os.environ.get(ROOT_ENV) or DEFAULT_ROOT) / ".fable-team" / "seats-planner.json"
+    try:
+        data = json.loads(roster.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        raise PostGuardError(f"desk 채널 판정 불가 — planner 명부 읽기 실패: {type(e).__name__}") from e
+    if not isinstance(data, dict):
+        raise PostGuardError("desk 채널 판정 불가 — planner 명부 형식 손상")
+    value = data.get("_slack_channel")
+    channels = [value] if isinstance(value, str) else value
+    if isinstance(channels, list) and channels and isinstance(channels[0], str) and channels[0].strip():
+        return channels[0].strip()
+    raise PostGuardError("desk 채널 판정 불가 — BYZ_DESK_CHANNEL·planner 명부 값 없음")
+
+
+def desk_copy(base: str, token: str, channel: str, ts: str, text: str, head: str | None = None) -> None:
+    if lib.desk_head(head if head is not None else text) is None:
+        return
+    destination = desk_channel()
+    if channel == destination:
+        return
+    from mirror_desk import desk_text
+
+    mention = os.environ.get(DESK_MENTION_ENV, "").strip() or lib.DESK_MENTION
+    copy = desk_text(text, mention) + f"\n(desk-copy {channel} {ts})"
+    check(copy, destination, human=True)
+    post(base, token, destination, copy)
+
+
+def guarded_post(base: str, token: str, channel: str, text: str, thread_ts: str | None = None, *,
+                 human: bool = False, head: str | None = None) -> str:
     """사람 채널이면 카운팅 머리줄을 붙인 «뒤» 검사한다(머리줄도 내부어 검사를 지난다 · R7)."""
     is_human = human or channel in human_channels()  # 명부는 한 번만 읽는다
     if is_human:
         text = with_status_head(text)
     check(text, channel, human=is_human)
-    return post(base, token, channel, text, thread_ts)
+    ts = post(base, token, channel, text, thread_ts)
+    desk_copy(base, token, channel, ts, text, head)
+    return ts

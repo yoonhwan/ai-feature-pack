@@ -57,6 +57,42 @@ if [ -n "$_ft_ev_staged" ]; then
 fi
 # ────────────────────────────────────────────────────────────────────────────────
 
+# ── 카드 상한 커밋 차단 (r1292) ──────────────────────────────────────────
+# 왜: 진행 카드가 일하는 좌석 + 2 를 넘은 팀이 «새 카드» 를 계속 만들면 카드가 굴러가지 않는다(오빠 10-26 «쫓이니까 하루를 다써도 완성이 안되지»).
+# 어떻게: staged «새» 카드(A) 중 design/(teams/)?<팀>/indices/대기/*.md 만 보고 팀마다 ft-card-flow.sh --gate 1회. rc4 = 커밋 0 · 1줄.
+#   카드 이동(대기→진행 = A 가 진행/ 밑)·수정(M)·완성은 검사 0 → 진행을 줄이는 커밋은 는다 통과한다. 우회·판정 불가는 ft-card-flow.sh 가 한다.
+#   끄기 = FT_CARD_CAP=0.
+#   r1292 재작업1(실사건 02:50): 진행→대기 되돌림은 «진행/ D + 대기/ A(같은 파일 이름)» 라 --diff-filter=A 만 보면 새 카드로 오판된다 → 같은 커밋에 같은 이름의 진행/ D 가 있으면 이동으로 보고 제외한다.
+_ft_cc_new="$(git diff --cached --name-only -z --no-renames --diff-filter=A -- 'design/*/indices/대기/*.md' 'design/teams/*/indices/대기/*.md' 2>/dev/null | tr '\0' '\n')"
+# 진행/ → 대기/ 되돌림을 «이동» 으로 가르는 D 대조 — 같은 파일 이름(basename)이 진행/ 밑 삭제로도 staged 면 새 카드가 아니다.
+_ft_cc_delbase="$(git diff --cached --name-only -z --no-renames --diff-filter=D -- 'design/*/indices/진행/*.md' 'design/teams/*/indices/진행/*.md' 2>/dev/null | tr '\0' '\n' | sed 's|.*/||' | sort -u)"
+if [ -n "$_ft_cc_new" ] && [ -n "$_ft_cc_delbase" ]; then
+  _ft_cc_new2=""
+  while IFS= read -r _ft_cc_f; do
+    [ -n "$_ft_cc_f" ] || continue
+    printf '%s\n' "$_ft_cc_delbase" | grep -Fxq -- "${_ft_cc_f##*/}" && continue
+    _ft_cc_new2="$_ft_cc_new2$_ft_cc_f
+"
+  done <<EOF
+$_ft_cc_new
+EOF
+  _ft_cc_new="$_ft_cc_new2"
+fi
+if [ -n "$_ft_cc_new" ] && [ "${FT_CARD_CAP:-1}" != 0 ]; then
+  _ft_cc_hd="$(cd "$(dirname "$0")" && pwd -P)"
+  if [ -f "$_ft_cc_hd/../LIVE_BIN" ]; then _ft_cc_cf="$(sed -n 1p "$_ft_cc_hd/../LIVE_BIN")/ft-card-flow.sh"; else _ft_cc_cf="$_ft_cc_hd/../bin/ft-card-flow.sh"; fi
+  _ft_cc_root="$(cd "$(git rev-parse --path-format=absolute --git-common-dir)/.." && pwd -P)"
+  if [ ! -f "$_ft_cc_cf" ]; then echo "CARD-CAP-GATE: 판정 도구 없음($_ft_cc_cf) — 막지 않음(설치: bash <하네스>/install.sh --apply --project <루트>)" >&2
+  else
+    for _ft_cc_t in $(printf '%s\n' "$_ft_cc_new" | sed -n 's|^design/teams/\([^/]*\)/indices/대기/.*|\1|p; s|^design/\([^/]*\)/indices/대기/.*|\1|p' | sort -u); do
+      _ft_cc_out="$(bash "$_ft_cc_cf" --team "$_ft_cc_t" --root "$_ft_cc_root" --gate 2>&1)"; _ft_cc_rc=$?
+      [ -z "$_ft_cc_out" ] || printf '%s\n' "$_ft_cc_out" >&2
+      if [ "$_ft_cc_rc" = 4 ]; then echo "  새 카드 커밋 0 — 진행 카드를 먼저 옮긴 카드만 새로 연다(이동·수정 커밋은 그대로 통과)" >&2; exit 1; fi
+    done
+  fi
+fi
+# ────────────────────────────────────────────────────────────────────────────────
+
 if [ -x "$_byz_top/.beads/hooks/pre-commit" ]; then
   exec "$_byz_top/.beads/hooks/pre-commit" "$@"
 fi

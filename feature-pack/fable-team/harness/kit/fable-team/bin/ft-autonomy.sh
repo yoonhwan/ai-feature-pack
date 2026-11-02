@@ -16,8 +16,7 @@ ROOT="${FT_ROOT:-}"   # r385: 라이브 루트 = FT_ROOT → ft_data_root(cwd LI
 [ -n "$ROOT" ] || { . "$HERE/ft-harness-root.sh" && ROOT="$(ft_data_root "$HERE")"; } || exit 2
 STATE="${FT_AUTONOMY_STATE_DIR:-$ROOT/.fable-team/state}"
 # R383: planner 팀 폴더는 ROOT 의 design/TEAMS.md 로(팀 이름 글자 0) — mode·status 같은 훅 경로는 안 쓰므로 «필요할 때만» 푼다 · 못 풀면 stderr ERROR + rc1(옛 경로 후퇴 0 · #0 RULE)
-planner_dir() { if [ -n "${FT_PLANNER_DIR:-}" ]; then printf '%s\n' "$FT_PLANNER_DIR"; return 0; fi
-  ( . "$HERE/ft-team-lib.sh" && ft_team_in "$ROOT" planner ) || { echo "ERROR planner 팀 폴더를 못 풀었다(design/TEAMS.md · FT_ROOT=$ROOT) — FT_PLANNER_DIR 로 지정하거나 명단을 고친다" >&2; return 1; }; }
+planner_dir() { . "$HERE/ft-team-lib.sh" && ft_planner_dir_resolve "$ROOT"; }
 JSON="$STATE/autonomy.json"; LOG="$STATE/autonomy.log"; . "$HERE/ft-autonomy-level.sh"   # r466 레벨·학습·인터뷰
 
 jfield() {  # <키> — autonomy.json 한 줄 값(문자열·숫자)

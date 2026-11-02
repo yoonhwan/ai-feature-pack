@@ -126,7 +126,7 @@ def cmd_post(a: argparse.Namespace, target: Callable[[argparse.Namespace], Targe
     text = esc(body)
     check(text, ch, human=True)  # 사람 채널 — 글 «전» 거절(게시 0)
     t = target(a)
-    ts = post(t.base, t.token, ch, text, None, human=True)
+    ts = post(t.base, t.token, ch, text, None, human=True, head=body)
     print(f"POSTED {ts}")
     return 0
 
