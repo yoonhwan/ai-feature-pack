@@ -186,6 +186,26 @@ def test_h4_zero_goal_cell_is_dropped_once(tmp_path: Path) -> None:
     assert "h? room 헤드라인 판정 불가 — 첫 줄 시각 없음 또는 꼴 틀림" in r.stdout
 
 
+def test_h4b_lead_cell_alone_counts_as_screen_cell(tmp_path: Path) -> None:
+    """동결 13-r3 «나노 0 팀은 팀장 칸에 적음» — 좌석 칸이 없어도 팀장 칸이 STATUS 면 구조 정상."""
+    now = datetime(2026, 11, 2, 14, 21, 0).timestamp()
+    lead_only = World(tmp_path / "lead_only")
+    lead_only.set_now(now)
+    room(lead_only)
+    write_headline(lead_only, "room", "14:16 · 카드 대기 5·진행 0·완성(오늘) 0 · 팀장=틱(✻ 14:15)", datetime(2026, 11, 2, 14, 16, 0).timestamp())
+    r = scan(lead_only)
+    assert summary(r)["h"] == "0" and summary(r)["u"] == "0" and not lead_only.mbox_log()
+    assert "h? room" not in r.stdout
+
+    no_status = World(tmp_path / "no_status")
+    no_status.set_now(now)
+    room(no_status)
+    write_headline(no_status, "room", "14:16 · 카드 대기 5·진행 0·완성(오늘) 0 · 팀장=대기", datetime(2026, 11, 2, 14, 16, 0).timestamp())
+    r = scan(no_status)
+    assert summary(r)["h"] == "0" and summary(r)["u"] == "1" and not no_status.mbox_log()
+    assert "h? room 헤드라인 판정 불가 — 구조 없음" in r.stdout
+
+
 def test_h5_clock_and_mtime_slack(tmp_path: Path) -> None:
     def world(name: str, mtime_clock: tuple[int, int]) -> World:
         w = World(tmp_path / name)

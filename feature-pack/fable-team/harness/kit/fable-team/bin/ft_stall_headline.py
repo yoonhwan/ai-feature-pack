@@ -46,12 +46,13 @@ def _clock(cells: list[str]) -> tuple[int, int] | None:
 
 
 def _structure(cells: list[str]) -> str | None:
-    """시각 칸 뒤 «머리 전부» + 좌석 화면 칸(K8) — 어긋나면 사유 1개, 맞으면 None."""
+    """시각 칸 뒤 «머리 전부» + 화면 칸(K8) — 화면 칸은 «팀장=» 칸까지 본다(좌석 0 팀은 팀장 칸에 적는다 · 동결 13-r3 · arch#209 반송 1/3).
+    팀장 칸 밖에 좌석 칸이 있으면 그 칸들도 전부 STATUS|IDLE 이어야 한다."""
     rest = cells[1:]
     if not HEAD.match(" · ".join(rest)):
         return "머리(카드 대기·진행·완성(오늘) · 팀장=)"
     lead = next((i for i, cell in enumerate(rest) if cell.startswith("팀장=")), None)
-    tail = rest[lead + 1:] if lead is not None else []
+    tail = rest[lead:] if lead is not None else rest
     if any(IDLE.search(cell) for cell in tail):
         return None
     seats = [cell for cell in tail if "=" in cell]
