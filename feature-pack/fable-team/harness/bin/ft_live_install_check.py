@@ -9,7 +9,10 @@ r459: --restart-scan [<plist 폴더>] = 적재된 하네스 데몬 중 «기동 
 r538: com.byz.*.plist 실행 경로의 판 붙은 live 경로(판 ≠ 루트 LIVE_BIN 판) → DRIFT launchd <라벨> pinned=<판> (고침 = install.sh --apply 렌더).
 r544: com.byz.*.plist 실행 경로(ProgramArguments 의 .sh/.py)가 없는 파일 → DRIFT launchd <라벨> missing=<경로> (지운 워크트리를 가리키는 데몬이 매시간 실패 — gce-guard 사건 · 키트 템플릿 밖 plist 도 실재만 검사 · 고치기 0).
 r583: bin 행의 라이브 파일이 연결 파일(shim · SHIMMARK)이면 대조 대상 = <그 폴더>/../LIVE_BIN 의 판 폴더 같은 상대 경로 파일 · 줄 끝에 «via shim → <판 폴더>» (팀 env FT_BIN = 연결 파일 폴더 — 설치가 맞아도 DIFF 로 나오던 것).
-r961: 키트 상대 경로 = relpath(<HARNESS_ROOT>/kit, <HARNESS_ROOT 자기 show-toplevel>) — 라이브 하네스 루트가 같은 리포의 다른 워크트리여도 경로가 같다. «같은 리포» 판정 = 두 쪽 `git rev-parse --git-common-dir` 가 같음(r2 · 공용 루트 밖에 등록한 워크트리도 같은 리포) · 다르면 종전대로 outside_repo"""
+r961: 키트 상대 경로 = relpath(<HARNESS_ROOT>/kit, <HARNESS_ROOT 자기 show-toplevel>) — 라이브 하네스 루트가 같은 리포의 다른 워크트리여도 경로가 같다. «같은 리포» 판정 = 두 쪽 `git rev-parse --git-common-dir` 가 같음(r2 · 공용 루트 밖에 등록한 워크트리도 같은 리포) · 다르면 종전대로 outside_repo
+r1240: ~/.claude/skills/<이름> 이 «git 체크아웃 안을 가리키는 심링크» 면 그 체크아웃이 origin/main 보다 몇 커밋 뒤인지(behind) · skill 폴더 추적 파일 몇 개가 다른지(diff)를 `WARN skill-symlink` 1줄로 낸다(behind>0 또는 diff>0).
+심링크 아님(복사 설치) · 대상이 git 밖 = 줄 0 · git 이 못 읽음(깨진 .git · origin/main 없음) = `판정 불가` 1줄. WARN 은 PENDING 이 아니다 — 종료코드를 바꾸지 않는다(다른 점검 결과 그대로).
+"""
 import fnmatch
 import os
 import re
@@ -462,6 +465,73 @@ def stale_copies(repo, project=None):
     return out
 
 
+def git_soft(path, *args):
+    """7초 상한 git 한 번 · 실패는 죽지 않고 (None, 사유) 로 — 이 갈래는 «판정 불가 1줄» 이고 다른 점검을 멈추지 않는다(r1240 R5)."""
+    try:
+        r = subprocess.run(["git", "-C", path, "-c", "core.quotepath=false", *args], capture_output=True,
+                           timeout=7, env={**os.environ, "LC_ALL": "C"})
+    except (subprocess.TimeoutExpired, OSError) as e:
+        return None, "실행 실패/7초 초과 (%s)" % e
+    if r.returncode:
+        return None, (r.stderr.decode("utf-8", "surrogateescape").strip().splitlines() or ["rc=%d" % r.returncode])[-1][:120]
+    return r.stdout.decode("utf-8", "surrogateescape"), ""
+
+
+def has_dotgit(path):
+    """<path> 또는 위쪽 폴더에 .git 이 있나 — git 이 실패할 때 «리포 밖»(R4 · 줄 0)과 «깨진 리포»(R5 · 판정 불가)를 가른다."""
+    cur = os.path.realpath(path)
+    while True:
+        if os.path.exists(os.path.join(cur, ".git")):
+            return True
+        parent = os.path.dirname(cur)
+        if parent == cur:
+            return False
+        cur = parent
+
+
+def skill_symlink_drift(home=None):
+    """r1240: ~/.claude/skills/<이름> 이 git 체크아웃 안을 가리키는 심링크일 때, 그 체크아웃 HEAD 가 origin/main 보다
+    몇 커밋 뒤인지 · skill 폴더 추적 파일이 몇 개 다른지를 WARN 1줄로. 라이브 스킬이 «옛 판 체크아웃» 을 가리키는 것을 잡는다.
+    읽기만(fetch 0 · 쓰기 0) · HOME 기준(시험은 HOME 을 바꾼다) · 심링크 아님(R3) · git 밖(R4) = 줄 0 · git 실패(R5) = 판정 불가 1줄."""
+    base = os.path.join(home if home is not None else os.environ.get("HOME", ""), ".claude", "skills")
+    if not os.path.isdir(base) or os.path.islink(base):
+        return []
+    out = []
+    for name in sorted(os.listdir(base)):
+        p = os.path.join(base, name)
+        if not os.path.islink(p):  # R3: 복사 설치 = 이 갈래 대상 밖
+            continue
+        tgt = os.path.realpath(p)
+        if not os.path.isdir(tgt):  # 깨진 심링크 = 대상 밖
+            continue
+        top, err = git_soft(tgt, "rev-parse", "--show-toplevel")
+        if top is None:
+            if has_dotgit(tgt):  # R5: 리포 안인데 git 이 못 읽는다 → 판정 불가(다른 점검 그대로)
+                out.append("WARN skill-symlink %s 판정 불가 — git: %s -> %s" % (name, err, tgt))
+            continue  # R4: git 밖 = 대상 밖
+        top = os.path.realpath(top.strip())
+        rel = os.path.relpath(tgt, top)
+        if rel == ".." or rel.startswith(".." + os.sep):  # 리포 최상위 밖
+            continue
+        num, err = git_soft(top, "rev-list", "--count", "HEAD..origin/main")
+        if num is None:
+            out.append("WARN skill-symlink %s 판정 불가 — rev-list: %s -> %s" % (name, err, tgt))
+            continue
+        dfl, err = git_soft(top, "diff", "--name-only", "HEAD", "origin/main", "--", rel)
+        if dfl is None:
+            out.append("WARN skill-symlink %s 판정 불가 — diff: %s -> %s" % (name, err, tgt))
+            continue
+        try:
+            behind = int(num.strip() or 0)
+        except ValueError:  # 숫자가 아니면 재지 못한 것 — 조용히 0 으로 넘기지 않는다
+            out.append("WARN skill-symlink %s 판정 불가 — rev-list 값 %r -> %s" % (name, num.strip()[:40], tgt))
+            continue
+        diff = len([x for x in dfl.splitlines() if x.strip()])
+        if behind > 0 or diff > 0:
+            out.append("WARN skill-symlink %s behind=%d diff=%d -> %s (고침: git -C %s switch main && git -C %s merge --ff-only origin/main)" % (name, behind, diff, tgt, top, top))
+    return out
+
+
 def is_shim(path):
     if os.path.islink(path) or not os.path.isfile(path):
         return False
@@ -520,6 +590,7 @@ def main():
     bad += drift
     gone = missing_script_drift(os.path.join(os.environ["HOME"], "Library", "LaunchAgents"))  # r544: 실행 경로 스크립트가 없는 plist
     bad += gone
+    warns = skill_symlink_drift()  # r1240: 라이브 스킬 심링크가 «뒤처진 체크아웃» 을 가리키면 WARN — PENDING 아님(rc 불변)
     hl = []
     if drift:
         hl.append("bash %s/install.sh --apply --project %s" % (harness_root() or "<하네스>/harness", plist_root(repo, o["project"])))
@@ -574,10 +645,14 @@ def main():
             print("REMOVED %s (ref tip 에서 삭제 · 라이브 잔재 0)" % f)
     if not bad:
         print("OK n=%d skip=%d" % (checked, skip))
+        for w in warns:
+            print(w)
         return 0
     print("PENDING n=%d" % len(bad))
     print("\n".join(sorted(bad)))
     print("\n".join("HINT %s %s" % (k, hints[k]) for k in sorted(hints)))
+    for w in warns:
+        print(w)
     return 1
 
 

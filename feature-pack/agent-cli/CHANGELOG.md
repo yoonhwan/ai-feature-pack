@@ -1,5 +1,24 @@
 # agent-cli — Changelog
 
+## v2.3.0 (2026-10-24) — cloud credits 데이터 배치
+
+Claude **cloud session credits**($250류)를 학습·라벨링 데이터 생성 물량으로 태우는 배치 스크립트 추가.
+cloud credits 는 cloud session 에서만 차감되고, cloud session 은 «이미 push 된 repo 를 VM 이 clone» 하는 구조라
+코드 작업용으로는 로컬 변경이 전달되지 않는다. 반대로 **코드가 필요 없는 대량 생성**에는 최적 → 그 용도를 전용 스크립트로 고정했다.
+
+### ✨ Added
+- `scripts/cloud-dataset-batch.sh` — 빈 폴더에서 cloud session N개 병렬 생성 → 완료까지 teleport 회수 폴링 →
+  답변의 `<<<DATASET … DATASET>>>` 블록만 파싱해 `data.jsonl` 적재. 배치 간 중복 제거 + `id` 재부여, `index.tsv` 원장, `ledger.json` 크레딧 델타.
+  - `--task lexicon|parallel|label|qa|doc|free` · `--lang ko,ja,th` · `--count` · `--batch` · `--parallel` · `--budget` · `--labels` · `--dry-run` · `--spec`
+  - 실측(2026-10-24): lexicon 6건 병렬 2배치 성공 · 레코드당 ≈ $0.03 · label 라벨 집합 고정 · doc 520자 장문 파싱 확인
+- `README.md` / `SKILL.md` — 클라우드 크레딧 배치 절 + 스크립트 목록
+
+### 🐛 Fixed (구현 중 실측으로 잡은 함정)
+- 프롬프트 에코가 pane 에 함께 찍혀 마커가 즉시 매칭되던 문제 → **파싱되는 레코드가 가장 많은 블록**을 선택.
+- 배치마다 `id` 가 `0001` 부터 재시작하던 중복 → 병합 단계 재부여(`<lang>-00001`) + `id_original` 보존.
+- `label` 값이 배치마다 언어 혼용(`work` vs `업무`) → `--labels` 폐쇄 집합을 프롬프트에 강제 주입.
+- `/api/oauth/usage` 429(60초 미만 반복) → 실패 시 25초 뒤 1회 재시도 + 원인 문구 출력.
+
 ## v2.2.0 (2026-10-20) — Pi lane
 
 Pi coding agent를 6번째 지원 CLI로 추가. OpenGateway/DeepSeek 기반 fast lane과
