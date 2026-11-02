@@ -127,7 +127,7 @@ class Run:
         else:
             g = it["조건 글자"].replace("\\", "\\\\").replace('"', '\\"')
             parts = ['resource.type="cloud_run_revision"', f'resource.labels.service_name="{it["조건 서비스"]}"', f'(textPayload:"{g}" OR jsonPayload.message:"{g}")',
-                     f'receiveTimestamp>="{T.fmt_ts(since - OVERLAP)}"'] + ([] if it["조건 심각도"] == "ANY" else [f"severity>={it['조건 심각도']}"])
+                     f'receiveTimestamp>="{T.fmt_ts(since - OVERLAP)}"', f'timestamp>="{T.fmt_ts(since - SEEN_S)}"'] + ([] if it["조건 심각도"] == "ANY" else [f"severity>={it['조건 심각도']}"])
             flt, tok, mx = " AND ".join(parts), None, 0.0
         got, complete = [], False
         while self.left() >= MIN_LEFT:
