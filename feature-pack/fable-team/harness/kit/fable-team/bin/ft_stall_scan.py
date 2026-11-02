@@ -19,6 +19,7 @@ import time
 from pathlib import Path
 
 import ft_card_assign_pause as pause
+import ft_headline_seats as headline_seats
 import ft_penalty
 import ft_stall_headline as headline
 from ft_stall_detect import IDLE_MIN, agent_sessions, ctx_pct, lead_alert, lead_heartbeat_min, lead_names, load_teams, off_roster_live, pending_mail, policy_stop, run, spawn_capacity, waiting_cards
@@ -361,6 +362,8 @@ class Scan:
         _ = (self.state_dir / "stall-scan.last.json").write_text(json.dumps({"ts": self.now, "c": counts["c"], "teams": per_team}), encoding="utf-8")
         with open(self.state_dir / "stall-scan.log", "a", encoding="utf-8") as fh:
             _ = fh.write("".join(x + "\n" for x in log) + lines[0] + "\n")
+        for note in headline_seats.draft(self.root, load_teams(self.root, warn=False), self.seats, set(self.live), self.now):  # r1290 — 처리·저장을 끝낸 뒤에만 초안 1줄씩
+            print(note)
         return 0
 
 

@@ -4,8 +4,8 @@
 #        예산(git·스캔 상한) · 보관 경보 · planner [HIL] 두 종류(실제 판정기 reject 모드 통과) · ft-disk-alarm 하루 1회 · 회귀 스텁
 #   ★git 은 «적대적 기본» 으로 돌린다★ — GIT_CONFIG_GLOBAL 에 core.quotepath=true(다른 머신 기본) 를 박아 두고, 도구가 -c core.quotepath=off 로
 #        한글 «완성» 경로를 그대로 받는지 본다(이 기계 전역 false 에 기대지 않는다 · arch#206 동작 반례 1).
-#   쓰는 법: bash tests/test_accum_sweep_r1293.sh            # 반례 R1·R2·R7~R10·R12~R17·R19·R20
-#            bash tests/test_accum_sweep_r1293.sh --mutate   # 변이 1·2·7~21 — 사본에 한 줄 어긋나게 하고 그 칸이 «무너지는지» 를 본다
+#   쓰는 법: bash tests/test_accum_sweep_r1293.sh            # 반례 R1·R2·R7~R10·R12~R17·R19·R20·R22~R24
+#            bash tests/test_accum_sweep_r1293.sh --mutate   # 변이 1·2·7~21·24~26 — 사본에 한 줄 어긋나게 하고 그 칸이 «무너지는지» 를 본다
 #   실 상태·실 쪽지·실 git 설정·실 /tmp 작업 0 — 임시 루트·임시 리포·가짜 mbox·가짜 git 만. ulimit -u + timeout 70. 자기 재호출 0.
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
@@ -134,6 +134,70 @@ sw
 L="$(ls "$R"/.fable-team/state/accum/cards-done-30d-*.txt 2>/dev/null | tail -1)"
 { [ "$(grep -c . "$L")" = 1 ] && grep -q old-40 "$L" && ! grep -q new-10 "$L"; } \
   && ok "R20 작업 트리(최신 가지)에만 있는 완성 카드는 목록에 없다 — ref 의 ls-tree 기준" || bad "R20 [$(cat "$L" 2>/dev/null | tr '\n' ' ')]"
+
+# ── R22 (r1317-v2) 글롭 행 «design/teams/*/indices» 도 완성 카드가 나온다 — 글롭은 폴더에 걸면 0줄(조용한 0)이므로
+#      git 에는 «실제 접두/실제 완성 폴더» 만 주고 30일은 7.5일 배치로 쪼갭니다(하드 룰 12) ──
+mkroot r22; RB="$R"; gitinit "$RB"
+mkdir -p "$RB/design/teams/ccu/indices/완성" "$RB/design/teams/ccu/indices/진행" "$RB/design/harness/indices/완성"
+printf 'a\n' > "$RB/design/teams/ccu/indices/완성/team-old.md"
+printf 'h\n' > "$RB/design/harness/indices/완성/har-old.md"
+git -C "$RB" add -A; GIT_AUTHOR_DATE="$D40" GIT_COMMITTER_DATE="$D40" git -C "$RB" commit -qm old
+printf 'b\n' > "$RB/design/teams/ccu/indices/진행/moved.md"
+git -C "$RB" add -A; GIT_AUTHOR_DATE="$D40" GIT_COMMITTER_DATE="$D40" git -C "$RB" commit -qm old2
+git -C "$RB" mv design/teams/ccu/indices/진행/moved.md design/teams/ccu/indices/완성/moved.md
+GIT_AUTHOR_DATE="$D10" GIT_COMMITTER_DATE="$D10" git -C "$RB" commit -qm moved
+printf '*\t.\tHEAD\tdesign/teams/*/indices\nharness\t.\tHEAD\tdesign/harness/indices\n' > "$R/.fable-team/state/directive-roots.tsv"
+rm -f "$T/git.args"
+cat > "$T/git-rec.sh" <<SH
+#!/bin/sh
+printf '%s\\n' "\$*" >> "$T/git.args"
+exec "$REALGIT" "\$@"
+SH
+chmod 755 "$T/git-rec.sh"
+sw FT_ACCUM_GIT="$T/git-rec.sh"
+L="$(ls "$R"/.fable-team/state/accum/cards-done-30d-*.txt 2>/dev/null | tail -1)"
+ARGS="$(cat "$T/git.args" 2>/dev/null)"; LOGL="$(grep -F ' log ' <<<"$ARGS")"
+{ [ $RC = 0 ] && [ "$(grep -c . "$L")" = 2 ] && grep -q 'teams/ccu/indices/완성/team-old.md' "$L" && grep -q 'harness/indices/완성/har-old.md' "$L" && ! grep -q moved "$L" \
+  && ! grep -qF '*' <<<"$ARGS" && grep -qF -- '-- design/teams/ccu/indices/완성' <<<"$LOGL" && grep -qF -- '-- design/harness/indices/완성' <<<"$LOGL" \
+  && grep -qF -- '--since=180.hours' <<<"$LOGL" && [ "$(grep -cF ' log ' <<<"$LOGL")" = 8 ] && [ "$(grep -F -- '--since=720.hours' <<<"$LOGL" | grep -cv -- '--until=540.hours')" = 0 ]; } \
+  && ok "R22 글롭 행도 완성 카드 2장 · git 인자에 글롭 0(실제 접두·실제 완성 폴더만) · 30일 = 7.5일 배치 4개(회색 720시간 창을 단독으로 안 부름) · 판정 불가 0" \
+  || bad "R22 list=[$(cat "$L" 2>/dev/null | tr '\n' ' ')] log=[$LOGL] · $(endline)"
+
+# ── R23 글롭 행이 0줄이면 «조용한 0» 이 아니라 판정 불가 — 큰 리포 글롭 사고를 세는 장치(r1317 결함 A) ──
+mkroot r23; RC3R="$R"; gitinit "$RC3R"
+mkdir -p "$RC3R/design/teams/ccu/indices/대기" "$RC3R/design/harness/indices/완성"
+printf 'x\n' > "$RC3R/design/teams/ccu/indices/대기/x.md"
+printf 'h\n' > "$RC3R/design/harness/indices/완성/har-old.md"
+git -C "$RC3R" add -A; GIT_AUTHOR_DATE="$D40" GIT_COMMITTER_DATE="$D40" git -C "$RC3R" commit -qm old
+printf '*\t.\tHEAD\tdesign/teams/*/indices\nharness\t.\tHEAD\tdesign/harness/indices\n' > "$R/.fable-team/state/directive-roots.tsv"
+sw
+L="$(ls "$R"/.fable-team/state/accum/cards-done-30d-*.txt 2>/dev/null | tail -1)"
+{ [ $RC = 3 ] && grep -q '완성 카드 0줄(글롭 행)' "$R/.fable-team/state/accum/sweep-$(dstr "$NOW0").log" \
+  && grep -q '판정 불가 1' <<<"$(endline)" && [ "$(grep -c . "$L")" = 1 ] && grep -q 'har-old' "$L"; } \
+  && ok "R23 글롭 행 완성 카드 0줄 → 판정 불가 1 · rc3(조용한 0 금지) · 다른 행(harness) 카드 1장은 그대로" || bad "R23 rc=$RC list=[$(cat "$L" 2>/dev/null | tr '\n' ' ')] · $(endline)"
+
+# ── R24 창이 크면 느린 git 에서도 30일을 7.5일 배치 4개로 쪼개 «판정 불가» 없이 끝난다(하드 룰 12 · r1317 결함 B) ──
+mkroot r24; RD="$R"; gitinit "$RD"; mkdir -p "$RD/design/harness/indices/완성"
+printf 'h\n' > "$RD/design/harness/indices/완성/har-old.md"
+git -C "$RD" add -A; GIT_AUTHOR_DATE="$D40" GIT_COMMITTER_DATE="$D40" git -C "$RD" commit -qm old
+printf 'harness\t.\tHEAD\tdesign/harness/indices\n' > "$R/.fable-team/state/directive-roots.tsv"
+rm -f "$T/git.win"
+cat > "$T/git-win.sh" <<SH
+#!/bin/sh
+case " \$* " in *" log "*) ;; *) exec "$REALGIT" "\$@";; esac
+S=\$(printf '%s\\n' "\$*" | sed -n 's/.*--since=\([0-9]*\)\.hours.*/\1/p')
+U=\$(printf '%s\\n' "\$*" | sed -n 's/.*--until=\([0-9]*\)\.hours.*/\1/p')
+N=\$(( \${S:-0} - \${U:-0} ))
+printf '%s\\n' "\$N" >> "$T/git.win"
+[ "\$N" -gt 192 ] && sleep 8
+exec "$REALGIT" "\$@"
+SH
+chmod 755 "$T/git-win.sh"
+timed sw FT_ACCUM_BUDGET_SEC=4 FT_ACCUM_GIT="$T/git-win.sh"
+WINS="$(sort -n "$T/git.win" 2>/dev/null | tr '\n' ' ')"
+{ [ $RC = 0 ] && [ "$MS" -le 7000 ] && [ "$WINS" = "180 180 180 180 " ] \
+  && grep -q 'har-old' "$R/.fable-team/state/accum/cards-done-30d-$(dstr "$NOW0").txt"; } \
+  && ok "R24 창 4배치(${WINS}시간 길이) · ${MS}ms(≤7000) · 8일 넘는 창을 한 번도 안 부름(느린 git 회피) · 판정 불가 0 · 카드 1장" || bad "R24 rc=$RC ${MS}ms wins=[$WINS] · $(endline)"
 
 # ── R8 백업 폴더: 크기 1줄 · 이동·지우기 0 ──
 mkroot r8; BK="$R/.fable-team/state/v6-uncommitted-backup-20261023"; mkdir -p "$BK"
@@ -283,8 +347,9 @@ PY
     { [ ! -f "$P/TEAM-STATUS.md.bak-5" ] && [ "$(cnt "$P/archive")" = 1 ]; } \
       && ok "변이 2(.bak 남기기 3→0) → R2 «최근 3 남음» 단언이 무너진다(최신 .bak 까지 옮겨짐)" || bad "변이 2 미검출 $(ls "$P" | tr '\n' ' ')"
   fi
-  # 변이 7: 완성 카드를 git mv 로 옮김 → R7 «git status 깨끗 · HEAD 그대로» 단언이 무너진다
-  MD="$(mut m7 ft_accum_scan.py '                out.append(card)' '                out.append(card); subprocess.run([GITQ[0], "-C", repo, "mv", card, card + "-mut"])')"
+  # 변이 7: 완성 카드를 git mv 로 옮김(도구가 저장소를 쓴다) → R7 «git status 깨끗 · HEAD 그대로» 단언이 무너진다
+  MD="$(mut m7 ft_accum_scan.py '        out += kept' '        out += kept
+        subprocess.run([GITQ[0], "-C", repo, "mv", cards[0], cards[0] + "-mut"])')"
   if [ -z "$MD" ]; then bad "변이 7 패치 실패"; else
     mkroot m7; RC7="$R"; gitinit "$RC7"; mkdir -p "$RC7/design/harness/indices/완성"
     printf 'a\n' > "$RC7/design/harness/indices/완성/old-a.md"
@@ -344,8 +409,8 @@ PY
     SUTD="$MD"; sw; sw; SUTD="$SUTD0"
     { [ "$(cnt "$H/archive")" = 2 ]; } && ok "변이 12(표식 생성 제거) → 둘째 실행이 또 옮겨 R15 단언이 무너진다" || bad "변이 12 미검출"
   fi
-  # 변이 13: diff-filter=A 만 → R16 «이름 바꿈으로 들어온 카드 제외» 단언이 무너진다
-  MD="$(mut m13 ft_accum_scan.py '"--diff-filter=AR"' '"--diff-filter=A"')"
+  # 변이 13: «최근 도착» 집합을 비운다(경로를 좁혀 R 필터가 A 로 바뀌어도 계약은 «최근 도착 제외») → R16 단언이 무너진다
+  MD="$(mut m13 ft_accum_scan.py '                    got.add(f[-1])' '                    pass')"
   if [ -z "$MD" ]; then bad "변이 13 패치 실패"; else
     mkroot m13; RA="$R"; gitinit "$RA"
     mkdir -p "$RA/design/harness/indices/완성" "$RA/design/harness/indices/진행"
@@ -356,7 +421,7 @@ PY
     printf 'harness\t.\tHEAD\tdesign/harness/indices\n' > "$R/.fable-team/state/directive-roots.tsv"
     SUTD="$MD"; sw; SUTD="$SUTD0"
     L="$(ls "$R"/.fable-team/state/accum/cards-done-30d-*.txt 2>/dev/null | tail -1)"
-    { [ "$(grep -c . "$L")" = 2 ]; } && ok "변이 13(diff-filter=A 만) → 이동으로 들어온 카드가 목록에 들어와 R16 단언이 무너진다" || bad "변이 13 미검출 [$(cat "$L" | tr '\n' ' ')]"
+    { [ "$(grep -c . "$L")" = 2 ]; } && ok "변이 13(최근 도착 집합을 비움) → 이동으로 들어온 카드가 목록에 들어와 R16 단언이 무너진다" || bad "변이 13 미검출 [$(cat "$L" | tr '\n' ' ')]"
   fi
   # 변이 14: 머리 [HIL]→[정리] → R17 실제 판정기가 REJECT 한다
   MD="$(mut m14 ft_accum_sweep.py '[HIL] 누적 보관 큼: %.1fG' '[정리] 누적 보관 큼: %.1fG')"
@@ -378,7 +443,11 @@ PY
     rm -f "$T/accum.calls"
   fi
   # 변이 16: git 상한 7초 고정(예산 무시) → R13b «예산+2 안에 끊김» 단언이 무너진다
-  MD="$(mut m16 ft_accum_scan.py '        t = cap()' '        t = 7')"
+  MD="$(mut m16 ft_accum_scan.py '        t = cap()
+        if t <= 0:
+            print("예산 초과 — 남은 완성 카드 루트 %d곳 다음 날" % (len(rows) - i))' '        t = 7
+        if t <= 0:
+            print("예산 초과 — 남은 완성 카드 루트 %d곳 다음 날" % (len(rows) - i))')"
   if [ -z "$MD" ]; then bad "변이 16 패치 실패"; else
     mkroot m16; printf 'harness\t.\tHEAD\tdesign/harness/indices\n' > "$R/.fable-team/state/directive-roots.tsv"
     SUTD="$MD"; timed sw FT_ACCUM_BUDGET_SEC=3 FT_ACCUM_GIT="$T/git-slow.sh"; SUTD="$SUTD0"
@@ -418,7 +487,7 @@ PY
       && ok "변이 20(옮기는 대신 지우기) → 보관 파일이 비어 R1 «내용 그대로» 단언이 무너진다" || bad "변이 20 미검출"
   fi
   # 변이 21: 완성 목록을 작업 트리 glob 으로(ls-tree 대신) → 작업 트리에만 있는 카드가 목록에 들어 R20 이 무너진다
-  MD="$(mut m21 ft_accum_scan.py '            tree = _git(["-C", repo, "ls-tree", "-r", "--name-only", r[2], "--", r[3]], t)   # ★ref 기준(작업 트리 아님)' '            tree = type("T", (), {"returncode": 0, "stderr": "", "stdout": "\n".join(os.path.relpath(p, repo) for p in __import__("glob").glob(os.path.join(repo, r[3], "완성", "*.md")))})()')"
+  MD="$(mut m21 ft_accum_scan.py '            tree = _git(["-C", repo, "ls-tree", "-r", "--name-only", r[2], "--", base], t)   # ★ref 기준(작업 트리 아님)' '            tree = type("T", (), {"returncode": 0, "stderr": "", "stdout": "\n".join(os.path.relpath(p, repo) for p in __import__("glob").glob(os.path.join(repo, base, "**", "*.md"), recursive=True))})()')"
   if [ -z "$MD" ]; then bad "변이 21 패치 실패"; else
     mkroot m21; RB="$R"; gitinit "$RB"; mkdir -p "$RB/design/harness/indices/완성"
     printf 'x\n' > "$RB/design/harness/indices/완성/old-40.md"
@@ -451,6 +520,43 @@ PY
     L="$(ls "$R"/.fable-team/state/accum/cards-done-30d-*.txt 2>/dev/null | tail -1)"
     { grep -q '\\354' "$L" 2>/dev/null || [ ! -f "$L" ]; } \
       && ok "변이 22(quotepath off 제거) → 경로가 8진으로 새 R7 «한글 경로 그대로» 단언이 무너진다" || bad "변이 22 미검출 [$(cat "$L" 2>/dev/null | tr '\n' ' ')]"
+  fi
+  # 변이 24: git log 인자에서 pathspec("--", r[3]) 을 뺀다 → R22 «-- <카드 폴더>» 단언이 무너진다
+  # 변이 24: git log 인자에서 pathspec(«--» + 실제 완성 폴더) 을 뺴다 → R22 «-- <실제 완성 폴더>» 단언이 무너진다
+  MD="$(mut m24 ft_accum_scan.py '"--pretty=format:", "--"] + dirs' '"--pretty=format:"]')"
+  if [ -z "$MD" ]; then bad "변이 24 패치 실패"; else
+    mkroot m24; rm -f "$T/git.args"
+    printf '*\t.\tHEAD\tdesign/teams/*/indices\n' > "$R/.fable-team/state/directive-roots.tsv"
+    mkdir -p "$R/design/teams/ccu/indices/완성"; printf 'a\n' > "$R/design/teams/ccu/indices/완성/team-old.md"
+    git -C "$R" add -A; GIT_AUTHOR_DATE="$D40" GIT_COMMITTER_DATE="$D40" git -C "$R" commit -qm old
+    SUTD="$MD"; sw FT_ACCUM_GIT="$T/git-rec.sh"; SUTD="$SUTD0"
+    LOGL="$(grep -F ' log ' "$T/git.args" 2>/dev/null)"
+    { ! grep -qF -- '-- design/teams/ccu/indices/완성' <<<"$LOGL"; } \
+      && ok "변이 24(로그 pathspec 제거) → log 인자에 «-- <실제 완성 폴더>» 가 없어 R22 단언이 무너진다" || bad "변이 24 미검출 [$LOGL]"
+  fi
+  # 변이 25: 30일 배치 쪼개기 제거(한 번에 30일) → R24 «8일 넘는 창을 한 번도 안 부름» 단언이 무너진다
+  MD="$(mut m25 ft_accum_scan.py '    wins = [(min(CHUNK_H * (k + 1), WIN_H), CHUNK_H * k) for k in range((WIN_H + CHUNK_H - 1) // CHUNK_H)]' '    wins = [(WIN_H, 0)]')"
+  if [ -z "$MD" ]; then bad "변이 25 패치 실패"; else
+    mkroot m25; RE="$R"; gitinit "$RE"; mkdir -p "$RE/design/harness/indices/완성"
+    printf 'h\n' > "$RE/design/harness/indices/완성/har-old.md"
+    git -C "$RE" add -A; GIT_AUTHOR_DATE="$D40" GIT_COMMITTER_DATE="$D40" git -C "$RE" commit -qm old
+    printf 'harness\t.\tHEAD\tdesign/harness/indices\n' > "$R/.fable-team/state/directive-roots.tsv"
+    rm -f "$T/git.win"
+    SUTD="$MD"; sw FT_ACCUM_BUDGET_SEC=4 FT_ACCUM_GIT="$T/git-win.sh"; SUTD="$SUTD0"
+    WINS="$(sort -n "$T/git.win" 2>/dev/null | tr '\n' ' ')"
+    { grep -qF '720' <<<"$WINS" && [ $RC = 3 ]; } \
+      && ok "변이 25(배치 제거) → 느린 git 에 720시간 창을 그대로 부르고 판정 불가로 끝나 R24 단언이 무너진다" || bad "변이 25 미검출 rc=$RC wins=[$WINS]"
+  fi
+  # 변이 26: 글롭 행 0줄을 판정 불가로 안 세게 한다(조용한 0 허용) → R23 단언이 무너진다
+  MD="$(mut m26 ft_accum_scan.py '                bad("cards git", "완성 카드 0줄(글롭 행) %r — 경로 확인" % r[3])' '                pass')"
+  if [ -z "$MD" ]; then bad "변이 26 패치 실패"; else
+    mkroot m26; RF="$R"; gitinit "$RF"
+    mkdir -p "$RF/design/teams/ccu/indices/대기"; printf 'x\n' > "$RF/design/teams/ccu/indices/대기/x.md"
+    git -C "$RF" add -A; GIT_AUTHOR_DATE="$D40" GIT_COMMITTER_DATE="$D40" git -C "$RF" commit -qm old
+    printf '*\t.\tHEAD\tdesign/teams/*/indices\n' > "$R/.fable-team/state/directive-roots.tsv"
+    SUTD="$MD"; sw; SUTD="$SUTD0"
+    { [ $RC = 0 ] && ! grep -q '완성 카드 0줄(글롭 행)' "$R/.fable-team/state/accum/sweep-$(dstr "$NOW0").log"; } \
+      && ok "변이 26(글롭 행 0줄을 조용히) → rc0 · 판정 불가 0 이라 R23 «rc3 · 판정 불가 1» 단언이 무너진다" || bad "변이 26 미검출 rc=$RC"
   fi
 fi
 

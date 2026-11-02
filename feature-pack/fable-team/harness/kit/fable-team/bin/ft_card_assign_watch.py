@@ -32,7 +32,7 @@ from ft_directive_watch import Git, Undecided, hhmm, team_master, tsv, until  # 
 from ft_penalty import root  # noqa: E402
 from ft_latest_write import write_latest  # noqa: E402
 from ft_card_assign_pause import DAY_S, held_add, held_once, held_prune, jload, jsave, notice, team_pause, team_paused, team_resume  # noqa: E402
-from ft_team_lib import TeamPathError, team_names  # noqa: E402
+from ft_team_lib import TeamPathError, basis_ref, root_row, team_names  # noqa: E402
 
 REASONS = ("정지", "석", "부하", "면제대기", "선행", "lint", "DA", "사람")
 PAUSED = ("정지", "석", "부하")
@@ -235,6 +235,15 @@ def strict_roots(R: Path) -> list[list[str]]:
     rows = [r[:4] for r in tsv(f) if len(r) >= 4 and all(x.strip() for x in r[:4])]
     if not rows:
         raise Undecided(f"카드 루트 표 없음·유효 행 0({f})")
+    # r1309 X5: 이 루트의 «기본값(origin/main)» 행은 roots.tsv «기준 ref» 로 바꾼다(origin 없는 루트 = 로컬 가지 · fetch 0 · roots.tsv 없음 = 지금 그대로)
+    try:
+        basis = basis_ref(R)
+    except TeamPathError as e:
+        raise Undecided(f"루트 명부 판정 불가 {e}") from None
+    if basis != "origin/main":
+        for r in rows:
+            if r[2] == "origin/main" and repo_of(R, r) == str(R.resolve()):
+                r[2] = basis
     return rows
 
 
@@ -506,9 +515,59 @@ def _undecided_text(bucket: dict) -> str:
     return f"[정리] 배정 감시 판정 불가 묶음 {bucket['day']} {bucket['n']}회 · 첫 {first} · 마지막 {last} · 사유 상위 3: {top} (ft-card-assign-watch · 숫자로 읽지 말 것)"
 
 
-def _send_undecided(bucket: dict, planner: str | None, mbox: str, me: str) -> tuple[bool, str]:
+def _own_root_name(R: Path | None) -> str | None:
+    """이 루트의 roots.tsv 이름 — 없으면 None(다리 없음 · 지금 동작)."""
+    if R is None:
+        return None
+    try:
+        row = root_row(R)
+    except TeamPathError:
+        return None
+    return str(row["name"]) if row else None
+
+
+def _human_planner(R: Path | None) -> str | None:
+    """r1309 §3-4 — 이 루트에 planner 가 없을 때 «사람 우편함» 쪽 루트의 planner 팀장(다리 받는이) · «.» = 다리 필요 없음(None)."""
+    if R is None:
+        return None
+    try:
+        row = root_row(R)
+    except TeamPathError:
+        return None
+    if not row or str(row["human_mail"]) == ".":
+        return None
+    base = Path(str(row["human_mail"]))
+    for p in (base, *base.parents):
+        if p.name == ".fable-team":
+            base = p.parent
+            break
+    try:
+        return team_master(base, "planner")
+    except Exception:  # noqa: BLE001 — 다리 판정 실패 = 받는이 없음(아래 1줄 사유)
+        return None
+
+
+def _bridge_send(R: Path, to: str, me: str, text: str) -> tuple[bool, str]:
+    """사람 우편함 다리(ft-root-hil.sh)로 1통 — 성공 = QUEUED(다른 루트 큐에 1줄) · 실패 = 사유 1줄."""
+    name, tool = _own_root_name(R), HERE / "ft-root-hil.sh"
+    if not name or not tool.is_file():
+        return False, "tick 정리 발신 판정 불가 · 사람 우편함 다리 없음"
+    try:
+        p = subprocess.run(["bash", str(tool), name, to, text], capture_output=True, text=True, timeout=7,
+                           env=dict(os.environ, FT_HIL_FROM=me))
+    except (OSError, subprocess.SubprocessError) as e:
+        return False, f"tick 정리 발신 판정 불가 · {e.__class__.__name__}"
+    if "QUEUED" in p.stdout + p.stderr:
+        return True, f"tick [정리] 1통 → {to}(사람 우편함 다리)"
+    return False, f"tick 정리 발신 판정 불가 · rc={p.returncode}"
+
+
+def _send_undecided(bucket: dict, planner: str | None, mbox: str, me: str, R: Path | None = None) -> tuple[bool, str]:
     if not planner:
-        return False, "tick 정리 발신 판정 불가 · planner 명부 없음"
+        bridge_to = _human_planner(R)
+        if not bridge_to or R is None:
+            return False, "tick 정리 발신 판정 불가 · planner 명부 없음"
+        return _bridge_send(R, bridge_to, me, _undecided_text(bucket))
     try:
         p = subprocess.run(["bash", mbox, "send", planner, me, _undecided_text(bucket)], capture_output=True, text=True, timeout=7)
     except (OSError, subprocess.SubprocessError) as e:
@@ -543,7 +602,7 @@ def _record_undecided(R: Path, now: float, alarm: list | None, why: str, marks: 
         marks["undecided_day"] = bucket
     remaining = []
     for prior in pending:
-        sent, result = _send_undecided(prior, planner, mbox, me)
+        sent, result = _send_undecided(prior, planner, mbox, me, R)
         log.append(result)
         if not sent:
             remaining.append(prior)

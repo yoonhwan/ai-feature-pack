@@ -24,7 +24,16 @@ HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 head -3 "$HERE/ft_raised.py" 2>/dev/null | grep -qF 'ft-root-bin-shim' && { echo "$(date '+%F %T') ERROR shim 폴더에서 실행 — launchctl kickstart 로 LIVE_BIN 재기동 ($HERE)" >&2; exit 3; }
 WT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 ROOT="${FT_ROOT:-$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')}"   # R382: env FT_ROOT 우선(코드가 다른 리포로 가도 프로젝트 루트 고정) — 데이터 루트는 그 안의 .fable-team/LIVE_ROOT 파일
-SEATS="${FT_TICK_SEATS:-${ROOT:-$WT}/.fable-team/seats.json}"
+# r1309: 좌석 명부 파일 이름 = 루트 TEAMS.md «명부» 칸(ft_team_lib seats-file). 판정 불가면 «1줄» 남기고 기본값으로 돈다(조용한 기본값 0).
+SEATS="${FT_TICK_SEATS:-}"
+if [ -z "$SEATS" ]; then
+  if seats_out="$(python3 "$HERE/ft_team_lib.py" seats-file "${ROOT:-$WT}" 2>&1)"; then
+    SEATS="$seats_out"
+  else
+    SEATS="${ROOT:-$WT}/.fable-team/seats.json"
+    echo "$(date '+%F %T') ERROR 좌석표 판정 불가 — TEAMS.md «명부» 칸을 못 읽었다(FT_TICK_SEATS 로 고정하라) · 기본값 $SEATS 로 계속: $(printf '%s' "$seats_out" | tail -1)" >&2
+  fi
+fi
 GOAL_TICK="${FT_TICK_GOAL_TICK:-$HERE/ft-goal-tick.sh}"
 LOOP_SEC="${FT_TICK_LOOP_SEC:-60}"
 PIDFILE="${FT_TICK_PIDFILE:-/tmp/ft-tick.pid}"
@@ -50,6 +59,9 @@ WT_SWEEP="${FT_TICK_WT_SWEEP_BIN:-$HERE/ft-wt-sweep.sh}"; WT_SWEEP_ENABLED="${FT
 # ★라이브 bin 드리프트 경고 (카드 live-bin-drift-check · Issue 816 ③)★ — 설치 꼴(*/.fable-team/bin)에서 돌 때만, 라이브 도구 ↔ origin/main 키트를 FT_TICK_DRIFT_INTERVAL(600s)마다 대조.
 #   어긋남 목록이 «바뀐 때만» master 우편함 1회(서명 $STATE_DIR/drift.sig). FT_TICK_DRIFT=0 으로 끔(경고만 끄는 스위치 — spawn·close 입구 BLOCK 은 끌 수 없다).
 DRIFT_CHECK="${FT_TICK_DRIFT_BIN:-$HERE/ft-live-bin-drift-check.sh}"; DRIFT_ENABLED="${FT_TICK_DRIFT:-1}"; DRIFT_INTERVAL="${FT_TICK_DRIFT_INTERVAL:-600}"
+# ★r1320 팀 메인 파일 주기 렌더 (지시 16 · 판정 3224 · REWORK r1)★ — ft-team-main.sh render <팀> 을 팀마다 1회 · FT_TICK_TEAMMAIN_SEC(600s)마다 · 0 = 끔.
+#   r1315 가 도구만 만들고 틱에 안 묶어 STATE.md 머리 시각이 첫 렌더(09:30) 뒤 멈췄다(arch#207 ls 실측) — 「늘 최신」(지시 16)이 안 지켜졌다.
+TEAMMAIN="${FT_TICK_TEAMMAIN_BIN:-$HERE/ft-team-main.sh}"; TEAMMAIN_SEC="${FT_TICK_TEAMMAIN_SEC:-600}"
 # ★상향 좌석 «내릴 것» 경보 (R149 · 판정 1641)★ — 명부 raised.card 가 완성/ 으로 갔거나 없어졌는데 행이 남은 좌석을 목록이 «바뀔 때만» master 우편함 1회(서명 $STATE_DIR/raised.sig). FT_TICK_RAISED=0 으로 끔. 판별은 형제 모듈 ft_raised.py.
 RAISED="${FT_TICK_RAISED_BIN:-$HERE/ft_raised.py}"
 # ★r468 개명 팀 옛 계보 우편 감시★ — 명부 _renamed_from 이 7일 안인 팀의 옛 이름 계보(byz-<옛>-*)에 쌓인 우편을 그 명부 _master 에 1줄(목록이 «바뀔 때만» · 서명 $STATE_DIR/renamed.sig).
@@ -520,6 +532,87 @@ drift_watch() {
       [ -n "$cause" ] || cause="$(printf '%s\n' "$err" | head -1)"
       echo "$(date '+%F %T') drift_watch: check rc=$rc: $(printf '%s\n' "$out" | head -1)${cause:+ [stderr] $cause}" >&2;;
   esac
+  return 0
+}
+
+# ★r1320 (지시 16 · 판정 3224 · REWORK r1·r2)★ 팀 메인 파일(STATE.md) 주기 렌더 — 팀마다 `render <팀>` 1회.
+#   간격 = TEAMMAIN_SEC(600s · 0 = 끔) · 표식 = «데이터 루트» .fable-team/state/teammain.last — STAMP_PREFIX 를 쓰지 않는다.
+#     r2 라이브 실측(arch#207): 루트 틱 데몬 5개(본 · cfo · feature · knowledge · ops)가 접두가 달라 각자 600초마다 13팀을 렌더 = 25초 안 4회.
+#     표식이 데이터 루트에 있으면 다섯이 «한 표식» 을 공유해 10분에 1회다(시험 전용인 STAMP_PREFIX 에 상태를 걸지 않는다).
+#   잠금 = state/teammain.lock(mkdir 원자) — 잡은 데몬만 렌더 · 못 잡으면 렌더 0 + log 1줄 · 끝나면 지울 · SEC 넘은 낡은 잠금은 깨고 1줄.
+#   팀당 timeout 7(하드 룰 12 «넘으면 먼저 쪼갠다») — 첫 판은 13팀을 7초 1회에 묶어 고부하(load 13)에서 rc124 = 13팀 전부 0 이었다(REWORK r1 원인).
+#   끊기거나 실패한 팀만 ERROR 1줄(`ERROR teammain: <팀> rc=<N> <초>s`) · 성공 팀은 조용히 갱신 · 바퀴는 계속 · 바퀴 끝에 요약 log 1줄.
+#   바퀴 마감 3초 안이면 남은 팀은 다음 간격(ERROR 0 · 로그 1줄에 남은팀 표시) — 뒤에 오는 acct_notice 몫을 굶기지 않는다.
+#   도구 없음 = WARN 1줄(간격 안 반복 0) · 팀 명단(<루트>/design/TEAMS.md) 없는 루트 = 대상 0 조용히 skip(그 경우 틱 자신이 이미 «좌석표 판정 불가» ERROR 를 낸다).
+#   팀 목록 = «--all» 이 도는 그 목록 — ft_team_lib.team_names(현역 먼저 · 휴면 뒤) 하나만 쓴다(ft-team-main.sh 는 건드리지 않는다).
+#   목록 못 얻으면 rc≠0 · stderr ERROR 1줄 — 판정 불가이므로 팀 이름을 지어내지 않고 렌더 0.
+#   목록 못 얻으면 rc≠0 · stderr ERROR 1줄 — 판정 불가이므로 팀 이름을 지어내지 않고 렌더 0.
+teammain_teams() {
+  timeout 7 python3 -I - "$HERE" <<'PY'
+import os
+import sys
+from pathlib import Path
+
+sys.path.insert(0, sys.argv[1])
+import ft_team_lib
+
+root = Path(os.environ["FT_ROOT"]) if os.environ.get("FT_ROOT") else Path(ft_team_lib.repo_root())
+try:
+    names = [*ft_team_lib.team_names(root), *ft_team_lib.team_names(root, "휴면")]
+except ft_team_lib.TeamPathError as e:
+    print(e, file=sys.stderr)
+    raise SystemExit(4)
+for name in names:
+    print(name)
+PY
+}
+
+teammain_render() {
+  local stamp lock sd teams_md lerr teams lrc out rc t0 dt tot0 ok fail defer dl line team age
+  [ "$TEAMMAIN_SEC" != 0 ] || return 0
+  sd="${ROOT:-$WT}/.fable-team/state"; stamp="$sd/teammain.last"; lock="$sd/teammain.lock"
+  if [ "$DRY" != 1 ] && [ "$(stamp_gap "$stamp")" -lt "$TEAMMAIN_SEC" ]; then return 0; fi
+  teams_md="${FT_TEAMS_MD:-${ROOT:-$WT}/design/TEAMS.md}"
+  if [ "$DRY" = 1 ]; then echo "DRY kind=teammain bin=$TEAMMAIN sec=$TEAMMAIN_SEC"; return 0; fi
+  [ -f "$teams_md" ] || return 0
+  mkdir -p "$sd" 2>/dev/null
+  if [ ! -f "$TEAMMAIN" ]; then
+    write_stamp "$stamp"
+    echo "$(date '+%F %T') WARN teammain: 도구 없음 $TEAMMAIN — 팀 메인 렌더 건너뜀(다음 간격 뒤 다시 본다)" >&2
+    return 0
+  fi
+  if [ -d "$lock" ] && [ -f "$lock/at" ]; then
+    age=$(( $(now) - $(read_stamp "$lock/at") ))
+    if [ "$age" -gt "$TEAMMAIN_SEC" ]; then rm -rf -- "$lock"; log "teammain: 낡은 잠금 ${age}s(>$TEAMMAIN_SEC s) 깨고 진행 $lock"; fi
+  fi
+  if ! mkdir "$lock" 2>/dev/null; then
+    log "TEAMMAIN render skip — 다른 틱이 잠금 보유 중($lock)"
+    return 0
+  fi
+  write_stamp "$lock/at"
+  lerr="$sd/teammain-list.err"
+  teams="$(teammain_teams 2>"$lerr")"; lrc=$?
+  if [ "$lrc" != 0 ]; then
+    write_stamp "$stamp"; rm -rf -- "$lock"
+    echo "$(date '+%F %T') ERROR teammain: 목록 판정 불가 rc=$lrc — $(tail -1 "$lerr" 2>/dev/null | cut -c1-200)" >&2
+    return 0
+  fi
+  ok=0; fail=0; defer=0; tot0="$(now)"; dl="${FT_TICK_DEADLINE:-}"
+  while IFS= read -r team; do
+    [ -n "$team" ] || continue
+    case "$dl" in ''|*[!0-9]*) ;; *) [ $(( dl - $(now) )) -le 3 ] && { defer=1; break; };; esac
+    t0="$(now)"
+    out="$(timeout 7 bash "$TEAMMAIN" render "$team" 2>&1)"; rc=$?
+    dt=$(( $(now) - t0 ))
+    if [ "$rc" = 0 ]; then ok=$(( ok + 1 )); continue; fi
+    fail=$(( fail + 1 ))
+    echo "$(date '+%F %T') ERROR teammain: $team rc=$rc ${dt}s — $(printf '%s\n' "$out" | tail -1 | cut -c1-200)" >&2
+  done <<< "$teams"
+  write_stamp "$stamp"
+  rm -rf -- "$lock"
+  line="TEAMMAIN render ok=$ok fail=$fail"
+  [ "$defer" = 0 ] || line="$line 남은팀 다음 간격(바퀴 마감 3초)"
+  log "$line $(( $(now) - tot0 ))s"
   return 0
 }
 
@@ -1279,6 +1372,7 @@ pass() {
   STEP_LAST=""
   [ "$STEPS_ON" != 1 ] || { PASS_T0="${FT_TICK_PASS_T0:-$(now)}"; PASS_S0=$SECONDS; STEP_LAST=$SECONDS; }   # 부모가 넘긴 바퀴 시작 epoch(없으면 지금) = 첫 단계 시작
   pass_core; prc=$?
+  step teammain_render teammain_render   # r1320: 바퀴 끝 — 좌석 명부(rows)와 무관하게 돈다(현역 좌석 0 이어도 팀 메인은 최신)
   step acct_notice acct_notice
   steps_done
   return "$prc"

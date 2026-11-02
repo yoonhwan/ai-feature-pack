@@ -15,6 +15,7 @@ new_env() {  # 정본 사본 + lint + 승계 명부(master#32 행 있음)
   ENVROOT="$(mktemp -d "$T/env.XXXXXX")"; mkdir -p "$ENVROOT/.fable-team/comm" "$ENVROOT/.fable-team/state" "$ENVROOT/seats"
   cp "$SRC"/mbox*.py "$SRC"/mbox*.sh "$SRC"/ft-boot-report-lint.py "$ENVROOT/.fable-team/comm/"
   git -C "$ENVROOT" init -q; cp "$FX/succ_boot"/seats*.json "$ENVROOT/seats/"
+  [ -z "${1:-}" ] || "$1"   # 변이 훅(r1319) — 사본에만 손댄다
 }
 send() {  # <body> → RC·OUT (발신 = 승계 master)
   OUT="$(cd "$ENVROOT" && env PATH="$T/stub:$PATH" FT_SEATS_JSON="$ENVROOT/seats/seats.json" \
@@ -40,16 +41,12 @@ rejects R3 '[부팅 보고] 세션=x 모델=y cron=abc12345'
 rejects R4 "[$MASTER->$PM] [부팅 보고] 세션=x 모델=y cron=abc12345"
 rejects R5 '부팅 보고: 세션=x 모델=y cron=abc12345'
 
-# 변이 1: 옛 case 식(머리 대괄호 자르기 제거 · `*` 가 첫 `]` 를 넘음)으로 되돌림 → R1 이 REJECT 로 빨강
-new_env; G="$ENVROOT/.fable-team/comm/mbox_guard.sh"
-python3 - "$G" <<'PY'
-import sys; p = sys.argv[1]; s = open(p, encoding="utf-8").read()
-a = 'case "$first" in \\[*\\]*) first="${first%%]*}]";; esac; '; b = '\\[*부팅\\ 보고*\\] |'
-assert a in s and b in s, "변이 대상 문자열 없음"
-open(p, "w", encoding="utf-8").write(s.replace(a, "").replace(b, '\\[*부팅\\ 보고*\\]* |'))
-PY
-[ $? = 0 ] || bad "변이1 적용 실패"
+# 변이 1(r1319): 머리 판정을 «앞 3줄에 부팅 글자가 있으면 검사» 로 되돌림(글자만 세는 판) → R1·R2 가 REJECT 로 빨강
+mut_anyboot() { printf '\ndef is_boot_report(body, me):\n    return any("부팅" in ln for ln in (body or "").split("\\n")[:3])\n' >> "$ENVROOT/.fable-team/comm/mbox_retire_check.py"; }
+new_env mut_anyboot; grep -q 'def is_boot_report' "$ENVROOT/.fable-team/comm/mbox_retire_check.py" || bad "변이1 적용 실패"
 send "$R1"
-[ "$RC" = 3 ] && ok "변이1(옛 case 식) → R1 REJECT rc3 = 빨강 확인" || bad "변이1 이 R1 에 안 잡힘 rc=$RC :: $OUT"
+[ "$RC" = 3 ] && ok "변이1(글자만 세는 판) → R1 REJECT rc3 = 빨강 확인" || bad "변이1 이 R1 에 안 잡힘 rc=$RC :: $OUT"
+send "$R2"
+[ "$RC" = 3 ] && ok "변이1 → R2 REJECT rc3 = 빨강 확인" || bad "변이1 이 R2 에 안 잡힘 rc=$RC :: $OUT"
 
 [ "$fail" = 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }
