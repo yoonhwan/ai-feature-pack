@@ -151,7 +151,7 @@ r1_env; run status; HEAD1="$(hd)"; ST="$(printf '%s' "$HEAD1" | sed -n 's/.*판�
 mkdir -p "$T/seats7/state/directive-watch"; printf '%s\n' '{"_master":"byz-harness-master-claude#33","byz-harness-master-claude#32":{"role":"stop-ready","_replaced_by":"byz-harness-master-claude#33"},"byz-harness-master-claude#33":{"role":"master","_replaces":["byz-harness-master-claude#32"]}}' > "$T/seats7/seats-harness.json"
 DST="$NOW-0000abcd"; printf '%s\t0\t0\n' "$DST" > "$T/seats7/state/directive-watch/stamps.tsv"; DIR="담당 없는 오빠 지시 0 · 멈춘 오빠 지시 0 · 판본 $DST"
 BOOT="[부팅 보고] 세션=x retire=byz-harness-master-claude#32->byz-harness-master-claude#33 rc=0 cron=abc123 $DIR"
-lint() { LOUT="$(printf '%s' "$1" | env FT_CARD_ASSIGN_STAMPS="${STAMPS:-$CS}" python3 "${LINT_RUN:-$LINT}" --from "$HMASTER" --seats-dir "$T/seats7" 2>&1)"; LRC=$?; }
+lint() { LOUT="$(printf '%s' "$1" | env FT_CARD_ASSIGN_STAMPS="${STAMPS:-$CS}" PYTHONPATH="$COMM${PYTHONPATH:+:$PYTHONPATH}" python3 "${LINT_RUN:-$LINT}" --from "$HMASTER" --seats-dir "$T/seats7" 2>&1)"; LRC=$?; }   # PYTHONPATH = 변이 사본이 mbox_retire_check 를 import 할 수 있게(r1319 뒤 변이3 거짓 빨강)
 lint "$BOOT"; r_none=$LRC; lint "$BOOT ${HEAD1/판본 $ST/판본 ${ST%%-*}-00000000}"; r_row=$LRC; lint "$BOOT ${HEAD1/배정 없는 카드 3/배정 없는 카드 4}"; r_num=$LRC
 FT_DIRECTIVE_NOW=$(( ${ST%%-*} + 1860 )) lint "$BOOT $HEAD1"; r_old=$LRC; STAMPS="$T/none.tsv" lint "$BOOT $HEAD1"; r_nof=$LRC; nof="$LOUT"
 lint "$BOOT 배정 감시 판정 불가 · git 상한 넘김"; r_und=$LRC; und="$LOUT"; lint "$BOOT $HEAD1"; r_ok=$LRC
