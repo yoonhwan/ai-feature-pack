@@ -4,6 +4,7 @@
 set -uo pipefail
 export FT_AUTONOMY_LEVEL=each FT_MERGE_LAND_CODE_AUTOMERGE=0   # r1270: 이 시험은 옛 동작(승인 sha 있는 코드 PR · main 앞섬 = REJECT) 고정 · r466: --level 생략 = full(범위 승인 + 슬랙 게시) — 이 시험은 레벨 밖이라 each(실 슬랙 0)
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
+PART="${1:-1}"   # r1336 R5: 1(기본) · 2 · 3 — 시험 1개 70 s 상한(기준판 단독 147 s)이라 같은 단언을 3파일로 나눔(1/3 부트·R354 ⓐ~ⓗ4 · 2/3 R354 ⓔ3~ⓖ2 · 3/3 ff·r706)
 BIN="$HERE/../../harness/bin"; LAND="$BIN/ft-merge-land.sh"
 . "$HERE/_merge_fixture.sh"
 fail=0; rc=0; out=""
@@ -40,13 +41,16 @@ printf 'l1\nMAIN-LINE\nl2\nl3\n' > "$W/a.txt"; cm "$W" "main adds"; git -C "$W" 
 M1="$(omain)"
 mkpr 7 pr7 origin/main; P7="$PRSHA"
 
+if [ "$PART" = 1 ]; then   # r1336 R5: 1/3(이 파일 기본) — 시험 1개 70 s 상한이라 같은 단언을 3파일로(2 = test_merge_land_part2_r1336.sh · 3 = part3)
 land 7; [ "$rc" = 1 ] && [[ "$out" == *"doc-exempt"* ]] && [ "$(omain)" = "$M1" ] && [ ! -s "$STUB_LOG" ]; ck "승인 값 없음 + 문서 아님 → rc1 REJECT(doc-exempt 아님) · main 불변 · PR 쓰기 0(R725)" $?
 land 7 --approve-sha "$ZERO"; [ "$rc" = 1 ] && [[ "$out" == *"승인 sha"* ]] && [ "$(omain)" = "$M1" ]; ck "승인 sha != PR head → REJECT · main 불변" $?
 mkpr 6 pr6 origin/main CLOSED; land 6 --approve-sha "$PRSHA"; [ "$rc" = 1 ] && [[ "$out" == *"OPEN 아님"* ]] && [ "$(omain)" = "$M1" ]; ck "PR 가 OPEN 아님 → REJECT" $?
 mkpr 8 pr8 "$M0"; land 8 --approve-sha "$PRSHA"; [ "$rc" = 1 ] && [[ "$out" == *"게이트"* ]] && [[ "$out" == *"포함하지 않음"* ]] && [ "$(omain)" = "$M1" ]; ck "main 미포함 옛 세트 PR → 게이트 REJECT · main 불변" $?
 
 # 검사 뒤 main 전진 → 서버 non-FF 거절(착지 0)
+fi
 git -C "$T" clone -q "$ORIGIN" "$T/race"; git -C "$T/race" config user.name t; git -C "$T/race" config user.email t@t
+if [ "$PART" = 1 ]; then   # r1336 R5: 1/3(이 파일 기본) — 시험 1개 70 s 상한이라 같은 단언을 3파일로(2 = test_merge_land_part2_r1336.sh · 3 = part3)
 mkpr 9 pr9 origin/main; P9="$PRSHA"
 apv --approve-sha "$P9"; out="$(PATH="$T/shim:$PATH" RACE_WT="$T/race" RACE_MARK="$T/race.mark" bash "$LAND" 9 --approve-sha "$P9" --repo "$W" 2>&1)"; rc=$?
 RACE="$(omain)"
@@ -72,10 +76,14 @@ apv --approve-sha "$P12"; out="$(PATH="$T/shim3:$PATH" bash "$LAND" 12 --approve
 [ "$rc" = 0 ] && [[ "$out" == LANDED* ]]; ck "fetch 에 -c gc.auto=0 — gc 실패 rc≠0 이어도 착지(R271)" $?
 
 # 자율 ON — 승인 파일 없으면 실행 0 · approve-merge 뒤 착지
-bash "$BIN/ft-autonomy.sh" on >/dev/null 2>&1; git -C "$W" fetch -q origin; mkpr 10 pr10 origin/main; P10="$PRSHA"; M3="$(omain)"; : > "$STUB_LOG"
+fi
+bash "$BIN/ft-autonomy.sh" on >/dev/null 2>&1   # 자율 ON — 두 파트 공통(승인 파일 필요 모드)
+if [ "$PART" = 1 ]; then   # r1336 R5: 1/3(이 파일 기본) — 시험 1개 70 s 상한이라 같은 단언을 3파일로(2 = test_merge_land_part2_r1336.sh · 3 = part3)
+git -C "$W" fetch -q origin; mkpr 10 pr10 origin/main; P10="$PRSHA"; M3="$(omain)"; : > "$STUB_LOG"
 NOAP=1 land 10 --approve-sha "$P10"; [ "$rc" = 2 ] && [[ "$out" == *"approve-merge"* ]] && [ "$(omain)" = "$M3" ] && [ ! -s "$STUB_LOG" ]; ck "자율 ON · 승인 파일 없음 → rc2 · 실행 0" $?
 bash "$BIN/ft-autonomy.sh" approve-merge "$P10" >/dev/null 2>&1
 land 10 --approve-sha "$P10"; [ "$rc" = 0 ] && [ "$(omain)" != "$M3" ]; ck "자율 ON · approve-merge 승인 뒤 착지" $?
+fi
 
 # R354: push 시도당 상한 = min(F + 7 × ceil(객체수/U0), 70) — 대역 timeout(push 인자 기록 · 시도별 결과 주입) + 대역 git(rev-list --objects 개수 주입)
 SP="$T/shimP"; mkdir -p "$SP"; PLOG="$T/push.log"; PSEQ="$T/push.seq"; REAL_TO="$(command -v timeout)"
@@ -112,19 +120,22 @@ pland() {  # pland <PR> <env…> — 대역 PATH 로 착지 · 시도 기록 초
   out="$(env PATH="$SP:$PATH" "$@" bash "$LAND" "$pr" --approve-sha "$P" --repo "$W" 2>&1)"; rc=$?
 }
 pb() { sed -n '1p' "$PLOG"; }   # 첫 push 시도의 timeout 인자
-pland 21 STUB_OBJECTS=1; [ "$rc" = 0 ] && [ "$(pb)" = 11 ] && [[ "$out" == *"push ok objects=1 bound=11 attempt=11 took="* ]]; ck "ⓐ 객체 1 → bound 11 (4.5+7) · push ok 줄(bound=PB attempt=AB)" $?
-pland 22 STUB_OBJECTS=390; [ "$rc" = 0 ] && [ "$(pb)" = 32 ] && [[ "$out" == *"push ok objects=390 bound=32 attempt=32 took="* ]]; ck "ⓑ 객체 390(#1859) → ceil(390/100)=4 → bound 32" $?
-[ "$(. "$BIN/ft-merge-lib.sh"; fm_push_calc 5000 2>/dev/null)" = 70 ] && [ "$(. "$BIN/ft-merge-lib.sh"; fm_push_calc 900 2>/dev/null)" = 67 ]; ck "ⓒ 객체 5,000 → 4.5+350 → 70 클램프 · 900 → 67(fm_push_calc)" $?
-pland 23 STUB_REVLIST_FAIL=1; [ "$rc" = 0 ] && [ "$(pb)" = 11 ] && [[ "$out" == *"objects=?"* ]] && [[ "$out" == *"WARN"* ]]; ck "ⓓ 객체 수 조회 실패 → F+7=11 호환값 + stderr WARN 1줄(조용한 통과 0)" $?
+if [ "$PART" = 1 ]; then   # r1336 R5: 1/3(이 파일 기본) — 시험 1개 70 s 상한이라 같은 단언을 3파일로(2 = test_merge_land_part2_r1336.sh · 3 = part3)
+pland 21 STUB_OBJECTS=1; [ "$rc" = 0 ] && [ "$(pb)" = 14 ] && [[ "$out" == *"push ok objects=1 bound=14 attempt=14 took="* ]]; ck "ⓐ 객체 1 → bound 14 (F 7 + 7 · r1336) · push ok 줄(bound=PB attempt=AB)" $?
+pland 22 STUB_OBJECTS=390; [ "$rc" = 0 ] && [ "$(pb)" = 35 ] && [[ "$out" == *"push ok objects=390 bound=35 attempt=35 took="* ]]; ck "ⓑ 객체 390(#1859) → ceil(390/100)=4 → bound 35 (7+28)" $?
+[ "$(. "$BIN/ft-merge-lib.sh"; fm_push_calc 5000 2>/dev/null)" = 70 ] && [ "$(. "$BIN/ft-merge-lib.sh"; fm_push_calc 800 2>/dev/null)" = 63 ]; ck "ⓒ 객체 5,000 → 7+350 → 70 클램프 · 800 → 63(fm_push_calc · r1336 F 7)" $?
+pland 23 STUB_REVLIST_FAIL=1; [ "$rc" = 0 ] && [ "$(pb)" = 14 ] && [[ "$out" == *"objects=?"* ]] && [[ "$out" == *"WARN"* ]]; ck "ⓓ 객체 수 조회 실패 → F+7=14 호환값 + stderr WARN 1줄(조용한 통과 0)" $?
+fi
 np() { wc -l < "$PLOG" | tr -d ' '; }   # push 시도 수
+if [ "$PART" = 2 ]; then   # r1336 R5: 2/3 — 같은 단언 · R354 ⓔ3~ⓖ2
 # DA⑥ H1 ⓗ — 재시도 = «서버 응답 전 연결 실패» 뿐 · timeout·reset·remote 출력은 불명 → 재시도 0 + ls-remote 1회로 착지됨/착지 0/불명 판정
 MH="$(omain)"; pland 24 STUB_OBJECTS=1 PUSH_MODES="afterland ok"
 [ "$rc" = 0 ] && [ "$(np)" = 1 ] && [ "$(omain)" != "$MH" ] && [[ "$out" == *"confirmed=ls-remote"* ]] && tail -n1 "$T/state/merge-gate.log" | grep -q 'push-confirmed=ls-remote'; ck "ⓗ1 응답 후 timeout(remote: 줄 뒤 rc124 · 원격 ref=Q) → 재시도 0 · ls-remote==Q → 착지됨 정상 종료" $?
 MH="$(omain)"; pland 25 STUB_OBJECTS=1 PUSH_MODES="reset ok"
 [ "$rc" = 1 ] && [ "$(np)" = 1 ] && [ "$(omain)" = "$MH" ] && [[ "$out" == *"착지 0 확정"* ]] && [[ "$out" == *"응답 불명"* ]]; ck "ⓗ2 응답 후 reset(remote: 줄 뒤) → 불명 · ls-remote==M → rej «착지 0 · 불명» · 재시도 0" $?
-MH="$(omain)"; pland 32 STUB_OBJECTS=1 PUSH_MODES="rc124 ok"
-[ "$rc" = 1 ] && [ "$(np)" = 1 ] && [ "$(omain)" = "$MH" ] && [[ "$out" == *"착지 0 확정"* ]]; ck "ⓗ2b remote 출력 0 인 rc124 도 불명 → 재시도 0(옛 ⓔ1 대체) · ls-remote==M → rej" $?
-pland 26 STUB_OBJECTS=1 PUSH_MODES="conn ok"; [ "$rc" = 0 ] && [ "$(np)" = 2 ] && [ "$(sed -n 2p "$PLOG")" = 11 ]; ck "ⓗ3 응답 없음 연결 실패(remote: 0 · ssh timed out) → 재시도 1 후 착지 · 2차도 bound 11" $?
+MH="$(omain)"; pland 32 STUB_OBJECTS=1 PUSH_MODES="rc124 rc124"
+[ "$rc" = 1 ] && [ "$(np)" = 2 ] && [ "$(omain)" = "$MH" ] && [[ "$out" == *"착지 0 확정"* ]]; ck "ⓗ2b remote 출력 0 인 rc124 = 불명 → ls-remote==M → r1336: 재시도 1회 뒤 2차도 rc124 → rej(3차 0 · 재시도 0 자리는 test_merge_land_push_retry_r1336 V2)" $?
+pland 26 STUB_OBJECTS=1 PUSH_MODES="conn ok"; [ "$rc" = 0 ] && [ "$(np)" = 2 ] && [ "$(sed -n 2p "$PLOG")" = 14 ]; ck "ⓗ3 응답 없음 연결 실패(remote: 0 · ssh timed out) → 재시도 1 후 착지 · 2차도 bound 14" $?
 MH="$(omain)"; pland 34 STUB_OBJECTS=1 PUSH_MODES="rc124 ok" STUB_LSREMOTE_FAIL=1
 [ "$rc" = 1 ] && [ "$(np)" = 1 ] && [ "$(omain)" = "$MH" ] && [[ "$out" == *"원격 상태 불명"* ]] && [[ "$out" != *"착지 0 확정"* ]]; ck "ⓗ4 불명 + ls-remote 실패 → rej «원격 상태 불명» · «착지 0 확정» 문구 0(조용한 통과 0)" $?
 # ⓔ3: 1차가 시간을 먹어 남은 총 마감 < PB → 재시도 0 — main 기준값은 호출 «전» 캡처 · PB·AB·시도 수 명시 단언
@@ -139,7 +150,9 @@ pland 27 STUB_OBJECTS=1 PUSH_MODES="reject ok"; [ "$rc" = 1 ] && [ "$(wc -l < "$
 pland 28 STUB_OBJECTS=1 PUSH_MODES="nff ok"; [ "$rc" = 1 ] && [ "$(wc -l < "$PLOG" | tr -d ' ')" = 1 ]; ck "ⓕ2 pre-receive 거절 → 재시도 0" $?
 pland 29 STUB_OBJECTS=1 PUSH_MODES="other ok"; [ "$rc" = 1 ] && [ "$(wc -l < "$PLOG" | tr -d ' ')" = 1 ] && [[ "$out" == *"push 실패"* ]]; ck "ⓕ3 분류 못 한 실패 → 재시도 0 + push 실패 REJECT" $?
 pland 30 STUB_OBJECTS=1 FT_PUSH_FIXED_S=9; [ "$rc" = 0 ] && [ "$(pb)" = 14 ] && [[ "$out" == *"WARN"*"FT_PUSH_FIXED_S"* ]]; ck "ⓖ1 FT_PUSH_FIXED_S=9 → 7 로 클램프(bound 14) + WARN" $?
-pland 31 STUB_OBJECTS=250 FT_PUSH_UNIT_OBJECTS=0; [ "$rc" = 0 ] && [ "$(pb)" = 25 ] && [[ "$out" == *"WARN"*"FT_PUSH_UNIT_OBJECTS"* ]]; ck "ⓖ2 FT_PUSH_UNIT_OBJECTS=0 → 기본 100(250객체=3단위 → 25) + WARN" $?
+pland 31 STUB_OBJECTS=250 FT_PUSH_UNIT_OBJECTS=0; [ "$rc" = 0 ] && [ "$(pb)" = 28 ] && [[ "$out" == *"WARN"*"FT_PUSH_UNIT_OBJECTS"* ]]; ck "ⓖ2 FT_PUSH_UNIT_OBJECTS=0 → 기본 100(250객체=3단위 → 28) + WARN" $?
+fi
+if [ "$PART" = 3 ]; then   # r1336 R5: 3/3 — 같은 단언 · R392 ff + r706
 # R392 ⓘff — --ff: 승인 sha == PR head ∧ main 이 head 의 조상 → commit-tree 0 · push <HEAD>:refs/heads/main · 객체 0
 SF="$T/shimF"; mkdir -p "$SF"; FLOG="$T/ff.log"; RCNT="$T/ff.rcnt"
 cat > "$SF/git" <<EOF
@@ -164,7 +177,7 @@ fland 40 head; F40="$PRSHA"
 [ "$(git -C "$ORIGIN" rev-list --count "$FM..main")" = 2 ] && ! git -C "$ORIGIN" log --format=%B "$FM..main" | grep -q 'PR #40'; ck "ⓘff① 커밋 수 보존(2) · squash 커밋 0" $?
 tail -n1 "$T/state/merge-gate.log" | grep -q "head=$F40 method=ft-merge-land-ff tree=.* landed=$F40 pr=40"; ck "ⓘff① merge-gate.log method=ft-merge-land-ff · landed=HEAD" $?
 [ "$(head -n1 "$T/.fable-team/state/base-head")" = "$F40" ] && [[ "$out" == *"ICHK --range $FM..$F40 --ref $F40 "* ]]; ck "ⓘff① base-head · install 검사 Q=HEAD(--range M..HEAD)" $?
-[[ "$out" == *"push ok objects=0 bound=11 "* ]]; ck "ⓘff④ 전송 객체 0 → push ok objects=0 bound=11" $?
+[[ "$out" == *"push ok objects=0 bound=14 "* ]]; ck "ⓘff④ 전송 객체 0 → push ok objects=0 bound=14" $?
 git -C "$T/race" fetch -q origin && git -C "$T/race" checkout -q -B main origin/main
 fland 41 head FF_RACE=1; [ "$rc" = 1 ] && [[ "$out" == *"ff 불가"* ]] && [ "$(git -C "$ORIGIN" log -1 --format=%s main)" = ffrace ] && ! grep -q '^push' "$FLOG"; ck "ⓘff② 검사 뒤 main 전진(head 조상 아님) → push 전 REJECT · origin main = 경주 커밋 그대로" $?
 : > "$PLOG"; MF="$(omain)"; fland 42 head PATH="$SP:$SF:$PATH" STUB_OBJECTS=1 PUSH_MODES="reject"
@@ -253,6 +266,7 @@ out="$(PATH="$SE:$PATH" FT_LAND_TOTAL_S=2 bash "$MB2/ft-merge-land.sh" 62 --appr
 git -C "$W" update-ref -d refs/ft-land/62 2>/dev/null
 [ "$(refs)" = "refs/ft-land/99 " ]; ck "② E1·E2·변이 칸 뒤 잔여 0(다른 좌석 ref 99 만)" $?
 
+fi
 ! grep -vE '^\s*#' "$BIN/ft-merge-land.sh" "$BIN/ft-merge-lib.sh" | grep -qE '\b(600|300)\b'; ck "600·300 글자 0" $?
 cmp -s "$BIN/ft-merge-land.sh" "$BIN/../kit/fable-team/bin/ft-merge-land.sh" && cmp -s "$BIN/ft-merge-lib.sh" "$BIN/../kit/fable-team/bin/ft-merge-lib.sh"; ck "키트 사본 2 cmp0" $?
 
