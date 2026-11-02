@@ -58,6 +58,15 @@ def mutant_module(replacements):
     return mutant
 
 
+def baseline_module():
+    return mutant_module([
+        ("_REF_SPENT = 0.0\n", "_REF_SPENT = 0.0\n_REF_T0: float | None = None\n"),
+        ("    try:\n        budget = float(os.environ.get(\"FT_REF_BUDGET_SEC\") or REF_BUDGET_S)",
+         "    global _REF_T0\n    if _REF_T0 is None:\n        _REF_T0 = time.monotonic()\n    try:\n        budget = float(os.environ.get(\"FT_REF_BUDGET_SEC\") or REF_BUDGET_S)"),
+        ("return budget - _REF_SPENT", "return _REF_T0 + budget - time.monotonic()"),
+    ])
+
+
 class RefReadBudgetTests(unittest.TestCase):
     def setUp(self):
         os.environ["FT_REF_BUDGET_SEC"] = "10"
@@ -74,7 +83,9 @@ class RefReadBudgetTests(unittest.TestCase):
             return lib._git_once("/tmp/repo", ["show", "HEAD:file"], 7.0)
 
     def test_b1_idle_time_does_not_spend_budget(self):
-        with patch.object(lib.time, "monotonic", return_value=9999.0):
+        with patch.object(lib.time, "monotonic", side_effect=lambda: clock[0]):
+            self.assertEqual(lib._ref_remaining(), 10.0)
+            clock[0] = 9999.0
             self.assertEqual(lib._ref_remaining(), 10.0)
 
     def test_b2_one_git_duration_is_charged(self):
@@ -106,12 +117,15 @@ class RefReadBudgetTests(unittest.TestCase):
         self.assertAlmostEqual(timeouts[1], 2.4)
 
     def test_b6_failed_git_attempt_still_spends_time(self):
-        queue_git((1, b"", b"fatal"), 2.0)
+        self.assertEqual(lib._ref_remaining(), 10.0)
+        self.assertEqual(self.run_git((1, b"", b"fatal"), 2.0), (1, "", "fatal"))
+        clock[0] = 1000.0
+        queue_git((0, b"body", b""), 0.1)
         with patch.object(lib.subprocess, "Popen", side_effect=fake_popen), patch.object(
             lib.time, "monotonic", side_effect=lambda: clock[0]
-        ), self.assertRaises(lib.RefReadError):
-            lib.ref_read("/tmp/repo", "show", "HEAD:file")
-        self.assertEqual(lib._ref_remaining(), 8.0)
+        ):
+            self.assertEqual(lib.ref_read("/tmp/repo", "show", "HEAD:file"), "body")
+        self.assertAlmostEqual(lib._ref_remaining(), 7.9)
 
     def test_b7_empty_retry_spends_both_git_attempts(self):
         os.environ["FT_REF_BUDGET_SEC"] = "5.2"
@@ -122,6 +136,20 @@ class RefReadBudgetTests(unittest.TestCase):
             lib.ref_read("/tmp/repo", "show", "HEAD:file")
         self.assertEqual(len(timeouts), 2)
         self.assertAlmostEqual(lib._ref_remaining(), 0.0)
+
+    def test_baseline_b1_and_b6_fail_after_unrelated_elapsed_time(self):
+        baseline = baseline_module()
+        with patch.object(baseline.time, "monotonic", side_effect=lambda: clock[0]):
+            clock[0] = 0.0
+            self.assertEqual(baseline._ref_remaining(), 10.0)
+            clock[0] = 9999.0
+            self.assertNotEqual(baseline._ref_remaining(), 10.0)
+            baseline._REF_T0 = 0.0
+            clock[0] = 2.0
+            baseline._REF_SPENT = 2.0
+            clock[0] = 1000.0
+            with self.assertRaises(baseline.RefReadError):
+                baseline.ref_read("/tmp/repo", "show", "HEAD:file")
 
     def test_mutation_1_wall_clock_budget_is_caught(self):
         mutant = mutant_module([("return budget - _REF_SPENT", "return budget - _REF_SPENT - time.monotonic()")])
