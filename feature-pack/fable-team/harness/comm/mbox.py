@@ -100,9 +100,10 @@ os.makedirs(CANON, exist_ok=True)
 
 # 분리 모듈(같은 폴더 — 이 파일이 링크면 «실제» 폴더에서 import 된다).
 # ★정본 자리는 이 파일 위치(__file__)로만 정해 묶어 준다★ — 모듈 위치로 정하면 링크 설치(.claude/fable-team/bin)에서 .fable-team 조상이 없어 NO_MAILBOX_ROOT.
-import mbox_store, mbox_guard, mbox_lineage, mbox_ops, mbox_handover
-for _m in (mbox_store, mbox_guard, mbox_lineage, mbox_ops, mbox_handover):
+import mbox_store, mbox_guard, mbox_lineage, mbox_ops, mbox_handover, mbox_roots
+for _m in (mbox_store, mbox_guard, mbox_lineage, mbox_ops, mbox_handover, mbox_roots):
     _m.CANON = CANON
+mbox_roots.OWN_ROOT = _ROOT   # r1309: 다리 판정의 «물러설 자리» — 다만 mbox_roots 는 CANON(<루트>/.fable-team/comm)에서 먼저 푼다(워크트리 밖 리포 루트로 잘린 _ROOT 는 하위 폴더 루트와 안 맞는다)
 mbox_store._ROOT, mbox_store._SEQCTR, mbox_store.SEQ_FLOOR = _ROOT, _SEQCTR, SEQ_FLOOR
 mbox_guard._GUARD = os.path.join(CANON, ".mbox-guard.json")
 from mbox_store import _load, _save, _check_name, _next_seq          # mbox.<이름> 호환(시험)
