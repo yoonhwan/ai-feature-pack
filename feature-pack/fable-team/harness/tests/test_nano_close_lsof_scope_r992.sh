@@ -28,7 +28,7 @@ bash -n "$SUT" && ok "bash -n ft-nano-close.sh" || bad "bash -n ft-nano-close.sh
 mkdir -p "$T/bin" "$T/fake" "$T/home"
 cp "$SUT" "$T/bin/ft-nano-close.sh"
 cp "$KIT/ft-nano-evidence-check.sh" "$KIT/ft-hil.sh" "$KIT/ft-landed-check.sh" "$T/bin/"
-cp "$KIT/ft_teamset.py" "$KIT/ft-team-lib.sh" "$KIT/ft-merge-lib.sh" "$T/bin/"
+cp "$KIT/ft_teamset.py" "$KIT/ft_team_lib.py" "$KIT/ft-team-lib.sh" "$KIT/ft-merge-lib.sh" "$T/bin/"
 cp "$KIT/ft-sheet-events.sh" "$KIT/ft_sheet_events.py" "$KIT/ft_sheet_confirm.py" "$KIT/ft_sheet_key.py" "$KIT/ft_board_env.py" "$KIT/ft_board_mail.py" "$T/bin/"
 export FT_SHEET_ROOT="$T/sheet-root"; mkdir -p "$FT_SHEET_ROOT/.fable-team/state"
 mkdir -p "$T/bin"; printf '#!/bin/sh\necho "QUIESCED $1 stub left=0"\n' > "$T/bin/ft-seat-quiesce.sh"   # r1113 자식 정리 = 같은 bin 스텁(실 프로세스 0)

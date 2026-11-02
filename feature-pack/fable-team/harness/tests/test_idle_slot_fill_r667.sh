@@ -17,7 +17,7 @@ ck()  { if [ "$2" = 0 ]; then ok "$1"; else bad "$1 :: $3"; fi; }
 T="$(mktemp -d)"; trap '[ -n "${R667_KEEP:-}" ] && echo "KEPT=$T" || rm -rf "$T"' EXIT
 BIN="$T/bin"; mkdir -p "$BIN" "$T/.fable-team/comm" "$T/.fable-team/state" "$T/design/teams/harness/indices/대기" "$T/design/teams/v65/indices/대기"
 cp "$KIT/ft-idle-wake.sh" "$KIT/ft-nano-slots.sh" "$KIT/ft-team-lib.sh" "$BIN/" 2>/dev/null
-cp "$KIT/ft_teamset.py" "$BIN/" 2>/dev/null
+cp "$KIT/ft_teamset.py" "$KIT/ft_team_lib.py" "$BIN/" 2>/dev/null
 cp "$KIT/ft-idle-slot-fill.sh" "$BIN/" 2>/dev/null; chmod +x "$BIN"/*.sh 2>/dev/null
 
 # ── 가짜 세계 ────────────────────────────────────────────────────────────────

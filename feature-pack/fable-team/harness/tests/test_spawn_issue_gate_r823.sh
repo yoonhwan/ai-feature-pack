@@ -47,7 +47,7 @@ calls() { cat "$GHLOG" 2>/dev/null | grep -c .; }
 
 # 임시 bin = spawn 원본 + 이 게이트 원본 + 가짜(이 카드 소관 아닌 문지기들)
 B="$T/bin"; mkdir -p "$B" "$T/fake"
-cp "$KIT/ft-nano-spawn.sh" "$KIT/ft-spawn-issue-gate.sh" "$KIT/ft_teamset.py" "$KIT/ft_spawn_queue.py" "$B/"
+cp "$KIT/ft-nano-spawn.sh" "$KIT/ft-spawn-issue-gate.sh" "$KIT/ft_teamset.py" "$KIT/ft_team_lib.py" "$KIT/ft_spawn_queue.py" "$B/"
 . "$(dirname -- "${BASH_SOURCE[0]}")/lib/bin_source_deps.sh"; copy_source_deps "$KIT" "$B" || bad "사본 source 대상 채우기"
 printf '#!/bin/bash\nexit "${FAKE_LINT_RC:-0}"\n' > "$B/ft-index-lint.sh"
 printf '#!/bin/bash\necho "OK 제안서 없음 선언(stub)"\n' > "$B/ft-proposal-gate.sh"

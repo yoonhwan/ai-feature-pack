@@ -95,7 +95,7 @@ echo "INFO green ${SECONDS}s"
 
 # 변이 — 사본 폴더에서 판정 한 줄을 바꿔 해당 반례가 FAIL 하는지 본다(자기 재호출 0 · cases 함수만 다시 돈다)
 mutant() {  # mutant <이름> <바꿀 문자열> <새 문자열> <FAIL 해야 할 반례>
-  local d="$T/mut-$1"; mkdir -p "$d"; cp "$BIN/ft_spawn_queue.py" "$d/"
+  local d="$T/mut-$1"; mkdir -p "$d"; cp "$BIN/ft_spawn_queue.py" "$BIN/ft_teamset.py" "$BIN/ft_team_lib.py" "$d/"
   python3 - "$BIN/ft_teamset.py" "$d/ft_teamset.py" "$2" "$3" <<'PY'
 import sys
 s = open(sys.argv[1], encoding="utf-8").read()
