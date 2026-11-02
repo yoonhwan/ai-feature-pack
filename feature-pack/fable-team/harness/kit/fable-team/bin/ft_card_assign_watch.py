@@ -11,6 +11,8 @@ prepare = 루트마다 카드·발주문 생성 커밋 시각 캐시(예산 60�
   긴급 항목인데 카드 «- 긴급: 예» 없음 = 미연결) · 생성 커밋(없으면 mtime) 2시간 넘은 미연결 단위 = 카드 없는 발주.
 머리 «배정 없는 카드 N · 대기 초과 M(사유별) · 정지 중 P · 카드 없는 발주 K · 판본 <stamp>» → 전용 card-assign/stamps.tsv 1줄(stamp N M K 입력 해시) · rc 0 = N·M·K 0 · 1 = 하나라도 · 3 = «배정 감시 판정 불가 · <사유>» 1줄.
 tick = status + 그 팀 master·planner 에 [긴급](표식 = 받는이마다 정렬된 (stem·사유·종류) 해시 · 판본·경과 시간 제외 · 60분 억제 · QUEUED 뒤에만) · rc3 = planner 판정 불가 1통 · rc0 = 표식 지움.
+r1325 — 표식 «읽기 → 해시 비교 → 선점 기록» 은 원장 잠금 안(팀 틱 5개가 같은 루트에서 동시에 부른다 · 선점 pending 은 60초 만료) · mbox send 는 잠금 밖 · 발신 실패면 잠금 안에서 선점 삭제(다음 틱 다시) · 잠금 7초 넘김 = «표식 잠금 7초 넘김» 1줄 + 0통 + rc3.
+r1325 A6(판정 3315 D4=2) — 사유 석·선행 이고 4시간(WAIT_S) 넘은 카드 = «석·선행 대기»(경보·rc 0 · 머리 « · 석·선행 대기 K» 칸으로만 · 0 이면 칸 생략).
 r1291 — 팀 정지 표식(<루트>/.fable-team/state/<팀>-tick/PAUSED · team-pause·team-resume · ft_card_assign_pause.py)이 있는 팀의 카드 = «정지 중»(경보 0 · 사유 정지·석·부하보다 먼저) · 꼴 틀림 = «판정 불가 Q» + 팀당 1줄 ·
   표식이 사라진 뒤 처음 본 tick 에 그 팀 waiting released_at = 지금 · 24시간 넘은 정지 = planner 팀당 하루 1통 · 사유 «사람»(record … waiting 사람 verdict <N> 필수)은 4시간 뒤 첫 경보가 QUEUED 로 나간 뒤 «보류 중 H»(경보 0).
 lint = ft-index-lint ⑭(대기·진행 카드 · «- 배정:» 꼴 · 줄 없음은 새 카드(생성 커밋 ≥ installed_at · 미커밋)만 REJECT · installed_at 없음 = 미설치 리포 검사 0).
@@ -37,10 +39,11 @@ from ft_team_lib import TeamPathError, basis_ref, root_row, team_names  # noqa: 
 
 REASONS = ("정지", "석", "부하", "면제대기", "선행", "lint", "DA", "사람")
 PAUSED = ("정지", "석", "부하")
+WAIT_REASONS, WAIT_KIND = ("석", "선행"), "석·선행 대기"  # A6 — 석·선행 대기 = 경보·rc 밖(머리 칸으로만 센다)
 VALUE = re.compile(r"좌석 \S+|없음|대기\((?:" + "|".join(REASONS) + r") · \d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?\)")
-WAIT_S, URGENT_S, ORDER_S, MUTE_S = 4 * 3600, 3600, 2 * 3600, 3600
+WAIT_S, URGENT_S, ORDER_S, MUTE_S, CLAIM_S = 4 * 3600, 3600, 2 * 3600, 3600, 60
 OPEN, CLOSED = ("대기", "진행"), ("완성", "아카이브")
-QUIET = ("정지 중", "보류 중", "판정 불가")  # 경보·rc 에 안 세는 칸
+QUIET = ("정지 중", "보류 중", "판정 불가", "석·선행 대기")  # 경보·rc 에 안 세는 칸(A6 석·선행 대기 포함)
 ITEM, CIRCLED = re.compile(r"^\d+[.)]\s"), re.compile(r"^\s+[①-⑳]")
 HERE = Path(__file__).resolve().parent
 
@@ -458,6 +461,8 @@ class Status:
         if v != "off":
             return [dict(row, kind="정지 중" if v == "on" else "판정 불가")]
         start = max(row["since"], float(L.get("released_at") or 0))
+        if self.now - start > WAIT_S and row["reason"] in WAIT_REASONS:  # A6(판정 3315 D4=2) — 석·선행 대기 = 경보·rc 밖 · 머리 칸으로만
+            return [dict(row, kind=WAIT_KIND)]
         if self.now - start <= (URGENT_S if row["urgent"] else WAIT_S):
             return []
         return [dict(row, kind="보류 중" if row["reason"] == "사람" and held_once(self.held, stem, "사람", row["since"]) else "초과")]
@@ -509,15 +514,16 @@ class Status:
 
 
 def render(rows: list[dict], stamp: str, team_counts: tuple[int, int] = (0, 0)) -> list[str]:
-    n = {k: [x for x in rows if x["kind"] == k] for k in ("없음", "초과", "정지 중", "보류 중", "판정 불가", "발주")}
+    n = {k: [x for x in rows if x["kind"] == k] for k in ("없음", "초과", "정지 중", "보류 중", "판정 불가", "발주", WAIT_KIND)}
     by = [f"{r} {sum(1 for x in n['초과'] if x['reason'] == r)}" for r in dict.fromkeys(x["reason"] for x in n["초과"])]  # 사유는 가장 오래된 since 순
     when = lambda t: hhmm(t) if t else "-"  # noqa: E731
     by_s = "(" + " · ".join(by) + ")" if by else ""
     held = f" · 보류 중 {len(n['보류 중'])}"
     q = f" · 판정 불가 Q {len(n['판정 불가'])}"
+    wait = f" · 석·선행 대기 {len(n[WAIT_KIND])}" if n[WAIT_KIND] else ""  # A6 — 0 이면 칸 생략 · 앞 칸 순서 그대로(끝에 붙인다)
     out = [f"배정 없는 카드 {len(n['없음'])} · 대기 초과 {len(n['초과'])}{by_s} · 정지 중 {len(n['정지 중'])}{held if n['보류 중'] else ''}{q if n['판정 불가'] else ''} · 카드 없는 발주 {len(n['발주'])} · 판본 {stamp}"]
     outside, ref_missing = team_counts
-    out[0] += f" · 명단 밖 팀 {outside} · ref 미반영 팀 {ref_missing}"
+    out[0] += f" · 명단 밖 팀 {outside} · ref 미반영 팀 {ref_missing}" + wait
     for x in rows:  # rows() 가 since 순으로 정렬해 준다 — tick 이 rows·lines[1:] 를 짝짓는다
         out.append(f"{x['kind']} {x['team']} {x['stem']} · {x['label']} · since {when(x['since'])}{' · 긴급' if x['urgent'] else ''}")
     return out
@@ -596,14 +602,13 @@ def _send_undecided(bucket: dict, planner: str | None, mbox: str, me: str, R: Pa
     return False, f"tick 정리 발신 판정 불가 · rc={p.returncode}"
 
 
-def _record_undecided(R: Path, now: float, alarm: list | None, why: str, marks: dict,
-                      planner: str | None, mbox: str, me: str) -> list[str]:
-    day, log = time.strftime("%Y-%m-%d", time.localtime(now)), []
+def _undecided_note(R: Path, now: float, alarm: list | None, why: str, marks: dict) -> None:
+    """판정 불가 묶음 «기록» 만(발신 0 · A5 표식 잠금 안에서 부른다) · 날이 바뀐 묶음은 undecided_pending 으로 넘긴다."""
+    day = time.strftime("%Y-%m-%d", time.localtime(now))
     bucket = marks.get("undecided_day")
-    pending = list(marks.get("undecided_pending", []))
     if bucket and bucket.get("day") != day:
         if bucket.get("n", 0):
-            pending.append(bucket)
+            marks.setdefault("undecided_pending", []).append(bucket)
         bucket = _empty_undecided(day)
     if alarm is None:
         bucket = bucket or _empty_undecided(day)
@@ -619,17 +624,6 @@ def _record_undecided(R: Path, now: float, alarm: list | None, why: str, marks: 
         reasons[reason] = reasons.get(reason, 0) + 1
     if bucket:
         marks["undecided_day"] = bucket
-    remaining = []
-    for prior in pending:
-        sent, result = _send_undecided(prior, planner, mbox, me, R)
-        log.append(result)
-        if not sent:
-            remaining.append(prior)
-    if remaining:
-        marks["undecided_pending"] = remaining
-    else:
-        marks.pop("undecided_pending", None)
-    return log
 
 
 def _save_alarm(mf: Path, marks: dict) -> None:
@@ -640,22 +634,17 @@ def _save_alarm(mf: Path, marks: dict) -> None:
         mf.unlink(missing_ok=True)
 
 
-def tick(R: Path, now: float, rows: list[dict] | None, why: str, lines: list[str]) -> list[str]:
-    mf = adir(R) / "alarm.state"
-    alarm = None if rows is None else [(x, ln) for x, ln in zip(rows, lines[1:]) if x["kind"] not in QUIET]
-    marks = json.loads(mf.read_text(encoding="utf-8")) if mf.is_file() else {}
-    planner = team_master(R, "planner")
-    mbox = os.environ.get("FT_MBOX_SH") or str(R / ".fable-team/comm/mbox.sh")
-    me = os.environ.get("FT_CARD_ASSIGN_FROM", "ft-card-assign-watch")
-    log = _record_undecided(R, now, alarm, why, marks, planner, mbox, me)
-    if alarm is None:
-        log.append("tick 판정 불가 기록 · rc3 유지")
-        _save_alarm(mf, marks)
-        return log
-    if alarm == []:
-        marks = {k: v for k, v in marks.items() if k.startswith("undecided_")}
-        _save_alarm(mf, marks)
-        return log + ["tick 경보 0 · 표식 지움"]
+def _claimed(marks: dict, key: str, h: str, now: float) -> bool:
+    """A1·A4 — 같은 해시 선점이 살아 있으면 True(0통). pending 은 CLAIM_S(60초 · 죽은 선점 만료) · 확정은 MUTE_S(60분)."""
+    m = marks.get(key) or {}
+    if m.get("h") != h:
+        return False
+    return now - float(m.get("t", 0)) < (CLAIM_S if m.get("pending") else MUTE_S)
+
+
+def _plan(R: Path, alarm: list, planner: str | None, marks: dict, now: float, head: str) -> tuple[list[str], list]:
+    """A1 — 읽기·해시 비교·선점 기록(marks[key] = pending)을 «표식 잠금 안»에서 한다(발신 0).
+    돌려줌 = (log, 잠금 밖에서 보낼 (받는이, 본문, key, 해시, 카드들))."""
     groups = {}
     for x, ln in alarm:
         for to in dict.fromkeys([planner, team_master(R, x["team"])]):
@@ -665,25 +654,81 @@ def tick(R: Path, now: float, rows: list[dict] | None, why: str, lines: list[str
             g[3].append(x)
     old = min((x for x, _ in alarm), key=lambda x: x["since"], default=None)
     oldest = f" · 가장 오래된 {old['stem']} · {hhmm(old['since']) if old['since'] else '-'} · {old['label']}" if old else ""
+    log, queue = [], []
     for to, (key, body, keys, grows) in groups.items():
         if not to:
             log.append("tick 받는이 없음(명부 _master 못 읽음) · 0통")
             continue
-        h, m = hashlib.sha1(repr(sorted(keys)).encode()).hexdigest()[:12], marks.get(key) or {}
-        if m.get("h") == h and now - float(m.get("t", 0)) < MUTE_S:
+        h = hashlib.sha1(repr(sorted(keys)).encode()).hexdigest()[:12]
+        if _claimed(marks, key, h, now):
             continue
-        text = "\n".join([f"[긴급] 배정 없는 카드 — {lines[0]}{oldest} · 원장에 좌석·대기 사유를 남기거나 spawn (ft-card-assign-watch)",
-                           *body[:3], *([f"외 {len(body) - 3}건"] if len(body) > 3 else [])])
+        marks[key] = {"h": h, "t": now, "pending": True}  # 선점 — 확정은 잠금 밖 발신 뒤에(_settle · A2)
+        queue.append((to, "\n".join([f"[긴급] 배정 없는 카드 — {head}{oldest} · 원장에 좌석·대기 사유를 남기거나 spawn (ft-card-assign-watch)",
+                                     *body[:3], *([f"외 {len(body) - 3}건"] if len(body) > 3 else [])]), key, h, grows))
+    return log, queue
+
+
+def _settle(R: Path, mf: Path, done: list, remaining: list, now: float) -> list[str]:
+    """A2 — 발신 결과를 잠금 안에서 확정(성공)/되돌림(실패 = 선점 삭제 → 다음 틱 다시) · A5 잔여 묶음도 같은 잠금."""
+    log = []
+    try:
+        with locked(R):
+            marks = json.loads(mf.read_text(encoding="utf-8")) if mf.is_file() else {}
+            for to, key, h, ok, rc, grows in done:
+                if not ok:
+                    marks.pop(key, None)
+                    log.append(f"tick 발신 실패 → {to} rc={rc} · 다음 틱 다시")
+                    continue
+                marks[key] = {"h": h, "t": now}
+                log.append(f"tick 1통 → {to}")
+                for x in grows:  # 사람 보류 카드 = 첫 경보가 QUEUED 로 나간 뒤에만 «보류 중» 으로(r1291)
+                    if x["reason"] == "사람":
+                        held_add(R, x["stem"], "사람", x["since"])
+            if remaining:
+                marks["undecided_pending"] = remaining
+            else:
+                marks.pop("undecided_pending", None)
+            _save_alarm(mf, marks)
+    except Undecided:
+        log.append("tick 판정 불가 · 표식 잠금 7초 넘김(발신 확정 못 함 · 다음 틱 다시)")
+    return log
+
+
+def tick(R: Path, now: float, rows: list[dict] | None, why: str, lines: list[str]) -> list[str]:
+    mf = adir(R) / "alarm.state"
+    alarm = None if rows is None else [(x, ln) for x, ln in zip(rows, lines[1:]) if x["kind"] not in QUIET]
+    planner = team_master(R, "planner")
+    mbox = os.environ.get("FT_MBOX_SH") or str(R / ".fable-team/comm/mbox.sh")
+    me = os.environ.get("FT_CARD_ASSIGN_FROM", "ft-card-assign-watch")
+    log: list[str] = []
+    try:  # A1 — 표식 읽기·비교·선점 기록은 잠금 안(팀 틱 5개가 같은 루트에서 동시에 부른다 · 하드 룰 12)
+        with locked(R):
+            marks = json.loads(mf.read_text(encoding="utf-8")) if mf.is_file() else {}
+            _undecided_note(R, now, alarm, why, marks)
+            pending, queue = list(marks.get("undecided_pending", [])), []
+            if alarm is None:
+                log.append("tick 판정 불가 기록 · rc3 유지")
+            elif alarm == []:
+                marks = {k: v for k, v in marks.items() if k.startswith("undecided_")}
+                log.append("tick 경보 0 · 표식 지움")
+            else:
+                plan, queue = _plan(R, alarm, planner, marks, now, lines[0])
+                log += plan
+            _save_alarm(mf, marks)
+    except Undecided:
+        raise Undecided("표식 잠금 7초 넘김") from None  # A3 — 그 회차 발신 0 · 조용한 0 아님(main 이 rc3)
+    flog, remaining = [], []
+    for prior in pending:  # A2 — 전날 판정 불가 묶음 발신도 잠금 밖(7초 × 묶음 수)
+        sent, result = _send_undecided(prior, planner, mbox, me, R)
+        flog.append(result)
+        if not sent:
+            remaining.append(prior)
+    log += flog
+    done = []
+    for to, text, key, h, grows in queue:
         p = subprocess.run(["bash", mbox, "send", to, me, text], capture_output=True, text=True, timeout=7)
-        if "QUEUED" in p.stdout + p.stderr:
-            marks[key] = {"h": h, "t": now}
-            log.append(f"tick 1통 → {to}")
-            for x in grows:  # 사람 보류 카드 = 첫 경보가 QUEUED 로 나간 뒤에만 «보류 중» 으로(r1291)
-                if x["reason"] == "사람":
-                    held_add(R, x["stem"], "사람", x["since"])
-        else:
-            log.append(f"tick 발신 실패 → {to} rc={p.returncode} · 다음 틱 다시")
-    _save_alarm(mf, marks)
+        done.append((to, key, h, "QUEUED" in p.stdout + p.stderr, p.returncode, grows))
+    log += _settle(R, mf, done, remaining, now)
     return log
 
 
@@ -752,7 +797,10 @@ def main(argv: list[str]) -> int:
         why = " ".join((str(e) if isinstance(e, Undecided) else f"{e.__class__.__name__} {e}").split())  # 1줄(하드 룰 20)
         print(f"배정 감시 판정 불가 · {why}")
         if cmd == "tick":
-            print("\n".join(tick(R, now, None, why, [])))
+            try:
+                print("\n".join(tick(R, now, None, why, [])))
+            except Undecided as e:  # A3 — 표식 잠금 7초 넘김도 «판정 불가» 1줄
+                print(f"tick 판정 불가 · {e}")
         if write:
             print("latest 안 씀(rc 3)", file=sys.stderr)
         return 3
@@ -765,7 +813,11 @@ def main(argv: list[str]) -> int:
         with open(adir(R) / "stamps.tsv", "a", encoding="utf-8") as fh:
             fh.write(f"{stamp}\t{c['없음']}\t{c['초과']}\t{c['발주']}\t{stamp.split('-')[1]}\n")
     if cmd == "tick":
-        print("\n".join(tick(R, now, rows, "", lines) + pause_notice(R, now, st.long)))
+        try:
+            print("\n".join(tick(R, now, rows, "", lines) + pause_notice(R, now, st.long)))
+        except Undecided as e:  # A3 — 잠금 7초 넘김 = 그 회차 0통 · 판정 불가 rc3(조용한 0 아님)
+            print(f"tick 판정 불가 · {e}")
+            return 3
     rc = 1 if hot else 0
     if write:
         write_latest(R, "card-assign", "ft-card-assign-watch.sh", output.splitlines()[0] if output else "", rows, int(now), stamp)
