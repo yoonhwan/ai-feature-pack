@@ -55,11 +55,12 @@ tree="$(git -C "$REPO" ls-tree "$sha" "${TPATH%/}/")" || err "ls-tree 실패: $R
 
 items=""; pends=""; files=0; names=""
 add() { items="$items$1"$'\n'; }
-PW="${FT_DRIFT_PENDING_MIN:-15}"; case "$PW" in ''|*[!0-9]*) PW=15;; esac; { [ "$PW" -ge 1 ] && [ "$PW" -le 60 ]; } || PW=15
+PW="${FT_DRIFT_PENDING_MIN:-15}"; case "$PW" in ''|*[!0-9]*) PW=15;; *) [ "${#PW}" -le 4 ] && PW=$((10#$PW)) || PW=15;; esac; { [ "$PW" -ge 1 ] && [ "$PW" -le 60 ]; } || PW=15   # 10# = 앞자리 0(08)이 8진수 오류가 되지 않게
 NOW="${FT_DRIFT_NOW:-$(date +%s)}"
-_g7() { if command -v timeout >/dev/null 2>&1; then timeout 7 git "$@"; else git "$@"; fi; }  # 하드 룰 12: git 호출 7초 상한
+_g7() { timeout 7 git "$@"; }  # 하드 룰 12: git 호출 7초 상한 — timeout 이 없으면 pending_item 앞머리가 ERROR 로 끝낸다(상한 없는 git 0)
 pending_item() {  # r1337: $1=트리 경로 $2=이름 $3=라이브 blob → rc 0 = PENDING(pends 에 줄 추가) · rc 1 = 아님(DIFF) · git 실패 = ERROR rc 3(PENDING 으로 넘기지 않음)
   local lc L ct age par prev
+  command -v timeout >/dev/null 2>&1 || err "판정 불가 — timeout 없음(git 7초 상한을 못 건다) · PATH 확인"
   lc="$(_g7 -C "$REPO" log -1 --first-parent --format='%H %ct' "$sha" -- "$1")" || err "git log 실패: $REF:$1"
   L="${lc%% *}"; ct="${lc##* }"; [ -n "$L" ] || return 1
   _g7 -C "$REPO" rev-parse -q --verify "$L^1^{commit}" >/dev/null 2>&1; case $? in 0) ;; 1) return 1;; *) err "git rev-parse 실패: $L^1";; esac

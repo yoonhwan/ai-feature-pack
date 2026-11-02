@@ -61,6 +61,17 @@ d9() { local r="$T/d9.$RANDOM"; d9mk "$r"; live "$r.live" C Z
 d10() { local r="$T/d10.$RANDOM"; mkrepo "$r" $((NOW + 1800)); live "$r.live" A
   local o rc; o="$(chk "$1" "$r.live" "$r")"; rc=$?; [ $rc -eq 1 ] && case "$o" in *"DIFF x"*) :;; *) false;; esac; }
 
+# D11(r3 DA ③ R1): 앞자리 0 = 10진수 → W=8. 20분 전 = DRIFT(조용한 OK 0) · 5분 전 = PENDING
+d11() { local r="$T/d11.$RANDOM" o rc; mkrepo "$r" $((NOW - 1200)); live "$r.live" A
+  o="$(FT_DRIFT_PENDING_MIN=08 chk "$1" "$r.live" "$r")"; rc=$?; { [ $rc -eq 1 ] && case "$o" in *"DIFF x"*) :;; *) false;; esac; } || return 1
+  r="$T/d11b.$RANDOM"; mkrepo "$r" $((NOW - 300)); live "$r.live" A
+  o="$(FT_DRIFT_PENDING_MIN=08 chk "$1" "$r.live" "$r")"; rc=$?; [ $rc -eq 0 ] && case "$o" in *"PENDING x"*) :;; *) false;; esac; }
+# D12(r3 DA ③ R3): PATH 에 timeout 없음 → 상한 없는 git 0 · ERROR rc 3 «판정 불가» (PENDING 0)
+d12() { local r="$T/d12.$RANDOM" nt="$T/nt.$RANDOM" c p; mkrepo "$r" $((NOW - 300)); live "$r.live" A; mkdir -p "$nt"
+  for c in bash git grep sort date head dirname sed cat basename mktemp tr wc awk printf; do p="$(command -v "$c" 2>/dev/null)"; case "$p" in /*) ln -s "$p" "$nt/$c";; esac; done
+  local o rc; o="$(PATH="$nt" "$nt/bash" "$1" --bin "$r.live" --repo "$r" --ref main --path kit/bin 2>&1)"; rc=$?
+  [ $rc -eq 3 ] && case "$o" in *"판정 불가"*"timeout"*) case "$o" in *PENDING*) false;; *) :;; esac;; *) false;; esac; }
+
 # D8: 키트 꼴 리포(검사 스크립트 $1 포함) + 설치 꼴 라이브 → spawn --dry-run·close 가 WARN 줄을 찍고 REJECT 하지 않는다
 d8() { local base="$T/d8.$RANDOM" KP="harness/kit/fable-team/bin" o1 o2
   local seed="$base/seed" clone="$base/clone" live="$base/.fable-team/bin"
@@ -82,7 +93,7 @@ d8() { local base="$T/d8.$RANDOM" KP="harness/kit/fable-team/bin" o1 o2
 
 for f in "$CUR"; do bash -n "$f" && ok "bash -n 검사 스크립트" || bad "bash -n 검사 스크립트"; done
 t0=$SECONDS
-for n in 1 2 3 4 5 6 7 9 10 8; do "d$n" "$CUR" && ok "D$n" || bad "D$n"; done
+for n in 1 2 3 4 5 6 7 9 10 11 12 8; do "d$n" "$CUR" && ok "D$n" || bad "D$n"; done
 echo "# 현재판 단계 ${SECONDS}s(시작 $t0)"
 
 # 기준판(착지 전): D1·D8 은 FAIL 이어야 한다(기준값 = 지금 판은 착지 직후 1분에도 DRIFT rc 1)
