@@ -5,7 +5,7 @@ export LC_ALL=C
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 BIN="$HERE/../bin"
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
-ROOT="$TMP/root"; mkdir -p "$ROOT/design/teams/zztest/indices" "$ROOT/.fable-team/comm"
+ROOT="$TMP/root"; mkdir -p "$ROOT/design/teams/zztest/indices" "$ROOT/.fable-team/comm" "$ROOT/.fable-team/bin"
 cat > "$ROOT/design/TEAMS.md" <<'EOF'
 | 팀 | 폴더 | 오케 | 상태 |
 |---|---|---|---|
@@ -22,6 +22,8 @@ printf '%s\n' "$*" >> "$FT_ATTACH_SENT"
 EOF
 chmod +x "$ROOT/.fable-team/comm/mbox.sh"
 export FT_ROOT="$ROOT" FT_TEAMS_MD="$ROOT/design/TEAMS.md" FT_TEAMSET_MD="$ROOT/design/TEAMSET.md"
+export FT_TICK_TEAM_TSV="$ROOT/.fable-team/bin/team-tick-env.tsv"
+printf '# team-tick-env.tsv\n' > "$FT_TICK_TEAM_TSV"
 export FT_TEAM_ATTACH_SANDBOX=1 FT_ATTACH_SENT="$TMP/sent.log" FT_MBOX_SH="$ROOT/.fable-team/comm/mbox.sh"
 fail=0
 out="$(bash "$BIN/ft-team-attach.sh" --all --check --notify byz-planner-master#1 2>&1)"; rc=$?

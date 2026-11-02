@@ -39,7 +39,12 @@ def main(argv: list[str]) -> int:
         if action == "--check":
             bad = unknown = 0
             for t in teams:
-                rows, nbad, nunknown = check_team(root, t)
+                try:
+                    rows, nbad, nunknown = check_team(root, t)
+                except AttachError as e:
+                    print(f"{t} 판정 불가({str(e).removeprefix('ERROR ')})")
+                    unknown += 1
+                    continue
                 bad += nbad
                 unknown += nunknown
                 print(f"{t} " + " · ".join(rows))
