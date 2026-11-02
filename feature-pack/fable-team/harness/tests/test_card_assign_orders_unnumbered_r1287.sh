@@ -19,6 +19,7 @@ put() { printf '%s' "$2" > "$R/$TM/inbox/m1/$1"; }  # <파일명> <본문 그대
 env_root() {  # 카드 c1 1장(원장 seat) + 발주문 폴더 m1 비움 · 발주문은 호출쪽이 put 으로 채우고 mk_commit 으로 2시간 넘긴 커밋을 만든다
   R="$(mktemp -d "$T/r.XXXXXX")"; mkdir -p "$R/.fable-team/state/card-assign"
   git -C "$R" init -q -b main; printf '.fable-team/\nmbox.sh\n' > "$R/.gitignore"; git -C "$R" add .gitignore; gc "$R" "$((NOW - 200000)) +0900" init
+  mkdir -p "$R/design"; printf '| 팀 | 폴더 | 오케 | 상태 |\n|---|---|---|---|\n| a | design/teams/a/ | a | 현역 |\n' > "$R/design/TEAMS.md"  # r1298: 팀 명단 없으면 판정 불가(rc3)
   printf '*\t.\tmain\tdesign/teams/*/indices\n' > "$R/.fable-team/state/directive-roots.tsv"
   printf '{"_master":"byz-planner-master-claude#9"}\n' > "$R/.fable-team/seats-planner.json"; printf '{"_master":"byz-a-master-claude#1"}\n' > "$R/.fable-team/seats-a.json"; printf '{}\n' > "$R/.fable-team/seats.json"
   printf '#!/bin/sh\necho "QUEUED seq=1 to=$2"\n' > "$R/mbox.sh"
