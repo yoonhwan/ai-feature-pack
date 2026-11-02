@@ -127,12 +127,14 @@ run --all --check
   && ok "R6 팀별 판정 불가 · 다른 팀 계속 · rc3" || bad "R6 rc=$rc out=$out"
 export FT_HARNESS_ROOT="$HARNESS_WT"
 
-# R7 — 쓰기 길 무변경: --own-tick 은 paths() 의 team_tsv(샌드박스 표)에만 쓴다 · LIVE_BIN 쪽 표 바이트 그대로
-live_before="$(sha "$ROOT/livebin/team-tick-env.tsv")"
+# R7 — 쓰기 길 무변경: --own-tick 은 팀 틱 표를 «읽기만» 한다(r1314 · 행은 팩 PR) — 두 표 바이트 그대로 · plist 만 새로 쓴다
+printf 'zzlive\tseats-zzlive.json\t/tmp/ft-tick-state-zzlive\t/tmp/ft-tick-zzlive.pid\t/tmp/ft-tick-zzlive-\tFT_TICK_MAGAZINE\tFT_TICK_FIRE_V2=1\n' >> "$ROOT/.fable-team/bin/team-tick-env.tsv"
+live_before="$(sha "$ROOT/livebin/team-tick-env.tsv")"; sandbox_before="$(sha "$ROOT/.fable-team/bin/team-tick-env.tsv")"
 run --apply zzlive --own-tick
 { [ "$rc" = 0 ] && [ "$(sha "$ROOT/livebin/team-tick-env.tsv")" = "$live_before" ] \
-  && grep -q '^zzlive	' "$ROOT/.fable-team/bin/team-tick-env.tsv"; } \
-  && ok "R7 쓰기 길 무변경(LIVE_BIN 쪽 표 바이트 같음)" || bad "R7 rc=$rc out=$out"
+  && [ "$(sha "$ROOT/.fable-team/bin/team-tick-env.tsv")" = "$sandbox_before" ] \
+  && grep -q 'com.byz.ft-tick-zzlive' "$ROOT/LaunchAgents/com.byz.ft-tick-zzlive.plist"; } \
+  && ok "R7 쓰기 길 무변경(두 표 바이트 같음 · plist 만 새로 씀)" || bad "R7 rc=$rc out=$out"
 
 # R8 — 회귀 기대 유지: 명부 부품이 빠지고 틱 표가 있으면 rc=1(판정 불가 3 이 아니다)
 R8="$TMP/r8"; mkdir -p "$R8/design/teams/zztest/indices" "$R8/.fable-team/bin"
