@@ -200,7 +200,7 @@ R="$T/repo"; B="$T/sbin"; SS="$R/.fable-team/seats.json"; CARD="design/v65/indic
 mkdir -p "$R/design"; printf '| 팀 | 폴더 | x | y |\n|---|---|---|---|\n| harness | `design/harness/` | h | 현역 |\n| planner | `design/planner/` | p | 현역 |\n| v65 | `design/v65/` | v | 현역 |\n' > "$R/design/TEAMS.md"   # R383: spawn 이 팀 폴더 명단을 읽는다
 git -C "$R" init -q -b main && : > "$R/.gitkeep" && git -C "$R" add -A && git -C "$R" -c user.email=t@t -c user.name=t commit -q -m init
 printf '# 인덱스: r163x\n- Issue: #1\n## 상태\n' > "$R/$CARD"; printf 'x\n' > "$R/design/v65/SEATBELT-README.md"; export FT_TEAMS_REF=HEAD   # R406: 명단 = ref — 픽스처는 origin/main ref 0 · 명단은 init 커밋(HEAD)에 있다
-cp -p "$BIN/ft-nano-spawn.sh" "$KIT/ft-spawn-issue-gate.sh" "$KIT/ft_raised.py" "$KIT/ft_teamset.py" "$KIT/ft_spawn_queue.py" "$KIT/ft-team-lib.sh" "$B/"
+cp -p "$BIN/ft-nano-spawn.sh" "$KIT/ft-spawn-issue-gate.sh" "$KIT/ft_raised.py" "$KIT/ft_teamset.py" "$KIT/ft_team_lib.py" "$KIT/ft_spawn_queue.py" "$KIT/ft-team-lib.sh" "$B/"
 for f in ft-index-lint.sh ft-proposal-gate.sh ft-send-verified.sh ft-resource-gate.sh ft-agent-ready.sh ft-all-stop.sh; do printf '#!/bin/bash\nexit 0\n' > "$B/$f"; done   # r686: ft-all-stop.sh = spawn 이 늘 부르는 전팀 정지 check(r626) — 이 시험은 기준선만 본다
 . "$HERE/lib/bin_source_deps.sh"; copy_source_deps "$BIN" "$B" || bad "r686 사본 source 대상 채우기"   # r686: spawn 이 source 하는 같은 폴더 lib(r672 research-seat …)
 printf '#!/bin/bash\nsrc="$1"; dst="${src/\\/대기\\//\\/진행\\/}"; mkdir -p "$(dirname "$dst")"; mv "$src" "$dst"\n' > "$B/ft-index-move.sh"

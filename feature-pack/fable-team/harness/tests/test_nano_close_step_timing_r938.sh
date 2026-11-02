@@ -29,7 +29,7 @@ printf '#!/bin/sh\necho "oc-reap $1 left=0 rc=0"\n' > "$T/bin/ft-opencode-reap.s
 printf '#!/bin/sh\necho "SLOTS"\n' > "$T/bin/ft-nano-slots.sh"   # 슬롯 대역(실 스크립트는 명부·tmux 를 본다)
 cp "$SRC/ft-nano-close.sh" "$SRC/ft-merge-lib.sh" "$SRC/ft-nano-evidence-check.sh" "$SRC/ft-nano-cherry-gate.sh" "$SRC/ft-nano-freshness.sh" "$T/bin/"
 cp "$SRC/ft-sheet-events.sh" "$SRC/ft_sheet_events.py" "$SRC/ft_sheet_confirm.py" "$SRC/ft_sheet_key.py" "$SRC/ft_board_env.py" "$SRC/ft_board_mail.py" "$T/bin/"
-cp "$SRC/ft_teamset.py" "$SRC/ft-jsonl-last-ts.py" "$SRC/ft-team-lib.sh" "$T/bin/"
+cp "$SRC/ft_teamset.py" "$SRC/ft_team_lib.py" "$SRC/ft-jsonl-last-ts.py" "$SRC/ft_api_outage_util.py" "$SRC/ft-team-lib.sh" "$T/bin/"
 # 기준판 = 지금 판에서 «r938 시각 줄» 만 기계적으로 뺀 사본 — ⓐ 의 stdout cmp0 대조군(사람이 손으로 만든 사본 0)
 python3 - "$T/bin/ft-nano-close.sh" "$T/bin/ft-nano-close-baseline.sh" <<'PY'
 import re, sys
