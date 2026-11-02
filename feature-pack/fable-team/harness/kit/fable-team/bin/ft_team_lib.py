@@ -47,48 +47,50 @@ def _git_out(base: Path, *args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(["git", "-C", str(base), *args], capture_output=True, text=True, timeout=7)
 
 
-REF_BUDGET_S = 70.0   # r839 r4: ref 읽기 전체 예산(초 · 프로세스 첫 조회 기준) — 7초 룰 × 여러 조회를 감싼다(FT_REF_BUDGET_SEC 로 덮기·시험 전용)
-_REF_T0: float | None = None
+REF_BUDGET_S = 70.0   # r839 r4: ref 읽기 전체 예산(초 · git 호출 시간 합) — 7초 룰 × 여러 조회를 감싼다(FT_REF_BUDGET_SEC 로 덮기·시험 전용)
+_REF_SPENT = 0.0
 
 
 def _ref_remaining() -> float:
-    """남은 예산(초) — 첫 조회 때 시작 시각을 잡고 예산에서 뺀다. 0 이하면 예산 소진(미종료 0)."""
-    global _REF_T0
-    if _REF_T0 is None:
-        _REF_T0 = time.monotonic()
+    """남은 예산(초) — ref git 호출에 실제 쓴 시간 합을 예산에서 뺀다."""
     try:
         budget = float(os.environ.get("FT_REF_BUDGET_SEC") or REF_BUDGET_S)
     except ValueError:
         budget = REF_BUDGET_S
-    return _REF_T0 + budget - time.monotonic()
+    return budget - _REF_SPENT
 
 
 def _git_once(base: Path | str, args: list[str], lim: float) -> tuple[int, str, str]:
     """git 1회 — lim 초 상한 · 넘으면 프로세스 그룹 TERM → 0.5초 뒤 KILL(자식까지) · (rc, stdout, stderr) · rc 124 = 상한 초과 · 128 = 실행 실패."""
+    global _REF_SPENT
+    started = time.monotonic()
     try:
-        p = subprocess.Popen(["git", "-C", str(base), *args], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                             stdin=subprocess.DEVNULL, start_new_session=True)
-    except OSError:
-        return 128, "", ""
-    try:
-        out, err = p.communicate(timeout=lim)
-    except subprocess.TimeoutExpired:
-        for sig in (signal.SIGTERM, signal.SIGKILL):
-            try:
-                os.killpg(p.pid, sig)
-            except (ProcessLookupError, PermissionError):
-                pass
-            if sig == signal.SIGTERM:
-                try:
-                    p.wait(0.5)
-                except subprocess.TimeoutExpired:
-                    pass
         try:
-            p.communicate(timeout=2)
-        except (subprocess.TimeoutExpired, ValueError):
-            pass
-        return 124, "", ""
-    return p.returncode, (out or b"").decode("utf-8", "replace"), (err or b"").decode("utf-8", "replace")
+            p = subprocess.Popen(["git", "-C", str(base), *args], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                 stdin=subprocess.DEVNULL, start_new_session=True)
+        except OSError:
+            return 128, "", ""
+        try:
+            out, err = p.communicate(timeout=lim)
+        except subprocess.TimeoutExpired:
+            for sig in (signal.SIGTERM, signal.SIGKILL):
+                try:
+                    os.killpg(p.pid, sig)
+                except (ProcessLookupError, PermissionError):
+                    pass
+                if sig == signal.SIGTERM:
+                    try:
+                        p.wait(0.5)
+                    except subprocess.TimeoutExpired:
+                        pass
+            try:
+                p.communicate(timeout=2)
+            except (subprocess.TimeoutExpired, ValueError):
+                pass
+            return 124, "", ""
+        return p.returncode, (out or b"").decode("utf-8", "replace"), (err or b"").decode("utf-8", "replace")
+    finally:
+        _REF_SPENT += max(0.0, time.monotonic() - started)
 
 
 def ref_read(base: Path | str, *args: str) -> str:
