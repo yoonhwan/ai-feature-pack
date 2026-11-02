@@ -5,6 +5,7 @@
 set -u   # pipefail 쓰지 않는다 — `cmd | grep -q` 가 SIGPIPE(141)로 거짓 FAIL 을 낸다
 export LC_ALL=C
 export FT_ALLOW_TRACKED_BIN=1   # R201: 시험은 추적 사본 원본을 직접 부른다
+export FT_SEND_FROM='byz-v65-master-claude#1'   # r1244: 팀 기본값 = «부른 좌석 팀» — 이 시험의 부른 좌석은 v65 팀장(안 적으면 REJECT rc2)
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 BIN="$HERE/../../harness/kit/fable-team/bin"; HK="$HERE/../../harness/kit/fable-team/templates/hooks"
 fail=0; out=""; rc=0

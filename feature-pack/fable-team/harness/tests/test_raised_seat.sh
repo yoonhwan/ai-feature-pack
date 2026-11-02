@@ -5,6 +5,7 @@
 set -uo pipefail
 export FT_TEAMSET=0   # R351: 팀셋 표는 이 시험의 주제가 아님(임시 리포엔 origin/main 표가 없다) — 표 판정은 test_teamset_gitref.sh·test_nano_spawn_teamset_cap.sh 가 본다
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
+export FT_SEND_FROM='byz-v65-master-claude#1'   # r1244: 팀 기본값 = «부른 좌석 팀» — 이 시험의 부른 좌석은 v65 팀장(안 적으면 REJECT rc2)
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO="$HERE/../.."; BIN="${R149_BIN:-$REPO/harness/bin}"; KIT="$REPO/harness/kit/fable-team/bin"
 T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T"' EXIT

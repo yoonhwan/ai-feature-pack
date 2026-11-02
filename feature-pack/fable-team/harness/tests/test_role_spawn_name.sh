@@ -3,6 +3,7 @@
 # 임시 git 리포 + 가짜 tmux/tmuxc 만 쓴다 — 실 seats.json·tmux 는 건드리지 않는다(--dry-run 의 PLAN 줄만 본다).
 set -uo pipefail
 export FT_ALLOW_TRACKED_BIN=1   # R201: 시험은 추적 사본 원본을 직접 부른다(LIVE_BIN 으로 넘기지 않음)
+export FT_SEND_FROM='byz-v65-master-claude#1'   # r1244: 팀 기본값 = «부른 좌석 팀» — 이 시험의 부른 좌석은 v65 팀장(안 적으면 REJECT rc2)
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 SPAWN="$HERE/../../harness/kit/fable-team/bin/ft-role-spawn.sh"
 fail=0

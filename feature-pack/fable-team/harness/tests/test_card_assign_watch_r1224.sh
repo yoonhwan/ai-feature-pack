@@ -198,7 +198,8 @@ for f in ft_card_assign_watch.py ft-card-assign-watch.sh ft-nano-spawn.sh ft-tic
 python3 -m py_compile "$TOOL" "$LINT" 2>/dev/null && bash -n "$BIN/ft-card-assign-watch.sh" "$BIN/ft-nano-spawn.sh" "$BIN/ft-tick.sh" "$KIT/ft-index-lint.sh" && ok "py_compile · bash -n" || bad "문법"
 m="$(stat -f %Lp "$BIN/ft_card_assign_watch.py" "$BIN/ft-card-assign-watch.sh" "$KIT/ft_card_assign_watch.py" "$KIT/ft-card-assign-watch.sh" | sort -u | tr '\n' ' ')"; [ "$m" = "644 " ] && ok "새 파일 4개 모드 644" || bad "새 파일 모드 $m"
 n1="$(wc -l < "$LINT" | tr -d ' ')"; n2="$(wc -l < "$KIT/ft-index-lint.sh" | tr -d ' ')"; [ "$n1" -le 80 ] && [ "$n2" -le 160 ] && ok "부팅 lint ${n1}줄 ≤80 · 키트 index-lint ${n2}줄 ≤160" || bad "줄 수 $n1/$n2"
-BASE="$(git -C "$REPO" merge-base HEAD origin/main 2>/dev/null)"; for f in harness/bin/ft-role-spawn.sh harness/kit/fable-team/bin/ft-role-spawn.sh; do
-  [ -n "$BASE" ] && [ "$(git -C "$REPO" rev-parse "$BASE:feature-pack/fable-team/$f")" = "$(git -C "$REPO" hash-object "$REPO/$f")" ] || bad "ft-role-spawn 변경 있음 $f"; done && ok "ft-role-spawn.sh bin·kit blob = 기준판(역할 좌석 범위 밖)"
+# r1244: ft-role-spawn.sh «팀 기본값 = 부른 좌석 팀» 개정이 기준판 blob 가드를 깨므로, 이 카드의 본래 뜻(«이 카드가 역할 좌석 파일을 안 건드렸다»)은
+#   bin·kit 동기 하나로 지킨다 — 기준판 blob 비교는 역할 좌석 파일을 고치는 다음 카드마다 거짓 FAIL 을 낸다.
+cmp -s "$BIN/ft-role-spawn.sh" "$KIT/ft-role-spawn.sh" && ok "ft-role-spawn.sh bin·kit 같은 판(기준판 blob 비교는 r1244 뒤 폐기)" || bad "ft-role-spawn.sh bin·kit 다름"
 echo "단계별 초:$STEP"
 [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }

@@ -100,7 +100,7 @@ gate 12000; has "$(xh "$G/main" status)" "REJECT hold 7" "교차: 루트 사본�
 CB="$T/cb"; mkdir -p "$CB"; cp "$BIN/ft-spawn-hold.sh" "$BIN/ft-nano-spawn.sh" "$BIN/ft-role-spawn.sh" "$BIN/ft-successor-open.sh" "$BIN/ft_teamset.py" "$BIN/ft_team_lib.py" "$CB/"
 printf '#!/bin/bash\n[ "$1" = status ] && { cat "%s/gate.status"; exit 0; }\n[ -f "%s/gate.pass" ] && { echo "OK resource"; exit 0; }\necho "REJECT resource agents=99 limit=65"; exit 3\n' "$T" "$T" > "$CB/ft-resource-gate.sh"; chmod +x "$CB/ft-resource-gate.sh"
 . "$HERE/lib/bin_source_deps.sh"; copy_source_deps "$BIN" "$CB" || bad "r686 사본 source 대상 채우기"   # r686: successor-open·spawn 이 source 하는 같은 폴더 lib(ft-harness-root · r672 research-seat …)
-cb() { local s="$1"; shift; env FT_RES_ROOT="$R" FT_HOLD_GATE="$CB/ft-resource-gate.sh" FT_MBOX_SH="$T/fake/mbox.sh" FT_HOLD_PLANNER_SEATS="$T/seats-planner.json" FT_RECLAIM=0 bash "$CB/$s" "$@" 2>&1; }
+cb() { local s="$1"; shift; env FT_SEND_FROM=byz-v65-master-claude#1 FT_RES_ROOT="$R" FT_HOLD_GATE="$CB/ft-resource-gate.sh" FT_MBOX_SH="$T/fake/mbox.sh" FT_HOLD_PLANNER_SEATS="$T/seats-planner.json" FT_RECLAIM=0 bash "$CB/$s" "$@" 2>&1; }
 echo "x" > "$T/card.md"; echo "b" > "$T/body.txt"; rm -f "$HF"; gate 12000
 out="$(cb ft-nano-spawn.sh "$T/card.md" --dry-run)"; rc=$?
 { [ "$rc" = 3 ] && has "$out" "hold=none" "ft-nano-spawn: 정지 파일 없음 → 출력에 hold=none"; } || bad "nano-spawn hold=none rc=$rc $out"
