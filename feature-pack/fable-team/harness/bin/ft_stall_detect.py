@@ -11,6 +11,7 @@ import json
 import os
 import re
 import subprocess
+import tempfile
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -18,7 +19,7 @@ from typing import Any
 
 from ft_api_outage_util import epoch as api_epoch, is_error  # r1290: API 오류 표식 판정은 그쪽 한 벌(is_error)을 그대로 쓴다
 from ft_decision_kind import PROMOTED  # r1154: 승격 표식 정규식 한 벌(r1148) — 가져오기 실패는 예외 그대로
-from ft_team_lib import roots
+from ft_team_lib import basis_ref, roots
 from ft_team_lib import rosters as team_rosters
 
 IDLE_MIN = 3.0
@@ -278,22 +279,105 @@ def _prereq(text: str, stems: dict[str, set[str]], me: str) -> str:
     return f"unknown:{rest[:40]}" if rest else "ready"
 
 
-def card_ready(card: Path, cards_dir: Path, lint: str) -> str:
-    """대기 카드 1장 → ready | blocked:<이름>(선행 카드가 대기/·진행/ 에 실재 · lint 실패 = blocked:(lint)) | unknown:<조건>(선행 자동 판정 불가 · 정상 대기로 보고 세지 않는다)."""
+def card_ready(card: Path, cards_dir: Path, lint: str, stems: dict[str, set[str]] | None = None, text: str | None = None) -> str:
+    """대기 카드 1장 → ready | blocked:<이름>(선행 카드가 대기/·진행/ 에 실재 · lint 실패 = blocked:(lint)) | unknown:<조건>(선행 자동 판정 불가 · 정상 대기로 보고 세지 않는다).
+    stems·text 를 주면(r1330 ref 트리 읽기) 디스크를 읽지 않는다 — 안 주면 지금처럼 cards_dir·card 파일."""
     if run(["bash", lint, str(card)])[0] != 0:
         return "blocked:(lint)"
-    stems = _open_stems(cards_dir)
+    stems = stems if stems is not None else _open_stems(cards_dir)
+    body = text if text is not None else card.read_text(encoding="utf-8")
     verdicts = [_prereq(line.removeprefix("- 선행:").strip(), stems, card.stem)
-                for line in card.read_text(encoding="utf-8").splitlines() if line.startswith("- 선행:")]
+                for line in body.splitlines() if line.startswith("- 선행:")]
     return next((v for v in verdicts if v.startswith("blocked:")), None) or next((v for v in verdicts if v.startswith("unknown:")), "ready")
 
 
-def waiting_cards(cards: Path | None, lint: str) -> tuple[list[str], int]:
-    """→ (지금 spawn 할 수 있는 대기 카드 이름들, 선행 미판정 장수)."""
-    d = cards / "대기" if cards else None
-    if not d or not d.is_dir():
+class RefUnavailable(Exception):
+    """r1330 A4 — 대기 카드를 ref 트리에서 못 읽었다(git 실패·상한 넘김·루트 명부 깨짐). 사유 1줄 = 그 팀 «a? … 판정 불가» (조용한 0 아님 · 하드 룰 #0)."""
+
+
+def _git(args: list[str], cwd: Path, stdin: bytes | None = None) -> tuple[int, bytes, str]:
+    """git 1회 → (rc, stdout, stderr 끝 줄 소문자) · 상한 = FT_STALL_GIT_SEC(기본 7초 · 하드 룰 12) · 못 끝내면 RefUnavailable. LC_ALL=C 로 «not a git repository» 문구를 고정한다."""
+    try:
+        sec = float(os.environ.get("FT_STALL_GIT_SEC") or 7)
+    except ValueError:
+        sec = 7.0
+    try:
+        r = subprocess.run(["git", *args], cwd=cwd, input=stdin, capture_output=True, timeout=sec, env={**os.environ, "LC_ALL": "C"})
+    except subprocess.TimeoutExpired:
+        raise RefUnavailable("git 상한 넘김") from None
+    except OSError as e:
+        raise RefUnavailable(f"git 실행 실패({e.__class__.__name__})") from None
+    err = r.stderr.decode("utf-8", "replace").strip().splitlines()
+    return r.returncode, r.stdout, (err[-1] if err else "").lower()
+
+
+def _ref_stems(cards: Path, ref: str) -> dict[str, set[str]] | None:
+    """A1 — ref 트리의 대기/·진행/ 카드 stem(팀마다 ls-tree 1회 · README.md 뺌). git 리포 아님 = None(리포 밖 폴더엔 ref 트리가 없다 → 디스크) · 그 밖의 실패 = RefUnavailable."""
+    rc, out, err = _git(["ls-tree", "--name-only", "-z", ref, "--", "대기/", "진행/"], cards)
+    if rc != 0:
+        if "not a git repository" in err:
+            return None
+        raise RefUnavailable(f"git ls-tree rc={rc} {err[-60:]}")
+    stems: dict[str, set[str]] = {"대기": set(), "진행": set()}
+    for entry in out.decode("utf-8", "replace").split("\0"):
+        kind, _, name = entry.partition("/")
+        if kind in stems and name.endswith(".md") and "/" not in name and name != "README.md":
+            stems[kind].add(name[:-3])
+    return stems
+
+
+def _ref_bodies(cards: Path, ref: str, names: list[str]) -> dict[str, str]:
+    """A2 — 대기 카드 본문 묶음(cat-file --batch 1회). 한 장이라도 못 읽으면 RefUnavailable."""
+    rc, out, err = _git(["cat-file", "--batch"], cards, "".join(f"{ref}:./대기/{n}.md\n" for n in names).encode("utf-8"))
+    if rc != 0:
+        raise RefUnavailable(f"git cat-file rc={rc} {err[-60:]}")
+    bodies: dict[str, str] = {}
+    pos = 0
+    try:
+        for n in names:
+            eol = out.index(b"\n", pos)
+            head = out[pos:eol].split()
+            if len(head) != 3 or head[1] != b"blob":
+                raise RefUnavailable(f"카드 본문 읽기 실패({n})")
+            start = eol + 1
+            bodies[n] = out[start:start + int(head[2])].decode("utf-8")
+            pos = start + int(head[2]) + 1
+    except (ValueError, UnicodeError):
+        raise RefUnavailable("카드 본문 해석 실패") from None
+    return bodies
+
+
+def _ref_verdicts(cards: Path, lint: str, root: Path | None) -> dict[str, str] | None:
+    """A1~A3 — 그 팀 대기 카드 → 판정. 기준 ref = roots.tsv «기준 ref»(없으면 origin/main). git 리포 밖 폴더 = None(디스크로)."""
+    try:
+        ref = basis_ref(root) if root else "origin/main"
+    except Exception as e:  # noqa: BLE001 — 루트 명부 깨짐 = 판정 불가 1줄(조용한 기본값 0)
+        raise RefUnavailable(f"루트 명부 판정 불가({e.__class__.__name__})") from None
+    stems = _ref_stems(cards, ref)
+    if stems is None:
+        return None
+    names = sorted(stems["대기"])
+    bodies = _ref_bodies(cards, ref, names) if names else {}
+    verdicts: dict[str, str] = {}
+    with tempfile.TemporaryDirectory(prefix="ft-stall-ref-") as td:  # lint 는 파일을 받는다 — 같은 이름의 임시 파일
+        (Path(td) / "대기").mkdir()
+        for n in names:
+            f = Path(td) / "대기" / f"{n}.md"
+            _ = f.write_text(bodies[n], encoding="utf-8")
+            verdicts[n] = card_ready(f, cards, lint, stems, bodies[n])
+    return verdicts
+
+
+def waiting_cards(cards: Path | None, lint: str, root: Path | None = None) -> tuple[list[str], int]:
+    """→ (지금 spawn 할 수 있는 대기 카드 이름들, 선행 미판정 장수). r1330: git 리포 안이면 기준 ref 트리에서 읽는다(디스크 체크아웃이 뒤처져도 옛 카드 0) · 못 읽으면 RefUnavailable."""
+    if not cards:
         return [], 0
-    verdicts = {c.stem: card_ready(c, d.parent, lint) for c in sorted(d.glob("*.md")) if c.name != "README.md"}
+    verdicts = _ref_verdicts(cards, lint, root)
+    if verdicts is None:
+        d = cards / "대기"
+        if not d.is_dir():
+            return [], 0
+        verdicts = {c.stem: card_ready(c, d.parent, lint) for c in sorted(d.glob("*.md")) if c.name != "README.md"}
     return [n for n, v in verdicts.items() if v == "ready"], sum(1 for v in verdicts.values() if v.startswith("unknown:"))
 
 
