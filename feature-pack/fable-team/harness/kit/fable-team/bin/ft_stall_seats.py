@@ -31,14 +31,14 @@ class Seats:
         else:
             path, resolved = c["path"], c["resolved"]
         mtime = os.stat(path).st_mtime if path and Path(path).exists() else None
-        if c and not force and path and c["path"] == path and c["mtime"] == mtime and c.get("state"):
+        if c and not force and path and c["path"] == path and c["mtime"] == mtime and c.get("state") and "err" in c:
             return c
         if path and mtime is not None:
             state, end = turn_info(self.status, seat, path)
             flags = last_turn(path)
         else:
             state, end = turn_info(self.status, seat)  # jsonl 없는 좌석(codex·cmd 등) — ft-seat-status 가 pane 으로 판정
-            flags, path = {"rest": False, "future": False}, ""
+            flags, path = {"rest": False, "future": False, "err": None}, ""  # r1290: err 칸은 jsonl 있는 갈래에만 생긴다
         c = dict(path=path, mtime=mtime, resolved=resolved, state=state, end=end, **flags)
         self.cache[seat] = c
         return c
