@@ -214,7 +214,7 @@ chk_dry() {
     FT_TICK_UNPUSHED=0 FT_TICK_WATCH_SAMPLE=0 FT_TICK_API_OUTAGE_STATE="$d/apio.json" bash "$TICK" --dry-run > "$d/out.log" 2> "$d/err.log"
   eq "$(grep -c 'DRY kind=acct-notice' "$d/out.log")" 1 "R8 --dry-run → DRY 1줄"
   has "$(grep 'DRY kind=acct-notice' "$d/out.log")" "bin=$T/fc.sh pause=$T/pause.sh notify=plan desk" "R8 DRY 줄에 bin·pause·notify"
-  eq "$(grep 'DRY kind=' "$d/out.log" | grep -v 'DRY kind=steps' | tail -1 | sed 's/DRY kind=\([a-z-]*\).*/\1/')" "acct-notice" "R8 acct_notice 가 바퀴의 «마지막» DRY 줄(앞 함수가 다 먼저)"
+  eq "$(grep 'DRY kind=' "$d/out.log" | grep -v 'DRY kind=steps\|DRY kind=trigger-watch' | tail -1 | sed 's/DRY kind=\([a-z-]*\).*/\1/')" "acct-notice" "R8 acct_notice 가 바퀴의 «마지막» DRY 줄(앞 함수가 다 먼저)"
   eq "$(cnt "$d/fc.runs" .)$(cnt "$d/mbox.log" .)" 00 "R8 DRY → 도구·쪽지 0"; [ ! -e "$d/state/acct-notice" ] && ok "R8 DRY → 표식·파일 0" || bad "R8 DRY 가 파일 만듦"
   rm -rf "$d"/*; mk "$d/fc.json" claude 3 4 null null; lap dr "$BASE" FT_TICK_ACCT=0
   eq "$(cnt "$d/fc.runs" .)" 0 "R8 FT_TICK_ACCT=0 → 실행 0"; not "$(cat "$d/out.log" "$d/err.log" | grep -v 'pass steps:')" "acct_notice" "R8 FT_TICK_ACCT=0 → 로그 0"
