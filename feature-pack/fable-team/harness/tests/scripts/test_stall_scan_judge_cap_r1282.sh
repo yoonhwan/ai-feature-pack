@@ -173,16 +173,14 @@ heartbeat() {
     > "$R/.fable-team/comm/mailbox.jsonl"
 }
 
-mk_env() {
-  ENV=(
-    "FT_ROOT=$R" "FT_STUB=$S" "FT_NOW=$NOW"
-    "FT_SEAT_STATUS=$S/seat-status.sh" "FT_TMUX=$S/tmux.sh" "FT_MBOX_SH=$S/mbox.sh"
-    "FT_INDEX_LINT=$S/lint.sh" "FT_MBOX_DIR=$R/.fable-team/comm"
-    "FT_STALL_STATE_DIR=$R/.fable-team/state" "FT_PS=$S/ps.sh" "FT_CTX_CMD=$S/ctx.sh" \
-    "FT_SEAT_QUIESCE_BIN=$S/bad.sh"   # ft-child-watch 가 큐를 안 열고 즉시 끝나게(리더 수 고정)
-    "FT_ROOTS_TSV=$S/no-roots.tsv"    # 기계 루트 명부 없음 = 단일 루트(실 기계 명부를 안 읽는다)
-    "PATH=$PATH"
-  )
+mk_env() {   # 세계 환경변수 — export 로만 건다(h70 분류기: 변수·치환으로 실행 명령을 만들지 않는다)
+  export FT_ROOT="$R" FT_STUB="$S" FT_NOW="$NOW"
+  export FT_SEAT_STATUS="$S/seat-status.sh" FT_TMUX="$S/tmux.sh" FT_MBOX_SH="$S/mbox.sh"
+  export FT_INDEX_LINT="$S/lint.sh" FT_MBOX_DIR="$R/.fable-team/comm"
+  export FT_STALL_STATE_DIR="$R/.fable-team/state" FT_PS="$S/ps.sh" FT_CTX_CMD="$S/ctx.sh"
+  export FT_SEAT_QUIESCE_BIN="$S/bad.sh"   # ft-child-watch 가 큐를 안 열고 즉시 끝나게(리더 수 고정)
+  export FT_ROOTS_TSV="$S/no-roots.tsv"    # 기계 루트 명부 없음 = 단일 루트(실 기계 명부를 안 읽는다)
+  unset FT_STALL_SCAN_TOTAL_S FT_STALL_PENALTY_TIMEOUT
 }
 
 add_team() {  # add_team <label> <master> [좌석...]
@@ -216,7 +214,7 @@ future_jsonl() {  # 미래형 선언으로 끝나는 마지막 턴(도구 0) →
     '{"type":"system","subtype":"turn_duration"}' > "$S/jsonl/$1.jsonl"
 }
 
-run_scan() { env "${ENV[@]}" ${EXTRA[@]+"${EXTRA[@]}"} bash "$BINDIR/ft-stall-scan.sh" "$@"; }
+run_scan() { bash "$BINDIR/ft-stall-scan.sh" "$@"; }   # 세계 환경변수 = mk_env 가 export 한 것
 
 rm_world() {
   local p
@@ -258,7 +256,7 @@ c_R2() {
   live 't1-master#1'; live 't1-nano#0'; live 't1-nano#1'
   idle 't1-master#1'; idle 't1-nano#0'; idle 't1-nano#1'
   slow 't1-nano#0' '0:30'
-  EXTRA=("FT_STALL_SCAN_TOTAL_S=10")
+  export FT_STALL_SCAN_TOTAL_S=10
   local t0 r rc out
   t0=$(now_s); out=$(run_scan 2>&1); rc=$?
   t1=$(now_s)
@@ -273,7 +271,7 @@ c_R2() {
   [ -f "$S/mbox.log" ] && bad "R2 처리 쪽지 있음: $(cat "$S/mbox.log")"
   if alive 't1-nano#0'; then bad "R2 손자 생존"; fi
   le "$took" 11 && say "  R2 총 실행 $took ≤ D+1" || bad "R2 총 실행 $took > D+1"
-  EXTRA=()
+  unset FT_STALL_SCAN_TOTAL_S FT_STALL_PENALTY_TIMEOUT
   rm_world
   return "$FAILED"
 }
@@ -285,14 +283,14 @@ c_R3() {
   live 't1-master#1'; live 't1-nano#0'; live 't1-nano#1'
   idle 't1-master#1'; idle 't1-nano#0'; idle 't1-nano#1'
   slow 't1-nano#0' '0:30'
-  EXTRA=("FT_STALL_SCAN_TOTAL_S=10")
+  export FT_STALL_SCAN_TOTAL_S=10
   _=$(run_scan 2>&1)
   rm -f "$S/slow/t1-nano#0"
   local out rc
   out=$(run_scan 2>&1); rc=$?
   have "$out" "앞 실행이 아직 돈다" && bad "R3 잠금이 안 풀렸다"
   [ "$rc" = 0 ] || bad "R3 다음 실행 rc=$rc"
-  EXTRA=()
+  unset FT_STALL_SCAN_TOTAL_S FT_STALL_PENALTY_TIMEOUT
   rm_world
   return "$FAILED"
 }
@@ -359,7 +357,7 @@ c_R7() {
   no_lead t1                                  # FIFO 독자 = 큐 읽기 하나
   rm -f "$R/.fable-team/comm/mailbox.jsonl"; mkfifo "$R/.fable-team/comm/mailbox.jsonl"
   feed "$R/.fable-team/comm/mailbox.jsonl" 0 400 0.024 2500 0.002   # --dry-run 이라 ft-child-watch 0 · 1단계 400줄=9.6초(200줄 검사 4.8·9.6초 모두 D 안) → 2단계 빠른 꼬리(검사 간격 0.4초)로 D 직후에 잡힘 · 변이 5(200줄 검사 제거)면 꼬리 5초를 더 읽어 총 > D+1
-  EXTRA=("FT_STALL_SCAN_TOTAL_S=10")
+  export FT_STALL_SCAN_TOTAL_S=10
   local t0 r rc out took
   t0=$(now_s); out=$(run_scan --dry-run 2>&1); rc=$?
   took=$(el "$t0" "$(now_s)")
@@ -368,7 +366,7 @@ c_R7() {
   have "$out" "판정 불가 — 판정 기한 10 s 초과" || bad "R7 판정 불가 1줄 없음: $(echo "$out" | head -2)"
   le "$took" 11 && say "  R7 총 실행 $took ≤ D+1" || bad "R7 총 실행 $took > D+1"
   [ -f "$S/mbox.log" ] && bad "R7 dry-run 인데 쪽지"
-  EXTRA=()
+  unset FT_STALL_SCAN_TOTAL_S FT_STALL_PENALTY_TIMEOUT
   rm_world
   return "$FAILED"
 }
@@ -429,7 +427,7 @@ c_R9() {
   idle 't1-master#1'; idle 't1-nano#0'; idle 't1-nano#1'
   slow 't1-nano#0' '0:30'
   : > "$S/ignore-term/t1-nano#0"
-  EXTRA=("FT_STALL_SCAN_TOTAL_S=10")
+  export FT_STALL_SCAN_TOTAL_S=10
   local t0 r rc out took kill
   t0=$(now_s); out=$(run_scan 2>&1); rc=$?
   took=$(el "$t0" "$(now_s)")
@@ -451,7 +449,7 @@ PY
   fi
   if alive 't1-nano#0'; then bad "R9 손자 생존(TERM 무시 → KILL 까지 안 감)"; fi
   le "$took" 13 && say "  R9 scan 끝 +${took}s(TERM 무시 손자 → KILL 회수 몫)" || bad "R9 scan 끝 +$took s (D+3 초과)"
-  EXTRA=()
+  unset FT_STALL_SCAN_TOTAL_S FT_STALL_PENALTY_TIMEOUT
   rm_world
   return "$FAILED"
 }
@@ -465,7 +463,7 @@ c_R10() {
   future_jsonl 't1-nano#0'
   printf '{"handled":{"t1-nano#0":%s},"prev":["b:t1-nano#0"],"seats":{}}' "$NOW" > "$R/.fable-team/state/stall-scan.json"   # 처리 뒤에도 또 감지 = 페널티 켜짐
   echo 't1-master#1' > "$S/slowsend"; : > "$S/ignore-term/send"   # 페널티 발신(팀장)만 느리게
-  EXTRA=("FT_STALL_PENALTY_TIMEOUT=2")
+  export FT_STALL_PENALTY_TIMEOUT=2
   local t0 r rc out took
   t0=$(now_s); out=$(run_scan 2>&1); rc=$?
   took=$(el "$t0" "$(now_s)")
@@ -476,7 +474,7 @@ c_R10() {
   have "$(cat "$R/.fable-team/state/stall-scan.json" 2>/dev/null)" 'b:t1-nano#0' || bad "R10 handled 저장 0"
   if alive send; then bad "R10 손자 생존"; fi
   le "$took" 12 && say "  R10 페널티 발신 상한 2초에서 끊김($took)" || bad "R10 발신 상한 안 걸림($took)"
-  EXTRA=()
+  unset FT_STALL_SCAN_TOTAL_S FT_STALL_PENALTY_TIMEOUT
   rm_world
   return "$FAILED"
 }
@@ -489,17 +487,36 @@ c_R11() {
   idle 't1-master#1'; idle 't1-nano#0'; idle 't1-nano#1'
   no_lead t1                                  # FIFO 독자 = 큐 읽기 하나
   rm -f "$R/.fable-team/comm/mailbox.jsonl"; mkfifo "$R/.fable-team/comm/mailbox.jsonl"
-  feed "$R/.fable-team/comm/mailbox.jsonl" 0 400 0.0255 0 0        # 400줄 ≈ 10.2초 — 피더가 판정 시작보다 조금 먼저 떠도 EOF 가 기한(D−1) «뒤» 에 온다(200줄 검사가 먼저 잡아도 판정 불가 = 통과) → 다음 외부 호출은 부르지 않고 끝남
-  EXTRA=("FT_STALL_SCAN_TOTAL_S=10")
+  feed "$R/.fable-team/comm/mailbox.jsonl" 0 400 0.0245 0 0        # 400줄 ≈ 9.8초 — 피더가 판정 시작보다 조금 먼저 떠도 EOF 가 기한(D−1=9초) 뒤 · D(10초) 앞에 온다
+  export FT_STALL_SCAN_TOTAL_S=10
   local t0 r rc out took
   t0=$(now_s); out=$(run_scan --dry-run 2>&1); rc=$?   # --dry-run: 판정 경로는 같고 ft-child-watch 만 0
   took=$(el "$t0" "$(now_s)")
   say "  R11 rc=$rc elapsed=$took turn_calls=$(cat "$S/turn.calls" 2>/dev/null | wc -l | tr -d ' ')"
   [ "$rc" = 3 ] || bad "R11 rc=$rc (3)"
   have "$out" "판정 불가 — 판정 기한 10 s 초과" || bad "R11 판정 불가 1줄 없음"
-  [ -s "$S/turn.calls" ] && bad "R11 기한 지난 뒤 외부 호출을 불렀다: $(cat "$S/turn.calls" | tr '\n' ' ')" || say "  R11 다음 외부 호출 0(부르지 않음)"
+  say "  R11 다음 외부 호출 $(cat "$S/turn.calls" 2>/dev/null | wc -l | tr -d ' ')회(부하에 따라 기한 안쪽에서 1~N회 — «부르지 않음» 판별은 R11(c) 단위 구동이 맡는다)"
+  # R11(c) — 예산 0 이하 = «부르지 않고» 판정 불가(단위 구동 · 경과 9.5초를 sleep 없이 만든다 · 변이 7 을 가른다)
+  local z
+  z=$(cd "$BINDIR" && FT_STALL_SCAN_TOTAL_S=10 python3 - <<'PY' 2>&1
+import sys, time
+import ft_stall_state as stm
+stm.begin()
+stm._J["t0"] = time.monotonic() - 9.5          # 경과 9.5초 = D−0.5 → 남은 예산 -0.5
+open("/tmp/r1282-mark.sh", "w").write("#!/bin/sh\n: > /tmp/r1282-called\n")   # 불리면 자국을 남긴다
+try:
+    stm.grun(["bash", "/tmp/r1282-mark.sh"], None, 15)
+except stm.JudgeTimeout:
+    print("BUDGET0-CAUGHT")
+    sys.exit(3)
+print("BUDGET0-MISSED")
+sys.exit(0)
+PY
+)
+  rm -f /tmp/r1282-called /tmp/r1282-mark.sh
+  [ "$z" = "BUDGET0-CAUGHT" ] && say "  R11(c) 예산 0 이하 → 부르지 않고 JudgeTimeout" || bad "R11(c) 예산 0 이하인데 호출/일반 실패로 넘김: $z"
   [ -f "$R/.fable-team/state/stall-scan.json" ] && bad "R11 처리·저장 있음"
-  EXTRA=()
+  unset FT_STALL_SCAN_TOTAL_S FT_STALL_PENALTY_TIMEOUT
   rm_world
   return "$FAILED"
 }
@@ -515,7 +532,7 @@ c_R12() {
   printf '75 1 claude --resume\n' > "$S/ps"
   echo 4.5 > "$S/ctxsleep"
   slow 't1-nano#1' '0:5'          # 판정 5초 경과 뒤 ctx 시작
-  EXTRA=("FT_STALL_SCAN_TOTAL_S=10")
+  export FT_STALL_SCAN_TOTAL_S=10
   local t0 r rc out took
   t0=$(now_s); out=$(run_scan 2>&1); rc=$?
   took=$(el "$t0" "$(now_s)")
@@ -548,7 +565,7 @@ PY
   [ "$rc2" = 0 ] || bad "R12(b) rc=$rc2 (0 — 기한 안 실행은 지금과 같다)"
   have "$out2" "e=1" || bad "R12(b) e=1 아님: $(echo "$out2" | head -3)"
   le "$took2" 8 && say "  R12(b) ctx 4.5초 그대로($took2)" || bad "R12(b) ctx 시간 이상($took2)"
-  EXTRA=()
+  unset FT_STALL_SCAN_TOTAL_S FT_STALL_PENALTY_TIMEOUT
   rm_world
   return "$FAILED"
 }
