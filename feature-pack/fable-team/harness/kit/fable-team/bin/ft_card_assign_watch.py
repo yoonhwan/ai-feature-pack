@@ -480,9 +480,11 @@ class Status:
                 tops[-1][-1].append(ln)
         items = [u for t in tops for u in (t[1:] if len(t) > 1 else t[:1])]  # 하위가 있으면 하위가 단위 · 상위는 묶음 머리
         out = []
-        for n, it in enumerate(items or [[path]], 1):
+        lines = body.splitlines()  # 번호 항목이 없으면 본문 전체가 한 단위(r1287) · 빈 본문이면 [path] = «포인터 없음» 그대로
+        for n, it in enumerate(items or [lines if any(x.strip() for x in lines) else [path]], 1):
             ptr = next((m.group(1).strip() for ln in it if (m := re.match(r"^\s*- 카드:(.*)$", ln))), "")
-            hot = any(w in it[0] for w in ("긴급", "크리티컬"))
+            head = next((x for x in it if x.strip()), "") if not items else it[0]
+            hot = any(w in head for w in ("긴급", "크리티컬"))  # 번호 없으면 발주서 머리 · 있으면 항목 머리
             why = "포인터 없음" if not ptr else "없는 경로" if ptr not in allpaths else "카드 긴급 줄 없음" if hot and ptr not in urgent_paths else ""
             if why:
                 out.append(dict(team=team, stem=f"{path.rsplit('/', 1)[-1][:-3]}#{n}", kind="발주", label=why, reason=why, since=born, urgent=hot))
