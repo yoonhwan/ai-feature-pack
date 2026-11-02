@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """ft_news_desk — 뉴스 틱마다 desk 세션 화면에 붙일 «전문» 3블록을 조립하고, 바뀐 틱에만 desk 로 relay 1통 (r1055 · Issue #4004).
 
-relay 본문 = 직전에 보낸 전문 대비 «바뀐 칸» 요약 ≤ 2KB + 전문 경로 끝줄 · 바뀐 칸 0 = 쪽지 0 · 하루 12통 상한(r1229 · Issue #5341).
+relay 본문 = 직전에 보낸 전문 대비 «바뀐 칸» 요약 ≤ 2KB + 전문 경로 끝줄 · 바뀐 칸 0 = 쪽지 0 · 하루 12통 상한(r1229 · Issue #5341) · relay 사이 간격 ≥ 120분(r1348 · ft_news_desk_relay.py).
 블록 = ①골 표(원장) ②팀별 표(명단·카드 흐름·명부·보드 스냅샷) ③오빠 손(h 목록·답 대기 질문·오늘 착지). 이 파일 = 조립·digest·좌석·relay.
 ①·② 재료 = ft_news_desk_blocks.py · ③ = ft_news_desk_oppa.py(파일 상한 200줄 분리). 블록 순서는 Q1=ⓐ(오빠 승인 본보기 그대로) · 그 밖 블록 0.
 digest = 머리의 «분»을 지운 본문 sha1 — 같은 내용이면 relay 0(판정 1430 «바뀐 것만» · R4).
@@ -20,10 +20,9 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import ft_board_env as env  # noqa: E402
-from ft_news_desk_blocks import (  # noqa: E402
-    CLOCK, DOING_CHARS, LOG, TABLE_SEP, _run, _timeout, goal_block, snapshot, team_block,
-)
+from ft_news_desk_blocks import CLOCK, LOG, TABLE_SEP, goal_block, snapshot, team_block  # noqa: E402
 from ft_news_desk_oppa import oppa_block  # noqa: E402
+from ft_news_desk_relay import gap_hold, mark_sent, relay  # noqa: E402,F401  (relay = 시험·외부가 desk 모듈에서 부르던 이름)
 
 MAX_RELAY = 2048   # desk 쪽지 1통 상한(바이트 · r1229 K7 — 전문 9KB 를 붙이던 것)
 LINE_MAX = 400     # 바뀐 칸 1줄 상한(바이트) — 긴 골 행 하나가 요약을 다 먹지 않게
@@ -95,11 +94,11 @@ def _sent_today(state: Path, now: datetime) -> int:
         return 0
 
 
-def relay(root: Path, path: Path, seat: str, summary: str) -> None:
-    mbox = os.environ.get("FT_MBOX") or str(root / ".fable-team" / "comm" / "mbox.sh")
-    done = _run(["bash", mbox, "relay", seat, "ft-news-desk", str(path), summary], _timeout("FT_DESK_TOOL_TIMEOUT") * 2)
-    if done.returncode != 0:
-        raise RuntimeError(f"desk relay 실패 rc={done.returncode} {(done.stderr or done.stdout).strip()[:DOING_CHARS]}")
+def _keep_full(state: Path, out: Path, text: str, why: str) -> None:
+    """relay 0 인 틱 — 전문만 남긴다(머리 다음 줄에 사유)."""
+    state.mkdir(parents=True, exist_ok=True)
+    top, _, rest = text.partition("\n")
+    out.write_text(f"{top}\n> {why} — 쪽지 0 · 이 전문만 남김\n{rest}", encoding="utf-8")
 
 
 def tick() -> int:
@@ -120,9 +119,11 @@ def tick() -> int:
     out = state / f"{now:%Y%m%d-%H%M}.md"
     if (n := _sent_today(state, now)) >= DAY_CAP:
         LOG.info("오늘 desk 쪽지 %d통 = 상한 — relay 0 · 전문만 남김", n)
-        state.mkdir(parents=True, exist_ok=True)
-        top, _, rest = text.partition("\n")
-        out.write_text(f"{top}\n> 오늘 desk 쪽지 상한 {DAY_CAP}통 도달 — 쪽지 0 · 이 전문만 남김\n{rest}", encoding="utf-8")
+        _keep_full(state, out, text, f"오늘 desk 쪽지 상한 {DAY_CAP}통 도달")
+        return 0
+    if why := gap_hold(state, now):   # r1348: 하루 12통을 자정 뒤 2시간에 다 쓰지 않게 relay 사이 간격 ≥ FT_DESK_RELAY_GAP_MIN(기본 120분)
+        LOG.info("%s · 전문만 남김(바뀐 칸은 다음 relay 요약에 실린다)", why)
+        _keep_full(state, out, text, why)
         return 0
     try:
         seat = desk_seat(root)
@@ -139,6 +140,7 @@ def tick() -> int:
         print(f"판정 불가 relay — {e}", file=sys.stderr)
         return 1
     _count_path(state, now).write_text(f"{n + 1}\n", encoding="utf-8")
+    mark_sent(state, now)
     sent.write_text(text, encoding="utf-8")
     last.write_text(dg + "\n", encoding="utf-8")
     return 0

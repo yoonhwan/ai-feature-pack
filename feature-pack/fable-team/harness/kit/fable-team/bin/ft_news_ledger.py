@@ -20,6 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import ft_board_env as env  # noqa: E402
 from ft_goal_ledger import live_root  # noqa: E402
 from ft_news_ledger_notify import notify  # noqa: E402
+from ft_news_ledger_round import is_blocked_checkout, notify_checkout_blocked, pin_round_ref  # noqa: E402
 from ft_news_digest import maybe_send  # noqa: E402
 from ft_news_ledger_text import MAX_BYTES, Lines, build_blocks, render_parts  # noqa: E402,F401  (MAX_BYTES 는 시험이 발행 도구 한도와 대조)
 from ft_news_post import goal_gate, is_draft, news_now, pending_now, procs_block, publish, teams_block  # noqa: E402
@@ -243,6 +244,8 @@ def sync_repo() -> str:
         os.environ.pop("FT_LEDGER_SYNC_ERROR", None)
         return ""
     LOG.error("원장 사본 갱신 안 됨 rc=%s: %s", rc, line)
+    if is_blocked_checkout(line):  # r1348: untracked 가 사본 checkout 을 막음 — 로그에만 두지 않고 planner [긴급] 1통(자동 정리 0)
+        notify_checkout_blocked(env.ft_root(), repo, line)
     os.environ["FT_LEDGER_SYNC_ERROR"] = f"원장 사본 갱신 안 됨 — {line[:160]}"
     return os.environ["FT_LEDGER_SYNC_ERROR"]
 
@@ -529,6 +532,7 @@ def _run(root: Path, state: Path) -> tuple[int, str]:
         # r809 — 리포를 «받기 전» 에 정한다: html 이면 env 유무와 무관하게 그 리포를 받는다(옛 판 = env 없으면 받기 0 → 낡은 origin/main 을 «변화 없음» 으로 발행)
         repo = Path(os.environ.get("FT_LEDGER_REPO") or live_root(RuntimeError, root))
         sync_note = fetch_if_stale(repo) if html else sync_repo()
+        pin_round_ref(repo)  # r1348: 한 회차 = 한 sha — 초안 표지·검증 렌더가 같은 origin/main 을 읽는다(실패 = 아래 «원장 뉴스 실패» · 발행 0)
         # R383: planner 팀 폴더는 design/TEAMS.md 로(팀 이름 글자 0) — 원장 경로는 git 상대(꼴1·꼴2), 뉴스 폴더는 절대경로. 못 풀면 TeamPathError(RuntimeError) → 아래 «원장 읽기 실패»
         rel = os.environ.get("FT_LEDGER_PATH") or planner_ledger_rel(repo)
         news = Path(os.environ["FT_NEWS_DIR"]) if os.environ.get("FT_NEWS_DIR") else news_dir(root, rel)

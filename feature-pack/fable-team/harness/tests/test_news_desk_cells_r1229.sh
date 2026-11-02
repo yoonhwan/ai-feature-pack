@@ -50,6 +50,7 @@ chmod +x "$T"/*.sh
 export FT_ROOT="$ROOT" FT_DESK_LEDGER_FILE="$T/ledger.md" FT_MBOX="$T/mbox.sh" FT_CARD_FLOW="$T/card-flow.sh"
 export FT_DESK_HIL="$T/hil.sh" FT_DESK_DECISION="$T/decision.sh" FT_DESK_GIT="$T/git.sh" FT_DESK_LAND_REPO="$T"
 export FT_DESK_STATE="$T/state" MBOX_LOG="$T/mbox.log" GIT_LOG="$T/git.log"
+export FT_DESK_RELAY_GAP_MIN=0   # r1348: relay 간격(기본 120분)은 test_news_relay_spacing_cover_pin_r1348.sh 가 본다 — 이 시험은 «바뀐 칸 요약·하루 상한» 만 본다
 render() { timeout 70 python3 "$DESK" render 2>>"$T/err"; }
 runs()   { timeout 70 python3 "${1:-$DESK}" run 2>>"$T/err"; }
 relays() { grep -c 'relay byz-planner-desk-claude#9 ft-news-desk' "$MBOX_LOG" 2>/dev/null || true; }

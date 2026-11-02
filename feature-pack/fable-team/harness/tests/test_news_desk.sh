@@ -96,6 +96,7 @@ chmod +x "$T/card-flow.sh" "$T/hil.sh" "$T/decision.sh" "$T/mbox.sh"
 export FT_ROOT="$ROOT" FT_HARNESS_ROOT="$OPS" FT_DESK_LEDGER_FILE="$T/ledger.md" FT_MBOX="$T/mbox.sh"
 export FT_CARD_FLOW="$T/card-flow.sh" FT_DESK_HIL="$T/hil.sh" FT_DESK_DECISION="$T/decision.sh"
 export FT_DESK_STATE="$T/state" MBOX_LOG="$T/mbox.log"
+export FT_DESK_RELAY_GAP_MIN=0   # r1348: relay 간격(기본 120분)은 test_news_relay_spacing_cover_pin_r1348.sh 가 본다 — 이 시험은 «바뀐 틱만 relay» 를 본다
 render() { timeout 70 python3 "${1:-$DESK}" render 2>>"$T/err"; }
 runs()   { timeout 70 python3 "${1:-$DESK}" run 2>>"$T/err"; }
 mutant() {  # <파일 이름> <sed 식> → 변이판 진입점 경로 (짝 모듈은 그대로 사본 · import 는 PYTHONPATH 로)
