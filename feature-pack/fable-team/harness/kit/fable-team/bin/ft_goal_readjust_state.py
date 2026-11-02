@@ -3,11 +3,12 @@
 회차 파일 = `<루트>/.fable-team/state/goal-readjust/rounds/<run>-<nn>.json` — 한 번 쓴 파일은 고치지 않는다(덮어쓰기 0 · 계약은 ft_goal_readjust.py).
 «마지막 성공»·«최근 시도» 는 포인터 파일 없이 목록에서 **파생**한다 — `last_ok` = 이름순 가장 최근 status=OK 파일 · `last_attempt` = 가장 최근 파일
 (실패 시도는 OK 파일을 건드리지 않으므로 «직전 성공 보존» 질문이 사라진다 · 설계 r3 §1).
-read(root=None)              → `{last_ok, last_attempt}` (없으면 둘 다 None) · 루트 = env FT_ROOT › LIVE_ROOT(1행 절대경로 폴더)
+read(root=None)              → `{last_ok, last_attempt}` (없으면 둘 다 None) · 루트 = env FT_ROOT › ft_goal_ledger.find_root(★골 표와 같은 함수 — r1324: FT_ROOT › cwd 의 git 공용 루트에 LIVE_BIN 실재 › 옛 설치 꼴 조상★) › LIVE_ROOT(1행 절대경로 폴더)
+                               · 루트를 못 풀면 `error` 칸에 사유 — «없음» 과 «못 찾음» 을 같은 글자로 찍지 않는다(하드 룰 #0)
                                · `_send` = 그 시도의 영수증(`.sent.json`/`.send-failed.json`)에서 읽은 송신 상태(영수증 없음 + claimed = `unknown` — 렌더가 «송신 실패/모름» 을 보인다)
 row_cell(state, n, goal_hash, canon_sha10) → «재조정» 칸 글자(≤24자) — 회차 파일 행의 `goal_hash`(골 전문 sha10)가 지금 렌더 행과 같을 때만 라벨을 쓴다
                                (다르면 `모름(판 다름)` · 정본 sha 만 다르고 전문이 같으면 라벨 뒤 `·정본 바뀜` · 설계 r3 §4 «대응 대조»)
-header(state, now=None)      → 머리 글자 `재조정: ok=<run> <HH:MM> · 최근=<run>-<nn> OK|ERROR <사유 24자>` · 기록 없음 `재조정 기록 없음`
+header(state, now=None)      → 머리 글자 `재조정: ok=<run> <HH:MM> · 최근=<run>-<nn> OK|ERROR <사유 24자>` · 루트 판정 불가 `재조정 판정 불가(<사유 24자>)` · 루트는 풀렸는데 회차 0 일 때만 `재조정 기록 없음`
                                · 마지막 성공이 FT_GOAL_READJUST_MAX_H(26)시간 전 `재조정 없음 N시간 · ok=… · 최근=…` — 마지막 성공과 최근 시도를 항상 둘 다 보인다
                                · 송신 실패/모름이면 끝에 `·송신 실패`/`·송신 모름`(조용한 OK 0)
 """
@@ -19,6 +20,8 @@ from datetime import datetime
 from pathlib import Path
 
 DIR = "goal-readjust"
+WHERE = "모름(루트 판정 불가)"  # r1324: 루트를 못 풀었다 — «모름(기록 없음)» 과 다른 글자(하드 룰 #0)
+WHY_PREFIX = "ERROR 골 표 기본 출처: "  # ft_goal_ledger.find_root 가 내는 머리표(사유 본문은 그 함수 하나)
 CELL = 24
 MAX_H = 26
 SKIP = (".sent.json", ".send-failed.json")  # 영수증 파일은 회차 파일이 아니다
@@ -28,13 +31,38 @@ class StatePathError(RuntimeError):
     """데이터 루트가 «무효»(LIVE_ROOT 값이 폴더가 아님) — 조용히 FT_ROOT 로 대체하지 않는다(DA H13)."""
 
 
+def _find_why(exc: Exception) -> str:
+    """find_root 사유 압축 — 머리표(«ERROR 골 표 기본 출처: »)만 떼고 사유 글자는 그대로(사유 사본 0)."""
+    text = " ".join(str(exc).split())
+    if text.startswith(WHY_PREFIX):
+        text = text[len(WHY_PREFIX):]
+    return text or "루트를 못 찾았다"
+
+
+def _base_root(root: Path | str | None = None) -> tuple[Path | None, str]:
+    """(베이스 루트, 사유) — root 인자 › env FT_ROOT(옛 규칙 그대로) › ft_goal_ledger.find_root(골 표와 같은 함수 · 규칙 사본 0).
+    ★r1324: 골 표 자신은 find_root 로 루트를 찾는데 재조정 읽기만 FT_ROOT 하나를 봐서, FT_ROOT 없이 불리는 가드·손 실행·planner 에서
+    회차가 실재해도 «기록 없음» 으로 조용히 읽혔다 — 두 루트 규칙을 이 한 함수로 맞춘다.★"""
+    if root:
+        return Path(root), ""
+    if env := os.environ.get("FT_ROOT"):
+        return Path(env), ""
+    try:
+        from ft_goal_ledger import find_root  # 함수 안 import — 이 모듈의 모듈 수준 import 0 유지(r714a · 순환 0)
+        return find_root(StatePathError), ""
+    except ImportError:
+        return None, "루트 판정 불가(ft_goal_ledger 없음)"
+    except StatePathError as exc:
+        return None, _find_why(exc)
+
+
 def _root_check(root: Path | str | None = None) -> tuple[Path | None, str]:
-    """(데이터 루트, 사유) — FT_ROOT › (그 안) `.fable-team/LIVE_ROOT` 1행 절대경로 폴더.
-    ★LIVE_ROOT 파일이 «있는데» 값이 비었거나·상대경로거나·폴더가 아니면 «무효»★(FT_ROOT 로 조용히 대체 0 · DA H13)
-    — 못 풀면 None(렌더는 기록 없음으로 발행 · 렌더를 죽이지 않는다). 파일 자체가 없으면 FT_ROOT(옛 설치본)."""
-    base = Path(root) if root else (Path(os.environ["FT_ROOT"]) if os.environ.get("FT_ROOT") else None)
+    """(데이터 루트, 사유) — 베이스 루트(_base_root) › (그 안) `.fable-team/LIVE_ROOT` 1행 절대경로 폴더.
+    ★LIVE_ROOT 파일이 «있는데» 값이 비었거나·상대경로거나·폴더가 아니면 «무효»★(리포 루트로 조용히 대체 0 · DA H13)
+    — 못 풀면 None + 사유(렌더는 «판정 불가» 로 발행 · 렌더를 죽이지 않는다). 파일 자체가 없으면 베이스 루트(옛 설치본)."""
+    base, why = _base_root(root)
     if base is None:
-        return None, "FT_ROOT 없음"
+        return None, why or "루트 판정 불가"
     try:
         lines = (base / ".fable-team" / "LIVE_ROOT").read_text(encoding="utf-8").splitlines()
     except OSError:
@@ -53,7 +81,8 @@ def _root(root: Path | str | None = None) -> Path | None:
 
 
 def state_dir(root: Path | str | None = None, strict: bool = False) -> Path | None:
-    """상태 폴더 — strict 면 무효 루트 = StatePathError(회차 수집기 몫) · 아니면 None(렌더는 «모름» 글자)."""
+    """상태 폴더 — strict 면 무효·판정 불가 루트 = StatePathError(회차 수집기 몫) · 아니면 None(렌더는 «모름» 글자).
+    r1324 G3: 쓰기(ft_goal_readjust.py · strict=True)도 _base_root 를 그대로 쓴다 — FT_ROOT 없이 BYZ·워크트리 cwd 에서 --request 성공."""
     base, why = _root_check(root)
     if base is None:
         if strict:
@@ -84,8 +113,11 @@ def _load(path: Path) -> dict | None:
 
 
 def read(root: Path | str | None = None) -> dict:
-    """`{last_ok, last_attempt}` — 목록에서 파생(포인터 파일 0) · 깨진 파일은 건너뛴다."""
-    files = [(p, _load(p)) for p in round_files(root)]
+    """`{last_ok, last_attempt}` (+ 루트를 못 풀면 `error`) — 목록에서 파생(포인터 파일 0) · 깨진 파일은 건너뛴다."""
+    base, why = _root_check(root)
+    if base is None:
+        return {"last_ok": None, "last_attempt": None, "error": why or "루트 판정 불가"}
+    files = [(p, _load(p)) for p in round_files(base)]   # 루트를 이미 풀었다 — find_root 재호출 0
     good = [(p, d) for p, d in files if d is not None]
     ok = next(((p, d) for p, d in reversed(good) if d.get("status") == "OK"), None)
     last = good[-1] if good else None
@@ -152,8 +184,11 @@ def _recent(att: dict | None) -> str:
 
 
 def header(state: dict, now: datetime | None = None) -> str:
-    """머리 글자 — 마지막 성공(ok=…)과 최근 시도(최근=…)를 항상 둘 다 · 26시간 넘으면 «재조정 없음 N시간 · ok=… · 최근=…»."""
+    """머리 글자 — 마지막 성공(ok=…)과 최근 시도(최근=…)를 항상 둘 다 · 26시간 넘으면 «재조정 없음 N시간 · ok=… · 최근=…».
+    루트를 못 풀었으면 «재조정 기록 없음» 이 아니라 «재조정 판정 불가(<사유>)» (r1324 G2 — «못 찾음» ≠ «없음»)."""
     state = state or {}
+    if state.get("error"):
+        return f"재조정 판정 불가({_reason(state['error'])})"
     ok, att = state.get("last_ok"), state.get("last_attempt")
     if ok is None and att is None:
         return "재조정 기록 없음"
@@ -168,8 +203,12 @@ def header(state: dict, now: datetime | None = None) -> str:
 
 
 def row_cell(state: dict, n: int, goal_hash: str, canon_sha10: str | None = None) -> str:
-    """«재조정» 칸 — 행 식별(번호 + 골 전문 해시)이 같을 때만 라벨 · 다르면 `모름(판 다름)`."""
-    ok = (state or {}).get("last_ok")
+    """«재조정» 칸 — 행 식별(번호 + 골 전문 해시)이 같을 때만 라벨 · 다르면 `모름(판 다름)`.
+    루트를 못 풀었으면 `모름(루트 판정 불가)` — 회차가 0 일 때의 `모름(기록 없음)` 과 다른 글자(r1324 G2)."""
+    state = state or {}
+    if state.get("error"):
+        return WHERE
+    ok = state.get("last_ok")
     if ok is None:
         return "모름(기록 없음)"
     rows = ok.get("rows") or []
