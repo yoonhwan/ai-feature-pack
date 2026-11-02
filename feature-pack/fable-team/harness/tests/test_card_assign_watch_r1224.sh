@@ -134,7 +134,7 @@ lap R6
 # ⓖ R7 틱 — 2통 · 같은 집합 0통 · 사유만 바뀜 1통씩 · 판본·경과만 0통 · planner 실패 → 다음 틱 그만 재송 · 실제 mbox_guard · 판정 불가 1통
 r7_env() { new_root; card "$R" "$H/대기/t1.md" "$((NOW - 90000))" "- 상태: 대기"; led "$R" t1 '{"state":"waiting","reason":"부하","since":'$((NOW-18000))'}'; prep; }
 r7_env; run tick; t1=$RC; s1=$(sent); run tick; s2=$(sent)
-led "$R" t1 '{"state":"waiting","reason":"석","since":'$((NOW-18000))'}'; run tick; s3=$(sent); FT_CARD_ASSIGN_NOW=$((NOW + 600)) run tick; s4=$(sent)
+led "$R" t1 '{"state":"waiting","reason":"lint","since":'$((NOW-18000))'}'; run tick; s3=$(sent); FT_CARD_ASSIGN_NOW=$((NOW + 600)) run tick; s4=$(sent)
 r7_env; FAKE_FAIL_TO="$PLANNER" run tick; export -n FAKE_FAIL_TO 2>/dev/null; p1=$(sent "^$PLANNER"); FAKE_FAIL_TO=$PLANNER run tick; run tick; p2=$(sent "^$PLANNER"); m2=$(sent "^$HMASTER")
 [ "$t1" = 1 ] && [ "$s1$s2$s3$s4" = 2244 ] && [ "$p2:$m2" = "$((p1 + 2)):1" ] && grep -qF '[긴급] 배정 없는 카드 — 배정 없는 카드 0 · 대기 초과 1(부하 1)' "$R/sent.log" \
   && ok "R7 2통 · 같은 집합 0 · 사유만 바뀜 → 각 1통 · 판본·경과만 0 · planner 실패 → 다음 틱 planner 만 재송" || bad "R7 t1=$t1 s=$s1$s2$s3$s4 p=$p1/$p2 m=$m2 :: $(cat "$R/sent.log")"
@@ -184,7 +184,7 @@ src, dst, a, b = sys.argv[1:5]; s = open(src, encoding="utf-8").read(); assert a
 open(dst, "w", encoding="utf-8").write(s.replace(a, b))
 PY
 }
-mkdir -p "$T/m"; cp "$BIN"/ft_*.py "$T/m/"; mut "$TOOL" "$T/m/ft_card_assign_watch.py" "WAIT_S, URGENT_S, ORDER_S, MUTE_S = 4 * 3600," "WAIT_S, URGENT_S, ORDER_S, MUTE_S = 10 ** 9,"
+mkdir -p "$T/m"; cp "$BIN"/ft_*.py "$T/m/"; mut "$TOOL" "$T/m/ft_card_assign_watch.py" "WAIT_S, URGENT_S, ORDER_S, MUTE_S, CLAIM_S = 4 * 3600," "WAIT_S, URGENT_S, ORDER_S, MUTE_S, CLAIM_S = 10 ** 9,"
 r1_env; TOOL_RUN="$T/m/ft_card_assign_watch.py" run status
 r1_ok && bad "변이1(일반 임계 4시간 → 무한) 이 R1 에 안 잡힘" || { case "$(hd)" in *"대기 초과 1(석 1)"*) ok "변이1(일반 임계 → 무한) → R1 빨강(초과 2→1 · 긴급 1 남음)";; *) bad "변이1 꼴 :: $(hd)";; esac; }
 r1_env; run status; HEAD1="$(hd)"; ST="$(printf '%s' "$HEAD1" | sed -n 's/.*판본 \([0-9]*-[0-9a-f]*\).*/\1/p')"; CS="$R/.fable-team/state/card-assign/stamps.tsv"

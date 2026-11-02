@@ -47,16 +47,16 @@ hd() { printf '%s\n' "$OUT" | head -1; }
 PZ() { mkdir -p "$R/.fable-team/state/$1-tick"; printf '%s\n' "$2" > "$R/.fable-team/state/$1-tick/PAUSED"; }
 iso() { date -r "$1" +%Y-%m-%dT%H:%M:%S; }
 STATE() { echo "$R/.fable-team/state/card-assign/$1"; }
-# 지식 팀 대기 카드 5시간 초과(선행) 1장 + 시험용 환경 — 판정 3037 표식 = 시험 입력
+# 지식 팀 대기 카드 5시간 초과(lint) 1장 + 시험용 환경 — 판정 3037 표식 = 시험 입력 · r1325 A6 뒤로 «석·선행» 은 경보 밖이라 사유는 lint(경보 칸 검사용)
 k_env() {
-  new_root; card "$R" "$KD/대기/k1.md" "$((NOW - 90000))" "- 상태: 대기"; led "$R" k1 '{"state":"waiting","reason":"선행","since":'$((NOW-18000))'}'; prep
+  new_root; card "$R" "$KD/대기/k1.md" "$((NOW - 90000))" "- 상태: 대기"; led "$R" k1 '{"state":"waiting","reason":"lint","since":'$((NOW-18000))'}'; prep
 }
 GOOD="판정 3037 · $(iso $((NOW - 3600))) · 정지 레디 재개 대기"
 
-# ⓐ R1 — knowledge PAUSED + 선행 5시간 → 정지 중 · [긴급] 0 · rc0 / R2 PAUSED 없음 → 초과 · 1통(지금 동작)
+# ⓐ R1 — knowledge PAUSED + lint 5시간 → 정지 중 · [긴급] 0 · rc0 / R2 PAUSED 없음 → 초과 · 1통(지금 동작)
 k_env; PZ knowledge "$GOOD"; run tick; a="$RC:$(hd | cut -d'·' -f2-3):$(sent)"
 k_env; run tick; b="$RC:$(hd | cut -d'·' -f2-3):$(sent "^$PLANNER")"
-[ "$a" = "0: 대기 초과 0 · 정지 중 1 :0" ] && [ "$b" = "1: 대기 초과 1(선행 1) · 정지 중 0 :1" ] && ok "R1 PAUSED 있음 = 정지 중 1 · 초과 0 · 쪽지 0 · rc0 / R2 없음 = 초과 1 · 쪽지 1 · rc1" || bad "R1·R2 a=$a b=$b"
+[ "$a" = "0: 대기 초과 0 · 정지 중 1 :0" ] && [ "$b" = "1: 대기 초과 1(lint 1) · 정지 중 0 :1" ] && ok "R1 PAUSED 있음 = 정지 중 1 · 초과 0 · 쪽지 0 · rc0 / R2 없음 = 초과 1 · 쪽지 1 · rc1" || bad "R1·R2 a=$a b=$b"
 lap R1R2
 # ⓑ R3 — 풀림: team-resume(또는 손 삭제) 시각 T → T+1시간 0통 · T+4시간 1분 초과 1통 (tick 이 seen 표로 풀림 시각을 적는다)
 r3() {  # <resume 방식 manual|cmd>
@@ -92,9 +92,9 @@ run tick; f1="$RC:$(sent)"; FT_CARD_ASSIGN_NOW=$((NOW + 3660)) run status; f2="$
 run status; f4="$RC:$(hd | cut -d'·' -f2-4)"; sb="$(sent)"; run tick; sa="$(sent)"
 [ "$f1" = "1:2" ] && [ "$f2" = "0: 대기 초과 0 · 정지 중 0 · 보류 중 1 " ] && [ "$f3" = 2 ] && [ "$f4" = "0: 대기 초과 0 · 정지 중 0 · 보류 중 1 " ] && [ "$sb" = "$sa" ] && ok "R6 첫 초과 1회(planner+팀장 2통) 뒤 보류 중 H=1 · rc0 · 이후 tick 0통" || bad "R6 f1=$f1 f2=$f2 f3=$f3 f4=$f4"
 lap R6
-# ⓕ R7 — R6 뒤 사유가 «석» 으로 바뀜(since 유지) → 보류 중 아님 · 초과 1
+# ⓕ R7 — R6 뒤 사유가 «석» 으로 바뀜(since 유지 · 4시간 넘음) → 보류 중 아님 · r1325 A6 = 석·선행 대기(경보 0)
 led "$R" p1 '{"state":"waiting","reason":"석","since":'$((NOW-4*3600-60))'}'; run status; g="$RC:$(hd | cut -d'·' -f2)"
-[ "$g" = "1: 대기 초과 1(석 1) " ] && ok "R7 사유가 바뀌면 키가 달라져 보류 중 아님 → 초과(석)" || bad "R7 $g"
+[ "$g" = "0: 대기 초과 0 " ] && printf '%s' "$OUT" | grep -q ' · 석·선행 대기 1$' && ok "R7 사유가 바뀌면 키가 달라져 보류 중 아님 → A6 석·선행 대기(경보·rc 0)" || bad "R7 $g :: $(hd)"
 lap R7
 # ⓖ R8 — record 사람 판정 번호 없음 → REJECT rc2 · 원장 그대로
 new_root; card "$R" "$H/대기/q1.md" "$NOW" "- 상태: 대기"; rr() { (cd "$R" && FT_ROOT="$R" python3 "$TOOL" record "$R/$H/대기/q1.md" "$@" 2>&1); }
@@ -112,11 +112,12 @@ n2="$(python3 -c 'import json,sys;print(len(json.load(open(sys.argv[1]))))' "$(S
 lap R9
 # ⓘ R10 — H=0 머리 줄 = 옛 판(보류 중 칸 없음) / H=2 → «정지 중 P · 보류 중 2»
 new_root; for c in a b; do card "$R" "$H/대기/$c.md" "$((NOW - 90000))" "- 상태: 대기"; led "$R" $c '{"state":"waiting","reason":"사람","verdict":"1","since":'$((NOW-18000))'}'; done; card "$R" "$H/대기/z.md" "$((NOW - 90000))" "- 상태: 대기"; led "$R" z '{"state":"waiting","reason":"선행","since":'$((NOW-18000))'}'; prep
-run status; H0="$(hd | sed 's/판본.*//')"
+run status; H0="$(hd | sed 's/판본.*//')"; HF="$(hd)"
 run tick >/dev/null; run status; H2="$(hd | sed 's/판본.*//')"
-case "$H0" in "배정 없는 카드 0 · 대기 초과 3(사람 2 · 선행 1) · 정지 중 0 · 카드 없는 발주 0 · ") z0=1;; *) z0=0;; esac
-case "$H2" in "배정 없는 카드 0 · 대기 초과 1(선행 1) · 정지 중 0 · 보류 중 2 · 카드 없는 발주 0 · ") z2=1;; *) z2=0;; esac
-[ "$z0" = 1 ] && [ "$z2" = 1 ] && ok "R10 보류 중 0 = 머리 줄에 칸 없음(옛 판 꼴) · 2 = «정지 중 0 · 보류 중 2 · 카드 없는 발주»" || bad "R10 H0=[$H0] H2=[$H2]"
+case "$H0" in "배정 없는 카드 0 · 대기 초과 2(사람 2) · 정지 중 0 · 카드 없는 발주 0 · ") z0=1;; *) z0=0;; esac
+case "$H2" in "배정 없는 카드 0 · 대기 초과 0 · 정지 중 0 · 보류 중 2 · 카드 없는 발주 0 · ") z2=1;; *) z2=0;; esac
+printf '%s' "$HF" | grep -q ' · 석·선행 대기 1$' && z9=1 || z9=0
+[ "$z0" = 1 ] && [ "$z2" = 1 ] && [ "$z9" = 1 ] && ok "R10 보류 중 0 = 머리 줄에 칸 없음 · 선행 1 = 끝에 «석·선행 대기 1»(A6 · 앞 칸 순서 그대로) · 2 = «정지 중 0 · 보류 중 2 · 카드 없는 발주»" || bad "R10 H0=[$H0] H2=[$H2] z9=$z9"
 lap R10
 # ⓙ R11 — 긴급 카드(1시간) · 그 팀 PAUSED → 정지 중(정지 우선)
 new_root; card "$R" "$KD/대기/u1.md" "$((NOW - 90000))" "- 상태: 대기" "- 긴급: 예"; led "$R" u1 '{"state":"waiting","reason":"선행","since":'$((NOW-7200))'}'; prep; PZ knowledge "$GOOD"; run tick; i1="$RC:$(hd | cut -d'·' -f2-3):$(sent)"
