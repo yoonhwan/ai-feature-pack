@@ -147,9 +147,9 @@ suite() { # $1 = bin 폴더 — 줄마다 PASS/FAIL «칸»
   s="$(now)"; L "$T/show-slow-empty" 'FT_REF_BUDGET_SEC=3 ref_read "$FT_ROOT" show origin/main:design/teams/planner/AUTONOMY-QUEUE.md'; le "$s" 15; t1=$?
   echo "  ⓒ 원문(빈·지연): $out"
   [ "$rc" = 4 ] && [ "$t1" = 0 ] && [ -z "$(alive_pids "$T/show-slow-empty" 2>/dev/null | grep -v '^0$')" ]; ck "ⓒ 빈 답·지연 답도 ≤15초 rc4(미종료 0)" $?
-  s="$(now)"; L "$T/slow07" 'FT_REF_BUDGET_SEC=1 ft_team_doc_ref_only "$FT_ROOT" planner AUTONOMY-QUEUE.md'; le "$s" 6; t1=$?
-  echo "  ⓒ 원문(예산 1초·0.7초 지연): $out"
-  [ "$rc" = 4 ] && grep -qE '^(ERROR ref 읽기 예산 소진|ERROR git)' <<<"$out" && [ "$t1" = 0 ]; ck "ⓒ 예산 1초 + 0.7초 지연 → rc4 · ≤6초(셸 2.4초 rc0 아님)" $?
+  s="$(now)"; L "$T/slow07" 'FT_REF_BUDGET_SEC=3.1 ft_team_doc_ref_only "$FT_ROOT" planner AUTONOMY-QUEUE.md'; le "$s" 6; t1=$?
+  echo "  ⓒ 원문(예산 3.1초·0.7초 지연): $out"
+  [ "$rc" = 4 ] && grep -qE '(ERROR ref 읽기 예산 소진|ERROR git)' <<<"$out" && [ "$t1" = 0 ]; ck "ⓒ 예산 3.1초 + 0.7초 지연 → rc4 · ≤6초(정리 몫 2.5초 포함)" $?
   grep -q 'REF_BUDGET_S = 70' "$B/ft_team_lib.py" && ! grep -q 'FT_REF_BUDGET_SEC_DEFAULT' "$B/ft-team-lib.sh"; ck "ⓒ 예산은 파이썬 한 벌(70초 · 셸에 예산 로직 0)" $?
   # ⓔ env 지정 = 그 경로 그대로
   C FT_DECISION_AUTONOMY_QUEUE="$T/AQ.md"; [ "$rc" = 0 ] && grep -q '^결정 인터뷰 2건 ' <<<"$out"; ck "ⓔ FT_DECISION_AUTONOMY_QUEUE = 그 파일(2)" $?
