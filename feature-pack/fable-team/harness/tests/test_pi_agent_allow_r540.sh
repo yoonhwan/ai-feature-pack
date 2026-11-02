@@ -32,7 +32,7 @@ printf '#!/usr/bin/env bash\ncase "$1" in has-session) exit 1;; *) exit 0;; esac
 printf '#!/usr/bin/env bash\necho "TMUXC $*"\n' > "$FAKE/tmuxc"; chmod +x "$FAKE/tmux" "$FAKE/tmuxc"
 for SP in "$H/bin/ft-role-spawn.sh" "$KIT/ft-role-spawn.sh"; do
   t="$(basename "$(dirname "$(dirname "$SP")")")"
-  out="$(cd "$REPO" && FT_ROOT="$REPO" PATH="$FAKE:$PATH" bash "$SP" master --agent pi --model "$PIM" --effort high --dry-run 2>&1)"
+  out="$(cd "$REPO" && FT_ROOT="$REPO" FT_SEND_FROM=byz-v65-master-claude#1 PATH="$FAKE:$PATH" bash "$SP" master --agent pi --model "$PIM" --effort high --dry-run 2>&1)"
   tl="$(printf '%s\n' "$out" | grep '^TMUXC open')"
   { printf '%s\n' "$out" | grep -q '^PLAN seat=byz-v65-master-pi#0 .*agent=pi' && printf '%s' "$tl" | grep -qF -- "--agent pi --model $PIM --effort high" \
     && ! printf '%s' "$tl" | grep -q -- '--ctx'; } && ok "$t: role-spawn pi dry-run 인자" || bad "$t: role-spawn pi → $(printf '%s' "$out" | tail -5 | tr '\n' '|')"

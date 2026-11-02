@@ -98,7 +98,7 @@ for F in 1 2; do
   printf '#!/bin/bash\n[ "$1" = key ] && { echo k; exit 0; }\nexit 0\n' > "$B/ft-sheet-events.sh"; chmod +x "$B"/*.sh
   printf '#!/bin/bash\nif [ "$1" = open ]; then n=""; while [ $# -gt 0 ]; do [ "$1" = --name ] && n="$2"; shift; done; echo "TMUXC-DRY $n"; fi\nexit 0\n' > "$T/fk$F/tmuxc"; printf '#!/bin/bash\nexit 1\n' > "$T/fk$F/tmux"; chmod +x "$T/fk$F/tmuxc" "$T/fk$F/tmux"
   printf '{"_master":"m#1","m#1":{"role":"master","agent":"claude","tick":null}}\n' > "$R/.fable-team/seats.json"
-  o="$(cd "$R" && PATH="$T/fk$F:$PATH" FT_TEAMSET=0 bash "$B/ft-role-spawn.sh" da --dry-run 2>&1)"
+  o="$(cd "$R" && PATH="$T/fk$F:$PATH" FT_TEAMSET=0 FT_SEND_FROM=byz-v65-master-claude#1 bash "$B/ft-role-spawn.sh" da --dry-run 2>&1)"
   has "$o" "inbox=${VT#"$R"/}/indices/inbox/da" "ⓐ$F ft-role-spawn: 인박스 = v65 칸 아래(리포 상대) ← ${o:0:200}"
 
   # ft-branch-candidates: 산출 경로 = issues 칸

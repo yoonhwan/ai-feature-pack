@@ -10,6 +10,7 @@
 set -uo pipefail
 export FT_ALLOW_TRACKED_BIN=1 FT_TEAMSET=0
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY FT_ROLE_BASE_PREFIX FT_PENALTY_TEAM
+export FT_SEND_FROM='byz-v65-master-claude#1'   # r1244: 팀 기본값 = «부른 좌석 팀» — 이 시험의 부른 좌석은 v65 팀장(안 적으면 REJECT rc2)
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 KIT="$HERE/../kit/fable-team/bin"
 fail=0
