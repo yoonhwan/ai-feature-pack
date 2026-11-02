@@ -18,6 +18,7 @@ env FT_ROOT · FT_CARD_ASSIGN_NOW · FT_CARD_ASSIGN_STATUS_SEC(3) · FT_CARD_ASS
 import fcntl
 import hashlib
 import json
+import math
 import os
 import re
 import subprocess
@@ -204,6 +205,23 @@ def installed_at(card: Path) -> float | None:
         return None
 
 
+def added_before(card: Path, inst: float) -> bool:
+    """r1273 — 이 카드 이름의 추가 커밋(폴더 무관) 중 committer 시각 < installed_at 이 있나. 첫 1개에서 멈춘다(전체 이력 0).
+    %ct 정수 초라 «≤ ceil−1» ⇔ «< installed_at». 7초 + 재시도 1 · 실패 = Undecided(rc·시간 초과)."""
+    sec, why = float(os.environ.get("FT_CARD_ASSIGN_GIT_TIMEOUT") or 7), ""
+    cmd = ["git", "-C", str(card.parent), "log", "-1", "--no-renames", "--diff-filter=A", "--format=%ct", f"--until=@{math.ceil(inst) - 1}", "--", str(card.parent.parent / "*" / card.name)]
+    for _ in range(2):
+        try:
+            p = subprocess.run(cmd, capture_output=True, text=True, timeout=sec)
+        except (subprocess.TimeoutExpired, OSError) as e:
+            why = f"git log {sec:g}초 초과" if isinstance(e, subprocess.TimeoutExpired) else f"git log {type(e).__name__}"
+            continue
+        if p.returncode != 0:
+            raise Undecided(f"git log rc={p.returncode}")
+        return bool(p.stdout.strip())
+    raise Undecided(why)
+
+
 def lint(card: Path) -> int:
     """ft-index-lint ⑭ — 출력 = REJECT 사유 1줄 rc1 · 빈 출력 rc0."""
     card = card.resolve()  # git -C <폴더> 의 pathspec 은 그 폴더 기준 — 절대경로로 묻는다
@@ -218,13 +236,12 @@ def lint(card: Path) -> int:
     inst = installed_at(card)
     if inst is None:
         return 0  # 이 리포엔 r1224 미설치(prepare 가 installed_at 을 쓴다) — 새 카드 판별 기준이 없다
-    spec = str(card.parent.parent / "*" / card.name)
-    p = subprocess.run(["git", "-C", str(card.parent), "log", "--no-renames", "--diff-filter=A", "--format=%ct", "--", spec], capture_output=True, text=True, timeout=7)
-    if p.returncode != 0:
-        print(f"배정 줄 검사 판정 불가 — git log rc={p.returncode} {p.stderr.strip()[:80]}")
+    try:
+        old = added_before(card, inst)
+    except Undecided as e:
+        print(f"배정 줄 검사 판정 불가 — {e} · 배정 줄을 넣으면 조회 0")
         return 1
-    made = [float(x) for x in p.stdout.split()]
-    if made and min(made) < inst:
+    if old:
         return 0  # 옛 카드 — spawn 진입 때 원장 none 행이 생긴다
     print("머리 「- 배정: 좌석 <이름> | 대기(<사유> · <시각>) | 없음」 줄 없음 (새 카드 의무 · r1224)")
     return 1
