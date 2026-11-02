@@ -25,7 +25,8 @@ NOW0="$(date +%s)"; export FT_HEAD_LAG_NOW="$NOW0"
 msgs() { wc -l < "$MBOX_LOG" | tr -d ' '; }
 run() { out="$(python3 -I "$PY" "$@" --repo "$W" --base origin/main --bin "$BIN" 2>&1)"; rc=$?; }
 mainc() { git -C "$W" checkout -q main; echo "$1" >> "$W/m.txt"; cm "$W" "main $1"; git -C "$W" push -q origin main; git -C "$W" fetch -q origin; }
-mkwt() { git -C "$W" worktree add -q -b "$2" "$T/$1" "$3"; TM new-session -d -s "$4" -c "$T/$1"; }
+mkwt() { git -C "$W" worktree add -q -b "$2" "$T/$1" "$3"; echo "$1" > "$T/$1/work_x.txt"; git -C "$T/$1" add work_x.txt; git -C "$T/$1" commit -q -m work   # r1334: 일이 남은 워크트리(고유 커밋 1)
+  TM new-session -d -s "$4" -c "$T/$1"; }
 keys() { python3 -c 'import json,sys;print(" ".join(sorted(json.load(open(sys.argv[1]))["seats"])))' "$SF"; }   # 새 판 꼴 {"v":2,"seats":{…}}
 rec() { python3 -c 'import json,sys;r=json.load(open(sys.argv[1]))["seats"][sys.argv[2]];print(r["seq"],r["ts"],r["n"])' "$SF" "$2" 2>/dev/null; }
 ver() { python3 -c 'import json,sys;d=json.load(open(sys.argv[1]));print(type(d.get("v")).__name__, d.get("v"))' "$SF"; }
