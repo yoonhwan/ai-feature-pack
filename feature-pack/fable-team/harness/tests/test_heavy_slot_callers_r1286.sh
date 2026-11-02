@@ -28,9 +28,9 @@ ok(){ :; }; bad(){ echo "FAIL $1" >&2; fail=$((fail+1)); BAD="$BAD $1"; }
 run(){ local n="$1" f="$2"; if "$f"; then return 0; fi; bad "$n"; return 1; }
 ms(){ python3 -c 'import time;print(int(time.time()*1000))'; }
 waitfor(){ local i; for i in $(seq 1 300); do [ -e "$1" ] && return 0; command sleep 0.03; done; return 1; }
-probe(){ local f="$1" fd; { exec {fd}>>"$f"; } 2>/dev/null || return 2
+probe(){ local f="$1" fd=9; { exec 9>>"$f"; } 2>/dev/null || return 2   # r1338: 고정 fd(bash 3.2)
   perl -MFcntl=:flock -e 'open(my $h, ">&=", $ARGV[0]) or exit 3; flock($h, LOCK_EX|LOCK_NB) or exit 1;' "$fd" 2>/dev/null
-  local rc=$?; eval "exec ${fd}>&-" 2>/dev/null; return $rc; }
+  local rc=$?; exec 9>&-; return $rc; }
 hold(){ # <자리폴더> <이름> → 자리를 쥔 holder(해제는 stop.<이름>)
   local d="$1" n="$2"; mkdir -p "$d"
   cat > "$T/hold-$n.sh" <<EOF
@@ -51,9 +51,9 @@ REAL_GIT="$(command -v git)"
 export FT_ROOT="$T/m" FT_AUTONOMY_STATE_DIR="$T/m/state" FT_GH="$T/m/gh-stub" FT_GH_WRITE="$T/m/gh-stub" STUB_LOG="$T/m/gh.log" STUB_JSON="$T/m/pr.json"
 cat > "$T/m/gh-stub" <<EOF
 #!/usr/bin/env bash
-_lk(){ local fd; { exec {fd}>>"\$1"; } 2>/dev/null || return 2
+_lk(){ local fd=9; { exec 9>>"\$1"; } 2>/dev/null || return 2
   perl -MFcntl=:flock -e 'open(my \$h, ">&=", \$ARGV[0]) or exit 3; flock(\$h, LOCK_EX|LOCK_NB) or exit 1;' "\$fd" 2>/dev/null
-  local r=\$?; eval "exec \${fd}>&-" 2>/dev/null; return \$r; }
+  local r=\$?; exec 9>&-; return \$r; }
 [ "\$1 \$2" = "pr view" ] && { cat "\$STUB_JSON"; exit 0; }
 case "\$1" in
   pr-close|pr-comment) _lk "\$PROBE_DIR/slot-1.lock"; echo "close-probe=\$?" >> "\$STUB_LOG"; echo "\$*" >> "\$STUB_LOG"; exit 0;;
@@ -62,9 +62,9 @@ esac
 EOF
 cat > "$T/m/shim/git" <<EOF
 #!/usr/bin/env bash
-_lk(){ local fd; { exec {fd}>>"\$1"; } 2>/dev/null || return 2
+_lk(){ local fd=9; { exec 9>>"\$1"; } 2>/dev/null || return 2
   perl -MFcntl=:flock -e 'open(my \$h, ">&=", \$ARGV[0]) or exit 3; flock(\$h, LOCK_EX|LOCK_NB) or exit 1;' "\$fd" 2>/dev/null
-  local r=\$?; eval "exec \${fd}>&-" 2>/dev/null; return \$r; }
+  local r=\$?; exec 9>&-; return \$r; }
 is_push=0; for a in "\$@"; do [ "\$a" = push ] && is_push=1; done
 if [ "\$is_push" = 1 ] && [ -f "\$PUSH_ACTIVE" ]; then
   n=\$(cat "\$PUSH_CNT" 2>/dev/null || echo 0); n=\$((n+1)); echo "\$n" > "\$PUSH_CNT"

@@ -24,14 +24,14 @@ hs_dir() { # 자리 폴더 — 없으면 만든다. rc0 = HS_DIR 채움
   HS_DIR="$d"; HS_OFF="${FT_HEAVY_SLOTS:-1}"
 }
 hs_count_held() { # 표시 전용 — 자리마다 새로 열어 LOCK_NB 시도(잡히면 바로 풂 = 빈 자리) → 0..2
-  local n=0 i f fd
+  local n=0 i f
   hs_dir >/dev/null 2>&1 || { printf '%s' '-'; return 1; }
   [ "$HS_OFF" = 0 ] && { printf '%s' '-'; return 0; }
   for i in 1 2; do
     f="$HS_DIR/slot-$i.lock"
-    { exec {fd}>>"$f"; } 2>/dev/null || continue
-    perl -MFcntl=:flock -e 'open(my $h, ">&=", $ARGV[0]) or exit 3; flock($h, LOCK_EX|LOCK_NB) or exit 1;' "$fd" 2>/dev/null || n=$((n+1))   # 거절 = 누가 쥠
-    eval "exec ${fd}>&-" 2>/dev/null
+    { exec 7>>"$f"; } 2>/dev/null || continue   # r1338: «exec {fd}» 는 bash 4.1+ — macOS /bin/bash 3.2 는 고정 번호(탐침 = 7 · 쥔 자리 = 8)
+    perl -MFcntl=:flock -e 'open(my $h, ">&=", $ARGV[0]) or exit 3; flock($h, LOCK_EX|LOCK_NB) or exit 1;' 7 2>/dev/null || n=$((n+1))   # 거절 = 누가 쥠
+    exec 7>&-
   done
   printf '%s' "$n"
 }
@@ -65,11 +65,12 @@ hs_ahead() { # 표시 전용 «슬롯 도구·pid·경과 초» — owner 파일
 }
 hs_try() { # <자리 파일> → rc0 잡음(fd 유지) · rc1 남이 쥠 · rc3 판정 불가
   local f="$1" rc
-  { exec {HS_FD}>>"$f"; } 2>/dev/null || { unset HS_FD; return 3; }
-  perl -MFcntl=:flock -e 'open(my $h, ">&=", $ARGV[0]) or exit 3; flock($h, LOCK_EX|LOCK_NB) or exit 1;' "$HS_FD" 2>/dev/null
+  { exec 8>>"$f"; } 2>/dev/null || { unset HS_FD; return 3; }
+  HS_FD=8
+  perl -MFcntl=:flock -e 'open(my $h, ">&=", $ARGV[0]) or exit 3; flock($h, LOCK_EX|LOCK_NB) or exit 1;' 8 2>/dev/null
   rc=$?
   [ "$rc" = 0 ] && return 0
-  eval "exec ${HS_FD}>&-" 2>/dev/null; unset HS_FD
+  exec 8>&-; unset HS_FD
   [ "$rc" = 1 ] && return 1
   return 3
 }
@@ -104,7 +105,7 @@ hs_acquire() { # <도구> <대기 상한초>
 hs_release() {
   [ -n "${HS_FD:-}" ] || return 0
   [ -z "${HS_SLOT:-}" ] || : > "$HS_DIR/$HS_SLOT.owner" 2>/dev/null
-  eval "exec ${HS_FD}>&-" 2>/dev/null
+  exec 8>&-
   unset HS_FD HS_SLOT
   return 0
 }
