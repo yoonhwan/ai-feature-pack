@@ -10,6 +10,7 @@ from typing import Any
 
 from ft_team_lib import basis_ref, team_rel
 from ft_team_attach_lib import AttachError, cards_path, command, directive_ok, origin_teamset_row, paths, safe, set_teamset_row, state_of, teamset_row, tick_status, tick_table, write
+from ft_team_main_assign import ensure_team   # r1322 G5 — 새 팀 배정표 틀(render 와 같은 함수)
 
 HERE = Path(__file__).resolve().parent
 
@@ -76,9 +77,12 @@ def apply_team(root: Path, team: str, own_tick: bool, fix_fields: bool, dry: boo
     if state_of(root, team) != "현역":
         raise AttachError(f"REJECT {team} 현역 팀만 --apply 가능")
     pre = own_tick_precheck(root, team) if own_tick else None  # 쓰기 0 — 반쪽 상태 0(r1314)
+    try:
+        changed = int(ensure_team(root, team, dry))   # r1322 G5 — 새 팀 배정표 틀(있으면 무변경 · dry 면 쓰기 0)
+    except OSError as e:
+        raise AttachError(f"{team} ASSIGN.md 판정 불가 · {' '.join(str(e).split())[:120]}") from None
     p = paths(root, team, include_tick=own_tick)
     rel = team_rel(team, root).strip("/")
-    changed = 0
     changed += int(set_teamset_row(root, team, [team, "3", "0", "상시"], dry, keep_existing=True))
     if p["seats"].is_file():
         try:

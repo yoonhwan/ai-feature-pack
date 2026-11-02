@@ -23,7 +23,7 @@ label() { printf 'com.byz.ft-tick-%s' "$1"; }
 mklive() {  # $1 = 폴더 → 그 안에 설치본 bin 사본
   mkdir -p "$1/bin"
   cp -p "$BIN/ft-team-attach.sh" "$BIN/ft_team_attach.py" "$BIN/ft_team_attach_lib.py" \
-        "$BIN/ft_team_attach_ops.py" "$BIN/ft_team_attach_state.py" "$BIN/ft_team_lib.py" \
+        "$BIN/ft_team_attach_ops.py" "$BIN/ft_team_attach_state.py" "$BIN/ft_team_lib.py" "$BIN/ft_team_main_assign.py" \
         "$BIN/ft-tick-install.sh" "$BIN/ft-tick-team.plist" "$1/bin/" || return 1
   [ -f "$1/bin/ft_team_attach_ops.py" ] || return 1
 }
