@@ -3,7 +3,7 @@
 #   (A) desk relay 하루 12통을 «자정 뒤 2시간» 에 다 써 19시간 0통 → relay 사이 간격 ≥ 120분(N1·N2·N3·N4) + relay 가 «QUEUED seq=» 를 낸 뒤 시간 초과면 보낸 것으로 셈(N10)
 #   (B) planner 회차 안에서 초안 표지(회차 시작 origin/main)와 검증 렌더(그때의 origin/main)가 달라 exit 3 → 회차 시작 sha 고정(N5·N6·N9)
 #   (C) 초안이 원장 사본 안 untracked → 사본 checkout 막힘 · 로그에만 남던 것 → planner [긴급] 1통 · 자동 정리 0(N7·N8)
-# DA ① HOLD(R1~R8) 반영: N11(relay-last 없음·깨짐 → last-sent 시각) N12(기록 시각 = relay 성공 뒤) N13(영수증 = 줄 전체·수신자) N3b(실 mbox 순서: QUEUED 가 늦게 → mailbox.jsonl 확인) N14(정본·원장 gitref 도 같은 sha) N15(run() 뒤 env 복원) N16(골 표 리포 ≠ 원장 리포) N8b(통지 7초)
+# DA ① HOLD(R1~R8) 반영: N11(relay-last 없음·깨짐 → last-sent 시각) N12(기록 시각 = relay 성공 뒤) N13(영수증 = 줄 전체·수신자) N3b(실 mbox 순서: QUEUED 가 늦게 → mailbox.jsonl 확인) N14(정본·원장 gitref 도 같은 sha) N15(run() 뒤 env 복원) · DA ② R5(ref 철자 무관 sha 고정 N14b·c) R8(통지 상한 min(env,7) N8b) N16(골 표 리포 ≠ 원장 리포) N8b(통지 7초)
 # 구성: ⓐ 현재 판 N1~N16 ⓑ 기준판(base 3d81b7bd 의 kit bin)에서 N1·N5·N7·N8·N10 이 «빨간지» ⓒ 변이 4(간격 검사·회차 고정·[긴급] 통지·PINNED_FROM 비교 제거)
 # 픽스처 = mktemp 격리: 임시 FT_ROOT · 가짜 mbox(호출을 파일에 적음) · 가상 시각(FT_DESK_NOW) · 로컬 bare origin + 워크트리 1개(같은 refs 공유) · 가짜 «다른 좌석 fetch» 훅.
 # 네트워크 0 · 실 슬랙 0 · 실 mbox 0 · 자기 재호출 0 · 고정 sleep 0(느린 mbox 대역 1건만 시간 상한 시험) · 실행 1회 timeout 70 · ulimit -u (하드 룰 22).
@@ -55,8 +55,10 @@ mut m6 ft_news_desk_relay.py '    t0, first = time.monotonic(), summary' '    re
     t0, first = time.monotonic(), summary'
 mut m7 ft_news_ledger_round.py '    for k, v in snap.items():' '    return
     for k, v in snap.items():'
-mut m8 ft_news_ledger_round.py '    if (v := os.environ.get(key, "")).startswith(' '    return
-    if (v := os.environ.get(key, "")).startswith('
+mut m8 ft_news_ledger_round.py '    v = os.environ.get(key, "")
+    if not v.startswith("gitref:"):' '    return
+    v = os.environ.get(key, "")
+    if not v.startswith("gitref:"):'
 mut m9 ft_news_desk_relay.py 'now.timestamp() + max(elapsed, 0.0)' 'now.timestamp()'
 mut m10 ft_news_desk_relay.py 'rf"^QUEUED seq=\d+ to={re.escape(seat)}(?:\s|$)", out, re.M)' 'r"QUEUED seq=\d+", out)'
 mut m11 ft_news_ledger_round.py '        _explicit_specs(base, sha, repo, goal_sha)' '        pass'
@@ -292,6 +294,11 @@ SPECS=(FT_GOAL_A6_MD=gitref:origin/main:design/planner/AUTONOMY-GOAL-A6-20261018
 mkroot n14; render9 "$KIT" n14 "pin hook negcanon" "${SPECS[@]}"
 eq "N14 고정 뒤 origin/main 이 옮겨져도 머리 sha10 = 고정 sha" "$(head_sha)" "$(out_val PIN)"
 eq "N14 고정 중 ref «이름» 정본 = 정본 렌더 아님" "$(out_val CANON_BY_NAME)" "False"
+SPECS2=(FT_GOAL_A6_MD=gitref:refs/remotes/origin/main:design/planner/AUTONOMY-GOAL-A6-20261018.md FT_GOAL_A6_LEDGER=gitref:remotes/origin/main:design/planner/PLAN-oppa-ledger.md)
+mkroot n14b; render9 "$KIT" n14b "pin hook" "${SPECS2[@]}"
+eq "N14b ref 철자가 달라도(refs/remotes/origin/main · remotes/origin/main) 머리 sha10 = 고정 sha" "$(head_sha)" "$(out_val PIN)"
+mkroot n14c; render9 "$KIT" n14c "pin" FT_GOAL_A6_MD=gitref:no-such-ref:design/planner/AUTONOMY-GOAL-A6-20261018.md
+eq "N14c 못 푸는 ref 지정 = rc≠0 · ERROR 1줄(조용한 폴백 0)" "$([ "$RC" != 0 ] && echo 1 || echo 0)/$(printf '%s\n' "$OUT" | grep -c '^RuntimeError: 회차 시작 ref 고정 실패')" "1/1"
 stage B
 
 # ── N6 · N8 · N7(옛 설정 재현)
@@ -323,11 +330,15 @@ import ft_news_ledger_round as R
 t0 = time.monotonic()
 R.notify_checkout_blocked(Path(sys.argv[2]), "/x/repo", "ERROR ledger 사본 checkout 실패: untracked would be overwritten")
 print(f"ELAPSED={time.monotonic() - t0:.1f}"); print(f"DEFAULT={R.NOTIFY_S}")
+import os
+for v in ("15", "abc", "nan", "0", "3"):
+    os.environ["FT_NEWS_NOTIFY_TIMEOUT"] = v; print(f"CLAMP_{v}={R._notify_timeout():g}")
 PY
 notify8() { mkroot "$2"; OUT="$(cd / && env FT_MBOX="$T/mbox-sleep.sh" FT_NEWS_NOTIFY_TIMEOUT=0.5 timeout 70 python3 "$T/notify8.py" "$1" "$T/$2" 2>&1)"; RC=$?; }
 notify8 "$KIT" n8b
 eq "N8b 걸린 mbox → 통지가 상한(0.5초 설정) 안에서 끝남" "$(python3 -c "print('yes' if float('$(out_val ELAPSED)' or 99) < 1.5 else 'no')")" "yes"
 eq "N8b 통지 상한 기본값 7초" "$(out_val DEFAULT)" "7"
+eq "N8b env 15 → 실제 7 · 숫자 아님·nan·0 → 7 · env 3 → 3" "$(out_val CLAMP_15)/$(out_val CLAMP_abc)/$(out_val CLAMP_nan)/$(out_val CLAMP_0)/$(out_val CLAMP_3)" "7/7/7/7/3"
 # N15(R6): run() 뒤 env 복원 — 고정 전 값 그대로(FT_TEAMS_REF 없음 → 없음 · 있음 → 그 값)
 mkroot n15a; round "$KIT" n15a HOOK="$T/noop.sh"
 eq "N15 run() 뒤 FT_TEAMS_REF·PINNED_FROM 없음(고정 전 그대로)" "$(printf '%s\n' "$OUT" | sed -n 's/^ENV_TEAMS=\(.*\)$/\1/p')" "- ENV_FROM=-"
@@ -390,6 +401,9 @@ eq "변이11 골 표 리포 명시 지정 제거 → N16b FAIL(rc≠0)" "$([ "$R
 mut m12 ft_news_ledger_round.py 'timeout=_notify_timeout())' 'timeout=60)'
 notify8 "$T/mut-m12" mut8b
 eq "변이12 통지 상한 제거 → N8b FAIL(걸린 mbox 를 끝까지 기다림 ≥ 2.5초)" "$(python3 -c "print('yes' if float('$(out_val ELAPSED)' or 0) >= 2.5 else 'no')")" "yes"
+mut m13 ft_news_ledger_round.py '    return min(v, float(NOTIFY_S)) if' '    return v if'
+notify8 "$T/mut-m13" mut8c
+eq "변이13 env 상한 클램프 제거 → N8b FAIL(env 15 가 15 그대로)" "$(out_val CLAMP_15)" "15"
 stage 변이
 
 echo "단계별 초:$STAGES (한 회차 합계 $SECONDS 초)"

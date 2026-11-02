@@ -10,6 +10,7 @@
 import hashlib
 import json
 import logging
+import math
 import os
 import re
 import subprocess
@@ -18,7 +19,7 @@ from pathlib import Path
 
 LOG = logging.getLogger("ft_news_ledger")
 GIT_S = 7           # rev-parse 1회 상한(7초 룰)
-NOTIFY_S = 7        # 통지 mbox 호출 상한(7초 룰 · R8) — 시험은 FT_NEWS_NOTIFY_TIMEOUT 로 줄인다
+NOTIFY_S = 7        # 통지 mbox 호출 상한(7초 룰 · R8) — FT_NEWS_NOTIFY_TIMEOUT 는 줄이기만 한다(시험)
 DEDUP_S = 10 * 60   # 같은 사유 통지 억제 창
 SHA40 = re.compile(r"[0-9a-f]{40}")
 FROM_ENV = "FT_TEAMS_REF_PINNED_FROM"   # 푼 ref 이름(origin/main)
@@ -50,10 +51,13 @@ def _resolve(repo: Path, base: str) -> str:
     return sha
 
 
-def _rewrite(key: str, base: str, to: str) -> None:
-    """`gitref:<base>:<경로>` 로 주어진 정본·원장 지정은 같은 sha 로 바꿔 쓴다 — 안 그러면 움직이는 ref 를 따로 다시 풀어 고정을 우회한다(R5)."""
-    if (v := os.environ.get(key, "")).startswith(f"gitref:{base}:"):
-        os.environ[key] = f"gitref:{to}:{v[len('gitref:' + base + ':'):]}"
+def _rewrite(key: str, goal_repo: Path) -> None:
+    """`gitref:<어떤 ref>:<경로>` 로 주어진 정본·원장 지정은 «그 ref 를 rev-parse 한 sha» 로 바꿔 쓴다 — ref 철자(origin/main · refs/remotes/origin/main …)와 무관하게 움직이는 ref 가 안 남는다(R5). 풀기 실패 = RuntimeError."""
+    v = os.environ.get(key, "")
+    if not v.startswith("gitref:"):
+        return
+    _, ref, rest = v.split(":", 2)
+    os.environ[key] = f"gitref:{_resolve(goal_repo, ref)}:{rest}"
 
 
 def _explicit_specs(base: str, sha: str, repo: Path, goal_sha: str) -> None:
@@ -79,16 +83,18 @@ def pin_round_ref(repo: Path) -> str:
         os.environ[GOAL_PIN_ENV] = goal_sha
         _explicit_specs(base, sha, repo, goal_sha)
     for key in ("FT_GOAL_A6_MD", "FT_GOAL_A6_LEDGER"):
-        _rewrite(key, base, goal_sha)
+        _rewrite(key, goal_repo)
     LOG.info("회차 ref 고정 %s → %s", base, sha[:10])
     return sha
 
 
 def _notify_timeout() -> float:
+    """통지 mbox 호출 상한 = min(FT_NEWS_NOTIFY_TIMEOUT, 7) — env 로 7초를 «넘기지» 못한다 · 숫자 아님·0 이하·nan = 7(R8)."""
     try:
-        return float(os.environ.get("FT_NEWS_NOTIFY_TIMEOUT", NOTIFY_S))
+        v = float(os.environ.get("FT_NEWS_NOTIFY_TIMEOUT", NOTIFY_S))
     except ValueError:
         return float(NOTIFY_S)
+    return min(v, float(NOTIFY_S)) if math.isfinite(v) and v > 0 else float(NOTIFY_S)
 
 
 def is_blocked_checkout(line: str) -> bool:
