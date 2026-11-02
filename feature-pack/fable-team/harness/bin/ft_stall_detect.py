@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from ft_api_outage_util import epoch as api_epoch, is_error  # r1290: API 오류 표식 판정은 그쪽 한 벌(is_error)을 그대로 쓴다
 from ft_decision_kind import PROMOTED  # r1154: 승격 표식 정규식 한 벌(r1148) — 가져오기 실패는 예외 그대로
 from ft_team_lib import roots
 from ft_team_lib import rosters as team_rosters
@@ -221,14 +222,14 @@ def _texts(rec: dict[str, Any]) -> tuple[list[str], bool]:
 
 
 def last_turn(path: str, window: int = 524288) -> dict[str, Any]:
-    """마지막 턴의 assistant 기록만 본다 → {rest: [완료·휴식] 실재, future: 끝 글이 미래형 선언 · 그 뒤 도구 0}."""
+    """마지막 턴의 assistant 기록만 본다 → {rest: [완료·휴식] 실재, future: 끝 글이 미래형 선언 · 그 뒤 도구 0, err: 마지막 기록이 API 오류면 그 시각(r1290)}."""
     try:
         size = Path(path).stat().st_size
         with open(path, "rb") as fh:
             fh.seek(max(0, size - window))
             raw = fh.read()
     except OSError:
-        return {"rest": False, "future": False}
+        return {"rest": False, "future": False, "err": None}
     recs: list[dict[str, Any]] = []
     for line in raw.split(b"\n"):
         try:
@@ -243,7 +244,17 @@ def last_turn(path: str, window: int = 524288) -> dict[str, Any]:
     if turn:
         texts, tool = _texts(turn[-1])
         future = bool(texts) and not tool and bool(FUTURE.search(texts[-1].strip()[-100:]))
-    return {"rest": rest, "future": future}
+    return {"rest": rest, "future": future, "err": _error_at(turn[-1]) if turn else None}
+
+
+def _error_at(rec: dict[str, Any]) -> float | None:
+    """마지막 assistant 기록이 API 오류면 그 시각(epoch) · 아니면 None — 오류 판정은 ft_api_outage_util.is_error 한 벌(r1290)."""
+    if not is_error(rec):
+        return None
+    try:
+        return float(api_epoch(rec))
+    except (ValueError, KeyError, TypeError):
+        return None
 
 
 def _open_stems(cards_dir: Path) -> dict[str, set[str]]:
