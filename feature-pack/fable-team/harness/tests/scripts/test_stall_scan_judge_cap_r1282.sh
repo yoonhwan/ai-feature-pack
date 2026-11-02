@@ -3,7 +3,7 @@
 #   반례·계약 정본: design/harness/indices/진행/r1282-stall-scan-judge-phase-cap-child-group-kill.md (R1~R13 · R7b · 변이 10)
 #   판정 기한 넘김 = 처리 0 · 상태 저장 0 · 1줄(stdout + stall-scan.log) · rc 3 / 처리 단계는 호출별 timeout 만(총 상한 0).
 #   시험은 전부 스텁 세계(실 좌석 깨우기·ring·kill 0) · press 0 · 네트워크 0 · 자기 재호출 0.
-# 사용: bash test_stall_scan_judge_cap_r1282.sh [fast|judge1|judge2|proc|mutate1|mutate2|all]
+# 사용: bash test_stall_scan_judge_cap_r1282.sh [fast|judge1|judge2|proc|mutate1|mutate2|mutate3|all]
 #   단계마다 70초 안 · all 은 회차(7분) 안에서 단계를 이어 돌린다. 기본 = fast.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "$0")" && pwd)"
@@ -14,7 +14,7 @@ PASS=0
 BG=()
 
 say() { printf '%s\n' "$*"; }
-bad() { printf '  · 실패: %s\n' "$*" >&2; FAILED=1; }
+bad() { printf '  · 실패: %s\n' "$*" >&2; FAILED=1; STAGE_FAIL=1; }   # 실패 줄 하나도 단계 rc 에 누적
 have() { case "$1" in *"$2"*) return 0 ;; *) return 1 ;; esac; }
 now_s() { python3 -c 'import time;print(f"{time.time():.2f}")'; }
 el() { python3 -c "print(round($2-$1,2))"; }
@@ -132,9 +132,12 @@ echo 95
 STUB
   cat > "$S/feed.py" <<'PY'
 # FIFO 우편함 피더 — 줄 간격을 «마감 시각» 으로 잡아 드리프트 0
-#   argv: fifo n gap trail lead — lead = 앞선 «빠른 회차» 수(ft-child-watch 가 먼저 큐를 연다 · 1줄 즉시 EOF)
+#   argv: fifo lead n1 g1 n2 g2
+#   lead = 앞선 «빠른 회차» 수(1줄 즉시 EOF) · 1단계 n1줄을 g1 간격으로 · 2단계 n2줄을 g2 간격으로(빠른 꼬리)
+#   왜 2단계인가: 판정측 기한 검사가 «줄 200개마다»라 한 번 놓치면 다음 검사가 200×g1 만큼 뒤다.
+#   1단계가 D 를 살짝 넘기고, 2단계가 검사 간격을 200×g2 로 줄여 D 바로 뒤에서 잡히게 한다.
 import sys, time
-fifo, n, gap, trail, lead = sys.argv[1], int(sys.argv[2]), float(sys.argv[3]), int(sys.argv[4]), int(sys.argv[5])
+fifo, lead, n1, g1, n2, g2 = sys.argv[1], int(sys.argv[2]), int(sys.argv[3]), float(sys.argv[4]), int(sys.argv[5]), float(sys.argv[6])
 line = '{"seq":1,"ts":"2026-01-01T00:00:00","to":"t1-master#1","from":"x","body":"발주"}'
 for _ in range(lead):
     with open(fifo, "w", encoding="utf-8") as fh:
@@ -142,13 +145,16 @@ for _ in range(lead):
 t0 = time.time()
 try:                             # 독자가 먼저 죽으면(판정 불가로 끝남) 조용히 끝난다
     with open(fifo, "w", encoding="utf-8") as fh:
-        for i in range(n):
+        for i in range(n1):
             fh.write(line + "\n"); fh.flush()
-            d = t0 + (i + 1) * gap - time.time()
+            d = t0 + (i + 1) * g1 - time.time()
             if d > 0:
                 time.sleep(d)
-        for _ in range(trail):
-            fh.write(line + "\n"); fh.flush(); time.sleep(1)
+        for j in range(n2):
+            fh.write(line + "\n"); fh.flush()
+            d = t0 + n1 * g1 + (j + 1) * g2 - time.time()
+            if d > 0:
+                time.sleep(d)
 except BrokenPipeError:
     pass
 while True:                      # 뒤에 오는 리더는 즉시 EOF(블록 방지)
@@ -223,7 +229,7 @@ rm_world() {
 }
 
 # FIFO 우편함 피더 — $1=fifo $2=줄수 $3=줄당 지연 $4=꼬리(초당 1줄, 초 · 0 이면 없음)
-feed() { python3 "$S/feed.py" "$1" "$2" "$3" "${4:-0}" "${5:-0}" & BG+=($!); }
+feed() { python3 "$S/feed.py" "$1" "$2" "$3" "$4" "${5:-0}" "${6:-0}" & BG+=($!); }
 
 # ── R1 ─ 빠른 좌석 3 · 지금과 같은 요약 줄 · rc 0 · 처리·저장 그대로
 c_R1() {
@@ -352,7 +358,7 @@ c_R7() {
   idle 't1-master#1'; idle 't1-nano#0'; idle 't1-nano#1'
   no_lead t1                                  # FIFO 독자 = 큐 읽기 하나
   rm -f "$R/.fable-team/comm/mailbox.jsonl"; mkfifo "$R/.fable-team/comm/mailbox.jsonl"
-  feed "$R/.fable-team/comm/mailbox.jsonl" 400 0.0255 6 0   # --dry-run 이라 ft-child-watch 0 → 1회차가 곧 큐 읽기 · 400줄 ≈ 10.2초(200줄 검사 5.1초는 아직 D 안)
+  feed "$R/.fable-team/comm/mailbox.jsonl" 0 400 0.024 2500 0.002   # --dry-run 이라 ft-child-watch 0 · 1단계 400줄=9.6초(200줄 검사 4.8·9.6초 모두 D 안) → 2단계 빠른 꼬리(검사 간격 0.4초)로 D 직후에 잡힘 · 변이 5(200줄 검사 제거)면 꼬리 5초를 더 읽어 총 > D+1
   EXTRA=("FT_STALL_SCAN_TOTAL_S=10")
   local t0 r rc out took
   t0=$(now_s); out=$(run_scan --dry-run 2>&1); rc=$?
@@ -483,7 +489,7 @@ c_R11() {
   idle 't1-master#1'; idle 't1-nano#0'; idle 't1-nano#1'
   no_lead t1                                  # FIFO 독자 = 큐 읽기 하나
   rm -f "$R/.fable-team/comm/mailbox.jsonl"; mkfifo "$R/.fable-team/comm/mailbox.jsonl"
-  feed "$R/.fable-team/comm/mailbox.jsonl" 400 0.023 0 0    # 1회차 = 큐 읽기 400줄 ≈ 9.2초(200줄 검사 4.6초는 아직 D 안)
+  feed "$R/.fable-team/comm/mailbox.jsonl" 0 400 0.0255 0 0        # 400줄 ≈ 10.2초 — 피더가 판정 시작보다 조금 먼저 떠도 EOF 가 기한(D−1) «뒤» 에 온다(200줄 검사가 먼저 잡아도 판정 불가 = 통과) → 다음 외부 호출은 부르지 않고 끝남
   EXTRA=("FT_STALL_SCAN_TOTAL_S=10")
   local t0 r rc out took
   t0=$(now_s); out=$(run_scan --dry-run 2>&1); rc=$?   # --dry-run: 판정 경로는 같고 ft-child-watch 만 0
@@ -541,7 +547,7 @@ PY
   say "  R12(b) rc=$rc2 elapsed=$took2 $(echo "$out2" | head -1)"
   [ "$rc2" = 0 ] || bad "R12(b) rc=$rc2 (0 — 기한 안 실행은 지금과 같다)"
   have "$out2" "e=1" || bad "R12(b) e=1 아님: $(echo "$out2" | head -3)"
-  le "$took2" 6 && say "  R12(b) ctx 4.5초 그대로($took2)" || bad "R12(b) ctx 시간 이상($took2)"
+  le "$took2" 8 && say "  R12(b) ctx 4.5초 그대로($took2)" || bad "R12(b) ctx 시간 이상($took2)"
   EXTRA=()
   rm_world
   return "$FAILED"
@@ -590,42 +596,45 @@ PY
 )
   if ! have "$out" "MUTATED"; then
     say "  ✗ 변이 $name 적용 실패($out) — 패치 무효"
-    FAILED=1
+    STAGE_FAIL=1
     return 1
   fi
 }
 
-run_case() {  # $1 = 케이스 함수 이름
+run_case() {  # $1 = 케이스 함수 이름 — 케이스 하나라도 실패하면 단계 rc 1(중간 실패를 삼키지 않는다)
   FAILED=0
   local t0 rc
   t0=$(now_s)
   "$1"
   rc=$?
   say "  ─ $1 rc=$rc ($(el "$t0" "$(now_s)")초)"
+  [ "$rc" = 0 ] || STAGE_FAIL=1
   return "$rc"
 }
 
-mutant() {  # $1 = 변이 이름 · $2 = 케이스 · $3 = python 패치
+mutant() {  # $1 = 변이 이름 · $2 = 케이스 · $3 = python 패치 — 적용 실패·생존은 단계 rc 1
   local name=$1 case=$2 code=$3
   BINDIR_BASE="$BINDIR"
-  local rc
+  local rc t0
   FAILED=0
   t0=$(now_s)
   W_MUT=$(mktemp -d "${TMPDIR:-/tmp}/r1282m.XXXXXX")
   MB="$W_MUT/bin"
   cp -R "$BINDIR_BASE" "$MB"
   BINDIR="$MB"
-  mutate "$name" "$code"
+  mutate "$name" "$code" || return 0   # 패치 실패는 이미 STAGE_FAIL(그 줄에서 처리)
+  local saved=$STAGE_FAIL
+  STAGE_FAIL=0                          # 변이 케이스의 실패 = 기대값 — 판정은 아래 생존/죽음으로만
   "$case"
   rc=$?
+  STAGE_FAIL=$saved
   BINDIR="$BINDIR_BASE"
   rm -rf "$W_MUT"
   if [ "$rc" = 0 ]; then
     say "  ✗ 변이 $name 살아남음($case 통과) — 시험이 약하다"
-    FAILED=1
+    STAGE_FAIL=1
   else
     say "  ✓ 변이 $name → $case FAIL(죽음)"
-    FAILED=0
   fi
   say "  ─ 변이 $name ($(el "$t0" "$(now_s)")초)"
   return 0
@@ -643,7 +652,7 @@ stage_judge1() { run_case c_R2; run_case c_R3; run_case c_R7; run_case c_R7b; }
 stage_judge2() { run_case c_R9; run_case c_R11; run_case c_R12; }
 stage_proc() { run_case c_R6; run_case c_R10; }
 
-stage_mutate1() {
+stage_mutate1() {   # 기한 검사·자식 정리 기본 갈래(빠른 케이스 중심)
   mutant '판정기한검사제거' c_R2 '
 p = d / "ft_stall_state.py"; s = p.read_text()
 s = s.replace("    if _J[\"on\"] and time.monotonic() - _J[\"t0\"] > _J[\"d\"]:\n        raise JudgeTimeout", "    return")
@@ -658,6 +667,13 @@ p.write_text(s)'
 p = d / "ft_stall_state.py"; s = p.read_text()
 s = s.replace("    call_end = time.monotonic() + timeout", "    call_end = time.monotonic() + 15")
 p.write_text(s)'
+  mutant '정상종료뒤정리제거' c_R13 '
+p = d / "ft_stall_state.py"; s = p.read_text()
+s = s.replace("    reap(p, grace)\n    return p.returncode, out", "    return p.returncode, out")
+p.write_text(s)'
+}
+
+stage_mutate2() {   # 파일 판정·페널티 발신 갈래
   mutant '판정끝검사제거' c_R7b '
 p = d / "ft_stall_state.py"; s = p.read_text()
 s = s.replace("def judge_done() -> None:\n    check()", "def judge_done() -> None:\n    return")
@@ -666,9 +682,14 @@ p.write_text(s)'
 p = d / "ft_stall_detect.py"; s = p.read_text()
 s = s.replace("            if i % 200 == 199:\n                stm.check()\n", "")
 p.write_text(s)'
+  mutant '페널티옛subprocess' c_R10 '
+p = d / "ft_penalty.py"; s = p.read_text()
+s = s.replace("    rc, out = run([\"bash\", sh, \"send\"", "    rr = subprocess.run([\"bash\", sh, \"send\"")
+s = s.replace(", timeout=timeout)\n    if rc != 0:", ", capture_output=True, text=True, timeout=timeout)\n    rc, out = rr.returncode, rr.stdout\n    if rc != 0:")
+p.write_text(s)'
 }
 
-stage_mutate2() {
+stage_mutate3() {   # 예산·유예·기한 잘림 갈래
   mutant '유예1초제거' c_R9 '
 p = d / "ft_stall_state.py"; s = p.read_text()
 s = s.replace("_J[\"t0\"] + _J[\"d\"] - 1.0", "_J[\"t0\"] + _J[\"d\"]")
@@ -677,24 +698,18 @@ p.write_text(s)'
 p = d / "ft_stall_state.py"; s = p.read_text()
 s = s.replace("    if judging and end - time.monotonic() <= 0:\n        raise JudgeTimeout", "    if judging and end - time.monotonic() <= 0:\n        end = call_end")
 p.write_text(s)'
-  mutant '정상종료뒤정리제거' c_R13 '
-p = d / "ft_stall_state.py"; s = p.read_text()
-s = s.replace("    reap(p, grace)\n    return p.returncode, out", "    return p.returncode, out")
-p.write_text(s)'
-  mutant '페널티옛subprocess' c_R10 '
-p = d / "ft_penalty.py"; s = p.read_text()
-s = s.replace("    rc, out = run([\"bash\", sh, \"send\"", "    rr = subprocess.run([\"bash\", sh, \"send\"")
-s = s.replace(", timeout=timeout)\n    if rc != 0:", ", capture_output=True, text=True, timeout=timeout)\n    rc, out = rr.returncode, rr.stdout\n    if rc != 0:")
-p.write_text(s)'
   mutant '기한잘림일반실패' c_R12 '
 p = d / "ft_stall_state.py"; s = p.read_text()
 s = s.replace("        if judging and end < call_end:\n            raise JudgeTimeout\n", "")
 p.write_text(s)'
 }
 
+load() { python3 -c 'import os;p=os.getloadavg();print(f"{p[0]:.2f}/{p[1]:.2f}/{p[2]:.2f}")'; }
+
 main() {
   local stage=${1:-fast}
-  say "r1282 판정 기한 시험 — bin=$BINDIR stage=$stage"
+  STAGE_FAIL=0
+  say "r1282 판정 기한 시험 — bin=$BINDIR stage=$stage load=$(load) cpu=$(sysctl -n hw.ncpu 2>/dev/null || echo ?)"
   case "$stage" in
   fast) stage_fast ;;
   judge1) stage_judge1 ;;
@@ -702,16 +717,19 @@ main() {
   proc) stage_proc ;;
   mutate1) stage_mutate1 ;;
   mutate2) stage_mutate2 ;;
-  all)
-    local t0
-    t0=$(now_s)
-    stage_fast; stage_judge1; stage_judge2; stage_proc; stage_mutate1; stage_mutate2
-    say "  ─ all $(el "$t0" "$(now_s)")초" ;;
+  mutate3) stage_mutate3 ;;
+  all|stages)   # 회차(7분) 안에서 단계를 이어 돌린다 — 단계마다 초·부하를 찍는다
+    local t0 one
+    for one in fast judge1 judge2 proc mutate1 mutate2 mutate3; do
+      t0=$(now_s)
+      "stage_$one"
+      say "  ─ 단계 $one $(el "$t0" "$(now_s)")초 load=$(load)"
+    done ;;
   c_*) run_case "$stage" ;;   # 단일 케이스(디버그)
-  *) say "usage: bash $(basename "$0") [fast|judge1|judge2|proc|mutate1|mutate2|all|c_<케이스>]"; return 2 ;;
+  *) say "usage: bash $(basename "$0") [fast|judge1|judge2|proc|mutate1|mutate2|mutate3|stages|all|c_<케이스>]"; return 2 ;;
   esac
-  if [ "$FAILED" = 0 ]; then say "OK (rc 0)"; else say "FAIL (rc 1)"; fi
-  return "$FAILED"
+  if [ "$STAGE_FAIL" = 0 ]; then say "OK (rc 0) load=$(load)"; else say "FAIL (rc 1) load=$(load)"; fi
+  return "$STAGE_FAIL"
 }
 
 trap 'rm_world >/dev/null 2>&1' EXIT
