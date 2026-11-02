@@ -5,6 +5,7 @@
 #   문지기가 표본 없음·낡음(>180초)이면 이 스크립트를 그 자리에서 1회 돌려 직접 잰다(R213 DA⑥ r2 H2 — 표식 파일 생명주기 폐기).
 #   동시 호출(문지기 직접 측정 · 감시자 tick)은 mkdir 잠금(state/pressure.lock.d) 하나로 직렬화한다 — 읽기·추가·회전·교체 전체가 한 경계(R213 DA r3). 대기 상한 2초 · 못 잡으면 rc4.
 #   잠금엔 `pid 시각` 을 적고, 그 pid 가 죽었거나 30초 넘었으면 회수한다(닫는 사건 · 영구 잠금 0). 같은 초 표본은 추가 0(dt=0 방지) · 시계 역행은 rc4.
+#   r1286: 같은 잠금 안에서 state/heavy.tsv 에 «epoch\t쥔 자리 수\t대기 수» 1줄을 덧붙인다(무거운 git 자리 표본 · ft-heavy-slot-lib.sh) — pressure.tsv 5칸은 그대로 · 자리 폴더 없으면 «-»(처음 설치·끈 상태)
 #   측정 명령 rc≠0 이면 출력이 숫자여도 실패 · 실패 = stderr `ERROR resource sample <무엇>` + rc 4(줄 안 씀 · NO SILENT FALLBACK). bash 3.2 호환 · macOS 전용.
 #   env(시험용): FT_RES_ROOT
 set -uo pipefail
@@ -49,6 +50,15 @@ if is_int "$_last"; then
   [ "$_last" -lt "$NOW" ] || exit 0   # 같은 초 표본은 추가 0
 fi
 printf '%s\t%s\t%s\t%s\t%s\n' "$NOW" "$SWAP_MIB" "$MEMFREE" "$LEVEL" "$SWAPOUTS" >> "$TSV" || fail "write $TSV"
+# r1286: 무거운 git 자리 표본 — 별도 파일(옛 읽는 쪽 = pressure.tsv 5칸 그대로). 표본 탐침이 자리 하나를 1초 거절시키는 것은 알려진 한계.
+HTSV="$RES_ROOT/.fable-team/state/heavy.tsv"; HH="-"; HW="-"
+HD="${FT_HEAVY_DIR:-$RES_ROOT/.fable-team/state/heavy-slots}"
+if [ -f "$HERE/ft-heavy-slot-lib.sh" ] && [ "${FT_HEAVY_SLOTS:-1}" != 0 ] && [ -d "$HD" ]; then   # 폴더 없음(처음 설치·끈 상태) = «-»
+  FT_RES_ROOT="${FT_RES_ROOT:-$RES_ROOT}" FT_HEAVY_DIR="$HD" . "$HERE/ft-heavy-slot-lib.sh"
+  HH="$(hs_count_held 2>/dev/null)"; HW="$(hs_waiting 2>/dev/null)"
+  case "$HH$HW" in ''|*[!0-9-]*) HH="-"; HW="-";; esac
+fi
+printf '%s\t%s\t%s\n' "$NOW" "$HH" "$HW" >> "$HTSV" 2>/dev/null || echo "ERROR resource sample write $HTSV" >&2
 # 회전 — 3일(259200s) 넘은 줄 제거. 실패하면 원본 유지.
 TMP="$TSV.tmp.$$"
 if awk -F'\t' -v c=$((NOW-259200)) '($1+0)>=c' "$TSV" > "$TMP" 2>/dev/null; then mv "$TMP" "$TSV"; else rm -f "$TMP"; fi

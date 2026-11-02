@@ -66,7 +66,14 @@ post() { # 본문 → planner. 실패면 상태를 안 바꾼다(다음 틱 재�
   logline "ERROR 쪽지 발신 실패 to=$ROUTE"; return 1
 }
 sweep() { # 하루 1회 주인 없는 사본 정리(판정 1920 · 첫 1회는 목록 보고만) — 결과 1줄을 planner 로. 디스크 단계 반복 타이머(sent)와 무관
-  [ $((NOW-swept)) -ge 86400 ] || return 0; local s; s="$(bash "$SCRATCH" --sweep 2>>"$LOG")"; swept=$NOW
+  [ $((NOW-swept)) -ge 86400 ] || return 0
+  local s rc last; s="$(bash "$SCRATCH" --sweep 2>>"$LOG")"; rc=$?; last="$(tail -n 1 <<<"$s")"
+  if [ "$rc" = 5 ]; then   # r1286: 무거운 git 자리 대기 초과 = «남은 항목 삭제 0» — swept 를 안 바꿔 다음 틱 재시도(24시간 미루기 0)
+    logline "사본 정리 자리 대기 초과 rc=5 $last"
+    bash "$MBOX" send "$ROUTE" ft-disk-alarm "[사본 정리 미완] 무거운 git 자리 대기 초과 rc 5 · 다음 틱 재시도${last:+\n$last}" >/dev/null 2>>"$LOG" || logline "ERROR 사본 정리 쪽지 발신 실패"
+    return 0
+  fi
+  swept=$NOW
   [ -z "$s" ] || bash "$MBOX" send "$ROUTE" ft-disk-alarm "$s" >/dev/null 2>>"$LOG" || logline "ERROR 사본 정리 쪽지 발신 실패"
 }
 REAP_PEND="$STATE/docker-reap.pending"   # 못 보낸 경보 본문 — 정리 «시도 일자»(reaped) 와 «경보 전달» 을 떼어 둔다(송신 실패가 다음날까지 묻히지 않게)
