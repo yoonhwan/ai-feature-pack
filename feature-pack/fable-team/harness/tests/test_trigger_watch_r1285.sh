@@ -37,6 +37,10 @@ if mode == "badjson":
     print("not json"); sys.exit(0)
 if mode == "notarray":
     print('{"entries": 5}'); sys.exit(0)
+if mode == "empty":      # entries 칸이 없는 응답(로그 0건일 때 실제로 오는 꼴)
+    print("{}"); sys.exit(0)
+if mode == "tokonly":    # 첫 쪽은 entries 없이 다음 쪽 표식만 · 표식을 들고 오면 {}
+    print("{}" if req.get("pageToken") else '{"nextPageToken":"x"}'); sys.exit(0)
 adv, cf = float(os.environ.get("STUB_ADV") or 0), os.environ.get("FT_TRIGGER_CLOCK_FILE")
 if adv and cf:
     cur = float(open(cf).read()); open(cf, "w").write(str(cur + adv))
@@ -227,7 +231,13 @@ green() {
   EXTRA_ENV="STUB_MODE=notarray" run tick
   chk '[ $r18a = 3 ] && [ $RC = 3 ] && [ "$(sc $CFO)$(sc $PL)" = 00 ] && case "$o18a" in *"JSON 아님"*) true;; *) false;; esac' "R18 잘못된 JSON·배열 아님 → 판정 불가 rc3 · 쪽지 0"
   fi
-  PH R16-R18
+  if sel "R20"; then
+  # R20 응답에 entries 칸이 없음({} · 표식만) → 발화 0 · rc0 · traceback 0 · 쪽지 0
+  new_root; mkitem T0001 a; commit; EXTRA_ENV="STUB_MODE=empty" run tick; r20a=$RC; o20a="$OUT"
+  EXTRA_ENV="STUB_MODE=tokonly" run tick
+  chk '[ $r20a = 0 ] && [ $RC = 0 ] && [ "$(sc $CFO)$(sc $PL)" = 00 ] && has "발화 0" && case "$o20a$OUT" in *Traceback*|*KeyError*) false;; *) true;; esac' "R20 entries 칸 없는 응답({} · 표식만) → 발화 0 · rc0 · traceback 0"
+  fi
+  PH R16-R20
 }
 
 mutant() {  # <번호> <기대 FAIL 줄 머리> <치환 py 식...> — 사본 bin(트리거 파일만 복사 · 나머지는 심링크)에 치환 → green 칸이 FAIL 하는지
@@ -267,9 +277,10 @@ mutants_b() {
   mutant 13 R16 "$WATCH${S}nextf.write_text(it[\"num\"] + \"\\n\", encoding=\"utf-8\")${S}pass"
   mutant 14 R11b "$WATCH${S}**({\"pageToken\": tok} if tok else {})${S}**{}"
   mutant 15 R11c "$WATCH${S}            T.wjson(curf, {\"filter\": flt, \"token\": tok, \"maxrecv\": mx})${S}            pass"
-  mutant 16 R12b "$WATCH${S}receiveTimestamp>=${S}timestamp>=" "$WATCH${S}T.parse_ts(e[\"receiveTimestamp\"]) for e in d[\"entries\"]${S}T.parse_ts(e[\"timestamp\"]) for e in d[\"entries\"]"
+  mutant 16 R12b "$WATCH${S}receiveTimestamp>=${S}timestamp>=" "$WATCH${S}T.parse_ts(e[\"receiveTimestamp\"]) for e in d.get(\"entries\", [])${S}T.parse_ts(e[\"timestamp\"]) for e in d.get(\"entries\", [])"
   mutant 17 R14b "$WATCH${S}            if intent.exists() and self.in_maillog(to, token):  # 앞 바퀴가 보내다 끊김 — 이미 쪽지가 갔으면 재발송 0${S}            if False:"
-  PH mutants-10-17
+  mutant 19 R20 "$WATCH${S}            got += d.get(\"entries\", [])${S}            got += d[\"entries\"]"
+  PH mutants-10-18
 }
 mutants() { mutants_a; mutants_b; }
 
