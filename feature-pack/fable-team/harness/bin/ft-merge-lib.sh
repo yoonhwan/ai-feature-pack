@@ -196,6 +196,53 @@ fm_pr_close() {
   done
   fm_t7 ${slug:+env FT_ISSUE_REPO="$slug"} "$gw" pr-close "$pr" --comment "$cb" --apply
 }
+#   fm_ddl_list <repo> <M> <S> : r1347 — stdout «DDL <경로>»(상태 A·M ∧ design/rag/sql/<00~89>-*.sql ∧ -rollback.sql 아님) · «CODE»(상태 무관 ∧ design/·docs/ 밖 ∧ *.md 아님) 줄 · rc≠0 = git 실패
+#     diff 1회 = name-status -z --no-renames(-z = 경로 따옴표 0 · --no-renames = 이름 바꾸기를 D+A 로 · 지우기·바꾸기도 코드 동반으로 센다) · $() 는 NUL 을 지우므로 임시 파일로 읽는다
+fm_ddl_list() {
+  local f st p; f="$(mktemp)" || return 1
+  git -C "$1" diff --name-status -z --no-renames "$2...$3" >"$f" 2>/dev/null || { rm -f "$f"; return 1; }
+  while IFS= read -r -d '' st && IFS= read -r -d '' p; do
+    case "$st" in A|M) if [[ "$p" =~ ^design/rag/sql/[0-8][0-9]-[^/]*\.sql$ ]] && [[ "$p" != *-rollback.sql ]]; then echo "DDL $p"; continue; fi;; esac
+    case "$st" in A|M|D|T) [[ "$p" == design/* || "$p" == docs/* || "$p" == *.md ]] || echo CODE;; esac   # 코드 = 상태 A·M·D(·T) 아무거나 — 이름 바꾸기(R)는 --no-renames 가 D+A 로 풀어 준다
+  done <"$f"; rm -f "$f"
+}
+#   FM_DDL_PY: 증거 줄 고르기 — argv = <PR 본문> <코멘트 JSON> <파일 이름들(줄바꿈)> · 본문 먼저 · 코멘트는 createdAt 순 · 파일마다 «DDL dev 적용: <이름>» 줄 중 «가장 마지막» 하나(R102 선택 규칙) · stdout «h\t이름\tN»(· hN rc=0) · «ex\t이름\t사유»(· 면제 — 사유 ≥10자) · «short\t이름» · «none\t이름»
+FM_DDL_PY='import json,re,sys
+try: cs=sorted(json.loads(sys.argv[2]).get("comments") or [],key=lambda x:x.get("createdAt") or "")
+except (ValueError,AttributeError): sys.exit(3)
+L="\n".join([sys.argv[1]]+[x.get("body") or "" for x in cs]).splitlines()
+for n in sys.argv[3].split("\n"):
+  rx=re.compile(r"DDL dev 적용\s*[:：]\s*"+re.escape(n)+r"(?![\w.\-])(.*)$"); v=None
+  for l in L:
+    m=rx.search(l); v=m.group(1) if m else v
+  h=v is not None and re.match(r"\s*·\s*h(\d+)\s+rc=0\b",v); e=v is not None and re.match(r"\s*·\s*면제\s*—\s*(.+?)\s*$",v)
+  print("h\t%s\t%s"%(n,h.group(1)) if h else ("ex\t%s\t%s"%(n,e.group(1)) if e and len(e.group(1))>=10 else ("short\t"+n if e else "none\t"+n)))'
+#   fm_ddl_dev_gate <repo> <M> <S> <PR> <남은초> <PR본문> <slug|빈> <gh> : r1347 — «DDL 파일 + 그 DDL 을 쓰는 코드» 를 같이 올리는 PR 은 DDL 파일마다 dev 적용 증거 줄이 있어야 착지(PR 6104 · DDL 60 보다 코드가 20분 먼저 배포된 사건)
+#     rc0 = 통과(stdout 에 «WARN … 면제» 줄 0~n) · rc1 = 거절 사유 1줄(부른 쪽 rej 가 «REJECT … (착지 0)» 로 감싼다) · DDL 0 또는 코드 0 = 코멘트 조회 0 으로 통과
+#     코멘트 1회 조회(시도 상한 min(7, 남은 초 − 1) · 재시도 1 은 남은 초 안에서만 · 남은 초 < 2 = 판정 불가) · h<N> 인정 = FT_HIL_RAN_DIR(기본 /tmp)/h<N>.ran 마지막 줄이 «rc=0 …» 일 때만
+fm_ddl_dev_gate() {
+  local repo="$1" m="$2" s="$3" pr="$4" rem="$5" body="$6" slug="$7" gh="$8" lst nd nc names att c="" t0=$SECONDS i ev k n v rcv ran
+  lst="$(fm_ddl_list "$repo" "$m" "$s")" || { echo "DDL dev 적용 판정 불가 — git diff 실패"; return 1; }
+  nd="$(grep -c '^DDL ' <<<"$lst" || true)"; nc="$(grep -c '^CODE$' <<<"$lst" || true)"
+  [ "$nd" -gt 0 ] && [ "$nc" -gt 0 ] || return 0
+  for i in 1 2; do
+    att=$((rem - (SECONDS - t0) - 1)); [ "$att" -le 7 ] || att=7
+    [ "$att" -ge 1 ] || { echo "DDL dev 적용 판정 불가 — $([ "$i" = 1 ] && echo 남은 시간 부족 || echo PR 코멘트 조회 실패)"; return 1; }
+    c="$(fm_try "$att" "$gh" pr view "$pr" ${slug:+-R "$slug"} --json comments 2>/dev/null)" && break; c=""
+  done
+  [ -n "$c" ] || { echo "DDL dev 적용 판정 불가 — PR 코멘트 조회 실패"; return 1; }
+  names="$(sed -n 's#^DDL design/rag/sql/##p' <<<"$lst")"
+  ev="$(python3 -c "$FM_DDL_PY" "$body" "$c" "$names")" || { echo "DDL dev 적용 판정 불가 — PR 코멘트 해석 실패"; return 1; }
+  while IFS=$'\t' read -r k n v; do
+    case "$k" in
+      h) ran="${FT_HIL_RAN_DIR:-/tmp}/h$v.ran"; rcv="$(tail -n 1 "$ran" 2>/dev/null | sed -n 's/^rc=\([0-9]*\).*/\1/p')"
+         [ "$rcv" = 0 ] || { echo "DDL dev 적용 h$v 확인 실패($([ -e "$ran" ] && echo "rc=${rcv:-미완}" || echo 기록 없음))"; return 1; };;
+      ex) echo "WARN DDL dev 적용 면제 $n — $v";;
+      short) echo "DDL dev 적용 면제 사유 10자 미만 — $n"; return 1;;
+      *) echo "DDL dev 적용 증거 없음 — $n (코드 ${nc}개 동반) · PR 에 «DDL dev 적용: $n · h<N> rc=0» 줄을 올리거나 DDL 을 먼저 적용"; return 1;;
+    esac
+  done <<<"$ev"
+}
 #   fm_land_ledger <상태폴더> <승인 상태 폴더> <승인 sha> <착지 sha> <승인 줄 이벤트> : R298(DA⑥ H3) · r947 — 그 승인 sha 의 «마지막 scope-use S<n>» 한 원장(+ D1 상시 승인이면 D1 원장)의 «착지 sha 칸이 빈 행»(승인 sha == AP)에 Q·되돌림 명령 기록 · 실패해도 WARN 만(착지 rc 불변 · r1336: ft-merge-land.sh 120줄 상한 때문에 이사 · 동작 불변)
 fm_land_ledger() {
   local st="$1" ast="$2" ap="$3" q="$4" afv="${5:-}" sn dl="" lf arc
