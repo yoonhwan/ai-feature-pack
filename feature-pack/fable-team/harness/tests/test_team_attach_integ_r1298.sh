@@ -46,8 +46,11 @@ export LC_STATE="$TMP/launchctl.state" FT_ROOT="$ROOT" FT_TEAMS_MD="$ROOT/design
 export FT_TEAM_ATTACH_SANDBOX=1 FT_TICK_TEAM_TSV="$ROOT/.fable-team/bin/team-tick-env.tsv"
 export FT_TICK_PLIST_DIR="$ROOT/LaunchAgents" FT_TICK_LAUNCHCTL="$TMP/launchctl"
 echo '# team-tick-env.tsv' > "$FT_TICK_TEAM_TSV"
+# r1314: 팀 행은 팩 표(PR)에 미리 있다 — own-tick 은 표를 쓰지 않는다(표 쓰기 0)
+printf 'zztest\tseats-zztest.json\t/tmp/ft-tick-state-zztest\t/tmp/ft-tick-zztest.pid\t/tmp/ft-tick-zztest-\tFT_TICK_MAGAZINE,FT_TICK_LAUNCHD\tFT_TICK_FIRE_V2=1\n' >> "$FT_TICK_TEAM_TSV"
+tsv_before="$(shasum -a 256 "$FT_TICK_TEAM_TSV" | cut -d' ' -f1)"
 out="$(bash "$BIN/ft-team-attach.sh" --apply zztest --own-tick 2>&1)"; rc=$?
-{ [ "$rc" = 0 ] && [ -f "$ROOT/LaunchAgents/com.byz.ft-tick-zztest.plist" ] && grep -q '^zztest[[:space:]]' "$FT_TICK_TEAM_TSV" && grep -q 'com.byz.ft-tick-zztest' "$LC_STATE"; } && ok "R16 attach가 TSV·plist·launchctl 을 설정" || bad "R16 apply rc=$rc $out"
+{ [ "$rc" = 0 ] && [ -f "$ROOT/LaunchAgents/com.byz.ft-tick-zztest.plist" ] && grep -q '^zztest[[:space:]]' "$FT_TICK_TEAM_TSV" && grep -q 'com.byz.ft-tick-zztest' "$LC_STATE" && [ "$(shasum -a 256 "$FT_TICK_TEAM_TSV" | cut -d' ' -f1)" = "$tsv_before" ]; } && ok "R16 attach가 plist·launchctl 을 설정(팀 틱 표는 읽기만 · 바이트 그대로)" || bad "R16 apply rc=$rc $out"
 out="$(bash "$BIN/ft-team-attach.sh" zztest --check 2>&1)"; rc=$?
 { [ "$rc" = 0 ] && [[ "$out" == *"S6 전용 틱 OK"* ]]; } && ok "R16 S6 세 쌍 OK" || bad "R16 check rc=$rc $out"
 sed -i '' 's/현역/휴면/' "$ROOT/design/TEAMS.md"

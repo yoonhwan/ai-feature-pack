@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from ft_team_lib import team_rel
-from ft_team_attach_lib import AttachError, cards_path, command, directive_ok, origin_teamset_row, paths, safe, set_teamset_row, state_of, teamset_row, tick_status, write
+from ft_team_attach_lib import AttachError, cards_path, command, directive_ok, origin_teamset_row, paths, safe, set_teamset_row, state_of, teamset_row, tick_status, tick_table, write
 
 HERE = Path(__file__).resolve().parent
 
@@ -75,6 +75,7 @@ def check_team(root: Path, team: str) -> tuple[list[str], int, int]:
 def apply_team(root: Path, team: str, own_tick: bool, fix_fields: bool, dry: bool) -> int:
     if state_of(root, team) != "현역":
         raise AttachError(f"REJECT {team} 현역 팀만 --apply 가능")
+    pre = own_tick_precheck(root, team) if own_tick else None  # 쓰기 0 — 반쪽 상태 0(r1314)
     p = paths(root, team, include_tick=own_tick)
     rel = team_rel(team, root).strip("/")
     changed = 0
@@ -104,7 +105,7 @@ def apply_team(root: Path, team: str, own_tick: bool, fix_fields: bool, dry: boo
             headline.parent.mkdir(parents=True, exist_ok=True)
         changed += int(write(headline, body.encode(), dry))
     if own_tick:
-        changed += own_tick_apply(root, team, p, dry)
+        changed += own_tick_apply(root, team, p, dry, pre)
     return changed
 
 
@@ -113,24 +114,35 @@ def needs_publish(root: Path, team: str) -> bool:
     ref_exists, remote = origin_teamset_row(root, path, team)
     return local is not None and (not ref_exists or remote != local)
 
-def own_tick_apply(root: Path, team: str, p: dict[str, Path], dry: bool) -> int:
+def own_tick_precheck(root: Path, team: str) -> tuple[dict[str, Any], Path, Path]:
+    """--own-tick 사전 확인 — 템플릿(bin 안)·설치기·틱 표의 팀 행. 어느 하나라도 없으면 쓰기 전에 REJECT(r1314)."""
+    template = HERE / "ft-tick-team.plist"
+    if not template.is_file():
+        raise AttachError(f"REJECT 팀 틱 템플릿 없음: {template}")
+    try:
+        doc = plistlib.loads(template.read_bytes())
+    except (OSError, ValueError) as e:
+        raise AttachError(f"REJECT 팀 틱 템플릿 읽기 실패 {template}: {e}") from None
+    installer = HERE / "ft-tick-install.sh"
+    if not installer.is_file():
+        raise AttachError(f"REJECT 설치기 없음: {installer}")
+    table = tick_table(root)
+    rows = [line.rstrip("\n").split("\t") for line in table.read_text(encoding="utf-8").splitlines() if line and not line.startswith("#")]
+    if not any(row and row[0] == team for row in rows):
+        raise AttachError(f"REJECT 팀 틱 행 없음 — 팩 kit/fable-team/bin/team-tick-env.tsv 에 {team} 행 추가 PR → 설치 → 다시 ({table})")
+    return doc, table, installer
+
+def own_tick_apply(root: Path, team: str, p: dict[str, Path], dry: bool, pre: tuple[dict[str, Any], Path, Path] | None) -> int:
     if dry:
         print(f"DRY --own-tick {team}")
         return 0
-    tsv = p["team_tsv"]
-    text = tsv.read_text(encoding="utf-8") if tsv.is_file() else ""
-    exists = any(line.split("\t", 1)[0] == team for line in text.splitlines() if line and not line.startswith("#"))
-    changed = 0
-    if not exists:
-        off = "FT_TICK_MAGAZINE,FT_TICK_LAUNCHD,FT_TICK_DRIFT,FT_TICK_RAISED,FT_TICK_RENAMED,FT_TICK_WT_SWEEP,FT_TICK_NEWS_LEDGER,FT_TICK_NEWS_WATCH,FT_TICK_AUTONOMY"
-        row = f"{team}\t{p['seats'].name}\t/tmp/ft-tick-state-{team}\t/tmp/ft-tick-{team}.pid\t/tmp/ft-tick-{team}-\t{off}\tFT_TICK_FIRE_V2=1\n"
-        write(tsv, (text + row).encode())
-        changed = 1
-    template = HERE.parent / "kit/launchd/com.byz.ft-tick-team.plist.template"
+    if pre is None:
+        raise AttachError(f"REJECT 사전 확인 없이 --own-tick: {team}")
+    doc, table, installer = pre
+    plist = p["plist"]
+    before = plist.read_bytes() if plist.is_file() else None
     script = safe(root, Path(".fable-team/bin/ft-tick.sh"))
-    installer = HERE / "ft-tick-install.sh"
     rendered = p["tick"].parent / f".{team}-tick-rendered.plist"
-    doc = plistlib.loads(template.read_bytes())
     values = {
         "__TEAM__": team,
         "__MASTER_MSG__": f"[cron-tick · 팀 master] {team} 팀 점검",
@@ -156,12 +168,17 @@ def own_tick_apply(root: Path, team: str, p: dict[str, Path], dry: bool) -> int:
                 "FT_MBOX_DIR": str(comm), "FT_TICK_AGENT_ALIVE": str(comm / "ft-agent-alive.sh")})
     rendered.parent.mkdir(parents=True, exist_ok=True)
     rendered.write_bytes(plistlib.dumps(doc, fmt=plistlib.FMT_XML))
-    envp = {**os.environ, "FT_TICK_TEAM_TSV": str(tsv), "FT_TICK_PLIST_DIR": str(p["plist"].parent)}
+    envp = {**os.environ, "FT_TICK_TEAM_TSV": str(table), "FT_TICK_PLIST_DIR": str(plist.parent)}
     rc, out, err = command("bash", str(installer), "--team", team, "--script", str(script), "--from", str(rendered), timeout=7, env=envp)
     rendered.unlink(missing_ok=True)
     if rc:
+        if before is None:
+            if plist.is_file():
+                plist.rename(plist.with_name(plist.name + ".failed-" + datetime.now().strftime("%Y%m%d-%H%M%S")))
+        elif plist.is_file() and plist.read_bytes() != before:
+            plist.write_bytes(before)
         raise AttachError(f"ERROR ft-tick-install 실패 rc={rc}: {(err or out).strip()[:180]}")
-    return changed
+    return int(before is None or plist.read_bytes() != before)
 
 def notify_daily(root: Path, recipient: str, bad: int) -> None:
     day = datetime.now().strftime("%F")
