@@ -148,10 +148,12 @@ for l in open(f,encoding="utf-8").read().splitlines():
 if mode=="rm": open(f+".tmp","w",encoding="utf-8").write("".join(x+"\n" for x in keep))'
 fm_close_pending_ls() { [ -s "$1" ] || return 0; python3 -c "$FM_CP_PY" "$1" "$2" ls; }
 fm_close_pending_rm() { python3 -c "$FM_CP_PY" "$1" "$2" rm "${@:3}" && mv -f "$1.tmp" "$1"; }
-#   fm_pr_done <닫기 실패 출력> <slug|빈> <pr> : r1336 — 이미 닫힌 PR 판정(rc0 = 닫힌 것) · 닫기 출력에 «already merged|already closed» 또는 gh pr view state 가 MERGED/CLOSED · 그 밖(조회 실패 포함) rc1 = 지금처럼 장부에 남김
+#   fm_pr_done <닫기 실패 출력> <slug|빈> <pr> <남은초> : r1336 — 이미 닫힌 PR 판정(rc0 = 닫힌 것) · 닫기 출력에 «already merged|already closed» 또는 gh pr view state 가 MERGED/CLOSED · 그 밖(조회 실패 포함) rc1 = 지금처럼 장부에 남김
+#     gh pr view 는 1회 7 s(재시도 0) · 부르기 전 남은 ≥ 7 s 재검사 — 모자라면 호출 0 + INFO 1줄 + rc1(사전 DA ① R2 · 총 마감 70 s 안)
 fm_pr_done() {
   printf '%s' "$1" | grep -qiE 'already (merged|closed)' && return 0
-  fm_t7 "${FT_GH:-gh}" pr view "$3" ${2:+-R "$2"} --json state 2>/dev/null </dev/null | python3 -c 'import json,sys;sys.exit(0 if json.load(sys.stdin).get("state") in ("MERGED","CLOSED") else 1)' 2>/dev/null
+  [ "${4:-0}" -ge 7 ] 2>/dev/null || { echo "INFO 닫기 재시도 PR #$3 이미 닫힘 확인 건너뜀 — 남은 ${4:-0}s < 7s · 장부 그대로"; return 1; }
+  fm_try 7 "${FT_GH:-gh}" pr view "$3" ${2:+-R "$2"} --json state 2>/dev/null </dev/null | python3 -c 'import json,sys;sys.exit(0 if json.load(sys.stdin).get("state") in ("MERGED","CLOSED") else 1)' 2>/dev/null
 }
 #   fm_close_retry <장부> <repo키> <slug|빈> <닫기도구> <남은초> : r1131 — 착지 시작 때 장부의 같은 repo 항목(최대 3)을 pr-close --comment 로 다시 닫는다
 #     건마다 fm_t7 · 건 시작 때 남은 ≥ 20 s 일 때만(아니면 «재시도 미룸» 1줄 · 재시도 0) · 성공 = 장부에서 지움 · 실패 = 남김 + stdout 1줄 · rc 항상 0(착지 판정 불변)
@@ -165,7 +167,7 @@ fm_close_retry() {
     [ "$rem" -ge 20 ] || { echo "INFO 닫기 재시도 미룸 — 남은 ${rem}s < 20s · 장부 그대로($f)"; break; }
     printf '%s\n' "착지 sha $sha (ft-merge-land · 닫기 재시도 r1131)" > "$cb"
     if o="$(fm_pr_close "$slug" "$pr" "$cb" "$gw" 2>&1 </dev/null)"; then ok="$ok $pr"; echo "INFO 닫기 재시도 PR #$pr 닫음(착지 sha $sha)"
-    elif fm_pr_done "$o" "$slug" "$pr"; then ok="$ok $pr"; echo "INFO 닫기 재시도 PR #$pr 이미 MERGED/CLOSED — 성공으로 보고 장부에서 지움"
+    elif fm_pr_done "$o" "$slug" "$pr" $((r0 - (SECONDS - t0))); then ok="$ok $pr"; echo "INFO 닫기 재시도 PR #$pr 이미 MERGED/CLOSED — 성공으로 보고 장부에서 지움"
     else echo "WARN 닫기 재시도 실패 PR #$pr — 장부에 남김: $(printf '%s' "$o" | tail -n1 | cut -c1-160)"; fi
   done <<<"$items"
   rm -f "$cb"

@@ -74,12 +74,13 @@ fi
 [ ! -f "$HERE/ft-bg-loop-lint.sh" ] || BLO="$(bash "$HERE/ft-bg-loop-lint.sh" --range "$M..$S" --repo "$REPO")" || rej "$(printf '%s' "$BLO" | head -3 | tr '\n' ' ')"   # r448: 가지가 추가·수정한 design/·tests/e2e/ *.sh 의 while+sleep+>> 루프가 ft-bg-loop.sh 래퍼 밖 = 착지 0
 TB="$(fm_timeout_bin)" || rej "timeout 도구 없음"; PEV="$(bash "$HERE/ft-press-evidence.sh" check --repo "$REPO" --remote "$REMOTE" --main "$M" --head "$S" --landing "$Q" --pr "$PR" --title "$(pf title)" --body "$(pf body)" --root "$ROOT")" || rej "${PEV:-press 증거 검사 실패(출력 0) — 판정 2946}"; [ -z "$PEV" ] || echo "${PEV%%$'\n'*}"; deadline   # r1230 판정 2946: BYZ 리포 ∧ 배포 경로(cd-dev.yml paths-filter) 변경 = press 증거 묶음(원격 refs/press/<세트>-<run>) 필수 · 정확 역변경만 면제 + 빚 · 대상 밖 리포 = 출력 0
 PN="${PBO% *}"; PB="${PBO#* }"; PV="$(fm_push_calc '?' 2>/dev/null)"   # R354: PB = 크기 비례로 «계산한 최대 시도 시간» · AB = 그 시도에 실제로 건 상한 min(PB, 남은 시간) · PV = 최소 1단위(F+7)
-LANDVIA=""; RT=0; PTL="${FT_PUSH_TIMING_FILE:-$STATE/push-timing.tsv}"; plog() { fm_push_log "$PTL" "$i" "$PN" "$PB" "$AB" "$((SECONDS - PS))" "${PRC:-?}" "$1"; }   # r1336: 시도마다 push-timing.tsv 1줄(시각·시도·부하·객체·PB·AB·소요·rc·판정 · 쓰기 실패 = WARN 만) · RT=1 = 1차 timeout + 원격 main=M 뒤 재시도(상한 2×PB)
+LANDVIA=""; RT=0; PTL="${FT_PUSH_TIMING_FILE:-$STATE/push-timing.tsv}"; plog() { fm_push_log "$PTL" "$i" "$PN" "$PB" "$AB" "${PEL:-0}" "${PRC:-?}" "$1"; }   # r1336: 시도마다 push-timing.tsv 1줄(시각·시도·부하·객체·PB·AB·소요·rc·판정 · 쓰기 실패 = WARN 만) · RT=1 = 1차 timeout + 원격 main=M 뒤 재시도(상한 2×PB)
 for i in 1 2; do
   deadline; REM=$((LIM - (SECONDS - T0))); NEED="$PV"; [ "$i" -eq 1 ] || NEED="$PB"   # R247 DA⑥ HOLD2-② 를 AB 기준으로 재정의: 1차는 남은 시간 ≥ 1단위(F+7)면 AB=min(PB,남은 시간) 으로 시작 · 재시도는 남은 시간 ≥ PB — 총 마감 70 s 불변. 한계: 남은 11 s · PB 70 이면 11 s 한 번만 시도 · timeout 이면 재시도 0(다음 틱)
+  [ "$RT" = 0 ] || REM=$((REM - 7))   # r1336 R1: 재시도(2차)는 «2차 뒤 ls-remote 7 s» 자리를 남긴다(총 마감 70 s 안) — 상한·남은 시간 검사 모두 REM-7 기준
   [ "$REM" -ge "$NEED" ] || rej "총 마감 $LIM s 안에 push 를 끝낼 수 없음(남은 ${REM}s < push 상한 ${NEED}s — 재시도 0 · 다음 틱)"
   AB=$((PB < REM ? PB : REM)); [ "$RT" = 0 ] || AB=$((2 * PB < REM ? 2 * PB : REM)); PS=$SECONDS
-  POUT="$("$TB" "$AB" git -C "$REPO" push "$REMOTE" "$Q:refs/heads/$TARGET" 2>&1)"; PRC=$?
+  POUT="$("$TB" "$AB" git -C "$REPO" push "$REMOTE" "$Q:refs/heads/$TARGET" 2>&1)"; PRC=$?; PEL=$((SECONDS - PS))   # r1336 R3: 소요 초 = push 끝난 즉시(ls-remote 시간 제외)
   [ "$PRC" -eq 0 ] && { plog ok; break; }
   printf '%s' "$POUT" | grep -qE 'rejected|non-fast-forward|fetch first|stale info' && { plog non-ff; rej "서버가 non-FF 로 거절 — 검사 뒤 main 이 움직였다(트리 어긋남 방지 · 다시 최신화): $(pushwhy)"; }
   # R354 DA⑥ H1: 재시도 = «서버 응답 전» 이 보이는 실패뿐(remote 출력 0 + 연결 실패 문자열 + timeout 아님). timeout·reset·remote 출력이 있는 실패는 «불명» — 자동 재시도 0, 원격 ref 를 1회 읽어 가른다
@@ -90,13 +91,13 @@ for i in 1 2; do
   LSO="$("$TB" 7 git -C "$REPO" ls-remote "$REMOTE" "refs/heads/$TARGET" 2>&1)"; lrc=$?; LSV="${LSO%%[[:space:]]*}"   # 실패 경로 진단 1회(읽기 전용 · 7 s)
   if [ "$lrc" -eq 0 ] && [ "$LSV" = "$Q" ]; then plog ls=Q; LANDVIA="ls-remote"; break
   elif [ "$lrc" -eq 0 ] && [ "$LSV" = "$M" ]; then plog ls=M   # r1336: 1차 timeout(rc124/143) + 원격 main = M(착지 0 확정) + 남은 시간 ≥ PB 일 때만 재시도 1회(상한 2×PB) · 2차는 위 non-FF·ls-remote 분기를 1차와 같이 탄다 · 3차 0
-    if [ "$i" -eq 1 ] && { [ "$PRC" -eq 124 ] || [ "$PRC" -eq 143 ]; } && [ $((LIM - (SECONDS - T0))) -ge "$PB" ]; then RT=1; echo "INFO 재시도 1(1차 timeout rc=$PRC · 원격 $TARGET = $M 확인 · 상한 min(2×${PB}s, 남은 시간))"; continue; fi
+    if [ "$i" -eq 1 ] && { [ "$PRC" -eq 124 ] || [ "$PRC" -eq 143 ]; } && [ $((LIM - (SECONDS - T0) - 7)) -ge "$PB" ]; then RT=1; echo "INFO 재시도 1(1차 timeout rc=$PRC · 원격 $TARGET = $M 확인 · 상한 min(2×${PB}s, 남은 시간 − 7s))"; continue; fi
     [ "$i" -eq 1 ] && rej "착지 0 확정(원격 $TARGET = $M) · push 응답 불명(rc=$PRC) · 재시도 0 — 총 마감 안에 끝내지 못함 · 다음 틱에 다시"; rej "착지 0 확정(재시도 1 포함 · 원격 $TARGET = $M) · push 응답 불명(rc=$PRC) · 3차 0 — 다음 틱에 다시"
   else plog 불명; rej "원격 상태 불명 · 손 확인 필요(push rc=$PRC · ls-remote rc=$lrc 값=${LSO:0:80})"; fi
 done; hs_release   # r1286: 자리 풀기 = push 재시도·ls-remote 확인 루프 «전체» 가 끝난 뒤 — 설치 검사·PR 닫기는 자리 0
 mkdir -p "$STATE" && printf '%s repo=%s main=%s head=%s method=ft-merge-land%s tree=%s landed=%s pr=%s approve=%s%s approve-file=%s%s%s%s%s\n' "$(date +%Y-%m-%dT%H:%M:%S)" "$(basename "${SLUG:-$ROOT}")" "$M" "$S" "${FF:+-ff}" "$(G rev-parse "$S^{tree}")" "$Q" "$PR" "$AP" "${EQM:+ $EQM}" "${AFE:-}" "${LANDVIA:+ push-confirmed=ls-remote}" "${DOCX:+ $DOCX}${S0:+ doc-auto-merge=$S0}" "$([ "${AFV:-}" != D1 ] || printf ' standing=D1')" "${PEV:+ ${PEV##*$'\n'}}" >>"$STATE/merge-gate.log"   # r947: 상시 승인 착지만 끝에 standing=D1
 echo "LANDED pr=$PR sha=$Q main_before=$M head=$S tree=$(G rev-parse "$Q^{tree}")${FF:+ mode=ff}"
-echo "push ok objects=$PN bound=$PB attempt=$AB took=$((SECONDS - PS))s${LANDVIA:+ confirmed=ls-remote(응답 후 timeout)}"   # R354: 착지마다 1줄 — bound=계산 최대 · attempt=실제 상한 · took=마지막 시도 소요 · 3건 모이면 기준량 U0 갱신 근거
+echo "push ok objects=$PN bound=$PB attempt=$AB took=${PEL}s${LANDVIA:+ confirmed=ls-remote(응답 후 timeout)}"   # R354: 착지마다 1줄 — bound=계산 최대 · attempt=실제 상한 · took=마지막 시도 소요 · 3건 모이면 기준량 U0 갱신 근거
 fm_land_ledger "$STATE" "$AST" "$AP" "$Q" "${AFV:-}"   # R298(DA⑥ H3) · r947 · r1336: 대리 승인 원장 기록 = ft-merge-lib.sh 로 이사(동작 불변 · 실패해도 착지 rc 불변)
 fm_flag_off_new "$REPO" "$M" "$Q"   # R239: 이 착지가 새로 만든 «꺼진 플래그 = 결정 1건» 을 출력만(착지 rc 불변)
 # R243: 착지 성공 «뒤»에만 기준 헤드를 Q 로 원자 교체(옛 값이 Q 의 조상일 때만 전진) + 뒤처진 팀 알림(실패해도 착지 rc 불변)
