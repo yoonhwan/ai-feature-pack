@@ -112,19 +112,19 @@ pland() {  # pland <PR> <env…> — 대역 PATH 로 착지 · 시도 기록 초
   out="$(env PATH="$SP:$PATH" "$@" bash "$LAND" "$pr" --approve-sha "$P" --repo "$W" 2>&1)"; rc=$?
 }
 pb() { sed -n '1p' "$PLOG"; }   # 첫 push 시도의 timeout 인자
-pland 21 STUB_OBJECTS=1; [ "$rc" = 0 ] && [ "$(pb)" = 11 ] && [[ "$out" == *"push ok objects=1 bound=11 attempt=11 took="* ]]; ck "ⓐ 객체 1 → bound 11 (4.5+7) · push ok 줄(bound=PB attempt=AB)" $?
-pland 22 STUB_OBJECTS=390; [ "$rc" = 0 ] && [ "$(pb)" = 32 ] && [[ "$out" == *"push ok objects=390 bound=32 attempt=32 took="* ]]; ck "ⓑ 객체 390(#1859) → ceil(390/100)=4 → bound 32" $?
-[ "$(. "$BIN/ft-merge-lib.sh"; fm_push_calc 5000 2>/dev/null)" = 70 ] && [ "$(. "$BIN/ft-merge-lib.sh"; fm_push_calc 900 2>/dev/null)" = 67 ]; ck "ⓒ 객체 5,000 → 4.5+350 → 70 클램프 · 900 → 67(fm_push_calc)" $?
-pland 23 STUB_REVLIST_FAIL=1; [ "$rc" = 0 ] && [ "$(pb)" = 11 ] && [[ "$out" == *"objects=?"* ]] && [[ "$out" == *"WARN"* ]]; ck "ⓓ 객체 수 조회 실패 → F+7=11 호환값 + stderr WARN 1줄(조용한 통과 0)" $?
+pland 21 STUB_OBJECTS=1; [ "$rc" = 0 ] && [ "$(pb)" = 14 ] && [[ "$out" == *"push ok objects=1 bound=14 attempt=14 took="* ]]; ck "ⓐ 객체 1 → bound 14 (F 7 + 7 · r1336) · push ok 줄(bound=PB attempt=AB)" $?
+pland 22 STUB_OBJECTS=390; [ "$rc" = 0 ] && [ "$(pb)" = 35 ] && [[ "$out" == *"push ok objects=390 bound=35 attempt=35 took="* ]]; ck "ⓑ 객체 390(#1859) → ceil(390/100)=4 → bound 35 (7+28)" $?
+[ "$(. "$BIN/ft-merge-lib.sh"; fm_push_calc 5000 2>/dev/null)" = 70 ] && [ "$(. "$BIN/ft-merge-lib.sh"; fm_push_calc 800 2>/dev/null)" = 63 ]; ck "ⓒ 객체 5,000 → 7+350 → 70 클램프 · 800 → 63(fm_push_calc · r1336 F 7)" $?
+pland 23 STUB_REVLIST_FAIL=1; [ "$rc" = 0 ] && [ "$(pb)" = 14 ] && [[ "$out" == *"objects=?"* ]] && [[ "$out" == *"WARN"* ]]; ck "ⓓ 객체 수 조회 실패 → F+7=14 호환값 + stderr WARN 1줄(조용한 통과 0)" $?
 np() { wc -l < "$PLOG" | tr -d ' '; }   # push 시도 수
 # DA⑥ H1 ⓗ — 재시도 = «서버 응답 전 연결 실패» 뿐 · timeout·reset·remote 출력은 불명 → 재시도 0 + ls-remote 1회로 착지됨/착지 0/불명 판정
 MH="$(omain)"; pland 24 STUB_OBJECTS=1 PUSH_MODES="afterland ok"
 [ "$rc" = 0 ] && [ "$(np)" = 1 ] && [ "$(omain)" != "$MH" ] && [[ "$out" == *"confirmed=ls-remote"* ]] && tail -n1 "$T/state/merge-gate.log" | grep -q 'push-confirmed=ls-remote'; ck "ⓗ1 응답 후 timeout(remote: 줄 뒤 rc124 · 원격 ref=Q) → 재시도 0 · ls-remote==Q → 착지됨 정상 종료" $?
 MH="$(omain)"; pland 25 STUB_OBJECTS=1 PUSH_MODES="reset ok"
 [ "$rc" = 1 ] && [ "$(np)" = 1 ] && [ "$(omain)" = "$MH" ] && [[ "$out" == *"착지 0 확정"* ]] && [[ "$out" == *"응답 불명"* ]]; ck "ⓗ2 응답 후 reset(remote: 줄 뒤) → 불명 · ls-remote==M → rej «착지 0 · 불명» · 재시도 0" $?
-MH="$(omain)"; pland 32 STUB_OBJECTS=1 PUSH_MODES="rc124 ok"
-[ "$rc" = 1 ] && [ "$(np)" = 1 ] && [ "$(omain)" = "$MH" ] && [[ "$out" == *"착지 0 확정"* ]]; ck "ⓗ2b remote 출력 0 인 rc124 도 불명 → 재시도 0(옛 ⓔ1 대체) · ls-remote==M → rej" $?
-pland 26 STUB_OBJECTS=1 PUSH_MODES="conn ok"; [ "$rc" = 0 ] && [ "$(np)" = 2 ] && [ "$(sed -n 2p "$PLOG")" = 11 ]; ck "ⓗ3 응답 없음 연결 실패(remote: 0 · ssh timed out) → 재시도 1 후 착지 · 2차도 bound 11" $?
+MH="$(omain)"; pland 32 STUB_OBJECTS=1 PUSH_MODES="rc124 rc124"
+[ "$rc" = 1 ] && [ "$(np)" = 2 ] && [ "$(omain)" = "$MH" ] && [[ "$out" == *"착지 0 확정"* ]]; ck "ⓗ2b remote 출력 0 인 rc124 = 불명 → ls-remote==M → r1336: 재시도 1회 뒤 2차도 rc124 → rej(3차 0 · 재시도 0 자리는 test_merge_land_push_retry_r1336 V2)" $?
+pland 26 STUB_OBJECTS=1 PUSH_MODES="conn ok"; [ "$rc" = 0 ] && [ "$(np)" = 2 ] && [ "$(sed -n 2p "$PLOG")" = 14 ]; ck "ⓗ3 응답 없음 연결 실패(remote: 0 · ssh timed out) → 재시도 1 후 착지 · 2차도 bound 14" $?
 MH="$(omain)"; pland 34 STUB_OBJECTS=1 PUSH_MODES="rc124 ok" STUB_LSREMOTE_FAIL=1
 [ "$rc" = 1 ] && [ "$(np)" = 1 ] && [ "$(omain)" = "$MH" ] && [[ "$out" == *"원격 상태 불명"* ]] && [[ "$out" != *"착지 0 확정"* ]]; ck "ⓗ4 불명 + ls-remote 실패 → rej «원격 상태 불명» · «착지 0 확정» 문구 0(조용한 통과 0)" $?
 # ⓔ3: 1차가 시간을 먹어 남은 총 마감 < PB → 재시도 0 — main 기준값은 호출 «전» 캡처 · PB·AB·시도 수 명시 단언
@@ -139,7 +139,7 @@ pland 27 STUB_OBJECTS=1 PUSH_MODES="reject ok"; [ "$rc" = 1 ] && [ "$(wc -l < "$
 pland 28 STUB_OBJECTS=1 PUSH_MODES="nff ok"; [ "$rc" = 1 ] && [ "$(wc -l < "$PLOG" | tr -d ' ')" = 1 ]; ck "ⓕ2 pre-receive 거절 → 재시도 0" $?
 pland 29 STUB_OBJECTS=1 PUSH_MODES="other ok"; [ "$rc" = 1 ] && [ "$(wc -l < "$PLOG" | tr -d ' ')" = 1 ] && [[ "$out" == *"push 실패"* ]]; ck "ⓕ3 분류 못 한 실패 → 재시도 0 + push 실패 REJECT" $?
 pland 30 STUB_OBJECTS=1 FT_PUSH_FIXED_S=9; [ "$rc" = 0 ] && [ "$(pb)" = 14 ] && [[ "$out" == *"WARN"*"FT_PUSH_FIXED_S"* ]]; ck "ⓖ1 FT_PUSH_FIXED_S=9 → 7 로 클램프(bound 14) + WARN" $?
-pland 31 STUB_OBJECTS=250 FT_PUSH_UNIT_OBJECTS=0; [ "$rc" = 0 ] && [ "$(pb)" = 25 ] && [[ "$out" == *"WARN"*"FT_PUSH_UNIT_OBJECTS"* ]]; ck "ⓖ2 FT_PUSH_UNIT_OBJECTS=0 → 기본 100(250객체=3단위 → 25) + WARN" $?
+pland 31 STUB_OBJECTS=250 FT_PUSH_UNIT_OBJECTS=0; [ "$rc" = 0 ] && [ "$(pb)" = 28 ] && [[ "$out" == *"WARN"*"FT_PUSH_UNIT_OBJECTS"* ]]; ck "ⓖ2 FT_PUSH_UNIT_OBJECTS=0 → 기본 100(250객체=3단위 → 28) + WARN" $?
 # R392 ⓘff — --ff: 승인 sha == PR head ∧ main 이 head 의 조상 → commit-tree 0 · push <HEAD>:refs/heads/main · 객체 0
 SF="$T/shimF"; mkdir -p "$SF"; FLOG="$T/ff.log"; RCNT="$T/ff.rcnt"
 cat > "$SF/git" <<EOF
@@ -164,7 +164,7 @@ fland 40 head; F40="$PRSHA"
 [ "$(git -C "$ORIGIN" rev-list --count "$FM..main")" = 2 ] && ! git -C "$ORIGIN" log --format=%B "$FM..main" | grep -q 'PR #40'; ck "ⓘff① 커밋 수 보존(2) · squash 커밋 0" $?
 tail -n1 "$T/state/merge-gate.log" | grep -q "head=$F40 method=ft-merge-land-ff tree=.* landed=$F40 pr=40"; ck "ⓘff① merge-gate.log method=ft-merge-land-ff · landed=HEAD" $?
 [ "$(head -n1 "$T/.fable-team/state/base-head")" = "$F40" ] && [[ "$out" == *"ICHK --range $FM..$F40 --ref $F40 "* ]]; ck "ⓘff① base-head · install 검사 Q=HEAD(--range M..HEAD)" $?
-[[ "$out" == *"push ok objects=0 bound=11 "* ]]; ck "ⓘff④ 전송 객체 0 → push ok objects=0 bound=11" $?
+[[ "$out" == *"push ok objects=0 bound=14 "* ]]; ck "ⓘff④ 전송 객체 0 → push ok objects=0 bound=14" $?
 git -C "$T/race" fetch -q origin && git -C "$T/race" checkout -q -B main origin/main
 fland 41 head FF_RACE=1; [ "$rc" = 1 ] && [[ "$out" == *"ff 불가"* ]] && [ "$(git -C "$ORIGIN" log -1 --format=%s main)" = ffrace ] && ! grep -q '^push' "$FLOG"; ck "ⓘff② 검사 뒤 main 전진(head 조상 아님) → push 전 REJECT · origin main = 경주 커밋 그대로" $?
 : > "$PLOG"; MF="$(omain)"; fland 42 head PATH="$SP:$SF:$PATH" STUB_OBJECTS=1 PUSH_MODES="reject"

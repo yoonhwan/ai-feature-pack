@@ -43,15 +43,22 @@ fm_head_branch() {
   [ -n "$b" ] && git check-ref-format --branch "$b" >/dev/null 2>&1 && printf '%s' "$b"
 }
 #   fm_push_calc <객체수|?> : push «시도당 상한»(정수 초 · 소수 버림) = min(F + 7 × ceil(N/U0), 70) — 규칙 12 «쪼갤 수 없는 크기 아는 배치»(판정 1375). N 모름(?) = F + 7.
-#     F = FT_PUSH_FIXED_S(기본 4.5 · ssh 접속 2.9 + pre-push 훅 1.1 실측 + 여유 · 7 초과는 7 로 클램프) · U0 = FT_PUSH_UNIT_OBJECTS(기본 100 객체/7 s 잠정 · 양의 정수 아니면 기본) · 잘못된 env 는 WARN(stderr)
+#     F = FT_PUSH_FIXED_S(기본 7 · r1336: 부하 50~60 에서 ssh·ref 광고 + pre-push 훅 + 서버 처리 6~10 s 실측 · 7 초과는 7 로 클램프) · U0 = FT_PUSH_UNIT_OBJECTS(기본 100 객체/7 s 잠정 · 양의 정수 아니면 기본) · 잘못된 env 는 WARN(stderr)
 #   fm_push_bound <repo> <M> <Q> : stdout "<객체수|?> <시도당 상한>" — 객체수 = rev-list --objects M..Q · 조회 실패는 WARN 1줄 + 호환값(F+7) (조용한 통과 0)
 fm_push_calc() {
-  local n="$1" f="${FT_PUSH_FIXED_S:-4.5}" u="${FT_PUSH_UNIT_OBJECTS:-100}"
-  printf '%s' "$f" | grep -Eq '^[0-9]+(\.[0-9]+)?$' && awk -v f="$f" 'BEGIN{exit !(f>0)}' || { echo "WARN FT_PUSH_FIXED_S=$f 는 0 보다 큰 숫자가 아님 → 기본 4.5" >&2; f=4.5; }
+  local n="$1" f="${FT_PUSH_FIXED_S:-7}" u="${FT_PUSH_UNIT_OBJECTS:-100}"
+  printf '%s' "$f" | grep -Eq '^[0-9]+(\.[0-9]+)?$' && awk -v f="$f" 'BEGIN{exit !(f>0)}' || { echo "WARN FT_PUSH_FIXED_S=$f 는 0 보다 큰 숫자가 아님 → 기본 7" >&2; f=7; }
   awk -v f="$f" 'BEGIN{exit !(f>7)}' && { echo "WARN FT_PUSH_FIXED_S=$f 는 7 초과 → 7 로 클램프" >&2; f=7; }
   printf '%s' "$u" | grep -Eq '^[0-9]+$' && [ "$u" -gt 0 ] || { echo "WARN FT_PUSH_UNIT_OBJECTS=$u 는 양의 정수가 아님 → 기본 100" >&2; u=100; }
   if [ "$n" = '?' ]; then awk -v f="$f" 'BEGIN{printf "%d\n", f+7}'
   else awk -v f="$f" -v n="$n" -v u="$u" 'BEGIN{k=int((n+u-1)/u); if(k<1)k=1; t=f+7*k; if(t>70)t=70; printf "%d\n", t}'; fi
+}
+#   fm_push_log <tsv> <시도> <객체수> <PB> <AB> <소요초> <rc> <판정 ok|timeout|ls=M|ls=Q|불명|non-ff|연결실패|실패> : r1336 — push 시도마다 1줄(시각 · 시도 · 1분 부하 · 객체 수 · PB · AB · 소요 · rc · 판정) · 쓰기 실패는 WARN 1줄(착지 rc 영향 0 · rc 항상 0)
+fm_push_log() {
+  local f="$1" ld; shift; ld="$(uptime 2>/dev/null | sed 's/.*load averages*: *//' | awk '{gsub(",","",$1); print $1}')"
+  { mkdir -p "$(dirname "$f")" && printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$(date +%Y-%m-%dT%H:%M:%S)" "$1" "${ld:-?}" "$2" "$3" "$4" "$5" "$6" "$7" >>"$f"; } 2>/dev/null \
+    || echo "WARN push-timing 기록 실패($f) — 착지 rc 불변" >&2
+  return 0
 }
 fm_push_bound() {
   local out n
@@ -141,6 +148,11 @@ for l in open(f,encoding="utf-8").read().splitlines():
 if mode=="rm": open(f+".tmp","w",encoding="utf-8").write("".join(x+"\n" for x in keep))'
 fm_close_pending_ls() { [ -s "$1" ] || return 0; python3 -c "$FM_CP_PY" "$1" "$2" ls; }
 fm_close_pending_rm() { python3 -c "$FM_CP_PY" "$1" "$2" rm "${@:3}" && mv -f "$1.tmp" "$1"; }
+#   fm_pr_done <닫기 실패 출력> <slug|빈> <pr> : r1336 — 이미 닫힌 PR 판정(rc0 = 닫힌 것) · 닫기 출력에 «already merged|already closed» 또는 gh pr view state 가 MERGED/CLOSED · 그 밖(조회 실패 포함) rc1 = 지금처럼 장부에 남김
+fm_pr_done() {
+  printf '%s' "$1" | grep -qiE 'already (merged|closed)' && return 0
+  fm_t7 "${FT_GH:-gh}" pr view "$3" ${2:+-R "$2"} --json state 2>/dev/null </dev/null | python3 -c 'import json,sys;sys.exit(0 if json.load(sys.stdin).get("state") in ("MERGED","CLOSED") else 1)' 2>/dev/null
+}
 #   fm_close_retry <장부> <repo키> <slug|빈> <닫기도구> <남은초> : r1131 — 착지 시작 때 장부의 같은 repo 항목(최대 3)을 pr-close --comment 로 다시 닫는다
 #     건마다 fm_t7 · 건 시작 때 남은 ≥ 20 s 일 때만(아니면 «재시도 미룸» 1줄 · 재시도 0) · 성공 = 장부에서 지움 · 실패 = 남김 + stdout 1줄 · rc 항상 0(착지 판정 불변)
 fm_close_retry() {
@@ -153,6 +165,7 @@ fm_close_retry() {
     [ "$rem" -ge 20 ] || { echo "INFO 닫기 재시도 미룸 — 남은 ${rem}s < 20s · 장부 그대로($f)"; break; }
     printf '%s\n' "착지 sha $sha (ft-merge-land · 닫기 재시도 r1131)" > "$cb"
     if o="$(fm_pr_close "$slug" "$pr" "$cb" "$gw" 2>&1 </dev/null)"; then ok="$ok $pr"; echo "INFO 닫기 재시도 PR #$pr 닫음(착지 sha $sha)"
+    elif fm_pr_done "$o" "$slug" "$pr"; then ok="$ok $pr"; echo "INFO 닫기 재시도 PR #$pr 이미 MERGED/CLOSED — 성공으로 보고 장부에서 지움"
     else echo "WARN 닫기 재시도 실패 PR #$pr — 장부에 남김: $(printf '%s' "$o" | tail -n1 | cut -c1-160)"; fi
   done <<<"$items"
   rm -f "$cb"
@@ -180,4 +193,17 @@ fm_pr_close() {
     echo "INFO PR #$pr 닫기 = 사람 gh($slug)"; return 0
   done
   fm_t7 ${slug:+env FT_ISSUE_REPO="$slug"} "$gw" pr-close "$pr" --comment "$cb" --apply
+}
+#   fm_land_ledger <상태폴더> <승인 상태 폴더> <승인 sha> <착지 sha> <승인 줄 이벤트> : R298(DA⑥ H3) · r947 — 그 승인 sha 의 «마지막 scope-use S<n>» 한 원장(+ D1 상시 승인이면 D1 원장)의 «착지 sha 칸이 빈 행»(승인 sha == AP)에 Q·되돌림 명령 기록 · 실패해도 WARN 만(착지 rc 불변 · r1336: ft-merge-land.sh 120줄 상한 때문에 이사 · 동작 불변)
+fm_land_ledger() {
+  local st="$1" ast="$2" ap="$3" q="$4" afv="${5:-}" sn dl="" lf arc
+  sn="$(awk -v ap="$ap" '$1=="scope-use" && $3==ap && $2 ~ /^S[0-9]+$/ {s=$2} END{print s}' "$st/autonomy.log" 2>/dev/null)"
+  [ "$afv" != D1 ] || dl="$ast/autonomy-standing/D1.ledger.tsv"
+  for lf in "$st/autonomy-scope/${sn:-none}.ledger.tsv" ${dl:+"$dl"}; do
+    [ -f "$lf" ] || continue
+    awk -F'\t' -v OFS='\t' -v ap="$ap" -v q="$q" '$2==ap && $6=="" {$6=q; $7="git revert --no-edit " q; n++} {print} END{exit n?0:3}' "$lf" 2>/dev/null > "$lf.$$"; arc=$?
+    if [ "$arc" -eq 0 ]; then mv -f "$lf.$$" "$lf" 2>/dev/null || { rm -f "$lf.$$"; echo "WARN 대리 승인 원장 기록 실패($lf) — 착지는 성공 · 손으로: git revert --no-edit $q"; }
+    else rm -f "$lf.$$"; [ "$arc" -eq 3 ] || echo "WARN 대리 승인 원장 기록 실패($lf) — 착지는 성공 · 손으로: git revert --no-edit $q"; fi
+  done
+  return 0
 }
