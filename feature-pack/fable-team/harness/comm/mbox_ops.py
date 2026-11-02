@@ -3,6 +3,7 @@ from mbox_conf import *
 from mbox_store import _check_name, _clip, _legacy_dirs, _load, _locked, _mbox, _next_seq, _prune_bodies, _save, _stash_body
 from mbox_guard import _guard_log, _guard_record, _guard_verdict, _log_sent, _reply_exempt
 import mbox_keep   # r912 — 넘칠 때 버리는 순서(시스템 → 일반 · 사람 글 보존)
+import mbox_roots  # r1309 — 다른 루트 받는이 = 우편 다리(roots.tsv)
 from mbox_lineage import claim, eligible, retired_to
 import mbox_handover   # r1116 ③ 영수(받은 쪽지마다 1줄) — 승계 마무리 검사(close-check)의 재료
 from mbox_desk_gate import verdict as _desk_verdict   # r660 · DA⑥ r1 ⓒ: 판정 자리 = python send 층 하나(셸·python 직접·relay 전부)
@@ -11,6 +12,12 @@ CANON = None   # mbox.py 가 묶는다
 
 def send(to, frm, body, force=False, desk_attach=""):
     _check_name(to); _check_name(frm)
+    # ★r1309 다리(기획 3184 §3-4)★ — 받는이가 «내 루트 명부» 에 없고 roots.tsv 의 다른 현역 루트 명부에 있으면 그 루트 큐로 1줄.
+    #   roots.tsv 없음 = None(지금 경로 그대로) · 어느 명부에도 없음 = «받는이 판정 불가» rc≠0(조용한 자기 큐 쓰기 0).
+    bridged = mbox_roots.bridge(to, frm, body)
+    if bridged:
+        print(bridged)
+        return
     # ★desk 창구 고정(r660 · 판정 1125)★ — 잠금 «밖»에서 판정(큐 무관) · --force 로 안 풀린다 · 판정기 고장 = REJECT(fail-closed).
     desk = _desk_verdict(to, frm, body, desk_attach, CANON or "")
 

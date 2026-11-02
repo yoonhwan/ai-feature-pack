@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from ft_team_lib import team_rel
+from ft_team_lib import basis_ref, team_rel
 from ft_team_attach_lib import AttachError, cards_path, command, directive_ok, origin_teamset_row, paths, safe, set_teamset_row, state_of, teamset_row, tick_status, tick_table, write
 
 HERE = Path(__file__).resolve().parent
@@ -95,7 +95,7 @@ def apply_team(root: Path, team: str, own_tick: bool, fix_fields: bool, dry: boo
         changed += int(write(p["seats"], (json.dumps(doc, ensure_ascii=False, indent=2) + "\n").encode(), dry))
     if not directive_ok(root, team, rel, p["directive"]):
         if not rel.startswith("design/teams/"):
-            row = f"{team}\t.\torigin/main\t{rel}/indices\n"
+            row = f"{team}\t.\t{basis_ref(root)}\t{rel}/indices\n"   # r1309: 기준 ref = roots.tsv 칸(없으면 origin/main — 지금 동작)
             old = p["directive"].read_text(encoding="utf-8") if p["directive"].is_file() else ""
             changed += int(write(p["directive"], (old + row).encode(), dry))
     headline = p["tick"] / "HEADLINE.md"

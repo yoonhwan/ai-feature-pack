@@ -4,8 +4,8 @@
 #        예산(git·스캔 상한) · 보관 경보 · planner [HIL] 두 종류(실제 판정기 reject 모드 통과) · ft-disk-alarm 하루 1회 · 회귀 스텁
 #   ★git 은 «적대적 기본» 으로 돌린다★ — GIT_CONFIG_GLOBAL 에 core.quotepath=true(다른 머신 기본) 를 박아 두고, 도구가 -c core.quotepath=off 로
 #        한글 «완성» 경로를 그대로 받는지 본다(이 기계 전역 false 에 기대지 않는다 · arch#206 동작 반례 1).
-#   쓰는 법: bash tests/test_accum_sweep_r1293.sh            # 반례 R1·R2·R7~R10·R12~R17·R19·R20
-#            bash tests/test_accum_sweep_r1293.sh --mutate   # 변이 1·2·7~21 — 사본에 한 줄 어긋나게 하고 그 칸이 «무너지는지» 를 본다
+#   쓰는 법: bash tests/test_accum_sweep_r1293.sh            # 반례 R1·R2·R7~R10·R12~R17·R19·R20·R22
+#            bash tests/test_accum_sweep_r1293.sh --mutate   # 변이 1·2·7~21·24 — 사본에 한 줄 어긋나게 하고 그 칸이 «무너지는지» 를 본다
 #   실 상태·실 쪽지·실 git 설정·실 /tmp 작업 0 — 임시 루트·임시 리포·가짜 mbox·가짜 git 만. ulimit -u + timeout 70. 자기 재호출 0.
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
@@ -134,6 +134,18 @@ sw
 L="$(ls "$R"/.fable-team/state/accum/cards-done-30d-*.txt 2>/dev/null | tail -1)"
 { [ "$(grep -c . "$L")" = 1 ] && grep -q old-40 "$L" && ! grep -q new-10 "$L"; } \
   && ok "R20 작업 트리(최신 가지)에만 있는 완성 카드는 목록에 없다 — ref 의 ls-tree 기준" || bad "R20 [$(cat "$L" 2>/dev/null | tr '\n' ' ')]"
+
+# ── R22 git log 도 ls-tree 처럼 표의 카드 폴더(pathspec)로 좁힌다 — 큰 리포에서 30일 이력을 전부 훑지 않는다(r1317) ──
+mkroot r22; rm -f "$T/git.args"
+printf '#!/bin/sh\nprintf "%%s\\n" "$*" >> "%s/git.args"\nexit 0\n' "$T" > "$T/git-args.sh"; chmod 755 "$T/git-args.sh"
+printf '*\t.\torigin/main\tdesign/teams/*/indices\nharness\t.\torigin/ops/main-base\tdesign/harness/indices\n' > "$R/.fable-team/state/directive-roots.tsv"
+sw FT_ACCUM_GIT="$T/git-args.sh"
+LOGL="$(grep -F ' log ' "$T/git.args" 2>/dev/null)"
+{ [ $RC = 0 ] && [ "$(grep -c . <<<"$LOGL")" = 2 ] \
+  && grep -qF -- '-- design/teams/*/indices' <<<"$LOGL" && grep -qF -- '-- design/harness/indices' <<<"$LOGL" \
+  && ! grep -q '판정 불가 cards' "$R/.fable-team/state/accum/sweep-$(dstr "$NOW0").log" 2>/dev/null; } \
+  && ok "R22 git log 인자 끝에 «-- <표의 카드 폴더>»(design/teams/*/indices · design/harness/indices) · log 호출 2 = 둘 다 좁혀짐 · 판정 불가 0" \
+  || bad "R22 [$LOGL] · $(endline)"
 
 # ── R8 백업 폴더: 크기 1줄 · 이동·지우기 0 ──
 mkroot r8; BK="$R/.fable-team/state/v6-uncommitted-backup-20261023"; mkdir -p "$BK"
@@ -451,6 +463,16 @@ PY
     L="$(ls "$R"/.fable-team/state/accum/cards-done-30d-*.txt 2>/dev/null | tail -1)"
     { grep -q '\\354' "$L" 2>/dev/null || [ ! -f "$L" ]; } \
       && ok "변이 22(quotepath off 제거) → 경로가 8진으로 새 R7 «한글 경로 그대로» 단언이 무너진다" || bad "변이 22 미검출 [$(cat "$L" 2>/dev/null | tr '\n' ' ')]"
+  fi
+  # 변이 24: git log 인자에서 pathspec("--", r[3]) 을 뺀다 → R22 «-- <카드 폴더>» 단언이 무너진다
+  MD="$(mut m24 ft_accum_scan.py '"--name-status", "--pretty=format:", "--", r[3]], t)' '"--name-status", "--pretty=format:"], t)')"
+  if [ -z "$MD" ]; then bad "변이 24 패치 실패"; else
+    mkroot m24; rm -f "$T/git.args"
+    printf '*\t.\torigin/main\tdesign/teams/*/indices\nharness\t.\torigin/ops/main-base\tdesign/harness/indices\n' > "$R/.fable-team/state/directive-roots.tsv"
+    SUTD="$MD"; sw FT_ACCUM_GIT="$T/git-args.sh"; SUTD="$SUTD0"
+    LOGL="$(grep -F ' log ' "$T/git.args" 2>/dev/null)"
+    { ! grep -qF -- '-- design/harness/indices' <<<"$LOGL"; } \
+      && ok "변이 24(pathspec 제거) → log 인자에 «-- <카드 폴더>» 가 없어 R22 단언이 무너진다" || bad "변이 24 미검출 [$LOGL]"
   fi
 fi
 

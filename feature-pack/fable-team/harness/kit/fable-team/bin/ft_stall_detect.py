@@ -18,6 +18,7 @@ from typing import Any
 
 from ft_api_outage_util import epoch as api_epoch, is_error  # r1290: API 오류 표식 판정은 그쪽 한 벌(is_error)을 그대로 쓴다
 from ft_decision_kind import PROMOTED  # r1154: 승격 표식 정규식 한 벌(r1148) — 가져오기 실패는 예외 그대로
+from ft_team_lib import roots
 from ft_team_lib import rosters as team_rosters
 
 IDLE_MIN = 3.0
@@ -82,12 +83,56 @@ def _lineage_master(where: dict[str, dict[str, Any]], seat: str) -> str | None:
     return m if m and m != seat else None
 
 
+def other_root_seats(root: Path, warn: bool = True) -> set[str]:
+    """r1309 §3-8 — roots.tsv 의 «다른 현역 루트» 좌석 이름(읽기 전용 제외 목록 · 쓰기 0).
+    roots.tsv 없음 = 빈 집합(지금 동작) · TEAMS.md 가 없는 루트는 그 .fable-team/seats*.json 좌석 키로 본다.
+    한 루트라도 못 읽으면 WARN/ERROR 1줄(조용한 0통 0)."""
+    me = Path(root).resolve()
+    names: set[str] = set()
+    try:
+        rows = roots()
+    except Exception as e:  # noqa: BLE001 — 명부가 깨졌다: «제외 0» + 1줄
+        if warn:
+            print(f"ERROR 루트 명부 판정 불가({type(e).__name__}) — 다른 루트 좌석 제외 0")
+        return names
+    for row in rows:
+        if row["state"] != "현역" or Path(row["path"]).resolve() == me:
+            continue
+        try:
+            docs = [r["doc"] for r in team_rosters(Path(row["path"]))]
+        except Exception as e:  # noqa: BLE001 — TEAMS.md 없음·깨짐 둘 다 «제외 목록을 그 파일들로»
+            docs = _seat_docs(Path(row["path"]))
+            if not docs and warn:
+                print(f"WARN 다른 루트 {row['name']} 명부 판정 불가({type(e).__name__}) — 좌석 제외 0")
+        for d in docs:
+            if isinstance(d, dict):
+                names |= {k for k in d if not k.startswith("_")}
+    return names
+
+
+def _seat_docs(base: Path) -> list[Any]:
+    """그 루트의 .fable-team/seats*.json 본문들(명단 파일 없이 좌석 이름만 볼 때) · 못 읽은 파일은 건너뛴다."""
+    out: list[Any] = []
+    try:
+        files = sorted((base / ".fable-team").glob("seats*.json"))
+    except OSError:
+        return out
+    for f in files:
+        try:
+            out.append(json.loads(f.read_text(encoding="utf-8")))
+        except (OSError, ValueError):
+            continue
+    return out
+
+
 def off_roster_live(root: Path, live: Any, teams: list[dict[str, Any]]) -> list[tuple[str, str | None, str]]:
-    """r525 — tmux 라이브 좌석 중 명부 루프(load_teams 현역 행 · 팀 master)가 안 보는 것 → (좌석, 계보 현역 master|None, 교대 표시인데 라이브|명부 밖)."""
+    """r525 — tmux 라이브 좌석 중 명부 루프(load_teams 현역 행 · 팀 master)가 안 보는 것 → (좌석, 계보 현역 master|None, 교대 표시인데 라이브|명부 밖).
+    r1309 §3-8: roots.tsv 의 «다른 루트» 명부에 있는 좌석은 «명부 밖» 이 아니다 — 그 루트 stall-scan 이 판정한다."""
     seen = {s for t in teams for s in t["seats"]} | {t["master"] for t in teams}
     where = _roster_rows(root)
+    other = other_root_seats(root)
     return [(s, _lineage_master(where, s), "교대 표시인데 라이브") if s in where else (s, None, "명부 밖")
-            for s in sorted(set(live) - seen)]
+            for s in sorted(set(live) - seen) if s not in other]
 
 
 def _agent_pid(pid: str, kids: dict[str, list[str]], args: dict[str, str]) -> str | None:
