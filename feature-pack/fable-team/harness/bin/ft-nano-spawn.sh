@@ -17,6 +17,7 @@ while [ $# -gt 0 ]; do case "$1" in
   --cherry-override) HAVE_CO=1; CO="${2:-}"; shift 2 2>/dev/null || shift;; *) echo "unknown $1" >&2; exit 2;; esac; done
 CO_ARGS=(); [ "$HAVE_CO" -eq 0 ] || { [ -n "${CO//[[:space:]]/}" ] || { echo "usage: --cherry-override \"<사유>\" — 사유가 비었다(사유 없는 우회 거부)" >&2; exit 2; }; CO_ARGS=(--override "$CO"); }
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
+[ -f "$HERE/ft-heavy-slot-lib.sh" ] || { echo "REJECT ft-heavy-slot-lib.sh 없음: $HERE — 좌석 0"; exit 1; }; . "$HERE/ft-heavy-slot-lib.sh"   # r1286: 무거운 git 전역 자리(동시 2) — 없으면 조용한 통과 0
 _cmd_on="${FT_CMD_ENABLED:-0}"
 # ★일반화(2026-10-20 오빠 «ft-nano-spawn.sh 일반화 업그레이드»)★ — 티어는 «기본값 공급자»다: --agent 를 명시하면 티어가 에이전트·모델·effort·fast 를 덮어쓰지 않는다
 #   (chatbot #120064: `--agent pi --tier search` 가 pi 가 아니라 opencode 로 열렸다). 티어 이름 검사와 ROLE 은 그대로 한다.
@@ -760,6 +761,8 @@ sparse_patterns() {  # $1=팀 $2=base ref $3=카드 슬러그 — 머리 3줄 �
   [ -z "${3:-}" ] || printf '/design/teams/%s/evidence/%s/**\n' "$1" "$3"
 }
 if [ ! -d "$WTDIR" ]; then
+  # r1286: worktree add·sparse 체크아웃 = 무거운 git — 자리 하나를 쥐고 돈다. 실패 = 좌석 0(세션·명부 등록 전)
+  hs_acquire spawn "${FT_HEAVY_WAIT_S:-60}" || { echo "REJECT 판정 불가 — 무거운 git 자리 ${HS_MSG:-없음}(좌석 0)"; exit 1; }
   _SPT="$(printf '%s' "$IDX_ABS" | sed -nE 's#.*/design/(teams/)?([a-z0-9][a-z0-9_-]*)/indices/.*#\2#p')"   # 카드가 다른 워크트리(절대경로)에 있어도 팀을 푼다
   if [ "${FT_NANO_SPARSE:-1}" = 1 ] && [ -n "$_SPT" ]; then
     git -C "$ROOT" worktree add --no-checkout "$WTDIR" -b "$BRANCH" "$BASE_BRANCH" >/dev/null || { echo "REJECT worktree add 실패"; exit 1; }
@@ -800,6 +803,7 @@ else
     echo "INFO 재작성 $WTDIR"
   fi
 fi
+hs_release   # r1286: 워크트리 구간이 끝났다 — tmux 세션·데몬이 자리 fd 를 상속하지 않게 «띄우기 전» 에 풀어 놓는다
 
 # ③ 열기 — 모델 인자에 대괄호가 있어 zsh 글롭 즉사 함정(글로벌 규칙) → 이 스크립트는 bash 라 그대로 통과
 # R81 판정 847 — ③④(세션 열기·태그) 실패 = 이 실행이 연 세션만 undo 가 kill(소유권·착수 0 검사) · ⑤⑥ 실패 = kill 0 + 사람 판정
