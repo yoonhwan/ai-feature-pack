@@ -69,8 +69,5 @@ gate() {
 
 gate || exit 1
 
-# 게이트 통과 — 기존 beads shim 에 위임(설치돼 있을 때만)
-if command -v bd >/dev/null 2>&1; then
-  exec bd hooks run pre-push "$@"
-fi
+# 게이트 통과 — 끝(r1345: beads «bd hooks run pre-push» 위임 제거 · push 마다 bd sync 가 CPU 100%+ 를 썼다)
 exit 0

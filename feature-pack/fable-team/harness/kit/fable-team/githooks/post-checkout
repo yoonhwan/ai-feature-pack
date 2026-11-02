@@ -110,8 +110,5 @@ else
 fi
 # ────────────────────────────────────────────────────────────────────────────────
 
-if [ -x "$_top/.beads/hooks/post-checkout" ]; then
-  [ "$_ftw_rc" != 0 ] || exec "$_top/.beads/hooks/post-checkout" "$@"
-  "$_top/.beads/hooks/post-checkout" "$@"
-fi
+# r1345: «.beads/hooks/post-checkout» 위임 제거 — checkout 종료 코드 = 표식층 수렴 결과(_ftw_rc · 안 탄 경우 0)
 exit "$_ftw_rc"
