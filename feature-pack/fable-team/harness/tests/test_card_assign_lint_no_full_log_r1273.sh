@@ -59,13 +59,13 @@ GIT_AUTHOR_DATE="$((NOW - 50)) +0900" GIT_COMMITTER_DATE="$((NOW - 50)) +0900" g
 lint "$H/대기/vc.md"; vc="$RC/$(oracle vc.md)"
 [ "$va|$vb|$vc" = "1/1|0/0|1/1" ] && ok "R6 시각 역전 둘 · 설치 전 가지 A + 늦은 B 병합(경로 이력 단순화 = 첫 부모) → 옛 판과 같은 결과(1/1 · 0/0 · 1/1)" || bad "R6 $va|$vb|$vc (lint/oracle)"
 lap R6
-# R7 — git 실패(리포 아님) · 시간 초과(상한 env 입력) → 판정 불가 1줄 rc1 · Traceback 0 · 옛 카드로 통과 0
+# R7 — git 실패(리포 아님) · 시간 초과(상한 env 입력) → 판정 불가 1줄 rc3(r1250 · 옛 rc1) · Traceback 0 · 옛 카드로 통과 0
 new_root; mkdir -p "$T/plain/$H/대기"; printf '# p\n- 상태: 대기\n## 상태\n' > "$T/plain/$H/대기/p.md"
 OUT="$(cd "$T/plain" && env FT_ROOT="$R" python3 "$TOOL" lint "$T/plain/$H/대기/p.md" 2>&1)"; RC=$?; n1="$(printf '%s\n' "$OUT" | grep -c .)"
-[ "$RC" = 1 ] && [ "$n1" = 1 ] && printf '%s' "$OUT" | grep -q '^배정 줄 검사 판정 불가 — git log rc=[0-9]* · 배정 줄을 넣으면 조회 0$' && ! printf '%s' "$OUT" | grep -q Traceback && r7a=1 || r7a=0
+[ "$RC" = 3 ] && [ "$n1" = 1 ] && printf '%s' "$OUT" | grep -q '^배정 줄 검사 판정 불가 — git log rc=[0-9]* · 배정 줄을 넣으면 조회 0$' && ! printf '%s' "$OUT" | grep -q Traceback && r7a=1 || r7a=0
 add "$H/대기/to.md" "$((NOW - 9000))"; OUT="$(cd "$R" && env FT_ROOT="$R" FT_CARD_ASSIGN_GIT_TIMEOUT=0.001 python3 "$TOOL" lint "$R/$H/대기/to.md" 2>&1)"; RC=$?; n2="$(printf '%s\n' "$OUT" | grep -c .)"
-[ "$RC" = 1 ] && [ "$n2" = 1 ] && printf '%s' "$OUT" | grep -q '^배정 줄 검사 판정 불가 — git log 0.001초 초과 · 배정 줄을 넣으면 조회 0$' && ! printf '%s' "$OUT" | grep -q Traceback && r7b=1 || r7b=0
-[ "$r7a$r7b" = 11 ] && ok "R7 리포 아님 rc≠0 · 시간 초과 → «배정 줄 검사 판정 불가» 1줄 rc1 · Traceback 0 · 옛 카드로 통과 0" || bad "R7 a=$r7a b=$r7b :: $OUT"
+[ "$RC" = 3 ] && [ "$n2" = 1 ] && printf '%s' "$OUT" | grep -q '^배정 줄 검사 판정 불가 — git log 0.001초 초과 · 배정 줄을 넣으면 조회 0$' && ! printf '%s' "$OUT" | grep -q Traceback && r7b=1 || r7b=0
+[ "$r7a$r7b" = 11 ] && ok "R7 리포 아님 rc≠0 · 시간 초과 → «배정 줄 검사 판정 불가» 1줄 rc3 · Traceback 0 · 옛 카드로 통과 0" || bad "R7 a=$r7a b=$r7b :: $OUT"
 lap R7
 # R8 — 배정 줄 있는 카드 → git 호출 0 · 값 꼴 그대로(좌석 이름 OK · 잘못된 꼴 REJECT)
 new_root; mkdir -p "$T/stub"; printf '#!/bin/sh\necho called >> "%s/git.calls"\nexit 99\n' "$T" > "$T/stub/git"; chmod +x "$T/stub/git"; : > "$T/git.calls"
@@ -86,7 +86,7 @@ mkdir -p "$T/m1" "$T/m2" "$T/m3"; for d in m1 m2 m3; do cp "$BIN"/ft_*.py "$T/$d
 mut "$TOOL" "$T/m1/ft_card_assign_watch.py" 'math.ceil(inst) - 1' 'math.ceil(inst)'
 new_root "$((NOW - 1000))"; add "$H/대기/eq.md" "$((NOW - 1000))"; TOOL_RUN="$T/m1/ft_card_assign_watch.py" lint "$H/대기/eq.md"
 [ "$RC" = 0 ] && ok "변이1(--until 을 ceil(installed_at) 로 · 같은 초 포함) → R5 빨강(ct==installed_at 가 OK 로)" || bad "변이1 이 R5 에 안 잡힘 rc=$RC :: $OUT"
-mut "$TOOL" "$T/m2/ft_card_assign_watch.py" 'raise Undecided(why)' 'return True'
+mut "$TOOL" "$T/m2/ft_card_assign_watch.py" '    raise Undecided(why)' '    return subprocess.CompletedProcess(args, 0, "x", "")'
 new_root; add "$H/대기/to.md" "$((NOW - 9000))"; OUT="$(cd "$R" && env FT_ROOT="$R" FT_CARD_ASSIGN_GIT_TIMEOUT=0.001 python3 "$T/m2/ft_card_assign_watch.py" lint "$R/$H/대기/to.md" 2>&1)"; RC=$?
 [ "$RC" = 0 ] && ok "변이2(시간 초과를 «옛 카드» 로) → R7 빨강(판정 불가 줄 없이 rc0)" || bad "변이2 가 R7 에 안 잡힘 rc=$RC :: $OUT"
 mut "$TOOL" "$T/m3/ft_card_assign_watch.py" 'f"--until=@{math.ceil(inst) - 1}", ' ''
