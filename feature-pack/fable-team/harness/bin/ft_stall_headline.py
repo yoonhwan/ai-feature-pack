@@ -1,4 +1,16 @@
-"""ft-stall-scan의 팀 헤드라인 나이 판정과 단계별 알림."""
+"""ft-stall-scan의 팀 헤드라인 나이 판정과 단계별 알림.
+
+r1323 — 이름·경로·명부가 «지금 꼴» 이다(계약 K1~K9):
+K1 팀 이름 = load_teams 의 team 그대로(TEAMS.md 이름) · «m.» 앞머리는 한 번만 떼어 정규화 이름 n 을 만들고 그 뒤 전부 n 을 쓴다.
+K2 경로 = ft_headline_seats.folder(root, n)/HEADLINE.md(경로 규칙 사본 0) · folder None = 판정 불가 1줄.
+K3 팀장 = load_teams 가 읽은 그 명부(ft_team_lib.rosters 의 doc · v65 = seats.json)의 현역 role=master — seats-<팀>.json 을 따로 열지 않는다.
+K4 정지 표식(ft_card_assign_pause.team_paused) on = 대상 밖 1줄(열기 0 · 발신 0) · q = 막지 않음 + WARN 1줄 · FT_STALL_PAUSED_SKIP=0 이면 검사 0.
+K5 첫 칸이 «제0목표:» 로 시작하면 그 칸 하나만 떼고 시각·구조를 본다(거버넌스 R13).
+K6 시각 대조 = |mtime − 첫 줄 HH:MM| ≤ 15분이면 정상 · 넘으면 «시각 불일치» 판정 불가 · 나이는 «첫 줄 시각» 기준(자정 규칙 그대로).
+K7 구조는 나이를 막지 않는다 — 15분 초과면 구조와 무관하게 경보(why 에 «꼴 틀림: 사유») · 15분 이하 + 구조 틀림 = «구조 없음» 판정 불가.
+K8 구조 = RULE §1 확인 정규식(카드 대기·진행·완성(오늘) · 팀장=) + 좌석 화면 칸 하나 이상.
+K9 load_teams 의 master_stop(명부 _master 행 role=stop-ready) = 대상 밖 1줄(열기 0 · 발신 0).
+"""
 import json
 import os
 import re
@@ -6,62 +18,129 @@ import time
 from pathlib import Path
 from typing import Any, Callable
 
+import ft_card_assign_pause as card_pause
+import ft_headline_seats as headline_seats
+from ft_team_lib import rosters as team_rosters
+
 HEADLINE_MIN = 15.0
 SECOND_STAGE_MIN = 20.0
 CLOCK = re.compile(r"^\s*(\d{2}):(\d{2})(?:\s|·|$)")
 STATUS = re.compile(r"(?:✻\s+\d{2}:\d{2}|작업 중|오류\s+\d{2}:\d{2})")
 IDLE = re.compile(r"\+\d+석 유휴\(✻\s+\d{2}:\d{2}\)")
+HEAD = re.compile(r"^카드 대기 \d+·진행 \d+·완성\(오늘\) \d+ · 팀장=")  # RULE §1 확인 명령과 같은 정규식(K8)
+ZERO_GOAL = "제0목표:"  # 거버넌스 R13 — 첫 칸은 목표 문장이지 시각이 아니다(K5)
+SLACK_MIN = 15  # K6 — mtime 과 첫 줄 시각이 이만큼 넘게 벌어지면 «시각 불일치»
 
 
-def _path(root: Path, team: str) -> Path | None:
-    if not team.startswith("m.") or not team[2:] or not re.fullmatch(r"[\w.-]+", team[2:]):
+def _cells(first: str) -> list[str]:
+    """첫 줄 → 칸 목록 · 첫 칸이 «제0목표:» 면 그 한 칸만 뗀다(K5 · 2칸 이상 0)."""
+    cells = [cell.strip() for cell in first.split(" · ")]
+    return cells[1:] if cells and cells[0].startswith(ZERO_GOAL) else cells
+
+
+def _clock(cells: list[str]) -> tuple[int, int] | None:
+    match = CLOCK.match(cells[0]) if cells else None
+    if not match or int(match.group(1)) > 23 or int(match.group(2)) > 59:
         return None
-    return root / ".fable-team" / f"{team[2:]}-tick" / "HEADLINE.md"
+    return int(match.group(1)), int(match.group(2))
+
+
+def _structure(cells: list[str]) -> str | None:
+    """시각 칸 뒤 «머리 전부» + 좌석 화면 칸(K8) — 어긋나면 사유 1개, 맞으면 None."""
+    rest = cells[1:]
+    if not HEAD.match(" · ".join(rest)):
+        return "머리(카드 대기·진행·완성(오늘) · 팀장=)"
+    lead = next((i for i, cell in enumerate(rest) if cell.startswith("팀장=")), None)
+    tail = rest[lead + 1:] if lead is not None else []
+    if any(IDLE.search(cell) for cell in tail):
+        return None
+    seats = [cell for cell in tail if "=" in cell]
+    if not seats or any(not STATUS.search(cell.split("=", 1)[1]) for cell in seats):
+        return "좌석 화면 칸"
+    return None
+
+
+def _read_first(root: Path, team: str) -> tuple[str | None, float, str | None]:
+    """경로(K2) → (첫 줄, mtime, 판정 불가 사유)."""
+    folder = headline_seats.folder(root, team)
+    if folder is None:
+        return None, 0.0, "팀 이름 꼴 틀림"
+    path = folder / "HEADLINE.md"
+    try:
+        if not path.is_file():
+            return None, 0.0, "HEADLINE.md 없음" if not path.exists() else "HEADLINE.md 자리가 파일이 아님"
+        with path.open("rb") as source:
+            first = source.read(4096).decode("utf-8").splitlines()[0]
+        return first, path.stat().st_mtime, None
+    except (OSError, UnicodeError, IndexError):
+        return None, 0.0, "HEADLINE.md 읽기 실패"
 
 
 def headline_age(root: Path, team: str, now: float) -> tuple[dict[str, Any] | None, str | None]:
-    path = _path(root, team)
-    if path is None:
-        return None, None
-    try:
-        if not path.is_file():
-            return None, "HEADLINE.md 없음" if not path.exists() else "HEADLINE.md 자리가 파일이 아님"
-        stat = path.stat()
-        with path.open("rb") as source:
-            first = source.read(4096).decode("utf-8").splitlines()[0]
-    except (OSError, UnicodeError, IndexError):
-        return None, "HEADLINE.md 읽기 실패"
-    match = CLOCK.match(first)
-    if not match or int(match.group(1)) > 23 or int(match.group(2)) > 59:
+    """팀 1개 → (경보 항목, 판정 불가 사유) · 15분 초과면 구조와 무관하게 항목(K7)."""
+    first, stamp_mtime, error = _read_first(root, team)
+    if error or first is None:
+        return None, error or "HEADLINE.md 읽기 실패"
+    cells = _cells(first)
+    clock = _clock(cells)
+    if clock is None:
         return None, "첫 줄 시각 없음 또는 꼴 틀림"
-    cells = [cell.strip() for cell in first.split(" · ")]
-    lead_cell = next((i for i, cell in enumerate(cells) if cell.startswith("팀장=")), None)
-    if lead_cell is None or not any(STATUS.search(cell) for cell in cells[lead_cell:]):
-        return None, "구조 없음"
-    for cell in cells[lead_cell:]:
-        if "=" not in cell:
-            continue
-        value = cell.split("=", 1)[1]
-        if not STATUS.search(value) and not IDLE.search(value):
-            return None, "구조 없음"
-    stamp = time.localtime(stat.st_mtime)
-    if (stamp.tm_hour, stamp.tm_min) != (int(match.group(1)), int(match.group(2))):
+    stamp = time.localtime(stamp_mtime)
+    delta = (clock[0] * 60 + clock[1] - (stamp.tm_hour * 60 + stamp.tm_min) + 720) % 1440 - 720  # 자정 넘김
+    if abs(delta) > SLACK_MIN:
         return None, "시각 불일치"
-    age = (now - stat.st_mtime) / 60
+    age = (now - (stamp_mtime + delta * 60)) / 60  # 나이 = «첫 줄 시각» 기준(K6)
     if age < 0:
         return None, "미래 시각"
+    shape = _structure(cells)
+    if shape and age <= HEADLINE_MIN:
+        return None, "구조 없음"
+    why = f"헤드라인 멈춤 · {str(first)[:100]}" + (f" · 꼴 틀림: {shape}" if shape else "")
     return {"kind": "h", "team": team, "seat": "", "age": age,
-            "date": time.strftime("%Y%m%d", stamp), "clock": f"{int(match.group(1)):02d}:{int(match.group(2)):02d}",
-            "why": f"헤드라인 멈춤 · {first[:100]}"}, None
+            "date": time.strftime("%Y%m%d", stamp), "clock": f"{clock[0]:02d}:{clock[1]:02d}", "why": why}, None
 
 
-def team_masters(root: Path, team: str) -> list[str] | None:
-    try:
-        rows = json.loads((root / ".fable-team" / f"seats-{team}.json").read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+def roster_docs(root: Path) -> dict[str, Any]:
+    """load_teams 가 읽는 그 명부(ft_team_lib.rosters) → {팀 이름: 명부 본문} · 정규화 이름도 같은 본문(K1·K3)."""
+    docs: dict[str, Any] = {}
+    for roster in team_rosters(root):
+        name, doc = str(roster.get("team") or ""), roster.get("doc")
+        if name and isinstance(doc, dict):
+            docs.setdefault(name, doc)
+            docs.setdefault(name.removeprefix("m."), doc)
+    return docs
+
+
+def team_masters(doc: Any) -> list[str] | None:
+    """명부 본문 → 현역 role=master 좌석들 · 명부가 없으면 None(판정 불가 · 조용한 0 금지)."""
+    if not isinstance(doc, dict):
         return None
-    return [seat for seat, row in rows.items() if not seat.startswith("_") and isinstance(row, dict)
+    return [seat for seat, row in doc.items() if not seat.startswith("_") and isinstance(row, dict)
             and row.get("role") == "master" and not row.get("_closed") and not row.get("_replaced_by")]
+
+
+def _outside(root: Path, name: str, team: dict[str, Any]) -> tuple[list[str], str | None]:
+    """K4·K9 — (남길 경고줄들, 막는 1줄|None). 막으면 HEADLINE 열기 0 · 발신 0."""
+    block, warn = _pause_note(root, name)
+    warnings = [warn] if warn else []
+    if block:
+        return warnings, block
+    if team.get("master_stop"):  # K9 — 팀장이 정지 레디면 대상 밖
+        return warnings, f"h? {name} 대상 밖 — 팀장 정지 레디"
+    return warnings, None
+
+
+def _pause_note(root: Path, team: str) -> tuple[str | None, str]:
+    """정지 표식(K4) → (막는 줄|None, WARN 줄|''). on = 대상 밖 · q = 막지 않음 + WARN · none = 통과."""
+    if os.environ.get("FT_STALL_PAUSED_SKIP", "1") == "0":
+        return None, ""
+    try:
+        state, why, _at, _verdict = card_pause.team_paused(root, team)
+    except Exception as error:  # noqa: BLE001 — 판정 불가도 막지 않는다(하드 룰 20)
+        state, why = "q", f"판정 불가 {error.__class__.__name__}"
+    if state == "on":
+        return f"h? {team} 대상 밖(정지 표식)", ""
+    return (None, f"WARN {team} 정지 표식 판정 불가 — 경보 보냄({why})") if state == "q" else (None, "")
 
 
 def find(root: Path, teams: list[dict[str, Any]], now: float, policy_stop: str | None = None) -> tuple[list[dict[str, Any]], int, list[str]]:
@@ -70,33 +149,34 @@ def find(root: Path, teams: list[dict[str, Any]], now: float, policy_stop: str |
     notes: list[str] = []
     if os.environ.get("FT_STALL_HEADLINE", "1") == "0":
         return found, unknown, notes
+    names = [(name, team) for team in teams if (name := str(team.get("team") or "").removeprefix("m."))]  # K1 정규화 1회
     if policy_stop:
-        for team in teams:
-            label = str(team.get("team") or "")
-            if not label.startswith("m."):
-                continue
+        for name, _team in names:
             if policy_stop.startswith("ERROR"):
                 unknown += 1
-                notes.append(f"h? {label} 정책 정지 판정 불가 — {policy_stop}")
+                notes.append(f"h? {name} 정책 정지 판정 불가 — {policy_stop}")
             else:
-                notes.append(f"h? {label} 대상 밖(정책 정지)")
+                notes.append(f"h? {name} 대상 밖(정책 정지)")
         return found, unknown, notes
-    for team in teams:
-        label = str(team.get("team") or "")
-        if not label.startswith("m."):
+    docs = roster_docs(root)
+    for name, team in names:
+        warn, block = _outside(root, name, team)
+        notes.extend(warn)
+        if block:  # K4·K9 — 대상 밖 1줄 · u 0
+            notes.append(block)
             continue
-        masters = team_masters(root, label)
+        masters = team_masters(docs.get(name))
         if masters is None:
             unknown += 1
-            notes.append(f"h? {label} 헤드라인 판정 불가 — 명부 읽기 실패")
+            notes.append(f"h? {name} 헤드라인 판정 불가 — 명부 읽기 실패")
             continue
         if not masters:
-            notes.append(f"h? {label} 대상 밖 — 현역 팀장 없음")
+            notes.append(f"h? {name} 대상 밖 — 현역 팀장 없음")
             continue
-        item, error = headline_age(root, label, now)
+        item, error = headline_age(root, name, now)
         if error:
             unknown += 1
-            notes.append(f"h? {label} 헤드라인 판정 불가 — {error}")
+            notes.append(f"h? {name} 헤드라인 판정 불가 — {error}")
         elif item and item["age"] > HEADLINE_MIN:
             item["masters"] = masters
             item["seat"] = str(team.get("master") or masters[0])

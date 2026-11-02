@@ -63,8 +63,35 @@ class World:
         _ = _exe(shim / "tmux", '#!/bin/sh\n[ "$1" = list-sessions ] && cut -d" " -f1 "$FT_STUB/tmux"\n')
         self.env["PATH"] = f"{shim}{os.pathsep}{self.env['PATH']}"
         self.live: list[str] = []
+        self.default_headline: dict[str, str] = {}
         self.team("t1", "t1-master#1", ["t1-nano#0"])
         self.planner("planner#1")
+
+    def headline(self, label: str, age: float = 0.5) -> Path:
+        """그 팀 HEADLINE.md = «지금 꼴» 1줄(RULE §1) · mtime = 지금 − age분 · 기본은 신선(0.5분).
+        r1323 — 헤드라인 경보가 모든 현역 팀을 보므로, 시험 세계도 «헤드라인을 쓰는 팀» 꼴로 시작한다."""
+        name = label.removeprefix("m.")
+        stamp = float(self.env["FT_NOW"]) - age * 60
+        clock = datetime.fromtimestamp(stamp).strftime("%H:%M")
+        folder = self.root / f".fable-team/state/{name}-tick"
+        folder.mkdir(parents=True, exist_ok=True)
+        text = f"{clock} · 카드 대기 0·진행 0·완성(오늘) 0 · 팀장={name}-master#1=✻ {clock} · {name}-nano#0=작업 중\n"
+        path = folder / "HEADLINE.md"
+        _ = path.write_text(text, encoding="utf-8")
+        os.utime(path, (stamp, stamp))
+        self.default_headline[label] = text
+        return path
+
+    def _refresh_headlines(self) -> None:
+        """«지금» 이 바뀌면 기본 헤드라인도 같은 «지금» 으로 — 시험이 손대지 않은 것만(덮으면 나이 시험이 깨진다)."""
+        for label, text in list(self.default_headline.items()):
+            path = self.root / f".fable-team/state/{label.removeprefix('m.')}-tick/HEADLINE.md"
+            try:
+                touched = path.read_text(encoding="utf-8") != text
+            except (OSError, UnicodeError):
+                touched = True
+            if not touched:
+                self.headline(label)
 
     def team(self, label: str, master: str, seats: list[str], replaces: list[str] | None = None) -> None:
         rows: dict[str, object] = {"_master": master, "_label": label, "_cards": f"design/{label}/indices", "_cards_wt": f"wt-{label}"}
@@ -78,6 +105,7 @@ class World:
         cards.mkdir(parents=True, exist_ok=True)
         self._team_row(label)
         self._tmux()
+        self.headline(label)
 
     def planner(self, seat: str) -> None:
         _ = (self.root / ".fable-team/seats-planner.json").write_text(json.dumps({"_master": seat, "_label": "planner", "_cards": "design/planner/indices", "_cards_wt": "wt-planner", seat: {"role": "master"}}))
@@ -85,6 +113,7 @@ class World:
         self._team_row("planner")
         self.live.append(seat)
         self._tmux()
+        self.headline("planner")
 
     def _team_row(self, team: str) -> None:
         path = self.root / "design/TEAMS.md"
@@ -133,6 +162,11 @@ class World:
 
     def advance(self, seconds: int) -> None:
         self.env["FT_NOW"] = str(int(self.env["FT_NOW"]) + seconds)
+        self._refresh_headlines()
+
+    def set_now(self, stamp: float) -> None:
+        self.env["FT_NOW"] = str(stamp)
+        self._refresh_headlines()
 
     def scan(self, *args: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(["bash", str(BIN / "ft-stall-scan.sh"), *args], env=self.env, capture_output=True, text=True, timeout=60)
