@@ -215,6 +215,16 @@ k19() { new_env "$@"; roster_after
   mail "$PM" "$A_NEW" "[부팅 보고] $A_NEW retire=$A_OLD->$A_NEW rc=0 cron=c0ffee00"; [ "$RC" = 3 ] && case "$OUT" in *'지시 칸'*|*'배정'*) true;; *) false;; esac; }
 k19 && ok "K19 arch 승계 부팅 보고에 지시·배정 칸 없음 → REJECT rc3" || bad "K19 rc=$RC :: $OUT"
 
+# ── check-drift 감시 목록 — 새 모듈이 빠지면 한쪽만 깔려도 아무도 모른다(전 좌석 send·recv ImportError 가 무증상)
+D="$T/drift"; mkdir -p "$D/tools/comm-canonical" "$D/.fable-team/comm"
+cp "$SRC/check-drift.sh" "$SRC/mbox_retire_check.py" "$D/tools/comm-canonical/"; cp "$SRC/mbox_retire_check.py" "$D/.fable-team/comm/"
+drift_row() { bash "$D/tools/comm-canonical/check-drift.sh" 2>&1 | grep -E ' mbox_retire_check\.py( |$)'; }
+case "$(drift_row)" in SAME*) ok "check-drift 감시: mbox_retire_check.py SAME";; *) bad "check-drift 감시 행 없음/불일치 :: $(drift_row)";; esac
+printf '#\n' >> "$D/.fable-team/comm/mbox_retire_check.py"
+case "$(drift_row)" in DRIFT*) ok "check-drift 감시: 1바이트 변경 = DRIFT";; *) bad "check-drift DRIFT 아님 :: $(drift_row)";; esac
+cp "$SRC/mbox_retire_check.py" "$D/.fable-team/comm/mbox_retire_check.py"
+case "$(drift_row)" in SAME*) ok "check-drift 감시: 원복 = SAME";; *) bad "check-drift 원복 후 SAME 아님 :: $(drift_row)";; esac
+
 # ── 변이 11종 — 각각 그 반례 하나를 빨강으로 만들어야 한다(변이는 사본에만 · 원본 무변경 · 대상 문자열 없으면 실패로 보인다)
 mut() { case "$1" in
   1) subst 1 'if row.get("_replaced_by") != new:' 'if False:';;                                  # C1 ready retire 검사 제거 → K1
