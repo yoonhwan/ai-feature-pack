@@ -115,12 +115,19 @@ def _spec() -> str:
 
 
 PINNED_FROM = "FT_TEAMS_REF_PINNED_FROM"  # r1348 — 뉴스 회차가 FT_TEAMS_REF 를 40자 sha 로 고정했을 때 «푼 ref 이름»(origin/main)
+GOAL_PIN = "FT_GOAL_REF_PIN"  # r1348 R7 — 골 표 리포가 원장 리포와 다를 때 골 표 리포에서 푼 sha
+
+
+def _pinned_refs() -> set[str]:
+    """회차가 고정한 sha 들(원장 리포 · 골 표 리포) — 고정 중이 아니면 빈 집합."""
+    if not os.environ.get(PINNED_FROM):
+        return set()
+    return {v for v in (os.environ.get("FT_TEAMS_REF"), os.environ.get(GOAL_PIN)) if v}
 
 
 def _ref_label(ref: str) -> str:
-    """r1348 — 회차 고정 sha(= 지금 FT_TEAMS_REF)는 푼 ref 이름으로 부른다: 정본 렌더 판정·머리 출처 표지(`origin/main@<sha10>`)가 고정 전과 같은 글자가 된다."""
-    pin = os.environ.get(PINNED_FROM)
-    return pin if pin and ref == os.environ.get("FT_TEAMS_REF") else ref
+    """r1348 — 회차 고정 sha 는 푼 ref 이름으로 부른다: 머리 출처 표지가 고정 전과 같은 글자(`origin/main@<sha10>`)가 된다."""
+    return os.environ[PINNED_FROM] if ref in _pinned_refs() else ref
 
 
 def _canon_render() -> bool:
@@ -132,7 +139,8 @@ def _canon_render() -> bool:
     if len(parts) != 3 or parts[0] != "gitref":
         return False
     ref, name = parts[1], parts[2].rsplit("/", 1)[-1]
-    return _ref_label(ref) == (os.environ.get(PINNED_FROM) or os.environ.get("FT_TEAMS_REF") or "origin/main") and CANON_NAME.match(name) is not None
+    allowed = _pinned_refs() or {os.environ.get("FT_TEAMS_REF") or "origin/main"}   # 고정 중이면 «푼 sha» 만 정본 — ref 이름(움직이는 ref)은 아니다(R5)
+    return ref in allowed and CANON_NAME.match(name) is not None
 
 
 def load_canon() -> tuple[str, str, str]:

@@ -20,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import ft_board_env as env  # noqa: E402
 from ft_goal_ledger import live_root  # noqa: E402
 from ft_news_ledger_notify import notify  # noqa: E402
-from ft_news_ledger_round import is_blocked_checkout, notify_checkout_blocked, pin_round_ref  # noqa: E402
+from ft_news_ledger_round import is_blocked_checkout, notify_checkout_blocked, pin_round_ref, restore_env, snapshot_env  # noqa: E402
 from ft_news_digest import maybe_send  # noqa: E402
 from ft_news_ledger_text import MAX_BYTES, Lines, build_blocks, render_parts  # noqa: E402,F401  (MAX_BYTES 는 시험이 발행 도구 한도와 대조)
 from ft_news_post import goal_gate, is_draft, news_now, pending_now, procs_block, publish, teams_block  # noqa: E402
@@ -108,11 +108,13 @@ def run() -> int:
             LOG.info("다른 뉴스 실행이 일하는 중 — 건너뜀")
             return 0
         rc, why = 1, "뉴스 틱 예외"
+        env_before = snapshot_env()  # r1348 R6: 회차가 고정한 sha·정본 지정은 run() 끝에 되돌린다
         try:
             rc, why = _run(root, state)
         except Exception as e:  # noqa: BLE001 — r907 r4: 어떤 예외든 정지 감시(check_stale)는 «항상» 부른다 · ERROR 1줄 + rc 1
             _error_once(os.environ.get("FT_NEWS_MODE") == "html", "뉴스 실행 예외 — 게시 중단(정지 감시는 계속)", f"{type(e).__name__}: {e}")
         finally:
+            restore_env(env_before)
             if interval_s() > 0:
                 check_stale(root, state, news_now(), why)
         return rc

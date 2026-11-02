@@ -18,25 +18,77 @@ from pathlib import Path
 
 LOG = logging.getLogger("ft_news_ledger")
 GIT_S = 7           # rev-parse 1회 상한(7초 룰)
+NOTIFY_S = 7        # 통지 mbox 호출 상한(7초 룰 · R8) — 시험은 FT_NEWS_NOTIFY_TIMEOUT 로 줄인다
 DEDUP_S = 10 * 60   # 같은 사유 통지 억제 창
 SHA40 = re.compile(r"[0-9a-f]{40}")
-FROM_ENV = "FT_TEAMS_REF_PINNED_FROM"
+FROM_ENV = "FT_TEAMS_REF_PINNED_FROM"   # 푼 ref 이름(origin/main)
+GOAL_PIN_ENV = "FT_GOAL_REF_PIN"        # 골 표 리포가 원장 리포와 다를 때 «골 표 리포에서 푼» sha
+ENV_KEYS = ("FT_TEAMS_REF", FROM_ENV, GOAL_PIN_ENV, "FT_GOAL_A6_MD", "FT_GOAL_A6_LEDGER")
+
+
+def snapshot_env() -> dict[str, str | None]:
+    """회차가 바꾸는 env 의 원래 값 — run() 이 끝에 restore_env 로 되돌린다(다음 회차가 이번 sha 를 «고정 전 값» 으로 오인하지 않게 · R6)."""
+    return {k: os.environ.get(k) for k in ENV_KEYS}
+
+
+def restore_env(snap: dict[str, str | None]) -> None:
+    for k, v in snap.items():
+        if v is None:
+            os.environ.pop(k, None)
+        else:
+            os.environ[k] = v
+
+
+def _resolve(repo: Path, base: str) -> str:
+    try:
+        done = subprocess.run(["git", "-C", str(repo), "rev-parse", "--verify", f"{base}^{{commit}}"], capture_output=True, text=True, timeout=GIT_S, check=False)
+    except (OSError, subprocess.TimeoutExpired) as e:
+        raise RuntimeError(f"회차 시작 ref 고정 실패 {base}@{repo.name}: {e}") from e
+    sha = done.stdout.strip()
+    if done.returncode != 0 or not SHA40.fullmatch(sha):
+        raise RuntimeError(f"회차 시작 ref 고정 실패 {base}@{repo.name}: rc={done.returncode} {done.stderr.strip()[:120]}")
+    return sha
+
+
+def _rewrite(key: str, base: str, to: str) -> None:
+    """`gitref:<base>:<경로>` 로 주어진 정본·원장 지정은 같은 sha 로 바꿔 쓴다 — 안 그러면 움직이는 ref 를 따로 다시 풀어 고정을 우회한다(R5)."""
+    if (v := os.environ.get(key, "")).startswith(f"gitref:{base}:"):
+        os.environ[key] = f"gitref:{to}:{v[len('gitref:' + base + ':'):]}"
+
+
+def _explicit_specs(base: str, sha: str, repo: Path, goal_sha: str) -> None:
+    """골 표 리포 ≠ 원장 리포 — 정본·원장 지정이 없으면 골 표 리포의 sha 로 «명시» 한다(명단은 원장 리포 sha 로 풀고, 골 표 읽기는 골 표 리포 sha 로 · R7)."""
+    from ft_goal_ledger import planner_rel_in_ref  # noqa: PLC0415
+    from ft_goal_table import DEFAULT_NAME  # noqa: PLC0415
+    rel = planner_rel_in_ref(RuntimeError, sha, repo)
+    if not os.environ.get("FT_GOAL_A6_MD"):
+        os.environ["FT_GOAL_A6_MD"] = f"gitref:{goal_sha}:{rel}/{DEFAULT_NAME}"
+    if not os.environ.get("FT_GOAL_A6_LEDGER") and not os.environ.get("FT_LEDGER_PATH"):
+        os.environ["FT_GOAL_A6_LEDGER"] = f"gitref:{goal_sha}:{rel}/PLAN-oppa-ledger.md"
 
 
 def pin_round_ref(repo: Path) -> str:
-    """회차 시작 ref 를 40자 sha 로 고정하고 sha 를 돌려준다. 이미 고정된 프로세스(같은 프로세스 둘째 회차)는 «처음 푼 ref 이름» 에서 다시 푼다."""
+    """회차 시작 ref 를 40자 sha 로 고정하고 «원장 리포 sha» 를 돌려준다. 골 표 리포가 다르면 거기서도 따로 풀어 고정한다(R7)."""
     base = os.environ.get(FROM_ENV) or os.environ.get("FT_TEAMS_REF") or "origin/main"
-    git_repo = Path(os.environ.get("FT_GOAL_REPO") or repo)
-    try:
-        done = subprocess.run(["git", "-C", str(git_repo), "rev-parse", "--verify", f"{base}^{{commit}}"], capture_output=True, text=True, timeout=GIT_S, check=False)
-    except (OSError, subprocess.TimeoutExpired) as e:
-        raise RuntimeError(f"회차 시작 ref 고정 실패 {base}@{git_repo.name}: {e}") from e
-    sha = done.stdout.strip()
-    if done.returncode != 0 or not SHA40.fullmatch(sha):
-        raise RuntimeError(f"회차 시작 ref 고정 실패 {base}@{git_repo.name}: rc={done.returncode} {done.stderr.strip()[:120]}")
+    goal_repo = Path(os.environ.get("FT_GOAL_REPO") or repo)
+    sha = _resolve(repo, base)
+    goal_sha = sha if goal_repo.resolve() == repo.resolve() else _resolve(goal_repo, base)
     os.environ[FROM_ENV], os.environ["FT_TEAMS_REF"] = base, sha
+    os.environ.pop(GOAL_PIN_ENV, None)
+    if goal_sha != sha:
+        os.environ[GOAL_PIN_ENV] = goal_sha
+        _explicit_specs(base, sha, repo, goal_sha)
+    for key in ("FT_GOAL_A6_MD", "FT_GOAL_A6_LEDGER"):
+        _rewrite(key, base, goal_sha)
     LOG.info("회차 ref 고정 %s → %s", base, sha[:10])
     return sha
+
+
+def _notify_timeout() -> float:
+    try:
+        return float(os.environ.get("FT_NEWS_NOTIFY_TIMEOUT", NOTIFY_S))
+    except ValueError:
+        return float(NOTIFY_S)
 
 
 def is_blocked_checkout(line: str) -> bool:
@@ -55,7 +107,7 @@ def notify_checkout_blocked(root: Path, repo: str, line: str) -> bool:
         master = json.loads((root / ".fable-team" / "seats-planner.json").read_text(encoding="utf-8"))["_master"]
         mbox = os.environ.get("FT_MBOX") or str(root / ".fable-team" / "comm" / "mbox.sh")
         body = f"[긴급] 뉴스 원장 사본 checkout 막힘\n사본: {repo}\n{line[:280]}\n조치: untracked 파일을 사람·master 가 옮긴다(자동 정리 0)"
-        done = subprocess.run(["bash", mbox, "send", master, "ft-news-ledger", body], capture_output=True, check=False, timeout=15)
+        done = subprocess.run(["bash", mbox, "send", master, "ft-news-ledger", body], capture_output=True, check=False, timeout=_notify_timeout())
         if done.returncode == 0:
             state.mkdir(parents=True, exist_ok=True)
             stamp.write_text(json.dumps({**seen, key: time.time()}), encoding="utf-8")

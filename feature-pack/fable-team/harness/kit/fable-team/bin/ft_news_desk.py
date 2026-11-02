@@ -14,6 +14,7 @@ import json
 import logging
 import os
 import sys
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -102,6 +103,7 @@ def _keep_full(state: Path, out: Path, text: str, why: str) -> None:
 
 
 def tick() -> int:
+    t0 = time.monotonic()   # R2: relay «성공 뒤» 시각 = 틱 시작 + 경과
     root = env.ft_root()
     state = Path(os.environ.get("FT_DESK_STATE") or root / ".fable-team" / "state" / "news-desk")
     now = datetime.strptime(os.environ["FT_DESK_NOW"], "%Y-%m-%d %H:%M") if os.environ.get("FT_DESK_NOW") else datetime.now()
@@ -140,7 +142,7 @@ def tick() -> int:
         print(f"판정 불가 relay — {e}", file=sys.stderr)
         return 1
     _count_path(state, now).write_text(f"{n + 1}\n", encoding="utf-8")
-    mark_sent(state, now)
+    mark_sent(state, now, time.monotonic() - t0)
     sent.write_text(text, encoding="utf-8")
     last.write_text(dg + "\n", encoding="utf-8")
     return 0
