@@ -146,7 +146,31 @@ case_r12c() {  # 정상 A·B → 실패 중 B 완성 → 정상 A = archive B 1�
   ck "R12c archive 1줄 · A-m1" sh -c "[ \"\$(wc -l < '$a')\" -eq 1 ] && grep -qF 'A-m1' '$a'"
   return $CASEBAD; }
 
-for c in case_r1 case_r2 case_r2b case_r3 case_r4 case_r5 case_r5b case_r6 case_r6b case_r7 case_r7b case_r8 case_r9 case_r10 case_r11 case_r12 case_r12b case_r12c; do
+case_r13() {  # r1320 T2': ft-tick 의 팀 목록(teammain_teams · ft_team_lib.team_names) = render --all 이 도는 그 팀
+  reset; run --all
+  local fn listed dirs
+  fn="$TMP/teammain_teams.sh"
+  awk '/^teammain_teams\(\) \{/,/^\}/' "$BIN/ft-tick.sh" > "$fn"
+  ck "R13 teammain_teams 함수 추출" test -s "$fn"
+  listed="$( ( cd "$R" && HERE="$BIN" FT_ROOT="$R" bash -c '. "$1"; teammain_teams' _ "$fn" ) 2>"$TMP/err" )"
+  dirs="$(ls "$D/.fable-team/state/team-main" 2>/dev/null)"
+  ck "R13 목록 = --all 이 도는 팀(집합)" test "$(printf '%s\n' "$listed" | sort)" = "$(printf '%s\n' "$dirs" | sort)"
+  ck "R13 휴면이 마지막(현역 먼저 · 휴면 뒤)" test "$(printf '%s\n' "$listed" | tail -1)" = sleep
+  return $CASEBAD; }
+
+case_r13b() {  # r1320 T2'/M8 짝 — 팀 명단이 깨지면 rc≠0 · ERROR 1줄 · 팀 이름 지어내지 않음
+  reset
+  printf '| 팀 | 폴더 | 오케 좌석 계열 | 상태 |\n|---|---|---|---|\n| alpha | `design/teams/alpha/` | x | 이상함 |\n' > "$R/design/TEAMS.md"
+  local fn rc
+  fn="$TMP/teammain_teams.sh"
+  awk '/^teammain_teams\(\) \{/,/^\}/' "$BIN/ft-tick.sh" > "$fn"
+  ( cd "$R" && HERE="$BIN" FT_ROOT="$R" bash -c '. "$1"; teammain_teams' _ "$fn" ) >"$TMP/out" 2>"$TMP/err"; rc=$?
+  ck "R13b 명단 깨짐 rc≠0" test "$rc" -ne 0
+  ck "R13b 명단 깨짐 ERROR 1줄" test "$(grep -c '^ERROR' "$TMP/err")" = 1
+  ck "R13b 명단 깨짐 출력 0줄(지어낸 팀 0)" test -z "$(cat "$TMP/out")"
+  return $CASEBAD; }
+
+for c in case_r1 case_r2 case_r2b case_r3 case_r4 case_r5 case_r5b case_r6 case_r6b case_r7 case_r7b case_r8 case_r9 case_r10 case_r11 case_r12 case_r12b case_r12c case_r13 case_r13b; do
   case_ "$c" || BAD=1
 done
 
