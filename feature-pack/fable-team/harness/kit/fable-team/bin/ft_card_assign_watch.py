@@ -197,10 +197,22 @@ def record(card: str | Path, kind: str, arg: str, now: float, pause: dict | None
     return 0
 
 
+def _git(card: Path, *args: str) -> subprocess.CompletedProcess:
+    """r1250 — lint 의 git 호출 1곳 · 예산 = FT_CARD_ASSIGN_GIT_TIMEOUT 아니면 FT_DIRECTIVE_GIT_SEC 아니면 7초 + 재시도 1.
+    시간 초과·OSError = Undecided(«git <서브커맨드> N초 초과») — 트레이스백 0 · rc≠0 는 부르는 쪽이 판단한다(rev-parse 정상 실패 ≠ 판정 불가)."""
+    sec, why = float(os.environ.get("FT_CARD_ASSIGN_GIT_TIMEOUT") or os.environ.get("FT_DIRECTIVE_GIT_SEC") or 7), ""
+    for _ in range(2):
+        try:
+            return subprocess.run(["git", "-C", str(card.parent), *args], capture_output=True, text=True, timeout=sec)
+        except (subprocess.TimeoutExpired, OSError) as e:
+            why = f"git {args[0]} {sec:g}초 초과" if isinstance(e, subprocess.TimeoutExpired) else f"git {args[0]} {type(e).__name__}"
+    raise Undecided(why)
+
+
 def installed_at(card: Path) -> float | None:
     r = os.environ.get("FT_ROOT")
     if not r:
-        p = subprocess.run(["git", "-C", str(card.parent), "rev-parse", "--path-format=absolute", "--git-common-dir"], capture_output=True, text=True, timeout=7)
+        p = _git(card, "rev-parse", "--path-format=absolute", "--git-common-dir")
         r = str(Path(p.stdout.strip()).parent) if p.returncode == 0 else ""
     f = Path(r) / ".fable-team/state/card-assign/installed_at" if r else None
     try:
@@ -212,18 +224,10 @@ def installed_at(card: Path) -> float | None:
 def added_before(card: Path, inst: float) -> bool:
     """r1273 — 이 카드 이름의 추가 커밋(폴더 무관) 중 committer 시각 < installed_at 이 있나. 첫 1개에서 멈춘다(전체 이력 0).
     %ct 정수 초라 «≤ ceil−1» ⇔ «< installed_at». 7초 + 재시도 1 · 실패 = Undecided(rc·시간 초과)."""
-    sec, why = float(os.environ.get("FT_CARD_ASSIGN_GIT_TIMEOUT") or 7), ""
-    cmd = ["git", "-C", str(card.parent), "log", "-1", "--no-renames", "--diff-filter=A", "--format=%ct", f"--until=@{math.ceil(inst) - 1}", "--", str(card.parent.parent / "*" / card.name)]
-    for _ in range(2):
-        try:
-            p = subprocess.run(cmd, capture_output=True, text=True, timeout=sec)
-        except (subprocess.TimeoutExpired, OSError) as e:
-            why = f"git log {sec:g}초 초과" if isinstance(e, subprocess.TimeoutExpired) else f"git log {type(e).__name__}"
-            continue
-        if p.returncode != 0:
-            raise Undecided(f"git log rc={p.returncode}")
-        return bool(p.stdout.strip())
-    raise Undecided(why)
+    p = _git(card, "log", "-1", "--no-renames", "--diff-filter=A", "--format=%ct", f"--until=@{math.ceil(inst) - 1}", "--", str(card.parent.parent / "*" / card.name))
+    if p.returncode != 0:
+        raise Undecided(f"git log rc={p.returncode}")
+    return bool(p.stdout.strip())
 
 
 def lint(card: Path) -> int:
@@ -237,14 +241,14 @@ def lint(card: Path) -> int:
             return 0
         print(f"「- 배정:」 값 꼴 — 좌석 <이름> | 대기(<{'|'.join(REASONS)}> · <YYYY-MM-DDTHH:MM>) | 없음: {vals[0][:40]}")
         return 1
-    inst = installed_at(card)
-    if inst is None:
-        return 0  # 이 리포엔 r1224 미설치(prepare 가 installed_at 을 쓴다) — 새 카드 판별 기준이 없다
     try:
+        inst = installed_at(card)
+        if inst is None:
+            return 0  # 이 리포엔 r1224 미설치(prepare 가 installed_at 을 쓴다) — 새 카드 판별 기준이 없다
         old = added_before(card, inst)
-    except Undecided as e:
+    except Undecided as e:  # r1250 — 판정 불가 = rc3(위반 rc1 과 분리 · ft-index-lint 는 WARN+진행)
         print(f"배정 줄 검사 판정 불가 — {e} · 배정 줄을 넣으면 조회 0")
-        return 1
+        return 3
     if old:
         return 0  # 옛 카드 — spawn 진입 때 원장 none 행이 생긴다
     print("머리 「- 배정: 좌석 <이름> | 대기(<사유> · <시각>) | 없음」 줄 없음 (새 카드 의무 · r1224)")
