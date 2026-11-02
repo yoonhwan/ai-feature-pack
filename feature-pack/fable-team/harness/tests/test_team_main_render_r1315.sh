@@ -42,8 +42,8 @@ case_r1() {  # 고정 꼴 · 쓰기 위치(데이터 루트) · stderr 줄 · �
   reset; run --all; local s; s="$(sf alpha)"
   ck "R1 머리줄 = HEADLINE 첫 줄" has "08:25 · alpha 헤드라인 1줄" <(head -1 "$s")
   ck "R1 ①②③ 절" sh -c "grep -qF '## ① 절대 지침' '$s' && grep -qF '## ② 카드' '$s' && grep -qF '## ③ 배정받은 작업' '$s'"
-  ck "R1 ② 카드 고정 꼴(진행·좌석?·대기·완성)" sh -c "grep -qF '진행 2장' '$s' && grep -qF -- '- A-m0 · 지시 #16 · 좌석 ? · 상태 2026-11-02T08:1x 진행' '$s' \\
-    && grep -qF '좌석 칸 판정 불가(seats 파일 없음 · r1290 대기)' '$s' && grep -qF '대기 3장 · 가장 오래 2026-10-30' '$s' && grep -qF '완성(확인 전) 1장' '$s'"
+  ck "R1 ② 카드 고정 꼴(진행·좌석 칸·대기·완성)" sh -c "grep -qF '진행 2장' '$s' && grep -qF -- '- A-m0 · 지시 #16 · 좌석 판정 불가(초안 없음) · 상태 2026-11-02T08:1x 진행' '$s' \\
+    && ! grep -qF '좌석 ? ·' '$s' && grep -qF '대기 3장 · 가장 오래 2026-10-30' '$s' && grep -qF '완성(확인 전) 1장' '$s'"
   ck "R1 ③ 배정 없음 1·발주 1·결정 1" sh -c "grep -qF '배정 없음 1 · 대기 초과 0 · 카드 없는 발주 1' '$s' && grep -qF '결정 대기 1건' '$s'"
   ck "R1 beta 지시 # 없음 1장" has "지시 # 없음: 카드 1장" "$(sf beta)"
   ck "R1 stderr 팀마다 1줄" has "team-main alpha 진행 2 대기 3 완성미확인 1 발주 1 결정 1" "$TMP/err"
@@ -108,9 +108,19 @@ case_r8() {  # 진행 41장 → 다 씀 + 머리 WARN
   ck "R8 진행 41장 · 41줄 다 씀 · 머리 상한 초과" sh -c "s='$(sf alpha)'; grep -qF '진행 41장' \$s && [ \"\$(grep -c '^- A-' \$s)\" -eq 41 ] && head -1 \$s | grep -qF '[상한 초과 ②+1줄 — 닫기 우선]'"
   return $CASEBAD; }
 
-case_r9() {  # seats 파일 있으면 좌석 칸 값 · 없으면 «?»(R1)
-  reset; printf 'A-m0\t✻ 08:2x\n' > "$R/.fable-team/state/alpha-tick/HEADLINE-seats.txt"; run --all
-  ck "R9 좌석 칸 = seats 값 · 나머지 ? · 판정 불가 0" sh -c "s='$(sf alpha)'; grep -qF -- '- A-m0 · 지시 #16 · 좌석 ✻ 08:2x ·' \$s && grep -qF '좌석 ? ·' \$s && ! grep -qF 'seats 파일 없음' \$s"
+case_r9() {  # 초안 1줄(r1290 꼴)의 좌석 칸을 그대로 쓴다 · «?» 0 · 없는 파일은 R1
+  reset; printf '08:25 초안 · 팀장(작업 중) · A=?(✻ 08:12) · Z=?(오류 08:01)\n' > "$R/.fable-team/state/alpha-tick/HEADLINE-seats.txt"; run --all
+  ck "R9 좌석 칸 = 초안 값(카드 stem 첫 낱말 조회) · ?·판정 불가 0" sh -c "s='$(sf alpha)'; grep -qF -- '- A-m0 · 지시 #16 · 좌석 ✻ 08:12 ·' \$s && ! grep -qF '좌석 ? ·' \$s && ! grep -qF '초안 꼴 다름' \$s"
+  return $CASEBAD; }
+
+case_r9b() {  # 접힘 묶음만 있고 카드 칸이 없으면 «유휴(접힘)»(W5)
+  reset; printf '08:25 초안 · 팀장(작업 중) · +3석 유휴(✻ 08:01)\n' > "$R/.fable-team/state/alpha-tick/HEADLINE-seats.txt"; run --all
+  ck "R9b 칸 없음 · 접힘 있음 → 유휴(접힘)" sh -c "grep -qF -- '- A-m0 · 지시 #16 · 좌석 유휴(접힘) ·' '$(sf alpha)'"
+  return $CASEBAD; }
+
+case_r9c() {  # 초안은 풀렸는데 이 카드 칸이 없으면 «좌석 칸 없음»(W4 · 조용한 «?» 금지)
+  reset; printf '08:25 초안 · 팀장(작업 중) · Z=?(✻ 08:01)\n' > "$R/.fable-team/state/alpha-tick/HEADLINE-seats.txt"; run --all
+  ck "R9c 칸 없음 · 접힘 없음 → 좌석 칸 없음" sh -c "s='$(sf alpha)'; grep -qF -- '- A-m0 · 지시 #16 · 좌석 좌석 칸 없음 ·' \$s && ! grep -qF '좌석 ? ·' \$s"
   return $CASEBAD; }
 
 case_r10() {  # harness = origin/ops/main-base · ① 은 언제나 origin/main 표 · «$FT_HARNESS_ROOT» 폴더 안 생김
@@ -170,13 +180,13 @@ case_r13b() {  # r1320 T2'/M8 짝 — 팀 명단이 깨지면 rc≠0 · ERROR 1�
   ck "R13b 명단 깨짐 출력 0줄(지어낸 팀 0)" test -z "$(cat "$TMP/out")"
   return $CASEBAD; }
 
-for c in case_r1 case_r2 case_r2b case_r3 case_r4 case_r5 case_r5b case_r6 case_r6b case_r7 case_r7b case_r8 case_r9 case_r10 case_r11 case_r12 case_r12b case_r12c case_r13 case_r13b; do
+for c in case_r1 case_r2 case_r2b case_r3 case_r4 case_r5 case_r5b case_r6 case_r6b case_r7 case_r7b case_r8 case_r9 case_r9b case_r9c case_r10 case_r11 case_r12 case_r12b case_r12c case_r13 case_r13b; do
   case_ "$c" || BAD=1
 done
 
 mutant() {  # mutant <이름> <케이스> <파일> <찾을 글자> <바꿀 글자> — 무변이 대조 통과 + 변이 탐지 = PASS
   rm -rf "$TMP/mut"; mkdir -p "$TMP/mut"
-  cp "$BIN/ft_team_main.py" "$BIN/ft_team_main_inputs.py" "$BIN/ft_team_lib.py" "$BIN/ft-team-main.sh" "$TMP/mut/"
+  cp "$BIN/ft_team_main.py" "$BIN/ft_team_main_inputs.py" "$BIN/ft_team_lib.py" "$BIN/ft_headline_seats.py" "$BIN/ft-team-main.sh" "$TMP/mut/"
   local keep="$BIN"
   BIN="$TMP/mut"; case_ "$2" >/dev/null 2>&1 || { echo "FAIL 무변이 대조 실패(변이 전에도 케이스 실패): $1"; BAD=1; BIN="$keep"; return; }
   python3 - "$TMP/mut/$3" "$4" "$5" <<'PY' || { echo "FAIL 변이 적용 실패: $1"; BAD=1; BIN="$keep"; return; }

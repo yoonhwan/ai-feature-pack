@@ -1,6 +1,6 @@
 """ft_team_main_inputs — r1315 STATE 렌더 입력: 로컬 파일·로컬 git 만(도구 실행 0 · 네트워크 0).
 ① 지시 정본 표(`design/teams/planner/THREAD-oppa-directives-<ts>-*.md` 중 ts 최대 · origin/main) 의 «팀» 열 행
-② 카드 = directive-roots.tsv ref 의 카드 폴더(진행·대기·완성) + «## 상태» 끝 줄 + «- 지시 #» + «- 확인:» · 머리·좌석 = `state/<팀>-tick/HEADLINE*`
+② 카드 = directive-roots.tsv ref 의 카드 폴더(진행·대기·완성) + «## 상태» 끝 줄 + «- 지시 #» + «- 확인:» · 머리·좌석 = `state/<팀>-tick/HEADLINE*`(좌석 칸은 초안 1줄을 ft_headline_seats.parse 로 푼다 · r1290 W1~W5)
 ③ 집계 = `state/{card-assign,decision,hil}/latest.json`(20분 넘게 다르면 판정 불가) · 실패는 Undecided(그 칸만 «판정 불가(사유)» · 조용한 0 금지)
 """
 from __future__ import annotations
@@ -10,6 +10,8 @@ import os
 import re
 import subprocess
 from pathlib import Path
+
+import ft_headline_seats as headline  # r1290 W1: 초안 1줄을 쓰는 꼴과 같은 모듈의 parse 로 푼다
 
 GIT_SEC, STALE_MIN = float(os.environ.get("FT_TEAM_MAIN_GIT_SEC") or 7), 20
 DIR, PRE, KINDS = "design/teams/planner", "THREAD-oppa-directives-", ("진행", "대기", "완성")
@@ -170,9 +172,28 @@ def _read(path: Path) -> list[str]:
         return []
 
 
-def tick_files(root: Path, team: str) -> tuple[str | None, dict[str, str] | None]:  # (머리 = HEADLINE.md 첫 줄, 좌석 칸)
+def _text(path: Path) -> str:
+    try:
+        return path.read_text(encoding="utf-8")
+    except (OSError, UnicodeError):
+        return ""
+
+
+def tick_files(root: Path, team: str) -> tuple[str | None, dict]:  # (머리 = HEADLINE.md 첫 줄, 좌석 칸 {cells, folded, why})
     d = root / f".fable-team/state/{team}-tick"
     head = next((x.strip() for x in _read(d / "HEADLINE.md") if x.strip()), None)
-    seats = ({p[0].strip(): p[1].strip() for p in (x.split("\t") for x in _read(d / "HEADLINE-seats.txt"))
-              if len(p) >= 2 and p[0].strip() and not p[0].startswith("#")} if (d / "HEADLINE-seats.txt").is_file() else None)
-    return head, seats
+    path = d / "HEADLINE-seats.txt"
+    if not path.is_file():
+        return head, {"cells": {}, "folded": False, "why": "초안 없음"}  # W3: 파일 없음 = 판정 불가(초안 없음)
+    cells, folded = headline.parse(_text(path))
+    return head, {"cells": cells, "folded": folded, "why": None if cells else "초안 꼴 다름"}  # W2·W6·W7
+
+
+def card_seat(seats: dict, stem: str) -> str:  # 카드 1장 → 좌석 칸(W2~W5) · 조용한 «?» 금지
+    """조회 키 = 카드 stem 첫 낱말(«r1290-headline-…» → «r1290»). 칸 없음 = «좌석 칸 없음»(접힘 묶음 있으면 «유휴(접힘)»)."""
+    if seats.get("why"):
+        return f"판정 불가({seats['why']})"
+    key = str(stem).split("-", 1)[0]
+    if key in (seats.get("cells") or {}):
+        return str(seats["cells"][key])
+    return "유휴(접힘)" if seats.get("folded") else "좌석 칸 없음"
