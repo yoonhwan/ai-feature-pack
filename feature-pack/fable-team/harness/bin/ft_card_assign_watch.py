@@ -45,6 +45,7 @@ WAIT_S, URGENT_S, ORDER_S, MUTE_S, CLAIM_S = 4 * 3600, 3600, 2 * 3600, 3600, 60
 OPEN, CLOSED = ("대기", "진행"), ("완성", "아카이브")
 QUIET = ("정지 중", "보류 중", "판정 불가", "석·선행 대기")  # 경보·rc 에 안 세는 칸(A6 석·선행 대기 포함)
 ITEM, CIRCLED = re.compile(r"^\d+[.)]\s"), re.compile(r"^\s+[①-⑳]")
+CARD_PATH = re.compile(r"design/[^\s`()·,]+?\.md")  # r1329 — «- 카드:» 줄 꼬리(백틱·괄호 주석·«— 설명»)에서 첫 경로 토큰만
 HERE = Path(__file__).resolve().parent
 
 
@@ -505,6 +506,7 @@ class Status:
         lines = body.splitlines()  # 번호 항목이 없으면 본문 전체가 한 단위(r1287) · 빈 본문이면 [path] = «포인터 없음» 그대로
         for n, it in enumerate(items or [lines if any(x.strip() for x in lines) else [path]], 1):
             ptr = next((m.group(1).strip() for ln in it if (m := re.match(r"^\s*- 카드:(.*)$", ln))), "")
+            ptr = (CARD_PATH.search(ptr) or [ptr])[0]  # r1329 — 경로 토큰이 있으면 그것만 · 없으면 글자 전체(→ «없는 경로») · 빈 값은 그대로(→ «포인터 없음»)
             head = next((x for x in it if x.strip()), "") if not items else it[0]
             hot = any(w in head for w in ("긴급", "크리티컬"))  # 번호 없으면 발주서 머리 · 있으면 항목 머리
             why = "포인터 없음" if not ptr else "없는 경로" if ptr not in allpaths else "카드 긴급 줄 없음" if hot and ptr not in urgent_paths else ""
