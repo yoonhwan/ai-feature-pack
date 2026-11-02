@@ -36,7 +36,7 @@ def done_cards():
             break
         try:
             res = _git(["-C", repo, "log", r[2], "--since=30.days", "-M", "--diff-filter=AR",
-                        "--name-status", "--pretty=format:"], t)
+                        "--name-status", "--pretty=format:", "--", r[3]], t)   # ★r1317 카드 폴더로 좁힘(ls-tree :53 과 같은 값)
             if res.returncode != 0:
                 bad("cards git", "rc=%d %s" % (res.returncode, (res.stderr or "").strip()[:80]))
                 continue
