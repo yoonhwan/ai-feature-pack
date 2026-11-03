@@ -13,10 +13,12 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from press_evidence_verify import (Reject, check_content, cover, debt_line, fetch_refs, git, ok_line, pick, push,  # noqa: E402
+import press_evidence_parts as pp  # noqa: E402
+from press_evidence_verify import (Reject, check_content, check_poller, check_table, check_turbopack, cover, debt_line, fetch_refs, git, ok_line, pick, push,  # noqa: E402
                                    run, same, specs_of, unpaid)
 
 BYZ_SLUG = "secondwindstudio/byz-agents"
@@ -111,23 +113,34 @@ def pack(a):
     if not re.match(r"^[A-Za-z0-9._-]{1,80}$", a.run) or ".." in a.run or a.run.endswith(".lock"):
         raise Reject("run_id 꼴 아님(영숫자·._- 80자 · ..·.lock 0): %s" % a.run)
     e = git(a.repo, "rev-parse", "--verify", a.set + "^{commit}").strip()
-    src = {"poller_dom.jsonl": a.poller, "table.md": a.table, "turbopack.txt": a.turbopack}
-    try:
-        txt = {}
-        for k, v in src.items():
-            with open(v, encoding="utf-8", errors="replace") as f:
-                txt[k] = f.read()
-    except OSError as x:
-        raise Reject("증거 파일 못 읽음: %s" % x)
-    check_content(a.run, txt["poller_dom.jsonl"], txt["table.md"], txt["turbopack.txt"])
-    meta = "set=%s\nrun_id=%s\nseat=%s\nts=%s\n" % (e, a.run, a.seat, time.strftime("%Y-%m-%dT%H:%M:%S"))
-    blob = {k: git(a.repo, "hash-object", "-w", os.path.abspath(v)).strip() for k, v in src.items()}
-    blob["meta.txt"] = git(a.repo, "hash-object", "-w", "--stdin", inp=meta).strip()
-    tree = git(a.repo, "mktree", inp="".join("100644 blob %s\t%s\n" % (blob[f], f) for f in sorted(blob))).strip()
-    c, ref = commit_tree(a.repo, tree, "press evidence set=%s run=%s" % (e, a.run), e), "refs/press/%s-%s" % (e, a.run)
-    push(a.repo, a.remote, c, ref)
+    src, lim = {"poller_dom.jsonl": a.poller, "table.md": a.table, "turbopack.txt": a.turbopack}, pp.limit_bytes()
+    with tempfile.TemporaryDirectory() as td:
+        try:
+            ps, txt, files, extra = [], {}, dict(src), ""
+            big = os.path.getsize(a.poller) > lim
+            for k, v in src.items():
+                if not (big and k == "poller_dom.jsonl"):   # r1268: 큰 poller 는 통째 읽지 않는다(줄 단위로 읽으며 gzip 조각)
+                    with open(v, encoding="utf-8", errors="replace") as f:
+                        txt[k] = f.read()
+            if big:
+                sha, size, ps = pp.split(a.poller, lim, td, lambda rows: check_poller(a.run, rows), Reject)
+                check_table(a.run, txt["table.md"])
+                check_turbopack(txt["turbopack.txt"])
+                files = {k: v for k, v in files.items() if k != "poller_dom.jsonl"}
+                files.update({os.path.basename(p): p for p in ps})
+                extra = "poller_sha256=%s\npoller_bytes=%d\npoller_parts=%d\n" % (sha, size, len(ps))
+            else:
+                check_content(a.run, txt["poller_dom.jsonl"].splitlines(), txt["table.md"], txt["turbopack.txt"])
+        except OSError as x:
+            raise Reject("증거 파일 못 읽음: %s" % x)
+        meta = "set=%s\nrun_id=%s\nseat=%s\nts=%s\n%s" % (e, a.run, a.seat, time.strftime("%Y-%m-%dT%H:%M:%S"), extra)
+        blob = {k: git(a.repo, "hash-object", "-w", os.path.abspath(v)).strip() for k, v in files.items()}
+        blob["meta.txt"] = git(a.repo, "hash-object", "-w", "--stdin", inp=meta).strip()
+        tree = git(a.repo, "mktree", inp="".join("100644 blob %s\t%s\n" % (blob[f], f) for f in sorted(blob))).strip()
+        c, ref = commit_tree(a.repo, tree, "press evidence set=%s run=%s" % (e, a.run), e), "refs/press/%s-%s" % (e, a.run)
+        push(a.repo, a.remote, c, ref, len(ps) or 1)   # 조각 수 = 쪼갤 수 없는 배치의 배수(하드 룰 12)
     git(a.repo, "update-ref", ref, c)
-    print("PACKED ref=%s commit=%s" % (ref, c))
+    print("PACKED ref=%s commit=%s" % (ref, c) + (" parts=%d" % len(ps) if big else ""))
     return 0
 
 
