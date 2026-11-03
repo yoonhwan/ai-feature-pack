@@ -13,7 +13,7 @@ GLOBAL_DIR="${GLOBAL_DIR:-$HOME/.claude}"
 NANO="$HERE/../bin/ft-nano-spawn.sh"
 if [ "$#" -gt 0 ]; then FILES=("$@"); else
   FILES=("$NANO" "$HERE/../../../tmuxc/claude-code/skills/tmuxc/COMM-GUIDE-BOOT.md"
-         "$BYZ_ROOT/CLAUDE.md" "$BYZ_ROOT/docs/rules/code-intel-usage.md"
+         "short:$BYZ_ROOT/CLAUDE.md" "$BYZ_ROOT/docs/rules/code-intel-usage.md"
          "$GLOBAL_DIR/CLAUDE.md" "$GLOBAL_DIR/guides/tools.md")
 fi
 fail=0
@@ -34,9 +34,21 @@ check_file() {
   echo "$hits"; return 1
 }
 
-# S1
+# check_short <파일> — 용량 한도가 있는 파일(BYZ CLAUDE.md)용 짧은 꼴: «ci 안 돌면» 줄에 «[긴급]» 낱말이 있다 (전문은 code-intel-usage §5)
+check_short() {
+  local f="$1" n
+  [ -f "$f" ] || { echo "$f: 파일 없음"; return 1; }
+  n="$(grep -c 'ci 안 돌면.*\[긴급\]' "$f")"
+  [ "$n" -ge 1 ] && return 0
+  echo "$f: «ci 안 돌면 … [긴급]» 줄 없음"; return 1
+}
+
+# S1 — 인자/기본 목록에서 «short:<경로>» 는 짧은 꼴 검사
 for f in "${FILES[@]}"; do
-  out="$(check_file "$f")" && ok "S1 $f" || { bad "S1 $f"; echo "$out" | sed 's/^/     /'; }
+  case "$f" in
+    short:*) p="${f#short:}"; out="$(check_short "$p")" && ok "S1(short) $p" || { bad "S1(short) $p"; echo "$out" | sed 's/^/     /'; } ;;
+    *)       out="$(check_file "$f")" && ok "S1 $f" || { bad "S1 $f"; echo "$out" | sed 's/^/     /'; } ;;
+  esac
 done
 
 # S3 — 첫 발주문 고정 줄에 문장 1회
@@ -68,6 +80,16 @@ check_file "$TMP/m1" >/dev/null && bad "변이1: [긴급] 지웠는데 PASS" || 
 LC_ALL=C grep -Ev "$RX" "$src" > "$TMP/m2"
 cmp -s "$src" "$TMP/m2" && bad "변이2: grep 이 rg+Read 줄을 못 지움"
 check_file "$TMP/m2" >/dev/null && bad "변이2: rg+Read 줄 지웠는데 PASS" || ok "변이2: rg+Read 줄 삭제 → FAIL"
+
+# 변이3 — 짧은 꼴 파일이 목록에 있으면 그 파일의 «[긴급]» 삭제 → check_short FAIL
+for f in "${FILES[@]}"; do
+  case "$f" in short:*)
+    p="${f#short:}"; LC_ALL=C sed 's/\[긴급\]//g' "$p" > "$TMP/m3"
+    cmp -s "$p" "$TMP/m3" && bad "변이3: sed 가 [긴급] 을 못 지움"
+    check_short "$TMP/m3" >/dev/null && bad "변이3: 짧은 꼴 [긴급] 지웠는데 PASS" || ok "변이3: 짧은 꼴 [긴급] 삭제 → FAIL"
+    break ;;
+  esac
+done
 
 [ "$fail" -eq 0 ] && echo "ALL PASS" || echo "FAILED=$fail"
 exit "$fail"
