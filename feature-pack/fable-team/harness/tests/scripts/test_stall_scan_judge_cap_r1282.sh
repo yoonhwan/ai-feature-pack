@@ -266,7 +266,10 @@ c_R2() {
   have "$out" "stall-scan 판정 불가 — 판정 기한 10 s 초과(좌석 " || bad "R2 판정 불가 1줄 없음: $(echo "$out" | head -2)"
   have "$out" "· 처리 0)" || bad "R2 «처리 0» 없음"
   have "$(cat "$R/.fable-team/state/stall-scan.log" 2>/dev/null)" "판정 불가 — 판정 기한 10 s 초과" || bad "R2 stall-scan.log 1줄 없음"
-  [ -f "$R/.fable-team/state/stall-scan.json" ] && bad "R2 상태 파일 바뀜(저장 0 이어야)"
+  # 단계 2(r1282b): 판정 불가여도 좌석 캐시(seats 칸)만 저장 — 처리 기록 칸(handled·prev·a_card_nudged)은 여전히 0
+  if [ -f "$R/.fable-team/state/stall-scan.json" ]; then
+    [ "$(python3 -c 'import json,sys;print(sorted(json.load(open(sys.argv[1]))))' "$R/.fable-team/state/stall-scan.json")" = "['seats']" ] || bad "R2 상태 파일에 seats 밖 칸이 생김(처리 기록 0 이어야)"
+  fi
   [ -f "$R/.fable-team/state/stall-scan.last.json" ] && bad "R2 last.json 저장됨"
   [ -f "$S/mbox.log" ] && bad "R2 처리 쪽지 있음: $(cat "$S/mbox.log")"
   if alive 't1-nano#0'; then bad "R2 손자 생존"; fi
