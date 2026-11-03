@@ -21,7 +21,7 @@ fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }
 
-EXP22="watch_sample_tick autonomy_expire leak_watch hil_watch live_snapshot dead_seat_watch idle_watch idle_long_watch outage_watch acct_pause_watch model_swap stall sweep_wt drift_watch raised_watch renamed_watch queue_full_watch queue_watch card_assign_watch launchd_watch unpushed_daily news_ledger"
+EXP22="outage_watch acct_pause_watch watch_sample_tick autonomy_expire leak_watch hil_watch live_snapshot dead_seat_watch idle_watch idle_long_watch model_swap stall sweep_wt drift_watch raised_watch renamed_watch queue_full_watch queue_watch card_assign_watch launchd_watch unpushed_daily news_ledger"
 EXP_EARLY="$EXP22 prep teammain_render acct_notice"          # 좌석 0 = prep 뒤 조기 반환(fire 미실행) · r1320 teammain_render 는 acct_notice 앞
 EXP_FULL="$EXP22 prep fire teammain_render acct_notice"      # 좌석 1
 EXP_EARLY="$EXP_EARLY trigger_watch"; EXP_FULL="$EXP_FULL trigger_watch"   # r1285: 바퀴 맨 끝 단계 · DRY 에서는 단계로 세지 않는다(n=25 줄 그대로)
