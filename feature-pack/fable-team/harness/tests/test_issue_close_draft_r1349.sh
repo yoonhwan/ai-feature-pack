@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# test_issue_close_draft_r1349.sh — r1349 · ft-issue-close-draft.sh (Issue #6188) · 반례 C1~C23 + 변이 17 + bin·kit cmp
+# test_issue_close_draft_r1349.sh — r1349 · ft-issue-close-draft.sh (Issue #6188) · 반례 C1~C27 + 변이 20 + bin·kit cmp
 #   완성 카드 → 닫는 코멘트 초안(8항 + 연결 줄 + token) · 사전 검사 PASS 일 때만 Tank 래퍼로 1회 게시.
 #   가짜 래퍼(호출 기록만) · Issue JSON 픽스처(FT_CLOSE_DRAFT_CHECK_JSON) · 실 gh·네트워크 0 · 자기 재호출 0(guard_begin 의 1회 재실행 외).
 #   기준판: FT_R1349_BIN=<도구 없는 폴더> → 첫 줄 «FAIL 도구 없음». 변이 = 도구 사본의 한 줄을 바꿔 그 칸의 반례가 깨지는지 본다.
@@ -105,10 +105,21 @@ c23() { fresh; OKCARD; mkdir -p "$T/fg"; GL="$T/gh23.log"; : > "$GL"
   printf '#!/usr/bin/env bash\necho "gh $*" >> "%s"\ncase "$*" in "api user"*) sleep 3; echo byz-tank;; *) echo https://github.com/x/y/issues/9000#issuecomment-1;; esac\n' "$GL" > "$T/fg/gh"; chmod +x "$T/fg/gh"
   OUT="$(PATH="$T/fg:$PATH" FT_GATE_TIMEOUT_S=1 FT_ISSUE_BOT_TOKEN=x FT_CLOSE_DRAFT_CHECK_JSON="$T/ij.json" FT_CLOSE_DRAFT_STATE="$T/st" FT_ISSUE_REPO=org/B bash "$B/ft-issue-close-draft.sh" --card "$CARD" --post 2>&1)"; RC=$?
   [ $RC -eq 3 ] && has "판정 불가 — 게시 결과 불명" && ! grep -q 'issue comment' "$GL" && ok "C23 래퍼 «gh api user» 8초 응답 → 7초(시험 1초)에 끊김 · 게시 호출 0 · rc3" || bad "C23 rc=$RC :: $OUT :: $(cat "$GL")"; }
+c24() { local f; for f in "tail|$LANDSHA (팩 main · PR 777 · 설치 cmp0)" "lead|팩 main $LANDSHA" "tick|\`$LANDSHA\`"; do
+    fresh; mk 완성 'del:^- 착지:' "add:- 착지: ${f#*|}"; run --card "$CARD"
+    [ $RC -eq 0 ] && has "^DRAFT #9000" && ok "C24 착지 값 꼴 ${f%%|*} → 첫 40hex 낱말 사용" || bad "C24 ${f%%|*} rc=$RC :: $OUT"; done; }
+c25() { fresh; mk 완성 'del:^- 착지:' "add:- 착지: ${LANDSHA:0:9} (팩 main · PR 777)"; run --card "$CARD"
+  [ $RC -eq 0 ] && has "^DRAFT #9000" && ok "C25 짧은 sha(유일·랜딩 조상) → 40hex 로 펼쳐 진행" || bad "C25 rc=$RC :: $OUT"; }
+c26() { local x; echo b > "$PK/g"; git -C "$PK" checkout -q -b side; git -C "$PK" add -A; git -C "$PK" commit -qm side; x="$(git -C "$PK" rev-parse HEAD)"; git -C "$PK" checkout -q main
+  fresh; vf "$x"; mk 완성 'del:^- 착지:' "add:- 착지: ${x:0:9}"; run --card "$CARD"; expect "C26a 짧은 sha 가 랜딩 ref 조상 아님 → DRAFT-ONLY 착지 rc4" 4 "DRAFT-ONLY 착지" 0
+  fresh; mk 완성 'del:^- 착지:' "add:- 착지: deadbee1 (해석 안 됨)"; run --card "$CARD"; expect "C26b 짧은 sha 해석 불가 → DRAFT-ONLY 착지 rc4" 4 "DRAFT-ONLY 착지" 0; }
+c27() { fresh; local wt oc="$PWD"; wt="$(mktemp -d "$T/wt.XXXX")"; mkdir -p "$wt/design/idx/완성"; git init -q "$wt"; OKCARD; cp "$VF" "$wt/design/V.md"
+  sed "s#DA $VF#DA design/V.md#" "$CARD" > "$wt/design/idx/완성/r9001-demo.md"; cd /; run --card "$wt/design/idx/완성/r9001-demo.md"; cd "$oc"
+  [ $RC -eq 0 ] && has "^DRAFT #9000" && ok "C27 상대 판정문 경로 → 카드 워크트리 루트 기준(다른 cwd 에서도 찾음)" || bad "C27 rc=$RC :: $OUT"; }
 
 stage "시작"
 c1; c2; c3; c4; c5; stage "C1~C5"; c6; c7; c8; c9; c10; stage "C6~C10"; c11; c12; c13; c14; c15; stage "C11~C15"
-c16; c17; c18; c19; c20; stage "C16~C20"; c21; c22; c23; stage "C21~C23"
+c16; c17; c18; c19; c20; stage "C16~C20"; c21; c22; c23; stage "C21~C23"; c24; c25; c26; c27; stage "C24~C27"
 for f in ft-issue-close-draft.sh ft-gh-as-tank.sh; do
   [ -f "$MIR/$f" ] && cmp -s "$BIN/$f" "$MIR/$f" && ok "bin·kit 같은 판 $f" || bad "bin·kit 다름 $f"; done
 [ ! -x "$HERE/test_issue_close_draft_r1349.sh" ] && ok "시험 파일 실행 비트 0" || bad "시험 파일 실행 비트 있음"
@@ -140,6 +151,9 @@ mut 14 c22 $D 'LAND="$(pick 착지 |' 'LAND="$(card_lines | grep -E "^- 착지:[
 mut 15 c23 ft-gh-as-tank.sh '"$TOUT" "${FT_GATE_TIMEOUT_S:-7}" gh api user' 'gh api user'
 mut 16 c19 $D ' && [ "$o" != "$(realp "$VPATH")" ]' ''
 mut 17 c21 $D '[ -n "$CAUSE" ] || donly "원인 1줄 없음"' 'true'
-stage "변이 9~17"
+mut 18 c24 $D '| land_word)"; [[' ')"; [['
+mut 19 c27 $D 'git -C "$(dirname "$CARD")" rev-parse --show-toplevel' 'pwd'
+mut 20 c26 $D 'merge-base --is-ancestor "$1" "$ref" 2>/dev/null || continue' 'cat-file -e "$1" || continue'
+stage "변이 9~20"
 [ $fail -eq 0 ] && echo "ALL PASS (${SECONDS}초)" || echo "FAILED $fail (${SECONDS}초)"
 [ $fail -eq 0 ]

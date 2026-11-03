@@ -34,6 +34,20 @@ last_line_val() { # <키> <JSON> → «L:<값>»(그 키의 마지막 줄 · 없
   jq -r --arg k "$1" '[.comments[]?.body | split("\n")[] | select(test("^\\s*[-*]?\\s*" + $k + "\\s*[:：]"))] | last // empty
     | "L:" + (sub("^\\s*[-*]?\\s*" + $k + "\\s*[:：]\\s*"; "") | sub("\\s+$"; ""))' <<<"$2"; }
 
+land_word() { # stdin 착지 값 → 첫 40hex 낱말 · 없으면 짧은 sha(7~39hex·숫자 포함)를 팩 리포에서 유일 해석+랜딩 ref 조상일 때만 40hex 로 펼침
+  local words w o full root="${FT_PACK_ROOT:-$HOME/Project/ai-feature-pack}" ref="${FT_LAND_REF:-origin/main}"
+  words="$(tr -cs 'A-Za-z0-9' '\n')"
+  w="$(grep -E '^[0-9a-f]{40}$' <<<"$words" | head -1)"; [ -z "$w" ] || { echo "$w"; return 0; }
+  for w in $(grep -E '^[0-9a-f]{7,39}$' <<<"$words" | grep '[0-9]'); do
+    full=""; for o in $(git -C "$root" rev-parse --disambiguate="$w" 2>/dev/null); do
+      [ "$(git -C "$root" cat-file -t "$o" 2>/dev/null)" = commit ] && full="$full $o"; done
+    set -- $full; [ $# -eq 1 ] || continue
+    git -C "$root" merge-base --is-ancestor "$1" "$ref" 2>/dev/null || continue
+    echo "$1"; return 0
+  done; return 0
+}
+vresolve() { # 판정문 경로 → 상대면 «카드가 든 워크트리 루트» 기준(호출 cwd 아님)
+  local top; case "$1" in /*) echo "$1";; *) top="$(git -C "$(dirname "$CARD")" rev-parse --show-toplevel 2>/dev/null)" || top=.; echo "$top/$1";; esac; }
 parse_card() { # 카드 필드 → 전역 · 못 채우면 DRAFT-ONLY(rc4)
   local n="$(basename "$CARD" .md)" ev line1 mv rx='(미실행|미확인|대기|HOLD|판정 불가)'
   CARDNO="$(sed -E 's/^(r[0-9]+[a-z]*)-.*/\1/' <<<"$n")"; [[ "$CARDNO" =~ ^r[0-9]+[a-z]*$ ]] || die 2 "카드 이름이 rNNNN-… 꼴 아님: $n"
@@ -41,14 +55,14 @@ parse_card() { # 카드 필드 → 전역 · 못 채우면 DRAFT-ONLY(rc4)
   [ -n "$ci" ] || die 2 "카드에 «- Issue: #N» 줄 없음"
   [ -z "$ISSUE" ] && ISSUE="$ci"; [ "$ISSUE" = "$ci" ] || die 2 "Issue 번호 불일치 — --issue $ISSUE ≠ 카드 #$ci"
   [ "$(basename "$(dirname "$CARD")")" = 완성 ] || donly "완성 폴더 아님"
-  LAND="$(pick 착지 | tr 'A-F' 'a-f')"; [[ "$LAND" =~ ^[0-9a-f]{40}$ ]] || donly "착지 줄 없음 또는 40hex 아님"
+  LAND="$(pick 착지 | tr 'A-F' 'a-f' | land_word)"; [[ "$LAND" =~ ^[0-9a-f]{40}$ ]] || donly "착지 줄 없음 또는 40hex 아님(짧은 sha 는 유일·랜딩 조상일 때만)"
   EVT="$(pick 실사건)"; ev='(#[0-9]+|[A-Za-z0-9_./-]+\.[A-Za-z0-9]+:[0-9]+)'
   { [[ "$EVT" =~ $ev ]] && ! [[ "$EVT" =~ $rx ]]; } || donly "실사건 줄 없음·무효(증거 토큰 없음 또는 미실행·대기)"
   CANON="$(card_lines | grep -E '^- (정본 영향 없음|정본):' | tail -1 | sed 's/^- //')"
   [[ "$CANON" =~ ^(정본 영향 없음|정본):[[:space:]]*[^[:space:]] ]] || donly "정본 줄 없음(기본 문구로 메우지 않음)"
   CAUSE="$(pick '원인 1줄')"; [ -n "$CAUSE" ] || donly "원인 1줄 없음"
   mv="$(card_lines | grep -oE '진행→완성 · DA [^[:space:]]+#§[0-9]+' | tail -1)"; [ -n "$mv" ] || donly "완성 이동(진행→완성 · DA …#§N) 줄 없음"
-  VPATH="$(sed -E 's/^진행→완성 · DA //; s/#§[0-9]+$//' <<<"$mv")"; SEC="${mv##*#§}"
+  VRAW="$(sed -E 's/^진행→완성 · DA //; s/#§[0-9]+$//' <<<"$mv")"; VPATH="$(vresolve "$VRAW")"; SEC="${mv##*#§}"
   line1="$(head -1 "$CARD")"; [[ "$line1" != *남김* && "$line1" != *보관* ]] || donly "머리에 남김 또는 보관 줄 — 사람 확인"
   HEADTXT="$(clip "$(sed -E 's/^.*끝:[[:space:]]*//; s/^# 인덱스:[[:space:]]*//' <<<"$line1")" 120)"
 }
@@ -80,7 +94,7 @@ build_draft() { # 8항 + 연결 줄 + token → $OUT · TOK
     echo "PR: 팩 리포 PR $PRN → 팩 main $LAND ($CARDNO)"
     echo "재현 PASS: $EVT"
     echo "정리: 정리할 것 없음(나노 좌석 닫힘 · 카드 완성 이동)"
-    echo "기록: 카드 $rel · 판정문 $VPATH#§$SEC"
+    echo "기록: 카드 $rel · 판정문 $VRAW#§$SEC"
     echo "$CANON"
     echo "원인 확정: Y — $(clip "$CAUSE" 200)"
     echo "같은 증상 보류: 0"
