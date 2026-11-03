@@ -378,16 +378,20 @@ idle_watch() {
 # 알림 대상 = FT_API_OUTAGE_NOTIFY > 좌석표 _hil_route > _master. 상태 = <루트>/.fable-team/state/api-outage/<좌석표 이름>.json.
 # 도구 실패는 ERROR 1줄만 남기고 틱은 계속(조용한 생략 0). FT_TICK_API_OUTAGE=0 으로 끔.
 outage_watch() {
-  local rows seat p f notify lines state out rc
+  local rows seat p f notify lines state out rc live
   [ "${FT_TICK_API_OUTAGE:-1}" = 1 ] || return 0
   notify="${FT_API_OUTAGE_NOTIFY:-$(python3 -c 'import json,sys;d=json.load(open(sys.argv[1]));print(d.get("_hil_route") or d.get("_master") or "")' "$SEATS" 2>/dev/null)}"
   state="${FT_TICK_API_OUTAGE_STATE:-${ROOT:-$WT}/.fable-team/state/api-outage/$(basename "$SEATS")}"
   if [ "$DRY" = 1 ]; then echo "DRY kind=api-outage bin=$API_OUTAGE notify=${notify:--} state=$state"; return 0; fi
   [ -n "$notify" ] || { echo "$(date '+%F %T') outage_watch: ERROR api_outage: no notify target (_hil_route/_master) in $SEATS" >&2; return 0; }
   rows="$(all_seats 2>/dev/null)" || { echo "$(date '+%F %T') outage_watch: ERROR api_outage: seats.json unreadable ($SEATS)" >&2; return 0; }
+  # r1214 단계 2: 살아 있는 세션 이름은 바퀴 처음에 tmux 1회로 받는다(명부 행마다 pane_of = list-panes -a 를 220~1233회 부르던 것 — load 60+ 에서 이 단계가 70초를 넘겼다).
+  live="$(tmux list-panes -a -F '#{session_name}' 2>/dev/null)" || { echo "$(date '+%F %T') outage_watch: ERROR tmux list-panes -a 실패 — 이번 바퀴 장애 감시 건너뜀" >&2; return 0; }
+  live=$'\n'"$live"$'\n'
   lines=""
   while IFS=$'\t' read -r seat _; do
-    [ -n "$seat" ] && [ -n "$(pane_of "$seat")" ] || continue
+    [ -n "$seat" ] || continue
+    case "$live" in *$'\n'"$seat"$'\n'*) ;; *) continue;; esac
     f="$(bash "$SEAT_STATUS" jsonl "$seat" 2>/dev/null)" && [ -n "$f" ] && lines+="$seat"$'\t'"$f"$'\n'
   done <<< "$rows"
   out="$(printf '%s' "$lines" | python3 "$API_OUTAGE" --state "$state" --mbox "$MBOX" --notify "$notify" 2>&1)"; rc=$?
