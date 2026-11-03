@@ -47,23 +47,35 @@ def _git_out(base: Path, *args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(["git", "-C", str(base), *args], capture_output=True, text=True, timeout=7)
 
 
-REF_BUDGET_S = 70.0   # r839 r4: ref 읽기 전체 예산(초 · 프로세스 첫 조회 기준) — 7초 룰 × 여러 조회를 감싼다(FT_REF_BUDGET_SEC 로 덮기·시험 전용)
-_REF_T0: float | None = None
+REF_BUDGET_S = 70.0   # r839 r4: ref 읽기 전체 예산(초 · git 호출 시간 합) — 7초 룰 × 여러 조회를 감싼다(FT_REF_BUDGET_SEC 로 덮기·시험 전용)
+REF_CLEANUP_RESERVE_S = 2.5
+_clock = time.monotonic
+_REF_SPENT = 0.0
 
 
 def _ref_remaining() -> float:
-    """남은 예산(초) — 첫 조회 때 시작 시각을 잡고 예산에서 뺀다. 0 이하면 예산 소진(미종료 0)."""
-    global _REF_T0
-    if _REF_T0 is None:
-        _REF_T0 = time.monotonic()
+    """남은 예산(초) — ref git 호출에 실제 쓴 시간 합을 예산에서 뺀다."""
     try:
         budget = float(os.environ.get("FT_REF_BUDGET_SEC") or REF_BUDGET_S)
     except ValueError:
         budget = REF_BUDGET_S
-    return _REF_T0 + budget - time.monotonic()
+    return budget - _REF_SPENT
+
+
+def _ref_attempt_limit(left: float) -> float:
+    return max(0.0, min(7.0, left - REF_CLEANUP_RESERVE_S))
 
 
 def _git_once(base: Path | str, args: list[str], lim: float) -> tuple[int, str, str]:
+    global _REF_SPENT
+    started = _clock()
+    try:
+        return _run_git(base, args, lim)
+    finally:
+        _REF_SPENT += max(0.0, _clock() - started)
+
+
+def _run_git(base: Path | str, args: list[str], lim: float) -> tuple[int, str, str]:
     """git 1회 — lim 초 상한 · 넘으면 프로세스 그룹 TERM → 0.5초 뒤 KILL(자식까지) · (rc, stdout, stderr) · rc 124 = 상한 초과 · 128 = 실행 실패."""
     try:
         p = subprocess.Popen(["git", "-C", str(base), *args], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -97,10 +109,10 @@ def ref_read(base: Path | str, *args: str) -> str:
     ④ rc≠0 = 재시도 없이 «못 읽음» TeamPathError ⑤ 남은 예산(REF_BUDGET_S=70) 소진 = TeamPathError — 미종료 0."""
     shown = " ".join(["git", "-C", str(base), *args])
     for _attempt in (1, 2):
-        left = _ref_remaining()
-        if left <= 0:
+        lim = _ref_attempt_limit(_ref_remaining())
+        if lim <= 0:
             raise RefReadError(f"ERROR ref 읽기 예산 소진({REF_BUDGET_S:g}s): {shown}")
-        rc, out, _err = _git_once(base, list(args), min(7.0, left))
+        rc, out, _err = _git_once(base, list(args), lim)
         if rc != 0:
             raise RefReadError(f"ERROR {shown} 못 읽음: rc={rc}")
         if out.strip():
@@ -112,11 +124,11 @@ def _ref_present(base: Path | str, spec: str) -> bool:
     """ref 에 그 객체가 있나 — 존재 판정은 «출력» 도 «rc 만» 도 안 믿는다(r5 ②):
     rc0 = 있음 · rc1/128 + stderr 가 «does not exist in» = 그 ref 에 그 파일 없음 · 그 밖(명령 실패·리포 아님·ref 없음·상한) = TeamPathError «판정 불가».
     (빈 답을 «없음» 으로, 명령 실패를 «파일 없음» 으로 읽는 길을 닫는다 — DA⑥ r4 반례 ②)"""
-    left = _ref_remaining()
+    lim = _ref_attempt_limit(_ref_remaining())
     shown = f"git -C {base} cat-file -e {spec}"
-    if left <= 0:
+    if lim <= 0:
         raise RefReadError(f"ERROR ref 읽기 예산 소진({REF_BUDGET_S:g}s): {shown}")
-    rc, _out, err = _git_once(base, ["cat-file", "-e", spec], min(7.0, left))
+    rc, _out, err = _git_once(base, ["cat-file", "-e", spec], lim)
     if rc == 0:
         return True
     if rc in (1, 128) and re.search(r"(does not exist in|exists on disk, but not in)", err):

@@ -149,7 +149,8 @@ fi
 TOK="${FT_ISSUE_BOT_TOKEN:-}"
 [ -n "$TOK" ] || { TFILE="${FT_ISSUE_BOT_TOKEN_FILE:-$HOME/.config/byz-harness/issue-bot.token}"; [ -r "$TFILE" ] && TOK="$(tr -d '[:space:]' < "$TFILE")"; }
 [ -n "$TOK" ] || die "봇 토큰 없음 — FT_ISSUE_BOT_TOKEN 또는 ${FT_ISSUE_BOT_TOKEN_FILE:-$HOME/.config/byz-harness/issue-bot.token} (오빠 계정으로 폴백하지 않는다)" 2
-WHO="$(GH_TOKEN="$TOK" gh api user --jq .login 2>/dev/null || true)"
+TOUT="$(command -v timeout || command -v gtimeout)" || die "timeout(coreutils) 필요 — 7초 룰(r1349)" 2
+WHO="$(GH_TOKEN="$TOK" "$TOUT" "${FT_GATE_TIMEOUT_S:-7}" gh api user --jq .login 2>/dev/null || true)"   # r1349: 호출마다 7초
 [ "$WHO" = "$TANK" ] || die "토큰 주인이 $TANK 가 아니다(주인=${WHO:-확인 불가}) — 오빠 계정 토큰이면 즉시 폐기" 1
 
 if [ "$ACTION" = create ]; then
@@ -178,7 +179,7 @@ if [ -n "$SK" ]; then
     echo "OK as=$TANK close $NUM — 이미 닫힘(상태 확인 · close 재수행 0)"; exit 0
   fi
 fi
-OUT="$(GH_TOKEN="$TOK" gh "${CMD[@]}" 2>&1)" || { [ -z "$SK" ] || bash "$SE" abort "$SK"; die "gh ${CMD[0]} ${CMD[1]} 실패: $OUT" 1; }
+OUT="$(GH_TOKEN="$TOK" "$TOUT" "${FT_GATE_TIMEOUT_S:-7}" gh "${CMD[@]}" 2>&1)" || { [ -z "$SK" ] || bash "$SE" abort "$SK"; die "gh ${CMD[0]} ${CMD[1]} 실패: $OUT" 1; }
 [ -z "$SK" ] || bash "$SE" commit "$SK" >/dev/null || true
 if [ "$ACTION" = pr-create ]; then
   PR_URL="$(grep -Eo 'https://[^ ]+/pull/[0-9]+' <<<"$OUT" | tail -1)"; NUM="${PR_URL##*/}"
