@@ -252,9 +252,14 @@ stall() {
   while IFS=$'\t' read -r seat role; do
     [ -n "$seat" ] || continue
     p="$(pane_of "$seat")"; [ -n "$p" ] || continue          # 세션 없음은 정지가 아니라 부재 — master 틱이 본다
-    line="$(bash "$SEAT_STATUS" one "$seat" 2>/dev/null)"
-    read -r _ pane age _ _ <<< "$line"
-    case "$age" in ''|*[!0-9]*) continue;; esac              # 비-claude 는 jsonl 없음 — 여기선 판정 안 함
+    line="$(FT_SEATS_JSON="$SEATS" bash "$SEAT_STATUS" one "$seat" 2>/dev/null)"   # r1238 C: 팀 명부를 넘긴다(안 넘기면 AGENT 열이 «-» 로 빈다)
+    read -r _ pane age agent _ <<< "$line"
+    case "$age" in ''|*[!0-9]*) continue;; esac              # jsonl 나이 없음 — 여기선 판정 안 함
+    case "$agent" in                                         # r1238 C: jsonl 나이는 claude 좌석만 뜻이 있다(codex·pi 는 같은 이름 옛 claude jsonl 이 나이를 속인다)
+      claude) ;;
+      ''|-) echo "$(date '+%F %T') WARN stall $seat agent=- — 명부에 agent 칸 없음 · jsonl 나이로 판정" >&2;;
+      *) log "stall skip $seat agent=$agent — jsonl 나이 판정 대상 아님"; continue;;
+    esac
     # 정지 = jsonl ≥ thr AND (pane IDLE  OR  jsonl ≥ 2×thr) — 후자는 «완료 요약행 BUSY 오판» 대비
     if [ "$age" -ge "$thr" ] && { [ "$pane" = IDLE ] || [ "$age" -ge $(( thr * 2 )) ]; }; then
       if tmux capture-pane -t "$p" -p 2>/dev/null | LC_ALL=C grep -qa 'Enter to select'; then
