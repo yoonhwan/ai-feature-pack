@@ -30,7 +30,20 @@ def tail_rows(path):
     return rows, off > 0
 
 
-def view_seqs(rows, cut):
+def view(rows, ans=frozenset()):
+    """사람용 줄(본문 첫 줄 미리보기 포함) — 술어는 obligation_closed(x, ans) 하나(r1052 단계 2 B2 · ans = 큐 주인 계보의 회신 seq 집합)."""
+    mem = {}
+    for x in sorted(rows, key=lambda x: (x["prio"], x["seq"])):
+        mem.setdefault(x["group"], []).append(x)  # 묶음 사전 — 행은 한 바퀴만(r677)
+    out = []
+    for g, ms in mem.items():
+        if not all(obligation_closed(x, ans) for x in ms):  # 닫힌 묶음 = 그 묶음 행만 본다(전체 훑기 0)
+            first = open(ms[0]["body_path"], encoding="utf-8").readline().strip()[:80] if os.path.exists(ms[0]["body_path"]) else ""
+            out.append(f"[{ms[0]['cls']}] {g} seq={','.join(str(x['seq']) for x in ms)} 미닫힘={','.join(str(x['seq']) for x in ms if not obligation_closed(x, ans))} from={ms[0]['from']} 원문={ms[0]['body_path']} | {first}")
+    return out
+
+
+def view_seqs(rows, cut, ans=frozenset()):
     """view 와 같은 묶음·같은 미닫힘 판정, 본문 파일 open 0. 창 위가 잘린 첫 묶음 = «보류(범위 밖)»."""
     head = rows[0]["group"] if rows and cut else None
     mem = {}
@@ -38,7 +51,7 @@ def view_seqs(rows, cut):
         mem.setdefault(x["group"], []).append(x)
     out = []
     for g, ms in mem.items():
-        un = [x["seq"] for x in ms if not obligation_closed(x)] or ([ms[0]["seq"]] if g == head else [])
+        un = [x["seq"] for x in ms if not obligation_closed(x, ans)] or ([ms[0]["seq"]] if g == head else [])
         if un:
             out.append(f"[{ms[0]['cls']}] {g} seq={','.join(str(x['seq']) for x in ms)} 미닫힘={','.join(map(str, un))} from={ms[0]['from']} 원문= | "
                        + ("보류(범위 밖)" if g == head else ""))
