@@ -6,6 +6,7 @@ ok!=true·네트워크 오류는 전부 MirrorError 로 raise 한다(BYZ #0 RULE
 """
 from __future__ import annotations  # mini python 3.9.6 — `str | None` 주석을 문자열로 미뤄 import TypeError 를 막는다
 
+import http.client
 import json
 import os
 import re
@@ -69,7 +70,7 @@ def api_call(base: str, token: str, method: str, params: dict[str, object], *, g
             with urllib.request.urlopen(req, timeout=EXTERNAL_CALL_TIMEOUT_S) as resp:
                 body = json.loads(resp.read().decode("utf-8"))
             break
-        except (urllib.error.URLError, OSError, ValueError) as e:
+        except (urllib.error.URLError, OSError, ValueError, http.client.HTTPException) as e:  # IncompleteRead(본문 끊김)는 OSError 가 아니다(R242 C5)
             if attempt == retries:
                 raise MirrorError(f"{method} 호출 실패: {type(e).__name__}") from e
     if not body.get("ok"):
