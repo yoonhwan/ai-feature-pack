@@ -27,6 +27,8 @@ class FakeSlack:
         self.requests: list[tuple[str, str, str]] = []
         self.fail_post = False
         self.fail_read = False
+        self.drop_replies: set[str] = set()
+        self.replies_oldest: list[tuple[str, str]] = []
         outer = self
 
         class H(BaseHTTPRequestHandler):
@@ -71,8 +73,12 @@ class FakeSlack:
                 if u.path.endswith("chat.getPermalink"):
                     return self._reply({"ok": True, "permalink": f"https://fake.slack.com/archives/C1/p{q['message_ts'][0]}"})
                 ts = q["ts"][0]
+                if ts in outer.drop_replies:  # 그 스레드 조회만 응답 없이 끊는다 — 시간 초과와 같은 «호출 실패» 경로(R242 T5)
+                    self.close_connection = True
+                    return
                 oldest = q.get("oldest", ["0"])[0]
-                got = [m for m in outer.msgs if m.get("channel", "C1") == channel and
+                outer.replies_oldest.append((ts, oldest))  # 어디부터 읽었나 — «그 뒤 답글만» 계약 시험(R242 S2)
+                got =[m for m in outer.msgs if m.get("channel", "C1") == channel and
                        (m["ts"] == ts or m["thread_ts"] == ts) and (m["ts"] == ts or m["ts"] > oldest)]
                 self._reply(outer._page(got, q))
 
