@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# test_issue_close_draft_r1349.sh — r1349 · ft-issue-close-draft.sh (Issue #6188) · 반례 C1~C27 + 변이 20 + bin·kit cmp
+# test_issue_close_draft_r1349.sh — r1349 · ft-issue-close-draft.sh (Issue #6188) · 반례 C1~C33 + 변이 23 + bin·kit cmp
 #   완성 카드 → 닫는 코멘트 초안(8항 + 연결 줄 + token) · 사전 검사 PASS 일 때만 Tank 래퍼로 1회 게시.
 #   가짜 래퍼(호출 기록만) · Issue JSON 픽스처(FT_CLOSE_DRAFT_CHECK_JSON) · 실 gh·네트워크 0 · 자기 재호출 0(guard_begin 의 1회 재실행 외).
 #   기준판: FT_R1349_BIN=<도구 없는 폴더> → 첫 줄 «FAIL 도구 없음». 변이 = 도구 사본의 한 줄을 바꿔 그 칸의 반례가 깨지는지 본다.
@@ -117,9 +117,25 @@ c27() { fresh; local wt oc="$PWD"; wt="$(mktemp -d "$T/wt.XXXX")"; mkdir -p "$wt
   sed "s#DA $VF#DA design/V.md#" "$CARD" > "$wt/design/idx/완성/r9001-demo.md"; cd /; run --card "$wt/design/idx/완성/r9001-demo.md"; cd "$oc"
   [ $RC -eq 0 ] && has "^DRAFT #9000" && ok "C27 상대 판정문 경로 → 카드 워크트리 루트 기준(다른 cwd 에서도 찾음)" || bad "C27 rc=$RC :: $OUT"; }
 
+vfw() { printf '%s\n%s\n- 카드: x\n' "$1" "$2" > "$VF"; }   # vfw <머리 줄> <둘째 줄>
+c28() { fresh; mk 완성 'del:진행→완성' "add:- 2026-11-03 10:00 — 진행→완성 · 좌석 byz-demo-master#7 · DA $VF#§16"; run --card "$CARD"
+  [ $RC -eq 0 ] && has "^DRAFT #9000" && ok "C28 이동 줄에 좌석 낱말이 끼어도 줄 안 마지막 «DA 경로#§N» 사용" || bad "C28 rc=$RC :: $OUT"; }
+c29() { fresh; OKCARD; vfw '## §16 — r9001 CLOSE (조사 카드 · DA 0)' "닫힘 — main(팩) \`$LANDSHA\` / PR 777"; run --card "$CARD" --out "$T/d29.md"
+  [ $RC -eq 0 ] && has "^DRAFT #9000" && grep -q '^연결 PR: 팩 PR #777 ' "$T/d29.md" && ok "C29 옛 머리 «## §N — rN CLOSE (…)» 도 받음" || bad "C29 rc=$RC :: $OUT"; }
+c30() { fresh; OKCARD; vfw '## §16 — CLOSE r9001' "닫힘 — main(팩) $LANDSHA / PR 777"; run --card "$CARD"
+  [ $RC -eq 0 ] && has "^DRAFT #9000" && ok "C30 둘째 줄 sha 백틱 없어도 받음" || bad "C30 rc=$RC :: $OUT"; }
+c31() { fresh; OKCARD; vfw '## §16 — r9001 CLOSE (팩 PR 777)' "닫힘 — main(팩) \`$LANDSHA\`"; run --card "$CARD" --out "$T/d31.md"
+  [ $RC -eq 0 ] && grep -q '^연결 PR: 팩 PR #777 ' "$T/d31.md" && ok "C31 PR 번호가 머리 «팩 PR N» 에만 있어도 받음" || bad "C31 rc=$RC :: $OUT"
+  vfw '## §16 — CLOSE r9001 (팩 PR 777)' "닫힘 — main(팩) \`$LANDSHA\` / PR 777"; run --card "$CARD"
+  [ $RC -eq 0 ] && has "^DRAFT #9000" && ok "C31b 머리·둘째 줄 PR 이 같은 값이면 받음" || bad "C31b rc=$RC :: $OUT"; }
+c32() { fresh; OKCARD; vfw '## §16 — CLOSE r9001' "닫힘 — main(팩) \`$LANDSHA\`"; run --card "$CARD" --post; expect "C32a PR 번호 0개 → REJECT 결정 불가 rc1" 1 "결정 불가" 0
+  vfw '## §16 — r9001 CLOSE (팩 PR 776)' "닫힘 — main(팩) \`$LANDSHA\` / PR 777"; run --card "$CARD" --post; expect "C32b PR 번호 서로 다른 둘 → REJECT 결정 불가 rc1" 1 "결정 불가" 0; }
+c33() { fresh; OKCARD; printf '## §16 — CLOSE r9001\n닫힘 — main(팩) `%s` / PR 777\n## §16 — r9001 CLOSE\n닫힘 — main(팩) `%s` / PR 777\n' "$LANDSHA" "$LANDSHA" > "$VF"
+  run --card "$CARD" --post; expect "C33 같은 판정문에 새·옛 머리 둘 → 2개 REJECT 결정 불가 rc1" 1 "결정 불가" 0; }
+
 stage "시작"
 c1; c2; c3; c4; c5; stage "C1~C5"; c6; c7; c8; c9; c10; stage "C6~C10"; c11; c12; c13; c14; c15; stage "C11~C15"
-c16; c17; c18; c19; c20; stage "C16~C20"; c21; c22; c23; stage "C21~C23"; c24; c25; c26; c27; stage "C24~C27"
+c16; c17; c18; c19; c20; stage "C16~C20"; c21; c22; c23; stage "C21~C23"; c24; c25; c26; c27; stage "C24~C27"; c28; c29; c30; c31; c32; c33; stage "C28~C33"
 for f in ft-issue-close-draft.sh ft-gh-as-tank.sh; do
   [ -f "$MIR/$f" ] && cmp -s "$BIN/$f" "$MIR/$f" && ok "bin·kit 같은 판 $f" || bad "bin·kit 다름 $f"; done
 [ ! -x "$HERE/test_issue_close_draft_r1349.sh" ] && ok "시험 파일 실행 비트 0" || bad "시험 파일 실행 비트 있음"
@@ -135,7 +151,7 @@ mut() { # mut <번호> <사례 함수> <파일> <옛> <새> — 도구 사본을
 D=ft-issue-close-draft.sh
 mut 1 c3 $D '; build_draft; precheck' '; build_draft'
 mut 2 c6 $D '| tail -1 | sed -E "s/^- ($1):' '| head -1 | sed -E "s/^- ($1):'
-mut 3 c7 $D '[ "$cnt" = 1 ] ||' '[ "$cnt" -ge 1 ] ||'
+mut 3 c7 $D '[ "${cnt:-0}" = 1 ] ||' '[ "${cnt:-0}" -ge 1 ] ||'
 mut 4 c10 $D '  undecided "게시 결과 불명' '  bash "$WRAP" comment "$ISSUE" "$OUT" --apply >/dev/null 2>&1; undecided "게시 결과 불명'
 mut 5 c4 $D '|| donly "완성 폴더 아님"' '|| true'
 mut 6 c12 $D '{ [[ "$EVT" =~ $ev ]] &&' '{ true &&'
@@ -154,6 +170,9 @@ mut 17 c21 $D '[ -n "$CAUSE" ] || donly "원인 1줄 없음"' 'true'
 mut 18 c24 $D '| land_word)"; [[' ')"; [['
 mut 19 c27 $D 'git -C "$(dirname "$CARD")" rev-parse --show-toplevel' 'pwd'
 mut 20 c26 $D 'merge-base --is-ancestor "$1" "$ref" 2>/dev/null || continue' 'cat-file -e "$1" || continue'
-stage "변이 9~20"
+mut 21 c28 $D "진행→완성 · .*DA " "진행→완성 · DA "
+mut 22 c29 $D 'ok(a) || ok(b) {' 'ok(a) {'
+mut 23 c32 $D '[ "$(wc -l <<<"$prs")" -eq 1 ]' 'true'
+stage "변이 9~23"
 [ $fail -eq 0 ] && echo "ALL PASS (${SECONDS}초)" || echo "FAILED $fail (${SECONDS}초)"
 [ $fail -eq 0 ]

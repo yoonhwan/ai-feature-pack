@@ -498,7 +498,7 @@ cp "$R/.fable-team/seats-tick.json" "$T/seats-tick.json"
 cat > "$T/seatstatus-stub.sh" <<'STUB'
 #!/bin/bash
 case "$1" in
-  one) if [ "$2" = "S#1" ]; then echo "IDLE 1793400000 900000 no"; else echo "IDLE 1793400000 60 no"; fi; exit 0;;
+  one) if [ "$2" = "S#1" ]; then echo "IDLE 1793400000 900000 claude"; else echo "IDLE 1793400000 60 claude"; fi; exit 0;;   # r1238 C: 4열 = agent(claude 만 jsonl 나이로 판정)
   turn) echo "IDLE 1793400000 0 no jsonl"; exit 0;;
 esac
 exit 0
