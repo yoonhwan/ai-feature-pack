@@ -209,6 +209,24 @@ def spawn_capacity(root: Path, label: str, cap_cmd: str) -> str:
     return "full" if out.startswith("REJECT") else "unknown"
 
 
+GATE_SH = '''if [ -f "$1" ]; then . "$1"; fi
+if [ "${FT_CARD_FLOW:-1}" = 0 ] || [ "${FT_CARD_CAP:-1}" = 0 ]; then exit 0; fi
+exec bash "$2" --team "$3" --root "$4" --gate'''
+
+
+def card_gate(root: Path, label: str, flow_cmd: str) -> int:
+    """r1238 A-r4-2·3 — spawn 이 보는 카드 흐름 상한(ft-card-flow.sh --gate)을 a 후보 팀마다 1회 묻는다. 호출 상한 FT_STALL_GATE_SEC(기본 7초 · 판정 기한 밖).
+    → 0 통과(팀 env 의 FT_CARD_FLOW=0·FT_CARD_CAP=0 이면 부르지 않고 0 · spawn 과 같은 스위치 · 팀 env 가 없는 팀도 부른다) · 4 상한 REJECT · 그 밖 = 확인 실패(시간 초과 124).
+    우회 env FT_CARD_CAP_OK 는 card-flow 가 판정한다(env 그대로 넘김)."""
+    env = root / ".fable-team" / f"bin-{label}" / f"{label}-env.sh"
+    try:
+        sec = float(os.environ.get("FT_STALL_GATE_SEC") or 7)
+    except ValueError:
+        sec = 7.0
+    rc, _out = stm.grun(["bash", "-c", GATE_SH, "_", str(env), flow_cmd, label, str(root)], None, sec)
+    return 124 if rc == 99 else rc
+
+
 def _texts(rec: dict[str, Any]) -> tuple[list[str], bool]:
     content = (rec.get("message") or {}).get("content")
     if not isinstance(content, list):
@@ -362,8 +380,55 @@ def _ref_verdicts(cards: Path, lint: str, root: Path | None) -> dict[str, str] |
     return verdicts
 
 
-def waiting_cards(cards: Path | None, lint: str, root: Path | None = None) -> tuple[list[str], int]:
-    """→ (지금 spawn 할 수 있는 대기 카드 이름들, 선행 미판정 장수). r1330: git 리포 안이면 기준 ref 트리에서 읽는다(디스크 체크아웃이 뒤처져도 옛 카드 0) · 못 읽으면 RefUnavailable."""
+LEDGER_STATES = ("seat", "waiting", "none")
+HUMAN_WAIT = ("사람", "면제대기")  # 사람 결정 몫 — 원장 waiting 이면 계속 a 후보 밖
+NUDGE_WINDOW_S = 7200  # r1238 A-r4-1 — 그 밖 사유 waiting 카드는 max(원장 updated, 마지막 a 재촉) 뒤 2시간까지 a 후보 밖
+CLOCK_SKEW_S = 60  # A-r4b-3 — 시계 오차 허용
+
+
+def _ledger_row(path: Path, stem: str, now: float) -> dict[str, Any] | None:
+    """A-r4-3 — 카드 배정 원장 1장 읽기 → 꼴 검사 통과한 dict · 파일 없음 = None(지금처럼 ready) · 읽기 실패·꼴 위반·미래 updated = RefUnavailable(그 팀 a 0 + «a?» 1줄)."""
+    from ft_card_assign_watch import LEGACY, REASONS  # 늦은 가져오기 — ft_penalty ↔ ft_stall_detect 순환 회피
+    try:
+        raw = path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return None
+    except (OSError, UnicodeError) as e:
+        raise RefUnavailable(f"배정 원장 읽기 실패 {stem}({e.__class__.__name__})") from None
+    try:
+        row = json.loads(raw)
+    except ValueError:
+        raise RefUnavailable(f"배정 원장 JSON 깨짐 {stem}") from None
+    upd = row.get("updated") if isinstance(row, dict) else None
+    if not isinstance(row, dict) or row.get("state") not in LEDGER_STATES or isinstance(upd, bool) or not isinstance(upd, (int, float)) \
+            or row["state"] == "waiting" and row.get("reason") not in (*REASONS, *LEGACY):
+        raise RefUnavailable(f"배정 원장 꼴 위반 {stem}")
+    if upd > now + CLOCK_SKEW_S:
+        raise RefUnavailable(f"updated 미래 {stem}")
+    return row
+
+
+def _ledger_holds(root: Path, stem: str, now: float, nudged: dict[str, float], notes: list[str]) -> bool:
+    """이 ready 카드를 a 후보에서 뺄까 — 원장 waiting 중 사람·면제대기 = 계속 · 그 밖 사유 = now − max(updated, 마지막 a 재촉) < 2시간 · seat·none·원장 없음·옛 «부하» 행 = 지금처럼 후보."""
+    from ft_card_assign_watch import LEGACY
+    row = _ledger_row(root / ".fable-team/state/card-assign" / f"{stem}.json", stem, now)
+    if row is None or row["state"] != "waiting" or row.get("reason") in LEGACY:
+        return False
+    if row["reason"] in HUMAN_WAIT:
+        return True
+    last = nudged.get(stem)
+    if last is not None and last > now + CLOCK_SKEW_S:  # A-r4b-3 — 미래 재촉 기록은 버리고 기록 없음으로 판정
+        del nudged[stem]
+        notes.append(f"재촉 기록 미래 값 버림 {stem}")
+        last = None
+    return now - max(float(row["updated"]), last or 0.0) < NUDGE_WINDOW_S
+
+
+def waiting_cards(cards: Path | None, lint: str, root: Path | None = None, now: float | None = None,
+                  nudged: dict[str, float] | None = None, notes: list[str] | None = None) -> tuple[list[str], int]:
+    """→ (지금 spawn 할 수 있는 대기 카드 이름들, 선행 미판정 장수). r1330: git 리포 안이면 기준 ref 트리에서 읽는다(디스크 체크아웃이 뒤처져도 옛 카드 0) · 못 읽으면 RefUnavailable.
+    r1238 A: now 를 주면 ready 카드마다 배정 원장(<루트>/.fable-team/state/card-assign/<카드>.json)을 같은 함수로(ref·디스크 두 길 공통) 대조해 뺀다 — 원장 못 읽음·꼴 위반 = RefUnavailable.
+    nudged = {카드 stem: 마지막 a 재촉 epoch}(미래 값은 지우고 notes 에 1줄)."""
     if not cards:
         return [], 0
     verdicts = _ref_verdicts(cards, lint, root)
@@ -372,7 +437,12 @@ def waiting_cards(cards: Path | None, lint: str, root: Path | None = None) -> tu
         if not d.is_dir():
             return [], 0
         verdicts = {c.stem: card_ready(c, d.parent, lint) for c in sorted(d.glob("*.md")) if c.name != "README.md"}
-    return [n for n, v in verdicts.items() if v == "ready"], sum(1 for v in verdicts.values() if v.startswith("unknown:"))
+    ready = [n for n, v in verdicts.items() if v == "ready"]
+    if root is not None and now is not None:  # 두 길(디스크·ref 트리) 공통 — 같은 함수
+        sink: list[str] = notes if notes is not None else []
+        mine = nudged if nudged is not None else {}
+        ready = [n for n in ready if not _ledger_holds(root, n, now, mine, sink)]
+    return ready, sum(1 for v in verdicts.values() if v.startswith("unknown:"))
 
 
 def policy_stop(root: Path, now: float, hold_cmd: str = "") -> str | None:

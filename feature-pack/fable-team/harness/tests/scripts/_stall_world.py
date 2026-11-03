@@ -27,6 +27,12 @@ MBOX = (
     'case "$1" in\n  send) echo "send|$2|$3|$last|$4" >> "$FT_STUB/mbox.log";;\n  ring) echo "ring|$2|${3:-}" >> "$FT_STUB/mbox.log";;\nesac\n'
 )
 LINT = '#!/bin/sh\ngrep -q LINTBAD "$1" && exit 1\nexit 0\n'
+# r1238 A — ft-card-flow.sh 대역: 인자 «--team <팀> --root <루트> --gate» 가 아니면 rc 2 «args»(스텁 계약) · 호출 기록 flow.calls · 지연 FT_STUB/flow.sleep(초) · rc = FT_STUB/flow.rc.<팀> 없으면 flow.rc 없으면 0
+FLOW = (
+    '#!/bin/sh\n[ "$1" = --team ] && [ "$3" = --root ] && [ "$5" = --gate ] && [ $# -eq 5 ] || { echo "args" >&2; exit 2; }\n'
+    'echo "$2|$4|$*" >> "$FT_STUB/flow.calls"\n[ -f "$FT_STUB/flow.sleep" ] && sleep "$(cat "$FT_STUB/flow.sleep")"\n'
+    'for f in "$FT_STUB/flow.rc.$2" "$FT_STUB/flow.rc"; do [ -f "$f" ] && exit "$(cat "$f")"; done\nexit 0\n'
+)
 
 
 def _exe(path: Path, body: str) -> Path:
@@ -57,6 +63,7 @@ class World:
             FT_SEAT_STATUS=str(_exe(self.stub / "seat-status.sh", STATUS)), FT_TMUX=str(_exe(self.stub / "tmux.sh", TMUX)),
             FT_MBOX_SH=str(_exe(self.stub / "mbox.sh", MBOX)), FT_INDEX_LINT=str(_exe(self.stub / "lint.sh", LINT)),
             FT_MBOX_DIR=str(self.root / ".fable-team/comm"),
+            FT_CARD_FLOW_SH=str(_exe(self.stub / "card-flow.sh", FLOW)),
         )
         shim = self.stub / "shim"
         shim.mkdir()
@@ -185,6 +192,10 @@ class World:
     def calls(self, name: str) -> list[str]:
         p = self.stub / name
         return p.read_text().splitlines() if p.exists() else []
+
+    def flow_rc(self, rc: int, team: str | None = None) -> None:
+        """card-flow 대역의 rc — team 을 주면 그 팀만."""
+        _ = (self.stub / (f"flow.rc.{team}" if team else "flow.rc")).write_text(str(rc))
 
     def scan_log(self) -> list[str]:
         p = self.root / ".fable-team/state/stall-scan.log"
