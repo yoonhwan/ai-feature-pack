@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# ft-nano-spawn.sh <indices/대기/X.md> [--agent claude|codex|cmd|opencode|pi] [--model ID] [--effort E] [--raise "<사유>"] [--from <발주좌석>] [--recheck <판정문>] [--base <ref>] [--cherry-override "<사유>"] [--research] [--dry-run]
+# ft-nano-spawn.sh <indices/대기/X.md> [--agent claude|codex|cmd|opencode|pi] [--model ID] [--effort E] [--raise "<사유>"] [--from <발주좌석>] [--recheck <판정문>] [--base <ref>] [--cherry-override "<사유>"] [--research | --reopen] [--dry-run]
+#   --reopen = (r1335) 진행/ 카드의 닫힌 나노를 같은 카드에 다시 연다 — 카드 이동 0 · 워크트리 있으면 재사용 · 없고 nano 가지 있으면 그 가지로 재부착(미반입이어도 · -rN 0) · 둘 다 없으면 base 에서 새로 · 옛 좌석이 살아 있으면 REJECT(ring) · --research 와 같이 쓰면 usage rc 2
 #   --research = 리서치 나노(판정 2282 · R387 · 설계 §3·§7) — «진행/ 부모 카드»(DA 보류가 쌓인 카드)를 옮기지 않고 같은 카드에 읽기 전용 조사 좌석을 연다: 좌석 이름 꼬리 `-research` · 발주 본문에 고정 문단(산출 = RESEARCH 파일 1개 · 코드 0) · 카드에 `- 리서치: <좌석> base=<sha> 허용=…` · opencode 는 ft-opencode-reap.sh(r286) 없으면 REJECT
 #   --raise "<사유>" = 상향 모델(claude-fable-*·*astra* · 판정 1641)을 열 때 필수 · 명부 행에 raised{reason,card,by,at,close_on} 를 남긴다(R149)
 #   Seatbelt 0.3 · 나노 좌석을 «손타이핑 없이» 연다 (SEATBELT-README §3 열기).
@@ -10,11 +11,12 @@
 set -uo pipefail
 [ -f "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" ] && . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" "$@"   # R201: 비설치 위치면 LIVE_BIN 으로 exec
 IDX="${1:-}"; shift || { echo "usage: $0 <indices/대기/X.md> [--agent claude|codex|cmd|opencode|pi] [--model M] [--effort E] [--raise \"<사유>\"] [--from SEAT] [--base REF] [--cherry-override \"<사유>\"] [--dry-run]" >&2; exit 2; }
-AGENT="claude"; AGENT_SET=0; MODEL=""; EFFORT="high"; EFFORT_SET=0; FROM="${FT_SEND_FROM:-}"; FROM_SET=0; RESEARCH=0; DRY=0; FAST=""; TIER=""; RECHECK=""; BASE_REF=""; HAVE_CO=0; CO=""; RAISE=""
+AGENT="claude"; AGENT_SET=0; MODEL=""; EFFORT="high"; EFFORT_SET=0; FROM="${FT_SEND_FROM:-}"; FROM_SET=0; RESEARCH=0; REOPEN=0; DRY=0; FAST=""; TIER=""; RECHECK=""; BASE_REF=""; HAVE_CO=0; CO=""; RAISE=""
 while [ $# -gt 0 ]; do case "$1" in
   --agent) AGENT="$2"; AGENT_SET=1; shift 2;; --model) MODEL="$2"; shift 2;; --effort) EFFORT="$2"; EFFORT_SET=1; shift 2;; --raise) RAISE="${2:-}"; shift 2 2>/dev/null || shift;;
-  --from) FROM="$2"; FROM_SET=1; shift 2;; --recheck) RECHECK="$2"; shift 2;; --dry-run) DRY=1; shift;; --research) RESEARCH=1; shift;; --tier) TIER="$2"; shift 2;; --base) BASE_REF="$2"; shift 2;;
+  --from) FROM="$2"; FROM_SET=1; shift 2;; --recheck) RECHECK="$2"; shift 2;; --dry-run) DRY=1; shift;; --research) RESEARCH=1; shift;; --reopen) REOPEN=1; shift;; --tier) TIER="$2"; shift 2;; --base) BASE_REF="$2"; shift 2;;
   --cherry-override) HAVE_CO=1; CO="${2:-}"; shift 2 2>/dev/null || shift;; *) echo "unknown $1" >&2; exit 2;; esac; done
+[ "$REOPEN" != 1 ] || [ "$RESEARCH" != 1 ] || { echo "usage: --reopen 과 --research 는 같이 못 쓴다(--reopen = 닫힌 진행 카드 나노 다시 열기 · --research = 리서치 좌석)" >&2; exit 2; }   # r1335 V8
 CO_ARGS=(); [ "$HAVE_CO" -eq 0 ] || { [ -n "${CO//[[:space:]]/}" ] || { echo "usage: --cherry-override \"<사유>\" — 사유가 비었다(사유 없는 우회 거부)" >&2; exit 2; }; CO_ARGS=(--override "$CO"); }
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 [ -f "$HERE/ft-heavy-slot-lib.sh" ] || { echo "REJECT ft-heavy-slot-lib.sh 없음: $HERE — 좌석 0"; exit 1; }; . "$HERE/ft-heavy-slot-lib.sh"   # r1286: 무거운 git 전역 자리(동시 2) — 없으면 조용한 통과 0
@@ -85,6 +87,36 @@ _acct_paused() {   # $1 = agent $2 = model(확정값)
 card_assign_record() {  # $1 카드 $2 init|waiting|seat $3 사유|이름 [$4 hold|acct $5 key]
   { [ "$DRY" = 1 ] || [ "$RESEARCH" = 1 ]; } && return 0
   python3 "$HERE/ft_card_assign_watch.py" record "$@" >&2 || echo "WARN 배정 원장 기록 실패($*)" >&2
+}
+# ★r1335 --reopen 판정(진행/ 카드의 닫힌 나노를 같은 카드에 다시 연다)★ — 첫 쓰기(아래 원장 init · 회수 · 정지·계정·상한 게이트) «전» 에 한 함수로 돈다 · 거절 = REJECT 1줄 rc1 · 원장·카드·명부·워크트리·tmux 변경 0.
+#   ① 진행/ 카드만(대기/ = «--reopen 없이») ② 옛 좌석이 살아 있으면 REJECT(ring 이 맞다) — 살아 있음 = 카드 거울 «- 배정: 좌석 <이름>» 이 tmux 에 있음 ∨ 이 카드 슬러그의 나노 세션 이름(«…-nano-<슬러그>#<번호>»)이 tmux 에 있음(거울 «없음» 이어도 본다) ③ tmux 목록을 못 읽으면 판정 불가 REJECT(통과 0).
+reopen_check() {
+  local slug mirror live hit
+  case "$IDX" in
+    */진행/*) ;;
+    */대기/*) echo "REJECT 대기 카드는 --reopen 없이 연다: $IDX"; return 1;;
+    *) echo "REJECT --reopen 은 진행/ 에 있는 카드만: $IDX"; return 1;;
+  esac
+  [ -f "$IDX" ] || { echo "REJECT 인덱스 없음: $IDX"; return 1; }
+  slug="$(basename "$IDX" .md | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | cut -c1-40)"
+  mirror="$(awk '/^##[[:space:]]/{exit} /^- 배정: 좌석 /{sub(/^- 배정: 좌석 /,""); sub(/[[:space:]]+$/,""); print; exit}' "$IDX")"
+  live="$(tmux list-sessions -F '#{session_name}' 2>/dev/null)" || { echo "REJECT 판정 불가 — tmux 세션 목록을 못 읽었다(tmux list-sessions rc≠0) · 개설 0"; return 1; }
+  hit=""; [ -z "$mirror" ] || hit="$(printf '%s\n' "$live" | grep -Fx -- "$mirror" | head -1)"
+  [ -n "$hit" ] || hit="$(printf '%s\n' "$live" | grep -E -- "-nano-${slug}#[0-9]+\$" | head -1)"
+  [ -z "$hit" ] || { echo "REJECT $hit 살아 있음 — ring (--reopen 은 닫힌 좌석만 다시 연다)"; return 1; }
+}
+if [ "$REOPEN" = 1 ]; then _rc_out="$(reopen_check)" || { printf '%s\n' "$_rc_out"; exit 1; }; fi
+# r1335: 새 좌석 번호 = 명부 행(닫힌 행·_replaced_by 이력 포함)·tmux 세션 어디에도 없는 «가장 큰 옛 번호 + 1»(없으면 0) — 명부 등록(d[name]=)이 기존 행을 덮지 않게
+reopen_next_n() {  # $1=BASE_NAME → stdout 번호 · 실패 = REJECT 1줄 + rc1
+  local live; live="$(tmux list-sessions -F '#{session_name}' 2>/dev/null)" || { echo "REJECT 판정 불가 — tmux 세션 목록을 못 읽었다 · 개설 0"; return 1; }
+  python3 - "$SEATS" "$1" "$live" <<'PY' || { echo "REJECT 판정 불가 — 명부를 못 읽었다($SEATS) · 개설 0"; return 1; }
+import json, re, sys
+p, base, live = sys.argv[1:4]
+pat = re.compile(re.escape(base) + r"#(\d+)$")
+names = list(json.load(open(p, encoding="utf-8")).keys()) + live.splitlines()
+ns = [int(m.group(1)) for n in names for m in [pat.match(n)] if m]
+print(max(ns) + 1 if ns else 0)
+PY
 }
 card_assign_record "$IDX" init
 # ★spawn 정지 파일 (R320 · 판정 2166)★: 정지는 기한·해제 조건이 있는 SPAWN_HOLD 파일 하나로만 걸린다 — 문장·쪽지로 받은 정지는 효력 0. 출력 `hold=none` = 정지 아님. 없는 도구는 설치 누락(라이브 드리프트 검사가 잡는다).
@@ -378,6 +410,7 @@ if [ ! -f "$IDX" ] && [ -f "$HERE/ft-team-lib.sh" ]; then . "$HERE/ft-team-lib.s
 [ -f "$IDX" ] || { echo "REJECT 인덱스 없음: $IDX"; exit 1; }
 [ ! -f "$HERE/ft-team-lib.sh" ] || ( . "$HERE/ft-team-lib.sh" && ft_card_location_ok "$IDX" ) || exit 1   # r447: 명단 새 꼴 팀 카드가 옛 꼴 폴더(쌍둥이 해석 포함)면 REJECT
 if [ "$RESEARCH" = 1 ]; then case "$IDX" in */진행/*) ;; *) echo "REJECT --research 는 진행/ 에 있는 부모 카드(DA 보류가 쌓인 카드)만 — 카드는 옮기지 않는다: $IDX"; exit 1;; esac
+elif [ "$REOPEN" = 1 ]; then case "$IDX" in */진행/*) ;; *) echo "REJECT --reopen 은 진행/ 에 있는 카드만: $IDX"; exit 1;; esac   # r1335: 진행/ 허용은 --reopen 에서만(위 reopen_check 가 첫 쓰기 전에 이미 걸렀다)
 else case "$IDX" in */대기/*) ;; *) echo "REJECT 대기/ 에 있는 인덱스만 연다: $IDX"; exit 1;; esac; fi
 [ -f "$SEATS" ] || { echo "REJECT seats.json 없음: $SEATS"; exit 1; }
 # 형제 도구는 설치 폴더에만 있다 — 원본 폴더에서 돌리면 lint 의 «파일 없음» 이 «lint 실패» 로, 첫 발주는 좌석을 연 «뒤» 에 죽는다. 열기 «전»에 거절한다(R134). --dry-run 은 송신 전(179행)에 끝나므로 send-verified 는 실전만.
@@ -547,7 +580,8 @@ fi
 SLUG="$(basename "$IDX" .md | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | cut -c1-40)"
 [ "$RESEARCH" != 1 ] || SLUG="$(printf '%s' "$SLUG" | cut -c1-30)-research"   # R387: 좌석 이름·브랜치·워크트리 꼬리 -research
 BASE_NAME="${FT_NANO_PREFIX:-$DEF_NANO_PREFIX}$SLUG"
-N=0; while tmux has-session -t "=$BASE_NAME#$N" 2>/dev/null; do N=$((N+1)); done
+N=0; if [ "$REOPEN" = 1 ]; then N="$(reopen_next_n "$BASE_NAME")" || { printf '%s\n' "$N"; exit 1; }; fi
+while tmux has-session -t "=$BASE_NAME#$N" 2>/dev/null; do N=$((N+1)); done
 NAME="$BASE_NAME#$N"
 BRANCH="nano/$SLUG"; WTDIR="$ROOT/.worktrees/${FT_NANO_WT_PREFIX:-v65-}$SLUG"
 BASE_BRANCH="${BASE_REF:-$(git -C "$WT" rev-parse --abbrev-ref HEAD)}"
@@ -574,7 +608,14 @@ _RSP=" ★리서치 워커(판정 2282 · R387)★ 네 일 = 부모 카드가 �
 #   무관하게» 같은 판정(DA⑥ 53519 H1 — 살아 있는 -rN 워크트리도 미반입이면 재사용 0). 반입 + 워크트리 있음 = 재사용 · 브랜치 없음 = 새로.
 #   미반입이면 REJECT — 옛 브랜치·워크트리 삭제·덮기·재사용 0(판정은 arch). base 워크트리 재발주 재사용(아래 ②)은 그대로.
 #   ①b 카드 base_sha 기록보다 «앞» 이라 REJECT 면 카드 파일도 안 건드린다.
-if [ ! -d "$WTDIR" ] && git -C "$ROOT" rev-parse --verify -q "refs/heads/$BRANCH" >/dev/null; then
+#   r1335 --reopen: 같은 카드의 닫힌 나노를 다시 연다 — 위 게이트(미반입 REJECT)는 --reopen 에서만 건너뛴다(옛 가지는 «이 카드의 것» 이다 · -rN 새 가지 0 · 지우기·덮기 0).
+#     (a) 워크트리 폴더 있음 → 재사용 (b) 없음 ∧ nano/<슬러그> 가지 실재 → 그 가지로 worktree add(미반입이어도) (c) 둘 다 없음 → base 에서 새로
+REOPEN_WT=""; _WTA=(-b "$BRANCH" "$BASE_BRANCH")
+if [ "$REOPEN" = 1 ]; then
+  if [ -d "$WTDIR" ]; then REOPEN_WT="재사용"
+  elif git -C "$ROOT" rev-parse --verify -q "refs/heads/$BRANCH" >/dev/null; then REOPEN_WT="가지 재부착"; _WTA=("$BRANCH")
+  else REOPEN_WT="새로"; fi
+elif [ ! -d "$WTDIR" ] && git -C "$ROOT" rev-parse --verify -q "refs/heads/$BRANCH" >/dev/null; then
   WT_BASE="$WTDIR"; R=1
   while git -C "$ROOT" rev-parse --verify -q "refs/heads/$BRANCH" >/dev/null; do
     # R71: --base 가 sha 면 게이트는 랜딩 브랜치(INFO_BASE · R42)와 비교 — sha 를 넘기면 게이트가 «브랜치 없음» 으로 막는다
@@ -638,6 +679,7 @@ if [ ! -d "$WTDIR" ]; then
   case "$_free" in ''|*[!0-9]*) echo "REJECT [HIL] 디스크 여유 측정 실패(df $ROOT · 값 '${_free}') — spawn 0 · 여유 미상은 충분하다는 뜻 아님"; exit 1;; esac
   [ "$_free" -ge "${FT_NANO_MIN_FREE_GI:-40}" ] || echo "WARN 디스크 여유 ${_free}Gi < ${FT_NANO_MIN_FREE_GI:-40}Gi — 진행(r1078 · 정지는 디스크 하한 1GiB·측정 실패 둘뿐) · 회수 권장 ft-resource-reclaim.sh · ft-wt-sweep.sh" >&2
 fi
+[ "$REOPEN" != 1 ] || [ "$DRY" != 1 ] || echo "REOPEN-PLAN $IDX_REL seat=$NAME wt=$REOPEN_WT branch=$BRANCH"   # r1335: dry-run 은 쓰기 0 — 계획 1줄만
 if [ "$DRY" = 1 ]; then [ "$RESEARCH" != 1 ] || echo "RESEARCH seat=$NAME allow=$_RS_ALLOW card=$IDX_REL body=$_RSP"; [ -d "$WTDIR" ] || echo "PLAN shim-init $WTDIR (워크트리 생성 직후 ft-root-bin-shim.sh --init)"; "${OPEN[@]}" --dry-run; exit 0; fi
 # R251 ⓐ 추론 프록시 사전 확인(7초 룰 · 부작용 0 지점) — 순간 장애는 넘기고 진짜 장애면 직결로 바꾸지 않는다
 #   r669: 옛 판은 진짜 장애도 그냥 exit 1 이라 카드가 큐에도 안 남고 사라졌다(같은 파일 위 좌석 상한·팀셋 경로는 이미 «큐 → exit 7») — 같은 꼴로 맞춘다.
@@ -765,12 +807,12 @@ if [ ! -d "$WTDIR" ]; then
   hs_acquire spawn "${FT_HEAVY_WAIT_S:-60}" || { echo "REJECT 판정 불가 — 무거운 git 자리 ${HS_MSG:-없음}(좌석 0)"; exit 1; }
   _SPT="$(printf '%s' "$IDX_ABS" | sed -nE 's#.*/design/(teams/)?([a-z0-9][a-z0-9_-]*)/indices/.*#\2#p')"   # 카드가 다른 워크트리(절대경로)에 있어도 팀을 푼다
   if [ "${FT_NANO_SPARSE:-1}" = 1 ] && [ -n "$_SPT" ]; then
-    git -C "$ROOT" worktree add --no-checkout "$WTDIR" -b "$BRANCH" "$BASE_BRANCH" >/dev/null || { echo "REJECT worktree add 실패"; exit 1; }
+    git -C "$ROOT" worktree add --no-checkout "$WTDIR" "${_WTA[@]}" >/dev/null || { echo "REJECT worktree add 실패"; exit 1; }
     sparse_patterns "$_SPT" "$BASE_BRANCH" "$SLUG" | git -C "$WTDIR" sparse-checkout set --no-cone --stdin >/dev/null 2>&1 && git -C "$WTDIR" checkout -q 2>/dev/null \
       || { echo "REJECT sparse 체크아웃 실패($WTDIR · 브랜치 $BRANCH · 워크트리는 남김 — 사람 판정)"; exit 1; }
     echo "SPARSE team=$_SPT 남의 팀 design·자기 팀 안 미디어(wav·mp4·png·zip 등)·큰 글자(result.json·jsonl) 제외 · 글자 파일은 남김 · 새 증거 = design/teams/$_SPT/evidence/$SLUG/ (다른 미디어가 필요하면 git sparse-checkout add <경로> · 되돌림: git -C $WTDIR sparse-checkout disable)"
   else
-    FT_WT_FULL="nano full(FT_NANO_SPARSE=${FT_NANO_SPARSE:-1} · team=${_SPT:-?}) $IDX_REL" git -C "$ROOT" worktree add "$WTDIR" -b "$BRANCH" "$BASE_BRANCH" >/dev/null || { echo "REJECT worktree add 실패"; exit 1; }   # r835: 풀 선택을 post-checkout 에 알림(표식 full)
+    FT_WT_FULL="nano full(FT_NANO_SPARSE=${FT_NANO_SPARSE:-1} · team=${_SPT:-?}) $IDX_REL" git -C "$ROOT" worktree add "$WTDIR" "${_WTA[@]}" >/dev/null || { echo "REJECT worktree add 실패"; exit 1; }   # r835: 풀 선택을 post-checkout 에 알림(표식 full)
   fi
   # r494: 새 워크트리에 하네스 입구(.fable-team/bin 연결 파일 + LIVE_BIN·LIVE_ROOT) — 실패해도 spawn 은 계속 · 조용한 통과 0(NOTE 줄)
   _shim_out="$(bash "$HERE/ft-root-bin-shim.sh" --root "$WTDIR" --live "$(sed -n 1p "$ROOT/.fable-team/LIVE_BIN" 2>/dev/null)" --init 2>&1)" \
@@ -851,6 +893,9 @@ PY
 # ⑥ 대기→진행 (호출 워크트리에서 git mv — 인덱스 폴더의 정본은 기준 브랜치)
 if [ "$RESEARCH" = 1 ]; then   # R387: 부모 카드는 이미 진행/ — 옮기지 않고 «리서치: 좌석 · base · 허용» 줄만 상태 절에 덧붙인다(닫을 때 위반 검사·완성 게이트가 읽는다)
   NEW_IDX="$IDX_REL"; printf -- '- 리서치: %s base=%s 허용=%s\n' "$NAME" "$CUR_HEAD" "$_RS_ALLOW" >> "$IDX" || human "⑥ 리서치 카드 줄"
+elif [ "$REOPEN" = 1 ]; then   # r1335: 카드는 진행/ 그대로 — 이동 0 · 거울 «좌석 <새 이름>» + 상태 절 1줄(아래 카드 커밋 1개로 함께)
+  NEW_IDX="$IDX_REL"; card_assign_record "$IDX" seat "$NAME"
+  _rn="$(card_note "$IDX_WT/$NEW_IDX" "$(date '+%FT%H:%M') 재개(--reopen) · 좌석 $NAME · wt=$REOPEN_WT")" || human "⑥ 재개 상태 줄(${_rn:-rc≠0})"
 else
   card_assign_record "$IDX" seat "$NAME"   # r1224: 거울 «좌석 <이름>» 을 이동 «전» 카드에 — ft-index-move 가 옮기는 그 파일에 실려 이동 커밋에 함께 간다
   bash "$HERE/ft-index-move.sh" "$IDX" 진행 --seat "$NAME" || human "⑥ 인덱스 이동"
@@ -858,6 +903,7 @@ else
   git -C "$IDX_WT" ls-files --error-unmatch -- "$NEW_IDX" >/dev/null 2>&1 && { git -C "$IDX_WT" add -- "$NEW_IDX" || human "⑥ 거울 줄 준비"; }   # r1224: 이동이 준비한 진행 카드 1개를 거울 줄째 다시 준비 — 이동 커밋에 «좌석 <이름>» 이 실린다
 fi
 [ -z "$_ASG_LINE" ] || { _cn="$(card_note "$IDX_WT/$NEW_IDX" "$_ASG_LINE")" || echo "WARN 카드 배정 줄 기록 실패 — ${_cn:-rc≠0}" >&2; }   # r1217: 이동 «뒤» 경로
+[ "$REOPEN" != 1 ] || { git -C "$IDX_WT" add -- "$NEW_IDX" && git -C "$IDX_WT" commit -q -m "[docs] ${SLUG} 재개(--reopen) — 좌석 $NAME · wt=$REOPEN_WT" -- "$NEW_IDX" >/dev/null; } || echo "WARN 재개 카드 커밋 실패($NEW_IDX) — 좌석은 열렸다 · 카드 변경은 미커밋" >&2   # r1335: 이동 커밋 대신 카드 커밋 1개
 # ★R163 spawn 카드 기준선★ — 이 시각의 카드 내용 지문·브랜치·워크트리를 남겨 두면 자율 중 «nano-reopen» 대리 판정(r162)이 «승인 범위 그대로» 인지 비교한다.
 #   spawn 출력·exit 는 불변 — 쓰기 실패는 stderr 1줄뿐(tmp→mv 원자 쓰기).
 _CB_DIR="${FT_NANO_CARD_BASE_DIR:-$ROOT/.fable-team/state/nano-card-base}"
@@ -877,6 +923,7 @@ bash "$HERE/ft-sheet-events.sh" commit "$_SK" >/dev/null || true   # 좌석 열�
 BODY="[Seatbelt 발주] 네 인덱스: $IDX_WT/$NEW_IDX — 먼저 $_SBR${_SBR_REF:+ (ref $_SBR_REF 판 사본)} §2 부팅 5단계(첫 보고까지), 그 다음 인덱스 §구현 범위만. 커밋은 브랜치 $BRANCH, push 금지. 산출 경로를 mbox 로 $FROM 에. ★press(라이브 오디오 시험) 금지 — 나노는 쏘지 않는다(ft-press-gate ⑦ 이 tester·checker 좌석만 허가 · 오빠 10-07) · 시험은 단위·캡처·기존 로그만, press 가 필요하면 산출에 「press 필요: <무엇을 볼지>」 1줄로 적어 $FROM 에 넘긴다★ ★측정 조작 금지(오빠 절대지침) — 임의 Redis 쓰기(redis-cli SET·HSET·XADD·PUBLISH 등 제품 키 직접 주입)·말풍선 DOM 주입(재생 하네스·/dev/bubble-replay·appendChild)으로 만든 결과는 증거 아님 · 측정은 trusted 클릭 + 기존 e2e 러너의 실제 음성 경로만 · 격리 Redis 픽스처 시험은 별개 · 이미 썼으면 [HIL] 로 올림 (BOOT 20)★ ★편집은 Edit 절대경로($WTDIR/…)만★ ★읽기는 Read · 코드 찾기는 ci, Bash 는 실행(git·pytest·ruff·mbox)만★ — cat/sed -n/grep 으로 파일을 읽으면 전문이 컨텍스트에 쌓인다(2026-09-14 나노 16좌석 실측: Bash 100~156회 중 절반이 파일 읽기). ★증거 줄(세트: … · 시험: … rc=… · 이슈: …)은 완료 턴에 네가 인덱스 «상태» 절에 직접 쓴다($IDX_WT/$NEW_IDX 절대경로 Edit) — master 는 커밋만(판정 1125)★ 증거 줄 템플릿(그대로 복사해 <> 만 채움): 세트: <나노 HEAD 40자> · 시험: <명령 — «(N passed)» 같은 꼬리는 여기> rc=<n> · 이슈: 0 — rc= 바로 뒤는 « · 이슈:» — 괄호·설명은 rc= 앞에. ★팀 구조: 각 팀 = master(집행) + arch(설계·발주·DA 소환) + DA(반박 게이트) 상시 · 실제 작업은 전부 나노(카드 1장 = 나노 1석) · master·arch·DA 는 코드·시안·카드 증거 줄을 쓰지 않는다★${_WFX}${_NFX}${_SPX}${_SRX}${_AFX}${_RLX}$_PKX${_EBN}"
 [ -z "$_ASG_LINE" ] || BODY="[Seatbelt 발주] $_ASG_LINE — ${BODY#\[Seatbelt 발주\] }"   # r1217: 머리 뒤 배정 1줄
 [ "$RESEARCH" != 1 ] || BODY="$BODY$_RSP"
+[ "$REOPEN" != 1 ] || BODY="$BODY ★재개 — 카드 «상태» 절 마지막 줄부터 · 가지의 미커밋·커밋을 먼저 읽는다(r1335 · 옛 좌석이 하던 일을 처음부터 다시 하지 않는다)★"
 [ "$TIER" != search ] || BODY="$BODY ★검색 나노($AGENT · r286)★ 읽고 모으기만 — 코드 수정·커밋 0 · 산출 = 파일 1개 + mbox relay · 끝나면 [완료·휴식] (닫기 = master ft-nano-close · $AGENT 프로세스 left=0 확인)."
 # ★r1025: 송신 «직전» 최종 본문 검사★ 전역 하드 룰 16 은 «사람·나노·스크립트 모두 ci» 인데 이 스크립트의 고정 문구가
 #   «serena 먼저»(r556)라 규칙과 도구가 서로 반대였다(planner 설계 §② 실측 · r1024 나노 부팅 보고 «Serena O»).
@@ -899,6 +946,7 @@ _probe="$(retired_probe "$BODY" "$IDX_WT/$NEW_IDX" "$WTDIR" "$BRANCH" "$IDX_REL"
 _retired="$(retired_line "$_probe")"
 [ -z "$_retired" ] || fail_rb "REJECT 발주문에 은퇴 도구 지시(serena) — $_retired"
 # (에이전트 본체는 ③ 직후 ft-agent-ready.sh 가 확인했다 — 옛 sleep 8 대체 · R251)
+[ "$REOPEN" != 1 ] || echo "REOPEN $IDX_REL seat=$NAME wt=$REOPEN_WT branch=$BRANCH head=$(git -C "$WTDIR" rev-parse HEAD 2>/dev/null)"   # r1335: 실사건 원문 1줄
 FT_SEND_FROM="$FROM" bash "$HERE/ft-send-verified.sh" "$NAME" "$BODY"; _src=$?
 [ "$_src" -eq 0 ] && { echo "SPAWNED $NAME index=$NEW_IDX wt=$WTDIR"; exit 0; }
 echo "SPAWNED-UNVERIFIED $NAME rc=$_src — 좌석은 떴다. 도달을 사람이 확인"; exit 5
