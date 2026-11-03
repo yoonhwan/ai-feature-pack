@@ -72,7 +72,7 @@ class Inbound:
                     found[str(m["ts"])] = {**m, "thread_ts": t}
             if latest is not None:
                 self.seen_updates[t] = latest
-        mt.read_old(self, seen, set(threads), floor, found)  # 루트가 창 밖이어도 최근에 답이 오간 스레드의 새 답(R242 단계 2)
+        mt.read_old(self, st, set(threads), floor, found)  # 루트가 창 밖이어도 최근에 답이 오간 스레드의 새 답(R242 단계 2)
         return sorted((m for ts, m in found.items() if ts not in ledger), key=lambda m: str(m["ts"]))
 
     # --- 전달 (Slack 을 다시 읽지 않고 원장만으로 재개) -------------------------------------------
