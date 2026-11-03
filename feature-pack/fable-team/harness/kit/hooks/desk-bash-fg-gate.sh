@@ -23,16 +23,21 @@ REASON = (
 )
 
 
+def log(why, warn=True):
+    line = time.strftime("%Y-%m-%dT%H:%M:%S") + f" desk-bash-fg-gate: {why}"
+    if warn:
+        print(f"WARN {line}", file=sys.stderr)
+    try:
+        os.makedirs(os.path.dirname(LOG), exist_ok=True)
+        with open(LOG, "a", encoding="utf-8") as f:
+            f.write(line + "\n")
+    except OSError:
+        pass
+
+
 def allow(why=None):
     if why:
-        line = time.strftime("%Y-%m-%dT%H:%M:%S") + f" desk-bash-fg-gate: {why}"
-        print(f"WARN {line}", file=sys.stderr)
-        try:
-            os.makedirs(os.path.dirname(LOG), exist_ok=True)
-            with open(LOG, "a", encoding="utf-8") as f:
-                f.write(line + "\n")
-        except OSError:
-            pass
+        log(why)
     sys.exit(0)
 
 
@@ -75,8 +80,11 @@ except (RuntimeError, subprocess.SubprocessError, OSError) as e:
     allow(f"tmux 조회 실패 — 허용: {e}")
 if me != desk:
     allow()
+if "timeout_ms" in ti and "timeout" not in ti:
+    allow()  # R241 단계 2: Monitor 꼴(배경 감시 · timeout_ms 만 있고 Bash 의 timeout 없음)은 턴을 붙잡지 않는다
 t = ti.get("timeout")
 if isinstance(t, (int, float)) and not isinstance(t, bool) and 0 < t <= FG_MS:
     allow()
+log("deny tool_name=%s keys=%s" % (d.get("tool_name", "Bash"), ",".join(sorted(ti))), warn=False)
 print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": REASON}}, ensure_ascii=False))
 PYEOF
