@@ -18,7 +18,8 @@
 #   provider 판별 = provider-of-model.tsv(모델 정규식 → provider) → agent 기본표(claude→claude · codex→codex · pi→deepseek · cmd→deepseek) → 둘 다 없으면 «판정 불가».
 #   ★배치(하드 룰 12)★: 한 status 호출의 좌석 처리 = FT_ACCT_BATCH_SEC(기본 7초) 안 · 외부 호출(send·ring) timeout = «남은 배치 시간»(최대 30초) — 느린 mbox 하나가 바퀴를 잡아먹지 않는다.
 #        좌석 수 상한 = FT_ACCT_BATCH_SEATS(기본 20) — 넘는 좌석은 다음 호출(틱 다음 바퀴)이 이어받는다.
-#   env(시험): FT_ACCT_ROOT FT_ACCT_NOW FT_ACCT_MBOX FT_ACCT_RULES FT_ACCT_TMUX FT_ACCT_LOCK_WAIT FT_ACCT_BATCH_SEC FT_ACCT_BATCH_SEATS FT_ACCT_AGENT_PROVIDER
+#   env(시험): FT_ACCT_ROOT FT_ACCT_NOW FT_ACCT_MBOX FT_ACCT_RULES FT_ACCT_TMUX FT_ACCT_LOCK_WAIT FT_ACCT_BATCH_SEC FT_ACCT_BATCH_SEATS FT_ACCT_AGENT_PROVIDER FT_ACCT_BUSY_MAX_SEC
+#   ★busy 상한(r1214 재발)★: 재개 중 한 좌석이 FT_ACCT_BUSY_MAX_SEC(기본 1800초) 넘게 계속 바쁘면 그 좌석만 `GAVE_UP … 재개 못 함` 1줄 + 기록(gave_up·last_err)으로 닫고 회차를 끝낸다 — 바쁜 좌석에 send·ring 0 은 그대로.
 #   ★측정·조작 금지(오빠 절대지침)★: 이 도구는 좌석을 kill 하지 않고 pane 에 입력하지 않는다 — 문은 «발사 0» 뿐이다(하드 룰 2·7).
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
@@ -60,6 +61,7 @@ LOCK_WAIT = float(os.environ.get("FT_ACCT_LOCK_WAIT") or 7)
 BATCH_SEC = float(os.environ.get("FT_ACCT_BATCH_SEC") or 7)
 BATCH_SEATS = int(os.environ.get("FT_ACCT_BATCH_SEATS") or 20)
 CALL_MAX = float(os.environ.get("FT_ACCT_CALL_MAX") or 30)   # 한 외부 호출 상한(배치 남은 시간이 더 작으면 그쪽)
+BUSY_MAX_SEC = int(os.environ.get("FT_ACCT_BUSY_MAX_SEC") or 1800)   # r1214 재발: 바쁜 좌석이 재개 회차를 무기한 열어 두지 못한다
 MAX_UNTIL = 8 * 3600
 FOLD_DAYS = 7
 SENDER = "ft-acct-pause"
@@ -331,6 +333,22 @@ def ring_seat(seat, budget):
     return r is not None and r.returncode == 0
 
 
+def busy_giveup(r, budget):
+    """재개 중 busy 가 BUSY_MAX_SEC 을 넘기면 그 좌석만 «재개 못 함» 으로 기록하고 닫는다(조용한 0 아님 · GAVE_UP 줄)."""
+    since = int(r.get("busy_since") or 0)
+    if not since:
+        r["busy_since"] = NOW
+        return False
+    if NOW - since < BUSY_MAX_SEC:
+        return False
+    r["resume_at"] = r.get("resume_at") or NOW
+    r["no_ring"] = True
+    r["gave_up"] = True
+    r["last_err"] = f"재개 못 함 — busy {NOW - since}s"
+    budget.setdefault("gaveup", []).append((r.get("seat") or "", NOW - since))
+    return True
+
+
 def ring_if_idle(r, budget):
     """재개 ring 은 «모든» 좌석(틱 좌석 포함)이 유휴일 때만 — 바쁘면 다음 호출이 재시도(④)."""
     seat = r.get("seat") or ""
@@ -348,6 +366,7 @@ def ring_if_idle(r, budget):
         return False
     if busy:
         r["last_err"] = "busy"
+        busy_giveup(r, budget)
         return False
     if not ring_seat(seat, budget):
         r["last_err"] = "ring 실패"
@@ -406,6 +425,8 @@ def notice_pass(entry, rec, kind, budget):
                 break
             if busy:
                 r["last_err"] = "busy"
+                if kind == "resume":
+                    busy_giveup(r, budget)
                 continue
         doorbell, err = send_seat(seat, body, budget)
         budget["seats"] -= 1
@@ -591,7 +612,10 @@ def do_clear(prov, rnd=""):
                 continue
             lab = label(p, base_model(entry.get("model") or ""))
             rid = entry.get("round_id")
-            if release_pass(entry, rec, budget, "cleared"):
+            done_all = release_pass(entry, rec, budget, "cleared")
+            for gs, gn in budget.pop("gaveup", []):
+                print(f"GAVE_UP {lab} round={rid} seat={gs} busy={gn}s — 재개 못 함")
+            if done_all:
                 state.pop(p, None)
                 print(f"CLEARED pause {lab} round={rid}")
             else:
@@ -623,7 +647,10 @@ def do_status():
             end, _until, rel = endpoint(entry)
             lab = label(prov, base_model(entry.get("model") or ""))
             if rec.get("stage") == "releasing" or NOW >= end:
-                if release_pass(entry, rec, budget, "released"):
+                done_all = release_pass(entry, rec, budget, "released")
+                for gs, gn in budget.pop("gaveup", []):
+                    print(f"GAVE_UP {lab} round={rid} seat={gs} busy={gn}s — 재개 못 함")
+                if done_all:
                     state.pop(prov, None)
                     print(f"{'EXPIRED' if NOW >= until else 'RELEASED'} {lab} round={rid}")
                 else:
