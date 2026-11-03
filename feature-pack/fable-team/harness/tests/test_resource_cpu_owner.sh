@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # test_resource_cpu_owner.sh — r522 CPU 폭주 «주인» 한 줄(ft-resource-cause.sh cpu) + 감시자 tick 기록·planner 쪽지 1통.
-# 가짜 ps(FT_RES_PS)·가짜 tmux(FT_RES_TMUX)·가짜 센서·임시 루트·가짜 mbox 만 쓴다 — 실 프로세스·실 tmux·실 쪽지·kill 0.
+# 가짜 ps(FT_RES_PS · r1340 칸 = pid ppid tty etime time pcpu comm · 폭주 견본 time=etime → 살아온 평균 100%)·가짜 tmux(FT_RES_TMUX)·가짜 센서·임시 루트·가짜 mbox 만 쓴다 — 실 프로세스·실 tmux·실 쪽지·kill 0.
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 export FT_ALLOW_TRACKED_BIN=1 FT_RECLAIM_PREVENT_SEC=0
@@ -25,11 +25,11 @@ chmod 755 "$S"/*
 printf 'byz-v65-master-claude#0 100 /dev/ttys003\nbyz-t-other-claude#1 400 /dev/ttys009\n' > "$T/tmux.txt"
 PSF="$T/ps.txt"
 base_ps() { # 셸 pane(100) · 중간 zsh(150) · 상관없는 폭주 1개(mds) · 공백 든 이름 3개(10% — 문턱 밑)
-  printf '%s\n' '100 1 ttys003 1-00:00:00 0.0 -zsh' '150 100 ttys003 10:00 0.5 /bin/zsh' '300 1 ?? 02:00:00 95.0 /usr/sbin/mds' \
-    '310 1 ?? 30:00 10.0 /Applications/Google Chrome.app/Contents/Google Chrome Helper' '311 1 ?? 30:00 10.0 /Applications/Google Chrome.app/Contents/Google Chrome Helper' \
-    '312 1 ?? 30:00 10.0 /Applications/Google Chrome.app/Contents/Google Chrome Helper'; }
+  printf '%s\n' '100 1 ttys003 1-00:00:00 0:00.00 0.0 -zsh' '150 100 ttys003 10:00 0:03.00 0.5 /bin/zsh' '300 1 ?? 02:00:00 114:00.00 95.0 /usr/sbin/mds' \
+    '310 1 ?? 30:00 3:00.00 10.0 /Applications/Google Chrome.app/Contents/Google Chrome Helper' '311 1 ?? 30:00 3:00.00 10.0 /Applications/Google Chrome.app/Contents/Google Chrome Helper' \
+    '312 1 ?? 30:00 3:00.00 10.0 /Applications/Google Chrome.app/Contents/Google Chrome Helper'; }
 yes_ps() { # yes_ps <개수> <ppid> <tty> <etime> <pcpu>
-  local i; for i in $(seq 1 "$1"); do printf '%s %s %s %s %s /usr/bin/yes\n' "$((200+i))" "$2" "$3" "$4" "$5"; done; }
+  local i; for i in $(seq 1 "$1"); do printf '%s %s %s %s %s %s /usr/bin/yes\n' "$((200+i))" "$2" "$3" "$4" "$4" "$5"; done; }
 c() { env FT_RES_ROOT="$R" FT_RES_PS="$PSF" FT_RES_TMUX="$T/tmux.txt" PATH="$S:$PATH" bash "$BIN/ft-resource-cause.sh" cpu 2>&1; }
 
 # ⓐ 조상 pane(중간 zsh 경유) → 세션
