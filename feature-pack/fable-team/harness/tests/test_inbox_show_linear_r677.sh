@@ -47,7 +47,7 @@ def preds(p):  # 두 술어 함수의 소스 원문만 — 파일의 다른 함�
 a, b = preds(sys.argv[1]), preds(sys.argv[2])
 sys.exit(0 if len(a) == 2 and a == b else 1)
 PY
-python3 - "$BIN/ft-inbox.py" <<'PY'
+python3 - "$BIN/ft_inbox_window.py" <<'PY'
 import ast, sys
 src = open(sys.argv[1], encoding="utf-8").read()
 fn = next(n for n in ast.parse(src).body if isinstance(n, ast.FunctionDef) and n.name == "view")

@@ -156,7 +156,7 @@ ck "ⓓ R5 다른 큐에 있으면 적재 0 · 어디에도 없으면 적재 1 �
 
 st "ⓓ"
 # ── 변이 4종 (각각 FAIL 로 잡혀야 한다) ──
-mkdir -p "$T/mini"; cp "$BIN/ft-inbox.py" "$BIN/ft_inbox_core.py" "$BIN/ft_inbox_window.py" "$T/mini/"
+mkdir -p "$T/mini"; cp "$BIN/ft-inbox.py" "$BIN/ft_inbox_core.py" "$BIN/ft_inbox_window.py" "$BIN/ft_inbox_rotate.py" "$T/mini/"
 cat > "$T/mut.py" <<'PY'
 import shutil, sys
 src, dst, rel, old, new = sys.argv[1:6]
@@ -170,7 +170,7 @@ PY
 mut() { python3 "$T/mut.py" "$@" && ck "변이 적용 $4" 0 || bad "변이 적용 실패 $4"; }
 
 # M1 닫힘 판정 건너뜀 → ⓐ 미닫힘 합집합 어긋남
-mut "$T/mini" "$T/m1" ft_inbox_window.py 'if not obligation_closed(x)' 'if False'
+mut "$T/mini" "$T/m1" ft_inbox_window.py 'un = [x["seq"] for x in ms if not obligation_closed(x, ans)]' 'un = [x["seq"] for x in ms if False]'
 FT_ROOT="$R1" python3 "$T/m1/ft-inbox.py" show 'master-x#1' --seqs > "$T/m1.out" 2>&1
 cmp -s "$T/seqs.out" "$T/m1.out" && bad "M1 변이를 못 잡음(닫힘 판정 건너뛰어도 같음)" || ok "M1 닫힘 판정 건너뜀 → 잡힘"
 # M2 본문 읽기 되살림 → 본문 파일이 없어 rc≠0

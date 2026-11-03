@@ -19,7 +19,7 @@ eq()  { [ "$2" = "$3" ] && ok "$1" || bad "$1 (기대 '$3' 실제 '$2')"; }
 
 mkroot() {  # <이름> → $T/<이름> 에 키트 bin 사본
   local R="$T/$1"; mkdir -p "$R/.fable-team/bin" "$R/.fable-team/comm"
-  cp "$KIT"/ft-mbox.sh "$KIT"/ft-mbox.py "$KIT"/ft-lib.sh "$KIT"/ft-inbox.sh "$KIT"/ft-inbox.py "$KIT"/ft_inbox_window.py "$KIT"/ft_inbox_core.py "$R/.fable-team/bin/"
+  cp "$KIT"/ft-mbox.sh "$KIT"/ft-mbox.py "$KIT"/ft-lib.sh "$KIT"/ft-inbox.sh "$KIT"/ft-inbox.py "$KIT"/ft_inbox_window.py "$KIT"/ft_inbox_rotate.py "$KIT"/ft_inbox_core.py "$R/.fable-team/bin/"
   echo "$R"
 }
 mkdir -p "$T/fakebin"; printf '#!/bin/sh\nexit 1\n' > "$T/fakebin/tmux"; chmod +x "$T/fakebin/tmux"
