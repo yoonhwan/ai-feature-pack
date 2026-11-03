@@ -54,9 +54,9 @@ pathspec_ok() {  # 기록 파일: grep·log 호출이 둘 다 카드 글롭 두 
 
 # R1·R3·R4 — 같은 결과: 새 판 = 옛 판(접두) 의 출력·rc 동일 · 카드 폴더 밖 문서 2개·월 폴더 아카이브 카드 포함 · 담당 없음 = 3002·3003(2건)
 setup; run "$OLD" - ; oo="$OUT"; orc=$RC; run "$TOOL" - ; no="$OUT"; nrc=$RC
-case "$no" in "담당 없는 오빠 지시 2 · 멈춘 오빠 지시 0 · 판본 "*) h=1;; *) h=0;; esac
-[ "$orc" = "$nrc" ] && [ "$h" = 1 ] && [ "$(printf '%s' "$oo" | sed 's/ · 판본 .*//')" = "$(printf '%s' "$no" | sed 's/ · 판본 .*//')" ] && [ "$(printf '%s\n' "$oo" | grep -c '^담당 없음 판정 300[23]')" = "$(printf '%s\n' "$no" | grep -c '^담당 없음 판정 300[23]')" ] \
-  && ok "R1·R3·R4 새 판 = 옛 판 출력·rc 같음(rc=$nrc · 담당 없음 3002·3003 · 월 폴더 카드·폴더 밖 문서 포함)" || bad "R1·R3·R4 old rc=$orc new rc=$nrc :: $oo :: $no"
+case "$no" in "담당 없는 오빠 지시 1 · 멈춘 오빠 지시 0 · 판본 "*) h=1;; *) h=0;; esac  # r1255: 월 폴더 아카이브 카드(3003)는 담당으로 센다 → 담당 없음 = 3002 만
+[ "$orc" = "$nrc" ] && [ "$h" = 1 ] && [ "$(printf '%s' "$oo" | sed 's/ · 판본 .*//')" = "$(printf '%s' "$no" | sed 's/ · 판본 .*//')" ] && [ "$(printf '%s\n' "$oo" | grep -c '^담당 없음 판정 3002')" = "$(printf '%s\n' "$no" | grep -c '^담당 없음 판정 3002')" ] \
+  && ok "R1·R3·R4 새 판 = 옛 판 출력·rc 같음(rc=$nrc · 담당 없음 3002 · 월 폴더 카드 담당 · 폴더 밖 문서 제외)" || bad "R1·R3·R4 old rc=$orc new rc=$nrc :: $oo :: $no"
 lap R1R3R4
 
 # R2·R3 — 범위: git 기록기 · grep·log 둘 다 카드 폴더 글롭(팀 행 + harness 행 · 접두 0)
