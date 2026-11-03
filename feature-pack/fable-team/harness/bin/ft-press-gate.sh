@@ -28,16 +28,11 @@ _stage_line(){ local s2
 _tick 0
 # ★숫자 env 입력 검사 «한 곳»(r769 r2 반송 · DA⑥ r2 HOLD: 변수마다 case 로 검사해 구멍 2개가 났다)★
 #   _int_port = ^[1-9][0-9]{3,4}$ 이고 1024~65535 일 때만 rc0 — 앞 0(017620 은 8진으로 8080) · 부호 · 공백 · 빈 값 = rc1
-#   _decimal  = ^[0-9]+(\.[0-9]+)?$ 일 때만 rc0 — 60..0 · 1e2 · 60. · .5 · -1 = rc1
 _int_port(){
   case "$1" in ''|*[!0-9]*) return 1 ;; esac
   case "$1" in 0*) return 1 ;; esac
   [ "${#1}" -ge 4 ] && [ "${#1}" -le 5 ] || return 1
   [ "$1" -ge 1024 ] && [ "$1" -le 65535 ]
-}
-_decimal(){
-  case "$1" in ''|*[!0-9.]*|.*|*.|*.*.*) return 1 ;; esac
-  return 0
 }
 # r634: press 대상 갈래 — FT_PRESS_TARGET=dev 로 «선언한 회차만» ②~⑤ 를 dev 세트 검사로 바꾼다(기본 local = 지금과 같음 · 조용히 건너뛰기 0 · ①⑥⑦⑧·허가 파일은 그대로)
 TARGET="${FT_PRESS_TARGET:-local}"
@@ -76,35 +71,21 @@ DEV_BUDGET="${FT_PRESS_DEV_BUDGET:-70}"   # dev 검사 «전체» 마감(초 · 
 DEV_END=0
 # ⓪ 전팀 정지(r626 DA⑥ r1 Q1) — 첫 검사 · 켜짐·깨짐이면 다른 검사 없이 막힘 1 (장치 허가 검사는 그대로)
 [ -e "$ROOT/.fable-team" ] && { _as="$(FT_ROOT="$ROOT" bash "$HERE/ft-all-stop.sh" check 2>&1)" || { say "✗" "⓪ $_as"; exit 1; }; }
-# ⓪b 부하 게이트(r769b · 오빠 지시 2026-10-23) — 5분 평균 load ≥ 임계(기본 60 FT_PRESS_LOAD_MAX)면 press 시작 REJECT.
-#   왜: 부하 81~102 에서 돈 lecture p3-r6 이 청크 POST 1500ms 초과 15 · Redis Timeout 14 로 무효가 됐다.
-#   임계는 env 로 덮는다 · 못 읽으면 경고만(이 머신의 load 를 못 읽는 것과 부하를 구분한다).
-LOAD_MAX="${FT_PRESS_LOAD_MAX:-60}"
+# ⓪b 부하 값 1줄(r769 단계 2 · 오빠 판정 3927 «C») — 차단 0 · 값만 출력(회차 표 «부하» 칸용).
+#   왜: 부하 81~102 회차는 청크 POST 1500ms 초과·Redis Timeout 으로 무효가 되지만, 거르는 일은 판정 때 회차 표 «부하» 칸으로 한다.
+#   FT_PRESS_LOAD_MAX 는 더 읽지 않는다(있으면 무시 1줄). 못 읽어도 rc 영향 0.
 _load5(){ # macOS sysctl vm.loadavg = "{ 1분 5분 15분 }" · 없으면 /proc/loadavg 의 2칸
   local v
   v="$(sysctl -n vm.loadavg 2>/dev/null | tr -d '{}' | awk '{print $2}')"
   [ -n "$v" ] || v="$(awk '{print $2}' /proc/loadavg 2>/dev/null)"
   printf '%s' "$v"
 }
-_retry_at(){ # 10분 뒤 시각(HH:MM) — macOS date -v · GNU date -d
-  local t
-  t="$(date -v+10M '+%H:%M' 2>/dev/null)" || t=""
-  [ -n "$t" ] || t="$(date -d '+10 minutes' '+%H:%M' 2>/dev/null)"
-  printf '%s' "${t:-+10분}"
-}
 _load_gate(){
   local v
-  _decimal "$LOAD_MAX" || { say "✗" "FT_PRESS_LOAD_MAX=$LOAD_MAX — 숫자(부하 임계)만"; FAIL=1; return; }
+  [ -z "${FT_PRESS_LOAD_MAX:-}" ] || say "⚠" "FT_PRESS_LOAD_MAX 무시(판정 3927 · 부하 차단 없음)"
   v="$(_load5)"
-  if [ -z "$v" ]; then say "⚠" "부하 5분 평균 못 읽음 — 부하 게이트 건너뜀"; return; fi
-  if awk -v a="$v" -v b="$LOAD_MAX" 'BEGIN{exit !(a>=b)}'; then
-    say "✗" "5분 평균 부하 $v ≥ 임계 $LOAD_MAX — 지금 쏘면 회차가 무효(청크 POST 타임아웃·Redis Timeout) · 원인 상위 3 프로세스:"
-    ps -Ao pcpu,pid,comm -r 2>/dev/null | head -4 | tail -3 | sed 's/^/      /'
-    # 거절 = «기다림 신호» — 지금 값·기준·다시 볼 시각을 1줄로 준다(planner 2681)
-    say "·" "지금 load $v · 기준 FT_PRESS_LOAD_MAX=$LOAD_MAX · 다시 볼 시각 $(_retry_at) (5분 평균이 그때 내려오는지)"
-    FAIL=1; return
-  fi
-  say "✓" "부하 5분 평균 $v < 임계 $LOAD_MAX"
+  if [ -z "$v" ]; then say "⚠" "부하 5분 평균 못 읽음"; return; fi
+  say "·" "부하 5분 평균 $v (참고 · 차단 0)"
 }
 # ★갈래를 «분명히 적은» 회차만 dev 검사 — 오타·미지 값은 막는다(선언 없이 로컬 칸을 건너뛰는 길 0)★
 case "$TARGET" in

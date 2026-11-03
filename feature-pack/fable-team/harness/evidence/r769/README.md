@@ -63,3 +63,12 @@ test_nano_spawn_body_press.sh: rc=0 (32 PASS · ALL PASS)
 - 시험 `test_press_gate_numeric_env_r769.sh` ⓟ~ⓢ 11/11 — **빨강 먼저**: 변이 2종(앞 0 검사 삭제 → 017620 통과 재현 · 점 개수 검사 삭제 → «✓ 100 < 60..0» 재현)으로 단언이 변이를 죽이는지 확인 · 스텁만(실 포트 접촉 0)
 - ★같은 부류 남음(이 카드 범위 밖)★: `FT_PRESS_DEV_BUDGET`(50·180행 · r634 기존 입력)은 아직 `case`/산술 직접 사용 — 별 카드 대상.
 - 빈 값 = «선언 안 한 것»(기본값) — 검사 함수는 빈 값을 받지 않고, 호출측 `${VAR:-기본}` 이 먼저 처리한다.
+
+## 단계 2 — 부하 차단 해제(판정 3927 · 오빠 «C» · Issue #6671 · master#157 #244337)
+- `_load_gate`: 5분 평균 load ≥ 임계 REJECT·상위 3·`_retry_at`·`LOAD_MAX`·`_decimal` 삭제 → 「· 부하 5분 평균 <v> (참고 · 차단 0)」 1줄만 · FAIL 0. `_load5` 유지.
+- `FT_PRESS_LOAD_MAX` 는 더 읽지 않는다 — 값이 있으면 「⚠ FT_PRESS_LOAD_MAX 무시(판정 3927 · 부하 차단 없음)」 1줄 · rc 영향 0. 못 읽으면 「⚠ 부하 5분 평균 못 읽음」 1줄 · rc 영향 0.
+- press 동시 0(:9333 한 번에 1회차) 등 다른 관문은 손대지 않음(L6: 다른 칸 FAIL 은 rc 1 그대로).
+- 시험: `test_press_gate_load_gate_r769.sh` 새 계약(L1~L7 + 변이 2 · 10 passed) · `test_press_gate_numeric_env_r769.sh` ⓡ 5종 → 무시 1줄(10 passed, `_decimal` 변이 블록 삭제) · `test_press_gate_team_port_slot_r769.sh` ⓓ 필터에 새 부하 줄 꼴 추가.
+- 기준판(origin/main 2c9407c6 + 새 시험): L1·L3·L4 FAIL 확인.
+- 알려진 한계: 부하 81~102 회차 무효(청크 POST 1500ms 초과 · Redis Timeout) 위험은 그대로 — 회차 표 «부하» 칸으로 판정 때 가른다.
+- 기존 기준선 FAIL(이 카드와 무관 · origin/main 에서도 동일): `test_press_gate_team_port_slot_r769.sh` ⓓ 바이트(시험 repo 에 origin/main 없음 → git fatal 줄) · `test_press_gate_fe_bubble_debug_r1196.sh` R3·R5 같은 원인.
