@@ -21,7 +21,8 @@ EOF
 chmod +x "$T/mbox"; echo '{"_master":"byz-teama-master-claude#1"}' > "$T/.fable-team/seats-teama.json"
 DOCS="feat/feature-main docs/cfo-main docs/ops-main-r2 ops/main-base feat/ops-main feat/issue-manager"
 i=0; for b in $DOCS nano/gen; do   # 줄기마다 워크트리 1개 + 팀 A 좌석 1개 — 전부 M0 에 머무름(main 은 아래서 전진)
-  i=$((i+1)); git -C "$W" worktree add -q -b "$b" "$T/wt$i" "$M0"; TM new-session -d -s "byz-teama-nano-claude#$i" -c "$T/wt$i"
+  i=$((i+1)); git -C "$W" worktree add -q -b "$b" "$T/wt$i" "$M0"; echo "w$i" > "$T/wt$i/work_$i.txt"; git -C "$T/wt$i" add "work_$i.txt"; git -C "$T/wt$i" commit -q -m "work $i"   # r1334: 일이 남은 워크트리(고유 커밋 1)
+  TM new-session -d -s "byz-teama-nano-claude#$i" -c "$T/wt$i"
 done
 echo c1 >> "$W/m.txt"; cm "$W" "main c1"; git -C "$W" push -q origin main; git -C "$W" fetch -q origin
 lag() { rm -f "$T/.fable-team/state/head-lag.json"; : > "$MBOX_LOG"; out="$(bash "$LAG" --event --repo "$W" 2>&1)"; rc=$?; }
@@ -60,7 +61,8 @@ git -C "$W" worktree add -q -b feat/v6-realtime-live "$T2/wt-v6" "$M0"; TM new-s
 echo c1 >> "$W/m.txt"; cm "$W" "main c1"; git -C "$W" push -q origin main; git -C "$W" fetch -q origin
 lag; [ "$rc" = 0 ] && [ "$(alerted feat/v6-realtime-live)" = 0 ]; ck "ⓕ feat/v6-realtime-live 뒤처짐 → ft_head_lag 알림 0(공용 라이브 뿌리 제외)" $?
 sync_tab; [ "$(synced feat/v6-realtime-live)" = 0 ]; ck "ⓖ feat/v6-realtime-live → ft-head-sync 표에서 제외(같은 파일 1줄)" $?
-git -C "$W" worktree add -q -b nano/r549fn "$T2/wt-n549" "$M0"; TM new-session -d -s 'byz-teama-nano-claude#10' -c "$T2/wt-n549"
+git -C "$W" worktree add -q -b nano/r549fn "$T2/wt-n549" "$M0"; echo w > "$T2/wt-n549/work.txt"; git -C "$T2/wt-n549" add work.txt; git -C "$T2/wt-n549" commit -q -m work   # r1334: 일이 남은 워크트리
+TM new-session -d -s 'byz-teama-nano-claude#10' -c "$T2/wt-n549"
 lag; n="$(alerted nano/r549fn)"; sync_tab; m="$(synced nano/r549fn)"
 [ "$n" = 1 ] && [ "$m" = 1 ]; ck "ⓗ 다른 기능 브랜치 nano/r549fn → 알림 1 · 표 1(제외 안 넓어짐 · 앵커 ^(…)$)" $?
 # ── 정적: 기본값 4개(main·master·release·deploy) 보존 · 하드코딩 정규식 2곳 삭제 · 키트 사본 일치

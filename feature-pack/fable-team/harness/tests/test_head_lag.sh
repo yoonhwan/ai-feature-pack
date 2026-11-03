@@ -44,7 +44,8 @@ mainc() {  # mainc <파일> <몇 초 전> — origin main 에 커밋 1개(commit
   GIT_COMMITTER_DATE="$(( $(date +%s) - $2 )) +0000" git -C "$W" commit -q -m "main $1"; git -C "$W" push -q origin main; git -C "$W" fetch -q origin
 }
 mkwt() {  # mkwt <이름> <브랜치> <시작점> [세션명]
-  git -C "$W" worktree add -q -b "$2" "$T/$1" "$3"; [ -z "${4:-}" ] || TM new-session -d -s "$4" -c "$T/$1"
+  git -C "$W" worktree add -q -b "$2" "$T/$1" "$3"; echo "$1" > "$T/$1/work_$1.txt"; git -C "$T/$1" add "work_$1.txt"; git -C "$T/$1" commit -q -m "work $1"   # r1334: 일이 남은 워크트리(고유 커밋 1) — 일 없는 워크트리는 경보에서 빠진다
+  [ -z "${4:-}" ] || TM new-session -d -s "$4" -c "$T/$1"
 }
 
 # ── ⓐ 착지 사건 → 기준 헤드 파일

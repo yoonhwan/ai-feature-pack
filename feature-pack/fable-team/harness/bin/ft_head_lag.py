@@ -12,6 +12,7 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # python -I 은 스크립트 폴더를 path 에 넣지 않는다
 from ft_head_lag_seats import load_state, master_of, seats_by_wt, skip_regex, team_of, warn
+from ft_head_lag_skip import base_skipped, work_left
 
 
 def git(repo, *a):
@@ -96,8 +97,10 @@ def main():
     stale = []
     for w in wts:
         br, r = w.get("branch"), None
-        if br and not skip.match(br):
+        if br and not skip.match(br) and not base_skipped(w["path"], skip, a.base):   # r1334: 선언 base 가 제외 줄기면 빼고
             r = lag(w["path"], msha)
+            if r and not work_left(w["path"], msha):   # r1334: 일이 남지 않은 착지 끝 워크트리도 뺀다
+                r = None
         if r:
             stale.append({"path": w["path"], "real": os.path.realpath(w["path"]), "branch": br, "n": r[0], "secs": max(0, now - r[1])})
     if a.summary:
