@@ -28,6 +28,7 @@ MD_GLOB = "design/teams/planner/VERDICTS-planner-*.md"
 CONFLICT_END = int(os.environ.get("FT_DIRECTIVE_FLOOR") or 2920)  # 충돌 구간 끝 = jsonl 마지막 발급 2920 · r1267 — 이 번호 이하 md 행은 후보 아님(2650~2920 은 두 원장이 같은 숫자를 따로 씀 · 그 앞은 감시 생기기 전) · env 는 시험용
 VOID = re.compile(r"[\s\[(*~]*(무효|철회)")  # 행 내용이 «무효»·«철회» 로 «시작»할 때만 제외 — 본문 중간 낱말은 오빠 지시를 가리지 않는다(2896 «… = 무효 rc≠0»)
 OPEN, CLOSED = ("대기", "진행"), ("완성", "아카이브")
+ARCHIVE_MONTH = re.compile(r"\d{4}-\d{2}")  # r1255 아카이브/<YYYY-MM>/<카드>.md 한 단계
 OWNER_S, STALL_S, MUTE_S = 60 * 60, 6 * 3600, 3600
 DEFAULT_ROOTS = [["*", ".", "origin/main", "design/teams/*/indices"], ["harness", ".", "origin/ops/main-base", "design/harness/indices"]]
 
@@ -170,7 +171,7 @@ class Watch:
             for ln in hits.splitlines():
                 path, _, text = ln[len(tip) + 1:].partition(":")
                 parts = path.split("/")
-                if not (path.endswith(".md") and fnmatch(path, r[3] + "/*") and len(parts) == depth + 2 and parts[depth] in OPEN + CLOSED):
+                if not (path.endswith(".md") and fnmatch(path, r[3] + "/*") and (len(parts) == depth + 2 and parts[depth] in OPEN + CLOSED or len(parts) == depth + 3 and parts[depth] == "아카이브" and ARCHIVE_MONTH.fullmatch(parts[depth + 1]))):
                     continue
                 stem = parts[-1][:-3]
                 if stem not in times:
