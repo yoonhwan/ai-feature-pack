@@ -24,9 +24,24 @@ def load(state_dir: Path) -> dict:
         return {}
 
 
-def save(state_dir: Path, handled: dict, prev: list[str], seats: dict) -> None:
+NUDGE_KEEP_S = 7200  # r1238 A-r4b-1 — a 재촉 기록은 2시간이 지나면 막는 힘이 없으니 지운다
+
+
+def nudged_load(st: dict) -> dict[str, float]:
+    """r1238 A-r4b-1 — 저장본의 a_card_nudged {카드 stem: 마지막 a 재촉 epoch}. 필드 없는 옛 상태·dict 아님 = 빈 사전 · 숫자 아닌 값은 그 항목만 버린다."""
+    raw = st.get("a_card_nudged")
+    if not isinstance(raw, dict):
+        return {}
+    return {str(k): float(v) for k, v in raw.items() if isinstance(v, (int, float)) and not isinstance(v, bool)}
+
+
+def save(state_dir: Path, handled: dict, prev: list[str], seats: dict, nudged: dict[str, float] | None = None, now: float | None = None) -> None:
+    """nudged 를 주면 같이 저장한다 — now 를 주면 2시간 넘은 항목은 지운다(후보에서 빠졌다고 지우지 않는다 · 카드가 폴더에서 사라진 항목도 이 2시간 안에 사라진다)."""
     state_dir.mkdir(parents=True, exist_ok=True)
-    _ = (state_dir / "stall-scan.json").write_text(json.dumps({"handled": handled, "prev": prev, "seats": seats}), encoding="utf-8")
+    doc: dict = {"handled": handled, "prev": prev, "seats": seats}
+    if nudged is not None:
+        doc["a_card_nudged"] = {k: v for k, v in nudged.items() if now is None or now - v <= NUDGE_KEEP_S}
+    _ = (state_dir / "stall-scan.json").write_text(json.dumps(doc), encoding="utf-8")
 
 
 def recent_in_log(state_dir: Path, seat: str, now: float) -> bool:
