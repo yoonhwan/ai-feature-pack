@@ -39,14 +39,14 @@ cp -p "$SRCBIN"/* "$B"/ 2>/dev/null
 for f in ft-index-lint.sh ft-proposal-gate.sh ft-send-verified.sh ft-agent-ready.sh ft-spawn-issue-gate.sh ft-resource-sample.sh ft-all-stop.sh; do printf '#!/bin/bash\nexit 0\n' > "$B/$f"; done
 printf '#!/bin/bash\n[ "$1" = key ] && { echo k; exit 0; }\nexit 0\n' > "$B/ft-sheet-events.sh"
 printf '#!/bin/bash\necho "$*" >> "%s/move.log"\nexit 0\n' "$T" > "$B/ft-index-move.sh"                                  # 이동 호출 기록(변이 3 = 이동을 그대로 → V1 FAIL)
-printf '#!/bin/bash\necho "$*" >> "%s/gate.log"\necho "NOT-LANDED"\nexit 1\n' "$T" > "$B/ft-nano-cherry-gate.sh"          # 미반입 게이트 대역 = 늘 거절 + 호출 기록
+printf '#!/bin/bash\necho "$*" >> "%s/gate.log"\n[ -e "%s/gate-yes" ] && { echo "LANDED"; exit 0; }\necho "NOT-LANDED"\nexit 1\n' "$T" "$T" > "$B/ft-nano-cherry-gate.sh"   # 미반입 게이트 대역 = 기본 거절(gate-yes 파일이 있으면 «반입») + 호출 기록
 printf '#!/bin/bash\nprintf "%%s\\n" "$*" >> "%s/send.log"\nexit 0\n' "$T" > "$B/ft-send-verified.sh"
 printf '#!/bin/bash\necho "tmuxc $*" >> "%s/calls.log"\nif [ "$1" = open ]; then n=""; dry=0; while [ $# -gt 0 ]; do [ "$1" = --name ] && n="$2"; [ "$1" = --dry-run ] && dry=1; shift; done; [ $dry = 1 ] || : > "%s/sess/$n"; fi\n' "$T" "$T" > "$T/fake/tmuxc"
 printf '#!/bin/bash\necho "tmux $*" >> "%s/calls.log"\ncase "$1" in\n has-session) [ -e "%s/sess/${3#=}" ];;\n list-sessions) ls "%s/sess" 2>/dev/null; exit 0;;\n list-panes) for s in "%s"/sess/*; do [ -e "$s" ] && echo "$(basename "$s")|%%1|1700000000"; done; exit 0;;\n show-option) echo 1;;\n *) exit 0;;\nesac\n' "$T" "$T" "$T" "$T" > "$T/fake/tmux"
 printf '#!/bin/bash\necho "reclaim $*" >> "%s/reclaim.log"\nexit 0\n' "$T" > "$B/ft-resource-reclaim.sh"
 chmod +x "$B"/*.sh "$T/fake/tmuxc" "$T/fake/tmux"
 ST_SEATS='{"_master":"byz-v65-master-claude#1","byz-v65-master-claude#1":{"role":"master","agent":"claude","tick":null}}'
-reset() { printf '%s\n' "$ST_SEATS" > "$SEATS"; rm -rf "$T/sess" "$R/.worktrees" "$R/.fable-team/state/card-assign"; mkdir -p "$T/sess"; : > "$T/calls.log"; rm -f "$T/move.log" "$T/gate.log" "$T/send.log" "$T/reclaim.log"
+reset() { printf '%s\n' "$ST_SEATS" > "$SEATS"; rm -rf "$T/sess" "$R/.worktrees" "$R/.fable-team/state/card-assign"; mkdir -p "$T/sess"; : > "$T/calls.log"; rm -f "$T/move.log" "$T/gate.log" "$T/gate-yes" "$T/send.log" "$T/reclaim.log"
   git -C "$R" worktree prune; for b in $(git -C "$R" for-each-ref --format='%(refname:short)' 'refs/heads/nano/*'); do git -C "$R" branch -D -q "$b" >/dev/null 2>&1; done
   git -C "$R" checkout -q -- design 2>/dev/null; git -C "$R" reset -q --hard HEAD; }
 SP() { local c="$1"; shift; (cd "$R" && PATH="$T/fake:$PATH" FT_ROOT="$R" FT_SEATS_JSON="$SEATS" bash "$B/ft-nano-spawn.sh" "$R/design/v65/indices/$c" "$@" 2>&1); }
@@ -121,5 +121,26 @@ rc_is "$rc" 2 "V8 rc"; has "$o" "usage: --reopen 과 --research" "V8 usage 문�
 reset; printf '#!/bin/bash\ncase "$1" in list-sessions) exit 1;; *) exit 0;; esac\n' > "$T/fake/tmux-broken"; chmod +x "$T/fake/tmux-broken"; mkdir -p "$T/fake2"; cp "$T/fake/tmuxc" "$T/fake2/"; cp "$T/fake/tmux-broken" "$T/fake2/tmux"
 o="$( (cd "$R" && PATH="$T/fake2:$T/fake:$PATH" FT_ROOT="$R" FT_SEATS_JSON="$SEATS" bash "$B/ft-nano-spawn.sh" "$R/design/v65/indices/진행/r1335f.md" --reopen 2>&1) )"; rc=$?
 rc_is "$rc" 1 "tmux 목록 실패 rc"; has "$o" "REJECT 판정 불가 — tmux 세션 목록을 못 읽었다" "tmux 목록 실패 → 판정 불가 REJECT"; untouched "판정 불가"
+
+# ── 단계 2 (W1~W4): ②-0 -rN 루프가 BRANCH·WTDIR 을 바꾼 «뒤» 에 worktree add 인자를 계산한다 ──
+# W1 옛 nano/<슬러그> 가지 실재 · 워크트리 없음 · 반입 yes → 새 가지 -r2 · 워크트리 -r2 · worktree add rc0
+reset; mkbranch r1335w; git -C "$R" worktree remove --force "$(wt r1335w)"; : > "$T/gate-yes"; OLD="$(git -C "$R" rev-parse nano/r1335w)"
+o="$(SP 대기/r1335w.md)"; rc=$?
+rc_is "$rc" 0 "W1 rc"; hasnt "$o" "already exists" "W1 «already exists» 0"
+git -C "$R" rev-parse --verify -q refs/heads/nano/r1335w-r2 >/dev/null && ok "W1 새 가지 nano/r1335w-r2" || bad "W1 -r2 가지 없음"
+[ -d "$(wt r1335w-r2)" ] && ok "W1 워크트리 -r2" || bad "W1 -r2 워크트리 없음"; eq "$(git -C "$R" rev-parse nano/r1335w)" "$OLD" "W1 옛 가지 tip 그대로"
+# W2 -r2 가지도 실재(반입) → -r3
+reset; mkbranch r1335w; git -C "$R" worktree remove --force "$(wt r1335w)"; git -C "$R" branch nano/r1335w-r2 main; : > "$T/gate-yes"
+o="$(SP 대기/r1335w.md)"; rc=$?
+rc_is "$rc" 0 "W2 rc"; hasnt "$o" "already exists" "W2 «already exists» 0"
+git -C "$R" rev-parse --verify -q refs/heads/nano/r1335w-r3 >/dev/null && ok "W2 새 가지 nano/r1335w-r3" || bad "W2 -r3 가지 없음"; [ -d "$(wt r1335w-r3)" ] && ok "W2 워크트리 -r3" || bad "W2 -r3 워크트리 없음"
+# W3 옛 가지 없음 → nano/<슬러그> 그대로(회귀)
+reset; : > "$T/gate-yes"; o="$(SP 대기/r1335w.md)"; rc=$?
+rc_is "$rc" 0 "W3 rc"; git -C "$R" rev-parse --verify -q refs/heads/nano/r1335w >/dev/null && ok "W3 가지 nano/r1335w" || bad "W3 가지 없음"
+eq "$(git -C "$R" for-each-ref 'refs/heads/nano/r1335w-r*' | wc -l | tr -d ' ')" 0 "W3 -rN 가지 0"; [ -d "$(wt r1335w)" ] && ok "W3 워크트리" || bad "W3 워크트리 없음"
+# W4 --reopen + 진행 카드 · 가지 실재 · 워크트리 없음 → 가지 재부착(-b 없음 · -rN 0)
+reset; mkbranch r1335b; TIP="$(git -C "$R" rev-parse nano/r1335b)"; git -C "$R" worktree remove --force "$(wt r1335b)"; : > "$T/gate-yes"
+o="$(SP 진행/r1335b.md --reopen)"; rc=$?
+rc_is "$rc" 0 "W4 rc"; has "$o" "wt=가지 재부착 branch=nano/r1335b head=$TIP" "W4 가지 재부착"; eq "$(git -C "$R" for-each-ref 'refs/heads/nano/r1335b-r*' | wc -l | tr -d ' ')" 0 "W4 -rN 가지 0"
 
 [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }
