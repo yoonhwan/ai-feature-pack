@@ -24,7 +24,7 @@ check_line() {
   case "$def" in *"grep -r"*"git log --all -S"*"find /"*) ok "$label 광역 명령 3종 명시";; *) bad "$label _SRX 에 grep -r·git log --all -S·find / 없음";; esac
   case "$def" in *"ci sym/refs/outline/search"*) ok "$label ci 문장";; *) bad "$label _SRX 에 ci 문장 없음";; esac
   case "$def" in *"grep 은 로그·결과·명부만"*) ok "$label grep 허용 범위 문장";; *) bad "$label _SRX 에 'grep 은 로그·결과·명부만' 없음";; esac
-  case "$def" in *"ci 가 없으면 rg+Read"*) ok "$label ci 없을 때 폴백 문장";; *) bad "$label _SRX 에 ci 폴백 문장 없음";; esac
+  case "$def" in *"ci 가 안 돌면"*"[긴급] 1통"*"복구 전까지만 rg+Read"*) ok "$label ci 없을 때 폴백 문장";; *) bad "$label _SRX 에 ci 폴백 문장 없음";; esac   # r1353: 폴백 + 결함 보고([긴급])
   case "$def" in *serena*|*Serena*|*find_symbol*) bad "$label _SRX 에 은퇴 도구 지시(serena·find_symbol) 남음";; *) ok "$label serena·find_symbol 0";; esac
   case "$def" in *"seats.json"*"손대지 않는다"*"spawn 이 이미 등록"*) ok "$label 명부 손대지 않음 문장";; *) bad "$label _SRX 에 명부 금지 문장 없음";; esac
   [ "$(grep -c '^echo "BODY+\${_SRX}"$' "$f")" = "1" ] && ok "$label BODY+ echo 1개" || bad "$label BODY+ echo 없음"
