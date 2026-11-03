@@ -55,7 +55,7 @@ EQ=""   # R247: 게이트가 main 을 fetch 한 «뒤»(equiv 는 로컬 git 만
 if [ -n "$AP" ] && [ "$S" != "$AP" ]; then   # r1121: S = PR head(49행 결속) 또는 main 자동 병합 C — C 도 같은 equiv(A→C = main 병합 1개)를 통과해야 한다
   EQ="$("$(fm_timeout_bin)" 30 bash "$HERE/ft-approval-equiv.sh" "$AP" "$S" --repo "$REPO" --remote "$REMOTE" --target "$TARGET" 2>&1)" \
     || rej "${S0:+main 자동 병합 C=${S:0:10} · }PR head($HEADSHA) != 승인 sha($AP) — 승인 뒤 head 가 움직였고 동일승인 대조(병합·rebase 두 경로)도 실패:${EQ:-timeout 도구 없음 또는 30 s 초과}"; deadline
-  echo "$EQ"; OV="$(printf '%s' "$EQ" | sed -n 's/.* overlap=\([0-9]*\).*/\1/p' | tail -n1)"; [ -z "$CAM" ] || [ "$OV" = 0 ] || rej "코드 PR 자동 병합 불가: 승인 뒤 main 이 같은 파일 ${OV:-?}개를 바꿈(사람 최신화)"   # r1270 DA① 반례 1: 코드 갈래 C 는 overlap=0 필수(표지만이던 값 · 빈 값도 REJECT)
+  echo "$EQ"; OV="$(printf '%s' "$EQ" | sed -n 's/.* overlap=\([0-9]*\).*/\1/p' | tail -n1)"; [ -z "$CAM" ] || [ "$OV" = 0 ] || rej "코드 PR 자동 병합 불가: 승인 뒤 main 이 같은 파일 ${OV:-?}개를 바꿈(사람 최신화) · 겹친 파일: $(printf '%s' "$EQ" | sed -n 's/.* names=\([^ ]*\).*/\1/p' | tail -n1) · 승인 sha 가 질문 때 main 위였나 확인(아니면 질문 관문 우회)"   # r1270 DA① 반례 1: 코드 갈래 C 는 overlap=0 필수(표지만이던 값 · 빈 값도 REJECT)
 fi
 EQM="$(printf '%s' "$EQ" | sed -n 's/.* mode=\([a-z]*\) overlap=\([0-9]*\).*/equiv=\1 overlap=\2/p')"   # R281: merge-gate.log·PR 코멘트에 «어느 경로로 같은 승인이 됐나»
 M="$(G rev-parse --verify -q "refs/remotes/$REMOTE/$TARGET^{commit}")" || rej "main 확인 실패"; [ -n "$AP" ] || { DOCX="$(fm_doc_exempt "$AST" "$REPO" "$ROOT" "$M" "$S")" || rej "승인 파일 없음 · $DOCX"; }   # R725: 승인 값이 없을 때만 문서 전용 예외(실패 = 면제 0)
