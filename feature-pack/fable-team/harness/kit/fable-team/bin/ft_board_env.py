@@ -132,8 +132,8 @@ class InboxTimeout(RuntimeError):
 
 
 def inbox(root: Path, master: str) -> dict:
-    # 미보고 = ft-inbox.sh show 의 줄 수(정본 술어 obligation_closed 가 거짓인 줄만 나온다 — 술어 재작성 0)
-    cmd = shlex.split(os.environ.get("FT_BOARD_INBOX", f"bash {HERE / 'ft-inbox.sh'} show")) + [master]
+    # 미보고 = ft-inbox.sh show --count 의 «OPEN n»(r1052 단계 2 B1 · 본문 파일 접근 0 · 정본 술어 하나 — 재작성 0). 시험 주입 스텁은 옛 줄 꼴도 받는다
+    cmd = shlex.split(os.environ.get("FT_BOARD_INBOX", f"bash {HERE / 'ft-inbox.sh'} show")) + [master, "--count"]
     env = {**os.environ, "FT_ROOT": str(root)}
     for _ in range(INBOX_RETRIES + 1):
         try:
@@ -144,6 +144,8 @@ def inbox(root: Path, master: str) -> dict:
     else:  # r649 — 늦는 쪽지함 하나가 수집 전체를 붙잡지 않는다 = 그 팀만 error
         raise InboxTimeout(f"ft-inbox.sh show 실패({INBOX_TIMEOUT_S}초 초과"
                            f" · 재시도 {INBOX_RETRIES}회): {err}")
+    if (m := re.match(r"OPEN (\d+)\s*(?:OLDEST seq=(\d+))?\s*$", out.strip())):  # 새 꼴 — 줄 수·가장 오래된 seq 만
+        return {"unreported": int(m[1]), "oldest_ts": mail_ts(root, int(m[2])) if m[2] else None}
     lines = [x for x in out.splitlines() if x.strip() and x.strip() != "EMPTY"]
     seqs = [int(s) for x in lines for grp in re.findall(r"미닫힘=([\d,]+)", x) for s in grp.split(",") if s]
     return {"unreported": len(lines), "oldest_ts": mail_ts(root, min(seqs)) if seqs else None}
