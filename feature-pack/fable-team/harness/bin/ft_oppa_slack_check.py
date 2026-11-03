@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """ft_oppa_slack_check — approve-merge --oppa-slack 확인 (r1275 · 판정 2904). 쓰기 0.
 CLI: ft_oppa_slack_check.py <질문 글 ts> <40hex>… → 각 sha `SLACK-OK <sha> parent=<ts> reply=<ts>`(rc0) | `REJECT 오빠 슬랙 승인 확인 실패: <사유>`(rc2)
-질문 글(부모)에 sha 40자가 낱말로 있고, 오빠(OPPA_SLACK_UID) 답글이 부모 뒤 · 부모 수정 전에 있어야 통과. 꼴이 맞지 않으면 «판정 불가» rc2.
-env: FT_SLACK_REPLIES_CMD(시험용 · 이 명령의 stdout = conversations.replies JSON) · FT_SCOPE_SLACK_TOKEN_FILE · FT_SCOPE_SLACK_CHANNEL"""
+질문 글(부모)에 sha 40자가 낱말로 있고, 오빠(OPPA_SLACK_UID) 답글이 부모 뒤 · 부모 수정 전 · «다음 질문 전»(질문 글과 같은 작성자의 다음 글 전)에 있어야 통과. 꼴이 맞지 않으면 «판정 불가» rc2.
+질문 글이 결정 스레드 안 답글이어도 읽는다(단계 3): 조회 결과에서 ts 가 같은 글을 찾고, 없거나 답글 하나뿐이면 스레드 루트(thread_ts)로 한 번 더 받는다(조회 2회 상한).
+env: FT_SLACK_REPLIES_CMD(시험용 · 이 명령의 stdout = conversations.replies JSON · 조회할 ts 는 env FT_SLACK_TS 로 준다) · FT_SCOPE_SLACK_TOKEN_FILE · FT_SCOPE_SLACK_CHANNEL"""
 import json
 import os
 import re
@@ -25,7 +26,7 @@ class Unjudgeable(Exception):
 def fetch(ts: str) -> list:
     cmd = os.environ.get("FT_SLACK_REPLIES_CMD")
     if cmd:
-        r = subprocess.run(shlex.split(cmd), capture_output=True, text=True, timeout=7)
+        r = subprocess.run(shlex.split(cmd), capture_output=True, text=True, timeout=7, env={**os.environ, "FT_SLACK_TS": ts})
         if r.returncode != 0:
             raise Unjudgeable("조회 rc=%d" % r.returncode)
         body = json.loads(r.stdout)
@@ -43,22 +44,44 @@ def dec(v) -> Decimal:
     return Decimal(v)
 
 
+def locate(ts: str) -> list:
+    """질문 글 ts 가 든 스레드(루트부터)를 돌려준다 — 조회 2회 상한 · 못 찾으면 «판정 불가»."""
+    target = ts
+    for _ in range(2):
+        msgs = fetch(target)
+        if not isinstance(msgs, list) or not msgs or not all(isinstance(m, dict) for m in msgs):
+            raise Unjudgeable("부모 글 꼴 아님")
+        q = next((m for m in msgs if m.get("ts") == ts), None)
+        root = (q or msgs[0]).get("thread_ts")
+        if q is not None and (root in (None, ts) or msgs[0].get("ts") == root):
+            if msgs[0].get("ts") != ts and root in (None, ts):
+                raise Unjudgeable("부모 글 꼴 아님")
+            return msgs
+        if not isinstance(root, str) or root in (ts, target):
+            break
+        target = root  # 질문 글이 스레드 답글 → 루트로 한 번 더
+    raise Unjudgeable("부모 글 꼴 아님(질문 글을 스레드에서 못 찾음)")
+
+
 def judge(ts: str, shas: list) -> list:
-    msgs = fetch(ts)
-    if not isinstance(msgs, list) or not msgs or not all(isinstance(m, dict) for m in msgs) or msgs[0].get("ts") != ts or not isinstance(msgs[0].get("text"), str):
+    msgs = locate(ts)
+    q = next(m for m in msgs if m.get("ts") == ts)
+    if not isinstance(q.get("text"), str):
         raise Unjudgeable("부모 글 꼴 아님")
-    parent, text = dec(ts), msgs[0]["text"]
-    edited = msgs[0].get("edited")
+    parent, text = dec(ts), q["text"]
+    edited = q.get("edited")
     if edited is not None and not (isinstance(edited, dict) and "ts" in edited):
         raise Unjudgeable("edited 꼴 아님")
-    replies = [(dec(m.get("ts")), m.get("user")) for m in msgs[1:]]
+    me = [q.get("user"), q.get("bot_id")]
+    after = sorted(((dec(m.get("ts")), m.get("user"), m) for m in msgs if m is not q), key=lambda x: x[0])
+    nxt = next((t for t, _, m in after if t > parent and any(a and a in (m.get("user"), m.get("bot_id")) for a in me)), None)   # 다음 질문 = 같은 작성자의 다음 글
     out = []
     for sha in shas:
         if not re.search(r"(?<![0-9a-fA-F])%s(?![0-9a-fA-F])" % sha, text, re.I):
             raise ValueError("질문 글에 %s 없음" % sha)
-        ok = [t for t, u in replies if u == OPPA_SLACK_UID and t > parent and (edited is None or dec(edited["ts"]) < t)]
+        ok = [t for t, u, _ in after if u == OPPA_SLACK_UID and t > parent and (nxt is None or t < nxt) and (edited is None or dec(edited["ts"]) < t)]
         if not ok:
-            raise ValueError("오빠 답글 없음(부모 뒤 · 수정 전): %s" % sha)
+            raise ValueError("오빠 답글 없음(부모 뒤 · 수정 전 · 다음 질문 전): %s" % sha)
         out.append("SLACK-OK %s parent=%s reply=%s" % (sha, ts, min(ok)))
     return out
 
