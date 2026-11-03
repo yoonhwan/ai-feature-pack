@@ -41,5 +41,13 @@ mv "$T/sp.bak" "$T/.fable-team/seats-planner.json"
 : > "$T/desk.log"; run '' '{"command":"ls"}'; allowed && grep -q 'tmux' "$T/desk.log"; ck "⑩ 좌석 이름을 못 구함 → 허용 + 로그 1줄" $?
 out="$(printf '' | env FT_ROOT="$T" bash "$HK" 2>/dev/null)"; rc=$?; allowed; ck "⑪ 빈 stdin → 허용" $?
 out="$(printf '%s' '{"tool_name":"Read","tool_input":{"file_path":"x"}}' | env $(env_for "$D") FT_ROOT="$T" bash "$HK" 2>/dev/null)"; rc=$?; allowed; ck "⑫ Bash 아닌 도구 → 허용" $?
+# R241 단계 2 (Monitor 꼴 · 반례 M1~M6)
+run "$D" '{"command":"ft-inbox-watch.sh","description":"watch","timeout_ms":1800000}'; allowed; ck "M1 desk·timeout_ms 만 → 허용(Monitor 꼴)" $?
+run "$D" '{"command":"ls","timeout":120000}'; denied; ck "M3 desk·timeout 120000 → deny" $?
+run "$D" '{"command":"ls","timeout":20000}'; allowed; ck "M3 desk·timeout 20000 → 허용" $?
+run "$D" '{"command":"ls","timeout":120000,"timeout_ms":1800000}'; denied; ck "M4 desk·timeout+timeout_ms 둘 다 → deny(Bash 꼴)" $?
+run 'other-r241t#1' '{"command":"ls","timeout":120000}'; allowed; ck "M5 desk 아닌 좌석·무엇이든 → 허용" $?
+: > "$T/desk.log"; run "$D" '{"command":"ls","description":"x"}'
+denied && grep -q 'deny tool_name=Bash keys=command,description' "$T/desk.log"; ck "M6 deny 갈래 로그 1줄(tool_name·keys)" $?
 
 echo "fail=$fail"; [ "$fail" = 0 ]
