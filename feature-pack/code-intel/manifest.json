@@ -1,0 +1,37 @@
+{
+  "name": "code-intel",
+  "version": "1.0.0",
+  "title": "code-intel — 하네스 공통 코드 인텔리전스 (probe + tilth, Serena 대체)",
+  "description": "인덱스 없이 상주 프로세스 0으로 코드 검색·심볼·참조·구조패턴을 제공하는 단일 진입점 `ci`. probe(의미검색·AST·LSP) + tilth(심볼·호출자·토큰) 조합. claude/codex/opencode/pi 4개 하네스에 동일 명령으로 랜딩되며, Serena MCP(946MB 상주·누수)를 대체한다. 타임아웃·scope 가드 내장으로 코어 폭주를 방지하고, ci-audit 로 지침 준수율을 계측한다.",
+  "category": "code-intelligence",
+  "os": [
+    "darwin",
+    "linux"
+  ],
+  "dependencies": {
+    "cli": ["curl", "tar", "python3"],
+    "brew": ["ast-grep"],
+    "npm": [],
+    "optional": ["python-lsp-server (uv tool install python-lsp-server — ci refs python 용)"],
+    "feature_packs": []
+  },
+  "requires_api_keys": false,
+  "requires_google_auth": false,
+  "has_obsidian": false,
+  "has_cron": false,
+  "install_time_minutes": 3,
+  "cli_name": "ci",
+  "cli_package": "probe 0.6.0-rc342 (Rust) + tilth 0.12.0 (Rust)",
+  "cli_install_method": "release tarball → ~/.local/bin, npx 캐시 바이너리 복사",
+  "skill_surfaces": [
+    { "runtime": "claude-code", "kind": "skill", "path": "skill/SKILL.md" },
+    { "runtime": "codex", "kind": "skill", "path": "skill/SKILL.md" },
+    { "runtime": "opencode", "kind": "skill", "path": "skill/SKILL.md" },
+    { "runtime": "pi", "kind": "skill", "path": "skill/SKILL.md" }
+  ],
+  "entrypoints": {
+    "install": "skill/scripts/install.sh",
+    "doctor": "skill/scripts/ci doctor",
+    "audit": "skill/scripts/ci-audit"
+  }
+}

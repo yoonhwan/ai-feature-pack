@@ -1,0 +1,152 @@
+#!/usr/bin/env python3
+"""ci-audit — code-intel 준수율 계측기 (하드룰 16: 코드 탐색은 ci 우선 / grep은 문자열 한정)
+
+실제 tool_use 의 Bash 명령만 파싱한다(도구 스키마 목록 제외).
+분류
+  ci          : `ci search|sym|outline|refs|ast|lsp|doctor|bench ...`
+  grep_src    : rg/grep/git grep/find 인자에 **소스 확장자**가 걸린 호출 = 하드룰 위반 후보
+  grep_other  : 로그·설정·문자열 grep = 정당
+  serena      : mcp__serena__* / serena 프로세스 기동 (은퇴 후에는 0이어야 함)
+
+사용
+  ci-audit                        # 최근 24h
+  ci-audit --days 0.25 --by-harness
+  ci-audit --days 7 --csv ~/.claude/skills/code-intel/references/ci-audit.csv
+  ci-audit --json
+"""
+import argparse, collections, json, os, re, sys, time
+
+HOME = os.path.expanduser("~")
+ROOTS = {
+    "claude":   f"{HOME}/.claude/projects",
+    "pi":       f"{HOME}/.pi/agent/sessions",
+    "codex":    f"{HOME}/.codex/sessions",
+    "opencode": f"{HOME}/.local/share/opencode/storage",
+}
+
+CI_RE = re.compile(r"(?:^|[\s;&|(`])ci\s+(search|sym|outline|refs|def|impl|type|ast|lsp|doctor|bench)\b")
+GREP_RE = re.compile(r"(?:^|[\s;&|(`])(git\s+grep|rg|grep|egrep|fgrep|find)\b")
+SRC_RE = re.compile(r"\.(py|pyi|ts|tsx|js|jsx|mjs|cjs|go|rs|java|kt|kts|c|cc|cpp|cxx|h|hpp|rb|php|scala|swift|vue|svelte|dart|lua)\b")
+SERENA_RE = re.compile(r"mcp__serena__|serena start-mcp|oraios/serena", re.I)
+
+
+def iter_lines(root, cutoff):
+    if not os.path.isdir(root):
+        return
+    for dirpath, _dirs, files in os.walk(root):
+        for fn in files:
+            if not fn.endswith((".jsonl", ".json")):
+                continue
+            p = os.path.join(dirpath, fn)
+            try:
+                if os.path.getmtime(p) < cutoff:
+                    continue
+                fh = open(p, errors="replace")
+            except OSError:
+                continue
+            for line in fh:
+                if '"tool_use"' not in line:
+                    continue
+                yield line
+
+
+def walk_blocks(obj):
+    """중첩 구조에서 tool_use 블록 yield."""
+    if isinstance(obj, dict):
+        if obj.get("type") == "tool_use" and isinstance(obj.get("name"), str):
+            yield obj
+        for v in obj.values():
+            yield from walk_blocks(v)
+    elif isinstance(obj, list):
+        for v in obj:
+            yield from walk_blocks(v)
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--days", type=float, default=1.0)
+    ap.add_argument("--by-harness", action="store_true")
+    ap.add_argument("--json", action="store_true")
+    ap.add_argument("--csv", help="CSV 누적 파일 경로 (append)")
+    a = ap.parse_args()
+
+    cutoff = time.time() - a.days * 86400
+    per = collections.defaultdict(lambda: collections.Counter())
+    subs = collections.Counter()
+    viol_samples = []
+
+    for harness, root in ROOTS.items():
+        for line in iter_lines(root, cutoff):
+            try:
+                obj = json.loads(line)
+            except Exception:
+                continue
+            for blk in walk_blocks(obj):
+                name = blk.get("name", "")
+                inp = blk.get("input") or {}
+                blob = name + " " + json.dumps(inp, ensure_ascii=False)
+                if SERENA_RE.search(blob):
+                    per[harness]["serena"] += 1
+                cmd = inp.get("command", "") if isinstance(inp, dict) else ""
+                if not cmd:
+                    continue
+                m = CI_RE.search(cmd)
+                if m:
+                    per[harness]["ci"] += 1
+                    subs[m.group(1)] += 1
+                    continue
+                if GREP_RE.search(cmd):
+                    if SRC_RE.search(cmd):
+                        per[harness]["grep_src"] += 1
+                        if len(viol_samples) < 5:
+                            viol_samples.append((harness, cmd.replace("\n", " ")[:110]))
+                    else:
+                        per[harness]["grep_other"] += 1
+
+    tot = collections.Counter()
+    for h in per:
+        tot.update(per[h])
+    ci, gs, go, se = tot["ci"], tot["grep_src"], tot["grep_other"], tot["serena"]
+    denom = ci + gs
+    ratio = (ci / denom * 100) if denom else 0.0
+
+    result = {
+        "window_days": a.days,
+        "ci": ci, "grep_src": gs, "grep_other": go, "serena": se,
+        "compliance_pct": round(ratio, 1),
+        "ci_subcommands": dict(subs.most_common()),
+        "by_harness": {h: dict(c) for h, c in per.items()},
+    }
+
+    if a.json:
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+    else:
+        print(f"[ci-audit] 최근 {a.days:g}일  |  준수율 {ratio:.1f}%  (ci {ci} : 소스grep {gs})")
+        if a.by_harness:
+            print(f"  {'harness':<10}{'ci':>6}{'grep_src':>10}{'grep_other':>12}{'serena':>8}")
+            for h in ("claude", "pi", "codex", "opencode"):
+                c = per.get(h, collections.Counter())
+                print(f"  {h:<10}{c['ci']:>6}{c['grep_src']:>10}{c['grep_other']:>12}{c['serena']:>8}")
+        if subs:
+            print("  ci 서브커맨드:", ", ".join(f"{k}={v}" for k, v in subs.most_common()))
+        if viol_samples:
+            print("  위반 후보 샘플(소스 확장자 grep):")
+            for h, c in viol_samples:
+                print(f"    [{h}] {c}")
+        if se:
+            print(f"  ⚠️ serena 호출 {se}건 — 은퇴 후 0이어야 함 (파일 mtime 기준이라 삭제 전 기록이 섞일 수 있음)")
+            print("     └ 삭제 이후만 보려면 --days 0.1 처럼 짧은 창으로 재실행")
+
+    if a.csv:
+        new = not os.path.exists(a.csv)
+        with open(a.csv, "a") as fh:
+            if new:
+                fh.write("ts,days,ci,grep_src,grep_other,serena,compliance_pct\n")
+            fh.write(f"{time.strftime('%Y-%m-%dT%H:%M:%S')},{a.days:g},{ci},{gs},{go},{se},{ratio:.1f}\n")
+        if not a.json:
+            print(f"  CSV append: {a.csv}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

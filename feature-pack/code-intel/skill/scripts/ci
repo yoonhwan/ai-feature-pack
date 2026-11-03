@@ -1,0 +1,255 @@
+#!/usr/bin/env bash
+# ci — code-intel 단일 진입점 (하네스 불문: claude / codex / opencode / pi / hermes)
+# probe(의미검색·AST·LSP) + tilth(심볼·호출자·토큰) 래퍼.
+# 설계 원칙: 도구가 없으면 "안내 후 exit 0" — 에이전트를 블로킹하지 않는다.
+set -uo pipefail
+
+PROBE="${PROBE_BIN:-}"
+TILTH="${TILTH_BIN:-}"
+
+_resolve() { # $1=name  → echo path or empty
+  local n="$1" p
+  if command -v "$n" >/dev/null 2>&1; then command -v "$n"; return 0; fi
+  for p in "$HOME/.local/bin/$n" "/opt/homebrew/bin/$n" "/usr/local/bin/$n"; do
+    [ -x "$p" ] && { echo "$p"; return 0; }
+  done
+  return 1
+}
+
+PROBE="${PROBE:-$(_resolve probe || true)}"
+
+# ── 부하 가드 (2026-10-23 tilth 585% 폭주 사고 후 추가) ────────────────────
+#   · 모든 심볼/구조 검색은 CI_TIMEOUT(기본 60s) 안에서만 돈다
+#   · scope 가 리포 루트(.git 존재)면 경고 — 하위 경로 지정을 유도
+#   · 정말 필요하면 CI_ALLOW_HEAVY=1 CI_TIMEOUT=600 으로 예외
+_guard_run() { # $@ = 실행할 명령
+  local to="${CI_TIMEOUT:-60}"
+  if [ "${CI_ALLOW_HEAVY:-0}" = "1" ]; then
+    ( "$@" ) ; return $?
+  fi
+  timeout "$to" "$@"
+  local rc=$?
+  if [ "$rc" -eq 124 ]; then
+    echo "[timeout] ${to}s 초과 — scope 를 좁히세요 (예: ci sym <sym> --scope <subdir>)." >&2
+    echo "          전체 스캔이 필요하면 CI_ALLOW_HEAVY=1 CI_TIMEOUT=600 으로 실행." >&2
+  fi
+  return $rc
+}
+_scope_warn() { # $1 = scope path
+  if [ -e "$1/.git" ]; then
+    echo "[warn] scope 가 리포 루트입니다($1) — 하위 디렉터리를 지정하면 수십 배 빠릅니다." >&2
+  fi
+}
+
+TILTH="${TILTH:-$(_resolve tilth || true)}"
+
+die_missing() { # $1=tool  $2=install hint
+  cat >&2 <<EOF
+[warn] $1 미설치 — code-intel 계층 비활성 (블로킹하지 않음, rg/Read 로 계속 진행 가능)
+
+  설치(레퍼런스: ~/.claude/skills/code-intel/references/*.md):
+$2
+EOF
+  exit 0
+}
+
+need_probe() { [ -n "$PROBE" ] || die_missing probe "  curl -sL -o /tmp/p.tar.gz https://github.com/probelabs/probe/releases/download/v0.6.0-rc342/probe-v0.6.0-rc342-aarch64-apple-darwin.tar.gz
+  tar xzf /tmp/p.tar.gz -C /tmp && cp /tmp/probe-v0.6.0-rc342-aarch64-apple-darwin/probe ~/.local/bin/"; }
+need_tilth() { [ -n "$TILTH" ] || die_missing tilth "  npx -y tilth --version   # 캐시된 네이티브 바이너리를 ~/.local/bin/tilth 로 복사
+  또는 cargo install tilth"; }
+
+# LSP 계층은 온디맨드. CI_LSP_AUTO_INIT=1 이면 자동 init, 아니면 안내만.
+_lsp_ensure() {
+  command -v "${PROBE:-probe}" >/dev/null 2>&1 || return 0
+  local st
+  st="$("$PROBE" lsp status 2>/dev/null)"
+  case "$st" in
+    *"No language servers initialized"*|*"Status: Not"*|*"not connected"*|*"unavailable"*)
+      if [ "${CI_LSP_AUTO_INIT:-0}" = "1" ]; then
+        "$PROBE" lsp init -w "${CI_LSP_SCOPE:-$PWD}" >/dev/null 2>&1 || true
+      else
+        echo "[hint] LSP 미초기화 — 'ci lsp up --scope .' 1회 실행 (또는 CI_LSP_AUTO_INIT=1)" >&2
+      fi
+      ;;
+  esac
+}
+
+usage() {
+  cat <<'EOF'
+ci — code-intel (probe + tilth)
+
+  ci search "<query>" [path] [--max N]      의미/키워드 검색 (BM25 + AST 블록)
+  ci sym <name> [--scope P] [--callers|--deps]
+                                            심볼 정의/호출자/의존성 (정의 우선 정렬)
+  ci outline <file> [--section S]           파일 아웃라인 (+토큰 수)
+  ci refs "<file>#<sym>" [--json]           LSP 정밀 참조 (온디맨드)
+  ci def "file#sym" | ci impl "file#sym"    LSP 정의 / 구현체
+  ci ast '<pattern>' [path] [-l lang]       ast-grep 구조 패턴
+  ci lsp up [--scope P] | down | status     LSP 데몬 수명주기
+  ci doctor                                 설치·버전·데몬·smoke 진단
+  ci bench [--queries FILE]                 성능 회귀 (p50/p95)
+
+  env: PROBE_BIN, TILTH_BIN 로 바이너리 강제 지정
+EOF
+}
+
+# ---- 서브커맨드 파싱 -------------------------------------------------------
+cmd="${1:-}"; shift || true
+
+case "$cmd" in
+  search)
+    need_probe
+    q="${1:?query required}"; shift || true
+    path="."; max="5"
+    while [ $# -gt 0 ]; do
+      case "$1" in
+        --max) max="$2"; shift 2 ;;
+        *) path="$1"; shift ;;
+      esac
+    done
+    # probe 0.6.0-rc342 는 한국어 마크다운에서 char-boundary panic(SIGABRT=134)이 있다.
+    # → abort 시 마크다운 무시하고 1회 재시도.
+    "$PROBE" search "$q" "$path" --max-results "$max" --timeout "${CI_TIMEOUT:-90}"
+    rc=$?
+    if [ "$rc" -eq 134 ] || [ "$rc" -eq 133 ]; then
+      echo "[warn] probe aborted (markdown AST panic 추정) → '*.md' 제외 후 재시도" >&2
+      "$PROBE" search "$q" "$path" --max-results "$max" --timeout "${CI_TIMEOUT:-90}" -i '*.md'
+      rc=$?
+    fi
+    # 다중어 쿼리는 기본 AND 로 해셕돼 0건이 되기 쉽다 → OR 로 1회 재시도.
+    if [ "$rc" -eq 1 ] && printf '%s' "$q" | grep -q '[[:space:]]'; then
+      orq="$(printf '%s' "$q" | tr -s '[:space:]' '\n' | grep -v '^$' | paste -sd '|' - | sed 's/|/ OR /g')"
+      echo "[hint] 0건 — AND 해석이었을 가능성. OR 재시도: $orq" >&2
+      "$PROBE" search "$orq" "$path" --max-results "$max" --timeout "${CI_TIMEOUT:-90}" -i '*.md'
+      rc=$?
+    fi
+    exit "$rc"
+    ;;
+
+  sym)
+    need_tilth
+    name="${1:?symbol required}"; shift || true
+    scope="."; mode=""
+    while [ $# -gt 0 ]; do
+      case "$1" in
+        --scope) scope="$2"; shift 2 ;;
+        --callers) mode="--callers"; shift ;;
+        --deps) mode="--deps"; shift ;;
+        *) shift ;;
+      esac
+    done
+    _scope_warn "$scope"
+    _guard_run "$TILTH" "$name" $mode --scope "$scope"
+    exit $?
+    ;;
+
+  outline)
+    need_tilth
+    f="${1:?file required}"; shift || true
+    if [ "${1:-}" = "--section" ]; then shift; _guard_run "$TILTH" "$f" --section "$1"; exit $?; fi
+    _guard_run "$TILTH" "$f"
+    exit $?
+    ;;
+
+  refs)
+    need_probe
+    loc="${1:?location 'file#symbol' or 'file:line:col' required}"; shift || true
+    fmt="terminal"; [ "${1:-}" = "--json" ] && fmt="json"
+    _lsp_ensure
+    exec "$PROBE" lsp call references "$loc" --format "$fmt"
+    ;;
+
+  def|impl|type|hover)
+    need_probe
+    loc="${1:?location required}"; shift || true
+    case "$cmd" in
+      def) m="definition" ;; impl) m="implementations" ;;
+      type) m="type-definition" ;; hover) m="hover" ;;
+    esac
+    _lsp_ensure
+    exec "$PROBE" lsp call "$m" "$loc"
+    ;;
+
+  ast)
+    need_probe
+    pat="${1:?pattern required}"; shift || true
+    path="."; lang=""; rawlang=""
+    while [ $# -gt 0 ]; do
+      case "$1" in
+        -l|--language) rawlang="$2"; lang="-l $2"; shift 2 ;;
+        *) path="$1"; shift ;;
+      esac
+    done
+    out="$("$PROBE" query "$pat" "$path" $lang 2>&1)"
+    printf '%s\n' "$out"
+    # probe 0.6.0-rc342: python(및 일부 언어) 패턴 매칭이 0건으로 샌다 → ast-grep 폴백
+    case "$out" in
+      *"No results found"*)
+        SG="${ASTGREP_BIN:-$(command -v ast-grep || command -v sg || true)}"
+        if [ -n "$SG" ]; then
+          case "$rawlang" in
+            py) sl=python ;; rs) sl=rust ;; ts) sl=typescript ;; js) sl=javascript ;;
+            tsx) sl=tsx ;; go) sl=go ;; *) sl="${rawlang:-python}" ;;
+          esac
+          echo "[fallback] ast-grep 사용 (probe query 0건) — lang=$sl" >&2
+          _guard_run "$SG" run -p "$pat" -l "$sl" "$path"
+          exit $?
+        fi
+        echo "[hint] probe query 가 0건입니다. ast-grep 설치를 권장: brew install ast-grep" >&2
+        ;;
+    esac
+    ;;
+
+  lsp)
+    need_probe
+    sub="${1:-status}"; shift || true
+    case "$sub" in
+      up)
+        scope="."
+        [ "${1:-}" = "--scope" ] && { scope="$2"; shift 2; }
+        exec "$PROBE" lsp init -w "$scope"
+        ;;
+      down)   exec "$PROBE" lsp shutdown ;;
+      status) exec "$PROBE" lsp status ;;
+      *)      exec "$PROBE" lsp "$sub" ;;
+    esac
+    ;;
+
+  doctor)
+    echo "== code-intel doctor =="
+    printf "probe : %s\n" "${PROBE:-MISSING}"
+    [ -n "$PROBE" ] && printf "        %s\n" "$("$PROBE" --version 2>/dev/null | head -1)"
+    printf "tilth : %s\n" "${TILTH:-MISSING}"
+    [ -n "$TILTH" ] && printf "        %s\n" "$("$TILTH" --version 2>/dev/null | head -1)"
+    printf "pylsp : %s\n" "$(_resolve pylsp || echo 'MISSING (probe lsp python 불가)')"
+    if [ -n "$PROBE" ]; then
+      # doctor 는 진단만 — status 가 데몬을 자동 기동시키면 즉시 내려 상주를 남기지 않는다
+      pre_lsp="$(pgrep -f "probe lsp start" | wc -l | tr -d ' ')"
+      printf "lsp   : %s\n" "$("$PROBE" lsp status 2>/dev/null | tr '\n' ' ' | cut -c1-90)"
+      [ "$pre_lsp" = "0" ] && "$PROBE" lsp shutdown >/dev/null 2>&1
+      printf "smoke : "
+      out="$("$PROBE" search "function OR def" . --max-results 1 2>/dev/null | head -3 | tr '\n' ' ')"
+      [ -n "$out" ] && echo "OK" || echo "EMPTY(정상: 빈 디렉터리일 수 있음)"
+    fi
+    exit 0
+    ;;
+
+  bench)
+    need_probe; need_tilth
+    qf="$HOME/.claude/skills/code-intel/references/queries.txt"
+    [ "${1:-}" = "--queries" ] && qf="$2"
+    echo "bench: $qf  ($( [ -f "$qf" ] && wc -l <"$qf" || echo 0) queries)"
+    [ -f "$qf" ] || { echo "  (queries 파일 없음 — references/queries.txt 참조)"; exit 0; }
+    n=0
+    while IFS= read -r q; do
+      [ -z "$q" ] && continue
+      n=$((n+1))
+      s=$( { /usr/bin/time -p "$PROBE" search "$q" . --max-results 3 >/dev/null; } 2>&1 | awk '/^real/{print $2}')
+      printf "  %-46s probe %ss\n" "$(echo "$q" | cut -c1-46)" "$s"
+    done < "$qf"
+    exit 0
+    ;;
+
+  ""|-h|--help|help) usage; exit 0 ;;
+  *) echo "unknown: $cmd" >&2; usage; exit 2 ;;
+esac
