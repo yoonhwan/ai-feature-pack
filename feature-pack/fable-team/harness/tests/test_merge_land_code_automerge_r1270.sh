@@ -128,6 +128,7 @@ adv "bin/f8.py=$(sed '28s/.*/MAIN8-LINE28/' "$T/f8.txt")"
 git -C "$W" checkout -q c8; git -C "$W" merge -q --no-edit origin/main; pushpr 8 c8; S8="$PRSHA"; adv "bin/g8.py=print('g8')"; M8="$(omain)"
 land "$LAND" 8 --approve-sha "$A8"
 [ "$S8" != "$A8" ] && rejected "$M8" && [[ "$out" == *"승인 뒤 main 이 같은 파일 1개를 바꿈"* ]] && [[ "$out" == *"overlap=1"* ]]; ck "R8 병합 head S(≠승인) · EQUIV rc0 overlap=1 → REJECT «승인 뒤 main 이 같은 파일 1개를 바꿈» · 착지 0" $?
+[[ "$out" == *"겹친 파일: bin/"* && "$out" == *"질문 관문 우회"* ]]; ck "R8b(r1275 단계 4 · V6) 같은 파일 REJECT 문구에 겹친 파일 이름 + «승인 sha 가 질문 때 main 위였나» 1줄" $?
 land "$M_OV/ft-merge-land.sh" 8 --approve-sha "$A8"; [ "$rc" = 0 ] && [[ "$out" == *"LANDED pr=8 "* ]]; ck "변이 4(overlap=0 검사 제거) → R8 FAIL 재현(LANDED)" $?
 
 # ===== 격리 =====

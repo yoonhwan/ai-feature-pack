@@ -11,6 +11,7 @@ import json
 import logging
 import os
 import re
+import subprocess
 from pathlib import Path
 
 import mirror_lib as lib
@@ -37,6 +38,10 @@ ROOT_ENV = "FT_ROOT"
 DEFAULT_ROOT = "/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents"  # ~/.hermes/scripts 에서 불려도 명부에 닿는 고정 기본값
 DESK_CHANNEL_ENV = "BYZ_DESK_CHANNEL"
 DESK_MENTION_ENV = "BYZ_DESK_MENTION"
+GATE_REPOS_ENV = "FT_APPROVAL_GATE_REPOS"  # 콜론 목록 · 기본 = 루트 + 팩 리포 (r1275 단계 4)
+GATE_TARGET_ENV = "FT_APPROVAL_GATE_TARGET"  # 기본 origin/main
+DEFAULT_PACK_REPO = "/Users/yoonhwan/Project/ai-feature-pack"
+SHA40 = re.compile(r"(?<![0-9a-fA-F])[0-9a-f]{40}(?![0-9a-fA-F])")
 
 
 class PostGuardError(MirrorError):
@@ -89,6 +94,36 @@ def check(text: str, channel: str, *, human: bool = False) -> None:
         raise PostGuardError(f"게시 거부(post_guard) — {', '.join(found)} · 게시 0")
 
 
+def _git(repo: str, *args: str) -> int:
+    """7초 + 재시도 1(하드 룰 12). 시간 초과·실행 실패 = rc 255(조용한 통과 0)."""
+    for _ in range(2):
+        try:
+            return subprocess.run(["git", "-C", repo, *args], capture_output=True, timeout=7).returncode
+        except (subprocess.TimeoutExpired, OSError):
+            continue
+    return 255
+
+
+def approval_gate(text: str) -> None:
+    """approve-merge 질문 글(본문에 approve-merge + 40hex sha)은 그 sha(PR head)가 origin/main 을 품을 때만 나간다 —
+    질문 때 PR 이 옛 main 위면 승인 뒤 main 병합으로 head 가 바뀌어 같은 질문이 되풀이된다(r1275 단계 4 · 판정 3932).
+    품지 않음 = 게시 0 «먼저 main 따라잡기» · 조회 실패 = 게시 0 «판정 불가»(조용한 통과 0) · approve-merge 낱말 없음 = 대상 밖."""
+    shas = sorted(set(SHA40.findall(text))) if "approve-merge" in text else []
+    if not shas:
+        return
+    repos = [r for r in (os.environ.get(GATE_REPOS_ENV) or f"{os.environ.get(ROOT_ENV) or DEFAULT_ROOT}:{DEFAULT_PACK_REPO}").split(":") if r]
+    remote, _, branch = (os.environ.get(GATE_TARGET_ENV) or "origin/main").partition("/")
+    for sha in shas:
+        repo = next((r for r in repos if _git(r, "cat-file", "-e", sha + "^{commit}") == 0), None)
+        if repo is None or _git(repo, "fetch", "-q", remote, branch) != 0:
+            raise PostGuardError(f"게시 거부(approval_gate) — 판정 불가: {sha[:10]} 를 {'가진 리포 없음' if repo is None else remote + '/' + branch + ' 조회 실패'} · 게시 0")
+        rc = _git(repo, "merge-base", "--is-ancestor", f"{remote}/{branch}", sha)
+        if rc == 1:
+            raise PostGuardError(f"게시 거부(approval_gate) — approve-merge 질문의 PR head {sha[:10]} 가 {remote}/{branch} 를 품지 않음 · 먼저 main 따라잡기(ft-head-sync) 뒤 새 sha 로 질문 · 게시 0")
+        if rc != 0:
+            raise PostGuardError(f"게시 거부(approval_gate) — 판정 불가: {sha[:10]} 조상 검사 rc={rc} · 게시 0")
+
+
 def with_status_head(text: str) -> str:
     """사람 채널 글 머리에 planner 카운팅 첫 줄을 붙인다(r1089) — 이미 같은 머리줄로 시작하면 그대로(재시도 중복 0)."""
     from status_head import head  # 순환 import 회피 — status_head 가 루트 규칙을 post_guard 에서 가져온다
@@ -136,6 +171,7 @@ def guarded_post(base: str, token: str, channel: str, text: str, thread_ts: str 
     if is_human:
         text = with_status_head(text)
     check(text, channel, human=is_human)
+    approval_gate(text)
     ts = post(base, token, channel, text, thread_ts)
     desk_copy(base, token, channel, ts, text, head)
     return ts

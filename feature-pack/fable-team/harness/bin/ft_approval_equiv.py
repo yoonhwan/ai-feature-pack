@@ -106,7 +106,14 @@ def check(repo, a, s, remote, target):
         raise No("승인 세트와 main 이 깨끗이 병합되지 않음(충돌) — 충돌 해소는 새 세트")
     if p.stdout.decode().split()[0] != out(repo, "rev-parse", sc + "^{tree}").strip():
         raise No("S 트리가 «승인 세트 + main 의 깨끗한 병합»과 다름(병합 커밋이 그 밖의 변경을 담음)")
-    return "EQUIV approve=%s head=%s merges=%d files=%d mode=merge overlap=%d base=%s" % (ac, sc, len(merges), len(da), overlap(repo, da, mb, mx), mx[:10])
+    return "EQUIV approve=%s head=%s merges=%d files=%d mode=merge overlap=%d base=%s%s" % (ac, sc, len(merges), len(da), overlap(repo, da, mb, mx), mx[:10], ov_names(repo, da, mb, mx))
+
+
+def ov_names(repo, da, mb, m):
+    """겹친 파일 이름(최대 3 · 겹침 있을 때만 EQUIV 줄 끝에 « names=a,b») — r1275 단계 4: 재질문 사유를 사람이 읽게. 계산·판정 변경 0."""
+    mine = {k.split(" b/")[-1] for k in da}
+    hit = sorted(mine & set(out(repo, "diff", "--name-only", "--no-renames", mb, m).split("\n")))
+    return " names=" + ",".join(hit[:3]) if hit else ""
 
 
 def overlap(repo, da, mb, m):
@@ -137,7 +144,7 @@ def rebased(repo, ac, sc, m, shallow):
         raise No("승인 세트와 main 이 깨끗이 병합되지 않음(충돌) — 충돌 해소는 새 세트")
     if p.stdout.decode().split()[0] != out(repo, "rev-parse", sc + "^{tree}").strip():
         raise No("S 트리가 «승인 세트 + 지금 main 의 깨끗한 병합»과 다름(rebase 중 손 편집)")
-    return "EQUIV approve=%s head=%s merges=0 files=%d mode=rebase overlap=%d base=%s" % (ac, sc, len(da), overlap(repo, da, mb, mx), mx[:10])
+    return "EQUIV approve=%s head=%s merges=0 files=%d mode=rebase overlap=%d base=%s%s" % (ac, sc, len(da), overlap(repo, da, mb, mx), mx[:10], ov_names(repo, da, mb, mx))
 
 
 if __name__ == "__main__":
