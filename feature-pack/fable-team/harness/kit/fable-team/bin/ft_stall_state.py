@@ -113,13 +113,37 @@ def begin() -> None:
     _J.update(on=True, t0=time.monotonic(), d=judge_budget(), k=0, n=0, fail=0)
 
 
-def judged(fn, state_dir: Path) -> int:
-    """fn() 을 판정 기한 안에서 돌린다(begin() 이 t0 를 세운 뒤 부른다) — 기한 넘김 = 처리 0 · 상태 저장 0 · 1줄(stdout + stall-scan.log) · rc 3."""
+def save_seats(state_dir: Path, seats: dict) -> None:
+    """r1282 단계 2 — 판정 불가로 끝난 실행의 «좌석 → jsonl 경로 캐시» 만 저장: 지금 stall-scan.json 을 읽어 seats 칸만 바꾼다
+    (handled·prev·a_card_nudged 등 다른 칸 그대로 · 파일 없음·깨짐 = {"seats": …} 만) · tmp → os.replace(원자 · 실패하면 옛 파일 그대로)."""
+    state_dir.mkdir(parents=True, exist_ok=True)
+    doc = load(state_dir)
+    doc = dict(doc) if isinstance(doc, dict) else {}
+    doc["seats"] = seats
+    path = state_dir / "stall-scan.json"
+    tmp = path.with_name(f"stall-scan.json.tmp{os.getpid()}")
+    try:
+        _ = tmp.write_text(json.dumps(doc), encoding="utf-8")
+        os.replace(tmp, path)
+    except BaseException:
+        tmp.unlink(missing_ok=True)
+        raise
+
+
+def judged(fn, state_dir: Path, on_timeout=None) -> int:
+    """fn() 을 판정 기한 안에서 돌린다(begin() 이 t0 를 세운 뒤 부른다) — 기한 넘김 = 처리 0 · 1줄(stdout + stall-scan.log) · rc 3.
+    r1282 단계 2: on_timeout() = 좌석 캐시 저장(handled·prev 등은 0) · 실패하면 줄 꼬리에 «좌석 캐시 저장 실패(<예외 이름>)» (rc 3 그대로)."""
     _J.update(k=0, n=0, fail=0)
     try:
         return fn()
     except JudgeTimeout:
+        _J["on"] = False
         extra = f" · 자식 묶음 정리 실패 {_J['fail']}건" if _J["fail"] else ""
+        if on_timeout:
+            try:
+                on_timeout()
+            except Exception as e:  # noqa: BLE001 — 저장 실패도 판정 불가 줄에 보인다(조용한 통과 0 · 하드 룰 20)
+                extra += f" · 좌석 캐시 저장 실패({e.__class__.__name__})"
         line = f"stall-scan 판정 불가 — 판정 기한 {_J['d']:g} s 초과(좌석 {_J['k']}/{_J['n']} · 처리 0){extra}"
         print(line)
         with open(state_dir / "stall-scan.log", "a", encoding="utf-8") as fh:
