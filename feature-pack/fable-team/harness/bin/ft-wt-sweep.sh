@@ -103,7 +103,7 @@ if [ "${1:-}" = "--launchd" ]; then
     [ "$lprc" -ne 0 ] && rc="$lprc"   # ★r880 재설계 r5★ land-plan 의 rc 를 최종 rc 에 반영(rc0 으로 덮던 길 0 · DA r3 미종결 ⑥)
   fi
     if [ "${FT_TEAM_ATTACH_DAILY:-1}" != 0 ]; then
-      ATTACH="$FT_ROOT/.fable-team/bin/ft-team-attach.sh"
+      ATTACH="$(dirname -- "$SELF")/ft-team-attach.sh"   # r1298 단계 4: 루트 shim 폴더가 아니라 이 스크립트가 있는 LIVE_BIN 사본
       MARKER="$FT_ROOT/.fable-team/state/team-attach-lint/$(date '+%F').sent"
       if [ -f "$MARKER" ]; then
         out="$out"$'\n'"team-roster-lint already checked today"
