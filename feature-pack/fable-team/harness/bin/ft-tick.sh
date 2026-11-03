@@ -426,8 +426,8 @@ acct_pause_watch() {   # 한 바퀴 1회 — 만료·풀림·부분 재시도 �
   [ -f "$ACCT_PAUSE" ] || { log "ERROR acct_pause — 도구 없음 $ACCT_PAUSE (설치 누락)"; return 0; }
   out="$(bash "$ACCT_PAUSE" status 2>&1)"; rc=$?
   case "$rc" in
-    0) printf '%s\n' "$out" | grep -E '^(RELEASED|EXPIRED|CLEARED) ' | while IFS= read -r l; do log "acct_pause: $l"; done;;
-    3) printf '%s\n' "$out" | grep -E '^(PAUSED|RELEASING) ' | while IFS= read -r l; do log "acct_pause: $l"; done;;
+    0) printf '%s\n' "$out" | grep -E '^(RELEASED|EXPIRED|CLEARED|GAVE_UP) ' | while IFS= read -r l; do log "acct_pause: $l"; done;;
+    3) printf '%s\n' "$out" | grep -E '^(PAUSED|RELEASING|GAVE_UP) ' | while IFS= read -r l; do log "acct_pause: $l"; done;;
     *) log "ERROR acct_pause rc=$rc: $(printf '%s\n' "$out" | tail -1 | cut -c1-200)";;
   esac
   return 0
@@ -1314,6 +1314,8 @@ prep_seats() {
 
 pass_core() {
   local rows seat tick role report_to master mok prc
+  step outage_watch outage_watch          # r1214 재발: 한도 안전 단계는 바퀴 맨 앞 — 부하로 바퀴가 끊겨도 가장 먼저 돈다(끊김 56/71 이 이 두 단계 앞에서 났다)
+  step acct_pause_watch acct_pause_watch
   step watch_sample_tick watch_sample_tick
   step autonomy_expire autonomy_expire
   step leak_watch leak_watch
@@ -1322,8 +1324,6 @@ pass_core() {
   step dead_seat_watch dead_seat_watch
   step idle_watch idle_watch
   step idle_long_watch idle_long_watch
-  step outage_watch outage_watch
-  step acct_pause_watch acct_pause_watch
   step model_swap model_swap
   step stall stall
   step sweep_wt sweep_wt

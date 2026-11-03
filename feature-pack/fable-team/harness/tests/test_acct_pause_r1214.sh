@@ -283,7 +283,7 @@ print("claude" in json.load(open(p)) if os.path.exists(p) else False)' "$R/.fabl
 H clear >/dev/null
 # 잠금 점유 → rc4 «판정 불가 잠금» · 고정 sleep 0(표식 두 개로 손잡이)
 LOCKF="$R/.fable-team/state/acct-pause/lock"; rm -f "$T/lock.ready" "$T/lock.go"
-python3 - "$LOCKF" "$T/lock.ready" "$T/lock.go" <<'PY' &
+python3 - "$LOCKF" "$T/lock.ready" "$T/lock.go" <<'PY' &   # bg-ok: wait 로 회수(시험 안에서 끝남)
 import fcntl, os, sys, time
 lockf, ready, go = sys.argv[1:4]
 fh = open(lockf, "a+"); fcntl.flock(fh, fcntl.LOCK_EX)
@@ -301,11 +301,34 @@ out="$(FT_ACCT_LOCK_WAIT=1 H status --check claude)"; rc=$?
 # 동시 status 2 → 좌석당 send 1회(잠금)
 H set --provider claude --until "$(ISO $((NOW0+600)))" --reason 'R7 동시 status 겹침 시험' >/dev/null
 : > "$MBOX_DIR/log"; echo quiet > "$MBOX_DIR/doorbell.m#1"
-NOWS=$((NOW0+700)) bash -c "FT_ACCT_ROOT='$R' FT_ACCT_TMUX='$FB/tmux' FT_ACCT_MBOX='$FB/mbox.sh' FT_ACCT_NOW=$((NOW0+700)) PATH='$FB:$PATH' bash '$TOOL' status >/dev/null 2>&1" &
-p1=$!; NOWS=$((NOW0+700)) bash -c "FT_ACCT_ROOT='$R' FT_ACCT_TMUX='$FB/tmux' FT_ACCT_MBOX='$FB/mbox.sh' FT_ACCT_NOW=$((NOW0+700)) PATH='$FB:$PATH' bash '$TOOL' status >/dev/null 2>&1" &
+NOWS=$((NOW0+700)) bash -c "FT_ACCT_ROOT='$R' FT_ACCT_TMUX='$FB/tmux' FT_ACCT_MBOX='$FB/mbox.sh' FT_ACCT_NOW=$((NOW0+700)) PATH='$FB:$PATH' bash '$TOOL' status >/dev/null 2>&1" &   # bg-ok: wait 로 회수(시험 안에서 끝남)
+p1=$!; NOWS=$((NOW0+700)) bash -c "FT_ACCT_ROOT='$R' FT_ACCT_TMUX='$FB/tmux' FT_ACCT_MBOX='$FB/mbox.sh' FT_ACCT_NOW=$((NOW0+700)) PATH='$FB:$PATH' bash '$TOOL' status >/dev/null 2>&1" &   # bg-ok: wait 로 회수(시험 안에서 끝남)
 p2=$!; wait "$p1" "$p2" 2>/dev/null
 eq "$(grep -c '^SEND	m#1	' "$MBOX_DIR/log")" 1 "R7 동시 status 2 → 같은 좌석 send 1회"
 H clear >/dev/null
+
+PH "R13"
+NOWS=$NOW0
+# ── R13 (r1214 재발) 바쁜 좌석은 상한(기본 1800초) 뒤 «재개 못 함» 으로 닫고 회차를 끝낸다(조용한 0 아님) ──
+H clear >/dev/null 2>&1; : > "$MBOX_DIR/log"; echo quiet > "$MBOX_DIR/doorbell.m#1"; echo quiet > "$MBOX_DIR/doorbell.a#1"
+export FAKE_PANES='m#1 %1
+a#1 %2
+b#1 %7 1'                      # b#1 = tick:null · 끝까지 «바쁨»
+R13RID="$(H set --provider claude --until "$(ISO $((NOW0+9000)))" --release-at "$(ISO $((NOW0+60)))" --reason 'R13 busy 상한 시험' | sed -n 's/.*round=\([^ ]*\).*/\1/p')"
+NOWS=$((NOW0+100)); out="$(H status)"; rc=$?; NOWS=$NOW0
+eq "$rc" 3 "R13 바쁜 b#1 때문에 첫 호출 rc3(항목 유지)"
+not "$out" "GAVE_UP" "R13 첫 busy 에는 포기 0(busy_since 만 기록)"
+NOWS=$((NOW0+100+1799)); out="$(H status)"; rc=$?; NOWS=$NOW0
+eq "$rc" 3 "R13 상한 1초 전까지 항목 유지(rc3)"
+not "$out" "GAVE_UP" "R13 상한 전 GAVE_UP 0"
+NOWS=$((NOW0+100+1800)); out="$(H status)"; rc=$?; NOWS=$NOW0
+eq "$rc" 0 "R13 busy 상한 도달 → 회차가 닫힌다(rc0)"
+has "$out" "GAVE_UP claude/* round=$R13RID seat=b#1 busy=1800s" "R13 «재개 못 함» 1줄(좌석·초 포함)"
+has "$out" "RELEASED claude/*" "R13 포기 뒤 RELEASED"
+eq "$(ls "$R/.fable-team/state/ACCT_PAUSE" 2>/dev/null | wc -l | tr -d ' ')" 0 "R13 항목 삭제(회차 무기한 열림 0)"
+eq "$(python3 -c 'import json,sys;r=json.load(open(sys.argv[1]));x=[y for y in r["recipients"] if y["seat"]=="b#1"][0];print(r["stage"],x.get("gave_up"),x.get("no_ring"),x["last_err"].split(" ")[0])' "$R/.fable-team/state/acct-pause/$R13RID.json")" "released True True 재개" "R13 기록: stage=released · gave_up · last_err=재개 못 함"
+eq "$(grep -c '^SEND	b#1	' "$MBOX_DIR/log")" 0 "R13 바쁜 좌석에는 끝까지 send 0(바쁜 좌석 깨움 0 유지)"
+export FAKE_PANES="$PANES"
 
 PH "R8"
 NOWS=$NOW0
@@ -601,6 +624,20 @@ PYX
 p=sys.argv[1]
 print("claude" in json.load(open(p)) if os.path.exists(p) else False)' "$R/.fable-team/state/ACCT_PAUSE")" False "변이 M3(재개 전 항목 삭제) → 실패한 재개가 있어도 항목이 사라져 «항목 삭제 0» 단언이 무너진다"
     rm -f "$MBOX_DIR/fail.m#1" "$R/.fable-team/state/ACCT_PAUSE"
+  fi
+  # M4 = busy 상한 제거 → 상한 시각에도 회차가 안 닫힌다(R13 단언이 무너진다)
+  MD="$(mk_mut busy-cap 's/    if NOW - since < BUSY_MAX_SEC:/    if True:/' ft-acct-pause.sh)"
+  if [ -z "$MD" ]; then bad "변이 M4 패치 실패"; else
+    M4() { env FT_ACCT_ROOT="$R" FT_ACCT_TMUX="$FB/tmux" FT_ACCT_MBOX="$FB/mbox.sh" FT_ACCT_NOW="${NOWS:-$NOW0}" \
+           FT_ACCT_BATCH_SEC=7 FT_ACCT_BATCH_SEATS=20 PATH="$FB:$PATH" bash "$MD/ft-acct-pause.sh" "$@" 2>&1; }
+    rm -f "$R/.fable-team/state/ACCT_PAUSE"; : > "$MBOX_DIR/log"
+    export FAKE_PANES='m#1 %1
+a#1 %2
+b#1 %7 1'
+    M4 set --provider claude --until "$(ISO $((NOW0+9000)))" --release-at "$(ISO $((NOW0+60)))" --reason '변이 M4 busy 상한 시험' >/dev/null
+    NOWS=$((NOW0+100)); M4 status >/dev/null; NOWS=$((NOW0+100+1800)); out="$(M4 status)"; rc=$?; NOWS=$NOW0
+    { [ "$rc" = 3 ] && [ -f "$R/.fable-team/state/ACCT_PAUSE" ]; } && ok "변이 M4(busy 상한 제거) → 상한 시각에도 rc3·항목 유지 — «회차 닫힘» 단언이 무너진다" || bad "변이 M4 미검출(rc=$rc)"
+    rm -f "$R/.fable-team/state/ACCT_PAUSE"; export FAKE_PANES="$PANES"
   fi
 fi
 
