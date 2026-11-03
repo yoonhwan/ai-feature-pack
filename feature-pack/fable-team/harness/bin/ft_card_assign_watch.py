@@ -3,9 +3,9 @@
 """ft_card_assign_watch.py prepare|status|tick [--now <ISO|epoch>] [--json] | record <카드> init|seat <이름>|waiting <사유> | lint <카드> — 카드→좌석 배정 감시 (r1224 r2 · Issue #5342).
 배정 원장 = <루트>/.fable-team/state/card-assign/<카드 stem>.json(도구만 씀 · lock 1개 ≤7초) {state seat|waiting|none · seat · reason · since(연속 미배정 시작 · 사유가 바뀌어도 유지) · updated · released_at · urgent}.
   같은 사유 재거절 = 파일 변경 0 · 배정(seat) = since 삭제 · 카드가 완성·아카이브 폴더로 가면 status 가 원장 삭제. 카드 머리 «- 배정:» 줄은 거울(seat 때만 쓰고 git add · 정본은 원장).
-사유 = 정지·석·부하·면제대기·선행·lint·DA. 카드 루트 = r1212 표(state/directive-roots.tsv)를 strict 로(표 없음·유효 행 0 = 판정 불가 · 기본값 대체 0) · 카드는 ref «평가 시각 이하» 커밋에서 읽는다.
+사유 = 정지·석·면제대기·선행·lint·DA·사람(판정 3914: «부하» 폐지 — record waiting 부하 = REJECT · 옛 부하 원장 행 = 배정 없음으로 셈 + 머리 « · 부하 폐지 K»). 카드 루트 = r1212 표(state/directive-roots.tsv)를 strict 로(표 없음·유효 행 0 = 판정 불가 · 기본값 대체 0) · 카드는 ref «평가 시각 이하» 커밋에서 읽는다.
 prepare = 루트마다 카드·발주문 생성 커밋 시각 캐시(예산 60초 · 틱 밖 1회) + 설치 stamp(installed_at) · status = 원장 + ref 대기·진행 폴더(예산 FT_CARD_ASSIGN_STATUS_SEC 3초 · prepare 없음 = 판정 불가).
-셈: 원장 없음·none = 배정 없음(즉시) · waiting = max(since, released_at) 부터 4시간(원장 urgent 또는 카드 «- 긴급: 예» = 1시간) 넘으면 대기 초과 · 사유 정지·석·부하 + 원장 pause{kind,key} 카드는
+셈: 원장 없음·none = 배정 없음(즉시) · waiting = max(since, released_at) 부터 4시간(원장 urgent 또는 카드 «- 긴급: 예» = 1시간) 넘으면 대기 초과 · 사유 정지·석 + 원장 pause{kind,key} 카드는
   실제 도구에 부작용 0 으로 묻는다(hold = ft-spawn-hold.sh status --check <판정 N> rc0 유효 · acct = ft-acct-pause.sh status --check <P[/M]> rc3 유효) → 유효 = 정지 중(초과 0) · key·도구 없음·그 밖 rc = 판정 불가 Q(rc 에 안 셈)
   · 유효를 본 정지가 풀리면 원장 released_at = 그 시각. inbox/<역할>/NN-*.md = 상위 «N.» 항목(하위 «①…» 가 있으면 하위가 단위 · 상위는 묶음 머리)마다 «- 카드: <경로>»(빈 값·없는 경로·
   긴급 항목인데 카드 «- 긴급: 예» 없음 = 미연결) · 생성 커밋(없으면 mtime) 2시간 넘은 미연결 단위 = 카드 없는 발주.
@@ -37,10 +37,11 @@ from ft_latest_write import write_latest  # noqa: E402
 from ft_card_assign_pause import DAY_S, held_add, held_once, held_prune, jload, jsave, notice, team_pause, team_paused, team_resume  # noqa: E402
 from ft_team_lib import TeamPathError, basis_ref, root_row, team_names  # noqa: E402
 
-REASONS = ("정지", "석", "부하", "면제대기", "선행", "lint", "DA", "사람")
-PAUSED = ("정지", "석", "부하")
+REASONS = ("정지", "석", "면제대기", "선행", "lint", "DA", "사람")
+PAUSED = ("정지", "석")
+LEGACY = ("부하",)  # 판정 3914 — «부하» 는 대기 사유가 아니다(load 문턱은 press·tester 만 ft-press-gate) · 새 기록 REJECT · 옛 원장 행·거울 줄은 읽기만(행 = «배정 없음» 으로 셈 · 조용한 삭제 0)
 WAIT_REASONS, WAIT_KIND = ("석", "선행"), "석·선행 대기"  # A6 — 석·선행 대기 = 경보·rc 밖(머리 칸으로만 센다)
-VALUE = re.compile(r"좌석 \S+|없음|대기\((?:" + "|".join(REASONS) + r") · \d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?\)")
+VALUE = re.compile(r"좌석 \S+|없음|대기\((?:" + "|".join(REASONS + LEGACY) + r") · \d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?\)")  # 옛 거울 «대기(부하 · …)» 도 lint 통과(spawn 이 막히지 않게)
 WAIT_S, URGENT_S, ORDER_S, MUTE_S, CLAIM_S = 4 * 3600, 3600, 2 * 3600, 3600, 60
 OPEN, CLOSED = ("대기", "진행"), ("완성", "아카이브")
 QUIET = ("정지 중", "보류 중", "판정 불가", "석·선행 대기")  # 경보·rc 에 안 세는 칸(A6 석·선행 대기 포함)
@@ -163,6 +164,9 @@ def record(card: str | Path, kind: str, arg: str, now: float, pause: dict | None
     """spawn 종료 분기·성공이 부르는 공용 1함수 — init(원장 없을 때만 none) · waiting <사유> [hold <판정 N>|acct <P[/M]>](같은 사유·같은 정지 = 변경 0 · since = 이른 쪽 · 정지 표식은 사유가 바뀌어도 유지)
     · seat <이름>(since 삭제). 거울 줄(없음 · 대기(사유 · since) · 좌석 이름)은 셋 다 같은 잠금 안에서 쓴다. 카드 = 경로 또는 이름(stem — status 와 같은 곳에서 풀고, 못 찾거나 이름이 겹치면 REJECT rc1 · tip 에만 있으면 원장만 + NOTE · r1306)."""
     stem = n[:-3] if (n := str(card).rsplit("/", 1)[-1]).endswith(".md") else n
+    if kind == "waiting" and arg in LEGACY:
+        print(f"REJECT 판정 3914 — {arg}는 대기 사유가 아니다(press·tester 만 ft-press-gate · 그 밖은 부하 때문에 spawn 을 붙잡지 않는다)")
+        return 2
     if kind == "waiting" and arg not in REASONS or kind == "seat" and (not arg or re.search(r"\s", arg)) or kind not in ("init", "waiting", "seat"):
         print(f"REJECT 배정 원장 값 꼴 — init | waiting <{'|'.join(REASONS)}> | seat <이름> (받은 값: {kind} {arg})")
         return 2
@@ -459,6 +463,8 @@ class Status:
         tp = self.team_pause(team)  # 팀 정지 표식이 사유 정지·석·부하보다 먼저(r1291 · 긴급 카드도 같다)
         if tp[0] != "none":
             return [dict(row, kind="정지 중" if tp[0] == "on" else "판정 불가")]
+        if row["reason"] in LEGACY:  # 판정 3914 — 옛 «부하» 원장 행 = «배정 없음» 으로 셈(원장 파일은 그대로 · 머리 « · 부하 폐지 K» 로 가시)
+            return [dict(row, kind="없음", label=f"없음(옛 {row['reason']} 행 · 판정 3914)")]
         if not waiting:
             return [dict(row, kind="없음")]
         self.released(stem, L, team)
@@ -529,7 +535,8 @@ def render(rows: list[dict], stamp: str, team_counts: tuple[int, int] = (0, 0)) 
     wait = f" · 석·선행 대기 {len(n[WAIT_KIND])}" if n[WAIT_KIND] else ""  # A6 — 0 이면 칸 생략 · 앞 칸 순서 그대로(끝에 붙인다)
     out = [f"배정 없는 카드 {len(n['없음'])} · 대기 초과 {len(n['초과'])}{by_s} · 정지 중 {len(n['정지 중'])}{held if n['보류 중'] else ''}{q if n['판정 불가'] else ''} · 카드 없는 발주 {len(n['발주'])} · 판본 {stamp}"]
     outside, ref_missing = team_counts
-    out[0] += f" · 명단 밖 팀 {outside} · ref 미반영 팀 {ref_missing}" + wait
+    legacy = sum(1 for x in n["없음"] if x["reason"] in LEGACY)  # 판정 3914 — 0 이면 칸 생략 · 끝에 붙인다(A6 와 같은 틀)
+    out[0] += f" · 명단 밖 팀 {outside} · ref 미반영 팀 {ref_missing}" + wait + (f" · 부하 폐지 {legacy}" if legacy else "")
     for x in rows:  # rows() 가 since 순으로 정렬해 준다 — tick 이 rows·lines[1:] 를 짝짓는다
         out.append(f"{x['kind']} {x['team']} {x['stem']} · {x['label']} · since {when(x['since'])}{' · 긴급' if x['urgent'] else ''}")
     return out
