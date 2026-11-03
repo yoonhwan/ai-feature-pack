@@ -610,10 +610,10 @@ _RSP=" ★리서치 워커(판정 2282 · R387)★ 네 일 = 부모 카드가 �
 #   ①b 카드 base_sha 기록보다 «앞» 이라 REJECT 면 카드 파일도 안 건드린다.
 #   r1335 --reopen: 같은 카드의 닫힌 나노를 다시 연다 — 위 게이트(미반입 REJECT)는 --reopen 에서만 건너뛴다(옛 가지는 «이 카드의 것» 이다 · -rN 새 가지 0 · 지우기·덮기 0).
 #     (a) 워크트리 폴더 있음 → 재사용 (b) 없음 ∧ nano/<슬러그> 가지 실재 → 그 가지로 worktree add(미반입이어도) (c) 둘 다 없음 → base 에서 새로
-REOPEN_WT=""; _WTA=(-b "$BRANCH" "$BASE_BRANCH")
+REOPEN_WT=""; _REATTACH=0
 if [ "$REOPEN" = 1 ]; then
   if [ -d "$WTDIR" ]; then REOPEN_WT="재사용"
-  elif git -C "$ROOT" rev-parse --verify -q "refs/heads/$BRANCH" >/dev/null; then REOPEN_WT="가지 재부착"; _WTA=("$BRANCH")
+  elif git -C "$ROOT" rev-parse --verify -q "refs/heads/$BRANCH" >/dev/null; then REOPEN_WT="가지 재부착"; _REATTACH=1
   else REOPEN_WT="새로"; fi
 elif [ ! -d "$WTDIR" ] && git -C "$ROOT" rev-parse --verify -q "refs/heads/$BRANCH" >/dev/null; then
   WT_BASE="$WTDIR"; R=1
@@ -627,6 +627,8 @@ elif [ ! -d "$WTDIR" ] && git -C "$ROOT" rev-parse --verify -q "refs/heads/$BRAN
     R=$((R+1)); BRANCH="nano/$SLUG-r$R"; WTDIR="$WT_BASE-r$R"
   done
 fi
+# r1335 단계 2: worktree add 인자는 ②-0 -rN 루프가 BRANCH·WTDIR 을 바꾼 «뒤» 에 계산한다(루프 앞이면 옛 이름으로 -b → «branch already exists»)
+if [ "$_REATTACH" = 1 ]; then _WTA=("$BRANCH"); else _WTA=(-b "$BRANCH" "$BASE_BRANCH"); fi
 
 # tmuxc 옵션은 에이전트별로 다르다 — `--ctx` 는 claude 만, `--effort` 는 claude·cmd·codex, `--fast` 는 codex 만 (ft-role-spawn 과 같은 분기)
 OPEN=(tmuxc open "$WTDIR" --name "$NAME" --agent "$AGENT" --model "$MODEL")
