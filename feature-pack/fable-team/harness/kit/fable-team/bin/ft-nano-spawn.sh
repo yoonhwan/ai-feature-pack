@@ -78,7 +78,7 @@ _acct_paused() {   # $1 = agent $2 = model(확정값)
   esac
 }
 # ★r1224 배정 원장(state/card-assign/<stem>.json)★ — 카드 식별 = 첫 줄(아래 init · 정지 판정보다 앞): 옛 카드도 원장 «없음» 행이 생긴다.
-#   종료 분기 = 정지(SPAWN_HOLD · 판정 번호를 원장 pause.key 로) · 정지(ACCT_PAUSE · r1214 _acct_paused 게이트 rc3 · key = 출력의 acct-pause <P/M>) · 석(큐 적재 rc7 ×2) · 부하(자원 문지기) · lint · DA(lint 사전검증 사유) · 선행(기준 커밋 미착지)
+#   종료 분기 = 정지(SPAWN_HOLD · 판정 번호를 원장 pause.key 로) · 정지(ACCT_PAUSE · r1214 _acct_paused 게이트 rc3 · key = 출력의 acct-pause <P/M>) · 석(큐 적재 rc7 ×2) · lint · DA(lint 사전검증 사유) · 선행(기준 커밋 미착지)
 #   → «waiting <사유>»(같은 사유 재거절 = 변경 0 · since 유지) · 면제대기 = 이 스크립트에 분기 없음(master·planner 가 `ft-card-assign-watch.sh record <카드> waiting 면제대기`)
 #   · 성공 = 이동 «전» «seat <이름>» + 카드 거울 1줄(원장 잠금 안 · 다른 줄 바이트 보존 · 거울은 init·거절·성공 셋 다) → ft-index-move 가 그 파일을 옮겨 이동 커밋에 함께.
 #   공용 1함수 = ft_card_assign_watch.py record · --dry-run·--research = 쓰기 0 · 실패 = stderr WARN 1줄(spawn rc 불변). 틱 감시(ft-card-assign-watch)가 원장을 세어 [긴급].
@@ -120,7 +120,7 @@ if [ "$_rgrc" = 0 ] && [ -n "$_WARN_AXES" ] && printf '%s\n' "$_WARN_AXES" | gre
     _rgout="$(bash "$HERE/ft-resource-gate.sh" "${RG_ARGS[@]}" 2>&1)"; _rgrc=$?
   fi
 fi
-[ "$_rgrc" = 0 ] || { printf '%s\n' "$_rgout"; card_assign_record "$IDX" waiting 부하; exit "$_rgrc"; }
+[ "$_rgrc" = 0 ] || { printf '%s\n' "$_rgout"; exit "$_rgrc"; }   # 판정 3914: 문지기 REJECT(디스크 하드 하한·측정 실패)는 «부하 대기» 가 아니다 — 원장에 부하 사유를 쓰지 않는다(init 행 «없음» 그대로 · REJECT 출력이 사유)
 printf '%s\n' "$_rgout" | grep '^WARN ' >&2 || true   # r672: 넘은 채 진행한다는 사실(WARN)을 숨기지 않는다 · r921: 진행은 한다
 # ★r921 리서치 좌석 상한 삭제★: 리서치는 일반 나노와 같은 규칙으로 열린다(옛 r672 «1석 고정» 은 오빠 «멈추지 마라» 로 폐기). 잠금만 아래 ③ 열기 직전에 잡는다.
 [ -f "$HERE/ft-research-seat-lib.sh" ] || { echo "REJECT ft-research-seat-lib.sh 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }

@@ -50,17 +50,18 @@ hd() { printf '%s\n' "$OUT" | head -1; }
 # ⓐ R1 — 원장 6(대기) + 진행 2 → «배정 없는 카드 3 · 대기 초과 2(부하 1 · 석 1)» · 선행 1시간 초과 아님 · rc1
 r1_env() {
   new_root; local C=$((NOW - 90000))
-  for c in a1 a2 a3 a4 a5; do card "$R" "$H/대기/$c.md" "$C" "- 상태: 대기"; done
+  for c in a1 a2 a3 a4 a5 a7; do card "$R" "$H/대기/$c.md" "$C" "- 상태: 대기"; done
   card "$R" "$H/대기/a6.md" "$C" "- 상태: 대기" "- 긴급: 예"; card "$R" "$H/진행/p1.md" "$C" "- 상태: 진행"; card "$R" "design/teams/room/indices/진행/p2.md" "$C" "- 상태: 진행"
   led "$R" a1 '{"state":"none","since":'$((NOW-9000))'}'; led "$R" a2 '{"state":"none","since":'$((NOW-8000))'}'
   led "$R" a3 '{"state":"waiting","reason":"부하","since":'$((NOW-18000))'}'; led "$R" a4 '{"state":"waiting","reason":"선행","since":'$((NOW-3600))'}'
   led "$R" a5 '{"state":"seat","seat":"byz-harness-nano-a5#0"}'; led "$R" a6 '{"state":"waiting","reason":"석","since":'$((NOW-7200))'}'
-  led "$R" p1 '{"state":"seat","seat":"byz-harness-nano-p1#0"}'; prep
+  led "$R" p1 '{"state":"seat","seat":"byz-harness-nano-p1#0"}'; led "$R" a7 '{"state":"waiting","reason":"lint","since":'$((NOW-18000))'}'; prep
 }
-r1_ok() { [ "$RC" = 1 ] && case "$(hd)" in "배정 없는 카드 3 · 대기 초과 2(부하 1 · 석 1) · 정지 중 0 · 카드 없는 발주 0 · 판본 "*) true;; *) false;; esac \
-  && printf '%s' "$OUT" | grep -q '^초과 harness a6 · 대기(석) · .* · 긴급$' && printf '%s' "$OUT" | grep -q '^없음 room p2 · 원장 없음' && ! printf '%s' "$OUT" | grep -qE ' (a4|a5|p1) '; }
+# 판정 3914 — a3 = 옛 «부하» 원장 행(5시간) → 초과가 아니라 «배정 없음» 으로 센다 + 머리 끝 « · 부하 폐지 1» · a7(lint 5시간) 이 일반 임계(4시간) 초과 1건을 맡는다(변이 1 이 계속 잡히게)
+r1_ok() { [ "$RC" = 1 ] && case "$(hd)" in "배정 없는 카드 4 · 대기 초과 2(lint 1 · 석 1) · 정지 중 0 · 카드 없는 발주 0 · 판본 "*" · 부하 폐지 1") true;; *) false;; esac \
+  && printf '%s' "$OUT" | grep -q '^초과 harness a6 · 대기(석) · .* · 긴급$' && printf '%s' "$OUT" | grep -q '^없음 room p2 · 원장 없음' && printf '%s' "$OUT" | grep -q '^없음 harness a3 · 없음(옛 부하 행 · 판정 3914)' && ! printf '%s' "$OUT" | grep -qE ' (a4|a5|p1) '; }
 r1_env; run status
-r1_ok && ok "R1 머리 3·2(부하 1 · 석 1) · 진행 원장 없음 = 없음 · 선행 1시간·좌석 셈 0 · 긴급 석 2시간 초과 · rc1" || bad "R1 rc=$RC :: $OUT"
+r1_ok && ok "R1 머리 4·2(lint 1 · 석 1) · 옛 부하 행 = 없음 + 부하 폐지 1 · 진행 원장 없음 = 없음 · 선행 1시간·좌석 셈 0 · 긴급 석 2시간 초과 · rc1" || bad "R1 rc=$RC :: $OUT"
 lap R1
 # ⓑ R2 lint — installed_at 뒤 새 카드 줄 없음 REJECT · 사유 밖 REJECT · 옛 카드 OK · 완성 검사 0 · ft-index-lint 배선
 new_root; card "$R" "$H/대기/old.md" "$((NOW - 9000))" "- 상태: 대기"; mkdir -p "$R/$H/진행"; git -C "$R" mv "$H/대기/old.md" "$H/진행/old.md"; gc "$R" "$((NOW - 100)) +0900" mv
@@ -76,17 +77,17 @@ lap R2
 # ⓓ R4 시계 보존 — 같은 사유 재거절 3회 바이트 불변 · 사유 변경 since 유지 · 배정 since 삭제
 new_root; card "$R" "$H/대기/k.md" "$NOW" "- 상태: 대기"; K="$R/.fable-team/state/card-assign/k.json"
 rec() { (cd "$R" && FT_ROOT="$R" FT_CARD_ASSIGN_NOW="$1" python3 "$TOOL" record "$R/$H/대기/k.md" "${@:2}" >/dev/null); }
-rec "$NOW" waiting 부하; cp "$K" "$T/k0"; rec $((NOW + 600)) waiting 부하; rec $((NOW + 1200)) waiting 부하; same="$(cmp -s "$K" "$T/k0" && echo 1)"
+rec "$NOW" waiting 선행; cp "$K" "$T/k0"; rec $((NOW + 600)) waiting 선행; rec $((NOW + 1200)) waiting 선행; same="$(cmp -s "$K" "$T/k0" && echo 1)"
 rec $((NOW + 1800)) waiting 석; s2="$(python3 -c 'import json,sys;j=json.load(open(sys.argv[1]));print(j["reason"], j["since"]==int(sys.argv[2]))' "$K" "$NOW")"
 rec $((NOW + 2400)) seat byz-harness-nano-k#0; s3="$(python3 -c 'import json,sys;j=json.load(open(sys.argv[1]));print(j["state"], "since" in j)' "$K")"
-printf '# k2\r\n- 상태: 대기\r\n- 메모: 한글 줄\r\n## 상태\r\n- 시험\r\n' > "$R/$H/대기/k2.md"; cp "$R/$H/대기/k2.md" "$T/k2.before"; (cd "$R" && FT_ROOT="$R" python3 "$TOOL" record "$R/$H/대기/k2.md" waiting 부하 >/dev/null)
-crlf="$(grep -v '^- 배정:' "$R/$H/대기/k2.md" | cmp -s - "$T/k2.before" && grep -c $'^- 배정: 대기(부하 · .*)\r$' "$R/$H/대기/k2.md")"
-[ "$same" = 1 ] && [ "$s2" = "석 True" ] && [ "$s3" = "seat False" ] && [ "$crlf" = 1 ] && ok "R4 재거절 3회 바이트 불변 · 부하→석 since 유지 · 배정 since 삭제 · CRLF 카드 = 거울 1줄만(CRLF 그대로) · 다른 줄 바이트 보존" || bad "R4 same=$same s2=$s2 s3=$s3 crlf=$crlf"
+printf '# k2\r\n- 상태: 대기\r\n- 메모: 한글 줄\r\n## 상태\r\n- 시험\r\n' > "$R/$H/대기/k2.md"; cp "$R/$H/대기/k2.md" "$T/k2.before"; (cd "$R" && FT_ROOT="$R" python3 "$TOOL" record "$R/$H/대기/k2.md" waiting 선행 >/dev/null)
+crlf="$(grep -v '^- 배정:' "$R/$H/대기/k2.md" | cmp -s - "$T/k2.before" && grep -c $'^- 배정: 대기(선행 · .*)\r$' "$R/$H/대기/k2.md")"
+[ "$same" = 1 ] && [ "$s2" = "석 True" ] && [ "$s3" = "seat False" ] && [ "$crlf" = 1 ] && ok "R4 재거절 3회 바이트 불변 · 선행→석 since 유지 · 배정 since 삭제 · CRLF 카드 = 거울 1줄만(CRLF 그대로) · 다른 줄 바이트 보존" || bad "R4 same=$same s2=$s2 s3=$s3 crlf=$crlf"
 lap R4
 # ⓔ R5 유효 정지 — 실제 ft-spawn-hold.sh status --check 2932(가짜 gate · 가짜 mbox) · 파일 바이트 불변 · 쪽지 0 · 만료 rc3 → 초과 · key 없음·도구 없음 Q · acct rc3 · released_at
 r5_env() {
   new_root; card "$R" "$H/대기/h.md" "$((NOW - 90000))" "- 상태: 대기"; prep
-  led "$R" h '{"state":"waiting","reason":"부하","since":'$((NOW-18000))',"pause":{"kind":"hold","key":"'"${1-2932}"'"}}'
+  led "$R" h '{"state":"waiting","reason":"정지","since":'$((NOW-18000))',"pause":{"kind":"hold","key":"'"${1-2932}"'"}}'
   printf '#!/bin/sh\necho "disk=999999 swap=5000 memfree=50 level=1 rate=0 agents=10 freeze=0"\n' > "$R/gate.sh"; chmod 755 "$R/gate.sh"
   python3 -c 'import json,sys; json.dump({"verdict":2932,"until":"x","until_epoch":int(sys.argv[2]),"release":"swap<1","reason":"r1224 시험 정지","set_at":0},open(sys.argv[1],"w"))' "$R/.fable-team/state/SPAWN_HOLD" "${2:-$((NOW + 3600))}"
   cp "$R/.fable-team/state/SPAWN_HOLD" "$T/hold.before"
@@ -100,8 +101,8 @@ printf '#!/bin/sh\necho "PAUSED $3"; exit 3\n' > "$T/ft-acct-pause.sh"; cp "$TOO
 TOOL_RUN="$T/ft_card_assign_watch.py" run status; e="$RC|$(hd | cut -d'·' -f3)"
 r5_env; FT_HOLD_GATE="$R/gate.sh"; run status; rm "$R/.fable-team/state/SPAWN_HOLD"; run status; f1="$RC|$(hd | cut -d'·' -f2-3)"
 run status --now $((NOW + 4 * 3600 + 120)); f2="$RC|$(hd | cut -d'·' -f2)"
-[ "$a" = "0|배정 없는 카드 0 · 대기 초과 0 · 정지 중 1 " ] && [ "$ab" = "same:0" ] && [ "$b" = "1|배정 없는 카드 0 · 대기 초과 1(부하 1) · 정지 중 0 " ] && [ "$bb" = "kept:0" ] \
-  && [ "$c" = "0|배정 없는 카드 0 · 대기 초과 0 · 정지 중 0 · 판정 불가 Q 1 " ] && [ "$d" = "0| 정지 중 0 · 판정 불가 Q 1 " ] && [ "$e" = "0| 정지 중 1 " ] && [ "$f1" = "0| 대기 초과 0 · 정지 중 0 " ] && [ "$f2" = "1| 대기 초과 1(부하 1) " ] \
+[ "$a" = "0|배정 없는 카드 0 · 대기 초과 0 · 정지 중 1 " ] && [ "$ab" = "same:0" ] && [ "$b" = "1|배정 없는 카드 0 · 대기 초과 1(정지 1) · 정지 중 0 " ] && [ "$bb" = "kept:0" ] \
+  && [ "$c" = "0|배정 없는 카드 0 · 대기 초과 0 · 정지 중 0 · 판정 불가 Q 1 " ] && [ "$d" = "0| 정지 중 0 · 판정 불가 Q 1 " ] && [ "$e" = "0| 정지 중 1 " ] && [ "$f1" = "0| 대기 초과 0 · 정지 중 0 " ] && [ "$f2" = "1| 대기 초과 1(정지 1) " ] \
   && ok "R5 hold --check 2932 rc0 = 정지 중 · 파일 바이트 불변 · 쪽지 0 · 만료 rc3 = 초과 1(파일 그대로) · key 없음·acct 도구 없음 = Q · acct rc3 = 정지 중 · 해제 released_at 기준 4시간" \
   || bad "R5 a=$a ab=$ab b=$b bb=$bb c=$c d=$d e=$e f1=$f1 f2=$f2"
 lap R5
@@ -132,11 +133,11 @@ k5="$(r6 "$T/s3" "$T/a1all" $((NOW - 10800)))"
 [ "$k0|$k1|$k2|$k3|$k4|$k5" = "14|0|4|7|0|4" ] && ok "R6 사본 그대로 14(4+10) · 전부 연결 0 · 하위 ①②③만 4 · 묶음 머리만 7 · 1시간 0 · 빈 값·없는 경로·긴급 줄 없는 카드·inbox 자기 참조 = 미연결 4" || bad "R6 k=$k0|$k1|$k2|$k3|$k4|$k5"
 lap R6
 # ⓖ R7 틱 — 2통 · 같은 집합 0통 · 사유만 바뀜 1통씩 · 판본·경과만 0통 · planner 실패 → 다음 틱 그만 재송 · 실제 mbox_guard · 판정 불가 1통
-r7_env() { new_root; card "$R" "$H/대기/t1.md" "$((NOW - 90000))" "- 상태: 대기"; led "$R" t1 '{"state":"waiting","reason":"부하","since":'$((NOW-18000))'}'; prep; }
+r7_env() { new_root; card "$R" "$H/대기/t1.md" "$((NOW - 90000))" "- 상태: 대기"; led "$R" t1 '{"state":"waiting","reason":"DA","since":'$((NOW-18000))'}'; prep; }
 r7_env; run tick; t1=$RC; s1=$(sent); run tick; s2=$(sent)
 led "$R" t1 '{"state":"waiting","reason":"lint","since":'$((NOW-18000))'}'; run tick; s3=$(sent); FT_CARD_ASSIGN_NOW=$((NOW + 600)) run tick; s4=$(sent)
 r7_env; FAKE_FAIL_TO="$PLANNER" run tick; export -n FAKE_FAIL_TO 2>/dev/null; p1=$(sent "^$PLANNER"); FAKE_FAIL_TO=$PLANNER run tick; run tick; p2=$(sent "^$PLANNER"); m2=$(sent "^$HMASTER")
-[ "$t1" = 1 ] && [ "$s1$s2$s3$s4" = 2244 ] && [ "$p2:$m2" = "$((p1 + 2)):1" ] && grep -qF '[긴급] 배정 없는 카드 — 배정 없는 카드 0 · 대기 초과 1(부하 1)' "$R/sent.log" \
+[ "$t1" = 1 ] && [ "$s1$s2$s3$s4" = 2244 ] && [ "$p2:$m2" = "$((p1 + 2)):1" ] && grep -qF '[긴급] 배정 없는 카드 — 배정 없는 카드 0 · 대기 초과 1(DA 1)' "$R/sent.log" \
   && ok "R7 2통 · 같은 집합 0 · 사유만 바뀜 → 각 1통 · 판본·경과만 0 · planner 실패 → 다음 틱 planner 만 재송" || bad "R7 t1=$t1 s=$s1$s2$s3$s4 p=$p1/$p2 m=$m2 :: $(cat "$R/sent.log")"
 mv "$R/.fable-team/state/directive-roots.tsv" "$R/.fable-team/state/roots.off"; run tick; u1=$RC; run tick
   [ "$u1" = 3 ] && [ "$(sent "^$PLANNER.*배정 감시 판정 불가")" = 0 ] && [ "$(wc -l < "$R/.fable-team/state/card-assign/undecided.log" | tr -d ' ')" = 2 ] \
@@ -152,7 +153,7 @@ mkdir -p "$T/seats7/state/directive-watch"; printf '%s\n' '{"_master":"byz-harne
 DST="$NOW-0000abcd"; printf '%s\t0\t0\n' "$DST" > "$T/seats7/state/directive-watch/stamps.tsv"; DIR="담당 없는 오빠 지시 0 · 멈춘 오빠 지시 0 · 판본 $DST"
 BOOT="[부팅 보고] 세션=x retire=byz-harness-master-claude#32->byz-harness-master-claude#33 rc=0 cron=abc123 $DIR"
 lint() { LOUT="$(printf '%s' "$1" | env FT_CARD_ASSIGN_STAMPS="${STAMPS:-$CS}" PYTHONPATH="$COMM${PYTHONPATH:+:$PYTHONPATH}" python3 "${LINT_RUN:-$LINT}" --from "$HMASTER" --seats-dir "$T/seats7" 2>&1)"; LRC=$?; }   # PYTHONPATH = 변이 사본이 mbox_retire_check 를 import 할 수 있게(r1319 뒤 변이3 거짓 빨강)
-lint "$BOOT"; r_none=$LRC; lint "$BOOT ${HEAD1/판본 $ST/판본 ${ST%%-*}-00000000}"; r_row=$LRC; lint "$BOOT ${HEAD1/배정 없는 카드 3/배정 없는 카드 4}"; r_num=$LRC
+lint "$BOOT"; r_none=$LRC; lint "$BOOT ${HEAD1/판본 $ST/판본 ${ST%%-*}-00000000}"; r_row=$LRC; lint "$BOOT ${HEAD1/배정 없는 카드 4/배정 없는 카드 5}"; r_num=$LRC
 FT_DIRECTIVE_NOW=$(( ${ST%%-*} + 1860 )) lint "$BOOT $HEAD1"; r_old=$LRC; STAMPS="$T/none.tsv" lint "$BOOT $HEAD1"; r_nof=$LRC; nof="$LOUT"
 lint "$BOOT 배정 감시 판정 불가 · git 상한 넘김"; r_und=$LRC; und="$LOUT"; lint "$BOOT $HEAD1"; r_ok=$LRC
 lint "${BOOT/ $DIR/} $HEAD1"; r_dir=$LRC; dir="$LOUT"
@@ -176,6 +177,15 @@ r5_env; FT_HOLD_GATE="$R/gate.sh"; mkdir -p "$T/dl"; cp "$BIN"/ft_*.py "$T/dl/";
 s=$(date +%s); TOOL_RUN="$T/dl/ft_card_assign_watch.py" FT_CARD_ASSIGN_STATUS_SEC=1 run status; dl="$RC:$(( $(date +%s) - s ))"
 case "$dl:$(hd)" in 3:[0-3]:"배정 감시 판정 불가 · status 마감 넘김(ft-spawn-hold.sh status --check)") ok "R9′ status 마감 1초 = 정지 확인에도 적용(멈춘 도구 주입) → rc3 1줄 · ${dl#*:}초";; *) bad "R9′ dl=$dl :: $(hd)";; esac
 lap R9R10
+# ⓛ R11 판정 3914 — «부하» 는 대기 사유가 아니다: record waiting 부하 = REJECT rc2 + 원장 쓰기 0 · 옛 부하 원장 행 = 파일 그대로 + «배정 없음» 으로 셈 · 옛 거울 «대기(부하 · …)» 도 lint 통과(spawn 이 안 막힘)
+new_root; card "$R" "$H/대기/c1.md" "$((NOW - 90000))" "- 상태: 대기"; card "$R" "$H/대기/c2.md" "$((NOW - 90000))" "- 상태: 대기" "- 배정: 대기(부하 · 2026-10-31T10:00)"
+led "$R" c1 '{"state":"waiting","reason":"부하","since":'$((NOW-18000))'}'; cp "$R/.fable-team/state/card-assign/c1.json" "$T/c1.before"; prep
+rj="$(cd "$R" && FT_ROOT="$R" python3 "$TOOL" record "$R/$H/대기/c2.md" waiting 부하 2>&1)"; rjrc=$?; c2led="$([ -e "$R/.fable-team/state/card-assign/c2.json" ] && echo made || echo none)"
+run status; sh="$RC:$(hd | cut -d'·' -f1-2):$(printf '%s' "$OUT" | grep -c '^없음 harness c1 · 없음(옛 부하 행'):$(hd | sed -n 's/.*\( · 부하 폐지 [0-9]*\)$/\1/p')"; kept="$(cmp -s "$R/.fable-team/state/card-assign/c1.json" "$T/c1.before" && echo same)"
+lv="$(cd "$R" && FT_ROOT="$R" python3 "$TOOL" lint "$R/$H/대기/c2.md" >/dev/null 2>&1; echo $?)"
+[ "$rjrc" = 2 ] && printf '%s' "$rj" | grep -q '^REJECT 판정 3914 — 부하는 대기 사유가 아니다' && [ "$c2led" = none ] && [ "$sh" = "1:배정 없는 카드 2 · 대기 초과 0 :1: · 부하 폐지 1" ] && [ "$kept" = same ] && [ "$lv" = 0 ] \
+  && ok "R11 record waiting 부하 = REJECT rc2(판정 3914) · 원장 0 · 옛 부하 행 파일 그대로 + 없음으로 셈 + 부하 폐지 1 · 옛 거울 «대기(부하 · …)» lint 통과" || bad "R11 rjrc=$rjrc c2led=$c2led sh=$sh kept=$kept lv=$lv :: $rj"
+lap R11
 
 # ── 변이 3 (그 칸만 다시 돈다)
 mut() { python3 - "$1" "$2" "$3" "$4" <<'PY'
