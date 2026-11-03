@@ -445,6 +445,41 @@ def waiting_cards(cards: Path | None, lint: str, root: Path | None = None, now: 
     return ready, sum(1 for v in verdicts.values() if v.startswith("unknown:"))
 
 
+OUTAGE_STATUS = ("OK", "OUTAGE", "RECOVERED")  # ft_api_outage.Outage.load 와 같은 꼴 검사
+OUTAGE_FRESH_S = 1800  # 데몬이 틱마다 저장 — 30분 넘게 안 바뀐 파일은 데몬이 꺼진 것(영구 보류 0 · once_set_state_needs_closing_event)
+
+
+def _num(v: object) -> bool:
+    return isinstance(v, (int, float)) and not isinstance(v, bool)
+
+
+def api_outage(root: Path, now: float) -> dict[str, Any]:
+    """r1238 B — API 장애 상태 읽기(읽기 전용 · 쓰기 0 · 정본 = <루트>/.fable-team/state/api-outage/seats*.json 틱 데몬마다 1개).
+    → {"since": 신선한 OUTAGE 파일 중 가장 이른 since | None, "released": 신선한 OK·RECOVERED 파일 released 최댓값 | None, "notes": [판정 불가·오래됨 1줄씩]}.
+    폴더 없음(aifp 루트 등) = 장애 아님 · 깨진 파일(JSON·꼴) = 판정에서 빼고 «판정 불가» 노트 · mtime 30분 넘음 = 판정에서 빼고 «오래됨» 노트 → 남은 파일 0 이면 지금처럼 경보."""
+    out: dict[str, Any] = {"since": None, "released": None, "notes": []}
+    d = root / ".fable-team/state/api-outage"
+    for p in sorted(d.glob("seats*.json")) if d.is_dir() else []:
+        try:
+            st = json.loads(p.read_text(encoding="utf-8"))
+            mt = p.stat().st_mtime
+        except (OSError, ValueError):
+            out["notes"].append(f"장애 상태 판정 불가 {p.name}")
+            continue
+        status = st.get("status") if isinstance(st, dict) else None
+        if status not in OUTAGE_STATUS or status == "OUTAGE" and not _num(st.get("since")) or status != "OUTAGE" and st.get("released") is not None and not _num(st.get("released")):
+            out["notes"].append(f"장애 상태 판정 불가 {p.name}")
+            continue
+        if now - mt > OUTAGE_FRESH_S:
+            out["notes"].append(f"장애 상태 오래됨 {p.name} {(now - mt) / 60:.0f}분 — 경보 그대로")
+            continue
+        if status == "OUTAGE":
+            out["since"] = min(st["since"], out["since"]) if out["since"] is not None else st["since"]
+        elif st.get("released"):
+            out["released"] = max(st["released"], out["released"] or 0)
+    return out
+
+
 def policy_stop(root: Path, now: float, hold_cmd: str = "") -> str | None:
     """c 정책 정지 — RESOURCE_FREEZE 실재 또는 SPAWN_HOLD 가 «지금 유효»(R320 ft-spawn-hold.sh status --check <판정> rc0 · 기한·해제 조건 판정은 그쪽이 정본).
     판정기가 없거나 못 돌면 «정지 판정 불가» 로 센다(조용히 0 으로 두지 않는다 · #0 RULE) — 그 글은 `ERROR` 로 시작한다(r428).
