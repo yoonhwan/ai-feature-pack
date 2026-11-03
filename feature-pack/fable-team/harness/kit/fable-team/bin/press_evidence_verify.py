@@ -57,9 +57,9 @@ def net(repo, *a):   # 7 s + 재시도 1 — 실패 = 판정 불가(하드 룰 2
     raise Reject("판정 불가: git %s 실패(7 s + 재시도 1) %s" % (a[0], err))
 
 
-def push_sec():   # push = 쪼갤 수 없는 배치(하드 룰 12): min(고정비 + 7, 70) · 고정비 = 원격 ref 광고 실측 8.56 s 올림 9 · FT_PRESS_PUSH_SEC 는 시험만
+def push_sec(parts=1):   # push = 쪼갤 수 없는 배치(하드 룰 12): min(고정비 + 7 × 조각 수, 70) · 고정비 = 원격 ref 광고 실측 8.56 s 올림 9 · FT_PRESS_PUSH_SEC 는 시험만
     fixed = float(os.environ.get("FT_PRESS_PUSH_FIXED", "9"))
-    return float(os.environ.get("FT_PRESS_PUSH_SEC") or min(fixed + 7, 70))
+    return float(os.environ.get("FT_PRESS_PUSH_SEC") or min(fixed + 7 * parts, 70))
 
 
 def remote_sha(repo, remote, ref):   # 원격 ref 가 지금 가리키는 sha · 없음·확인 실패 = None
@@ -71,8 +71,8 @@ def remote_sha(repo, remote, ref):   # 원격 ref 가 지금 가리키는 sha ·
     return next((r[0] for r in rows if r[1:] == [ref]), None)
 
 
-def push(repo, remote, sha, ref):   # 끊긴 뒤의 정본 = «원격에 그 ref 가 그 sha 로 있나» (서버는 받았는데 손님만 끊긴 꼴) · 다른 sha 는 덮어쓰지 않는다
-    secs, err = push_sec(), ""
+def push(repo, remote, sha, ref, parts=1):   # 끊긴 뒤의 정본 = «원격에 그 ref 가 그 sha 로 있나» (서버는 받았는데 손님만 끊긴 꼴) · 다른 sha 는 덮어쓰지 않는다
+    secs, err = push_sec(parts), ""
     for _ in (1, 2):
         ok, err = once(repo, secs, "push", remote, "%s:%s" % (sha, ref))
         if ok:
@@ -143,11 +143,10 @@ def refs(repo, ns):
     return dict(row.split() for row in out.splitlines() if row.strip())
 
 
-def check_poller(run_id, text):   # 줄마다 JSON 객체 + 필수 칸 · run_id 칸이 있는 줄은 전부 묶음 run_id · 1줄 이상(D5)
-    rows, tagged = [r for r in text.splitlines() if r.strip()], 0
-    if not rows:
-        raise Reject("poller_dom.jsonl 줄 0")
-    for i, row in enumerate(rows, 1):
+def check_poller(run_id, lines):   # 줄 반복자(평문 = splitlines · r1268 조각 = 풀며 나오는 줄) · 줄마다 JSON 객체 + 필수 칸 · run_id 칸이 있는 줄은 전부 묶음 run_id · 1줄 이상(D5)
+    tagged, i = 0, 0
+    for row in (r for r in lines if r.strip()):
+        i += 1
         try:
             d = json.loads(row)
         except ValueError:
@@ -157,6 +156,8 @@ def check_poller(run_id, text):   # 줄마다 JSON 객체 + 필수 칸 · run_id
         if "run_id" in d and d["run_id"] != run_id:
             raise Reject("poller %d줄 run_id %s ≠ 묶음 %s" % (i, d["run_id"], run_id))
         tagged += "run_id" in d
+    if not i:
+        raise Reject("poller_dom.jsonl 줄 0")
     if not tagged:
         raise Reject("poller run_id 줄 0(묶음 run_id 결속 없음)")
 
@@ -192,23 +193,35 @@ def check_turbopack(text):   # get_errors 원문(SSE «data:» 줄 또는 JSON) 
     raise Reject("turbopack 원문 없음(get_errors 응답의 configErrors·sessionErrors 칸 0)")
 
 
-def check_content(run_id, poller, table, tp):
+def check_content(run_id, poller, table, tp):   # poller = 줄 반복자(list·generator)
     check_poller(run_id, poller)
     check_table(run_id, table)
     return check_turbopack(tp)
 
 
+def poller_rows(repo, commit, ref, meta, txt, rcs):   # r1268: 평문 poller = 지금 그대로 · 없으면 gzip 조각을 풀어 이은 줄(조각도 없으면 «poller_dom.jsonl 없음»)
+    if not rcs[FILES[1]]:
+        return txt[FILES[1]].splitlines()
+    if not [n for n in run(repo, "ls-tree", "--name-only", commit)[1].split() if n.startswith(FILES[1] + ".gz.")]:
+        raise Reject("%s 없음(%s)" % (FILES[1], ref))
+    try:
+        import press_evidence_parts as pp
+    except ImportError:
+        raise Reject("poller 조각 읽기 도구(press_evidence_parts.py) 없음 — 판정 불가")
+    return pp.rows(repo, commit, meta, Reject)
+
+
 def bundle(repo, ref, commit):   # 묶음 1개 결속(meta 세트 = 부모 = ref 이름 · run_id = ref 꼬리) + 칸 검사 → dict · 틀리면 Reject
-    par, txt = git(repo, "rev-list", "--parents", "-n1", commit).split()[1:], {}
+    par, txt, rcs = git(repo, "rev-list", "--parents", "-n1", commit).split()[1:], {}, {}
     for f in FILES:
-        rc, txt[f] = run(repo, "show", "%s:%s" % (commit, f))
-        if rc:
+        rcs[f], txt[f] = run(repo, "show", "%s:%s" % (commit, f))
+        if rcs[f] and f != FILES[1]:   # poller_dom.jsonl 만 없어도 된다 — r1268 조각 묶음
             raise Reject("%s 없음(%s)" % (f, ref))
     meta = dict(row.split("=", 1) for row in txt["meta.txt"].splitlines() if "=" in row)
     s, rid = meta.get("set", ""), meta.get("run_id", "")
     if len(par) != 1 or s != par[0] or ref != "refs/press/%s-%s" % (s, rid):
         raise Reject("meta 세트·run_id ≠ 묶음 부모·ref 이름(%s)" % ref)
-    tp = check_content(rid, txt["poller_dom.jsonl"], txt["table.md"], txt["turbopack.txt"])
+    tp = check_content(rid, poller_rows(repo, commit, ref, meta, txt, rcs), txt["table.md"], txt["turbopack.txt"])
     return {"ref": ref, "commit": commit, "set": s, "run": rid, "tp": tp}
 
 

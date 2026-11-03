@@ -75,7 +75,7 @@ landpy --head "$S6" --landing "$S6" --pr 62
 echo "단계 초: R5~R6 $((SECONDS - T_START))s"
 
 # ===== 변이 3 =====
-mutate m1 'return float(os.environ.get("FT_PRESS_PUSH_SEC") or min(fixed + 7, 70))' 'return 1.0'; r1 r1m; [ $? != 0 ]; ck "ⓜ변이 1(push 상한 고정 1 s) → R1 FAIL = 계약 깨짐 재현" $?
+mutate m1 'return float(os.environ.get("FT_PRESS_PUSH_SEC") or min(fixed + 7 * parts, 70))' 'return 1.0'; r1 r1m; [ $? != 0 ]; ck "ⓜ변이 1(push 상한 고정 1 s) → R1 FAIL = 계약 깨짐 재현" $?
 mutate m2 'now = remote_sha(repo, remote, ref)' 'now = None'; r2 r2m; [ $? != 0 ]; ck "ⓜ변이 2(원격 확인 끔) → R2 FAIL = 계약 깨짐 재현" $?
 mutate m3 'if now:' 'if False:'; r4 r4m; [ $? != 0 ]; ck "ⓜ변이 3(다른 sha 검사 끔) → R4 FAIL = 계약 깨짐 재현" $?
 EVTX="$EVT"
