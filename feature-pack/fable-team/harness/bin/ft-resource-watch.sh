@@ -80,9 +80,9 @@ snapshot_disk() { # now
   du_line "$now" colima.diffdisk "$HOME/.colima/_lima/colima/diffdisk"
   logk=$(run_capped du -sk /tmp/byz-*.log | awk '{s+=$1} END{print s+0}')
   printf '%s\tbyz.logs\t%s\n' "$now" "${logk:-0}" >> "$DISK_TSV"
-  # r534: 큰 폴더 넷 = 1단계 증분(칸 이름 그대로 합 + <칸>.known) · 남은 예산(SNAP_BUDGET)을 남은 칸 수로 나눠 차례로 — 워크트리를 맨 끝에 둬 앞 칸이 남긴 시간까지 받는다
+  # r534: 큰 폴더 넷(r1340 + 임시 사본 = 다섯) = 1단계 증분(칸 이름 그대로 합 + <칸>.known) · 남은 예산(SNAP_BUDGET)을 남은 칸 수로 나눠 차례로 — 워크트리를 맨 끝에 둬 앞 칸이 남긴 시간까지 받는다
   set -- "claude.projects|claude.projects.known|claude.projects|$HOME/.claude/projects" "caches|caches.known|caches|$HOME/Library/Caches" \
-    "pytest|pytest.known|pytest|${TMPDIR:-/tmp}/pytest-of-$USER" "worktrees.total|worktrees.known|wt|$WORKTREES"
+    "pytest|pytest.known|pytest|${TMPDIR:-/tmp}/pytest-of-$USER" "scratch.total|scratch.known|scratch|${TMPDIR:-/tmp}/ft-scratch" "worktrees.total|worktrees.known|wt|$WORKTREES"   # r1340 scratch = ft-scratch-repo 사본(<주인 좌석>/ 1단계)
   while [ $# -gt 0 ]; do IFS='|' read -r g kn pf dr <<<"$1"; inc_group "$now" "$g" "$kn" "$pf" "$dr" $((SECONDS+(end-SECONDS)/$#)); shift; done
 }
 

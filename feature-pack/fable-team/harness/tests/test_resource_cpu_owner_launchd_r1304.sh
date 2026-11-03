@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # test_resource_cpu_owner_launchd_r1304.sh — r1304 CPU 폭주 «주인» 칸이 launchd 잡 이름까지 싣는다(ft-resource-cause.sh cpu · launchctl list PID 일치만) + 감시자 서명(주인 제외).
-# 가짜 ps(FT_RES_PS)·가짜 tmux(FT_RES_TMUX)·가짜 launchd 표(FT_RES_LAUNCHD)·임시 루트·가짜 mbox 만 쓴다 — 실 launchctl·실 프로세스·실 tmux·실 쪽지·종료 0.
+# 가짜 ps(FT_RES_PS · r1340 칸 = pid ppid tty etime time pcpu comm · 폭주 견본 time=etime → 살아온 평균 100%)·가짜 tmux(FT_RES_TMUX)·가짜 launchd 표(FT_RES_LAUNCHD)·임시 루트·가짜 mbox 만 쓴다 — 실 launchctl·실 프로세스·실 tmux·실 쪽지·종료 0.
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 export FT_ALLOW_TRACKED_BIN=1 FT_RECLAIM_PREVENT_SEC=0
@@ -22,16 +22,16 @@ printf '#!/bin/sh\necho "launchctl $*" >> "%s"\n[ -n "${LC_SLEEP:-}" ] && sleep 
 chmod 755 "$S/launchctl"
 printf 'byz-v65-master-claude#0 100 /dev/ttys003\nbyz-t-other-claude#1 400 /dev/ttys009\n' > "$T/tmux.txt"
 PSF="$T/ps.txt"; LC="$T/launchd.txt"
-base_ps() { printf '%s\n' '100 1 ttys003 1-00:00:00 0.0 -zsh' '150 100 ttys003 10:00 0.5 /bin/zsh' '300 1 ?? 02:00:00 95.0 /usr/sbin/mds'; }
+base_ps() { printf '%s\n' '100 1 ttys003 1-00:00:00 0:00.00 0.0 -zsh' '150 100 ttys003 10:00 0:03.00 0.5 /bin/zsh' '300 1 ?? 02:00:00 114:00.00 95.0 /usr/sbin/mds'; }
 py_ps() { # py_ps <개수> <ppid> <tty> <etime> <pcpu>
-  local i; for i in $(seq 1 "$1"); do printf '%s %s %s %s %s /usr/bin/Python\n' "$((40+i))" "$2" "$3" "$4" "$5"; done; }
-yes_ps() { local i; for i in $(seq 1 "$1"); do printf '%s %s %s %s %s /usr/bin/yes\n' "$((200+i))" "$2" "$3" "$4" "$5"; done; }
+  local i; for i in $(seq 1 "$1"); do printf '%s %s %s %s %s %s /usr/bin/Python\n' "$((40+i))" "$2" "$3" "$4" "$4" "$5"; done; }
+yes_ps() { local i; for i in $(seq 1 "$1"); do printf '%s %s %s %s %s %s /usr/bin/yes\n' "$((200+i))" "$2" "$3" "$4" "$4" "$5"; done; }
 c() { env FT_RES_ROOT="$R" FT_RES_PS="$PSF" FT_RES_TMUX="$T/tmux.txt" PATH="$S:$PATH" \
   bash "$BIN/ft-resource-cause.sh" cpu 2>"$T/err.txt"; }
 nerr() { wc -l < "$T/err.txt" | tr -d ' '; }
 
 # R1 가짜 ps: Python×4(각 40% · 30분 · ppid 22042) · 22042 = bash(ppid 1 · tty ??) · 표 탭 구분 → launchd 잡
-{ base_ps; py_ps 4 22042 '??' 30:00 40.0; printf '%s\n' '22042 1 ?? 35:00 0.3 /bin/bash'; } > "$PSF"
+{ base_ps; py_ps 4 22042 '??' 30:00 40.0; printf '%s\n' '22042 1 ?? 35:00 0:06.30 0.3 /bin/bash'; } > "$PSF"
 printf '22042\t0\tcom.byz.ft-secret-scan\n' > "$LC"; export FT_RES_LAUNCHD="$LC"
 out="$(c)"; rc=$?
 eq "$rc" 0 "R1 rc0"
@@ -42,7 +42,7 @@ printf '22042 0 com.byz.ft-secret-scan\n' > "$LC"
 eq "$(c)" "cpu Python×4 CPU 160% 30분 · 주인 launchd com.byz.ft-secret-scan" "R1b 공백 구분 표 → 같은 결과"
 # R2 조상 사슬에 pane 도 있고 표의 PID 도 있음 → pane 우선(표 PID = 그 pane 의 pid)
 printf 'byz-v65-master-claude#0 150 /dev/ttys003\n' > "$T/tmux-r2.txt"
-{ base_ps; py_ps 4 150 ttys003 30:00 40.0; printf '%s\n' '150 100 ttys003 35:00 0.3 /bin/bash' '100 1 ttys003 1-00:00:00 0.0 -zsh'; } > "$PSF"
+{ base_ps; py_ps 4 150 ttys003 30:00 40.0; printf '%s\n' '150 100 ttys003 35:00 0:06.30 0.3 /bin/bash' '100 1 ttys003 1-00:00:00 0:00.00 0.0 -zsh'; } > "$PSF"
 printf '150\t0\tcom.byz.ft-other\n' > "$LC"
 out="$(env FT_RES_ROOT="$R" FT_RES_PS="$PSF" FT_RES_TMUX="$T/tmux-r2.txt" PATH="$S:$PATH" bash "$BIN/ft-resource-cause.sh" cpu 2>/dev/null)"
 eq "$out" "cpu Python×4 CPU 160% 30분 · 주인 byz-v65-master-claude#0" "R2 pane 우선(좌석 문구 그대로)"; hasnt "$out" "launchd" "R2 «launchd» 글자 0"
@@ -53,7 +53,7 @@ eq "$(c)" "cpu yes×4 CPU 360% 8분 · 주인 byz-v65-master-claude#0 (tty)" "R3
 { base_ps; yes_ps 4 1 '??' 08:00 90.0; } > "$PSF"; : > "$LC"
 eq "$(c)" "cpu yes×4 CPU 360% 8분 · 주인 미상" "R4 표에 없음 · tty ?? → 미상"
 # R5 launchctl rc1 → WARN 1줄(stderr + 감시자 로그) · stdout 미상 · rc0 · 경보는 나간다
-{ base_ps; py_ps 4 22042 '??' 30:00 40.0; printf '%s\n' '22042 1 ?? 35:00 0.3 /bin/bash'; } > "$PSF"
+{ base_ps; py_ps 4 22042 '??' 30:00 40.0; printf '%s\n' '22042 1 ?? 35:00 0:06.30 0.3 /bin/bash'; } > "$PSF"
 unset FT_RES_LAUNCHD; : > "$CALLS"; rm -f "$ST/resource-watch.log"
 out="$(LC_RC=1 c)"; rc=$?
 eq "$out" "cpu Python×4 CPU 160% 30분 · 주인 미상" "R5 실패 → stdout 은 지금 길(미상) · 경보는 나간다"
@@ -78,16 +78,16 @@ out="$(c)"; rc=$?
 eq "$rc|$out" "0|" "R6 묶음 0 → 빈 출력 rc0"
 eq "$(wc -l < "$CALLS" | tr -d ' ')" 0 "R6 묶음 0 → launchctl 호출 0"
 # R7 FT_RES_LAUNCHD_OWNER=0 → 미상 · 호출 0
-{ base_ps; py_ps 4 22042 '??' 30:00 40.0; printf '%s\n' '22042 1 ?? 35:00 0.3 /bin/bash'; } > "$PSF"
+{ base_ps; py_ps 4 22042 '??' 30:00 40.0; printf '%s\n' '22042 1 ?? 35:00 0:06.30 0.3 /bin/bash'; } > "$PSF"
 out="$(FT_RES_LAUNCHD_OWNER=0 c)"
 eq "$out" "cpu Python×4 CPU 160% 30분 · 주인 미상" "R7 끄기 → 미상"
 eq "$(wc -l < "$CALLS" | tr -d ' ')" 0 "R7 끄기 → launchctl 호출 0"
 # R8 표에 PID «-»(주기 잡) + comm 이 라벨 꼬리와 같은 폭주(ppid 1) → 매칭 0 → 미상(라벨 글자 매칭 0)
-{ base_ps; for i in 1 2 3; do printf '%s 1 ?? 30:00 40.0 /usr/local/bin/ft-magazine\n' "$((500+i))"; done; } > "$PSF"
+{ base_ps; for i in 1 2 3; do printf '%s 1 ?? 30:00 30:00 40.0 /usr/local/bin/ft-magazine\n' "$((500+i))"; done; } > "$PSF"
 printf -- '-\t0\tcom.byz.ft-magazine\n' > "$LC"; export FT_RES_LAUNCHD="$LC"
 eq "$(c)" "cpu ft-magazine×3 CPU 120% 30분 · 주인 미상" "R8 PID «-» 줄 · 라벨 글자 매칭 0"
 # R11 전체 예산 — 느린 launchctl(sleep 4) → cap 2 · 전체 < 7초 · WARN rc=124
-{ base_ps; py_ps 4 22042 '??' 30:00 40.0; printf '%s\n' '22042 1 ?? 35:00 0.3 /bin/bash'; } > "$PSF"
+{ base_ps; py_ps 4 22042 '??' 30:00 40.0; printf '%s\n' '22042 1 ?? 35:00 0:06.30 0.3 /bin/bash'; } > "$PSF"
 unset FT_RES_LAUNCHD; : > "$CALLS"; t1=$SECONDS
 out="$(LC_SLEEP=4 c)"; dt=$((SECONDS-t1))
 eq "$out" "cpu Python×4 CPU 160% 30분 · 주인 미상" "R11 느린 launchctl → 미상"
@@ -113,7 +113,7 @@ echo '{"_master": "byz-t-planner-claude#9"}' > "$T/seats-planner.json"; : > "$T/
 CLOG="$ST/runaway-cpu.log"; notes() { grep -c '\[CPU 폭주\]' "$T/mbox.log" || true; }
 tick() { env FT_RES_ROOT="$R" FT_RES_PS="$PSF" FT_RES_TMUX="$T/tmux.txt" PATH="$S:$PATH" FT_RES_SNAP_SEC=9999999999 FT_WORKTREES="$T/wt" \
   FT_MBOX_SH="$MB" FT_SEATS_JSON="$T/seats-planner.json" FT_PREVENTIVE_SH="$T/noop.sh" bash "$BIN/ft-resource-watch.sh" tick >/dev/null 2>&1; }
-{ base_ps; py_ps 4 22042 '??' 30:00 40.0; printf '%s\n' '22042 1 ?? 35:00 0.3 /bin/bash'; } > "$PSF"
+{ base_ps; py_ps 4 22042 '??' 30:00 40.0; printf '%s\n' '22042 1 ?? 35:00 0:06.30 0.3 /bin/bash'; } > "$PSF"
 printf '22042\t0\tcom.byz.ft-secret-scan\n' > "$LC"; export FT_RES_LAUNCHD="$LC"; : > "$CLOG"
 tick
 eq "$(wc -l < "$CLOG" 2>/dev/null | tr -d ' ')" 1 "R9 tick ① → runaway-cpu.log 1줄"
@@ -127,22 +127,22 @@ has "$(cat "$ST/resource-watch.log" 2>/dev/null)" "WARN launchd 잡 표 못 읽�
 eq "$(notes)" 1 "R9 ② 서명(명령·개수) 그대로 → 쪽지 0"
 tick   # tick ③ 표 복구 → 쪽지 0
 eq "$(notes)" 1 "R9 ③ 표 복구 → 쪽지 0"
-{ base_ps; py_ps 5 22042 '??' 30:00 40.0; printf '%s\n' '22042 1 ?? 35:00 0.3 /bin/bash'; } > "$PSF"
+{ base_ps; py_ps 5 22042 '??' 30:00 40.0; printf '%s\n' '22042 1 ?? 35:00 0:06.30 0.3 /bin/bash'; } > "$PSF"
 tick
 eq "$(notes)" 2 "R9 ④ 개수 4→5 → 쪽지 1통"
 eq "$(awk -F'\t' '{print $2}' "$CLOG" | sed 's/.*주인 //')" "$(printf 'launchd com.byz.ft-secret-scan\n미상\n미상\n미상')" "R9 로그 줄마다 주인 값 그대로(launchd/미상/미상/미상)"
 [ ! -s "$T/killed.log" ] && ok "R9 종료 계열 호출 0" || bad "R9 종료 계열 호출됨: $(cat "$T/killed.log")"
 # R9b 서명: 묶음 2(«Python×4(360%) · 주인 launchd X; yes×3(120%) · 주인 S») · **둘째** 묶음 개수 3→5 → 쪽지 1통(서명에 둘째 묶음이 남아 있다)
-{ base_ps; py_ps 4 22042 '??' 30:00 90.0; printf '%s\n' '22042 1 ?? 35:00 0.3 /bin/bash'; yes_ps 3 150 ttys003 08:00 40.0; } > "$PSF"
+{ base_ps; py_ps 4 22042 '??' 30:00 90.0; printf '%s\n' '22042 1 ?? 35:00 0:06.30 0.3 /bin/bash'; yes_ps 3 150 ttys003 08:00 40.0; } > "$PSF"
 printf '22042\t0\tcom.byz.ft-secret-scan\n' > "$LC"; export FT_RES_LAUNCHD="$LC"; : > "$T/mbox.log"; : > "$CLOG"
 tick
 echLINE="$(cat "$CLOG")"; has "$echLINE" "cpu Python×4 CPU 360% 30분 · 주인 launchd com.byz.ft-secret-scan; cpu yes×3" "R9b 정렬 · 첫 묶음 Python"
 eq "$(notes)" 1 "R9b 묶음 2 첫 tick → 쪽지 1통"
-{ base_ps; py_ps 4 22042 '??' 30:00 90.0; printf '%s\n' '22042 1 ?? 35:00 0.3 /bin/bash'; yes_ps 5 150 ttys003 08:00 40.0; } > "$PSF"
+{ base_ps; py_ps 4 22042 '??' 30:00 90.0; printf '%s\n' '22042 1 ?? 35:00 0:06.30 0.3 /bin/bash'; yes_ps 5 150 ttys003 08:00 40.0; } > "$PSF"
 tick
 echLINE="$(cat "$CLOG")"; has "$echLINE" "cpu Python×4 CPU 360% 30분 · 주인 launchd com.byz.ft-secret-scan; cpu yes×5" "R9b 첫 묶음 보존(둘째만 바뀜)"
 eq "$(notes)" 2 "R9b 둘째 묶음 개수 3→5 → 쪽지 1통 더(둘째 묶음이 서명에 남아 있다)"
-{ base_ps; py_ps 4 22042 '??' 30:00 90.0; printf '%s\n' '22042 1 ?? 35:00 0.3 /bin/bash'; yes_ps 7 150 ttys003 08:00 40.0; } > "$PSF"
+{ base_ps; py_ps 4 22042 '??' 30:00 90.0; printf '%s\n' '22042 1 ?? 35:00 0:06.30 0.3 /bin/bash'; yes_ps 7 150 ttys003 08:00 40.0; } > "$PSF"
 tick
 eq "$(notes)" 3 "R9b 둘째 개수 5→7 → 다시 쪽지 1통(누적 3)"
 
