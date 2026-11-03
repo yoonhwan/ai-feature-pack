@@ -435,7 +435,13 @@ def main(argv: list[str]) -> int:
         if not got:
             print("stall-scan 앞 실행이 아직 돈다 — 이번 틱 건너뜀")
             return 0
-        return stm.judged(lambda: Scan().run(dry), state_dir)
+        held: list[Scan] = []  # r1282 단계 2 — 판정 불가로 끝나도 좌석 캐시(seats 칸)만 저장 · --dry-run 은 쓰기 0
+
+        def go() -> int:
+            held.append(Scan())
+            return held[0].run(dry)
+        keep = None if dry else (lambda: held and stm.save_seats(state_dir, held[0].st["seats"]))
+        return stm.judged(go, state_dir, keep)
 
 
 if __name__ == "__main__":
