@@ -290,6 +290,7 @@ def test_ack_flag_goes_into_the_talk_plist_only_when_asked_and_mirror_ack_is_alw
     assert "--ack" not in plist.read_text(encoding="utf-8") and "__" not in plist.read_text(encoding="utf-8")
     assert (Path(e["HOME"]) / ".hermes/scripts/mirror_ack_alarm.py").is_file()
     assert (Path(e["HOME"]) / ".hermes/scripts/mirror_ack.py").is_file()  # 데몬이 import 하므로 --ack 와 무관하게 설치
+    assert (Path(e["HOME"]) / ".hermes/scripts/mirror_threads.py").is_file()  # 데몬이 import 한다(R242 단계 2)
     r = install(e, *TALK, "--ack")
     assert r.returncode == 0, r.stderr
     text = plist.read_text(encoding="utf-8")

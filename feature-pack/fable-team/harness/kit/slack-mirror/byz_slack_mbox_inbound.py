@@ -19,6 +19,7 @@ import mirror_inbound as ib  # noqa: E402
 import mirror_lib as lib  # noqa: E402
 import mirror_questions as mq  # noqa: E402
 import mirror_share as ms  # noqa: E402
+import mirror_threads as mt  # noqa: E402
 from mirror_plan import plan  # noqa: E402
 
 API = "https://slack.com/api"
@@ -62,9 +63,7 @@ class Inbound:
                 found[str(m["ts"])] = {**m, "thread_ts": ""}
             if m.get("latest_reply"):  # 기동 «전» 에 만들어진 스레드의 새 답도 여기서 발견된다
                 threads[str(m["ts"])] = str(m["latest_reply"])
-        for e in mq.load(self.qpath)["open"].values():  # 열린 질문의 스레드는 루트 순위와 무관하게 항상 읽는다
-            if e.get("thread_ts"):
-                threads.setdefault(str(e["thread_ts"]), None)
+        mt.add_open(threads, self.qpath)  # 열린 질문의 스레드는 루트 순위와 무관하게 항상 읽는다
         for t, latest in threads.items():
             if latest is not None and seen.get(t) == latest:
                 continue
@@ -73,6 +72,7 @@ class Inbound:
                     found[str(m["ts"])] = {**m, "thread_ts": t}
             if latest is not None:
                 self.seen_updates[t] = latest
+        mt.read_old(self, st, set(threads), floor, found)  # 루트가 창 밖이어도 최근에 답이 오간 스레드의 새 답(R242 단계 2)
         return sorted((m for ts, m in found.items() if ts not in ledger), key=lambda m: str(m["ts"]))
 
     # --- 전달 (Slack 을 다시 읽지 않고 원장만으로 재개) -------------------------------------------
