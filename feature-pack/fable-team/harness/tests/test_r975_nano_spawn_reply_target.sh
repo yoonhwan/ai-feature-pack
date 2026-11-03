@@ -38,6 +38,8 @@ cat > "$T/fake/tmm" <<'EOF'
 #!/usr/bin/env bash
 [ -z "${FAKE_TMM_DELAY:-}" ] || /bin/sleep "$FAKE_TMM_DELAY"
 [ -z "${FAKE_TMM_RC:-}" ] || exit "$FAKE_TMM_RC"
+printf '%s\n' "$*" >> "${FAKE_TMM_LIST}.args"   # r975 단계 2: 부른 인자 기록(--names 쓰나)
+if [ "${1:-}" = ls ] && [ "${2:-}" = --names ]; then awk '{print $3}' "$FAKE_TMM_LIST" 2>/dev/null; exit 0; fi   # 이름만 = 3번째 칸
 cat "$FAKE_TMM_LIST" 2>/dev/null
 EOF
 printf '#!/usr/bin/env bash\necho "{\\"number\\":1,\\"state\\":\\"OPEN\\",\\"url\\":\\"https://github.com/o/r/issues/1\\"}"\n' > "$T/fake/gh-open"
@@ -117,6 +119,9 @@ o="$(run1 "$D")"; rc=$?
 [[ "$o" == *"[byz-harness-master-claude#3->"* ]] && ok "ⓐ 발주문 머리 = 선택 이름" || bad "ⓐ 머리 $o"
 [ "$(cat "$T/sent-from.txt" 2>/dev/null)" = "byz-harness-master-claude#3" ] && ok "ⓐ 송신 from = 선택 이름(계약 ④)" || bad "ⓐ 송신 from = '$(cat "$T/sent-from.txt" 2>/dev/null)'"
 { [ "$rc" = 0 ] && [[ "$o" == *"SPAWNED"* ]]; } && ok "ⓐ 개설 rc=0" || bad "ⓐ rc=$rc $o"
+# ⓝ r975 단계 2 — 목록은 «tmm ls --names <팀>» 1회(상태 칸 만드는 tmm ls 0 · load 60+ 9초 → 0.2초)
+grep -qx -- "ls --names byz-harness" "$T/tmm.lst.args" 2>/dev/null && ! grep -qx -- "ls byz-harness" "$T/tmm.lst.args" \
+  && ok "ⓝ 목록 = tmm ls --names(이름만) · 옛 tmm ls 0" || bad "ⓝ tmm 인자: $(tr '\n' '|' < "$T/tmm.lst.args" 2>/dev/null)"
 # ⓐ-2 이름은 같은데 «옛 번호» 도 살아 있고 새 번호도 살아 있으면 = 2명(ⓑ) · 목록에 master 가 하나면 그 하나
 tl "$T/tmm.lst" byz-harness-master-claude#7
 o="$(run1 "$D" --dry-run)"   # 하드 룰 22(70초) — 이 칸은 «번호 하드코딩 0» 만 본다(개설은 ⓐ 가 이미 쟀다)
