@@ -29,6 +29,7 @@ class FakeSlack:
         self.fail_read = False
         self.drop_replies: set[str] = set()
         self.replies_oldest: list[tuple[str, str]] = []
+        self.cut_history = 0  # 남은 «끊긴 history 응답» 횟수
         outer = self
 
         class H(BaseHTTPRequestHandler):
@@ -69,6 +70,15 @@ class FakeSlack:
                 if u.path.endswith("conversations.history"):
                     roots = [{**m, **outer._thread_meta(m)} for m in outer.msgs if not m["thread_ts"] and
                              m.get("channel", "C1") == channel and m["ts"] > q.get("oldest", ["0"])[0]]
+                    if outer.cut_history > 0:  # 본문을 Content-Length 보다 짧게 끊는다 = 클라이언트 IncompleteRead(R242 C5 U7·U8)
+                        outer.cut_history -= 1
+                        raw = json.dumps(outer._page(list(reversed(roots)), q)).encode()
+                        self.send_response(200)
+                        self.send_header("Content-Length", str(len(raw) + 100))
+                        self.end_headers()
+                        self.wfile.write(raw)
+                        self.close_connection = True
+                        return None
                     return self._reply(outer._page(list(reversed(roots)), q))
                 if u.path.endswith("chat.getPermalink"):
                     return self._reply({"ok": True, "permalink": f"https://fake.slack.com/archives/C1/p{q['message_ts'][0]}"})

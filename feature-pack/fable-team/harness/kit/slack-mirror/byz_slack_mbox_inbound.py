@@ -146,7 +146,7 @@ class Inbound:
         self.seen_updates = {}
         for m in self._candidates(st):
             ts = str(m["ts"])
-            ledger[ts] = plan(self.a, self.token, self.qpath, m)
+            ledger[ts] = mt.mark_late(plan(self.a, self.token, self.qpath, m), m)  # ③ 로 늦게 찾은 답은 머리 1줄을 계획에 고정(R242 단계 3)
             self._save(st)
             self._deliver(st, ts, ledger[ts])
         st["seen"].update(self.seen_updates)  # 후보를 전부 원장에 올린 뒤에만 «읽었다» 로 표시한다

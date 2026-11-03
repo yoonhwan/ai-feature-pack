@@ -166,16 +166,16 @@ class MboxError(lib.MirrorError):
         self.rc = rc
 
 
-def send(mbox: str, to: str, body: str, spool: Path) -> int:
-    """argv 로만 호출한다(셸 문자열 금지). 반환 = 큐에 들어간 행의 seq. 실패는 raise."""
+def send(mbox: str, to: str, body: str, spool: Path, head: str = "") -> int:
+    """argv 로만 호출한다(셸 문자열 금지). 반환 = 큐에 들어간 행의 seq. 실패는 raise. head = 늦은 옛 글 머리(R242 단계 3) — 보이는 첫 줄에만 · 보관 파일은 본문 그대로."""
     if len(body) > MAX_BODY:  # 긴 글은 relay 파일 + 머리 요약(토큰 포함)
         spool.mkdir(parents=True, exist_ok=True)
         f = spool / f"inbound-{hashlib.sha1(body.encode()).hexdigest()[:16]}.txt"
         f.write_text(body, encoding="utf-8")
         tail = body.rsplit("\n", 1)[-1]
-        argv = ["bash", mbox, "relay", to, FROM, str(f), f"오빠(Slack) 긴 글 — 전문 파일 {tail}"]
+        argv = ["bash", mbox, "relay", to, FROM, str(f), f"{head + ' ' if head else ''}오빠(Slack) 긴 글 — 전문 파일 {tail}"]
     else:
-        argv = ["bash", mbox, "send", to, FROM, body]
+        argv = ["bash", mbox, "send", to, FROM, body.replace("] ", f"] {head}\n", 1) if head else body]
     try:
         r = subprocess.run(argv, capture_output=True, text=True, timeout=30)
     except (OSError, subprocess.TimeoutExpired) as e:
@@ -194,7 +194,7 @@ def attempt_send(e: dict, role: str, to: str, n: int, tok: str, a: argparse.Name
         e["attempt"][role] = [*(prev or []), to] if role == ms.PLANNER_ROLE else n + 1
         save()
         try:
-            return to, send(a.mbox, to, f"[{FROM}->{to}] {e['text']}\n({tok})\n{ms.answer_hint(tok)}".rstrip(), spool)
+            return to, send(a.mbox, to, f"[{FROM}->{to}] {e['text']}\n({tok})\n{ms.answer_hint(tok)}".rstrip(), spool, str(e.get("late", "")))
         except MboxError as err:
             if err.rc != REJECT_RC or not (a.to_key or role == ms.PLANNER_ROLE):
                 raise
