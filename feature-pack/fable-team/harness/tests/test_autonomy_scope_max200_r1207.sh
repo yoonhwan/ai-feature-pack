@@ -32,12 +32,17 @@ fresh; grant --for 48h --max 200 --daily 100 --classes docs,ff,revert,code --cod
 ck "ⓐ R1 --max 200 --daily 100 --code-max 66 --repos byz,pack → SCOPE-GRANTED max=200" $?
 # ⓐ R4 — 앞자리 0
 fresh; grant --for 10h --max 0200 --classes docs; [ $rc = 0 ] && has ' max=200 daily=10 classes=docs$'; ck "ⓐ R4 --max 0200 → 통과(200)" $?
-# ⓑ R2 — 201 거절 · 쓰기 0
-fresh; grant --for 10h --max 201 --classes docs; [ $rc = 2 ] && has '^SCOPE-REJECT --max 는 1~200\(받은 값: 201\)' && [ "$(lines)" = 1 ]; ck "ⓑ R2 --max 201 → REJECT rc 2 «1~200» · log 쓰기 0" $?
-# ⓒ R3 — 긴 수(넘침으로 200 이하가 되지 않음) · 쓰기 0
-fresh; grant --for 10h --max 18446744073709551716 --classes docs; [ $rc = 2 ] && has '--max 는 1~200' && [ "$(lines)" = 1 ]; ck "ⓒ R3 --max 18446744073709551716 → REJECT rc 2 · log 쓰기 0" $?
+# ⓐ R6 — 500 통과 (r1207 재개 · 판정 3925) · daily 500 · code-max 500
+fresh; grant --for 10h --max 500 --daily 500 --classes docs,code --code-max 500; [ $rc = 0 ] && grep -q ' max=500 daily=500 classes=docs,code codemax=500' "$LOG"; ck "ⓐ R6 --max 500 --daily 500 --code-max 500 → SCOPE-GRANTED" $?
+# ⓐ R4b — 201 은 이제 통과(옛 상한 200 넘음)
+fresh; grant --for 10h --max 201 --classes docs; [ $rc = 0 ] && has ' max=201 daily=10 classes=docs$'; ck "ⓐ R4b --max 201 → 통과" $?
+# ⓑ R2 — 501 거절 · 쓰기 0
+fresh; grant --for 10h --max 501 --classes docs; [ $rc = 2 ] && has '^SCOPE-REJECT --max 는 1~500\(받은 값: 501\)' && [ "$(lines)" = 1 ]; ck "ⓑ R2 --max 501 → REJECT rc 2 «1~500» · log 쓰기 0" $?
+# ⓒ R3 — 긴 수(넘침으로 500 이하가 되지 않음) · 쓰기 0
+fresh; grant --for 10h --max 18446744073709551716 --classes docs; [ $rc = 2 ] && has '--max 는 1~500' && [ "$(lines)" = 1 ]; ck "ⓒ R3 --max 18446744073709551716 → REJECT rc 2 · log 쓰기 0" $?
 # ⓓ R5 — daily 는 max 를 따라감
-fresh; grant --for 10h --max 200 --daily 201 --classes docs; [ $rc = 2 ] && has '--daily 는 1~max\(200\)'; ck "ⓓ R5 --max 200 --daily 201 → REJECT «1~max(200)»" $?
+fresh; grant --for 10h --max 500 --daily 501 --classes docs; [ $rc = 2 ] && has '--daily 는 1~max\(500\)'; ck "ⓓ R5 --max 500 --daily 501 → REJECT «1~max(500)»" $?
+fresh; grant --for 10h --max 200 --daily 201 --classes docs; [ $rc = 2 ] && has '--daily 는 1~max\(200\)'; ck "ⓓ R5b --max 200 --daily 201 → REJECT «1~max(200)»" $?
 # ⓔ bin·kit 같은 내용
 cmp -s "$BIN/ft-autonomy-scope.sh" "$MIRB/ft-autonomy-scope.sh"; ck "ⓔ bin·kit ft-autonomy-scope.sh cmp0" $?
 
