@@ -76,7 +76,7 @@ mkfix() {  # mkfix <디렉터리> — 카드·팀 env·등록용 명부(보고 �
   mkdir -p "$d/design/v65"; echo x > "$d/design/v65/SEATBELT-README.md"
   printf '%s\n%s\n%s\n' "$G1" "$G2" "$G3" > "$d/.fable-team/bin-$TEAMX/goal-lines.txt"
   printf '# GOAL — harness 제목줄\n\n## 원문 1 머리줄\n> %s\n' "$CLOSE" > "$d/design/$TEAMX/GOAL-harness.md"
-  printf '# 인덱스: x\n- Issue: #1\n- 제안서: 없음 — 시험용 카드\n- 상태: 대기\n- 선행: 없음\n- 시험 입력: 없음\n- 기준값: 없음 → 대체 축 시험\n- 설치: 없음\n<!-- ledger: design/'"$TEAMX"'/GOAL-harness.md -->\n\n## 골 원문 (항상 이 3줄)\n%s\n%s\n%s\n\n## 골좌표\n닫는 증거: 「%s」\n\n## 배경\n시험.\n\n## 구현 범위\n1. `scripts/real.sh` 를 고친다.\n\n## 완료 조건\n- 시험 rc=0\n\n## 상태\n- 대기\n' \
+  printf '# 인덱스: x\n- Issue: #1\n- 제안서: 없음 — 시험용 카드\n- 상태: 대기\n- 선행: 없음\n- 시험 입력: 없음\n- 기준값: 없음 → 대체 축 시험\n- 설치: 없음\n<!-- ledger: design/'"$TEAMX"'/GOAL-harness.md -->\n\n## 골 원문 (항상 이 3줄)\n%s\n%s\n%s\n\n## 골좌표\n닫는 증거: 「%s」\n\n## 배경\n시험.\n\n## 구현 범위\n1. `scripts/real.sh` 를 고친다.\n\n## 완료 조건\n- 시험 rc=0\n\n## 계약↔시험 대응표\n| 계약 | 시험 |\n|---|---|\n| ① 보고 대상 = 살아 있는 좌석 목록 | ⓐ |\n\n## 상태\n- 대기\n' \
     "$G1" "$G2" "$G3" "$CLOSE" > "$d/design/$TEAMX/indices/대기/x.md"
   printf '{"_version":"1.0.0","byz-harness-master-claude#1":{"role":"master"}}\n' > "$d/.fable-team/seats-$TEAMX.json"
   printf '{"_version":"1.0.0"}\n' > "$d/.fable-team/seats.json"
@@ -101,7 +101,13 @@ sp() {  # sp <픽스처> <bindir> [인자…] — env -i 격리 · 카드 = CARD
 run1() { local d="$1"; shift; rm -f "$T/opened" "$T/body.txt" "$T/sent-from.txt"; mkpanes; sp "$d" "$BINX" "$@"; }
 mkpanes() { printf 'byz-harness-nano-x#0|%%1|1\n' > "$T/panes"; }
 one_line() { [ "$(printf '%s\n' "$1" | grep -c '^REJECT')" = 1 ] && [ "$(printf '%s\n' "$1" | grep -cE '^REJECT|^[[:space:]]+[^[:space:]]')" = 1 ]; }
+# 칸 나눔(하드 룰 22 · 단독 70초 · 부하 55 실측 각 50초 안) — FT_R975_PART=1(정적·ⓐ~ⓓ) · 2(ⓔ~ⓖ) · 3(ⓗ~ⓘ·계약④) · 4(ⓙ~ⓛ·변이①②) · 5(변이③~⑤·/bin/bash 3.2) · all(기본 · 전부)
+PART="${FT_R975_PART:-all}"
+case "$PART" in 1|2|3|4|5|all) ;; *) echo "usage: FT_R975_PART=1|2|3|4|5|all (got: $PART)"; exit 2;; esac
+in_part() { [ "$PART" = all ] || [ "$PART" = "$1" ]; }
+echo "PART $PART"
 
+if in_part 1; then
 for f in ft-nano-spawn.sh; do
   bash -n "$BIN/$f" && ok "bash -n 추적본 $f" || bad "bash -n 추적본 $f"
   cmp -s "$BIN/$f" "$KIT/$f" && ok "두 사본 cmp 0 $f" || bad "두 사본 불일치 $f"
@@ -151,6 +157,8 @@ o="$(run1 "$D" --from byz-harness-master-claude#3)"; rc=$?
 { [ "$rc" != 0 ] && one_line "$o" && [[ "$o" == *"집합에 없다"* ]] && [ ! -f "$T/opened" ]; } \
   && ok "ⓓ --from 은퇴 이름 → REJECT 1줄(후계로 바꾸지 않는다)" || bad "ⓓ rc=$rc $o"
 
+fi   # PART 1 끝
+if in_part 2; then
 # ── ⓔ --from 이 목록 안 → 그대로 ──
 D="$T/e"; mkfix "$D"; tl "$T/tmm.lst" byz-harness-master-claude#4 byz-harness-arch-claude#1
 o="$(run1 "$D" --from byz-harness-arch-claude#1)"
@@ -192,6 +200,8 @@ EXTRA_ENV=(FT_SEND_FROM=byz-harness-arch-claude#1); o="$(run1 "$D" --dry-run)"; 
 EXTRA_ENV=(FT_SEND_FROM=byz-v65-master-claude#2); o="$(run1 "$D")"; rc=$?; EXTRA_ENV=()
 { [ "$rc" != 0 ] && one_line "$o" && [ ! -f "$T/opened" ]; } && ok "ⓖ FT_SEND_FROM 목록 밖 → REJECT 1줄(조용히 팀장으로 0)" || bad "ⓖ 밖 rc=$rc $o"
 
+fi   # PART 2 끝(ⓔ~ⓖ)
+if in_part 3; then
 # ── ⓗ (r5 ②) tmm 부분일치 — 다른 팀(byz-harness-tools-…)은 «이 팀 좌석» 이 아니다 ──
 D="$T/h5"; mkfix "$D"; tl "$T/tmm.lst" byz-harness-master-claude#3 byz-harness-tools-master-claude#2
 o="$(run1 "$D" --dry-run)"
@@ -227,6 +237,7 @@ rm -f "$T/mbox-from.txt" "$T/mbox-to.txt"; mkpanes
 o="$(EXTRA_ENV=(FT_MBOX_SH="$T/fake-mbox.sh"); sp "$D" "$SENDX")"
 [ "$(cat "$T/mbox-from.txt" 2>/dev/null)" = "byz-harness-master-claude#3" ] && ok "계약④ 실 ft-send-verified → mbox from = 선택 이름" || bad "계약④ from='$(cat "$T/mbox-from.txt" 2>/dev/null)' $o"
 [ "$(cat "$T/mbox-to.txt" 2>/dev/null)" = "byz-harness-nano-x#0" ] && ok "계약④ mbox to = 이번 좌석" || bad "계약④ to='$(cat "$T/mbox-to.txt" 2>/dev/null)'"
+fi   # PART 3 끝(ⓗ~ⓘ·계약④)
 
 # ── 변이 2종(계약 위반 단언 · 각 bash -n rc0 먼저) ──
 mk_mut() { cp -R "$BINX" "$1"; python3 - "$1/ft-nano-spawn.sh" "$2" "$3" <<'PY'
@@ -237,6 +248,8 @@ assert old in s, "변이 대상 없음: " + old[:60]
 open(p, "w", encoding="utf-8").write(s.replace(old, new, 1))
 PY
 }
+TO="$(command -v timeout || command -v gtimeout || true)"
+if in_part 4; then
 # ── ⓙ (r8 ①) 검사기 rc≠0 → REJECT 1줄 · 개설 0 (dry-run·실행 같은 판정) ──
 D="$T/j8"; mkfix "$D"; tl "$T/tmm.lst" byz-harness-master-claude#3
 JX="$T/bin-j"; cp -R "$BINX" "$JX"
@@ -295,6 +308,8 @@ o="$(sp "$D" "$M2" --dry-run)"; rc=$?
 { [ "$rc" = 0 ] && [[ "$o" == *"INFO 회신 대상 = byz-v65-master-claude#2"* ]]; } \
   && ok "변이② master 없음 → 루트 팀장 대체 = 계약 위반 검출" || bad "변이② 계약을 안 깼다(rc=$rc): $o"
 
+fi   # PART 4 끝(ⓙ~ⓛ·변이①②)
+if in_part 5; then
 # 변이 ③ «검사기 호출 우회(이름 판정 사본 복원)» → 계약 위반: 검사기가 거절하는 이름을 수용
 M3="$T/mut3"; mk_mut "$M3" '      bash "$L" "$n" >/dev/null 2>&1 && printf "%s\n" "$n"' '      printf "%s\n" "$n"   # 변이: 검사기 호출 우회'
 bash -n "$M3/ft-nano-spawn.sh" && ok "변이③ bash -n rc0" || bad "변이③ bash -n 실패"
@@ -336,6 +351,7 @@ if /bin/bash --version | head -1 | grep -q '3\.2'; then
         /bin/bash "$BINX/ft-nano-spawn.sh" "$CARDX" --dry-run 2>&1 )"
   [[ "$o" == *"INFO 회신 대상 = byz-harness-master-claude#3"* ]] && ok "/bin/bash 3.2: 목록에서 고른다" || bad "/bin/bash 3.2: $o"
 else echo "SKIP /bin/bash 3.2 칸 — 이 머신의 /bin/bash 가 3.2 가 아니다"; fi
+fi   # PART 5 끝(변이③~⑤·/bin/bash 3.2)
 
 [ "$(git -C "$REPO" config --get core.bare)" = false ] && ok "core.bare=false" || bad "core.bare != false"
 [ "$fail" = 0 ] && echo "ALL PASS" || echo "FAILED $fail"
