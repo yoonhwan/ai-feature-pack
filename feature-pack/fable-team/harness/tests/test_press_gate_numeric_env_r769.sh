@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# test_press_gate_numeric_env_r769.sh — r769 r2 반송(DA⑥ r2 HOLD): 숫자 env 입력 엄격 검사(_int_port · _decimal).
+# test_press_gate_numeric_env_r769.sh — r769 r2 반송(DA⑥ r2 HOLD): 숫자 env 입력 엄격 검사(_int_port).
 #   왜: ① FT_PRESS_PORT_BASE=017620 이 앞 0 허용 → $((…+1)) 이 8진으로 8080(기본 포트) 조회 · rc0
-#       ② FT_PRESS_LOAD_MAX=60..0 이 점 개수 무제한 통과 → awk 문자열 비교 → «✓ 100.00 < 60..0» PASS
+#       ② (옛) FT_PRESS_LOAD_MAX=60..0 이 점 개수 무제한 통과 — 단계 2(판정 3927)에서 부하 임계를 더 읽지 않으므로 ⓡ 는 «무시 1줄» 시험이다
 #   스텁만(sysctl·lsof·curl·tmux) · 실 포트·리스너 접촉 0 · 리포 파일 쓰기 0.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
@@ -91,45 +91,27 @@ n=$((n+1)); [ "$RC" = 1 ] && has 'FT_PRESS_PORTS 포트가 숫자 1024~65535 가
   && ok "$n. ⓠ FT_PRESS_PORTS=08080,… → rc=1 · 접촉 0" \
   || { bad "$n. ⓠ 08080 (rc=$RC)"; printf '%s\n' "$OUT" | sed 's/^/    /'; }
 
-# ── ⓡ LOAD_MAX 꼴 5종 — 60..0 · 1e2 · 60. · .5 · -1 (부하 100 을 줘도 통과 못 한다)
+# ── ⓡ LOAD_MAX 꼴 5종 — 60..0 · 1e2 · 60. · .5 · -1 (단계 2 · 판정 3927: 더 읽지 않는다 → 무시 1줄 · 부하 임계 ✗ 0)
 for v in '60..0' '1e2' '60.' '.5' '-1'; do
-  mkworld "r$(printf '%s' "$v" | tr -cd '0-9a-z')"
   tag="r$(printf '%s' "$v" | tr -cd '0-9a-z')"
+  mkworld "$tag"
   gate "$GATE" "$tag" FAKE_LOADAVG='1.0 100.0 1.0' FT_PRESS_LOAD_MAX="$v"
-  n=$((n+1)); [ "$RC" = 1 ] && has "FT_PRESS_LOAD_MAX=$v — 숫자(부하 임계)만" && ! has '✓ 부하 5분 평균' \
-    && ok "$n. ⓡ FT_PRESS_LOAD_MAX=$v (부하 100) → rc=1 · «✓ 부하» 줄 없음" \
-    || { bad "$n. ⓡ LOAD_MAX=$v (rc=$RC)"; printf '%s\n' "$OUT" | sed 's/^/    /'; }
+  n=$((n+1)); has '⚠ FT_PRESS_LOAD_MAX 무시' && ! has "FT_PRESS_LOAD_MAX=$v — 숫자(부하 임계)만" && ! has '✗ 5분 평균 부하' \
+    && has '· 부하 5분 평균 100.0 (참고 · 차단 0)' \
+    && ok "$n. ⓡ FT_PRESS_LOAD_MAX=$v (부하 100) → 무시 1줄 · «숫자(부하 임계)만»·«✗ 부하» 0" \
+    || { bad "$n. ⓡ LOAD_MAX=$v (rc=$RC)"; printf '%s\n' "$OUT" | grep '부하\|LOAD_MAX' | sed 's/^/    /'; }
 done
-# 고침 3 을 되돌린 변이 — 60..0 이 «✓ 100.00 < 60..0» PASS 가 되는 모습 재현
-siblings "$T/mutdec"
-python3 - "$GATE" "$T/mutdec/ft-press-gate.sh" <<'PY'
-import sys
-src, dst = sys.argv[1:3]
-s = open(src, encoding='utf-8').read()
-a = '''_decimal(){
-  case "$1" in ''|*[!0-9.]*|.*|*.|*.*.*) return 1 ;; esac
-  return 0
-}'''
-b = '''_decimal(){ case "$1" in ''|*[!0-9.]*) return 1 ;; esac; return 0; }'''
-assert a in s
-open(dst, 'w', encoding='utf-8').write(s.replace(a, b, 1))
-PY
-chmod +x "$T/mutdec/ft-press-gate.sh"
-mkworld rm
-gate "$T/mutdec/ft-press-gate.sh" rm FAKE_LOADAVG='1.0 100.0 1.0' FT_PRESS_LOAD_MAX='60..0'
-n=$((n+1)); has '✓ 부하 5분 평균 100.0 < 임계 60..0' && ok "$n. ⓡ 변이(점 개수 검사 삭제) → «✓ 100.00 < 60..0» 재현 ⇒ ⓡ 이 이 변이를 죽인다" \
-  || { bad "$n. ⓡ 변이"; printf '%s\n' "$OUT" | grep '부하' | sed 's/^/    /'; }
 
 # ── ⓢ 정상 값은 지금과 같은 출력(38341 · 60 · 72.5)
 mkworld s
 gate "$GATE" s FT_PRESS_PORT_BASE=38341 FT_PRESS_LOAD_MAX=60 FT_PRESS_WORKER_LOG="$W/worker.log" FT_PRESS_SSE_HEALTH_URL="http://127.0.0.1:38343/api/v1/health/"
 n=$((n+1)); [ "$RC" = 1 ] && has '포트 갈래: FT_PRESS_PORT_BASE=38341 → gateway 38341 · worker 38342 · 화면 38343' \
-  && has '부하 5분 평균 0.20 < 임계 60' && has 'worker 리스너 없음(:38342)' && ! has '숫자 1024~65535 가 아니다' \
+  && has '부하 5분 평균 0.20 (참고 · 차단 0)' && has 'FT_PRESS_LOAD_MAX 무시' && has 'worker 리스너 없음(:38342)' && ! has '숫자 1024~65535 가 아니다' \
   && ok "$n. ⓢ 정상 값(38341 · 60) → 통과 경로 그대로(파생 포트 38342·38343 · ✗ 숫자 줄 없음)" \
   || { bad "$n. ⓢ 정상 값 (rc=$RC)"; printf '%s\n' "$OUT" | sed 's/^/    /'; }
 gate "$GATE" s FT_PRESS_PORT_BASE=38341 FT_PRESS_LOAD_MAX=72.5 FAKE_LOADAVG='1.0 72.40 1.0' \
   FT_PRESS_WORKER_LOG="$W/worker.log" FT_PRESS_SSE_HEALTH_URL="http://127.0.0.1:38343/api/v1/health/"
-n=$((n+1)); [ "$RC" = 1 ] && has '✓ 부하 5분 평균 72.40 < 임계 72.5' && ok "$n. ⓢ 소수 임계 72.5 도 정상 처리" \
+n=$((n+1)); [ "$RC" = 1 ] && has '· 부하 5분 평균 72.40 (참고 · 차단 0)' && ok "$n. ⓢ 소수 임계 72.5 도 무시 1줄 + 값 1줄" \
   || { bad "$n. ⓢ 소수 임계 (rc=$RC)"; printf '%s\n' "$OUT" | sed 's/^/    /'; }
 
 echo
