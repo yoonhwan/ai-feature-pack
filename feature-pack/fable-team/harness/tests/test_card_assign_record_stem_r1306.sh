@@ -45,10 +45,10 @@ r1() {  # 이름 인자 = 경로 인자와 같은 원장·같은 카드 바이�
     && ok "R1 이름 = 경로(원장 json·카드 바이트·출력 같음 · 거울 1줄) · rc0" || bad "R1 a=$a b=$b"
 }
 r2() {  # 디스크 없음 · tip 에만 → 원장 + NOTE · 디스크 쓰기 0 · urgent 는 tip 본문
-  new_root; card "$R" "$H/대기/s2.md" "$((NOW - 9000))" "- 상태: 대기" "- 긴급: 예"; rm "$R/$H/대기/s2.md"; rec s2 waiting 부하
+  new_root; card "$R" "$H/대기/s2.md" "$((NOW - 9000))" "- 상태: 대기" "- 긴급: 예"; rm "$R/$H/대기/s2.md"; rec s2 waiting 선행
   [ "$RC" = 0 ] && printf '%s\n' "$OUT" | grep -q '^NOTE 거울 줄 0 — 디스크에 카드 없음(tip 에만 · .*:design/harness/indices/대기/s2.md)$' \
-    && printf '%s\n' "$OUT" | grep -qx '배정 원장 s2 → waiting 부하' && one "$OUT" 2 \
-    && [ "$(jget s2 state)" = waiting ] && [ "$(jget s2 reason)" = 부하 ] && [ "$(jget s2 urgent)" = True ] && [ ! -e "$R/$H/대기/s2.md" ] \
+    && printf '%s\n' "$OUT" | grep -qx '배정 원장 s2 → waiting 선행' && one "$OUT" 2 \
+    && [ "$(jget s2 state)" = waiting ] && [ "$(jget s2 reason)" = 선행 ] && [ "$(jget s2 urgent)" = True ] && [ ! -e "$R/$H/대기/s2.md" ] \
     && ok "R2 tip 에만 있음 = 원장 + NOTE 1줄 · 디스크 쓰기 0 · urgent = tip 본문 · rc0" || bad "R2 rc=$RC :: $OUT"
 }
 r3() {  # 어디에도 없음 = REJECT rc1 · 원장 0

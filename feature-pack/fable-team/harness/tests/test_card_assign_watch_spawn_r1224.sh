@@ -42,7 +42,7 @@ printf '#!/bin/sh\necho "{\\"number\\":5342,\\"state\\":\\"OPEN\\",\\"url\\":\\"
 printf '## 표 1 — 역할\n| 역할 | 수 | 모델 | effort | 명부 키 | 승계 | 닫기 |\n|---|---|---|---|---|---|---|\n| nano | 상한 N | `sonnet-5-5` | high | — | a | b |\n- 나노 상한 기본: 3\n## 표 2 — 팀\n| 팀 | 나노 상한 | tester | arch 상시 |\n|---|---|---|---|\n| alpha | 2 | 0 | 상시 |\n' > "$SP/TEAMSET.md"
 SR="$SP/repo"; git init -q -b main "$SR"; mkdir -p "$SR/.fable-team/state" "$SR/.fable-team/comm" "$SR/design/alpha/indices/대기" "$SR/src"
 printf '2026-10-21T00:00:00\toff\tinstall\tinit\n' > "$SR/.fable-team/state/all-stop.log"; echo '{"_name":"alpha","_master":"byz-alpha-master-claude#1","byz-alpha-master-claude#1":{"role":"master"}}' > "$SR/.fable-team/seats-alpha.json"
-printf '| 팀 | 폴더 | x | y |\n|---|---|---|---|\n| alpha | `design/alpha/` | a | 현역 |\n' > "$SR/design/TEAMS.md"; printf 'l1\n' > "$SR/src/t.sh"
+printf '| 팀 | 폴더 | 오케 | 상태 |\n|---|---|---|---|\n| alpha | `design/alpha/` | a | 현역 |\n' > "$SR/design/TEAMS.md"; printf 'l1\n' > "$SR/src/t.sh"
 printf '골 1\n골 2\n골 3\n' > "$SP/goal.txt"; echo '원장: 닫는 증거는 이 문장 전체를 복붙한 것이어야 한다.' > "$SR/design/LEDGER.md"; printf '.fable-team/\n' > "$SR/.gitignore"
 CX="$SR/design/alpha/indices/대기/x.md"; printf '# 카드\n- 상태: 대기\n## 상태\n' > "$CX"; git -C "$SR" add -A; gc "$SR" "$NOW +0900" base; git clone -q --bare "$SR" "$SP/origin.git"; git -C "$SR" remote add origin "$SP/origin.git"; git -C "$SR" fetch -q origin
 sp() { ( cd "$SR" && export FT_ROOT="$SR" FT_NANO_PREFIX="byz-alpha-nano-" FT_SEATS_JSON="$SR/.fable-team/seats-alpha.json" FT_TEAMSET_MD="$SP/TEAMSET.md" FT_RECLAIM_SH="$SP/reclaim.sh" \
@@ -60,7 +60,7 @@ init_first="$(awk '/^card_assign_record "\$IDX" init$/{i=NR} /ft-spawn-hold.sh" 
 # 정지(acct) — 가짜 ft-acct-pause.sh status --check rc3
 # 석 — 팀셋 cap+1 포화 · 회수 0 → 큐 적재 rc7
 lclear; printf 'byz-alpha-nano-a#0\nbyz-alpha-nano-b#0\nbyz-alpha-nano-c#0\n' > "$SP/sess"; o="$(sp)"; seat_rc=$?; seat="$(L3)"; : > "$SP/sess"; rm -f "$SR/.fable-team/state/spawn-queue-alpha.tsv"
-# 부하 — 자원 문지기 REJECT(디스크 하드 하한 주입)
+# 판정 3914 — 자원 문지기 REJECT(디스크 하드 하한 주입)는 «부하 대기» 가 아니다: 원장에 사유를 쓰지 않는다(init 행 «none» 그대로 · 사유 칸 «-»)
 lclear; o="$(FT_DISK_HARD_MIN_MIB=9999999 sp)"; load="$(L3)"
 # lint · DA(사전검증 미승인)
 lclear; o="$(sp)"; lintv="$(L3)"; lclear; o="$(FT_CARD_REQUIRE_PREVERIFY=1 sp)"; dav="$(L3)"
@@ -73,8 +73,8 @@ lclear; printf '#!/bin/sh\n[ "$3 $4 $5" = "--agent claude --model" ] && [ -n "$6
 # 면제대기 — 이 스크립트에 분기가 없다(카드 조사 근거 대조) → 도구 record 1줄로 같은 원장 꼴
 lclear; (cd "$SR" && FT_ROOT="$SR" python3 "$TOOL" record "$CX" waiting 면제대기 >/dev/null); exm="$(L3)"
 [ "$dry" = "none:0" ] && [ "$hold" = "waiting 정지 hold 2932" ] && [ "$keep" = 1 ] && [ "$init_first" = 1 ] && [ "$acct" = "waiting 정지 acct claude/sonnet-5-5" ] \
-  && [ "$seat_rc:$seat" = "7:waiting 석 - -" ] && [ "$load" = "waiting 부하 - -" ] && [ "$lintv" = "waiting lint - -" ] && [ "$dav" = "waiting DA - -" ] && [ "$prev" = "waiting 선행 - -" ] && [ "$exm" = "waiting 면제대기 - -" ] \
-  && ok "R3 실제 spawn 진입점 — dry 0 · 정지 hold 2932 · 정지 acct(r1214 게이트 rc3 → key P/M) · 석 rc7 · 부하 · lint · DA · 선행 · 면제대기(record) · init 이 정지 판정 앞 · 거절 거울 «대기(정지 · since)» 1줄 + 다른 줄 바이트 불변" \
+  && [ "$seat_rc:$seat" = "7:waiting 석 - -" ] && [ "$load" = "none - - -" ] && [ "$lintv" = "waiting lint - -" ] && [ "$dav" = "waiting DA - -" ] && [ "$prev" = "waiting 선행 - -" ] && [ "$exm" = "waiting 면제대기 - -" ] \
+  && ok "R3 실제 spawn 진입점 — dry 0 · 정지 hold 2932 · 정지 acct(r1214 게이트 rc3 → key P/M) · 석 rc7 · 문지기 REJECT = 부하 사유 기록 0(판정 3914) · lint · DA · 선행 · 면제대기(record) · init 이 정지 판정 앞 · 거절 거울 «대기(정지 · since)» 1줄 + 다른 줄 바이트 불변" \
   || bad "R3 po=$(printf '%s' "$po" | grep -E '^(REJECT|ERROR|EXPIRED|BASE)' | head -3) dry=$dry hold=$hold keep=$keep init=$init_first acct=$acct seat=$seat_rc:$seat load=$load lint=$lintv da=$dav prev=$prev exm=$exm :: $o"
 # 성공 분기 — 진짜 spawn 의 함수 본문 + 성공 2줄(seat 기록 · 실제 ft-index-move)을 떼어 돌림(tmux 좌석 열기 대신) → master 이동 커밋 대역 → 커밋된 진행/ 카드에 거울 · 미커밋 줄 보존
 succ() {  # $1 = spawn 파일 · $2 = stem → «원장:커밋 거울 수:미커밋 보존 수:대기 파일»
@@ -89,10 +89,10 @@ succ() {  # $1 = spawn 파일 · $2 = stem → «원장:커밋 거울 수:미커
 }
 mv_then="$(awk '/card_assign_record "\$IDX" seat "\$NAME"/{s=NR} /ft-index-move.sh" "\$IDX" 진행/{m=NR} END{print (s && m > s) ? 1 : 0}' "$BIN/ft-nano-spawn.sh")"
 sv="$(succ "$BIN/ft-nano-spawn.sh" z1)"; [ "$sv" = "seat - - -:1:1:moved:0" ] && [ "$mv_then" = 1 ] && ok "R3′ 성공 — seat 기록(이동 «전») → 실제 ft-index-move → spawn 이 진행 카드 1개 재준비 → 준비된 것만 커밋(대리 add 0) · git show HEAD 진행 카드에 «좌석 <이름>» · 작업본=준비본 · 원장 seat" || bad "R3′ succ=$sv mv_then=$mv_then :: $(tail -3 "$SP/succ-z1.log")"
-# 동시 기록 2건(같은 stem · 석·부하 · 시작 시각 다름) → 원장 1파일 · reason 둘 중 하나 · since = 이른 시작 · 손실 0
+# 동시 기록 2건(같은 stem · 석·선행 · 시작 시각 다름) → 원장 1파일 · reason 둘 중 하나 · since = 이른 시작 · 손실 0
 new_root; card "$R" "$H/대기/cc.md" "$NOW" "- 상태: 대기"
-( cd "$R"; FT_ROOT="$R" FT_CARD_ASSIGN_NOW=$((NOW-10)) python3 "$TOOL" record "$R/$H/대기/cc.md" waiting 석 >/dev/null & FT_ROOT="$R" FT_CARD_ASSIGN_NOW=$((NOW-50)) python3 "$TOOL" record "$R/$H/대기/cc.md" waiting 부하 >/dev/null & wait )
-cc="$(python3 -c 'import json,sys;j=json.load(open(sys.argv[1]));print(j["state"], j["reason"] in ("석","부하"), j["since"]==int(sys.argv[2]))' "$R/.fable-team/state/card-assign/cc.json" "$((NOW-50))")"
+( cd "$R"; FT_ROOT="$R" FT_CARD_ASSIGN_NOW=$((NOW-10)) python3 "$TOOL" record "$R/$H/대기/cc.md" waiting 석 >/dev/null & FT_ROOT="$R" FT_CARD_ASSIGN_NOW=$((NOW-50)) python3 "$TOOL" record "$R/$H/대기/cc.md" waiting 선행 >/dev/null & wait )
+cc="$(python3 -c 'import json,sys;j=json.load(open(sys.argv[1]));print(j["state"], j["reason"] in ("석","선행"), j["since"]==int(sys.argv[2]))' "$R/.fable-team/state/card-assign/cc.json" "$((NOW-50))")"
 [ "$cc" = "waiting True True" ] && [ "$(ls "$R/.fable-team/state/card-assign/" | grep -c '\.json$')" = 1 ] && [ "$(grep -c '^- 배정:' "$R/$H/대기/cc.md")" = 1 ] && ok "R3″ 동시 기록 2건 → 원장 1파일 · reason 둘 중 하나 · since = 이른 시작 · 거울 1줄 · 손실 0" || bad "R3″ $cc"
 lap R3
 
