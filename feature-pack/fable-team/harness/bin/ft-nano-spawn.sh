@@ -207,7 +207,7 @@ _nano_reply_target() {  # rc0 = stdout 보고 대상 1줄 · rc1 = stdout REJECT
   #   «이 팀 좌석인가» 판정은 검사기에 통째로 맡긴다 — spawn 안에 역할 목록·정규식 사본을 두지 않는다(결정 6 = 4번).
   COLUMNS=400 ft_reclaim_capped "$tmp" bash -c '
     T="$1"; L="$2"
-    list="$(tmm ls "$T" 2>/dev/null)" || exit 3
+    list="$(tmm ls --names "$T" 2>/dev/null)" || exit 3   # r975 단계 2: 이름만(상태 칸 0) — 같은 살아 있는 좌석 집합 · tmm ls 9초+ → 0.1초 안쪽(arch#219 실측)
     printf "%s\n" "$list" | tr -s " " "\n" | grep -E "^${T}-" | grep -v "…" | sort -u | while IFS= read -r n; do
       case "$n" in *"#"*) ;; *) continue;; esac
       bash "$L" "$n" >/dev/null 2>&1 && printf "%s\n" "$n"

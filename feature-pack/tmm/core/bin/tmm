@@ -2,6 +2,7 @@
 # tmm — 모바일(Termius/SSH) 전용 tmux 좌석 TUI. 폰 60~80열 기준. fzf 기반 커서 이동·필터·미리보기.
 #   tmm              TUI 피커 (↑↓ 커서 · 타이핑=필터 · Enter=attach · 아래 키 참조)
 #   tmm ls [PAT] [--host H|all]   텍스트 목록 (비대화용) — --host 면 HOST 열이 앞에 붙는다(원격 좌석 포함)
+#   tmm ls --names [PAT]           세션 이름만 한 줄에 하나(상태 칸 0 · 빠름 · 로컬만 — r975)
 #   tmm a NAME [-i]  attach (기본 폰 크기 추종 · -i 면 데스크탑 크기 고정+점 채움)
 #   tmm p [HOST/]NAME [N]   pane 최근 N줄 (기본 30) — mini/좌석 처럼 호스트 접두를 받는다
 #   tmm s NAME MSG   메시지 (에이전트 없는 좌석 차단 + 도달확인)
@@ -1437,15 +1438,24 @@ auto_loop() {
   done
 }
 
-cmd_ls() {  # [PAT] [--host H|all]
-  local pat="" host="" h rc=0
+cmd_ls() {  # [PAT] [--host H|all] [--names]
+  local pat="" host="" h rc=0 names=0 all
   while [ $# -gt 0 ]; do
     case "$1" in
       --host)   host="${2:-}"; shift; [ $# -gt 0 ] && shift ;;
       --host=*) host="${1#--host=}"; shift ;;
+      --names)  names=1; shift ;;
       *)        pat="${pat:+$pat }$1"; shift ;;
     esac
   done
+  # ★r975 단계 2 · --names★ 이름만(상태·활동·모델 칸 0) — 집합 = cmd_rows 가 쓰는 «tmux list-panes -a» 세션 이름 · 거름 = 같은 grep -i
+  #   cmd_rows 는 좌석마다 칸을 만들어 load 60+ 에서 9초+(spawn 7초 상한 초과) · 이름만 필요한 호출은 이 길 · 조회 실패 = rc≠0 + stderr 1줄(조용한 0줄 0)
+  if [ "$names" = 1 ]; then
+    [ -z "$host" ] || { echo "tmm ls --names: --host 와 같이 쓸 수 없다" >&2; return 2; }
+    all="$(tmux list-panes -a -F '#{session_name}' 2>&1)" || { echo "tmm ls --names: tmux 조회 실패: ${all%%$'\n'*}" >&2; return 1; }
+    printf '%s\n' "$all" | awk 'NF && !seen[$0]++' | if [ -n "$pat" ]; then grep -i -- "$pat" || true; else cat; fi
+    return 0
+  fi
   if [ -z "$host" ]; then cmd_rows time | cut -f1 | { [ -n "$pat" ] && grep -i -- "$pat" || cat; }; return; fi
   # ★HOST 열★ — --host 를 준 경우에만 앞에 붙는다(접두 없는 지금 출력은 그대로 — R6)
   # ★실패한 호스트는 «조용한 0줄» 이 아니라 rc≠0 + stderr 1줄★ — 다른 호스트 행은 그대로 낸다(arch 반송 r2 ②)
