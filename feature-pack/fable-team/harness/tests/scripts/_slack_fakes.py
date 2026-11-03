@@ -28,6 +28,7 @@ class FakeSlack:
         self.fail_post = False
         self.fail_read = False
         self.drop_replies: set[str] = set()
+        self.replies_oldest: list[tuple[str, str]] = []
         outer = self
 
         class H(BaseHTTPRequestHandler):
@@ -76,7 +77,8 @@ class FakeSlack:
                     self.close_connection = True
                     return
                 oldest = q.get("oldest", ["0"])[0]
-                got = [m for m in outer.msgs if m.get("channel", "C1") == channel and
+                outer.replies_oldest.append((ts, oldest))  # 어디부터 읽었나 — «그 뒤 답글만» 계약 시험(R242 S2)
+                got =[m for m in outer.msgs if m.get("channel", "C1") == channel and
                        (m["ts"] == ts or m["thread_ts"] == ts) and (m["ts"] == ts or m["ts"] > oldest)]
                 self._reply(outer._page(got, q))
 

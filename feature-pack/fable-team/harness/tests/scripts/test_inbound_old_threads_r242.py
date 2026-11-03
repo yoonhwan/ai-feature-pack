@@ -47,19 +47,17 @@ def _bodies(env: Path) -> str:
     return p.read_text(encoding="utf-8") if p.exists() else ""
 
 
-def _replies_calls(slack: FakeSlack) -> int:
-    return len([r for r in slack.requests if r[1].endswith("conversations.replies")])
-
-
 def test_t1_new_reply_in_thread_whose_root_is_older_than_window_is_delivered_once(env: Path, slack: FakeSlack):
     t = _setup(env, slack, 2 * DAY)
+    before = _state(env)["seen"][t]
     new = _reply(slack, t)
     assert run(env, slack).returncode == 0
     assert f"slack:{new}:" in _bodies(env)  # 루트가 7일 넘어도 «마지막 답 2일 전» 스레드의 새 답은 간다
-    assert _state(env)["seen"][t] == new  # 다음 패스는 그 뒤 답만 읽는다
+    assert _state(env)["seen"][t] == new
     (env / "comm" / "mailbox.jsonl").unlink()  # 좌석이 읽음
     assert run(env, slack).returncode == 0
     assert _bodies(env) == ""  # 다음 패스 0
+    assert [o for ts, o in slack.replies_oldest if ts == t and o != "0"] == [before, new]  # S2 — 패스마다 «마지막 답 뒤» 만 읽는다(o="0" = 전달 경로의 루트 조회)
 
 
 def test_t2_thread_whose_last_reply_is_older_than_keep_is_skipped_and_said_so(env: Path, slack: FakeSlack):
@@ -81,8 +79,7 @@ def test_t4_only_the_twenty_most_recent_old_threads_are_read_and_the_rest_are_co
     r = run(env, slack)
     assert r.returncode == 0
     ledger = _state(env)["ledger"]
-    assert [n in ledger for n in news] == [True] * 20 + [False] * 5  # 최근 답 순 20개만
-    assert _replies_calls(slack) == 20
+    assert [n in ledger for n in news] == [True] * 20 + [False] * 5  # 최근 답 순 20개만(전달 경로의 루트 조회도 replies 라 호출 수로는 안 센다)
     assert "스레드 미확인 5" in r.stdout
 
 
