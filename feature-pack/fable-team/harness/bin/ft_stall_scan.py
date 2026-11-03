@@ -22,7 +22,7 @@ import ft_card_assign_pause as pause
 import ft_headline_seats as headline_seats
 import ft_penalty
 import ft_stall_headline as headline
-from ft_stall_detect import IDLE_MIN, agent_sessions, ctx_pct, lead_alert, lead_heartbeat_min, lead_names, load_teams, off_roster_live, pending_mail, policy_stop, run, spawn_capacity, waiting_cards, RefUnavailable
+from ft_stall_detect import IDLE_MIN, agent_sessions, card_gate, ctx_pct, lead_alert, lead_heartbeat_min, lead_names, load_teams, off_roster_live, pending_mail, policy_stop, run, spawn_capacity, waiting_cards, RefUnavailable
 from ft_stall_seats import Seats
 import ft_stall_state as stm
 
@@ -50,6 +50,9 @@ class Scan:
         self.loggedout: list[tuple[str, str | None, float | None]] = []  # r849 (좌석, 팀 _master, 첫 실패 epoch)
         self.recovered: set[str] = set()  # r849 — 이번 scan 에 정상 턴(IDLE·WORKING)으로 읽힌 좌석(로그아웃 칸 지움)
         self.st = stm.load(self.state_dir)
+        self.nudged = stm.nudged_load(self.st)  # r1238 A-r4b-1 — 카드 stem → 마지막 a 재촉 epoch(저장본에서 복원)
+        self.flow = os.environ.get("FT_CARD_FLOW_SH") or str(HERE / "ft-card-flow.sh")
+        self.errs: list[str] = []  # r1238 A-r4b-2 — 처리 단계 로그 꼬리(발신 실패 등)
         self.seats = Seats(self.status, self.now, self.st.setdefault("seats", {}))
         self.flags = self.seats.info  # r1001 — 얇은 위임 하나로 줄인다(동작 동일)
 
@@ -116,14 +119,14 @@ class Scan:
                 names, u = [], 0
                 if age is not None and age >= IDLE_MIN:
                     try:
-                        names, u = waiting_cards(t["cards"], self.lint, self.root)
+                        names, u = waiting_cards(t["cards"], self.lint, self.root, self.now, self.nudged, notes)
                     except RefUnavailable as e:  # r1330 A4 — 기준 ref 트리를 못 읽음: 그 팀 a 0 + 판정 불가 1줄(조용한 0 아님)
                         unknown += 1
                         notes.append(f"a? {t['team']} 대기 카드 판정 불가 — {e}")
                 if names and not self.flags(m)["rest"] and (self.idle_age(m, fresh=True) or 0) >= IDLE_MIN:
                     n = len(names)
                     listed = f"대기 카드 {n}장({', '.join(names[:5])}{f' +{n - 5}' if n > 5 else ''}) · 선행 미판정 {u}장 제외"
-                    out.append(dict(kind="a", seat=m, team=t["team"], age=self.idle_age(m), why=f"{listed} · master IDLE", listed=listed))
+                    out.append(dict(kind="a", seat=m, team=t["team"], age=self.idle_age(m), why=f"{listed} · master IDLE", listed=listed, cards=list(names)))
             for s in sorted(t["seats"], key=lambda x: (x not in leads, x)):  # 현역 팀장 먼저(팀당 1통은 _master 것)
                 stm.progress(len(self.live))  # r1282 — 좌석마다 판정 기한 검사
                 if s not in self.live:
@@ -288,7 +291,12 @@ class Scan:
     def act(self, f: dict) -> str | None:
         k, seat = f["kind"], f["seat"]
         if k == "a":
-            self.send(seat, f"[stall a] {f['listed']} · master IDLE {f['age']:.0f}분 — 빈 석 확인하고 지금 spawn (ft-stall-scan)")
+            rc = self.send(seat, f"[stall a] {f['listed']} · master IDLE {f['age']:.0f}분 — 빈 석 확인하고 지금 spawn (ft-stall-scan)")
+            if rc != 0:  # r1238 A-r4b-2 — 발신 성공만 처리·재촉으로 기록(실패 = 다음 스캔 다시 후보)
+                self.errs.append(f"a 발신 실패 rc={rc} to={seat} team={f['team']}")
+                return None
+            for n in f.get("cards", []):
+                self.nudged[n] = self.now
         elif k == "d":
             if not self.wake(seat, f["seq"]):
                 return None
@@ -318,10 +326,29 @@ class Scan:
             _ = fh.write(f["team"] + "\n")
         return f"act=c to={planner}"
 
+    def gate_a(self, found: list[dict], unknown: int) -> tuple[list[dict], int]:
+        """r1238 A-r4-2 — 처리 단계 첫 일: a 후보 팀마다 card-flow --gate 1회(호출 7초 · 판정 기한 밖). rc 0 = a 유지 · rc 4 = a 뺌 + «a 보류» · 그 밖·시간 초과 = a 뺌 + «a? … 실패(rc N)».
+        keys·counts·trig 계산 «전» 에 걸러, 걸러진 a 는 penalty 재료·handled 가 아니다(A-r4-4). 다른 갈래(b·c·d·e·f·h)는 그대로."""
+        kept: list[dict] = []
+        for f in found:
+            if f["kind"] != "a":
+                kept.append(f)
+                continue
+            rc = card_gate(self.root, f["team"], self.flow)
+            if rc == 0:
+                kept.append(f)
+            elif rc == 4:
+                self.notes.append(f"a 보류 {f['team']} — 카드 상한(card-flow rc 4)")
+            else:
+                unknown += 1
+                self.notes.append(f"a? {f['team']} 카드 상한 확인 실패(rc {rc}) — a 0")
+        return kept, unknown
+
     def run(self, dry: bool) -> int:
         pen = ft_penalty.load()
         found, unknown = self.find(pen)
         stm.judge_done()  # r1282 — 판정 끝 기한 검사(넘으면 처리 0 · 저장 0) · 이후는 처리 단계(호출별 timeout 만)
+        found, unknown = self.gate_a(found, unknown)  # r1238 A — 처리 단계 첫 일(keys·counts·trig 전)
         handled, prev = self.st.get("handled", {}), set(self.st.get("prev", []))
         keys = {f"{f['kind']}:{f['seat']}": f for f in found if f["kind"] != "h"}
         counts = {k: sum(1 for f in found if f["kind"] == k) for k in "abcdefh"}
@@ -355,6 +382,7 @@ class Scan:
             if res:
                 handled[key] = self.now
                 log.append(f"{stamp} {res} key={f['kind']}:{f['seat']} {f['why']}")
+        log += [f"{stamp} {e}" for e in self.errs]
         if trig and pen is None and os.environ.get("FT_STALL_PENALTY_AUTO", "1") != "0":
             _ = ft_penalty.turn_on("같은 멈춤을 처리 뒤에도 또 감지: " + ",".join(trig))
             log.append(f"{stamp} penalty-on keys={','.join(trig)}")
@@ -366,7 +394,7 @@ class Scan:
             st_m, end_m = self.turn(t["master"]) if t["master"] in self.live else ("UNKNOWN", None)
             per_team[t["team"]] = {k: sum(1 for f in found if f["team"] == t["team"] and f["kind"] == k) for k in "abdf"}
             per_team[t["team"]]["master_end"] = end_m if st_m == "IDLE" else None
-        stm.save(self.state_dir, handled, sorted(keys), self.st["seats"])
+        stm.save(self.state_dir, handled, sorted(keys), self.st["seats"], self.nudged, self.now)
         _ = (self.state_dir / "stall-scan.last.json").write_text(json.dumps({"ts": self.now, "c": counts["c"], "teams": per_team}), encoding="utf-8")
         with open(self.state_dir / "stall-scan.log", "a", encoding="utf-8") as fh:
             _ = fh.write("".join(x + "\n" for x in log) + lines[0] + "\n")
