@@ -61,8 +61,9 @@ parse_card() { # 카드 필드 → 전역 · 못 채우면 DRAFT-ONLY(rc4)
   CANON="$(card_lines | grep -E '^- (정본 영향 없음|정본):' | tail -1 | sed 's/^- //')"
   [[ "$CANON" =~ ^(정본 영향 없음|정본):[[:space:]]*[^[:space:]] ]] || donly "정본 줄 없음(기본 문구로 메우지 않음)"
   CAUSE="$(pick '원인 1줄')"; [ -n "$CAUSE" ] || donly "원인 1줄 없음"
-  mv="$(card_lines | grep -oE '진행→완성 · DA [^[:space:]]+#§[0-9]+' | tail -1)"; [ -n "$mv" ] || donly "완성 이동(진행→완성 · DA …#§N) 줄 없음"
-  VRAW="$(sed -E 's/^진행→완성 · DA //; s/#§[0-9]+$//' <<<"$mv")"; VPATH="$(vresolve "$VRAW")"; SEC="${mv##*#§}"
+  mv="$(card_lines | grep -E '진행→완성 · .*DA [^[:space:]]+#§[0-9]+' | tail -1 | grep -oE 'DA [^[:space:]]+#§[0-9]+' | tail -1)"   # 좌석 낱말이 사이에 있어도 줄 안 마지막 «DA 경로#§N»
+  [ -n "$mv" ] || donly "완성 이동(진행→완성 · … DA …#§N) 줄 없음"
+  VRAW="$(sed -E 's/^DA //; s/#§[0-9]+$//' <<<"$mv")"; VPATH="$(vresolve "$VRAW")"; SEC="${mv##*#§}"
   line1="$(head -1 "$CARD")"; [[ "$line1" != *남김* && "$line1" != *보관* ]] || donly "머리에 남김 또는 보관 줄 — 사람 확인"
   HEADTXT="$(clip "$(sed -E 's/^.*끝:[[:space:]]*//; s/^# 인덱스:[[:space:]]*//' <<<"$line1")" 120)"
 }
@@ -71,15 +72,17 @@ guard_out() { # --out 이 카드·판정문 실경로와 같으면 rc2 · 기본
   local o="$(realp "$OUT")"
   [ "$o" != "$(realp "$CARD")" ] && [ "$o" != "$(realp "$VPATH")" ] || die 2 "출력 = 입력 파일($OUT) — 카드·판정문은 덮어쓰지 않는다"
 }
-verdict_check() { # 판정문 «## §N — CLOSE rNNNN» 정확히 1개 · 둘째 줄 sha == 카드 착지 → PRN
-  local h="## §${SEC} — CLOSE ${CARDNO}" cnt l2 rx='main\(팩\) `([0-9a-fA-F]{40})` / PR ([0-9]+)'
+verdict_check() { # 판정문 «## §N — CLOSE rNNNN» 또는 옛 «## §N — rNNNN CLOSE» 합쳐 정확히 1개 · 둘째 줄 sha == 카드 착지 → PRN
+  local ha="## §${SEC} — CLOSE ${CARDNO}" hb="## §${SEC} — ${CARDNO} CLOSE" cnt hd l2 prs rx='main\(팩\) `?([0-9a-fA-F]{40})`?([^0-9a-fA-F]|$)'
   [ -f "$VPATH" ] || die 1 "판정문 §$SEC 결정 불가 — 파일 없음: $VPATH"
-  cnt="$(awk -v h="$h" 'index($0,h)==1 { r=substr($0,length(h)+1); if (r=="" || r ~ /^[ \t]/) c++ } END{print c+0}' "$VPATH")"
-  [ "$cnt" = 1 ] || die 1 "판정문 §$SEC 결정 불가 — «${h}» 절 ${cnt}개(정확히 1개여야 함)"
-  l2="$(awk -v h="$h" 'f{print; exit} index($0,h)==1{ r=substr($0,length(h)+1); if (r=="" || r ~ /^[ \t]/) f=1 }' "$VPATH")"
-  [[ "$l2" =~ $rx ]] || die 1 "판정문 §$SEC 결정 불가 — 둘째 줄이 «main(팩) \`<40hex>\` / PR <번호>» 꼴 아님"
+  IFS=$'\t' read -r cnt hd l2 < <(awk -v a="$ha" -v b="$hb" 'function ok(h) { return index($0,h)==1 && (length($0)==length(h) || substr($0,length(h)+1) ~ /^[ \t]/) }
+    f { n2=$0; f=0 }  ok(a) || ok(b) { c++; hd=$0; f=1 }  END { printf "%d\t%s\t%s\n", c, hd, n2 }' "$VPATH")
+  [ "${cnt:-0}" = 1 ] || die 1 "판정문 §$SEC 결정 불가 — «${ha}» 또는 «${hb}» 절 ${cnt:-0}개(정확히 1개여야 함)"
+  [[ "$l2" =~ $rx ]] || die 1 "판정문 §$SEC 결정 불가 — 둘째 줄에 «main(팩) <40hex>» 없음"
   [ "$(tr 'A-F' 'a-f' <<<"${BASH_REMATCH[1]}")" = "$LAND" ] || die 1 "착지 sha 불일치 — 카드 ${LAND:0:10} ≠ 판정문 §$SEC ${BASH_REMATCH[1]:0:10}"
-  PRN="${BASH_REMATCH[2]}"
+  prs="$({ grep -oE '팩 PR [0-9]+' <<<"$hd"; grep -oE '/ PR [0-9]+' <<<"$l2"; } | grep -oE '[0-9]+$' | sort -u)"
+  [ -n "$prs" ] && [ "$(wc -l <<<"$prs")" -eq 1 ] || die 1 "판정문 §$SEC 결정 불가 — PR 번호가 0개 또는 서로 다른 값 여럿(머리 «팩 PR N» · 둘째 줄 «/ PR N» 이 같은 값 하나여야 함)"
+  PRN="$prs"
 }
 prior_verdict() { # 기존 Issue 코멘트의 마지막 «원인 확정»(N·빈칸) · «같은 증상 보류»(0 아님) → DRAFT-ONLY
   local ij cz hz
