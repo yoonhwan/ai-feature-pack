@@ -741,11 +741,11 @@ done_run() { # <경로> --done: 등록된 «내» 사본만 지운다(r897 r10: 
     *) die "제거 실패($GWHY): $P" 4;;
   esac
 }
-finline() { # <swept> <owner-dead> <refused-dirty> <refused-keep> <refused-other> <kept> — r1090 끝 줄 하나(로그·stdout 같은 눈금 · held/held-lsof 는 전역 HELD·HLSOF)
-  printf 'swept=%s owner-dead=%s tmp=%s held=%s refused-dirty=%s refused-keep=%s held-lsof=%s refused-other=%s kept=%s\n' "$1" "$2" "$(( $1 - $2 ))" "${HELD:-0}" "$3" "$4" "${HLSOF:-0}" "$5" "$6"
+finline() { # <swept> <owner-dead> <refused-dirty> <refused-keep> <refused-other> <kept> <unknown> — r1090 끝 줄 하나(r1090 단계 2: unknown = 항목 재확인을 못 읽어 «판정 불가» 로 남긴 수)(로그·stdout 같은 눈금 · held/held-lsof 는 전역 HELD·HLSOF)
+  printf 'swept=%s owner-dead=%s tmp=%s held=%s refused-dirty=%s refused-keep=%s held-lsof=%s refused-other=%s kept=%s unknown=%s\n' "$1" "$2" "$(( $1 - $2 ))" "${HELD:-0}" "$3" "$4" "${HLSOF:-0}" "$5" "$6" "${7:-0}"
 }
 sweep_run() { # --sweep: 주인 없는 사본 정리(판정 1920 · r548 · r444 · r897 r10) — 하나라도 못 읽으면 삭제 0
-  local k p ty why own rc now today g l DEL=0 DK=0 DREG=0 RSTART RSTOP=0 RD=0 RK=0 RO=0 KEPT=0
+  local k p ty why own rc now today g l DEL=0 DK=0 DREG=0 RSTART RSTOP=0 RD=0 RK=0 RO=0 KEPT=0 UNK=0 URUN=0
   cap today date +%F   # 표시 전용(로그 날짜)
   # r1090 DA②(arch#176 결정 4): 회차 70초 시계는 «후보 판정(orphans) 전» 에 시작한다 — 판정이 쓴 시간도 그 회차에 든다(하드 룰 12)
   cap RSTART date +%s && isnum "$RSTART" || { printf '%s ERROR 시계 못 읽음 — 삭제 0\n' "$today" >> "$SLOG"; echo "ERROR 시계(date) 못 읽음 — 임시 사본 정리 생략·삭제 0"; return 0; }
@@ -762,7 +762,7 @@ sweep_run() { # --sweep: 주인 없는 사본 정리(판정 1920 · r548 · r444
     echo "ERROR tmux unreadable — 임시 사본 정리 생략·삭제 0 (tmux=${TMUX_BIN:-없음} · FT_TMUX_BIN/FT_TMUX_SOCKET 확인)"; return 0; fi
   [ $(( HELD + HLSOF )) = 0 ] || held_report "$today"   # r548: 붙잡은 사본은 지우지 않고 알린다(삭제 후보 0 이어도 알린다)
   if [ "$N" = 0 ]; then   # r1090 DA②: 후보 0 이어도 «끝 줄» 1줄은 낸다(몇 개가 왜 남았나가 한 눈금으로 보이게)
-    cap l finline 0 0 0 0 0 0
+    cap l finline 0 0 0 0 0 0 0
     printf '%s %s\n' "$today" "$l" >> "$SLOG"
     printf '%s\n' "$l"
     return 0
@@ -791,6 +791,7 @@ sweep_run() { # --sweep: 주인 없는 사본 정리(판정 1920 · r548 · r444
     fi
     delete_copy "$p" "$ty" "${own:--}" sweep; rc=$?
     hs_release
+    [ "$rc" = 2 ] || URUN=0   # r1090 단계 2: «연속» rc2 만 센다(다른 결과가 끼면 0 부터)
     case "$rc" in
       0) DEL=$((DEL+1)); case "$k" in ''|*[!0-9]*) ;; *) DK=$((DK+k));; esac; [ "$ty" != reg ] || DREG=$((DREG+1)); [ "$KEPT_THIS" = 0 ] || KEPT=$((KEPT+1)); printf '%s 삭제 %s (%s)\n' "$today" "$p" "$why" >> "$SLOG";;
       1) HELD=$((HELD+1)); printf '%s 붙잡음 %s (%s · 주인 %s)\n' "$today" "$p" "$GWHY" "${own:--}" >> "$SLOG"
@@ -803,13 +804,20 @@ sweep_run() { # --sweep: 주인 없는 사본 정리(판정 1920 · r548 · r444
          echo "WARN ft-scratch-repo — gate refused $p ($GWHY) · 이 항목만 건너뜀" >&2;;
       4) printf '%s ERROR 삭제 실패 %s (%s)\n' "$today" "$p" "$GWHY" >> "$SLOG"
          echo "ERROR 삭제 실패: $p ($GWHY) — 다음 정리에서 재시도" >&2;;
+      2) UNK=$((UNK+1)); URUN=$((URUN+1))   # r1090 단계 2: 이 항목 하나의 재확인 실패(예: 그 사본 git 깨짐)는 «이 항목만 판정 불가 · 삭제 0» — 다음 항목은 자기 재확인을 따로 통과해야 지운다
+         printf '%s 판정 불가 %s (%s)\n' "$today" "$p" "$GWHY" >> "$SLOG"
+         echo "WARN ft-scratch-repo — 판정 불가 $p · 재확인 못 읽음(rc=$rc · $GWHY) · 이 항목만 건너뜀 · 삭제 0" >&2
+         if [ "$URUN" -ge 3 ]; then RSTOP=1   # 연속 3개 = git·lsof 자체가 죽은 꼴 → 지금처럼 남은 항목 전부 삭제 0
+           printf '%s ERROR 재확인 못 읽음 연속 %s — 남은 항목 삭제 0 (%s)\n' "$today" "$URUN" "$GWHY" >> "$SLOG"
+           echo "WARN ft-scratch-repo — 재확인 못 읽음 연속 ${URUN}개 · 남은 항목 전부 삭제 0" >&2
+         fi;;
       *) RSTOP=1; printf '%s ERROR 재확인 못 읽음 — 남은 항목 삭제 0 (%s)\n' "$today" "$GWHY" >> "$SLOG"
          echo "WARN ft-scratch-repo — 재확인 못 읽음(rc=$rc · $GWHY) · 남은 항목 전부 삭제 0" >&2;;
     esac
   done <<EOF
 $ORPH
 EOF
-  cap l finline "$DEL" "$DREG" "$RD" "$RK" "$RO" "$KEPT"
+  cap l finline "$DEL" "$DREG" "$RD" "$RK" "$RO" "$KEPT" "$UNK"
   printf '%s %s\n' "$today" "$l" >> "$SLOG"
   printf '%s\n' "$l"   # r1090: 로그와 같은 1줄을 stdout 에도(호출자·planner 쪽지가 같은 눈금을 본다)
   cap g gib "$DK"   # 표시 전용
