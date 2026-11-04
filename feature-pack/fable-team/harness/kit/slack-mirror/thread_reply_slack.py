@@ -15,7 +15,7 @@ from pathlib import Path
 from magazine_slack import Target
 from mirror_lib import MirrorError, esc
 from mirror_marker import thread_texts
-from post_guard import guarded_post as post
+from post_guard import guarded_post as post, path_allow
 from thread_room_shape import ROOM_HINT, refuse_room_post, room_shaped, topic_only  # noqa: F401 — 판정 정본은 한 파일(r617)
 
 STATE_ENV = "FT_SLACK_STATE_DIR"  # 수신 원장·답 기록이 사는 폴더(기본 ~/.hermes/state)
@@ -191,7 +191,7 @@ def reply_to_slack(a: argparse.Namespace, t: Target, text: str) -> int:
     left = getattr(a, "left", None)
     text = check_body(text, root_text(t.base, t.token, channel, root), getattr(a, "asked", None),
                       getattr(a, "answered", None), esc(left) if left else None)
-    ts = post(t.base, t.token, channel, text, root, human=True)
+    ts = post(t.base, t.token, channel, text, root, human=True, allow=path_allow(e.get("text")))  # 오빠가 경로를 달라 한 글에만 경로 두 칸 면제(r1275 단계 5)
     mark_answered(a.to_slack, ts)
     print(f"reply ts={ts} to_slack={a.to_slack} thread={root}")
     return 0
