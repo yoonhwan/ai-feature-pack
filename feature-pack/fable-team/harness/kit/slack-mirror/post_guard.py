@@ -85,11 +85,22 @@ def _hits(text: str, group: dict[str, str]) -> list[str]:
     return [name for name, pat in group.items() if re.search(pat, text)]
 
 
-def check(text: str, channel: str, *, human: bool = False) -> None:
-    """걸리면 PostGuardError. human=True 이거나 channel 이 사람 채널이면 2묶음도 건다."""
+PATH_ALLOW = frozenset({"abs-path", "worktree-path"})  # 면제할 수 있는 2묶음 칸은 이 둘뿐 — 비밀(묶음1)·나머지 2묶음 면제 길 0 (r1275 단계 5)
+PATH_ASK = re.compile(r"풀\s*패스|절대\s*경로|폴더\s*주소|파일\s*경로|경로\s*(알려|줘|좀|보내)|full\s*path", re.I)
+
+
+def path_allow(asked_text: object) -> frozenset[str]:
+    """오빠 글 원문에 경로 요청 낱말이 있을 때만 경로 두 칸 면제 · 원문 없음·비었음·문자열 아님 = 면제 0(조용한 통과 0)."""
+    return PATH_ALLOW if isinstance(asked_text, str) and PATH_ASK.search(asked_text) else frozenset()
+
+
+def check(text: str, channel: str, *, human: bool = False, allow: frozenset[str] = frozenset()) -> None:
+    """걸리면 PostGuardError. human=True 이거나 channel 이 사람 채널이면 2묶음도 건다. allow ⊄ PATH_ALLOW 면 ValueError."""
+    if not set(allow) <= PATH_ALLOW:
+        raise ValueError(f"post_guard allow 는 {sorted(PATH_ALLOW)} 의 부분집합만: {sorted(set(allow) - PATH_ALLOW)}")
     found = [f"묶음1:{n}" for n in _hits(text, SECRETS)]
     if human or channel in human_channels():
-        found += [f"묶음2:{n}" for n in _hits(text, INTERNAL)]
+        found += [f"묶음2:{n}" for n in _hits(text, {k: v for k, v in INTERNAL.items() if k not in allow})]
     if found:
         raise PostGuardError(f"게시 거부(post_guard) — {', '.join(found)} · 게시 0")
 
@@ -150,7 +161,8 @@ def desk_channel() -> str:
     raise PostGuardError("desk 채널 판정 불가 — BYZ_DESK_CHANNEL·planner 명부 값 없음")
 
 
-def desk_copy(base: str, token: str, channel: str, ts: str, text: str, head: str | None = None) -> None:
+def desk_copy(base: str, token: str, channel: str, ts: str, text: str, head: str | None = None,
+              allow: frozenset[str] = frozenset()) -> None:
     if lib.desk_head(head if head is not None else text) is None:
         return
     destination = desk_channel()
@@ -160,18 +172,18 @@ def desk_copy(base: str, token: str, channel: str, ts: str, text: str, head: str
 
     mention = os.environ.get(DESK_MENTION_ENV, "").strip() or lib.DESK_MENTION
     copy = desk_text(text, mention) + f"\n(desk-copy {channel} {ts})"
-    check(copy, destination, human=True)
+    check(copy, destination, human=True, allow=allow)
     post(base, token, destination, copy)
 
 
 def guarded_post(base: str, token: str, channel: str, text: str, thread_ts: str | None = None, *,
-                 human: bool = False, head: str | None = None) -> str:
-    """사람 채널이면 카운팅 머리줄을 붙인 «뒤» 검사한다(머리줄도 내부어 검사를 지난다 · R7)."""
+                 human: bool = False, head: str | None = None, allow: frozenset[str] = frozenset()) -> str:
+    """사람 채널이면 카운팅 머리줄을 붙인 «뒤» 검사한다(머리줄도 내부어 검사를 지난다 · R7). allow = 경로 두 칸 면제(기본 빈 집합 = 지금과 같음)."""
     is_human = human or channel in human_channels()  # 명부는 한 번만 읽는다
     if is_human:
         text = with_status_head(text)
-    check(text, channel, human=is_human)
+    check(text, channel, human=is_human, allow=allow)
     approval_gate(text)
     ts = post(base, token, channel, text, thread_ts)
-    desk_copy(base, token, channel, ts, text, head)
+    desk_copy(base, token, channel, ts, text, head, allow)
     return ts
