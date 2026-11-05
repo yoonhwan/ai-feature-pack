@@ -10,14 +10,17 @@
 # 출력 = <out-dir>/da-<YYYYmmdd-HHMMSS>-<pid>.out (실행마다 새 이름 · 덮어쓰기 0) · 끝줄 `OUT <경로> rc=<n>` · rc = codex rc.
 # r947: 출력 옆 `<out>.meta` 1줄 `head=<40hex|none> model=<M> effort=<E> rc=<n> start=<epoch> end=<epoch>` — head = codex «전» git -C <cwd> rev-parse HEAD(실패 = none · 상시 승인이 거절)
 # r1105: codex rc0 이어도 ① `hook: <이름> Blocked` 줄이 있거나 ② 마지막 «codex» 블록 뒤에 `판정:` 줄이 없으면 rc=3 «판정 불가» — codex 는 훅이 프롬프트를 막아도 rc0 으로 끝나 «DA 를 돌렸다» 와 «판정이 나왔다» 가 섞였다.
+# r1383: DA 는 저장소를 바꾸지 않는다 — codex 를 `-s read-only`(기본)로 부른다(전역 config 의 danger-full-access·승인 never 를 이긴다) ·
+#   시험을 돌려야 하는 DA 만 `--sandbox workspace-write` 를 명시 · danger-full-access 등 그 밖 값 = usage rc2 · codex 호출 0 ·
+#   실행 뒤 cwd 의 HEAD·작업 트리(git status --porcelain)가 실행 전과 다르면 «판정 불가 — DA 가 저장소를 바꿈(…)» + rc3 · 되돌리기 0 · cwd 가 git 밖이면 사후 확인 생략 + INFO.
 set -uo pipefail
 
 PREAMBLE='[DA 머리말] 파일은 sed -n 으로 400줄 이하씩 나눠 읽는다 · 본문을 못 봤으면 HOLD 대신 «검증 불가 — <파일:줄>» 로 적는다.
 [DA 전수] 1회차에 질문지의 결과 계약·기준 «전체» 를 훑어 반례를 한 묶음으로 낸다 · 한 건을 찾았다고 멈추지 않는다 · 이미 처리된 지난 반례는 다시 내지 않는다 · 기준 밖 지적은 범위 밖 메모로만 적는다.'
 BYPASS='model_providers.headroom.http_headers={"x-headroom-bypass"="true"}'
-usage() { echo "usage: ft-da-codex.sh --cwd <폴더> --prompt-file <파일> --out-dir <폴더> [--model M] [--effort E]" >&2; exit 2; }
+usage() { echo "usage: ft-da-codex.sh --cwd <폴더> --prompt-file <파일> --out-dir <폴더> [--model M] [--effort E] [--sandbox read-only|workspace-write]" >&2; exit 2; }
 
-cwd="" prompt_file="" out_dir="" model="gpt-6.1-sol" effort="low"   # r1066: 기본 low — 어려운 판정에서만 부르는 쪽이 --effort high 를 적는다
+cwd="" prompt_file="" out_dir="" model="gpt-6.1-sol" effort="low" sandbox="read-only"   # r1066: 기본 low — 어려운 판정에서만 부르는 쪽이 --effort high 를 적는다 · r1383: 기본 read-only
 while [ $# -gt 0 ]; do
   [ $# -ge 2 ] || usage
   case "$1" in
@@ -26,11 +29,13 @@ while [ $# -gt 0 ]; do
     --out-dir) out_dir="$2" ;;
     --model) model="$2" ;;
     --effort) effort="$2" ;;
+    --sandbox) sandbox="$2" ;;
     *) usage ;;
   esac
   shift 2
 done
 [ -n "$cwd" ] && [ -n "$out_dir" ] && [ -n "$prompt_file" ] || usage
+case "$sandbox" in read-only|workspace-write) ;; *) echo "ERROR --sandbox 는 read-only|workspace-write 만 허용: $sandbox" >&2; usage ;; esac
 [ -d "$cwd" ] || { echo "ERROR cwd 폴더 없음: $cwd" >&2; exit 2; }
 [ -s "$prompt_file" ] || { echo "ERROR prompt 파일 없음 또는 빈 파일: $prompt_file" >&2; exit 2; }
 mkdir -p "$out_dir" || { echo "ERROR out-dir 만들기 실패: $out_dir" >&2; exit 2; }
@@ -55,7 +60,23 @@ head="$(git -C "$cwd" rev-parse --verify -q HEAD 2>/dev/null)"; [[ "$head" =~ ^[
 start="$(date +%s)"
 prompt="$PREAMBLE
 $(cat "$prompt_file")"
-codex exec --skip-git-repo-check -C "$cwd" \
+# r1383: 사후 확인 기준 — 출력 파일을 먼저 만들어 둬서 out-dir 가 cwd 안이어도 «새 파일» 로 세지 않는다
+: > "$out"
+is_git=0; git -C "$cwd" rev-parse --is-inside-work-tree >/dev/null 2>&1 && is_git=1
+status_before=""
+if [ "$is_git" = 1 ]; then status_before="$(git -C "$cwd" status --porcelain 2>/dev/null)"; else echo "INFO cwd 가 git 밖($cwd) → 저장소 변화 사후 확인 생략" >&2; fi
+repo_changed() {   # 사후 확인 — 바뀐 것을 «HEAD a→b · 작업 트리 n줄» 로 찍고 rc0 · 같으면 rc1
+  local h_after s_after n what=""
+  h_after="$(git -C "$cwd" rev-parse --verify -q HEAD 2>/dev/null)"; [[ "$h_after" =~ ^[0-9a-f]{40}$ ]] || h_after=none
+  s_after="$(git -C "$cwd" status --porcelain 2>/dev/null)"
+  [ "$h_after" != "$head" ] && what="HEAD ${head:0:10}→${h_after:0:10}"
+  if [ "$s_after" != "$status_before" ]; then
+    n="$(diff <(printf '%s\n' "$status_before") <(printf '%s\n' "$s_after") | grep -c '^[<>] .')"   # 빈 줄(앞이 깨끗함)은 세지 않는다
+    what="${what:+$what · }작업 트리 ${n}줄"
+  fi
+  [ -n "$what" ] && printf '%s' "$what"
+}
+codex exec --skip-git-repo-check -s "$sandbox" -C "$cwd" \
   -c "model=\"$model\"" -c "model_reasoning_effort=\"$effort\"" ${bypass[@]+"${bypass[@]}"} \
   "$prompt" < /dev/null > "$out" 2>&1
 rc=$?
@@ -70,6 +91,7 @@ if [ "$rc" = 0 ]; then
   fi
   [ -n "$why" ] && rc=3
 fi
+if [ "$is_git" = 1 ] && changed="$(repo_changed)"; then why="DA 가 저장소를 바꿈($changed)"; rc=3; fi   # r1383: 저장소 변화가 다른 사유보다 앞선다
 printf 'head=%s model=%s effort=%s rc=%s start=%s end=%s\n' "$head" "${model//[[:space:]]/_}" "${effort//[[:space:]]/_}" "$rc" "$start" "$(date +%s)" > "$out.meta" || echo "WARN .meta 쓰기 실패: $out.meta" >&2
 [ -n "$why" ] && echo "판정 불가 — $why · OUT $out rc=$rc" >&2
 echo "OUT $out rc=$rc"

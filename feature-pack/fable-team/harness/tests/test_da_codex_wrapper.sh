@@ -64,6 +64,9 @@ has_arg "$T/cwd" && ok "ⓐ -C <cwd>" || bad "ⓐ cwd 인자 없음"
 grep -qx 'STDIN_BYTES=0' "$T/args.log" && ok "ⓐ stdin = /dev/null(0 바이트)" || bad "ⓐ stdin 이 비어 있지 않음: $(grep STDIN "$T/args.log")"
 [ "$(head -1 "$T/args.log")" = exec ] \
   && ok "ⓐ 첫 인자 exec" || bad "ⓐ 첫 인자가 exec 아님"
+# r1383: 기본 sandbox = read-only — codex 인자에 `-s` 바로 다음 `read-only`
+[ "$(grep -x -A1 -- '-s' "$T/args.log" | tail -1)" = read-only ] \
+  && ok "ⓐ r1383 -s read-only" || bad "ⓐ r1383 -s read-only 없음"
 
 # ⓑ 출력 = d/da-<시각>-<pid>.out 새 파일 · 끝줄 OUT <경로> rc=<n> · 두 번 = 다른 이름 · 헤더 두 줄 보존
 out1="$(tail -1 "$T/stdout" | sed -n 's/^OUT \(.*\) rc=0$/\1/p')"
