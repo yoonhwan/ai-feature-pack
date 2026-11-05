@@ -18,7 +18,11 @@
 #   provider 판별 = provider-of-model.tsv(모델 정규식 → provider) → agent 기본표(claude→claude · codex→codex · pi→deepseek · cmd→deepseek) → 둘 다 없으면 «판정 불가».
 #   ★배치(하드 룰 12)★: 한 status 호출의 좌석 처리 = FT_ACCT_BATCH_SEC(기본 7초) 안 · 외부 호출(send·ring) timeout = «남은 배치 시간»(최대 30초) — 느린 mbox 하나가 바퀴를 잡아먹지 않는다.
 #        좌석 수 상한 = FT_ACCT_BATCH_SEATS(기본 20) — 넘는 좌석은 다음 호출(틱 다음 바퀴)이 이어받는다.
-#   env(시험): FT_ACCT_ROOT FT_ACCT_NOW FT_ACCT_MBOX FT_ACCT_RULES FT_ACCT_TMUX FT_ACCT_LOCK_WAIT FT_ACCT_BATCH_SEC FT_ACCT_BATCH_SEATS FT_ACCT_AGENT_PROVIDER FT_ACCT_BUSY_MAX_SEC
+#   ★받는 좌석 풀 = 머신의 현역 루트 전부(r1421)★: 좌석 명부 = 자기 루트 + roots.tsv(FT_ROOTS_TSV 또는 ~/.claude/fable-team/roots.tsv) «현역» 행 각각의 .fable-team/seats*.json 합집합.
+#        이름 중복 = 자기 루트 우선(첫 루트) · 휴면 행 제외 · roots.tsv 없음 = 자기 루트만(지금 동작 그대로).
+#        깨짐 = 자기 루트 좌석에는 그대로 보내고 `WARN 다른 루트 판정 불가 <원문>` 1줄 + 요약 줄 끝 `roots=ERR` · 현역 행 경로에 .fable-team 없음 = 그 루트만 WARN 1줄(조용한 생략 0 · 하드 룰 20).
+#        전달·판별·round·releasing·ring 절차는 그대로 — 루트만 넓힌다(다른 루트 우편함 이동 = r1309 다리 소관).
+#   env(시험): FT_ACCT_ROOT FT_ACCT_NOW FT_ACCT_MBOX FT_ACCT_RULES FT_ACCT_TMUX FT_ACCT_LOCK_WAIT FT_ACCT_BATCH_SEC FT_ACCT_BATCH_SEATS FT_ACCT_AGENT_PROVIDER FT_ACCT_BUSY_MAX_SEC FT_ROOTS_TSV
 #   ★busy 상한(r1214 재발)★: 재개 중 한 좌석이 FT_ACCT_BUSY_MAX_SEC(기본 1800초) 넘게 계속 바쁘면 그 좌석만 `GAVE_UP … 재개 못 함` 1줄 + 기록(gave_up·last_err)으로 닫고 회차를 끝낸다 — 바쁜 좌석에 send·ring 0 은 그대로.
 #   ★측정·조작 금지(오빠 절대지침)★: 이 도구는 좌석을 kill 하지 않고 pane 에 입력하지 않는다 — 문은 «발사 0» 뿐이다(하드 룰 2·7).
 set -uo pipefail
@@ -56,6 +60,9 @@ REC = STATE / "acct-pause"
 LOCKF = REC / "lock"
 RULE = Path(os.environ.get("FT_ACCT_RULES") or (HERE / "provider-of-model.tsv"))
 TMUX = os.environ.get("FT_ACCT_TMUX", "tmux")
+ROOTS_TSV = Path(os.path.expanduser(os.environ.get("FT_ROOTS_TSV") or "~/.claude/fable-team/roots.tsv"))  # r1421 기계 루트 명부(일반 파일)
+ROOTS_COLS = 6               # 이름 · 경로 · 상태 · 기준ref · 사람우편함 · 틱잠금접두(ft_team_lib 과 같은 꼴)
+ROOTS_STATES = ("현역", "휴면")
 NOW = int(os.environ.get("FT_ACCT_NOW") or time.time())
 LOCK_WAIT = float(os.environ.get("FT_ACCT_LOCK_WAIT") or 7)
 BATCH_SEC = float(os.environ.get("FT_ACCT_BATCH_SEC") or 7)
@@ -257,28 +264,95 @@ def pane_argv_model(pane, budget=None):
     return base_model(m.group(1)) if m else ""
 
 
-def seats_live():
-    """seats*.json 합집합 — 이름 중복 제거 · `_` 키·_replaced_by·stop-ready 제외(현역 후보)."""
-    live = {}
-    try:
-        files = sorted((ROOT / ".fable-team").glob("seats*.json"))
-    except OSError:
-        return live
-    seen = set()
-    for f in files:
+ROOTS = {"dirs": None, "err": "", "warn": []}   # r1421 진단은 한 번만 계산한다(부르는 곳 여럿)
+
+
+def root_dirs():
+    """명부를 읽을 «루트» 목록(r1421) — 자기 ROOT 먼저 + roots.tsv 현역 행(realpath 중복 0).
+    파일 없음 = 자기 ROOT 하나(지금 동작 그대로) · 깨짐 = 그때까지 읽은 루트(자기 ROOT 는 늘 포함) + 진단 보관."""
+    if ROOTS["dirs"] is not None:
+        return ROOTS["dirs"]
+    dirs, seen = [], set()
+
+    def add(where):
         try:
-            d = json.loads(f.read_text(encoding="utf-8"))
-        except (ValueError, OSError):
+            real = Path(where).resolve()
+        except OSError:
+            return
+        if real in seen:
+            return
+        seen.add(real)
+        dirs.append(Path(where))
+
+    add(ROOT)
+    ROOTS["dirs"] = dirs                      # 깨져도 자기 루트는 남는다(정지 예고를 아예 안 보내는 쪽이 더 위험)
+    try:
+        text = ROOTS_TSV.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return dirs
+    except OSError as exc:
+        ROOTS["err"] = f"{ROOTS_TSV} 읽기 실패({exc.__class__.__name__})"
+        return dirs
+    for no, line in enumerate(text.splitlines(), 1):
+        if not line.strip() or line.lstrip().startswith("#"):
             continue
-        if not isinstance(d, dict):
+        cells = [c.strip() for c in line.split("\t")]
+        if len(cells) < ROOTS_COLS:
+            ROOTS["err"] = f"{ROOTS_TSV}:{no} 칸 {len(cells)}개({ROOTS_COLS} 필요)"
+            break
+        name, where, state = cells[0], cells[1], cells[2]
+        if not name or not where.startswith("/") or state not in ROOTS_STATES:
+            ROOTS["err"] = f"{ROOTS_TSV}:{no} 값이 이상하다(경로=절대경로 · 상태={'/'.join(ROOTS_STATES)})"
+            break
+        if state != "현역":
             continue
-        for k, v in d.items():
-            if not isinstance(k, str) or k.startswith("_") or not isinstance(v, dict) or k in seen:
+        comm = Path(where) / ".fable-team"
+        if not comm.is_dir():
+            ROOTS["warn"].append(f"WARN 루트 {name} 명부 없음 {comm}")
+            continue
+        add(where)
+    return dirs
+
+
+def roots_announce(stream=None):
+    """루트 명부 진단 — 깨짐·빠진 루트를 1줄씩 보이게 한다(조용한 생략 0). stream 없으면 stdout."""
+    root_dirs()
+    out = stream or sys.stdout
+    for w in ROOTS["warn"]:
+        print(w, file=out)
+    if ROOTS["err"]:
+        print(f"WARN 다른 루트 판정 불가 {ROOTS['err']}", file=out)
+
+
+def emit(line):
+    """요약 줄 — 루트 명부가 깨졌으면 끝에 «roots=ERR» 칸(r1421)."""
+    root_dirs()
+    print(line + (" roots=ERR" if ROOTS["err"] else ""))
+
+
+def seats_live():
+    """seats*.json 합집합 — 자기 루트 + roots.tsv 현역 루트(r1421) · 이름 중복 = 첫 루트 우선 · `_` 키·_replaced_by·stop-ready 제외(현역 후보)."""
+    live = {}
+    seen = set()
+    for where in root_dirs():
+        try:
+            files = sorted((where / ".fable-team").glob("seats*.json"))
+        except OSError:
+            continue
+        for f in files:
+            try:
+                d = json.loads(f.read_text(encoding="utf-8"))
+            except (ValueError, OSError):
                 continue
-            seen.add(k)
-            if v.get("_replaced_by") or v.get("role") == "stop-ready":
+            if not isinstance(d, dict):
                 continue
-            live[k] = v
+            for k, v in d.items():
+                if not isinstance(k, str) or k.startswith("_") or not isinstance(v, dict) or k in seen:
+                    continue
+                seen.add(k)
+                if v.get("_replaced_by") or v.get("role") == "stop-ready":
+                    continue
+                live[k] = v
     return live
 
 
@@ -557,6 +631,7 @@ def do_set(opts):
         if prov in state:
             print(f"REJECT acct-pause set — {prov} 항목이 이미 있다(round={(state.get(prov) or {}).get('round_id', '?')}) — clear 뒤 set")
             return 1
+        roots_announce()                      # r1421 루트 명부 깨짐·빠짐 1줄씩(받는 좌석 풀을 넓히는 자리)
         rid = f"{prov}-{NOW}-{secrets.token_hex(2)}"
         entry = {"provider": prov, "model": model, "until": until, "until_iso": until_iso,
                  "release_at": rel or None, "release_at_iso": rel_iso or None, "reason": reason,
@@ -575,8 +650,8 @@ def do_set(opts):
         notice_pass(entry, rec, "set", budget)
         write_json(REC / f"{rid}.json", rec)
         left = sum(1 for r in rec["recipients"] if not r.get("notice_at"))
-        print(f"SET pause {label(prov, model)} until={until_iso} release={rel_iso or '—'} round={rid} "
-              f"recipients={len(rec['recipients'])} 남은통지={left}")
+        emit(f"SET pause {label(prov, model)} until={until_iso} release={rel_iso or '—'} round={rid} "
+             f"recipients={len(rec['recipients'])} 남은통지={left}")
         return 0
     finally:
         release(fh)
@@ -593,15 +668,16 @@ def do_clear(prov, rnd=""):
         if not isinstance(state, dict):
             raise Bad("ACCT_PAUSE 최상위가 사전이 아니다")
         prov = (prov or "").strip()
+        roots_announce()                      # r1421 재개 대상도 현역 루트 전부
         if prov and prov not in state:
-            print("pause=none")
+            emit("pause=none")
             return 0
         if rnd and (state.get(prov) or {}).get("round_id") != rnd:
             print(f"REJECT acct-pause clear — {prov} round 불일치(지금 round={(state.get(prov) or {}).get('round_id', '?')} · 요청 round={rnd}) — 손대지 않음")
             return 3
         if not state:
             drop_file_if_empty({})
-            print("pause=none")
+            emit("pause=none")
             return 0
         gone = [prov] if prov else list(state.keys())
         budget = {"deadline": time.time() + BATCH_SEC, "seats": BATCH_SEATS}
@@ -617,10 +693,10 @@ def do_clear(prov, rnd=""):
                 print(f"GAVE_UP {lab} round={rid} seat={gs} busy={gn}s — 재개 못 함")
             if done_all:
                 state.pop(p, None)
-                print(f"CLEARED pause {lab} round={rid}")
+                emit(f"CLEARED pause {lab} round={rid}")
             else:
                 left = sum(1 for r in rec["recipients"] if not (r.get("resume_at") and (r.get("woke_at") or r.get("no_ring"))))
-                print(f"RELEASING {lab} round={rid} 남은={left}")
+                emit(f"RELEASING {lab} round={rid} 남은={left}")
                 rc = 0
         drop_file_if_empty(state)
         return rc
@@ -637,6 +713,7 @@ def do_status():
         if not isinstance(state, dict):
             raise Bad("ACCT_PAUSE 최상위가 사전이 아니다")
         rc = 0
+        roots_announce()                      # r1421 재개 대상 = 현역 루트 전부 · 깨짐은 여기서 보이게
         budget = {"deadline": time.time() + BATCH_SEC, "seats": BATCH_SEATS}
         for prov in list(state.keys()):
             entry, rec = load_entry(state, prov)
@@ -652,22 +729,22 @@ def do_status():
                     print(f"GAVE_UP {lab} round={rid} seat={gs} busy={gn}s — 재개 못 함")
                 if done_all:
                     state.pop(prov, None)
-                    print(f"{'EXPIRED' if NOW >= until else 'RELEASED'} {lab} round={rid}")
+                    emit(f"{'EXPIRED' if NOW >= until else 'RELEASED'} {lab} round={rid}")
                 else:
                     left = sum(1 for r in rec["recipients"] if not (r.get("resume_at") and (r.get("woke_at") or r.get("no_ring"))))
-                    print(f"RELEASING {lab} round={rid} 남은={left}")
+                    emit(f"RELEASING {lab} round={rid} 남은={left}")
                     rc = 3
             else:
                 # 정지 중이어도 «못 보낸 예고»는 이 호출이 이어서 보낸다(부분 실패·바쁜 좌석 복구 주체 = 판정기).
                 if rec.get("stage") == "set" and any(not r.get("notice_at") for r in rec["recipients"]):
                     notice_pass(entry, rec, "set", budget)
                     write_json(REC / f"{rid}.json", rec)
-                print(f"PAUSED {lab} until_hhmm={hhmm(until)} until_epoch={until} "
-                      f"release_hhmm={hhmm(rel) if rel else '—'} round={rid} stage={rec.get('stage', 'set')}")
+                emit(f"PAUSED {lab} until_hhmm={hhmm(until)} until_epoch={until} "
+                     f"release_hhmm={hhmm(rel) if rel else '—'} round={rid} stage={rec.get('stage', 'set')}")
                 rc = 3
         drop_file_if_empty(state)
         if rc == 0:
-            print("pause=none")
+            emit("pause=none")
         fold_records()
         return rc
     finally:
@@ -697,6 +774,7 @@ def do_check(argv):
         want = a
         i += 1
     if seat and not want:
+        roots_announce(sys.stderr)          # r1421 판정은 한 줄 계약 — 넓힌 루트 진단은 stderr 로(파서 보호)
         row = seats_live().get(seat) or {}
         agent = agent or (row.get("agent") or "")
         model = model or base_model(row.get("model") or "")
