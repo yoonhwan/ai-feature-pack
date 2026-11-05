@@ -103,7 +103,15 @@ case "$_rrc" in
   *) echo "REJECT ft_raised.py 판정 실패 rc=$_rrc ($HERE/ft_raised.py) — 부작용 0"; exit 1;;
 esac
 WT="$(git rev-parse --show-toplevel)"                       # 역할 좌석이 뜨는 자리 = 이 워크트리
-ROOT="$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||')"   # 리포 루트
+# ★r1404 데이터 루트★ = env FT_ROOT 먼저 · 없으면 지금처럼 git 공용 루트(ft-tick.sh:26 과 같은 순서 · R382 선례).
+#   kakao 처럼 «워크트리 = 데이터 루트» 인 팀은 공용 루트에 .fable-team/comm 이 없다 — 옛 코드는 거기서 rc3 으로 멈췄다.
+#   FT_ROOT 가 있는데 .fable-team 이 없으면 공용 루트로 조용히 대체하지 않는다(fail-loud · r1404 K5).
+if [ -n "${FT_ROOT:-}" ]; then
+  ROOT="${FT_ROOT%/}"
+  [ -d "$ROOT/.fable-team" ] || { echo "REJECT FT_ROOT 에 .fable-team 없음: $ROOT"; exit 1; }
+else
+  ROOT="$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||')"   # 리포 루트
+fi
 # r1217: 역할 좌석 모델은 사람이 정한다 — 계정 주간 한도 판정은 권고 1줄만(모델·rc 불변 · FT_ACCT_ASSIGN=0 = 호출 0)
 [ "${FT_ACCT_ASSIGN:-1}" = 0 ] || [ ! -f "$HERE/ft-acct-assign.sh" ] || echo "ASSIGN $MODEL → $(FT_ROOT="$ROOT" bash "$HERE/ft-acct-assign.sh" "$MODEL" --seat-kind role | tail -1)"
 # ★페널티 게이트 (R320b · 오빠 판정 2170)★: 전 세션 정지(PENALTY_STOP 파일) 중이면 재개 전 팀은 열지 않는다(부작용 전 · successor 는 대상 아님). 팀 = env FT_PENALTY_TEAM, 없으면 FT_ROLE_BASE_PREFIX(`byz-<팀>-`)에서 — 팀을 못 알면 정지 중엔 거절. 파일이 있는데 판정기가 없으면 REJECT(조용한 통과 0).
@@ -115,11 +123,16 @@ if [ -f "$ROOT/.fable-team/state/PENALTY_STOP" ]; then
 fi
 # ★전팀 정지 게이트 (r626)★: 늘 check — 판정(상태 파일·원장 all-stop.log·상태 폴더)은 ft_all_stop.py 하나 · «파일 없음 = 꺼짐» 가정 0(DA⑥ r2) · 정지면 끄기 전 spawn 0(팀 구분·우회 플래그 없음 · 부작용 전) · 판정기가 없으면 그 오류로 REJECT(조용한 통과 0).
 [ -e "$ROOT/.fable-team" ] && { _aout="$(FT_ROOT="$ROOT" bash "$HERE/ft-all-stop.sh" check 2>&1)" || { printf '%s\n' "$_aout"; exit 1; }; }
-[ "$TEAM" = v65 ] && SEATS="$ROOT/.fable-team/seats.json" || SEATS="$ROOT/.fable-team/seats-$TEAM.json"   # 명부 이름 규칙 = ft_teamset.py roster_path
+# ★r1404 명부 = TEAMS.md «명부» 칸★ — 하드코딩 규칙(seats-<팀>.json · v65 만 seats.json) 대신 ft_team_lib.roster_path.
+#   창구 = `ft_team_lib.py seats-file`(ft-tick 과 «같은 한 벌» · 셸에 규칙 재구현 0 · r1309/r1310). 판정 불가는 REJECT(옛 규칙 대체 0 · r1404 K6).
+_seats_out="$(python3 "$HERE/ft_team_lib.py" seats-file "$ROOT" "$TEAM" 2>&1)"; _seats_rc=$?
+[ "$_seats_rc" = 0 ] || { echo "REJECT 팀 명단 판정 불가 — $_seats_out (루트 $ROOT)"; exit 1; }
+SEATS="$_seats_out"
 . "$HERE/ft-team-lib.sh"   # R382b: 팀 폴더는 WT 의 design/TEAMS.md 폴더 칸으로(리터럴 0)
 [ "$FROM_SET" = 1 ] || FROM="$(ft_from_current "$FROM" "$SEATS" )"   # r730: 보내는 사람 = 명부 현역(같은 계보일 때만)
-_TD="$(ft_team_in "$WT" "$TEAM")" || { echo "REJECT $TEAM 팀 폴더를 못 풀었다(design/TEAMS.md 명단에 없거나 폴더 칸 오류): $WT"; exit 1; }
-INBOX="$_TD/indices/inbox/$ROLE"; INBOX_REL="${INBOX#"$WT"/}"
+TEAM_ROOT="$WT"; [ -n "${FT_ROOT:-}" ] && TEAM_ROOT="$ROOT"   # ★r1404★ FT_ROOT 를 준 경우 팀 폴더도 «데이터 루트» 에서 푼다 — kakao 는 cwd(데이터 루트)가 깃 최상위와 다르다(워크트리 안 하위 폴더)
+_TD="$(ft_team_in "$TEAM_ROOT" "$TEAM")" || { echo "REJECT $TEAM 팀 폴더를 못 풀었다(design/TEAMS.md 명단에 없거나 폴더 칸 오류): $TEAM_ROOT"; exit 1; }
+INBOX="$_TD/indices/inbox/$ROLE"; INBOX_REL="${INBOX#"$TEAM_ROOT"/}"
 README="$_TD/SEATBELT-README.md"
 [ -f "$SEATS" ] || { echo "REJECT 명부 없음: $SEATS"; exit 1; }
 [ -f "$README" ] || { echo "REJECT $TEAM SEATBELT-README.md 없음: $README (첫 발주가 가리키는 파일)"; exit 1; }

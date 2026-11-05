@@ -38,7 +38,7 @@ feat_roster ""
 cp -p "$R/.fable-team/seats-feat.json" "$T/roster.before"
 
 # 실행본 = 키트 사본 + 가짜 송신·가짜 전팀정지 (실 쪽지 0)
-for f in ft-role-spawn.sh ft-team-lib.sh ft_raised.py ft-resource-gate.sh ft-resource-swap-lib.sh ft-reclaim-capped.sh ft_teamset.py ft_spawn_queue.py ft-resource-sample.sh ft-harness-root.sh; do cp -p "$KIT/$f" "$B/"; done
+for f in ft-role-spawn.sh ft-team-lib.sh ft_raised.py ft-resource-gate.sh ft-resource-swap-lib.sh ft-reclaim-capped.sh ft_teamset.py ft_team_lib.py ft_spawn_queue.py ft-resource-sample.sh ft-harness-root.sh; do cp -p "$KIT/$f" "$B/"; done   # r1404: role-spawn 이 명부를 ft_team_lib.py seats-file 로 푼다(짝 누락 보충)
 printf '#!/usr/bin/env bash\nexit 0\n' > "$B"/ft-all-stop.sh
 printf '#!/bin/bash\necho "SENT $*"\nexit 0\n' > "$B/ft-send-verified.sh"
 OPENED="$T/opened"; : > "$OPENED"
