@@ -9,7 +9,7 @@
 #   ft-hil.sh --pending [--each] [--held] → 미실행·미대체·«보류 아님» h 요약 1줄(0개면 출력 없음) · --each 는 `h<N> <분>` 줄만 · --held 는 보류 `h<N> <분> <사유>` 줄(r1236)
 #   ft-hil.sh --hold h<N> --why <사유> | --unhold h<N>  → <h>.held 에 `hold|unhold <epoch> <좌석> [사유]` 1줄 이어 쓰기 · 마지막 줄이 hold = 보류 · 없는 h = rc 2 (r1236)
 # h<N> = «실행되면 h<N>.ran(시작 시각 · rc)을 남기고 계획을 그대로 실행하는» 진입 파일. 계획 파일 수정 0 · 실행 권한 변경 0.
-#   ★r1117: 끝나면 ft-hil-notify.sh 가 `[완료 h<N>] rc=…` 를 계획 머리 `# ft-hil-request seat=<좌석…>`(≤3 · 린트 실패 REJECT rc2 · 없으면 WARN) + planner _master 에 1통씩(stdout 사본 h<N>.out)★
+#   ★r1117: 끝나면 ft-hil-notify.sh 가 `[완료 h<N>] rc=…` 를 계획 머리 `# ft-hil-request seat=<좌석…>`(≤3 · 린트 실패 REJECT rc2 · 없으면 WARN) + planner _master 에 1통씩(stdout·stderr 사본 h<N>.out · r1382)★
 # 진입점 폴더 = ${HIL_DIR:-/tmp}(시험만 바꾼다) · 홈($HOME) 아래 쓰기 0 · 등록기 자신의 실행 기능 0(실행은 사람이 `bash /tmp/h<N>`)
 # 기존 h<N>(링크·파일) 덮기·지우기 0 · 계획 파일 수정·삭제 0 · eval 0. 옛 링크 h<N> 은 그대로 둔다(표식 없음 · 대체 표시 불가).
 # 등록 전 검사(R135a): 같은 폴더 ft_secret_judge.py --plan — 비밀을 화면으로 흘리는 줄이 있으면 `REJECT 계획 파일 비밀 출력 경로 — <줄> <이유>` rc 1(등록 0) · r1133: ft_traffic_plan_judge.py --plan — 날 update-traffic 줄·--health-url 없는 ft-traffic-switch.sh = REJECT rc 1.
@@ -44,7 +44,7 @@ plan_of() {  # $1=h 파일 → 계획 절대경로(진입 파일 표식 줄 · �
   fi
 }
 
-entry_body() {  # $1=계획 $2=표식 접두(=진입 파일) $3=쪽지함 $4=요청 좌석(공백) — 대체됨 거절 · 시작 시각 → 계획 실행(stdout 사본 .out) → rc 기록 → r1117 결과 쪽지(실패해도 rc 그대로)
+entry_body() {  # $1=계획 $2=표식 접두(=진입 파일) $3=쪽지함 $4=요청 좌석(공백) — 대체됨 거절 · 시작 시각 → 계획 실행(stdout+stderr 사본 .out · r1382) → rc 기록 → r1117 결과 쪽지(실패해도 rc 그대로)
   # r1126 진입 머리: 계획 리포 공용 루트로 cd + FT_ROOT unset(리졸버 = 그 리포 LIVE_ROOT = 착지가 읽는 폴더) · 리포 밖(--cmd·시험) = 지금처럼 + INFO · 리포 안 ∧ LIVE_ROOT 없음 = 판정 불가 rc3(계획 실행 0)
   printf '#!/usr/bin/env bash\n# ft-hil-entry plan=%s\nP=%q; M=%q; N=%q; C=%q; S=%q\n' "$1" "$1" "$2" "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)/ft-hil-notify.sh" "$3" "$4"
   cat <<'EOS'
@@ -55,7 +55,7 @@ date +%s >> "$M.ran"
 rc=""; R="$(git -C "$(dirname "$P")" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"; R="${R%/.git}"
 if [ -z "$R" ]; then echo "INFO 리포 밖 계획 — cd 0 ($P)" >&2; elif [ ! -f "$R/.fable-team/LIVE_ROOT" ]; then echo "판정 불가 — 계획 $P 의 리포($R)에 .fable-team/LIVE_ROOT 없음" | tee "$M.out" >&2; rc=3
 elif cd "$R"; then unset FT_ROOT; else echo "판정 불가 — 계획 리포 루트로 cd 실패: $R" | tee "$M.out" >&2; rc=3; fi
-[ -n "$rc" ] || { bash "$P" "$@" | tee "$M.out"; rc=${PIPESTATUS[0]}; }
+[ -n "$rc" ] || { bash "$P" "$@" 2>&1 | tee "$M.out"; rc=${PIPESTATUS[0]}; }
 echo "rc=$rc $(date +%s)" >> "$M.ran"
 bash "$N" done "$M" "$rc" "$C" $S || echo "WARN 결과 쪽지 실패 — h rc 는 그대로($rc)" >&2
 exit "$rc"
