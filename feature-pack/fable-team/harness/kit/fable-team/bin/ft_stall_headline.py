@@ -20,6 +20,7 @@ from typing import Any, Callable
 
 import ft_card_assign_pause as card_pause
 import ft_headline_seats as headline_seats
+from ft_stall_detect import all_stop, all_stop_note  # r1371 — 전팀 정지 표식(읽기 한 곳)
 from ft_team_lib import rosters as team_rosters
 
 HEADLINE_MIN = 15.0
@@ -253,7 +254,9 @@ def _latest_live_master(masters: list[str], live: dict[str, int]) -> str | None:
 
 
 def headline_alerts(root: Path, comm: Path, found: list[dict[str, Any]], live: dict[str, int], now: float,
-                    send: Callable[[str, str], tuple[int, bool]]) -> list[str]:
+                    send: Callable[[str, str], tuple[int, bool]], stop: tuple[str, float | None] | None = None) -> list[str]:
+    """r1371 — stop = (all_stop 상태, since 초) · None 이면 여기서 1회 읽는다 · on 이면 h 발신 0 + 보류 노트 1줄(상태 기록 0)."""
+    mark, since = (stop[0], stop[1]) if stop else all_stop(root)[:2]
     path = root / ".fable-team/state/stall-headline.json"
     try:
         state = json.loads(path.read_text(encoding="utf-8"))
@@ -267,6 +270,9 @@ def headline_alerts(root: Path, comm: Path, found: list[dict[str, Any]], live: d
         if item.get("kind") != "h":
             continue
         team = item["team"]
+        if mark == "on":  # r1371 — 전팀 정지: 발신 0 + 노트 1줄 · 1·2단계 상태 기록 0(off 뒤 같은 사건이 그대로 살아난다)
+            log.append(all_stop_note("h", team, since))
+            continue
         h1 = f"h1:{team}:{item['date']}:{item['clock']}"
         h2 = f"h2:{team}:{item['date']}:{item['clock']}"
         if h2 in state:

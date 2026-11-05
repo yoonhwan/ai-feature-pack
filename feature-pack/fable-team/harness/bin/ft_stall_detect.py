@@ -504,6 +504,35 @@ def policy_stop(root: Path, now: float, hold_cmd: str = "") -> str | None:
     return f"ERROR SPAWN_HOLD 판정 실패 rc={rc} hold={verdict} {out.strip()[-80:]}"
 
 
+def all_stop(root: Path) -> tuple[str, float | None, str]:
+    """r1371 — 전팀 정지 표식(<루트>/.fable-team/state/ALL_STOP.json · r626 정본 ft-all-stop.sh) 읽기 «한 곳».
+    → ("on", since 초, "") · ("off", None, "") = 파일 없음 · ("unknown", None, 사유) = 깨짐·읽기 실패.
+    판정 꼴 = 카드 r1371 §설계 1: 있으면 on · 없으면 off · 깨졌으면 unknown(경보 그대로 + «판정 불가 ALL_STOP» 1줄).
+    ★표식의 «정본 판정» 은 ft_all_stop.py(read·원장)다 — 여기서는 «멈춤 경보를 보류할 만큼 확실한가» 만 본다.
+    원장(all-stop.log)은 보지 않는다(카드 §구현 범위 — 상태 파일 1개만) · 사람이 파일을 지우면 off 로 돌아온다.
+    """
+    path = root / ".fable-team/state/ALL_STOP.json"
+    if not os.path.lexists(path):
+        return "off", None, ""
+    try:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        return "unknown", None, type(error).__name__
+    if not isinstance(doc, dict):
+        return "unknown", None, f"JSON {type(doc).__name__}"
+    try:
+        since = float(doc.get("since"))  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return "unknown", None, "since 없음·꼴 틀림"
+    return "on", since, ""
+
+
+def all_stop_note(kind: str, team: str, since: float | None) -> str:
+    """r1371 — 보류 노트 1줄 «보류 <f|h|a> <팀> — 전팀 정지(since <HH:MM>)»(감시기 로그·화면 같은 꼴)."""
+    hm = time.strftime("%H:%M", time.localtime(since)) if since is not None else "?"
+    return f"보류 {kind} {team} — 전팀 정지(since {hm})"
+
+
 def pending_mail(comm: Path, now: float) -> dict[str, tuple[int, float]]:
     """받는이 → (가장 오래된 미읽음 seq, 그 나이 분). 큐(mailbox.jsonl)에 남은 줄 = 아직 안 읽은 쪽지."""
     out: dict[str, tuple[int, float]] = {}
