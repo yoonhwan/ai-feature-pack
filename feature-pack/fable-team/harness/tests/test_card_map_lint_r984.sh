@@ -121,14 +121,14 @@ if [ -d "$RD" ]; then
   [ "$nlog" = 1 ] && ok "첫 추가일 git log 호출 수 = 1(${ncard}장 한번에)" || bad "git log 호출 수 $nlog (1 이어야 한다)"
   awk -v e="$el" 'BEGIN{exit !(e<=7)}' && ok "배치 판정기 ${ncard}장 경과 ${el}초 ≤ 7초" || bad "배치 판정기 경과 ${el}초 > 7초"
   mkdir -p "$HERE/../evidence/r984"; echo "INFO 배치 판정기 ${ncard}장 경과=${el}초 · git log 호출=${nlog}" >> "$HERE/../evidence/r984/timing.txt"
-  # 8초 지연 래퍼(모든 git) → 판정기 7초 상한 → rc3(«판정 불가» 를 WARN 으로 숨기지 않음)
+  # 8초 지연 래퍼(모든 git) → 판정기 상한(기본 25초 · r1398) → 이 시험은 손잡이로 7초를 준다(8 > 7 = rc3 · «판정 불가» 를 WARN 으로 숨기지 않음)
   SW="$T/slowgit"; mkdir -p "$SW"; printf '#!/bin/bash\nsleep 8\nexec "%s" "$@"\n' "$RG" > "$SW/git"; chmod +x "$SW/git"
-  out="$( ( cd "$T" && PATH="$SW:$PATH" python3 "$MOD" "$T/map-ok.md" 2>&1 ) )"; rc=$?
-  [ "$rc" -eq 3 ] && echo "$out" | grep -q '이력 조회 판정 불가' && ok "git 8초 지연 = 7초 상한 넘음 → rc3 판정 불가(통과 0)" || bad "8초 지연 → rc=$rc $(echo "$out"|tr '\n' ';')"
+  out="$( ( cd "$T" && PATH="$SW:$PATH" FT_CARD_MAP_GIT_SEC=7 python3 "$MOD" "$T/map-ok.md" 2>&1 ) )"; rc=$?
+  [ "$rc" -eq 3 ] && echo "$out" | grep -q '이력 조회 판정 불가' && ok "git 8초 지연 = 7초 상한(손잡이) 넘음 → rc3 판정 불가(통과 0)" || bad "8초 지연 → rc=$rc $(echo "$out"|tr '\n' ';')"
   # 같은 지연을 lint 로 — 셀 배치가 아니라 판정기 안에서 끊기고, lint 도 «판정 불가» = rc3
   SL="$T/slowlog"; mkdir -p "$SL"; printf '#!/bin/bash\ncase " $* " in *" log "*) sleep 8;; esac\nexec "%s" "$@"\n' "$RG" > "$SL/git"; chmod +x "$SL/git"
   t0=$(python3 -c 'import time;print(time.time())')
-  out="$( ( cd "$T" && PATH="$SL:$PATH" bash "$LINT" "$T/map-ok.md" 2>&1 ) )"; rc=$?
+  out="$( ( cd "$T" && PATH="$SL:$PATH" FT_CARD_MAP_GIT_SEC=7 bash "$LINT" "$T/map-ok.md" 2>&1 ) )"; rc=$?
   t1=$(python3 -c 'import time;print(time.time())')
   el3=$(python3 -c "print(f'{$t1-$t0:.2f}')")
   [ "$rc" -eq 3 ] && echo "$out" | grep -q '이력 조회 판정 불가' && awk -v e="$el3" 'BEGIN{exit !(e<=12)}' && ok "lint 도 git log 8초 지연 → ${el3}초에 끊고 rc3(전 8.2초 WARN·rc0)" || bad "lint 지연 → rc=$rc ${el3}초 $(echo "$out"|tr '\n' ';')"

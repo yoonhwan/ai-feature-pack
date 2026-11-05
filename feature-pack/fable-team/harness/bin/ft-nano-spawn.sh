@@ -468,6 +468,24 @@ if [ "${FT_ACCT_ASSIGN:-1}" != 0 ] && [ -f "$HERE/ft-acct-assign.sh" ]; then
   esac
 fi
 
+# r1398: 카드 이력 사전 — ① 앞에서 1회만 만든다(⑥ ft-index-move 안 lint 는 이 사전만 읽는다 · git 호출 0)
+#   왜 ① 앞인가: ⑥ 은 좌석·워크트리·명부를 연 «뒤» 라, 거기서 lint 가 부하로 넘기면 반쯤 열린 좌석이 남는다(실사건 3번 · 재시도 = 같은 워크트리에 #1).
+#   바깥이 이미 FT_CARD_ADDED_MAP_FILE 을 줬으면 그 파일을 그대로 쓴다(새 생성 0 · 지우기 0 = 남의 파일). 만들었으면 이 실행 EXIT 정리 목록이 지운다.
+#   판저 불가(상한 초과 재시도 1 포함) = 좌석·워크트리·명부 0 으로 REJECT(③ 전 · 부작용 0). 사전 꼴·판정 규칙은 안 바꿉니다.
+_MAPF=""
+_mapf_cleanup() { if [ -n "${_MAPF:-}" ]; then rm -f "$_MAPF"; fi; }
+if [ -z "${FT_CARD_ADDED_MAP_FILE:-}" ]; then
+  _MAPF="$(mktemp "${TMPDIR:-/tmp}/ft-r1398-cardmap.XXXXXX")" || { echo "REJECT 카드 이력 사전 파일 생성 실패 — 좌석·워크트리·명부 0"; exit 1; }
+  export FT_CARD_ADDED_MAP_FILE="$_MAPF"
+  _mapf_rc=1
+  for _mapf_try in 1 2; do
+    : > "$_MAPF"
+    python3 "$HERE/ft_card_map_lint.py" --map-only "$IDX"; _mapf_rc=$?
+    [ "$_mapf_rc" = 0 ] && break
+  done
+  [ "$_mapf_rc" = 0 ] || { _mapf_cleanup; echo "REJECT 카드 이력 사전 판정 불가 — 좌석·워크트리·명부 0 (rc=$_mapf_rc)"; exit 1; }
+  _ON_EXIT+=(_mapf_cleanup)
+fi
 # ① lint — 누가 읽어도 착수 가능한가 (P2: planner 카드 머리 「- 템플릿: 빈 카드(나노가 채움)」 = lint ⑤⑥ 만 건너뜀 · 그 밖 팀·검사는 그대로)
 [ -f "$HERE/ft-team-lib.sh" ] || { echo "REJECT ft-team-lib.sh 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
 . "$HERE/ft-team-lib.sh"   # R383: planner 카드 판정·SEATBELT 경로를 팀 폴더 명단으로 푼다(팀 이름 글자 0)
