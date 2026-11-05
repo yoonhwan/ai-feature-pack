@@ -25,7 +25,7 @@ st fail 1 'boom'
 st weird 0 '[자율 ON A23]'
 SHA=6d5975bc0123456789abcdef0123456789abcdef
 HD="$T/hil"; mkdir -p "$HD"
-hil() { env -i HOME="$T/home" PATH="/usr/bin:/bin" HIL_DIR="$HD" HIL_CLIP=0 FT_SECRET_JUDGE="$T/none.py" FT_MBOX_DIR="$T/comm" FT_SCOPE_STATUS_CMD="$T/st/$2" bash "$1/ft-hil.sh" --add "$T/$4.sh.hil" 2>&1; }   # <bin> <scope-status 대역> <빈 칸> <계획> — 한 줄(ft_secret_judge 가 env 뒤 명령을 글자로 확정)
+hil() { env -i HOME="$T/home" PATH="/usr/bin:/bin" HIL_DIR="$HD" HIL_CLIP=0 FT_SECRET_JUDGE="$T/none.py" FT_MBOX_DIR="$T/comm" FT_SCOPE_STATUS_CMD="$T/st/$2" FT_AUTONOMY_MODE_CMD="echo off" bash "$1/ft-hil.sh" --add "$T/$4.sh.hil" 2>&1; }   # <bin> <scope-status 대역> <빈 칸> <계획> — 한 줄(ft_secret_judge 가 env 뒤 명령을 글자로 확정)
 nh() { find "$HD" -maxdepth 1 -name 'h[0-9]*' ! -name '*.*' | wc -l | tr -d ' '; }
 nc() { wc -l < "$T/calls.log" 2>/dev/null | tr -d ' ' || echo 0; }
 plan() { printf '#!/usr/bin/env bash\n# ft-hil-request seat=byz-planner-master-claude#1\n# 자율 A2 · 범위 S4(code)\nA=/x/ft-autonomy.sh\n%s\n' "$2" > "$T/$1.sh.hil"; }
