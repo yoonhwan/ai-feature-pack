@@ -218,7 +218,8 @@ BADLBL="$(cd "$HERE/.." && FT_LAUNCHCTL="$T/bin/launchctl-ok.sh" timeout $TO_LIM
 hasstr "키트에 그 Label 템플릿이 없다" "$BADLBL" "install.sh --launchd-new 오타 라벨 = ERROR(조용한 통과 0)"
 # apply 갈래는 «루트 shim 이 이미 있는» 상태를 전제한다(--need-exist) — shim 은 착지한 ref(HEAD)의 키트 목록으로 만들어진다.
 # 그래서 HEAD 에 이 파일이 들어간 뒤(커밋 뒤)에만 apply 시험을 돌린다. 커밋 전이면 SKIP(거짓 OK 0 · 거짓 FAIL 0).
-if git -C "$HERE/.." cat-file -e "HEAD:kit/fable-team/bin/ft-issues-daily.sh" 2>/dev/null; then
+PREFIX="$(git -C "$HERE/.." rev-parse --show-prefix 2>/dev/null)"
+if git -C "$HERE/.." cat-file -e "HEAD:${PREFIX}kit/fable-team/bin/ft-issues-daily.sh" 2>/dev/null; then
   APPLY="$(cd "$HERE/.." && FT_LAUNCHCTL="$T/bin/launchctl-stub.sh" timeout $TO_LIMIT bash "$HERE/../install.sh" --apply --project "$CHKROOT" --home "$HINST" --launchd-new com.byz.ft-issues-daily 2>&1)"
   hasstr "LAUNCHD new com.byz.ft-issues-daily" "$APPLY" "apply = 새 라벨 첫 등록 + launchctl print state 확인"
   if [ -f "$HINST/Library/LaunchAgents/com.byz.ft-issues-daily.plist" ]; then

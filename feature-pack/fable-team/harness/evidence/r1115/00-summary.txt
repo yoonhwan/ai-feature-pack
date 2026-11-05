@@ -1,0 +1,58 @@
+r1115 — 매일 00시 이슈 일일 표 (launchd 1개 · 표 1장 · 경보 1통)
+================================================================
+카드: design/harness/indices/진행/r1115-issues-daily-midnight-loop-launchd-table-alert.md
+브랜치: nano/r1115-issues-daily-midnight-loop-launchd (팩 리포 · push 0)
+base_sha: 2631f4ec8b6952f36565804bc03b302045698b2d (origin/main)
+커밋: e32cc080963642b60ad692ea1f66a4ee3f67aca8 (코드) · 증거 커밋 = 이 파일이 든 HEAD (git log -1 -- evidence/r1115)
+
+■ 만든 것 (카드 §구현 범위 1·2)
+1. bin/ft-issues-daily.sh + bin/ft_issues_daily.py — launchd 가 00:10 에 1회 부른다. 읽기 전용(라벨·배정·닫기·코멘트 쓰기 0).
+   산출 = <FT_ROOT>/design/teams/issues/daily/TABLE-daily-<YYYYMMDD>.md 1장
+     ① 머리(열린 총수 · 상태별 · 합 검산 · 어제 차이)
+     ② 정리(새로 열린 24h · 닫힌 24h · 7일+ 정체 · 중복 후보)
+     ③ 분류(ft-issue-classify.sh --from-json 재사용 · type/team 라벨 유무)
+     ④ 우선순위 후보 ⓐ 오빠 지시·priority → ⓒ proposal-pending → ⓑ type:bug+재현 → ⓓ 7일+ → ⓔ 나머지
+     ⑤ 팀 배정 후보(team:* 없는 것만 · «(후보)» 표기 · 라벨 쓰기 0)
+     ⑥ 닫기 후보(닫기 8항이 코멘트로 다 있는 것 · 실행 0 · 실제 판정 = ft-issue-close-check.sh)
+   쪽지 2통(본문 다름 = FANOUT 가드 통과): planner master(골좌표 + 표 경로) · issues master(집행 3줄)
+   정지·동결 표식 → «건너뜀(사유)» 표 + 쪽지 1통 · gh 실패 → «판정 불가» 표 + rc5 + 쪽지 1통(빈 표로 숨김 0)
+   gh 호출 = 회당 7초 + 재시도 1 (목록 1회 + 닫힌 24h 1회)
+2. bin/ft-issues-daily-check.sh — ft-stall-scan.sh(120초 틱)가 1줄로 부른다. 00:40 뒤에 오늘 표가 없거나 «판정 불가» 면
+   harness master 에 `[경보] 00시 이슈 표 없음 <날짜> · launchd <상태>` 1통(하루 1회 장부 = state/issues-daily/<날짜>.alarm).
+3. kit/launchd/com.byz.ft-issues-daily.plist.template — StartCalendarInterval 00:10 · RunAtLoad 0 · ProcessType Interactive
+   (r1377 표에 한 행 추가) · 로그 /tmp/byz-ft-issues-daily.log
+4. install.sh `--launchd-new <Label>`(또는 env FT_LAUNCHD_NEW) — r538 «설치된 것만» 의 **명시 예외**: 처음 올리는 라벨만
+   렌더 → 쓰기(.bak-<version> 보존) → bootout → bootstrap 3회 → `launchctl print` 로 state 확인. 템플릿에 없는 라벨 = ERROR(오타 조용한 통과 0).
+   지정 없는 라벨은 종전대로 SKIP(r538 그대로).
+5. harness/bin ↔ kit/fable-team/bin 사본 4파일 cmp0 (설치기가 엉뚱한 판을 안 싣는다).
+
+■ 값 (증거)
+- 시험: `bash tests/test_issues_daily_r1115.sh` rc=0 · 48 OK · 0 FAIL · 36초 (20-test-run.txt)
+  R1 열린 7 = 3+2+1+1+0 · proposal-pending 2건이 ④ⓒ 칸 · R2 7일+ 2건 · R3 중복 후보 1쌍(판정 낱말 0)
+  R4 팀 후보 v65(후보) · gh 쓰기 호출 0 · R5 닫기 후보 1 · R6 건너뜀 표+쪽지 1통 · R7 판정 불가 표+rc5+1통
+  R8 경보 하루 1회(00:39 0 · 00:40 1통 · 두 번째 틱 0 · 표 있으면 0 · 판정 불가면 1통)
+  R9 어제 대비 +1 −1 · 총수 이동 / 없으면 «차이: 첫 표» · R10 쪽지 2통 본문 다름
+  변이 2 = ①proposal-pending 칸 끔 → R1 FAIL ②gh label 호출 추가 → R4·R5 FAIL (둘 다 시험이 잡음)
+  plist: Label·00:10·RunAtLoad 0·ProgramArguments=ft-issues-daily.sh·Interactive · install dry-run PLAN 1줄 · 오타 라벨 ERROR
+  apply = `LAUNCHD new com.byz.ft-issues-daily (state = waiting)` + ~/Library/LaunchAgents 에 plist 쓰기 + 루트 shim 경로(시험 home)
+- 시험 파일 재진입 lint: `ft-test-reentry-lint.sh tests/test_issues_daily_r1115.sh` rc0
+- 회귀(규칙 변경 0): issue-card-audit ALL PASS(변이 5) · issue-close-canon ALL PASS ·
+  install-launchd-render ALL PASS 23/23 · 213초 (ⓐ 템플릿 개수 12→13 만 이 카드가 고쳤다)
+  issue-classify: classify 부분 전부 PASS · create-pair 부분 10 FAIL = `comm 폴더를 못 풂`(이 워크트리에 .fable-team/comm 없음 · 내 커밋이 그 두 파일을 안 건드림 = 변경 0)
+
+■ master 집행 (설치 · launchd 등록 = 카드 §완료 조건 master 몫)
+1. 착지: 팩 main 에 squash/cherry-pick (브랜치 nano/r1115-issues-daily-midnight-loop-launchd)
+2. `bash <하네스>/install.sh --apply --project /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents --launchd-new com.byz.ft-issues-daily`
+   → LIVE_BIN 전환 + `LAUNCHD new com.byz.ft-issues-daily (state = …)` 확인(설치 뒤 `launchctl print gui/$UID/com.byz.ft-issues-daily`)
+   ※ 함정(troubleshoot 10-27): bootout 직후 bootstrap 은 rc5 — install.sh 는 1초 간격 3회 재시도 + 실패 시 원복한다.
+3. 첫 실사건 = 다음 00:10 뒤 `design/teams/issues/daily/TABLE-daily-<날짜>.md` 원문 1개 + planner 쪽지 1통(= 골 6 ⑥ RESULT)
+   손으로 먼저 보고 싶으면 `bash <LIVE_BIN>/ft-issues-daily.sh --date <YYYYMMDD>` (같은 표·같은 쪽지 2통).
+
+■ 남은 것 / 범위 밖
+- 카드 대조는 이 표에 넣지 않았다 = `ft-issue-card-audit.sh --tick` 그대로(카드 §구현 범위 밖 · ref 읽기라 70초 상한에 안 넣음). 표 끝에 그 줄을 적어 둔다.
+- `design/teams/issues/GUIDE-issues.md` «일일 표» 절 = issues master 몫(카드 완료 조건). 초안 = GUIDE-issues-daily-section.md
+  (열 이름·우선순위 규칙·아침 집행 3줄). 이 워크트리는 design/teams/ 가 없는 스파스라 경로를 만들지 않았다.
+- `design/teams/issues/daily/` 폴더는 장치가 처음 쓸 때 만든다(mkdir -p).
+- press 필요: 없음 — 이 카드의 실사건은 «설치 뒤 첫 00:10 표 파일 원문 + planner 쪽지»(master 몫).
+- 알려진 한계 1: 닫힌(24h) 칸은 gh `--state closed --search closed:>=<어제>` 1회 더 부른다 — 그 호출만 실패하면 그 칸만 «판정 불가»(표 전체는 살린다).
+- 알려진 한계 2: 시험 36초(정상) / install-launchd-render 회귀 213초 — 그 시험은 install.sh --apply 를 6회 돌리는 기존 시험이라 기계 부하에서 70초를 넘는다(내 변경 전에도 같은 구조).
