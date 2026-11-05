@@ -4,7 +4,7 @@
 |---|---|---|
 | ⓖ 원천 가져오기 | — | ft_news_ledger._git_capped 로 «원격 ref vs 로컬 ref» 직접 비교 1회(로그·표식 추측 0 · r1005 반송 r4) |
 | ⓗ 팀 지도 ↔ 실측 | 발행본에 실린 팀 이름 | ft_news_html.live_teams (r850 자리 · 지금 함수) |
-| ⓘ 뿌리 글 읽힘 | 발행본 글 자체 | root_readback_guard.check (r1004 가드 재호출 — 판정 새로 구현 0) |
+| ⓘ 뿌리 글 읽힘 | 발행본 글 자체(news) · 슬랙에 올린 뿌리 글 본문 파일(magazine · r1378) | root_readback_guard.check (r1004 가드 재호출 — 판정 새로 구현 0) |
 
 값 못 읽음 = «모름» = 실패로 셈. 선행 카드 모듈·함수가 없음 = «검증 불가»(R1 · V3 · N/9 에 안 셈 · ERROR · 쪽지 0).
 """
@@ -98,7 +98,8 @@ def _guard():
 @guarded
 def cell_i(ctx: Ctx) -> tuple[str, str]:
     """ⓘ 뿌리 글 읽힘 = r1004 `root_readback_guard.check(text)` 재호출 하나 — None = 참 · 사유 글자 = 거짓.
-    모듈은 있는데 check 가 없는 경우도 «검증 불가»(V3 · 함수 확인은 getattr 한 곳 · r1005 반례 1)."""
+    모듈은 있는데 check 가 없는 경우도 «검증 불가»(V3 · 함수 확인은 getattr 한 곳 · r1005 반례 1).
+    r1378 — 매거진은 슬랙에 올린 뿌리 글 본문 파일만 가드에 넣는다(문서 전체 0 · 파일 없음 = «검증 불가»)."""
     try:
         module = _guard()
     except ImportError as e:  # R1 — r1004 미착지 = «검증 불가»
@@ -106,11 +107,16 @@ def cell_i(ctx: Ctx) -> tuple[str, str]:
     check = getattr(module, "check", None)
     if check is None:  # V3 — 모듈만 있고 함수 없음도 같은 값(«모름»·쪽지 아님)
         raise Missing("root_readback_guard.check 함수 없음")
-    text = "\n".join(ctx.texts).strip()
+    if ctx.kind == "magazine":  # r1378 — 뿌리 글 본문(발행기가 쓴 파일) · 없으면 «검증 불가»(문서 전체로 되돌아가지 않는다)
+        if ctx.root_text is None or not Path(ctx.root_text).is_file():
+            return UNAVAILABLE, f"뿌리 글 본문 파일 없음 — {ctx.root_text or '(‑‑root-text 없음)'}"
+        text = Path(ctx.root_text).read_text(encoding="utf-8", errors="replace").strip()
+    else:
+        text = "\n".join(ctx.texts).strip()
     if not text:
         return UNKNOWN, "발행본 글 비어 있음"
     why = check(text)  # r1004 check 반환 = 사유 1줄 아니면 None(짧은 줄·표 금지 = None)
     return (FAIL if why else PASS), (f"가드 위반 — {why}" if why else "가드 위반 0")
 
 
-CELLS = (("ⓖ fetch 실패", cell_g), ("ⓗ 팀 지도", cell_h), ("ⓘ 뿌리 글", cell_i))
+CELLS = (("ⓖ fetch 실패", cell_g, True), ("ⓗ 팀 지도", cell_h, True), ("ⓘ 뿌리 글", cell_i, True))

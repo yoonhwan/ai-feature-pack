@@ -108,7 +108,9 @@ def publish(args: argparse.Namespace, key: str, date: str, html_path: Path, conc
     if rec.get("uploaded"):
         return f"skip {key} root_ts={rec['root_ts']} (이미 발행됨)", str(rec["root_ts"])
     target = Target(args.slack_base, read_token(Path(args.token_file).expanduser()), args.channel, "")
-    root_ts = str(rec.get("root_ts") or post_root(target, root_text(date, conclusion)))
+    said = root_text(date, conclusion)  # r1378 — 검증 ⓘ 가 읽을 본문(올린 값 그대로) · 한 번만 만든다
+    (html_path.parent / f"{html_path.stem}.root.txt").write_text(said, encoding="utf-8")
+    root_ts = str(rec.get("root_ts") or post_root(target, said))
     if not rec.get("root_ts"):  # 방금 올린 뿌리 글만 되읽기(이미 검사한 재샐행 글은 다시 안 본다)
         readback(Post(target.base, target.token, target.channel, root_ts, f"magazine:{date}"))  # r1004 — 위반이면 지우고 raise → 상태 기록 0(다음 새샐행이 새 글)
     state[key] = {"root_ts": root_ts, "uploaded": False, "date": date}

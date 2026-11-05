@@ -5,11 +5,12 @@
 | ⓐ 오빠 할 일 건수 | «질문 —»·«실행 줄 —»·«자율 큐 —» 항목 수 | ft_ledger_fill.gather → open_questions · hil_pending · queue_open (r851) |
 | ⓑ 한 일 | «<sha> [tag]» 착지 줄 + «완료·착지 쪽지 N통» 수 | landed_commits(상한 0) · mbox_done (r851) |
 | ⓒ 팀 수 | «팀 N개» | ft_ledger_fill_src.teams (명부 · r851) |
-| ⓓ 발행 sha | 발행본 머리 sha(없으면 지도 상태 last.sha) | read_ref + rev-parse(origin/main 머리 · r851) |
+| ⓓ 발행 sha | 발행본 머리 sha(없으면 지도 상태 last.sha — news 만 · 매거진은 발행 원장 sha r1378) | read_ref + rev-parse(origin/main 머리 · r851) |
 | ⓔ 같은 경고 | 하루 발행본에 경고 문구 2회 이상 0 | 경고 문구 3종(계획 §2 ⓔ) |
 | ⓕ 완료 줄 | — | ft_ledger_fill_tables.lower_closed 재적용 «내려야 할 줄 0» (r851) |
 
 값 못 읽음 = «모름» = 실패로 셈(계획 §2 · 조용한 9/9 0). 선행 카드 모듈·함수가 없음 = «검증 불가»(R1 · V3).
+r1378 — CELLS 세 번째 값 = «매거진 적용» 여부. ⓐⓑⓒ 는 매거진 글에 그 줄이 없어 해당 없음(분모 제외 · 꼬리에 이름)이다.
 발행 쪽 칸(ⓖ~ⓘ) = _news_verify_pub_cells.py.
 """
 import re
@@ -88,11 +89,21 @@ def _head_sha(ctx: Ctx) -> str:
 
 @guarded
 def cell_d(ctx: Ctx) -> tuple[str, str]:
-    """ⓓ 발행본 머리 sha = 발행 시각의 origin/main 머리(차이 0 커밋)."""
+    """ⓓ 발행본 머리 sha = 발행 시각의 origin/main 머리(차이 0 커밋).
+    r1378 — 매거진은 그 매거진이 만든 원장 sha 를 잰다(뉴스 지도 last.sha 로 떨어지지 않는다 · 없으면 «모름")."""
     git, ancestor = need("ft_ledger_fill_src", "git"), need("ft_ledger_fill_src", "ancestor")
-    pub = _head_sha(ctx)
-    if not pub:
-        return UNKNOWN, "발행본·지도 상태에 머리 sha 없음"
+    if ctx.kind == "magazine":
+        pub = (ctx.pub_sha or "").strip()
+        if not pub:
+            return UNKNOWN, "매거진 발행 원장 sha 없음(발행 줄·파일 이름 둘 다 없음)"
+        try:  # 원장 사본에 없는 sha = 값 못 읽음(«모름» · 옛 지도 sha 로 대신하지 않는다)
+            git(ctx.repo, "rev-parse", "--verify", "-q", f"{pub}^{{commit}}")
+        except Exception as e:  # noqa: BLE001
+            return UNKNOWN, f"발행 원장 sha {pub[:10]} 가 원장 사본에 없음 — {type(e).__name__}"
+    else:
+        pub = _head_sha(ctx)
+        if not pub:
+            return UNKNOWN, "발행본·지도 상태에 머리 sha 없음"
     try:
         actual = git(ctx.repo, "rev-parse", "--verify", f"{ctx.ref}^{{commit}}").strip()
         same = pub == actual or ancestor(ctx.repo, pub, actual)
@@ -138,5 +149,5 @@ def cell_f(ctx: Ctx) -> tuple[str, str]:
     return (FAIL if moved else PASS), f"내려야 할 완료 줄 {moved}개(발행 성공 {pub_at})"
 
 
-CELLS = (("ⓐ 오빠 할 일 건수", cell_a), ("ⓑ 한 일", cell_b), ("ⓒ 팀 수", cell_c),
-         ("ⓓ 발행 sha", cell_d), ("ⓔ 같은 경고", cell_e), ("ⓕ 완료 줄", cell_f))
+CELLS = (("ⓐ 오빠 할 일 건수", cell_a, False), ("ⓑ 한 일", cell_b, False), ("ⓒ 팀 수", cell_c, False),
+         ("ⓓ 발행 sha", cell_d, True), ("ⓔ 같은 경고", cell_e, True), ("ⓕ 완료 줄", cell_f, True))

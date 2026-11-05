@@ -6,6 +6,8 @@
 - 9/9 연속 수 상태 파일 · 24 도달 = planner 1통(«뉴스 정상화 끝선 도달»)
 - 실패 = planner [긴급] 1통(같은 사건 1통 — 실패 칸 조합이 그대로면 0통, 참으로 돌아간 뒤 다시 거짓 = 새 1통)
   검증 불가(선행 함수 없음)는 «복구» 가 아니다 — 그 칸의 열린 사건은 닫지도 새로 열지도 않는다(r1005 R2 반례 1)
+- r1378 — kind 별 칸 표: news = 9칸 그대로 · magazine = 표에 적은 6칸(ⓓⓔⓕⓖⓗⓘ)만 재고
+  ⓐⓑⓒ 는 «해당 없음» 으로 분모에서 빠지고 꼬리에 이름이 보인다(«검증 N/6 · 해당 없음 ⓐⓑⓒ» · 조용한 통과 0)
 - 발행본 꼬리 «검증 N/9» = --tail 일 때 그 파일 끝에 덧붙인다(게시 뒤라 슬랙 본문에는 안 들어간다)
   꼬리를 못 쓰면 9/9 가 아니다(r1005 R2 반례 5 — ERROR 1줄 + rc≠0)
 
@@ -15,6 +17,7 @@ import argparse
 import json
 import logging
 import os
+import re
 import sys
 import threading
 from datetime import datetime
@@ -76,9 +79,12 @@ def run_cell(name: str, fn, ctx) -> tuple[str, str]:
 
 
 def verify(ctx) -> tuple[int, list[tuple[str, str, str]]]:
-    """9칸 전부 — (참 개수, [(칸 이름, 판정, 사유)])."""
+    """칸 전부 — (참 개수, [(칸 이름, 판정, 사유)]). 매거진에서 표에 적지 않은 칸 = «해당 없음»(분모 제외 · r1378)."""
     out = []
-    for name, fn in CELLS:
+    for name, fn, magazine in CELLS:
+        if ctx.kind == "magazine" and not magazine:
+            out.append((name, lib.NA, "매거진 글에 없는 칸(표에 적힘)"))
+            continue
         verdict, why = run_cell(name, fn, ctx)
         if verdict == lib.UNAVAILABLE:  # R1 — 선행 카드 함수 없음 = 9/9 아님 · ERROR(조용한 통과 0) · 쪽지는 안 보낸다
             LOG.error("%s 칸 검증 불가 — %s", name, why)
@@ -98,6 +104,17 @@ def tail_line(body: Path, line: str) -> str:
     return ""
 
 
+def _pub_sha(arg: str, body: list[Path]) -> str:
+    """매거진 발행 원장 sha(r1378) — --pub-sha(발행 줄에서 읽은 값) 먼저 · 없으면 파일 이름 MAGAZINE-DOC-<날>-<sha10>."""
+    if (arg or "").strip():
+        return arg.strip()
+    for f in body:
+        m = re.search(r"MAGAZINE-DOC-\d{4}-\d{2}-\d{2}-([0-9a-f]{7,40})", f.name, re.I)
+        if m:
+            return m.group(1)
+    return ""
+
+
 def main(argv: list[str]) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--kind", choices=("news", "magazine"), default="news")
@@ -109,6 +126,8 @@ def main(argv: list[str]) -> int:
     p.add_argument("--state", default="", help="뉴스 지도 상태 폴더(기본 <루트>/.fable-team/state/news-ledger)")
     p.add_argument("--log", default=os.environ.get("FT_NEWS_LOG") or "/tmp/byz-ft-news-planner.log")
     p.add_argument("--tail", action="store_true", help="발행본 끝에 «검증 N/9» 를 쓴다")
+    p.add_argument("--pub-sha", default="", help="매거진이 만든 원장 sha(ⓓ · 없으면 파일 이름에서 읽는다 · r1378)")
+    p.add_argument("--root-text", default="", help="슬랙에 올린 뿌리 글 본문 파일(ⓘ · 매거진 · r1378)")
     a = p.parse_args(argv)
     root = Path(a.root).expanduser()
     body = [Path(x).expanduser() for x in a.body]
@@ -125,10 +144,13 @@ def main(argv: list[str]) -> int:
         return 2
     ctx = lib.Ctx(kind=a.kind, texts=texts, root=root, repo=Path(a.repo or root / ".worktrees/news-ledger-main"),
                     rel=a.rel, ref=a.ref, state=Path(a.state) if a.state else root / ".fable-team/state/news-ledger",
-                    verify_state=st, log=Path(a.log) if a.log else None, now=now)
+                    verify_state=st, log=Path(a.log) if a.log else None, now=now,
+                    pub_sha=_pub_sha(a.pub_sha, body), root_text=Path(a.root_text).expanduser() if a.root_text else None)
     try:  # V4 — 검증기 안 예외는 전부 여기 한 곳에서(상태 파일 꼴 깨짐 포함) = 발행 유지 · ERROR 1줄 · 쪽지 1(R2)
         passed, out = verify(ctx)
-        line = f"검증 {passed}/9"
+        na = [_n.split()[0] for _n, v, _w in out if v == lib.NA]  # 매거진 «해당 없음» 칸 이름(ⓐⓑⓒ)
+        total = sum(1 for _n, v, _w in out if v != lib.NA)
+        line = f"검증 {passed}/{total}" + (f" · 해당 없음 {''.join(na)}" if na else "")
         try:  # r1005 반송 r1 — 상태 파일 손상(깨진 JSON) = 그 회차 «검증 불가» · 9/9 금지 · 손상 파일 덮어쓰기 0
             book.check_state(st)
         except book.StateCorrupt as e:
@@ -140,16 +162,16 @@ def main(argv: list[str]) -> int:
                  ", ".join(name for name, v, _w in out if v != lib.PASS) or "0")
         print(f"NEWS-VERIFY {now:%Y-%m-%d %H:%M} kind={a.kind} {line}"
               + (" (꼬리 못 씀 — 9/9 아님)" if bad else "")
-              + "".join(f"\n  {name} — {'[검증 불가] ' if v == lib.UNAVAILABLE else ''}{why}" for name, v, why in out if v != lib.PASS))
+              + "".join(f"\n  {name} — {'[검증 불가] ' if v == lib.UNAVAILABLE else ''}{why}" for name, v, why in out if v not in (lib.PASS, lib.NA)))
         if bad:  # r1005 반례 5 — 발행본에 «검증 N/9» 를 못 남겼으면 9/9 가 아니다(ERROR · rc≠0 · 연속 셈 0)
             self_error(root, st, a.kind, f"발행본 꼬리 못 씀 — {'; '.join(bad)[:160]}")
             return 1
-        bookkeep(root, st, a.kind, passed, out, now)
+        bookkeep(root, st, a.kind, passed, out, now, total)
         _save(st / "self-error.json", {})  # r1005 반례 4 — 정상 완주 = 앞 자체 오류 사건 닫힘(같은 사유 재발 = 새 1통)
     except Exception as e:  # noqa: BLE001 — 어떤 예외도 발행 쪽으로 전파하지 않는다(R2)
         self_error(root, st, a.kind, f"{type(e).__name__}: {e}")
         return 1
-    return 0 if passed == 9 else 1
+    return 0 if passed == total else 1
 
 
 if __name__ == "__main__":
