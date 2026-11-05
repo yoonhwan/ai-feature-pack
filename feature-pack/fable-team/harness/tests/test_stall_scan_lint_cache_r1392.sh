@@ -6,6 +6,7 @@
 #   + 변이 4종(사본 bin 치환 → 그 시험 FAIL → 복구) · 모든 실행은 timeout 70초(칸별 -k 분리 · 하드 룰 22): V1 캐시 조회 무시 · V2 예산 끄기 · V3 on_timeout 저장에서 lint 칸 빼기 · V4 oid 비교 빼기(stem 만)
 #   + 회귀(stall 시험 py 12종) — 신판 rc 0 · 예외 하나: test_stall_scan_heartbeat_desk_r1143.py 는 기준판(origin/main)도 rc 1
 #     (2026-11-05 실측: test_r3_out_of_window_heartbeat_wording «h? desk 대상 밖 — 현역 팀장 없음» · 이 카드 무관 · 착수 전부터 깨짐) → 신판 rc 1 을 기대값으로 적는다
+#   · 70초 상한에 걸린 파일은 «재시도 1회»(하드 룰 12) — test_ft_stall_scan.py 39케이스·test_stall_scan_headline_age.py 31케이스는 부하 35에서 단독 58~66초(같은 파일 기준판도 같다)
 #   · STEPS=0 이면 회귀 끔
 # 단계 선택(하드 룰 22 — 한 단계 < 4분): bash test_stall_scan_lint_cache_r1392.sh [all|green|base|mut|reg] (기본 all)
 # 격리: 임시 리포(bare origin + 체크아웃)·가짜 명부·tmux·mbox·seat-status·lint — 네트워크 0 · 실 루트 0 · 실 좌석 깨우기 0 · 자기 재호출 0(가드 RSG_ACTIVE 가 막는다).
@@ -84,7 +85,9 @@ fi
 # ⑤ 회귀 — 기존 stall 시험: 신판 rc = 기준판 rc (같은 결과 · 이미 기준판에서 깨지는 시험도 «같으면» 통과)
 if want reg && [ "${STEPS:-1}" != 0 ]; then
   for t in test_ft_stall_scan.py test_ft_stall_scan_off_roster.py test_ft_stall_scan_wake_r638.py test_ft_stall_news_cell.py test_stall_heartbeat_promoted_r1154.py test_stall_lead_alert_cron_r1152.py test_stall_scan_headline_age.py test_stall_scan_headline_seats_r1290.py test_stall_scan_lead_heartbeat_r1001.py test_stall_scan_skip_paused_r1307.py test_stall_waiting_cards_ref_tree_r1330.py; do
-    run_py "$KIT" "$t"; rc=$?; ck "회귀 $t rc=$rc $(grep -Eo '[0-9]+ passed' "$T/py.log")" $rc
+    run_py "$KIT" "$t"; rc=$?
+    if [ "$rc" = 124 ]; then echo "  · 재시도 1 — $t 이 70초 상한에 걸림(부하 · 하드 룰 12)"; run_py "$KIT" "$t"; rc=$?; fi
+    ck "회귀 $t rc=$rc $(grep -Eo '[0-9]+ passed' "$T/py.log")" $rc
   done
   run_py "$KIT" test_stall_scan_heartbeat_desk_r1143.py; rc=$?; [ "$rc" = 1 ]; ck "회귀 test_stall_scan_heartbeat_desk_r1143.py rc=$rc (기준판도 rc1 · 위 머리말)" $?
   lap 회귀
