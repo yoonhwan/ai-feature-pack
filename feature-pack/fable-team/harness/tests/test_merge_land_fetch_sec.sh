@@ -59,20 +59,20 @@ fold() {  # fold <PR> <env…> — PR 을 «옛 main(M0)» 위에 만들어 게�
   out="$(env PATH="$FS:$PATH" "$@" bash "$LAND" "$pr" --approve-sha "$P" --repo "$W" 2>&1)"; rc=$?
   first="$(printf '%s\n' "$out" | head -n1)"
 }
-# ── ⓐ R1 — env 없음 = 지금 그대로(상한 7 · 재시도 1) · 첫 줄 예외 표기 0 ──
+# ── ⓐ R1 — env 없음 = r1363 기본 상한 25(판정 4114 · r1069 의 7초 뒤 바뀐 계약) · 재시도 1 · 첫 줄 예외 표기 0 ──
 MA="$(omain)"; fland 70 FT_FAIL=1
-[ "$rc" = 1 ] && [[ "$out" == *"PR head fetch 실패"* ]] && [ "$(ftl)" = 2 ] && [ "$(fsec 1)" = 7 ] && [ "$(fsec 2)" = 7 ] && [[ "$first" != *"오빠 예외"* ]] && [ "$(omain)" = "$MA" ]; ck "ⓐ R1 env 없음 → 상한 7 초 × 2회(재시도 1) · REJECT · 첫 줄 예외 0 · main 불변" $?
+[ "$rc" = 1 ] && [[ "$out" == *"PR head fetch 실패"* ]] && [ "$(ftl)" = 2 ] && [ "$(fsec 1)" = 25 ] && [ "$(fsec 2)" = 25 ] && [[ "$first" != *"오빠 예외"* ]] && [ "$(omain)" = "$MA" ]; ck "ⓐ R1 env 없음 → 상한 25 초 × 2회(재시도 1 · r1363 판정 4114) · REJECT · 첫 줄 예외 0 · main 불변" $?
 # ── ⓑ R2 — 유효 지정 = 상한이 그 값 · 예외 첫 줄 · 끝까지 착지(성공 경로 1회) ──
 fland 71 FT_FETCH_TIMEOUT_SEC=20 FT_SLOW=1
 [ "$rc" = 0 ] && [ "$first" = "오빠 예외 판정 · 지정 20" ] && [ "$(fsec 1)" = 20 ] && [[ "$out" == *LANDED* ]]; ck "ⓑ R2 지정 20 → 첫 줄 «오빠 예외 판정 · 지정 20» · 상한 20(느린 fetch 통과) · 착지" $?
 # ── ⓑ2 R6 — 판정 번호 칸 ──
 fold 72 FT_FETCH_TIMEOUT_SEC=20 FT_FETCH_EXCEPTION_ID=2901
 [ "$first" = "오빠 예외 판정 2901 · 지정 20" ]; ck "ⓑ2 R6 판정 번호 2901 → 첫 줄 «오빠 예외 판정 2901 · 지정 20»" $?
-# ── ⓒ R3·R4 — 꼴 틀림·70 초과 = WARN 1줄 + 7 초 · 예외 표기 0 ──
+# ── ⓒ R3·R4 — 꼴 틀림·70 초과 = WARN 1줄 + 기본 상한 25(r1363) · 예외 표기 0 ──
 fold 73 FT_FETCH_TIMEOUT_SEC=90
-[[ "$out" == *"WARN"*"FT_FETCH_TIMEOUT_SEC=90"* ]] && [ "$(fsec 1)" = 7 ] && [[ "$first" != *"오빠 예외"* ]]; ck "ⓒ R3 90(70 초과) → WARN 1줄 + 7 초 · 예외 표기 0" $?
+[[ "$out" == *"WARN"*"FT_FETCH_TIMEOUT_SEC=90"* ]] && [ "$(fsec 1)" = 25 ] && [[ "$first" != *"오빠 예외"* ]]; ck "ⓒ R3 90(70 초과) → WARN 1줄 + 기본 상한 25 초 · 예외 표기 0" $?
 fold 74 FT_FETCH_TIMEOUT_SEC=abc
-[[ "$out" == *"WARN"*"FT_FETCH_TIMEOUT_SEC=abc"* ]] && [ "$(fsec 1)" = 7 ] && [[ "$first" != *"오빠 예외"* ]]; ck "ⓒ2 R4 abc(정수 아님) → WARN 1줄 + 7 초 · 예외 표기 0" $?
+[[ "$out" == *"WARN"*"FT_FETCH_TIMEOUT_SEC=abc"* ]] && [ "$(fsec 1)" = 25 ] && [[ "$first" != *"오빠 예외"* ]]; ck "ⓒ2 R4 abc(정수 아님) → WARN 1줄 + 기본 상한 25 초 · 예외 표기 0" $?
 # ── ⓓ R5 — 1회 상한 = min(지정, 남은 시간) · 재시도는 남은 ≥ 지정일 때만 ──
 MD="$(omain)"; fland 75 FT_FETCH_TIMEOUT_SEC=2 FT_LAND_TOTAL_S=3 FT_SLOW=5
 [ "$rc" = 1 ] && [ "$(ftl)" = 1 ] && [ "$(fsec 1)" -le 2 ] && [[ "$out" == *"PR head fetch 실패"* ]] && [ "$(omain)" = "$MD" ]; ck "ⓓ R5 지정 2 · 총 마감 3 · fetch 가 그 시간을 다 씀 → 상한 min(2,남은)=$(fsec 1) · 재시도 0 · REJECT · main 불변" $?
@@ -88,8 +88,8 @@ first="$(printf '%s\n' "$out" | head -n1)"
 MC="$T/mutcap"; mutd "$MC"; sed -i '' 's/&& \[ "\$v" -le 70 \] 2>\/dev\/null//' "$MC/ft-merge-lib.sh"   # 70 상한만 끔
 ! cmp -s "$LIB" "$MC/ft-merge-lib.sh"; ck "ⓒ 변이본 적용(70 상한 삭제)" $?
 : > "$FTLOG"; git -C "$W" fetch -q origin; mkpr 77 pr77 "$M0"; P77="$PRSHA"; apv --approve-sha "$P77"
-out="$(env PATH="$FS:$PATH" FT_FETCH_TIMEOUT_SEC=90 bash "$MC/ft-merge-land.sh" 77 --approve-sha "$P77" --repo "$W" 2>&1)"
-first="$(printf '%s\n' "$out" | head -n1)"; [ "$(fsec 1)" -lt 90 ] && [ "$(fsec 1)" -ge 10 ] && [[ "$first" == *"오빠 예외"* ]]; ck "ⓒ 변이(70 상한 끔)는 ⓒ 칸(WARN + 7 초)에서 FAIL — 지정 90 이 «예외» 첫 줄로 통과 · 시험 검출력" $?
+out="$(env PATH="$FS:$PATH" FT_FETCH_TIMEOUT_SEC=90 FT_LAND_TOTAL_S=70 bash "$MC/ft-merge-land.sh" 77 --approve-sha "$P77" --repo "$W" 2>&1)"   # r1363: 기본 총 마감 100 이라 70 을 주입해 종전과 같은 값(90 → 70 절단)을 잰다
+first="$(printf '%s\n' "$out" | head -n1)"; [ "$(fsec 1)" -lt 90 ] && [ "$(fsec 1)" -ge 10 ] && [[ "$first" == *"오빠 예외"* ]]; ck "ⓒ 변이(70 상한 끔)는 ⓒ 칸(WARN + 기본 상한)에서 FAIL — 지정 90 이 «예외» 첫 줄로 통과 · 시험 검출력" $?
 # ── ⓕ 회귀 — land·lib 정적 상한(줄 수·600·300·force) ──
 [ "$(wc -l < "$LAND" | tr -d ' ')" -le 120 ]; ck "ft-merge-land.sh ≤ 120줄(r1069 뒤에도)" $?
 ! grep -vE '^\s*#' "$LAND" "$LIB" | grep -qE '\b(600|300)\b'; ck "600·300 글자 0" $?
