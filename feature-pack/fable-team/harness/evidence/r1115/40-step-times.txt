@@ -1,0 +1,8 @@
+r1115 단계별 초 (2026-11-05 16:2x · 대역 gh 79건 · 기계 부하 중)
+- ft-issues-daily.sh 1회(dry-run · 대역 gh · 표 안 씀)         = 0.48초
+- ft-issues-daily.sh 1회(표 파일 쓰기 · 쪽지 0)                 = 0.28초
+- ft-issue-classify.sh 79건(③ 분류 재사용)                     = 0.08초
+- ft-issues-daily-check.sh 1회(00:50 · 표 없음 · 경보 발송 대역) = 0.10초
+- tests/test_issues_daily_r1115.sh 전체(51 검사 · 변이 2 포함)   = 27초
+- tests/test_install_launchd_render.sh 회귀(install.sh --apply 6회) = 213초  ← 이 시험은 원래 무겁다(내 변경 전 구조)
+실 gh 호출은 위 값에 안 들어 있다 — 회당 7초 상한 + 재시도 1(목록 1회 + 닫힌 24h 1회)이라 최악 28초, 정상 1~2초.

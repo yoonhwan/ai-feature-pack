@@ -59,8 +59,8 @@ ck "ⓔ --dry-run → PENDING/OK launchd 줄 · LAUNCHD 요약 · 쓰기 0 · la
 
 # ⓐ 템플릿 → 렌더본: __FT_BIN__ = <루트>/.fable-team/bin · __BYZ_ROOT__ = 루트 (실패 시험 먼저 — 고치기 전 설치기는 렌더 0)
 out="$(python3 "$ENV_PY" bin-list "$H/kit" 2>&1)"; rc=$?
-[ "$rc" = 0 ] && [ "$(grep -c . <<< "$out")" = 12 ] && has "$SWEEP	" && has "com.byz.ft-board-publish	" && ! has "com.hermes."   # r544: 7 → 9(__BYZ_ROOT__/.fable-team/bin/ 템플릿도 렌더 목록) · r868: 9 → 10(postboot-measure) · r1377: 10 → 12(resource-watch 신설 · news-desk 이미 11 이던 것을 함께 셈)
-ck "ⓐ bin-list = 루트 bin 템플릿 12개(__FT_BIN__ 8(launchd 7 + board-publish) + r544 루트 bin 꼴 2(secret-scan·weekly-review)) · 미러(com.hermes) 0" $?
+[ "$rc" = 0 ] && [ "$(grep -c . <<< "$out")" = 13 ] && has "$SWEEP	" && has "com.byz.ft-board-publish	" && ! has "com.hermes."   # r544: 7 → 9(__BYZ_ROOT__/.fable-team/bin/ 템플릿도 렌더 목록) · r868: 9 → 10(postboot-measure) · r1377: 10 → 12(resource-watch 신설 · news-desk 이미 11 이던 것을 함께 셈) · r1115: 12 → 13(issues-daily 신설 — 00:10 이슈 일일 표)
+ck "ⓐ bin-list = 루트 bin 템플릿 13개(__FT_BIN__ 9(launchd 8 + board-publish) + r544 루트 bin 꼴 2(secret-scan·weekly-review)) · 미러(com.hermes) 0" $?
 out="$(python3 "$ENV_PY" render-bin "$H/kit/launchd/$SWEEP.plist.template" "$P" 2>&1)"; rc=$?; printf '%s\n' "$out" > "$T/r.plist"
 [ "$rc" = 0 ] && plutil -lint "$T/r.plist" >/dev/null && [ "$(plutil -extract ProgramArguments.1 raw "$T/r.plist")" = "$RB/ft-wt-sweep.sh" ] \
   && [ "$(plutil -extract WorkingDirectory raw "$T/r.plist")" = "$P" ] && [ "$(plutil -extract EnvironmentVariables.FT_ROOT raw "$T/r.plist")" = "$P" ] \

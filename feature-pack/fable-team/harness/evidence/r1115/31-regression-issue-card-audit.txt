@@ -1,0 +1,23 @@
+== 왜: PLAN §2-1·§2-2 / §3 R1~R9 ==
+--- tick: ISSUE-CARD approved=14 카드없음=7 #103 #102 #101 #12 #8 +2 언급만=1 닫기후보=1
+  OK   R1·R2·R3·R4·R7+R3(+) — tick 한 줄
+  OK   tick rc
+  OK   §2-3 팀별 분리(harness 1건)
+  OK   §2-3 planner 몫(팀 근거 없는 5건)
+  OK   §2-3 v65 몫
+  OK   R5 대조 — ref-harness 끄면 카드없음 8
+  OK   R6 gh 실패 rc5
+  OK   R6 판정 불가 1줄
+  OK   R9 git 실패 rc5
+  OK   R9 판정 불가 1줄
+  OK   R9 시간 초과 rc5
+  OK   R9 초과 상한(≤10초)
+== 변이 5 ==
+  OK   변이 num-boundary — 잡힘 (rc=0 · ISSUE-CARD approved=14 카드없음=6 #103 #102 #101 #8 #6 +1 언급만=1 )
+  OK   변이 ref-off — 잡힘 (rc=0 · ISSUE-CARD approved=14 카드없음=8 #103 #102 #101 #12 #8 +3 언급만=1)
+  OK   변이 close-any — 잡힘 (rc=0 · ISSUE-CARD approved=14 카드없음=7 #103 #102 #101 #12 #8 +2 언급만=1)
+  OK   변이 teams-path — 잡힘 (rc=0 · ISSUE-CARD approved=14 카드없음=8 #103 #102 #101 #12 #9 +3 언급만=1)
+  OK   변이 git-empty — 잡힘 (rc=0 · ISSUE-CARD approved=14 카드없음=14 #123 #103 #102 #101 #12 +9 언급)
+== 요약 ==
+  elapsed=8s
+PASS issue-card-audit R1~R9 + 변이 5

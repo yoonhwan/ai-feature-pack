@@ -1,0 +1,35 @@
+PASS bash -n 2종
+PASS 분류기 rc=0
+번호 | 작성 경로 | 처리 분기 | 발견 지연 | 판단 근거 | 빠진 라벨 계열 | 제목
+#101 | ① 기획 세션 | 그대로 | 미발견 · 나이 2일0시간 | planner_task 칸 골좌표 + 닫는 증거 | type,team,scope,phase,priority | [v65] 기획 정리본 단위 1
+#102 | ② 세션 에이전트 | 반려 | 발견 +5시간 | 본문 마커 ft-origin: seat | team,scope,phase,priority | [bug] 좌석 등록
+#103 | ③ 오빠 GitHub | 보완 | 미발견 · 나이 2일0시간 | live_bug 폼 칸 발생 위치 넷 가르기 | team,scope,phase,priority | [bug] 오빠 직접 등록
+#104 | ④ 사내 멤버 | 보완 | 발견 +5시간 | 라벨 from:member | team,scope,phase,priority | [bug] 사내 멤버 확인 요청
+SUMMARY total=4 ①=1 ②=1 ③=1 ④=1 미분류=0 보완=2 반려=1 그대로=1 미발견=2
+PASS 경로① 분류·분기·미발견 나이
+PASS 경로② 반려 · 발견 지연 5시간
+PASS 경로③ 보완 · 미발견
+PASS 경로④ 보완 · 발견 지연 5시간
+PASS 근거 열 = 마커
+PASS SUMMARY 한 줄
+PASS login 무관
+PASS 미분류 · body null · 나이 12시간
+PASS 라벨 완비면 보완 0
+PASS BOARD 표 행 = ①
+PASS 제목 줄 = ①
+PASS 없는 파일 exit 2
+PASS 배열 아님 exit 2
+PASS 모르는 옵션 exit 2
+FAIL pair rc=1 ERROR comm 폴더를 못 풂 — FT_MBOX_DIR·FT_ROOT 없음 · cwd(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.OvUoI89qtd) 가 git 리포 아님 · 옛 설치 꼴 아님(/Users/yoonhwan/Project/ai-feature-pack/.worktrees/r1115-issues-daily-midnight-loop-launchd/feature-pack/fable-team/harness/bin)
+FAIL gh 줄: 
+FAIL 알림 줄: 
+FAIL 줄 수
+PASS 백틱 0
+FAIL 매니저 행 없음 허용됨
+FAIL _master 비어도 허용됨
+FAIL 본문 파일 rc
+FAIL 인자 없음 rc
+FAIL 봇 토큰 없는데 진행됨 rc=1
+FAIL 좌석 불명 허용됨
+FAILED 10
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=data:/Users/yoonhwan/Project/ai-feature-pack,repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

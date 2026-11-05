@@ -1,0 +1,16 @@
+PASS bash -n
+PASS ① 정본 X 가 랜딩 S 에 있음 → PASS
+PASS ② 랜딩 S 에 정본 X 없음 → MISS(나)
+PASS ③ S 가 main 조상 아님 → MISS(가)
+PASS ④ 뒤 commit 이 쌓여도 거짓 MISS 0
+PASS ④b ff 범위 T..S 에 X 있음 → PASS
+PASS ④c ff 범위에 X 없음 → MISS
+PASS ⑤ @S1,S2 둘 다 X → PASS
+PASS ⑤b S2 에 X 없음 → MISS
+PASS ⑥ 이유 9자 → MISS
+PASS ⑥ 이유 10자 → PASS
+PASS ⑦ 5항만 → FAIL(6항 MISS)
+PASS ⑧ 사유=완성 rc 전달(0/1)
+PASS S 로컬 없음 → fetch 안내 MISS
+ALL PASS
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=data:/Users/yoonhwan/Project/ai-feature-pack,repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

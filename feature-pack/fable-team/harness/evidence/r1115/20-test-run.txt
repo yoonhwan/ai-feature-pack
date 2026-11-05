@@ -1,0 +1,61 @@
+== R1~R5 표 1장 (열린 7 · approved 3 · proposal-pending 2 · needs-triage 1 · 라벨 없음 1) ==
+  OK   rc=0
+  OK   표 파일 1장
+  OK   ① 머리 합 검산 (한 이슈 = 한 칸)
+  OK   ① 열린 총수 7
+  OK   ① proposal-pending 2
+  OK   R1 proposal-pending #3807 이 ④ⓒ 칸에 있다(묻힘 0)
+  OK   R1 proposal-pending #4200 이 ④ⓒ 칸에 있다
+  OK   R2 7일+ 정체 2건
+  OK   R2 정체 목록에 #101(8일)
+  OK   R3 중복 후보 1쌍
+  OK   R3 판정 낱말 0(«후보» 만)
+  OK   R4 team:* 없음 + 폼 키워드 v65 → 팀 후보
+  OK   R5 닫기 8항 코멘트 있는 #103 = 닫기 후보
+  OK   장치가 하지 않은 것 칸
+  OK   R4/R5 gh 쓰기 호출 0 (list 2회만)
+  OK   R10 쪽지 2통
+  OK   R10 두 쪽지 본문이 다르다(FANOUT 가드 통과)
+  OK   쪽지1 = planner master
+  OK   쪽지2 = issues master
+== R9 어제 표 있음 → 차이 +1 -1 / 없음 → «차이: 첫 표» ==
+  OK   R9 어제 표 있음 → 차이 +새로 열린 −닫힌 · 총수 이동
+  OK   R9 어제 표 없음 → 첫 표
+== R6 전팀 정지 표식 → «건너뜀» 표 1장 + 쪽지 1통 ==
+  OK   R6 rc=0(건너뜀은 실패 아님)
+  OK   R6 건너뜀 표 · 사유 적힘(빈 표 0)
+  OK   R6 쪽지 1통
+== R7 gh 실패 → «판정 불가» 표 + rc≠0 + 쪽지 1통 ==
+  OK   R7 rc=5(판정 불가)
+  OK   R7 판정 불가 표(0건으로 숨김 0)
+  OK   R7 쪽지 1통
+  OK   R7 쪽지 본문에 «판정 불가»
+== R8 check: 00:40 뒤 표 없음 → 1통 · 두 번째 틱 0 · 표 있으면 0 · 00:40 전 0 ==
+  OK   R8 00:39 = 아직 안 봄(경보 0)
+  OK   R8 rc=0
+  OK   R8 표 없음 → 경보 1통
+  OK   R8 경보 본문
+  OK   R8 경보에 launchd 상태 동봉
+  OK   R8 ALARM 줄 출력
+  OK   R8 같은 날 두 번째 틱 = 0
+  OK   R8 표 있으면 0
+  OK   R8 표가 «판정 불가» 면 경보
+== ⓖ plist·install: 라벨 등록 경로 · 00:10 · cmp0 ==
+  OK   kit plist 템플릿 있음
+  OK   bin-list 가 새 라벨을 나열
+  OK   plist: Label · 00:10 · RunAtLoad 0 · ProgramArguments=ft-issues-daily.sh · ProcessType Interactive
+  OK   install.sh --launchd-new 가 그 라벨을 본다
+  OK   install.sh --launchd-new dry-run = PLAN 1줄(쓰기 0)
+  OK   install.sh --launchd-new 오타 라벨 = ERROR(조용한 통과 0)
+  OK   apply = 새 라벨 첫 등록 + launchctl print state 확인
+  OK   apply 가 ~/Library/LaunchAgents 에 plist 를 썼다(시험 home)
+  OK   적재된 plist 의 ProgramArguments = 루트 shim
+  OK   cmp0 harness/bin ↔ kit/fable-team/bin 4파일 같은 내용(설치기가 엉뚱한 판을 안 싣는다)
+== 틱 연결: ft-stall-scan.sh 가 check 를 부른다(120초 틱 · --dry-run 제외) ==
+  OK   ft-stall-scan.sh 에 호출 줄 1(경보 경로)
+  OK   --dry-run 에서는 부르지 않는다(판정 시험 오염 0)
+== 변이 2 ==
+  OK   변이ⓐ proposal-pending 칸 끔 → R1 검사 FAIL(시험이 잡는다)
+  OK   변이ⓑ label 호출 추가 → R4·R5 쓰기 0 검사 FAIL(시험이 잡는다)
+
+ALL PASS (R1~R10 · 변이 2 · plist/install) — 단계: 표 27s

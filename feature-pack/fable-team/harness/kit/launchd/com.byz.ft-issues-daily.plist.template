@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.byz.ft-issues-daily</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/bash</string>
+    <string>__FT_BIN__/ft-issues-daily.sh</string>
+  </array>
+  <key>WorkingDirectory</key><string>__BYZ_ROOT__</string>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key><integer>0</integer>
+    <key>Minute</key><integer>10</integer>
+  </dict>
+  <key>RunAtLoad</key><false/>
+  <key>ProcessType</key><string>Interactive</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key><string>/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <key>FT_ROOT</key><string>__BYZ_ROOT__</string>
+  </dict>
+  <key>StandardOutPath</key><string>/tmp/byz-ft-issues-daily.log</string>
+  <key>StandardErrorPath</key><string>/tmp/byz-ft-issues-daily.log</string>
+</dict>
+</plist>
