@@ -4,18 +4,15 @@
 #   공통 준비(임시 리포·가짜 tmux·대역·도우미) = lib/r938_step_timing_fixture.sh · 끝에 finish 로 ALL PASS/FAILED.
 . "$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)/lib/r938_step_timing_fixture.sh"
 
-echo "== ⓑ fetch 대역 30초 → 7초 + 재시도 1 뒤 «origin/main fetch 실패» · 옛 ref 대조 0 · 총 ≤ 20초"
+echo "== ⓑ fetch 대역 30초 → 상한 8초(지정) + 재시도 1 뒤 «origin/main fetch 실패» · 옛 ref 대조 0 · 총 ≤ 20초"
 setup; FEAT=feat/x instant cherry-gate 1   # 게이트 REJECT → origin/main 재대조 = fetch 경로
-_now="$(date +%s)"; out="$(FEAT=feat/x FT_CARD_REF=main SLEEP_FETCH=30 close)"; rc=$?; took="$(elapsed "$_now")"
+_now="$(date +%s)"; out="$(FEAT=feat/x FT_CARD_REF=main SLEEP_FETCH=30 FT_FETCH_TIMEOUT_SEC=8 close)"; rc=$?; took="$(elapsed "$_now")"
 [ "$rc" -eq 1 ] && has "$out" "origin/main fetch 실패" "$(card ⓑ 'REJECT + «origin/main fetch 실패»')" || bad "ⓑ rc=$rc ← ${out:0:900}"
 has "$out" "옛 ref 대조 0" "$(card ⓑ '  └ 옛 ref 대조 0 문구')"
 hasnt "$out" "origin/main 기준:" "$(card ⓑ '  └ 두 번째 게이트 호출 0(옛 ref 대조 0)')"
 [ "$(grep -c 'CALL cherry-gate' "$V")" = "1" ] && ok "$(card ⓑ '  └ 게이트 대역 1회만')" || bad "게이트 호출 $(grep -c 'CALL cherry-gate' "$V")회"
-[ "$took" -le 20 ] && ok "$(card ⓑ '  └ 총 소요 ≤ 20초(7초 + 재시도 1)')" || bad "총 소요 ${took}s > 20초"
+[ "$took" -le 24 ] && ok "$(card ⓑ '  └ 총 소요 ≤ 24초(상한 8초 + 재시도 1 + 여유 · 기본 25초 값은 r1363 시험 D4 가 잰다)')" || bad "총 소요 ${took}s > 24초"
 hasnt "$out" "CLOSED" "$(card ⓑ '  └ CLOSED 0')"; untouched ⓑ
-setup; _now="$(date +%s)"; out2="$(SLEEP_FETCH=30 close)"; took2="$(elapsed "$_now")"   # 카드 ref(origin/main) fetch 도 같은 상한
-has "$out2" "WARN 카드 ref fetch 실패/시간 초과(origin/main" "$(card ⓑ '  └ 카드 ref fetch 도 7초+재시도 1')"
-[ "$took2" -le 20 ] && ok "$(card ⓑ '  └ 카드 ref fetch 총 소요 ≤ 20초')" || bad "카드 ref fetch ${took2}s > 20초"
 
 
 echo "== ⓙ 원격 없음 + 캐시 origin/main → fetch 실패 REJECT · cherry 통과 줄 0(DA⑥ r1 반례 3)"

@@ -2,8 +2,10 @@
 # ft-merge-lib.sh — 병합·랜딩 도구 공용 함수 (R230 · source 전용 · 7초 룰 판정 666)
 #   fm_try <초> <명령…>       : 한 번 시도 · timeout 도구 없으면 rc 127 (조용한 통과 0) — 초는 부른 쪽이 정한다
 #   fm_t7 <명령…>            : 시도당 timeout 7 초 + 재시도 1 (총 14 초 상한) — timeout 도구 없으면 rc 127 (조용한 통과 0)
-#   fm_fetch <repo> <remote> <ref> : 한 ref 만 받는다 · 시도당 상한 = fm_fetch_sec(기본 7 · FT_FETCH_TIMEOUT_SEC 1~70 = 오빠 예외 판정 · r1069) + 재시도 1
-#   ★7 초 고정은 gh·push·게이트 등 나머지 그대로★ — 늘어나는 칸은 «PR head fetch» 하나뿐이고, 값을 준 실행은 ft-merge-land 첫 줄에 «오빠 예외 판정» 을 남긴다.
+#   fm_fetch <repo> <remote> <ref> : 한 ref 만 받는다 · 시도당 상한 = fm_fetch_sec(지정 없음 = 25 · FT_FETCH_TIMEOUT_SEC 1~70 = 오빠 예외 판정 · r1069) + 재시도 1
+#   ★r1363: fetch 1회는 연결·협상 고정비가 붙은 «쪼갤 수 없는 1회» 다 — 기본 상한 = 25초 고정(판정 4114 · 로컬 하네스 외부 호출 상한). gh·push 등 런타임 7 초는 그대로★
+#   ★FT_LAND_DEADLINE(epoch 초)이 env 에 있으면 착지 1회 마감 — 시도마다 min(상한, 남은 시간) · 재시도 1 은 남은 ≥ 상한일 때만 · 남은 ≤ 0 = 시도 0 «마감 넘김»★
+#   ★지정 없음 실행은 첫 fetch 앞에 «INFO fetch 상한 <초>(판정 4114)» 1줄(fm_fetch_info · 맨 끝) · 값을 준 실행은 ft-merge-land 첫 줄에 «오빠 예외 판정» 을 남긴다★
 fm_timeout_bin() { command -v timeout || command -v gtimeout; }
 fm_try() {
   local s="$1"; shift; local tb; tb="$(fm_timeout_bin)" || { echo "timeout/gtimeout 없음 — 상한을 걸 수 없어 외부 호출 거절" >&2; return 127; }
@@ -13,18 +15,30 @@ fm_t7() {
   local rc=0 i; for i in 1 2; do fm_try 7 "$@" && return 0; rc=$?; done
   return "$rc"
 }
-#   fm_fetch_sec : fetch 상한 초 — FT_FETCH_TIMEOUT_SEC(정수 1~70 · 오빠 예외 판정) · 없으면 7 · 꼴이 틀리거나 70 초과면 WARN(stderr) 1줄 + 7
+#   fm_fetch_sec : fetch «시도당 상한» 초 — 지정 없음 = 25(판정 4114 · 로컬 하네스 외부 호출 상한 · 11-05 실측 고정비 10~16 초를 덮는다 · r1363 · F/FT_FETCH_FIXED_S 공식 없음)
+#     FT_FETCH_TIMEOUT_SEC(정수 1~70 · 오빠 예외 판정 r1069) 를 주면 그 값이 이긴다(꼴이 틀리거나 70 밖이면 WARN(stderr) 1줄 + 25)
 #     stdout = 초 · 결과를 FM_FETCH_SEC 에, «유효 지정» 여부를 FM_FETCH_SEC_VALID(1|0) 에 남긴다 ⇒ 부른 쪽은 `fm_fetch_sec >/dev/null` 꼴로 부른다(명령 치환 = 서브셸이면 표지가 안 남는다)
 fm_fetch_sec() {
-  local v="${FT_FETCH_TIMEOUT_SEC:-}"; FM_FETCH_SEC=7; FM_FETCH_SEC_VALID=0
+  local v="${FT_FETCH_TIMEOUT_SEC:-}" b=25; FM_FETCH_SEC=$b; FM_FETCH_SEC_VALID=0
   if [ -n "$v" ]; then
     case "$v" in
-      *[!0-9]*) echo "WARN FT_FETCH_TIMEOUT_SEC=$v 는 1~70 정수가 아님 → 7 로" >&2;;
+      *[!0-9]*) echo "WARN FT_FETCH_TIMEOUT_SEC=$v 는 1~70 정수가 아님 → 기본 상한 $b" >&2;;
       *) if [ "$v" -ge 1 ] 2>/dev/null && [ "$v" -le 70 ] 2>/dev/null; then FM_FETCH_SEC="$v"; FM_FETCH_SEC_VALID=1
-         else echo "WARN FT_FETCH_TIMEOUT_SEC=$v 는 1~70 밖 → 7 로" >&2; fi;;
+         else echo "WARN FT_FETCH_TIMEOUT_SEC=$v 는 1~70 밖 → 기본 상한 $b" >&2; fi;;
     esac
   fi
   echo "$FM_FETCH_SEC"
+}
+#   fm_fetch_info : 「INFO fetch 상한 <초>(판정 4114)」 한 줄 — «지정 없음» 실행만(지정 실행은 fm_fetch_banner 가 그 몫)
+fm_fetch_info() {
+  [ "${FM_FETCH_SEC_VALID:-0}" = 1 ] && return 0
+  echo "INFO fetch 상한 ${FM_FETCH_SEC:-?}(판정 4114)"
+}
+#   fm_fetch_deadline_rem : stdout = 남은 초(FT_LAND_DEADLINE epoch 초 − 지금 · 음수 가능) · rc 1 = 마감 없음/꼴 아님(옛 동작 그대로)
+fm_fetch_deadline_rem() {
+  local d="${FT_LAND_DEADLINE:-}"
+  { [ -n "$d" ] && printf '%s' "$d" | grep -Eq '^[0-9]+$'; } || return 1
+  echo $(( d - $(date +%s) ))
 }
 #   fm_fetch_banner : 「오빠 예외 판정[ <N>] · 지정 <초>」 한 줄 — FT_FETCH_TIMEOUT_SEC 가 유효 지정일 때만(아니면 출력 0). N = FT_FETCH_EXCEPTION_ID(영숫자만 · 없으면 빈칸)
 fm_fetch_banner() {
@@ -33,8 +47,16 @@ fm_fetch_banner() {
   echo "오빠 예외 판정${id:+ $id} · 지정 $FM_FETCH_SEC"
 }
 fm_fetch() {
-  local s rc=0 i; s="$(fm_fetch_sec)"
-  for i in 1 2; do fm_try "$s" git -c gc.auto=0 -C "$1" fetch --quiet "$2" "$3" && return 0; rc=$?; done
+  local s rc=0 i a rem; s="$(fm_fetch_sec)"
+  for i in 1 2; do
+    a="$s"
+    if rem="$(fm_fetch_deadline_rem)"; then   # r1363 3bⓐ: 착지 1회 마감이 env 에 있으면 시도 = min(상한, 남은) · 남은 ≤ 0 = 시도 0
+      [ "$rem" -gt 0 ] || { echo "총 마감 넘김(fetch 시도 0 · FT_LAND_DEADLINE=$FT_LAND_DEADLINE 남은 ${rem}s)" >&2; return 1; }
+      if [ "$rem" -lt "$a" ]; then echo "WARN fetch 상한이 남은 시간으로 잘림(${rem}s < ${s}s) — 총 마감 우선" >&2; a="$rem"; fi
+    fi
+    fm_try "$a" git -c gc.auto=0 -C "$1" fetch --quiet "$2" "$3" && return 0; rc=$?
+    if rem="$(fm_fetch_deadline_rem)"; then [ "$rem" -ge "$s" ] || return "$rc"; fi   # 재시도 1 은 남은 ≥ 상한일 때만
+  done
   return "$rc"
 }
 #   fm_head_branch <gh pr view JSON> : stdout = headRefName — isCrossRepository 가 «정확히 false»(같은 리포 PR) ∧ 가지 이름 꼴일 때만 · 아니면 rc 1(포크·칸 없음·빈 값 · r1127)
