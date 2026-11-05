@@ -87,6 +87,78 @@ card_assign_record() {  # $1 카드 $2 init|waiting|seat $3 사유|이름 [$4 ho
   { [ "$DRY" = 1 ] || [ "$RESEARCH" = 1 ]; } && return 0
   python3 "$HERE/ft_card_assign_watch.py" record "$@" >&2 || echo "WARN 배정 원장 기록 실패($*)" >&2
 }
+card_base_stamp() {  # <카드 경로> <head> — base_sha 줄이 없을 때 «## 상태» 머리에 넣는다(첫 개설)
+  python3 - "$1" "$2" <<'PY'
+import re, sys, datetime
+p, head = sys.argv[1:3]
+txt = open(p, encoding="utf-8").read()
+line = f"- base_sha: {head} (spawn {datetime.date.today()})\n"
+m = re.search(r"^##\s*상태[^\n]*\n", txt, re.M)
+txt = txt[:m.end()] + line + txt[m.end():] if m else txt.rstrip("\n") + "\n\n## 상태\n" + line
+open(p, "w", encoding="utf-8").write(txt)
+PY
+}
+card_base_renew() {  # <카드 경로> <head> — base_sha 줄 1개를 «recheck-auto» 로 갱신(줄 없으면 rc3)
+  python3 - "$1" "$2" <<'PY'
+import re, sys, datetime
+p, head = sys.argv[1:3]
+txt = open(p, encoding="utf-8").read()
+m = re.search(r"^([ \t]*-[ \t]*base_sha:[ \t]*)[0-9a-f]{40}[^\n]*$", txt, re.M)
+if not m:
+    sys.exit(3)
+txt = txt[:m.start()] + m.group(1) + head + f" (recheck-auto {datetime.date.today()} · 겹침 0)" + txt[m.end():]
+open(p, "w", encoding="utf-8").write(txt)
+PY
+}
+# ★r1409★ 재개 기록이 «공용 루트» 의 main 에 로컬 커밋을 남기지 않는다 — 실측 11-05: 루트 main 에 origin 에 없는 커밋 7 중 4개가 `[docs] <slug> 재개(--reopen)` 줄이었다(판정 design/harness/VERDICT-root-main-reset-20261105.md).
+#   판별 = 기계 루트 명부(roots.tsv · FT_ROOTS_TSV · 탭 2번째 칸 «경로»)의 경로와 카드 체크아웃이 같음 — 명부 없음 = 공용 루트 0 = 지금 동작(하드 룰 19: 일반 파일).
+#   rc0 = 공용 루트(루트 커밋 0 · origin 사본에서 커밋·push) · rc1 = 아님(전용 워크트리·스크래치 = 지금처럼 그 체크아웃에 커밋) · rc2 = 판정 불가(부르는 쪽이 루트로 본다 = 로컬 커밋 0)
+root_checkout() {  # $1 = 카드 체크아웃 절대경로
+  local rt p q no=0 name where rest
+  rt="${FT_ROOTS_TSV:-$HOME/.claude/fable-team/roots.tsv}"; rt="${rt/#\~/$HOME}"
+  [ -e "$rt" ] || return 1
+  [ -f "$rt" ] || { echo "WARN 공용 루트 판정 불가 — 루트 명부가 일반 파일이 아니다: $rt" >&2; return 2; }
+  p="$(cd -- "$1" 2>/dev/null && pwd -P)" || { echo "WARN 공용 루트 판정 불가 — 체크아웃 경로를 못 읽었다: $1" >&2; return 2; }
+  while IFS=$'\t' read -r name where rest || [ -n "$name" ]; do
+    no=$((no+1))
+    case "$name" in ''|'#'*) continue;; esac
+    [ -n "$where" ] || { echo "WARN 공용 루트 판정 불가 — 루트 명부 $rt:$no 경로 칸이 비었다" >&2; return 2; }
+    q="$(cd -- "$where" 2>/dev/null && pwd -P)" || { echo "WARN 공용 루트 판정 불가 — 루트 명부 $rt:$no 경로가 디스크에 없다: $where" >&2; return 2; }
+    [ "$q" = "$p" ] && return 0
+  done < "$rt"
+  return 1
+}
+# 하드 룰 12: 로컬 하네스 상한 = 25초 · 상한 도구가 없으면 git 을 부르지 않는다(상한 없는 git 0)
+_TMO="$(command -v timeout || command -v gtimeout || true)"
+# r1409: 공용 루트 갈래의 기록 길 — origin/main 사본(임시 worktree)에서 «배정 줄 + 재개 줄» 을 커밋하고 그 사본에서 push 한다.
+#   루트 체크아웃의 작업본·가지·인덱스에는 아무것도 쓰지 않는다(루트 main 에 로컬 커밋 0). rc0 = push 완료 · rc1 = 실패(WARN 1줄 · 사본은 남겨 변경을 잃지 않는다)
+reopen_record_origin() {  # $1 = 카드 상대경로(진행/…) $2 = 재개 줄 [$3 = 배정 줄]
+  local rel="$1" note="$2" asg="${3:-}" tmp wt out rc sha
+  [ -n "$_TMO" ] || { echo "WARN 재개 줄 push 실패 — 좌석은 열렸다 · 카드 변경은 사본에만(상한 도구 timeout 없음)" >&2; return 1; }
+  tmp="$(mktemp -d "${TMPDIR:-/tmp}/ft-reopen-root.XXXXXX")"; rc=$?
+  [ "$rc" = 0 ] || { echo "WARN 재개 줄 push 실패 — 좌석은 열렸다 · 카드 변경 없음(임시 폴더 rc=$rc)" >&2; return 1; }
+  wt="$tmp/wt"
+  out="$("$_TMO" 25 git -C "$IDX_WT" fetch -q origin main 2>&1)"; rc=$?
+  if [ "$rc" != 0 ]; then echo "WARN 재개 줄 push 실패 — 좌석은 열렸다 · 카드 변경 없음(origin fetch rc=$rc${out:+ · ${out%%$'\n'*}})" >&2; rm -rf "$tmp"; return 1; fi
+  out="$("$_TMO" 25 git -C "$IDX_WT" worktree add -q --detach "$wt" origin/main 2>&1)"; rc=$?
+  if [ "$rc" != 0 ]; then echo "WARN 재개 줄 push 실패 — 좌석은 열렸다 · 카드 변경 없음(origin/main 사본 rc=$rc${out:+ · ${out%%$'\n'*}})" >&2; rm -rf "$tmp"; return 1; fi
+  # 같은 함수(card_assign_record·card_note)로 사본에 쓴다 — 줄 모양이 두 벌이 되지 않는다
+  card_assign_record "$wt/$rel" seat "$NAME"
+  if ! card_note "$wt/$rel" "$note" >/dev/null; then echo "WARN 재개 줄 push 실패 — 좌석은 열렸다 · 카드 변경은 사본에만: $wt" >&2; return 1; fi
+  if [ -n "$asg" ] && ! card_note "$wt/$rel" "$asg" >/dev/null; then echo "WARN 재개 줄 push 실패 — 좌석은 열렸다 · 카드 변경은 사본에만: $wt" >&2; return 1; fi
+  # base_sha 기록·갱신도 사본에(루트 카드 = 루트 작업본에는 쓰지 않는다)
+  if [ -n "${_BASE_STAMP:-}" ] && ! card_base_stamp "$wt/$rel" "$_BASE_STAMP" >/dev/null; then echo "WARN 재개 줄 push 실패 — 좌석은 열렸다 · 카드 변경은 사본에만: $wt" >&2; return 1; fi
+  if [ -n "${_BASE_RENEW:-}" ] && ! card_base_renew "$wt/$rel" "$_BASE_RENEW" >/dev/null; then echo "WARN 재개 줄 push 실패 — 좌석은 열렸다 · 카드 변경은 사본에만: $wt" >&2; return 1; fi
+  git -C "$wt" add -- "$rel" >/dev/null 2>&1 || { echo "WARN 재개 줄 push 실패 — 좌석은 열렸다 · 카드 변경은 사본에만: $wt" >&2; return 1; }
+  if ! git -C "$wt" commit -q -m "[docs] ${SLUG} 재개(--reopen) — 좌석 $NAME · wt=$REOPEN_WT" -- "$rel" >/dev/null 2>&1; then
+    echo "WARN 재개 줄 push 실패 — 좌석은 열렸다 · 카드 변경은 사본에만: $wt" >&2; return 1; fi
+  sha="$(git -C "$wt" rev-parse HEAD 2>/dev/null)"
+  out="$("$_TMO" 25 git -C "$wt" push -q origin "HEAD:refs/heads/main" 2>&1)"; rc=$?
+  if [ "$rc" != 0 ]; then
+    echo "WARN 재개 줄 push 실패 — 좌석은 열렸다 · 카드 변경은 사본에만: $wt (push rc=$rc${out:+ · ${out%%$'\n'*}})" >&2; return 1; fi
+  "$_TMO" 25 git -C "$IDX_WT" worktree remove --force "$wt" >/dev/null 2>&1; rm -rf "$tmp"
+  echo "REOPEN-CARD origin ← ${sha:0:12} (루트 커밋 0 · 루트 작업본 쓰기 0)"
+}
 # ★r1385 보탬(arch#225 · master#162 #259818)★ 좌석 이름 slug 규칙 한 곳 — 소문자·[a-z0-9-] 만, «길이로 자른 뒤» 끝 하이픈을 지운다.
 #   실사건: 카드 이름 40자째가 하이픈이면 좌석·가지·워크트리 이름이 «…-» 로 끝나 ft-name-lint «빈 토큰(끝 -)» REJECT · 명부 행 0 이라 nano-close·stall·close-due 가 그 좌석을 못 본다(byz-harness-nano-r1386-merge-land-heavy-slot-wait-within-#0).
 _slug() { basename "$1" .md | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | cut -c"1-$2" | sed 's/-\{1,\}$//'; }
@@ -121,7 +193,10 @@ ns = [int(m.group(1)) for n in names for m in [pat.match(n)] if m]
 print(max(ns) + 1 if ns else 0)
 PY
 }
-card_assign_record "$IDX" init
+# r1409: 공용 루트 카드(--reopen)면 아래 원장 init 의 거울 «없음» 줄도 루트 카드(=루트 작업본)에 쓰지 않는다 — 판정은 카드 경로의 체크아웃 접두로 «첫 쓰기 전» 에 한 번.
+_REOPEN_ROOT=0
+if [ "$REOPEN" = 1 ]; then case "$IDX" in /*/design/*) root_checkout "${IDX%%/design/*}"; case "$?" in 0|2) _REOPEN_ROOT=1;; esac;; esac; fi
+[ "$_REOPEN_ROOT" = 1 ] || card_assign_record "$IDX" init
 # ★spawn 정지 파일 (R320 · 판정 2166)★: 정지는 기한·해제 조건이 있는 SPAWN_HOLD 파일 하나로만 걸린다 — 문장·쪽지로 받은 정지는 효력 0. 출력 `hold=none` = 정지 아님. 없는 도구는 설치 누락(라이브 드리프트 검사가 잡는다).
 if [ -f "$HERE/ft-spawn-hold.sh" ]; then
   _hold="$(bash "$HERE/ft-spawn-hold.sh" status 2>&1)"; _hrc=$?
@@ -582,16 +657,9 @@ PY
   case "$_chg" in
     CLEAN*)
       # 겹침 0 통과 = 카드 기준 시점을 지금으로 옮긴다(다음 재spawn 은 여기서부터 · RECHECK 없이 통과).
-      python3 - "$IDX" "$CUR_HEAD" <<'PY' || { echo "REJECT 카드 base_sha 갱신 실패($IDX)"; exit 1; }
-import re, sys, datetime
-p, head = sys.argv[1:3]
-txt = open(p, encoding="utf-8").read()
-m = re.search(r"^([ \t]*-[ \t]*base_sha:[ \t]*)[0-9a-f]{40}[^\n]*$", txt, re.M)
-if not m:
-    sys.exit(3)
-txt = txt[:m.start()] + m.group(1) + head + f" (recheck-auto {datetime.date.today()} · 겹침 0)" + txt[m.end():]
-open(p, "w", encoding="utf-8").write(txt)
-PY
+      #   r1409: 공용 루트 갈래면 루트 카드에 쓰지 않고 사본에 넘긴다(_BASE_RENEW — ⑥-1 이 커밋·push)
+      if [ "$_REOPEN_ROOT" = 1 ]; then _BASE_RENEW="$CUR_HEAD"
+      elif ! card_base_renew "$IDX" "$CUR_HEAD"; then echo "REJECT 카드 base_sha 갱신 실패($IDX)"; exit 1; fi
       echo "BASE-RENEW ${CARD_BASE:0:9} → ${CUR_HEAD:0:9} · 인용 ${_chg#CLEAN }개 겹침 0"
       ;;
     ?*)
@@ -727,15 +795,8 @@ bash "$HERE/ft-sheet-events.sh" prepare "$_SK" "$(python3 -c 'import json,sys;pr
 _sheet_abort() { bash "$HERE/ft-sheet-events.sh" abort "$_SK" 2>/dev/null; }
 _ON_EXIT+=(_sheet_abort)   # W4: trap 덮어쓰기 0 — 잠금 해제(_ts_lock_free)와 abort 가 둘 다 돈다
 if [ "$STAMP_BASE" = 1 ]; then
-  python3 - "$IDX" "$CUR_HEAD" <<'PY' || { echo "REJECT 카드 base_sha 기록 실패($IDX)"; exit 1; }
-import re, sys, datetime
-p, head = sys.argv[1:3]
-txt = open(p, encoding="utf-8").read()
-line = f"- base_sha: {head} (spawn {datetime.date.today()})\n"
-m = re.search(r"^##\s*상태[^\n]*\n", txt, re.M)
-txt = txt[:m.end()] + line + txt[m.end():] if m else txt.rstrip("\n") + "\n\n## 상태\n" + line
-open(p, "w", encoding="utf-8").write(txt)
-PY
+  if [ "$_REOPEN_ROOT" = 1 ]; then _BASE_STAMP="$CUR_HEAD"   # r1409: 공용 루트 갈래 = 루트 카드 쓰기 0 — 사본에 넘긴다(⑥-1)
+  elif ! card_base_stamp "$IDX" "$CUR_HEAD"; then echo "REJECT 카드 base_sha 기록 실패($IDX)"; exit 1; fi
 fi
 
 # ★R181★ 웹 시험(jest)은 clients/web/node_modules 가 있어야 돈다 — 루트 것을 상대 심링크로 건다(없으면 건너뛰고 한 줄 출력).
@@ -924,16 +985,24 @@ PY
 if [ "$RESEARCH" = 1 ]; then   # R387: 부모 카드는 이미 진행/ — 옮기지 않고 «리서치: 좌석 · base · 허용» 줄만 상태 절에 덧붙인다(닫을 때 위반 검사·완성 게이트가 읽는다)
   NEW_IDX="$IDX_REL"; printf -- '- 리서치: %s base=%s 허용=%s\n' "$NAME" "$CUR_HEAD" "$_RS_ALLOW" >> "$IDX" || human "⑥ 리서치 카드 줄"
 elif [ "$REOPEN" = 1 ]; then   # r1335: 카드는 진행/ 그대로 — 이동 0 · 거울 «좌석 <새 이름>» + 상태 절 1줄(아래 카드 커밋 1개로 함께)
-  NEW_IDX="$IDX_REL"; card_assign_record "$IDX" seat "$NAME"
-  _rn="$(card_note "$IDX_WT/$NEW_IDX" "$(date '+%FT%H:%M') 재개(--reopen) · 좌석 $NAME · wt=$REOPEN_WT")" || human "⑥ 재개 상태 줄(${_rn:-rc≠0})"
+  NEW_IDX="$IDX_REL"
+  # ★r1409★ 카드 체크아웃이 공용 루트면 여기서 그 루트에 쓰지 않는다 — 아래 ⑥-1 이 origin/main 사본에서 커밋·push 한다(루트 커밋 0)
+  #   위 init 판정이 이미 1 이면 내리지 않는다(내리면 루트 카드에 거울이 다시 써진다) — 여기 판정은 경로가 정확할 때만 «올린다»
+  root_checkout "$IDX_WT"; _rrc=$?
+  case "$_rrc" in
+    0|2) _REOPEN_ROOT=1;;
+    *) [ "$_REOPEN_ROOT" = 1 ] || { card_assign_record "$IDX" seat "$NAME"
+         _rn="$(card_note "$IDX_WT/$NEW_IDX" "$(date '+%FT%H:%M') 재개(--reopen) · 좌석 $NAME · wt=$REOPEN_WT")" || human "⑥ 재개 상태 줄(${_rn:-rc≠0})"; };;
+  esac
 else
   card_assign_record "$IDX" seat "$NAME"   # r1224: 거울 «좌석 <이름>» 을 이동 «전» 카드에 — ft-index-move 가 옮기는 그 파일에 실려 이동 커밋에 함께 간다
   bash "$HERE/ft-index-move.sh" "$IDX" 진행 --seat "$NAME" || human "⑥ 인덱스 이동"
   NEW_IDX="${IDX_REL/\/대기\//\/진행\/}"
   git -C "$IDX_WT" ls-files --error-unmatch -- "$NEW_IDX" >/dev/null 2>&1 && { git -C "$IDX_WT" add -- "$NEW_IDX" || human "⑥ 거울 줄 준비"; }   # r1224: 이동이 준비한 진행 카드 1개를 거울 줄째 다시 준비 — 이동 커밋에 «좌석 <이름>» 이 실린다
 fi
-[ -z "$_ASG_LINE" ] || { _cn="$(card_note "$IDX_WT/$NEW_IDX" "$_ASG_LINE")" || echo "WARN 카드 배정 줄 기록 실패 — ${_cn:-rc≠0}" >&2; }   # r1217: 이동 «뒤» 경로
-[ "$REOPEN" != 1 ] || { git -C "$IDX_WT" add -- "$NEW_IDX" && git -C "$IDX_WT" commit -q -m "[docs] ${SLUG} 재개(--reopen) — 좌석 $NAME · wt=$REOPEN_WT" -- "$NEW_IDX" >/dev/null; } || echo "WARN 재개 카드 커밋 실패($NEW_IDX) — 좌석은 열렸다 · 카드 변경은 미커밋" >&2   # r1335: 이동 커밋 대신 카드 커밋 1개
+[ "$_REOPEN_ROOT" = 1 ] || { [ -z "$_ASG_LINE" ] || { _cn="$(card_note "$IDX_WT/$NEW_IDX" "$_ASG_LINE")" || echo "WARN 카드 배정 줄 기록 실패 — ${_cn:-rc≠0}" >&2; }; }   # r1217: 이동 «뒤» 경로 · r1409: 공용 루트 갈래는 사본에 쓴다(아래)
+[ "$_REOPEN_ROOT" != 1 ] || { [ "$DRY" = 1 ] || reopen_record_origin "$NEW_IDX" "$(date '+%FT%H:%M') 재개(--reopen) · 좌석 $NAME · wt=$REOPEN_WT" "$_ASG_LINE" || true; }   # r1409: 공용 루트 = 로컬 커밋 0 — origin/main 사본에서 커밋 → docs push(실패 = WARN 1줄)
+[ "$_REOPEN_ROOT" = 1 ] || [ "$REOPEN" != 1 ] || { git -C "$IDX_WT" add -- "$NEW_IDX" && git -C "$IDX_WT" commit -q -m "[docs] ${SLUG} 재개(--reopen) — 좌석 $NAME · wt=$REOPEN_WT" -- "$NEW_IDX" >/dev/null; } || echo "WARN 재개 카드 커밋 실패($NEW_IDX) — 좌석은 열렸다 · 카드 변경은 미커밋" >&2   # r1335: 이동 커밋 대신 카드 커밋 1개
 # ★R163 spawn 카드 기준선★ — 이 시각의 카드 내용 지문·브랜치·워크트리를 남겨 두면 자율 중 «nano-reopen» 대리 판정(r162)이 «승인 범위 그대로» 인지 비교한다.
 #   spawn 출력·exit 는 불변 — 쓰기 실패는 stderr 1줄뿐(tmp→mv 원자 쓰기).
 _CB_DIR="${FT_NANO_CARD_BASE_DIR:-$ROOT/.fable-team/state/nano-card-base}"
