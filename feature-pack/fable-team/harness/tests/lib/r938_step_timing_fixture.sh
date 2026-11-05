@@ -85,7 +85,7 @@ V="$T/calls.log"; PEND="$FT_SHEET_ROOT/.fable-team/state/sheet-events.pending"
 
 run() { ( cd "$REPO" && env -i HOME="$T/home" FT_SHEET_ROOT="$FT_SHEET_ROOT" FT_OPENCODE_DB="$T/oc.db" FT_OPENCODE_DB_TIMEOUT=1 PATH="$T/fake:$PATH" \
   FAKE_PANES="$T/panes" FAKE_CWD="$T/cwd" FAKE_LOG="$T/tlog" REPO_DIR="$REPO" CALLS="$V" SLEEP_FETCH="${SLEEP_FETCH:-}" \
-  FT_NANO_CAP_S="${FT_NANO_CAP_S:-}" FT_CARD_REF="${FT_CARD_REF:-}" "$@" ); }
+  FT_NANO_CAP_S="${FT_NANO_CAP_S:-}" FT_CARD_REF="${FT_CARD_REF:-}" FT_FETCH_TIMEOUT_SEC="${FT_FETCH_TIMEOUT_SEC:-}" "$@" ); }   # r1363: fetch 상한(지정)도 대역에 넘긴다 — ⓑ 가 25초×2 를 실제로 기다리지 않게
 setup() {   # 정상 대역(모두 즉시) — 부를 때마다 하위 스크립트 대역을 «즉시» 판으로 되돌린다
   rm -f "$T/bin/ft-nano-evidence-check.sh" "$T/bin/ft-nano-cherry-gate.sh" "$T/bin/ft-nano-freshness.sh" "$T/bin/ft-sheet-events.sh"
   cp "$SRC/ft-nano-evidence-check.sh" "$SRC/ft-nano-cherry-gate.sh" "$SRC/ft-nano-freshness.sh" "$SRC/ft-sheet-events.sh" "$T/bin/"

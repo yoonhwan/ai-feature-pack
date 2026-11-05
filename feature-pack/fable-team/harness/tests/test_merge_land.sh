@@ -240,7 +240,7 @@ EOF
   chmod +x "$SE/git"
 }
 asle; git -C "$W" fetch -q origin; mkpr 60 pr60 origin/main; P60="$PRSHA"; apv --approve-sha "$P60"
-out="$(PATH="$SE:$PATH" FT_LAND_TOTAL_S=2 bash "$LAND" 60 --approve-sha "$P60" --repo "$W" 2>&1)"; rc=$?
+out="$(PATH="$SE:$PATH" FT_LAND_TOTAL_S=2 FT_LAND_DEADLINE="$(( $(date +%s) + 60 ))" bash "$LAND" 60 --approve-sha "$P60" --repo "$W" 2>&1)"; rc=$?   # r1363: 착지 자체 마감(FT_LAND_DEADLINE)을 «멀리» 주입해 fetch 가 잘리지 않게 — fetch 성공 뒤 deadline(LIM 2) 거절 = 원래 이 칸의 전제
 [ "$rc" = 1 ] && [[ "$out" == *"총 마감"* ]]; ck "⑤ E1 fetch 뒤 «총 마감» 거절(전제)" $?
 [ "$(refs)" = "refs/ft-land/99 " ]; ck "② E1 총 마감 거절 뒤에도 개인 ref 잔여 0(EXIT trap — 흐름 밖 출구)" $?
 # ⑥ E2 — ref 정리가 실패하면 착지«전»에 멈춘다(조용한 성공 0 · 사유 1줄)
@@ -261,7 +261,7 @@ for f in "$BIN"/*; do [ "$(basename "$f")" = ft-merge-land.sh ] || ln -sf "$f" "
 sed -i '' 's/lr_trap; if /if /' "$MB2/ft-merge-land.sh"   # r1069: fetch 줄이 «lr_trap; if [지정] … else fm_fetch» 꼴이 됐다 — 변이 의도(EXIT trap 등록 삭제)는 그대로
 ! cmp -s "$LAND" "$MB2/ft-merge-land.sh"; ck "⑤ 변이본 적용(lr_trap 등록 삭제)" $?
 asle; git -C "$W" fetch -q origin; mkpr 62 pr62 origin/main; P62="$PRSHA"; apv --approve-sha "$P62"
-out="$(PATH="$SE:$PATH" FT_LAND_TOTAL_S=2 bash "$MB2/ft-merge-land.sh" 62 --approve-sha "$P62" --repo "$W" 2>&1)"; rc=$?
+out="$(PATH="$SE:$PATH" FT_LAND_TOTAL_S=2 FT_LAND_DEADLINE="$(( $(date +%s) + 60 ))" bash "$MB2/ft-merge-land.sh" 62 --approve-sha "$P62" --repo "$W" 2>&1)"; rc=$?
 [ "$rc" = 1 ] && [[ "$out" == *"총 마감"* ]] && [ -n "$(git -C "$W" for-each-ref refs/ft-land/62)" ]; ck "⑤ 변이(trap 없음)는 E1 칸(잔여 0)에서 FAIL — 시험 검출력" $?
 git -C "$W" update-ref -d refs/ft-land/62 2>/dev/null
 [ "$(refs)" = "refs/ft-land/99 " ]; ck "② E1·E2·변이 칸 뒤 잔여 0(다른 좌석 ref 99 만)" $?
