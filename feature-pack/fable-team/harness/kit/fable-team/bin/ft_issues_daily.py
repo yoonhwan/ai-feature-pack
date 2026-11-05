@@ -58,9 +58,9 @@ def _common(path: Path) -> Path | None:
 
 
 def root() -> Path:
-    env = os.environ.get("FT_ROOT")
-    if env:
-        return Path(env)
+    root_env = os.environ.get("FT_ROOT")
+    if root_env:
+        return Path(root_env)
     if HERE.name == "bin" and HERE.parent.name == ".fable-team":
         return _common(HERE) or HERE.parent.parent
     common = _common(Path.cwd())
@@ -618,7 +618,7 @@ def main(argv: list[str]) -> int:
     if rc != 0:
         print(f"ERROR {SENDER}: 판정 불가 — {counts.get('unjudgeable', '')}", file=sys.stderr)
     if send_planned:
-        body_args = {"skipped", "unjudgeable"} & set(counts)
+        body_args = [k for k in counts if k in ("skipped", "unjudgeable")]
         targets = [("planner", planner_body(date, "", counts))]
         if not body_args:   # R6·R7: 건너뜀·판정 불가 = 쪽지 «1통» (planner) · FANOUT 가드도 2통 본문이 다를 때만 통과
             targets.append(("issues", issues_body(date, counts)))
