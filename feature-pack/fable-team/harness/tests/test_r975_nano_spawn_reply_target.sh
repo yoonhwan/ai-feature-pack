@@ -300,8 +300,8 @@ else bad "변이① 계약을 안 깼다(rc=$rc): $o"; fi
 
 # 변이 ② «master 없으면 루트 팀장으로 대체»(조용한 대체) → 계약 위반
 M2="$T/mut2"; mk_mut "$M2" 'if not masters:
-    reject("이 팀(byz-%s) master 좌석이 집합에 없다 (집합: %s)" % (team, " ".join(names) or "0명"))' 'if not masters:
-    print("byz-v65-master-claude#2"); sys.exit(0)'
+    reject("이 팀(%s) master 좌석이 집합에 없다 (집합: %s)" % (pfx, " ".join(names) or "0명"))' 'if not masters:
+    print("byz-v65-master-claude#2"); sys.exit(0)'   # r1415: 앵커 문구만 갱신(계약 동일 — master 없음 → 루트 팀장 대체)
 bash -n "$M2/ft-nano-spawn.sh" && ok "변이② bash -n rc0" || bad "변이② bash -n 실패"
 D="$T/m2"; mkfix "$D"; tl "$T/tmm.lst" byz-harness-arch-claude#1; rm -f "$T/opened"; mkpanes
 o="$(sp "$D" "$M2" --dry-run)"; rc=$?

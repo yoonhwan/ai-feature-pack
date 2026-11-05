@@ -274,9 +274,21 @@ fi
 #   «이 팀 좌석인가» 판정 사본 0 — 역할 목록·정규식은 검사기(ft-name-lint) 한 곳(오빠 결정 6 = 4번).
 #   목록 0 · 2명 이상 · rc≠0 · 빈 출력 · 7초 초과 = REJECT 1줄 rc≠0 · 개설 0 (조용한 루트 팀장·옛 이름 대체 0).
 _nano_team() { local t="${FT_TEAM:-}" seg; [ -n "$t" ] || { case "$IDX" in */indices/*) seg="${IDX%/indices/*}"; t="${seg##*/}" ;; esac; }; printf '%s\n' "${t:-v65}"; }
+# ★r1415 팀 접두 (카드 nano-spawn-team-prefix-from-nano-prefix)★: 이름 문법은 «<프로젝트>-<팀>-<역할>-<에이전트>#N» (ft-name-lint) 인데 이 스크립트는 좌석 집합을 `byz-<팀>` 글자로만 찾았다 — 다른 프로젝트 팀(aifp-airag 등)은 좌석이 살아 있어도 «보고 대상 0» 으로 막혔다.
+#   값 하나로 푼다: FT_NANO_PREFIX 가 «<접두>-nano-» 꼴이면 그 <접두>(aifp-airag-nano- → aifp-airag · byz-harness-nano- → byz-harness) · 아니면 지금처럼 byz-<팀>. BYZ 팀은 두 값이 같은 문자열이라 결과 불변.
+_nano_prefix() {
+  local p="${FT_NANO_PREFIX:-}" full t
+  t="$(_nano_team)"
+  # [범위 밖] 팀 이름의 공백·택 — 하드 룰 18(우리 도구는 그런 이름을 만들지 않는다). 아래 접두 해석을 건너뛰고 옛 경로(byz-<팀>)로 둔다:
+  #   목록 토큰은 공백으로 갈리므로 후보가 0 이 되고 REJECT 1줄로 끝난다(다른 팀 좌석을 조용히 고르는 길 0 — r975 ⓘ).
+  case "$t" in *[[:space:]]*) printf 'byz-%s\n' "$t"; return 0;; esac
+  case "$p" in *-nano-) full="${p%-nano-}"; [ -n "$full" ] && { printf '%s\n' "$full"; return 0; };; esac
+  printf 'byz-%s\n' "$t"
+}
+_nano_prefix_team() { local f; f="$(_nano_prefix)"; printf '%s\n' "${f##*-}"; }   # 상한·회수의 «팀 이름» = 접두의 마지막 칸(aifp-airag → airag)
 _nano_reply_target() {  # rc0 = stdout 보고 대상 1줄 · rc1 = stdout REJECT 1줄(부작용 0 — 워크트리·tmux·명부 등록 전부 앞)
-  local team tmp rc
-  team="$(_nano_team)"
+  local pfx tmp rc
+  pfx="$(_nano_prefix)"
   command -v tmm >/dev/null 2>&1 || { echo "REJECT 보고 대상을 못 풀었다 — tmm 이 PATH 에 없다(tmuxc tmm ls)"; return 1; }
   [ -f "$HERE/ft-name-lint.sh" ] || { echo "REJECT 보고 대상을 못 풀었다 — ft-name-lint.sh 없음: $HERE"; return 1; }
   tmp="$(mktemp "${TMPDIR:-/tmp}/ft-r975-tmm.XXXXXX")" || { echo "REJECT 보고 대상을 못 풀었다 — 임시 파일 실패"; return 1; }
@@ -291,17 +303,17 @@ _nano_reply_target() {  # rc0 = stdout 보고 대상 1줄 · rc1 = stdout REJECT
       bash "$L" "$n" >/dev/null 2>&1 && printf "%s\n" "$n"
     done
     exit 0
-  ' _ "byz-$team" "$HERE/ft-name-lint.sh"; rc=$?
+  ' _ "$pfx" "$HERE/ft-name-lint.sh"; rc=$?
   if [ "$rc" = 124 ]; then rm -f "$tmp"
     echo "REJECT 보고 대상을 못 풀었다 — 좌석 목록·이름 검사 7초 초과(tmm ls + ft-name-lint) · 개설 0"; return 1; fi
   if [ "$rc" != 0 ]; then rm -f "$tmp"
     echo "REJECT 보고 대상을 못 풀었다 — ft-name-lint/tmm 호출 rc=$rc (좌석 목록·이름 검사) · 개설 0"; return 1; fi
-  [ -s "$tmp" ] || { rm -f "$tmp"; echo "REJECT 보고 대상을 못 풀었다 — 이름 검사를 지난 좌석이 0명(tmm ls byz-$team · ft-name-lint PASS 0) · 개설 0"; return 1; }
-  python3 - "$team" "$FROM_SET" "$FROM" "${FT_SEND_FROM:-}" "$tmp" <<'PY'
+  [ -s "$tmp" ] || { rm -f "$tmp"; echo "REJECT 보고 대상을 못 풀었다 — 이름 검사를 지난 좌석이 0명(tmm ls $pfx · ft-name-lint PASS 0) · 개설 0"; return 1; }
+  python3 - "$pfx" "$FROM_SET" "$FROM" "${FT_SEND_FROM:-}" "$tmp" <<'PY'
 import re, sys
-team, from_set, arg, env_from, path = sys.argv[1:6]
+pfx, from_set, arg, env_from, path = sys.argv[1:6]
 names = [ln.strip() for ln in open(path, encoding="utf-8", errors="replace") if ln.strip()]
-mpat = re.compile(r"^byz-" + re.escape(team) + r"-master-[^#\s]+#([0-9]+)$")   # 기본 선택 = «그 팀 master» (이름 규칙은 검사기가 이미 통과시킨 것)
+mpat = re.compile("^" + re.escape(pfx) + r"-master-[^#\s]+#([0-9]+)$")   # 기본 선택 = «그 팀 master» (이름 규칙은 검사기가 이미 통과시킨 것)
 masters = sorted((int(m.group(1)), n) for n in names for m in [mpat.match(n)] if m)
 def reject(msg):
     print("REJECT 보고 대상을 못 풀었다 — " + msg); sys.exit(1)
@@ -317,13 +329,13 @@ elif env_from.strip():
     want, src = env_from.strip(), "FT_SEND_FROM"
 if want:
     if want not in names:
-        reject("%s 가 이 팀(byz-%s) 좌석 집합에 없다(ft-name-lint PASS 0): %s (집합: %s)"
-               % (src, team, want, " ".join(names) or "0명"))
+        reject("%s 가 이 팀(%s) 좌석 집합에 없다(ft-name-lint PASS 0): %s (집합: %s)"
+               % (src, pfx, want, " ".join(names) or "0명"))
     if len(masters) != 1:
         note("%s 로 확정 = %s (팀장 %s — 명시가 기본 선택을 대신한다 · 계약 ③)" % (src, want, state))
     print(want); sys.exit(0)
 if not masters:
-    reject("이 팀(byz-%s) master 좌석이 집합에 없다 (집합: %s)" % (team, " ".join(names) or "0명"))
+    reject("이 팀(%s) master 좌석이 집합에 없다 (집합: %s)" % (pfx, " ".join(names) or "0명"))
 if len(masters) > 1:
     reject("현역 master 가 %d명이다(하나여야 한다): %s" % (len(masters), " ".join(n for _, n in masters)))
 print(masters[0][1])
@@ -334,7 +346,7 @@ PY
 _nano_rt="$(_nano_reply_target)"; _nano_rtrc=$?
 [ "$_nano_rtrc" = 0 ] || { printf '%s\n' "$_nano_rt"; exit 1; }
 FROM="$_nano_rt"
-echo "INFO 회신 대상 = $FROM (발주문 머리 [$FROM-><나노>] · 출처: 살아 있는 좌석 목록 tmm ls byz-$(_nano_team))" >&2
+echo "INFO 회신 대상 = $FROM (발주문 머리 [$FROM-><나노>] · 출처: 살아 있는 좌석 목록 tmm ls $(_nano_prefix))" >&2
 SEATS="${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}"   # ⑤명부 «등록» 대상 전용 — 보고 대상 해석에는 쓰지 않는다(tmm 목록이 정한다)
 # ★v65 기본 접두 = 공용 규칙(ft_teamset.py)★ — 이름 규칙을 스크립트마다 복사하지 않는다(두 벌 규칙 0). 규칙을 못 읽으면 추측 없이 REJECT.
 [ -n "${FT_NANO_PREFIX:-}" ] || FT_NANO_PREFIX="$DEF_NANO_PREFIX"
@@ -350,7 +362,7 @@ _cap_fields() { # <판정기 출력> → "live cap" (`REJECT … N/M` 꼴 · 못
 }
 if [ -n "${FT_TEAM_SEAT_CAP:-}${FT_GROUP_SEAT_CAP:-}" ]; then
   [ -f "$HERE/ft_seat_cap.py" ] || { echo "REJECT ft_seat_cap.py 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
-  _capt="$(printf '%s' "${FT_NANO_PREFIX:-}" | sed -n 's/^byz-\([a-z0-9]*\)-nano-$/\1/p')"
+  _capt="$(_nano_prefix_team)"
   _cap="$(python3 "$HERE/ft_seat_cap.py" --root "$ROOT" 2>&1)"; _caprc=$?
   if [ "$_caprc" != 0 ]; then
     case "$_cap" in
@@ -457,6 +469,7 @@ if [ "${FT_TEAMSET:-1}" != 0 ]; then
 fi
 # ★카드 흐름 게이트 (r954 경보 → r1292 상한)★: 진행 카드 > 일하는 좌석 + 2 또는 착지됐는데 진행인 카드가 있으면 --warn 줄을 낸다.
 #   r1292: «대기» 카드의 새 spawn 은 --gate 로 판정해 상한을 넘으면 막는다(REJECT 1줄 · exit 1 · card_assign_record waiting 석 · 워크트리·좌석·이동 0) — 진행 카드 재작업(진행/)·판정 불가(rc 3)·FT_CARD_CAP=0 은 지금처럼 통과.
+# ★r1415: 이 칸의 «팀» 은 상한이 아니라 카드 흐름 폴더 이름이다 — 접두 마지막 칸을 쓰면 aifp(aifp-airag-nano-) 처럼 폴더명과 다른 팀이 생긴다. byz- 판독이 빈 값이 될 때 돌려주는 폴더 이름이 정답이므로 그대로 둔다(r1415 카드 알려진 한계).
 _cft="$(printf '%s' "${FT_NANO_PREFIX:-}" | sed -n 's/^byz-\([a-z0-9]*\)-nano-$/\1/p')"
 [ -n "$_cft" ] || _cft="$(printf '%s' "$IDX" | sed -n 's|.*design/\(teams/\)\{0,1\}\([a-z0-9_-]*\)/indices/.*|\2|p')"
 if [ "${FT_CARD_FLOW:-1}" != 0 ] && [ -n "$_cft" ]; then
