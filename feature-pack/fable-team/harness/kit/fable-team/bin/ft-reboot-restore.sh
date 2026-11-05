@@ -6,17 +6,18 @@
 #   좌석마다(FT_RR_PAR=4 병렬): ①같은 이름 tmux 세션 있음 = SKIP 살아 있음 ②claude 아님 = FAIL 엔진 밖 ③uuid·cwd·대화 파일 없음 = FAIL
 #     ④이름에 -nano- + `ft-resume-attempt.sh rested <jsonl>` rc 0 = SKIP 끝난 나노 ⑤model 없음 = FAIL(새 세션을 열 때만 필요 — 끝난 나노·살아 있음은 model 없어도 SKIP)
 #     ④이름에 -nano- + `ft-resume-attempt.sh rested <jsonl>` rc 0 = SKIP 끝난 나노
+#     ②′r1393 명부(<STOP_ROOT>/.fable-team/seats*.json)의 행에 _replaced_by 가 있으면 SKIP 은퇴(→후계) — 은퇴 판정은 그 표시 하나 · role=stop-ready 만으로는 은퇴 아님 · 명부 읽기 실패(JSON 깨짐 등) = ERROR rc 2 «명부 읽기 실패 <파일>» · 새 세션 0
 #     ⑤`tmux new-session -d -s <이름> -c <cwd> -e FT_SEAT=<이름> 'zsh -l'` → send-keys -l <줄> 과 Enter 별도 호출
 #       줄 = FT_SEAT=<이름> <FT_RR_HR(~/.headroom/claude-hr.sh)> --dangerously-skip-permissions --model <m> --effort <e|high> --resume <uuid> --name <이름>
 #     ⑥FT_RR_WAIT(60)초 안에 pane 자손 중 ANTHROPIC_BASE_URL 있는 프로세스(또는 claude) = OK · 8317 O/X · 못 보면 FAIL 기동 확인 없음.
 #   출력 = 좌석별 «이름 · 결과 · pid · 8317 O/X · uuid» + FAIL 목록 + 맨 끝 요약 1줄 · 원장 <루트>/.fable-team/state/reboot-restore.log(좌석이 끝날 때마다 1줄).
 #   맨 앞에서 r626 전팀 정지 스위치를 본다(검사 루트 = FT_ROOT → ft_repo_root · 원장은 리포 공용 루트에만 있다 · r1093): `ft-all-stop.sh check` 가 rc≠0 이면 그 REJECT 줄을 그대로 내고 rc 1 · 새 세션 0(정지 우회 금지).
-#   rc 0 · 3(FAIL 또는 8317 X 하나라도) · 2(ERROR) · 1(전팀 정지) — 살아 있는 세션은 보기만 한다(kill·send-keys 0) · 명부·쪽지 0 · claude 좌석만.
+#   rc 0 · 3(FAIL 또는 8317 X 하나라도) · 2(ERROR) · 1(전팀 정지) — 살아 있는 세션은 보기만 한다(kill·send-keys 0) · 명부 읽기만(쓰기 0) · 쪽지 0 · claude 좌석만.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="${FT_ROOT:-}"   # r385 라이브 루트 = FT_ROOT → ft_data_root(cwd LIVE_ROOT · 옛 설치 꼴) → ERROR
 [ -n "$ROOT" ] || { . "$HERE/ft-harness-root.sh" && ROOT="$(ft_data_root "$HERE")"; } || { echo "ERROR 루트를 못 풂 — FT_ROOT=<리포 루트> 로 다시"; exit 2; }
-case "${1:-}" in -h|--help) sed -n '2,14p' "$0"; exit 0;; esac
+case "${1:-}" in -h|--help) sed -n '2,15p' "$0"; exit 0;; esac
 STOP="$HERE/ft-all-stop.sh"   # r626 전팀 정지 — 켜짐이면 새 세션 0(정지 우회 금지)
 [ -f "$STOP" ] || echo "WARN ft-all-stop.sh 없음 — 전팀 정지 검사 0($HERE)" >&2
 # r1093: 정지 원장은 리포 «공용» 루트(.fable-team/state/all-stop.log)에만 있다 — 라이브 루트(ROOT)로 찾으면 «원장 없음 = 정지» 거짓 REJECT(:18 의 좌석 데이터 루트는 그대로).
@@ -25,10 +26,10 @@ STOP_ROOT="${FT_ROOT:-}"
 [ -n "$STOP_ROOT" ] || { . "$HERE/ft-harness-root.sh" && STOP_ROOT="$(ft_repo_root "$HERE")"; }
 [ -n "$STOP_ROOT" ] || { echo "ERROR 공용 루트를 못 풂 — FT_ROOT=<리포 루트> 로 다시"; exit 2; }
 if [ -f "$STOP" ] && ! STOP_OUT="$(FT_ROOT="$STOP_ROOT" bash "$STOP" check 2>&1)"; then printf '%s\n' "$STOP_OUT"; exit 1; fi
-FT_ROOT="$ROOT" exec python3 -I - "$ROOT" "$HERE" "$@" <<'PY'
+FT_ROOT="$ROOT" exec python3 -I - "$ROOT" "$HERE" "$STOP_ROOT" "$@" <<'PY'
 import glob, json, os, re, shlex, subprocess, sys, threading, time
 from concurrent.futures import ThreadPoolExecutor
-root, here, args = sys.argv[1], sys.argv[2], sys.argv[3:]
+root, here, stop_root, args = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4:]
 env = os.environ; home = os.path.expanduser("~")
 PAR = max(1, int(env.get("FT_RR_PAR") or 4)); WAIT = float(env.get("FT_RR_WAIT") or 60)
 LIVE = env.get("ZC_LIVE_DIR") or f"{home}/.claude/state/seat-live"
@@ -37,6 +38,16 @@ LOG = f"{root}/.fable-team/state/reboot-restore.log"
 opt = lambda k, d: args[args.index(k) + 1] if k in args and args.index(k) + 1 < len(args) else d
 src, since, dry = opt("--from", "latest"), float(opt("--since", "24")), "--dry-run" in args
 lock = threading.Lock()
+def retired_map():   # r1393 명부 → {좌석 이름: _replaced_by} · (None, 파일, 사유) = 읽기 실패 · 한 파일이라도 은퇴 표시면 은퇴
+    m = {}
+    for f in sorted(glob.glob(f"{stop_root}/.fable-team/seats*.json")):
+        try:
+            d = json.load(open(f, encoding="utf-8"))
+            if not isinstance(d, dict): raise ValueError("명부 아님")
+        except (OSError, ValueError) as e: return None, f, type(e).__name__
+        for k, v in d.items():
+            if isinstance(v, dict) and v.get("_replaced_by"): m[k] = str(v["_replaced_by"])
+    return m, "", ""
 def log(line):
     if dry: return
     with lock:
@@ -71,6 +82,7 @@ def precheck(r):   # (결과, 사유) · None = 연다
     n = r["name"]
     if not n: return "FAIL", "이름 없음"
     if alive(n): return "SKIP", "살아 있음"
+    if n in RET: return "SKIP", f"은퇴(→{RET[n]})"   # r1393 승계로 은퇴한 좌석은 열지 않는다 — 판정은 명부의 _replaced_by 하나(role 무관)
     if r["engine"] != "claude": return "FAIL", f"엔진 밖({r['engine'] or '-'})"
     if not (r["uuid"] and os.path.isdir(r["cwd"])): return "FAIL", "uuid·cwd 없음"
     if not os.path.isfile(r["jsonl"]): return "FAIL", "대화 파일 없음"
@@ -107,6 +119,9 @@ def one(r):
     res = (pre[0], pre[1], "-", "-") if pre else (("PLAN", "열기", "-", "-") if dry else open_seat(r))
     log(f"{r['name']} {res[0]} {res[1] or '-'} pid={res[2]} 8317={res[3]} uuid={r['uuid'] or '-'}")
     return res
+RET, BADF, BADR = retired_map()   # r1393 명부를 못 읽으면 아무것도 열지 않는다(하드 룰 20 · 조용한 빈 명부 0)
+if RET is None:
+    print(f"ERROR 명부 읽기 실패 {BADF} ({BADR}) — 새 세션 0"); sys.exit(2)
 rows, why = from_snapshot(); origin = f"출처=snapshot {why}"
 if rows is None:
     rows = from_live(); origin = f"출처=seat-live (스냅샷 {why}) {LIVE} since={since:g}h"
