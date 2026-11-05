@@ -12,8 +12,10 @@ r583: bin 행의 라이브 파일이 연결 파일(shim · SHIMMARK)이면 대�
 r961: 키트 상대 경로 = relpath(<HARNESS_ROOT>/kit, <HARNESS_ROOT 자기 show-toplevel>) — 라이브 하네스 루트가 같은 리포의 다른 워크트리여도 경로가 같다. «같은 리포» 판정 = 두 쪽 `git rev-parse --git-common-dir` 가 같음(r2 · 공용 루트 밖에 등록한 워크트리도 같은 리포) · 다르면 종전대로 outside_repo
 r1240: ~/.claude/skills/<이름> 이 «git 체크아웃 안을 가리키는 심링크» 면 그 체크아웃이 origin/main 보다 몇 커밋 뒤인지(behind) · skill 폴더 추적 파일 몇 개가 다른지(diff)를 `WARN skill-symlink` 1줄로 낸다(behind>0 또는 diff>0).
 심링크 아님(복사 설치) · 대상이 git 밖 = 줄 0 · git 이 못 읽음(깨진 .git · origin/main 없음) = `판정 불가` 1줄. WARN 은 PENDING 이 아니다 — 종료코드를 바꾸지 않는다(다른 점검 결과 그대로).
+r1394: 이 머신에서 «의도로 끈» launchd 라벨은 NOTLOADED 로 세지 않는다 — LaunchAgents 에 <라벨>.plist 가 없고 <라벨>.plist.off-* 가 있거나, 프로젝트 루트 `.fable-team/state/launchd-intent-off.tsv`(탭 3칸: 라벨·사유·근거)에 그 라벨 행이 있으면 `SKIP 의도 끔 <라벨> — <사유>` 1줄(OK 집계 · PENDING 아님). 명단이 깨짐(칸 수 ≠3 · 빈 사유) = ERROR rc3 · 켜기·끄기 0.
 """
 import fnmatch
+import glob
 import os
 import re
 import subprocess
@@ -213,6 +215,51 @@ def shim_compare(lp):
     return (tgt, fold, "") if os.path.isfile(tgt) else (None, fold, "MISSING")
 
 
+INTENT_OFF_TSV = os.path.join(".fable-team", "state", "launchd-intent-off.tsv")  # r1394: 머신 명단(라벨·사유·근거)
+PROOT = ""  # r1394: main 이 --project 공용 루트로 채운다 — 의도 끔 명단의 기준
+_off_rows = None  # r1394: 명단 캐시 [(라벨, 사유)] — 한 프로세스에서 한 번만 읽고 꼴을 검사한다
+
+
+def intent_off_rows():
+    """r1394: <PROOT>/.fable-team/state/launchd-intent-off.tsv → [(라벨, 사유)] · 파일 없음 = [] · 꼴 위반 = ERROR rc3(조용한 통과 0)."""
+    global _off_rows
+    if _off_rows is not None:
+        return _off_rows
+    _off_rows = []
+    p = os.path.join(PROOT, INTENT_OFF_TSV) if PROOT else ""
+    if not p or not os.path.isfile(p):
+        return _off_rows
+    try:
+        with open(p, encoding="utf-8") as fh:
+            lines = fh.read().splitlines()
+    except OSError as e:
+        die("의도 끔 명단을 못 읽음: %s (%s)" % (p, e))
+    out = []
+    for i, ln in enumerate(lines, 1):
+        if not ln.strip() or ln.startswith("#"):
+            continue
+        c = ln.split("\t")
+        if len(c) != 3 or not c[0].strip() or not c[1].strip():
+            die("의도 끔 명단 꼴 오류 %s:%d — 탭 3칸(라벨·사유·근거)에 빈 사유 0" % (p, i))
+        out.append((c[0].strip(), c[1].strip()))
+    _off_rows = out
+    return _off_rows
+
+
+def intent_off(label, prefix=False):
+    """r1394: 이 머신에서 «의도로 끈» launchd 라벨이면 사유 1줄, 아니면 None. 읽기만 — 켜기·끄기 0.
+    ⓐ LaunchAgents 에 <라벨>.plist 가 없고 <라벨>.plist.off-* 가 있음 → «.off 파일 <이름>»
+    ⓑ 명단(intent_off_rows)의 같은 라벨 사유 · prefix=True = 인스턴스 «접두-<숫자>» 를 접두로 본다."""
+    pdir = os.path.join(os.environ["HOME"], "Library", "LaunchAgents")
+    pat = label + ("*" if prefix else "")
+    on = glob.glob(os.path.join(pdir, pat + ".plist"))
+    off = sorted(glob.glob(os.path.join(pdir, pat + ".plist.off-*")))
+    rows = intent_off_rows()  # 꼴 검사는 ⓐ 보다 먼저 — 깨진 명단은 어느 라벨을 봐도 ERROR
+    if off and not on:
+        return ".off 파일 " + os.path.basename(off[0])
+    return next((why for lb, why in rows if (lb.startswith(label) if prefix else lb == label)), None)
+
+
 def plist_items(repo, path, blob):
     """템플릿 Label 적재 여부 + 프로세스 시작 시각 < 라이브 스크립트 mtime → RESTART."""
     body = git(repo, "cat-file", "blob", blob)
@@ -225,7 +272,10 @@ def plist_items(repo, path, blob):
     if not inst:
         return label_items(path, body, label)
     found = loaded_instances(inst.group(1))
-    return [x for lb in found for x in label_items(path, body, lb)] if found else ["NOTLOADED %s · %s<숫자> (적재 0)" % (inst.group(1)[:-1], inst.group(1))]
+    if found:
+        return [x for lb in found for x in label_items(path, body, lb)]
+    why = intent_off(inst.group(1)[:-1], prefix=True)  # r1394: 의도로 끈 인스턴스 묶음은 세지 않는다
+    return ["SKIP 의도 끔 %s — %s" % (inst.group(1)[:-1], why)] if why else ["NOTLOADED %s · %s<숫자> (적재 0)" % (inst.group(1)[:-1], inst.group(1))]
 
 
 def loaded_instances(prefix):
@@ -241,7 +291,8 @@ def label_items(path, body, label):
     """라벨 1개: 적재 여부 + PID 있으면 시작 시각 < 스크립트 mtime → RESTART."""
     r = run([os.environ.get("FT_LAUNCHCTL", "launchctl"), "list", label])
     if r.returncode:
-        return ["NOTLOADED " + label]
+        why = intent_off(label)  # r1394: 의도로 끈 라벨은 PENDING 이 아니다
+        return ["SKIP 의도 끔 %s — %s" % (label, why)] if why else ["NOTLOADED " + label]
     pm = re.search(r'"PID"\s*=\s*(\d+)', r.stdout)
     scripts = [os.environ["HOME"] + s for s in re.findall(r"<string>__HOME__(/[^<]+\.(?:py|sh))</string>", body)]
     miss = ["MISSING %s -> %s" % (path, s) for s in scripts if not os.path.isfile(s)]
@@ -555,6 +606,8 @@ def main():
         sys.exit(0)
     o = parse_args(sys.argv[1:])
     repo = resolve_kit(o)
+    global PROOT
+    PROOT = plist_root(repo, o["project"])  # r1394: 의도 끔 명단(.fable-team/state)의 기준 루트
     ref, landed, removed = o["ref"], None, []
     if o["range"]:  # A..B 는 «대상 파일 집합»만 정한다 — 대조 blob 은 ref tip (R367)
         a, _, landed = o["range"].partition("..")
@@ -579,7 +632,7 @@ def main():
         rows = load_map(open(o["map"], encoding="utf-8").read() if o["map"] else git(repo, "show", ref + ":" + MAPPATH))
     except OSError as e:
         die("지도를 못 읽음: %s" % e)
-    bad, hints, skip, checked, pairs = [], {}, 0, 0, []
+    bad, hints, skip, checked, pairs, skips = [], {}, 0, 0, [], []
     miss, shint = shim_items(repo, tree, o["project"])
     bad += ["PENDING shim " + n for n in miss]
     hints.update({"shim": shint} if miss else {})
@@ -607,7 +660,10 @@ def main():
             skip += 1
         elif row[1] == "plist":
             checked += 1
-            items = plist_items(repo, f, tree[f][1])
+            got = plist_items(repo, f, tree[f][1])
+            skip += len([x for x in got if x.startswith("SKIP ")])  # r1394: 의도로 끈 라벨 = OK 집계 · PENDING 아님
+            skips += [x for x in got if x.startswith("SKIP ")]
+            items = [x for x in got if not x.startswith("SKIP ")]
             env = plist_env(repo, tree[f][1], plist_root(repo, o["project"]))
             bad += items + env
             hints.update({rel.split("/")[0]: row[3]} if items else {})
@@ -645,11 +701,15 @@ def main():
             print("REMOVED %s (ref tip 에서 삭제 · 라이브 잔재 0)" % f)
     if not bad:
         print("OK n=%d skip=%d" % (checked, skip))
+        for s in skips:
+            print(s)
         for w in warns:
             print(w)
         return 0
     print("PENDING n=%d" % len(bad))
     print("\n".join(sorted(bad)))
+    for s in skips:
+        print(s)
     print("\n".join("HINT %s %s" % (k, hints[k]) for k in sorted(hints)))
     for w in warns:
         print(w)
