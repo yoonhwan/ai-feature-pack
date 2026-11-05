@@ -1,7 +1,7 @@
 """r1001 — 정지 경보의 «팀장 멈춤» 판정을 팀 단위 심박 디바운스로 바꾼다.
 
 팀장 심박 = 그 팀장이 보낸 mbox 쪽지 중 본문 머리 `[정리]` 인 마지막 줄의 ts.
-심박 나이 ≤ 15분 = 그 팀장 b·d 경보 0 · 넘거나 없으면 그 팀 1통(`[멈춤]`). 팀장 아닌 좌석은 base 그대로.
+심박 나이 ≤ 20분(r1391 · 주기 15 + 여유 5) = 그 팀장 b·d 경보 0 · 넘거나 없으면 그 팀 1통(`[멈춤]`). 팀장 아닌 좌석은 base 그대로.
 R1001_BIN = 시험할 bin 폴더(기본 kit · 셸 짝 tests/test_stall_scan_lead_heartbeat_r1001.sh 가 변이 사본을 넣어 ⓕ 를 본다).
 """
 import json
@@ -73,7 +73,7 @@ def set_replaces(w: World, label: str, master: str, olds: list[str]) -> None:
     _ = p.write_text(json.dumps(d), encoding="utf-8")
 
 
-# ── C1 — 심박 나이 ≤ 15분 인 팀장 = b·d 경보 0 ───────────────────────────────
+# ── C1 — 심박 나이 ≤ 20분 인 팀장 = b·d 경보 0 ───────────────────────────────
 def test_c1a_heartbeat_within_10min_zero(w: World) -> None:  # ⓐ
     lead_b_candidate(w)
     w.heartbeat("t1-master#1", 10)
@@ -84,22 +84,22 @@ def test_c1a_heartbeat_within_10min_zero(w: World) -> None:  # ⓐ
     assert not w.mbox_log() and not w.tmux_log()
 
 
-def test_c1b_heartbeat_10_to_15min_zero(w: World) -> None:  # ⓑ (여유 5분)
+def test_c1b_heartbeat_15_to_20min_zero(w: World) -> None:  # ⓑ (여유 5분)
     lead_b_candidate(w)
-    w.heartbeat("t1-master#1", 14.5)
+    w.heartbeat("t1-master#1", 19.5)
     r = scan(w)
     assert counts(r.stdout)["f"] == "0" and not w.mbox_log()
 
 
-# ── C2 — 15분 넘음 또는 없음 = 그 팀 1통 · 같은 서명 10분 안 재알림 0 ─────────
-def test_c2c_heartbeat_over_15min_one_stall_notice(w: World) -> None:  # ⓒ
+# ── C2 — 20분 넘음 또는 없음 = 그 팀 1통 · 같은 서명 10분 안 재알림 0 ─────────
+def test_c2c_heartbeat_over_20min_one_stall_notice(w: World) -> None:  # ⓒ
     lead_b_candidate(w)
-    w.heartbeat("t1-master#1", 16)
+    w.heartbeat("t1-master#1", 21)
     r = scan(w)
     assert counts(r.stdout)["f"] == "1" and counts(r.stdout)["b"] == "0", r.stdout
     s = sends(w, "t1-master#1")
     assert len(s) == 1, w.mbox_log()
-    assert body_of(s[0]).startswith("[멈춤] t1-master#1 팀장 심박 16분"), s[0]
+    assert body_of(s[0]).startswith("[멈춤] t1-master#1 팀장 심박 21분"), s[0]
     assert "--urgent" not in s[0]
 
 
@@ -115,7 +115,7 @@ def test_c2d_no_heartbeat_at_all_one_stall_notice(w: World) -> None:  # ⓓ 심�
 def test_c2e_same_signature_within_ten_minutes_is_one_notice(w: World) -> None:  # ⓔ 연속 2회
     w.env["FT_STALL_PENALTY_AUTO"] = "0"
     lead_b_candidate(w)
-    w.heartbeat("t1-master#1", 16)
+    w.heartbeat("t1-master#1", 21)
     _ = scan(w)
     w.advance(120)
     r = scan(w)
@@ -126,7 +126,7 @@ def test_c2e_same_signature_within_ten_minutes_is_one_notice(w: World) -> None: 
 def test_c2e2_lead_with_both_kinds_gets_one_notice_per_team(w: World) -> None:  # ⓔ2 «팀당 1통»
     lead_b_candidate(w)
     w.mail("t1-master#1", 7, 4.5, frm="planner#1")  # 미읽음 쪽지(d 후보)도 함께
-    w.heartbeat("t1-master#1", 20)
+    w.heartbeat("t1-master#1", 21)
     r = scan(w)
     c = counts(r.stdout)
     assert c["f"] == "1" and c["b"] == "0" and c["d"] == "0", r.stdout
@@ -217,7 +217,7 @@ def test_c5_h4_future_ts_is_never_fresh(w: World) -> None:  # 시계 어긋난 �
 # ── attached·rest·stop-ready 팀장은 처리 0(base 게이트 그대로) ──────────────────
 def test_attached_lead_listed_but_no_action(w: World) -> None:
     lead_b_candidate(w)
-    w.heartbeat("t1-master#1", 20)
+    w.heartbeat("t1-master#1", 21)
     w.attach("t1-master#1")
     r = scan(w)
     assert counts(r.stdout)["f"] == "1" and "attached" in r.stdout and not w.mbox_log()
@@ -241,16 +241,16 @@ def test_working_lead_is_not_a_stall(w: World) -> None:
 # ── dry-run 은 아무것도 보내지 않는다 ─────────────────────────────────────────
 def test_dry_run_lead_stall_sends_nothing(w: World) -> None:
     lead_b_candidate(w)
-    w.heartbeat("t1-master#1", 20)
+    w.heartbeat("t1-master#1", 21)
     r = scan(w, "--dry-run")
     assert counts(r.stdout)["f"] == "1" and not w.mbox_log() and not w.scan_log()
 
 
 # ── r2 반송(DA 1/2 HOLD) — ⓘ env 임계 · ⓙ 수신자 · ⓜ 둘 다 현역 · ⓝ 두 팀장 1통 ──────────
-def test_i_env_threshold_is_read(w: World) -> None:  # ⓘ FT_LEAD_HEARTBEAT_MIN=20 이면 16분은 신선
+def test_i_env_threshold_is_read(w: World) -> None:  # ⓘ FT_LEAD_HEARTBEAT_MIN=25 이면 21분은 신선(기본값 20 은 이제 경보)
     lead_b_candidate(w)
-    w.heartbeat("t1-master#1", 16)
-    w.env["FT_LEAD_HEARTBEAT_MIN"] = "20"
+    w.heartbeat("t1-master#1", 21)
+    w.env["FT_LEAD_HEARTBEAT_MIN"] = "25"
     r = scan(w)
     assert counts(r.stdout)["f"] == "0" and not w.mbox_log(), r.stdout
 
@@ -276,7 +276,7 @@ def test_n_two_live_masters_one_notice_per_team(w: World) -> None:  # ⓝ 승계
     lead_b_candidate(w)
     w.state("t1-master#0", "IDLE", 6)
     w.jsonl("t1-master#0", "지금 착수하겠습니다")
-    w.heartbeat("t1-master#1", 20)
+    w.heartbeat("t1-master#1", 21)
     r = scan(w)
     c = counts(r.stdout)
     assert c["f"] == "1" and c["b"] == "0" and c["d"] == "0", r.stdout  # b 중복 0
@@ -301,7 +301,7 @@ def test_o_suppression_key_is_team_not_seat(w: World) -> None:  # ⓞ 대상 좌
     lead_b_candidate(w)
     w.state("t1-master#0", "IDLE", 6)
     w.jsonl("t1-master#0", "지금 착수하겠습니다")
-    w.heartbeat("t1-master#1", 20)
+    w.heartbeat("t1-master#1", 21)
     _ = scan(w)
     assert len([x for x in w.mbox_log() if x.startswith("send|t1-master#")]) == 1, w.mbox_log()
     w.advance(120)
@@ -344,11 +344,11 @@ def test_r_heartbeat_in_queue_only_is_fresh(w: World) -> None:  # ⓡ 큐에만(
 def test_s_queue_newer_than_log_uses_latest_ts(w: World) -> None:  # ⓢ 둘 다 — 최신 ts 를 쓴다
     quiet_others(w)
     lead_b_candidate(w)
-    log_mail(w, "planner#1", 901, 20, frm="t1-master#1")  # 로그 = 옛 [정리] 20분
+    log_mail(w, "planner#1", 901, 25, frm="t1-master#1")  # 로그 = 옛 [정리] 25분(창 밖)
     w.heartbeat("t1-master#1", 3, seq=902)  # 큐 = 새 [정리] 3분
     r = scan(w)
     c = counts(r.stdout)
-    assert c["f"] == "0" and c["u"] == "0", r.stdout  # 로그 것만 썼다면 20분 = 경보 1통
+    assert c["f"] == "0" and c["u"] == "0", r.stdout  # 로그 것만 썼다면 25분 = 경보 1통
     assert not w.mbox_log()
 
 

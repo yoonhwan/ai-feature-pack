@@ -40,7 +40,7 @@ esac; exit 0'
 mkstub tmuxc  'if [ "$1" = boot-enter ]; then echo "bootenter $2" >> "$LOG"; [ -n "${BE_OUT:-}" ] && printf "%s\n" "$BE_OUT" >&2; exit "${BE_RC:-0}"; fi   # r925 r3: 이어가기 판정 대역(로그 줄은 «tmuxc» 로 세지 않는다)
   echo "tmuxc $*" >> "$LOG"; [ -n "${TMUXC_ERR:-}" ] && printf "%s\n" "$TMUXC_ERR" >&2; [ "${TMUXC_RC:-0}" = 0 ] && : > "$OPENED"; exit "${TMUXC_RC:-0}"'
 mkstub pgrep  'case "$*" in "-a -x claude"|"-a -x codex") exec "$SENSORS/pgrep" "$@";; esac; echo pgrep >> "$LOG"; n=$(cat "$CNT" 2>/dev/null || echo 0); n=$((n+1)); echo $n > "$CNT"; [ "$n" -ge "${PGREP_UP_AT:-3}" ] && { echo 5555; exit 0; }; exit 1'
-mkstub send   'echo send >> "$LOG"; echo "QUEUED seq=777 to=$1 pending=1 doorbell=sent"; exit "${SEND_RC:-0}"'
+mkstub send   'echo send >> "$LOG"; printf "%s" "$2" > "${SENT_TEXT:-/dev/null}"; echo "QUEUED seq=777 to=$1 pending=1 doorbell=sent"; exit "${SEND_RC:-0}"'
 mkstub mbox   'echo "mbox $1" >> "$LOG"; echo "RING seq=$3 doorbell=sent"; exit 0'
 : > "$FAKE/mbox_doorbell.sh"   # r607: 고른 mbox 폴더의 짝 파일 검사 — 열기 전 REJECT 를 피하려면 있어야 한다
 mkstub reach  'echo reach >> "$LOG"; exit "${REACH_RC:-0}"'
@@ -48,6 +48,12 @@ mkstub ps     'case "$1 $2 $3" in "-o lstart= -p") echo "Thu Jan  1 09:00:00 202
 # 자원 문지기 격리(R218) — 실 머신 압력·실 pressure.tsv 를 재지 않는다: 공통 가짜 센서 헬퍼(압력 1·에이전트 35 · 임시 FT_RES_ROOT).
 . "$HERE/lib/fake_resource_env.sh"; fake_resource_env "$TMP/sensors" ok; SENSORS="$TMP/sensors/fake-sensors"; RES="$FT_RES_ROOT"
 printf '골 원문 1줄\n골 원문 2줄\n골 원문 3줄\n본문 나머지\n' > "$BODY"
+# r1391 — 팀셋·명부·지침 블록 대역: arch 게이트(R342)가 읽는 resroot 명부와 --md 표(«arch 상시» 팀 0)를 임시로 세운다.
+mkdir -p "$RES/design"; printf '# TEAMS\n\n| 팀 | 폴더 | 오케 | 상태 |\n|---|---|---|---|\n| t | `design/t/` | byz-t-master-claude | 현역 |\n' > "$RES/design/TEAMS.md"
+printf '{"byz-t-master-claude":{"role":"master","model":"m"},"byz-t-old-claude#1":{"role":"master","model":"m"},"byz-t-new-claude#2":{"role":"master","model":"m"}}\n' > "$RES/.fable-team/seats-t.json"
+printf '| 팀 | 오케 | arch 상시 |\n|---|---|---|\n| t | byz-t-master-claude | — |\n' > "$TMP/teamset.md"
+printf '<!-- S17-BOOT-BEGIN -->\n목적 0 = 진행 카드를 완성하고 닫는다.\n<!-- S17-BOOT-END -->\n<!-- S11-DESK-BEGIN -->\n6. desk 틱마다 직접 잰다.\n<!-- S11-DESK-END -->\n' > "$TMP/gov-ok.md"
+printf '블록 없음\n' > "$TMP/gov-empty.md"
 mkdir -p "$REPO/.fable-team" "$TMP/live-root"; printf '%s\n' "$TMP/live-root" > "$REPO/.fable-team/LIVE_ROOT"   # r756: desk·planner 승계 자리 검사 — 워크트리·공용 루트 LIVE_ROOT 가 같아야 통과(wt=$REPO 라 같은 파일)
 
 JDIR="$TMP/home/.claude/projects/$(printf '%s' "$TMP/pane" | LC_ALL=C sed 's|[^A-Za-z0-9]|-|g')"
@@ -58,7 +64,7 @@ run() { # run <환경 KEY=VAL…> — 호출마다 로그·카운터·도달 파
   env HOME="$TMP/home" PANE_CWD="$TMP/pane" PATH="$FAKE:$PATH" LOG="$LOG" CNT="$CNT" OPENED="$OPENED" EXISTS="${EXISTS:-}" \
       PANE_CWD_OVERRIDE="${PANE_CWD_OVERRIDE:-}" FT_SO_POLL=0 FT_SO_WAIT_MAX=5 \
       BE_RC="${BE_RC:-0}" BE_OUT="${BE_OUT:-}" \
-      FT_RES_ROOT="$RES" SENSORS="$SENSORS" \
+      FT_RES_ROOT="$RES" SENSORS="$SENSORS" FT_TEAMSET_MD="$TMP/teamset.md" SENT_TEXT="$TMP/sent.txt" FT_GOV_MD="$TMP/gov-ok.md" \
       FT_SEND_VERIFIED="$FAKE/send" FT_MBOX_SH="$FAKE/mbox" FT_REACH_CHECK="$FAKE/reach" "$@" \
       "${SOBASH:-bash}" "$SO" "$OLD" "$REPO" --name "$NEW" --agent claude --model 'claude-opus-5-5[1m]' --ctx 1m --effort high --body-file "$BODY_USE" > "$TMP/out" 2>&1
   RC=$?
@@ -75,11 +81,21 @@ BODY_USE="$BODY"
 # ⓑ pgrep 이 3번째에 뜬다 → 송신은 그 뒤 1회 · 도달 파일
 run PGREP_UP_AT=3 SEND_RC=0
 order="$(grep -E '^(pgrep|send)$' "$LOG" | tr '\n' ' ')"
+
 { [ "$RC" -eq 0 ] && [ "$order" = "pgrep pgrep pgrep send " ] && [ -f "$STATE/$OLD.json" ] && grep -q "$NEW" "$STATE/$OLD.json"; } \
   && ok "ⓑ 기동 확인(pgrep 3) → 송신 1회 · 도달 파일" || bad "ⓑ rc=$RC order=$order file=$(ls "$STATE" 2>&1)"
 # ⓑ-2 (R282 ③) 도달 파일 model 칸 = --model 값 · 기존 칸 불변
 { [ "$(jq -r '[.successor,.rc,.model]|join(",")' "$STATE/$OLD.json" 2>/dev/null)" = "$NEW,0,claude-opus-5-5[1m]" ] && [ "$(jq -r '.seq' "$STATE/$OLD.json")" = 777 ]; } \
   && ok "ⓑ-2 도달 파일 model = --model 값 · successor·seq·rc 불변" || bad "ⓑ-2 $(cat "$STATE/$OLD.json" 2>&1)"
+
+# ⓝ (r1391) 승계 본문 첫머리 지침 블록 — 골 3줄 다음에 블록 · 본문 4행은 그 뒤 · 표식 없으면 개설 0(rc1)
+run PGREP_UP_AT=3 SEND_RC=0
+{ [ "$RC" -eq 0 ] && [ "$(sed -n '4p' "$TMP/sent.txt")" = "목적 0 = 진행 카드를 완성하고 닫는다." ] && [ "$(sed -n '5p' "$TMP/sent.txt")" = "본문 나머지" ] \
+  && [ "$(sed -n '1,3p' "$TMP/sent.txt" | tr '\n' '|')" = "골 원문 1줄|골 원문 2줄|골 원문 3줄|" ]; } \
+  && ok "ⓝ r1391 골 3줄 다음에 지침 블록 · 본문 4행은 그 뒤" || bad "ⓝ rc=$RC sent=$(sed -n '1,6p' "$TMP/sent.txt" 2>&1 | tr '\n' '|') out=$(cat "$TMP/out")"
+run FT_GOV_MD="$TMP/gov-empty.md"
+{ [ "$RC" -ne 0 ] && grep -q 'REJECT 승계 블록' "$TMP/out" && [ "$(count tmuxc)" = 0 ] && [ "$(count send)" = 0 ]; } \
+  && ok "ⓝ-2 r1391 표식 없는 지침 → REJECT rc1 · 세션 개설·송신 0" || bad "ⓝ-2 rc=$RC log=$(tr '\n' ' ' < "$LOG") out=$(cat "$TMP/out")"
 
 # ⓒ pgrep 상한 초과 → 송신 0 · 도달 파일 0 · exit≠0 · [HIL] 줄
 run PGREP_UP_AT=99

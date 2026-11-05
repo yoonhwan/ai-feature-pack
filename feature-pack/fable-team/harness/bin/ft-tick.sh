@@ -613,8 +613,9 @@ teammain_render() {
     echo "$(date '+%F %T') WARN teammain: 도구 없음 $TEAMMAIN — 팀 메인 렌더 건너뜀(다음 간격 뒤 다시 본다)" >&2
     return 0
   fi
-  if [ -d "$lock" ] && [ -f "$lock/at" ]; then
-    age=$(( $(now) - $(read_stamp "$lock/at") ))
+  if [ -d "$lock" ]; then  # r1391 — at 이 없는 잠금 폴더(도중에 죽은 틱이 남긴 것)도 «낡음» 으로 본다: 나이 = at 있으면 그 값, 없으면 폴더 mtime
+    if [ -f "$lock/at" ]; then age=$(( $(now) - $(read_stamp "$lock/at") ))
+    else age=$(( $(now) - $(stat -f %m "$lock" 2>/dev/null || echo "$(now)") )); fi
     if [ "$age" -gt "$TEAMMAIN_SEC" ]; then rm -rf -- "$lock"; log "teammain: 낡은 잠금 ${age}s(>$TEAMMAIN_SEC s) 깨고 진행 $lock"; fi
   fi
   if ! mkdir "$lock" 2>/dev/null; then

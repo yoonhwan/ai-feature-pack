@@ -69,7 +69,7 @@ mkdir -p "$REPO/design/v65/indices/inbox/master" "$REPO/design/v65/indices/inbox
 body() { (cd "$REPO" && env -u FT_ROLE_BASE_PREFIX PATH="$FAKE:$PATH" bash "$SPAWN" "$1" --dry-run 2>&1 | grep '^BODY '); }
 for r in master arch; do
   b="$(body $r)"
-  echo "$b" | grep -qF "CronCreate 10분" && echo "$b" | grep -qF "cron=<job id>" \
+  echo "$b" | grep -qF "CronCreate 15분" && echo "$b" | grep -qF "cron=<job id>" \
     && ok "BODY $r 크론 문장 포함" || bad "BODY $r 에 크론 문장 없음: $b"
 done
 for r in da pm tester; do
@@ -84,7 +84,7 @@ for r in master arch tester da; do
   echo "$b" | grep -qF "자동완성 제안" && echo "$b" | grep -qF "BOOT 17" \
     && ok "BODY $r 고스트 서제스천 문장 포함" || bad "BODY $r 에 고스트 문장 없음: $b"
 done
-b="$(body master)"; pre="${b%%CronCreate 10분*}"; post="${b%%자동완성 제안*}"
+b="$(body master)"; pre="${b%%CronCreate 15분*}"; post="${b%%자동완성 제안*}"
 [ "${#pre}" -lt "${#post}" ] && ok "BODY master 크론 문장이 고스트 문장보다 앞" || bad "BODY master 문장 순서: $b"
 
 # R63 — 측정 조작 금지 1줄은 전 역할 BODY 에 (오빠 절대지침 · BOOT 20)

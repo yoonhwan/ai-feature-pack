@@ -340,7 +340,7 @@ class Scan:
                 return None
             self.send(seat, f"[stall b] 선언 뒤 정지 {f['age']:.0f}분 — 지금 도구를 불러라 (ft-stall-scan)" if k == "b"
                       else f"[멈춤] {seat} {f['why']} — 지금 한 일 정리 1통 보내라 · CronList 로 체크 크론 확인 — "
-                           "없거나 주기가 10분이 아니면 CronCreate 10분 틱으로 다시 걸고 [정리] 에 cron=<id> (BOOT 16 · ft-stall-scan)",
+                           "없거나 주기가 15분이 아니면 CronCreate 15분 틱으로 다시 걸고 [정리] 에 cron=<id> (BOOT 16 · ft-stall-scan)",
                       urgent=False)
         else:
             seat = next((t["master"] for t in load_teams(self.root) if t["diag"] == "OK" and t["team"] == "planner"), None)
