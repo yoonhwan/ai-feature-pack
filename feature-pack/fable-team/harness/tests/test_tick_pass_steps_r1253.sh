@@ -21,10 +21,10 @@ fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }
 
-EXP22="outage_watch acct_pause_watch watch_sample_tick autonomy_expire leak_watch hil_watch live_snapshot dead_seat_watch idle_watch idle_long_watch model_swap stall sweep_wt drift_watch raised_watch renamed_watch queue_full_watch queue_watch card_assign_watch launchd_watch unpushed_daily news_ledger"
+EXP22="outage_watch acct_pause_watch watch_sample_tick autonomy_expire leak_watch hil_watch live_snapshot dead_seat_watch idle_watch idle_long_watch model_swap close_due_snapshot stall sweep_wt drift_watch raised_watch renamed_watch queue_full_watch queue_watch card_assign_watch launchd_watch unpushed_daily news_ledger"
 EXP_EARLY="$EXP22 prep teammain_render acct_notice"          # 좌석 0 = prep 뒤 조기 반환(fire 미실행) · r1320 teammain_render 는 acct_notice 앞
 EXP_FULL="$EXP22 prep fire teammain_render acct_notice"      # 좌석 1
-EXP_EARLY="$EXP_EARLY trigger_watch"; EXP_FULL="$EXP_FULL trigger_watch"   # r1285: 바퀴 맨 끝 단계 · DRY 에서는 단계로 세지 않는다(n=25 줄 그대로)
+EXP_EARLY="$EXP_EARLY trigger_watch"; EXP_FULL="$EXP_FULL trigger_watch"   # r1285: 바퀴 맨 끝 단계 · DRY 에서는 단계로 세지 않는다(n=26 줄 그대로 · r1360 close_due_snapshot 1단계 추가)
 
 # 도구 사본 폴더: ft-tick(원본 또는 변이판) + 형제 도구 심링크 + 뉴스 원장 대역
 mkbin() {   # $1 = ft-tick 소스 → $TMP/bin-<n> 경로를 stdout
@@ -182,7 +182,7 @@ case "$f0" in *'바퀴 끊음('*) case "$f0" in *'끊긴 단계'*) bad "R5 끔�
 # ── R6 DRY ───────────────────────────────────────────────────────────────────────────────────────
 run_tick r6 "$BD" "$TMP/seats-0.json" -- --dry-run
 n="$(grep -c '^DRY kind=steps n=' "$TMP/r6.log")"; l="$(grep -m1 '^DRY kind=steps n=' "$TMP/r6.log")"
-[ "$n" = 1 ] && [ "$l" = "DRY kind=steps n=25" ] && ok "R6 --dry-run: «${l}» 1줄" || bad "R6 DRY 줄 ${n}개: ${l}"
+[ "$n" = 1 ] && [ "$l" = "DRY kind=steps n=26" ] && ok "R6 --dry-run: «${l}» 1줄" || bad "R6 DRY 줄 ${n}개: ${l}"
 [ -z "$(ls "$(SD r6)" 2>/dev/null)" ] && ok "R6 DRY 표식 쓰기 0" || bad "R6 DRY 표식 있음: $(ls "$(SD r6)")"
 
 # ── 변이 ─────────────────────────────────────────────────────────────────────────────────────────
