@@ -141,6 +141,33 @@ reached() {   # reached <seq|null>
 # ⓐ 본문 첫 3줄 = 골 원문 자리(하드 룰 7) — 하나라도 비면 열지 않는다
 [ -f "$BODY" ] || { echo "REJECT 본문 파일 없음: $BODY"; exit 1; }
 [ "$(sed -n '1,3p' "$BODY" | grep -c '[^[:space:]]')" = 3 ] || { echo "REJECT 본문 첫 3줄(골 원문)이 비었다: $BODY"; exit 1; }
+# ⓐ-1 (r1391) 승계 본문 첫머리 지침 블록 — 정본 governance 에서 표식 블록을 «개설 전» 에 읽는다(desk 는 §11-6 블록).
+#   표식이 없거나 여러 개거나 300자 초과면 그 자리에서 REJECT rc1 = 세션 개설 0(이 도구의 fail-closed 꼴 그대로 · 본문 받은 뒤 거절되는 후계 0).
+#   본문 조립은 ⓓ — 골 3줄 다음에 이 블록을 넣는다(블록 본문은 한 곳 = governance · 이 파일은 복사만).
+GOV="${FT_GOV_MD:-$HOME/.claude/skills/fable-team/references/main-team-governance.md}"
+if [ ! -f "$GOV" ]; then  # r1391 — 설치본이 없으면 같은 저장소의 추적 정본을 쓴다(WARN 1줄 · 표식이 없으면 그대로 REJECT = 조용한 통과 0)
+  for _c in "$HERE/../../skill/references/main-team-governance.md" "$HERE/../../../../skill/references/main-team-governance.md"; do
+    [ -f "$_c" ] && { echo "WARN 승계 블록: 설치본 없음 — 추적 정본을 쓴다 $GOV → $_c" >&2; GOV="$_c"; break; }
+  done
+fi
+case "$NAME" in *-desk-*) _beg='<!-- S11-DESK-BEGIN -->'; _end='<!-- S11-DESK-END -->';; *) _beg='<!-- S17-BOOT-BEGIN -->'; _end='<!-- S17-BOOT-END -->';; esac
+BLOCK="$(GOV="$GOV" BEG="$_beg" END="$_end" python3 - <<'PYBLOCK'
+import os, sys
+path, beg, end = os.environ["GOV"], os.environ["BEG"], os.environ["END"]
+try:
+    text = open(path, encoding="utf-8").read()
+except OSError as e:
+    print(f"REJECT 승계 블록 정본을 못 읽음 — {path}: {type(e).__name__}: {e}"); sys.exit(3)
+if text.count(beg) != 1 or text.count(end) != 1:
+    print(f"REJECT 승계 블록 표식이 없거나 여러 개 — {beg} x{text.count(beg)} · {end} x{text.count(end)} · {path}"); sys.exit(3)
+block = text.split(beg, 1)[1].split(end, 1)[0].strip("\n")
+if not block.strip():
+    print(f"REJECT 승계 블록이 비었다 — {path}"); sys.exit(3)
+if len(block) > 300:
+    print(f"REJECT 승계 블록이 300자 초과({len(block)}자) — mbox 739자 절단 안에 들어가게 줄여라: {path}"); sys.exit(3)
+print(block)
+PYBLOCK
+)" || { printf '%s\n' "$BLOCK"; exit 1; }
 # ⓐ' (r414) desk·planner 승계 본문의 슬랙 뿌리 ts 손 복사 = 열지 않는다 — 보고 스레드 뿌리는 등록부(slack-threads.json)가 소유
 case "$NAME" in *-desk-*|*-planner-*) grep -qE -- '--ts [0-9]{10}\.[0-9]{6}' "$BODY" && { echo "REJECT 본문에 슬랙 ts 손 복사(--ts …) — 방 글 = post --to <이름> · 오빠 글 답 = reply --to-slack <ts>"; exit 1; };; esac
 # ⓐ'' (r660) desk 승계 본문 — ① 첫 10줄에 planner 안내서 desk 구절(r826: 줄 번호 아님 · 안내서 전체에서 정확히 1줄) 원문 없으면 열지 않는다 ② 팀 직발 예시(send·relay 뒤 byz-<planner 아닌 팀>-… · 따옴표 유무 무관) 있으면 열지 않는다(부작용 전 · 지침 = GUIDE-planner.md:27 «desk 는 인터뷰·응대·요청 정리만 … master 에 1통»).
@@ -294,7 +321,7 @@ while [ "$i" -lt "$WAIT_MAX" ]; do i=$((i+1))
 # ★r1034 팀장 승계 «이월 0» 줄★: 사고 확대 키워드의 효과는 세션을 넘어가지 않는다 — 팀장 후계 본문 끝에 그 뜻을 한 줄 붙인다.
 #   그 낱말 자체는 적지 않는다(적으면 후계 세션이 그 낱말 때문에 바로 켜진다) · --body-file 원본은 바이트 그대로(파일에 쓰지 않는다).
 # ★r1037 이월 1★: 알림줄 꼬리(r1036 · FT_DOORBELL_TAIL)를 «송신과 링 재시도 둘 다»에 켠다 — 낱말은 본문에 싣지 않는다(본문은 도구 결과라 효과가 불확실하고 둘째 경로로 샌다).
-SEND_TEXT="$(cat "$BODY")"
+SEND_TEXT="$( { sed -n '1,3p' "$BODY"; printf '%s\n' "$BLOCK"; sed -n '4,$p' "$BODY"; } )"  # r1391 — 골 3줄(그대로) + 지침 블록 + 본문 4행~
 if [ "${NAME#*-master-}" != "$NAME" ]; then
   if [ "$CARRY" = 1 ]; then
     SEND_TEXT="$SEND_TEXT"$'\n'"승계 이월 1: 앞 세션의 확대 사고를 이어 받는다. 문제가 풀리면 다음 승계에서 이월 0."

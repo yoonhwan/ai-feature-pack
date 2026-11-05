@@ -1,7 +1,7 @@
 """R320b — 멈춘 좌석 감지 4종의 «판정» (읽기 전용 · 처리는 ft_stall_scan.py).
 
 r1001 — `lead_heartbeat` = 팀장이 보낸 mbox 쪽지 중 본문 머리 `[정리]` 인 마지막 줄의 ts(팀장 심박 · r1154: 승격분 `[HIL] … (원래 [정리])` 도).
-  팀장 좌석의 b·d 경보는 이 심박이 LEAD_HEARTBEAT_MIN(15분) 안이면 0, 끊기면 팀 단위 1통(ft_stall_scan f).
+  팀장 좌석의 b·d 경보는 이 심박이 LEAD_HEARTBEAT_MIN(20분) 안이면 0, 끊기면 팀 단위 1통(ft_stall_scan f).
 
 
 a 대기 카드 있는데 master IDLE · b 선언 뒤 IDLE · c 정책 정지(하네스 1건) · d 답 기다리며 3분+ (멈춘 쪽 = 받는이).
@@ -23,7 +23,7 @@ from ft_team_lib import basis_ref, roots
 from ft_team_lib import rosters as team_rosters
 
 IDLE_MIN = 3.0
-LEAD_HEARTBEAT_MIN = 15.0  # 팀장 심박 주기 10분 + 여유 5 — 이보다 오래 조용하면 «멈춤»
+LEAD_HEARTBEAT_MIN = 20.0  # 팀장 심박 주기 15분 + 여유 5 — 이보다 오래 조용하면 «멈춤» (r1391)
 def role_key(name: str) -> str:
     """우편함 키 = 역할 이름(r1116 · comm/mbox_conf.role_key 와 같은 규칙) — 승계 뒤 옛 번호(planner#165) 앞 [정리] 도 그 역할(planner 현역 #166) 심박이다(r1116b ②)."""
     return re.sub(r"#\d+$", "", name or "")
@@ -697,7 +697,7 @@ def lead_heartbeat(comm: Path, masters: set[str], recipients: set[str], now: flo
 
 
 def lead_heartbeat_min() -> float:
-    """임계 = FT_LEAD_HEARTBEAT_MIN(기본 15 = 주기 10분 + 여유 5). 값이 이상하면 기본을 쓴다."""
+    """임계 = FT_LEAD_HEARTBEAT_MIN(기본 20 = 주기 15분 + 여유 5 · r1391). 값이 이상하면 기본을 쓴다."""
     try:
         v = float(os.environ.get("FT_LEAD_HEARTBEAT_MIN") or LEAD_HEARTBEAT_MIN)
     except ValueError:
@@ -727,6 +727,6 @@ def lead_alert(root: Path, comm: Path, master: str, now: float) -> tuple[bool, f
     if state == "ERROR":
         return False, None, True
     if ts is None:
-        return True, None, False  # 심박 창(15분) 안 [정리] 0 = 멈춤 — 로그는 창 안만 읽으므로 «한 번도 안 보냄» 이 아니다(r1143)
+        return True, None, False  # 심박 창(20분) 안 [정리] 0 = 멈춤 — 로그는 창 안만 읽으므로 «한 번도 안 보냄» 이 아니다(r1143)
     age = (now - ts) / 60
     return age > lead_heartbeat_min(), age, False

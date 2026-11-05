@@ -151,6 +151,16 @@ grep -q '잠금 보유 중' "$TMP/b.out" && ok "M9b 진 쪽 log 1줄" || bad "M9
 [ ! -d "$LOCK" ] && ok "M9b 끝나면 잠금 지움" || bad "M9b 잠금이 남았다 $LOCK"
 printf 'ok\n' > "$MODEF"
 
+# ── T1/M10 (r1391) — «at» 없는 잠금 폴더(도중에 죽은 틱이 남긴 것)도 낡음으로 깨고 렌더한다 · 새 폴더는 안 깬다 ──
+: > "$CALLS"; now_at 700; printf 'ok\n' > "$MODEF"; rm -rf -- "$LOCK"; mkdir -p "$LOCK"; touch -t "$(date -v-60M '+%Y%m%d%H%M')" "$LOCK"
+bash "$TICK" --once > "$TMP/out" 2>&1
+[ "$(calls)" = 1 ] && ok "M10 at 없는 낡은 잠금 → 깨고 렌더 1" || bad "M10 호출 $(calls)회 (기대 1 — 빈 잠금)"
+grep -q '낡은 잠금' "$TMP/out" && ok "M10 깼다는 log 1줄" || bad "M10 log 없음: $(cat "$TMP/out")"
+: > "$CALLS"; now_at 700; rm -rf -- "$LOCK"; mkdir -p "$LOCK"
+bash "$TICK" --once > "$TMP/out" 2>&1
+{ [ "$(calls)" = 0 ] && grep -q '잠금 보유 중' "$TMP/out"; } && ok "M10b 방금 만든 빈 잠금 = 안 깨고 skip" || bad "M10b 호출 $(calls)회 · $(tail -1 "$TMP/out")"
+rm -rf -- "$LOCK"
+
 # ── 가드 — 팀 명단 파일 자체가 없는 루트 = 렌더 대상 0 · 조용히 skip(남의 루트를 렌더하지 않는다) ──
 : > "$CALLS"; now_at 700
 FT_TEAMS_MD="$TMP/없는명단.md" bash "$TICK" --once > "$TMP/out" 2>&1

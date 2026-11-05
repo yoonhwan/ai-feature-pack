@@ -47,9 +47,9 @@ def f_body(w: World) -> str:
 # ── R1 — 심박 끊김(f) 쪽지 1통 = 정리 1통 + CronCreate + cron=<id> ───────────────
 def test_r1_stale_heartbeat_notice_has_cron_rearm(w: World) -> None:  # ⓐ
     lead_b_candidate(w)
-    w.heartbeat("t1-master#1", 16)
+    w.heartbeat("t1-master#1", 21)
     body = f_body(w)
-    assert body.startswith("[멈춤] t1-master#1 팀장 심박 16분"), body
+    assert body.startswith("[멈춤] t1-master#1 팀장 심박 21분"), body
     for word in ("정리 1통", "CronCreate", "cron=<id>"):
         assert word in body, (word, body)
 
@@ -61,12 +61,12 @@ def test_r1_no_heartbeat_notice_has_cron_rearm(w: World) -> None:  # ⓐ 심박�
     assert "심박 없음" in body and "CronCreate" in body and "cron=<id>" in body, body
 
 
-# ── R1b — 같은 쪽지에 CronList + 주기 어긋남(10분이 아니면) 단계 ──────────────────
+# ── R1b — 같은 쪽지에 CronList + 주기 어긋남(15분이 아니면) 단계 ──────────────────
 def test_r1b_notice_checks_cron_list_and_period(w: World) -> None:
     lead_b_candidate(w)
     w.heartbeat("t1-master#1", 30)
     body = f_body(w)
-    assert "CronList" in body and "10분이 아니면" in body and "10분 틱" in body, body
+    assert "CronList" in body and "15분이 아니면" in body and "15분 틱" in body, body
     assert body.index("CronList") < body.index("CronCreate"), body
 
 
