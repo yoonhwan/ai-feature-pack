@@ -56,12 +56,13 @@ def tell(root: Path, body: str) -> int:
     return p.returncode
 
 
-def bookkeep(root: Path, st: Path, kind: str, passed: int, out, now: datetime) -> None:
+def bookkeep(root: Path, st: Path, kind: str, passed: int, out, now: datetime, total: int = 9) -> None:
     """연속 24 · 실패 [긴급] 1통 — 사건 키 = «실패 칸 하나»(V2): 그 칸이 정상으로 돌아오면 키를 닫고,
     다시 실패하면 새 사건 1통 · 다른 칸이 늘거나 줄어도 이미 알린 칸은 다시 알리지 않는다.
-    r1005 반례 1: «검증 불가» 는 복구가 아니다 — 그 칸의 열린 사건은 닫지도 새로 열지도 않는다."""
+    r1005 반례 1: «검증 불가» 는 복구가 아니다 — 그 칸의 열린 사건은 닫지도 새로 열지도 않는다.
+    r1378 — total = 그 kind 의 분모(매거진 = 적용 칸 수 · 해당 없음은 안 센다)."""
     streak = load_state(st / "streak.json", {})
-    n = int(streak.get(kind, 0)) + 1 if passed == 9 else 0
+    n = int(streak.get(kind, 0)) + 1 if passed == total else 0
     _save(st / "streak.json", {**streak, kind: n})
     open_cells = set(load_state(st / "alarm.json", {}).get("open") or [])  # 지금 열려 있는 사건(칸 이름 하나 단위)
     failing = {name for name, v, _w in out if v in (lib.FAIL, lib.UNKNOWN)}  # 검증 불가는 사건이 아니다(R1 = ERROR 로만)
@@ -70,10 +71,10 @@ def bookkeep(root: Path, st: Path, kind: str, passed: int, out, now: datetime) -
     still = {c for c in open_cells if c in failing or c in unknown}  # 열린 사건 중 아직 참이 아닌 칸
     if os.environ.get("FT_NEWS_VERIFY_NOTIFY", "1") == "0":
         return
-    if passed == 9:
+    if passed == total:
         _save(st / "alarm.json", {"open": []})
         if n == TARGET_STREAK and streak.get(f"{kind}-reached") != TARGET_STREAK:
-            body = f"[긴급] {kind} 정상화 끝선 도달 — 검증 9/9 연속 {n}회 · {now:%Y-%m-%d %H:%M} (ft-news-verify)"
+            body = f"[긴급] {kind} 정상화 끝선 도달 — 검증 {passed}/{total} 연속 {n}회 · {now:%Y-%m-%d %H:%M} (ft-news-verify)"
             if tell(root, body) == 0:
                 _save(st / "streak.json", {**streak, kind: n, f"{kind}-reached": TARGET_STREAK})
         return
@@ -81,7 +82,7 @@ def bookkeep(root: Path, st: Path, kind: str, passed: int, out, now: datetime) -
         _save(st / "alarm.json", {"open": sorted(still)})
         return
     lines = [f"{name} — {why}" for name, v, why in out if name in fresh]
-    body = (f"[긴급] {kind} 검증 {passed}/9 · 새 사건 {len(fresh)}칸 — {', '.join(sorted(fresh))}\n"
+    body = (f"[긴급] {kind} 검증 {passed}/{total} · 새 사건 {len(fresh)}칸 — {', '.join(sorted(fresh))}\n"
             + "\n".join(lines[:4]) + f"\n같은 칸 1통 · 발행은 그대로(검증만 실패) · {now:%Y-%m-%d %H:%M}")
     if tell(root, body) == 0:
         _save(st / "alarm.json", {"open": sorted(still | fresh)})

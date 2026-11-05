@@ -123,7 +123,10 @@ if [ "${FT_NEWS_VERIFY:-1}" != 0 ]; then
     exit 7
   else
     VERIFY="${FT_NEWS_VERIFY_BIN:-$(cat "$ROOT/.fable-team/LIVE_BIN" 2>/dev/null || true)/ft-news-verify}"
-    if [ -e "$VERIFY" ]; then PYTHONPATH="$HERE${PYTHONPATH:+:$PYTHONPATH}" bash "$VERIFY" --kind magazine --body "$BODY" --tail || true
+    if [ -e "$VERIFY" ]; then
+      # r1378 — ⓓ = 그 매거진이 만든 원장 sha(발행 줄 «published date=… <sha>:<rel>» · 없으면 검증기가 파일 이름에서 읽는다) · ⓘ = 슬랙에 올린 뿌리 글 본문 파일(발행기가 같은 폴더에 쓴다)
+      PUB_SHA="$(printf '%s\n' "$OUT" | sed -n 's/^published date=[^ ]* \([0-9a-f]\{7,40\}\):.*/\1/p' | tail -1)"
+      PYTHONPATH="$HERE${PYTHONPATH:+:$PYTHONPATH}" bash "$VERIFY" --kind magazine --body "$BODY" --tail --pub-sha "$PUB_SHA" --root-text "${BODY%.html}.root.txt" || true
     else echo "ERROR magazine_from_news: 검증기 없음 — $VERIFY (설치 확인 · 발행은 그대로)" >&2; fi
   fi
 fi

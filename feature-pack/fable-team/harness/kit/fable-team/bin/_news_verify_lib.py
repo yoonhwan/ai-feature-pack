@@ -11,6 +11,7 @@ from datetime import datetime
 from pathlib import Path
 
 PASS, FAIL, UNKNOWN, UNAVAILABLE = "참", "거짓", "모름", "검증 불가"  # 4값 — 검증 불가는 N/9 에 안 셈(R1)
+NA = "해당 없음"  # r1378 — 그 kind 의 글이 원래 갖지 않는 칸(표에 적힌 것만) · 분모에서 빠지고 꼬리에 이름이 보인다
 
 
 class Missing(Exception):
@@ -49,6 +50,8 @@ class Ctx:
     repo: Path
     rel: str
     ref: str = "origin/main"
+    pub_sha: str = ""  # r1378 — 매거진 ⓓ: 그 매거진이 만든 원장 sha(발행 줄·파일 이름) · news 는 안 쓴다
+    root_text: Path | None = None  # r1378 — 매거진 ⓘ: 슬랙에 올린 뿌리 글 본문 파일 · news 는 문서 전체
     state: Path | None = None
     verify_state: Path | None = None
     log: Path | None = None

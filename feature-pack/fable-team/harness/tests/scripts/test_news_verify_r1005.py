@@ -317,7 +317,7 @@ def test_e_verifier_own_failure_does_not_block_publish(world, caplog):
     def boom(ctx):
         raise RuntimeError("칸이 터짐")
     old = nv.CELLS
-    nv.CELLS = tuple((name, boom if name.startswith("ⓒ") else fn) for name, fn in old)
+    nv.CELLS = tuple((name, boom if name.startswith("ⓒ") else fn, mag) for name, fn, mag in old)  # r1378 — 칸 표 세 번째 값 = 매거진 적용
     try:
         rc, out = world.run()
     finally:
