@@ -77,12 +77,12 @@ chmod +x "$T/m/gh-stub" "$T/m/shim/git"
 export PROBE_DIR="$T/m/hs" PUSH_LOG="$T/m/push.log" PUSH_CNT="$T/m/push.cnt" PUSH_ACTIVE="$T/m/push.active"
 mkpr() { git -C "$W" checkout -q -B "$2" "$3"; echo "pr$1" > "$W/pr$1.txt"; cm "$W" "pr $1 work"; git -C "$W" push -q origin "$2:refs/pull/$1/head"; PRSHA="$(sha "$W" HEAD)"
   python3 -c 'import json,sys;print(json.dumps({"headRefOid":sys.argv[1],"title":"feat: PR "+sys.argv[2],"body":"본문 "+sys.argv[2],"state":sys.argv[3],"baseRefName":"main"}))' "$PRSHA" "$1" "${4:-OPEN}" > "$STUB_JSON"; }
-land(){ local e=("FT_RES_ROOT=$T/m" "FT_HEAVY_DIR=$T/m/hs"); [ -z "${HS:-}" ] || e+=("FT_HEAVY_SLOTS=$HS"); : > "$PUSH_ACTIVE"; out="$(cd "$W" && env "${e[@]}" PATH="$T/m/shim:$PATH" bash "$LAND" "$@" --repo "$W" 2>&1)"; rc=$?; rm -f "$PUSH_ACTIVE"; }
+land(){ local e=("FT_RES_ROOT=$T/m" "FT_HEAVY_DIR=$T/m/hs"); [ -z "${HS:-}" ] || e+=("FT_HEAVY_SLOTS=$HS"); [ -z "${HW:-}" ] || e+=("FT_HEAVY_WAIT_S=$HW"); : > "$PUSH_ACTIVE"; out="$(cd "$W" && env "${e[@]}" PATH="$T/m/shim:$PATH" bash "$LAND" "$@" --repo "$W" 2>&1)"; rc=$?; rm -f "$PUSH_ACTIVE"; }
 
 R12(){ # ⓐ 자리 둘 다 참
   hold "$T/m/hs" a1 || return 1; hold "$T/m/hs" a2 || return 1
   mkpr 21 pr21 origin/main; apv --approve-sha "$PRSHA"; M="$(sha "$ORIGIN" refs/heads/main)"; : > "$STUB_LOG"; : > "$PUSH_LOG"
-  local t0 t1; t0="$SECONDS"; land 21 --approve-sha "$PRSHA"; t1="$SECONDS"
+  local t0 t1; t0="$SECONDS"; HW=0 land 21 --approve-sha "$PRSHA"; t1="$SECONDS"   # r1386: 기본이 «남은 마감 안에서 기다림» 으로 바뀌어, 「빈 자리 없으면 거절」 은 env 로 고정한다(동작 계약 대기 상한 = 이 카드)
   rel a1; rel a2
   [ "$rc" = 1 ] || { echo "  R12a rc=$rc" >&2; return 1; }
   case "$out" in *"무거운 git 자리 없음"*) ;; *) return 1;; esac
@@ -158,7 +158,7 @@ open(sys.argv[2], "w", encoding="utf-8").write(ns["s"])
 PY
 }
 S0="$SCR"; L0="$LAND"; P0="$SPAWN"
-mkvar 5 "$L0" 's = s.replace("""hs_acquire land 0 || rej "무거운 git 자리 없음""", """hs_acquire land 0 || { echo "REJECT 무거운 git 자리 없음"; exit 3; }; rej "무거운 git 자리 없음""")' \
+mkvar 5 "$L0" 's = s.replace("""rej() { echo "REJECT $* (착지 0)"; exit 1; }""", """rej() { echo "REJECT $* (착지 0)"; exit 3; }""")' \
   && { LAND="$T/vb-5/ft-merge-land.sh"; runv R12 "5(merge-land 대기 실패 rc3)" R12; }
 LAND="$L0"; mkvar 8 "$P0" 's = s.replace("""trap _on_exit EXIT""", """trap "hs_release" EXIT""")' \
   && { SPAWN="$T/vb-8/ft-nano-spawn.sh"; runv R14 "8(spawn trap 덮어쓰기)" R14; }
