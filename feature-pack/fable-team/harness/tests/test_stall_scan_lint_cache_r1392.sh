@@ -3,7 +3,7 @@
 #   한 실행의 lint 는 판정 기한 D 의 절반에서 멈추며, 기한을 넘겨도 그때까지 잰 장은 저장된다.
 #   본문 = tests/scripts/test_stall_scan_lint_cache_r1392.py (L1~L7)
 #   + 기준판(팩 origin/main) 대조: L1·L2·L3·L4·L7 FAIL · L5·L6 PASS(캐시가 없어도 «다시 잰다» 는 지키는 계약)
-#   + 변이 4종(사본 bin 치환 → 그 시험 FAIL → 복구): V1 캐시 조회 무시 · V2 예산 끄기 · V3 on_timeout 저장에서 lint 칸 빼기 · V4 oid 비교 빼기(stem 만)
+#   + 변이 4종(사본 bin 치환 → 그 시험 FAIL → 복구) · 모든 실행은 timeout 70초(칸별 -k 분리 · 하드 룰 22): V1 캐시 조회 무시 · V2 예산 끄기 · V3 on_timeout 저장에서 lint 칸 빼기 · V4 oid 비교 빼기(stem 만)
 #   + 회귀(stall 시험 py 12종) — 신판 rc 0 · 예외 하나: test_stall_scan_heartbeat_desk_r1143.py 는 기준판(origin/main)도 rc 1
 #     (2026-11-05 실측: test_r3_out_of_window_heartbeat_wording «h? desk 대상 밖 — 현역 팀장 없음» · 이 카드 무관 · 착수 전부터 깨짐) → 신판 rc 1 을 기대값으로 적는다
 #   · STEPS=0 이면 회귀 끔
@@ -20,8 +20,8 @@ fail=0; t0=$SECONDS
 ck() { if [ "$2" = 0 ]; then echo "PASS $1"; else echo "FAIL $1"; fail=$((fail+1)); fi; }
 lap() { echo "단계 $1 $((SECONDS-t0))초"; t0=$SECONDS; }
 want() { case "$STAGE" in all) return 0 ;; *) [ "$STAGE" = "$1" ] ;; esac; }
-run_py() {  # $1=bin $2=시험 파일 [$3=-k]
-  (ulimit -u 2000; cd "$SC" && R1392_BIN="$1" timeout 400 python3.11 -m pytest -q -p no:cacheprovider "$2" ${3:+-k "$3"} >"$T/py.log" 2>&1)
+run_py() {  # $1=bin $2=시험 파일 [$3=-k] — 하드 룰 22: 한 실행 70초 상한(칸별로 쪼개 부른다)
+  (ulimit -u 2000; cd "$SC" && R1392_BIN="$1" timeout 70 python3.11 -m pytest -q -p no:cacheprovider "$2" ${3:+-k "$3"} >"$T/py.log" 2>&1)
 }
 base_bin() {   # 기준판(팩 origin/main) bin — 한 번만 푼다
   [ -n "$BASE" ] && return 0
@@ -29,9 +29,15 @@ base_bin() {   # 기준판(팩 origin/main) bin — 한 번만 푼다
   BASE="$T/base/feature-pack/fable-team/harness/kit/fable-team/bin"
 }
 
-# ① 신판 green
+# ① 신판 green — 칸별(L1~L7) 1실행 = timeout 70초 상한
 if want green; then
-  run_py "$KIT" test_stall_scan_lint_cache_r1392.py; rc=$?; ck "L1~L7 $(grep -Eo '[0-9]+ passed' "$T/py.log")" "$rc"; lap green
+  rcs=""
+  for k in l1 l2 l3 l4 l5 l6 l7; do
+    run_py "$KIT" test_stall_scan_lint_cache_r1392.py "test_$k"; rc=$?
+    ck "L $k rc=$rc $(grep -Eo '[0-9]+ passed' "$T/py.log")" "$rc"; rcs="$rcs $k=$rc"
+  done
+  echo "칸별 rc0:$rcs"
+  lap green
 fi
 
 # ② 기준판(팩 origin/main) — L1·L2·L3·L4·L7 FAIL · L5·L6 PASS
