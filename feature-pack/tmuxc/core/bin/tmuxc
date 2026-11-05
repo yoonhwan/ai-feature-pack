@@ -6,8 +6,9 @@ usage() {
 tmuxc - tmux session launcher for Claude, Codex, OMX, Pi
 
 Usage:
-  tmuxc open <path> [--name NAME] [--agent claude|codex|omx|opencode|cmd|pi] [--role worker|analysis|orchestrator|implementer|planner] [--model ID] [--ctx 1m] [--effort E] [--fast on|off] [--like SESSION] [--prompt TEXT] [--dry-run]
+  tmuxc open <path> [--name NAME] [--agent claude|codex|omx|opencode|cmd|pi] [--role worker|analysis|orchestrator|implementer|planner] [--model ID] [--ctx 1m] [--effort E] [--fast on|off] [--like SESSION] [--path-prepend DIR] [--prompt TEXT] [--dry-run]
       --effort: claude·cmd·codex(-c model_reasoning_effort)·pi(--thinking) / --fast: codex 전용(-c service_tier=priority)
+      --path-prepend: 실행 줄(run_cmd) 앞에 «PATH=<DIR>:"$PATH" » 를 붙인다(셸 init 뒤 · 에이전트 exec 직전 · 그 명령에만 · r1418 나노 가드 폴더 · 절대경로만 · 원격 미지원).
       --serena: **0.4.9 에서 폐기**(거부 rc 2). Serena 는 2026-10-22 은퇴 — 공유서버 9493 종료·MCP 등록 제거.
         코드 탐색은 code-intel 스킬(`ci search / ci sym / ci outline / ci refs / ci doctor`)을 쓴다. 사전 활성화 없음.
   tmuxc wt <worktree-path> [same options as open]
@@ -770,6 +771,7 @@ cmd_open() {
   local like=""
   local ctx=""
   local fast=""
+  local path_prepend=""
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -781,6 +783,7 @@ cmd_open() {
       --ctx) ctx="${2:-}"; shift 2 ;;
       --effort) effort="${2:-}"; shift 2 ;;
       --like) like="${2:-}"; shift 2 ;;
+      --path-prepend) path_prepend="${2:-}"; shift 2 ;;
       --prompt) prompt="${2:-}"; shift 2 ;;
       --host) TMUXC_HOST="${2:-}"; shift 2 ;;
       --host=*) TMUXC_HOST="${1#--host=}"; shift ;;
@@ -802,6 +805,15 @@ cmd_open() {
   if [[ -n "${TMUXC_HOST:-}" ]] && [[ "$(local_host)" != "$TMUXC_HOST" ]]; then remote_open=1; fi
   # 원격 좌석의 경로는 «원격 경로» 다 — 이 맥에서 -d 로 볼 수 없다(존재 확인은 원격에서).
   [[ "$remote_open" -eq 1 ]] || [[ -d "$path" ]] || die "path does not exist: $path"
+
+  # ★r1418★ --path-prepend <절대 폴더> — 실행 줄 앞에 «PATH=<폴더>:"$PATH" » 를 붙인다(셸 init 뒤 · 에이전트 exec 직전).
+  #   첫 목적지 = ft-nano-spawn 이 만드는 나노 가드 폴더(.fable-team/guard-bin) — 좌석 에이전트 종류와 무관하게 docker·podman·nerdctl 이 가드로 풀린다.
+  #   잘못된 값은 조용한 무시 없이 die(좌석 0) · 원격은 미지원(셸 init 이 원격에서 PATH 를 다시 짜는 걸 이 Mac 에서 보증할 수 없다).
+  if [[ -n "$path_prepend" ]]; then
+    [[ "$path_prepend" == /* ]] || die "--path-prepend 는 절대경로만: '$path_prepend'"
+    [[ "$remote_open" -eq 0 ]] || die "--path-prepend 는 원격 미지원"
+    [[ -d "$path_prepend" ]] || die "--path-prepend 폴더 없음: $path_prepend"
+  fi
 
   local root
   if [[ "$remote_open" -eq 1 ]]; then root="$path"; else root="$(repo_root_for "$path")"; fi
@@ -860,6 +872,8 @@ cmd_open() {
   fi
   local run_cmd
   run_cmd="$(agent_cmd "$agent" "$name" "$role" "$model" "$effort" "$ctx" "$fast")"
+  # ★r1418★ 접두는 run_cmd 를 «다 만든 뒤» 앞에 붙인다 — run_cmd 는 셸에 그대로 타이핑되므로 "$PATH" 는 그 셸이 푼다(셸 init 이 PATH 를 다시 짠 뒤 · 에이전트 exec 직전 · 그 명령에만).
+  [[ -z "$path_prepend" ]] || run_cmd="PATH=${path_prepend}:\"\$PATH\" ${run_cmd}"
   local seat_env=()
   # r925 r3 R1: claude 는 tmuxc 가 --session-id 를 발급한다 — 제출 판정 = 그 id 의 기록 «한 파일»(pi 의 TMUXC_PI_SESSION_ID 와 같은 꼴).
   #   호출자 env 의 같은 이름 값은 쓰지 않는다(호출 좌석 자신의 id 를 물려받으면 두 좌석이 한 기록을 쓴다).

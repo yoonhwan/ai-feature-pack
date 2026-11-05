@@ -741,6 +741,8 @@ if [ "$_REATTACH" = 1 ]; then _WTA=("$BRANCH"); else _WTA=(-b "$BRANCH" "$BASE_B
 
 # tmuxc 옵션은 에이전트별로 다르다 — `--ctx` 는 claude 만, `--effort` 는 claude·cmd·codex, `--fast` 는 codex 만 (ft-role-spawn 과 같은 분기)
 OPEN=(tmuxc open "$WTDIR" --name "$NAME" --agent "$AGENT" --model "$MODEL")
+# ★r1418★ 나노 좌석 셸의 docker·podman·nerdctl 이름 = 가드(ft-nano-docker-guard.sh) — 실행 줄 PATH 앞에 그 워크트리의 가드 폴더를 붙인다(아래 ②-1 이 만든다 · 네 에이전트 같은 길 · 셸 init 뒤 · 에이전트 exec 직전).
+OPEN+=(--path-prepend "$WTDIR/.fable-team/guard-bin")
 [ "$AGENT" = claude ] && OPEN+=(--ctx 1m)
 case "$AGENT" in claude|cmd|codex|pi) OPEN+=(--effort "$EFFORT");; esac
 [ "$AGENT" = codex ] && [ -n "$FAST" ] && OPEN+=(--fast "$FAST")
@@ -791,7 +793,7 @@ if [ ! -d "$WTDIR" ]; then
   [ "$_free" -ge "${FT_NANO_MIN_FREE_GI:-40}" ] || echo "WARN 디스크 여유 ${_free}Gi < ${FT_NANO_MIN_FREE_GI:-40}Gi — 진행(r1078 · 정지는 디스크 하한 1GiB·측정 실패 둘뿐) · 회수 권장 ft-resource-reclaim.sh · ft-wt-sweep.sh" >&2
 fi
 [ "$REOPEN" != 1 ] || [ "$DRY" != 1 ] || echo "REOPEN-PLAN $IDX_REL seat=$NAME wt=$REOPEN_WT branch=$BRANCH"   # r1335: dry-run 은 쓰기 0 — 계획 1줄만
-if [ "$DRY" = 1 ]; then [ "$RESEARCH" != 1 ] || echo "RESEARCH seat=$NAME allow=$_RS_ALLOW card=$IDX_REL body=$_RSP"; [ -d "$WTDIR" ] || echo "PLAN shim-init $WTDIR (워크트리 생성 직후 ft-root-bin-shim.sh --init)"; "${OPEN[@]}" --dry-run; exit 0; fi
+if [ "$DRY" = 1 ]; then [ "$RESEARCH" != 1 ] || echo "RESEARCH seat=$NAME allow=$_RS_ALLOW card=$IDX_REL body=$_RSP"; [ -d "$WTDIR" ] || echo "PLAN shim-init $WTDIR (워크트리 생성 직후 ft-root-bin-shim.sh --init)"; [ -d "$WTDIR/.fable-team/guard-bin" ] || echo "PLAN guard-bin $WTDIR/.fable-team/guard-bin (워크트리 준비 직후 docker·podman·nerdctl 가드 래퍼 3개 · r1418)"; "${OPEN[@]}" --dry-run; exit 0; fi
 # R251 ⓐ 추론 프록시 사전 확인(7초 룰 · 부작용 0 지점) — 순간 장애는 넘기고 진짜 장애면 직결로 바꾸지 않는다
 #   r669: 옛 판은 진짜 장애도 그냥 exit 1 이라 카드가 큐에도 안 남고 사라졌다(같은 파일 위 좌석 상한·팀셋 경로는 이미 «큐 → exit 7») — 같은 꼴로 맞춘다.
 _pxout="$(bash "$HERE/ft-agent-ready.sh" --proxy "$WT" --agent "$AGENT" 2>&1)"; _pxrc=$?
@@ -950,6 +952,30 @@ else
   fi
 fi
 hs_release   # r1286: 워크트리 구간이 끝났다 — tmux 세션·데몬이 자리 fd 를 상속하지 않게 «띄우기 전» 에 풀어 놓는다
+
+# ★②-1 r1418★ 가드 폴더 — 나노 좌석 셸의 docker·podman·nerdctl 이름이 진짜 바이너리 대신 가드로 풀린다.
+#   실사건(11-06 01:2x): ops 나노(pi 좌석 = Claude 훅 0)가 공유 베이스 이미지 7개를 h 없이 지워 DB 쓰는 나노 시험이 전부 멈췄다.
+#   세 파일 = «일반 파일»(심링크 0 · 하드 룰 19) · 내용 1줄 «exec <LIVE_BIN>/ft-nano-docker-guard.sh <이름> "$@"» · 새 워크트리·재사용(--reopen) 둘 다 쓴다.
+#   못 쓰면 REJECT — 가드 없는 좌석은 열지 않는다(조용한 통과 0). 만드는 자리 = tmuxc open «전».
+nano_docker_guard_install() {  # $1=워크트리 → rc0 · stdout REJECT 1줄 + rc1
+  local wt="$1" gd lb nm f tmp
+  gd="$wt/.fable-team/guard-bin"
+  lb="$(sed -n 1p "$ROOT/.fable-team/LIVE_BIN" 2>/dev/null)"
+  [ -n "$lb" ] || lb="$HERE"
+  [ -f "$lb/ft-nano-docker-guard.sh" ] || { echo "REJECT docker 가드 없음 — $lb/ft-nano-docker-guard.sh (좌석 0 · 가드 없는 좌석은 열지 않는다)"; return 1; }
+  [ -d "$gd" ] || mkdir -p "$gd" 2>/dev/null || { echo "REJECT docker 가드 폴더를 못 만든다 — $gd (좌석 0)"; return 1; }
+  for nm in docker podman nerdctl; do
+    f="$gd/$nm"
+    [ ! -d "$f" ] || { echo "REJECT docker 가드 자리에 폴더가 있다 — $f (좌석 0)"; return 1; }
+    tmp="$f.tmp.$$"
+    printf '#!/usr/bin/env bash\n# ft-nano-docker-guard 래퍼 (r1418) — 나노 좌석 전용 · 지우기는 거절한다\nexec %q %s "$@"\n' "$lb/ft-nano-docker-guard.sh" "$nm" > "$tmp" 2>/dev/null \
+      || { rm -f "$tmp" 2>/dev/null; echo "REJECT docker 가드 파일 쓰기 실패 — $f (좌석 0)"; return 1; }
+    chmod 755 "$tmp" 2>/dev/null && mv -f "$tmp" "$f" 2>/dev/null \
+      || { rm -f "$tmp" 2>/dev/null; echo "REJECT docker 가드 파일 게시 실패 — $f (좌석 0)"; return 1; }
+  done
+  echo "GUARD docker·podman·nerdctl → $lb/ft-nano-docker-guard.sh ($gd)"
+}
+nano_docker_guard_install "$WTDIR" || exit 1
 
 # ③ 열기 — 모델 인자에 대괄호가 있어 zsh 글롭 즉사 함정(글로벌 규칙) → 이 스크립트는 bash 라 그대로 통과
 # R81 판정 847 — ③④(세션 열기·태그) 실패 = 이 실행이 연 세션만 undo 가 kill(소유권·착수 0 검사) · ⑤⑥ 실패 = kill 0 + 사람 판정
