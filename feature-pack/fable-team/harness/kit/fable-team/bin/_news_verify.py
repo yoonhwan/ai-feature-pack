@@ -159,7 +159,7 @@ def main(argv: list[str]) -> int:
             return 1
         bad = [w for w in ([tail_line(f, line) for f in body if f.is_file()] if a.tail else []) if w]
         LOG.info("%s kind=%s streak=%s 연속 · 실패 %s", line, a.kind, _load(st / "streak.json", {}).get(a.kind, 0),
-                 ", ".join(name for name, v, _w in out if v != lib.PASS) or "0")
+                 ", ".join(name for name, v, _w in out if v not in (lib.PASS, lib.NA)) or "0")  # r1378 — 해당 없음은 실패가 아니다
         print(f"NEWS-VERIFY {now:%Y-%m-%d %H:%M} kind={a.kind} {line}"
               + (" (꼬리 못 씀 — 9/9 아님)" if bad else "")
               + "".join(f"\n  {name} — {'[검증 불가] ' if v == lib.UNAVAILABLE else ''}{why}" for name, v, why in out if v not in (lib.PASS, lib.NA)))
