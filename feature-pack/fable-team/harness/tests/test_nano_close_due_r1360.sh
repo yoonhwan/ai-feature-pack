@@ -26,6 +26,7 @@ hasnt(){ case "$1" in *"$2"*) bad "$3 — 있으면 안 됨: «$2» ← ${1:0:70
 eq()   { if [ "$1" = "$2" ]; then ok "$3"; else bad "$3 (got=[$1] want=[$2])"; fi; }
 
 echo "== 짝 cmp · bash -n"
+for f in "$BIN/ft-nano-close-due.sh" "$KIT/ft-nano-close-due.sh"; do [ ! -x "$f" ] && ok "100644(실행 비트 0) $(basename "$(dirname "$f")")" || bad "실행 비트 있음 $f"; done
 for f in ft-nano-close-due.sh ft-tick.sh; do cmp -s "$BIN/$f" "$KIT/$f" && ok "cmp bin == kit $f" || bad "cmp 다름 $f"; done
 bash -n "$BIN/ft-nano-close-due.sh" && ok "bash -n" || bad "bash -n"
 /bin/bash -n "$BIN/ft-nano-close-due.sh" && ok "/bin/bash 3.2 -n" || bad "/bin/bash 3.2 -n"
@@ -52,6 +53,7 @@ cat > "$FK/ft-seat-status.sh" <<'EOF'
 exit 1
 EOF
 chmod +x "$FK/tmux" "$FK/git" "$FK/ft-seat-status.sh"
+# 도구는 100644 — 항상 bash <경로> 로 부른다(r1360 승인 길 · 판정 2904)
 # 변이 사본이 같은 폴더의 ft_team_lib.py 를 import 한다 — 기본 도구는 bin 의 것
 export PATH="$FK:$PATH" FT_CLOSE_DUE_SEAT_STATUS="$FK/ft-seat-status.sh"
 export FAKE_SESS="$T/sess" FAKE_TMUXFAIL="$T/tmuxfail" FAKE_CWD_DIR="$T/cwd" FAKE_SS_DIR="$T/ss"
@@ -98,7 +100,7 @@ for ln in open(rows):
 for t, d in docs.items(): json.dump(d, open("%s/.fable-team/seats-%s.json" % (root, t), "w"), ensure_ascii=False)
 PY
 }
-run() { OUT="$(FT_ROOT="$ROOT" "$TOOL" "$@" 2>&1)"; RC=$?; }
+run() { OUT="$(FT_ROOT="$ROOT" bash "$TOOL" "$@" 2>&1)"; RC=$?; }
 snap() {   # 바꾸는 것 0 확인용 지문 — 명부·refs/heads·워크트리 상태·tmux 파일(remote-tracking 제외)
   { cksum "$ROOT"/.fable-team/seats-*.json "$T/sess" "$T/cwd"/* "$T/ss"/* 2>/dev/null
     for w in "$T/wt"/* "$T/wt2"/*; do [ -d "$w" ] && { git -C "$w" for-each-ref refs/heads; git -C "$w" status --porcelain; git -C "$w" worktree list; }; done; } | cksum

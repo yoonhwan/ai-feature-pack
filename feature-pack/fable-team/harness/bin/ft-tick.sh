@@ -470,7 +470,7 @@ close_due_snapshot() {
   [ "$(basename "$ft")" = .fable-team ] || { log "close_due: skip — 명부가 <루트>/.fable-team/seats.json 꼴 아님 ($SEATS)"; return 0; }
   f="$ft/state/close-due.txt"
   if [ -f "$f" ]; then age=$(( $(date +%s) - $(stat -f %m "$f" 2>/dev/null || echo 0) )); [ "$age" -ge "${FT_TICK_CLOSE_DUE_GAP:-300}" ] || return 0; fi
-  out="$(FT_ROOT="$(dirname "$ft")" FT_CLOSE_DUE_BUDGET="${FT_TICK_CLOSE_DUE_BUDGET:-40}" "$CLOSE_DUE_BIN" --all --summary 2>&1)"; rc=$?
+  out="$(FT_ROOT="$(dirname "$ft")" FT_CLOSE_DUE_BUDGET="${FT_TICK_CLOSE_DUE_BUDGET:-40}" bash "$CLOSE_DUE_BIN" --all --summary 2>&1)"; rc=$?
   case "$rc" in
     0|3) line="$(printf '%s\n' "$out" | tail -1)";;
     *) line="닫기 차례 판정 불가 rc=$rc";;
