@@ -72,9 +72,16 @@ case_r1(){ mkcase r1; runbin "$1"; local n1=$NG a b; a="$(s1)"; ! hit || return 
   [ "$a" = "$b" ] && [ "$n1" -gt 0 ] && [ "$NG" = "0" ] && [ "$(ncache)" = "1" ] && has "S1STATE FAIL=0 UNLANDED=0"; }
 case_r2(){ mkcase r2; runbin "$1"; [ "$(ncache)" = "1" ] || return 1
   cm "$W" worker/new.py "[fix] new"; runbin "$1"; ! hit && has "S1STATE FAIL=1 UNLANDED=1" && has "✗ 미랜딩 제품 커밋 1 — v65-k" && [ "$(ncache)" = "2" ]; }
-case_r3(){ mkcase r3; runbin "$1"
+case_r3(){ # r1411: 기준 줄기(origin/main) 움직임은 TTL 300초 «안» 이면 캐시를 유지한다(planner 판정 4127 · 옛 판은 해석 sha 를 키에 넣어 늘 빗나갔다) · TTL 밖이면 다시 돈다
+  mkcase r3; runbin "$1"
   git clone -q -b main "$CASE/origin.git" "$CASE/other" 2>/dev/null; cm "$CASE/other" docs/o.md o; g "$CASE/other" push -q origin main 2>/dev/null; g "$R" fetch -q origin
-  runbin "$1"; ! hit && [ "$(ncache)" = "2" ]; }
+  runbin "$1"; hit && [ "$(ncache)" = "1" ] || return 1
+  python3 - "$CASE/press-gate-cache" <<'PY' || return 1
+import glob,json,sys
+for p in glob.glob(sys.argv[1]+"/step1-*.json"):
+    d=json.load(open(p)); d["ts"]-=400; json.dump(d,open(p,"w"))
+PY
+  runbin "$1"; ! hit && [ "$(ncache)" = "1" ]; }
 case_r4a(){ mkcase r4a; runbin "$1"; cm "$R" docs/r.md r; runbin "$1"; ! hit && [ "$(ncache)" = "2" ]; }
 case_r4b(){ mkcase r4b; runbin "$1"; g "$R" worktree add -q --detach "$CASE/wt2" main 2>/dev/null; GWT="$CASE/wt2"; runbin "$1"; ! hit && [ "$(ncache)" = "2" ]; }
 case_r5a(){ mkcase r5a; runbin "$1"

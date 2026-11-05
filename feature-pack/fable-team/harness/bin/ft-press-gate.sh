@@ -452,14 +452,17 @@ done
 [ "$FEAT_OK" = "1" ] && { [ "$UNLANDED" = "0" ] && say "✓" "미랜딩 제품 커밋 0" || FAIL=1; }
 }
 # r1260: ① 판정 캐시 — 입력 키가 같고 FT_PRESS_GATE_CACHE_SEC(기본 300초) 안이면 지난 ① 출력·판정을 다시 쓴다(②~⑧·허가 파일은 매번 돈다)
-S1_MODE="실행"; CACHE_SEC="${FT_PRESS_GATE_CACHE_SEC:-300}"; CACHE_DIR="$(dirname "$PERMIT_DIR")/press-gate-cache"; S1_KEY=""
+# r1411: «TTL 스냅숏» — 키에서 «기준 줄기 sha» 를 뺐다(이름만 · 선언 base 가 기준 줄기 꼴이면 해석 sha 대신 same-trunk). 기준 줄기 sha 는 캐시 항목에 «feat» 로만 적고 재사용 줄에 묵은 정도를 보인다(planner 판정 4127).
+S1_MODE="실행"; CACHE_SEC="${FT_PRESS_GATE_CACHE_SEC:-300}"; CACHE_DIR="$(dirname "$PERMIT_DIR")/press-gate-cache"; S1_KEY=""; S1_FEAT_NOW=""
 _s1_key(){ # ① 입력 전부 → 키(sha256) · 하나라도 못 구하면 rc1(캐시 0)
-  local w h ih decl base bres c ch p feat wth gh sh
-  feat="$(git rev-parse --verify -q "$FEAT^{commit}")"; wth="$(git -C "$WT" rev-parse HEAD 2>/dev/null)"
+  local w h ih decl base bres c ch p wth gh sh
+  wth="$(git -C "$WT" rev-parse HEAD 2>/dev/null)"
   gh="$(shasum -a 256 "$SELF" 2>/dev/null | cut -d' ' -f1)"   # SELF = cd «전» 에 절대화한 이 게이트 파일(상대 경로 호출·다른 cwd 에서도 같은 파일)
   sh=""; [ "${#SETP[@]}" != "0" ] && sh="$(printf '%s\n' "${SETP[@]}" | shasum -a 256 | cut -d' ' -f1)"
-  [ -n "$feat" ] && [ -n "$wth" ] && [ -n "$gh" ] && [ -n "$sh" ] || return 1   # 키 입력 각각 취득 성공일 때만 · 하나라도 비면 캐시 0
-  p="feat=$feat|wt=$WT@$wth|root=$ROOT|gate=$gh|set=$sh"
+  [ -n "$wth" ] && [ -n "$gh" ] && [ -n "$sh" ] || return 1   # 키 입력 각각 취득 성공일 때만 · 하나라도 비면 캐시 0
+  # r1411: 기준 줄기 «sha» 는 키에 넣지 않는다(이름만) — ① 판정은 기준 줄기 끝에 따라 바뀌지만, 키에 넣으면 기준 줄기가 움직일 때마다
+  #        hook 70초 안 게이트가 캐시를 놓쳐 135~205초 ① 을 다시 돌다 끊긴다(room C4 5회). 신선도 상한 = FT_PRESS_GATE_CACHE_SEC(기본 300초).
+  p="trunk=$FEAT|wt=$WT@$wth|root=$ROOT|gate=$gh|set=$sh"
   c="${FT_PRESS_CARD:-}"; ch="nocard"   # 카드 미지정 = 설계상 «카드 없음»(빈 칸 허용) · 경로가 있으면 절대 경로·해시 둘 다 얻어야 한다(파일 아님·해시 실패 = 캐시 0)
   if [ -n "$c" ]; then
     [ -f "$c" ] || return 1
@@ -474,14 +477,20 @@ _s1_key(){ # ① 입력 전부 → 키(sha256) · 하나라도 못 구하면 rc1
     if [ -f "$w/.worktree-info.json" ]; then
       ih="$(shasum -a 256 < "$w/.worktree-info.json" | cut -d' ' -f1)"; [ -n "$ih" ] || return 1; bres=undeclared
       decl="$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['base'])" "$w/.worktree-info.json" 2>/dev/null)"
-      [ -z "$decl" ] || { bres="$(git -C "$w" rev-parse --verify -q "$decl^{commit}" 2>/dev/null)" && [ -n "$bres" ] || return 1; }   # 선언 base ref 해석 실패 = 캐시 0(DA② 1)
+      # r1411: 선언 base 가 기준 줄기 꼴(_other_trunk :327 과 같은 case)이면 ① 이 그 sha 를 쓰지 않는다 → 해석 sha 대신 고정 글자(기준 줄기 이동에 키가 흔들리지 않는다)
+      if [ -n "$decl" ]; then
+        case "$decl" in
+          "$FEAT"|"origin/$FEAT"|"${FEAT#origin/}") bres="same-trunk" ;;
+          *) bres="$(git -C "$w" rev-parse --verify -q "$decl^{commit}" 2>/dev/null)" && [ -n "$bres" ] || return 1 ;;   # 선언 base ref 해석 실패 = 캐시 0(DA② 1) · 다른 줄기는 지금처럼 해석 sha
+        esac
+      fi
     fi
     p="$p|$w:$h:$ih:$bres"
   done
-  case "$p" in *"feat=|"*|*"@|"*) return 1;; esac
+  case "$p" in *"trunk=|"*|*"@|"*) return 1;; esac
   printf '%s' "$p" | shasum -a 256 | cut -d' ' -f1
 }
-_s1_read(){ # 키 → 첫 줄 «판정 미랜딩수 경과초» + 저장된 ① 출력 · rc1 = 없음·만료·키 다름
+_s1_read(){ # 키 → 첫 줄 «판정 미랜딩수 경과초 저장한 기준 줄기 sha» + 저장된 ① 출력 · rc1 = 없음·만료·키 다름
   python3 - "$CACHE_DIR/step1-${1:0:16}.json" "$1" "$CACHE_SEC" <<'PY'
 import json,sys,time
 f,key,ttl=sys.argv[1:4]
@@ -489,35 +498,37 @@ try: d=json.load(open(f,encoding="utf-8"))
 except Exception: sys.exit(1)
 age=time.time()-d.get("ts",0)
 if d.get("key")!=key or age<0 or age>int(ttl) or d.get("verdict") not in ("OK","UNLANDED"): sys.exit(1)
-print("%s %d %d" % (d["verdict"],d["unlanded"],age)); sys.stdout.write(d["out"])
+print("%s %d %d %s" % (d["verdict"],d["unlanded"],age,d.get("feat",""))); sys.stdout.write(d["out"])
 PY
 }
-_s1_write(){ # 키 판정 미랜딩수 출력파일 — 임시 파일 + mv · 만료된 옛 파일은 이때 지운다
-  mkdir -p "$CACHE_DIR" && python3 - "$CACHE_DIR" "$1" "$2" "$3" "$4" "$CACHE_SEC" <<'PY'
+_s1_write(){ # 키 판정 미랜딩수 출력파일 기준줄기sha — 임시 파일 + mv · 만료된 옛 파일은 이때 지운다
+  mkdir -p "$CACHE_DIR" && python3 - "$CACHE_DIR" "$1" "$2" "$3" "$4" "$5" "$CACHE_SEC" <<'PY'
 import glob,json,os,sys,tempfile,time
-d,key,verdict,unl,outf,ttl=sys.argv[1:7]; now=time.time()
+d,key,verdict,unl,outf,feat,ttl=sys.argv[1:8]; now=time.time()
 for p in glob.glob(os.path.join(d,"step1-*.json")):
     try:
         if now-json.load(open(p,encoding="utf-8")).get("ts",0)>int(ttl): os.unlink(p)
     except Exception: pass
 fd,tmp=tempfile.mkstemp(dir=d,prefix=".tmp.")
-with os.fdopen(fd,"w",encoding="utf-8") as f: json.dump({"key":key,"verdict":verdict,"unlanded":int(unl),"out":open(outf,encoding="utf-8").read(),"ts":now},f,ensure_ascii=False)
+with os.fdopen(fd,"w",encoding="utf-8") as f: json.dump({"key":key,"verdict":verdict,"unlanded":int(unl),"out":open(outf,encoding="utf-8").read(),"feat":feat,"ts":now},f,ensure_ascii=False)
 os.replace(tmp,os.path.join(d,"step1-%s.json"%key[:16]))
 PY
 }
 case "$CACHE_SEC" in ''|*[!0-9]*) say "✗" "FT_PRESS_GATE_CACHE_SEC=$CACHE_SEC — 0 이상 정수(초)만"; FAIL=1; CACHE_SEC=0;; esac
 # 캐시 0 조건: 끔(0) · 시험 변수(DA① 5) · 판정 불가(FEAT_OK=0) · 셀 나노 0
-[ "$CACHE_SEC" != "0" ] && [ -z "${FT_PRESS_GATE_SELFTEST+x}" ] && [ -z "${FT_PRESS_SEAT+x}" ] && [ "$FEAT_OK" = "1" ] && [ -n "$LIVE_WT" ] && S1_KEY="$(_s1_key)"
+[ "$CACHE_SEC" != "0" ] && [ -z "${FT_PRESS_GATE_SELFTEST+x}" ] && [ -z "${FT_PRESS_SEAT+x}" ] && [ "$FEAT_OK" = "1" ] && [ -n "$LIVE_WT" ] && { S1_FEAT_NOW="$(git rev-parse --verify -q "$FEAT^{commit}" 2>/dev/null)"; S1_KEY="$(_s1_key)"; }
 if [ -n "$S1_KEY" ] && S1_HIT="$(_s1_read "$S1_KEY")"; then
-  read -r _v UNLANDED _age <<< "${S1_HIT%%$'\n'*}"; S1_MODE="캐시"
+  _fprev=""; read -r _v UNLANDED _age _fprev <<< "${S1_HIT%%$'\n'*}"; S1_MODE="캐시"
   [ "$_v" = "OK" ] || FAIL=1
   [ "$S1_HIT" = "${S1_HIT#*$'\n'}" ] || printf '%s\n' "${S1_HIT#*$'\n'}"
-  say "·" "① 캐시 재사용(키 ${S1_KEY:0:12} · ${_age}초 전)"
+  # r1411: 저장한 기준 줄기 sha 와 지금 값을 나란히 찍는다 — ① 이 최대 300초 묵었다는 것이 출력에 보인다(같으면 «같음»)
+  if [ -n "$_fprev" ] && [ "$_fprev" != "$S1_FEAT_NOW" ]; then _fmsg="기준 줄기 ${_fprev:0:10} → ${S1_FEAT_NOW:0:10}"; else _fmsg="기준 줄기 같음"; fi
+  say "·" "① 캐시 재사용(키 ${S1_KEY:0:12} · ${_age}초 전 · $_fmsg)"
 else
   SQUASH_HEADS=""; [ -n "$LIVE_WT" ] && SQUASH_HEADS="$(_squash_heads)"
   if [ -n "$S1_KEY" ]; then
     S1_TMP="$(mktemp)"; _step1_run > "$S1_TMP"; cat "$S1_TMP"
-    _s1_write "$S1_KEY" "$([ "$UNLANDED" = "0" ] && echo OK || echo UNLANDED)" "$UNLANDED" "$S1_TMP" || say "⚠" "① 캐시 쓰기 실패($CACHE_DIR) — 판정은 그대로"
+    _s1_write "$S1_KEY" "$([ "$UNLANDED" = "0" ] && echo OK || echo UNLANDED)" "$UNLANDED" "$S1_TMP" "$S1_FEAT_NOW" || say "⚠" "① 캐시 쓰기 실패($CACHE_DIR) — 판정은 그대로"
     rm -f "$S1_TMP"
   else _step1_run; fi
 fi
