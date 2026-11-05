@@ -14,7 +14,8 @@
 #   후보의 자식(env 를 못 읽는 sleep 등)도 같은 주인(via=자손 · stopped 수엔 안 셈)
 #   출력: 앞 줄 `reap-kill pid=<n> via=<①|②|②b|③|자손> cmd=<앞 100자>` · 끝 줄 `reap <좌석> stopped=<n> left=<n> rc=<n>[ cwd=shared]`
 #     --dry-run = `reap-cand …` 줄 + `reap <좌석> found=<n> dry-run rc=0`
-#   rc 0 = left 0 · 1 = left>0 · 2 = usage · 20 = 조사 실패(ps·lsof·tmux 못 읽음 — 0 과 구분 · ft-leak-reap ① 계약 · 끝 줄 left=? ). 외부 호출 각 7 s 상한.
+#   rc 0 = left 0 · 1 = left>0 · 2 = usage · 20 = 조사 실패(ps·lsof·tmux 못 읽음 또는 상한 초과 — 0 과 구분 · ft-leak-reap ① 계약 · 끝 줄 left=? ).
+#     외부 호출 각 25 s 상한(r1406 · 판정 4114 «로컬 하네스 = 25초 · 런타임 7초» · env FT_SEAT_REAP_CAP_SEC 1~70 로 조정 · 꼴 틀림 = WARN + 25) — 부하 30+ 에서 lsof 가 7 s 를 넘겨 닫기가 rc 20 으로 멈추던 일 0.
 #   FT_REAP_NOSIGNAL=1 = 시험 전용(신호 0 — «못 멈춘 프로세스» 재현).
 #   --defer-press (r690 · ft-seat-retire — 승계는 일을 잇는 것 · press 관측기를 끊지 않는다): press 진행 중이면 후보를 신호 0 으로 «미룸»
 #     press 진행 = 내 uid 의 살아 있는 python*(대소문자 무시 — macOS 프레임워크 빌드는 «Python») 프로세스의 «실행 스크립트»(옵션 뒤 첫 비옵션 토큰 · -c/-m/- = 없음)가
@@ -53,8 +54,18 @@ LEDGER_ARG = sys.argv[10]
 LINUX = sys.platform.startswith("linux")
 def die(msg):
     print(f"ft-seat-reap: ERROR {msg}", file=sys.stderr); print(f"reap {seat} stopped=0 left=? rc=20"); sys.exit(20)
+def cap_sec():   # r1406 — 로컬 하네스 외부 호출 상한(판정 4114 = 25초) · env 는 1~70 정수만 인정, 꼴 틀림 = WARN + 25
+    v = os.environ.get("FT_SEAT_REAP_CAP_SEC", "")
+    if not v: return 25
+    if re.fullmatch(r"[1-9][0-9]?", v) and 1 <= int(v) <= 70: return int(v)
+    print(f"ft-seat-reap: WARN FT_SEAT_REAP_CAP_SEC={v} 꼴 틀림(1~70 정수 아님) — 상한 25초로 진행", file=sys.stderr)
+    return 25
+CAP = cap_sec()
+def tmo(what):   # 상한 초과 = «판정 불가» die(rc 20 · 조용한 통과 0 · 문구에 상한 초 1개)
+    die(f"{what} 시간 초과 — 상한 {CAP}초(판정 불가 · FT_SEAT_REAP_CAP_SEC 1~70)")
 def run(cmd, ok_err=()):
-    try: r = subprocess.run(cmd, capture_output=True, text=True, timeout=7, env={**os.environ, "LC_ALL": "C", "TZ": "UTC"})
+    try: r = subprocess.run(cmd, capture_output=True, text=True, timeout=CAP, env={**os.environ, "LC_ALL": "C", "TZ": "UTC"})
+    except subprocess.TimeoutExpired: tmo(cmd[0])
     except (OSError, subprocess.SubprocessError) as e: die(f"{cmd[0]} 실행 실패: {e}")
     if r.returncode != 0 and not any(s in r.stderr for s in ok_err): die(f"{cmd[0]} rc={r.returncode}: {r.stderr.strip()[:80]}")
     return r.stdout if r.returncode == 0 else ""
@@ -95,7 +106,9 @@ def ps_table():   # pid → (ppid, pgid, uid, lstart, cmd, ft_seat|None)
 def bgf(*a):   # 장부 쓰기는 ft-bg-finite.sh 하나(읽기만 여기서 한다) — 실패는 WARN 1줄(조용한 실패 0)
     env = {**os.environ}
     if LDG: env["FT_BG_FINITE_LEDGER"] = LDG
-    try: r = subprocess.run(["bash", BGF, *a], capture_output=True, text=True, timeout=7, env=env)
+    try: r = subprocess.run(["bash", BGF, *a], capture_output=True, text=True, timeout=CAP, env=env)
+    except subprocess.TimeoutExpired:
+        print(f"ft-seat-reap: WARN 장부 {a[0]} 시간 초과 — 상한 {CAP}초", file=sys.stderr); return ""
     except (OSError, subprocess.SubprocessError) as e:
         print(f"ft-seat-reap: WARN 장부 {a[0]} 실행 실패: {e}", file=sys.stderr); return ""
     if r.returncode != 0: print(f"ft-seat-reap: WARN 장부 {a[0]} rc={r.returncode}: {r.stderr.strip()[:160]}", file=sys.stderr)
@@ -161,7 +174,8 @@ def cwds():
                 try: r[int(d)] = os.readlink(f"/proc/{d}/cwd")
                 except OSError: pass
         return r
-    try: o = subprocess.run(["lsof", "-a", "-d", "cwd", "-Fpn", "-u", str(os.getuid())], capture_output=True, text=True, timeout=7)
+    try: o = subprocess.run(["lsof", "-a", "-d", "cwd", "-Fpn", "-u", str(os.getuid())], capture_output=True, text=True, timeout=CAP)
+    except subprocess.TimeoutExpired: tmo("lsof cwd")
     except (OSError, subprocess.SubprocessError) as e: die(f"lsof 실행 실패: {e}")
     if not o.stdout.strip(): die(f"lsof cwd 표가 비어 있음 rc={o.returncode}: {o.stderr.strip()[:80]}")   # rc 1 = 일부 프로세스 못 읽음(표는 있음)
     r, pid = {}, None
@@ -178,7 +192,8 @@ def desc(t, roots):
             if k not in out: out.add(k); st.append(k)
     return out
 def services(t):   # pid → why — 서비스 나무(r505): ⓐLISTEN 을 쥔 프로세스 + 조상 + 자손 ⓑ서비스 명령 꼴 + 자손
-    try: o = subprocess.run(["lsof", "-nP", "-iTCP", "-sTCP:LISTEN", "-Fp"], capture_output=True, text=True, timeout=7, env={**os.environ, "LC_ALL": "C"})
+    try: o = subprocess.run(["lsof", "-nP", "-iTCP", "-sTCP:LISTEN", "-Fp"], capture_output=True, text=True, timeout=CAP, env={**os.environ, "LC_ALL": "C"})
+    except subprocess.TimeoutExpired: tmo("lsof LISTEN")
     except (OSError, subprocess.SubprocessError) as e: die(f"lsof LISTEN 실행 실패: {e}")
     lis = {int(l[1:]) for l in o.stdout.splitlines() if l[:1] == "p" and l[1:].isdigit()}
     if o.returncode != 0 and not lis and (o.returncode != 1 or o.stderr.strip()): die(f"lsof LISTEN rc={o.returncode}: {o.stderr.strip()[:80]}")   # rc 1 + stderr 0 = LISTEN 0
