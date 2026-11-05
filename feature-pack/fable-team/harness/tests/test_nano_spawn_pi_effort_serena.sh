@@ -35,7 +35,7 @@ for SP in "$HERE/../bin/ft-nano-spawn.sh" "$HERE/../kit/fable-team/bin/ft-nano-s
   r="$(pick '' pi 1 '' high 0 high 2>/dev/null | tail -1)"; [ "$r" = "pi|opengateway/deepseek/deepseek-v4.1-flash-ultrafast|nano|high" ] && ok "$tag: ⓗ FT_PI_EFFORT=high → high" || bad "$tag: ⓗ → $r"
   # 다른 에이전트 effort 불변(회귀 0)
   r="$(pick '')"; case "$r" in claude\|*'|high') ok "$tag: claude 기본 effort=high 불변";; *) bad "$tag: claude → $r";; esac
-  r="$(pick checker:1 claude 0)"; case "$r" in codex\|*'|high') ok "$tag: codex checker:1 effort=high 불변";; *) bad "$tag: codex → $r";; esac
+  r="$(pick checker:1 claude 0)"; case "$r" in pi\|*'|checker|low') ok "$tag: r1385 --tier checker:1 기본 = pi · effort=low";; *) bad "$tag: checker:1 → $r";; esac
   r="$(pick impl )"; case "$r" in claude\|*'|high') ok "$tag: --tier impl effort=high 불변";; *) bad "$tag: impl → $r";; esac
 
   # ── 블록 B: OPEN 배열 + pi --serena + PLAN 덧붙임 ──

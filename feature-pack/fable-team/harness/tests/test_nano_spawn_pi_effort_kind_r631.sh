@@ -64,7 +64,7 @@ for SP in "$HERE/../bin/ft-nano-spawn.sh" "$HERE/../kit/fable-team/bin/ft-nano-s
   # ⓕ pi 아닌 나노 — effort·PLAN 덧붙임 불변
   r="$(run '' claude 0 high 0 0)";     has "ⓕ claude effort=high" "$r" "EFFORT=high"; has "ⓕ claude PLANX 빈칸" "$r" "PLANX=[]"
   r="$(run '' claude 1 low 1 0)";      has "ⓕ claude --effort low 그대로" "$r" "EFFORT=low"
-  r="$(run checker:1 claude 0 high 0 0)"; has "ⓕ codex checker:1 effort=high" "$r" "EFFORT=high"; has "ⓕ codex PLANX 빈칸" "$r" "PLANX=[]"
+  r="$(run checker:1 claude 0 high 0 0)"; has "ⓕ r1385: --tier checker:1 기본 = pi · effort=low" "$r" "EFFORT=low"; has "ⓕ r1385: pi PLANX effort(short:tier=checker)" "$r" "PLANX=[ effort=low(short:tier=checker)"
   r="$(run impl claude 0 high 0 0 FT_PI_EFFORT_IMPL=low)"; has "ⓕ claude --tier impl 은 pi env 무시" "$r" "EFFORT=high"
   r="$(run '' cmd 1 high 0 0 FT_PI_EFFORT=low)"; has "ⓕ cmd 는 옛 pi env 무시" "$r" "EFFORT=high"; hasnt "ⓕ cmd WARN 0" "$r" "WARN"
 done

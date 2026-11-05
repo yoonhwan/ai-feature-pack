@@ -2,16 +2,17 @@
 # ft-nano-spawn.sh <indices/대기/X.md> [--agent claude|codex|cmd|opencode|pi] [--model ID] [--effort E] [--raise "<사유>"] [--from <발주좌석>] [--recheck <판정문>] [--base <ref>] [--cherry-override "<사유>"] [--research | --reopen] [--dry-run]
 #   --reopen = (r1335) 진행/ 카드의 닫힌 나노를 같은 카드에 다시 연다 — 카드 이동 0 · 워크트리 있으면 재사용 · 없고 nano 가지 있으면 그 가지로 재부착(미반입이어도 · -rN 0) · 둘 다 없으면 base 에서 새로 · 옛 좌석이 살아 있으면 REJECT(ring) · --research 와 같이 쓰면 usage rc 2
 #   --research = 리서치 나노(판정 2282 · R387 · 설계 §3·§7) — «진행/ 부모 카드»(DA 보류가 쌓인 카드)를 옮기지 않고 같은 카드에 읽기 전용 조사 좌석을 연다: 좌석 이름 꼬리 `-research` · 발주 본문에 고정 문단(산출 = RESEARCH 파일 1개 · 코드 0) · 카드에 `- 리서치: <좌석> base=<sha> 허용=…` · opencode 는 ft-opencode-reap.sh(r286) 없으면 REJECT
-#   --raise "<사유>" = 상향 모델(claude-fable-*·*astra* · 판정 1641)을 열 때 필수 · 명부 행에 raised{reason,card,by,at,close_on} 를 남긴다(R149)
+#   --raise "<사유>" = 기본이 아닌 에이전트를 열 때 필수 — r1385: claude·codex 는 «사유 필수»(나노 기본 = pi · 오빠 10-22·10-26) · 상향 모델(claude-fable-*·*astra* · 판정 1641)도 그대로 필수 · 명부 행에 raised{reason,card,by,at,close_on} 를 남긴다(R149)
 #   Seatbelt 0.3 · 나노 좌석을 «손타이핑 없이» 연다 (SEATBELT-README §3 열기).
 #   exit 0 = 열림+도달 · 1 = 실패(사유 stdout) · 2 = usage · 5 = 열렸으나 도달 미확인(사람 확인) · 7 = 나노 상한·프록시 진짜 장애(r669) — 좌석 0 · 순번 큐(QUEUED · r-teamset-standard/r666/r669)
-# 한 번에: ①lint ②워크트리+.venv/.env·clients/web/node_modules 심링크+.worktree-info.json ③tmuxc open(--agent/--model 통과, 기본 claude/sonnet-5.5 — r286)
+# 한 번에: ①lint ②워크트리+.venv/.env·clients/web/node_modules 심링크+.worktree-info.json ③tmuxc open(--agent/--model 통과, 기본 pi(FT_NANO_DEFAULT_AGENT) — r1385 · claude·codex 는 --raise 사유 필수)
 #          ④remain-on-exit on + @zc_v65_active=1 ⑤seats.json 등록 ⑥인덱스 대기→진행 ⑦첫 발주(인덱스 경로 한 줄, mbox) ⑧도달 확인(jsonl)
 # ★팩 ft-tmux-spawn.sh 미사용★: install.json canonical·CAPABILITY_GAP 게이트가 v65 워크트리에 없다(troubleshoot 09-06 「install.json 부재 = exit 4」) · 오빠 §0-A 「tmuxc 로 생성해서 어차피 쓰니 모델까지 지정가능」 — tmuxc 직접 호출.
 set -uo pipefail
 [ -f "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" ] && . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" "$@"   # R201: 비설치 위치면 LIVE_BIN 으로 exec
 IDX="${1:-}"; shift || { echo "usage: $0 <indices/대기/X.md> [--agent claude|codex|cmd|opencode|pi] [--model M] [--effort E] [--raise \"<사유>\"] [--from SEAT] [--base REF] [--cherry-override \"<사유>\"] [--dry-run]" >&2; exit 2; }
-AGENT="claude"; AGENT_SET=0; MODEL=""; EFFORT="high"; EFFORT_SET=0; FROM="${FT_SEND_FROM:-}"; FROM_SET=0; RESEARCH=0; REOPEN=0; DRY=0; FAST=""; TIER=""; RECHECK=""; BASE_REF=""; HAVE_CO=0; CO=""; RAISE=""
+# r1385: 나노 기본 = pi (오빠 10-22 «pi = 모든 팀 기본» · 10-26 «pi deepseek 먼저») — 되돌림 손잡이 = FT_NANO_DEFAULT_AGENT
+AGENT="${FT_NANO_DEFAULT_AGENT:-pi}"; AGENT_SET=0; MODEL=""; EFFORT="high"; EFFORT_SET=0; FROM="${FT_SEND_FROM:-}"; FROM_SET=0; RESEARCH=0; REOPEN=0; DRY=0; FAST=""; TIER=""; RECHECK=""; BASE_REF=""; HAVE_CO=0; CO=""; RAISE=""
 while [ $# -gt 0 ]; do case "$1" in
   --agent) AGENT="$2"; AGENT_SET=1; shift 2;; --model) MODEL="$2"; shift 2;; --effort) EFFORT="$2"; EFFORT_SET=1; shift 2;; --raise) RAISE="${2:-}"; shift 2 2>/dev/null || shift;;
   --from) FROM="$2"; FROM_SET=1; shift 2;; --recheck) RECHECK="$2"; shift 2;; --dry-run) DRY=1; shift;; --research) RESEARCH=1; shift;; --reopen) REOPEN=1; shift;; --tier) TIER="$2"; shift 2;; --base) BASE_REF="$2"; shift 2;;
@@ -25,21 +26,19 @@ _cmd_on="${FT_CMD_ENABLED:-0}"
 #   (chatbot #120064: `--agent pi --tier search` 가 pi 가 아니라 opencode 로 열렸다). 티어 이름 검사와 ROLE 은 그대로 한다.
 _A0="$AGENT"; _M0="$MODEL"; _E0="$EFFORT"; _F0="$FAST"
 case "$TIER" in
+  # ★r1385 티어 기본표 = pi → sonnet-5-5 (오빠 10-22·10-26)★ — :1 = pi(MODEL 비움 = 아래 «에이전트별 기본» 의 pi 모델) · :2·:3 = claude sonnet-5-5 · codex luna 칸 삭제 · FT_CMD_ENABLED=1 갈래(cmd deepseek)는 :1 자리에 그대로.
   checker|tester|checker:1|tester:1)
     if [ "$_cmd_on" = 1 ]; then AGENT="cmd"; MODEL="${FT_CMD_MODEL:-deepseek/deepseek-v4-flash}"; EFFORT="high";
-    else AGENT="codex"; MODEL="${FT_LUNA_MODEL:-gpt-6-luna}"; EFFORT="high"; FAST="on"; fi;;
-  checker:2|tester:2)
-    if [ "$_cmd_on" = 1 ]; then AGENT="codex"; MODEL="${FT_LUNA_MODEL:-gpt-6-luna}"; EFFORT="high"; FAST="on";
-    else AGENT="claude"; MODEL="${FT_SONNET_MODEL:-claude-sonnet-5-5[1m]}"; EFFORT="high"; fi;;
+    else AGENT="pi"; MODEL=""; EFFORT="high"; fi;;
+  checker:2|tester:2)                AGENT="claude"; MODEL="${FT_SONNET_MODEL:-claude-sonnet-5-5[1m]}"; EFFORT="high";;
   checker:3|tester:3)                AGENT="claude"; MODEL="${FT_SONNET_MODEL:-claude-sonnet-5-5[1m]}"; EFFORT="high";;
-  # impl = 구현 나노. 1순위 sonnet-5.5(기본값 — r286 오빠 하네스 뉴스 «Sonnet 5.5 가 Opus·sol 보다 처리 능력 우위» · 옛 09-28 opus5.5 · fable 은 --model 명시로만), :2 luna (cmd 는 FT_CMD_ENABLED=1 일 때 :2 로 끼어듦)
-  impl|impl:1) ;;
+  # impl = 구현 나노. r1385: :1 = pi(기본 · cmd 는 FT_CMD_ENABLED=1 일 때 :1 자리) · :2·:3 = claude sonnet-5-5
+  impl|impl:1)
+    if [ "$_cmd_on" = 1 ]; then AGENT="cmd"; MODEL="${FT_CMD_MODEL:-deepseek/deepseek-v4-flash}"; EFFORT="high"; fi;;
   # search = 검색 나노 — 대용량 로그·코드 분석·정본화 서치 «읽고 모으기» 전용(코드 수정 0) · 기본 에이전트 = FT_SEARCH_AGENT(기본 pi: deepseek flash — opencode 무료 경로는 이 IP 에서 «abusive traffic» 으로 차단 · 2026-10-20) ·
   #   FT_SEARCH_AGENT=opencode 로 r286 옛 경로(opencode/deepseek-v4.1-flash-free)로 되돌린다 · 모델은 아래 «에이전트별 기본»(FT_PI_MODEL · FT_OC_MODEL) · 닫기 = ft-nano-close(그 에이전트 프로세스 left=0 확인)
   search) AGENT="${FT_SEARCH_AGENT:-pi}"; MODEL="";;
-  impl:2) if [ "$_cmd_on" = 1 ]; then AGENT="cmd"; MODEL="${FT_CMD_MODEL:-deepseek/deepseek-v4-flash}"; EFFORT="high";
-          else AGENT="codex"; MODEL="${FT_LUNA_MODEL:-gpt-6-luna}"; EFFORT="high"; FAST="on"; fi;;
-  impl:3) AGENT="codex"; MODEL="${FT_LUNA_MODEL:-gpt-6-luna}"; EFFORT="high"; FAST="on";;
+  impl:2|impl:3) AGENT="claude"; MODEL="${FT_SONNET_MODEL:-claude-sonnet-5-5[1m]}"; EFFORT="high";;
   '') ;; *) echo "unknown --tier $TIER (checker|tester[:1-3] · impl[:1-3] · search)" >&2; exit 2;;
 esac
 if [ "$AGENT_SET" = 1 ]; then AGENT="$_A0"; MODEL="$_M0"; EFFORT="$_E0"; FAST="$_F0"; fi   # 명시 --agent 우선(위 주석)
@@ -88,6 +87,9 @@ card_assign_record() {  # $1 카드 $2 init|waiting|seat $3 사유|이름 [$4 ho
   { [ "$DRY" = 1 ] || [ "$RESEARCH" = 1 ]; } && return 0
   python3 "$HERE/ft_card_assign_watch.py" record "$@" >&2 || echo "WARN 배정 원장 기록 실패($*)" >&2
 }
+# ★r1385 보탬(arch#225 · master#162 #259818)★ 좌석 이름 slug 규칙 한 곳 — 소문자·[a-z0-9-] 만, «길이로 자른 뒤» 끝 하이픈을 지운다.
+#   실사건: 카드 이름 40자째가 하이픈이면 좌석·가지·워크트리 이름이 «…-» 로 끝나 ft-name-lint «빈 토큰(끝 -)» REJECT · 명부 행 0 이라 nano-close·stall·close-due 가 그 좌석을 못 본다(byz-harness-nano-r1386-merge-land-heavy-slot-wait-within-#0).
+_slug() { basename "$1" .md | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | cut -c"1-$2" | sed 's/-\{1,\}$//'; }
 # ★r1335 --reopen 판정(진행/ 카드의 닫힌 나노를 같은 카드에 다시 연다)★ — 첫 쓰기(아래 원장 init · 회수 · 정지·계정·상한 게이트) «전» 에 한 함수로 돈다 · 거절 = REJECT 1줄 rc1 · 원장·카드·명부·워크트리·tmux 변경 0.
 #   ① 진행/ 카드만(대기/ = «--reopen 없이») ② 옛 좌석이 살아 있으면 REJECT(ring 이 맞다) — 살아 있음 = 카드 거울 «- 배정: 좌석 <이름>» 이 tmux 에 있음 ∨ 이 카드 슬러그의 나노 세션 이름(«…-nano-<슬러그>#<번호>»)이 tmux 에 있음(거울 «없음» 이어도 본다) ③ tmux 목록을 못 읽으면 판정 불가 REJECT(통과 0).
 reopen_check() {
@@ -98,7 +100,8 @@ reopen_check() {
     *) echo "REJECT --reopen 은 진행/ 에 있는 카드만: $IDX"; return 1;;
   esac
   [ -f "$IDX" ] || { echo "REJECT 인덱스 없음: $IDX"; return 1; }
-  slug="$(basename "$IDX" .md | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | cut -c1-40)"
+  slug="$(_slug "$IDX" 40)"
+  [ -n "$slug" ] || { echo "REJECT 카드 이름에서 좌석 이름을 못 만듦 — 카드 이름에 영문·숫자가 없다: $(basename "$IDX") · 개설 0"; return 1; }
   mirror="$(awk '/^##[[:space:]]/{exit} /^- 배정: 좌석 /{sub(/^- 배정: 좌석 /,""); sub(/[[:space:]]+$/,""); print; exit}' "$IDX")"
   live="$(tmux list-sessions -F '#{session_name}' 2>/dev/null)" || { echo "REJECT 판정 불가 — tmux 세션 목록을 못 읽었다(tmux list-sessions rc≠0) · 개설 0"; return 1; }
   hit=""; [ -z "$mirror" ] || hit="$(printf '%s\n' "$live" | grep -Fx -- "$mirror" | head -1)"
@@ -424,6 +427,12 @@ case "$_rrc" in
   1) ;;
   *) echo "REJECT ft_raised.py 판정 실패 rc=$_rrc ($HERE/ft_raised.py) — 부작용 0"; exit 1;;
 esac
+# ★r1385 나노 기본 = pi — claude·codex 는 사유 필수 (오빠 10-22 «pi = 모든 팀 기본 · pi→Sonnet→Opus 상향» · 10-26 «pi deepseek 먼저 · 아니면 sonnet-5-5 · Opus 금지»)★
+#   위 ft_raised(R149)는 «fable·astra = 상향» 만 본다 — 여기서는 «기본값이 아닌 에이전트» 자체를 막는다(sonnet·opus·luna 가 사유 없이 열리던 자리).
+#   pi·cmd·opencode(deepseek 계열) = 사유 0 · --dry-run 도 같은 판정 · 부작용(카드·원장·워크트리·tmux·명부) «전» 에 거절.
+case "$AGENT" in
+  claude|codex) [ -n "${RAISE//[[:space:]]/}" ] || { echo "REJECT 나노 기본 = pi — $AGENT/$MODEL 은 --raise \"<사유>\" 필수(오빠 10-22·10-26 · r1385)"; exit 1; };;
+esac
 
 # R387 --research: opencode 리서치 좌석은 «쓰고 바로 닫기»(메모리 버그 · r286 reap)가 전제 — 회수 도구가 없으면 부작용 «전» REJECT. Fable 등 다른 에이전트는 통과.
 [ "$RESEARCH" != 1 ] || [ "$AGENT" != opencode ] || [ -f "$HERE/ft-opencode-reap.sh" ] || { echo "REJECT --research --agent opencode 는 ft-opencode-reap.sh(r286) 미설치 — 닫을 때 프로세스를 못 회수한다: $HERE · Fable(--agent claude --model claude-fable-5-1[1m])로 열거나 r286 설치 뒤"; exit 1; }
@@ -577,8 +586,9 @@ PY
       ;;
   esac
 fi
-SLUG="$(basename "$IDX" .md | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | cut -c1-40)"
-[ "$RESEARCH" != 1 ] || SLUG="$(printf '%s' "$SLUG" | cut -c1-30)-research"   # R387: 좌석 이름·브랜치·워크트리 꼬리 -research
+SLUG="$(_slug "$IDX" 40)"
+[ -n "$SLUG" ] || { echo "REJECT 카드 이름에서 좌석 이름을 못 만듦 — 카드 이름에 영문·숫자가 없다: $(basename "$IDX") · 좌석 0"; exit 1; }
+if [ "$RESEARCH" = 1 ]; then SLUG="$(printf '%s' "$SLUG" | cut -c1-30 | sed 's/-\{1,\}$//')"; [ -n "$SLUG" ] || { echo "REJECT 카드 이름에서 좌석 이름을 못 만듦 — 앞 30자에 영문·숫자가 없다: $(basename "$IDX") · 좌석 0"; exit 1; }; SLUG="$SLUG-research"; fi   # R387: 꼬리 -research(자른 자리가 - 면 지우고 한 번만 붙인다)
 BASE_NAME="${FT_NANO_PREFIX:-$DEF_NANO_PREFIX}$SLUG"
 N=0; if [ "$REOPEN" = 1 ]; then N="$(reopen_next_n "$BASE_NAME")" || { printf '%s\n' "$N"; exit 1; }; fi
 while tmux has-session -t "=$BASE_NAME#$N" 2>/dev/null; do N=$((N+1)); done
