@@ -297,7 +297,8 @@ _FT_GITCAP_PY="$_FT_GITCAP_PY_DEFAULT"
 ft_git_capped() { python3 "$_FT_GITCAP_PY" "$@" 2>/dev/null; }
 _ft_git_retry() { ft_git_capped "$@"; }   # 옛 이름 — 재시도가 실행기로 들어갔다(r937 r3)
 #   rc 규약(r937 r2 T2): 0 = 있음 · 1 = «그 리포에 없음» · 그 밖(124 시간 초과 · 128 실행 실패) = «조회 실패» — 없음으로 읽지 않는다
-_ft_landed_git() { _ft_git_retry 7 "$1" rev-parse --verify -q "${2}^{commit}"; }
+#   r1401: 착지 여부는 «로컬에 있는 객체» 만 본다 — GIT_NO_LAZY_FETCH=1 이 없으면 partial clone(blob:none)이 없는 sha 를 원격 lazy fetch 로 받으려 해 7초 상한을 넘는다(실측 13.1초 → 0.1초). 다른 ft_git_capped 호출에는 넣지 않는다(blob 이 필요한 조회가 «없음» 으로 바뀐다)
+_ft_landed_git() { GIT_NO_LAZY_FETCH=1 _ft_git_retry 7 "$1" rev-parse --verify -q "${2}^{commit}"; }
 ft_landed_repo() { local sha="$1" cr="${2:-}" pr="${3:-}" mk="${4:-}" cs="" ps="" want=""
   case "$sha" in ''|*[!0-9a-f]*) printf 'REJECT 착지 sha 가 40/앞자리 hex 가 아니다: %s\n' "$sha"; return 1;; esac
   [ "${#sha}" -ge 7 ] || { printf 'REJECT 착지 sha 가 7자 미만이다: %s\n' "$sha"; return 1; }
