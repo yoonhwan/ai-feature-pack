@@ -18,6 +18,7 @@
 | com.byz.ft-resource-watch | Interactive |
 | com.byz.ft-tick(·-cfo·-feature·-kakao·-knowledge·-ops) | Interactive |
 | com.byz.ft-magazine-model · com.byz.ft-magazine | Interactive |
+| com.byz.ft-issues-daily | Interactive |
 | com.byz.ft-leak-reap | Background |
 | com.byz.ft-secret-scan | Background |
 | com.byz.ft-wt-sweep | Background |
