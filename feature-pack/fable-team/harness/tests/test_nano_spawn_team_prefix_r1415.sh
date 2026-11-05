@@ -85,15 +85,13 @@ mkfix() {  # mkfix <디렉터리> <팀> <접두> — 카드·팀 env·명부. �
   git init -q -b main "$d" && git -C "$d" -c user.name=t -c user.email=t@t add -A >/dev/null \
     && git -C "$d" -c user.name=t -c user.email=t@t commit -q -m init && git -C "$d" update-ref refs/remotes/origin/main HEAD
 }
-EXTRA_ENV=()
-sp() {  # sp <픽스처> [인자…] — env -i 격리 · BINX(사본 키트)
+sp() {  # sp <픽스처> [인자…] — env -i 격리 · BINX(사본 키트) · ★env 뒤는 글자 대입만 + 고정 명령(판정기 ft_secret_judge — 환경 추가는 대입 줄에 직접 쓴다)★
   local d="$1"; shift
   rm -f "$T/opened" "$T/tmm.args"; printf 'aifp-airag-nano-x#0|%%1|1\n' > "$T/panes"
   ( cd "$d" && env -i HOME="$HOME" LC_ALL=en_US.UTF-8 PATH="$T/fake:$PATH" \
       FT_GH_READ="$T/fake/gh-open" GH_REPO=o/r FT_TEAMSET=0 FT_CARD_FLOW=0 FT_RES_ROOT="$T/res" \
       FT_SHEET_ROOT="$FT_SHEET_ROOT" FT_ROOT="$d" FT_RECLAIM_SH="$T/reclaim-rec.sh" \
       FAKE_OPENED="$T/opened" FAKE_PANES="$T/panes" FAKE_TMM_LIST="$T/tmm.lst" FAKE_TMM_ARGS="$T/tmm.args" \
-      ${EXTRA_ENV[@]+"${EXTRA_ENV[@]}"} \
       bash "$BINX/ft-nano-spawn.sh" "$CARDX" "$@" 2>&1 )
 }
 wts() { git -C "$1" worktree list | wc -l | tr -d ' '; }
@@ -133,14 +131,12 @@ CAPX="$T/bin-cap"; cp -R "$BINX" "$CAPX"
 printf '#!/usr/bin/env python3\nimport sys\nprint("REJECT 좌석 3/2")\nsys.exit(1)\n' > "$CAPX/ft_seat_cap.py"
 run_cap() {  # run_cap <픽스처> — 회수 인자를 기록하고 즉시 끝난다
   local d="$1"; rm -f "$T/reclaim.calls"
-  EXTRA_ENV=(FT_TEAM_SEAT_CAP=2)
   ( cd "$d" && env -i HOME="$HOME" LC_ALL=en_US.UTF-8 PATH="$T/fake:$PATH" \
       FT_GH_READ="$T/fake/gh-open" GH_REPO=o/r FT_TEAMSET=0 FT_CARD_FLOW=0 FT_RES_ROOT="$T/res" \
       FT_SHEET_ROOT="$FT_SHEET_ROOT" FT_ROOT="$d" FT_RECLAIM_SH="$T/reclaim-rec.sh" \
       FAKE_OPENED="$T/opened" FAKE_PANES="$T/panes" FAKE_TMM_LIST="$T/tmm.lst" FAKE_TMM_ARGS="$T/tmm.args" \
       FT_TEAM_SEAT_CAP=2 \
       bash "$CAPX/ft-nano-spawn.sh" "$CARDX" 2>&1 )
-  EXTRA_ENV=()
 }
 D="$T/p5a"; mkfix "$D" aifp "aifp-airag-nano-"; tl aifp-airag-master-claude#10
 printf 'aifp-airag-nano-x#0|%%1|1\n' > "$T/panes"; o="$(run_cap "$D")"
