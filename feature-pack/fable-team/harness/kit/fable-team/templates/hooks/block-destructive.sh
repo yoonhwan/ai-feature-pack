@@ -15,7 +15,7 @@ except Exception:
 # 2026-07-11 예외: tmux kill-session은 하드블록에서 제외(사용자 명시 표준승인 —
 # "tmux,tmuxc는 컨트롤해도됨", cmux 메모리 고갈 방지 위한 상시 세션 정리 목적).
 # kill-server(전체 서버 종료, 모든 세션 동시 파괴)는 그대로 차단 유지. R44: push 는 원격 ref 를 덮거나 지우는 꼴(+ref · :ref · --delete/-d · --mirror)도 force 와 같이 차단. r591: -f 도 옵션 자리(앞 공백)만 — 이름 끝 -f 오탐.
-PATTERN='tmux kill-server|rm -[rf][rf]|rm -[rf] +-[rf]|gcloud [a-z0-9 _-]*(delete|destroy)|DROP +(TABLE|DATABASE|SCHEMA)|TRUNCATE +TABLE|dropdb|terraform +destroy|kubectl +delete|git +push[^&|;]*(--force|[[:space:]]-f\b|--mirror|--delete|[[:space:]]-d\b|[[:space:]]\+[^[:space:]]|[[:space:]]:[^[:space:]])|git +worktree +remove|git +branch +-D|supabase [a-z0-9 _-]*delete|kill -9|pkill'
+PATTERN='tmux kill-server|rm -[rf][rf]|rm -[rf] +-[rf]|gcloud [a-z0-9 _-]*(delete|destroy)|DROP +(TABLE|DATABASE|SCHEMA)|TRUNCATE +TABLE|dropdb|terraform +destroy|kubectl +delete|git +push[^&|;]*(--force|[[:space:]]-f\b|--mirror|--delete|[[:space:]]-d\b|[[:space:]]\+[^[:space:]]|[[:space:]]:[^[:space:]])|git +worktree +remove|git +branch +-D|supabase [a-z0-9 _-]*delete|kill -9|pkill|docker +volume +(rm|prune)|docker +(container +)?rm|docker +(system|container|image|volume|builder) +prune|docker +rmi|docker +compose[^;&|]* +down[^;&|]*(-v|--volumes)'
 
 # ── 판정 466: «글자로만 들어 있는» 파괴 명령은 통과, «실행되는» 파괴 명령만 차단 ──
 # 명령을 구간(; && || | & 개행)으로 나눠 글 싱크(echo·printf·정본 mbox 송신·git commit·grep·대입·cat/tee heredoc
@@ -30,7 +30,55 @@ EFFECTIVE=$(judge "$CMD" "$INPUT" 2>/dev/null) || EFFECTIVE=$CMD
 # 판정기가 따옴표를 풀어 `-C '/a b'` 의 값이 쪼개지므로 값 모양을 따지지 않고 «옵션 시작 ~ 파괴 하위명령» 사이를 접는다.
 # 검사 대상이 EFFECTIVE «또는» NORM 이라 차단만 늘고 통과는 늘지 않는다.
 NORM=$(printf '%s' "$EFFECTIVE" | LC_ALL=C sed -E 's/git[[:space:]]+-[^;&|]*[[:space:]](worktree[[:space:]]+remove|branch[[:space:]]+-[Dd]|push)/git \1/g') || NORM=$EFFECTIVE
-if printf '%s\n%s' "$EFFECTIVE" "$NORM" | grep -qiE "$PATTERN"; then
+
+# ── r1400 예외 1 (planner#237 · master 쪽지 262678 · 공지 NOTICE-no-destructive-outside-h-20261105.md «예외 1») ──
+# 시험 회차 사본 DB(t_·snap_ 접두) 지우기만 통과: dropdb · DROP DATABASE [IF EXISTS] 의 대상 이름이 «전부» t_ 또는 snap_ 로
+# 시작할 때 그 구간만 지운 사본 SAN 을 만든다. 이름 하나라도 다른 접두·이름 없음·변수·글롭이면 원문 그대로(fail-closed).
+# docker 볼륨·컨테이너 지우기와 DROP TABLE·TRUNCATE 는 예외 0 — 이 치환은 DB 이름 구간에만 닿는다.
+scratch_db_sanitize() {
+  python3 -c 'import re,sys
+s=sys.stdin.read()
+SCR=("t_","snap_")
+NAME=re.compile(r"[A-Za-z0-9_][A-Za-z0-9_.]*")
+VAL={"-h","-p","-U","-O","-T","--host","--port","--username","--owner","--tablespace","--maintenance-db","--encoding","--lc-collate","--lc-ctype"}
+def ok(n):
+    return bool(NAME.fullmatch(n)) and n.startswith(SCR)
+def dropdb_ok(seg):
+    pos=[]
+    toks=seg.split()
+    i=0
+    while i<len(toks):
+        t=toks[i]
+        if t.startswith("--") and "=" in t: i+=1; continue
+        if t in VAL: i+=2; continue
+        if t.startswith("-") and t!="-": i+=1; continue
+        pos.append(t); i+=1
+    return bool(pos) and all(ok(x) for x in pos)
+spans=[]
+for m in re.finditer(r"(?<![\w.-])dropdb(?=[\s;&|]|$)", s):
+    e=re.search(r"[;&|\n]", s[m.end():])
+    end=m.end()+e.start() if e else len(s)
+    if dropdb_ok(s[m.end():end]): spans.append((m.start(),end))
+for m in re.finditer(r"(?i)\bDROP\s+DATABASE\s+(?:IF\s+EXISTS\s+)?([A-Za-z0-9_][A-Za-z0-9_.]*)", s):
+    if ok(m.group(1)): spans.append((m.start(),m.end()))
+spans.sort()
+res=[]
+prev=0
+for a,b in spans:
+    if a<prev: continue
+    res.append(s[prev:a]); prev=b
+res.append(s[prev:])
+sys.stdout.write("".join(res))'
+}
+# 비용: DB 지우기 글자가 있을 때만 파이썬을 부른다(훅은 모든 Bash 호출마다 돈다 — 시험 1회차가 수백 번).
+if printf '%s\n%s' "$EFFECTIVE" "$NORM" | grep -qiE 'dropdb|DROP[[:space:]]+DATABASE'; then
+  SAN_EFF=$(printf '%s' "$EFFECTIVE" | scratch_db_sanitize) || SAN_EFF=$EFFECTIVE
+  SAN_NORM=$(printf '%s' "$SAN_EFF" | LC_ALL=C sed -E 's/git[[:space:]]+-[^;&|]*[[:space:]](worktree[[:space:]]+remove|branch[[:space:]]+-[Dd]|push)/git \1/g') || SAN_NORM=$SAN_EFF
+else
+  SAN_EFF=$EFFECTIVE
+  SAN_NORM=$NORM
+fi
+if printf '%s\n%s' "$SAN_EFF" "$SAN_NORM" | grep -qiE "$PATTERN"; then
   printf '🚫 파괴적/비가역 명령 차단 — HIL(사람 승인) 필수\n' >&2
   printf '명령: %s\n' "$CMD" >&2
   printf '데이터/인프라/세션을 복구 불가하게 삭제할 수 있습니다. yoonhwan 오빠의 명시 승인을 받은 뒤에만 진행하세요. (정당한 경우 사용자가 직접 ! 로 실행하거나 승인)\n' >&2

@@ -58,6 +58,19 @@ blk 'terraform destroy'
 blk 'kubectl delete pod x'
 blk 'git worktree remove x'
 blk 'supabase db delete x'
+# ── r1400: docker 지우기 차단 (오빠 11-05 «열받네» — 승인 없는 volume prune 사고) ──
+blk 'docker volume prune -f'
+blk 'docker system prune -af'
+blk 'docker rm -f abc'
+blk 'docker container rm x'
+blk 'docker rmi img'
+blk 'docker image prune -a'
+blk 'docker volume rm v1'
+blk 'docker compose down -v'
+# ── r1400 예외 1 밖: 사본 DB(t_·snap_) 접두가 아닌 이름·섞인 이름·변수 ──
+blk 'dropdb t_x prod_db'
+blk 'psql -c "DROP DATABASE byz"'
+blk 'dropdb "$DB"'
 # ── 차단 유지: 우회 꼴 ──────────────────────────────────────────────────
 blk 'bash -c "rm -rf /tmp/zz"'
 blk "sh -c 'pkill -f x'"
@@ -119,6 +132,15 @@ pas $'cat <<\'EOF\'\nrm -rf zz\nEOF'
 pas "echo 'dropdb x' >> /dev/null"
 pas 'git push origin main'
 pas 'git push -u origin feat/x'
+# ── r1400: docker 조회·볼륨 없는 compose down 은 통과 ──
+pas 'docker volume ls'
+pas 'docker ps -a'
+pas 'docker container ls -a'
+pas 'docker compose down'
+pas 'docker compose up -d'
+# ── r1400 예외 1: 시험 회차 사본 DB(t_·snap_) 지우기만 통과 ──
+pas 'psql -c "DROP DATABASE IF EXISTS snap_r5"'
+pas 'docker exec pg dropdb -U postgres t_loom_1'
 # ── r591: 가지 이름 끝 «-f» 오탐 (옵션 자리 = 앞 공백) ⓐ~ⓔ ─────────────
 pas 'git push -u origin nano/x-f'                      # ⓐ
 blk 'git push -f origin x'                             # ⓑ
