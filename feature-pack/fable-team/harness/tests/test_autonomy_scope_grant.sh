@@ -13,16 +13,16 @@ cmp -s "$BIN/ft-autonomy.sh" "$MIRB/ft-autonomy.sh" && cmp -s "$BIN/ft-autonomy-
 rm -rf "$S"; mkdir -p "$S"
 grant --for 10h --max 5 --classes docs; [ $rc = 2 ] && has 'ON 이 아님'; ck "approve-scope OFF → REJECT rc 2" $?
 fresh
-grant --for 10h --max 5 --classes docs,code; [ $rc = 2 ] && has '--code-max 1~max\(5\) 필수\(받은 값: 없음\)'; ck "classes 에 code · --code-max 없음 → REJECT (R411)" $?
-grant --for 10h --max 5 --classes code --code-max 0; [ $rc = 2 ] && has '--code-max 1~max'; ck "--code-max 0 → REJECT" $?
-grant --for 10h --max 5 --classes code --code-max 6; [ $rc = 2 ] && has '--code-max 1~max'; ck "--code-max > max → REJECT" $?
+grant --for 10h --max 5 --classes docs,code; [ $rc = 2 ] && has '--code-max 1~min\(max,500\)\(받은 값: 없음\)'; ck "classes 에 code · --code-max 없음 → REJECT (R411)" $?
+grant --for 10h --max 5 --classes code --code-max 0; [ $rc = 2 ] && has '--code-max 1~min\(max,500\)'; ck "--code-max 0 → REJECT" $?
+grant --for 10h --max 5 --classes code --code-max 6; [ $rc = 2 ] && has '--code-max 1~min\(max,500\)'; ck "--code-max > max → REJECT" $?
 grant --for 10h --max 5 --classes docs --code-max 2; [ $rc = 2 ] && has 'code 가 있을 때만'; ck "code 없는데 --code-max → REJECT" $?
 grant --for 73h --max 5 --classes docs; [ $rc = 2 ]; ck "--for 73h → REJECT" $?
 grant --for 0h --max 5 --classes docs; [ $rc = 2 ]; ck "--for 0h → REJECT" $?
 grant --for 10 --max 5 --classes docs; [ $rc = 2 ]; ck "--for 단위 없음 → REJECT" $?
-grant --for 10h --max 501 --classes docs; [ $rc = 2 ] && has '--max 는 1~500\(받은 값: 501\)'; ck "ⓑ --max 501 → REJECT rc 2 «1~500» (r908 · r1207)" $?
+grant --for 10h --max 1001 --classes docs; [ $rc = 2 ] && has '--max 는 1~1000\(받은 값: 1001\)'; ck "ⓑ --max 1001 → REJECT rc 2 «1~1000» (r908 · r1379)" $?
 grant --for 10h --max 100 --daily 101 --classes docs; [ $rc = 2 ] && has '--daily 는 1~max\(100\)'; ck "ⓑ --max 100 --daily 101 → REJECT (r908)" $?
-grant --for 10h --max 100 --classes code --code-max 101; [ $rc = 2 ] && has '--code-max 1~max\(100\)'; ck "ⓑ --max 100 --code-max 101 → REJECT (r908)" $?
+grant --for 10h --max 100 --classes code --code-max 101; [ $rc = 2 ] && has '--code-max 1~min\(max,500\)'; ck "ⓑ --max 100 --code-max 101 → REJECT (r908)" $?
 grant --for 10h --max 0 --classes docs; [ $rc = 2 ]; ck "--max 0 → REJECT" $?
 grant --for 10h --max 5 --daily 6 --classes docs; [ $rc = 2 ]; ck "--daily > max → REJECT" $?
 grant --for 10h --max 5 --classes docs,foo; [ $rc = 2 ]; ck "모르는 종류 → REJECT" $?
@@ -40,11 +40,11 @@ fresh; grant --for 10h --max 100 --classes docs; [ $rc = 0 ] && has '^SCOPE-GRAN
 fresh; grant --for 10h --max 100 --daily 100 --classes docs; [ $rc = 0 ] && has ' max=100 daily=100 classes=docs$'; ck "ⓐ --daily 100 → 통과 (r908)" $?
 fresh; grant --for 10h --max 100 --classes code --code-max 100; [ $rc = 0 ] && grep -q ' max=100 daily=10 classes=code codemax=100' "$LOG"; ck "ⓐ --code-max 100 → 통과 · log codemax=100 (r908)" $?
 # r908 r2 — 산술 «전» 자릿수 거름(DA⑥ r1): 긴 수는 bash 산술 넘침으로 100 이 되어 상한을 통과했다
-fresh; grant --for 10h --max 18446744073709551716 --classes docs; [ $rc = 2 ] && has '--max 는 1~500\(받은 값: 18446744073709551716\)'; ck "ⓓ --max 18446744073709551716 → REJECT rc 2 (넘침 불가 · r908 r2)" $?
+fresh; grant --for 10h --max 18446744073709551716 --classes docs; [ $rc = 2 ] && has '--max 는 1~1000\(받은 값: 18446744073709551716\)'; ck "ⓓ --max 18446744073709551716 → REJECT rc 2 (넘침 불가 · r908 r2)" $?
 fresh; grant --for 10h --max 100 --daily 18446744073709551716 --classes docs; [ $rc = 2 ] && has '--daily 는 1~max\(100\)'; ck "ⓓ --daily 18446744073709551716 → REJECT (r908 r2)" $?
-fresh; grant --for 10h --max 100 --classes code --code-max 18446744073709551716; [ $rc = 2 ] && has '--code-max 1~max\(100\)'; ck "ⓓ --code-max 18446744073709551716 → REJECT (r908 r2)" $?
+fresh; grant --for 10h --max 100 --classes code --code-max 18446744073709551716; [ $rc = 2 ] && has '--code-max 1~min\(max,500\)'; ck "ⓓ --code-max 18446744073709551716 → REJECT (r908 r2)" $?
 fresh; grant --for 10h --max 0100 --classes docs; [ $rc = 0 ] && has ' max=100 daily=10 classes=docs$'; ck "ⓓ --max 0100 → 통과(100 · 앞자리 0 허용)" $?
-fresh; grant --for 10h --max 1000 --classes docs; [ $rc = 2 ] && has '--max 는 1~500\(받은 값: 1000\)'; ck "ⓓ --max 1000(네 자리) → REJECT (r908 r2)" $?
+fresh; grant --for 10h --max 10000 --classes docs; [ $rc = 2 ] && has '--max 는 1~1000\(받은 값: 10000\)'; ck "ⓓ --max 10000(다섯 자리) → REJECT (r908 r2 · r1379)" $?
 
 # ===== scope-approve =====
 fresh; grant --for 10h --max 5 --daily 3 --classes docs,ff,revert >/dev/null

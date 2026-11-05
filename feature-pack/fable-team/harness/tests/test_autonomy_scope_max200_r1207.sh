@@ -36,10 +36,10 @@ fresh; grant --for 10h --max 0200 --classes docs; [ $rc = 0 ] && has ' max=200 d
 fresh; grant --for 10h --max 500 --daily 500 --classes docs,code --code-max 500; [ $rc = 0 ] && grep -q ' max=500 daily=500 classes=docs,code codemax=500' "$LOG"; ck "ⓐ R6 --max 500 --daily 500 --code-max 500 → SCOPE-GRANTED" $?
 # ⓐ R4b — 201 은 이제 통과(옛 상한 200 넘음)
 fresh; grant --for 10h --max 201 --classes docs; [ $rc = 0 ] && has ' max=201 daily=10 classes=docs$'; ck "ⓐ R4b --max 201 → 통과" $?
-# ⓑ R2 — 501 거절 · 쓰기 0
-fresh; grant --for 10h --max 501 --classes docs; [ $rc = 2 ] && has '^SCOPE-REJECT --max 는 1~500\(받은 값: 501\)' && [ "$(lines)" = 1 ]; ck "ⓑ R2 --max 501 → REJECT rc 2 «1~500» · log 쓰기 0" $?
+# ⓑ R2 — 1001 거절 (r1379: 상한 500→1000) · 쓰기 0
+fresh; grant --for 10h --max 1001 --classes docs; [ $rc = 2 ] && has '^SCOPE-REJECT --max 는 1~1000\(받은 값: 1001\)' && [ "$(lines)" = 1 ]; ck "ⓑ R2 --max 1001 → REJECT rc 2 «1~1000» · log 쓰기 0" $?
 # ⓒ R3 — 긴 수(넘침으로 500 이하가 되지 않음) · 쓰기 0
-fresh; grant --for 10h --max 18446744073709551716 --classes docs; [ $rc = 2 ] && has '--max 는 1~500' && [ "$(lines)" = 1 ]; ck "ⓒ R3 --max 18446744073709551716 → REJECT rc 2 · log 쓰기 0" $?
+fresh; grant --for 10h --max 18446744073709551716 --classes docs; [ $rc = 2 ] && has '--max 는 1~1000' && [ "$(lines)" = 1 ]; ck "ⓒ R3 --max 18446744073709551716 → REJECT rc 2 · log 쓰기 0" $?
 # ⓓ R5 — daily 는 max 를 따라감
 fresh; grant --for 10h --max 500 --daily 501 --classes docs; [ $rc = 2 ] && has '--daily 는 1~max\(500\)'; ck "ⓓ R5 --max 500 --daily 501 → REJECT «1~max(500)»" $?
 fresh; grant --for 10h --max 200 --daily 201 --classes docs; [ $rc = 2 ] && has '--daily 는 1~max\(200\)'; ck "ⓓ R5b --max 200 --daily 201 → REJECT «1~max(200)»" $?
