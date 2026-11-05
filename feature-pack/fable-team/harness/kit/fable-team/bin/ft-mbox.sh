@@ -302,9 +302,37 @@ _absent_grace() {
   if [ $((now - a)) -lt "$grace" ]; then printf '%s분 · 처음 없음 %s' "$(( (now - a) / 60 ))" "$(_ep_hhmm "$a")"; return 0; fi
   printf '처음 없음 %s(%s분)' "$(_ep_hhmm "$a")" "$(( (now - a) / 60 ))"; return 1
 }
+# r1371 — 전팀 정지 표식(r626 정본 · <fable-team>/state/ALL_STOP.json) 읽기 → stdout «on|off|unknown\t<since epoch|>\t<사유>».
+#   있으면 on · 없으면 off · 깨짐·읽기 실패는 unknown(조용한 통과 0 — 부르는 쪽이 경보 그대로 보낸다).
+_all_stop_mark() {
+  python3 - "$1/state/ALL_STOP.json" <<'PY'
+import json, os, sys
+p = sys.argv[1]
+if not os.path.lexists(p):
+    print("off\t\t")
+    raise SystemExit(0)
+try:
+    doc = json.loads(open(p, encoding="utf-8").read())
+except (OSError, ValueError) as error:
+    print(f"unknown\t\t{type(error).__name__}")
+    raise SystemExit(0)
+if not isinstance(doc, dict):
+    print(f"unknown\t\tJSON {type(doc).__name__}")
+    raise SystemExit(0)
+try:
+    print(f"on\t{float(doc.get('since'))}\t")
+except (TypeError, ValueError):
+    print("unknown\t\tsince 없음·꼴 틀림")
+PY
+}
 watch_alarm() {  # <to> <우편함 comm 절대경로(빈 값 → _mbox_dir)> <계기 쪽지 seq>
-  local to="$1" ft hs hm mk af ev q grc=0
+  local to="$1" ft hs hm mk af ev q grc=0 st sy sr
   ft="$(dirname "${2:-$(_mbox_dir)}")"
+  IFS=$'\t' read -r st sy sr <<<"$(_all_stop_mark "$ft")"   # r1371 — 전팀 정지면 긴급 0통 + 보류 1줄(10분 막이 표식도 안 썼다)
+  case "$st" in
+    on) echo "보류 watch $to — 전팀 정지(since $(_ep_hhmm "${sy%%.*}"))" >&2; return 0 ;;
+    unknown) echo "판정 불가 ALL_STOP ${sr:-읽기 실패} — 긴급 그대로 보냄" >&2 ;;
+  esac
   mk="$ft/state/planner-watch-missing.$(printf '%s' "$to" | tr -c 'A-Za-z0-9._#-' '_')"
   af="$ft/state/planner-watch-absent-since.$(printf '%s' "$to" | tr -c 'A-Za-z0-9._#-' '_')"
   [ -n "$(find "$mk" -mmin -10 2>/dev/null)" ] && return 0
