@@ -46,7 +46,7 @@ reset() { rm -f "$T/mbox.calls"; rm -rf "$T/state"; }
 ldc() {
   ( cd "$R" && GIT_CEILING_DIRECTORIES="$T" FT_LDC_EXPECTED="$T/none.txt" FT_LDC_RECORDS="$T/rec" FT_LDC_STATE="$T/state" \
       FT_LDC_NOW=2026-10-30 FT_LDC_MBOX="$T/mbox.sh" FT_LDC_LAUNCHCTL="$T/bin/launchctl" FT_LDC_NOTIFY='H#1' \
-      FT_LDC_EXIT_OK="$T/exit-ok.txt" bash "$1" >"$T/out" 2>"$T/err" )
+      FT_LDC_EXIT_OK="$T/exit-ok.txt" FT_LDC_AGENTS_DIR="$T/launch-none" bash "$1" >"$T/out" 2>"$T/err" )   # r1377: ProcessType 점검 대상 0
 }
 # 경보 쪽: 죽은 예약 줄 + [급] 1통 + 표식 1 (+ 기준판과 stdout 같음)
 alarmed() {

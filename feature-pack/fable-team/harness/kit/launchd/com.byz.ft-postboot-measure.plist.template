@@ -11,6 +11,7 @@
   <key>WorkingDirectory</key><string>__BYZ_ROOT__</string>
   <key>StartInterval</key><integer>7200</integer>
   <key>RunAtLoad</key><true/>
+  <key>ProcessType</key><string>Background</string>
   <key>EnvironmentVariables</key>
   <dict>
     <key>PATH</key><string>/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>

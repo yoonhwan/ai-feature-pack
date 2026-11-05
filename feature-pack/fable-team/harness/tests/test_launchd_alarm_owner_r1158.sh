@@ -44,7 +44,7 @@ reset() { rm -f "$T/mbox.calls"; rm -rf "$T/state"; }
 # 임시 ROOT 에서 돈다(git 밖 → ROOT=cwd) · FT_LDC_OWNER_SEATS 는 안 준다(기본 <ROOT>/.fable-team/seats-harness.json 을 본다)
 ldc() {
   ( cd "$R" && GIT_CEILING_DIRECTORIES="$T" FT_LDC_EXPECTED="$T/expected.txt" FT_LDC_RECORDS="$T/rec" FT_LDC_STATE="$T/state" \
-      FT_LDC_NOW=2026-10-30 FT_LDC_MBOX="$T/mbox.sh" FT_LDC_LAUNCHCTL="$T/bin/launchctl" bash "$SCRIPT" 2>&1 )
+      FT_LDC_NOW=2026-10-30 FT_LDC_MBOX="$T/mbox.sh" FT_LDC_LAUNCHCTL="$T/bin/launchctl" FT_LDC_AGENTS_DIR="$T/launch-none" bash "$SCRIPT" 2>&1 )   # r1377
 }
 to_is() { [ "$(calls)" = 1 ] && grep -q "^send $1 ft-launchd-check \[급\] " "$T/mbox.calls"; }
 

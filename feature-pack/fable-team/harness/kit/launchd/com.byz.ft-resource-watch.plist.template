@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- r1377: ProcessType 표 = design/harness/indices/r1377-ft-launchd-processtype-table.md «ProcessType 표» · 값 = Interactive
+     (60초 주기 · 판정이 7초 상한을 넘으면 그 회차 결과를 버리는 잡 → 배경 감속이면 거짓 «죽음»). -->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.byz.ft-resource-watch</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>__FT_BIN__/ft-resource-watch.sh</string>
+    <string>tick</string>
+  </array>
+  <key>StartInterval</key><integer>60</integer>
+  <key>RunAtLoad</key><true/>
+  <key>ProcessType</key><string>Interactive</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>FT_RES_ROOT</key><string>__BYZ_ROOT__</string>
+    <key>FT_ROOT</key><string>__BYZ_ROOT__</string>
+  </dict>
+  <key>StandardOutPath</key><string>__BYZ_ROOT__/.fable-team/state/resource-watch.launchd.out</string>
+  <key>StandardErrorPath</key><string>__BYZ_ROOT__/.fable-team/state/resource-watch.launchd.err</string>
+</dict>
+</plist>

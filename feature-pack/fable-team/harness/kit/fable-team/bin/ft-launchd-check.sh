@@ -8,11 +8,17 @@
 #     대상 파일이 있으면 stdout «죽은 예약 <Label> exit=<N>(대상 있음)» 1줄 + 같은 알림. 접두 밖 Label 은 안 본다. 켜기·끄기·plist 쓰기 0.
 #   r1184: 예외 표(FT_LDC_EXIT_OK · 기본 <ROOT>/.fable-team/state/launchd-exit-ok.txt · 줄 꼴 «<Label> <lo>-<hi>» 또는 «<Label> <n>» · 1~255 · # 주석)에 든 Label 의 exit 가 범위 안이면
 #     stdout «예약 <Label> exit=<N> — 예외 표 허용(<범위>)» 1줄 · [급]·표식 0. 표 없음·표 밖·범위 밖 = 위와 같음. 형식 틀린 줄 = stderr ERROR 1줄 + 그 줄 무시(경보 쪽).
+#   r1377: 「ProcessType 점검」 1단락 — 죽은 예약 점검 다음 · 이름이 접두(FT_LDC_DEAD_PREFIX 그대로)로 시작하고 «.plist» 로 끝나는 plist 마다
+#     plutil -extract ProcessType raw → 키 없으면 stdout «WARN 예약 <Label> ProcessType 없음 — 부하 때 배경 감속(r1377 표)» 1줄
+#     plutil 이 파일 자체를 못 읽으면(-lint 실패) stdout «판정 불가 <경로> plutil rc=<n>» 1줄 · 그래도 다음 파일은 계속 본다(조용한 건너뜀 0)
+#     쪽지 0 · rc 변경 0(이 줄은 «원인 단서» — 경보는 위 «죽은 예약» 길이 이미 맡는다) · .bak*·.off*·.disabled* 는 이름 끝이 .plist 가 아니라 자연히 빠진다
+#     표 정본 = design/harness/indices/r1377-ft-launchd-processtype-table.md «ProcessType 표» · 값 대조는 템플릿 렌더 시험이 맡는다(여기선 «키 있음» 만 본다)
 #   로컬 파일·launchctl 만 읽는다(외부 호출 0). 켜지도 끄지도 않는다. 기록 작성 규칙 = install-magazine.sh 머리 주석.
 #   env: FT_LDC_EXPECTED · FT_LDC_RECORDS · FT_LDC_STATE · FT_LDC_NOW(YYYY-MM-DD · 시험) · FT_LDC_MBOX · FT_LDC_SEATS · FT_LDC_LAUNCHCTL
 #        FT_LDC_NOTIFY(수신 좌석 덮기) → 없으면 FT_LDC_OWNER_SEATS(기본 <ROOT>/.fable-team/seats-harness.json · 장치 주인 명부)의 _master
 #        → 주인 명부 «파일이 없을» 때만 FT_LDC_SEATS 의 _master (r1158 · 주인 명부가 있는데 _master 가 비면 rc3)
 #        FT_LDC_DEAD_PREFIX(기본 «com.byz. com.airag. com.hermes.») · FT_LDC_DEAD=0 이면 죽은 예약 점검 끔
+#        FT_LDC_AGENTS_DIR(기본 $HOME/Library/LaunchAgents · 시험) · FT_LDC_PTYPE=0 이면 ProcessType 점검 끔 · FT_LDC_PLUTIL(기본 plutil)
 #   rc: 0 · 3 수신 좌석 없음 · 4 print-disabled 못 읽음 · 5 mbox 실패(표식 안 씀 → 다음 루프 재시도)
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
@@ -24,6 +30,7 @@ STATE="${FT_LDC_STATE:-$ROOT/.fable-team/state/launchd-check}"
 MBOX="${FT_LDC_MBOX:-}"; [ -n "$MBOX" ] || { . "$HERE/ft-harness-root.sh"; _CM="$(ft_comm_dir "$HERE")" || exit 1; MBOX="$_CM/mbox.sh"; }   # r385 r3: 설치본엔 형제 comm 폴더가 없다 — 데이터 루트의 comm
 SEATS="${FT_LDC_SEATS:-$ROOT/.fable-team/seats.json}"
 LCTL="${FT_LDC_LAUNCHCTL:-launchctl}"
+PLUTIL="${FT_LDC_PLUTIL:-plutil}"   # r1377: ProcessType 점검
 TODAY="${FT_LDC_NOW:-$(date +%F)}"
 
 # r1158: 경보 수신 = 예약 장치 주인(harness 팀) 명부의 _master — 틱을 돈 팀의 명부(FT_LDC_SEATS)가 아니다
@@ -96,6 +103,24 @@ if [ -n "$DEAD_PREFIX" ] && listing="$("$LCTL" list 2>/dev/null)"; then
       mkdir -p "$STATE" && : > "$STATE/dead-$label.$TODAY"
     else echo "ERROR ft-launchd-check: mbox 실패 to=$to($to_src)" >&2; rc=5; fi
   done <<< "$(printf '%s\n' "$listing" | tail -n +2)"
+fi
+# ── ProcessType 점검(r1377) — 키가 빠진 plist 는 launchd 가 배경 정책으로 감속해 부하 때 «죽음» 처럼 보인다 ──
+PTYPE_PREFIX="$DEAD_PREFIX"   # 접두 그대로(같은 규칙) · FT_LDC_PTYPE=0 이면 0
+case "${FT_LDC_PTYPE:-1}" in 0|no|false|off) PTYPE_PREFIX="" ;; esac
+if [ -n "$PTYPE_PREFIX" ]; then
+  AGENTS_DIR="${FT_LDC_AGENTS_DIR:-$HOME/Library/LaunchAgents}"
+  for pf in "$AGENTS_DIR"/*; do
+    [ -f "$pf" ] || continue                       # 폴더·없는 폴더 = 점검 대상 0
+    label="${pf##*/}"
+    hit=0; for pfx in $PTYPE_PREFIX; do case "$label" in "$pfx"*) hit=1; break ;; esac; done
+    [ "$hit" = 1 ] || continue                     # 접두 밖 Label 은 안 본다(죽은 예약 접두 그대로)
+    case "$label" in *.plist) ;; *) continue ;; esac   # 이름 끝이 정확히 .plist 만 — .bak*·.off*·.disabled* 는 여기서 빠진다
+    label="${label%.plist}"
+    "$PLUTIL" -lint "$pf" >/dev/null 2>&1; lrc=$?
+    [ "$lrc" = 0 ] || { echo "판정 불가 $pf plutil rc=$lrc"; continue; }   # 못 읽은 plist 를 «없음» 으로 세지 않는다
+    "$PLUTIL" -extract ProcessType raw "$pf" >/dev/null 2>&1 && continue
+    echo "WARN 예약 $label ProcessType 없음 — 부하 때 배경 감속(r1377 표)"
+  done
 fi
 [ -f "$EXPECTED" ] || exit $rc   # 기대 예약표가 없으면 꺼짐 점검 대상 0 (죽은 예약 점검은 표와 무관하게 이미 돌았다)
 disabled="$("$LCTL" print-disabled "gui/$(id -u)" 2>&1)" || { echo "ERROR ft-launchd-check: print-disabled 실패 — $disabled" >&2; exit 4; }

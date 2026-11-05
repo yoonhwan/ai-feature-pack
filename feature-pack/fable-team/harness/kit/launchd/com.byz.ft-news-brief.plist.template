@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- r1377: ProcessType 표 = design/harness/indices/r1377-ft-launchd-processtype-table.md «ProcessType 표» · 값 = Interactive
+     (30분 주기 · 발행 판정이 7초 상한을 넘으면 그 회차를 버리는 잡 → 배경 감속이면 거짓 «죽음»).
+     실행 경로가 design/teams/planner/evidence/ 라서 루트 bin 도구가 아니다 — ft_plist_env.py bin-list 관리 대상 밖(설치는 손 렌더). -->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.byz.ft-news-brief</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/bash</string>
+    <string>__BYZ_ROOT__/design/teams/planner/evidence/news-brief-v3-20261025/ft-news-brief.sh</string>
+    <string>publish</string>
+  </array>
+  <key>StartInterval</key><integer>1800</integer>
+  <key>RunAtLoad</key><false/>
+  <key>ProcessType</key><string>Interactive</string>
+  <key>WorkingDirectory</key><string>__BYZ_ROOT__</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key><string>/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <key>FT_ROOT</key><string>__BYZ_ROOT__</string>
+    <key>FT_LEDGER_PATH</key><string>design/teams/planner/PLAN-oppa-ledger.md</string>
+    <key>FT_LEDGER_REPO</key><string>__BYZ_ROOT__/.worktrees/news-ledger-main</string>
+    <key>FT_NEWS_STATE</key><string>__BYZ_ROOT__/.fable-team/state/news-brief</string>
+  </dict>
+  <key>StandardOutPath</key><string>/tmp/byz-ft-news-brief.log</string>
+  <key>StandardErrorPath</key><string>/tmp/byz-ft-news-brief.log</string>
+</dict>
+</plist>
