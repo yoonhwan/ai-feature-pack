@@ -11,11 +11,17 @@
   ⑤ 팀 배정 후보   ⑥ 닫기 후보(8항 코멘트 확인 · 실행 0)
 전부 «후보» 다 — 판정 낱말(확정·승인)을 쓰지 않는다. 쓰기는 사람이 한다.
 
-실패 = «판정 불가» 표 + rc≠0 (하드 룰 20 — 빈 표로 숨김 0) · gh·분류 호출 = 회당 7초 + 재시도 1 (하드 룰 12).
+실패 = «판정 불가» 표 + rc≠0 (하드 룰 20 — 빈 표로 숨김 0) · gh 쪽 호출 = 쪽마다 25초 + 재시도 1 (로컬 하네스 상한 · 판정 4114).
 전팀 정지(ft-all-stop.sh check rc≠0)·자원 동결(RESOURCE_FREEZE) 표식이면 «건너뜀(사유)» 표 1장 + 쪽지 1통(빈 표 0).
 
+r1395 (2026-11-06): 열린 이슈를 한 호출(gh issue list --limit 1000 · 7필드)로 읽던 것을 «50건 1쪽 GraphQL cursor» 로 쪼갠다.
+  쪽당 상한이 25초라 열린 Issue·코멘트가 늘어도 «7초 초과» 로 판정 불가가 되지 않는다(쪽 수만 는다 · 쪽 상한 40 = 2,000건).
+  닫힌(24h) 칸도 search 쪽 읽기(100건) · 합 != issueCount 면 그 칸만 «판정 불가(잘림)».
+  코멘트 100개 초과 Issue 만 이어 읽고, 라벨 50개 초과는 «판정 불가». 상한에 닿은 잘린 목록은 쓰지 않는다.
+
 env: FT_ROOT(리포 공용 루트) · FT_NOW(시험 시계 초) · FT_GH(gh 대역) · FT_MBOX_SH · FT_ISSUES_DAILY_DIR(표 폴더)
-     FT_ISSUES_DAILY_TIMEOUT_S(기본 7) · FT_ISSUES_DAILY_CLASSIFY(cmd) · FT_ALLSTOP · FT_ISSUES_DAILY_NO_SEND=1
+     FT_ISSUES_DAILY_TIMEOUT_S(기본 25 · 쪽 호출 상한 초) · FT_ISSUES_DAILY_REPO=<owner>/<repo>(시험 고정 · 없으면 gh repo view 1회)
+     FT_ISSUES_DAILY_CLASSIFY(cmd) · FT_ALLSTOP · FT_ISSUES_DAILY_NO_SEND=1
 rc: 0 정상 · 5 판정 불가 · 2 usage
 """
 from __future__ import annotations
@@ -38,6 +44,13 @@ LABEL_APPROVED = "approved"
 LABEL_PP = "status:proposal-pending"
 LABEL_NT = "needs-triage"
 STALE_DAYS = 7
+OPEN_PAGE = 50          # 열린 이슈 1쪽 = 50건 (쪽당 0.9~2.0초 실측 · 25초의 1/12)
+OPEN_MAX_PAGES = 40     # 2,000건 상한 — 넘으면 «판정 불가» (잘린 목록 0)
+LABEL_MAX = 50          # 라벨 50개 초과 = 판정 불가 (이어 읽기 경로 없음 · 실측 최대 12개)
+COMMENT_PAGE = 100      # 코멘트 1쪽 = 100건
+CLOSED_PAGE = 100       # 닫힌(24h) 1쪽 = 100건
+CLOSED_MAX_PAGES = 10   # GitHub search 1,000건 상한
+CLOSED_MAX = CLOSED_PAGE * CLOSED_MAX_PAGES
 
 
 class Unjudgeable(RuntimeError):
@@ -49,7 +62,7 @@ def _common(path: Path) -> Path | None:
     try:
         out = subprocess.run(
             ["git", "-C", str(path), "rev-parse", "--path-format=absolute", "--git-common-dir"],
-            capture_output=True, text=True, timeout=7,
+            capture_output=True, text=True, timeout=25,
         )
     except (OSError, subprocess.SubprocessError):
         return None
@@ -75,12 +88,12 @@ def now() -> float:
 
 def limit_s() -> int:
     try:
-        return max(1, int(os.environ.get("FT_ISSUES_DAILY_TIMEOUT_S") or 7))
+        return max(1, int(os.environ.get("FT_ISSUES_DAILY_TIMEOUT_S") or 25))
     except ValueError:
-        return 7
+        return 25
 
 
-# ── 외부 호출: 회당 7초 상한 + 재시도 1 (하드 룰 12 · 실패 처리 한 곳) ──
+# ── 외부 호출: 쪽마다 25초 상한 + 재시도 1 (하드 룰 12 로컬 하네스 · 실패 처리 한 곳) ──
 def _timeout_bin() -> str:
     for cand in ("timeout", "gtimeout"):
         found = shutil.which(cand)
@@ -107,38 +120,232 @@ def run(argv: list[str], what: str, limit: int | None = None) -> bytes:
     raise Unjudgeable(f"{what} 실패(2회) — {last}")
 
 
-# ── 입력 ──
-def gh_open(gh: str) -> tuple[bytes, list[dict]]:
-    raw = run([gh, "issue", "list", "--state", "open", "--limit", "1000",
-               "--json", "number,title,labels,createdAt,updatedAt,body,comments"], "gh issue list")
+# ── 입력 (r1395: 50건 1쪽 GraphQL cursor · 쪽마다 25초 + 재시도 1) ──
+OPEN_QUERY = (
+    "query($o:String!,$r:String!,$n:Int!,$c:String){"
+    "repository(owner:$o,name:$r){issues(states:OPEN,first:$n,after:$c,"
+    "orderBy:{field:CREATED_AT,direction:ASC}){totalCount pageInfo{hasNextPage endCursor}"
+    "nodes{number title createdAt updatedAt body "
+    "labels(first:50){totalCount nodes{name}} "
+    "comments(first:100){totalCount pageInfo{hasNextPage endCursor} nodes{body createdAt}}}}}}"
+)
+COMMENTS_QUERY = (
+    "query($o:String!,$r:String!,$num:Int!,$n:Int!,$c:String){"
+    "repository(owner:$o,name:$r){issue(number:$num){"
+    "comments(first:$n,after:$c){pageInfo{hasNextPage endCursor} nodes{body createdAt}}}}}"
+)
+CLOSED_QUERY = (
+    "query($q:String!,$n:Int!,$c:String){"
+    "search(type:ISSUE,query:$q,first:$n,after:$c){issueCount pageInfo{hasNextPage endCursor}"
+    "nodes{... on Issue{number closedAt}}}}"
+)
+
+_REPO: dict[str, tuple[str, str]] = {}
+
+
+def _err_text(errors: object) -> str:
+    if isinstance(errors, list) and errors:
+        first = errors[0]
+        if isinstance(first, dict):
+            return str(first.get("message") or first)[:200]
+        return str(first)[:200]
+    return str(errors)[:200]
+
+
+def _graphql(gh: str, query: str, fields: list[tuple[str, str]], what: str) -> dict:
+    """gh api graphql 1회 (run() 경유 = 25초 상한 + 재시도 1) · data 칸을 돌려준다.
+    쪽마다 «PAGE <무엇> <초>s» 1줄을 stderr 에 낸다(launchd 로그 · 쪽당 25초 안인지 사람이 본다)."""
+    argv = [gh, "api", "graphql", "-f", f"query={query}"]
+    for key, val in fields:
+        argv += ["-F", f"{key}={val}"]
+    started = time.monotonic()
+    try:
+        raw = run(argv, what)
+    finally:
+        print(f"PAGE {what} {time.monotonic() - started:.1f}s", file=sys.stderr)
     try:
         data = json.loads(raw.decode("utf-8", "replace"))
     except ValueError as exc:
-        raise Unjudgeable(f"gh issue list JSON 파싱 실패 — {exc}")
-    if not isinstance(data, list):
-        raise Unjudgeable("gh issue list 결과가 배열이 아니다")
-    return raw, [norm_issue(d) for d in data if isinstance(d, dict)]
+        raise Unjudgeable(f"{what} JSON 파싱 실패 — {exc}")
+    if not isinstance(data, dict):
+        raise Unjudgeable(f"{what} 응답이 객체가 아니다")
+    if data.get("errors"):
+        raise Unjudgeable(f"{what} 오류 — {_err_text(data['errors'])}")
+    got = data.get("data")
+    if not isinstance(got, dict):
+        raise Unjudgeable(f"{what} 응답에 data 칸이 없다")
+    return got
 
 
-def gh_closed_24h(gh: str, now_ts: float, date_arg: str) -> list[int] | None:
-    """닫힌(24h) — 실패하면 None(그 칸만 «판정 불가» · 표 전체는 살린다)."""
-    since = datetime.fromtimestamp(now_ts - DAY, timezone.utc).strftime("%Y-%m-%d")
+def _repo(gh: str) -> tuple[str, str]:
+    """owner·name 1회 조회(+캐시) — 시험은 FT_ISSUES_DAILY_REPO 로 고정한다."""
+    fixed = os.environ.get("FT_ISSUES_DAILY_REPO") or ""
+    owner, _, name = fixed.partition("/")
+    if owner and name:
+        return owner, name
+    if gh in _REPO:
+        return _REPO[gh]
+    raw = run([gh, "repo", "view", "--json", "owner,name"], "gh repo view")
     try:
-        raw = run([gh, "issue", "list", "--state", "closed", "--limit", "200",
-                   "--search", f"closed:>={since}", "--json", "number,closedAt"], "gh issue list --state closed")
         data = json.loads(raw.decode("utf-8", "replace"))
-    except (Unjudgeable, ValueError):
-        return None
-    if not isinstance(data, list):
-        return None
-    out = []
-    for row in data:
-        if not isinstance(row, dict):
-            continue
-        stamp = _epoch(row.get("closedAt"))
-        if stamp is not None and now_ts - stamp < DAY:
-            out.append(int(row.get("number") or 0))
-    return sorted(n for n in out if n)
+    except ValueError as exc:
+        raise Unjudgeable(f"gh repo view JSON 파싱 실패 — {exc}")
+    if not isinstance(data, dict):
+        raise Unjudgeable("gh repo view 응답이 객체가 아니다")
+    owner_obj = data.get("owner")
+    owner = str(owner_obj.get("login") or "") if isinstance(owner_obj, dict) else ""
+    name = str(data.get("name") or "")
+    if not owner or not name:
+        raise Unjudgeable("gh repo view — owner·name 없음")
+    _REPO[gh] = (owner, name)
+    return owner, name
+
+
+def _comments_rest(gh: str, owner: str, name: str, num: int, got: list[dict], info: dict,
+                   want: int) -> list[dict]:
+    """코멘트 100개 초과분 이어 읽기(쪽마다 25초 + 재시도 1). 다 못 읽으면 판정 불가."""
+    out = list(got)
+    cursor = str(info.get("endCursor") or "")
+    page = 1
+    while info.get("hasNextPage") and len(out) < want:
+        page += 1
+        if page > OPEN_MAX_PAGES:
+            raise Unjudgeable(f"#{num} 코멘트 {want}건 이어 읽기 {OPEN_MAX_PAGES}쪽 초과")
+        fields = [("o", owner), ("r", name), ("num", str(num)), ("n", str(COMMENT_PAGE))]
+        if cursor:
+            fields.append(("c", cursor))
+        data = _graphql(gh, COMMENTS_QUERY, fields, f"gh api graphql #{num} 코멘트 {page}쪽")
+        repo = data.get("repository") or {}
+        issue = (repo.get("issue") if isinstance(repo, dict) else None) or {}
+        conn = (issue.get("comments") if isinstance(issue, dict) else None) or {}
+        if not isinstance(conn, dict):
+            raise Unjudgeable(f"#{num} 코멘트 {page}쪽 — comments 칸이 없다")
+        out.extend(c for c in (conn.get("nodes") or []) if isinstance(c, dict))
+        info = conn.get("pageInfo") or {}
+        nxt = str(info.get("endCursor") or "")
+        if info.get("hasNextPage") and (not nxt or nxt == cursor):
+            break
+        cursor = nxt
+    if len(out) < want:
+        raise Unjudgeable(f"#{num} 코멘트 {want}건 중 {len(out)}건만 읽었다 — 잘린 목록은 쓰지 않는다")
+    return out
+
+
+def _page_row(gh: str, owner: str, name: str, node: dict) -> dict:
+    """GraphQL node 1개 → gh issue list --json 꼴 1행 (라벨 잘림 = 판정 불가 · 코멘트는 이어 읽기)."""
+    num = int(node.get("number") or 0)
+    labels_obj = node.get("labels") if isinstance(node.get("labels"), dict) else {}
+    lab_total = int(labels_obj.get("totalCount") or 0)
+    if lab_total > LABEL_MAX:
+        raise Unjudgeable(f"#{num} 라벨 {LABEL_MAX}개 초과 — 잘린 목록은 쓰지 않는다")
+    labels = []
+    for lab in labels_obj.get("nodes") or []:
+        label = (lab.get("name") if isinstance(lab, dict) else str(lab)) or ""
+        if label:
+            labels.append({"name": label})
+    cm_obj = node.get("comments") if isinstance(node.get("comments"), dict) else {}
+    comments = [c for c in (cm_obj.get("nodes") or []) if isinstance(c, dict)]
+    want = int(cm_obj.get("totalCount") or 0)
+    if want > len(comments):
+        info = cm_obj.get("pageInfo") if isinstance(cm_obj.get("pageInfo"), dict) else {}
+        comments = _comments_rest(gh, owner, name, num, comments, info, want)
+    return {
+        "number": num,
+        "title": node.get("title") or "",
+        "labels": labels,
+        "createdAt": node.get("createdAt") or "",
+        "updatedAt": node.get("updatedAt") or "",
+        "body": node.get("body") or "",
+        "comments": [{"body": c.get("body") or "", "createdAt": c.get("createdAt") or ""}
+                     for c in comments],
+    }
+
+
+def gh_open(gh: str) -> tuple[bytes, list[dict], int]:
+    """열린 이슈 = 50건 1쪽 GraphQL cursor 쪽 읽기.
+    반환 = (gh issue list --json 꼴 bytes · 정규화 이슈 · 첫 쪽 totalCount). 쪽 하나라도 실패 = 판정 불가."""
+    owner, name = _repo(gh)
+    rows: list[dict] = []
+    seen: set[int] = set()
+    total: int | None = None
+    cursor = ""
+    page = 0
+    while True:
+        page += 1
+        if page > OPEN_MAX_PAGES:
+            raise Unjudgeable(f"열린 Issue {OPEN_MAX_PAGES * OPEN_PAGE:,}건 초과 — 쪽 수 상한 {OPEN_MAX_PAGES}")
+        fields = [("o", owner), ("r", name), ("n", str(OPEN_PAGE))]
+        if cursor:
+            fields.append(("c", cursor))
+        data = _graphql(gh, OPEN_QUERY, fields, f"gh api graphql {page}쪽")
+        repo = data.get("repository") or {}
+        conn = (repo.get("issues") if isinstance(repo, dict) else None) or {}
+        if not isinstance(conn, dict):
+            raise Unjudgeable(f"gh api graphql {page}쪽 — issues 칸이 없다")
+        if total is None:
+            total = int(conn.get("totalCount") or 0)
+        for node in conn.get("nodes") or []:
+            if not isinstance(node, dict):
+                continue
+            row = _page_row(gh, owner, name, node)
+            num = int(row.get("number") or 0)
+            if num in seen:      # 쪽 사이 중복(읽는 사이 새 이슈·순서 이동)은 1번만 셈
+                continue
+            seen.add(num)
+            rows.append(row)
+        info = conn.get("pageInfo") or {}
+        if not info.get("hasNextPage"):
+            break
+        nxt = str(info.get("endCursor") or "")
+        if not nxt or nxt == cursor:
+            raise Unjudgeable(f"쪽 넘김 실패 — {page}쪽 endCursor 없음")
+        cursor = nxt
+    raw = json.dumps(rows, ensure_ascii=False).encode("utf-8")
+    return raw, [norm_issue(r) for r in rows], (total or 0)
+
+
+def gh_closed_24h(gh: str, now_ts: float, date_arg: str) -> tuple[list[int] | None, str]:
+    """닫힌(24h) = search 쪽 읽기(100건 1쪽) · 합 != issueCount 면 (None, "잘림") — 그 칸만 판정 불가."""
+    pairs: list[tuple[int, float | None]] = []
+    try:
+        owner, name = _repo(gh)
+        since = datetime.fromtimestamp(now_ts - DAY, timezone.utc).strftime("%Y-%m-%dT%H:%M")
+        query = f"repo:{owner}/{name} is:issue is:closed closed:>={since}"
+        count: int | None = None
+        cursor = ""
+        page = 0
+        while True:
+            page += 1
+            if page > CLOSED_MAX_PAGES:
+                return None, "잘림"
+            fields = [("q", query), ("n", str(CLOSED_PAGE))]
+            if cursor:
+                fields.append(("c", cursor))
+            data = _graphql(gh, CLOSED_QUERY, fields, f"gh api graphql 닫힌 {page}쪽")
+            conn = data.get("search") or {}
+            if not isinstance(conn, dict):
+                return None, f"{page}쪽 search 칸 없음"
+            if count is None:
+                count = int(conn.get("issueCount") or 0)
+            for row in conn.get("nodes") or []:
+                if not isinstance(row, dict):
+                    continue
+                num = int(row.get("number") or 0)
+                if num:
+                    pairs.append((num, _epoch(row.get("closedAt"))))
+            info = conn.get("pageInfo") or {}
+            if not info.get("hasNextPage"):
+                break
+            nxt = str(info.get("endCursor") or "")
+            if not nxt or nxt == cursor:
+                return None, "쪽 넘김 실패"
+            cursor = nxt
+        if count is None or len(pairs) != count or count > CLOSED_MAX:
+            return None, "잘림"      # 상한·대조 불일치 = 잘린 목록을 쓰지 않는다
+    except (Unjudgeable, ValueError, TypeError):
+        return None, "gh 호출 실패"
+    out = sorted({n for n, stamp in pairs if n and stamp is not None and now_ts - stamp < DAY})
+    return out, ""
 
 
 def _epoch(text: object) -> float | None:
@@ -335,7 +542,8 @@ def read_yesterday(root_dir: Path, date: str) -> dict | None:
 
 
 def build(issues: list[dict], closed24: list[int] | None, cls: dict | None, yday: dict | None,
-          now_ts: float, date: str) -> tuple[str, dict]:
+          now_ts: float, date: str, total_count: int | None = None,
+          closed_note: str = "") -> tuple[str, dict]:
     stamp = datetime.fromtimestamp(now_ts).strftime("%Y-%m-%d %H:%M")
     counts = {"approved": 0, "pp": 0, "nt": 0, "none": 0, "other": 0}
     for it in issues:
@@ -369,7 +577,8 @@ def build(issues: list[dict], closed24: list[int] | None, cls: dict | None, yday
     add(f"- 상태별: approved {counts['approved']} · status:proposal-pending {counts['pp']}"
         f" · needs-triage {counts['nt']} · 라벨 없음 {counts['none']} · 그 밖 {counts['other']}")
     add(f"- 합: {counts['approved']}+{counts['pp']}+{counts['nt']}+{counts['none']}+{counts['other']} = {total}"
-        " (한 이슈 = 한 칸 · approved → proposal-pending → needs-triage → 라벨 없음 → 그 밖 순서 첫 일치)")
+        + (f" · totalCount={total_count}" if total_count is not None else "")
+        + " (한 이슈 = 한 칸 · approved → proposal-pending → needs-triage → 라벨 없음 → 그 밖 순서 첫 일치)")
     if yday and yday.get("open") is not None:
         delta = total - int(yday["open"])
         add(f"- 어제 대비: +{len(new24)} −{len(closed24) if closed24 is not None else 0}"
@@ -381,7 +590,7 @@ def build(issues: list[dict], closed24: list[int] | None, cls: dict | None, yday
     add("")
     add(f"- 새로 열린(24h): {len(new24)}건{' ' + short_nums(new24) if new24 else ''}")
     if closed24 is None:
-        add("- 닫힌(24h): 판정 불가 (gh issue list --state closed 실패)")
+        add(f"- 닫힌(24h): 판정 불가({closed_note}) — 그 칸만")
     else:
         add(f"- 닫힌(24h): {len(closed24)}건{' ' + short_nums(closed24) if closed24 else ''}")
     add(f"- 7일+ 정체(갱신일 기준): {len(stale)}건"
@@ -595,14 +804,15 @@ def main(argv: list[str]) -> int:
         text, counts = skip_table(why, date, now_ts)
     else:
         try:
-            raw, issues = gh_open(gh)
+            raw, issues, total_count = gh_open(gh)
         except Unjudgeable as exc:
             text, counts = unjudgeable_table(str(exc), date, now_ts)
             rc = 5
         else:
-            closed24 = gh_closed_24h(gh, now_ts, date)
+            closed24, closed_note = gh_closed_24h(gh, now_ts, date)
             cls = classify(raw, root_dir)
-            text, counts = build(issues, closed24, cls, read_yesterday(root_dir, date), now_ts, date)
+            text, counts = build(issues, closed24, cls, read_yesterday(root_dir, date), now_ts, date,
+                                 total_count, closed_note)
 
     if dry:
         sys.stdout.write(text)
