@@ -35,13 +35,35 @@ def nudged_load(st: dict) -> dict[str, float]:
     return {str(k): float(v) for k, v in raw.items() if isinstance(v, (int, float)) and not isinstance(v, bool)}
 
 
-def save(state_dir: Path, handled: dict, prev: list[str], seats: dict, nudged: dict[str, float] | None = None, now: float | None = None) -> None:
-    """nudged 를 주면 같이 저장한다 — now 를 주면 2시간 넘은 항목은 지운다(후보에서 빠졌다고 지우지 않는다 · 카드가 폴더에서 사라진 항목도 이 2시간 안에 사라진다)."""
-    state_dir.mkdir(parents=True, exist_ok=True)
+def save(state_dir: Path, handled: dict, prev: list[str], seats: dict, nudged: dict[str, float] | None = None, now: float | None = None,
+         lint: dict[str, dict] | None = None) -> None:
+    """nudged 를 주면 같이 저장한다 — now 를 주면 2시간 넘은 항목은 지운다(후보에서 빠졌다고 지우지 않는다 · 카드가 폴더에서 사라진 항목도 이 2시간 안에 사라진다).
+    r1392 — lint(카드 stem → {oid, lint, v, at}) 를 주면 같이 저장한다(원자 쓰기 · 부르는 쪽이 지울 카드를 먼저 빼고 넘긴다)."""
     doc: dict = {"handled": handled, "prev": prev, "seats": seats}
     if nudged is not None:
         doc["a_card_nudged"] = {k: v for k, v in nudged.items() if now is None or now - v <= NUDGE_KEEP_S}
-    _ = (state_dir / "stall-scan.json").write_text(json.dumps(doc), encoding="utf-8")
+    if lint is not None:
+        doc["lint"] = lint
+    _write(state_dir, doc)
+
+
+def lint_load(st: dict) -> dict[str, dict]:
+    """r1392 — 저장본의 lint 칸(카드 stem → {oid, lint, v, at}) 을 산 것만 살립니다. 읽는 쪽(ft_stall_detect._lint_verdict)이 꼴을 매번 다시 보므로 여기서는 dict 여지만 본다."""
+    raw = st.get("lint") if isinstance(st, dict) else None
+    return {str(k): v for k, v in raw.items() if isinstance(v, dict)} if isinstance(raw, dict) else {}
+
+
+def _write(state_dir: Path, doc: dict) -> None:
+    """stall-scan.json 원자 쓰기(tmp → os.replace · 실패하면 옛 파일 그대로)."""
+    state_dir.mkdir(parents=True, exist_ok=True)
+    path = state_dir / "stall-scan.json"
+    tmp = path.with_name(f"stall-scan.json.tmp{os.getpid()}")
+    try:
+        _ = tmp.write_text(json.dumps(doc), encoding="utf-8")
+        os.replace(tmp, path)
+    except BaseException:
+        tmp.unlink(missing_ok=True)
+        raise
 
 
 def recent_in_log(state_dir: Path, seat: str, now: float) -> bool:
@@ -113,21 +135,21 @@ def begin() -> None:
     _J.update(on=True, t0=time.monotonic(), d=judge_budget(), k=0, n=0, fail=0)
 
 
-def save_seats(state_dir: Path, seats: dict) -> None:
+def lint_budget() -> bool:
+    """r1392 — 이 실행에서 lint 를 더 불러도 되나: 판정 단계 경과 ≤ D/2 (판정 밖이면 늘 허용). 넘으면 그 실행의 남은 카드는 «lint 미판정» 으로 두고 다음 실행이 이어서 잰다."""
+    return not _J["on"] or time.monotonic() - _J["t0"] <= _J["d"] / 2
+
+
+def save_seats(state_dir: Path, seats: dict, lint: dict[str, dict] | None = None) -> None:
     """r1282 단계 2 — 판정 불가로 끝난 실행의 «좌석 → jsonl 경로 캐시» 만 저장: 지금 stall-scan.json 을 읽어 seats 칸만 바꾼다
-    (handled·prev·a_card_nudged 등 다른 칸 그대로 · 파일 없음·깨짐 = {"seats": …} 만) · tmp → os.replace(원자 · 실패하면 옛 파일 그대로)."""
-    state_dir.mkdir(parents=True, exist_ok=True)
+    (handled·prev·a_card_nudged 등 다른 칸 그대로 · 파일 없음·깨짐 = {"seats": …} 만) · tmp → os.replace(원자 · 실패하면 옛 파일 그대로).
+    r1392 — lint 칸(그때까지 잰 카드)도 같은 원자 쓰기로 한 번에 저장한다(기한을 넘겨도 한 일은 남는다)."""
     doc = load(state_dir)
     doc = dict(doc) if isinstance(doc, dict) else {}
     doc["seats"] = seats
-    path = state_dir / "stall-scan.json"
-    tmp = path.with_name(f"stall-scan.json.tmp{os.getpid()}")
-    try:
-        _ = tmp.write_text(json.dumps(doc), encoding="utf-8")
-        os.replace(tmp, path)
-    except BaseException:
-        tmp.unlink(missing_ok=True)
-        raise
+    if lint is not None:
+        doc["lint"] = lint
+    _write(state_dir, doc)
 
 
 def judged(fn, state_dir: Path, on_timeout=None) -> int:

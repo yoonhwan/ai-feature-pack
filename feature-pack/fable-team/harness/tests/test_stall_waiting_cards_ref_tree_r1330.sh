@@ -43,8 +43,8 @@ PY
   run_py "$T/bin" test_stall_waiting_cards_ref_tree_r1330.py "$5"; [ $? -ne 0 ]; ck "변이 $1 → $5 FAIL" $?
   cp -p "$KIT/$2" "$T/bin/$2"
 }
-mutate "W1 대기 목록을 디스크 glob 으로" ft_stall_detect.py 'verdicts = _ref_verdicts(cards, lint, root)' 'verdicts = None' "s1 or s2"
-mutate "W2 선행 대조 stems 를 디스크로" ft_stall_detect.py 'card_ready(f, cards, lint, stems, bodies[n])' 'card_ready(f, cards, lint, None, bodies[n])' s3
+mutate "W1 대기 목록을 디스크 glob 으로" ft_stall_detect.py 'verdicts = _ref_verdicts(cards, lint, root, cache=cache' 'verdicts = None' "s1 or s2"
+mutate "W2 선행 대조 stems 를 디스크로" ft_stall_detect.py 'card_ready(f, cards, lint, stems, bodies[n], cache=cache' 'card_ready(f, cards, lint, None, bodies[n], cache=cache' s3
 mutate "W3 git 상한을 조용히 0장으로" ft_stall_scan.py 'notes.append(f"a? {t['"'"'team'"'"']} 대기 카드 판정 불가 — {e}")' 'pass' s4
 mutate "W4 ref 를 origin/main 고정" ft_stall_detect.py 'ref = basis_ref(root) if root else "origin/main"' 'ref = "origin/main"' s5
 sha_after="$(shasum "$TRK/ft_stall_detect.py" "$KIT/ft_stall_detect.py" "$KIT/ft_stall_scan.py" | awk '{print $1}' | tr '\n' ' ')"

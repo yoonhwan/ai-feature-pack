@@ -7,6 +7,7 @@ r1001 — `lead_heartbeat` = 팀장이 보낸 mbox 쪽지 중 본문 머리 `[�
 a 대기 카드 있는데 master IDLE · b 선언 뒤 IDLE · c 정책 정지(하네스 1건) · d 답 기다리며 3분+ (멈춘 쪽 = 받는이).
 좌석 상태는 ft-seat-status.sh turn(jsonl IDLE/WORKING) 출력을 그대로 쓴다 — pane·mtime 을 쓰지 않는다.
 """
+import hashlib  # r1392 — lint 판(ft-index-lint.sh) sha256 = 캐시 열쇠
 import json
 import os
 import re
@@ -293,10 +294,49 @@ def _prereq(text: str, stems: dict[str, set[str]], me: str) -> str:
     return f"unknown:{rest[:40]}" if rest else "ready"
 
 
-def card_ready(card: Path, cards_dir: Path, lint: str, stems: dict[str, set[str]] | None = None, text: str | None = None) -> str:
+LINT_MAX_AGE_S = 6 * 3600  # r1392 — 카드 lint 판정 기억 수명(oid·lint 판이 같아도 이보다 오래되면 다시 잰다)
+LINT_UNKNOWN = "unknown:lint 미판정"  # r1392 — 실행당 lint 예산을 넘겨 못 잰 장(ready 아님 · a 후보 0 · 조용한 0 아님)
+_LINT_STAMP: dict[str, str] = {}
+
+
+def lint_stamp(lint: str) -> str:
+    """r1392 — lint 판 = ft-index-lint.sh 파일 sha256 앞 16. 이 값이 바뀌면 옛 판정은 못 쓴다. 못 읽으면 ""(캐시 안 씀 → 다음 줄에서 그대로 lint)."""
+    if lint not in _LINT_STAMP:
+        try:
+            _LINT_STAMP[lint] = hashlib.sha256(Path(lint).read_bytes()).hexdigest()[:16]
+        except OSError:
+            _LINT_STAMP[lint] = ""
+    return _LINT_STAMP[lint]
+
+
+def _lint_verdict(card: Path, lint: str, cache: dict[str, dict] | None, oid: str | None,
+                  now: float | None, budget) -> str:
+    """r1392 — 카드 1장 lint 판정 → ok | blocked | budget(이번 실행 예산 넘김).
+    캐시(oid·lint 판 같음 ∧ at 이 LINT_MAX_AGE_S 안)면 프로세스 0, 아니면 budget() 이 허락할 때만 부른다."""
+    stamp = lint_stamp(lint)
+    hit = cache.get(card.stem) if cache is not None and oid and stamp else None
+    t = time.time() if now is None else now
+    if isinstance(hit, dict) and hit.get("oid") == oid and hit.get("lint") == stamp \
+            and isinstance(hit.get("at"), (int, float)) and not isinstance(hit.get("at"), bool) \
+            and 0 <= t - float(hit["at"]) <= LINT_MAX_AGE_S and hit.get("v") in ("ok", "blocked"):
+        return str(hit["v"])
+    if budget is not None and not budget():
+        return "budget"
+    v = "ok" if run(["bash", lint, str(card)])[0] == 0 else "blocked"
+    if cache is not None and oid and stamp:
+        cache[card.stem] = {"oid": oid, "lint": stamp, "v": v, "at": t}
+    return v
+
+
+def card_ready(card: Path, cards_dir: Path, lint: str, stems: dict[str, set[str]] | None = None, text: str | None = None,
+               *, cache: dict[str, dict] | None = None, oid: str | None = None, now: float | None = None, budget=None) -> str:
     """대기 카드 1장 → ready | blocked:<이름>(선행 카드가 대기/·진행/ 에 실재 · lint 실패 = blocked:(lint)) | unknown:<조건>(선행 자동 판정 불가 · 정상 대기로 보고 세지 않는다).
-    stems·text 를 주면(r1330 ref 트리 읽기) 디스크를 읽지 않는다 — 안 주면 지금처럼 cards_dir·card 파일."""
-    if run(["bash", lint, str(card)])[0] != 0:
+    stems·text 를 주면(r1330 ref 트리 읽기) 디스크를 읽지 않는다 — 안 주면 지금처럼 cards_dir·card 파일.
+    r1392: cache·oid 를 주면 lint 판정을 기억에서 쓰고, budget() 이 거절하면 LINT_UNKNOWN(선행 판정은 그대로 매번 한다)."""
+    verdict = _lint_verdict(card, lint, cache, oid, now, budget)
+    if verdict == "budget":
+        return LINT_UNKNOWN
+    if verdict != "ok":
         return "blocked:(lint)"
     stems = stems if stems is not None else _open_stems(cards_dir)
     body = text if text is not None else card.read_text(encoding="utf-8")
@@ -323,19 +363,26 @@ def _git(args: list[str], cwd: Path, stdin: bytes | None = None) -> tuple[int, b
     return rc, out, (lines[-1] if lines else "").lower()
 
 
-def _ref_stems(cards: Path, ref: str) -> dict[str, set[str]] | None:
-    """A1 — ref 트리의 대기/·진행/ 카드 stem(팀마다 ls-tree 1회 · README.md 뺌). git 리포 아님 = None(리포 밖 폴더엔 ref 트리가 없다 → 디스크) · 그 밖의 실패 = RefUnavailable."""
-    rc, out, err = _git(["ls-tree", "--name-only", "-z", ref, "--", "대기/", "진행/"], cards)
+def _ref_stems(cards: Path, ref: str) -> tuple[dict[str, set[str]], dict[str, str]] | None:
+    """A1 — ref 트리의 대기/·진행/ 카드 stem + 대기 카드 blob oid(팀마다 ls-tree 1회 · README.md 뺌 · 호출 수는 그대로).
+    r1392 — oid 도 같이 받는다(두 번째 호출 0): 캐시가 «카드 본문이 바뀌었나» 를 이 값으로 본다. git 리포 아님 = None(디스크 · oid 없음)."""
+    rc, out, err = _git(["ls-tree", "-z", ref, "--", "대기/", "진행/"], cards)
     if rc != 0:
         if "not a git repository" in err:
             return None
         raise RefUnavailable(f"git ls-tree rc={rc} {err[-60:]}")
     stems: dict[str, set[str]] = {"대기": set(), "진행": set()}
+    oids: dict[str, str] = {}
     for entry in out.decode("utf-8", "replace").split("\0"):
-        kind, _, name = entry.partition("/")
-        if kind in stems and name.endswith(".md") and "/" not in name and name != "README.md":
-            stems[kind].add(name[:-3])
-    return stems
+        meta, _, path = entry.partition("\t")  # <mode> SP <type> SP <oid> TAB <path>
+        head = meta.split()
+        kind, _, name = path.partition("/")
+        if len(head) != 3 or kind not in stems or not name.endswith(".md") or "/" in name or name == "README.md":
+            continue
+        stems[kind].add(name[:-3])
+        if kind == "대기":
+            oids[name[:-3]] = head[2]
+    return stems, oids
 
 
 def _ref_bodies(cards: Path, ref: str, names: list[str]) -> dict[str, str]:
@@ -359,16 +406,21 @@ def _ref_bodies(cards: Path, ref: str, names: list[str]) -> dict[str, str]:
     return bodies
 
 
-def _ref_verdicts(cards: Path, lint: str, root: Path | None) -> dict[str, str] | None:
-    """A1~A3 — 그 팀 대기 카드 → 판정. 기준 ref = roots.tsv «기준 ref»(없으면 origin/main). git 리포 밖 폴더 = None(디스크로)."""
+def _ref_verdicts(cards: Path, lint: str, root: Path | None, *, cache: dict[str, dict] | None = None,
+                  seen: set[str] | None = None, now: float | None = None, budget=None) -> dict[str, str] | None:
+    """A1~A3 — 그 팀 대기 카드 → 판정. 기준 ref = roots.tsv «기준 ref»(없으면 origin/main). git 리포 밖 폴더 = None(디스크로).
+    r1392 — cache(카드 stem → {oid, lint, v, at}) 를 주면 lint 판정을 기억하기도 하고 쓰기도 한다 · seen 에 이번에 본 stem 을 모은다."""
     try:
         ref = basis_ref(root) if root else "origin/main"
     except Exception as e:  # noqa: BLE001 — 루트 명부 깨짐 = 판정 불가 1줄(조용한 기본값 0)
         raise RefUnavailable(f"루트 명부 판정 불가({e.__class__.__name__})") from None
-    stems = _ref_stems(cards, ref)
-    if stems is None:
+    found = _ref_stems(cards, ref)
+    if found is None:
         return None
+    stems, oids = found
     names = sorted(stems["대기"])
+    if seen is not None:
+        seen.update(names)
     bodies = _ref_bodies(cards, ref, names) if names else {}
     verdicts: dict[str, str] = {}
     with tempfile.TemporaryDirectory(prefix="ft-stall-ref-") as td:  # lint 는 파일을 받는다 — 같은 이름의 임시 파일
@@ -376,7 +428,7 @@ def _ref_verdicts(cards: Path, lint: str, root: Path | None) -> dict[str, str] |
         for n in names:
             f = Path(td) / "대기" / f"{n}.md"
             _ = f.write_text(bodies[n], encoding="utf-8")
-            verdicts[n] = card_ready(f, cards, lint, stems, bodies[n])
+            verdicts[n] = card_ready(f, cards, lint, stems, bodies[n], cache=cache, oid=oids.get(n), now=now, budget=budget)
     return verdicts
 
 
@@ -425,24 +477,30 @@ def _ledger_holds(root: Path, stem: str, now: float, nudged: dict[str, float], n
 
 
 def waiting_cards(cards: Path | None, lint: str, root: Path | None = None, now: float | None = None,
-                  nudged: dict[str, float] | None = None, notes: list[str] | None = None) -> tuple[list[str], int]:
-    """→ (지금 spawn 할 수 있는 대기 카드 이름들, 선행 미판정 장수). r1330: git 리포 안이면 기준 ref 트리에서 읽는다(디스크 체크아웃이 뒤처져도 옛 카드 0) · 못 읽으면 RefUnavailable.
+                  nudged: dict[str, float] | None = None, notes: list[str] | None = None,
+                  cache: dict[str, dict] | None = None, seen: set[str] | None = None, budget=None) -> tuple[list[str], int, int]:
+    """→ (지금 spawn 할 수 있는 대기 카드 이름들, 선행 미판정 장수, lint 미판정 장수). r1330: git 리포 안이면 기준 ref 트리에서 읽는다(디스크 체크아웃이 뒤처져도 옛 카드 0) · 못 읽으면 RefUnavailable.
     r1238 A: now 를 주면 ready 카드마다 배정 원장(<루트>/.fable-team/state/card-assign/<카드>.json)을 같은 함수로(ref·디스크 두 길 공통) 대조해 뺀다 — 원장 못 읽음·꼴 위반 = RefUnavailable.
-    nudged = {카드 stem: 마지막 a 재촉 epoch}(미래 값은 지우고 notes 에 1줄)."""
+    nudged = {카드 stem: 마지막 a 재촉 epoch}(미래 값은 지우고 notes 에 1줄).
+    r1392: cache·now 로 lint 판정을 기억해 바뀐 카드만 lint 하고, budget() 이 거절하면 그 장은 LINT_UNKNOWN(ready 아님 · 셋째 값으로 센다)."""
     if not cards:
-        return [], 0
-    verdicts = _ref_verdicts(cards, lint, root)
+        return [], 0, 0
+    verdicts = _ref_verdicts(cards, lint, root, cache=cache, seen=seen, now=now, budget=budget)
     if verdicts is None:
         d = cards / "대기"
         if not d.is_dir():
-            return [], 0
-        verdicts = {c.stem: card_ready(c, d.parent, lint) for c in sorted(d.glob("*.md")) if c.name != "README.md"}
+            return [], 0, 0
+        disks = sorted((c for c in d.glob("*.md") if c.name != "README.md"), key=lambda c: c.stem)
+        verdicts = {c.stem: card_ready(c, d.parent, lint, now=now, budget=budget) for c in disks}
+        if seen is not None:
+            seen.update(c.stem for c in disks)
     ready = [n for n, v in verdicts.items() if v == "ready"]
     if root is not None and now is not None:  # 두 길(디스크·ref 트리) 공통 — 같은 함수
         sink: list[str] = notes if notes is not None else []
         mine = nudged if nudged is not None else {}
         ready = [n for n in ready if not _ledger_holds(root, n, now, mine, sink)]
-    return ready, sum(1 for v in verdicts.values() if v.startswith("unknown:"))
+    missed = sum(1 for v in verdicts.values() if v == LINT_UNKNOWN)
+    return ready, sum(1 for v in verdicts.values() if v.startswith("unknown:") and v != LINT_UNKNOWN), missed
 
 
 OUTAGE_STATUS = ("OK", "OUTAGE", "RECOVERED")  # ft_api_outage.Outage.load 와 같은 꼴 검사
