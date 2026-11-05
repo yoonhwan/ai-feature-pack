@@ -52,6 +52,9 @@ class Scan:
         self.recovered: set[str] = set()  # r849 — 이번 scan 에 정상 턴(IDLE·WORKING)으로 읽힌 좌석(로그아웃 칸 지움)
         self.st = stm.load(self.state_dir)
         self.nudged = stm.nudged_load(self.st)  # r1238 A-r4b-1 — 카드 stem → 마지막 a 재촉 epoch(저장본에서 복원)
+        self.lint_cache = stm.lint_load(self.st)  # r1392 — 카드 stem → {oid, lint, v, at}(저장본에서 복원 · 이번 판정이 더한다)
+        self.lint_seen: set[str] = set()  # r1392 — 이번 실행에 ref 트리에서 본 대기 카드 stem(안 본 장을 지우지 않는다)
+        self.lint_unread = 0  # r1392 — 이번 실행에 대기 카드를 못 읽은 팀 수(0 일 때만 캐시에서 사라진 카드를 지운다)
         self.flow = os.environ.get("FT_CARD_FLOW_SH") or str(HERE / "ft-card-flow.sh")
         self.errs: list[str] = []  # r1238 A-r4b-2 — 처리 단계 로그 꼬리(발신 실패 등)
         self.seats = Seats(self.status, self.now, self.st.setdefault("seats", {}))
@@ -68,6 +71,13 @@ class Scan:
     def turn(self, seat: str, fresh: bool = False) -> tuple[str, float | None]:
         i = self.seats.info(seat, force=fresh) if seat in self.live else {"state": "UNKNOWN", "end": None}
         return i["state"], i["end"]
+
+    def lint_store(self) -> dict[str, dict]:
+        """r1392 — 저장할 lint 칸: 대기 폴더를 떠난 카드(stem)는 뺀다. 이번 실행에 대기 카드를 못 읽은 팀이 있으면 지우지 않는다(그 팀 카드는 아직 대기 중일 수 있다 · 조용한 캐시 삭제 0)."""
+        if self.lint_unread == 0:
+            for stem in [k for k in self.lint_cache if k not in self.lint_seen]:
+                del self.lint_cache[stem]
+        return self.lint_cache
 
     def idle_age(self, seat: str, fresh: bool = False) -> float | None:
         state, end = self.turn(seat, fresh)
@@ -123,6 +133,7 @@ class Scan:
         for t in teams:
             if t["diag"] != "OK":
                 unknown += 1
+                self.lint_unread += 1
                 continue
             m = t["master"]
             leads = lead_names(self.root, m)  # 현역 role=master 전부 — 승계 직후 옛·새 둘 다
@@ -138,13 +149,20 @@ class Scan:
                     notes.append(f"a? {m} 상한 판정 불가(ft_seat_cap ERROR·없음) — a 세지 않음")
             if can_a and cap == "ok":
                 age = self.idle_age(m)  # 싼 판정(캐시)이 먼저 — master 가 IDLE 3분+ 일 때만 카드 lint(카드당 프로세스)를 돈다
-                names, u = [], 0
+                names, u, missed = [], 0, 0
                 if age is not None and age >= IDLE_MIN:
                     try:
-                        names, u = waiting_cards(t["cards"], self.lint, self.root, self.now, self.nudged, notes)
+                        names, u, missed = waiting_cards(t["cards"], self.lint, self.root, self.now, self.nudged, notes,
+                                                         cache=self.lint_cache, seen=self.lint_seen, budget=stm.lint_budget)
                     except RefUnavailable as e:  # r1330 A4 — 기준 ref 트리를 못 읽음: 그 팀 a 0 + 판정 불가 1줄(조용한 0 아님)
                         unknown += 1
+                        self.lint_unread += 1
                         notes.append(f"a? {t['team']} 대기 카드 판정 불가 — {e}")
+                    else:
+                        if missed:  # r1392 — 실행당 lint 예산(D/2)에 걸린 장: a 후보 0 · 조용한 0 이 아니라 «다음 실행» 1줄
+                            notes.append(f"a? {t['team']} lint 미판정 {missed}장 — 다음 실행")
+                else:
+                    self.lint_unread += 1
                 if names and not self.flags(m)["rest"] and (self.idle_age(m, fresh=True) or 0) >= IDLE_MIN:
                     n = len(names)
                     listed = f"대기 카드 {n}장({', '.join(names[:5])}{f' +{n - 5}' if n > 5 else ''}) · 선행 미판정 {u}장 제외"
@@ -430,7 +448,7 @@ class Scan:
             st_m, end_m = self.turn(t["master"]) if t["master"] in self.live else ("UNKNOWN", None)
             per_team[t["team"]] = {k: sum(1 for f in found if f["team"] == t["team"] and f["kind"] == k) for k in "abdf"}
             per_team[t["team"]]["master_end"] = end_m if st_m == "IDLE" else None
-        stm.save(self.state_dir, handled, sorted(keys), self.st["seats"], self.nudged, self.now)
+        stm.save(self.state_dir, handled, sorted(keys), self.st["seats"], self.nudged, self.now, lint=self.lint_store())
         _ = (self.state_dir / "stall-scan.last.json").write_text(json.dumps({"ts": self.now, "c": counts["c"], "teams": per_team}), encoding="utf-8")
         with open(self.state_dir / "stall-scan.log", "a", encoding="utf-8") as fh:
             _ = fh.write("".join(x + "\n" for x in log) + lines[0] + "\n")
@@ -452,7 +470,7 @@ def main(argv: list[str]) -> int:
         def go() -> int:
             held.append(Scan())
             return held[0].run(dry)
-        keep = None if dry else (lambda: held and stm.save_seats(state_dir, held[0].st["seats"]))
+        keep = None if dry else (lambda: held and stm.save_seats(state_dir, held[0].st["seats"], held[0].lint_store()))
         return stm.judged(go, state_dir, keep)
 
 
