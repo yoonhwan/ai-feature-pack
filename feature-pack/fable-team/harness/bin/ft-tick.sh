@@ -458,6 +458,29 @@ model_swap() {
   return 0
 }
 
+# ── r1360 닫기 차례 스냅샷(루트 틱 1곳 · 읽기 전용 조회 도구의 요약 1줄을 <루트>/.fable-team/state/close-due.txt 에 쓴다) ──────────────
+# 쓰는 곳 1: 팀 틱(seats-<팀>.json)은 건너뛴다. 임시→mv(반쯤 쓴 파일 0) · 도구 실패(rc≠0,3)·파일 쓰기 실패는 «판정 불가» 로 드러낸다(조용한 생략 0).
+# 읽는 곳 = planner·desk 보고(«닫기 차례 <팀>=<n>» 그대로 옮김) · 닫기는 팀장이 도구 출력 줄로(governance §11-4). 같은 파일이 FT_TICK_CLOSE_DUE_GAP 초(기본 300) 안이면 다시 조회하지 않는다.
+CLOSE_DUE_BIN="${FT_TICK_CLOSE_DUE_BIN:-$HERE/ft-nano-close-due.sh}"
+close_due_snapshot() {
+  local ft f out rc line age
+  [ "${FT_TICK_CLOSE_DUE:-1}" = 1 ] && [ "$(basename "$SEATS")" = seats.json ] || return 0
+  ft="$(dirname "$SEATS")"
+  if [ "$DRY" = 1 ]; then echo "DRY kind=close-due bin=$CLOSE_DUE_BIN fable-team=$ft"; return 0; fi
+  [ "$(basename "$ft")" = .fable-team ] || { log "close_due: skip — 명부가 <루트>/.fable-team/seats.json 꼴 아님 ($SEATS)"; return 0; }
+  f="$ft/state/close-due.txt"
+  if [ -f "$f" ]; then age=$(( $(date +%s) - $(stat -f %m "$f" 2>/dev/null || echo 0) )); [ "$age" -ge "${FT_TICK_CLOSE_DUE_GAP:-300}" ] || return 0; fi
+  out="$(FT_ROOT="$(dirname "$ft")" FT_CLOSE_DUE_BUDGET="${FT_TICK_CLOSE_DUE_BUDGET:-40}" bash "$CLOSE_DUE_BIN" --all --summary 2>&1)"; rc=$?
+  case "$rc" in
+    0|3) line="$(printf '%s\n' "$out" | tail -1)";;
+    *) line="닫기 차례 판정 불가 rc=$rc";;
+  esac
+  mkdir -p "$ft/state" 2>/dev/null
+  if printf '%s\n' "$line" > "$f.tmp.$$" 2>/dev/null && mv -f "$f.tmp.$$" "$f" 2>/dev/null; then log "close_due: $line"
+  else rm -f "$f.tmp.$$" 2>/dev/null; echo "$(date '+%F %T') close_due: ERROR close-due.txt 쓰기 실패 $f — $line" >&2; fi
+  return 0
+}
+
 team_master_seat() {
   python3 - "$ROOT" "$1" "$HERE" <<'PY'
 import sys
@@ -1334,6 +1357,7 @@ pass_core() {
   step idle_watch idle_watch
   step idle_long_watch idle_long_watch
   step model_swap model_swap
+  step close_due_snapshot close_due_snapshot   # r1360
   step stall stall
   step sweep_wt sweep_wt
   step drift_watch drift_watch
