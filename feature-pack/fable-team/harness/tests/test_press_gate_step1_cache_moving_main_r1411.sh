@@ -54,8 +54,8 @@ wrapgate(){ # $1 = 이름 · $2 = 게이트 · $3 = 로그 → 게이트 출력�
   local w="$T/wrap-$1.sh"
   printf '%s\n' '#!/usr/bin/env bash' "bash \"$2\" > \"$3\" 2>&1" > "$w" && chmod +x "$w" && printf '%s' "$w"
 }
-hookrun(){ # $@ = 훅 env 추가 대입 → 훅 출력(훅이 게이트를 부른다 · 입력 = T6 이 만든 JSON)
-  printf '%s' "$T6JSON" | env "$@" FT_PRESS_RUNNER_GATE_TIMEOUT=10 FT_PRESS_RUNNER_GATE_LOG="$CASE/hook.log" FT_PRESS_GATE_BIN="$T6BIN" \
+hookrun(){ # 훅 출력(훅이 게이트를 부른다 · 입력 = T6 이 만든 JSON) · env 뒤 실행 명령은 «글자»(bash)로 고정 — 펼침을 두면 빈 값일 때 env 전체가 화면으로 샌다
+  printf '%s' "$T6JSON" | env FT_PRESS_RUNNER_GATE_TIMEOUT=10 FT_PRESS_RUNNER_GATE_LOG="$CASE/hook.log" FT_PRESS_GATE_BIN="$T6BIN" \
     FT_PRESS_WT="$CASE/run" FT_PRESS_ROOT="$R" FT_PRESS_PERMIT_DIR="$CASE/permits" FT_PRESS_EVID="$CASE/ev" TMUX_PANE=%1 \
     SESS_FILE="$CASE/sessions" GITLOG="$CASE/gitlog" REALGIT="$REALGIT" CURL_CODE=000 PATH="$FB:$PATH" bash "$HOOK" 2>&1
 }
