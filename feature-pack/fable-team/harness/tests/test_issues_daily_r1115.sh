@@ -31,12 +31,20 @@ cat > "$GH" <<'SH'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >> "$GH_LOG"
 case "$*" in
+  *"repo view"*) printf '{"owner":{"login":"byz"},"name":"pack"}\n';;
+  *"api graphql"*)
+    case "$*" in
+      *"search(type:ISSUE"*) [ "${FAIL_CLOSED:-0}" = 1 ] && exit 1;;
+      *) [ "${FAIL_OPEN:-0}" = 1 ] && { echo "gh: not logged in" >&2; exit 1; };;
+    esac
+    exec python3 "$STUB_PY" --fixture "$GQL_JSON" "$@";;
   *"--state closed"*) [ "${FAIL_CLOSED:-0}" = 1 ] && exit 1; cat "$CLOSED_JSON";;
   *) [ "${FAIL_OPEN:-0}" = 1 ] && { echo "gh: not logged in" >&2; exit 1; }; cat "$OPEN_JSON";;
 esac
 SH
 chmod +x "$GH"
 export GH_LOG="$T/gh-calls.log" OPEN_JSON="$T/open.json" CLOSED_JSON="$T/closed.json"
+export GQL_JSON="$T/gql.json" STUB_PY="$HERE/_gh_graphql_stub.py"
 : > "$GH_LOG"
 
 # ── 가짜 mbox (발신 본문 파일 기록 · 실제 발신 0) ──
@@ -98,6 +106,20 @@ closed_rows = [{"number": 9000, "closedAt": iso(-3600)}, {"number": 9001, "close
 for path, rows in zip(err, (open_rows, closed_rows)):
     with open(path, "w", encoding="utf-8") as fh:
         json.dump(rows, fh, ensure_ascii=False)
+PY
+# r1395 쪽 읽기 대역 시나리오: 열린 목록 = 1쪽 그대로 · 닫힌(24h) = search 창(closed:>=now-24h) 안의 것만
+python3 - "$T/open.json" "$T/closed.json" "$T/gql.json" "$NOW" <<'PY'
+import datetime, json, sys
+open_rows = json.load(open(sys.argv[1], encoding="utf-8"))
+closed_rows = json.load(open(sys.argv[2], encoding="utf-8"))
+now = int(sys.argv[4])
+recent = [r for r in closed_rows
+          if now - datetime.datetime.fromisoformat(r["closedAt"].replace("Z", "+00:00")).timestamp() < 86400]
+scenario = {"repo": {"owner": "byz", "name": "pack"},
+            "open": {"totalCount": len(open_rows), "pages": [open_rows]},
+            "closed": {"issueCount": len(recent), "pages": [recent]}}
+with open(sys.argv[3], "w", encoding="utf-8") as fh:
+    json.dump(scenario, fh, ensure_ascii=False)
 PY
 
 run_tool() { # <도구> <표폴더> [env…] — timeout 70 안에서
