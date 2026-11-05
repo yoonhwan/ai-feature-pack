@@ -58,7 +58,7 @@ printf 'disabled services = {\n\t"com.byz.ft-magazine" => disabled\n\t"com.byz.f
 mkdir -p "$T/rec"
 ldc() {
   FT_LDC_EXPECTED="$T/expected.txt" FT_LDC_RECORDS="$T/rec" FT_LDC_STATE="$T/state/lc" FT_LDC_NOW=2026-10-15 FT_LDC_MBOX="$T/mbox.sh" \
-    FT_LDC_NOTIFY="hmaster#t" FT_LDC_LAUNCHCTL="$T/bin/launchctl" bash "$BIN/ft-launchd-check.sh" 2>&1
+    FT_LDC_NOTIFY="hmaster#t" FT_LDC_LAUNCHCTL="$T/bin/launchctl" FT_LDC_AGENTS_DIR="$T/launch-none" bash "$BIN/ft-launchd-check.sh" 2>&1   # r1377
 }
 reset; OUT="$(ldc)"
 [ "$(calls)" = 1 ] && grep -q '^send hmaster#t ft-launchd-check \[급\] 예약 com.byz.ft-magazine' "$T/mbox.calls" && echo "$OUT" | grep -q '내림 기록 없음' && ok "ⓓ disabled + 기록 없음 → [급] 1통" || bad "ⓓ 기록 없음 calls=$(calls): $OUT"
@@ -82,7 +82,7 @@ reset; mag_nolog '2026-10-15 08:14' >/dev/null; [ "$(calls)" = 0 ] && ok "ⓕ1 �
 printf 'disabled services = {\n\t"com.byz.ft-magazine" => disabled\n}\n' > "$T/disabled.txt"
 printf 'com.byz.ft-magazine\n' > "$T/expected.txt"
 ldcs() { FT_LDC_EXPECTED="$T/expected.txt" FT_LDC_RECORDS="$T/rec" FT_LDC_STATE="$T/state/lc" FT_LDC_NOW=2026-10-15 FT_LDC_MBOX="$T/mbox.sh" \
-  FT_LDC_NOTIFY="hmaster#t" FT_LDC_LAUNCHCTL="$T/bin/launchctl" bash "${1:-$BIN/ft-launchd-check.sh}" 2>&1; }
+  FT_LDC_NOTIFY="hmaster#t" FT_LDC_LAUNCHCTL="$T/bin/launchctl" FT_LDC_AGENTS_DIR="$T/launch-none" bash "${1:-$BIN/ft-launchd-check.sh}" 2>&1; }   # r1377
 rec4() { printf '사유: %s\n판정: %s\n다시 올릴 조건: %s\n누가: %s\n' "$1" "$2" "$3" "$4" > "$T/rec/com.byz.ft-magazine.md"; }
 case2() {  # $1 = 이름 · $2 = 빠진 항목 표기 · 나머지 = rec4 인자 · $SCRIPT 로 대상 스크립트
   local name="$1" miss="$2"; shift 2; rec4 "$@"; reset; OUT="$(ldcs "${SCRIPT:-}")"

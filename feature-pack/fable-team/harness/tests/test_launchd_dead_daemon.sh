@@ -37,7 +37,7 @@ reset() { rm -f "$T/mbox.calls"; rm -rf "$T/state/lc"; }
 ldc() {
   FT_LDC_EXPECTED="$T/expected.txt" FT_LDC_RECORDS="$T/rec" FT_LDC_STATE="$T/state/lc" FT_LDC_NOW=2026-10-21 \
     FT_LDC_MBOX="$T/mbox.sh" FT_LDC_NOTIFY="hmaster#t" FT_LDC_LAUNCHCTL="$T/bin/launchctl" \
-    bash "$SCRIPT" 2>&1
+    FT_LDC_AGENTS_DIR="$T/launch-none" bash "$SCRIPT" 2>&1   # r1377: ProcessType 점검은 빈 폴더(실 LaunchAgents 안 읽는다)
 }
 # 라벨 print 출력 = arguments 블록(인터프리터 + 스크립트 경로)
 mkprint() { printf 'gui/501/%s = {\n\tprogram = /bin/bash\n\targuments = {\n\t\t/bin/bash\n\t\t%s\n\t}\n}\n' "$1" "$2" > "$T/print.$1"; }

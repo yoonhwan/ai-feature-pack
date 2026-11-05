@@ -17,6 +17,7 @@
     <dict><key>Hour</key><integer>8</integer><key>Minute</key><integer>20</integer></dict>
   </array>
   <key>RunAtLoad</key><false/>
+  <key>ProcessType</key><string>Interactive</string>
   <key>EnvironmentVariables</key>
   <dict>
     <key>PATH</key><string>/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>

@@ -11,6 +11,7 @@
   </array>
   <key>StartInterval</key><integer>600</integer>
   <key>RunAtLoad</key><false/>
+  <key>ProcessType</key><string>Interactive</string>
   <key>WorkingDirectory</key><string>__BYZ_ROOT__</string>
   <key>EnvironmentVariables</key>
   <dict>
