@@ -5,6 +5,8 @@
 #   방식: 임시 FT_ROOT + 가짜 gh(tests/_gh_graphql_stub.py 대역 · 호출 기록 · 상한 초과 = exit 124 흉내)
 #         + 표 폴더. 실 GitHub 0 · 네트워크 0 · 고정 sleep 0 · 자기 재호출 0(이 파일은 자기 자신을 부르지 않는다)
 #         · ulimit -u + timeout 70 (하드 룰 22 — 시험 1개 단독 70초).
+#   쪽 호출 상한(기본 25초)을 가르는 C10·변이«기본 상한 25 → 7» = tests/test_issues_daily_timeout_r1395.sh 로 나뉘었다
+#         (그 파일만 «진짜 8초 지연» 을 쓴다 · 합치면 47초 · 부하 시 96초 = 하드 룰 22 초과).
 #   기준판 = 팩 origin/main r1115 판(922168e0e7 고정 40hex) — 그 판은 graphql 을 안 부르므로 C1~C7 이 FAIL 이어야 한다.
 #   exit 0 = 전부 통과 · 1 = 실패 1건 이상
 set -uo pipefail
@@ -90,6 +92,8 @@ if c.get("issueCount") is not None:
     payload["closed"]["issueCount"] = int(c["issueCount"])
 if spec.get("timeout"):
     payload["timeout"] = dict(spec["timeout"])
+if spec.get("slow"):
+    payload["slow"] = dict(spec["slow"])
 with open(out, "w", encoding="utf-8") as fh:
     json.dump(payload, fh, ensure_ascii=False)
 PY
@@ -305,17 +309,18 @@ import sys
 p, which = sys.argv[1], sys.argv[2]
 t = open(p, encoding="utf-8").read()
 PAIRS = {
- "1": ('    for _ in (1, 2):', '    for _ in (1,):'),
- "2": ('        if not info.get("hasNextPage"):\n            break', '        break'),
- "3": ('    if want > len(comments):', '    if False:'),
- "4": ('        if count is None or len(pairs) != count or count > CLOSED_MAX:',
-       '        if count is None or count > CLOSED_MAX:'),
+ "1": [('    for _ in (1, 2):', '    for _ in (1,):')],
+ "2": [('        if not info.get("hasNextPage"):\n            break', '        break')],
+ "3": [('    if want > len(comments):', '    if False:')],
+ "4": [('        if count is None or len(pairs) != count or count > CLOSED_MAX:',
+        '        if count is None or count > CLOSED_MAX:')],
 }
-old, new = PAIRS[which]
-if t.count(old) != 1:
-    print(f"MUTFAIL {which} — 닻 {t.count(old)}개")
-    raise SystemExit(2)
-open(p, "w", encoding="utf-8").write(t.replace(old, new, 1))
+for old, new in PAIRS[which]:
+    if t.count(old) != 1:
+        print(f"MUTFAIL {which} — 닻 {t.count(old)}개")
+        raise SystemExit(2)
+    t = t.replace(old, new, 1)
+open(p, "w", encoding="utf-8").write(t)
 PY
 }
 # 변이 ① 재시도 제거 → C2(2쪽 1회 초과 후 재시도) FAIL — 시나리오는 새로 만든다(초과 횟수를 앞 시험이 이미 써버렸다)
@@ -361,5 +366,5 @@ for f in "$STUB" "$HERE/test_issues_daily_paging_r1395.sh"; do
 done
 
 echo
-if [ "$fail" = 0 ]; then echo "ALL PASS (C1~C9 · 기준판 · 변이 4) — 단계: 표 ${SECONDS}s"; exit 0; fi
+if [ "$fail" = 0 ]; then echo "ALL PASS (C0~C9 · 기준판 · 변이 4) — 단계: 표 ${SECONDS}s"; exit 0; fi
 echo "FAIL 있음 — 위 FAIL 줄"; exit 1

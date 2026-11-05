@@ -11,12 +11,13 @@
   · repo view --json owner,name               → {"owner":{"login":…},"name":…}
   · issue list --state open|closed …          → 옛 경로(기준판)용 평면 배열
 시간 초과 흉내 = 시나리오 "timeout" 칸의 «남은 횟수» 를 하나 줄이고 exit 124 (고정 sleep 0).
+지연 흉내 = 시나리오 "slow" 칸의 초만큼 진짜로 기다린다(호출 상한 7 vs 25 판정 시험 C10 전용).
 
 시나리오(JSON) 꼴:
   {"repo": {"owner": "byz", "name": "pack"},
    "open":   {"totalCount": 120, "pages": [[<gh issue list 행>, …], …]},
    "closed": {"issueCount": 250, "pages": [[{"number": 1, "closedAt": "…"}], …]},
-   "timeout": {"open:2": 1, "closed:1": 2}}
+   "timeout": {"open:2": 1, "closed:1": 2}, "slow": {"open:1": 8}}
 
 <gh issue list 행> = {"number","title","labels":[{"name"}],"createdAt","updatedAt","body",
                       "comments":[{"body","createdAt"}]}
@@ -28,6 +29,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import time
 
 OPEN = "issues(states:OPEN"
 CLOSED = "search(type:ISSUE"
@@ -53,6 +55,17 @@ def log(argv: list[str]) -> None:
     if path:
         with open(path, "a", encoding="utf-8") as fh:
             fh.write(" ".join(argv) + "\n")
+
+
+def slow_wait(data: dict, key: str) -> None:
+    """시나리오 slow[key] 초 만큼 «진짜로» 기다린다 — 호출 상한(7 vs 25)을 가르는 시험용.
+    (원칙은 «고정 sleep 0» 이지만 상한 판정은 시간이 흐르지 않으면 관측이 불가능하다 · r1395 C10 · DA⑥ 요청)"""
+    table = data.get("slow")
+    if not isinstance(table, dict):
+        return
+    sec = float(table.get(key) or 0)
+    if sec > 0:
+        time.sleep(sec)
 
 
 def take_timeout(path: str, key: str) -> bool:
@@ -172,6 +185,7 @@ def main(argv: list[str]) -> int:
     if OPEN in query:
         if take_timeout(fixture, f"open:{page}"):
             return 124
+        slow_wait(data, f"open:{page}")
         block = data.get("open") or {}
         nodes, more = pages_of(block, page)
         conn = {
@@ -185,6 +199,7 @@ def main(argv: list[str]) -> int:
     if CLOSED in query:
         if take_timeout(fixture, f"closed:{page}"):
             return 124
+        slow_wait(data, f"closed:{page}")
         block = data.get("closed") or {}
         nodes, more = pages_of(block, page)
         count = block.get("issueCount")
@@ -203,6 +218,7 @@ def main(argv: list[str]) -> int:
         num = int(fields.get("num") or 0)
         if take_timeout(fixture, f"comments{num}:{page}"):
             return 124
+        slow_wait(data, f"comments{num}:{page}")
         row = find_row(data, num)
         comments = [cm for cm in (row.get("comments") or []) if isinstance(cm, dict)]
         start = (page - 1) * 100
