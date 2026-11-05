@@ -87,6 +87,9 @@ card_assign_record() {  # $1 카드 $2 init|waiting|seat $3 사유|이름 [$4 ho
   { [ "$DRY" = 1 ] || [ "$RESEARCH" = 1 ]; } && return 0
   python3 "$HERE/ft_card_assign_watch.py" record "$@" >&2 || echo "WARN 배정 원장 기록 실패($*)" >&2
 }
+# ★r1385 보탬(arch#225 · master#162 #259818)★ 좌석 이름 slug 규칙 한 곳 — 소문자·[a-z0-9-] 만, «길이로 자른 뒤» 끝 하이픈을 지운다.
+#   실사건: 카드 이름 40자째가 하이픈이면 좌석·가지·워크트리 이름이 «…-» 로 끝나 ft-name-lint «빈 토큰(끝 -)» REJECT · 명부 행 0 이라 nano-close·stall·close-due 가 그 좌석을 못 본다(byz-harness-nano-r1386-merge-land-heavy-slot-wait-within-#0).
+_slug() { basename "$1" .md | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | cut -c"1-$2" | sed 's/-\{1,\}$//'; }
 # ★r1335 --reopen 판정(진행/ 카드의 닫힌 나노를 같은 카드에 다시 연다)★ — 첫 쓰기(아래 원장 init · 회수 · 정지·계정·상한 게이트) «전» 에 한 함수로 돈다 · 거절 = REJECT 1줄 rc1 · 원장·카드·명부·워크트리·tmux 변경 0.
 #   ① 진행/ 카드만(대기/ = «--reopen 없이») ② 옛 좌석이 살아 있으면 REJECT(ring 이 맞다) — 살아 있음 = 카드 거울 «- 배정: 좌석 <이름>» 이 tmux 에 있음 ∨ 이 카드 슬러그의 나노 세션 이름(«…-nano-<슬러그>#<번호>»)이 tmux 에 있음(거울 «없음» 이어도 본다) ③ tmux 목록을 못 읽으면 판정 불가 REJECT(통과 0).
 reopen_check() {
@@ -97,7 +100,8 @@ reopen_check() {
     *) echo "REJECT --reopen 은 진행/ 에 있는 카드만: $IDX"; return 1;;
   esac
   [ -f "$IDX" ] || { echo "REJECT 인덱스 없음: $IDX"; return 1; }
-  slug="$(basename "$IDX" .md | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | cut -c1-40)"
+  slug="$(_slug "$IDX" 40)"
+  [ -n "$slug" ] || { echo "REJECT 카드 이름에서 좌석 이름을 못 만듦 — 카드 이름에 영문·숫자가 없다: $(basename "$IDX") · 개설 0"; return 1; }
   mirror="$(awk '/^##[[:space:]]/{exit} /^- 배정: 좌석 /{sub(/^- 배정: 좌석 /,""); sub(/[[:space:]]+$/,""); print; exit}' "$IDX")"
   live="$(tmux list-sessions -F '#{session_name}' 2>/dev/null)" || { echo "REJECT 판정 불가 — tmux 세션 목록을 못 읽었다(tmux list-sessions rc≠0) · 개설 0"; return 1; }
   hit=""; [ -z "$mirror" ] || hit="$(printf '%s\n' "$live" | grep -Fx -- "$mirror" | head -1)"
@@ -582,8 +586,9 @@ PY
       ;;
   esac
 fi
-SLUG="$(basename "$IDX" .md | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | cut -c1-40)"
-[ "$RESEARCH" != 1 ] || SLUG="$(printf '%s' "$SLUG" | cut -c1-30)-research"   # R387: 좌석 이름·브랜치·워크트리 꼬리 -research
+SLUG="$(_slug "$IDX" 40)"
+[ -n "$SLUG" ] || { echo "REJECT 카드 이름에서 좌석 이름을 못 만듦 — 카드 이름에 영문·숫자가 없다: $(basename "$IDX") · 좌석 0"; exit 1; }
+if [ "$RESEARCH" = 1 ]; then SLUG="$(printf '%s' "$SLUG" | cut -c1-30 | sed 's/-\{1,\}$//')"; [ -n "$SLUG" ] || { echo "REJECT 카드 이름에서 좌석 이름을 못 만듦 — 앞 30자에 영문·숫자가 없다: $(basename "$IDX") · 좌석 0"; exit 1; }; SLUG="$SLUG-research"; fi   # R387: 꼬리 -research(자른 자리가 - 면 지우고 한 번만 붙인다)
 BASE_NAME="${FT_NANO_PREFIX:-$DEF_NANO_PREFIX}$SLUG"
 N=0; if [ "$REOPEN" = 1 ]; then N="$(reopen_next_n "$BASE_NAME")" || { printf '%s\n' "$N"; exit 1; }; fi
 while tmux has-session -t "=$BASE_NAME#$N" 2>/dev/null; do N=$((N+1)); done

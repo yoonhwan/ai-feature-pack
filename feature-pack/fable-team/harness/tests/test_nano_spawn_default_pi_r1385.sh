@@ -80,6 +80,22 @@ for SP in "$HERE/../bin/ft-nano-spawn.sh" "$HERE/../kit/fable-team/bin/ft-nano-s
     _l="$(grep -n -F -- "$_m" "$SP" | head -1 | cut -d: -f1)"
     { [ -n "$_l" ] && [ -n "$_g" ] && [ "$_l" -gt "$_g" ]; } && ok "$tag: 게이트 < 「${_m}」 (${_g:-?} < ${_l:-?})" || bad "$tag: 게이트가 「${_m}」(${_l:-?}) 뒤 — 부작용 0 아님"
   done
+  # ── 보탬(arch#225 · master#162 #259818) 좌석 이름 끝 하이픈 — N9·N10·N11 ──
+  _fl="$(grep -n '^_slug() {' "$SP" | head -1 | cut -d: -f1)"
+  _bs="$(grep -n '^SLUG="\$(_slug' "$SP" | head -1 | cut -d: -f1)"
+  _be="$(awk -v s="${_bs:-0}" 'NR>s && /^if \[ .*RESEARCH.* = 1 \]; then SLUG=/{print NR; exit}' "$SP")"
+  [ -n "${_be:-}" ] || { bad "$tag: slug 블록 끝(리서치 줄) 못 찾음"; _be=$_bs; }
+  slugh() { { [ -n "$_fl" ] && sed -n "${_fl}p" "$SP"; sed -n "${_bs:-0},${_be:-0}p" "$SP"; echo 'echo "SLUG=$SLUG"'; } > "$T/slug.sh"
+    env -i PATH="$PATH" IDX="$1" RESEARCH="$2" bash "$T/slug.sh" 2>&1; }
+  r="$(slugh "$T/r1386-merge-land-heavy-slot-wait-within-budget.md" 0)"
+  [ "$r" = "SLUG=r1386-merge-land-heavy-slot-wait-within" ] && ok "$tag: N9 카드 40자째가 - → 이름 끝 하이픈 0" || bad "$tag: N9 → $r"
+  bash "$HERE/../bin/ft-name-lint.sh" "byz-harness-nano-r1386-merge-land-heavy-slot-wait-within#0" >/dev/null 2>&1 && ok "$tag: N9 ft-name-lint PASS(옛 이름은 REJECT)" || bad "$tag: N9 ft-name-lint REJECT"
+  r="$(slugh "$T/r1386-merge-land-heavy-slot-wait-within-budget.md" 1)"
+  [ "$r" = "SLUG=r1386-merge-land-heavy-slot-wa-research" ] && ok "$tag: N10 리서치 꼬리 = -research 하나" || bad "$tag: N10 → $r"
+  case "$r" in *--research*) bad "$tag: N10 하이픈 둘(--research)";; *) ok "$tag: N10 하이픈 둘 아님";; esac
+  r="$(slugh "$T/한글카드이름.md" 0)"; rc=$?
+  { [ "$rc" = 1 ] && has "N11 영문·숫자 0 인 카드 이름 → REJECT" "$r" "REJECT 카드 이름에서 좌석 이름을 못 만듦"; } || bad "$tag: N11 rc=$rc (기대 1)"
+  grep -q 'slug="$(_slug "$IDX" 40)"' "$SP" && ok "$tag: reopen 경로도 _slug(끝 - 제거)" || bad "$tag: reopen 경로가 옛 slug 계산"
   head -12 "$SP" | grep -q '기본 pi' && ok "$tag: 머리 주석에 기본 pi" || bad "$tag: 머리 주석에 기본 pi 없음"
 done
 cmp -s "$HERE/../bin/ft-nano-spawn.sh" "$HERE/../kit/fable-team/bin/ft-nano-spawn.sh" && ok "추적본 = 키트(cmp)" || bad "추적본 ≠ 키트"
