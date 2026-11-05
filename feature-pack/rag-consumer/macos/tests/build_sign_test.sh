@@ -152,7 +152,7 @@ run_build() {
 }
 run_sign() { AIRAG_SIGN_IDENTITY="AIRAG Local Signing" run_build sign; }
 
-calls() { tr '\n' ' ' < "$FAKE_LOG/calls" 2>/dev/null | sed 's/ $//'; }
+calls() { if [[ -f "$FAKE_LOG/calls" ]]; then tr '\n' ' ' < "$FAKE_LOG/calls" | sed 's/ $//'; fi; }
 count() {  # count <call name> in the call log
   local c
   c="$(grep -c -x -- "$1" "$FAKE_LOG/calls" 2>/dev/null)" || c=0
