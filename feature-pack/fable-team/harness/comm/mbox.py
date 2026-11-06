@@ -41,6 +41,7 @@ union 을 두는 이유 — 경로를 «순간에» 바꾸면 바꾸기 직전 �
 """
 import os, sys; sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))   # 모듈 = 이 파일의 «실제» 폴더 — 링크 폴더를 sys.path 에 넣고 import 해도 찾게(DA r1 Q2) · CANON 은 아래에서 링크 위치(abspath)로 정한다
 from mbox_conf import *
+import mbox_roots   # r1413: 우편함 고르기(ⓒ-4)가 roots.tsv 파서를 쓴다 — CANON 을 정하기 «전» 에 필요
 
 
 def _repo_root(start):
@@ -75,9 +76,47 @@ def _repo_root(start):
 
 
 _ROOT = _repo_root(os.path.dirname(os.path.abspath(__file__)))
+
+
+def _call_site_root():
+    """r1413 — 이 파일 «호출 위치»(abspath · 심링크를 풀지 않는다)가 <루트>/.fable-team/comm 이면 그 루트.
+
+    데이터 루트가 git 공용 루트 «아래 하위 폴더» 인 팀(kakao)은 _repo_root 가 «공용 루트» 로 잘라
+    우편함이 두 곳으로 갈린다 — 고른 안 ⓒ = 호출 위치를 따로 본다."""
+    d = os.path.dirname(os.path.abspath(__file__))
+    if os.path.basename(d) != "comm" or os.path.basename(os.path.dirname(d)) != ".fable-team":
+        return None
+    return os.path.dirname(os.path.dirname(d))
+
+
+def _data_root_canon(root):
+    """r1413 ⓒ — 호출 위치 루트가 roots.tsv «경로» 칸과 정확히 같을 때만 그 루트 우편함. 아니면 None(= 지금 _repo_root).
+
+    ⓒ-3 지금 루트와 같으면 명부를 «안 연다»(본판 단축) · ⓒ-4 실경로 정확 일치만 · ⓒ-5 명부 없음 = 지금 · 깨짐 = 조용한 후퇴 0(rc2).
+    ★명부를 여는 자리는 이 «우편함 고르기» 하나뿐이다★ — send 의 다리 판정(r1309)은 그대로(ⓒ-6)."""
+    x = _call_site_root()
+    if not x or os.path.realpath(x) == os.path.realpath(root):
+        return None
+    try:
+        rows = mbox_roots.roots()
+    except mbox_roots.RootsError as e:
+        sys.stderr.write("NO_MAILBOX_ROOT: roots.tsv 판정 불가 %s\n" % e)
+        sys.exit(2)
+    want = os.path.realpath(x)
+    for r in rows:
+        if os.path.realpath(str(r["path"])) == want:
+            return os.path.join(x, ".fable-team", "comm")
+    return None
+
+
 # ★명시가 추론을 이긴다★ — env 로 준 FT_MBOX_DIR 은 그대로 존중한다(이전엔 래퍼가 덮어썼다).
 # ★F4: env 도 조상도 없으면 fail-loud — 스크립트 디렉토리 «안»에 우편함을 만들지 않는다.
-CANON = os.environ.get("FT_MBOX_DIR") or (os.path.join(_ROOT, ".fable-team", "comm") if _ROOT else None)
+if os.environ.get("FT_MBOX_DIR"):
+    CANON = os.environ["FT_MBOX_DIR"]                      # ⓒ-1 명시가 1순위 — 명부 읽기 0
+elif _ROOT:
+    CANON = _data_root_canon(_ROOT) or os.path.join(_ROOT, ".fable-team", "comm")
+else:
+    CANON = None
 if not CANON:
     sys.stderr.write("NO_MAILBOX_ROOT: .fable-team 조상 없음 — FT_MBOX_DIR 를 지정하라\n")
     sys.exit(2)
@@ -100,7 +139,7 @@ os.makedirs(CANON, exist_ok=True)
 
 # 분리 모듈(같은 폴더 — 이 파일이 링크면 «실제» 폴더에서 import 된다).
 # ★정본 자리는 이 파일 위치(__file__)로만 정해 묶어 준다★ — 모듈 위치로 정하면 링크 설치(.claude/fable-team/bin)에서 .fable-team 조상이 없어 NO_MAILBOX_ROOT.
-import mbox_store, mbox_guard, mbox_lineage, mbox_ops, mbox_handover, mbox_roots, mbox_retire_check
+import mbox_store, mbox_guard, mbox_lineage, mbox_ops, mbox_handover, mbox_retire_check
 for _m in (mbox_store, mbox_guard, mbox_lineage, mbox_ops, mbox_handover, mbox_roots, mbox_retire_check):
     _m.CANON = CANON
 mbox_roots.OWN_ROOT = _ROOT   # r1309: 다리 판정의 «물러설 자리» — 다만 mbox_roots 는 CANON(<루트>/.fable-team/comm)에서 먼저 푼다(워크트리 밖 리포 루트로 잘린 _ROOT 는 하위 폴더 루트와 안 맞는다)
