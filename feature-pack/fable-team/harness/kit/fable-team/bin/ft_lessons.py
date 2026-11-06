@@ -1,34 +1,42 @@
 #!/usr/bin/env python3
-"""ft_lessons.py — 3계층 LESSONS(좌석 → 팀 → 전역 다이제스트) + 파일 락. r1433.
+"""ft_lessons.py — 좌석·팀 LESSONS를 **jsonl + 개수 상한(cap) + 밀어내기**로 관리한다. r1440.
 
-설계 근거: hermes 는 MEMORY.md / USER.md + <파일>.lock 로 기억을 다룬다. fable-team 은 계층이 3개다.
-  좌석 LESSONS  ≤ 2,048 B   <FT_ROOT>/state/lessons/seat/<좌석이름>.md
-  팀 LESSONS    ≤ 4,096 B   <FT_ROOT>/state/lessons/team/<팀>.md
-  전역 다이제스트 ≤ 2,048 B   ~/.claude/rules/dumb-time-digest.md   (읽기 전용 — 갱신 규칙은 guides/dumb-time.md)
-계층 규칙: 좌석에서 3번 되풀이된 교훈만 팀으로 올리고, 팀에서 팀을 넘어 되풀이된 것만 전역으로 올린다.
-  올리는 판단은 사람·팀장이 한다(자동 승격 없음 — 잘못된 일반화가 전 좌석에 퍼지는 것을 막는다).
-락: <파일>.lock 을 fcntl.flock 으로 7초 대기. 못 잡으면 rc3 «판정 불가» 1줄(하드 룰 20).
-레포 대조(2026-11-06 r1436 — hermes · nanoclaw · xclaw 아카이브를 실제로 읽고 맞춘 축):
-  hermes `tools/memory_tool.py` — ①메모리는 **세션 시작 1회 FROZEN 스냅샷**으로 프롬프트에 들어간다(중간 쓰기는 디스크만 → prefix cache 보존) ②`§` 구분자 엔트리 + char 예산 ③`atomic_write_text`(temp+rename) ④drift 가드(round-trip 불가면 .bak 저장 후 쓰기 거부) ⑤프롬프트 주입 스캔(strict — 메모리는 세션을 넘어 살아남으므로)
-  nanoclaw `groups/<name>/memory/{directives,mistakes,achievements}.md` — 기억을 **3분류**로 나눠 둔다(지침·실수·성과)
-  xclaw 아카이브 `docs/nanoclaw-analysis/nanoclaw-deep-analysis.md` — 세대 진화는 **in-place + `CLAUDE.md.gen-{N}` 버전 파일**, `conversations/` 아카이브가 진화 입력
-  → 그래서 이 도구는 `snapshot`(부팅 1회 로드) · `--kind directive|mistake|achievement`(3분류) · 원자적 쓰기 · 주입 스캔 · drift 가드를 갖는다.
-종료코드: 0 정상 · 3 락/판정 불가 · 2 usage · 1 상한 위반(check)
+왜 개수 상한인가 (오빠 지시 2026-11-06 «jsonl 로 관리되고 cap 이 있는 리스트 … 100개만 갖게 해서 밀어내기 … 영구기억들도 개수 제한»)
+  바이트 상한만 두면 «몇 줄이 들어가는지»가 줄 길이에 따라 널뛴다(짧은 줄 200개 vs 긴 줄 8개). 개수 상한은 상한이 예측 가능하다.
+  그래서 두 겹으로 둔다 — 파일 = **개수**(기본 100), 로드 = **바이트**(snapshot 기본 2048). 파일이 커도 프롬프트는 안 커진다.
+기존 선례 재사용 (새 발명 아님):
+  - mbox 큐가 이미 «개수 상한 + 등급 우선 밀어내기» 다(`ft-mbox.py trim(rows, keep_n)` · r912). 여기서는 등급 대신 `pin` 을 쓴다.
+  - hermes `memory_tool.py` — 메모리는 세션 시작 **FROZEN 스냅샷**(중간 쓰기는 디스크만) → `snapshot` 명령이 그 자리.
+  - hermes `memory_tool_store.py` — 원자적 쓰기 · drift 가드 · 주입 스캔.
+  - nanoclaw `groups/<name>/memory/{directives,mistakes,achievements}.md` — 3분류 → `kind`.
+  - xclaw 아카이브 딥분석 — 세대 진화 = in-place + `gen-{N}` → `ft-evolve` 쪽.
+삭제 0 원칙: 밀어내기는 **삭제가 아니라** `<이름>.archive.jsonl` 로 옮기는 것이다(하드 룰 2 = 삭제 HIL).
+
+저장: <FT_ROOT>/state/lessons/{seat,team}/<이름>.jsonl  (1줄 = 1항목)
+  {"ts":"2026-11-06T17:20","kind":"directive|mistake|achievement|experiment","text":"...","pin":false,"ttl":14}
+상한: seat 100 · team 100 (env FT_LESSONS_CAP_SEAT / FT_LESSONS_CAP_TEAM) · 항목 text ≤ 200자
+  kind=experiment 는 `expires`(기본 14일) 지나면 아카이브. pin=true 는 밀어내기·TTL 면제(영구 기억).
+명령: init · add · list · pin · unpin · evict · snapshot · check · path · migrate
+종료코드: 0 정상 · 1 위반/REJECT · 2 usage · 3 락·판정 불가
 """
 from __future__ import annotations
 
 import datetime as dt
 import fcntl
+import json
 import os
 import re
 import sys
 from pathlib import Path
 
-LIMITS = {"seat": 2048, "team": 4096, "global": 2048}
+CAP = {"seat": int(os.environ.get("FT_LESSONS_CAP_SEAT", "100")),
+       "team": int(os.environ.get("FT_LESSONS_CAP_TEAM", "100"))}
+KIND_TAG = {"directive": "D", "mistake": "M", "achievement": "A", "experiment": "E"}
+TEXT_MAX = 200
 LOCK_WAIT = 7.0
-KINDS = {"d": "directive", "m": "mistake", "a": "achievement"}
-KIND_TAG = {"directive": "[D]", "mistake": "[M]", "achievement": "[A]"}
-# 프롬프트 주입·유출 유도 패턴 (hermes strict scope 대응). 메모리는 세션을 넘어 살아남으므로 저장 전에 막는다.
+EXP_TTL_DAYS = int(os.environ.get("FT_LESSONS_EXP_TTL", "14"))
+GLOBAL_DIGEST = Path.home() / ".claude" / "rules" / "dumb-time-digest.md"
+GLOBAL_LIMIT = 2048
 INJECT = (
     r"(?i)ignore (all )?(previous|prior|above) (instructions|rules)",
     r"(?i)system prompt|시스템 ?프롬프트를? (출력|공개|알려)",
@@ -37,12 +45,15 @@ INJECT = (
     r"(?i)rm\s+-rf\s+/(\s|$)",
     r"이전 지시(를|사항을)? (무시|잊)",
 )
-GLOBAL_DIGEST = Path.home() / ".claude" / "rules" / "dumb-time-digest.md"
 
 
 def die(msg: str, rc: int = 2) -> None:
     print(msg)
     sys.exit(rc)
+
+
+def now() -> str:
+    return dt.datetime.now().strftime("%Y-%m-%dT%H:%M")
 
 
 def ft_root() -> Path:
@@ -56,15 +67,23 @@ def ft_root() -> Path:
     die("REJECT .fable-team 없음 — FT_ROOT 를 지정하라")
 
 
+def guess_team(root: Path, seat: str) -> str:
+    try:
+        files = sorted((root.parent / ".fable-team").glob("seats-*.json"))
+    except Exception:
+        files = []
+    if len(files) == 1:
+        return files[0].stem.replace("seats-", "")
+    if seat and "-" in seat:
+        return seat.split("-")[0]
+    return ""
+
+
 def safe(name: str) -> str:
-    n = re.sub(r"[^A-Za-z0-9._#-]+", "-", name.strip())
+    n = re.sub(r"[^A-Za-z0-9._#-]+", "-", (name or "").strip())
     if not n:
         die("REJECT 이름이 비었다")
     return n
-
-
-def global_lock() -> Path:
-    return ft_root() / "state" / "lessons" / "global.md.lock"
 
 
 def path_of(layer: str, name: str | None) -> Path:
@@ -72,12 +91,12 @@ def path_of(layer: str, name: str | None) -> Path:
         return GLOBAL_DIGEST
     if not name:
         die("REJECT %s 계층은 이름이 필요하다" % layer)
-    base = ft_root() / "state" / "lessons" / layer
-    return base / (safe(name) + ".md")
+    return ft_root() / "state" / "lessons" / layer / (safe(name) + ".jsonl")
 
 
 class Lock:
     def __init__(self, target: Path):
+        self.fh = None
         self.lock = target.with_suffix(target.suffix + ".lock")
 
     def __enter__(self):
@@ -93,7 +112,6 @@ class Lock:
                     self.fh.close()
                     die("판정 불가 락 못 잡음(%.0fs): %s" % (LOCK_WAIT, self.lock), 3)
                 import time
-
                 time.sleep(0.1)
 
     def __exit__(self, *exc):
@@ -103,6 +121,93 @@ class Lock:
             self.fh.close()
 
 
+def load(p: Path) -> list[dict]:
+    if not p.is_file():
+        return []
+    out = []
+    for line in p.read_text(encoding="utf-8", errors="replace").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            r = json.loads(line)
+        except Exception:
+            continue
+        if isinstance(r, dict) and r.get("text"):
+            out.append(r)
+    return out
+
+
+def atomic_write(p: Path, rows: list[dict]) -> None:
+    tmp = p.with_suffix(p.suffix + ".tmp")
+    with open(tmp, "w", encoding="utf-8") as f:
+        for r in rows:
+            f.write(json.dumps(r, ensure_ascii=False) + "\n")
+    os.replace(tmp, p)
+
+
+def archive(p: Path, rows: list[dict], why: str) -> Path:
+    arc = p.with_name(p.stem + ".archive.jsonl")
+    with open(arc, "a", encoding="utf-8") as f:
+        for r in rows:
+            r = dict(r)
+            r["archived"] = now()
+            r["why"] = why
+            f.write(json.dumps(r, ensure_ascii=False) + "\n")
+    return arc
+
+
+def expire(rows: list[dict]) -> tuple[list[dict], list[dict]]:
+    """kind=experiment 는 expires 지나면 아카이브 대상. pin 은 면제."""
+    today = dt.date.today()
+    keep, gone = [], []
+    for r in rows:
+        if r.get("pin"):
+            keep.append(r)
+            continue
+        if r.get("kind") == "experiment":
+            try:
+                exp = dt.date.fromisoformat(str(r.get("expires") or ""))
+            except ValueError:
+                exp = today
+            if exp < today:
+                gone.append(r)
+                continue
+        keep.append(r)
+    return keep, gone
+
+
+def enforce(p: Path, rows: list[dict], cap: int) -> tuple[list[dict], int, int, Path | None]:
+    """TTL → cap 순서로 정리. 반환 (남은 rows, 밀어낸 수, TTL 만료 수, 아카이브 경로)"""
+    rows, expired = expire(rows)
+    over = 0
+    if len(rows) > cap:
+        pinned = [r for r in rows if r.get("pin")]
+        others = [r for r in rows if not r.get("pin")]
+        room = max(0, cap - len(pinned))
+        if len(others) > room:
+            over = len(others) - room
+            dropped, others = others[:over], others[over:]
+            gone = dropped
+        else:
+            gone = []
+        rows = merge_order(pinned, others)
+    else:
+        gone = []
+    arc = None
+    moved = gone + expired
+    if moved:
+        arc = archive(p, moved, "cap" if gone else "ttl")
+    return rows, over, len(expired), arc
+
+
+def merge_order(pinned: list[dict], others: list[dict]) -> list[dict]:
+    """원래 순서(ts 오름차순)를 유지하며 두 목록을 합친다."""
+    rows = pinned + others
+    rows.sort(key=lambda r: str(r.get("ts") or ""))
+    return rows
+
+
 def scan(text: str) -> str | None:
     for pat in INJECT:
         if re.search(pat, text):
@@ -110,189 +215,128 @@ def scan(text: str) -> str | None:
     return None
 
 
-def atomic_write(p: Path, text: str) -> None:
-    """temp + rename — 쓰는 중 죽어도 반쪽 파일이 남지 않는다(hermes atomic_write_text 대응)."""
-    tmp = p.with_suffix(p.suffix + ".tmp")
-    with open(tmp, "w", encoding="utf-8") as f:
-        f.write(text)
-    os.replace(tmp, p)
-
-
-def guess_team(root: Path, seat: str) -> str:
-    """FT_TEAM 이 없을 때 팀 이름을 유도한다 — seats-<팀>.json 이 하나뿐이면 그 팀,
-    아니면 좌석 이름의 첫 토큰(aifp-ft-master-pi#0 → aifp). 기본값 v65 로 조용히 떨어지지 않게 한다."""
-    try:
-        files = sorted((root.parent / ".fable-team").glob("seats-*.json"))
-    except Exception:
-        files = []
-    if len(files) == 1:
-        return files[0].stem.replace("seats-", "")
-    if seat and "-" in seat:
-        return seat.split("-")[0]
-    return ""
-
-
-def read_lines(p: Path) -> list[str]:
-    if not p.is_file():
-        return []
-    return p.read_text(encoding="utf-8").splitlines()
-
-
-def size_of(p: Path) -> int:
-    return p.stat().st_size if p.is_file() else 0
-
-
-def compact(p: Path, limit: int) -> tuple[int, Path | None]:
-    """상한을 넘으면 오래된 줄을 archive 로 옮긴다(절반 유지). (옮긴 줄 수, 아카이브 경로)"""
-    if size_of(p) <= limit:
-        return 0, None
-    lines = read_lines(p)
-    keep_n = max(1, len(lines) // 2)
-    moved, keep = lines[:-keep_n], lines[-keep_n:]
-    arc = p.with_suffix(".archive-%s.md" % dt.date.today().strftime("%Y%m%d"))
-    with open(arc, "a", encoding="utf-8") as f:
-        f.write("\n".join(moved) + "\n")
-    atomic_write(p, "\n".join(keep) + "\n")
-    return len(moved), arc
-
-
 def cmd_init(argv: list[str]) -> int:
     root = ft_root()
-    n = 0
-    lk = global_lock()
-    lk.parent.mkdir(parents=True, exist_ok=True)
-    if not lk.exists():
-        lk.touch()
-        n += 1
-    for layer, lim in LIMITS.items():
-        if layer == "global":
-            continue
+    made = 0
+    for layer in ("seat", "team"):
         d = root / "state" / "lessons" / layer
         d.mkdir(parents=True, exist_ok=True)
-        for f in d.glob("*.md"):
+        for f in list(d.glob("*.jsonl")):
             lk = f.with_suffix(f.suffix + ".lock")
             if not lk.exists():
                 lk.touch()
-                n += 1
-    print("INIT lessons seat≤2048 team≤4096 global≤2048 합계상한=8192 new-lock=%d root=%s" % (n, root / "state" / "lessons"))
-    return 0
-
-
-def cmd_check(argv: list[str]) -> int:
-    root = ft_root()
-    bad = 0
-    rows = []
-    for layer, lim in LIMITS.items():
-        d = root / "state" / "lessons" / layer
-        if layer == "global":
-            files = [GLOBAL_DIGEST]
-        else:
-            files = [f for f in sorted(d.glob("*.md")) if ".archive-" not in f.name and f.name != "README.md"] if d.is_dir() else []
-            if not d.is_dir():
-                rows.append("MISSING %-6s 폴더 없음 %s (ft-lessons.sh init)" % (layer, d))
-                bad += 1
-        if layer != "global" and d.is_dir() and not files:
-            continue
-        for f in files:
-            sz = size_of(f)
-            lk = global_lock() if layer == "global" else f.with_suffix(f.suffix + ".lock")
-            state = "OK" if sz <= lim else "OVER"
-            lock = "lock" if lk.is_file() else "NO-LOCK"
-            if state != "OK" or lock != "lock":
-                bad += 1
-            rows.append("%-5s %-6s %5d/%-5d %s %s" % (state, layer, sz, lim, lock, f))
-    for r in rows:
-        print(r)
-    total = sum(size_of(f) for layer in LIMITS for f in ([GLOBAL_DIGEST] if layer == "global" else [x for x in sorted((root / "state" / "lessons" / layer).glob("*.md")) if ".archive-" not in x.name and x.name != "README.md"])) if root else 0
-    print("CHECK lessons 계층파일=%d 위반=%d 상한(seat 2048 · team 4096 · global 2048) 합계=%d" % (len(rows), bad, total))
-    return 0 if bad == 0 else 1
-
-
-def cmd_path(argv: list[str]) -> int:
-    if not argv:
-        die("usage: path <seat|team|global> [이름]")
-    layer = argv[0]
-    if layer not in LIMITS:
-        die("REJECT 계층은 seat|team|global")
-    print(path_of(layer, argv[1] if len(argv) > 1 else None))
+                made += 1
+    lk = root / "state" / "lessons" / "global.md.lock"
+    lk.parent.mkdir(parents=True, exist_ok=True)
+    if not lk.exists():
+        lk.touch()
+        made += 1
+    (root / "state" / "evolution").mkdir(parents=True, exist_ok=True)
+    print("INIT lessons jsonl cap(seat %d · team %d) · 항목≤%d자 · 실험 TTL %d일 · new-lock=%d root=%s"
+          % (CAP["seat"], CAP["team"], TEXT_MAX, EXP_TTL_DAYS, made, root / "state" / "lessons"))
     return 0
 
 
 def cmd_add(argv: list[str]) -> int:
     if len(argv) < 3:
-        die('usage: add <seat|team> <이름> "1줄"')
-    layer, name = argv[0], argv[1]
-    rest = argv[2:]
-    kind = "mistake"
+        die('usage: add <seat|team> <이름> "1줄" [--kind directive|mistake|achievement|experiment] [--pin]')
+    layer, name, rest = argv[0], argv[1], argv[2:]
+    kind, pin = "mistake", False
     if "--kind" in rest:
         i = rest.index("--kind")
         try:
             kind = rest[i + 1]
         except IndexError:
-            die("REJECT --kind 값 없음 (directive|mistake|achievement)")
+            die("REJECT --kind 값 없음")
         rest = rest[:i] + rest[i + 2:]
+    if "--pin" in rest:
+        pin = True
+        rest = [x for x in rest if x != "--pin"]
     if kind not in KIND_TAG:
-        die("REJECT --kind 는 directive|mistake|achievement")
-    text = " ".join(rest)
+        die("REJECT --kind 는 %s" % "|".join(KIND_TAG))
     if layer not in ("seat", "team"):
         die("REJECT add 는 seat|team 만 — 전역 다이제스트는 guides/dumb-time.md 규칙으로 사람이 갱신한다")
+    text = " ".join(rest).replace("\n", " ").strip()
+    if not text:
+        die("REJECT 본문이 비었다")
+    if len(text) > TEXT_MAX:
+        die("REJECT 항목이 %d자 상한 초과(%d자) — 한 줄 교훈으로 줄여라" % (TEXT_MAX, len(text)), 1)
     bad = scan(text)
     if bad:
-        die("REJECT 주입·유출 유도 패턴(%s) — 메모리는 세션을 넘어 남는다. 문장을 사실 서술로 고쳐라" % bad, 1)
+        die("REJECT 주입·유출 유도 패턴(%s) — 기억은 세션을 넘어 남는다" % bad, 1)
     p = path_of(layer, name)
-    lim = LIMITS[layer]
+    cap = CAP[layer]
     with Lock(p):
         p.parent.mkdir(parents=True, exist_ok=True)
-        # drift 가드: 구분자 없이 상한을 통째로 넘긴 자유 서술 = 손편집 흔적 → 덮으면 유실
-        if p.is_file() and size_of(p) > lim * 2:
-            bak = p.with_suffix(p.suffix + ".drift-%s.bak" % dt.datetime.now().strftime("%H%M%S"))
-            bak.write_bytes(p.read_bytes())
-            die("REJECT %s 이 상한의 2배를 넘는다(%dB) — 손편집 drift 로 본다. 사본 %s · 내용을 정리한 뒤 다시" % (p.name, size_of(p), bak), 1)
-        line = "- [%s]%s %s" % (dt.date.today().strftime("%m-%d"), KIND_TAG[kind], text.replace("\n", " ").strip())
-        old = p.read_text(encoding="utf-8") if p.is_file() else ""
-        atomic_write(p, old + line + "\n")
-        sz = size_of(p)
-        moved, arc = (0, None)
-        if sz > lim:
-            moved, arc = compact(p, lim)
-    print("ADD %s %s kind=%s %d/%d %s" % (layer, p.name, kind, size_of(p), lim, "OK" if size_of(p) <= lim else "OVER"))
+        rows = load(p)
+        rec = {"ts": now(), "kind": kind, "text": text, "pin": bool(pin)}
+        if kind == "experiment":
+            rec["expires"] = (dt.date.today() + dt.timedelta(days=EXP_TTL_DAYS)).isoformat()
+        rows.append(rec)
+        rows, over, ttl, arc = enforce(p, rows, cap)
+        atomic_write(p, rows)
+    print("ADD %s %s kind=%s%s %d/%d %s" % (layer, p.name, kind, " pin" if pin else "", len(rows), cap,
+                                            "OK" if over == 0 and ttl == 0 else "evict=%d ttl=%d" % (over, ttl)))
     if arc:
-        print("SPLIT %s 상한 초과 → 오래된 %d줄 자동 분리(a) %s" % (layer, moved, arc))
+        print("EVICT 밀어내기 삭제 아님 → 아카이브 %s (삭제 0)" % arc.name)
     return 0
 
 
-def cmd_read(argv: list[str]) -> int:
+def cmd_list(argv: list[str]) -> int:
     if len(argv) < 2:
-        die("usage: read <seat|team> <이름> [--all]")
+        die("usage: list <seat|team> <이름> [--all] [--json]")
     p = path_of(argv[0], argv[1])
-    lines = read_lines(p)
-    if not lines:
-        print("EMPTY %s" % p)
+    rows = load(p)
+    if "--json" in argv:
+        for r in rows:
+            print(json.dumps(r, ensure_ascii=False))
         return 0
-    show = lines if "--all" in argv else lines[-20:]
-    print("READ %s (%d줄 · %dB)" % (p, len(lines), size_of(p)))
-    for l in show:
-        print(l)
+    if not rows:
+        print("EMPTY %s (cap %d)" % (p, CAP[argv[0]]))
+        return 0
+    shown = rows if "--all" in argv else rows[-20:]
+    print("LIST %s %d/%d (핀 %d · 실험 %d)"
+          % (p.name, len(rows), CAP[argv[0]], sum(1 for r in rows if r.get("pin")),
+             sum(1 for r in rows if r.get("kind") == "experiment")))
+    for r in shown:
+        print("- [%s][%s]%s %s" % (r.get("ts", "")[:10], KIND_TAG.get(r.get("kind"), "?"),
+                                   "*" if r.get("pin") else "", r.get("text")))
     return 0
 
 
-def cmd_compact(argv: list[str]) -> int:
+def cmd_pin(argv: list[str], on: bool = True) -> int:
+    if len(argv) < 3:
+        die("usage: %s <seat|team> <이름> \"항목 문장 일부\"" % ("pin" if on else "unpin"))
+    p = path_of(argv[0], argv[1])
+    needle = " ".join(argv[2:])
+    with Lock(p):
+        rows = load(p)
+        hit = 0
+        for r in rows:
+            if needle in str(r.get("text", "")):
+                r["pin"] = on
+                hit += 1
+        if hit:
+            atomic_write(p, rows)
+    print("%s %s %d건 %s" % ("PIN" if on else "UNPIN", p.name, hit, "OK" if hit else "일치 항목 없음"))
+    return 0 if hit else 1
+
+
+def cmd_evict(argv: list[str]) -> int:
     if len(argv) < 2:
-        die("usage: compact <seat|team> <이름>")
+        die("usage: evict <seat|team> <이름>")
     layer, name = argv[0], argv[1]
     p = path_of(layer, name)
     with Lock(p):
-        moved, arc = compact(p, LIMITS[layer])
-    if not arc:
-        print("COMPACT %s %d/%d 이미 상한 안" % (p, size_of(p), LIMITS[layer]))
-        return 0
-    print("COMPACT %s %d/%d 오래된 %d줄 → %s" % (p, size_of(p), LIMITS[layer], moved, arc))
+        rows = load(p)
+        rows, over, ttl, arc = enforce(p, rows, CAP[layer])
+        atomic_write(p, rows)
+    print("EVICT %s %d/%d 밀어냄=%d ttl=%d %s" % (p.name, len(rows), CAP[layer], over, ttl, arc.name if arc else "아카이브 0"))
     return 0
 
 
 def cmd_snapshot(argv: list[str]) -> int:
-    """부팅 1회 로드용 — 3계층을 «한 번에» 예산(기본 2048B) 안에서 보여준다. 쓰기 0.
-    hermes 의 FROZEN 스냅샷 대응: 세션 중간 add 는 파일에만 쓰고 이 스냅샷은 바뀌지 않는다(다음 부팅에 반영)."""
+    """부팅 1회 로드용. 최근 것부터 예산 안에서. 핀이 먼저 실린다."""
     budget = 2048
     if "--budget" in argv:
         i = argv.index("--budget")
@@ -301,45 +345,147 @@ def cmd_snapshot(argv: list[str]) -> int:
         except (IndexError, ValueError):
             die("REJECT --budget 값")
     root = ft_root()
-    seat_name = (os.environ.get("FT_SEAT_NAME") or os.environ.get("FT_SEAT")
-                 or (argv[0] if argv and not argv[0].startswith("-") else ""))
-    team_name = os.environ.get("FT_TEAM") or guess_team(root, seat_name)
-    parts = []
-    cand = []
-    if seat_name:
-        cand.append(("seat", path_of("seat", seat_name)))
-    if team_name:
-        cand.append(("team", path_of("team", team_name)))
-    cand.append(("global", GLOBAL_DIGEST))
-    for layer, f in cand:
-        if not f.is_file():
+    seat = os.environ.get("FT_SEAT_NAME") or os.environ.get("FT_SEAT") or \
+        (argv[0] if argv and not argv[0].startswith("-") else "")
+    team = os.environ.get("FT_TEAM") or guess_team(root, seat)
+    picks = []
+    for layer, nm in (("seat", seat), ("team", team)):
+        if not nm:
             continue
-        body = "\n".join(read_lines(f)[-12:])
+        rows = load(path_of(layer, nm))
+        if rows:
+            picks.append((layer, nm, rows))
+    out, used = [], 0
+    for layer, nm, rows in picks:
+        head = "### %s (%s) %d/%d" % (layer, nm, len(rows), CAP[layer])
+        out.append(head)
+        for r in sorted(rows, key=lambda x: (0 if x.get("pin") else 1, str(x.get("ts") or ""))):
+            line = "- [%s][%s]%s %s" % (str(r.get("ts"))[:10], KIND_TAG.get(r.get("kind"), "?"),
+                                        "*" if r.get("pin") else "", r.get("text"))
+            if used + len(line.encode()) + 1 > budget:
+                out.append("… (예산 %dB 초과 — 나머지는 list 로)" % budget)
+                used = budget
+                break
+            out.append(line)
+            used += len(line.encode()) + 1
+    if GLOBAL_DIGEST.is_file():
+        body = GLOBAL_DIGEST.read_text(encoding="utf-8").splitlines()[-6:]
         if body:
-            parts.append("### %s (%s)\n%s" % (layer, f.name, body))
-    text = "\n".join(parts).strip()
-    if not text:
-        print("SNAPSHOT empty — LESSONS 파일 없음(좌석=%s · 팀=%s)" % (seat_name or "-", team_name or "-"))
+            out.append("### global (dumb-time-digest.md)")
+            for l in body:
+                if used + len(l.encode()) + 1 > budget:
+                    break
+                out.append(l)
+                used += len(l.encode()) + 1
+    # 예산 최종 강제 — 헤더까지 포함해 자른다(«넘었다» 를 보고하지 않는다)
+    while out and len("\n".join(out).encode()) > budget:
+        out.pop()
+    tail = "… (예산 %dB · 나머지는 list 로)" % budget
+    if out and "… " not in out[-1] and len("\n".join(out).encode()) + len(tail.encode()) + 1 <= budget:
+        out.append(tail)
+    if len(out) <= 0:
+        print("SNAPSHOT empty — LESSONS 없음(좌석=%s · 팀=%s)" % (seat or "-", team or "-"))
         return 0
-    raw = text.encode()
-    if len(raw) > budget:
-        text = raw[:budget].decode("utf-8", "ignore") + "\n… (예산 %dB 초과 — 오래된 줄부터 버린다)" % budget
-    print("SNAPSHOT %dB/%dB (부팅 1회 로드 · 세션 중 add 는 파일에만)" % (len(text.encode()), budget))
+    text = "\n".join(out)
+    print("SNAPSHOT %dB/%dB (부팅 1회 고정 · 세션 중 add 는 파일에만 · 다음 부팅 반영)"
+          % (len(text.encode()), budget))
     print(text)
     return 0
 
 
-CMDS = {"init": cmd_init, "snapshot": cmd_snapshot, "check": cmd_check, "path": cmd_path, "add": cmd_add, "read": cmd_read, "compact": cmd_compact}
+def cmd_check(argv: list[str]) -> int:
+    root = ft_root()
+    bad = 0
+    rows_out = []
+    for layer in ("seat", "team"):
+        d = root / "state" / "lessons" / layer
+        if not d.is_dir():
+            rows_out.append("MISSING %-4s 폴더 없음 %s (ft-lessons.sh init)" % (layer, d))
+            bad += 1
+            continue
+        files = sorted(f for f in d.glob("*.jsonl") if ".archive" not in f.name)
+        for f in files:
+            n = len(load(f))
+            lk = f.with_suffix(f.suffix + ".lock")
+            st = "OK" if n <= CAP[layer] else "OVER"
+            if st != "OK" or not lk.is_file():
+                bad += 1
+            rows_out.append("%-4s %-4s %3d/%-3d %s %s" % (st, layer, n, CAP[layer],
+                                                          "lock" if lk.is_file() else "NO-LOCK", f.name))
+    g = len(GLOBAL_DIGEST.read_bytes()) if GLOBAL_DIGEST.is_file() else 0
+    gl = root / "state" / "lessons" / "global.md.lock"
+    if g > GLOBAL_LIMIT or not gl.is_file():
+        bad += 1
+    rows_out.append("%-4s global %5dB/%-5dB %s dumb-time-digest.md" % ("OK" if g <= GLOBAL_LIMIT else "OVER", g,
+                                                                     GLOBAL_LIMIT, "lock" if gl.is_file() else "NO-LOCK"))
+    for r in rows_out:
+        print(r)
+    print("CHECK lessons 계층파일=%d 위반=%d cap(seat %d · team %d 항목) · global ≤%dB"
+          % (len(rows_out), bad, CAP["seat"], CAP["team"], GLOBAL_LIMIT))
+    return 0 if bad == 0 else 1
+
+
+def cmd_migrate(argv: list[str]) -> int:
+    """옛 md(LESSONS) → jsonl 1회 변환. 원본은 .md.bak-<시각> 로 남긴다(삭제 0)."""
+    root = ft_root()
+    moved = 0
+    for layer in ("seat", "team"):
+        for md in sorted((root / "state" / "lessons" / layer).glob("*.md")):
+            if ".archive" in md.name or md.name == "README.md":
+                continue
+            dst = md.with_suffix(".jsonl")
+            lines = [l.strip() for l in md.read_text(encoding="utf-8", errors="replace").splitlines() if l.strip().startswith("- ")]
+            rows = []
+            for l in lines:
+                kind = "mistake"
+                if "[D]" in l:
+                    kind = "directive"
+                elif "[A]" in l:
+                    kind = "achievement"
+                elif "[E]" in l:
+                    kind = "experiment"
+                text = re.sub(r"^- \[[^\]]*\](\[[DMAE]\])?", "", l).strip()
+                m = re.match(r"^- \[([0-9]{2}-[0-9]{2})\]", l)
+                ts = ("%s-%s" % (dt.date.today().year, m.group(1))) if m else now()[:10]
+                if text:
+                    rows.append({"ts": ts, "kind": kind, "text": text[:TEXT_MAX], "pin": False})
+            if dst.exists():
+                rows = load(dst) + rows
+            rows, over, ttl, arc = enforce(dst, rows, CAP[layer])
+            atomic_write(dst, rows)
+            bak = md.with_name(md.name + ".bak-" + dt.datetime.now().strftime("%Y%m%d%H%M%S"))
+            os.replace(md, bak)
+            moved += 1
+            print("MIGRATE %s/%s → %s (%d항목 · 원본 %s · 삭제 0)" % (layer, md.name, dst.name, len(rows), bak.name))
+    print("MIGRATE 끝 — 변환 %d파일 (jsonl cap seat %d · team %d)" % (moved, CAP["seat"], CAP["team"]))
+    return 0
+
+
+def cmd_path(argv: list[str]) -> int:
+    if not argv:
+        die("usage: path <seat|team|global> [이름]")
+    layer = argv[0]
+    if layer not in ("seat", "team", "global"):
+        die("REJECT 계층은 seat|team|global")
+    print(path_of(layer, argv[1] if len(argv) > 1 else None))
+    return 0
+
+
+CMDS = {
+    "init": cmd_init, "add": cmd_add, "list": cmd_list,
+    "pin": lambda a: cmd_pin(a, True), "unpin": lambda a: cmd_pin(a, False),
+    "evict": cmd_evict, "snapshot": cmd_snapshot, "check": cmd_check,
+    "migrate": cmd_migrate, "path": cmd_path,
+}
 
 
 def main() -> int:
     if len(sys.argv) < 2 or sys.argv[1] in ("-h", "--help"):
-        print(__doc__.strip().splitlines()[0])
-        print("usage: ft-lessons.sh {init|check|path|add|read|compact|snapshot} …")
+        print("usage: ft-lessons.sh {init|add|list|pin|unpin|evict|snapshot|check|migrate|path} …")
         return 0 if len(sys.argv) > 1 else 2
     fn = CMDS.get(sys.argv[1])
     if not fn:
-        die("REJECT 모르는 명령: %s (init|check|path|add|read|compact|snapshot)" % sys.argv[1])
+        die("REJECT 모르는 명령: %s" % sys.argv[1])
     return fn(sys.argv[2:])
 
 

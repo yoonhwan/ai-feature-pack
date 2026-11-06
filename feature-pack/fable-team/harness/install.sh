@@ -410,25 +410,21 @@ echo "GITHOOKS copied=$gcopied same=$gsame dest=$GH_DEST (덮은 파일의 되�
 lessons_seed() {
   local LR="$PROJECT/.fable-team/state/lessons"
   local TPL="$KIT/templates/lessons"
-  local pages=0 seeded=0 teams=""
+  local teams="" seeded=0 pages=0
   mkdir -p "$LR/seat" "$LR/team" "$PROJECT/.fable-team/state/evolution" || { echo "LESSONS WARN 자리 생성 실패 $LR"; return 0; }
   if [ ! -f "$LR/README.md" ] && [ -f "$TPL/README.md" ]; then cp -p "$TPL/README.md" "$LR/README.md" 2>/dev/null && true; fi
   [ -f "$LR/global.md.lock" ] || : > "$LR/global.md.lock"
-  # 팀 이름 후보
   for f in "$PROJECT"/.fable-team/seats-*.json; do [ -f "$f" ] || continue; teams="$teams $(basename "$f" .json | sed 's/^seats-//')"; done
   for d in "$PROJECT"/design/teams/*/ "$PROJECT"/.fable-team/state/team-main/*/; do [ -d "$d" ] || continue; teams="$teams $(basename "$d")"; done
   for t in $(printf '%s\n' $teams | sort -u); do
     [ -n "$t" ] || continue
-    local dst="$LR/team/$t.md"
-    if [ ! -f "$dst" ]; then
-      { [ -f "$TPL/team-LESSONS.md" ] && sed "s/<팀>/$t/g" "$TPL/team-LESSONS.md" || echo "# 팀 LESSONS — $t (상한 4,096B)"; } > "$dst"
-      seeded=$((seeded + 1))
-    fi
+    local dst="$LR/team/$t.jsonl"
+    [ -f "$dst" ] || { : > "$dst"; seeded=$((seeded + 1)); }
     [ -f "$dst.lock" ] || : > "$dst.lock"
     pages=$((pages + 1))
   done
-  echo "LESSONS root=$LR 팀파일=$pages 신규=$seeded (덮은 파일 0 · 규약=templates/lessons/README.md)"
-  [ -f "$LIVE/bin/ft-lessons.sh" ] && bash "$LIVE/bin/ft-lessons.sh" check 2>/dev/null | tail -1
+  echo "LESSONS root=$LR 팀파일=$pages 신규=$seeded (덮은 파일 0 · 형식 jsonl cap 100 · 규약=templates/lessons/README.md)"
+  if [ -f "$LIVE/bin/ft-lessons.sh" ]; then FT_ROOT="$PROJECT/.fable-team" bash "$LIVE/bin/ft-lessons.sh" check 2>/dev/null | tail -1; fi
   return 0
 }
 lessons_seed
