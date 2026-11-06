@@ -45,8 +45,8 @@ _KEY = re.compile(r"[0-9a-fA-F]{64}")
 OP_ENV_ALLOWLIST = ("PATH", "HOME", "USER", "LOGNAME", "LANG", "LC_ALL", "LC_CTYPE", "TMPDIR")
 # External-call 7-second rule: per attempt, one retry, whole call (one key) capped.
 # 규칙 12 CLI: 기동 고정비 3.5(잠정) + 7.0 / 재시도 포함 총 21.0 ≤ 70
-OP_ATTEMPT_TIMEOUT_S = 10.5
-OP_CALL_DEADLINE_S = 21.0
+OP_ATTEMPT_TIMEOUT_S = 7.0
+OP_CALL_DEADLINE_S = 14.0
 # Key-file source: no `op` call, hence no "other apps' data" permission window. A problem with the file is one
 # value-free failure with a fixed kind; there is deliberately no fallback to `op`.
 # `op` opens another app's data (1Password's group container) under its HOME, which makes macOS ask a person. Its

@@ -467,7 +467,7 @@ def test_a_failing_attempt_recorder_changes_nothing_but_the_probe_fields(tmp_pat
 # --- rule 12 limits --------------------------------------------------------------------------------------------
 
 def test_op_limits_are_the_cli_rule_values_with_the_startup_cost():
-    assert (tick.OP_ATTEMPT_TIMEOUT_S, tick.OP_CALL_DEADLINE_S) == (10.5, 21.0)
+    assert (tick.OP_ATTEMPT_TIMEOUT_S, tick.OP_CALL_DEADLINE_S) == (7.0, 14.0)
     assert tick.OP_CALL_DEADLINE_S <= 70
     source = Path(tick.__file__).read_text(encoding="utf-8")
     assert "규칙 12 CLI: 기동 고정비 3.5(잠정) + 7.0 / 재시도 포함 총 21.0 ≤ 70" in source

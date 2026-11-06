@@ -417,6 +417,24 @@ def test_op_silent_timeout_is_retried_once_then_reported_as_unavailable(tmp_path
     assert (line["code"], line["type"]) == ("OP_READ_UNAVAILABLE", "TimeoutExpired")
 
 
+def test_op_slower_than_the_real_7s_limit_is_retried_once_then_fails_loudly(tmp_path, capsys, monkeypatch):
+    """Real limits (7 s per attempt, 14 s per call) and a fake `op` that sleeps past both: no real `op` runs."""
+    item, hooks = synthetic_service(tmp_path)
+    op = _timed_op(tmp_path, "exec sleep 30")
+    runs = _count_op_runs(monkeypatch)
+    began = time.monotonic()
+    code = run_tick(tmp_path, item, hooks, credentials_path=credentials(tmp_path, op), env=_one_key_missing_env())
+    elapsed = time.monotonic() - began
+    written = everything_written(tmp_path, capsys)
+    lines = written.strip().splitlines()
+    line = json.loads(lines[0])
+    assert (tick.OP_ATTEMPT_TIMEOUT_S, tick.OP_CALL_DEADLINE_S) == (7.0, 14.0)
+    assert code == tick.EXIT_KEYS and len(runs) == 2 and runs[0] == 7.0 and runs[1] <= 7.0
+    assert 13.0 <= elapsed < 20.0  # two attempts of about 7 s, not a quiet success
+    assert (line["status"], line["code"], line["type"]) == ("key_error", "OP_READ_UNAVAILABLE", "TimeoutExpired")
+    assert len([ln for ln in lines if json.loads(ln).get("code") == "OP_READ_UNAVAILABLE"]) >= 1
+
+
 def test_op_timeout_after_partial_output_is_not_retried(tmp_path, capsys, monkeypatch):
     item, hooks = synthetic_service(tmp_path)
     op = _timed_op(tmp_path, "printf x\nexec sleep 30")
