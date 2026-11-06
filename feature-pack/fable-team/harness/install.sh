@@ -403,6 +403,36 @@ for src in "$KIT"/githooks/*; do
   gcopied=$((gcopied + 1))
 done
 echo "GITHOOKS copied=$gcopied same=$gsame dest=$GH_DEST (덮은 파일의 되돌림 = <파일>.bak-$VERSION)"
+# ── r1439: 팀별 메모리(LESSONS)·진화 자리 시드 ─────────────────────────
+#   배포 대상 프로젝트에 «팀별 메모리 계층» 이 실제로 생겨야 시스템으로 돈다(문서만 배포 = 안 도는 것).
+#   이미 있는 파일은 절대 덮지 않는다(기억은 사용자 자산). 팀 목록은 seats-<팀>.json · design/teams/<팀>/ · state/team-main/<팀>/ 에서 유도.
+#   실패해도 설치는 계속한다(경고 1줄) — 메모리 자리는 코드 경로가 아니다.
+lessons_seed() {
+  local LR="$PROJECT/.fable-team/state/lessons"
+  local TPL="$KIT/templates/lessons"
+  local pages=0 seeded=0 teams=""
+  mkdir -p "$LR/seat" "$LR/team" "$PROJECT/.fable-team/state/evolution" || { echo "LESSONS WARN 자리 생성 실패 $LR"; return 0; }
+  if [ ! -f "$LR/README.md" ] && [ -f "$TPL/README.md" ]; then cp -p "$TPL/README.md" "$LR/README.md" 2>/dev/null && true; fi
+  [ -f "$LR/global.md.lock" ] || : > "$LR/global.md.lock"
+  # 팀 이름 후보
+  for f in "$PROJECT"/.fable-team/seats-*.json; do [ -f "$f" ] || continue; teams="$teams $(basename "$f" .json | sed 's/^seats-//')"; done
+  for d in "$PROJECT"/design/teams/*/ "$PROJECT"/.fable-team/state/team-main/*/; do [ -d "$d" ] || continue; teams="$teams $(basename "$d")"; done
+  for t in $(printf '%s\n' $teams | sort -u); do
+    [ -n "$t" ] || continue
+    local dst="$LR/team/$t.md"
+    if [ ! -f "$dst" ]; then
+      { [ -f "$TPL/team-LESSONS.md" ] && sed "s/<팀>/$t/g" "$TPL/team-LESSONS.md" || echo "# 팀 LESSONS — $t (상한 4,096B)"; } > "$dst"
+      seeded=$((seeded + 1))
+    fi
+    [ -f "$dst.lock" ] || : > "$dst.lock"
+    pages=$((pages + 1))
+  done
+  echo "LESSONS root=$LR 팀파일=$pages 신규=$seeded (덮은 파일 0 · 규약=templates/lessons/README.md)"
+  [ -f "$LIVE/bin/ft-lessons.sh" ] && bash "$LIVE/bin/ft-lessons.sh" check 2>/dev/null | tail -1
+  return 0
+}
+lessons_seed
+
 comm_sync
 if [ -n "$PREV" ] && [ "$PREV" != "$LIVE/bin" ]; then echo "되돌림 1줄: printf '%s\\n' '$PREV' > '$PROJECT/.fable-team/LIVE_BIN'"
 else echo "되돌림: 이전 LIVE_BIN 값 ${PREV:-없음}(이번 값과 같거나 없음 — 되돌릴 것 0)"; fi

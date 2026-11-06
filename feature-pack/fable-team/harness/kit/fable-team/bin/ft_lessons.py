@@ -187,7 +187,7 @@ def cmd_check(argv: list[str]) -> int:
         if layer == "global":
             files = [GLOBAL_DIGEST]
         else:
-            files = [f for f in sorted(d.glob("*.md")) if ".archive-" not in f.name] if d.is_dir() else []
+            files = [f for f in sorted(d.glob("*.md")) if ".archive-" not in f.name and f.name != "README.md"] if d.is_dir() else []
             if not d.is_dir():
                 rows.append("MISSING %-6s 폴더 없음 %s (ft-lessons.sh init)" % (layer, d))
                 bad += 1
@@ -203,7 +203,7 @@ def cmd_check(argv: list[str]) -> int:
             rows.append("%-5s %-6s %5d/%-5d %s %s" % (state, layer, sz, lim, lock, f))
     for r in rows:
         print(r)
-    total = sum(size_of(f) for layer in LIMITS for f in ([GLOBAL_DIGEST] if layer == "global" else [x for x in sorted((root / "state" / "lessons" / layer).glob("*.md")) if ".archive-" not in x.name])) if root else 0
+    total = sum(size_of(f) for layer in LIMITS for f in ([GLOBAL_DIGEST] if layer == "global" else [x for x in sorted((root / "state" / "lessons" / layer).glob("*.md")) if ".archive-" not in x.name and x.name != "README.md"])) if root else 0
     print("CHECK lessons 계층파일=%d 위반=%d 상한(seat 2048 · team 4096 · global 2048) 합계=%d" % (len(rows), bad, total))
     return 0 if bad == 0 else 1
 
