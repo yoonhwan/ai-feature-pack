@@ -241,6 +241,50 @@ rm -f "$OPEN_OUT"
 tmux has-session -t "=$NAME" 2>/dev/null || { echo "REJECT 세션이 안 떴다: $NAME — 송신 0"; exit 1; }
 fi
 
+# ⓑ-2 (r1435) 후계 선등록 — codex 좌석은 SessionStart 가 관측되지 않아 «도달 판정 뒤 retire» 경로가
+#   닭-달걀이 된다(명부 미등록 → mbox 거절 → 도달 실패). 그래서 열기 직후 명부에 행을 먼저 넣는다(멱등).
+#   retire 는 나중에 _replaced_by 를 채우므로 이중 등록이 아니다.
+register_successor() {
+  local out rc
+  out="$(python3 - "$ROOT" "$NAME" "$AGENT" "$MODEL" "$WT" "$OLD" <<'PY'
+import glob, json, os, sys, datetime
+
+
+def main() -> int:
+    root, name, agent, model, wt, old = sys.argv[1:7]
+    for f in sorted(glob.glob(os.path.join(root, ".fable-team", "seats*.json"))):
+        try:
+            with open(f, encoding="utf-8") as fh:
+                d = json.load(fh)
+        except Exception:
+            continue
+        if name in d:
+            return 0
+        if old not in d:
+            continue
+        d[name] = {"role": "master", "agent": agent, "model": model,
+                   "worktree": os.path.basename(wt.rstrip("/")), "spawned_by": old,
+                   "opened_at": datetime.date.today().isoformat(), "tick": None,
+                   "persona": "successor (auto-registered by ft-successor-open r1435)",
+                   "_replaces": [old],
+                   "_note": "r1435 선등록 — codex SessionStart 미관측 때문에 도달 전 명부 등록"}
+        with open(f, "w", encoding="utf-8") as fh:
+            json.dump(d, fh, ensure_ascii=False, indent=1)
+            fh.write("\n")
+        print("REGISTERED %s in %s" % (name, os.path.basename(f)))
+        return 0
+    return 0
+
+
+sys.exit(main())
+PY
+)"; rc=$?
+  [ -n "$out" ] && printf '%s\n' "$out"
+  # r1451(DA 3R 반례 5): 실패를 숨기지 않는다 — 선등록 실패는 도달 판정 실패로 이어진다
+  [ "$rc" = 0 ] || echo "WARN 후계 선등록 실패(rc=$rc) — 명부 수동 확인: $NAME (도달 판정은 계속)"
+}
+register_successor
+
 # ⓒ 에이전트 기동 확인 — pane pid 의 자식이 생길 때까지(BOOT 7 HARD GATE: pgrep 0건이면 send 금지). 상한 넘으면 송신 0.
 PID="$(tmux list-panes -t "=$NAME" -F '#{pane_pid}' 2>/dev/null | head -1)"
 up=0; i=0
@@ -321,7 +365,9 @@ while [ "$i" -lt "$WAIT_MAX" ]; do i=$((i+1))
 # ★r1034 팀장 승계 «이월 0» 줄★: 사고 확대 키워드의 효과는 세션을 넘어가지 않는다 — 팀장 후계 본문 끝에 그 뜻을 한 줄 붙인다.
 #   그 낱말 자체는 적지 않는다(적으면 후계 세션이 그 낱말 때문에 바로 켜진다) · --body-file 원본은 바이트 그대로(파일에 쓰지 않는다).
 # ★r1037 이월 1★: 알림줄 꼬리(r1036 · FT_DOORBELL_TAIL)를 «송신과 링 재시도 둘 다»에 켠다 — 낱말은 본문에 싣지 않는다(본문은 도구 결과라 효과가 불확실하고 둘째 경로로 샌다).
-SEND_TEXT="$( { sed -n '1,3p' "$BODY"; printf '%s\n' "$BLOCK"; sed -n '4,$p' "$BODY"; } )"  # r1391 — 골 3줄(그대로) + 지침 블록 + 본문 4행~
+# r1443: 승계 좌석도 부팅 1회 기억 로드를 받는다(BLOCK 300자 상한은 건드리지 않고 별도 1줄로 붙인다)
+LESSONS_LINE="좌석 기억(1회 로드)= FT_SEAT_NAME=$NAME FT_TEAM=${FT_TEAM:-} bash .fable-team/bin/ft-lessons.sh snapshot — 팀·좌석 LESSONS ≤2KB(세션 중 add 는 파일에만 · 다음 부팅 반영)."
+SEND_TEXT="$( { sed -n '1,3p' "$BODY"; printf '%s\n' "$BLOCK"; printf '%s\n' "$LESSONS_LINE"; sed -n '4,$p' "$BODY"; } )"  # r1391/r1443 — 골 3줄 + 지침 블록 + 기억 로드 1줄 + 본문 4행~
 if [ "${NAME#*-master-}" != "$NAME" ]; then
   if [ "$CARRY" = 1 ]; then
     SEND_TEXT="$SEND_TEXT"$'\n'"승계 이월 1: 앞 세션의 확대 사고를 이어 받는다. 문제가 풀리면 다음 승계에서 이월 0."

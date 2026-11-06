@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.byz.ft-waste-check</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/bash</string>
+    <string>__FT_BIN__/ft-waste-check.sh</string>
+    <string>--hours</string>
+    <string>6</string>
+    <string>--alert</string>
+  </array>
+  <key>WorkingDirectory</key><string>__BYZ_ROOT__</string>
+  <key>StartInterval</key><integer>21600</integer>
+  <key>RunAtLoad</key><false/>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <key>FT_ROOT</key><string>__BYZ_ROOT__</string>
+  </dict>
+  <key>StandardOutPath</key><string>__BYZ_ROOT__/.fable-team/state/waste-check.log</string>
+  <key>StandardErrorPath</key><string>__BYZ_ROOT__/.fable-team/state/waste-check.err.log</string>
+</dict>
+</plist>

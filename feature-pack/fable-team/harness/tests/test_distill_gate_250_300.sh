@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# test_distill_gate_550_600.sh — R445: context-distill-gate.sh 기본 임계 = 경고 550k · 차단 600k · recv 차단선 550k.
+# test_distill_gate_250_300.sh — 2026-11-06: context-distill-gate.sh 기본 임계 = 경고 250k · 차단 300k · recv 차단선 250k.
+#   (옛 값 550k/600k = R445 · 2026-10-19. 내린 이유 = ctx-waste 실측 손익분기 4~9턴 < 세션당 평균 10~21턴)
 # 훅을 «--warn-at/--block-at/--recv-gate-at 인자 없이» 부른다(settings.json 이 인자를 안 주는 실배선과 같음).
 # 셔뱅 /bin/bash(macOS 3.2) 로 실행 · transcript fixture 로 토큰 값 · 가짜 tmux 로 좌석명 — 실 세션·홈·명부 쓰기 0.
 # 인자: [BYZ 훅 경로] — 주면 같은 케이스를 BYZ 사본에도 돌리고 키트와 cmp 0 을 확인한다(ⓕ).
@@ -33,32 +34,32 @@ print(json.dumps({"transcript_path":sys.argv[1],"cwd":sys.argv[2],"tool_name":t,
 cases() { # cases <이름> <훅>
   local n="$1" h="$2"
   /bin/bash -n "$h" && ok "$n /bin/bash -n" || bad "$n /bin/bash -n"
-  grep -q '^WARN_DEFAULT, BLOCK_DEFAULT = 550_000, 600_000' "$h" && grep -q '^RECV_DEFAULT = 550_000' "$h" \
-    && ok "$n 기본값 550_000/600_000/recv 550_000" || bad "$n 기본값 줄"
+  grep -q 'FT_DISTILL_WARN") or 250_000' "$h" && grep -q 'FT_DISTILL_BLOCK") or 300_000' "$h" && grep -q 'FT_DISTILL_RECV") or 250_000' "$h" \
+    && ok "$n 기본값 250_000/300_000/recv 250_000 (문턱 한 곳 경유)" || bad "$n 기본값 줄"
 
-  transcript 540000; run "$h" warn "" ""
-  { [ "$RC" -eq 0 ] && [ ! -s "$TMP/out" ]; } && ok "$n ⓐ 540k warn → 출력 0" || bad "$n ⓐ rc=$RC out=$(cat "$TMP/out")"
+  transcript 240000; run "$h" warn "" ""
+  { [ "$RC" -eq 0 ] && [ ! -s "$TMP/out" ]; } && ok "$n ⓐ 240k warn → 출력 0" || bad "$n ⓐ rc=$RC out=$(cat "$TMP/out")"
 
-  transcript 560000; run "$h" warn "" ""
+  transcript 260000; run "$h" warn "" ""
   python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["hookSpecificOutput"]["additionalContext"])' "$TMP/out" >"$TMP/msg" 2>/dev/null
-  { [ "$RC" -eq 0 ] && grep -q '560k' "$TMP/msg" && grep -q '경고선(550k)' "$TMP/msg" && grep -q '600k' "$TMP/msg"; } \
-    && ok "$n ⓑ 560k warn → 경고 1 (550k·600k 표기)" || bad "$n ⓑ rc=$RC out=$(cat "$TMP/out")"
+  { [ "$RC" -eq 0 ] && grep -q '260k' "$TMP/msg" && grep -q '경고선(250k)' "$TMP/msg" && grep -q '300k' "$TMP/msg"; } \
+    && ok "$n ⓑ 260k warn → 경고 1 (250k·300k 표기)" || bad "$n ⓑ rc=$RC out=$(cat "$TMP/out")"
 
-  transcript 590000; run "$h" block Task "implement feature x"
-  [ "$RC" -eq 0 ] && ok "$n ⓒ 590k block Task → 허용" || bad "$n ⓒ rc=$RC err=$(cat "$TMP/err")"
+  transcript 290000; run "$h" block Task "implement feature x"
+  [ "$RC" -eq 0 ] && ok "$n ⓒ 290k block Task → 허용" || bad "$n ⓒ rc=$RC err=$(cat "$TMP/err")"
 
-  transcript 610000; run "$h" block Task "implement feature x"
-  { [ "$RC" -eq 2 ] && grep -q '600k 절대값' "$TMP/err"; } && ok "$n ⓓ 610k block Task → exit 2" || bad "$n ⓓ rc=$RC err=$(cat "$TMP/err")"
+  transcript 310000; run "$h" block Task "implement feature x"
+  { [ "$RC" -eq 2 ] && grep -q '300k 절대값' "$TMP/err"; } && ok "$n ⓓ 310k block Task → exit 2" || bad "$n ⓓ rc=$RC err=$(cat "$TMP/err")"
 
-  rm -rf "$STATE"; transcript 560000; run "$h" hard Bash "bash $MBOX recv $SEAT"
-  { [ "$RC" -eq 2 ] && grep -q 'R107' "$TMP/err"; } && ok "$n ⓔ1 560k hard recv · 도달 파일 없음 → 차단" || bad "$n ⓔ1 rc=$RC err=$(cat "$TMP/err")"
+  rm -rf "$STATE"; transcript 260000; run "$h" hard Bash "bash $MBOX recv $SEAT"
+  { [ "$RC" -eq 2 ] && grep -q 'R107' "$TMP/err"; } && ok "$n ⓔ1 260k hard recv · 도달 파일 없음 → 차단" || bad "$n ⓔ1 rc=$RC err=$(cat "$TMP/err")"
   mkdir -p "$STATE"; printf '{"successor":"x","seq":1,"reached_at":"t","rc":0}\n' > "$STATE/$SEAT.json"
   run "$h" hard Bash "bash $MBOX recv $SEAT"
-  [ "$RC" -eq 0 ] && ok "$n ⓔ2 560k hard recv · 도달 파일 있음 → 허용" || bad "$n ⓔ2 rc=$RC err=$(cat "$TMP/err")"
-  rm -rf "$STATE"; transcript 540000; run "$h" hard Bash "bash $MBOX recv $SEAT"
-  [ "$RC" -eq 0 ] && ok "$n ⓔ3 540k hard recv → 허용(recv 선 550k)" || bad "$n ⓔ3 rc=$RC err=$(cat "$TMP/err")"
-  transcript 610000; run "$h" hard Bash "echo hi > $REPO/x.py"
-  [ "$RC" -eq 2 ] && ok "$n ⓔ4 610k hard 일반 도구 → 차단" || bad "$n ⓔ4 rc=$RC"
+  [ "$RC" -eq 0 ] && ok "$n ⓔ2 260k hard recv · 도달 파일 있음 → 허용" || bad "$n ⓔ2 rc=$RC err=$(cat "$TMP/err")"
+  rm -rf "$STATE"; transcript 240000; run "$h" hard Bash "bash $MBOX recv $SEAT"
+  [ "$RC" -eq 0 ] && ok "$n ⓔ3 240k hard recv → 허용(recv 선 250k)" || bad "$n ⓔ3 rc=$RC err=$(cat "$TMP/err")"
+  transcript 310000; run "$h" hard Bash "echo hi > $REPO/x.py"
+  [ "$RC" -eq 2 ] && ok "$n ⓔ4 310k hard 일반 도구 → 차단" || bad "$n ⓔ4 rc=$RC"
 
   # ⓖ 600 s·300 s 시간 상한 0 · codex/opencode 설정 참조 0(이 훅은 claude 좌석 전용)
   { ! grep -Eq 'timeout *= *(600|300)\b|sleep (600|300)\b' "$h" && ! grep -Eq 'config\.toml|opencode\.json' "$h"; } \

@@ -418,6 +418,32 @@ for src in "$KIT"/githooks/*; do
   gcopied=$((gcopied + 1))
 done
 echo "GITHOOKS copied=$gcopied same=$gsame dest=$GH_DEST (덮은 파일의 되돌림 = <파일>.bak-$VERSION)"
+# ── r1439: 팀별 메모리(LESSONS)·진화 자리 시드 ─────────────────────────
+#   배포 대상 프로젝트에 «팀별 메모리 계층» 이 실제로 생겨야 시스템으로 돈다(문서만 배포 = 안 도는 것).
+#   이미 있는 파일은 절대 덮지 않는다(기억은 사용자 자산). 팀 목록은 seats-<팀>.json · design/teams/<팀>/ · state/team-main/<팀>/ 에서 유도.
+#   실패해도 설치는 계속한다(경고 1줄) — 메모리 자리는 코드 경로가 아니다.
+lessons_seed() {
+  local LR="$PROJECT/.fable-team/state/lessons"
+  local TPL="$KIT/templates/lessons"
+  mkdir -p "$LR/seat" "$LR/team" "$PROJECT/.fable-team/state/evolution" || { echo "LESSONS WARN 자리 생성 실패 $LR"; return 0; }
+  if [ ! -f "$LR/README.md" ] && [ -f "$TPL/README.md" ]; then cp -p "$TPL/README.md" "$LR/README.md" 2>/dev/null && true; fi
+  [ -f "$LR/global.md.lock" ] || : > "$LR/global.md.lock"
+  # r1445: 팀 발견·시드는 ft-lessons 한 곳이 한다 — install 은 부르기만(로직 중복 0).
+  #   발견 소스 = seats-<팀>.json · design/teams/<팀>/ · state/team-main/<팀>/ · bin-<팀>/ · 이미 있는 team/*.jsonl
+  #   → 지금 있는 팀 전부 + 앞으로 생길 팀도 다음 install(또는 evolve --gate)에서 자동 편입.
+  if [ -f "$LIVE/bin/ft-lessons.sh" ]; then
+    local out rc
+    out="$(FT_ROOT="$PROJECT/.fable-team" bash "$LIVE/bin/ft-lessons.sh" sync-teams 2>&1)"; rc=$?
+    printf '%s\n' "$out" | tail -1
+    out="$(FT_ROOT="$PROJECT/.fable-team" bash "$LIVE/bin/ft-lessons.sh" check 2>&1)"; rc=$?
+    printf '%s\n' "$out" | tail -1
+    [ "$rc" = 0 ] || { echo "LESSONS WARN check 위반(rc=$rc) — 위 check 줄을 고친다(설치는 계속)"; return "$rc"; }
+  fi
+  echo "LESSONS root=$LR (규약=templates/lessons/README.md · 덮은 파일 0)"
+  return 0
+}
+lessons_seed || true   # r1442(DA astra 반례 6): seed 가 «성공» 으로 위장하지 않게 rc 를 받아 경고로 남긴다
+
 comm_sync
 if [ -n "$PREV" ] && [ "$PREV" != "$LIVE/bin" ]; then echo "되돌림 1줄: printf '%s\\n' '$PREV' > '$PROJECT/.fable-team/LIVE_BIN'"
 else echo "되돌림: 이전 LIVE_BIN 값 ${PREV:-없음}(이번 값과 같거나 없음 — 되돌릴 것 0)"; fi
