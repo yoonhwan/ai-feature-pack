@@ -1,3 +1,11 @@
+## 2026-11-06 — r1434 모델 선택 전환 도구 (자동 폴백 폐기)
+
+- 오빠 «이런 폴백은 너무 별로 … 선택 전환 증류기는 이미 다 있으니 빠른 선택 전환하게» → 자동 폴백 설계(히스테리시스·쿨다운·자동 복귀) 폐기.
+- 신규 `bin/ft-switch-plan.sh [--to codex|claude] [--teams a,b] [--json]` — 계정 여유(`ft-acct-quota`) + 팀장 좌석별 **전환 명령 1줄**을 생성. 실행 0(출력만), 전환기는 기존 `ft-successor-open`.
+- 이름 규약 자동: `-claude#N` → `-sol#N+1` (모델 토큰 명시, 계보 유지). 인계서 경로도 함께 출력.
+- 규칙 `orchestration.md` «모델 선택 전환» 절 — 선택은 사람/데스크, codex 좌석은 `model_auto_compact_token_limit=300000` 인자 필수.
+- 설계 문서 `design/harness/DESIGN-lead-model-fallback-20261106.md` = 자동 폴백 → 선택 전환으로 개정(§8).
+
 ## 2026-11-06 — r1433 ft-acct-quota DA 검토·수정 루프 (3라운드 수렴)
 
 DA(적대검증)를 codex gpt-6.1-sol 로 4회 돌려 «동작 반례만» 받고 수정했다. 판정 추이 = REJECT 3 → 1 → 1 → 1(재보고/오탐).

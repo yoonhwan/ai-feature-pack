@@ -44,6 +44,13 @@
 - 조정 = `ft-thresholds.sh --set FT_RESUME_MAX=200000` (기본 기록 위치 `~/.claude/fable-team/thresholds.env`) · 확인 = `--show`. 재설치 불필요(게이트가 매 호출 읽는다).
 - 해석 순서 = 명시 env > `$FT_THRESHOLDS` > `<루트>/.fable-team/thresholds.env` > `~/.claude/fable-team/thresholds.env` > 기본값.
 
+### 모델 선택 전환 (자동 폴백 아님 · 2026-11-06)
+- 전환은 **사람/데스크가 고르는 선택**이다. 좌석이 스스로 모델을 바꾸지 않는다(진동).
+- 준비 도구 = `ft-switch-plan.sh [--to codex|claude] [--teams a,b]` — 계정 여유 + 팀장별 전환 명령 1줄을 **미리 만들어** 준다(실행 0).
+- 실행 = 그 줄을 그대로 (전환기 = `ft-successor-open` 승계·증류 1회). 이름 규약 = `-sol#N+1` / `-claude#N+1`.
+- 전환 뒤 필수: ① codex 좌석은 실행 인자에 `-c model_auto_compact_token_limit=300000` (게이트 등가) ② `ps -o command= | grep model_auto_compact` 로 확인 ③ 24시간 관측 뒤 확대.
+- 되돌림 = 같은 도구에 `--to claude`. 이름·계보 자동, 명부 `_replaced_by` 로 추적.
+
 ### 낭비 주기 점검 (r1431 · 느슨한 연결)
 - `ft-waste-check.sh [--hours 6] [--alert]` 가 `ctx-waste` 를 부른다. **ctx-waste 가 없으면 `WASTE skip` rc0** — ft 가 ctx-waste 에 하드 의존하지 않는다.
 - 판정 = 재작성 비중 · 평균 ctx · 요청당 가중. `critical`(재작성 ≥35% 또는 avg ≥250k 또는 per ≥60k)이면 `--alert` 로 planner 에 `[긴급]` 1통(desk 중계 → 오빠).
