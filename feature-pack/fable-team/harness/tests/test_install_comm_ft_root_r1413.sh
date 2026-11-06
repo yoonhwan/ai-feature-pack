@@ -31,11 +31,12 @@ mkeq() {  # <루트> — .fable-team/{comm(팩 사본·데이터 0), bin, seats-
   printf '{"%s":{"role":"nano","agent":"pi","tick":null},"%s":{"role":"master","agent":"pi","tick":null}}\n' "$SEAT" "$TO" > "$1/.fable-team/seats-harness.json"
 }
 ql() { [ -f "$1/.fable-team/comm/mailbox.jsonl" ] && wc -l < "$1/.fable-team/comm/mailbox.jsonl" | tr -d ' ' || echo 0; }
-py() { local r="$1"; shift; ( cd "$T" && env HOME="$T/home" FT_ROOTS_TSV="${RT:-$T/none.tsv}" FT_MBOX_SEQ_FLOOR=1 FT_SEATS_JSON="${SJ:-$T/home/none.json}" \
-        PATH="$FB:$PATH" ${EXTRA_ENV:-} python3 "$r/.fable-team/comm/mbox.py" "$@" 2>&1 ); }
+py() { local r="$1"; shift; ( cd "$T" && export HOME="$T/home" FT_ROOTS_TSV="${RT:-$T/none.tsv}" FT_MBOX_SEQ_FLOOR=1 FT_SEATS_JSON="${SJ:-$T/home/none.json}" PATH="$FB:$PATH"
+        [ -z "${EXTRA_ENV:-}" ] || export "${EXTRA_ENV}"; python3 "$r/.fable-team/comm/mbox.py" "$@" 2>&1 ); }
 sh_send() { local r="$1"; shift; ( cd "$T" && env HOME="$T/home" FT_ROOTS_TSV="${RT:-$T/none.tsv}" FT_MBOX_SEQ_FLOOR=1 FT_SEATS_JSON="${SJ:-$T/home/none.json}" \
         PATH="$FB:$PATH" bash "$r/.fable-team/comm/mbox.sh" send "$@" 2>&1 ); }
-inst() { local pr="$1" fl="$2"; shift 2; ( cd "$T" && env HOME="$T/home" FT_LAUNCHCTL="$FB/launchctl" PATH="$FB:$PATH" "$@" bash "$IR/install.sh" "$fl" --home "$T/home" --project "$pr" 2>&1 ); }
+inst() { local pr="$1" fl="$2"; shift 2; ( cd "$T" && export HOME="$T/home" FT_LAUNCHCTL="$FB/launchctl" PATH="$FB:$PATH"
+        [ "$#" -eq 0 ] || export "$@"; bash "$IR/install.sh" "$fl" --home "$T/home" --project "$pr" 2>&1 ); }
 mk_kakao() {  # <이름> — git 최상위 K + 데이터 루트 = K/.worktrees/bootstrap/<이름> (kakao 꼴)
   local K DR; K="$T/$1/KakaoBot"; DR="$K/.worktrees/bootstrap/$1"; rm -rf "$T/$1"; mkrepo "$K"; mkeq "$DR"
   printf 'kakao\t%s\t현역\trefs/heads/main\tme\tme-lock\n' "$DR" > "$T/$1/roots.tsv"
