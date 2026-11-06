@@ -94,6 +94,16 @@ def measure(root: Path) -> list[str]:
     sdir = root / "state" / "lessons" / "seat"
     seats = [f for f in sdir.glob("*.jsonl") if ".archive" not in f.name] if sdir.is_dir() else []
     out.append("좌석 기억 = %d파일" % len(seats))
+    # 승격 후보(좌석 3회·2좌석+) — ft-lessons suggest 를 그대로 쓴다(로직 중복 0)
+    ls = root / "bin" / "ft-lessons.sh"
+    if ls.is_file():
+        try:
+            r = subprocess.run(["bash", str(ls), "suggest"], capture_output=True, text=True, timeout=7,
+                               env={**os.environ, "FT_ROOT": str(root)})
+            line = [l for l in (r.stdout or "").splitlines() if l.startswith("SUGGEST")]
+            out.append("승격 후보 = %s" % (line[0] if line else "판정 불가"))
+        except Exception:
+            out.append("승격 후보 = 판정 불가(ft-lessons suggest 실패)")
     cl = H / ".claude" / "CLAUDE.md"
     rules = sorted((H / ".claude" / "rules").glob("*.md"))
     out.append("상시 로드 = CLAUDE.md %sB(≤12,288) · rules %sB(≤8,192)"

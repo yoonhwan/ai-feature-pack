@@ -103,6 +103,22 @@ ck "신규 팀 교훈이 snapshot 에 실린다" "$(FT_SEAT_NAME=x FT_TEAM=newte
 ck "빈 팀은 snapshot 에 안 실린다(프롬프트 위생)" "$(FT_SEAT_NAME=x FT_TEAM=otherteam bash "$LS" snapshot --budget 600 | grep -c 'team (otherteam)')" 0
 ck "evolve gate 가 sync-teams 를 부른다" "$(FT_ROOT="$T/evsync" bash "$EV" --gate 2>&1 | grep -c 'SYNC-TEAMS')" 1
 
+echo "== 메모리 진화 명령 (r1448: search·suggest·resolve·dedupe) =="
+bash "$LS" add seat p1 "LIVE_BIN 은 install 로만 바꾼다" --kind directive >/dev/null 2>&1
+bash "$LS" add seat p2 "LIVE_BIN 손 sed 사고" --kind mistake >/dev/null 2>&1
+bash "$LS" add seat p3 "LIVE_BIN 은 install 경로만" --kind directive >/dev/null 2>&1
+ck "search 히트 3" "$(bash "$LS" search LIVE_BIN | tail -1 | grep -o '히트 [0-9]*')" "히트 3"
+ck "suggest 좌석 2+ 반복 감지" "$(bash "$LS" suggest | grep -c 'LIVE_BIN.*3회')" 1
+ck "suggest --write 파일" "$(bash "$LS" suggest --write >/dev/null 2>&1; ls "$FT_ROOT"/state/eval/suggest-*.md | wc -l | tr -d ' ')" 1
+ck "dedupe 같은 문장 추가 0" "$(bash "$LS" add seat p1 "LIVE_BIN 은 install 로만 바꾼다" | grep -c DUP)" 1
+bash "$LS" add seat p1 "실험 메모리 TTL" --kind experiment >/dev/null 2>&1
+bash "$LS" resolve seat p1 "실험 메모리" --result keep >/dev/null 2>&1
+ck "resolve keep → directive+pin" "$(bash "$LS" list seat p1 --all | grep -c '\[D\]\* 실험 메모리')" 1
+bash "$LS" add seat p1 "버릴 실험" --kind experiment >/dev/null 2>&1
+bash "$LS" resolve seat p1 "버릴 실험" --result drop >/dev/null 2>&1
+ck "resolve drop → 목록에서 빠짐" "$(bash "$LS" list seat p1 --all | grep -c '버릴 실험')" 0
+ck "resolve drop 은 아카이브로(삭제 0)" "$(grep -c '버릴 실험' "$FT_ROOT"/state/lessons/seat/p1.archive.jsonl)" 1
+
 echo "== evolve =="
 before="$(find "$FT_ROOT/state" -name 'evolution' -o -name 'last-run' 2>/dev/null | wc -l | tr -d ' ')"
 out="$(bash "$EV" --dry-run 2>&1)"; rc=$?
@@ -127,5 +143,5 @@ echo "== ft-issues-daily 게이트 연결 =="
 ck "issues-daily 가 evolve --gate 를 부른다" "$(grep -c 'EVOLVE_ARGS=(--gate)\|bash "\$HERE/ft-evolve.sh" "' "$KIT/ft-issues-daily.sh")" 2
 ck "exec 로 rc 를 잃지 않는다" "$(grep -c '^exit "\$rc"' "$KIT/ft-issues-daily.sh")" 1
 
-if [ "$fail" = 0 ]; then echo "ALL PASS (lessons 12 · 레포대조 6 · DA1 6 · DA2 5 · 연결 11 · 팀자동 8 · evolve 10)"; exit 0; fi
+if [ "$fail" = 0 ]; then echo "ALL PASS (lessons 12 · 레포대조 6 · DA1 6 · DA2 5 · 연결 11 · 팀자동 8 · 진화명령 9 · evolve 10)"; exit 0; fi
 echo "FAIL $fail 건"; exit 1

@@ -392,6 +392,9 @@ def cmd_add(argv: list[str]) -> int:
         if corrupt_guard(p):
             return 1
         rows = load(p)
+        if any(norm(r.get("text", "")) == norm(text) for r in rows):
+            print("ADD %s %s DUP — 같은 문장이 이미 있다(추가 0)" % (layer, p.name))
+            return 0
         rec = {"ts": now(), "kind": kind, "text": text, "pin": bool(pin)}
         if kind == "experiment":
             rec["expires"] = (dt.date.today() + dt.timedelta(days=EXP_TTL_DAYS)).isoformat()
@@ -402,6 +405,120 @@ def cmd_add(argv: list[str]) -> int:
                                             "OK" if over == 0 and ttl == 0 else "evict=%d ttl=%d" % (over, ttl)))
     if arc:
         print("EVICT 밀어내기 삭제 아님 → 아카이브 %s (삭제 0)" % arc.name)
+    return 0
+
+
+def norm(t: str) -> str:
+    return re.sub(r"\s+", " ", t.strip().lower())
+
+
+def cmd_search(argv: list[str]) -> int:
+    """계층 전체에서 교훈 찾기 — 재사용 축. ft-lessons.sh search "단어" [--layer seat|team|all] [--json]"""
+    if not argv:
+        die('usage: search "단어" [--layer seat|team|all] [--json]')
+    needle = argv[0]
+    layer = "all"
+    if "--layer" in argv:
+        i = argv.index("--layer")
+        try:
+            layer = argv[i + 1]
+        except IndexError:
+            die("REJECT --layer 값 없음")
+    if layer not in ("seat", "team", "all"):
+        die("REJECT --layer 는 seat|team|all")
+    root = ft_root()
+    hits = 0
+    for lay in (["seat", "team"] if layer == "all" else [layer]):
+        d = root / "state" / "lessons" / lay
+        if not d.is_dir():
+            continue
+        for f in sorted(d.glob("*.jsonl")):
+            if ".archive" in f.name:
+                continue
+            for r in load(f):
+                if needle.lower() in str(r.get("text", "")).lower():
+                    hits += 1
+                    if "--json" in argv:
+                        print(json.dumps({**r, "layer": lay, "who": f.stem}, ensure_ascii=False))
+                    else:
+                        print("%s/%-14s [%s][%s]%s %s" % (lay, f.stem, str(r.get("ts"))[:10],
+                                                           KIND_TAG.get(r.get("kind"), "?"),
+                                                           "*" if r.get("pin") else "", r.get("text")))
+    print("SEARCH '%s' 히트 %d (layer=%s)" % (needle, hits, layer))
+    return 0 if hits else 1
+
+
+def cmd_suggest(argv: list[str]) -> int:
+    """승격 후보 — 좌석 LESSONS 에서 같은 낱말이 3개 좌석 이상/3회 이상 반복되면 팀 승격 후보로 낸다.
+    근거 규칙: «좌석에서 3번 되풀이된 교훈만 팀으로». 쓰기 0(기본). --write 면 state/eval/suggest-<날짜>.md 1장."""
+    root = ft_root()
+    d = root / "state" / "lessons" / "seat"
+    STOP = set("그리고 그래서 하지만 이거 저거 이제 아직 때문 우리 여기 저기 하나 이번 오늘 그때 이렇게 저렇게".split())
+    counts: dict[str, dict[str, set]] = {}
+    for f in sorted(d.glob("*.jsonl")) if d.is_dir() else []:
+        if ".archive" in f.name:
+            continue
+        for r in load(f):
+            for w in re.findall(r"[가-힣]{2,}|[A-Za-z][A-Za-z0-9_.:-]{3,}", str(r.get("text", ""))):
+                if w in STOP:
+                    continue
+                c = counts.setdefault(w, {"n": 0, "who": set()})
+                c["n"] += 1
+                c["who"].add(f.stem)
+    cands = [(w, c["n"], sorted(c["who"])) for w, c in counts.items() if c["n"] >= 3 and len(c["who"]) >= 2]
+    cands.sort(key=lambda x: -x[1])
+    cands = cands[:10]
+    for w, n, who in cands:
+        print("SUGGEST '%s' %d회 · 좌석 %d (%s)" % (w, n, len(who), ",".join(who[:4])))
+    if not cands:
+        print("SUGGEST 승격 후보 0 — 좌석 LESSONS 에 반복(3회·2좌석+)이 아직 없다")
+    if "--write" in argv:
+        ev = root / "state" / "eval"
+        ev.mkdir(parents=True, exist_ok=True)
+        out = ev / ("suggest-%s.md" % dt.date.today().strftime("%Y%m%d"))
+        body = ["# 팀 승격 후보 — %s" % dt.date.today().strftime("%Y-%m-%d"), ""]
+        body += ["- %s (%d회 · %s)" % (w, n, ",".join(who)) for w, n, who in cands] or ["- 없음"]
+        out.write_text("\n".join(body) + "\n", encoding="utf-8")
+        print("SUGGEST 파일 %s" % out.name)
+    return 0
+
+
+def cmd_resolve(argv: list[str]) -> int:
+    """실험 기억의 결말 — `resolve <seat|team> <이름> "검색어" --result keep|drop`.
+    keep = kind 를 directive 로 바꾸고 pin(영구) · drop = 아카이브로 내린다(삭제 0)."""
+    if len(argv) < 3 or "--result" not in argv:
+        die('usage: resolve <seat|team> <이름> "검색어" --result keep|drop')
+    i = argv.index("--result")
+    try:
+        res = argv[i + 1]
+    except IndexError:
+        die("REJECT --result 값 없음")
+    if res not in ("keep", "drop"):
+        die("REJECT --result 는 keep|drop")
+    layer, name = argv[0], argv[1]
+    needle = " ".join(a for j, a in enumerate(argv[2:], 2) if j not in (i, i + 1))
+    p = path_of(layer, name)
+    with Lock(p):
+        if corrupt_guard(p):
+            return 1
+        rows = load(p)
+        hit = [r for r in rows if needle in str(r.get("text", ""))]
+        if not hit:
+            print("RESOLVE %s 일치 없음(''%s'')" % (p.name, needle))
+            return 1
+        if res == "keep":
+            for r in hit:
+                r["kind"] = "directive"
+                r["pin"] = True
+                r.pop("expires", None)
+            rows, over, ttl, arc = enforce(p, rows, CAP[layer])
+            atomic_write(p, rows)
+            print("RESOLVE keep %d건 → directive+pin (%s)" % (len(hit), p.name))
+        else:
+            rows = [r for r in rows if r not in hit]
+            arc = archive(p, hit, "resolve-drop")
+            atomic_write(p, rows)
+            print("RESOLVE drop %d건 → 아카이브 %s (삭제 0)" % (len(hit), arc.name))
     return 0
 
 
@@ -624,12 +741,13 @@ CMDS = {
     "pin": lambda a: cmd_pin(a, True), "unpin": lambda a: cmd_pin(a, False),
     "evict": cmd_evict, "snapshot": cmd_snapshot, "check": cmd_check,
     "migrate": cmd_migrate, "path": cmd_path, "sync-teams": cmd_sync_teams,
+    "search": cmd_search, "suggest": cmd_suggest, "resolve": cmd_resolve,
 }
 
 
 def main() -> int:
     if len(sys.argv) < 2 or sys.argv[1] in ("-h", "--help"):
-        print("usage: ft-lessons.sh {init|add|list|pin|unpin|evict|snapshot|check|migrate|path|sync-teams} …")
+        print("usage: ft-lessons.sh {init|add|list|pin|unpin|evict|snapshot|check|migrate|path|sync-teams|search|suggest|resolve} …")
         return 0 if len(sys.argv) > 1 else 2
     fn = CMDS.get(sys.argv[1])
     if not fn:
