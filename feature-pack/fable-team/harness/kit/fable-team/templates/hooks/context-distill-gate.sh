@@ -569,6 +569,12 @@ def recv_blocked():
 if mode == "hard" and ctx >= recv_at and tool == "Bash" and re.search(r"mbox\.sh\s+recv\b", str(ti.get("command") or "")) and recv_blocked():
     print("RECV|%d|%s|%d|%d|%s" % (k, tool, warn_at // 1000, block_at // 1000, agent_id)); sys.exit(0)
 
+newwork_at = int(os.environ.get("FT_DISTILL_NEWWORK") or warn_at)   # r1429: 경고선 도달 = «새 일 수락 금지»(스폰 도구만)
+if mode == "block" and newwork_at <= ctx < block_at:   # 경고선~차단선 사이 = 새 일만 막는다
+    txt = spawn_text(data)
+    if not (txt and re.search(BLOCK_EXEMPT, txt, re.I)):
+        print("NEWWORK|%d|%s|%d|%d|%s" % (k, tool, newwork_at // 1000, block_at // 1000, agent_id)); sys.exit(0)
+
 if ctx >= block_at:
     if mode == "hard":
         if hard_allowed():
@@ -602,6 +608,12 @@ case "$MODE" in
     if [ "$STATE" = "RECV" ]; then       # R107: 후계 도달 파일 없음 → 새 일 수락(recv) 0
       printf '%s deny mode=%s ctx=%sk tool=%s agent_id=%s recv-gate\n' "$(date +%FT%T)" "$MODE" "$K" "$WHAT" "${AGENT:--}" >> "$LOG" 2>/dev/null
       printf '🛑 [context-distill-gate] 컨텍스트 %sk — 후계 도달 전 새 일 수락 0 (R107). .fable-team/bin/ft-successor-open.sh 로 후계를 열고 도달 확인부터. 쪽지는 큐에 남아 후계가 계보로 받는다. peek 은 허용.\n' "$K" >&2
+      exit 2
+    fi
+    if [ "$STATE" = "NEWWORK" ]; then
+      printf '%s newwork mode=%s ctx=%sk warn_at=%sk block_at=%sk tool=%s agent_id=%s\n' "$(date +%FT%T)" "$MODE" "$K" "$WARN_K" "$BLOCK_K" "$WHAT" "${AGENT:--}" >> "$LOG" 2>/dev/null
+      printf '🛑 [context-distill-gate] 컨텍스트 %sk 토큰 — 경고선(%sk) 도달 = ★새 일 수락 금지★. 지금 증류한다(규칙 r1429): 스냅샷 → 인계서 → 후계.\n' "$K" "$WARN_K" >&2
+      printf '허용: 스냅샷(HANDOFF-*.md · .fable-team/state/** · design/**/inbox/**) · baton save · mbox send/relay · git add/commit/push · Read · AskUserQuestion · tmuxc save · 후계 개설(증류 단어 포함 발주).\n' >&2
       exit 2
     fi
     if [ "$STATE" = "BLOCK" ]; then

@@ -38,5 +38,22 @@ FT_THRESHOLDS="$T/bad.env" "$BIN/ft-thresholds.sh" --export > "$T/o3" 2>&1; rc=$
 { [ $rc -eq 2 ] && grep -q 'REJECT' "$T/o3"; } && ok "BLOCK<=WARN → REJECT rc2" || bad "검증 rc=$rc"
 FT_THRESHOLDS="$T/bad.env" "$BIN/ft-thresholds.sh" --set FT_RESUME_MAX=abc > "$T/o4" 2>&1; rc=$?
 { [ $rc -eq 2 ] && grep -q 'ERROR\|REJECT' "$T/o4"; } && ok "정수 아닌 값 → REJECT rc2" || bad "정수검증 rc=$rc $(cat "$T/o4")"
+
+# r1429: 경고선 도달 = 새 일(스폰) 금지
+mk_t(){ python3 - "$T/tt.jsonl" "$1" <<'PY'
+import json,sys
+open(sys.argv[1],"w").write(json.dumps({"type":"assistant","message":{"model":"claude-opus-5-5","usage":{"input_tokens":int(sys.argv[2]),"cache_read_input_tokens":0,"cache_creation_input_tokens":0}}})+"\n")
+PY
+}
+jof(){ python3 -c 'import json,sys;print(json.dumps({"transcript_path":sys.argv[1],"cwd":sys.argv[2],"tool_name":"Task","tool_input":{"description":"new work","prompt":sys.argv[3]}}))' "$T/tt.jsonl" "$T/rep" "$1"; }
+mk_t 295000; jof "implement x" | HOME="$T/nohome" FT_DISTILL_WARN=300000 FT_DISTILL_BLOCK=320000 PATH="$T/fakebin:$PATH" TMUX_PANE=%1 bash "$GATE" block >/dev/null 2>&1
+[ $? -eq 0 ] && ok "295k(Task) → 허용" || bad "295k Task 차단됨"
+mk_t 305000; jof "implement x" | HOME="$T/nohome" FT_DISTILL_WARN=300000 FT_DISTILL_BLOCK=320000 PATH="$T/fakebin:$PATH" TMUX_PANE=%1 bash "$GATE" block >"$T/o6" 2>&1
+{ [ $? -eq 2 ] && grep -q '새 일 수락 금지' "$T/o6"; } && ok "305k(Task) → NEWWORK 거부(경고선 도달)" || bad "305k Task 미차단"
+mk_t 305000; jof "distill handover" | HOME="$T/nohome" FT_DISTILL_WARN=300000 FT_DISTILL_BLOCK=320000 PATH="$T/fakebin:$PATH" TMUX_PANE=%1 bash "$GATE" block >/dev/null 2>&1
+[ $? -eq 0 ] && ok "305k(증류 발주) → 예외 허용" || bad "증류 발주까지 차단됨"
+mk_t 330000; jof "implement x" | HOME="$T/nohome" FT_DISTILL_WARN=300000 FT_DISTILL_BLOCK=320000 PATH="$T/fakebin:$PATH" TMUX_PANE=%1 bash "$GATE" block >"$T/o7" 2>&1
+{ [ $? -eq 2 ] && grep -q '강제선' "$T/o7"; } && ok "330k(Task) → BLOCK(320k)" || bad "330k BLOCK 아님"
+
 [ "$fail" -eq 0 ] && echo "ALL PASS" || echo "FAIL=$fail"
 exit "$fail"
