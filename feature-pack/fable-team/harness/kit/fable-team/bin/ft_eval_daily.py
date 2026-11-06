@@ -111,6 +111,23 @@ def measure(root: Path) -> list[str]:
     return out
 
 
+def resolve_desk(root: Path) -> str:
+    """오빠 화면 좌석(desk)을 명부에서 찾는다 — 이름을 코드에 박지 않는다(과적합 방지 r1450).
+    우선순위: seats-*.json 키 중 «-desk-» 를 포함하는 현역(_replaced_by 없음) 1개."""
+    best = ""
+    for f in sorted(root.glob("seats-*.json")):
+        try:
+            d = json.loads(f.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if not isinstance(d, dict):
+            continue
+        for k, v in d.items():
+            if "-desk-" in k and not (isinstance(v, dict) and v.get("_replaced_by")):
+                best = k
+    return best
+
+
 def cmd_run(argv: list[str]) -> int:
     dry = "--dry-run" in argv
     root = ft_root()
@@ -160,10 +177,10 @@ def cmd_run(argv: list[str]) -> int:
     q.write_text("\n".join(lines) + "\n", encoding="utf-8")
     print("EVAL date=%s 항목=%s → %s (큐 %d/%d)" % (today, title, day.name, len([x for x in items if not x[3]]) - 1, len(items)))
     # desk 1통 (오빠 화면). 실패해도 파일은 남는다.
-    desk = os.environ.get("FT_EVAL_DESK", "byz-planner-desk-claude#112")
+    desk = os.environ.get("FT_EVAL_DESK") or resolve_desk(root) or ""
     me = os.environ.get("FT_EVAL_FROM", "ft-eval-daily")
     mbox = root / "bin" / "ft-mbox.sh"
-    if mbox.is_file() and os.environ.get("FT_EVAL_NO_SEND") != "1":
+    if mbox.is_file() and desk and os.environ.get("FT_EVAL_NO_SEND") != "1":
         msg = ("[평가] 오늘의 1건 — %s\n확인: %s\n%s\n파일 %s\n오빠 답: 통과 / 고칠 것 / 보류 중 하나"
                % (title, how or "-", " · ".join(meas[:3]), day))
         try:
@@ -171,6 +188,8 @@ def cmd_run(argv: list[str]) -> int:
             print("EVAL mbox to=%s rc=%d" % (desk, r.returncode))
         except Exception as e:  # 쪽지 실패는 파일을 덮지 않는다(하드 룰 20)
             print("EVAL mbox 판정 불가(%s) — 파일은 남았다" % type(e).__name__)
+    elif not desk:
+        print("EVAL mbox 생략 — desk 좌석을 명부에서 못 찾았다(FT_EVAL_DESK 로 지정)")
     return 0
 
 

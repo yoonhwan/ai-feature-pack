@@ -37,10 +37,24 @@ check_once() {
   echo "$bad" > "$pc"
   [ -n "$prev" ] || prev="$bad"   # 첫 실행 = 기준선만 잡는다(오탐 0)
   [ "$bad" -gt "$prev" ] && [ $((bad - prev)) -ge 20 ] && problems+=("state 로그 실패 증가 +$((bad - prev))건(누적 $bad)")
-  local l
-  for l in com.byz.ft-issues-daily com.byz.ft-eval-daily com.byz.ft-tick com.byz.ft-waste-check; do
-    launchctl print "gui/$(id -u)/$l" >/dev/null 2>&1 || problems+=("launchd $l 미적재")
-  done
+  # 과적합 방지(r1450): 라벨을 스크립트에 박지 않는다. «이 프로젝트가 실제로 등록한» 라벨만 본다.
+  #   목록 = <root>/state/watch/labels.txt (install 이 렌더·등록한 라벨만 적는다) 또는 FT_WATCH_LABELS.
+  #   목록이 없으면 판정하지 않고 후보만 알려준다(설치된 plist ≠ 로드돼야 하는 plist — 정지 팀·pause 가 있다).
+  local l labels=""
+  labels="${FT_WATCH_LABELS:-}"
+  [ -n "$labels" ] || { [ -f "$W/labels.txt" ] && labels="$(tr ', ' '\n\n' < "$W/labels.txt" | grep -v '^#' | tr '\n' ' ')"; }
+  if [ -z "${labels// }" ]; then
+    local cand; cand="$(ls "$HOME/Library/LaunchAgents" 2>/dev/null | grep -E '^com\..*ft-.*\.plist$' | sed 's/\.plist$//' | tr '\n' ' ')"
+    { echo "# ft-weekend-watch 라벨 목록 — «이 프로젝트가 등록한» 라벨만 남긴다(나머지는 주석 처리: 정지·pause 팀이 있다)"; for c in $cand; do echo "# $c"; done; } > "$W/labels.txt"
+    problems_skip=1
+  fi
+  if [ -z "${labels// }" ]; then
+    [ "${problems_skip:-0}" = 1 ] && echo "$(date '+%F %T') INFO 라벨 목록 없음 — $W/labels.txt 에 검사할 라벨만 남겨라(이번 점검은 launchd 판정 생략)" >> "$LOG"
+  else
+    for l in $labels; do
+      launchctl print "gui/$(id -u)/$l" >/dev/null 2>&1 || problems+=("launchd $l 미적재")
+    done
+  fi
   echo "$(date '+%F %T') interval=${INTERVAL}s problems=${#problems[@]} ${problems[*]:-}" >> "$LOG"
   if [ "${#problems[@]}" -gt 0 ]; then
     local key; key="$(printf '%s' "${problems[*]}" | md5 2>/dev/null || printf '%s' "${problems[*]}" | cksum)"

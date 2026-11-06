@@ -322,7 +322,9 @@ def merge_order(pinned: list[dict], others: list[dict]) -> list[dict]:
 
 
 def scan(text: str) -> str | None:
-    for pat in INJECT:
+    # 팀·프로젝트별 확장: FT_LESSONS_EXTRA_INJECT="정규식1;;정규식2" (과적합 방지 r1450 — 패턴을 코드에만 두지 않는다)
+    extra = [x for x in os.environ.get("FT_LESSONS_EXTRA_INJECT", "").split(";;") if x.strip()]
+    for pat in list(INJECT) + extra:
         m = re.search(pat, text)
         if not m:
             continue
