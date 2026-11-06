@@ -245,26 +245,43 @@ fi
 #   닭-달걀이 된다(명부 미등록 → mbox 거절 → 도달 실패). 그래서 열기 직후 명부에 행을 먼저 넣는다(멱등).
 #   retire 는 나중에 _replaced_by 를 채우므로 이중 등록이 아니다.
 register_successor() {
-  python3 - "$ROOT" "$NAME" "$AGENT" "$MODEL" "$WT" "$OLD" <<'PY' 2>/dev/null || true
+  local out rc
+  out="$(python3 - "$ROOT" "$NAME" "$AGENT" "$MODEL" "$WT" "$OLD" <<'PY'
 import glob, json, os, sys, datetime
-root, name, agent, model, wt, old = sys.argv[1:7]
-for f in sorted(glob.glob(os.path.join(root, ".fable-team", "seats*.json"))):
-    try: d = json.load(open(f))
-    except Exception: continue
-    if name in d:
-        return
-    if old not in d:
-        continue                    # 구 좌석이 있는 명부에만 넣는다(팀 명부 판정)
-    d[name] = {"role": "master", "agent": agent, "model": model,
-               "worktree": os.path.basename(wt.rstrip("/")), "spawned_by": old,
-               "opened_at": datetime.date.today().isoformat(), "tick": None,
-               "persona": "successor (auto-registered by ft-successor-open r1435)",
-               "_replaces": [old],
-               "_note": "r1435 선등록 — codex SessionStart 미관측 때문에 도달 전 명부 등록"}
-    json.dump(d, open(f, "w"), ensure_ascii=False, indent=1); open(f, "a").write("\n")
-    print("REGISTERED %s in %s" % (name, os.path.basename(f)))
-    return
+
+
+def main() -> int:
+    root, name, agent, model, wt, old = sys.argv[1:7]
+    for f in sorted(glob.glob(os.path.join(root, ".fable-team", "seats*.json"))):
+        try:
+            with open(f, encoding="utf-8") as fh:
+                d = json.load(fh)
+        except Exception:
+            continue
+        if name in d:
+            return 0
+        if old not in d:
+            continue
+        d[name] = {"role": "master", "agent": agent, "model": model,
+                   "worktree": os.path.basename(wt.rstrip("/")), "spawned_by": old,
+                   "opened_at": datetime.date.today().isoformat(), "tick": None,
+                   "persona": "successor (auto-registered by ft-successor-open r1435)",
+                   "_replaces": [old],
+                   "_note": "r1435 선등록 — codex SessionStart 미관측 때문에 도달 전 명부 등록"}
+        with open(f, "w", encoding="utf-8") as fh:
+            json.dump(d, fh, ensure_ascii=False, indent=1)
+            fh.write("\n")
+        print("REGISTERED %s in %s" % (name, os.path.basename(f)))
+        return 0
+    return 0
+
+
+sys.exit(main())
 PY
+)"; rc=$?
+  [ -n "$out" ] && printf '%s\n' "$out"
+  # r1451(DA 3R 반례 5): 실패를 숨기지 않는다 — 선등록 실패는 도달 판정 실패로 이어진다
+  [ "$rc" = 0 ] || echo "WARN 후계 선등록 실패(rc=$rc) — 명부 수동 확인: $NAME (도달 판정은 계속)"
 }
 register_successor
 

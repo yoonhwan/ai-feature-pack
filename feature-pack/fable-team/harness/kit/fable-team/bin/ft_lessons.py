@@ -293,6 +293,13 @@ def expire(rows: list[dict]) -> tuple[list[dict], list[dict]]:
 def enforce(p: Path, rows: list[dict], cap: int) -> tuple[list[dict], int, int, Path | None]:
     """TTL → cap 순서로 정리. 반환 (남은 rows, 밀어낸 수, TTL 만료 수, 아카이브 경로)"""
     rows, expired = expire(rows)
+    # DA 3R 반례 2: pin 만 계속 넣으면 상한이 무력화됐다. 핀도 상한의 절반까지만 영구 — 넘으면 오래된 핀부터 해제.
+    pinned_all = [r for r in rows if r.get("pin")]
+    pin_cap = max(1, cap // 2)
+    if len(pinned_all) > pin_cap:
+        for r in pinned_all[: len(pinned_all) - pin_cap]:
+            r["pin"] = False
+            r["unpinned"] = now()
     over = 0
     if len(rows) > cap:
         pinned = [r for r in rows if r.get("pin")]

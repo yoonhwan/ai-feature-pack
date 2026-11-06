@@ -84,16 +84,30 @@ def read_mail(root: Path) -> list[str]:
 
 
 def read_lessons(root: Path) -> list[str]:
+    """좌석 LESSONS 반복 → 팀 승격 후보. jsonl(현행)과 md(옛 형식)를 모두 읽는다(DA 3R 반례 3)."""
     out = []
     d = root / "state" / "lessons" / "seat"
     if not d.is_dir():
         return out
     tags: dict[str, int] = {}
-    for f in sorted(d.glob("*.md")):
+    rows: list[str] = []
+    for f in sorted(d.glob("*.jsonl")):
+        if ".archive" in f.name:
+            continue
         for line in f.read_text(encoding="utf-8", errors="replace").splitlines():
-            for t in KEYWORDS:
-                if t in line:
-                    tags[t] = tags.get(t, 0) + 1
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rows.append(str(json.loads(line).get("text", "")))
+            except Exception:
+                rows.append(line)
+    for f in sorted(d.glob("*.md")):
+        rows.extend(f.read_text(encoding="utf-8", errors="replace").splitlines())
+    for line in rows:
+        for t in KEYWORDS:
+            if t in line:
+                tags[t] = tags.get(t, 0) + 1
     for t, n in sorted(tags.items(), key=lambda x: -x[1]):
         if n >= 3:
             out.append("좌석 LESSONS '%s' %d회 → 팀 LESSONS 승격 후보" % (t, n))

@@ -22,7 +22,11 @@ check_once() {
   local lr; lr="$(cat "$ROOT/state/evolution/last-run" 2>/dev/null | tr -d '[:space:]')"
   [ "$lr" = "$today" ] || problems+=("게이트 미실행(last-run=${lr:-없음} · 오늘=$today)")
   ls "$ROOT"/state/eval/daily-*.md >/dev/null 2>&1 || problems+=("평가 파일 없음")
-  grep -q "daily-$today.md" <(ls "$ROOT"/state/eval/daily-*.md 2>/dev/null) || problems+=("오늘 평가($today) 없음 — 10:00 잡 확인")
+  # DA 3R 반례 6: 예정 시각(기본 10:00) 전에는 «없음» 이 정상 — 시각 조건 없이 오탐했다.
+  local due="${FT_EVAL_DUE_HOUR:-10}"
+  if [ "$(date +%H)" -ge "$due" ] || [ "${FT_WATCH_IGNORE_SCHEDULE:-0}" = 1 ]; then
+    grep -q "daily-$today.md" <(ls "$ROOT"/state/eval/daily-*.md 2>/dev/null) || problems+=("오늘 평가($today) 없음 — ${due}:00 잡 확인")
+  fi
   if [ -f "$ROOT/bin/ft-lessons.sh" ]; then
     FT_ROOT="$ROOT" bash "$ROOT/bin/ft-lessons.sh" check >/dev/null 2>&1 || problems+=("lessons check 위반")
   fi

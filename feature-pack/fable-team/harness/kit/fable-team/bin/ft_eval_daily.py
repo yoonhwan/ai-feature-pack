@@ -27,7 +27,11 @@ H = Path.home()
 def ft_root() -> Path:
     env = os.environ.get("FT_ROOT")
     if env:
-        return Path(env)
+        p = Path(env)
+        # DA 3R 반례 1: plist 는 FT_ROOT=<프로젝트 루트> 를 준다 — 여기서 .fable-team 을 강제한다.
+        if p.name != ".fable-team" and (p / ".fable-team").is_dir():
+            p = p / ".fable-team"
+        return p
     cwd = Path.cwd()
     for p in [cwd, *cwd.parents]:
         if (p / ".fable-team").is_dir():
@@ -131,12 +135,25 @@ def resolve_desk(root: Path) -> str:
 def cmd_run(argv: list[str]) -> int:
     dry = "--dry-run" in argv
     root = ft_root()
+    # DA 3R 반례 4: 동시 실행 락 — 날짜 검사·쓰기·송신을 한 임계구역에 둔다(중복 발송 0)
+    lock_fh = None
+    if not dry:
+        lock_dir = root / "state" / "eval"
+        try:
+            lock_dir.mkdir(parents=True, exist_ok=True)
+            lock_fh = open(lock_dir / ".eval.lock", "a+", encoding="utf-8")
+            import fcntl
+            fcntl.flock(lock_fh, fcntl.LOCK_EX)
+        except Exception:
+            lock_fh = None  # 락 실패해도 멈추지 않는다(아래 날짜 검사는 유지)
     edir = root / "state" / "eval"
     q = edir / "queue.md"
     today = dt.date.today().strftime("%Y%m%d")
     day = edir / ("daily-%s.md" % today)
     if day.is_file() and not dry:
         print("EVAL SKIP date=%s 이미 오늘 1건 만들었다(파일 변경 0)" % today)
+        if lock_fh:
+            lock_fh.close()
         return 0
     if not q.is_file():
         if dry:
@@ -190,6 +207,8 @@ def cmd_run(argv: list[str]) -> int:
             print("EVAL mbox 판정 불가(%s) — 파일은 남았다" % type(e).__name__)
     elif not desk:
         print("EVAL mbox 생략 — desk 좌석을 명부에서 못 찾았다(FT_EVAL_DESK 로 지정)")
+    if lock_fh:
+        lock_fh.close()
     return 0
 
 

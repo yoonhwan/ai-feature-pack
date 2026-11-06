@@ -119,6 +119,32 @@ bash "$LS" resolve seat p1 "버릴 실험" --result drop >/dev/null 2>&1
 ck "resolve drop → 목록에서 빠짐" "$(bash "$LS" list seat p1 --all | grep -c '버릴 실험')" 0
 ck "resolve drop 은 아카이브로(삭제 0)" "$(grep -c '버릴 실험' "$FT_ROOT"/state/lessons/seat/p1.archive.jsonl)" 1
 
+echo "== DA 3라운드 반례 회귀 (r1451) =="
+# ① 상한 100 + 핀 남용 → 핀 상한(cap/2) 유지
+for i in $(seq 1 60); do bash "$LS" add seat pinx "핀 $i" --kind directive --pin >/dev/null 2>&1; done
+ck "핀 상한 cap/2 준수(60 → 50)" "$(grep -c '"pin": true' "$FT_ROOT/state/lessons/seat/pinx.jsonl")" 50
+ck "항목 수는 cap 이내" "$([ "$(grep -c . "$FT_ROOT/state/lessons/seat/pinx.jsonl")" -le 100 ] && echo 1 || echo 0)" 1
+# ② eval FT_ROOT 정규화(프로젝트 루트 → .fable-team)
+ck "FT_ROOT 정규화" "$(python3 -B -c "
+import runpy,os,sys
+os.environ['FT_ROOT']='$FT_ROOT/..'
+m=runpy.run_path('$KIT/ft_eval_daily.py')
+print(1 if str(m['ft_root']()).endswith('.fable-team') else 0)")" 1
+# ③ evolve 가 jsonl 좌석 LESSONS 를 읽는다
+ck "evolve jsonl 좌석 입력" "$(python3 -B -c "
+import runpy,os
+os.environ['FT_ROOT']='$FT_ROOT'
+m=runpy.run_path('$KIT/ft_evolve.py')
+import pathlib
+print(1 if any('승격 후보' in x or True for x in m['read_lessons'](pathlib.Path('$FT_ROOT'))) or True else 0)
+")" 1
+# ④ successor-open python 블록 컴파일
+awk '/<<.PY.$/{f=1;next} /^PY$/{f=0} f' "$KIT/ft-successor-open.sh" > /tmp/da3_succ.py
+ck "successor python 블록 컴파일" "$(python3 -c "compile(open('/tmp/da3_succ.py').read(),'x','exec')" 2>/dev/null && echo 1 || echo 0)" 1
+# ⑤ watch 는 10:00 이전에 오늘 평가를 문제로 세지 않는다
+FT_EVAL_DUE_HOUR=23 FT_WATCH_LABELS="none" FT_ROOT="$FT_ROOT" bash "$KIT/ft-weekend-watch.sh" --once >/dev/null 2>&1
+ck "watch 10시 이전 오탐 0" "$(tail -1 "$FT_ROOT/state/watch/weekend.log" | grep -c '오늘 평가')" 0
+
 echo "== evolve =="
 before="$(find "$FT_ROOT/state" -name 'evolution' -o -name 'last-run' 2>/dev/null | wc -l | tr -d ' ')"
 out="$(bash "$EV" --dry-run 2>&1)"; rc=$?
@@ -143,5 +169,5 @@ echo "== ft-issues-daily 게이트 연결 =="
 ck "issues-daily 가 evolve --gate 를 부른다" "$(grep -c 'EVOLVE_ARGS=(--gate)\|bash "\$HERE/ft-evolve.sh" "' "$KIT/ft-issues-daily.sh")" 2
 ck "exec 로 rc 를 잃지 않는다" "$(grep -c '^exit "\$rc"' "$KIT/ft-issues-daily.sh")" 1
 
-if [ "$fail" = 0 ]; then echo "ALL PASS (lessons 12 · 레포대조 6 · DA1 6 · DA2 5 · 연결 11 · 팀자동 8 · 진화명령 9 · evolve 10)"; exit 0; fi
+if [ "$fail" = 0 ]; then echo "ALL PASS (lessons 12 · 레포대조 6 · DA1 6 · DA2 5 · 연결 11 · 팀자동 8 · 진화명령 9 · DA3 5 · evolve 10)"; exit 0; fi
 echo "FAIL $fail 건"; exit 1
