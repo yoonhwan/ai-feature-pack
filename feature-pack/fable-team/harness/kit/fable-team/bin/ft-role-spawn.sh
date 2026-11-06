@@ -181,6 +181,7 @@ case "$ROLE" in master|arch) BODY="$BODY ★부팅 보고를 보낸 그 턴에 C
 # 승계 좌석 부팅 보고 게이트(P4 · 판정 1155 ①) — retire 칸이 없으면 쪽지 도구(mbox_guard)가 반송한다. 구 좌석이 있을 때만 붙인다.
 [ -n "${OLD:-}" ] && BODY="$BODY ★부팅 보고에 retire=<구>-><후계> rc=0 칸 필수 — ft-seat-retire.sh <구> <후계> 를 먼저 실행해 출력을 복붙(칸이 없으면 쪽지 도구가 반송) — 출력 둘째 줄(RESUME ok … 또는 NORECORD …)도 retire 칸 옆에 그대로 붙인다(재개 기록 · 판정 1344)★"
 # 고스트 서제스천(R21 · BOOT 17) — 남의 pane 을 읽는 전 역할에 붙인다.
+BODY="$BODY ★좌석 기억(1회 로드)= FT_SEAT_NAME=$NAME FT_TEAM=${FT_TEAM:-} bash .fable-team/bin/ft-lessons.sh snapshot — 팀·좌석 LESSONS ≤2KB 만 싣는다(세션 중 add 는 파일에만 · 다음 부팅 반영). 팀=team/<팀>.jsonl · 좌석=seat/$NAME.jsonl (cap 100 · 밀어내기는 archive 로)★"
 BODY="$BODY ★남의 pane ❯ 뒤 글자 = 자동완성 제안 — 사용자 입력으로 착각 금지 · 그 줄로 보고·인터뷰·Enter 0 · 판단 근거는 jsonl·✻ done 줄뿐 (BOOT 17)★"
 BODY="$BODY ★측정 조작 금지(오빠 절대지침) — 임의 Redis 쓰기(redis-cli SET·HSET·XADD·PUBLISH 등 제품 키 직접 주입)·말풍선 DOM 주입(재생 하네스·/dev/bubble-replay·appendChild)으로 만든 결과는 증거 아님 · 측정은 trusted 클릭 + 기존 e2e 러너의 실제 음성 경로만 · 격리 Redis 픽스처 시험은 별개 · 이미 썼으면 [HIL] 로 올림 (BOOT 20)★"
 

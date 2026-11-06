@@ -1,3 +1,13 @@
+## 2026-11-06 — r1432 ft-acct-quota 툴 + 스킬 (1.1.271)
+
+- 오빠 «ft 에 툴로 랜딩시켜서 스킬로 사용하도록 하자. codex, gemini 도 되도록 추가».
+- 신규 `bin/ft-acct-quota.sh` — cliproxy OAuth 계정 쿼터 표. claude(`/api/oauth/usage`+`/profile`) · codex(`chatgpt.com/backend-api/wham/usage` + `chatgpt-account-id`) · gemini(파일만, endpoint 없음).
+  - 출력 = provider · email · tier/plan · 5h/주간 사용률 · 리셋 `MM-DD HH:MM` · **남은 시간(`3d 18h`)** · 비고(DISABLED/중복슬롯)
+  - `--timeline` 복구 순 · `--json` · `--provider` · `--no-net` · 계정당 7초 상한 · 쓰기 0
+- 스킬 = `templates/skills/ft-acct-quota/SKILL.md` (트리거 키워드: 계정·쿼터·한도·리밋·복구·quota·rate limit·중복 계정). `~/.claude/skills/` 와 `~/.agents/skills/`(codex·gemini·pi 공용)에 설치.
+- **판정 교훈 기록**: 중복은 `account_uuid` 만으로 판정하지 않는다 — 같은 사람의 개인 org(20x)와 팀 org(5x)는 쿼터가 별개다(실측: 같은 uuid 2장이 리셋 11-09 vs 11-11·tier 20x vs 5x). codex 는 같은 `account_id` 의 pro/plus/prolite 가 중복슬롯(유지 순위 pro>plus>prolite).
+- 2026-11-06 정정: `claude-770a0786-yoonhwan.ko@byourz.com`(BYZ 5x)을 잠시 비활성했다가 **실측 근거로 복구** — 15a50813(개인 20x, 리셋 11-09)과 다른 구독이다.
+
 ## 2026-11-06 — r1431 ctx-waste 느슨한 연동 + 주기 점검 (1.1.270)
 
 - 오빠 «ft 내부에 ctx-waste 연동? 느슨한 연결해서 점검에 포함해서 주기적? 크리티컬 사용자에게 알리자».

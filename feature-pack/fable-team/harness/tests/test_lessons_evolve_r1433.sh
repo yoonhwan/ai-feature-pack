@@ -67,6 +67,13 @@ import os,sys;os.environ['FT_ROOT']=os.environ['FT_ROOT']
 import runpy;m=runpy.run_path('$KIT/ft_lessons.py');import pathlib
 print(1 if m['guess_team'](pathlib.Path(os.environ['FT_ROOT']),'ft-v65-master#4')=='v65' else 0)")" 1
 
+echo "== 좌석 생성 4경로 연결 (r1443) =="
+for f in ft-tmux-spawn.sh ft-role-spawn.sh ft-successor-open.sh; do
+  ck "$f 가 snapshot 을 지시" "$(grep -c 'ft-lessons.sh snapshot' "$KIT/$f")" 1
+done
+ck "ft-master-tick ⑧ 이 snapshot+LATEST" "$(grep -c 'ft-lessons.sh snapshot' "$KIT/ft-master-tick.sh")" 1
+ck "successor BLOCK 300자 상한 유지" "$(grep -c '300자 초과' "$KIT/ft-successor-open.sh" | awk '{print ($1>=1)?1:0}')" 1
+
 echo "== evolve =="
 before="$(find "$FT_ROOT/state" -name 'evolution' -o -name 'last-run' 2>/dev/null | wc -l | tr -d ' ')"
 out="$(bash "$EV" --dry-run 2>&1)"; rc=$?
@@ -91,5 +98,5 @@ echo "== ft-issues-daily 게이트 연결 =="
 ck "issues-daily 가 evolve --gate 를 부른다" "$(grep -c 'EVOLVE_ARGS=(--gate)\|bash "\$HERE/ft-evolve.sh" "' "$KIT/ft-issues-daily.sh")" 2
 ck "exec 로 rc 를 잃지 않는다" "$(grep -c '^exit "\$rc"' "$KIT/ft-issues-daily.sh")" 1
 
-if [ "$fail" = 0 ]; then echo "ALL PASS (lessons 12 · 레포대조 6 · DA반례 6 · evolve 10 · 연결 2)"; exit 0; fi
+if [ "$fail" = 0 ]; then echo "ALL PASS (lessons 12 · 레포대조 6 · DA반례 6 · 연결 11 · evolve 10)"; exit 0; fi
 echo "FAIL $fail 건"; exit 1

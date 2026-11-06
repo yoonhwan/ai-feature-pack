@@ -321,7 +321,9 @@ while [ "$i" -lt "$WAIT_MAX" ]; do i=$((i+1))
 # ★r1034 팀장 승계 «이월 0» 줄★: 사고 확대 키워드의 효과는 세션을 넘어가지 않는다 — 팀장 후계 본문 끝에 그 뜻을 한 줄 붙인다.
 #   그 낱말 자체는 적지 않는다(적으면 후계 세션이 그 낱말 때문에 바로 켜진다) · --body-file 원본은 바이트 그대로(파일에 쓰지 않는다).
 # ★r1037 이월 1★: 알림줄 꼬리(r1036 · FT_DOORBELL_TAIL)를 «송신과 링 재시도 둘 다»에 켠다 — 낱말은 본문에 싣지 않는다(본문은 도구 결과라 효과가 불확실하고 둘째 경로로 샌다).
-SEND_TEXT="$( { sed -n '1,3p' "$BODY"; printf '%s\n' "$BLOCK"; sed -n '4,$p' "$BODY"; } )"  # r1391 — 골 3줄(그대로) + 지침 블록 + 본문 4행~
+# r1443: 승계 좌석도 부팅 1회 기억 로드를 받는다(BLOCK 300자 상한은 건드리지 않고 별도 1줄로 붙인다)
+LESSONS_LINE="좌석 기억(1회 로드)= FT_SEAT_NAME=$NAME FT_TEAM=${FT_TEAM:-} bash .fable-team/bin/ft-lessons.sh snapshot — 팀·좌석 LESSONS ≤2KB(세션 중 add 는 파일에만 · 다음 부팅 반영)."
+SEND_TEXT="$( { sed -n '1,3p' "$BODY"; printf '%s\n' "$BLOCK"; printf '%s\n' "$LESSONS_LINE"; sed -n '4,$p' "$BODY"; } )"  # r1391/r1443 — 골 3줄 + 지침 블록 + 기억 로드 1줄 + 본문 4행~
 if [ "${NAME#*-master-}" != "$NAME" ]; then
   if [ "$CARRY" = 1 ]; then
     SEND_TEXT="$SEND_TEXT"$'\n'"승계 이월 1: 앞 세션의 확대 사고를 이어 받는다. 문제가 풀리면 다음 승계에서 이월 0."
