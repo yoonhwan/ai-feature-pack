@@ -105,6 +105,27 @@ https://github.com/yoonhwan/ai-feature-pack/tree/main/feature-pack/ctx-waste
 Any agent can do this because every number comes from files on the machine: session logs and
 rule files. No API key, no network.
 
+
+## The core lever: start budget, not window size
+
+A 1M window is not usable if you distill at 300k. What matters is **how much of the gate is left
+for actual conversation** when a session starts.
+
+```
+gate 300,000 · measured prefix 48,551 · handover 5,000
+fresh distill (handover)   ▒▒▒▒▒▒██████████████████████████  remaining 246,449 (82%) · rewrite 107k
+resume 200k                ▒▒▒▒▒▒▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓███████████  remaining 100,000 (33%) · rewrite 400k
+resume 250k                ▒▒▒▒▒▒▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓█████  remaining  50,000 (17%) · rewrite 500k
+prefix ▒ · carried ▓ · remaining █
+fresh start: 4.9x the working room · 4.7x less rewrite cost (vs resume 250k)
+```
+
+**Resuming a 250k conversation leaves 50k of room and costs 500k to re-write. Starting fresh with a
+5k handover leaves 246k and costs 107k.** That single ratio is the biggest lever in agent cost, and
+it is why `ctx-waste` prints this table before the break-even section.
+
+Tune with `--gate` and `--resume-caps` (comma separated).
+
 ## Options
 
 | option | default | meaning |

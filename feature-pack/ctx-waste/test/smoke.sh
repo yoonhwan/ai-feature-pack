@@ -17,7 +17,7 @@ printf '# tiny\n한 줄\n' > "$TMP/proj/CLAUDE.md"
 OUT="$("$PKG/bin/ctx-waste" --hours 24 --project "$TMP/proj" 2>&1)"
 OUTKO="$("$PKG/bin/ctx-waste" --hours 24 --project "$TMP/proj" --lang ko 2>&1)"
 
-for sec in "[0] Runtime environment" "auto-loaded memory" "total" ; do
+for sec in "[0] Runtime environment" "auto-loaded memory" "total" "start budget" ; do
   case "$OUT" in *"$sec"*) ok "section: $sec" ;; *) fail "missing section: $sec" ;; esac
 done
 case "$OUT" in *"proj/.claude/rules/big.md"*) ok "big memory file detected" ;; *) fail "memory detect" ;; esac

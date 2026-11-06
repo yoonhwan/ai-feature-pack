@@ -1,8 +1,8 @@
 {
   "name": "ctx-waste",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "title": "ctx-waste — local context waste audit for AI coding agents",
-  "description": "Read-only audit of context waste across claude, codex, pi, opencode, hermes, openclaw and commandcode. Detects installed/running runtimes, shows auto-loaded memory size, cache full-rewrite share, context per request and the distillation break-even turn count as graphs. English by default (--lang ko for Korean). No writes, no network.",
+  "description": "Read-only audit of context waste across claude, codex, pi, opencode, hermes, openclaw and commandcode. Detects installed/running runtimes, shows auto-loaded memory size, cache full-rewrite share, context per request and the distillation break-even turn count as graphs. Reports the start-budget breakdown (fresh distill vs resume: working room left and rewrite cost). English by default (--lang ko for Korean). No writes, no network.",
   "category": "observability",
   "os": [
     "darwin",

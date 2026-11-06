@@ -56,6 +56,13 @@ STR = {
         "ctx_fixed": "  fixed prefix share (memory only): %.0f%%",
         "top": "[%s] worst sessions",
         "top_head": "  %-12s %5s %10s %10s %10s  %s",
+        "sb": "start budget — where the distill gate splits",
+        "sb_line": "  gate %s · measured prefix %s · handover %s",
+        "sb_rows": "  %-26s %s remaining %8s (%3.0f%%) · rewrite %7s",
+        "sb_fresh": "fresh distill (handover)",
+        "sb_resume": "resume %s",
+        "sb_legend": "  prefix ▒ · carried ▓ · remaining █",
+        "sb_verdict": "  fresh start: %.1fx the working room · %.1fx less rewrite cost (vs resume %s)",
         "be": "break-even for distillation",
         "be_restart": "  restart cost        %s  (prefix %s x %.1f)",
         "be_save": "  saving per turn     %s  (distill at %s)",
@@ -106,6 +113,13 @@ STR = {
         "ctx_fixed": "  고정 프리픽스 비중(메모리만): %.0f%%",
         "top": "[%s] 낭비 상위 세션",
         "top_head": "  %-12s %5s %10s %10s %10s  %s",
+        "sb": "시작 예산 — 증류 게이트가 어디서 갈리는가",
+        "sb_line": "  게이트 %s · 실측 프리픽스 %s · 인계서 %s",
+        "sb_rows": "  %-26s %s 남은 공간 %8s (%3.0f%%) · 재작성 %7s",
+        "sb_fresh": "새로 증류(인계서 포함)",
+        "sb_resume": "이어하기 %s",
+        "sb_legend": "  프리픽스 ▒ · 물고 온 대화 ▓ · 남은 공간 █",
+        "sb_verdict": "  새로 시작이 작업 공간 %.1f배 · 재작성 %.1f배 적다 (이어하기 %s 대비)",
         "be": "증류 손익분기",
         "be_restart": "  재시작 1회 비용      %s  (프리픽스 %s × %.1f)",
         "be_save": "  턴당 절감            %s  (%s 로 증류)",
@@ -153,6 +167,8 @@ def nfmt(n):
 
 def kfmt(n):
     n = float(n)
+    if n >= 1e3 and abs(n / 1e3 - round(n / 1e3)) < 1e-9:
+        return "%dk" % int(round(n / 1e3))
     if n >= 1e9:
         return "%.2fB" % (n / 1e9)
     if n >= 1e6:
@@ -432,12 +448,30 @@ def scan(rt, hours):
 
 
 # ---------------------------------------------------------------- analysis
+HANDOVER = 5_000
+SESSION_FIRST = {}
+
+
+def measured_prefix(mem):
+    """Median first cache write of main sessions (>=20k) = measured fixed prefix."""
+    vals = sorted(v["write"] for v in SESSION_FIRST.values() if (v.get("write") or 0) >= 20_000)
+    if vals:
+        return vals[len(vals) // 2]
+    return (sum(r["tokens"] for r in mem) + 20_000) if mem else 0
+
+
+def bar_carry(pref, carry, room, gate, width=32):
+    n = lambda x: max(0, int(round(width * x / gate)))
+    return "▒" * n(pref) + "▓" * n(max(0, carry - pref)) + "█" * n(room)
+
+
 def analyze(recs, rewrite_at):
     by = collections.defaultdict(list)
     for r in recs:
         by[r["sess"]].append(r)
-    for v in by.values():
+    for k, v in by.items():
         v.sort(key=lambda r: r["t"])
+        SESSION_FIRST.setdefault(k, {"write": v[0]["write"]}) if v else None
     bd = {"read": 0.0, "rewrite": 0.0, "delta": 0.0, "out": 0.0}
     n_rew = 0
     for r in recs:
@@ -520,6 +554,8 @@ def main():
                     help="full-rewrite threshold in cache-write tokens (default 150000)")
     ap.add_argument("--budget", type=int, default=250_000, help="distill budget in tokens (default 250000)")
     ap.add_argument("--top", type=int, default=6, help="session rows per runtime (default 6)")
+    ap.add_argument("--gate", type=int, default=300_000, help="distill gate in tokens (default 300000)")
+    ap.add_argument("--resume-caps", default="150000,200000,250000", help="resume caps to compare")
     ap.add_argument("--json", action="store_true", help="machine readable")
     a = ap.parse_args()
     L = a.lang
@@ -628,6 +664,31 @@ def main():
         print(S("top_head") % tuple(S("topcols")))
         for w, sess, n, avgc, maxc in an["top"][:a.top]:
             print("  %-12s %5d %10s %10s %10s" % (sess, n, nfmt(avgc), nfmt(maxc), kfmt(w)))
+        print()
+
+    # start budget — the core lever
+    pref = measured_prefix(data[order[0]]["memory"] if order else [])
+    caps = []
+    for c in str(a.resume_caps).split(","):
+        c = c.strip()
+        if c.isdigit():
+            caps.append(int(c))
+    if pref:
+        print(S("sb"))
+        print(S("sb_line") % (nfmt(a.gate), nfmt(pref), nfmt(HANDOVER)))
+        rows = [(S("sb_fresh"), pref + HANDOVER)] + [(S("sb_resume") % (kfmt(c),), c) for c in caps]
+        mx = max(r for _, r in rows)
+        for name, carry in rows:
+            room = max(0, a.gate - carry)
+            bstr = bar_carry(pref, carry, room, a.gate, 32)
+            print(S("sb_rows") % (name, bstr, nfmt(room), pct(room, a.gate), kfmt(carry * W_W1H)))
+        print(S("sb_legend"))
+        if caps:
+            top = max(caps)
+            base = pref + HANDOVER
+            if (a.gate - base) > 0 and (a.gate - top) > 0:
+                print(S("sb_verdict") % ((a.gate - base) / (a.gate - top),
+                                         (top * W_W1H) / (base * W_W1H), kfmt(top)))
         print()
 
     # break-even for primary
