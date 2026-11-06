@@ -44,6 +44,11 @@
 - 조정 = `ft-thresholds.sh --set FT_RESUME_MAX=200000` (기본 기록 위치 `~/.claude/fable-team/thresholds.env`) · 확인 = `--show`. 재설치 불필요(게이트가 매 호출 읽는다).
 - 해석 순서 = 명시 env > `$FT_THRESHOLDS` > `<루트>/.fable-team/thresholds.env` > `~/.claude/fable-team/thresholds.env` > 기본값.
 
+### 낭비 주기 점검 (r1431 · 느슨한 연결)
+- `ft-waste-check.sh [--hours 6] [--alert]` 가 `ctx-waste` 를 부른다. **ctx-waste 가 없으면 `WASTE skip` rc0** — ft 가 ctx-waste 에 하드 의존하지 않는다.
+- 판정 = 재작성 비중 · 평균 ctx · 요청당 가중. `critical`(재작성 ≥35% 또는 avg ≥250k 또는 per ≥60k)이면 `--alert` 로 planner 에 `[긴급]` 1통(desk 중계 → 오빠).
+- 주기 = launchd `com.byz.ft-waste-check` 6시간 간격(로그 `.fable-team/state/waste-check.log`). 수동 1회 = `bash .fable-team/bin/ft-waste-check.sh --hours 6`.
+
 ### [정리] 줄에 «남은 작업 공간» 1개 (r1430)
 - 팀장 심박 `[정리]` 첫 줄 끝에 `ft-budget.sh` 출력 1개를 붙인다 — 예: `… · 다음 수: <카드> → <좌석> · 여유 82% (246k/300k)`.
 - 이 값 = 게이트(경고선 300k) − 현재 대화 − 프리픽스. **새로 증류하면 크게 돌아오고, 이어받으면 작아진다**(실측: 새 시작 82% vs 250k 리줌 17%).

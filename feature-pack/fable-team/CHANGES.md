@@ -1,3 +1,12 @@
+## 2026-11-06 — r1431 ctx-waste 느슨한 연동 + 주기 점검 (1.1.270)
+
+- 오빠 «ft 내부에 ctx-waste 연동? 느슨한 연결해서 점검에 포함해서 주기적? 크리티컬 사용자에게 알리자».
+- 신규 `bin/ft-waste-check.sh` — `ctx-waste` 를 PATH → `~/.local/bin` → 팩 경로 순으로 찾아 실행. **없으면 `WASTE skip` rc0**(하드 의존 0).
+- 판정 1줄 = `WASTE ok|warn|critical rewrite=15% avg=145k per=31k rewrites=29 (claude)`.
+- critical 조건 = 재작성 ≥35% 또는 avg ≥250k 또는 요청당 ≥60k → `--alert` 로 `byz-planner-master-claude#241` 에 `[긴급]` 1통(desk 중계 → 오빠). warn = 재작성 ≥20% 또는 avg ≥180k.
+- 주기 = 신규 launchd 템플릿 `kit/launchd/com.byz.ft-waste-check.plist.template` (6시간, `--alert`) · 로그 `.fable-team/state/waste-check.log`.
+- 정본 동기 = `skill/scripts/ft-waste-check.sh` · `skill/templates/rules/orchestration.md`.
+
 ## 2026-11-06 — r1430 [정리] 줄에 «남은 작업 공간» (1.1.269)
 
 - 오빠 «넣자» — start budget 지표를 팀장 루프에 붙인다.
