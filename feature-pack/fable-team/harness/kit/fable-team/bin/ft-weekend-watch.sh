@@ -3,6 +3,7 @@
 #   ★세션과 무관하게 돈다★: tmux/에이전트 세션이 죽어도 이 프로세스는 남아 15분마다 점검한다.
 #   점검 5종(읽기 전용): ①오늘 진화 게이트 last-run ②오늘 10:00 평가 파일 ③lessons check rc ④state/*.log «판정 불가·ERROR» 급증 ⑤핵심 launchd 라벨 로드
 #   이상이면 state/watch/weekend.log 1줄 + desk mbox 1통(같은 항목 1시간 디바운스). 정상이면 로그만.
+#   ctx 축(오빠 11-06 «컨텍스트 기준 운영하고 모니터링»): waste-check 데몬 로드 여부를 ⑤에 포함 — 턴 기준 증류는 쓰지 않는다.
 #   사용: ft-weekend-watch.sh [--start|--stop|--status|--once] [--interval 900]
 set -uo pipefail
 ARG1="${1:---start}"; ARG2="${2:-}"   # ★sourcing 전에 잡는다(ft-harness-root.sh 가 인자를 소비할 수 있다)
@@ -37,7 +38,7 @@ check_once() {
   [ -n "$prev" ] || prev="$bad"   # 첫 실행 = 기준선만 잡는다(오탐 0)
   [ "$bad" -gt "$prev" ] && [ $((bad - prev)) -ge 20 ] && problems+=("state 로그 실패 증가 +$((bad - prev))건(누적 $bad)")
   local l
-  for l in com.byz.ft-issues-daily com.byz.ft-eval-daily com.byz.ft-tick; do
+  for l in com.byz.ft-issues-daily com.byz.ft-eval-daily com.byz.ft-tick com.byz.ft-waste-check; do
     launchctl print "gui/$(id -u)/$l" >/dev/null 2>&1 || problems+=("launchd $l 미적재")
   done
   echo "$(date '+%F %T') interval=${INTERVAL}s problems=${#problems[@]} ${problems[*]:-}" >> "$LOG"
