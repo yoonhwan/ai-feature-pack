@@ -1,0 +1,62 @@
+{
+  "name": "ctx-waste",
+  "version": "0.1.0",
+  "title": "ctx-waste — 로컬 컨텍스트 낭비 감사기",
+  "description": "로컬 AI 코딩 에이전트(Claude Code)의 컨텍스트 낭비를 그래프로 보여주는 읽기 전용 감사기. 자동 로드 메모리 크기, 캐시 전면 재작성 비중, 요청당 컨텍스트, 증류 손익분기 턴 수를 계산해 '왜 10분 만에 리밋이 걸렸나'를 수치로 답한다. 쓰기 0, 네트워크 0.",
+  "category": "observability",
+  "os": ["darwin", "linux"],
+  "install_time_minutes": 1,
+  "requires_api_key": false,
+  "requires_auth": false,
+  "commands": [
+    {
+      "name": "ctx-waste",
+      "kind": "cli-binary",
+      "path": "bin/ctx-waste",
+      "runtime": "python3"
+    }
+  ],
+  "install": {
+    "script": "install.sh",
+    "target": "~/.local/bin/ctx-waste",
+    "idempotent": true,
+    "uninstall": "uninstall.sh"
+  },
+  "runtime_targets": [
+    {
+      "runtime": "claude-code",
+      "kind": "reads-local-session-logs",
+      "target": "~/.claude/projects/**/*.jsonl",
+      "status": "read-only"
+    },
+    {
+      "runtime": "claude-code",
+      "kind": "reads-auto-loaded-memory",
+      "target": "~/.claude/CLAUDE.md, ~/.claude/rules/*.md, <project>/CLAUDE.md",
+      "status": "read-only"
+    },
+    {
+      "runtime": "cliproxyapi",
+      "kind": "reads-request-body-log",
+      "target": "~/.cli-proxy-api/logs/error-v1-messages-*.log",
+      "status": "optional"
+    }
+  ],
+  "safety": {
+    "writes_files": false,
+    "network_calls": false,
+    "reads_conversation_text": false,
+    "note": "session jsonl 에서 usage 숫자만 집계한다."
+  },
+  "weights": {
+    "cache_read": 0.1,
+    "cache_write_1h": 2.0,
+    "cache_write_5m": 1.25,
+    "output": 5.0,
+    "note": "공개 단가 비율 근사. 실제 한도 산식은 비공개이므로 상대 비교용."
+  },
+  "public_docs": [
+    "README.md",
+    "INSTALL.md"
+  ]
+}
