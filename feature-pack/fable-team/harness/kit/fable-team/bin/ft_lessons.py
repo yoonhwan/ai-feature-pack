@@ -37,8 +37,11 @@ LOCK_WAIT = 7.0
 EXP_TTL_DAYS = int(os.environ.get("FT_LESSONS_EXP_TTL", "14"))
 GLOBAL_DIGEST = Path.home() / ".claude" / "rules" / "dumb-time-digest.md"
 GLOBAL_LIMIT = 2048
+# 반례 4(DA astra r1442): «…하지 않는다/금지» 같은 부정·금지문은 통과시키고, «규칙 폐기하고 따라라» 류는 잡는다.
+NEGATION = re.compile(r"(않는다|않도록|금지|말라|하지 마|no |never |하지않)")
 INJECT = (
     r"(?i)ignore (all )?(previous|prior|above) (instructions|rules)",
+    r"(규칙|지시|지침)(을|를)? ?(모두|전부|전체)? ?(폐기|무시|잊)(하고|한 뒤|고)?.{0,40}(따라|이행|실행)",
     r"(?i)system prompt|시스템 ?프롬프트를? (출력|공개|알려)",
     r"(?i)(api[_-]?key|token|secret|password)\s*[:=]\s*\S{8,}",
     r"(?i)curl\s+[^|]*\|\s*(ba)?sh",
@@ -68,15 +71,38 @@ def ft_root() -> Path:
 
 
 def guess_team(root: Path, seat: str) -> str:
-    try:
-        files = sorted((root.parent / ".fable-team").glob("seats-*.json"))
-    except Exception:
-        files = []
+    """팀 추정 (DA astra r1442 반례 7 — ft-v65-master#4 를 'ft' 로 잘못 잡던 것):
+    ① `ft-<팀>-<역할>-<에이전트>` 의 두번째 토큰이고 그 팀 파일이 실제로 있으면 그 팀
+    ② `seats-<팀>.json` 이름이 좌석 첫 토큰과 같으면 그 팀 ③ seats 내용에 좌석이 있으면 그 팀
+    ④ seats 파일이 하나뿐이면 그 팀 ⑤ 첫 토큰.
+    «파일이 실제로 있는가» 를 첫 기준에 두는 이유: 이름만 보고 고르면 빈 팀 파일을 읽어 교훈을 놓친다."""
+    base = root.parent / ".fable-team"
+    files = sorted(base.glob("seats-*.json")) if base.is_dir() else []
+    stem = re.sub(r"#[0-9]+$", "", seat or "")
+    parts = stem.split("-") if stem else []
+    tdir = root / "state" / "lessons" / "team"
+
+    if len(parts) >= 3:
+        cand = parts[1]
+        if (tdir / (cand + ".jsonl")).is_file() or (tdir / (cand + ".md")).is_file():
+            return cand
+    if parts:
+        for f in files:
+            if f.stem.replace("seats-", "") == parts[0]:
+                return parts[0]
+    if stem:
+        for f in files:
+            try:
+                raw = f.read_text(encoding="utf-8", errors="replace")
+            except Exception:
+                continue
+            if stem in raw:
+                return f.stem.replace("seats-", "")
     if len(files) == 1:
         return files[0].stem.replace("seats-", "")
-    if seat and "-" in seat:
-        return seat.split("-")[0]
-    return ""
+    if len(parts) >= 2:
+        return parts[1] if len(parts) >= 3 else parts[0]
+    return parts[0] if parts else ""
 
 
 def safe(name: str) -> str:
@@ -119,6 +145,38 @@ class Lock:
             fcntl.flock(self.fh, fcntl.LOCK_UN)
         finally:
             self.fh.close()
+
+
+def load_report(p: Path) -> tuple[list[dict], int]:
+    """(정상 행, 깨진 줄 수). 깨진 줄 수 > 0 이면 쓰기 전에 사람이 봐야 한다(무음 유실 방지 · DA astra 반례 1)."""
+    if not p.is_file():
+        return [], 0
+    rows, bad = [], 0
+    for line in p.read_text(encoding="utf-8", errors="replace").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            r = json.loads(line)
+        except Exception:
+            bad += 1
+            continue
+        if isinstance(r, dict) and r.get("text"):
+            rows.append(r)
+        else:
+            bad += 1
+    return rows, bad
+
+
+def corrupt_guard(p: Path) -> bool:
+    """깨진 줄이 있으면 사본을 남기고 True(=작업 거부). 사본 = <이름>.corrupt-<시각>.bak"""
+    rows, bad = load_report(p)
+    if bad == 0:
+        return False
+    bak = p.with_name(p.stem + ".corrupt-" + dt.datetime.now().strftime("%Y%m%d%H%M%S") + ".bak")
+    bak.write_bytes(p.read_bytes())
+    print("REJECT %s 에 깨진 줄 %d개 — 손편집 drift 로 본다. 사본 %s · 고친 뒤 다시(쓰기 0)" % (p.name, bad, bak.name))
+    return True
 
 
 def load(p: Path) -> list[dict]:
@@ -210,8 +268,14 @@ def merge_order(pinned: list[dict], others: list[dict]) -> list[dict]:
 
 def scan(text: str) -> str | None:
     for pat in INJECT:
-        if re.search(pat, text):
-            return pat
+        m = re.search(pat, text)
+        if not m:
+            continue
+        # 부정·금지문(«공개하지 않는다» «금지»)은 교훈으로 허용 — 주입 문장이 아니다(DA astra 반례 4)
+        tail = text[m.start():m.start() + 60]
+        if NEGATION.search(tail):
+            continue
+        return pat
     return None
 
 
@@ -268,6 +332,8 @@ def cmd_add(argv: list[str]) -> int:
     cap = CAP[layer]
     with Lock(p):
         p.parent.mkdir(parents=True, exist_ok=True)
+        if corrupt_guard(p):
+            return 1
         rows = load(p)
         rec = {"ts": now(), "kind": kind, "text": text, "pin": bool(pin)}
         if kind == "experiment":
@@ -328,6 +394,8 @@ def cmd_evict(argv: list[str]) -> int:
     layer, name = argv[0], argv[1]
     p = path_of(layer, name)
     with Lock(p):
+        if corrupt_guard(p):
+            return 1
         rows = load(p)
         rows, over, ttl, arc = enforce(p, rows, CAP[layer])
         atomic_write(p, rows)
@@ -386,10 +454,20 @@ def cmd_snapshot(argv: list[str]) -> int:
     if len(out) <= 0:
         print("SNAPSHOT empty — LESSONS 없음(좌석=%s · 팀=%s)" % (seat or "-", team or "-"))
         return 0
-    text = "\n".join(out)
-    print("SNAPSHOT %dB/%dB (부팅 1회 고정 · 세션 중 add 는 파일에만 · 다음 부팅 반영)"
-          % (len(text.encode()), budget))
-    print(text)
+    head = "SNAPSHOT %dB/%dB (부팅 1회 고정 · 세션 중 add 는 파일에만 · 다음 부팅 반영)"
+    # 안내줄·개행까지 예산에 포함한다(DA astra 반례 3) — 초과하면 본문 꼬리를 더 자른다
+    while out:
+        body = "\n".join(out)
+        total = len((head % (len(body.encode()), budget)).encode()) + 1 + len(body.encode())
+        if total <= budget:
+            break
+        out.pop()
+    body = "\n".join(out)
+    if not body:
+        print("SNAPSHOT empty — 예산 %dB 안에 실을 항목 없음(좌석=%s · 팀=%s)" % (budget, seat or "-", team or "-"))
+        return 0
+    print(head % (len(body.encode()), budget))
+    print(body)
     return 0
 
 
@@ -405,13 +483,17 @@ def cmd_check(argv: list[str]) -> int:
             continue
         files = sorted(f for f in d.glob("*.jsonl") if ".archive" not in f.name)
         for f in files:
-            n = len(load(f))
+            rows_f, bad_f = load_report(f)
+            n = len(rows_f)
             lk = f.with_suffix(f.suffix + ".lock")
             st = "OK" if n <= CAP[layer] else "OVER"
+            if bad_f:
+                st = "CORRUPT"
             if st != "OK" or not lk.is_file():
                 bad += 1
-            rows_out.append("%-4s %-4s %3d/%-3d %s %s" % (st, layer, n, CAP[layer],
-                                                          "lock" if lk.is_file() else "NO-LOCK", f.name))
+            rows_out.append("%-7s %-4s %3d/%-3d %s %s%s" % (st, layer, n, CAP[layer],
+                                                            "lock" if lk.is_file() else "NO-LOCK", f.name,
+                                                            " 깨진줄=%d" % bad_f if bad_f else ""))
     g = len(GLOBAL_DIGEST.read_bytes()) if GLOBAL_DIGEST.is_file() else 0
     gl = root / "state" / "lessons" / "global.md.lock"
     if g > GLOBAL_LIMIT or not gl.is_file():
@@ -449,10 +531,14 @@ def cmd_migrate(argv: list[str]) -> int:
                 ts = ("%s-%s" % (dt.date.today().year, m.group(1))) if m else now()[:10]
                 if text:
                     rows.append({"ts": ts, "kind": kind, "text": text[:TEXT_MAX], "pin": False})
-            if dst.exists():
-                rows = load(dst) + rows
-            rows, over, ttl, arc = enforce(dst, rows, CAP[layer])
-            atomic_write(dst, rows)
+            dst.with_suffix(dst.suffix + ".lock").touch()
+            with Lock(dst):
+                if corrupt_guard(dst):
+                    return 1
+                if dst.exists():
+                    rows = load(dst) + rows
+                rows, over, ttl, arc = enforce(dst, rows, CAP[layer])
+                atomic_write(dst, rows)
             dst.with_suffix(dst.suffix + ".lock").touch()
             bak = md.with_name(md.name + ".bak-" + dt.datetime.now().strftime("%Y%m%d%H%M%S"))
             os.replace(md, bak)

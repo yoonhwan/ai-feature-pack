@@ -424,10 +424,15 @@ lessons_seed() {
     pages=$((pages + 1))
   done
   echo "LESSONS root=$LR 팀파일=$pages 신규=$seeded (덮은 파일 0 · 형식 jsonl cap 100 · 규약=templates/lessons/README.md)"
-  if [ -f "$LIVE/bin/ft-lessons.sh" ]; then FT_ROOT="$PROJECT/.fable-team" bash "$LIVE/bin/ft-lessons.sh" check 2>/dev/null | tail -1; fi
+  if [ -f "$LIVE/bin/ft-lessons.sh" ]; then
+    local out rc
+    out="$(FT_ROOT="$PROJECT/.fable-team" bash "$LIVE/bin/ft-lessons.sh" check 2>&1)"; rc=$?
+    printf '%s\n' "$out" | tail -1
+    [ "$rc" = 0 ] || { echo "LESSONS WARN check 위반(rc=$rc) — 위 check 줄을 고친다(설치는 계속)"; return "$rc"; }
+  fi
   return 0
 }
-lessons_seed
+lessons_seed || true   # r1442(DA astra 반례 6): seed 가 «성공» 으로 위장하지 않게 rc 를 받아 경고로 남긴다
 
 comm_sync
 if [ -n "$PREV" ] && [ "$PREV" != "$LIVE/bin" ]; then echo "되돌림 1줄: printf '%s\\n' '$PREV' > '$PROJECT/.fable-team/LIVE_BIN'"

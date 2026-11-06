@@ -142,36 +142,53 @@ def main(argv: list[str]) -> int:
     root = ft_root()
     today = dt.date.today().strftime("%Y%m%d")
     stamp = root / "state" / "evolution" / "last-run"
-    if mode == "gate" and stamp.is_file() and stamp.read_text(encoding="utf-8").strip() == today:
-        print("EVOLVE gate SKIP date=%s 이미 오늘 돌았다(파일 변경 0)" % today)
+    # 반례 5(DA astra): 동시 --gate 두 개가 날짜 검사를 같이 통과했다 → 락 안에서 검사·기록한다.
+    lock_path = root / "state" / "evolution" / ".gate.lock"
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    lock_fh = open(lock_path, "a+", encoding="utf-8")
+    try:
+        import fcntl
+        fcntl.flock(lock_fh, fcntl.LOCK_EX)
+    except Exception:
+        pass  # 락을 못 잡아도 «멈추지 않는다» — 대신 아래에서 날짜를 다시 읽는다
+    try:
+        if mode == "gate" and stamp.is_file() and stamp.read_text(encoding="utf-8").strip() == today:
+            print("EVOLVE gate SKIP date=%s 이미 오늘 돌았다(파일 변경 0)" % today)
+            return 0
+        learn = read_deny(H / ".claude/logs/boot-read-gate.log") + read_mail(root) + read_lessons(root) + read_state_logs(root)
+        scrap = read_stale(root)
+        files_changed = 0
+        if mode in ("apply", "gate"):
+            out = root / "state" / "evolution" / ("candidates-%s.md" % today)
+            out.parent.mkdir(parents=True, exist_ok=True)
+            body = ["# evolve 후보 — %s (ft-evolve %s)" % (today, mode), "", "## 학습 후보 (%d)" % len(learn)]
+            body += ["- " + x for x in learn] or ["- 없음"]
+            body += ["", "## 폐기 후보 (%d)" % len(scrap)] + (["- " + x for x in scrap] or ["- 없음"])
+            out.write_text("\n".join(body) + "\n", encoding="utf-8")
+            gens = sorted(out.parent.glob("gen-*.md"))
+            gen = len(gens) + 1
+            g = out.parent / ("gen-%03d.md" % gen)
+            g.write_text("# 세대 %03d — %s\n\n" % (gen, today) + "\n".join(body) + "\n", encoding="utf-8")
+            stamp.write_text(today + "\n", encoding="utf-8")
+            (out.parent / "LATEST").write_text("%s %s\n" % (today, out.name), encoding="utf-8")  # 팀장 틱이 읽는 고정 포인터
+            files_changed = 4
+            gen_note = " gen=%03d" % gen
+        else:
+            gen_note = ""
+        print("EVOLVE %s date=%s 학습 후보 %d · 폐기 후보 %d (파일 변경 %d)%s" % (mode, today, len(learn), len(scrap), files_changed, gen_note))
+        if "--verbose" in argv or "-v" in argv:
+            for x in learn:
+                print("  학습: " + x)
+            for x in scrap:
+                print("  폐기: " + x)
         return 0
-    learn = read_deny(H / ".claude/logs/boot-read-gate.log") + read_mail(root) + read_lessons(root) + read_state_logs(root)
-    scrap = read_stale(root)
-    files_changed = 0
-    if mode in ("apply", "gate"):
-        out = root / "state" / "evolution" / ("candidates-%s.md" % today)
-        out.parent.mkdir(parents=True, exist_ok=True)
-        body = ["# evolve 후보 — %s (ft-evolve %s)" % (today, mode), "", "## 학습 후보 (%d)" % len(learn)]
-        body += ["- " + x for x in learn] or ["- 없음"]
-        body += ["", "## 폐기 후보 (%d)" % len(scrap)] + (["- " + x for x in scrap] or ["- 없음"])
-        out.write_text("\n".join(body) + "\n", encoding="utf-8")
-        gens = sorted(out.parent.glob("gen-*.md"))
-        gen = len(gens) + 1
-        g = out.parent / ("gen-%03d.md" % gen)
-        g.write_text("# 세대 %03d — %s\n\n" % (gen, today) + "\n".join(body) + "\n", encoding="utf-8")
-        stamp.write_text(today + "\n", encoding="utf-8")
-        (out.parent / "LATEST").write_text("%s %s\n" % (today, out.name), encoding="utf-8")  # 팀장 틱이 읽는 고정 포인터
-        files_changed = 4
-        gen_note = " gen=%03d" % gen
-    else:
-        gen_note = ""
-    print("EVOLVE %s date=%s 학습 후보 %d · 폐기 후보 %d (파일 변경 %d)%s" % (mode, today, len(learn), len(scrap), files_changed, gen_note))
-    if "--verbose" in argv or "-v" in argv:
-        for x in learn:
-            print("  학습: " + x)
-        for x in scrap:
-            print("  폐기: " + x)
-    return 0
+    finally:
+        try:
+            import fcntl
+            fcntl.flock(lock_fh, fcntl.LOCK_UN)
+        except Exception:
+            pass
+        lock_fh.close()
 
 
 if __name__ == "__main__":
