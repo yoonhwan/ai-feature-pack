@@ -21,10 +21,14 @@ check_once() {
   local problems=() today; today="$(date +%Y%m%d)"
   local lr; lr="$(cat "$ROOT/state/evolution/last-run" 2>/dev/null | tr -d '[:space:]')"
   [ "$lr" = "$today" ] || problems+=("게이트 미실행(last-run=${lr:-없음} · 오늘=$today)")
-  ls "$ROOT"/state/eval/daily-*.md >/dev/null 2>&1 || problems+=("평가 파일 없음")
+  # 평가 검사는 «이 프로젝트에 평가 잡이 있을 때만» 한다(과적합 방지 r1452 · 팩처럼 안 쓰는 프로젝트가 있다)
+  local eval_on=0
+  { [ -f "$W/labels.txt" ] && grep -q 'ft-eval-daily' "$W/labels.txt"; } && eval_on=1
+  printf '%s' "${FT_WATCH_LABELS:-}" | grep -q 'ft-eval-daily' && eval_on=1
+  [ -n "${FT_EVAL_DESK:-}${FT_EVAL_NO_SEND:-}" ] && eval_on=1
   # DA 3R 반례 6: 예정 시각(기본 10:00) 전에는 «없음» 이 정상 — 시각 조건 없이 오탐했다.
   local due="${FT_EVAL_DUE_HOUR:-10}"
-  if [ "$(date +%H)" -ge "$due" ] || [ "${FT_WATCH_IGNORE_SCHEDULE:-0}" = 1 ]; then
+  if [ "$eval_on" = 1 ] && { [ "$(date +%H)" -ge "$due" ] || [ "${FT_WATCH_IGNORE_SCHEDULE:-0}" = 1 ]; }; then
     grep -q "daily-$today.md" <(ls "$ROOT"/state/eval/daily-*.md 2>/dev/null) || problems+=("오늘 평가($today) 없음 — ${due}:00 잡 확인")
   fi
   if [ -f "$ROOT/bin/ft-lessons.sh" ]; then
