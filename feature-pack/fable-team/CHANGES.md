@@ -1,3 +1,13 @@
+## 2026-11-06 — r1433 ft-acct-quota DA 검토·수정 루프 (3라운드 수렴)
+
+DA(적대검증)를 codex gpt-6.1-sol 로 4회 돌려 «동작 반례만» 받고 수정했다. 판정 추이 = REJECT 3 → 1 → 1 → 1(재보고/오탐).
+
+- **r1 수용 3건**: ①중복 key 에 org 누락 → `dedupe_key()` 에 org 필수, 미확인 시 중복 판정 생략 ②`left()` 가 ms 값을 2,074만 일로 표시 → `_ts()` 공통 범위검증(2000~2100) ③curl 실패 시 `stdout="null"` → `.get()` AttributeError rc1 → `as_obj()` 로 object 만 인정.
+- **r2 수용 1건**: 내부 응답 타입 오류(`five_hour` 가 list, `seven_day` 가 str) → `sub()` 로 내부 object 안전 접근(organization·five_hour·seven_day·rate_limit·primary_window).
+- **r3 수용 1건**: 타임존 없는 ISO(`2026-11-07T10:00:00`)가 로컬 tz 로 해석돼 9시간 어긋남 → `_ts()` 가 tzinfo 없으면 `None`(판정 불가). 부수로 `--timeline` 정렬을 문자열이 아니라 epoch 기준으로(연말 경계).
+- **r4 = 오탐**: «epoch(sec) 미지원» 주장 → 실측 매트릭스(epoch sec ✅ · ISO Z ✅ · naive `-` · ms `-` · null `-` · 과거 `복구됨`)로 반박. 3라운드 상한 규칙에 따라 루프 종료.
+- 검증 매트릭스 6칸 전부 기대대로. 남은 한계 = gemini(antigravity) usage endpoint 없음(파일만 표시).
+
 ## 2026-11-06 — r1432 ft-acct-quota 툴 + 스킬 (1.1.271)
 
 - 오빠 «ft 에 툴로 랜딩시켜서 스킬로 사용하도록 하자. codex, gemini 도 되도록 추가».
