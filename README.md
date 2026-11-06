@@ -29,6 +29,7 @@
 | 16 | [fable-team](feature-pack/fable-team/) | **팀 오케스트레이션 하네스** — ultracode 오케스트레이터 + planner 브레인 분리, 설치 인터뷰·브레인 가용성 추천·모니터링 루프 | ~5분 | ❌ | ❌ |
 | 17 | [tmm](feature-pack/tmm/) | **모바일(SSH) tmux 좌석 TUI** — 폰에서 수십 개 에이전트 세션을 커서로 고르고 미리보기·최근 응답순·대기좌석 우선·메시지 전송 (fzf) | ~1분 | ❌ | ❌ |
 | 18 | [cartier-auto](feature-pack/cartier-auto/) | 까르띠에 공식 몰 리스톡 자동 구매 감시 — 예약 감시·위시리스트 추적·네이버페이 결제 (CAPTCHA·보안 키패드는 사용자) | ~3분 | ❌ | ❌ |
+| 19 | [ctx-waste](feature-pack/ctx-waste/) | **로컬 컨텍스트 낭비 감사기** — claude·codex·pi·opencode·hermes·openclaw·commandcode 7종 런타임 자동 감지 · 자동 로드 메모리·캐시 전면 재작성·요청당 컨텍스트·증류 손익분기를 그래프로 (기본 영어 · `--lang ko`) | ~1분 | ❌ | ❌ |
 
 ### 난이도 & 의존성
 
@@ -50,6 +51,7 @@
 | agent-cli | (기존 에이전트 CLI 호출) | 스킬 파일 복사 | ✅ | perl, python3 + 에이전트 CLI ≥1 |
 | headroom | `headroom` / LaunchAgent | venv + 스킬 파일 복사 | ✅ | python3.12, curl |
 | cliproxyapi | `cli-proxy-api` | 바이너리 + LaunchAgent + 스킬 파일 복사 | ✅ | headroom, OAuth 계정 |
+| ctx-waste | `ctx-waste` | `install.sh` (심링크) | ✅ | python3 ≥3.8 (표준 라이브러리만) |
 
 ---
 

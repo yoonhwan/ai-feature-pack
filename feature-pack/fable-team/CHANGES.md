@@ -1,3 +1,108 @@
+## 2026-11-06 — r1435 플랜팀장 codex 교체 실증 + 하네스 갭 3건 수정
+
+- 오빠 «플랜팀장을 코덱스 팀장으로 교체해서 쓰게 하네스 업그레이드» → `byz-planner-master-claude#242` → **`byz-planner-master-sol#243`(codex gpt-6.1-sol)** 실제 승계 완료.
+- **갭 1 (닭-달걀)**: codex 좌석은 `SessionStart` 가 관측되지 않아 «도달 판정 → retire → 명부 등록» 경로가 막힌다. 명부 미등록 → `mbox` 수신 거절 → 도달 실패. **수정** = `ft-successor-open.sh` ⓑ-2 **후계 선등록**(구 좌석이 있는 명부에 행을 먼저 넣는다 · 멱등 · retire 는 `_replaced_by` 만 추가).
+- **갭 2**: `ft-budget.sh` 가 claude jsonl 만 봐서 codex 좌석이 «여유 ? (transcript 없음)». **수정** = `~/.codex/sessions/**/rollout-*.jsonl` 의 `token_usage_record` 를 읽어 `여유 N% (남은k/300k) · codex` 출력.
+- **갭 3 (순서)**: `ft-seat-retire` 를 먼저 하면 후계의 `mbox ready` 가 rc3(구 좌석 은퇴 상태)으로 거부된다. 순서 = **recv → ready → retire**. retire 안내 문구에 이 순서를 남긴다.
+- 전역 `~/.codex/config.toml` `model_auto_compact_token_limit` 780000 → **300000** (게이트 등가 · 백업 `config.toml.bak-compact300k-*`). DA·기타 codex 호출도 300k 압축.
+- 실측 결과 = #243 첫 턴에서 recv 1건(인계 81항목) · 압축선 적용 · `ft-budget` codex 지원 확인(여유 83%).
+
+## 2026-11-06 — r1434 모델 선택 전환 도구 (자동 폴백 폐기)
+
+- 오빠 «이런 폴백은 너무 별로 … 선택 전환 증류기는 이미 다 있으니 빠른 선택 전환하게» → 자동 폴백 설계(히스테리시스·쿨다운·자동 복귀) 폐기.
+- 신규 `bin/ft-switch-plan.sh [--to codex|claude] [--teams a,b] [--json]` — 계정 여유(`ft-acct-quota`) + 팀장 좌석별 **전환 명령 1줄**을 생성. 실행 0(출력만), 전환기는 기존 `ft-successor-open`.
+- 이름 규약 자동: `-claude#N` → `-sol#N+1` (모델 토큰 명시, 계보 유지). 인계서 경로도 함께 출력.
+- 규칙 `orchestration.md` «모델 선택 전환» 절 — 선택은 사람/데스크, codex 좌석은 `model_auto_compact_token_limit=300000` 인자 필수.
+- 설계 문서 `design/harness/DESIGN-lead-model-fallback-20261106.md` = 자동 폴백 → 선택 전환으로 개정(§8).
+
+## 2026-11-06 — r1433 ft-acct-quota DA 검토·수정 루프 (3라운드 수렴)
+
+DA(적대검증)를 codex gpt-6.1-sol 로 4회 돌려 «동작 반례만» 받고 수정했다. 판정 추이 = REJECT 3 → 1 → 1 → 1(재보고/오탐).
+
+- **r1 수용 3건**: ①중복 key 에 org 누락 → `dedupe_key()` 에 org 필수, 미확인 시 중복 판정 생략 ②`left()` 가 ms 값을 2,074만 일로 표시 → `_ts()` 공통 범위검증(2000~2100) ③curl 실패 시 `stdout="null"` → `.get()` AttributeError rc1 → `as_obj()` 로 object 만 인정.
+- **r2 수용 1건**: 내부 응답 타입 오류(`five_hour` 가 list, `seven_day` 가 str) → `sub()` 로 내부 object 안전 접근(organization·five_hour·seven_day·rate_limit·primary_window).
+- **r3 수용 1건**: 타임존 없는 ISO(`2026-11-07T10:00:00`)가 로컬 tz 로 해석돼 9시간 어긋남 → `_ts()` 가 tzinfo 없으면 `None`(판정 불가). 부수로 `--timeline` 정렬을 문자열이 아니라 epoch 기준으로(연말 경계).
+- **r4 = 오탐**: «epoch(sec) 미지원» 주장 → 실측 매트릭스(epoch sec ✅ · ISO Z ✅ · naive `-` · ms `-` · null `-` · 과거 `복구됨`)로 반박. 3라운드 상한 규칙에 따라 루프 종료.
+- 검증 매트릭스 6칸 전부 기대대로. 남은 한계 = gemini(antigravity) usage endpoint 없음(파일만 표시).
+
+## 2026-11-06 — r1432 ft-acct-quota 툴 + 스킬 (1.1.271)
+
+- 오빠 «ft 에 툴로 랜딩시켜서 스킬로 사용하도록 하자. codex, gemini 도 되도록 추가».
+- 신규 `bin/ft-acct-quota.sh` — cliproxy OAuth 계정 쿼터 표. claude(`/api/oauth/usage`+`/profile`) · codex(`chatgpt.com/backend-api/wham/usage` + `chatgpt-account-id`) · gemini(파일만, endpoint 없음).
+  - 출력 = provider · email · tier/plan · 5h/주간 사용률 · 리셋 `MM-DD HH:MM` · **남은 시간(`3d 18h`)** · 비고(DISABLED/중복슬롯)
+  - `--timeline` 복구 순 · `--json` · `--provider` · `--no-net` · 계정당 7초 상한 · 쓰기 0
+- 스킬 = `templates/skills/ft-acct-quota/SKILL.md` (트리거 키워드: 계정·쿼터·한도·리밋·복구·quota·rate limit·중복 계정). `~/.claude/skills/` 와 `~/.agents/skills/`(codex·gemini·pi 공용)에 설치.
+- **판정 교훈 기록**: 중복은 `account_uuid` 만으로 판정하지 않는다 — 같은 사람의 개인 org(20x)와 팀 org(5x)는 쿼터가 별개다(실측: 같은 uuid 2장이 리셋 11-09 vs 11-11·tier 20x vs 5x). codex 는 같은 `account_id` 의 pro/plus/prolite 가 중복슬롯(유지 순위 pro>plus>prolite).
+- 2026-11-06 정정: `claude-770a0786-yoonhwan.ko@byourz.com`(BYZ 5x)을 잠시 비활성했다가 **실측 근거로 복구** — 15a50813(개인 20x, 리셋 11-09)과 다른 구독이다.
+
+## 2026-11-06 — r1431 ctx-waste 느슨한 연동 + 주기 점검 (1.1.270)
+
+- 오빠 «ft 내부에 ctx-waste 연동? 느슨한 연결해서 점검에 포함해서 주기적? 크리티컬 사용자에게 알리자».
+- 신규 `bin/ft-waste-check.sh` — `ctx-waste` 를 PATH → `~/.local/bin` → 팩 경로 순으로 찾아 실행. **없으면 `WASTE skip` rc0**(하드 의존 0).
+- 판정 1줄 = `WASTE ok|warn|critical rewrite=15% avg=145k per=31k rewrites=29 (claude)`.
+- critical 조건 = 재작성 ≥35% 또는 avg ≥250k 또는 요청당 ≥60k → `--alert` 로 `byz-planner-master-claude#241` 에 `[긴급]` 1통(desk 중계 → 오빠). warn = 재작성 ≥20% 또는 avg ≥180k.
+- 주기 = 신규 launchd 템플릿 `kit/launchd/com.byz.ft-waste-check.plist.template` (6시간, `--alert`) · 로그 `.fable-team/state/waste-check.log`.
+- 정본 동기 = `skill/scripts/ft-waste-check.sh` · `skill/templates/rules/orchestration.md`.
+
+## 2026-11-06 — r1430 [정리] 줄에 «남은 작업 공간» (1.1.269)
+
+- 오빠 «넣자» — start budget 지표를 팀장 루프에 붙인다.
+- 신규 `bin/ft-budget.sh [jsonl] [--gate N] [--prefix N]` → `여유 82% (246k/300k) · 새 시작 권장` 1줄. rc 항상 0(보고 전용). 게이트는 `ft-thresholds.sh` 에서, ctx 는 transcript 마지막 usage.
+- 규칙: 팀장 `[정리]` 첫 줄 끝에 이 1줄을 붙인다. **여유 30% 미만 = 그 루프에서 증류 시작**, 60% 이상 = 새 작업 수락 가능.
+- 근거: 같은 게이트에서 새로 시작 82% vs 250k 리줌 17%, 재작성 107k vs 500k (실측·추정).
+- 정본 동기 = `skill/templates/rules/orchestration.md` · `skill/scripts/ft-budget.sh`.
+
+## 2026-11-06 — r1429 경고선 도달 = 즉시 증류 (기계적으로 굳힘 · 1.1.268)
+
+- 오빠 ««경고 300k = 즉시 증류 시작»을 규칙으로 굳히자».
+- `context-distill-gate.sh`: `block` 모드에 **NEWWORK** 판정 — `FT_DISTILL_NEWWORK`(기본 = 경고선) ≤ ctx < 차단선 이면 **스폰 도구(Agent·Workflow·Task)를 exit 2 로 거부**(«경고선 도달 = 새 일 수락 금지 · 지금 증류»). 발주문에 `distill|증류|handoff|승계|snapshot` 이 있으면 예외.
+- `ft-thresholds.sh`: 키 `FT_DISTILL_NEWWORK` 추가(기본 = `FT_DISTILL_WARN`) · `--show/--export/--get/--set` 반영.
+- 시험 `tests/test_thresholds.sh` 4칸 추가 — 295k 허용 · 305k NEWWORK 거부 · 305k 증류 발주 예외 · 330k BLOCK. **ALL PASS**.
+- 정본 동기 = `skill/templates/hooks/context-distill-gate.sh` · `skill/scripts/ft-thresholds.sh` · `skill/templates/thresholds.env.sample` · `skill/templates/rules/orchestration.md`.
+
+## 2026-11-06 — r1428 정본 동기 (skill/templates = kit) + 배포 설치
+
+- r1426·r1427 에서 `harness/kit/…` 만 고쳐 **정본(`skill/templates/…`)이 뒤처져 있었다**. 오빠 지시 «ai-feature-pack 에 정본하고 배포 설치를 시켜야지 커밋푸시».
+- 동기 4파일: `skill/templates/hooks/context-distill-gate.sh`(r1427 문턱 배선 반영) · `skill/templates/rules/orchestration.md`(리줌 상한·문턱 한 곳 절) · `skill/templates/thresholds.env.sample` · `skill/scripts/{ft-thresholds.sh,ft-resume-gate.sh}`(skill 만 설치하는 경로도 게이트를 갖게).
+- `cmp` 검사: kit ↔ skill 4파일 전부 동일(0). skill/scripts 는 kit/bin 사본 규약 확인 후 추가.
+- 1.1.267 정식 설치(`install.sh --apply`)로 LIVE_BIN 전환 — 1.1.266 에서 손으로 갈아 끼웠던 드리프트도 이번 설치로 정본화.
+
+## 2026-11-06 — r1427 문턱 «한 곳» (ft-thresholds.sh)
+
+- 증류 게이트·리줌 게이트·좌석 복구가 각자 숫자를 들고 있던 것을 **한 파일**로 모았다. 오빠 지시 «이 값을 어디 하나 상수로 못두나? … 증류 지침이랑 이어하기 게이트가 바라봐서 조정 변동 가능하게».
+- 신규 `bin/ft-thresholds.sh` — 해석 순서: ①명시 env ②`$FT_THRESHOLDS` ③`<루트>/.fable-team/thresholds.env` ④`~/.claude/fable-team/thresholds.env` ⑤기본값. 키 = `FT_DISTILL_WARN`(250000) · `FT_DISTILL_BLOCK`(300000) · `FT_DISTILL_RECV`(250000) · `FT_RESUME_MAX`(150000).
+- CLI = `--show`(표+출처) · `--export`(eval 용) · `--get KEY` · `--set KEY=VAL [--file F]` · 검증(`BLOCK>WARN` · `RECV≤BLOCK` · 정수) 위반 = REJECT rc2.
+- 배선: `context-distill-gate.sh`(env 기본값) · `ft-resume-gate.sh` · `ft-reboot-restore.sh`(bash 에서 export → python 이 사용). 훅 사본은 `templates/hooks → ../../bin` 상대경로까지 탐색.
+- `templates/thresholds.env.sample` 추가.
+- 시험 = `tests/test_thresholds.sh` 6 PASS(파일 override 가 두 게이트에 동시 반영 · 검증 REJECT) · 기존 `test_distill_gate_250_300` 11 PASS · `test_resume_gate` 8 PASS.
+
+## 2026-11-06 — r1426 리줌 상한 (큰 대화는 증류로 이어간다)
+
+- 실측 동기: 오늘 16:30까지 재작성 비중이 31~44%로 개선 전과 같았다. 게이트(250k/300k)는 «도구 호출»만 막고 **리줌되는 대화 크기**는 못 막는다 → 리줌 세션 첫 요청이 300k+를 통째로 다시 써서 소모의 절반을 먹는다.
+- 신규 `kit/fable-team/bin/ft-resume-gate.sh <jsonl|uuid> [--max N]` — 마지막 usage 의 ctx(read+write+input)를 재서 `RESUME_OK` rc0 / `DISTILL ctx=N max=M` rc1 / `UNKNOWN` rc3. 기본 상한 `FT_RESUME_MAX=150000`.
+- `ft-reboot-restore.sh`: 좌석 판정에 DISTILL 분기 추가 — `ctx > FT_RESUME_MAX` 면 리줌하지 않고 DISTILL 목록에 넣는다. 목록에 처리 명령(`ft-successor-open … --body-file`) 1줄, `FT_RR_DISTILL_FILE` 로 목록 파일 저장, 끝 요약에 `distill=N` 추가.
+- 시험 `tests/test_resume_gate.sh` — 90k 통과 · 420k DISTILL · 상한 override · env 상한 · 없는 파일 UNKNOWN · 배선 확인. 전부 PASS.
+- `templates/rules/orchestration.md` 에 «리줌 상한» 3줄(150k 초과 = 리줌 0, 증류로 이어간다).
+
+## 2026-11-06 — r1425 닫힌 발주 5요소 (라운드·질문 무한 루프 차단)
+
+- 실측 근거: `design/journey/DA-*.md` 39건 중 한 카드가 **10라운드**(harness-0.5-row2), 서포트 세션 툴호출 14건이 전부 **질문 10 + sleep 4**(실행 판단 0).
+- 원인 3겹: ①발주문이 열려 있다(«반례를 찾아라»/«막힌 것을 찾아라») ②집행 권한 없음 → 보류·질문으로 끝냄 ③산출물이 다음 라운드 입력. 하드룰 14의 «DA 3회 상한» 은 증상 캡이었다.
+- `templates/rules/orchestration.md` 에 「닫힌 발주」 절 추가 — 5칸(집합 동결·판정 기준·상한·종료 조건·다음 수) + 부칙(질문 1턴 1회 · sleep 금지).
+- `skill/references/closed-order.md` 신설(전문·검사 방법·하지 말 것).
+- 전역 규칙 = `~/.claude/CLAUDE.md` 하드 룰 23 + `~/.claude/guides/closed-order.md` → `sync-globals.py` 로 6곳 반영.
+- 카드 = BYZ `design/harness/indices/진행/r1425-closed-order-5-elements.md`.
+
+## 2026-11-06 — r1422 증류선 550k/600k → 250k/300k · ctx-waste 실측 근거
+
+- 실측(35분, 고유 요청 612건): 캐시 **전면 재작성 47건이 소모의 62~64%**. 세션 23개가 300k+ 컨텍스트로 리줌하고 그중 7개가 498k~506k에서 시작했다. 한 분(09:07)에 세션 18개가 동시 리줌해 1,400만 가중토큰(24%)을 태웠다.
+- 손익분기 계산: 재시작 1회 ≈ 고정프리픽스 × 2 / 턴당 절감 = (평균 컨텍스트 − 문턱) × 0.1 → **4~9턴**. 세션당 평균 10~21턴이므로 문턱을 내리는 쪽이 이득.
+- `templates/hooks/context-distill-gate.sh` 기본값: 경고 550k → **250k**, 차단 600k → **300k**, recv 차단선 550k → **250k**(인자 없는 실배선 기준). BYZ 훅 사본도 같이 동기화(시험 ⓕ cmp 0).
+- `templates/rules/orchestration.md` 「컨텍스트 증류」 절 갱신 + «왜 250k/300k 인가» 4줄 추가(리줌은 인계서+최근 몇 턴만, 300k 넘는 대화를 잇지 않는다).
+- 시험: `tests/test_distill_gate_250_300.sh`(옛 `test_distill_gate_550_600.sh` 이름·픽스처 갱신) 11 PASS.
+- 부수: `ft_weekly_review.py` 가 멍청한짓 원장을 `~/.claude/guides/dumb-time-ledger.md` 로 먼저 찾고 옛 `rules/` 경로는 폴백(자동 로드 축소 조치).
+- 측정 도구 = `ai-feature-pack/feature-pack/ctx-waste` (2026-11-06 추가).
+
 ## 2026-10-29 — r1117 승인 h 결과·승인 도착을 요청 팀장에 자동 쪽지(Issue #4712)
 
 - h<N> 진입 파일이 끝나면 `ft-hil-notify.sh done` 이 `[완료 h<N>] rc=<rc> · <=== 결과 === 줄> · 계획 <경로>` 를 계획 머리 `# ft-hil-request seat=<좌석…>`(≤3 · 린트 실패 REJECT rc2 · 없으면 stderr WARN) + planner `_master` 에 1통씩 보낸다. 계획 stdout 사본 = `h<N>.out`(600). 알림 실패는 stderr 1줄이고 h rc 는 계획 rc 그대로다.

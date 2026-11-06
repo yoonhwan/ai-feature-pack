@@ -1,7 +1,9 @@
 #!/bin/bash
-# fable-team context-distill-gate — 600k 절대값 컨텍스트 하드 증류 게이트(경고 550k)
+# fable-team context-distill-gate — 300k 절대값 컨텍스트 하드 증류 게이트(경고 250k)
 # 하네스 0.4 단위 1 (GOAL-harness-v2 축 B「최대 450k 에서 증류」· 오빠 판정 2026-09-23 「훅 hard 모드 착수」· 임계 450k 고정 — 09-14 창 80% 대체).
-# R445(오빠 2026-10-19 «전부 550k경고 600k 차단»): claude 좌석 전부 경고 550k · 차단 600k · recv 차단선 550k — BYZ 훅 300k/450k 이원화 끝. codex·opencode 는 자체 자동 압축(이 훅 미적용).
+# 2026-11-06 실측(ctx-waste): 세션 21개가 300k+ 로 리줌해 요청당 5시간창을 태웠다 → 경고 250k·차단 300k 로 내림.
+#   근거 = 재시작 1회 ≈ 고정프리픽스×2, 턴당 절감 = (평균ctx-문턱)×0.1, 손익분기 4~9턴인데 세션당 평균 10~21턴.
+# R445(오빠 2026-10-19 «전부 550k경고 600k 차단» · 이력): claude 좌석 전부 경고 550k · 차단 600k · recv 차단선 550k — BYZ 훅 300k/450k 이원화 끝. codex·opencode 는 자체 자동 압축(이 훅 미적용).
 # 소스 정본: ai-feature-pack/feature-pack/fable-team/skill/templates/hooks/context-distill-gate.sh (이 파일은 사본).
 # 토큰 소스: transcript 의 «마지막 실 usage»(input+cache_read+cache_creation) — <synthetic>·전부 0 레코드는 건너뛴다(구멍 H3).
 # 세 모드 (settings.json 인자):
@@ -53,12 +55,21 @@ INPUT=$(cat 2>/dev/null)
 LOG="$HOME/.claude/logs/context-distill-gate.log"; mkdir -p "$(dirname "$LOG")" 2>/dev/null
 EXEMPT_MODELS="${OMC_GATE_EXEMPT_MODELS:-}"     # 예: 'haiku' — 비워두면 면제 없음
 
+# r1427: 문턱 «한 곳» — bin/ft-thresholds.sh 가 있으면 그 값을 env 로 받는다(없으면 기본값 유지)
+_d="$(cd -- "$(dirname -- "$0")" && pwd)"
+for _t in "${OMC_FT_BIN:-}/ft-thresholds.sh" "$_d/ft-thresholds.sh" "$_d/../../bin/ft-thresholds.sh" \
+          "$_d/../../../bin/ft-thresholds.sh" "$HOME/.claude/fable-team/thresholds.env"; do
+  [ -f "$_t" ] || continue
+  case "$_t" in *.env) set -a; . "$_t"; set +a;; *) eval "$(bash "$_t" --export 2>/dev/null)" || true;; esac
+  break
+done
 RESULT=$(python3 - "$INPUT" "$WARN_AT_ARG" "$BLOCK_AT_ARG" "$EXEMPT_MODELS" "$MODE" "$RECV_AT_ARG" <<'PYEOF' 2>>"$LOG"
 import json, sys, os, re, shlex
 TAIL_CAP = 16 * 1024 * 1024
 TAIL_CHUNK = 262144
-WARN_DEFAULT, BLOCK_DEFAULT = 550_000, 600_000     # 550k 경고 · 600k 차단(오빠 2026-10-19 R445 · 옛 400k/450k)
-RECV_DEFAULT = 550_000                              # R107: 후계 도달 전 recv 차단선(--recv-gate-at) = 경고선과 같이 이동
+WARN_DEFAULT = int(os.environ.get("FT_DISTILL_WARN") or 250_000)      # r1427: 문턱 한 곳(bin/ft-thresholds.sh)
+BLOCK_DEFAULT = int(os.environ.get("FT_DISTILL_BLOCK") or 300_000)    # 250k 경고 · 300k 차단(오빠 2026-11-06)
+RECV_DEFAULT = int(os.environ.get("FT_DISTILL_RECV") or 250_000)      # R107: 승계 도달 전 recv 차단선 = 경고선과 같이 이동
 
 def norm_model(m):
     if isinstance(m, dict):
@@ -558,6 +569,12 @@ def recv_blocked():
 if mode == "hard" and ctx >= recv_at and tool == "Bash" and re.search(r"mbox\.sh\s+recv\b", str(ti.get("command") or "")) and recv_blocked():
     print("RECV|%d|%s|%d|%d|%s" % (k, tool, warn_at // 1000, block_at // 1000, agent_id)); sys.exit(0)
 
+newwork_at = int(os.environ.get("FT_DISTILL_NEWWORK") or warn_at)   # r1429: 경고선 도달 = «새 일 수락 금지»(스폰 도구만)
+if mode == "block" and newwork_at <= ctx < block_at:   # 경고선~차단선 사이 = 새 일만 막는다
+    txt = spawn_text(data)
+    if not (txt and re.search(BLOCK_EXEMPT, txt, re.I)):
+        print("NEWWORK|%d|%s|%d|%d|%s" % (k, tool, newwork_at // 1000, block_at // 1000, agent_id)); sys.exit(0)
+
 if ctx >= block_at:
     if mode == "hard":
         if hard_allowed():
@@ -591,6 +608,12 @@ case "$MODE" in
     if [ "$STATE" = "RECV" ]; then       # R107: 후계 도달 파일 없음 → 새 일 수락(recv) 0
       printf '%s deny mode=%s ctx=%sk tool=%s agent_id=%s recv-gate\n' "$(date +%FT%T)" "$MODE" "$K" "$WHAT" "${AGENT:--}" >> "$LOG" 2>/dev/null
       printf '🛑 [context-distill-gate] 컨텍스트 %sk — 후계 도달 전 새 일 수락 0 (R107). .fable-team/bin/ft-successor-open.sh 로 후계를 열고 도달 확인부터. 쪽지는 큐에 남아 후계가 계보로 받는다. peek 은 허용.\n' "$K" >&2
+      exit 2
+    fi
+    if [ "$STATE" = "NEWWORK" ]; then
+      printf '%s newwork mode=%s ctx=%sk warn_at=%sk block_at=%sk tool=%s agent_id=%s\n' "$(date +%FT%T)" "$MODE" "$K" "$WARN_K" "$BLOCK_K" "$WHAT" "${AGENT:--}" >> "$LOG" 2>/dev/null
+      printf '🛑 [context-distill-gate] 컨텍스트 %sk 토큰 — 경고선(%sk) 도달 = ★새 일 수락 금지★. 지금 증류한다(규칙 r1429): 스냅샷 → 인계서 → 후계.\n' "$K" "$WARN_K" >&2
+      printf '허용: 스냅샷(HANDOFF-*.md · .fable-team/state/** · design/**/inbox/**) · baton save · mbox send/relay · git add/commit/push · Read · AskUserQuestion · tmuxc save · 후계 개설(증류 단어 포함 발주).\n' >&2
       exit 2
     fi
     if [ "$STATE" = "BLOCK" ]; then

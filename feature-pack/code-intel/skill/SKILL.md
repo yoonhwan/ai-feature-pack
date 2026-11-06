@@ -106,3 +106,30 @@ ci-audit --days 1 --csv ~/.claude/skills/code-intel/references/ci-audit.csv   # 
 - `serena` = 은퇴 후 0이어야 함 (파일 mtime 기준이라 짧은 창으로 재확인)
 
 목표선(권장): 준수율 **주 30% → 월 60%**. 낮을 때 조치 = 좌석 증류 시 5줄 재주입 + 하드룰 리마인드.
+
+
+## 하네스 상시 블록 (옛 `CODE_INTEL` 블록 전문 · 2026-11-06 r1432 에서 상시부에서 내림)
+
+> 하네스 지침 파일(`~/.pi/agent/AGENTS.md` · `~/.config/opencode/AGENTS.md`)에는 이 내용 대신 3줄 포인터만 남는다.
+> 트리거: `ci` · 코드 검색 · 심볼 · 참조/호출자 · 리팩터 영향도 · ast-grep · serena 은퇴.
+
+<!-- CODE_INTEL_HARDRULE -->
+**HARD RULE (2026-10-22): 코드 심볼·참조·구조 탐색은 `ci` 우선. grep/rg/git grep 은 로그·설정·문자열·파일존재 확인에만. `probe`/`tilth` 직접 호출 금지 — 반드시 `ci` 경유**(타임아웃·scope 가드 내장, 폭주 방지). 사전 활성화 없음.
+
+## Code intelligence — `ci` first, grep second (MANDATORY)
+
+코드 탐색은 `ci` 단일 진입점(probe 검색 + tilth 심볼)으로 한다. **사전 활성화/인덱싱 절차 없음**, 상주 프로세스 0.
+
+| 목적 | 명령 |
+|---|---|
+| 심볼 정의/호출자/의존성 | `ci sym <sym> --scope .` · `ci sym <sym> --callers --scope .` |
+| 수정 전 영향 범위 (MANDATORY) | `ci sym <sym> --callers` 또는 `ci refs "<file>#<sym>"` |
+| 개념 검색 (랭킹+AST 블록) | `ci search "<q>" <path> --max 5` |
+| 읽기 전 파일 구조+토큰 | `ci outline <file>` |
+| 구조 패턴 (ast-grep) | `ci ast '<pattern>' <path> -l <lang>` |
+| 로그/설정/문자열 | `grep`/`rg` 그대로 |
+
+- 진단/설치: `ci doctor` · `~/.claude/skills/code-intel/scripts/install.sh` (멱등)
+- 도구 부재 시 **멈추지 않는다** — `rg`+`Read` 로 진행하고 1줄 보고.
+- 편집은 네이티브 Edit. serena `replace_symbol_body`/`rename_symbol`/`insert_*` 는 폐기(실사용 0회).
+- 함정: 한국어 마크다운에서 probe panic → `ci search`가 자동 `-i '*.md'` 재시도. 다중어 쿼리는 OR 재시도.

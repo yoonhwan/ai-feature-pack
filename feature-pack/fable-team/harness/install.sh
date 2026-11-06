@@ -13,6 +13,8 @@
 #   r457: plist 갱신은 --project 가 git 공용 루트일 때만 — 워크트리면 SKIP plist-env 1줄(shim 설치는 그대로).
 #   r459: 팩 comm 도구(harness/comm 의 일반 파일 · 우편함·큐 데이터 제외)를 <공용 루트>/.fable-team/comm 에 cp -p(덮기 전 .bak-<버전> · 루트 전용 파일 유지 · 삭제 0)
 #         dry-run = COMM 줄 + `COMM copied=N same=M` · 워크트리 --project 는 SKIP comm · apply 끝 = 기동 뒤 스크립트가 바뀐 launchd 데몬 RESTART 줄(실행 0 · master 집행).
+#   r1413: env FT_ROOT 가 --project 와 같으면(실경로) comm 은 <데이터 루트>/.fable-team/comm 에 깐다(kakao 꼴 — 데이터 루트가 git 공용 루트 아래 하위 폴더) · 다르면 지금 규칙 + INFO 1줄 ·
+#         FT_ROOT 에 .fable-team 없음 = REJECT rc2(첫 쓰기 전). FT_ROOT 없는 BYZ 꼴은 지금과 같다.
 #   r464: plist 단계는 LIVE_BIN 전환 «뒤» · 교체 전 직전 사본 .bak-<version> · bootstrap 1초 간격 최대 3회(7초 안)
 #         · 그래도 실패면 직전 사본 원복 + 다시 올림 → PLIST RESTORED + 마지막 줄 INSTALLED <version> · PLIST ERROR rc1.
 #   r512: 공용 루트 설치는 shim 단계 뒤 등록 워크트리 중 bin 이 이미 연결 파일(shim)인 곳마다 같은 설치본 shim 을 다시 돌린다
@@ -108,6 +110,17 @@ fi
 [ -n "$PROJECT" ] || { echo "REJECT --project <프로젝트 루트> 필수 — cwd 로 추론하지 않는다 (쓰기 0)" >&2; exit 2; }
 [ -d "$PROJECT" ] || { echo "REJECT 프로젝트 폴더 없음: $PROJECT (쓰기 0)" >&2; exit 2; }
 PROJECT="$(cd "$PROJECT" && pwd -P)"
+# r1413: 데이터 루트(FT_ROOT) — kakao 처럼 --project 가 git 공용 루트 «아래 하위 폴더» 인 팀의 comm 은 그 데이터 루트에 깐다.
+#   FT_ROOT 가 --project 와 같으면(실경로 비교) comm 대상 = <데이터 루트>/.fable-team/comm · 다르면 지금 규칙 그대로 + INFO 1줄(SKIP 강제 0).
+#   ★이 검사는 첫 쓰기(장부 등록·EXIT trap·state) «전»★ — 없는 FT_ROOT 로 state 를 만들지 않는다(DA① I5).
+COMM_DATA_ROOT=""; COMM_AT_DATA_ROOT=0
+if [ -n "${FT_ROOT:-}" ]; then
+  COMM_DATA_ROOT="$(cd "$FT_ROOT" 2>/dev/null && pwd -P || true)"
+  [ -n "$COMM_DATA_ROOT" ] && [ -d "$COMM_DATA_ROOT/.fable-team" ] \
+    || { echo "REJECT FT_ROOT 에 .fable-team 없음: ${COMM_DATA_ROOT:-$FT_ROOT} (쓰기 0)" >&2; exit 2; }
+  if [ "$COMM_DATA_ROOT" = "$PROJECT" ]; then COMM_AT_DATA_ROOT=1
+  else echo "INFO FT_ROOT ≠ --project ($COMM_DATA_ROOT ≠ $PROJECT) — comm 은 공용 루트 규칙"; fi
+fi
 # r939 H1: «곧 끝나는 일» 자기 등록 — 승계(retire)가 이 설치를 죽이지 않고 후계에게 넘긴다(장부 state/bg-finite.tsv · 상한 10분)
 bash "$HARNESS/bin/ft-bg-finite.sh" register "${FT_SEAT:--}" "${FT_BG_FINITE_INSTALL_SEC:-600}" "$$" "install.sh --project $PROJECT" >/dev/null 2>&1 || true   # 등록 실패 = 넘김 대상 아님(오늘과 같은 reap) — 도구 stdout 계약을 흔들지 않는다
 trap 'bash "$HARNESS/bin/ft-bg-finite.sh" unregister $$ >/dev/null 2>&1 || true' EXIT
@@ -153,10 +166,12 @@ HP="$(git -C "$PROJECT" config --get core.hooksPath 2>/dev/null || true)"
 #   다르면 apply = .bak-r426(첫 원본 보존) + 교체 + bootout·bootstrap·kickstart(변경 때만) · 같으면 쓰기 0 · 렌더 실패 = ERROR(조용한 통과 0)
 LC="${FT_LAUNCHCTL:-launchctl}"
 # r459: comm 도구 동기화 — 데이터 파일(우편함·순번·가드 상태·큐 설정·본문·relay·캐시)은 대상 밖 · 이름 목록 = 팩 comm 의 최상위 일반 파일
-COMM_SRC="$HARNESS/comm"; COMM_DST="${COMMON:-$PROJECT}/.fable-team/comm"
+# r1413: 데이터 루트 = --project 면 공용 루트가 아니어도 그 루트가 comm 대상(SKIP 을 타지 않는다)
+COMM_SRC="$HARNESS/comm"
+if [ "$COMM_AT_DATA_ROOT" = 1 ]; then COMM_DST="$COMM_DATA_ROOT/.fable-team/comm"; else COMM_DST="${COMMON:-$PROJECT}/.fable-team/comm"; fi
 comm_sync() {
   local f n dst copied=0 same=0
-  if [ -n "$COMMON" ] && [ "$PROJECT" != "$COMMON" ]; then echo "SKIP comm (--project 가 git 공용 루트 아님: 루트=$COMMON — comm 은 루트 설치에서만)"; return 0; fi
+  if [ "$COMM_AT_DATA_ROOT" = 0 ] && [ -n "$COMMON" ] && [ "$PROJECT" != "$COMMON" ]; then echo "SKIP comm (--project 가 git 공용 루트 아님: 루트=$COMMON — comm 은 루트 설치에서만)"; return 0; fi
   [ -d "$COMM_SRC" ] || { echo "ERROR: 팩 comm 없음: $COMM_SRC" >&2; exit 1; }
   for f in "$COMM_SRC"/*; do
     n="$(basename "$f")"; [ -f "$f" ] || continue
@@ -403,6 +418,32 @@ for src in "$KIT"/githooks/*; do
   gcopied=$((gcopied + 1))
 done
 echo "GITHOOKS copied=$gcopied same=$gsame dest=$GH_DEST (덮은 파일의 되돌림 = <파일>.bak-$VERSION)"
+# ── r1439: 팀별 메모리(LESSONS)·진화 자리 시드 ─────────────────────────
+#   배포 대상 프로젝트에 «팀별 메모리 계층» 이 실제로 생겨야 시스템으로 돈다(문서만 배포 = 안 도는 것).
+#   이미 있는 파일은 절대 덮지 않는다(기억은 사용자 자산). 팀 목록은 seats-<팀>.json · design/teams/<팀>/ · state/team-main/<팀>/ 에서 유도.
+#   실패해도 설치는 계속한다(경고 1줄) — 메모리 자리는 코드 경로가 아니다.
+lessons_seed() {
+  local LR="$PROJECT/.fable-team/state/lessons"
+  local TPL="$KIT/templates/lessons"
+  mkdir -p "$LR/seat" "$LR/team" "$PROJECT/.fable-team/state/evolution" || { echo "LESSONS WARN 자리 생성 실패 $LR"; return 0; }
+  if [ ! -f "$LR/README.md" ] && [ -f "$TPL/README.md" ]; then cp -p "$TPL/README.md" "$LR/README.md" 2>/dev/null && true; fi
+  [ -f "$LR/global.md.lock" ] || : > "$LR/global.md.lock"
+  # r1445: 팀 발견·시드는 ft-lessons 한 곳이 한다 — install 은 부르기만(로직 중복 0).
+  #   발견 소스 = seats-<팀>.json · design/teams/<팀>/ · state/team-main/<팀>/ · bin-<팀>/ · 이미 있는 team/*.jsonl
+  #   → 지금 있는 팀 전부 + 앞으로 생길 팀도 다음 install(또는 evolve --gate)에서 자동 편입.
+  if [ -f "$LIVE/bin/ft-lessons.sh" ]; then
+    local out rc
+    out="$(FT_ROOT="$PROJECT/.fable-team" bash "$LIVE/bin/ft-lessons.sh" sync-teams 2>&1)"; rc=$?
+    printf '%s\n' "$out" | tail -1
+    out="$(FT_ROOT="$PROJECT/.fable-team" bash "$LIVE/bin/ft-lessons.sh" check 2>&1)"; rc=$?
+    printf '%s\n' "$out" | tail -1
+    [ "$rc" = 0 ] || { echo "LESSONS WARN check 위반(rc=$rc) — 위 check 줄을 고친다(설치는 계속)"; return "$rc"; }
+  fi
+  echo "LESSONS root=$LR (규약=templates/lessons/README.md · 덮은 파일 0)"
+  return 0
+}
+lessons_seed || true   # r1442(DA astra 반례 6): seed 가 «성공» 으로 위장하지 않게 rc 를 받아 경고로 남긴다
+
 comm_sync
 if [ -n "$PREV" ] && [ "$PREV" != "$LIVE/bin" ]; then echo "되돌림 1줄: printf '%s\\n' '$PREV' > '$PROJECT/.fable-team/LIVE_BIN'"
 else echo "되돌림: 이전 LIVE_BIN 값 ${PREV:-없음}(이번 값과 같거나 없음 — 되돌릴 것 0)"; fi

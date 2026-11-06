@@ -1,0 +1,81 @@
+{
+  "name": "ctx-waste",
+  "version": "0.3.0",
+  "title": "ctx-waste — local context waste audit for AI coding agents",
+  "description": "Read-only audit of context waste across claude, codex, pi, opencode, hermes, openclaw and commandcode. Detects installed/running runtimes, shows auto-loaded memory size, cache full-rewrite share, context per request and the distillation break-even turn count as graphs. Reports the start-budget breakdown (fresh distill vs resume: working room left and rewrite cost). English by default (--lang ko for Korean). No writes, no network.",
+  "category": "observability",
+  "os": [
+    "darwin",
+    "linux"
+  ],
+  "install_time_minutes": 1,
+  "requires_api_key": false,
+  "requires_auth": false,
+  "commands": [
+    {
+      "name": "ctx-waste",
+      "kind": "cli-binary",
+      "path": "bin/ctx-waste",
+      "runtime": "python3",
+      "args": [
+        "--lang en|ko",
+        "--runtime auto|all|<name>",
+        "--hours N",
+        "--request FILE",
+        "--json"
+      ]
+    }
+  ],
+  "install": {
+    "script": "install.sh",
+    "target": "~/.local/bin/ctx-waste",
+    "idempotent": true,
+    "uninstall": "uninstall.sh"
+  },
+  "runtime_targets": [
+    {
+      "runtime": "claude-code",
+      "kind": "reads-local-session-logs",
+      "target": "~/.claude/projects/**/*.jsonl",
+      "status": "read-only"
+    },
+    {
+      "runtime": "claude-code",
+      "kind": "reads-auto-loaded-memory",
+      "target": "~/.claude/CLAUDE.md, ~/.claude/rules/*.md, <project>/CLAUDE.md",
+      "status": "read-only"
+    },
+    {
+      "runtime": "cliproxyapi",
+      "kind": "reads-request-body-log",
+      "target": "~/.cli-proxy-api/logs/error-v1-messages-*.log",
+      "status": "optional"
+    }
+  ],
+  "safety": {
+    "writes_files": false,
+    "network_calls": false,
+    "reads_conversation_text": false,
+    "note": "session jsonl 에서 usage 숫자만 집계한다."
+  },
+  "weights": {
+    "cache_read": 0.1,
+    "cache_write_1h": 2.0,
+    "cache_write_5m": 1.25,
+    "output": 5.0,
+    "note": "공개 단가 비율 근사. 실제 한도 산식은 비공개이므로 상대 비교용."
+  },
+  "public_docs": [
+    "README.md",
+    "INSTALL.md"
+  ],
+  "runtimes": [
+    "claude",
+    "codex",
+    "pi",
+    "opencode",
+    "hermes",
+    "openclaw",
+    "commandcode"
+  ]
+}
