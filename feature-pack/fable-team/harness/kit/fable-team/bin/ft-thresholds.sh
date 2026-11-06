@@ -30,15 +30,15 @@ valid() {
   return 0
 }
 cmd="${1:---show}"; shift || true
-TARGET="$USERFILE"; KEYV=""; 
+TARGET="$USERFILE"; KEYV=""; POS=()
 while [ $# -gt 0 ]; do case "$1" in
   --file) TARGET="$2"; shift 2;; --file=*) TARGET="${1#--file=}"; shift;;
-  *=*) KEYV="$1"; shift;; *) shift;; esac; done
+  *=*) KEYV="$1"; shift;; *) POS+=("$1"); shift;; esac; done
 case "$cmd" in
   --export)
     valid || exit 2
     printf 'export FT_DISTILL_WARN=%s FT_DISTILL_BLOCK=%s FT_DISTILL_RECV=%s FT_RESUME_MAX=%s\n' "$WARN" "$BLOCK" "$RECV" "$RESUME";;
-  --get) valid >/dev/null 2>&1; key="${1:-}"; case "$key" in
+  --get) valid >/dev/null 2>&1; key="${POS[0]:-}"; case "$key" in
       FT_DISTILL_WARN) echo "$WARN";; FT_DISTILL_BLOCK) echo "$BLOCK";; FT_DISTILL_RECV) echo "$RECV";; FT_RESUME_MAX) echo "$RESUME";;
       *) echo "REJECT unknown key: $key" >&2; exit 2;; esac;;
   --set)
