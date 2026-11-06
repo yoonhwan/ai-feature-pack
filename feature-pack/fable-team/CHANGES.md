@@ -1,3 +1,10 @@
+## 2026-11-06 — r1428 정본 동기 (skill/templates = kit) + 배포 설치
+
+- r1426·r1427 에서 `harness/kit/…` 만 고쳐 **정본(`skill/templates/…`)이 뒤처져 있었다**. 오빠 지시 «ai-feature-pack 에 정본하고 배포 설치를 시켜야지 커밋푸시».
+- 동기 4파일: `skill/templates/hooks/context-distill-gate.sh`(r1427 문턱 배선 반영) · `skill/templates/rules/orchestration.md`(리줌 상한·문턱 한 곳 절) · `skill/templates/thresholds.env.sample` · `skill/scripts/{ft-thresholds.sh,ft-resume-gate.sh}`(skill 만 설치하는 경로도 게이트를 갖게).
+- `cmp` 검사: kit ↔ skill 4파일 전부 동일(0). skill/scripts 는 kit/bin 사본 규약 확인 후 추가.
+- 1.1.267 정식 설치(`install.sh --apply`)로 LIVE_BIN 전환 — 1.1.266 에서 손으로 갈아 끼웠던 드리프트도 이번 설치로 정본화.
+
 ## 2026-11-06 — r1427 문턱 «한 곳» (ft-thresholds.sh)
 
 - 증류 게이트·리줌 게이트·좌석 복구가 각자 숫자를 들고 있던 것을 **한 파일**로 모았다. 오빠 지시 «이 값을 어디 하나 상수로 못두나? … 증류 지침이랑 이어하기 게이트가 바라봐서 조정 변동 가능하게».

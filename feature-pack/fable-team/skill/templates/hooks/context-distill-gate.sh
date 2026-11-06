@@ -55,12 +55,21 @@ INPUT=$(cat 2>/dev/null)
 LOG="$HOME/.claude/logs/context-distill-gate.log"; mkdir -p "$(dirname "$LOG")" 2>/dev/null
 EXEMPT_MODELS="${OMC_GATE_EXEMPT_MODELS:-}"     # 예: 'haiku' — 비워두면 면제 없음
 
+# r1427: 문턱 «한 곳» — bin/ft-thresholds.sh 가 있으면 그 값을 env 로 받는다(없으면 기본값 유지)
+_d="$(cd -- "$(dirname -- "$0")" && pwd)"
+for _t in "${OMC_FT_BIN:-}/ft-thresholds.sh" "$_d/ft-thresholds.sh" "$_d/../../bin/ft-thresholds.sh" \
+          "$_d/../../../bin/ft-thresholds.sh" "$HOME/.claude/fable-team/thresholds.env"; do
+  [ -f "$_t" ] || continue
+  case "$_t" in *.env) set -a; . "$_t"; set +a;; *) eval "$(bash "$_t" --export 2>/dev/null)" || true;; esac
+  break
+done
 RESULT=$(python3 - "$INPUT" "$WARN_AT_ARG" "$BLOCK_AT_ARG" "$EXEMPT_MODELS" "$MODE" "$RECV_AT_ARG" <<'PYEOF' 2>>"$LOG"
 import json, sys, os, re, shlex
 TAIL_CAP = 16 * 1024 * 1024
 TAIL_CHUNK = 262144
-WARN_DEFAULT, BLOCK_DEFAULT = 250_000, 300_000     # 250k 경고 · 300k 차단(오빠 2026-11-06 · 옛 550k/600k = R445)
-RECV_DEFAULT = 250_000                              # R107: 후계 도달 전 recv 차단선(--recv-gate-at) = 경고선과 같이 이동
+WARN_DEFAULT = int(os.environ.get("FT_DISTILL_WARN") or 250_000)      # r1427: 문턱 한 곳(bin/ft-thresholds.sh)
+BLOCK_DEFAULT = int(os.environ.get("FT_DISTILL_BLOCK") or 300_000)    # 250k 경고 · 300k 차단(오빠 2026-11-06)
+RECV_DEFAULT = int(os.environ.get("FT_DISTILL_RECV") or 250_000)      # R107: 승계 도달 전 recv 차단선 = 경고선과 같이 이동
 
 def norm_model(m):
     if isinstance(m, dict):
