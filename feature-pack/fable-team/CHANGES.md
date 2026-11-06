@@ -1,3 +1,11 @@
+## 2026-11-06 — r1426 리줌 상한 (큰 대화는 증류로 이어간다)
+
+- 실측 동기: 오늘 16:30까지 재작성 비중이 31~44%로 개선 전과 같았다. 게이트(250k/300k)는 «도구 호출»만 막고 **리줌되는 대화 크기**는 못 막는다 → 리줌 세션 첫 요청이 300k+를 통째로 다시 써서 소모의 절반을 먹는다.
+- 신규 `kit/fable-team/bin/ft-resume-gate.sh <jsonl|uuid> [--max N]` — 마지막 usage 의 ctx(read+write+input)를 재서 `RESUME_OK` rc0 / `DISTILL ctx=N max=M` rc1 / `UNKNOWN` rc3. 기본 상한 `FT_RESUME_MAX=150000`.
+- `ft-reboot-restore.sh`: 좌석 판정에 DISTILL 분기 추가 — `ctx > FT_RESUME_MAX` 면 리줌하지 않고 DISTILL 목록에 넣는다. 목록에 처리 명령(`ft-successor-open … --body-file`) 1줄, `FT_RR_DISTILL_FILE` 로 목록 파일 저장, 끝 요약에 `distill=N` 추가.
+- 시험 `tests/test_resume_gate.sh` — 90k 통과 · 420k DISTILL · 상한 override · env 상한 · 없는 파일 UNKNOWN · 배선 확인. 전부 PASS.
+- `templates/rules/orchestration.md` 에 «리줌 상한» 3줄(150k 초과 = 리줌 0, 증류로 이어간다).
+
 ## 2026-11-06 — r1425 닫힌 발주 5요소 (라운드·질문 무한 루프 차단)
 
 - 실측 근거: `design/journey/DA-*.md` 39건 중 한 카드가 **10라운드**(harness-0.5-row2), 서포트 세션 툴호출 14건이 전부 **질문 10 + sleep 4**(실행 판단 0).
