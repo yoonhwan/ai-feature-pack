@@ -89,6 +89,20 @@ ck "dry-run evolution 폴더 생성 0" "$([ -d "$T/dryprobe/state/evolution" ] &
 # ④ role-spawn 은 --team 우선
 ck "role-spawn TEAM 우선(env FT_TEAM 무시)" "$(TEAM=v65 FT_TEAM=planner NAME=x BODY= bash -c 'eval "$(sed -n 184p '"$KIT"'/ft-role-spawn.sh)"; printf "%s" "$BODY"' | grep -c 'FT_TEAM=v65')" 1
 
+echo "== 팀 전체·신규 팀 자동 랜딩 (r1445) =="
+mkdir -p "$FT_ROOT/../design/teams/newteam" "$FT_ROOT/state/team-main/otherteam"
+out="$(FT_ROOT="$FT_ROOT" bash "$LS" sync-teams --dry-run 2>&1)"
+ck "dry-run 은 파일 변경 0" "$(has "$out" '파일 변경 0')" 1
+out="$(FT_ROOT="$FT_ROOT" bash "$LS" sync-teams 2>&1)"
+ck "신규 팀 2개 자동 생성" "$(has "$out" '신규 2')" 1
+ck "design/teams 팀 파일 생성" "$([ -f "$FT_ROOT/state/lessons/team/newteam.jsonl" ] && echo 1 || echo 0)" 1
+ck "team-main 팀 파일 생성" "$([ -f "$FT_ROOT/state/lessons/team/otherteam.jsonl" ] && echo 1 || echo 0)" 1
+ck "재실행은 신규 0(멱등)" "$(FT_ROOT="$FT_ROOT" bash "$LS" sync-teams | grep -o '신규 [0-9]*')" "신규 0"
+bash "$LS" add team newteam "신규 팀 첫 교훈" --kind directive >/dev/null 2>&1
+ck "신규 팀 교훈이 snapshot 에 실린다" "$(FT_SEAT_NAME=x FT_TEAM=newteam bash "$LS" snapshot --budget 600 | grep -c 'team (newteam)')" 1
+ck "빈 팀은 snapshot 에 안 실린다(프롬프트 위생)" "$(FT_SEAT_NAME=x FT_TEAM=otherteam bash "$LS" snapshot --budget 600 | grep -c 'team (otherteam)')" 0
+ck "evolve gate 가 sync-teams 를 부른다" "$(FT_ROOT="$T/evsync" bash "$EV" --gate 2>&1 | grep -c 'SYNC-TEAMS')" 1
+
 echo "== evolve =="
 before="$(find "$FT_ROOT/state" -name 'evolution' -o -name 'last-run' 2>/dev/null | wc -l | tr -d ' ')"
 out="$(bash "$EV" --dry-run 2>&1)"; rc=$?
@@ -113,5 +127,5 @@ echo "== ft-issues-daily 게이트 연결 =="
 ck "issues-daily 가 evolve --gate 를 부른다" "$(grep -c 'EVOLVE_ARGS=(--gate)\|bash "\$HERE/ft-evolve.sh" "' "$KIT/ft-issues-daily.sh")" 2
 ck "exec 로 rc 를 잃지 않는다" "$(grep -c '^exit "\$rc"' "$KIT/ft-issues-daily.sh")" 1
 
-if [ "$fail" = 0 ]; then echo "ALL PASS (lessons 12 · 레포대조 6 · DA1 6 · DA2 5 · 연결 11 · evolve 10)"; exit 0; fi
+if [ "$fail" = 0 ]; then echo "ALL PASS (lessons 12 · 레포대조 6 · DA1 6 · DA2 5 · 연결 11 · 팀자동 8 · evolve 10)"; exit 0; fi
 echo "FAIL $fail 건"; exit 1

@@ -410,26 +410,21 @@ echo "GITHOOKS copied=$gcopied same=$gsame dest=$GH_DEST (덮은 파일의 되�
 lessons_seed() {
   local LR="$PROJECT/.fable-team/state/lessons"
   local TPL="$KIT/templates/lessons"
-  local teams="" seeded=0 pages=0
   mkdir -p "$LR/seat" "$LR/team" "$PROJECT/.fable-team/state/evolution" || { echo "LESSONS WARN 자리 생성 실패 $LR"; return 0; }
   if [ ! -f "$LR/README.md" ] && [ -f "$TPL/README.md" ]; then cp -p "$TPL/README.md" "$LR/README.md" 2>/dev/null && true; fi
   [ -f "$LR/global.md.lock" ] || : > "$LR/global.md.lock"
-  for f in "$PROJECT"/.fable-team/seats-*.json; do [ -f "$f" ] || continue; teams="$teams $(basename "$f" .json | sed 's/^seats-//')"; done
-  for d in "$PROJECT"/design/teams/*/ "$PROJECT"/.fable-team/state/team-main/*/; do [ -d "$d" ] || continue; teams="$teams $(basename "$d")"; done
-  for t in $(printf '%s\n' $teams | sort -u); do
-    [ -n "$t" ] || continue
-    local dst="$LR/team/$t.jsonl"
-    [ -f "$dst" ] || { : > "$dst"; seeded=$((seeded + 1)); }
-    [ -f "$dst.lock" ] || : > "$dst.lock"
-    pages=$((pages + 1))
-  done
-  echo "LESSONS root=$LR 팀파일=$pages 신규=$seeded (덮은 파일 0 · 형식 jsonl cap 100 · 규약=templates/lessons/README.md)"
+  # r1445: 팀 발견·시드는 ft-lessons 한 곳이 한다 — install 은 부르기만(로직 중복 0).
+  #   발견 소스 = seats-<팀>.json · design/teams/<팀>/ · state/team-main/<팀>/ · bin-<팀>/ · 이미 있는 team/*.jsonl
+  #   → 지금 있는 팀 전부 + 앞으로 생길 팀도 다음 install(또는 evolve --gate)에서 자동 편입.
   if [ -f "$LIVE/bin/ft-lessons.sh" ]; then
     local out rc
+    out="$(FT_ROOT="$PROJECT/.fable-team" bash "$LIVE/bin/ft-lessons.sh" sync-teams 2>&1)"; rc=$?
+    printf '%s\n' "$out" | tail -1
     out="$(FT_ROOT="$PROJECT/.fable-team" bash "$LIVE/bin/ft-lessons.sh" check 2>&1)"; rc=$?
     printf '%s\n' "$out" | tail -1
     [ "$rc" = 0 ] || { echo "LESSONS WARN check 위반(rc=$rc) — 위 check 줄을 고친다(설치는 계속)"; return "$rc"; }
   fi
+  echo "LESSONS root=$LR (규약=templates/lessons/README.md · 덮은 파일 0)"
   return 0
 }
 lessons_seed || true   # r1442(DA astra 반례 6): seed 가 «성공» 으로 위장하지 않게 rc 를 받아 경고로 남긴다

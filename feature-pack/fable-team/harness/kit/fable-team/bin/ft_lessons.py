@@ -106,6 +106,60 @@ def guess_team(root: Path, seat: str) -> str:
     return parts[0] if parts else ""
 
 
+def teams_discover(root: Path) -> list[str]:
+    """이 프로젝트에 «지금 존재하는» 팀 이름 전부(r1445). 신규 팀도 다음 실행에 자동 편입된다.
+    소스 5곳: ① .fable-team/seats-<팀>.json ② design/teams/<팀>/ ③ .fable-team/state/team-main/<팀>/
+              ④ .fable-team/bin-<팀>/ (팀별 shim 폴더) ⑤ 이미 있는 team/*.jsonl (지우지 않는다)."""
+    proj = root.parent
+    names: set[str] = set()
+    for f in sorted(root.glob("seats-*.json")):
+        names.add(f.stem.replace("seats-", ""))
+    for d in sorted((proj / "design" / "teams").glob("*")):
+        if d.is_dir():
+            names.add(d.name)
+    for d in sorted((root / "state" / "team-main").glob("*")):
+        if d.is_dir():
+            names.add(d.name)
+    for d in sorted(root.glob("bin-*")):
+        if d.is_dir() and d.name[4:]:
+            names.add(d.name[4:])
+    for f in sorted((root / "state" / "lessons" / "team").glob("*.jsonl")):
+        if ".archive" not in f.name:
+            names.add(f.stem)
+    return sorted(n for n in names if n and n != "README" and not n.startswith("."))
+
+
+def ensure_team_files(root: Path, teams: list[str]) -> tuple[int, int, int]:
+    """팀 파일·락을 만든다(있으면 그대로). (발견, 신규, 기존)"""
+    tdir = root / "state" / "lessons" / "team"
+    tdir.mkdir(parents=True, exist_ok=True)
+    new = 0
+    for t in teams:
+        f = tdir / (safe(t) + ".jsonl")
+        if not f.is_file():
+            f.touch()
+            new += 1
+        lk = f.with_suffix(f.suffix + ".lock")
+        if not lk.is_file():
+            lk.touch()
+    return len(teams), new, len(teams) - new
+
+
+def cmd_sync_teams(argv: list[str]) -> int:
+    """ft-lessons.sh sync-teams [--dry-run] — 지금 있는 팀 전부 + 앞으로 생길 팀까지 커버.
+    install(lessons_seed)과 ft-evolve --gate 가 이 명령을 부른다(로직 한 곳)."""
+    root = ft_root()
+    teams = teams_discover(root)
+    if "--dry-run" in argv:
+        missing = [t for t in teams if not (root / "state" / "lessons" / "team" / (safe(t) + ".jsonl")).is_file()]
+        print("SYNC-TEAMS dry-run 발견 %d · 미생성 %d %s (파일 변경 0)"
+              % (len(teams), len(missing), ("미생성=" + ",".join(missing)) if missing else ""))
+        return 0
+    found, new, old = ensure_team_files(root, teams)
+    print("SYNC-TEAMS 발견 %d · 신규 %d · 기존 %d" % (found, new, old))
+    return 0
+
+
 def safe(name: str) -> str:
     n = re.sub(r"[^A-Za-z0-9._#-]+", "-", (name or "").strip())
     if not n:
@@ -425,6 +479,8 @@ def cmd_snapshot(argv: list[str]) -> int:
     for layer, nm in (("seat", seat), ("team", team)):
         if not nm:
             continue
+        if layer == "team":  # r1445 — 신규 팀도 첫 부팅에 자리가 생긴다
+            ensure_team_files(root, [nm])
         rows = load(path_of(layer, nm))
         if rows:
             picks.append((layer, nm, rows))
@@ -567,13 +623,13 @@ CMDS = {
     "init": cmd_init, "add": cmd_add, "list": cmd_list,
     "pin": lambda a: cmd_pin(a, True), "unpin": lambda a: cmd_pin(a, False),
     "evict": cmd_evict, "snapshot": cmd_snapshot, "check": cmd_check,
-    "migrate": cmd_migrate, "path": cmd_path,
+    "migrate": cmd_migrate, "path": cmd_path, "sync-teams": cmd_sync_teams,
 }
 
 
 def main() -> int:
     if len(sys.argv) < 2 or sys.argv[1] in ("-h", "--help"):
-        print("usage: ft-lessons.sh {init|add|list|pin|unpin|evict|snapshot|check|migrate|path} …")
+        print("usage: ft-lessons.sh {init|add|list|pin|unpin|evict|snapshot|check|migrate|path|sync-teams} …")
         return 0 if len(sys.argv) > 1 else 2
     fn = CMDS.get(sys.argv[1])
     if not fn:

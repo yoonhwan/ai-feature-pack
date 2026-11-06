@@ -180,7 +180,20 @@ def main(argv: list[str]) -> int:
             gen_note = " gen=%03d" % gen
         else:
             gen_note = ""
-        print("EVOLVE %s date=%s 학습 후보 %d · 폐기 후보 %d (파일 변경 %d)%s" % (mode, today, len(learn), len(scrap), files_changed, gen_note))
+        # r1445: 신규 팀 자동 편입 — 하루 1회 게이트가 팀 목록을 다시 훑는다(수동 sync 불필요)
+        sync_note = ""
+        if mode in ("apply", "gate"):
+            try:
+                import subprocess
+                r = subprocess.run(["bash", str(Path(__file__).with_name("ft-lessons.sh")), "sync-teams"],
+                                   capture_output=True, text=True, timeout=7,
+                                   env={**os.environ, "FT_ROOT": str(root)})
+                line = (r.stdout or "").strip().splitlines()
+                if line:
+                    sync_note = " · " + line[-1]
+            except Exception as e:  # 동기화 실패는 게이트 결과를 덮지 않는다(하드 룰 20)
+                sync_note = " · SYNC-TEAMS 판정 불가(%s)" % type(e).__name__
+        print("EVOLVE %s date=%s 학습 후보 %d · 폐기 후보 %d (파일 변경 %d)%s%s" % (mode, today, len(learn), len(scrap), files_changed, gen_note, sync_note))
         if "--verbose" in argv or "-v" in argv:
             for x in learn:
                 print("  학습: " + x)
