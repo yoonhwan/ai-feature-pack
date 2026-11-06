@@ -25,8 +25,13 @@ CTX_WASTE_BIN_DIR="$HOME/bin" bash install.sh
 ## 3. 확인
 
 ```bash
-ctx-waste --hours 1
+ctx-waste --hours 1              # English (default)
+ctx-waste --hours 1 --lang ko    # 한국어
+ctx-waste --runtime all          # 데이터 있는 런타임 전부 상세
 ```
+
+검사 대상 런타임은 자동 감지된다: `claude` `codex` `pi` `opencode` `hermes` `openclaw` `commandcode`.
+없는 런타임은 `installed=no` 로만 표시되고 오류가 되지 않는다.
 
 `command not found` 면 PATH에 `~/.local/bin` 이 없는 것이다. 셸 rc에 추가:
 

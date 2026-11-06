@@ -1,10 +1,13 @@
 {
   "name": "ctx-waste",
-  "version": "0.1.0",
-  "title": "ctx-waste — 로컬 컨텍스트 낭비 감사기",
-  "description": "로컬 AI 코딩 에이전트(Claude Code)의 컨텍스트 낭비를 그래프로 보여주는 읽기 전용 감사기. 자동 로드 메모리 크기, 캐시 전면 재작성 비중, 요청당 컨텍스트, 증류 손익분기 턴 수를 계산해 '왜 10분 만에 리밋이 걸렸나'를 수치로 답한다. 쓰기 0, 네트워크 0.",
+  "version": "0.2.0",
+  "title": "ctx-waste — local context waste audit for AI coding agents",
+  "description": "Read-only audit of context waste across claude, codex, pi, opencode, hermes, openclaw and commandcode. Detects installed/running runtimes, shows auto-loaded memory size, cache full-rewrite share, context per request and the distillation break-even turn count as graphs. English by default (--lang ko for Korean). No writes, no network.",
   "category": "observability",
-  "os": ["darwin", "linux"],
+  "os": [
+    "darwin",
+    "linux"
+  ],
   "install_time_minutes": 1,
   "requires_api_key": false,
   "requires_auth": false,
@@ -13,7 +16,14 @@
       "name": "ctx-waste",
       "kind": "cli-binary",
       "path": "bin/ctx-waste",
-      "runtime": "python3"
+      "runtime": "python3",
+      "args": [
+        "--lang en|ko",
+        "--runtime auto|all|<name>",
+        "--hours N",
+        "--request FILE",
+        "--json"
+      ]
     }
   ],
   "install": {
@@ -58,5 +68,14 @@
   "public_docs": [
     "README.md",
     "INSTALL.md"
+  ],
+  "runtimes": [
+    "claude",
+    "codex",
+    "pi",
+    "opencode",
+    "hermes",
+    "openclaw",
+    "commandcode"
   ]
 }

@@ -15,19 +15,23 @@ printf '# big\n%s\n' "$(python3 -c 'print("가"*6000)')" > "$TMP/proj/.claude/ru
 printf '# tiny\n한 줄\n' > "$TMP/proj/CLAUDE.md"
 
 OUT="$("$PKG/bin/ctx-waste" --hours 24 --project "$TMP/proj" 2>&1)"
+OUTKO="$("$PKG/bin/ctx-waste" --hours 24 --project "$TMP/proj" --lang ko 2>&1)"
 
-for sec in "[1] 자동 로드 메모리" "자동 로드 큰 파일" ; do
-  case "$OUT" in *"$sec"*) ok "섹션: $sec" ;; *) fail "섹션 누락: $sec" ;; esac
+for sec in "[0] Runtime environment" "auto-loaded memory" "total" ; do
+  case "$OUT" in *"$sec"*) ok "section: $sec" ;; *) fail "missing section: $sec" ;; esac
 done
-case "$OUT" in *"proj/.claude/rules/big.md"*) ok "큰 메모리 파일 탐지" ;; *) fail "메모리 파일 탐지 실패" ;; esac
+case "$OUT" in *"proj/.claude/rules/big.md"*) ok "big memory file detected" ;; *) fail "memory detect" ;; esac
+case "$OUTKO" in *"실행 환경"*) ok "korean output (--lang ko)" ;; *) fail "--lang ko" ;; esac
+case "$OUT" in *"claude"*"codex"*"pi"*"opencode"*"hermes"*"openclaw"*"commandcode"*) ok "7 runtimes listed" ;; *) fail "runtime list" ;; esac
 
 # JSON 모드
 J="$("$PKG/bin/ctx-waste" --hours 24 --project "$TMP/proj" --json 2>&1)"
 python3 - "$J" <<'PY' || fail "JSON 모드"
 import json,sys
 d=json.loads(sys.argv[1])
-assert "memory" in d and "burn" in d and "fixed_prefix_tokens" in d
-print("  [✓] JSON 모드: memory %d개 · requests %d" % (len(d["memory"]), d["requests"]))
+assert "runtimes" in d and "claude" in d["runtimes"]
+assert "memory" in d["runtimes"]["claude"]
+print("  [✓] JSON mode: runtimes %d" % len(d["runtimes"]))
 PY
 
 # 요청 본문 마커 형식
@@ -38,7 +42,7 @@ cat > "$TMP/req.log" <<'EOF'
 {}
 EOF
 OUT2="$("$PKG/bin/ctx-waste" --hours 24 --project "$TMP/proj" --request "$TMP/req.log" 2>&1)"
-case "$OUT2" in *"요청 본문 해부"*) ok "요청 본문 파싱" ;; *) fail "요청 본문 파싱 실패" ;; esac
-case "$OUT2" in *"비defer 툴 1개"*) ok "defer 구분" ;; *) fail "defer 구분 실패" ;; esac
+case "$OUT2" in *"request anatomy"*|*"요청 본문 해부"*) ok "request body parsed" ;; *) fail "request body" ;; esac
+case "$OUT2" in *"live tools 1"*) ok "defer split" ;; *) fail "defer split" ;; esac
 
 echo "ctx-waste smoke OK"

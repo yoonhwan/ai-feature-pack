@@ -1,17 +1,15 @@
 #!/usr/bin/env python3
-"""ctx-waste — 로컬 AI 코딩 에이전트 컨텍스트 낭비 감사기 (읽기 전용).
+"""ctx-waste — local context waste audit for AI coding agents (read-only).
 
-무엇을 보는가:
-  [1] 자동 로드 메모리  — 매 요청 앞에 붙는 파일(CLAUDE.md / rules/ / MEMORY.md)의 크기
-  [2] 세션 소모 구조    — 캐시 읽기 / 전면 재작성 / 델타 쓰기 / 출력의 가중 비중
-  [3] 요청당 컨텍스트   — 평균·최대, 고정 프리픽스 추정
-  [4] 낭비 상위 세션    — 어느 세션이 전면 재작성을 일으켰나
-  [5] 증류 손익분기     — 재시작 비용 vs 턴당 절감 (문턱을 어디로 둘지)
-  [6] 권고
+Checks the local environments of claude, codex, pi, hermes, openclaw, opencode and
+commandcode: how much of every request is paid before any work happens, which
+sessions re-write the prompt cache, and where the distill threshold should sit.
 
-안전: 쓰기 0, 네트워크 0. 파일을 읽기만 한다.
-가중치(근사): cache_read 0.1 · cache_write(1h) 2.0 · cache_write(5m) 1.25 · output 5.0.
-  Anthropic 공개 단가 비율을 따르되, 실제 한도 산식은 비공개다. 상대 비교용으로만 쓴다.
+Safety: writes nothing, calls no network. Only reads local session logs and rule
+files. Conversation text is never parsed — only token counters.
+
+Weights (approximate, relative comparison only):
+  cache read 0.1 · cache write (1h) 2.0 · cache write (5m) 1.25 · output 5.0
 """
 import argparse
 import calendar
@@ -19,29 +17,133 @@ import collections
 import glob
 import json
 import os
+import re
+import subprocess
 import sys
 import time
 
 W_READ, W_W1H, W_W5M, W_OUT = 0.1, 2.0, 1.25, 5.0
-REWRITE_TOKENS = 150_000      # 이 이상을 한 요청에서 캐시에 새로 쓰면 "전면 재작성"으로 본다
+REWRITE_TOKENS = 150_000
 BAR = "█"
 
+HOME = os.path.expanduser("~")
 
-def est_tokens(text):
-    """문자 → 토큰 근사. CJK는 1.5자/토큰, 라틴은 3.8자/토큰."""
-    cjk = 0
-    for ch in text:
-        o = ord(ch)
-        if 0xAC00 <= o <= 0xD7AF or 0x2E80 <= o <= 0x9FFF or 0x3000 <= o <= 0x30FF:
-            cjk += 1
-    return int(cjk / 1.5 + (len(text) - cjk) / 3.8)
+# ---------------------------------------------------------------- i18n
+STR = {
+    "en": {
+        "title": "ctx-waste — local context waste audit (read-only)",
+        "window": "Window: last %gh · runtimes with data %d · sessions %d · requests %s",
+        "env": "[0] Runtime environment",
+        "env_head": "  %-12s %-9s %-7s %-8s %-13s %s",
+        "env_row": "  %-12s %-9s %-7d %-8d %-13s %s",
+        "yes": "yes", "no": "no",
+        "dash": "-",
+        "mem": "[%s] auto-loaded memory — paid on every request",
+        "none": "  (nothing auto-loaded)",
+        "total": "  total %s tokens · %s chars",
+        "req": "[%s] request anatomy — %s",
+        "tool_live": "  live tools %d · %s chars · deferred tools %d (0 tokens until loaded)",
+        "first_msg": "  first user message %s chars · messages %d · system %s chars",
+        "burn": "[%s] burn structure (weighted · total %s)",
+        "burn_rewrite": "cache full rewrite",
+        "burn_read": "cache read (normal)",
+        "burn_delta": "cache delta write",
+        "burn_out": "output",
+        "no_req": "  no requests in window — try a larger --hours",
+        "ctx": "[%s] context per request",
+        "ctx_row": "  avg %s · max %s tokens",
+        "ctx_rew": "  full rewrites: session first %d · mid-session %d",
+        "ctx_fixed": "  fixed prefix share (memory only): %.0f%%",
+        "top": "[%s] worst sessions",
+        "top_head": "  %-12s %5s %10s %10s %10s  %s",
+        "be": "break-even for distillation",
+        "be_restart": "  restart cost        %s  (prefix %s x %.1f)",
+        "be_save": "  saving per turn     %s  (distill at %s)",
+        "be_pt": "  break-even %.1f turns · avg %.1f turns/session -> %s",
+        "be_gain": "distill more often pays off",
+        "be_keep": "current cadence is fine",
+        "be_low": "  avg %s is under budget %s — recalculated with %s",
+        "reco": "recommendations",
+        "reco_mem": "auto-loaded file(s) %d, %s chars -> move to a guides/ dir and keep a 1KB digest",
+        "reco_tools": "live tool(s) %d take %s chars (%s) -> defer or disable the feature",
+        "reco_rew": "full rewrites %d = %.0f%% of burn -> spread session starts + cap resume context",
+        "reco_none": "no waste measured — keep as is",
+        "assume": "weights: read %.1f · write(1h) %.1f · write(5m) %.2f · output %.0f — relative only",
+        "no_data": "no usage records",
+        "mem_only": "(memory/files only — this runtime keeps no token usage)",
+        "bers": "break-even skipped (no usage data)",
+        "hdr": ["runtime", "installed", "running", "sessions", "last", "data"],
+        "topcols": ["session", "req", "avg_ctx", "max_ctx", "weighted", ""],
+        "kind_usage": "usage+memory",
+        "kind_mem": "memory only",
+        "kind_none": "none",
+        "tok": "tok",
+        "lang": "en",
+    },
+    "ko": {
+        "title": "ctx-waste — 로컬 컨텍스트 낭비 감사 (읽기 전용)",
+        "window": "구간: 최근 %g시간 · 데이터 있는 런타임 %d · 세션 %d개 · 고유 요청 %s건",
+        "env": "[0] 실행 환경",
+        "env_head": "  %-12s %-9s %-7s %-8s %-13s %s",
+        "env_row": "  %-12s %-9s %-7d %-8d %-13s %s",
+        "yes": "있음", "no": "없음",
+        "dash": "-",
+        "mem": "[%s] 자동 로드 메모리 — 매 요청 앞에 붙는다",
+        "none": "  (자동 로드 없음)",
+        "total": "  합계 %s 토큰 · %s자",
+        "req": "[%s] 요청 본문 해부 — %s",
+        "tool_live": "  비defer 툴 %d개 %s자 · defer 툴 %d개(로드 전 0토큰)",
+        "first_msg": "  첫 user 메시지 %s자 · 메시지 %d개 · system %s자",
+        "burn": "[%s] 소모 구조 (가중 토큰 · 총 %s)",
+        "burn_rewrite": "캐시 전면 재작성",
+        "burn_read": "캐시 읽기(정상)",
+        "burn_delta": "델타 캐시 쓰기",
+        "burn_out": "출력",
+        "no_req": "  요청 없음 — --hours 를 늘려 보세요",
+        "ctx": "[%s] 요청당 컨텍스트",
+        "ctx_row": "  평균 %s · 최대 %s 토큰",
+        "ctx_rew": "  전면 재작성: 세션 첫 요청 %d건 · 세션 중간 %d건",
+        "ctx_fixed": "  고정 프리픽스 비중(메모리만): %.0f%%",
+        "top": "[%s] 낭비 상위 세션",
+        "top_head": "  %-12s %5s %10s %10s %10s  %s",
+        "be": "증류 손익분기",
+        "be_restart": "  재시작 1회 비용      %s  (프리픽스 %s × %.1f)",
+        "be_save": "  턴당 절감            %s  (%s 로 증류)",
+        "be_pt": "  손익분기 %.1f턴 · 세션당 평균 %.1f턴 → %s",
+        "be_gain": "더 자주 증류하는 게 이득",
+        "be_keep": "지금 주기 유지 가능",
+        "be_low": "  평균 %s 이 예산 %s 이하 — 예산을 %s 로 낮춰 다시 계산",
+        "reco": "권고",
+        "reco_mem": "자동 로드 큰 파일 %d개(%s자) → guides/로 옮기고 rules/엔 1KB 다이제스트만",
+        "reco_tools": "비defer 툴 %d개가 %s자(%s) → defer_loading 또는 기능 off",
+        "reco_rew": "전면 재작성 %d건이 소모의 %.0f%% → 세션 동시 시작 분산 + 리줌 컨텍스트 상한",
+        "reco_none": "측정된 낭비 없음 — 지금 상태 유지",
+        "assume": "가중치 가정: read %.1f · write(1h) %.1f · write(5m) %.2f · output %.0f — 상대 비교용",
+        "no_data": "usage 기록 없음",
+        "mem_only": "(메모리·파일만 — 이 런타임은 토큰 usage 를 남기지 않는다)",
+        "bers": "손익분기 계산 생략 (usage 없음)",
+        "hdr": ["런타임", "설치", "실행중", "세션", "마지막", "데이터"],
+        "topcols": ["세션", "요청", "평균ctx", "최대ctx", "가중소모", ""],
+        "kind_usage": "usage+메모리",
+        "kind_mem": "메모리만",
+        "kind_none": "없음",
+        "tok": "토큰",
+        "lang": "ko",
+    },
+}
+
+SECTIONS = "0123456"
 
 
+def of(lang, key):
+    return STR[lang][key]
+
+
+# ---------------------------------------------------------------- helpers
 def bar(value, vmax, width=24):
     if vmax <= 0:
         return "·" * width
-    n = int(round(width * value / vmax))
-    n = max(0, min(width, n))
+    n = max(0, min(width, int(round(width * value / vmax))))
     return BAR * n + "·" * (width - n)
 
 
@@ -50,11 +152,13 @@ def nfmt(n):
 
 
 def kfmt(n):
-    """1만 이상은 만 단위로."""
-    if n >= 100_000_000:
-        return "%.2f억" % (n / 100_000_000)
-    if n >= 10_000:
-        return "%s만" % format(int(round(n / 10_000)), ",")
+    n = float(n)
+    if n >= 1e9:
+        return "%.2fB" % (n / 1e9)
+    if n >= 1e6:
+        return "%.1fM" % (n / 1e6)
+    if n >= 1e3:
+        return "%.1fk" % (n / 1e3)
     return nfmt(n)
 
 
@@ -62,44 +166,132 @@ def pct(a, b):
     return 0.0 if b <= 0 else 100.0 * a / b
 
 
-# ---------------------------------------------------------------- [1] 메모리
-def memory_files(project):
-    home = os.path.expanduser("~")
-    out = []
-    for p in [os.path.join(home, ".claude", "CLAUDE.md")]:
-        out.append(p)
-    out += sorted(glob.glob(os.path.join(home, ".claude", "rules", "*.md")))
-    if project:
-        out.append(os.path.join(project, "CLAUDE.md"))
-        out += sorted(glob.glob(os.path.join(project, ".claude", "rules", "*.md")))
-        slug = project.replace("/", "-").replace("_", "-")
-        mem = os.path.join(home, ".claude", "projects", slug, "memory", "MEMORY.md")
-        out.append(mem)
-    seen, rows = set(), []
-    for p in out:
-        if not p or p in seen or not os.path.isfile(p):
-            continue
-        seen.add(p)
-        try:
-            txt = open(p, encoding="utf-8", errors="ignore").read()
-        except OSError:
-            continue
-        rows.append({"path": p, "chars": len(txt), "tokens": est_tokens(txt)})
+def est_tokens(text):
+    cjk = 0
+    for ch in text:
+        o = ord(ch)
+        if 0xAC00 <= o <= 0xD7AF or 0x2E80 <= o <= 0x9FFF or 0x3000 <= o <= 0x30FF:
+            cjk += 1
+    return int(cjk / 1.5 + (len(text) - cjk) / 3.8)
+
+
+def shorten(p, width=46):
+    s = p.replace(HOME, "~")
+    return s if len(s) <= width else "…" + s[-width + 1:]
+
+
+def parse_ts(s):
+    """ISO8601 or epoch(ms) -> epoch seconds (UTC)."""
+    if isinstance(s, (int, float)):
+        return s / 1000.0 if s > 1e11 else float(s)
+    if not s:
+        return None
+    t = str(s)[:19]
+    try:
+        return calendar.timegm(time.strptime(t, "%Y-%m-%dT%H:%M:%S"))
+    except ValueError:
+        return None
+
+
+# ---------------------------------------------------------------- runtimes
+class RT:
+    def __init__(self, key, memory, sessions=None, parser=None, proc=None, home=None):
+        self.key = key
+        self.home = home or ("~/." + key)
+        self.memory = memory          # list of glob patterns for always-loaded files
+        self.sessions = sessions      # glob root for session logs
+        self.parser = parser          # name of parser function
+        self.proc = proc or key       # process name keyword
+
+
+RUNTIMES = [
+    RT("claude",
+       ["~/.claude/CLAUDE.md", "~/.claude/rules/*.md", "{project}/CLAUDE.md",
+        "{project}/.claude/rules/*.md", "{claude_mem}"],
+       "~/.claude/projects", "claude", "claude"),
+    RT("codex",
+       ["~/.codex/AGENTS.md", "~/.codex/AGENTS.user.md"],
+       "~/.codex/sessions", "codex", "codex"),
+    RT("pi",
+       ["~/.pi/agent/AGENTS.md"],
+       "~/.pi/agent/sessions", "pi", "pi"),
+    RT("opencode",
+       ["~/.config/opencode/AGENTS.md"],
+       None, "opencode", "opencode", "~/.config/opencode"),
+    RT("hermes",
+       ["~/.hermes/SOUL.md", "~/.hermes/AGENTS.md"],
+       "~/.hermes/sessions", None, "hermes"),
+    RT("openclaw",
+       ["~/.openclaw/AGENTS.md"],
+       None, None, "openclaw"),
+    RT("commandcode",
+       ["~/.commandcode/AGENTS.md"],
+       None, None, "commandcode"),
+]
+BY_KEY = {r.key: r for r in RUNTIMES}
+
+
+def expand(p, project):
+    slug = project.replace("/", "-").replace("_", "-")
+    claude_mem = "~/.claude/projects/%s/memory/MEMORY.md" % slug
+    return os.path.expanduser(p.format(project=project, claude_mem=claude_mem))
+
+
+def memory_of(rt, project):
+    rows, seen = [], set()
+    for pat in rt.memory:
+        for p in sorted(glob.glob(expand(pat, project))):
+            if p in seen or not os.path.isfile(p):
+                continue
+            seen.add(p)
+            try:
+                txt = open(p, encoding="utf-8", errors="ignore").read()
+            except OSError:
+                continue
+            rows.append({"path": p, "chars": len(txt), "tokens": est_tokens(txt)})
     rows.sort(key=lambda r: -r["tokens"])
     return rows
 
 
-# ---------------------------------------------------------------- [2] 세션
-def scan_sessions(hours):
-    home = os.path.expanduser("~")
-    base = os.path.join(home, ".claude", "projects")
-    cutoff = time.time() - hours * 3600
-    files = [f for f in glob.glob(os.path.join(base, "**", "*.jsonl"), recursive=True)
-             if os.path.getmtime(f) > cutoff]
-    seen = {}
+def running_counts():
+    """Count live agent processes per runtime (best effort, one ps call)."""
+    out = collections.Counter()
+    try:
+        ps = subprocess.run(["ps", "-Ao", "command="], capture_output=True, text=True, timeout=7).stdout
+    except Exception:
+        return out
+    pats = {
+        "claude": re.compile(r"(^|/)claude(\s|$)"),
+        "codex": re.compile(r"(^|/)codex(\s|$)"),
+        "pi": re.compile(r"(^|/)pi(\s|$)"),
+        "hermes": re.compile(r"hermes", re.I),
+        "opencode": re.compile(r"opencode", re.I),
+        "openclaw": re.compile(r"openclaw", re.I),
+        "commandcode": re.compile(r"command-?code", re.I),
+    }
+    for line in ps.splitlines():
+        if "grep" in line:
+            continue
+        for k, rx in pats.items():
+            if rx.search(line):
+                out[k] += 1
+    return out
+
+
+# ---------------------------------------------------------------- parsers
+def rec(t, sess, model, read, write, inp, out, w1h=None, w5m=None):
+    ctx = read + write + inp
+    w = read * W_READ + (w1h if w1h is not None else write) * W_W1H
+    if w5m:
+        w = read * W_READ + w1h * W_W1H + w5m * W_W5M
+    return {"t": t, "sess": sess, "model": model, "read": read, "write": write,
+            "inp": inp, "out": out, "ctx": ctx, "w": w + out * W_OUT}
+
+
+def parse_claude(files, cutoff):
+    recs = {}
     for f in files:
         sess = os.path.basename(f).split(".")[0][:8]
-        proj = os.path.basename(os.path.dirname(f))
         try:
             fh = open(f, encoding="utf-8", errors="ignore")
         except OSError:
@@ -112,74 +304,182 @@ def scan_sessions(hours):
             except ValueError:
                 continue
             msg = d.get("message") or {}
-            usage = msg.get("usage") or {}
+            u = msg.get("usage") or {}
             mid = msg.get("id")
-            ts = d.get("timestamp")
-            if not usage or not ts or not mid or mid in seen:
+            if not u or not mid or mid in recs:
+                continue
+            t = parse_ts(d.get("timestamp"))
+            if t is None or t < cutoff:
+                continue
+            cc = u.get("cache_creation") or {}
+            w1h = cc.get("ephemeral_1h_input_tokens") or 0
+            w5m = cc.get("ephemeral_5m_input_tokens") or 0
+            if not (w1h or w5m):
+                w1h = u.get("cache_creation_input_tokens") or 0
+            recs[mid] = rec(t, sess, msg.get("model") or "?",
+                            u.get("cache_read_input_tokens") or 0, w1h + w5m,
+                            u.get("input_tokens") or 0, u.get("output_tokens") or 0,
+                            w1h, w5m)
+        fh.close()
+    return list(recs.values())
+
+
+def parse_codex(files, cutoff):
+    recs = []
+    for f in files:
+        sess = os.path.basename(f).split("-")[-1][:8]
+        try:
+            fh = open(f, encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
+        for line in fh:
+            if "token_usage_record" not in line:
                 continue
             try:
-                t = calendar.timegm(time.strptime(ts[:19], "%Y-%m-%dT%H:%M:%S"))
+                d = json.loads(line)
             except ValueError:
                 continue
-            if t < cutoff:
+            p = d.get("payload") or {}
+            u = p.get("usage") or {}
+            if not u:
                 continue
-            cc = usage.get("cache_creation") or {}
-            rec = {
-                "t": t, "sess": sess, "proj": proj, "model": msg.get("model") or "?",
-                "read": usage.get("cache_read_input_tokens") or 0,
-                "w1h": cc.get("ephemeral_1h_input_tokens") or 0,
-                "w5m": cc.get("ephemeral_5m_input_tokens") or 0,
-                "inp": usage.get("input_tokens") or 0,
-                "out": usage.get("output_tokens") or 0,
-            }
-            rec["ctx"] = rec["read"] + rec["w1h"] + rec["w5m"] + rec["inp"]
-            rec["write"] = rec["w1h"] + rec["w5m"]
-            rec["w"] = (rec["read"] * W_READ + rec["w1h"] * W_W1H +
-                        rec["w5m"] * W_W5M + rec["out"] * W_OUT)
-            seen[mid] = rec
+            t = parse_ts(d.get("timestamp"))
+            if t is None or t < cutoff:
+                continue
+            cached = u.get("cached_input_tokens") or 0
+            total_in = u.get("input_tokens") or 0
+            recs.append(rec(t, (p.get("thread_id") or sess)[:8], d.get("model") or "codex",
+                            cached, u.get("cache_write_input_tokens") or 0,
+                            max(total_in - cached, 0), u.get("output_tokens") or 0))
         fh.close()
-    reqs = list(seen.values())
+    return recs
+
+
+def parse_pi(files, cutoff):
+    recs = []
+    for f in files:
+        stem = os.path.basename(f)[:-6]
+        sess = (stem.split("_")[1] if "_" in stem else stem)[:8]
+        try:
+            fh = open(f, encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
+        for line in fh:
+            if '"usage"' not in line:
+                continue
+            try:
+                d = json.loads(line)
+            except ValueError:
+                continue
+            msg = d.get("message") or {}
+            u = msg.get("usage") or {}
+            if not u:
+                continue
+            t = parse_ts(d.get("timestamp"))
+            if t is None or t < cutoff:
+                continue
+            recs.append(rec(t, sess, msg.get("model") or "pi",
+                            u.get("cacheRead") or 0, u.get("cacheWrite") or 0,
+                            u.get("input") or 0, u.get("output") or 0))
+        fh.close()
+    return recs
+
+
+def parse_opencode(_files, cutoff):
+    db = os.path.expanduser("~/.local/share/opencode/opencode.db")
+    if not os.path.isfile(db) or not os.access(db, os.R_OK):
+        return []
+    sql = ("select session_id, data from message where time_created > %d"
+           % int(cutoff * 1000))
+    try:
+        out = subprocess.run(["sqlite3", db, sql], capture_output=True, text=True, timeout=20).stdout
+    except Exception:
+        return []
+    recs = []
+    for line in out.splitlines():
+        if "|" not in line:
+            continue
+        sid, data = line.split("|", 1)
+        try:
+            d = json.loads(data)
+        except ValueError:
+            continue
+        tk = d.get("tokens") or {}
+        if not tk:
+            continue
+        cache = tk.get("cache") or {}
+        t = parse_ts((d.get("time") or {}).get("created"))
+        if t is None or t < cutoff:
+            continue
+        recs.append(rec(t, (sid or "?")[:8], d.get("modelID") or "opencode",
+                        cache.get("read") or 0, cache.get("write") or 0,
+                        tk.get("input") or 0, tk.get("output") or 0))
+    return recs
+
+
+PARSERS = {"claude": parse_claude, "codex": parse_codex, "pi": parse_pi, "opencode": parse_opencode}
+
+
+def scan(rt, hours):
+    cutoff = time.time() - hours * 3600
+    if rt.parser not in PARSERS or not rt.sessions:
+        return []
+    root = os.path.expanduser(rt.sessions)
+    files = [f for f in glob.glob(os.path.join(root, "**", "*.jsonl"), recursive=True)
+             if os.path.getmtime(f) > cutoff]
+    files = files[:4000]
+    return PARSERS[rt.parser](files, cutoff)
+
+
+# ---------------------------------------------------------------- analysis
+def analyze(recs, rewrite_at):
     by = collections.defaultdict(list)
-    for r in reqs:
+    for r in recs:
         by[r["sess"]].append(r)
     for v in by.values():
         v.sort(key=lambda r: r["t"])
-    return files, reqs, by
+    bd = {"read": 0.0, "rewrite": 0.0, "delta": 0.0, "out": 0.0}
+    n_rew = 0
+    for r in recs:
+        bd["read"] += r["read"] * W_READ
+        bd["out"] += r["out"] * W_OUT
+        if r["write"] > rewrite_at:
+            bd["rewrite"] += r["write"] * W_W1H
+            n_rew += 1
+        else:
+            bd["delta"] += r["write"] * W_W1H
+    bd["total"] = sum(bd.values())
+    first_rew = sum(1 for rs in by.values() if rs and rs[0]["write"] > rewrite_at)
+    mid_rew = sum(1 for rs in by.values() for r in rs[1:] if r["write"] > rewrite_at)
+    ctxs = [r["ctx"] for r in recs]
+    stats = {"sessions": len(by), "requests": len(recs), "rewrites": n_rew,
+             "first_rew": first_rew, "mid_rew": mid_rew,
+             "avg_ctx": int(sum(ctxs) / len(ctxs)) if ctxs else 0,
+             "max_ctx": max(ctxs) if ctxs else 0,
+             "last": max((r["t"] for r in recs), default=0)}
+    top = sorted(((sum(r["w"] for r in rs), k, len(rs),
+                   int(sum(r["ctx"] for r in rs) / len(rs)), max(r["ctx"] for r in rs))
+                  for k, rs in by.items()), reverse=True)
+    return {"burn": bd, "stats": stats, "top": top}
 
 
-def burn_breakdown(reqs, rewrite_at):
-    read = sum(r["read"] for r in reqs) * W_READ
-    wrew = sum(r["write"] for r in reqs if r["write"] > rewrite_at) * W_W1H
-    wdel = sum(r["write"] for r in reqs if r["write"] <= rewrite_at) * W_W1H
-    out = sum(r["out"] for r in reqs) * W_OUT
-    total = read + wrew + wdel + out
-    return {"read": read, "rewrite": wrew, "delta": wdel, "out": out, "total": total}
-
-
-# ---------------------------------------------------------------- [3] 요청 본문
 def analyze_request(path):
-    """프록시가 남긴 요청 본문 로그(1개)를 해부한다. 없으면 None.
-
-    지원 형식:
-      ① 순수 JSON 본문 파일
-      ② "=== REQUEST BODY ===" 같은 마커 뒤에 본문이 붙은 프록시 로그
-    """
     try:
         raw = open(path, encoding="utf-8", errors="ignore").read()
     except OSError as e:
-        print("  ! 요청 본문을 못 읽음: %s" % e, file=sys.stderr)
+        print("  ! cannot read request body: %s" % e, file=sys.stderr)
         return None
     start = 0
-    marker = raw.find("=== REQUEST BODY ===")
-    if marker >= 0:
-        start = marker + len("=== REQUEST BODY ===")
-    d = None
+    m = raw.find("=== REQUEST BODY ===")
+    if m >= 0:
+        start = m + len("=== REQUEST BODY ===")
     dec = json.JSONDecoder()
+    d = None
     for i in range(start, len(raw)):
         if raw[i] != "{":
             continue
         try:
-            obj, _end = dec.raw_decode(raw, i)
+            obj, _ = dec.raw_decode(raw, i)
         except ValueError:
             continue
         if isinstance(obj, dict) and "messages" in obj and "tools" in obj:
@@ -187,210 +487,198 @@ def analyze_request(path):
             break
     if d is None:
         return None
-    tools = []
-    for t in d.get("tools") or []:
-        tools.append({"name": t.get("name"), "chars": len(json.dumps(t, ensure_ascii=False)),
-                      "deferred": bool(t.get("defer_loading"))})
+    tools = [{"name": t.get("name"),
+              "chars": len(json.dumps(t, ensure_ascii=False)),
+              "deferred": bool(t.get("defer_loading"))} for t in d.get("tools") or []]
     tools.sort(key=lambda r: -r["chars"])
     msgs = d.get("messages") or []
     blocks = []
     if msgs:
-        content = msgs[0].get("content")
-        if isinstance(content, list):
-            for b in content:
-                if isinstance(b, dict) and b.get("type") == "text":
-                    blocks.append(b.get("text", ""))
-        elif isinstance(content, str):
-            blocks.append(content)
+        c = msgs[0].get("content")
+        if isinstance(c, list):
+            blocks = [b.get("text", "") for b in c if isinstance(b, dict) and b.get("type") == "text"]
+        elif isinstance(c, str):
+            blocks = [c]
     return {"model": d.get("model"), "tools": tools, "first_blocks": blocks,
             "n_msgs": len(msgs),
             "system_chars": len(json.dumps(d.get("system") or "", ensure_ascii=False)),
             "total_chars": len(json.dumps(d, ensure_ascii=False))}
 
 
-# ---------------------------------------------------------------- 보고
+# ---------------------------------------------------------------- report
 def main():
     ap = argparse.ArgumentParser(
         prog="ctx-waste",
-        description="로컬 AI 코딩 에이전트의 컨텍스트 낭비를 그래프로 보여준다 (읽기 전용)")
-    ap.add_argument("--hours", type=float, default=3.0, help="집계 구간(시간). 기본 3")
-    ap.add_argument("--project", default=os.getcwd(), help="프로젝트 루트. 기본 현재 폴더")
-    ap.add_argument("--request", default=None, help="프록시가 남긴 요청 본문 파일 1개(선택)")
+        description="Local context waste audit for AI coding agents (read-only)")
+    ap.add_argument("--lang", choices=["en", "ko"], default="en", help="output language (default en)")
+    ap.add_argument("--runtime", default="auto",
+                    help="auto | all | " + " | ".join(r.key for r in RUNTIMES))
+    ap.add_argument("--hours", type=float, default=3.0, help="window in hours (default 3)")
+    ap.add_argument("--project", default=os.getcwd(), help="project root (default cwd)")
+    ap.add_argument("--request", default=None, help="captured request body file (optional)")
     ap.add_argument("--rewrite-tokens", type=int, default=REWRITE_TOKENS,
-                    help="전면 재작성 판정 기준(캐시 신규 쓰기 토큰). 기본 150000")
-    ap.add_argument("--budget", type=int, default=250_000, help="권고 증류 문턱(토큰). 기본 250000")
-    ap.add_argument("--top", type=int, default=8, help="세션 표 행 수. 기본 8")
-    ap.add_argument("--json", action="store_true", help="기계 판독용 JSON")
+                    help="full-rewrite threshold in cache-write tokens (default 150000)")
+    ap.add_argument("--budget", type=int, default=250_000, help="distill budget in tokens (default 250000)")
+    ap.add_argument("--top", type=int, default=6, help="session rows per runtime (default 6)")
+    ap.add_argument("--json", action="store_true", help="machine readable")
     a = ap.parse_args()
+    L = a.lang
+    S = lambda k: STR[L][k]
 
-    mem = memory_files(a.project)
-    files, reqs, by = scan_sessions(a.hours)
+    procs = running_counts()
+    data = {}
+    for rt in RUNTIMES:
+        mem = memory_of(rt, a.project)
+        recs = scan(rt, a.hours)
+        an = analyze(recs, a.rewrite_tokens) if recs else None
+        data[rt.key] = {"rt": rt, "memory": mem, "analysis": an,
+                        "running": procs.get(rt.key, 0),
+                        "installed": bool(recs) or os.path.isdir(os.path.expanduser(rt.home))}
     reqinfo = analyze_request(a.request) if a.request else None
-    bd = burn_breakdown(reqs, a.rewrite_tokens)
 
-    rewrites = [r for r in reqs if r["write"] > a.rewrite_tokens]
-    first_rew = 0
-    mid_rew = 0
-    for sess, rs in by.items():
-        if rs and rs[0]["write"] > a.rewrite_tokens:
-            first_rew += 1
-        for r in rs[1:]:
-            if r["write"] > a.rewrite_tokens:
-                mid_rew += 1
-    avg_ctx = int(sum(r["ctx"] for r in reqs) / len(reqs)) if reqs else 0
-    max_ctx = max([r["ctx"] for r in reqs], default=0)
-    mem_tokens = sum(r["tokens"] for r in mem)
-    tool_tokens = 0
-    if reqinfo:
-        tool_tokens = sum(tool_tok(r["chars"]) for r in reqinfo["tools"] if not r["deferred"])
+    with_data = [k for k, v in data.items() if v["analysis"]]
+    if a.runtime == "all":
+        order = with_data
+    elif a.runtime != "auto":
+        order = [a.runtime] if a.runtime in data else []
+    else:
+        order = sorted(with_data, key=lambda k: (-data[k]["analysis"]["stats"]["requests"],
+                                                 -data[k]["analysis"]["stats"]["last"]))
 
     if a.json:
-        print(json.dumps({
-            "hours": a.hours, "project": a.project,
-            "memory": mem, "memory_tokens": mem_tokens,
-            "sessions": len(by), "requests": len(reqs),
-            "avg_context": avg_ctx, "max_context": max_ctx,
-            "burn": bd, "rewrites": {"total": len(rewrites), "session_first": first_rew, "mid": mid_rew},
-            "tools": (reqinfo["tools"] if reqinfo else None),
-            "fixed_prefix_tokens": mem_tokens + tool_tokens,
-        }, ensure_ascii=False, indent=1))
+        out = {"lang": L, "hours": a.hours, "project": a.project,
+               "runtimes": {k: {"installed": v["installed"], "running": v["running"],
+                                "memory": v["memory"],
+                                "memory_tokens": sum(r["tokens"] for r in v["memory"]),
+                                "stats": (v["analysis"]["stats"] if v["analysis"] else None),
+                                "burn": (v["analysis"]["burn"] if v["analysis"] else None)}
+                            for k, v in data.items()},
+               "order": order,
+               "tools": reqinfo["tools"] if reqinfo else None}
+        print(json.dumps(out, ensure_ascii=False, indent=1))
         return 0
 
-    print("ctx-waste — 로컬 컨텍스트 낭비 감사 (읽기 전용)")
-    print("구간: 최근 %g시간 · jsonl %d개 · 세션 %d개 · 고유 요청 %d건 · 프로젝트 %s"
-          % (a.hours, len(files), len(by), len(reqs), a.project))
+    tot_sess = sum(v["analysis"]["stats"]["sessions"] for v in data.values() if v["analysis"])
+    tot_req = sum(v["analysis"]["stats"]["requests"] for v in data.values() if v["analysis"])
+    print(S("title"))
+    print(S("window") % (a.hours, len(with_data), tot_sess, nfmt(tot_req)))
     print()
 
-    # [1] 메모리
-    print("[1] 자동 로드 메모리 — 매 요청 앞에 붙는다")
-    if not mem:
-        print("  (자동 로드 파일 없음)")
-    else:
-        mx = max(r["tokens"] for r in mem)
-        for r in mem[:10]:
-            flag = "!" if r["chars"] > 4000 else " "
-            print("  %s %7s 토큰 %s %-46s %s자"
-                  % (flag, nfmt(r["tokens"]), bar(r["tokens"], mx), shorten(r["path"]), nfmt(r["chars"])))
-        if len(mem) > 10:
-            print("  … 그 외 %d개" % (len(mem) - 10))
-    print("  합계 %s 토큰 · %s자" % (nfmt(mem_tokens), nfmt(sum(r["chars"] for r in mem))))
+    # [0] environment
+    print(S("env"))
+    print(S("env_head") % tuple(S("hdr")))
+    for rt in RUNTIMES:
+        v = data[rt.key]
+        st = v["analysis"]["stats"] if v["analysis"] else None
+        last = time.strftime("%H:%M", time.localtime(st["last"])) if st and st["last"] else S("dash")
+        kind = (S("kind_usage") if st else (S("kind_mem") if v["memory"] else S("kind_none")))
+        print(S("env_row") % (rt.key, S("yes") if v["installed"] else S("no"),
+                              v["running"], st["sessions"] if st else 0, last, kind))
     print()
 
-    # [2] 요청 본문(선택)
-    if reqinfo:
-        print("[2] 요청 본문 해부 — %s (본문 %s자)" % (reqinfo["model"], nfmt(reqinfo["total_chars"])))
-        live = [t for t in reqinfo["tools"] if not t["deferred"]]
-        mx = max([t["chars"] for t in live], default=1)
-        for t in live[:8]:
-            print("     %7s자 %s %s" % (nfmt(t["chars"]), bar(t["chars"], mx), t["name"]))
-        dnum = len([t for t in reqinfo["tools"] if t["deferred"]])
-        print("  비defer 툴 %d개 %s자 · defer 툴 %d개(로드 전 0토큰)"
-              % (len(live), nfmt(sum(t["chars"] for t in live)), dnum))
-        print("  첫 user 메시지 %s자 · 메시지 %d개 · system %s자"
-              % (nfmt(sum(len(b) for b in reqinfo["first_blocks"])), reqinfo["n_msgs"],
-                 nfmt(reqinfo["system_chars"])))
+    for idx, key in enumerate(order, 1):
+        v = data[key]
+        an = v["analysis"]
+        tag = key
+        if not an:
+            print("[%d] %s — %s" % (idx, key, S("mem_only")))
+            continue
+        st, bd = an["stats"], an["burn"]
+        # memory
+        print(S("mem") % tag)
+        if not v["memory"]:
+            print(S("none"))
+        else:
+            mx = max(r["tokens"] for r in v["memory"])
+            for r in v["memory"][:8]:
+                flag = "!" if r["chars"] > 4000 else " "
+                print("  %s %7s %s %s %-40s %s" % (flag, nfmt(r["tokens"]), S("tok"), bar(r["tokens"], mx),
+                                                    shorten(r["path"], 40), nfmt(r["chars"])))
+            print(S("total") % (nfmt(sum(r["tokens"] for r in v["memory"])),
+                                nfmt(sum(r["chars"] for r in v["memory"]))))
+        # request anatomy (first runtime only)
+        if reqinfo and idx == 1:
+            live = [t for t in reqinfo["tools"] if not t["deferred"]]
+            mx = max([t["chars"] for t in live], default=1)
+            print(S("req") % (tag, reqinfo["model"]))
+            for t in live[:8]:
+                print("     %7s  %s %s" % (nfmt(t["chars"]), bar(t["chars"], mx), t["name"]))
+            print(S("tool_live") % (len(live), nfmt(sum(t["chars"] for t in live)),
+                                    len([t for t in reqinfo["tools"] if t["deferred"]])))
+            print(S("first_msg") % (nfmt(sum(len(b) for b in reqinfo["first_blocks"])),
+                                    reqinfo["n_msgs"], nfmt(reqinfo["system_chars"])))
+        # burn
+        print(S("burn") % (tag, kfmt(bd["total"])))
+        rows = [(S("burn_rewrite"), bd["rewrite"], "%d" % st["rewrites"]),
+                (S("burn_read"), bd["read"], ""),
+                (S("burn_delta"), bd["delta"], "%d" % (st["requests"] - st["rewrites"])),
+                (S("burn_out"), bd["out"], "")]
+        for name, val, note in rows:
+            print("  %-18s %5.1f%% %s %9s %s" % (name, pct(val, bd["total"]),
+                                                 bar(val, bd["total"]), kfmt(val), note))
+        # context
+        print(S("ctx") % tag)
+        print(S("ctx_row") % (nfmt(st["avg_ctx"]), nfmt(st["max_ctx"])))
+        print(S("ctx_rew") % (st["first_rew"], st["mid_rew"]))
+        mt = sum(r["tokens"] for r in v["memory"])
+        if st["avg_ctx"] and mt:
+            print(S("ctx_fixed") % pct(mt, st["avg_ctx"]))
+        # top sessions
+        print(S("top") % tag)
+        print(S("top_head") % tuple(S("topcols")))
+        for w, sess, n, avgc, maxc in an["top"][:a.top]:
+            print("  %-12s %5d %10s %10s %10s" % (sess, n, nfmt(avgc), nfmt(maxc), kfmt(w)))
         print()
 
-    # [3] 소모 구조
-    tag = "[3]" if reqinfo else "[2]"
-    print("%s 소모 구조 (가중 토큰 · 총 %s)" % (tag, kfmt(bd["total"])))
-    if bd["total"] <= 0:
-        print("  요청 없음 — --hours 를 늘려 보세요")
-    else:
-        rows = [("캐시 전면 재작성", bd["rewrite"], "%d건" % len(rewrites)),
-                ("캐시 읽기(정상)", bd["read"], ""),
-                ("델타 캐시 쓰기", bd["delta"], "%d건" % (len(reqs) - len(rewrites))),
-                ("출력", bd["out"], "")]
-        for name, v, note in rows:
-            print("  %-16s %5.1f%% %s %9s %s"
-                  % (name, pct(v, bd["total"]), bar(v, bd["total"]), kfmt(v), note))
-    print()
-
-    # [4] 컨텍스트
-    tag = "[4]" if reqinfo else "[3]"
-    print("%s 요청당 컨텍스트" % tag)
-    print("  평균 %s · 최대 %s 토큰" % (nfmt(avg_ctx), nfmt(max_ctx)))
-    print("  전면 재작성: 세션 첫 요청 %d건 · 세션 중간 %d건" % (first_rew, mid_rew))
-    if avg_ctx and mem_tokens:
-        print("  고정 프리픽스 비중(메모리만): %.0f%%" % pct(mem_tokens, avg_ctx))
-    print()
-
-    # [5] 세션
-    tag = "[5]" if reqinfo else "[4]"
-    print("%s 낭비 상위 세션" % tag)
-    rows = []
-    for sess, rs in by.items():
-        rows.append((sum(r["w"] for r in rs), sess, len(rs), int(sum(r["ctx"] for r in rs) / len(rs)),
-                     max(r["ctx"] for r in rs), rs[0]["proj"]))
-    rows.sort(reverse=True)
-    print("  %-10s %5s %9s %9s %9s  %s" % ("session", "요청", "평균ctx", "최대ctx", "가중소모", "프로젝트"))
-    for w, sess, n, avgc, maxc, proj in rows[:a.top]:
-        print("  %-10s %5d %9s %9s %9s  %s"
-              % (sess, n, nfmt(avgc), nfmt(maxc), kfmt(w), proj[-34:]))
-    print()
-
-    # [6] 손익분기
-    tag = "[6]" if reqinfo else "[5]"
-    prefix = mem_tokens + tool_tokens
-    turns = len(reqs) / max(len(by), 1)
-    print("%s 증류 손익분기" % tag)
-    budget = a.budget
-    if prefix <= 0 or not avg_ctx:
-        print("  계산 불가 (프리픽스 또는 요청 0)")
-    else:
-        if avg_ctx <= budget:
-            budget = max(int(avg_ctx * 0.5), 40_000)
-            print("  현재 평균 %s 이 예산 %s 이하 — 예산을 %s 로 낮춰 다시 계산"
-                  % (nfmt(avg_ctx), nfmt(a.budget), nfmt(budget)))
-        restart = prefix * W_W1H
-        save = (avg_ctx - budget) * W_READ
-        if save <= 0:
-            print("  절감 0 — 예산을 더 낮춰야 의미가 생긴다")
+    # break-even for primary
+    if order and data[order[0]]["analysis"]:
+        v = data[order[0]]
+        st = v["analysis"]["stats"]
+        prefix = sum(r["tokens"] for r in v["memory"])
+        turns = st["requests"] / max(st["sessions"], 1)
+        print(S("be") + " — " + order[0])
+        budget = a.budget
+        if prefix <= 0 or not st["avg_ctx"]:
+            print("  " + S("bers"))
         else:
-            be = restart / save
-            print("  재시작 1회 비용      %s  (프리픽스 %s × %.1f배)"
-                  % (kfmt(restart), nfmt(prefix), W_W1H))
-            print("  턴당 절감(%s로 증류) %s" % (nfmt(budget), kfmt(save)))
-            print("  손익분기 %.1f턴 · 현재 세션당 평균 %.1f턴 → %s"
-                  % (be, turns, "더 자주 증류하는 게 이득" if turns > be else "지금 주기 유지 가능"))
-    print()
+            if st["avg_ctx"] <= budget:
+                budget = max(int(st["avg_ctx"] * 0.5), 40_000)
+                print(S("be_low") % (nfmt(st["avg_ctx"]), nfmt(a.budget), nfmt(budget)))
+            restart = prefix * W_W1H
+            save = (st["avg_ctx"] - budget) * W_READ
+            if save <= 0:
+                print("  " + S("bers"))
+            else:
+                print(S("be_restart") % (kfmt(restart), nfmt(prefix), W_W1H))
+                print(S("be_save") % (kfmt(save), nfmt(budget)))
+                print(S("be_pt") % (restart / save, turns,
+                                    S("be_gain") if turns > restart / save else S("be_keep")))
+        print()
 
-    # [7] 권고
-    tag = "[7]" if reqinfo else "[6]"
-    print("%s 권고" % tag)
+    # recommendations
+    print(S("reco"))
     recos = []
-    big_mem = [r for r in mem if r["chars"] > 4000]
-    if big_mem:
-        recos.append("자동 로드 큰 파일 %d개(%s자) → guides/로 옮기고 rules/엔 1KB 다이제스트만"
-                     % (len(big_mem), nfmt(sum(r["chars"] for r in big_mem))))
+    for key in (order or list(data)):
+        v = data[key]
+        big = [r for r in v["memory"] if r["chars"] > 4000]
+        if big:
+            recos.append("[%s] " % key + S("reco_mem") % (len(big), nfmt(sum(r["chars"] for r in big))))
+        if v["analysis"]:
+            st, bd = v["analysis"]["stats"], v["analysis"]["burn"]
+            if st["rewrites"]:
+                recos.append("[%s] " % key + S("reco_rew") % (st["rewrites"], pct(bd["rewrite"], bd["total"])))
     if reqinfo:
         fat = [t for t in reqinfo["tools"] if not t["deferred"] and t["chars"] > 3000]
         if fat:
-            recos.append("비defer 툴 %d개가 %s자(%s) → defer_loading 또는 기능 off"
-                         % (len(fat), nfmt(sum(t["chars"] for t in fat)),
-                            ", ".join(t["name"] for t in fat[:4])))
-    if rewrites:
-        recos.append("전면 재작성 %d건이 소모의 %.0f%% → 세션 동시 시작 분산 + 리줌 컨텍스트 상한"
-                     % (len(rewrites), pct(bd["rewrite"], bd["total"])))
+            recos.append(S("reco_tools") % (len(fat), nfmt(sum(t["chars"] for t in fat)),
+                                            ", ".join(t["name"] for t in fat[:4])))
     if not recos:
-        recos.append("측정된 낭비 없음 — 지금 상태 유지")
+        recos.append(S("reco_none"))
     for i, r in enumerate(recos, 1):
         print("  %d. %s" % (i, r))
     print()
-    print("가중치 가정: read %.1f · write(1h) %.1f · write(5m) %.2f · output %.0f — 상대 비교용"
-          % (W_READ, W_W1H, W_W5M, W_OUT))
+    print(S("assume") % (W_READ, W_W1H, W_W5M, W_OUT))
     return 0
-
-
-def tool_tok(chars):
-    """툴 정의 JSON(거의 영문) → 토큰 근사."""
-    return int(chars / 3.8)
-
-
-def shorten(p, width=46):
-    h = os.path.expanduser("~")
-    s = p.replace(h, "~")
-    return s if len(s) <= width else "…" + s[-width + 1:]
 
 
 if __name__ == "__main__":

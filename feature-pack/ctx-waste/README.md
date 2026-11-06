@@ -1,104 +1,130 @@
 # Feature Pack: ctx-waste
 
-로컬 AI 코딩 에이전트(Claude Code 등)의 **컨텍스트 낭비를 그래프로 보여주는 읽기 전용 감사기**.
+A **read-only audit tool** that shows, with graphs, how much context your local AI coding agents waste.
 
-> "왜 플랜을 결제하고 10분 만에 리밋이 걸리지?" 에 대한 답을 내 로컬 기록으로 계산한다.
+> Answers "why did my $100 plan hit the rate limit 10 minutes after I paid?" with numbers from your own logs.
 
-## 왜 필요한가
+## Why
 
-에이전트는 **매 턴 대화 전체 + 자동 로드 메모리 + 툴 정의**를 다시 보낸다. 그래서 비용은
-"턴 수 × 컨텍스트 크기"로 곱해진다. 이 도구는 그 곱셈의 어느 항이 큰지 보여준다.
+Agents re-send **the whole conversation + auto-loaded memory + tool definitions** on every turn.
+So cost is `turns × context size`.
 
-- 프롬프트 캐시가 살아 있으면 `0.1배`, **캐시가 깨지면 2배**로 다시 쓴다
-- 세션을 재시작(증류)하면 고정 프리픽스를 다시 2배로 낸다
-- 출력은 5배다
+- Prompt cache alive → billed at `0.1x`. Cache broken → rewritten at `2x`.
+- Restarting (distilling) a session pays the fixed prefix again at `2x`.
+- Output is `5x`.
 
-## 빠른 시작
+## Quick start
 
 ```bash
 git clone https://github.com/yoonhwan/ai-feature-pack.git
 cd ai-feature-pack/feature-pack/ctx-waste
-bash install.sh            # ~/.local/bin/ctx-waste 심링크
+bash install.sh            # symlink into ~/.local/bin
 
 cd ~/my-project
-ctx-waste                  # 최근 3시간, 현재 폴더 기준
+ctx-waste                  # last 3 hours, current folder
 ```
 
-## 출력 읽는 법
+English by default. Korean: `ctx-waste --lang ko`
+
+## Supported runtimes
+
+Detected automatically (dirs + live processes), no config needed.
+
+| runtime | session logs | token usage | memory / rules |
+|---|---|---|---|
+| `claude` | `~/.claude/projects/**/*.jsonl` | yes | `CLAUDE.md`, `rules/*.md`, project `CLAUDE.md`, `memory/MEMORY.md` |
+| `codex` | `~/.codex/sessions/**/rollout-*.jsonl` | yes | `AGENTS.md`, `AGENTS.user.md` |
+| `pi` | `~/.pi/agent/sessions/**/*.jsonl` | yes | `AGENTS.md` |
+| `opencode` | `~/.local/share/opencode/opencode.db` | yes (sqlite) | `~/.config/opencode/AGENTS.md` |
+| `hermes` | `~/.hermes/sessions/*.jsonl` | no (memory only) | `SOUL.md` |
+| `openclaw` | registry only | no | `AGENTS.md` if present |
+| `commandcode` | history only | no (memory only) | `AGENTS.md` |
+
+Runtimes without token counters are still checked for **auto-loaded file size** and **live process count**.
+
+## Reading the output
 
 ```
-[1] 자동 로드 메모리 — 매 요청 앞에 붙는다
-  !   3,876 토큰 ████████████████████████ ~/.claude/CLAUDE.md     9,474자
-      265 토큰 ██······················ ~/.claude/rules/dumb-time-digest.md  646자
-  합계 5,971 토큰 · 15,504자
+[0] Runtime environment
+  runtime      installed running sessions last          data
+  claude       yes       29      127      10:14         usage+memory
+  pi           yes       20      9        10:15         usage+memory
 ```
-`!` = 4KB 초과. `~/.claude/rules/*.md` 는 **자동 로드**되고, `~/.claude/guides/*.md` 는
-필요할 때만 연다. 큰 규칙 파일은 guides/로 옮기고 rules/에는 1KB 다이제스트만 두는 것이 정석이다.
 
 ```
-[2] 소모 구조 (가중 토큰 · 총 6,612만)
-  캐시 전면 재작성   57.8% ██████████████··········  3,824만  47건
-  캐시 읽기(정상)   30.0% ███████·················  1,985만
+[1] claude — auto-loaded memory — paid on every request
+  !   3,876 tok ████████████████████████ ~/.claude/CLAUDE.md     9,474
+  total 5,971 tokens · 15,504 chars
 ```
-**전면 재작성**이 20%를 넘으면 그게 1순위 범인이다. 1건이 정상 요청 20건과 같은 값을 낸다.
+`!` marks a file over 4KB. `~/.claude/rules/*.md` is **auto-loaded**; `~/.claude/guides/*.md` is
+opened only when needed. Big rule files belong in `guides/`, with a 1KB digest left in `rules/`.
 
 ```
-[3] 요청당 컨텍스트
-  평균 224,270 · 최대 582,588 토큰
+[2] claude — burn structure (weighted · total 80.0M)
+  cache full rewrite  60.8% ███████████████·········  48.7M  61
+  cache read (normal) 27.6% ███████·················  22.1M
 ```
-평균이 200k를 넘으면 대화가 1M 윈도우 끝까지 자란 상태다. 압축(증류)이 안 걸리고 있다는 뜻.
+If **full rewrite** is above 20%, that is the primary suspect. One rewrite costs as much as
+20 normal requests.
 
 ```
-[6] 증류 손익분기
-  재시작 1회 비용      5만  (프리픽스 26,562 × 2.0배)
-  턴당 절감(112,135로 증류) 1만
-  손익분기 4.7턴 · 세션당 평균 10.9턴 → 더 자주 증류하는 게 이득
+[3] context per request
+  avg 269,470 · max 582,588 tokens
 ```
-**문턱을 어디로 둘지 계산해 준다.** 세션당 평균 턴이 손익분기보다 크면 더 자주 증류하는 게 이득이다.
+An average over 200k means the conversation has grown to the end of the window — distillation
+is not kicking in.
 
-## 옵션
+```
+break-even for distillation
+  restart cost        3k  (prefix 12,757 x 2.0)
+  saving per turn     1,947  (distill at 250,000)
+  break-even 13.1 turns · avg 12.1 turns/session -> current cadence is fine
+```
+Tells you **where to put the threshold**. If turns per session exceed the break-even, distill more often.
 
-| 옵션 | 기본 | 설명 |
+## Options
+
+| option | default | meaning |
 |---|---|---|
-| `--hours N` | 3 | 집계 구간(시간) |
-| `--project PATH` | cwd | 프로젝트 CLAUDE.md / rules 탐색 기준 |
-| `--request FILE` | 없음 | 프록시가 남긴 **요청 본문 로그 1개**를 해부 (툴 정의 크기까지 본다) |
-| `--rewrite-tokens N` | 150000 | 전면 재작성 판정 기준 |
-| `--budget N` | 250000 | 권고 증류 문턱 |
-| `--top N` | 8 | 세션 표 행 수 |
-| `--json` | off | 기계 판독용 |
+| `--lang en\|ko` | `en` | output language |
+| `--runtime auto\|all\|<name>` | `auto` | which runtimes to detail (`auto` = all with data) |
+| `--hours N` | 3 | window in hours |
+| `--project PATH` | cwd | project root for CLAUDE.md / rules / memory lookup |
+| `--request FILE` | none | dissect one captured **request body** log (tool sizes, `defer_loading`) |
+| `--rewrite-tokens N` | 150000 | what counts as a full rewrite |
+| `--budget N` | 250000 | proposed distill threshold |
+| `--top N` | 6 | session rows per runtime |
+| `--json` | off | machine readable |
 
-### `--request` 로 툴 정의까지 보기
-
-Claude Code는 프록시 경유 시 요청 본문을 로그로 남긴다(cliproxy `error-v1-messages-*.log` 등).
-그 파일을 그대로 넣으면 툴별 크기와 `defer_loading` 여부를 계산한다.
+### `--request` — see tool definitions too
 
 ```bash
 ctx-waste --request ~/.cli-proxy-api/logs/error-v1-messages-*.log
 ```
 
-## 고치는 방법 (측정 후)
+Any file containing a JSON request body works (a `=== REQUEST BODY ===` marker is also understood).
 
-| 순위 | 조치 | 방법 |
+## How to fix what you find
+
+| priority | action | how |
 |---|---|---|
-| 1 | 안 쓰는 툴 끄기 | `settings.json` → `env`: `CLAUDE_CODE_DISABLE_ARTIFACT=1`, `CLAUDE_CODE_DISABLE_WORKFLOWS=1` |
-| 2 | 자동 로드 규칙 다이어트 | 큰 파일은 `~/.claude/guides/` 로 이동, `rules/` 에는 1KB 다이제스트 |
-| 3 | 증류 문턱 내리기 | 손익분기 턴 수 아래로. 보통 평균 컨텍스트의 50% |
-| 4 | 리줌 컨텍스트 상한 | 인계서 + 최근 몇 턴만 물려준다 (500k 리줌 금지) |
-| 5 | 세션 동시 시작 분산 | 크론/틱을 같은 분에 몰지 않는다 (jitter) |
+| 1 | turn off unused built-in tools | `settings.json` → `env`: `CLAUDE_CODE_DISABLE_ARTIFACT=1`, `CLAUDE_CODE_DISABLE_WORKFLOWS=1` |
+| 2 | slim auto-loaded rules | move big files to `~/.claude/guides/`, keep a 1KB digest in `rules/` |
+| 3 | lower the distill threshold | to the break-even turn count, usually 50% of average context |
+| 4 | cap resume context | hand over a summary + the last few turns, not a 500k conversation |
+| 5 | spread session starts | do not start a cron/tick herd in the same minute (jitter) |
 
-`defer_loading` 은 툴 정의를 로드 전까지 0토큰으로 만드는 장치다. Claude Code는 일부 툴에만
-자동 적용하므로, 사용자가 임의로 켜는 스위치는 없다. 그래서 실무는 "안 쓰면 기능 off"가 답이다.
+`defer_loading` keeps a tool definition at 0 tokens until it is loaded, but it is not a
+user-facing switch — so the practical fix for unused tools is turning the feature off.
 
-## 안전
+## Safety
 
-- 파일 **읽기만** 한다. 설정을 바꾸지 않는다. 네트워크 호출 0.
-- 세션 로그(`~/.claude/projects/**/*.jsonl`)는 로컬에만 있는 기록이다. 이 도구는 그 안의
-  `usage` 숫자만 센다(대화 본문은 읽지 않는다).
-- 가중치(read 0.1 / write 2.0 / output 5)는 공개 단가 비율을 따른 **근사값**이다. 실제 한도
-  산식은 비공개이므로 절대값이 아니라 **상대 비교**로 쓴다.
+- **Reads only.** Never writes settings or files. No network calls.
+- Session logs stay local. Only token counters are read, never conversation text.
+- Weights (read 0.1 / write 2.0 / output 5) follow public price ratios as an **approximation**.
+  Real limit formulas are not public, so use the numbers for **relative** comparison.
 
-## 요구사항
+## Requirements
 
-- python3 (3.8+), 표준 라이브러리만
+- python3 (3.8+), standard library only
 - macOS · Linux
