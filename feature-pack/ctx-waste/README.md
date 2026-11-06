@@ -82,6 +82,29 @@ break-even for distillation
 ```
 Tells you **where to put the threshold**. If turns per session exceed the break-even, distill more often.
 
+
+## Hand it to your own agent
+
+You do not have to run anything by hand. Paste this into Claude Code, Codex, pi, opencode or any
+coding agent and it installs, runs, and explains the result itself.
+
+```text
+Install and run ctx-waste on this project, then explain the output.
+https://github.com/yoonhwan/ai-feature-pack/tree/main/feature-pack/ctx-waste
+
+1. Clone the repo and run feature-pack/ctx-waste/install.sh (creates ~/.local/bin/ctx-waste).
+2. Run `ctx-waste --hours 6` in this project root. Use `--lang ko` if I speak Korean.
+3. From the output, report only these: cache full-rewrite share, average context per request,
+   and the top 3 auto-loaded files over 4KB.
+4. If full rewrite is above 20%, find the cause from local logs (resume size, sessions starting
+   together, account switching) and show the evidence line.
+5. If auto-loaded files are over 4KB, propose moving them out of the auto-load path with a 1KB digest.
+6. Ask me before changing any setting. The tool itself is read-only, so running it is safe.
+```
+
+Any agent can do this because every number comes from files on the machine: session logs and
+rule files. No API key, no network.
+
 ## Options
 
 | option | default | meaning |
