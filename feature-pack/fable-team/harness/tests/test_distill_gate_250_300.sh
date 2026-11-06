@@ -34,8 +34,8 @@ print(json.dumps({"transcript_path":sys.argv[1],"cwd":sys.argv[2],"tool_name":t,
 cases() { # cases <이름> <훅>
   local n="$1" h="$2"
   /bin/bash -n "$h" && ok "$n /bin/bash -n" || bad "$n /bin/bash -n"
-  grep -q '^WARN_DEFAULT, BLOCK_DEFAULT = 250_000, 300_000' "$h" && grep -q '^RECV_DEFAULT = 250_000' "$h" \
-    && ok "$n 기본값 250_000/300_000/recv 250_000" || bad "$n 기본값 줄"
+  grep -q 'FT_DISTILL_WARN") or 250_000' "$h" && grep -q 'FT_DISTILL_BLOCK") or 300_000' "$h" && grep -q 'FT_DISTILL_RECV") or 250_000' "$h" \
+    && ok "$n 기본값 250_000/300_000/recv 250_000 (문턱 한 곳 경유)" || bad "$n 기본값 줄"
 
   transcript 240000; run "$h" warn "" ""
   { [ "$RC" -eq 0 ] && [ ! -s "$TMP/out" ]; } && ok "$n ⓐ 240k warn → 출력 0" || bad "$n ⓐ rc=$RC out=$(cat "$TMP/out")"

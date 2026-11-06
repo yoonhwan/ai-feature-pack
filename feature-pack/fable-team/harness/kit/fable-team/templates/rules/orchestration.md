@@ -39,6 +39,11 @@
 - **v3 — 래퍼 외 생명주기 명령 직접 발행 금지(§0-2 L3)**: 오케는 `tmuxc open|kill|clean|distill`을 Bash로 직접 발행하지 않는다. 세션 생성·증류·정리는 `.fable-team/bin/ft-tmux-*.sh` 검증 래퍼 경유만 — orchestration-gate가 **면제 판별보다 먼저** 생명주기 deny를 평가하므로 워커·ft-자칭 세션·`bash -c`·절대경로 우회도 차단된다. `tmuxc clean`(zombie 일괄)은 스크립트화하지 않고 사용자 확인 경로 유지. — ★보류(오빠 판정 343 · 2026-10-08): 이 deny 는 ft-tmux 래퍼 라이브 설치 뒤 홈·키트 훅에 함께 켠다. 지금 훅에는 없다 — 원문 b75314ace2 의 키트 훅 41–58·105–123행.★
 - 오케스트레이션은 "좋은 말"이 아니라 우회 경로까지 줄이는 운영 규칙이다.
 
+### 문턱은 한 곳에서 (r1427)
+- 증류 경고/차단/recv · 리줌 상한은 **`bin/ft-thresholds.sh` 하나**가 정한다. 기본값 = 경고 250,000 · 차단 300,000 · recv 250,000 · 리줌 150,000.
+- 조정 = `ft-thresholds.sh --set FT_RESUME_MAX=200000` (기본 기록 위치 `~/.claude/fable-team/thresholds.env`) · 확인 = `--show`. 재설치 불필요(게이트가 매 호출 읽는다).
+- 해석 순서 = 명시 env > `$FT_THRESHOLDS` > `<루트>/.fable-team/thresholds.env` > `~/.claude/fable-team/thresholds.env` > 기본값.
+
 ### 리줌 상한 (2026-11-06 · r1426)
 - **대화가 `FT_RESUME_MAX`(기본 150,000) 를 넘으면 리줌하지 않는다.** 리줌하면 첫 요청이 그 대화를 통째로 캐시 재작성(2배)해서 소모의 40%를 태운다(실측: 16:30까지 재작성 31~44%).
 - 판정 도구 = `ft-resume-gate.sh <jsonl|uuid>` → `RESUME_OK` rc0 / `DISTILL ctx=N max=M` rc1. `ft-reboot-restore.sh` 는 rc1 좌석을 DISTILL 목록에 넣고 열지 않는다.

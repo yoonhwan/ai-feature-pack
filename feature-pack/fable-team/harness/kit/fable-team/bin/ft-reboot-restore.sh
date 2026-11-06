@@ -26,6 +26,12 @@ STOP_ROOT="${FT_ROOT:-}"
 [ -n "$STOP_ROOT" ] || { . "$HERE/ft-harness-root.sh" && STOP_ROOT="$(ft_repo_root "$HERE")"; }
 [ -n "$STOP_ROOT" ] || { echo "ERROR 공용 루트를 못 풂 — FT_ROOT=<리포 루트> 로 다시"; exit 2; }
 if [ -f "$STOP" ] && ! STOP_OUT="$(FT_ROOT="$STOP_ROOT" bash "$STOP" check 2>&1)"; then printf '%s\n' "$STOP_OUT"; exit 1; fi
+# r1427: 문턱 한 곳 — ft-thresholds.sh 가 있으면 값을 export 해서 python 이 그대로 쓴다
+for _t in "$HERE/ft-thresholds.sh" "${OMC_FT_BIN:-}/ft-thresholds.sh" "$HOME/.claude/fable-team/thresholds.env"; do
+  [ -f "$_t" ] || continue
+  case "$_t" in *.env) set -a; . "$_t"; set +a;; *) eval "$(bash "$_t" --export 2>/dev/null)" || true;; esac
+  break
+done
 FT_ROOT="$ROOT" exec python3 -I - "$ROOT" "$HERE" "$STOP_ROOT" "$@" <<'PY'
 import glob, json, os, re, shlex, subprocess, sys, threading, time
 from concurrent.futures import ThreadPoolExecutor
@@ -77,7 +83,7 @@ def from_live():
         if not isinstance(d, dict) or d.get("engine") != "claude" or not d.get("name"): continue
         if d["name"] not in best or str(d.get("at") or "") > str(best[d["name"]].get("at") or ""): best[d["name"]] = d
     return [row(n, "claude", d.get("cwd") or "", d.get("model") or "", d.get("effort") or "", d.get("uuid") or "", d.get("jsonl") or "") for n, d in sorted(best.items())]
-RESUME_MAX = int(os.environ.get("FT_RESUME_MAX") or 150000)   # r1426: 리줌 상한. 넘으면 리줌 대신 증류(r1422 실측 = 재작성 40%의 원인)
+RESUME_MAX = int(os.environ.get("FT_RESUME_MAX") or 150000)   # 값 출처 = ft-thresholds.sh (bash 가 export)   # r1426: 리줌 상한. 넘으면 리줌 대신 증류(r1422 실측 = 재작성 40%의 원인)
 def last_ctx(path):
     """jsonl 마지막 usage 의 ctx(read+write+input). 못 읽으면 None."""
     try:

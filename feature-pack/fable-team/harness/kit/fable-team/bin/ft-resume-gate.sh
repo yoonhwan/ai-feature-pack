@@ -6,6 +6,11 @@
 #   출력 = `RESUME_OK ctx=N` rc0 · `DISTILL ctx=N max=M` rc1 · `UNKNOWN <사유>` rc3 · `REJECT` rc2(인자)
 #   쓰기 0 · 네트워크 0 · 읽기만.
 set -uo pipefail
+for _t in "$(dirname -- "$0")/ft-thresholds.sh" "${OMC_FT_BIN:-}/ft-thresholds.sh" "$HOME/.claude/fable-team/thresholds.env"; do
+  [ -f "$_t" ] || continue
+  case "$_t" in *.env) set -a; . "$_t"; set +a;; *) eval "$(bash "$_t" --export 2>/dev/null)" || true;; esac
+  break
+done
 MAX="${FT_RESUME_MAX:-150000}"; ARG=""
 while [ $# -gt 0 ]; do case "$1" in
   --max) MAX="$2"; shift 2;; -*) echo "REJECT unknown $1" >&2; exit 2;; *) ARG="$1"; shift;; esac; done

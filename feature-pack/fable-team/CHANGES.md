@@ -1,3 +1,12 @@
+## 2026-11-06 — r1427 문턱 «한 곳» (ft-thresholds.sh)
+
+- 증류 게이트·리줌 게이트·좌석 복구가 각자 숫자를 들고 있던 것을 **한 파일**로 모았다. 오빠 지시 «이 값을 어디 하나 상수로 못두나? … 증류 지침이랑 이어하기 게이트가 바라봐서 조정 변동 가능하게».
+- 신규 `bin/ft-thresholds.sh` — 해석 순서: ①명시 env ②`$FT_THRESHOLDS` ③`<루트>/.fable-team/thresholds.env` ④`~/.claude/fable-team/thresholds.env` ⑤기본값. 키 = `FT_DISTILL_WARN`(250000) · `FT_DISTILL_BLOCK`(300000) · `FT_DISTILL_RECV`(250000) · `FT_RESUME_MAX`(150000).
+- CLI = `--show`(표+출처) · `--export`(eval 용) · `--get KEY` · `--set KEY=VAL [--file F]` · 검증(`BLOCK>WARN` · `RECV≤BLOCK` · 정수) 위반 = REJECT rc2.
+- 배선: `context-distill-gate.sh`(env 기본값) · `ft-resume-gate.sh` · `ft-reboot-restore.sh`(bash 에서 export → python 이 사용). 훅 사본은 `templates/hooks → ../../bin` 상대경로까지 탐색.
+- `templates/thresholds.env.sample` 추가.
+- 시험 = `tests/test_thresholds.sh` 6 PASS(파일 override 가 두 게이트에 동시 반영 · 검증 REJECT) · 기존 `test_distill_gate_250_300` 11 PASS · `test_resume_gate` 8 PASS.
+
 ## 2026-11-06 — r1426 리줌 상한 (큰 대화는 증류로 이어간다)
 
 - 실측 동기: 오늘 16:30까지 재작성 비중이 31~44%로 개선 전과 같았다. 게이트(250k/300k)는 «도구 호출»만 막고 **리줌되는 대화 크기**는 못 막는다 → 리줌 세션 첫 요청이 300k+를 통째로 다시 써서 소모의 절반을 먹는다.
