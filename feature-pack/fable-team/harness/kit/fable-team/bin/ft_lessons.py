@@ -453,6 +453,7 @@ def cmd_migrate(argv: list[str]) -> int:
                 rows = load(dst) + rows
             rows, over, ttl, arc = enforce(dst, rows, CAP[layer])
             atomic_write(dst, rows)
+            dst.with_suffix(dst.suffix + ".lock").touch()
             bak = md.with_name(md.name + ".bak-" + dt.datetime.now().strftime("%Y%m%d%H%M%S"))
             os.replace(md, bak)
             moved += 1
