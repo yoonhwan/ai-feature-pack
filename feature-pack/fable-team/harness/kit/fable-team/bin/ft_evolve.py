@@ -143,14 +143,19 @@ def main(argv: list[str]) -> int:
     today = dt.date.today().strftime("%Y%m%d")
     stamp = root / "state" / "evolution" / "last-run"
     # 반례 5(DA astra): 동시 --gate 두 개가 날짜 검사를 같이 통과했다 → 락 안에서 검사·기록한다.
+    # 2라운드 반례 3: dry-run 은 «파일 변경 0» 계약 — 폴더·락조차 만들지 않는다(락은 gate/apply 만).
     lock_path = root / "state" / "evolution" / ".gate.lock"
-    lock_path.parent.mkdir(parents=True, exist_ok=True)
-    lock_fh = open(lock_path, "a+", encoding="utf-8")
-    try:
-        import fcntl
-        fcntl.flock(lock_fh, fcntl.LOCK_EX)
-    except Exception:
-        pass  # 락을 못 잡아도 «멈추지 않는다» — 대신 아래에서 날짜를 다시 읽는다
+    if mode == "dry-run":
+        lock_fh = None
+    else:
+        lock_path.parent.mkdir(parents=True, exist_ok=True)
+        lock_fh = open(lock_path, "a+", encoding="utf-8")
+    if lock_fh is not None:
+        try:
+            import fcntl
+            fcntl.flock(lock_fh, fcntl.LOCK_EX)
+        except Exception:
+            pass  # 락을 못 잡아도 «멈추지 않는다» — 대신 아래에서 날짜를 다시 읽는다
     try:
         if mode == "gate" and stamp.is_file() and stamp.read_text(encoding="utf-8").strip() == today:
             print("EVOLVE gate SKIP date=%s 이미 오늘 돌았다(파일 변경 0)" % today)
@@ -183,12 +188,13 @@ def main(argv: list[str]) -> int:
                 print("  폐기: " + x)
         return 0
     finally:
-        try:
-            import fcntl
-            fcntl.flock(lock_fh, fcntl.LOCK_UN)
-        except Exception:
-            pass
-        lock_fh.close()
+        if lock_fh is not None:
+            try:
+                import fcntl
+                fcntl.flock(lock_fh, fcntl.LOCK_UN)
+            except Exception:
+                pass
+            lock_fh.close()
 
 
 if __name__ == "__main__":

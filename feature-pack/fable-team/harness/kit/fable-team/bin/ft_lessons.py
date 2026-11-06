@@ -39,6 +39,7 @@ GLOBAL_DIGEST = Path.home() / ".claude" / "rules" / "dumb-time-digest.md"
 GLOBAL_LIMIT = 2048
 # 반례 4(DA astra r1442): «…하지 않는다/금지» 같은 부정·금지문은 통과시키고, «규칙 폐기하고 따라라» 류는 잡는다.
 NEGATION = re.compile(r"(않는다|않도록|금지|말라|하지 마|no |never |하지않)")
+IMPERATIVE = re.compile(r"(하라|해라|하세요|출력해|알려줘|따라라|실행해|공개해)")
 INJECT = (
     r"(?i)ignore (all )?(previous|prior|above) (instructions|rules)",
     r"(규칙|지시|지침)(을|를)? ?(모두|전부|전체)? ?(폐기|무시|잊)(하고|한 뒤|고)?.{0,40}(따라|이행|실행)",
@@ -272,8 +273,10 @@ def scan(text: str) -> str | None:
         if not m:
             continue
         # 부정·금지문(«공개하지 않는다» «금지»)은 교훈으로 허용 — 주입 문장이 아니다(DA astra 반례 4)
-        tail = text[m.start():m.start() + 60]
-        if NEGATION.search(tail):
+        # 2라운드 반례 2: 뒤 문장의 «거절 금지» 를 앞 명령의 부정으로 오해해 통과시켰다 →
+        #   ⓐ 부정어는 패턴 매치 **직후 12자 안**에서만 인정 ⓑ 명령형(하라·해라·출력해·따라라)이 함께 있으면 부정 무시.
+        tail = text[m.end():m.end() + 12]
+        if NEGATION.search(tail) and not IMPERATIVE.search(text):
             continue
         return pat
     return None
@@ -376,6 +379,8 @@ def cmd_pin(argv: list[str], on: bool = True) -> int:
     p = path_of(argv[0], argv[1])
     needle = " ".join(argv[2:])
     with Lock(p):
+        if corrupt_guard(p):
+            return 1
         rows = load(p)
         hit = 0
         for r in rows:

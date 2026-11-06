@@ -13,12 +13,27 @@ python3 - "$DIR" "$MODE" "$PROV" "$NET" <<'PY'
 import json, glob, os, subprocess, sys, time, datetime
 d, mode, prov, net = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4] == "1"
 KST = datetime.timezone(datetime.timedelta(hours=9))
+MIN_TS, MAX_TS = 946684800, 4102444800   # 2000-01-01 ~ 2100-01-01 (DA r1: ms·쓰레기값 차단)
+
+
+def _ts(epoch=None, iso=None):
+    """(epoch초) 또는 ISO → epoch초. 범위 밖이면 None."""
+    try:
+        if epoch:
+            t = int(epoch)
+        else:
+            dt = datetime.datetime.fromisoformat(iso.replace("Z", "+00:00"))
+            if dt.tzinfo is None: return None      # 타임존 누락 = 판정 불가(DA r3)
+            t = dt.timestamp()
+    except Exception:
+        return None
+    return t if MIN_TS <= t <= MAX_TS else None
+
+
 def left(epoch=None, iso=None):
     """복구까지 남은 시간 = 3d 5h / 7h 10m / 지남"""
-    try:
-        t = int(epoch) if epoch else datetime.datetime.fromisoformat(iso.replace("Z", "+00:00")).timestamp()
-    except Exception:
-        return "-"
+    t = _ts(epoch, iso)
+    if t is None: return "-"
     sec = int(t - time.time())
     if sec <= 0: return "복구됨"
     d_, h_ = sec // 86400, (sec % 86400) // 3600
@@ -27,15 +42,29 @@ def left(epoch=None, iso=None):
 
 
 def kst(epoch=None, iso=None):
-    try:
-        if epoch: return datetime.datetime.fromtimestamp(int(epoch), KST).strftime("%m-%d %H:%M")
-        if iso: return datetime.datetime.fromisoformat(iso.replace("Z", "+00:00")).astimezone(KST).strftime("%m-%d %H:%M")
-    except Exception: return "-"
-    return "-"
+    t = _ts(epoch, iso)
+    if t is None: return "-"
+    return datetime.datetime.fromtimestamp(t, KST).strftime("%m-%d %H:%M")
 def curl(url, args, tok, extra=None, timeout="7"):
     cmd = ["curl", "-s", "-m", timeout, url, "-H", "Authorization: Bearer " + tok] + (extra or []) + list(args)
-    try: return subprocess.run(cmd, capture_output=True, text=True, timeout=12).stdout
-    except Exception: return ""
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=12)
+        return r.stdout if r.returncode == 0 else ""
+    except Exception:
+        return ""
+def sub(d, key):
+    """내부 object 안전 접근 — list·str·None 이면 {} (DA r2)."""
+    v = (d.get(key) if isinstance(d, dict) else None)
+    return v if isinstance(v, dict) else {}
+
+
+def as_obj(raw):
+    """JSON object 만 인정(None·null·배열·깨짐 = {}) — DA r2 대응."""
+    try:
+        v = json.loads(raw)
+        return v if isinstance(v, dict) else {}
+    except Exception:
+        return {}
 rows = []
 for p in sorted(glob.glob(os.path.join(d, "*.json"))):
     try: o = json.load(open(p))
@@ -51,17 +80,16 @@ for p in sorted(glob.glob(os.path.join(d, "*.json"))):
         if net:
             tok = o.get("access_token") or ""
             pr = curl("https://api.anthropic.com/api/oauth/profile", H, tok)
-            try: org = (json.loads(pr).get("organization") or {})
-            except Exception: org = {}
+            org = sub(as_obj(pr), "organization")
             r["org"] = (o.get("organization_name") or org.get("organization_name") or "-")[:26]
             r["tier"] = (org.get("rate_limit_tier") or "-").replace("default_claude_", "")
             us = curl("https://api.anthropic.com/api/oauth/usage", H, tok)
-            try: u = json.loads(us)
-            except Exception: u = {}
-            fh = u.get("five_hour") or {}; sw = u.get("seven_day") or {}
+            u = as_obj(us)
+            fh = sub(u, "five_hour"); sw = sub(u, "seven_day")
             r["u5"] = fh.get("utilization"); r["w"] = sw.get("utilization")
             r["r5"] = kst(iso=fh.get("resets_at")); r["rw"] = kst(iso=sw.get("resets_at"))
             r["l5"] = left(iso=fh.get("resets_at")); r["lw"] = left(iso=sw.get("resets_at"))
+            r["r5e"] = _ts(iso=fh.get("resets_at")) or 0; r["rwe"] = _ts(iso=sw.get("resets_at")) or 0
         r["org"] = r["org"] or (o.get("organization_name") or "-")[:26]
     elif kind == "codex":
         r["key"] = (o.get("account_id") or "",)   # plan 은 키에 넣지 않는다(같은 계정의 pro/plus/prolite 는 중복슬롯)
@@ -70,11 +98,10 @@ for p in sorted(glob.glob(os.path.join(d, "*.json"))):
             tok = o.get("access_token") or ""; aid = o.get("account_id") or ""
             js = curl("https://chatgpt.com/backend-api/wham/usage", ["-H", "User-Agent: codex-cli/0.166.0"],
                       tok, ["-H", "chatgpt-account-id: " + aid])
-            try: u = json.loads(js)
-            except Exception: u = {}
-            rl = u.get("rate_limit") or {}
-            pw = rl.get("primary_window") or {}
-            r["w"] = pw.get("used_percent"); r["rw"] = kst(epoch=pw.get("reset_at")); r["lw"] = left(epoch=pw.get("reset_at"))
+            u = as_obj(js)
+            rl = sub(u, "rate_limit")
+            pw = sub(rl, "primary_window")
+            r["w"] = pw.get("used_percent"); r["rw"] = kst(epoch=pw.get("reset_at")); r["lw"] = left(epoch=pw.get("reset_at")); r["rwe"] = _ts(epoch=pw.get("reset_at")) or 0
             r["note"] = "limit_reached" if rl.get("limit_reached") else ""
     else:
         r["key"] = (o.get("email") or name, "gemini")
@@ -85,6 +112,18 @@ if prov != "all": rows = [x for x in rows if x["provider"] == prov]
 seen = {}
 for x in rows: seen.setdefault((x["provider"],) + tuple(x["key"]), []).append(x)
 RANK = {"pro": 0, "plus": 1, "prolite": 2, "": 3}
+def dedupe_key(x):
+    if x["provider"] == "claude":
+        uuid, org = x["key"] if isinstance(x["key"], tuple) else (x["key"], "")
+        if not uuid or not org: return None      # org 모르면 중복 확정 금지(DA r1)
+        return ("claude", uuid, org)
+    if x["provider"] == "codex":
+        return ("codex", x["key"][0]) if x["key"][0] else None
+    return None
+seen = {}
+for x in rows:
+    k = dedupe_key(x)
+    if k: seen.setdefault(k, []).append(x)
 for k, v in seen.items():
     if len(v) > 1:
         v.sort(key=lambda x: (x["disabled"], RANK.get(x["plan"], 3)))
@@ -95,10 +134,10 @@ if mode == "json":
 if mode == "timeline":
     tl = []
     for x in rows:
-        if x["r5"] != "-" and (x["u5"] or 0) >= 100: tl.append((x["r5"], x["l5"], x["provider"], x["email"], x["tier"] or x["plan"]))
-        if x["rw"] != "-" and (x["w"] or 0) >= 100: tl.append((x["rw"], x["lw"], x["provider"], x["email"], x["tier"] or x["plan"]))
+        if x["r5"] != "-" and (x["u5"] or 0) >= 100: tl.append((x.get("r5e") or 0, x["r5"], x["l5"], x["provider"], x["email"], x["tier"] or x["plan"]))
+        if x["rw"] != "-" and (x["w"] or 0) >= 100: tl.append((x.get("rwe") or 0, x["rw"], x["lw"], x["provider"], x["email"], x["tier"] or x["plan"]))
     print("%-13s %-11s %-8s %-30s %-10s" % ("복구시각", "남은", "provider", "email", "tier/plan"))
-    for r, lf, p, e, t in sorted(tl):
+    for _k, r, lf, p, e, t in sorted(tl):
         print("%-13s %-11s %-8s %-30s %-10s" % (r, lf, p, e[:30], t))
     sys.exit(0)
 print("파일 %d · 활성 %d · 비활성 %d" % (len(rows), sum(1 for x in rows if not x["disabled"]), sum(1 for x in rows if x["disabled"])))
