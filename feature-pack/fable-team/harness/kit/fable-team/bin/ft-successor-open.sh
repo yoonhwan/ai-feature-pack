@@ -241,6 +241,33 @@ rm -f "$OPEN_OUT"
 tmux has-session -t "=$NAME" 2>/dev/null || { echo "REJECT 세션이 안 떴다: $NAME — 송신 0"; exit 1; }
 fi
 
+# ⓑ-2 (r1435) 후계 선등록 — codex 좌석은 SessionStart 가 관측되지 않아 «도달 판정 뒤 retire» 경로가
+#   닭-달걀이 된다(명부 미등록 → mbox 거절 → 도달 실패). 그래서 열기 직후 명부에 행을 먼저 넣는다(멱등).
+#   retire 는 나중에 _replaced_by 를 채우므로 이중 등록이 아니다.
+register_successor() {
+  python3 - "$ROOT" "$NAME" "$AGENT" "$MODEL" "$WT" "$OLD" <<'PY' 2>/dev/null || true
+import glob, json, os, sys, datetime
+root, name, agent, model, wt, old = sys.argv[1:7]
+for f in sorted(glob.glob(os.path.join(root, ".fable-team", "seats*.json"))):
+    try: d = json.load(open(f))
+    except Exception: continue
+    if name in d:
+        return
+    if old not in d:
+        continue                    # 구 좌석이 있는 명부에만 넣는다(팀 명부 판정)
+    d[name] = {"role": "master", "agent": agent, "model": model,
+               "worktree": os.path.basename(wt.rstrip("/")), "spawned_by": old,
+               "opened_at": datetime.date.today().isoformat(), "tick": None,
+               "persona": "successor (auto-registered by ft-successor-open r1435)",
+               "_replaces": [old],
+               "_note": "r1435 선등록 — codex SessionStart 미관측 때문에 도달 전 명부 등록"}
+    json.dump(d, open(f, "w"), ensure_ascii=False, indent=1); open(f, "a").write("\n")
+    print("REGISTERED %s in %s" % (name, os.path.basename(f)))
+    return
+PY
+}
+register_successor
+
 # ⓒ 에이전트 기동 확인 — pane pid 의 자식이 생길 때까지(BOOT 7 HARD GATE: pgrep 0건이면 send 금지). 상한 넘으면 송신 0.
 PID="$(tmux list-panes -t "=$NAME" -F '#{pane_pid}' 2>/dev/null | head -1)"
 up=0; i=0

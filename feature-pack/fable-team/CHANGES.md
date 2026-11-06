@@ -1,3 +1,12 @@
+## 2026-11-06 — r1435 플랜팀장 codex 교체 실증 + 하네스 갭 3건 수정
+
+- 오빠 «플랜팀장을 코덱스 팀장으로 교체해서 쓰게 하네스 업그레이드» → `byz-planner-master-claude#242` → **`byz-planner-master-sol#243`(codex gpt-6.1-sol)** 실제 승계 완료.
+- **갭 1 (닭-달걀)**: codex 좌석은 `SessionStart` 가 관측되지 않아 «도달 판정 → retire → 명부 등록» 경로가 막힌다. 명부 미등록 → `mbox` 수신 거절 → 도달 실패. **수정** = `ft-successor-open.sh` ⓑ-2 **후계 선등록**(구 좌석이 있는 명부에 행을 먼저 넣는다 · 멱등 · retire 는 `_replaced_by` 만 추가).
+- **갭 2**: `ft-budget.sh` 가 claude jsonl 만 봐서 codex 좌석이 «여유 ? (transcript 없음)». **수정** = `~/.codex/sessions/**/rollout-*.jsonl` 의 `token_usage_record` 를 읽어 `여유 N% (남은k/300k) · codex` 출력.
+- **갭 3 (순서)**: `ft-seat-retire` 를 먼저 하면 후계의 `mbox ready` 가 rc3(구 좌석 은퇴 상태)으로 거부된다. 순서 = **recv → ready → retire**. retire 안내 문구에 이 순서를 남긴다.
+- 전역 `~/.codex/config.toml` `model_auto_compact_token_limit` 780000 → **300000** (게이트 등가 · 백업 `config.toml.bak-compact300k-*`). DA·기타 codex 호출도 300k 압축.
+- 실측 결과 = #243 첫 턴에서 recv 1건(인계 81항목) · 압축선 적용 · `ft-budget` codex 지원 확인(여유 83%).
+
 ## 2026-11-06 — r1434 모델 선택 전환 도구 (자동 폴백 폐기)
 
 - 오빠 «이런 폴백은 너무 별로 … 선택 전환 증류기는 이미 다 있으니 빠른 선택 전환하게» → 자동 폴백 설계(히스테리시스·쿨다운·자동 복귀) 폐기.

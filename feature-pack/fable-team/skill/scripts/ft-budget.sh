@@ -14,12 +14,33 @@ done
 GATE="${FT_DISTILL_WARN:-300000}"; PREFIX=48600; F=""
 while [ $# -gt 0 ]; do case "$1" in
   --gate) GATE="$2"; shift 2;; --prefix) PREFIX="$2"; shift 2;; -*) shift;; *) F="$1"; shift;; esac; done
-if [ -z "$F" ]; then F="$(ls -t "$HOME"/.claude/projects/*/*.jsonl 2>/dev/null | head -1)"; fi
+if [ -z "$F" ]; then
+  # r1435: codex 좌석은 ~/.codex/sessions 의 rollout 을 본다(claude jsonl 아님)
+  F="$(ls -t "$HOME"/.codex/sessions/*/*/*/rollout-*.jsonl "$HOME"/.claude/projects/*/*.jsonl 2>/dev/null | head -1)"
+fi
 [ -n "$F" ] && [ -f "$F" ] || { echo "여유 ? (transcript 없음)"; exit 0; }
-python3 - "$F" "$GATE" "$PREFIX" <<'PY'
+case "$F" in *.codex*|*rollout-*) PYSRC=codex;; *) PYSRC=claude;; esac
+python3 - "$F" "$GATE" "$PREFIX" "$PYSRC" <<'PY'
 import json, sys
-path, gate, prefix = sys.argv[1], int(sys.argv[2]), int(sys.argv[3])
+path, gate, prefix, src = sys.argv[1], int(sys.argv[2]), int(sys.argv[3]), sys.argv[4]
 ctx = 0
+if src == "codex":
+    try:
+        for line in open(path, encoding="utf-8", errors="ignore"):
+            if "token_usage_record" not in line: continue
+            try: d = json.loads(line)
+            except ValueError: continue
+            u = (d.get("payload") or {}).get("usage") or {}
+            if not u: continue
+            c = (u.get("input_tokens") or 0) + (u.get("cache_write_input_tokens") or 0)
+            if c: ctx = c
+    except OSError:
+        print("여유 ? (읽기 실패)"); sys.exit(0)
+    room = max(0, gate - ctx)
+    pct = 100.0 * room / gate if gate else 0
+    advice = "새 시작 권장" if pct >= 60 else ("증류 준비" if pct >= 30 else "증류 권장")
+    print("여유 %.0f%% (%dk/%dk) · %s · codex" % (pct, room // 1000, gate // 1000, advice))
+    sys.exit(0)
 try:
     for line in open(path, encoding="utf-8", errors="ignore"):
         if '"usage"' not in line: continue
