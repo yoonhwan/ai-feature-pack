@@ -118,6 +118,20 @@ def atomic_write(p: Path, text: str) -> None:
     os.replace(tmp, p)
 
 
+def guess_team(root: Path, seat: str) -> str:
+    """FT_TEAM 이 없을 때 팀 이름을 유도한다 — seats-<팀>.json 이 하나뿐이면 그 팀,
+    아니면 좌석 이름의 첫 토큰(aifp-ft-master-pi#0 → aifp). 기본값 v65 로 조용히 떨어지지 않게 한다."""
+    try:
+        files = sorted((root.parent / ".fable-team").glob("seats-*.json"))
+    except Exception:
+        files = []
+    if len(files) == 1:
+        return files[0].stem.replace("seats-", "")
+    if seat and "-" in seat:
+        return seat.split("-")[0]
+    return ""
+
+
 def read_lines(p: Path) -> list[str]:
     if not p.is_file():
         return []
@@ -287,8 +301,9 @@ def cmd_snapshot(argv: list[str]) -> int:
         except (IndexError, ValueError):
             die("REJECT --budget 값")
     root = ft_root()
-    seat_name = os.environ.get("FT_SEAT_NAME") or (argv[0] if argv and not argv[0].startswith("-") else "")
-    team_name = os.environ.get("FT_TEAM") or ""
+    seat_name = (os.environ.get("FT_SEAT_NAME") or os.environ.get("FT_SEAT")
+                 or (argv[0] if argv and not argv[0].startswith("-") else ""))
+    team_name = os.environ.get("FT_TEAM") or guess_team(root, seat_name)
     parts = []
     cand = []
     if seat_name:
