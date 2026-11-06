@@ -7,6 +7,7 @@ BIN="$HERE/../kit/fable-team/bin"
 GATE="$HERE/../kit/fable-team/templates/hooks/context-distill-gate.sh"
 fail=0; ok(){ echo "PASS $1"; }; bad(){ echo "FAIL $1"; fail=$((fail+1)); }
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
+export HOME="$T/nohome"; mkdir -p "$HOME"   # 사용자 문턱파일 차단(시험 격리)
 TH="$T/th.env"; printf 'FT_DISTILL_WARN=100000\nFT_DISTILL_BLOCK=120000\nFT_DISTILL_RECV=100000\nFT_RESUME_MAX=50000\n' > "$TH"
 
 "$BIN/ft-thresholds.sh" --export > "$T/e1" 2>&1
