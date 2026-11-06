@@ -160,7 +160,8 @@ def main(argv: list[str]) -> int:
         g = out.parent / ("gen-%03d.md" % gen)
         g.write_text("# 세대 %03d — %s\n\n" % (gen, today) + "\n".join(body) + "\n", encoding="utf-8")
         stamp.write_text(today + "\n", encoding="utf-8")
-        files_changed = 3
+        (out.parent / "LATEST").write_text("%s %s\n" % (today, out.name), encoding="utf-8")  # 팀장 틱이 읽는 고정 포인터
+        files_changed = 4
         gen_note = " gen=%03d" % gen
     else:
         gen_note = ""

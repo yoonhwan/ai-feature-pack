@@ -61,6 +61,7 @@ ck "gate 2회차 SKIP" "$(has "$out" 'SKIP')" 1
 ck "게이트는 하루 1회만" "$(has "$out" '파일 변경 0')" 1
 ck "candidates 파일 1장" "$(ls "$FT_ROOT"/state/evolution/candidates-*.md | wc -l | tr -d ' ')" 1
 out="$(bash "$EV" --apply 2>&1)"
+ck "LATEST 고정 포인터(팀장 틱이 읽는다)" "$(head -1 "$FT_ROOT/state/evolution/LATEST" | grep -c "^$(date +%Y%m%d) candidates-")" 1
 ck "세대 번호 gen=002 (gate 가 001 을 먼저 씀)" "$(has "$out" 'gen=002')" 1
 ck "gen 파일 in-place 누적" "$(ls "$FT_ROOT"/state/evolution/gen-*.md | wc -l | tr -d ' ')" 2
 
@@ -68,5 +69,5 @@ echo "== ft-issues-daily 게이트 연결 =="
 ck "issues-daily 가 evolve --gate 를 부른다" "$(grep -c 'EVOLVE_ARGS=(--gate)\|bash "\$HERE/ft-evolve.sh" "' "$KIT/ft-issues-daily.sh")" 2
 ck "exec 로 rc 를 잃지 않는다" "$(grep -c '^exit "\$rc"' "$KIT/ft-issues-daily.sh")" 1
 
-if [ "$fail" = 0 ]; then echo "ALL PASS (lessons 11 · 레포대조 6 · evolve 9 · 연결 2)"; exit 0; fi
+if [ "$fail" = 0 ]; then echo "ALL PASS (lessons 11 · 레포대조 6 · evolve 10 · 연결 2)"; exit 0; fi
 echo "FAIL $fail 건"; exit 1
