@@ -8,6 +8,11 @@
 계층 규칙: 좌석에서 3번 되풀이된 교훈만 팀으로 올리고, 팀에서 팀을 넘어 되풀이된 것만 전역으로 올린다.
   올리는 판단은 사람·팀장이 한다(자동 승격 없음 — 잘못된 일반화가 전 좌석에 퍼지는 것을 막는다).
 락: <파일>.lock 을 fcntl.flock 으로 7초 대기. 못 잡으면 rc3 «판정 불가» 1줄(하드 룰 20).
+레포 대조(2026-11-06 r1436 — hermes · nanoclaw · xclaw 아카이브를 실제로 읽고 맞춘 축):
+  hermes `tools/memory_tool.py` — ①메모리는 **세션 시작 1회 FROZEN 스냅샷**으로 프롬프트에 들어간다(중간 쓰기는 디스크만 → prefix cache 보존) ②`§` 구분자 엔트리 + char 예산 ③`atomic_write_text`(temp+rename) ④drift 가드(round-trip 불가면 .bak 저장 후 쓰기 거부) ⑤프롬프트 주입 스캔(strict — 메모리는 세션을 넘어 살아남으므로)
+  nanoclaw `groups/<name>/memory/{directives,mistakes,achievements}.md` — 기억을 **3분류**로 나눠 둔다(지침·실수·성과)
+  xclaw 아카이브 `docs/nanoclaw-analysis/nanoclaw-deep-analysis.md` — 세대 진화는 **in-place + `CLAUDE.md.gen-{N}` 버전 파일**, `conversations/` 아카이브가 진화 입력
+  → 그래서 이 도구는 `snapshot`(부팅 1회 로드) · `--kind directive|mistake|achievement`(3분류) · 원자적 쓰기 · 주입 스캔 · drift 가드를 갖는다.
 종료코드: 0 정상 · 3 락/판정 불가 · 2 usage · 1 상한 위반(check)
 """
 from __future__ import annotations
@@ -21,6 +26,17 @@ from pathlib import Path
 
 LIMITS = {"seat": 2048, "team": 4096, "global": 2048}
 LOCK_WAIT = 7.0
+KINDS = {"d": "directive", "m": "mistake", "a": "achievement"}
+KIND_TAG = {"directive": "[D]", "mistake": "[M]", "achievement": "[A]"}
+# 프롬프트 주입·유출 유도 패턴 (hermes strict scope 대응). 메모리는 세션을 넘어 살아남으므로 저장 전에 막는다.
+INJECT = (
+    r"(?i)ignore (all )?(previous|prior|above) (instructions|rules)",
+    r"(?i)system prompt|시스템 ?프롬프트를? (출력|공개|알려)",
+    r"(?i)(api[_-]?key|token|secret|password)\s*[:=]\s*\S{8,}",
+    r"(?i)curl\s+[^|]*\|\s*(ba)?sh",
+    r"(?i)rm\s+-rf\s+/(\s|$)",
+    r"이전 지시(를|사항을)? (무시|잊)",
+)
 GLOBAL_DIGEST = Path.home() / ".claude" / "rules" / "dumb-time-digest.md"
 
 
@@ -87,6 +103,21 @@ class Lock:
             self.fh.close()
 
 
+def scan(text: str) -> str | None:
+    for pat in INJECT:
+        if re.search(pat, text):
+            return pat
+    return None
+
+
+def atomic_write(p: Path, text: str) -> None:
+    """temp + rename — 쓰는 중 죽어도 반쪽 파일이 남지 않는다(hermes atomic_write_text 대응)."""
+    tmp = p.with_suffix(p.suffix + ".tmp")
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(text)
+    os.replace(tmp, p)
+
+
 def read_lines(p: Path) -> list[str]:
     if not p.is_file():
         return []
@@ -107,7 +138,7 @@ def compact(p: Path, limit: int) -> tuple[int, Path | None]:
     arc = p.with_suffix(".archive-%s.md" % dt.date.today().strftime("%Y%m%d"))
     with open(arc, "a", encoding="utf-8") as f:
         f.write("\n".join(moved) + "\n")
-    p.write_text("\n".join(keep) + "\n", encoding="utf-8")
+    atomic_write(p, "\n".join(keep) + "\n")
     return len(moved), arc
 
 
@@ -176,21 +207,41 @@ def cmd_path(argv: list[str]) -> int:
 def cmd_add(argv: list[str]) -> int:
     if len(argv) < 3:
         die('usage: add <seat|team> <이름> "1줄"')
-    layer, name, text = argv[0], argv[1], " ".join(argv[2:])
+    layer, name = argv[0], argv[1]
+    rest = argv[2:]
+    kind = "mistake"
+    if "--kind" in rest:
+        i = rest.index("--kind")
+        try:
+            kind = rest[i + 1]
+        except IndexError:
+            die("REJECT --kind 값 없음 (directive|mistake|achievement)")
+        rest = rest[:i] + rest[i + 2:]
+    if kind not in KIND_TAG:
+        die("REJECT --kind 는 directive|mistake|achievement")
+    text = " ".join(rest)
     if layer not in ("seat", "team"):
         die("REJECT add 는 seat|team 만 — 전역 다이제스트는 guides/dumb-time.md 규칙으로 사람이 갱신한다")
+    bad = scan(text)
+    if bad:
+        die("REJECT 주입·유출 유도 패턴(%s) — 메모리는 세션을 넘어 남는다. 문장을 사실 서술로 고쳐라" % bad, 1)
     p = path_of(layer, name)
     lim = LIMITS[layer]
     with Lock(p):
         p.parent.mkdir(parents=True, exist_ok=True)
-        line = "- [%s] %s" % (dt.date.today().strftime("%m-%d"), text.replace("\n", " ").strip())
-        with open(p, "a", encoding="utf-8") as f:
-            f.write(line + "\n")
+        # drift 가드: 구분자 없이 상한을 통째로 넘긴 자유 서술 = 손편집 흔적 → 덮으면 유실
+        if p.is_file() and size_of(p) > lim * 2:
+            bak = p.with_suffix(p.suffix + ".drift-%s.bak" % dt.datetime.now().strftime("%H%M%S"))
+            bak.write_bytes(p.read_bytes())
+            die("REJECT %s 이 상한의 2배를 넘는다(%dB) — 손편집 drift 로 본다. 사본 %s · 내용을 정리한 뒤 다시" % (p.name, size_of(p), bak), 1)
+        line = "- [%s]%s %s" % (dt.date.today().strftime("%m-%d"), KIND_TAG[kind], text.replace("\n", " ").strip())
+        old = p.read_text(encoding="utf-8") if p.is_file() else ""
+        atomic_write(p, old + line + "\n")
         sz = size_of(p)
         moved, arc = (0, None)
         if sz > lim:
             moved, arc = compact(p, lim)
-    print("ADD %s %s %d/%d %s" % (layer, p.name, size_of(p), lim, "OK" if size_of(p) <= lim else "OVER"))
+    print("ADD %s %s kind=%s %d/%d %s" % (layer, p.name, kind, size_of(p), lim, "OK" if size_of(p) <= lim else "OVER"))
     if arc:
         print("SPLIT %s 상한 초과 → 오래된 %d줄 자동 분리(a) %s" % (layer, moved, arc))
     return 0
@@ -225,17 +276,55 @@ def cmd_compact(argv: list[str]) -> int:
     return 0
 
 
-CMDS = {"init": cmd_init, "check": cmd_check, "path": cmd_path, "add": cmd_add, "read": cmd_read, "compact": cmd_compact}
+def cmd_snapshot(argv: list[str]) -> int:
+    """부팅 1회 로드용 — 3계층을 «한 번에» 예산(기본 2048B) 안에서 보여준다. 쓰기 0.
+    hermes 의 FROZEN 스냅샷 대응: 세션 중간 add 는 파일에만 쓰고 이 스냅샷은 바뀌지 않는다(다음 부팅에 반영)."""
+    budget = 2048
+    if "--budget" in argv:
+        i = argv.index("--budget")
+        try:
+            budget = int(argv[i + 1])
+        except (IndexError, ValueError):
+            die("REJECT --budget 값")
+    root = ft_root()
+    seat_name = os.environ.get("FT_SEAT_NAME") or (argv[0] if argv and not argv[0].startswith("-") else "")
+    team_name = os.environ.get("FT_TEAM") or ""
+    parts = []
+    cand = []
+    if seat_name:
+        cand.append(("seat", path_of("seat", seat_name)))
+    if team_name:
+        cand.append(("team", path_of("team", team_name)))
+    cand.append(("global", GLOBAL_DIGEST))
+    for layer, f in cand:
+        if not f.is_file():
+            continue
+        body = "\n".join(read_lines(f)[-12:])
+        if body:
+            parts.append("### %s (%s)\n%s" % (layer, f.name, body))
+    text = "\n".join(parts).strip()
+    if not text:
+        print("SNAPSHOT empty — LESSONS 파일 없음(좌석=%s · 팀=%s)" % (seat_name or "-", team_name or "-"))
+        return 0
+    raw = text.encode()
+    if len(raw) > budget:
+        text = raw[:budget].decode("utf-8", "ignore") + "\n… (예산 %dB 초과 — 오래된 줄부터 버린다)" % budget
+    print("SNAPSHOT %dB/%dB (부팅 1회 로드 · 세션 중 add 는 파일에만)" % (len(text.encode()), budget))
+    print(text)
+    return 0
+
+
+CMDS = {"init": cmd_init, "snapshot": cmd_snapshot, "check": cmd_check, "path": cmd_path, "add": cmd_add, "read": cmd_read, "compact": cmd_compact}
 
 
 def main() -> int:
     if len(sys.argv) < 2 or sys.argv[1] in ("-h", "--help"):
         print(__doc__.strip().splitlines()[0])
-        print("usage: ft-lessons.sh {init|check|path|add|read|compact} …")
+        print("usage: ft-lessons.sh {init|check|path|add|read|compact|snapshot} …")
         return 0 if len(sys.argv) > 1 else 2
     fn = CMDS.get(sys.argv[1])
     if not fn:
-        die("REJECT 모르는 명령: %s (init|check|path|add|read|compact)" % sys.argv[1])
+        die("REJECT 모르는 명령: %s (init|check|path|add|read|compact|snapshot)" % sys.argv[1])
     return fn(sys.argv[2:])
 
 

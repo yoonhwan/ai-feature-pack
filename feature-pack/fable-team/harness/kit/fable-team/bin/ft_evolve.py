@@ -3,6 +3,8 @@
 
 무엇: 하루치 로그·쪽지·LESSONS 를 읽어 «학습 후보» 와 «폐기 후보» 를 세는 얇은 게이트.
   새 크론 0 — ft-issues-daily(00:10) 끝에서 `--gate` 로 하루 1회만 돈다. 게이트 표식 = <FT_ROOT>/state/evolution/last-run.
+  세대(generation) — xclaw 아카이브 `nanoclaw-deep-analysis.md` 의 «세대 진화 = in-place + gen-{N} 버전 파일» 을 따른다:
+  지침을 폴더 복사·이름변경으로 굴리지 않고, 같은 자리에 `gen-<N>.md` 로 세대를 쌓는다(참조가 안 깨진다).
   LLM 호출 0 — 집계는 규칙만. «무엇을 학습/폐기할지» 결정은 사람이 후보 목록을 보고 한다(자동 승격·자동 삭제 없음).
   dry-run = 파일 변경 0(표식도 안 쓴다). apply = candidates-<날짜>.md + last-run 기록.
 
@@ -153,9 +155,16 @@ def main(argv: list[str]) -> int:
         body += ["- " + x for x in learn] or ["- 없음"]
         body += ["", "## 폐기 후보 (%d)" % len(scrap)] + (["- " + x for x in scrap] or ["- 없음"])
         out.write_text("\n".join(body) + "\n", encoding="utf-8")
+        gens = sorted(out.parent.glob("gen-*.md"))
+        gen = len(gens) + 1
+        g = out.parent / ("gen-%03d.md" % gen)
+        g.write_text("# 세대 %03d — %s\n\n" % (gen, today) + "\n".join(body) + "\n", encoding="utf-8")
         stamp.write_text(today + "\n", encoding="utf-8")
-        files_changed = 2
-    print("EVOLVE %s date=%s 학습 후보 %d · 폐기 후보 %d (파일 변경 %d)" % (mode, today, len(learn), len(scrap), files_changed))
+        files_changed = 3
+        gen_note = " gen=%03d" % gen
+    else:
+        gen_note = ""
+    print("EVOLVE %s date=%s 학습 후보 %d · 폐기 후보 %d (파일 변경 %d)%s" % (mode, today, len(learn), len(scrap), files_changed, gen_note))
     if "--verbose" in argv or "-v" in argv:
         for x in learn:
             print("  학습: " + x)

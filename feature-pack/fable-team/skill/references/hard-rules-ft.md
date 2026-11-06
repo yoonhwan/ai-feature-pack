@@ -24,3 +24,11 @@
 ## 왜 여기인가
 - 이 조항들은 fable-team 좌석(팀장·planner·desk·arch·DA)과 BYZ 팀 폴더 구조에서만 참이다. 다른 프로젝트 세션에 실리면 상시 로드만 늘고 쓰이지 않는다.
 - 사용자 레벨에는 «ft 좌석이면 이 파일을 먼저 연다» 1줄만 둔다. 그 1줄이 계약의 입구다(포인터가 사라지면 계약이 사라진다 — `~/.claude/guides/moved-to-skill.md` 참조).
+
+## 좌석 기억(LESSONS) 규약 — 2026-11-06 r1436
+
+- **부팅 1회 스냅샷**: `bash .fable-team/bin/ft-lessons.sh snapshot` (3계층 ≤2048B). 세션 중 `add` 는 파일에만 쓰고 이 스냅샷은 안 바뀐다 — 다음 부팅에 반영(hermes FROZEN 방식 · prefix cache 보존).
+- **분류 태그**: `add <seat|team> <이름> "1줄" --kind directive|mistake|achievement` → `[D]/[M]/[A]`.
+- **승격은 사람이**: 좌석 3회 반복 → 팀, 팀을 넘어 반복 → 전역 다이제스트. 자동 승격 없음(잘못된 일반화가 전 좌석에 퍼지는 것을 막는다).
+- **저장 전 스캔**: 주입·유출 유도 문장은 REJECT. 상한 2배 초과(손편집 drift)면 `.drift-*.bak` 저장 후 rc1.
+- 대조 근거 = `feature-pack/fable-team/docs/design-memory-evolution-repos-20261106.md`.
