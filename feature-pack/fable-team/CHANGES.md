@@ -1,3 +1,13 @@
+## 2026-11-06 — r1422 증류선 550k/600k → 250k/300k · ctx-waste 실측 근거
+
+- 실측(35분, 고유 요청 612건): 캐시 **전면 재작성 47건이 소모의 62~64%**. 세션 23개가 300k+ 컨텍스트로 리줌하고 그중 7개가 498k~506k에서 시작했다. 한 분(09:07)에 세션 18개가 동시 리줌해 1,400만 가중토큰(24%)을 태웠다.
+- 손익분기 계산: 재시작 1회 ≈ 고정프리픽스 × 2 / 턴당 절감 = (평균 컨텍스트 − 문턱) × 0.1 → **4~9턴**. 세션당 평균 10~21턴이므로 문턱을 내리는 쪽이 이득.
+- `templates/hooks/context-distill-gate.sh` 기본값: 경고 550k → **250k**, 차단 600k → **300k**, recv 차단선 550k → **250k**(인자 없는 실배선 기준). BYZ 훅 사본도 같이 동기화(시험 ⓕ cmp 0).
+- `templates/rules/orchestration.md` 「컨텍스트 증류」 절 갱신 + «왜 250k/300k 인가» 4줄 추가(리줌은 인계서+최근 몇 턴만, 300k 넘는 대화를 잇지 않는다).
+- 시험: `tests/test_distill_gate_250_300.sh`(옛 `test_distill_gate_550_600.sh` 이름·픽스처 갱신) 11 PASS.
+- 부수: `ft_weekly_review.py` 가 멍청한짓 원장을 `~/.claude/guides/dumb-time-ledger.md` 로 먼저 찾고 옛 `rules/` 경로는 폴백(자동 로드 축소 조치).
+- 측정 도구 = `ai-feature-pack/feature-pack/ctx-waste` (2026-11-06 추가).
+
 ## 2026-10-29 — r1117 승인 h 결과·승인 도착을 요청 팀장에 자동 쪽지(Issue #4712)
 
 - h<N> 진입 파일이 끝나면 `ft-hil-notify.sh done` 이 `[완료 h<N>] rc=<rc> · <=== 결과 === 줄> · 계획 <경로>` 를 계획 머리 `# ft-hil-request seat=<좌석…>`(≤3 · 린트 실패 REJECT rc2 · 없으면 stderr WARN) + planner `_master` 에 1통씩 보낸다. 계획 stdout 사본 = `h<N>.out`(600). 알림 실패는 stderr 1줄이고 h rc 는 계획 rc 그대로다.

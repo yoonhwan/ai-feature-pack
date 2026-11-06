@@ -1,7 +1,9 @@
 #!/bin/bash
-# fable-team context-distill-gate — 600k 절대값 컨텍스트 하드 증류 게이트(경고 550k)
+# fable-team context-distill-gate — 300k 절대값 컨텍스트 하드 증류 게이트(경고 250k)
 # 하네스 0.4 단위 1 (GOAL-harness-v2 축 B「최대 450k 에서 증류」· 오빠 판정 2026-09-23 「훅 hard 모드 착수」· 임계 450k 고정 — 09-14 창 80% 대체).
-# R445(오빠 2026-10-19 «전부 550k경고 600k 차단»): claude 좌석 전부 경고 550k · 차단 600k · recv 차단선 550k — BYZ 훅 300k/450k 이원화 끝. codex·opencode 는 자체 자동 압축(이 훅 미적용).
+# 2026-11-06 실측(ctx-waste): 세션 21개가 300k+ 로 리줌해 요청당 5시간창을 태웠다 → 경고 250k·차단 300k 로 내림.
+#   근거 = 재시작 1회 ≈ 고정프리픽스×2, 턴당 절감 = (평균ctx-문턱)×0.1, 손익분기 4~9턴인데 세션당 평균 10~21턴.
+# R445(오빠 2026-10-19 «전부 550k경고 600k 차단» · 이력): claude 좌석 전부 경고 550k · 차단 600k · recv 차단선 550k — BYZ 훅 300k/450k 이원화 끝. codex·opencode 는 자체 자동 압축(이 훅 미적용).
 # 소스 정본: ai-feature-pack/feature-pack/fable-team/skill/templates/hooks/context-distill-gate.sh (이 파일은 사본).
 # 토큰 소스: transcript 의 «마지막 실 usage»(input+cache_read+cache_creation) — <synthetic>·전부 0 레코드는 건너뛴다(구멍 H3).
 # 세 모드 (settings.json 인자):
@@ -57,8 +59,8 @@ RESULT=$(python3 - "$INPUT" "$WARN_AT_ARG" "$BLOCK_AT_ARG" "$EXEMPT_MODELS" "$MO
 import json, sys, os, re, shlex
 TAIL_CAP = 16 * 1024 * 1024
 TAIL_CHUNK = 262144
-WARN_DEFAULT, BLOCK_DEFAULT = 550_000, 600_000     # 550k 경고 · 600k 차단(오빠 2026-10-19 R445 · 옛 400k/450k)
-RECV_DEFAULT = 550_000                              # R107: 후계 도달 전 recv 차단선(--recv-gate-at) = 경고선과 같이 이동
+WARN_DEFAULT, BLOCK_DEFAULT = 250_000, 300_000     # 250k 경고 · 300k 차단(오빠 2026-11-06 · 옛 550k/600k = R445)
+RECV_DEFAULT = 250_000                              # R107: 후계 도달 전 recv 차단선(--recv-gate-at) = 경고선과 같이 이동
 
 def norm_model(m):
     if isinstance(m, dict):
