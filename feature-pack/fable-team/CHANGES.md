@@ -1,3 +1,11 @@
+## 2026-11-06 — r1429 경고선 도달 = 즉시 증류 (기계적으로 굳힘 · 1.1.268)
+
+- 오빠 ««경고 300k = 즉시 증류 시작»을 규칙으로 굳히자».
+- `context-distill-gate.sh`: `block` 모드에 **NEWWORK** 판정 — `FT_DISTILL_NEWWORK`(기본 = 경고선) ≤ ctx < 차단선 이면 **스폰 도구(Agent·Workflow·Task)를 exit 2 로 거부**(«경고선 도달 = 새 일 수락 금지 · 지금 증류»). 발주문에 `distill|증류|handoff|승계|snapshot` 이 있으면 예외.
+- `ft-thresholds.sh`: 키 `FT_DISTILL_NEWWORK` 추가(기본 = `FT_DISTILL_WARN`) · `--show/--export/--get/--set` 반영.
+- 시험 `tests/test_thresholds.sh` 4칸 추가 — 295k 허용 · 305k NEWWORK 거부 · 305k 증류 발주 예외 · 330k BLOCK. **ALL PASS**.
+- 정본 동기 = `skill/templates/hooks/context-distill-gate.sh` · `skill/scripts/ft-thresholds.sh` · `skill/templates/thresholds.env.sample` · `skill/templates/rules/orchestration.md`.
+
 ## 2026-11-06 — r1428 정본 동기 (skill/templates = kit) + 배포 설치
 
 - r1426·r1427 에서 `harness/kit/…` 만 고쳐 **정본(`skill/templates/…`)이 뒤처져 있었다**. 오빠 지시 «ai-feature-pack 에 정본하고 배포 설치를 시켜야지 커밋푸시».

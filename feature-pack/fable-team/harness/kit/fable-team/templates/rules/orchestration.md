@@ -44,6 +44,12 @@
 - 조정 = `ft-thresholds.sh --set FT_RESUME_MAX=200000` (기본 기록 위치 `~/.claude/fable-team/thresholds.env`) · 확인 = `--show`. 재설치 불필요(게이트가 매 호출 읽는다).
 - 해석 순서 = 명시 env > `$FT_THRESHOLDS` > `<루트>/.fable-team/thresholds.env` > `~/.claude/fable-team/thresholds.env` > 기본값.
 
+### 경고선 도달 = 즉시 증류 (규칙 · 2026-11-06 오빠 «규칙으로 굳히자»)
+- **`FT_DISTILL_WARN`(300,000) 에 닿은 그 턴에 증류를 시작한다.** 다음 턴으로 미루지 않는다.
+- 이 규칙은 이제 기계적으로도 걸린다 — `block` 모드가 **경고선~차단선 사이에서 스폰 도구(Agent·Workflow·Task)를 거부**한다(`NEWWORK`). 새 일을 못 벌리고 마무리·증류만 남는다.
+- 증류 발주(발주문에 `distill|증류|handoff|승계|snapshot` 포함)는 예외로 허용된다.
+- 차단선(`FT_DISTILL_BLOCK` 320,000)은 그대로 — 넘으면 allowlist 밖 도구 전부 거부.
+
 ### 리줌 상한 (2026-11-06 · r1426)
 - **대화가 `FT_RESUME_MAX`(기본 150,000) 를 넘으면 리줌하지 않는다.** 리줌하면 첫 요청이 그 대화를 통째로 캐시 재작성(2배)해서 소모의 40%를 태운다(실측: 16:30까지 재작성 31~44%).
 - 판정 도구 = `ft-resume-gate.sh <jsonl|uuid>` → `RESUME_OK` rc0 / `DISTILL ctx=N max=M` rc1. `ft-reboot-restore.sh` 는 rc1 좌석을 DISTILL 목록에 넣고 열지 않는다.
