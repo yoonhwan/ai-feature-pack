@@ -16,6 +16,7 @@ from test_tick import (
 )
 
 KINDS = {"unreadable", "symlink", "not_dir", "owner", "mode", "setting"}
+HINT = "tick op_home_invalid: fix the op-home directory from a terminal"
 
 
 def home_of(tmp_path: Path) -> Path:
@@ -190,3 +191,65 @@ def test_full_tick_with_a_good_directory_runs_normally(tmp_path, capsys, monkeyp
     line = json.loads(written.strip().splitlines()[-1])
     assert line["status"] == "ok" and len(line["probe"]["keys"]) == 3
     assert no_key_text(written) and TOKEN not in written
+
+
+def _outside(tmp_path: Path) -> Path:
+    outside = tmp_path / "outside"
+    outside.mkdir(exist_ok=True)
+    return outside
+
+
+@pytest.mark.parametrize("which", ["config", "airag"])
+def test_a_parent_symlink_leaving_the_real_home_is_refused_before_anything_is_created_or_op_runs(
+        tmp_path, monkeypatch, which):
+    home = home_of(tmp_path)
+    monkeypatch.setenv("HOME", str(home))
+    outside = _outside(tmp_path)
+    if which == "config":
+        (home / ".config").symlink_to(outside)
+    else:
+        (home / ".config").mkdir()
+        (home / ".config" / "airag").symlink_to(outside)
+    op, calls, seen_home, _ = recording_op(tmp_path)
+    env = {"HOME": str(home), "PATH": os.environ["PATH"]}
+    with pytest.raises(tick.TickError) as raised:
+        tick.load_keys(env, creds(tmp_path, op))
+    error = raised.value
+    assert (error.exit_code, error.code, error.kind) == (tick.EXIT_KEYS, "OP_HOME_INVALID", "symlink")
+    assert not calls.exists() and not seen_home.exists()
+    assert list(outside.iterdir()) == []  # nothing was created outside the real HOME
+    assert error.__cause__ is None and error.__suppress_context__
+
+
+def test_a_parent_symlink_that_stays_inside_the_real_home_is_allowed(tmp_path, monkeypatch):
+    home = home_of(tmp_path)
+    monkeypatch.setenv("HOME", str(home))
+    (home / "dotfiles").mkdir()
+    (home / ".config").symlink_to(home / "dotfiles")
+    op, calls, seen_home, _ = recording_op(tmp_path)
+    env = {"HOME": str(home), "PATH": os.environ["PATH"]}
+    tick.load_keys(env, creds(tmp_path, op))
+    assert len(seen_home.read_text().split()) == 3
+    assert (home / "dotfiles" / "airag" / "op-home").is_dir()
+
+
+def test_full_tick_with_a_bad_directory_writes_one_fixed_stderr_hint(tmp_path, capsys, monkeypatch):
+    home = home_of(tmp_path)
+    monkeypatch.setenv("HOME", str(home))
+    _make_bad("mode_0755", home, monkeypatch)
+    item, hooks = synthetic_service(tmp_path)
+    op, calls, _, _ = recording_op(tmp_path)
+    env = {"HOME": str(home), "PATH": os.environ["PATH"]}
+    code = run_tick(tmp_path, item, hooks, credentials_path=creds(tmp_path, op), env=env)
+    assert code == tick.EXIT_KEYS and not calls.exists()
+    assert capsys.readouterr().err.splitlines().count(HINT) == 1
+
+
+def test_the_op_home_hint_is_absent_when_the_tick_is_fine(tmp_path, capsys, monkeypatch):
+    home = home_of(tmp_path)
+    monkeypatch.setenv("HOME", str(home))
+    item, hooks = synthetic_service(tmp_path)
+    op, _, _, _ = recording_op(tmp_path)
+    env = {"HOME": str(home), "PATH": os.environ["PATH"]}
+    assert run_tick(tmp_path, item, hooks, credentials_path=creds(tmp_path, op), env=env) == tick.EXIT_OK
+    assert HINT not in capsys.readouterr().err

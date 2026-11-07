@@ -95,6 +95,7 @@ def _bad_store(tmp_path, case, monkeypatch) -> Path:
         "non_string_value": json.dumps({**KEYS, "AIRAG_ARCHIVE_KEY_HEX": 12345}),
         "empty_file": "",
         "oversized": json.dumps({**KEYS, "pad": MARKER * 200}),
+        "same_keys": json.dumps({name: KEYS["AIRAG_ARCHIVE_KEY_HEX"] for name in KEYS}),
         "not_utf8": None,
     }[case]
     if content is None:
@@ -109,7 +110,7 @@ BAD_CASES = [
     "missing", "directory", "symlink", "fifo", "foreign_owner",
     "mode_0644", "mode_0640", "mode_0400", "mode_0700", "mode_0660",
     "not_json", "not_dict", "key_missing", "extra_key", "short_value", "non_hex_value", "non_string_value",
-    "empty_file", "oversized", "not_utf8",
+    "empty_file", "oversized", "same_keys", "not_utf8",
 ]
 
 
@@ -199,4 +200,43 @@ def test_a_store_file_whose_keys_are_not_distinct_is_refused(tmp_path):
     same = {name: KEYS["AIRAG_ARCHIVE_KEY_HEX"] for name in KEYS}
     with pytest.raises(tick.TickError) as raised:
         tick.load_keys({}, store_credentials(tmp_path, write_store(tmp_path, same)))
-    assert raised.value.code == "STORE_KEYS_MUST_BE_DISTINCT"
+    assert (raised.value.code, raised.value.kind) == ("OP_STORE_KEYS_INVALID", "content")
+
+
+def test_full_tick_with_not_distinct_file_keys_ends_with_the_one_code_and_the_hint(tmp_path, capsys):
+    item, hooks = synthetic_service(tmp_path)
+    op, calls = stub_op(tmp_path)
+    same = {name: KEYS["AIRAG_ARCHIVE_KEY_HEX"] for name in KEYS}
+    credentials_path = store_credentials(tmp_path, write_store(tmp_path, same), op=op)
+    code = run_tick(tmp_path, item, hooks, credentials_path=credentials_path)
+    written = everything_written(tmp_path, capsys)
+    assert code == tick.EXIT_KEYS and not calls.exists()
+    line = json.loads(written.strip().splitlines()[0])
+    assert (line["status"], line["exit"], line["code"], line["type"]) == ("key_error", 30, "OP_STORE_KEYS_INVALID", "content")
+    assert written.count(HINT) >= 1 and no_key_text(written)
+
+
+def _padded_to(size: int) -> str:
+    body = json.dumps(KEYS)
+    assert len(body) <= size
+    return body + " " * (size - len(body))
+
+
+def test_a_valid_file_of_exactly_4096_bytes_is_read(tmp_path):
+    store = write_store(tmp_path)
+    store.write_text(_padded_to(tick.STORE_KEYS_MAX_BYTES), encoding="utf-8")
+    store.chmod(0o600)
+    assert store.stat().st_size == 4096
+    env: dict[str, str] = {}
+    tick.load_keys(env, store_credentials(tmp_path, store))
+    assert env == KEYS
+
+
+def test_a_valid_file_of_exactly_4097_bytes_is_refused_by_the_size_limit_alone(tmp_path):
+    store = write_store(tmp_path)
+    store.write_text(_padded_to(tick.STORE_KEYS_MAX_BYTES + 1), encoding="utf-8")
+    store.chmod(0o600)
+    assert store.stat().st_size == 4097  # still valid JSON with the right keys: only the size can refuse it
+    with pytest.raises(tick.TickError) as raised:
+        tick.load_keys({}, store_credentials(tmp_path, store))
+    assert (raised.value.code, raised.value.kind) == ("OP_STORE_KEYS_INVALID", "content")

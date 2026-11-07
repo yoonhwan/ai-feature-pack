@@ -56,6 +56,7 @@ OP_HOME_RELATIVE = Path(".config") / "airag" / "op-home"
 STORE_KEYS_SETTING = "store_keys_file"
 STORE_KEYS_MAX_BYTES = 4096
 STORE_KEYS_HINT = "tick store_keys_invalid: rewrite the store-keys file from a terminal"
+OP_HOME_HINT = "tick op_home_invalid: fix the op-home directory from a terminal"
 _NO_SETTING = object()
 
 # Probe (value-free `probe` field of the log line): per-key `op read` attempt record, closed schema.
@@ -321,6 +322,8 @@ def _read_store_keys(setting: object) -> dict[str, str]:
         type(value) is not str or not _KEY.fullmatch(value) for value in parsed.values()
     ):
         raise invalid("content") from None
+    if len({bytes.fromhex(value) for value in parsed.values()}) != len(NAMES):
+        raise invalid("content") from None  # three equal keys are a bad file, not a different failure
     return parsed
 
 
@@ -337,7 +340,15 @@ def _prepare_op_home(environment: Mapping[str, str]) -> Path:
         raise invalid("setting") from None
     target = base / OP_HOME_RELATIVE
     try:
+        real_base = Path(os.path.realpath(base))
+        part = base
+        for name in OP_HOME_RELATIVE.parts[:-1]:  # every existing parent: a symlink may only point inside the real HOME
+            part = part / name
+            if os.path.islink(part) and real_base not in Path(os.path.realpath(part)).parents:
+                raise invalid("symlink") from None
         target.parent.mkdir(parents=True, exist_ok=True)
+        if real_base not in Path(os.path.realpath(target.parent)).parents:
+            raise invalid("symlink") from None
         try:
             os.mkdir(target, 0o700)
         except FileExistsError:
@@ -599,6 +610,8 @@ def main(
             sys.stderr.write("tick log_write_failed\n")
     if code == "OP_STORE_KEYS_INVALID":
         sys.stderr.write(STORE_KEYS_HINT + "\n")
+    elif code == "OP_HOME_INVALID":
+        sys.stderr.write(OP_HOME_HINT + "\n")
     return exit_code
 
 
