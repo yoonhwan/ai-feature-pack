@@ -1,6 +1,6 @@
 # 인덱스: 유휴 팀 정리 후보와 하네스 재개 관리
 <!-- ledger: design/teams/harness/GOAL-harness.md -->
-- 상태: 진행
+- 상태: 완성
 - 근거: 원승인 Pi user 902행·eb54a4ff. 지원 계약 정리 #270917·#270956·#271016은 별도 참고이며 원승인과 구분한다.
 - 선행: r1450과 같은 branch에서 함께 랜딩한다.
 - 설치: 있음
@@ -44,3 +44,11 @@
 
 ## 검증 범위
 임시 FT_ROOT, 팀장 1명과 nano 2명, 가상 시각, 가짜 도구만 사용한다. N분 경계, 전역 master 보호, 자식 작업과 진행 턴, HIL·사람·선행 대기, 삭제 금지 목록, 하네스 수신부터 ready까지의 순서를 검증한다. 운영 세션·우편·정리 실행은 0이다.
+
+## 완료 증거
+- 팩 구현: [PR #771](https://github.com/yoonhwan/ai-feature-pack/pull/771), main `5717298ffda4b57fd8709a3c112a1f9a5fbaf932`. r1450 구현과 같은 branch에서 함께 착지했다.
+- 설치: `1.1.288`, source/kit/live 4쌍 일치와 정상 설치 대조 `OK n=4 skip=0`. 설치 원문은 BYZ `.fable-team/state/r1450/landing-05-install.log`와 `landing-09-live-install-check.log`다.
+- DA: r1450은 BYZ `.fable-team/state/r1450/da-integrated-01.md`의 APPROVE, r1452는 `.fable-team/comm/bodies/271205.txt`의 cohort 보정 한정 APPROVE. [보정 RED→GREEN 및 인접 회귀 원문](../../../../evidence/r1452/09-dormant-cohort-red-green.log)을 보존한다.
+- 최종 checker: BYZ `.fable-team/state/r1450/checker-integrated-01.json`, `COMPLETE/PASS`. 원래 REJECT와 이전 checker FAIL은 별도 보존했다.
+- planner 정본: BYZ 문서 owner가 GUIDE·STRUCTURE 2파일을 [main `eb2d525a90d8c4cea68f9679133c5cbca03e9b6d`](https://github.com/SecondWindStudio/byz-agents/commit/eb2d525a90d8c4cea68f9679133c5cbca03e9b6d)에 반영했다. 승인된 2파일 blob과 원격 반영본이 일치한다.
+- 완료 범위와 한계: 기본 off 후보 계획·재개 경계의 구현과 설치를 완료했다. `FT_TICK_IDLE_TEAMS=0`, `FT_TICK_IDLE_TEAM_REOPEN=0`, master 간격 280초이며 실정리는 0회다. 실제 운영 resume·ready 완료와 280초 내 운영 재개 보장은 별도 실행 증거가 필요하다.
