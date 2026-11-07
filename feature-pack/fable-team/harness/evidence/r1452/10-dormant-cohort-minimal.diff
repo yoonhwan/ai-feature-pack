@@ -1,0 +1,104 @@
+diff --git a/feature-pack/fable-team/harness/bin/ft-tick.sh b/feature-pack/fable-team/harness/bin/ft-tick.sh
+index 8eb20461..9d1d3736 100755
+--- a/feature-pack/fable-team/harness/bin/ft-tick.sh
++++ b/feature-pack/fable-team/harness/bin/ft-tick.sh
+@@ -550,7 +550,7 @@ try:
+         plan_path = state_dir / "idle-teams" / (slug + ".json")
+         prior = json.loads(plan_path.read_text()) if plan_path.exists() else {}
+         active = [k for k, row in rows.items() if row.get("role") != "stop-ready"]
+-        cohort = prior.get("cohort", [])
++        cohort = prior.get("cohort") or prior.get("closed_members", [])
+         owned_closed = [k for k in cohort if k in rows and rows[k].get("role") == "stop-ready"]
+         members = list(cohort) if owned_closed else active
+         if not members:
+@@ -727,7 +727,20 @@ PY
+     elif [ "$since" = 0 ]; then since="$(now)"
+     elif [ "$(( $(now) - since ))" -ge "$(( ${FT_TICK_IDLE_TEAM_MIN:-60} * 60 ))" ]; then state=candidate; fi
+     write_stamp "$STATE_DIR/idle-teams/$team.since" "$since" || return 1
+-    body="$(python3 -c 'import json,sys;r=json.loads(sys.argv[1]);r.update(state=sys.argv[2],reason=sys.argv[3],since=int(sys.argv[4]),minimum_minutes=int(sys.argv[5]));r.update(cohort=r["members"] if sys.argv[2]=="candidate" else []);print(json.dumps(r,ensure_ascii=False))' "$row" "$state" "$reason" "$since" "${FT_TICK_IDLE_TEAM_MIN:-60}")" || return 1
++    body="$(python3 - "$row" "$state" "$reason" "$since" "${FT_TICK_IDLE_TEAM_MIN:-60}" "$plan" <<'PY'
++import json, sys
++from pathlib import Path
++r = json.loads(sys.argv[1]); p = Path(sys.argv[6])
++prior = json.loads(p.read_text()) if p.exists() else {}
++r.update(state=sys.argv[2], reason=sys.argv[3], since=int(sys.argv[4]), minimum_minutes=int(sys.argv[5]))
++if r["state"] == "candidate":
++    r.update(cohort=r["members"], closed_members=r["stopped"])
++else:
++    r.update(cohort=prior.get("cohort") or prior.get("closed_members", []),
++             closed_members=list(dict.fromkeys(prior.get("closed_members", []) + r["stopped"])))
++print(json.dumps(r, ensure_ascii=False))
++PY
++)" || return 1
+     write_stamp "$plan" "$body" || return 1
+     log "idle-team $team state=$state reason=$reason"
+   done <<< "$rows"
+diff --git a/feature-pack/fable-team/harness/kit/fable-team/bin/ft-tick.sh b/feature-pack/fable-team/harness/kit/fable-team/bin/ft-tick.sh
+index 8eb20461..9d1d3736 100755
+--- a/feature-pack/fable-team/harness/kit/fable-team/bin/ft-tick.sh
++++ b/feature-pack/fable-team/harness/kit/fable-team/bin/ft-tick.sh
+@@ -550,7 +550,7 @@ try:
+         plan_path = state_dir / "idle-teams" / (slug + ".json")
+         prior = json.loads(plan_path.read_text()) if plan_path.exists() else {}
+         active = [k for k, row in rows.items() if row.get("role") != "stop-ready"]
+-        cohort = prior.get("cohort", [])
++        cohort = prior.get("cohort") or prior.get("closed_members", [])
+         owned_closed = [k for k in cohort if k in rows and rows[k].get("role") == "stop-ready"]
+         members = list(cohort) if owned_closed else active
+         if not members:
+@@ -727,7 +727,20 @@ PY
+     elif [ "$since" = 0 ]; then since="$(now)"
+     elif [ "$(( $(now) - since ))" -ge "$(( ${FT_TICK_IDLE_TEAM_MIN:-60} * 60 ))" ]; then state=candidate; fi
+     write_stamp "$STATE_DIR/idle-teams/$team.since" "$since" || return 1
+-    body="$(python3 -c 'import json,sys;r=json.loads(sys.argv[1]);r.update(state=sys.argv[2],reason=sys.argv[3],since=int(sys.argv[4]),minimum_minutes=int(sys.argv[5]));r.update(cohort=r["members"] if sys.argv[2]=="candidate" else []);print(json.dumps(r,ensure_ascii=False))' "$row" "$state" "$reason" "$since" "${FT_TICK_IDLE_TEAM_MIN:-60}")" || return 1
++    body="$(python3 - "$row" "$state" "$reason" "$since" "${FT_TICK_IDLE_TEAM_MIN:-60}" "$plan" <<'PY'
++import json, sys
++from pathlib import Path
++r = json.loads(sys.argv[1]); p = Path(sys.argv[6])
++prior = json.loads(p.read_text()) if p.exists() else {}
++r.update(state=sys.argv[2], reason=sys.argv[3], since=int(sys.argv[4]), minimum_minutes=int(sys.argv[5]))
++if r["state"] == "candidate":
++    r.update(cohort=r["members"], closed_members=r["stopped"])
++else:
++    r.update(cohort=prior.get("cohort") or prior.get("closed_members", []),
++             closed_members=list(dict.fromkeys(prior.get("closed_members", []) + r["stopped"])))
++print(json.dumps(r, ensure_ascii=False))
++PY
++)" || return 1
+     write_stamp "$plan" "$body" || return 1
+     log "idle-team $team state=$state reason=$reason"
+   done <<< "$rows"
+diff --git a/feature-pack/fable-team/harness/tests/test_idle_team_lifecycle_r1452.sh b/feature-pack/fable-team/harness/tests/test_idle_team_lifecycle_r1452.sh
+index e5d574a5..8e474623 100644
+--- a/feature-pack/fable-team/harness/tests/test_idle_team_lifecycle_r1452.sh
++++ b/feature-pack/fable-team/harness/tests/test_idle_team_lifecycle_r1452.sh
+@@ -34,7 +34,7 @@ started = time.monotonic()
+ failures = 0
+ names = ["byz-fixture-master-claude#1", "byz-fixture-nano-claude#1", "byz-fixture-nano-claude#2"]
+ protected = ["byz-root-master-claude#1", "byz-harness-master-codex#1"]
+-for label in ("zero-duration", "root-owner", "harness-owner", "child-work-seen", "child-working", "hil", "human-wait", "prerequisite", "preserve", "old-stop-ready", "reopen", "reopen-card", "reopen-hil", "reopen-hil-only", "reopen-no-ready", "reopen-read-none", "reopen-ready-split", "default-off"):
++for label in ("zero-duration", "root-owner", "harness-owner", "child-work-seen", "child-working", "hil", "human-wait", "prerequisite", "preserve", "old-stop-ready", "reopen", "reopen-dormant", "reopen-card", "reopen-hil", "reopen-hil-only", "reopen-no-ready", "reopen-read-none", "reopen-ready-split", "default-off"):
+     if os.environ.get("FT_TEST_IDLE_CASE") and label not in os.environ["FT_TEST_IDLE_CASE"].split(","):
+         continue
+     begin = time.monotonic()
+@@ -137,6 +137,9 @@ MODEL
+         if label.startswith("reopen"):
+             command = 'cp "$ROOT/.fable-team/seats-fixture.json" "$ROOT/closed.json"\ncp "$ROOT/active.json" "$ROOT/.fable-team/seats-fixture.json"\ncp "$ROOT/.fable-team/comm/mailbox.jsonl" "$ROOT/pending"\ncp "$ROOT/empty" "$ROOT/.fable-team/comm/mailbox.jsonl"\n[ ! -d "$ROOT/hil" ] || mv "$ROOT/hil" "$ROOT/hil-held"\n[ ! -d "$ROOT/.fable-team/state/card-assign" ] || mv "$ROOT/.fable-team/state/card-assign" "$ROOT/cards-held"\nidle_team_watch\nprintf 1794003600 > "$ROOT/clock"\nidle_team_watch\ncp "$ROOT/closed.json" "$ROOT/.fable-team/seats-fixture.json"\ncp "$ROOT/pending" "$ROOT/.fable-team/comm/mailbox.jsonl"\n[ ! -d "$ROOT/hil-held" ] || mv "$ROOT/hil-held" "$ROOT/hil"\n[ ! -d "$ROOT/cards-held" ] || mv "$ROOT/cards-held" "$ROOT/.fable-team/state/card-assign"\nidle_team_watch\nMODEL_ACTOR=1 bash "$MBOX" recv "$HARNESS" "$SEAT"\nFT_TICK_IDLE_TEAM_REOPEN=1 idle_team_reopen "$ROOT/.fable-team/seats-fixture.json" "$SEAT" "$REQUEST"\nif [ "$NO_READY" = 0 ]; then for person in $MEMBERS; do MODEL_ACTOR=1 bash "$MBOX" recv "$HARNESS" "$person"; done; fi\nFT_TICK_IDLE_TEAM_REOPEN=1 idle_team_reopen "$ROOT/.fable-team/seats-fixture.json" "$SEAT" "$REQUEST"\n'
+             if label == "reopen-ready-split": command += 'for person in $MEMBERS; do MODEL_ACTOR=1 bash "$MBOX" recv "$HARNESS" "$person"; done\nFT_TICK_IDLE_TEAM_REOPEN=1 idle_team_reopen "$ROOT/.fable-team/seats-fixture.json" "$SEAT" "$REQUEST"\n'
++            if label == "reopen-dormant":
++                command = command.replace('cp "$ROOT/closed.json" "$ROOT/.fable-team/seats-fixture.json"\ncp "$ROOT/pending"', 'cp "$ROOT/closed.json" "$ROOT/.fable-team/seats-fixture.json"\nidle_team_watch\ncp "$STATE_DIR/idle-teams/fixture.json" "$ROOT/dormant.json"\ncp "$ROOT/pending"')
++                command = command.replace('idle_team_watch\nMODEL_ACTOR=1', 'idle_team_watch\ncp "$STATE_DIR/idle-teams/fixture.json" "$ROOT/late-plan.json"\nMODEL_ACTOR=1')
+         env = dict(os.environ, ROOT=str(root), FT_ROOT=str(root), BIN=str(source.parent), SEAT=members[0], FT_TICK_IDLE_TEAMS="1", PYTHONDONTWRITEBYTECODE="1", HIL_DIR=str(root / "hil"), REQUEST=str(request), NO_READY="1" if label == "reopen-no-ready" else "0", RECV_NONE="1" if label == "reopen-read-none" else "0", READY_SPLIT="1" if label == "reopen-ready-split" else "0", DELAY_SEAT=members[1], MEMBERS=" ".join(members), HARNESS=protected[1])
+         if label == "default-off": env.pop("FT_TICK_IDLE_TEAMS")
+         result = subprocess.run(["bash"], input=setup + "\n".join(parts) + "\n" + command, env=env, capture_output=True, text=True, timeout=7)
+@@ -157,6 +160,10 @@ MODEL
+             restored = json.loads(seats.read_text())
+             if calls: good &= all(restored[n]["role"] == ("master" if i == 0 else "nano") for i, n in enumerate(members))
+             good &= restored[old]["role"] == "stop-ready" and not any(old in e for e in events)
++            if label == "reopen-dormant":
++                dormant = json.loads((root / "dormant.json").read_text())
++                late = json.loads((root / "late-plan.json").read_text())
++                good &= dormant.get("cohort") == members and dormant.get("closed_members") == members and late.get("state") == "forwarded"
+         elif label == "default-off": good &= not plan and not (root / "events").exists()
+         else: good &= plan.get("state") == "protected"
+         good &= before == {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in (root / "preserved").iterdir()}

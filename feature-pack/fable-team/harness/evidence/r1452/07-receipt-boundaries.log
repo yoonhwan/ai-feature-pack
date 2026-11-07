@@ -1,0 +1,6 @@
+RECEIPT_BOUNDARIES rc=0 seconds=7.490
+PASS reopen-no-ready rc=0 state=waiting_ready seconds=2.490
+PASS reopen-read-none rc=0 state=forwarded seconds=1.800
+PASS reopen-ready-split rc=0 state=ready seconds=3.142
+PHASE lifecycle seconds=7.440 failures=0
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor

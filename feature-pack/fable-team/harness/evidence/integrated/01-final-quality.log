@@ -1,0 +1,77 @@
+PHASE haswork seconds=3.847 rc=0
+PASS a-no-work/fire rc=0 sends=0 expected=0 seconds=0.067
+PASS a-no-work/goal rc=0 sends=0 expected=0 seconds=0.069
+PASS b-recent/fire rc=0 sends=0 expected=0 seconds=0.056
+PASS b-recent/goal rc=0 sends=0 expected=0 seconds=0.031
+PASS c-ready/fire rc=0 sends=1 expected=1 seconds=0.138
+PASS c-ready/goal rc=0 sends=1 expected=1 seconds=0.222
+PASS d-tool-only/fire rc=0 sends=0 expected=0 seconds=0.092
+PASS d-tool-only/goal rc=0 sends=0 expected=0 seconds=0.094
+PASS default-off/fire rc=0 sends=1 expected=1 seconds=0.019
+PASS default-off/goal rc=0 sends=1 expected=1 seconds=0.014
+PASS dedup/fire rc=0 sends=1 expected=1 seconds=0.200
+PASS dedup/goal rc=0 sends=1 expected=1 seconds=0.222
+PASS working/fire rc=0 sends=0 expected=0 seconds=0.033
+PASS working/goal rc=0 sends=0 expected=0 seconds=0.033
+PASS unknown/fire rc=0 sends=0 expected=0 seconds=0.035
+PASS unknown/goal rc=0 sends=0 expected=0 seconds=0.034
+PASS missing-end/fire rc=0 sends=0 expected=0 seconds=0.033
+PASS missing-end/goal rc=0 sends=0 expected=0 seconds=0.032
+PASS recheck-working/fire rc=0 sends=0 expected=0 seconds=0.105
+PASS recheck-working/goal rc=0 sends=0 expected=0 seconds=0.093
+PASS inbox-open/fire rc=0 sends=0 expected=0 seconds=0.067
+PASS inbox-open/goal rc=0 sends=0 expected=0 seconds=0.066
+PASS card-assigned/fire rc=0 sends=1 expected=1 seconds=0.137
+PASS card-assigned/goal rc=0 sends=1 expected=1 seconds=0.135
+PASS master-unassigned/fire rc=0 sends=0 expected=0 seconds=0.063
+PASS master-unassigned/goal rc=0 sends=0 expected=0 seconds=0.091
+PASS card-waiting/fire rc=0 sends=0 expected=0 seconds=0.060
+PASS card-waiting/goal rc=0 sends=0 expected=0 seconds=0.063
+PASS card-ledger-only/fire rc=0 sends=1 expected=1 seconds=0.137
+PASS card-ledger-only/goal rc=0 sends=1 expected=1 seconds=0.133
+PASS card-old-seat/fire rc=0 sends=0 expected=0 seconds=0.063
+PASS card-old-seat/goal rc=0 sends=0 expected=0 seconds=0.063
+PASS mailbox-reference/fire rc=0 sends=1 expected=1 seconds=0.132
+PASS mailbox-reference/goal rc=0 sends=1 expected=1 seconds=0.136
+PASS goal-quiet-then-fire/fire rc=0 sends=1 expected=1 seconds=0.286
+PASS goal-quiet-then-fire/goal rc=0 sends=1 expected=1 seconds=0.257
+PHASE fixtures seconds=3.547 failures=0
+PASS team-dry-run rc=0 seconds=0.252
+2026-11-07 10:44:12 idle_watch disabled (FT_TICK_IDLE_ENABLED=0)
+DRY kind=stall interval=300s min=15m seats=byz-fixture-master-claude#1 
+DRY seat=byz-fixture-master-claude#1 kind=master interval=280s gap=1794000000s msg=[cron-tick · 뉴스] 형식은 SEATBELT-README §6-1 master 항 그대로(★⓪ 완성 상태 트리 = ft-news-tic
+DRY seat=byz-fixture-master-claude#1 kind=goal-tick interval=240s gap=1794000000s msg=(ft-goal-tick.sh 결과 → rc≠0 일 때만 relay)
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+
+PHASE goal-recheck seconds=0.097 rc=0
+PASS R3-actual-goal-recheck rc=0 relays=0 expected=0 seconds=0.057
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+
+PHASE tidy-cursor seconds=0.574 rc=0
+PASS inbox-tidy/default-off rc=0 tool_calls=0
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+PASS inbox-tidy/dry-run rc=0 tool_calls=0
+DRY kind=inbox-tidy — mutation calls=0
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+PASS R4-json-next-round rc=0 attempts=['byz-fixture-nano-claude#1', 'byz-fixture-nano-claude#2'] expected=['byz-fixture-nano-claude#1', 'byz-fixture-nano-claude#2'] saved={'seat': 'byz-fixture-nano-claude#2', 'last_seq': 0, 'ts': 1794000025}
+inbox-tidy byz-fixture-nano-claude#1 WAIVED 2 seq=101,102
+inbox-tidy — 25초 상한, 남은 좌석은 다음 회차
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+inbox-tidy byz-fixture-nano-claude#2 WAIVED 2 seq=101,102
+inbox-tidy — 25초 상한, 남은 좌석은 다음 회차
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+PASS R4-removed-cursor rc=0 first=['byz-fixture-nano-claude#1'] expected=['byz-fixture-nano-claude#1']
+PHASE tidy-default seconds=0.533; cleanup execution=0; candidate simulation=0
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+
+PHASE ruff seconds=0.046 rc=0
+All checks passed!
+
+PHASE shellcheck seconds=2.030 rc=0

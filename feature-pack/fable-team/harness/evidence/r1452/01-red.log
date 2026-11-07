@@ -1,0 +1,52 @@
+RED rc=1 seconds=0.194
+FAIL zero-duration rc=127 state=None seconds=0.016
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: line 53: idle_team_watch: command not found
+bash: line 55: idle_team_watch: command not found
+cp: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/r1452-x_kft08b/state/idle-teams/fixture.json: No such file or directory
+bash: line 58: idle_team_watch: command not found
+{}
+FAIL root-owner rc=127 state=None seconds=0.012
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: line 53: idle_team_watch: command not found
+bash: line 55: idle_team_watch: command not found
+{}
+FAIL harness-owner rc=127 state=None seconds=0.013
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: line 53: idle_team_watch: command not found
+bash: line 55: idle_team_watch: command not found
+{}
+FAIL child-work-seen rc=127 state=None seconds=0.011
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: line 53: idle_team_watch: command not found
+bash: line 55: idle_team_watch: command not found
+{}
+FAIL child-working rc=127 state=None seconds=0.010
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: line 53: idle_team_watch: command not found
+bash: line 55: idle_team_watch: command not found
+{}
+FAIL hil rc=127 state=None seconds=0.012
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: line 53: idle_team_watch: command not found
+bash: line 55: idle_team_watch: command not found
+{}
+FAIL human-wait rc=127 state=None seconds=0.012
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: line 53: idle_team_watch: command not found
+bash: line 55: idle_team_watch: command not found
+{}
+FAIL prerequisite rc=127 state=None seconds=0.010
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: line 53: idle_team_watch: command not found
+bash: line 55: idle_team_watch: command not found
+{}
+FAIL preserve rc=127 state=None seconds=0.010
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: line 53: idle_team_watch: command not found
+bash: line 55: idle_team_watch: command not found
+{}
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+Traceback (most recent call last):
+  File "<stdin>", line 94, in <module>
+TypeError: unsupported operand type(s) for &=: 'bool' and 'list'

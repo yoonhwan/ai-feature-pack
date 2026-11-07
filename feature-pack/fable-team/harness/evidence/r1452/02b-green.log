@@ -1,0 +1,14 @@
+GREEN rc=0 seconds=6.690
+PASS zero-duration rc=0 state=candidate seconds=1.435
+PASS root-owner rc=0 state=protected seconds=0.412
+PASS harness-owner rc=0 state=protected seconds=0.442
+PASS child-work-seen rc=0 state=protected seconds=0.666
+PASS child-working rc=0 state=protected seconds=0.745
+PASS hil rc=0 state=protected seconds=0.412
+PASS human-wait rc=0 state=protected seconds=0.468
+PASS prerequisite rc=0 state=protected seconds=0.422
+PASS preserve rc=0 state=candidate seconds=0.923
+PASS reopen rc=0 state=ready seconds=0.695
+PASS default-off rc=0 state=None seconds=0.011
+PHASE lifecycle seconds=6.649 failures=0
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor

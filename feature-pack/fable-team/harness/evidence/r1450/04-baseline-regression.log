@@ -1,0 +1,5 @@
+PHASE baseline-regression seconds=0.193 rc=2
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/r1450-baseline-vhfb_5a2/harness/tests/lib/real_state_guard.sh: line 12: cd: /var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/r1450-baseline-vhfb_5a2/harness/tests/lib/../scripts: No such file or directory
+/opt/homebrew/Cellar/python@3.14/3.14.8/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python: can't open file '/real_state_guard.py': [Errno 2] No such file or directory
+REAL-STATE-GUARD ERROR 지문 못 뜸

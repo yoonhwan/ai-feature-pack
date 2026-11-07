@@ -37,7 +37,7 @@ fi
 GOAL_TICK="${FT_TICK_GOAL_TICK:-$HERE/ft-goal-tick.sh}"
 LOOP_SEC="${FT_TICK_LOOP_SEC:-60}"
 PIDFILE="${FT_TICK_PIDFILE:-/tmp/ft-tick.pid}"
-MASTER_INTERVAL="${FT_TICK_MASTER_INTERVAL:-300}"; MASTER_MIN_GAP="${FT_TICK_MASTER_MIN_GAP:-240}"  # 2026-09-14 오빠: 나노 완료 회신 뒤 master 반응까지 리드가 너무 길다 → 900/840→300/240
+MASTER_INTERVAL="${FT_TICK_MASTER_INTERVAL:-280}"; MASTER_MIN_GAP="${FT_TICK_MASTER_MIN_GAP:-240}"  # r1452: cache TTL 300s 안에서 관측하며 기존 debounce는 유지한다.
 PM_INTERVAL="${FT_TICK_PM_INTERVAL:-600}";         PM_MIN_GAP="${FT_TICK_PM_MIN_GAP:-540}"
 GOAL_INTERVAL="${FT_TICK_GOAL_INTERVAL:-240}"
 # ★정지 감시 (2026-09-14 오빠: 「멈춰있으면 안 돼. 안 멈춰있게 장치 마련」)★
@@ -187,7 +187,75 @@ agent_gate() {   # $1 seat $2 kind → rc 0 발사 가능 · 1 발사 0
   _gate_step "$1" "$2" "$mark"; rc=$?
   rmdir "$mark.lock" 2>/dev/null; return "$rc"
 }
+# r1450 has-work gate
+# Opt-in only. Sources stay read-only; successful dispatch remembers event/version keys.
+actionable() {
+  FT_ROOT="$ROOT" FT_SEATS_JSON="$SEATS" PYTHONDONTWRITEBYTECODE=1 python3 - "$HERE" "$MBOX" "$SEATS" "$1" "$STATE_DIR/haswork/$1.seen" "${2:-new}" <<'PY'
+import hashlib, json, os, re, sys
+from pathlib import Path
+here, mbox, seats, seat, seen, mode = sys.argv[1:]
+sys.path[:0] = [here, str(Path(mbox).parent), str(Path(here).parent / "comm")]
+try:
+    import mbox_lineage as lineage
+    from mbox_conf import role_key
+    comm = Path(mbox).parent
+    lineage.CANON = str(comm)
+    names, warnings = lineage.eligible(seat)
+    if warnings:
+        raise ValueError("; ".join(warnings))
+    mine = lineage._mine(names, seat)
+    keys, roles = set(), {role_key(n) for n in names}
+    mailbox = comm / "mailbox.jsonl"
+    rows = [json.loads(line) for line in mailbox.read_text(encoding="utf-8").splitlines() if line.strip()] if mailbox.exists() else []
+    for row in rows:
+        if (role_key(row.get("to")) in roles and mine(row.get("to"))
+                and row.get("from") != seat and not str(row.get("from", "")).startswith("ft-")):
+            keys.add("seq:" + str(row["seq"]))
+    root = Path(os.environ["FT_ROOT"])
+    # #270861: inbox OPEN and unassigned team cards are not wake evidence.
+    for record in (root / ".fable-team/state/card-assign").glob("*.json"):
+        row = json.loads(record.read_text(encoding="utf-8"))
+        if row.get("state") == "seat" and row.get("seat") == seat:
+            version = hashlib.sha256(json.dumps(row, sort_keys=True).encode()).hexdigest()
+            keys.add("card:" + record.stem + ":" + version)
+    remembered = set(Path(seen).read_text(encoding="utf-8").splitlines()) if mode != "raw" and Path(seen).exists() else set()
+    print("\n".join(sorted(keys - remembered)))
+except Exception as error:
+    print("판정 불가 haswork " + seat + ": " + str(error), file=sys.stderr)
+    raise SystemExit(3)
+PY
+}
+haswork_gate() {
+  [ "${FT_TICK_HASWORK_GATE:-0}" = 1 ] || return 0
+  local state keys
+  state="$(FT_SEATS_JSON="$SEATS" timeout 7 bash "$SEAT_STATUS" turn "$1" --json)" || { log "판정 불가 haswork $1 — turn 조회 실패"; return 1; }
+  python3 - "$(now)" "$state" <<'PY' || return 1
+import json, sys
+from datetime import datetime
+try:
+    row = json.loads(sys.argv[2])
+    if row.get("state") != "IDLE" or not row.get("turn_end"):
+        raise SystemExit(1)
+    age = float(sys.argv[1]) - datetime.fromisoformat(row["turn_end"].replace("Z", "+00:00")).timestamp()
+    raise SystemExit(0 if age >= 60 else 1)
+except (ValueError, TypeError, KeyError, AttributeError):
+    print("판정 불가 haswork — turn JSON/시각", file=sys.stderr)
+    raise SystemExit(1)
+PY
+  keys="$(actionable "$1")" || return 1
+  [ -n "$keys" ] || return 1
+  HASWORK_KEYS="$keys"
+}
+haswork_sent() {
+  [ "${FT_TICK_HASWORK_GATE:-0}" = 1 ] || return 0
+  local f="$STATE_DIR/haswork/$1.seen" t
+  mkdir -p "$STATE_DIR/haswork" || return 1
+  t="$f.tmp.$$"
+  { [ ! -f "$f" ] || cat "$f"; printf '%s\n' "$HASWORK_KEYS"; } | LC_ALL=C sort -u > "$t" && mv -f "$t" "$f"
+}
+# end r1450 has-work gate
 fire() {
+  haswork_gate "$1" || return 0
   acct_paused "$1" "$2" || return 0    # r1214: 계정 정지 중인 풀의 좌석에는 발사 0(첫 줄 — 아래 디바운스보다 앞)
   local seat="$1" kind="$2" interval="$3" min_gap="$4" msg="$5" stamp gap pane tail tailn=3 busy='esc to interrupt|Working|Thinking' sub='^[›❯] +\[cron-tick\]' subn=2
   [ "$FIRE_V2" = 1 ] && { tailn=14; busy="$busy|↓ [0-9,]+ tokens|\| *thinking"; sub='^[›❯] +[^ ]'; subn=6; }
@@ -200,7 +268,9 @@ fire() {
   tail="$(tmux capture-pane -t "$pane" -p 2>/dev/null | grep -vE '^\s*$' | tail -"$tailn")"
   if printf '%s' "$tail" | LC_ALL=C grep -qaE "$busy"; then log "skip $seat/$kind — pane busy (working)"; return 0; fi
   if printf '%s' "$tail" | LC_ALL=C grep -qaE '^[›❯] +[^ ]'; then log "skip $seat/$kind — pane has unsubmitted input"; return 0; fi
+  haswork_gate "$seat" || return 0   # Turn state and work may have changed during pane checks.
   tmux send-keys -t "$pane" -l "$msg"; sleep 0.3; tmux send-keys -t "$pane" Enter
+  [ "$?" != 0 ] || haswork_sent "$seat"
   write_stamp "$stamp"
   sleep 1.5
   if tmux capture-pane -t "$pane" -p 2>/dev/null | grep -vE '^\s*$' | tail -"$subn" | LC_ALL=C grep -qaE "$sub"; then
@@ -211,7 +281,8 @@ fire() {
 
 # goal-tick: 기존 ft-goal-tick.sh 를 좌석 대상으로 «그대로» 실행(내부에서 ft-goal-check → rc=0 이면 조용, rc≠0 relay).
 goal() {
-  local seat="$1" stamp gap
+  haswork_gate "$1" || return 0
+  local seat="$1" stamp gap output rc
   stamp="$(stamp_of "$seat" goal)"; gap=$(stamp_gap "$stamp")
   [ -x "$GOAL_TICK" ] || [ -f "$GOAL_TICK" ] || { echo "$(date '+%F %T') goal-tick script missing: $GOAL_TICK" >&2; return 0; }
   acct_paused "$seat" goal-tick || return 0   # r1214: 계정 정지 중이면 goal 발주 0
@@ -219,7 +290,14 @@ goal() {
     echo "DRY seat=$seat kind=goal-tick interval=${GOAL_INTERVAL}s gap=${gap}s msg=(ft-goal-tick.sh 결과 → rc≠0 일 때만 relay)"; return 0
   fi
   [ "$gap" -ge "$GOAL_INTERVAL" ] || return 0
-  FT_GOAL_TICK_TARGET="$seat" bash "$GOAL_TICK" | sed "s/^/goal-tick[$seat] /"
+  haswork_gate "$seat" || return 0
+  if [ "${FT_TICK_HASWORK_GATE:-0}" = 1 ]; then
+    output="$(FT_GOAL_TICK_TARGET="$seat" FT_SEATS_JSON="$SEATS" FT_TICK_SEAT_STATUS="$SEAT_STATUS" bash "$GOAL_TICK")"; rc=$?
+    printf '%s\n' "$output" | sed "s/^/goal-tick[$seat] /"
+    if [ "$rc" = 0 ] && [[ "$output" == *"tick sent target=$seat "* ]]; then haswork_sent "$seat"; fi
+  else
+    FT_GOAL_TICK_TARGET="$seat" bash "$GOAL_TICK" | sed "s/^/goal-tick[$seat] /"
+  fi
   write_stamp "$stamp"
 }
 
@@ -440,6 +518,269 @@ acct_pause_watch() {   # 한 바퀴 1회 — 만료·풀림·부분 재시도 �
     *) log "ERROR acct_pause rc=$rc: $(printf '%s\n' "$out" | tail -1 | cut -c1-200)";;
   esac
   return 0
+}
+
+inbox_tidy_save() {
+  local snapshot
+  # last_seq=0 means no official waive seq has been confirmed for this seat.
+  snapshot="$(python3 -c 'import json,sys; print(json.dumps(dict(seat=sys.argv[1], last_seq=int(sys.argv[2]), ts=int(sys.argv[3]))))' "$2" "${3:-0}" "$(now)")" || return 1
+  write_stamp "$1" "$snapshot"
+}
+# r1452 idle-team lifecycle
+# Planning is opt-in; closing sessions and deleting files remain explicit approved operations.
+idle_team_snapshot() {
+  PYTHONDONTWRITEBYTECODE=1 timeout 7 python3 - "$ROOT" "$1" "${HIL_DIR:-/tmp}" "$STATE_DIR" "$HERE" <<'PY'
+import json, re, sys
+from pathlib import Path
+root, coordinator, hil, state_dir = Path(sys.argv[1]), sys.argv[2], Path(sys.argv[3]), Path(sys.argv[4])
+sys.path.insert(0, sys.argv[5])
+from ft_hil_pending import scan
+try:
+    root_master = json.loads((root / ".fable-team/seats.json").read_text())["_master"]
+    if not root_master or not coordinator:
+        raise ValueError("root/harness master 없음")
+    comm = root / ".fable-team/comm/mailbox.jsonl"
+    mail = [json.loads(x) for x in comm.read_text().splitlines() if x.strip()] if comm.exists() else []
+    records = {p.stem: json.loads(p.read_text()) for p in (root / ".fable-team/state/card-assign").glob("*.json")}
+    preserve = ["conversation-jsonl", "baton", "seat-resume", "uncommitted", "unpushed", "shared-state", "indices", "ledger", "HIL", "branches"]
+    for path in sorted((root / ".fable-team").glob("seats*.json")):
+        doc = json.loads(path.read_text())
+        rows = {k: v for k, v in doc.items() if not k.startswith("_") and isinstance(v, dict) and not v.get("_replaced_by") and v.get("role") not in ("closed", "stopped")}
+        slug = "root" if path.stem == "seats" else path.stem.removeprefix("seats-")
+        plan_path = state_dir / "idle-teams" / (slug + ".json")
+        prior = json.loads(plan_path.read_text()) if plan_path.exists() else {}
+        active = [k for k, row in rows.items() if row.get("role") != "stop-ready"]
+        cohort = prior.get("cohort") or prior.get("closed_members", [])
+        owned_closed = [k for k in cohort if k in rows and rows[k].get("role") == "stop-ready"]
+        members = list(cohort) if owned_closed else active
+        if not members:
+            continue
+        if not all(k in rows for k in members):
+            raise ValueError("cohort 명부 누락 " + slug)
+        stopped = [k for k in members if rows[k].get("role") == "stop-ready"]
+        reason = "owner" if {root_master, coordinator}.intersection(members) else ""
+        for row in (rows[k] for k in members):
+            if row.get("hil_waiting") or row.get("human_waiting") or row.get("prerequisite_waiting"):
+                reason = reason or "waiting"
+        mine = [x for x in mail if x.get("to", "").split("#")[0] in {n.split("#")[0] for n in members}]
+        if any(x.get("from", "").startswith("ft-hil") or re.match(r"^\s*\[HIL", x.get("body", "")) for x in mine):
+            reason = reason or "HIL"
+        hil_triggers = []
+        for ident, *_ in scan(str(hil)):
+            base = hil / ("h" + ident)
+            entry = Path(str(base) + ".notify")
+            if entry.exists():
+                targets = set(re.findall(r"^seat=(\S+)$", entry.read_text(), re.M))
+                if targets.intersection(members):
+                    reason = reason or "HIL"
+                    hil_triggers.extend((n, "hil:" + base.name) for n in stopped if n in targets)
+        cards = root / ".worktrees" / doc["_cards_wt"] if doc.get("_cards_wt") else root
+        cards = cards / doc.get("_cards", "__no_team_cards__")
+        for folder in ("대기", "진행"):
+            for card in (cards / folder).glob("*.md"):
+                row = records.get(card.stem, {})
+                if row.get("state") == "waiting" and any(w in str(row.get("reason", "")) for w in ("사람", "선행", "HIL")):
+                    reason = reason or "waiting-card"
+                prereq = re.search(r"^- 선행:\s*(.+)$", card.read_text(), re.M)
+                if prereq and prereq[1].strip() not in ("없음", "0", "-"):
+                    reason = reason or "prerequisite-card"
+        triggers = hil_triggers + [(x.get("to"), x["seq"]) for x in mine if x.get("to") in stopped and (not x.get("from", "").startswith("ft-") or x.get("from", "").startswith("ft-hil") or re.match(r"^\s*\[HIL", x.get("body", "")))]
+        for stem, row in records.items():
+            if row.get("state") == "seat" and row.get("seat") in stopped:
+                triggers.append((row["seat"], "card:" + stem))
+        trigger, seq = triggers[0] if triggers else ("-", "-")
+        print(json.dumps({"team": slug, "roster": str(path), "master": doc.get("_master", ""), "members": members, "stopped": stopped, "reason": reason,
+                          "trigger": trigger, "request_seq": seq, "preserve": preserve, "cleanup_targets": ["seat-only-stamps", "owned-worktrees-after-preservation-proof", "existing-wt-clean-plans", "owned-scratch-copies-after-preservation-proof"],
+                          "requires_approval": True, "cleanup_verified": False}, ensure_ascii=False))
+except (OSError, ValueError, TypeError, KeyError) as error:
+    print("판정 불가 idle-team — " + str(error), file=sys.stderr)
+    raise SystemExit(3)
+PY
+}
+idle_team_phase() {
+  local body
+  body="$(python3 - "$1" "$2" "${3:-}" "${4:-}" <<'PY'
+import json, sys
+row = json.load(open(sys.argv[1], encoding="utf-8"))
+if sys.argv[3]:
+    row.setdefault("progress", {})[sys.argv[3]] = sys.argv[2]
+else:
+    row["state"] = sys.argv[2]
+if sys.argv[4]:
+    row["forward_seq"] = int(sys.argv[4])
+print(json.dumps(row, ensure_ascii=False))
+PY
+)" || return 1
+  write_stamp "$1" "$body"
+}
+idle_team_received() {
+  python3 - "$MBOX" "$1" "${2:-}" "$(team_master_seat harness)" <<'PY'
+import json, re, sys
+from pathlib import Path
+comm, plan, member, coordinator = Path(sys.argv[1]).parent, Path(sys.argv[2]), sys.argv[3], sys.argv[4]
+try:
+    p = json.loads(plan.read_text())
+    receipt = comm / "receipts" / (coordinator + ".jsonl")
+    rows = [json.loads(x) for x in receipt.read_text().splitlines() if x.strip()] if receipt.exists() else []
+    for row in rows:
+        if "mark" in row:
+            continue
+        body = row.get("body", "")
+        full = row.get("body_full")
+        if full and Path(full).is_file():
+            body = Path(full).read_text()
+        if not member and row.get("seq") == p["forward_seq"] and row.get("from") == p["trigger"] and body.lstrip().startswith("[인계]"):
+            raise SystemExit(0)
+        if member and row.get("seq", 0) > p["forward_seq"] and row.get("from") == member and body.lstrip().startswith("[레디]") and re.search(r"request_seq=" + re.escape(str(p["request_seq"])) + r"(?=$|\s)", body):
+            raise SystemExit(0)
+    raise SystemExit(1)
+except (OSError, ValueError, TypeError, KeyError) as error:
+    print("판정 불가 idle-team receipt — " + str(error), file=sys.stderr)
+    raise SystemExit(3)
+PY
+}
+idle_team_reopen() {
+  local roster="$1" trigger="$2" request="$3" coordinator plan team members seat out phase progress forward
+  [ "$DRY" != 1 ] || return 0
+  coordinator="$(team_master_seat harness)" || return 1
+  team="${roster##*/seats-}"; team="${team%.json}"; [ "$team" != seats ] || team=root
+  plan="$STATE_DIR/idle-teams/$team.json"
+  phase="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("state",""))' "$plan")" || return 1
+  if [ "$phase" != forwarded ] && [ "$phase" != received ] && [ "$phase" != resumed ] && [ "$phase" != restored ] && [ "$phase" != waiting_ready ] && [ "$phase" != ready ]; then
+    out="$(timeout 7 bash "$MBOX" handover "$trigger" "$coordinator" "idle-team request=$request")" || return 1
+    forward="$(python3 -c 'import re,sys;m=re.search(r"\bseq=(\d+)",sys.argv[1]);print(m[1] if m else "")' "$out")"
+    [ -n "$forward" ] || { log "판정 불가 idle-team — handover seq 없음"; return 1; }
+    idle_team_phase "$plan" forwarded "" "$forward" || return 1
+    phase=forwarded
+  fi
+  if [ "$phase" = forwarded ]; then
+    idle_team_received "$plan" || return 0
+    idle_team_phase "$plan" received || return 1
+  fi
+  [ "${FT_TICK_IDLE_TEAM_REOPEN:-0}" = 1 ] || return 0
+  members="$(python3 -c 'import json,sys;r=json.load(open(sys.argv[1]));print("\n".join(r["reopen_members"]))' "$plan")" || return 1
+  while IFS= read -r seat; do
+    progress="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("progress",{}).get(sys.argv[2],"received"))' "$plan" "$seat")" || return 1
+    if [ "$progress" = received ]; then
+      timeout 7 bash "$ZC_BIN" resume "$seat" || return 1
+      idle_team_phase "$plan" resumed "$seat" || return 1; progress=resumed
+    fi
+    if [ "$progress" = resumed ]; then
+      timeout 7 bash "${FT_TICK_IDLE_TEAM_CLOSE_BIN:-$HERE/ft-seat-close.sh}" --reopen "$seat" --seats "$roster" || return 1
+      idle_team_phase "$plan" restored "$seat" || return 1
+      timeout 7 bash "$MBOX" send "$seat" "$coordinator" "[재개 확인] request_seq=$request. 새 업무 전 [레디] request_seq=$request 로 회신한다." || return 1
+    fi
+  done <<< "$members"
+  idle_team_phase "$plan" waiting_ready || return 1
+  while IFS= read -r seat; do
+    progress="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("progress",{}).get(sys.argv[2],""))' "$plan" "$seat")" || return 1
+    [ "$progress" != ready ] || continue
+    idle_team_received "$plan" "$seat" || return 0
+    idle_team_phase "$plan" ready "$seat" || return 1
+  done <<< "$members"
+  idle_team_phase "$plan" ready
+}
+idle_team_watch() {
+  [ "${FT_TICK_IDLE_TEAMS:-0}" = 1 ] || return 0
+  [ "$SEATS" = "$ROOT/.fable-team/seats.json" ] || return 0
+  [ "$DRY" != 1 ] || { echo "DRY kind=idle-teams — mutation calls=0"; return 0; }
+  local coordinator rows row team roster members stopped reason trigger request seat keys state since plan body old_phase
+  coordinator="$(team_master_seat harness)" || return 1
+  rows="$(idle_team_snapshot "$coordinator")" || return 1
+  mkdir -p "$STATE_DIR/idle-teams" || return 1
+  while IFS= read -r row; do
+    IFS=$'\t' read -r team roster members stopped reason trigger request <<< "$(python3 -c 'import json,sys;r=json.loads(sys.argv[1]);print("\t".join(str(r.get(k) or "-") if k not in ("members","stopped") else ",".join(r[k]) or "-" for k in ("team","roster","members","stopped","reason","trigger","request_seq")))' "$row")"
+    plan="$STATE_DIR/idle-teams/$team.json"
+    old_phase=""; [ ! -f "$plan" ] || old_phase="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("state",""))' "$plan")"
+    if [ "$reason" = owner ]; then state=protected
+    elif [ "$trigger" != - ]; then
+      body="$(python3 - "$plan" "$row" <<'PY'
+import json, sys
+from pathlib import Path
+p = Path(sys.argv[1]); row = json.loads(sys.argv[2])
+prior = json.loads(p.read_text()) if p.exists() else row
+if prior.get("request_seq") != row["request_seq"]:
+    prior.update(trigger=row["trigger"], request_seq=row["request_seq"], reopen_members=row["stopped"], state="candidate", progress={})
+    prior.pop("forward_seq", None)
+print(json.dumps(prior, ensure_ascii=False))
+PY
+)" || return 1
+      write_stamp "$plan" "$body" || return 1
+      idle_team_reopen "$roster" "$trigger" "$request" || return 1
+      continue
+    elif [[ "$old_phase" = forwarded || "$old_phase" = received || "$old_phase" = resumed || "$old_phase" = restored || "$old_phase" = waiting_ready ]]; then
+      IFS=$'\t' read -r trigger request <<< "$(python3 -c 'import json,sys;r=json.load(open(sys.argv[1]));print(str(r["trigger"])+"\t"+str(r["request_seq"]))' "$plan")"
+      idle_team_reopen "$roster" "$trigger" "$request" || return 1
+      continue
+    elif [ "$reason" != - ] || [ "$stopped" != - ]; then state=protected
+    else
+      state=observing
+      for seat in ${members//,/ }; do
+        keys="$(SEATS="$roster" actionable "$seat" raw)" || { state=protected; reason=unknown; break; }
+        [ -z "$keys" ] || { state=protected; reason=work; break; }
+        body="$(FT_SEATS_JSON="$roster" timeout 7 bash "$SEAT_STATUS" turn "$seat" --json)" || { state=protected; reason=unknown; break; }
+        python3 -c 'import json,sys;from datetime import datetime;r=json.loads(sys.argv[1]);sys.exit(0 if r.get("state")=="IDLE" and r.get("turn_end") and datetime.fromisoformat(r["turn_end"].replace("Z","+00:00")).timestamp()<=float(sys.argv[2]) else 1)' "$body" "$(now)" || { state=protected; reason=turn; break; }
+      done
+    fi
+    since="$(read_stamp "$STATE_DIR/idle-teams/$team.since")"
+    if [ "$state" = protected ]; then since=0
+    elif [ "$since" = 0 ]; then since="$(now)"
+    elif [ "$(( $(now) - since ))" -ge "$(( ${FT_TICK_IDLE_TEAM_MIN:-60} * 60 ))" ]; then state=candidate; fi
+    write_stamp "$STATE_DIR/idle-teams/$team.since" "$since" || return 1
+    body="$(python3 - "$row" "$state" "$reason" "$since" "${FT_TICK_IDLE_TEAM_MIN:-60}" "$plan" <<'PY'
+import json, sys
+from pathlib import Path
+r = json.loads(sys.argv[1]); p = Path(sys.argv[6])
+prior = json.loads(p.read_text()) if p.exists() else {}
+r.update(state=sys.argv[2], reason=sys.argv[3], since=int(sys.argv[4]), minimum_minutes=int(sys.argv[5]))
+if r["state"] == "candidate":
+    r.update(cohort=r["members"], closed_members=r["stopped"])
+else:
+    r.update(cohort=prior.get("cohort") or prior.get("closed_members", []),
+             closed_members=list(dict.fromkeys(prior.get("closed_members", []) + r["stopped"])))
+print(json.dumps(r, ensure_ascii=False))
+PY
+)" || return 1
+    write_stamp "$plan" "$body" || return 1
+    log "idle-team $team state=$state reason=$reason"
+  done <<< "$rows"
+}
+# end r1452 idle-team lifecycle
+inbox_tidy() {
+  [ "${FT_TICK_INBOX_TIDY:-0}" = 1 ] || return 0
+  if [ "$DRY" = 1 ]; then echo "DRY kind=inbox-tidy — mutation calls=0"; return 0; fi
+  local reason="${FT_TICK_INBOX_TIDY_REASON:-}" deadline seats seat last_seq line cut left limit out rc cursor="$ROOT/.fable-team/state/inbox-tidy-cursor.json"
+  [[ "$reason" =~ 판정\ [0-9]+ ]] || { log "판정 불가 inbox-tidy — FT_TICK_INBOX_TIDY_REASON에 판정 번호 필요"; return 1; }
+  deadline=$(( $(now) + 25 ))
+  seats="$(python3 - "$SEATS" "$cursor" 2>/dev/null <<'PY'
+import json, sys
+from pathlib import Path
+doc = json.load(open(sys.argv[1], encoding="utf-8"))
+names = [k for k, row in doc.items() if not k.startswith("_") and isinstance(row, dict)
+         and not row.get("_replaced_by") and row.get("role") not in ("closed", "stopped")]
+saved = Path(sys.argv[2])
+snapshot = json.loads(saved.read_text(encoding="utf-8")) if saved.exists() else {}
+resume = snapshot.get("seat", "")
+if resume in names:
+    index = names.index(resume)
+    names = names[index:] + names[:index]
+print("\n".join(f"{seat}\t{int(snapshot.get('last_seq') or 0) if seat == resume else 0}" for seat in names))
+PY
+)" || { log "판정 불가 inbox-tidy — 명부 조회 실패"; return 1; }
+  cut="$(python3 -c 'from datetime import datetime; import sys; print(datetime.fromtimestamp(int(sys.argv[1])-3*86400).isoformat())' "$(now)")" || return 1
+  while IFS=$'\t' read -r seat last_seq; do
+    [ -n "$seat" ] || continue
+    left=$(( deadline - $(now) )); [ "$left" -gt 0 ] || { inbox_tidy_save "$cursor" "$seat" "$last_seq" || return 1; log "inbox-tidy — 25초 상한, 남은 좌석은 다음 회차"; return 0; }
+    limit=$(( left < 7 ? left : 7 ))
+    inbox_tidy_save "$cursor" "$seat" "$last_seq" || return 1
+    out="$(FT_ROOT="$ROOT" timeout "$limit" bash "$HERE/ft-inbox.sh" waive "$seat" --before "$cut" "$reason" --tidy 2>&1)"; rc=$?
+    [ "$rc" = 0 ] || { log "판정 불가 inbox-tidy $seat rc=$rc — ${out//$'\n'/ | }"; return 1; }
+    while IFS= read -r line; do
+      if [[ "$line" =~ ^WAIVED\ [0-9]+\ seq=([0-9,]+)$ ]]; then last_seq="${BASH_REMATCH[1]##*,}"; break; fi
+    done <<< "$out"
+    inbox_tidy_save "$cursor" "$seat" "$last_seq" || return 1
+    log "inbox-tidy $seat ${out//$'\n'/ | }"
+  done <<< "$seats"
 }
 
 # ── r497 역할 좌석 모델 한도 → 대체 모델 후계 자동 교대 ─────────────────────────────────────────────
@@ -1366,6 +1707,8 @@ pass_core() {
   step renamed_watch renamed_watch
   step queue_full_watch queue_full_watch
   step queue_watch queue_watch
+  step inbox_tidy inbox_tidy
+  step idle_teams idle_team_watch
   step card_assign_watch card_assign_watch
   step launchd_watch launchd_watch
   step unpushed_daily unpushed_daily

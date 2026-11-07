@@ -1,0 +1,18 @@
+{
+  "base_head": "2e7a0bc21c3c38a7a720307842ce39ea7ef38016",
+  "diff_sha256": "5a9f528136b76930bfc378d25b2badb382dc21ef5e2860bfaf29c120ea73c604",
+  "files": {
+    "feature-pack/fable-team/harness/bin/ft-goal-tick.sh": "0b7d16e6212af18b3b0bbeadca4111bf291ed5f6508179560c0d5a2eba23077d",
+    "feature-pack/fable-team/harness/bin/ft-inbox.py": "f842cc0e879b7fa2275f9757e80f9e00adfd5977f28b294d7207b9c3e94eb503",
+    "feature-pack/fable-team/harness/bin/ft-tick.sh": "c5a332f2cd48c3ccd84256c894d4df7a7331c3c3d9f933a35449ee195d4aa53c",
+    "feature-pack/fable-team/harness/bin/ft_inbox_rotate.py": "deb32f814ca586abec4da0f7a07b5fbc0bb9aed2632ffc19947ce96f56b8bd61",
+    "feature-pack/fable-team/harness/kit/fable-team/bin/ft-goal-tick.sh": "0b7d16e6212af18b3b0bbeadca4111bf291ed5f6508179560c0d5a2eba23077d",
+    "feature-pack/fable-team/harness/kit/fable-team/bin/ft-inbox.py": "f842cc0e879b7fa2275f9757e80f9e00adfd5977f28b294d7207b9c3e94eb503",
+    "feature-pack/fable-team/harness/kit/fable-team/bin/ft-tick.sh": "c5a332f2cd48c3ccd84256c894d4df7a7331c3c3d9f933a35449ee195d4aa53c",
+    "feature-pack/fable-team/harness/kit/fable-team/bin/ft_inbox_rotate.py": "deb32f814ca586abec4da0f7a07b5fbc0bb9aed2632ffc19947ce96f56b8bd61",
+    "feature-pack/fable-team/harness/tests/test_tick_goal_recheck_r1450.sh": "724eba3de327690de9fb12c898509744fbb51837976935b4af947c5196eac9eb",
+    "feature-pack/fable-team/harness/tests/test_tick_haswork_r1450.sh": "84c71d859f9de9109ad0bd831d2b8044b40ff16d0ffc8ba67f0b2f453c6ce668",
+    "feature-pack/fable-team/harness/tests/test_tick_inbox_tidy_default_r1450.sh": "ae14001f529b2a75ddbbfae0a2d2e05ab36fa9701cd5e4541abb662b5995621c",
+    "feature-pack/fable-team/manifest.json": "23163c9af593198de08b27435d419058312bc29abc43a5860525aa99ecdb3ff7"
+  }
+}

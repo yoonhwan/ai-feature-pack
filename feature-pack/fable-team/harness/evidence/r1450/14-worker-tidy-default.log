@@ -1,0 +1,39 @@
+AST bin/ft-inbox.py rc=0
+AST kit/fable-team/bin/ft-inbox.py rc=0
+AST bin/ft_inbox_rotate.py rc=0
+AST kit/fable-team/bin/ft_inbox_rotate.py rc=0
+bash -n bin/ft-tick.sh rc=0
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash -n bin/ft-goal-tick.sh rc=0
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+cmp ft-tick.sh rc=0
+cmp ft-goal-tick.sh rc=0
+cmp ft-inbox.py rc=0
+cmp ft_inbox_rotate.py rc=0
+shellcheck rc=1; baseline-only expected SC2178/SC2128/SC2034
+
+In feature-pack/fable-team/harness/bin/ft-tick.sh line 1418:
+  local i n=${#STEP_NAMES[@]} tsv f
+          ^-- SC2178 (warning): Variable was used as an array but is now assigned a string.
+
+
+In feature-pack/fable-team/harness/bin/ft-tick.sh line 1419:
+  if [ "$DRY" = 1 ]; then echo "DRY kind=steps n=$n"; return 0; fi
+                                                 ^-- SC2128 (warning): Expanding an array without an index only gives the first element.
+
+
+In feature-pack/fable-team/harness/bin/ft-tick.sh line 1571:
+      cid="$lid"; cname="$lname"; cstart="$lstart"; cmaxn="$lmaxn"; cmaxs="$lmaxs"; cp0="$lp0"
+                                                                                    ^-^ SC2034 (warning): cp0 appears unused. Verify use (or export if used externally).
+
+For more information:
+  https://www.shellcheck.net/wiki/SC2034 -- cp0 appears unused. Verify use (o...
+  https://www.shellcheck.net/wiki/SC2128 -- Expanding an array without an ind...
+  https://www.shellcheck.net/wiki/SC2178 -- Variable was used as an array but...
+git diff --check rc=0
+PHASE syntax-cmp-lint seconds=1.794
+Previously executed default barriers: outer rc=0
+PASS inbox-tidy/default-off rc=0 tool_calls=0
+PASS inbox-tidy/dry-run rc=0 tool_calls=0
+DRY kind=inbox-tidy — mutation calls=0
+PHASE tidy-default seconds=0.042; cleanup execution=0; candidate simulation=0

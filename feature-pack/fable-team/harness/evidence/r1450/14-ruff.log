@@ -1,0 +1,5 @@
+PHASE ruff-baseline-compare seconds=0.091 new_diagnostics=0
+feature-pack/fable-team/harness/bin/ft-inbox.py baseline rc=0 diagnostics=0
+feature-pack/fable-team/harness/bin/ft-inbox.py current rc=0 diagnostics=0
+feature-pack/fable-team/harness/bin/ft_inbox_rotate.py baseline rc=0 diagnostics=0
+feature-pack/fable-team/harness/bin/ft_inbox_rotate.py current rc=0 diagnostics=0

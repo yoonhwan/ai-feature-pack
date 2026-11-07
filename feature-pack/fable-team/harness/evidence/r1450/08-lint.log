@@ -1,0 +1,2 @@
+PHASE lint-new-warnings seconds=1.699 rc=0
+Baseline exclusions only: SC2178 SC2128 SC2034

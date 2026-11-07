@@ -69,5 +69,24 @@ fi
 # 긴 본문은 relay 정본 절차(요약+경로) — 700자 넘는 것을 큐에 직접 넣지 않는다.
 TMP="$(mktemp /tmp/goal-tick.XXXXXX)"; printf '%s\n' "$MSG" > "$TMP"
 SUMMARY="[goal-tick $(date '+%H:%M')] rc=$GATE_RC · $(printf '%s' "$GATE_OUT" | head -1 | cut -c1-160)${ALERT:+ · ★연속 ${STREAK}틱 미독★}"
+# r1450: goal-check may span a new user turn. Recheck at the actual relay boundary.
+if [ "${FT_TICK_HASWORK_GATE:-0}" = 1 ]; then
+  [ -n "${FT_SEATS_JSON:-}" ] || { echo "판정 불가 goal haswork — FT_SEATS_JSON 없음" >&2; exit 0; }
+  TURN="$(timeout 7 bash "${FT_TICK_SEAT_STATUS:-$HERE/ft-seat-status.sh}" turn "$TARGET" --json)" \
+    || { echo "판정 불가 goal haswork — turn 조회 실패" >&2; exit 0; }
+  python3 - "$TURN" <<'PY' || exit 0
+import json, sys, time
+from datetime import datetime
+try:
+    row = json.loads(sys.argv[1])
+    if row.get("state") != "IDLE" or not row.get("turn_end"):
+        raise SystemExit(1)
+    age = time.time() - datetime.fromisoformat(row["turn_end"].replace("Z", "+00:00")).timestamp()
+    raise SystemExit(0 if age >= 60 else 1)
+except (ValueError, TypeError, KeyError, AttributeError):
+    print("판정 불가 goal haswork — turn JSON/시각", file=sys.stderr)
+    raise SystemExit(1)
+PY
+fi
 bash "$MBOX" relay "$TARGET" os-goal-tick "$TMP" "$SUMMARY" >/dev/null 2>&1
 echo "$(date '+%F %T') tick sent target=$TARGET rc=$GATE_RC streak=$STREAK"

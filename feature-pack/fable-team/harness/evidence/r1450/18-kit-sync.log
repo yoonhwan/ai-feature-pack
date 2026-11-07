@@ -1,0 +1,16 @@
+PHASE kit-sync seconds=2.423 rc=1
+PASS dirs exist
+FAIL drift: DIFF ft-reboot-restore.sh;DIFF ft-role-spawn.sh;DIFF ft-successor-open.sh;DIFF ft_weekly_review.py;
+PASS shim-exec lint: bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+OK 0건
+PASS control: identical → 0
+PASS control: missing detected
+PASS control: byte diff detected
+PASS control: mode diff detected
+FAILED 1
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+
+BASELINE_DRIFT ft-reboot-restore.sh source/kit already differ at HEAD; both unchanged=true
+BASELINE_DRIFT ft-role-spawn.sh source/kit already differ at HEAD; both unchanged=true
+BASELINE_DRIFT ft-successor-open.sh source/kit already differ at HEAD; both unchanged=true
+BASELINE_DRIFT ft_weekly_review.py source/kit already differ at HEAD; both unchanged=true

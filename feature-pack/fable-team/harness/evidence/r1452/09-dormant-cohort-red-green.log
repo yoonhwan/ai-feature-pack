@@ -1,0 +1,40 @@
+RED dormant-cohort rc=1 seconds=1.833
+FAIL reopen-dormant rc=0 state=forwarded seconds=1.789
+idle-team fixture state=observing reason=-
+idle-team harness state=protected reason=owner
+idle-team root state=protected reason=owner
+idle-team fixture state=candidate reason=-
+idle-team harness state=protected reason=owner
+idle-team root state=protected reason=owner
+idle-team fixture state=protected reason=-
+idle-team harness state=protected reason=owner
+idle-team root state=protected reason=owner
+idle-team harness state=protected reason=owner
+idle-team root state=protected reason=owner
+READ [byz-fixture-master-claude#1->byz-harness-master-codex#1] #100
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+{"team": "fixture", "roster": "/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/r1452-y265w_yn/.fable-team/seats-fixture.json", "master": "byz-fixture-master-claude#1", "members": ["byz-fixture-master-claude#1", "byz-fixture-nano-claude#1", "byz-fixture-nano-claude#2"], "stopped": ["byz-fixture-master-claude#1", "byz-fixture-nano-claude#1", "byz-fixture-nano-claude#2"], "reason": "-", "trigger": "-", "request_seq": "-", "preserve": ["conversation-jsonl", "baton", "seat-resume", "uncommitted", "unpushed", "shared-state", "indices", "ledger", "HIL", "branches"], "cleanup_targets": ["seat-only-stamps", "owned-worktrees-after-preservation-proof", "existing-wt-clean-plans", "owned-scratch-copies-after-preservation-proof"], "requires_approval": true, "cleanup_verified": false, "state": "forwarded", "since": 0, "minimum_minutes": 60, "cohort": [], "forward_seq": 100}
+PHASE lifecycle seconds=1.791 failures=1
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+GREEN dormant-cohort rc=0 seconds=2.992
+PASS reopen-dormant rc=0 state=ready seconds=2.945
+PHASE lifecycle seconds=2.948 failures=0
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+REGRESSION dormant-cohort rc=0 seconds=5.244
+PASS root-owner rc=0 state=protected seconds=0.504
+PASS harness-owner rc=0 state=protected seconds=0.491
+PASS old-stop-ready rc=0 state=candidate seconds=0.995
+PASS reopen-ready-split rc=0 state=ready seconds=3.199
+PHASE lifecycle seconds=5.199 failures=0
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor

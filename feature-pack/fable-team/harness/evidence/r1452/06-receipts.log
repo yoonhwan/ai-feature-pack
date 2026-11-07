@@ -1,0 +1,8 @@
+RECEIPTS rc=0 seconds=13.095
+PASS hil rc=0 state=protected seconds=0.614
+PASS reopen rc=0 state=ready seconds=2.669
+PASS reopen-card rc=0 state=ready seconds=3.006
+PASS reopen-hil rc=0 state=ready seconds=3.066
+PASS reopen-hil-only rc=0 state=ready seconds=3.612
+PHASE lifecycle seconds=13.046 failures=0
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor

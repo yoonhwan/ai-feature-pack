@@ -1,0 +1,12 @@
+{
+  "base_head": "2e7a0bc21c3c38a7a720307842ce39ea7ef38016",
+  "before": "17-final staged snapshot / 5a9f528136b76930bfc378d25b2badb382dc21ef5e2860bfaf29c120ea73c604",
+  "diff_sha256": "582a0c041f90d5061c3590494ecf40b0e50b35543d41f4ffe8a6c26d0a6879d4",
+  "new_case_rc": 0,
+  "stat": " feature-pack/fable-team/harness/bin/ft-tick.sh     | 31 +++++++++---\n .../harness/kit/fable-team/bin/ft-tick.sh          | 31 +++++++++---\n .../tests/test_tick_inbox_tidy_default_r1450.sh    | 59 ++++++++++++++++++++--\n 3 files changed, 106 insertions(+), 15 deletions(-)\n",
+  "files": {
+    "feature-pack/fable-team/harness/bin/ft-tick.sh": "ccfc585b044bb102624f419c94ed489fd7af5e0d83bf90a3fc1050a70c602f87",
+    "feature-pack/fable-team/harness/kit/fable-team/bin/ft-tick.sh": "ccfc585b044bb102624f419c94ed489fd7af5e0d83bf90a3fc1050a70c602f87",
+    "feature-pack/fable-team/harness/tests/test_tick_inbox_tidy_default_r1450.sh": "eb387c027520a41effa7f06e5797ed645efe909fd9ac319ff13e90471fc871d7"
+  }
+}

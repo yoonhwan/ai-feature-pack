@@ -7,7 +7,8 @@ import json
 import os
 import re
 import time
-from datetime import datetime
+from collections import Counter
+from datetime import datetime, timedelta
 
 from ft_inbox_core import INBOX, answered_seqs, die, lineage, locked, obligation_closed, qpath, read_q, write_q
 
@@ -29,6 +30,25 @@ def cmd_count(seat):
     og = open_groups(read_q(qpath(seat)), ans)
     un = [x["seq"] for ms in og.values() for x in ms if not obligation_closed(x, ans)]
     print(f"OPEN {len(og)}" + (f"\nOLDEST seq={min(un)}" if un else ""))
+
+
+def tidy_hits(rows, cut):
+    """Locked waive selection: repeated old tool notices, preserving human/HIL/outage rows."""
+    cut = min(cut, datetime.now(cut.tzinfo) - timedelta(days=3))
+    repeats = Counter((x["from"], x["cls"]) for x in rows)
+    human_after = {}
+    for x in rows:
+        if not x["from"].startswith("ft-"):
+            human_after[x["group"]] = max(human_after.get(x["group"], -1), x["seq"])
+    hit = []
+    for x in sorted(rows, key=lambda row: row["seq"]):
+        if (datetime.fromisoformat(x["ts"]) < cut and x["from"].startswith("ft-")
+                and repeats[x["from"], x["cls"]] >= 2 and x["cls"] not in ("②", "④")
+                and human_after.get(x["group"], -1) <= x["seq"] and not obligation_closed(x)):
+            hit.append(x)
+            if len(hit) == 200:
+                break
+    return hit
 
 
 def cmd_rotate(seat, before, reason):

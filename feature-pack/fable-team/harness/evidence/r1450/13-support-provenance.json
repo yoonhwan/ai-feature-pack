@@ -1,0 +1,16 @@
+{
+  "source": "/tmp/r1450-haswork-test-support-100526.log",
+  "duplicate": "/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/state/evidence/r1450-haswork-test-support-100526.log",
+  "sha256": "12528f7a2241d6e5f264fcdeaee6bca9cda99c100fcf3e7b06b050c64a8240b1",
+  "bytes": 2736,
+  "cases": 18,
+  "entry_verdicts": 36,
+  "pass_lines": 37,
+  "fail_lines": 0,
+  "run_rc_reported_in_mbox": 0,
+  "mbox_source": 270879,
+  "phase_lines": [
+    "PHASE fixtures seconds=3.359 failures=0",
+    "PASS team-dry-run rc=0 seconds=0.206"
+  ]
+}

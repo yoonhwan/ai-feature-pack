@@ -1,0 +1,10 @@
+REOPEN rc=0 seconds=15.939
+PASS reopen rc=0 state=ready seconds=3.505
+PASS reopen-card rc=0 state=ready seconds=2.383
+PASS reopen-hil rc=0 state=ready seconds=2.240
+PASS reopen-hil-only rc=0 state=ready seconds=2.125
+PASS reopen-no-ready rc=0 state=waiting_ready seconds=2.055
+PASS reopen-read-none rc=0 state=forwarded seconds=1.270
+PASS reopen-ready-split rc=0 state=ready seconds=2.294
+PHASE lifecycle seconds=15.891 failures=0
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
