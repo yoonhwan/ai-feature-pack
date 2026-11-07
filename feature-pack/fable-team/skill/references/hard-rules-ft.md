@@ -32,3 +32,6 @@
 - **승격은 사람이**: 좌석 3회 반복 → 팀, 팀을 넘어 반복 → 전역 다이제스트. 자동 승격 없음(잘못된 일반화가 전 좌석에 퍼지는 것을 막는다).
 - **저장 전 스캔**: 주입·유출 유도 문장은 REJECT. 상한 2배 초과(손편집 drift)면 `.drift-*.bak` 저장 후 rc1.
 - 대조 근거 = `feature-pack/fable-team/docs/design-memory-evolution-repos-20261106.md`.
+
+- **ft 좌석 tick 간격 상한 300초 · 운영값 280초** (오빠 지시). 「300초 초과 = 전체 재작성」은 거짓 — 캐시는 5분·1시간 두 등급이다. 실측·비용 판정은 요청 단위 분리집계 필요 → `~/.claude/skills/fable-team/references/cache-ttl-300.md`
+- **mbox 는 읽기 전 pending 확인, 동일내용 반복 recv 억제** — 단 peek 도 모델 왕복이므로 비모델 gate 에서 판정한다. 새 발주·긴급 정정 재수신은 허용. `pending 0` ≠ 미완료 카드 0 → `~/.claude/skills/fable-team/references/mbox-no-empty-read.md`
