@@ -384,8 +384,18 @@ def child_teams(payload: dict):
     if not plan:
         return
     seats = sorted({s for v in plan.values() for s in v[0]})
+    # PI ADAPTER BEGIN
+    from ft_seat_pi import is_pi
+    from ft_team_turns import locate_pi
+    pi_seats = [s for s in seats if is_pi(s, str(root / ".fable-team"))]
+    pi_where = locate_pi(pi_seats, payload.get("tmux") or "tmux") if pi_seats else {}
+    seats = [s for s in seats if s not in pi_seats]
+    # PI ADAPTER END
     try:
         where = locate(seats, payload.get("tmux") or "tmux", Path(payload["projects"]))  # 원천 1회(좌석별 하위 0)
+        # PI ADAPTER BEGIN
+        where.update(pi_where)
+        # PI ADAPTER END
     except Exception as e:  # noqa: BLE001 — 원천 통째 실패 = 이 팀들만
         for t in plan:
             yield _origin_line(t, e)

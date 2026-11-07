@@ -1,0 +1,312 @@
+단계 RED 1.227초 rc=1
+FFFFFFFFF..FFF                                                           [100%]
+=================================== FAILURES ===================================
+____________________ test_contract_turns[records0-WORKING] _____________________
+
+world = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-288/test_contract_turns...olders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-288/test_contract_turns_records0_W0/.fable-team'))
+records = [{'message': {'role': 'assistant', 'stopReason': 'toolUse'}, 'timestamp': '2026-11-07T01:00:00Z', 'type': 'message'}]
+state = 'WORKING'
+
+    @pytest.mark.parametrize("records,state", [
+        ([message(stopReason="toolUse")], "WORKING"),
+        ([message(stopReason="toolUse"), message("toolResult")], "WORKING"),
+        ([message(stopReason="stop"), message("user")], "PENDING"),
+        ([message(stopReason="stop", content=[{"type": "text", "text": "queued retry pending"}])], "IDLE"),
+        ([message(stopReason="error", errorMessage='503 {"error":{"type":"rate_limit_error"}}')], "RATELIMITED"),
+        ([message(stopReason="aborted", errorMessage="invalid_api_key")], "LOGGEDOUT"),
+        ([message(stopReason="error", errorMessage="503 api_error")], "UNAVAILABLE"),
+        ([message()], "UNKNOWN"),
+        ([message(stopReason=None), {"type": "context_edit", "timestamp": "ignored"}], "IDLE"),
+    ])
+    def test_contract_turns(world, records, state):
+        write(world, records)
+        result = run(world)
+>       assert result.returncode == 0, result.stderr
+E       AssertionError: /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.venv/bin/python: can't open file '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/pi-seat-status-adapter/feature-pack/fable-team/harness/bin/ft_seat_pi.py': [Errno 2] No such file or directory
+E         
+E       assert 2 == 0
+E        +  where 2 = CompletedProcess(args=['/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.venv/bin/python', '/Users/yoonhwan/Project/...rees/pi-seat-status-adapter/feature-pack/fable-team/harness/bin/ft_seat_pi.py': [Errno 2] No such file or directory\n").returncode
+
+feature-pack/fable-team/harness/tests/scripts/test_ft_seat_pi.py:72: AssertionError
+____________________ test_contract_turns[records1-WORKING] _____________________
+
+world = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-288/test_contract_turns...olders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-288/test_contract_turns_records1_W0/.fable-team'))
+records = [{'message': {'role': 'assistant', 'stopReason': 'toolUse'}, 'timestamp': '2026-11-07T01:00:00Z', 'type': 'message'}, {'message': {'role': 'toolResult'}, 'timestamp': '2026-11-07T01:00:00Z', 'type': 'message'}]
+state = 'WORKING'
+
+    @pytest.mark.parametrize("records,state", [
+        ([message(stopReason="toolUse")], "WORKING"),
+        ([message(stopReason="toolUse"), message("toolResult")], "WORKING"),
+        ([message(stopReason="stop"), message("user")], "PENDING"),
+        ([message(stopReason="stop", content=[{"type": "text", "text": "queued retry pending"}])], "IDLE"),
+        ([message(stopReason="error", errorMessage='503 {"error":{"type":"rate_limit_error"}}')], "RATELIMITED"),
+        ([message(stopReason="aborted", errorMessage="invalid_api_key")], "LOGGEDOUT"),
+        ([message(stopReason="error", errorMessage="503 api_error")], "UNAVAILABLE"),
+        ([message()], "UNKNOWN"),
+        ([message(stopReason=None), {"type": "context_edit", "timestamp": "ignored"}], "IDLE"),
+    ])
+    def test_contract_turns(world, records, state):
+        write(world, records)
+        result = run(world)
+>       assert result.returncode == 0, result.stderr
+E       AssertionError: /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.venv/bin/python: can't open file '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/pi-seat-status-adapter/feature-pack/fable-team/harness/bin/ft_seat_pi.py': [Errno 2] No such file or directory
+E         
+E       assert 2 == 0
+E        +  where 2 = CompletedProcess(args=['/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.venv/bin/python', '/Users/yoonhwan/Project/...rees/pi-seat-status-adapter/feature-pack/fable-team/harness/bin/ft_seat_pi.py': [Errno 2] No such file or directory\n").returncode
+
+feature-pack/fable-team/harness/tests/scripts/test_ft_seat_pi.py:72: AssertionError
+____________________ test_contract_turns[records2-PENDING] _____________________
+
+world = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-288/test_contract_turns...olders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-288/test_contract_turns_records2_P0/.fable-team'))
+records = [{'message': {'role': 'assistant', 'stopReason': 'stop'}, 'timestamp': '2026-11-07T01:00:00Z', 'type': 'message'}, {'message': {'role': 'user'}, 'timestamp': '2026-11-07T01:00:00Z', 'type': 'message'}]
+state = 'PENDING'
+
+    @pytest.mark.parametrize("records,state", [
+        ([message(stopReason="toolUse")], "WORKING"),
+        ([message(stopReason="toolUse"), message("toolResult")], "WORKING"),
+        ([message(stopReason="stop"), message("user")], "PENDING"),
+        ([message(stopReason="stop", content=[{"type": "text", "text": "queued retry pending"}])], "IDLE"),
+        ([message(stopReason="error", errorMessage='503 {"error":{"type":"rate_limit_error"}}')], "RATELIMITED"),
+        ([message(stopReason="aborted", errorMessage="invalid_api_key")], "LOGGEDOUT"),
+        ([message(stopReason="error", errorMessage="503 api_error")], "UNAVAILABLE"),
+        ([message()], "UNKNOWN"),
+        ([message(stopReason=None), {"type": "context_edit", "timestamp": "ignored"}], "IDLE"),
+    ])
+    def test_contract_turns(world, records, state):
+        write(world, records)
+        result = run(world)
+>       assert result.returncode == 0, result.stderr
+E       AssertionError: /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.venv/bin/python: can't open file '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/pi-seat-status-adapter/feature-pack/fable-team/harness/bin/ft_seat_pi.py': [Errno 2] No such file or directory
+E         
+E       assert 2 == 0
+E        +  where 2 = CompletedProcess(args=['/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.venv/bin/python', '/Users/yoonhwan/Project/...rees/pi-seat-status-adapter/feature-pack/fable-team/harness/bin/ft_seat_pi.py': [Errno 2] No such file or directory\n").returncode
+
+feature-pack/fable-team/harness/tests/scripts/test_ft_seat_pi.py:72: AssertionError
+______________________ test_contract_turns[records3-IDLE] ______________________
+
+world = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-288/test_contract_turns...olders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-288/test_contract_turns_records3_I0/.fable-team'))
+records = [{'message': {'content': [{'text': 'queued retry pending', 'type': 'text'}], 'role': 'assistant', 'stopReason': 'stop'}, 'timestamp': '2026-11-07T01:00:00Z', 'type': 'message'}]
+state = 'IDLE'
+
+    @pytest.mark.parametrize("records,state", [
+        ([message(stopReason="toolUse")], "WORKING"),
+        ([message(stopReason="toolUse"), message("toolResult")], "WORKING"),
+        ([message(stopReason="stop"), message("user")], "PENDING"),
+        ([message(stopReason="stop", content=[{"type": "text", "text": "queued retry pending"}])], "IDLE"),
+        ([message(stopReason="error", errorMessage='503 {"error":{"type":"rate_limit_error"}}')], "RATELIMITED"),
+        ([message(stopReason="aborted", errorMessage="invalid_api_key")], "LOGGEDOUT"),
+        ([message(stopReason="error", errorMessage="503 api_error")], "UNAVAILABLE"),
+        ([message()], "UNKNOWN"),
+        ([message(stopReason=None), {"type": "context_edit", "timestamp": "ignored"}], "IDLE"),
+    ])
+    def test_contract_turns(world, records, state):
+        write(world, records)
+        result = run(world)
+>       assert result.returncode == 0, result.stderr
+E       AssertionError: /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.venv/bin/python: can't open file '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/pi-seat-status-adapter/feature-pack/fable-team/harness/bin/ft_seat_pi.py': [Errno 2] No such file or directory
+E         
+E       assert 2 == 0
+E        +  where 2 = CompletedProcess(args=['/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.venv/bin/python', '/Users/yoonhwan/Project/...rees/pi-seat-status-adapter/feature-pack/fable-team/harness/bin/ft_seat_pi.py': [Errno 2] No such file or directory\n").returncode
+
+feature-pack/fable-team/harness/tests/scripts/test_ft_seat_pi.py:72: AssertionError
+__________________ test_contract_turns[records4-RATELIMITED] ___________________
+
+world = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-288/test_contract_turns...olders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-288/test_contract_turns_records4_R0/.fable-team'))
+records = [{'message': {'errorMessage': '503 {"error":{"type":"rate_limit_error"}}', 'role': 'assistant', 'stopReason': 'error'}, 'timestamp': '2026-11-07T01:00:00Z', 'type': 'message'}]
+state = 'RATELIMITED'
+
+    @pytest.mark.parametrize("records,state", [
+        ([message(stopReason="toolUse")], "WORKING"),
+        ([message(stopReason="toolUse"), message("toolResult")], "WORKING"),
+        ([message(stopReason="stop"), message("user")], "PENDING"),
+        ([message(stopReason="stop", content=[{"type": "text", "text": "queued retry pending"}])], "IDLE"),
+        ([message(stopReason="error", errorMessage='503 {"error":{"type":"rate_limit_error"}}')], "RATELIMITED"),
+        ([message(stopReason="aborted", errorMessage="invalid_api_key")], "LOGGEDOUT"),
+        ([message(stopReason="error", errorMessage="503 api_error")], "UNAVAILABLE"),
+        ([message()], "UNKNOWN"),
+        ([message(stopReason=None), {"type": "context_edit", "timestamp": "ignored"}], "IDLE"),
+    ])
+    def test_contract_turns(world, records, state):
+        write(world, records)
+        result = run(world)
+>       assert result.returncode == 0, result.stderr
+E       AssertionError: /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.venv/bin/python: can't open file '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/pi-seat-status-adapter/feature-pack/fable-team/harness/bin/ft_seat_pi.py': [Errno 2] No such file or directory
+E         
+E       assert 2 == 0
+E        +  where 2 = CompletedProcess(args=['/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.venv/bin/python', '/Users/yoonhwan/Project/...rees/pi-seat-status-adapter/feature-pack/fable-team/harness/bin/ft_seat_pi.py': [Errno 2] No such file or directory\n").returncode
+
+feature-pack/fable-team/harness/tests/scripts/test_ft_seat_pi.py:72: AssertionError
+___________________ test_contract_turns[records5-LOGGEDOUT] ____________________
+
+world = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-288/test_contract_turns...olders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-288/test_contract_turns_records5_L0/.fable-team'))
+records = [{'message': {'errorMessage': 'invalid_api_key', 'role': 'assistant', 'stopReason': 'aborted'}, 'timestamp': '2026-11-07T01:00:00Z', 'type': 'message'}]
+state = 'LOGGEDOUT'
+
+    @pytest.mark.parametrize("records,state", [
+        ([message(stopReason="toolUse")], "WORKING"),
+        ([message(stopReason="toolUse"), message("toolResult")], "WORKING"),
+        ([message(stopReason="stop"), message("user")], "PENDING"),
+        ([message(stopReason="stop", content=[{"type": "text", "text": "queued retry pending"}])], "IDLE"),
+        ([message(stopReason="error", errorMessage='503 {"error":{"type":"rate_limit_error"}}')], "RATELIMITED"),
+        ([message(stopReason="aborted", errorMessage="invalid_api_key")], "LOGGEDOUT"),
+        ([message(stopReason="error", errorMessage="503 api_error")], "UNAVAILABLE"),
+        ([message()], "UNKNOWN"),
+        ([message(stopReason=None), {"type": "context_edit", "timestamp": "ignored"}], "IDLE"),
+    ])
+    def test_contract_turns(world, records, state):
+        write(world, records)
+        result = run(world)
+>       assert result.returncode == 0, result.stderr
+E       AssertionError: /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.venv/bin/python: can't open file '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/pi-seat-status-adapter/feature-pack/fable-team/harness/bin/ft_seat_pi.py': [Errno 2] No such file or directory
+E         
+E       assert 2 == 0
+E        +  where 2 = CompletedProcess(args=['/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.venv/bin/python', '/Users/yoonhwan/Project/...rees/pi-seat-status-adapter/feature-pack/fable-team/harness/bin/ft_seat_pi.py': [Errno 2] No such file or directory\n").returncode
+
+feature-pack/fable-team/harness/tests/scripts/test_ft_seat_pi.py:72: AssertionError
+__________________ test_contract_turns[records6-UNAVAILABLE] ___________________
+
+world = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-288/test_contract_turns...olders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-288/test_contract_turns_records6_U0/.fable-team'))
+records = [{'message': {'errorMessage': '503 api_error', 'role': 'assistant', 'stopReason': 'error'}, 'timestamp': '2026-11-07T01:00:00Z', 'type': 'message'}]
+state = 'UNAVAILABLE'
+
+    @pytest.mark.parametrize("records,state", [
+        ([message(stopReason="toolUse")], "WORKING"),
+        ([message(stopReason="toolUse"), message("toolResult")], "WORKING"),
+        ([message(stopReason="stop"), message("user")], "PENDING"),
+        ([message(stopReason="stop", content=[{"type": "text", "text": "queued retry pending"}])], "IDLE"),
+        ([message(stopReason="error", errorMessage='503 {"error":{"type":"rate_limit_error"}}')], "RATELIMITED"),
+        ([message(stopReason="aborted", errorMessage="invalid_api_key")], "LOGGEDOUT"),
+        ([message(stopReason="error", errorMessage="503 api_error")], "UNAVAILABLE"),
+        ([message()], "UNKNOWN"),
+        ([message(stopReason=None), {"type": "context_edit", "timestamp": "ignored"}], "IDLE"),
+    ])
+    def test_contract_turns(world, records, state):
+        write(world, records)
+        result = run(world)
+>       assert result.returncode == 0, result.stderr
+E       AssertionError: /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.venv/bin/python: can't open file '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/pi-seat-status-adapter/feature-pack/fable-team/harness/bin/ft_seat_pi.py': [Errno 2] No such file or directory
+E         
+E       assert 2 == 0
+E        +  where 2 = CompletedProcess(args=['/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.venv/bin/python', '/Users/yoonhwan/Project/...rees/pi-seat-status-adapter/feature-pack/fable-team/harness/bin/ft_seat_pi.py': [Errno 2] No such file or directory\n").returncode
+
+feature-pack/fable-team/harness/tests/scripts/test_ft_seat_pi.py:72: AssertionError
+____________________ test_contract_turns[records7-UNKNOWN] _____________________
+
+world = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-288/test_contract_turns...olders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-288/test_contract_turns_records7_U0/.fable-team'))
+records = [{'message': {'role': 'assistant'}, 'timestamp': '2026-11-07T01:00:00Z', 'type': 'message'}]
+state = 'UNKNOWN'
+
+    @pytest.mark.parametrize("records,state", [
+        ([message(stopReason="toolUse")], "WORKING"),
+        ([message(stopReason="toolUse"), message("toolResult")], "WORKING"),
+        ([message(stopReason="stop"), message("user")], "PENDING"),
+        ([message(stopReason="stop", content=[{"type": "text", "text": "queued retry pending"}])], "IDLE"),
+        ([message(stopReason="error", errorMessage='503 {"error":{"type":"rate_limit_error"}}')], "RATELIMITED"),
+        ([message(stopReason="aborted", errorMessage="invalid_api_key")], "LOGGEDOUT"),
+        ([message(stopReason="error", errorMessage="503 api_error")], "UNAVAILABLE"),
+        ([message()], "UNKNOWN"),
+        ([message(stopReason=None), {"type": "context_edit", "timestamp": "ignored"}], "IDLE"),
+    ])
+    def test_contract_turns(world, records, state):
+        write(world, records)
+        result = run(world)
+>       assert result.returncode == 0, result.stderr
+E       AssertionError: /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.venv/bin/python: can't open file '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/pi-seat-status-adapter/feature-pack/fable-team/harness/bin/ft_seat_pi.py': [Errno 2] No such file or directory
+E         
+E       assert 2 == 0
+E        +  where 2 = CompletedProcess(args=['/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.venv/bin/python', '/Users/yoonhwan/Project/...rees/pi-seat-status-adapter/feature-pack/fable-team/harness/bin/ft_seat_pi.py': [Errno 2] No such file or directory\n").returncode
+
+feature-pack/fable-team/harness/tests/scripts/test_ft_seat_pi.py:72: AssertionError
+______________________ test_contract_turns[records8-IDLE] ______________________
+
+world = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-288/test_contract_turns...olders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-288/test_contract_turns_records8_I0/.fable-team'))
+records = [{'message': {'role': 'assistant', 'stopReason': None}, 'timestamp': '2026-11-07T01:00:00Z', 'type': 'message'}, {'timestamp': 'ignored', 'type': 'context_edit'}]
+state = 'IDLE'
+
+    @pytest.mark.parametrize("records,state", [
+        ([message(stopReason="toolUse")], "WORKING"),
+        ([message(stopReason="toolUse"), message("toolResult")], "WORKING"),
+        ([message(stopReason="stop"), message("user")], "PENDING"),
+        ([message(stopReason="stop", content=[{"type": "text", "text": "queued retry pending"}])], "IDLE"),
+        ([message(stopReason="error", errorMessage='503 {"error":{"type":"rate_limit_error"}}')], "RATELIMITED"),
+        ([message(stopReason="aborted", errorMessage="invalid_api_key")], "LOGGEDOUT"),
+        ([message(stopReason="error", errorMessage="503 api_error")], "UNAVAILABLE"),
+        ([message()], "UNKNOWN"),
+        ([message(stopReason=None), {"type": "context_edit", "timestamp": "ignored"}], "IDLE"),
+    ])
+    def test_contract_turns(world, records, state):
+        write(world, records)
+        result = run(world)
+>       assert result.returncode == 0, result.stderr
+E       AssertionError: /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.venv/bin/python: can't open file '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/pi-seat-status-adapter/feature-pack/fable-team/harness/bin/ft_seat_pi.py': [Errno 2] No such file or directory
+E         
+E       assert 2 == 0
+E        +  where 2 = CompletedProcess(args=['/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.venv/bin/python', '/Users/yoonhwan/Project/...rees/pi-seat-status-adapter/feature-pack/fable-team/harness/bin/ft_seat_pi.py': [Errno 2] No such file or directory\n").returncode
+
+feature-pack/fable-team/harness/tests/scripts/test_ft_seat_pi.py:72: AssertionError
+_________________________ test_restart_uses_live_uuid __________________________
+
+world = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-288/test_restart_uses_l...r/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-288/test_restart_uses_live_uuid0/.fable-team'))
+
+    def test_restart_uses_live_uuid(world):
+        write(world, [message(stopReason="stop")], name="old", sid="old-session")
+        write(world, [message(stopReason="toolUse")], name="new")
+>       assert run(world).stdout.startswith("WORKING\t")
+E       assert False
+E        +  where False = <built-in method startswith of str object at 0x102df4a98>('WORKING\t')
+E        +    where <built-in method startswith of str object at 0x102df4a98> = ''.startswith
+E        +      where '' = CompletedProcess(args=['/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.venv/bin/python', '/Users/yoonhwan/Project/...rees/pi-seat-status-adapter/feature-pack/fable-team/harness/bin/ft_seat_pi.py': [Errno 2] No such file or directory\n").stdout
+E        +        where CompletedProcess(args=['/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.venv/bin/python', '/Users/yoonhwan/Project/...rees/pi-seat-status-adapter/feature-pack/fable-team/harness/bin/ft_seat_pi.py': [Errno 2] No such file or directory\n") = run((PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-288/test_restart_uses_l...r/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-288/test_restart_uses_live_uuid0/.fable-team')))
+
+feature-pack/fable-team/harness/tests/scripts/test_ft_seat_pi.py:93: AssertionError
+______________________________ test_non_pi_is_rc3 ______________________________
+
+world = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-288/test_non_pi_is_rc30...rivate/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-288/test_non_pi_is_rc30/.fable-team'))
+
+    def test_non_pi_is_rc3(world):
+        (world[2] / "seats.json").write_text(json.dumps({SEAT: {"agent": "claude"}}), encoding="utf-8")
+        result = run(world)
+>       assert result.returncode == 3 and result.stdout == ""
+E       assert (2 == 3)
+E        +  where 2 = CompletedProcess(args=['/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.venv/bin/python', '/Users/yoonhwan/Project/...rees/pi-seat-status-adapter/feature-pack/fable-team/harness/bin/ft_seat_pi.py': [Errno 2] No such file or directory\n").returncode
+
+feature-pack/fable-team/harness/tests/scripts/test_ft_seat_pi.py:99: AssertionError
+_______________ test_external_timeout_is_bounded_and_fail_closed _______________
+
+world = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-288/test_external_timeo...olders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-288/test_external_timeout_is_bound0/.fable-team'))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10630dc10>
+
+    def test_external_timeout_is_bounded_and_fail_closed(world, monkeypatch):
+        spec = importlib.util.spec_from_file_location("ft_seat_pi", BIN / "ft_seat_pi.py")
+        module = importlib.util.module_from_spec(spec)
+>       spec.loader.exec_module(module)
+
+feature-pack/fable-team/harness/tests/scripts/test_ft_seat_pi.py:105: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+<frozen importlib._bootstrap_external>:1019: in exec_module
+    ???
+<frozen importlib._bootstrap_external>:1156: in get_code
+    ???
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <_frozen_importlib_external.SourceFileLoader object at 0x1061ef830>
+path = '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/pi-seat-status-adapter/feature-pack/fable-team/harness/bin/ft_seat_pi.py'
+
+>   ???
+E   FileNotFoundError: [Errno 2] No such file or directory: '/Users/yoonhwan/Project/ai-feature-pack/.worktrees/pi-seat-status-adapter/feature-pack/fable-team/harness/bin/ft_seat_pi.py'
+
+<frozen importlib._bootstrap_external>:1214: FileNotFoundError
+=========================== short test summary info ============================
+FAILED feature-pack/fable-team/harness/tests/scripts/test_ft_seat_pi.py::test_contract_turns[records0-WORKING]
+FAILED feature-pack/fable-team/harness/tests/scripts/test_ft_seat_pi.py::test_contract_turns[records1-WORKING]
+FAILED feature-pack/fable-team/harness/tests/scripts/test_ft_seat_pi.py::test_contract_turns[records2-PENDING]
+FAILED feature-pack/fable-team/harness/tests/scripts/test_ft_seat_pi.py::test_contract_turns[records3-IDLE]
+FAILED feature-pack/fable-team/harness/tests/scripts/test_ft_seat_pi.py::test_contract_turns[records4-RATELIMITED]
+FAILED feature-pack/fable-team/harness/tests/scripts/test_ft_seat_pi.py::test_contract_turns[records5-LOGGEDOUT]
+FAILED feature-pack/fable-team/harness/tests/scripts/test_ft_seat_pi.py::test_contract_turns[records6-UNAVAILABLE]
+FAILED feature-pack/fable-team/harness/tests/scripts/test_ft_seat_pi.py::test_contract_turns[records7-UNKNOWN]
+FAILED feature-pack/fable-team/harness/tests/scripts/test_ft_seat_pi.py::test_contract_turns[records8-IDLE]
+FAILED feature-pack/fable-team/harness/tests/scripts/test_ft_seat_pi.py::test_restart_uses_live_uuid
+FAILED feature-pack/fable-team/harness/tests/scripts/test_ft_seat_pi.py::test_non_pi_is_rc3
+FAILED feature-pack/fable-team/harness/tests/scripts/test_ft_seat_pi.py::test_external_timeout_is_bounded_and_fail_closed
+12 failed, 2 passed in 0.68s

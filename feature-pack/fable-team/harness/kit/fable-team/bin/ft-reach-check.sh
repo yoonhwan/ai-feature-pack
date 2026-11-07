@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ★런타임 사본은 git 추적 밖이다(작동 원리 — README 참조). 추적 백업: harness/comm/ · 드리프트 확인: harness/comm/check-drift.sh
+# ★런타임 사본은 git 추적 밖이다(작동 원리 — README 참조). 추적 백업: tools/comm-canonical/ · 드리프트 확인: tools/comm-canonical/check-drift.sh
 # 좌석에 보낸 텍스트가 ★실제로 제출됐는지★를 세션 jsonl 층에서 판정한다.
 #
 # ─ 왜 화면(capture-pane)으로는 안 되는가 ────────────────────────────────────
@@ -133,19 +133,7 @@ for path in sys.stdin.read().split("\n"):
                 rec = json.loads(line)
             except ValueError:
                 continue
-            # ★큐잉된 제출도 «제출»이다★ (2026-09-14 실측, Seatbelt 첫 spawn):
-            #   좌석이 작업 중일 때 들어간 doorbell 은 Claude Code 입력 큐로 가고, jsonl 에는
-            #   `type=="user"` 가 아니라 `{"type":"queue-operation","operation":"enqueue","content":…}`
-            #   (소비되면 `"remove"`) 로만 남는다. user 만 세면 «접수돼 처리 중인» 발주를 NOT_REACHED
-            #   로 읽고 ring 을 또 울린다 — 실측: 같은 발주가 enqueue 2회(1차 + 재발주). 그 중복이
-            #   이 스크립트가 없애려던 병이다. enqueue = UI 가 받았다 = 제출. 그래서 함께 센다.
-            t = rec.get("type")
-            if t == "queue-operation":
-                if rec.get("operation") == "enqueue" and marker in (rec.get("content") or ""):
-                    n += 1
-                    hits.append(os.path.basename(path) + "(queued)")
-                continue
-            if t != "user":
+            if rec.get("type") != "user":
                 continue
             content = rec.get("message", {}).get("content")
             if isinstance(content, list):
@@ -176,51 +164,56 @@ seat_is_pi() {
 }
 pi_root() { printf '%s' "${FT_PI_SESSIONS_DIR:-$HOME/.pi/agent/sessions}"; }
 pi_seat_dir() {
-    local cwd
-    cwd="$(tmux display-message -p -t "$SESSION" '#{pane_current_path}' 2>/dev/null)"
-    [ -n "$cwd" ] || return 1
-    printf '%s/--%s--' "$(pi_root)" "$(printf '%s' "$cwd" | sed -e 's|^[/\\]||' -e 's|[/\\:]|-|g')"
+    pi_root
 }
 pi_count_submitted() {
-    local dir="$1" mine
-    [ -d "$dir" ] || { echo "  pi: 좌석 대화 기록 아직 없음: $dir (pi 는 첫 제출 뒤에 파일을 만든다)" >&2; echo 0; return 0; }
-    mine="$(grep -lF -- "\"name\":\"$SESSION\"" "$dir"/*.jsonl 2>/dev/null)"
-    [ -n "$mine" ] || { echo "  pi: 좌석 파일 없음($SESSION) — session_info.name 일치 0 · 전수로 넓히지 않는다" >&2; echo 0; return 0; }
-    printf '%s\n' "$mine" | SEAT="$SESSION" MARKER="$MARKER" python3 -c '
-import json, os, sys
-seat, marker = os.environ["SEAT"], os.environ["MARKER"]
-n = 0
-for path in sys.stdin.read().split("\n"):
-    if not path:
-        continue
-    try:
-        fh = open(path, encoding="utf-8")
-    except OSError:
-        continue
-    named, hits = False, 0
-    with fh:
-        for line in fh:
-            if "\"session_info\"" not in line and marker not in line:
+    python3 - "$(dirname "${BASH_SOURCE[0]}")" "$SESSION" "$MARKER" <<'PY'
+import json, subprocess, sys
+from pathlib import Path
+try:
+    here = Path(sys.argv[1]).resolve()
+    pointer = here.parent / "LIVE_BIN"
+    candidates = []
+    if pointer.is_file():
+        with pointer.open(encoding="utf-8") as stream:
+            live_bin = Path(stream.readline().strip())
+        if not live_bin.is_absolute():
+            raise ValueError("LIVE_BIN 절대경로 확인 불가")
+        candidates.append((live_bin, "LIVE_BIN"))
+    elif (here / "ft_seat_pi.py").is_file():
+        candidates.append((here, "live bin"))
+    candidates.append((here.parent / "bin", "root/bin"))
+    for module_dir, source in candidates:
+        module = module_dir / "ft_seat_pi.py"
+        if not module.is_file():
+            continue
+        with module.open(encoding="utf-8") as stream:
+            if "# ft-root-bin-shim:" in stream.readline() + stream.readline():
                 continue
-            try:
-                rec = json.loads(line)
-            except ValueError:
-                continue
-            if rec.get("type") == "session_info":
-                named = named or rec.get("name") == seat
-                continue
+        if source == "root/bin":
+            print("Pi module fallback: LIVE_BIN 실모듈 확인 불가; root/bin 실제 모듈 사용", file=sys.stderr)
+        break
+    else:
+        raise ValueError("Pi 실제 모듈 폴더 확인 불가")
+    sys.path.insert(0, str(module_dir))
+    from ft_seat_pi import locate
+    path = locate(sys.argv[2])[0]
+    hits = 0
+    with open(path, encoding="utf-8") as stream:
+        for line in stream:
+            rec = json.loads(line)
             msg = rec.get("message") or {}
             if rec.get("type") != "message" or msg.get("role") != "user":
                 continue
             content = msg.get("content")
             if isinstance(content, list):
                 content = " ".join(p.get("text", "") for p in content if isinstance(p, dict))
-            if isinstance(content, str) and marker in content:
-                hits += 1
-    if named:
-        n += hits
-print(n)
-'
+            hits += isinstance(content, str) and sys.argv[3] in content
+    print(hits)
+except (OSError, ValueError, RuntimeError, ImportError, subprocess.SubprocessError):
+    print("판정 불가 Pi 도달: 유일 세션 결속/기록 확인 실패", file=sys.stderr)
+    raise SystemExit(5)
+PY
 }
 PI=0; seat_is_pi && PI=1
 # ─ pi 좌석 끝 ─────────────────────────────────────────────────────────────────
@@ -240,6 +233,11 @@ DIR="$(seat_projects_dir)" || {
 #   판정 불가로 남길 것은 «pane cwd 를 못 읽었다»(세션 없음) 하나뿐이다 — 바로 위에서 갈랐다.
 #   호출자 계약: rc≠0 을 «빈 값» 으로 삼키지 말고 최종 판정을 판정 불가(rc5)로 내야 한다(하드 룰 #0).
 if [ -n "${FT_REACH_COUNT_ONLY:-}" ]; then
+    # PI ADAPTER BEGIN
+    if [ "$PI" = 1 ]; then
+        pi_count_submitted "$DIR"; exit $?
+    fi
+    # PI ADAPTER END
     count_submitted "$DIR" 2>/dev/null
     exit 0
 fi
@@ -254,6 +252,11 @@ if [ "$PI" = 0 ] && [ ! -d "$DIR" ]; then
     exit 5
 fi
 
+# PI ADAPTER BEGIN
+if [ "$PI" = 1 ] && [ -z "$BASELINE" ]; then
+    BASELINE="$(pi_count_submitted "$DIR")" || exit 5
+fi
+# PI ADAPTER END
 if [ -z "$BASELINE" ]; then
     BASELINE="$(count_submitted "$DIR" 2>/dev/null)"
 fi
@@ -263,6 +266,11 @@ fi
 DEADLINE=$(( $(date +%s) + TIMEOUT ))
 while :; do
     NOW="$(count_submitted "$DIR")"
+    # PI ADAPTER BEGIN
+    if [ "$PI" = 1 ]; then
+        case "$NOW" in ''|*[!0-9]*) echo "판정 불가 Pi 도달: 조회 실패" >&2; exit 5;; esac
+    fi
+    # PI ADAPTER END
     if [ "${NOW:-0}" -gt "${BASELINE:-0}" ]; then
         echo "REACHED session=$SESSION submitted=$NOW (baseline=$BASELINE) dir=${DIR##*/}"
         exit 0

@@ -114,20 +114,15 @@ def seat_facts(arg, env, root, seat, rd):   # r5 — 명부 경로·좌석 행·
     return (p, a, r, rd + "/" + seat + ".json")
 
 
-def pi_seat_resume(seat, model, retired_by):   # r960 ⓒ — pi 좌석 재개 기록 = 그 pane cwd 의 pi 세션 파일(가장 최근 1개 · 첫 줄 cwd 가 pane cwd 와 같고 timestamp ≥ 좌석 프로세스 시작) → (record|None, 이유)
-    #   폴더 이름 인코딩 추측 0 — 세션 파일 첫 줄(type=session)의 cwd 로 고른다. 뿌리는 FT_PI_SESSIONS(시험) 아니면 ~/.pi/agent/sessions.
-    pid, _, cwd = _pi_sh("tmux", "display", "-p", "-t", "=" + seat + ":", "#{pane_pid} #{pane_current_path}").strip().partition(" ")   # cwd 에 공백이 있어도 살린다(첫 칸 = pid)
-    pid = pid if pid.isdigit() else ""; cwd = cwd if pid else ""
-    if not cwd or not os.path.isdir(cwd): return None, PI_NOREC + " · pane cwd 못 읽음(tmux 좌석 없음·경로 아님)"
-    try: since = datetime.datetime.utcfromtimestamp(datetime.datetime.strptime(" ".join(_pi_sh("ps", "-o", "lstart=", "-p", pid).split()), "%a %b %d %H:%M:%S %Y").timestamp()).strftime("%Y-%m-%dT%H:%M:%S")
-    except ValueError: since = ""
-    best = None
-    for f in glob.glob(os.path.expanduser(os.environ.get("FT_PI_SESSIONS") or "~/.pi/agent/sessions") + "/*/*.jsonl"):
-        try: h = json.loads(open(f, encoding="utf-8").readline() or "{}")
-        except (OSError, ValueError): continue
-        if isinstance(h, dict) and h.get("type") == "session" and h.get("cwd") == cwd and str(h.get("timestamp") or "") >= since and (best is None or os.path.getmtime(f) > best[0]): best = (os.path.getmtime(f), f, h)
-    if not best: return None, PI_NOREC + f" · {cwd} 세션 파일 0"
-    use = model if isinstance(model, str) and model else _pi_model(best[1], best[2])   # r960-mut:firstline
-    if not use: return None, "pi 좌석 · model 못 읽음(세션 파일·명부)"
-    return collections.OrderedDict(name=seat, engine="pi", pid=int(pid), uuid=best[2].get("id"), jsonl=best[1], cwd=cwd, model=use, retired_by=retired_by,
-                                   at=datetime.datetime.now().isoformat(timespec="seconds"), binding=dict(source="pi-session", session=cwd)), ""
+def pi_seat_resume(seat, model, retired_by):   # Pi 계약 v3 — 상태 판정과 동일 locator만 사용한다.
+    from ft_seat_pi import locate
+    try:
+        path, head, pid, cwd = locate(seat)
+    except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
+        # PI_NOREC는 close가 자동 수용하므로 결속 오류에는 쓰지 않는다.
+        return None, "Pi 결속 판정 불가 · " + type(error).__name__
+    use = model if isinstance(model, str) and model else _pi_model(path, head)
+    if not use:
+        return None, "pi 좌석 · model 못 읽음(세션 파일·명부)"
+    return collections.OrderedDict(name=seat, engine="pi", pid=int(pid), uuid=head["id"], jsonl=path, cwd=cwd, model=use, retired_by=retired_by,
+                                   at=datetime.datetime.now().isoformat(timespec="seconds"), binding=dict(source="pi-session", session=seat, uuid=head["id"], jsonl=path, pid=int(pid))), ""
