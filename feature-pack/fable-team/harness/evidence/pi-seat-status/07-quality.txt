@@ -1,0 +1,20 @@
+단계 quality 0.114초 rc=0
+ruff new modules/tests rc=0
+All checks passed!
+
+bash -n source/ft-seat-status.sh rc=0
+bash -n kit/ft-seat-status.sh rc=0
+bash -n source/ft-seat-retire.sh rc=0
+bash -n kit/ft-seat-retire.sh rc=0
+bash -n source/ft-seat-close.sh rc=0
+bash -n kit/ft-seat-close.sh rc=0
+bash -n source/ft-reach-check.sh rc=0
+bash -n kit/ft-reach-check.sh rc=0
+compile ft_seat_pi.py rc=0
+compile ft_seat_pi_turn.py rc=0
+compile ft_roster_lib.py rc=0
+compile ft_seat_bind.py rc=0
+compile ft_team_turns.py rc=0
+compile ft_team_state.py rc=0
+compile ft-news-tree.py rc=0
+git diff --check rc=0

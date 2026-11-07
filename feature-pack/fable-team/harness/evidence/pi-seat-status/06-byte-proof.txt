@@ -1,0 +1,21 @@
+단계 byte-proof 0.062초 rc=0
+bin/ft_seat_codex.py: sha256=abdad84455d2b3d60855e0f5ab90061c35eab8b08c37540c8fc54838ca23491c base=current
+kit/fable-team/bin/ft_seat_codex.py: sha256=abdad84455d2b3d60855e0f5ab90061c35eab8b08c37540c8fc54838ca23491c base=current
+bin/ft_seat_turn.py: sha256=d6cc8b8416f550953d7e9aabda018e83d70bf1831776cc804738f65522cfce56 base=current
+kit/fable-team/bin/ft_seat_turn.py: sha256=d6cc8b8416f550953d7e9aabda018e83d70bf1831776cc804738f65522cfce56 base=current
+bin/ft_api_outage_util.py: sha256=514e9ff180ee211c240d45ed11230cafa1fc5873d4464c6bb701f6d2e1f266ba base=current
+kit/fable-team/bin/ft_api_outage_util.py: sha256=514e9ff180ee211c240d45ed11230cafa1fc5873d4464c6bb701f6d2e1f266ba base=current
+bin/ft_model_swap.py: sha256=70cbbb1fc3648dad4b0c0f6f31216c299fddffaec690a2f2e0772d1f7f35f378 base=current
+kit/fable-team/bin/ft_model_swap.py: sha256=70cbbb1fc3648dad4b0c0f6f31216c299fddffaec690a2f2e0772d1f7f35f378 base=current
+ft-seat-status.sh minus Pi insertions: sha256=f958261c5e9c66b819ce7734b4faf41ced753432fbb239293341eef00951d6c1 base=stripped
+source/kit cmp0: ft_seat_pi.py
+source/kit cmp0: ft_seat_pi_turn.py
+source/kit cmp0: ft-seat-status.sh
+source/kit cmp0: ft_team_turns.py
+source/kit cmp0: ft_team_state.py
+source/kit cmp0: ft-news-tree.py
+source/kit cmp0: ft_roster_lib.py
+source/kit cmp0: ft_seat_bind.py
+source/kit cmp0: ft-seat-retire.sh
+source/kit cmp0: ft-seat-close.sh
+source/kit cmp0: ft-reach-check.sh

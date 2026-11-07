@@ -70,7 +70,18 @@ pane_of() {
     | awk -F'|' -v s="$1" '$1==s{print $2; exit}'
 }
 
+# PI ADAPTER BEGIN
+pi_dispatch() {
+  [ "$(seat_field "$2" 2)" = pi ] || return 3
+  python3 "$(dirname "$0")/ft_seat_pi.py" "$1" "$(dirname "$SEATS_JSON")" "$2"
+}
+# PI ADAPTER END
 status_of() {
+  # PI ADAPTER BEGIN
+  local pi_rc
+  pi_dispatch --pane "$1"; pi_rc=$?
+  case "$pi_rc" in 0) return;; 3) ;; *) echo UNKNOWN; return;; esac
+  # PI ADAPTER END
   local p; p="$(pane_of "$1")"
   [ -n "$p" ] || { echo "NOSEAT"; return; }
   local cap; cap="$(tmux capture-pane -p -J -S -12 -t "$p" 2>/dev/null)"
@@ -91,6 +102,11 @@ seat_projects_dir() {
 # 좌석명 레코드(agent-name/custom-title)는 파일 «앞»에 쓰인다(339파일 전수: 첫 출현 최대 482KB).
 # 그래서 각 파일 앞 FT_SEAT_HEAD_BYTES(기본 1MB)만 읽는다. 그 밖에 있으면 못 보고 빈 값이 된다 — 상한을 늘려라.
 newest_jsonl_of() {
+  # PI ADAPTER BEGIN
+  local pi_rc
+  pi_dispatch --path "$1"; pi_rc=$?
+  [ "$pi_rc" = 3 ] || return "$pi_rc"
+  # PI ADAPTER END
   local dir
   dir="$(seat_projects_dir "$1")" || return 0
   # r571 — 폴더별 색인(ft_seat_jsonl_index.py). 답은 그대로, 읽는 양만 «새 파일·자란 파일의 앞부분» 으로.
@@ -99,6 +115,11 @@ newest_jsonl_of() {
 
 # 그 파일의 age(초). 매칭 0 → '-'
 jsonl_age_of() {
+  # PI ADAPTER BEGIN
+  local pi_rc
+  pi_dispatch --age "$1"; pi_rc=$?
+  case "$pi_rc" in 0) return;; 3) ;; *) echo '-'; return;; esac
+  # PI ADAPTER END
   local p; p="$(newest_jsonl_of "$1")"
   [ -n "$p" ] || { echo "-"; return; }
   echo $(( $(date +%s) - $(stat -f %m "$p") ))
@@ -133,10 +154,21 @@ turn_of_file() {  # $1=jsonl → "STATE\tTURN_END_ISO\tDURATION_MS\tREPORTED\tRE
 }
 
 turn_row_of_file() {  # $1=jsonl → "STATE\tTURN_END\tMS\tREPORTED\tjsonl\tREAD_BYTES" (6열 · SOURCE 는 5열째)
+  # PI ADAPTER BEGIN
+  local pi_row pi_rc
+  pi_row="$(python3 "$(dirname "$0")/ft_seat_pi.py" --if-file "$1")"; pi_rc=$?
+  [ "$pi_rc" = 0 ] && { printf '%s\n' "$pi_row"; return; }
+  [ "$pi_rc" = 3 ] || return "$pi_rc"
+  # PI ADAPTER END
   turn_of_file "$1" | awk -F'\t' '{ print $1 "\t" $2 "\t" $3 "\t" $4 "\tjsonl\t" $5 }'
 }
 
 turn_of_seat() {  # $1=seat → 6열 탭 행. jsonl 없으면 pane 스피너(BUSY→WORKING · IDLE→IDLE · NOSEAT→UNKNOWN), source=pane
+  # PI ADAPTER BEGIN
+  local pi_rc
+  pi_dispatch --if-pi "$1"; pi_rc=$?
+  [ "$pi_rc" = 3 ] || return "$pi_rc"
+  # PI ADAPTER END
   local f row rc
   if [ -n "$SEATS_JSON" ]; then  # 명부 agent=codex 좌석만 rollout 턴 기록으로(R132a · 8열 · source=codex) — rc 3 = codex 아님 → 아래 기존 경로
     row="$(python3 "$(dirname "$0")/ft_seat_codex.py" --if-codex "$(dirname "$SEATS_JSON")" "$1")"; rc=$?

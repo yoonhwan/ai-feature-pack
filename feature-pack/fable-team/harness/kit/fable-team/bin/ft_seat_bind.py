@@ -123,6 +123,11 @@ def owner_source(s, seat, ident):
 
 
 def bind(seat):
+    # PI ADAPTER BEGIN
+    from ft_seat_pi import is_pi, bind_result
+    if is_pi(seat):
+        return bind_result(seat)
+    # PI ADAPTER END
     home = os.path.expanduser("~")
     p = pane_of(seat)
     if isinstance(p, dict):
@@ -163,6 +168,11 @@ def bind(seat):
 
 def expect(seat, rec_path):
     rec = load(rec_path)
+    # PI ADAPTER BEGIN
+    if isinstance(rec, dict) and rec.get("engine") == "pi":
+        from ft_seat_pi import bind_result
+        return bind_result(seat, rec)
+    # PI ADAPTER END
     b = rec.get("binding") if isinstance(rec, dict) else None
     keys = ("session", "window", "pane", "pid", "lstart")
     if not (isinstance(b, dict) and all(b.get(k) not in (None, "") for k in keys)):

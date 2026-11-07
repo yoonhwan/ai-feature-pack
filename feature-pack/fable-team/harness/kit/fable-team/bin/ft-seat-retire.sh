@@ -88,6 +88,13 @@ def dead_resume(model, retired_by):   # r427 죽은 좌석(tmux 없음 · pane �
                                    at=datetime.datetime.now().isoformat(timespec="seconds"), binding=dict(source=DEAD_SRC)), ""
 RD = os.environ.get("ZC_RESUME_DIR") or os.path.expanduser("~/.claude/state/seat-resume"); RP = f"{RD}/{old}.json"
 def write_record(rec, why):   # 재개 기록(zombie-clean 이 직전 세대를 닫아도 되는 근거) — 실패는 NORECORD 로 보이고 직전 세대는 keep-last-2 로 남는다
+    # PI ADAPTER BEGIN
+    if rec and rec.get("engine") == "pi":
+        from ft_seat_pi import bind_result
+        checked = bind_result(old, rec)
+        if checked["rc"] != 0:
+            print("REJECT Pi 기록 직전 결속 판정 불가"); raise SystemExit(1)
+    # PI ADAPTER END
     if rec and rec["binding"].get("source") not in (DEAD_SRC, "pi-session"):   # 기록 직전 재확인 1회(R364) — 결속이 그새 바뀌었으면(pane·pid 교체) 기록 0 · r960 pi 세션 결속은 결속 비교 대상 아님(파일 경로가 증거)
         b2 = ft_seat_bind.bind(old)
         if b2["rc"] != 0 or b2["binding"] != rec["binding"]: rec, why = None, "기록 직전 재확인 불일치"
@@ -102,6 +109,13 @@ def write_record(rec, why):   # 재개 기록(zombie-clean 이 직전 세대를 
     except (OSError, ValueError) as e:   # r427 — 옛 기록 무효화 0(죽은 좌석의 유일한 재개 근거를 지우던 길) · 닫기 판정은 zombie-clean 의 binding --expect 가 다시 본다
         print(f"NORECORD {old} {e}" + (f" · 기존 기록 보존 {rp}" if os.path.exists(rp) else ""))
 def record(model, retired_by, agent=None):   # 기록 모드 공통 — r427 --keep-existing: 기존 기록 있으면 새 시도 0 · 세션 없으면 대화 기록 탐색(r960 pi 는 세션 파일 탐색)
+    # PI ADAPTER BEGIN
+    if agent == "pi":
+        rec, why = pi_seat_resume(old, model, retired_by)
+        if not rec:
+            print("REJECT " + why); raise SystemExit(1)
+        write_record(rec, why); return rec
+    # PI ADAPTER END
     if keep == "1" and os.path.exists(RP): print(f"RESUME kept {RP}"); return True
     rec, why = dead_resume(model, retired_by) if keep == "1" and not alive(old) and agent != "pi" else find_resume(model, retired_by, agent)
     write_record(rec, why); return rec
@@ -154,6 +168,11 @@ if not isinstance(o, dict): print(f"REJECT {p} 에 구 행 {old} 없음"); sys.e
 if reconly == "1":   # 기록 모드 — 명부 쓰기 0(.bak 도 0) · 은퇴한 행(_replaced_by 있음)만
     if not (isinstance(rb := o.get("_replaced_by"), str) and rb): print(f"REJECT {old} 은 현역 행(_replaced_by 없음) — 기록 모드는 은퇴한 좌석만 file={p}"); sys.exit(1)
     record(o.get("model"), rb, o.get("agent")); sys.exit(0)
+# PI ADAPTER BEGIN
+if o.get("agent") == "pi":
+    pi_record, pi_why = pi_seat_resume(old, o.get("model"), new)
+    if not pi_record: reject(pi_why)
+# PI ADAPTER END
 noop, n = o.get("_replaced_by") == new, d.get(new)   # r465 재실행도 남은 칸 보정·빈 칸 채우기 — 바꿀 것 0 일 때만 옛 NOOP
 if not noop and isinstance(n, dict) and n.get("_replaced_by"): print(f"REJECT 후계 {new} 가 이미 은퇴(_replaced_by={n['_replaced_by']}) — 쓰기 0"); sys.exit(3)
 others, cells, bad = scan_cells(p, old)   # r465 같은 폴더(루트 .fable-team) 다른 명부 전부 — 값이 <구> 인 `_*` 칸 전부(역할·라우팅)

@@ -1,0 +1,6 @@
+단계 ruff-baseline 0.137초 rc=0
+ft_roster_lib.py: baseline=36 current=27 new=0
+ft_seat_bind.py: baseline=10 current=10 new=0
+ft_team_turns.py: baseline=0 current=0 new=0
+ft_team_state.py: baseline=0 current=0 new=0
+ft-news-tree.py: baseline=0 current=0 new=0

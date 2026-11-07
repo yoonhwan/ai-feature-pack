@@ -1,0 +1,66 @@
+단계 installed-reach RED 0.864초 rc=1
+F                                                                        [100%]
+=================================== FAILURES ===================================
+______ test_installed_reach_uses_live_modules_behind_normal_python_shims _______
+
+world = (PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-303/test_installed_reac...olders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-303/test_installed_reach_uses_live0/.fable-team'))
+tmp_path = PosixPath('/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-303/test_installed_reach_uses_live0')
+
+    def test_installed_reach_uses_live_modules_behind_normal_python_shims(world, tmp_path):
+        live, project_bin, comm = tmp_path / "live/bin", world[2] / "bin", world[2] / "comm"
+        for directory in (live, project_bin, comm):
+            directory.mkdir(parents=True)
+        (world[2] / "LIVE_BIN").write_text(str(live) + "\n", encoding="utf-8")
+        source = (BIN / "ft-root-bin-shim.sh").read_text(encoding="utf-8")
+        generator = re.search(r"^shim_body_py\(\) \{.*?^\}", source, re.M | re.S)[0]
+        for name in ("ft_seat_pi.py", "ft_seat_pi_turn.py", "ft_seat_codex.py"):
+            (live / name).write_bytes((BIN / name).read_bytes())
+            generated = subprocess.run(["bash", "-c", 'MARK="# ft-root-bin-shim:"\n' + generator + '\nshim_body_py "$1"', "_", name],
+                                       capture_output=True, text=True, timeout=7)
+            assert generated.returncode == 0, generated.stderr
+            (project_bin / name).write_text(generated.stdout, encoding="utf-8")
+        script = comm / "ft-reach-check.sh"
+        script.write_bytes((BIN.parent / "comm/ft-reach-check.sh").read_bytes())
+        marker = "SYNTHETIC-INSTALLED-REACH"
+        write(world, [message("user", content=marker)])
+        env = dict(os.environ, FT_REACH_AGENT="pi", FT_REACH_COUNT_ONLY="1")
+        count = subprocess.run(["bash", str(script), SEAT, marker, "0"], env=env, capture_output=True, text=True, timeout=7)
+>       assert count.returncode == 0 and count.stdout.strip() == "1", count.stdout + count.stderr
+E       AssertionError: Traceback (most recent call last):
+E           File "<stdin>", line 3, in <module>
+E           File "/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-303/test_installed_reach_uses_live0/.fable-team/comm/../bin/ft_seat_pi.py", line 24, in <module>
+E             raise ImportError("ft-root-bin-shim 의 .py 연결 파일이다 — import 하지 말고 LIVE_BIN 사본을 import 하거나 도구로 실행한다: " + _t)
+E         ImportError: ft-root-bin-shim 의 .py 연결 파일이다 — import 하지 말고 LIVE_BIN 사본을 import 하거나 도구로 실행한다: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-303/test_installed_reach_uses_live0/live/bin/ft_seat_pi.py
+E         
+E       assert (1 == 0)
+E        +  where 1 = CompletedProcess(args=['bash', '/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-303..._jw8050t553wj5wqlvnmmh0000gn/T/pytest-of-yoonhwan/pytest-303/test_installed_reach_uses_live0/live/bin/ft_seat_pi.py\n').returncode
+
+feature-pack/fable-team/harness/tests/scripts/test_ft_seat_pi_consumers.py:210: AssertionError
+=========================== short test summary info ============================
+FAILED feature-pack/fable-team/harness/tests/scripts/test_ft_seat_pi_consumers.py::test_installed_reach_uses_live_modules_behind_normal_python_shims
+1 failed in 0.21s
+
+단계 installed-reach GREEN 0.878초 rc=0
+.                                                                        [100%]
+1 passed in 0.50s
+
+단계 installed-reach 영향회귀 8.402초 rc=0
+.........................................                                [100%]
+41 passed in 8.03s
+
+단계 installed-reach quality 0.096초 rc=0
+bash -n feature-pack/fable-team/harness/comm/ft-reach-check.sh rc=0
+SHA256 feature-pack/fable-team/harness/comm/ft-reach-check.sh e93cea227c439def5e89fefb5250db1497660738f50722b6f1dddf7d4b5705a8
+bash -n feature-pack/fable-team/harness/kit/fable-team/bin/ft-reach-check.sh rc=0
+SHA256 feature-pack/fable-team/harness/kit/fable-team/bin/ft-reach-check.sh e93cea227c439def5e89fefb5250db1497660738f50722b6f1dddf7d4b5705a8
+source/kit reach cmp0
+ruff consumer test rc=0
+All checks passed!
+
+git diff --check rc=0
+v1 index 이후 unstaged diffstat:
+ .../fable-team/harness/comm/ft-reach-check.sh      | 21 ++++++++++++---
+ .../harness/kit/fable-team/bin/ft-reach-check.sh   | 21 ++++++++++++---
+ .../tests/scripts/test_ft_seat_pi_consumers.py     | 30 ++++++++++++++++++++++
+ 3 files changed, 64 insertions(+), 8 deletions(-)
+

@@ -33,6 +33,11 @@ if [ -n "$VERDICT" ]; then   # R400 ⓪① — 원장 루트를 먼저 풀고(�
   tmux has-session -t "=$SEAT" 2>/dev/null || DEAD=1   # r427 — 세션 없음 = pane 결속 불가 → 기존 기록 보존 · 없으면 대화 기록 탐색 · r1013 — 살아 있는 좌석도 기존 기록이 있으면 그대로 쓴다(기록 없으면 ft-seat-retire 가 지금 동작 그대로)
   ROUT="$(bash "${FT_SEAT_RETIRE_BIN:-$HERE/ft-seat-retire.sh}" "$SEAT" --record-only --verdict "$VERDICT" ${SEATS_FILE:+--seats "$SEATS_FILE"} --keep-existing 2>&1)"; rrc=$?; NOLINE="$(printf '%s\n' "$ROUT" | grep -m1 '^NORECORD ')"   # r960 ⓡⓣ — 어느 갈래(수용·HELD·죽은 좌석)든 NORECORD 원문 줄은 finish 가 책임진다 — case 보다 먼저 잡는다 · r5: --seats = 확정 경로를 ARG 유무 무관하게 항상 넘긴다
   held() { if [ -n "$NOLINE" ]; then finish 3 "HELD $SEAT 재개 기록 실패 — 명부 쓰기 0 · kill 0 · rc=$rrc"; else finish 3 "HELD $SEAT 재개 기록 실패 — 명부 쓰기 0 · kill 0 · rc=$rrc $(printf '%s' "$ROUT" | head -1)"; fi; }   # r5: 수용 판정 근거 = 입구에서 확정한 $AGENT 하나(명부 다시 읽기 0)
+  # PI ADAPTER BEGIN
+  if [ "$AGENT" = pi ] && [ "$rrc" = 0 ]; then
+    python3 "$HERE/ft_seat_bind.py" "$SEAT" --expect "$RECF" >/dev/null || { rrc=1; held; }
+  fi
+  # PI ADAPTER END
   case "$DEAD:$rrc $ROUT" in ?":0 RESUME ok "*) RK=new;; ?":0 RESUME kept "*) RK=kept;; "1:0 NORECORD "*) RK=NORECORD;; "0:0 NORECORD "*) [ "$AGENT" = pi ] && RK=NORECORD || held;; *) held;; esac   # r960 ⓓ: 살아 있는 좌석의 NORECORD 수용 = 명부 agent 칸이 pi 일 때만(산출 커밋은 브랜치 보존) · claude·못 읽음은 그대로 HELD rc 3
   REC="${ROUT#RESUME * }"; REC="${REC%%[[:space:]]*}"; [ "$RK" != NORECORD ] || REC=NORECORD
 fi

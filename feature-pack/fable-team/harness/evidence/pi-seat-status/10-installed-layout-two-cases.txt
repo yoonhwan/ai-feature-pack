@@ -1,0 +1,25 @@
+단계 shim-only expected consumer rc5 0.643초 pytest_rc=0
+.                                                                        [100%]
+1 passed in 0.19s
+
+단계 live-only expected count1/REACHED rc0 0.927초 pytest_rc=0
+.                                                                        [100%]
+1 passed in 0.49s
+
+단계 Claude/Codex existing24 2.256초 pytest_rc=0
+........................                                                 [100%]
+24 passed in 1.85s
+
+단계 source-rootbin 기존 양성 영향검증 0.797초 pytest_rc=0
+.                                                                        [100%]
+1 passed in 0.39s
+
+단계 final layout quality/byteproof 0.113초 rc=0
+bash -n rc0; SHA256 feature-pack/fable-team/harness/comm/ft-reach-check.sh 91d8051306b6257ecce4512ae5a213591c6c6bfb281f2ccbeb2fed2b7881b101
+bash -n rc0; SHA256 feature-pack/fable-team/harness/kit/fable-team/bin/ft-reach-check.sh 91d8051306b6257ecce4512ae5a213591c6c6bfb281f2ccbeb2fed2b7881b101
+source/kit cmp0
+reach 非Pi original bytes base=current
+ft_seat_codex.py base=current SHA256=abdad84455d2b3d60855e0f5ab90061c35eab8b08c37540c8fc54838ca23491c
+ft_seat_turn.py base=current SHA256=d6cc8b8416f550953d7e9aabda018e83d70bf1831776cc804738f65522cfce56
+ruff consumer rc0
+git diff --check rc0

@@ -77,6 +77,14 @@ def seats_on(seats: dict, idx: str) -> list[str]:
 
 
 def seat_turn(ctx: dict, seat: str) -> str:
+    # PI ADAPTER BEGIN
+    if ctx["seats"].get(seat, {}).get("agent") == "pi":
+        from ft_seat_pi import row as pi_row
+        try:
+            return pi_row(seat)[0]
+        except (OSError, ValueError, RuntimeError, subprocess.SubprocessError):
+            return "UNKNOWN"
+    # PI ADAPTER END
     # r504: 지도 1회에 판정 1번 — 살아 있는 명부 좌석 전부를 ft_seat_turn.turns 로 한 번에(좌석별 하위 프로세스 0) · 못 찾음 = «?»
     if "turns" not in ctx:
         from ft_seat_turn import turns  # 스크립트 옆 모듈(sys.path[0])
@@ -106,6 +114,10 @@ def seat_state(ctx: dict, seat: str) -> str:
     if role == "stop-ready":
         return "정지레디"
     turn = seat_turn(ctx, seat)
+    # PI ADAPTER BEGIN
+    if ctx["seats"][seat].get("agent") == "pi":
+        return TURN_KO.get(turn, turn)
+    # PI ADAPTER END
     if turn in ("UNKNOWN", "?"):  # 판정 불가·jsonl 없음(codex 등) — pane 스피너로 판정(옛 turn 의 jsonl 없음 경로와 같음)
         r = subprocess.run(["bash", str(ctx["status_sh"]), "one", seat], capture_output=True, text=True, timeout=10)
         turn = {"BUSY": "WORKING", "IDLE": "IDLE"}.get((r.stdout.split() or ["", "?"])[1], turn)

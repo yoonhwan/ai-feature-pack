@@ -73,9 +73,29 @@ def rescan(missing: list[str], panes: list[tuple[str, str]], projects: Path, tak
     return found, set()
 
 
+# PI ADAPTER BEGIN
+def locate_pi(seats, tmux):
+    from ft_seat_pi import locate as pi_locate
+    found = {}
+    for seat in seats:
+        try:
+            found[seat] = pi_locate(seat, tmux)[0]
+        except (OSError, ValueError, RuntimeError, subprocess.SubprocessError):
+            found[seat] = ("?", "Pi 결속 판정 불가", None)
+    return found
+
+
+# PI ADAPTER END
 def locate(seats: list[str], tmux: str, projects: Path, budget_s: float = RESCAN_S) -> dict[str, "str | Seat"]:
     """좌석 → jsonl 경로 | («?», 사유, None) — pane 목록 1회 · jsonl 위치 1회 · 이름으로 못 찾은 좌석만 재탐색(원천 1회 · r5).
     턴 읽기는 판정하는 쪽이 팀마다 따로 한다(turn_at) — 느린 팀 하나가 앞 팀 결과를 먹지 않는다."""
+    # PI ADAPTER BEGIN
+    from ft_seat_pi import is_pi
+    pi_seats = [s for s in seats if is_pi(s)]
+    if pi_seats:
+        others = [s for s in seats if s not in pi_seats]
+        return locate_pi(pi_seats, tmux) | (locate(others, tmux, projects, budget_s) if others else {})
+    # PI ADAPTER END
     panes = list_panes_group(tmux, RESCAN_S)  # 원천 1회(자기 무리 · 5초 상한 · 판정 마감은 부모가 따로 잡는다) — 팀·좌석마다 다시 읽지 않는다 · 자기 무리(자손 0)
     found = find_jsonls(list(seats), tmux, projects, panes=panes)
     missing, late = [s for s in seats if s not in found], set()
@@ -90,6 +110,12 @@ def turn_at(where: "str | Seat", now: datetime) -> "Seat | Exception":
     if not isinstance(where, str):
         return where
     try:
+        # PI ADAPTER BEGIN
+        from ft_seat_pi_turn import file_row, is_pi_file
+        if is_pi_file(where):
+            st, end, *_, why = file_row(where)
+            return (st, "" if st in (*OPEN, "IDLE") else why, idle_minutes(end, now) if st == "IDLE" else None)
+        # PI ADAPTER END
         st, end = turn_of_file(where)[:2]
     except Exception as e:  # noqa: BLE001 — 깨진 jsonl 한 줄 = 그 좌석(그 팀)만
         return e
