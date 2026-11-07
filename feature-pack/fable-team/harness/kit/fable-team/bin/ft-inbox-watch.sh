@@ -27,10 +27,6 @@ Q = COMM / "mailbox.jsonl"
 if COMM != (ROOT / ".fable-team/comm").resolve():
     sys.exit("REJECT canonical comm/root 불일치")
 sys.path.insert(0, str(COMM))
-import mbox_lineage as lineage
-import mbox_handover as receipt_source
-lineage.CANON = str(COMM)
-receipt_source.CANON = str(COMM)
 SEAT, TOKEN = sys.argv[2], uuid.uuid4().hex
 POLL = float(os.environ.get("FT_INBOX_WATCH_POLL", "1"))
 signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
@@ -82,6 +78,10 @@ def save(state):
 
 
 try:
+    import mbox_lineage as lineage
+    import mbox_handover as receipt_source
+    lineage.CANON = str(COMM)
+    receipt_source.CANON = str(COMM)
     BINDING = identity()
     if BINDING is None:
         sys.exit(0)
