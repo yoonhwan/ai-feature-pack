@@ -3,6 +3,7 @@ import io
 import json
 import multiprocessing as mp
 import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -21,7 +22,10 @@ def child(pipe, root, seat, barrier):
     sys.stdout, sys.stderr, sys.argv = out, err, ["-", str(BIN), seat]
     def poll(_):
         pipe.send(("poll", out.getvalue(), err.getvalue()))
-        if pipe.recv() == "stop":
+        command = pipe.recv()
+        if command == "broken":
+            sys.stdout = io.TextIOBase()
+        if command == "stop":
             raise EOFError
     time.sleep, time.time = poll, lambda: 240.0
     if barrier:
@@ -52,8 +56,8 @@ class Owner:
         self.event = self.pipe.recv()
         return self.event
 
-    def tick(self):
-        self.pipe.send("tick")
+    def tick(self, command="tick"):
+        self.pipe.send(command)
         return self.read()
 
     def close(self):
@@ -65,6 +69,12 @@ class Owner:
         self.process.join(3)
         assert not self.process.is_alive(), "normal owner exit required; no kill fallback"
         self.pipe.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        self.close()
 
 
 def write(path, rows):
@@ -94,35 +104,25 @@ def world(tmp_path, monkeypatch):
 
 def test_singleton_same_key_competition_and_reacquire(world):
     barrier = mp.get_context("fork").Barrier(2)
-    owners = [Owner(world, barrier=barrier) for _ in range(2)]
-    try:
-        events = [owner.read() for owner in owners]
+    with Owner(world, barrier=barrier) as left, Owner(world, barrier=barrier) as right:
+        events = [left.read(), right.read()]
         assert sum(event[0] == "poll" for event in events) == 1
         loser = next(event for event in events if event[0] == "exit")
         assert loser[1:3] == (3, "") and "BUSY owner_lock" in loser[3]
-    finally:
-        for owner in owners:
-            owner.close()
     lock = next((world / ".fable-team/state/inbox-watch").glob("*.lock"))
     inode = lock.stat().st_ino
-    again = Owner(world)
-    try:
+    with Owner(world) as again:
         assert again.read()[0] == "poll" and lock.stat().st_ino == inode
-    finally:
-        again.close()
 
 
 def test_owner_fences_retired_generation(world):
-    owner = Owner(world)
-    try:
+    with Owner(world) as owner:
         assert owner.read()[0] == "poll"
         p = world / ".fable-team/seats-planner.json"
         successor = "byz-planner-master-pi#2"
         p.write_text(json.dumps({"_master": successor, SEAT: {"role": "stop-ready", "_replaced_by": successor},
                                  successor: {"role": "master", "_replaces": [SEAT]}}))
         assert owner.tick()[:2] == ("exit", 0)
-    finally:
-        owner.close()
 
 
 @pytest.mark.parametrize("different_root", [False, True])
@@ -135,9 +135,45 @@ def test_other_root_or_role_is_independent(world, tmp_path, different_root):
     else:
         p = world / ".fable-team/seats-planner.json"
         p.write_text(json.dumps({"_master": SEAT, SEAT: {"role": "master"}, "_desk": seat, seat: {"role": "desk"}}))
-    owners = [Owner(world), Owner(other, seat)]
-    try:
-        assert all(owner.read()[0] == "poll" for owner in owners)
-    finally:
-        for owner in owners:
-            owner.close()
+    with Owner(world) as left, Owner(other, seat) as right:
+        assert left.read()[0] == right.read()[0] == "poll"
+
+
+def queue(root, seqs):
+    path = root / ".fable-team/comm/mailbox.jsonl"
+    write(path.with_suffix(".tmp"), [{"seq": n, "to": SEAT, "from": "source" + str(n),
+          "body": "[HIL] " + "x" * 80 + "\nsecond line"} for n in seqs])
+    path.with_suffix(".tmp").replace(path)
+
+
+def receive(root, sender):
+    comm = root / ".fable-team/comm"
+    env = dict(os.environ, FT_ROOT=str(root), FT_MBOX_DIR=str(comm), FT_SEATS_JSON=str(comm.parent / "seats-planner.json"))
+    return subprocess.run([sys.executable, "-B", str(comm / "mbox.py"), "recv", SEAT, sender, "--all"], env=env,
+                          capture_output=True, text=True, timeout=7)
+
+
+def test_backlog_receipts_rewrite_and_restart(world):
+    queue(world, [10, 11, 12])
+    assert receive(world, "source11").returncode == 0
+    with Owner(world) as owner:
+        assert owner.read()[0] == "poll"
+        event = owner.tick()
+        assert "#10 " in event[1] and "#12 " in event[1] and "#11 " not in event[1]
+        assert owner.tick()[1] == event[1]
+        state = json.loads(next((world / ".fable-team/state/inbox-watch").glob("*.json")).read_text())
+        assert set(state["pending"]) == {"10", "12"} and 11 in state["received"]
+        receipt = world / ".fable-team/comm/receipts" / (SEAT + ".jsonl")
+        original = receipt.read_bytes()
+        receipt.write_text("{")
+        assert owner.tick()[1] == event[1]
+        receipt.write_bytes(original)
+        queue(world, [10, 12, 14])
+        assert owner.tick("broken")[1] == event[1]
+        state = json.loads(next((world / ".fable-team/state/inbox-watch").glob("*.json")).read_text())
+        assert state["pending"]["14"]["notified_generation"] is None
+    queue(world, [10, 12, 13])
+    with Owner(world) as restarted:
+        restarted.read()
+        out = restarted.tick()[1]
+        assert all("#" + str(n) + " " in out for n in (10, 12, 13)) and "#11 " not in out
