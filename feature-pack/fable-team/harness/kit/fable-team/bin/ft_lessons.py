@@ -63,7 +63,12 @@ def now() -> str:
 def ft_root() -> Path:
     env = os.environ.get("FT_ROOT")
     if env:
-        return Path(env)
+        q = Path(env)
+        # plist 는 FT_ROOT=<프로젝트 루트> 를 준다 — 여기서 .fable-team 을 강제한다(2026-11-07 실사고:
+        # 00:10 게이트가 <프로젝트>/state/evolution 에 쓰고 실제 .fable-team/state/evolution 은 안 갱신됐다)
+        if q.name != ".fable-team" and (q / ".fable-team").is_dir():
+            q = q / ".fable-team"
+        return q
     cwd = Path.cwd()
     for p in [cwd, *cwd.parents]:
         if (p / ".fable-team").is_dir():
