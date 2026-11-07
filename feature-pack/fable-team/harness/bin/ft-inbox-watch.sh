@@ -14,11 +14,23 @@ import os
 import signal
 import sys
 import time
+import fcntl
+import hashlib
+import uuid
+from pathlib import Path
 
 sys.path.insert(0, sys.argv[1])
 from ft_inbox_core import qpath
 
 Q = qpath(sys.argv[2])
+ROOT = Path(os.environ["FT_ROOT"]).resolve()
+COMM = Path(os.environ.get("FT_MBOX_DIR", ROOT / ".fable-team/comm")).resolve()
+if COMM != (ROOT / ".fable-team/comm").resolve():
+    sys.exit("REJECT canonical comm/root 불일치")
+sys.path.insert(0, str(COMM))
+import mbox_lineage as lineage
+lineage.CANON = str(COMM)
+SEAT, TOKEN = sys.argv[2], uuid.uuid4().hex
 POLL = float(os.environ.get("FT_INBOX_WATCH_POLL", "1"))
 signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
 last_warn = 0.0
@@ -29,6 +41,71 @@ def warn(msg):
     if time.time() - last_warn >= 30:
         print(f"WARN ft-inbox-watch {msg}", file=sys.stderr, flush=True)
         last_warn = time.time()
+
+
+def identity():
+    directory = Path(os.environ.get("FT_SEATS_JSON", COMM.parent / "seats.json")).resolve().parent
+    docs = [(p.resolve(), json.loads(p.read_text(encoding="utf-8"))) for p in directory.glob("seats*.json")]
+    matches = [(p, doc) for p, doc in docs if isinstance(doc.get(SEAT), dict)]
+    if len(matches) != 1:
+        raise ValueError("명부 수신자 유일성")
+    path, doc = matches[0]
+    if lineage.holder(SEAT) != SEAT:
+        return None
+    row, role = doc[SEAT], doc[SEAT].get("role")
+    fields = [key for key in ("_master", "_arch", "_desk", "_da", "_tester", "_pm") if doc.get(key) == SEAT]
+    if fields != ["_" + str(role)] or lineage._team_rows(SEAT)[1] != row:
+        raise ValueError("현역 역할 필드 불일치")
+    for name in (key for key, value in doc.items() if isinstance(value, dict)):
+        seen, current = set(), name
+        while isinstance(doc.get(current), dict) and doc[current].get("_replaced_by"):
+            if current in seen:
+                raise ValueError("승계 순환")
+            seen.add(current)
+            current = doc[current]["_replaced_by"]
+            if current not in doc:
+                raise ValueError("승계 후계 없음")
+    names, warnings = lineage.eligible(SEAT)
+    if warnings:
+        raise ValueError("수신 계보 판정 불가")
+    return (str(COMM), str(path), fields[0]), names
+
+
+def save(state):
+    temporary = STATE.with_suffix(".tmp-" + TOKEN)
+    with temporary.open("w", encoding="utf-8") as stream:
+        json.dump(state, stream)
+        stream.flush()
+        os.fsync(stream.fileno())
+    os.replace(temporary, STATE)
+
+
+try:
+    BINDING = identity()
+    if BINDING is None:
+        sys.exit(0)
+    key = hashlib.sha256(json.dumps(BINDING[0]).encode()).hexdigest()
+    directory = ROOT / ".fable-team/state/inbox-watch"
+    directory.mkdir(parents=True, exist_ok=True)
+    LOCK = (directory / (key + ".lock")).open("a+")
+    try:
+        fcntl.flock(LOCK.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        print("BUSY owner_lock", file=sys.stderr)
+        sys.exit(3)
+    STATE = directory / (key + ".json")
+    state = json.loads(STATE.read_text()) if STATE.exists() else {"generation": 0}
+    state.update(generation=state["generation"] + 1, owner=TOKEN, recipient=SEAT, canonical=BINDING[0])
+    save(state)
+except (OSError, ValueError, TypeError, KeyError, AttributeError) as error:
+    print("WARN ft-inbox-watch owner " + type(error).__name__, file=sys.stderr)
+    sys.exit(2)
+
+
+def current_owner():
+    current = identity()
+    metadata = json.loads(STATE.read_text())
+    return current is not None and current[0] == BINDING[0] and metadata.get("owner") == TOKEN and metadata.get("generation") == state["generation"]
 
 
 def rows():
@@ -61,6 +138,12 @@ def first_line(x):
 seen = {x["seq"] for x in rows()}
 while True:
     time.sleep(POLL)
+    try:
+        if not current_owner():
+            sys.exit(0)
+    except (OSError, ValueError, TypeError, KeyError, AttributeError) as error:
+        warn("owner 관측 " + type(error).__name__)
+        continue
     for x in sorted((r for r in rows() if r["seq"] not in seen), key=lambda r: r["seq"]):
         seen.add(x["seq"])
         print(f"[쪽지] #{x['seq']} {x.get('cls', '미상')} {x.get('from', '?')} {first_line(x)}", flush=True)
