@@ -130,8 +130,8 @@ def handover_body(old, new, extra=()):
     return "\n".join(parts)
 
 
-def last_handover(old):
-    hs = [r for r in _sent() if r.get("from") == old and _head(r.get("body")) == "[인계]"]
+def last_handover(old, new):
+    hs = [r for r in _sent() if r.get("from") == old and r.get("to") == new and _head(r.get("body")) == "[인계]"]
     return hs[-1] if hs else None
 
 
@@ -149,7 +149,7 @@ def _gate(g, out=sys.stderr):   # r1319 — (rc, 문구) 관문 결과를 그대
 
 
 def ready_body(new, old):
-    h = last_handover(old)
+    h = last_handover(old, new)
     if not h:
         sys.stderr.write("REJECT %s 의 [인계] 없음 — 구세션이 bash mbox.sh handover %s %s 먼저\n" % (old, old, new)); sys.exit(3)
     if h["seq"] not in {r["seq"] for r in _rows(new)}:
@@ -176,7 +176,7 @@ def close_check(seat, need_ready=True, verdict=False):
             seat, len(bad), ",#".join(str(r["seq"]) for r in bad[:10]), seat)); return 3
     if not need_ready:
         print("CLOSE-OK %s 미표시 0" % seat); return 0
-    h = last_handover(seat)
+    h = last_handover(seat, succ)
     if not h:
         print("REJECT %s [인계] 없음 — bash mbox.sh handover %s %s" % (seat, seat, succ)); return 3
     ids = items(h)
