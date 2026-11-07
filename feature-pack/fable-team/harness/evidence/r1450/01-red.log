@@ -1,0 +1,10 @@
+RED: bash tests/test_tick_haswork_r1450.sh; rc=1
+FAIL a-no-work/fire rc=0 sends=1 expected=0 seconds=0.015
+FAIL a-no-work/goal rc=0 sends=1 expected=0 seconds=0.011
+FAIL b-recent/fire rc=0 sends=1 expected=0 seconds=0.015
+FAIL b-recent/goal rc=0 sends=1 expected=0 seconds=0.011
+PASS c-ready/fire rc=0 sends=1 expected=1 seconds=0.014
+PASS c-ready/goal rc=0 sends=1 expected=1 seconds=0.011
+FAIL d-tool-only/fire rc=0 sends=1 expected=0 seconds=0.014
+FAIL d-tool-only/goal rc=0 sends=1 expected=0 seconds=0.011
+PHASE fixtures seconds=0.107 failures=6

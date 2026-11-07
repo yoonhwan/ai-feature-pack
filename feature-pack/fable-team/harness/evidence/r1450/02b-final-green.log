@@ -1,0 +1,46 @@
+GREEN: bash tests/test_tick_haswork_r1450.sh; rc=0
+PASS a-no-work/fire rc=0 sends=0 expected=0 seconds=0.077
+PASS a-no-work/goal rc=0 sends=0 expected=0 seconds=0.072
+PASS b-recent/fire rc=0 sends=0 expected=0 seconds=0.032
+PASS b-recent/goal rc=0 sends=0 expected=0 seconds=0.031
+PASS c-ready/fire rc=0 sends=1 expected=1 seconds=0.149
+PASS c-ready/goal rc=0 sends=1 expected=1 seconds=0.150
+PASS d-tool-only/fire rc=0 sends=0 expected=0 seconds=0.074
+PASS d-tool-only/goal rc=0 sends=0 expected=0 seconds=0.103
+PASS default-off/fire rc=0 sends=1 expected=1 seconds=0.018
+PASS default-off/goal rc=0 sends=1 expected=1 seconds=0.014
+PASS dedup/fire rc=0 sends=1 expected=1 seconds=0.220
+PASS dedup/goal rc=0 sends=1 expected=1 seconds=0.213
+PASS working/fire rc=0 sends=0 expected=0 seconds=0.032
+PASS working/goal rc=0 sends=0 expected=0 seconds=0.033
+PASS unknown/fire rc=0 sends=0 expected=0 seconds=0.035
+PASS unknown/goal rc=0 sends=0 expected=0 seconds=0.034
+PASS missing-end/fire rc=0 sends=0 expected=0 seconds=0.033
+PASS missing-end/goal rc=0 sends=0 expected=0 seconds=0.034
+PASS recheck-working/fire rc=0 sends=0 expected=0 seconds=0.103
+PASS recheck-working/goal rc=0 sends=0 expected=0 seconds=0.099
+PASS inbox-open/fire rc=0 sends=1 expected=1 seconds=0.187
+PASS inbox-open/goal rc=0 sends=1 expected=1 seconds=0.142
+PASS card-assigned/fire rc=0 sends=1 expected=1 seconds=0.153
+PASS card-assigned/goal rc=0 sends=1 expected=1 seconds=0.147
+PASS master-unassigned/fire rc=0 sends=1 expected=1 seconds=0.147
+PASS master-unassigned/goal rc=0 sends=1 expected=1 seconds=0.143
+PASS card-waiting/fire rc=0 sends=0 expected=0 seconds=0.091
+PASS card-waiting/goal rc=0 sends=0 expected=0 seconds=0.107
+PASS goal-quiet-then-fire/fire rc=0 sends=1 expected=1 seconds=0.267
+PASS goal-quiet-then-fire/goal rc=0 sends=1 expected=1 seconds=0.283
+PHASE fixtures seconds=3.247 failures=0
+PASS team-dry-run rc=0 seconds=0.247
+2026-11-07 09:50:52 idle_watch disabled (FT_TICK_IDLE_ENABLED=0)
+DRY kind=stall interval=300s min=15m seats=case-master#1
+DRY seat=case-master#1 kind=master interval=300s gap=1794000000s msg=[cron-tick · 뉴스] 형식은 SEATBELT-README §6-1 master 항 그대로(★⓪ 완성 상태 트리 = ft-news-tic
+DRY seat=case-master#1 kind=goal-tick interval=240s gap=1794000000s msg=(ft-goal-tick.sh 결과 → rc≠0 일 때만 relay)
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+NOTE 명부 못 읽음 — 역할 키로 받음 (case-master#1)
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+NOTE 명부 못 읽음 — 역할 키로 받음 (case-master#1)
+
+Post-change bash -n bin/ft-tick.sh: rc=0
+Post-change cmp bin/ft-tick.sh kit/fable-team/bin/ft-tick.sh: rc=0
+Post-change git diff --check: rc=0

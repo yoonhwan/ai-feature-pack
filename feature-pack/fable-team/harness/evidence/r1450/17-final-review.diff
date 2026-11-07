@@ -1,0 +1,815 @@
+diff --git a/feature-pack/fable-team/harness/bin/ft-goal-tick.sh b/feature-pack/fable-team/harness/bin/ft-goal-tick.sh
+index a77d5bb7..f86112fe 100755
+--- a/feature-pack/fable-team/harness/bin/ft-goal-tick.sh
++++ b/feature-pack/fable-team/harness/bin/ft-goal-tick.sh
+@@ -69,5 +69,24 @@ fi
+ # 긴 본문은 relay 정본 절차(요약+경로) — 700자 넘는 것을 큐에 직접 넣지 않는다.
+ TMP="$(mktemp /tmp/goal-tick.XXXXXX)"; printf '%s\n' "$MSG" > "$TMP"
+ SUMMARY="[goal-tick $(date '+%H:%M')] rc=$GATE_RC · $(printf '%s' "$GATE_OUT" | head -1 | cut -c1-160)${ALERT:+ · ★연속 ${STREAK}틱 미독★}"
++# r1450: goal-check may span a new user turn. Recheck at the actual relay boundary.
++if [ "${FT_TICK_HASWORK_GATE:-0}" = 1 ]; then
++  [ -n "${FT_SEATS_JSON:-}" ] || { echo "판정 불가 goal haswork — FT_SEATS_JSON 없음" >&2; exit 0; }
++  TURN="$(timeout 7 bash "${FT_TICK_SEAT_STATUS:-$HERE/ft-seat-status.sh}" turn "$TARGET" --json)" \
++    || { echo "판정 불가 goal haswork — turn 조회 실패" >&2; exit 0; }
++  python3 - "$TURN" <<'PY' || exit 0
++import json, sys, time
++from datetime import datetime
++try:
++    row = json.loads(sys.argv[1])
++    if row.get("state") != "IDLE" or not row.get("turn_end"):
++        raise SystemExit(1)
++    age = time.time() - datetime.fromisoformat(row["turn_end"].replace("Z", "+00:00")).timestamp()
++    raise SystemExit(0 if age >= 60 else 1)
++except (ValueError, TypeError, KeyError, AttributeError):
++    print("판정 불가 goal haswork — turn JSON/시각", file=sys.stderr)
++    raise SystemExit(1)
++PY
++fi
+ bash "$MBOX" relay "$TARGET" os-goal-tick "$TMP" "$SUMMARY" >/dev/null 2>&1
+ echo "$(date '+%F %T') tick sent target=$TARGET rc=$GATE_RC streak=$STREAK"
+diff --git a/feature-pack/fable-team/harness/bin/ft-inbox.py b/feature-pack/fable-team/harness/bin/ft-inbox.py
+index 0e22d44a..06fe49ab 100755
+--- a/feature-pack/fable-team/harness/bin/ft-inbox.py
++++ b/feature-pack/fable-team/harness/bin/ft-inbox.py
+@@ -16,7 +16,7 @@ from datetime import datetime
+ 
+ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+ from ft_inbox_core import COMM, HOOK_ERRORS, INBOX, PRIO, answered_seqs, die, find_mail, find_seq, group_closed, haiku, haiku_class, hits, lineage, locked, mail_files, norm_key, obligation_closed, qpath, read_q, rule_class, take_seat, write_q  # noqa: E402
+-from ft_inbox_rotate import cmd_count, cmd_rotate, rotated_head  # noqa: E402
++from ft_inbox_rotate import cmd_count, cmd_rotate, rotated_head, tidy_hits  # noqa: E402
+ from ft_inbox_window import tail_rows, view, view_seqs  # noqa: E402
+ 
+ 
+@@ -132,16 +132,18 @@ def cmd_report(seat, targets):
+     mutate(seat, targets, lambda x: x.update(reported=True))
+ 
+ 
+-def cmd_waive(seat, before, reason):
+-    """판정 번호가 있는 사유로, 그 좌석 큐의 경계 전·mark 있는·열린 줄에만 waived 를 붙인다. reported 불변."""
++def cmd_waive(seat, before, reason, tidy=False):
++    """기본은 경계 전·mark 있는·열린 줄만 면제. --tidy는 잠금 안에서 반복 도구 알림만 고른다. reported 불변."""
+     if not re.search(r"판정 [0-9]+", reason):
+-        die('usage: waive <좌석> --before <ISO ts> "<판정 N 이 든 사유>"', 2)
++        die('usage: waive <좌석> --before <ISO ts> "<판정 N 이 든 사유>" [--tidy]', 2)
+     cut, q = datetime.fromisoformat(before), qpath(seat)
+     with locked(q):
+         rows = read_q(q)
+         early = [x for x in rows if datetime.fromisoformat(x["ts"]) < cut]
+-        hit = [x for x in early if x["mark"] is not None and not obligation_closed(x)]
++        hit = tidy_hits(rows, cut) if tidy else [x for x in early if x["mark"] is not None and not obligation_closed(x)]
+         for x in hit:
++            if tidy and x["mark"] is None:
++                x["mark"] = {"kind": "처리", "note": "명시적 면제: " + reason.strip(), "ts": time.strftime("%Y-%m-%dT%H:%M:%S")}
+             x["waived"] = {"by": reason.strip(), "ts": time.strftime("%Y-%m-%dT%H:%M:%S")}
+         if hit:
+             write_q(q, rows)
+@@ -182,8 +184,8 @@ def main(a):
+                 return cmd_report(seat, r)
+             if c == "close" and len(r) >= 2:  # r916 — 마지막 인자 = 사유, 앞은 대상들
+                 return cmd_close(seat, r[:-1], r[-1])
+-        if c == "waive" and len(a) == 5 and a[2] == "--before":
+-            return cmd_waive(a[1], a[3], a[4])
++        if c == "waive" and len(a) in (5, 6) and a[2] == "--before" and (len(a) == 5 or a[5] == "--tidy"):
++            return cmd_waive(a[1], a[3], a[4], tidy=len(a) == 6)
+         if c == "archive" and len(a) == 2:
+             return cmd_archive(a[1])
+     except (ValueError, TypeError, OSError, json.JSONDecodeError) as e:
+diff --git a/feature-pack/fable-team/harness/bin/ft-tick.sh b/feature-pack/fable-team/harness/bin/ft-tick.sh
+index dea1a83c..023248bd 100755
+--- a/feature-pack/fable-team/harness/bin/ft-tick.sh
++++ b/feature-pack/fable-team/harness/bin/ft-tick.sh
+@@ -187,7 +187,75 @@ agent_gate() {   # $1 seat $2 kind → rc 0 발사 가능 · 1 발사 0
+   _gate_step "$1" "$2" "$mark"; rc=$?
+   rmdir "$mark.lock" 2>/dev/null; return "$rc"
+ }
++# r1450 has-work gate
++# Opt-in only. Sources stay read-only; successful dispatch remembers event/version keys.
++actionable() {
++  FT_ROOT="$ROOT" FT_SEATS_JSON="$SEATS" PYTHONDONTWRITEBYTECODE=1 python3 - "$HERE" "$MBOX" "$SEATS" "$1" "$STATE_DIR/haswork/$1.seen" <<'PY'
++import hashlib, json, os, re, sys
++from pathlib import Path
++here, mbox, seats, seat, seen = sys.argv[1:]
++sys.path[:0] = [here, str(Path(mbox).parent), str(Path(here).parent / "comm")]
++try:
++    import mbox_lineage as lineage
++    from mbox_conf import role_key
++    comm = Path(mbox).parent
++    lineage.CANON = str(comm)
++    names, warnings = lineage.eligible(seat)
++    if warnings:
++        raise ValueError("; ".join(warnings))
++    mine = lineage._mine(names, seat)
++    keys, roles = set(), {role_key(n) for n in names}
++    mailbox = comm / "mailbox.jsonl"
++    rows = [json.loads(line) for line in mailbox.read_text(encoding="utf-8").splitlines() if line.strip()] if mailbox.exists() else []
++    for row in rows:
++        if (role_key(row.get("to")) in roles and mine(row.get("to"))
++                and row.get("from") != seat and not str(row.get("from", "")).startswith("ft-")):
++            keys.add("seq:" + str(row["seq"]))
++    root = Path(os.environ["FT_ROOT"])
++    # #270861: inbox OPEN and unassigned team cards are not wake evidence.
++    for record in (root / ".fable-team/state/card-assign").glob("*.json"):
++        row = json.loads(record.read_text(encoding="utf-8"))
++        if row.get("state") == "seat" and row.get("seat") == seat:
++            version = hashlib.sha256(json.dumps(row, sort_keys=True).encode()).hexdigest()
++            keys.add("card:" + record.stem + ":" + version)
++    remembered = set(Path(seen).read_text(encoding="utf-8").splitlines()) if Path(seen).exists() else set()
++    print("\n".join(sorted(keys - remembered)))
++except Exception as error:
++    print("판정 불가 haswork " + seat + ": " + str(error), file=sys.stderr)
++    raise SystemExit(3)
++PY
++}
++haswork_gate() {
++  [ "${FT_TICK_HASWORK_GATE:-0}" = 1 ] || return 0
++  local state keys
++  state="$(FT_SEATS_JSON="$SEATS" timeout 7 bash "$SEAT_STATUS" turn "$1" --json)" || { log "판정 불가 haswork $1 — turn 조회 실패"; return 1; }
++  python3 - "$(now)" "$state" <<'PY' || return 1
++import json, sys
++from datetime import datetime
++try:
++    row = json.loads(sys.argv[2])
++    if row.get("state") != "IDLE" or not row.get("turn_end"):
++        raise SystemExit(1)
++    age = float(sys.argv[1]) - datetime.fromisoformat(row["turn_end"].replace("Z", "+00:00")).timestamp()
++    raise SystemExit(0 if age >= 60 else 1)
++except (ValueError, TypeError, KeyError, AttributeError):
++    print("판정 불가 haswork — turn JSON/시각", file=sys.stderr)
++    raise SystemExit(1)
++PY
++  keys="$(actionable "$1")" || return 1
++  [ -n "$keys" ] || return 1
++  HASWORK_KEYS="$keys"
++}
++haswork_sent() {
++  [ "${FT_TICK_HASWORK_GATE:-0}" = 1 ] || return 0
++  local f="$STATE_DIR/haswork/$1.seen" t
++  mkdir -p "$STATE_DIR/haswork" || return 1
++  t="$f.tmp.$$"
++  { [ ! -f "$f" ] || cat "$f"; printf '%s\n' "$HASWORK_KEYS"; } | LC_ALL=C sort -u > "$t" && mv -f "$t" "$f"
++}
++# end r1450 has-work gate
+ fire() {
++  haswork_gate "$1" || return 0
+   acct_paused "$1" "$2" || return 0    # r1214: 계정 정지 중인 풀의 좌석에는 발사 0(첫 줄 — 아래 디바운스보다 앞)
+   local seat="$1" kind="$2" interval="$3" min_gap="$4" msg="$5" stamp gap pane tail tailn=3 busy='esc to interrupt|Working|Thinking' sub='^[›❯] +\[cron-tick\]' subn=2
+   [ "$FIRE_V2" = 1 ] && { tailn=14; busy="$busy|↓ [0-9,]+ tokens|\| *thinking"; sub='^[›❯] +[^ ]'; subn=6; }
+@@ -200,7 +268,9 @@ fire() {
+   tail="$(tmux capture-pane -t "$pane" -p 2>/dev/null | grep -vE '^\s*$' | tail -"$tailn")"
+   if printf '%s' "$tail" | LC_ALL=C grep -qaE "$busy"; then log "skip $seat/$kind — pane busy (working)"; return 0; fi
+   if printf '%s' "$tail" | LC_ALL=C grep -qaE '^[›❯] +[^ ]'; then log "skip $seat/$kind — pane has unsubmitted input"; return 0; fi
++  haswork_gate "$seat" || return 0   # Turn state and work may have changed during pane checks.
+   tmux send-keys -t "$pane" -l "$msg"; sleep 0.3; tmux send-keys -t "$pane" Enter
++  [ "$?" != 0 ] || haswork_sent "$seat"
+   write_stamp "$stamp"
+   sleep 1.5
+   if tmux capture-pane -t "$pane" -p 2>/dev/null | grep -vE '^\s*$' | tail -"$subn" | LC_ALL=C grep -qaE "$sub"; then
+@@ -211,7 +281,8 @@ fire() {
+ 
+ # goal-tick: 기존 ft-goal-tick.sh 를 좌석 대상으로 «그대로» 실행(내부에서 ft-goal-check → rc=0 이면 조용, rc≠0 relay).
+ goal() {
+-  local seat="$1" stamp gap
++  haswork_gate "$1" || return 0
++  local seat="$1" stamp gap output rc
+   stamp="$(stamp_of "$seat" goal)"; gap=$(stamp_gap "$stamp")
+   [ -x "$GOAL_TICK" ] || [ -f "$GOAL_TICK" ] || { echo "$(date '+%F %T') goal-tick script missing: $GOAL_TICK" >&2; return 0; }
+   acct_paused "$seat" goal-tick || return 0   # r1214: 계정 정지 중이면 goal 발주 0
+@@ -219,7 +290,14 @@ goal() {
+     echo "DRY seat=$seat kind=goal-tick interval=${GOAL_INTERVAL}s gap=${gap}s msg=(ft-goal-tick.sh 결과 → rc≠0 일 때만 relay)"; return 0
+   fi
+   [ "$gap" -ge "$GOAL_INTERVAL" ] || return 0
+-  FT_GOAL_TICK_TARGET="$seat" bash "$GOAL_TICK" | sed "s/^/goal-tick[$seat] /"
++  haswork_gate "$seat" || return 0
++  if [ "${FT_TICK_HASWORK_GATE:-0}" = 1 ]; then
++    output="$(FT_GOAL_TICK_TARGET="$seat" FT_SEATS_JSON="$SEATS" FT_TICK_SEAT_STATUS="$SEAT_STATUS" bash "$GOAL_TICK")"; rc=$?
++    printf '%s\n' "$output" | sed "s/^/goal-tick[$seat] /"
++    if [ "$rc" = 0 ] && [[ "$output" == *"tick sent target=$seat "* ]]; then haswork_sent "$seat"; fi
++  else
++    FT_GOAL_TICK_TARGET="$seat" bash "$GOAL_TICK" | sed "s/^/goal-tick[$seat] /"
++  fi
+   write_stamp "$stamp"
+ }
+ 
+@@ -442,6 +520,30 @@ acct_pause_watch() {   # 한 바퀴 1회 — 만료·풀림·부분 재시도 
+   return 0
+ }
+ 
++inbox_tidy() {
++  [ "${FT_TICK_INBOX_TIDY:-0}" = 1 ] || return 0
++  if [ "$DRY" = 1 ]; then echo "DRY kind=inbox-tidy — mutation calls=0"; return 0; fi
++  local reason="${FT_TICK_INBOX_TIDY_REASON:-}" deadline seats seat cut left limit out rc
++  [[ "$reason" =~ 판정\ [0-9]+ ]] || { log "판정 불가 inbox-tidy — FT_TICK_INBOX_TIDY_REASON에 판정 번호 필요"; return 1; }
++  deadline=$(( $(now) + 25 ))
++  seats="$(python3 - "$SEATS" 2>/dev/null <<'PY'
++import json, sys
++doc = json.load(open(sys.argv[1], encoding="utf-8"))
++print("\n".join(k for k, row in doc.items() if not k.startswith("_") and isinstance(row, dict)
++                and not row.get("_replaced_by") and row.get("role") not in ("closed", "stopped")))
++PY
++)" || { log "판정 불가 inbox-tidy — 명부 조회 실패"; return 1; }
++  cut="$(python3 -c 'from datetime import datetime; import sys; print(datetime.fromtimestamp(int(sys.argv[1])-3*86400).isoformat())' "$(now)")" || return 1
++  while IFS= read -r seat; do
++    [ -n "$seat" ] || continue
++    left=$(( deadline - $(now) )); [ "$left" -gt 0 ] || { log "inbox-tidy — 25초 상한, 남은 좌석은 다음 회차"; return 0; }
++    limit=$(( left < 7 ? left : 7 ))
++    out="$(FT_ROOT="$ROOT" timeout "$limit" bash "$HERE/ft-inbox.sh" waive "$seat" --before "$cut" "$reason" --tidy 2>&1)"; rc=$?
++    [ "$rc" = 0 ] || { log "판정 불가 inbox-tidy $seat rc=$rc — ${out//$'\n'/ | }"; return 1; }
++    log "inbox-tidy $seat ${out//$'\n'/ | }"
++  done <<< "$seats"
++}
++
+ # ── r497 역할 좌석 모델 한도 → 대체 모델 후계 자동 교대 ─────────────────────────────────────────────
+ # ft_model_swap.py 가 명부 «전체»(seats*.json)의 역할 좌석을 보므로 공용 루트 틱(명부 seats.json) 1곳에서만 — 팀 틱(seats-<팀>.json)은 건너뛴다(중복 교대 0).
+ # PLAN·HIL 줄은 틱 로그에 · 도구 실패는 ERROR 1줄만 남기고 틱은 계속(조용한 생략 0). FT_MODEL_SWAP=0 으로 끔.
+@@ -1366,6 +1468,7 @@ pass_core() {
+   step renamed_watch renamed_watch
+   step queue_full_watch queue_full_watch
+   step queue_watch queue_watch
++  step inbox_tidy inbox_tidy
+   step card_assign_watch card_assign_watch
+   step launchd_watch launchd_watch
+   step unpushed_daily unpushed_daily
+diff --git a/feature-pack/fable-team/harness/bin/ft_inbox_rotate.py b/feature-pack/fable-team/harness/bin/ft_inbox_rotate.py
+index 51e904c4..8995e1a4 100644
+--- a/feature-pack/fable-team/harness/bin/ft_inbox_rotate.py
++++ b/feature-pack/fable-team/harness/bin/ft_inbox_rotate.py
+@@ -7,7 +7,8 @@ import json
+ import os
+ import re
+ import time
+-from datetime import datetime
++from collections import Counter
++from datetime import datetime, timedelta
+ 
+ from ft_inbox_core import INBOX, answered_seqs, die, lineage, locked, obligation_closed, qpath, read_q, write_q
+ 
+@@ -31,6 +32,25 @@ def cmd_count(seat):
+     print(f"OPEN {len(og)}" + (f"\nOLDEST seq={min(un)}" if un else ""))
+ 
+ 
++def tidy_hits(rows, cut):
++    """Locked waive selection: repeated old tool notices, preserving human/HIL/outage rows."""
++    cut = min(cut, datetime.now(cut.tzinfo) - timedelta(days=3))
++    repeats = Counter((x["from"], x["cls"]) for x in rows)
++    human_after = {}
++    for x in rows:
++        if not x["from"].startswith("ft-"):
++            human_after[x["group"]] = max(human_after.get(x["group"], -1), x["seq"])
++    hit = []
++    for x in sorted(rows, key=lambda row: row["seq"]):
++        if (datetime.fromisoformat(x["ts"]) < cut and x["from"].startswith("ft-")
++                and repeats[x["from"], x["cls"]] >= 2 and x["cls"] not in ("②", "④")
++                and human_after.get(x["group"], -1) <= x["seq"] and not obligation_closed(x)):
++            hit.append(x)
++            if len(hit) == 200:
++                break
++    return hit
++
++
+ def cmd_rotate(seat, before, reason):
+     """경계(before) 전에 끝난 «미닫힘 묶음»(가장 새 행 ts < before) 전부를 보관 파일에 덧붙이고 큐에서 뺀다. 판정 번호가 든 사유 필수."""
+     if not re.search(r"판정 [0-9]+", reason):
+diff --git a/feature-pack/fable-team/harness/kit/fable-team/bin/ft-goal-tick.sh b/feature-pack/fable-team/harness/kit/fable-team/bin/ft-goal-tick.sh
+index a77d5bb7..f86112fe 100755
+--- a/feature-pack/fable-team/harness/kit/fable-team/bin/ft-goal-tick.sh
++++ b/feature-pack/fable-team/harness/kit/fable-team/bin/ft-goal-tick.sh
+@@ -69,5 +69,24 @@ fi
+ # 긴 본문은 relay 정본 절차(요약+경로) — 700자 넘는 것을 큐에 직접 넣지 않는다.
+ TMP="$(mktemp /tmp/goal-tick.XXXXXX)"; printf '%s\n' "$MSG" > "$TMP"
+ SUMMARY="[goal-tick $(date '+%H:%M')] rc=$GATE_RC · $(printf '%s' "$GATE_OUT" | head -1 | cut -c1-160)${ALERT:+ · ★연속 ${STREAK}틱 미독★}"
++# r1450: goal-check may span a new user turn. Recheck at the actual relay boundary.
++if [ "${FT_TICK_HASWORK_GATE:-0}" = 1 ]; then
++  [ -n "${FT_SEATS_JSON:-}" ] || { echo "판정 불가 goal haswork — FT_SEATS_JSON 없음" >&2; exit 0; }
++  TURN="$(timeout 7 bash "${FT_TICK_SEAT_STATUS:-$HERE/ft-seat-status.sh}" turn "$TARGET" --json)" \
++    || { echo "판정 불가 goal haswork — turn 조회 실패" >&2; exit 0; }
++  python3 - "$TURN" <<'PY' || exit 0
++import json, sys, time
++from datetime import datetime
++try:
++    row = json.loads(sys.argv[1])
++    if row.get("state") != "IDLE" or not row.get("turn_end"):
++        raise SystemExit(1)
++    age = time.time() - datetime.fromisoformat(row["turn_end"].replace("Z", "+00:00")).timestamp()
++    raise SystemExit(0 if age >= 60 else 1)
++except (ValueError, TypeError, KeyError, AttributeError):
++    print("판정 불가 goal haswork — turn JSON/시각", file=sys.stderr)
++    raise SystemExit(1)
++PY
++fi
+ bash "$MBOX" relay "$TARGET" os-goal-tick "$TMP" "$SUMMARY" >/dev/null 2>&1
+ echo "$(date '+%F %T') tick sent target=$TARGET rc=$GATE_RC streak=$STREAK"
+diff --git a/feature-pack/fable-team/harness/kit/fable-team/bin/ft-inbox.py b/feature-pack/fable-team/harness/kit/fable-team/bin/ft-inbox.py
+index 0e22d44a..06fe49ab 100755
+--- a/feature-pack/fable-team/harness/kit/fable-team/bin/ft-inbox.py
++++ b/feature-pack/fable-team/harness/kit/fable-team/bin/ft-inbox.py
+@@ -16,7 +16,7 @@ from datetime import datetime
+ 
+ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+ from ft_inbox_core import COMM, HOOK_ERRORS, INBOX, PRIO, answered_seqs, die, find_mail, find_seq, group_closed, haiku, haiku_class, hits, lineage, locked, mail_files, norm_key, obligation_closed, qpath, read_q, rule_class, take_seat, write_q  # noqa: E402
+-from ft_inbox_rotate import cmd_count, cmd_rotate, rotated_head  # noqa: E402
++from ft_inbox_rotate import cmd_count, cmd_rotate, rotated_head, tidy_hits  # noqa: E402
+ from ft_inbox_window import tail_rows, view, view_seqs  # noqa: E402
+ 
+ 
+@@ -132,16 +132,18 @@ def cmd_report(seat, targets):
+     mutate(seat, targets, lambda x: x.update(reported=True))
+ 
+ 
+-def cmd_waive(seat, before, reason):
+-    """판정 번호가 있는 사유로, 그 좌석 큐의 경계 전·mark 있는·열린 줄에만 waived 를 붙인다. reported 불변."""
++def cmd_waive(seat, before, reason, tidy=False):
++    """기본은 경계 전·mark 있는·열린 줄만 면제. --tidy는 잠금 안에서 반복 도구 알림만 고른다. reported 불변."""
+     if not re.search(r"판정 [0-9]+", reason):
+-        die('usage: waive <좌석> --before <ISO ts> "<판정 N 이 든 사유>"', 2)
++        die('usage: waive <좌석> --before <ISO ts> "<판정 N 이 든 사유>" [--tidy]', 2)
+     cut, q = datetime.fromisoformat(before), qpath(seat)
+     with locked(q):
+         rows = read_q(q)
+         early = [x for x in rows if datetime.fromisoformat(x["ts"]) < cut]
+-        hit = [x for x in early if x["mark"] is not None and not obligation_closed(x)]
++        hit = tidy_hits(rows, cut) if tidy else [x for x in early if x["mark"] is not None and not obligation_closed(x)]
+         for x in hit:
++            if tidy and x["mark"] is None:
++                x["mark"] = {"kind": "처리", "note": "명시적 면제: " + reason.strip(), "ts": time.strftime("%Y-%m-%dT%H:%M:%S")}
+             x["waived"] = {"by": reason.strip(), "ts": time.strftime("%Y-%m-%dT%H:%M:%S")}
+         if hit:
+             write_q(q, rows)
+@@ -182,8 +184,8 @@ def main(a):
+                 return cmd_report(seat, r)
+             if c == "close" and len(r) >= 2:  # r916 — 마지막 인자 = 사유, 앞은 대상들
+                 return cmd_close(seat, r[:-1], r[-1])
+-        if c == "waive" and len(a) == 5 and a[2] == "--before":
+-            return cmd_waive(a[1], a[3], a[4])
++        if c == "waive" and len(a) in (5, 6) and a[2] == "--before" and (len(a) == 5 or a[5] == "--tidy"):
++            return cmd_waive(a[1], a[3], a[4], tidy=len(a) == 6)
+         if c == "archive" and len(a) == 2:
+             return cmd_archive(a[1])
+     except (ValueError, TypeError, OSError, json.JSONDecodeError) as e:
+diff --git a/feature-pack/fable-team/harness/kit/fable-team/bin/ft-tick.sh b/feature-pack/fable-team/harness/kit/fable-team/bin/ft-tick.sh
+index dea1a83c..023248bd 100755
+--- a/feature-pack/fable-team/harness/kit/fable-team/bin/ft-tick.sh
++++ b/feature-pack/fable-team/harness/kit/fable-team/bin/ft-tick.sh
+@@ -187,7 +187,75 @@ agent_gate() {   # $1 seat $2 kind → rc 0 발사 가능 · 1 발사 0
+   _gate_step "$1" "$2" "$mark"; rc=$?
+   rmdir "$mark.lock" 2>/dev/null; return "$rc"
+ }
++# r1450 has-work gate
++# Opt-in only. Sources stay read-only; successful dispatch remembers event/version keys.
++actionable() {
++  FT_ROOT="$ROOT" FT_SEATS_JSON="$SEATS" PYTHONDONTWRITEBYTECODE=1 python3 - "$HERE" "$MBOX" "$SEATS" "$1" "$STATE_DIR/haswork/$1.seen" <<'PY'
++import hashlib, json, os, re, sys
++from pathlib import Path
++here, mbox, seats, seat, seen = sys.argv[1:]
++sys.path[:0] = [here, str(Path(mbox).parent), str(Path(here).parent / "comm")]
++try:
++    import mbox_lineage as lineage
++    from mbox_conf import role_key
++    comm = Path(mbox).parent
++    lineage.CANON = str(comm)
++    names, warnings = lineage.eligible(seat)
++    if warnings:
++        raise ValueError("; ".join(warnings))
++    mine = lineage._mine(names, seat)
++    keys, roles = set(), {role_key(n) for n in names}
++    mailbox = comm / "mailbox.jsonl"
++    rows = [json.loads(line) for line in mailbox.read_text(encoding="utf-8").splitlines() if line.strip()] if mailbox.exists() else []
++    for row in rows:
++        if (role_key(row.get("to")) in roles and mine(row.get("to"))
++                and row.get("from") != seat and not str(row.get("from", "")).startswith("ft-")):
++            keys.add("seq:" + str(row["seq"]))
++    root = Path(os.environ["FT_ROOT"])
++    # #270861: inbox OPEN and unassigned team cards are not wake evidence.
++    for record in (root / ".fable-team/state/card-assign").glob("*.json"):
++        row = json.loads(record.read_text(encoding="utf-8"))
++        if row.get("state") == "seat" and row.get("seat") == seat:
++            version = hashlib.sha256(json.dumps(row, sort_keys=True).encode()).hexdigest()
++            keys.add("card:" + record.stem + ":" + version)
++    remembered = set(Path(seen).read_text(encoding="utf-8").splitlines()) if Path(seen).exists() else set()
++    print("\n".join(sorted(keys - remembered)))
++except Exception as error:
++    print("판정 불가 haswork " + seat + ": " + str(error), file=sys.stderr)
++    raise SystemExit(3)
++PY
++}
++haswork_gate() {
++  [ "${FT_TICK_HASWORK_GATE:-0}" = 1 ] || return 0
++  local state keys
++  state="$(FT_SEATS_JSON="$SEATS" timeout 7 bash "$SEAT_STATUS" turn "$1" --json)" || { log "판정 불가 haswork $1 — turn 조회 실패"; return 1; }
++  python3 - "$(now)" "$state" <<'PY' || return 1
++import json, sys
++from datetime import datetime
++try:
++    row = json.loads(sys.argv[2])
++    if row.get("state") != "IDLE" or not row.get("turn_end"):
++        raise SystemExit(1)
++    age = float(sys.argv[1]) - datetime.fromisoformat(row["turn_end"].replace("Z", "+00:00")).timestamp()
++    raise SystemExit(0 if age >= 60 else 1)
++except (ValueError, TypeError, KeyError, AttributeError):
++    print("판정 불가 haswork — turn JSON/시각", file=sys.stderr)
++    raise SystemExit(1)
++PY
++  keys="$(actionable "$1")" || return 1
++  [ -n "$keys" ] || return 1
++  HASWORK_KEYS="$keys"
++}
++haswork_sent() {
++  [ "${FT_TICK_HASWORK_GATE:-0}" = 1 ] || return 0
++  local f="$STATE_DIR/haswork/$1.seen" t
++  mkdir -p "$STATE_DIR/haswork" || return 1
++  t="$f.tmp.$$"
++  { [ ! -f "$f" ] || cat "$f"; printf '%s\n' "$HASWORK_KEYS"; } | LC_ALL=C sort -u > "$t" && mv -f "$t" "$f"
++}
++# end r1450 has-work gate
+ fire() {
++  haswork_gate "$1" || return 0
+   acct_paused "$1" "$2" || return 0    # r1214: 계정 정지 중인 풀의 좌석에는 발사 0(첫 줄 — 아래 디바운스보다 앞)
+   local seat="$1" kind="$2" interval="$3" min_gap="$4" msg="$5" stamp gap pane tail tailn=3 busy='esc to interrupt|Working|Thinking' sub='^[›❯] +\[cron-tick\]' subn=2
+   [ "$FIRE_V2" = 1 ] && { tailn=14; busy="$busy|↓ [0-9,]+ tokens|\| *thinking"; sub='^[›❯] +[^ ]'; subn=6; }
+@@ -200,7 +268,9 @@ fire() {
+   tail="$(tmux capture-pane -t "$pane" -p 2>/dev/null | grep -vE '^\s*$' | tail -"$tailn")"
+   if printf '%s' "$tail" | LC_ALL=C grep -qaE "$busy"; then log "skip $seat/$kind — pane busy (working)"; return 0; fi
+   if printf '%s' "$tail" | LC_ALL=C grep -qaE '^[›❯] +[^ ]'; then log "skip $seat/$kind — pane has unsubmitted input"; return 0; fi
++  haswork_gate "$seat" || return 0   # Turn state and work may have changed during pane checks.
+   tmux send-keys -t "$pane" -l "$msg"; sleep 0.3; tmux send-keys -t "$pane" Enter
++  [ "$?" != 0 ] || haswork_sent "$seat"
+   write_stamp "$stamp"
+   sleep 1.5
+   if tmux capture-pane -t "$pane" -p 2>/dev/null | grep -vE '^\s*$' | tail -"$subn" | LC_ALL=C grep -qaE "$sub"; then
+@@ -211,7 +281,8 @@ fire() {
+ 
+ # goal-tick: 기존 ft-goal-tick.sh 를 좌석 대상으로 «그대로» 실행(내부에서 ft-goal-check → rc=0 이면 조용, rc≠0 relay).
+ goal() {
+-  local seat="$1" stamp gap
++  haswork_gate "$1" || return 0
++  local seat="$1" stamp gap output rc
+   stamp="$(stamp_of "$seat" goal)"; gap=$(stamp_gap "$stamp")
+   [ -x "$GOAL_TICK" ] || [ -f "$GOAL_TICK" ] || { echo "$(date '+%F %T') goal-tick script missing: $GOAL_TICK" >&2; return 0; }
+   acct_paused "$seat" goal-tick || return 0   # r1214: 계정 정지 중이면 goal 발주 0
+@@ -219,7 +290,14 @@ goal() {
+     echo "DRY seat=$seat kind=goal-tick interval=${GOAL_INTERVAL}s gap=${gap}s msg=(ft-goal-tick.sh 결과 → rc≠0 일 때만 relay)"; return 0
+   fi
+   [ "$gap" -ge "$GOAL_INTERVAL" ] || return 0
+-  FT_GOAL_TICK_TARGET="$seat" bash "$GOAL_TICK" | sed "s/^/goal-tick[$seat] /"
++  haswork_gate "$seat" || return 0
++  if [ "${FT_TICK_HASWORK_GATE:-0}" = 1 ]; then
++    output="$(FT_GOAL_TICK_TARGET="$seat" FT_SEATS_JSON="$SEATS" FT_TICK_SEAT_STATUS="$SEAT_STATUS" bash "$GOAL_TICK")"; rc=$?
++    printf '%s\n' "$output" | sed "s/^/goal-tick[$seat] /"
++    if [ "$rc" = 0 ] && [[ "$output" == *"tick sent target=$seat "* ]]; then haswork_sent "$seat"; fi
++  else
++    FT_GOAL_TICK_TARGET="$seat" bash "$GOAL_TICK" | sed "s/^/goal-tick[$seat] /"
++  fi
+   write_stamp "$stamp"
+ }
+ 
+@@ -442,6 +520,30 @@ acct_pause_watch() {   # 한 바퀴 1회 — 만료·풀림·부분 재시도 
+   return 0
+ }
+ 
++inbox_tidy() {
++  [ "${FT_TICK_INBOX_TIDY:-0}" = 1 ] || return 0
++  if [ "$DRY" = 1 ]; then echo "DRY kind=inbox-tidy — mutation calls=0"; return 0; fi
++  local reason="${FT_TICK_INBOX_TIDY_REASON:-}" deadline seats seat cut left limit out rc
++  [[ "$reason" =~ 판정\ [0-9]+ ]] || { log "판정 불가 inbox-tidy — FT_TICK_INBOX_TIDY_REASON에 판정 번호 필요"; return 1; }
++  deadline=$(( $(now) + 25 ))
++  seats="$(python3 - "$SEATS" 2>/dev/null <<'PY'
++import json, sys
++doc = json.load(open(sys.argv[1], encoding="utf-8"))
++print("\n".join(k for k, row in doc.items() if not k.startswith("_") and isinstance(row, dict)
++                and not row.get("_replaced_by") and row.get("role") not in ("closed", "stopped")))
++PY
++)" || { log "판정 불가 inbox-tidy — 명부 조회 실패"; return 1; }
++  cut="$(python3 -c 'from datetime import datetime; import sys; print(datetime.fromtimestamp(int(sys.argv[1])-3*86400).isoformat())' "$(now)")" || return 1
++  while IFS= read -r seat; do
++    [ -n "$seat" ] || continue
++    left=$(( deadline - $(now) )); [ "$left" -gt 0 ] || { log "inbox-tidy — 25초 상한, 남은 좌석은 다음 회차"; return 0; }
++    limit=$(( left < 7 ? left : 7 ))
++    out="$(FT_ROOT="$ROOT" timeout "$limit" bash "$HERE/ft-inbox.sh" waive "$seat" --before "$cut" "$reason" --tidy 2>&1)"; rc=$?
++    [ "$rc" = 0 ] || { log "판정 불가 inbox-tidy $seat rc=$rc — ${out//$'\n'/ | }"; return 1; }
++    log "inbox-tidy $seat ${out//$'\n'/ | }"
++  done <<< "$seats"
++}
++
+ # ── r497 역할 좌석 모델 한도 → 대체 모델 후계 자동 교대 ─────────────────────────────────────────────
+ # ft_model_swap.py 가 명부 «전체»(seats*.json)의 역할 좌석을 보므로 공용 루트 틱(명부 seats.json) 1곳에서만 — 팀 틱(seats-<팀>.json)은 건너뛴다(중복 교대 0).
+ # PLAN·HIL 줄은 틱 로그에 · 도구 실패는 ERROR 1줄만 남기고 틱은 계속(조용한 생략 0). FT_MODEL_SWAP=0 으로 끔.
+@@ -1366,6 +1468,7 @@ pass_core() {
+   step renamed_watch renamed_watch
+   step queue_full_watch queue_full_watch
+   step queue_watch queue_watch
++  step inbox_tidy inbox_tidy
+   step card_assign_watch card_assign_watch
+   step launchd_watch launchd_watch
+   step unpushed_daily unpushed_daily
+diff --git a/feature-pack/fable-team/harness/kit/fable-team/bin/ft_inbox_rotate.py b/feature-pack/fable-team/harness/kit/fable-team/bin/ft_inbox_rotate.py
+index 51e904c4..8995e1a4 100644
+--- a/feature-pack/fable-team/harness/kit/fable-team/bin/ft_inbox_rotate.py
++++ b/feature-pack/fable-team/harness/kit/fable-team/bin/ft_inbox_rotate.py
+@@ -7,7 +7,8 @@ import json
+ import os
+ import re
+ import time
+-from datetime import datetime
++from collections import Counter
++from datetime import datetime, timedelta
+ 
+ from ft_inbox_core import INBOX, answered_seqs, die, lineage, locked, obligation_closed, qpath, read_q, write_q
+ 
+@@ -31,6 +32,25 @@ def cmd_count(seat):
+     print(f"OPEN {len(og)}" + (f"\nOLDEST seq={min(un)}" if un else ""))
+ 
+ 
++def tidy_hits(rows, cut):
++    """Locked waive selection: repeated old tool notices, preserving human/HIL/outage rows."""
++    cut = min(cut, datetime.now(cut.tzinfo) - timedelta(days=3))
++    repeats = Counter((x["from"], x["cls"]) for x in rows)
++    human_after = {}
++    for x in rows:
++        if not x["from"].startswith("ft-"):
++            human_after[x["group"]] = max(human_after.get(x["group"], -1), x["seq"])
++    hit = []
++    for x in sorted(rows, key=lambda row: row["seq"]):
++        if (datetime.fromisoformat(x["ts"]) < cut and x["from"].startswith("ft-")
++                and repeats[x["from"], x["cls"]] >= 2 and x["cls"] not in ("②", "④")
++                and human_after.get(x["group"], -1) <= x["seq"] and not obligation_closed(x)):
++            hit.append(x)
++            if len(hit) == 200:
++                break
++    return hit
++
++
+ def cmd_rotate(seat, before, reason):
+     """경계(before) 전에 끝난 «미닫힘 묶음»(가장 새 행 ts < before) 전부를 보관 파일에 덧붙이고 큐에서 뺀다. 판정 번호가 든 사유 필수."""
+     if not re.search(r"판정 [0-9]+", reason):
+diff --git a/feature-pack/fable-team/harness/tests/test_tick_goal_recheck_r1450.sh b/feature-pack/fable-team/harness/tests/test_tick_goal_recheck_r1450.sh
+new file mode 100644
+index 00000000..ef85a84f
+--- /dev/null
++++ b/feature-pack/fable-team/harness/tests/test_tick_goal_recheck_r1450.sh
+@@ -0,0 +1,48 @@
++#!/bin/bash
++# R3: execute the actual goal script; a normal goal-check changes IDLE to WORKING.
++set -uo pipefail
++HERE="$(cd -- "$(dirname -- "$0")" && pwd)"
++python3 -B - "$HERE/../bin/ft-goal-tick.sh" <<'PY'
++import json
++import os
++import subprocess
++import sys
++import tempfile
++import time
++from datetime import datetime, timezone
++from pathlib import Path
++
++started = time.monotonic()
++with tempfile.TemporaryDirectory(prefix="r1450-relay-") as temp:
++    root = Path(temp)
++    script = root / "ft-goal-tick.sh"
++    script.write_text(Path(sys.argv[1]).read_text(encoding="utf-8"), encoding="utf-8")
++    (root / "ft-harness-root.sh").write_text('ft_repo_root(){ echo "$FT_GOAL_TICK_ROOT"; }\n', encoding="utf-8")
++    (root / "ft-team-lib.sh").write_text('ft_team_doc_ref_only(){ echo "$FT_GOAL_TICK_ROOT/prompt.md"; }\nft_team_doc_tmp(){ return 1; }\n', encoding="utf-8")
++    (root / "prompt.md").write_text('```\nfixture prompt\n```\n', encoding="utf-8")
++    comm = root / ".fable-team/comm"
++    comm.mkdir(parents=True)
++    mbox = comm / "mbox.sh"
++    mbox.write_text('#!/bin/bash\necho "$1" >> "$FT_GOAL_TICK_ROOT/relay.log"\n', encoding="utf-8")
++    mbox.chmod(0o755)
++    check = root / "check.sh"
++    check.write_text('#!/bin/bash\ntouch "$FT_GOAL_TICK_ROOT/working"\necho REREAD-REQUIRED\nexit 3\n', encoding="utf-8")
++    check.chmod(0o755)
++    status = root / "status.sh"
++    end = datetime.fromtimestamp(time.time() - 61, timezone.utc).isoformat()
++    status.write_text('#!/bin/bash\nif [ -f "$FT_GOAL_TICK_ROOT/working" ]; then echo \'{"state":"WORKING"}\'; else echo \'' + json.dumps({"state": "IDLE", "turn_end": end}) + "'; fi\n", encoding="utf-8")
++    seats = root / ".fable-team/seats-fixture.json"
++    seats.write_text(json.dumps({"_master": "byz-fixture-master-claude#1"}), encoding="utf-8")
++    env = dict(os.environ, FT_GOAL_TICK_ROOT=str(root), FT_ROOT=str(root), FT_SEATS_JSON=str(seats),
++               FT_GOAL_TICK_TARGET="byz-fixture-master-claude#1", FT_GOAL_TICK_CHECK=str(check),
++               FT_GOAL_TICK_STREAK=str(root / "streak"), FT_TICK_SEAT_STATUS=str(status),
++               FT_TICK_HASWORK_GATE="1", PYTHONDONTWRITEBYTECODE="1")
++    command = 'tmux(){ return 0; }; mktemp(){ command mktemp "$FT_GOAL_TICK_ROOT/goal.XXXXXX"; }; export -f tmux mktemp; exec bash "$1"'
++    run = subprocess.run(["bash", "-c", command, "bash", str(script)], cwd=root, env=env,
++                         capture_output=True, text=True, timeout=7)
++    relays = len((root / "relay.log").read_text().splitlines()) if (root / "relay.log").exists() else 0
++    good = run.returncode == 0 and relays == 0 and (root / "working").exists()
++    print(f'{"PASS" if good else "FAIL"} R3-actual-goal-recheck rc={run.returncode} relays={relays} expected=0 seconds={time.monotonic()-started:.3f}')
++    print(run.stdout + run.stderr, end="")
++    sys.exit(not good)
++PY
+diff --git a/feature-pack/fable-team/harness/tests/test_tick_haswork_r1450.sh b/feature-pack/fable-team/harness/tests/test_tick_haswork_r1450.sh
+new file mode 100644
+index 00000000..8fc5171d
+--- /dev/null
++++ b/feature-pack/fable-team/harness/tests/test_tick_haswork_r1450.sh
+@@ -0,0 +1,158 @@
++#!/bin/bash
++# r1450: real fire/goal functions, isolated mailbox/state, no live pane or mail.
++set -uo pipefail
++HERE="$(cd -- "$(dirname -- "$0")" && pwd)"
++python3 -B - "$HERE/../bin/ft-tick.sh" "${1:-}" <<'PY'
++import json
++import os
++import re
++import subprocess
++import sys
++import tempfile
++import time
++from pathlib import Path
++
++source = Path(sys.argv[1]).resolve()
++text = Path(os.environ.get("FT_TEST_R1450_BODY", source)).read_text(encoding="utf-8")
++functions = []
++block = re.search(r"^# r1450 has-work gate\n(.*?)^# end r1450 has-work gate", text, re.M | re.S)
++if block:
++    functions.append(block[1])
++for name in ("fire", "goal"):
++    functions.append(re.search(r"^" + name + r"\(\) \{.*?^\}", text, re.M | re.S)[0])
++setup = r'''
++set -uo pipefail
++HERE=$BIN; ROOT=$TEST_ROOT; WT=$ROOT; SEATS=$ROOT/.fable-team/seats-fixture.json
++MBOX=$ROOT/.fable-team/comm/mbox.sh; STATE_DIR=$ROOT/state; DRY=0
++SEAT_STATUS=$ROOT/status.sh; FIRE_V2=0; GOAL_INTERVAL=0; GOAL_TICK=$ROOT/goal.sh
++now(){ echo 1794000000; }; log(){ :; }; acct_paused(){ return 0; }
++stamp_of(){ echo "$ROOT/$1.$2.stamp"; }; stamp_gap(){ echo 1000000; }
++write_stamp(){ :; }; pane_of(){ echo %1; }; agent_gate(){ return 0; }
++sleep(){ :; }
++tmux(){
++  case "$1" in
++    capture-pane) printf '❯ \n';;
++    send-keys) case " $* " in *' -l '*) echo fire >> "$ROOT/sent";; esac;;
++  esac
++}
++'''
++started = time.monotonic()
++failed = 0
++cases = [("a-no-work", None, 60, 0), ("b-recent", "human", 59, 0),
++         ("c-ready", "human", 60, 1), ("d-tool-only", "ft-tick", 60, 0),
++         ("default-off", None, 60, 1), ("dedup", "human", 60, 1),
++         ("working", "human", 60, 0), ("unknown", "human", 60, 0),
++         ("missing-end", "human", 60, 0), ("recheck-working", "human", 60, 0),
++         ("inbox-open", None, 60, 0), ("card-assigned", None, 60, 1),
++         ("master-unassigned", None, 60, 0), ("card-waiting", None, 60, 0),
++         ("card-ledger-only", None, 60, 1), ("card-old-seat", None, 60, 0),
++         ("mailbox-reference", "human", 60, 1), ("goal-quiet-then-fire", "human", 60, 1)]
++if sys.argv[2] == "--team":
++    cases = []
++if sys.argv[2] == "--amendments":
++    cases = [c for c in cases if c[0] in ("inbox-open", "master-unassigned", "card-ledger-only")]
++for label, sender, age, expected in cases:
++    for entry in ("fire", "goal"):
++        begin = time.monotonic()
++        with tempfile.TemporaryDirectory(prefix="r1450-") as temp:
++            root = Path(temp)
++            comm = root / ".fable-team/comm"
++            comm.mkdir(parents=True)
++            (root / "cards/대기").mkdir(parents=True)
++            (root / "state").mkdir()
++            seat = "byz-fixture-master-claude#1"
++            roster = {"_master": seat, "_cards": str(root / "cards"),
++                      seat: {"role": "master", "_replaces": []}}
++            (root / ".fable-team/seats-fixture.json").write_text(json.dumps(roster), encoding="utf-8")
++            rows = [] if sender is None else [{"seq": 1, "from": sender, "to": seat, "body": "[작업] 구현 확인"}]
++            if label == "mailbox-reference":
++                rows[0]["body"] = "참고: 검토 결과 공유. 실행 요청 없음"
++            (comm / "mailbox.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows), encoding="utf-8")
++            status = {"state": "IDLE", "turn_end": time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(1794000000 - age))}
++            if label in ("working", "unknown"):
++                status["state"] = label.upper()
++            if label == "missing-end":
++                status["turn_end"] = None
++            status_script = "#!/bin/bash\nprintf '%s\\n' '" + json.dumps(status) + "'\n"
++            if label == "recheck-working":
++                status_script = '#!/bin/bash\nif [ -f "$TEST_ROOT/status-read" ]; then echo \'{"state":"WORKING"}\'; else touch "$TEST_ROOT/status-read"; echo \'' + json.dumps(status) + "'; fi\n"
++            (root / "status.sh").write_text(status_script, encoding="utf-8")
++            goal_script = '#!/bin/bash\necho goal >> "$TEST_ROOT/sent"\necho "tick sent target=$FT_GOAL_TICK_TARGET rc=3 streak=1"\n'
++            if label == "goal-quiet-then-fire":
++                goal_script = '#!/bin/bash\necho "tick quiet target=$FT_GOAL_TICK_TARGET rc=0 streak=0"\n'
++            (root / "goal.sh").write_text(goal_script, encoding="utf-8")
++            if label == "inbox-open":
++                inbox = root / ".fable-team/state/inbox"
++                inbox.mkdir(parents=True)
++                row = {"seq": 2, "from": "human", "cls": "미상", "mark": None,
++                       "reported": False, "body_path": str(root / "body.txt")}
++                (root / "body.txt").write_text("[작업] 아직 미완료", encoding="utf-8")
++                (inbox / "byz-fixture-master-claude.jsonl").write_text(json.dumps(row) + "\n", encoding="utf-8")
++            if label.startswith("card-") or label == "master-unassigned":
++                if label != "card-ledger-only":
++                    (root / "cards/대기/work.md").write_text("# 실행할 카드\n- 선행: A 카드 완성\n- 시기: A 카드 완성 후\n", encoding="utf-8")
++                ledger = root / ".fable-team/state/card-assign"
++                ledger.mkdir(parents=True)
++                row = {"state": "waiting", "reason": "사람"} if label == "card-waiting" else {"state": "seat", "seat": seat, "updated": 1}
++                if label == "card-old-seat":
++                    row["seat"] = "byz-fixture-master-claude#0"
++                if label != "master-unassigned":
++                    (ledger / "work.json").write_text(json.dumps(row), encoding="utf-8")
++            command = 'fire "$SEAT" master 0 0 fixture' if entry == "fire" else 'goal "$SEAT"'
++            if label == "dedup":
++                command += "\n" + command
++            if label == "goal-quiet-then-fire":
++                command = 'goal "$SEAT"\nfire "$SEAT" master 0 0 fixture'
++            env = dict(os.environ, TEST_ROOT=str(root), BIN=str(source.parent), SEAT=seat,
++                       FT_ROOT=str(root), FT_TICK_HASWORK_GATE="1", PYTHONDONTWRITEBYTECODE="1")
++            if label == "default-off":
++                env.pop("FT_TICK_HASWORK_GATE")
++            run = subprocess.run(["bash"], input=setup + "\n".join(functions) + "\n" + command + "\n",
++                                 env=env, capture_output=True, text=True, timeout=7)
++            sent = len((root / "sent").read_text().splitlines()) if (root / "sent").exists() else 0
++            good = run.returncode == 0 and sent == expected
++            failed += not good
++            print(f'{"PASS" if good else "FAIL"} {label}/{entry} rc={run.returncode} sends={sent} expected={expected} seconds={time.monotonic()-begin:.3f}')
++            if not good:
++                print(run.stdout + run.stderr)
++print(f"PHASE fixtures seconds={time.monotonic()-started:.3f} failures={failed}")
++if sys.argv[2] == "--amendments":
++    sys.exit(bool(failed))
++with tempfile.TemporaryDirectory(prefix="r1450-team-") as temp:
++    begin = time.monotonic()
++    root = Path(temp)
++    comm = root / ".fable-team/comm"
++    comm.mkdir(parents=True)
++    (root / "cards").mkdir()
++    (root / "state").mkdir()
++    fake = root / "fakebin"
++    fake.mkdir()
++    for name in ("tmux", "pgrep", "tmm"):
++        p = fake / name
++        p.write_text('#!/bin/bash\nexit 0\n', encoding="utf-8")
++        p.chmod(0o755)
++    seat = "byz-fixture-master-claude#1"
++    roster = {"_master": seat, "_cards": str(root / "cards"), seat: {"role": "master", "tick": "ft-master-tick", "_replaces": []}}
++    seats = root / ".fable-team/seats-fixture.json"
++    seats.write_text(json.dumps(roster), encoding="utf-8")
++    mail = {"seq": 1, "from": "human", "to": seat, "body": "[작업] fixture"}
++    (comm / "mailbox.jsonl").write_text(json.dumps(mail) + "\n", encoding="utf-8")
++    (comm / "mbox.sh").write_text('#!/bin/bash\nexit 0\n', encoding="utf-8")
++    status = {"state": "IDLE", "turn_end": time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(1794000000 - 60))}
++    (root / "status.sh").write_text("#!/bin/bash\necho '" + json.dumps(status) + "'\n", encoding="utf-8")
++    env = dict(os.environ, FT_ROOT=str(root), FT_TICK_SEATS=str(seats),
++               FT_TICK_MBOX=str(comm / "mbox.sh"), FT_TICK_STATE_DIR=str(root / "state"),
++               FT_TICK_STAMP_PREFIX=str(root / "stamp-"), FT_TICK_PIDFILE=str(root / "pid"),
++               FT_TICK_PATH_FIRST=str(fake), FT_TICK_SEAT_STATUS=str(root / "status.sh"),
++               FT_TICK_NOW_BASE="1794000000", FT_TICK_TEAM="fixture", FT_MODEL_SWAP="0",
++               FT_TICK_TEAMMAIN_SEC="0", PYTHONDONTWRITEBYTECODE="1")
++    env.update({name: "0" for name in re.findall(r'\$\{(FT_TICK_[A-Z_]+):-1\}', text)})
++    env["FT_TICK_HASWORK_GATE"] = "1"
++    run = subprocess.run(["bash", str(source), "--once", "--dry-run"], cwd=root, env=env,
++                         capture_output=True, text=True, timeout=7)
++    good = run.returncode == 0 and f"DRY seat={seat} kind=master " in run.stdout
++    failed += not good
++    print(f'{"PASS" if good else "FAIL"} team-dry-run rc={run.returncode} seconds={time.monotonic()-begin:.3f}')
++    print(run.stdout + run.stderr)
++sys.exit(bool(failed))
++PY
+diff --git a/feature-pack/fable-team/harness/tests/test_tick_inbox_tidy_default_r1450.sh b/feature-pack/fable-team/harness/tests/test_tick_inbox_tidy_default_r1450.sh
+new file mode 100644
+index 00000000..ac51a17e
+--- /dev/null
++++ b/feature-pack/fable-team/harness/tests/test_tick_inbox_tidy_default_r1450.sh
+@@ -0,0 +1,37 @@
++#!/bin/bash
++# No cleanup simulation: only default-off/dry-run dispatch barriers and syntax.
++set -uo pipefail
++HERE="$(cd -- "$(dirname -- "$0")" && pwd)"
++python3 -B - "$HERE/../bin" <<'PY'
++import ast
++import os
++import re
++import subprocess
++import sys
++import tempfile
++import time
++from pathlib import Path
++
++bin_dir = Path(sys.argv[1]).resolve()
++started = time.monotonic()
++source = (bin_dir / "ft-tick.sh").read_text(encoding="utf-8")
++function = re.search(r"^inbox_tidy\(\) \{.*?^\}", source, re.M | re.S)[0]
++for name in ("ft-inbox.py", "ft_inbox_rotate.py"):
++    ast.parse((bin_dir / name).read_text(encoding="utf-8"))
++with tempfile.TemporaryDirectory(prefix="r1450-tidy-off-") as temp:
++    root = Path(temp)
++    setup = 'now(){ echo unexpected >> "$ROOT/calls"; }; timeout(){ echo unexpected >> "$ROOT/calls"; }; python3(){ echo unexpected >> "$ROOT/calls"; };\n'
++    for label, flag, dry in [("default-off", None, "0"), ("dry-run", "1", "1")]:
++        env = dict(os.environ, ROOT=str(root), DRY=dry)
++        env.pop("FT_TICK_INBOX_TIDY", None)
++        if flag is not None:
++            env["FT_TICK_INBOX_TIDY"] = flag
++        run = subprocess.run(["bash"], input=setup + function + "\ninbox_tidy\n", env=env,
++                             capture_output=True, text=True, timeout=7)
++        good = run.returncode == 0 and not (root / "calls").exists()
++        print(f'{"PASS" if good else "FAIL"} inbox-tidy/{label} rc={run.returncode} tool_calls={int((root / "calls").exists())}')
++        print(run.stdout + run.stderr, end="")
++        if not good:
++            sys.exit(1)
++print(f"PHASE tidy-default seconds={time.monotonic()-started:.3f}; cleanup execution=0; candidate simulation=0")
++PY
+diff --git a/feature-pack/fable-team/manifest.json b/feature-pack/fable-team/manifest.json
+index e3321e3b..41994af8 100644
+--- a/feature-pack/fable-team/manifest.json
++++ b/feature-pack/fable-team/manifest.json
+@@ -1,6 +1,6 @@
+ {
+   "name": "fable-team",
+-  "version": "1.1.287",
++  "version": "1.1.288",
+   "title": "fable-team — 일반화된 팀 오케스트레이션 하네스 (ultracode 오케스트레이터 + architect 브레인 분리)",
+   "description": "오케스트레이터(ultracode 지원 최상위 모델)는 전달·조율·모니터링만, 기획·문제해결은 architect 브레인(기본 fable5 high — max 금지)이 전담하는 Claude Code 팀 하네스. 설치 인터뷰로 워커(checker/implementer/tester/DA) 브레인·effort를 커스텀하고, codex/cursor 미가용 시 대응 모델을 추천한다. 서브의 서브 스폰은 도구 화이트리스트로 차단.",
+   "category": "workflow",

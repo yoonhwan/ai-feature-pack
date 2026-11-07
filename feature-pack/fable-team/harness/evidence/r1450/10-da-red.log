@@ -1,0 +1,39 @@
+SOURCE=index frozen DA1 implementation; new contract #270861; rc=1
+FAIL inbox-open/fire rc=0 sends=1 expected=0 seconds=0.247
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+
+FAIL inbox-open/goal rc=0 sends=1 expected=0 seconds=0.181
+goal-tick[byz-fixture-master-claude#1] tick sent target=byz-fixture-master-claude#1 rc=3 streak=1
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+
+FAIL master-unassigned/fire rc=0 sends=1 expected=0 seconds=0.171
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+
+FAIL master-unassigned/goal rc=0 sends=1 expected=0 seconds=0.174
+goal-tick[byz-fixture-master-claude#1] tick sent target=byz-fixture-master-claude#1 rc=3 streak=1
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+
+FAIL card-ledger-only/fire rc=0 sends=0 expected=1 seconds=0.119
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+
+FAIL card-ledger-only/goal rc=0 sends=0 expected=1 seconds=0.083
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+
+PHASE fixtures seconds=1.003 failures=6
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+
+R3 original actual-goal RED: outer rc=1
+FAIL R3-actual-goal-recheck rc=0 relays=1 expected=0 seconds=0.040
+2026-11-07 09:58:52 tick sent target=byz-fixture-master-claude#1 rc=3 streak=1

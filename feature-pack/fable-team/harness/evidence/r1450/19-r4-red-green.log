@@ -1,0 +1,56 @@
+R4 RED command=bash tests/test_tick_inbox_tidy_default_r1450.sh rc=1 seconds=0.290
+PASS inbox-tidy/default-off rc=0 tool_calls=0
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+PASS inbox-tidy/dry-run rc=0 tool_calls=0
+DRY kind=inbox-tidy — mutation calls=0
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+FAIL R4-next-round rc=0 first_round=['byz-fixture-nano-claude#1', 'byz-fixture-nano-claude#2', 'byz-fixture-nano-claude#3', 'byz-fixture-nano-claude#4', 'byz-fixture-nano-claude#5'] next_first=['byz-fixture-nano-claude#1'] expected=['byz-fixture-nano-claude#6']
+inbox-tidy byz-fixture-nano-claude#1 WAIVED 0 seq=
+inbox-tidy byz-fixture-nano-claude#2 WAIVED 0 seq=
+inbox-tidy byz-fixture-nano-claude#3 WAIVED 0 seq=
+inbox-tidy byz-fixture-nano-claude#4 WAIVED 0 seq=
+inbox-tidy byz-fixture-nano-claude#5 WAIVED 0 seq=
+inbox-tidy — 25초 상한, 남은 좌석은 다음 회차
+inbox-tidy byz-fixture-nano-claude#1 WAIVED 0 seq=
+inbox-tidy byz-fixture-nano-claude#2 WAIVED 0 seq=
+inbox-tidy byz-fixture-nano-claude#3 WAIVED 0 seq=
+inbox-tidy byz-fixture-nano-claude#4 WAIVED 0 seq=
+inbox-tidy byz-fixture-nano-claude#5 WAIVED 0 seq=
+inbox-tidy — 25초 상한, 남은 좌석은 다음 회차
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+
+R4 GREEN command=bash tests/test_tick_inbox_tidy_default_r1450.sh rc=0 seconds=0.485
+PASS inbox-tidy/default-off rc=0 tool_calls=0
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+PASS inbox-tidy/dry-run rc=0 tool_calls=0
+DRY kind=inbox-tidy — mutation calls=0
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+PASS R4-next-round rc=0 first_round=['byz-fixture-nano-claude#1', 'byz-fixture-nano-claude#2', 'byz-fixture-nano-claude#3', 'byz-fixture-nano-claude#4', 'byz-fixture-nano-claude#5'] next_first=['byz-fixture-nano-claude#6'] expected=['byz-fixture-nano-claude#6']
+inbox-tidy byz-fixture-nano-claude#1 WAIVED 0 seq=
+inbox-tidy byz-fixture-nano-claude#2 WAIVED 0 seq=
+inbox-tidy byz-fixture-nano-claude#3 WAIVED 0 seq=
+inbox-tidy byz-fixture-nano-claude#4 WAIVED 0 seq=
+inbox-tidy byz-fixture-nano-claude#5 WAIVED 0 seq=
+inbox-tidy — 25초 상한, 남은 좌석은 다음 회차
+inbox-tidy byz-fixture-nano-claude#6 WAIVED 0 seq=
+inbox-tidy byz-fixture-nano-claude#1 WAIVED 0 seq=
+inbox-tidy byz-fixture-nano-claude#2 WAIVED 0 seq=
+inbox-tidy byz-fixture-nano-claude#3 WAIVED 0 seq=
+inbox-tidy byz-fixture-nano-claude#4 WAIVED 0 seq=
+inbox-tidy — 25초 상한, 남은 좌석은 다음 회차
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+PASS R4-removed-cursor rc=0 first=['byz-fixture-nano-claude#1'] expected=['byz-fixture-nano-claude#1']
+PHASE tidy-default seconds=0.442; cleanup execution=0; candidate simulation=0
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+
+bash -n ft-tick.sh rc=0
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash -n ft-tick.sh rc=0
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash -n test_tick_inbox_tidy_default_r1450.sh rc=0
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+source/kit ft-tick.sh cmp rc=0
+shellcheck baseline exclusions rc=0
+git diff --check rc=0
+PHASE R4 syntax-cmp-lint seconds=2.721

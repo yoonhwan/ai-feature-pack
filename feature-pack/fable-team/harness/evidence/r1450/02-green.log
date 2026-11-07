@@ -1,0 +1,35 @@
+GREEN: bash tests/test_tick_haswork_r1450.sh; rc=0
+PASS a-no-work/fire rc=0 sends=0 expected=0 seconds=0.114
+PASS a-no-work/goal rc=0 sends=0 expected=0 seconds=0.075
+PASS b-recent/fire rc=0 sends=0 expected=0 seconds=0.034
+PASS b-recent/goal rc=0 sends=0 expected=0 seconds=0.034
+PASS c-ready/fire rc=0 sends=1 expected=1 seconds=0.205
+PASS c-ready/goal rc=0 sends=1 expected=1 seconds=0.201
+PASS d-tool-only/fire rc=0 sends=0 expected=0 seconds=0.264
+PASS d-tool-only/goal rc=0 sends=0 expected=0 seconds=0.170
+PASS default-off/fire rc=0 sends=1 expected=1 seconds=0.016
+PASS default-off/goal rc=0 sends=1 expected=1 seconds=0.013
+PASS dedup/fire rc=0 sends=1 expected=1 seconds=0.220
+PASS dedup/goal rc=0 sends=1 expected=1 seconds=0.211
+PASS working/fire rc=0 sends=0 expected=0 seconds=0.046
+PASS working/goal rc=0 sends=0 expected=0 seconds=0.033
+PASS unknown/fire rc=0 sends=0 expected=0 seconds=0.032
+PASS unknown/goal rc=0 sends=0 expected=0 seconds=0.032
+PASS missing-end/fire rc=0 sends=0 expected=0 seconds=0.032
+PASS missing-end/goal rc=0 sends=0 expected=0 seconds=0.032
+PASS recheck-working/fire rc=0 sends=0 expected=0 seconds=0.109
+PASS recheck-working/goal rc=0 sends=0 expected=0 seconds=0.100
+PASS inbox-open/fire rc=0 sends=1 expected=1 seconds=0.191
+PASS inbox-open/goal rc=0 sends=1 expected=1 seconds=0.186
+PASS card-assigned/fire rc=0 sends=1 expected=1 seconds=0.203
+PASS card-assigned/goal rc=0 sends=1 expected=1 seconds=0.485
+PASS master-unassigned/fire rc=0 sends=1 expected=1 seconds=0.250
+PASS master-unassigned/goal rc=0 sends=1 expected=1 seconds=0.138
+PASS card-waiting/fire rc=0 sends=0 expected=0 seconds=0.072
+PASS card-waiting/goal rc=0 sends=0 expected=0 seconds=0.107
+PHASE fixtures seconds=3.660 failures=0
+bash -n bin/ft-tick.sh: rc=0
+bash -n tests/test_tick_haswork_r1450.sh: rc=0
+cmp bin/ft-tick.sh kit/fable-team/bin/ft-tick.sh: rc=0
+shellcheck -S warning bin/ft-tick.sh tests/test_tick_haswork_r1450.sh: rc=1
+Only baseline SC2178/SC2128/SC2034 remain; new test warnings=0.

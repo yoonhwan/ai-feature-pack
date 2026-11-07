@@ -1,0 +1,28 @@
+GREEN attempt rc=1 seconds=10.082
+PASS zero-duration rc=0 state=candidate seconds=2.453
+PASS root-owner rc=0 state=protected seconds=0.489
+PASS harness-owner rc=0 state=protected seconds=0.442
+FAIL child-work-seen rc=0 state=candidate seconds=1.364
+idle-team fixture state=observing reason=-
+idle-team harness state=protected reason=owner
+idle-team root state=protected reason=owner
+idle-team fixture state=candidate reason=-
+idle-team harness state=protected reason=owner
+idle-team root state=protected reason=owner
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+{"team": "fixture", "roster": "/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/r1452-wpjmr82f/.fable-team/seats-fixture.json", "master": "byz-fixture-master-claude#1", "members": ["byz-fixture-master-claude#1", "byz-fixture-nano-claude#1", "byz-fixture-nano-claude#2"], "stopped": [], "reason": "-", "trigger": "-", "request_seq": "-", "preserve": ["conversation-jsonl", "baton", "seat-resume", "uncommitted", "unpushed", "shared-state", "indices", "ledger", "HIL", "branches"], "cleanup_targets": ["seat-only-stamps", "owned-worktrees-after-preservation-proof", "existing-wt-clean-plans", "owned-scratch-copies-after-preservation-proof"], "requires_approval": true, "cleanup_verified": false, "state": "candidate", "since": 1794000000, "minimum_minutes": 60}
+PASS child-working rc=0 state=protected seconds=0.817
+PASS hil rc=0 state=protected seconds=0.544
+PASS human-wait rc=0 state=protected seconds=0.439
+PASS prerequisite rc=0 state=protected seconds=0.669
+PASS preserve rc=0 state=candidate seconds=1.326
+PASS reopen rc=0 state=ready seconds=1.347
+PASS default-off rc=0 state=None seconds=0.018
+PHASE lifecycle seconds=10.008 failures=1
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor

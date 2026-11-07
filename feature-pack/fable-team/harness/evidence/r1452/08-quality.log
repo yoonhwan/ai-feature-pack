@@ -1,0 +1,9 @@
+PHASE final-quality seconds=2.216
+bash -n ft-tick.sh rc=0
+bash -n test_idle_team_lifecycle_r1452.sh rc=0
+new shellcheck rc=0
+
+source/kit cmp rc=0
+diff-check rc=0
+
+source_sha256=51bb65b8506fa71a415042480ee0b20294633f6e4f71a79e031ed3e3b776893f

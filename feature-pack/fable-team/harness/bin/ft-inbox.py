@@ -16,7 +16,7 @@ from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ft_inbox_core import COMM, HOOK_ERRORS, INBOX, PRIO, answered_seqs, die, find_mail, find_seq, group_closed, haiku, haiku_class, hits, lineage, locked, mail_files, norm_key, obligation_closed, qpath, read_q, rule_class, take_seat, write_q  # noqa: E402
-from ft_inbox_rotate import cmd_count, cmd_rotate, rotated_head  # noqa: E402
+from ft_inbox_rotate import cmd_count, cmd_rotate, rotated_head, tidy_hits  # noqa: E402
 from ft_inbox_window import tail_rows, view, view_seqs  # noqa: E402
 
 
@@ -132,16 +132,18 @@ def cmd_report(seat, targets):
     mutate(seat, targets, lambda x: x.update(reported=True))
 
 
-def cmd_waive(seat, before, reason):
-    """판정 번호가 있는 사유로, 그 좌석 큐의 경계 전·mark 있는·열린 줄에만 waived 를 붙인다. reported 불변."""
+def cmd_waive(seat, before, reason, tidy=False):
+    """기본은 경계 전·mark 있는·열린 줄만 면제. --tidy는 잠금 안에서 반복 도구 알림만 고른다. reported 불변."""
     if not re.search(r"판정 [0-9]+", reason):
-        die('usage: waive <좌석> --before <ISO ts> "<판정 N 이 든 사유>"', 2)
+        die('usage: waive <좌석> --before <ISO ts> "<판정 N 이 든 사유>" [--tidy]', 2)
     cut, q = datetime.fromisoformat(before), qpath(seat)
     with locked(q):
         rows = read_q(q)
         early = [x for x in rows if datetime.fromisoformat(x["ts"]) < cut]
-        hit = [x for x in early if x["mark"] is not None and not obligation_closed(x)]
+        hit = tidy_hits(rows, cut) if tidy else [x for x in early if x["mark"] is not None and not obligation_closed(x)]
         for x in hit:
+            if tidy and x["mark"] is None:
+                x["mark"] = {"kind": "처리", "note": "명시적 면제: " + reason.strip(), "ts": time.strftime("%Y-%m-%dT%H:%M:%S")}
             x["waived"] = {"by": reason.strip(), "ts": time.strftime("%Y-%m-%dT%H:%M:%S")}
         if hit:
             write_q(q, rows)
@@ -182,8 +184,8 @@ def main(a):
                 return cmd_report(seat, r)
             if c == "close" and len(r) >= 2:  # r916 — 마지막 인자 = 사유, 앞은 대상들
                 return cmd_close(seat, r[:-1], r[-1])
-        if c == "waive" and len(a) == 5 and a[2] == "--before":
-            return cmd_waive(a[1], a[3], a[4])
+        if c == "waive" and len(a) in (5, 6) and a[2] == "--before" and (len(a) == 5 or a[5] == "--tidy"):
+            return cmd_waive(a[1], a[3], a[4], tidy=len(a) == 6)
         if c == "archive" and len(a) == 2:
             return cmd_archive(a[1])
     except (ValueError, TypeError, OSError, json.JSONDecodeError) as e:

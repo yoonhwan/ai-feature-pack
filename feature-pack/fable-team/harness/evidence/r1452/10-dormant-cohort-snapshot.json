@@ -1,0 +1,22 @@
+{
+  "head": "2e7a0bc21c3c38a7a720307842ce39ea7ef38016",
+  "source_sha256": "dc420e713b488032b3f3af56e725f3a654a3c4a939988545de76ad1421f5eee2",
+  "minimal_diff_sha256": "4452ffdb3cf701409be542f014f1acf04d8dbc30e4e0d0c7c1c232e3db2fe2fb",
+  "files": [
+    "feature-pack/fable-team/harness/bin/ft-tick.sh",
+    "feature-pack/fable-team/harness/kit/fable-team/bin/ft-tick.sh",
+    "feature-pack/fable-team/harness/tests/test_idle_team_lifecycle_r1452.sh"
+  ],
+  "quality_seconds": 1.994,
+  "checks": [
+    "bash-n feature-pack/fable-team/harness/bin/ft-tick.sh rc=0",
+    "bash-n feature-pack/fable-team/harness/kit/fable-team/bin/ft-tick.sh rc=0",
+    "bash-n feature-pack/fable-team/harness/tests/test_idle_team_lifecycle_r1452.sh rc=0",
+    "new-shellcheck rc=0\n",
+    "source/kit cmp rc=0",
+    "diff-check rc=0\n"
+  ],
+  "delta_base": "staged integrated-v1, not bare HEAD",
+  "base_source_sha256": "51bb65b8506fa71a415042480ee0b20294633f6e4f71a79e031ed3e3b776893f",
+  "staged_base_diff_sha256": "b03e857539d70eee53b8b49e8f8d956b24c1d0c4ef780a0420686dced0e13345"
+}

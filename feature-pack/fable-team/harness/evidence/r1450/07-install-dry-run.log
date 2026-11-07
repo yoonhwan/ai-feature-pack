@@ -1,0 +1,213 @@
+PHASE install-preflight seconds=2.551 rc=0
+== fable-team harness 설치 (dry-run · 쓰기 0) ==
+version=1.1.288 machine=MacBook-Pro live=/Users/yoonhwan/.claude/fable-team/live/1.1.288/ files=525
+HARNESS_ROOT /Users/yoonhwan/.claude/fable-team/live/1.1.288/HARNESS_ROOT <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r1450-tick-haswork/feature-pack/fable-team/harness
+LIVE_BIN  /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/LIVE_BIN  <- /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+LIVE_ROOT /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/LIVE_ROOT <- /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v6-realtime-live (있으면 보존)
+HOOK /Users/yoonhwan/.claude/hooks/bg-cpu-burner-gate.sh <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r1450-tick-haswork/feature-pack/fable-team/harness/kit/hooks/bg-cpu-burner-gate.sh (exec)
+HOOK /Users/yoonhwan/.claude/hooks/desk-bash-fg-gate.sh <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r1450-tick-haswork/feature-pack/fable-team/harness/kit/hooks/desk-bash-fg-gate.sh (exec)
+HOOK /Users/yoonhwan/.claude/hooks/desk-self-interview-gate.sh <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r1450-tick-haswork/feature-pack/fable-team/harness/kit/hooks/desk-self-interview-gate.sh (exec)
+HOOK /Users/yoonhwan/.claude/hooks/harness-freeze-gate.sh <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r1450-tick-haswork/feature-pack/fable-team/harness/kit/hooks/harness-freeze-gate.sh (exec)
+HOOK /Users/yoonhwan/.claude/hooks/merge-head-gate.sh <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r1450-tick-haswork/feature-pack/fable-team/harness/kit/hooks/merge-head-gate.sh (exec)
+HOOK /Users/yoonhwan/.claude/hooks/merge_cmd.py <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r1450-tick-haswork/feature-pack/fable-team/harness/kit/hooks/merge_cmd.py (exec)
+HOOK /Users/yoonhwan/.claude/hooks/old-team-path-new-file-gate.sh <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r1450-tick-haswork/feature-pack/fable-team/harness/kit/hooks/old-team-path-new-file-gate.sh (exec)
+HOOK /Users/yoonhwan/.claude/hooks/op-vault-develop-gate.sh <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r1450-tick-haswork/feature-pack/fable-team/harness/kit/hooks/op-vault-develop-gate.sh (exec)
+HOOK /Users/yoonhwan/.claude/hooks/opencode-reap-check.sh <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r1450-tick-haswork/feature-pack/fable-team/harness/kit/hooks/opencode-reap-check.sh (exec)
+HOOK /Users/yoonhwan/.claude/hooks/planner-decision-line.sh <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r1450-tick-haswork/feature-pack/fable-team/harness/kit/hooks/planner-decision-line.sh (exec)
+HOOK /Users/yoonhwan/.claude/hooks/tracked-bin-call-gate.sh <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r1450-tick-haswork/feature-pack/fable-team/harness/kit/hooks/tracked-bin-call-gate.sh (exec)
+HOOK /Users/yoonhwan/.claude/hooks/worktree-add-gate.sh <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r1450-tick-haswork/feature-pack/fable-team/harness/kit/hooks/worktree-add-gate.sh (exec)
+GITHOOK /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/githooks/post-checkout <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r1450-tick-haswork/feature-pack/fable-team/harness/kit/fable-team/githooks/post-checkout
+GITHOOK /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/githooks/pre-commit <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r1450-tick-haswork/feature-pack/fable-team/harness/kit/fable-team/githooks/pre-commit
+GITHOOK /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/githooks/pre-push <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r1450-tick-haswork/feature-pack/fable-team/harness/kit/fable-team/githooks/pre-push
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/c-level-planning /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ccu-ccu-o1-n30-n40-rounds /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/cfo-cfo-1773-dead-tts-bedrock-stream-cleanup /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/cfo-cfo-6819-notice-email /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/cfo-cfo-6819-notice-web /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/cfo-cfo-org-credit-expire-30d-after-contract /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/cfo-cfo-orgsub-8b-prod-dev-live /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/cfo-cfo-terms-usage-data-clause-6819 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/cfo-cfo-voice-clone-cost-atoms-2659 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/chatbot-c-fix-e7-summary-length-target /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/chatbot-c-fix-tour-runner-my-bases-selector /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/chatbot-spech-dev-check /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+SKIP wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/desk-main (shim 아님)
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/feature-f-sb-c2b-compose-inherit-wire /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/feature-lead-codex66 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/graphics-nano-g-ui-finish-round-legacy-pages /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-lead-codex169 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-ops /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r1094-all-stop-succession-after-reboot /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r1098-mbox-planner-summary-ask-promote-h /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r1106-issue-close-check-pack-pr-landed-s-r2 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r1113-seat-quiesce-heavy-children-on-don-r2 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r1113b-test-end-cleanup-lsp-node-childre /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r1115-issues-daily-midnight-loop-launchd /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r1116-mailbox-key-by-role-not-session-nu-r2 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r1117-hil-result-mail-to-requester-and-a /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r1124-hil-wrapper-cd-repo-root-export-ft /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r1145-tracked-bin-gate-stale-checkout-an /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r1193-holder-unregistered-higher-success /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r1198-pack-scope-table-comm-code-and-tab /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r1200-merge-wait-mark-only-for-real-comm /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r1202-nano-close-pack-root-wt-hint /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r1204-test-r1084-stale-after-r1112-cherr /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r1205-nano-spawn-pack-wt-line-ledger-not /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r1281-oppa-ledger-stale-alarm /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r1371-stall-scan-quiet-while-all-stop /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r1377-ft-launchd-processtype-table /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r1378-magazine-verify-cells-fit-magazine /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r1382-hil-entry-out-keeps-stderr /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r1383-da-codex-no-repo-write /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r1409-nano-spawn-reopen-no-root-commit /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r1411-press-gate-step1-cache-key-moving /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r1413-install-comm-to-ft-root-data-root /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r1418-nano-docker-image-delete-guard /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r1421-acct-pause-recipients-all-roots /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r1426-teamset-roster-path-reads-teams-md /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r1454-mbox-ready-claude-codex-agent-swap /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r1455-install-skip-wt-shim /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-1017-research-table-20261103 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-2999-canon-line-20261103 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-a9-cap-values-20261103 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-arch100-audit /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-arch100-handoff /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-arch100-k2-exist /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-arch100-k2-rereg /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-arch100-k2-rereg2 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-arch100-kg2-outer /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-arch100-kg2stage-r2 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-arch100-kg2stage-r3 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-arch100-profile-id /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-arch100-s5c-plan /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-arch100-s5c-plan2 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-arch100-s5c-press /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-arch100-ysline-r1 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-arch100-ysline-r2 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-arch100-ysline-r3 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-arch101-a9-da6 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-arch101-a9-da6r2 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-arch101-a9-da6r3 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-arch101-a9read /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-arch101-handoff /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-arch101-kf3a-decision /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-arch101-kf3a-lintfix /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-arch101-profileid-da6 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-arch101-s5c-r3 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-arch101-spawnready /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-arch98-handoff-20261103 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-arch99-a9-get /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-arch99-a9-r1 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-arch99-handoff /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-arch99-kf2-6829-test /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-arch99-kf2-check /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-arch99-kf2-close /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-arch99-kf2-complete /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-arch99-kf2-fixture-docs /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-arch99-kf2-setline /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-arch99-kg2-da6r2 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-arch99-kg2-stage-card /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-arch99-kg2stage-r1 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-arch99-landing-docs /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-arch99-s5c-6828-test /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-arch99-s5c-da6r2 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-canon-kf1 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-chunk-fmt-card-20261103 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-close-fix /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-ddl-reserve-3924-20261103 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-ddl62-postcheck-20261103 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-gate-hil /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-gs-whole-close-evidence-20261103 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-issue-cards-20261103 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-kf1-canon /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-kf1-evidence-6381 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-kf2-da6-r2-20261103 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-kf2-da6-r3-20261103 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-kf3a-issue-20261103 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-kf4-contract-table-20261103 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-kf4-design-r3 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-kf4-freeze /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-kf4-research-out /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-kf4c-card-20261103 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-kg-3878 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-kg-status-fix /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-kg2-da6-r1-20261103 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-lead-20261103b /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-nano-loom-file-formats-text /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-nano-loom-files-retry-api /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-nano-loom-m1-rls-base-owner-fix /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-nano-loom-m6-file-functions /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-nano-loom-m6b-extract-functions /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-null-rev-issue-20261103 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-press1691-rules-20261103 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-r3889 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/knowledge-yonseiline-domain-card-20261103 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/lecture-nano-l102-sealed-multirow-translation-gap /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/lecture-nano-l112-off-seal-pending-translation-blank /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/lecture-nano-l116-punctless-release-zero-row-seal /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/lecture-nano-l76-sm65-live-confirm-k-minus-1-sentence /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/lecture-nano-l89-on-seal-keeps-live-rows-research /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-lead /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-lead-codex97 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-nano-ops-account-credits-button-rename /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-nano-ops-account-location-api /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-nano-ops-chat-compact-v2-revision-load /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-nano-ops-delete-loom-profile /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-nano-ops-live-ddl-69-r3-role-admin /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-nano-ops-live-service-alerts /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-nano-ops-loom-changes-audit-trigger-definer /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-nano-ops-loom-default-profile-set /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-nano-ops-tour-7203-pack-name /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+SKIP wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/planner-arch25-main (shim 아님)
+SKIP wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/planner-arch39-main (shim 아님)
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/planner-arch42-ledger /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/press-5390 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/press-5390-s2 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/press-feature-pressB-4069 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/press-k5 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/press-k5t4 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/room-arch31-bundle /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/room-arch31-home-ws /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/room-arch32 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/room-master-12 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/room-nano-r-room-chunk-authz-room-owner /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/room-nano-r-room-reconnect-lang-resync /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/room-nano-r-room-runner-reconnect-host-disconnect /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/room-tester-10-5028 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/room-tester-10-5028b /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/room-tester-13-6009 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-m5-owner-phase-incomplete-transient-erro /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-m5-owner-receipt-exhausted-closing /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-m5-solo-shared-write-press-ownership /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-m7-6621-long-press-chrome-loss-observe /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-m7-g7s2-3-consumer-lst-registry-owner /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-m7-owner-snapshot-size-bounded-publish /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-master-259 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-master-main /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-rt-loom-field-change-mid-press-403-5029 /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-t106-6157-merge /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-t106-6157-press /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+PLAN wt-shim /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/v65-ux-settings-download-tts-mle-toolbar-uni /Users/yoonhwan/.claude/fable-team/live/1.1.287/bin -> /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+WT-SHIM plan=166 skip=3 (dry-run · 쓰기 0)
+SKIP plist com.hermes.byz-mbox-slack-mirror (설치 안 됨 — 처음 설치는 kit/slack-mirror/install.sh)
+OK launchd com.byz.ft-news-desk
+PENDING launchd com.byz.ft-secret-scan (실행 경로 ≠ 렌더본 → /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/bin · env·주기는 설치본 그대로)
+PENDING launchd com.byz.ft-weekly-review (실행 경로 ≠ 렌더본 → /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/bin · env·주기는 설치본 그대로)
+PENDING launchd com.byz.ft-eval-daily (실행 경로 ≠ 렌더본 → /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/bin · env·주기는 설치본 그대로)
+SKIP launchd com.byz.ft-head-lag (설치 안 됨 — 새로 깔지 않음)
+OK launchd com.byz.ft-idle-wake
+PENDING launchd com.byz.ft-issues-daily (실행 경로 ≠ 렌더본 → /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/bin · env·주기는 설치본 그대로)
+PENDING launchd com.byz.ft-news-planner (실행 경로 ≠ 렌더본 → /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/bin · env·주기는 설치본 그대로)
+PENDING launchd com.byz.ft-planner-decisions (실행 경로 ≠ 렌더본 → /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/bin · env·주기는 설치본 그대로)
+PENDING launchd com.byz.ft-postboot-measure (실행 경로 ≠ 렌더본 → /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/bin · env·주기는 설치본 그대로)
+PENDING launchd com.byz.ft-resource-watch (실행 경로 ≠ 렌더본 → /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/bin · env·주기는 설치본 그대로)
+PENDING launchd com.byz.ft-stall-scan (실행 경로 ≠ 렌더본 → /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/bin · env·주기는 설치본 그대로)
+PENDING launchd com.byz.ft-waste-check (실행 경로 ≠ 렌더본 → /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/bin · env·주기는 설치본 그대로)
+PENDING launchd com.byz.ft-wt-sweep (실행 경로 ≠ 렌더본 → /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/bin · env·주기는 설치본 그대로)
+PENDING launchd com.byz.ft-board-publish (실행 경로 ≠ 렌더본 → /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/bin · env·주기는 설치본 그대로)
+LAUNCHD rendered=14 changed=12 restarted=0 (dry-run · 쓰기 0)
+COMM copied=0 same=38 dest=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/comm
+RESTART 0
+HOOKS registered=30 ok=30 bad=0
+(dry-run: 쓰지 않았다 — 설치하려면 --apply)
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor

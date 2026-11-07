@@ -1,0 +1,55 @@
+COMMAND bash tests/test_tick_haswork_r1450.sh; rc=0; seconds=14.705
+PASS a-no-work/fire rc=0 sends=0 expected=0 seconds=3.969
+PASS a-no-work/goal rc=0 sends=0 expected=0 seconds=0.099
+PASS b-recent/fire rc=0 sends=0 expected=0 seconds=4.126
+PASS b-recent/goal rc=0 sends=0 expected=0 seconds=0.060
+PASS c-ready/fire rc=0 sends=1 expected=1 seconds=0.258
+PASS c-ready/goal rc=0 sends=1 expected=1 seconds=0.145
+PASS d-tool-only/fire rc=0 sends=0 expected=0 seconds=0.090
+PASS d-tool-only/goal rc=0 sends=0 expected=0 seconds=0.070
+PASS default-off/fire rc=0 sends=1 expected=1 seconds=0.023
+PASS default-off/goal rc=0 sends=1 expected=1 seconds=0.014
+PASS dedup/fire rc=0 sends=1 expected=1 seconds=0.211
+PASS dedup/goal rc=0 sends=1 expected=1 seconds=0.236
+PASS working/fire rc=0 sends=0 expected=0 seconds=0.037
+PASS working/goal rc=0 sends=0 expected=0 seconds=0.040
+PASS unknown/fire rc=0 sends=0 expected=0 seconds=0.048
+PASS unknown/goal rc=0 sends=0 expected=0 seconds=0.042
+PASS missing-end/fire rc=0 sends=0 expected=0 seconds=0.035
+PASS missing-end/goal rc=0 sends=0 expected=0 seconds=0.035
+PASS recheck-working/fire rc=0 sends=0 expected=0 seconds=0.105
+PASS recheck-working/goal rc=0 sends=0 expected=0 seconds=0.097
+PASS inbox-open/fire rc=0 sends=0 expected=0 seconds=0.069
+PASS inbox-open/goal rc=0 sends=0 expected=0 seconds=0.070
+PASS card-assigned/fire rc=0 sends=1 expected=1 seconds=0.147
+PASS card-assigned/goal rc=0 sends=1 expected=1 seconds=0.179
+PASS master-unassigned/fire rc=0 sends=0 expected=0 seconds=0.068
+PASS master-unassigned/goal rc=0 sends=0 expected=0 seconds=0.066
+PASS card-waiting/fire rc=0 sends=0 expected=0 seconds=0.067
+PASS card-waiting/goal rc=0 sends=0 expected=0 seconds=0.067
+PASS card-ledger-only/fire rc=0 sends=1 expected=1 seconds=0.146
+PASS card-ledger-only/goal rc=0 sends=1 expected=1 seconds=0.138
+PASS card-old-seat/fire rc=0 sends=0 expected=0 seconds=0.068
+PASS card-old-seat/goal rc=0 sends=0 expected=0 seconds=0.065
+PASS mailbox-reference/fire rc=0 sends=1 expected=1 seconds=0.137
+PASS mailbox-reference/goal rc=0 sends=1 expected=1 seconds=0.189
+PASS goal-quiet-then-fire/fire rc=0 sends=1 expected=1 seconds=0.281
+PASS goal-quiet-then-fire/goal rc=0 sends=1 expected=1 seconds=0.269
+PHASE fixtures seconds=11.964 failures=0
+PASS team-dry-run rc=0 seconds=0.230
+2026-11-07 10:01:24 idle_watch disabled (FT_TICK_IDLE_ENABLED=0)
+DRY kind=stall interval=300s min=15m seats=byz-fixture-master-claude#1 
+DRY seat=byz-fixture-master-claude#1 kind=master interval=300s gap=1794000000s msg=[cron-tick · 뉴스] 형식은 SEATBELT-README §6-1 master 항 그대로(★⓪ 완성 상태 트리 = ft-news-tic
+DRY seat=byz-fixture-master-claude#1 kind=goal-tick interval=240s gap=1794000000s msg=(ft-goal-tick.sh 결과 → rc≠0 일 때만 relay)
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+
+COMMAND bash tests/test_tick_goal_recheck_r1450.sh; rc=0; seconds=0.150
+PASS R3-actual-goal-recheck rc=0 relays=0 expected=0 seconds=0.111
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor

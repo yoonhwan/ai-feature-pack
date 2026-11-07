@@ -1,0 +1,21 @@
+{
+  "repository": "SecondWindStudio/byz-agents",
+  "branch": "fix/r1450-tick-haswork",
+  "base_head": "15df4d0c3edde089787eac5f1107ee59024b6d9d",
+  "worktree": "/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-r1450-r1452-planner",
+  "diff_sha256": "d7cde2c9bc00b602421325adb92e795a60be6621d2b5e1ebeb9a50d3a7e7d726",
+  "files": {
+    "design/teams/planner/GUIDE-planner.md": "bc80bed2c2d80573758a46a09da2a180bc8d0de074f3c8c32a246fd87b1d8902",
+    "design/teams/planner/STRUCTURE-main-satellite.md": "d092790efc014e741e33ccd09e22bdd8247b18c255e3e30e4733de7028e776f8"
+  },
+  "owner_delta": "/tmp/mbox/20261107T103219-byz-planner-arch-claude#43-to-byz-harness-master-codex#169-DELTA-r1452-planner-guide-20261107.md",
+  "scope": "D1-D5; identical D1 sentence in both files; no global VOICE changes",
+  "clarification": "Open-goal text is retained as planner duty, not added as a third actionable source.",
+  "previous_base_head": "81b6434368506c265182770caaddb1aeb14a0381",
+  "rebase_note": "114 upstream commits; both planner target files unchanged upstream; delta preserved",
+  "primary_approval": {
+    "source": "Pi user line902",
+    "id": "eb54a4ff",
+    "verified_role": "user"
+  }
+}

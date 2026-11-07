@@ -1,0 +1,30 @@
+{
+  "implementation": {
+    "source": "/Users/yoonhwan/.pi/agent/sessions/--Users-yoonhwan-Project-ai-feature-pack--/2026-11-06T10-31-02-329Z_748bb8a1-ea92-4ede-8809-ab04b9df2d13.jsonl",
+    "line": 902,
+    "role": "user",
+    "id": "eb54a4ff",
+    "verified": true
+  },
+  "integrated_review": {
+    "source": "/Users/yoonhwan/.codex/sessions/2026/11/06/rollout-2026-11-06T20-36-43-01a1b0a5-9431-7150-b41e-ac66c50a9de9.jsonl",
+    "line": 11344,
+    "role": "user",
+    "id": "msg_01a1b39f-2d76-7791-babd-ce86ed24f6ce",
+    "verified": true,
+    "text": "mbox [결정] 정렬 확정 — r1450+r1452 최종통합판 1개로 간다. r1450 단독 커밋 금지(checker FAIL 원인). 동결판 1개 → DA 1회 → checker 1회."
+  },
+  "support_contracts": [
+    270861,
+    270875,
+    270994,
+    271016
+  ],
+  "preserve_history": [
+    "da-01 REJECT",
+    "da-02 REJECT",
+    "R4-only APPROVE mbox271041",
+    "checker-01 FAIL"
+  ],
+  "scope": "one new integrated freeze -> DA once -> checker once; no intermediate calls"
+}

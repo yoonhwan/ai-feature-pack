@@ -1,0 +1,14 @@
+GUARDS rc=0 seconds=8.892
+PASS zero-duration rc=0 state=candidate seconds=2.773
+PASS root-owner rc=0 state=protected seconds=0.517
+PASS harness-owner rc=0 state=protected seconds=0.516
+PASS child-work-seen rc=0 state=protected seconds=0.744
+PASS child-working rc=0 state=protected seconds=0.890
+PASS hil rc=0 state=protected seconds=0.446
+PASS human-wait rc=0 state=protected seconds=0.416
+PASS prerequisite rc=0 state=protected seconds=0.555
+PASS preserve rc=0 state=candidate seconds=0.936
+PASS old-stop-ready rc=0 state=candidate seconds=1.012
+PASS default-off rc=0 state=None seconds=0.012
+PHASE lifecycle seconds=8.845 failures=0
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor

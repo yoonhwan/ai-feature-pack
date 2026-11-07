@@ -1,0 +1,29 @@
+PHASE team-install-preflight seconds=0.381 rc=0
+== fable-team harness 설치 (dry-run · 쓰기 0) ==
+version=1.1.288 machine=MacBook-Pro live=/Users/yoonhwan/.claude/fable-team/live/1.1.288/ files=525
+HARNESS_ROOT /Users/yoonhwan/.claude/fable-team/live/1.1.288/HARNESS_ROOT <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r1450-tick-haswork/feature-pack/fable-team/harness
+LIVE_BIN  /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-ops/.fable-team/LIVE_BIN  <- /Users/yoonhwan/.claude/fable-team/live/1.1.288/bin
+LIVE_ROOT /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-ops/.fable-team/LIVE_ROOT <- /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents (있으면 보존)
+HOOK /Users/yoonhwan/.claude/hooks/bg-cpu-burner-gate.sh <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r1450-tick-haswork/feature-pack/fable-team/harness/kit/hooks/bg-cpu-burner-gate.sh (exec)
+HOOK /Users/yoonhwan/.claude/hooks/desk-bash-fg-gate.sh <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r1450-tick-haswork/feature-pack/fable-team/harness/kit/hooks/desk-bash-fg-gate.sh (exec)
+HOOK /Users/yoonhwan/.claude/hooks/desk-self-interview-gate.sh <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r1450-tick-haswork/feature-pack/fable-team/harness/kit/hooks/desk-self-interview-gate.sh (exec)
+HOOK /Users/yoonhwan/.claude/hooks/harness-freeze-gate.sh <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r1450-tick-haswork/feature-pack/fable-team/harness/kit/hooks/harness-freeze-gate.sh (exec)
+HOOK /Users/yoonhwan/.claude/hooks/merge-head-gate.sh <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r1450-tick-haswork/feature-pack/fable-team/harness/kit/hooks/merge-head-gate.sh (exec)
+HOOK /Users/yoonhwan/.claude/hooks/merge_cmd.py <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r1450-tick-haswork/feature-pack/fable-team/harness/kit/hooks/merge_cmd.py (exec)
+HOOK /Users/yoonhwan/.claude/hooks/old-team-path-new-file-gate.sh <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r1450-tick-haswork/feature-pack/fable-team/harness/kit/hooks/old-team-path-new-file-gate.sh (exec)
+HOOK /Users/yoonhwan/.claude/hooks/op-vault-develop-gate.sh <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r1450-tick-haswork/feature-pack/fable-team/harness/kit/hooks/op-vault-develop-gate.sh (exec)
+HOOK /Users/yoonhwan/.claude/hooks/opencode-reap-check.sh <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r1450-tick-haswork/feature-pack/fable-team/harness/kit/hooks/opencode-reap-check.sh (exec)
+HOOK /Users/yoonhwan/.claude/hooks/planner-decision-line.sh <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r1450-tick-haswork/feature-pack/fable-team/harness/kit/hooks/planner-decision-line.sh (exec)
+HOOK /Users/yoonhwan/.claude/hooks/tracked-bin-call-gate.sh <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r1450-tick-haswork/feature-pack/fable-team/harness/kit/hooks/tracked-bin-call-gate.sh (exec)
+HOOK /Users/yoonhwan/.claude/hooks/worktree-add-gate.sh <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r1450-tick-haswork/feature-pack/fable-team/harness/kit/hooks/worktree-add-gate.sh (exec)
+GITHOOK /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-ops/.fable-team/githooks/post-checkout <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r1450-tick-haswork/feature-pack/fable-team/harness/kit/fable-team/githooks/post-checkout
+GITHOOK /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-ops/.fable-team/githooks/pre-commit <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r1450-tick-haswork/feature-pack/fable-team/harness/kit/fable-team/githooks/pre-commit
+GITHOOK /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-ops/.fable-team/githooks/pre-push <- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/r1450-tick-haswork/feature-pack/fable-team/harness/kit/fable-team/githooks/pre-push
+WARN core.hooksPath=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/githooks != /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-ops/.fable-team/githooks — 훅이 실제로 도는 곳과 다르다(--project 를 공용 루트로)
+SKIP plist-env com.hermes.byz-mbox-slack-mirror (--project 가 git 공용 루트 아님: 루트=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents — plist 는 루트 설치에서만)
+SKIP launchd (--project 가 git 공용 루트 아님: 루트=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents — plist 는 루트 설치에서만)
+SKIP comm (--project 가 git 공용 루트 아님: 루트=/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents — comm 은 루트 설치에서만)
+RESTART 0
+HOOKS registered=30 ok=30 bad=0
+(dry-run: 쓰지 않았다 — 설치하려면 --apply)
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor

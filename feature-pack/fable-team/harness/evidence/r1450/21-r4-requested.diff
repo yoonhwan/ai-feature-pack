@@ -1,0 +1,205 @@
+diff --git a/feature-pack/fable-team/harness/bin/ft-tick.sh b/feature-pack/fable-team/harness/bin/ft-tick.sh
+index 023248bd..fffe3076 100755
+--- a/feature-pack/fable-team/harness/bin/ft-tick.sh
++++ b/feature-pack/fable-team/harness/bin/ft-tick.sh
+@@ -520,26 +520,45 @@ acct_pause_watch() {   # 한 바퀴 1회 — 만료·풀림·부분 재시도 
+   return 0
+ }
+ 
++inbox_tidy_save() {
++  local snapshot
++  # last_seq=0 means no official waive seq has been confirmed for this seat.
++  snapshot="$(python3 -c 'import json,sys; print(json.dumps(dict(seat=sys.argv[1], last_seq=int(sys.argv[2]), ts=int(sys.argv[3]))))' "$2" "${3:-0}" "$(now)")" || return 1
++  write_stamp "$1" "$snapshot"
++}
+ inbox_tidy() {
+   [ "${FT_TICK_INBOX_TIDY:-0}" = 1 ] || return 0
+   if [ "$DRY" = 1 ]; then echo "DRY kind=inbox-tidy — mutation calls=0"; return 0; fi
+-  local reason="${FT_TICK_INBOX_TIDY_REASON:-}" deadline seats seat cut left limit out rc
++  local reason="${FT_TICK_INBOX_TIDY_REASON:-}" deadline seats seat last_seq line cut left limit out rc cursor="$ROOT/.fable-team/state/inbox-tidy-cursor.json"
+   [[ "$reason" =~ 판정\ [0-9]+ ]] || { log "판정 불가 inbox-tidy — FT_TICK_INBOX_TIDY_REASON에 판정 번호 필요"; return 1; }
+   deadline=$(( $(now) + 25 ))
+-  seats="$(python3 - "$SEATS" 2>/dev/null <<'PY'
++  seats="$(python3 - "$SEATS" "$cursor" 2>/dev/null <<'PY'
+ import json, sys
++from pathlib import Path
+ doc = json.load(open(sys.argv[1], encoding="utf-8"))
+-print("\n".join(k for k, row in doc.items() if not k.startswith("_") and isinstance(row, dict)
+-                and not row.get("_replaced_by") and row.get("role") not in ("closed", "stopped")))
++names = [k for k, row in doc.items() if not k.startswith("_") and isinstance(row, dict)
++         and not row.get("_replaced_by") and row.get("role") not in ("closed", "stopped")]
++saved = Path(sys.argv[2])
++snapshot = json.loads(saved.read_text(encoding="utf-8")) if saved.exists() else {}
++resume = snapshot.get("seat", "")
++if resume in names:
++    index = names.index(resume)
++    names = names[index:] + names[:index]
++print("\n".join(f"{seat}\t{int(snapshot.get('last_seq') or 0) if seat == resume else 0}" for seat in names))
+ PY
+ )" || { log "판정 불가 inbox-tidy — 명부 조회 실패"; return 1; }
+   cut="$(python3 -c 'from datetime import datetime; import sys; print(datetime.fromtimestamp(int(sys.argv[1])-3*86400).isoformat())' "$(now)")" || return 1
+-  while IFS= read -r seat; do
++  while IFS=$'\t' read -r seat last_seq; do
+     [ -n "$seat" ] || continue
+-    left=$(( deadline - $(now) )); [ "$left" -gt 0 ] || { log "inbox-tidy — 25초 상한, 남은 좌석은 다음 회차"; return 0; }
++    left=$(( deadline - $(now) )); [ "$left" -gt 0 ] || { inbox_tidy_save "$cursor" "$seat" "$last_seq" || return 1; log "inbox-tidy — 25초 상한, 남은 좌석은 다음 회차"; return 0; }
+     limit=$(( left < 7 ? left : 7 ))
++    inbox_tidy_save "$cursor" "$seat" "$last_seq" || return 1
+     out="$(FT_ROOT="$ROOT" timeout "$limit" bash "$HERE/ft-inbox.sh" waive "$seat" --before "$cut" "$reason" --tidy 2>&1)"; rc=$?
+     [ "$rc" = 0 ] || { log "판정 불가 inbox-tidy $seat rc=$rc — ${out//$'\n'/ | }"; return 1; }
++    while IFS= read -r line; do
++      if [[ "$line" =~ ^WAIVED\ [0-9]+\ seq=([0-9,]+)$ ]]; then last_seq="${BASH_REMATCH[1]##*,}"; break; fi
++    done <<< "$out"
++    inbox_tidy_save "$cursor" "$seat" "$last_seq" || return 1
+     log "inbox-tidy $seat ${out//$'\n'/ | }"
+   done <<< "$seats"
+ }
+diff --git a/feature-pack/fable-team/harness/kit/fable-team/bin/ft-tick.sh b/feature-pack/fable-team/harness/kit/fable-team/bin/ft-tick.sh
+index 023248bd..fffe3076 100755
+--- a/feature-pack/fable-team/harness/kit/fable-team/bin/ft-tick.sh
++++ b/feature-pack/fable-team/harness/kit/fable-team/bin/ft-tick.sh
+@@ -520,26 +520,45 @@ acct_pause_watch() {   # 한 바퀴 1회 — 만료·풀림·부분 재시도 
+   return 0
+ }
+ 
++inbox_tidy_save() {
++  local snapshot
++  # last_seq=0 means no official waive seq has been confirmed for this seat.
++  snapshot="$(python3 -c 'import json,sys; print(json.dumps(dict(seat=sys.argv[1], last_seq=int(sys.argv[2]), ts=int(sys.argv[3]))))' "$2" "${3:-0}" "$(now)")" || return 1
++  write_stamp "$1" "$snapshot"
++}
+ inbox_tidy() {
+   [ "${FT_TICK_INBOX_TIDY:-0}" = 1 ] || return 0
+   if [ "$DRY" = 1 ]; then echo "DRY kind=inbox-tidy — mutation calls=0"; return 0; fi
+-  local reason="${FT_TICK_INBOX_TIDY_REASON:-}" deadline seats seat cut left limit out rc
++  local reason="${FT_TICK_INBOX_TIDY_REASON:-}" deadline seats seat last_seq line cut left limit out rc cursor="$ROOT/.fable-team/state/inbox-tidy-cursor.json"
+   [[ "$reason" =~ 판정\ [0-9]+ ]] || { log "판정 불가 inbox-tidy — FT_TICK_INBOX_TIDY_REASON에 판정 번호 필요"; return 1; }
+   deadline=$(( $(now) + 25 ))
+-  seats="$(python3 - "$SEATS" 2>/dev/null <<'PY'
++  seats="$(python3 - "$SEATS" "$cursor" 2>/dev/null <<'PY'
+ import json, sys
++from pathlib import Path
+ doc = json.load(open(sys.argv[1], encoding="utf-8"))
+-print("\n".join(k for k, row in doc.items() if not k.startswith("_") and isinstance(row, dict)
+-                and not row.get("_replaced_by") and row.get("role") not in ("closed", "stopped")))
++names = [k for k, row in doc.items() if not k.startswith("_") and isinstance(row, dict)
++         and not row.get("_replaced_by") and row.get("role") not in ("closed", "stopped")]
++saved = Path(sys.argv[2])
++snapshot = json.loads(saved.read_text(encoding="utf-8")) if saved.exists() else {}
++resume = snapshot.get("seat", "")
++if resume in names:
++    index = names.index(resume)
++    names = names[index:] + names[:index]
++print("\n".join(f"{seat}\t{int(snapshot.get('last_seq') or 0) if seat == resume else 0}" for seat in names))
+ PY
+ )" || { log "판정 불가 inbox-tidy — 명부 조회 실패"; return 1; }
+   cut="$(python3 -c 'from datetime import datetime; import sys; print(datetime.fromtimestamp(int(sys.argv[1])-3*86400).isoformat())' "$(now)")" || return 1
+-  while IFS= read -r seat; do
++  while IFS=$'\t' read -r seat last_seq; do
+     [ -n "$seat" ] || continue
+-    left=$(( deadline - $(now) )); [ "$left" -gt 0 ] || { log "inbox-tidy — 25초 상한, 남은 좌석은 다음 회차"; return 0; }
++    left=$(( deadline - $(now) )); [ "$left" -gt 0 ] || { inbox_tidy_save "$cursor" "$seat" "$last_seq" || return 1; log "inbox-tidy — 25초 상한, 남은 좌석은 다음 회차"; return 0; }
+     limit=$(( left < 7 ? left : 7 ))
++    inbox_tidy_save "$cursor" "$seat" "$last_seq" || return 1
+     out="$(FT_ROOT="$ROOT" timeout "$limit" bash "$HERE/ft-inbox.sh" waive "$seat" --before "$cut" "$reason" --tidy 2>&1)"; rc=$?
+     [ "$rc" = 0 ] || { log "판정 불가 inbox-tidy $seat rc=$rc — ${out//$'\n'/ | }"; return 1; }
++    while IFS= read -r line; do
++      if [[ "$line" =~ ^WAIVED\ [0-9]+\ seq=([0-9,]+)$ ]]; then last_seq="${BASH_REMATCH[1]##*,}"; break; fi
++    done <<< "$out"
++    inbox_tidy_save "$cursor" "$seat" "$last_seq" || return 1
+     log "inbox-tidy $seat ${out//$'\n'/ | }"
+   done <<< "$seats"
+ }
+diff --git a/feature-pack/fable-team/harness/tests/test_tick_inbox_tidy_default_r1450.sh b/feature-pack/fable-team/harness/tests/test_tick_inbox_tidy_default_r1450.sh
+index ac51a17e..866e5eef 100644
+--- a/feature-pack/fable-team/harness/tests/test_tick_inbox_tidy_default_r1450.sh
++++ b/feature-pack/fable-team/harness/tests/test_tick_inbox_tidy_default_r1450.sh
+@@ -1,9 +1,10 @@
+ #!/bin/bash
+-# No cleanup simulation: only default-off/dry-run dispatch barriers and syntax.
++# No cleanup simulation: dispatch barriers and cursor scheduling with a fake tool.
+ set -uo pipefail
+ HERE="$(cd -- "$(dirname -- "$0")" && pwd)"
+ python3 -B - "$HERE/../bin" <<'PY'
+ import ast
++import json
+ import os
+ import re
+ import subprocess
+@@ -16,22 +17,74 @@ bin_dir = Path(sys.argv[1]).resolve()
+ started = time.monotonic()
+ source = (bin_dir / "ft-tick.sh").read_text(encoding="utf-8")
+ function = re.search(r"^inbox_tidy\(\) \{.*?^\}", source, re.M | re.S)[0]
++stamp = re.search(r"^write_stamp\(\) \{.*?^\}", source, re.M | re.S)[0]
++save = re.search(r"^inbox_tidy_save\(\) \{.*?^\}", source, re.M | re.S)
++function = (save[0] + "\n" if save else "") + function
+ for name in ("ft-inbox.py", "ft_inbox_rotate.py"):
+     ast.parse((bin_dir / name).read_text(encoding="utf-8"))
+ with tempfile.TemporaryDirectory(prefix="r1450-tidy-off-") as temp:
+     root = Path(temp)
+     setup = 'now(){ echo unexpected >> "$ROOT/calls"; }; timeout(){ echo unexpected >> "$ROOT/calls"; }; python3(){ echo unexpected >> "$ROOT/calls"; };\n'
+     for label, flag, dry in [("default-off", None, "0"), ("dry-run", "1", "1")]:
+-        env = dict(os.environ, ROOT=str(root), DRY=dry)
++        env = dict(os.environ, ROOT=str(root), STATE_DIR=str(root / "state"), DRY=dry)
+         env.pop("FT_TICK_INBOX_TIDY", None)
+         if flag is not None:
+             env["FT_TICK_INBOX_TIDY"] = flag
+         run = subprocess.run(["bash"], input=setup + function + "\ninbox_tidy\n", env=env,
+                              capture_output=True, text=True, timeout=7)
+-        good = run.returncode == 0 and not (root / "calls").exists()
++        good = run.returncode == 0 and not (root / "calls").exists() and not (root / ".fable-team/state/inbox-tidy-cursor.json").exists()
+         print(f'{"PASS" if good else "FAIL"} inbox-tidy/{label} rc={run.returncode} tool_calls={int((root / "calls").exists())}')
+         print(run.stdout + run.stderr, end="")
+         if not good:
+             sys.exit(1)
++with tempfile.TemporaryDirectory(prefix="r1450-tidy-cursor-") as temp:
++    root = Path(temp)
++    seats = [f"byz-fixture-nano-claude#{i}" for i in range(1, 4)]
++    roster = root / "seats-fixture.json"
++    roster.write_text(json.dumps({s: {"role": "nano"} for s in seats}), encoding="utf-8")
++    (root / "clock").write_text("1794000000", encoding="utf-8")
++    setup = r'''
++set -uo pipefail
++now(){ cat "$ROOT/clock"; }
++log(){ printf '%s\n' "$*"; }
++python3(){
++  command python3 "$@" || return $?
++  if [ "$1" = - ] && [ "${2:-}" = "$SEATS" ]; then
++    value=$(cat "$ROOT/clock"); printf '%s\n' "$((value + 20))" > "$ROOT/clock"
++  fi
++}
++timeout(){
++  shift
++  printf '%s\n' "$4" >> "$ROOT/attempts"
++  value=$(cat "$ROOT/clock"); printf '%s\n' "$((value + 5))" > "$ROOT/clock"
++  echo 'WAIVED 2 seq=101,102'
++}
++'''
++    env = dict(os.environ, ROOT=str(root), SEATS=str(roster), STATE_DIR=str(root / "state"),
++               HERE=str(bin_dir), DRY="0", FT_TICK_INBOX_TIDY="1", FT_TICK_INBOX_TIDY_REASON="판정 1 scheduling fixture")
++    audited_stamp = stamp.replace("write_stamp()", "real_write_stamp()", 1) + '\nwrite_stamp(){ real_write_stamp "$@" || return $?; printf \'%s\\n\' "$2" >> "$ROOT/cursor-writes.jsonl"; }\n'
++    command = setup + audited_stamp + "\n" + function + "\ninbox_tidy\n"
++    first = subprocess.run(["bash"], input=command, env=env, capture_output=True, text=True, timeout=7)
++    cursor = root / ".fable-team/state/inbox-tidy-cursor.json"
++    saved = json.loads(cursor.read_text(encoding="utf-8")) if cursor.exists() else {}
++    run = subprocess.run(["bash"], input=command, env=env, capture_output=True, text=True, timeout=7)
++    attempts = (root / "attempts").read_text(encoding="utf-8").splitlines()
++    writes = [json.loads(line) for line in (root / "cursor-writes.jsonl").read_text(encoding="utf-8").splitlines() if line.startswith("{")]
++    good = (first.returncode == run.returncode == 0 and attempts == seats[:2]
++            and saved == {"seat": seats[1], "last_seq": 0, "ts": 1794000025}
++            and any(x.get("seat") == seats[0] and x.get("last_seq") == 102 for x in writes))
++    print(f'{"PASS" if good else "FAIL"} R4-json-next-round rc={run.returncode} attempts={attempts} expected={seats[:2]} saved={saved}')
++    print(first.stdout + first.stderr + run.stdout + run.stderr, end="")
++    if not good:
++        sys.exit(1)
++    cursor.write_text(json.dumps({"seat": "removed-seat#99", "last_seq": 0, "ts": 1794000050}) + "\n", encoding="utf-8")
++    (root / "attempts").write_text("", encoding="utf-8")
++    run = subprocess.run(["bash"], input=command, env=env, capture_output=True, text=True, timeout=7)
++    attempts = (root / "attempts").read_text(encoding="utf-8").splitlines()
++    good = run.returncode == 0 and attempts[:1] == seats[:1]
++    print(f'{"PASS" if good else "FAIL"} R4-removed-cursor rc={run.returncode} first={attempts[:1]} expected={seats[:1]}')
++    if not good:
++        print(run.stdout + run.stderr, end="")
++        sys.exit(1)
+ print(f"PHASE tidy-default seconds={time.monotonic()-started:.3f}; cleanup execution=0; candidate simulation=0")
+ PY

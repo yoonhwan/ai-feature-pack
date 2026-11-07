@@ -1,0 +1,67 @@
+PHASE waive-regression seconds=3.922 rc=1
+PASS ⓑ 판정 번호 없는 사유 → rc 2
+PASS ⓑ 거부 뒤 큐 불변
+PASS ⓑ --before 형식 오류 → rc 2
+PASS ⓑ --before 누락 → rc 2
+PASS ⓑ 오류 뒤 큐 불변
+PASS waive 전 show 에 601
+PASS waive 전 show 에 602
+PASS waive 전 show 에 603
+PASS waive 전 show 에 604
+PASS ⓐ waive rc 0
+PASS ⓐ 출력 WAIVED 줄
+PASS waive 뒤 show 에서 601 사라짐
+PASS waive 뒤 show 에서 602 사라짐
+PASS waive 뒤 show 에서 603 사라짐
+PASS 경계 후 604 는 show 에 남음
+PASS reported 불변 601
+PASS reported 불변 602
+PASS reported 불변 603
+PASS reported 불변 604
+PASS reported 불변 605
+PASS waived.by 에 사유 원문
+PASS 경계 후 604 waived 없음
+PASS ⓒ SKIPPED_NO_MARK 1
+PASS ⓒ 605 면제 안 붙음
+PASS ⓒ 605 는 show 에 남음
+PASS ⓒ 재실행 멱등: WAIVED 0
+PASS ⓓ 다른 좌석 큐 바이트 불변
+PASS ⓔ ARCHIVED 3
+PASS ⓔ 면제 줄 REFUSED 0
+PASS ⓔ 이동본 3줄
+PASS ⓔ 이동본 waived 보존·reported=false
+PASS ⓕ 술어 전 조합(mark×cls×reported×waived키 없음/None)이 옛 식과 같음
+PASS ⓕ show 골든(801 열림·802 닫힘·803 mark 없음 열림)
+PASS ⓕ archive 골든(옛 동작: ⑥ 이동 · ① mark만 REFUSED)
+PASS ⓖ 경계 전 1줄만 WAIVED
+PASS ⓖ 묶음 show 유지(미닫힘=902)
+PASS ⓖ 묶음 archive 0건 이동
+FAIL test_kit_bin_sync.sh FAIL
+PASS 키트 사본 바이트 같음 ft_inbox_core.py
+PASS ft_inbox_core.py 200줄 이하
+PASS 키트 사본 바이트 같음 ft-inbox.py
+PASS ft-inbox.py 200줄 이하
+RESULT fail=1
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+bash: warning: setlocale: LC_ALL: cannot change locale (C.UTF-8): Bad file descriptor
+
+PHASE ruff seconds=0.047 rc=0
+All checks passed!
+
+PHASE shellcheck-new seconds=1.750 rc=0
