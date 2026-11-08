@@ -58,11 +58,13 @@ put "design/TEAMS.md" '| 팀 | 폴더 | x | y |
 | v65 | `design/v65/` | v | 현역 |'
 IDX="design/harness/indices"
 for c in r1478-card-one r2001-card-a r2002-card-b; do put "$IDX/진행/$c.md" "# 인덱스: $c"; done
+put "design/v65/indices/진행/r2003-card-v65.md" "# 인덱스: r2003-card-v65"   # F1(DA HOLD): 다른 팀 카드가 섞인 묶음
 put "docs/architect/X.md" "## 절A 제목"
 cm "$W" "base cards"; git -C "$W" push -q origin main; git -C "$W" fetch -q origin
 printf '.fable-team/\n' >> "$W/.git/info/exclude"   # 하네스 상태(base-head 등)가 시험 커밋에 섞이지 않게
 mkdir -p "$W/.fable-team"
 printf '{"_master":"team-harness-master#9","_arch":"team-harness-arch#3"}\n' > "$W/.fable-team/seats-harness.json"
+printf '{"_master":"team-v65-master#1"}\n' > "$W/.fable-team/seats.json"   # v65 팀 명부(팀 없음 → seats.json)
 printf '{"_master":"team-move-master#4","_arch":"team-move-arch#2"}\n' > "$T/seats-move.json"
 
 # ── T1: 카드 1장 착지 → LANDED 뒤 가짜 mbox 1통 · 수신 = 그 팀 _master · 머리·카드 토큰·설치 칸 · rc 0 ──
@@ -79,6 +81,12 @@ mkpr 2 doc2 "docs: r2001 r2002 묶음" "카드 r2001 · r2002" "design/x/t2.md=T
 land "$LAND" 2 --approve-sha "$PRSHA"
 [ "$rc" = 0 ] && [ "$(mbox_n)" = 1 ] && grep -q 'r2001' "$MBOX_LOG" && grep -q 'r2002' "$MBOX_LOG"
 ck "T2 묶음 착지 → 쪽지 1통(본문에 r2001·r2002 둘 다)" $?
+# ── T2b (DA F1): 서로 다른 팀 카드 묶음 = 합집합 → 팀마다 1통 · FT_SEAT 없음이어도 발신자 팀으로 새지 않는다 ──
+mkpr 7 doc7 "docs: r2001 r2003 두 팀" "harness r2001 · v65 r2003" "design/x/t7.md=T7"
+land "$LAND" 7 --approve-sha "$PRSHA"
+[ "$rc" = 0 ] && [[ "$out" == *"LANDED pr=7 "* ]] && [ "$(mbox_n)" = 2 ] \
+  && grep -q '^send team-harness-master#9 ' "$MBOX_LOG" && grep -q '^send team-v65-master#1 ' "$MBOX_LOG"
+ck "T2b 두 팀 묶음 → 팀마다 1통(합집합 2통 · 한 팀으로 몰리지 않음)" $?
 
 # ── T3: 카드 0장(팩 코드 PR) — FT_SEAT 둘째 토막으로 팀 · FT_SEAT 없으면 INFO 1줄·발신 0·rc 불변 ──
 mkpr 3 doc3 "chore: 코드만" "카드 토큰 없음" "bin/q3.sh=echo q3"
@@ -90,6 +98,16 @@ mkpr 4 doc4 "chore: 코드만 둘" "카드 토큰 없음" "bin/q4.sh=echo q4"
 land "$LAND" 4 --approve-sha "$PRSHA"
 [ "$rc" = 0 ] && [ "$(mbox_n)" = 0 ] && echo "$out" | grep -q '^INFO 착지 쪽지 생략 — 팀 못 정함$'
 ck "T3b FT_SEAT 없음 → 착지 rc0 · INFO 1줄 · 발신 0" $?
+# ── T3c (DA F2): 받은 root 를 fm_land_notify 에 넘기나 — FT_REPO_ROOT 에 «다른 리포» 를 끼워도 쪽지는 카드 리포 팀장에게 간다 ──
+mkdir -p "$T/decoy/.fable-team"; git -C "$T/decoy" init -q 2>/dev/null || mkdir -p "$T/decoy"
+printf '{"_master":"team-decoy#7"}\n' > "$T/decoy/.fable-team/seats-harness.json"
+mkpr 8 doc8 "chore: 코드만 셋" "카드 토큰 없음" "bin/q8.sh=echo q8"
+A8="$PRSHA"; apv --approve-sha "$A8"; : > "$MBOX_LOG"
+out="$(FT_REPO_ROOT="$T/decoy" FT_SEAT=byz-harness-nano-r1478#0 bash "$LAND" 8 --approve-sha "$A8" --repo "$W" 2>&1)"; rc=$?
+[ "$rc" = 0 ] && [[ "$out" == *"LANDED pr=8 "* ]] && [ "$(mbox_n)" = 1 ] \
+  && grep -qE '^send team-harness-master#9 byz-harness-nano-r1478#0 \[착지\] pr=8 ' "$MBOX_LOG" \
+  && ! grep -q 'team-decoy#7' "$MBOX_LOG"
+ck "T3c 받은 root 가 이긴다(FT_REPO_ROOT 유혹 0 · F2)" $?
 unset A3
 
 # ── T5: 가짜 mbox rc≠0 → WARN 1줄 · LANDED 그대로 · rc 불변 · 재시도 0(호출 1회) ──
