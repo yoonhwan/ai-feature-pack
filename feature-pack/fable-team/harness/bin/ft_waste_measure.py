@@ -6,6 +6,8 @@
 #     (첫 행만 쓰면 thinking 행이 먼저 와 도구 수가 0 이 된다 — E3 를 속인다). user 텍스트 행 1개 = 깨우는 턴(tool_result 행은 턴이 아니다).
 #     틱 턴 = user 텍스트가 «[desk 틱» 으로 시작하는 턴.
 #   E1 = 요청/턴(기준 ≤2) · E2 = Σcache_read_input_tokens/요청(≤60000) · E3 = 틱 턴의 tool_use 수(≤1)
+#   ★평균은 초과를 숨긴다(DA 반례①)★: E3 = 틱 턴 «별» 도구의 «최대» · E1 도 평균과 «틱 턴 최대» 둘 다 본다.
+#   usage 가 아예 없는 요청은 0 으로 치환하지 않고 «미상» 으로 세어 판정 불가 rc1 (조용한 0 금지).
 #   BREAK(prefix 끊김) = 앞 요청과 120초 안 ∧ cache_creation > 20000 ∧ cache_read > 0 — 세션 첫 요청은 제외.
 #   새 입력 등급은 cache_creation.ephemeral_5m/1h 로 나눠 찍는다(1h 재작성은 비싸다).
 #   기준 초과·판정 불가는 «FAIL <항목> …» 줄로 내고 rc1 — 조용한 0 금지(docs/rules/no_silent_fallback.md).
@@ -152,18 +154,21 @@ def main(argv):
 
     fails = []
     total = len(requests)
-    read_sum = usage_sum(requests, "cache_read_input_tokens")
-    e2 = (read_sum / total) if total else None
+    measured = [r for r in requests if isinstance(r["usage"], dict) and r["usage"]]
+    unknown = total - len(measured)          # usage 가 아예 없는 요청 = «미상» — 0 으로 치환하지 않는다
+    read_sum = sum(int(r["usage"].get("cache_read_input_tokens") or 0) for r in measured)
+    e2 = (read_sum / len(measured)) if measured else None
     e1 = (total / len(turns)) if turns else None
     tick = [t for t in turns if t["text"].lstrip().startswith(TICK_HEAD)]
     other = [t for t in turns if not t["text"].lstrip().startswith(TICK_HEAD)]
-    tick_tools = sum(len(r["tools"]) for t in tick for r in t["requests"])
+    tick_tools = [sum(len(r["tools"]) for r in t["requests"]) for t in tick]   # 틱 턴 «별» 도구 수
     tick_req = sum(len(t["requests"]) for t in tick)
-    e3 = (tick_tools / len(tick)) if tick else None
-    nbreak, write = breaks_of(requests)
-    e5 = sum(int((r["usage"].get("cache_creation") or {}).get("ephemeral_5m_input_tokens") or 0) for r in requests)
-    e1h = sum(int((r["usage"].get("cache_creation") or {}).get("ephemeral_1h_input_tokens") or 0) for r in requests)
-    out_tok = usage_sum(requests, "output_tokens")
+    tick_max = max((len(t["requests"]) for t in tick), default=0)              # 틱 턴 «별» 요청 최대
+    e3 = max(tick_tools) if tick_tools else None                              # 평균이 아니라 최대(평균은 초과를 숨김)
+    nbreak, write = breaks_of(measured)
+    e5 = sum(int((r["usage"].get("cache_creation") or {}).get("ephemeral_5m_input_tokens") or 0) for r in measured)
+    e1h = sum(int((r["usage"].get("cache_creation") or {}).get("ephemeral_1h_input_tokens") or 0) for r in measured)
+    out_tok = usage_sum(measured, "output_tokens")
     tools = sum(len(r["tools"]) for r in requests)
 
     print("WASTE r1462 file=%s since=%s" % (path.rsplit("/", 1)[-1], since_s or "-"))
@@ -174,25 +179,31 @@ def main(argv):
     else:
         others_avg = (sum(len(t["requests"]) for t in other) / len(other)) if other else 0.0
         tick_avg = (tick_req / len(tick)) if tick else 0.0
-        ok = e1 <= E1_MAX
-        print("E1 value=%.2f 기준=%g %s ticks=%d tick_avg=%.2f others_avg=%.2f"
-              % (e1, E1_MAX, "PASS" if ok else "FAIL", len(tick), tick_avg, others_avg))
-        if not ok:
+        ok = e1 <= E1_MAX and tick_max <= E1_MAX
+        print("E1 value=%.2f 기준=%g %s ticks=%d tick_avg=%.2f others_avg=%.2f tick_max=%d"
+              % (e1, E1_MAX, "PASS" if ok else "FAIL", len(tick), tick_avg, others_avg, tick_max))
+        if e1 > E1_MAX:
             fails.append("E1 value=%.2f > 기준=%g" % (e1, E1_MAX))
+        if tick_max > E1_MAX:
+            fails.append("E1 tick_max=%d > 기준=%g" % (tick_max, E1_MAX))
     if e2 is None:
-        print("E2 value=NA 기준=%d UNKNOWN requests=0" % E2_MAX)
-        fails.append("E2 판정 불가 요청 0")
+        print("E2 value=NA 기준=%d UNKNOWN 미상=%d" % (E2_MAX, unknown))
+        fails.append("E2 판정 불가 usage 없는 요청 %d건" % unknown)
     else:
-        ok = e2 <= E2_MAX
-        print("E2 value=%d 기준=%d %s" % (e2, E2_MAX, "PASS" if ok else "FAIL"))
-        if not ok:
+        ok = e2 <= E2_MAX and unknown == 0
+        print("E2 value=%d 기준=%d %s 미상=%d" % (e2, E2_MAX, "PASS" if ok else "FAIL", unknown))
+        if e2 > E2_MAX:
             fails.append("E2 value=%d > 기준=%d" % (e2, E2_MAX))
+        if unknown:
+            fails.append("E2 판정 불가 usage 없는 요청 %d건" % unknown)
     if e3 is None:
         print("E3 value=NA 기준=%g UNKNOWN ticks=0" % E3_MAX)
         fails.append("E3 판정 불가 틱턴 0")
     else:
         ok = e3 <= E3_MAX
-        print("E3 value=%.2f 기준=%g %s ticks=%d" % (e3, E3_MAX, "PASS" if ok else "FAIL", len(tick)))
+        shown = ",".join(str(x) for x in tick_tools[:10]) + ("…" if len(tick_tools) > 10 else "")
+        print("E3 value=%.2f 기준=%g %s ticks=%d tick_tools=%s"
+              % (e3, E3_MAX, "PASS" if ok else "FAIL", len(tick), shown))
         if not ok:
             fails.append("E3 value=%.2f > 기준=%g" % (e3, E3_MAX))
     print("BREAK count=%d write=%d" % (nbreak, write))
