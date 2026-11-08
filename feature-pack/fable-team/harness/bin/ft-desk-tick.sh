@@ -6,9 +6,11 @@
 #   ① ft-hil.sh --pending 중 이 desk 몫(.notify 가 desk 계보) ② launchctl print(stall-scan · ft-tick · news 2종) state/last exit
 #      + stall-scan 로그 마지막 ts ③ 팀장별 마지막 쪽지 시각(mailbox.log.jsonl · 20분+ 만 줄) ④ 받은편지함 감시(ft-inbox-watch) owner
 #   ⑤ mbox.sh recv <desk> 머리(seq·from·본문 60자 · 전문은 상태 폴더 파일) ⑥ planner _master 에 [완료] 3줄(스크립트가 조립·발송)
-#   ★소비 경계★: recv 는 우편함을 소비한다 — 결속(root·현재 desk·planner _master)을 «확인한 뒤» 에만 부르고,
-#   전문 사본 저장까지 실패하면 완료를 보내지 않는다(판정 불가 1줄 · rc1). ④ 감시 판정은 «이름» 이 아니라 argv 로 한다
-#   (실 watcher 는 python3 -u - <bin> <좌석> 꼴로 뜼다).
+#   ★소비 경계★: recv 는 우편함을 소비한다 — 결속(root·현재 desk·planner _master·`_desk` 일치)을 «확인한 뒤» 에만 부르고,
+#   전문 사본 저장까지 실패하면 완료를 보내지 않는다(판정 불가 1줄 · rc1). `_desk` 가 비었거나 불일치면 recv 0·송신 0
+#   (이름 접두로 소비 권한을 주지 않는다 · DA #273899).
+#   ④ 감시 판정은 «이름» 이 아니라 argv 로 한다 — 실 watcher 의 argv 는 실행 파일 이름과 무관하게 «-u - <bin> <좌석>» 꼴이다
+#   (이 Mac 실측: /opt/homebrew/…/Python.app/Contents/MacOS/Python -u - <bin> <좌석>).
 #   한 항목이 실패하면 그 항목 «판정 불가 rc=N» 1줄 · 나머지는 계속 · 전체 rc1(조용한 0 금지 · docs/rules/no_silent_fallback.md).
 #   항목당 7초 · 전체 FT_DESK_TICK_BUDGET(기본 25초) — 하위 명령은 모두 «남은 예산» 안에서만 돌고 남은 예산 0 이면 실행 0 · rc124.
 #   출력 30줄(넘으면 접고 마지막 줄은 지킨다). 전부 rc0 = 0 · usage = 2.
@@ -156,7 +158,7 @@ if item 감시; then
   pout="$(X "$PS" -Ao pid=,command= 2>&1)"; rc=$?
   if [ "$rc" -ne 0 ]; then fail_line 감시 "$rc"; else
     OKN=$((OKN+1))
-    hit="$(printf '%s\n' "$pout" | awk -v d="$DESKBASE" 'index($0,d)>0 && (index($0,"ft-inbox-watch")>0 || index($0,"python3 -u -")>0)' | grep -v ft-desk-tick | head -1)"
+    hit="$(printf '%s\n' "$pout" | awk -v d="$DESKBASE" 'index($0,d)>0 && (index($0,"ft-inbox-watch")>0 || index($0," -u - ")>0)' | grep -v ft-desk-tick | head -1)"
     if [ -n "$hit" ]; then o "INBOX-WATCH $(printf '%s' "$hit" | awk '{print $1}') $DESKBASE 감시 중"; WATCH="감시 중"
     else o "INBOX-WATCH 없음(desk 감시 프로세스 0)"; WATCH="없음"; DEC=$((DEC+1)); fi
   fi
@@ -167,16 +169,14 @@ BIND_OK=0; PLANNER=""; SAVE_OK=1
 if item 결속; then
   if [ ! -f "$MBOX" ]; then fail_line 결속 5; else
     bind="$(X python3 - "$PLANNER_SEATS" "$DESKBASE" <<'PY'
-import json, re, sys
+import json, sys
 try: cfg = json.load(open(sys.argv[1], encoding="utf-8"))
 except Exception: sys.exit(6)
 if not isinstance(cfg, dict): sys.exit(6)
 m = str(cfg.get("_master") or "").strip(); d = str(cfg.get("_desk") or "").strip()
 if not m: sys.exit(7)
-if d:                                   # 명부의 _desk 현역과 계보가 같아야 한다
-    if d.split("#")[0] != sys.argv[2]: sys.exit(9)
-elif not re.match(r"^(?:byz|ft)-planner-desk-", sys.argv[2]):   # _desk 칸이 빈 명부는 이름 규약으로(ft_desk_route_gate 와 같은 규칙)
-    sys.exit(9)
+if not d: sys.exit(8)                                     # _desk 빈칸 = 이 좌석에 «소비 권한» 을 줄 근거가 없다(이름 접두 fallback 금지)
+if d.split("#")[0] != sys.argv[2]: sys.exit(9)             # 불일치도 같은 이유로 권한 없음
 print(m)
 PY
 )"; rc=$?
