@@ -34,9 +34,9 @@ def apply_routes(others, routes, new, ts):   # r429 남의 명부 = 라우팅 �
     return [os.path.basename(f) + ":" + k for f, ks in routes.items() for k in ks]
 
 
-def role_cell(dd, new):   # r465 사례 2 — 후계 이름(byz-<팀>-<역할>-<에이전트>#N)의 역할 칸(_master·_arch·_da·_tester) · 후계 행 실재일 때만 → (칸, 지금 값) · 아니면 (None, None)
+def role_cell(dd, new):   # r465 사례 2 — 후계 이름(byz-<팀>-<역할>-<에이전트>#N)의 역할 칸(_master·_arch·_desk·_da·_tester) · 후계 행 실재일 때만 → (칸, 지금 값) · 아니면 (None, None) (r1461: _desk 추가)
     c = "_" + (new.rpartition("#")[0].split("-") + ["", "", ""])[2]
-    return (c, dd.get(c)) if c in ("_master", "_arch", "_da", "_tester") and isinstance(dd.get(new), dict) else (None, None)
+    return (c, dd.get(c)) if c in ("_master", "_arch", "_desk", "_da", "_tester") and isinstance(dd.get(new), dict) else (None, None)
 
 
 ROLES = ("_master", "_arch", "_desk", "_da", "_tester", "_pm")   # r499 후계 role 도출용 역할 칸
@@ -56,9 +56,18 @@ def succ_role(o, cells, name):   # r499 후계 role — 옛 role(stop-ready 아�
     return t[1:] if t in ROLES else "stop-ready"
 
 
+def role_tok(name):   # r1461 이름 토큰 역할(byz-<팀>-<역할>-<에이전트>#N) · 토큰 밖 = ""(추측 0 · ft-successor-open 선등록과 같은 표)
+    return t if (t := (name.rpartition("#")[0].split("-") + ["", "", ""])[2]) in ("master", "arch", "desk", "da", "tester", "pm") else ""
+
+
 def fix_role(o, n, cells, name):   # r499 재실행 보정 — 후계 행이 역할 칸 값(cells) ∧ role=stop-ready ∧ _replaced_by 없음 → 도출 role 로 고침(메모리 · 쓰기는 호출자) → 고친 role · 아니면 ""
-    ok = bool(cells) and isinstance(n, dict) and n.get("role") == "stop-ready" and not n.get("_replaced_by")
-    r = succ_role(o, cells, name) if ok else "stop-ready"
+    live, tok = isinstance(n, dict) and not n.get("_replaced_by"), role_tok(name)   # r1461 tok = 이름 토큰 역할
+    ok = bool(cells) and live and n.get("role") == "stop-ready"
+    pre = live and bool(tok) and n.get("role") != tok and isinstance(n.get("persona"), str) and n["persona"].startswith("successor (auto-registered") and bool(n.get("_replaces"))   # r1461 선등록(r1435) 행 — persona 문구만으로는 고치지 않는다(조건 3개 다)
+    if not (ok or pre): return ""
+    r = succ_role(o, cells, name)
+    if tok and r != tok:   # r1461 VERDICT arch#241 §A — 도출 ≠ 이름 토큰 = 추측으로 고치지 않는다(명부 쓰기 0 · 호출자 안에서 exit 1)
+        print(f"REJECT 후계 {name} 도출 role={r} ≠ 이름 토큰 {tok} — 추측 채움 0(명부 쓰기 0)"); raise SystemExit(1)
     if r != "stop-ready": n["role"] = r
     return "" if r == "stop-ready" else r
 
