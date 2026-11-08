@@ -261,6 +261,7 @@ if [ "$DST" = 완성 ] && [ -n "$LANDED" ]; then
   else echo "WARN ft-branch-archive.sh 없음($HERE) — 끝난 가지 보관 이동 0"; fi
 fi
 printf 'MOVED %s→%s %s\n' "$FROM" "$DST" "$NEW"
+[ ! -f "$HERE/ft-merge-lib.sh" ] || { . "$HERE/ft-merge-lib.sh"; fm_land_notify_move "$FROM" "$DST" "$NEW" "${DA:-}"; }   # r1478: 이동 «사건» 1통(카드 팀 _master · 완성 때는 아래 arch 정본 쪽지가 따로) — 실패·부재는 1줄, 이동 rc 불변
 if [ "$DST" = 완성 ]; then
   # 정본 갱신 신호 — 수신자 = 카드 팀 명부(env FT_SEATS_JSON 이 이김) 최상위 `_arch`(팀 현역 arch). 키 없음·빈 값 = 쪽지 0 + INFO 1줄.
   #   r487: 팀 = 카드 폴더가 든 명단 팀 정확히 1개(ft_team_has · 쌍둥이 둘 다 · 명단 = 카드 워크트리) · 명부 = seats-<팀>.json(v65 = seats.json) · 0·2+ 팀·명부 없음 = 쪽지 0 + INFO.

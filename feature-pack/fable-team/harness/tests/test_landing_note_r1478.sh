@@ -43,7 +43,7 @@ mkpr() {  # mkpr <PR번호> <가지> <제목> <본문> <경로=내용>...
     "$PRSHA" "$b" "$ttl" "$bdy" > "$STUB_JSON"
 }
 land() { local b="$1"; shift; apv "$@"; : > "$STUB_LOG"; : > "$MBOX_LOG"; out="$(bash "$b" "$@" --repo "$W" 2>&1)"; rc=$?; }
-mbox_n() { [ -f "$MBOX_LOG" ] && grep -c . "$MBOX_LOG" || echo 0; }
+mbox_n() { if [ -f "$MBOX_LOG" ]; then grep -c . "$MBOX_LOG" || true; else echo 0; fi; }
 
 # ── 사전: 문법 · 줄 수 · 짝 사본 · 명단·카드·명부 픽스처(임시 리포) ──
 bash -n "$LAND"; ck "bash -n ft-merge-land.sh" $?
@@ -61,6 +61,7 @@ for c in r1478-card-one r2001-card-a r2002-card-b; do put "$IDX/진행/$c.md" "#
 put "docs/architect/X.md" "## 절A 제목"
 cm "$W" "base cards"; git -C "$W" push -q origin main; git -C "$W" fetch -q origin
 printf '.fable-team/\n' >> "$W/.git/info/exclude"   # 하네스 상태(base-head 등)가 시험 커밋에 섞이지 않게
+mkdir -p "$W/.fable-team"
 printf '{"_master":"team-harness-master#9","_arch":"team-harness-arch#3"}\n' > "$W/.fable-team/seats-harness.json"
 printf '{"_master":"team-move-master#4","_arch":"team-move-arch#2"}\n' > "$T/seats-move.json"
 
@@ -83,7 +84,7 @@ ck "T2 묶음 착지 → 쪽지 1통(본문에 r2001·r2002 둘 다)" $?
 mkpr 3 doc3 "chore: 코드만" "카드 토큰 없음" "bin/q3.sh=echo q3"
 A3="$PRSHA"
 export FT_SEAT=byz-harness-nano-r1478#0; land "$LAND" 3 --approve-sha "$A3"; unset FT_SEAT
-[ "$rc" = 0 ] && [ "$(mbox_n)" = 1 ] && grep -qE '^send team-harness-master#9 ft-merge-land \[착지\] pr=3 ' "$MBOX_LOG"
+[ "$rc" = 0 ] && [ "$(mbox_n)" = 1 ] && grep -qE '^send team-harness-master#9 byz-harness-nano-r1478#0 \[착지\] pr=3 ' "$MBOX_LOG"
 ck "T3a 카드 0 + FT_SEAT=byz-harness-… → harness _master 로 1통" $?
 mkpr 4 doc4 "chore: 코드만 둘" "카드 토큰 없음" "bin/q4.sh=echo q4"
 land "$LAND" 4 --approve-sha "$PRSHA"

@@ -113,6 +113,7 @@ ITO="${FT_INSTALL_CHECK_TIMEOUT:-7}"; IOUT="$(FT_BIN="${FT_BIN:-$HERE}" "$TB" "$
 if [ "$irc" -eq 124 ] || [ "$irc" -eq 143 ]; then echo "INSTALL-PENDING 설치 검사 ${ITO}초 초과 — 손으로: ft-live-install-check.sh --range $M..$Q"; IOUT="INSTALL-PENDING 검사 시간 초과"
 else printf '%s\n' "$IOUT" | sed 's/^/INSTALL /'; fi
 [ "$irc" -eq 0 ] || { mkdir -p "$ROOT/.fable-team/state/install-pending" && printf '%s\n' "$IOUT" > "$ROOT/.fable-team/state/install-pending/$Q.txt"; } || echo "WARN install-pending 기록 실패"
+fm_land_notify_land "$ROOT" "$PR" "${Q:0:10}" "$(pf title) $(pf body)" "$irc" "$IOUT"   # r1478: 착지 «사건» 1통(카드 팀 _master · 설치 칸 = OK/PENDING/SKIP) — 실패는 WARN 1줄, 착지 rc 불변
 CB="$(mktemp)"; lr_trap 'rm -f "$CB"'   # R261: ft-gh-as-tank.sh 는 하이픈 동사 + 본문 «파일» + --apply(없으면 dry-run) · pr-close --comment 한 번이 코멘트+닫기
 printf '%s\n' "착지 sha $Q (ft-merge-land · 검사 트리 == 착지 트리 · 판정 1875)${EQ:+ · 동일승인 대조 EQUIV (${AP:0:10}→${S:0:10} · 판정 1917${EQM:+ · $EQM})}${S0:+ · main 자동 병합($AMK) C=${S:0:10}}${PEV:+ · ${PEV%%$'\n'*}}" > "$CB"
 fm_pr_close "$SLUG" "$PR" "$CB" "$GH_W" \
