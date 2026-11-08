@@ -252,6 +252,10 @@ import glob, json, os, sys, datetime
 
 def main() -> int:
     root, name, agent, model, wt, old = sys.argv[1:7]
+    t = (name.rpartition("#")[0].split("-") + ["", "", ""])
+    role = t[2] if t[2] in ("master", "arch", "desk", "da", "tester", "pm") else "stop-ready"   # r1461 이름 토큰(byz-<팀>-<역할>-<에이전트>#N) = 역할 · 토큰 밖 = 미도출(추측 채움 0 · fix_role 이 다음 retire 에서 고치는 «미정» 값)
+    if role == "stop-ready":
+        print("role 미도출 %s" % name, file=sys.stderr)
     for f in sorted(glob.glob(os.path.join(root, ".fable-team", "seats*.json"))):
         try:
             with open(f, encoding="utf-8") as fh:
@@ -262,7 +266,7 @@ def main() -> int:
             return 0
         if old not in d:
             continue
-        d[name] = {"role": "master", "agent": agent, "model": model,
+        d[name] = {"role": role, "agent": agent, "model": model,
                    "worktree": os.path.basename(wt.rstrip("/")), "spawned_by": old,
                    "opened_at": datetime.date.today().isoformat(), "tick": None,
                    "persona": "successor (auto-registered by ft-successor-open r1435)",
