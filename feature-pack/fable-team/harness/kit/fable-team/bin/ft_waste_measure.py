@@ -11,6 +11,11 @@
 #   BREAK(prefix 끊김) = 앞 요청과 120초 안 ∧ cache_creation > 20000 ∧ cache_read > 0 — 세션 첫 요청은 제외.
 #   새 입력 등급은 cache_creation.ephemeral_5m/1h 로 나눠 찍는다(1h 재작성은 비싸다).
 #   기준 초과·판정 불가는 «FAIL <항목> …» 줄로 내고 rc1 — 조용한 0 금지(docs/rules/no_silent_fallback.md).
+#   ★r1471 형식 판별★: 파일 행 모양을 먼저 센다 — claude(`type=user|assistant`) vs pi(`type=message` ∧ `message.role=user|assistant`).
+#     pi 쪽은 턴 = role=user 텍스트 행(toolResult 행은 role 이 달라 자연 제외) · 요청 = assistant 행 1개(id = message.responseId)
+#     · usage 키 = cacheRead→cache_read_input_tokens · cacheWrite→cache_creation_input_tokens · cacheWrite1h→ephemeral_1h
+#     · (cacheWrite − cacheWrite1h)→ephemeral_5m · output→output_tokens · 도구 = 블록 `toolCall`. 끊김·기준값·rc 는 claude 와 같다.
+#     형식을 못 알아보면(둘 다 0 행) «FORMAT unknown claude=0 pi=0» 1줄 + rc2 — 턴 0 이 «낭비 0» 으로 읽히면 안 된다.
 import datetime
 import json
 import sys
@@ -55,6 +60,86 @@ def tool_names(message):
             if isinstance(b, dict) and b.get("type") == "tool_use"]
 
 
+def pi_turn_text(row):
+    """pi 행(type=message ∧ message.role=user)이 «사람·도구가 넣은 텍스트 턴» 이면 그 글, toolResult·혼합이면 None."""
+    if row.get("type") != "message":
+        return None
+    message = row.get("message") or {}
+    if message.get("role") != "user":
+        return None
+    content = message.get("content")
+    if isinstance(content, str):
+        return content or None
+    if not isinstance(content, list) or not content:
+        return None
+    if not all(isinstance(b, dict) and b.get("type") == "text" for b in content):
+        return None
+    text = "\n".join(str(b.get("text") or "") for b in content)
+    return text or None
+
+
+def pi_tool_names(message):
+    return [str(b.get("name") or "?") for b in (message.get("content") or [])
+            if isinstance(b, dict) and b.get("type") == "toolCall"]
+
+
+def pi_usage(usage):
+    """pi usage(cacheRead · cacheWrite · cacheWrite1h · output) → claude 키 꼴(하류 코드가 그대로 읽는다).
+
+    pi 의 cacheWrite = cache_creation_input_tokens 총합 · cacheWrite1h = 그중 1h 등급이므로 5m = 차이다.
+    usage 가 없으면 {} — 0 으로 치환하지 않고 «미상» 으로 세게 둔다."""
+    if not isinstance(usage, dict) or not usage:
+        return {}
+
+    def num(key):
+        try:
+            return int(usage.get(key) or 0)
+        except (TypeError, ValueError):
+            return 0
+
+    write, one_hour = num("cacheWrite"), num("cacheWrite1h")
+    return {"input_tokens": num("input"), "output_tokens": num("output"),
+            "cache_read_input_tokens": num("cacheRead"),
+            "cache_creation_input_tokens": write,
+            "cache_creation": {"ephemeral_5m_input_tokens": max(0, write - one_hour),
+                               "ephemeral_1h_input_tokens": one_hour}}
+
+
+CLAUDE_ROW_TYPES = ("user", "assistant")
+PI_ROLES = ("user", "assistant")
+
+
+def detect_format(path, since):
+    """행 모양으로 형식 판별 → (fmt, claude 행 수, pi 행 수). fmt ∈ claude·pi·unknown.
+
+    claude = `type in {user,assistant}` · pi = `type=message` ∧ `message.role in {user,assistant}`.
+    둘 다 0 이면 unknown(형식 모르는 파일을 «턴 0» 으로 조용히 통과시키지 않는다) · 둘 다 >0 이면 많은 쪽."""
+    n_claude = n_pi = 0
+    with open(path, encoding="utf-8", errors="replace") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                row = json.loads(line)
+            except ValueError:
+                continue
+            if not isinstance(row, dict):
+                continue
+            when = ts_of(row.get("timestamp"))
+            if when is not None and since is not None and when < since:
+                continue
+            kind = row.get("type")
+            if kind in CLAUDE_ROW_TYPES:
+                n_claude += 1
+            elif kind == "message" and (row.get("message") or {}).get("role") in PI_ROLES:
+                n_pi += 1
+    fmt = "claude" if n_claude >= n_pi else "pi"
+    if not n_claude and not n_pi:
+        fmt = "unknown"
+    return fmt, n_claude, n_pi
+
+
 def load(path, since):
     """jsonl → (turns, requests, orphans). requests = message.id 첫 행 1개 + 그 id 의 다른 행 tool_use 를 합친다.
 
@@ -93,6 +178,47 @@ def load(path, since):
                 continue
             req = {"ts": when, "usage": message.get("usage") or {}, "tools": tool_names(message)}
             index[mid] = req
+            requests.append(req)
+            if cur is not None:
+                cur["requests"].append(req)
+    orphans = len(requests) - sum(len(t["requests"]) for t in turns)
+    return turns, requests, orphans
+
+
+def load_pi(path, since):
+    """pi jsonl → (turns, requests, orphans). 응답 1개 = 행 1개(responseId 고유) · id 없는 행은 «미상 id» 로 센다.
+
+    pi 는 claude 처럼 content 블록마다 행이 갈라지지 않으므로 행 수를 그대로 요청 수로 쓴다.
+    toolResult 행은 role 이 toolResult 라 턴(role=user)·요청(role=assistant) 어디에도 안 들어간다."""
+    turns, requests = [], []
+    cur = None
+    with open(path, encoding="utf-8", errors="replace") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                row = json.loads(line)
+            except ValueError:
+                continue
+            if not isinstance(row, dict):
+                continue
+            when = ts_of(row.get("timestamp"))
+            if when is not None and since is not None and when < since:
+                continue
+            text = pi_turn_text(row)
+            if text is not None:
+                cur = {"ts": when, "text": text, "requests": []}
+                turns.append(cur)
+                continue
+            if row.get("type") != "message":
+                continue
+            message = row.get("message") or {}
+            if message.get("role") != "assistant":
+                continue
+            req = {"ts": when, "usage": pi_usage(message.get("usage")),
+                   "tools": pi_tool_names(message),
+                   "id_unknown": not message.get("responseId")}
             requests.append(req)
             if cur is not None:
                 cur["requests"].append(req)
@@ -147,15 +273,26 @@ def main(argv):
             sys.stderr.write("REJECT --since 시각을 못 읽었다: %s\n" % since_s)
             return 2
     try:
-        turns, requests, orphans = load(path, since)
+        fmt, n_claude, n_pi = detect_format(path, since)
+        if fmt == "unknown":
+            print("FORMAT unknown claude=0 pi=0")
+            return 2
+        if fmt == "pi":
+            turns, requests, orphans = load_pi(path, since)
+        else:
+            turns, requests, orphans = load(path, since)
     except OSError as e:
         sys.stderr.write("REJECT jsonl 을 읽지 못했다: %s\n" % e)
         return 2
 
     fails = []
+    print("FORMAT %s rows=%d" % (fmt, n_pi if fmt == "pi" else n_claude))
+    if n_claude and n_pi:
+        print("WARN 혼합 형식 claude=%d pi=%d — 많은 쪽(%s)으로 읽었다" % (n_claude, n_pi, fmt))
     total = len(requests)
     measured = [r for r in requests if isinstance(r["usage"], dict) and r["usage"]]
     unknown = total - len(measured)          # usage 가 아예 없는 요청 = «미상» — 0 으로 치환하지 않는다
+    no_id = sum(1 for r in requests if r.get("id_unknown"))   # 응답 id 없는 요청(pi) = 같은 요청인지 확인 불가
     read_sum = sum(int(r["usage"].get("cache_read_input_tokens") or 0) for r in measured)
     e2 = (read_sum / len(measured)) if measured else None
     e1 = (total / len(turns)) if turns else None
@@ -186,16 +323,19 @@ def main(argv):
             fails.append("E1 value=%.2f > 기준=%g" % (e1, E1_MAX))
         if tick_max > E1_MAX:
             fails.append("E1 tick_max=%d > 기준=%g" % (tick_max, E1_MAX))
+    id_tail = " 미상id=%d" % no_id if no_id else ""
     if e2 is None:
-        print("E2 value=NA 기준=%d UNKNOWN 미상=%d" % (E2_MAX, unknown))
+        print("E2 value=NA 기준=%d UNKNOWN 미상=%d%s" % (E2_MAX, unknown, id_tail))
         fails.append("E2 판정 불가 usage 없는 요청 %d건" % unknown)
     else:
-        ok = e2 <= E2_MAX and unknown == 0
-        print("E2 value=%d 기준=%d %s 미상=%d" % (e2, E2_MAX, "PASS" if ok else "FAIL", unknown))
+        ok = e2 <= E2_MAX and unknown == 0 and no_id == 0
+        print("E2 value=%d 기준=%d %s 미상=%d%s" % (e2, E2_MAX, "PASS" if ok else "FAIL", unknown, id_tail))
         if e2 > E2_MAX:
             fails.append("E2 value=%d > 기준=%d" % (e2, E2_MAX))
         if unknown:
             fails.append("E2 판정 불가 usage 없는 요청 %d건" % unknown)
+    if no_id:
+        fails.append("E2 판정 불가 응답 id 없는 요청 %d건" % no_id)
     if e3 is None:
         print("E3 value=NA 기준=%g UNKNOWN ticks=0" % E3_MAX)
         fails.append("E3 판정 불가 틱턴 0")
