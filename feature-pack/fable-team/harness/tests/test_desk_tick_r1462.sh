@@ -145,6 +145,27 @@ unset FAKE_RECV_MARK
 printf '%s\n' "$out" | grep -q '결속 판정 불가 rc=' && ok "T10 «결속 판정 불가 rc=N» 1줄" || bad "T10 결속 줄 없음: $(printf '%s' "$out" | tr '\n' '/' | cut -c1-160)"
 printf '{"_master":"%s","_desk":"%s"}\n' "$PLANNER" "$DESK" > "$T/root/.fable-team/seats-planner.json"   # 원복
 
+# ── T10b(반례②-2) _master 정상 + _desk «비어 있음» = 소비 권한 없음 → recv 0 · 송신 0 · rc1 (이름 접두 통과 금지)
+rm -f "$T/sent.jsonl" "$T/recv-called.txt"
+printf '{"_master":"%s"}\n' "$PLANNER" > "$T/root/.fable-team/seats-planner.json"
+export FAKE_RECV_MARK="$T/recv-called.txt"
+out="$(run)"; rc=$?
+unset FAKE_RECV_MARK
+[ "$rc" -eq 1 ] && ok "T10b _desk 빈칸 → rc1" || bad "T10b rc=$rc"
+[ -f "$T/recv-called.txt" ] && bad "T10b _desk 빈칸인데 recv 를 불렀다(소비 권한 없음)" || ok "T10b _desk 빈칸 → recv 0"
+[ -f "$T/sent.jsonl" ] && bad "T10b _desk 빈칸인데 완료쪽지를 보냈다" || ok "T10b _desk 빈칸 → 완료송신 0"
+printf '%s\n' "$out" | grep -q '결속 판정 불가 rc=' && ok "T10b «결속 판정 불가 rc=N» 1줄" || bad "T10b 결속 줄 없음"
+printf '{"_master":"%s","_desk":"%s"}\n' "$PLANNER" "$DESK" > "$T/root/.fable-team/seats-planner.json"   # 원복
+
+# ── T10c(반례②-3) _desk 가 «다른 좌석» 이면 역시 소비 권한 없음
+rm -f "$T/sent.jsonl" "$T/recv-called.txt"
+printf '{"_master":"%s","_desk":"ft-planner-desk-sonnet#1"}\n' "$PLANNER" > "$T/root/.fable-team/seats-planner.json"
+export FAKE_RECV_MARK="$T/recv-called.txt"
+out="$(run)"; rc=$?
+unset FAKE_RECV_MARK
+[ "$rc" -eq 1 ] && [ ! -f "$T/recv-called.txt" ] && ok "T10c _desk 불일치 → recv 0 · rc1" || bad "T10c rc=$rc recv=$([ -f "$T/recv-called.txt" ] && echo yes || echo no)"
+printf '{"_master":"%s","_desk":"%s"}\n' "$PLANNER" "$DESK" > "$T/root/.fable-team/seats-planner.json"   # 원복
+
 # ── T11(반례②-b) 전문 사본 저장 실패 = 판정 불가 · rc1 · 완료송신 0
 rm -f "$T/sent.jsonl"
 printf 'nope\n' > "$T/notadir"   # 부모가 파일 이라 mkdir -p 가 실패한다
@@ -165,6 +186,10 @@ export FAKE_PS="4242 python3 -u - /other/place.py"
 out="$(run)"; rc=$?
 export FAKE_PS="$PSLINE"
 printf '%s\n' "$out" | grep -q '^INBOX-WATCH 없음' && ok "T12 남의 좌석 watcher 는 감시 아님" || bad "T12 오탐: $(printf '%s\n' "$out" | grep '^INBOX-WATCH')"
+export FAKE_PS="4242 /opt/homebrew/Cellar/python@3.14/3.14.0/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python -u - $T/root/.fable-team/bin $DESK"
+out="$(run)"; rc=$?
+export FAKE_PS="$PSLINE"
+printf '%s\n' "$out" | grep -q '^INBOX-WATCH 4242 .*감시 중' && ok "T12 이 Mac 실제 argv(Python.app -u - <bin> <좌석>)도 감시 중" || bad "T12 실제 argv 미탑지: $(printf '%s\n' "$out" | grep '^INBOX-WATCH')"
 
 # ── T13(반례⑤) 전체 예산 0 = 어떤 하위 명령도 안 돌리고 전 항목 판정 불가 rc=124 · rc1
 rm -f "$T/launch.log" "$T/sent.jsonl"
