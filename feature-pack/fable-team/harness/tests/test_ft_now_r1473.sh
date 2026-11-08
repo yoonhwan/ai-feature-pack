@@ -68,11 +68,12 @@ cat "${FAKE_HIL:-/dev/null}" 2>/dev/null; exit 0
 EOS
 chmod +x "$T/fakebin/launchctl" "$T/fakebin/tmux" "$T/fakebin/info.sh" "$T/fakebin/seatst.sh" "$T/fakebin/lint.sh" "$T/fakebin/hil.sh"   # 픽스처만 실행 비트
 
-# 카드 대역 = 임시 git repo(origin/main ref + FETCH_HEAD) — FT_NOW_ROOT 자체를 repo 로 만든다
-mkdir -p "$T/root/design/harness/indices/대기" "$T/root/design/harness/indices/진행" "$T/root/design/harness/indices/완성"
-for i in 1 2; do echo "# card $i" > "$T/root/design/harness/indices/대기/c$i.md"; done
-echo "# card j" > "$T/root/design/harness/indices/진행/cj.md"
-for i in 1 2 3; do echo "# done $i" > "$T/root/design/harness/indices/완성/d$i.md"; done
+# 카드 대역 = 팀 체크아웃($ROOT/.worktrees/harness-ops) 안의 _cards 3폴더 · git repo 는 FETCH_HEAD 나이용
+CW="$T/root/.worktrees/harness-ops/design/harness/indices"
+mkdir -p "$CW/대기" "$CW/진행" "$CW/완성"
+for i in 1 2; do echo "# card $i" > "$CW/대기/c$i.md"; done
+echo "# card j" > "$CW/진행/cj.md"
+for i in 1 2 3; do echo "# done $i" > "$CW/완성/d$i.md"; done
 git -C "$T/root" init -q 2>/dev/null
 git -C "$T/root" -c user.email=t@t -c user.name=t add -A >/dev/null 2>&1
 git -C "$T/root" -c user.email=t@t -c user.name=t commit -qm base >/dev/null 2>&1
@@ -81,7 +82,8 @@ git -C "$T/root" update-ref refs/remotes/origin/main HEAD 2>/dev/null
 
 # 명부 대역 — harness 한 팀(master·arch·desk)
 M_S='byz-t-master-claude#7'; A_S='byz-t-arch-claude#8'; D_S='byz-t-desk-claude#9'
-printf '{"_master":"%s","_arch":"%s","_desk":"%s"}\n' "$M_S" "$A_S" "$D_S" > "$T/root/.fable-team/seats-t.json"
+printf '{"_master":"%s","_arch":"%s","_desk":"%s","_cards":"design/harness/indices","_cards_wt":"harness-ops","_label":"t"}\n' \
+  "$M_S" "$A_S" "$D_S" > "$T/root/.fable-team/seats-t.json"
 : > "$T/root/.fable-team/comm/mailbox.jsonl"
 printf '%s: 1 windows\n%s: 1 windows\n' "$M_S" "$A_S" > "$T/tmux.ls"
 printf '%s                                PASS\n' "$M_S" > "$T/info.txt"
@@ -104,7 +106,7 @@ run() {
       FT_NOW_HARNESS_INFO="$T/fakebin/info.sh" FT_NOW_SEAT_STATUS="$T/fakebin/seatst.sh" \
       FT_NOW_NAME_LINT="$T/fakebin/lint.sh" \
       FT_NOW_HIL="$T/fakebin/hil.sh" FT_NOW_MBOX_JSONL="$T/root/.fable-team/comm/mailbox.jsonl" \
-      FT_NOW_SEATS_DIR="$T/root/.fable-team" FT_NOW_CARDS=design/harness/indices \
+      FT_NOW_SEATS_DIR="$T/root/.fable-team" \
       FT_NOW_EVENTS_DIR="$T/state/events" FT_NOW_POSTBOOT="$T/state/postboot-measure.tsv" \
       FT_NOW_WASTE_LOG="$T/state/waste-check.log" FT_NOW_NOW="$NOW" FT_NOW_UID=501 \
       FAKE_LC_CONF="$T/lc.conf" FAKE_TMUX_LS="$T/tmux.ls" FAKE_INFO="$T/info.txt" \
@@ -164,6 +166,26 @@ printf '%s' "$(item_of "$out" "모델 깨우는 주기 잡")" | grep -q 'com.t.f
 { cat "$T/lc.conf" | grep -v '^com.t.f2|'; echo 'com.t.f2|absent'; } > "$T/lc.conf.x"; mv "$T/lc.conf.x" "$T/lc.conf"
 out="$(run)"; rc=$?
 [ "$rc" -eq 0 ] && ok "T2 금지 라벨 0 = OK" || bad "T2 0개인데 rc=$rc: $(item_of "$out" "모델 깨우는 주기 잡")"
+
+# ── T7 카드 = 팀 체크아웃(_cards_wt)에서 센다(main 0 오판 금지) · 못 읽으면 0 이 아니라 판정 불가
+out="$(run)"; rc=$?
+b="$(item_of "$out" "카드")"
+printf '%s' "$b" | grep -q '대기 2 · 진행 1 · 완성 3' && ok "T7 _cards_wt 아래 카드 수(대기2·진행1·완성3)" || bad "T7 카드 줄: $b"
+printf '%s' "$b" | grep -q 'OK' && ok "T7 읽을 수 있으면 OK" || bad "T7 판정: $b"
+printf '{"_master":"%s","_arch":"%s","_cards":"design/harness/indices","_cards_wt":"gone-wt","_label":"t"}\n' \
+  "$M_S" "$A_S" > "$T/root/.fable-team/seats-t.json"
+out="$(run)"; rc=$?
+b="$(item_of "$out" "카드")"
+printf '%s' "$b" | grep -q '판정 불가' && ok "T7 못 읽는 팀 = 판정 불가(0 치환 금지)" || bad "T7 0 치환: $b"
+printf '%s' "$b" | grep -q '못 읽은 팀' && ok "T7 못 읽은 팀 이름 표시" || bad "T7 팀명 없음: $b"
+printf '{"_master":"%s","_arch":"%s","_desk":"%s","_cards":"design/harness/indices","_cards_wt":"harness-ops","_label":"t"}\n' \
+  "$M_S" "$A_S" "$D_S" > "$T/root/.fable-team/seats-t.json"   # 원복
+
+# T7b 진행 > (그 팀 라이브 좌석+2) = 실패 식이 실제로 돈다
+for i in 2 3 4 5; do echo "# more $i" > "$CW/진행/cj$i.md"; done
+out="$(run)"; rc=$?
+printf '%s' "$(item_of "$out" "카드")" | grep -q '진행>좌석+2' && ok "T7b 진행>좌석+2 = 실패" || bad "T7b 미탐지: $(item_of "$out" "카드")"
+for i in 2 3 4 5; do rm -f "$CW/진행/cj$i.md"; done
 
 # ── T1d 좌석 = 이름 린트 위반이면 실패 · 없으면 PASS 수
 FAKE_LINT_REJECT="bad-seat#1"

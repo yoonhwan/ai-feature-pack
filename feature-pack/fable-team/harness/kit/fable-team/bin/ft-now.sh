@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # ft-now.sh — 하네스 «한 화면»(r1473 · STRATEGY §3 표 9행 · DA APPROVE #274598).
 #   사람·좌석이 «부를 때 1회» 도는 비모델 스크립트다. 주기 0 · 모델 0 · 쓰기 0 · 쪽지 0 · 발행 0(launchctl·tmux 변경 0).
-#   입력 = launchctl print(금지 라벨 23 · bash 허용 10) · ACCT_PAUSE + 틱 plist · ft-harness-info seats + ft-seat-status stalled
-#          · mailbox.jsonl(pending) · git ls-tree origin/main 카드 3폴더 · ft-hil.sh --pending · 측정 파일 3종(events·postboot·waste) · 세션 크론(못 잼)
+#   입력 = launchctl print(금지 라벨 25(RULE §5) · bash 허용 10) · ACCT_PAUSE + 틱 plist · ft-harness-info seats + ft-seat-status stalled
+#          · mailbox.jsonl(pending) · 팀별 _cards_wt 의 _cards/대기·진행·완성 · ft-hil.sh --pending · 측정 파일 3종(events·postboot·waste) · 세션 크론(못 잼)
 #   출력 계약 = 줄마다 `항목 | 값 | OK|실패|판정 불가 | 담당` · ≤30줄 · 마지막 줄 `실패 N · 판정 불가 M` · rc0 = 둘 다 0 · usage rc2.
 #   ★판정 3값★ `_verdict <항목> <값> <OK|FAIL|NA> <담당> [rc]` — 항상 이 함수 하나로만 줄을 낸다(r1474 가 같은 함수를 복사해 쓴다 · 공용 lib 신설 0).
 #     NA 는 `판정 불가`(rc 있으면 `판정 불가 rc=N`, 124 면 `판정 불가(시간 초과)`)로 찍고 집계 «불가 M» 에 넣는다.
@@ -13,7 +13,7 @@
 #   ★정지 의도 vs 스위치★: ACCT_PAUSE 유효 항목이 있는데 모델 틱 plist 가 살아 있으면(.plist) 실패 — 둘이 «같아야» 한다(한 방향 검사).
 #   env(시험·이식): FT_NOW_ROOT · FT_NOW_STATE · FT_NOW_LAUNCHCTL · FT_NOW_TMUX · FT_NOW_NOW · FT_NOW_UID · FT_NOW_BUDGET · FT_NOW_MAX_LINES
 #     FT_NOW_FORBIDDEN · FT_NOW_RESIDENT · FT_NOW_ONESHOT · FT_NOW_ACCT_PAUSE · FT_NOW_LAUNCHAGENTS · FT_NOW_HARNESS_INFO · FT_NOW_SEAT_STATUS
-#     FT_NOW_HIL · FT_NOW_MBOX_JSONL · FT_NOW_SEATS_DIR · FT_NOW_SEATS_JSON · FT_NOW_CARDS · FT_NOW_EVENTS_DIR · FT_NOW_POSTBOOT · FT_NOW_WASTE_LOG
+#     FT_NOW_HIL · FT_NOW_MBOX_JSONL · FT_NOW_SEATS_DIR · FT_NOW_SEATS_JSON · FT_NOW_NAME_LINT · FT_NOW_LINT_MAX · FT_NOW_EVENTS_DIR · FT_NOW_POSTBOOT · FT_NOW_WASTE_LOG
 #   사용: ft-now.sh [--help]   (인자 없이 1회 · 주기 실행 금지)
 set -uo pipefail
 case "${1:-}" in
@@ -45,7 +45,6 @@ SEATST="${FT_NOW_SEAT_STATUS:-$( [ -x "$ROOT/.fable-team/bin/ft-seat-status.sh" 
 HIL="${FT_NOW_HIL:-$( [ -x "$ROOT/.fable-team/bin/ft-hil.sh" ] && echo "$ROOT/.fable-team/bin/ft-hil.sh" || echo "$HERE/ft-hil.sh")}"
 SEATSDIR="${FT_NOW_SEATS_DIR:-$ROOT/.fable-team}"
 MB="${FT_NOW_MBOX_JSONL:-$ROOT/.fable-team/comm/mailbox.jsonl}"
-CARDS="${FT_NOW_CARDS:-design/harness/indices}"
 EVENTS="${FT_NOW_EVENTS_DIR:-$STATE/events}"
 POSTBOOT="${FT_NOW_POSTBOOT:-$STATE/postboot-measure.tsv}"
 WASTE="${FT_NOW_WASTE_LOG:-$STATE/waste-check.log}"
@@ -242,29 +241,57 @@ else
   else _verdict "우편함" "$v5" OK "수신 좌석"; fi
 fi
 
-# ⑥ 카드 — origin/main 카드 3폴더 수 + fetch 나이 + 진행 ≤ 일하는 좌석+2
-cul=""; cw=0; cj=0; cs=0; rc7=0
-for d in 대기 진행 완성; do
-  o="$(X git -C "$ROOT" ls-tree origin/main --name-only -- "$CARDS/$d" 2>&1)"; r=$?
-  if [ "$r" -ne 0 ]; then rc7="$r"; continue; fi
-  n="$(printf '%s\n' "$o" | grep -c '\.md$')"
-  case "$d" in 대기) cw="$n";; 진행) cj="$n";; 완성) cs="$n";; esac
+# ⑥ 카드 — 팀별 `_cards_wt` 체크아웃의 `_cards`/대기·진행·완성 을 센다 · 진행 ≤ (그 팀 라이브 좌석 + 2)
+#   ★origin/main 이 아니다★(master 보정 274608): 카드는 각 팀의 `_cards_wt` 워크트리에 산다 — main 기준으로 세면 항상 0 이 나온다.
+#   ★워크트리가 없으면 0 이 아니라 «판정 불가»★(팀 이름을 값에 적는다). 워크트리는 있는데 하위 폴더가 없는 것은 정상 = 0.
+tls
+lvset=""; [ "$TRC" -eq 0 ] && lvset="$(livekeys | paste -sd, -)"
+ct="$(X python3 - "$SEATSDIR" "$ROOT" "$lvset" <<'PY2' 2>&1
+import glob,json,os,re,sys
+d,root,lv=sys.argv[1],sys.argv[2],sys.argv[3]
+live={x for x in lv.split(",") if x}
+rk=lambda n: re.sub(r"#\d+$","",(n or "").strip())
+tot={"대기":0,"진행":0,"완성":0}; bad=[]; viol=[]; nteams=0; nlive=0
+for f in sorted(glob.glob(os.path.join(d,"seats*.json"))):
+    try: cfg=json.load(open(f,encoding="utf-8"))
+    except Exception: bad.append(os.path.basename(f)[:-5]+"(명부)"); continue
+    if not isinstance(cfg,dict): continue
+    cards=str(cfg.get("_cards") or "").strip(); wt=str(cfg.get("_cards_wt") or "").strip()
+    if not cards: continue
+    nteams+=1
+    base = wt if wt.startswith("/") else (os.path.join(root,".worktrees",wt) if wt else root)
+    label=str(cfg.get("_label") or cfg.get("_name") or os.path.basename(f))
+    if not os.path.isdir(os.path.join(base,cards)): bad.append(label); continue
+    c={}
+    for k in tot:
+        p=os.path.join(base,cards,k)
+        c[k]=len([x for x in os.listdir(p) if x.endswith(".md")]) if os.path.isdir(p) else 0
+        tot[k]+=c[k]
+    mine={rk(k) for k,v in cfg.items() if not k.startswith("_") and isinstance(v,dict) and not v.get("_replaced_by")}
+    n=len(mine & live); nlive+=n
+    if c["진행"] > n+2: viol.append("%s(%d>%d)" % (label,c["진행"],n+2))
+print("T=%d/%d/%d TEAMS=%d LIVE=%d BAD=%s VIOL=%s" % (tot["대기"],tot["진행"],tot["완성"],nteams,nlive,
+      ",".join(bad) or "-", ",".join(viol) or "-"))
+PY2
+)"; rc7=$?
+cw=0; cj=0; cs=0; nteams=0; nl=0; cbads="-"; cviol="-"
+for tok in $ct; do
+  case "$tok" in
+    T=*) tv="${tok#T=}"; cw="${tv%%/*}"; tv="${tv#*/}"; cj="${tv%%/*}"; cs="${tv##*/}";;
+    TEAMS=*) nteams="${tok#TEAMS=}";;
+    LIVE=*) nl="${tok#LIVE=}";;
+    BAD=*) cbads="${tok#BAD=}";;
+    VIOL=*) cviol="${tok#VIOL=}";;
+  esac
 done
 gitdir="$(X git -C "$ROOT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"
 fage=-1; [ -n "$gitdir" ] && [ -f "$gitdir/FETCH_HEAD" ] && fage=$(( (NOW - $(stat -f %m "$gitdir/FETCH_HEAD" 2>/dev/null || stat -c %Y "$gitdir/FETCH_HEAD" 2>/dev/null || echo "$NOW")) / 60 ))
-tls; nl=0; nnote="(라이브 tmux)"
-if [ "$TRC" -eq 0 ]; then
-  lv="$(livekeys)"
-  if [ -n "$ROSTER" ]; then
-    nnote="(명부 좌석)"
-    for k in ${ROSTER//,/ }; do printf '%s\n' "$lv" | grep -qxF "$k" && nl=$((nl+1)); done
-  else nl="$(printf '%s\n' "$lv" | grep -c . || true)"; fi
-fi
-v6="대기 $cw · 진행 $cj · 완성 $cs · fetch $( [ "$fage" -ge 0 ] && echo "${fage}분 전" || echo '모름') · 일하는 좌석 $nl$nnote"
-if [ "$rc7" -ne 0 ]; then _verdict "카드" "$v6" NA "각 arch" "$rc7"
-elif [ "$cw$cj$cs" = 000 ] && [ "$nl" -eq 0 ]; then _verdict "카드" "$v6 · 카드 폴더 0" NA "각 arch" 4
-elif [ "$cj" -gt $((nl+2)) ]; then _verdict "카드" "$v6 (진행 > 좌석+2)" FAIL "각 arch"
-else _verdict "카드" "$v6" OK "각 arch"; fi
+v6="대기 $cw · 진행 $cj · 완성 $cs(${nteams}팀) · fetch $( [ "$fage" -ge 0 ] && echo "${fage}분 전" || echo '모름') · 일하는 좌석 $nl"
+if [ "$rc7" -ne 0 ]; then _verdict "카드" "명부·카드 폴더를 못 읽었다" NA "각 arch" "$rc7"
+elif [ "$nteams" -eq 0 ]; then _verdict "카드" "$v6 · _cards 를 가진 팀 0" NA "각 arch" 4
+elif [ "$cbads" != "-" ]; then _verdict "카드" "$v6 · 못 읽은 팀 ${cbads}" NA "각 arch" 4
+elif [ "$cviol" != "-" ]; then _verdict "카드" "$v6 · 진행>좌석+2 ${cviol}" FAIL "각 arch"
+else _verdict "카드" "$(nf "$v6")" OK "각 arch"; fi
 
 # ⑦ h — 오빠 손 계획 미실행 수
 ho="$(X bash "$HIL" --pending 2>&1)"; rc8=$?
