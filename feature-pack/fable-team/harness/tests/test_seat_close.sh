@@ -29,7 +29,7 @@ case "$1" in
 esac
 EOF
 chmod +x "$TMP/bin/tmux"
-run() { PATH="$TMP/bin:$PATH" TMUX_LOG="$LOG" "$@"; }
+run() { local d; d="$(git rev-parse --show-toplevel 2>/dev/null)" || d=""; ( cd "${d:-${GR:-$TMP}}" && PATH="$TMP/bin:$PATH" TMUX_LOG="$LOG" "$@" ); }   # r1481: --verdict 는 원장이 있는 리포에서(fixture = $GR) — 이미 리포 안이면 그 리포
 kills() { grep -c '^kill-session' "$LOG" 2>/dev/null || true; }
 mkseats() { printf '%s' '{"_master": "M#1", "_hil_route": "P#1", "M#1": {"role": "master", "tick": "ft-master-tick"}, "P#1": {"role": "planner", "tick": "t"}, "N#0": {"role": "nano", "agent": "claude", "model": "m", "tick": null, "index": "i.md"}, "W#1": {"role": "tester", "agent": "claude", "model": "m", "tick": null}}' > "$1"; }
 export ZC_RESUME_DIR="$TMP/resume"; mkdir -p "$ZC_RESUME_DIR"
@@ -129,8 +129,12 @@ echo "$*" >> "$RETIRE_LOG"; echo "$FAKE_RETIRE_OUT"; exit "${FAKE_RETIRE_RC:-0}"
 EOF
 chmod +x "$TMP/bin/retire-stub"
 export FT_SEAT_RETIRE_BIN="$TMP/bin/retire-stub" RETIRE_LOG="$TMP/retire.log" FT_ROOT="$TMP/root"; mkdir -p "$FT_ROOT"; VLOG="$FT_ROOT/.fable-team/state/seat-close-verdict.log"
+# r1481 — --verdict 는 planner 판정 원장에 번호가 실재할 때만 닫는다. 이 절의 모든 --verdict 호출은 원장이 있는 리포에서 돈다(픽스처: design/TEAMS.md + VERDICTS-planner-1.md · ref=main)
+export FT_TEAMS_REF=main; GR="$TMP/grepo"
+mkgrepo() { mkdir -p "$1/design/teams/planner"; printf '| 팀 | 폴더 |\n|---|---|\n| planner | design/teams/planner/ | x | 현역 |\n' > "$1/design/TEAMS.md"; printf '| 1 | t | 시험 |\n| 2304 | t | r400 시험 |\n| 2344 | t | 시험 |\n| 2718 | t | 시험 |\n' > "$1/design/teams/planner/VERDICTS-planner-1.md"; git -C "$1" init -q -b main; git -C "$1" add -A; git -C "$1" -c user.name=t -c user.email=t@t commit -qm ledger; }
+mkgrepo "$GR"
 mkrole() { printf '%s' '{"_master": "M#1", "_arch": "A#1", "_hil_route": "P#1", "M#1": {"role": "master", "tick": "t"}, "A#1": {"role": "arch", "agent": "claude", "model": "m", "tick": "ft-arch-tick"}, "P#1": {"role": "planner", "tick": "t"}}' > "$1"; }
-vrun() { FAKE_RETIRE_OUT="${FAKE_RETIRE_OUT-RESUME ok $TMP/resume/$1.json}" RETIRE_LOG="$TMP/retire.log" run bash "$CLOSE" "$@"; }
+vrun() { local d; d="$(git rev-parse --show-toplevel 2>/dev/null)" || d=""; ( cd "${d:-$GR}" && FAKE_RETIRE_OUT="${FAKE_RETIRE_OUT-RESUME ok $TMP/resume/$1.json}" RETIRE_LOG="$TMP/retire.log" run bash "$CLOSE" "$@" ); }
 # ⓑ 현역 칸(_arch) 좌석 + 기록 ok + 계보 최신(--verdict 없으면 REJECT·held 였을 좌석) → 칸 "" · .bak · kill 1 · 원장 1행
 S="$TMP/v1.json"; mkrole "$S"; : > "$LOG"; : > "$TMP/retire.log"
 out="$(FAKE_LIVE="A#1" FAKE_SESSION=1 vrun 'A#1' --reason "판정 2304 역할 좌석 닫기" --seats "$S" --verdict 2304)"; rc=$?
@@ -159,7 +163,7 @@ S="$TMP/v4.json"; mkrole "$S"; printf '%s' '{"caller#0": {"role": "arch", "tick"
 out="$(TMUX_PANE=%1 vrun 'caller#0' --reason r --seats "$S" --verdict 2304)"; rc=$?
 chk "ⓔrc 1 · REJECT · 기록 호출 0 · 바이트 동일 · kill 0" "$rc ${out%% *} $(wc -l < "$TMP/retire.log" | tr -d ' ') $(cmp -s "$S" "$TMP/v4.orig" && echo same || echo changed) $(kills)" "1 REJECT 0 same 0"
 # ⓕ `_*` 칸이 두 명부에 있는 좌석(루트 탐색) → 둘 다 "" · .bak 2 · 원장 1행
-R="$TMP/vrepo"; mkdir -p "$R/.fable-team"; git -C "$R" init -q
+R="$TMP/vrepo"; mkdir -p "$R/.fable-team"; mkgrepo "$R"
 mkrole "$R/.fable-team/seats.json"; printf '%s' '{"_hil_route": "A#1", "_desk": "D#1", "D#1": {"role": "desk"}}' > "$R/.fable-team/seats-x.json"; : > "$LOG"; : > "$VLOG"
 out="$(cd "$R" && FAKE_LIVE="A#1" vrun 'A#1' --reason r --verdict 2304)"; rc=$?
 RR="$(cd "$R" && pwd -P)"   # 루트 = git common dir(실경로) · 명부 순서 = glob 정렬(seats-x < seats.)
@@ -171,7 +175,7 @@ run bash "$CLOSE" 'A#1' --reason r --seats "$S" --verdict > /dev/null 2>&1; chk 
 run bash "$CLOSE" 'A#1' --reason r --seats "$S" --verdict "x 1" > /dev/null 2>&1; chk "ⓥ--verdict 형식 밖 rc 2" "$?" 2
 
 # R400 r3 §D — 다른 리포 좌석: cwd = 리포 A(그 좌석 행 없음) · 좌석 행은 리포 B 워크트리 꼴 명부 · FT_ROOT=B + --seats B 명부
-A="$TMP/repoA"; mkdir -p "$A/.fable-team"; git -C "$A" init -q; mkrole "$A/.fable-team/seats.json"; cp "$A/.fable-team/seats.json" "$TMP/A.orig"
+A="$TMP/repoA"; mkdir -p "$A/.fable-team"; mkgrepo "$A"; mkrole "$A/.fable-team/seats.json"; cp "$A/.fable-team/seats.json" "$TMP/A.orig"
 B="$TMP/B"; mkdir -p "$B/.fable-team"; printf '%s' '{"_arch": "byz-airag-arch-claude#3", "byz-airag-arch-claude#3": {"role": "arch", "tick": null}}' > "$B/.fable-team/seats.json"; cp "$B/.fable-team/seats.json" "$TMP/B.orig"
 # ⓖ FT_ROOT + --seats → CLOSED-ROLE · B 명부 표기·.bak · 원장 = B 루트 · A 명부 바이트 동일
 : > "$LOG"; RA='byz-airag-arch-claude#3'
