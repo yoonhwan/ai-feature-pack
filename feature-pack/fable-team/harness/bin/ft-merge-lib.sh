@@ -278,3 +278,90 @@ fm_land_ledger() {
   done
   return 0
 }
+#   fm_land_notify <종류> <본문 1줄> [카드 경로…] : r1478 — 착지·이동 «사건» 1줄을 카드 팀 master 에 1통(착지 1건 = 1통 · 묶음 1통 · r1476 종류 표의 «사건 = doorbell»)
+#     팀 = 카드 경로들의 팀 «합집합»(ft_team_has · 카드마다 그 팀 · 2팀이면 각 팀 1통) · 카드 0 일 때만 부른 좌석 FT_SEAT 둘째 토막 · 하나도 못 정하면 `INFO <종류> 쪽지 생략 — 팀 못 정함` 1줄(아무 팀장에게나 보내기 0)
+#     수신 = 명부 seats-<팀>.json(FT_SEATS_JSON 이 이김 · v65 = seats.json) `_master` · 발신 = FT_SEAT | ft-merge-land | ft-index-move
+#     발신 1회 상한 7초(재시도 0 · FT_LAND_DEADLINE 남은 시간이 더 짧으면 그 값 · 모자라면 호출 0) · 반환 0 고정(부른 쪽 rc 불변)
+#     카드 리포 루트 = FM_NOTIFY_REPO → FT_REPO_ROOT → FT_ROOT → 카드 경로의 git 루트
+fm_land_notify() {
+  local kind="$1" body="$2"; shift 2
+  local hd line root="" t tg teams c seats m from rc cap used el t0=$SECONDS
+  case "$kind" in 착지) hd='[착지]';; 이동) hd='[카드 이동]';; *) hd="[$kind]";; esac
+  case "$body" in '['*) line="$body";; *) line="$hd $body";; esac
+  from="${FT_SEAT:-}"
+  [ -n "$from" ] || case "$kind" in 착지) from=ft-merge-land;; 이동) from=ft-index-move;; *) from=ft-harness;; esac
+  for t in "${FM_NOTIFY_REPO:-}" "${FT_REPO_ROOT:-}" "${FT_ROOT:-}"; do
+    [ -n "$t" ] || continue
+    root="$(git -C "$t" rev-parse --show-toplevel 2>/dev/null)" && [ -n "$root" ] && break
+    root=""
+  done
+  if [ -z "$root" ] && [ $# -gt 0 ]; then root="$(git -C "$(dirname -- "$1")" rev-parse --show-toplevel 2>/dev/null)"; fi
+  teams=""
+  if [ $# -gt 0 ] && [ -n "$root" ] && [ -f "$FM_HERE/ft-team-lib.sh" ]; then
+    teams="$( . "$FM_HERE/ft-team-lib.sh" >/dev/null 2>&1 || exit 0
+      for c in "$@"; do
+        for tg in $(FT_REPO_ROOT="$root" ft_team_names 2>/dev/null); do
+          FT_REPO_ROOT="$root" ft_team_has "$tg" "$c" >/dev/null 2>&1 && printf '%s\n' "$tg"
+        done
+      done | awk '!seen[$0]++' )"
+  fi
+  if [ -z "$teams" ] && [ $# -eq 0 ] && [ -n "${FT_SEAT:-}" ]; then teams="$(printf '%s' "$FT_SEAT" | cut -d- -f2)"; fi
+  if [ -z "$teams" ]; then echo "INFO $kind 쪽지 생략 — 팀 못 정함"; return 0; fi
+  for tg in $teams; do
+    [ -n "$tg" ] || continue
+    seats="${FT_SEATS_JSON:-}"
+    if [ -z "$seats" ]; then
+      [ -n "$root" ] || { echo "INFO $kind 쪽지 생략 — 카드 리포 루트 못 풂($tg)"; continue; }
+      if [ "$tg" = v65 ]; then seats="$root/.fable-team/seats.json"; else seats="$root/.fable-team/seats-$tg.json"; fi
+    fi
+    [ -f "$seats" ] || { echo "INFO $kind 쪽지 생략 — 팀 명부 없음($tg)"; continue; }
+    m="$(python3 -c 'import json,sys
+try: d=json.load(open(sys.argv[1],encoding="utf-8"))
+except Exception: sys.exit(0)
+v=d.get("_master","") if isinstance(d,dict) else ""
+print(v if isinstance(v,str) else "")' "$seats" 2>/dev/null)"
+    [ -n "$m" ] || { echo "INFO $kind 쪽지 생략 — 명부에 _master 없음($tg)"; continue; }
+    if [ -z "${FT_MBOX:-}" ] && [ -z "$root" ]; then echo "INFO $kind 쪽지 생략 — 우편함 경로 못 풂($tg)"; continue; fi
+    used=$((SECONDS - t0)); cap=$((7 - used)); [ "$cap" -ge 1 ] || cap=0
+    if el="$(fm_fetch_deadline_rem)"; then [ "$el" -ge "$cap" ] || cap="$el"; fi
+    if [ "$cap" -lt 1 ]; then echo "WARN $kind 쪽지 발신 실패 → $m(0 · 시간 초과)"; continue; fi
+    fm_try "$cap" bash "${FT_MBOX:-$root/.fable-team/comm/mbox.sh}" send "$m" "$from" "$line" >/dev/null 2>&1; rc=$?
+    case "$rc" in
+      0) echo "NOTIFIED $kind → $m";;
+      124|143) echo "WARN $kind 쪽지 발신 실패 → $m($rc · 시간 초과)";;
+      *) echo "WARN $kind 쪽지 발신 실패 → $m($rc)";;
+    esac
+  done
+  return 0
+}
+#   fm_cards_by_tokens <리포루트> <r<숫자> 토큰…> : stdout = 이름에 그 토큰이 든 카드 파일 절대경로(design/**/indices/*/*.md · ls-files 1회) · 토큰 0 = 출력 0
+#     카드 이름 꿴 «r1478-…» · 다른 글자로 이어진 «ar1478» 은 안 잡는다(-<토큰>- 로 본다)
+fm_cards_by_tokens() {
+  local root="$1"; shift
+  [ -n "$root" ] && [ $# -gt 0 ] || return 0
+  git -C "$root" ls-files -- 'design/*/indices/*/*.md' 'design/teams/*/indices/*/*.md' 2>/dev/null | while IFS= read -r p; do
+    local b t; b="-${p##*/}"; b="${b%.md}-"
+    for t in "$@"; do
+      case "$b" in *"-$t-"*) printf '%s/%s\n' "$root" "$p"; break;; esac
+    done
+  done
+}
+#   fm_land_notify_land <카드리포루트> <PR> <착지 sha 앞자리> <PR 제목·본문> <설치 검사 rc> <설치 검사 출력> : r1478 — ft-merge-land 끝 1줄
+#     카드 = 제목·본문의 r<숫자> 토큰 · 설치 칸 = OK(대조 n>=1) | PENDING(검사 rc!=0 · 시간 초과 포함) | SKIP(범위에 하네스 파일 0)
+#     받은 root 는 FM_NOTIFY_REPO 로 넘긴다(env 가 다른 리포를 가리켜도 카드 리포가 이김 · DA HOLD #274782 F2)
+fm_land_notify_land() {
+  local root="$1" pr="$2" sh="$3" txt="$4" irc="$5" iout="$6" nst=SKIP tok
+  printf '%s\n' "$iout" | head -n1 | grep -qE '^OK n=[1-9]' && nst=OK
+  [ "${irc:-0}" = 0 ] || nst=PENDING
+  tok="$(printf '%s\n' "$txt" | grep -oE 'r[0-9]{2,5}' | sort -u | tr '\n' ' ')"
+  tok="${tok% }"
+  # shellcheck disable=SC2086
+  FM_NOTIFY_REPO="$root" fm_land_notify 착지 "[착지] pr=$pr sha=$sh 카드 ${tok:-없음} · 설치 $nst" $(fm_cards_by_tokens "$root" $tok)
+}
+#   fm_land_notify_move <from> <to> <카드 절대경로> [<DA>] : r1478 — ft-index-move 끝 1줄 · 팀 판정은 카드 경로가 이긴다(이동은 이미 끝났다 · 실패 = WARN 1줄 · rc 불변)
+fm_land_notify_move() {
+  local from="$1" dst="$2" card="$3" da="${4:-}" rt b
+  b="$(basename -- "$card" .md)"; rt="$(printf '%s' "$b" | grep -oE 'r[0-9]{2,5}' | head -n1)"
+  [ -n "$rt" ] || rt="$b"
+  fm_land_notify 이동 "[카드 이동] $rt ${from}→${dst}${da:+ · DA $da}" "$card"
+}
