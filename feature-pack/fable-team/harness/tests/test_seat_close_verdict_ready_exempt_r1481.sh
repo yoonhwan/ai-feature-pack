@@ -120,4 +120,17 @@ py close-check "$O" --verdict; chk "T6 후계 없음 + --verdict = CLOSE-OK 후�
 close_ --reopen 'X#1' --seats "$S"; chk "T6 --reopen rc0 · REOPENED · git grep 0(원장 관문 없음)" \
   "$RC $([[ "$OUT" == *"REOPENED X#1"* ]] && echo reopened) $(grepc ' grep ')" "0 reopened 0"
 
+# ── T7(DA 반례 1 · r1481 r2): 원장 꼴이 아닌 번호(--verdict 4138a) · 깨진 정규식 도우미(fv_row_re rc2 = 빈 정규식) — 어느 쪽도 닫기로 가면 안 된다
+export FT_MBOX_PY="$T/bin/mbox-stub.py" MBOX_STUB_LOG="$T/mboxstub7.log"
+new_env; hando; roster 1; S="$E/seats/seats-feature.json"; cp "$S" "$T/roster7.orig"; : > "$MBOX_STUB_LOG"; : > "$RETIRE_LOG"; : > "$TMUX_LOG"
+close_ "$O" --reason r --seats "$S" --verdict 4138a
+chk "T7a --verdict 4138a(원장 꼴 아님) → rc2 usage" "$RC $([[ "$OUT" == *"--verdict <번호>"* ]] && echo usage)" "2 usage"
+chk "T7a 쓰기 0 · close-check 0 · retire 0 · kill 0" "$(cmp -s "$S" "$T/roster7.orig" && echo same) $(wc -l < "$MBOX_STUB_LOG" | tr -d ' ') $(wc -l < "$RETIRE_LOG" | tr -d ' ') $(kills)" "same 0 0 0"
+TB="$T/brokenbin"; mkdir -p "$TB"; cp "$BIN/ft-seat-close.sh" "$BIN/ft_roster_lib.py" "$BIN/ft-harness-root.sh" "$BIN/ft_seat_bind.py" "$BIN/ft-team-lib.sh" "$TB/"
+printf '#!/usr/bin/env bash\nfv_row_re() { return 2; }\n' > "$TB/ft-verdict-row.sh"; : > "$MBOX_STUB_LOG"; : > "$RETIRE_LOG"; : > "$TMUX_LOG"
+OUT="$(cd "$E" && xenv bash "$TB/ft-seat-close.sh" "$O" --reason r --seats "$S" --verdict 4138 2>&1)"; RC=$?
+chk "T7b fv_row_re rc2(빈 정규식) → REJECT rc1 · 안내" "$RC $([[ "$OUT" == *"꼴이 원장 꼴(숫자)이 아님(fv_row_re rc=2)"* ]] && echo reject)" "1 reject"
+chk "T7b 쓰기 0 · close-check 0 · retire 0 · kill 0" "$(cmp -s "$S" "$T/roster7.orig" && echo same) $(wc -l < "$MBOX_STUB_LOG" | tr -d ' ') $(wc -l < "$RETIRE_LOG" | tr -d ' ') $(kills)" "same 0 0 0"
+unset FT_MBOX_PY
+
 [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }
