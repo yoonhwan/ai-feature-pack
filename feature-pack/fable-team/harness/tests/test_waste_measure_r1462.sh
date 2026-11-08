@@ -92,5 +92,64 @@ out="$(python3 "$M" "$T/t6.jsonl" 2>&1)"; rc=$?
 [ "$rc" -eq 1 ] && ok "T6 기준 초과 rc1" || bad "T6 rc=$rc"
 echo "$out" | grep -q '^FAIL E1 ' && echo "$out" | grep -q '^FAIL E2 ' && echo "$out" | grep -q '^FAIL E3 ' \
   && ok "T6 넘은 항목 3줄(E1·E2·E3)" || bad "T6 FAIL 줄: $(echo "$out" | grep '^FAIL' | tr '\n' '/')"
+# T8(반례①-a) — 틱 도구 [2,0]: 평균 1.00 은 PASS 로 숨지만 «틱별 최대» 2 는 기준 초과다
+python3 - "$T/t8.jsonl" <<'PY'
+import json, sys
+rows = []
+def u(ts, text):
+    rows.append({"type": "user", "timestamp": ts, "message": {"role": "user", "content": text}})
+def a(ts, mid, read, tools):
+    rows.append({"type": "assistant", "timestamp": ts, "message": {"id": mid, "usage": {
+        "input_tokens": 2, "output_tokens": 10, "cache_read_input_tokens": read,
+        "cache_creation_input_tokens": 0,
+        "cache_creation": {"ephemeral_5m_input_tokens": 0, "ephemeral_1h_input_tokens": 0}},
+        "content": [{"type": "tool_use", "name": t} for t in tools]}})
+u("2026-11-08T04:00:00.000Z", "[desk 틱 · a] 6항")
+a("2026-11-08T04:00:01.000Z", "msg_t1", 1000, ["Bash", "Bash"])
+u("2026-11-08T04:10:00.000Z", "[desk 틱 · b] 6항")
+a("2026-11-08T04:10:01.000Z", "msg_t2", 1000, [])
+open(sys.argv[1], "w").write("\n".join(json.dumps(r) for r in rows) + "\n")
+PY
+out="$(python3 "$M" "$T/t8.jsonl" 2>&1)"; rc=$?
+[ "$rc" -eq 1 ] && ok "T8 틱 최대 2 → rc1" || bad "T8 rc=$rc (평균으로 가려짐)"
+echo "$out" | grep -q '^E3 value=2.00 기준=1 FAIL' && ok "T8 E3 = 틱별 최대 2.00 FAIL" || bad "T8 E3: $(echo "$out" | grep '^E3' | head -1)"
+echo "$out" | grep -q 'tick_tools=2,0' && ok "T8 틱별 값 노출(2,0)" || bad "T8 틱별 값 없음"
+
+# T9(반례①-b) — usage 없는 요청을 0 으로 치환하지 않는다(«미상» 표기 → 판정 불가 rc1)
+python3 - "$T/t9.jsonl" <<'PY'
+import json, sys
+rows = [{"type": "user", "timestamp": "2026-11-08T05:00:00.000Z", "message": {"role": "user", "content": "턴"}},
+        {"type": "assistant", "timestamp": "2026-11-08T05:00:01.000Z", "message": {"id": "msg_nu", "content": [{"type": "tool_use", "name": "Bash"}]}}]
+open(sys.argv[1], "w").write("\n".join(json.dumps(r) for r in rows) + "\n")
+PY
+out="$(python3 "$M" "$T/t9.jsonl" 2>&1)"; rc=$?
+[ "$rc" -eq 1 ] && ok "T9 usage 없음 → rc1(조용한 0 금지)" || bad "T9 rc=$rc"
+echo "$out" | grep -q '미상=1' && ok "T9 «미상=1» 표기" || bad "T9 미상 표기 없음: $(echo "$out" | grep '^E2' | head -1)"
+echo "$out" | grep -q '^FAIL E2 ' && ok "T9 E2 판정 불가 FAIL 줄" || bad "T9 FAIL E2 없음"
+
+# T9b(반례①-c) — 틱 요청 3 + 일반 1: E1 평균 2.00 은 PASS 지만 틱 턴 3 요청은 초과다
+python3 - "$T/t9b.jsonl" <<'PY'
+import json, sys
+rows = []
+def u(ts, text):
+    rows.append({"type": "user", "timestamp": ts, "message": {"role": "user", "content": text}})
+def a(ts, mid):
+    rows.append({"type": "assistant", "timestamp": ts, "message": {"id": mid, "usage": {
+        "input_tokens": 2, "output_tokens": 10, "cache_read_input_tokens": 100,
+        "cache_creation_input_tokens": 0,
+        "cache_creation": {"ephemeral_5m_input_tokens": 0, "ephemeral_1h_input_tokens": 0}},
+        "content": [{"type": "tool_use", "name": "Bash"}]}})
+u("2026-11-08T06:00:00.000Z", "[desk 틱 · a] 6항")
+for i in range(3):
+    a("2026-11-08T06:00:0%d.000Z" % (i + 1), "msg_t%d" % i)
+u("2026-11-08T06:10:00.000Z", "보통 턴")
+a("2026-11-08T06:10:01.000Z", "msg_n0")
+open(sys.argv[1], "w").write("\n".join(json.dumps(r) for r in rows) + "\n")
+PY
+out="$(python3 "$M" "$T/t9b.jsonl" 2>&1)"; rc=$?
+[ "$rc" -eq 1 ] && ok "T9b 틱 3요청 → rc1" || bad "T9b rc=$rc (평균으로 가려짐)"
+echo "$out" | grep -q 'tick_max=3' && ok "T9b «tick_max=3» 노출" || bad "T9b tick_max 없음: $(echo "$out" | grep '^E1' | head -1)"
+echo "$out" | grep -q '^FAIL E1 ' && ok "T9b E1 FAIL 줄" || bad "T9b FAIL E1 없음"
+
 [ "$fail" -eq 0 ] && echo "ALL PASS" || echo "FAILED $fail"
 exit "$fail"
