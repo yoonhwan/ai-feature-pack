@@ -283,12 +283,17 @@ t0="$(date +%s)"; S a#1 s1#1 "T14 잠금 초과"; t1="$(date +%s)"
 eq "T14 잠금 초과 → gate=budget" "$(nv "$OUT" gate)" budget
 eq "T14 doorbell 0" "$(nv "$OUT" doorbell)" quiet
 grep -q 'lock-timeout' "$B14/.fable-team/state/wake-budget/_errors.log" 2>/dev/null && ok "T14 _errors.log 1행" || bad "T14 _errors.log 1행"
+# ★stderr 도 1줄★ — gate 가 예산 판정 출력을 삼켜도 «왜 안 울렸는지» 는 보이는 곳에 남아야 한다(조용한 fail-closed 0)
+eq "T14 잠금 초과 stderr ERROR 1줄" "$(grep -c '^ERROR ' <<<"$ERR")" 1
+grep -q '^ERROR 예산 잠금 10초 초과' <<<"$ERR" && ok "T14 stderr 에 잠금 초과 사유" || bad "T14 stderr 에 잠금 초과 사유" "$ERR"
 [ "$((t1 - t0))" -ge 9 ] && ok "T14 10초 상한 준수($((t1 - t0))s)" || bad "T14 10초 상한 준수($((t1 - t0))s)"
 rm -rf "$B14/.fable-team/state/wake-budget/.lock"
 printf '{깨진' > "$B14/.fable-team/state/wake-budget/a#1.json"
 S a#1 s1#1 "T14 장부 손상"
 eq "T14 장부 손상 → gate=budget" "$(nv "$OUT" gate)" budget
 eq "T14 손상본 .bad-<ts> 격리 1개" "$(ls "$B14/.fable-team/state/wake-budget" | grep -c '^a#1.json.bad-')" 1
+eq "T14 장부 손상 stderr ERROR 1줄" "$(grep -c '^ERROR ' <<<"$ERR")" 1
+grep -q '^ERROR 예산 장부 손상' <<<"$ERR" && ok "T14 stderr 에 장부 손상 사유" || bad "T14 stderr 에 장부 손상 사유" "$ERR"
 S a#1 s1#1 "T14 손상 다음 통"
 eq "T14 다음 send 는 sent/n=1" "$(nv "$OUT" gate)/$(bn a#1)" "sent/1"
 
