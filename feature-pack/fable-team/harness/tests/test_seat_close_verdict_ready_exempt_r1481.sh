@@ -126,6 +126,8 @@ new_env; hando; roster 1; S="$E/seats/seats-feature.json"; cp "$S" "$T/roster7.o
 close_ "$O" --reason r --seats "$S" --verdict 4138a
 chk "T7a --verdict 4138a(원장 꼴 아님) → rc2 usage" "$RC $([[ "$OUT" == *"--verdict <번호>"* ]] && echo usage)" "2 usage"
 chk "T7a 쓰기 0 · close-check 0 · retire 0 · kill 0" "$(cmp -s "$S" "$T/roster7.orig" && echo same) $(wc -l < "$MBOX_STUB_LOG" | tr -d ' ') $(wc -l < "$RETIRE_LOG" | tr -d ' ') $(kills)" "same 0 0 0"
+close_ "$O" --reason r --seats "$S" --verdict
+chk "T7c --verdict 값 없음 → rc2 usage · 쓰기 0 · kill 0" "$RC $([[ "$OUT" == *"--verdict <번호>"* ]] && echo usage) $(cmp -s "$S" "$T/roster7.orig" && echo same) $(kills)" "2 usage same 0"
 TB="$T/brokenbin"; mkdir -p "$TB"; cp "$BIN/ft-seat-close.sh" "$BIN/ft_roster_lib.py" "$BIN/ft-harness-root.sh" "$BIN/ft_seat_bind.py" "$BIN/ft-team-lib.sh" "$TB/"
 printf '#!/usr/bin/env bash\nfv_row_re() { return 2; }\n' > "$TB/ft-verdict-row.sh"; : > "$MBOX_STUB_LOG"; : > "$RETIRE_LOG"; : > "$TMUX_LOG"
 OUT="$(cd "$E" && xenv bash "$TB/ft-seat-close.sh" "$O" --reason r --seats "$S" --verdict 4138 2>&1)"; RC=$?
