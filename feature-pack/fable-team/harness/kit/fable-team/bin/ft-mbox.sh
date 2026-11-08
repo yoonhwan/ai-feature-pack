@@ -349,8 +349,43 @@ watch_alarm() {  # <to> <우편함 comm 절대경로(빈 값 → _mbox_dir)> <�
   mkdir -p "$ft/state" && : > "$mk"
   echo "WARN planner watch 없음 $to — 하네스 master $hm 긴급 seq=$(seq_of "$q")" >&2
 }
+# ★r1465 좌석 agent — 「그 좌석이 감시 프로세스를 가질 수 있나」를 명부에서 읽는다★
+#   세션명 꼴 `byz-<팀>-…` 의 <팀> → <루트>/.fable-team/seats-<팀>.json 의 `[좌석].agent`.
+#   파일 없음·좌석 없음·칸 없음·이름 꼴 밖 = 빈 값(조용한 생략 0 — 부르는 쪽이 «지금 그대로» 로 간다 · docs/rules/no_silent_fallback.md).
+seat_agent() {  # <좌석> [<우편함 comm 절대경로(빈 값 → _mbox_dir)>] → stdout agent 값(없으면 빈 값)
+  local to="$1" ft tj
+  ft="$(dirname "${2:-$(_mbox_dir)}")"
+  case "$to" in byz-*) ;; *) return 0 ;; esac
+  tj="${to#byz-}"; tj="${tj%%-*}"
+  [ -n "$tj" ] || return 0
+  python3 - "$ft/seats-$tj.json" "$to" <<'PYEOF' 2>/dev/null
+import json, sys
+# 못 읽음·JSON 깨짐 = 빈 값(«모른다» 를 «claude» 로 지어내지 않는다 — 그건 조용한 생략이다)
+try:
+    d = json.load(open(sys.argv[1], encoding="utf-8"))
+except Exception:
+    raise SystemExit(0)
+e = d.get(sys.argv[2]) if isinstance(d, dict) else None
+a = e.get("agent") if isinstance(e, dict) else None
+if isinstance(a, str):
+    print(a)
+PYEOF
+}
 # user_facing send/relay 공통: 감시 없으면 db 에 꼬리 «(WATCH 없음)» 을 붙이고(quiet → quiet(WATCH 없음)) 알린다. 감시 있으면 db 그대로.
-uf_watch() { watch_alive "$1" && return 0; db="${db}(WATCH 없음)"; watch_alarm "$1" "$2" "$3"; }
+# ★r1465 — agent 가 비어 있지 않고 claude 가 아니면(pi·codex·opencode) 감시는 구조상 없다★: Claude Code Monitor 의 command 로 거는
+#   ft-inbox-watch.sh 가 그 좌석엔 없다(pi 는 doorbell pane 주입으로 받는다). 그래서 매 송신마다 «거짓 긴급» 이 10분 간격으로 났다(11-07~11-08 52통 · 하루 33통).
+#   판정을 «프로세스 있나» 앞에 한 칸 더 둔다 — 있으면 꼬리 0 · 긴급 0 · 표식 0 · 표본기 0 · stderr 1줄.
+#   빈 값(옛 명부·못 읽음) = 지금 그대로(보수 · 긴급 나감). r928 유예·10분 제한·r1371 전팀 정지 보류는 무변경.
+uf_watch() {
+  local ag   # ★db 는 전역을 직접 고친다(호출부가 그 값을 찍는다) — local 로 가리면 꼬리가 사라진다★
+  ag="$(seat_agent "$1" "$2")"
+  if [ -n "$ag" ] && [ "$ag" != claude ]; then
+    echo "watch 판정 생략 $1 agent=$ag" >&2
+    return 0
+  fi
+  watch_alive "$1" && return 0
+  db="${db}(WATCH 없음)"; watch_alarm "$1" "$2" "$3"
+}
 # ★r928 r3 표본기 — 표본 파일의 유일한 쓰는 쪽★ (ft-tick 이 60초마다 `watch-sample <planner _master> <comm>`)
 #   감시 있음 → «<지금>\t0» · 없음 → 앞 표본이 «정상»(두 칸 정수 · 표본 ≤ 지금 · 처음 없음 ≤ 표본)이고 처음 없음 > 0 이면 그 값 그대로, 없거나 0(감시 있었음)이면 «<지금>\t<지금>».
 #   ★r4 원칙 «표본기가 실패하면 옛 파일을 믿지 않는다»(DECISION-r928-r4-final 고침 1·2)★ — 아래는 모두 _sample_fail: stderr `WATCH-ABSENT 이상(<사유>)` 1줄 + 표본 파일 지움
