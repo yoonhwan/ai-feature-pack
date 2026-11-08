@@ -98,7 +98,7 @@ new_env; hando; roster 1; S="$E/seats/seats-feature.json"; cp "$S" "$T/roster4.o
 close_ "$O" --reason r --seats "$S" --verdict 99999
 chk "T4a 판정 99999 없음 → REJECT rc1 · 원장 문구" "$RC $([[ "$OUT" == "REJECT $O 판정 99999 이 main 원장(VERDICTS-planner-*.md)에 없음 — 쓰기 0 · kill 0" ]] && echo msg)" "1 msg"
 chk "T4a close-check 0 · retire 0 · 명부 동일 · kill 0" "$(wc -l < "$MBOX_STUB_LOG" | tr -d ' ') $(wc -l < "$RETIRE_LOG" | tr -d ' ') $(cmp -s "$S" "$T/roster4.orig" && echo same) $(kills)" "0 0 same 0"
-new_env; hando; roster 1; ledger "| 41380 | t | 시험 |" "- **4138a** 시험 줄"; cp "$E/seats/seats-feature.json" "$T/roster4b.orig"
+new_env; hando; roster 1; ledger "| 41380 | t | 시험 |" "- **4138a** 시험 줄"; "$RB" -C "$E" add -A; "$RB" -C "$E" -c user.name=t -c user.email=t@t commit -qm ledger2; cp "$E/seats/seats-feature.json" "$T/roster4b.orig"
 close_ "$O" --reason r --seats "$E/seats/seats-feature.json" --verdict 4138
 chk "T4b 이웃 번호(41380·4138a)만 있으면 «없음» rc1 · 쓰기 0" "$RC $([[ "$OUT" == *"판정 4138 이 main 원장"*"에 없음"* ]] && echo none) $(cmp -s "$E/seats/seats-feature.json" "$T/roster4b.orig" && echo same)" "1 none same"
 
