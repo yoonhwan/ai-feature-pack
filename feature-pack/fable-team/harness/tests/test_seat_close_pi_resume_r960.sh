@@ -31,7 +31,7 @@ chk "ft-seat-retire.sh ≤ 200줄" "$([ "$(wc -l < "$BIN/ft-seat-retire.sh")" -l
 chk "ft-seat-close.sh ≤ 120줄" "$([ "$(wc -l < "$BIN/ft-seat-close.sh")" -le 120 ] && echo yes || echo no)" yes
 
 mkdir -p "$T/bin" "$T/home"
-cp "$BIN/ft-seat-close.sh" "$BIN/ft-seat-retire.sh" "$BIN/ft_seat_bind.py" "$BIN/ft_roster_lib.py" "$BIN/ft-harness-root.sh" "$T/bin/"
+cp "$BIN/ft-seat-close.sh" "$BIN/ft-seat-retire.sh" "$BIN/ft_seat_bind.py" "$BIN/ft_roster_lib.py" "$BIN/ft-harness-root.sh" "$BIN/ft-verdict-row.sh" "$BIN/ft-team-lib.sh" "$T/bin/"   # r1481: --verdict 원장 관문이 쓰는 도우미 2종
 mkdir -p "$T/bin"; printf '#!/bin/sh\necho "QUIESCED $1 stub left=0"\n' > "$T/bin/ft-seat-quiesce.sh"   # r1113 자식 정리 = 같은 bin 스텁(실 프로세스 0)
 printf '#!/bin/sh\necho "reap $1 stopped=0 left=0 rc=0"\n' > "$T/bin/ft-seat-reap.sh"
 cat > "$T/bin/tmux" <<'EOF'
@@ -49,6 +49,10 @@ EOF
 chmod +x "$T/bin/"*
 REPO="$T/repo"; mkdir -p "$REPO/.fable-team"
 git -C "$REPO" init -q -b main
+# r1481 — --verdict(2400) 는 planner 판정 원장에 번호가 실재할 때만 닫는다. 픽스처: design/TEAMS.md + VERDICTS-planner-1.md · ref=main
+mkdir -p "$REPO/design/teams/planner"; printf '| 팀 | 폴더 |\n|---|---|\n| planner | design/teams/planner/ | x | 현역 |\n' > "$REPO/design/TEAMS.md"
+printf '| 2400 | t | r960 시험 |\n' > "$REPO/design/teams/planner/VERDICTS-planner-1.md"
+git -C "$REPO" add -A && git -C "$REPO" -c user.name=t -c user.email=t@t commit -qm ledger
 export TMUX_LOG="$T/tmux.log" FT_ROOT="$T/root" ZC_RESUME_DIR="$T/resume" FT_PI_SESSIONS="$T/home/.pi/agent/sessions"
 mkdir -p "$FT_ROOT" "$ZC_RESUME_DIR" "$FT_PI_SESSIONS/enc"
 export HOME="$T/home"
@@ -59,7 +63,7 @@ pifile() {  # pifile <시각 문자열> [cwd] — pi 세션 파일 1개(첫 줄 
   printf '{"type":"session","version":3,"id":"aaaa-1111","timestamp":"%s","cwd":"%s"}\n{"type":"session_info","name":"pi#0"}\n' "${1:-$NOW}" "${2:-$PDIR}" > "$SESS"; }
 seats_pi() { printf '{"_master":"M#1","M#1":{"role":"master","tick":"t"},"%s":{"role":"nano","agent":"%s","model":"m","tick":null,"index":"x.md"}}\n' "${1:-pi#0}" "${2:-pi}" > "$REPO/.fable-team/seats.json"; }
 run() { ( cd "$REPO" && env PATH="$T/bin:$PATH" TMUX_LOG="$TMUX_LOG" FT_ROOT="$FT_ROOT" ZC_RESUME_DIR="$ZC_RESUME_DIR" FT_PI_SESSIONS="$FT_PI_SESSIONS" HOME="$HOME" FT_SEAT_RETIRE_BIN="${RT_BIN:-$T/bin/ft-seat-retire.sh}" \
-  FAKE_SESSION="${FAKE_SESSION:-1}" FAKE_PANE_PID="$$" FAKE_PANE_CWD="${FAKE_PANE_CWD:-$PDIR}" ZC_RESUME_DIR="${RDIR:-$ZC_RESUME_DIR}" FT_SEATS_JSON="${SEATS_ENV:-}" "$@" 2>&1 ); }
+  FAKE_SESSION="${FAKE_SESSION:-1}" FAKE_PANE_PID="$$" FAKE_PANE_CWD="${FAKE_PANE_CWD:-$PDIR}" ZC_RESUME_DIR="${RDIR:-$ZC_RESUME_DIR}" FT_SEATS_JSON="${SEATS_ENV:-}" FT_TEAMS_REF=main "$@" 2>&1 ); }
 close() { run bash "$T/bin/${CLOSE_BIN:-ft-seat-close.sh}" "$@"; }
 retire_rec() { run bash "$T/bin/${RETIRE_BIN:-ft-seat-retire.sh}" "$1" --record-only --verdict 2400 --seats "$REPO/.fable-team/seats.json"; }
 

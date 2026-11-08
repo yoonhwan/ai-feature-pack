@@ -163,8 +163,11 @@ def ready_body(new, old):
 
 def close_check(seat, need_ready=True, verdict=False):
     """rc 0 = 닫아도 됨 · 3 = 거절(사유 줄) — ③ 미표시 영수 · ② 후계가 있으면 [인계] 뒤 후계 [레디] 가 항목 전부 «받음».
-    need_ready=False(retire 관문) = ③ 만 · True(닫기 관문) = 후계 있는 옛 세션만 ③+② — 후계 없는 닫기(나노·판정 닫기)는 승계 검사 대상 아님."""
+    need_ready=False(retire 관문) = ③ 만 · True(닫기 관문) = 후계 있는 옛 세션만 ③+② — 후계 없는 닫기(나노·판정 닫기)는 승계 검사 대상 아님.
+    verdict=True(--verdict · 사람 판정 1건) = 후계가 있으면 ②③ 면제 — 판정 번호의 원장 실재는 ft-seat-close.sh 가 본다(r1481)."""
     succ = mbox_lineage.retired_to(seat)
+    if succ and verdict:   # r1481 — R400 사람 판정 1건이면 승계 검사(②③)를 건너뛴다(은퇴 뒤 ready REJECT 로 닫을 길이 0 이던 자리)
+        print("CLOSE-OK %s 판정 닫기(②③ 면제 · 사람 판정 1건)" % seat); return 0
     if need_ready and not succ:
         g = None if verdict else mbox_retire_check.close_gate(seat)   # C7 [인계] 는 보냈는데 retire 0 — 면제 = --verdict(사람 판정)
         if g:
