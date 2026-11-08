@@ -48,12 +48,13 @@ printf '%s\n' \
 mkroot() {  # <이름> → $T/<이름>/.fable-team/comm 에 스크립트 사본 (mbox.sh 가 같은 폴더를 source 한다)
   local R="$T/$1"
   mkdir -p "$R/.fable-team/comm"
-  cp "$COMM"/mbox.sh "$COMM"/mbox_doorbell.sh "$COMM"/mbox_guard.sh "$COMM"/ft-agent-alive.sh "$COMM"/mbox.py "$R/.fable-team/comm/"
+  cp "$COMM"/mbox.sh "$COMM"/mbox_doorbell.sh "$COMM"/mbox_wakegate.sh "$COMM"/mbox_wakebudget.sh "$COMM"/mbox_guard.sh "$COMM"/ft-agent-alive.sh "$COMM"/mbox.py "$R/.fable-team/comm/"
   echo "$R"
 }
 ROOT="$(mkroot main)"; C="$ROOT/.fable-team/comm"
 
-export PATH="$T/fakebin:$PATH" TMPDIR="$T/tmp" FAKE_PANE_PID=1 FT_MBOX_DIR="$C" FT_PS_SNAPSHOT="$T/ps.snapshot" FT_AGENT_ALIVE_TIMEOUT=2
+export PATH="$T/fakebin:$PATH" TMPDIR="$T/tmp" FAKE_PANE_PID=1 FT_MBOX_DIR="$C" FT_PS_SNAPSHOT="$T/ps.snapshot" FT_AGENT_ALIVE_TIMEOUT=2 \
+       FT_MBOX_WAKE_SEAT_MAX=9999 FT_MBOX_WAKE_TEAM_MAX=9999   # r1476: 이 시험은 «꼬리 글자» 만 본다 — 깨움 예산(6/시간)에 안 걸리게 풀어 둔다
 unset FT_DOORBELL_TAIL 2>/dev/null
 HEAD_SEQ="[발주 #7]"
 HEAD_NOSEQ="[발주 도착]"
