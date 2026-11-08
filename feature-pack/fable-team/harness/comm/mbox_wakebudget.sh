@@ -59,13 +59,17 @@ _wg_unlock() { local d="$1/.lock"; [ "$(cat "$d/pid" 2>/dev/null)" = "$$" ] && r
 
 # 예약 → stdout `reserved n=<k> team=<m>` rc0 | `exhausted seat|team n=…` rc3 | `ERROR …` rc1(fail-closed)
 wake_budget_reserve() {
-  local seat="$1" src="${2:-send}" sd win smax tmax out rc=0
+  local seat="$1" src="${2:-send}" sd win smax tmax out rc=0 msg
   sd="$(_wg_state)/wake-budget"
-  mkdir -p "$sd" 2>/dev/null || { printf 'ERROR state 폴더 생성 실패 %s\n' "$sd"; _wg_errlog "mkdir-fail $sd"; return 1; }
+  mkdir -p "$sd" 2>/dev/null || {
+    printf 'ERROR state 폴더 생성 실패 %s\n' "$sd"
+    printf 'ERROR state 폴더 생성 실패 %s\n' "$sd" >&2
+    _wg_errlog "mkdir-fail $sd"; return 1; }
   win=$(( $(_wg_now) / 3600 ))
   smax="${FT_MBOX_WAKE_SEAT_MAX:-6}"; tmax="${FT_MBOX_WAKE_TEAM_MAX:-30}"
   if ! _wg_lock "$sd"; then
     printf 'ERROR 예산 잠금 10초 초과 — %s/.lock\n' "$sd"
+    printf 'ERROR 예산 잠금 10초 초과 — %s/.lock\n' "$sd" >&2   # ★사유는 stderr 로도★ — 게이트가 stdout 을 삼켜도 «왜 안 울렸는지» 는 남는다
     _wg_errlog "lock-timeout seat=$seat src=$src"
     return 1
   fi
@@ -133,7 +137,10 @@ PY
 )" || rc=$?
   _wg_unlock "$sd"
   # 잠금은 «항상» 놓는다 — py 가 죽어도 다음 송신이 10초를 기다리지 않는다.
-  printf '%s\n' "${out:-ERROR 예산 판정 실패}"
+  # ★오류는 stdout(CLI 계약) + stderr(게이트가 stdout 을 잡아도 사유가 남는다) 두 곳에★ — 조용한 fail-closed 0.
+  msg="${out:-ERROR 예산 판정 실패}"
+  printf '%s\n' "$msg"
+  case "$msg" in ERROR*) printf '%s\n' "$msg" >&2 ;; esac
   return "$rc"
 }
 
@@ -142,7 +149,11 @@ wake_budget_refund() {
   sd="$(_wg_state)/wake-budget"
   [ -d "$sd" ] || return 0
   win=$(( $(_wg_now) / 3600 ))
-  if ! _wg_lock "$sd"; then _wg_errlog "lock-timeout refund seat=$seat"; return 1; fi
+  if ! _wg_lock "$sd"; then
+    _wg_errlog "lock-timeout refund seat=$seat"
+    printf 'ERROR 예산 잠금 10초 초과(refund) — %s/.lock\n' "$sd" >&2
+    return 1
+  fi
   out="$(python3 - "$sd" "$(_wg_key "$seat")" "$(_wg_team "$seat")" "$win" <<'PY' 2>/dev/null
 import json, os, sys
 sd, seat, team, win = sys.argv[1:5]
