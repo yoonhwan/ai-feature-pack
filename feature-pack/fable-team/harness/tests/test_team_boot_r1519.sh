@@ -84,7 +84,7 @@ ck "① rc0" "$([ "$rc" = 0 ] && echo 0 || echo 1)"; has "부팅 완료 t1" && o
 [ "$(cnt so.log)" = 1 ] && ok || bad "① spawn 팀장 1"
 [ "$(cnt nano.log)" = 0 ] && ok || bad "① 재개 카드 0 → nano 호출 0"
 [ "$(cnt mbox.log)" = 1 ] && grep -q '\[부팅\] t1 — 좌석=byz-t1-master-claude#5' "$REC/mbox.log" && ok || bad "① B5 보고 1통 꼴"
-grep -q 'launchd=미등재' "$REC/mbox.log" && grep -q 'cron=none' "$REC/mbox.log" && ok || bad "① B5 cron·launchd 칸"
+grep -q 'launchd=미등재' "$REC/mbox.log" && grep -qF 'cron=판정 불가(세션 안' "$REC/mbox.log" && ok || bad "① B5 cron·launchd 칸(r1534: claude 팀장 = 판정 불가)"
 has 'total=' && printf '%s' "$out" | grep -qE 'B0=[0-9]+s.*B5=[0-9]+s' && ok || bad "① 단계별 초(하드 룰 22)"
 PLAN1="$(ls -1 "$R/state/team-boot/"t1-*.plan | head -1)"
 grep -q 'closeout=design/teams/t1/CLOSEOUT-t1-20261109.md' "$PLAN1" && grep -q '^status=완료' "$PLAN1" && ok || bad "① plan 정본·status"
@@ -256,8 +256,8 @@ out="$(cd "$R" && env -u LC_ALL FT_REPO_ROOT="$R" bash "$BIN/ft-team-boot.sh" t1
 ck "⑯ LC_ALL 없음 rc0" "$([ "$rc" = 0 ] && echo 0 || echo 1)"
 printf '%s' "$out" | grep -qE '바인딩 해제|unbound' && bad "⑯ 로케일 변수명 오결합 0" || ok
 
-# ---------- 정적 검사 — 크론·launchd 생성 0 ----------
-grep -nE 'CronCreate|launchctl (bootstrap|load)|crontab ' "$BIN/ft-team-boot.sh" >/dev/null 2>&1 && bad "정적: 크론·launchd 생성 줄" || ok
+# ---------- 정적 검사 — 크론·launchd 생성 0 (r1534: CronCreate 는 정본 «읽기»만 — 도구 호출 꼴 «CronCreate(» 만 생성으로 본다) ----------
+grep -nE 'CronCreate[[:space:]]*\(|launchctl (bootstrap|load)|crontab ' "$BIN/ft-team-boot.sh" >/dev/null 2>&1 && bad "정적: 크론·launchd 생성 줄" || ok
 for f in ft-successor-open.sh ft-nano-spawn.sh ft-all-stop.sh; do grep -q "$f" "$BIN/ft-team-boot.sh" && ok || bad "정적: $f 호출만(수정 0)"; done
 
 echo "----"
