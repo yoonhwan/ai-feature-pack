@@ -39,7 +39,7 @@ RA="$(python3 -c 'import os,sys;print(os.path.realpath(sys.argv[1]))' "$T/wtA")"
 RB="$(python3 -c 'import os,sys;print(os.path.realpath(sys.argv[1]))' "$T/wtB")"
 msgs() { wc -l < "$MBOX_LOG" | tr -d ' '; }
 to() { grep -c "^$1	" "$MBOX_LOG"; }   # to <master> — 그 master 앞 쪽지 수
-held() { python3 -c 'import json,sys;d=json.load(open(sys.argv[1]));print(d.get("seats",{}).get(sys.argv[2],{}).get("held","-"))' "$SF" "$1"; }
+heldm() { python3 -c 'import json,sys;d=json.load(open(sys.argv[1]));print((d.get("seats",{}).get(sys.argv[2],{}) or {}).get("held",{}).get(sys.argv[3],"-"))' "$SF" "$1" "$2"; }   # heldm <워크트리 실제경로> <master>
 has() { python3 -c 'import json,sys;d=json.load(open(sys.argv[1]));print(sys.argv[2] in d.get("seats",{}))' "$SF" "$1"; }
 pen() { printf '{"since":%s,"reason":"시험","order":["teama","teamb"],"resumed":[%s]}\n' "$(date +%s)" "$1" > "$ST/PENALTY_STOP"; }
 allon() { printf '{"since":%s,"by":"test","reason":"시험","notify_failed":[]}\n' "$(date +%s)" > "$ST/ALL_STOP.json"; }
@@ -50,19 +50,19 @@ run() { out="$(cd / && python3 -I "$BIN/ft_head_lag.py" --event --repo "$W" --bi
 run
 [ "$rc" = 0 ] && [ "$(msgs)" = 1 ] && [ "$(to "$MB")" = 1 ] && [ "$(to "$MA")" = 0 ]; ck "T1 penalty 팀 master 쪽지 0 · 정지 아닌 팀 1통(T2)" $?
 [ "$(grep -c '^INFO 정지 팀 teama 알림 0(penalty)$' <<<"$out")" = 1 ]; ck "T1 stdout INFO 정지 팀 teama 알림 0(penalty) 1줄" $?
-[ "$(held "$RA")" = penalty ]; ck "T1 head-lag.json 에 held=penalty(따라잡으면 삭제된다)" $?
+[ "$(heldm "$RA" "$MA")" = penalty ]; ck "T1 head-lag.json 에 held=penalty(따라잡으면 삭제된다)" $?
 ! grep -q '^WARN' "$T/err"; ck "T1 판정이 됐으니 WARN 0(조용한 생략 0 · 시끄러운 오판 0)" $?
 
 # ── T3: 재개(파일 없음) 뒤 첫 실행 = 보류분 1회 발신 + held 삭제
 B0="$(msgs)"; rm -f "$ST/PENALTY_STOP"; run
 [ "$rc" = 0 ] && [ "$(( $(msgs) - B0 ))" = 1 ] && [ "$(to "$MA")" = 1 ] && [ "$(to "$MB")" = 1 ]; ck "T3 재개 뒤 첫 실행 = 팀a 보류분 1통만(팀b 재알림 0)" $?
-[ "$(held "$RA")" = - ]; ck "T3 발신 뒤 held 삭제" $?
+[ "$(heldm "$RA" "$MA")" = - ]; ck "T3 발신 뒤 held 삭제" $?
 
 # ── T4: 전팀 정지(ALL_STOP) = 두 팀 다 0 + INFO all-stop 2줄
 rm -f "$SF"; allon; run
 [ "$rc" = 0 ] && [ "$(msgs)" = 2 ]; ck "T4 ALL_STOP = 발신 0" $?
 [ "$(grep -c '알림 0(all-stop)$' <<<"$out")" = 2 ]; ck "T4 INFO 정지 팀 … 알림 0(all-stop) 두 팀" $?
-[ "$(held "$RA")" = all-stop ] && [ "$(held "$RB")" = all-stop ]; ck "T4 둘 다 held=all-stop" $?
+[ "$(heldm "$RA" "$MA")" = all-stop ] && [ "$(heldm "$RB" "$MB")" = all-stop ]; ck "T4 둘 다 held=all-stop(받는이별)" $?
 
 # ── T5: 판정 불가(깨진 상태 파일) = 지금처럼 발신 + WARN(안전 쪽)
 rm -f "$ST/ALL_STOP.json" "$SF"; printf '{broken\n' > "$ST/PENALTY_STOP"; run
@@ -71,7 +71,7 @@ grep -q '^WARN 정지 판정 불가' "$T/err"; ck "T5 WARN 정지 판정 불가 
 
 # ── T6: 따라잡은 워크트리 = 항목·held 삭제 · 발신 0
 rm -f "$SF"; pen '"teamb"'; N0="$(to "$MA")"; run
-[ "$(held "$RA")" = penalty ] && [ "$(to "$MA")" = "$N0" ]; ck "T6 다시 정지 → 팀a 보류(쪽지 0)" $?
+[ "$(heldm "$RA" "$MA")" = penalty ] && [ "$(to "$MA")" = "$N0" ]; ck "T6 다시 정지 → 팀a 보류(쪽지 0)" $?
 git -C "$T/wtA" merge -q --no-edit origin/main; rm -f "$ST/PENALTY_STOP"; run
 [ "$rc" = 0 ] && [ "$(to "$MA")" = "$N0" ] && [ "$(has "$RA")" = False ]; ck "T6 따라잡음 = 발신 0 + head-lag.json 항목(held 포함) 삭제" $?
 
@@ -84,7 +84,6 @@ mkwt wtS nano/wtS
 TM new-session -d -s 'byz-teamc-nano-claude#0' -c "$T/wtS"
 TM new-session -d -s 'byz-teamd-nano-claude#0' -c "$T/wtS"
 RS="$(python3 -c 'import os,sys;print(os.path.realpath(sys.argv[1]))' "$T/wtS")"
-heldm() { python3 -c 'import json,sys;d=json.load(open(sys.argv[1]));print((d.get("seats",{}).get(sys.argv[2],{}) or {}).get("held",{}).get(sys.argv[3],"-"))' "$SF" "$1" "$2"; }
 : > "$MBOX_LOG"; rm -f "$SF"; printf '{"since":%s,"reason":"시험","order":["teamc","teamd"],"resumed":["teamd"]}\n' "$(date +%s)" > "$ST/PENALTY_STOP"
 run
 [ "$rc" = 0 ] && [ "$(to "$MC")" = 0 ] && [ "$(to "$MD")" = 1 ]; ck "T7 같은 worktree 정지 C=발신 0 · 활성 D=1통" $?

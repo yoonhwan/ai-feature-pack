@@ -13,7 +13,7 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # python -I 은 스크립트 폴더를 path 에 넣지 않는다
 from ft_head_lag_seats import load_state, master_of, seats_by_wt, skip_regex, team_of, warn
 from ft_head_lag_skip import base_skipped, work_left
-from ft_head_lag_stop import gate   # r1492 — 정지 팀(penalty·전팀 정지) 좌석은 쪽지로 깨우지 않는다
+from ft_head_lag_stop import plan, record   # r1492 — 정지 팀(penalty·전팀 정지) 좌석은 쪽지로 깨우지 않는다
 
 
 def git(repo, *a):
@@ -119,25 +119,18 @@ def main():
         fcntl.flock(lk, fcntl.LOCK_EX)
         st = load_state(sf, {s["real"] for s in stale})   # R836: 키 = 워크트리 하나(main sha 무관)
         by =seats_by_wt([os.path.realpath(w["path"]) for w in wts])
-        groups, failed, memo = {}, set(), {}
-        for s in stale:
-            rec = st.get(s["real"])
-            if s["secs"] < minutes * 60 or (rec and (rec["n"] >= 2 or now - rec["ts"] < remind)):
-                continue
-            for team in sorted({t for t in map(team_of, by[s["real"]]) if t}):
-                m = master_of(root, team)
-                if m and gate(root, team, s, st, memo):   # r1492 — 발신 «직전» 정지 판정(정지 팀 = 쪽지 0 · held 기록)
-                    groups.setdefault(m, []).append(s)
-        sent = {}
+        groups = plan(root, stale, st, by, minutes, now, remind)   # r1492 — 문턱·팀 단위 정지 보류(held) 판정은 그쪽 한 자리
+        sent, failed = {}, set()
         for m, items in groups.items():
             seq = send(root, m, build(items, msha))
             for s in items:
                 if seq:
-                    sent[s["real"]] = seq
+                    sent.setdefault(s["real"], (seq, set()))[1].add(m)   # r1492 — 워크트리별로 받는이를 모두 남긴다
                 else:
                     failed.add(s["real"])
-        for real in sent.keys() - failed:
-            st[real] = {"seq": sent[real], "ts": now, "n": st.get(real, {}).get("n", 0) + 1}
+        for real, (seq, ms) in sent.items():
+            if real not in failed:
+                st[real] = record(st.get(real, {}), seq, ms, now)   # r1492 — 보낸 받는이의 held 만 지운다
         tmp = f"{sf}.{os.getpid()}"
         json.dump({"v": 2, "seats": st}, open(tmp, "w"), ensure_ascii=False)   # R836 r3: 판 번호로 새·옛을 가른다(키 글자 해석 0)
         os.replace(tmp, sf)
