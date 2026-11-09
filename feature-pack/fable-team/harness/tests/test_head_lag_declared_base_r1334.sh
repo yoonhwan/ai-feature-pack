@@ -94,7 +94,7 @@ open(p, "w", encoding="utf-8").write(s.replace(old, new))
 PY
 }
 mut() {  # mut <이름> <파일> <옛> <새> → BD 를 새 사본으로 바꾸고 치환 1개
-  BD="$T/m-$1"; mkdir -p "$BD"; cp "$BIN"/ft_head_lag.py "$BIN"/ft_head_lag_seats.py "$BIN"/ft_head_lag_skip.py "$BD/"
+  BD="$T/m-$1"; mkdir -p "$BD"; cp "$BIN"/ft_head_lag.py "$BIN"/ft_head_lag_seats.py "$BIN"/ft_head_lag_skip.py "$BIN"/ft_head_lag_stop.py "$BD/"
   rep "$2" "$3" "$4"
 }
 # expect_fail <변이 이름> <반례 목록> — 변이 사본으로 그 반례들이 «모두» FAIL 이어야 한다
