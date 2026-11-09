@@ -66,7 +66,7 @@ sys.exit(0 if d.get("_master") == sys.argv[2] else 1)
 PY
 }
 # ★r1524 «받는 쪽» 판정 — 확장(pi ft-mbox-wake.ts)이 우편함을 감시해 custom 턴으로 깨우는 좌석★
-#   = 「팀 명부(seats*.json) 하나의 _master 가 그 좌석이고 그 파일의 그 좌석 행 agent=='pi'」 ∨ 「seats-planner.json _master·_desk」 ∧ 확장 설치본 존재.
+#   = 「seats*.json 하나의 _master 가 그 좌석이고 «같은 파일» 의 그 좌석 행 agent=='pi'」 ∨ 「seats-planner.json _desk」 ∧ 확장 설치본 존재(카드 954fe550).
 #   ★판 2 (arch#267 · 카드 b33e6390)★ — planner 두 좌석 → 각 팀 _master 로 넓힘. 다만 «이름만» 보면 claude·codex master 6석의
 #     pane 이 조용히 꺼진다(그 좌석엔 pi 확장이 안 뜬다 = 깨울 길 0 = 쪽지 영구 대기) → 그 행 agent=='pi' 를 함께 본다.
 #   ★user_facing 을 넓히지 않고 새 함수를 두는 이유★: user_facing 은 «보내는 쪽 사람 예외»(_wg_human_sender)에도 쓰인다 —
@@ -87,13 +87,11 @@ for f in sorted(glob.glob(os.path.join(d, "seats*.json"))):
         continue                      # 깨진 파일 = 그 파일 거짓(pane 유지 · 다른 파일은 그대로)
     if not isinstance(j, dict):
         continue
-    if os.path.basename(f) == "seats-planner.json":
-        if seat in (j.get("_master"), j.get("_desk")):
-            sys.exit(0)               # planner 대면 좌석 = 판 2 전부터 활성(planner 명부엔 좌석 행이 없어 agent 칸을 볼 수 없다)
-        continue
     row = j.get(seat)
     if isinstance(row, dict) and j.get("_master") == seat and row.get("agent") == "pi":
-        sys.exit(0)
+        sys.exit(0)                   # _master ∧ «같은 파일» 의 그 좌석 행 agent=='pi'
+    if os.path.basename(f) == "seats-planner.json" and j.get("_desk") == seat:
+        sys.exit(0)                   # planner _desk(agent 칸 요구 없음 · 카드 954fe550)
 sys.exit(1)
 PY
 }
