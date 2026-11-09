@@ -7,6 +7,9 @@
 #  T3 팀 장부는 팀마다 따로 센다                  · T4 규약 밖 이름 = none(팀 상한 없이 좌석 상한만)
 #  T5 명부 파일 없음 ≠ default                    · T6 _wg_team 본문에 문자열 default 0
 set -uo pipefail
+# ★상한 «동작» 시험은 상한을 스스로 소유한다(r1499 · 선례 test_mbox_doorbell_sh_tail_r1039.sh:57)★
+#   기본값이 100000 으로 올라갔으므로(mbox_wakebudget.sh:76) 상한 시험은 6/30 을 env 로 명시 고정한다.
+export FT_MBOX_WAKE_SEAT_MAX=6 FT_MBOX_WAKE_TEAM_MAX=30
 for v in GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY; do unset "$v"; done
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 COMM="$HERE/../comm"
