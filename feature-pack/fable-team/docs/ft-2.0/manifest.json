@@ -1,0 +1,126 @@
+{
+  "status": "planning-only; product approval not received",
+  "source_snapshot": "4e32937456ba4714ff3a26843e3ad6cce3dc0839",
+  "slack_snapshot": "bca5bba0726f0155aaca8562babdd31cff70bfda",
+  "files": [
+    {
+      "path": "context/AUDIT-ft20-repo-evidence-20261109.md",
+      "source": "SecondWindStudio/byz-agents/design/harness/research/ft-2.0/AUDIT-ft20-repo-evidence-20261109.md",
+      "source_commit": "4e32937456ba4714ff3a26843e3ad6cce3dc0839",
+      "sha256": "3844963f4b3fac4b6c51208d24306b5d197fd94c10a79815339807a205981fa6",
+      "bytes": 7822
+    },
+    {
+      "path": "context/GATE-ft20-full-spec-before-implementation-20261109.md",
+      "source": "SecondWindStudio/byz-agents/design/harness/research/ft-2.0/GATE-ft20-full-spec-before-implementation-20261109.md",
+      "source_commit": "4e32937456ba4714ff3a26843e3ad6cce3dc0839",
+      "sha256": "02219c975c53584ec9d7aba75db0e989c43d61e183fa0a8196491f8d4d0e62b9",
+      "bytes": 5604
+    },
+    {
+      "path": "context/INDEX-ft20-three-proposals-20261109.md",
+      "source": "SecondWindStudio/byz-agents/design/harness/research/ft-2.0/INDEX-ft20-three-proposals-20261109.md",
+      "source_commit": "4e32937456ba4714ff3a26843e3ad6cce3dc0839",
+      "sha256": "4d85ea59b02c676257b280bcb3bc468c1be55fab7b2443a3f8a9029f8c6912b5",
+      "bytes": 5052
+    },
+    {
+      "path": "context/INTERVIEW-ft20-decision-20261109.md",
+      "source": "SecondWindStudio/byz-agents/design/harness/research/ft-2.0/INTERVIEW-ft20-decision-20261109.md",
+      "source_commit": "4e32937456ba4714ff3a26843e3ad6cce3dc0839",
+      "sha256": "b621a42d1f6e9c93cdcc40bfc4152159c9d60c224f2288a17df3633159441b7d",
+      "bytes": 7539
+    },
+    {
+      "path": "context/PLAN-ft20-astra-independent-20261109.md",
+      "source": "SecondWindStudio/byz-agents/design/harness/research/ft-2.0/PLAN-ft20-astra-independent-20261109.md",
+      "source_commit": "4e32937456ba4714ff3a26843e3ad6cce3dc0839",
+      "sha256": "e9b5f28a3cbd27794d594aec2e9b39386f98c485bfdb0ae18cfffa5c8ec9efe4",
+      "bytes": 16355
+    },
+    {
+      "path": "context/PLAN-ft20-single-module-and-slack-20261109.md",
+      "source": "SecondWindStudio/byz-agents/design/harness/research/ft-2.0/PLAN-ft20-single-module-and-slack-20261109.md",
+      "source_commit": "4e32937456ba4714ff3a26843e3ad6cce3dc0839",
+      "sha256": "c354032805e52c8722187971cc3981888d6c59468051146cd08db98b8b49933c",
+      "bytes": 31725
+    },
+    {
+      "path": "context/REVIEW-ft20-three-proposals-astra-20261109.md",
+      "source": "SecondWindStudio/byz-agents/design/harness/research/ft-2.0/REVIEW-ft20-three-proposals-astra-20261109.md",
+      "source_commit": "4e32937456ba4714ff3a26843e3ad6cce3dc0839",
+      "sha256": "dead2d4b2ca7b21bfa7748fa68cea7daca944c7ecf0826d001f6ce08667b6bdb",
+      "bytes": 6075
+    },
+    {
+      "path": "context/REVIEW-r1496-main-contract-check-20261109.md",
+      "source": "SecondWindStudio/byz-agents/design/harness/research/ft-2.0/REVIEW-r1496-main-contract-check-20261109.md",
+      "source_commit": "4e32937456ba4714ff3a26843e3ad6cce3dc0839",
+      "sha256": "1d6bc3f40762455927423e675788fd06d137dcf129c57772305616b1a258de39",
+      "bytes": 4756
+    },
+    {
+      "path": "context/REVIEW-r1500-main-contract-check-20261109.md",
+      "source": "SecondWindStudio/byz-agents/design/harness/research/ft-2.0/REVIEW-r1500-main-contract-check-20261109.md",
+      "source_commit": "4e32937456ba4714ff3a26843e3ad6cce3dc0839",
+      "sha256": "1414622692ab625c09c228a27ec1e7672beaa97f6175c20c76a0927dad97eac9",
+      "bytes": 5595
+    },
+    {
+      "path": "context/SIM-ft20-session-lifetime-comparison-20261109.md",
+      "source": "SecondWindStudio/byz-agents/design/harness/research/ft-2.0/SIM-ft20-session-lifetime-comparison-20261109.md",
+      "source_commit": "4e32937456ba4714ff3a26843e3ad6cce3dc0839",
+      "sha256": "e7815c51106f1abd71b835c58b13983f2ead81731db7f47aabc621a4aa392036",
+      "bytes": 7586
+    },
+    {
+      "path": "context/slack/RESEARCH-PLAN-r1500-slack-link.md",
+      "source": "SecondWindStudio/byz-agents/design/harness/research/ft-2.0/slack/RESEARCH-PLAN-r1500-slack-link.md",
+      "source_commit": "bca5bba0726f0155aaca8562babdd31cff70bfda",
+      "sha256": "bf346bb388986e7f5f1701b43445d66afd0c5167a8925f1fea0cfb01ca3d84e8",
+      "bytes": 32079
+    },
+    {
+      "path": "context/slack/SPEC_INCOMPLETE.md",
+      "source": "SecondWindStudio/byz-agents/design/harness/research/ft-2.0/slack/SPEC_INCOMPLETE.md",
+      "source_commit": "bca5bba0726f0155aaca8562babdd31cff70bfda",
+      "sha256": "350b3d182502258dfa9a0149791c0204f92b0037af581d6d7e20ffb054505c98",
+      "bytes": 5991
+    },
+    {
+      "path": "artifacts/2026-11-09-slack-operation.html",
+      "source": "SecondWindStudio/byz-agents/design/harness/research/ft-2.0/slack/slack-operation.html",
+      "source_commit": "bca5bba0726f0155aaca8562babdd31cff70bfda",
+      "sha256": "5584f26c50155b7539e27534d98555c78fc0e23c910c33b492f55e953343b613",
+      "bytes": 18296
+    },
+    {
+      "path": "artifacts/2026-11-09-core-stream.html",
+      "source": "/tmp/ft-2.0/2026-11-09-core-stream.html",
+      "source_commit": null,
+      "sha256": "149c1ecdc7148afe5e73a0f5772da1a0136c5159a9985dbe7c14d6ec50ee44bf",
+      "bytes": 38376
+    },
+    {
+      "path": "artifacts/GOAL-ft-2.0.md",
+      "source": "/tmp/ft-2.0/GOAL-ft-2.0.md",
+      "source_commit": null,
+      "sha256": "20de8ab8c59c3abb9bc23e8d92a3eeecc10ae3e9752c8f382b43a3d7e7b35079",
+      "bytes": 23776
+    },
+    {
+      "path": "artifacts/INTERVIEW-ft20-decision-20261109.md",
+      "source": "/tmp/ft-2.0/INTERVIEW-ft20-decision-20261109.md",
+      "source_commit": null,
+      "sha256": "b621a42d1f6e9c93cdcc40bfc4152159c9d60c224f2288a17df3633159441b7d",
+      "bytes": 7539
+    },
+    {
+      "path": "artifacts/SIM-ft20-minimal-contract-v1.md",
+      "source": "/tmp/ft-2.0/SIM-ft20-minimal-contract-v1.md",
+      "source_commit": null,
+      "sha256": "1e358f02ab6838cd8108581a8c02deb1d3713a833531f61adeeb818dc53a56dc",
+      "bytes": 8431
+    }
+  ]
+}

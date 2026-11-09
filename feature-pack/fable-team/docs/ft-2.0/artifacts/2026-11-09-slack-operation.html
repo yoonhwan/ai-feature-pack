@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Slack 운영 — 한 장 시퀀스 (ft 2.0 · r1500 초안)</title>
+<style>
+body{font-family:-apple-system,"Apple SD Gothic Neo",sans-serif;margin:0;background:#f6f7f9;color:#1d2330;line-height:1.55}
+main{max-width:1000px;margin:0 auto;padding:20px 16px 60px}
+h1{font-size:21px;margin:0 0 6px}
+.status{display:inline-block;font-size:12.5px;background:#fff3d6;border:1px solid #efcf7a;border-radius:14px;padding:2px 10px;color:#7a5200}
+.lead{font-size:14.5px;margin:10px 0 4px}
+#tabs{display:flex;gap:6px;margin:12px 0 6px}
+#tabs button,#ctrl button{border:1px solid #9aa4b5;background:#fff;border-radius:7px;padding:6px 12px;font-size:14px;cursor:pointer}
+#tabs button.cur{background:#1e4fa8;color:#fff;border-color:#1e4fa8}
+#board{background:#fff;border:1px solid #dde2ea;border-radius:10px;padding:8px}
+svg text{font-family:-apple-system,"Apple SD Gothic Neo",sans-serif}
+#ctrl{display:flex;gap:6px;align-items:center;margin:8px 0}
+#pos{font-size:12.5px;color:#5b6475}
+#cap{font-size:15px;background:#eef3fb;border-left:4px solid #1e4fa8;border-radius:4px;padding:8px 12px;min-height:26px}
+.sub{color:#5b6475;font-size:12.5px}
+h2{font-size:16px;margin:26px 0 6px}
+details{margin:7px 0;background:#fff;border:1px solid #dde2ea;border-radius:8px;padding:6px 10px}
+summary{cursor:pointer;color:#1e4fa8;font-weight:600;font-size:14px}
+table{border-collapse:collapse;width:100%;font-size:12.5px;margin:6px 0}
+th,td{border:1px solid #dde2ea;padding:5px 7px;text-align:left;vertical-align:top}th{background:#eef1f6}
+.b{display:inline-block;font-size:11px;border-radius:9px;padding:0 7px;font-weight:600}
+.code{background:#efe7fb;color:#5b2ea6}.run{background:#e3f4e8;color:#1d6b35}.mock{background:#e4ecfb;color:#1e4fa8}.unv{background:#fdeaea;color:#a12828}
+</style>
+</head>
+<body><main>
+<h1>Slack 운영 — 한 장으로 보는 흐름</h1>
+<span class="status">상태: 기획 초안 · arch/DA 보정 중(HOLD) · 독립 검증 전 · 실험 보류</span>
+<p class="lead">사람이 Slack에 쓴 글은 <b>Slack 공통 도구</b>가 받아 <b>업무 입구</b>에 넘깁니다. 일은 팀/NW가 하고, 답은 <b>같은 thread</b>로 돌아옵니다. 모든 단계는 <b>기록</b>에 남아서 멈췄다 켜져도 이어집니다.</p>
+<p class="sub">아래 그림은 설명용 재생입니다. 실제 Slack이나 프로그램을 돌린 화면이 아닙니다.</p>
+
+<div id="tabs"></div>
+<div id="board"><svg id="seq" viewBox="0 0 960 520" width="100%" role="img" aria-label="Slack 운영 시퀀스"></svg></div>
+<div id="ctrl"><button id="prev">◀ 이전</button><button id="play">▶ 재생</button><button id="next">다음 ▶</button><span id="pos"></span></div>
+<div id="cap"></div>
+
+<h2>자세히 보기 (접힘)</h2>
+
+<details><summary>역할 5개가 하는 일</summary>
+<table><tr><th>역할</th><th>하는 일</th><th>하지 않는 일</th></tr>
+<tr><td>사람(Slack thread)</td><td>글을 쓰고 답을 읽음</td><td>—</td></tr>
+<tr><td>Slack 공통 도구</td><td>받기 · 거르기 · 기록 · 넘기기 · 같은 thread에 답 올리기 · 멈춘 뒤 이어가기</td><td>모델 호출 · 업무 판단 · 팀별 봇·스크립트·크론</td></tr>
+<tr><td>업무 입구</td><td>접수 영수(번호) 돌려줌 · 신규 업무는 planner가 논의·분류·팀 배정, issues가 등록·배분 기록</td><td>모든 글을 planner로 직행 · 모든 글을 issues 모델로 중계</td></tr>
+<tr><td>팀 도구 / NW</td><td>배정된 일 처리 · 답 요청(요청 번호) · 모델 호출은 여기 1곳</td><td>Slack 연결 관리</td></tr>
+<tr><td>기록</td><td>접수·영수·답 요청·답 결과 · thread와 주제·담당 연결</td><td>업무 정본 복제(골·완료는 팀 도구)</td></tr></table>
+<div class="sub">라우팅 근거: design/teams/planner/GUIDE-planner.md@eb2d525a90 §협업 ③(신규 기획 = planner 논의 → issues 등록 → planner 직접 배정 · issues 는 배분 코멘트 기록). 기존 thread 답을 담당 좌석으로 바로 보내는 것은 <b>2.0 설계 후보</b>입니다(현재 정본에서 확인 안 됨).</div>
+</details>
+
+<details><summary>상황 9개별 근거 (설명 · 근거 종류)</summary>
+<p class="sub">근거 종류: <span class="b code">코드 관찰</span> 파일:줄 읽음 · <span class="b run">런타임 실측</span> 실제 호출·파일 · <span class="b mock">모형 시험</span> 가짜 Slack, 구현자 시험 · <span class="b unv">미검증</span></p>
+<table><tr><th>상황</th><th>보정판 규칙(요지)</th><th>지금 근거</th></tr>
+<tr><td>1 thread 연결</td><td>workspace·channel·root 글 → 주제·담당·세대</td><td><span class="b mock">⑤⑦</span> <span class="b unv">실채널</span></td></tr>
+<tr><td>2 새 글만 넘김</td><td>thread별 커서 뒤 줄만 · 창 전체 다시 읽기 0</td><td><span class="b mock">⑧ 재독 비교</span></td></tr>
+<tr><td>3 Slack 확인(ACK)</td><td>기록 먼저, 확인 다음 · 확인 ≠ 업무 접수</td><td><span class="b mock">②③</span> <span class="b unv">실 Socket Mode</span></td></tr>
+<tr><td>4 업무 접수</td><td>입구 영수 번호를 기록해야 «넘김 완료» · 없으면 다시 넘기며 표식 · 좌석은 같은 표식 1번만</td><td><span class="b unv">D2 미시험</span></td></tr>
+<tr><td>5 같은 thread 답</td><td>답 요청 번호 = 팀 도구 번호 그대로 · 그 thread 1곳</td><td><span class="b mock">①</span> <span class="b unv">실채널</span></td></tr>
+<tr><td>6 끊김·재시작</td><td>빠진 글 보충은 다음 페이지가 없을 때까지 · 실패하면 그 자리 기억</td><td><span class="b mock">②③</span> <span class="b unv">D3 미시험</span></td></tr>
+<tr><td>7 몰림(429·입구 가득)</td><td>Slack이 말한 만큼 기다림 · 입구 가득이면 접수 아님 + 알림</td><td><span class="b mock">④</span> <span class="b unv">실 429 · 입구 가득</span></td></tr>
+<tr><td>8 미결정 보존</td><td>결정·미결정 정본 = 팀 도구 · 채널이 닫혀도 남음</td><td><span class="b mock">⑥</span></td></tr>
+<tr><td>9 종료</td><td>닫힌 thread는 담당 없음 · 새 글 = «재개 필요» · 답은 재개 뒤에만</td><td><span class="b unv">D4 미시험</span></td></tr></table>
+</details>
+
+<details><summary>연결 계약 15줄 (보정판 · 줄마다 근거 번호)</summary>
+<ol style="font-size:12.5px">
+<li>수신 = Socket Mode 이벤트(전용 app · 운영 gateway 연결 공유 0) · 주기 폴링 0 [S1·S13]</li>
+<li>거름 → 메시지 키 → 기록 → Slack 확인 → 입구 전달 · 확인 ≠ 업무 접수 [②③]</li>
+<li>키 3종: 메시지 (workspace, channel, ts) · 전송 힌트 event_id·client_msg_id · 답 (thread 연결, 요청 번호) [S14]</li>
+<li>넘김 완료 = 입구 영수(현행 mbox seq) 기록 · 없이 재시작하면 재시작 1번에 재송 1번 [S15]</li>
+<li>재송 머리에 메시지 키 표식 · 좌석은 같은 표식 2번째부터 안 읽음 · 행 수 상한 약속 0 [S15]</li>
+<li>입구 가득이면 영수 0 · 접수 아님 · 기록 보존 + 알림 [S4]</li>
+<li>보충 회차 = 재시작·재연결마다 1번 · next_cursor 끝까지 · 커서는 영수 연속 끝까지 · 실패면 미완 기록 [S16]</li>
+<li>좌석·thread별 커서 · 창 전체 다시 읽기 0 [⑧]</li>
+<li>thread 1 = 주제 1 = 논리 컨텍스트 1 · 파일 분리 ≠ 모델 입력 격리 [⑤·S5]</li>
+<li>답 = 그 thread 1곳 · 요청 번호 = 팀 도구 번호 그대로 [①·S19]</li>
+<li>답 응답 불명 = UNCERTAIN · 표식 조회 3값(있음·없음 확인·판정 불가) · 판정 불가는 보존·사람 · 자동 재송 0 [S18]</li>
+<li>담당 승계 사슬 · 옛 세대 답 거절 [⑦]</li>
+<li>429 = Retry-After · 재시도 1 · 넘으면 보이는 오류 [④]</li>
+<li>임시 채널은 사람이 만듦 · 닫히면 담당 없음 · 새 글 = 재개 필요 · 답 거절 [⑥·S17]</li>
+<li>결정·완료 정본 = 팀 도구 · 미인가·bot·다른 채널은 확인만 하고 버림 [①·S7]</li>
+</ol>
+<div class="sub">원문: RESEARCH-PLAN-r1500-slack-link.md §3 · §3-1~3 · §4(DA D1~D4)</div>
+</details>
+
+<details><summary>후보 3안 비교 · 기존 Hermes/아이나 확인 (추천 B = 제안)</summary>
+<table><tr><th></th><th>A 기존 gateway 재사용</th><th>B Slack 공통 도구(2.0 신규 · 추천 제안)</th><th>C 혼합</th></tr>
+<tr><td>모델 호출</td><td>지금은 글마다 agent → Hermes 코드 변경 필요</td><td>도구 0 · 배정 좌석만</td><td>0</td></tr>
+<tr><td>멈춘 뒤 이어가기</td><td>메모리 중복 제거 · 확인 먼저 → 변경 필요</td><td>기록 기반</td><td>수신만</td></tr>
+<tr><td>바꾸는 것</td><td>외부 코드 · 두 머신</td><td>새 Slack app(사람 1회 · workspace 마다)</td><td>B + Hermes 설정</td></tr></table>
+<table><tr><th>읽기만 확인</th><th>로컬 Hermes</th><th>byz-mini 아이나</th></tr>
+<tr><td>workspace / bot</td><td>T0AC5HC4ENR / hermes</td><td>T08C94A3CHM(다른 workspace) / aina</td></tr>
+<tr><td>모델 없이 접수</td><td>입구 없음</td><td>입구 없음</td></tr>
+<tr><td>모델 없이 송신</td><td>webhook deliver_only 있음(route 0)</td><td>webhook 꺼짐</td></tr></table>
+<div class="sub"><span class="b run">런타임 실측</span> 프로세스·workspace·scope(raw/hermes-*.json) · <span class="b code">코드 관찰</span> adapter.py:1272 · :4523 · :4723 · helpers.py:20 · slack_bolt async_app.py:116 · webhook.py:568. 1.x 대안(현행 ft 덧대기)은 2.0 채택 0, 비교용입니다.</div>
+</details>
+
+<details><summary>파일·프로세스·상태 (B 기준)</summary>
+<table><tr><th>종류</th><th>이름</th><th>내용</th></tr>
+<tr><td>프로세스</td><td>Slack 공통 도구 1개</td><td>workspace마다 연결 1 · 모델 호출 0</td></tr>
+<tr><td>설정</td><td>slack.yaml</td><td>workspace → 토큰 파일 경로·허용 사용자 · channel → 팀</td></tr>
+<tr><td>기록</td><td>journal.jsonl</td><td>접수·입구 영수·답 요청·결과(posted·UNCERTAIN)</td></tr>
+<tr><td>기록</td><td>binding.json</td><td>thread → 주제·골 id·담당 역할 키·세대·열림</td></tr>
+<tr><td>사본</td><td>ctx·cursors</td><td>thread별 새 줄 · 좌석별 위치</td></tr>
+<tr><td>참조</td><td>팀 도구</td><td>골·배정·진척·완료·미결정(복제 0)</td></tr></table>
+</details>
+
+<details><summary>숫자 근거와 한계 (모형·합성 · 운영 절감 실측 아님)</summary>
+<table><tr><th>항목</th><th>값</th><th>범위</th></tr>
+<tr><td>모형 사례</td><td>8 통과 · 시험 10 통과</td><td><span class="b mock">구현자 시험 범위</span> · 독립 checker(r1501) 전 · DA D1~D4 미포함</td></tr>
+<tr><td>재독 비교(⑧)</td><td>새 글 없는 pass: 현행 13,127 B · 계약안 0 B</td><td><span class="b mock">모형</span> 현행 실코드를 가짜 Slack에 붙임 · 포화 시험 아님</td></tr>
+<tr><td>토큰</td><td>창 전체 cache write 21,199 · 새 줄만 input 201</td><td><span class="b run">usage 실측</span> · 입력은 합성 prompt · 현행 ft도 좌석 입력은 새 글만이라 운영 절감 근거 아님</td></tr>
+<tr><td>현행 미러</td><td>pass당 8,597,236 B 논리 재독</td><td>파일 크기 <span class="b run">실측</span> · 매 pass 읽기는 <span class="b code">코드 관찰</span> · 미러 꺼짐</td></tr>
+<tr><td>실채널 #byz-dev-test</td><td>읽기 3종 · 발행 0</td><td><span class="b unv">양방향 실측 보류</span></td></tr></table>
+</details>
+
+<details><summary>아직 안 된 것</summary><ul style="font-size:13px">
+<li>arch 재확인(보정판) · 오빠 확인 · 실험(D1~D4 · T1~T5) · 독립 checker r1501</li>
+<li>실채널 이벤트 수신: 전용 Slack app 필요(운영 연결 공유 금지)</li>
+<li>실 429 · 입구 가득 · 모델 입력 격리 · 재배달 글 순서 · 기록 정리 규칙</li>
+</ul><div class="sub">정본 문서: design/harness/research/ft-2.0/slack/RESEARCH-PLAN-r1500-slack-link.md · SPEC_INCOMPLETE.md · core HTML은 메인 소유</div></details>
+</main>
+<script>
+const L=[["p","사람","Slack thread"],["s","Slack 공통 도구","모델 0"],["i","업무 입구","planner·issues"],["t","팀 도구 / NW","모델은 여기만"],["r","기록","journal·영수"]];
+const X={p:90,s:280,i:470,t:660,r:860};
+const SC=[
+{name:"신규 업무",steps:[
+ ["p","s","새 글","사람이 Slack에 새 주제 글을 씁니다."],
+ ["s","r","접수 기록","공통 도구가 먼저 기록에 적습니다."],
+ ["s","p","Slack에 확인","그다음 Slack에 «받았다» 확인을 보냅니다. 업무 접수는 아직 아닙니다."],
+ ["s","i","업무 입구로","글을 업무 입구에 넘깁니다. 모델은 부르지 않습니다."],
+ ["i","r","영수 번호","입구가 영수 번호를 돌려주면 «넘김 완료»로 기록합니다."],
+ ["i","t","논의·배정","planner가 논의·분류하고 팀/NW에 배정합니다. issues는 등록·배분을 기록합니다."],
+ ["t","s","답 요청","팀/NW가 답을 요청합니다. 요청 번호는 팀 도구 번호 그대로입니다."],
+ ["s","r","답 기록","보내기 전에 답 요청을 기록합니다."],
+ ["s","p","같은 thread 답","답은 처음 글의 같은 thread에만 올라갑니다."]]},
+{name:"기존 thread 답",steps:[
+ ["p","s","thread 답글","사람이 진행 중인 thread에 답글을 씁니다."],
+ ["s","r","접수 기록","먼저 기록에 적고 Slack에 확인을 보냅니다."],
+ ["s","s","담당 찾기","thread에 연결된 주제·담당을 찾습니다."],
+ ["s","i","입구로","담당 앞으로 넘깁니다. 담당 좌석 직행은 2.0 설계 후보입니다."],
+ ["i","t","새 줄만","팀/NW는 이 thread의 새 줄만 받습니다. 다른 thread 내용은 섞이지 않습니다."],
+ ["t","s","답 요청","팀/NW가 답을 요청합니다."],
+ ["s","p","같은 thread 답","같은 thread에 답이 올라갑니다."]]},
+{name:"중단 복구",steps:[
+ ["p","s","글(도구 멈춤)","도구가 멈춘 사이에 글이 옵니다.",1],
+ ["s","r","기록 다시 읽기","다시 켜지면 기록에서 «접수했지만 영수 없음»을 찾습니다."],
+ ["s","p","빠진 글 보충","멈춘 사이의 글을 다음 페이지가 없을 때까지 가져옵니다. 실패하면 그 자리를 기억합니다."],
+ ["s","i","다시 넘김+표식","영수 없는 글은 다시 넘깁니다. 표식이 있어서 좌석은 같은 글을 한 번만 읽습니다."],
+ ["s","r","답 결과 불명","답을 보냈는데 결과를 모르면 «불명»으로 둡니다."],
+ ["s","p","표식 확인","thread에서 표식을 찾습니다. 있음 → 완료 · 없음 확인 → 1번 재송 · 판정 불가 → 사람 확인."],
+ ["r","t","남은 일 알림","판정 불가와 미결정은 팀 도구 담당에게 남깁니다. 자동 성공·자동 재송은 없습니다."]]}
+];
+const NS="http://www.w3.org/2000/svg";let si=0,st=0,timer=null;const $=id=>document.getElementById(id);
+function el(t,a,txt){const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);if(txt!==undefined)e.textContent=txt;return e;}
+function draw(){
+ const svg=$("seq");svg.innerHTML="";const sc=SC[si];const top=78,gap=46,h=top+sc.steps.length*gap+20;
+ svg.setAttribute("viewBox","0 0 960 "+h);
+ const defs=el("defs",{});[["a0","#b5bdca"],["a1","#d08a00"],["a2","#1e4fa8"]].forEach(([id,c])=>{const m=el("marker",{id,viewBox:"0 0 10 10",refX:"9",refY:"5",markerWidth:"11",markerHeight:"11",markerUnits:"userSpaceOnUse",orient:"auto"});m.appendChild(el("path",{d:"M0,0 L10,5 L0,10 z",fill:c}));defs.appendChild(m);});svg.appendChild(defs);
+ L.forEach(([k,n,s])=>{svg.appendChild(el("line",{x1:X[k],y1:56,x2:X[k],y2:h-8,stroke:"#cfd5df","stroke-width":2,"stroke-dasharray":"4 4"}));
+  const on=sc.steps[st][0]===k||sc.steps[st][1]===k;
+  svg.appendChild(el("rect",{x:X[k]-78,y:8,width:156,height:46,rx:8,fill:on?"#fff1c2":"#f2f4f8",stroke:on?"#d08a00":"#9aa4b5","stroke-width":on?2.5:1.3}));
+  svg.appendChild(el("text",{x:X[k],y:28,"text-anchor":"middle","font-size":14,"font-weight":600},n));
+  svg.appendChild(el("text",{x:X[k],y:45,"text-anchor":"middle","font-size":11,fill:"#5b6475"},s));});
+ sc.steps.forEach(([a,b,lbl,,broken],i)=>{const y=top+i*gap+gap/2;const done=i<st,cur=i===st;if(i>st)return;
+  const c=cur?"#d08a00":"#1e4fa8",m=cur?"a1":"a2",w=cur?3.2:1.8,dash=broken?"6 5":"";
+  svg.appendChild(el("circle",{cx:22,cy:y,r:10,fill:cur?"#d08a00":"#1e4fa8"}));svg.appendChild(el("text",{x:22,y:y+4,"text-anchor":"middle","font-size":11,fill:"#fff"},String(i+1)));
+  if(a===b){const x=X[a];svg.appendChild(el("path",{d:`M${x},${y-8} h40 v16 h-38`,fill:"none",stroke:c,"stroke-width":w,"marker-end":`url(#${m})`}));svg.appendChild(el("text",{x:x+48,y:y+4,"font-size":12.5,fill:c},lbl));return;}
+  const x1=X[a],x2=X[b],dir=x2>x1?1:-1;svg.appendChild(el("line",{x1:x1+dir*4,y1:y,x2:x2-dir*6,y2:y,stroke:c,"stroke-width":w,"stroke-dasharray":dash,"marker-end":`url(#${m})`}));
+  svg.appendChild(el("text",{x:(x1+x2)/2,y:y-7,"text-anchor":"middle","font-size":12.5,fill:c,"font-weight":cur?700:400},lbl));
+  if(broken)svg.appendChild(el("text",{x:x2-dir*22,y:y+5,"text-anchor":"middle","font-size":16,fill:"#c0392b"},"✕"));});
+ $("cap").textContent=(st+1)+". "+sc.steps[st][3];
+ $("pos").textContent=sc.name+" · "+(st+1)+"/"+sc.steps.length+" 단계 · 설명용 재생(실제 실행 아님)";
+ document.querySelectorAll("#tabs button").forEach((b,i)=>b.classList.toggle("cur",i===si));
+}
+function next(){if(st<SC[si].steps.length-1)st++;else if(timer)stop();draw();}
+function prev(){if(st>0)st--;draw();}
+function stop(){clearInterval(timer);timer=null;$("play").textContent="▶ 재생";}
+SC.forEach((sc,i)=>{const bt=document.createElement("button");bt.textContent=sc.name;bt.onclick=()=>{stop();si=i;st=0;draw();};$("tabs").appendChild(bt);});
+$("next").onclick=()=>{stop();next();};$("prev").onclick=()=>{stop();prev();};
+$("play").onclick=()=>{if(timer){stop();return;}if(st>=SC[si].steps.length-1)st=0;draw();timer=setInterval(next,2000);$("play").textContent="⏸ 멈춤";};
+draw();
+</script>
+</body></html>

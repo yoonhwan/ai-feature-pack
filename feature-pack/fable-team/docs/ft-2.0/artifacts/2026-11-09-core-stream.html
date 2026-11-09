@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ft 2.0 · 하나의 팀 모듈</title>
+<style>
+:root{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif;color:#173b37;background:#f4f2eb;line-height:1.6;--green:#176f5a;--line:#d4dcd3}*{box-sizing:border-box}body{margin:0}main{max-width:1280px;margin:auto;padding:36px 28px 70px}h1{font-size:clamp(32px,5vw,60px);line-height:1.18;letter-spacing:-.055em;margin:14px 0}h2{font-size:23px;margin:0 0 10px}p{margin:7px 0}.eyebrow{font-size:12px;letter-spacing:.13em;color:var(--green);font-weight:750}.muted{color:#5e726d;font-size:14px}.tag{display:inline-block;padding:4px 10px;background:#e2ece2;font-size:12px;border-radius:4px;margin:3px}.warn{background:#f1e6cf;color:#75551b}header{border-bottom:2px solid #173b37;padding-bottom:24px}.map{display:flex;align-items:center;gap:12px;margin:24px 0;flex-wrap:wrap}.box{background:#fffdf7;border:1px solid var(--line);padding:14px 18px;border-radius:8px;flex:1;min-width:170px}.box small{display:block;color:#60766d}.box strong{font-size:20px}.arrow{color:var(--green)}.panel{background:#fffdf7;border:1px solid var(--line);border-radius:10px;padding:22px;margin-top:22px}.tabs{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0}button,select,input{font:inherit}button{padding:8px 13px;background:#fffdf7;border:1px solid var(--line);border-radius:5px;color:inherit;cursor:pointer}button[aria-pressed=true]{color:white;background:var(--green)}button:disabled{opacity:.4;cursor:default}button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid #bf801c;outline-offset:3px}.diagram{overflow-x:auto}svg{width:100%;min-width:820px;height:auto;display:block}.state{padding:16px;background:#e9f1e7;border-left:4px solid var(--green);min-height:100px}.state b{display:block;font-size:18px}.controls{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:15px}input[type=range]{flex:1;min-width:130px;accent-color:var(--green)}.contracts{display:grid;grid-template-columns:repeat(3,1fr);gap:15px;margin-top:20px}.contracts article{background:#ebece3;padding:16px;border-radius:8px}.contracts b{display:block}details{border-top:1px solid var(--line);margin-top:22px;padding-top:15px}summary{cursor:pointer;font-weight:700}table{width:100%;border-collapse:collapse;font-size:14px}td,th{text-align:left;padding:10px;border-bottom:1px solid var(--line);vertical-align:top}a{color:var(--green)}code{font-size:12px;overflow-wrap:anywhere}.table{overflow-x:auto}footer{font-size:12px;color:#64756e;margin-top:24px}@media(max-width:700px){main{padding:24px 14px}.contracts{grid-template-columns:1fr}.panel{padding:14px}.arrow{display:none}}@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+</style></head><body><main>
+<header><div class="eyebrow">FT 2.0 / ONE TEAM MODULE / 2026.11.09</div><h1>같은 팀 모듈 하나로,<br>골을 받아 끝까지 완성합니다.</h1><p>사람이 방향을 정하고, 팀은 판단하고, 도구가 상태를 기록합니다.</p><span class="tag">arch·DA 공동 추천을 통합한 설명본</span><span class="tag warn">검증·사용자 최종 컨펌 전</span><p class="muted">아래 시퀀스는 설계 설명입니다. 실제 하네스 실행 화면이나 완료된 2.0 제품이 아닙니다.</p></header>
+<div class="map" aria-label="공통 모듈 확장"><div class="box"><small>외부 입력</small><strong>사람의 골·결정</strong><p class="muted">CLI / Slack / 부모팀 사건</p></div><span class="arrow">→</span><div class="box"><small>같은 모듈의 특수팀</small><strong>planner · 이슈팀 · harness</strong><p class="muted">골·팀 배정 / 이슈 관리 / 도구 운영</p></div><span class="arrow">↔</span><div class="box"><small>같은 모듈의 작업 팀</small><strong>팀장과 역할들</strong><p class="muted">작업·검증·문서·원장·BTS·Git</p></div><span class="arrow">→</span><div class="box"><small>외부 출력</small><strong>결과·질문·배포</strong><p class="muted">Git 근거 / 사람 확인 / 설치 검증</p></div></div>
+<section class="panel"><h2>입력과 출력은 달라도, 팀의 동작은 같습니다.</h2><p class="muted">상황을 고르면 검사 조건과 반복·중단 지점을 순서대로 볼 수 있습니다.</p><nav class="tabs" id="cases" aria-label="상황 선택"></nav><p id="description" class="muted"></p><div class="diagram"><svg id="sequence" role="img" aria-labelledby="svgtitle"></svg></div><div class="state" aria-live="polite"><b id="stepTitle"></b><span id="stepText"></span></div><div class="controls"><button id="prev">이전</button><button id="play">재생</button><button id="next">다음</button><label for="seek">단계</label><input id="seek" type="range" min="0" value="0"><span id="count"></span></div></section>
+<div class="contracts"><article><b>모델은 판단이 있을 때만</b><p>중복 제거·시한 검사·기록·상태 조회는 공통 도구가 처리합니다. 모든 역할을 매 사건마다 부르지 않습니다.</p></article><article><b>대시보드는 정본의 화면</b><p>세션 생존, 응답, 실제 진척을 구분합니다. 빈 좌석이나 오래된 시간 하나로 골을 닫지 않습니다.</p></article><article><b>완료에는 기록과 Git 정본이 필요</b><p>검증·판정, 문서·원장·BTS, Git 착지·Issue 참조와 필요한 설치 근거를 대조합니다. 문서·원장·BTS가 맞지 않거나 진행·대기·미확정이 남으면 팀을 닫지 않습니다.</p></article></div>
+<section class="panel"><h2>지금 결정된 것과 남은 검증</h2><div class="table"><table><thead><tr><th>구분</th><th>현재 내용</th></tr></thead><tbody><tr><td>공동 추천</td><td>팀별 직렬화 상태와 공통 비모델 명령. planner도 같은 팀 모듈. 중앙 모델의 매번 중계는 필요하지 않습니다.</td></tr><tr><td>2.0 구성 방향</td><td>기존 도구 전체는 Git 이력 보존·격리 후 코드만 참고합니다. 새 구조와 파일을 작성하며 열린 골·기록은 별도로 이관합니다. 실제 이동·제품 구현은 풀스펙 컨펌 뒤입니다.</td></tr><tr><td>BYZ 이관 필수 조건</td><td>전 팀장 활성 준비, 대화·정지 전 기록·아카이브 회수, 골·카드 정렬, 원본/대상 무유실 대조, 2.0 이해와 설치본 재개 확인이 필요합니다. 미확인이 남으면 전체 완료로 처리하지 않습니다.</td></tr><tr><td>사용자 확정</td><td>완료 근거·결정 요약은 Git 보존. 모든 journal·JSONL은 용도별 cap 안에서 스크립트로 회전합니다. 최신 유효 상태와 필요한 tail만 읽으며 미처리·현재 복구 기록은 보호합니다. 관리용 LLM 호출은 없습니다.</td></tr><tr><td>저장 방식</td><td>단일 JSON은 첫 실험 기준선입니다. 문서·원장·BTS 정합은 완료의 필수 관문입니다. 전체 상태 교체 비용과 용량 상한 검증이 남았습니다.</td></tr><tr><td>기동 후 doctor</td><td>각 설치 환경의 요청·장애 사건에서 비모델 진단→국소 복구/수정→재검증→기억 반영까지 지원하는 요구를 추가했습니다. 현재 설계와 진행 컨텍스트는 ft 프로젝트에 보존합니다. 아직 제품 구현 전입니다.</td></tr><tr><td>세션 수명</td><td>전 팀장 묶음별 재개 / planner 유지·작업팀만 재개를 실제 비용과 안전성으로 비교합니다.</td></tr><tr><td>최신 독립 검증</td><td>r1497 재검: 원자료 manifest 83/83과 directory fsync 경로를 확인했습니다. BUSY 즉시 재시도는 미해소이며 CORRUPT_STATE 응답 1건은 미관측입니다. 전체 통과가 아닙니다.</td></tr><tr><td>Slack</td><td>Slack 1차 기획은 DA HOLD입니다. 채널별 중복키·중단 후 중복 전달·보충 읽기 종료·닫힌 연결 라우팅의 네 항목을 보정합니다. 공통 모듈 추천은 제안으로 유지하며, 모형·실측·미검증을 구분합니다. <a href="2026-11-09-slack-operation.html">Slack 운영 초안</a>에서 확인할 수 있습니다. 추가 실험은 기획 정리 뒤 진행합니다.</td></tr></tbody></table></div><p class="muted">현재는 전체 통과·제품 채택·설치 완료 상태가 아닙니다. 이 설명을 보완하고 풀스펙을 이해하신 뒤 명시적으로 컨펌하면 제품 구현을 시작합니다.</p></section>
+<details><summary>역할별 책임과 파일 기록</summary><div class="table"><table><thead><tr><th>역할</th><th>책임</th><th>남기는 근거</th></tr></thead><tbody><tr><td>사람</td><td>골·우선순위·정책·구현 승인</td><td>원문 요청과 결정 버전</td></tr><tr><td>planner</td><td>사용자 협의·분류 결정·우선순위·팀 배정</td><td>골·팀 연결과 결정 근거</td></tr><tr><td>이슈팀</td><td>업무 접수·분류안·등록·승인된 배분·추적·닫기</td><td>Issue·배분 기록·완료 검사·원장</td></tr><tr><td>harness</td><td>도구·스킬 개선 접수·운영·배포·팀 재개 지원</td><td>설계·검증·설치·재개 근거</td></tr><tr><td>팀장</td><td>골·범위·최종 완료 책임</td><td>배정·판정·원장 정합·마감 근거</td></tr><tr><td>arch</td><td>분해·NW 배정 판단·통합·검증 진행. 배정 집행은 비모델 명령</td><td>고정 계약·작업 입력·통합 결과·아키텍처 정본</td></tr><tr><td>DA</td><td>계약과 반례 검토</td><td>판정·근거·보완 범위</td></tr><tr><td>nanoworker(NW)</td><td>배정된 작업 실행</td><td>산출·진척·자체 시험 원자료</td></tr><tr><td>checker/tester</td><td>구현자와 분리된 검증</td><td>BTS 실관측·원자료·불일치·미측정</td></tr><tr><td>비모델 도구</td><td>접수·실행권·전이·기록·시한 검사</td><td>현재 상태·사건 처리 결과·파생 대시보드</td></tr></tbody></table></div></details>
+<details><summary>Git·사건·대시보드의 경계</summary><p>Git에는 골, 아키텍처 정본, 작업·랜딩 원장, BTS 근거와 판정을 남깁니다. 검증 뒤 원장·문서 갱신과 코드/실관측 대조를 거쳐야 완료입니다. runtime에는 접수, 현재 owner와 revision, 미처리 사건과 미확정 효과를 보존합니다. 대시보드는 runtime을 읽어 만든 화면입니다.</p><p>사건 기록을 사용한다는 설명이 무한 journal을 채택했다는 뜻은 아닙니다. 모든 journal·JSONL에 유한 cap을 두고 스크립트로 회전합니다. 필요한 완료 근거는 Git 보존을 확인하고, 처리하지 않은 사건은 조용히 버리지 않습니다. 포화면 업무 접수를 거부하고 FULL을 알립니다.</p><p>파일 잠금은 외부 명령의 권한을 대신하지 않습니다. 외부 효과 실행권은 실제 어댑터에서 검사해야 합니다. 전원 손실 내구성은 아직 검증하지 않았습니다.</p></details>
+<details><summary>반복 호출과 기록 관리 조건</summary><p>Slack의 유휴·중복·무변화 사건은 모델 호출과 세션 깨움 없이 처리합니다. 필요한 thread 변경분과 근거만 전달하며, 전체 대화 재로드·무분별한 LLM 분류·틱 메시지를 금지합니다. 실제 역할 세션의 사용량으로 검증해야 합니다.</p><p>doctor는 미해결 상태로 변화 없는 동일 증상만 반복 억제합니다. 명시 요청·악화·새 설치 sha·복구 실패는 다시 검사합니다. 1.x 도구는 기능 참고만 하며 새 코어의 진단 입구 하나를 사용합니다. journal cap 숫자와 교체 방식은 arch 검토 후 결정합니다.</p></details>
+<details><summary>근거와 누적 결정</summary><p>공동 추천 <code>bd70dd3e03</code> · 원자 JSON 실험 <code>0772f187328ee2f74f867e90be008519f068f355</code> · 독립 checker <code>002914989b</code> (최신 재검 정정).</p><p><a href="GOAL-ft-2.0.md">전체 골</a> · <a href="INTERVIEW-ft20-decision-20261109.md">질문과 사용자 답변</a> · <a href="SIM-ft20-minimal-contract-v1.md">고정 실험 계약</a></p><p>이전 세 안 비교와 원문은 조사 기록으로 보존합니다. 현재 설명의 진입점은 이 파일 하나입니다. Slack 상세 운영만 별도 파일로 분리합니다.</p></details>
+<footer>경로: /tmp/ft-2.0/2026-11-09-core-stream.html · 외부 라이브러리·네트워크 요청 없음 · 설계 설명용 상태 재생 · 갱신할 때마다 다시 엽니다.</footer>
+</main><script>
+const flows=[
+{name:'공통 모듈',desc:'접수 → 실행·검증 → BTS·문서·원장 갱신 → Git 보존·착지 → Issue 연결 → 완료. 파일 기록과 Git 정본화를 모두 거칩니다.',lanes:['외부 입력','팀 도구','역할 세션','검증','문서·원장·BTS','Git·Issue','외부 출력'],steps:[
+[0,1,'입력 / 팀·골·주제 식별','사람 요청, 부모팀 배정, 도구 결과를 같은 사건 형식으로 받습니다.'],
+[1,4,'검사 / 중복·owner·revision·용량','짧은 팀 잠금 안에서 검사하고 접수를 영속 기록합니다. FULL이면 업무 접수 성공을 알리지 않습니다.'],
+[1,2,'분기 / 판단이 필요할 때만 역할 호출','정해진 상태 전이는 도구가 처리합니다. 모델이나 외부 API를 기다리면서 팀 잠금을 잡고 있지 않습니다.'],
+[2,3,'실행·검증 / 계약의 완료 조건 확인','실행 직전 권한을 다시 검사합니다. 구현자 자체 결과와 checker/tester 결과를 구분합니다.'],
+[3,4,'BTS / 실제 동작·원자료 기록','checker/tester가 실제 실행 관측을 보존합니다. 모형 결과를 실서비스 동작 증거로 대신하지 않습니다.'],
+[2,4,'문서·원장 갱신 / 실제 결과 반영','arch가 아키텍처 정본을 갱신하고 공통 명령으로 작업·랜딩 원장을 반영합니다. 과정·판정·잔여·근거를 연결합니다.'],
+[1,4,'정합 검사 / 코드·BTS·문서·원장','누락·불일치·부분 갱신이면 완료를 막고 기록 보완으로 돌아갑니다. 단계 전이 중에도 원장은 즉시 기록합니다.'],
+[4,5,'Git / commit·push로 근거 보존','로컬 검증을 통과한 산출·아키텍처 문서·원장·BTS 근거를 commit하고 원격 branch에 push합니다. runtime의 매 heartbeat를 Git에 쌓지는 않습니다.'],
+[1,5,'착지 / 검증된 변경을 main에 반영','작업 branch의 push는 main 착지가 아닙니다. 통합 과정에서 내용이 바뀌면 필요한 검증을 다시 하고 실제 원격 commit을 확인합니다.'],
+[1,5,'Issue / 정본 파일·절·commit 연결','과정과 랜딩 결과를 원장에 반영하고, main에 남은 정본 파일·절·commit을 Issue에 연결합니다. 링크만 있거나 코드만 착지한 상태는 미완료입니다.'],
+[1,6,'완료 출력 / Git·기록·상태 대조','문서·원장·BTS와 Git 정본·Issue 참조, 필요한 설치 검증, 같은 revision의 잔여 0을 확인한 뒤 결과 사건을 전달합니다.']]},
+{name:'한 팀의 역할',desc:'팀장은 골의 책임자, arch는 작업 진행의 책임자입니다. 역할별 결과가 파일에 이어집니다.',lanes:['팀장','arch','DA','nanoworker (NW)','checker/tester','문서·원장·BTS'],steps:[
+[0,1,'골 / 범위·완료 조건 전달','팀장은 골과 우선순위, 검증할 완료 조건을 기록합니다.'],
+[1,2,'계약 / 고정 범위의 반증','DA는 정해진 계약을 검토합니다. 반증이 나오면 범위를 정해 보완하고 무한 검토를 만들지 않습니다.'],
+[1,3,'배정 / 독립 작업은 병렬','arch가 NW의 작업 범위와 배정을 판단하고, 공통 명령이 입력·담당·실행권을 연결합니다. NW의 실행 엔진은 별도 기록합니다.'],
+[3,5,'진척 / 산출과 응답을 기록','작업자는 산출과 실제 진척을 남깁니다. 단순 heartbeat를 진척으로 대신하지 않습니다.'],
+[1,4,'검증 / 통합 산출과 원자료 전달','checker/tester는 구현자의 성공 flag를 믿는 대신 실행 결과와 파일을 독립 확인합니다.'],
+[4,1,'분기 / 실패면 작업으로 복귀','미완료 항목과 보완 범위를 파일로 넘깁니다. PASS와 미측정을 섞지 않습니다.'],
+[4,5,'BTS 기록 / 실제 실행과 원자료','checker/tester가 관측한 동작을 보존합니다. 통과 문구만 남기지 않습니다.'],
+[1,5,'문서·원장 갱신 / 검증 결과 정본화','arch가 아키텍처 문서를 실제 결과에 맞추고, 공통 명령이 작업·랜딩 원장에 판정·잔여·근거를 연결합니다.'],
+[1,0,'완료 요청 / 문서·원장·BTS 대조','필요한 DA 판정과 정본 main 착지·Issue 참조까지 모읍니다. 팀장이 골의 완료 조건과 대조합니다.'],
+[0,5,'마감 / 같은 revision에서 검사','문서·원장·BTS 정합과 필요한 설치 근거를 확인합니다. 같은 revision에서 진행·대기·미확정이 0이어야 닫습니다.']]},
+{name:'Git·정본화',desc:'작업 branch 보존, main 착지, 설치 검증, 완료 기록은 각각 다른 단계입니다.',lanes:['NW·arch','checker/tester','문서·원장·BTS','Git·Issue','팀장·도구'],steps:[
+[0,2,'작업 / 산출·설계·진척 기록','골과 Issue에 연결된 작업에서 산출을 만듭니다. arch의 문서와 NW의 실행 결과를 파일에 남깁니다.'],
+[0,1,'검증 / 실제 대상 버전 고정','checker/tester는 검사한 commit·환경·관측을 기록합니다. 다른 버전의 성공 결과를 가져오지 않습니다.'],
+[1,2,'정본화 / BTS·원장·문서 대조','실제 동작과 코드, 아키텍처 문서, 작업 원장의 불일치를 해소합니다. 보완 뒤 영향받은 검증을 다시 합니다.'],
+[0,3,'보존 / 검증 후 commit·push','관련 변경과 완료 근거를 Git에 보존합니다. 원격 작업 branch에 도달했는지 확인합니다. 이 단계만으로 main 완료라고 하지 않습니다.'],
+[4,3,'착지 / 통합·검증·main 반영','기존 착지 절차로 통합합니다. 충돌 해결로 내용이 바뀌면 그 변경을 검증합니다. main의 실제 원격 commit을 확인합니다.'],
+[4,1,'적용 / 필요한 설치본 실동작 검증','설치·마이그레이션 대상이면 실제 설치 내용과 실행 버전을 확인합니다. 소스 착지를 설치 완료로 대신하지 않습니다.'],
+[4,2,'랜딩 원장 / 결과와 미완 반영','착지·설치 결과, 최종 판정, 미완 항목과 BTS 근거를 원장에 반영합니다. 문서·원장이 뒤처지면 완료를 막습니다.'],
+[2,3,'Issue 연결 / main 정본 참조','갱신한 정본도 Git에 반영하고 Issue에 파일·절·commit을 연결합니다. 필요하면 코드 착지와 기록 착지는 별도 commit이며 모두 추적합니다.'],
+[3,4,'완료 검사 / 기록·Git·골 상태 일치','검증된 정본과 참조가 일치하고 진행·대기·미확정이 0일 때 닫습니다. 하나라도 빠지면 해당 단계로 돌아갑니다.']]},
+{name:'BYZ 특수팀',desc:'현행 정본 확인: planner는 사람 협의·분류 결정·팀 배정, 이슈팀은 접수·등록·승인된 배분·추적·닫기, harness는 도구 운영·개선·배포를 맡습니다.',lanes:['사람·Slack','이슈팀','planner','작업팀','harness','Git·원장'],steps:[
+[0,1,'기존 이슈 / 접수·조사·분류안','이슈팀이 업무를 접수하고 재현·분류·우선순위안을 정리합니다. 모든 메시지를 이슈팀 모델이 반복해서 읽는다는 뜻은 아닙니다.'],
+[1,2,'결정 / 사용자와 정렬할 값 전달','planner가 사람과 진행 여부·우선순위·팀을 정렬합니다. 이미 승인된 범위와 아직 결정이 필요한 범위를 구분합니다.'],
+[2,1,'기존 이슈 / 결정값 회신','이슈팀은 승인된 값으로 배분·추적·배분 코멘트·완료 검사를 집행합니다. 미승인 사항을 자동 승인하지 않습니다.'],
+[1,3,'배분 / 공통 팀 도구로 전달','작업팀은 같은 파일 기반 코어로 골을 받아 수행합니다. 작업 중인 NW에게 불필요한 반복 메시지를 주입하지 않습니다.'],
+[2,3,'별도 경로 / 논의 완료된 신규 기획','현행 규칙은 planner가 직접 구현 팀을 배정하고 이슈팀이 Issue 등록·배분 기록을 맡도록 합니다. planner 발주0이라는 옛 설명은 적용하지 않습니다.'],
+[0,4,'개선 요청 / harness 직접 접수','각 팀이나 사람의 하네스·스킬 개선 요청은 harness가 등록·관리합니다. 정본 기록과 Git Issue 연결은 유지합니다.'],
+[3,5,'결과 / 검증·BTS·문서·원장·Git','작업팀의 산출·실제 관측·판정과 main 착지·필요한 설치 근거를 남깁니다. 이슈팀의 닫기와 planner의 골 판정에 연결합니다.'],
+[1,0,'회신 / 같은 업무의 결과 전달','결과와 남은 결정을 해당 대화에 연결합니다. 기존thread owner 직행의 현재 정본은 미확인이며 2.0 binding 설계와 구분합니다.']]},
+{name:'상위 팀으로 확장',desc:'논의가 끝난 신규 기획의 배정 예시입니다. planner도 같은 팀 모듈이며, 기존 이슈의 배분·추적에는 이슈팀이 참여합니다.',lanes:['사람','planner 모듈','작업팀 A','작업팀 B','문서·원장·BTS','사람·외부'],steps:[
+[0,1,'프로젝트 골 접수','planner는 사람의 골을 기록하고 팀에 맡길 하위 골과 완료 조건을 나눕니다.'],
+[1,2,'하위 골 / 독립된 실행권','작업팀 A가 같은 접수·전이 절차로 수행합니다. 각 팀은 자기 상태를 직렬화합니다.'],
+[1,3,'병렬 골 / 팀 사이 의존 확인','독립된 골은 B가 진행합니다. A가 잠겼다고 B가 멈추지 않아야 합니다.'],
+[2,4,'근거 / 팀별 판정 기록','각 팀의 상세 대화를 상위 모델이 주기적으로 전부 읽지 않습니다. 필요한 결과와 미해결 결정만 연결합니다.'],
+[2,1,'결과 사건 / 같은 입력 경로','planner도 중복·owner·revision을 검사해 결과를 접수합니다. 요청한 범위가 끝났는지 판정합니다.'],
+[3,1,'루프 / 자식 골이 남으면 계속','자식팀 중 대기·진행·미확정이 남으면 프로젝트 완료를 선언하지 않습니다.'],
+[1,5,'출력 / 프로젝트 골의 최종 판정','필요한 설치·실동작 검증까지 끝나면 전체 결과를 전달합니다. 새 골은 기록과 설정을 찾아 재개합니다.']]},
+{name:'멈춤과 재개',desc:'응답 시간만으로 작업을 죽이지 않습니다. 진척·생존·외부 대기를 함께 검사합니다.',lanes:['작업 세션','팀 도구','현재 상태','팀장·arch','후계 세션'],steps:[
+[0,1,'진척 사건 / 다음 확인 시한 갱신','의미 있는 진척이 있을 때 무진행 시한을 다시 설정합니다. heartbeat만으로 영원히 연장하지 않습니다.'],
+[1,2,'300초 경과 / 상태 재검사','무진행 시한의 사건으로 확인합니다. 매 틱 모델 호출이나 전체 대화 스캔을 요구하지 않습니다.'],
+[1,2,'분기 / 작업 중·외부 대기 보호','작업이 실제 진행 중이면 무분별한 깨움을 보내지 않습니다. 외부 대기는 담당과 별도 시한을 유지합니다.'],
+[1,3,'분기 / 필요한 판단만 한 번 전달','멈춤 의심과 근거를 전달합니다. 같은 확인 요청을 중복해서 보내지 않도록 처리 상태를 기록합니다.'],
+[3,2,'판정 / 원인·미확정 효과 대조','침묵만으로 완료·실패·재실행을 결정하지 않습니다. 이전 실행의 효과가 남았는지 확인합니다.'],
+[3,4,'재개 / 기록·실행권을 인계','필요할 때만 후계 역할을 재개합니다. 이전 owner의 뒤늦은 결과가 새 상태를 덮지 않도록 검사합니다.']]},
+{name:'중복·crash',desc:'실행권과 실제 외부 효과 사이에 있는 틈을 감추지 않습니다.',lanes:['요청자','팀 도구','상태 파일','작업자','외부 효과','판정 담당'],steps:[
+[0,1,'같은 키 재전달 / 중복 검사','진행 중이면 IN_PROGRESS, 완료면 DONE, 내용 충돌이면 CONFLICT로 구분합니다.'],
+[1,2,'GRANTED / owner·attempt 결속','실행 허가를 현재 세대와 시도에 연결합니다. 접수했다고 외부 효과가 실행된 것은 아닙니다.'],
+[3,1,'STARTED / 실행 직전 재검사','구 owner나 만료된 권한이면 새 효과를 시작하지 않습니다. 실제 어댑터에 강제할 검사가 필요합니다.'],
+[3,4,'외부 효과 발생 / 기록 전 중단','외부 API 호출과 로컬 파일 교체는 하나의 원자 동작이 아닙니다. 정확히 한 번을 무조건 보장하지 않습니다.'],
+[1,2,'UNCERTAIN / 자동 재실행 중단','효과가 났는지 모르면 미확정으로 보존합니다. 같은 명령을 즉시 다시 보내지 않습니다.'],
+[1,5,'확인 루프 / 관측·조회·사람 판단','외부에서 효과를 확인한 뒤 결과를 기록하거나 안전한 재시도를 결정합니다. 확인 전에는 골을 닫지 않습니다.']]},
+{name:'골 마감·새 골',desc:'빈 대시보드가 아니라, 같은 revision의 상태와 완료 근거가 종료 조건입니다.',lanes:['팀장','팀 도구','상태·Git','새 요청','부모팀'],steps:[
+[0,1,'마감 요청 / 현재 revision','골의 작업과 검증, 필요한 착지·설치 근거를 모아 마감을 요청합니다.'],
+[1,2,'정본화 / 문서·원장·BTS 갱신','검증 결과를 원장과 아키텍처 정본에 반영하고 실제 BTS·코드와 대조합니다. 누락이면 보완으로 복귀합니다.'],
+[1,2,'검사 / 정본 참조·잔여 0','main 착지·Issue 정본 참조·필요한 설치 근거와 진행·대기·미확정 0을 같은 revision에서 검사합니다.'],
+[3,1,'경합 / 새 골이 먼저 접수됨','새 골로 revision이 바뀌면 이전 revision의 마감은 RETRY입니다. 새 골을 잃고 닫지 않습니다.'],
+[1,0,'루프 / 새 골 수행 후 재검사','새 작업을 배정하고 완료 조건을 다시 확인합니다. 종료 과정에 들어왔다는 이유로 접수를 버리지 않습니다.'],
+[1,2,'완료 / 판정·근거·잔여 0 기록','완료 요약은 Git에 보존하고 진단 로그는 상한 회전합니다. 좌석 정리는 기존 권한·종료 관문을 따릅니다.'],
+[1,4,'완료 사건 / 부모 골로 연결','부모팀에 결과를 넘깁니다. 다음 골이 들어오면 동일 팀의 설정과 기록을 찾아 역할을 재개합니다.']]},
+{name:'2.0 신규 구성',desc:'사용자 방향: 기존 도구는 Git 이력으로 보존·격리하고 코드만 참고합니다. 새 구조·파일의 실제 구현은 풀스펙 컨펌 뒤 진행합니다.',lanes:['arch·DA','기존 도구','Git 보존','새 2.0 코어','골·기록 이관','checker'],steps:[
+[0,1,'범위 확인 / 소스·설치본·진입점','기존 도구 전체와 실제 설치 차이를 확인합니다. 비밀값·개인 로그·운영 데이터를 도구 코드와 섞어 Git에 넣지 않습니다.'],
+[1,2,'보존 / 기준 commit과 이동 이력','변경 전 기준과 격리 이동을 Git에 남깁니다. 준비 단계의 이동은 격리 checkout에서 수행하며 운영 설치본을 먼저 끊지 않습니다.'],
+[2,3,'참고 / 기능·계약을 이해','옛 도구는 코드 참고 자료입니다. 새 runtime이 격리 도구를 실행·import하거나 자동 fallback하지 않습니다.'],
+[0,3,'신규 작성 / 팀 도구·상태 코어','필요한 동작을 공통 모듈에 맞춰 새 구조와 파일로 만듭니다. 기존 일반화 기획의 유지·변경점을 대조하며 미사용 도구 개별삭제를 목표로 삼지 않습니다.'],
+[0,4,'전 팀 준비 / 기록 회수·2.0 이해','모든 팀장을 활성화해 대화·정지 전 기록과 골·카드를 정렬합니다. 아카이브까지 근거를 회수하고 2.0 운영법·첫 재개 행동을 확인합니다.'],
+[4,3,'이관 / 열린 골·요청·미확정 보호','진행·대기·미확정 효과, 결정·메모리·문서·원장·BTS·Git 근거를 이관합니다. 새 코드라는 이유로 업무 상태를 초기화하지 않습니다.'],
+[0,3,'전환 / 구 writer와 이중 실행 차단','같은 골을 신·구 runtime이 동시에 실행하지 않게 합니다. 전환 중 새 입력과 전환 뒤 변경분은 보존하며 되돌림 조건을 확인합니다.'],
+[3,5,'검증 / ft 랜딩·BYZ 설치·실동작','설치본에서 골 접수·진행·기록·Git/Issue·마감·새 골 재개를 확인합니다. 파일을 만들었다는 사실만으로 완료하지 않습니다.'],
+[5,2,'완료 / 정본·원장·BTS·Issue 연결','관측과 판정을 문서·원장에 반영하고 Git 정본·Issue 참조를 연결합니다. 실패나 미확정이 남으면 해당 단계로 돌아갑니다.']]},
+{name:'BYZ 무유실 이관',desc:'배포·랜딩 준비에서 모든 팀장이 활성 상태로 기록을 회수하고 2.0 재개 준비를 확인합니다. 미확인·누락이 남으면 전체 이관 완료가 아닙니다.',lanes:['planner','각 팀장','원문·아카이브','골·카드·원장','2.0 팀 도구','checker'],steps:[
+[0,1,'전 팀 준비 / 정지·휴면 팀도 포함','열린 세션 목록만 보지 않고 하네스 루트별 모든 팀을 확인합니다. 모든 팀장이 활성 상태에서 준비하며 부재하면 기록을 인계받은 책임 후계자를 명시합니다.'],
+[1,2,'보존 / 대화·정지 전 기록·인계서','대화 원문과 정지 전 상태를 보존합니다. 원래 위치·ID·버전과 보존 근거를 남깁니다. 요약만 남겨 원문을 대신하지 않습니다.'],
+[2,3,'회수 / 아카이브까지 근거 추적','골·카드·미처리 요청·결정·미확정 효과의 연결이 빠졌으면 아카이브·이전 세대 기록·Git 이력에서 찾습니다. 오래됐다는 이유로 완료하지 않습니다.'],
+[1,3,'정렬 / 골·카드·담당·다음 행동','실제 요청과 결정에 맞춰 진행·대기·완료·취소/대체를 정렬합니다. 서로 충돌하거나 출처가 없는 값은 미해결로 남겨 보완합니다.'],
+[1,4,'이해 / 2.0 운영법과 재개 준비','확정 문서 버전과 팀 도구·상태 정본, 사건 진행·300초 확인, 작업 중 전달 보호, 문서·원장·BTS·Git 완료 관문을 확인합니다. 자기 팀의 첫 재개 행동과 격리 점검을 기록합니다.'],
+[3,5,'대조 / 원본과 대상의 무유실 확인','ID·개수·원문 보존 hash와 함께 열린 요청·결정·담당·상태·증거 참조의 의미를 대조합니다. 읽기 실패·원본 소실·미확인을 추측으로 통과시키지 않습니다.'],
+[1,4,'전환 / 새 입력 보존·구 writer 차단','같은 골의 이중 실행을 막고 이관합니다. 전환 중·전환 후 접수와 결정도 보존합니다. 되돌림이 새 기록을 덮어쓰면 안 됩니다.'],
+[4,5,'실동작 / 설치본에서 이어서 진행','checker가 골·카드·미처리와 원장 연결을 확인하고 첫 재개 동작을 관측합니다. 이전 세션의 기억이 없어도 파일에서 이어져야 합니다.'],
+[5,0,'완료 / 모든 팀의 준비와 근거 확인','한 팀이라도 누락·미확인·상충 기록이 남으면 전체 BYZ 이관 완료를 선언하지 않습니다. 해당 항목은 책임자를 두고 회수·정렬 단계로 돌아갑니다.']]},
+{name:'doctor·지속 개선',desc:'2.0 랜딩·기동 뒤의 요구입니다. 각 설치 환경에서 진단→국소 복구/수정→재검증→기억 반영을 이어갑니다. 아직 구현된 doctor 화면은 아닙니다.',lanes:['사용자·장애 사건','로컬 doctor','팀 상태·설치본','ft 프로젝트','harness·NW','checker'],steps:[
+[0,1,'진단 시작 / 요청·실제 이상 신호','사용자 요청이나 새 장애·낭비 근거가 같은 진단 경로로 들어옵니다. 같은 상태로 반복 깨움이나 매 틱 모델 검토를 만들지 않습니다.'],
+[1,2,'비모델 확인 / 필요한 상태만','설치 버전·실행 내용·owner·미처리·시한·전달·기록 정합을 확인합니다. 읽기 실패는 판정 불가로 남깁니다. 대화 전체를 다시 모델에 넣지 않습니다.'],
+[1,3,'기준 대조 / 설계·기억·변경 이력','ft 프로젝트의 해당 버전 설계와 검증된 복구 규칙·교훈을 참조합니다. 실제 input/output/cache와 호출·재독 비용을 구분해 낭비를 찾습니다.'],
+[1,2,'분기 / 정해진 국소 복구','현재 작업과 실행권을 확인한 절차만 적용합니다. 작업 중 NW를 무단 재기동하거나 미확정 효과를 다시 실행하지 않습니다.'],
+[1,4,'분기 / 코드 수정이 필요한 경우','최소 재현·설치 정보·근거를 하네스팀의 작업 골로 연결합니다. arch 판단과 NW의 작은 수정으로 진행하고 설치본만 손으로 고치지 않습니다.'],
+[4,5,'독립 검증 / 수정·복구를 재확인','실제 문제 해소와 진행 작업 보호·기록 보존을 검사합니다. 실패하면 상태를 보존해 되돌리거나 담당과 다음 조치를 남깁니다.'],
+[5,3,'환류 / 문서·원장·BTS·Git·기억','검증된 원인·수정·적용 버전을 정본과 기억에 연결합니다. 새 근거 없이 규칙이나 감시 스크립트를 증식시키지 않습니다.'],
+[3,2,'적용 / 패키지 배포·설치본 재검증','작은 검증된 변경을 해당 설치 환경에 적용하고 실제 동작을 확인합니다. 전환 후 새 입력과 결정을 보존합니다.'],
+[1,0,'결과 / 정상화·미해결을 짧게 보고','문제·근거·실행한 복구/수정·재검증·남은 담당을 보여줍니다. 전체 정지나 전면 재작성을 반복하지 않는 것이 목표이며 영구 무장애를 단정하지 않습니다.']]},
+{name:'외부 입출력',desc:'Slack과 CLI는 입력·출력 어댑터입니다. 골의 정본이나 별도 중앙 지휘자가 아닙니다.',lanes:['사람·Slack','입력 어댑터','팀 모듈','기록·Git','출력 어댑터','사람·설치'],steps:[
+[0,1,'입력 / 채널·thread·권한 식별','사람의 요청을 팀·골·주제에 연결합니다. Slack의 자세한 운영 계약은 별도 실험으로 검증합니다.'],
+[1,2,'접수 / 사건키·내용·발신자','중복 전달을 걸러냅니다. transport ACK가 업무 접수나 작업 완료를 뜻하지 않도록 응답을 구분합니다.'],
+[2,3,'판단·실행 / 공통 모듈 그대로','Slack 전용 골 처리기를 새로 만들지 않습니다. 필요한 thread의 결정·진척만 컨텍스트에 넣는 방식을 시험합니다.'],
+[2,4,'출력 / 질문·진행·완료의 종류','출력 대상과 owner를 확인합니다. 다른 thread로 문맥이나 결정이 새지 않아야 합니다.'],
+[4,5,'응답 / 같은 주제에 이어 쓰기','사용자 답변은 동일한 연결 키로 다시 들어옵니다. 출력 실패 시 보존한 전송 상태로 복구합니다.'],
+[3,5,'배포 / 별도 권한과 검증 관문','사용자 제품 구현 컨펌 뒤 구현·검증·ft 랜딩·BYZ 설치·이관·checker 실동작 확인까지 진행합니다.']]}
+];
+const $=id=>document.getElementById(id), NS='http://www.w3.org/2000/svg';let scenario=0,index=0,timer=null;
+function node(tag,attrs,text){const n=document.createElementNS(NS,tag);Object.entries(attrs||{}).forEach(([k,v])=>n.setAttribute(k,v));if(text)n.textContent=text;return n}
+function stop(){clearInterval(timer);timer=null;$('play').textContent='재생'}
+function draw(){const f=flows[scenario],s=f.steps[index],svg=$('sequence'),W=1180,H=110+f.steps.length*51;svg.replaceChildren();svg.setAttribute('viewBox',`0 0 ${W} ${H}`);svg.append(node('title',{id:'svgtitle'},`${f.name}: ${s[2]}`));const defs=node('defs'),marker=node('marker',{id:'head',viewBox:'0 0 10 10',refX:9,refY:5,markerWidth:6,markerHeight:6,orient:'auto-start-reverse'});marker.append(node('path',{d:'M0 0 L10 5 L0 10z',fill:'#176f5a'}));defs.append(marker);svg.append(defs);const x=k=>90+k*(W-180)/(f.lanes.length-1);f.lanes.forEach((name,k)=>{svg.append(node('rect',{x:x(k)-76,y:10,width:152,height:35,rx:5,fill:'#e7ede3'}));svg.append(node('text',{x:x(k),y:33,'text-anchor':'middle','font-size':15,fill:'#173b37'},name));svg.append(node('line',{x1:x(k),x2:x(k),y1:45,y2:H-8,stroke:'#c8d3c8','stroke-dasharray':'5 6'}))});f.steps.forEach((st,k)=>{const y=85+k*51,g=node('g',{opacity:k>index?.25:1});if(k===index)g.append(node('rect',{x:4,y:y-27,width:W-8,height:49,rx:5,fill:'#edf3e5'}));g.append(node('line',{x1:x(st[0]),x2:x(st[1]),y1:y,y2:y,stroke:'#176f5a','stroke-width':2,'marker-end':'url(#head)'}));g.append(node('text',{x:(x(st[0])+x(st[1]))/2,y:y-9,'text-anchor':'middle','font-size':14,fill:'#173b37','font-weight':k===index?700:400},`${k+1}. ${st[2]}`));svg.append(g)});$('stepTitle').textContent=s[2];$('stepText').textContent=s[3];$('description').textContent=f.desc;$('seek').max=f.steps.length-1;$('seek').value=index;$('count').textContent=`${index+1} / ${f.steps.length}`;$('prev').disabled=index===0;$('next').disabled=index===f.steps.length-1;[...$('cases').children].forEach((b,k)=>b.setAttribute('aria-pressed',String(k===scenario)))}
+flows.forEach((f,k)=>{const b=document.createElement('button');b.textContent=f.name;b.onclick=()=>{stop();scenario=k;index=0;draw()};$('cases').append(b)});
+$('prev').onclick=()=>{stop();index=Math.max(0,index-1);draw()};$('next').onclick=()=>{stop();index=Math.min(flows[scenario].steps.length-1,index+1);draw()};$('seek').oninput=()=>{stop();index=Number($('seek').value);draw()};$('play').onclick=()=>{if(timer){stop();return}if(matchMedia('(prefers-reduced-motion: reduce)').matches){index=Math.min(index+1,flows[scenario].steps.length-1);draw();return}if(index===flows[scenario].steps.length-1)index=0;draw();$('play').textContent='일시정지';timer=setInterval(()=>{if(index===flows[scenario].steps.length-1){stop();return}index++;draw()},2600)};document.addEventListener('visibilitychange',()=>{if(document.hidden)stop()});draw();
+</script></body></html>
