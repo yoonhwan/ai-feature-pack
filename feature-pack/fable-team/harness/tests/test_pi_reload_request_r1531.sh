@@ -113,7 +113,7 @@ console.error = (...a) => { ST.errs.push(a.join(" ")); };
   const pi = await load();
   fs.mkdirSync(c.wake, { recursive: true });
   for (let i = 0; i < 3; i++) fs.writeFileSync(c.req, `reload ${i}\n`);
-  await wait(200);
+  await wait(350); // 사건 유실이면 기동 창 재확인(260ms)이 받는다
   eq("ⓒ 쓰기 3번 = 1", ST.reloads, 1);
   eq("ⓒ 파일 지움", fs.existsSync(c.req), false);
 }
@@ -218,7 +218,7 @@ function mutate(name, from, to) {
     ST.idle = false;
     await load();
     fs.mkdirSync(c.wake, { recursive: true }); fs.writeFileSync(c.req, "reload\n");
-    await wait(200);
+    await wait(420); // 사건 유실이면 기동 창 재확인(260ms)이 받는다 — M2 판정은 «그 자리» 라 0 이어야 한다
     (ST.reloads >= 1 ? ok : bad)(`M2 → ⓑ 그 자리 reload FAIL 검출(reload ${ST.reloads}회)`);
     EXTv = EXT;
   }
