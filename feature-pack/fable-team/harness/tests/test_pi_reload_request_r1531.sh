@@ -175,6 +175,10 @@ console.error = (...a) => { ST.errs.push(a.join(" ")); };
   ST.idle = true; await pi.emit("agent_settled", { aborted: true });
   eq("ⓗ aborted settled = 0", ST.reloads, 0);
   eq("ⓗ 파일 남음", fs.existsSync(c.req), true);
+  // DA HOLD R1(277234): 보류가 settled 경로에만 있으면 기동 창 재확인(260ms)·watch 가 그 자리 다시 쏜다.
+  await wait(320);
+  eq("ⓗ aborted 뒤 다른 check 경로(시작 타이머·watch) = 그 자리 0", ST.reloads, 0);
+  eq("ⓗ aborted 뒤에도 파일 그대로", fs.existsSync(c.req), true);
   await pi.emit("agent_settled", {});
   eq("ⓗ 다음 settled = 1", ST.reloads, 1);
 }
