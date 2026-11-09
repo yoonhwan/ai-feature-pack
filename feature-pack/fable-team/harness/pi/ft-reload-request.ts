@@ -25,7 +25,7 @@ export default function (pi: ExtensionAPI) {
   const req = path.join(wakeDir, `${keyOf(seat)}.reload`);
   const debounce = Number(process.env.FT_RELOAD_REQUEST_DEBOUNCE_MS ?? 300);
   let watcher: fs.FSWatcher | null = null, timer: ReturnType<typeof setTimeout> | null = null, startup: ReturnType<typeof setTimeout> | null = null;
-  let pending = false, ctxNow: Ctx | null = null, announced = "", failed = "";
+  let pending = false, held = false, ctxNow: Ctx | null = null, announced = "", failed = "";
 
   // ★활성 = 이벤트마다 재확인★ (ft-mbox-wake.ts activeFlag 와 «같은 칸») — _master ∧ 같은 파일 행 agent=='pi' ∨ planner _desk
   const activeFlag = (): boolean => {
@@ -55,6 +55,7 @@ export default function (pi: ExtensionAPI) {
     try { void pi.sendUserMessage(CMD, { expandPromptTemplates: true }); } catch (e) { fail(`sendUserMessage 실패 — ${e}`); }
   }
   function check(): void {
+    if (held) return; // ★중단(aborted)으로 끝난 런 뒤 = 다음 정상 settled 까지 보류★ — 시작 타이머·fs.watch·settled 가 «모두» 이 표지를 본다(DA R1)
     if (!activeSeat(false)) return; // 비활성 좌석 = 파일 그대로 · reload 0
     if (!hasReq()) { pending = false; return; } // 요청 없음 = 표지 해제
     if (!idle()) { pending = true; return; } // 일하는 중 = 그 자리 0 · 다음 agent_settled 에서 1
@@ -70,7 +71,7 @@ export default function (pi: ExtensionAPI) {
     handler: async (_args, ctx) => { await ctx.reload(); return; },
   });
   pi.on("session_start", async (_event, ctx) => {
-    ctxNow = ctx as Ctx; pending = false;
+    ctxNow = ctx as Ctx; pending = false; held = false; // 새 세션 = 이전 런의 중단 상태를 물려받지 않는다
     try { fs.mkdirSync(wakeDir, { recursive: true }); } catch { /* 이미 있음 */ }
     try { watcher = fs.watch(wakeDir, (_e, fn) => { if (fn === path.basename(req)) schedule(); }); } // ★부모 폴더 감시★ — 파일 교체에도 유지
     catch (e) { fail(`watch 실패 ${wakeDir} — ${e}`); }
@@ -81,7 +82,8 @@ export default function (pi: ExtensionAPI) {
   });
   pi.on("agent_settled", async (event, ctx) => {
     ctxNow = ctx as Ctx;
-    if ((event as { aborted?: boolean })?.aborted) return; // 중단(Escape)으로 끝난 런 = 다음 settled 로 미룬다
+    if ((event as { aborted?: boolean })?.aborted) { held = true; return; } // 중단(Escape)으로 끝난 런 = 다음 정상 settled 로 미룬다
+    held = false;
     if (!pending && !hasReq()) return; // 할 일 없음 = 0
     run(); // 일하는 중 미뤄 둔 요청 = 여기서 1회
   });
