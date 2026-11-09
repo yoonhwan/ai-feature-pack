@@ -228,7 +228,7 @@ process.exit(fails === 0 ? 0 : 1);
 NODE
   # 확장 둘(ft-idle-nudge → ./ft-mbox-wake.ts) + pi 패키지 스텁
   mkdir -p "$T/ext" "$T/node_modules/@earendil-works/pi-coding-agent"
-  cp "$EXT" "$T/ext/ft-idle-nudge.ts"; cp "$WAKE" "$T/ext/ft-mbox-wake.ts"
+  cp "$EXT" "$T/ext/ft-idle-nudge.ts"; cp "$WAKE" "$T/ext/ft-mbox-wake.ts"; cp "$(dirname "$EXT")/ft-load-line.ts" "$T/ext/" # r1537 공용 헬퍼(확장이 import)
   printf '{"name":"@earendil-works/pi-coding-agent","type":"module","main":"index.mjs","exports":"./index.mjs"}\n' \
     > "$T/node_modules/@earendil-works/pi-coding-agent/package.json"
   echo 'export const createLocalBashOperations = () => ({ exec: async () => ({ output: "", exitCode: 0 }) });' \
