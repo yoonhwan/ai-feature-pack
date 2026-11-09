@@ -218,7 +218,7 @@ case "$cmd" in
     uf=0; if user_facing "$to"; then notify=0; uf=1; fi
     if [ "$ew" = 1 ]; then notify=0; fi                                # ★r1524★ 확장 좌석 = pane 0(확장이 custom 턴으로 깨운다) · uf_watch 는 user_facing 그대로
     # ★`[ ] && doorbell` 로 쓰지 않는다★ — set -e 에서 notify=0 이면 리스트가 실패로 끝나 exit 1.
-    if [ "$notify" = 1 ] && [ "$gate" = sent ]; then db="$(doorbell_status "$dbto" "$dbf" "$seq" 1)"; else db=quiet; fi   # 4번째 인자 = 방금 적재분(미읽음 검사 면제 · r1524)
+    if [ "$notify" = 1 ] && [ "$gate" = sent ]; then db="$(doorbell_status "$dbto" "$dbf" "$seq")"; else db=quiet; fi
     # 예약은 됐는데 «울리지 않기로» 했으면 되돌린다 — 깨움 1회 = 차감 1회(r1476).
     if [ "$gate" = sent ] && [ "$notify" != 1 ]; then wake_budget_refund "$dbto" send >/dev/null 2>&1 || true; fi
     if [ "$uf" = 1 ]; then uf_watch "$to" "$seq"; fi
@@ -254,7 +254,7 @@ case "$cmd" in
     case "$gate" in held|budget) doorbell_record_held "$dbto" "$seq" "$gate";; esac
     inbox_ingest "$seq"
     if inbox_must_ring; then notify=1; fi
-    if [ "$notify" = 1 ] && [ "$gate" = sent ]; then db="$(doorbell_status "$dbto" 0 "$seq" 1)"; else db=quiet; fi   # 4번째 인자 = 방금 적재분(미읽음 검사 면제 · r1524)
+    if [ "$notify" = 1 ] && [ "$gate" = sent ]; then db="$(doorbell_status "$dbto" 0 "$seq")"; else db=quiet; fi
     if [ "$gate" = sent ] && [ "$notify" != 1 ]; then wake_budget_refund "$dbto" send >/dev/null 2>&1 || true; fi
     if [ "$uf" = 1 ]; then uf_watch "$to" "$seq"; fi
     fu="$(doorbell_followup_sweep)"; fu="${fu//$'\n'/ }"

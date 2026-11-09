@@ -59,7 +59,7 @@ _db_pending() {
 }
 
 doorbell() {
-  local to="$1" dbforce="${2:-0}" dbseq="${3:-}" dbfresh="${4:-0}" pane seat stamp recvstamp last recvlast now msg _tail _pn
+  local to="$1" dbforce="${2:-0}" dbseq="${3:-}" pane seat stamp recvstamp last recvlast now msg _tail _pn
   # ★숫자만 통과시킨다★ — 이 값은 send-keys 명령 문자열에 삽입된다. 호출부가 우리 자신의
   #   py 출력에서 파싱하므로 이미 숫자지만, 명령 삽입 차단을 «호출부 신뢰»에 맡기지 않는다.
   case "$dbseq" in ''|*[!0-9]*) dbseq="" ;; esac
@@ -98,15 +98,12 @@ doorbell() {
      && [ "$((now - last))" -lt "${FT_MBOX_DOORBELL_STARVE:-120}" ]; then echo skipped; return 0; fi
   if [ "$dbforce" != 1 ] && [ "$((now - last))" -lt "$DOORBELL_MIN" ]; then echo skipped; return 0; fi
   # ★r1524 — 이미 전부 읽은 우편함으로 창을 다시 깨우지 않는다★ («READ none» 헛턴 0)
-  #   주입 «직전» 에 받는 좌석의 미읽음을 센다 — 0 이면 none.
-  #   ★$4=fresh(1) 면 안 센다★: send·relay 는 방금 그 seq 를 적재했으므로 미읽음 ≥1 이 «구조상» 보장된다.
-  #   매 send 마다 python 을 하나 더 띄우면 기존 시험 test_mbox_doorbell_merge_r1476.sh 가 63s → 71s 로 늘어
-  #   70초 상한을 넘었다(r1524 실측). 그래서 이 검사는 «다 읽은 seq 로도 불릴 수 있는» 경로(ring · sweep 후속 · 손 ring)만 문다.
+  #   주입 «직전» 에 받는 좌석의 미읽음을 센다 — 0 이면 none. ★send·relay 도 면제 없음★
+  #   (DA #276870 R1 반례: 적재와 주입 사이에 수신자가 recv 를 끝내면 «방금 적재» 는 미읽음을 보장하지 않는다 —
+  #    적재 뒤 pane 조회 전에 recv 가 돌면 pending=0 인데 pane 1 이었다 · 격리 큐로 재현 rc0/READ).
   #   ★판정 불가(큐 파일 없음 · peek 실패 · pending 파싱 실패)는 기존대로 주입★ — 안 울려 못 받는 쪽이 더 나쁘다(fail-loud).
-  if [ "$dbfresh" != 1 ]; then
-    _pn="$(_db_pending "$to")"
-    if [ "$_pn" = 0 ]; then echo none; return 0; fi
-  fi
+  _pn="$(_db_pending "$to")"
+  if [ "$_pn" = 0 ]; then echo none; return 0; fi
   : > "$stamp" 2>/dev/null || true
   # ★주입하는 것은 «명령»이 아니라 «지시문»이다★ (2026-09-05, A1)
   #   이전엔 `bash .../mbox.sh recv <me>` 만 넣었다. 좌석 입장에서 그건 «자기가 실행한 도구»이고
