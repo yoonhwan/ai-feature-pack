@@ -171,8 +171,8 @@ def judge_row(table, row, ddl_ok, env_ok=lambda p: False):   # (옛 모드, 새 
     om, nm, st, paths = row
     classes = [kind_of(table, p, env_ok) for p in paths]
     bad = next(((k, p) for (c, k), p in zip(classes, paths) if c == "forbid"), None)
-    wrong_mode = next((p for (c, k), p in zip(classes, paths) if k == "team-billing-doc" and st[0] in "AMR" and (nm != "100644" or (st[0] != "A" and om != "100644"))), None)
-    if wrong_mode:   # 과금 낱말 그림·PDF 는 일반 파일(100644)일 때만 문서(r1248) — 심링크·실행 비트 = mode(학습 불가)
+    wrong_mode = next((p for (c, k), p in zip(classes, paths) if k in ("team-billing-doc", "research-data") and st[0] in "AMR" and (nm != "100644" or (st[0] != "A" and om != "100644"))), None)
+    if wrong_mode:   # 과금 낱말 그림·PDF(r1248)와 하네스 research·inventory 원자료(r1521)는 일반 파일(100644)일 때만 문서 — 심링크·실행 비트·같은 100755 수정 M = mode(학습 불가)
         return "forbid", "mode", "모드 %s→%s: %s" % (om, nm, wrong_mode)
     if st[0] == "R":   # 카드 상태 폴더 이동 = 같은 팀 카드 폴더 사이 같은 이름/모드/양쪽 docs(유사도 무관) 또는 내용 동일(R100)
         same = os.path.basename(paths[0]) == os.path.basename(paths[1])
