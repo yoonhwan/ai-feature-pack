@@ -74,6 +74,23 @@ new_root; printf 'not json\n' >> "$R/.fable-team/comm/mailbox.jsonl"; run_tool "
 run_tool "$SEAT" --bogus 1 >/dev/null 2>&1
 { [ "$RC" = 2 ]; } && ok "ⓕ-4 모르는 인자 → usage rc2" || bad "ⓕ4 rc=$RC"
 
+# ── 2b) DA HOLD 반례 R1·R2 (RED→GREEN) ────────────────────────────────────
+# R1 실제 영수 파일 이름 = receipts/<좌석#번호>.jsonl(번호 있음) — 계보 키 하나만 보면 미표시 발주를 놓친다
+new_root
+printf '{"seq": 41, "from": "byz-harness-master-pi#171", "ts": "2026-11-10T00:00:00", "body": "[발주] 카드 r1539", "body_full": ""}\n' \
+  > "$R/.fable-team/comm/receipts/$SEAT.jsonl"
+run_tool "$SEAT" --root "$R"
+{ [ "$RC" = 1 ] && printf '%s' "$OUT" | grep -q '^OPEN-WORK 있음 이유=쪽지 일 1$'; } && ok "R1 receipts/<좌석#번호>.jsonl 미표시 발주 → rc1" || bad "R1 rc=$RC out=$OUT"
+printf '{"seq": 41, "mark": "처리함", "ts": "2026-11-10T00:01:00"}\n' >> "$R/.fable-team/comm/receipts/$SEAT.jsonl"
+run_tool "$SEAT" --root "$R"
+{ [ "$RC" = 0 ]; } && ok "R1 «처리함» 표시된 영수는 안 센다 → rc0" || bad "R1-2 rc=$RC out=$OUT"
+
+# R2 진행 카드가 design/teams/<팀>/indices/진행 에도 있다(harness 밖 팀) — design/* 만 보면 배정을 놓친다
+new_root; mkdir -p "$R/design/teams/ops/indices/진행"
+printf -- '- 배정: 좌석 byz-harness-nano-x#3\n' > "$R/design/teams/ops/indices/진행/ops-card.md"
+run_tool "$SEAT" --root "$R"
+{ [ "$RC" = 1 ] && printf '%s' "$OUT" | grep -q '^OPEN-WORK 있음 이유=배정 1 (ops-card.md)$'; } && ok "R2 design/teams/<팀>/indices/진행 배정 → rc1" || bad "R2 rc=$RC out=$OUT"
+
 # ── 3) 게이트 문구 ⓗ · 크론 줄 ⓘ ─────────────────────────────────────────
 SENT='받을 일 0 이면 후계 0 — 좌석 닫기 대기 + 팀장에 «[다음 없음]» 1줄'
 n=0; for f in "$SKILL/templates/hooks/context-distill-gate.sh" "$REPO/kit/fable-team/templates/hooks/context-distill-gate.sh"; do grep -qF "$SENT" "$f" && n=$((n+1)) || true; done
@@ -140,6 +157,11 @@ printf '{"seq": 5, "to": "byz-harness-nano-x#0", "from": "m", "body": "[발주] 
 ce "$TOOL" close-check 'byz-harness-nano-x#0'
 { [ "$RC" = 3 ] && printf '%s' "$OUT" | grep -q '\[인계\] 없음'; } && ok "ⓙ 받을 일 있음 → [인계] 없음 REJECT rc3" || bad "ⓙ-2 rc=$RC out=$OUT"
 
+mkdir -p "$CE/design/teams/ops/indices/진행"; : > "$C/mailbox.jsonl"
+printf -- '- 배정: 좌석 byz-harness-nano-x#3\n' > "$CE/design/teams/ops/indices/진행/ops-card.md"
+ce "$TOOL" close-check 'byz-harness-nano-x#0'
+{ [ "$RC" = 3 ] && printf '%s' "$OUT" | grep -q '\[인계\] 없음'; } && ok "ⓙ R2 팀 카드 배정 1 → [인계] 없음 REJECT rc3(면제 0)" || bad "ⓙ-3 rc=$RC out=$OUT"
+
 # ── 6) 변이 M1~M5 (사본을 고쳐 그 사례가 빨강이 되는지) ──────────────────
 mut() {   # mut <원본> <치환 전> <치환 후>  → $MUT 경로에 고친 사본
   MUT="$T/mut.$(basename "$1")"; python3 - "$1" "$MUT" "$2" "$3" <<'PY'
@@ -153,7 +175,7 @@ PY
 mut "$TOOL" '    if work:' '    if True:'; MO="$MUT"; new_root; run_tool "$SEAT" --root "$R" --mbox-dir 2>/dev/null
 OUT="$(python3 "$MO" "$SEAT" --root "$R" 2>/dev/null)"; RC=$?
 { [ "$RC" = 1 ]; } && ok "M1 «늘 있음» 변이 검출(ⓐ 가 빨강)" || bad "M1 변이 미검출 rc=$RC"
-mut "$TOOL" '        return 3, "카드 폴더 없음 design/*/indices/진행", ""' '        return 0, "쪽지0(일 아님 0)·배정0·진행0", "-"'; MO="$MUT"
+mut "$TOOL" '        return 3, "카드 폴더 없음 design/*/indices/진행 · design/teams/*/indices/진행", ""' '        return 0, "쪽지0(일 아님 0)·배정0·진행0", "-"'; MO="$MUT"
 new_root nocard; OUT="$(python3 "$MO" "$SEAT" --root "$R" 2>/dev/null)"; RC=$?
 { [ "$RC" = 0 ]; } && ok "M2 «판정 불가를 0 으로» 변이 검출(ⓕ1 이 빨강)" || bad "M2 변이 미검출 rc=$RC"
 mut "$TOOL" '    first = (b.lstrip().splitlines() or [""])[0]' '    return True'; MO="$MUT"
