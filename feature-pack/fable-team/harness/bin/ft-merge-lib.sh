@@ -282,10 +282,12 @@ fm_land_ledger() {
 #     팀 = 카드 경로들의 팀 «합집합»(ft_team_has · 카드마다 그 팀 · 2팀이면 각 팀 1통) · 카드 0 일 때만 부른 좌석 FT_SEAT 둘째 토막 · 하나도 못 정하면 `INFO <종류> 쪽지 생략 — 팀 못 정함` 1줄(아무 팀장에게나 보내기 0)
 #     수신 = 명부 seats-<팀>.json(FT_SEATS_JSON 이 이김 · v65 = seats.json) `_master` · 발신 = FT_SEAT | ft-merge-land | ft-index-move
 #     발신 1회 상한 7초(재시도 0 · FT_LAND_DEADLINE 남은 시간이 더 짧으면 그 값 · 모자라면 호출 0) · 반환 0 고정(부른 쪽 rc 불변)
-#     카드 리포 루트 = FM_NOTIFY_REPO → FT_REPO_ROOT → FT_ROOT → 카드 경로의 git 루트
+#     카드 리포 루트 = FM_NOTIFY_REPO → FT_REPO_ROOT → FT_ROOT → 카드 경로의 git 루트(팀 판정 = 그 워크트리)
+#     ★명부·comm 은 «공용 루트»(--git-common-dir)에서 찾는다(보정 r2 · 착지 aaa7d2bf 뒤 실사건: 연결 worktree 안 카드 이동이 워크트리/.fable-team 을 뒤져 4통 유실)★
+#     우선순위·env(FT_SEATS_JSON · FT_MBOX · FT_REPO_ROOT) 는 그대로 · INFO 에는 «찾은 경로» 를 적는다
 fm_land_notify() {
   local kind="$1" body="$2"; shift 2
-  local hd line root="" t tg teams c seats m from rc cap used el t0=$SECONDS
+  local hd line root="" common="" t tg teams c seats m from rc cap used el t0=$SECONDS
   case "$kind" in 착지) hd='[착지]';; 이동) hd='[카드 이동]';; *) hd="[$kind]";; esac
   case "$body" in '['*) line="$body";; *) line="$hd $body";; esac
   from="${FT_SEAT:-}"
@@ -296,6 +298,10 @@ fm_land_notify() {
     root=""
   done
   if [ -z "$root" ] && [ $# -gt 0 ]; then root="$(git -C "$(dirname -- "$1")" rev-parse --show-toplevel 2>/dev/null)"; fi
+  if [ -n "$root" ]; then   # 보정 r2: 명부·comm = 공용 루트 — 연결 worktree 의 toplevel 에는 없다(팀 판정만 워크트리 그대로)
+    common="$(git -C "$root" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" && common="${common%/.git}"
+    [ -n "$common" ] || common="$root"
+  fi
   teams=""
   if [ $# -gt 0 ] && [ -n "$root" ] && [ -f "$FM_HERE/ft-team-lib.sh" ]; then
     teams="$( . "$FM_HERE/ft-team-lib.sh" >/dev/null 2>&1 || exit 0
@@ -311,21 +317,21 @@ fm_land_notify() {
     [ -n "$tg" ] || continue
     seats="${FT_SEATS_JSON:-}"
     if [ -z "$seats" ]; then
-      [ -n "$root" ] || { echo "INFO $kind 쪽지 생략 — 카드 리포 루트 못 풂($tg)"; continue; }
-      if [ "$tg" = v65 ]; then seats="$root/.fable-team/seats.json"; else seats="$root/.fable-team/seats-$tg.json"; fi
+      [ -n "$common" ] || { echo "INFO $kind 쪽지 생략 — 카드 리포 공용 루트 못 풂($tg)"; continue; }
+      if [ "$tg" = v65 ]; then seats="$common/.fable-team/seats.json"; else seats="$common/.fable-team/seats-$tg.json"; fi
     fi
-    [ -f "$seats" ] || { echo "INFO $kind 쪽지 생략 — 팀 명부 없음($tg)"; continue; }
+    [ -f "$seats" ] || { echo "INFO $kind 쪽지 생략 — 팀 명부 없음($tg · $seats)"; continue; }
     m="$(python3 -c 'import json,sys
 try: d=json.load(open(sys.argv[1],encoding="utf-8"))
 except Exception: sys.exit(0)
 v=d.get("_master","") if isinstance(d,dict) else ""
 print(v if isinstance(v,str) else "")' "$seats" 2>/dev/null)"
-    [ -n "$m" ] || { echo "INFO $kind 쪽지 생략 — 명부에 _master 없음($tg)"; continue; }
-    if [ -z "${FT_MBOX:-}" ] && [ -z "$root" ]; then echo "INFO $kind 쪽지 생략 — 우편함 경로 못 풂($tg)"; continue; fi
+    [ -n "$m" ] || { echo "INFO $kind 쪽지 생략 — 명부에 _master 없음($tg · $seats)"; continue; }
+    if [ -z "${FT_MBOX:-}" ] && [ -z "$common" ]; then echo "INFO $kind 쪽지 생략 — 우편함 경로 못 풂($tg)"; continue; fi
     used=$((SECONDS - t0)); cap=$((7 - used)); [ "$cap" -ge 1 ] || cap=0
     if el="$(fm_fetch_deadline_rem)"; then [ "$el" -ge "$cap" ] || cap="$el"; fi
     if [ "$cap" -lt 1 ]; then echo "WARN $kind 쪽지 발신 실패 → $m(0 · 시간 초과)"; continue; fi
-    fm_try "$cap" bash "${FT_MBOX:-$root/.fable-team/comm/mbox.sh}" send "$m" "$from" "$line" >/dev/null 2>&1; rc=$?
+    fm_try "$cap" bash "${FT_MBOX:-$common/.fable-team/comm/mbox.sh}" send "$m" "$from" "$line" >/dev/null 2>&1; rc=$?
     case "$rc" in
       0) echo "NOTIFIED $kind → $m";;
       124|143) echo "WARN $kind 쪽지 발신 실패 → $m($rc · 시간 초과)";;

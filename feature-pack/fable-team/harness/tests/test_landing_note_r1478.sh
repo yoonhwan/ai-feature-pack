@@ -166,9 +166,10 @@ mv_wt "$WIDX/대기/r3010-wt-card.md" 진행 --seat s
 ck "T7 연결 worktree 안 카드 이동 → 공용 루트 명부(_master)로 1통" $?
 # ── T7b: 공용 루트에 명부가 없으면 INFO 에 «찾은 경로» 1줄 · 발신 0 · rc 불변 ──
 mv "$W/.fable-team/seats-harness.json" "$T/seats-harness.json.bak"
+WREAL="$(cd "$W" && pwd -P)"   # /var ↔ /private/var (git 은 실제 경로로 푼다)
 printf '# 인덱스: r3011-wt-card\n- 규칙: 없음 — 시험 fixture 카드(규칙 무관)\n' > "$WIDX/대기/r3011-wt-card.md"; : > "$MBOX_LOG"
 mv_wt "$WIDX/대기/r3011-wt-card.md" 진행 --seat s
-[ "$rc" = 0 ] && [ "$(mbox_n)" = 0 ] && echo "$out" | grep -qF "INFO 이동 쪽지 생략 — 팀 명부 없음(harness · $W/.fable-team/seats-harness.json)"
+[ "$rc" = 0 ] && [ "$(mbox_n)" = 0 ] && echo "$out" | grep -qF "INFO 이동 쪽지 생략 — 팀 명부 없음(harness · $WREAL/.fable-team/seats-harness.json)"
 ck "T7b 명부 없음 → INFO 에 찾은 경로 1줄 · 발신 0 · rc 0" $?
 mv "$T/seats-harness.json.bak" "$W/.fable-team/seats-harness.json"
 
