@@ -44,9 +44,9 @@ guard_mode() {
 
 # 출력 줄 = `<동사>␟<새 수신자>␟<문장>`(구분자 U+001F — 탭은 read 가 연속 구분자를 합친다) : OK · WARN · REJECT · FORWARD(후계로 전달) · EXPLICIT(명시 이름 그대로 + 로그)
 _guard_py_recipient() {
-  python3 - "$(_seats_json)" "$1" "$2" "$DIR" <<'PY'
+  python3 - "$(_seats_json)" "$1" "$2" "$DIR" "$3" "$4" <<'PY'
 import json, glob, os, re, sys; sys.path.insert(0, sys.argv[4]); import mbox_teamfile   # 명부 파일 고르기 = mbox_lineage.py 와 «같은 함수»(r745)
-sj, to, safe = sys.argv[1], sys.argv[2], sys.argv[3] == "1"
+sj, to, safe, frm, head = sys.argv[1], sys.argv[2], sys.argv[3] == "1", sys.argv[5], sys.argv[6]
 d = os.path.dirname(sj) or "."
 def out(verb, new="", msg=""): print(f"{verb}\x1f{new}\x1f{msg}")
 def stop(msg, forward=""):  # 안전 보고면 막지 않는다
@@ -92,7 +92,10 @@ def why(f, r): return "_closed=" + str(docs.get(f, {}).get("_closed") or r.get("
 # ★역할 키(r1116)★ — 옛 번호로 보내도 같은 역할 우편함에 쌓이고 현역이 읽는다 · REJECT 는 «그 역할 현역 0» 일 때만(R6)
 if closed and live(cfile): out("WARN", "", "닫힌 좌석 " + cur + " → 역할 현역 " + ",".join(live(cfile)) + " — 역할 우편함에 전송"); closed = False
 if cur != to and closed: stop("은퇴한 좌석 " + to + " → 후계 " + cur + " 도 닫힘(" + why(cfile, crow) + ")")
-if cur != to and rk(cur) != rk(to): stop("은퇴한 좌석 " + to + " → 현역 " + cur + " — 후계 이름으로 다시 보내라", forward=cur)   # 개명·팀 바뀜 = 다른 우편함
+if cur != to and rk(cur) != rk(to):   # 개명·팀 바뀜 = 다른 우편함 — 예외 = 명부 사슬 끝 현역이 보낸 [레디](r1493 · 개명 승계 옛 좌석의 닫기 증거)
+    if head.startswith("[레디]") and frm == cur and crow.get("role") not in ("closed", "stopped") and isinstance(docs.get(cfile, {}).get(cur), dict):   # 사슬 끝 행이 명부에 실재 ∧ 그 행 role 이 현역(닫힘·중단 아님)
+        out("WARN", "", "개명 승계 [레디] " + frm + " → 은퇴 좌석 " + to + " 우편함에 기록(닫기 증거)"); sys.exit(0)
+    stop("은퇴한 좌석 " + to + " → 현역 " + cur + " — 후계 이름으로 다시 보내라", forward=cur)
 if cur != to: out("WARN", "", "옛 번호 " + to + " → 역할 우편함(현역 " + cur + ") — 그대로 전송")
 if closed: stop("닫힌 좌석(" + team + " " + why(auth, row) + ")")
 if row.get("role") == "stop-ready": out("WARN", "", "정지 레디 좌석 " + to + " — 전송")
@@ -186,7 +189,7 @@ guard_check() {
   local first safe=0 out verb new msg rej="" _pf _pn
   first="${2%%$'\n'*}"; first="${first#"${first%%[![:space:]]*}"}"
   case "$first" in '[HIL]'*|'[HIL·'*|'[긴급]'*) safe=1;; esac
-  out="$(_guard_py_recipient "$1" "$safe" 2>/dev/null)" || out="REJECT$US${US}가드 실행 실패 — 다시 보내라"
+  out="$(_guard_py_recipient "$1" "$safe" "$3" "$first" 2>/dev/null)" || out="REJECT$US${US}가드 실행 실패 — 다시 보내라"
   [ "$safe" = 1 ] && case "$out" in REJECT*) out="EXPLICIT$US${US}명부 미확인 — 명시 이름으로 전송 (가드 실행 실패)";; esac
   while IFS=$'\037' read -r verb new msg; do
     case "$verb" in

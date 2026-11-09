@@ -204,7 +204,7 @@ def close_check(seat, need_ready=True, verdict=False):
         print("REJECT %s [인계] #%s 형식 불명(손으로 쓴 [인계]) — bash mbox.sh handover %s %s 로 다시" % (seat, h["seq"], seat, succ)); return 3
     for r in reversed(_sent()):
         if r.get("seq", 0) > h["seq"] and _head(r.get("body")) == "[레디]" and r.get("from") != seat \
-                and role_key(r.get("from")) == role_key(seat) and "#%s 받음" % h["seq"] in r.get("body", ""):
+                and r.get("from") == succ and "#%s 받음" % h["seq"] in r.get("body", ""):   # r1493 후계 = 명부 사슬 끝 «정확 일치»(개명 승계도 닫힌다 · 같은 역할 키 비후계 [레디] 는 안 센다)
             miss = [i for i in ids if "%s 받음" % i not in r["body"]]
             if miss:
                 print("REJECT %s [레디] #%s 에 «받음» 없는 항목 %s" % (seat, r["seq"], ",".join(miss))); return 3
