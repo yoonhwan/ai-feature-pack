@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # test_autonomy_scope_research_r1521.sh — r1521(#8138): design/harness/{research,inventory}/** «데이터 확장자·SHA256SUMS» 는 docs(research-data) · .py .sh .js .ts 와 중간 이름(x.py.txt)은 code · forbid 5종은 순서대로 앞
-# 사례 ①~⑳(카드 동결 집합 · PR 8130·8132 실측 목록 포함) + 변이 5종(사본에서만 고침 · 각 1회) · git·네트워크·Redis 0 · 자기 재호출 0 · 고정 sleep 0
+# 사례 ①~㉓(카드 동결 집합 · PR 8130·8132 실측 목록 포함) + 변이 5종(사본에서만 고침 · 각 1회) · git·네트워크·Redis 0 · 자기 재호출 0 · 고정 sleep 0
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 BIN="$HERE/../../harness/bin"; KIT="$HERE/../../harness/kit/fable-team/bin"
@@ -177,6 +177,19 @@ ok("⑫ a.json A 100755 → forbid mode", jr(A(RD + "a.json", "100755")) == ("fo
 ok("⑬ a.json M 100644→100755 → forbid mode",
    jr(("100644", "100755", "M", [RD + "a.json"])) == ("forbid", "mode")
    and jr(("000000", "120000", "A", [RD + "a.json"])) == ("forbid", "mode"))
+ok("㉑ research a.json M 100755→100755 → forbid mode(같은 100755 수정도 mode)",
+   jr(("100755", "100755", "M", [RD + "a.json"])) == ("forbid", "mode")
+   and jr(("100755", "100755", "R100", [RD + "a.json", RD + "b/a.json"])) == ("forbid", "mode"))
+ok("㉒ inventory a.txt M 100755→100755 → forbid mode",
+   jr(("100755", "100755", "M", [INV + "a.txt"])) == ("forbid", "mode")
+   and jr(("100755", "100755", "M", [INV + "a.tsv"])) == ("forbid", "mode"))
+BILL = "design/teams/cfo/evidence/x/billing-a.png"
+ok("㉓ team-billing-doc 모드 사례 회귀 0(A 100644 = docs · 나머지 = forbid mode)",
+   jr(("000000", "100644", "A", [BILL])) == ("docs", "team-billing-doc")
+   and all(jr(row) == ("forbid", "mode") for row in (
+       ("000000", "100755", "A", [BILL]), ("100755", "100755", "M", [BILL]),
+       ("100644", "100755", "M", [BILL]), ("000000", "120000", "A", [BILL])))
+   and jr(("100644", "100644", "R100", [BILL, BILL.replace("x/", "x2/")])) == ("docs", "move"))
 c32 = [pc(p) for p in PR8132]
 ok("⑭ PR 8132 실측 100행 — .py 10 code · .lock 2 deps · 나머지 88 docs(md 8 = 기존 :21 · 80 = research-data)",
    len(PR8132) == 100
@@ -210,7 +223,7 @@ PY
 run_py() { python3 -I "$T/check.py" "$1" 2>&1; }
 OUT="$(run_py "$BIN")"; echo "$OUT"
 echo "$OUT" | grep -q '^FAIL' && fail=$((fail+1))
-[ "$(echo "$OUT" | grep -c '^PASS')" = 20 ] || { echo "FAIL PASS 줄 수 20 아님"; fail=$((fail+1)); }
+[ "$(echo "$OUT" | grep -c '^PASS')" = 23 ] || { echo "FAIL PASS 줄 수 23 아님"; fail=$((fail+1)); }
 cmp -s "$BIN/autonomy_scope_rules.py" "$KIT/autonomy_scope_rules.py" && echo "PASS bin·kit cmp0" || { echo "FAIL bin·kit cmp"; fail=$((fail+1)); }
 
 # 변이 5종 — 사본($T/mutN)에서 고친다 · 기대 FAIL 줄이 «그 칸» 에서 나야 변이 통과
