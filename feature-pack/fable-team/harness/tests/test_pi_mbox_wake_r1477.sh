@@ -17,6 +17,7 @@
 #  판 2(arch#267 · 카드 b33e6390): ㉖ 팀 pi master = 활성 · ㉗ 팀 claude master = 비활성 · ㉘ pi 나노 = 비활성
 #  ㉙ humanSender 기준은 planner _master «그대로»(자기 자신 채택 0) · 변이 6 = 판정을 planner 명부만으로 → ㉖ FAIL
 #  r1529: ㉙ 발신자와 수신 좌석을 가른다(발신자 = planner _master · 수신 = 팀 pi master) + ㉙ 두 번째 행은 agent_end(턴 경계)를 거친다 — 확장의 «내 행» 이 from !== seat 로 바뀌었고 턴 도중 깨움은 상한 1개다.
+#        T9 원자 교체 2회 감지는 두 교체 사이에 턴 경계(agent_start → 소비 → agent_end)를 둔다 — 세션 시작 회수 깨움도 배달 대기 1개(DA HOLD R1).
 #  T16 FT_MBOX_ROOT 미지정 + cwd = git 워크트리 → root = git 공용 루트(실측 FAIL 보정 · 18:20 planner pi#245)
 # 새 파일 mode 100644(실행 비트 0) — `bash <이 파일>` 로 부른다.
 set -uo pipefail
@@ -229,6 +230,10 @@ async function load() {
   replace(c.mbox, row(50, SEAT, "[발주 #50] a"));
   const pi = await load();
   eq("T9 첫 교체 = 턴 1", pi.calls.length, 1);
+  await pi.emit("agent_start", {}); // r1529 = 시작 회수 깨움도 배달 대기 1개다 — 턴 안에서 #50 을 recv 로 소비하고 턴을 닫는다
+  replace(c.mbox);
+  await pi.emit("agent_end", {});
+  eq("T9 턴 안 소비 뒤 = 추가 깨움 0", pi.calls.length, 1);
   replace(c.mbox, row(50, SEAT, "[발주 #50] a"), row(51, SEAT, "[발주 #51] b"));
   await until(() => pi.calls.length >= 2);
   eq("T9 inode 교체 뒤 두 번째 = 턴 2", pi.calls.length, 2);

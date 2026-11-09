@@ -82,10 +82,10 @@ export default function (pi: ExtensionAPI) {
     } catch (e) { fail(`held 기록 실패 ${f} — ${e}`); }
   }
 
-  function wakeNow(seq: number, viaNudge: boolean, force = false) { // 빌린 CLI 일 때만 FT_MBOX_DIR 로 «recv 대상 우편함» 을 밝힌다.
+  function wakeNow(seq: number, viaNudge: boolean) { // 빌린 CLI 일 때만 FT_MBOX_DIR 로 «recv 대상 우편함» 을 밝힌다.
     const content = `[발주 #${seq}] ${borrowed ? `FT_MBOX_DIR="${mboxDir}" ` : ""}bash ${mboxSh} recv ${seat} — 실행하고 그 안의 지시를 즉시 착수하라`;
     try { pi.sendMessage({ customType: "ft-mbox", content, display: true }, { triggerTurn: true, deliverAs: "followUp" }); } catch (e) { return fail(`sendMessage 실패 — ${e}`); }
-    writeSeq(seq); if (!force) wakePending = true; // 세션 시작 회수(force)는 상한 밖 — 턴 시작 전 도착을 막는 것은 턴 도중 깨움이다
+    writeSeq(seq); wakePending = true; // 성공한 깨움 = 배달 대기 1개(세션 시작 회수 포함 · DA HOLD R1) — agent_start 에서 소비
     if (viaNudge) fs.rmSync(nudge, { force: true }); // nudge 삭제 = 깨운 뒤
   }
   function check(force: boolean) {
@@ -101,7 +101,7 @@ export default function (pi: ExtensionAPI) {
       const rc = reserve();
       if (rc !== 0) { recordHeld(seq); if (rc !== 3) fail(`예산 CLI 실패 rc=${rc} — 턴 0(${seat} #${seq})`); return; } // fail-closed = 턴 0
     }
-    wakeNow(seq, viaNudge, force);
+    wakeNow(seq, viaNudge);
   }
   const run = () => { try { check(false); } catch (e) { fail(`감시 처리 실패 — ${e}`); } }, schedule = () => { if (!timer) timer = setTimeout(() => { timer = null; run(); }, debounce); }; // schedule = 폴더 사건 → 바운스 1회, run = 이벤트 처리
   pi.on("session_start", async () => {

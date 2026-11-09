@@ -6,6 +6,7 @@
 #        스텁 mbox.sh(budget reserve rc 고정 · 호출 기록). 실 우편함·실 pi 세션·실 Redis 0. sleep 0(폴링).
 #  사례: ⓐⓑⓕⓖⓘ 자기 발신 행만 = 턴 0 · ⓒ 다른 좌석 행이 섞이면 그 행 seq 로 턴 1 · ⓓⓔ 기존 동작 회귀
 #        ⓗ 턴 도중 도착 3 = 턴 0 · 턴 끝 재확인 1(남은 행 seq) · ⓙ 유휴 즉시 1 · 배달 전 1통 더 = 추가 0
+#        ⓚ 시작 회수(force) 깨움도 배달 대기 1개 — 시작회수 501 뒤 agent_start 전 502 = 총 1(DA HOLD R1)
 #  변이: 1 = 거르개 끔 → ⓐ FAIL · ⓒ seq 틀림 · 2 = 턴 표지 끔 → ⓗ 턴 도중 3 = FAIL · 2b = 대기 상한 끔 → ⓙ 추가 1
 # 새 파일 mode 100644(실행 비트 0) — `bash <이 파일>` 로 부른다.
 set -uo pipefail
@@ -27,7 +28,7 @@ command -v node >/dev/null 2>&1 || { echo "FAIL node 없음"; exit 1; }
 # ── 정적 계약 ─────────────────────────────────────────────────────────────────────────
 eq "S1 확장 $(wc -l < "$EXT" | tr -d ' ')줄 ≤140" "$([ "$(wc -l < "$EXT" | tr -d ' ')" -le 140 ] && echo yes || echo no)" yes
 eq "S2 내 행 = to ∧ from !== seat(한 줄)" "$(grep -c 'r.to === seat && r.from !== seat' "$EXT")" 1
-eq "S3 턴 도중 표지 = agent_start 훅 2줄 + check 거르개 1줄" "$(grep -c 'agent_start' "$EXT")$(grep -c 'inTurn || wakePending' "$EXT")" "21"
+eq "S3 턴 도중 표지 = pi.on(agent_start) 1 + check 거르개 1" "$(grep -c 'pi.on("agent_start"' "$EXT")$(grep -c 'inTurn || wakePending' "$EXT")" "11"
 eq "S4 setInterval 0" "$(grep -c 'setInterval' "$EXT")" 0
 bash -n "$0" && ok "S5 bash -n rc0" || bad "S5 bash -n rc0"
 
@@ -196,6 +197,23 @@ const seqOf = (pi, i) => Number((bodyOf(pi, i).match(/^\[발주 #(\d+)\]/) ?? []
   await pi.emit("agent_end", {});
   eq("ⓙ 다음 턴 끝 재확인 = 턴 2(남은 432)", pi.calls.length, 2);
   eq("ⓙ 두 번째 발주 seq = 432", seqOf(pi, 1), 432);
+}
+
+// ── ⓚ R1 회귀(DA HOLD R1): 세션 시작 회수 깨움도 배달 대기 1개 — 시작회수 [인계]501 뒤
+//     agent_start 전 [레디]502 도착 = 추가 깨움 0(총 1) · 턴 안에서 소비하고 턴 끝 = 추가 0 ──────────
+{
+  const c = setup("k");
+  replace(c.mbox, row(501, SEAT, OTHER, "[인계] r1529 인계"));
+  const pi = await load();
+  eq("ⓚ 시작 회수 [인계] = 턴 1", pi.calls.length, 1);
+  eq("ⓚ 시작 회수 발주 seq = 501", seqOf(pi), 501);
+  append(c.mbox, row(502, SEAT, OTHER, "[레디] r1529 레디")); // agent_start 전 도착(카드 «배달 안 된 깨움 1개» 꼴)
+  await settle(200);
+  eq("ⓚ 배달 대기 중 도착 = 총 1(추가 0)", pi.calls.length, 1);
+  await pi.emit("agent_start", {}); // 턴 시작 = 배달된 깨움 소비
+  replace(c.mbox); // 턴 안에서 501·502 다 소비(recv)
+  await pi.emit("agent_end", {});
+  eq("ⓚ 턴 끝(미읽음 0) = 추가 0", pi.calls.length, 1);
 }
 
 // ── 변이 1: 거르개 끔(from 조건 삭제) → ⓐ 가 FAIL 이어야 한다 · ⓒ seq 도 틀려야 ──────────────
