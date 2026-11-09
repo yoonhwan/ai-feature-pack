@@ -92,6 +92,7 @@ async function load(ext = EXT) {
   for (const p of live.splice(0)) { p.retired = true; await p.emit("session_shutdown", {}); }
   const pi = { calls: [], retired: false, h: {}, on(e, f) { (this.h[e] ??= []).push(f); },
     async emit(e, ev = {}) { for (const f of this.h[e] ?? []) await f(ev, { isIdle: () => true }); },
+    appendEntry(t, d) { this.entries = this.entries ?? []; this.entries.push({ t, d }); }, // r1537 로드 줄(실 pi 와 같은 칸)
     sendMessage(m, o) { if (!this.retired) this.calls.push({ m, o }); } };
   live.push(pi);
   const mod = await import(`${pathToFileURL(ext).href}?v=${++modv}`);
@@ -258,6 +259,7 @@ function mutate(name, from, to) {
   const src = fs.readFileSync(EXT, "utf-8"), n = src.split(from).length - 1;
   eq(`MUT ${name} 지점 1개`, n, 1);
   const p = path.join(TMP, `mut-${name}.ts`);
+  fs.copyFileSync(path.join(path.dirname(EXT), "ft-load-line.ts"), path.join(TMP, "ft-load-line.ts")); // r1537 — 변이 사본이 상대 import 하는 공용 헬퍼
   fs.writeFileSync(p, src.replace(from, to));
   return p;
 }

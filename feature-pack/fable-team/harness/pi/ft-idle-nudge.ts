@@ -11,6 +11,7 @@ import * as path from "node:path";
 import { execFile, execSync } from "node:child_process";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { piMasterFile } from "./ft-mbox-wake.ts";
+import { appendLoadLine } from "./ft-load-line.ts"; // r1537 — 세션 기록 «로드 <카드> <판>» 1줄(턴 0)
 
 type Got = { goal: boolean; prog: number; h: number; unread: number; last: number };
 type Run = { rc: number; out: string };
@@ -93,6 +94,8 @@ export default function (pi: ExtensionAPI) {
     const r = await run(mboxSh, ["send", to, seat, `[긴급] ${seat} 쉼 지문 반복 · 진행 0 · h 0 · 다음 발주 없음 · 막힌 이유 확인 필요`], mboxEnv);
     if (r.rc !== 0) log(`[긴급] 발신 실패 rc=${r.rc} → ${to}`);
   }
+
+  pi.on("session_start", async () => { appendLoadLine(pi, "r1530", "ft-idle-nudge.ts"); }); // r1537 — 실림 1줄(이 확장은 다른 session_start 처리가 없다)
 
   pi.on("agent_settled", async (event: { aborted?: boolean }) => {
     if (event?.aborted) return; // Escape 중단 = 0

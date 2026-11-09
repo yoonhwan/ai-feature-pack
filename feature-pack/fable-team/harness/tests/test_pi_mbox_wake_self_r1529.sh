@@ -26,7 +26,7 @@ command -v node >/dev/null 2>&1 || { echo "FAIL node 없음"; exit 1; }
 [ -f "$EXT" ] || { echo "FAIL 확장 없음 $EXT"; exit 1; }
 
 # ── 정적 계약 ─────────────────────────────────────────────────────────────────────────
-eq "S1 확장 $(wc -l < "$EXT" | tr -d ' ')줄 ≤140" "$([ "$(wc -l < "$EXT" | tr -d ' ')" -le 140 ] && echo yes || echo no)" yes
+eq "S1 확장 $(wc -l < "$EXT" | tr -d ' ')줄 ≤200" "$([ "$(wc -l < "$EXT" | tr -d ' ')" -le 200 ] && echo yes || echo no)" yes # r1537 로드 줄 +2
 eq "S2 내 행 = to ∧ from !== seat(한 줄)" "$(grep -c 'r.to === seat && r.from !== seat' "$EXT")" 1
 eq "S3 턴 도중 표지 = pi.on(agent_start) 1 + check 거르개 1" "$(grep -c 'pi.on("agent_start"' "$EXT")$(grep -c 'inTurn || wakePending' "$EXT")" "11"
 eq "S4 setInterval 0" "$(grep -c 'setInterval' "$EXT")" 0
@@ -78,6 +78,7 @@ async function load() {
   for (const p of live.splice(0)) { p.retired = true; await p.emit("session_shutdown", {}); }
   const pi = { calls: [], retired: false, h: {}, on(e, f) { (this.h[e] ??= []).push(f); },
     async emit(e, ev = {}) { let out; for (const f of this.h[e] ?? []) { const r = await f(ev, { isIdle: () => true }); if (r !== undefined && out === undefined) out = r; } return out; },
+    appendEntry(t, d) { this.entries = this.entries ?? []; this.entries.push({ t, d }); }, // r1537 로드 줄(실 pi 와 같은 칸)
     sendMessage(m, o) { if (!this.retired) this.calls.push({ m, o }); } };
   live.push(pi);
   const mod = await import(`${pathToFileURL(EXTv).href}?v=${++modv}`);
@@ -276,7 +277,7 @@ NODE
 
 # 확장은 pi 패키지에서 createLocalBashOperations 를 import 한다 — node 시험용 사본 + 스텁(pi 패키지 대체).
 mkdir -p "$T/ext" "$T/node_modules/@earendil-works/pi-coding-agent"
-cp "$EXT" "$T/ext/ft-mbox-wake.ts"
+cp "$EXT" "$T/ext/ft-mbox-wake.ts"; cp "$(dirname "$EXT")/ft-load-line.ts" "$T/ext/" # r1537 공용 헬퍼(확장이 import)
 printf '{"name":"@earendil-works/pi-coding-agent","type":"module","main":"index.mjs","exports":"./index.mjs"}\n' \
   > "$T/node_modules/@earendil-works/pi-coding-agent/package.json"
 cat > "$T/node_modules/@earendil-works/pi-coding-agent/index.mjs" <<'SHIM'

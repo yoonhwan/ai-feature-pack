@@ -10,6 +10,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { execFile, execFileSync, execSync } from "node:child_process";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { appendLoadLine } from "./ft-load-line.ts"; // r1537 — 세션 기록 «로드 <카드> <판>» 1줄(턴 0)
 
 type Verdict = "merged" | "missing" | "unknown";
 export type Item = { sha: string; file: string; pending: number; verdict: Verdict; reason: string };
@@ -113,6 +114,7 @@ export default function (pi: ExtensionAPI) {
   const schedule = () => { if (!timer) timer = setTimeout(() => { timer = null; void run(); }, debounce); };
 
   pi.on("session_start", async () => {
+    appendLoadLine(pi, "r1532", "ft-land-next.ts"); // r1537 — 실림 1줄(감시 폴더 생성과 무관하게 먼저)
     try { fs.mkdirSync(dir, { recursive: true }); fs.mkdirSync(seenDir, { recursive: true }); } catch { /* 이미 있음 */ }
     unknownDone.clear(); // R3 — 새 세션은 판정 불가 Q 도 다시 본다
     try { watcher = fs.watch(dir, () => { unknownDone.clear(); schedule(); }); } catch (e) { return fail(`watch 실패 ${dir} — ${e}`); }

@@ -6,6 +6,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { spawnSync, execSync } from "node:child_process";
 import { createLocalBashOperations, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { appendLoadLine } from "./ft-load-line.ts"; // r1537 — 세션 기록 «로드 <카드> <판>» 1줄(턴 0)
 type Row = { seq: number; to: string; body: string; from: string };
 const QUIET = ["[정리]", "[회신]", "[완료 보고]"]; // r1476 종류 표와 같은 값 — 큐만
 const LOUD = ["[긴급]", "[인계]", "[레디]"]; // 예산 밖 즉시
@@ -105,6 +106,7 @@ export default function (pi: ExtensionAPI) {
   }
   const run = () => { try { check(false); } catch (e) { fail(`감시 처리 실패 — ${e}`); } }, schedule = () => { if (!timer) timer = setTimeout(() => { timer = null; run(); }, debounce); }; // schedule = 폴더 사건 → 바운스 1회, run = 이벤트 처리
   pi.on("session_start", async () => {
+    appendLoadLine(pi, "r1529", "ft-mbox-wake.ts"); // 조기 return 앞 — 기록은 확장이 실렸다는 사실만 말한다
     if (!fs.existsSync(mbox)) return fail(`우편함 없음 ${mbox} — 확장 비활성(폴링 폴백 0)`);
     try { fs.mkdirSync(wakeDir, { recursive: true }); } catch { /* 이미 있음 */ }
     try {
