@@ -4,7 +4,7 @@
 #                  0장 = «정본 없음» 멈춤(손 부팅 대체 0) · `ft-all-stop.sh check` rc≠0 = 그 REJECT 그대로 멈춤
 #   B1 중복 0     : boot plan <데이터 루트>/state/team-boot/<팀>-<ts>.plan · 같은 시도의 B2 이름이 살아 있으면 그 plan 으로 남은 단계부터 재개(spawn 0) · 그 밖 살아 있는 byz-<팀>-… = «이미 부팅됨» 멈춤
 #   B2 팀장 1석   : ft-successor-open.sh <마지막 팀장> <워크트리> --name <#N+1> --agent <명부> --model <명부> --body-file <부팅 본문>(첫 3줄 = 골 원문 · 4줄 = CLOSEOUT 경로)
-#                   명부 읽기 = ft-team-seats-lib.sh 1곳(r1535 구조 분리 — 200줄 규칙)
+#                   명부 읽기 = ft-team-seats-lib.sh 1곳(r1535) · airag = 팩 위성팀 — 명부 PACK/.fable-team/seats-aifp.json 의 «aifp-<팀>-master-*» 행 중 #N 최대 · 워크트리 뿌리 PACK/.worktrees · 행 0 = 멈춤(팩 _master 대체 0)
 #                   명부 행에 재개 기록(_resume_uuid)이 있고 여는 도구 usage 가 --resume 을 받으면 인자 1개 추가 · 못 받으면 WARN 1줄(새 세션 · 조용한 대체 아님 · §9 ③)
 #   B3 필요한 하위: 그 CLOSEOUT 의 «재개: 예» 행만 ft-nano-spawn.sh <카드> --reopen (역할 좌석은 여기서 0)
 #   B4 크론·클론 0: launchd com.byz.ft-tick-<팀> 미등재 · 살아 있는 계보 1석 확인(그 밖 = «부팅 직후 잔존»)
@@ -25,8 +25,8 @@ ROOT="${FT_REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null)}"
 [ -n "$ROOT" ] || { echo "멈춤 리포 루트를 못 찾았다(FT_REPO_ROOT 또는 git 안에서 실행)"; exit 1; }
 PACK="${FT_PACK_ROOT:-$HOME/Project/ai-feature-pack}"
 # airag 만 aifp 리포 design/aifp/ (DESIGN-r1498 §4 B0 · ROUTE 판 2 §5.3 예외 1줄)
-if [ "$TEAM" = airag ]; then DROOT="${FT_AIFP_ROOT:-$PACK}"; CREPO="$PACK"; CDIR="design/aifp"
-else DROOT="$ROOT"; CREPO="$ROOT"; CDIR="design/teams/$TEAM"; fi
+if [ "$TEAM" = airag ]; then DROOT="${FT_AIFP_ROOT:-$PACK}"; CREPO="$PACK"; CDIR="design/aifp"; SAT=1; WROOT="$PACK/.worktrees"
+else DROOT="$ROOT"; CREPO="$ROOT"; CDIR="design/teams/$TEAM"; SAT=0; WROOT="$ROOT/.worktrees"; fi
 STATE="${FT_BOOT_STATE:-$ROOT/state/team-boot}"
 ME="${FT_BOOT_ME:-${FT_SEND_FROM:-ft-team-boot}}"
 STOP() { echo "멈춤 $*"; exit "${STOP_RC:-1}"; }
