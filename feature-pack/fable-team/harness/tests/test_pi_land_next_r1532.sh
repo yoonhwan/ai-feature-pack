@@ -6,6 +6,7 @@
 #  ⓔ 일하는 중 = 0 → agent_settled 에 1(한 본문) · ⓕ 비활성(나노·다른 팀 _master·claude) = 0 · ⓖ 시작 회수 = 1(한 본문) · ⓗ 40hex 아님 = 무시
 #  변이: M1 표식 끔 → ⓑ 에서 2 = 검출 · M2 MERGED 확인 끔 → ⓒ 에서 설치 요청 문구 = 검출
 #  R2 git fetch 는 비동기(execFile) = pi 이벤트 루프 막힘 0 — 느린 git 스텁(0.35초) 아래에서 50ms 타이머가 먼저 돈다
+#  R3 판정 불가(원격 끊김) Q 는 «다음 사건» 에 다시 뜼다 — unknownDone 은 fs 사건·시작에서 비운다(카드 ⓓ)
 # 새 파일 mode 100644(실행 비트 0) — `bash <이 파일>` 로 부른다.
 set -uo pipefail
 for v in GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY; do unset "$v"; done
@@ -232,6 +233,24 @@ const body = (pi, i = 0) => pi.calls[i]?.m?.content ?? "";
   eq("R2 턴 1(느린 fetch 뒤)", pi.calls.length, 1);
   eq("R2 50ms 타이머가 fetch(350ms)보다 먼저", (marks.timer ?? 9999) < 200, true);
   eq("R2 턴은 fetch 뒤(>=250ms)", (marks.send ?? -1) >= 250, true);
+}
+
+// ── R3 판정 불가 Q 는 다음 사건에 다시 뜼다(unknownDone 비우기) ────────────────────────────
+{
+  const c = setup("r3", { clone: false }); // git 실패 → 판정 불가
+  useEnv(c);
+  const pi = await load();
+  put(c, L1);
+  await wait(400);
+  if (pi.calls.length === 0) { await pi.emit("agent_settled", {}); await wait(400); }
+  eq("R3 첫 사건 = 턴 1", pi.calls.length, 1);
+  eq("R3 첫 본문 = 판정 불가", body(pi).includes("판정 불가"), true);
+  eq("R3 표식 0", !seenOf(c, L1), true);
+  fs.writeFileSync(path.join(c.pend, "notes.md"), "x\n"); // 다음 사건(비-40hex) — 표식 0 인 Q 를 다시 훑게 한다
+  await wait(400);
+  if (pi.calls.length === 1) { await pi.emit("agent_settled", {}); await wait(400); }
+  eq("R3 다음 사건에 다시 = 턴 2", pi.calls.length, 2);
+  eq("R3 두 번째도 같은 Q 판정 불가", body(pi, 1).includes(L1.slice(0, 10)) && body(pi, 1).includes("판정 불가"), true);
 }
 
 // ── 변이 M1 표식 끔 → ⓑ 에서 2 = 검출 ──────────────────────────────────────────────────

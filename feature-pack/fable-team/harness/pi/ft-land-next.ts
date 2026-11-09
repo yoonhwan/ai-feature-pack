@@ -73,7 +73,7 @@ export default function (pi: ExtensionAPI) {
   const dir = path.join(state, "install-pending"), seenDir = path.join(state, "pi-wake", "land-seen");
   const repos = [...new Set([root, process.env.FT_LAND_NEXT_PACK || "/Users/yoonhwan/Project/ai-feature-pack"])];
   const debounce = Number(process.env.FT_LAND_NEXT_DEBOUNCE_MS ?? 300), fetchMs = Number(process.env.FT_LAND_NEXT_FETCH_MS ?? 25000);
-  const bad = new Set<string>(), unknownDone = new Set<string>(); // unknownDone = 표식 0 대신 같은 세션 재보고 0(무한 턴 방지)
+  const bad = new Set<string>(), unknownDone = new Set<string>(); // unknownDone = settle 재훑기에서만 억제(fs 사건·세션 시작에서 비운다 · R3)
   let timer: ReturnType<typeof setTimeout> | null = null, watcher: fs.FSWatcher | null = null, busy = false, queue: Item[] = [];
 
   const marked = (sha: string): boolean => fs.existsSync(path.join(seenDir, sha)); // ★표식 — 같은 Q 재사건 0 (M1 변이 지점)
@@ -114,7 +114,8 @@ export default function (pi: ExtensionAPI) {
 
   pi.on("session_start", async () => {
     try { fs.mkdirSync(dir, { recursive: true }); fs.mkdirSync(seenDir, { recursive: true }); } catch { /* 이미 있음 */ }
-    try { watcher = fs.watch(dir, () => schedule()); } catch (e) { return fail(`watch 실패 ${dir} — ${e}`); }
+    unknownDone.clear(); // R3 — 새 세션은 판정 불가 Q 도 다시 본다
+    try { watcher = fs.watch(dir, () => { unknownDone.clear(); schedule(); }); } catch (e) { return fail(`watch 실패 ${dir} — ${e}`); }
     void run(); // ⓖ 시작 회수 = 표식 없는 기존 파일 1회(한 본문)
   });
   pi.on("agent_start", async () => { busy = true; });
