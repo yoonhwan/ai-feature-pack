@@ -10,6 +10,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { execFile, execFileSync, execSync } from "node:child_process";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { appendLoadLine } from "./ft-load-line.ts"; // r1537 — 세션 기록 «로드 <카드> <판>» 1줄(턴 0)
 
 type Verdict = "merged" | "missing" | "unknown";
 export type Item = { sha: string; file: string; pending: number; verdict: Verdict; reason: string };
@@ -66,6 +67,8 @@ const fetchMain = async (repo: string, ms: number): Promise<number> => { let rc 
 const isAncestor = (repo: string, sha: string): boolean => git(["-C", repo, "merge-base", "--is-ancestor", sha, "origin/main"], 7000) === 0;
 
 export default function (pi: ExtensionAPI) {
+  // r1537 — 로드 줄은 «이 확장이 실렸다» 만 말한다 ⇒ ★활성 guard «앞»에서 등록★(비활성 좌석도 1줄 · 기능은 그대로 비활성)
+  pi.on("session_start", async () => { appendLoadLine(pi, "r1532", "ft-land-next.ts"); });
   const root = process.env.FT_LAND_NEXT_ROOT || gitRoot() || process.cwd();
   const seat = seatName(), teamFile = process.env.FT_LAND_NEXT_SEATS || "seats-harness.json";
   if (!seat || piMasterFile(root, seat) !== teamFile) return log(`inactive seat=${seat || "?"} team=${teamFile}`); // 나노 · 다른 팀 _master · claude 좌석 = 0

@@ -8,6 +8,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { execSync } from "node:child_process";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { appendLoadLine } from "./ft-load-line.ts"; // r1537 — 세션 기록 «로드 <카드> <판>» 1줄(턴 0)
 type Ctx = { isIdle(): boolean }; // ExtensionContext 중 필요한 칸만 — 시험이 ctx 를 흉내 낼 수 있게 좁힌다
 const CMD = "/ft-reload-runtime";
 const keyOf = (s: string) => s.replace(/[^A-Za-z0-9._#-]/g, "_");
@@ -71,6 +72,7 @@ export default function (pi: ExtensionAPI) {
     handler: async (_args, ctx) => { await ctx.reload(); return; },
   });
   pi.on("session_start", async (_event, ctx) => {
+    appendLoadLine(pi, "r1531", "ft-reload-request.ts"); // r1537 — 실림 1줄
     ctxNow = ctx as Ctx; pending = false; held = false; // 새 세션 = 이전 런의 중단 상태를 물려받지 않는다
     try { fs.mkdirSync(wakeDir, { recursive: true }); } catch { /* 이미 있음 */ }
     try { watcher = fs.watch(wakeDir, (_e, fn) => { if (fn === path.basename(req)) schedule(); }); } // ★부모 폴더 감시★ — 파일 교체에도 유지

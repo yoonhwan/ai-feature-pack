@@ -234,7 +234,7 @@ if (fails === 0) { console.log("DRIVER ALL PASS"); process.exit(0); }
 console.log(`DRIVER FAIL ${fails}`); process.exit(1);
 NODE
 
-cp "$EXT" "$T/ext-ft-reload-request.ts"
+cp "$EXT" "$T/ext-ft-reload-request.ts"; cp "$(dirname "$EXT")/ft-load-line.ts" "$T/" # r1537 공용 헬퍼(같은 폴더 상대 import)
 cmp -s "$EXT" "$T/ext-ft-reload-request.ts" && ok "S6 시험 사본 = 원본 바이트 일치" || bad "S6 시험 사본 = 원본 바이트 일치"
 
 R1531_EXT="$T/ext-ft-reload-request.ts" R1531_SEAT="byz-harness-master-pi#171" R1531_TMP="$T" \
