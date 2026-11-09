@@ -1,0 +1,169 @@
+#!/usr/bin/env bash
+# ft-team-boot.sh <팀> — 팀 «부팅 1명령» (r1519 · DESIGN-r1498 §4 B0~B5 · 모델 0 · 크론·설정파일 신설 0)
+#   B0 정본 읽기  : <ref 기본 origin/main> 의 design/teams/<팀>/ «재귀» 에서 이름 CLOSEOUT-<팀>-*.md 만 · 2장 이상이면 파일 이름 날짜(YYYYMMDD) 최대값 → 같은 날이면 최신 커밋 1장 ·
+#                  0장 = «정본 없음» 멈춤(손 부팅 대체 0) · `ft-all-stop.sh check` rc≠0 = 그 REJECT 그대로 멈춤
+#   B1 중복 0     : boot plan <데이터 루트>/state/team-boot/<팀>-<ts>.plan · 같은 시도의 B2 이름이 살아 있으면 그 plan 으로 남은 단계부터 재개(spawn 0) · 그 밖 살아 있는 byz-<팀>-… = «이미 부팅됨» 멈춤
+#   B2 팀장 1석   : ft-successor-open.sh <마지막 팀장> <워크트리> --name <#N+1> --agent <명부> --model <명부> --body-file <부팅 본문>(첫 3줄 = 골 원문 · 4줄 = CLOSEOUT 경로)
+#                   명부 행에 재개 기록(_resume_uuid)이 있고 여는 도구 usage 가 --resume 을 받으면 인자 1개 추가 · 못 받으면 WARN 1줄(새 세션 · 조용한 대체 아님 · §9 ③)
+#   B3 필요한 하위: 그 CLOSEOUT 의 «재개: 예» 행만 ft-nano-spawn.sh <카드> --reopen (역할 좌석은 여기서 0)
+#   B4 크론·클론 0: launchd com.byz.ft-tick-<팀> 미등재 · 살아 있는 계보 1석 확인(그 밖 = «부팅 직후 잔존»)
+#   B5 보고 1통  : planner master 에 [부팅] 1통 · seq 를 plan 에 적고 status=완료 · 송신 실패 = «보고 미도달»(재실행 = 같은 plan 으로 B5 만)
+#   실패마다 «멈춤 <이유>» 1줄 + rc(1 멈춤 · 2 usage · 5 보고 미도달) · 데몬·루프·sleep 0 · 한 실행 ≤70초
+#   env(시험용): FT_REPO_ROOT FT_BOOT_REF FT_BOOT_STATE FT_BOOT_ME FT_BOOT_WT FT_BOOT_REPORT_TO FT_SEATS_JSON FT_MBOX_SH FT_SUCCESSOR_OPEN
+#                FT_NANO_SPAWN FT_ALL_STOP FT_TMUX FT_LAUNCHAGENTS FT_PACK_ROOT FT_AIFP_ROOT
+set -uo pipefail
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
+[ -f "$HERE/ft-live-entry.sh" ] && . "$HERE/ft-live-entry.sh" "$@"
+usage() { echo "usage: $0 <팀>   (팀 예: harness · planner · ops · ccu · airag)" >&2; exit 2; }
+[ $# -eq 1 ] || usage
+TEAM="$1"; case "$TEAM" in -*|"") usage;; esac
+REF="${FT_BOOT_REF:-origin/main}"
+ROOT="${FT_REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null)}"
+[ -n "$ROOT" ] || { echo "멈춤 리포 루트를 못 찾았다(FT_REPO_ROOT 또는 git 안에서 실행)"; exit 1; }
+PACK="${FT_PACK_ROOT:-$HOME/Project/ai-feature-pack}"
+# airag 만 aifp 리포 design/aifp/ (DESIGN-r1498 §4 B0 · ROUTE 판 2 §5.3 예외 1줄)
+if [ "$TEAM" = airag ]; then DROOT="${FT_AIFP_ROOT:-$PACK}"; CREPO="$PACK"; CDIR="design/aifp"
+else DROOT="$ROOT"; CREPO="$ROOT"; CDIR="design/teams/$TEAM"; fi
+STATE="${FT_BOOT_STATE:-$ROOT/state/team-boot}"
+ME="${FT_BOOT_ME:-${FT_SEND_FROM:-ft-team-boot}}"
+STOP() { echo "멈춤 $*"; exit "${STOP_RC:-1}"; }
+T0=$SECONDS; T=(); step_end() { T+=("$1=$((SECONDS - ${2:-0}))s"); }
+# ---------- 골 원문·다시 여는 법·재개 카드 = CLOSEOUT 1장에서만 ----------
+sec_lines() { awk -v want="$2" -v maxn="$3" '$0 ~ /^#+ / { inh = ($0 ~ want); next } inh && NF { n++; print; if (n >= maxn) exit }'; }
+first_tokens() { awk -v want="$2" '$0 ~ /^#+ / { inh = ($0 ~ want); next } inh && NF { n++; print; if (n >= 3) exit }'; }
+# ---------- B0 ----------
+B0=$SECONDS
+stop_out="$(bash "${FT_ALL_STOP:-$HERE/ft-all-stop.sh}" check 2>&1)"; stop_rc=$?
+[ "$stop_rc" -eq 0 ] || { echo "$stop_out"; STOP_RC=1 STOP "전팀 정지 중(check rc=$stop_rc) — 위 REJECT 그대로"; }
+cands="$(git -C "$CREPO" ls-tree -r --name-only "$REF" -- "$CDIR" 2>/dev/null | grep -E "(^|/)CLOSEOUT-$TEAM-[^/]*\.md$" || true)"
+[ -n "$cands" ] || STOP "정본 없음 — $CREPO@$REF:$CDIR/CLOSEOUT-$TEAM-*.md 0장 · 손 부팅(ft-role-spawn) 또는 CLOSEOUT 작성 먼저"
+best=""; best_key=""
+while IFS= read -r p; do
+  [ -n "$p" ] || continue
+  d="$(printf '%s' "${p##*/}" | grep -oE '[0-9]{8}' | tail -1)"; [ -n "$d" ] || d=00000000
+  ct="$(git -C "$CREPO" log -1 --format=%ct "$REF" -- "$p" 2>/dev/null)"; case "$ct" in ''|*[!0-9]*) ct=0;; esac
+  key="$d $ct"; [ -n "$best" ] && [ "$key" \< "$best_key" ] && continue
+  best="$p"; best_key="$key"
+done <<< "$cands"
+text="$(git -C "$CREPO" show "$REF:$best" 2>/dev/null)" || STOP "정본 읽기 실패 $REF:$best(boot plan 판정 불가)"
+sha="$(git -C "$CREPO" rev-parse "$REF:$best" 2>/dev/null | cut -c1-40)"
+GOAL3="$(printf '%s\n' "$text" | sec_lines x '골 원문' 3)"
+GSOURCE="CLOSEOUT"
+if [ -z "$GOAL3" ]; then gsrc=""; for c in "$CDIR/GOAL-$TEAM.md" "design/$TEAM/GOAL-$TEAM.md"; do
+    gt="$(git -C "$CREPO" show "$REF:$c" 2>/dev/null)" && { GOAL3="$(printf '%s\n' "$gt" | first_tokens x '골')"; gsrc="$c"; } && break; done
+  [ -n "$GOAL3" ] || STOP "골 원문 없음 — $best 에 «## 골 원문» 절 0 · GOAL-$TEAM.md 0"
+  GSOURCE="$gsrc"
+fi
+REOPEN1="$(printf '%s\n' "$text" | sec_lines x '다시 여는 법' 1)"
+step_end B0 "$B0"
+# ---------- 팀장·워크트리·카드 (명부) ----------
+SEATS="${FT_SEATS_JSON:-$DROOT/.fable-team/seats-$TEAM.json}"
+[ -f "$SEATS" ] || STOP "명부 없음 $SEATS"
+field() { python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); v=d.get(sys.argv[2],{}); print(v.get(sys.argv[3],"") if isinstance(v,dict) else "")' "$SEATS" "$1" "$2" 2>/dev/null; }
+OLD="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("_master",""))' "$SEATS" 2>/dev/null)"
+case "$OLD" in *"#"*) ;; *) STOP "명부 팀장 없음 $SEATS _master(현역 #N 없음)";; esac
+AGENT="$(field "$OLD" agent)"; MODEL="$(field "$OLD" model)"
+[ -n "$AGENT" ] && [ -n "$MODEL" ] || STOP "명부 팀장 행 불완전 $OLD(agent=$AGENT model=$MODEL)"
+NEXT="${OLD%#*}#$(( ${OLD##*#} + 1 ))"
+RESUME_UUID="$(field "$OLD" _resume_uuid)"
+WT=""; if [ -n "${FT_BOOT_WT:-}" ]; then WT="$FT_BOOT_WT"; else
+  for w in "$(field "$OLD" worktree)" "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("_cards_wt",""))' "$SEATS" 2>/dev/null)"; do
+    [ -n "$w" ] && [ -d "$ROOT/.worktrees/$w" ] && { WT="$ROOT/.worktrees/$w"; break; }; done; fi
+[ -n "$WT" ] && [ -d "$WT" ] || STOP "워크트리 없음 $OLD(명부 worktree · _cards_wt · FT_BOOT_WT 모두 없음)"
+CARDS="$(printf '%s\n' "$text" | grep -E '재개: *예' | grep -oE 'indices/진행/[^ `)|<>]+\.md' || true)"
+NREOPEN=0; [ -n "$CARDS" ] && NREOPEN="$(printf '%s\n' "$CARDS" | sort -u | wc -l | tr -d ' ')"
+# ---------- B1 boot plan · 중복 0 ----------
+B1=$SECONDS
+tmux_ls() { "${FT_TMUX:-tmux}" ls -F '#{session_name}' 2>/dev/null || true; }
+live_sessions() { tmux_ls | grep -E "^(byz|aifp)-$TEAM-" || true; }
+mkdir -p "$STATE" || STOP "boot plan 폴더 못 만듦 $STATE"
+PLAN=""; b2name=""
+last="$(ls -1t "$STATE/$TEAM"-*.plan 2>/dev/null | head -1)"
+if [ -n "$last" ]; then
+  grep -q '^ts=' "$last" 2>/dev/null || STOP "boot plan 판정 불가 $last(ts 줄 없음)"
+  PLAN="$last"
+  b2name="$(sed -n 's/^b2=done name=\([^ ]*\).*/\1/p' "$PLAN" | tail -1)"
+  grep -q '^status=완료' "$PLAN" && STOP "이미 부팅됨 ${b2name:-<plan 완료>}(plan 완료 $PLAN)"
+  [ -n "$b2name" ] && { tmux_ls | grep -qx "$b2name" || STOP "plan 팀장 세션 없음 $b2name — 두 번 열지 않는다(사람 확인)"; }
+  [ -n "$b2name" ] || { alive="$(live_sessions | head -1)"; [ -z "$alive" ] || STOP "이미 부팅됨 $alive"; }
+  echo "B1 재개 같은 시도 plan=$PLAN"
+else
+  alive="$(live_sessions | head -1)"
+  [ -n "$alive" ] && STOP "이미 부팅됨 $alive"
+  PLAN="$STATE/$TEAM-$(date +%Y%m%dT%H%M%S).plan"
+  { echo "team=$TEAM"; echo "ts=$(date +%Y%m%dT%H%M%S)"; echo "ref=$REF"; echo "closeout=$best sha=$sha";
+    echo "b0=done"; echo "b2=pending"; echo "b3=pending"; echo "b4=pending"; echo "b5=pending"; echo "status=booting"; } > "$PLAN" \
+    || STOP "boot plan 못 씀 $PLAN"
+fi
+step_end B1 "$B1"
+plan_set() { local k="$1" v="$2" t; t="$(mktemp "${PLAN}.XXXX")" || return 1
+  awk -v k="$k" -v v="$v" 'index($0, k "=") == 1 { print k "=" v; done = 1; next } { print } END { if (!done) print k "=" v }' "$PLAN" > "$t" && mv "$t" "$PLAN"; }
+done_step() { sed -n "s/^$1=done.*/1/p" "$PLAN" | grep -q 1; }
+BODY="$STATE/$TEAM-$(date +%Y%m%dT%H%M%S).body"
+# ---------- B2 팀장 1석 ----------
+B2=$SECONDS
+if done_step b2; then echo "B2 skip plan 에 done ($b2name)"
+else
+  { printf '%s\n' "$GOAL3" | head -3; echo; echo "정본: $CREPO@$REF:$best (sha $sha · 출처 $GSOURCE)";
+    [ -n "$REOPEN1" ] && echo "다시 여는 법: $REOPEN1"
+    echo "재개 카드: $NREOPEN장 · 크론 0 · 호출될 때만"; } > "$BODY" || STOP "부팅 본문 못 씀 $BODY"
+  SO="${FT_SUCCESSOR_OPEN:-$HERE/ft-successor-open.sh}"
+  so_args=("$OLD" "$WT" --name "$NEXT" --agent "$AGENT" --model "$MODEL" --body-file "$BODY")
+  if [ -n "$RESUME_UUID" ]; then
+    if grep -q -- '--resume' <(bash "$SO" 2>&1 | head -3) 2>/dev/null; then so_args+=(--resume); echo "B2 재개 기록 있음 — --resume 1개"
+    else echo "WARN --resume 미지원($SO usage 에 없음 · 재개 기록 $RESUME_UUID) — 새 세션으로 연다"; fi
+  fi
+  so_out="$(bash "$SO" "${so_args[@]}" 2>&1)"; so_rc=$?
+  echo "B2 $NEXT rc=$so_rc"; printf '%s\n' "$so_out" | tail -3
+  [ "$so_rc" -eq 0 ] || { plan_set b2 "rc=$so_rc name=$NEXT"; STOP "팀장 미도달 rc=$so_rc(하위 0 · $NEXT)"; }
+  plan_set b2 "done name=$NEXT rc=0"
+fi
+step_end B2 "$B2"
+# ---------- B3 «재개: 예» 카드만 ----------
+B3=$SECONDS
+if done_step b3; then echo "B3 skip plan 에 done"
+else
+  printf '%s\n' "$CARDS" | sort -u | while IFS= read -r tok; do
+    [ -n "$tok" ] || continue
+    card="$DROOT/$CDIR/$tok"
+    o="$(bash "${FT_NANO_SPAWN:-$HERE/ft-nano-spawn.sh}" "$card" --reopen 2>&1)"; r=$?
+    if [ "$r" -eq 0 ]; then echo "B3 재개 $tok"; else echo "B3 spawn REJECT rc=$r $tok — $(printf '%s' "$o" | head -1)"; fi
+  done
+  plan_set b3 "done n=$NREOPEN"
+fi
+step_end B3 "$B3"
+# ---------- B4 크론·클론 0 ----------
+B4=$SECONDS
+plist="${FT_LAUNCHAGENTS:-$HOME/Library/LaunchAgents}/com.byz.ft-tick-$TEAM.plist"
+if done_step b4; then
+  ld="$(sed -n 's/^b4=done launchd=\([^ ]*\).*/\1/p' "$PLAN" | tail -1)"; n_seat="$(sed -n 's/^b4=.*계보=\([0-9]*\).*/\1/p' "$PLAN" | tail -1)"
+  echo "B4 skip plan 에 done (launchd=$ld 계보=$n_seat)"
+else
+  ld=미등재; [ -e "$plist" ] && ld="등재($plist)"
+  n_seat="$(live_sessions | grep -c . || true)"; [ "$n_seat" -ge 1 ] || n_seat=0
+  resid=""; [ "$ld" != 미등재 ] && resid="$ld"; [ "$n_seat" -gt 1 ] && resid="${resid:+$resid · }계보 ${n_seat}석"
+  [ -z "$resid" ] || echo "부팅 직후 잔존 $resid"
+  echo "B4 launchd=$ld 계보=${n_seat}석"
+  plan_set b4 "done launchd=$ld 계보=${n_seat}"
+fi
+step_end B4 "$B4"
+# ---------- B5 보고 1통 ----------
+B5=$SECONDS
+if done_step b5; then echo "B5 skip plan 에 done"
+else
+  TO="${FT_BOOT_REPORT_TO:-$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("_master",""))' "$ROOT/.fable-team/seats-planner.json" 2>/dev/null)}"
+  [ -n "$TO" ] || { plan_set b5 "보고 미도달"; STOP_RC=5 STOP "보고 미도달 — planner 명부 _master 판정 불가"; }
+  MB="${FT_MBOX_SH:-$ROOT/.fable-team/comm/mbox.sh}"
+  ci_s=불가; command -v ci >/dev/null 2>&1 && ci_s=가능
+  win="미기재"; case "$MODEL" in *"[1m]"*) win=1000000;; esac
+  body="[부팅] $TEAM — 좌석=$NEXT · 모델=$MODEL · 창=$win · ci=$ci_s · adhd=1 · cron=none · launchd=$ld · 재개 카드 n=$NREOPEN · CLOSEOUT sha=$sha"
+  mo="$(bash "$MB" send "$TO" "$ME" "$body" 2>&1)"; mr=$?
+  seq="$(printf '%s' "$mo" | sed -n 's/.*seq=\([0-9][0-9]*\).*/\1/p' | tail -1)"
+  echo "B5 to=$TO rc=$mr seq=${seq:-?}"; [ -n "$mo" ] && printf '%s\n' "$mo" | tail -1
+  [ "$mr" -eq 0 ] || { plan_set b5 "보고 미도달 rc=$mr"; STOP_RC=5 STOP "보고 미도달 rc=$mr(재실행 = 같은 plan 으로 B5 만)"; }
+  plan_set b5 "done seq=${seq:-?}"
+  plan_set status 완료
+fi
+step_end B5 "$B5"
+echo "부팅 완료 $TEAM plan=$PLAN closeout=$best sha=$sha 좌석=$NEXT 재개카드=$NREOPEN"
+echo "${T[*]} total=$((SECONDS - T0))s"
