@@ -9,12 +9,14 @@
 #  T12 사람 발신(slack-*/_master) = 예산 밖 즉시(DA HOLD R2) · T13 지원 우편함(FT_MBOX_FILE 다른 루트) = 입력·감시·recv 결속(DA HOLD R1)
 #  T14 지정 우편함에 CLI 가 없으면 루트 것을 빌리고 recv 대상을 FT_MBOX_DIR 로 밝힌다(DA HOLD R1 두 번째 꼴)
 #  T15 session_shutdown = 감시 해제(옛 인스턴스가 같은 우편함을 2중으로 깨우지 않는다)
+#  T17 _master 승계: 로드 뒤 좌석 표식이 바뀌면 다음 쪽지에 활성(매 이벤트 재확인 · 18:24 desk #276401)
+#  T16 FT_MBOX_ROOT 미지정 + cwd = git 워크트리 → root = git 공용 루트(실측 FAIL 보정 · 18:20 planner pi#245)
 # 새 파일 mode 100644(실행 비트 0) — `bash <이 파일>` 로 부른다.
 set -uo pipefail
 for v in GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY; do unset "$v"; done
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 HARNESS="$(cd -- "$HERE/.." && pwd)"
-EXT="$HARNESS/pi/ft-mbox-wake.ts"
+EXT="${R1477_EXT:-$HARNESS/pi/ft-mbox-wake.ts}"
 COMM="$HARNESS/comm/mbox.sh"
 SEAT="${R1477_SEAT:-byz-planner-master-pi#244}"
 fail=0
@@ -48,6 +50,8 @@ const ok = (n) => console.log(`PASS ${n}`);
 const bad = (n, d = "") => { fails++; console.log(`FAIL ${n}${d ? ` :: ${d}` : ""}`); };
 const eq = (n, got, want) => (String(got) === String(want) ? ok(n) : bad(n, `기대 '${want}' 실제 '${got}'`));
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+// 사건 전달은 비동기 — «깨움이 일어났는가» 를 상한 600ms 안에서 확인한다(사건 유실이면 FAIL 그대로).
+const until = async (fn, ms = 600) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { if (fn()) return true; await wait(10); } return fn(); };
 const keyOf = (s) => s.replace(/[^A-Za-z0-9._#-]/g, "_");
 const row = (seq, to, body) => JSON.stringify({ seq, ts: "2026-11-09T00:00:00", to, from: "test-sender", body });
 const append = (f, ...rows) => fs.appendFileSync(f, rows.map((r) => r + "\n").join(""));
@@ -116,7 +120,7 @@ async function load() {
   const pi = await load();
   eq("T2 시작 시 턴 0", pi.calls.length, 0);
   append(c.mbox, row(8, SEAT, "[발주 #8] 실행 중"));
-  await wait(120);
+  await until(() => pi.calls.length >= 1);
   eq("T2 도착 = 턴 1", pi.calls.length, 1);
   eq("T2 본문 꼴", /^\[발주 #8\] bash .*\/comm\/mbox\.sh recv byz-planner-master-pi#244 — 실행하고 그 안의 지시를 즉시 착수하라$/.test(pi.calls[0]?.m?.content ?? ""), true);
   eq("T2 customType/display", `${pi.calls[0]?.m?.customType}/${pi.calls[0]?.m?.display}`, "ft-mbox/true");
@@ -150,7 +154,7 @@ async function load() {
   fs.writeFileSync(c.mbox, "");
   const pi = await load();
   append(c.mbox, row(11, SEAT, "[발주 #11] x"), row(12, SEAT, "[발주 #12] y"));
-  await wait(120);
+  await until(() => pi.calls.length >= 1);
   eq("T5 2행 = 턴 1", pi.calls.length, 1);
   eq("T5 최대 seq 로 깨움", /^\[발주 #12\] /.test(pi.calls[0]?.m?.content ?? ""), true);
   await pi.emit("agent_end", {});
@@ -200,7 +204,7 @@ async function load() {
   eq("T8a [정리] = 턴 0", pi.calls.length, 0);
   eq("T8a [정리] = 예산 0", lines(c.stubLog), 0);
   append(c.mbox, row(31, SEAT, "[발주 #31] 일반"));
-  await wait(120);
+  await until(() => pi.calls.length >= 1);
   eq("T8a 일반 1행 = 턴 1", pi.calls.length, 1);
   eq("T8a 일반 = 예산 1", lines(c.stubLog), 1);
   const c2 = setup("t8b");
@@ -216,7 +220,7 @@ async function load() {
   const pi = await load();
   eq("T9 첫 교체 = 턴 1", pi.calls.length, 1);
   replace(c.mbox, row(50, SEAT, "[발주 #50] a"), row(51, SEAT, "[발주 #51] b"));
-  await wait(150);
+  await until(() => pi.calls.length >= 2);
   eq("T9 inode 교체 뒤 두 번째 = 턴 2", pi.calls.length, 2);
   eq("T9 두 번째 본문 seq 51", /^\[발주 #51\] /.test(pi.calls[1]?.m?.content ?? ""), true);
 }
@@ -273,7 +277,7 @@ async function load() {
   const pi = await load();
   eq("T13 시작 시 턴 0", pi.calls.length, 0);
   append(c.mbox, row(90, SEAT, "[발주 #90] 다른 루트 우편함"));
-  await wait(150);
+  await until(() => pi.calls.length >= 1);
   eq("T13 다른 루트 우편함 도착 = 턴 1", pi.calls.length, 1);
   eq("T13 recv 가 그 우편함의 mbox.sh", (pi.calls[0]?.m?.content ?? "").includes(`bash ${c.comm}/mbox.sh recv ${SEAT}`), true);
   eq("T13 예산도 그 우편함 CLI", lines(c.stubLog), 1);
@@ -287,7 +291,7 @@ async function load() {
   fs.writeFileSync(c.mbox, "");
   const pi = await load();
   append(c.mbox, row(95, SEAT, "[발주 #95] CLI 없는 우편함"));
-  await wait(150);
+  await until(() => pi.calls.length >= 1);
   eq("T14 턴 1", pi.calls.length, 1);
   const content = pi.calls[0]?.m?.content ?? "";
   eq("T14 빌린 CLI = 루트 mbox.sh", content.includes(`bash ${c.dir}/.fable-team/comm/mbox.sh recv ${SEAT}`), true);
@@ -301,7 +305,7 @@ async function load() {
   fs.writeFileSync(c.mbox, "");
   const pi = await load();
   append(c.mbox, row(100, SEAT, "[발주 #100] 첫 프로세스"));
-  await wait(150);
+  await until(() => pi.calls.length >= 1);
   eq("T15 첫 프로세스 = 턴 1", pi.calls.length, 1);
   pi.retired = true;
   await pi.emit("session_shutdown", {});
@@ -311,6 +315,45 @@ async function load() {
   eq("T15 예산도 1회뿐", lines(c.stubLog), 1);
   const pi2 = await load();
   eq("T15 후계는 회수로 2행 처리 = 턴 1", pi2.calls.length, 1);
+}
+
+// ── T17 _master 승계: 로드 뒤 표식이 바뀌면 다음 쪽지에 활성 ─────────────────────────────
+{
+  const c = setup("t17", { master: "byz-other-pi#1" }); // 승계 전 = 옛 좌석
+  fs.writeFileSync(c.mbox, "");
+  const pi = await load();
+  eq("T17 승계 전 = 턴 0", pi.calls.length, 0);
+  fs.writeFileSync(path.join(c.dir, ".fable-team", "seats-planner.json"), JSON.stringify({ _master: SEAT }) + "\n"); // 승계
+  append(c.mbox, row(120, SEAT, "[발주 #120] 승계 뒤"));
+  await until(() => pi.calls.length >= 1);
+  eq("T17 승계 뒤 = 턴 1(재시작 0)", pi.calls.length, 1);
+  eq("T17 seq 파일 = 120", fs.readFileSync(c.seqFile, "utf-8").trim(), "120");
+}
+// ── T16 root 결속: FT_MBOX_ROOT 없이 cwd 가 git 워크트리여도 «공용 루트» 를 본다 ─────────────
+{
+  const base = path.join(ROOT, "t16-repo");
+  fs.mkdirSync(base, { recursive: true });
+  const git = (...args) => execFileSync("git", args, { encoding: "utf-8", cwd: base, stdio: ["ignore", "pipe", "ignore"] });
+  git("init", "-q");
+  git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "init");
+  const wt = path.join(base, "wt-planner");
+  git("worktree", "add", "-q", wt);
+  const c = setup("t16-src"); // 공용 루트 모양만 빌려 쓴다(seats-planner.json·스텁 mbox.sh 가 있는 .fable-team)
+  const rootComm = path.join(base, ".fable-team", "comm"), rootState = path.join(base, ".fable-team", "state");
+  fs.mkdirSync(rootComm, { recursive: true });
+  fs.copyFileSync(path.join(c.dir, ".fable-team", "comm", "mbox.sh"), path.join(rootComm, "mbox.sh"));
+  fs.writeFileSync(path.join(base, ".fable-team", "seats-planner.json"), JSON.stringify({ _master: SEAT }) + "\n");
+  const mbox = path.join(rootComm, "mailbox.jsonl");
+  fs.writeFileSync(mbox, "");
+  delete process.env.FT_MBOX_ROOT;
+  Object.assign(process.env, { FT_MBOX_FILE: mbox, FT_MBOX_STATE_DIR: rootState, FT_SEAT: SEAT });
+  process.chdir(wt); // 확장이 보는 cwd = 워크트리
+  const pi = await load();
+  append(mbox, row(110, SEAT, "[발주 #110] 워크트리 cwd"));
+  await until(() => pi.calls.length >= 1);
+  eq("T16 워크트리 cwd = 턴 1", pi.calls.length, 1);
+  eq("T16 recv = 공용 루트 CLI", (pi.calls[0]?.m?.content ?? "").includes(`bash ${rootComm}/mbox.sh recv ${SEAT}`), true);
+  eq("T16 예산도 공용 루트 CLI", lines(c.stubLog), 1);
 }
 
 console.log("---");
