@@ -73,7 +73,7 @@ wake_budget_reserve() {
     printf 'ERROR state 폴더 생성 실패 %s\n' "$sd" >&2
     _wg_errlog "mkdir-fail $sd"; return 1; }
   win=$(( $(_wg_now) / 3600 ))
-  smax="${FT_MBOX_WAKE_SEAT_MAX:-6}"; tmax="${FT_MBOX_WAKE_TEAM_MAX:-30}"
+  smax="${FT_MBOX_WAKE_SEAT_MAX:-100000}"; tmax="${FT_MBOX_WAKE_TEAM_MAX:-100000}"
   if ! _wg_lock "$sd"; then
     printf 'ERROR 예산 잠금 10초 초과 — %s/.lock\n' "$sd"
     printf 'ERROR 예산 잠금 10초 초과 — %s/.lock\n' "$sd" >&2   # ★사유는 stderr 로도★ — 게이트가 stdout 을 삼켜도 «왜 안 울렸는지» 는 남는다
