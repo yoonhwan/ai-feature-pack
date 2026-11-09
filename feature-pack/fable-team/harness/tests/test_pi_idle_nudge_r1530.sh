@@ -57,6 +57,7 @@ cat > "$T/stub/ft-hil.sh" <<'SH'
 F="$(cd "$(dirname "$0")/../.." && pwd)/fake"
 [ -e "$F/hil.fail" ] && { echo "ERROR ft-hil --pending 읽기 실패" >&2; exit 3; }
 [ "$1 $2" = "--pending --each" ] || exit 2
+[ $# -eq 2 ] || { [ "$3" = "--team" ] && [ -n "${4:-}" ]; } || exit 2   # r1538: --team <팀> 인자도 받는다(필터는 이 스텁 밖)
 cat "$F/hil" 2>/dev/null; exit 0
 SH
 cat > "$T/stub/mbox.sh" <<'SH'

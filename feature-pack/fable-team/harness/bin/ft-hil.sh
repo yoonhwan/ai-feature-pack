@@ -6,7 +6,7 @@
 #                                  h<M> 을 «대체됨» 으로 적는다 — h<M> 을 치면 `REJECT 대체됨 → h<N>` rc 1 · 계획 실행 0
 #   ft-hil.sh --cmd '<명령>'      → 명령 1줄 계획을 $HIL_DIR/hil-cmd/<시각>.sh 로 쓰고 --add 와 같은 처리
 #   ft-hil.sh                     → 목록 `h<N>  <대상>  <대상 실재 여부>  <미실행 N분 | 실행 HH:MM rc=n | 대체됨 → h<N>>  <수신=좌석@쪽지함 | 수신=- | 수신=표식 손상>`
-#   ft-hil.sh --pending [--each] [--held] → 미실행·미대체·«보류 아님» h 요약 1줄(0개면 출력 없음) · --each 는 `h<N> <분>` 줄만 · --held 는 보류 `h<N> <분> <사유>` 줄(r1236)
+#   ft-hil.sh --pending [--each] [--held] → 미실행·미대체·«보류 아님» h 요약 1줄(0개면 출력 없음) · --each 는 `h<N> <분>` 줄만 · --held 는 보류 `h<N> <분> <사유>` 줄(r1236) · r1538 `--team <팀>` = 그 팀 h 만(계획 머리 요청 좌석 ∪ h<N>.notify 좌석 · 표식 없는 h 는 전 팀에 셈 + stderr 1줄 · ft_hil_team.py)
 #   ft-hil.sh --hold h<N> --why <사유> | --unhold h<N>  → <h>.held 에 `hold|unhold <epoch> <좌석> [사유]` 1줄 이어 쓰기 · 마지막 줄이 hold = 보류 · 없는 h = rc 2 (r1236)
 # h<N> = «실행되면 h<N>.ran(시작 시각 · rc)을 남기고 계획을 그대로 실행하는» 진입 파일. 계획 파일 수정 0 · 실행 권한 변경 0.
 #   ★r1117: 끝나면 ft-hil-notify.sh 가 `[완료 h<N>] rc=…` 를 계획 머리 `# ft-hil-request seat=<좌석…>`(≤3 · 린트 실패 REJECT rc2 · 없으면 WARN) + planner _master 에 1통씩(stdout·stderr 사본 h<N>.out · r1382)★
@@ -16,7 +16,7 @@
 set -uo pipefail
 D="${HIL_DIR:-/tmp}"
 die() { echo "REJECT $*" >&2; exit 1; }
-usage() { echo "usage: ft-hil.sh [--add <계획 파일> [--supersedes h<M>] [--notify <좌석> [--notify-comm <쪽지함 폴더>]] | --cmd '<명령>' | --pending [--each] [--held] [--write-latest] | --hold h<N> --why <사유> | --unhold h<N>]" >&2; exit 2; }
+usage() { echo "usage: ft-hil.sh [--add <계획 파일> [--supersedes h<M>] [--notify <좌석> [--notify-comm <쪽지함 폴더>]] | --cmd '<명령>' | --pending [--each] [--held] [--team <팀>] [--write-latest] | --hold h<N> --why <사유> | --unhold h<N>]" >&2; exit 2; }
 
 clip() {  # 클립보드 실패는 출력을 막지 않는다
   [ "${HIL_CLIP:-1}" != 0 ] && command -v pbcopy >/dev/null 2>&1 || return 0
