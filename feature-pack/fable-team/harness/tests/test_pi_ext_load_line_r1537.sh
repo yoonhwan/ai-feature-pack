@@ -8,8 +8,10 @@
 #        ⓔ 조기 return 경로(우편함 없음)에서도 기록은 남는다 = 기존 동작 변화 0
 #        ⓕ 헬퍼도 «확장 파일» 이다(install 폴더의 .ts 는 전부 로드 · docs/extensions.md:46 · loader.js:534) →
 #           default factory = function · 그 factory 를 불러도 pi.on·appendEntry 호출 0(하는 일 0)
+#        ⓖ «비활성 좌석»(내 좌석이 그 팀 _master 가 아님) 에서도 기록 4/4 — 로드 사실 ≠ 기능 활성
+#           (DA R2 · ft-land-next 는 활성 guard 가 factory 앞에서 return 해 session_start 등록 자체가 0 이었다)
 #  변이: M1 ft-idle-nudge 의 로드 줄 뺌 = ⓐ FAIL · M2 appendEntry → sendMessage(triggerTurn:true) = ⓑ FAIL
-#        M3 헬퍼 default factory 뺌 = ⓕ FAIL
+#        M3 헬퍼 default factory 뺌 = ⓕ FAIL · M4 로드 줄 등록을 활성 guard 뒤로 = ⓖ FAIL(DA R2)
 # 새 파일 mode 100644(실행 비트 0) — `bash <이 파일>` 로 부른다.
 set -uo pipefail
 for v in GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY; do unset "$v"; done
@@ -137,6 +139,29 @@ for (const ext of EXT) { // ⓐ ⓑ ⓒ
   }
   eq("ⓕ 설치 폴더 .ts 5개 전부 default function", bad5.join(","), "");
 }
+{ // ⓖ 비활성 좌석(내 좌석 ≠ 그 팀 _master) — 기록은 4/4 · 기능은 그대로 비활성(감시·턴 0)
+  const base2 = process.env.R1537_BASE2;
+  Object.assign(process.env, { FT_MBOX_ROOT: base2, FT_MBOX_FILE: path.join(base2, ".fable-team", "comm", "mailbox.jsonl"),
+    FT_MBOX_STATE_DIR: path.join(base2, ".fable-team", "state"), FT_LAND_NEXT_ROOT: base2, FT_LAND_NEXT_STATE: path.join(base2, ".fable-team", "state") });
+  errs.length = 0;
+  for (const ext of EXT) {
+    const pi = await load(ext);
+    eq(`ⓖ 비활성 ${ext.file} 기록 1줄`, lines(pi).length, 1);
+    eq(`ⓖ 비활성 ${ext.file} 카드 = ${ext.card}`, lines(pi)[0]?.d?.card, ext.card);
+    eq(`ⓖ 비활성 ${ext.file} 모델 턴 0`, pi.sends.length, 0);
+  }
+  eq("ⓖ 비활성 ft-land-next 기능 그대로 비활성(감시 폴더 0)", fs.existsSync(path.join(base2, ".fable-team", "state", "install-pending")), false);
+  // 변이 M4 — 로드 줄 등록을 활성 guard «뒤»로 되돌린 사본(DA R2 가 잡은 그 상태)
+  const src = fs.readFileSync(path.join(PI, "ft-land-next.ts"), "utf-8");
+  const reg = '  pi.on("session_start", async () => { appendLoadLine(pi, "r1532", "ft-land-next.ts"); });\n';
+  eq("M4 변이 지점 1개", src.split(reg).length - 1, 1);
+  const m4dir = path.join(T, "mut-m4"); fs.mkdirSync(m4dir, { recursive: true });
+  for (const f of ["ft-load-line.ts", "ft-mbox-wake.ts"]) fs.copyFileSync(path.join(PI, f), path.join(m4dir, f));
+  fs.writeFileSync(path.join(m4dir, "ft-land-next.ts"), src.replace(reg, ""));
+  const m4 = await import(`${pathToFileURL(path.join(m4dir, "ft-land-next.ts")).href}?v=${++modv}`);
+  const mp = fake(); m4.default(mp); await mp.emit("session_start");
+  eq("M4 비활성 좌석 기록 = ⓖ 검출(0줄)", lines(mp).length, 0);
+}
 console.error = origErr;
 process.exit(fails ? 1 : 0);
 NODE
@@ -150,6 +175,11 @@ printf '{"name":"@earendil-works/pi-coding-agent","type":"module","main":"index.
 echo 'export const createLocalBashOperations = () => ({ exec: async () => ({ output: "", exitCode: 0 }) });' \
   > "$T/node_modules/@earendil-works/pi-coding-agent/index.mjs"
 eq "S7 시험 사본 = 원본 바이트 일치" "$(cd "$PI" && cmp -s ft-load-line.ts "$T/ext/ft-load-line.ts" && echo yes)" yes
+
+mkdir -p "$T/base2/.fable-team/comm" "$T/base2/.fable-team/state"
+: > "$T/base2/.fable-team/comm/mailbox.jsonl"
+printf '%s\n' '{"_master":"byz-harness-master-pi#171","byz-harness-master-pi#171":{"role":"master","agent":"pi"}}' > "$T/base2/.fable-team/seats-harness.json"
+export R1537_BASE2="$T/base2"
 
 export R1537_PI_DIR="$T/ext" R1537_TMP="$T" FT_SEAT="byz-r1537-probe#0"
 export FT_MBOX_ROOT="$T/base" FT_MBOX_FILE="$T/base/.fable-team/comm/mailbox.jsonl" FT_MBOX_STATE_DIR="$T/base/.fable-team/state"
