@@ -27,6 +27,8 @@ BYZ_TABLE = [(c, k, re.compile(rx, re.I)) for c, k, rx in [
     # 코드 파일(.py .ts .tsx .js .sh)만 — 경로 어디든 .json·.pem·.key·.env·secrets/ 가 있으면 예외 0(실값 파일은 그대로 막는다)
     ("code", "test-file", r"(?i)^(?!.*(?:\.json|\.pem|\.key|\.env|(?:^|/)secrets/))(?:.*/)?(?:[^/]*\.(?:test|spec)|[^/]*_test|test_[^/]*)\.(?:py|ts|tsx|js|sh)$"),
     ("forbid", "key", r"credential"),
+    # 하네스 research·inventory «원자료»(r1521): 데이터 확장자·SHA256SUMS 는 docs · .py .sh .js .ts 와 실행 확장자 중간 이름(x.py.txt)은 code(import 부작용 H3) · 모드는 judge_row 가 100644 로 닫는다 · .md 는 위 :21 docs 줄 그대로(이 줄 확장자에 .md 없음)
+    ("docs", "research-data", r"^design/harness/(?:research|inventory)/(?!(?:.*/)?[^/]*\.(?:py|sh|js|ts)\.[^/]*$)(?:.*/)?(?:SHA256SUMS|[^/]*\.(?:json|jsonl|txt|tsv|html|log))$"),
     # 팀 폴더 첫 문서 착지(r559) — 낱말 금지 «아래»(팀 폴더 결제 낱말: 그림·PDF 증거(100644)만 판정 2997 로 문서 · .json 등 데이터 파일은 실행기 입력일 수 있어 금지 유지 · DA②)
     ("code", "pytest", r"^design/teams/[^/]+/(.*/)?(test_[^/]*\.py|[^/]*_test\.py|conftest\.py)$"),   # 시험 도구가 모으는 파일 = 계속 코드
     ("docs", "team-file", r"^design/teams/[^/]+/(?!.*\.(py|sh)$).+$"),                             # 팀 폴더의 실행 안 되는 파일
@@ -169,8 +171,8 @@ def judge_row(table, row, ddl_ok, env_ok=lambda p: False):   # (옛 모드, 새 
     om, nm, st, paths = row
     classes = [kind_of(table, p, env_ok) for p in paths]
     bad = next(((k, p) for (c, k), p in zip(classes, paths) if c == "forbid"), None)
-    wrong_mode = next((p for (c, k), p in zip(classes, paths) if k == "team-billing-doc" and st[0] in "AMR" and (nm != "100644" or (st[0] != "A" and om != "100644"))), None)
-    if wrong_mode:   # 과금 낱말 그림·PDF 는 일반 파일(100644)일 때만 문서(r1248) — 심링크·실행 비트 = mode(학습 불가)
+    wrong_mode = next((p for (c, k), p in zip(classes, paths) if k in ("team-billing-doc", "research-data") and st[0] in "AMR" and (nm != "100644" or (st[0] != "A" and om != "100644"))), None)
+    if wrong_mode:   # 과금 낱말 그림·PDF(r1248)와 하네스 research·inventory 원자료(r1521)는 일반 파일(100644)일 때만 문서 — 심링크·실행 비트·같은 100755 수정 M = mode(학습 불가)
         return "forbid", "mode", "모드 %s→%s: %s" % (om, nm, wrong_mode)
     if st[0] == "R":   # 카드 상태 폴더 이동 = 같은 팀 카드 폴더 사이 같은 이름/모드/양쪽 docs(유사도 무관) 또는 내용 동일(R100)
         same = os.path.basename(paths[0]) == os.path.basename(paths[1])
