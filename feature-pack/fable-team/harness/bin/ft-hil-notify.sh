@@ -17,11 +17,13 @@ die() { echo "ft-hil-notify 판정 불가 — $*" >&2; exit 1; }
 comm() { [ -n "${1:-}" ] && { printf '%s\n' "$1"; return; }; . "$HERE/ft-harness-root.sh" && ft_comm_dir "$HERE"; }
 seat_of() { python3 -c 'import json,sys;v=json.load(open(sys.argv[1]+"/../seats-planner.json")).get(sys.argv[2]);print(v if isinstance(v,str) else "")' "$1" "$2" 2>/dev/null; }  # r1517: _master·_desk 공용(없거나 문자열 아님 = 빈 값)
 send() {  # <쪽지함> <발신자> <본문> <수신…> — 빈 이름·같은 역할(끝 #N 뺀 이름 = mbox_conf.role_key · r1159)은 건너뛴다
-  local c="$1" f="$2" b="$3" to k seen=" " bad=0; shift 3
+  local c="$1" f="$2" b="$3" to k seen=" " bad=0 o="" rc=0; shift 3
   [ -f "$c/mbox.sh" ] || die "쪽지함 도구 없음: $c/mbox.sh"
   for to in "$@"; do k="$to"; [[ "$to" =~ ^(.*)#[0-9]+$ ]] && k="${BASH_REMATCH[1]}"
     [ -n "$to" ] && [[ "$seen" != *" $k "* ]] || continue; seen="$seen$k "
-    bash "$c/mbox.sh" send "$to" "$f" "$b" >/dev/null 2>&1 || { echo "ft-hil-notify 판정 불가 — mbox send rc≠0 to=$to" >&2; bad=1; }; done
+    # r1517(HOLD aifp#796): 실패 이유를 버리지 않는다 — rc + 출력 첫 줄 200자(없으면 빈 자리)
+    o="$(bash "$c/mbox.sh" send "$to" "$f" "$b" 2>&1)"; rc=$?
+    [ "$rc" = 0 ] || { o="${o%%$'\n'*}"; echo "ft-hil-notify 판정 불가 — mbox send rc=$rc to=$to${o:+ · ${o:0:200}}" >&2; bad=1; }; done
   [ "$seen" != " " ] || die "수신자 0(요청 좌석 표식 없음 · planner _master 없음)"
   return "$bad"
 }
