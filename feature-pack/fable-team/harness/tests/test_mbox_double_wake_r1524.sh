@@ -63,12 +63,19 @@ mkdir -p "$T/ext/.pi/agent/extensions" "$T/nohome"
 printf 'relay 본문\n' > "$T/relay.txt"
 
 # ── 명부 3벌: 정상 / planner 명부 없음 / planner 명부 깨짐(⑪) ────────────────────────────────────────────
-SEATS='{"dm#1":{"agent":"claude","team":"h1","tick":null},
- "pm#1":{"agent":"pi","team":"h1","tick":null},"gn#1":{"agent":"claude","team":"h1","tick":null},
+SEATS='{"gn#1":{"agent":"claude","team":"h1","tick":null},
  "gn2#1":{"agent":"claude","team":"h1","tick":null},"s1#1":{"agent":"claude","team":"h1","tick":null},
  "bm#1":{"agent":"pi","team":"h1","tick":null}}'
 for d in ok nopj broken; do mkdir -p "$T/seats-$d"; printf '%s\n' "$SEATS" > "$T/seats-$d/seats.json"; done
-printf '%s\n' '{"_master":"pm#1","_desk":"dm#1"}' > "$T/seats-ok/seats-planner.json"
+# ⑪ 은 planner 명부가 없거나(nopj) 깨져서(broken) «중복 등록» 이 없다 → seats.json 에 pm#1·dm#1 행을 둔다(ft-agent-alive 생존 판정용)
+for d in nopj broken; do python3 - "$T/seats-$d/seats.json" <<'PYJSON'
+import json, sys
+p = sys.argv[1]; d = json.load(open(p, encoding="utf-8"))
+d["pm#1"] = {"agent": "pi", "team": "h1"}; d["dm#1"] = {"agent": "claude", "team": "h1"}
+json.dump(d, open(p, "w", encoding="utf-8"), ensure_ascii=False)
+PYJSON
+done
+printf '%s\n' '{"_master":"pm#1","_desk":"dm#1","pm#1":{"role":"master","agent":"pi"},"dm#1":{"role":"desk","agent":"pi"}}' > "$T/seats-ok/seats-planner.json"   # 실제 명부처럼 좌석 행도 있다
 printf '%s\n' '{깨진' > "$T/seats-broken/seats-planner.json"
 # ★판 2 팀 명부★ — hm#1 = pi master · cm#1 = claude master · im#1 = codex master · nm#1 = pi 나노 · bm#1 = 깨진 파일이 주장하는 pi master
 printf '%s\n' '{"_master":"hm#1","hm#1":{"agent":"pi","team":"hh1","tick":null},"nm#1":{"agent":"pi","team":"hh1","tick":null}}' > "$T/seats-ok/seats-harness.json"
@@ -76,7 +83,7 @@ printf '%s\n' '{"_master":"cm#1","cm#1":{"agent":"claude","team":"c1","tick":nul
 printf '%s\n' '{"_master":"im#1","im#1":{"agent":"codex","team":"i1","tick":null}}' > "$T/seats-ok/seats-issues.json"
 printf '%s\n' '{"_master":"bm#1","bm#1":{"agent":"pi"},"x":' > "$T/seats-ok/seats-broken.json"   # JSON 오류(그 파일만 거짓)
 
-ALLSEATS="dm#1 pm#1 gn#1 gn2#1 s1#1 hm#1 cm#1 im#1 nm#1 bm#1"
+ALLSEATS="dm#1 pm#1 gn#1 gn2#1 s1#1 hm#1 cm#1 im#1 nm#1 bm#1"   # pm#1·dm#1 = seats-planner.json 행(중복 등록 0)
 export PATH="$T/fakebin:$PATH" FT_PS_CMD="$T/fakebin/ps" FT_AGENT_ALIVE_TIMEOUT=2 \
        TMUX_LOG="$T/tmux.log" TMUX_SEATS="$ALLSEATS" FT_BIN="$T/nobin" \
        FT_MBOX_RECV_LIMIT=50 FT_MBOX_RATE_N=1000 FT_MBOX_RESEND_COOLDOWN=0
@@ -246,8 +253,8 @@ mutbox() {  # <이름> <sed 스크립트> <파일> → 변이 박스 경로
 }
 # 변이 1: ext_wake_seat 이 _master 만 본다(원래 판정 = _master·_desk) → 사례 ① 이 FAIL 이어야 한다
 c1() { use "$1"; NOW="$W0"; S dm#1 s1#1 "변이 ① 재현"; [ "$(nv "$OUT" doorbell)" = quiet ] && [ "$(inj dm#1)" = 0 ]; }
-B="$(mutbox m1 's/if seat in (j.get("_master"), j.get("_desk")):/if False:/' mbox.sh)"
-c1 "$B" && bad "변이 1(planner 판정 끔) 이 ① 을 안 잡음" || ok "변이 1(planner 판정 끔) → ① FAIL 확인"
+B="$(mutbox m1 's/if os.path.basename(f) == "seats-planner.json" and j.get("_desk") == seat:/if False:/' mbox.sh)"
+c1 "$B" && bad "변이 1(planner _desk 절 끔) 이 ① 을 안 잡음" || ok "변이 1(planner _desk 절 끔) → ① FAIL 확인"
 # 변이 2: 미읽음 0 검사를 끈다 → 사례 ⑥⑦ 이 FAIL 이어야 한다
 c67() { use "$1"; NOW="$W0"; S gn#1 s1#1 "변이 미읽음 0 재현"; R gn#1 >/dev/null
   run "$NOW" ring gn#1 1; [ "$(nv "$OUT" doorbell)" = none ] && [ "$(inj gn#1)" = 1 ]; }

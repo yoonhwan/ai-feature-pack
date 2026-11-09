@@ -74,7 +74,7 @@ function setup(name, { master = SEAT, seat = SEAT, mboxRoot = null } = {}) {
   const state = path.join(base, "state");
   fs.mkdirSync(base, { recursive: true });
   fs.mkdirSync(comm, { recursive: true });
-  fs.writeFileSync(path.join(base, "seats-planner.json"), JSON.stringify({ _master: master }) + "\n");
+  fs.writeFileSync(path.join(base, "seats-planner.json"), JSON.stringify({ _master: master, [SEAT]: { role: "master", agent: "pi" } }) + "\n"); // 실제 명부처럼 좌석 «행» 도 있다(판 2 판정 = _master ∧ 같은 파일 agent=='pi')
   fs.writeFileSync(path.join(base, "seats.json"), JSON.stringify({ [SEAT]: { team: "planner", tick: 0 } }) + "\n");
   const stubLog = path.join(dir, "stub.log");
   const stub = ["#!/bin/bash", `echo "$*" >> ${JSON.stringify(stubLog)}`,
@@ -332,7 +332,7 @@ async function load() {
   fs.writeFileSync(c.mbox, "");
   const pi = await load();
   eq("T17 승계 전 = 턴 0", pi.calls.length, 0);
-  fs.writeFileSync(path.join(c.dir, ".fable-team", "seats-planner.json"), JSON.stringify({ _master: SEAT }) + "\n"); // 승계
+  fs.writeFileSync(path.join(c.dir, ".fable-team", "seats-planner.json"), JSON.stringify({ _master: SEAT, [SEAT]: { role: "master", agent: "pi" } }) + "\n"); // 승계
   append(c.mbox, row(120, SEAT, "[발주 #120] 승계 뒤"));
   await until(() => pi.calls.length >= 1);
   eq("T17 승계 뒤 = 턴 1(재시작 0)", pi.calls.length, 1);
@@ -436,7 +436,7 @@ async function load() {
   const rootComm = path.join(base, ".fable-team", "comm"), rootState = path.join(base, ".fable-team", "state");
   fs.mkdirSync(rootComm, { recursive: true });
   fs.copyFileSync(path.join(c.dir, ".fable-team", "comm", "mbox.sh"), path.join(rootComm, "mbox.sh"));
-  fs.writeFileSync(path.join(base, ".fable-team", "seats-planner.json"), JSON.stringify({ _master: SEAT }) + "\n");
+  fs.writeFileSync(path.join(base, ".fable-team", "seats-planner.json"), JSON.stringify({ _master: SEAT, [SEAT]: { role: "master", agent: "pi" } }) + "\n");
   const mbox = path.join(rootComm, "mailbox.jsonl");
   fs.writeFileSync(mbox, "");
   delete process.env.FT_MBOX_ROOT;
@@ -495,7 +495,7 @@ const rowFrom = (seq, to, from, body) => JSON.stringify({ seq, ts: "2026-11-09T0
 }
 { // 변이 6: 판정을 planner 명부만으로 되돌린 사본 → ㉖ 이 FAIL 이어야 한다(판 2 줄이 실제로 걸려 있나)
   const src = fs.readFileSync(EXT, "utf-8");
-  const mut = src.replace(': (r?.agent === "pi" && j._master === seat)) return true;', ': false) return true;');
+  const mut = src.replace('(r?.agent === "pi" && j._master === seat)', '(f === "seats-planner.json" && j._master === seat)');
   if (mut === src) bad("변이 6 치환 미적용(판정 줄 못 찾음)");
   const mutPath = path.join(path.dirname(EXT), "mut6.ts");
   fs.writeFileSync(mutPath, mut);
