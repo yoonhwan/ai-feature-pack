@@ -13,6 +13,7 @@
 #  T18 시작 직후(기동 창) 사건은 «사건» 으로 바로 깨운다(1회 재확인에 기대지 않는다)
 #  T19 user_bash 훅: `! bash /tmp/hN` 이 끝나면 custom 턴 1회(rc·출력 그대로) · T20 그 밖의 명령 = 훅 0
 #  T21 훅 알림 실패 = bash 결과 불변(ERROR 1줄) · T22 활성 = _master + _desk(desk 좌석도 planner 대면)
+#  T23 비활성 좌석 = user_bash 훅 0 · T24 !! (excludeFromContext) = 훅 0 · T25 알림은 «결과 기록 뒤»(exec 반환 뒤 1회)
 #  T16 FT_MBOX_ROOT 미지정 + cwd = git 워크트리 → root = git 공용 루트(실측 FAIL 보정 · 18:20 planner pi#245)
 # 새 파일 mode 100644(실행 비트 0) — `bash <이 파일>` 로 부른다.
 set -uo pipefail
@@ -364,9 +365,38 @@ async function load() {
   const cap = capture();
   const res = await pi.emit("user_bash", { command: "bash /tmp/h9" });
   const out = await res.operations.exec("bash /tmp/h9", "/tmp", {});
+  await until(() => cap.buf.some((l) => l.startsWith("ERROR ft-mbox-wake:"))); // 알림은 exec 반환 «뒤»(setImmediate)
   cap.stop();
   eq("T21 알림 실패해도 rc·출력 그대로", `${out.exitCode}/${out.output}`, "0/x");
   eq("T21 ERROR 1줄", cap.buf.filter((l) => l.startsWith("ERROR ft-mbox-wake:")).length, 1);
+  delete globalThis.__r1477Bash;
+}
+// ── T23 비활성 좌석 = user_bash 훅 0 · T24 !! = 훅 0 · T25 알림은 결과 기록 뒤 ───────────────
+{
+  const c = setup("t23", { master: "byz-other-pi#1" });
+  fs.writeFileSync(c.mbox, "");
+  const pi = await load();
+  globalThis.__r1477Bash = { exec: async () => ({ output: "x", exitCode: 0, cancelled: false, truncated: false }) };
+  eq("T23 비활성 좌석 = 훅 0", await pi.emit("user_bash", { command: "bash /tmp/h5" }), undefined);
+  const c2 = setup("t24");
+  fs.writeFileSync(c2.mbox, "");
+  const pi2 = await load();
+  eq("T24 !! 제외 = 훅 0", await pi2.emit("user_bash", { command: "bash /tmp/h5", excludeFromContext: true }), undefined);
+  eq("T24 !! 제외 = 턴 0", pi2.calls.length, 0);
+  const c3 = setup("t25");
+  fs.writeFileSync(c3.mbox, "");
+  const pi3 = await load();
+  let recorded = false;
+  const order = [];
+  pi3.sendMessage = function (m, o) { order.push(recorded); pi3.calls.push({ m, o }); };
+  globalThis.__r1477Bash = { exec: async () => ({ output: "ok", exitCode: 0, cancelled: false, truncated: false }) };
+  const res = await pi3.emit("user_bash", { command: "bash /tmp/h12" });
+  const out = await res.operations.exec("bash /tmp/h12", "/tmp", {});
+  recorded = true; // ← pi 가 BashExecution 을 세션에 넣은 시점(반환 직후)을 대신한다
+  await until(() => pi3.calls.length >= 1);
+  eq("T25 알림 1회", pi3.calls.length, 1);
+  eq("T25 알림은 결과 기록 «뒤»(exec 반환 뒤)", order[0], true);
+  eq("T25 rc 그대로", out.exitCode, 0);
   delete globalThis.__r1477Bash;
 }
 // ── T22 활성 = _master + _desk ─────────────────────────────────────────────────────────
