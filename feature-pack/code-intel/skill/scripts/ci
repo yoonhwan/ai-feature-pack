@@ -107,14 +107,34 @@ case "$cmd" in
         *) path="$1"; shift ;;
       esac
     done
-    # probe 0.6.0-rc342 는 한국어 마크다운에서 char-boundary panic(SIGABRT=134)이 있다.
-    # → abort 시 마크다운 무시하고 1회 재시도.
-    "$PROBE" search "$q" "$path" --max-results "$max" --timeout "${CI_TIMEOUT:-90}"
-    rc=$?
-    if [ "$rc" -eq 134 ] || [ "$rc" -eq 133 ]; then
-      echo "[warn] probe aborted (markdown AST panic 추정) → '*.md' 제외 후 재시도" >&2
+    # 2026-11-09 개선: probe 0.6.0 은 한국어 마크다운에서 char-boundary panic(SIGABRT=134)을 낸다.
+    #   원인 = markdown AST 청커가 바이트 50 에서 UTF-8 경계 무시 절단. 고칠 수 없는 외부 바이너리라
+    #   «비ASCII 질의면 처음부터 md 를 빼고 probe + md 는 rg 로 따로» 돌려 커버리지를 유지한다.
+    nonascii=0; printf '%s' "$q" | LC_ALL=C grep -q '[^ -~]' && nonascii=1
+    if [ "$nonascii" = 1 ]; then
+      echo "[info] 비ASCII 질의 → markdown 은 rg 로 분리 검색(probe panic 회피)" >&2
       "$PROBE" search "$q" "$path" --max-results "$max" --timeout "${CI_TIMEOUT:-90}" -i '*.md'
       rc=$?
+      md_pat="$q"
+      case "$q" in *" "*) md_pat="$(printf '%s' "$q" | tr -s '[:space:]' '|' | sed 's/|$//')";; esac
+      md_hits="$(rg -n --no-heading -m 1 --color never -g '*.md' -g '!**/.git/**' -- "$md_pat" "$path" 2>/dev/null | head -n "$max")"
+      if [ -n "$md_hits" ]; then
+        echo
+        echo "== markdown (rg 폴백 · probe panic 회피) =="
+        printf '%s\n' "$md_hits" | while IFS= read -r line; do
+          f="${line%%:*}"; rest="${line#*:}"; ln="${rest%%:*}"; txt="${rest#*:}"
+          printf '%s:%s\n  %s\n' "$f" "$ln" "$(printf '%s' "$txt" | cut -c1-160)"
+        done
+        [ "$rc" -eq 1 ] && rc=0
+      fi
+    else
+      "$PROBE" search "$q" "$path" --max-results "$max" --timeout "${CI_TIMEOUT:-90}"
+      rc=$?
+      if [ "$rc" -eq 134 ] || [ "$rc" -eq 133 ]; then
+        echo "[warn] probe aborted (markdown AST panic 추정) → '*.md' 제외 후 재시도" >&2
+        "$PROBE" search "$q" "$path" --max-results "$max" --timeout "${CI_TIMEOUT:-90}" -i '*.md'
+        rc=$?
+      fi
     fi
     # 다중어 쿼리는 기본 AND 로 해셕돼 0건이 되기 쉽다 → OR 로 1회 재시도.
     if [ "$rc" -eq 1 ] && printf '%s' "$q" | grep -q '[[:space:]]'; then
