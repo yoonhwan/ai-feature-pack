@@ -6,6 +6,9 @@
 #  T1 시작 회수(잔존 2행 = 턴 1) · T2 실시간 도착 1턴 · T3 to 필터 · T4 중복 0 + agent_end 재확인
 #  T5 2행 도착 = 큐 1 + ACK 1 · T6 우편함 없음 = ERROR 1줄 + 폴링 0 · T7 예산 rc3 → held → sweep nudge → 1턴(재예약 0)
 #  T8 보고 전용 무음 / [긴급] 예산 밖 · T9 원자 교체 2회 모두 감지 · T10 recv 전 재시작도 회수 · T11 활성 결속
+#  T12 사람 발신(slack-*/_master) = 예산 밖 즉시(DA HOLD R2) · T13 지원 우편함(FT_MBOX_FILE 다른 루트) = 입력·감시·recv 결속(DA HOLD R1)
+#  T14 지정 우편함에 CLI 가 없으면 루트 것을 빌리고 recv 대상을 FT_MBOX_DIR 로 밝힌다(DA HOLD R1 두 번째 꼴)
+#  T15 session_shutdown = 감시 해제(옛 인스턴스가 같은 우편함을 2중으로 깨우지 않는다)
 # 새 파일 mode 100644(실행 비트 0) — `bash <이 파일>` 로 부른다.
 set -uo pipefail
 for v in GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY; do unset "$v"; done
@@ -51,10 +54,13 @@ const append = (f, ...rows) => fs.appendFileSync(f, rows.map((r) => r + "\n").jo
 const replace = (f, ...rows) => { const t = `${f}.tmp`; fs.writeFileSync(t, rows.map((r) => r + "\n").join("")); fs.renameSync(t, f); };
 const lines = (f) => { try { return fs.readFileSync(f, "utf-8").split("\n").filter((l) => l.trim()).length; } catch { return 0; } };
 
-function setup(name, { master = SEAT, seat = SEAT } = {}) {
+function setup(name, { master = SEAT, seat = SEAT, mboxRoot = null } = {}) {
   const dir = path.join(ROOT, name);
   const base = path.join(dir, ".fable-team");
-  const comm = path.join(base, "comm"), state = path.join(base, "state");
+  // mboxRoot = 우편함이 «다른 데이터 루트» 에 있는 경우(FT_MBOX_FILE 지원 경로 · DA HOLD R1)
+  const comm = path.join(mboxRoot ? path.join(dir, mboxRoot) : dir, ".fable-team", "comm");
+  const state = path.join(base, "state");
+  fs.mkdirSync(base, { recursive: true });
   fs.mkdirSync(comm, { recursive: true });
   fs.writeFileSync(path.join(base, "seats-planner.json"), JSON.stringify({ _master: master }) + "\n");
   fs.writeFileSync(path.join(base, "seats.json"), JSON.stringify({ [SEAT]: { team: "planner", tick: 0 } }) + "\n");
@@ -62,6 +68,7 @@ function setup(name, { master = SEAT, seat = SEAT } = {}) {
   const stub = ["#!/bin/bash", `echo "$*" >> ${JSON.stringify(stubLog)}`,
     'case "$*" in *"budget reserve"*) exit "${STUB_RC:-0}" ;; esac', "exit 0", ""].join("\n");
   fs.writeFileSync(path.join(comm, "mbox.sh"), stub);
+  if (mboxRoot) { fs.mkdirSync(path.join(base, "comm"), { recursive: true }); fs.writeFileSync(path.join(base, "comm", "mbox.sh"), stub); }
   Object.assign(process.env, {
     FT_MBOX_ROOT: dir, FT_MBOX_STATE_DIR: state, FT_MBOX_FILE: path.join(comm, "mailbox.jsonl"),
     FT_SEAT: seat, FT_MBOX_WAKE_DEBOUNCE_MS: "5",
@@ -76,10 +83,13 @@ function setup(name, { master = SEAT, seat = SEAT } = {}) {
 
 function capture() { const buf = []; const orig = console.error; console.error = (...a) => buf.push(a.map(String).join(" ")); return { buf, stop: () => { console.error = orig; } }; }
 
+const live = [];
 async function load() {
+  for (const p of live.splice(0)) { p.retired = true; await p.emit("session_shutdown", {}); } // 앞 케이스 감시 해제
   const pi = { calls: [], retired: false, h: {}, on(e, f) { (this.h[e] ??= []).push(f); },
     async emit(e, ev = {}) { for (const f of this.h[e] ?? []) await f(ev, { isIdle: () => true }); },
     sendMessage(m, o) { if (!this.retired) this.calls.push({ m, o }); } };
+  live.push(pi);
   const mod = await import(`${pathToFileURL(EXT).href}?v=${++modv}`);
   mod.default(pi);
   await pi.emit("session_start", {});
@@ -236,6 +246,71 @@ async function load() {
   append(c2.mbox, row(71, SEAT, "[발주 #71] 활성"));
   const pi2 = await load();
   eq("T11 _master 일치 = 활성 1턴", pi2.calls.length, 1);
+}
+
+// ── T12 사람 발신 = 예산 밖 즉시(DA HOLD R2) ─────────────────────────────────────────────
+{
+  const c = setup("t12");
+  append(c.mbox, JSON.stringify({ seq: 80, ts: "2026-11-09T00:00:00", to: SEAT, from: "slack-yoonhwan", body: "이거 좀 봐줘" }));
+  process.env.STUB_RC = "3"; // 예산이 소진돼 있어도 사람 글은 지나가야 한다
+  const pi = await load();
+  eq("T12 사람 글 = 턴 1(예산 소진 무관)", pi.calls.length, 1);
+  eq("T12 사람 글 = 예약 0", lines(c.stubLog), 0);
+  eq("T12 사람 글 = held 0", fs.existsSync(c.held), false);
+  delete process.env.STUB_RC;
+  const c2 = setup("t12b");
+  append(c2.mbox, JSON.stringify({ seq: 81, ts: "2026-11-09T00:00:00", to: SEAT, from: "byz-unknown-seat#9", body: "미등록 좌석 글" }));
+  process.env.STUB_RC = "3";
+  const pi2 = await load();
+  eq("T12b 미등록 발신 = 사람 아님(턴 0)", pi2.calls.length, 0);
+  eq("T12b 미등록 발신 = 예약 1", lines(c2.stubLog), 1);
+  delete process.env.STUB_RC;
+}
+// ── T13 지원 우편함 경로 분리: 입력·감시·recv 가 같은 지정 우편함(DA HOLD R1) ─────────────
+{
+  const c = setup("t13", { mboxRoot: "data-root-b" });
+  fs.writeFileSync(c.mbox, "");
+  const pi = await load();
+  eq("T13 시작 시 턴 0", pi.calls.length, 0);
+  append(c.mbox, row(90, SEAT, "[발주 #90] 다른 루트 우편함"));
+  await wait(150);
+  eq("T13 다른 루트 우편함 도착 = 턴 1", pi.calls.length, 1);
+  eq("T13 recv 가 그 우편함의 mbox.sh", (pi.calls[0]?.m?.content ?? "").includes(`bash ${c.comm}/mbox.sh recv ${SEAT}`), true);
+  eq("T13 예산도 그 우편함 CLI", lines(c.stubLog), 1);
+  eq("T13 seq 파일 = 90", fs.readFileSync(c.seqFile, "utf-8").trim(), "90");
+}
+
+// ── T14 지정 우편함에 CLI 없음 = 루트 CLI 빌림 + FT_MBOX_DIR 표식(DA HOLD R1) ─────────────
+{
+  const c = setup("t14", { mboxRoot: "data-root-c" });
+  fs.rmSync(path.join(c.comm, "mbox.sh")); // 지정 우편함에 CLI 0
+  fs.writeFileSync(c.mbox, "");
+  const pi = await load();
+  append(c.mbox, row(95, SEAT, "[발주 #95] CLI 없는 우편함"));
+  await wait(150);
+  eq("T14 턴 1", pi.calls.length, 1);
+  const content = pi.calls[0]?.m?.content ?? "";
+  eq("T14 빌린 CLI = 루트 mbox.sh", content.includes(`bash ${c.dir}/.fable-team/comm/mbox.sh recv ${SEAT}`), true);
+  eq("T14 recv 대상 우편함 표식", content.includes(`FT_MBOX_DIR="${c.comm}"`), true);
+  eq("T14 예산 = 빌린 CLI 1회", lines(c.stubLog), 1);
+}
+
+// ── T15 session_shutdown = 감시 해제(2중 깨움 0) ─────────────────────────────────────────
+{
+  const c = setup("t15");
+  fs.writeFileSync(c.mbox, "");
+  const pi = await load();
+  append(c.mbox, row(100, SEAT, "[발주 #100] 첫 프로세스"));
+  await wait(150);
+  eq("T15 첫 프로세스 = 턴 1", pi.calls.length, 1);
+  pi.retired = true;
+  await pi.emit("session_shutdown", {});
+  append(c.mbox, row(101, SEAT, "[발주 #101] 감시 해제 뒤"));
+  await wait(150);
+  eq("T15 shutdown 뒤 옛 인스턴스 = 턴 0", pi.calls.length, 1);
+  eq("T15 예산도 1회뿐", lines(c.stubLog), 1);
+  const pi2 = await load();
+  eq("T15 후계는 회수로 2행 처리 = 턴 1", pi2.calls.length, 1);
 }
 
 console.log("---");
