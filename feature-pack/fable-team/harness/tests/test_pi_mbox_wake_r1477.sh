@@ -11,6 +11,8 @@
 #  T15 session_shutdown = 감시 해제(옛 인스턴스가 같은 우편함을 2중으로 깨우지 않는다)
 #  T17 _master 승계: 로드 뒤 좌석 표식이 바뀌면 다음 쪽지에 활성(매 이벤트 재확인 · 18:24 desk #276401)
 #  T18 시작 직후(기동 창) 사건은 «사건» 으로 바로 깨운다(1회 재확인에 기대지 않는다)
+#  T19 user_bash 훅: `! bash /tmp/hN` 이 끝나면 custom 턴 1회(rc·출력 그대로) · T20 그 밖의 명령 = 훅 0
+#  T21 훅 알림 실패 = bash 결과 불변(ERROR 1줄) · T22 활성 = _master + _desk(desk 좌석도 planner 대면)
 #  T16 FT_MBOX_ROOT 미지정 + cwd = git 워크트리 → root = git 공용 루트(실측 FAIL 보정 · 18:20 planner pi#245)
 # 새 파일 mode 100644(실행 비트 0) — `bash <이 파일>` 로 부른다.
 set -uo pipefail
@@ -30,7 +32,8 @@ command -v node >/dev/null 2>&1 || { echo "FAIL node 없음"; exit 1; }
 if [ ! -f "$EXT" ]; then echo "FAIL 확장 없음 $EXT"; exit 1; fi
 
 # ── 정적 계약(완료 조건) ──────────────────────────────────────────────────────────────
-eq "S1 확장 ≤120줄" "$([ "$(wc -l < "$EXT" | tr -d ' ')" -le 120 ] && echo yes || echo no)" yes
+# 상한 = 140줄(카드 «고칠 안» 값) — master #276564 가 ③_desk 활성 + ④user_bash 훅을 같은 보정에 합치며 120 초과를 허용(1줄 보고 의무).
+eq "S1 확장 $(wc -l < "$EXT" | tr -d ' ')줄 ≤140" "$([ "$(wc -l < "$EXT" | tr -d ' ')" -le 140 ] && echo yes || echo no)" yes
 eq "S2 setInterval 0" "$(grep -c 'setInterval' "$EXT")" 0
 eq "S3 send-keys 0(타이핑 주입)" "$(grep -c 'send-keys' "$EXT")" 0
 bash -n "$0" && ok "S4 bash -n rc0" || bad "S4 bash -n rc0"
@@ -92,8 +95,9 @@ const live = [];
 async function load() {
   for (const p of live.splice(0)) { p.retired = true; await p.emit("session_shutdown", {}); } // 앞 케이스 감시 해제
   const pi = { calls: [], retired: false, h: {}, on(e, f) { (this.h[e] ??= []).push(f); },
-    async emit(e, ev = {}) { for (const f of this.h[e] ?? []) await f(ev, { isIdle: () => true }); },
-    sendMessage(m, o) { if (!this.retired) this.calls.push({ m, o }); } };
+    async emit(e, ev = {}) { let out; for (const f of this.h[e] ?? []) { const r = await f(ev, { isIdle: () => true }); if (r !== undefined && out === undefined) out = r; } return out; }, // 핸들러 반환값(user_bash = operations) 전달
+    throwOnSend: false,
+    sendMessage(m, o) { if (this.throwOnSend) throw new Error("boom"); if (!this.retired) this.calls.push({ m, o }); } };
   live.push(pi);
   const mod = await import(`${pathToFileURL(EXT).href}?v=${++modv}`);
   mod.default(pi);
@@ -330,6 +334,52 @@ async function load() {
   eq("T17 승계 뒤 = 턴 1(재시작 0)", pi.calls.length, 1);
   eq("T17 seq 파일 = 120", fs.readFileSync(c.seqFile, "utf-8").trim(), "120");
 }
+// ── T19 user_bash 훅: `! bash /tmp/hN` 이 끝나면 custom 턴 1회 ──────────────────────────
+{
+  const c = setup("t19");
+  fs.writeFileSync(c.mbox, "");
+  const pi = await load();
+  const ran = [];
+  globalThis.__r1477Bash = { exec: async (cmd) => { ran.push(cmd); return { output: "h7 out", exitCode: 0, cancelled: false, truncated: false }; } };
+  const res = await pi.emit("user_bash", { command: "bash /tmp/h7", cwd: "/tmp" });
+  eq("T19 훅이 operations 를 준다", typeof res?.operations?.exec, "function");
+  const out = await res.operations.exec("bash /tmp/h7", "/tmp", {});
+  eq("T19 원래 명령 그대로 실행", ran[0], "bash /tmp/h7");
+  eq("T19 rc·출력 그대로", `${out.exitCode}/${out.output}`, "0/h7 out");
+  await wait(30);
+  eq("T19 끝난 뒤 턴 1", pi.calls.length, 1);
+  eq("T19 본문 = h7 끝 rc=0 → recv 하고 [완료] 정리", pi.calls[0]?.m?.content, "h7 끝 rc=0 → recv 하고 [완료] 정리");
+  eq("T19 오빠 말 아님(custom) + followUp", `${pi.calls[0]?.m?.customType}/${pi.calls[0]?.o?.deliverAs}/${pi.calls[0]?.o?.triggerTurn}`, "ft-mbox/followUp/true");
+  delete globalThis.__r1477Bash;
+}
+// ── T20 그 밖의 명령 = 훅 0 · T21 알림 실패 = bash 결과 불변 ────────────────────────────
+{
+  const c = setup("t20");
+  fs.writeFileSync(c.mbox, "");
+  const pi = await load();
+  globalThis.__r1477Bash = { exec: async () => ({ output: "x", exitCode: 0, cancelled: false, truncated: false }) };
+  eq("T20 `bash /tmp/other.sh` = 훅 0", await pi.emit("user_bash", { command: "bash /tmp/other.sh" }), undefined);
+  eq("T20 `bash /tmp/h7 extra` = 훅 0", await pi.emit("user_bash", { command: "bash /tmp/h7 extra" }), undefined);
+  pi.throwOnSend = true;
+  const cap = capture();
+  const res = await pi.emit("user_bash", { command: "bash /tmp/h9" });
+  const out = await res.operations.exec("bash /tmp/h9", "/tmp", {});
+  cap.stop();
+  eq("T21 알림 실패해도 rc·출력 그대로", `${out.exitCode}/${out.output}`, "0/x");
+  eq("T21 ERROR 1줄", cap.buf.filter((l) => l.startsWith("ERROR ft-mbox-wake:")).length, 1);
+  delete globalThis.__r1477Bash;
+}
+// ── T22 활성 = _master + _desk ─────────────────────────────────────────────────────────
+{
+  const c = setup("t22", { master: "byz-other-pi#1" });
+  fs.writeFileSync(path.join(c.dir, ".fable-team", "seats-planner.json"), JSON.stringify({ _master: "byz-other-pi#1", _desk: SEAT }) + "\n");
+  fs.writeFileSync(c.mbox, "");
+  const pi = await load();
+  append(c.mbox, row(140, SEAT, "[발주 #140] desk 좌석"));
+  await until(() => pi.calls.length >= 1);
+  eq("T22 _desk 로 활성 = 턴 1", pi.calls.length, 1);
+  eq("T22 예산 1회", lines(c.stubLog), 1);
+}
 // ── T18 기동 창: 시작 직후 사건 = 즉시 깨움(재확인 타이머가 사건을 막지 않는다) ────────────
 {
   const c = setup("t18");
@@ -372,7 +422,17 @@ if (fails === 0) { console.log("DRIVER ALL PASS"); process.exit(0); }
 console.log(`DRIVER FAIL ${fails}`); process.exit(1);
 NODE
 
-R1477_EXT="$EXT" R1477_COMM="$COMM" R1477_SEAT="$SEAT" R1477_TMP="$T" \
+# 확장은 문서(docs/extensions.md:1081)대로 pi 패키지에서 createLocalBashOperations 를 import 한다 — node 시험용 사본+스텁.
+mkdir -p "$T/ext" "$T/node_modules/@earendil-works/pi-coding-agent"
+cp "$EXT" "$T/ext/ft-mbox-wake.ts"
+printf '{"name":"@earendil-works/pi-coding-agent","type":"module","main":"index.mjs","exports":"./index.mjs"}\n' \
+  > "$T/node_modules/@earendil-works/pi-coding-agent/package.json"
+cat > "$T/node_modules/@earendil-works/pi-coding-agent/index.mjs" <<'SHIM'
+export const createLocalBashOperations = () => globalThis.__r1477Bash ?? { exec: async () => ({ output: "", exitCode: 0, cancelled: false, truncated: false }) };
+SHIM
+cmp -s "$EXT" "$T/ext/ft-mbox-wake.ts" && ok "S5 시험 사본 = 원본 바이트 일치" || bad "S5 시험 사본 = 원본 바이트 일치"
+
+R1477_EXT="$T/ext/ft-mbox-wake.ts" R1477_COMM="$COMM" R1477_SEAT="$SEAT" R1477_TMP="$T" \
   timeout 70 node "$T/driver.mjs"; rc=$?
 echo "---"
 if [ "$rc" = 0 ] && [ "$fail" = 0 ]; then echo "ALL PASS"; exit 0; fi
