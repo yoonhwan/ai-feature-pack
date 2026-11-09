@@ -126,6 +126,7 @@ ck "T6 발신 7초 상한 → WARN(시간 초과) · 소요 ${el}s ≤ 15s(sleep
 cp "$MOVE" "$SRC/ft-index-move-canon.sh" "$SRC/ft-index-move-install.sh" "$SRC/ft-team-lib.sh" "$SRC/ft-merge-lib.sh" "$SRC/ft_da_hold_gate.py" "$SRC/ft_git_capped.py" "$T/bin/"
 printf '#!/usr/bin/env bash\nexit 0\n' > "$T/bin/ft-index-lint.sh"
 mv_() { out="$(FT_SEATS_JSON="$T/seats-move.json" FT_LAND_REF=main FT_INDEX_STATE_DIR="$T/state" bash "$T/bin/ft-index-move.sh" "$@" 2>&1)"; rc=$?; }
+mv_wt() { out="$(env -u FT_SEATS_JSON -u FT_MBOX -u FM_NOTIFY_REPO -u FT_ROOT -u FT_REPO_ROOT FT_LAND_REF=main FT_INDEX_STATE_DIR="$T/state" bash "$T/bin/ft-index-move.sh" "$@" 2>&1)"; rc=$?; }   # 명부·mbox = 기본 경로(공용 루트) 를 실제로 태운다
 git -C "$W" fetch -q origin; git -C "$W" checkout -q -B main origin/main
 put "$IDX/대기/r3001-move-wait.md" "# 인덱스: r3001-move-wait"; cm "$W" "card 대기"; : > "$MBOX_LOG"
 mv_ "$W/$IDX/대기/r3001-move-wait.md" 진행 --seat s
@@ -154,6 +155,23 @@ mv_ "$W/$IDX/진행/r3003-move-none.md" 완성 --da "$W/design/harness/DA-none.m
 [ "$rc" = 0 ] && [ "$(mbox_n)" = 1 ] && grep -q '\[카드 이동\] r3003 진행→완성' "$MBOX_LOG" \
   && echo "$out" | grep -q '^INFO 정본 쪽지 생략 — 정본 영향 없음 카드$'
 ck "T4c 영향 없음 카드 완성 → 이동 쪽지 1통 + arch 쪽지 0(기존 INFO 그대로)" $?
+
+# ── T7 (보정 r2): 카드가 «연결 worktree» 안에 있어도 명부·comm 은 공용 루트(common-dir)에서 찾는다 ──
+mkdir -p "$W/.fable-team/comm"; cp "$T/mbox.sh" "$W/.fable-team/comm/mbox.sh"
+git -C "$W" worktree add -q "$T/wt" -b wt7 main
+WIDX="$T/wt/design/harness/indices"; mkdir -p "$WIDX/대기"
+printf '# 인덱스: r3010-wt-card\n- 규칙: 없음 — 시험 fixture 카드(규칙 무관)\n' > "$WIDX/대기/r3010-wt-card.md"; : > "$MBOX_LOG"
+mv_wt "$WIDX/대기/r3010-wt-card.md" 진행 --seat s
+[ "$rc" = 0 ] && [ "$(mbox_n)" = 1 ] && grep -qE '^send team-harness-master#9 [^ ]+ \[카드 이동\] r3010 대기→진행$' "$MBOX_LOG"
+ck "T7 연결 worktree 안 카드 이동 → 공용 루트 명부(_master)로 1통" $?
+# ── T7b: 공용 루트에 명부가 없으면 INFO 에 «찾은 경로» 1줄 · 발신 0 · rc 불변 ──
+mv "$W/.fable-team/seats-harness.json" "$T/seats-harness.json.bak"
+WREAL="$(cd "$W" && pwd -P)"   # /var ↔ /private/var (git 은 실제 경로로 푼다)
+printf '# 인덱스: r3011-wt-card\n- 규칙: 없음 — 시험 fixture 카드(규칙 무관)\n' > "$WIDX/대기/r3011-wt-card.md"; : > "$MBOX_LOG"
+mv_wt "$WIDX/대기/r3011-wt-card.md" 진행 --seat s
+[ "$rc" = 0 ] && [ "$(mbox_n)" = 0 ] && echo "$out" | grep -qF "INFO 이동 쪽지 생략 — 팀 명부 없음(harness · $WREAL/.fable-team/seats-harness.json)"
+ck "T7b 명부 없음 → INFO 에 찾은 경로 1줄 · 발신 0 · rc 0" $?
+mv "$T/seats-harness.json.bak" "$W/.fable-team/seats-harness.json"
 
 # ── 격리 ──
 { [ "$(git -C "$ORIGIN" rev-parse --is-bare-repository)" = true ] && [[ "$ORIGIN" == "$T/"* ]]; }; ck "격리: 원격 = 임시 bare 1개(실 원격·실 gh·실 쪽지 0)" $?
