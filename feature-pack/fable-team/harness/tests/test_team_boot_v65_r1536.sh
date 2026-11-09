@@ -167,14 +167,30 @@ has 'B5 to=' && ok || bad "ⓙ B5 만 재개"
 [ "$(cnt so.log)" = 0 ] && ok || bad "ⓙ 2회차 spawn 0(plan 에 b2=done)"
 grep -q '^status=완료' "$(ls -1 "$R/state/team-boot/"v65-*.plan | head -1)" && ok || bad "ⓙ 옛 plan 파일이 완료로 바뀜(이동 0)"
 
+# ---------- ⓚ R3-b(DA) FT_BOOT_STATE 를 명시하면 옛 자리를 보지 않는다 — 옛 plan 불변 ----------
+R="$T/r11"; mkfix "$R" v65 seats.json 'byz-v65-master-claude#7'
+: > "$REC/live.txt"; : > "$REC/so.log"; : > "$REC/mbox.log"; rm -rf "$R/state/team-boot" "$T/chosen"
+out="$(cd "$R" && env FT_REPO_ROOT="$R" FT_BOOT_STATE="$R/state/team-boot" MBOX_RC=1 bash "$BIN/ft-team-boot.sh" v65 2>&1)"; rc=$?   # 옛 자리에 B5 실패 plan + 생존 좌석
+ck "ⓚ 준비 1회차 rc5" "$([ "$rc" = 5 ] && echo 0 || echo 1)"
+OPLAN="$(ls -1 "$R/state/team-boot/"v65-*.plan | head -1)"
+sum_before="$(cksum "$OPLAN")"
+: > "$REC/so.log"; : > "$REC/mbox.log"
+out="$(cd "$R" && env FT_REPO_ROOT="$R" FT_BOOT_STATE="$R/state/team-boot-chosen" bash "$BIN/ft-team-boot.sh" v65 2>&1)"; rc=$?   # 명시한 빈 폴더
+ck "ⓚ 명시 자리 = 이미 부팅됨 rc1(옛 plan 으로 재개 0)" "$([ "$rc" = 1 ] && echo 0 || echo 1)"
+has 'B1 옛 자리 plan 재개' && bad "ⓚ 명시 FT_BOOT_STATE 인데 옛 자리를 찾으면 안 된다" || ok
+[ "$(cksum "$OPLAN")" = "$sum_before" ] && ok || bad "ⓚ 옛 plan 불변(명시 자리 실행이 옛 plan 을 안 건드린다)"
+[ "$(cnt mbox.log)" = 0 ] && ok || bad "ⓚ 옛 plan B5 실행 0"
+
 # ---------- 변이 3종 — 각각 해당 사례를 FAIL 시켜야 한다(변이 흡수 0) ----------
 mut() {  # <이름> <파일> <sed 식> <루트> <팀> [env…] — 변이 사본으로 다시 돌린다
   local n="$1" f="$2" e="$3" r="$4" t="$5"; shift 5
   local d="$T/mut-$n"; mkdir -p "$d"; cp "$BIN/ft-team-boot.sh" "$BIN/ft-team-seats-lib.sh" "$d/"
   sed -i '' "$e" "$d/$f"
   if cmp -s "$BIN/$f" "$d/$f"; then rc=99; bad "변이 $n 미적용(sed 0)"; return 1; fi
-  : > "$REC/live.txt"; : > "$REC/so.log"; : > "$REC/mbox.log"; : > "$REC/launchctl.log"
-  rm -rf "$r/.fable-team/state/team-boot" "$r/state/team-boot"
+  : > "$REC/so.log"; : > "$REC/mbox.log"; : > "$REC/launchctl.log"
+  if [ "${MUT_KEEP:-0}" = 1 ]; then :; else   # MUT_KEEP=1 = 앞 사례의 세션·plan 을 그대로 쓴다(M4)
+    : > "$REC/live.txt"; rm -rf "$r/.fable-team/state/team-boot" "$r/state/team-boot"
+  fi
   out="$(cd "$r" && env FT_REPO_ROOT="$r" "$@" bash "$d/ft-team-boot.sh" "$t" 2>&1)"; rc=$?
 }
 mut M1 ft-team-seats-lib.sh 's|"$TEAM" = v65|"$TEAM" = xv65|' "$T/r1" v65
@@ -183,7 +199,9 @@ mut M2 ft-team-boot.sh 's|tick_launchd_loaded "$TEAM"; ld="$LD_CELL"|LD_CELL=미
 printf '%s' "$out" | grep -qF 'launchd=등재(파일만)' && ok || bad "M2 파일 유무로 되돌리면 ⓓ 가 FAIL 해야 한다(변이 흡수)"
 mut M3 ft-team-boot.sh 's|STATE="${FT_BOOT_STATE:-$DROOT/.fable-team/state/team-boot}"|STATE="${FT_BOOT_STATE:-$ROOT/state/team-boot}"|' "$T/r7" v65
 [ -e "$T/r7/state/team-boot" ] && ok || bad "M3 STATE 기본을 ROOT 로 되돌리면 ⓖ 가 FAIL 해야 한다(변이 흡수)"
-mut_n="$(ls -1d "$T"/mut-M1 "$T"/mut-M2 "$T"/mut-M3 2>/dev/null | wc -l | tr -d ' ')"
+MUT_KEEP=1 mut M4 ft-team-boot.sh 's| \&\& \[ -z "${FT_BOOT_STATE:-}" \]||' "$T/r11" v65 FT_BOOT_STATE="$T/m4-chosen"
+printf '%s' "$out" | grep -qF 'B1 옛 자리 plan 재개' && ok || bad "M4 FT_BOOT_STATE 미설정 guard 를 빼면 ⓚ 가 FAIL 해야 한다(변이 흡수)"
+mut_n="$(ls -1d "$T"/mut-M1 "$T"/mut-M2 "$T"/mut-M3 "$T"/mut-M4 2>/dev/null | wc -l | tr -d ' ')"
 
 # ---------- 정적 — kit 사본 같은 내용 · 새 시험 실행 비트 0 ----------
 cmp -s "$BIN/ft-team-boot.sh" "$BIN/../kit/fable-team/bin/ft-team-boot.sh" && ok || bad "정적: kit 사본 ft-team-boot.sh diff 0"
@@ -191,5 +209,5 @@ cmp -s "$BIN/ft-team-seats-lib.sh" "$BIN/../kit/fable-team/bin/ft-team-seats-lib
 [ -x "$HERE/test_team_boot_v65_r1536.sh" ] && bad "정적: 새 시험 실행 비트 0(r1305 · bash 로 부른다)" || ok
 
 echo "----"
-if [ "$fail" = 0 ]; then echo "ALL PASS ($npass) · 변이적용 $mut_n/3"; exit 0; fi
+if [ "$fail" = 0 ]; then echo "ALL PASS ($npass) · 변이적용 $mut_n/4"; exit 0; fi
 echo "FAILED $fail"; exit 1
