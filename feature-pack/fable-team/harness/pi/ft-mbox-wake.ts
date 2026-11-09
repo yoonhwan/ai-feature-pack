@@ -1,7 +1,8 @@
 // ft-mbox-wake (r1477) — planner 대면 pi 좌석을 «쪽지 도착 = 턴 1회» 로 깨운다. 주기 타이머 0 · 입력 주입 0 · 예산은 r1476 `mbox.sh budget reserve` CLI 로만 차감.
 //  · 활성 = FT_SEAT(없으면 tmux 세션명) == <루트>/.fable-team/seats-planner.json `_master` «매 이벤트 재확인» · 루트 = FT_MBOX_ROOT ?? git 공용 루트 ?? cwd.
-//  · 설치 = `~/.pi/agent/extensions/ft-mbox-wake.ts` 복사 1개(pi 재시작 1회) · env: FT_MBOX_FILE(다른 데이터 루트) · FT_MBOX_STATE_DIR · FT_MBOX_WAKE_DEBOUNCE_MS · 시험 = tests/test_pi_mbox_wake_{r1477,self_r1529}.sh
+//  · 설치 = `~/.pi/agent/extensions/ft-mbox-wake.ts` 복사 1개(pi 재시작 1회) · env: FT_MBOX_FILE(다른 데이터 루트) · FT_MBOX_STATE_DIR · FT_MBOX_WAKE_DEBOUNCE_MS · FT_H_DONE_QUIET_MS(r1540) · 시험 = tests/test_pi_mbox_wake_{r1477,self_r1529}.sh · tests/test_pi_bash_pending_r1540.sh
 //  · r1529 = 내 행 판정을 recv 와 같은 칸으로(from !== seat) + 판 2 턴 도중 깨움 쌓기 0(agent_start~agent_end 표지 · 배달 안 된 깨움 1개 상한).
+//  · r1540 = h 끝 알림을 «모은다» — h 마다 즉시 턴을 만들면 오빠의 다음 `!` 이 거의 늘 streaming 중이고, pi 는 그 결과를 대화로 옮기지 않는다(interactive-mode.js:5960·5982 · flush 는 :2781 한 곳). 마지막 h 뒤 조용함 창(FT_H_DONE_QUIET_MS · 기본 20000)이 지나고 좌석이 쉬면 한 통, 일하는 중이면 다음 정상 settled 에서 1회.
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { spawnSync, execSync } from "node:child_process";
@@ -53,6 +54,21 @@ export default function (pi: ExtensionAPI) {
   const debounce = Number(process.env.FT_MBOX_WAKE_DEBOUNCE_MS ?? 300);
   let timer: ReturnType<typeof setTimeout> | null = null;
   let watchers: fs.FSWatcher[] = [], fallback: ReturnType<typeof setTimeout> | null = null, inTurn = false, wakePending = false; // fallback = 기동 창 1회 재확인 · 판 2(r1529) = 턴 도중 표지 · 배달 안 된 깨움 1개
+  // ★r1540 h 끝 모음 상태★ — 목록은 보낸 뒤 비우고(같은 h 두 번 알림 0), 타이머는 h 1건마다 «다시 거는» 1회짜리뿐이다(주기 타이머 0).
+  const hQuiet = Number(process.env.FT_H_DONE_QUIET_MS ?? 20000);
+  let hDone: { n: string; rc: string }[] = [], hTimer: ReturnType<typeof setTimeout> | null = null, hHeld = false, ctxNow: { isIdle(): boolean } | null = null;
+  const idle = (): boolean => { try { return ctxNow ? ctxNow.isIdle() : false; } catch { return false; } }; // ctx 없음 = 모른다 → 다음 settled 로 미룬다
+  function hFlush(): void { // 창이 끝난 자리 판정 — 일하는 중이면 목록 그대로 두고 다음 정상 settled 가 부른다(ⓒ)
+    if (hHeld || hDone.length === 0 || !idle()) return;
+    const items = hDone; hDone = []; // ★보낸 목록은 즉시 비운다★ — 같은 h 결과 두 번 알림 0(ⓓ)
+    const body = `${items.map((it) => `h${it.n} 끝 rc=${it.rc}`).join("\n")} → recv 하고 [완료] 정리`;
+    try { pi.sendMessage({ customType: "ft-mbox", content: body, display: true }, { triggerTurn: true, deliverAs: "followUp" }); } catch (e) { fail(`user_bash 알림 실패 — ${e}`); }
+  }
+  function hQueue(n: string, rc: string): void { // h 1장 끝마다 «창을 다시 잰다»(ⓑ) · h 0 이면 타이머 0(ⓔ)
+    hDone.push({ n, rc });
+    if (hTimer) clearTimeout(hTimer);
+    hTimer = setTimeout(() => { hTimer = null; try { hFlush(); } catch (e) { fail(`h 끝 처리 실패 — ${e}`); } }, hQuiet);
+  }
 
   // ★활성 = 이벤트마다 재확인★ — 승계(retire) 전에 새 세션이 뜨면 _master 는 아직 옛 좌석이다. 한 번만 읽고 굳으면 영영 꺼진다.
   let announced = "";
@@ -105,7 +121,8 @@ export default function (pi: ExtensionAPI) {
     wakeNow(seq, viaNudge);
   }
   const run = () => { try { check(false); } catch (e) { fail(`감시 처리 실패 — ${e}`); } }, schedule = () => { if (!timer) timer = setTimeout(() => { timer = null; run(); }, debounce); }; // schedule = 폴더 사건 → 바운스 1회, run = 이벤트 처리
-  pi.on("session_start", async () => {
+  pi.on("session_start", async (_event, ctx) => {
+    ctxNow = ctx as { isIdle(): boolean }; // r1540 — h 끝 판정은 ctx.isIdle 로만 한다(r1531 과 같은 칸)
     appendLoadLine(pi, "r1529", "ft-mbox-wake.ts"); // 조기 return 앞 — 기록은 확장이 실렸다는 사실만 말한다
     if (!fs.existsSync(mbox)) return fail(`우편함 없음 ${mbox} — 확장 비활성(폴링 폴백 0)`);
     try { fs.mkdirSync(wakeDir, { recursive: true }); } catch { /* 이미 있음 */ }
@@ -123,6 +140,13 @@ export default function (pi: ExtensionAPI) {
   });
   pi.on("agent_start", async () => { inTurn = true; wakePending = false; }); // 판 2 = 턴 시작(배달된 깨움 소비) · 도중 도착은 쌓지 않는다
   pi.on("agent_end", async () => { inTurn = false; wakePending = false; writeSeq(null); run(); }); // 표지 해제 + 우편함 재확인 1회(소비 안 됐으면 다시 깨운다)
+  // ★r1540 = 창이 끝났을 때 일하던 중이던 h 결과를 여기서 1회 알린다★ — 중단(Escape) settled 는 미룬다(r1531 꼴).
+  pi.on("agent_settled", async (event, ctx) => {
+    ctxNow = ctx as { isIdle(): boolean };
+    if ((event as { aborted?: boolean })?.aborted) { hHeld = true; return; }
+    hHeld = false;
+    hFlush();
+  });
   // ④ 오빠가 `! bash /tmp/hN` 을 돌리면 «끝난 뒤» 턴 1회 — 결과(rc·출력)는 건드리지 않는다(desk 결함 11-09 18:5x).
   pi.on("user_bash", (event: { command: string; excludeFromContext?: boolean }) => {
     if (event.excludeFromContext || !activeSeat(false)) return; // !! 제외 · 활성 좌석(_master·_desk)만 — 다른 pi 좌석 0
@@ -132,11 +156,11 @@ export default function (pi: ExtensionAPI) {
     try { local = createLocalBashOperations(); } catch (e) { return fail(`user_bash 훅 비활성 — ${e}`); } // 훅 실패 = bash 결과 불변
     return { operations: { exec: async (cmd: string, cwd: string, o: unknown) => {
       const r = await local.exec(event.command, cwd, o); // ★원래 명령 그대로 실행★
-      // ★결과 기록 «뒤» 턴★ — exec 반환 뒤(pi 가 BashExecution 을 세션에 넣은 뒤) 1회 알린다. 폴링 0(단일 setImmediate).
-      setImmediate(() => { try { pi.sendMessage({ customType: "ft-mbox", content: `h${m[1]} 끝 rc=${r?.exitCode ?? "?"} → recv 하고 [완료] 정리`, display: true }, { triggerTurn: true, deliverAs: "followUp" }); } catch (e) { fail(`user_bash 알림 실패 — ${e}`); } });
+      // ★결과 기록 «뒤» 모은다★ — exec 반환 뒤(pi 가 BashExecution 을 세션에 넣은 뒤) 목록에 넣고 조용함 창을 «다시» 건다. 폴링 0(단일 setImmediate) · 턴 0.
+      setImmediate(() => { try { hQueue(m[1], String(r?.exitCode ?? "?")); } catch (e) { fail(`user_bash 알림 실패 — ${e}`); } });
       return r; // ★알림이 실패해도 bash 결과 그대로★
     } } };
   });
   // 세션 교체(reload/resume)·종료 = 감시 해제. 안 닫으면 옛 인스턴스가 같은 우편함에 2중으로 깨운다.
-  pi.on("session_shutdown", async () => { for (const w of watchers) w.close(); watchers = []; if (timer) clearTimeout(timer); if (fallback) clearTimeout(fallback); timer = fallback = null; });
+  pi.on("session_shutdown", async () => { for (const w of watchers) w.close(); watchers = []; if (timer) clearTimeout(timer); if (fallback) clearTimeout(fallback); if (hTimer) clearTimeout(hTimer); timer = fallback = hTimer = null; });
 }

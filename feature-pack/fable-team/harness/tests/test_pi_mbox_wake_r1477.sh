@@ -85,7 +85,7 @@ function setup(name, { master = SEAT, seat = SEAT, mboxRoot = null } = {}) {
   if (mboxRoot) { fs.mkdirSync(path.join(base, "comm"), { recursive: true }); fs.writeFileSync(path.join(base, "comm", "mbox.sh"), stub); }
   Object.assign(process.env, {
     FT_MBOX_ROOT: dir, FT_MBOX_STATE_DIR: state, FT_MBOX_FILE: path.join(comm, "mailbox.jsonl"),
-    FT_SEAT: seat, FT_MBOX_WAKE_DEBOUNCE_MS: "5",
+    FT_SEAT: seat, FT_MBOX_WAKE_DEBOUNCE_MS: "5", FT_H_DONE_QUIET_MS: "40", // r1540 — h 끝은 조용함 창 뒤 1회(기본 20000)
   });
   delete process.env.STUB_RC;
   return { dir, comm, state, mbox: path.join(comm, "mailbox.jsonl"), stubLog,
@@ -357,8 +357,10 @@ async function load() {
   const out = await res.operations.exec("bash /tmp/h7", "/tmp", {});
   eq("T19 원래 명령 그대로 실행", ran[0], "bash /tmp/h7");
   eq("T19 rc·출력 그대로", `${out.exitCode}/${out.output}`, "0/h7 out");
-  await wait(30);
-  eq("T19 끝난 뒤 턴 1", pi.calls.length, 1);
+  await wait(15);
+  eq("T19 끝난 뒤 즉시 턴 0(조용함 창)", pi.calls.length, 0); // r1540 — h 마다 즉시 턴을 만들면 오빠의 다음 `!` 이 streaming 중이다
+  await until(() => pi.calls.length >= 1);
+  eq("T19 창 뒤 턴 1", pi.calls.length, 1);
   eq("T19 본문 = h7 끝 rc=0 → recv 하고 [완료] 정리", pi.calls[0]?.m?.content, "h7 끝 rc=0 → recv 하고 [완료] 정리");
   eq("T19 오빠 말 아님(custom) + followUp", `${pi.calls[0]?.m?.customType}/${pi.calls[0]?.o?.deliverAs}/${pi.calls[0]?.o?.triggerTurn}`, "ft-mbox/followUp/true");
   delete globalThis.__r1477Bash;
