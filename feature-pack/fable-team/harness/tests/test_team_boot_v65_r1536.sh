@@ -30,7 +30,7 @@ printf '%s\n' "$*" >> "$FT_REC/nano.log"; echo "SPAWNED"; exit 0
 EOF
 cat > "$FAKE/mbox.sh" <<'EOF'
 #!/usr/bin/env bash
-printf '%s\n' "$*" >> "$FT_REC/mbox.log"; echo "QUEUED seq=5150 to=$2 pending=0"; exit 0
+printf '%s\n' "$*" >> "$FT_REC/mbox.log"; echo "QUEUED seq=5150 to=$2 pending=0"; exit "${MBOX_RC:-0}"
 EOF
 cat > "$FAKE/tmux.sh" <<'EOF'
 #!/usr/bin/env bash
@@ -42,7 +42,9 @@ exit 0
 EOF
 cat > "$FAKE/launchctl.sh" <<'EOF'
 #!/usr/bin/env bash
-printf '%s\n' "$*" >> "$FT_REC/launchctl.log"; exit "${LAUNCHCTL_RC:-0}"
+printf '%s\n' "$*" >> "$FT_REC/launchctl.log"
+[ "${LAUNCHCTL_RC:-0}" = 0 ] && exit 0
+echo "${LAUNCHCTL_ERR:-launchctl: error rc=$LAUNCHCTL_RC}" >&2; exit "$LAUNCHCTL_RC"
 EOF
 chmod +x "$FAKE"/*.sh
 REC="$T/rec"; mkdir -p "$REC"; : > "$REC/live.txt"
@@ -101,7 +103,7 @@ has '명부 없음' && bad "ⓒ ops 명부 없음 0" || ok
 # ---------- ⓓ plist 파일만 있고 launchctl 미로드 → «미등재(파일만)» (등재 아님) ----------
 R="$T/r4"; mkfix "$R" v65 seats.json 'byz-v65-master-claude#7'
 : > "$T/la/com.byz.ft-tick-v65.plist"
-run "$R" v65 LAUNCHCTL_RC=1
+run "$R" v65 LAUNCHCTL_RC=113 LAUNCHCTL_ERR='Could not find service "com.byz.ft-tick-v65" in domain for user gui: 501'
 ck "ⓓ rc0" "$([ "$rc" = 0 ] && echo 0 || echo 1)"
 has 'B4 launchd=미등재(파일만)' && ok || bad "ⓓ 파일 있음 + 미로드 = 미등재(파일만)"
 has '등재(로드)' && bad "ⓓ 미로드를 «등재» 로 읽으면 안 된다" || ok
@@ -135,6 +137,35 @@ ck "ⓖ rc0" "$([ "$rc" = 0 ] && echo 0 || echo 1)"
 [ -e "$R/state/team-boot" ] && bad "ⓖ 옛 자리($ROOT/state/team-boot)에 plan 0" || ok
 run "$R" v65 FT_BOOT_STATE="$T/explicit"
 [ "$(ls -1 "$T/explicit"/*.plan 2>/dev/null | wc -l | tr -d ' ')" -ge 1 ] && ok || bad "ⓖ FT_BOOT_STATE 가 있으면 그 값 우선"
+
+# ---------- ⓗ R1(DA) 명부 공존 = seats-v65.json 우선 · 후계 번호 = 두 파일 최대 #N+1 ----------
+R="$T/r8"; mkfix "$R" v65 seats-v65.json 'byz-v65-master-claude#2'   # 새 이름(#2) < 옛 이름(#9) — 번호는 두 파일 최대
+printf '{"_master":"byz-v65-master-pi#9",\n "byz-v65-master-pi#9":{"role":"master","agent":"pi","model":"m"}}\n' > "$R/.fable-team/seats.json"
+g "$R" both-seats
+run "$R" v65
+ck "ⓗ rc0" "$([ "$rc" = 0 ] && echo 0 || echo 1)"
+grep -qF -- "--name byz-v65-master-claude#10 --agent claude" "$REC/so.log" && ok || bad "ⓗ 공존 = seats-v65.json 우선(_master #2) · 후계 = 두 파일 최대 #N+1(#10)"
+has '명부 없음' && bad "ⓗ 공존인데 명부 없음 0" || ok
+
+# ---------- ⓘ R2(DA) launchctl rc≠0(로드 없음 외 오류) = «판정 불가» — 거짓 미등재 0 ----------
+R="$T/r9"; mkfix "$R" v65 seats.json 'byz-v65-master-claude#7'
+run "$R" v65 LAUNCHCTL_RC=5 LAUNCHCTL_ERR='Bootstrap failed: 5: Input/output error'
+ck "ⓘ rc0" "$([ "$rc" = 0 ] && echo 0 || echo 1)"
+has 'B4 launchd=판정불가(rc=5)' && ok || bad "ⓘ I/O 오류 rc=5 = 판정 불가(거짓 미등재 0)"
+has '미등재(파일만)' && bad "ⓘ 로드 없음 아닌 오류를 «미등재(파일만)» 로 내리면 안 된다" || ok
+
+# ---------- ⓙ R3(DA) 새 기본 STATE 에 plan 이 없고 옛 자리에 있으면 옛 plan 으로 재개(이동 0) ----------
+R="$T/r10"; mkfix "$R" v65 seats.json 'byz-v65-master-claude#7'
+: > "$REC/live.txt"; : > "$REC/so.log"; : > "$REC/mbox.log"; rm -rf "$R/state/team-boot" "$R/.fable-team/state/team-boot"
+out="$(cd "$R" && env FT_REPO_ROOT="$R" FT_BOOT_STATE="$R/state/team-boot" MBOX_RC=1 bash "$BIN/ft-team-boot.sh" v65 2>&1)"; rc=$?   # 1회차: 옛 기본 자리에 B5 실패 plan + 생존 좌석
+ck "ⓙ 1회차 보고 미도달 rc5" "$([ "$rc" = 5 ] && echo 0 || echo 1)"
+: > "$REC/so.log"; : > "$REC/mbox.log"
+out="$(cd "$R" && env FT_REPO_ROOT="$R" bash "$BIN/ft-team-boot.sh" v65 2>&1)"; rc=$?   # 2회차: 새 기본 자리(비어 있음) — 옛 plan 재개
+ck "ⓙ 2회차 rc0(이미 부팅됨 0)" "$([ "$rc" = 0 ] && echo 0 || echo 1)"
+has 'B1 옛 자리 plan 재개' && ok || bad "ⓙ 옛 자리 plan 1줄"
+has 'B5 to=' && ok || bad "ⓙ B5 만 재개"
+[ "$(cnt so.log)" = 0 ] && ok || bad "ⓙ 2회차 spawn 0(plan 에 b2=done)"
+grep -q '^status=완료' "$(ls -1 "$R/state/team-boot/"v65-*.plan | head -1)" && ok || bad "ⓙ 옛 plan 파일이 완료로 바뀜(이동 0)"
 
 # ---------- 변이 3종 — 각각 해당 사례를 FAIL 시켜야 한다(변이 흡수 0) ----------
 mut() {  # <이름> <파일> <sed 식> <루트> <팀> [env…] — 변이 사본으로 다시 돌린다
