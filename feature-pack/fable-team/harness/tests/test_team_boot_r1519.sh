@@ -86,7 +86,7 @@ ck "① rc0" "$([ "$rc" = 0 ] && echo 0 || echo 1)"; has "부팅 완료 t1" && o
 [ "$(cnt mbox.log)" = 1 ] && grep -q '\[부팅\] t1 — 좌석=byz-t1-master-claude#5' "$REC/mbox.log" && ok || bad "① B5 보고 1통 꼴"
 grep -q 'launchd=미등재' "$REC/mbox.log" && grep -qF 'cron=판정 불가(세션 안' "$REC/mbox.log" && ok || bad "① B5 cron·launchd 칸(r1534: claude 팀장 = 판정 불가)"
 has 'total=' && printf '%s' "$out" | grep -qE 'B0=[0-9]+s.*B5=[0-9]+s' && ok || bad "① 단계별 초(하드 룰 22)"
-PLAN1="$(ls -1 "$R/state/team-boot/"t1-*.plan | head -1)"
+PLAN1="$(ls -1 "$R/.fable-team/state/team-boot/"t1-*.plan | head -1)"
 grep -q 'closeout=design/teams/t1/CLOSEOUT-t1-20261109.md' "$PLAN1" && grep -q '^status=완료' "$PLAN1" && ok || bad "① plan 정본·status"
 
 # ---------- ② 날짜 다름 — 이름 날짜 최대값 (옛 이름이 더 최근 커밋이어도) ----------
@@ -94,7 +94,7 @@ R="$T/r2"; mkfix "$R" t1; closeout "$R" design/teams/t1/CLOSEOUT-t1-20261101.md 
 g "$R" old-first; closeout "$R" design/teams/t1/CLOSEOUT-t1-20261109.md 09 0; g "$R" dup-newer-commit
 git -C "$R" update-ref refs/remotes/origin/main HEAD
 run "$R" t1
-ck "② rc0" "$([ "$rc" = 0 ] && echo 0 || echo 1)"; grep -q 'CLOSEOUT-t1-20261109.md' "$(ls -1 "$R/state/team-boot/"t1-*.plan | head -1)" && ok || bad "② 이름 날짜 최대값"
+ck "② rc0" "$([ "$rc" = 0 ] && echo 0 || echo 1)"; grep -q 'CLOSEOUT-t1-20261109.md' "$(ls -1 "$R/.fable-team/state/team-boot/"t1-*.plan | head -1)" && ok || bad "② 이름 날짜 최대값"
 
 # ---------- ③ 같은 날 2장 — 최신 커밋 ----------
 R="$T/r3"; mkfix "$R" t1
@@ -102,7 +102,7 @@ closeout "$R" design/teams/t1/CLOSEOUT-t1-20261109-a.md a 0; g "$R" a-first
 closeout "$R" design/teams/t1/CLOSEOUT-t1-20261109-b.md b 0; g "$R" b-later
 git -C "$R" update-ref refs/remotes/origin/main HEAD
 run "$R" t1
-ck "③ rc0" "$([ "$rc" = 0 ] && echo 0 || echo 1)"; grep -q 'CLOSEOUT-t1-20261109-b.md' "$(ls -1 "$R/state/team-boot/"t1-*.plan | head -1)" && ok || bad "③ 같은 날 = 최신 커밋"
+ck "③ rc0" "$([ "$rc" = 0 ] && echo 0 || echo 1)"; grep -q 'CLOSEOUT-t1-20261109-b.md' "$(ls -1 "$R/.fable-team/state/team-boot/"t1-*.plan | head -1)" && ok || bad "③ 같은 날 = 최신 커밋"
 
 # ---------- ④ 옛 꼴 design/<팀>/ 에만 정본 — 집지 않는다 ----------
 R="$T/r4"; mkfix "$R" t1; closeout "$R" design/t1/CLOSEOUT-t1-20261101.md 01 0; g "$R" legacy
@@ -128,8 +128,8 @@ echo '{"_master":"byz-planner-master-pi#245"}' > "$A/.fable-team/seats-planner.j
 printf 'k\n' > "$A/design/teams/airag/keep.md"; g "$P" aifp; g "$A" a-base
 git -C "$P" update-ref refs/remotes/origin/main HEAD; git -C "$A" update-ref refs/remotes/origin/main HEAD
 : > "$REC/so.log"; : > "$REC/live.txt"
-out="$(cd "$A" && FT_REPO_ROOT="$A" FT_PACK_ROOT="$P" FT_AIFP_ROOT="$A" FT_BOOT_STATE="$A/state/team-boot" bash "$BIN/ft-team-boot.sh" airag 2>&1)"; rc=$?
-ck "⑥ rc0" "$([ "$rc" = 0 ] && echo 0 || echo 1)"; grep -q 'closeout=design/aifp/CLOSEOUT-airag-20261109.md' "$(ls -1 "$A/state/team-boot/"airag-*.plan | head -1)" && ok || bad "⑥ aifp 경로"
+out="$(cd "$A" && FT_REPO_ROOT="$A" FT_PACK_ROOT="$P" FT_AIFP_ROOT="$A" FT_BOOT_STATE="$A/.fable-team/state/team-boot" bash "$BIN/ft-team-boot.sh" airag 2>&1)"; rc=$?
+ck "⑥ rc0" "$([ "$rc" = 0 ] && echo 0 || echo 1)"; grep -q 'closeout=design/aifp/CLOSEOUT-airag-20261109.md' "$(ls -1 "$A/.fable-team/state/team-boot/"airag-*.plan | head -1)" && ok || bad "⑥ aifp 경로"
 grep -q "^aifp-airag-master-claude#14 $P/.worktrees/wtairag --name aifp-airag-master-claude#15 --agent claude --model claude-opus-5-6\[1m\] " "$REC/so.log" && ok || bad "⑥ 팀장 = seats-aifp 최대 #N(#14) · 워크트리 = PACK/.worktrees · 이름 #15"
 grep -q 'aifp-pi-master-pi#0' "$REC/so.log" && bad "⑥ 팩 팀장(_master) 대체 0" || ok
 
@@ -139,7 +139,7 @@ g "$R" c7; git -C "$R" update-ref refs/remotes/origin/main HEAD
 : > "$REC/so.log"; : > "$REC/nano.log"; : > "$REC/mbox.log"; : > "$REC/live.txt"
 out="$(cd "$R" && FT_REPO_ROOT="$R" STUB_MBOX_RC=1 bash "$BIN/ft-team-boot.sh" t1 2>&1)"; rc=$?
 ck "⑦ 보고 미도달 rc5" "$([ "$rc" = 5 ] && echo 0 || echo 1)"; has "보고 미도달" && ok || bad "⑦ 보고 미도달 줄"
-P7="$(ls -1 "$R/state/team-boot/"t1-*.plan | head -1)"
+P7="$(ls -1 "$R/.fable-team/state/team-boot/"t1-*.plan | head -1)"
 grep -q '^b5=보고 미도달' "$P7" && ok || bad "⑦ plan b5 실패 기록"
 ck "⑦ spawn = 팀장 1 + 재개 카드 1" "$([ "$(cnt so.log)" = 1 ] && [ "$(cnt nano.log)" = 1 ] && echo 0 || echo 1)"
 so1="$(cnt so.log)"; nano1="$(cnt nano.log)"
@@ -213,7 +213,7 @@ git -C "$R" update-ref refs/remotes/origin/main HEAD
 [ "$(git -C "$R" log -1 --format=%ct -- "$z")" = "$(git -C "$R" log -1 --format=%ct -- "$a")" ] && ok || bad "⑬ 픽스처 커밋초 동점 성립"
 : > "$REC/live.txt"; : > "$REC/so.log"; run "$R" t1
 ck "⑬ rc0" "$([ "$rc" = 0 ] && echo 0 || echo 1)"
-grep -q 'closeout=design/teams/t1/CLOSEOUT-t1-20261109-a.md' "$(ls -1t "$R/state/team-boot/"t1-*.plan | head -1)" && ok || bad "⑬ 동점 = 계보 뒤(new-a) · ls-tree 경로 순서 의존 0"
+grep -q 'closeout=design/teams/t1/CLOSEOUT-t1-20261109-a.md' "$(ls -1t "$R/.fable-team/state/team-boot/"t1-*.plan | head -1)" && ok || bad "⑬ 동점 = 계보 뒤(new-a) · ls-tree 경로 순서 의존 0"
 
 # ---------- ⑭ R2 완료 plan 뒤 새 정본 = 새 생명(새 plan·spawn 1) · 같은 정본 = 이미 부팅됨 ----------
 R="$T/r14"; mkfix "$R" t1; closeout "$R" design/teams/t1/CLOSEOUT-t1-20261109.md 09 0; g "$R" c14; git -C "$R" update-ref refs/remotes/origin/main HEAD
@@ -223,8 +223,8 @@ closeout "$R" design/teams/t1/CLOSEOUT-t1-20261110.md 10 0; g "$R" c14b; git -C 
 : > "$REC/live.txt"; run "$R" t1
 ck "⑭ 새 정본 뒤 rc0(과거 완료 plan 이 막지 않는다)" "$([ "$rc" = 0 ] && echo 0 || echo 1)"
 [ "$(cnt so.log)" = 2 ] && ok || bad "⑭ 새 생명 = 팀장 spawn 합계 2"
-[ "$(ls -1 "$R/state/team-boot/"t1-*.plan 2>/dev/null | grep -c .)" = 2 ] && ok || bad "⑭ plan 2장(생명마다 1장)"
-grep -q 'closeout=design/teams/t1/CLOSEOUT-t1-20261110.md' "$(ls -1t "$R/state/team-boot/"t1-*.plan | head -1)" && ok || bad "⑭ 새 plan 정본 = 20261110"
+[ "$(ls -1 "$R/.fable-team/state/team-boot/"t1-*.plan 2>/dev/null | grep -c .)" = 2 ] && ok || bad "⑭ plan 2장(생명마다 1장)"
+grep -q 'closeout=design/teams/t1/CLOSEOUT-t1-20261110.md' "$(ls -1t "$R/.fable-team/state/team-boot/"t1-*.plan | head -1)" && ok || bad "⑭ 새 plan 정본 = 20261110"
 : > "$REC/live.txt"; run "$R" t1
 ck "⑭ 같은 정본 재실행 = 멈춤 rc1" "$([ "$rc" = 1 ] && echo 0 || echo 1)"
 has '이미 부팅됨' && ok || bad "⑭ 같은 정본 = 이미 부팅됨"
