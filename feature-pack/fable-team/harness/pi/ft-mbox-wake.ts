@@ -2,7 +2,7 @@
 //  · 활성 = FT_SEAT(없으면 tmux 세션명) == <루트>/.fable-team/seats-planner.json `_master` «매 이벤트 재확인» · 루트 = FT_MBOX_ROOT ?? git 공용 루트 ?? cwd.
 //  · 설치 = `~/.pi/agent/extensions/ft-mbox-wake.ts` 복사 1개(pi 재시작 1회) · env: FT_MBOX_FILE(다른 데이터 루트) · FT_MBOX_STATE_DIR · FT_MBOX_WAKE_DEBOUNCE_MS · FT_H_DONE_QUIET_MS(r1540) · 시험 = tests/test_pi_mbox_wake_{r1477,self_r1529}.sh · tests/test_pi_bash_pending_r1540.sh
 //  · r1529 = 내 행 판정을 recv 와 같은 칸으로(from !== seat) + 판 2 턴 도중 깨움 쌓기 0(agent_start~agent_end 표지 · 배달 안 된 깨움 1개 상한).
-//  · r1540 = h 끝 알림을 «모은다» — h 마다 즉시 턴을 만들면 오빠의 다음 `!` 이 거의 늘 streaming 중이고, pi 는 그 결과를 대화로 옮기지 않는다(interactive-mode.js:5960·5982 · flush 는 :2781 한 곳). 마지막 h 뒤 조용함 창(FT_H_DONE_QUIET_MS · 기본 20000)이 지나고 좌석이 쉬면 한 통, 일하는 중이면 다음 정상 settled 에서 1회.
+//  · r1540 = h 끝 알림을 «모은다» — h 마다 즉시 턴을 만들면 오빠의 다음 `!` 이 거의 늘 streaming 중이고, pi 는 그 결과를 대화로 옮기지 않는다(interactive-mode.js:5960·5982 · flush 는 :2781 한 곳). 마지막 h 뒤 조용함 창(FT_H_DONE_QUIET_MS · 기본 20000)이 지나고 좌석이 쉬면 한 통, 일하는 중이면 다음 정상 settled 에서 1회. 창이 안 끝난 settled 는 0(R1) · 대기 목록은 파일(<state>/pi-wake/<키>.hdone)이 정본이라 reload·shutdown 에서 유실 0(R2 · 새 session_start 회수).
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { spawnSync, execSync } from "node:child_process";
@@ -55,19 +55,40 @@ export default function (pi: ExtensionAPI) {
   let timer: ReturnType<typeof setTimeout> | null = null;
   let watchers: fs.FSWatcher[] = [], fallback: ReturnType<typeof setTimeout> | null = null, inTurn = false, wakePending = false; // fallback = 기동 창 1회 재확인 · 판 2(r1529) = 턴 도중 표지 · 배달 안 된 깨움 1개
   // ★r1540 h 끝 모음 상태★ — 목록은 보낸 뒤 비우고(같은 h 두 번 알림 0), 타이머는 h 1건마다 «다시 거는» 1회짜리뿐이다(주기 타이머 0).
+  //  ★R1(DA 277721)★ = 창이 열려 있는 동안(타이머 안 끝) 정상 settled 가 와도 보내지 않는다 → hArmed 가 「창이 끝났다」 한 표시.
+  //  ★R2(DA 277721)★ = 대기 목록의 정본은 «파일»(<state>/pi-wake/<키>.hdone) — reload·shutdown 으로 확장 인스턴스가 갈리어도 새 session_start 가 회수한다(유실 0).
   const hQuiet = Number(process.env.FT_H_DONE_QUIET_MS ?? 20000);
-  let hDone: { n: string; rc: string }[] = [], hTimer: ReturnType<typeof setTimeout> | null = null, hHeld = false, ctxNow: { isIdle(): boolean } | null = null;
+  const hFile = path.join(wakeDir, `${keyOf(seat)}.hdone`);
+  let hDone: { n: string; rc: string }[] = [], hTimer: ReturnType<typeof setTimeout> | null = null, hHeld = false, hArmed = false, hSaveFail = "", ctxNow: { isIdle(): boolean } | null = null;
   const idle = (): boolean => { try { return ctxNow ? ctxNow.isIdle() : false; } catch { return false; } }; // ctx 없음 = 모른다 → 다음 settled 로 미룬다
+  function hSave(): void { // 목록이 비면 파일을 지운다 — 다음 세션이 이미 보낸 알림을 다시 보내지 않는다(중복 0)
+    try {
+      if (hDone.length === 0) fs.rmSync(hFile, { force: true });
+      else { fs.mkdirSync(wakeDir, { recursive: true }); fs.writeFileSync(hFile, `${JSON.stringify(hDone)}\n`); }
+      hSaveFail = "";
+    } catch (e) { const m = String(e); if (m !== hSaveFail) { hSaveFail = m; fail(`h 대기 목록 저장 실패 ${hFile} — ${m}`); } } // 같은 실패 반복 = 1줄
+  }
+  function hLoad(): void { // R2 — 옛 확장의 대기 목록 회수. 창은 이미 지났으니 armed(단, 보낼 때는 여전히 쉼을 본다)
+    try {
+      const a: unknown = JSON.parse(fs.readFileSync(hFile, "utf-8"));
+      if (Array.isArray(a)) hDone = a.filter((it) => it && typeof (it as { n?: unknown }).n === "string").map((it) => ({ n: String(it.n), rc: String(it.rc ?? "?") }));
+    } catch { /* 파일 없음 = 회수 0 */ }
+    if (hDone.length > 0) hArmed = true;
+  }
   function hFlush(): void { // 창이 끝난 자리 판정 — 일하는 중이면 목록 그대로 두고 다음 정상 settled 가 부른다(ⓒ)
-    if (hHeld || hDone.length === 0 || !idle()) return;
-    const items = hDone; hDone = []; // ★보낸 목록은 즉시 비운다★ — 같은 h 결과 두 번 알림 0(ⓓ)
+    if (hHeld) return; // 중단(aborted) settled = 다음 정상 settled 로 미룬다
+    if (!hArmed || hDone.length === 0 || !idle()) return; // ★R1★ 창이 아직 안 끝났으면 0 — settled 만으로는 보내지 않는다
+    const items = hDone; hDone = []; hArmed = false; // ★보낸 목록은 즉시 비운다★ — 같은 h 결과 두 번 알림 0(ⓓ)
+    hSave();
     const body = `${items.map((it) => `h${it.n} 끝 rc=${it.rc}`).join("\n")} → recv 하고 [완료] 정리`;
     try { pi.sendMessage({ customType: "ft-mbox", content: body, display: true }, { triggerTurn: true, deliverAs: "followUp" }); } catch (e) { fail(`user_bash 알림 실패 — ${e}`); }
   }
   function hQueue(n: string, rc: string): void { // h 1장 끝마다 «창을 다시 잰다»(ⓑ) · h 0 이면 타이머 0(ⓔ)
     hDone.push({ n, rc });
+    hSave();
+    hArmed = false; // 창을 다시 열었다 — settled 가 와도 아직 보내지 않는다(R1)
     if (hTimer) clearTimeout(hTimer);
-    hTimer = setTimeout(() => { hTimer = null; try { hFlush(); } catch (e) { fail(`h 끝 처리 실패 — ${e}`); } }, hQuiet);
+    hTimer = setTimeout(() => { hTimer = null; hArmed = true; try { hFlush(); } catch (e) { fail(`h 끝 처리 실패 — ${e}`); } }, hQuiet);
   }
 
   // ★활성 = 이벤트마다 재확인★ — 승계(retire) 전에 새 세션이 뜨면 _master 는 아직 옛 좌석이다. 한 번만 읽고 굳으면 영영 꺼진다.
@@ -134,6 +155,7 @@ export default function (pi: ExtensionAPI) {
       ];
     } catch (e) { return fail(`watch 실패 ${mboxDir} / ${wakeDir} — ${e}`); }
     activeSeat(true); inTurn = wakePending = false; // 시작 로그 = 활성/비활성 1줄 · 표지 초기화(승계·/reload)
+    hLoad(); hFlush(); // ★R2★ 옛 확장의 h 대기 목록 회수 = 여기서 1회(유실 0 · 이미 보낸 것은 파일에서 지웠다)
     check(true); // 시작 회수 = 우편함에 «남아 있는» to=내 좌석 행(소비 ACK 기준 · seq 파일 무관)
     // ★감시 기동 창★ — fs.watch 등록 직후 사건은 유실될 수 있다(FSEvents startup). 주기 0 · 시작 1회 재확인만.
     fallback = setTimeout(() => { fallback = null; run(); }, debounce + 250); // 사건 타이머를 막지 않는다(사건이 오면 즉시 처리)

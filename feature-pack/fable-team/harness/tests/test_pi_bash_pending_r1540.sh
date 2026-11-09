@@ -8,6 +8,9 @@
 #        ⓓ 같은 h 두 번 알림 0 · ⓔ 주기 타이머 0 · ⓕ h 아님/!!/비활성 = 훅 0 · ⓖ reload 거절 = 복원 + 1줄 + 다음 settled 1회
 #        ⓗ 정상 쉼 = reload 1회 · 파일 0
 #  변이: M1 즉시 턴(옛 동작) = ⓐ FAIL · M2 창을 다시 재지 않음 = ⓑ 턴 2회 이상 · M3 거절 때 복원 0 = ⓖ FAIL
+#        M4 정상 settled 가 창을 무시하고 flush = ⓘ FAIL · M5 대기 목록 파일 저장 0 = ⓙ FAIL
+#  경계(가짜 시계 · DA 277721 R1/R2): ⓘ 창 안 정상 settled = flush 0 · 창 뒤 연속 h 2장 = 최종 1회
+#        ⓙ h 대기 중 reload(session_shutdown) → 새 확장 session_start 회수 = 옛/새 합 1회(유실 0 · 중복 0)
 # 새 파일 mode 100644(실행 비트 0) — `bash <이 파일>` 로 부른다.
 set -uo pipefail
 for v in GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY; do unset "$v"; done
@@ -228,8 +231,8 @@ function mutate(name, src, from, to) {
 // M1: 즉시 턴(옛 동작) — 조용함 창 없이 바로 보낸다 → ⓐ 즉시 턴 0 이 FAIL
 {
   const src = fs.readFileSync(WAKE, "utf-8");
-  const from = "    hTimer = setTimeout(() => { hTimer = null; try { hFlush(); } catch (e) { fail(`h 끝 처리 실패 — ${e}`); } }, hQuiet);";
-  const mut = mutate("M1", src, from, "    try { hFlush(); } catch (e) { fail(`h 끝 처리 실패 — ${e}`); } // M1: 즉시");
+  const from = "    hTimer = setTimeout(() => { hTimer = null; hArmed = true; try { hFlush(); } catch (e) { fail(`h 끝 처리 실패 — ${e}`); } }, hQuiet);";
+  const mut = mutate("M1", src, from, "    hArmed = true; try { hFlush(); } catch (e) { fail(`h 끝 처리 실패 — ${e}`); } // M1: 즉시");
   if (mut) {
     wakePath = mut;
     setupWake("m1"); ST.idle = true;
@@ -283,6 +286,117 @@ cmp -s "$RELOAD" "$T/ext-ft-reload-request.ts" && ok "S9 시험 사본 = 원본 
 
 R1540_WAKE="$T/ext-ft-mbox-wake.ts" R1540_RELOAD="$T/ext-ft-reload-request.ts" R1540_SEAT="byz-harness-nano-r1540-pi-bash-pending-block-and-reload-r#0" R1540_TMP="$T" \
   timeout 70 node "$T/driver.mjs"; rc=$?
+
+# ── 경계 드라이버(가짜 시계) — DA 277721 R1/ⓘ · R2/ⓙ ──────────────────────────────────────
+cat > "$T/boundary.mjs" <<'NODE'
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { pathToFileURL } from "node:url";
+const TMP = process.env.R1540_TMP, WAKE = process.env.R1540_WAKE, RELOAD = process.env.R1540_RELOAD, SEAT = process.env.R1540_SEAT;
+let fails = 0, wakePath = WAKE;
+const ok = (n) => console.log(`PASS ${n}`);
+const bad = (n, d = "") => { fails++; console.log(`FAIL ${n}${d ? ` :: ${d}` : ""}`); };
+const eq = (n, got, want) => (String(got) === String(want) ? ok(n) : bad(n, `기대 '${want}' 실제 '${got}'`));
+// ★가짜 시계★ — 주기 탐색 0 · sleep 0. advance() 가 due 타이머를 «시각 순서로» 돌린다(HARD RULE 22).
+let now = 0, next = 1, timers = new Map(), idle = true;
+globalThis.setTimeout = (fn, ms) => { const id = next++; timers.set(id, { fn, due: now + Number(ms) }); return id; };
+globalThis.clearTimeout = (id) => { timers.delete(id); };
+function advance(ms) {
+  const end = now + ms;
+  for (;;) { const xs = [...timers].filter(([, v]) => v.due <= end).sort((a, b) => a[1].due - b[1].due); if (!xs.length) break; const [id, v] = xs[0]; timers.delete(id); now = v.due; v.fn(); }
+  now = end;
+}
+const keyOf = (s) => s.replace(/[^A-Za-z0-9._#-]/g, "_");
+let modv = 0;
+function setup(name) {
+  timers.clear(); now = 0; idle = true;
+  const root = path.join(TMP, name), base = path.join(root, ".fable-team"), comm = path.join(base, "comm"), state = path.join(base, "state");
+  fs.mkdirSync(comm, { recursive: true }); fs.mkdirSync(state, { recursive: true });
+  fs.writeFileSync(path.join(base, "seats-planner.json"), JSON.stringify({ _master: SEAT, [SEAT]: { agent: "pi" } }) + "\n");
+  fs.writeFileSync(path.join(comm, "mailbox.jsonl"), ""); fs.writeFileSync(path.join(comm, "mbox.sh"), "#!/bin/bash\nexit 0\n");
+  Object.assign(process.env, { FT_MBOX_ROOT: root, FT_MBOX_FILE: path.join(comm, "mailbox.jsonl"), FT_MBOX_STATE_DIR: state, FT_SEAT: SEAT,
+    FT_MBOX_WAKE_DEBOUNCE_MS: "5", FT_RELOAD_REQUEST_DEBOUNCE_MS: "5", FT_H_DONE_QUIET_MS: "20000" });
+  return { root, state, wake: path.join(state, "pi-wake"), req: path.join(state, "pi-wake", `${keyOf(SEAT)}.reload`) };
+}
+function piNew(withReload = false) {
+  const pi = { h: {}, cmd: {}, calls: [], reloads: 0, on(e, f) { (this.h[e] ??= []).push(f); },
+    appendEntry() {}, registerCommand(n, o) { this.cmd[n] = o; },
+    sendMessage(m, o) { this.calls.push({ at: now, m, o }); },
+    sendUserMessage(c) { if (this.cmd[c.slice(1)]) void this.cmd[c.slice(1)].handler("", this.ctx); },
+    async emit(e, v = {}) { let r; for (const f of this.h[e] ?? []) { const x = await f(v, this.ctx); if (x !== undefined) r = x; } return r; } };
+  pi.ctx = { isIdle: () => idle, reload: async () => { pi.reloads++; await pi.emit("session_shutdown"); } };
+  return pi;
+}
+async function load(pi, withReload) {
+  const ext = await import(`${pathToFileURL(wakePath).href}?b=${++modv}`);
+  ext.default(pi);
+  if (withReload) { const r = await import(`${pathToFileURL(RELOAD).href}?b=${++modv}`); r.default(pi); }
+  await pi.emit("session_start");
+  return pi;
+}
+const h = async (pi, n) => { const x = await pi.emit("user_bash", { command: `bash /tmp/h${n}` }); await x.operations.exec("", TMP, {}); await new Promise(setImmediate); };
+
+// ⓘ DA 277721 R1 — 창(20000ms) «안» t=1000 에 정상 settled 가 와도 flush 0 · 창 뒤 연속 h 2장 = 최종 1회
+{
+  setup("b-early"); const pi = await load(piNew());
+  idle = false; await h(pi, 1); advance(1000); idle = true; await pi.emit("agent_settled", {});
+  eq("ⓘ 창 안 정상 settled = flush 0", pi.calls.length, 0);
+  await h(pi, 2); advance(20001); await pi.emit("agent_settled", {});
+  eq("ⓘ 창 뒤 연속 h 2장 = 최종 1회", pi.calls.length, 1);
+  eq("ⓘ 본문 = h 2장 한 통", pi.calls[0]?.m?.content, "h1 끝 rc=0\nh2 끝 rc=0 → recv 하고 [완료] 정리");
+  await pi.emit("session_shutdown");
+}
+// ⓙ DA 277721 R2 — h 대기 중 reload = session_shutdown → 새 확장 session_start 회수 · 유실 0 · 중복 0
+{
+  const c = setup("b-reload"); const pi = await load(piNew(), true);
+  await h(pi, 3);
+  fs.writeFileSync(c.req, "reload\n"); advance(1000); await new Promise(setImmediate);
+  eq("ⓙ 옛 확장 reload 1", pi.reloads, 1);
+  eq("ⓙ 옛 확장 = 요청 처리 뒤 h 알림 0", pi.calls.length, 0);
+  const np = await load(piNew(), true);
+  advance(20001); await np.emit("agent_settled", {});
+  eq("ⓙ 새 확장 회수 = 1(유실 0)", np.calls.length, 1);
+  eq("ⓙ 본문 = h3", np.calls[0]?.m?.content, "h3 끝 rc=0 → recv 하고 [완료] 정리");
+  advance(40001); await np.emit("agent_settled", {});
+  eq("ⓙ 중복 알림 0", np.calls.length, 1);
+  await np.emit("session_shutdown");
+}
+// M4 — 정상 settled 가 창을 무시하고 flush → ⓘ 창 안 flush 0 FAIL 검출
+{
+  const src = fs.readFileSync(WAKE, "utf-8");
+  const out = src.replace("    if (hHeld) return;", "    if (hHeld) return; hArmed = true; // M4");
+  if (out === src) bad("M4 치환 미적용");
+  else {
+    fs.writeFileSync(path.join(TMP, "mut-M4.ts"), out);
+    const keep = wakePath; wakePath = path.join(TMP, "mut-M4.ts");
+    setup("b-m4"); const pi = await load(piNew());
+    idle = false; await h(pi, 1); advance(1000); idle = true; await pi.emit("agent_settled", {});
+    (pi.calls.length > 0 ? ok : bad)(`M4 → ⓘ 창 안 flush 0 FAIL 검출(flush ${pi.calls.length}회)`);
+    wakePath = keep; await pi.emit("session_shutdown");
+  }
+}
+// M5 — 대기 목록 파일 저장 0 → ⓙ 유실 = FAIL 검출
+{
+  const src = fs.readFileSync(WAKE, "utf-8");
+  const out = src.replace("    hDone.push({ n, rc });\n    hSave();", "    hDone.push({ n, rc }); // M5: 저장 0");
+  if (out === src) bad("M5 치환 미적용");
+  else {
+    fs.writeFileSync(path.join(TMP, "mut-M5.ts"), out);
+    wakePath = path.join(TMP, "mut-M5.ts");
+    const c = setup("b-m5"); const pi = await load(piNew(), true);
+    await h(pi, 5); fs.writeFileSync(c.req, "reload\n"); advance(1000); await new Promise(setImmediate);
+    const np = await load(piNew(), true); advance(20001); await np.emit("agent_settled", {});
+    (np.calls.length === 0 ? ok : bad)(`M5 → ⓙ 유실 FAIL 검출(회수 ${np.calls.length}회)`);
+    await np.emit("session_shutdown");
+  }
+}
+console.log("---");
+if (fails === 0) { console.log("BOUNDARY ALL PASS"); process.exit(0); }
+console.log(`BOUNDARY FAIL ${fails}`); process.exit(1);
+NODE
+R1540_WAKE="$T/ext-ft-mbox-wake.ts" R1540_RELOAD="$T/ext-ft-reload-request.ts" R1540_SEAT="byz-harness-nano-r1540-pi-bash-pending-block-and-reload-r#0" R1540_TMP="$T" \
+  timeout 70 node "$T/boundary.mjs"; rc2=$?
+
 echo "---"
-if [ "$rc" = 0 ] && [ "$fail" = 0 ]; then echo "ALL PASS"; exit 0; fi
-echo "FAIL (static=$fail node_rc=$rc)"; exit 1
+if [ "$rc" = 0 ] && [ "$rc2" = 0 ] && [ "$fail" = 0 ]; then echo "ALL PASS"; exit 0; fi
+echo "FAIL (static=$fail node_rc=$rc boundary_rc=$rc2)"; exit 1
