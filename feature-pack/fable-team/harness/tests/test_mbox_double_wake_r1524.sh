@@ -6,7 +6,8 @@
 #  격리: 임시 박스(.fable-team/{comm,state}) · FT_MBOX_DIR·FT_MBOX_STATE_DIR·TMPDIR · 임시 명부(FT_SEATS_JSON) ·
 #        가짜 tmux(pane 목록·send-keys 기록) · 가짜 ps · 가짜 HOME(확장 설치본 있음/없음) · 가짜 시계(FT_MBOX_NOW) ·
 #        실 우편함·실 pane·실 명부 0 · 자기 재호출 0 · sleep 0
-#  사례 ①~⑰ + 변이 3. ⑫(기존 4개 회귀)는 합 80초라 FT_R1524_REGRESSION=1 일 때만 돈다(사례 70초 예산 밖 · 카드 «회차» 예산 안).
+#  사례 ①~⑲ + 변이 4. ⑫(기존 회귀)는 합이 커서 FT_R1524_REGRESSION=1 일 때만 돈다(사례 70초 예산 밖 · 카드 «회차» 예산 안).
+#  ⑱⑲ = 적재와 주입 사이에 수신자가 recv 를 끝낸 경합(DA #276870 R1 두 입력 — send·relay) — «방금 적재» 는 미읽음을 보장하지 않는다.
 set -uo pipefail
 # 예산 상한을 시험이 스스로 소유한다(기본 100000 · test_mbox_doorbell_merge_r1476.sh:10 과 같은 이유)
 export FT_MBOX_WAKE_SEAT_MAX=6 FT_MBOX_WAKE_TEAM_MAX=30
@@ -29,6 +30,12 @@ case "${1:-}" in
   list-panes)
     shift
     if [ "${1:-}" = "-a" ]; then
+      # ★r1524 경합 훅(사례 ⑱⑲)★ — 적재와 주입 «사이» 에 수신자가 recv 를 끝낸 상태를 만든다(DA #276870 R1 두 입력).
+      #   실 pane 0 · sleep 0 · 한 번만(표식) · 격리 큐 그대로.
+      if [ -n "${RACE_C:-}" ] && [ ! -f "$RACE_C/received-once" ]; then
+        python3 "$RACE_C/mbox.py" recv "$RACE_SEAT" > "$RACE_C/receiver.log" 2>&1
+        echo "$?" > "$RACE_C/receiver.rc"; : > "$RACE_C/received-once"
+      fi
       i=0; for s in ${TMUX_SEATS:-}; do i=$((i+1)); printf '%s|%%%d\n' "$s" "$i"; done
     else
       printf '%s\n' "${TMUX_PANE_PID:-900001}"
@@ -172,6 +179,18 @@ eq "⑰ sweep → 확장 _desk pane 주입 0" "$(inj dm#1)" 0
 eq "⑰ nudge 파일 1" "$(ls "$BOX/.fable-team/state/pi-wake" 2>/dev/null | grep -c '\.nudge$')" 1
 [ -z "$(heldn dm#1)" ] && ok "⑰ held 삭제(doorbell=sent)" || bad "⑰ held 삭제(doorbell=sent)"
 
+# ── 사례 ⑱⑲ 경합 2입력 — 적재와 주입 사이에 수신자가 recv 를 끝내면 «이미 읽은» 이라 주입 0 (DA #276870 R1) ──
+for mode in send relay; do
+  use "$(mkbox race-$mode)"; NOW="$W0"; export RACE_C="$C" RACE_SEAT="gn#1"   # RACE_* = 가짜 tmux 의 경합 훅
+  if [ "$mode" = send ]; then S gn#1 s1#1 "⑱⑲ 일반 좌석 경합"
+  else run "$NOW" relay gn#1 s1#1 "$T/relay.txt" "⑱⑲ 일반 좌석 경합 relay"; fi
+  eq "⑱⑲ $mode 수신자는 실제로 읽었다(recv rc 0)" "$(cat "$C/receiver.rc" 2>/dev/null)" 0
+  eq "⑱⑲ $mode 주입 시점 미읽음 0" "$(pend gn#1)" 0
+  eq "⑱⑲ $mode 이미 읽은 뒤 pane 주입 0" "$(inj gn#1)" 0
+  eq "⑱⑲ $mode doorbell=none" "$(nv "$OUT" doorbell)" none
+  unset RACE_C RACE_SEAT
+done
+
 # ── 사례 ⑬⑭ ft-idle-wake 자동 ring = --auto 1낱말 (확장 좌석 pane 0 · 손 ring 은 주입) ────────────────
 wake() {  # <박스> <가짜시각> — 실제 ft-idle-wake 1회 (ring 인자를 남기려고 mbox.sh 를 얇게 감싼다)
   local w="$1/mbox-wrap.sh"
@@ -215,9 +234,17 @@ c13() { use "$1"; NOW="$W0"; S dm#1 s1#1 "변이 ⑬ 재현"
 B="$(mutbox m3 's/if \[ "\$_auto" = 1 \] && ext_wake_seat "\$sess"; then echo "RING \$sess doorbell=ext"; exit 0; fi/:/' mbox.sh)"
 c13 "$B" && bad "변이 3(--auto 무시) 이 ⑬ 을 안 잡음" || ok "변이 3 → ⑬ FAIL 확인"
 
-# ── 사례 ⑫ 기존 깨움 시험 4개 회귀 0 (합 80초 — 사례 70초 예산 밖이라 FT_R1524_REGRESSION=1 로만) ──────
+# 변이 4: 미읽음 검사를 «면제» 한다(고치기 전 fresh=1 꼴 — DA #276870 R1 그 자리) → 사례 ⑱ 이 FAIL 이어야 한다
+c18() { use "$1"; NOW="$W0"; export RACE_C="$C" RACE_SEAT="gn#1"
+  S gn#1 s1#1 "변이 ⑱ 재현"; unset RACE_C RACE_SEAT
+  [ "$(inj gn#1)" = 0 ] && [ "$(nv "$OUT" doorbell)" = none ]; }
+B="$(mutbox m4 's/^  _pn="\$(_db_pending "\$to")"$/  _pn=1/' mbox_doorbell.sh)"
+grep -q '^  _pn=1$' "$B/.fable-team/comm/mbox_doorbell.sh" || bad "변이 4 sed 미적용" "$(grep -n '_pn=' "$B/.fable-team/comm/mbox_doorbell.sh" | head -3)"
+c18 "$B" && bad "변이 4(미읽음 검사 면제) 가 ⑱ 을 안 잡음" || ok "변이 4 → ⑱ FAIL 확인"
+
+# ── 사례 ⑫ 기존 깨움 시험 5개 회귀 0 (합 80초 — 사례 70초 예산 밖이라 FT_R1524_REGRESSION=1 로만) ──────
 if [ "${FT_R1524_REGRESSION:-0}" = 1 ]; then
-  for t in test_mbox_doorbell_merge_r1476.sh test_pi_mbox_wake_r1477.sh \
+  for t in test_mbox_doorbell_merge_r1476.sh test_mbox_doorbell_merge_r1476b.sh test_pi_mbox_wake_r1477.sh \
            test_mbox_handover_doorbell_force_r1160.sh test_ft_idle_wake.sh; do
     # ★자식에게 이 시험의 격리 env 를 물려주지 않는다★ — 물려주면 자식의 「실 상태」 판정·잠금 대기가 늘어 70초를 넘는다(rc=124 실측).
     env -u FT_MBOX_DIR -u FT_MBOX_STATE_DIR -u TMPDIR -u FT_SEATS_JSON -u TMUX_LOG -u TMUX_SEATS \
@@ -227,7 +254,7 @@ if [ "${FT_R1524_REGRESSION:-0}" = 1 ]; then
     eq "⑫ $t rc=0(base 와 같음)" "$rc" 0
   done
 else
-  echo "SKIP ⑫ 기존 4개 회귀 — FT_R1524_REGRESSION=1 로 따로 돈다(합 80초 · 사례 70초 예산 밖)"
+  echo "SKIP ⑫ 기존 5개 회귀 — FT_R1524_REGRESSION=1 로 따로 돈다(합 90초 · 사례 70초 예산 밖)"
 fi
 
 echo "---"; [ "$fail" = 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAIL $fail"; exit 1; }
