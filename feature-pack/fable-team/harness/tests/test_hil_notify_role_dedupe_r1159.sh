@@ -44,9 +44,9 @@ echo "== ⓑ R2 다른 역할(S=Y#5 · _master=X#2) = 2통 · rc0"
 world "$T/r2" 'byz-planner-master-claude#2'; o="$(run "$BIN" "$T/r2" 'byz-harness-master-claude#5')"
 [ "$o" = "0|2|byz-harness-master-claude#5 byz-planner-master-claude#2 |" ] && ok "R2 = $o" || bad "R2 = $o"
 
-echo "== ⓒ R4 진짜 거절(Y#5 rc1) = stderr «mbox send rc≠0 to=Y#5» · rc1"
+echo "== ⓒ R4 진짜 거절(Y#5 rc1) = stderr «mbox send rc=1 to=Y#5» · rc1"
 world "$T/r4" 'byz-planner-master-claude#2'; o="$(REJECT_TO='byz-harness-master-claude#5' run "$BIN" "$T/r4" 'byz-harness-master-claude#5')"
-case "$o" in "1|1|byz-planner-master-claude#2 |ft-hil-notify 판정 불가 — mbox send rc≠0 to=byz-harness-master-claude#5") ok "R4 = $o";; *) bad "R4 = $o";; esac
+case "$o" in "1|1|byz-planner-master-claude#2 |ft-hil-notify 판정 불가 — mbox send rc=1 to=byz-harness-master-claude#5") ok "R4 = $o";; *) bad "R4 = $o";; esac
 
 echo "== ⓓ bin·kit 같은 내용"
 cmp -s "$SRC" "$HERE/../kit/fable-team/bin/ft-hil-notify.sh" && ok "ft-hil-notify.sh cmp 0" || bad "kit 다름"
@@ -55,7 +55,7 @@ echo "== 변이: 거르기 키를 «이름 그대로» 로 되돌림 → R1 rc1 
 M="$T/mut.sh"; sed '/BASH_REMATCH\[1\]/s/; \[\[ .* && k="\${BASH_REMATCH\[1\]}"$//' "$SRC" > "$M"
 ! cmp -s "$SRC" "$M" && ok "변이 사본이 원본과 다르다" || bad "변이 사본 = 원본"
 world "$T/m1" 'byz-planner-master-claude#2'; o="$(run "$M" "$T/m1" 'byz-planner-master-claude#1')"
-case "$o" in "1|1|"*"rc≠0 to=byz-planner-master-claude#2"*) ok "변이: R1 rc1 · 두 번째 거절 WARN = ⓐ FAIL";; *) bad "변이가 R1 을 못 깬다: $o";; esac
+case "$o" in "1|1|"*"rc=1 to=byz-planner-master-claude#2"*) ok "변이: R1 rc1 · 두 번째 거절 WARN = ⓐ FAIL";; *) bad "변이가 R1 을 못 깬다: $o";; esac
 
 echo "단계 초: 전체 $(( $(date +%s) - s ))"
 [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }
