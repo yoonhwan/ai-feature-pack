@@ -6,7 +6,7 @@
 #  격리: 임시 박스(.fable-team/{comm,state}) · FT_MBOX_DIR·FT_MBOX_STATE_DIR·TMPDIR · 임시 명부(FT_SEATS_JSON) ·
 #        가짜 tmux(pane 목록·send-keys 기록) · 가짜 ps · 가짜 HOME(확장 설치본 있음/없음) · 가짜 시계(FT_MBOX_NOW) ·
 #        실 우편함·실 pane·실 명부 0 · 자기 재호출 0 · sleep 0
-#  사례 ①~⑲ + 변이 4. ⑫(기존 회귀)는 합이 커서 FT_R1524_REGRESSION=1 일 때만 돈다(사례 70초 예산 밖 · 카드 «회차» 예산 안).
+#  사례 ①~㉕ + 변이 5. (판 2 = ⑳~㉕ 팀 명부 판정) ⑫(기존 회귀)는 합이 커서 FT_R1524_REGRESSION=1 일 때만 돈다(사례 70초 예산 밖 · 카드 «회차» 예산 안).
 #  ⑱⑲ = 적재와 주입 사이에 수신자가 recv 를 끝낸 경합(DA #276870 R1 두 입력 — send·relay) — «방금 적재» 는 미읽음을 보장하지 않는다.
 set -uo pipefail
 # 예산 상한을 시험이 스스로 소유한다(기본 100000 · test_mbox_doorbell_merge_r1476.sh:10 과 같은 이유)
@@ -49,7 +49,7 @@ exit 1
 EOF
 cat > "$T/fakebin/ps" <<'EOF'
 #!/bin/sh
-printf '%s\n' '900001     1 S    /bin/zsh' '900002 900001 S    /usr/bin/claude --dangerously-skip-permissions'
+printf '%s\n' '900001     1 S    /bin/zsh' '900002 900001 S    /usr/bin/claude --dangerously-skip-permissions' '900003 900001 S    /usr/local/bin/codex'
 EOF
 printf '#!/bin/sh\nexit 1\n' > "$T/failpeek.sh"
 cat > "$T/seat-status.sh" <<'EOF'
@@ -65,12 +65,18 @@ printf 'relay 본문\n' > "$T/relay.txt"
 # ── 명부 3벌: 정상 / planner 명부 없음 / planner 명부 깨짐(⑪) ────────────────────────────────────────────
 SEATS='{"dm#1":{"agent":"claude","team":"h1","tick":null},
  "pm#1":{"agent":"pi","team":"h1","tick":null},"gn#1":{"agent":"claude","team":"h1","tick":null},
- "gn2#1":{"agent":"claude","team":"h1","tick":null},"s1#1":{"agent":"claude","team":"h1","tick":null}}'
+ "gn2#1":{"agent":"claude","team":"h1","tick":null},"s1#1":{"agent":"claude","team":"h1","tick":null},
+ "bm#1":{"agent":"pi","team":"h1","tick":null}}'
 for d in ok nopj broken; do mkdir -p "$T/seats-$d"; printf '%s\n' "$SEATS" > "$T/seats-$d/seats.json"; done
 printf '%s\n' '{"_master":"pm#1","_desk":"dm#1"}' > "$T/seats-ok/seats-planner.json"
 printf '%s\n' '{깨진' > "$T/seats-broken/seats-planner.json"
+# ★판 2 팀 명부★ — hm#1 = pi master · cm#1 = claude master · im#1 = codex master · nm#1 = pi 나노 · bm#1 = 깨진 파일이 주장하는 pi master
+printf '%s\n' '{"_master":"hm#1","hm#1":{"agent":"pi","team":"hh1","tick":null},"nm#1":{"agent":"pi","team":"hh1","tick":null}}' > "$T/seats-ok/seats-harness.json"
+printf '%s\n' '{"_master":"cm#1","cm#1":{"agent":"claude","team":"c1","tick":null}}' > "$T/seats-ok/seats-cfo.json"
+printf '%s\n' '{"_master":"im#1","im#1":{"agent":"codex","team":"i1","tick":null}}' > "$T/seats-ok/seats-issues.json"
+printf '%s\n' '{"_master":"bm#1","bm#1":{"agent":"pi"},"x":' > "$T/seats-ok/seats-broken.json"   # JSON 오류(그 파일만 거짓)
 
-ALLSEATS="dm#1 pm#1 gn#1 gn2#1 s1#1"
+ALLSEATS="dm#1 pm#1 gn#1 gn2#1 s1#1 hm#1 cm#1 im#1 nm#1 bm#1"
 export PATH="$T/fakebin:$PATH" FT_PS_CMD="$T/fakebin/ps" FT_AGENT_ALIVE_TIMEOUT=2 \
        TMUX_LOG="$T/tmux.log" TMUX_SEATS="$ALLSEATS" FT_BIN="$T/nobin" \
        FT_MBOX_RECV_LIMIT=50 FT_MBOX_RATE_N=1000 FT_MBOX_RESEND_COOLDOWN=0
@@ -179,6 +185,25 @@ eq "⑰ sweep → 확장 _desk pane 주입 0" "$(inj dm#1)" 0
 eq "⑰ nudge 파일 1" "$(ls "$BOX/.fable-team/state/pi-wake" 2>/dev/null | grep -c '\.nudge$')" 1
 [ -z "$(heldn dm#1)" ] && ok "⑰ held 삭제(doorbell=sent)" || bad "⑰ held 삭제(doorbell=sent)"
 
+# ── 사례 ⑳~㉕ 판 2 — 넓힌 판정 = 각 팀 _master(그 행 agent=='pi') ∨ planner _desk ∧ 확장 설치본 ──────────
+use "$(mkbox team)"; NOW="$W0"
+S hm#1 s1#1 "⑳ harness pi master 쪽지"
+eq "⑳ 팀 pi master → pane 주입 0" "$(inj hm#1)" 0
+eq "⑳ 팀 pi master → gate=quiet" "$(nv "$OUT" gate)" quiet
+S cm#1 s1#1 "㉑ cfo claude master 쪽지"
+eq "㉑ 팀 claude master → pane 주입 1(그 좌석엔 확장 없음)" "$(inj cm#1)" 1
+S im#1 s1#1 "㉒ issues codex master 쪽지"
+eq "㉒ 팀 codex master → pane 주입 1" "$(inj im#1)" 1
+S nm#1 s1#1 "㉕ 같은 팀 pi 나노 쪽지"
+eq "㉕ pi 나노(_master 아님) → pane 주입 1" "$(inj nm#1)" 1
+S bm#1 s1#1 "㉔ 깨진 명부가 주장하는 pi master 쪽지"
+eq "㉔ 깨진 명부 파일 좌석 → pane 주입 1" "$(inj bm#1)" 1
+S hm#1 s1#1 "㉔ 다른 파일(seats-harness) 판정은 그대로"
+eq "㉔ 깨진 파일이 다른 파일 판정을 막지 않는다(주입 0 유지)" "$(inj hm#1)" 0
+EXT_HOME="$T/nohome"; S hm#1 s1#1 "㉓ 확장 설치본 없음"
+eq "㉓ 확장 파일 없음 → pane 주입 1(깨움 0 금지)" "$(inj hm#1)" 1
+EXT_HOME="$T/ext"
+
 # ── 사례 ⑱⑲ 경합 2입력 — 적재와 주입 사이에 수신자가 recv 를 끝내면 «이미 읽은» 이라 주입 0 (DA #276870 R1) ──
 for mode in send relay; do
   use "$(mkbox race-$mode)"; NOW="$W0"; export RACE_C="$C" RACE_SEAT="gn#1"   # RACE_* = 가짜 tmux 의 경합 훅
@@ -221,8 +246,8 @@ mutbox() {  # <이름> <sed 스크립트> <파일> → 변이 박스 경로
 }
 # 변이 1: ext_wake_seat 이 _master 만 본다(원래 판정 = _master·_desk) → 사례 ① 이 FAIL 이어야 한다
 c1() { use "$1"; NOW="$W0"; S dm#1 s1#1 "변이 ① 재현"; [ "$(nv "$OUT" doorbell)" = quiet ] && [ "$(inj dm#1)" = 0 ]; }
-B="$(mutbox m1 's/sys.argv\[2\] in (d.get("_master"), d.get("_desk"))/d.get("_master") == sys.argv[2]/' mbox.sh)"
-c1 "$B" && bad "변이 1(ext_wake_seat=_master 만) 이 ① 을 안 잡음" || ok "변이 1 → ① FAIL 확인"
+B="$(mutbox m1 's/if seat in (j.get("_master"), j.get("_desk")):/if False:/' mbox.sh)"
+c1 "$B" && bad "변이 1(planner 판정 끔) 이 ① 을 안 잡음" || ok "변이 1(planner 판정 끔) → ① FAIL 확인"
 # 변이 2: 미읽음 0 검사를 끈다 → 사례 ⑥⑦ 이 FAIL 이어야 한다
 c67() { use "$1"; NOW="$W0"; S gn#1 s1#1 "변이 미읽음 0 재현"; R gn#1 >/dev/null
   run "$NOW" ring gn#1 1; [ "$(nv "$OUT" doorbell)" = none ] && [ "$(inj gn#1)" = 1 ]; }
@@ -233,6 +258,12 @@ c13() { use "$1"; NOW="$W0"; S dm#1 s1#1 "변이 ⑬ 재현"
   wake "$BOX" "$((W0 + 200))"; [ "$(inj dm#1)" = 0 ] && grep -q 'doorbell=ext' "$BOX/.fable-team/state/idle-wake.log" 2>/dev/null; }
 B="$(mutbox m3 's/if \[ "\$_auto" = 1 \] && ext_wake_seat "\$sess"; then echo "RING \$sess doorbell=ext"; exit 0; fi/:/' mbox.sh)"
 c13 "$B" && bad "변이 3(--auto 무시) 이 ⑬ 을 안 잡음" || ok "변이 3 → ⑬ FAIL 확인"
+
+# 변이 5: agent=='pi' 검사를 끈다(이름만 _master) → 사례 ㉑ 이 FAIL 이어야 한다
+c21() { use "$1"; NOW="$W0"; S cm#1 s1#1 "변이 ㉑ 재현"; [ "$(inj cm#1)" = 1 ]; }
+B="$(mutbox m5 's/row.get("agent") == "pi"/row.get("agent") is not None/' mbox.sh)"
+grep -q 'row.get("agent") is not None' "$B/.fable-team/comm/mbox.sh" || bad "변이 5 sed 미적용"
+c21 "$B" && bad "변이 5(agent==pi 검사 끔) 가 ㉑ 을 안 잡음" || ok "변이 5 → ㉑ FAIL 확인"
 
 # 변이 4: 미읽음 검사를 «면제» 한다(고치기 전 fresh=1 꼴 — DA #276870 R1 그 자리) → 사례 ⑱ 이 FAIL 이어야 한다
 c18() { use "$1"; NOW="$W0"; export RACE_C="$C" RACE_SEAT="gn#1"
