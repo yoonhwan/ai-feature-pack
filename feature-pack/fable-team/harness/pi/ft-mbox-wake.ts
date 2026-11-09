@@ -33,6 +33,10 @@ const sh = (cmd: string): string => { try { return execSync(cmd, { encoding: "ut
 const seatName = (): string => process.env.FT_SEAT || sh('tmux display-message -p "#S"');
 // ★root = «git 공용 루트»★ — pi pane 의 cwd 는 워크트리일 수 있다(실측 11-09 18:20 planner pi#245). 다른 ft 도구와 같은 식.
 const gitRoot = (): string => { const d = sh("git rev-parse --path-format=absolute --git-common-dir"); return d ? path.dirname(d) : ""; };
+// ★팀장 pi 판정(r1530 공유 · ft-idle-nudge 가 import)★ = seats*.json 하나의 _master 이고 «같은 파일» 그 행 agent=='pi' → 그 파일 이름(없으면 "") · 깨진 파일 = 그 파일 거짓
+export function piMasterFile(root: string, seat: string): string { const d = path.join(root, ".fable-team"); let names: string[] = []; try { names = fs.readdirSync(d).filter((f) => /^seats.*\.json$/.test(f)).sort(); } catch { return ""; }
+  for (const f of names) { try { const j = JSON.parse(fs.readFileSync(path.join(d, f), "utf-8")), r = j?.[seat]; if ((r?.agent === "pi" && j._master === seat)) return f; } catch { continue; } }
+  return ""; }
 
 export default function (pi: ExtensionAPI) {
   const root = process.env.FT_MBOX_ROOT || gitRoot() || process.cwd();
@@ -55,11 +59,7 @@ export default function (pi: ExtensionAPI) {
     try { const d = JSON.parse(fs.readFileSync(path.join(root, ".fable-team", "seats-planner.json"), "utf-8")); return { master: String(d._master ?? ""), desk: String(d._desk ?? "") }; } catch { return { master: "", desk: "" }; }
   };
   // ★판 2 활성 판정(arch#267 · 카드 954fe550)★ = 「seats*.json 하나의 _master 이고 «같은 파일» 그 행 agent=='pi'」 ∨ 「seats-planner.json _desk」 — 셸 comm/mbox.sh ext_wake_seat 와 «같은 칸»(두 벌이 다른 말을 하면 좌석이 두 길로 깨운다).
-  const activeFlag = (): boolean => {
-    const d = path.join(root, ".fable-team"); let names: string[] = []; try { names = fs.readdirSync(d).filter((f) => /^seats.*\.json$/.test(f)); } catch { return false; }
-    for (const f of names) { try { const j = JSON.parse(fs.readFileSync(path.join(d, f), "utf-8")), r = j?.[seat];
-      if ((r?.agent === "pi" && j._master === seat) || (f === "seats-planner.json" && j._desk === seat)) return true; } catch { continue; } } // _master ∧ 같은 파일 agent=='pi' ∨ planner _desk · 깨진 파일 = 그 파일 거짓
-    return false; };
+  const activeFlag = (): boolean => !!piMasterFile(root, seat) || (!!seat && seats().desk === seat); // _master ∧ 같은 파일 agent=='pi' ∨ planner _desk
   const activeSeat = (say: boolean): boolean => { // 다른 pi 좌석(나노) 자동 활성화 0 — _master/_desk 만
     const mine = !!seat && activeFlag(), s = seats();
     if (mine) { announced = ""; return true; }
