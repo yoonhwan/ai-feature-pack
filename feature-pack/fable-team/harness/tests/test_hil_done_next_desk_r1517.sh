@@ -3,6 +3,7 @@
 # seats-planner.json _desk 를 _master 와 같이 더하며 ③본문 끝에 «남은 N · 다음 h<M>» 꼬리를 붙이는지(카드 A · 사례 ⓐ~ⓕ).
 # 격리: 임시 폴더의 h 진입 파일 4종(h1 끝 · h2·h3 미실행 · h4 .held 보류) + 가짜 쪽지함(mbox.sh = 받은 to·본문을 파일에 적음)
 #       + 가짜 seats-planner.json(_master · _desk) — 실 /tmp/h* · 실 우편함 · 실 git 0 · 자기 재호출 0 · 고정 sleep 0.
+# ⓖ(r1517 HOLD aifp#796): mbox send 실패 때 stderr 에 «이유(첫 줄) + rc» 를 남긴다 — 가짜 mbox 가 «REJECT 이유X» rc3.
 # 변이 대조: M1 _desk 수신 줄 삭제 → ⓑ FAIL · M2 목록 호출 삭제 → ⓐ FAIL · M3 보류 필터 무시(--held 추가) → ⓐ FAIL.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
@@ -87,6 +88,19 @@ chmod 755 "$w/hil"
 [ "$(lines "$ERR")" = 1 ] && case "$ERR" in "ft-hil-notify 판정 불가 — 미실행 h 목록 읽기 실패(rc=3): $w/hil") ok "ⓕ stderr 판정 불가 1줄";; *) bad "ⓕ stderr: $ERR";; esac || bad "ⓕ stderr $(lines "$ERR")줄: $ERR"
 [ "$SENT" = "req#1 plz-master#9 plz-desk#1 " ] && ok "ⓕ 쪽지는 그대로 3통" || bad "ⓕ 수신: «${SENT}»"
 [ "$RC" = 0 ] && ok "ⓕ done rc0(진입 파일 rc 는 부르는 쪽이 정한다)" || bad "ⓕ rc=$RC"
+
+# ── ⓖ mbox send 실패(«REJECT 이유X» rc3) → stderr 에 이유 첫 줄 + rc · done rc1 ──
+w="$T/g"; world "$w" 'plz-master#9' 'plz-desk#1'
+mk_h "$w/hil" h1; fin "$w/hil" h1; mk_h "$w/hil" h2
+cat > "$w/comm/mbox.sh" <<'SH'
+#!/usr/bin/env bash
+echo "REJECT 이유X"
+exit 3
+SH
+run "$BIN" "$w" 'req#1'
+[ "$RC" = 1 ] && ok "ⓖ done rc1(발신 실패)" || bad "ⓖ rc=$RC"
+case "$ERR" in *"rc=3"*"REJECT 이유X"*) ok "ⓖ stderr 에 이유 + rc=3";; *) bad "ⓖ stderr: $ERR";; esac
+[ -z "$ERR" ] || [ "$(printf '%s\n' "$ERR" | grep -c 'REJECT 이유X')" = 3 ] && ok "ⓖ 수신자 3통 각 1줄" || bad "ⓖ stderr $(lines "$ERR")줄: $ERR"
 
 # ── 변이 3종: 각각 해당 사례가 RED 인지 ──
 mixbin() { mkdir -p "$1"; cp "$HERE/../bin/ft-hil.sh" "$HERE/../bin/ft_hil_pending.py" "$HERE/../bin/ft_latest_write.py" "$HERE/../bin/ft-harness-root.sh" "$1/" 2>/dev/null; }
