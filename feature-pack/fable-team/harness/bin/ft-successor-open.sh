@@ -2,6 +2,7 @@
 # ft-successor-open.sh <구 좌석> <워크트리> --name <후계> --agent A --model M [--ctx C] [--effort E] --body-file <발주 본문 파일>
 #   R107 · 승계 후계 개설을 «도구가 강제» — 열기 → 에이전트 기동 확인(pgrep) → 새 좌석 jsonl SessionStart → 검증 송신 → 도달 파일.
 #   exit 0 = 도달(도달 파일 기록) · 1 = REJECT(송신 0) · 2 = usage · 5 = 열렸으나 도달 미확인(도달 파일 0 · 구 좌석 닫기 0)
+#   exit 6 = 받을 일 0 — 후계 0 · 팀장에 «[다음 없음]» 1통(r1539 · 판정 = ft-seat-open-work.py · 닫기는 사람 판정 R400 --verdict)
 #   팀 무관 · 명부(seats*.json) 수정 0 — 명부는 ft-seat-retire.sh 가 후계 부팅 때 한다.
 #   도달 파일 = <리포 루트>/.fable-team/state/successor/<구 좌석>.json — context-distill-gate.sh 가 550k 넘은 좌석의 recv 를 이 파일로 푼다. `model` 칸(R282) = --model 값 — ft-seat-retire.sh 가 후계 행 model 로 쓴다.
 #   재실행(r609) = 같은 이름 세션이 이미 있고 그 pane 작업 폴더가 $WT 면 열기를 건너뛰고 ⓒ~ⓔ 를 잇는다(도달 파일이 이미 있으면 «이미 도달» rc0 · 송신 0). 남의 세션이면 REJECT. 판 폴더를 못 읽으면 «다르다» 가 아니라 «못 읽음(판정 불가)» 로 REJECT(r622 — 창·판 대상은 «=이름:» 꼴만 pane 을 고른다).
@@ -97,6 +98,29 @@ for _sib in "$SEND" "$REACH"; do
 done
 ROOT="$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')"
 [ -n "$ROOT" ] || { echo "REJECT 워크트리가 git 이 아니다: $WT"; exit 1; }
+# ★r1539 받을 일 판정 — 받을 일 0 이면 후계를 열지 않는다★ (closeout-policy 1·5항 · 오빠 11-08 #274576)
+#   판정은 도구 하나(ft-seat-open-work.py)에만 묻는다: 미처리 쪽지 · 진행 카드 «- 배정: 좌석» · state/card-assign · 팀장이면 팀 진행.
+#   rc0 = 받을 일 0 → 열기 0 · 팀장에 «[다음 없음]» 1통 · 이 도구 rc6 (닫기·kill·명부 쓰기는 이 도구 몫이 아니다 — 닫기 = R400 --verdict 사람 판정)
+#   rc1(일 있음)·rc3(판정 불가) = 기존 승계 그대로 · 판정 불가면 stderr 1줄로 드러낸다(조용한 통과 0)
+_OW="${FT_SEAT_OPEN_WORK:-$HERE/ft-seat-open-work.py}"
+if [ -f "$_OW" ]; then _OW_OUT="$(python3 "$_OW" "$OLD" --root "$ROOT" 2>&1)"; _OW_RC=$?
+else _OW_OUT="받을 일 판정 불가 판정 도구 없음 $_OW — 기존 승계"; _OW_RC=3; fi
+case "$_OW_RC" in
+  0)
+    _OW_WHY="$(printf '%s\n' "$_OW_OUT" | sed -n 's/^OPEN-WORK 0 //p' | head -1)"
+    _OW_LDR="$(printf '%s\n' "$_OW_OUT" | sed -n 's/^LEADER //p' | head -1)"
+    _OW_MSG="[다음 없음] $OLD · ${_OW_WHY} · 닫기=R400 --verdict 대기"
+    _OW_MBOX="${FT_MBOX_SH:-$ROOT/.fable-team/comm/mbox.sh}"
+    if [ -n "$_OW_LDR" ] && [ "$_OW_LDR" != "-" ] && [ -f "$_OW_MBOX" ]; then
+      _OW_S="$(bash "$_OW_MBOX" send "$_OW_LDR" "$OLD" "$_OW_MSG" 2>&1)" || echo "WARN 팀장 통지 실패(${_OW_LDR}) — $_OW_S" >&2
+    else
+      echo "WARN 팀장 좌석·mbox 없음 — 통지 0 · 줄만 남긴다" >&2
+    fi
+    echo "OPEN-WORK-0 $OLD — 후계 0(받을 일 0) · $_OW_MSG"
+    exit 6 ;;
+  3) printf '%s\n' "$_OW_OUT" | sed -n '/^받을 일 판정 불가/p' >&2 ;;
+  *) [ -n "$_OW_OUT" ] && printf '%s\n' "$_OW_OUT" >&2 ;;
+esac
 # ★r756 좌석 자리 검사 (desk·planner · 열기 «전»)★: 이 도구가 «어느 워크트리에서 여는가» 를 보지 않아 desk·planner 가 main 보다 908 뒤진 옛 가지 워크트리에 그대로 앉았다(옛 훅·옛 지침이 그 좌석의 지침). 이름이 `*-desk-*`·`*-planner-*` 면 2검사 · 둘 다 fail-closed(못 읽으면 열지 않는다).
 #   ① 그 워크트리 HEAD 가 origin/main 을 품어야 한다(뒤처짐 수 표시) ② 워크트리·공용 루트의 .fable-team/LIVE_ROOT 1행이 같아야 한다(하네스 데이터 루트 갈라짐 = 자율·승인 상태가 둘로 갈린다).
 case "$NAME" in *-desk-*|*-planner-*)

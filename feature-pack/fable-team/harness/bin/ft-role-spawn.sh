@@ -176,8 +176,8 @@ case "$AGENT" in claude|cmd|codex|pi) OPEN+=(--effort "$EFFORT");; esac
 
 # 첫 발주 = README §2 → inbox 정렬. 본문은 파일에 있다. 도달은 jsonl 층(ft-send-verified)
 BODY="[Seatbelt 역할 교체] 너는 $ROLE 후계 좌석($NAME). 먼저 $README §2 부팅 5단계(첫 보고까지), 그 다음 $INBOX/ 를 정렬해 «맨 위» 파일부터 이어간다. 구 좌석 ${OLD:-없음} 은 정지 레디(kill 금지). 보고는 mbox 로 $FROM 에."
-# 세션 크론은 승계로 옮겨지지 않는다 — master·arch 후계는 부팅 보고 그 턴에 체크 틱을 직접 건다(BOOT 16 · 원장 R13). da·pm·tester 는 해당 없음.
-case "$ROLE" in master|arch) BODY="$BODY ★부팅 보고를 보낸 그 턴에 CronCreate 15분 체크 틱 1개(mbox recv + 하위 pane 실측 + 오빠 3줄 · 10분짜리는 CronDelete 뒤 15분)을 건다 — 없으면 착수 0 · 부팅 보고에 cron=<job id> · launchd=<ft-tick-<팀> 상태> (BOOT 16)★";; esac
+# 주기 크론은 만들지 않는다(오빠 11-08 · #274576 · r1539) — master·arch 후계도 같다. 깨우는 것은 쪽지·발주뿐 · da·pm·tester 는 해당 없음.
+case "$ROLE" in master|arch) BODY="$BODY ★주기 크론 0 — 크론을 만들지 않는다(오빠 11-08 · #274576). 깨우는 것은 쪽지·발주뿐 · 부팅 보고에 cron=0 · launchd=<ft-tick-<팀> 상태> (BOOT 16 대체 · r1539)★";; esac
 # 승계 좌석 부팅 보고 게이트(P4 · 판정 1155 ①) — retire 칸이 없으면 쪽지 도구(mbox_guard)가 반송한다. 구 좌석이 있을 때만 붙인다.
 [ -n "${OLD:-}" ] && BODY="$BODY ★부팅 보고에 retire=<구>-><후계> rc=0 칸 필수 — ft-seat-retire.sh <구> <후계> 를 먼저 실행해 출력을 복붙(칸이 없으면 쪽지 도구가 반송) — 출력 둘째 줄(RESUME ok … 또는 NORECORD …)도 retire 칸 옆에 그대로 붙인다(재개 기록 · 판정 1344)★"
 # 고스트 서제스천(R21 · BOOT 17) — 남의 pane 을 읽는 전 역할에 붙인다.
