@@ -3,9 +3,12 @@
 #  팀 읽기 = 계획 머리 `# ft-hil-request seat=<좌석…>` ∪ `<h>.notify` 의 `seat=` 좌석 이름(`byz-<팀>-…` · `aifp-<팀>-…`)
 #  사례: ⓐ --team ops · ops h 1 + cfo h 1 → ops 줄 1  ⓑ 요청 머리 없음 + notify seat=byz-cfo-… → cfo 로 셈(ops 0)
 #        ⓒ 요청 머리·notify 둘 다 없음 → 모든 팀에 셈 + stderr «팀 표식 없음 h<N> — 전 팀에 셈(기존 동작)» 1줄
-#        ⓓ 요청 좌석 3개가 다른 팀 → 그 셋 모두에 셈  ⓔ --team 없는 호출 = base(origin/main) 와 바이트 같음 · stderr 0
+#        ⓓ 요청 좌석 3개가 다른 팀 → 그 셋 모두에 셈  ⓔ --team 없는 호출 = base(고정 sha) 와 바이트 같음 · stderr 0
 #        ⓕ aifp-<팀>-… → <팀> · 그 밖 꼴 좌석 = 표식 없음과 같게(ⓒ)  ⓖ ft-idle-nudge: 다른 팀 h 1 = 턴 1 · 그 팀 h 1 = 턴 0
+#        ⓗ R1 반례: 계획 «공백 경로» = 경로는 줄 전체 · 좌석 칸만 split(공백 경로 요청 팀 유지 · notify 다른 팀도 셈)
+#        ⓘ R1 반례: 공백 경로 + notify 없음 → 표식 없음으로 새지 않는다(전 팀 오분류 0)
 #  변이: M1 --team 거르기 끔 → ⓐ FAIL(2줄) · M2 표식 없는 h 를 빼버림 → ⓒ FAIL(0줄) · M3 ft-idle-nudge 가 --team 을 안 넘김 → ⓖ FAIL(턴 0)
+#        M4 경로를 공백으로 자름(R1 이전 꼴) → ⓗ·ⓘ FAIL(요청 팀 유실 · 전 팀 오분류)
 #  격리: 임시 HIL_DIR 만(실 /tmp/h* 0 · 실 우편함 0) · FT_HIL_NOW 로 분 경계 고정 · sleep 0 · 외부 호출 0(env -i).
 # 새 파일 mode 100644 — `bash <이 파일>` 로 부른다. 자기 호출 0.
 set -uo pipefail
@@ -46,7 +49,7 @@ run() {  # <BIN 폴더> <HIL_DIR> <인자…> → $T/out · $T/err · $T/rc
 out() { tr '\n' '|' <"$T/out"; }
 
 # ── 픽스처: <케이스 폴더> — h 는 «2분 전» 미실행 · 계획 머리/notify 만 다르게 ────────────────
-fx() {  # fx <케이스> <n>:<쉼표 좌석들 | -> [:<notify 좌석>] …
+fx() {  # fx <케이스> <n>:<쉼표 좌석들 | ->[ :<notify 좌석 | ->][ :sp] — sp = 계획 파일을 «공백 있는 폴더·이름» 에 둔다(R1 반례)
   python3 - "$T/fx" "$NOW" "$@" <<'PY'
 import os, sys
 root, now, specs = sys.argv[1], int(sys.argv[2]), sys.argv[3:]
@@ -54,12 +57,14 @@ case = os.path.join(root, specs[0]); os.makedirs(case, exist_ok=True)
 for spec in specs[1:]:
     parts = spec.split(":"); n = parts[0]
     seats = [] if parts[1] == "-" else parts[1].split(",")
-    plan = os.path.join(case, "plan-%s.sh" % n)
+    sp = parts[3:] == ["sp"]
+    plan = os.path.join(case, "plan dir", "ops plan %s.sh" % n) if sp else os.path.join(case, "plan-%s.sh" % n)
+    os.makedirs(os.path.dirname(plan), exist_ok=True)
     open(plan, "w").write("#!/usr/bin/env bash\n" + ("# ft-hil-request seat=%s\n" % " ".join(seats) if seats else "") + "echo hi\n")
     p = os.path.join(case, "h%s" % n)
     open(p, "w").write("#!/usr/bin/env bash\n# ft-hil-entry plan=%s\nP=x; M=y\n" % plan)
     os.utime(p, (now - 120, now - 120))
-    if len(parts) > 2:
+    if len(parts) > 2 and parts[2] != "-":
         open(p + ".notify", "w").write("seat=%s\ncomm=/tmp/x\n" % parts[2])
 PY
 }
@@ -70,6 +75,8 @@ fx d 105:byz-ops-x#1,byz-cfo-y#2,byz-airag-z#3
 fx e 101:byz-ops-lead-claude#3 102:byz-cfo-lead-claude#4 103:-:byz-cfo-desk-claude#9 104:- \
      105:byz-ops-x#1,byz-cfo-y#2,byz-airag-z#3 106:aifp-airag-nano#4 107:planner#3 108:byz-ops-x#1:byz-airag-nano#4
 fx f 106:aifp-airag-nano#4 107:planner#3
+fx h 120:byz-ops-lead-claude#3:byz-cfo-desk-claude#9:sp
+fx i 121:byz-ops-lead-claude#3:-:sp
 
 step "ⓐ 그 팀 h 만(ops h 1 + cfo h 1)"
 run "$SRC" "$T/fx/a" --pending --each
@@ -128,6 +135,26 @@ eq "ⓕ --team airag = aifp 좌석 h106 + 표식 없는 h107" "$(out)" "h106 2|h
 eq "ⓕ stderr = h107 만" "$(cat "$T/err")" "팀 표식 없음 h107 — 전 팀에 셈(기존 동작)"
 run "$SRC" "$T/fx/f" --pending --each --team harness
 eq "ⓕ --team harness = 표식 없는 h107 만" "$(out)" "h107 2|"
+
+step "ⓗ R1 반례 1 — 계획 «공백 경로» + notify 다른 팀"
+run "$SRC" "$T/fx/h" --pending --each
+printf '%s' "$(head -2 "$T/fx/h/h120" | tail -1)" | grep -q 'plan dir/ops plan 120.sh' \
+  && ok "ⓗ 전제: h120 의 plan 줄에 공백 경로가 있다" || bad "ⓗ 전제 실패(공백 경로 픽스처)"
+run "$SRC" "$T/fx/h" --pending --each --team ops
+eq "ⓗ --team ops = 공백 경로 요청 좌석(ops) 으로 셈" "$(out)" "h120 2|"
+eq "ⓗ --team ops stderr 0(표식 있음)" "$(wc -c <"$T/err" | tr -d ' ')" 0
+run "$SRC" "$T/fx/h" --pending --each --team cfo
+eq "ⓗ --team cfo = notify 좌석(cfo) 으로도 셈" "$(out)" "h120 2|"
+run "$SRC" "$T/fx/h" --pending --each --team harness
+eq "ⓗ --team harness = 0줄(전 팀 오분류 0)" "$(out)" ""
+eq "ⓗ --team harness stderr 0" "$(wc -c <"$T/err" | tr -d ' ')" 0
+
+step "ⓘ R1 반례 2 — 공백 경로 + notify 없음 = 전 팀 오분류 0"
+run "$SRC" "$T/fx/i" --pending --each --team ops
+eq "ⓘ --team ops = h121" "$(out)" "h121 2|"
+run "$SRC" "$T/fx/i" --pending --each --team harness
+eq "ⓘ --team harness = 0줄(표식 없음으로 새지 않는다)" "$(out)" ""
+eq "ⓘ --team harness stderr «팀 표식 없음» 0" "$(wc -c <"$T/err" | tr -d ' ')" 0
 
 step "ⓖ ft-idle-nudge 가 그 팀 h 로 판정"
 if command -v node >/dev/null 2>&1; then
@@ -234,6 +261,14 @@ if d="$(mut M2 "if not t or team in t:" "if t and team in t:" 2>/dev/null)"; the
   run "$d" "$T/fx/c" --pending --each --team ops
   eq "변이 M2 → ⓒ 0줄(표식 없는 h 사라짐) = FAIL 검출" "$(out)" ""
 else bad "변이 M2 치환 미적용"; fi
+if d="$(mut M4 'seats(rest(hpath, PLAN) or "", REQ)' 'seats((seats(hpath, PLAN) or [""])[0], REQ)' 2>/dev/null)"; then  # 경로를 공백으로 자르던 R1 이전 꼴
+  run "$d" "$T/fx/h" --pending --each --team ops
+  eq "변이 M4 → ⓗ ops 0줄(경로가 잘려 요청 팀 유실) = FAIL 검출" "$(out)" ""
+  run "$d" "$T/fx/i" --pending --each --team ops
+  eq "변이 M4 → ⓘ «팀 표식 없음» stderr 가 샌다 = FAIL 검출" "$(cat "$T/err")" "팀 표식 없음 h121 — 전 팀에 셈(기존 동작)"
+  run "$d" "$T/fx/i" --pending --each --team harness
+  eq "변이 M4 → ⓘ harness 1줄(전 팀 오분류) = FAIL 검출" "$(out)" "h121 2|"
+else bad "변이 M4 치환 미적용"; fi
 
 # 접합(산출 정합) — bin 과 kit 같은 바이트
 for f in ft_hil_pending.py ft_hil_team.py ft-hil.sh; do
