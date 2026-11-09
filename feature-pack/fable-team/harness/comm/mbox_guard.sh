@@ -93,7 +93,7 @@ def why(f, r): return "_closed=" + str(docs.get(f, {}).get("_closed") or r.get("
 if closed and live(cfile): out("WARN", "", "닫힌 좌석 " + cur + " → 역할 현역 " + ",".join(live(cfile)) + " — 역할 우편함에 전송"); closed = False
 if cur != to and closed: stop("은퇴한 좌석 " + to + " → 후계 " + cur + " 도 닫힘(" + why(cfile, crow) + ")")
 if cur != to and rk(cur) != rk(to):   # 개명·팀 바뀜 = 다른 우편함 — 예외 = 명부 사슬 끝 현역이 보낸 [레디](r1493 · 개명 승계 옛 좌석의 닫기 증거)
-    if head.startswith("[레디]") and frm == cur and not closed and isinstance(docs.get(cfile, {}).get(cur), dict):   # 사슬 끝 행이 명부에 실재 ∧ 현역
+    if head.startswith("[레디]") and frm == cur and crow.get("role") not in ("closed", "stopped") and isinstance(docs.get(cfile, {}).get(cur), dict):   # 사슬 끝 행이 명부에 실재 ∧ 그 행 role 이 현역(닫힘·중단 아님)
         out("WARN", "", "개명 승계 [레디] " + frm + " → 은퇴 좌석 " + to + " 우편함에 기록(닫기 증거)"); sys.exit(0)
     stop("은퇴한 좌석 " + to + " → 현역 " + cur + " — 후계 이름으로 다시 보내라", forward=cur)
 if cur != to: out("WARN", "", "옛 번호 " + to + " → 역할 우편함(현역 " + cur + ") — 그대로 전송")

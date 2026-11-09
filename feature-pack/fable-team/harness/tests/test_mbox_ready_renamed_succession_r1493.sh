@@ -12,7 +12,7 @@ fail=0; ok() { echo "PASS $1"; }; bad() { echo "FAIL $1"; fail=$((fail+1)); }
 mkdir -p "$T/stub"; printf '#!/bin/sh\nexit 1\n' > "$T/stub/tmux"; chmod +x "$T/stub/tmux"
 M=byz-zz-master-pi#3; OLD=byz-zz-arch-claude#1; SUCC=byz-zz-arch-pi#2   # 개명 승계 = 역할 키가 다르다
 N7=byz-zz-arch-pi#7; N8=byz-zz-arch-pi#8; N9=byz-zz-arch-pi#9          # 번호 승계(역할 키 같음) + 같은 역할 키 비후계
-OTHER=byz-zz-da-codex#9
+OTHER=byz-zz-da-codex#9; SIB=byz-zz-arch-claude#9   # SIB = OLD 와 같은 역할 키 현역(DA R1 반례 재료)
 
 roster() {   # 개명 사슬 OLD→SUCC · 번호 사슬 N7→N8 · 같은 역할 키 비후계 N9 · 무관 좌석 OTHER
   python3 - "$ENVROOT/seats/seats-zz.json" "$M" "$OLD" "$SUCC" "$N7" "$N8" "$N9" "$OTHER" <<'PY'
@@ -40,6 +40,21 @@ py() { OUT="$(cd "$ENVROOT" && xenv timeout 20 python3 "$C/mbox.py" "$@" 2>&1)";
 queued() { local n; n="$(grep -c "\"to\": *\"$1\"" "$Q" 2>/dev/null)"; echo "${n:-0}"; }
 hbody() { printf '[인계] %s -> %s · 항목 2 · [레디] 는 항목마다 «<id> 받음»(bash mbox.sh ready %s %s)\n답 안 한 오빠 질문: 0\n남은 회신·쪽지: 2\n- #1 [%s] q1 (전문: mailbox.log.jsonl seq 1)\n- #2 [%s] q2 (전문: mailbox.log.jsonl seq 2)' "$1" "$2" "$2" "$1" "$M" "$M"; }
 rbdy() { printf '[레디] %s <- %s · [인계] #%s 받음 · 항목 2\n#1 받음\n%s' "$1" "$2" "$3" "$4"; }
+roster_closed() {   # DA #275493 R1 반례 — 후계 SUCC 가 role=closed · 같은 역할 키(OLD 팀) 현역 SIB 1석
+  python3 - "$ENVROOT/seats/seats-zz.json" "$M" "$OLD" "$SUCC" "$SIB" <<'PY'
+import json, sys
+p, m, o, s, sib = sys.argv[1:6]
+json.dump({"_master": m, m: {"role": "master"}, o: {"role": "stop-ready", "_replaced_by": s},
+           s: {"role": "closed", "_replaces": [o]}, sib: {"role": "arch", "_replaces": []}}, open(p, "w", encoding="utf-8"))
+PY
+}
+mut_reuse_closed() { python3 - "$C/mbox_guard.sh" <<'PY'
+import sys
+p = sys.argv[1]; s = open(p, encoding="utf-8").read()
+s = s.replace('crow.get("role") not in ("closed", "stopped")', 'not closed')
+open(p, "w", encoding="utf-8").write(s)
+PY
+  grep -q 'frm == cur and not closed and isinstance' "$C/mbox_guard.sh"; }
 mut_guard_off() { sed -i '' 's/if head.startswith("\[레디\]") and frm == cur/if False and frm == cur/' "$C/mbox_guard.sh"; grep -q 'if False and frm == cur' "$C/mbox_guard.sh"; }
 mut_role_key() { sed -i '' 's/and r.get("from") == succ and/and role_key(r.get("from")) == role_key(seat) and/' "$C/mbox_handover.py"; grep -q 'role_key(r.get("from")) == role_key(seat)' "$C/mbox_handover.py"; }
 setup_handover() {   # setup_handover <old> <succ> — 옛 좌석이 후계에 [인계] 1통(HS = 그 seq)
@@ -99,6 +114,15 @@ new_env; setup_handover "$N7" "$N8" && sh_ send "$N7" "$N9" "$(rbdy "$N9" "$N7" 
 py close-check "$N7"
 [ "$RC" = 3 ] && case "$OUT" in *'후계 [레디] 없음'*) true;; *) false;; esac \
   && ok "T7 같은 역할 키 비후계 #9 → close-check REJECT" || bad "T7 rc=$RC :: $OUT"
+
+# ── T9 (DA #275493 R1) 닫힌 후계의 [레디] → REJECT · 큐 0 — 사슬 끝 «닫힘» 판정은 closed 덮어쓴 값이 아니라 사슬 끝 행 자체
+t9() {   # t9 [변이함수]
+  new_env "${1:-}" || return 2; roster_closed
+  sh_ send "$OLD" "$SUCC" "$(rbdy "$SUCC" "$OLD" 1 $'#2 받음')"
+  [ "$RC" = 3 ] && [ "$(queued "$OLD")" = 0 ]
+}
+t9 && ok "T9 닫힌 후계 [레디] → REJECT rc3 · 큐 0" || bad "T9 rc=$RC :: $OUT"
+t9 mut_reuse_closed; [ $? = 1 ] && ok "T9 변이(closed 덮어쓴 값 재사용) = 빨강" || bad "T9 변이가 안 잡힘 rc=$RC :: $OUT"
 
 # ── 문법
 for f in "$SRC/mbox_guard.sh" "$SRC/mbox_handover.py"; do
