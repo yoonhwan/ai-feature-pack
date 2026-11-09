@@ -37,8 +37,8 @@ command -v node >/dev/null 2>&1 || { echo "FAIL node 없음"; exit 1; }
 if [ ! -f "$EXT" ]; then echo "FAIL 확장 없음 $EXT"; exit 1; fi
 
 # ── 정적 계약(완료 조건) ──────────────────────────────────────────────────────────────
-# 상한 = 140줄(카드 «고칠 안» 값) — master #276564 가 ③_desk 활성 + ④user_bash 훅을 같은 보정에 합치며 120 초과를 허용(1줄 보고 의무).
-eq "S1 확장 $(wc -l < "$EXT" | tr -d ' ')줄 ≤140" "$([ "$(wc -l < "$EXT" | tr -d ' ')" -le 140 ] && echo yes || echo no)" yes
+# 상한 = 200줄 — r1537 «로드 줄» 이 +2줄(카드 §크기: ft-mbox-wake 140 → 200줄 안) · 원래 140 은 r1477 카드 값(1줄 보고 의무).
+eq "S1 확장 $(wc -l < "$EXT" | tr -d ' ')줄 ≤200" "$([ "$(wc -l < "$EXT" | tr -d ' ')" -le 200 ] && echo yes || echo no)" yes
 eq "S2 setInterval 0" "$(grep -c 'setInterval' "$EXT")" 0
 eq "S3 send-keys 0(타이핑 주입)" "$(grep -c 'send-keys' "$EXT")" 0
 bash -n "$0" && ok "S4 bash -n rc0" || bad "S4 bash -n rc0"
@@ -103,6 +103,7 @@ async function load() {
   const pi = { calls: [], retired: false, h: {}, on(e, f) { (this.h[e] ??= []).push(f); },
     async emit(e, ev = {}) { let out; for (const f of this.h[e] ?? []) { const r = await f(ev, { isIdle: () => true }); if (r !== undefined && out === undefined) out = r; } return out; }, // 핸들러 반환값(user_bash = operations) 전달
     throwOnSend: false,
+    appendEntry(t, d) { this.entries = this.entries ?? []; this.entries.push({ t, d }); }, // r1537 로드 줄(실 pi 와 같은 칸)
     sendMessage(m, o) { if (this.throwOnSend) throw new Error("boom"); if (!this.retired) this.calls.push({ m, o }); } };
   live.push(pi);
   const mod = await import(`${pathToFileURL(EXTv).href}?v=${++modv}`);
@@ -524,7 +525,7 @@ NODE
 
 # 확장은 문서(docs/extensions.md:1081)대로 pi 패키지에서 createLocalBashOperations 를 import 한다 — node 시험용 사본+스텁.
 mkdir -p "$T/ext" "$T/node_modules/@earendil-works/pi-coding-agent"
-cp "$EXT" "$T/ext/ft-mbox-wake.ts"
+cp "$EXT" "$T/ext/ft-mbox-wake.ts"; cp "$(dirname "$EXT")/ft-load-line.ts" "$T/ext/" # r1537 공용 헬퍼(확장이 import)
 printf '{"name":"@earendil-works/pi-coding-agent","type":"module","main":"index.mjs","exports":"./index.mjs"}\n' \
   > "$T/node_modules/@earendil-works/pi-coding-agent/package.json"
 cat > "$T/node_modules/@earendil-works/pi-coding-agent/index.mjs" <<'SHIM'

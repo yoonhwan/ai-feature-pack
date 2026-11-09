@@ -28,7 +28,7 @@ command -v python3 >/dev/null 2>&1 || { echo "FAIL python3 없음"; exit 1; }
 n="$(wc -l < "$EXT" | tr -d ' ')"
 eq "S1 확장 ${n}줄 < 200" "$([ "$n" -lt 200 ] && echo yes || echo no)" yes
 CODE="$(grep -v '^[[:space:]]*//' "$EXT")"   # 머리 주석 줄은 빼고 코드 줄만 본다
-eq "S2 사건 = pi.on 1개(agent_settled)" "$(grep -c 'pi.on(' <<<"$CODE")$(grep -c 'pi.on("agent_settled"' <<<"$CODE")" 11
+eq "S2 사건 = pi.on 2개(session_start 로드 줄 r1537 + agent_settled)" "$(grep -c 'pi.on(' <<<"$CODE")$(grep -c 'pi.on("agent_settled"' <<<"$CODE")" 21
 eq "S3 주기·타이머·send-keys 0" "$(grep -cE 'setInterval|setTimeout|send-keys|fs\.watch' <<<"$CODE")" 0
 eq "S4 활성 판정 = ft-mbox-wake piMasterFile import(복사본 0)" "$(grep -c 'import { piMasterFile } from "./ft-mbox-wake.ts"' "$EXT")$(grep -c 'readdirSync' "$EXT")" 10
 eq "S5 [긴급] 본문 백틱·\$( 0" "$(grep '\[긴급\] \${seat}' "$EXT" | grep -cE '\\`|\$\(')" 0
@@ -272,7 +272,7 @@ NODE
 
 # 확장 둘(ft-idle-nudge 가 ./ft-mbox-wake.ts 를 import) 을 사본 폴더에 나란히 + pi 패키지 스텁.
 mkdir -p "$T/ext" "$T/node_modules/@earendil-works/pi-coding-agent"
-cp "$EXT" "$T/ext/ft-idle-nudge.ts"; cp "$WAKE" "$T/ext/ft-mbox-wake.ts"
+cp "$EXT" "$T/ext/ft-idle-nudge.ts"; cp "$WAKE" "$T/ext/ft-mbox-wake.ts"; cp "$(dirname "$EXT")/ft-load-line.ts" "$T/ext/" # r1537 공용 헬퍼
 printf '{"name":"@earendil-works/pi-coding-agent","type":"module","main":"index.mjs","exports":"./index.mjs"}\n' \
   > "$T/node_modules/@earendil-works/pi-coding-agent/package.json"
 echo 'export const createLocalBashOperations = () => ({ exec: async () => ({ output: "", exitCode: 0 }) });' \

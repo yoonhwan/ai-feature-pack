@@ -36,7 +36,8 @@ fable-team 프로브 돌려줘
 
 ## 4. pi 확장 (r1477 · planner 대면 좌석 깨움 — 선택)
 
-planner 대면 pi 좌석에만: `cp harness/pi/ft-mbox-wake.ts ~/.pi/agent/extensions/` → pi 재시작 1회(폴더 자동 발견 · settings 등록 0).
+planner 대면 pi 좌석에만: `cp harness/pi/ft-mbox-wake.ts harness/pi/ft-load-line.ts ~/.pi/agent/extensions/` → pi 재시작 1회(폴더 자동 발견 · settings 등록 0).
+`ft-load-line.ts` 는 확장 4개가 함께 import 하는 공용 헬퍼다(r1537) — 빼고 복사하면 확장이 로드되지 않는다. 설치 뒤 그 세션 기록(jsonl)에 `로드 <카드> <판>` 4줄이 남는다.
 다른 데이터 루트는 `FT_MBOX_FILE` 로 우편함을 지정한다 — 입력·감시·recv 가 그 우편함에 결속되고, 그 루트에 `.fable-team/comm/mbox.sh` 가 없으면 루트 CLI 로 recv 하며 `FT_MBOX_DIR` 로 대상을 밝힌다.
 
 ## 함정 (반드시 읽기)
