@@ -120,6 +120,7 @@ open(dst, 'w', encoding='utf-8').write('\n'.join(out))
 PY
 }
 mut "$BIN/ft-team-boot.sh" "$T/m1.sh" M1; mut "$BIN/ft-team-boot.sh" "$T/m2.sh" M2
+cp "$BIN/ft-team-seats-lib.sh" "$T/"   # r1535: 명부 읽기 = 같은 폴더 lib — 변이본 옆에도 둔다(B2 는 사례 밖)
 bash -n "$T/m1.sh" && bash -n "$T/m2.sh" && ok || bad "변이본 bash -n"
 diff -q "$BIN/ft-team-boot.sh" "$T/m1.sh" >/dev/null && bad "M1 변이 미적용" || ok
 diff -q "$BIN/ft-team-boot.sh" "$T/m2.sh" >/dev/null && bad "M2 변이 미적용" || ok
