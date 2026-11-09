@@ -1,7 +1,7 @@
 #!/bin/bash
 # ft-idle-wake — 유휴 좌석 깨우기 (R241c · DESIGN-r241-desk-never-stall §9) · launchd StartInterval 60 · 판정 876(오빠 입력 절단 0) 유지
 # 왜: 받는 쪽이 «스스로 읽는다» 는 전제(틱 좌석 quiet · planner 는 doorbell 0)가 깨지면(Monitor 꺼짐·유휴) 쪽지가 영구 대기한다.
-# 매 실행, mbox 큐에서 pending 이 있는 좌석마다 — 넷이 모두 «확인됨» 일 때만 `mbox.sh ring <좌석> <seq>` 1회:
+# 매 실행, mbox 큐에서 pending 이 있는 좌석마다 — 넷이 모두 «확인됨» 일 때만 `mbox.sh ring <좌석> <seq> --auto` 1회:
 #   ① 가장 오래된 미읽음 ≥ FT_IDLE_WAKE_SEC(180)  ② 좌석 jsonl 턴 상태 = IDLE(ft-seat-status.sh turn · 스피너 0) ∧ 닫기 대기 아님(ft_card_rest.py — 카드 상태 끝 줄)
 #      (r849: LOGGEDOUT·닫기 대기 = 깨우기 0 + 로그 1줄 — 로그아웃은 좌석 당 1회 · 풀렸다 다시 로그아웃이면 1회 더)
 #   ③ 그 세션에 붙은 tmux 클라이언트 중 now−client_activity ≤ FT_IDLE_CLIENT_SEC(120) 없음(오빠가 그 화면에서 치는 중이면 깨우지 않는다)
@@ -136,7 +136,7 @@ for seat, (seq, age) in sorted(oldest_per_seat().items()):
     st[seat] = {"seq": seq, "result": "attempt"}  # 선점 기록(H4) — ring 도중 죽어도 같은 seq 를 다시 쏘지 않는다
     save(st)
     try:
-        r = run(["bash", MBOX, "ring", seat, str(seq)])
+        r = run(["bash", MBOX, "ring", seat, str(seq), "--auto"])   # r1524 `--auto` = 자동 장치가 부른 ring(사람 손 ring 과 구분 — 확장 감시 좌석은 pane 0)
         log(f"{seat} seq={seq} ring rc={r.returncode} {r.stdout.strip()[:80]}")
         st[seat]["result"] = "done" if r.returncode == 0 else "failed"
     except (subprocess.SubprocessError, OSError) as e:

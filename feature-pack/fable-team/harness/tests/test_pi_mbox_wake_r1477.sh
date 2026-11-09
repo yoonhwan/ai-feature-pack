@@ -14,6 +14,8 @@
 #  T19 user_bash 훅: `! bash /tmp/hN` 이 끝나면 custom 턴 1회(rc·출력 그대로) · T20 그 밖의 명령 = 훅 0
 #  T21 훅 알림 실패 = bash 결과 불변(ERROR 1줄) · T22 활성 = _master + _desk(desk 좌석도 planner 대면)
 #  T23 비활성 좌석 = user_bash 훅 0 · T24 !! (excludeFromContext) = 훅 0 · T25 알림은 «결과 기록 뒤»(exec 반환 뒤 1회)
+#  판 2(arch#267 · 카드 b33e6390): ㉖ 팀 pi master = 활성 · ㉗ 팀 claude master = 비활성 · ㉘ pi 나노 = 비활성
+#  ㉙ humanSender 기준은 planner _master «그대로»(자기 자신 채택 0) · 변이 6 = 판정을 planner 명부만으로 → ㉖ FAIL
 #  T16 FT_MBOX_ROOT 미지정 + cwd = git 워크트리 → root = git 공용 루트(실측 FAIL 보정 · 18:20 planner pi#245)
 # 새 파일 mode 100644(실행 비트 0) — `bash <이 파일>` 로 부른다.
 set -uo pipefail
@@ -49,6 +51,7 @@ import { execFileSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 
 const EXT = process.env.R1477_EXT, COMM = process.env.R1477_COMM;
+let EXTv = EXT; // 변이 6 은 판정을 되돌린 사본으로 갈아 끼운다(같은 파일을 두 번 import 하지 않는다)
 const SEAT = process.env.R1477_SEAT, ROOT = process.env.R1477_TMP;
 let fails = 0, modv = 0;
 const ok = (n) => console.log(`PASS ${n}`);
@@ -71,7 +74,7 @@ function setup(name, { master = SEAT, seat = SEAT, mboxRoot = null } = {}) {
   const state = path.join(base, "state");
   fs.mkdirSync(base, { recursive: true });
   fs.mkdirSync(comm, { recursive: true });
-  fs.writeFileSync(path.join(base, "seats-planner.json"), JSON.stringify({ _master: master }) + "\n");
+  fs.writeFileSync(path.join(base, "seats-planner.json"), JSON.stringify({ _master: master, [SEAT]: { role: "master", agent: "pi" } }) + "\n"); // 실제 명부처럼 좌석 «행» 도 있다(판 2 판정 = _master ∧ 같은 파일 agent=='pi')
   fs.writeFileSync(path.join(base, "seats.json"), JSON.stringify({ [SEAT]: { team: "planner", tick: 0 } }) + "\n");
   const stubLog = path.join(dir, "stub.log");
   const stub = ["#!/bin/bash", `echo "$*" >> ${JSON.stringify(stubLog)}`,
@@ -100,7 +103,7 @@ async function load() {
     throwOnSend: false,
     sendMessage(m, o) { if (this.throwOnSend) throw new Error("boom"); if (!this.retired) this.calls.push({ m, o }); } };
   live.push(pi);
-  const mod = await import(`${pathToFileURL(EXT).href}?v=${++modv}`);
+  const mod = await import(`${pathToFileURL(EXTv).href}?v=${++modv}`);
   mod.default(pi);
   await pi.emit("session_start", {});
   return pi;
@@ -329,7 +332,7 @@ async function load() {
   fs.writeFileSync(c.mbox, "");
   const pi = await load();
   eq("T17 승계 전 = 턴 0", pi.calls.length, 0);
-  fs.writeFileSync(path.join(c.dir, ".fable-team", "seats-planner.json"), JSON.stringify({ _master: SEAT }) + "\n"); // 승계
+  fs.writeFileSync(path.join(c.dir, ".fable-team", "seats-planner.json"), JSON.stringify({ _master: SEAT, [SEAT]: { role: "master", agent: "pi" } }) + "\n"); // 승계
   append(c.mbox, row(120, SEAT, "[발주 #120] 승계 뒤"));
   await until(() => pi.calls.length >= 1);
   eq("T17 승계 뒤 = 턴 1(재시작 0)", pi.calls.length, 1);
@@ -433,7 +436,7 @@ async function load() {
   const rootComm = path.join(base, ".fable-team", "comm"), rootState = path.join(base, ".fable-team", "state");
   fs.mkdirSync(rootComm, { recursive: true });
   fs.copyFileSync(path.join(c.dir, ".fable-team", "comm", "mbox.sh"), path.join(rootComm, "mbox.sh"));
-  fs.writeFileSync(path.join(base, ".fable-team", "seats-planner.json"), JSON.stringify({ _master: SEAT }) + "\n");
+  fs.writeFileSync(path.join(base, ".fable-team", "seats-planner.json"), JSON.stringify({ _master: SEAT, [SEAT]: { role: "master", agent: "pi" } }) + "\n");
   const mbox = path.join(rootComm, "mailbox.jsonl");
   fs.writeFileSync(mbox, "");
   delete process.env.FT_MBOX_ROOT;
@@ -445,6 +448,66 @@ async function load() {
   eq("T16 워크트리 cwd = 턴 1", pi.calls.length, 1);
   eq("T16 recv = 공용 루트 CLI", (pi.calls[0]?.m?.content ?? "").includes(`bash ${rootComm}/mbox.sh recv ${SEAT}`), true);
   eq("T16 예산도 공용 루트 CLI", lines(c.stubLog), 1);
+}
+
+// ── 판 2 (arch#267) ㉖~㉙ 활성 판정 = 각 팀 _master(그 행 agent=='pi') ∨ planner _desk ────────────────
+const roster = (c, name, obj) => fs.writeFileSync(path.join(c.dir, ".fable-team", name), JSON.stringify(obj) + "\n");
+const rowFrom = (seq, to, from, body) => JSON.stringify({ seq, ts: "2026-11-09T00:00:00", to, from, body });
+{
+  const c = setup("t26", { master: "byz-other-pi#1" });           // planner _master 아님 → 팀 명부로만 활성
+  roster(c, "seats-harness.json", { _master: SEAT, [SEAT]: { agent: "pi", team: "harness" } });
+  fs.writeFileSync(c.mbox, "");
+  const pi = await load();
+  append(c.mbox, row(150, SEAT, "[발주 #150] 팀 pi master"));
+  await until(() => pi.calls.length >= 1);
+  eq("㉖ 팀 pi master = 활성 · 턴 1", pi.calls.length, 1);
+}
+{
+  const c = setup("t27", { master: "byz-other-pi#1" });           // claude master = 비활성(그 좌석엔 확장 없음)
+  roster(c, "seats-cfo.json", { _master: SEAT, [SEAT]: { agent: "claude", team: "cfo" } });
+  fs.writeFileSync(c.mbox, "");
+  const pi = await load();
+  append(c.mbox, row(151, SEAT, "[발주 #151] claude master"));
+  await wait(120);
+  eq("㉗ 팀 claude master = 비활성 · 턴 0", pi.calls.length, 0);
+}
+{
+  const c = setup("t28", { master: "byz-other-pi#1" });           // 같은 팀 pi 나노 = 비활성
+  roster(c, "seats-harness.json", { _master: "byz-other-pi#1", [SEAT]: { agent: "pi", team: "harness" } });
+  fs.writeFileSync(c.mbox, "");
+  const pi = await load();
+  append(c.mbox, row(152, SEAT, "[발주 #152] pi 나노"));
+  await wait(120);
+  eq("㉘ pi 나노 = 비활성 · 턴 0", pi.calls.length, 0);
+}
+{
+  const c = setup("t29", { master: "byz-planner-master-pi#244" });  // humanSender 기준 = planner _master «그대로»
+  roster(c, "seats-harness.json", { _master: SEAT, [SEAT]: { agent: "pi", team: "harness" } });
+  fs.writeFileSync(c.mbox, "");
+  const pi = await load();
+  append(c.mbox, rowFrom(153, SEAT, "byz-planner-master-pi#244", "[발주 #153] planner master 발신"));
+  await until(() => pi.calls.length >= 1);
+  eq("㉙ 팀 master 활성 + planner _master 발신 = 턴 1", pi.calls.length, 1);
+  eq("㉙ planner _master 발신 = 예외(예산 0)", lines(c.stubLog), 0);
+  replace(c.mbox, rowFrom(154, SEAT, "byz-harness-nano-pi#9", "[발주 #154] 일반 나노 발신")); // 앞 행(planner master 발신)은 비운다 — «그 발신만» 의 예외를 잰다
+  await until(() => pi.calls.length >= 2);
+  eq("㉙ 일반 나노 발신 = 예외 0(예산 1 · 기준은 planner _master 그대로)", lines(c.stubLog), 1);
+}
+{ // 변이 6: 판정을 planner 명부만으로 되돌린 사본 → ㉖ 이 FAIL 이어야 한다(판 2 줄이 실제로 걸려 있나)
+  const src = fs.readFileSync(EXT, "utf-8");
+  const mut = src.replace('(r?.agent === "pi" && j._master === seat)', '(f === "seats-planner.json" && j._master === seat)');
+  if (mut === src) bad("변이 6 치환 미적용(판정 줄 못 찾음)");
+  const mutPath = path.join(path.dirname(EXT), "mut6.ts");
+  fs.writeFileSync(mutPath, mut);
+  EXTv = mutPath;
+  const c = setup("t30", { master: "byz-other-pi#1" });
+  roster(c, "seats-harness.json", { _master: SEAT, [SEAT]: { agent: "pi", team: "harness" } });
+  fs.writeFileSync(c.mbox, "");
+  const pi = await load();
+  append(c.mbox, row(155, SEAT, "[발주 #155] 변이 6"));
+  await wait(120);
+  (pi.calls.length === 0 ? ok : bad)("변이 6 → ㉖ FAIL 확인(planner 명부만 보면 팀 master 미활성)");
+  EXTv = EXT;
 }
 
 console.log("---");
