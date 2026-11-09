@@ -16,22 +16,29 @@ _wg_timeout() { local n="$1"; shift; if command -v timeout >/dev/null 2>&1; then
 # 억제 파일 첫 줄의 «key=값» 하나(공백으로 나뉜 토큰) — 파일 없으면 빈 값.
 _wg_kv() { awk -v k="$2" 'NR==1{ for (i=1;i<=NF;i++) if (substr($i,1,length(k)+1)==k"=") { print substr($i, length(k)+2); exit } }' "$1" 2>/dev/null; }
 
-# 좌석의 팀(예산 합산 단위) — 명부 entry.team · 없으면 default(한 팀으로 묶는다 · 상한을 안 걸면 팀 상한이 사라진다).
+# 좌석의 팀(예산 합산 단위) — ①명부 entry.team ②좌석명 byz-<팀>-… 의 둘째 토큰 ③none(팀 상한 없이 좌석 상한만).
+# ★«default»(모르면 한 팀)는 만들지 않는다★ — 명부 team 이 0건이던 11-09 실측에서 그 치환이 전 팀을 한 장부에 묶어
+#   팀 상한 30 을 «기관 전체 상한 30» 으로 만들었고, 09:53 소진 뒤 전 팀의 doorbell·ring 이 창 끝까지 막혔다(#275004).
 _wg_team() {
   local sj t=""
   sj="$(_seats_json 2>/dev/null)" || sj=""
-  if [ -z "$sj" ] || [ ! -f "$sj" ]; then printf 'default'; return 0; fi
-  t="$(python3 - "$sj" "$1" <<'PY' 2>/dev/null
+  if [ -n "$sj" ] && [ -f "$sj" ]; then
+    t="$(python3 - "$sj" "$1" <<'PY' 2>/dev/null
 import json, sys
 try:
     d = json.load(open(sys.argv[1], encoding="utf-8"))
 except Exception:
     sys.exit(0)
 e = d.get(sys.argv[2])
-print(e.get("team") if isinstance(e, dict) and e.get("team") else "default")
+print(e.get("team") if isinstance(e, dict) and e.get("team") else "")
 PY
 )"
-  printf '%s' "${t:-default}"
+  fi
+  # 명부 team = «예외 지정» — 있으면 이름보다 이긴다. 장부 파일명으로 못 쓰는 값이면 이름에서 읽는다(경로 탈출 차단).
+  case "$t" in ''|*[!A-Za-z0-9._#-]*) ;; *) printf '%s' "$t"; return 0 ;; esac
+  # 좌석명 규약 byz-<팀>-<역할>-<에이전트>#N(COMM-GUIDE-BOOT 13) — 팀은 이름에서 결정적으로 나온다.
+  if [[ "$1" =~ ^byz-([a-z0-9]+)- ]]; then printf '%s' "${BASH_REMATCH[1]}"; return 0; fi
+  printf 'none'
 }
 
 # ── 예산 잠금(mkdir · macOS flock 없음) — 죽은 pid 해제 · 10초(기본 100×0.1s) 상한 = ft-verdict-lock.sh 꼴 ──
@@ -79,7 +86,7 @@ sd, seat, team, win, smax, tmax, src, now = sys.argv[1:9]
 win, smax, tmax = int(win), int(smax), int(tmax)
 led = os.path.join(sd, "_ledger.log")
 seatsf = os.path.join(sd, seat + ".json")
-teamf = os.path.join(sd, "_team-%s.json" % team)
+teamf = None if team == "none" else os.path.join(sd, "_team-%s.json" % team)
 
 
 def read(p):
@@ -105,9 +112,9 @@ def write(p, w, n):
 
 try:
     s = read(seatsf)
-    t = read(teamf)
+    t = read(teamf) if teamf else None
 except ValueError as e:
-    for p in (seatsf, teamf):
+    for p in ((seatsf, teamf) if teamf else (seatsf,)):
         if os.path.exists(p):
             try:
                 os.replace(p, "%s.bad-%d" % (p, int(now)))
@@ -122,17 +129,18 @@ tn = t[1] if t and t[0] == win else 0
 if sn >= smax:
     print("exhausted seat n=%d" % sn)
     sys.exit(3)
-if tn >= tmax:
+if teamf and tn >= tmax:      # team=none = 팀 상한 없음(좌석 상한만) · 팀 장부를 읽지도 쓰지도 않는다
     print("exhausted team n=%d" % tn)
     sys.exit(3)
 sn += 1
-tn += 1
 write(seatsf, win, sn)
-write(teamf, win, tn)
+if teamf:
+    tn += 1
+    write(teamf, win, tn)
 with open(led, "a", encoding="utf-8") as f:
     f.write("%s seat=%s src=%s n=%d team=%s/%d win=%d\n"
             % (time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(int(now))), seat, src, sn, team, tn, win))
-print("reserved n=%d team=%d" % (sn, tn))
+print("reserved n=%d team=%s" % (sn, tn if teamf else "none"))
 PY
 )" || rc=$?
   _wg_unlock "$sd"
@@ -177,7 +185,7 @@ def bump(p):
 
 
 a = bump(os.path.join(sd, seat + ".json"))
-b = bump(os.path.join(sd, "_team-%s.json" % team))
+b = bump(os.path.join(sd, "_team-%s.json" % team)) if team != "none" else "none"
 print("refunded n=%s team=%s" % (a, b))
 PY
 )" || rc=$?
