@@ -50,7 +50,7 @@ export default function (pi: ExtensionAPI) {
   const nudge = path.join(wakeDir, `${keyOf(seat)}.nudge`);
   const debounce = Number(process.env.FT_MBOX_WAKE_DEBOUNCE_MS ?? 300);
   let timer: ReturnType<typeof setTimeout> | null = null;
-  let watchers: fs.FSWatcher[] = [];
+  let watchers: fs.FSWatcher[] = [], fallback: ReturnType<typeof setTimeout> | null = null; // fallback = 기동 창 1회 재확인
 
   // ★활성 = 이벤트마다 재확인★ — 승계(retire) 전에 새 세션이 뜨면 _master 는 아직 옛 좌석이다. 한 번만 읽고 굳으면 영영 꺼진다.
   let announced = "";
@@ -112,9 +112,9 @@ export default function (pi: ExtensionAPI) {
     activeSeat(true); // 시작 로그 = 활성/비활성 1줄
     check(true); // 시작 회수 = 우편함에 «남아 있는» to=내 좌석 행(소비 ACK 기준 · seq 파일 무관)
     // ★감시 기동 창★ — fs.watch 등록 직후 사건은 유실될 수 있다(FSEvents startup). 주기 0 · 시작 1회 재확인만.
-    if (!timer) timer = setTimeout(() => { timer = null; run(); }, debounce + 250);
+    fallback = setTimeout(() => { fallback = null; run(); }, debounce + 250); // 사건 타이머를 막지 않는다(사건이 오면 즉시 처리)
   });
   pi.on("agent_end", async () => { writeSeq(null); run(); }); // 표지 해제 + 우편함 재확인 1회(소비 안 됐으면 다시 깨운다)
   // 세션 교체(reload/resume)·종료 = 감시 해제. 안 닫으면 옛 인스턴스가 같은 우편함에 2중으로 깨운다.
-  pi.on("session_shutdown", async () => { for (const w of watchers) w.close(); watchers = []; if (timer) clearTimeout(timer); timer = null; });
+  pi.on("session_shutdown", async () => { for (const w of watchers) w.close(); watchers = []; if (timer) clearTimeout(timer); if (fallback) clearTimeout(fallback); timer = fallback = null; });
 }
