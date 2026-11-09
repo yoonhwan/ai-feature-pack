@@ -188,6 +188,74 @@ ck "⑫ rc0(재개 기록 없음)" "$([ "$rc" = 0 ] && echo 0 || echo 1)"
 grep -q -- '--resume' "$REC/so.log" && bad "⑫ 기록 없음 → --resume 0" || ok
 has 'WARN' && bad "⑫ 기록 없음 = WARN 0" || ok
 
+# ---------- ⑬ R1 B0 동점 — 같은 이름날짜·같은 커밋초 선형(old-z → new-a) = 계보가 뒤인 new-a ----------
+R="$T/r13"; mkfix "$R" t1
+closeout "$R" design/teams/t1/CLOSEOUT-t1-20261109-z.md z 0
+z="design/teams/t1/CLOSEOUT-t1-20261109-z.md"; a="design/teams/t1/CLOSEOUT-t1-20261109-a.md"
+git -C "$R" add -A >/dev/null 2>&1
+GIT_COMMITTER_DATE='2026-11-09T00:00:00 +0000' GIT_AUTHOR_DATE='2026-11-09T00:00:00 +0000' git -C "$R" -c user.name=t -c user.email=t@t commit -q -m z-old
+closeout "$R" "$a" a 0
+git -C "$R" add -A >/dev/null 2>&1
+GIT_COMMITTER_DATE='2026-11-09T00:00:00 +0000' GIT_AUTHOR_DATE='2026-11-09T00:00:00 +0000' git -C "$R" -c user.name=t -c user.email=t@t commit -q -m a-new
+# 계보가 뒤인 new-a 의 sha 가 더 «작은» 경우를 강제 — sha 사전순 우연으로 통과하지 못하게 한다(DA R1 은 «계보가 뒤 = 최신»)
+sa=""; sz=""; k=0
+while [ "$k" -lt 40 ]; do
+  GIT_COMMITTER_DATE='2026-11-09T00:00:00 +0000' GIT_AUTHOR_DATE='2026-11-09T00:00:00 +0000' git -C "$R" -c user.name=t -c user.email=t@t commit -q --amend -m "a-new $k"
+  sa="$(git -C "$R" rev-parse HEAD)"; sz="$(git -C "$R" rev-parse HEAD~1)"
+  [ "$sa" \< "$sz" ] && break
+  k=$((k+1))
+done
+git -C "$R" update-ref refs/remotes/origin/main HEAD
+[ "$sa" \< "$sz" ] && ok || bad "⑬ 픽스처: 계보 뒤 new-a 의 sha 가 더 작다(sha 사전순이면 옛 장이 뽑힌다)"
+[ "$(git -C "$R" log -1 --format=%ct -- "$z")" = "$(git -C "$R" log -1 --format=%ct -- "$a")" ] && ok || bad "⑬ 픽스처 커밋초 동점 성립"
+: > "$REC/live.txt"; : > "$REC/so.log"; run "$R" t1
+ck "⑬ rc0" "$([ "$rc" = 0 ] && echo 0 || echo 1)"
+grep -q 'closeout=design/teams/t1/CLOSEOUT-t1-20261109-a.md' "$(ls -1t "$R/state/team-boot/"t1-*.plan | head -1)" && ok || bad "⑬ 동점 = 계보 뒤(new-a) · ls-tree 경로 순서 의존 0"
+
+# ---------- ⑭ R2 완료 plan 뒤 새 정본 = 새 생명(새 plan·spawn 1) · 같은 정본 = 이미 부팅됨 ----------
+R="$T/r14"; mkfix "$R" t1; closeout "$R" design/teams/t1/CLOSEOUT-t1-20261109.md 09 0; g "$R" c14; git -C "$R" update-ref refs/remotes/origin/main HEAD
+: > "$REC/live.txt"; : > "$REC/so.log"; run "$R" t1
+ck "⑭ 1회차 rc0" "$([ "$rc" = 0 ] && echo 0 || echo 1)"
+closeout "$R" design/teams/t1/CLOSEOUT-t1-20261110.md 10 0; g "$R" c14b; git -C "$R" update-ref refs/remotes/origin/main HEAD
+: > "$REC/live.txt"; run "$R" t1
+ck "⑭ 새 정본 뒤 rc0(과거 완료 plan 이 막지 않는다)" "$([ "$rc" = 0 ] && echo 0 || echo 1)"
+[ "$(cnt so.log)" = 2 ] && ok || bad "⑭ 새 생명 = 팀장 spawn 합계 2"
+[ "$(ls -1 "$R/state/team-boot/"t1-*.plan 2>/dev/null | grep -c .)" = 2 ] && ok || bad "⑭ plan 2장(생명마다 1장)"
+grep -q 'closeout=design/teams/t1/CLOSEOUT-t1-20261110.md' "$(ls -1t "$R/state/team-boot/"t1-*.plan | head -1)" && ok || bad "⑭ 새 plan 정본 = 20261110"
+: > "$REC/live.txt"; run "$R" t1
+ck "⑭ 같은 정본 재실행 = 멈춤 rc1" "$([ "$rc" = 1 ] && echo 0 || echo 1)"
+has '이미 부팅됨' && ok || bad "⑭ 같은 정본 = 이미 부팅됨"
+[ "$(cnt so.log)" = 2 ] && ok || bad "⑭ 같은 정본 두 번 열기 0"
+
+# ---------- ⑮ R3 B5 재시도 = 같은 plan b2name 고정(NEXT 재계산 아님) ----------
+R="$T/r15"; mkfix "$R" t1; closeout "$R" design/teams/t1/CLOSEOUT-t1-20261109.md 09 0; g "$R" c15; git -C "$R" update-ref refs/remotes/origin/main HEAD
+: > "$REC/live.txt"; : > "$REC/so.log"; : > "$REC/mbox.log"
+est=$(cd "$R" && FT_REPO_ROOT="$R" STUB_MBOX_RC=1 bash "$BIN/ft-team-boot.sh" t1 2>&1); rc=$?
+out="$est"
+ck "⑮ 1회차 보고 미도달 rc5" "$([ "$rc" = 5 ] && echo 0 || echo 1)"
+[ "$(cnt so.log)" = 1 ] && ok || bad "⑮ 1회차 팀장 1"
+python3 - "$R/.fable-team/seats-t1.json" <<'PY'
+import json,sys
+p=sys.argv[1]; d=json.load(open(p)); old="byz-t1-master-claude#4"; new="byz-t1-master-claude#5"
+d[new]=dict(d[old]); d["_master"]=new
+json.dump(d,open(p,"w"),ensure_ascii=False)
+PY
+printf 'byz-t1-master-claude#5\n' > "$REC/live.txt"
+: > "$REC/mbox.log"
+out="$(cd "$R" && FT_REPO_ROOT="$R" bash "$BIN/ft-team-boot.sh" t1 2>&1)"; rc=$?
+ck "⑮ 재시도 rc0" "$([ "$rc" = 0 ] && echo 0 || echo 1)"
+has 'B2 skip' && ok || bad "⑮ 재시도 B2 skip(spawn 0)"
+[ "$(cnt so.log)" = 1 ] && ok || bad "⑮ 재시도 팀장 spawn 합계 1"
+grep -q '좌석=byz-t1-master-claude#5' "$REC/mbox.log" && ok || bad "⑮ 보고 좌석 = plan b2name(#5) · NEXT(#6) 아님"
+grep -q '좌석=byz-t1-master-claude#6' "$REC/mbox.log" && bad "⑮ NEXT 재계산 좌석(#6) 0" || ok
+
+# ---------- ⑯ 로케일 — LC_ALL 없이도(기본 UTF-8 쉘) 변수명 오결합 0 — 보통 $NREOPEN장 → $NREOPEN 었(ELF)으로 잃지 않는다 ----------
+R="$T/r16"; mkfix "$R" t1; closeout "$R" design/teams/t1/CLOSEOUT-t1-20261109.md 09 0; g "$R" c16; git -C "$R" update-ref refs/remotes/origin/main HEAD
+: > "$REC/live.txt"; : > "$REC/so.log"
+out="$(cd "$R" && env -u LC_ALL FT_REPO_ROOT="$R" bash "$BIN/ft-team-boot.sh" t1 2>&1)"; rc=$?
+ck "⑯ LC_ALL 없음 rc0" "$([ "$rc" = 0 ] && echo 0 || echo 1)"
+printf '%s' "$out" | grep -qE '바인딩 해제|unbound' && bad "⑯ 로케일 변수명 오결합 0" || ok
+
 # ---------- 정적 검사 — 크론·launchd 생성 0 ----------
 grep -nE 'CronCreate|launchctl (bootstrap|load)|crontab ' "$BIN/ft-team-boot.sh" >/dev/null 2>&1 && bad "정적: 크론·launchd 생성 줄" || ok
 for f in ft-successor-open.sh ft-nano-spawn.sh ft-all-stop.sh; do grep -q "$f" "$BIN/ft-team-boot.sh" && ok || bad "정적: $f 호출만(수정 0)"; done
