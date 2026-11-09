@@ -1,6 +1,6 @@
 // ft-land-next (r1532) — 착지 1개 = «다음 h(설치) 안내» 1회. ft-merge-land 가 착지 뒤 남기는 <state>/install-pending/<Q>.txt 를 fs.watch 로 듣는다.
 //  · 활성 = seats-harness.json `_master` 이고 «같은 파일» 그 행 agent=='pi' (r1530 piMasterFile 식 · 이 카드 기준 HEAD 에는 r1530 미착지라 같은 식 복사)
-//  · 새 40hex 파일마다 사건 1회: 리포(BYZ 루트 · 팩)에서 git fetch origin main → Q 가 origin/main 의 조상인가 (주기 폴링 0 · 상시 조회 0)
+//  · 새 40hex 파일마다 사건 1회: 리포(BYZ 루트 · 팩)에서 git fetch origin main → Q 가 origin/main 의 조상인가 (주기 폴링 0 · 상시 조회 0 · fetch 는 비동기 = 이벤트 루프 막힘 0)
 //  · 확인 뒤 sendMessage(triggerTurn, followUp) 1회 · 쉬면 바로 · 일하면 다음 agent_settled 에 모아 1회(여러 Q = 한 본문)
 //  · 표식 <state>/pi-wake/land-seen/<Q> 는 턴 요청 «뒤» · 판정 불가(git 실패)면 표식 0 = 다음 사건에 다시
 //  · 설치 h 발급 자체는 좌석의 일(planner [HIL]) — 이 확장은 h 를 만들지 않는다
@@ -8,7 +8,7 @@
 //  · 시험 = harness/tests/test_pi_land_next_r1532.sh
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { execFileSync, execSync } from "node:child_process";
+import { execFile, execFileSync, execSync } from "node:child_process";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 type Verdict = "merged" | "missing" | "unknown";
@@ -58,7 +58,11 @@ const git = (args: string[], ms: number): number => {
   catch (e: any) { return typeof e?.status === "number" ? e.status : 1; }
 };
 // 하드 룰 12 — 1회 + 재시도 1 · 시간 초과 = rc≠0(판정 불가)
-const fetchMain = (repo: string, ms: number): number => { let rc = git(["-C", repo, "fetch", "--quiet", "origin", "main"], ms); if (rc !== 0) rc = git(["-C", repo, "fetch", "--quiet", "origin", "main"], ms); return rc; };
+// ★R2: fetch 는 비동기 execFile★ — 동기 execFileSync 는 최대 fetchMs×2 동안 pi 이벤트 루프를 막는다(arch 반례 2)
+const gitAsync = (args: string[], ms: number): Promise<number> => new Promise((resolve) => {
+  execFile("git", args, { encoding: "utf-8", timeout: ms }, (e: any) => resolve(e ? (typeof e.code === "number" ? e.code : 1) : 0));
+});
+const fetchMain = async (repo: string, ms: number): Promise<number> => { let rc = await gitAsync(["-C", repo, "fetch", "--quiet", "origin", "main"], ms); if (rc !== 0) rc = await gitAsync(["-C", repo, "fetch", "--quiet", "origin", "main"], ms); return rc; };
 const isAncestor = (repo: string, sha: string): boolean => git(["-C", repo, "merge-base", "--is-ancestor", sha, "origin/main"], 7000) === 0;
 
 export default function (pi: ExtensionAPI) {
@@ -69,7 +73,7 @@ export default function (pi: ExtensionAPI) {
   const dir = path.join(state, "install-pending"), seenDir = path.join(state, "pi-wake", "land-seen");
   const repos = [...new Set([root, process.env.FT_LAND_NEXT_PACK || "/Users/yoonhwan/Project/ai-feature-pack"])];
   const debounce = Number(process.env.FT_LAND_NEXT_DEBOUNCE_MS ?? 300), fetchMs = Number(process.env.FT_LAND_NEXT_FETCH_MS ?? 25000);
-  const bad = new Set<string>();
+  const bad = new Set<string>(), unknownDone = new Set<string>(); // unknownDone = 표식 0 대신 같은 세션 재보고 0(무한 턴 방지)
   let timer: ReturnType<typeof setTimeout> | null = null, watcher: fs.FSWatcher | null = null, busy = false, queue: Item[] = [];
 
   const marked = (sha: string): boolean => fs.existsSync(path.join(seenDir, sha)); // ★표식 — 같은 Q 재사건 0 (M1 변이 지점)
@@ -78,7 +82,7 @@ export default function (pi: ExtensionAPI) {
     if (!items.length) return;
     try { pi.sendMessage({ customType: "ft-land-next", content: items.map(bodyOf).join("\n"), display: true }, { triggerTurn: true, deliverAs: "followUp" }); }
     catch (e) { return fail(`sendMessage 실패 — ${e}`); } // 턴 0 → 표식도 0 = 다음 사건에 다시
-    for (const it of items) if (it.verdict !== "unknown") stamp(it.sha); // 판정 불가면 표식 0
+    for (const it of items) { if (it.verdict === "unknown") unknownDone.add(it.sha); else stamp(it.sha); } // 판정 불가 = 표식 0(단 같은 세션 재보고는 1회)
   }
   const flush = () => { const q = queue; queue = []; send(q); }; // ⓔ settled 에 모아 1회
 
@@ -89,25 +93,31 @@ export default function (pi: ExtensionAPI) {
     if (f0) return { sha, file, pending, verdict: "unknown", reason: `git fetch 실패 rc=${f0.rc} (${f0.repo})` }; // ⓓ 표식 0
     return { sha, file, pending, verdict: "missing", reason: "" }; // ⓒ
   }
-  function scan() {
+  async function scan(): Promise<void> {
     const { ok, bad: wrong } = landScan(dir);
     for (const n of wrong) if (!n.startsWith(".") && !bad.has(n)) { bad.add(n); log(`이름 무시(40hex 아님) ${n}`); } // ⓗ
-    const fresh = ok.filter(({ sha }) => !marked(sha) && !queue.some((q) => q.sha === sha));
+    const fresh = ok.filter(({ sha }) => !marked(sha) && !unknownDone.has(sha) && !queue.some((q) => q.sha === sha));
     if (!fresh.length) return;
-    const fetched = repos.map((repo) => ({ repo, rc: fetchMain(repo, fetchMs) })); // 사건 1회 · 리포당 1회
+    const fetched = await Promise.all(repos.map(async (repo) => ({ repo, rc: await fetchMain(repo, fetchMs) }))); // 사건 1회 · 리포당 1회 · 비동기
     const items = fresh.map(({ sha, file }) => judge(sha, file, fetched));
     if (busy) { queue.push(...items); log(`일하는 중 — settled 에 ${items.length}건`); return; }
     send(items);
   }
-  const run = () => { try { scan(); } catch (e) { fail(`감시 처리 실패 — ${e}`); } };
-  const schedule = () => { if (!timer) timer = setTimeout(() => { timer = null; run(); }, debounce); };
+  let scanning = false, again = false;
+  async function run(): Promise<void> {
+    if (scanning) { again = true; return; } // 비동기 fetch 동안 또 들어온 사건 = 끝난 뒤 1회 더
+    scanning = true;
+    try { await scan(); } catch (e) { fail(`감시 처리 실패 — ${e}`); } finally { scanning = false; }
+    if (again) { again = false; void run(); }
+  }
+  const schedule = () => { if (!timer) timer = setTimeout(() => { timer = null; void run(); }, debounce); };
 
   pi.on("session_start", async () => {
     try { fs.mkdirSync(dir, { recursive: true }); fs.mkdirSync(seenDir, { recursive: true }); } catch { /* 이미 있음 */ }
     try { watcher = fs.watch(dir, () => schedule()); } catch (e) { return fail(`watch 실패 ${dir} — ${e}`); }
-    run(); // ⓖ 시작 회수 = 표식 없는 기존 파일 1회(한 본문)
+    void run(); // ⓖ 시작 회수 = 표식 없는 기존 파일 1회(한 본문)
   });
   pi.on("agent_start", async () => { busy = true; });
-  pi.on("agent_settled", async () => { busy = false; flush(); });
+  pi.on("agent_settled", async () => { busy = false; flush(); void run(); }); // 쉼 경계 1회 더 훑기 = fs.watch 가 놓친 사건 회수(표식 있는 파일은 git 호출 0)
   pi.on("session_shutdown", async () => { watcher?.close(); watcher = null; if (timer) clearTimeout(timer); timer = null; });
 }

@@ -5,6 +5,7 @@
 #  ⓐ 새 파일 = 턴 1 · ⓑ 같은 Q 재기록 = 0(표식) · ⓒ Q 가 원격 main 에 없음 = 턴 1(설치 요청 문구 0) · ⓓ git 실패 = 판정 불가 · 표식 0
 #  ⓔ 일하는 중 = 0 → agent_settled 에 1(한 본문) · ⓕ 비활성(나노·다른 팀 _master·claude) = 0 · ⓖ 시작 회수 = 1(한 본문) · ⓗ 40hex 아님 = 무시
 #  변이: M1 표식 끔 → ⓑ 에서 2 = 검출 · M2 MERGED 확인 끔 → ⓒ 에서 설치 요청 문구 = 검출
+#  R2 git fetch 는 비동기(execFile) = pi 이벤트 루프 막힘 0 — 느린 git 스텁(0.35초) 아래에서 50ms 타이머가 먼저 돈다
 # 새 파일 mode 100644(실행 비트 0) — `bash <이 파일>` 로 부른다.
 set -uo pipefail
 for v in GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY; do unset "$v"; done
@@ -106,6 +107,7 @@ const body = (pi, i = 0) => pi.calls[i]?.m?.content ?? "";
   eq("ⓐ 시작 턴 0", pi.calls.length, 0);
   put(c, L1);
   await wait(400); step("a-put");
+  if (pi.calls.length === 0) { console.log("NOTE ⓐ fs 이벤트 미도착 — settled 회수 경로로 확인"); await pi.emit("agent_settled", {}); await wait(400); }
   eq("ⓐ 새 파일 = 턴 1", pi.calls.length, 1);
   eq("ⓐ 본문", body(pi), `[착지 확인] main ${L1.slice(0, 10)} · 설치 PENDING 2 · 다음 h = 설치 h 발급 요청(planner [HIL]) · 대기 파일 ${path.join(c.pend, `${L1}.txt`)}`);
   eq("ⓐ customType/display", `${pi.calls[0]?.m?.customType}/${pi.calls[0]?.m?.display}`, "ft-land-next/true");
@@ -117,7 +119,7 @@ const body = (pi, i = 0) => pi.calls[i]?.m?.content ?? "";
   fs.writeFileSync(path.join(c.pend, "notes.md"), "x\n"); // 사건 반복(다른 이름 = 확실한 dir 이벤트)
   await wait(400);
   eq("ⓑ 사건 반복 = 턴 0", pi.calls.length, 1);
-  await pi.emit("agent_settled", {});
+  await pi.emit("agent_settled", {}); await wait(400);
   eq("ⓑ settled 뒤에도 0", pi.calls.length, 1);
 }
 // ── ⓒ Q 가 원격 main 에 없음 = 턴 1 · 설치 요청 문구 0 · 표식 1 ───────────────────────────
@@ -126,7 +128,9 @@ const body = (pi, i = 0) => pi.calls[i]?.m?.content ?? "";
   const pi = await load();
   put(c, U1, "PENDING n=1\n");
   await wait(400); step("c-missing");
-  eq("ⓒ 턴 1", pi.calls.length, 1);
+  await pi.emit("agent_settled", {}); // ★쉼 경계 재훑기 = 놓친 fs 이벤트 회수 경로(표식이 있으면 늘지 않는다)
+  await wait(400);
+  eq("ⓒ 턴 1(이벤트 또는 settled 회수 · 합치면 1)", pi.calls.length, 1);
   eq("ⓒ 착지 확인 불가", body(pi).includes("착지 확인 불가"), true);
   eq("ⓒ 원격 main 에 없음", body(pi).includes("원격 main 에 없음"), true);
   eq("ⓒ 설치 요청 문구 0", body(pi).includes("설치 h 발급 요청"), false);
@@ -137,7 +141,8 @@ const body = (pi, i = 0) => pi.calls[i]?.m?.content ?? "";
   const c = setup("d", { clone: false }); useEnv(c);
   const pi = await load();
   put(c, L1);
-  await wait(300); step("d-gitfail");
+  await wait(400); step("d-gitfail");
+  if (pi.calls.length === 0) { await pi.emit("agent_settled", {}); await wait(400); }
   eq("ⓓ 턴 1", pi.calls.length, 1);
   eq("ⓓ 판정 불가", body(pi).includes("판정 불가"), true);
   eq("ⓓ 사유 줄", /사유: git fetch 실패 rc=\d+/.test(body(pi)), true);
@@ -145,6 +150,7 @@ const body = (pi, i = 0) => pi.calls[i]?.m?.content ?? "";
   eq("ⓓ 표식 0", fs.existsSync(c.seen) && seenOf(c, L1), false);
   put(c, L2, "PENDING n=3\n"); // 다음 사건 = 새 착지 파일
   await wait(400);
+  if (pi.calls.length === 1) { await pi.emit("agent_settled", {}); await wait(400); }
   eq("ⓓ 다음 사건에 다시 = 턴 2", pi.calls.length, 2);
 }
 // ── ⓔ 일하는 중 = 0 → agent_settled 에 1(여러 Q 한 본문) ──────────────────────────────────
@@ -155,7 +161,7 @@ const body = (pi, i = 0) => pi.calls[i]?.m?.content ?? "";
   put(c, L2); put(c, U1);
   await wait(400); step("e-busy");
   eq("ⓔ 일하는 중 = 0", pi.calls.length, 0);
-  await pi.emit("agent_settled", {});
+  await pi.emit("agent_settled", {}); await wait(400);
   eq("ⓔ settled = 1", pi.calls.length, 1);
   eq("ⓔ 한 본문에 2건", body(pi).split("\n").filter((l) => l.startsWith("[")).length, 2);
   eq("ⓔ 표식 2개", [L2, U1].filter((s) => seenOf(c, s)).length, 2);
@@ -186,6 +192,7 @@ const body = (pi, i = 0) => pi.calls[i]?.m?.content ?? "";
   put(c, L1); put(c, L2);
   useEnv(c);
   const pi = await load(); step("g-recover");
+  await wait(300); // 시작 훑기는 비동기(fetch async)
   eq("ⓖ 시작 회수 = 턴 1", pi.calls.length, 1);
   eq("ⓖ 한 본문에 2건", body(pi).split("\n").filter((l) => l.startsWith("[착지 확인]")).length, 2);
 }
@@ -197,10 +204,36 @@ const body = (pi, i = 0) => pi.calls[i]?.m?.content ?? "";
   fs.writeFileSync(path.join(c.pend, "notes.md"), "x\n");
   fs.writeFileSync(path.join(c.pend, "deadbeef.txt"), "x\n");
   fs.writeFileSync(path.join(c.pend, `${L1.toUpperCase()}.txt`), "PENDING n=1\n");
-  await wait(400); cap.stop(); step("h-badname");
+  await wait(400);
+  await pi.emit("agent_settled", {}); await wait(400); // 재훑기에서도 같은 이름은 1번만 기록된다
+  cap.stop(); step("h-badname");
   eq("ⓗ 턴 0", pi.calls.length, 0);
   eq("ⓗ 로그 3줄", cap.buf.filter((l) => l.includes("이름 무시")).length, 3);
 }
+// ── R2 git fetch 비동기 = 이벤트 루프 막힘 0 ──────────────────────────────────────────
+{
+  const c = setup("r2");
+  put(c, L1, "PENDING n=1\n"); // ★fs 이벤트에 기대지 않는다 — 시작 훑기가 같은 경로(git fetch)를 지난다★
+  useEnv(c);
+  const stubDir = path.join(TMP, "slowgit");
+  fs.mkdirSync(stubDir, { recursive: true });
+  const stub = path.join(stubDir, "git");
+  fs.writeFileSync(stub, '#!/bin/bash\ncase "$*" in *" fetch "*) sleep 0.35; exit 0 ;; *) exit 1 ;; esac\n');
+  fs.chmodSync(stub, 0o755); // 임시 폴더 스텁($TMP) — 저장소 파일 아님
+  const oldPath = process.env.PATH;
+  process.env.PATH = `${stubDir}:${oldPath}`;
+  const t1 = Date.now(), marks = {};
+  const timer = setTimeout(() => { marks.timer = Date.now() - t1; }, 50);
+  const pi = await load();
+  const orig = pi.sendMessage.bind(pi);
+  pi.sendMessage = (m, o) => { marks.send = Date.now() - t1; orig(m, o); };
+  await wait(900);
+  clearTimeout(timer); process.env.PATH = oldPath; step("r2-async");
+  eq("R2 턴 1(느린 fetch 뒤)", pi.calls.length, 1);
+  eq("R2 50ms 타이머가 fetch(350ms)보다 먼저", (marks.timer ?? 9999) < 200, true);
+  eq("R2 턴은 fetch 뒤(>=250ms)", (marks.send ?? -1) >= 250, true);
+}
+
 // ── 변이 M1 표식 끔 → ⓑ 에서 2 = 검출 ──────────────────────────────────────────────────
 function mutate(name, from, to) {
   const src = fs.readFileSync(EXT, "utf-8"), n = src.split(from).length - 1;
@@ -215,10 +248,10 @@ function mutate(name, from, to) {
   const pi = await load(ext1);
   put(c, L1);
   await wait(400);
-  eq("M1 첫 사건 = 1", pi.calls.length, 1);
-  fs.writeFileSync(path.join(c.pend, "notes.md"), "x\n"); // ⓑ 와 «같은» 사건 — 표식이 없으면 같은 Q 를 또 보고한다
-  await wait(400); step("m1");
-  eq("M1 표식 끔 = ⓑ 에서 2(변이 검출)", pi.calls.length, 2);
+  await pi.emit("agent_settled", {}); await wait(400);
+  await pi.emit("agent_settled", {}); await wait(400); step("m1");
+  eq("M1 첫 사건 = 1 이상", pi.calls.length >= 1, true);
+  eq("M1 표식 끔 = 같은 Q 를 또 보고한다(변이 검출 · 기준은 1)", pi.calls.length >= 2, true);
 }
 // ── 변이 M2 MERGED 확인 끔 → ⓒ 에서 설치 요청 문구 = 검출 ───────────────────────────────
 {
@@ -226,7 +259,9 @@ function mutate(name, from, to) {
   const c = setup("m2"); useEnv(c);
   const pi = await load(ext2);
   put(c, U1, "PENDING n=1\n");
-  await wait(400); step("m2");
+  await wait(400);
+  if (pi.calls.length === 0) { await pi.emit("agent_settled", {}); await wait(400); }
+  step("m2");
   eq("M2 확인 끔 = ⓒ 에서 설치 요청 문구(변이 검출)", body(pi).includes("설치 h 발급 요청"), true);
 }
 
