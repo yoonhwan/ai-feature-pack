@@ -117,18 +117,21 @@ R="$T/r5"; mkfix "$R" t1; g "$R" no-closeout; git -C "$R" update-ref refs/remote
 ck "⑤ 멈춤 rc1" "$([ "$rc" = 1 ] && echo 0 || echo 1)"; has "멈춤 정본 없음" && ok || bad "⑤ 정본 없음"
 [ "$(cnt so.log)" = 0 ] && ok || bad "⑤ spawn 0"
 
-# ---------- ⑥ airag → aifp 리포 design/aifp/ ----------
+# ---------- ⑥ airag → 팩 위성팀(r1535 B2): 정본 = PACK design/aifp · 명부 = PACK/.fable-team/seats-aifp.json · 팀장 = aifp-airag-master-* 최대 #N · 워크트리 = PACK/.worktrees ----------
 P="$T/pack"; A="$T/aifp"
-mkdir -p "$P/design/aifp" "$A/.fable-team" "$A/.worktrees/wtairag" "$P/design/teams/airag"
-git -C "$P" init -q -b main; closeout "$P" design/aifp/CLOSEOUT-airag-20261109.md airag 0; g "$P" aifp
-git -C "$P" update-ref refs/remotes/origin/main HEAD
-mkdir -p "$A/design/teams/airag"; git -C "$A" init -q -b main
-printf '{"_name":"AIFP","_master":"aifp-airag-master-claude#2","_cards":"design/aifp/indices","_cards_wt":"wtairag",\n "aifp-airag-master-claude#2":{"role":"master","agent":"claude","model":"claude-opus-5-5[1m]"}}\n' > "$A/.fable-team/seats-airag.json"
+mkdir -p "$P/design/aifp" "$A/.fable-team" "$P/.worktrees/wtairag" "$P/.fable-team" "$P/design/teams/airag" "$A/design/teams/airag"
+git -C "$P" init -q -b main; closeout "$P" design/aifp/CLOSEOUT-airag-20261109.md airag 0
+git -C "$A" init -q -b main
+# 키 순서가 #N 순서가 아니다(#14 가 맨 앞이 아니다) — «첫 행» 이 아니라 «최대 #N» 이라야 #14 를 집는다
+printf '{"_name":"AIFP","_master":"aifp-pi-master-pi#0","_cards":"design/aifp/indices","_cards_wt":"wtairag",\n "aifp-airag-master-claude#14":{"role":"master","agent":"claude","model":"claude-opus-5-6[1m]"},\n "aifp-pi-master-pi#0":{"role":"master","agent":"pi","model":"deepseek/deepseek-v4.1-flash-ultrafast"},\n "aifp-airag-master-claude#12":{"role":"master","agent":"claude","model":"claude-opus-5-5"},\n "aifp-airag-master-claude#13":{"role":"master","agent":"claude","model":"claude-opus-5-5"}}\n' > "$P/.fable-team/seats-aifp.json"
 echo '{"_master":"byz-planner-master-pi#245"}' > "$A/.fable-team/seats-planner.json"
-printf 'k\n' > "$A/design/teams/airag/keep.md"; g "$A" a-base; git -C "$A" update-ref refs/remotes/origin/main HEAD
-: > "$REC/so.log"
+printf 'k\n' > "$A/design/teams/airag/keep.md"; g "$P" aifp; g "$A" a-base
+git -C "$P" update-ref refs/remotes/origin/main HEAD; git -C "$A" update-ref refs/remotes/origin/main HEAD
+: > "$REC/so.log"; : > "$REC/live.txt"
 out="$(cd "$A" && FT_REPO_ROOT="$A" FT_PACK_ROOT="$P" FT_AIFP_ROOT="$A" FT_BOOT_STATE="$A/state/team-boot" bash "$BIN/ft-team-boot.sh" airag 2>&1)"; rc=$?
 ck "⑥ rc0" "$([ "$rc" = 0 ] && echo 0 || echo 1)"; grep -q 'closeout=design/aifp/CLOSEOUT-airag-20261109.md' "$(ls -1 "$A/state/team-boot/"airag-*.plan | head -1)" && ok || bad "⑥ aifp 경로"
+grep -q "^aifp-airag-master-claude#14 $P/.worktrees/wtairag --name aifp-airag-master-claude#15 --agent claude --model claude-opus-5-6\[1m\] " "$REC/so.log" && ok || bad "⑥ 팀장 = seats-aifp 최대 #N(#14) · 워크트리 = PACK/.worktrees · 이름 #15"
+grep -q 'aifp-pi-master-pi#0' "$REC/so.log" && bad "⑥ 팩 팀장(_master) 대체 0" || ok
 
 # ---------- ⑦ B5 송신 실패 → 재실행 = B5 만 · spawn 0 ----------
 R="$T/r7"; mkfix "$R" t1; closeout "$R" design/teams/t1/CLOSEOUT-t1-20261109.md 09 1
