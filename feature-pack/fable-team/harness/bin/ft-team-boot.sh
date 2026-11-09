@@ -37,13 +37,28 @@ stop_out="$(bash "${FT_ALL_STOP:-$HERE/ft-all-stop.sh}" check 2>&1)"; stop_rc=$?
 [ "$stop_rc" -eq 0 ] || { echo "$stop_out"; STOP_RC=1 STOP "전팀 정지 중(check rc=$stop_rc) — 위 REJECT 그대로"; }
 cands="$(git -C "$CREPO" ls-tree -r --name-only "$REF" -- "$CDIR" 2>/dev/null | grep -E "(^|/)CLOSEOUT-$TEAM-[^/]*\.md$" || true)"
 [ -n "$cands" ] || STOP "정본 없음 — $CREPO@$REF:$CDIR/CLOSEOUT-$TEAM-*.md 0장 · 손 부팅(ft-role-spawn) 또는 CLOSEOUT 작성 먼저"
-best=""; best_key=""
+best=""
+# 결정 순서(동점 포함 · ls-tree 경로 순서를 쓰지 않는다): 이름 날짜 → 계보(조상이면 뒤가 최신) → 커밋초 → 커밋 sha → 경로
+cdate() { local d; d="$(printf '%s' "${1##*/}" | grep -oE '[0-9]{8}' | tail -1)"; printf '%s' "${d:-00000000}"; }
+cct()   { local v; v="$(git -C "$CREPO" log -1 --format=%ct "$REF" -- "$1" 2>/dev/null)"; case "$v" in ''|*[!0-9]*) v=0;; esac; printf '%012d' "$v"; }
+ctop()  { git -C "$CREPO" log -1 --format=%H "$REF" -- "$1" 2>/dev/null; }
+newer() {  # $2 가 $1 보다 새 정본이면 0
+  local da db ca cb cta ctb
+  da="$(cdate "$1")"; db="$(cdate "$2")"
+  [ "$db" \> "$da" ] && return 0; [ "$db" \< "$da" ] && return 1
+  ca="$(ctop "$1")"; cb="$(ctop "$2")"
+  if [ "$ca" != "$cb" ]; then
+    git -C "$CREPO" merge-base --is-ancestor "$ca" "$cb" 2>/dev/null && return 0
+    git -C "$CREPO" merge-base --is-ancestor "$cb" "$ca" 2>/dev/null && return 1
+    cta="$(cct "$1")"; ctb="$(cct "$2")"
+    [ "$ctb" \> "$cta" ] && return 0; [ "$ctb" \< "$cta" ] && return 1
+    [ "$cb" \> "$ca" ] && return 0 || return 1
+  fi
+  [ "$2" \> "$1" ]
+}
 while IFS= read -r p; do
   [ -n "$p" ] || continue
-  d="$(printf '%s' "${p##*/}" | grep -oE '[0-9]{8}' | tail -1)"; [ -n "$d" ] || d=00000000
-  ct="$(git -C "$CREPO" log -1 --format=%ct "$REF" -- "$p" 2>/dev/null)"; case "$ct" in ''|*[!0-9]*) ct=0;; esac
-  key="$d $ct"; [ -n "$best" ] && [ "$key" \< "$best_key" ] && continue
-  best="$p"; best_key="$key"
+  if [ -z "$best" ] || newer "$best" "$p"; then best="$p"; fi
 done <<< "$cands"
 text="$(git -C "$CREPO" show "$REF:$best" 2>/dev/null)" || STOP "정본 읽기 실패 $REF:$best(boot plan 판정 불가)"
 sha="$(git -C "$CREPO" rev-parse "$REF:$best" 2>/dev/null | cut -c1-40)"
@@ -81,16 +96,24 @@ PLAN=""; b2name=""
 last="$(ls -1t "$STATE/$TEAM"-*.plan 2>/dev/null | head -1)"
 if [ -n "$last" ]; then
   grep -q '^ts=' "$last" 2>/dev/null || STOP "boot plan 판정 불가 $last(ts 줄 없음)"
-  PLAN="$last"
-  b2name="$(sed -n 's/^b2=done name=\([^ ]*\).*/\1/p' "$PLAN" | tail -1)"
-  grep -q '^status=완료' "$PLAN" && STOP "이미 부팅됨 ${b2name:-<plan 완료>}(plan 완료 $PLAN)"
-  [ -n "$b2name" ] && { tmux_ls | grep -qx "$b2name" || STOP "plan 팀장 세션 없음 $b2name — 두 번 열지 않는다(사람 확인)"; }
-  [ -n "$b2name" ] || { alive="$(live_sessions | head -1)"; [ -z "$alive" ] || STOP "이미 부팅됨 $alive"; }
-  echo "B1 재개 같은 시도 plan=$PLAN"
-else
+  psha="$(sed -n 's/^closeout=.* sha=\([^ ]*\).*/\1/p' "$last" | tail -1)"
+  pb2="$(sed -n 's/^b2=done name=\([^ ]*\).*/\1/p' "$last" | tail -1)"
+  if grep -q '^status=완료' "$last"; then
+    # 앞 생명의 plan 이 완료여도 «정본이 다르면» 새 생명이다 — 완료 plan 이 새 CLOSED→BOOTING 을 영구 차단하지 않는다(DA r1519 R2)
+    [ "$psha" = "$sha" ] && STOP "이미 부팅됨 ${pb2:-<plan 완료>}(plan 완료 $last · 같은 정본 sha=$sha)"
+    echo "B1 새 생명 — 앞 plan 완료(정본 ${psha:-?}) · 새 정본 sha=$sha → 새 plan"
+  else
+    PLAN="$last"; b2name="$pb2"
+    [ -n "$b2name" ] && { tmux_ls | grep -qx "$b2name" || STOP "plan 팀장 세션 없음 $b2name — 두 번 열지 않는다(사람 확인)"; }
+    [ -n "$b2name" ] || { alive="$(live_sessions | head -1)"; [ -z "$alive" ] || STOP "이미 부팅됨 $alive"; }
+    echo "B1 재개 같은 시도 plan=$PLAN"
+  fi
+fi
+if [ -z "$PLAN" ]; then
   alive="$(live_sessions | head -1)"
   [ -n "$alive" ] && STOP "이미 부팅됨 $alive"
-  PLAN="$STATE/$TEAM-$(date +%Y%m%dT%H%M%S).plan"
+  base="$STATE/$TEAM-$(date +%Y%m%dT%H%M%S)"; PLAN="$base.plan"; i=2
+  while [ -e "$PLAN" ]; do PLAN="$base-$i.plan"; i=$((i+1)); done
   { echo "team=$TEAM"; echo "ts=$(date +%Y%m%dT%H%M%S)"; echo "ref=$REF"; echo "closeout=$best sha=$sha";
     echo "b0=done"; echo "b2=pending"; echo "b3=pending"; echo "b4=pending"; echo "b5=pending"; echo "status=booting"; } > "$PLAN" \
     || STOP "boot plan 못 씀 $PLAN"
@@ -106,7 +129,7 @@ if done_step b2; then echo "B2 skip plan 에 done ($b2name)"
 else
   { printf '%s\n' "$GOAL3" | head -3; echo; echo "정본: $CREPO@$REF:$best (sha $sha · 출처 $GSOURCE)";
     [ -n "$REOPEN1" ] && echo "다시 여는 법: $REOPEN1"
-    echo "재개 카드: $NREOPEN장 · 크론 0 · 호출될 때만"; } > "$BODY" || STOP "부팅 본문 못 씀 $BODY"
+    echo "재개 카드: ${NREOPEN}장 · 크론 0 · 호출될 때만"; } > "$BODY" || STOP "부팅 본문 못 씀 $BODY"
   SO="${FT_SUCCESSOR_OPEN:-$HERE/ft-successor-open.sh}"
   so_args=("$OLD" "$WT" --name "$NEXT" --agent "$AGENT" --model "$MODEL" --body-file "$BODY")
   if [ -n "$RESUME_UUID" ]; then
@@ -116,7 +139,7 @@ else
   so_out="$(bash "$SO" "${so_args[@]}" 2>&1)"; so_rc=$?
   echo "B2 $NEXT rc=$so_rc"; printf '%s\n' "$so_out" | tail -3
   [ "$so_rc" -eq 0 ] || { plan_set b2 "rc=$so_rc name=$NEXT"; STOP "팀장 미도달 rc=$so_rc(하위 0 · $NEXT)"; }
-  plan_set b2 "done name=$NEXT rc=0"
+  plan_set b2 "done name=$NEXT rc=0"; b2name="$NEXT"
 fi
 step_end B2 "$B2"
 # ---------- B3 «재개: 예» 카드만 ----------
@@ -156,7 +179,7 @@ else
   MB="${FT_MBOX_SH:-$ROOT/.fable-team/comm/mbox.sh}"
   ci_s=불가; command -v ci >/dev/null 2>&1 && ci_s=가능
   win="미기재"; case "$MODEL" in *"[1m]"*) win=1000000;; esac
-  body="[부팅] $TEAM — 좌석=$NEXT · 모델=$MODEL · 창=$win · ci=$ci_s · adhd=1 · cron=none · launchd=$ld · 재개 카드 n=$NREOPEN · CLOSEOUT sha=$sha"
+  body="[부팅] $TEAM — 좌석=${b2name:-$NEXT} · 모델=$MODEL · 창=$win · ci=$ci_s · adhd=1 · cron=none · launchd=$ld · 재개 카드 n=$NREOPEN · CLOSEOUT sha=$sha"
   mo="$(bash "$MB" send "$TO" "$ME" "$body" 2>&1)"; mr=$?
   seq="$(printf '%s' "$mo" | sed -n 's/.*seq=\([0-9][0-9]*\).*/\1/p' | tail -1)"
   echo "B5 to=$TO rc=$mr seq=${seq:-?}"; [ -n "$mo" ] && printf '%s\n' "$mo" | tail -1
