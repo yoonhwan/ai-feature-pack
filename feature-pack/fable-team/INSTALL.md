@@ -34,6 +34,11 @@ fable-team 프로브 돌려줘
 
 각 워커에 도구 목록 + spawn_test 질의 → 기대값: Agent/Task 없음, `NO_SPAWN_TOOL`, meta.json 모델 일치. 상세: `skill/references/orchestration-playbook.md` §프로브
 
+## 4. pi 확장 (r1477 · planner 대면 좌석 깨움 — 선택)
+
+planner 대면 pi 좌석에만: `cp harness/pi/ft-mbox-wake.ts ~/.pi/agent/extensions/` → pi 재시작 1회(폴더 자동 발견 · settings 등록 0).
+다른 데이터 루트는 `FT_MBOX_FILE` 로 우편함을 지정한다 — 입력·감시·recv 가 그 우편함에 결속되고, 그 루트에 `.fable-team/comm/mbox.sh` 가 없으면 루트 CLI 로 recv 하며 `FT_MBOX_DIR` 로 대상을 밝힌다.
+
 ## 함정 (반드시 읽기)
 
 - ultracode(xhigh) 세션에서 claude-5 계열 워커는 Agent 경로로 스폰하면 400 에러 — **Workflow 경로 필수** (SKILL.md 스폰 경로 분리 규칙)
