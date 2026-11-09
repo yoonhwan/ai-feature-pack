@@ -53,8 +53,14 @@ export default function (pi: ExtensionAPI) {
   const seats = (): { master: string; desk: string } => {
     try { const d = JSON.parse(fs.readFileSync(path.join(root, ".fable-team", "seats-planner.json"), "utf-8")); return { master: String(d._master ?? ""), desk: String(d._desk ?? "") }; } catch { return { master: "", desk: "" }; }
   };
-  const activeSeat = (say: boolean): boolean => { // 활성 = _master 또는 _desk(planner 대면 좌석 둘) · 다른 pi 좌석 자동 활성화 0
-    const s = seats(), mine = seat && (s.master === seat || s.desk === seat);
+  // ★판 2 활성 판정(arch#267)★ = 「팀 명부의 _master 이고 그 행 agent=='pi'」 ∨ 「seats-planner.json _master·_desk」 — 셸 comm/mbox.sh ext_wake_seat 와 «같은 칸»(두 벌이 다른 말을 하면 좌석이 두 길로 깨운다).
+  const activeFlag = (): boolean => {
+    const d = path.join(root, ".fable-team"); let names: string[] = []; try { names = fs.readdirSync(d).filter((f) => /^seats.*\.json$/.test(f)); } catch { return false; }
+    for (const f of names) { try { const j = JSON.parse(fs.readFileSync(path.join(d, f), "utf-8")), r = j?.[seat];
+      if (f === "seats-planner.json" ? !!seat && (j._master === seat || j._desk === seat) : (r?.agent === "pi" && j._master === seat)) return true; } catch { continue; } } // planner = base(좌석 행 없음) · 팀 명부 = agent=='pi' 만 · 깨진 파일 = 그 파일 거짓
+    return false; };
+  const activeSeat = (say: boolean): boolean => { // 다른 pi 좌석(나노) 자동 활성화 0 — _master/_desk 만
+    const mine = !!seat && activeFlag(), s = seats();
     if (mine) { announced = ""; return true; }
     const why = `inactive seat=${seat || "?"} master=${s.master || "?"} desk=${s.desk || "?"}`;
     if (say && announced !== why) { log(why); announced = why; }

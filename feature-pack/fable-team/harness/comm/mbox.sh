@@ -66,23 +66,35 @@ sys.exit(0 if d.get("_master") == sys.argv[2] else 1)
 PY
 }
 # ★r1524 «받는 쪽» 판정 — 확장(pi ft-mbox-wake.ts)이 우편함을 감시해 custom 턴으로 깨우는 좌석★
-#   = seats-planner.json 의 _master 또는 _desk  ∧  확장 설치본 파일이 있음.
+#   = 「팀 명부(seats*.json) 하나의 _master 가 그 좌석이고 그 파일의 그 좌석 행 agent=='pi'」 ∨ 「seats-planner.json _master·_desk」 ∧ 확장 설치본 존재.
+#   ★판 2 (arch#267 · 카드 b33e6390)★ — planner 두 좌석 → 각 팀 _master 로 넓힘. 다만 «이름만» 보면 claude·codex master 6석의
+#     pane 이 조용히 꺼진다(그 좌석엔 pi 확장이 안 뜬다 = 깨울 길 0 = 쪽지 영구 대기) → 그 행 agent=='pi' 를 함께 본다.
 #   ★user_facing 을 넓히지 않고 새 함수를 두는 이유★: user_facing 은 «보내는 쪽 사람 예외»(_wg_human_sender)에도 쓰인다 —
 #     넓히면 _desk 발신이 예산 예외가 되어 사람 판정이 조용히 바뀐다(DA #276770 R2). 받는 쪽/보내는 쪽은 다른 칸이다.
 #   ★확장 파일 존재까지 보는 이유★: 확장이 없으면 그 좌석은 깨울 길이 없다 — 그때 pane 을 끄면 쪽지가 영구 대기한다(깨움 0 금지).
-#   판정 불가(planner 명부 없음·깨짐·확장 파일 없음) = 거짓 = 기존 pane 경로 그대로(fail-loud).
+#   판정 불가(명부 깨짐·agent 칸 없음·확장 파일 없음) = 거짓 = 기존 pane 경로 그대로(fail-loud). 깨진 파일 1개가 다른 파일 판정을 막지 않는다.
 ext_wake_seat() {
-  local sj pj ext; sj="$(_seats_json)"; pj="$(dirname "$sj")/seats-planner.json"
+  local sj ext; sj="$(_seats_json)"
   ext="$HOME/.pi/agent/extensions/ft-mbox-wake.ts"
   [ -f "$ext" ] || return 1
-  [ -f "$pj" ] || return 1
-  python3 - "$pj" "$1" <<'PY' 2>/dev/null
-import json, sys
-try:
-    d = json.load(open(sys.argv[1], encoding="utf-8"))
-except Exception:
-    sys.exit(1)
-sys.exit(0 if sys.argv[2] in (d.get("_master"), d.get("_desk")) else 1)
+  python3 - "$(dirname "$sj")" "$1" <<'PY' 2>/dev/null
+import glob, json, os, sys
+d, seat = sys.argv[1], sys.argv[2]
+for f in sorted(glob.glob(os.path.join(d, "seats*.json"))):
+    try:
+        j = json.load(open(f, encoding="utf-8"))
+    except Exception:
+        continue                      # 깨진 파일 = 그 파일 거짓(pane 유지 · 다른 파일은 그대로)
+    if not isinstance(j, dict):
+        continue
+    if os.path.basename(f) == "seats-planner.json":
+        if seat in (j.get("_master"), j.get("_desk")):
+            sys.exit(0)               # planner 대면 좌석 = 판 2 전부터 활성(planner 명부엔 좌석 행이 없어 agent 칸을 볼 수 없다)
+        continue
+    row = j.get(seat)
+    if isinstance(row, dict) and j.get("_master") == seat and row.get("agent") == "pi":
+        sys.exit(0)
+sys.exit(1)
 PY
 }
 # ★user_facing 좌석의 quiet = 세션 안 감시와 한 쌍(r408)★ — 판정기는 bin/ft-mbox.sh watch-alive 하나(팩 키트 send 와 같은 판정). 오빠 pane 주입 0(876 불변).
