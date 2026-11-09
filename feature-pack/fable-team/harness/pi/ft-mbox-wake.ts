@@ -115,15 +115,17 @@ export default function (pi: ExtensionAPI) {
   });
   pi.on("agent_end", async () => { writeSeq(null); run(); }); // 표지 해제 + 우편함 재확인 1회(소비 안 됐으면 다시 깨운다)
   // ④ 오빠가 `! bash /tmp/hN` 을 돌리면 «끝난 뒤» 턴 1회 — 결과(rc·출력)는 건드리지 않는다(desk 결함 11-09 18:5x).
-  pi.on("user_bash", (event: { command: string; cwd?: string }) => {
+  pi.on("user_bash", (event: { command: string; excludeFromContext?: boolean }) => {
+    if (event.excludeFromContext || !activeSeat(false)) return; // !! 제외 · 활성 좌석(_master·_desk)만 — 다른 pi 좌석 0
     const m = /^bash \/tmp\/h([0-9]+)$/.exec(event.command);
     if (!m) return; // 다른 명령 = 훅 0
     let local;
     try { local = createLocalBashOperations(); } catch (e) { return fail(`user_bash 훅 비활성 — ${e}`); } // 훅 실패 = bash 결과 불변
     return { operations: { exec: async (cmd: string, cwd: string, o: unknown) => {
       const r = await local.exec(event.command, cwd, o); // ★원래 명령 그대로 실행★
-      try { pi.sendMessage({ customType: "ft-mbox", content: `h${m[1]} 끝 rc=${r?.exitCode ?? "?"} → recv 하고 [완료] 정리`, display: true }, { triggerTurn: true, deliverAs: "followUp" }); } catch (e) { fail(`user_bash 알림 실패 — ${e}`); }
-      return r; // ★실패해도 bash 결과 그대로★
+      // ★결과 기록 «뒤» 턴★ — exec 반환 뒤(pi 가 BashExecution 을 세션에 넣은 뒤) 1회 알린다. 폴링 0(단일 setImmediate).
+      setImmediate(() => { try { pi.sendMessage({ customType: "ft-mbox", content: `h${m[1]} 끝 rc=${r?.exitCode ?? "?"} → recv 하고 [완료] 정리`, display: true }, { triggerTurn: true, deliverAs: "followUp" }); } catch (e) { fail(`user_bash 알림 실패 — ${e}`); } });
+      return r; // ★알림이 실패해도 bash 결과 그대로★
     } } };
   });
   // 세션 교체(reload/resume)·종료 = 감시 해제. 안 닫으면 옛 인스턴스가 같은 우편함에 2중으로 깨운다.
