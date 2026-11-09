@@ -10,6 +10,8 @@
 r1236 보류: <h>.held 마지막 줄이 `hold <epoch> <좌석> <사유>` 면 보류 — 미실행 목록(--each · 요약)에서 빠진다.
   `--held` = 보류만 `h<N> <분> <사유>` 줄로 · `--each --held` = 미실행 줄 뒤에 `held h<N> <분> <사유>` 줄(뉴스 칸 1회 호출용)
   `--hold h<N> --why <사유>` · `--unhold h<N>` = <h>.held 에 1줄 이어 쓰기(일반 파일) · 없는 h = rc 2 · 표식 0
+r1538 팀 거르기: `--team <팀>` = h 의 팀(계획 머리 요청 좌석 ∪ <h>.notify 좌석 · ft_hil_team.py)이 그 팀인 줄만 남긴다.
+  팀 표식 없는 h = 지금처럼 전 팀에 셈 + stderr `팀 표식 없음 h<N> — 전 팀에 셈(기존 동작)` 1줄 · `--team` 없는 호출 = 출력 그대로.
 읽기 실패(폴더·h 파일·.ran 권한 등) = stdout 0 · stderr 1줄 · rc 3 — 조용한 0 아님. 파일 쓰기·삭제 0.
 """
 import os
@@ -19,6 +21,7 @@ import sys
 import time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ft_latest_write import write_latest  # noqa: E402
+from ft_hil_team import picked  # noqa: E402
 
 NAME = re.compile(r"h([0-9]+)", re.ASCII)
 MARK = b"# ft-hil-entry plan="
@@ -119,7 +122,7 @@ def mark(d, argv):
 
 def main(argv):
     if len(argv) < 2:
-        print("usage: ft_hil_pending.py <HIL_DIR> [--each] [--held] | --hold h<N> --why <사유> | --unhold h<N>", file=sys.stderr)
+        print("usage: ft_hil_pending.py <HIL_DIR> [--each] [--held] [--team <팀>] | --hold h<N> --why <사유> | --unhold h<N>", file=sys.stderr)
         return 2
     write = "--write-latest" in argv[2:]
     if write and len(argv) > 2 and argv[2] in ("--hold", "--unhold"):
@@ -138,6 +141,13 @@ def main(argv):
         return 3
     flags = set(argv[2:])
     flags.discard("--write-latest")
+    team = argv[argv.index("--team") + 1] if "--team" in argv and argv.index("--team") + 1 < len(argv) else None
+    if "--team" in argv and (team is None or team.startswith("-")):
+        print("usage: ft-hil.sh --pending [--each] [--held] [--team <팀>]", file=sys.stderr)
+        return 2
+    if team is not None:  # r1538: 그 팀 h 만 · 표식 없는 h 는 전 팀에 셈 + 근거 1줄(숨기지 않는다)
+        rows, bare = picked(argv[1], rows, team)
+        sys.stderr.write("".join("팀 표식 없음 h%s — 전 팀에 셈(기존 동작)\n" % n for n in bare))
     live, held = [r for r in rows if r[3] is None], [r for r in rows if r[3] is not None]
     output = ""
     if "--each" in flags or "--held" in flags:

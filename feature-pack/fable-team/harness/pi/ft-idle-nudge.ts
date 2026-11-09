@@ -2,7 +2,7 @@
 //  · 사건 = pi.on("agent_settled") 하나 · 주기·타이머·크론·send-keys 0 · Escape 중단(event.aborted) = 0.
 //  · 지문 = 진행 카드 수 · 대기 h 수 · 남이 이 좌석에 보낸 마지막 쪽지 seq(우편함 to=좌석 + receipts/<좌석>.jsonl · 자기 발신 행 제외 = r1153·r1529 와 같은 칸).
 //    같은 지문 1회째 = 턴 1 · 2회째 = 턴 0 + desk [긴급] 1통 · 3회째부터 0 · 지문이 바뀌면 다시 1회째. 상태 = <state>/pi-wake/<좌석키>.idle(JSON).
-//  · 판정 입력 = <루트>/.fable-team/bin shim(ft-goal-table.sh teams · ft-card-flow.sh --team · ft-hil.sh --pending --each) + mbox.sh peek · 호출마다 7초.
+//  · 판정 입력 = <루트>/.fable-team/bin shim(ft-goal-table.sh teams · ft-card-flow.sh --team · ft-hil.sh --pending --each --team <팀>(r1538: 그 팀 h 만)) + mbox.sh peek · 호출마다 7초.
 //    읽기 실패(rc≠0 · 꼴 불일치) = stderr «판정 불가» 1줄 · 턴 0 · [긴급] 0 · 지문 무변화(no_silent_fallback).
 //  · 활성 = ft-mbox-wake.ts piMasterFile(seats*.json _master ∧ 같은 파일 agent=='pi' · _desk·나노·claude 팀장 = 0) · 팀 = 그 파일의 <팀>(seats.json = v65).
 //  · 설치 = ~/.pi/agent/extensions/ 에 ft-mbox-wake.ts(r1530 판) 와 나란히 복사 · /reload · 시험 = tests/test_pi_idle_nudge_r1530.sh
@@ -30,7 +30,7 @@ export function goalOpen(out: string, team: string): boolean | null {
 }
 // 진행 카드 = ft-card-flow.sh 기본 출력 «카드 대기 N · 진행 N(좌석 M)» 의 진행 N · 꼴 불일치 = null
 export const progOf = (out: string): number | null => { const m = /^카드 대기 \d+ · 진행 (\d+)\(좌석 \d+\)/m.exec(out); return m ? Number(m[1]) : null; };
-// 대기 h = ft-hil.sh --pending --each 의 `h<N> <분>` 줄 수 · 다른 꼴 줄 = null
+// 대기 h = ft-hil.sh --pending --each [--team <팀>] 의 `h<N> <분>` 줄 수 · 다른 꼴 줄 = null
 export const hilOf = (out: string): number | null => { const ls = out.split("\n").filter((l) => l.trim()); return ls.every((l) => /^h\d+ \d+$/.test(l.trim())) ? ls.length : null; };
 // 미읽음 = mbox.sh peek 의 pending=N(doorbell _db_pending 과 같은 칸)
 export const unreadOf = (out: string): number | null => { const m = /^pending=(\d+)/m.exec(out); return m ? Number(m[1]) : null; };
@@ -69,7 +69,7 @@ export default function (pi: ExtensionAPI) {
   async function read(team: string): Promise<Got | string> {
     const [g, c, h, p] = await Promise.all([
       run(bin("ft-goal-table.sh"), ["teams"]), run(bin("ft-card-flow.sh"), ["--team", team, "--root", root]),
-      run(bin("ft-hil.sh"), ["--pending", "--each"]), run(mboxSh, ["peek", seat], mboxEnv)]);
+      run(bin("ft-hil.sh"), ["--pending", "--each", "--team", team]), run(mboxSh, ["peek", seat], mboxEnv)]);
     const goal = g.rc === 0 ? goalOpen(g.out, team) : null, prog = c.rc === 0 ? progOf(c.out) : null;
     const hil = h.rc === 0 ? hilOf(h.out) : null, unread = p.rc === 0 ? unreadOf(p.out) : null;
     if (goal === null) return `골 표 rc=${g.rc}`;
