@@ -64,7 +64,7 @@ runit() {  # <리포> <팀> [bin]  — out·rc 갱신(살아 있는 세션 자�
   : > "$REC/live.txt"; local b="${3:-$BIN/ft-team-boot.sh}"
   out="$(cd "$1" && FT_REPO_ROOT="$1" bash "$b" "$2" 2>&1)"; rc=$?
 }
-body_of() { ls -1t "$1/state/team-boot/$2"*.body 2>/dev/null | head -1; }
+body_of() { ls -1t "$1/.fable-team/state/team-boot/$2"*.body 2>/dev/null | head -1; }
 
 # ---------- ⓐ pi 팀장 — cron=none(pi …) ----------
 R="$T/r1"; mkfix "$R" t1 pi; closeout "$R" design/teams/t1/CLOSEOUT-t1-20261109.md 09 0

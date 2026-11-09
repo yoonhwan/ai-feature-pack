@@ -2,18 +2,18 @@
 # ft-team-boot.sh <팀> — 팀 «부팅 1명령» (r1519 · DESIGN-r1498 §4 B0~B5 · 모델 0 · 크론·설정파일 신설 0)
 #   B0 정본 읽기  : <ref 기본 origin/main> 의 design/teams/<팀>/ «재귀» 에서 이름 CLOSEOUT-<팀>-*.md 만 · 2장 이상이면 파일 이름 날짜(YYYYMMDD) 최대값 → 같은 날이면 최신 커밋 1장 ·
 #                  0장 = «정본 없음» 멈춤(손 부팅 대체 0) · `ft-all-stop.sh check` rc≠0 = 그 REJECT 그대로 멈춤
-#   B1 중복 0     : boot plan <데이터 루트>/state/team-boot/<팀>-<ts>.plan · 같은 시도의 B2 이름이 살아 있으면 그 plan 으로 남은 단계부터 재개(spawn 0) · 그 밖 살아 있는 byz-<팀>-… = «이미 부팅됨» 멈춤
+#   B1 중복 0     : boot plan <데이터 루트>/.fable-team/state/team-boot/<팀>-<ts>.plan · 같은 시도의 B2 이름이 살아 있으면 그 plan 으로 남은 단계부터 재개(spawn 0) · 그 밖 살아 있는 byz-<팀>-… = «이미 부팅됨» 멈춤 · FT_BOOT_STATE 를 «명시하지 않았고» 새 자리에 plan 이 없으면 옛 자리($ROOT/state/team-boot)의 plan 으로 재개(R3 · 이동 0)
 #   B2 팀장 1석   : ft-successor-open.sh <마지막 팀장> <워크트리> --name <#N+1> --agent <명부> --model <명부> --body-file <부팅 본문>(첫 3줄 = 골 원문 · 4줄 = CLOSEOUT 경로)
 #                   명부 읽기 = ft-team-seats-lib.sh 1곳(r1535) · airag = 팩 위성팀 — 명부 PACK/.fable-team/seats-aifp.json 의 «aifp-<팀>-master-*» 행 중 #N 최대 · 워크트리 뿌리 PACK/.worktrees · 행 0 = 멈춤(팩 _master 대체 0)
 #                   명부 행에 재개 기록(_resume_uuid)이 있고 여는 도구 usage 가 --resume 을 받으면 인자 1개 추가 · 못 받으면 WARN 1줄(새 세션 · 조용한 대체 아님 · §9 ③)
 #   B3 필요한 하위: 그 CLOSEOUT 의 «재개: 예» 행만 ft-nano-spawn.sh <카드> --reopen (역할 좌석은 여기서 0)
-#   B4 크론·클론 0: launchd com.byz.ft-tick-<팀> 미등재 · 살아 있는 계보 1석 확인(그 밖 = «부팅 직후 잔존»)
+#   B4 크론·클론 0: launchd com.byz.ft-tick-<팀> = «plist 파일 유무» 아니라 launchctl print gui/$UID 로드 여부(r1536 B-3) · launchctl 자체 실패 = «판정 불가» 1줄(하드 룰 20) · 살아 있는 계보 1석 확인(그 밖 = «부팅 직후 잔존»)
 #                  · 정본 본문에 «CronCreate» 줄이 있으면 WARN 1줄(줄 수 · 멈추지 않음 · r1534)
 #   B5 보고 1통  : planner master 에 [부팅] 1통 · seq 를 plan 에 적고 status=완료 · 송신 실패 = «보고 미도달»(재실행 = 같은 plan 으로 B5 만)
 #                  · cron 칸 = 팀장 agent 로 정한다(pi=none(pi) · 그 밖=«판정 불가» · 고정 «none» 0 · r1534)
 #   실패마다 «멈춤 <이유>» 1줄 + rc(1 멈춤 · 2 usage · 5 보고 미도달) · 데몬·루프·sleep 0 · 한 실행 ≤70초
 #   env(시험용): FT_REPO_ROOT FT_BOOT_REF FT_BOOT_STATE FT_BOOT_ME FT_BOOT_WT FT_BOOT_REPORT_TO FT_SEATS_JSON FT_MBOX_SH FT_SUCCESSOR_OPEN
-#                FT_NANO_SPAWN FT_ALL_STOP FT_TMUX FT_LAUNCHAGENTS FT_PACK_ROOT FT_AIFP_ROOT
+#                FT_NANO_SPAWN FT_ALL_STOP FT_TMUX FT_LAUNCHAGENTS FT_LAUNCHCTL FT_PACK_ROOT FT_AIFP_ROOT
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 [ -f "$HERE/ft-live-entry.sh" ] && . "$HERE/ft-live-entry.sh" "$@"
@@ -27,7 +27,7 @@ PACK="${FT_PACK_ROOT:-$HOME/Project/ai-feature-pack}"
 # airag 만 aifp 리포 design/aifp/ (DESIGN-r1498 §4 B0 · ROUTE 판 2 §5.3 예외 1줄)
 if [ "$TEAM" = airag ]; then DROOT="${FT_AIFP_ROOT:-$PACK}"; CREPO="$PACK"; CDIR="design/aifp"; SAT=1; WROOT="$PACK/.worktrees"
 else DROOT="$ROOT"; CREPO="$ROOT"; CDIR="design/teams/$TEAM"; SAT=0; WROOT="$ROOT/.worktrees"; fi
-STATE="${FT_BOOT_STATE:-$ROOT/state/team-boot}"
+STATE="${FT_BOOT_STATE:-$DROOT/.fable-team/state/team-boot}"   # r1536 B-4: plan 자리 = 데이터 루트(워크트리마다 흩어지지 않는다)
 ME="${FT_BOOT_ME:-${FT_SEND_FROM:-ft-team-boot}}"
 STOP() { echo "멈춤 $*"; exit "${STOP_RC:-1}"; }
 T0=$SECONDS; T=(); step_end() { T+=("$1=$((SECONDS - ${2:-0}))s"); }
@@ -86,6 +86,11 @@ live_sessions() { tmux_ls | grep -E "^(byz|aifp)-$TEAM-" || true; }
 mkdir -p "$STATE" || STOP "boot plan 폴더 못 만듦 $STATE"
 PLAN=""; b2name=""
 last="$(ls -1t "$STATE/$TEAM"-*.plan 2>/dev/null | head -1)"
+LEGACY="$ROOT/state/team-boot"   # r1536 R3(DA): FT_BOOT_STATE 를 «명시하지 않았을 때만» 옛 기본 자리를 본다(R3-b · 명시 = 그 자리만이 그 생명)
+if [ -z "$last" ] && [ -z "${FT_BOOT_STATE:-}" ] && [ "$STATE" != "$LEGACY" ]; then
+  last="$(ls -1t "$LEGACY/$TEAM"-*.plan 2>/dev/null | head -1)"
+  [ -z "$last" ] || echo "B1 옛 자리 plan 재개 $last(새 기본 $STATE · 파일 이동 0)"
+fi
 if [ -n "$last" ]; then
   grep -q '^ts=' "$last" 2>/dev/null || STOP "boot plan 판정 불가 $last(ts 줄 없음)"
   psha="$(sed -n 's/^closeout=.* sha=\([^ ]*\).*/\1/p' "$last" | tail -1)"
@@ -154,9 +159,9 @@ if done_step b4; then
   ld="$(sed -n 's/^b4=done launchd=\([^ ]*\).*/\1/p' "$PLAN" | tail -1)"; n_seat="$(sed -n 's/^b4=.*계보=\([0-9]*\).*/\1/p' "$PLAN" | tail -1)"
   echo "B4 skip plan 에 done (launchd=$ld 계보=$n_seat)"
 else
-  ld=미등재; [ -e "$plist" ] && ld="등재($plist)"
+  tick_launchd_loaded "$TEAM"; ld="$LD_CELL"   # r1536 B-3: 파일 유무 아니라 로드 여부(실패 = 판정 불가 1줄)
   n_seat="$(live_sessions | grep -c . || true)"; [ "$n_seat" -ge 1 ] || n_seat=0
-  resid=""; [ "$ld" != 미등재 ] && resid="$ld"; [ "$n_seat" -gt 1 ] && resid="${resid:+$resid · }계보 ${n_seat}석"
+  resid=""; case "$ld" in 등재*) resid="$ld";; esac; [ "$n_seat" -gt 1 ] && resid="${resid:+$resid · }계보 ${n_seat}석"
   [ -z "$resid" ] || echo "부팅 직후 잔존 $resid"
   echo "B4 launchd=$ld 계보=${n_seat}석"
   ncron="$(printf '%s\n' "$text" | grep -c 'CronCreate' || true)"
