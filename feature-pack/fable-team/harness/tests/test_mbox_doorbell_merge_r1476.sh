@@ -7,6 +7,9 @@
 #  T8 미읽음 판정 불가(fail-loud) · T9 seq 순서 · 발신 실패 환불 · T10 전달 실패 보존+환불 · T11 동시 예약 6/4 · T12 직접 ring 예산
 #  T13 소유자 1곳(이중 차감 0) · T14 fail-closed(잠금 초과·장부 손상) · T15 planner nudge
 set -uo pipefail
+# ★상한 «동작» 시험은 상한을 스스로 소유한다(r1499 · 선례 test_mbox_doorbell_sh_tail_r1039.sh:57)★
+#   기본값이 100000 으로 올라갔으므로(mbox_wakebudget.sh:76) T5 의 6 · T6 의 30 은 이 줄이 정한다. 본문·기대값 무변경.
+export FT_MBOX_WAKE_SEAT_MAX=6 FT_MBOX_WAKE_TEAM_MAX=30
 for v in GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY; do unset "$v"; done
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 COMM="$HERE/../comm"
