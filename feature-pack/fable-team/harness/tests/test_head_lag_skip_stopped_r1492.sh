@@ -54,8 +54,8 @@ run
 ! grep -q '^WARN' "$T/err"; ck "T1 판정이 됐으니 WARN 0(조용한 생략 0 · 시끄러운 오판 0)" $?
 
 # ── T3: 재개(파일 없음) 뒤 첫 실행 = 보류분 1회 발신 + held 삭제
-M0="$(msgs)"; rm -f "$ST/PENALTY_STOP"; run
-[ "$rc" = 0 ] && [ "$(( $(msgs) - M0 ))" = 1 ] && [ "$(to "$MA")" = 1 ] && [ "$(to "$MB")" = 1 ]; ck "T3 재개 뒤 첫 실행 = 팀a 보류분 1통만(팀b 재알림 0)" $?
+B0="$(msgs)"; rm -f "$ST/PENALTY_STOP"; run
+[ "$rc" = 0 ] && [ "$(( $(msgs) - B0 ))" = 1 ] && [ "$(to "$MA")" = 1 ] && [ "$(to "$MB")" = 1 ]; ck "T3 재개 뒤 첫 실행 = 팀a 보류분 1통만(팀b 재알림 0)" $?
 [ "$(held "$RA")" = - ]; ck "T3 발신 뒤 held 삭제" $?
 
 # ── T4: 전팀 정지(ALL_STOP) = 두 팀 다 0 + INFO all-stop 2줄
@@ -75,9 +75,28 @@ rm -f "$SF"; pen '"teamb"'; N0="$(to "$MA")"; run
 git -C "$T/wtA" merge -q --no-edit origin/main; rm -f "$ST/PENALTY_STOP"; run
 [ "$rc" = 0 ] && [ "$(to "$MA")" = "$N0" ] && [ "$(has "$RA")" = False ]; ck "T6 따라잡음 = 발신 0 + head-lag.json 항목(held 포함) 삭제" $?
 
+# ── T7 (DA #276249 R1): 정지 A·활성 B 가 «같은» 뒤처진 worktree → B 발신 성공이 A 의 held 를 덮지 않는다
+#    (RED 근거: held 가 워크트리 한 칸이라 B 의 성공 기록이 지우고, 재개 직후에는 n≥1·6시간 규칙에 A 까지 건너뛴다)
+echo '{"_master":"byz-teamc-master-claude#3"}' > "$T/.fable-team/seats-teamc.json"
+echo '{"_master":"byz-teamd-master-claude#4"}' > "$T/.fable-team/seats-teamd.json"
+MC="byz-teamc-master-claude#3"; MD="byz-teamd-master-claude#4"
+mkwt wtS nano/wtS
+TM new-session -d -s 'byz-teamc-nano-claude#0' -c "$T/wtS"
+TM new-session -d -s 'byz-teamd-nano-claude#0' -c "$T/wtS"
+RS="$(python3 -c 'import os,sys;print(os.path.realpath(sys.argv[1]))' "$T/wtS")"
+heldm() { python3 -c 'import json,sys;d=json.load(open(sys.argv[1]));print((d.get("seats",{}).get(sys.argv[2],{}) or {}).get("held",{}).get(sys.argv[3],"-"))' "$SF" "$1" "$2"; }
+: > "$MBOX_LOG"; rm -f "$SF"; printf '{"since":%s,"reason":"시험","order":["teamc","teamd"],"resumed":["teamd"]}\n' "$(date +%s)" > "$ST/PENALTY_STOP"
+run
+[ "$rc" = 0 ] && [ "$(to "$MC")" = 0 ] && [ "$(to "$MD")" = 1 ]; ck "T7 같은 worktree 정지 C=발신 0 · 활성 D=1통" $?
+[ "$(heldm "$RS" "$MC")" = penalty ]; ck "T7 활성 팀 발신 성공 뒤에도 C 의 held 보존" $?
+[ "$(to "$MC")" = 0 ] && rm -f "$ST/PENALTY_STOP" && run
+[ "$(to "$MC")" = 1 ] && [ "$(to "$MD")" = 1 ]; ck "T7 재개 직후 C 재개 발신 1 · D 추가 0" $?
+[ "$(heldm "$RS" "$MC")" = - ]; ck "T7 재개 발신 뒤 C 의 held 삭제" $?
+M7="$(msgs)"; run; [ "$(msgs)" = "$M7" ]; ck "T7 그 다음 실행 = 재알림 0(6시간 규칙 그대로)" $?
+
 # ── 정적
 bash -n "$BIN/ft-head-lag.sh" && bash -n "${BASH_SOURCE[0]}"; ck "bash -n 진입·시험" $?
 python3 -I -m py_compile "$BIN/ft_head_lag.py" "$BIN/ft_head_lag_stop.py"; ck "py_compile rc0(ft_head_lag · ft_head_lag_stop)" $?
-[ "$(wc -l < "$BIN/ft_head_lag.py" | tr -d ' ')" -le 170 ]; ck "ft_head_lag.py ≤ 170줄" $?
+[ "$(wc -l < "$BIN/ft_head_lag.py" | tr -d ' ')" -le 150 ] && [ "$(wc -l < "$BIN/ft_head_lag_stop.py" | tr -d ' ')" -le 150 ]; ck "ft_head_lag.py · ft_head_lag_stop.py ≤ 150줄(기존 두 시험의 한도 그대로)" $?
 echo "총 $((SECONDS - SECS0))초"
 [ "$fail" = 0 ] && echo "ALL PASS" || { echo "FAILED $fail"; exit 1; }
