@@ -65,6 +65,26 @@ except Exception:
 sys.exit(0 if d.get("_master") == sys.argv[2] else 1)
 PY
 }
+# ★r1524 «받는 쪽» 판정 — 확장(pi ft-mbox-wake.ts)이 우편함을 감시해 custom 턴으로 깨우는 좌석★
+#   = seats-planner.json 의 _master 또는 _desk  ∧  확장 설치본 파일이 있음.
+#   ★user_facing 을 넓히지 않고 새 함수를 두는 이유★: user_facing 은 «보내는 쪽 사람 예외»(_wg_human_sender)에도 쓰인다 —
+#     넓히면 _desk 발신이 예산 예외가 되어 사람 판정이 조용히 바뀐다(DA #276770 R2). 받는 쪽/보내는 쪽은 다른 칸이다.
+#   ★확장 파일 존재까지 보는 이유★: 확장이 없으면 그 좌석은 깨울 길이 없다 — 그때 pane 을 끄면 쪽지가 영구 대기한다(깨움 0 금지).
+#   판정 불가(planner 명부 없음·깨짐·확장 파일 없음) = 거짓 = 기존 pane 경로 그대로(fail-loud).
+ext_wake_seat() {
+  local sj pj ext; sj="$(_seats_json)"; pj="$(dirname "$sj")/seats-planner.json"
+  ext="$HOME/.pi/agent/extensions/ft-mbox-wake.ts"
+  [ -f "$ext" ] || return 1
+  [ -f "$pj" ] || return 1
+  python3 - "$pj" "$1" <<'PY' 2>/dev/null
+import json, sys
+try:
+    d = json.load(open(sys.argv[1], encoding="utf-8"))
+except Exception:
+    sys.exit(1)
+sys.exit(0 if sys.argv[2] in (d.get("_master"), d.get("_desk")) else 1)
+PY
+}
 # ★user_facing 좌석의 quiet = 세션 안 감시와 한 쌍(r408)★ — 판정기는 bin/ft-mbox.sh watch-alive 하나(팩 키트 send 와 같은 판정). 오빠 pane 주입 0(876 불변).
 #   감시 없음 → db 꼬리 `(WATCH 없음)`(quiet → `quiet(WATCH 없음)`) + 하네스 master(seats-harness.json `_master`) 긴급 1통(같은 좌석 10분 1회 · 표식 <루트>/.fable-team/state/planner-watch-missing.<좌석> · 본문에 계기 쪽지 번호 = 같은 본문 재발신 가드에 재알림이 막히지 않게).
 #   ★r928 r3 유예★: 표본 파일(state/planner-watch-absent-since.<좌석> = «<표본 epoch>\t<처음 없음 epoch | 0=감시 있음>» · 쓰는 쪽 = ft-tick 60초 표본기 `bin/ft-mbox.sh watch-sample` 하나 · 감시는 쓰기 0)을 읽기만 한다.
@@ -166,7 +186,8 @@ case "$cmd" in
     # ★r1476 깨움 게이트 — 판정은 enqueue «전»★ (seq 는 py 가 그 뒤에 발급한다 · 판정에 seq 가 없다)
     head="$(_wg_head "${args[*]}")"
     uf=0; if user_facing "$to"; then uf=1; fi
-    if [ "$uf" = 1 ]; then gate=quiet                                   # planner 대면 = pane 주입 0(판정 876) — 예산도 안 쓴다
+    ew=0; if ext_wake_seat "$to"; then ew=1; fi                     # r1524 받는 쪽 = 확장이 깨우는 좌석
+    if [ "$uf" = 1 ] || [ "$ew" = 1 ]; then gate=quiet                  # planner 대면·확장 좌석 = pane 주입 0(판정 876 · r1524) — 예산도 안 쓴다
     elif [ "$urgent" = 1 ] || _wg_human_sender "$from"; then gate=sent  # 긴급·사람 글 = 즉시 · 예산 밖
     else gate="$(doorbell_gate "$dbto" "$head")"; fi
     if [ "$urgent" = 1 ] || [ "$(notify_policy "$dbto")" = ring ]; then notify=1; else notify=0; fi
@@ -195,8 +216,9 @@ case "$cmd" in
     inbox_ingest "$seq"
     if inbox_must_ring; then notify=1; fi
     uf=0; if user_facing "$to"; then notify=0; uf=1; fi
+    if [ "$ew" = 1 ]; then notify=0; fi                                # ★r1524★ 확장 좌석 = pane 0(확장이 custom 턴으로 깨운다) · uf_watch 는 user_facing 그대로
     # ★`[ ] && doorbell` 로 쓰지 않는다★ — set -e 에서 notify=0 이면 리스트가 실패로 끝나 exit 1.
-    if [ "$notify" = 1 ] && [ "$gate" = sent ]; then db="$(doorbell_status "$dbto" "$dbf" "$seq")"; else db=quiet; fi
+    if [ "$notify" = 1 ] && [ "$gate" = sent ]; then db="$(doorbell_status "$dbto" "$dbf" "$seq" 1)"; else db=quiet; fi   # 4번째 인자 = 방금 적재분(미읽음 검사 면제 · r1524)
     # 예약은 됐는데 «울리지 않기로» 했으면 되돌린다 — 깨움 1회 = 차감 1회(r1476).
     if [ "$gate" = sent ] && [ "$notify" != 1 ]; then wake_budget_refund "$dbto" send >/dev/null 2>&1 || true; fi
     if [ "$uf" = 1 ]; then uf_watch "$to" "$seq"; fi
@@ -221,7 +243,8 @@ case "$cmd" in
     # ★r1476 깨움 게이트 — relay 도 send 와 «같은» 판정을 먼저 한다★
     head="$(_wg_head "${args[*]}")"
     uf=0; if user_facing "$to"; then uf=1; fi
-    if [ "$uf" = 1 ]; then gate=quiet
+    ew=0; if ext_wake_seat "$to"; then ew=1; fi                     # r1524 받는 쪽 = 확장이 깨우는 좌석(send 와 같은 판정)
+    if [ "$uf" = 1 ] || [ "$ew" = 1 ]; then gate=quiet
     elif [ "$urgent" = 1 ] || _wg_human_sender "$from"; then gate=sent
     else gate="$(doorbell_gate "$dbto" "$head")"; fi
     if [ "$urgent" = 1 ] || [ "$(notify_policy "$dbto")" = ring ]; then notify=1; else notify=0; fi
@@ -231,7 +254,7 @@ case "$cmd" in
     case "$gate" in held|budget) doorbell_record_held "$dbto" "$seq" "$gate";; esac
     inbox_ingest "$seq"
     if inbox_must_ring; then notify=1; fi
-    if [ "$notify" = 1 ] && [ "$gate" = sent ]; then db="$(doorbell_status "$dbto" 0 "$seq")"; else db=quiet; fi
+    if [ "$notify" = 1 ] && [ "$gate" = sent ]; then db="$(doorbell_status "$dbto" 0 "$seq" 1)"; else db=quiet; fi   # 4번째 인자 = 방금 적재분(미읽음 검사 면제 · r1524)
     if [ "$gate" = sent ] && [ "$notify" != 1 ]; then wake_budget_refund "$dbto" send >/dev/null 2>&1 || true; fi
     if [ "$uf" = 1 ]; then uf_watch "$to" "$seq"; fi
     fu="$(doorbell_followup_sweep)"; fu="${fu//$'\n'/ }"
@@ -268,8 +291,12 @@ case "$cmd" in
   #   안 뜨고 그건 미도달과 구분이 안 된다(팩 ring 과 같은 계약).
   ring)  sess="${1:?sess}"; _check_name "$sess" || exit 1; sess="$(holder_of "$sess")"
          # ★r1476 직접 ring 도 예산을 쓴다★ — 예약 소유자 = 부르는 쪽 1곳. `--reserved` 면 예약·환불 0(부른 쪽이 이미 예약).
-         _res=0; for _a in "$@"; do if [ "$_a" = "--reserved" ]; then _res=1; fi; done
+         # ★r1524 `--auto`★ = 좌석 자동 장치(ft-idle-wake)가 부른 ring — 사람 손 ring(--auto 없음)과 «구별»해야
+         #   확장 좌석에서 자동 ring 만 pane 0 으로 끄고 손 ring 은 그대로 둘 수 있다(DA #276770 R1).
+         _res=0; _auto=0; for _a in "$@"; do case "$_a" in --reserved) _res=1;; --auto) _auto=1;; esac; done
          _rsq="${2:-}"; case "$_rsq" in ''|*[!0-9]*) _rsq="" ;; esac
+         # 확장 감시 좌석 = pane 0 · 예산 0(user_facing 과 같은 등급) · 출력값 ext(sent·skipped·quiet·none 과 구분)
+         if [ "$_auto" = 1 ] && ext_wake_seat "$sess"; then echo "RING $sess doorbell=ext"; exit 0; fi
          if [ "$_res" = 0 ]; then
            if ! wake_budget_reserve "$sess" ring >/dev/null 2>&1; then
              doorbell_record_held "$sess" "$_rsq" budget
@@ -285,5 +312,5 @@ case "$cmd" in
             refund)  wake_budget_refund "$@" ;;
             *) echo "usage: mbox.sh budget reserve|refund <좌석> [<출처>]" >&2; exit 2 ;;
           esac ;;
-  *) echo "usage: mbox.sh {send <to> <from> <body> [--urgent] [--force]|relay <to> <from> <file> <summary>|recv <me> [<from>] [--all]|peek <me>|ring <sess> [seq] [--reserved]|sweep|budget reserve|refund <좌석> [<출처>]|handover <구> <후계>|ready <후계> <구>|mark <me> <seq,…> 처리함·인계|unmarked <me>|close-check <좌석> [--no-ready]}" >&2; exit 2;;
+  *) echo "usage: mbox.sh {send <to> <from> <body> [--urgent] [--force]|relay <to> <from> <file> <summary>|recv <me> [<from>] [--all]|peek <me>|ring <sess> [seq] [--reserved] [--auto]|sweep|budget reserve|refund <좌석> [<출처>]|handover <구> <후계>|ready <후계> <구>|mark <me> <seq,…> 처리함·인계|unmarked <me>|close-check <좌석> [--no-ready]}" >&2; exit 2;;
 esac

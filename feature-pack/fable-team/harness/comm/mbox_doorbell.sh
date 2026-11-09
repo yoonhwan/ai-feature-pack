@@ -24,7 +24,8 @@ else _agent_alive() { echo "doorbell: ft-agent-alive.sh 없음 ($_AA_LIB) — �
 
 # doorbell: 대상 pane 에 recv 트리거만 주입(본문 아님). send·relay·ring 이 공유한다.
 #
-# ★상태를 «돌려준다»★ (2026-09-06, 가) — echoes: sent | skipped | absent | noagent
+# ★상태를 «돌려준다»★ (2026-09-06, 가) — echoes: sent | skipped | absent | noagent | error | none
+#   `none` = r1524 — 받는 좌석의 미읽음이 0 이라 주입하지 않았다(«이미 읽은 seq 로 다시 깨우기 0»). sent·skipped·quiet 와 «다른 값»이다.
 #   이전엔 모든 분기가 `return 0` 이라 호출자가 «좌석이 아예 없다/에이전트가 안 떴다»를
 #   알 방법이 없었다. 그래서 ft-send-verified.sh 는 ★울릴 대상조차 없는 발주★에도
 #   도달을 20초씩 두 번 기다린 뒤에야 미도달로 떨어졌다(실측 41초 — 매 발주가 그만큼
@@ -43,8 +44,22 @@ DOORBELL_MIN="${FT_MBOX_DOORBELL_MIN:-3}"   # 같은 좌석에 이 초 안에 �
 # $3=seq(선택) — 이번 발주의 큐 번호. 있으면 주입 문자열 앞에 `[발주 #<seq>]` 로 실린다.
 #   ★없으면 지금까지의 문자열 그대로다★ — 큐에 넣지 않고 울리기만 하는 호출부는 실을
 #   seq 가 없다. 없는 번호를 지어내면 그 번호가 가리키는 것이 아무것도 없다.
+# ★미읽음 수를 묻는다★ (r1524) — echoes: 숫자 | "" (판정 불가)
+#   ★큐 파일이 없으면 판정 불가로 돌린다★: peek 은 «다 읽었다» 와 «다른 우편함을 봤다» 를 둘 다 pending=0 으로 답한다.
+#   그 둘을 가를 수 없는 상태에서 주입을 끄면 쪽지가 영구 대기할 수 있다(깨움 0 금지) — 그래서 «있을 때만» 0 을 믿는다.
+#   FT_MBOX_PEEK_CMD 는 mbox_wakegate.sh 와 같은 시험용 대역 경로다(같은 판정기를 두 번 짜지 않는다).
+_db_pending() {
+  local mb p rc
+  mb="${FT_MBOX_DIR:-$DIR}/mailbox.jsonl"
+  [ -f "$mb" ] || return 0
+  if [ -n "${FT_MBOX_PEEK_CMD:-}" ]; then p="$(_wg_timeout 7 $FT_MBOX_PEEK_CMD "$1" 2>/dev/null)"; rc=$?
+  else p="$(_wg_timeout 7 python3 "$MBOXPY" peek "$1" 2>/dev/null)"; rc=$?; fi
+  [ "$rc" = 0 ] || return 0
+  printf '%s\n' "$p" | sed -n 's/^pending=\([0-9][0-9]*\).*/\1/p' | head -1
+}
+
 doorbell() {
-  local to="$1" dbforce="${2:-0}" dbseq="${3:-}" pane seat stamp recvstamp last recvlast now msg _tail
+  local to="$1" dbforce="${2:-0}" dbseq="${3:-}" dbfresh="${4:-0}" pane seat stamp recvstamp last recvlast now msg _tail _pn
   # ★숫자만 통과시킨다★ — 이 값은 send-keys 명령 문자열에 삽입된다. 호출부가 우리 자신의
   #   py 출력에서 파싱하므로 이미 숫자지만, 명령 삽입 차단을 «호출부 신뢰»에 맡기지 않는다.
   case "$dbseq" in ''|*[!0-9]*) dbseq="" ;; esac
@@ -82,6 +97,16 @@ doorbell() {
   if [ "$dbforce" != 1 ] && [ "$last" -gt "$recvlast" ] \
      && [ "$((now - last))" -lt "${FT_MBOX_DOORBELL_STARVE:-120}" ]; then echo skipped; return 0; fi
   if [ "$dbforce" != 1 ] && [ "$((now - last))" -lt "$DOORBELL_MIN" ]; then echo skipped; return 0; fi
+  # ★r1524 — 이미 전부 읽은 우편함으로 창을 다시 깨우지 않는다★ («READ none» 헛턴 0)
+  #   주입 «직전» 에 받는 좌석의 미읽음을 센다 — 0 이면 none.
+  #   ★$4=fresh(1) 면 안 센다★: send·relay 는 방금 그 seq 를 적재했으므로 미읽음 ≥1 이 «구조상» 보장된다.
+  #   매 send 마다 python 을 하나 더 띄우면 기존 시험 test_mbox_doorbell_merge_r1476.sh 가 63s → 71s 로 늘어
+  #   70초 상한을 넘었다(r1524 실측). 그래서 이 검사는 «다 읽은 seq 로도 불릴 수 있는» 경로(ring · sweep 후속 · 손 ring)만 문다.
+  #   ★판정 불가(큐 파일 없음 · peek 실패 · pending 파싱 실패)는 기존대로 주입★ — 안 울려 못 받는 쪽이 더 나쁘다(fail-loud).
+  if [ "$dbfresh" != 1 ]; then
+    _pn="$(_db_pending "$to")"
+    if [ "$_pn" = 0 ]; then echo none; return 0; fi
+  fi
   : > "$stamp" 2>/dev/null || true
   # ★주입하는 것은 «명령»이 아니라 «지시문»이다★ (2026-09-05, A1)
   #   이전엔 `bash .../mbox.sh recv <me>` 만 넣었다. 좌석 입장에서 그건 «자기가 실행한 도구»이고

@@ -96,7 +96,7 @@ doorbell_followup_sweep() {
     out="$(wake_budget_reserve "$seat" followup)"; arc=$?
     [ "$arc" = 0 ] || continue                                             # 소진 = 그대로 둔다(다음 창)
     nudge=0; res=""
-    if user_facing "$seat"; then                                           # planner 대면(pi) 좌석 — pane 주입 0 · nudge 파일로 알린다(r1477 ⑦)
+    if user_facing "$seat" || ext_wake_seat "$seat"; then                          # planner 대면(pi)·확장 감시 좌석 — pane 주입 0 · nudge 파일로 알린다(r1477 ⑦ · r1524)
       mkdir -p "$(_wg_state)/pi-wake" 2>/dev/null
       if : >> "$(_wg_state)/pi-wake/$(_wg_key "$seat").nudge" 2>/dev/null; then nudge=1; fi
       res=sent
