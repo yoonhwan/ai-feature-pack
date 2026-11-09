@@ -118,7 +118,7 @@ g "$R" byz-init; git -C "$R" update-ref refs/remotes/origin/main HEAD
 out="$(cd "$R" && FT_REPO_ROOT="$R" bash "$BIN/ft-team-boot.sh" t1 2>&1)"; rc=$?
 ck "ⓓ BYZ rc0" "$([ "$rc" = 0 ] && echo 0 || echo 1)"
 grep -qF -- "byz-t1-master-claude#4 $R/.worktrees/wtt1 --name byz-t1-master-claude#5 --agent claude --model claude-sonnet-5-5[1m]" "$REC/so.log" && ok || bad "ⓓ BYZ 팀 = _master · ROOT/.worktrees 그대로"
-grep -q 'closeout=design/teams/t1/CLOSEOUT-t1-20261109.md' "$(ls -1t "$R/state/team-boot/"t1-*.plan | head -1)" && ok || bad "ⓓ BYZ 정본 = design/teams/<팀>"
+grep -q 'closeout=design/teams/t1/CLOSEOUT-t1-20261109.md' "$(ls -1t "$R/.fable-team/state/team-boot/"t1-*.plan | head -1)" && ok || bad "ⓓ BYZ 정본 = design/teams/<팀>"   # r1536 B-4: plan 기본 자리 = 데이터 루트
 
 # ---------- ⓔ FT_SEATS_JSON 을 주면 그 명부 — 팀장 고르기 규칙은 그대로(#N 최대) ----------
 P="$T/pack4"; A="$T/a4"; mkpack "$P" "$A"
