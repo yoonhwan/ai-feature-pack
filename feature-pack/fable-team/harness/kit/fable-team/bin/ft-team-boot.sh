@@ -7,7 +7,9 @@
 #                   명부 행에 재개 기록(_resume_uuid)이 있고 여는 도구 usage 가 --resume 을 받으면 인자 1개 추가 · 못 받으면 WARN 1줄(새 세션 · 조용한 대체 아님 · §9 ③)
 #   B3 필요한 하위: 그 CLOSEOUT 의 «재개: 예» 행만 ft-nano-spawn.sh <카드> --reopen (역할 좌석은 여기서 0)
 #   B4 크론·클론 0: launchd com.byz.ft-tick-<팀> 미등재 · 살아 있는 계보 1석 확인(그 밖 = «부팅 직후 잔존»)
+#                  · 정본 본문에 «CronCreate» 줄이 있으면 WARN 1줄(줄 수 · 멈추지 않음 · r1534)
 #   B5 보고 1통  : planner master 에 [부팅] 1통 · seq 를 plan 에 적고 status=완료 · 송신 실패 = «보고 미도달»(재실행 = 같은 plan 으로 B5 만)
+#                  · cron 칸 = 팀장 agent 로 정한다(pi=none(pi) · 그 밖=«판정 불가» · 고정 «none» 0 · r1534)
 #   실패마다 «멈춤 <이유>» 1줄 + rc(1 멈춤 · 2 usage · 5 보고 미도달) · 데몬·루프·sleep 0 · 한 실행 ≤70초
 #   env(시험용): FT_REPO_ROOT FT_BOOT_REF FT_BOOT_STATE FT_BOOT_ME FT_BOOT_WT FT_BOOT_REPORT_TO FT_SEATS_JSON FT_MBOX_SH FT_SUCCESSOR_OPEN
 #                FT_NANO_SPAWN FT_ALL_STOP FT_TMUX FT_LAUNCHAGENTS FT_PACK_ROOT FT_AIFP_ROOT
@@ -167,6 +169,8 @@ else
   resid=""; [ "$ld" != 미등재 ] && resid="$ld"; [ "$n_seat" -gt 1 ] && resid="${resid:+$resid · }계보 ${n_seat}석"
   [ -z "$resid" ] || echo "부팅 직후 잔존 $resid"
   echo "B4 launchd=$ld 계보=${n_seat}석"
+  ncron="$(printf '%s\n' "$text" | grep -c 'CronCreate' || true)"
+  [ "${ncron:-0}" -eq 0 ] || echo "WARN 정본에 CronCreate 줄 ${ncron} — 오빠 11-08 자기 틱 크론 0(#274576) · 그 줄 지우고 다시 부팅"
   plan_set b4 "done launchd=$ld 계보=${n_seat}"
 fi
 step_end B4 "$B4"
@@ -179,7 +183,9 @@ else
   MB="${FT_MBOX_SH:-$ROOT/.fable-team/comm/mbox.sh}"
   ci_s=불가; command -v ci >/dev/null 2>&1 && ci_s=가능
   win="미기재"; case "$MODEL" in *"[1m]"*) win=1000000;; esac
-  body="[부팅] $TEAM — 좌석=${b2name:-$NEXT} · 모델=$MODEL · 창=$win · ci=$ci_s · adhd=1 · cron=none · launchd=$ld · 재개 카드 n=$NREOPEN · CLOSEOUT sha=$sha"
+  cron_cell="판정 불가(세션 안 · 팀장 부팅 보고가 CronList 실측)"   # r1534: claude·codex 세션 크론은 밖에서 못 잰다
+  [ "$AGENT" = pi ] && cron_cell="none(pi · CronCreate 도구 없음)"        # pi 만 확정 — 도구 자체가 없다
+  body="[부팅] $TEAM — 좌석=${b2name:-$NEXT} · 모델=$MODEL · 창=$win · ci=$ci_s · adhd=1 · cron=$cron_cell · launchd=$ld · 재개 카드 n=$NREOPEN · CLOSEOUT sha=$sha"
   mo="$(bash "$MB" send "$TO" "$ME" "$body" 2>&1)"; mr=$?
   seq="$(printf '%s' "$mo" | sed -n 's/.*seq=\([0-9][0-9]*\).*/\1/p' | tail -1)"
   echo "B5 to=$TO rc=$mr seq=${seq:-?}"; [ -n "$mo" ] && printf '%s\n' "$mo" | tail -1
