@@ -10,6 +10,7 @@
 #  T14 지정 우편함에 CLI 가 없으면 루트 것을 빌리고 recv 대상을 FT_MBOX_DIR 로 밝힌다(DA HOLD R1 두 번째 꼴)
 #  T15 session_shutdown = 감시 해제(옛 인스턴스가 같은 우편함을 2중으로 깨우지 않는다)
 #  T17 _master 승계: 로드 뒤 좌석 표식이 바뀌면 다음 쪽지에 활성(매 이벤트 재확인 · 18:24 desk #276401)
+#  T18 시작 직후(기동 창) 사건은 «사건» 으로 바로 깨운다(1회 재확인에 기대지 않는다)
 #  T16 FT_MBOX_ROOT 미지정 + cwd = git 워크트리 → root = git 공용 루트(실측 FAIL 보정 · 18:20 planner pi#245)
 # 새 파일 mode 100644(실행 비트 0) — `bash <이 파일>` 로 부른다.
 set -uo pipefail
@@ -328,6 +329,16 @@ async function load() {
   await until(() => pi.calls.length >= 1);
   eq("T17 승계 뒤 = 턴 1(재시작 0)", pi.calls.length, 1);
   eq("T17 seq 파일 = 120", fs.readFileSync(c.seqFile, "utf-8").trim(), "120");
+}
+// ── T18 기동 창: 시작 직후 사건 = 즉시 깨움(재확인 타이머가 사건을 막지 않는다) ────────────
+{
+  const c = setup("t18");
+  fs.writeFileSync(c.mbox, "");
+  const pi = await load();
+  append(c.mbox, row(130, SEAT, "[발주 #130] 시작 직후"));
+  await wait(150); // 250ms 재확인보다 짧은 창 — 사건 경로가 살아 있어야만 통과
+  eq("T18 시작 직후 사건 = 150ms 안 턴 1", pi.calls.length, 1);
+  eq("T18 예산 1회", lines(c.stubLog), 1);
 }
 // ── T16 root 결속: FT_MBOX_ROOT 없이 cwd 가 git 워크트리여도 «공용 루트» 를 본다 ─────────────
 {
