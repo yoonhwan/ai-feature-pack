@@ -32,3 +32,8 @@ export function appendLoadLine(pi: AppendOnly, card: string, file: string): void
   try { pi.appendEntry(LOAD_TYPE, { card, version, file, line }); }
   catch (e) { console.error(`ERROR ft-load-line: 세션 기록 실패 ${line} (${file}) — ${e}`); }
 }
+
+// ★이 파일도 «확장 파일» 이다★ — pi 는 설치 폴더의 .ts 를 «전부» 확장으로 로드하고 default factory 가 없으면
+//  `Extension does not export a valid factory function` 로 그 파일을 실패로 남긴다(docs/extensions.md:46 · loader.js:534).
+//  그래서 하는 일 0 의 factory 를 둔다 — 로드돼도 핸들러·기록·명령 0(기록은 확장 4개가 appendLoadLine 으로 낸다).
+export default function (): void {}

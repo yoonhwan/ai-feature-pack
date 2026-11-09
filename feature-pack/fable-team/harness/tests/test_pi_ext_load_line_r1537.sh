@@ -6,7 +6,10 @@
 #        ⓒ session_start 2회(reload) → 2줄(회마다 1줄 · 같은 카드)
 #        ⓓ 기록 호출이 throw → ERROR 1줄 · 확장 session_start 나머지는 계속(감시 폴더 생성 = 증거)
 #        ⓔ 조기 return 경로(우편함 없음)에서도 기록은 남는다 = 기존 동작 변화 0
+#        ⓕ 헬퍼도 «확장 파일» 이다(install 폴더의 .ts 는 전부 로드 · docs/extensions.md:46 · loader.js:534) →
+#           default factory = function · 그 factory 를 불러도 pi.on·appendEntry 호출 0(하는 일 0)
 #  변이: M1 ft-idle-nudge 의 로드 줄 뺌 = ⓐ FAIL · M2 appendEntry → sendMessage(triggerTurn:true) = ⓑ FAIL
+#        M3 헬퍼 default factory 뺌 = ⓕ FAIL
 # 새 파일 mode 100644(실행 비트 0) — `bash <이 파일>` 로 부른다.
 set -uo pipefail
 for v in GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY; do unset "$v"; done
@@ -31,6 +34,7 @@ for f in ft-mbox-wake ft-idle-nudge ft-reload-request ft-land-next; do
   eq "S4 $f.ts 로드 줄 호출 1회" "$(grep -c 'appendLoadLine(pi, ' "$PI/$f.ts")" 1
   eq "S5 $f.ts 로드 줄 import 1회" "$(grep -c 'import { appendLoadLine } from "./ft-load-line.ts";' "$PI/$f.ts")" 1
 done
+eq "S8 헬퍼 = default factory 1개(설치 폴더 .ts 는 전부 확장으로 로드된다)" "$(grep -c 'export default function' "$HELPER")" 1
 bash -n "$0" && ok "S6 bash -n rc0" || bad "S6 bash -n rc0"
 
 T="$(mktemp -d "${TMPDIR:-/tmp}/r1537-loadline.XXXXXX")"
@@ -107,6 +111,31 @@ for (const ext of EXT) { // ⓐ ⓑ ⓒ
   const pi = await load(EXT[0]);
   eq("ⓔ 우편함 없음 = 기록 1줄", lines(pi).length, 1);
   eq("ⓔ 기존 동작 그대로 = ERROR ft-mbox-wake 1줄", errs.filter((l) => l.startsWith("ERROR ft-mbox-wake")).length, 1);
+}
+{ // ⓕ 헬퍼 = 유효한 확장(default factory) · 불러도 하는 일 0
+  const helper = path.join(PI, "ft-load-line.ts");
+  const mod = await import(`${pathToFileURL(helper).href}?v=${++modv}`);
+  eq("ⓕ 헬퍼 default = function(로더 통과)", typeof mod.default, "function");
+  const pi = fake(); mod.default(pi);
+  await pi.emit("session_start");
+  eq("ⓕ 헬퍼 default = pi.on 0", Object.keys(pi.h).length, 0);
+  eq("ⓕ 헬퍼 default = appendEntry·sendMessage 0", `${pi.entries.length}|${pi.sends.length}`, "0|0");
+  eq("ⓕ 헬퍼 default = 명령 0", Object.keys(pi.cmds).length, 0);
+  // 변이 M3 — default factory 를 뺀 사본
+  const tmpd = path.join(T, "mut-m3"); fs.mkdirSync(tmpd, { recursive: true });
+  const src = fs.readFileSync(helper, "utf-8"), n = src.split("export default function").length - 1;
+  eq("M3 변이 지점 1개", n, 1);
+  const mutPath = path.join(tmpd, "ft-load-line.ts");
+  fs.writeFileSync(mutPath, src.replace(/export default function [^\n]*\n/, ""));
+  const mut = await import(`${pathToFileURL(mutPath).href}?v=${++modv}`);
+  eq("M3 default 뺌 = ⓕ 검출(로더가 거부한다)", typeof mut.default, "undefined");
+  // 설치 폴더에 놓일 .ts 5개 전부가 로더를 통과하는가(default factory = function) — arch 반례 #277470 의 직접 계약
+  const bad5 = [];
+  for (const f of ["ft-load-line.ts", "ft-mbox-wake.ts", "ft-idle-nudge.ts", "ft-reload-request.ts", "ft-land-next.ts"]) {
+    const m = await import(`${pathToFileURL(path.join(PI, f)).href}?v=${++modv}`);
+    if (typeof m.default !== "function") bad5.push(f);
+  }
+  eq("ⓕ 설치 폴더 .ts 5개 전부 default function", bad5.join(","), "");
 }
 console.error = origErr;
 process.exit(fails ? 1 : 0);
