@@ -58,7 +58,7 @@ row() { printf '{"seq": %s, "ts": "2026-10-29T00:00:00", "to": "%s", "from": "sl
 ago() { date -r "$(( $(date +%s) - $1 ))" +%Y%m%d%H%M.%S; }
 stamps() {   # stamps <좌석> <doorbell 몇 초 전> — recv 스탬프는 그보다 앞(200초 전) = outstanding 꼴
   touch -t "$(ago 200)" "$T/tmp/mbox-recv-$1"; touch -t "$(ago "$2")" "$T/tmp/mbox-doorbell-$1"; }
-db() { printf '%s\n' "$OUT" | sed -n 's/.* doorbell=\([a-z]*\)$/\1/p' | tail -1; }
+db() { printf '%s\n' "$OUT" | sed -n 's/.* doorbell=\([a-z]*\).*/\1/p' | tail -1; }
 keys() { grep -c "^$1|" "$T/log" 2>/dev/null || true; }
 mut_nodbf() { sed -i '' '/"\[인계\]"\*|"\[레디\]"\*) dbf=1;;/d' "$C/mbox.sh"; ! grep -q 'dbf=1;; esac' "$C/mbox.sh"; }
 
@@ -77,7 +77,7 @@ new_env; row 1 "$O" "[HIL] q"; sh_ recv "$O"; sh_ handover "$O" "$N"; roster 1; 
 [ "$RC" = 0 ] && [ "$(db)" = sent ] && [ "$(keys %1)" = 1 ] && ok "R3 [레디] outstanding 60초 → doorbell=sent · 구 pane 1" || bad "R3 rc=$RC db=$(db) keys=$(keys %1) :: $OUT"
 
 # R4: 보통 send([정리]) · 같은 outstanding → skipped(지금과 같음) · send-keys 0
-new_env; stamps "$N" 60; sh_ send "$N" "$O" "[정리] 보통 쪽지"
+new_env; stamps "$N" 60; sh_ send "$N" "$O" "보통 쪽지"   # r1476: 머리 없는 보통 쪽지 = 게이트 통과 경로(보고 전용 [정리] 는 이제 quiet)
 [ "$RC" = 0 ] && [ "$(db)" = skipped ] && [ "$(keys %2)" = 0 ] && ok "R4 보통 send outstanding → doorbell=skipped · send-keys 0" || bad "R4 rc=$RC db=$(db) :: $OUT"
 
 # R5: 후계 pane 없음 · handover → absent(지금과 같음)

@@ -40,6 +40,9 @@ MAP=(
   # v6-realtime-live 워크트리 소멸 뒤 라이브 = 루트 .fable-team/comm — 분리 쌍만 고침, 나머지 행은 별 카드
   "mbox.sh|.fable-team/comm/mbox.sh"
   "mbox_doorbell.sh|.fable-team/comm/mbox_doorbell.sh"
+  # ★mbox_wakegate.sh·mbox_wakebudget.sh = mbox.sh 가 source 함(r1476 깨움 게이트·예산) — 한쪽만 깔리면 전 좌석 send 정지(set -e) · 설치 전엔 MISSING_RUNTIME(master 라이브 설치 cp 뒤 SAME)★
+  "mbox_wakegate.sh|.fable-team/comm/mbox_wakegate.sh"
+  "mbox_wakebudget.sh|.fable-team/comm/mbox_wakebudget.sh"
   # ★ft-agent-alive.sh = mbox_doorbell.sh 가 source 하는 판정기(전경 셸·정지 본체 = NOAGENT) + 틱·seat-live CLI (R346) — 한쪽만 깔리면 doorbell 이 «판정 불가»(주입 0) · 틱은 발사 0 — 설치 전엔 MISSING_RUNTIME(master 라이브 설치 cp 뒤 SAME)★
   "ft-agent-alive.sh|.fable-team/comm/ft-agent-alive.sh"
   # ★ft_seat_bind.py = 좌석 pane 소유 결속 판정기(R364) — comm 쪽 소비자(ft-agent-alive 본체 후보 · 2단계)가 «같은 폴더» 고정 경로로 부른다 · 설치 전엔 MISSING_RUNTIME★

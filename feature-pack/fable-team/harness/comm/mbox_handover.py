@@ -161,10 +161,27 @@ def ready_body(new, old):
     return "\n".join(["[레디] %s <- %s · [인계] #%s 받음 · 항목 %d" % (new, old, h["seq"], len(ids))] + ["%s 받음" % i for i in ids])
 
 
+def _held_file(seat):
+    """r1476 — 억제된 doorbell 기록 자리(state/doorbell-held/<좌석>). state 는 우편함 옆(FT_MBOX_STATE_DIR 이 이긴다 · 시험 격리)."""
+    sd = os.environ.get("FT_MBOX_STATE_DIR") or os.path.join(CANON, "..", "state")
+    return os.path.join(sd, "doorbell-held", re.sub(r"[^A-Za-z0-9._#-]", "_", seat))
+
+
 def close_check(seat, need_ready=True, verdict=False):
     """rc 0 = 닫아도 됨 · 3 = 거절(사유 줄) — ③ 미표시 영수 · ② 후계가 있으면 [인계] 뒤 후계 [레디] 가 항목 전부 «받음».
     need_ready=False(retire 관문) = ③ 만 · True(닫기 관문) = 후계 있는 옛 세션만 ③+② — 후계 없는 닫기(나노·판정 닫기)는 승계 검사 대상 아님.
     verdict=True(--verdict · 사람 판정 1건) = 후계가 있으면 ②③ 면제 — 판정 번호의 원장 실재는 ft-seat-close.sh 가 본다(r1481)."""
+    # ★r1476 — 억제된 doorbell 이 남은 채 닫으면 그 쪽지는 영영 안 깨운다★ (닫는 사건 = 후속 doorbell 뒤 파일 삭제).
+    hf = _held_file(seat)
+    if os.path.exists(hf):
+        try:
+            with open(hf, encoding="utf-8") as f:
+                seqs = [l.strip()[4:] for l in f if l.startswith("seq=")]
+        except OSError:
+            seqs = []
+        print("REJECT %s 억제된 doorbell %d건 미전달(seq %s) — recv 먼저" % (
+            seat, len(seqs), ",#".join(seqs[:10]) or "?"))
+        return 3
     succ = mbox_lineage.retired_to(seat)
     if succ and verdict:   # r1481 — R400 사람 판정 1건이면 승계 검사(②③)를 건너뛴다(은퇴 뒤 ready REJECT 로 닫을 길이 0 이던 자리)
         print("CLOSE-OK %s 판정 닫기(②③ 면제 · 사람 판정 1건)" % seat); return 0

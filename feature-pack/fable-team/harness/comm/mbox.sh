@@ -10,6 +10,9 @@ SELF="$DIR/mbox.sh"
 
 # 도어벨 도우미(_check_name·pane_of·doorbell·doorbell_status) = 같은 폴더 mbox_doorbell.sh — 200줄 규칙 분리
 source "$DIR/mbox_doorbell.sh"
+# 깨움 게이트(판정 · 억제 기록 · 후속 sweep) + 예산(좌석 6/창 · 팀 30/창) = 같은 폴더 mbox_wakegate.sh · mbox_wakebudget.sh — 200줄 규칙 분리(r1476)
+source "$DIR/mbox_wakebudget.sh"
+source "$DIR/mbox_wakegate.sh"
 # 수신자 판정(은퇴·닫힌 좌석 REJECT)·planner 앞 허용 머리 = 같은 폴더 mbox_guard.sh (N3 · 판정 1070·1079) — 200줄 규칙 분리
 source "$DIR/mbox_guard.sh"
 # ★알림 여부는 «보내는 사람»이 아니라 «레지스트리»가 정한다★ (2026-09-14 · 하네스 업그레이드 §2-2 · 오빠 결정 Q1)
@@ -160,6 +163,12 @@ case "$cmd" in
     to="$GUARD_TO"; args=("$GUARD_BODY"); dbto="$(holder_of "$to")"
     case "${args[*]}" in "[레디]"*) dbto="$to";; esac   # [레디] = 은퇴한 옛 세션 앞 핸드셰이크 회신 — 현역(후계 자신) 말고 그 pane 을 깨운다(r1116 ②)
     case "${args[*]}" in "[인계]"*|"[레디]"*) dbf=1;; esac   # 승계 핸드셰이크 두 쪽지 = 발주처럼 doorbell 시간 억제를 뚫는다(r1160) · py --force(가드 우회)는 안 넘긴다
+    # ★r1476 깨움 게이트 — 판정은 enqueue «전»★ (seq 는 py 가 그 뒤에 발급한다 · 판정에 seq 가 없다)
+    head="$(_wg_head "${args[*]}")"
+    uf=0; if user_facing "$to"; then uf=1; fi
+    if [ "$uf" = 1 ]; then gate=quiet                                   # planner 대면 = pane 주입 0(판정 876) — 예산도 안 쓴다
+    elif [ "$urgent" = 1 ] || _wg_human_sender "$from"; then gate=sent  # 긴급·사람 글 = 즉시 · 예산 밖
+    else gate="$(doorbell_gate "$dbto" "$head")"; fi
     if [ "$urgent" = 1 ] || [ "$(notify_policy "$dbto")" = ring ]; then notify=1; else notify=0; fi
     # 가드 거부(exit 3) 시 doorbell 을 울리지 않는다 — 큐에 들어간 게 없다.
     # ★출력을 «잡는다»★ (2026-09-06, F5) — doorbell 에 실을 seq 가 그 안에 있다.
@@ -177,17 +186,22 @@ case "$cmd" in
       bash "$SE" prepare "$SK" "$(python3 -c 'import json,sys;print(json.dumps(dict(zip(("ev","team","id","seat","ref","by"),sys.argv[1:]))))' "${SK%%:*}" "" "" "$from" "" mbox)" >/dev/null \
         || { echo "REJECT 사건 원장 prepared 실패 — 큐 적재 0" >&2; exit 1; }
     fi
-    py_out="$(python3 "$MBOXPY" send "$to" "$from" "${args[*]}" ${force[@]+"${force[@]}"})" || { _rc=$?; [ -z "$SK" ] || bash "$SE" abort "$SK"; exit $_rc; }
+    py_out="$(python3 "$MBOXPY" send "$to" "$from" "${args[*]}" ${force[@]+"${force[@]}"})" || { _rc=$?; [ -z "$SK" ] || bash "$SE" abort "$SK"; [ "$gate" != sent ] || wake_budget_refund "$dbto" send >/dev/null 2>&1 || true; exit $_rc; }
     seq="$(seq_of "$py_out")" || seq=""
+    # 억제분 seq 는 «확정 뒤» 에 적는다 — 발급 전에 적으면 그 번호가 아무것도 가리키지 않는다(r1476 T9).
+    case "$gate" in held|budget) doorbell_record_held "$dbto" "$seq" "$gate";; esac
     [ -z "$SK" ] || bash "$SE" commit "$SK" --ref "seq $seq" >/dev/null || true
     case "${args[*]}" in "[정지 레디]"*|"[완료]"*|"[완료·휴식]"*) SQ="${FT_BIN:-$DIR/../bin}/ft-seat-quiesce.sh"; [ "${FT_SEAT:-}" != "$from" ] || [ ! -f "$SQ" ] || { nohup bash "$SQ" "$from" --mode done --reason "${args[*]%%]*}]" >/dev/null 2>&1 & } ;; esac   # r1113 일 끝 = 무거운 자식 정리(발신 좌석 자신일 때만 · 뒤에서 · send 결과 무관)
     inbox_ingest "$seq"
     if inbox_must_ring; then notify=1; fi
     uf=0; if user_facing "$to"; then notify=0; uf=1; fi
     # ★`[ ] && doorbell` 로 쓰지 않는다★ — set -e 에서 notify=0 이면 리스트가 실패로 끝나 exit 1.
-    if [ "$notify" = 1 ]; then db="$(doorbell_status "$dbto" "$dbf" "$seq")"; else db=quiet; fi
+    if [ "$notify" = 1 ] && [ "$gate" = sent ]; then db="$(doorbell_status "$dbto" "$dbf" "$seq")"; else db=quiet; fi
+    # 예약은 됐는데 «울리지 않기로» 했으면 되돌린다 — 깨움 1회 = 차감 1회(r1476).
+    if [ "$gate" = sent ] && [ "$notify" != 1 ]; then wake_budget_refund "$dbto" send >/dev/null 2>&1 || true; fi
     if [ "$uf" = 1 ]; then uf_watch "$to" "$seq"; fi
-    echo "$py_out doorbell=$db"
+    fu="$(doorbell_followup_sweep)"; fu="${fu//$'\n'/ }"
+    echo "$py_out doorbell=$db gate=$gate${fu:+ $fu}"
     ;;
   relay)
     # 긴 본문의 정본 절차: 원문을 /tmp/mbox 로 복사하고 요약+경로만 큐잉.
@@ -204,21 +218,36 @@ case "$cmd" in
     to="$GUARD_TO"; args=("$GUARD_BODY"); dbto="$(holder_of "$to")"
     [ -z "$GUARD_TMP" ] || trap guard_tmp_clean EXIT   # 검사 사본 폴더는 끝에 지운다
     [ -z "$GUARD_FILE" ] || file="$GUARD_FILE"          # 대상 relay 는 «검사한 그 사본» 만 전달한다(R362 · 사본 실패는 가드가 REJECT — 원본 후퇴 0)
+    # ★r1476 깨움 게이트 — relay 도 send 와 «같은» 판정을 먼저 한다★
+    head="$(_wg_head "${args[*]}")"
+    uf=0; if user_facing "$to"; then uf=1; fi
+    if [ "$uf" = 1 ]; then gate=quiet
+    elif [ "$urgent" = 1 ] || _wg_human_sender "$from"; then gate=sent
+    else gate="$(doorbell_gate "$dbto" "$head")"; fi
     if [ "$urgent" = 1 ] || [ "$(notify_policy "$dbto")" = ring ]; then notify=1; else notify=0; fi
     # relay 도 결국 send 를 타므로 출력에 `seq=` 가 있다 — 같은 번호를 창에도 싣는다.
-    py_out="$(python3 "$MBOXPY" relay "$to" "$from" "$file" "${args[*]}")" || exit $?
+    py_out="$(python3 "$MBOXPY" relay "$to" "$from" "$file" "${args[*]}")" || { _rc=$?; [ "$gate" != sent ] || wake_budget_refund "$dbto" send >/dev/null 2>&1 || true; exit $_rc; }
     seq="$(seq_of "$py_out")" || seq=""
+    case "$gate" in held|budget) doorbell_record_held "$dbto" "$seq" "$gate";; esac
     inbox_ingest "$seq"
     if inbox_must_ring; then notify=1; fi
-    uf=0; if user_facing "$to"; then notify=0; uf=1; fi
-    if [ "$notify" = 1 ]; then db="$(doorbell_status "$dbto" 0 "$seq")"; else db=quiet; fi
+    if [ "$notify" = 1 ] && [ "$gate" = sent ]; then db="$(doorbell_status "$dbto" 0 "$seq")"; else db=quiet; fi
+    if [ "$gate" = sent ] && [ "$notify" != 1 ]; then wake_budget_refund "$dbto" send >/dev/null 2>&1 || true; fi
     if [ "$uf" = 1 ]; then uf_watch "$to" "$seq"; fi
-    echo "$py_out doorbell=$db"
+    fu="$(doorbell_followup_sweep)"; fu="${fu//$'\n'/ }"
+    echo "$py_out doorbell=$db gate=$gate${fu:+ $fu}"
     ;;
   recv)  me="${1:?me}"; shift
          # ★recv 스탬프 touch — doorbell outstanding 판정의 «소비» 신호★. exec 전에 해야 실행된다.
          : > "${TMPDIR:-/tmp}/mbox-recv-$(printf '%s' "$me" | tr -c 'A-Za-z0-9._#-' '_')" 2>/dev/null || true
-         exec python3 "$MBOXPY" recv "$me" "$@" ;;
+         # ★r1476 소비 ACK★ — 읽기 «끝» 에 미읽음 수를 한 번 더 세어 `PENDING-AFTER N` 1줄(실행 중 도착분).
+         #   N≥1 = 같은 턴에 다시 recv(좌석 지침 = r1479) · N=0 이면 억제 파일도 지운다(닫는 사건 ⓐ — 남겨 두면 close-check 가 막는다).
+         _rrc=0; python3 "$MBOXPY" recv "$me" "$@" || _rrc=$?
+         _pn=""
+         if _p="$(python3 "$MBOXPY" peek "$me" 2>/dev/null)"; then _pn="$(printf '%s\n' "$_p" | sed -n 's/^pending=\([0-9][0-9]*\).*/\1/p' | head -1)"; fi
+         echo "PENDING-AFTER ${_pn:-?}"
+         if [ "${_pn:-1}" = 0 ]; then doorbell_clear_held "$me"; fi
+         exit "$_rrc" ;;
   peek)  exec python3 "$MBOXPY" peek "${1:?me}" ;;
   # ★승계 마무리(r1116)★ — handover <구> <후계> [«손 항목»…] = 남은 쪽지 끝까지 recv + 미표시·h·bg 를 [인계] 로 보내고 그 쪽지들을 «인계» 표시 ·
   #   ready <후계> <구> = [인계] 항목마다 «받음» [레디] 회신 · mark·unmarked·close-check = 표시·검사(retire·닫기 관문이 부른다)
@@ -238,6 +267,23 @@ case "$cmd" in
   #   ★force=1 로 억제를 뚫는다★ — 재발주는 «반드시» 창에 떠야 한다. 억제되면 아무것도
   #   안 뜨고 그건 미도달과 구분이 안 된다(팩 ring 과 같은 계약).
   ring)  sess="${1:?sess}"; _check_name "$sess" || exit 1; sess="$(holder_of "$sess")"
-         db="$(doorbell_status "$sess" 1 "${2:-}")"; echo "RING $sess doorbell=$db" ;;
-  *) echo "usage: mbox.sh {send <to> <from> <body> [--urgent] [--force]|relay <to> <from> <file> <summary>|recv <me> [<from>] [--all]|peek <me>|ring <sess> [seq]|handover <구> <후계>|ready <후계> <구>|mark <me> <seq,…> 처리함·인계|unmarked <me>|close-check <좌석> [--no-ready]}" >&2; exit 2;;
+         # ★r1476 직접 ring 도 예산을 쓴다★ — 예약 소유자 = 부르는 쪽 1곳. `--reserved` 면 예약·환불 0(부른 쪽이 이미 예약).
+         _res=0; for _a in "$@"; do if [ "$_a" = "--reserved" ]; then _res=1; fi; done
+         _rsq="${2:-}"; case "$_rsq" in ''|*[!0-9]*) _rsq="" ;; esac
+         if [ "$_res" = 0 ]; then
+           if ! wake_budget_reserve "$sess" ring >/dev/null 2>&1; then
+             doorbell_record_held "$sess" "$_rsq" budget
+             echo "RING $sess doorbell=quiet gate=budget"; exit 0
+           fi
+         fi
+         db="$(doorbell_status "$sess" 1 "$_rsq")"; echo "RING $sess doorbell=$db" ;;
+  # ★r1476★ 무사건 재개 — 억제 파일 하나를 받아 doorbell 1회(인자 없음) · 예산 API 공용(출처 = send|ring|followup|pi|silence|acct)
+  sweep) doorbell_followup_sweep ;;
+  budget) _b="${1:-}"; shift || true
+          case "$_b" in
+            reserve) wake_budget_reserve "$@" ;;
+            refund)  wake_budget_refund "$@" ;;
+            *) echo "usage: mbox.sh budget reserve|refund <좌석> [<출처>]" >&2; exit 2 ;;
+          esac ;;
+  *) echo "usage: mbox.sh {send <to> <from> <body> [--urgent] [--force]|relay <to> <from> <file> <summary>|recv <me> [<from>] [--all]|peek <me>|ring <sess> [seq] [--reserved]|sweep|budget reserve|refund <좌석> [<출처>]|handover <구> <후계>|ready <후계> <구>|mark <me> <seq,…> 처리함·인계|unmarked <me>|close-check <좌석> [--no-ready]}" >&2; exit 2;;
 esac
