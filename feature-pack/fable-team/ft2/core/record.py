@@ -23,8 +23,11 @@ RESULT_WORDS = (
 )
 
 REQUIRED_FIELDS = ("schema", "team", "seq", "kind", "command", "attempt", "at", "body", "work")
-KINDS = ("accept",)
+# r1579: 실행권·세대 종류 추가(세대 교체는 claim 의 gen 으로 표현). schema 1 유지 = 필드 추가만.
+KINDS = ("accept", "claim", "start", "effect", "result", "uncertain")
 STATE_FIELDS = ("revision", "pending", "attempts")
+# 확장 state 칸 — 없으면 기본값 {} 로 채운다(다른 writer 가 병합해 보존한다 · ⓘ).
+EXTENDED_STATE_FIELDS = ("generations", "owners", "uncertain")
 
 
 class RecordError(ValueError):
@@ -52,10 +55,29 @@ def read_state_guarded(path):
     if not isinstance(state["revision"], int) or not isinstance(state["pending"], list) \
             or not isinstance(state["attempts"], dict):
         raise CorruptStateError("state 칸 형 위반: %r" % (sorted(state),))
+    for name in EXTENDED_STATE_FIELDS:
+        state.setdefault(name, {})
+    bad = [name for name in EXTENDED_STATE_FIELDS if not isinstance(state[name], dict)]
+    if bad:
+        raise CorruptStateError("state 확장 칸 형 위반: " + ",".join(bad))
     return state
 
 
-def build(team, seq, command, attempt, at, body, work=None, goal=None, kind="accept"):
+def recover_state(state, records):
+    """journal 에만 내구화된 claim 세대·기록 수를 state checkpoint 보다 앞세운다(DA R2).
+    모든 writer 가 같은 복구 기준을 쓴다 — 옛 gen 거절은 쓰기 0 이라 checkpoint 가 낡아 있기 때문이다."""
+    recovered = dict(state, revision=max(state["revision"], len(records)))
+    gens, owners = dict(recovered.get("generations") or {}), dict(recovered.get("owners") or {})
+    for rec in records:
+        gen = rec.get("gen") or 0
+        if rec.get("kind") == "claim" and rec.get("work") and gen > gens.get(rec["work"], 0):
+            gens[rec["work"]] = gen
+            owners[rec["work"]] = {"holder": rec.get("holder"), "gen": gen, "at": rec["at"]}
+    return dict(recovered, generations=gens, owners=owners)
+
+
+def build(team, seq, command, attempt, at, body, work=None, goal=None, kind="accept",
+          holder=None, gen=None):
     """schema v1 레코드 1개를 만든다. 만든 뒤 `check` 로 자기 검사를 한다."""
     rec = {
         "schema": SCHEMA_VERSION,
@@ -68,6 +90,8 @@ def build(team, seq, command, attempt, at, body, work=None, goal=None, kind="acc
         "body": body,
         "work": work,
         "goal": goal,
+        "holder": holder,
+        "gen": gen,
     }
     check(rec)
     return rec
@@ -86,6 +110,8 @@ def check(rec):
         raise RecordError("종류 미상: %r" % (rec.get("kind"),))
     if not isinstance(rec.get("seq"), int) or rec["seq"] < 1:
         raise RecordError("seq 는 1 이상 정수여야 한다: %r" % (rec.get("seq"),))
+    if rec.get("gen") is not None and (not isinstance(rec["gen"], int) or rec["gen"] < 1):
+        raise RecordError("gen 은 1 이상 정수여야 한다: %r" % (rec.get("gen"),))
     for name in ("team", "command", "attempt", "at"):
         if not isinstance(rec.get(name), str) or not rec[name]:
             raise RecordError("%s 는 비어 있지 않은 문자열이어야 한다" % name)

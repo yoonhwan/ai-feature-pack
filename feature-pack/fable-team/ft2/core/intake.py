@@ -6,6 +6,7 @@
 """
 
 import collections
+import fcntl
 import importlib.util
 import json
 import os
@@ -55,7 +56,25 @@ class Intake:
         self.ops_path = os.path.join(self.runtime, "ops.jsonl")
         self.bodies = os.path.join(self.runtime, "bodies")
         self.tmp = os.path.join(self.runtime, "tmp")
+        self.lock_path = os.path.join(self.runtime, "writer.lock")
         self._ensure()
+
+    def _lock_file_path(self):
+        return self.lock_path                      # 팀별 잠금 — 팀 전역 잠금 0(ⓔ)
+
+    def _try_lock(self):
+        """writer.lock 비차단 시도 — 잡으면 핸들, 점유 중이면 None(기다리지 않는다 · ⓗ)."""
+        handle = open(self._lock_file_path(), "a+", encoding="utf-8")
+        try:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            handle.close()
+            return None
+        return handle
+
+    def _unlock(self, handle):
+        fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+        handle.close()
 
     def body_path(self, command):
         return os.path.join(self.bodies, command + ".body")
@@ -89,14 +108,18 @@ class Intake:
         return record.read_state_guarded(self.state_path)
 
     def _prior_receipt(self, records, command):
-        return next((rec for rec in reversed(records) if rec["command"] == command), None)
+        """입구 판독은 kind=accept 만 접수로 본다(ⓙ · 실행권 줄은 영수가 아니다)."""
+        return next((rec for rec in reversed(records)
+                     if rec["command"] == command and rec["kind"] == "accept"), None)
 
     def _orphan_body(self, command):
         return os.path.exists(self.body_path(command))
 
     def _pending(self, records, state):
-        """용량 기준 = 내구화된 journal(+state 투영). state 만 세면 checkpoint 없는 crash 뒤가 빈다."""
-        return list(dict.fromkeys([rec["command"] for rec in records] + list(state["pending"])))
+        """용량 기준 = 내구화된 journal(+state 투영). state 만 세면 checkpoint 없는 crash 뒤가 빈다.
+        실행권·착수·결과 줄은 접수가 아니므로 세지 않는다(ⓙ)."""
+        accepted = [rec["command"] for rec in records if rec["kind"] == "accept"]
+        return list(dict.fromkeys(accepted + list(state["pending"])))
 
     def _full(self, pending):
         return len(pending) >= self.capacity
@@ -136,9 +159,20 @@ class Intake:
         self._ops("state_write")
 
     def submit(self, command, body, work=None):
-        """새 command 1건을 접수한다. 영수는 내구화가 끝난 뒤에만 난다."""
+        """같은 팀 writer.lock 을 «비차단» 으로 잡고 접수한다. 점유 중이면 BUSY·쓰기 0(ⓗ)."""
+        lock = self._try_lock()
+        if lock is None:
+            return Receipt("BUSY", command, reason="writer.lock 점유 = 기다리지 않는다(BUSY)")
+        try:
+            return self._submit_locked(command, body, work)
+        finally:
+            self._unlock(lock)
+
+    def _submit_locked(self, command, body, work=None):
+        """잠금 안의 접수 본체 — 영수는 내구화가 끝난 뒤에만 난다."""
         try:
             state, records = self._state(), self.records()
+            state = record.recover_state(state, records)      # DA R2: 내구 journal 이 기준(공통 writer)
         except CorruptStateError as exc:
             self._ops("read_state_guarded")
             return Receipt(RESULT_CORRUPT, command, reason=str(exc))
@@ -156,13 +190,17 @@ class Intake:
         seq = (records[-1]["seq"] if records else 0) + 1
         self._append_journal(record.build(self.team, seq, command, attempt, self.clock(), body_ref, work))
         self.on_step("after_journal")
-        new_state = {"schema": record.SCHEMA_VERSION, "revision": state["revision"] + 1,
-                     "pending": pending + [command],
-                     "attempts": dict(state["attempts"], **{command: state["attempts"].get(command, 0) + 1})}
+        new_state = self._next_state(state, command, pending)
         self._write_state(new_state)
         self.on_step("after_state")
         self._ops("receipt")
         return Receipt(RESULT_OK, command, attempt, new_state["revision"], True, body_ref)
+
+    def _next_state(self, state, command, pending):
+        """교체가 아닌 «병합» — 세대·owner·불명 표시 등 확장 칸을 보존한다(ⓘ)."""
+        return dict(state, revision=state["revision"] + 1, pending=pending + [command],
+                    attempts=dict(state["attempts"],
+                                  **{command: state["attempts"].get(command, 0) + 1}))
 
     def lookup(self, command):
         """같은 command ID 조회 — 영수 유실·crash 뒤 판정은 이 하나로 한다(새 attempt 0)."""
