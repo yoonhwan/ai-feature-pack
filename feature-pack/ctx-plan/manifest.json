@@ -39,6 +39,20 @@
     "idempotent": true,
     "uninstall": "uninstall.sh"
   },
+  "runtime_targets": [
+    {
+      "runtime": "any",
+      "kind": "reads-ctx-burn-json",
+      "target": "--from FILE (plan_input · schema ctx.v1)",
+      "status": "read-only"
+    },
+    {
+      "runtime": "fable-team",
+      "kind": "reads-capacity-constants",
+      "target": "<루트>/.fable-team/state/capacity/accounts.env · ~/.claude/fable-team/state/capacity/accounts.env",
+      "status": "read-only"
+    }
+  ],
   "safety": {
     "writes_files": false,
     "network_calls": false,
@@ -46,7 +60,20 @@
     "reads_real_home": false,
     "note": "입력은 ctx.v1 JSON 하나와 상수 파일 하나뿐이다."
   },
+  "weights": {
+    "source": "ctx.v1 plan_input (ctx-burn 산출)",
+    "note": "이 도구는 가중치를 다시 정의하지 않는다 — ctx-burn 의 W 를 소비만 한다."
+  },
   "public_docs": [
     "README.md"
+  ],
+  "runtimes": [
+    "claude",
+    "codex",
+    "pi",
+    "opencode",
+    "hermes",
+    "openclaw",
+    "commandcode"
   ]
 }
