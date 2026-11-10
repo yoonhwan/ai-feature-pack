@@ -14,7 +14,8 @@ import time
 RESTART, RECONNECT = "restart", "reconnect"
 REASONS = (RESTART, RECONNECT)
 DONE, STALE, SKIPPED = "done", "미완", "건너뜀"
-DISPATCHED = "dispatched"
+DISPATCHED, DUPLICATE = "dispatched", "duplicate"
+PROCESSED = (DISPATCHED, DUPLICATE)  # 기존 영수도 «이미 처리» 다 — gap 오판 0(DA R3)
 PAGE = 15
 
 #: 이 장이 덮는 계약 줄 — 계약 낱말 그대로 적는다(시험이 사례 expect 낱말과 대조한다).
@@ -111,10 +112,7 @@ class Backfill:
         self._step("page")
         row["pages"] += 1
         rows = list((page or {}).get("rows") or [])
-        if not rows:  # 새 글 0 = 도구 안에서 끝난다 — 모델 호출·좌석 깨움 0(줄 16)
-            self.route.route(None)
-            self._step("idle")
-            return None
+        more = str((page or {}).get("next") or "")
         for item in rows:
             if item.get("root"):
                 continue  # thread root 글은 접수 때 이미 갔다 — 쪽 자리만 차지한다(사례 d3)
@@ -125,10 +123,14 @@ class Backfill:
             verdict = self.route.route(dict(item, team=item.get("team") or self.team, channel=channel,
                                             thread_ts=thread))
             self._step("route")
-            if verdict.get("state") != DISPATCHED:
+            if verdict.get("state") not in PROCESSED:
                 return "no_receipt %s:%s@%s" % (channel, thread, item.get("ts"))  # 커서를 밀지 않는다
-            row["dispatched"] += 1
-            self.cursors.advance(seat, thread, str(item.get("ts") or ""))
-        if (page or {}).get("next"):
-            return "more %s:%s" % (channel, thread)  # 쪽이 남았다 = 위치 보존(변이 M5)
+            if verdict.get("state") == DISPATCHED:
+                row["dispatched"] += 1
+            self.cursors.advance(seat, thread, str(item.get("ts") or ""))  # 기존 영수도 위치를 복원한다(R3)
+        if more:  # 쪽이 남았다 = 위치 보존(변이 M5) · 빈 쪽이라도 done 이 아니다(R3)
+            return "more %s:%s" % (channel, thread)
+        if not rows:  # 새 글 0 = 도구 안에서 끝난다 — 모델 호출·좌석 깨움 0(줄 16)
+            self.route.route(None)
+            self._step("idle")
         return None
