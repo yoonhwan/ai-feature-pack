@@ -9,12 +9,11 @@ HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 HOURS=6; ALERT=0; JSON=0
 while [ $# -gt 0 ]; do case "$1" in
   --alert) ALERT=1; shift;; --json) JSON=1; shift;; --hours) HOURS="$2"; shift 2;; -*) shift;; *) shift;; esac; done
-CW="$(command -v ctx-waste 2>/dev/null || true)"
-for c in "$HOME/.local/bin/ctx-waste" "$HOME/Project/ai-feature-pack/feature-pack/ctx-waste/bin/ctx-waste"; do
-  [ -n "$CW" ] && break; [ -x "$c" ] && CW="$c"
-done
-[ -n "$CW" ] || { echo "WASTE skip (ctx-waste 없음 — 느슨한 연결이라 실패 아님)"; exit 0; }
-OUT="$("$CW" --hours "$HOURS" --json 2>/dev/null)" || { echo "WASTE skip (ctx-waste 실행 실패)"; exit 0; }
+# 설치된 것만 부른다 — PATH(및 ~/.local/bin 이 PATH 에 있을 때) 성공이 «설치됨» 의 정의다.
+# 팩 체크아웃 경로를 뒤지지 않는다(느슨한 연결 · 수용 기준 #4).
+CW="$(command -v ctx-burn 2>/dev/null || true)"
+[ -n "$CW" ] || { echo "WASTE skip (ctx-burn 미설치 — 느슨한 연결)"; exit 0; }
+OUT="$("$CW" --hours "$HOURS" --json 2>/dev/null)" || { echo "WASTE skip (ctx-burn 실행 실패)"; exit 0; }
 [ "$JSON" = 1 ] && { printf '%s\n' "$OUT"; exit 0; }
 python3 - "$OUT" "$ALERT" <<'PY'
 import json, os, subprocess, sys, time
