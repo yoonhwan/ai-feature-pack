@@ -40,6 +40,25 @@ chk "전환 행 1개(같은 계정 연속은 전환 아님)" "$(wc -l < "$OUT" 2
 chk "전환 행 = 시각·a@x·b@y" "$(cat "$OUT")" "$(printf '2026-11-10T10:02:00\ta@x\tb@y')"
 chk "추출 결과 = 일반 파일(심링크 아님)" "$( [ -f "$OUT" ] && [ ! -L "$OUT" ] && echo y )" "y"
 
+# ── ④' 실제 로그 형식(DA #279622 반례) = «Use OAuth provider=<p> auth_file=<계정> for model» ──
+rm -rf "$W/real"; mkdir -p "$W/real/logs" "$W/real/state"
+R(){ printf '%s Use OAuth provider=claude auth_file=%s for model m\n' "$1" "$2" >> "$W/real/logs/main-2026-11-10.log"; }
+runreal(){ FT_ANCHOR_NOW="$1" FT_ANCHOR_MBOX="$W/mbox.sh" FT_ANCHOR_SEATS="$W/seats.json" FT_ANCHOR_LOGS="$W/real/logs" \
+  FT_ANCHOR_STATE_DIR="$W/real/state" FT_ANCHOR_DONE="$W/real/state/anchor-a-done" FT_ANCHOR_ME=seat-test bash "$S" >"$W/real/out" 2>"$W/real/err"; }
+ROUT="$W/real/state/anchor-a-transitions.tsv"
+R 2026-11-10T13:00:00 a@x; R 2026-11-10T13:01:00 a@x; R 2026-11-10T13:02:00 b@y
+reset_sent; runreal $((END-6000))
+chk "실제 형식 — 추출 ERROR 0" "$(grep -c ERROR "$W/real/err" 2>/dev/null | tr -d ' ')" 0
+chk "실제 형식 A→B = 전환 1행(같은 계정 연속 0)" "$(wc -l < "$ROUT" 2>/dev/null | tr -d ' ')" 1
+chk "실제 형식 전환 행 = 시각·a@x·b@y" "$(cat "$ROUT" 2>/dev/null)" "$(printf '2026-11-10T13:02:00\ta@x\tb@y')"
+# 옛 형식과 실제 형식이 같은 계정이면 전환 0 (두 파서가 같은 계정 이름으로 정규화)
+rm -rf "$W/mix"; mkdir -p "$W/mix/logs" "$W/mix/state"
+{ printf '2026-11-10T14:00:00 Use OAuth a@x for model m\n'
+  printf '2026-11-10T14:01:00 Use OAuth provider=claude auth_file=a@x for model m\n'; } > "$W/mix/logs/main-2026-11-10.log"
+FT_ANCHOR_NOW=$((END-5000)) FT_ANCHOR_MBOX="$W/mbox.sh" FT_ANCHOR_SEATS="$W/seats.json" FT_ANCHOR_LOGS="$W/mix/logs" \
+  FT_ANCHOR_STATE_DIR="$W/mix/state" FT_ANCHOR_DONE="$W/mix/state/anchor-a-done" FT_ANCHOR_ME=seat-test bash "$S" >/dev/null 2>"$W/mix/err"
+chk "옛 형식↔실제 형식 같은 계정 = 전환 0" "$(wc -l < "$W/mix/state/anchor-a-transitions.tsv" 2>/dev/null | tr -d ' ')" 0
+
 # ── ② 끝 시각: 요청 1통 = desk + planner 2줄 · 반복 규칙 (M1) ───────────────
 reset_sent; run $END
 chk "끝 시각 — desk·planner 2줄" "$(count)" 2
