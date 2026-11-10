@@ -68,8 +68,8 @@ python3 -c 'import re,sys;t=sys.argv[1];assert len(re.findall(r"^  (실측|낭�
   && ok "ⓑ 시뮬 4행 · 캐시재사용 2종" || no "ⓑ 시뮬행" "4행 아님"
 nchk "ⓑ 없는 pool 은 행 없음" "$C" "pi-claude"
 chk "ⓔ 앵커 상태 표기" "$C" "미검증"; chk "ⓔ target = 운영정책" "$C" "운영정책"
-chk "ⓕ --need 스케일 표" "$("$PLAN" --from "$T/b.json" --need concurrent:40 2>&1)" "필요 주간M"
-chk "ⓙ 골 모형 2행" "$C" "낮은 용량 가정"; chk "ⓝ 축 정의 1줄" "$C" "메인 골 = 전역 직렬(동시 1)"
+chk "ⓕ --need 스케일 표" "$("$PLAN" --from "$T/b.json" --need concurrent:40 2>&1)" "필요 주간M"; chk "ⓙ 골 모형 2행" "$C" "낮은 용량 가정"
+chk "ⓝ 축 정의 1줄" "$C" "메인 골 = 전역 직렬(동시 1)"
 chk "ⓝ 동시골 라벨" "$C" "동시골(용량상 가능 수)"; chk "ⓝ 참고 라벨(오빠 #278942)" "$C" "참고 — 운영 규칙 아님"
 chk "ⓔ --wk-5x 가 출력을 바꾼다" "$("$PLAN" --from "$T/b.json" --capacity --accounts 5x:1 --wk-5x 400 2>&1)" "wk_5x=400"
 
@@ -84,17 +84,15 @@ printf '%s\n' FT_CAP_CLAUDE_5X=5 FT_CAP_CLAUDE_ULTRA=5 FT_CAP_CODEX_PLUS=2 FT_CA
   FT_CAP_WK_ULTRA=1555 FT_CAP_SEATS_PER_TEAM=4 FT_GOAL_TEAMS=3 FT_GOAL_TEAM_HOURS=8 \
   FT_CAP_TARGET_UTIL=0.85 > "$FULL"
 R="$(cd "$T/proj" && "$PLAN" --from "$T/b.json" --inventory 2>&1)"
-chk "ⓛ 루트 파일을 읽는다" "$R" "상수 파일: $FULL"
-chk "ⓘ 상수 완비" "$R" "상수 완비"; chk "ⓘ 크리티컬 2행" "$R" "낮은 용량 가정"
-chk "ⓜ 낮은 가정 = _LOW 실값 2639" "$R" "      2639"; chk "ⓜ 높은 가정 행" "$R" "높은 용량 가정"
-nchk "ⓜ 옛 라벨(낙관=작은 용량) 없음" "$R" "낙관(arch"
+chk "ⓛ 루트 파일을 읽는다" "$R" "상수 파일: $FULL"; chk "ⓘ 상수 완비" "$R" "상수 완비"
+chk "ⓘ 크리티컬 2행" "$R" "낮은 용량 가정"
+chk "ⓜ 낮은 가정 = _LOW 실값 2639" "$R" "      2639"; chk "ⓜ 높은 가정 행" "$R" "높은 용량 가정"; nchk "ⓜ 옛 라벨 없음" "$R" "낙관(arch"
+chk "상한 초과 = 알림 전용(판정 4142 ⑥)" "$R" "상한 초과 = 알림 전용 · 거부·축소 0"; nchk "발주 거부 문구 없음" "$R" "발주는 거부한다"
 E="$(HOME="$T/nohome" "$PLAN" --from "$T/b.json" --inventory 2>&1)"; rc=$?
-[ $rc -eq 0 ] && ok "ⓗ 상수 없음 rc0" || no "ⓗ rc" "rc=$rc"
-chk "ⓗ 0순위 문제 N건" "$E" "0순위 문제"; chk "ⓗ 산정 숫자 신뢰 금지" "$E" "신뢰하지 않는다"
+[ $rc -eq 0 ] && ok "ⓗ 상수 없음 rc0" || no "ⓗ rc" "rc=$rc"; chk "ⓗ 0순위 문제 N건" "$E" "0순위 문제"; chk "ⓗ 숫자 신뢰 금지" "$E" "신뢰하지 않는다"
 grep -v "_LOW" "$FULL" > "$T/nolow.env"
 K="$("$PLAN" --from "$T/b.json" --inventory --inv-file "$T/nolow.env" 2>&1)"
-chk "ⓚ 하한 키도 INV_KEYS" "$K" "0순위 문제 2건"
-chk "ⓚ 하한 없으면 산정 불가" "$K" "산정 불가 — _LOW 키가 상수 파일에 없다"
+chk "ⓚ 하한 키도 INV_KEYS" "$K" "0순위 문제 2건"; chk "ⓚ 하한 없으면 산정 불가" "$K" "산정 불가 — _LOW 키가 상수 파일에 없다"
 sed -e 's/FT_CAP_SEATS_PER_TEAM=4/FT_CAP_SEATS_PER_TEAM=2/' -e 's/FT_GOAL_TEAMS=3/FT_GOAL_TEAMS=2/' \
     -e 's/FT_GOAL_TEAM_HOURS=8/FT_GOAL_TEAM_HOURS=4/' "$FULL" > "$T/model.env"
 M="$(cd "$T/empty" && "$PLAN" --from "$T/b.json" --capacity --accounts 5x:5 --inv-file "$T/model.env" 2>&1)"
@@ -146,5 +144,7 @@ mutate "$PLAN" "$T/m6" '("낮은 용량 가정", lo5, lou)' '("낮은 용량 가
 nchk "M6 하한을 상한÷3 으로 되돌리면 2639 가 아니다" "$(python3 "$T/m6" --from "$T/b.json" --inventory --inv-file "$FULL" 2>&1)" "      2639"
 mutate "$PLAN" "$T/m7" 'bad = ci.get("schema") != SCHEMA' 'bad = False'
 if python3 "$T/m7" --from "$T/bad.json" --inventory >/dev/null 2>&1; then ok "M7 계약 가드를 빼면 rc=0 이 된다(변이 검출)"; else no "M7 계약 가드" "가드를 빼도 rc≠0"; fi
+mutate "$PLAN" "$T/m8" '상한 초과 = 알림 전용 · 거부·축소 0' '상한을 넘는 발주는 거부한다'
+nchk "M8 «거부» 문구가 돌아오면 알림 전용이 사라진다" "$(python3 "$T/m8" --from "$T/b.json" --inventory 2>&1 | grep "상한 초과")" "알림 전용 · 거부·축소 0"
 echo ""; echo "ctx-plan contract: $P passed, $F failed"
 [ $F -eq 0 ]
