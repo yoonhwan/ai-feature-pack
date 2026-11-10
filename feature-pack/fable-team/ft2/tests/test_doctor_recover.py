@@ -228,6 +228,20 @@ def test_e_memory_line_and_previous_reference(tmp_path):
     assert len(path.read_text(encoding="utf-8").splitlines()) == 2
 
 
+def test_e2_undetermined_references_previous_memory(tmp_path):
+    """ⓔ 판독불가 분기 — corrupt state 로 2회 진단하면 둘째 보고도 앞 기억 줄을 evidence 로 단다(DA r1)."""
+    root, _runtime = _corrupt(tmp_path)
+    first, _rc = _doctor(root, "--live-seat", "seatB", "--to", "seatB")
+    assert not [row for row in first["reports"][0]["evidence"] if row["source"].endswith("memory.jsonl")]
+    second, _rc = _doctor(root, "--live-seat", "seatB", "--to", "seatB")
+    one, = second["reports"]
+    assert one["observation"]["verdict"] == "undetermined"
+    assert [row for row in one["evidence"] if row["source"].endswith("memory.jsonl")] == [
+        {"source": MEMORY, "ref": "line=1"}]
+    assert len(Path(root, MEMORY).read_text(encoding="utf-8").splitlines()) == 2
+    assert _schema(one) == []
+
+
 def test_f_no_symptom_writes_nothing(tmp_path):
     """ⓕ — holder 가 살아 있으면 증상 0 · 복구 0 · 쓰기 0(기억 줄도 0)."""
     root = tmp_path / "f"
@@ -269,7 +283,8 @@ def test_m1_reverify_skipped_makes_c_double_red(tmp_path):
     """M1 — released 를 True 로 고정하면 완료 유보인데 done=true 가 되어 ⓒ'' 가 빨강."""
     root = tmp_path / "m1"
     _held_effect(root)
-    mut = _mutant("released=rotated, after=after.get", "released=True, after=after.get", "_recover_m1.py")
+    mut = _mutant("before.get(\"revision\", 0), released=rotated,",
+                  "before.get(\"revision\", 0), released=True,", "_recover_m1.py")
     try:
         real, _rc = _doctor(root, "--live-seat", "seatB", "--to", "seatB")
         assert real["reports"][0]["reverified"] == {"done": False}          # 정본 = ⓒ'' 통과
@@ -333,5 +348,26 @@ def test_m4_rotation_dropped_makes_c_prime_red(tmp_path):
         assert out["recovery"]["result"] == HOLD                            # 변이 = claim 거절
         assert out["reports"][0]["reverified"] == {"done": False}           # 변이 = ⓒ' 위반
         assert out["reports"][0]["unresolved"] == {"open": True, "owner": OWNER}
+    finally:
+        mut.unlink()
+
+
+def test_m5_undetermined_without_memory_ref_makes_e2_red(tmp_path):
+    """M5 — 판독불가 분기를 기억 참조 helper 에 안 잇으면 둘째 보고의 앞 기억 ref 가 사라져 ⓔ 가 빨강."""
+    root, _runtime = _corrupt(tmp_path)
+    old = '''_report(root, team, install_sha, owner, _evidence(path, root, [
+            {"source": "cli/project", "ref": "result=%s" % before.get("result")}]), 0,'''
+    mut = _mutant(old, '''_report(root, team, install_sha, owner, [
+            {"source": "cli/project", "ref": "result=%s" % before.get("result")}], 0,''', "_recover_m5.py")
+    try:
+        _doctor(root, "--live-seat", "seatB", "--to", "seatB")
+        _doctor(root, "--live-seat", "seatB", "--to", "seatB")
+        refs = [row for row in _doctor(root, "--live-seat", "seatB", "--to", "seatB")[0]["reports"][0]
+                ["evidence"] if row["source"].endswith("memory.jsonl")]
+        assert refs, "정본은 판독불가 보고에도 앞 기억 줄을 단다"          # 정본 = ⓔ 통과
+        out = _module(mut, "ft2_doctor_recover_m5").diagnose(str(root), TEAM, ["seatB"], SHA, OWNER, "seatB")
+        assert out["reports"][0]["observation"]["verdict"] == "undetermined"
+        assert not [row for row in out["reports"][0]["evidence"]
+                    if row["source"].endswith("memory.jsonl")]              # 변이 = ⓔ 위반
     finally:
         mut.unlink()

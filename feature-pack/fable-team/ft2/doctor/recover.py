@@ -65,10 +65,8 @@ def _remember(path, at, work, holder, revision, recovery, reverified, after):
         handle.write(json.dumps(line, ensure_ascii=False, sort_keys=True) + "\n")
 
 
-def _evidence(path, root, work, holder, revision):
-    """보고 근거 — work·holder·revision + 같은 증상의 이전 기억 줄 1개(파일 없음 = 이전 0 · 오류 아님)."""
-    out = [{"source": "cli/project", "ref": "works.%s.owner=%s" % (work, holder)},
-           {"source": "cli/project", "ref": "revision=%d" % revision}]
+def _evidence(path, root, rows):
+    """보고 근거 — rows + 같은 증상의 이전 기억 줄 1개(파일 없음 = 이전 0 · 오류 아님 · 판정불가도 같은 길)."""
     seen = None
     for number, line in enumerate(open(path, encoding="utf-8") if os.path.isfile(path) else [], 1):
         try:
@@ -76,7 +74,7 @@ def _evidence(path, root, work, holder, revision):
         except ValueError:
             continue                      # 깨진 줄은 그 줄만 건너뛴다(진단을 멈추지 않는다)
         seen = number if isinstance(one, dict) and one.get("symptom_key") == SYMPTOM else seen
-    return out + ([{"source": os.path.relpath(path, root), "ref": "line=%d" % seen}] if seen else [])
+    return list(rows) + ([{"source": os.path.relpath(path, root), "ref": "line=%d" % seen}] if seen else [])
 
 
 def _report(root, team, install_sha, owner, evidence, revision, reason="", released=False, after=0):
@@ -101,9 +99,9 @@ def diagnose(root, team, live, install_sha, owner, to=""):
     path = os.path.join(root, ".fable-team", "teams", team, "doctor", "memory.jsonl")
     before = run_cli("project", root, team)
     if before.get("result") != OK:                       # 판정 불가 = 복구 0 · 보고는 낸다
-        one = _report(root, team, install_sha, owner,
-                      [{"source": "cli/project", "ref": "result=%s" % before.get("result")}], 0,
-                      reason=str(before.get("reason") or before.get("result")))
+        one = _report(root, team, install_sha, owner, _evidence(path, root, [
+            {"source": "cli/project", "ref": "result=%s" % before.get("result")}]), 0,
+            reason=str(before.get("reason") or before.get("result")))
         _remember(path, at, "", "", one["state_revision"], "", False, one["state_revision"])
         return {"result": CORRUPT, "team": team, "state_revision": one["state_revision"],
                 "reports": [one], "recovery": NO_RECOVERY, "reason": one["observation"]["reason"]}
@@ -120,9 +118,11 @@ def diagnose(root, team, live, install_sha, owner, to=""):
     for work, holder in found:
         was, now = (before.get("works") or {}).get(work) or {}, (after.get("works") or {}).get(work) or {}
         rotated = bool(target) and (now.get("owner") or {}).get("holder") == target and (now.get("gen") or 0) > (was.get("gen") or 0)
-        reports.append(_report(root, team, install_sha, owner,
-                               _evidence(path, root, work, holder, before.get("revision", 0)),
-                               before.get("revision", 0), released=rotated, after=after.get("revision", 0)))
+        rows = [{"source": "cli/project", "ref": "works.%s.owner=%s" % (work, holder)},
+                {"source": "cli/project", "ref": "revision=%d" % before.get("revision", 0)}]
+        reports.append(_report(root, team, install_sha, owner, _evidence(path, root, rows),
+                               before.get("revision", 0), released=rotated,
+                               after=after.get("revision", 0)))
         _remember(path, at, work, holder, before.get("revision", 0),
                   recovery["result"], rotated, after.get("revision", 0))
     return {"result": OK, "team": team, "state_revision": before.get("revision", 0),
