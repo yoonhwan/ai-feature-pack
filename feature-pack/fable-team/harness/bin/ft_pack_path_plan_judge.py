@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 """ft_pack_path_plan_judge — h 계획 파일의 «날 팩 1.x 경로 접두» 검사 (r1556 · r1544 legacy/1.x 이동).
 CLI: ft_pack_path_plan_judge.py --plan <파일> → `ok`(rc0) | `reject <이유> — 줄 <n>`(줄마다 · rc1) | 내부 오류 rc2
-- 주석 아닌 줄의 날 `feature-pack/fable-team/harness/`(또는 `…/legacy/1.x/harness/`) = reject — 접두는 PACK_1X 변수 하나
-  (값은 ft-pack-1x-prefix.sh 가 ref 마다 정한다). 문자열만 본다(실행 0). ft-hil.sh lint 가 등록 전에 부른다."""
+- 주석 아닌 줄의 «<ref>: 바로 뒤» 날 `feature-pack/fable-team/harness/`(또는 `…/legacy/1.x/harness/`) = reject — 접두는 PACK_1X 변수 하나
+  (값은 ft-pack-1x-prefix.sh 가 ref 마다 정한다). 체크아웃·절대 경로(`cp <팩>/…`)는 검사 밖 · 문자열만 본다(실행 0)."""
 from __future__ import annotations
 import re
 import sys
-
 RAW = re.compile(r"feature-pack/fable-team/(?:legacy/1\.x/)?harness/")
 VAR = "${PACK_1X}/"
 WHY = "팩 1.x 하네스 경로 접두는 PACK_1X 변수로 쓴다(${PACK_1X}/harness/…) — 줄 %d"
@@ -34,11 +33,12 @@ def plan(text: str) -> list[str]:
     out: list[str] = []
     for n, line in logical_lines(text):
         for m in RAW.finditer(line):
-            if not var_form(line[: m.start()]):
+            if var_form(line[: m.start()]):
+                continue  # ${PACK_1X}/ 꼴 = 통과
+            if line[: m.start()].endswith((":", '":')):  # ref 콜론 바로 뒤만 날 접두(체크아웃 경로는 통과)
                 out.append(WHY % n)
                 break
     return out
-
 def main(argv: list[str]) -> int:
     if len(argv) != 3 or argv[1] != "--plan":
         print("usage: ft_pack_path_plan_judge.py --plan <파일>", file=sys.stderr)
