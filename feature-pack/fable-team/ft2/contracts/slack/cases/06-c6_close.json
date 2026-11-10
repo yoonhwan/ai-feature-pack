@@ -1,0 +1,45 @@
+{
+ "id": "c6",
+ "title": "⑥임시 채널 종료 뒤 미결정 보존·재개 필요·회신 거절",
+ "source": {
+  "path": "design/harness/research/ft-2.0/slack/checker-r1501/raw/case-json/06-c6_close.json",
+  "sha": "e50b743978c3b2287296acc3cf99d89eff2549f5"
+ },
+ "given": {
+  "event": "임시 채널 종료(사람) 뒤 새 글 + 구 owner 답",
+  "workspace": "TFAKE",
+  "channel": "CFAKE",
+  "ts": "1800000001.000100",
+  "basis": "모형 생성기 기본값(fake_slack: team TFAKE · channel CFAKE · 첫 ts 1800000001.000100)"
+ },
+ "contract": [
+  14
+ ],
+ "expect": {
+  "words": [
+   "닫히면 담당 없음",
+   "재개 필요",
+   "답 거절"
+  ],
+  "observed": {
+   "pass": true,
+   "checks": {
+    "binding_open": false,
+    "owner_after_close": null,
+    "pending_seen_by_next": 1,
+    "states": [
+     "dispatched",
+     "dispatched"
+    ],
+    "last_entrance": {
+     "to": "@team-desk",
+     "kind": "재개 필요"
+    },
+    "old_owner_reply_posted": false,
+    "posts": 0
+   },
+   "evidence_kind": "모형",
+   "real_slack_calls": 0
+  }
+ }
+}

@@ -1,0 +1,42 @@
+{
+ "id": "c7",
+ "title": "⑦구 owner 응답 차단",
+ "source": {
+  "path": "design/harness/research/ft-2.0/slack/checker-r1501/raw/case-json/07-c7_owner.json",
+  "sha": "e50b743978c3b2287296acc3cf99d89eff2549f5"
+ },
+ "given": {
+  "event": "owner 승계(seat#1 → seat#2) 뒤 구 owner 답",
+  "workspace": "TFAKE",
+  "channel": "CFAKE",
+  "ts": "1800000001.000100",
+  "basis": "원자료 값"
+ },
+ "contract": [
+  12
+ ],
+ "expect": {
+  "words": [
+   "담당 승계 사슬",
+   "옛 세대 답 거절"
+  ],
+  "observed": {
+   "pass": true,
+   "checks": {
+    "old_blocked": true,
+    "new_ok": true,
+    "posts": 1,
+    "errors": [
+     {
+      "k": "stale_owner",
+      "seat": "seat#1",
+      "owner": "seat#2",
+      "root": "1800000001.000100"
+     }
+    ]
+   },
+   "evidence_kind": "모형",
+   "real_slack_calls": 0
+  }
+ }
+}

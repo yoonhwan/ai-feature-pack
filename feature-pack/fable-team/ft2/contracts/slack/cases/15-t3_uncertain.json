@@ -1,0 +1,51 @@
+{
+ "id": "t3",
+ "title": "T3 UNCERTAIN 표식 조회 3값",
+ "source": {
+  "path": "design/harness/research/ft-2.0/slack/checker-r1501/raw/case-json/15-t3_uncertain.json",
+  "sha": "e50b743978c3b2287296acc3cf99d89eff2549f5"
+ },
+ "given": {
+  "event": "post 응답 유실 → 표식 조회 3값(있음·없음 확인·판정 불가)",
+  "workspace": "TFAKE",
+  "channel": "CFAKE",
+  "ts": "1800000001.000100",
+  "basis": "모형 생성기 기본값(fake_slack: team TFAKE · channel CFAKE · 첫 ts 1800000001.000100)"
+ },
+ "contract": [
+  11
+ ],
+ "expect": {
+  "words": [
+   "UNCERTAIN",
+   "표식 조회 3값",
+   "판정 불가는 보존",
+   "자동 재송 0"
+  ],
+  "observed": {
+   "pass": true,
+   "checks": {
+    "있음": {
+     "first": "uncertain",
+     "resolve": "posted",
+     "stored_posts": 1,
+     "post_calls": 1
+    },
+    "없음 확인": {
+     "first": "uncertain",
+     "resolve": "resent",
+     "stored_posts": 1,
+     "post_calls": 2
+    },
+    "판정 불가": {
+     "first": "uncertain",
+     "resolve": "undecidable",
+     "stored_posts": 1,
+     "post_calls": 1
+    }
+   },
+   "evidence_kind": "모형",
+   "real_slack_calls": 0
+  }
+ }
+}

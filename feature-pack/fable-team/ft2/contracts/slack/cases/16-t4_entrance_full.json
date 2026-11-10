@@ -1,0 +1,42 @@
+{
+ "id": "t4",
+ "title": "T4 입구 가득 = 영수 0·claim 보존",
+ "source": {
+  "path": "design/harness/research/ft-2.0/slack/checker-r1501/raw/case-json/16-t4_entrance_full.json",
+  "sha": "e50b743978c3b2287296acc3cf99d89eff2549f5"
+ },
+ "given": {
+  "event": "입구 cap=2 가득(3번째 글)",
+  "workspace": "TFAKE",
+  "channel": "CFAKE",
+  "ts": "1800000001.000100",
+  "basis": "모형 생성기 기본값(fake_slack: team TFAKE · channel CFAKE · 첫 ts 1800000001.000100)"
+ },
+ "contract": [
+  6
+ ],
+ "expect": {
+  "words": [
+   "입구 가득이면 영수 0",
+   "기록 보존"
+  ],
+  "observed": {
+   "pass": true,
+   "checks": {
+    "states": [
+     "dispatched",
+     "dispatched",
+     "full"
+    ],
+    "errors": [
+     "entrance_full"
+    ],
+    "seat_first": 2,
+    "recovered": 1,
+    "seat_second": 1
+   },
+   "evidence_kind": "모형",
+   "real_slack_calls": 0
+  }
+ }
+}

@@ -1,0 +1,46 @@
+{
+ "id": "c4",
+ "title": "④429 retry-after·상한 뒤 오류",
+ "source": {
+  "path": "design/harness/research/ft-2.0/slack/checker-r1501/raw/case-json/04-c4_ratelimit.json",
+  "sha": "e50b743978c3b2287296acc3cf99d89eff2549f5"
+ },
+ "given": {
+  "event": "chat.postMessage 429 두 번(Retry-After 3초)",
+  "workspace": "TFAKE",
+  "channel": "CFAKE",
+  "ts": "1800000001.000100",
+  "basis": "원자료 값"
+ },
+ "contract": [
+  13
+ ],
+ "expect": {
+  "words": [
+   "Retry-After",
+   "재시도 1",
+   "넘으면 보이는 오류"
+  ],
+  "observed": {
+   "pass": true,
+   "checks": {
+    "first_ok": true,
+    "waits_requested_s": [
+     3.0,
+     3.0
+    ],
+    "second_raised": true,
+    "errors_rows": [
+     {
+      "k": "post_failed",
+      "code": 429,
+      "root": "1800000001.000100",
+      "attempts": 2
+     }
+    ]
+   },
+   "evidence_kind": "모형",
+   "real_slack_calls": 0
+  }
+ }
+}

@@ -1,0 +1,38 @@
+{
+ "id": "t1",
+ "title": "T1 bot echo·미인가 거름",
+ "source": {
+  "path": "design/harness/research/ft-2.0/slack/checker-r1501/raw/case-json/13-t1_bot_echo.json",
+  "sha": "e50b743978c3b2287296acc3cf99d89eff2549f5"
+ },
+ "given": {
+  "event": "bot echo · 미인가 사용자 · 다른 channel envelope 4건",
+  "workspace": "TFAKE",
+  "channel": "CFAKE",
+  "ts": "1800000001.000100",
+  "basis": "모형 생성기 기본값(fake_slack: team TFAKE · channel CFAKE · 첫 ts 1800000001.000100)"
+ },
+ "contract": [
+  15
+ ],
+ "expect": {
+  "words": [
+   "미인가·bot·다른 채널은 확인만 하고 버림"
+  ],
+  "observed": {
+   "pass": true,
+   "checks": {
+    "states": [
+     "ignored",
+     "ignored",
+     "ignored",
+     "ignored"
+    ],
+    "acked": 4,
+    "entrance_rows": 0
+   },
+   "evidence_kind": "모형",
+   "real_slack_calls": 0
+  }
+ }
+}

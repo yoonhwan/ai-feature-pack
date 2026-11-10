@@ -1,0 +1,145 @@
+{
+ "id": "c8",
+ "title": "⑧FULL 재독 0·증분만",
+ "source": {
+  "path": "design/harness/research/ft-2.0/slack/checker-r1501/raw/case-json/08-c8_full.json",
+  "sha": "e50b743978c3b2287296acc3cf99d89eff2549f5"
+ },
+ "given": {
+  "event": "root 30 · root 당 답 8 · pass 10회",
+  "workspace": "TFAKE",
+  "channel": "CFAKE",
+  "ts": "1800000001.000100",
+  "basis": "모형 생성기 기본값(fake_slack: team TFAKE · channel CFAKE · 첫 ts 1800000001.000100)"
+ },
+ "contract": [
+  8,
+  16,
+  17
+ ],
+ "expect": {
+  "words": [
+   "좌석·thread별 커서",
+   "전체 대화 재로드 0"
+  ],
+  "observed": {
+   "pass": true,
+   "checks": {
+    "current_ft_per_pass": [
+     {
+      "pass": 1,
+      "model_calls": 31,
+      "reread_bytes": 119977,
+      "by_method": {
+       "conversations.history": 1,
+       "conversations.replies": 30
+      },
+      "new": 270
+     },
+     {
+      "pass": 2,
+      "model_calls": 2,
+      "reread_bytes": 16815,
+      "by_method": {
+       "conversations.history": 1,
+       "conversations.replies": 1
+      },
+      "new": 1
+     },
+     {
+      "pass": 3,
+      "model_calls": 1,
+      "reread_bytes": 13127,
+      "by_method": {
+       "conversations.history": 1
+      },
+      "new": 0
+     },
+     {
+      "pass": 4,
+      "model_calls": 2,
+      "reread_bytes": 16815,
+      "by_method": {
+       "conversations.history": 1,
+       "conversations.replies": 1
+      },
+      "new": 1
+     },
+     {
+      "pass": 5,
+      "model_calls": 1,
+      "reread_bytes": 13127,
+      "by_method": {
+       "conversations.history": 1
+      },
+      "new": 0
+     },
+     {
+      "pass": 6,
+      "model_calls": 2,
+      "reread_bytes": 16815,
+      "by_method": {
+       "conversations.history": 1,
+       "conversations.replies": 1
+      },
+      "new": 1
+     },
+     {
+      "pass": 7,
+      "model_calls": 1,
+      "reread_bytes": 13127,
+      "by_method": {
+       "conversations.history": 1
+      },
+      "new": 0
+     },
+     {
+      "pass": 8,
+      "model_calls": 2,
+      "reread_bytes": 16815,
+      "by_method": {
+       "conversations.history": 1,
+       "conversations.replies": 1
+      },
+      "new": 1
+     },
+     {
+      "pass": 9,
+      "model_calls": 1,
+      "reread_bytes": 13127,
+      "by_method": {
+       "conversations.history": 1
+      },
+      "new": 0
+     },
+     {
+      "pass": 10,
+      "model_calls": 2,
+      "reread_bytes": 16815,
+      "by_method": {
+       "conversations.history": 1,
+       "conversations.replies": 1
+      },
+      "new": 1
+     }
+    ],
+    "current_steady_calls": 14,
+    "current_steady_bytes": 136583,
+    "contract": {
+     "model_calls_after_boot": 5,
+     "reread_bytes_after_boot": 655
+    },
+    "current_idle_pass_bytes": 13127,
+    "projection_idle_bytes_per_day_at_10s": 113417280,
+    "projection_note": "계산값(유휴 pass bytes × 8640) · 측정 아님",
+    "shape": {
+     "roots": 30,
+     "replies_per_root": 8,
+     "passes": 10
+    }
+   },
+   "evidence_kind": "모형",
+   "real_slack_calls": 0
+  }
+ }
+}

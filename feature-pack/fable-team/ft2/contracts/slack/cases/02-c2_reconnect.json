@@ -1,0 +1,43 @@
+{
+ "id": "c2",
+ "title": "②재접속 누락0·중복0",
+ "source": {
+  "path": "design/harness/research/ft-2.0/slack/checker-r1501/raw/case-json/02-c2_reconnect.json",
+  "sha": "e50b743978c3b2287296acc3cf99d89eff2549f5"
+ },
+ "given": {
+  "event": "재접속 뒤 같은 envelope 재배달 2건",
+  "workspace": "TFAKE",
+  "channel": "CFAKE",
+  "ts": "1800000001.000100",
+  "basis": "모형 생성기 기본값(fake_slack: team TFAKE · channel CFAKE · 첫 ts 1800000001.000100)"
+ },
+ "contract": [
+  2,
+  3,
+  16
+ ],
+ "expect": {
+  "words": [
+   "거름",
+   "메시지 키",
+   "유휴·중복·무변화"
+  ],
+  "observed": {
+   "pass": true,
+   "checks": {
+    "redelivered": 2,
+    "states": [
+     "duplicate",
+     "dispatched",
+     "duplicate"
+    ],
+    "mbox_rows": 5,
+    "unique": 5,
+    "missing": 0
+   },
+   "evidence_kind": "모형",
+   "real_slack_calls": 0
+  }
+ }
+}

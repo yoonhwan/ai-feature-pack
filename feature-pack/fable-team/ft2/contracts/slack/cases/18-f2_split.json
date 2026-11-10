@@ -1,0 +1,32 @@
+{
+ "id": "f2",
+ "title": "F2 긴 글 나눔(코드 블록 경계·순서)",
+ "source": {
+  "path": "design/harness/research/ft-2.0/slack/checker-r1501/raw/case-json/18-f2_split.json",
+  "sha": "e50b743978c3b2287296acc3cf99d89eff2549f5"
+ },
+ "given": {
+  "event": "긴 답 1건(코드 블록 포함)",
+  "workspace": "TFAKE",
+  "channel": "CFAKE",
+  "ts": "1800000001.000100",
+  "basis": "모형 생성기 기본값(fake_slack: team TFAKE · channel CFAKE · 첫 ts 1800000001.000100)"
+ },
+ "contract": [],
+ "expect": {
+  "words": [],
+  "observed": {
+   "pass": true,
+   "checks": {
+    "cap_given": 1500,
+    "parts": 6,
+    "max_len": 1488,
+    "fences_balanced": true,
+    "order_kept": true
+   },
+   "evidence_kind": "모형",
+   "real_slack_calls": 0
+  }
+ },
+ "contract_gap": "계약 18줄이 답 나눔을 안 덮는다"
+}
