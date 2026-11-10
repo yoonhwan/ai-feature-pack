@@ -41,15 +41,15 @@ def _load(name):
 
 record, intake, execution = _load("record"), _load("intake"), _load("execution")
 
-def _ex(root, team=TEAM, cls=None, client=None):
+def _ex(root, team=TEAM, cls=None, client=None, on_step=None):
     """시험용 결선 — 잠금·state 계열 변이는 client(Intake), 검사·판정 변이는 cls(Execution)."""
     render = cls or execution.Execution
     if client is None:
-        return render(str(root), team)
+        return render(str(root), team, on_step=on_step)
 
     class _Wired(render):
         CLIENT = client
-    return _Wired(str(root), team)
+    return _Wired(str(root), team, on_step=on_step)
 
 def _intake(root, capacity=8, cls=None):
     return (cls or intake.Intake)(str(root), TEAM, capacity=capacity)
@@ -251,15 +251,40 @@ def test_l_receive_and_claim_share_one_runtime(tmp_path):
     assert state["generations"] == {"work-0": 1, "work-1": 1}
     assert [_intake(root).lookup("cmd-%d" % index).result for index in (0, 1)] == [OK, OK]
 
+def test_r1_same_generation_effect_is_not_rerun(tmp_path):
+    """DA R1: 같은 gen 으로 다시 들어온 효과는 결과 미확정 보존 · 효과 누계 1회."""
+    root = tmp_path / "t"
+    assert _child("crash", root, "post_effect").returncode == 9
+    again = _ex(root).effect("card-a", "h1", 1, "e1", run=lambda: _effects(root, "e1"))
+    assert (again.result, again.stage) == (HOLD, "uncertain")
+    assert _effects(root).count("e1") == 1
+    assert _ex(root).effect("card-a", "h1", 1, "e1", run=lambda: _effects(root, "e1")).written is False
+    assert _effects(root).count("e1") == 1
+
+
+def test_r2_journal_generation_survives_checkpoint_crash(tmp_path):
+    """DA R2: claim 의 journal 내구화 뒤 checkpoint 전 crash → 옛 gen 쓰기 거절(0)."""
+    root = tmp_path / "t"
+    node = _ex(root)
+    g1 = node.claim("card-a", "h1")
+    node.start("card-a", "h1", g1.gen)
+    assert _child("rotate", root, "after_journal").returncode == 9
+    node = _ex(root)
+    stale = node.result("card-a", "h1", g1.gen)
+    assert (stale.result, stale.written) == (STALE, False)      # journal 의 gen2 가 유효본
+    assert node.result("card-a", "h2", 2).result == OK
+    assert (len(node.rs.records()), _state(node)["revision"]) == (4, 4)
+
+
 class _NoGenCheck(execution.Execution):           # M1: 세대 검사 빼기
     _gen_matches = lambda self, state, work, gen: True  # noqa: E731
 
 class _GrantOnUncertain(execution.Execution):     # M2: 무응답을 재부여로
-    _hold = lambda self, *args: None  # noqa: E731
+    _hold = lambda self, *args, **kwargs: None  # noqa: E731
 
 class _RerunAfterCrash(execution.Execution):      # M3: crash 뒤 효과 재실행
-    def _hold(self, state, records, work, gen, rotation=False):
-        return self._uncertain(state).get(work)
+    def _hold(self, state, records, work, gen, rotation=False, closing=False):
+        return self._field(state, "uncertain").get(work)
 
 class _BlockingLock(intake.Intake):               # M4: 경합을 «기다림» 으로
     def _try_lock(self):
@@ -366,6 +391,10 @@ def _child_main(argv):
         if rest[0] == "post_effect":
             os._exit(9)
         return int(node.result("card-a", "h1", grant.gen).result != OK)
+    if mode == "rotate":
+        node = _ex(root, on_step=lambda point: os._exit(9) if point == rest[0] else None)
+        node.claim("card-a", "h2", rotation=True)
+        return 0
     if mode == "hold":
         node = _ex(root, rest[0], client=_GlobalLock if rest[2:] == ["global"] else None)
         handle = node.rs._try_lock()
