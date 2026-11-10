@@ -17,4 +17,6 @@ code	ft2-adapters	^feature-pack/fable-team/ft2/adapters/
 code	ft2-tests	^feature-pack/fable-team/ft2/tests/
 code	ft2-tools	^feature-pack/fable-team/ft2/tools/
 docs	ft2-md	^feature-pack/fable-team/ft2/README\.md$
+forbid	repo-outside	^feature-pack/fable-team/ft2/contracts/
+code	ft2-all	^feature-pack/fable-team/ft2/
 forbid	repo-outside	.
