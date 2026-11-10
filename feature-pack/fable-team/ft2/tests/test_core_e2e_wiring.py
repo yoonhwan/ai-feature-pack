@@ -13,8 +13,7 @@ import os
 import subprocess
 import sys
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-FT2 = os.path.dirname(HERE)
+FT2 = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CLI = os.path.join(FT2, "core", "cli.py")
 TEAM, NOW = "harness", "2026-11-11T01:00:00"
 OK, HOLD, RECOVERED = "접수 성공", "완료 유보", "회수 결과"
@@ -117,7 +116,9 @@ def test_b_two_holders_one_execution_right(tmp_path):
 
 
 def test_c_crash_resume_keeps_single_effect(tmp_path):
-    """ⓒ 배정 뒤 전달 전 kill → recover 가 같은 attempt 전달(무유실) · 효과 뒤 result 전 kill → 완료로 재개."""
+    """ⓒ 배정 뒤 전달 전 kill → recover 가 같은 attempt 전달(무유실) · 효과 뒤 result 전 kill → 완료로 재개.
+    kill = cli 자식이 자기 rc 를 낸 «뒤» sh 래퍼를 죽이는 «동사 사이 중단» 모형이다 — 쓰기 도중 crash 는
+    계약 replay(contracts/core case 06·07) 몫이라 여기서 흉내내지 않는다."""
     root = tmp_path / "crash"
     _cli(root, "submit", "--command", "c-W1", "--body", "본문-W1")
     _kill(root, "assign", "--work", "W1", "--holder", "h1", "--evidence", "v1,v2")
@@ -137,14 +138,13 @@ def test_d_segment_rotation_keeps_projection(tmp_path):
     """ⓓ segment 회전이 일어나도 먼저 닫힌 work 의 투영 행이 그대로 · reclaim 뒤에도 그대로."""
     root = tmp_path / "rotate"
     _life(root, "W000")
-    closed = {name: row for name, row in _project(root).items() if name.startswith("work-0")}
+    closed = {"W000": _project(root)["W000"]}     # 회전 전에 닫힌 행 1개 — M3 = 이 칸을 {} 로 비우면 빨강
     for index in range(1, 30):                    # 실측 20 work 부근에서 회전한다
-        _life(root, "work-%03d-" % index + "x" * 70, submit=False)
+        assert all(step[1:] == (OK, 0) for step in _life(root, "work-%03d-" % index + "x" * 70, submit=False))
     runtime = os.path.join(os.path.abspath(str(root)), ".fable-team", "teams", TEAM, "runtime")
     segments = [n for n in os.listdir(runtime) if n.startswith("journal.") and n != "journal.jsonl"]
     assert segments, "회전 0 = 시험 입력이 segment cap 에 못 닿았다"          # 회전 ≥ 1
     after = _project(root)
-    assert {name: after[name] for name in closed} == closed                 # 회전이 결과를 안 바꾼다
+    assert closed and {name: after[name] for name in closed} == closed      # 회전이 결과를 안 바꾼다
     assert _cli(root, "reclaim")[0]["result"] == RECOVERED
-    assert {name: _project(root)[name] for name in closed} == closed        # 회수 뒤에도 같다
-    assert after["W000"]["done"] is True
+    assert closed and {name: _project(root)[name] for name in closed} == closed   # 회수 뒤에도 같다
