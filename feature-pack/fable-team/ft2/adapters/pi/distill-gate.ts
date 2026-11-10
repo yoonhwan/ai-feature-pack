@@ -34,8 +34,7 @@ export function thresholds(env: Record<string, string | undefined>, root: string
 /** 리포 루트 = .git 이 «폴더» 인 조상(워크트리의 .git 파일은 건너뛴다 — claude 훅과 같은 규칙). */
 export function repoRoot(cwd: string): string | null {
   for (let dir = path.resolve(cwd); ; dir = path.dirname(dir)) {
-    try { if (fs.statSync(path.join(dir, ".git")).isDirectory()) return dir; } catch { /* 위로 */ }
-    if (path.dirname(dir) === dir) return null;
+    try { if (fs.statSync(path.join(dir, ".git")).isDirectory()) return dir; } catch { /* 위로 */ } if (path.dirname(dir) === dir) return null;
   }
 }
 /** 따옴표 안을 "_" 로 덮은 같은 길이 사본 — 구분자·리다이렉트·주석을 따옴표 밖에서만 본다. */
@@ -69,7 +68,7 @@ function scriptAllowed(frag: string, root: string | null): boolean {
   const m = frag.match(/^(?:bash\s+)?(\S+)(?:\s+([\s\S]*))?$/);
   if (!m || /\.\.(\/|$)/.test(m[1]) || !relTo(root, m[1])) return false;
   const parts = m[1].split("/").filter(Boolean), name = parts[parts.length - 1];
-  if (!/^(?:\.worktrees\/[^/]+\/)?\.fable-team\/(?:bin|comm)\/[^/]+$/.test(parts.slice(-3).join("/")) && !/^\.claude\/fable-team\/bin\/[^/]+$/.test(parts.slice(-4).join("/"))) return false; // 경로 = 리포 루트 안 .fable-team/{bin,comm} 직속
+  if (!/^(?:\.worktrees\/[^/]+\/)?\.fable-team\/(?:bin|comm)\/[^/]+$/.test(parts.slice(-3).join("/")) && !/^\.claude\/fable-team\/bin\/[^/]+$/.test(parts.slice(-4).join("/"))) return false;
   return MBOX.includes(name) ? SUBS.includes((m[2] ?? "").trim().split(/\s+/)[0]) : SCRIPTS.includes(name);
 }
 /** claude 훅 hard_allowed 의 Bash 판정 이식 — 명령 조각 단위 · allowlist 밖은 전부 막는다. */
@@ -100,40 +99,44 @@ export function pathAllowed(p: string | undefined, root: string | null): boolean
   const rel = relTo(root, String(p ?? "")); if (!rel) return false;
   if (/^(?:\.worktrees\/[^/]+\/)?(?:\.fable-team\/(?:state|comm)\/|\.baton\/)/.test(rel)) {
     if (!EXT.some((e) => rel.toLowerCase().endsWith(e))) return false;
-    let real = rel;   // 아직 없는 파일은 있는 그대로 본다(Python realpath 와 같다) — 있으면 심링크를 따라간다.
-    try { real = relTo(root, fs.realpathSync.native(path.join(root as string, rel))) ?? ".claude/"; } catch { /* 신규 파일 */ }
+    let real = rel; try { real = relTo(root, fs.realpathSync.native(path.join(root as string, rel))) ?? ".claude/"; } catch { /* 신규 파일 = 있는 그대로(Python realpath 와 같다) */ }
     return !real.startsWith(".claude/") && !/(^|\/)bin\//.test(real);
   }
   return [/(^|\/)design\/[^/]+\/(?:IMPL|HANDOFF|VERDICT|PROGRESS)-[^/]*\.md$/, /(^|\/)HANDOFF-[^/]*\.md$/, /(^|\/)design\/(?:[^/]+\/)*inbox\/(?:[^/]+\/)*[^/]+\.md$/, /(^|\/)\d+-HANDOFF-[^/]*\.md$/].some((rx) => rx.test(rel));
 }
 function seatOf(env: Record<string, string | undefined>): string {
-  if (env.FT_SEAT || !env.TMUX_PANE) return env.FT_SEAT ?? "";
-  try { return execFileSync("tmux", ["display", "-p", "-t", env.TMUX_PANE, "#S"], { timeout: 3000 }).toString().trim(); } catch { return ""; }
+  if (env.FT_SEAT || !env.TMUX_PANE) return env.FT_SEAT ?? ""; try { return execFileSync("tmux", ["display", "-p", "-t", env.TMUX_PANE, "#S"], { timeout: 3000 }).toString().trim(); } catch { return ""; }
 }
 const notified = new Set<string>();
-/** 판정 불가 알림 — seats*.json 현역 master 1행 · 같은 좌석·같은 이유는 세션당 1통 · 실패는 reason 에 싣는다. */
-function notifyTeam(input: GateInput, env: Record<string, string | undefined>, seat: string, root: string | null, why: string): string {
-  const key = `${seat}|${why}`;
-  if (notified.has(key)) return "";
-  notified.add(key);
-  const dir = path.join(root ?? "/nonexistent", ".fable-team");
-  let master = "";
+/** 판정 불가 알림 — 이 좌석 행이 있는 명부의 _master 한 명 · 같은 좌석·같은 이유는 세션당 1통 · 실패는 reason 에 싣는다. */
+/** 이 좌석의 팀장 = 그 좌석 행이 있는 seats 파일의 _master. 찾는 곳 = FT_MBOX 의 .fable-team → 리포 루트. 다른 팀 명부의 master 를 고르지 않는다(arch#274 동작 반례 1). */
+function teamMaster(env: Record<string, string | undefined>, root: string | null, seat: string): string {
+  let dir = env.FT_MBOX ? path.dirname(path.resolve(env.FT_MBOX)) : "";
+  while (dir && path.basename(dir) !== ".fable-team" && path.dirname(dir) !== dir) dir = path.dirname(dir);
+  if (path.basename(dir) !== ".fable-team") dir = path.join(root ?? "/nonexistent", ".fable-team");
+  const base = seat.replace(/#\d+$/, "");
   try {
-    const rows = fs.readdirSync(dir).filter((f) => /^seats.*\.json$/.test(f)).sort().flatMap((f) => Object.entries<any>(JSON.parse(fs.readFileSync(path.join(dir, f), "utf8"))));
-    master = (rows.find(([name, row]) => row?.role === "master" && !row._replaced_by && !name.startsWith("_")) ?? [""])[0]; // 현역 master 1행
-  } catch { /* 명부 없음 = master 불명 */ }
-  const body = `[긴급] 증류 판정 불가 ${seat} ${why}`;
+    for (const f of fs.readdirSync(dir).filter((n) => /^seats.*\.json$/.test(n))) {
+      const data = JSON.parse(fs.readFileSync(path.join(dir, f), "utf8"));
+      if (Object.keys(data).some((k) => k === seat || k.replace(/#\d+$/, "") === base)) return String(data._master ?? "");
+    }
+  } catch { /* 명부 없음 = 팀장 불명 */ }
+  return "";
+}
+function notifyTeam(input: GateInput, env: Record<string, string | undefined>, seat: string, root: string | null, why: string): string {
+  const key = `${seat}|${why}`; if (notified.has(key)) return ""; notified.add(key);
+  const master = teamMaster(env, root, seat), body = `[긴급] 증류 판정 불가 ${seat} ${why}`;
+  if (!master) return "팀장 불명 — seats 명부에 이 좌석 행이나 _master 없음(send 0)";
   if (input.notify) { input.notify(master, body); return ""; }
   if (!env.FT_MBOX) return "FT_MBOX 미설정 — 팀장 알림 0";
-  try { execFileSync("bash", [env.FT_MBOX, "send", master || "unknown", seat, body], { timeout: 7000 }); return ""; }
-  catch (e) { return `팀장 알림 실패(${master || "unknown"}): ${e}`; }
+  try { execFileSync("bash", [env.FT_MBOX, "send", master, seat, body], { timeout: 7000 }); return ""; }
+  catch (e) { return `팀장 알림 실패(${master}): ${e}`; }
 }
 const pendingFile = (root: string | null, seat: string): string | null => root ? path.join(root, ".fable-team", "state", "pi-distill-pending", seat.replace(/#\d+$/, "")) : null;
 /** 증류 미완 표식 1개 — 이미 있으면 덮어쓰지 않는다(DA 반례 4). 실패는 reason 에 실어 조용한 0 을 만들지 않는다. */
 function markPending(root: string | null, seat: string, tokens: number): string {
   const p = pendingFile(root, seat);
-  if (!p) return "상태 파일 경로 없음(리포 루트 못 찾음)";
-  try {
+  if (!p) return "상태 파일 경로 없음(리포 루트 못 찾음)"; try {
     if (fs.existsSync(p)) return "";
     fs.mkdirSync(path.dirname(p), { recursive: true });
     fs.writeFileSync(p, `${new Date().toISOString()} ${seat} ctx=${tokens} 증류 미완\n`, { flag: "wx" }); return "";
@@ -142,14 +145,11 @@ function markPending(root: string | null, seat: string, tokens: number): string 
 /** 한 tool_call 판정 — claude 훅의 warn·block·recv 세 축 + 판정 불가 fail-closed. */
 export function judge(input: GateInput): Verdict {
   const env = input.env ?? process.env, root = repoRoot(input.cwd ?? process.env.FT_CWD ?? process.cwd());
-  const model = String(input.model ?? "");
-  if (!/claude/i.test(model)) return { action: "allow", rule: "model-out-of-scope", reason: `${model || "모델 불명"} = 증류 게이트 대상 아님(gpt·gemini·deepseek 통과)` };
+  const model = String(input.model ?? ""); if (!/claude/i.test(model)) return { action: "allow", rule: "model-out-of-scope", reason: `${model || "모델 불명"} = 증류 게이트 대상 아님(gpt·gemini·deepseek 통과)` };
   const seat = input.seat ?? seatOf(env), th = thresholds(env, root), state = pendingFile(root, seat);
   const k = typeof input.tokens === "number" && input.tokens > 0 ? input.tokens : 0;
   const why = !th ? `문턱 못 읽음(${K.warn}/${K.block}/${K.recv})` : !k ? "ctx usage 없음" : !seat ? "좌석 이름 못 읽음(TMUX_PANE·FT_SEAT)" : "";
-  if (why) {
-    const bad = notifyTeam(input, env, seat || "unknown", root, why); return { action: "block", rule: "undecidable", reason: `증류 판정 불가 = 막음 — ${why}${bad ? ` · ${bad}` : ""}` };
-  }
+  if (why) { const bad = notifyTeam(input, env, seat || "unknown", root, why); return { action: "block", rule: "undecidable", reason: `증류 판정 불가 = 막음 — ${why}${bad ? ` · ${bad}` : ""}` }; }
   const lines = th as Lines;
   if (k < lines.warn) { try { fs.rmSync(state ?? "/nonexistent", { force: true }); } catch { /* 다음 턴이 다시 시도 */ } } // 닫는 사건(ⓙ): ctx < WARN 세션이 미완 표식을 지운다
   if (input.tool === "bash" && /mbox\.sh\s+recv\b/.test(String(input.command ?? "")) && (k >= lines.recv || fs.existsSync(state ?? "/nonexistent"))) {
