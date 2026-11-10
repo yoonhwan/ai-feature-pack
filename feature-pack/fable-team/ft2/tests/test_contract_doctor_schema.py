@@ -69,6 +69,17 @@ def test_b_verdict_enum_two_and_reason_required():
     assert props["unresolved"]["then"]["required"] == ["owner"]
 
 
+def test_b_blank_reason_and_owner_rejected():
+    """ⓑ 보정 — 사유·owner 가 빈 문자열/공백만이면 거절한다(arch 반례 1)."""
+    schema = load(SCHEMA)
+    blank = EXAMPLES / "bad-04-blank-reason.json"
+    assert schema_check.main([str(blank)]) == 1
+    assert [e for e in schema_check.check(load(blank), schema) if "reason" in e]
+    no_owner = load(EXAMPLES / "ok-02-undetermined.json")
+    no_owner["unresolved"]["owner"] = "   "
+    assert [e for e in schema_check.check(no_owner, schema) if "owner" in e]
+
+
 def test_c_ok_examples_pass_schema():
     """ⓒ ok 3개(관측·판정불가·복구 뒤 재검증)가 schema 를 통과한다."""
     files = ok_files()
@@ -78,9 +89,9 @@ def test_c_ok_examples_pass_schema():
 
 
 def test_c_bad_examples_rejected_rc1():
-    """ⓒ bad 3개(필드 빠짐·판정불가 사유 없음·미해결 owner 없음)가 거절된다."""
+    """ⓒ bad 4개(필드 빠짐·사유 없음·owner 없음·사유 공백만)가 거절된다."""
     files = bad_files()
-    assert len(files) == 3, [p.name for p in files]
+    assert len(files) == 4, [p.name for p in files]
     for path in files:
         assert schema_check.main([str(path)]) == 1, path.name
     schema, errs = load(SCHEMA), {}
@@ -89,6 +100,7 @@ def test_c_bad_examples_rejected_rc1():
     assert "evidence" in errs["bad-01-missing-field.json"]
     assert "reason" in errs["bad-02-undetermined-no-reason.json"]
     assert "owner" in errs["bad-03-unresolved-no-owner.json"]
+    assert "reason" in errs["bad-04-blank-reason.json"]
 
 
 def test_d_no_implementation_permit_line():

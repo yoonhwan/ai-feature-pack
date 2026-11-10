@@ -49,7 +49,7 @@
       "required": ["verdict"],
       "properties": {
         "verdict": {"enum": ["observed", "undetermined"]},
-        "reason": {"type": "string"}
+        "reason": {"type": "string", "minLength": 1}
       },
       "if": {"required": ["verdict"], "properties": {"verdict": {"enum": ["undetermined"]}}},
       "then": {"required": ["reason"]}
@@ -74,7 +74,7 @@
       "required": ["open"],
       "properties": {
         "open": {"type": "boolean"},
-        "owner": {"type": "string"}
+        "owner": {"type": "string", "minLength": 1}
       },
       "if": {"required": ["open"], "properties": {"open": {"enum": [true]}}},
       "then": {"required": ["owner"]}

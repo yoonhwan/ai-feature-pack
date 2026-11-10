@@ -45,6 +45,9 @@ def check(value, spec, path="$"):
     if "minimum" in spec and type_ok(value, "integer"):
         if value < spec["minimum"]:
             bad.append("%s: minimum %r 미만" % (path, spec["minimum"]))
+    if isinstance(value, str) and len(value.strip()) < spec.get("minLength", 0):
+        bad.append("%s: 빈 문자열(공백만 포함) — minLength %d" % (
+            path, spec["minLength"]))
     if isinstance(value, list):
         if len(value) < spec.get("minItems", 0):
             bad.append("%s: minItems %d 미만" % (path, spec["minItems"]))

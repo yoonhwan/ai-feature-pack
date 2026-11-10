@@ -1,0 +1,12 @@
+{
+  "symptom_key": "gateway.port_bind_unknown",
+  "install_sha": "e50b7439c1f4a2b3d4e5f60718293a4b5c6d7e8f",
+  "state_revision": 11,
+  "evidence": [
+    {"source": "ft-doctor", "ref": "probe/lsof-8080.log#L3"}
+  ],
+  "observation": {"verdict": "undetermined", "reason": "   "},
+  "allowed_recovery": [],
+  "reverified": {"done": false},
+  "unresolved": {"open": true, "owner": "byz-harness-master-pi#171"}
+}
