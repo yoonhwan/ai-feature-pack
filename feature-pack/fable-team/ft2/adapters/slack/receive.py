@@ -1,13 +1,12 @@
 """ft2 Slack 수신 어댑터 — 계약 줄 2·3·4·5·6·15·16 (r1580 · PR③ 첫 장).
 
 흐름(줄 2): 거름 → 메시지 키(줄 3) → 수신 기록 내구화 → Slack 확인 → 입구 전달 → 영수 판정(줄 4).
-확인 ≠ 접수: Slack 에 «받았다» 는 확인과 Intake 영수는 다른 사건이다. 넘김 완료는 두 경로로 갈린다.
-  제출 경로 = result «접수 성공» ∧ written True · 조회 경로 = result «접수 성공» ∧ attempt 있음
-  (DA HOLD R1 §2: 조회 성공 영수는 written False · body_ref None 이 정상이다).
-«완료 유보»·«복구 필요»·«용량 부족»·«BUSY»(r1579 실행권) = 미완 보존 — 영수 0 · 기록 보존 · 알림 1건.
-미인가·bot·다른 채널(줄 15) = 확인만 하고 버린다. 유휴·중복·무변화(줄 16) = 도구 안에서 끝난다.
-재송(줄 5) = 머리에 메시지 키 표식 1줄 · 회차는 기록에 누적(재기동마다 새로 만들기 0) · 좌석이 2번째
-표식을 안 읽는 것은 Intake 의 같은 command 재부여 0(«완료 유보»)이 보장한다.
+확인 ≠ 접수: Slack «받았다» 와 Intake 영수는 다른 사건이다. 넘김 완료는 두 경로로 갈린다 — 제출 경로 =
+result «접수 성공» ∧ written True · 조회 경로 = result «접수 성공» ∧ attempt 있음(DA R1 §2: 조회 성공
+영수는 written False · body_ref None 이 정상).
+«완료 유보»·«복구 필요»·«용량 부족»·«BUSY»(r1579 실행권) = 미완 보존 — 영수 0 · 기록 보존 · 가득은 알림 1건.
+미인가·bot·다른 채널(줄 15) = 확인만 하고 버린다. 유휴·중복·무변화(줄 16) = 도구 안에서 끝난다. 재송
+(줄 5) = 머리에 메시지 키 표식 · 회차는 기록 누적 · 원문은 received 행에서 꺼낸다(같은 command 재부여 0).
 """
 
 import collections
@@ -82,11 +81,14 @@ class SlackReceive:
 
     def _append(self, entry):
         with open(self.path, "a", encoding="utf-8") as handle:
-            handle.write(json.dumps(dict(entry, schema=1, at=self.clock()),
-                                    ensure_ascii=False, sort_keys=True) + "\n")
+            handle.write(json.dumps(dict(entry, schema=1, at=self.clock()), ensure_ascii=False, sort_keys=True) + "\n")
             handle.flush()
             os.fsync(handle.fileno())
-        _fsync_dir(os.path.dirname(self.path))
+        fd = os.open(os.path.dirname(self.path), os.O_RDONLY)
+        try:
+            os.fsync(fd)
+        finally:
+            os.close(fd)
         return entry
 
     def _step(self, name):
@@ -159,15 +161,20 @@ class SlackReceive:
         return self._verdict(receipt, command, key, attempts)
 
     def _recover(self, command, entry=None, event=None):
-        """미완 기록 1건 — lookup 먼저. 영수 없을 때만 다음 시도(재송 표식)."""
+        """미완 기록 1건 — 들어온 사건은 확인부터(결과 무관) · lookup 먼저 · 원문은 received 행에서."""
         entry = entry or self.latest().get(command) or {}
-        key = Key(*entry["key"]) if entry.get("key") else None
+        source = ([r for r in self.entries() if r.get("command") == command and r.get("state") == RECEIVED] or [entry])[-1]
+        key = Key(*source["key"]) if source.get("key") else None
+        redelivered = event is not None
+        if redelivered:  # 재전달 확인은 lookup 결과와 무관하다(DA HOLD R2)
+            self.ack(event)
+            self._step("ack")
         receipt = self.client.lookup(command)
         self._step("lookup")
         if receipt is not None:
             return self._verdict(receipt, command, key, entry.get("attempts", 1), via="lookup")
-        event = event or dict(entry, type="message", team=key.workspace, channel=key.channel, ts=key.ts)
-        return self._dispatch(command, key, event, self._next_attempt(command))
+        event = event or dict(source, type="message", team=key.workspace, channel=key.channel, ts=key.ts)
+        return self._dispatch(command, key, event, self._next_attempt(command), confirm=not redelivered)
 
     def _verdict(self, receipt, command, key, attempts, via="submit"):
         state, reason = self._judge(receipt, via)
@@ -184,17 +191,10 @@ class SlackReceive:
 
     def _judge(self, receipt, via="submit"):
         """넘김 완료 판정 — 제출 경로와 조회 경로의 조건이 다르다(DA R1 §2)."""
-        if receipt is None:
+        if receipt is None:  # 조회 None = 영수 없음 → 다음 시도 판단
             return HOLD, "영수 없음"
         if receipt.result != RESULT_OK:
             return (FULL if receipt.result == RESULT_FULL else HOLD), receipt.result
         if via == "lookup":
             return (DISPATCHED, "조회 영수") if receipt.attempt else (HOLD, "영수에 attempt 없음")
         return (DISPATCHED, "제출 영수") if receipt.written else (HOLD, "영수 미확정")
-
-def _fsync_dir(path):
-    fd = os.open(path, os.O_RDONLY)
-    try:
-        os.fsync(fd)
-    finally:
-        os.close(fd)
