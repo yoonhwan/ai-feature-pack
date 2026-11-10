@@ -64,7 +64,8 @@ d2_repo() {  # <byz|pack> → D2_REPO(대상 리포 최상위) D2_RK · 범위 �
 }
 d2_seat() {  # ⓑ 쓰기 좌석 = 그 팀 master — 실제 좌석(TMUX_PANE) · SELFTEST env 는 env -u 로 지운다
   local dx="$HERE/ft_doc_exempt.py"; [ -f "$dx" ] || std_err "좌석 판정 모듈 없음: $dx"
-  std_t7 env -u FT_DOC_EXEMPT_SELFTEST -u FT_DOC_EXEMPT_SEAT python3 "$dx" --mode team-master-seat --repo "$ROOT" --root "$ROOT"
+  std_roster_root   # ⓙ 켜기(std_seat_probe)와 «같은» 명부 루트 함수 1개(ⓘ) — ft_comm_dir·env 안 쓴다
+  std_t7 env -u FT_DOC_EXEMPT_SELFTEST -u FT_DOC_EXEMPT_SEAT python3 "$dx" --mode team-master-seat --repo "$ROOT" --root "$STD_ROOT"
   if [ "$RC" = 0 ] && [[ "$FIRST" =~ ^TEAM-MASTER-SEAT\ ([A-Za-z0-9#_-]+) ]]; then D2_BY="${BASH_REMATCH[1]}"; return 0; fi
   std_err "ⓑ 팀 master 좌석만 rc=$RC ${FIRST:-출력 없음(시간 초과 7초 포함)}"
 }

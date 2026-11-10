@@ -58,10 +58,17 @@ cmd_approve_standing() {
   unlock; echo "STANDING-GRANTED D1 repos=pack classes=$cl slack_ts=$ts"
 }
 
+std_roster_root() {  # ⓘ 명부 루트 = «$ROOT 가 속한 git 리포의 공용 루트» 1곳 — FT_ROOT·FT_MBOX_DIR·LIVE_ROOT·ft_comm_dir 은 명부 선택에 안 쓴다(DA R1 f0191161f9 §2)
+  std_t7 git -C "$ROOT" rev-parse --path-format=absolute --git-common-dir
+  [ "$RC" = 0 ] && [ -n "$FIRST" ] || std_err "명부 루트를 못 풂 — $ROOT 가 git 리포·워크트리 아님(rc=$RC)"
+  STD_ROOT="$(cd "$FIRST/.." && pwd -P)"
+}
+
 std_seat_probe() {  # r5: 실제 좌석(TMUX_PANE) · 명부 루트 출처 · 이름 lint = planner 명부 _master 인가(SELFTEST env 는 env -u 로 지운다)
   local dx="$HERE/ft_doc_exempt.py"; STD_SEAT_ERR=""; STD_SEAT_ACTUAL="unknown"
   [ -f "$dx" ] || { STD_SEAT_ERR="좌석 판정 모듈 없음: $dx"; return 2; }
-  std_t7 env -u FT_DOC_EXEMPT_SELFTEST -u FT_DOC_EXEMPT_SEAT python3 "$dx" --mode planner-seat --repo "$ROOT" --root "$ROOT"
+  std_roster_root
+  std_t7 env -u FT_DOC_EXEMPT_SELFTEST -u FT_DOC_EXEMPT_SEAT python3 "$dx" --mode planner-seat --repo "$ROOT" --root "$STD_ROOT"
   if [ "$RC" = 0 ] && [[ "$FIRST" =~ ^PLANNER-SEAT\ ([A-Za-z0-9#_-]+)$ ]]; then STD_BY="${BASH_REMATCH[1]}"; return 0; fi
   STD_SEAT_ERR="rc=$RC ${FIRST:-출력 없음(시간 초과 7초 포함)}"
   if [[ "$FIRST" =~ 실제\ 좌석\(([^\)]+)\) ]]; then STD_SEAT_ACTUAL="${BASH_REMATCH[1]}"

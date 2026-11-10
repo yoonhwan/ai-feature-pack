@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # test_autonomy_standing_d2_r1577.sh — r1577 «상시 승인 D2» (카드 r1577-approval-split-critical-slack-only) ⓐ~ⓖ + 변이 M1~M9
+#   + 명부 루트 보정 ⓗⓘⓙ(DA R1 f0191161f9 §2 §3) 와 변이 M10~M13
 #   격리: 임시 BYZ 리포(명부 2팀·판정문)·임시 팩 리포(origin = github ssh 꼴 → ssh 스텁이 로컬 bare 로) · 가짜 tmux·gh·슬랙 게시·슬랙 읽기 · FT_NOW 고정
 #   실 gh·실 슬랙·실 원격·실 상태 0 · GIT_* env 0 — press 0(나노는 쏘지 않는다)
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"
@@ -197,7 +198,44 @@ mut m9 autonomy_scope_classify.py '    hit = next(((k, w) for c, k, w in judged 
 out="$(python3 "$T/mut-m9/autonomy_scope_classify.py" classify "$KSH" --repo "$B" --scope S0 2>&1)"; rc=$?
 [ "$rc" = 3 ] && has '^FORBID kind=destroy'; ck "ⓘM9 critical 을 scope FORBID 표에 합침 → ⓔ1 칸이 FORBID 로 바뀐다(빨강)" $?
 
+# ══ ⓗⓘⓙ 명부 루트 — 데이터 루트(D) ≠ 명부 루트(R) 인 격리 꼴(ⓗ 실측 반례 · ⓘ env 무관 · ⓙ 같은 함수)
+json1() { python3 -c 'import json,sys;json.dump({"_master":sys.argv[1]},open(sys.argv[2],"w"))' "$1" "$2"; }
+mkrepo "$T/rz"; RZS="$W"; mkdir -p "$RZS/.fable-team/comm"; printf '.fable-team/\n' >> "$RZS/.git/info/exclude"
+json1 "$PL" "$RZS/.fable-team/seats-planner.json"; json1 "$HM" "$RZS/.fable-team/seats-harness.json"
+DZS="$T/rz-live"; git -C "$RZS" worktree add -q "$DZS" -b live
+printf '%s\n' "$DZS" > "$RZS/.fable-team/LIVE_ROOT"; mkdir -p "$DZS/.fable-team/comm"
+# 가짜 명부(데이터 루트 안): _master = 다른 좌석(NANO) — 명부 루트를 $ROOT·env 로 되돌리면 여기서 잘못 판정된다
+for t in planner harness test; do json1 "$NANO" "$DZS/.fable-team/seats-$t.json"; done
+hz() { local st="$1" mb="$2"; shift 2; out="$(cd "$RZS" && FT_ROOT="$DZS" FT_MBOX_DIR="$mb" FT_AUTONOMY_STATE_DIR="$st" FT_NOW="$T0" "$BASH" "${HZB:-$BIN/ft-autonomy.sh}" "$@" 2>&1)"; rc=$?; }
+HS="$T/hz-s"; rm -rf "$HS"; mkdir -p "$HS"; as_seat "$PL"
+hz "$HS" "" approve-standing D2 --repos byz,pack --classes code,docs --oppa-decision "$OD"
+[ "$rc" = 0 ] && has '^STANDING-GRANTED D2 repos=byz,pack classes=code,docs oppa_decision='; ck "ⓗ1 켜기 = 공용 리포 명부로 planner 판정(데이터 루트 가짜 명부 무시)" $?
+grep -qx "approve-standing D2 $T0 repos=byz,pack classes=code,docs oppa_decision=$OD" "$HS/autonomy.log" && grep -q 'slack_ts=' "$HS/autonomy-standing/grants.audit"; ck "ⓗ2 log·grants.audit 은 데이터 루트 \$STATE 그대로(승인 폴더 변경 0)" $?
+rm -rf "$HS"; mkdir -p "$HS"; as_seat "$HM"
+hz "$HS" "" standing-approve D2 "$A11" --pr 11 --repo pack --verdict "$T/none.md" --card "$CARD"
+[ "$rc" = 2 ] && has '① 상시 승인 D2 꺼짐'; ck "ⓙ1 쓰기 좌석도 같은 함수 — 팀 master 판정을 통과해 ①에서 멈춤" $?
+rm -rf "$HS"; mkdir -p "$HS"; as_seat "$PL"
+hz "$HS" "$DZS/.fable-team/comm" approve-standing D2 --repos byz,pack --classes code,docs --oppa-decision "$OD"
+[ "$rc" = 0 ] && has '^STANDING-GRANTED D2 '; ck "ⓘ1 FT_MBOX_DIR(데이터 루트 comm)를 줘도 명부 루트는 공용 리포" $?
+ND="$T/notgit"; rm -rf "$ND"; mkdir -p "$ND"
+out="$(cd "$ND" && FT_ROOT="$ND" FT_AUTONOMY_STATE_DIR="$T/nd-s2" FT_NOW="$T0" "$BASH" "$BIN/ft-autonomy.sh" approve-standing D2 --repos byz,pack --classes code,docs --oppa-decision "$OD" 2>&1)"; rc=$?
+[ "$rc" = 2 ] && has '명부 루트를 못 풂' && [ ! -e "$T/nd-s2/autonomy.log" ]; ck "ⓘ2 데이터 루트가 git 아님 → rc2 «명부 루트를 못 풂» · 쓰기 0" $?
+
+# ══ 변이 M10~M13 — 명부 루트 보정(ⓗⓘⓙ)을 되돌리면 그 칸이 빨강
+mut m10 ft-autonomy-standing.sh 'STD_ROOT="$(cd "$FIRST/.." && pwd -P)"' 'STD_ROOT="$ROOT"'
+rm -rf "$HS"; mkdir -p "$HS"; as_seat "$PL"; HZB="$T/mut-m10/ft-autonomy.sh" hz "$HS" "" approve-standing D2 --repos byz,pack --classes code,docs --oppa-decision "$OD"
+[ "$rc" = 2 ] && has '호출 좌석'; ck "ⓘM10 명부 루트를 \$ROOT 로 되돌림 → ⓗ1 칸이 거절된다(빨강 · 실측 꼴)" $?
+mut m11 ft-autonomy-standing.sh 'STD_ROOT="$(cd "$FIRST/.." && pwd -P)"' 'STD_ROOT="$(cd "$FT_ROOT/.fable-team/comm/../.." && pwd -P)"'
+rm -rf "$HS"; mkdir -p "$HS"; as_seat "$PL"; HZB="$T/mut-m11/ft-autonomy.sh" hz "$HS" "" approve-standing D2 --repos byz,pack --classes code,docs --oppa-decision "$OD"
+[ "$rc" = 2 ]; ck "ⓘM11 명부 루트를 ft_comm_dir 상위(초안)로 → ⓘ1 칸이 거절된다(빨강)" $?
+mut m12 ft-autonomy-standing-d2.sh '--root "$STD_ROOT"' '--root "$ROOT"'
+rm -rf "$HS"; mkdir -p "$HS"; as_seat "$HM"; HZB="$T/mut-m12/ft-autonomy.sh" hz "$HS" "" standing-approve D2 "$A11" --pr 11 --repo pack --verdict "$T/none.md" --card "$CARD"
+[ "$rc" = 2 ] && has 'ⓑ 팀 master 좌석만'; ck "ⓘM12 켜기만 고치고 쓰기는 그대로 → ⓙ1 칸이 좌석에서 막힌다(빨강)" $?
+mut m13 ft-autonomy-standing.sh 'STD_ROOT="$(cd "$FIRST/.." && pwd -P)"' 'STD_ROOT="$(cd "$FIRST/.." && pwd -P)"; [ -n "${FT_MBOX_DIR:-}" ] && STD_ROOT="$(cd "$FT_MBOX_DIR/../.." && pwd -P)"'
+rm -rf "$HS"; mkdir -p "$HS"; as_seat "$PL"; HZB="$T/mut-m13/ft-autonomy.sh" hz "$HS" "$DZS/.fable-team/comm" approve-standing D2 --repos byz,pack --classes code,docs --oppa-decision "$OD"
+[ "$rc" = 2 ]; ck "ⓘM13 FT_MBOX_DIR 을 명부 선택에 반영 → ⓘ1 칸이 거절된다(빨강)" $?
+
 # ══ 키트 사본 · 크기
 for f in ft-autonomy.sh ft-autonomy-standing-d2.sh ft-merge-land.sh ft-merge-lib.sh ft_doc_exempt.py autonomy_scope_rules.py autonomy_scope_classify.py; do cmp -s "$BIN/$f" "$BIN/../kit/fable-team/bin/$f"; ck "키트 사본 cmp0 $f" $?; done
-[ "$(wc -l < "$BIN/ft-autonomy.sh")" -le 200 ] && [ "$(wc -l < "$BIN/ft-autonomy-standing-d2.sh")" -le 121 ] && [ "$(wc -l < "$BIN/ft-merge-land.sh")" -le 120 ]; ck "줄 수 상한(autonomy 200 · standing-d2 120 · merge-land 120)" $?
+[ "$(wc -l < "$BIN/ft-autonomy.sh")" -le 200 ] && [ "$(wc -l < "$BIN/ft-autonomy-standing.sh")" -le 194 ] && [ "$(wc -l < "$BIN/ft-autonomy-standing-d2.sh")" -le 123 ] && [ "$(wc -l < "$BIN/ft-merge-land.sh")" -le 120 ]; ck "줄 수 상한(autonomy 200 · standing 194 · standing-d2 123 · merge-land 120)" $?
 [ "$fail" = 0 ] && echo "ALL PASS" || { echo "FAILED $fail"; exit 1; }
