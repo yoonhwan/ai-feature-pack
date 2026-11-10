@@ -1,0 +1,6 @@
+# ft 2.0 역할 기본값 — 역할 · 모델 · effort(pi --thinking 낱말)
+# 출처 = QA #280625(오빠 결정 2026-11-11) — 기본 세션 = claude-opus-5-5 / medium · 팀장 = claude-opus-5-5 / high
+# effort 낱말 = pi --thinking 7개(off · minimal · low · medium · high · xhigh · max) · 빈 칸·모르는 낱말 = 표 손상
+# 표에 없는 역할 = 기본값 없음 — 다른 역할 행으로 조용히 대신하지 않는다
+session	claude-opus-5-5	medium
+master	claude-opus-5-5	high
