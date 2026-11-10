@@ -1,0 +1,200 @@
+"""ft2 Slack 수신 어댑터 — 계약 줄 2·3·4·5·6·15·16 (r1580 · PR③ 첫 장).
+
+흐름(줄 2): 거름 → 메시지 키(줄 3) → 수신 기록 내구화 → Slack 확인 → 입구 전달 → 영수 판정(줄 4).
+확인 ≠ 접수: Slack 에 «받았다» 는 확인과 Intake 영수는 다른 사건이다. 넘김 완료는 두 경로로 갈린다.
+  제출 경로 = result «접수 성공» ∧ written True · 조회 경로 = result «접수 성공» ∧ attempt 있음
+  (DA HOLD R1 §2: 조회 성공 영수는 written False · body_ref None 이 정상이다).
+«완료 유보»·«복구 필요»·«용량 부족»·«BUSY»(r1579 실행권) = 미완 보존 — 영수 0 · 기록 보존 · 알림 1건.
+미인가·bot·다른 채널(줄 15) = 확인만 하고 버린다. 유휴·중복·무변화(줄 16) = 도구 안에서 끝난다.
+재송(줄 5) = 머리에 메시지 키 표식 1줄 · 회차는 기록에 누적(재기동마다 새로 만들기 0) · 좌석이 2번째
+표식을 안 읽는 것은 Intake 의 같은 command 재부여 0(«완료 유보»)이 보장한다.
+"""
+
+import collections
+import importlib.util
+import json
+import os
+import time
+
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_SPEC = importlib.util.spec_from_file_location(
+    "ft2_core_intake", os.path.join(os.path.dirname(os.path.dirname(_HERE)), "core", "intake.py"))
+intake = importlib.util.module_from_spec(_SPEC)
+_SPEC.loader.exec_module(intake)
+
+RESULT_OK, RESULT_FULL = intake.RESULT_OK, intake.RESULT_FULL
+DISPATCHED, DUPLICATE, IGNORED = "dispatched", "duplicate", "ignored"
+RECEIVED, FULL, HOLD, IDLE = "received", "full", "hold", "idle"
+UNFINISHED = (RECEIVED, HOLD, FULL)
+BOT_SUBTYPES = ("bot_message", "bot_add")
+
+#: 이 장이 덮는 계약 줄 — 계약 낱말 그대로 적는다(시험이 사례 expect 낱말과 대조한다).
+COVERS = {
+    2: "거름 → 메시지 키 → 기록 → Slack 확인 → 입구 전달 · 확인 ≠ 업무 접수",
+    3: "메시지 키 (workspace, channel, ts) · 전송 힌트 event_id·client_msg_id",
+    4: "넘김 완료 = 팀 도구 입구 영수 · 영수가 없으면 같은 전달 의도로 대조·복구",
+    5: "재송 머리에 메시지 키 표식 · 같은 표식 2번째부터 안 읽음",
+    6: "입구 가득이면 영수 0 · 접수 아님 · 기록 보존 + 알림",
+    15: "미인가·bot·다른 채널은 확인만 하고 버림",
+    16: "유휴·중복·무변화 — 모델 호출·좌석 깨움·틱 상태 메시지 0",
+}
+
+Key = collections.namedtuple("Key", "workspace channel ts")
+
+def message_key(event):
+    """메시지 키 3종 — event 안 team 이 없으면 envelope 최상위 team 을 쓴다."""
+    return Key(str(event.get("team") or event.get("workspace") or ""),
+               str(event.get("channel") or ""), str(event.get("ts") or ""))
+
+def command_for(key):
+    """입구 command = 메시지 키 3종 그대로. 같은 키 = 같은 command = 새 attempt 0."""
+    return "slack:%s:%s:%s" % (key.workspace, key.channel, key.ts)
+
+def resend_marker(key, attempts):
+    """재송 머리 표식 — 2번째 시도부터 1줄. 회차는 기록이 정한다."""
+    if attempts <= 1:
+        return ""
+    return "[[slack-key %s/%s/%s]] 재송 %d\n" % (key.workspace, key.channel, key.ts, attempts - 1)
+
+class SlackReceive:
+    """Slack 사건 1건 = 판정 1개. 상태는 `state` 한 낱말로만 말한다."""
+    _key = staticmethod(message_key)
+    def __init__(self, root, *, ack, client=None, team="harness", capacity=8, allowed_users=(),
+                 allowed_channels=(), bot_users=(), notify=None, clock=None, on_step=None):
+        self.ack = ack
+        self.notify = notify or (lambda verdict: None)
+        self.allowed_users, self.allowed_channels = set(allowed_users), set(allowed_channels)
+        self.bot_users, self.clock = set(bot_users), clock or (lambda: time.strftime("%Y-%m-%dT%H:%M:%S"))
+        self.on_step, self.steps = on_step or (lambda step: None), []
+        data = os.path.join(os.path.abspath(str(root)), ".fable-team", "teams", team, "slack")
+        os.makedirs(data, exist_ok=True)
+        self.path = os.path.join(data, "receive.jsonl")
+        self.client = client or intake.Intake(str(root), team, capacity=capacity, clock=self.clock)
+
+    def entries(self):
+        if not os.path.exists(self.path):
+            return []
+        with open(self.path, encoding="utf-8") as handle:
+            return [json.loads(line) for line in handle if line.strip()]
+
+    def latest(self):
+        return {entry["command"]: entry for entry in self.entries() if entry.get("command")}
+
+    def _append(self, entry):
+        with open(self.path, "a", encoding="utf-8") as handle:
+            handle.write(json.dumps(dict(entry, schema=1, at=self.clock()),
+                                    ensure_ascii=False, sort_keys=True) + "\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        _fsync_dir(os.path.dirname(self.path))
+        return entry
+
+    def _step(self, name):
+        self.steps.append(name)
+        self.on_step(name)
+
+    def _next_attempt(self, command):
+        """시도 회차 = 기록 누적 최대값 + 1 — 재기동마다 새로 만들지 않는다."""
+        seen = [entry.get("attempts", 1) for entry in self.entries() if entry.get("command") == command]
+        return max(seen or [0]) + 1
+
+    def handle(self, event):
+        """사건 1건 처리. 반환 = 판정 1개. 사건이 비면 유휴 회차."""
+        self.steps = []
+        if not event:
+            return self.pass_idle()
+        self._step("filter")
+        reason, key = self._drop_reason(event), self._key(event)
+        self._step("key")
+        command = command_for(key)
+        if reason:
+            self.ack(event)
+            self._step("ack")
+            return self._append({"state": IGNORED, "command": command, "key": list(key),
+                                 "reason": reason, "attempts": 0, "acked": True})
+        prior = self.latest().get(command)
+        if prior and prior.get("state") in (DISPATCHED, DUPLICATE, IGNORED):
+            self.ack(event)  # 같은 키 재전달 = 새 접수 0, 버린 사건은 계속 버린다(줄 15·16)
+            self._step("ack")
+            again = IGNORED if prior["state"] == IGNORED else DUPLICATE
+            return self._append({"state": again, "command": command, "key": list(key),
+                                 "reason": prior["state"], "attempts": prior.get("attempts", 0), "acked": True})
+        if prior:
+            return self._recover(command, entry=prior, event=event)
+        return self._dispatch(command, key, event, self._next_attempt(command))
+
+    def pass_idle(self):
+        self._step("idle")  # 줄 16 — 모델 호출·좌석 깨움·기록 증가 0
+        return {"state": IDLE, "reason": "무변화", "command": None}
+
+    def recover(self):
+        """재기동 1회 — 미완 기록마다 lookup 먼저(새 attempt 0). 반환 = 판정 목록."""
+        return [self._recover(command, entry=entry)
+                for command, entry in sorted(self.latest().items()) if entry.get("state") in UNFINISHED]
+
+    def _drop_reason(self, event):
+        if event.get("type", "message") != "message":
+            return "message 아님"
+        if event.get("bot_id") or event.get("subtype") in BOT_SUBTYPES or event.get("user") in self.bot_users:
+            return "bot"
+        if event.get("user") not in self.allowed_users:
+            return "미인가 사용자"
+        if event.get("channel") not in self.allowed_channels:
+            return "허용 밖 채널"
+        return "" if str(event.get("text") or "").strip() else "무변화"
+
+    def _dispatch(self, command, key, event, attempts, confirm=True):
+        """새 전달 1회 — 기록 → 확인 → 입구 → 영수 판정(계약 줄 2 순서)."""
+        self._append({"state": RECEIVED, "command": command, "key": list(key), "attempts": attempts,
+                      "event_id": event.get("event_id"), "client_msg_id": event.get("client_msg_id"),
+                      "user": event.get("user"), "text": str(event.get("text") or ""), "acked": False})
+        self._step("record")
+        if confirm:
+            self.ack(event)
+            self._step("ack")
+        receipt = self.client.submit(command, resend_marker(key, attempts) + str(event.get("text") or ""),
+                                     {"slack": {"workspace": key.workspace, "channel": key.channel,
+                                                "ts": key.ts, "attempts": attempts}})
+        self._step("submit")
+        return self._verdict(receipt, command, key, attempts)
+
+    def _recover(self, command, entry=None, event=None):
+        """미완 기록 1건 — lookup 먼저. 영수 없을 때만 다음 시도(재송 표식)."""
+        entry = entry or self.latest().get(command) or {}
+        key = Key(*entry["key"]) if entry.get("key") else None
+        receipt = self.client.lookup(command)
+        self._step("lookup")
+        if receipt is not None:
+            return self._verdict(receipt, command, key, entry.get("attempts", 1), via="lookup")
+        event = event or dict(entry, type="message", team=key.workspace, channel=key.channel, ts=key.ts)
+        return self._dispatch(command, key, event, self._next_attempt(command))
+
+    def _verdict(self, receipt, command, key, attempts, via="submit"):
+        state, reason = self._judge(receipt, via)
+        verdict = self._append({"state": state, "command": command, "key": list(key), "attempts": attempts,
+                                "via": via, "reason": reason,
+                                "receipt": None if receipt is None else
+                                {"result": receipt.result, "attempt": receipt.attempt,
+                                 "written": receipt.written}})
+        self._step("receipt")
+        if receipt is not None and receipt.result == RESULT_FULL:
+            self.notify(verdict)  # 줄 6 = 기록 보존 + 알림 1건
+            self._step("notify")
+        return verdict
+
+    def _judge(self, receipt, via="submit"):
+        """넘김 완료 판정 — 제출 경로와 조회 경로의 조건이 다르다(DA R1 §2)."""
+        if receipt is None:
+            return HOLD, "영수 없음"
+        if receipt.result != RESULT_OK:
+            return (FULL if receipt.result == RESULT_FULL else HOLD), receipt.result
+        if via == "lookup":
+            return (DISPATCHED, "조회 영수") if receipt.attempt else (HOLD, "영수에 attempt 없음")
+        return (DISPATCHED, "제출 영수") if receipt.written else (HOLD, "영수 미확정")
+
+def _fsync_dir(path):
+    fd = os.open(path, os.O_RDONLY)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
