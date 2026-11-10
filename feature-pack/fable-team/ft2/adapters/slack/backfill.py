@@ -123,8 +123,8 @@ class Backfill:
             verdict = self.route.route(dict(item, team=item.get("team") or self.team, channel=channel,
                                             thread_ts=thread))
             self._step("route")
-            if verdict.get("state") not in PROCESSED:
-                return "no_receipt %s:%s@%s" % (channel, thread, item.get("ts"))  # 커서를 밀지 않는다
+            if verdict.get("state") not in PROCESSED or not verdict.get("receipt", True):
+                return "no_receipt %s:%s@%s" % (channel, thread, item.get("ts"))  # 영수 없으면 커서 그대로
             if verdict.get("state") == DISPATCHED:
                 row["dispatched"] += 1
             self.cursors.advance(seat, thread, str(item.get("ts") or ""))  # 기존 영수도 위치를 복원한다(R3)

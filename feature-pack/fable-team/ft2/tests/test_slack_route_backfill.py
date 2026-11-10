@@ -453,7 +453,10 @@ MUTATIONS = {
     "m6": (BACKFILL, "        if reason not in REASONS:", "        if False:"),
     "m7": (ROUTE, '                return LATE % asked["id"], DESK, False',
            "                return NEW, DESK, False"),
-}
+    "m8": (ROUTE, '                and row.get("which") == ANSWERED and row.get("state") == DISPATCHED}',
+           '                and row.get("which") == ANSWERED}'),  # M8 — 영수 없는 답도 중복 근거
+    "m9": (ROUTE, "route=dict(self.owner.describe(command))", "route=dict(self.owner.describe())"),
+}  # M9 — 재기동 복구가 문맥을 잃는다
 
 
 def _mutant(root, name, source, old, new):
@@ -468,7 +471,7 @@ def _mutant(root, name, source, old, new):
     return _load("mut_" + name, str(target))
 
 
-def test_m1_m7_product_file_mutations_break_the_checks(tmp_path):
+def test_m1_m9_product_file_mutations_break_the_checks(tmp_path):
     muts = {name: _mutant(tmp_path / "mut", name, *spec) for name, spec in MUTATIONS.items()}
     cases = (
         ("m1", lambda root: _check_c6(_scenario_c6(root, muts["m1"].SlackRoute))),
@@ -478,6 +481,8 @@ def test_m1_m7_product_file_mutations_break_the_checks(tmp_path):
         ("m5", lambda root: _check_d3(_scenario_d3(root, worker_cls=muts["m5"].Backfill))),
         ("m6", lambda root: _check_d3(_scenario_d3(root, worker_cls=muts["m6"].Backfill))),
         ("m7", lambda root: _check_f4(_scenario_f4(root, muts["m7"].SlackRoute))),
+        ("m8", lambda root: _retry_unaccepted(root, muts["m8"].SlackRoute)),
+        ("m9", lambda root: _recovered_context(root, muts["m9"].SlackRoute)),
     )
     for name, run in cases:
         with pytest.raises(AssertionError):
@@ -500,3 +505,65 @@ def test_f_cases_listed_and_invariants():
     assert re.compile(r"xox[abposre]-|xapp-\d").search(source) is None
     network = r"^\s*(?:import|from)\s+(?:subprocess|urllib|requests|socket|http)\b"
     assert re.compile(network, re.M).search(source) is None  # 외부 호출 0(대역 주입만)
+
+
+def _retry_unaccepted(tmp, route_cls=route_mod.SlackRoute):
+    """영수 없는 답(full·ignored)은 중복 근거가 아니다 — 용량이 늘면 정상 접수된다."""
+    root = tmp / "full_answer"
+    route, binder, _delivered, client, _band = _env(root, route_cls, capacity=1)
+    binder.bind(route_mod.thread_key(_event()), "seat-a")
+    route.route(_event(request_id="Q7", text="질문"))
+    answer = _reply(T2, "아직 못 받은 답")
+    assert route.route(answer)["state"] == "full"
+    rebooted, _binder, _d2, client2, _band2 = _env(root, route_cls, capacity=64)  # 용량 확보 뒤 재기동
+    retry = rebooted.route(answer)
+    command = slack.command_for(slack.message_key(answer))
+    assert (retry["state"], retry["receipt"], client2.lookup(command) is not None) == ("dispatched", True, True)
+
+    route, binder, _delivered, client, _band = _env(tmp / "ignored_answer", route_cls)
+    binder.bind(route_mod.thread_key(_event()), "seat-a")
+    route.route(_event(request_id="Q7", text="질문"))
+    assert route.route(dict(_reply(T2, "보통 답"), user="UNAUTHORIZED"))["state"] == "ignored"
+    assert route.route(_reply(T3, "보통 답"))["state"] == "dispatched"  # 거른 사건이 중복 근거를 오염시키지 않는다
+
+    root = tmp / "cursor_hold"  # 영수 None 인 행은 커서를 밀지 않는다
+    route, binder, _delivered, _client, _band = _env(root, route_cls, capacity=1)
+    binder.bind(route_mod.thread_key(_event()), "seat-a")
+    route.route(_event())
+    blocked = route.route(_reply(T2, "용량 밖"))
+    history = _History([{"team": W, "thread": TS, "ts": T2, "user": "U1", "text": "용량 밖"}])
+    worker = backfill.Backfill(str(root), route=route, fetch=history.fetch, cursors=backfill.Cursors(str(root), TEAM),
+                               team=TEAM)
+    run = worker.run(backfill.RESTART, [("seat-a", C, TS)])
+    assert (blocked["state"], worker.cursors.get("seat-a", TS), run["state"]) == ("full", "", "미완")
+
+
+def _recovered_context(tmp, route_cls=route_mod.SlackRoute):
+    """재기동 recover 경로도 같은 command 의 work.route·pending 을 채운다."""
+    root = tmp / "routing_recover"
+    route, binder, _delivered, _client, _band = _env(root, route_cls, capacity=1)
+    key = route_mod.thread_key(_event())
+    binder.bind(key, "seat-a")
+    route.route(_event())
+    binder.close(key)
+    answer = _reply(T2, "닫힌 thread 미접수")
+    full = route.route(answer)
+    rebooted, _binder, _d2, client2, _band2 = _env(root, route_cls, capacity=64)  # 재기동
+    recovered = rebooted.receive.recover()  # 기존 공개 복구 경로
+    command = slack.command_for(slack.message_key(answer))
+    record = [item for item in client2.records() if item["command"] == command][0]
+    meta = (record["work"] or {}).get("route") or {}
+    assert (full["to"], full["kind"]) == (DESK, "재개 필요")
+    assert (recovered[0]["state"], meta.get("to"), meta.get("kind"), meta.get("thread")) == (
+        "dispatched", DESK, "재개 필요", key.root)
+    assert len(rebooted.pending("seat-next")) == 1
+
+
+def test_r1_retry_of_unaccepted_answer_is_accepted(tmp_path):
+    """R1 잔여 — 미접수 답 재시도가 duplicate 로 막히지 않고, 영수 없는 행은 커서를 밀지 않는다."""
+    _retry_unaccepted(tmp_path)
+
+
+def test_r2_recovered_dispatch_keeps_route_context(tmp_path):
+    """R2 잔여 — 재기동 recover 접수도 work.route(to·kind·thread)와 pending 을 정상 경로와 같게 갖는다."""
+    _recovered_context(tmp_path)
