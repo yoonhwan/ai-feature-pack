@@ -16,15 +16,17 @@ now() { date +%s; }
 secs() { echo "$(( $(now) - $1 ))초"; }
 cp -Rp "$COMM" "$T/comm"
 run_py() {  # $1 = comm 사본 · $2 = -k 식(선택) — 로그 파일명은 호출마다 새 번호
-  local c="$1" k="${2:-}" log
+  local c="$1" k="${2:-}" log rc=0
   n=$((n + 1)); log="$T/py-$n.log"
   if [ -n "$k" ]; then ( cd "$SC" && R1562_COMM="$c" timeout 70 pytest -q -p no:cacheprovider test_mbox_bridged_send_r1562.py -k "$k" >"$log" 2>&1 )
   else ( cd "$SC" && R1562_COMM="$c" timeout 70 pytest -q -p no:cacheprovider test_mbox_bridged_send_r1562.py >"$log" 2>&1 ); fi
-  cp -p "$log" "$T/py.last.log"; return $?
+  rc=$?                                   # ★pytest rc 를 «먼저» 받는다★ — 뒤에 cp 를 부르면 return $? 가 cp rc 를 돌린다(DA #278790 ①)
+  cp -p "$log" "$T/py.last.log" || true
+  return "$rc"
 }
 
 t=$(now); run_py "$T/comm"; rc=$?
-ck "ⓐ~ⓕ $(grep -Eo '[0-9]+ passed' "$T/py.last.log") $(secs "$t")" "$rc"
+ck "ⓐ~ⓕ rc=$rc · $(grep -Eo '[0-9]+ passed' "$T/py.last.log") $(secs "$t")" "$rc"
 
 # 변이 — 사본의 한 곳을 무력화하면 그 시험이 FAIL 해야 한다(실 파일 치환 0 · 사본만)
 mutate() {  # $1 이름 $2 원문(고정 문자열) $3 바꿀 글 $4 -k(선택)
@@ -35,7 +37,8 @@ s = open(p, encoding="utf-8").read()
 assert s.count(a) == 1, s.count(a)
 open(p, "w", encoding="utf-8").write(s.replace(a, b))
 PY
-  t=$(now); run_py "$T/comm" "${4:-}"; rc=$?; [ "$rc" -ne 0 ]; ck "변이 $1 → $(grep -Eo '[0-9]+ failed' "$T/py.last.log") FAIL $(secs "$t")" $?
+  t=$(now); run_py "$T/comm" "${4:-}"; rc=$?; [ "$rc" -ne 0 ]; ok=$?   # ★ok 를 «먼저» 받는다★ — ck 인자에 $(grep) 이 있으면 $? 가 grep rc 로 바뀐다
+  ck "변이 $1 → rc=$rc · $(grep -Eo '[0-9]+ failed' "$T/py.last.log") FAIL $(secs "$t")" "$ok"
   cp -p "$COMM/mbox.sh" "$T/comm/mbox.sh"
 }
 SEND_BLOCK='    case "$py_out" in BRIDGED*)   # ★r1562 — 다른 루트로 간 쪽지면 여기서 끝난다★(사유는 bridged_out 주석 · rsv = 이 게이트가 «예약을 실제로 했나»)
@@ -57,8 +60,10 @@ for blk in (a, b):
     s = s.replace(blk, "")
 open(p, "w", encoding="utf-8").write(s)
 PY
-t=$(now); run_py "$T/comm"; rc=$?; [ "$rc" -ne 0 ] && [ "$(grep -cE '^FAILED .*test_case_(a|b|c|e)_' "$T/py.last.log")" = 4 ]
-ck "변이 M0 사전 대조 → $(grep -Eo '[0-9]+ failed' "$T/py.last.log") FAIL(ⓐⓑⓒⓔ) $(secs "$t")" $?
+t=$(now); run_py "$T/comm"; rc=$?
+nf="$(grep -cE '^FAILED .*test_case_(a|b|c|e)_' "$T/py.last.log")" || nf=0   # ★$? 를 먼저 변수로★
+[ "$rc" -ne 0 ] && [ "$nf" = 4 ]; ok=$?
+ck "변이 M0 사전 대조 → rc=$rc · $(grep -Eo '[0-9]+ failed' "$T/py.last.log") FAIL(ⓐⓑⓒⓔ) $(secs "$t")" "$ok"
 cp -p "$COMM/mbox.sh" "$T/comm/mbox.sh"
 mutate "M1 send 분기 제거" "$SEND_BLOCK" "" "case_a or case_b"
 mutate "M2 예산 되돌림 제거" "$REFUND_LINE" '  :' "case_c"
