@@ -248,7 +248,9 @@ TRAP_LINE = re.compile(r"^\s*(?:(?P<pre>[A-Za-z_][A-Za-z0-9_]*)=\s*" + MKTEMP_VA
                        r"trap\s+(?P<q>['\"])(?P<body>.+?)(?P=q)\s+EXIT\s*;?\s*$")
 TRAP_RM_RF_BODY = re.compile(r'^rm -rf "\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?"$')
 # DA② R1: 대입은 «줄 머리» 에서 «값 전체» 가 mktemp -d 여야 한다 — re.search 로 본문 어딘가의 접두만 보면 주석 줄·`$(mktemp -d)/../..` 가 통과한다
+# NG3: 재대입을 «줄 머리» 로만 세면 `true; T=/` · `local T=/` · `T+=/../..` · `read -r T` · `for T in /` 가 새어나간다 — 맨 이름 출현으로 센다
 MKTEMP_LINE = r"(?m)^[ \t]*(?:export[ \t]+)?%s[ \t]*=[ \t]*"   # 줄 머리 대입만(주석·문자열 속 대입은 안 센다)
+MKTEMP_NAME = r"(?<![$\w{])%s(?![A-Za-z0-9_])"                # «쓰는 자리»($T·${T})가 아닌 맨 이름 — 대입·재대입·read·for 를 전부 센다
 MKTEMP_TAIL = r"[ \t]*(?:;[ \t]*trap\s+.*)?$"                  # 값 뒤 = 줄 끝 또는 «; trap …» 하나
 
 
@@ -263,10 +265,9 @@ def mktemp_trap_exempt(path, txt, show=None):   # → True = «그 시험이 방
     if not body:
         return False
     v = re.escape(var.group(1))
-    assign = MKTEMP_LINE % v
-    if len(re.findall(assign, body)) != 1:   # 줄 머리 대입이 «정확히 1번»(재대입 = 대상이 그 임시 폴더가 아닐 수 있다)
+    if len(re.findall(MKTEMP_NAME % v, body)) != 1:   # 맨 이름이 «정확히 1번»(재대입·추가 대입·read·for = 대상이 그 임시 폴더가 아니다 · NG3)
         return False
-    return bool(re.search(assign + MKTEMP_VALUE + MKTEMP_TAIL, body))   # 값 «전체» 가 mktemp -d (DA② R1-a: 뒤에 붙은 /../.. = destroy)
+    return bool(re.search(MKTEMP_LINE % v + MKTEMP_VALUE + MKTEMP_TAIL, body))   # 값 «전체» 가 mktemp -d (DA② R1-a: 뒤에 붙은 /../.. = destroy)
 
 
 def critical_kinds(blocks, secret=None, show=None):   # → (종류, 사유) | None · blocks = autonomy_scope_secret.parse_added 결과
