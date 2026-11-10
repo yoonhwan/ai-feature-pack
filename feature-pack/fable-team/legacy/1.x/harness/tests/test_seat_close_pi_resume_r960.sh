@@ -38,7 +38,7 @@ cat > "$T/bin/tmux" <<'EOF'
 #!/usr/bin/env bash
 echo "$*" >> "$TMUX_LOG"
 case "$1" in
-  has-session) [ "${FAKE_SESSION:-1}" = 1 ];;                                  # 살아 있는 좌석인가
+  has-session) [ "${FAKE_SESSION:-1}" = 1 ] && { [ -z "$TMUX_LOG" ] || ! grep -q '^kill-session' "$TMUX_LOG"; };;   # 살아 있는 좌석인가 · r1568: kill-session 뒤엔 «세션 없음»
   display) printf '%s %s\n' "${FAKE_PANE_PID:-1}" "${FAKE_PANE_CWD:-/tmp}" ;;  # ft_roster_lib.pi_seat_resume 의 결속 조회
   show-options) exit 0;;                                                       # @zc_v65_active 없음
   list-sessions) printf '%s\n' ${FAKE_SESSIONS:-} ;;                            # ⓦr5-4 lineage_ok 의 같은 계보 더 큰 번호 생존

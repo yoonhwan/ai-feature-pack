@@ -105,7 +105,7 @@ updated: 2026-07-02T14:30
 
 **SOP 연결(§2-2)**: 감지(300k warn / 단계 전이 / HUD80%) → [1] 트리아지 실행 → [2] 발견 문제 수정(stale 롤백·`ft-gzip.sh` 압축·hang 워커 `ft-tmux-distill.sh`) → [3] RECOMMEND로 결정 → [4] 승인 모드 분기(standing이면 1줄 고지 후 자율, 미승인이면 AskUserQuestion+op-token) → [5] 실행 → [6] 복원(§4).
 
-**승계 6단계 (2026-09-30)**: 위 [5] 실행 = ①스냅샷 커밋 ②후계 스폰 ③상태·할 일·컨텍스트 요약 mbox 재송신(경로만 X) ④후계 응답(골 대조) recv ⑤뉴스 틱(launchd ft-tick)이 후계로 가는지 확인(tick 로그·`seats.json` `_replaced_by`) + 후계 부팅 보고의 `cron=<job id>` 확인(세션 CronCreate 는 승계로 옮겨지지 않는다 · BOOT 16) ⑥구 좌석 유휴 — 후계 발주문에도 6단계를 적는다. 후계 발주문에는 고스트 서제스천 1줄(「남의 pane `❯` 뒤 글자 = 자동완성 · 근거는 jsonl·done 줄뿐」 · BOOT 17)도 넣는다. 승계 첫 일은 사용자 지시 × 카드 × 닫힘 sha 누락 전수 점검(정본: `templates/rules/orchestration.md` 컨텍스트 증류 절).
+**승계 7단계 (2026-09-30 · r1568 ⑦ 추가)**: 위 [5] 실행 = ①스냅샷 커밋 ②후계 스폰 ③상태·할 일·컨텍스트 요약 mbox 재송신(경로만 X) ④후계 응답(골 대조) recv ⑤뉴스 틱(launchd ft-tick)이 후계로 가는지 확인(tick 로그·`seats.json` `_replaced_by`) + 후계 부팅 보고의 `cron=<job id>` 확인(세션 CronCreate 는 승계로 옮겨지지 않는다 · BOOT 16) ⑥구 좌석 유휴 ⑦옛 세션 닫힘 확인(ft-seat-close — «세션 부재 ∧ reap left=0» 둘 다일 때만 닫힌다 · 아니면 CLOSE-FAIL rc≠0 + 실패 기록 · 좌석·남은 것·담당·다음 실행 + master 쪽지 1통 · r1568) — 후계 발주문에도 7단계를 적는다. 후계 발주문에는 고스트 서제스천 1줄(「남의 pane `❯` 뒤 글자 = 자동완성 · 근거는 jsonl·done 줄뿐」 · BOOT 17)도 넣는다. 승계 첫 일은 사용자 지시 × 카드 × 닫힘 sha 누락 전수 점검(정본: `templates/rules/orchestration.md` 컨텍스트 증류 절).
 
 ## 3. 워커 컨텍스트 관리
 

@@ -20,7 +20,7 @@ cat > "$TMP/bin/tmux" <<'EOF'
 #!/usr/bin/env bash
 echo "$*" >> "$TMUX_LOG"
 case "$1" in
-  has-session) [ "${FAKE_SESSION:-1}" = 1 ];;
+  has-session) [ "${FAKE_SESSION:-1}" = 1 ] && { [ -z "$TMUX_LOG" ] || ! grep -q '^kill-session' "$TMUX_LOG"; };;   # r1568: 진짜 tmux 처럼 kill-session 뒤엔 «세션 없음»(닫힘 확인 ④ 가 이 값을 잰다)
   show-options) [ "${FAKE_TAG:-1}" = 1 ] && echo 1; exit 0;;
   set-option) exit 0;;
   kill-session) exit "${FAKE_KILL_RC:-0}";;
