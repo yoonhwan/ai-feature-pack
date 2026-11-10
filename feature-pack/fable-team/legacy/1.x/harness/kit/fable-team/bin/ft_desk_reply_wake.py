@@ -232,7 +232,7 @@ def scan(base: Path, led: Path, now: float) -> int:
             bad("쪽지 발신 실패 — %s 알림 0(다음 주기 재시도)" % h)
             nbad += 1
             continue
-        up[q] = {"notified_ts": m.group(1), "notified_at": int(now), "state": "notified"}
+        up[q] = {"notified_ts": m.group(1), "notified_at": int(now)} | ({"state": "closed", "closed": "replied"} if qn else {"state": "notified"})  # r1591 · 질문 줄은 답글 알림 성공 = 그 줄 끝(DA #280338 R1: 24h 오알림 0)
         sent += 1
     if picked:
         cursor(led, (picked[-1] + 1) % len(rows))

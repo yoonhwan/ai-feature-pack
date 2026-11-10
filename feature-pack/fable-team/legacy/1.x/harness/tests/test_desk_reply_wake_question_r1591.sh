@@ -21,8 +21,7 @@ mk_replies() {  # [답글ts] — 빈 인자면 오빠 답글 없음
   python3 - "$T/replies.json" "${1-$RTS}" "$QTS" <<'PY'
 import json, sys
 m = [{"ts": sys.argv[3], "user": "U0C9GRFHJ", "text": "설계 승인 부탁드립니다 — r1590 카드"}]
-if sys.argv[2]:
-    m.append({"ts": sys.argv[2], "user": "U0AC2JF0M7D", "text": "좋아 진행"})
+sys.argv[2] and m.append({"ts": sys.argv[2], "user": "U0AC2JF0M7D", "text": "좋아 진행"})
 json.dump({"ok": True, "messages": m}, open(sys.argv[1], "w", encoding="utf-8"), ensure_ascii=False)
 PY
 }
@@ -42,8 +41,9 @@ run >/dev/null 2>&1; chk "ⓐ scan rc=0" 0 "$?"
 chk "ⓐ 쪽지 1통 · 받는이 = _master(desk 아님)" "1 $MASTER" "$(sends) $(cut -f1 "$SENT")"
 chk "ⓐ 본문 = «[오빠 답글] r1590 ts=<답글>»" "[오빠 답글] $KEY ts=$RTS" "$(cut -f2 "$SENT")"
 run >/dev/null 2>&1; chk "ⓐ 같은 답글 두 번째 주기 0통" 1 "$(sends)"
-RUN_NOW=$((NOW + 86401)) run >/dev/null 2>&1; chk "ⓐ 24h 경과 = master 1통 더" "2 $MASTER" "$(sends) $(tail -1 "$SENT" | cut -f1)"
-chk "ⓐ 경과 본문 · 줄 닫힘" "closed timeout" "$(field state) $(field closed)"
+RUN_NOW=$((NOW + 86401)) run >/dev/null 2>&1; chk "ⓐ 알림 성공 = 그 줄 닫힘 · 24h 뒤 오알림 0통" "1 closed replied" "$(sends) $(field state) $(field closed)"
+: > "$SENT"; printf '{"q_ts":"1794300500.111111","kind":"question","key":"r1591b","at":%d,"deadline":%d,"state":"open"}\n' "$NOW" "$NOW" > "$LEDGER"
+RUN_NOW=$((NOW + 86401)) run >/dev/null 2>&1; chk "ⓐ 미응답 24h = master 1통 · 닫힘(timeout 동결)" "1 closed timeout" "$(sends) $(field state) $(field closed)"
 
 echo "== ⓑ question_mode_never_prints_slack_ok =="
 b() { ( cd "$ROOT" && FT_SLACK_REPLIES_CMD="bash $T/replies.sh" timeout $TO python3 "$CHECK" "$@" ); }
