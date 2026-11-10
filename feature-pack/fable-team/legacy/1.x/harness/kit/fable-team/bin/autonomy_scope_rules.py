@@ -222,14 +222,15 @@ def load_ddl_records(path):   # 줄 꼴 `기록 파일(리포 기준 경로)<TAB
 #   판정 대상 = merge-base..head 의 «추가된 줄·추가된 파일» · 글자 규칙이라 모든 언어 해석 0
 CRIT_LAUNCHD = re.compile(r"(^|/)(LaunchAgents|LaunchDaemons)/[^/]*\.plist$", re.I)
 CRIT_CONFIG = re.compile(r"(^|/)(\.codex/)?config\.toml$|(^|/)(cliproxy|headroom)[^/]*\.(json|ya?ml|toml|conf|ini)$|"
-                         r"(^|/)models\.json$|(^|/)\.env(\.[^/]*)?$", re.I)
+                         r"(^|/)\.env(\.[^/]*)?$", re.I)   # R1: 외부 설정은 «새 파일» 만이 아니라 «있던 파일의 값 변경» 도 크리티컬
+CRIT_APIKEY_PATH = re.compile(r"(^|/)models\.json$", re.I)   # models.json = apiKey 칸만(카드 ⓒ② 문구 그대로 — 범위 임의 확장 0)
 CRIT_APIKEY = re.compile(r"apiKey", re.I)
 CRIT_DESTROY = re.compile(
     r"\b(?:kill|pkill|killall)\b|"
     r"\blaunchctl\s+(?:bootout|unload|remove)\b|"
     r"\brm\s+-[A-Za-z]*[rR][A-Za-z]*[fF]\b|\brm\s+-[A-Za-z]*[fF][A-Za-z]*[rR]\b|"
     r"\btmux\s+kill-(?:server|session)\b|"
-    r"\bgit\s+push\b[^\n]*?(?:--force(?:-with-lease)?|\s-[A-Za-z]*f[A-Za-z]*\b|--delete\b|\s-d\b|\s\+refs/|\s:)\S*|"
+    r"\bgit\s+push\b[^\n]*?(?:--force(?:-with-lease)?|\s-[A-Za-z]*f[A-Za-z]*\b|--delete\b|\s-d\b|\s\+[^\s]+|\s:)\S*|"
     r"\bgit\s+branch\b[^\n]*?(?:\s-D\b|\s--delete\b)|"
     r"\bDROP\s+(?:TABLE|DATABASE)\b|\bFLUSH(?:ALL|DB)\b", re.I)
 
@@ -238,9 +239,12 @@ def critical_kinds(blocks, secret=None):   # → (종류, 사유) | None · bloc
     for path, _items, is_new in blocks:   # ① 새 LaunchAgents/LaunchDaemons plist
         if is_new and CRIT_LAUNCHD.search(path or ""):
             return "launchd", "새 launchd plist: %s" % path
-    for path, items, is_new in blocks:   # ② 외부 설정(cliproxy·headroom · codex config.toml · models.json apiKey 칸 · .env)
-        if CRIT_CONFIG.search(path or "") and (is_new or any(CRIT_APIKEY.search(t) for _n, t in items)):
-            return "config", "%s · %s" % (path, "새 설정 파일" if is_new else "apiKey 칸")
+    for path, items, is_new in blocks:   # ② 외부 설정(cliproxy·headroom · codex config.toml · .env) — 새 파일이든 값 변경이든
+        if CRIT_CONFIG.search(path or ""):
+            return "config", "%s · %s" % (path, "새 설정 파일" if is_new else "기존 설정 값 변경")
+    for path, items, _is_new in blocks:   # ② models.json = apiKey 칸(R1: 여기만 좁게 — 다른 일반 값 변경은 크리티컬 아님)
+        if CRIT_APIKEY_PATH.search(path or "") and any(CRIT_APIKEY.search(t) for _n, t in items):
+            return "config", "%s · apiKey 칸" % path
     why = secret() if secret else ""   # ③ 비밀 줄(autonomy_scope_secret.reason 재사용)
     if why:
         return "secret", why

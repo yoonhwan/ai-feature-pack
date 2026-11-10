@@ -28,7 +28,8 @@ export FT_ROOT="$B" FT_AUTONOMY_STATE_DIR="$S" FT_PLANNER_DIR="$T/pdir" FT_SEAT=
 export FT_SCOPE_SLACK_POST="$T/stub/post.sh" FT_SLACK_REPLIES_CMD="$T/stub/replies" REPLIES="$T/replies.json"
 # ── 팩 리포(하네스 루트 = <리포>/feature-pack/fable-team/harness) · origin = git@github.com:fake/pack.git (ssh 스텁 → 로컬 bare)
 mkrepo "$T/pack"; P="$W"; export PACK_ORIGIN="$ORIGIN"
-HB="$P/feature-pack/fable-team/harness"; mkdir -p "$HB/bin" "$HB/kit/fable-team/templates"; echo base > "$HB/bin/ft-x.sh"; echo x > "$HB/kit/fable-team/templates/.keep"; cm "$P" harness; git -C "$P" push -q origin main
+HB="$P/feature-pack/fable-team/harness"; ELB="$P/feature-pack/fable-team/legacy/1.x/harness/bin"; mkdir -p "$HB/bin" "$HB/kit/fable-team/templates" "$ELB"
+echo base > "$HB/bin/ft-x.sh"; echo x > "$HB/kit/fable-team/templates/.keep"; printf 'LOG_LEVEL=debug\n' > "$ELB/.env"; cm "$P" harness; git -C "$P" push -q origin main
 git -C "$P" remote set-url origin git@github.com:fake/pack.git
 printf '#!/bin/bash\nexec bash -c "$(printf %%s "${!#}" | sed -E "s|'"'"'[^'"'"']*'"'"'|'"'"'$PACK_ORIGIN'"'"'|")"\n' > "$T/stub/ssh"
 printf '#!/bin/bash\n[ "$1 $2" = "pr view" ] && { cat "$STUB_JSON"; exit 0; }\necho "$*" >> "$STUB_LOG"\nexit 0\n' > "$T/stub/gh"
@@ -95,10 +96,16 @@ mkda okb APPROVE "$BSHA"; mkv okb "$BSHA" "$DAO"; card "$BSHA"; sa "$BSHA" 12 "$
 
 # ══ ⓒ 크리티컬 종류 — 하나라도 나오면 STANDING-REJECT «⑤ 크리티컬: <종류>»
 fresh; grant
-for spec in "destroy:$PRF:git branch -D old|git push origin --delete old|git push -f origin main" "launchd:feature-pack/fable-team/legacy/1.x/harness/bin/Library/LaunchAgents/com.x.plist:x" "config:feature-pack/fable-team/legacy/1.x/harness/bin/.env:DEEPSEEK_KEY=1"; do
-  IFS=: read -r kind path line <<<"$spec"; mkpr "3$RANDOM" "$path" "$line"; SH="$PRSHA"
-  mkda "c$kind" APPROVE "$SH"; mkv "c$kind" "$SH" "$DAO"; card "$SH"; sa "$SH" 20 "$VF"; rej "ⓒ $kind 새 줄 → 거절(크리티컬)" "$SH" "⑤ 크리티컬: $kind"
-done
+crit() {  # crit <라벨> <크리티컬 종류> <경로> [내용…] — PR 1개 → ⑤ 크리티컬 거절
+  local lb="$1" kd="$2" pth="$3"; shift 3; mkpr "6$RANDOM" "$pth" "$@"; local sh="$PRSHA"
+  mkda "k${kd}$RANDOM" APPROVE "$sh"; mkv "k${kd}$RANDOM" "$sh" "$DAO"; card "$sh"; sa "$sh" 20 "$VF"
+  rej "ⓒ $lb → 거절(크리티컬: $kd)" "$sh" "⑤ 크리티컬: $kd"; }
+crit "파괴 명령 새 줄" destroy "$PRF" "git branch -D old" "git push origin --delete old" "git push -f origin main"
+crit "R2 짧은 +ref force push(git push origin +main:main)" destroy "$PRF" "git push origin +main:main"
+crit "새 launchd plist" launchd "feature-pack/fable-team/legacy/1.x/harness/bin/Library/LaunchAgents/com.x.plist" "x"
+crit "새 외부 설정 파일(cliproxy)" config "feature-pack/fable-team/legacy/1.x/harness/bin/cliproxy.yaml" "a: 1"
+crit "새 models.json apiKey 칸" config "feature-pack/fable-team/legacy/1.x/harness/bin/models.json" '"apiKey": "x"' 
+crit "R1 기존 .env 일반 값 변경" config "feature-pack/fable-team/legacy/1.x/harness/bin/.env" "LOG_LEVEL=info"
 git -C "$B" checkout -q -b byzsec; mkdir -p "$B/design/harness/research"; printf '%s\n' 'export X="$OPENAI_API_KEY"' 'echo "$ANTHROPIC_API_KEY"' > "$B/design/harness/research/k.txt"; cm "$B" "sec"; SEC="$(sha "$B" HEAD)"; git -C "$B" checkout -q main
 out="$(python3 "$BIN/autonomy_scope_classify.py" classify "$SEC" --repo "$B" --critical 2>&1)"; rc=$?
 [[ "$out" =~ ^CRITICAL\ kind=secret\  ]] && ck "ⓒ secret 비밀 줄(autonomy_scope_secret 재사용)" $? || ck "ⓒ secret 비밀 줄(받은: ${out:0:120})" 1
@@ -166,12 +173,21 @@ mut m4 "$D2F" 'D2_CARD="$card"; d2_seat' 'D2_CARD="$card"; D2_BY=mut'; MFT=m4; S
 mut m5 "$D2F" 'std_seat_probe || {' 'true || {'; MFT=m5; REPLIES="$T/replies.json"; GSEAT="$NANO" grev m5
 [ "$rc" = 0 ] && has 'STANDING-GRANTED'; ck "ⓘM5 켜기 좌석 검사 빼기 → ⓐ0 칸이 켜진다(빨강)" $?
 mut m6 ft-merge-lib.sh '[ "$rc" = 0 ] || echo "WARN 병합 뒤 슬랙 알림 실패' '[ "$rc" = 0 ] || exit 1; [ "$rc" = 0 ] || echo "WARN 병합 뒤 슬랙 알림 실패'; MFT=m6
-st="$T/ms-m6"; rm -rf "$st"; mkdir -p "$st"; FT_NOW="$T0" FT_AUTONOMY_STATE_DIR="$st" "$BASH" "$BIN/ft-autonomy.sh" approve-standing D2 --repos byz,pack --classes code,docs --oppa-decision "$OD" >/dev/null 2>&1
-FT_NOW="$T0" FT_AUTONOMY_STATE_DIR="$st" "$BASH" "$BIN/ft-autonomy.sh" standing-approve D2 "$A32" --pr 32 --repo pack --verdict "$V31" --card "$CARD" >/dev/null 2>&1
-out="$(cd "$B" && FT_AUTONOMY_STATE_DIR="$st" bash "$T/mut-m6/ft-merge-land.sh" 32 --approve-sha "$A32" --repo "$P" 2>&1)"; rc=$?
-[ "$rc" != 0 ]; ck "ⓘM6 슬랙 실패를 착지 실패로 → ⓓ2 칸이 rc≠0 이 된다(빨강)" $?
-mut m7 "$D2F" 'case ",$D2_CLASSES," in *",$k,"*) ;; *) std_err "② 종류 $k 는 상시 승인 범위(classes=$D2_CLASSES) 밖" ;; esac' ':'; MFT=m7; SAH="$A11"; SPR=11; card "$A11"; SVF="$V11"; mgo m7
-[ "$rc" = 0 ] && has '^STANDING-OK'; ck "ⓘM7 분류 ② 빼기 → ⓑ7 칸이 승인된다(빨강)" $?
+mkpr 34 "$PRF"; A34="$PRSHA"; mkda ok34 APPROVE "$A34"; mkv ok34 "$A34" "$DAO"; V34="$VF"; card "$A34"
+st="$T/ms-m6"; rm -rf "$st"; mkdir -p "$st"; as_seat "$PL"
+FT_NOW="$T0" FT_AUTONOMY_STATE_DIR="$st" "$BASH" "$BIN/ft-autonomy.sh" approve-standing D2 --repos byz,pack --classes code,docs --oppa-decision "$OD" >/dev/null 2>&1; GRC=$?
+as_seat "$HM"; FT_NOW="$T0" FT_AUTONOMY_STATE_DIR="$st" "$BASH" "$BIN/ft-autonomy.sh" standing-approve D2 "$A34" --pr 34 --repo pack --verdict "$V34" --card "$CARD" >/dev/null 2>&1; SRC=$?
+[ "$GRC" = 0 ] && [ "$SRC" = 0 ] && [ -f "$st/autonomy-merge-approved/$A34" ]; ck "ⓘM6 전제: 정상 켜기+승인+승인 파일(원본 ⓓ2 = 같은 조건 rc0)" $?
+export FT_SCOPE_SLACK_POST="$T/stub/postfail.sh"; out="$(cd "$B" && FT_AUTONOMY_STATE_DIR="$st" bash "$T/mut-m6/ft-merge-land.sh" 34 --approve-sha "$A34" --repo "$P" 2>&1)"; rc=$?
+export FT_SCOPE_SLACK_POST="$T/stub/post.sh"; [ "$rc" != 0 ] && [[ "$out" == LANDED* ]]
+ck "ⓘM6 변이(슬랙 실패→착지 실패): 같은 조건에서 원본 rc0 인데 변이 rc≠0(빨강)" $?
+mut m7 "$D2F" 'case ",$D2_CLASSES," in *",$k,"*) ;; *) std_err "② 종류 $k 는 상시 승인 범위(classes=$D2_CLASSES) 밖" ;; esac' ':'; MFT=m7; card "$A11"
+st="$T/ms-m7"; rm -rf "$st"; mkdir -p "$st"; as_seat "$PL"
+FT_NOW="$T0" FT_AUTONOMY_STATE_DIR="$st" "$BASH" "$BIN/ft-autonomy.sh" approve-standing D2 --repos byz,pack --classes docs --oppa-decision "$OD" >/dev/null 2>&1
+as_seat "$HM"; out="$(FT_NOW="$T0" FT_AUTONOMY_STATE_DIR="$st" "$BASH" "$BIN/ft-autonomy.sh" standing-approve D2 "$A11" --pr 11 --repo pack --verdict "$V11" --card "$CARD" 2>&1)"; rc=$?
+[ "$rc" = 2 ] && has '② 종류 code 는 상시 승인 범위'; ck "ⓘM7 대조: docs grant + code PR = 원본 거절(같은 STATE)" $?
+out="$(FT_NOW="$T0" FT_AUTONOMY_STATE_DIR="$st" "$BASH" "$T/mut-m7/ft-autonomy.sh" standing-approve D2 "$A11" --pr 11 --repo pack --verdict "$V11" --card "$CARD" 2>&1)"; rc=$?
+[ "$rc" = 0 ] && has '^STANDING-OK'; ck "ⓘM7 변이(분류 ② 검사 제거): 같은 입력이 승인된다(빨강)" $?
 mut m8 "$D2F" '  d2_oppa_decision "$od"   # ①' '  :  # ①'; MFT=m8; REPLIES="$T/replies-nope.json"; GSEAT="$PL" grev m8
 [ "$rc" = 0 ] && has 'STANDING-GRANTED'; ck "ⓘM8 --oppa-decision 확인 빼기 → ⓐ0c 칸이 켜진다(빨강)" $?; REPLIES="$T/replies.json"
 mut m9 autonomy_scope_classify.py '    hit = next(((k, w) for c, k, w in judged if c == "forbid"), None)' '    _cr = rules.critical_kinds(blocks)
