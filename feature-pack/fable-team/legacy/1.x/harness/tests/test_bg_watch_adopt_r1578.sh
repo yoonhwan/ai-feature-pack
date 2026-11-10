@@ -124,28 +124,73 @@ rm -f "$SENT" "$SENT.body" "$TA.seen"
 FT_BGW_NOW_CMD="echo 1700000100" bash "$C" >"$T/d2" 2>&1
 has "M2 변이(lstart 대신 빈칸) = 검출" "$(cat "$T/d2")" "NOTIFY 9001 501:9001:"
 
-# ── ⓔ hermes 데몬 면제(모듈 꼴만) + 변이 M3 ──────────────────────────────────
+# ── ⓔ hermes 데몬 면제(실행 자리만) + R2 인자 반례 + 변이 M3·M6 ───────────────
 cat >"$T/ps.txt" <<EOF
 501 9101 1 $LST1 python3 -m browser_harness.daemon --port 1
 501 9102 1 $LST1 /x/harness/python /x/browser_harness/daemon.py
 501 9103 1 $LST1 bash /x/hermes-watch.sh --loop 10
+501 9104 1 $LST1 python3 /x/watch.py --target /x/browser_harness/daemon.py
+501 9105 1 $LST1 python3 /x/watch.py -m browser_harness.daemon
 EOF
 : >"$TC"; rm -f "$SENT" "$SENT.body" "$TC.seen"
 FT_BGW_LEDGER="$TC" FT_BGW_NOW_CMD="echo 1700000100" bash "$C" >"$T/e1" 2>&1
 has "ⓔ 모듈 꼴(python -m browser_harness.daemon) = 면제" "$(cat "$T/e1")" "SKIP 9101 hermes 데몬"
-has "ⓔ 경로 꼴(…/browser_harness/daemon.py) = 면제" "$(cat "$T/e1")" "SKIP 9102 hermes 데몬"
+has "ⓔ 경로 꼴(…/browser_harness/daemon.py 직접 실행) = 면제" "$(cat "$T/e1")" "SKIP 9102 hermes 데몬"
+has "R2 인자에 daemon 경로만 있는 watch = 면제 0" "$(cat "$T/e1")" "NOTIFY 9104 "
+has "R2 인자에 모듈명만 있는 watch = 면제 0" "$(cat "$T/e1")" "NOTIFY 9105 "
 has "ⓔ «hermes» 글자만 있는 감시는 면제 0" "$(cat "$T/e1")" "NOTIFY 9103 "
-eq "ⓔ 알림 = hermes-watch.sh 1통뿐" "$(lines "$SENT")" 1
+eq "ⓔ 알림 = 인자 반례 3통뿐" "$(lines "$SENT")" 3
 python3 - "$C" "$T/c_m3.py" <<'PYM'
 import sys
 s = open(sys.argv[1], encoding="utf-8").read()
-old = '    if HERMESRE.search(cmd): return "hermes 데몬"'
+old = '    if hermes_daemon(t): return "hermes 데몬"'
 assert old in s, "M3 변이 대상 못 찾음"
 open(sys.argv[2], "w", encoding="utf-8").write(s.replace(old, '    if "hermes" in cmd.lower(): return "hermes 데몬"'))
 PYM
 cp "$T/c_m3.py" "$T/c_m3.sh"; rm -f "$SENT" "$SENT.body" "$TC.seen"
 FT_BGW_LEDGER="$TC" FT_BGW_NOW_CMD="echo 1700000100" bash "$T/c_m3.sh" >"$T/e2" 2>&1
 has "M3 변이(«hermes» 글자 포함 면제) = 검출" "$(cat "$T/e2")" "SKIP 9103 hermes 데몬"
+python3 - "$C" "$T/c_m6.py" <<'PYM'
+import sys
+s = open(sys.argv[1], encoding="utf-8").read()
+old = '    if hermes_daemon(t): return "hermes 데몬"'
+assert old in s, "M6 변이 대상 못 찾음"
+new = '    if re.search(r"-m\\s+browser_harness\\.daemon|/browser_harness/daemon\\.py", cmd): return "hermes 데몬"'
+open(sys.argv[2], "w", encoding="utf-8").write(s.replace(old, new))
+PYM
+cp "$T/c_m6.py" "$T/c_m6.sh"; rm -f "$SENT" "$SENT.body" "$TC.seen"
+FT_BGW_LEDGER="$TC" FT_BGW_NOW_CMD="echo 1700000100" bash "$T/c_m6.sh" >"$T/e3" 2>&1
+has "M6 변이(명령줄 전체 search) = 검출" "$(cat "$T/e3")" "SKIP 9104 hermes 데몬"
+
+# ── R1 장부 밖 알림 뒤 adopt → 기한 만료 때 소유자 1통(사유별 중복 억제) + M5 ──
+printf '501 9001 1 %s bash /x/anchor-watch.py --loop 10\n' "$LST1" >"$T/ps.txt"
+: >"$TA"; rm -f "$SENT" "$SENT.body" "$TA.seen"
+FT_BGW_NOW_CMD="echo 1700000100" bash "$C" >"$T/r1a" 2>&1
+has "R1 adopt 전 = 장부 밖 알림(desk)" "$(cut -f1 "$SENT")" "seat-H"
+eq "R1 adopt 전 1통" "$(lines "$SENT")" 1
+bash "$W" --adopt 9001 --seat seat-A --until "measurement complete" --end-at 1700000900 >/dev/null 2>&1
+FT_BGW_NOW_CMD="echo 1700000100" bash "$C" >"$T/r1b" 2>&1
+has "R1 기한 전 = 장부 안 면제" "$(cat "$T/r1b")" "SKIP 9001 장부 안·기한 전"
+eq "R1 기한 전 추가 알림 0" "$(lines "$SENT")" 1
+FT_BGW_NOW_CMD="echo 1700001000" bash "$C" >"$T/r1c" 2>&1
+has "R1 기한 지남 = 소유자 알림(장부밖 기록이 막지 않는다)" "$(cat "$T/r1c")" "NOTIFY 9001 "
+eq "R1 소유자 = seat-A" "$(cut -f1 "$SENT" | tail -1)" "seat-A"
+eq "R1 총 2통(장부밖 1 + 기한지남 1)" "$(lines "$SENT")" 2
+FT_BGW_NOW_CMD="echo 1700001000" bash "$C" >"$T/r1d" 2>&1
+has "R1 기한지남 두 번째 = 이미 1통" "$(cat "$T/r1d")" "SKIP 9001 이미 1통"
+eq "R1 중복 0(총 2통 유지)" "$(lines "$SENT")" 2
+python3 - "$C" "$T/c_m5.py" <<'PYM'
+import sys
+s = open(sys.argv[1], encoding="utf-8").read()
+old = '    sk = k if reason == "장부밖" else k + "|" + reason'
+assert old in s, "M5 변이 대상 못 찾음"
+open(sys.argv[2], "w", encoding="utf-8").write(s.replace(old, '    sk = k'))
+PYM
+cp "$T/c_m5.py" "$T/c_m5.sh"; : >"$TA"; rm -f "$SENT" "$SENT.body" "$TA.seen"
+FT_BGW_NOW_CMD="echo 1700000100" bash "$T/c_m5.sh" >/dev/null 2>&1
+bash "$W" --adopt 9001 --seat seat-A --until x --end-at 1700000900 >/dev/null 2>&1
+FT_BGW_NOW_CMD="echo 1700001000" bash "$T/c_m5.sh" >"$T/r1m" 2>&1
+has "M5 변이(사유 구분 없는 seen 키) = 검출" "$(cat "$T/r1m")" "SKIP 9001 이미 1통"
 
 # ── 변이 M1(ppid 검사 빼기) ──────────────────────────────────────────────────
 python3 - "$W" "$T/w_m1.sh" <<'PYM'
