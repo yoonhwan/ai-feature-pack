@@ -675,6 +675,38 @@ def test_mutation_m11_submit_needed_without_body(tmp_path):
     assert _saturation_failures(_swap_journal(node, _BodyFree)) != []
 
 
+class _NoReceiptsExclusion(intake.Intake):  # M2(r1616): 회수된 접수를 용량에서 빼지 않는다
+    def _pending(self, records, state):
+        accepted = [rec["command"] for rec in records if rec["kind"] == "accept"]
+        return list(dict.fromkeys(accepted + list(state["pending"])))
+
+
+class _NoReceiptsExecution(execution.Execution):
+    CLIENT = _NoReceiptsExclusion
+
+
+def test_h_r1616_reclaimed_receipts_leave_the_capacity_ledger(tmp_path):
+    """ⓖ r1616 — 회수된 접수는 «용량 장부» 에서도 빠진다. 완료만 한 접수는 지금처럼 상한에 셈이고(회수 전
+    9번째 = «용량 부족»), 회수 1회 뒤에는 새 접수 8건이 성공하고 9번째가 «용량 부족» 이다(원천 시뮬 case_08)."""
+    node = _d(tmp_path / "h", capacity=8)
+    for n in range(8):
+        _close(node, "C%d" % n)
+    assert node.rs.submit("after-1", "x" * 8, "N1").result == FULL          # 회수 전 = 완료만 해도 상한
+    assert node.rs.journal.reclaim()["result"] == RECLAIMED
+    assert [node.rs.submit("new-%d" % n, "x" * 8, "N%d" % n).result for n in range(8)] == [OK] * 8
+    assert node.rs.submit("new-9", "x" * 8, "N9").result == FULL            # 9번째 = 다시 상한
+
+
+def test_mutation_m2_r1616_receipts_stay_in_capacity_ledger(tmp_path):
+    """M2 변이 — receipts 제외 줄을 빼면 ⓖ 가 빨강(회수 뒤에도 9번째가 아니라 새 접수 1번째부터 FULL)."""
+    node = _caps(dispatch.Dispatch(str(tmp_path / "h2"), TEAM, execution_cls=_NoReceiptsExecution),
+                 capacity=8)
+    for n in range(8):
+        _close(node, "C%d" % n)
+    assert node.rs.journal.reclaim()["result"] == RECLAIMED
+    assert node.rs.submit("new-0", "x" * 8, "N0").result == FULL            # 변이 = 회수가 용량을 안 비운다
+
+
 def test_mutation_m12_refusal_word_without_field(tmp_path):
     node = _swap_journal(_d(tmp_path / "m12"), _NoWord)
     assert node.ex.claim("W1", "h1").result == CORRUPT

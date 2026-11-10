@@ -117,9 +117,11 @@ class Intake:
 
     def _pending(self, records, state):
         """용량 기준 = 내구화된 journal(+state 투영). state 만 세면 checkpoint 없는 crash 뒤가 빈다.
-        실행권·착수·결과 줄은 접수가 아니므로 세지 않는다(ⓙ)."""
+        실행권·착수·결과 줄은 접수가 아니므로 세지 않는다(ⓙ). 회수된 접수(journal_base.receipts)는
+        «남은 일» 이 아니므로 용량에서도 뺐다(r1616 · 원천 시쇬 case_08 = 정리 뒤 새 8건 성공)."""
         accepted = [rec["command"] for rec in records if rec["kind"] == "accept"]
-        return list(dict.fromkeys(accepted + list(state["pending"])))
+        folded = (state.get("journal_base") or {}).get("receipts") or {}
+        return [cmd for cmd in dict.fromkeys(accepted + list(state["pending"])) if cmd not in folded]
 
     def _full(self, pending):
         return len(pending) >= self.capacity
