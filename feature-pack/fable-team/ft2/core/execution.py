@@ -5,8 +5,7 @@
 재호출도 결과 미확정이다. 세대 교체(rotation)는 구 실행자 종료·권한 회수를 확인한 호출만 쓴다(PLAN 213)이고,
 journal 에만 내구화된 claim 세대는 checkpoint 보다 앞서도 유효본이다(DA R2). 같은 팀 writer 는 모두 같은
 writer.lock 을 «비차단» 으로 잡는다 — 점유 중이면 BUSY(팀별 잠금). 결과 낱말은 record.RESULT_WORDS 8개
-밖으로 나가지 않고 종류는 stage 로 구분한다(접수 성공·회수 결과·완료 유보·낡은 실행권·BUSY·복구 필요).
-schema 는 1 그대로다(필드 추가만 · 확장 state 칸은 기본값 {}).
+밖으로 나가지 않고 종류는 stage 로 구분한다. schema 는 1 그대로다(필드 추가만 · 확장 칸 기본값 {}).
 """
 import collections
 import importlib.util
@@ -49,16 +48,13 @@ class Execution:
                 return Grant(BUSY, work, holder=holder, reason="writer.lock 점유 = 기다리지 않는다")
             try:
                 state, records = self._state_records()
-                gen = self._field(state, "generations").get(work, 0) + 1
-                hold = self._hold(state, records, work, gen, rotation)
+                gen, hold, owner = self._claim_plan(state, records, work, holder, rotation)
                 if hold is not None:
                     if hold.get("marked"):
                         return Grant(HOLD, work, hold.get("gen"), holder, state["revision"], False,
                                      "uncertain", hold.get("confirm_by"), "결과 미확정 = 재실행 0")
                     return self._mark(state, records, work, holder, hold, confirm_by or self._confirm_by())
-                at = self.clock()
-                owner = {"holder": holder, "gen": gen, "at": at, "rotation": bool(rotation)}
-                rec = record.build(self.team, self._seq(records), work, "%s#g%d" % (holder, gen), at,
+                rec = record.build(self.team, self._seq(records), work, "%s#g%d" % (holder, gen), owner["at"],
                                    "", work, kind="claim", holder=holder, gen=gen)
                 generations = dict(self._field(state, "generations"), **{work: gen})
                 rev = self._write(state, records, rec, {"generations": generations,
@@ -136,6 +132,16 @@ class Execution:
                 self.rs._unlock(lock)
         except intake.CorruptStateError as exc:
             return Grant(CORRUPT, work, gen, holder, reason=str(exc))
+
+    def _claim_plan(self, state, records, work, holder, rotation=False):
+        """잠금 안 판정(쓰기 0) — (세대, 미확정, owner 칸)을 돌려준다. 배정(dispatch)도 이 함수를 쓴다.
+        `hold` 가 있으면 배정·실행권 부여는 없다(claim 은 표식을 남기고, 배정은 결과만 돌려준다)."""
+        gen = self._field(state, "generations").get(work, 0) + 1
+        hold = self._hold(state, records, work, gen, rotation)
+        if hold is not None:
+            return gen, hold, None
+        owner = {"holder": holder, "gen": gen, "at": self.clock(), "rotation": bool(rotation)}
+        return gen, None, owner
 
     def _hold(self, state, records, work, gen, rotation=False, closing=False):
         """미확정 판정(PLAN 213) — 효과 의도 뒤 결과가 없으면 재실행하지 않는다.
