@@ -1,0 +1,16 @@
+{
+  "symptom_key": "gateway.port_bind_unknown",
+  "install_sha": "e50b7439c1f4a2b3d4e5f60718293a4b5c6d7e8f",
+  "state_revision": 11,
+  "evidence": [
+    {"source": "ft-doctor", "ref": "probe/lsof-8080.log#L3"},
+    {"source": "launchd", "ref": "com.byz.gateway.plist"}
+  ],
+  "observation": {
+    "verdict": "undetermined",
+    "reason": "포트 점유 프로세스의 소유 설치본을 읽을 권한이 없다"
+  },
+  "allowed_recovery": [],
+  "reverified": {"done": false},
+  "unresolved": {"open": true, "owner": "byz-harness-master-pi#171"}
+}

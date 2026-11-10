@@ -1,0 +1,83 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "ft2/contracts/doctor/doctor-io.schema.json",
+  "title": "ft2 doctor 입출력 계약 — 정본 8 독립 입력",
+  "description": "정본 PLAN 의 doctor 독립 입력 8개를 그대로 옮긴 계약이다. 필드 더하기·빼기 0. r1506/r1507 결과 대조는 후행이며 이 schema 는 제품 구현 허가가 아니다.",
+  "type": "object",
+  "required": [
+    "symptom_key",
+    "install_sha",
+    "state_revision",
+    "evidence",
+    "observation",
+    "allowed_recovery",
+    "reverified",
+    "unresolved"
+  ],
+  "properties": {
+    "symptom_key": {
+      "description": "증상key — 진단 대상 증상의 고정 식별자",
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]*$"
+    },
+    "install_sha": {
+      "description": "설치sha — 진단한 설치본의 40자 지문",
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "state_revision": {
+      "description": "상태revision — 진단이 읽은 상태 리비전(0 이상 정수)",
+      "type": "integer",
+      "minimum": 0
+    },
+    "evidence": {
+      "description": "근거 — 관측의 출처·참조 1건 이상",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["source", "ref"],
+        "properties": {
+          "source": {"type": "string"},
+          "ref": {"type": "string"}
+        }
+      }
+    },
+    "observation": {
+      "description": "관측/판정불가 — enum 2값. 판정불가면 사유 필수",
+      "type": "object",
+      "required": ["verdict"],
+      "properties": {
+        "verdict": {"enum": ["observed", "undetermined"]},
+        "reason": {"type": "string", "minLength": 1}
+      },
+      "if": {"required": ["verdict"], "properties": {"verdict": {"enum": ["undetermined"]}}},
+      "then": {"required": ["reason"]}
+    },
+    "allowed_recovery": {
+      "description": "허용복구 — 자동으로 해도 되는 국소 복구 종류 목록(0개 허용)",
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "reverified": {
+      "description": "재검증 — 복구 뒤 재검증을 했는가(done) + 근거 참조",
+      "type": "object",
+      "required": ["done"],
+      "properties": {
+        "done": {"type": "boolean"},
+        "evidence_ref": {"type": "string"}
+      }
+    },
+    "unresolved": {
+      "description": "미해결 owner — 남은 문제가 열려 있으면 owner 필수",
+      "type": "object",
+      "required": ["open"],
+      "properties": {
+        "open": {"type": "boolean"},
+        "owner": {"type": "string", "minLength": 1}
+      },
+      "if": {"required": ["open"], "properties": {"open": {"enum": [true]}}},
+      "then": {"required": ["owner"]}
+    }
+  }
+}
