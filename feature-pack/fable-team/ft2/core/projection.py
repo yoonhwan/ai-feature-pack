@@ -6,8 +6,9 @@
 읽기만 하므로 같은 runtime 이면 몇 번 만들어도 같은 결과다(멱등). 회수 뒤에는 옛 줄이 지워지므로
 base checkpoint(`journal_base.proj`) 위에 남은 suffix 만 접는다 — 그 판단은 `recover_state` 가 이미
 하고 이 파일은 그 결과를 «투영 꼴» 로 옮기기만 한다(투영이 state 를 따로 앞서지 않는다).
-판독이 안 되면(state·journal 손상 · state.json.tmp 잔여 · runtime 없음) 숨기지 않고 `복구 필요`
-1줄 + 작업 0 으로 드러낸다 — `docs/rules/no_silent_fallback.md`(추측 0).
+판독이 안 되면(state·journal 손상 · state.json.tmp 잔여) 숨기지 않고 `복구 필요` 1줄 + 작업 0 으로
+드러내고, runtime 이 아직 없으면 `접수 성공` + 작업 0 + 사유 1줄이다(없는 팀은 손상이 아니다) —
+`docs/rules/no_silent_fallback.md`(추측 0).
 결과 낱말은 계약 8낱말(`접수 성공` · `복구 필요`) 밖으로 나가지 않는다(새 낱말 0).
 """
 import importlib.util
