@@ -8,6 +8,7 @@
 #   r1319 close-check C7 — [인계] 는 보냈는데 retire 를 안 돌린 채 닫으려 하면 close-check 가 REJECT 한다. 면제 = --verdict(사람 판정 1건 · R400) 와 «후계 행 없음»(개설 실패·승계 취소) 둘뿐 — --verdict 닫기는 close-check 에 --verdict 를 넘긴다. · r427 죽은 좌석(--verdict · tmux 세션 없음): 재개 기록 = --keep-existing(기존 보존 · 없으면 대화 기록 탐색 · 둘 다 없으면 NORECORD 도 진행) → 위 ② 표기 + _closed.dead · kill 0 · 비운 칸은 행 `_closed_from`. `--reopen <좌석>` = zombie-clean resume 으로 되살린 좌석: role=_closed_role(없으면 active)·tick 복원 · _closed* 제거 · `REOPENED <좌석> roles=<칸들>`.
 #   ★r960 — 닫기 결과 출력은 finish() "하나"★: 어느 종료 갈래(CLOSED-ROLE · CLOSED-DEAD · CLOSED-SESSION · HELD · FAIL)든 결과 줄 다음에 record=NORECORD 면 `NORECORD <좌석> <사유>` 1줄을 반드시 남긴다(갈래마다 출력을 따로 두면 다음 갈래가 또 빠뜨린다 — DA r1·r2 반례). 갈래 안 exit 는 이 함수로만. pi 좌석 재개 기록 근거 = ft-seat-retire.sh ⓒ(pi 세션 파일) · model 은 ft_roster_lib._pi_model · 살아 있는 좌석의 NORECORD 수용은 «명부 agent 칸 = pi» 일 때만(r4: 출력 글자 판정 0). ★r5★ 명부 경로·행·agent·role·재개 기록 경로는 «입구에서 1회» 확정(ft_roster_lib.seat_facts)해 갈래·자식에 값으로 넘긴다 — 확정 밖 명부에 같은 좌석이 다른 agent/role 로 있으면 판정 아님(REJECT rc 1 · 명부 쓰기 0 · kill 0).
 #   r1481 ``--verdict`` 원장 관문 — ②③ 면제의 근거는 «사람 판정 1건»이므로 번호가 planner 판정 원장(``${FT_TEAMS_REF:-origin/main}``:``design/teams/planner/VERDICTS-planner-*.md`` · fetch 0)에 실재할 때만 닫는다. 못 읽음·번호 없음 = REJECT rc 1(명부 쓰기 0 · kill 0).
+#   r1568 — 승계 끝 확인: reap 이 남기면 «1회 더» 보고(짧은 git 자식이 스스로 사라지는 사이), kill 뒤에 «세션 부재 ∧ 최종 재조사 left=0» 을 한 번 더 재서 CLOSED(둘 중 하나라도 거짓 = CLOSE-FAIL rc≠0 — 거짓 성공 0). 최종 실패 = 기록 1개(<루트>/.fable-team/state/close-fail/<좌석>.txt · 좌석·담당·이유·남은 것·다음 실행) + master 쪽지 1통(다음 닫기 성공 때만 지운다) · 최종 재조사 원문(reap 줄)은 stderr 에 남는다.
 set -uo pipefail
 USAGE="usage: $0 <좌석> --reason \"<1줄>\" [--seats <파일>] [--verdict <번호>] | $0 --reopen <좌석> [--seats <파일>]"
 REOPEN=0; [ "${1:-}" != --reopen ] || { REOPEN=1; shift; }
@@ -27,7 +28,7 @@ finish() {   # r960 — 닫기 결과 출력 «한 곳»: 결과 줄들 다음�
   exit "$rc"
 }
 FACTS="$(cd "$HERE" && python3 -c 'import sys;from ft_roster_lib import seat_facts;print("\x1f".join(seat_facts(*sys.argv[1:6])))' "$ARG" "${FT_SEATS_JSON:-}" "${ROOT:-.}" "$SEAT" "${ZC_RESUME_DIR:-$HOME/.claude/state/seat-resume}")" || finish 1 "${FACTS:-REJECT 좌석 사실 확정 실패 — 판정 안 함(명부 쓰기 0 · kill 0)}"   # r5 ①② — 명부 경로·행·agent·role·재개 기록 경로 «입구 1회» 확정(명부 후보 2개+ · 명부 불일치 = REJECT rc 1)
-IFS=$'\x1f' read -r SEATS_FILE AGENT ROLE RECF <<<"$FACTS"; if [ -n "$VERDICT" ]; then   # r1481 — ②③ 면제 근거(사람 판정 1건)를 원장에서 먼저 확인한다 — close-check «앞» · --verdict 있을 때만(빠른 종료 = 쓰기 0 · kill 0)
+IFS=$'\x1f' read -r SEATS_FILE AGENT ROLE RECF MST <<<"$FACTS"; if [ -n "$VERDICT" ]; then   # r1481 — ②③ 면제 근거(사람 판정 1건)를 원장에서 먼저 확인한다 — close-check «앞» · --verdict 있을 때만(빠른 종료 = 쓰기 0 · kill 0)
   . "$HERE/ft-verdict-row.sh" && . "$HERE/ft-team-lib.sh" || finish 1 "REJECT $SEAT 판정 원장 확인 불가(도우미 ft-verdict-row.sh·ft-team-lib.sh 없음 — 설치본 bin) — 쓰기 0 · kill 0"; VR="${FT_TEAMS_REF:-origin/main}"; VC="$(ft_team_cands_ref "${ROOT:-.}" planner "$VR" 2>/dev/null)" || finish 1 "REJECT $SEAT 판정 원장 확인 불가($VR:design/TEAMS.md) — 쓰기 0 · kill 0"   # 원장 조회 = ft-index-lint.sh:47 과 같은 호출(명단 ref · 함수 복사 0)
   VH=0; RE="$(fv_row_re "$VERDICT" 2>/dev/null)"; RRC=$?; [ "$RRC" = 0 ] && [ -n "$RE" ] || finish 1 "REJECT $SEAT 판정 $VERDICT 꼴이 원장 꼴(숫자)이 아님(fv_row_re rc=$RRC) — 쓰기 0 · kill 0"   # DA 반례 1(r1481 r2) — 빈 정규식이면 git grep -E "" 가 원장 아무 줄에나 일치한다(통과 0)
   while IFS= read -r C; do [ -n "$C" ] || continue; git -C "${ROOT:-.}" grep -q -E "$RE" "$VR" -- "${C#"${ROOT:-.}"/}/VERDICTS-planner-*.md" 2>/dev/null; VRC=$?; case "$VRC" in 0) VH=1; break;; 1) ;; *) finish 1 "REJECT $SEAT 판정 원장 확인 불가(git grep rc=$VRC) — 쓰기 0 · kill 0";; esac; done <<< "$VC"   # rc 1 = 그 후보에 없음(다음 후보) · rc>1 = 판정 불가(하드 룰 20)
@@ -102,9 +103,6 @@ PY
 [ "$REOPEN" = 0 ] || { printf '%s\n' "$OUT"; exit "$rc"; }; [ "$rc" = 0 ] || { printf '%s\n' "$OUT"; [ "$rc" = 3 ] && [ -n "$VERDICT" ] && exit 3; exit 1; }
 FILE="$(printf '%s' "$OUT" | cut -f2)"; WAS="$(printf '%s' "$OUT" | cut -f3)"; CELLS="$(printf '%s' "$OUT" | cut -f4)"
 vlog() { [ -z "$VERDICT" ] || { mkdir -p "$DATA/.fable-team/state" && printf '%s\tverdict=%s\t%s\trecord=%s\tcells=%s\tkill=%s\n' "$(date '+%Y-%m-%dT%H:%M:%S')" "$VERDICT" "$SEAT" "$REC" "$CELLS" "$1" >> "$DATA/.fable-team/state/seat-close-verdict.log"; }; }
-if [ "$DEAD" = 1 ]; then   # r427 — 죽은 좌석: kill 할 것 0 · 명부만 닫는다
-  vlog dead; [ "$CELLS" = - ] && finish 0 "CLOSED-DEAD $SEAT record=$RK handoff=$CELLS" || finish 0 "CLOSED-DEAD $SEAT record=$RK handoff=$CELLS" "  - 교대 0 · planner 1줄: 비운 칸 $CELLS — 후임 지정은 planner(자동 선정 0)"
-fi
 # ③ kill 범위 = 전역 표준승인(2026-07-11): 계보 최신은 보존 · 직전 세대는 «재개 기록 있음 ∨ 더 큰 번호 2개+ 생존(keep-last-2)» 일 때만. 밖은 kill=held rc 3(나노는 ft-nano-close · 그 밖은 [HIL]).
 lineage_ok() {
   local base="${SEAT%#*}" n="${SEAT##*#}" up=0 s rec="$RECF"
@@ -113,11 +111,27 @@ lineage_ok() {
   [ "$up" -ge 2 ] || { [ "$up" -ge 1 ] && [ -f "$rec" ]; }
 }
 # r448: kill «앞» 그 좌석이 띄운 백그라운드 루프 정지(ft-seat-reap) — left≠0 ∨ rc≠0 = CLOSE-FAIL rc 1(세션 보존 · 명부 표기는 남음 · 사람 판단). 세션이 이미 없어도 고아 루프를 본다.
+# r1568 ② — 정지·재조사 반복은 ft-seat-reap 안에서 끝났다(마지막 정지 1회 + 재조사 · 총 3회 상한). 여기서 남으면 CLOSE-FAIL 이유 1줄 rc≠0 — 세션 보존.
 reap() {
   local o r; o="$(bash "${FT_SEAT_REAP_BIN:-$HERE/ft-seat-reap.sh}" "$SEAT" 2>&1)"; r=$?; RL="$(printf '%s\n' "$o" | grep -oE 'left=[0-9?]+' | tail -1)"
   printf '%s\n' "$o" >&2
   [ "$r" -eq 0 ] && [ "$RL" = left=0 ] && return 0
-  vlog fail-reap; finish 1 "CLOSE-FAIL reap ${RL:-left=?} rc=$r — $SEAT 세션 보존(명부 표기는 남음 file=$FILE)"
+  cfail fail-reap "reap ${RL:-left=?} rc=$r" "$o"
+}
+CFD="$(dirname "$FILE")/state/close-fail"; CF="$CFD/$SEAT.txt"
+cfail() {   # r1568 ⑤⑥ — 실패 기록 1개(좌석·담당·이유·남은 것·다음 실행 1줄) + master 쪽지 1통 · «CLOSED»·«GONE» 거짓 글자 0
+  local tag="$1" why="$2" m="$(dirname "$FILE")/comm/mbox.sh" h="$MST"   # r5 — master 칸은 입구 확정값(명부 재해석 0)
+  mkdir -p "$CFD" && printf 'seat=%s\n담당=%s\n이유=%s\n%s\n다음 실행: %s %s --reason "<이유 1줄>"\n' "$SEAT" "$BY" "$why" "$3" "$HERE/ft-seat-close.sh" "$SEAT" > "$CF"
+  [ -z "$h" ] || [ ! -f "$m" ] || bash "$m" send "$h" "$BY" "[$tag] $SEAT — $why · 기록 $CF · 세션 보존" >/dev/null 2>&1
+  vlog "$tag"; finish 1 "CLOSE-FAIL $why — $SEAT 세션 보존(명부 표기는 남음 file=$FILE · 기록 $CF)"
+}
+final() {   # r1568 ④ — 닫힘 확인: 세션 부재 ∧ 최종 재조사 left=0 둘 다일 때만 닫는다 · 원문(⑥)은 stderr 에
+  local o r g L; o="$(bash "${FT_SEAT_REAP_BIN:-$HERE/ft-seat-reap.sh}" "$SEAT" 2>&1)"; r=$?
+  printf 'reap-final %s\n' "$(printf '%s\n' "$o" | grep -E '^reap' | tail -3)" >&2
+  tmux has-session -t "=$SEAT" 2>/dev/null && g=alive || g=gone
+  [ "$r" -eq 0 ] && [ "$g" = gone ] && rm -f "$CF" && return 0
+  L="$(printf '%s\n' "$o" | grep -oE 'left=[0-9?]+' | tail -1)"
+  cfail fail-final "final ${L:-left=?} rc=$r session=$g" "$o"
 }
 if tmux has-session -t "=$SEAT" 2>/dev/null; then
   [ -n "$VERDICT" ] || lineage_ok || finish 3 "CLOSED-SESSION $SEAT file=$FILE role_was=$WAS kill=held(표준승인 밖 — 나노는 ft-nano-close · 그 밖은 [HIL])"   # --verdict = 판정 승인 1건 + 재개 기록 확인됨
@@ -128,5 +142,9 @@ if tmux has-session -t "=$SEAT" 2>/dev/null; then
   tmux kill-session -t "=$SEAT" || { vlog fail-kill; finish 1 "FAIL kill $SEAT — kill-session 실패(세션 잔존 · 명부 표기는 남음 file=$FILE)"; }
   KILL=ok
 else reap; KILL=none; fi
+final
+if [ "$DEAD" = 1 ]; then   # r427 — 죽은 좌석: kill 할 것 0 · 명부만 닫는다 · r1568 ④(DA② R1) — 세션 부재만으로 성공하지 않는다(위 reap·final 이 자식 정리와 left=0 을 이미 쟀다)
+  vlog dead; [ "$CELLS" = - ] && finish 0 "CLOSED-DEAD $SEAT record=$RK handoff=$CELLS" || finish 0 "CLOSED-DEAD $SEAT record=$RK handoff=$CELLS" "  - 교대 0 · planner 1줄: 비운 칸 $CELLS — 후임 지정은 planner(자동 선정 0)"
+fi
 [ -z "$VERDICT" ] || { vlog "$KILL"; finish 0 "CLOSED-ROLE $SEAT verdict=$VERDICT record=$REC cells=$CELLS kill=$KILL reap left=0 rc=0"; }   # r960 ⓣⓤ — 결과 줄 형식 그대로 · NORECORD 줄은 finish 가 붙인다
 finish 0 "CLOSED-SESSION $SEAT file=$FILE role_was=$WAS kill=$KILL reap left=0 rc=0"
