@@ -1,17 +1,15 @@
-"""ft_inbox_core.py — ft-inbox.py 의 공용부: 경로·큐 입출력·정본 술어 obligation_closed·묶기·분류·Haiku 일회 호출."""
+"""ft_inbox_core.py — ft-inbox.py 의 공용부: 경로·큐 입출력·정본 술어 obligation_closed·묶기·분류."""
 import fcntl
 import glob
 import hashlib
 import json
 import os
 import re
-import shlex
 import subprocess
 import sys
 from contextlib import contextmanager
 from typing import NoReturn
 
-CLS = ["①", "②", "③", "④", "⑤", "⑥"]
 PRIO = {"①": 1.0, "미상": 1.5, "②": 2.0, "③": 3.0, "④": 4.0, "⑤": 5.0, "⑥": 6.0}
 MUST_REPORT = {"①", "②", "③", "④", "미상"}  # 미상도 ring 은 1~4 급 — 보고 의무를 6 급으로 강등하지 않는다
 # 고정 기준표 — 순서만 바꾸고 빼지 않는다. 위에서부터 첫 일치.
@@ -22,7 +20,7 @@ RULES = [
     ("④", r"\[BLOCK\]|막힘"),
     ("⑤", r"판정 ?\d+ ?(집행|완료)|PR #?\d+ ?병합|병합 완료|닫힘"),
     ("⑥", r"^\[부팅 보고|진행 보고|참고|접수"),
-    # 10-10 미상→Haiku 상위 머리말(R57) — 새 줄은 \A(본문 첫머리만): re.M 의 ^ 는 본문 중간 줄 머리에도 걸린다.
+    # 10-10 상위 머리말(R57) — 새 줄은 \A(본문 첫머리만): re.M 의 ^ 는 본문 중간 줄 머리에도 걸린다.
     ("⑤", r"\A\[완료·휴식"),
     ("⑥", r"\A\[?(부팅|첫 보고|승계|발주)"),
     ("②", r"\A\[HIL"),
@@ -165,36 +163,13 @@ def norm_key(frm, body):
     return "g-" + hashlib.sha1((frm + "|" + re.sub(r"\s+", " ", b).strip()).encode()).hexdigest()[:10]
 
 
-def haiku(prompt):
-    cmd = shlex.split(os.environ.get("FT_INBOX_HAIKU") or "claude -p --model claude-haiku-5-5")
-    t = float(os.environ.get("FT_INBOX_HAIKU_TIMEOUT", "7"))  # 외부 호출 7초 룰(전역 하드 룰 12) + 재시도 1회
-    os.makedirs(cwd := os.environ.get("FT_INBOX_HAIKU_CWD") or f"{INBOX}/haiku-cwd", exist_ok=True)  # 빈 폴더 cwd(r1343) — 못 만들면 OSError(경로에 haiku-cwd)가 올라가 classify 가 미상 유지+로그
-    err = ""
-    for _ in range(2):
-        try:
-            p = subprocess.run(cmd, input=prompt, capture_output=True, text=True, timeout=t, cwd=cwd)
-        except subprocess.TimeoutExpired:
-            err = f"timeout {t:g}s"
-            continue
-        if p.returncode == 0 and p.stdout.strip():
-            return p.stdout.strip()
-        err = f"rc={p.returncode} stderr={p.stderr.strip()[:120]} stdout={p.stdout.strip()[:120]}"
-    raise RuntimeError(f"haiku {err}")
+# haiku()·haiku_class() = 퇴역(r1560 · 오빠 «퇴역 제거») — 미상은 «규칙표 밖» 이라는 뜻만 갖는다. 되살리지 않는다.
 
 
 def rule_class(body):
-    """고정 기준표만(즉시·동기). 안 맞으면 '미상' — Haiku 라벨은 haiku_class 가 나중에(비동기) 붙인다."""
+    """고정 기준표만(즉시·동기). 안 맞으면 '미상' — 나중에 라벨을 붙이는 호출은 없다(퇴역 r1560)."""
     first = re.sub(r"^(\[[^\]]*->[^\]]*\]\s*)", "", body)
     for cls, pat in RULES:
         if re.search(pat, first, re.M):
             return cls
     return "미상"
-
-
-def haiku_class(body):
-    """Haiku 일회 호출로 라벨만. 실패·해석 불가는 raise (호출자가 미상 유지 + 오류 로그)."""
-    out = haiku("쪽지를 ①오빠 원문 ②[HIL]·파괴 승인 ③판정 요청 ④막힘 ⑤결과 ⑥진행·참고 중 하나로만 분류해 번호 한 글자로 답하라.\n본문:\n" + body[:1500])
-    m = re.search(r"[①-⑥]|[1-6]", out)
-    if not m:
-        raise RuntimeError(f"라벨 해석 불가: {out[:60]}")
-    return CLS["123456".index(m.group())] if m.group() in "123456" else m.group()

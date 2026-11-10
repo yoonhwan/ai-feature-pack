@@ -1,21 +1,20 @@
 #!/usr/bin/env python3
 """ft-inbox.py — 메인팀 인박스(좌석 없는 스크립트 큐). 판정 425-B·430 · 설계 DESIGN-news-tree-workqueue-viz-20261009 §6-3·§8.
 
-명령: ingest <seq> | show <좌석> [--compact|--seqs|--count] | rotate <좌석> --before <ISO ts> \"<판정 N 사유>\" | mark <seq|group> 처리|위임|보류 "<1줄>" [--seat <좌석>] | report <seq|group…> [--seat <좌석>] | close <seq|group…> "<사유>" [--seat <좌석>] | waive <좌석> --before <ISO ts> "<판정 N 사유>" | archive <좌석>
-경로: FT_ROOT/.fable-team/comm/{mailbox.jsonl,mailbox.log.jsonl,bodies/}(읽기) · FT_ROOT/.fable-team/state/inbox/<계보>.jsonl(큐) · Haiku: FT_INBOX_HAIKU(기본 `claude -p --model claude-haiku-5-5`) 일회 호출 — 분류 미상·show --compact 때만(상주·자발 압축·삭제 0) · 실패는 전부 stderr + exit≠0 (조용한 강등 0).
+명령: ingest <seq> | show <좌석> [--seqs|--count] | rotate <좌석> --before <ISO ts> \"<판정 N 사유>\" | mark <seq|group> 처리|위임|보류 "<1줄>" [--seat <좌석>] | report <seq|group…> [--seat <좌석>] | close <seq|group…> "<사유>" [--seat <좌석>] | waive <좌석> --before <ISO ts> "<판정 N 사유>" | archive <좌석>
+경로: FT_ROOT/.fable-team/comm/{mailbox.jsonl,mailbox.log.jsonl,bodies/}(읽기) · FT_ROOT/.fable-team/state/inbox/<계보>.jsonl(큐) · 분류는 규칙표만(밖이면 미상 · 라벨 호출 0 = 퇴역 r1560) · 실패는 전부 stderr + exit≠0 (조용한 강등 0).
 show --seqs = 기계용(r1052) — 큐 파일 끝 창(ft_inbox_window.SEQ_N)만 읽고 본문 파일을 열지 않는다 · 창 위가 잘린 첫 묶음은 «보류(범위 밖)» 로 보수 보고.
 """
 import glob
 import json
 import os
 import re
-import subprocess
 import sys
 import time
 from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from ft_inbox_core import COMM, HOOK_ERRORS, INBOX, PRIO, answered_seqs, die, find_mail, find_seq, group_closed, haiku, haiku_class, hits, lineage, locked, mail_files, norm_key, obligation_closed, qpath, read_q, rule_class, take_seat, write_q  # noqa: E402
+from ft_inbox_core import COMM, INBOX, PRIO, answered_seqs, die, find_mail, find_seq, group_closed, hits, lineage, locked, mail_files, norm_key, obligation_closed, qpath, read_q, rule_class, take_seat, write_q  # noqa: E402
 from ft_inbox_rotate import cmd_count, cmd_rotate, rotated_head, tidy_hits  # noqa: E402
 from ft_inbox_window import tail_rows, view, view_seqs  # noqa: E402
 
@@ -34,46 +33,21 @@ def cmd_ingest(seq, mail=None):
         if any(x["seq"] == mail["seq"] for x in rows):
             print(f"SKIP seq={seq} 이미 적재")
             return
-        cls = rule_class(mail["body"])  # 규칙표만 — 즉시 적재(Haiku 대기 0)
+        cls = rule_class(mail["body"])  # 규칙표만 — 즉시 적재(대기 0)
         rows.append({"seq": mail["seq"], "ts": mail["ts"], "from": mail["from"], "cls": cls, "prio": PRIO[cls], "group": norm_key(mail["from"], mail["body"]), "body_path": bp, "mark": None, "reported": False, "via": "unknown" if cls == "미상" else "rule"})  # 분류 출처 — 셈 전용(표시·mark·report 무관)
         write_q(q, rows)
-    if cls == "미상":  # 분리 백그라운드(부모 대기 0) — 라벨은 나중에 같은 잠금 안에서 갱신
-        subprocess.Popen([sys.executable, os.path.abspath(__file__), "classify", str(seq), mail["to"]], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True, close_fds=True)
-    print(f"INGEST seq={seq} queue={lineage(mail['to'])} cls={cls} group={rows[-1]['group']}")
-
-
-def cmd_classify(seq, to):
-    """미상 줄 하나에 Haiku 라벨을 붙인다(ingest 가 분리 실행). 실패·timeout 이면 미상 유지 + hook-errors.log 1줄."""
-    q = qpath(to)
-    try:
-        row = next(x for x in read_q(q) if x["seq"] == int(seq))
-        cls = haiku_class(open(row["body_path"], encoding="utf-8").read())
-    except Exception as e:  # 미상 유지(①과 ② 사이 · 빼기 0) — 사유는 로그에 남긴다
-        os.makedirs(os.path.dirname(HOOK_ERRORS), exist_ok=True)
-        with open(HOOK_ERRORS, "a", encoding="utf-8") as f:
-            f.write(f"{time.strftime('%Y-%m-%dT%H:%M:%S')} ft-inbox classify seq={seq} 미상 유지: {type(e).__name__} {e}\n")
-        return
-    with locked(q):
-        rows = read_q(q)
-        for x in rows:
-            if x["seq"] == int(seq) and x["cls"] == "미상":
-                x.update(cls=cls, prio=PRIO[cls], via="haiku")
-        write_q(q, rows)
+    print(f"INGEST seq={seq} queue={lineage(mail['to'])} cls={cls} group={rows[-1]['group']}")  # 미상도 그대로 적재 — 분류기 스폰 0(r1560 퇴역)
 
 
 def cmd_show(seat, flag):
     if flag == ["--count"]:  # r1052 단계 2 B1 — 줄 수만 필요한 소비자(상황판) · 본문 접근 0
         return cmd_count(seat)
+    if flag not in ([], ["--seqs"]):  # r1560 퇴역: --compact 삭제 — 지운 옵션은 오류로 말한다(조용한 무시 0)
+        die(f"show: 모르는 옵션 {flag[0]} — --compact 는 퇴역(r1560). 쓰는 것: --seqs · --count", 2)
     ans = answered_seqs(seat)  # B2 — show·--seqs·--count·rotate 가 같은 술어(회신 seq 포함)
     lines = view_seqs(*tail_rows(qpath(seat)), ans) if flag == ["--seqs"] else view(read_q(qpath(seat)), ans)
-    if flag != ["--compact"] or not lines:  # r593: 두 빈 분기 합침(동작 동일) — 파일 200줄 한도
-        head = rotated_head(seat) if flag == [] else None  # B4 — 회전으로 치운 묶음이 있으면 사람용 show 첫 줄에 보인다(조용한 소실 0)
-        print("\n".join(([head] if head else []) + (lines or ["EMPTY"])))
-        return
-    try:  # 보기 전용 — 큐 파일은 건드리지 않는다
-        print(haiku("아래 인박스 줄을 한 장으로 압축해 보여라. 줄마다 seq 와 원문 경로를 그대로 유지하고 원문을 대체하지 마라.\n" + "\n".join(lines)))
-    except Exception as e:
-        die(f"show --compact haiku 실패: {e}")
+    head = rotated_head(seat) if flag == [] else None  # B4 — 회전으로 치운 묶음이 있으면 사람용 show 첫 줄에 보인다(조용한 소실 0)
+    print("\n".join(([head] if head else []) + (lines or ["EMPTY"])))
 
 
 def locate(seat, targets):
@@ -170,8 +144,6 @@ def main(a):
     try:
         if c == "ingest" and len(a) == 2:
             return cmd_ingest(a[1])
-        if c == "classify" and len(a) == 3:  # 내부용 — ingest 가 미상 줄에만 분리 실행
-            return cmd_classify(a[1], a[2])
         if c == "show" and len(a) in (2, 3):
             return cmd_show(a[1], a[2:])
         if c == "rotate" and len(a) == 5 and a[2] == "--before":
@@ -190,7 +162,7 @@ def main(a):
             return cmd_archive(a[1])
     except (ValueError, TypeError, OSError, json.JSONDecodeError) as e:
         die(f"{c}: {e}", 2 if c == "waive" else 1)
-    die("usage: ft-inbox.sh ingest <seq> | show <좌석> [--compact|--seqs|--count] | rotate <좌석> --before <ISO ts> \"<판정 N 사유>\" | mark <seq|group> 처리|위임|보류 \"<1줄>\" [--seat <좌석>] | report <seq|group…> [--seat <좌석>] | close <seq|group…> \"<사유>\" [--seat <좌석>] | waive <좌석> --before <ISO ts> \"<판정 N 사유>\" | archive <좌석>", 2)
+    die("usage: ft-inbox.sh ingest <seq> | show <좌석> [--seqs|--count] | rotate <좌석> --before <ISO ts> \"<판정 N 사유>\" | mark <seq|group> 처리|위임|보류 \"<1줄>\" [--seat <좌석>] | report <seq|group…> [--seat <좌석>] | close <seq|group…> \"<사유>\" [--seat <좌석>] | waive <좌석> --before <ISO ts> \"<판정 N 사유>\" | archive <좌석>", 2)
 
 
 if __name__ == "__main__":
