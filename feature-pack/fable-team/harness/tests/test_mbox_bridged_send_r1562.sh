@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # test_mbox_bridged_send_r1562.sh — r1562: 다른 루트 좌석에 보낸 쪽지(BRIDGED)는 보낸 쪽 mbox.sh 가
 #   doorbell·inbox 적재·깨움 예산을 건드리지 않는다(받는 루트 mbox.sh 가 이미 자기 명부로 판정·주입).
-#   본문 = tests/scripts/test_mbox_bridged_send_r1562.py (사례 ⓐ~ⓕ 6) · 변이 M0~M3 4종(사본 치환 → 그 시험 FAIL → 복구)
+#   본문 = tests/scripts/test_mbox_bridged_send_r1562.py (사례 ⓐ~ⓕ 6) · 변이 M0~M4 5종(사본 치환 → 그 시험 FAIL → 복구)
 #   + 기존 mbox 시험 rc 불변(다리 4종 · 인박스 적재) + 새 시험 모드 644 · 재진입 표지 lint.
 # 격리: 실 우편함·실 tmux·실 /tmp 상태·실 launchd 0 — 가짜 tmux(comm 사본 안) · 가짜 ft-inbox.sh 만.
 # ★rc 는 «명령이 낸 값» 을 먼저 변수로 받는다★ — ck "…$(grep…)" $? 꼴은 $? 가 뒤 명령 rc 를 받아 실패를 PASS 로 찍는다(r1309 REWORK r1 반례 2).
@@ -38,12 +38,15 @@ PY
   t=$(now); run_py "$T/comm" "${4:-}"; rc=$?; [ "$rc" -ne 0 ]; ck "변이 $1 → $(grep -Eo '[0-9]+ failed' "$T/py.last.log") FAIL $(secs "$t")" $?
   cp -p "$COMM/mbox.sh" "$T/comm/mbox.sh"
 }
-SEND_BLOCK='    case "$py_out" in BRIDGED*)
+SEND_BLOCK='    case "$py_out" in BRIDGED*)   # ★r1562 — 다른 루트로 간 쪽지면 여기서 끝난다★(사유는 bridged_out 주석 · rsv = 이 게이트가 «예약을 실제로 했나»)
+      case "$gate" in sent) if [ "${urgent}${uf}${ew}" = 000 ] && ! _wg_human_sender "$from" && case "$head" in '\''[긴급]'\''|'\''[인계]'\''|'\''[레디]'\'') false;; *) true;; esac; then rsv=1; fi;; esac
       [ -z "$SK" ] || bash "$SE" commit "$SK" --ref "bridged seq $seq" >/dev/null || true
-      bridged_out "$py_out" "$gate"; exit 0;;
+      bridged_out "$py_out" "$gate" "${rsv:-0}"; exit 0;;
     esac'
-RELAY_LINE='    case "$py_out" in BRIDGED*) bridged_out "$py_out" "$gate"; exit 0;; esac   # r1562 relay 도 같은 자리(relay 는 py 에서 send 를 탄다)'
-REFUND_LINE='  if [ "$2" = sent ]; then wake_budget_refund "$dbto" send >/dev/null 2>&1 || true; fi'
+RELAY_LINE='    case "$py_out" in BRIDGED*)   # r1562 — rsv 규칙은 send 절과 같다(relay 도 py 에서 send 를 탄다)
+      case "$gate" in sent) if [ "${urgent}${uf}${ew}" = 000 ] && ! _wg_human_sender "$from" && case "$head" in '\''[긴급]'\''|'\''[인계]'\''|'\''[레디]'\'') false;; *) true;; esac; then rsv=1; fi;; esac
+      bridged_out "$py_out" "$gate" "${rsv:-0}"; exit 0;; esac'
+REFUND_LINE='  if [ "$3" = 1 ]; then wake_budget_refund "$dbto" send >/dev/null 2>&1 || true; fi'
 # M0 사전 대조 = 고치기 «전» 동작(보낸 쪽이 자기 경로를 한 번 더 친다) — 두 분기를 다 빼면 그 상태가 된다
 python3 - "$T/comm/mbox.sh" "$SEND_BLOCK" "$RELAY_LINE" <<'PY' || { echo "FAIL 변이 M0 — 자리 못 찾음"; fail=$((fail+1)); }
 import sys
@@ -59,7 +62,9 @@ ck "변이 M0 사전 대조 → $(grep -Eo '[0-9]+ failed' "$T/py.last.log") FAI
 cp -p "$COMM/mbox.sh" "$T/comm/mbox.sh"
 mutate "M1 send 분기 제거" "$SEND_BLOCK" "" "case_a or case_b"
 mutate "M2 예산 되돌림 제거" "$REFUND_LINE" '  :' "case_c"
-mutate "M3 relay 분기 제거" "$RELAY_LINE" '    :' "case_e"
+mutate "M3 relay 분기 제거" "$RELAY_LINE" "" "case_e"
+# M4 = rsv 무시(arch#277 반례 그 자리): 예약이 없던 sent(--urgent · 머리 [긴급])에도 되돌림 → 보낸 쪽 장부가 줄어든다
+mutate "M4 rsv 무시(예약 없는 sent 도 되돌림)" "$REFUND_LINE" '  if [ "$2" = sent ]; then wake_budget_refund "$dbto" send >/dev/null 2>&1 || true; fi' "case_c"
 
 # ⓖ 기존 mbox 시험 rc 불변 — 다리 4종(r1309 X10 계열) · 인박스 적재
 ( cd "$SC" && ulimit -u 2000; R1309_BIN="$KIT" R1309_COMM="$COMM" timeout 70 pytest -q -p no:cacheprovider \
@@ -73,5 +78,5 @@ ck "ⓖ 회귀 인박스 적재 $(tail -1 "$T/r2.log")" "$rc"
 [ "$(stat -f %Lp "$SC/test_mbox_bridged_send_r1562.py")" = 644 ]; ck "새 시험 모드 644(py)" $?
 bash "$KIT/ft-test-reentry-lint.sh" "$SC/test_mbox_bridged_send_r1562.py" >/dev/null 2>&1; ck "재진입 표지 lint rc0" $?
 bash -n "$COMM/mbox.sh"; ck "mbox.sh bash -n" $?
-echo "새 시험 $(wc -l <"$SC/test_mbox_bridged_send_r1562.py" | tr -d ' ')줄 · 사례 ⓐ~ⓕ 6 + 변이 M0~M3"
+echo "새 시험 $(wc -l <"$SC/test_mbox_bridged_send_r1562.py" | tr -d ' ')줄 · 사례 ⓐ~ⓕ 6 + 변이 M0~M4"
 echo "FAIL=$fail"; [ "$fail" = 0 ]

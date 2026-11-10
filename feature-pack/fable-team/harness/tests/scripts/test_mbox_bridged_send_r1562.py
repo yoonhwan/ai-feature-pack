@@ -167,6 +167,18 @@ def test_case_c_sender_inbox_and_wake_budget_untouched(w: World) -> None:
     assert w.budget_n(w.a, "b-general#0") == 0, "울린 건 받는 루트다 — 보낸 쪽 예산은 되돌려야 한다"
     held = list((w.a / ".fable-team/state/doorbell-held").glob("*")) if (w.a / ".fable-team/state/doorbell-held").is_dir() else []
     assert held == [], f"보낸 쪽에 억제분을 적으면 안 된다: {held}"
+    # ⓒ-2 예약 없는 sent(--urgent) — 되돌릴 차감이 없다(보낸 쪽 장부가 줄면 안 된다 · arch#277 반례)
+    for _ in range(2):
+        assert "reserved" in w.mbox(w.a, "budget", "reserve", "b-general#0", "send").stdout
+    got2 = w.mbox(w.a, "send", "b-general#0", "a-master#1", "루트 넘는 쪽지 — urgent", "--urgent")
+    assert "doorbell=bridged" in got2.stdout, got2.stdout + got2.stderr
+    assert w.budget_n(w.a, "b-general#0") == 2, "--urgent = 예산 밖 — 보낸 쪽 장부를 되돌리면 안 된다"
+    # ⓒ-3 머리 [긴급] 도 예산 밖(게이트가 예약을 안 한다) — 같은 규칙
+    for _ in range(2):
+        assert "reserved" in w.mbox(w.a, "budget", "reserve", "b-ext#0", "send").stdout
+    got3 = w.mbox(w.a, "send", "b-ext#0", "a-master#1", "[긴급] 루트 넘는 쪽지")
+    assert "doorbell=bridged" in got3.stdout, got3.stdout + got3.stderr
+    assert w.budget_n(w.a, "b-ext#0") == 2, "[긴급] 머리 = 예산 밖 — 장부를 되돌리면 안 된다"
 
 
 # ── ⓓ 같은 루트 send = 지금 동작 그대로(큐 적재 · 주입 1회 · inbox 적재 · 예산 차감)
