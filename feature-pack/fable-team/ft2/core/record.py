@@ -29,7 +29,8 @@ KINDS = ("accept", "claim", "start", "effect", "result", "uncertain",
 STATE_FIELDS = ("revision", "pending", "attempts")
 # 확장 state 칸 — 없으면 기본값 {} 로 채운다(다른 writer 가 병합해 보존한다 · ⓘ).
 EXTENDED_STATE_FIELDS = ("generations", "owners", "uncertain", "deliveries", "reservations",
-                         "done", "reassess_done", "released", "owners_recovered", "executed")
+                         "done", "reassess_done", "released", "owners_recovered", "executed",
+                         "journal_base")   # r1584: 회수 base checkpoint {upto,count,proj,receipts}
 
 
 class RecordError(ValueError):
@@ -38,6 +39,14 @@ class RecordError(ValueError):
 
 class CorruptStateError(ValueError):
     """state·journal 이 schema v1 로 읽히지 않는다 = 복구 필요."""
+
+
+class WriterRefused(CorruptStateError):
+    """쓰기 전 총량 거절(r1584) — word = 계약 낱말, written = 이 호출에서 journal 줄이 내구화됐는가."""
+
+    def __init__(self, word, reason="", written=False):
+        super().__init__(reason or word)
+        self.word, self.written = word, written
 
 
 def read_state_guarded(path):
@@ -69,10 +78,20 @@ def recover_state(state, records):
     """journal 을 정본으로 삼아 state checkpoint 를 앞선다(DA R2 · R1) — checkpoint 전 crash 복구.
     잠금 안 판독(모든 writer)이 이 함수를 지나므로 recover 호출 여부와 무관하게 전달·완료·재평가가 보인다:
     세대·owner·예약(배정 줄) · 전달(전달 줄) · 완료 표식(완료 줄) · 재평가 결과(재평가 줄) · 미확정 표식.
-    뒤 기록이 앞 기록을 덮는다(결과 확정은 owner·미확정을 지우고, 재평가는 반환·owner 복구를 남긴다)."""
-    gens, owners, kept, sent = {}, {}, {}, {}
-    done, reassessed, released, recovered, uncertain = {}, {}, {}, {}, {}
-    for rec in records:
+    뒤 기록이 앞 기록을 덮는다(결과 확정은 owner·미확정을 지우고, 재평가는 반환·owner 복구를 남긴다).
+    r1584(DA R1 ①②): state.journal_base = {upto,count,proj,receipts} 가 있으면 proj 9칸에서 시작해
+    seq > upto 줄만 접는다. suffix 첫 줄은 upto+1 이어야 한다(아니면 복구 필요). base 없으면 오늘과 같다."""
+    base = dict(state.get("journal_base") or {})
+    upto, count, proj = base.get("upto") or 0, base.get("count") or 0, dict(base.get("proj") or {})
+    rows = [rec for rec in records if rec["seq"] > upto] if upto else list(records)
+    if upto and rows and rows[0]["seq"] != upto + 1:
+        raise CorruptStateError("journal suffix seq 불연속: %r != %r" % (rows[0]["seq"], upto + 1))
+    gens, owners = dict(proj.get("generations") or {}), dict(proj.get("owners") or {})
+    kept, sent = dict(proj.get("reservations") or {}), dict(proj.get("deliveries") or {})
+    done, reassessed = dict(proj.get("done") or {}), dict(proj.get("reassess_done") or {})
+    released, recovered = dict(proj.get("released") or {}), dict(proj.get("owners_recovered") or {})
+    uncertain = dict(proj.get("uncertain") or {})
+    for rec in rows:
         work, kind, gen = rec.get("work"), rec["kind"], rec.get("gen") or 0
         if kind in ("claim", "dispatch") and work and gen > gens.get(work, 0):
             gens[work], owners[work] = gen, {"holder": rec.get("holder"), "gen": gen, "at": rec["at"]}
@@ -95,7 +114,7 @@ def recover_state(state, records):
             recovered[work] = {"owner": rec.get("holder"), "attempt": rec.get("after")}
             owners.pop(work, None)
             kept = {res: row for res, row in kept.items() if row.get("work") != work}
-    return dict(state, revision=max(state["revision"], len(records)), generations=gens, owners=owners,
+    return dict(state, revision=max(state["revision"], count + len(rows)), generations=gens, owners=owners,
                 reservations=kept, deliveries=sent, done=done, reassess_done=reassessed,
                 released=released, owners_recovered=recovered, uncertain=uncertain)
 

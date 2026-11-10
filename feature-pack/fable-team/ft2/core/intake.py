@@ -16,6 +16,9 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 _SPEC = importlib.util.spec_from_file_location("ft2_core_record", os.path.join(_HERE, "record.py"))
 record = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(record)
+_SPEC_J = importlib.util.spec_from_file_location("ft2_core_journal", os.path.join(_HERE, "journal.py"))
+journal = importlib.util.module_from_spec(_SPEC_J)
+_SPEC_J.loader.exec_module(journal)
 
 RESULT_OK, RESULT_HOLD, RESULT_FULL, RESULT_CORRUPT = "접수 성공", "완료 유보", "용량 부족", "복구 필요"
 DURABLE_OPS = ("body_tmp_write", "body_file_fsync", "body_rename", "body_dir_fsync",
@@ -45,7 +48,8 @@ def order_violations(ops):
 
 class Intake:
     """팀 runtime 1곳의 입구. 실패·미확정은 성공으로 응답하지 않는다."""
-    def __init__(self, root, team, capacity=8, on_step=None, clock=None):
+    def __init__(self, root, team, capacity=8, on_step=None, clock=None,
+                 segment_cap=65536, total_cap=8388608, reserve=532480, state_slack=4096, line_max=512):
         self.team = team
         self.capacity = capacity
         self.on_step = on_step or (lambda step: None)
@@ -58,6 +62,10 @@ class Intake:
         self.tmp = os.path.join(self.runtime, "tmp")
         self.lock_path = os.path.join(self.runtime, "writer.lock")
         self._ensure()
+        # r1584: journal 판독·쓰기·회전·총량은 journal.Journal 한 곳이 한다(세 writer 가 이 객체를 쓴다).
+        self.journal = journal.Journal(self.runtime, segment_cap=segment_cap, total_cap=total_cap,
+                                      reserve=reserve, state_slack=state_slack, line_max=line_max,
+                                      ops=self._ops, on_step=self.on_step, rec=record)
 
     def _lock_file_path(self):
         return self.lock_path                      # 팀별 잠금 — 팀 전역 잠금 0(ⓔ)
@@ -88,29 +96,21 @@ class Intake:
             handle.write(json.dumps({"op": op}, ensure_ascii=False) + "\n")
 
     def records(self):
-        """journal 을 판독한다. schema 가 어긋난 줄은 `CorruptStateError`(기존 자료 보존)."""
-        if not os.path.exists(self.journal_path):
-            return []
-        out = []
-        with open(self.journal_path, encoding="utf-8") as handle:
-            for line in handle:
-                if not line.strip():
-                    continue
-                try:
-                    rec = json.loads(line)
-                    record.check(rec)
-                except (ValueError, record.RecordError) as exc:
-                    raise CorruptStateError("journal 판독 불가: %s" % exc)
-                out.append(rec)
-        return out
+        """journal 을 판독한다 — 닫힌 segment(N 오름차순) + 활성 파일 한 줄 순서. seq 역행은 CorruptStateError."""
+        return self.journal.records()
 
     def _state(self):
-        return record.read_state_guarded(self.state_path)
+        return self.journal.state()
 
     def _prior_receipt(self, records, command):
-        """입구 판독은 kind=accept 만 접수로 본다(ⓙ · 실행권 줄은 영수가 아니다)."""
-        return next((rec for rec in reversed(records)
-                     if rec["command"] == command and rec["kind"] == "accept"), None)
+        """입구 판독은 kind=accept 만 접수로 본다(ⓙ · 실행권 줄은 영수가 아니다).
+        회수된 accept 영수는 base(receipts)에서 읽는다(DA R1 ⑥) — 회수 전후 재접수 결과가 같다."""
+        found = next((rec for rec in reversed(records)
+                      if rec["command"] == command and rec["kind"] == "accept"), None)
+        if found is not None:
+            return found
+        base = (self.journal.cached_state.get("journal_base") or {}).get("receipts") or {}
+        return {"attempt": base[command], "command": command, "kind": "accept"} if command in base else None
 
     def _orphan_body(self, command):
         return os.path.exists(self.body_path(command))
@@ -138,25 +138,12 @@ class Intake:
         self._ops("body_dir_fsync")
         return os.path.relpath(self.body_path(command), self.runtime)
 
-    def _append_journal(self, rec):
-        record.check(rec)
-        with open(self.journal_path, "a", encoding="utf-8") as handle:
-            handle.write(json.dumps(rec, ensure_ascii=False, sort_keys=True) + "\n")
-            handle.flush()
-            self._ops("journal_write")
-            os.fsync(handle.fileno())
-        self._ops("journal_fsync")
-        _fsync_dir(self.runtime)
+    def _append_journal(self, rec, envelope=None):
+        """journal 1줄 내구화 — 총량 예약을 «줄이기 전» 에 판정한다(scalar 부족이면 WriterRefused)."""
+        self.journal.append(rec, envelope)
 
     def _write_state(self, state):
-        tmp = os.path.join(self.tmp, "state.json.tmp")
-        with open(tmp, "w", encoding="utf-8") as handle:
-            json.dump(state, handle, ensure_ascii=False, sort_keys=True)
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.replace(tmp, self.state_path)
-        _fsync_dir(self.runtime)
-        self._ops("state_write")
+        self.journal.write_state(state)
 
     def submit(self, command, body, work=None):
         """같은 팀 writer.lock 을 «비차단» 으로 잡고 접수한다. 점유 중이면 BUSY·쓰기 0(ⓗ)."""
@@ -173,28 +160,34 @@ class Intake:
         try:
             state, records = self._state(), self.records()
             state = record.recover_state(state, records)      # DA R2: 내구 journal 이 기준(공통 writer)
+            prior = self._prior_receipt(records, command)
+            if prior is not None:
+                return Receipt(RESULT_HOLD, command, prior["attempt"], state["revision"], reason="같은 command 기록 = 재부여 0")
+            if self._orphan_body(command):
+                return Receipt(RESULT_HOLD, command, None, state["revision"], reason="본문만 남음 = 영수 미확정")
+            pending = self._pending(records, state)
+            if self._full(pending):
+                return Receipt(RESULT_FULL, command, None, state["revision"], reason="pending %d >= 상한 %d" % (len(pending), self.capacity))
+            attempt = "%s#a%d" % (command, state["attempts"].get(command, 0) + 1)
+            new_state = self._next_state(state, command, pending)
+            seq = (records[-1]["seq"] if records else 0) + 1
+            rec = record.build(self.team, seq, command, attempt, self.clock(),
+                               os.path.relpath(self.body_path(command), self.runtime), work)
+            envelope = self.journal.envelope_for(new_state)
+            if not self.journal.admits_submit(body, rec, envelope):     # DA R2: 본문 tmp «전» 총량 판정
+                return Receipt(RESULT_FULL, command, None, state["revision"],
+                               reason="총량 한계 초과 = 쓰기 0")
+            body_ref = self._durable_body(command, body)
+            self.on_step("after_body")
+            self._append_journal(rec, envelope)
+            self.on_step("after_journal")
+            self._write_state(new_state)
+            self.on_step("after_state")
+            self._ops("receipt")
+            return Receipt(RESULT_OK, command, attempt, new_state["revision"], True, body_ref)
         except CorruptStateError as exc:
             self._ops("read_state_guarded")
             return Receipt(RESULT_CORRUPT, command, reason=str(exc))
-        prior = self._prior_receipt(records, command)
-        if prior is not None:
-            return Receipt(RESULT_HOLD, command, prior["attempt"], state["revision"], reason="같은 command 기록 = 재부여 0")
-        if self._orphan_body(command):
-            return Receipt(RESULT_HOLD, command, None, state["revision"], reason="본문만 남음 = 영수 미확정")
-        pending = self._pending(records, state)
-        if self._full(pending):
-            return Receipt(RESULT_FULL, command, None, state["revision"], reason="pending %d >= 상한 %d" % (len(pending), self.capacity))
-        attempt = "%s#a%d" % (command, state["attempts"].get(command, 0) + 1)
-        body_ref = self._durable_body(command, body)
-        self.on_step("after_body")
-        seq = (records[-1]["seq"] if records else 0) + 1
-        self._append_journal(record.build(self.team, seq, command, attempt, self.clock(), body_ref, work))
-        self.on_step("after_journal")
-        new_state = self._next_state(state, command, pending)
-        self._write_state(new_state)
-        self.on_step("after_state")
-        self._ops("receipt")
-        return Receipt(RESULT_OK, command, attempt, new_state["revision"], True, body_ref)
 
     def _next_state(self, state, command, pending):
         """교체가 아닌 «병합» — 세대·owner·불명 표시 등 확장 칸을 보존한다(ⓘ)."""
