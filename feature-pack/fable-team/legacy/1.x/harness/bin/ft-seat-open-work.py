@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """ft-seat-open-work.py <좌석> [--root R] [--mbox-dir D] — 이 좌석이 «받을 일» 이 있는지 판정한다(r1539 · 읽기 전용 · 표시·소비·쓰기·kill 0).
 rc 0 = 받을 일 0(후계 0 · 좌석 닫기 대기) · 1 = 있음(기존 승계) · 3 = 판정 불가(기존 승계 + stderr 1줄 · ①쪽지·카드 못 읽음 ②indices/ 자체가 없음 — 진행/ 만 없으면 0 이다 r1541) · stdout = `OPEN-WORK 0|있음|불가 이유=…` (+ rc0 이면 `LEADER <팀장|->`)
-입력 = ①우편함(아직 recv 안 한 큐 + 받고도 «처리함|인계» 표시 없는 영수) ②진행 카드 «- 배정: 좌석 <좌석>» ③state/card-assign «seat» ④팀장 좌석이면 팀 진행 카드 · 좌석 계보 = «#» 앞 이름 · «일 아님» 꼴 목록(정본 = 이 파일 한 곳) = 머리 «[처리»·«[다음 없음»·«[알림»·«[정리» · 본문 첫 줄에 «다음 일 없음» · recv 인용 «READ » — 그 밖은 일로 센다.
+입력 = ①우편함(아직 recv 안 한 큐 + 받고도 «처리함|인계» 표시 없는 영수) ②진행 카드 «- 배정: 좌석 <좌석>» ③state/card-assign «seat» ④팀장 좌석이면 팀 진행 카드 · 좌석 계보 = «#» 앞 이름 · «일 아님» 꼴 목록(정본 = 이 파일 한 곳) = 머리 «[처리»·«[다음 없음»·«[알림»·«[정리» · 본문 첫 줄에 «다음 일 없음» · recv 인용 «READ » — 그 밖은 일로 센다. «내가 나에게» 보낸 쪽지만 빼고 같은 계보 후계에게 보낸 [인계] 는 센다(r1575).
 """
 import glob, json, os, re, sys
 NOT_WORK = ("[처리", "[다음 없음", "[알림", "[정리")
@@ -28,7 +28,7 @@ def is_not_work(body):
 
 def unread(seat, mdir):   # 미처리 쪽지 = 아직 recv 안 한 큐 + 받고도 «처리함|인계» 표시가 없는 영수
     key = rk(seat)
-    out = [r for r in rows(os.path.join(mdir, "mailbox.jsonl")) if rk(r.get("to")) == key and r.get("from") != seat]
+    out = [r for r in rows(os.path.join(mdir, "mailbox.jsonl")) if rk(r.get("to")) == key and not (r.get("from") == r.get("to") == seat)]   # ★«내가 나에게»만 뺀다 — 같은 계보 후계에게 보낸 [인계] 도 일(r1575)
     rec = []   # ★영수 파일 이름 = 실제로는 «좌석#번호.jsonl»(번호 있음) — 계보 키 하나만 보면 발주를 놓친다(DA r1539 R1)
     rdir = os.path.join(mdir, "receipts")
     for n in (sorted(os.listdir(rdir)) if os.path.isdir(rdir) else []):
