@@ -189,6 +189,77 @@ chk "ⓔ h 실행 기록 0(실행은 desk)" 0 "$(ls "$T/hil" | grep -c '\.ran$')
 case "$(cat "$CALLS")" in *"$QTS"*) echo "  OK   ⓔ Slack 은 읽기(conversations.replies 대역)만 불렀다";; *) echo "  FAIL ⓔ replies 조회 0"; fail=1;; esac
 chk "ⓔ 쪽지 1통(그 외 발신 0)" 1 "$(sends)"
 
+echo "== 반례 R1(DA#279518 §2) 점검 중 독립 등록 = 마지막 저장에서 유실 0 =="
+reset
+rm -f "$T/race-fired" "$T/race.out"
+QTS2=1794295710.111111
+cat > "$T/bin/replies-race.sh" <<SH
+#!/usr/bin/env bash
+if [ ! -f "$T/race-fired" ]; then
+  : > "$T/race-fired"
+  ( cd "$ROOT" && FT_ROOT="$ROOT" FT_NOW="$NOW" FT_DESK_REPLY_LEDGER="$LEDGER" python3 "$TOOL" --register "$QTS2" h62 "$SHA" >"$T/race.out" 2>&1 )
+fi
+cat "$REPLIES_JSON"
+SH
+( cd "$ROOT" && FT_ROOT="$ROOT" FT_NOW="$NOW" FT_DESK_REPLY_LEDGER="$LEDGER" timeout $TO_LIMIT python3 "$TOOL" --register "$QTS" h61 "$SHA" ) >/dev/null
+run_tool "FT_SLACK_REPLIES_CMD=bash $T/bin/replies-race.sh" >/dev/null 2>"$T/err-r1"; RC_R1=$?
+chk "R1 겹침 실행 rc=0" 0 "$RC_R1"
+has "등록 h62" "$T/race.out" "R1 겹친 등록은 rc0 로 성공했다"
+chk "R1 두 줄 다 남는다(등록 유실 0)" 2 "$(wc -l < "$LEDGER" | tr -d ' ')"
+python3 - "$LEDGER" "$QTS" "$QTS2" <<'PY' > "$T/r1-state" || true
+import json, sys
+rows = [json.loads(x) for x in open(sys.argv[1], encoding="utf-8") if x.strip()]
+d = {r.get("q_ts"): r.get("state") for r in rows}
+print(d.get(sys.argv[2]), d.get(sys.argv[3]))
+PY
+chk "R1 점검한 줄 = notified · 겹친 줄 = open 그대로" "notified open" "$(cat "$T/r1-state")"
+
+echo "== 반례 R2(DA#279518 §2) 열린 5개 = 조회 순환(다섯째도 본다) =="
+reset
+python3 - "$T/multi.json" "$SHA" <<'PY'
+import json, sys
+out, sha = sys.argv[1], sys.argv[2]
+qts = ["1794295513.494289"] + ["179429552%d.000001" % i for i in range(1, 5)]
+mp = {}
+for i, t in enumerate(qts):
+    msgs = [{"ts": t, "user": "U0C9GRFHJ", "text": "sha %s 승인 요청" % sha}]
+    if i == 4:  # 다섯째에만 오빠 답글
+        msgs.append({"ts": "1794295524.999999", "user": "U0AC2JF0M7D", "text": "OK"})
+    mp[t] = {"ok": True, "messages": msgs}
+json.dump({"qts": qts, "map": mp}, open(out, "w", encoding="utf-8"), ensure_ascii=False)
+PY
+cat > "$T/bin/replies-multi.sh" <<SH
+#!/usr/bin/env bash
+export MULTI_JSON="$T/multi.json"
+python3 - <<'PY'
+import json, os
+d = json.load(open(os.environ["MULTI_JSON"], encoding="utf-8"))
+print(json.dumps(d["map"].get(os.environ.get("FT_SLACK_TS", ""), {"ok": True, "messages": []})))
+PY
+SH
+while read -r t; do ( cd "$ROOT" && FT_ROOT="$ROOT" FT_NOW="$NOW" FT_DESK_REPLY_LEDGER="$LEDGER" python3 "$TOOL" --register "$t" h70 "$SHA" ) >/dev/null; done <<< "$(python3 -c 'import json,sys;print("\n".join(json.load(open(sys.argv[1]))["qts"]))' "$T/multi.json")"
+chk "R2 질문 5줄 등록" 5 "$(wc -l < "$LEDGER" | tr -d ' ')"
+run_tool "FT_SLACK_REPLIES_CMD=bash $T/bin/replies-multi.sh" >/dev/null 2>&1
+run_tool "FT_SLACK_REPLIES_CMD=bash $T/bin/replies-multi.sh" >/dev/null 2>&1
+chk "R2 다섯째 답글도 두 주기 안에 1통(조회 순환)" 1 "$(sends)"
+chk "R2 받는이 = 현역 _desk" "$DESK" "$(cut -f1 "$SENT")"
+
+echo "== 반례 R3(DA#279518 §2) 같은 질문 재등록 = 같은 답글 2통 0 =="
+reset
+run_reg() { ( cd "$ROOT" && FT_ROOT="$ROOT" FT_NOW="$NOW" FT_DESK_REPLY_LEDGER="$LEDGER" timeout $TO_LIMIT python3 "$TOOL" --register "$@" ); }
+OUT_R3A="$(run_reg "$QTS" h81 "$SHA" 2>&1)"; RC_R3A=$?
+OUT_R3B="$(run_reg "$QTS" h81 "$SHA" 2>&1)"; RC_R3B=$?
+chk "R3 첫 등록 rc=0" 0 "$RC_R3A"
+chk "R3 재등록 rc=0(멱등 — 응답 유실 뒤 재시도 입력)" 0 "$RC_R3B"
+case "$OUT_R3B" in *"이미 등록"*) echo "  OK   R3 재등록은 «이미 등록» 1줄로 답한다";; *) echo "  FAIL R3 재등록 답: $OUT_R3B"; fail=1;; esac
+chk "R3 장부 줄 1개(중복 0)" 1 "$(wc -l < "$LEDGER" | tr -d ' ')"
+run_tool >/dev/null 2>&1
+chk "R3 같은 질문·같은 답글 = 1통" 1 "$(sends)"
+OUT_R3C="$(run_reg "$QTS" h82 "$SHA" 2>&1)"; RC_R3C=$?
+chk "R3 같은 ts 에 다른 h = rc3(조용한 중복 0)" 3 "$RC_R3C"
+case "$OUT_R3C" in *"감시 등록 실패"*) echo "  OK   R3 다른 값 재등록은 «감시 등록 실패» 1줄";; *) echo "  FAIL R3 다른 값 재등록 답: $OUT_R3C"; fail=1;; esac
+reset
+
 echo "== stall-scan 연결 1줄(120초 주기 재사용 · --dry-run 제외 · 새 launchd 0) =="
 has "ft_desk_reply_wake.py" "$BIN/ft-stall-scan.sh" "ft-stall-scan.sh 에 점검 호출 1줄"
 grep -Fq -- '[ "${1:-}" = --dry-run ] || [ ! -f "$HERE/ft_desk_reply_wake.py" ]' "$BIN/ft-stall-scan.sh" \
@@ -220,7 +291,7 @@ RUN_TOOL="$MUT/m1.py" run_tool >/dev/null 2>&1
 if [ "$(sends)" = 1 ]; then echo "  FAIL M1 — 중복 억제를 뺐는데도 1통(시험이 약하다)"; fail=1; else echo "  OK   M1 중복 억제 제거 → ⓑ «1통» 검사 FAIL(시험이 잡는다 · 실제 $(sends)통)"; fi
 # M2: 조회 실패를 «알림함» 으로 기록 — 판정 불가인데 알림 완료로 남는다
 mutate m2 'if not m:  # ⓓ 조회 실패·토큰 없음 = «판정 불가» 1줄 · 알림 완료 기록 0@@if not m:  # M2
-            row["notified_ts"], row["state"] = "0.0", "notified"'
+            up[q] = {"state": "notified", "notified_ts": "0.0"}'
 reset
 ( cd "$ROOT" && FT_ROOT="$ROOT" FT_NOW="$NOW" FT_DESK_REPLY_LEDGER="$LEDGER" timeout $TO_LIMIT python3 "$TOOL" --register "$QTS" h52 "$SHA" ) >/dev/null
 REPLY_FAIL=1 RUN_TOOL="$MUT/m2.py" run_tool >/dev/null 2>&1
