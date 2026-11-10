@@ -4,7 +4,9 @@
 set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"; PACK="$(cd "$HERE/../.." && pwd)"
 BURN="$PACK/ctx-burn/bin/ctx-burn"; PLAN="$PACK/ctx-plan/bin/ctx-plan"
-WCHK="$PACK/fable-team/skill/scripts/ft-waste-check.sh"
+# ft 2.0 PR①-2(625fbdfc) 가 1.x 를 legacy/1.x 로 옮겼다 — 옛 경로를 부르면 rc127 로 4·5행이 거짓 FAIL 된다(ⓓ).
+WCHK="$PACK/fable-team/legacy/1.x/skill/scripts/ft-waste-check.sh"
+if [ ! -f "$WCHK" ]; then echo "WCHK 없음 $WCHK"; exit 2; fi
 T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T"' EXIT
 export HOME="$T/home"; unset FT_CAP_FILE CTX_PLAN_CAP_FILE
 mkdir -p "$HOME/.claude/projects/h" "$T/empty" "$T/bin"
@@ -93,7 +95,7 @@ step "4·5행 하네스 — 설치된 ctx-burn 만 · 미설치면 skip rc0"
 SYS="/usr/bin:/bin:$HOME/../..//opt/homebrew/bin"                    # python3 는 있고 ctx-burn 은 없는 PATH
 SYS="/usr/bin:/bin:$(dirname "$(command -v python3)")"
 cp "$BURN" "$T/bin/ctx-burn"                                          # PATH 에 «설치된» ctx-burn
-CK="$HOME/Project/ai-feature-pack/feature-pack/ctx-burn/bin/ctx-burn"  # 체크아웃 자리에도 실행본을 둔다(R5)
+CK="$T/ck/feature-pack/ctx-burn/bin/ctx-burn"                         # 체크아웃 «자리» 도 tmp(ⓒ — 실 체크아웃·실 설치본 쓰기 0)
 mkdir -p "${CK%/*}"; cp "$BURN" "$CK"; chmod 755 "$CK"
 OUT="$(cd "$T/empty" && PATH="$SYS" "$WCHK" --hours 1 2>&1)"; rc=$?
 eq "5: 미설치 PATH → rc0" "$rc" "0"
@@ -102,10 +104,11 @@ eq "4: 체크아웃에 실행본이 있어도 부르지 않는다(1줄)" "$(prin
 OUT="$(cd "$T/empty" && PATH="$T/bin:$SYS" "$WCHK" --hours 1 2>&1)"; rc=$?
 eq "4: PATH 설치본이면 실행된다" "$rc" "0"
 chk "4: 실행 결과가 나온다(skip 아님)" "$(printf '%s' "$OUT" | grep -c 'WASTE \(ok\|warn\|critical\)')" "1"
-mutate "$WCHK" "$T/w4.sh" 'CW="$(command -v ctx-burn 2>/dev/null || true)"' 'CW="$(command -v ctx-burn 2>/dev/null || echo "$HOME/Project/ai-feature-pack/feature-pack/ctx-burn/bin/ctx-burn")"'
-M4="$(cd "$T/empty" && PATH="$SYS" bash "$T/w4.sh" --hours 1 2>&1)"
+mutate "$WCHK" "$T/w4.sh" 'CW="$(command -v ctx-burn 2>/dev/null || true)"' \
+  "CW=\"\$(command -v ctx-burn 2>/dev/null || echo '$CK')\""
+M4="$(cd "$T/empty" && PATH="$SYS" HOME="$T/home" bash "$T/w4.sh" --hours 1 2>&1)"  # HOME 픽스처 로그(ⓑ — 실 HOME 로그 0)
 eq "4 원본: 체크아웃 실행본 호출 0회(skip)" "$(printf '%s' "$M4" | grep -c 'WASTE skip')" "0"
-chk "4 변이: 체크아웃 후보를 되살리면 실제로 부른다" "$(printf '%s' "$M4" | grep -c 'WASTE \(ok\|warn\|critical\)')" "1"
+eq "4 변이: 체크아웃 후보를 되살리면 실제로 부른다(1줄 고정)" "$(printf '%s' "$M4" | grep -c 'WASTE \(ok\|warn\|critical\)')" "1"
 step "6행 가드 — 상수 파일 없으면 rc3 + 1줄 · 표 0"
 OUT="$(HOME="$T/nohome" "$PLAN" --from "$T/b.json" --capacity 2>&1)"; rc=$?
 eq "6: 빈 HOME·인자 없음 → rc3" "$rc" "3"
