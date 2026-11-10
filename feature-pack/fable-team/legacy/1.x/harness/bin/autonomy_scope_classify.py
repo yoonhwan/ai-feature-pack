@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """autonomy_scope_classify.py — 오빠 부재 중 사전 승인(R298)의 «세트 종류» 분류기 (설계 DESIGN-r298-away-preapproval-merge §3·§7 · 판정 2055).
 
-  autonomy_scope_classify.py classify <40hex> --repo <dir> [--remote origin] [--target main] --scope S<n>
-        [--table <분류표.tsv>] [--ddl-records <기록표.tsv>] [--learned <키,…>]
+  classify <40hex> --repo <dir> [--remote origin] [--target main] --scope S<n> [--table <분류표.tsv>] [--ddl-records <기록표.tsv>] [--learned <키,…>]
       `CLASS docs|ff|revert|code[ kind=<키,…> learned]` rc0 | `FORBID kind=<키> <사유>` rc3 | `ERROR <사유>` rc1 (못 판단 = 닫힌 쪽 · 호출자 REJECT)
+      --critical (r1577 D2 «크리티컬 종류» · --scope 불요) → `CRITICAL-OK` rc0 | `CRITICAL kind=<launchd|config|secret|destroy> <사유>` rc3 · scope 표와 «분리»
   autonomy_scope_classify.py check-revert --repo <dir> [--remote origin] [--target main] --scope S<n>
       `OK` rc0 | `REVERTED <착지 sha> by <sha>` rc4 | `ERROR <사유>` rc1
 diff = merge-base(<remote>/<target>, sha)..sha · 로컬 git 만(호출마다 7초 상한) · 원장 = <state>/autonomy-scope/S<n>.ledger.tsv (6번째 칸 = 착지 sha).
@@ -126,6 +126,15 @@ def classify(repo, remote, target, scope, sha, table=None, records=None, learned
     return 0, ("CLASS ff" if is_ff else "CLASS docs") + tail
 
 
+def critical_check(repo, remote, target, sha):   # r1577 D2 — 되돌릴 수 없는 일이면 승인 0(Slack 길로)
+    ref = "refs/remotes/%s/%s" % (remote, target); git(repo, "rev-parse", "--verify", "-q", ref + "^{commit}"); git(repo, "rev-parse", "--verify", "-q", sha + "^{commit}")
+    base = git(repo, "merge-base", ref, sha).strip(); blocks = secret_lines.parse_added(git, repo, base, sha)
+    if not blocks: raise Err("빈 diff(판정할 변경 없음)")
+    doc = lambda p: ("docs", "docs") if p.endswith(".md") else ("code", "code")   # .md = 산문 · 그 밖 = 전문(닫힌 쪽)
+    hit = rules.critical_kinds(blocks, lambda: secret_lines.reason(blocks, doc, repo, sha))
+    return (3, "CRITICAL kind=%s %s" % hit) if hit else (0, "CRITICAL-OK")
+
+
 def find_reverter(repo, ref, landed):   # 착지 뒤 ref 에 «This reverts commit <L>» 이 든 커밋 → 그 sha
     log = git(repo, "log", "--format=%H%x1f%B%x1e", "%s..%s" % (landed, ref))
     for rec in log.split("\x1e"):
@@ -148,17 +157,18 @@ def check_revert(repo, remote, target, scope):
 
 def parse_args(argv):
     if not argv or argv[0] not in ("classify", "check-revert"):
-        raise Err("usage: classify <40hex>|check-revert --repo <dir> [--remote r] [--target t] --scope S<n> [--table f] [--ddl-records f] [--learned k,…]")
-    cmd, rest = argv[0], list(argv[1:])
+        raise Err("usage: classify <40hex>|check-revert --repo <dir> [--remote r] [--target t] --scope S<n> [--table f] [--ddl-records f] [--learned k,…] [--critical]")
+    cmd = argv[0]; critical = "--critical" in argv[1:]   # r1577 D2 크리티컬 판정 = --scope 불요 · 표(t)도 안 본다
+    rest = [k for k in argv[1:] if k != "--critical"]
     sha = rest.pop(0) if cmd == "classify" and rest and not rest[0].startswith("--") else None
-    opts = {"--repo": None, "--remote": "origin", "--target": "main", "--scope": None, "--table": None, "--ddl-records": None, "--learned": ""}
+    opts = {"--repo": None, "--remote": "origin", "--target": "main", "--scope": None, "--table": None, "--ddl-records": None, "--learned": "", "--critical": critical}
     while rest:
         key = rest.pop(0)
         if key not in opts or not rest:
             raise Err("인자 오류: " + key)
         opts[key] = rest.pop(0)
-    if not opts["--repo"] or not SCOPE_RE.match(opts["--scope"] or ""):
-        raise Err("--repo 와 --scope S<n> 필수")
+    if not opts["--repo"] or (not critical and not SCOPE_RE.match(opts["--scope"] or "")):
+        raise Err("--repo 와 --scope S<n> 필수" if not critical else "--repo 필수")
     if cmd == "classify" and not SHA_RE.match(sha or ""):
         raise Err("<40hex> 필수")
     learned = tuple(k for k in (opts["--learned"] or "").split(",") if k)
@@ -171,7 +181,9 @@ def main(argv):
     try:
         cmd, sha, o, learned = parse_args(argv)
         repo, remote, target, scope = o["--repo"], o["--remote"], o["--target"], o["--scope"]
-        if cmd == "classify":
+        if cmd == "classify" and o["--critical"]:
+            rc, line = critical_check(repo, remote, target, sha)   # r1577 D2 — 크리티컬이면 승인 0(Slack 길)
+        elif cmd == "classify":
             table, records = rules.load_table(o["--table"]), rules.load_ddl_records(o["--ddl-records"])
             rc, line = classify(repo, remote, target, scope, sha, table, records, learned)
         else:

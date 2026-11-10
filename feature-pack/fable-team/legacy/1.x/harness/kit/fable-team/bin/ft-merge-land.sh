@@ -97,10 +97,10 @@ for i in 1 2; do
     [ "$i" -eq 1 ] && rej "착지 0 확정(원격 $TARGET = $M) · push 응답 불명(rc=$PRC) · 재시도 0 — 총 마감 안에 끝내지 못함 · 다음 틱에 다시"; rej "착지 0 확정(재시도 1 포함 · 원격 $TARGET = $M) · push 응답 불명(rc=$PRC) · 3차 0 — 다음 틱에 다시"
   else plog 불명; rej "원격 상태 불명 · 손 확인 필요(push rc=$PRC · ls-remote rc=$lrc 값=${LSO:0:80})"; fi
 done; hs_release   # r1286: 자리 풀기 = push 재시도·ls-remote 확인 루프 «전체» 가 끝난 뒤 — 설치 검사·PR 닫기는 자리 0
-mkdir -p "$STATE" && printf '%s repo=%s main=%s head=%s method=ft-merge-land%s tree=%s landed=%s pr=%s approve=%s%s approve-file=%s%s%s%s%s\n' "$(date +%Y-%m-%dT%H:%M:%S)" "$(basename "${SLUG:-$ROOT}")" "$M" "$S" "${FF:+-ff}" "$(G rev-parse "$S^{tree}")" "$Q" "$PR" "$AP" "${EQM:+ $EQM}" "${AFE:-}" "${LANDVIA:+ push-confirmed=ls-remote}" "${DOCX:+ $DOCX}${S0:+ doc-auto-merge=$S0}" "$([ "${AFV:-}" != D1 ] || printf ' standing=D1')" "${PEV:+ ${PEV##*$'\n'}}" >>"$STATE/merge-gate.log"   # r947: 상시 승인 착지만 끝에 standing=D1
+mkdir -p "$STATE" && printf '%s repo=%s main=%s head=%s method=ft-merge-land%s tree=%s landed=%s pr=%s approve=%s%s approve-file=%s%s%s%s%s\n' "$(date +%Y-%m-%dT%H:%M:%S)" "$(basename "${SLUG:-$ROOT}")" "$M" "$S" "${FF:+-ff}" "$(G rev-parse "$S^{tree}")" "$Q" "$PR" "$AP" "${EQM:+ $EQM}" "${AFE:-}" "${LANDVIA:+ push-confirmed=ls-remote}" "${DOCX:+ $DOCX}${S0:+ doc-auto-merge=$S0}" "$([ "${AFV:-}" != D1 ] || printf ' standing=D1')$([ "${AFV:-}" != D2 ] || printf ' standing=D2')" "${PEV:+ ${PEV##*$'\n'}}" >>"$STATE/merge-gate.log"   # r947: 상시 승인 착지만 끝에 standing=D1
 echo "LANDED pr=$PR sha=$Q main_before=$M head=$S tree=$(G rev-parse "$Q^{tree}")${FF:+ mode=ff}"
 echo "push ok objects=$PN bound=$PB attempt=$AB took=${PEL}s${LANDVIA:+ confirmed=ls-remote(응답 후 timeout)}"   # R354: 착지마다 1줄 — bound=계산 최대 · attempt=실제 상한 · took=마지막 시도 소요 · 3건 모이면 기준량 U0 갱신 근거
-fm_land_ledger "$STATE" "$AST" "$AP" "$Q" "${AFV:-}"   # R298(DA⑥ H3) · r947 · r1336: 대리 승인 원장 기록 = ft-merge-lib.sh 로 이사(동작 불변 · 실패해도 착지 rc 불변)
+fm_land_ledger "$STATE" "$AST" "$AP" "$Q" "${AFV:-}"; [ "${AFV:-}" != D2 ] || fm_land_notify_d2 "$PR" "$Q" "$(pf title) $(pf body)"   # R298(DA⑥ H3) · r947 · r1336: 대리 승인 원장 기록 = ft-merge-lib.sh 로 이사(동작 불변 · 실패해도 착지 rc 불변)
 fm_flag_off_new "$REPO" "$M" "$Q"   # R239: 이 착지가 새로 만든 «꺼진 플래그 = 결정 1건» 을 출력만(착지 rc 불변)
 # R243: 착지 성공 «뒤»에만 기준 헤드를 Q 로 원자 교체(옛 값이 Q 의 조상일 때만 전진) + 뒤처진 팀 알림(실패해도 착지 rc 불변)
 OLD="$(head -n1 "$BH" 2>/dev/null | tr -d '[:space:]')"
