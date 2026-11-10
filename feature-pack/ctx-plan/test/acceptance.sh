@@ -90,16 +90,22 @@ mutate "$PLAN" "$T/m3.py" 'bad = ci.get("schema") != SCHEMA' 'bad = False'
 eq "3 변이: 검사를 빼면 rc0" "$(python3 "$T/m3.py" --from "$T/bad.json" --inv-file "$CAP" --inventory >/dev/null 2>&1; echo $?)" "0"
 
 step "4·5행 하네스 — 설치된 ctx-burn 만 · 미설치면 skip rc0"
-cp "$BURN" "$T/bin/ctx-burn"
-OUT="$(cd "$T/empty" && PATH=/usr/bin:/bin "$WCHK" --hours 1 2>&1)"; rc=$?
+SYS="/usr/bin:/bin:$HOME/../..//opt/homebrew/bin"                    # python3 는 있고 ctx-burn 은 없는 PATH
+SYS="/usr/bin:/bin:$(dirname "$(command -v python3)")"
+cp "$BURN" "$T/bin/ctx-burn"                                          # PATH 에 «설치된» ctx-burn
+CK="$HOME/Project/ai-feature-pack/feature-pack/ctx-burn/bin/ctx-burn"  # 체크아웃 자리에도 실행본을 둔다(R5)
+mkdir -p "${CK%/*}"; cp "$BURN" "$CK"; chmod 755 "$CK"
+OUT="$(cd "$T/empty" && PATH="$SYS" "$WCHK" --hours 1 2>&1)"; rc=$?
 eq "5: 미설치 PATH → rc0" "$rc" "0"
 chk "5: skip 1줄(느슨한 연결)" "$OUT" "WASTE skip (ctx-burn 미설치 — 느슨한 연결)"
-eq "5: 다른 출력 0" "$(printf '%s\n' "$OUT" | wc -l | tr -d ' ')" "1"
-OUT="$(cd "$T/empty" && PATH="$T/bin:/usr/bin:/bin" "$WCHK" --hours 1 2>&1)"; rc=$?
-eq "4: 설치본이 있으면 실행된다" "$rc" "0"
-nchk "4: skip 아님" "$OUT" "WASTE skip"
+eq "4: 체크아웃에 실행본이 있어도 부르지 않는다(1줄)" "$(printf '%s\n' "$OUT" | wc -l | tr -d ' ')" "1"
+OUT="$(cd "$T/empty" && PATH="$T/bin:$SYS" "$WCHK" --hours 1 2>&1)"; rc=$?
+eq "4: PATH 설치본이면 실행된다" "$rc" "0"
+chk "4: 실행 결과가 나온다(skip 아님)" "$(printf '%s' "$OUT" | grep -c 'WASTE \(ok\|warn\|critical\)')" "1"
 mutate "$WCHK" "$T/w4.sh" 'CW="$(command -v ctx-burn 2>/dev/null || true)"' 'CW="$(command -v ctx-burn 2>/dev/null || echo "$HOME/Project/ai-feature-pack/feature-pack/ctx-burn/bin/ctx-burn")"'
-chk "4 변이: 체크아웃 경로를 되살리면 skip 이 사라진다" "$(cd "$T/empty" && PATH=/usr/bin:/bin bash "$T/w4.sh" --hours 1 2>&1)" "WASTE skip"
+M4="$(cd "$T/empty" && PATH="$SYS" bash "$T/w4.sh" --hours 1 2>&1)"
+eq "4 원본: 체크아웃 실행본 호출 0회(skip)" "$(printf '%s' "$M4" | grep -c 'WASTE skip')" "0"
+chk "4 변이: 체크아웃 후보를 되살리면 실제로 부른다" "$(printf '%s' "$M4" | grep -c 'WASTE \(ok\|warn\|critical\)')" "1"
 step "6행 가드 — 상수 파일 없으면 rc3 + 1줄 · 표 0"
 OUT="$(HOME="$T/nohome" "$PLAN" --from "$T/b.json" --capacity 2>&1)"; rc=$?
 eq "6: 빈 HOME·인자 없음 → rc3" "$rc" "3"
@@ -117,6 +123,24 @@ OUT="$("$PLAN" --from "$T/b.json" --inv-file "$T/blank.env" --inventory 2>&1)"; 
 eq "7: rc0" "$rc" "0"
 chk "7: 0순위 문제 13건" "$OUT" "0순위 문제 13건"
 chk "7: 기본값 대체 없음(산정 불가)" "$("$PLAN" --from "$T/b.json" --inv-file "$T/blank.env" --capacity --accounts 5x:1 2>&1)" "기본값 대체 0"
+
+step "R4 (기준7) 빈 값 = 산정 불가 — 예외 0 · 0 대체 금지"
+sed 's/FT_CAP_TARGET_UTIL=0.85/FT_CAP_TARGET_UTIL=/' "$CAP" > "$T/notarget.env"
+O="$(HOME="$T/home" "$PLAN" --from "$T/b.json" --inv-file "$T/notarget.env" --capacity --accounts 5x:5 2>&1)"; rc=$?
+eq "R4a: TARGET_UTIL 빈 값 → rc0(예외 0)" "$rc" "0"
+chk "R4a: 정원 산정 불가" "$O" "정원 산정 불가 — 목표 사용률(FT_CAP_TARGET_UTIL)"
+chk "R4a: 골 모형 산정 불가" "$O" "골 모형 산정 불가"; nchk "R4a: TypeError 없음" "$O" "TypeError"
+sed 's/FT_CAP_WK_5X=389/FT_CAP_WK_5X=/' "$CAP" > "$T/nowk.env"
+O="$(HOME="$T/home" "$PLAN" --from "$T/b.json" --inv-file "$T/nowk.env" --capacity --accounts 5x:5 2>&1)"; rc=$?
+eq "R4b: WK_5X 빈 값 → rc0(예외 0)" "$rc" "0"; chk "R4b: 산정 불가 문구" "$O" "산정 불가 — 주간 5x M(FT_CAP_WK_5X)"
+sed 's/FT_CAP_CLAUDE_5X=1/FT_CAP_CLAUDE_5X=/' "$CAP" > "$T/no5x.env"
+O="$(HOME="$T/home" "$PLAN" --from "$T/b.json" --inv-file "$T/no5x.env" --inventory 2>&1)"; rc=$?
+eq "R4c: CLAUDE_5X 빈 값 → rc0" "$rc" "0"; chk "R4c: 구독 상수 산정 불가" "$O" "구독 상수: 산정 불가 — FT_CAP_CLAUDE_5X"
+nchk "R4c: 0장으로 대체하지 않는다" "$O" "5x 0 + Ultra"
+mutate "$PLAN" "$T/m9.py" 'gone = missing(p, GOAL_NEED)' 'gone = []'
+nchk "R4 변이1(골 경로 가드 제거): 산정 불가가 사라진다" "$(python3 "$T/m9.py" --from "$T/b.json" --inv-file "$T/notarget.env" --capacity --accounts 5x:5 2>&1)" "골 모형 산정 불가"
+mutate "$PLAN" "$T/m10.py" 'num(inv, "FT_CAP_CLAUDE_5X"), num(inv, "FT_CAP_CLAUDE_ULTRA")' 'num(inv, "FT_CAP_CLAUDE_5X", 0.0), num(inv, "FT_CAP_CLAUDE_ULTRA", 0.0)'
+nchk "R4 변이2(0 대체 복원): 산정 불가가 사라진다" "$(python3 "$T/m10.py" --from "$T/b.json" --inv-file "$T/no5x.env" --inventory 2>&1)" "구독 상수: 산정 불가"
 
 step "8행 경계 — ctx-burn 측정 원천은 HOME 주입으로 격리"
 eq "8: 격리 HOME 픽스처만 집계(claude 21요청)" "$(printf '%s' "$CTX" | python3 -c 'import json,sys;print(json.load(sys.stdin)["plan_input"]["pools"]["claude"]["req"])')" "21"

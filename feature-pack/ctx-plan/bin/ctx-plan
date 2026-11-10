@@ -38,6 +38,9 @@ KNOBS = {"c5h_5x": ("FT_CAP_C5H_5X", 60.0), "hours_per_week": ("FT_CAP_HOURS_PER
 ANCHOR_STATUS = {"wk_5x": "미검증·추정", "wk_ultra": "추정(5x×4)·실측 필요",
                  "c5h_5x": "실측 주장·출처 미확인", "target": "운영정책"}
 
+SIM_NEED = ["wk_5x", "wk_ultra", "target", "seats_per_team"]
+GOAL_NEED = SIM_NEED + ["teams_per_goal", "team_hours_per_goal"]
+
 MODEL_KEYS = [("seats_per_team", "FT_CAP_SEATS_PER_TEAM", "세션/팀"),
               ("teams_per_goal", "FT_GOAL_TEAMS", "팀/골"),
               ("team_hours_per_goal", "FT_GOAL_TEAM_HOURS", "팀-시간/골"),
@@ -204,7 +207,7 @@ def capacity(ci, a, p, rate):
     if not (n5 or nu):
         L.append("  계정 미지정 — --accounts 5x:5,ultra:5 를 주면 정원·피크를 계산한다")
         return "\n".join(L)
-    gone = missing(p, ["wk_5x", "wk_ultra", "target", "seats_per_team"])
+    gone = missing(p, SIM_NEED)
     if gone:
         L.append("  정원 산정 불가 — " + " · ".join(gone) + " (기본값 대체 0 · 수용 기준 #7)")
     else:
@@ -227,9 +230,9 @@ def capacity(ci, a, p, rate):
                         "주간" if peak_week <= peak5 + ultra_peak else "5h창"))
     # (ⓙ) 골 모형 2행 — 앵커는 상수 파일의 실제 값(_LOW · 상한). «× 1/3» 고정 0.
     # 오빠 #278942: 이 표는 «참고 출력» 이다 — 고정 기본값을 운영 규칙으로 읽지 않게 라벨을 붙인다.
-    gone = missing(p, ["teams_per_goal", "team_hours_per_goal", "seats_per_team"])
+    gone = missing(p, GOAL_NEED)
     if gone:
-        L.append("  골 모형 산정 불가 — " + " · ".join(gone))
+        L.append("  골 모형 산정 불가 — " + " · ".join(gone) + " (빈 값은 대체하지 않는다 · 수용 기준 #7)")
     else:
         L.append("  골 모형(참고 — 운영 규칙 아님): 골1 = 팀 %g 동시 × %gh = %g 팀-시간 · 팀1 = 세션 %g석"
                  % (p["teams_per_goal"], p["team_hours_per_goal"],
@@ -270,10 +273,20 @@ def inventory(ci, p, path, inv):
         L.append("  판정: **0순위 문제 %d건** — 위 값을 채우기 전 산정 숫자는 신뢰하지 않는다" % len(gone))
     else:
         L.append("  판정: 상수 완비 — 아래 크리티컬 숫자를 쓸 수 있다")
-    n5, nu = num(inv, "FT_CAP_CLAUDE_5X", 0.0), num(inv, "FT_CAP_CLAUDE_ULTRA", 0.0)
-    L.append("  구독 상수: claude 5x %g + Ultra %g = %g장 · codex plus %g/pro %g · deepseek key %g (쿼터 미산정)"
-             % (n5, nu, n5 + nu, num(inv, "FT_CAP_CODEX_PLUS", 0.0),
-                num(inv, "FT_CAP_CODEX_PRO", 0.0), num(inv, "FT_CAP_DEEPSEEK_KEYS", 0.0)))
+    n5, nu = num(inv, "FT_CAP_CLAUDE_5X"), num(inv, "FT_CAP_CLAUDE_ULTRA")  # 0 대체 금지
+    gone_sub = [k for k, v in (("FT_CAP_CLAUDE_5X", n5), ("FT_CAP_CLAUDE_ULTRA", nu)) if v is None]
+    def shw(key):                     # 빈 값은 «없음» — 0 으로 대체하지 않는다(수용 기준 #7)
+        v = num(inv, key)
+        return ("%g" % v) if v is not None else "없음"
+    if gone_sub:
+        L.append("  구독 상수: 산정 불가 — %s 비어있음 (0 대체 금지 · 수용 기준 #7)"
+                 % " · ".join(gone_sub))
+        L.append("  codex plus %s/pro %s · deepseek key %s (쿼터 미산정)"
+                 % (shw("FT_CAP_CODEX_PLUS"), shw("FT_CAP_CODEX_PRO"), shw("FT_CAP_DEEPSEEK_KEYS")))
+    else:
+        L.append("  구독 상수: claude 5x %g + Ultra %g = %g장 · codex plus %s/pro %s · deepseek key %s (쿼터 미산정)"
+                 % (n5, nu, n5 + nu, shw("FT_CAP_CODEX_PLUS"), shw("FT_CAP_CODEX_PRO"),
+                    shw("FT_CAP_DEEPSEEK_KEYS")))
     if not rate:
         L.append("  크리티컬: 세션-시간당 W 를 못 재서 산정 불가 — ctx-burn --hours 168 --json 이 필요하다")
         return "\n".join(L)
@@ -281,6 +294,8 @@ def inventory(ci, p, path, inv):
     L.append("  %-18s %10s %11s %8s %8s %9s %8s"
              % ("앵커", "주간85M", "세션시간/주", "동시세션", "동시팀", "동시골", "골/주"))
     need_common = missing(p, ["target", "seats_per_team", "teams_per_goal", "team_hours_per_goal"])
+    if gone_sub:
+        need_common = need_common + ["구독 상수(%s)" % "·".join(gone_sub)]
     for lbl, w5, wu, keys in (("낮은 용량 가정", num(inv, "FT_CAP_WK_5X_LOW"),
                                num(inv, "FT_CAP_WK_ULTRA_LOW"),
                                "FT_CAP_WK_5X_LOW·FT_CAP_WK_ULTRA_LOW"),
