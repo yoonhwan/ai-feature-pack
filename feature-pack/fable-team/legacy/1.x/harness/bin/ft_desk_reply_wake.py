@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 # pyright: basic
 """ft_desk_reply_wake.py — r1574: desk 승인 질문의 오빠 답글을 비모델(ft-stall-scan 120초 주기)이 찾아 desk 를 깨운다.
-CLI: (인자 없음) 점검 · `--register <질문ts> <h번호> <sha40>` 등록(desk 가 Slack 질문 글을 올린 직후 · 끝 시각 = 등록 + 24h) · `--register-plan <계획> <h번호>` = 계획의 `approve-merge <sha40> … --oppa-slack <ts>` 1개에서 ts·sha 를 뽑아 같은 등록(r1587 · ft-hil 발급 자리) · `--register-question <질문ts> <사유키>` = h·sha 칸이 없는 오빠 질문(설계 승인 등 · r1591) 등록(kind=question · 승인 판정 길이 아니다)
-점검 = 끝나지 않은 줄마다 ft_oppa_slack_check 1회(7초 · 재시도 1) → SLACK-OK 이면 seats-planner.json `_desk` 로 `[오빠 답글] h<N> ts=<답글> → 실행 차례` 1통 · question 줄은 `--reply-only` 로 보고 REPLY-SEEN 이면 `_master` 로 `[오빠 답글] <사유키> ts=<답글>` 1통.
+CLI: (인자 없음) 점검 · `--register <질문ts> <h번호> <sha40>` 등록(desk 가 Slack 질문 글을 올린 직후 · 끝 시각 = 등록 + 24h) · `--register-plan <계획> <h번호>` = 계획의 `approve-merge <sha40> … --oppa-slack <ts>` 1개에서 ts·sha 를 뽑아 같은 등록(r1587 · ft-hil 발급 자리)
+점검 = 끝나지 않은 줄마다 ft_oppa_slack_check 1회(7초 · 재시도 1) → SLACK-OK 이면 seats-planner.json `_desk` 로 `[오빠 답글] h<N> ts=<답글> → 실행 차례` 1통.
 끝 = h 실행 기록(<HIL_DIR>/h<N>.ran) 생성 또는 끝 시각 경과(경과는 `_master` 로 `[답글 없음 24시간]` 1통) · 같은 답글 ts = 1통 · 질문 ts 키는 한 줄(재등록 멱등).
+r1591 · `--register-question <질문ts> <사유키>` = h·sha 칸이 없는 오빠 질문(설계 승인 등) 등록(kind=question · key 한 칸) → 점검은 `--reply-only` 로 보고 REPLY-SEEN 이면 `_master` 로 `[오빠 답글] <사유키> ts=<답글>` 1통(승인 판정 0).
 장부 갱신 = 배타 잠금(<장부>.lock) 안에서 다시 읽고 합쳐 쓰기 · 조회는 <장부>.cursor 로 순환(열린 줄이 상한보다 많아도 모두 본다).
 장부 = <루트>/.fable-team/state/desk-reply-wait.jsonl(open|notified|closed) · env: FT_ROOT · FT_NOW · FT_MBOX_SH · FT_SEATS_PLANNER · FT_SLACK_CHECK · HIL_DIR · FT_DESK_REPLY_LEDGER · FT_DESK_REPLY_MAX(4)
 rc: 0 정상 · 1 발신·쓰기 실패 · 2 판정 불가(루트·장부·명부) · 3 등록 거절
@@ -20,9 +21,9 @@ from contextlib import redirect_stderr
 from pathlib import Path
 
 TS, SHA, HN = re.compile(r"[0-9]+\.[0-9]{6}$"), re.compile(r"[0-9a-f]{40}$"), re.compile(r"h[0-9]+$")
-KEY = re.compile(r"[a-z0-9][a-z0-9._-]{0,63}$")  # r1591 · 사유키 = 카드 slug 꼴
 PLAN = re.compile(r"(?<![\w-])approve-merge\s+([0-9a-fA-F]{40})(?![0-9a-fA-F])[^\n]*?(?<![\w-])--oppa-slack[ =]+([0-9]+\.[0-9]{6})(?![\w.-])")  # r1587 · ft_scope_plan_judge.OPPA 와 같은 꼴
 TO, SEND_TO, MAX, DAY = 7, 25, 4, 86400  # 7초·재시도 1(하드 룰 12) · 발신 25초(로컬 하네스 상한) · 한 주기 4줄 · 24시간
+KEY = re.compile(r"[a-z0-9][a-z0-9._-]{0,63}$")  # r1591 · 사유키 = 카드 slug 꼴
 
 
 def bad(m: str) -> None:
@@ -100,22 +101,12 @@ def judge(cmd: str, q: str, sha: str) -> tuple[int, str]:  # 7초 · 재시도 1
     return last
 
 
-def judge_reply(cmd: str, q: str) -> tuple[int, str]:  # r1591 · --reply-only = 7초 · 재시도 1 · rc3 = 답글 아직 없음(정상 열림)
-    last = (1, "점검 도구 실행 실패")
-    for _ in range(2):
-        try:
-            r = subprocess.run([sys.executable, cmd, "--reply-only", q], capture_output=True, text=True, timeout=TO)
-        except subprocess.SubprocessError:
-            last = (124, "조회 %d초 초과" % TO)
-            continue
-        if r.returncode in (0, 3):
-            return r.returncode, r.stdout
-        last = (r.returncode, (r.stdout or r.stderr))
-    return last
-
-
-def put(led: Path, row: dict, same: dict) -> int:  # r1591: h 줄·question 줄 공통 — 락 안에서 멱등·충돌 판정(조용한 중복 0)
-    name = row.get("h") or row.get("key")
+def register(led: Path, a: list, now: float) -> int:  # ⓐ 등록 · 같은 질문 ts = 멱등 · 다른 값 = 거절(조용한 중복 0)
+    h = a[1] if len(a) > 1 and HN.match(a[1]) else ("h" + a[1] if len(a) > 1 and a[1].isdigit() else "")
+    row = {"q_ts": a[0] if a else "", "h": h, "sha": a[2].lower() if len(a) > 2 else "", "at": int(now), "deadline": int(now + DAY), "state": "open"}
+    if len(a) != 3 or not TS.match(row["q_ts"]) or not h or not SHA.match(row["sha"]):
+        print("감시 등록 실패 — 사용: --register <질문ts(1794295513.494289)> <h번호> <sha40>", file=sys.stderr)
+        return 3
     try:
         fh = lock(led)
     except OSError as e:
@@ -126,37 +117,39 @@ def put(led: Path, row: dict, same: dict) -> int:  # r1591: h 줄·question 줄 
         if rows is None:
             print("감시 등록 실패 — 장부를 못 읽음: %s" % led, file=sys.stderr)
             return 3
-        old = next((r for r in rows if r.get("q_ts") == row["q_ts"]), None)
-        if old is not None:
-            if all(old.get(k) == v for k, v in same.items()):
-                print("등록 %s q_ts=%s 끝=%s (이미 등록 — 중복 0)" % (name, row["q_ts"], old.get("deadline")))
+        same = next((r for r in rows if r.get("q_ts") == row["q_ts"]), None)
+        if same is not None:
+            if same.get("h") == h and same.get("sha") == row["sha"]:
+                print("등록 %s q_ts=%s 끝=%s (이미 등록 — 중복 0)" % (h, row["q_ts"], same.get("deadline")))
                 return 0
-            print("감시 등록 실패 — 같은 질문 ts 가 다른 값으로 이미 등록됨(%s · sha %s)" % (old.get("h") or old.get("key"), old.get("sha") or "—"), file=sys.stderr)
+            print("감시 등록 실패 — 같은 질문 ts 가 다른 값으로 이미 등록됨(%s · sha %s)" % (same.get("h"), same.get("sha")), file=sys.stderr)
             return 3
         if not ledger(led, rows + [row]):
             print("감시 등록 실패 — 장부 쓰기 실패: %s" % led, file=sys.stderr)
             return 3
     finally:
         fh.close()
-    print("등록 %s q_ts=%s 끝=%d" % (name, row["q_ts"], row["deadline"]))
+    print("등록 %s q_ts=%s 끝=%d" % (h, row["q_ts"], row["deadline"]))
     return 0
 
 
-def register(led: Path, a: list, now: float) -> int:  # ⓐ 등록 · 같은 질문 ts = 멱등 · 다른 값 = 거절(조용한 중복 0)
-    h = a[1] if len(a) > 1 and HN.match(a[1]) else ("h" + a[1] if len(a) > 1 and a[1].isdigit() else "")
-    row = {"q_ts": a[0] if a else "", "h": h, "sha": a[2].lower() if len(a) > 2 else "", "at": int(now), "deadline": int(now + DAY), "state": "open"}
-    if len(a) != 3 or not TS.match(row["q_ts"]) or not h or not SHA.match(row["sha"]):
-        print("감시 등록 실패 — 사용: --register <질문ts(1794295513.494289)> <h번호> <sha40>", file=sys.stderr)
-        return 3
-    return put(led, row, {"h": h, "sha": row["sha"]})
-
-
-def register_question(led: Path, a: list, now: float) -> int:  # r1591: h·sha 칸이 없는 오빠 질문(설계 승인 등) — key 만 · 승인 실행 기록(h 실행) 닫힘은 안 쓴다
+def register_question(led: Path, a: list, now: float) -> int:  # r1591 · h·sha 칸이 없는 오빠 질문(설계 승인 등) — key 한 칸 · 승인 실행 기록(h 실행) 닫힘 없음
     row = {"q_ts": a[0] if a else "", "kind": "question", "key": a[1] if len(a) > 1 else "", "at": int(now), "deadline": int(now + DAY), "state": "open"}
     if len(a) != 2 or not TS.match(row["q_ts"]) or not KEY.match(row["key"]):
         print("감시 등록 실패 — 사용: --register-question <질문ts(1794295513.494289)> <사유키(r1590)>", file=sys.stderr)
         return 3
-    return put(led, row, {"kind": "question", "key": row["key"]})
+    try:
+        with lock(led):
+            rows = ledger(led)
+            old = next((r for r in rows or [] if r.get("q_ts") == row["q_ts"]), None)
+            if rows is None or (old and old.get("key") != row["key"]) or (old is None and not ledger(led, rows + [row])):
+                print("감시 등록 실패 — 장부를 못 읽음·못 씀 또는 같은 질문 ts 가 다른 사유키로 이미 등록됨: %s" % led, file=sys.stderr)
+                return 3
+            print("등록 %s q_ts=%s 끝=%s%s" % (row["key"], row["q_ts"], (old or row).get("deadline"), " (이미 등록 — 중복 0)" if old else ""))
+            return 0
+    except OSError as e:
+        print("감시 등록 실패 — 장부 처리 실패(%s): %s" % (type(e).__name__, led), file=sys.stderr)
+        return 3
 
 
 def register_plan(led: Path, a: list, now: float) -> int:  # r1587: 계획의 `approve-merge <sha40> … --oppa-slack <ts>` 1개 → ts·sha 로 기존 register · 0개 = 대상 아님(조용히 rc0) · 2개 이상 = 판정 불가 1줄
@@ -195,21 +188,20 @@ def scan(base: Path, led: Path, now: float) -> int:
     shut = nbad = sent = 0
     cands: list[int] = []
     for i, row in enumerate(rows):
-        q, qn = row.get("q_ts"), row.get("kind") == "question"
-        name = row.get("key") if qn else row.get("h")
+        qn, h, q = row.get("kind") == "question", row.get("h") or row.get("key"), row.get("q_ts")  # r1591 · 질문 줄은 h 대신 key
         if row.get("state") == "closed":
             continue
-        if not isinstance(name, str) or not name or not isinstance(q, str):
+        if not isinstance(h, str) or not isinstance(q, str):
             bad("장부 줄 꼴 아님: %s" % json.dumps(row, ensure_ascii=False)[:120])
             nbad += 1
             continue
-        if not qn and (hil / (name + ".ran")).exists():  # ⓒ h 실행 기록 = 그 줄 닫힘(question 줄은 h 실행 기록을 안 본다)
+        if not qn and (hil / (h + ".ran")).exists():  # ⓒ h 실행 기록 = 그 줄 닫힘(질문 줄은 h 실행 기록이 없다)
             up[q] = {"state": "closed", "closed": "executed"}
             shut += 1
             continue
         if now >= float(row.get("deadline") or 0):  # ⓒ 24시간 경과 = 닫고 planner master 1통
-            if not seat.get("_master") or send(base, seat["_master"], "[답글 없음 24시간] %s ts=%s → 장부 줄 닫힘" % (name, q)):
-                bad("쪽지 발신 실패·수신자 없음 — %s 줄은 열린 채로 둔다" % name)
+            if not seat.get("_master") or send(base, seat["_master"], "[답글 없음 24시간] %s ts=%s → 장부 줄 닫힘" % (h, q)):
+                bad("쪽지 발신 실패·수신자 없음 — %s 줄은 열린 채로 둔다" % h)
                 nbad += 1
                 continue
             up[q] = {"state": "closed", "closed": "timeout"}
@@ -219,37 +211,16 @@ def scan(base: Path, led: Path, now: float) -> int:
     cur = cursor(led) % len(rows) if rows else 0
     picked = ([i for i in cands if i >= cur] + [i for i in cands if i < cur])[:maxn]  # R2 조회 순환
     for i in picked:
-        row, q = rows[i], rows[i]["q_ts"]
-        qn = row.get("kind") == "question"
-        name = row.get("key") if qn else row["h"]
-        if qn:  # r1591 · 답글이 왔다는 알림만 · 승인 판정 0 · 받는이 = planner master(desk 아님)
-            if not seat.get("_master"):
-                bad("_master 없음 — %s 알림 0(다음 주기 재시도)" % name)
-                nbad += 1
-                continue
-            rc, out = judge_reply(check, q)
-            if rc == 3:  # 답글 아직 없음 = 정상 열린 줄(판정 불가 아님)
-                continue
-            m = re.search(r"reply=([0-9]+\.[0-9]+)$", out.strip().splitlines()[-1]) if rc == 0 and out.strip() else None
-            if not m or "SLACK-OK" in out:  # 승인 길(SLACK-OK)은 question 줄에 쓰지 않는다
-                bad("%s %s" % (name, (out.strip().splitlines() or ["REPLY-SEEN 줄 없음"])[-1][:160]))
-                nbad += 1
-                continue
-            if row.get("notified_ts") == m.group(1):
-                continue
-            if send(base, seat["_master"], "[오빠 답글] %s ts=%s" % (name, m.group(1))):
-                bad("쪽지 발신 실패 — %s 알림 0(다음 주기 재시도)" % name)
-                nbad += 1
-                continue
-            up[q] = {"notified_ts": m.group(1), "notified_at": int(now), "state": "notified"}
-            sent += 1
-            continue
-        h = name
-        if not seat.get("_desk"):  # ⓓ 현역 desk 없음 = 알림 기록 0 · 다음 주기 재시도
-            bad("_desk 없음 — %s 알림 0(다음 주기 재시도)" % h)
+        row, h, q = rows[i], rows[i].get("h") or rows[i].get("key"), rows[i]["q_ts"]  # r1591 · 질문 줄은 h 대신 key · sha 칸 없음 = 답글 확인 모드
+        qn = row.get("kind") == "question"  # r1591 · 오빠 질문(설계 승인 등) = 답글이 왔다는 알림만 · 승인 판정 0 · 받는이 planner master
+        tgt = seat.get("_master") if qn else (seat["_desk"] if "_desk" in seat else None)
+        if not tgt:  # ⓓ 현역 좌석 없음 = 알림 기록 0 · 다음 주기 재시도
+            bad("%s 없음 — %s 알림 0(다음 주기 재시도)" % ("_master" if qn else "_desk", h))
             nbad += 1
             continue
         rc, out = judge(check, q, row.get("sha") or "")
+        if rc == 3:  # r1591 · 질문 줄의 답글 아직 없음 = 정상 열린 줄(판정 불가 아님)
+            continue
         m = re.search(r"reply=([0-9]+\.[0-9]+)$", out.strip().splitlines()[-1]) if rc == 0 and out.strip() else None
         if not m:  # ⓓ 조회 실패·토큰 없음 = «판정 불가» 1줄 · 알림 완료 기록 0
             bad("%s %s" % (h, (out.strip().splitlines() or ["SLACK-OK 줄 없음"])[-1][:160]))
@@ -257,7 +228,7 @@ def scan(base: Path, led: Path, now: float) -> int:
             continue
         if row.get("notified_ts") == m.group(1):  # ⓑ 중복 억제 키 = 질문 ts·답글 ts(다른 답글 ts 면 1통 더)
             continue
-        if send(base, seat["_desk"], "[오빠 답글] %s ts=%s → 실행 차례" % (h, m.group(1))):
+        if send(base, tgt, "[오빠 답글] %s ts=%s%s" % (h, m.group(1), "" if qn else " → 실행 차례")):
             bad("쪽지 발신 실패 — %s 알림 0(다음 주기 재시도)" % h)
             nbad += 1
             continue

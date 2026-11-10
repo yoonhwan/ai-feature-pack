@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """ft_oppa_slack_check — approve-merge --oppa-slack 확인 (r1275 · 판정 2904). 쓰기 0.
 CLI: ft_oppa_slack_check.py <질문 글 ts> <40hex>… → 각 sha `SLACK-OK <sha> parent=<ts> reply=<ts>`(rc0) | `REJECT 오빠 슬랙 승인 확인 실패: <사유>`(rc2)
-CLI: ft_oppa_slack_check.py --reply-only <질문 글 ts> → `REPLY-SEEN parent=<ts> reply=<ts>`(rc0) | 답글 아직 없음 rc3 | 판정 불가 rc2 — sha 칸이 없는 질문용(r1591 · SLACK-OK 를 «한 줄도» 내지 않는다 = 승인 길에 못 쓴다).
 질문 글(부모)에 sha 40자가 낱말로 있고, 오빠(OPPA_SLACK_UID) 답글이 부모 뒤 · 부모 수정 전 · «다음 질문 전»(질문 글과 같은 작성자의 다음 글 전)에 있어야 통과. 꼴이 맞지 않으면 «판정 불가» rc2.
 질문 글이 결정 스레드 안 답글이어도 읽는다(단계 3): 조회 결과에서 ts 가 같은 글을 찾고, 없거나 답글 하나뿐이면 스레드 루트(thread_ts)로 한 번 더 받는다(조회 2회 상한).
-env: FT_SLACK_REPLIES_CMD(시험용 · 이 명령의 stdout = conversations.replies JSON · 조회할 ts 는 env FT_SLACK_TS 로 준다) · FT_SCOPE_SLACK_TOKEN_FILE · FT_SCOPE_SLACK_CHANNEL"""
+env: FT_SLACK_REPLIES_CMD(시험용 · 이 명령의 stdout = conversations.replies JSON · 조회할 ts 는 env FT_SLACK_TS 로 준다) · FT_SCOPE_SLACK_TOKEN_FILE · FT_SCOPE_SLACK_CHANNEL
+--reply-only <질문 ts>(r1591) = sha 칸이 없는 질문(설계 승인 등) 모드 — stdout 은 `REPLY-SEEN parent=<ts> reply=<ts>` 한 줄(rc0) · 답글 아직 없으면 rc3 · 판정 불가 rc2 · SLACK-OK 를 «한 줄도» 내지 않는다(승인 길에 못 쓴다)."""
 import json
 import os
 import re
@@ -21,6 +21,14 @@ sys.path[:0] = [str(p) for p in (Path(os.environ.get("FT_HERMES_SCRIPTS") or "~/
 
 
 class Unjudgeable(Exception):
+    pass
+
+
+class NoReply(ValueError):  # r1591 · 답글 아직 없음 = 정상 열린 질문(SLACK-OK 0줄)
+    pass
+
+
+class NoReply(Exception):  # r1591 · 답글 아직 없음 = 정상 열린 질문(LookupError 를 쓰면 KeyError 까지 삼킨다)
     pass
 
 
@@ -64,7 +72,8 @@ def locate(ts: str) -> list:
     raise Unjudgeable("부모 글 꼴 아님(질문 글을 스레드에서 못 찾음)")
 
 
-def notes(ts: str) -> tuple[str, list]:  # 부모 글자 · 규칙 통과한 오빠 답글 ts 목록(부모 뒤 · 수정 전 · 다음 질문 전)
+
+def judge(ts: str, shas: list) -> list:
     msgs = locate(ts)
     q = next(m for m in msgs if m.get("ts") == ts)
     if not isinstance(q.get("text"), str):
@@ -76,49 +85,32 @@ def notes(ts: str) -> tuple[str, list]:  # 부모 글자 · 규칙 통과한 오
     me = [q.get("user"), q.get("bot_id")]
     after = sorted(((dec(m.get("ts")), m.get("user"), m) for m in msgs if m is not q), key=lambda x: x[0])
     nxt = next((t for t, _, m in after if t > parent and any(a and a in (m.get("user"), m.get("bot_id")) for a in me)), None)   # 다음 질문 = 같은 작성자의 다음 글
-    ok = [t for t, u, _ in after if u == OPPA_SLACK_UID and t > parent and (nxt is None or t < nxt) and (edited is None or dec(edited["ts"]) < t)]
-    return text, ok
-
-
-def reply_only(ts: str) -> str:  # r1591 · sha 낱말 검사 없음 · 돌려주는 줄은 REPLY-SEEN 하나뿐
-    _, ok = notes(ts)
-    if not ok:
-        raise LookupError("오빠 답글 아직 없음")
-    return "REPLY-SEEN parent=%s reply=%s" % (ts, min(ok))
-
-
-def judge(ts: str, shas: list) -> list:
-    text, ok = notes(ts)
     out = []
     for sha in shas:
-        if not re.search(r"(?<![0-9a-fA-F])%s(?![0-9a-fA-F])" % sha, text, re.I):
+        if not re.search(r"(?<![0-9a-fA-F])%s(?![0-9a-fA-F])" % sha, text, re.I) and sha:  # r1591 · 빈 sha = 답글 확인 모드(sha 낱말 검사 없음)
             raise ValueError("질문 글에 %s 없음" % sha)
+        ok = [t for t, u, _ in after if u == OPPA_SLACK_UID and t > parent and (nxt is None or t < nxt) and (edited is None or dec(edited["ts"]) < t)]
         if not ok:
-            raise ValueError("오빠 답글 없음(부모 뒤 · 수정 전 · 다음 질문 전): %s" % sha)
-        out.append("SLACK-OK %s parent=%s reply=%s" % (sha, ts, min(ok)))
+            raise NoReply("오빠 답글 아직 없음") if not sha else ValueError("오빠 답글 없음(부모 뒤 · 수정 전 · 다음 질문 전): %s" % sha)
+        out.append("REPLY-SEEN parent=%s reply=%s" % (ts, min(ok)) if not sha else "SLACK-OK %s parent=%s reply=%s" % (sha, ts, min(ok)))
     return out
 
 
 def main(argv: list) -> int:
-    if argv[1:2] == ["--reply-only"]:
+    if argv[1:2] == ["--reply-only"]:  # r1591 · h·sha 칸이 없는 질문(설계 승인 등) — 빈 sha = 답글 확인 모드(REPLY-SEEN 만)
         if len(argv) != 3 or not re.fullmatch(r"[0-9]+\.[0-9]{6}", argv[2]):
             print("usage: ft_oppa_slack_check.py --reply-only <질문 글 ts>", file=sys.stderr)
             return 2
-        try:
-            print(reply_only(argv[2]))
-            return 0
-        except LookupError as e:  # 답글 아직 없음 = 정상 열린 질문(판정 불가 아님) · stdout 0줄
-            print("REPLY-NONE parent=%s — %s" % (argv[2], e), file=sys.stderr)
-            return 3
-        except Exception as e:  # 조회 실패 = 판정 불가 · SLACK-OK 0줄
-            print("판정 불가: %s" % (str(e)[:120] or type(e).__name__), file=sys.stderr)
-            return 2
+        argv = [argv[0], argv[2], ""]
     if len(argv) < 3 or not re.fullmatch(r"[0-9]+\.[0-9]{6}", argv[1]):
-        print("usage: ft_oppa_slack_check.py <질문 글 ts> <40hex>…", file=sys.stderr)
+        print("usage: ft_oppa_slack_check.py [--reply-only] <질문 글 ts> [<40hex>…]", file=sys.stderr)
         return 2
     try:
         print("\n".join(judge(argv[1], argv[2:])))
         return 0
+    except NoReply as e:  # r1591 · 답글 아직 없음 = 정상 열린 질문(판정 불가 아님 · ANSWERED 아님)
+        print("REPLY-NONE parent=%s — %s" % (argv[1], e), file=sys.stderr)
+        return 3
     except json.JSONDecodeError:
         why = "판정 불가: 응답이 JSON 아님"
     except ValueError as e:
