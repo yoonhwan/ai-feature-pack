@@ -49,7 +49,7 @@
 
 ## §2 1건 관문 h (기한 30분 · 상수 1곳)
 
-- **관측 기한 = 재적재 확인 시각 + 30분.** 증거는 «켜기 시각 뒤에 쓰인» `Use OAuth <계정> for model` 줄 1개다. 켜기 전 로그 줄 재사용 0.
+- **관측 기한 = 재적재 확인 시각 + 30분.** 증거는 «켜기 시각 뒤에 쓰인» `Use OAuth provider=<provider> auth_file=<계정> for model` 줄 1개다(11-10 실제 로그 형식 · DA #279622). 옛 형식 `Use OAuth <계정> for model` 도 같은 증거로 인정한다. 켜기 전 로그 줄 재사용 0.
 - 결과는 4가지 중 하나다(어느 쪽이든 «복구 → 재적재 확인» 2단계를 건너뛰지 않는다).
   | 결과 | 뜻 | 조치 |
   |---|---|---|
@@ -74,6 +74,7 @@
 ## §4 전환 추출(자동 · 하루 1회 · 읽기만)
 
 - 같은 스크립트가 하루 1회 `~/.claude/fable-team/state/capacity/anchor-a-transitions.tsv` 를 갱신한다. 형식 = `시각<TAB>이전 계정<TAB>다음 계정` 1행(fill-first 라 계정이 바뀐 첫 줄 = 한도 도달 시각).
+- 입력 줄 형식 = 실제 `Use OAuth provider=<provider> auth_file=<계정> for model`(11-10 실측) · 옛 형식 `Use OAuth <계정> for model` 도 같은 계정 이름으로 받는다. `Use API key …` 줄은 계정 대신 `(api-key-id)` 1개로 접는다.
 - 로그는 읽기만 한다(수정·삭제 0). API key 이름은 `(api-key-id)` 로 가린다(비밀 0).
 - 계산·상수 반영(앵커 값)은 aifp#3 몫이다. 이 도구는 «시각 표» 만 남긴다.
 

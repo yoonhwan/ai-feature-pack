@@ -51,7 +51,10 @@ if [ $((now-EXT)) -ge 86400 ]; then   # ④ 전환 추출 하루 1회 (M4) — �
   elif find "$LOGS" -maxdepth 1 -name 'main*.log' -type f -exec cat {} + 2>/dev/null | awk '
     { if (match($0, /[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9][ T][0-9][0-9]:[0-9][0-9]:[0-9][0-9]/)) ts=substr($0,RSTART,RLENGTH)
       acct=""
-      if (match($0, /Use OAuth [^ ]+ for model/)) { acct=substr($0,RSTART+10,RLENGTH-10); sub(/ for model.*/,"",acct) }
+      if (match($0, /Use OAuth [^ ].* for model/)) {   # 실제 형식 = «Use OAuth provider=<p> auth_file=<계정> for model» (DA #279622) · 옛 형식 «Use OAuth <계정> for model» 도 받는다
+        s=substr($0,RSTART,RLENGTH); sub(/^Use OAuth /,"",s); sub(/ for model$/,"",s)
+        if (match(s, /auth_file=[^ ]+/)) acct=substr(s,RSTART+10,RLENGTH-10)
+        else { split(s,f," "); acct=f[1] } }
       else if (match($0, /Use API key [^ ]+ for model/)) acct="(api-key-id)"
       if (acct=="") next
       if (prev!="" && acct!=prev) print ts "\t" prev "\t" acct
