@@ -101,6 +101,10 @@ mkdir -p "$STATE" && printf '%s repo=%s main=%s head=%s method=ft-merge-land%s t
 echo "LANDED pr=$PR sha=$Q main_before=$M head=$S tree=$(G rev-parse "$Q^{tree}")${FF:+ mode=ff}"
 echo "push ok objects=$PN bound=$PB attempt=$AB took=${PEL}s${LANDVIA:+ confirmed=ls-remote(응답 후 timeout)}"   # R354: 착지마다 1줄 — bound=계산 최대 · attempt=실제 상한 · took=마지막 시도 소요 · 3건 모이면 기준량 U0 갱신 근거
 fm_land_ledger "$STATE" "$AST" "$AP" "$Q" "${AFV:-}"; [ "${AFV:-}" != D2 ] || fm_land_notify_d2 "$PR" "$Q" "$(pf title) $(pf body)"   # R298(DA⑥ H3) · r947 · r1336: 대리 승인 원장 기록 = ft-merge-lib.sh 로 이사(동작 불변 · 실패해도 착지 rc 불변)
+CR=0; CB="$(mktemp)"; lr_trap 'rm -f "$CB"'   # R261: ft-gh-as-tank.sh 는 하이픈 동사 + 본문 «파일» + --apply(없으면 dry-run) · pr-close --comment 한 번이 코멘트+닫기 · r1592: 닫기를 착지 원장 바로 뒤에 먼저 — 뒤 단계가 바깥 timeout 70 s 에 걸려도 PR 은 닫힌다
+printf '%s\n' "착지 sha $Q (ft-merge-land · 검사 트리 == 착지 트리 · 판정 1875)${EQ:+ · 동일승인 대조 EQUIV (${AP:0:10}→${S:0:10} · 판정 1917${EQM:+ · $EQM})}${S0:+ · main 자동 병합($AMK) C=${S:0:10}}${PEV:+ · ${PEV%%$'\n'*}}" > "$CB"
+fm_pr_close "$SLUG" "$PR" "$CB" "$GH_W" \
+  || { echo "WARN 착지는 성공 — PR #$PR 코멘트/닫기 실패: 손으로 처리(착지 sha $Q)"; fm_close_pending_add "$CPL" "$CPK" "$PR" "$Q"; CR=3; }   # r1131: 실패 PR 은 «닫기 대기» 장부 1줄 → 다음 착지 시작 때 다시 닫는다(조용히 OPEN 으로 쌓이지 않게) · r1592: 실패 rc 는 변수에 담고 맨 끝에서 exit 3(뒤 단계는 그대로)
 fm_flag_off_new "$REPO" "$M" "$Q"   # R239: 이 착지가 새로 만든 «꺼진 플래그 = 결정 1건» 을 출력만(착지 rc 불변)
 # R243: 착지 성공 «뒤»에만 기준 헤드를 Q 로 원자 교체(옛 값이 Q 의 조상일 때만 전진) + 뒤처진 팀 알림(실패해도 착지 rc 불변)
 OLD="$(head -n1 "$BH" 2>/dev/null | tr -d '[:space:]')"
@@ -113,8 +117,4 @@ ITO="${FT_INSTALL_CHECK_TIMEOUT:-7}"; IOUT="$(FT_BIN="${FT_BIN:-$HERE}" "$TB" "$
 if [ "$irc" -eq 124 ] || [ "$irc" -eq 143 ]; then echo "INSTALL-PENDING 설치 검사 ${ITO}초 초과 — 손으로: ft-live-install-check.sh --range $M..$Q"; IOUT="INSTALL-PENDING 검사 시간 초과"
 else printf '%s\n' "$IOUT" | sed 's/^/INSTALL /'; fi
 [ "$irc" -eq 0 ] || { mkdir -p "$ROOT/.fable-team/state/install-pending" && printf '%s\n' "$IOUT" > "$ROOT/.fable-team/state/install-pending/$Q.txt"; } || echo "WARN install-pending 기록 실패"
-fm_land_notify_land "$ROOT" "$PR" "${Q:0:10}" "$(pf title) $(pf body)" "$irc" "$IOUT"   # r1478: 착지 «사건» 1통(카드 팀 _master · 설치 칸 = OK/PENDING/SKIP) — 실패는 WARN 1줄, 착지 rc 불변
-CB="$(mktemp)"; lr_trap 'rm -f "$CB"'   # R261: ft-gh-as-tank.sh 는 하이픈 동사 + 본문 «파일» + --apply(없으면 dry-run) · pr-close --comment 한 번이 코멘트+닫기
-printf '%s\n' "착지 sha $Q (ft-merge-land · 검사 트리 == 착지 트리 · 판정 1875)${EQ:+ · 동일승인 대조 EQUIV (${AP:0:10}→${S:0:10} · 판정 1917${EQM:+ · $EQM})}${S0:+ · main 자동 병합($AMK) C=${S:0:10}}${PEV:+ · ${PEV%%$'\n'*}}" > "$CB"
-fm_pr_close "$SLUG" "$PR" "$CB" "$GH_W" \
-  || { echo "WARN 착지는 성공 — PR #$PR 코멘트/닫기 실패: 손으로 처리(착지 sha $Q)"; fm_close_pending_add "$CPL" "$CPK" "$PR" "$Q"; exit 3; }   # r1131: 실패 PR 은 «닫기 대기» 장부 1줄 → 다음 착지 시작 때 다시 닫는다(조용히 OPEN 으로 쌓이지 않게)
+fm_land_notify_land "$ROOT" "$PR" "${Q:0:10}" "$(pf title) $(pf body)" "$irc" "$IOUT"; [ "${CR:-0}" = 0 ] || exit 3   # r1478: 착지 «사건» 1통(카드 팀 _master · 설치 칸 = OK/PENDING/SKIP) — 실패는 WARN 1줄, 착지 rc 불변
