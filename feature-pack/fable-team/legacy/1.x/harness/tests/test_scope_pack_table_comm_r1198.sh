@@ -4,7 +4,7 @@
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 TABLE="${R1198_TABLE:-$HERE/../kit/fable-team/templates/scope-classes-pack.tsv}"
-H=feature-pack/fable-team/harness
+H=feature-pack/fable-team/legacy/1.x/harness
 out="$(python3 -I -c '
 import sys; sys.path.insert(0, sys.argv[1])
 import autonomy_scope_rules as r

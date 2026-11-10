@@ -103,8 +103,8 @@ mk i3 "$C0" 'mkdir -p db/migrations; echo "create table w();" > db/migrations/00
 mk i4 "$C0" 'mkdir -p db/migrations; echo "create table w();" > db/migrations/005_w.sql; echo n > design/n.py'; clsx "$SHA" --ddl-records "$DT"; want "ⓘ 기록 있어도 그 밖 코드 변경 → FORBID ddl" 3 "FORBID kind=ddl DDL 기록 PR"
 mk i5 "$C0" 'mkdir -p db/migrations; echo "create table t();" > db/migrations/006_v.sql; echo "- 002_x.sql applied: 판정 1234" > design/ddl-log.md'; clsx "$SHA" --ddl-records "$DT"; want "ⓘ 다른 sql 이름의 기록 → FORBID" 3 "FORBID kind=ddl-no-record"
 python3 "$CLS" classify "$SHA" --repo "$W" --scope S1 --ddl-records "$KT/scope-ddl-record.tsv" >/dev/null 2>&1; [ $? = 3 ]; ck "ⓘ 키트 기록표 파일 해석 OK(정규식 오류 0)" $?
-mk j1 "$C0" 'mkdir -p feature-pack/fable-team/harness/kit/fable-team/bin; echo x > feature-pack/fable-team/harness/kit/fable-team/bin/ft-x.sh'; clsx "$SHA" --table "$PT"; want "ⓙ 팩 표: kit 1파일 → CLASS code" 0 "CLASS code"
-mk j2 "$C0" 'mkdir -p feature-pack/fable-team/harness/evidence/r1; echo c > feature-pack/fable-team/CHANGES.md; echo e > feature-pack/fable-team/harness/evidence/r1/a.txt'; clsx "$SHA" --table "$PT"; want "ⓙ 팩 표: CHANGES·evidence → CLASS docs" 0 "CLASS docs"
+mk j1 "$C0" 'mkdir -p feature-pack/fable-team/legacy/1.x/harness/kit/fable-team/bin; echo x > feature-pack/fable-team/legacy/1.x/harness/kit/fable-team/bin/ft-x.sh'; clsx "$SHA" --table "$PT"; want "ⓙ 팩 표: kit 1파일 → CLASS code" 0 "CLASS code"
+mk j2 "$C0" 'mkdir -p feature-pack/fable-team/legacy/1.x/harness/evidence/r1; echo c > feature-pack/fable-team/legacy/1.x/CHANGES.md; echo e > feature-pack/fable-team/legacy/1.x/harness/evidence/r1/a.txt'; clsx "$SHA" --table "$PT"; want "ⓙ 팩 표: CHANGES·evidence → CLASS docs" 0 "CLASS docs"
 mk j3 "$C0" 'echo h > hooks.txt'; clsx "$SHA" --table "$PT"; want "ⓙ 팩 표: 하네스 밖 경로 → FORBID repo-outside" 3 "FORBID kind=repo-outside"
 printf 'bad line\n' > "$T/bad.tsv"; clsx "$SHA" --table "$T/bad.tsv"; want "ⓙ 분류표 꼴 틀림 → ERROR rc1" 1 "ERROR 분류표"
 mk k1 "$C0" 'mkdir -p .claude/rules; echo r > .claude/rules/y.md'; cls "$SHA"; want "ⓚ 학습 없음 → FORBID global-rule" 3 "FORBID kind=global-rule"
