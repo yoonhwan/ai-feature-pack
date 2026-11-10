@@ -206,7 +206,9 @@ def main() -> int:
         print(e, file=sys.stderr)
         return 3
     (p_text, p_prev), (h_text, h_prev) = previous(pw, "planner", monday), previous(hw, "harness", monday)
-    dumb = Path(os.environ.get("FT_DUMB_LEDGER") or Path.home() / ".claude/rules/dumb-time-ledger.md")
+    _dumb_candidates = [Path.home() / ".claude/guides/dumb-time-ledger.md",
+                        Path.home() / ".claude/rules/dumb-time-ledger.md"]  # 2026-11-06: rules/ 는 자동 로드라 guides/ 로 이동
+    dumb = Path(os.environ.get("FT_DUMB_LEDGER") or next((p for p in _dumb_candidates if p.exists()), _dumb_candidates[0]))
     keys: list[str] = []
     try:
         keys = dumb_keys(dumb)

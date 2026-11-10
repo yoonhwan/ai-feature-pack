@@ -26,6 +26,12 @@ STOP_ROOT="${FT_ROOT:-}"
 [ -n "$STOP_ROOT" ] || { . "$HERE/ft-harness-root.sh" && STOP_ROOT="$(ft_repo_root "$HERE")"; }
 [ -n "$STOP_ROOT" ] || { echo "ERROR 공용 루트를 못 풂 — FT_ROOT=<리포 루트> 로 다시"; exit 2; }
 if [ -f "$STOP" ] && ! STOP_OUT="$(FT_ROOT="$STOP_ROOT" bash "$STOP" check 2>&1)"; then printf '%s\n' "$STOP_OUT"; exit 1; fi
+# r1427: 문턱 한 곳 — ft-thresholds.sh 가 있으면 값을 export 해서 python 이 그대로 쓴다
+for _t in "$HERE/ft-thresholds.sh" "${OMC_FT_BIN:-}/ft-thresholds.sh" "$HOME/.claude/fable-team/thresholds.env"; do
+  [ -f "$_t" ] || continue
+  case "$_t" in *.env) set -a; . "$_t"; set +a;; *) eval "$(bash "$_t" --export 2>/dev/null)" || true;; esac
+  break
+done
 FT_ROOT="$ROOT" exec python3 -I - "$ROOT" "$HERE" "$STOP_ROOT" "$@" <<'PY'
 import glob, json, os, re, shlex, subprocess, sys, threading, time
 from concurrent.futures import ThreadPoolExecutor
@@ -77,6 +83,26 @@ def from_live():
         if not isinstance(d, dict) or d.get("engine") != "claude" or not d.get("name"): continue
         if d["name"] not in best or str(d.get("at") or "") > str(best[d["name"]].get("at") or ""): best[d["name"]] = d
     return [row(n, "claude", d.get("cwd") or "", d.get("model") or "", d.get("effort") or "", d.get("uuid") or "", d.get("jsonl") or "") for n, d in sorted(best.items())]
+RESUME_MAX = int(os.environ.get("FT_RESUME_MAX") or 150000)   # 값 출처 = ft-thresholds.sh (bash 가 export)   # r1426: 리줌 상한. 넘으면 리줌 대신 증류(r1422 실측 = 재작성 40%의 원인)
+def last_ctx(path):
+    """jsonl 마지막 usage 의 ctx(read+write+input). 못 읽으면 None."""
+    try:
+        fh = open(path, encoding="utf-8", errors="ignore")
+    except OSError:
+        return None
+    best = None
+    for line in fh:
+        if '"usage"' not in line: continue
+        try: d = json.loads(line)
+        except ValueError: continue
+        u = (d.get("message") or {}).get("usage") or {}
+        if not u: continue
+        cc = u.get("cache_creation") or {}
+        c = (u.get("cache_read_input_tokens") or 0) + (cc.get("ephemeral_1h_input_tokens") or 0) \
+            + (cc.get("ephemeral_5m_input_tokens") or 0) + (u.get("input_tokens") or 0)
+        if c: best = c
+    fh.close()
+    return best
 def alive(n): return run("tmux", "has-session", "-t", "=" + n)[0] == 0
 def precheck(r):   # (결과, 사유) · None = 연다
     n = r["name"]
@@ -88,6 +114,9 @@ def precheck(r):   # (결과, 사유) · None = 연다
     if not os.path.isfile(r["jsonl"]): return "FAIL", "대화 파일 없음"
     if "-nano-" in n and run("bash", f"{here}/ft-resume-attempt.sh", "rested", r["jsonl"])[0] == 0: return "SKIP", "끝난 나노"
     if not r["model"]: return "FAIL", "model 없음"   # model 은 새 세션을 열 때만 필요 — 끝난 나노·살아 있음 판정을 막지 않는다(H2)
+    ctx = last_ctx(r["jsonl"])
+    if ctx is not None and ctx > RESUME_MAX:      # r1426: 큰 대화를 리줌하면 첫 요청이 통째로 재작성된다 → 증류로 이어간다
+        return "DISTILL", f"ctx={ctx:,}>{RESUME_MAX:,} 증류 필요"
     return None
 def line_for(r):
     q = shlex.quote
@@ -138,9 +167,16 @@ for r, (k, why, pid, px) in zip(rows, res):
     print(f"{r['name']} · {label} · {pid} · {px} · {r['uuid'] or '-'}")
 fails = [(r["name"], w) for r, (k, w, _, _) in zip(rows, res) if k == "FAIL"]
 if fails: print("FAIL 목록:"); [print(f"- {n} — {w}") for n, w in fails]
+dists = [(r["name"], w) for r, (k, w, _, _) in zip(rows, res) if k == "DISTILL"]
+if dists:
+    print(f"DISTILL 목록 (리줌 대신 증류로 이어간다 · FT_RESUME_MAX={RESUME_MAX:,}):")
+    [print(f"- {n} — {w}") for n, w in dists]
+    print("  처리 = ft-successor-open.sh <구> <워크트리> --name <N+1> --agent <엔진> --model <모델> --body-file <인계서>")
+    if os.environ.get("FT_RR_DISTILL_FILE"):
+        open(os.environ["FT_RR_DISTILL_FILE"], "w", encoding="utf-8").write("\n".join(n for n, _ in dists) + "\n")
 cnt = lambda k: sum(1 for x in res if x[0] == k)
 x = 0 if dry else sum(1 for x in res if x[3] == "X")   # dry-run 은 8317 확인이 없다 — FAIL 은 dry-run 에서도 rc 3(H1)
 rc = 0 if not (fails or x) else 3
-tail = f"REBOOT-RESTORE {'dry-run ' if dry else ''}ok={cnt('OK')} plan={cnt('PLAN')} skip={cnt('SKIP')} fail={len(fails)} x8317={x} rc={rc} 원장={'- (dry-run 기록 0)' if dry else LOG}"
+tail = f"REBOOT-RESTORE {'dry-run ' if dry else ''}ok={cnt('OK')} plan={cnt('PLAN')} skip={cnt('SKIP')} distill={cnt('DISTILL')} fail={len(fails)} x8317={x} rc={rc} 원장={'- (dry-run 기록 0)' if dry else LOG}"
 log(tail); print(tail); sys.exit(rc)
 PY
