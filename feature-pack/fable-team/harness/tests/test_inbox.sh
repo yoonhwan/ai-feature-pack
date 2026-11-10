@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# test_inbox.sh — ft-inbox.sh(ingest·show·mark·report·archive·--compact) + mbox.sh send 훅 시험.
-# 전부 mktemp 임시 FT_ROOT(가짜 mailbox.jsonl·bodies/) + 가짜 Haiku(FT_INBOX_HAIKU 스텁). 실제 mbox·claude 호출 0 · 라이브 .fable-team 쓰기 0.
+# test_inbox.sh — ft-inbox.sh(ingest·show·mark·report·archive) + mbox.sh send 훅 시험.
+# 전부 mktemp 임시 FT_ROOT(가짜 mailbox.jsonl·bodies/). r1560 퇴역: haiku 호출·classify 자식·show --compact 사례는 «없어졌음» 기대로 바꿨다(스텁은 «불리면 파일에 적는다»). 실제 mbox·claude 호출 0 · 라이브 .fable-team 쓰기 0.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO="$HERE/../.."
@@ -14,10 +14,9 @@ ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }
 eq()  { [ "$2" = "$3" ] && ok "$1" || bad "$1 (기대 '$3' 실제 '$2')"; }
 
-# 가짜 Haiku: 성공 스텁(⑤ 라벨) · 실패 스텁(rc 1)
-printf '#!/bin/sh\ncat >/dev/null; echo 5\n' > "$T/haiku-ok.sh"; chmod +x "$T/haiku-ok.sh"
-printf '#!/bin/sh\ncat >/dev/null; exit 1\n' > "$T/haiku-fail.sh"; chmod +x "$T/haiku-fail.sh"
-export FT_INBOX_HAIKU="$T/haiku-ok.sh"
+# 분류기 스텁(r1560 퇴역): 불리면 «불렸다» 를 파일에 적는다 — 0 호출을 그 파일 부재로 본다
+printf '#!/bin/sh\necho called >> "%s/stub-called"\ncat >/dev/null\nexit 1\n' "$T" > "$T/haiku-boom.sh"; chmod +x "$T/haiku-boom.sh"
+export FT_INBOX_HAIKU="$T/haiku-boom.sh"
 
 add_mail() {  # <seq> <to> <from> <body>
   python3 - "$MB" "$@" <<'PY'
@@ -35,7 +34,7 @@ for l in open(sys.argv[1]):
 M=master-x; ME="$M#9"; export FT_SEAT="$ME"  # R326: mark·report 는 호출 좌석 큐만
 ing() { add_mail "$1" "${3:-$ME}" "${4:-a#1}" "$2"; bash "$INBOX" ingest "$1" >/dev/null 2>&1; }
 
-# 1) 분류표 6 + 미상(Haiku 성공/실패)
+# 1) 분류표 6 + 미상(r1560 퇴역: 미상은 규칙표 밖 · 라벨·자식 0)
 ing 101 "[a#1->$ME] 오빠 원문: 이것 확인해줘"
 ing 102 "[a#1->$ME] [HIL] 행#3 질문"
 ing 103 "[a#1->$ME] 판정 요청: A안 B안"
@@ -43,18 +42,14 @@ ing 104 "[a#1->$ME] [BLOCK] 포트 충돌"
 ing 105 "[a#1->$ME] 판정 430 집행 완료"
 ing 106 "[a#1->$ME] 참고: 접수했습니다"
 for pair in 101:① 102:② 103:③ 104:④ 105:⑤ 106:⑥; do eq "분류 ${pair%%:*}" "$(field "$Q/$M.jsonl" "${pair%%:*}" cls)" "${pair##*:}"; done
-waitcls() { for _ in $(seq 1 60); do [ "$(field "$1" "$2" cls)" != "미상" ] && return 0; sleep 0.5; done; return 1; }
 ing 107 "[a#1->$ME] 이상한 문장 가나다"
 eq "미상은 규칙표 즉시 적재 시 cls=미상" "$(field "$Q/$M.jsonl" 107 cls)" "미상"
-waitcls "$Q/$M.jsonl" 107 && eq "미상 + Haiku 성공 → ⑤(비동기 갱신)" "$(field "$Q/$M.jsonl" 107 cls)" "⑤" || bad "미상 + Haiku 성공인데 갱신 안 됨"
-FT_INBOX_HAIKU="$T/haiku-fail.sh" ing 108 "[a#1->$ME] 또 다른 문장 라마바"
-for _ in $(seq 1 20); do grep -q "seq=108" "$FT_ROOT/.fable-team/state/hook-errors.log" 2>/dev/null && break; sleep 0.25; done
-eq "미상 + Haiku 실패 → 미상 유지" "$(field "$Q/$M.jsonl" 108 cls)" "미상"
-grep -q "ft-inbox classify seq=108" "$FT_ROOT/.fable-team/state/hook-errors.log" && ok "Haiku 실패는 hook-errors.log 1줄" || bad "hook-errors.log 기록 없음"
-eq "미상 prio ①과 ② 사이" "$(field "$Q/$M.jsonl" 108 prio)" "1.5"
+eq "미상 cls 는 나중에도 그대로(라벨 호출 0)" "$(field "$Q/$M.jsonl" 107 cls)" "미상"
+eq "미상 prio ①과 ② 사이" "$(field "$Q/$M.jsonl" 107 prio)" "1.5"
+eq "미상 + 분류기 스텁 호출 0" "$([ -f "$T/stub-called" ] && echo called || echo none)" "none"
+eq "미상 + hook-errors.log 0줄(분류 자식 0)" "$([ -f "$FT_ROOT/.fable-team/state/hook-errors.log" ] && echo yes || echo none)" "none"
 for s in 101 102 103 104 105 106; do eq "via 분류 출처 $s = rule" "$(field "$Q/$M.jsonl" $s via)" "rule"; done
-eq "via 107 (미상 + Haiku 성공 갱신 뒤) = haiku" "$(field "$Q/$M.jsonl" 107 via)" "haiku"
-eq "via 108 (미상 + Haiku 실패) = unknown" "$(field "$Q/$M.jsonl" 108 via)" "unknown"
+eq "via 107 (미상) = unknown" "$(field "$Q/$M.jsonl" 107 via)" "unknown"
 
 # 2) 묶음 2쌍(같은 from·정규화 본문 같음 · 접두·seq·시각만 다름) + 다른 본문은 안 묶임
 ing 201 "[a#1->$ME] [발주 #62296] 보고 14:01 빌드 결과를 확인하라" "$ME" b#1
@@ -91,11 +86,11 @@ AR="$(ls "$Q/archive/$M"-*.jsonl 2>/dev/null)"; [ -n "$AR" ] && grep -q '"seq": 
 # 5) ⑥ 은 mark 만으로 닫힘
 bash "$INBOX" mark 106 보류 "참고용" >/dev/null
 echo "$(bash "$INBOX" show "$ME")" | grep -q "seq=106" && bad "⑥ mark 만인데 show 에 남음" || ok "⑥ 은 mark 만으로 닫힘"
-# 5b) 미상(Haiku 실패로 남은 108)은 ①~④ 급 — mark 만으로는 닫힘 거부, report 해야 닫힘
-bash "$INBOX" mark 108 처리 "확인함" >/dev/null
-bash "$INBOX" archive "$ME" | grep -q "REFUSED seq=108 cls=미상 reported=false" && ok "미상: mark 만 → archive 이동 거부(REFUSED)" || bad "미상이 mark 만으로 닫힘(조용한 강등)"
-bash "$INBOX" report 108 >/dev/null
-bash "$INBOX" show "$ME" | grep -q "seq=108" && bad "미상: report 후에도 show 에 남음" || ok "미상: report 후 닫힘"
+# 5b) 미상(107)은 ①~④ 급 — mark 만으로는 닫힘 거부, report 해야 닫힘
+bash "$INBOX" mark 107 처리 "확인함" >/dev/null
+bash "$INBOX" archive "$ME" | grep -q "REFUSED seq=107 cls=미상 reported=false" && ok "미상: mark 만 → archive 이동 거부(REFUSED)" || bad "미상이 mark 만으로 닫힘(조용한 강등)"
+bash "$INBOX" report 107 >/dev/null
+bash "$INBOX" show "$ME" | grep -q "seq=107" && bad "미상: report 후에도 show 에 남음" || ok "미상: report 후 닫힘"
 
 # 6) 묶음 G={S1,S2}: S1 만 report → G 미닫힘
 add_mail 401 "$ME" d#1 "[d#1->$ME] 판정 요청: 같은 질문 12:00"; bash "$INBOX" ingest 401 >/dev/null 2>&1
@@ -109,18 +104,21 @@ bash "$INBOX" archive "$ME" | grep -q "REFUSED seq=402" && ok "묶음: S2 대상
 bash "$INBOX" report 402 >/dev/null
 bash "$INBOX" show "$ME" | grep -q "$GID" && bad "묶음: 둘 다 report 후에도 남음" || ok "묶음: 둘 다 report → 닫힘"
 
-# 7) show --compact: Haiku 일회 호출 · 큐 무변경 · 실패 시 REJECT(rc≠0)
+# 7) show --compact = 퇴역(r1560): 인자 오류 rc≠0 1줄 · 큐 무변경 · 스텁 호출 0
 H1="$(md5 -q "$Q/$M.jsonl")"
-printf '#!/bin/sh\ncat >/dev/null; echo COMPACT-OK\n' > "$T/haiku-compact.sh"; chmod +x "$T/haiku-compact.sh"
-eq "--compact 출력" "$(FT_INBOX_HAIKU="$T/haiku-compact.sh" bash "$INBOX" show "$ME" --compact)" "COMPACT-OK"
+rm -f "$T/stub-called"
+OC="$(bash "$INBOX" show "$ME" --compact 2>&1)"; ORC=$?
+[ "$ORC" -ne 0 ] && ok "--compact → rc≠0($ORC)" || bad "--compact 인데 rc 0"
+eq "--compact 오류 1줄" "$(printf '%s\n' "$OC" | wc -l | tr -d ' ')" "1"
+printf '%s\n' "$OC" | grep -q '퇴역' && ok "--compact 오류 문구가 퇴역을 말함" || bad "--compact 오류 문구: $OC"
 eq "--compact 큐 무변경" "$(md5 -q "$Q/$M.jsonl")" "$H1"
-FT_INBOX_HAIKU="$T/haiku-fail.sh" bash "$INBOX" show "$ME" --compact >/dev/null 2>&1; [ $? -ne 0 ] && ok "--compact Haiku 실패 → rc≠0" || bad "--compact 실패인데 rc 0"
+eq "--compact 분류기 스텁 호출 0" "$([ -f "$T/stub-called" ] && echo called || echo none)" "none"
 
 # 8) 알 수 없는 대상·usage 는 raise
 bash "$INBOX" mark 999999 처리 "x" >/dev/null 2>&1; [ $? -ne 0 ] && ok "없는 seq mark → rc≠0" || bad "없는 seq mark 통과"
 bash "$INBOX" bogus >/dev/null 2>&1; [ $? -eq 2 ] && ok "usage → rc 2" || bad "usage rc"
 
-# 8b) via 마이그레이션 0: via 키 없는 옛 행 — show·mark·report·archive 동작 그대로 + via 키가 써지지 않음 · show/--compact 출력 바이트 불변
+# 8b) via 마이그레이션 0: via 키 없는 옛 행 — show·mark·report·archive 동작 그대로 + via 키가 써지지 않음 · show 출력 바이트 불변
 python3 - "$Q/$M.jsonl" "$FT_ROOT/.fable-team/comm/bodies/501.txt" <<'PY'
 import json, sys
 q, bp = sys.argv[1], sys.argv[2]
@@ -144,12 +142,10 @@ p = sys.argv[1]
 rows = [json.loads(l) for l in open(p, encoding="utf-8")]
 open(p, "w", encoding="utf-8").write("".join(json.dumps({k: v for k, v in x.items() if k != "via"}, ensure_ascii=False) + "\n" for x in rows))
 PY
-  FT_INBOX_HAIKU="$T/haiku-echo.sh" bash "$INBOX" show "$ME" "$@"; cp "$T/q.bak" "$Q/$M.jsonl"
+  bash "$INBOX" show "$ME" "$@"; cp "$T/q.bak" "$Q/$M.jsonl"
 }
-SH_A="$(FT_INBOX_HAIKU="$T/haiku-echo.sh" bash "$INBOX" show "$ME")"
+SH_A="$(bash "$INBOX" show "$ME")"
 eq "show 출력 바이트: via 있음 = via 키 제거본" "$SH_A" "$(strip_via_show)"
-SC_A="$(FT_INBOX_HAIKU="$T/haiku-echo.sh" bash "$INBOX" show "$ME" --compact)"
-eq "show --compact 출력 바이트: via 있음 = via 키 제거본" "$SC_A" "$(strip_via_show --compact)"
 echo "$SH_A" | grep -q "seq=501" && ok "옛 행 501 show 에 보임" || bad "옛 행 501 show 에서 누락"
 bash "$INBOX" mark 501 처리 "옛 행 처리" >/dev/null; bash "$INBOX" report 501 >/dev/null
 eq "옛 행 mark·report 뒤에도 via 키 없음(마이그레이션 0)" "$(has_via "$Q/$M.jsonl" 501)" "False"
@@ -167,24 +163,22 @@ OUT="$(FT_ROOT="$T/sendroot" bash "$C/mbox.sh" send ghost-seat#1 sender#1 "[판�
 eq "ingest 실패해도 send rc 0" "$RC" "0"
 echo "$OUT" | grep -q "QUEUED seq=" && ok "ingest 실패해도 QUEUED 출력 유지" || bad "QUEUED 출력 없음: $OUT"
 grep -q "WARN inbox ingest 실패" "$T/err" && ok "ingest 실패는 stderr WARN" || bad "WARN 없음"
-cp "$INBOX" "$REPO/harness/bin/ft-inbox.py" "$REPO/harness/bin/ft_inbox_core.py" "$T/sendroot/.fable-team/bin/"
+cp "$INBOX" "$REPO/harness/bin/ft-inbox.py" "$REPO/harness/bin/ft_inbox_core.py" "$REPO/harness/bin/ft_inbox_rotate.py" "$REPO/harness/bin/ft_inbox_window.py" "$T/sendroot/.fable-team/bin/"  # 모듈 4개 — 빠지면 ingest 가 ImportError 로 죽어 이 절이 통째로 빈값이 된다
 OUT2="$(FT_ROOT="$T/sendroot" bash "$C/mbox.sh" send ghost-seat#2 sender#2 "[판정 요청] 다른 시험" 2>/dev/null)"; RC=$?
 S2="$(echo "$OUT2" | sed -n 's/.*seq=\([0-9]*\).*/\1/p' | head -1)"
 eq "ingest 성공 send rc 0" "$RC" "0"
 eq "send 훅 큐 적재(cls ③)" "$(field "$T/sendroot/.fable-team/state/inbox/ghost-seat.jsonl" "$S2" cls)" "③"
 
-# 9b) ★Haiku 비동기★: 규칙표에 안 맞는 쪽지 + Haiku 스텁 sleep 3(7초 상한 안) → send 1초 미만 · 적재 시점 cls=미상 · 나중에 cls 갱신
-printf '#!/bin/sh\ncat >/dev/null; sleep 3; echo 5\n' > "$T/haiku-slow.sh"; chmod +x "$T/haiku-slow.sh"
+# 9b) ★분류기 0★: 규칙표에 안 맞는 쪽지 → send 는 기다리지 않고 rc 0 · 적재 시점 cls=미상 · 스폰 0 이라 나중에도 미상
 GQ="$T/sendroot/.fable-team/state/inbox/ghost-seat.jsonl"
-t0="$(python3 -c 'import time;print(time.time())')"
-OUT3="$(FT_INBOX_HAIKU="$T/haiku-slow.sh" FT_ROOT="$T/sendroot" bash "$C/mbox.sh" send ghost-seat#3 sender#3 "가나다 규칙표에 없는 문장" 2>/dev/null)"; RC=$?
-t1="$(python3 -c 'import time;print(time.time())')"
+rm -f "$T/stub-called"
+OUT3="$(FT_ROOT="$T/sendroot" bash "$C/mbox.sh" send ghost-seat#3 sender#3 "가나다 규칙표에 없는 문장" 2>/dev/null)"; RC=$?
 S3="$(echo "$OUT3" | sed -n 's/.*seq=\([0-9]*\).*/\1/p' | head -1)"
-eq "느린 Haiku 중에도 send rc 0" "$RC" "0"
-python3 -c 'import sys;sys.exit(0 if float(sys.argv[2])-float(sys.argv[1])<1.0 else 1)' "$t0" "$t1" && ok "send 소요 1초 미만(Haiku sleep 3 대기 0)" || bad "send 가 Haiku 를 기다림($t0→$t1)"
+eq "미상 쪽지도 send rc 0" "$RC" "0"
 eq "적재 시점 cls=미상" "$(field "$GQ" "$S3" cls)" "미상"
-waitcls "$GQ" "$S3" && eq "나중에 cls 갱신(Haiku ⑤)" "$(field "$GQ" "$S3" cls)" "⑤" || bad "cls 가 갱신되지 않음"
-eq "갱신 prio 도 반영" "$(field "$GQ" "$S3" prio)" "5.0"
+eq "적재 뒤에도 cls=미상(분류 자식 0)" "$(field "$GQ" "$S3" cls)" "미상"
+eq "적재 뒤 prio 1.5" "$(field "$GQ" "$S3" prio)" "1.5"
+eq "send 경로에서 분류기 스텁 호출 0" "$([ -f "$T/stub-called" ] && echo called || echo none)" "none"
 
 # 9c) 10-10 RULES 4줄(R57) — 규칙으로 즉시 분류(via=rule) · 새 줄은 본문 첫머리(\A)만
 ing 701 "[a#1->$ME] [완료·휴식] 골 끝남 증거 줄 첨부"
@@ -197,34 +191,13 @@ for pair in 701:⑤ 702:⑥ 703:② 704:⑤; do
 done
 ing 705 "[a#1->$ME] 가나다 둘째 줄에만
 [완료·휴식] 본문 중간 줄 머리"
-eq "새 줄은 \\A — 본문 중간 줄 머리 [완료·휴식] 는 규칙에 안 걸림(미상 또는 Haiku)" "$([ "$(field "$Q/$M.jsonl" 705 via)" = rule ] && echo rule || echo nonrule)" "nonrule"
+eq "새 줄은 \\A — 본문 중간 줄 머리 [완료·휴식] 는 규칙에 안 걸림(미상)" "$([ "$(field "$Q/$M.jsonl" 705 via)" = rule ] && echo rule || echo nonrule)" "nonrule"
+eq "규칙표 밖 705 = 미상 유지" "$(field "$Q/$M.jsonl" 705 cls)" "미상"
 
-# 9d) Haiku 7초 룰 — 1회 실패 뒤 재시도 성공 → 라벨 갱신 · 2회 실패 → 미상 유지 + 오류 로그에 stdout 조각 · 기본 상한 7
-printf '#!/bin/sh\ncat >/dev/null\nn=$(cat "%s" 2>/dev/null || echo 0); echo $((n+1)) > "%s"\n[ "$n" -ge 1 ] && echo 3 || exit 1\n' "$T/hn" "$T/hn" > "$T/haiku-flaky.sh"; chmod +x "$T/haiku-flaky.sh"
-FT_INBOX_HAIKU="$T/haiku-flaky.sh" ing 711 "[a#1->$ME] 규칙표 밖 문장 마바사"
-waitcls "$Q/$M.jsonl" 711 && eq "Haiku 1회 실패 → 재시도 성공 → ③ 갱신" "$(field "$Q/$M.jsonl" 711 cls)" "③" || bad "재시도 성공인데 갱신 안 됨"
-eq "재시도 정확히 1회(호출 2번)" "$(cat "$T/hn")" "2"
-printf '#!/bin/sh\ncat >/dev/null; echo "BOOM-STDOUT-FRAG"; exit 1\n' > "$T/haiku-fail2.sh"; chmod +x "$T/haiku-fail2.sh"
-FT_INBOX_HAIKU="$T/haiku-fail2.sh" ing 712 "[a#1->$ME] 또 규칙표 밖 문장 아자차"
-for _ in $(seq 1 40); do grep -q "seq=712" "$FT_ROOT/.fable-team/state/hook-errors.log" 2>/dev/null && break; sleep 0.25; done
-eq "Haiku 2회 실패 → 미상 유지" "$(field "$Q/$M.jsonl" 712 cls)" "미상"
-grep "seq=712" "$FT_ROOT/.fable-team/state/hook-errors.log" | grep -q "BOOM-STDOUT-FRAG" && ok "오류 로그에 stdout 조각" || bad "오류 로그에 stdout 조각 없음"
-eq "haiku 기본 상한 7초 · 시간 초과도 1회 재시도 뒤 raise" "$(python3 - "$REPO/harness/bin" <<'PY'
-import os, subprocess, sys
-sys.path.insert(0, sys.argv[1])
-os.environ.pop("FT_INBOX_HAIKU_TIMEOUT", None)
-import ft_inbox_core as c
-seen = []
-def fake(cmd, **kw):
-    seen.append(kw["timeout"])
-    raise subprocess.TimeoutExpired(cmd, kw["timeout"])
-c.subprocess.run = fake
-try:
-    c.haiku("x")
-except RuntimeError as e:
-    print(seen, "timeout" in str(e))
-PY
-)" "[7.0, 7.0] True"
+# 9d) 지운 옵션·명령은 오류로 말한다(r1560 · 조용한 무시 0)
+bash "$INBOX" classify 107 "$ME" > "$T/cls.out" 2>&1; [ $? -ne 0 ] && ok "classify 하위 명령 → rc≠0" || bad "classify 가 아직 동작"
+eq "classify 오류 1줄" "$(wc -l < "$T/cls.out" | tr -d ' ')" "1"
+grep -q 'usage: ft-inbox.sh' "$T/cls.out" && ok "classify 는 usage 1줄" || bad "classify 오류 문구: $(cat "$T/cls.out")"
 
 # 9e) ★close — r916★ 한 잠금 안에서 mark(처리·사유) + reported · 없는 대상은 NOTFOUND rc≠0 · 사유 빈 값 usage rc2 · 남의 큐 보존
 ing 801 "[a#1->$ME] 판정 요청: close 시험 하나"
