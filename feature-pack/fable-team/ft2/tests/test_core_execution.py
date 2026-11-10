@@ -289,10 +289,10 @@ class _ReplaceState(intake.Intake):               # M8: state 를 새 dict 로 �
                 "attempts": dict(state["attempts"], **{command: state["attempts"].get(command, 0) + 1})}
 
 class _NoKindFilter(intake.Intake):               # M9: 입구 판독이 kind 를 안 가림
-    _prior_receipt = lambda self, records, command: next(
-        (rec for rec in reversed(records) if rec["command"] == command), None)  # noqa: E731
-    _pending = lambda self, records, state: list(
-        dict.fromkeys([rec["command"] for rec in records] + list(state["pending"])))  # noqa: E731
+    _prior_receipt = lambda self, records, command: next(  # noqa: E731
+        (rec for rec in reversed(records) if rec["command"] == command), None)
+    _pending = lambda self, records, state: list(  # noqa: E731
+        dict.fromkeys([rec["command"] for rec in records] + list(state["pending"])))
 
 def test_m1_without_generation_check_old_owner_writes(tmp_path):
     node = _ex(tmp_path / "t", cls=_NoGenCheck)
