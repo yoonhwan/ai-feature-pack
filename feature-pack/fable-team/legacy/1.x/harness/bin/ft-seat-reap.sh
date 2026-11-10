@@ -250,17 +250,20 @@ def sig(p, s):
     except ProcessLookupError: pass
     except PermissionError: print(f"ft-seat-reap: WARN pid={p} 신호 권한 없음", file=sys.stderr)
 def alive(ps): return [p for p in ps if subprocess.run(["kill", "-0", str(p)], capture_output=True).returncode == 0]
-def owner_ctx():   # r1568 — KILL 직전 «같은 소유 규칙» 재확인용 새 표(ps · 세션 나무 · 래퍼 · 조상 · 서비스)
-    t = ps_table()
+def owner_ctx():   # r1568 — KILL 직전 «같은 소유 규칙» 재확인용 새 표(ps · 세션 나무 · 래퍼 · 조상 · 서비스 · cwd · 워크트리 · 남의 나무)
+    t, pl = ps_table(), panes()
     bg = {p for p, r in t.items() if re.search(r"ft-bg-loop\.sh .*--seat " + re.escape(seat) + r"(\s|$)", r[4])}
-    return t, desc(t, [int(x[1]) for x in panes() if x[0] == seat]), bg, ancestors(t), services(t)
-def still_mine(p, via, t, tree, bg):   # 소유 규칙별 재확인(①나무 · ②FT_SEAT · ②b래퍼 · ③고아) · 자손·등록·만료·⑤미룸 = 뿌리가 같은 주인
-    r = t.get(p)
+    other = desc(t, [int(x[1]) for x in pl if x[0] != seat]) | {int(x[1]) for x in pl if x[0] != seat}
+    wt = wt_arg or next((x[3] for x in pl if x[0] == seat), "")
+    wt = os.path.realpath(wt) if wt and os.path.exists(os.path.join(wt, ".git")) and os.path.realpath(wt) not in ("/", os.path.realpath(os.path.expanduser("~"))) else ""
+    return t, desc(t, [int(x[1]) for x in pl if x[0] == seat]), bg, ancestors(t), services(t), (cwds() if wt else {}), wt, other
+def still_mine(p, via, t, tree, bg, cw, wt, other):   # 소유 규칙별 재확인(①나무 · ②FT_SEAT · ②b래퍼 · ③고아 cwd) · 자손·등록·만료·⑤미룸 = 뿌리가 같은 주인
+    r = t.get(p)   # r1568 DA② R2 — ③ 은 «지금 cwd» 로 최초 조사와 같은 조건(워크트리 안 ∧ 안쪽 .git 없음 ∧ 남의 나무 밖 ∧ sleep/while)을 다시 본다
     if r is None: return False
     if via == "①": return p in tree
     if via == "②": return r[5] == seat
     if via == "②b": return p in bg
-    if via == "③": return r[5] is None and r[0] == 1
+    if via == "③": return r[5] is None and r[0] == 1 and p not in other and bool(wt) and p in cw and own_wt(os.path.realpath(cw[p]), wt) and bool(re.search(r"\b(sleep|while)\b", r[4]))
     return True
 def stop(cand):
     for p, (v, _, c) in sorted(cand.items()): print(f"reap-kill pid={p} via={v} cmd={c[:100]}"); sig(p, signal.SIGTERM)
@@ -268,9 +271,9 @@ def stop(cand):
     while alive(cand) and time.time() < end: time.sleep(0.1)
     left0 = alive(cand)
     if left0:   # r1568 — KILL 직전 새 표로 «lstart 같음 ∧ 같은 소유 ∧ 서비스 아님» 셋 다 참일 때만(재사용·주인 바뀜 = KILL 0)
-        t, tree, bg, anc, svc = owner_ctx()
+        t, tree, bg, anc, svc, cw, wt, oth = owner_ctx()
         for p in left0:
-            if p in t and t[p][3] == cand[p][1] and p not in anc and p not in svc and still_mine(p, cand[p][0], t, tree, bg): sig(p, signal.SIGKILL)
+            if p in t and t[p][3] == cand[p][1] and p not in anc and p not in svc and still_mine(p, cand[p][0], t, tree, bg, cw, wt, oth): sig(p, signal.SIGKILL)
             else: print(f"reap-skip pid={p} why=owner-changed(정지 직전 재확인 실패 — KILL 0) cmd={t[p][4][:100] if p in t else '-'}")
         end = time.time() + TERMW / 3
         while alive(left0) and time.time() < end: time.sleep(0.1)
