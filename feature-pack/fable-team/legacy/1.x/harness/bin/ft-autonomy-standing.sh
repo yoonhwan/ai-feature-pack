@@ -3,7 +3,7 @@
 #   approve-standing D1 --repos pack --classes code,docs   오빠 `!` 전용 — r947 r5: «쓰기 자리» 에서 호출 좌석 = planner master 판정(std_seat_probe · 경유 무관) · 자율 모드 무관 · 끝 시각 없음(멈춤 = standing-stop)
 #       슬랙 «켜짐 알림» 1글(사람 말 3줄 · scope_slack_post 재사용) 게시 «먼저» → grants.audit(+슬랙 ts) → log `approve-standing D1 <epoch> repos=pack classes=<…> da=external`
 #   standing-approve <head40> --pr <N> --repo pack --verdict <판정문.md>   planner master 좌석만(ft_doc_exempt.py --mode planner-seat = 문서 전용 예외와 같은 좌석 함수)
-#       ①D1 켜짐(마지막 approve-standing 이 마지막 standing-stop 뒤) ②팩 분류표 forbid 0 ∧ 종류 ∈ classes ③판정문이 BYZ origin/main 에 있음 — 읽는 값도 origin/main 의 blob
+#       ①D1 켜짐(마지막 approve-standing 이 마지막 standing-stop 뒤) ②팩 분류표 forbid 0 ∧ 종류 ∈ classes ③판정문이 BYZ <ref> 에 있음 — 읽는 값도 그 ref 의 blob · ref 기본 = origin/main(D1 고정 · r1590: D2 는 DA 판정 가지를 넘긴다)
 #       ④판정문 4줄 `승인 sha: <A>` · `DA 원문: <절대경로>` · `DA 원문 sha256: <64hex>` · `격리: 세트 <A> · rc=0` (각 정확히 1줄) ∧ 로컬 DA 원문 sha256 = 판정문 값
 #       ⑤DA 원문 마지막 `codex` 블록 첫 줄 ∧ 그 블록의 «마지막 비어 있지 않은 줄» = `판정: APPROVE`(r2 · DA 반례 2) · <원문>.meta head=A rc=0 · model 이 claude 계열 아님 ⑥head=A 또는 ft-approval-equiv A head EQUIV
 #       통과 = log `standing-use D1 <head> <epoch> pr=<N> repo=pack da=<A>` → `approve-merge <head> D1 <epoch>` → 승인 파일 → 원장 1행 · 거절 = rc2 · 쓰기 0 · 끝줄 «다시: 오빠 h(approve-merge)»
@@ -100,15 +100,15 @@ std_field() {  # <변수> <본문> <키> <값 정규식(괄호 1개)> — 정확
 
 std_common() { local c; c="$(git -C "$1" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" && (cd "$c" && pwd -P); }   # 같은 리포(워크트리 포함) 판정
 
-std_verdict() {  # ③④ <판정문> → V_A V_OUT
-  local f="$1" d rel body sum got iso
+std_verdict() {  # ③④ <판정문> [ref] → V_A V_OUT (ref 기본 refs/remotes/origin/main · D2 는 DA 판정 가지 · r1590)
+  local f="$1" ref="${2:-refs/remotes/origin/main}" d rel body sum got iso
   [ -f "$f" ] || std_err "③ 판정문 없음: $f"
   d="$(cd "$(dirname "$f")" && pwd -P)" || std_err "③ 판정문 폴더를 못 엶: $f"
   [ "$(std_common "$d")" = "$(std_common "$ROOT")" ] && [ -n "$(std_common "$ROOT")" ] \
     || std_err "③ 판정문이 BYZ 리포($ROOT) 파일이 아님: $f"
   rel="$(git -C "$d" rev-parse --show-prefix)$(basename "$f")"
-  git -C "$ROOT" cat-file -e "refs/remotes/origin/main:$rel" 2>/dev/null || std_err "③ 판정문이 BYZ origin/main 에 없음(로컬만): $rel — 착지·git fetch 뒤 다시"
-  body="$(git -C "$ROOT" show "refs/remotes/origin/main:$rel")"   # 읽는 값 = origin/main 의 blob(로컬 사본을 바꿔도 못 바꾼다)
+  git -C "$ROOT" cat-file -e "$ref:$rel" 2>/dev/null || std_err "③ 판정문이 BYZ ${ref#refs/remotes/} 에 없음(로컬만): $rel — 착지·git fetch 뒤 다시"
+  body="$(git -C "$ROOT" show "$ref:$rel")"   # 읽는 값 = 그 ref 의 blob(로컬 사본을 바꿔도 못 바꾼다)
   std_field V_A "$body" '승인 sha:' '([0-9a-f]{40})'
   std_field V_OUT "$body" 'DA 원문:' '(/[^[:space:]]+)'
   std_field sum "$body" 'DA 원문 sha256:' '([0-9a-f]{64})'

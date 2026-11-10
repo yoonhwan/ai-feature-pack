@@ -4,10 +4,11 @@
 #       되돌릴 수 있는 병합은 revert 로 되돌아간다 → 그 팀 master 가 결정하고 병합 «뒤» Slack 1줄로 알린다. 되돌릴 수 «없는» 종류만 오빠 답글 길(판정 2904)로 남긴다.
 #   approve-standing D2 --repos byz,pack --classes code,docs --oppa-decision <Slack ts>   ← 켜기 = planner master 좌석(오빠 `!` 0) · ①오빠 답글 확인(새 질문 0) ②켜짐 Slack 1글 먼저 → grants.audit(slack_ts·oppa_decision) → log
 #   standing-approve D2 <head40> --pr <N> --repo byz|pack --verdict <판정문> --card <카드>   ← 쓰기 = 그 팀 master 좌석(ft_doc_exempt team-master-seat)
-#       ①D2 켜짐 ②분류(--repo ⊆ repos · byz=내장표/pack=팩표 · FORBID·ERROR·시간초과=거절 · 종류(ff→docs) ∈ classes) ③D1 ③~⑥ 그대로 ④카드 시험 세트(code) ⑤크리티컬 0
+#       ①D2 켜짐 ②분류(--repo ⊆ repos · byz=내장표/pack=팩표 · FORBID·ERROR·시간초과=거절 · 종류(ff→docs) ∈ classes) ③D1 ③~⑥ 그대로 — 단 ③ 이 읽는 ref 만 DA 판정 가지(D2_VREF · r1590) ④카드 시험 세트(code) ⑤크리티컬 0
 #       하나라도 못 지나면 STANDING-REJECT rc2 · 쓰기 0 · 끝줄 «다시: 오빠 h(approve-merge --oppa-slack)» (oppa_gate·ft_oppa_slack_check 변경 0 — D2 는 승인 기록을 직접 발급)
 #   standing-stop D2 "<사유>"   누구나 · 멈춘 뒤 standing-approve D2 = 거절 · 다시 켜기 = approve-standing D2
 # 원장 $STATE/autonomy-standing/D2.ledger.tsv 7칸 = 시각·head·PR·da=<A>·DA 원문 경로·착지 sha·되돌림 명령(D1 과 같은 칸 · ft-merge-land 가 채운다)
+D2_VREF='refs/remotes/origin/docs/da-278062'   # r1590 ③ 판정문 읽는 ref = DA 판정 가지(코드 상수 · 호출자가 못 고른다)
 D2="$STATE/autonomy-standing"; . "$HERE/ft-autonomy-standing.sh"   # D1 헬퍼(std_t7·std_field·std_verdict·std_da_out·std_equiv·std_seat_probe·std_plain) 재사용 — 사본 0
 D2_GRANT_RE='^approve-standing D2 [0-9]+ repos=(byz|pack|byz,pack) classes=(code|docs)(,(code|docs))? oppa_decision=[0-9]+\.[0-9]{6}$'
 std_err() { echo "STANDING-REJECT $1" >&2; echo "다시: 오빠 h(approve-merge --oppa-slack) — 크리티컬·판정문·시험 중 하나라도 못 지나면 건마다 오빠 답글" >&2; exit 2; }
@@ -108,7 +109,7 @@ cmd_standing_approve() {
   d2_on || std_err "① 상시 승인 D2 꺼짐(approve-standing D2 줄 없음 또는 standing-stop 뒤)"
   d2_repo "$rk"
   if grep -q "^standing-use D2 $head " "$LOG" 2>/dev/null; then echo "STANDING-NOOP $head (이미 상시 승인함)"; return 0; fi
-  d2_classify "$head"; std_verdict "$vf"; std_da_out "$V_OUT" "$V_A"; std_equiv "$V_A" "$head"
+  d2_classify "$head"; std_verdict "$vf" "$D2_VREF"; std_da_out "$V_OUT" "$V_A"; std_equiv "$V_A" "$head"
   [ "$D2_CLS" != code ] || scope_code_check "$head" "$card"   # ④ 카드 시험 세트(rc≠0 = scope_err = STANDING-REJECT)
   d2_critical "$head"; d2_write "$head" "$pr" "$V_A" "$V_OUT"
 }

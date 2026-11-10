@@ -201,7 +201,7 @@ mut m7 "$SD" 'c && NF {last=$0}' 'c && /^판정:/ {last=$0}'; msa m7 "$A6" 6 "$V
 mut m2 "$SD" '[ "${BASH_REMATCH[1]}" = "$2" ] || std_err "⑤ .meta head' 'true || std_err "⑤ .meta head'; msa m2 "$A6" 6 "$VMH"
 [ "$rc" = 0 ]; ck "ⓘ2 변이(.meta head 대조 끔) → ⓑ4b 칸 빨강" $?
 mkv loc6 "$A6" "$T/da/loc6.out" "" local; VL="$VF"
-mut m3 "$SD" 'git -C "$ROOT" cat-file -e "refs/remotes/origin/main:$rel" 2>/dev/null ||' 'true ||' 'body="$(git -C "$ROOT" show "refs/remotes/origin/main:$rel")"' 'body="$(cat "$f")"'; msa m3 "$A6" 6 "$VL"
+mut m3 "$SD" 'git -C "$ROOT" cat-file -e "$ref:$rel" 2>/dev/null ||' 'true ||' 'body="$(git -C "$ROOT" show "$ref:$rel")"' 'body="$(cat "$f")"'; msa m3 "$A6" 6 "$VL"
 [ "$rc" = 0 ]; ck "ⓘ3 변이(origin/main 존재 검사 끔 · 로컬 판정문 읽기) → ⓑ5 칸 빨강" $?
 rm -f "$VL"
 mut m4 "$SD" '[ "$got" = "$sum" ] ||' 'true ||'; msa m4 "$A6" 6 "$VSW"
