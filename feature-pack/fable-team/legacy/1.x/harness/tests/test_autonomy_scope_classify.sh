@@ -111,6 +111,10 @@ mk j4 "$C0" 'mkdir -p feature-pack/fable-team/ft2/{core,adapters/slack,tests,too
 mk j5 "$C0" 'mkdir -p feature-pack/fable-team/ft2; echo r > feature-pack/fable-team/ft2/README.md'; clsx "$SHA" --table "$PT"; want "ft2/README.md 하나 → CLASS docs" 0 "CLASS docs"
 mk j6 "$C0" 'mkdir -p feature-pack/fable-team/ft2/contracts; echo c > feature-pack/fable-team/ft2/contracts/slack.json'; clsx "$SHA" --table "$PT"; want "ft2/contracts(계약 원자료) → FORBID repo-outside" 3 "FORBID kind=repo-outside"
 mk j7 "$C0" 'mkdir -p feature-pack/fable-team/legacy/1.x/harness/kit/fable-team/templates; echo x >> feature-pack/fable-team/legacy/1.x/harness/kit/fable-team/templates/scope-classes-pack.tsv'; clsx "$SHA" --table "$PT"; want "분류표 자신 변경 → FORBID scope-table" 3 "FORBID kind=scope-table"
+# r1588 ⓐ~ⓓ · ft2/ 전체 한 줄(code) + contracts 만 앞줄 forbid — 새 하위 폴더가 생겨도 repo-outside 거절·h 우회 0
+mk j8 "$C0" 'mkdir -p feature-pack/fable-team/ft2/doctor; echo x > feature-pack/fable-team/ft2/doctor/report.py'; clsx "$SHA" --table "$PT"; want "r1588 ⓑ ft2/doctor/report.py(표에 없던 하위 폴더) → CLASS code" 0 "CLASS code"
+mk j9 "$C0" 'mkdir -p feature-pack/fable-team/ft2/zzz; echo x > feature-pack/fable-team/ft2/zzz/x.py'; clsx "$SHA" --table "$PT"; want "r1588 ⓑ ft2/zzz/x.py(새 하위 폴더) → CLASS code" 0 "CLASS code"
+mk j10 "$C0" 'mkdir -p feature-pack/fable-team/ft2/core feature-pack/fable-team/ft2/contracts; echo x > feature-pack/fable-team/ft2/core/kernel.py; echo c > feature-pack/fable-team/ft2/contracts/slack.json'; clsx "$SHA" --table "$PT"; want "r1588 ⓒ ft2/contracts 가 code 와 섞여도 → FORBID repo-outside" 3 "FORBID kind=repo-outside"
 printf 'bad line\n' > "$T/bad.tsv"; clsx "$SHA" --table "$T/bad.tsv"; want "ⓙ 분류표 꼴 틀림 → ERROR rc1" 1 "ERROR 분류표"
 mk k1 "$C0" 'mkdir -p .claude/rules; echo r > .claude/rules/y.md'; cls "$SHA"; want "ⓚ 학습 없음 → FORBID global-rule" 3 "FORBID kind=global-rule"
 clsx "$SHA" --learned global-rule; want "ⓚ 학습된 종류 → CLASS docs kind=… learned" 0 "CLASS docs kind=global-rule learned"
