@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # test_seat_open_work_r1539.sh — r1539: «받을 일 0» 인 좌석은 후계를 열지 않는다(후계 0 · 팀장 1줄 · ft-successor-open rc6 · close-check [인계] 면제).
-#   판정 도구 ft-seat-open-work.py 단독 사례 ⓐ~ⓖ + 게이트 문구·크론 줄 ⓗⓘ + rc6 실측(가짜 tmux·tmuxc·pgrep) + close-check ⓙ + 변이 M1~M5.
+#   판정 도구 ft-seat-open-work.py 단독 사례 ⓐ~ⓖ + r1541 «진행/ 폴더만 없음» 사례 ⓐ'~ⓔ' + 게이트 문구·크론 줄 ⓗⓘ + rc6 실측(가짜 tmux·tmuxc·pgrep) + close-check ⓙ + 변이 M1~M5 · RM1·RM2.
 # 격리만: 임시 루트·임시 우편함·가짜 센서(fake_resource_env) — 실 tmux 열기 0 · 실 우편함 0 · 실 명부 쓰기 0 · kill 0 · 고정 sleep 0.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"; REPO="$(cd "$HERE/.." && pwd)"
@@ -91,6 +91,43 @@ printf -- '- 배정: 좌석 byz-harness-nano-x#3\n' > "$R/design/teams/ops/indic
 run_tool "$SEAT" --root "$R"
 { [ "$RC" = 1 ] && printf '%s' "$OUT" | grep -q '^OPEN-WORK 있음 이유=배정 1 (ops-card.md)$'; } && ok "R2 design/teams/<팀>/indices/진행 배정 → rc1" || bad "R2 rc=$RC out=$OUT"
 
+# ── 2c) r1541 «진행/ 폴더만 없음» 은 진행 카드 0 (판정 불가 아님) ──
+# git 은 빈 폴더를 안 남긴다 — 진행 카드 0 인 팀은 늘 진행/ 가 없다. indices/ 자체가 없을 때만 rc3.
+ARCH='byz-planner-arch-claude#44'; PM='byz-planner-master-x#1'
+pnew() {   # pnew <teams|design|none> [진행] — planner 팀 indices/ 꼴 · none = 팀 indices/ 자체 없음
+  P="$T/p.$RANDOM$RANDOM"; KIND="${1:-teams}"; SUB=planner; [ "$KIND" = teams ] && SUB=teams/planner
+  mkdir -p "$P/.fable-team/comm/receipts" "$P/.fable-team/state/card-assign" "$P/design/harness/indices/대기"
+  printf '{ "_master": "%s", "%s": {"role": "master"}, "%s": {"role": "arch"} }\n' "$PM" "$PM" "$ARCH" > "$P/.fable-team/seats-planner.json"
+  : > "$P/.fable-team/comm/mailbox.jsonl"
+  [ "$KIND" = none ] || mkdir -p "$P/design/$SUB/indices/대기" "$P/design/$SUB/indices/완성"
+  [ "${2:-}" = 진행 ] && mkdir -p "$P/design/$SUB/indices/진행"
+  return 0
+}
+pmail() { printf '{"seq": %s, "ts": "2026-11-10T00:00:00", "to": "%s", "from": "%s", "body": "%s"}\n' "$1" "$ARCH" "$PM" "$2" >> "$P/.fable-team/comm/mailbox.jsonl"; }
+
+# ⓐ 팀장 좌석 · 팀 indices/ 있음(대기·완성만) · 진행/ 없음 · 쪽지 일 0 · 배정 0 → rc0 · LEADER
+pnew teams; run_tool "$ARCH" --root "$P"
+{ [ "$RC" = 0 ] && printf '%s' "$OUT" | grep -q '^OPEN-WORK 0 이유=쪽지0(일 아님 0)·배정0·진행0$' \
+  && printf '%s' "$OUT" | grep -qx "LEADER $PM"; } && ok "ⓐ' 팀 진행/ 없음 = 진행 0 · 판정 계속 rc0 · LEADER" || bad "ⓐ' rc=$RC out=$OUT err=$ERR"
+
+# ⓑ 같은 팀 · 진행/ 없음 · 쪽지 일 1 → rc1
+pnew teams; pmail 51 '[발주] planner 카드'; run_tool "$ARCH" --root "$P"
+{ [ "$RC" = 1 ] && printf '%s' "$OUT" | grep -q '^OPEN-WORK 있음 이유=쪽지 일 1$'; } && ok "ⓑ' 진행/ 없음 + 쪽지 일 1 → rc1(기존 승계)" || bad "ⓑ' rc=$RC out=$OUT"
+
+# ⓒ 팀 indices/ 자체가 없다 → 지금처럼 rc3(판정 불가)
+pnew none; run_tool "$ARCH" --root "$P"
+{ [ "$RC" = 3 ] && printf '%s' "$ERR" | grep -q '^받을 일 판정 불가 팀 카드 폴더 없음' && printf '%s' "$OUT" | grep -q '^OPEN-WORK 불가'; } && ok "ⓒ' 팀 indices/ 자체 없음 → rc3 그대로" || bad "ⓒ' rc=$RC out=$OUT err=$ERR"
+
+# ⓓ 리포 전체에 진행/ 0 · indices/ 는 있다 → 배정 0 으로 판정 계속(:59~62)
+pnew teams; run_tool "$SEAT" --root "$P"
+{ [ "$RC" = 0 ] && printf '%s' "$OUT" | grep -q '^OPEN-WORK 0 이유=쪽지0(일 아님 0)·배정0·진행0$'; } && ok "ⓓ' 리포 전체 진행/ 0 · indices/ 있음 → rc0 판정 계속" || bad "ⓓ' rc=$RC out=$OUT err=$ERR"
+
+# ⓔ design/<팀>/indices/ 꼴도 ⓐ 와 같다(대기 카드는 안 센다)
+pnew design; printf '# 대기 카드\n' > "$P/design/planner/indices/대기/wait.md"; run_tool "$ARCH" --root "$P"
+{ [ "$RC" = 0 ] && printf '%s' "$OUT" | grep -q '^OPEN-WORK 0 이유=쪽지0(일 아님 0)·배정0·진행0$'; } && ok "ⓔ' design/<팀>/ 꼴 · 대기 카드 0 → rc0" || bad "ⓔ' rc=$RC out=$OUT err=$ERR"
+pnew teams 진행; printf '# 카드\n' > "$P/design/teams/planner/indices/진행/run.md"; run_tool "$ARCH" --root "$P"
+{ [ "$RC" = 1 ] && printf '%s' "$OUT" | grep -q '^OPEN-WORK 있음 이유=팀 진행 1$'; } && ok "ⓔ' 진행/ 가 있고 카드 1장이면 그대로 rc1" || bad "ⓔ-2 rc=$RC out=$OUT"
+
 # ── 3) 게이트 문구 ⓗ · 크론 줄 ⓘ ─────────────────────────────────────────
 SENT='받을 일 0 이면 후계 0 — 좌석 닫기 대기 + 팀장에 «[다음 없음]» 1줄'
 n=0; for f in "$SKILL/templates/hooks/context-distill-gate.sh" "$REPO/kit/fable-team/templates/hooks/context-distill-gate.sh"; do grep -qF "$SENT" "$f" && n=$((n+1)) || true; done
@@ -175,7 +212,7 @@ PY
 mut "$TOOL" '    if work:' '    if True:'; MO="$MUT"; new_root; run_tool "$SEAT" --root "$R" --mbox-dir 2>/dev/null
 OUT="$(python3 "$MO" "$SEAT" --root "$R" 2>/dev/null)"; RC=$?
 { [ "$RC" = 1 ]; } && ok "M1 «늘 있음» 변이 검출(ⓐ 가 빨강)" || bad "M1 변이 미검출 rc=$RC"
-mut "$TOOL" '        return 3, "카드 폴더 없음 design/*/indices/진행 · design/teams/*/indices/진행", ""' '        return 0, "쪽지0(일 아님 0)·배정0·진행0", "-"'; MO="$MUT"
+mut "$TOOL" '        return 3, "카드 폴더 없음 design/*/indices · design/teams/*/indices", ""' '        return 0, "쪽지0(일 아님 0)·배정0·진행0", "-"'; MO="$MUT"
 new_root nocard; OUT="$(python3 "$MO" "$SEAT" --root "$R" 2>/dev/null)"; RC=$?
 { [ "$RC" = 0 ]; } && ok "M2 «판정 불가를 0 으로» 변이 검출(ⓕ1 이 빨강)" || bad "M2 변이 미검출 rc=$RC"
 mut "$TOOL" '    first = (b.lstrip().splitlines() or [""])[0]' '    return True'; MO="$MUT"
@@ -191,6 +228,13 @@ kept=0; cp "$C/mbox_handover.py" "$C/.keep"; cp "$C/mbox_handover_mut.py" "$C/mb
 ce "$TOOL" close-check 'byz-harness-nano-x#0'; [ "$RC" = 0 ] && kept=1
 cp "$C/.keep" "$C/mbox_handover.py"; rm -f "$C/.keep" "$C/mbox_handover_mut.py"
 { [ "$kept" = 1 ]; } && ok "M5 «면제를 늘 적용» 변이 검출(ⓙ2 가 빨강)" || bad "M5 변이 미검출 rc=$RC out=$OUT"
+# r1541 변이 2종(카드 M1·M2) — 옛 동작·더 너그러운 동작이 사례를 빨강으로 만드는지
+mut "$TOOL" 'if not tidx:' 'if not tdir:'; MO="$MUT"   # 진행/ 없음 = rc3(옛 동작)
+pnew teams; OUT="$(python3 "$MO" "$ARCH" --root "$P" 2>/dev/null)"; RC=$?
+{ [ "$RC" = 3 ]; } && ok "RM1 «진행/ 없음 = rc3» 옛 동작 변이 검출(ⓐ' 가 빨강)" || bad "RM1 변이 미검출 rc=$RC"
+mut "$TOOL" 'if not tidx:' 'if False:'; MO="$MUT"   # indices/ 없음도 0 으로
+pnew none; OUT="$(python3 "$MO" "$ARCH" --root "$P" 2>/dev/null)"; RC=$?
+{ [ "$RC" = 0 ]; } && ok "RM2 «indices/ 없음도 0» 변이 검출(ⓒ' 가 빨강)" || bad "RM2 변이 미검출 rc=$RC"
 
 echo "----"
 [ "$fail" = 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }
