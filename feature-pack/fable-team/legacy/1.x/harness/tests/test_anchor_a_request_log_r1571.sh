@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # test_anchor_a_request_log_r1571.sh — 카드 r1571 시험 (알림 · 크기 경보 · 전환 추출 · 변이 M1·M3·M4·M5·M10 · 비밀 0)
 #   격리 HOME · 가짜 로그 · 가짜 시계(FT_ANCHOR_NOW) · 가짜 mbox(보낸 본문만 기록) · 가짜 seats.json — 실 우편함·실 로그에 쓰지 않는다.
-#   실행: bash feature-pack/fable-team/harness/tests/test_anchor_a_request_log_r1571.sh   (실행 비트 불필요)
+#   실행: bash feature-pack/fable-team/legacy/1.x/harness/tests/test_anchor_a_request_log_r1571.sh   (실행 비트 불필요)
 set -uo pipefail
 T="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 B="$T/../bin"; S="$B/ft-anchor-a-request-log.sh"; P="$B/ft-anchor-a-request-log.plist"

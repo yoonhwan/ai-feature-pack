@@ -8,22 +8,22 @@
 ★재기동 폴백 0 (DA R2): 켜기 h 안에서 cliproxy 를 restart·kill·launchctl kickstart 하지 않는다. 재적재가 확인되지 않으면 3키를 되돌리고 «A 보류 — 재적재 안 됨 · 재기동은 별도 판단» 1줄로 끝낸다.★
 
 값 1곳(정본): 끝 시각 = `2026-11-17 13:00 KST`(= epoch 1794888000) · 상태 상한(logs-max-total-size-mb) = `1024`
-— 스크립트 `feature-pack/fable-team/harness/bin/ft-anchor-a-request-log.sh` 상단 상수 2줄과 이 줄이 같은 값이다(다르면 카드 FAIL).
+— 스크립트 `feature-pack/fable-team/legacy/1.x/harness/bin/ft-anchor-a-request-log.sh` 상단 상수 2줄과 이 줄이 같은 값이다(다르면 카드 FAIL).
 
 산출물(이 묶음)
 | 파일 | 역할 |
 |---|---|
-| `feature-pack/fable-team/harness/bin/ft-anchor-a-request-log.sh` | 알림(끝 시각·24시간 반복·완료 표식) · 크기 경보(80%) · 전환 추출(하루 1회) |
-| `feature-pack/fable-team/harness/bin/ft-anchor-a-request-log.plist` | launchd 템플릿(1시간 간격 1개) — 자리표시자 **6개**(`__SCRIPT__`·`__WORKTREE__`·`__COMM__`·`__SEATS__`·`__STATE__`·`__LOGS__`) 치환 후 설치(§3 2번) |
-| `feature-pack/fable-team/harness/tests/test_anchor_a_request_log_r1571.sh` | 격리 시험(가짜 시계·로그·mbox·명부) |
+| `feature-pack/fable-team/legacy/1.x/harness/bin/ft-anchor-a-request-log.sh` | 알림(끝 시각·24시간 반복·완료 표식) · 크기 경보(80%) · 전환 추출(하루 1회) |
+| `feature-pack/fable-team/legacy/1.x/harness/bin/ft-anchor-a-request-log.plist` | launchd 템플릿(1시간 간격 1개) — 자리표시자 **6개**(`__SCRIPT__`·`__WORKTREE__`·`__COMM__`·`__SEATS__`·`__STATE__`·`__LOGS__`) 치환 후 설치(§3 2번) |
+| `feature-pack/fable-team/legacy/1.x/harness/tests/test_anchor_a_request_log_r1571.sh` | 격리 시험(가짜 시계·로그·mbox·명부) |
 
 ---
 
 ## §0 사전 확인(쓰기 0)
 
-1. `bash -n feature-pack/fable-team/harness/bin/ft-anchor-a-request-log.sh` → rc0
-2. `bash feature-pack/fable-team/harness/tests/test_anchor_a_request_log_r1571.sh` → 마지막 줄 `PASS` (실 로그·실 우편함 접촉 0 — 격리 임시 폴더만 쓴다)
-3. `plutil -lint feature-pack/fable-team/harness/bin/ft-anchor-a-request-log.plist` → OK
+1. `bash -n feature-pack/fable-team/legacy/1.x/harness/bin/ft-anchor-a-request-log.sh` → rc0
+2. `bash feature-pack/fable-team/legacy/1.x/harness/tests/test_anchor_a_request_log_r1571.sh` → 마지막 줄 `PASS` (실 로그·실 우편함 접촉 0 — 격리 임시 폴더만 쓴다)
+3. `plutil -lint feature-pack/fable-team/legacy/1.x/harness/bin/ft-anchor-a-request-log.plist` → OK
 4. config 현재 값 확인(읽기만): 관리 API 또는 `~/.cli-proxy-api/config.yaml` 에서 `logging-to-file` · `debug` · `logs-max-total-size-mb` 3키.
    지금 값: `logging-to-file=false` · `debug=false` · `logs-max-total-size-mb=0`(상한 없음).
 5. 수신자 확인: `.fable-team/seats-planner.json` 의 `_desk`(desk) · `_hil_route`(planner master). 둘 중 하나라도 비면 스크립트가 rc3 으로 멈춘다(다른 좌석으로 대신 보내지 않는다).
@@ -64,7 +64,7 @@
 > 끄기를 잊지 않게 하는 장치다. 설치 뒤에는 손으로 알림을 보내지 않는다.
 
 1. 스크립트를 라이브 bin 에 둔다(추적본 = 팩 PR, 라이브 = 설치 사본):
-   `cp -p feature-pack/fable-team/harness/bin/ft-anchor-a-request-log.sh "$(cat <리포>/.fable-team/LIVE_BIN)/"` (경로는 설치 꼴에 따른다)
+   `cp -p feature-pack/fable-team/legacy/1.x/harness/bin/ft-anchor-a-request-log.sh "$(cat <리포>/.fable-team/LIVE_BIN)/"` (경로는 설치 꼴에 따른다)
 2. plist 치환 6개: `__SCRIPT__` = 라이브 스크립트 절대경로 · `__WORKTREE__` = 리포 공용 루트(작업 폴더 — launchd 는 cwd=/ 로 띄운다) · `__COMM__` = `<리포>/.fable-team/comm` · `__SEATS__` = `<리포>/.fable-team/seats-planner.json` · `__STATE__` = `~/.claude/fable-team/state/capacity` · `__LOGS__` = `~/.cli-proxy-api/logs` → `~/Library/LaunchAgents/com.byz.ft-anchor-a-request-log.plist`
    ★env 를 빼면 스크립트가 문맥을 못 풀어 rc3 으로 «알림 전에» 끝난다(DA R1). 자리표시자가 남은 plist 는 bootstrap 하지 않는다.★
 3. `plutil -lint` → OK → `launchctl bootstrap gui/$UID <plist>` → `launchctl print gui/$UID/com.byz.ft-anchor-a-request-log` 에 `state = running`
