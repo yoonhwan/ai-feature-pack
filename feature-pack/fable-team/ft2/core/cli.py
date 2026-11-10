@@ -35,9 +35,9 @@ VERBS = {
     "reclaim": ("Journal", "reclaim", (), ()),
 }
 LISTS = ("pre", "evidence", "resources")      # 쉼표 = 여러 값
-INTS = ("gen", "run", "capacity")
+INTS = ("gen", "run")
 BOOLS = ("rotation",)
-GLOBAL = ("root", "team", "capacity")        # capacity = 선택(접수 상한 · r1616: 회전 시험이 상한에 막힌다)
+GLOBAL = ("root", "team")
 
 
 def _load(name):
@@ -77,7 +77,7 @@ def parse(argv):
             raise Usage("인자 꼴: --이름 값 (받은 것 %r)" % (token,))
         given[token[2:]] = _value(token[2:], rest[index + 1])
         index += 2
-    missing = [name for name in required + ("root", "team") if name not in given]
+    missing = [name for name in required + GLOBAL if name not in given]
     if missing:
         raise Usage("값 빠짐: " + ",".join("--" + name for name in missing))
     return verb, given
@@ -100,8 +100,7 @@ def call(verb, given, clock):
     if cls_name == "Journal":
         target = _load("journal").Journal(os.path.join(root, ".fable-team", "teams", team, "runtime"))
     else:
-        extra = {"capacity": given["capacity"]} if cls_name == "Intake" and "capacity" in given else {}
-        target = classes[cls_name](root, team, clock=clock, **extra)
+        target = classes[cls_name](root, team, clock=clock)
     args = [given[name] for name in required]
     kwargs = {name: given[name] for name in optional if name in given}
     out = getattr(target, method)(*args, **kwargs)
