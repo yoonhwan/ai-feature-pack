@@ -2,7 +2,8 @@
 """ft_pack_path_plan_judge — h 계획 파일의 «날 팩 1.x 경로 접두» 검사 (r1556 · r1544 legacy/1.x 이동).
 CLI: ft_pack_path_plan_judge.py --plan <파일> → `ok`(rc0) | `reject <이유> — 줄 <n>`(줄마다 · rc1) | 내부 오류 rc2
 - 주석 아닌 줄의 «<ref>: 바로 뒤» 날 `feature-pack/fable-team/harness/`(또는 `…/legacy/1.x/harness/`) = reject — 접두는 PACK_1X 변수 하나
-  (값은 ft-pack-1x-prefix.sh 가 ref 마다 정한다). 체크아웃·절대 경로(`cp <팩>/…`)는 검사 밖 · 문자열만 본다(실행 0)."""
+  (값은 ft-pack-1x-prefix.sh 가 ref 마다 정한다). 따옴표(큰·작은)는 벗긴 뒤 같은 판정 — 체크아웃·절대 경로(`cp <팩>/…`)는 검사 밖.
+  문자열만 본다(실행 0). ft-hil.sh lint 가 등록 전에 부른다."""
 from __future__ import annotations
 import re
 import sys
@@ -26,16 +27,14 @@ def logical_lines(text: str):
     if buf:
         yield start, buf
 
-def var_form(prefix: str) -> bool:  # 접두 자리가 `${PACK_1X}/` 또는 `"${PACK_1X}"/` 이면 변수 꼴
-    return prefix.endswith(VAR) or prefix.endswith('${PACK_1X}"/')
-
 def plan(text: str) -> list[str]:
     out: list[str] = []
     for n, line in logical_lines(text):
-        for m in RAW.finditer(line):
-            if var_form(line[: m.start()]):
+        flat = line.replace('"', "").replace("'", "")  # 따옴표(큰·작은)를 벗긴 뒤 같은 판정 — 따옴표로 빠져나가기 0
+        for m in RAW.finditer(flat):
+            if flat[: m.start()].endswith(VAR):
                 continue  # ${PACK_1X}/ 꼴 = 통과
-            if line[: m.start()].endswith((":", '":')):  # ref 콜론 바로 뒤만 날 접두(체크아웃 경로는 통과)
+            if flat[: m.start()].endswith(":"):  # ref 콜론 바로 뒤만 날 접두(체크아웃 경로는 통과)
                 out.append(WHY % n)
                 break
     return out

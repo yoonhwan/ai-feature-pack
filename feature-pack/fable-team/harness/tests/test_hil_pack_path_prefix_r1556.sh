@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # test_hil_pack_path_prefix_r1556.sh — r1556: 설치 h 는 팩 1.x 경로를 «PACK_1X 변수 하나»로만 쓴다.
 #   사례 ⓐ~ⓘ = ft-pack-1x-prefix.sh(ref→접두 1줄 · 둘 다·둘 다 없음·git 실패 = 판정 불가) + ft-hil 등록 검사(날 접두 REJECT)
-#   변이 M1~M4 4/4(둘 다=legacy 고름 · 사슬에서 판정기 뺌 · 주석 줄도 검사 · ref 콜론 조건 뺌) — 각각 ⓒ·ⓕ·ⓗ·ⓙ 를 FAIL 로 만든다
+#   변이 M1~M5 5/5(둘 다=legacy 고름 · 사슬에서 판정기 뺌 · 주석 줄도 검사 · ref 콜론 조건 뺌 · 따옴표 벗기기 삭제) — ⓒ·ⓕ·ⓗ·ⓙ 를 FAIL 로 만든다
 #   격리: 임시 git 리포 4개 · 임시 HIL_DIR·계획 · FT_*_JUDGE 대역 · 실 /tmp/h·실 팩·실 h 등록 0 · 고정 sleep 0
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + 재진입 표지(RSG_ACTIVE)
 set -uo pipefail
@@ -51,6 +51,9 @@ plan raw 'git show $R:feature-pack/fable-team/harness/bin/ft-hil.sh'
 plan rawlegacy 'git show "$R:feature-pack/fable-team/legacy/1.x/harness/bin/ft-hil.sh"'
 plan varform 'PACK_1X=$(bash ft-pack-1x-prefix.sh $R $REF) || exit 1; git show $R:${PACK_1X}/harness/bin/ft-hil.sh'
 plan comment '# 옛 길: git show $R:feature-pack/fable-team/harness/bin/ft-hil.sh'
+plan qdouble 'git show "$REF":"feature-pack/fable-team/harness/install.sh"'
+plan qsingle "git show '\$REF:feature-pack/fable-team/harness/install.sh'"
+plan qvar 'git show "$REF":"${PACK_1X}/harness/install.sh"'
 plan cpath 'cp $PACK/feature-pack/fable-team/harness/pi/ft-mbox-wake.ts ~/.pi/agent/extensions/'
 plan cinstall 'bash $PACK/feature-pack/fable-team/harness/install.sh --live'
 plan gitc 'git -C $PACK show $REF:feature-pack/fable-team/harness/bin/ft-hil.sh'
@@ -58,14 +61,16 @@ plan plain 'git show $R:docs/README.md'
 
 rejected() { case "$1" in *"REJECT"*"PACK_1X 변수로 쓴다"*"줄 4"*) return 0;; esac; return 1; }
 c_f() {  # 날 접두 2종 = REJECT rc1 · 등록 0 · 줄 번호 + «PACK_1X 변수로 쓴다» 1줄
-  local o n0 k rc; for k in raw rawlegacy gitc; do
+  local o n0 k rc; for k in raw rawlegacy gitc qdouble qsingle; do
     n0="$(nh)"; o="$(hil "$1" "$T/$k.hil" on)"; rc=$?
     [ "$rc" = 1 ] && [ "$(nh)" = "$n0" ] || return 1
     rejected "$o" || return 1
   done
   return 0
 }
-c_g() { local o; o="$(hil "$1" "$T/varform.hil" on)"; case "$o" in *REJECT*|*ERROR*) return 1;; esac; return 0; }
+c_g() { local o k; for k in varform qvar; do
+    o="$(hil "$1" "$T/$k.hil" on)"; case "$o" in *REJECT*|*ERROR*) return 1;; esac
+  done; return 0; }
 c_j() {  # 체크아웃·절대 경로(cp·bash install.sh) = 검사 밖(등록 rc0)
   local o k; for k in cpath cinstall; do
     o="$(hil "$1" "$T/$k.hil" on)"
@@ -83,8 +88,8 @@ run "ⓒ 둘 다 = rc≠0 · stdout 0 · «판정 불가 둘 다 있음»" c_c "
 run "ⓓ 둘 다 없음 = rc≠0 · stdout 0 · «판정 불가 둘 다 없음»" c_d "$BIN0"
 run "ⓔ 없는 ref·리포 아님 = rc≠0 · «판정 불가» 1줄(대체 실행 0)" c_e "$BIN0"
 sec "ⓕ~ⓘ ft-hil 등록 검사"
-run "ⓕ 날 접두 2종 = REJECT rc1 · 등록 0 · «PACK_1X 변수로 쓴다» + «줄 4»" c_f "$BIN0"
-run "ⓖ «\${PACK_1X}/harness/…» 꼴 = 등록 rc0" c_g "$BIN0"
+run "ⓕ 날 접두 = REJECT rc1 · 등록 0 · «PACK_1X 변수로 쓴다» + «줄 4»(따옴표 쓴 꼴 포함)" c_f "$BIN0"
+run "ⓖ «\${PACK_1X}/harness/…» 꼴 = 등록 rc0(따옴표 쓴 꼴 포함)" c_g "$BIN0"
 run "ⓗ 주석 줄의 날 접두 = 검사 밖(등록 rc0)" c_h "$BIN0"
 run "ⓙ 체크아웃·절대 경로(cp·bash install.sh) = 검사 밖(등록 rc0)" c_j "$BIN0"
 run "ⓘ 팩 경로 없는 계획 = 실 판정기 그대로 rc0" c_i "$BIN0"
@@ -97,7 +102,7 @@ for f in ft-pack-1x-prefix.sh ft_pack_path_plan_judge.py ft-hil.sh; do
   cmp -s "$BIN0/$f" "$HERE/../kit/fable-team/bin/$f" && ok "bin=kit $f" || bad "bin≠kit $f"
 done
 
-sec "변이 M1~M4 — 각각 ⓒ·ⓕ·ⓗ·ⓙ 를 FAIL 로 만드는지"
+sec "변이 M1~M5 — 각각 ⓒ·ⓕ·ⓗ·ⓙ 를 FAIL 로 만드는지"
 caught() {  # <설명> <사례함수> <변이 bin> — 변이 사본에서 그 사례가 깨지면 잡은 것
   rm -rf "$HD"; mkdir -p "$HD"
   if "$2" "$3" >/dev/null 2>&1; then bad "변이 $1 를 못 잡음($2 가 변이 사본에서도 통과)"; else ok "변이 $1 → 사례 FAIL 검출"; fi
@@ -120,8 +125,10 @@ M2="$(mut mut2 ft-hil.sh ' && lint "$f" "${FT_PACK_PATH_JUDGE:-$l/ft_pack_path_p
 [ -n "$M2" ] && caught "M2(사슬에서 판정기 뺌)" c_f "$M2" || bad "M2 사본 못 만듦"
 M3="$(mut mut3 ft_pack_path_plan_judge.py 'if line.lstrip().startswith("#"):' 'if False:')"
 [ -n "$M3" ] && caught "M3(주석 줄도 검사)" c_h "$M3" || bad "M3 사본 못 만듦"
-M4="$(mut mut4 ft_pack_path_plan_judge.py "if line[: m.start()].endswith((\":\", '\":')):" 'if True:')"
+M4="$(mut mut4 ft_pack_path_plan_judge.py 'if flat[: m.start()].endswith(":"):' 'if True:')"
 [ -n "$M4" ] && caught "M4(ref 콜론 조건 뻔 것)" c_j "$M4" || bad "M4 사본 못 만듦"
+M5="$(mut mut5 ft_pack_path_plan_judge.py "line.replace('\"', \"\").replace(\"'\", \"\")" 'line')"
+[ -n "$M5" ] && caught "M5(따옴표 벗기기 삭제 = 따옴표 우회)" c_f "$M5" || bad "M5 사본 못 만듦"
 
 sec "끝"
 [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAIL $fail"; exit 1; }
