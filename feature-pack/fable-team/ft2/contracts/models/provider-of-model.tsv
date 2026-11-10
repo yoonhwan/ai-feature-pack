@@ -1,0 +1,8 @@
+# ft 2.0 provider-of-model — 모델 id → provider 정규식표(위에서부터 첫 일치 · 주석·빈 줄 무시)
+# 출처 = 1.1.292 표(이번 변경 5파일 밖 · 값 그대로) · sha256 앞16 = cdc8fc260d5c57c7
+# 왼쪽 = 정규식(창 꼬리 `[…]` 를 뗀 모델 id 에 re.search) · 오른쪽 = provider 이름
+# 새 풀을 붙일 때는 이 파일에 1행만 더한다(코드 수정 0)
+^claude-	claude
+^(gpt-|codex|o[0-9])	codex
+^(opengateway/)?deepseek/	deepseek
+^deepseek-	deepseek
