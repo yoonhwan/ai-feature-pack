@@ -289,6 +289,52 @@ def test_b3_consecutive_reclaims_accumulate_base_count(tmp_path):
         state["revision"], base2["count"] + len(rs.records()))
 
 
+def _more_closed(node, segments=1):
+    """work 를 더 닫아 회전을 만든다 — 옛 upto 를 넘는 줄(= 새로 덮을 줄)을 만드는 입력."""
+    rs = _rs(node)
+    want, n = len(rs.journal.closed()) + segments, 0
+    while len(rs.journal.closed()) < want and n < 40:
+        n += 1
+        _close(node, "N%d" % n)
+    assert len(rs.journal.closed()) >= want
+
+
+def test_b4_resume_with_new_segment_counts_new_lines_once(tmp_path):
+    """r1589 — K1(본문 삭제 뒤) 정지로 옛 segment 가 남은 채 새 segment 가 더 생겨도
+    base.count 는 «옛 count + 새로 덮은 줄(seq > 옛 upto)» 이고 revision 은 크래시 없는
+    같은 입력의 값과 같다(옛 줄 두 번 세기 0)."""
+    ref = _d(tmp_path / "ref")
+    for work in ("W1", "W2", "W3", "W4", "W5"):
+        _close(ref, work)
+    assert ref.rs.journal.reclaim()["reclaimed"]
+    _more_closed(ref, 2)
+    assert ref.rs.journal.reclaim()["reclaimed"]
+    want = _settled(ref)
+
+    root = tmp_path / "k1"
+    node = _d(root)
+    for work in ("W1", "W2", "W3", "W4", "W5"):
+        _close(node, work)
+    assert _crash_run(root, "reclaim", "reclaim_after_bodies").returncode == 9   # K1
+    mid = _d(root)
+    old_upto = (mid.rs.journal.state().get("journal_base") or {})["upto"]
+    left = [rec["seq"] for rec in mid.rs.records() if rec["seq"] <= old_upto]
+    assert left                                                     # 옛 segment 줄이 아직 남아 있다
+    _more_closed(mid, 2)
+    assert mid.rs.journal.reclaim()["reclaimed"]
+    got = _settled(mid)
+    assert got[:2] == want[:2]                                       # (새 upto, 새 count) 대조
+    assert got[1] == got[0]                                          # 덮은 줄 수 = 새 upto(재세기 0)
+    assert got[2] == want[2]                                         # revision = 크래시 없는 값
+
+
+def _settled(node):
+    """회수 직후 (base.upto, base.count, revision) — ⓐ 대조 3값."""
+    state = _rs(node).journal.state()
+    base = state.get("journal_base") or {}
+    return (base.get("upto"), base.get("count"), state.get("revision"))
+
+
 def test_r2_4_reclaim_reservation_counts_transaction_ops(tmp_path):
     """DA #280106 판정문 ②(Red) — 회수 사전 예약이 그 transaction 의 ops byte 를 빼면
     base checkpoint 의 state_tmp_written 공존이 내부 한계를 넘는다. 실측 공존 peak 를 그대로
