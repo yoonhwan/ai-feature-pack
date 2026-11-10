@@ -12,12 +12,12 @@
 cd ai-feature-pack/feature-pack/ctx-plan
 bash install.sh                 # ~/.local/bin/ctx-plan
 
-cp accounts.env.example .fable-team/state/capacity/accounts.env   # 값은 머신마다 채운다
+cp accounts.env.example /tmp/accounts.env      # 상수 파일 자리는 하네스/사람이 정한다 · 값은 머신마다 채운다
 ctx-burn --hours 168 --json > /tmp/burn.json
 
-ctx-plan --from /tmp/burn.json --inventory                        # 0순위 상수 점검 + 크리티컬
-ctx-plan --from /tmp/burn.json --capacity --accounts 5x:5,ultra:5  # pool 분리 + 정원·피크 + 골 모형
-ctx-plan --from /tmp/burn.json --need concurrent:40               # 필요 구독 장수
+CTX_PLAN_CAP_FILE=/tmp/accounts.env ctx-plan --from /tmp/burn.json --inventory   # 0순위 상수 점검 + 크리티컬
+ctx-plan --from /tmp/burn.json --inv-file /tmp/accounts.env --capacity --accounts 5x:5,ultra:5
+ctx-plan --from /tmp/burn.json --inv-file /tmp/accounts.env --need concurrent:40
 ```
 
 `ctx-sim` alias 는 **폐기**했다(오빠 #278951 — alias 는 `ctx-waste` → `ctx-burn` 하나만).
@@ -56,17 +56,23 @@ ctx-plan --from /tmp/burn.json --need concurrent:40               # 필요 구�
 `동시골` 값은 **용량상 가능 수**다. 운영 규칙 «메인 3골 직렬» 의 실제 값과 구별해서 읽어라.
 `팀-시간/주` 는 중간 단위이므로 성과 판정에 쓰지 않는다.
 
-## 상수 파일 (0순위)
+## 상수 파일 (0순위) — 이 패키지는 자리를 정하지 않는다
 
-해석 순서 — **먼저 있는 것 하나**:
+**해석 순서 = 두 개뿐** (느슨한 연결 · 수용 기준 #2):
 
 1. `--inv-file FILE`
-2. `$FT_CAP_FILE`
-3. `<루트>/.fable-team/state/capacity/accounts.env`   ← 권장(머신 단위 · 루트 = `.fable-team` 이 있는 상위 폴더)
-4. `~/.claude/fable-team/state/capacity/accounts.env`
+2. `$CTX_PLAN_CAP_FILE`
 
-출력 머리에 **읽은 경로 1줄**을 찍는다. 못 찾으면 «(없음)» 이고 숫자 옆에 신뢰 금지가 붙는다.
-키 13개 — 구독 5 · 주간 리밋 4(상한·하한) · 모형 4. 값이 비면 «0순위 문제» 로 센다.
+상위 폴더를 뒤지거나 홈의 특정 경로를 가정하지 않는다. **자리는 하네스가 정하고 env 로 주입한다.**
+파일이 없으면 `ctx-plan` 은 아무 표도 내지 않고 **rc3 + 1줄**로 끝난다(수용 기준 #6):
+
+```
+ctx-plan: 상수 파일 없음 — --inv-file 또는 CTX_PLAN_CAP_FILE (install.sh 참고)
+```
+
+출력 머리에 **읽은 경로 1줄**을 찍는다. 키 13개 — 구독 5 · 주간 리밋 4(상한·하한) · 모형 4.
+값이 비면 «0순위 문제» 이고 **기본값으로 대체하지 않는다**(수용 기준 #7 — 계산이 필요한 표는 «산정 불가»).
+계약 키가 아닌 두 손잡이(`FT_CAP_C5H_5X` · `FT_CAP_HOURS_PER_WEEK`)만 기본값을 쓰고, 화면에 «기본값(계약 키 아님)» 이라고 적는다.
 
 견본: [`accounts.env.example`](accounts.env.example) (값은 비어 있다).
 
@@ -77,10 +83,12 @@ ctx-plan --from /tmp/burn.json --need concurrent:40               # 필요 구�
 - **라벨은 «낮은 용량 가정 · 높은 용량 가정»** — «낙관·보수» 를 쓰지 않는다(작은 용량이 보수라는 보장이 없다).
 - **앵커에는 상태가 붙는다** — `미검증·추정` · `추정(5x×4)·실측 필요` · `실측 주장·출처 미확인` · `운영정책`.
   상태 표기가 지워지기 전에는 이 숫자로 계정 결정을 내리지 않는다.
-- **계약 검사** — `plan_input.schema != ctx.v1` 이면 계산하지 않고 rc≠0 으로 멈춘다(경고 후 진행 0).
-- **모형 상수는 한 함수에서만 해석** — `--seats-per-team`/`--teams-per-goal`/`--team-hours-per-goal`/
-  `--hours-per-week`/`--target-util` 은 `CLI 명시 > 상수 파일 > 기본값` 을 `params()` 하나가 정한다.
-  머리(header)·capacity·inventory·need 가 같은 값을 본다(R2 · DA #278950). 출처(`CLI`/`파일`/`기본값`)를 머리에 찍는다.
+- **느슨한 연결** — `ctx-burn` 을 실행하지 않고(subprocess 0), 하네스 폴더 이름·홈 경로를 모른다.
+  입력은 계약 JSON 하나와 상수 파일 하나뿐이다(수용 기준 #1·#3).
+- **계약 검사** — `plan_input.schema != ctx.v1` 이면 계산하지 않고 **rc2** + 사유 1줄로 멈춘다(경고 후 진행 0).
+- **모형 상수는 한 함수에서만 해석** — `params()` 하나가 `CLI 명시 > 상수 파일` 을 정하고, 계약 키는
+  둘 다 없으면 **None(산정 불가)** 이다(기본값 대체 0 · 수용 기준 #7). 머리(header)·capacity·inventory·need
+  가 같은 값을 본다(R2 · DA #278950). 출처(`CLI`/`파일`/`없음`/`기본값(계약 키 아님)`)를 머리에 찍는다.
 - **골 모형은 «참고»** — 고정 기본값(팀 3 · 8h)을 운영 규칙으로 읽지 않게 «참고 — 운영 규칙 아님» 라벨을 붙인다
   (오빠 #278942). 규칙이 아니라 계산 예시다.
 - **표본 0 = 미산정** — 0 으로 채우지 않는다. rc 는 0.
