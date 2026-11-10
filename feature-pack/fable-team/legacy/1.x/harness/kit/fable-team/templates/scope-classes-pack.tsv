@@ -12,4 +12,9 @@ docs	pack-changes	^feature-pack/fable-team/legacy/1\.x/CHANGES\.md$
 docs	pack-manifest	^feature-pack/fable-team/legacy/1\.x/manifest\.json$
 docs	pack-evidence	^feature-pack/fable-team/legacy/1\.x/harness/evidence/
 docs	pack-md	^feature-pack/fable-team/legacy/1\.x/.*\.md$
+code	ft2-core	^feature-pack/fable-team/ft2/core/
+code	ft2-adapters	^feature-pack/fable-team/ft2/adapters/
+code	ft2-tests	^feature-pack/fable-team/ft2/tests/
+code	ft2-tools	^feature-pack/fable-team/ft2/tools/
+docs	ft2-md	^feature-pack/fable-team/ft2/README\.md$
 forbid	repo-outside	.

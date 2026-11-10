@@ -106,6 +106,11 @@ python3 "$CLS" classify "$SHA" --repo "$W" --scope S1 --ddl-records "$KT/scope-d
 mk j1 "$C0" 'mkdir -p feature-pack/fable-team/legacy/1.x/harness/kit/fable-team/bin; echo x > feature-pack/fable-team/legacy/1.x/harness/kit/fable-team/bin/ft-x.sh'; clsx "$SHA" --table "$PT"; want "ⓙ 팩 표: kit 1파일 → CLASS code" 0 "CLASS code"
 mk j2 "$C0" 'mkdir -p feature-pack/fable-team/legacy/1.x/harness/evidence/r1; echo c > feature-pack/fable-team/legacy/1.x/CHANGES.md; echo e > feature-pack/fable-team/legacy/1.x/harness/evidence/r1/a.txt'; clsx "$SHA" --table "$PT"; want "ⓙ 팩 표: CHANGES·evidence → CLASS docs" 0 "CLASS docs"
 mk j3 "$C0" 'echo h > hooks.txt'; clsx "$SHA" --table "$PT"; want "ⓙ 팩 표: 하네스 밖 경로 → FORBID repo-outside" 3 "FORBID kind=repo-outside"
+# r1583 ⓐ~ⓓ · ft 2.0 본체(ft2/) 경로 — 계약 원자료(contracts)는 막힌 채
+mk j4 "$C0" 'mkdir -p feature-pack/fable-team/ft2/{core,adapters/slack,tests,tools}; for p in core/kernel.py adapters/slack/binding.py tests/test_binding.py tools/probe.py; do echo x > feature-pack/fable-team/ft2/$p; done'; clsx "$SHA" --table "$PT"; want "ft2 core·adapters·tests·tools → CLASS code" 0 "CLASS code"
+mk j5 "$C0" 'mkdir -p feature-pack/fable-team/ft2; echo r > feature-pack/fable-team/ft2/README.md'; clsx "$SHA" --table "$PT"; want "ft2/README.md 하나 → CLASS docs" 0 "CLASS docs"
+mk j6 "$C0" 'mkdir -p feature-pack/fable-team/ft2/contracts; echo c > feature-pack/fable-team/ft2/contracts/slack.json'; clsx "$SHA" --table "$PT"; want "ft2/contracts(계약 원자료) → FORBID repo-outside" 3 "FORBID kind=repo-outside"
+mk j7 "$C0" 'mkdir -p feature-pack/fable-team/legacy/1.x/harness/kit/fable-team/templates; echo x >> feature-pack/fable-team/legacy/1.x/harness/kit/fable-team/templates/scope-classes-pack.tsv'; clsx "$SHA" --table "$PT"; want "분류표 자신 변경 → FORBID scope-table" 3 "FORBID kind=scope-table"
 printf 'bad line\n' > "$T/bad.tsv"; clsx "$SHA" --table "$T/bad.tsv"; want "ⓙ 분류표 꼴 틀림 → ERROR rc1" 1 "ERROR 분류표"
 mk k1 "$C0" 'mkdir -p .claude/rules; echo r > .claude/rules/y.md'; cls "$SHA"; want "ⓚ 학습 없음 → FORBID global-rule" 3 "FORBID kind=global-rule"
 clsx "$SHA" --learned global-rule; want "ⓚ 학습된 종류 → CLASS docs kind=… learned" 0 "CLASS docs kind=global-rule learned"
