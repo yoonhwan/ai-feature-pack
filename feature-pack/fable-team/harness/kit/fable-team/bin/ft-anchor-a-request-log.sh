@@ -43,7 +43,7 @@ if [ "$bytes" -ge "$thr" ] && [ "$ARMED" = 1 ]; then   # ⓖ 크기 경보 — �
 fi
 [ "$bytes" -ge "$thr" ] || ARMED=1
 if [ "$now" -ge "$END_TS" ] && { [ "$REQ" = 0 ] || [ $((now-REQ)) -ge 86400 ]; }; then   # ② 끝 시각 뒤 요청 · 24시간 반복 (M1)
-  body="[앵커 A 끄기·지우기 h 실행 요청] 끝 시각(2026-11-17 13:00 KST)이 지났다. h 문서 §끄기·지우기 순서: 3키 복구→설정 재적재 확인→삭제(logs/main*.log 만 · 보존 anchor-t0.json·anchor-watch.py·anchor-snapshots.jsonl)→관측기 종료→완료 표식→plist 해제."
+  body="[앵커 A 끄기·지우기 h 실행 요청] 끝 시각(2026-11-17 13:00 KST)이 지났다. h 문서 §끄기·지우기 순서: 3키 복구→설정 재적재 확인(debug=false 줄)→관측기 종료→삭제(logs/main*.log 와 state/capacity/anchor-sampler.log 만 · 보존 anchor-t0.json·anchor-watch.py·anchor-snapshots.jsonl)→완료 표식→plist 해제."
   send "$DESK" "$body" && send "$PLAN" "$body" && REQ="$now" || rc=3
 fi
 if [ $((now-EXT)) -ge 86400 ]; then   # ④ 전환 추출 하루 1회 (M4) — 로그 폴더·파일 없음 = 정상 경로(추출 0행 · rc0)

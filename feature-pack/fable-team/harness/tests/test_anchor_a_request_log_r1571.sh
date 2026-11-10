@@ -119,6 +119,16 @@ chk "로그 폴더 자체 없음 — 발신 2통(정상 경로)" "$(count)" 2
 # ── DA R3 회긍: h 문서 복구 확인 조건 · sampler.log 정본 경로 ─────────────────
 grep -qF '(debug=false)' "$D" && ok "복구 확인 조건 = debug=false 재적재 줄" || no "복구 확인 조건 문구 없음"
 grep -qF '켜기 전용' "$D" && ok "켜기 조건 재사용 금지 문구" || no "켜기 조건 재사용 금지 문구 없음"
+grep -qF '여기서 멈춘다' "$D" && ok "복구 실패 = 3~6단계 진행 0 명시(DA R3-1)" || no "복구 실패 정지 문구 없음"
+grep -qF '별도 폴더의 `anchor-sampler.log`' "$D" && ok "sampler.log = 별도 폴더 문구" || no "sampler.log 별도 폴더 문구 없음"
+grep -qF 'sampler.log' "$S" && ok "알림 본문 삭제 목록에 sampler.log" || no "알림 본문에 sampler.log 없음"
+
+# ── 치환 개수 일치(arch #279148 ①): plist 자리표시자 6개 = 문서 문구 ────────
+PH="$(grep -o '__[A-Z]*__' "$P" | sort -u)"
+chk "plist 자리표시자 = 6개" "$(printf '%s\n' "$PH" | wc -l | tr -d ' ')" 6
+grep -qF '치환 6개' "$D" && ok "문서 치환 문구 = 6개" || no "문서 치환 문구(6개) 없음"
+if grep -qE '치환 5개|·`__LOGS__` 치환 후' "$D"; then no "문서에 옛 치환 표기 남음"; else ok "옛 치환 표기(5개·2개) 없음"; fi
+chk "문서가 plist 자리표시자 6개를 모두 적음" "$(for k in $PH; do grep -qF -- "$k" "$D" || echo x; done | wc -l | tr -d ' ')" 0
 grep -qF '~/.claude/fable-team/state/capacity/anchor-sampler.log' "$D" && ok "sampler.log 정본 경로" || no "sampler.log 정본 경로 없음"
 for k in __WORKTREE__ __COMM__ __SEATS__ __STATE__; do
   grep -qF -- "$k" "$D" && ok "치환 목록 «${k}»" || no "치환 목록 «${k}» 없음"
