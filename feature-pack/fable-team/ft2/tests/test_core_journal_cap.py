@@ -289,6 +289,27 @@ def test_b3_consecutive_reclaims_accumulate_base_count(tmp_path):
         state["revision"], base2["count"] + len(rs.records()))
 
 
+def test_r2_4_reclaim_reservation_counts_transaction_ops(tmp_path):
+    """DA #280106 판정문 ②(Red) — 회수 사전 예약이 그 transaction 의 ops byte 를 빼면
+    base checkpoint 의 state_tmp_written 공존이 내부 한계를 넘는다. 실측 공존 peak 를 그대로
+    총 cap 으로 쓰면 «한계 = peak - 1» 이므로, 제대로 세는 구현만 회수를 거절한다(쓰기 0)."""
+    probe = _reclaim_scenario(tmp_path / "probe")
+    peaks = []
+    probe.rs.journal.on_step = lambda step: (peaks.append(probe.rs.journal.usage())
+                                             if step == "state_tmp_written" else None)
+    assert probe.rs.journal.reclaim()["reclaimed"]
+    assert len(peaks) == 1
+    peak = peaks[0]
+    node = _reclaim_scenario(tmp_path / "guard")
+    journal = node.rs.journal
+    before = [path for _n, path in journal.closed()]
+    journal.total_cap = peak                        # 한계 = peak - 1 < 이 transaction 의 공존 peak
+    seen = []
+    journal.on_step = lambda step: seen.append(journal.usage()) if step == "state_tmp_written" else None
+    refused = journal.reclaim()
+    assert (refused["result"], seen, [path for _n, path in journal.closed()]) == (FULL, [], before)
+
+
 def test_c_reclaim_crash_resume_is_idempotent(tmp_path):
     """ⓒ — K1(본문 삭제 뒤)·K2(첫 segment 삭제 직후) SIGKILL → base + suffix 복원 · 재실행 삭제 0."""
     ref = _reclaim_scenario(tmp_path / "ref")

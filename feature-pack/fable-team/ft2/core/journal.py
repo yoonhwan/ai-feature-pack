@@ -253,7 +253,8 @@ class Journal:
                 "upto": new_upto, "count": (base.get("count") or 0) + len(folded), "receipts": receipts,
                 "proj": {name: proj.get(name) or {} for name in PROJ_FIELDS}})
             size, limit = self.envelope_for(new_state), self._limit(True)
-            if self.usage() + size > limit:
+            # DA #280106 ②: 이 transaction 이 state tmp 경계 «전» 에 쓰는 ops 줄까지 예약에 센다.
+            if self.usage() + size + ops_bytes(("reclaim_checkpoint", "state_write")) > limit:
                 raise self.rec.WriterRefused("용량 부족", "회수 checkpoint 가 내부 한계를 넘는다")
             self.ops("reclaim_checkpoint")
             self.envelope = size
