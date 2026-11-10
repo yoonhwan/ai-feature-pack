@@ -6,6 +6,8 @@
 
     python3 core/cli.py <동사> --root R --team T [--인자 값 …]
     python3 -m core.cli <동사> --root R --team T [--인자 값 …]
+
+읽기 동사 `project` 만 예외다 — 라이브러리 함수 `projection.project` 1개를 그대로 부르고 상태를 바꾸지 않는다(잠금 0).
 """
 
 import importlib.util
@@ -33,6 +35,7 @@ VERBS = {
     "reassess": ("Dispatch", "reassess", ("work",), ("mode",)),
     "recover": ("Dispatch", "recover", (), ("mode",)),
     "reclaim": ("Journal", "reclaim", (), ()),
+    "project": ("Projection", "project", (), ()),      # 읽기 동사 — 잠금·쓰기 0 (r1617)
 }
 LISTS = ("pre", "evidence", "resources")      # 쉼표 = 여러 값
 INTS = ("gen", "run")
@@ -97,6 +100,8 @@ def call(verb, given, clock):
                "Dispatch": _load("dispatch").Dispatch}
     cls_name, method, required, optional = VERBS[verb]
     root, team = os.path.abspath(given["root"]), given["team"]
+    if cls_name == "Projection":                        # 읽기 동사 — 인스턴스·잠금 없이 투영만 읽는다
+        return _load("projection").project(root, team)
     if cls_name == "Journal":
         target = _load("journal").Journal(os.path.join(root, ".fable-team", "teams", team, "runtime"))
     else:
