@@ -27,9 +27,10 @@ LST ON 우선이며 LST OFF/전환과 기존 M0–M7·통합 조건도 남긴다
 
 ```
 ① 골 대조    : 위 3줄을 읽었다. 내가 맡을 일이 어느 M?/K? 축인지 «한 줄» 적을 수 있어야 착수.
-② 내 자리    : cat <루트>/.fable-team/seats.json  → 내 세션명이 있나 · role · agent · tick · index
-              없으면 → 내가 «누구인지» 발주문에서 확인하고 seats.json 에 1행 등록(§5 형식)
-③ 내 일      : role=nano  → seats.json 의 index 경로를 연다. 그 파일 §구현범위·§완료조건이 전부다.
+② 내 자리    : cat <발주문의 명부 경로>  → 내 세션명이 있나 · role · agent · tick · index
+              명부 경로 = 첫 발주문의 «명부 = …» 줄(팀별 FT_SEATS_JSON · 발주문에 그 줄이 없을 때만 기본값 <루트>/.fable-team/seats.json)
+              없으면 → 내가 «누구인지» 발주문에서 확인하고 그 명부에 1행 등록(§5 형식)
+③ 내 일      : role=nano  → 명부에 적힌 index 경로를 연다. 그 파일 §구현범위·§완료조건이 전부다.
               role=master/da/pm → design/v65/indices/inbox/<role>/ 를 정렬해 «맨 위» 부터.
               (inbox 폴더의 README.md 는 형식 견본이다 — 항목 파일 NN-*.md 가 없으면 발주문 + RUNLOG 최신 E 번호.)
 ④ 통신       : bash <루트>/.fable-team/comm/mbox.sh recv <나>   ← 내 앞 메시지 (1개 우편함만 읽는다)

@@ -6,7 +6,7 @@
 #   Seatbelt 0.3 · 나노 좌석을 «손타이핑 없이» 연다 (SEATBELT-README §3 열기).
 #   exit 0 = 열림+도달 · 1 = 실패(사유 stdout) · 2 = usage · 5 = 열렸으나 도달 미확인(사람 확인) · 7 = 나노 상한·프록시 진짜 장애(r669) — 좌석 0 · 순번 큐(QUEUED · r-teamset-standard/r666/r669)
 # 한 번에: ①lint ②워크트리+.venv/.env·clients/web/node_modules 심링크+.worktree-info.json ③tmuxc open(--agent/--model 통과, 기본 pi(FT_NANO_DEFAULT_AGENT) — r1385 · claude·codex 는 --raise 사유 필수)
-#          ④remain-on-exit on + @zc_v65_active=1 ⑤seats.json 등록 ⑥인덱스 대기→진행 ⑦첫 발주(인덱스 경로 한 줄, mbox) ⑧도달 확인(jsonl)
+#          ④remain-on-exit on + @zc_v65_active=1 ⑤명부(FT_SEATS_JSON) 등록 ⑥인덱스 대기→진행 ⑦첫 발주(인덱스 경로·명부 경로 한 줄, mbox) ⑧도달 확인(jsonl)
 # ★팩 ft-tmux-spawn.sh 미사용★: install.json canonical·CAPABILITY_GAP 게이트가 v65 워크트리에 없다(troubleshoot 09-06 「install.json 부재 = exit 4」) · 오빠 §0-A 「tmuxc 로 생성해서 어차피 쓰니 모델까지 지정가능」 — tmuxc 직접 호출.
 set -uo pipefail
 [ -f "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" ] && . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" "$@"   # R201: 비설치 위치면 LIVE_BIN 으로 exec
@@ -983,7 +983,7 @@ tmux set-option -t "$PANE" remain-on-exit on
 tmux set-option -t "$PANE" "${FT_ACTIVE_TAG:-@zc_v65_active}" 1
 [ "$(tmux show-option -qv -t "$PANE" "${FT_ACTIVE_TAG:-@zc_v65_active}")" = 1 ] || fail_rb "REJECT 태그 확인 실패: $NAME"
 
-# ⑤ seats.json 등록 (tick=null → 알림 울림)
+# ⑤ 명부(FT_SEATS_JSON) 등록 (tick=null → 알림 울림 — 대상 파일 = $SEATS · r1542: 첫 발주문에 이 경로를 적어 준다)
 python3 - "$SEATS" "$NAME" "$AGENT" "$MODEL" "$IDX_REL" "$ROLE" "$RAISE" "$FROM" <<'PY' || human "⑤ 명부 등록"
 import json, sys, collections, datetime
 p, name, agent, model, idx, role, raise_reason, by = sys.argv[1:9]
@@ -1032,7 +1032,7 @@ bash "$HERE/ft-sheet-events.sh" commit "$_SK" >/dev/null || true   # 좌석 열�
 
 # ⑦⑧ 첫 발주 = 인덱스 경로 한 줄 + README. 본문은 파일에 있다. 도달은 jsonl 층(ft-send-verified)
 #   r1072: $_SBR 은 좌석 열기 «전»(seatbelt_readme_path)에 이미 풀렸다 — 여기서 다시 풀지 않는다(경로가 두 벌이 되면 갈린다).
-BODY="[Seatbelt 발주] 네 인덱스: $IDX_WT/$NEW_IDX — 먼저 $_SBR${_SBR_REF:+ (ref $_SBR_REF 판 사본)} §2 부팅 5단계(첫 보고까지), 그 다음 인덱스 §구현 범위만. 커밋은 브랜치 $BRANCH, push 금지. 산출 경로를 mbox 로 $FROM 에. ★press(라이브 오디오 시험) 금지 — 나노는 쏘지 않는다(ft-press-gate ⑦ 이 tester·checker 좌석만 허가 · 오빠 10-07) · 시험은 단위·캡처·기존 로그만, press 가 필요하면 산출에 「press 필요: <무엇을 볼지>」 1줄로 적어 $FROM 에 넘긴다★ ★측정 조작 금지(오빠 절대지침) — 임의 Redis 쓰기(redis-cli SET·HSET·XADD·PUBLISH 등 제품 키 직접 주입)·말풍선 DOM 주입(재생 하네스·/dev/bubble-replay·appendChild)으로 만든 결과는 증거 아님 · 측정은 trusted 클릭 + 기존 e2e 러너의 실제 음성 경로만 · 격리 Redis 픽스처 시험은 별개 · 이미 썼으면 [HIL] 로 올림 (BOOT 20)★ ★편집은 Edit 절대경로($WTDIR/…)만★ ★읽기는 Read · 코드 찾기는 ci, Bash 는 실행(git·pytest·ruff·mbox)만★ — cat/sed -n/grep 으로 파일을 읽으면 전문이 컨텍스트에 쌓인다(2026-09-14 나노 16좌석 실측: Bash 100~156회 중 절반이 파일 읽기). ★증거 줄(세트: … · 시험: … rc=… · 이슈: …)은 완료 턴에 네가 인덱스 «상태» 절에 직접 쓴다($IDX_WT/$NEW_IDX 절대경로 Edit) — master 는 커밋만(판정 1125)★ 증거 줄 템플릿(그대로 복사해 <> 만 채움): 세트: <나노 HEAD 40자> · 시험: <명령 — «(N passed)» 같은 꼬리는 여기> rc=<n> · 이슈: 0 — rc= 바로 뒤는 « · 이슈:» — 괄호·설명은 rc= 앞에. ★팀 구조: 각 팀 = master(집행) + arch(설계·발주·DA 소환) + DA(반박 게이트) 상시 · 실제 작업은 전부 나노(카드 1장 = 나노 1석) · master·arch·DA 는 코드·시안·카드 증거 줄을 쓰지 않는다★${_WFX}${_NFX}${_SPX}${_SRX}${_AFX}${_RLX}$_PKX${_EBN}"
+BODY="[Seatbelt 발주] 네 인덱스: $IDX_WT/$NEW_IDX — 먼저 $_SBR${_SBR_REF:+ (ref $_SBR_REF 판 사본)} §2 부팅 5단계(첫 보고까지), 그 다음 인덱스 §구현 범위만. ★명부 = $SEATS · 내 행은 spawn 이 이미 등록함 · 손으로 쓰기 0★ 커밋은 브랜치 $BRANCH, push 금지. 산출 경로를 mbox 로 $FROM 에. ★press(라이브 오디오 시험) 금지 — 나노는 쏘지 않는다(ft-press-gate ⑦ 이 tester·checker 좌석만 허가 · 오빠 10-07) · 시험은 단위·캡처·기존 로그만, press 가 필요하면 산출에 「press 필요: <무엇을 볼지>」 1줄로 적어 $FROM 에 넘긴다★ ★측정 조작 금지(오빠 절대지침) — 임의 Redis 쓰기(redis-cli SET·HSET·XADD·PUBLISH 등 제품 키 직접 주입)·말풍선 DOM 주입(재생 하네스·/dev/bubble-replay·appendChild)으로 만든 결과는 증거 아님 · 측정은 trusted 클릭 + 기존 e2e 러너의 실제 음성 경로만 · 격리 Redis 픽스처 시험은 별개 · 이미 썼으면 [HIL] 로 올림 (BOOT 20)★ ★편집은 Edit 절대경로($WTDIR/…)만★ ★읽기는 Read · 코드 찾기는 ci, Bash 는 실행(git·pytest·ruff·mbox)만★ — cat/sed -n/grep 으로 파일을 읽으면 전문이 컨텍스트에 쌓인다(2026-09-14 나노 16좌석 실측: Bash 100~156회 중 절반이 파일 읽기). ★증거 줄(세트: … · 시험: … rc=… · 이슈: …)은 완료 턴에 네가 인덱스 «상태» 절에 직접 쓴다($IDX_WT/$NEW_IDX 절대경로 Edit) — master 는 커밋만(판정 1125)★ 증거 줄 템플릿(그대로 복사해 <> 만 채움): 세트: <나노 HEAD 40자> · 시험: <명령 — «(N passed)» 같은 꼬리는 여기> rc=<n> · 이슈: 0 — rc= 바로 뒤는 « · 이슈:» — 괄호·설명은 rc= 앞에. ★팀 구조: 각 팀 = master(집행) + arch(설계·발주·DA 소환) + DA(반박 게이트) 상시 · 실제 작업은 전부 나노(카드 1장 = 나노 1석) · master·arch·DA 는 코드·시안·카드 증거 줄을 쓰지 않는다★${_WFX}${_NFX}${_SPX}${_SRX}${_AFX}${_RLX}$_PKX${_EBN}"
 [ -z "$_ASG_LINE" ] || BODY="[Seatbelt 발주] $_ASG_LINE — ${BODY#\[Seatbelt 발주\] }"   # r1217: 머리 뒤 배정 1줄
 [ "$RESEARCH" != 1 ] || BODY="$BODY$_RSP"
 [ "$REOPEN" != 1 ] || BODY="$BODY ★재개 — 카드 «상태» 절 마지막 줄부터 · 가지의 미커밋·커밋을 먼저 읽는다(r1335 · 옛 좌석이 하던 일을 처음부터 다시 하지 않는다)★"
