@@ -132,7 +132,7 @@ pnew teams 진행; printf '# 카드\n' > "$P/design/teams/planner/indices/진행
 SENT='받을 일 0 이면 후계 0 — 좌석 닫기 대기 + 팀장에 «[다음 없음]» 1줄'
 n=0; for f in "$SKILL/templates/hooks/context-distill-gate.sh" "$REPO/kit/fable-team/templates/hooks/context-distill-gate.sh"; do grep -qF "$SENT" "$f" && n=$((n+1)) || true; done
 [ "$n" -ge 2 ] && ok "ⓗ 게이트 문구 사본 ${n}개(팩 2사본 · 세 번째는 설치 몫)" || bad "ⓗ 게이트 문구 사본 ${n}개"
-grep -qF '받을 일 0 = 후계 대신 «[다음 없음]» 1줄(r1539)' "$GOV" && ok "ⓗ governance S17 블록 문구" || bad "ⓗ S17 블록 문구 없음"
+grep -qF '받을 일 0 = 닫기 대기 + «[다음 없음]» 1줄(r1539)' "$GOV" && ok "ⓗ governance S17 블록 문구" || bad "ⓗ S17 블록 문구 없음"
 blk="$(sed -n '/S17-BOOT-BEGIN/,/S17-BOOT-END/p' "$GOV")"
 { ! printf '%s' "$blk" | grep -q '15분' && ! printf '%s' "$blk" | grep -q 'CronCreate'; } && ok "ⓘ S17 블록에 15분·CronCreate 0" || bad "ⓘ S17 블록 잔존"
 rows="$(sed -n '/^| R5 |/p;/^| R6 |/p' "$GOV")"
@@ -156,7 +156,17 @@ PY
 }
 runblk() { BOUT="$(blk "$1" "$2")"; BRC=$?; }
 runblk S17-BOOT "$GOV"
+BASE="$BOUT"
 { [ "$BRC" = 0 ] && [ "$BOUT" -le 300 ]; } && ok "ⓛ S17-BOOT 블록 ${BOUT}자 ≤ 300 — 승계 관문 통과" || bad "ⓛ S17-BOOT ${BOUT}자 rc=$BRC"
+# r1551 보정(master #278072 · planner #278070 문안 대조): 줄이며 빠진 뜻 중 «STATE.md 읽기만»·«닫기 대기» 는 다른 절에 없다 → 블록 안에 반드시 남는다
+BODY="$(python3 - "$GOV" <<'PY'
+import sys
+t = open(sys.argv[1], encoding="utf-8").read()
+print(t.split("<!-- S17-BOOT-BEGIN -->", 1)[1].split("<!-- S17-BOOT-END -->", 1)[0].strip("\n"))
+PY
+)"
+{ printf '%s' "$BODY" | grep -qF 'STATE.md = 틱 렌더(읽기만)' && printf '%s' "$BODY" | grep -qF '닫기 대기'; } \
+  && ok "ⓛ-2 S17 블록에 «STATE.md 읽기만»·«닫기 대기» 두 뜻 남음" || bad "ⓛ-2 S17 블록 두 낱말 빠짐"
 runblk S11-DESK "$GOV"
 { [ "$BRC" = 0 ] && [ "$BOUT" -le 300 ]; } && ok "ⓛ S11-DESK 블록 ${BOUT}자 ≤ 300 — 같은 관문" || bad "ⓛ2 S11-DESK ${BOUT}자 rc=$BRC"
 # 변이 M1·M2 = 사본 2장(S17 블록만 바꿈 · 실 파일 무변경)
@@ -181,7 +191,7 @@ PY
 runblk S17-BOOT "$T/gov.m1.md"
 { [ "$BRC" = 1 ] && [ "$BOUT" = 376 ]; } && ok "M1 셋째 줄을 r1539 원문으로 되돌림 → ${BOUT}자 검출(ⓛ 빨강)" || bad "M1 미검출 ${BOUT}자 rc=$BRC"
 runblk S17-BOOT "$T/gov.m2.md"
-{ [ "$BRC" = 1 ] && [ "$BOUT" = 328 ]; } && ok "M2 블록에 30자 덧붙임 → ${BOUT}자 검출(ⓛ 빨강)" || bad "M2 미검출 ${BOUT}자 rc=$BRC"
+{ [ "$BRC" = 1 ] && [ "$BOUT" = "$((BASE + 30))" ]; } && ok "M2 블록에 30자 덧붙임 → ${BOUT}자 검출(ⓛ 빨강)" || bad "M2 미검출 ${BOUT}자 rc=$BRC base=$BASE"
 
 # ── 4) ft-successor-open rc6 실측 (받을 일 0 → 열기 0 · 팀장 1통 · rc6) ────
 FAKE="$T/fakebin"; W="$T/wt"; LOG="$T/calls.log"; SENTF="$T/sent.txt"; BODY="$T/body.txt"
