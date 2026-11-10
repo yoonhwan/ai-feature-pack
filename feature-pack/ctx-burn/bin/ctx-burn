@@ -610,10 +610,13 @@ def capacity_pools(data):
 
 
 def capacity_input(data, hours):
-    """ctx-plan 이 읽는 유일한 계약(burn.v1). 표본 0 = null — 0 으로 숨기지 않는다(no_silent_fallback)."""
+    """ctx-plan 이 읽는 유일한 계약(ctx.v1). 표본 0 = null — 0 으로 숨기지 않는다(no_silent_fallback)."""
     P = capacity_pools(data)
     cl = P.get("claude") or {}
     return {"schema": CAP_SCHEMA, "window_hours": hours,
+            "units": {"rate_claude": "weighted_tokens_per_session_hour",
+                      "w_per_session_hour": "weighted_tokens_per_session_hour",
+                      "w_total": "weighted_tokens", "ctx_per_req": "tokens"},
             "pools": {k: {"req": v["req"], "usage0": v["usage0"],
                           "ctx_per_req": round(v["ctx_per_req"], 1),
                           "active_hours": v["active_hours"],

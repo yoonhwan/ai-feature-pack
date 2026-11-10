@@ -78,6 +78,11 @@ ctx-plan --from /tmp/burn.json --need concurrent:40               # 필요 구�
 - **앵커에는 상태가 붙는다** — `미검증·추정` · `추정(5x×4)·실측 필요` · `실측 주장·출처 미확인` · `운영정책`.
   상태 표기가 지워지기 전에는 이 숫자로 계정 결정을 내리지 않는다.
 - **계약 검사** — `plan_input.schema != ctx.v1` 이면 계산하지 않고 rc≠0 으로 멈춘다(경고 후 진행 0).
+- **모형 상수는 한 함수에서만 해석** — `--seats-per-team`/`--teams-per-goal`/`--team-hours-per-goal`/
+  `--hours-per-week`/`--target-util` 은 `CLI 명시 > 상수 파일 > 기본값` 을 `params()` 하나가 정한다.
+  머리(header)·capacity·inventory·need 가 같은 값을 본다(R2 · DA #278950). 출처(`CLI`/`파일`/`기본값`)를 머리에 찍는다.
+- **골 모형은 «참고»** — 고정 기본값(팀 3 · 8h)을 운영 규칙으로 읽지 않게 «참고 — 운영 규칙 아님» 라벨을 붙인다
+  (오빠 #278942). 규칙이 아니라 계산 예시다.
 - **표본 0 = 미산정** — 0 으로 채우지 않는다. rc 는 0.
 
 ## 입력 계약 (ctx.v1)
@@ -86,11 +91,19 @@ ctx-plan --from /tmp/burn.json --need concurrent:40               # 필요 구�
 
 ```json
 {"schema": "ctx.v1", "window_hours": 168,
+ "units": {"rate_claude": "weighted_tokens_per_session_hour",
+           "w_per_session_hour": "weighted_tokens_per_session_hour",
+           "w_total": "weighted_tokens", "ctx_per_req": "tokens"},
  "pools": {"claude": {"req": 0, "usage0": 0, "ctx_per_req": 0.0, "active_hours": 0,
                       "cache_reuse": 0.0, "cache_reuse_of_input": 0.0,
                       "w_per_session_hour": null, "samples": 0, "sessions": 0, "w_total": 0}},
  "rate_claude": null}
 ```
+
+**단위 (R1 · DA #278950):** 계약의 `rate_claude` 는 **가중 토큰 / 세션-시간**이다.
+계산 예산(M = 백만 가중 토큰)과 섞으면 100만 배가 어긋나므로, 이 도구는 `main()` 의
+`rate_tok / TOKENS_PER_M` **한 줄에서만** 단위를 바꾼다. `--once` 없음 · `units` 필드는 계약이
+스스로 단위를 말하게 하는 표식이다.
 
 `rate_claude` = claude pool 의 **세션-시간당 W 중앙값**(가중 토큰). 표본 조건 = 요청 20건 이상 세션.
 `usage0` = 가중 0 레코드(API 오류)로, 요청률 분모에서 빠진다. `unknown` pool = 모델 미상 —
