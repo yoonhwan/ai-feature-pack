@@ -1,5 +1,6 @@
 // ft-land-next (r1532) — 착지 1개 = «다음 h(설치) 안내» 1회. ft-merge-land 가 착지 뒤 남기는 <state>/install-pending/<Q>.txt 를 fs.watch 로 듣는다.
 //  · 활성 = seats-harness.json `_master` 이고 «같은 파일» 그 행 agent=='pi' (r1530 piMasterFile 식 · 이 카드 기준 HEAD 에는 r1530 미착지라 같은 식 복사)
+//    r1558 — 그 판정은 «사건마다» 다시 한다(로드 1회 금지). 은퇴 좌석은 착지마다 턴 0 · 승계 전에 뜬 좌석은 reload 없이 활성
 //  · 새 40hex 파일마다 사건 1회: 리포(BYZ 루트 · 팩)에서 git fetch origin main → Q 가 origin/main 의 조상인가 (주기 폴링 0 · 상시 조회 0 · fetch 는 비동기 = 이벤트 루프 막힘 0)
 //  · 확인 뒤 sendMessage(triggerTurn, followUp) 1회 · 쉬면 바로 · 일하면 다음 agent_settled 에 모아 1회(여러 Q = 한 본문)
 //  · 표식 <state>/pi-wake/land-seen/<Q> 는 턴 요청 «뒤» · 판정 불가(git 실패)면 표식 0 = 다음 사건에 다시
@@ -71,18 +72,37 @@ export default function (pi: ExtensionAPI) {
   pi.on("session_start", async () => { appendLoadLine(pi, "r1532", "ft-land-next.ts"); });
   const root = process.env.FT_LAND_NEXT_ROOT || gitRoot() || process.cwd();
   const seat = seatName(), teamFile = process.env.FT_LAND_NEXT_SEATS || "seats-harness.json";
-  if (!seat || piMasterFile(root, seat) !== teamFile) return log(`inactive seat=${seat || "?"} team=${teamFile}`); // 나노 · 다른 팀 _master · claude 좌석 = 0
   const state = process.env.FT_LAND_NEXT_STATE || path.join(root, ".fable-team", "state");
   const dir = path.join(state, "install-pending"), seenDir = path.join(state, "pi-wake", "land-seen");
+  // r1558 — 활성 판정 = «사건마다» 다시 본다(로드 1회 아님 · ft-mbox-wake r1529 activeSeat 와 같은 칸). 좌석 이름(seat)만 로드 때 읽는다(tmux 세션명은 안 바뀐다)
+  const active = (): boolean => !!seat && piMasterFile(root, seat) === teamFile;
+  let said = ""; // 같은 비활성 사유 반복 = log 0(사건이 몰려도 1줄) · 활성이 되면 비워 다시 1줄 쓸 수 있게
+  const ensure = (): void => { try { fs.mkdirSync(dir, { recursive: true }); fs.mkdirSync(seenDir, { recursive: true }); } catch { /* 이미 있음 */ } };
+  const onChange = (): void => { unknownDone.clear(); schedule(); };
+  // 감시는 «폴더를 만들지 않는다» — 비활성 좌석이 감시 폴더를 만들면 r1537 ⓖ 위반. 폴더가 없으면 부모(state)를 지켜보다가 생기면 갈아탄다(감시 1개 유지 · 사건 중복 0)
+  function arm(): void {
+    const p = fs.existsSync(dir) ? dir : fs.existsSync(state) ? state : "";
+    if (!p || watchPath === p) return;
+    try { watcher?.close(); watcher = fs.watch(p, onChange); watchPath = p; } catch (e) { fail(`watch 실패 ${p} — ${e}`); }
+  }
+  function gate(): boolean { // 비활성 = 턴 0 · git fetch 0 · 표식 0 (r1558 ⓑ·ⓒ·ⓕ) — 핸들러는 늘 등록하고 «사건마다» 여기서 판정한다
+    if (active()) { said = ""; ensure(); arm(); return true; }
+    const why = `inactive seat=${seat || "?"} team=${teamFile}`;
+    if (said !== why) { said = why; log(why); }
+    arm(); // 승계 전에 뜬 좌석도 다음 착지 사건을 받도록 감시만 걸어 둔다(폴더 생성 0 · 턴 0)
+    return false;
+  }
   const repos = [...new Set([root, process.env.FT_LAND_NEXT_PACK || "/Users/yoonhwan/Project/ai-feature-pack"])];
   const debounce = Number(process.env.FT_LAND_NEXT_DEBOUNCE_MS ?? 300), fetchMs = Number(process.env.FT_LAND_NEXT_FETCH_MS ?? 25000);
   const bad = new Set<string>(), unknownDone = new Set<string>(); // unknownDone = settle 재훑기에서만 억제(fs 사건·세션 시작에서 비운다 · R3)
-  let timer: ReturnType<typeof setTimeout> | null = null, watcher: fs.FSWatcher | null = null, busy = false, queue: Item[] = [];
+  let timer: ReturnType<typeof setTimeout> | null = null, busy = false, queue: Item[] = [];
+  let watcher: fs.FSWatcher | null = null, watchPath = ""; // r1558 — 감시 1개(폴더 또는 부모 state) · 한 번에 하나만
 
   const marked = (sha: string): boolean => fs.existsSync(path.join(seenDir, sha)); // ★표식 — 같은 Q 재사건 0 (M1 변이 지점)
   const stamp = (sha: string) => { try { fs.mkdirSync(seenDir, { recursive: true }); fs.writeFileSync(path.join(seenDir, sha), `${new Date().toISOString()}\n`); } catch (e) { fail(`표식 쓰기 실패 ${sha} — ${e}`); } };
   function send(items: Item[]) {
     if (!items.length) return;
+    if (!gate()) return; // r1558 — 보낼 때 다시 판정 — 일하는 중 쌓인 Q 를 은퇴 좌석이 가져가지 않는다(ⓒ)
     try { pi.sendMessage({ customType: "ft-land-next", content: items.map(bodyOf).join("\n"), display: true }, { triggerTurn: true, deliverAs: "followUp" }); }
     catch (e) { return fail(`sendMessage 실패 — ${e}`); } // 턴 0 → 표식도 0 = 다음 사건에 다시
     for (const it of items) { if (it.verdict === "unknown") unknownDone.add(it.sha); else stamp(it.sha); } // 판정 불가 = 표식 0(단 같은 세션 재보고는 1회)
@@ -97,6 +117,7 @@ export default function (pi: ExtensionAPI) {
     return { sha, file, pending, verdict: "missing", reason: "" }; // ⓒ
   }
   async function scan(): Promise<void> {
+    if (!gate()) return; // r1558 — 비활성(나노 · 다른 팀 _master · 은퇴 좌석) = git fetch 0 · 표식 0(ⓑ·ⓕ)
     const { ok, bad: wrong } = landScan(dir);
     for (const n of wrong) if (!n.startsWith(".") && !bad.has(n)) { bad.add(n); log(`이름 무시(40hex 아님) ${n}`); } // ⓗ
     const fresh = ok.filter(({ sha }) => !marked(sha) && !unknownDone.has(sha) && !queue.some((q) => q.sha === sha));
@@ -116,12 +137,11 @@ export default function (pi: ExtensionAPI) {
   const schedule = () => { if (!timer) timer = setTimeout(() => { timer = null; void run(); }, debounce); };
 
   pi.on("session_start", async () => {
-    try { fs.mkdirSync(dir, { recursive: true }); fs.mkdirSync(seenDir, { recursive: true }); } catch { /* 이미 있음 */ }
     unknownDone.clear(); // R3 — 새 세션은 판정 불가 Q 도 다시 본다
-    try { watcher = fs.watch(dir, () => { unknownDone.clear(); schedule(); }); } catch (e) { return fail(`watch 실패 ${dir} — ${e}`); }
+    if (!gate()) return; // 비활성 = 폴더·턴 0(r1537 ⓖ) · 감시만 부모(state)에 걸어 승계 사건을 기다린다(r1558 ⓐ)
     void run(); // ⓖ 시작 회수 = 표식 없는 기존 파일 1회(한 본문)
   });
   pi.on("agent_start", async () => { busy = true; });
   pi.on("agent_settled", async () => { busy = false; flush(); void run(); }); // 쉼 경계 1회 더 훑기 = fs.watch 가 놓친 사건 회수(표식 있는 파일은 git 호출 0)
-  pi.on("session_shutdown", async () => { watcher?.close(); watcher = null; if (timer) clearTimeout(timer); timer = null; });
+  pi.on("session_shutdown", async () => { watcher?.close(); watcher = null; watchPath = ""; if (timer) clearTimeout(timer); timer = null; });
 }
