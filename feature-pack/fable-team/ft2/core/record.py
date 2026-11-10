@@ -66,16 +66,38 @@ def read_state_guarded(path):
 
 
 def recover_state(state, records):
-    """journal 에만 내구화된 claim·dispatch 세대·기록 수를 state checkpoint 보다 앞세운다(DA R2).
-    모든 writer 가 같은 복구 기준을 쓴다 — 옛 gen 거절은 쓰기 0 이라 checkpoint 가 낡아 있기 때문이다."""
-    recovered = dict(state, revision=max(state["revision"], len(records)))
-    gens, owners = dict(recovered.get("generations") or {}), dict(recovered.get("owners") or {})
+    """journal 을 정본으로 삼아 state checkpoint 를 앞선다(DA R2 · R1) — checkpoint 전 crash 복구.
+    잠금 안 판독(모든 writer)이 이 함수를 지나므로 recover 호출 여부와 무관하게 전달·완료·재평가가 보인다:
+    세대·owner·예약(배정 줄) · 전달(전달 줄) · 완료 표식(완료 줄) · 재평가 결과(재평가 줄) · 미확정 표식.
+    뒤 기록이 앞 기록을 덮는다(결과 확정은 owner·미확정을 지우고, 재평가는 반환·owner 복구를 남긴다)."""
+    gens, owners, kept, sent = {}, {}, {}, {}
+    done, reassessed, released, recovered, uncertain = {}, {}, {}, {}, {}
     for rec in records:
-        gen = rec.get("gen") or 0
-        if rec.get("kind") in ("claim", "dispatch") and rec.get("work") and gen > gens.get(rec["work"], 0):
-            gens[rec["work"]] = gen
-            owners[rec["work"]] = {"holder": rec.get("holder"), "gen": gen, "at": rec["at"]}
-    return dict(recovered, generations=gens, owners=owners)
+        work, kind, gen = rec.get("work"), rec["kind"], rec.get("gen") or 0
+        if kind in ("claim", "dispatch") and work and gen > gens.get(work, 0):
+            gens[work], owners[work] = gen, {"holder": rec.get("holder"), "gen": gen, "at": rec["at"]}
+        if kind == "dispatch" and work:
+            for res in rec.get("resources") or []:
+                kept.setdefault(res, {"work": work, "attempt": rec.get("attempt")})
+        elif kind == "deliver" and work:
+            sent[work] = list(sent.get(work) or []) + [rec.get("attempt")]
+        elif kind == "uncertain" and work:
+            uncertain[work] = {"gen": gen, "holder": rec.get("holder"), "at": rec["at"],
+                               "confirm_by": rec.get("confirm_by"), "reason": rec.get("body")}
+        elif kind == "result" and work:
+            owners.pop(work, None)
+            uncertain.pop(work, None)
+        elif kind == "complete" and work:
+            done[work] = {"attempt": rec.get("after"), "at": rec["at"], "marker": rec.get("marker") or ""}
+        elif kind == "reassess" and work:
+            reassessed[work] = {"after": rec.get("after"), "mode": rec.get("mode")}
+            released[work] = {"res": rec.get("released") or [], "count": len(rec.get("released") or [])}
+            recovered[work] = {"owner": rec.get("holder"), "attempt": rec.get("after")}
+            owners.pop(work, None)
+            kept = {res: row for res, row in kept.items() if row.get("work") != work}
+    return dict(state, revision=max(state["revision"], len(records)), generations=gens, owners=owners,
+                reservations=kept, deliveries=sent, done=done, reassess_done=reassessed,
+                released=released, owners_recovered=recovered, uncertain=uncertain)
 
 
 def build(team, seq, command, attempt, at, body, work=None, goal=None, kind="accept",

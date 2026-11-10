@@ -56,25 +56,17 @@ class Dispatch:
         """crash 복구 1잠금 — 배정 줄로 예약·전달 의도를 되살려 같은 attempt 로 전달하고, 표식 있는
         complete 중 재평가 없는 것만 재평가한다(전체 훑기 0)."""
         return self._locked(self._recover, None, mode,
-                            empty={"restored": False, "delivered": [], "reassessed": [],
-                                   "reason": "writer.lock 점유 또는 복구 필요"})
+                            empty={"delivered": [], "reassessed": [], "reason": "writer.lock 점유/복구 필요"})
 
     def _recover(self, context, _work, mode):
+        """전달 의도와 표식 있는 complete 만 — 예약·완료·재평가는 잠금 안 판독(recover_state)이 겹쳐 읽는다."""
         state, records = context
-        live = [rec for rec in records if rec["kind"] == "dispatch"]
-        kept = dict(state.get("reservations") or {})
-        for rec in [rec for rec in live if rec.get("work") not in (state.get("released") or {})]:
-            for res in rec.get("resources") or []:
-                kept.setdefault(res, {"work": rec.get("work"), "attempt": rec.get("attempt")})
-        restored = len(kept) != len(state.get("reservations") or {})
-        if restored:
-            self.rs._write_state(dict(state, reservations=kept))
+        intents = dict.fromkeys(rec["work"] for rec in records if rec["kind"] == "dispatch")
         delivered = [g for g in (self._deliver(self.ex._state_records(), work, None, "intent")
-                                 for work in dict.fromkeys(rec["work"] for rec in live)) if g.written]
-        reassessed = [work for work in self._pending_reassess(self.ex._state_records()[0])
+                                 for work in intents) if g.written]
+        reassessed = [work for work in self._pending_reassess(state)
                       if self._reassess(self.ex._state_records(), work, mode).written]
-        return {"restored": restored, "delivered": [g.attempt for g in delivered],
-                "reassessed": reassessed}
+        return {"delivered": [g.attempt for g in delivered], "reassessed": reassessed}
 
     def _locked(self, body, work, *args, empty=None):
         lock = self.rs._try_lock()
@@ -127,8 +119,11 @@ class Dispatch:
         state, records = context
         if work in (state.get("done") or {}):
             return Grant(HOLD, work, "complete", attempt, revision=state["revision"], reason="이미 완료 기록")
-        owner = dict((state.get("owners") or {}).get(work) or {})
-        marker, at = ("required" if owner else ""), self.clock()
+        owner, assigned = dict((state.get("owners") or {}).get(work) or {}), self._assigned(records, work)
+        if owner and not assigned:
+            return Grant(REFUSED, work, "complete", revision=state["revision"],
+                         reason="배정 계보 없는 실행권 owner = 완료 거절(쓰기 0)")
+        marker, at = ("required" if assigned else ""), self.clock()
         rec = record.build(self.team, (records[-1]["seq"] if records else 0) + 1, work, attempt or "arranged", at, work, work,
                            kind="complete", holder=owner.get("holder"), gen=owner.get("gen"),
                            extra={"marker": marker, "after": attempt})
@@ -174,6 +169,10 @@ class Dispatch:
             return "ver-all"
         return "resource" if [res for res in resources if res in taken] else ""
 
+    def _assigned(self, records, work):
+        """배정 계보 = journal 의 dispatch 줄(자원 목록이 비어도 «배정» 이다 · 다른 실행권 owner 와 구별)."""
+        return any(rec["kind"] == "dispatch" and rec.get("work") == work for rec in records)
+
     def _intent(self, records, work):
         out = {}
         for rec in [rec for rec in records if rec.get("work") == work]:
@@ -191,6 +190,7 @@ class Dispatch:
     def _write(self, state, records, rec, extra=None, replace=None):
         self.rs._append_journal(rec)
         self.on_step("after_journal")
+        self.on_step("after_%s_journal" % rec["kind"])
         new_state = {**state, "revision": state["revision"] + 1, **(replace or {})}
         for name, value in (extra or {}).items():
             new_state[name] = {**(state.get(name) or {}), **value}

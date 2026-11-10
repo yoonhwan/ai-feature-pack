@@ -3,9 +3,8 @@
 옛 gen 의 쓰기는 «낡은 실행권» 으로 거절한다(쓰기 0 · revision 불변). 효과 «의도» 를 먼저 내구화하고,
 의도만 기록된 작업은 «완료 유보»(UNCERTAIN)로 보존하며 재실행하지 않는다 — 같은 세대로 다시 들어온 효과
 재호출도 결과 미확정이다. 세대 교체(rotation)는 구 실행자 종료·권한 회수를 확인한 호출만 쓴다(PLAN 213)이고,
-journal 에만 내구화된 claim 세대는 checkpoint 보다 앞서도 유효본이다(DA R2). 같은 팀 writer 는 모두 같은
-writer.lock 을 «비차단» 으로 잡는다 — 점유 중이면 BUSY(팀별 잠금). 결과 낱말은 record.RESULT_WORDS 8개
-밖으로 나가지 않고 종류는 stage 로 구분한다. schema 는 1 그대로다(필드 추가만 · 확장 칸 기본값 {}).
+journal 세대는 checkpoint 보다 앞서도 유효본이다(DA R2). 같은 팀 writer 는 모두 같은
+writer.lock 을 «비차단» 으로 잡는다 — 점유 중이면 BUSY(팀별 잠금). 결과 낱말은 8낱말 밖으로 나가지 않는다. schema 는 1 그대로다(필드 추가만). 미확정 표식은 확인 시한까지 기록에 싣는다.
 """
 import collections
 import importlib.util
@@ -164,7 +163,8 @@ class Execution:
     def _mark(self, state, records, work, holder, hold, confirm_by):
         at, gen = self.clock(), hold.get("gen")
         rec = record.build(self.team, self._seq(records), work, "%s#g%s" % (holder, gen), at,
-                           hold.get("reason", ""), work, kind="uncertain", holder=holder, gen=gen)
+                           hold.get("reason", ""), work, kind="uncertain", holder=holder, gen=gen,
+                           extra={"confirm_by": confirm_by})
         marker = {"gen": gen, "holder": holder, "at": at, "confirm_by": confirm_by,
                   "reason": hold.get("reason", "")}
         rev = self._write(state, records, rec,

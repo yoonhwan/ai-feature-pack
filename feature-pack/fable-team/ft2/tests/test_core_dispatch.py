@@ -28,7 +28,7 @@ CORE = os.path.join(FT2, "core")
 GUARD = os.path.join(FT2, "tools", "legacy_guard.py")
 CASES = os.path.join(FT2, "contracts", "dispatch", "cases")
 TEAM, EV, WORKS = "harness", ("v1", "v2"), ("W1", "W2", "W3", "W4")
-OK, REFUSED, BUSY, STALE = "접수 성공", "접수 거부", "BUSY", "낡은 실행권"
+OK, HOLD, REFUSED, BUSY, STALE = "접수 성공", "완료 유보", "접수 거부", "BUSY", "낡은 실행권"
 REQUIRED = ("dispatch_journal", "dispatch_state", "owner", "reserved", "delivery", "reassess_journal",
             "release_journal", "uncertain_release", "run", "suppressed", "deliver_attempts")
 CHILD_ENV = dict(os.environ, FT2_DISPATCH_CHILD="1")
@@ -252,7 +252,7 @@ def test_f_case_06_crash_before_delivery_redelivers_same_attempt(tmp_path):
 def test_g_case_07_completion_reassesses_releases_and_recovers_owner(tmp_path):
     node = _delivered(tmp_path / "e4")
     assert node.complete("W3", "a1").released == ["shared-slot"]
-    assert node.recover() == {"restored": False, "delivered": [], "reassessed": []}    # 멱등
+    assert node.recover() == {"delivered": [], "reassessed": []}                   # 멱등
     _check(_obs(node, 1), _want("07-e4n-complete-reassess.json", 0))               # E4nn
 
 
@@ -341,7 +341,7 @@ def test_k2_generation_and_delivery_intent_survive_checkpoint_crash(tmp_path):
     node = _d(root)
     assert node.ex.start("W3", "h1", 2).result == STALE                             # 옛 gen = 낡은 실행권
     assert node.ex.start("W3", "h1", 1).result == OK                                # journal 세대 유효본
-    assert node.recover() == {"restored": True, "delivered": ["a1"], "reassessed": []}
+    assert node.recover() == {"delivered": ["a1"], "reassessed": []}
     state = node.ex._state_records()[0]
     assert (state["reservations"]["shared-slot"]["attempt"], state["deliveries"]["W3"]) == ("a1", ["a1"])
     assert node.recover()["delivered"] == []
@@ -397,6 +397,101 @@ def test_m5_new_attempt_on_redelivery_runs_twice(tmp_path):
     assert (count["run"], count["suppressed"]) == (2, 0)                           # 실행 2 = FAIL
 
 
+def test_g1_allof_needs_every_predecessor(tmp_path):
+    """NG②-ⓐ 선행 2개 중 1개만 완료 = 미충족(all-of→any-of 변이 검출)."""
+    node = _d(tmp_path / "g1")
+    node.complete("W2")
+    grant = node.assign("W4", "h1", pre=["W1", "W2"], evidence=EV)
+    assert (grant.result, grant.reason, grant.written) == (REFUSED, "pre-all", False)
+
+
+def test_g2_second_assign_for_same_resource_is_refused(tmp_path):
+    """NG②-ⓑ 같은 공유 자원 순차 배정 = 거절(resource) — 경합 BUSY 가 아니라 예약 판정을 본다."""
+    node = _d(tmp_path / "g2")
+    assert node.assign("W3", "h1", evidence=EV, resources=["shared-slot"]).written
+    second = node.assign("W4", "h2", evidence=EV, resources=["shared-slot"])
+    assert (second.result, second.reason) == (REFUSED, "resource")
+    assert _obs(node, 1)["reservations"] == [{"attempt": "a1", "res": "shared-slot", "task": "W3"}]
+
+
+def test_g3_uncertain_reassess_is_refused_by_uncertainty(tmp_path):
+    """NG②-ⓒ 표식 있는 완료라도 미확정이면 재평가 거절 — «표식 없음» 거부에 가려지지 않는다."""
+    root = str(tmp_path / "g3")
+    _delivered(root)
+    assert _child("crash", root, "after_complete_journal", "complete").returncode == 9
+    node = _d(root)
+    assert _obs(node, 1)["done_tasks"] == ["W3"]                                   # 표식 있는 완료 복구
+    assert _ex(root).mark_uncertain("W3", "h1", 1, "무응답").result == HOLD
+    refused = node.reassess("W3")
+    assert (refused.result, "미확정" in refused.reason) == (REFUSED, True)          # 결함 = OK(반환)
+    obs = _obs(node, 1)
+    assert (obs["reassess_journal"], obs["reserved"]) == (0, 1)                     # 반환 0 · 예약 유지
+
+
+def test_r1_deliver_checkpoint_crash_keeps_journal_and_state_equal(tmp_path):
+    """DA R1① deliver journal 내구화 직후·checkpoint 전 crash — state 전달 0 이던 결함."""
+    root = str(tmp_path / "r1a")
+    _d(root).assign("W3", "h1", evidence=EV, resources=["shared-slot"])
+    assert _child("crash", root, "after_deliver_journal", "deliver").returncode == 9
+    node, obs = _d(root), None
+    obs = _obs(node, 1)
+    assert (obs["dispatch_journal"], obs["dispatch_state"]) == (1, 1)        # 결함 = 1 / 0
+    assert node.deliver("W3", "a1").result == HOLD                          # 내구화된 전달 = 재전달 0
+
+
+def test_r1_complete_checkpoint_crash_reassesses_from_journal(tmp_path):
+    """DA R1② complete journal 내구화 직후 crash — done·표식이 없어 재평가 0 이던 결함."""
+    root = str(tmp_path / "r1b")
+    _delivered(root)
+    assert _child("crash", root, "after_complete_journal", "complete").returncode == 9
+    node = _d(root)
+    assert _obs(node, 1)["done_tasks"] == ["W3"]                            # 결함 = []
+    assert node.complete("W3", "a1").result == HOLD                         # 두 번째 complete = 쓰기 0
+    assert len([r for r in node.ex._state_records()[1] if r["kind"] == "complete"]) == 1
+    assert node.recover()["reassessed"] == ["W3"]
+    obs = _obs(node, 1)
+    assert (obs["reassess_journal"], obs["release_state"], obs["owner_recover_state"]) == (1, ["W3"], ["W3"])
+    assert (obs["reserved"], obs["owner"]) == (0, 0)                        # 예약 반환 · owner 복구
+    assert node.recover()["reassessed"] == []
+
+
+def test_r1_reassess_checkpoint_crash_does_not_duplicate(tmp_path):
+    """DA R1③ reassess journal 내구화 직후 crash — 재평가가 2행이 되던 결함."""
+    root = str(tmp_path / "r1c")
+    _delivered(root)
+    assert _child("crash", root, "after_reassess_journal", "complete").returncode == 9
+    node = _d(root)
+    assert node.recover()["reassessed"] == []                               # 이미 내구화 = 중복 0
+    assert _obs(node, 1)["reassess_journal"] == 1                           # 결함 = 2
+
+
+def test_r1_reservation_is_seen_without_calling_recover(tmp_path):
+    """DA R1·arch NG①-ⓐ — recover 를 부르지 않아도 잠금 안 판독이 배정 줄의 예약을 겹쳐 읽는다."""
+    root = str(tmp_path / "r1d")
+    _d(root)
+    assert _child("crash", root, "after_journal", "assign").returncode == 9
+    node = _d(root)
+    second = node.assign("W4", "h2", evidence=EV, resources=["shared-slot"])   # recover 호출 0
+    assert (second.result, second.reason) == (REFUSED, "resource")             # 결함 = 접수 성공(승자 2)
+    assert _obs(node)["reservations"] == [{"attempt": "a1", "res": "shared-slot", "task": "W3"}]
+
+
+def test_r2_owner_without_dispatch_lineage_is_refused(tmp_path):
+    """DA R2 — 정상 공개 Execution.claim 으로 owner 만 있는 W2 완료 = 거절 · 쓰기 0(ⓗ W2 불변)."""
+    root = str(tmp_path / "r2")
+    node = _d(root)
+    assert _ex(root).claim("W2", "independent-holder").result == OK
+    before = _bytes(node)
+    refused = node.complete("W2")
+    assert (refused.result, refused.written) == (REFUSED, False)            # 결함 = OK · owner 삭제
+    assert _bytes(node) == before
+    state = node.ex._state_records()[0]
+    assert (state["owners"]["W2"]["holder"], state["released"], state["reassess_done"]) == \
+        ("independent-holder", {}, {})
+    node.complete("W3")                                                     # 배정 계보 없는 빈 작업 = 외부 완료
+    assert _obs(node, 0)["done_tasks"] == ["W3"]
+
+
 def test_m7_uncertain_release_is_allowed(tmp_path):
     root = str(tmp_path / "m7")
     claim = _ex(root).claim("W1", "h1")
@@ -405,6 +500,22 @@ def test_m7_uncertain_release_is_allowed(tmp_path):
     mutant = _d(root, _AllowUncertain)
     assert mutant.reassess("W1").result == OK                                       # 반환 허용 = FAIL
     assert _obs(mutant)["uncertain_release"] == 1
+
+
+def test_m11_legacy_read_without_journal_state_restore(tmp_path):
+    root = str(tmp_path / "m11")
+    _d(root).assign("W3", "h1", evidence=EV, resources=["shared-slot"])
+    assert _child("crash", root, "after_deliver_journal", "deliver").returncode == 9
+    legacy = Dispatch(root, TEAM, execution_cls=_LegacyExecution)          # M11 = 종전 판독
+    assert _obs(legacy, 1)["dispatch_state"] == 0                          # 전달 복구 0 = FAIL
+
+
+def test_m12_marker_from_owner_deletes_execution_owner(tmp_path):
+    node = _d(tmp_path / "m12", _OwnerMarker)
+    _ex(tmp_path / "m12").claim("W2", "independent-holder")
+    assert node.complete("W2").written                                     # 배정 계보 무시 = FAIL
+    state = node.ex._state_records()[0]
+    assert ("W2" in state["owners"], state["released"].get("W2", {}).get("count")) == (False, 0)
 
 
 class _AnyOf(Dispatch):                                    # M1: all-of → any-of
@@ -484,6 +595,17 @@ class _PublicClaim(Dispatch):                              # M9: 잠금 안 공�
         return super()._assign(context, work, holder, *args)
 
 
+class _LegacyExecution(execution.Execution):               # M11: 세 kind 를 state 로 겹쳐 읽지 않던 종전 판
+    def _state_records(self):
+        state, records = super()._state_records()
+        return dict(state, deliveries={}, done={}, reassess_done={}), records
+
+
+class _OwnerMarker(Dispatch):                              # M12: owner 만 보고 표식을 만든다
+    def _assigned(self, records, work):
+        return True
+
+
 class _SplitWrite(Dispatch):                               # M10: claim 줄과 배정 줄을 따로
     def _write(self, state, records, rec, extra=None, replace=None):
         if rec["kind"] == "dispatch":
@@ -525,10 +647,9 @@ def _child_main(argv):
             if step == rest[0]:
                 os._exit(9)
         node = _d(root, _MUTANTS.get(rest[2]) if len(rest) > 2 else None, on_step=boom)
-        if rest[1] == "complete":
-            node.complete("W3", "a1")
-        else:
-            node.assign("W3", "h1", evidence=EV, resources=["shared-slot"])
+        {"assign": lambda: node.assign("W3", "h1", evidence=EV, resources=["shared-slot"]),
+         "deliver": lambda: node.deliver("W3", "a1"),
+         "complete": lambda: node.complete("W3", "a1")}[rest[1]]()
         os._exit(7)                                        # crash 지점을 못 만났다
     if mode == "hold":
         node = _d(root)
