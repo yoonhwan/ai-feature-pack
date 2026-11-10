@@ -45,7 +45,7 @@ SH
 python3 - "$T/replies.json" "$QTS" "$RTS" "$SHA" <<'PY'
 import json, sys
 out, qts, rts, sha = sys.argv[1:5]
-msgs = [{"ts": qts, "user": "U0C9GRFHJ", "text": "sha %s 승인 요청" % sha}, {"ts": rts, "user": "U0AC2JF0M7D", "text": "OK 승인"}]
+msgs = [{"ts": qts, "user": "U0C9GRFHJ", "text": "sha %s 승인 요청" % sha}, {"ts": rts, "user": "U0AC2JF0M7D", "text": "승인"}]  # r1606: 답글 «내용» 판정 — 승인 낱말과 전체 일치
 json.dump({"ok": True, "messages": msgs}, open(out, "w", encoding="utf-8"), ensure_ascii=False)
 PY
 mkplan() {  # <이름> <approve-merge 인자들> — 계획 파일을 쓰고 경로를 PLAN 에 둔다(중첩 인용 회피)
