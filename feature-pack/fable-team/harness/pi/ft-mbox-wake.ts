@@ -1,6 +1,6 @@
 // ft-mbox-wake (r1477) — planner 대면 pi 좌석을 «쪽지 도착 = 턴 1회» 로 깨운다. 주기 타이머 0 · 입력 주입 0 · 예산은 r1476 `mbox.sh budget reserve` CLI 로만 차감.
 //  · 활성 = FT_SEAT(없으면 tmux 세션명) == <루트>/.fable-team/seats-planner.json `_master` «매 이벤트 재확인» · 루트 = FT_MBOX_ROOT ?? git 공용 루트 ?? cwd.
-//  · 설치 = `~/.pi/agent/extensions/ft-mbox-wake.ts` 복사 1개(pi 재시작 1회) · env: FT_MBOX_FILE(다른 데이터 루트) · FT_MBOX_STATE_DIR · FT_MBOX_WAKE_DEBOUNCE_MS · FT_H_DONE_QUIET_MS(r1540) · 시험 = tests/test_pi_mbox_wake_{r1477,self_r1529}.sh · tests/test_pi_bash_pending_r1540.sh
+//  · 설치 = `~/.pi/agent/extensions/ft-mbox-wake.ts` 복사 1개(pi 재시작 1회) · env: FT_MBOX_FILE(다른 데이터 루트) · FT_MBOX_STATE_DIR · FT_MBOX_WAKE_DEBOUNCE_MS · FT_H_DONE_QUIET_MS(r1540) · FT_USER_BASH_QUIET_MS(r1555) · 시험 = tests/test_pi_mbox_wake_{r1477,self_r1529}.sh · tests/test_pi_bash_pending_r1540.sh · tests/test_pi_user_bash_quiet_r1555.sh
 //  · r1529 = 내 행 판정을 recv 와 같은 칸으로(from !== seat) + 판 2 턴 도중 깨움 쌓기 0(agent_start~agent_end 표지 · 배달 안 된 깨움 1개 상한).
 //  · r1540 = h 끝 알림을 «모은다» — h 마다 즉시 턴을 만들면 오빠의 다음 `!` 이 거의 늘 streaming 중이고, pi 는 그 결과를 대화로 옮기지 않는다(interactive-mode.js:5960·5982 · flush 는 :2781 한 곳). 마지막 h 뒤 조용함 창(FT_H_DONE_QUIET_MS · 기본 20000)이 지나고 좌석이 쉬면 한 통, 일하는 중이면 다음 정상 settled 에서 1회. 창이 안 끝난 settled 는 0(R1) · 대기 목록은 파일(<state>/pi-wake/<키>.hdone)이 정본이라 reload·shutdown 에서 유실 0(R2 · 새 session_start 회수 · ★R3★ 창은 «h 완료 시각» 에서 재므로 새 인스턴스는 남은 창을 존중한다).
 import * as fs from "node:fs";
@@ -95,6 +95,9 @@ export default function (pi: ExtensionAPI) {
     if (hTimer) clearTimeout(hTimer);
     hTimer = setTimeout(() => { hTimer = null; hArmed = true; try { hFlush(); } catch (e) { fail(`h 끝 처리 실패 — ${e}`); } }, hQuiet);
   }
+  const userQuiet = Number(process.env.FT_USER_BASH_QUIET_MS ?? hQuiet); // ★r1555★ 오빠 `!`(user_bash) 뒤 «조용함 창» — 기본 = r1540 창 값 · 창 안에서는 쪽지 깨움 턴 0 · seq 0 · 예산 0 · held 기록 0
+  let uTimer: ReturnType<typeof setTimeout> | null = null, uUntil = 0; // 창 끝 1회짜리 타이머가 run() 1회(우편함 파일이 정본이라 손실 0) · `!` 가 또 오면 «마지막 `!` 기준» 으로 다시 잰다(주기 타이머 0)
+  const openUserQuiet = () => { if (userQuiet <= 0) return; uUntil = Date.now() + userQuiet; if (uTimer) clearTimeout(uTimer); uTimer = setTimeout(() => { uTimer = null; uUntil = 0; run(); }, userQuiet); };
 
   // ★활성 = 이벤트마다 재확인★ — 승계(retire) 전에 새 세션이 뜨면 _master 는 아직 옛 좌석이다. 한 번만 읽고 굳으면 영영 꺼진다.
   let announced = "";
@@ -132,6 +135,7 @@ export default function (pi: ExtensionAPI) {
     if (viaNudge) fs.rmSync(nudge, { force: true }); // nudge 삭제 = 깨운 뒤
   }
   function check(force: boolean) {
+    if (uUntil > Date.now()) return; // ★r1555★ 창 안 = 아무것도 하지 않는다(우편함 읽기·seq·예산·held 0) — 창 끝 타이머가 run() 을 1회 부른다
     const rows = mine();
     if (rows.length === 0 || quietOnly(rows)) { if (rows.length === 0) wakePending = false; return; } // 보고 전용 머리만 · 미읽음 0 = recv 가 소비했다(배달 대기 해제) · 예산 0
     if (!activeSeat(false) || inTurn || wakePending) return; // ★매 이벤트 재확인★ · 판 2(r1529) = 턴 도중 쌓기 0 · 배달 안 된 깨움 1개 상한(ⓗⓘⓙ)
@@ -177,8 +181,9 @@ export default function (pi: ExtensionAPI) {
   // ④ 오빠가 `! bash /tmp/hN` 을 돌리면 «끝난 뒤» 턴 1회 — 결과(rc·출력)는 건드리지 않는다(desk 결함 11-09 18:5x).
   pi.on("user_bash", (event: { command: string; excludeFromContext?: boolean }) => {
     if (event.excludeFromContext || !activeSeat(false)) return; // !! 제외 · 활성 좌석(_master·_desk)만 — 다른 pi 좌석 0
+    openUserQuiet(); // ★r1555★ `!` 는 «아무 명령» 이나 창을 열고, 창은 마지막 `!` 기준으로 다시 잰다 — 오빠 연타 중 쪽지가 오면 블록이 대기 영역에 남는다
     const m = /^bash \/tmp\/h([0-9]+)$/.exec(event.command);
-    if (!m) return; // 다른 명령 = 훅 0
+    if (!m) return; // h 아닌 `!` = 창만 열고 훅 0
     let local;
     try { local = createLocalBashOperations(); } catch (e) { return fail(`user_bash 훅 비활성 — ${e}`); } // 훅 실패 = bash 결과 불변
     return { operations: { exec: async (cmd: string, cwd: string, o: unknown) => {
@@ -188,6 +193,7 @@ export default function (pi: ExtensionAPI) {
       return r; // ★알림이 실패해도 bash 결과 그대로★
     } } };
   });
+  pi.on("input", (event: { source?: string }) => { if (event.source !== "interactive") return; uUntil = 0; if (uTimer) { clearTimeout(uTimer); uTimer = null; } }); // ★r1555★ 오빠 일반 메시지(source="interactive") = 창 즉시 닫기 — 대기 영역이 비었고 그 턴이 끝나면 agent_end 가 우편함을 다시 본다 · "extension"·"rpc" 는 창 불변
   // 세션 교체(reload/resume)·종료 = 감시 해제. 안 닫으면 옛 인스턴스가 같은 우편함에 2중으로 깨운다.
-  pi.on("session_shutdown", async () => { for (const w of watchers) w.close(); watchers = []; if (timer) clearTimeout(timer); if (fallback) clearTimeout(fallback); if (hTimer) clearTimeout(hTimer); timer = fallback = hTimer = null; });
+  pi.on("session_shutdown", async () => { for (const w of watchers) w.close(); watchers = []; if (timer) clearTimeout(timer); if (fallback) clearTimeout(fallback); if (hTimer) clearTimeout(hTimer); if (uTimer) clearTimeout(uTimer); timer = fallback = hTimer = uTimer = null; });
 }
