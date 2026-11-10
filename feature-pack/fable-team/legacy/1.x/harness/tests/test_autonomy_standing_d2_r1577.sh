@@ -55,10 +55,10 @@ mkpr() {  # mkpr <N> <파일> [내용…] — 팩 origin/main 에서 PR head 1�
   python3 -c 'import json,sys;print(json.dumps({"headRefOid":sys.argv[1],"headRefName":"pr"+sys.argv[2],"title":"feat r1577 PR "+sys.argv[2],"body":"카드 r1577 시험","state":"OPEN","baseRefName":"main"}))' "$PRSHA" "$1" > "$STUB_JSON"; }
 mkda() { DAO="$T/da/$1.out"; printf 'codex\n판정: %s\n\n근거\n\n판정: %s\n' "$2" "$2" > "$DAO"; printf 'head=%s model=gpt-6.1-sol effort=high rc=0 start=1 end=2\n' "$3" > "$DAO.meta"; }
 sum256() { shasum -a 256 "$1" | awk '{print $1}'; }
-mkv() {  # mkv <이름> <A> <원문> → VF(BYZ origin/main 커밋)
+mkv() {  # mkv <이름> <A> <원문> → VF(BYZ origin/main 커밋 + DA 판정 가지(r1590: D2 가 읽는 ref) 같은 커밋)
   VF="$B/design/harness/da/VERDICT-$1.md"; mkdir -p "$(dirname "$VF")"
   printf '# 판정 %s\n\n- 승인 sha: %s\n- DA 원문: %s\n- DA 원문 sha256: %s\n- 격리: 세트 %s · rc=0\n' "$1" "$2" "$3" "$(sum256 "$3")" "$2" > "$VF"
-  git -C "$B" checkout -q main; cm "$B" "verdict $1" && git -C "$B" push -q origin main && git -C "$B" fetch -q origin; }
+  git -C "$B" checkout -q main; cm "$B" "verdict $1" && git -C "$B" push -q origin main && git -C "$B" push -q origin main:refs/heads/docs/da-278062 && git -C "$B" fetch -q origin; }
 PRF="feature-pack/fable-team/legacy/1.x/harness/bin/ft-x.sh"
 
 bash -n "$BIN/ft-autonomy-standing-d2.sh" && bash -n "$BIN/ft-autonomy.sh" && bash -n "$BIN/ft-merge-land.sh" && bash -n "$BIN/ft-merge-lib.sh"; ck "bash -n 4종" $?
@@ -234,6 +234,26 @@ rm -rf "$HS"; mkdir -p "$HS"; as_seat "$HM"; HZB="$T/mut-m12/ft-autonomy.sh" hz 
 mut m13 ft-autonomy-standing.sh 'STD_ROOT="$(cd "$FIRST/.." && pwd -P)"' 'STD_ROOT="$(cd "$FIRST/.." && pwd -P)"; [ -n "${FT_MBOX_DIR:-}" ] && STD_ROOT="$(cd "$FT_MBOX_DIR/../.." && pwd -P)"'
 rm -rf "$HS"; mkdir -p "$HS"; as_seat "$PL"; HZB="$T/mut-m13/ft-autonomy.sh" hz "$HS" "$DZS/.fable-team/comm" approve-standing D2 --repos byz,pack --classes code,docs --oppa-decision "$OD"
 [ "$rc" = 2 ]; ck "ⓘM13 FT_MBOX_DIR 을 명부 선택에 반영 → ⓘ1 칸이 거절된다(빨강)" $?
+
+# ══ r1590 ⓐⓑ — ③ 판정문을 «어느 ref» 에서 읽나(D2 = DA 판정 가지 · D1 = origin/main 불변)
+mkv_da() {  # mkv_da <이름> <A> <원문> → VF(BYZ origin/docs/da-278062 에만 · 로컬도 그 가지 체크아웃)
+  VF="$B/design/harness/da/VERDICT-$1.md"; mkdir -p "$(dirname "$VF")"
+  git -C "$B" checkout -q main; git -C "$B" checkout -q -B docs/da-278062
+  printf '# 판정 %s\n\n- 승인 sha: %s\n- DA 원문: %s\n- DA 원문 sha256: %s\n- 격리: 세트 %s · rc=0\n' "$1" "$2" "$3" "$(sum256 "$3")" "$2" > "$VF"
+  cm "$B" "verdict $1 da"; git -C "$B" push -q origin docs/da-278062:refs/heads/docs/da-278062 && git -C "$B" fetch -q origin; }
+mkda r1590a APPROVE "$A11"; fresh; grant; mkv_da r1590a "$A11" "$DAO"; VDA="$VF"
+git -C "$B" cat-file -e "refs/remotes/origin/main:design/harness/da/VERDICT-r1590a.md" 2>/dev/null; [ $? != 0 ]; ck "ⓐ0 전제: 판정문이 origin/main 에 없고 DA 가지에만 있음" $?
+card "$A11"; as_seat "$HM"; sa "$A11" 11 "$VDA"
+[ "$rc" = 0 ] && has "^STANDING-OK $A11 pr=11 repo=pack da=$A11 "; ck "ⓐ1 판정문이 DA 가지에만 있어도 D2 승인 rc0(③ ref = origin/docs/da-278062)" $?
+as_seat "$PL"; fresh; run a approve-standing D1 --repos pack --classes code,docs
+[ "$rc" = 0 ] && has '^STANDING-GRANTED D1 '; ck "ⓑ0 D1 켜기(planner 좌석)" $?
+L0="$(nlog)"; sa_d1() { as_seat "$PL"; L0="$(nlog)"; run a standing-approve "$1" --pr "$2" --repo pack --verdict "$3"; as_seat "$HM"; }
+sa_d1 "$A11" 11 "$VDA"
+[ "$rc" = 2 ] && has '③ 판정문이 BYZ origin/main 에 없음' && [ ! -e "$S/autonomy-merge-approved/$A11" ]; ck "ⓑ1 같은 판정문으로 D1 = 거절 «origin/main 에 없음»(D1 불변)" $?
+mut m14 "$D2F" 'std_verdict "$vf" "$D2_VREF"' 'std_verdict "$vf"'; MFT=m14
+SAH="$A11"; SPR=11; SVF="$VDA"; mgo m14
+[ "$rc" = 2 ] && has '③ 판정문이 BYZ origin/main 에 없음'; ck "ⓘM14 D2 의 ref 인자를 origin/main 로 되돌림 → ⓐ1 칸이 거절된다(빨강)" $?
+git -C "$B" checkout -q main
 
 # ══ 키트 사본 · 크기
 for f in ft-autonomy.sh ft-autonomy-standing-d2.sh ft-merge-land.sh ft-merge-lib.sh ft_doc_exempt.py autonomy_scope_rules.py autonomy_scope_classify.py; do cmp -s "$BIN/$f" "$BIN/../kit/fable-team/bin/$f"; ck "키트 사본 cmp0 $f" $?; done
