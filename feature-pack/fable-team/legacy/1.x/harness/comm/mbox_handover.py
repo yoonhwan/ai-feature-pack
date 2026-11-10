@@ -198,7 +198,8 @@ def close_check(seat, need_ready=True, verdict=False):
         print("REJECT %s 억제된 doorbell %d건 미전달(seq %s) — recv 먼저" % (
             seat, len(seqs), ",#".join(seqs[:10]) or "?"))
         return 3
-    succ = mbox_lineage.retired_to(seat)
+    chain = mbox_lineage.chain(seat)   # r1600 — 직계 후계부터 사슬 끝까지(여러 번 승계된 좌석)
+    succ = chain[-1] if chain else mbox_lineage.retired_to(seat)
     if succ and verdict:   # r1481 — R400 사람 판정 1건이면 승계 검사(②③)를 건너뛴다(은퇴 뒤 ready REJECT 로 닫을 길이 0 이던 자리)
         print("CLOSE-OK %s 판정 닫기(②③ 면제 · 사람 판정 1건)" % seat); return 0
     if need_ready and not succ:
@@ -214,7 +215,11 @@ def close_check(seat, need_ready=True, verdict=False):
         print("CLOSE-OK %s 미표시 0" % seat); return 0
     if _open_work(seat) is False:   # r1539 — 받을 일 0 이면 [인계] 요구 면제(승계 0 = 인계할 것이 없다) · 있음·판정 불가 = 지금처럼 REJECT
         print("CLOSE-OK %s 받을 일 0 · [인계] 면제" % seat); return 0
-    h = last_handover(seat, succ)
+    near, succ = chain or [succ], (chain or [succ])[0]   # 안내 줄·[레디] 대상 = «직계» 후계(r1600 ⓑ)
+    h = None
+    for n in near:   # 직계부터 마지막 기계 [인계] 를 가진 후계를 고른다(사슬 끝만 보면 다 마친 좌석이 막힌다)
+        h = last_handover(seat, n)
+        if h: succ = n; break
     if not h:
         print("REJECT %s [인계] 없음 — bash mbox.sh handover %s %s" % (seat, seat, succ)); return 3
     ids = items(h)

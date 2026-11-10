@@ -85,6 +85,16 @@ def retired_to(me):
     return "" if cur == me else cur
 
 
+def chain(me):
+    """★r1600★ 은퇴 사슬 이름 목록 = [직계 후계, …, 사슬 끝] · 현역·미등록 = [].
+    close-check 이 옛 좌석의 [인계]·[레디] 를 «사슬 끝» 하나가 아니라 직계부터 차례로 본다(여러 번 승계된 좌석)."""
+    rows = _team_rows(me)[0]
+    out, cur, seen = [], me, {me}
+    while isinstance(rows.get(cur), dict) and rows[cur].get("_replaced_by") and rows[cur]["_replaced_by"] not in seen:
+        cur = rows[cur]["_replaced_by"]; seen.add(cur); out.append(cur)
+    return out
+
+
 def _resolve(rows, name):   # holder 본체 — 명부 행 dict 를 받아 푼다(같은 recv 안에서 명부 1회 읽기)
     cur = _chain_end(rows, name)
     if cur != name or isinstance(rows.get(name), dict):
