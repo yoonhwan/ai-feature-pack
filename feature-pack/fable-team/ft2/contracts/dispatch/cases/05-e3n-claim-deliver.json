@@ -1,0 +1,54 @@
+{
+  "id": "case_05_e3n_claim_deliver",
+  "사례 이름": "E3 정상 — claim + 전달 의도 동시 영속",
+  "축": "E3",
+  "극성": "정상",
+  "출처": {
+    "정본 경로": "design/harness/research/ft-2.0/parallel-dispatch/cases_e3e4.py",
+    "정본 sha": "db18c453c77868355ffeb813d3b4c49f2047806a",
+    "함수": "e3_normal",
+    "줄": "5-19",
+    "비교 키": "E3n-claim-deliver",
+    "관측 키": [
+      "E3nn"
+    ]
+  },
+  "given": [
+    "배정: claim W3 (attempt a1)",
+    "전달: deliver W3/a1 → DELIVERED",
+    "완료: 없음",
+    "재전달: 없음",
+    "attempt id: W3=a1"
+  ],
+  "expect": {
+    "판정": "PASS",
+    "계약": "claim → 전달 1 · 수신 업무 실행 1(전송 횟수가 아니라 실행 1회를 센다) · attempt 1개 · owner 1",
+    "관측": [
+      {
+        "키": "E3nn",
+        "갈래": "정본",
+        "원자료": "판1",
+        "값": {
+          "dispatch_journal": 1,
+          "dispatch_state": 1,
+          "owner": 1,
+          "reserved": 1,
+          "delivery": 1,
+          "reassess_journal": 0,
+          "release_journal": 0,
+          "uncertain_release": 0,
+          "run": 1,
+          "suppressed": 0,
+          "deliver_attempts": [
+            "a1"
+          ],
+          "journal_ops": [
+            "claim:CLAIMED",
+            "deliver:DELIVERED",
+            "execute:"
+          ]
+        }
+      }
+    ]
+  }
+}

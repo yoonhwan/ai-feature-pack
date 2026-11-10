@@ -1,0 +1,75 @@
+{
+  "id": "case_02_e1v_teamclose_gate",
+  "사례 이름": "E1 변이 — 팀 마감 «잔여 0» 을 작업 배정 증거로 재사용",
+  "축": "E1",
+  "극성": "변이",
+  "출처": {
+    "정본 경로": "design/harness/research/ft-2.0/parallel-dispatch/cases_e1e2.py",
+    "정본 sha": "db18c453c77868355ffeb813d3b4c49f2047806a",
+    "함수": "e1_variant",
+    "줄": "53-75",
+    "비교 키": "E1v-teamclose-gate",
+    "관측 키": [
+      "E1vv",
+      "E1v-ctrl"
+    ]
+  },
+  "given": [
+    "배정: claim W4 — gate=team-close(팀 마감 «잔여 0» 재사용)",
+    "대조: 같은 fixture 에 gate 없이 claim W4 → 거절 pre-all",
+    "재전달: 없음",
+    "attempt id: W4=a1 (변이 arm)"
+  ],
+  "expect": {
+    "판정": "FAIL",
+    "계약": "변이 gate(team-close)로 미완 선행 W1 을 건너뛰고 W4 배정 1 · 같은 fixture 대조는 배정 0 · 미완 선행 W1 은 여전히 대기 — 계약 극성 검사는 FAIL(의도된 변이 1), 변이 검출 검사는 통과",
+    "관측": [
+      {
+        "키": "E1vv",
+        "갈래": "변이 arm",
+        "원자료": "판1",
+        "값": {
+          "dispatch_journal": 1,
+          "dispatch_state": 1,
+          "owner": 1,
+          "reserved": 0,
+          "delivery": 1,
+          "reassess_journal": 0,
+          "release_journal": 0,
+          "uncertain_release": 0,
+          "claim_granted": 1,
+          "task_attempt": {
+            "W1": null,
+            "W2": null,
+            "W3": null,
+            "W4": "a1"
+          },
+          "task_state": {
+            "W1": "대기",
+            "W2": "완료",
+            "W3": "대기",
+            "W4": "대기"
+          }
+        }
+      },
+      {
+        "키": "E1v-ctrl",
+        "갈래": "대조 arm",
+        "원자료": "판1",
+        "값": {
+          "dispatch_journal": 0,
+          "dispatch_state": 0,
+          "owner": 0,
+          "reserved": 0,
+          "delivery": 0,
+          "reassess_journal": 0,
+          "release_journal": 0,
+          "uncertain_release": 0,
+          "claim_reject": {
+            "pre-all": 1
+          }
+        }
+      }
+    ]
+  }
+}

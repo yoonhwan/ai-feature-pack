@@ -1,0 +1,117 @@
+{
+  "id": "case_01_e1n_normal_allof",
+  "사례 이름": "E1 정상 — all-of 버전증거 · 독립 진행",
+  "축": "E1",
+  "극성": "정상",
+  "출처": {
+    "정본 경로": "design/harness/research/ft-2.0/parallel-dispatch/cases_e1e2.py",
+    "정본 sha": "db18c453c77868355ffeb813d3b4c49f2047806a",
+    "함수": "e1_normal",
+    "줄": "5-52",
+    "비교 키": "E1n-normal-allof",
+    "관측 키": [
+      "E1nn",
+      "E1n_mid",
+      "E1n-after",
+      "E1n_after_all"
+    ]
+  },
+  "given": [
+    "배정: complete W2 — 다른 팀(T2) 완료 통보 사건",
+    "배정: claim W3 — A(W1) 대기와 무관한 독립 작업(attempt a1)",
+    "배정 거절: claim W4 — 선행 A 대기 + 증거 v2 없음 → reason pre-all",
+    "재전달: 없음",
+    "반환 시도: release W1 — W1 UNCERTAIN 이라 REFUSED",
+    "attempt id: W3=a1 (W4 는 충족 사건 뒤 갈래에서 a1)"
+  ],
+  "expect": {
+    "판정": "PASS",
+    "계약": "A(W1) 대기 중에도 독립 W3 배정 1 · 다른 팀 완료 B(W2) 1 · 선행 A 대기 + 증거 v2 없음인 D(W4) 배정 0(reason pre-all) · 마지막 선행·증거 충족 사건 뒤 D 배정 1 · UNCERTAIN(W1) 반환 0",
+    "관측": [
+      {
+        "키": "E1nn",
+        "갈래": "정본",
+        "원자료": "판1",
+        "값": {
+          "dispatch_journal": 1,
+          "dispatch_state": 1,
+          "owner": 1,
+          "reserved": 1,
+          "delivery": 1,
+          "reassess_journal": 0,
+          "release_journal": 0,
+          "uncertain_release": 0,
+          "deliver_by_task": {
+            "W3": 1
+          },
+          "done_tasks": [
+            "W2"
+          ],
+          "claim_reject": {
+            "pre-all": 1
+          },
+          "refused": 1
+        }
+      },
+      {
+        "키": "E1n_mid",
+        "갈래": "중간 스냅숏(uncertain 직전)",
+        "원자료": "판1",
+        "값": {
+          "stop_op": "uncertain",
+          "lines_used": 3,
+          "dispatch_journal": 1,
+          "deliver_by_task": {
+            "W3": 1
+          },
+          "claim_granted": 1,
+          "claim_reject": {
+            "pre-all": 1
+          },
+          "refused": 0
+        }
+      },
+      {
+        "키": "E1n-after",
+        "갈래": "충족 사건 뒤",
+        "원자료": "판1",
+        "값": {
+          "dispatch_journal": 1,
+          "dispatch_state": 1,
+          "owner": 1,
+          "reserved": 0,
+          "delivery": 1,
+          "reassess_journal": 0,
+          "release_journal": 0,
+          "uncertain_release": 0,
+          "deliver_by_task": {
+            "W4": 1
+          },
+          "done_tasks": [
+            "W1",
+            "W2",
+            "W3"
+          ]
+        }
+      },
+      {
+        "키": "E1n_after_all",
+        "갈래": "충족 사건 뒤(같은 폴더 재기록)",
+        "원자료": "판1",
+        "값": {
+          "dispatch_journal": 1,
+          "dispatch_state": 1,
+          "owner": 1,
+          "reserved": 0,
+          "delivery": 1,
+          "reassess_journal": 0,
+          "release_journal": 0,
+          "uncertain_release": 0,
+          "deliver_by_task": {
+            "W4": 1
+          }
+        }
+      }
+    ]
+  }
+}
