@@ -3,8 +3,11 @@
 정본 PLAN §추천 schema(216행) 이 정한 최소 의미만 담는다:
 version · 팀 · seq · 종류 · command/attempt · work · 본문 참조.
 버전 불일치·필수 필드 누락 = 쓰기 거절(`RecordError`)이고 호출자는 기존 자료를 보존한다.
+상태 판독(`read_state_guarded`)도 여기서 한다 — 형 검사를 쓰기 «앞» 에 끝내야 하기 때문이다.
 처리 결과 낱말은 `ft2/contracts/core/CASES.md` 8낱말 밖으로 나가지 않는다.
 """
+
+import json
 
 SCHEMA_VERSION = 1
 
@@ -21,10 +24,35 @@ RESULT_WORDS = (
 
 REQUIRED_FIELDS = ("schema", "team", "seq", "kind", "command", "attempt", "at", "body", "work")
 KINDS = ("accept",)
+STATE_FIELDS = ("revision", "pending", "attempts")
 
 
 class RecordError(ValueError):
     """schema 위반·버전 불일치 — 영수 없이 쓰기를 거절한다."""
+
+
+class CorruptStateError(ValueError):
+    """state·journal 이 schema v1 로 읽히지 않는다 = 복구 필요."""
+
+
+def read_state_guarded(path):
+    """state 를 읽어 형까지 검사한다. 없으면 최초 상태. 형이 틀리면 쓰기 «전» 에 `CorruptStateError`."""
+    try:
+        with open(path, encoding="utf-8") as handle:
+            state = json.load(handle)
+    except FileNotFoundError:
+        return {"schema": SCHEMA_VERSION, "revision": 0, "pending": [], "attempts": {}}
+    except (ValueError, UnicodeDecodeError) as exc:
+        raise CorruptStateError("state 판독 불가: %s" % exc)
+    if not isinstance(state, dict) or state.get("schema") != SCHEMA_VERSION:
+        raise CorruptStateError("state schema 불일치: %r" % (state if not isinstance(state, dict) else state.get("schema"),))
+    missing = [name for name in STATE_FIELDS if name not in state]
+    if missing:
+        raise CorruptStateError("state 필수 칸 누락: " + ",".join(missing))
+    if not isinstance(state["revision"], int) or not isinstance(state["pending"], list) \
+            or not isinstance(state["attempts"], dict):
+        raise CorruptStateError("state 칸 형 위반: %r" % (sorted(state),))
+    return state
 
 
 def build(team, seq, command, attempt, at, body, work=None, goal=None, kind="accept"):

@@ -23,24 +23,7 @@ Receipt = collections.namedtuple("Receipt", "result command attempt revision wri
                                  defaults=(None, None, None, False, None, ""))
 
 
-class CorruptStateError(ValueError):
-    """state·journal 이 schema v1 로 읽히지 않는다 = 복구 필요."""
-
-
-def read_state_guarded(path):
-    """state 를 읽는다. 없으면 최초 상태, schema 가 어긋나면 `CorruptStateError`(덮어쓰기 0)."""
-    try:
-        with open(path, encoding="utf-8") as handle:
-            state = json.load(handle)
-    except FileNotFoundError:
-        return {"schema": record.SCHEMA_VERSION, "revision": 0, "pending": [], "attempts": {}}
-    except (ValueError, UnicodeDecodeError) as exc:
-        raise CorruptStateError("state 판독 불가: %s" % exc)
-    if not isinstance(state, dict) or state.get("schema") != record.SCHEMA_VERSION:
-        raise CorruptStateError("state schema 불일치: %r" % (state if not isinstance(state, dict) else state.get("schema"),))
-    if any(name not in state for name in ("revision", "pending", "attempts")):
-        raise CorruptStateError("state 필수 칸 누락: %r" % (sorted(state),))
-    return state
+CorruptStateError = record.CorruptStateError
 
 
 def duplicate_commands(records):
@@ -103,7 +86,7 @@ class Intake:
         return out
 
     def _state(self):
-        return read_state_guarded(self.state_path)
+        return record.read_state_guarded(self.state_path)
 
     def _prior_receipt(self, records, command):
         return next((rec for rec in reversed(records) if rec["command"] == command), None)
@@ -111,8 +94,12 @@ class Intake:
     def _orphan_body(self, command):
         return os.path.exists(self.body_path(command))
 
-    def _full(self, state):
-        return len(state["pending"]) >= self.capacity
+    def _pending(self, records, state):
+        """용량 기준 = 내구화된 journal(+state 투영). state 만 세면 checkpoint 없는 crash 뒤가 빈다."""
+        return list(dict.fromkeys([rec["command"] for rec in records] + list(state["pending"])))
+
+    def _full(self, pending):
+        return len(pending) >= self.capacity
 
     def _durable_body(self, command, body):
         tmp = os.path.join(self.tmp, command + ".body.tmp")
@@ -160,8 +147,9 @@ class Intake:
             return Receipt(RESULT_HOLD, command, prior["attempt"], state["revision"], reason="같은 command 기록 = 재부여 0")
         if self._orphan_body(command):
             return Receipt(RESULT_HOLD, command, None, state["revision"], reason="본문만 남음 = 영수 미확정")
-        if self._full(state):
-            return Receipt(RESULT_FULL, command, None, state["revision"], reason="pending %d >= 상한 %d" % (len(state["pending"]), self.capacity))
+        pending = self._pending(records, state)
+        if self._full(pending):
+            return Receipt(RESULT_FULL, command, None, state["revision"], reason="pending %d >= 상한 %d" % (len(pending), self.capacity))
         attempt = "%s#a%d" % (command, state["attempts"].get(command, 0) + 1)
         body_ref = self._durable_body(command, body)
         self.on_step("after_body")
@@ -169,7 +157,7 @@ class Intake:
         self._append_journal(record.build(self.team, seq, command, attempt, self.clock(), body_ref, work))
         self.on_step("after_journal")
         new_state = {"schema": record.SCHEMA_VERSION, "revision": state["revision"] + 1,
-                     "pending": state["pending"] + [command],
+                     "pending": pending + [command],
                      "attempts": dict(state["attempts"], **{command: state["attempts"].get(command, 0) + 1})}
         self._write_state(new_state)
         self.on_step("after_state")
