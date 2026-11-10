@@ -57,9 +57,9 @@ def project(root, team):
     node = journal.Journal(runtime, rec=record)
     try:
         state, records = node.state(), node.records()
-    except record.CorruptStateError as exc:
+        state = record.recover_state(state, records)     # journal_base.proj 위에서 앞선다(r1584)
+    except record.CorruptStateError as exc:              # 손상 checkpoint(suffix 불연속)도 여기로 온다
         return _empty(team, CORRUPT, str(exc))
-    state = record.recover_state(state, records)
     return {"result": OK, "team": team, "revision": state["revision"], "pending": len(state["pending"]),
             "works": {work: row(work, state) for work in works_of(state)}, "reason": ""}
 
