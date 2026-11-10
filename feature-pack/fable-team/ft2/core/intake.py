@@ -116,12 +116,15 @@ class Intake:
         return os.path.exists(self.body_path(command))
 
     def _pending(self, records, state):
-        """용량 기준 = 내구화된 journal(+state 투영). state 만 세면 checkpoint 없는 crash 뒤가 빈다.
-        실행권·착수·결과 줄은 접수가 아니므로 세지 않는다(ⓙ). 회수된 접수(journal_base.receipts)는
-        «남은 일» 이 아니므로 용량에서도 뺐다(r1616 · 원천 시쇬 case_08 = 정리 뒤 새 8건 성공)."""
+        """state 에 쓰는 «접수 장부» — append 전용이고 스스로 비지 않는다(lifecycle :10 주석 그대로).
+        state 만 세면 checkpoint 없는 crash 뒤가 빈다 — journal 줄과 state 를 합친다(ⓙ)."""
         accepted = [rec["command"] for rec in records if rec["kind"] == "accept"]
-        folded = (state.get("journal_base") or {}).get("receipts") or {}
-        return [cmd for cmd in dict.fromkeys(accepted + list(state["pending"])) if cmd not in folded]
+        return list(dict.fromkeys(accepted + list(state["pending"])))
+
+    def _remaining(self, records, state):
+        """용량 상한의 기준 = «남은 일» = `record.remaining`(lifecycle 마감 판정과 같은 장부 · r1616 보정 2).
+        회수된 영수·완료(done) work 는 남은 일이 아니므로 상한에서 빠진다."""
+        return record.remaining(state, records)
 
     def _full(self, pending):
         return len(pending) >= self.capacity
@@ -168,7 +171,7 @@ class Intake:
             if self._orphan_body(command):
                 return Receipt(RESULT_HOLD, command, None, state["revision"], reason="본문만 남음 = 영수 미확정")
             pending = self._pending(records, state)
-            if self._full(pending):
+            if self._full(self._remaining(records, state)):                # 용량 = 남은 일(r1616 보정 2)
                 return Receipt(RESULT_FULL, command, None, state["revision"], reason="pending %d >= 상한 %d" % (len(pending), self.capacity))
             attempt = "%s#a%d" % (command, state["attempts"].get(command, 0) + 1)
             new_state = self._next_state(state, command, pending)
