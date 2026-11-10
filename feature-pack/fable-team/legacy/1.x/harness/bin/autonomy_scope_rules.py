@@ -247,7 +247,9 @@ MKTEMP_VALUE = r"\"?\$\(\s*mktemp\s+-d(?:\s+[\w./-]+)?\s*\)\"?"
 TRAP_LINE = re.compile(r"^\s*(?:(?P<pre>[A-Za-z_][A-Za-z0-9_]*)=\s*" + MKTEMP_VALUE + r"\s*;\s*)?"
                        r"trap\s+(?P<q>['\"])(?P<body>.+?)(?P=q)\s+EXIT\s*;?\s*$")
 TRAP_RM_RF_BODY = re.compile(r'^rm -rf "\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?"$')
-MKTEMP_ASSIGN = r"(?<![$\w])%s\s*=\s*" + MKTEMP_VALUE   # 그 변수 대입 값이 mktemp -d 인가(NG2: 같은 닫힌 꼴)
+# DA② R1: 대입은 «줄 머리» 에서 «값 전체» 가 mktemp -d 여야 한다 — re.search 로 본문 어딘가의 접두만 보면 주석 줄·`$(mktemp -d)/../..` 가 통과한다
+MKTEMP_LINE = r"(?m)^[ \t]*(?:export[ \t]+)?%s[ \t]*=[ \t]*"   # 줄 머리 대입만(주석·문자열 속 대입은 안 센다)
+MKTEMP_TAIL = r"[ \t]*(?:;[ \t]*trap\s+.*)?$"                  # 값 뒤 = 줄 끝 또는 «; trap …» 하나
 
 
 def mktemp_trap_exempt(path, txt, show=None):   # → True = «그 시험이 방금 만든 임시 폴더를 지우는» 줄
@@ -261,9 +263,10 @@ def mktemp_trap_exempt(path, txt, show=None):   # → True = «그 시험이 방
     if not body:
         return False
     v = re.escape(var.group(1))
-    if len(re.findall(r"(?<![$\w])%s\s*=" % v, body)) != 1:   # 재대입 = 대상이 그 임시 폴더가 아닐 수 있다
+    assign = MKTEMP_LINE % v
+    if len(re.findall(assign, body)) != 1:   # 줄 머리 대입이 «정확히 1번»(재대입 = 대상이 그 임시 폴더가 아닐 수 있다)
         return False
-    return bool(re.search(MKTEMP_ASSIGN % v, body))
+    return bool(re.search(assign + MKTEMP_VALUE + MKTEMP_TAIL, body))   # 값 «전체» 가 mktemp -d (DA② R1-a: 뒤에 붙은 /../.. = destroy)
 
 
 def critical_kinds(blocks, secret=None, show=None):   # → (종류, 사유) | None · blocks = autonomy_scope_secret.parse_added 결과
