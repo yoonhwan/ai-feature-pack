@@ -8,7 +8,8 @@
 시한 안이면 멈춤이 아니다(사례 10 C — 시한은 «남은 tick» 으로 받아 절대 tick 으로 보존한다).
 마감 = revision 대조(RETRY) → pending·owners·uncertain 잔여 대조(거절) → close 1줄(done["goal:<골>"]).
 ft2 의 `state.pending` 은 용량 장부라 스스로 비지 않는다 — 마감 판정은 `done` 에 없는 접수만
-«남은 pending» 으로 센다(원자료 pending 과 같은 뜻: «접수됐고 아직 안 끝난 것»).
+«남은 pending» 으로 세고, command 와 work 가 다를 수 있으므로 accept 줄로 command → work 사상을 먼저 한다
+(DA 회차 1 R2 반례).
 마감 표식은 `done["goal:<골>"]` 한 곳이다(r1594 arch 결정) — journal 회수 판정이 work 단위
 `_work_closed` 이므로 close 줄의 work 도 그 자리여야 회수 대상이 된다. 그래서 close 줄의 work =
 `goal:<골>` 이고 같은 transaction 이 그 표식을 세운다(성공할 때만 1줄 · RETRY·거절은 쓰기 0).
@@ -37,8 +38,8 @@ OK, HOLD, REFUSED, BUSY, CORRUPT = "접수 성공", "완료 유보", "접수 거
 PROGRESS_KINDS = ("progress", "heartbeat", "external_wait")
 Tick = collections.namedtuple("Tick", "result lane tick deadline written revision reason",
                               defaults=(None, None, None, None, False, None, ""))
-Scan = collections.namedtuple("Scan", "result lanes stalled_lanes tick revision reason",
-                              defaults=(None, None, None, None, None, ""))
+Scan = collections.namedtuple("Scan", "result lanes stalled_lanes tick revision written reason",
+                              defaults=(None, None, None, None, None, False, ""))
 Close = collections.namedtuple("Close", "result goal status revision blockers written reason",
                                defaults=(None, None, None, None, None, False, ""))
 
@@ -118,8 +119,9 @@ class Lifecycle:
             lanes[lane] = {"stalled": stalled, "reason": "PROGRESS_STALE" if stalled else "PROGRESS_FRESH",
                            "wait_deadline": kept, "progress_age": age,
                            "heartbeat_age": tick - row["heartbeat_at"], "rearm": row["rearm"]}
-        return Scan(HOLD, lanes, sorted(lane for lane, row in lanes.items() if row["stalled"]),
-                    tick, state["revision"], "" if lanes else "lane 기록 0")
+        return Scan(result=HOLD, lanes=lanes, stalled_lanes=sorted(
+            lane for lane, row in lanes.items() if row["stalled"]), tick=tick,
+            revision=state["revision"], reason="" if lanes else "lane 기록 0")
 
     def _close(self, context, goal, revision):
         state, records = context
@@ -154,12 +156,20 @@ class Lifecycle:
     def _blockers(self, state, records):
         """원자료 blockers 값 그대로 — pending · owners(GRANTED/STARTED) · uncertain."""
         done = state.get("done") or {}
-        pending = [command for command in state.get("pending") or [] if command not in done]
+        pending = [work for work in self._pending_works(state, records) if work not in done]
         blockers = ["PENDING_NOT_ZERO:%d" % len(pending)] if pending else []
         for work in sorted(state.get("owners") or {}):
             blockers.append("%s:%s" % (self._owner_word(records, work), work))
         blockers += ["UNCERTAIN:%s" % work for work in sorted(state.get("uncertain") or {})]
         return blockers
+
+    def _pending_works(self, state, records):
+        """접수 command → work 사상(accept 줄) — command 이름이 work 와 달라도 마감 판정이 맞는다.
+        이미 회수된 접수(journal_base.receipts)는 그 segment 가 닫혔다는 뜻이라 «남은 일» 이 아니다."""
+        by_command = {rec["command"]: rec.get("work") for rec in records if rec["kind"] == "accept"}
+        folded = (state.get("journal_base") or {}).get("receipts") or {}
+        return [by_command.get(command) or command
+                for command in state.get("pending") or [] if command not in folded]
 
     def _owner_word(self, records, work):
         """착수 기록이 있으면 STARTED · 실행권만 있으면 GRANTED(원자료 낱말)."""

@@ -15,7 +15,7 @@ FT2 = os.path.dirname(HERE)
 CORE = os.path.join(FT2, "core")
 CASES = os.path.join(FT2, "contracts", "core", "cases")
 TEAM = "harness"
-OK, HOLD, REFUSED = "접수 성공", "완료 유보", "접수 거부"
+OK, HOLD, REFUSED, BUSY = "접수 성공", "완료 유보", "접수 거부", "BUSY"
 CLOCK = dict(clock=lambda: FT_NOW)
 
 
@@ -126,6 +126,36 @@ def test_b_blocker_words_are_canonical(tmp_path):
     ex = execution.Execution(root, TEAM, **CLOCK)
     ex.start("w1", "h1", ex._state_records()[0]["generations"]["w1"])
     assert "STARTED:w1" in node.close("g", node._state_records()[0]["revision"]).blockers
+
+
+def test_r1_scan_under_lock_contention_is_busy(tmp_path):
+    """DA 회차 1 R1 — 잠금 경합은 BUSY 여야 한다(공통 실패 반환에 written 칸이 있다)."""
+    node = lifecycle.Lifecycle(str(tmp_path / "r1"), TEAM, **CLOCK)
+    _seed_lanes(node)
+    held = node.rs._try_lock()
+    try:
+        out = node.scan(stall_after=3)
+    finally:
+        node.rs._unlock(held)
+    assert (out.result, out.written) == (BUSY, False)
+    assert node.scan(stall_after=3).stalled_lanes == ["lane-b", "lane-d"]
+
+
+def test_r2_close_after_command_and_work_differ(tmp_path):
+    """DA 회차 1 R2 — 접수 command ≠ work 여도 완료면 닫히고, 완료 전에는 거절한다."""
+    root = str(tmp_path / "r2")
+    node, client = lifecycle.Lifecycle(root, TEAM, **CLOCK), intake.Intake(root, TEAM, **CLOCK)
+    ex, dp = execution.Execution(root, TEAM, **CLOCK), dispatch.Dispatch(root, TEAM, **CLOCK)
+    assert client.submit("cmd-1", "body", work="work-1").result == OK
+    gen = ex.claim("work-1", "h1").gen
+    ex.start("work-1", "h1", gen)
+    ex.effect("work-1", "h1", gen, "band:external-send")
+    early = node.close("g", node._state_records()[0]["revision"])
+    assert early.status == "REFUSED" and "PENDING_NOT_ZERO:1" in early.blockers    # 아직 안 끝났다
+    ex.result("work-1", "h1", gen)
+    dp.complete("work-1")
+    done = node.close("g", node._state_records()[0]["revision"])
+    assert (done.status, done.written) == ("CLOSED", True)
 
 
 class _HeartbeatAsProgress(lifecycle.Lifecycle):
