@@ -163,6 +163,13 @@ uf_watch() {  # <to> <계기 쪽지 seq>
 #   pipefail 이 그것을 파이프라인 rc 로 올린다. 호출부에서 `|| seq=""` 로 받는다.
 seq_of() { printf '%s\n' "$1" | grep -oE 'seq=[0-9]+' | head -1 | cut -d= -f2; }
 
+# ★r1562 다리(BRIDGED) — 받는 루트 mbox.sh(자식)가 자기 명부로 이미 판정·주입했다(r1309·r1524). 보낸 쪽이 doorbell·inbox 적재·uf_watch 를 한 번 더 치면 받는 좌석이 «보낸 루트 mbox.sh recv» 를 실행한다(#278479 실측 10건).
+#   남는 일 = 되돌림(rsv = 예약이 «실제로» 있었을 때만 — arch#277 반례) · 억제분 sweep · 출력. seq 는 «받는 루트 큐» 번호다.
+bridged_out() {  # <py 출력 1줄> <gate> <rsv 1|0>
+  if [ "$3" = 1 ]; then wake_budget_refund "$dbto" send >/dev/null 2>&1 || true; fi
+  local fu; fu="$(doorbell_followup_sweep)"; fu="${fu//$'\n'/ }"; echo "$1 doorbell=bridged gate=$2${fu:+ $fu}"
+}
+
 # 인박스 적재(판정 425-B) — 큐 적재 직후 1줄 · 규칙표만 즉시(Haiku 는 ft-inbox 가 분리 실행) · 실패는 stderr WARN, 전송 rc 불변.
 #   적재 줄 `INGEST … cls=<분류>` 의 분류를 INBOX_CLS 에 둔다 — 알림 결정(inbox_must_ring)이 읽는다(판정 423 ③).
 inbox_ingest() {
@@ -222,6 +229,11 @@ case "$cmd" in
     fi
     py_out="$(python3 "$MBOXPY" send "$to" "$from" "${args[*]}" ${force[@]+"${force[@]}"})" || { _rc=$?; [ -z "$SK" ] || bash "$SE" abort "$SK"; [ "$gate" != sent ] || wake_budget_refund "$dbto" send >/dev/null 2>&1 || true; exit $_rc; }
     seq="$(seq_of "$py_out")" || seq=""
+    case "$py_out" in BRIDGED*)   # ★r1562 — 다른 루트로 간 쪽지면 여기서 끝난다★(사유는 bridged_out 주석 · rsv = 이 게이트가 «예약을 실제로 했나»)
+      case "$gate" in sent) if [ "${urgent}${uf}${ew}" = 000 ] && ! _wg_human_sender "$from" && case "$head" in '[긴급]'|'[인계]'|'[레디]') false;; *) true;; esac; then rsv=1; fi;; esac
+      [ -z "$SK" ] || bash "$SE" commit "$SK" --ref "bridged seq $seq" >/dev/null || true
+      bridged_out "$py_out" "$gate" "${rsv:-0}"; exit 0;;
+    esac
     # 억제분 seq 는 «확정 뒤» 에 적는다 — 발급 전에 적으면 그 번호가 아무것도 가리키지 않는다(r1476 T9).
     case "$gate" in held|budget) doorbell_record_held "$dbto" "$seq" "$gate";; esac
     [ -z "$SK" ] || bash "$SE" commit "$SK" --ref "seq $seq" >/dev/null || true
@@ -264,6 +276,9 @@ case "$cmd" in
     # relay 도 결국 send 를 타므로 출력에 `seq=` 가 있다 — 같은 번호를 창에도 싣는다.
     py_out="$(python3 "$MBOXPY" relay "$to" "$from" "$file" "${args[*]}")" || { _rc=$?; [ "$gate" != sent ] || wake_budget_refund "$dbto" send >/dev/null 2>&1 || true; exit $_rc; }
     seq="$(seq_of "$py_out")" || seq=""
+    case "$py_out" in BRIDGED*)   # r1562 — rsv 규칙은 send 절과 같다(relay 도 py 에서 send 를 탄다)
+      case "$gate" in sent) if [ "${urgent}${uf}${ew}" = 000 ] && ! _wg_human_sender "$from" && case "$head" in '[긴급]'|'[인계]'|'[레디]') false;; *) true;; esac; then rsv=1; fi;; esac
+      bridged_out "$py_out" "$gate" "${rsv:-0}"; exit 0;; esac
     case "$gate" in held|budget) doorbell_record_held "$dbto" "$seq" "$gate";; esac
     inbox_ingest "$seq"
     if inbox_must_ring; then notify=1; fi
