@@ -607,12 +607,12 @@ case "$MODE" in
   hard|block)
     if [ "$STATE" = "RECV" ]; then       # R107: 후계 도달 파일 없음 → 새 일 수락(recv) 0
       printf '%s deny mode=%s ctx=%sk tool=%s agent_id=%s recv-gate\n' "$(date +%FT%T)" "$MODE" "$K" "$WHAT" "${AGENT:--}" >> "$LOG" 2>/dev/null
-      printf '🛑 [context-distill-gate] 컨텍스트 %sk — 후계 도달 전 새 일 수락 0 (R107). .fable-team/bin/ft-successor-open.sh 로 후계를 열고 도달 확인부터. 쪽지는 큐에 남아 후계가 계보로 받는다. peek 은 허용.\n' "$K" >&2
+      printf '🛑 [context-distill-gate] 컨텍스트 %sk — 후계 도달 전 새 일 수락 0 (R107). .fable-team/bin/ft-successor-open.sh 로 후계를 열고 도달 확인부터. 쪽지는 큐에 남아 후계가 계보로 받는다. peek 은 허용. ★받을 일 0 이면 후계 0 — 좌석 닫기 대기 + 팀장에 «[다음 없음]» 1줄(ft-seat-open-work.py 판정 · 받을 일 있으면 지금처럼 후계)★\n' "$K" >&2
       exit 2
     fi
     if [ "$STATE" = "NEWWORK" ]; then
       printf '%s newwork mode=%s ctx=%sk warn_at=%sk block_at=%sk tool=%s agent_id=%s\n' "$(date +%FT%T)" "$MODE" "$K" "$WARN_K" "$BLOCK_K" "$WHAT" "${AGENT:--}" >> "$LOG" 2>/dev/null
-      printf '🛑 [context-distill-gate] 컨텍스트 %sk 토큰 — 경고선(%sk) 도달 = ★새 일 수락 금지★. 지금 증류한다(규칙 r1429): 스냅샷 → 인계서 → 후계.\n' "$K" "$WARN_K" >&2
+      printf '🛑 [context-distill-gate] 컨텍스트 %sk 토큰 — 경고선(%sk) 도달 = ★새 일 수락 금지★. 지금 증류한다(규칙 r1429): 스냅샷 → 인계서 → 후계(받을 일 0 이면 후계 0 — 좌석 닫기 대기 + 팀장에 «[다음 없음]» 1줄).\n' "$K" "$WARN_K" >&2
       printf '허용: 스냅샷(HANDOFF-*.md · .fable-team/state/** · design/**/inbox/**) · baton save · mbox send/relay · git add/commit/push · Read · AskUserQuestion · tmuxc save · 후계 개설(증류 단어 포함 발주).\n' >&2
       exit 2
     fi

@@ -167,6 +167,22 @@ def _held_file(seat):
     return os.path.join(sd, "doorbell-held", re.sub(r"[^A-Za-z0-9._#-]", "_", seat))
 
 
+def _open_work(seat):   # r1539 — 받을 일 0 이면 False · 있으면 True · 판정 불가 = None(지금처럼 [인계] 요구)
+    tool = os.environ.get("FT_SEAT_OPEN_WORK") or os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "..", "bin", "ft-seat-open-work.py")
+    root = os.path.dirname(os.path.dirname(os.path.abspath(CANON))) if CANON else ""
+    if not root or not os.path.isfile(tool):
+        return None   # 도구·루트 없음 = 설치 환경 문제 — 지금처럼 [인계] 요구(닫기 계약에 새 출력 0)
+    try:
+        p = subprocess.run([sys.executable, tool, seat, "--root", root],
+                           capture_output=True, text=True, timeout=20)
+    except (OSError, subprocess.SubprocessError) as e:
+        sys.stderr.write("받을 일 판정 불가 도구 실행 실패 %s — 지금처럼 [인계] 요구\n" % type(e).__name__); return None
+    if p.returncode == 0: return False
+    if p.returncode == 1: return True
+    sys.stderr.write((p.stderr.strip().splitlines() or ["받을 일 판정 불가 — 지금처럼 [인계] 요구"])[0] + "\n"); return None
+
+
 def close_check(seat, need_ready=True, verdict=False):
     """rc 0 = 닫아도 됨 · 3 = 거절(사유 줄) — ③ 미표시 영수 · ② 후계가 있으면 [인계] 뒤 후계 [레디] 가 항목 전부 «받음».
     need_ready=False(retire 관문) = ③ 만 · True(닫기 관문) = 후계 있는 옛 세션만 ③+② — 후계 없는 닫기(나노·판정 닫기)는 승계 검사 대상 아님.
@@ -196,6 +212,8 @@ def close_check(seat, need_ready=True, verdict=False):
             seat, len(bad), ",#".join(str(r["seq"]) for r in bad[:10]), seat)); return 3
     if not need_ready:
         print("CLOSE-OK %s 미표시 0" % seat); return 0
+    if _open_work(seat) is False:   # r1539 — 받을 일 0 이면 [인계] 요구 면제(승계 0 = 인계할 것이 없다) · 있음·판정 불가 = 지금처럼 REJECT
+        print("CLOSE-OK %s 받을 일 0 · [인계] 면제" % seat); return 0
     h = last_handover(seat, succ)
     if not h:
         print("REJECT %s [인계] 없음 — bash mbox.sh handover %s %s" % (seat, seat, succ)); return 3
