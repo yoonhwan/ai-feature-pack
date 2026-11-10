@@ -235,7 +235,44 @@ CRIT_DESTROY = re.compile(
     r"\bDROP\s+(?:TABLE|DATABASE)\b|\bFLUSH(?:ALL|DB)\b", re.I)
 
 
-def critical_kinds(blocks, secret=None):   # → (종류, 사유) | None · blocks = autonomy_scope_secret.parse_added 결과
+# ── r1597 «시험이 자기가 만든 임시 폴더를 끝에 지우는 줄» 예외 (카드 r1597 · 오빠 Slack 승인 ts=1794320041.110549) ──
+#   destroy 판정은 줄 글자만 본다 — 그래서 시험의 `T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT` 도 destroy 가 된다(r1593 ⓔ 실측).
+#   세 조건이 «모두» 참인 그 줄만 뺀다: ① 경로가 tests/ ② 줄이 `trap '<rm -rf "$V">' EXIT` 꼴이고 trap 안 명령이 그 rm -rf 하나뿐
+#   ③ 같은 파일(바뀐 뒤 전문 · show)에서 V 대입이 정확히 1번이고 그 값이 `$(mktemp -d …)`. 하나라도 거짓이면 지금처럼 destroy(닫힌 쪽).
+#   ★NG1(r1597 arch 인수)★ 줄 «전체» 가 trap 하나일 때만 — 앞에 다른 명령(`rm -rf / ;` · `kill -9 1 &&` · `psql … DROP TABLE ;`)이 붙으면 예외 0.
+#     예외인 앞머리는 «같은 변수의 mktemp -d 대입» 하나뿐(r1592 실사건이 한 줄 꼴이라 필요 — 변수까지 같아야 한다).
+#   ★NG2(r1597 arch 재인수)★ 앞머리 값은 «닫힌 꼴» 만: V="$(mktemp -d)" · V=$(mktemp -d) · 템플릿 인자 1개(글자 [\w./-] 만).
+#     `$(mktemp -d && rm -rf /)` · `$(mktemp -d | xargs rm -rf)` · `$(mktemp -d) && kill …` · `$(mktemp -d) $(…)` = destroy.
+MKTEMP_VALUE = r"\"?\$\(\s*mktemp\s+-d(?:\s+[\w./-]+)?\s*\)\"?"
+TRAP_LINE = re.compile(r"^\s*(?:(?P<pre>[A-Za-z_][A-Za-z0-9_]*)=\s*" + MKTEMP_VALUE + r"\s*;\s*)?"
+                       r"trap\s+(?P<q>['\"])(?P<body>.+?)(?P=q)\s+EXIT\s*;?\s*$")
+TRAP_RM_RF_BODY = re.compile(r'^rm -rf "\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?"$')
+# DA② R1: 대입은 «줄 머리» 에서 «값 전체» 가 mktemp -d 여야 한다 — re.search 로 본문 어딘가의 접두만 보면 주석 줄·`$(mktemp -d)/../..` 가 통과한다
+# NG3: 재대입을 «줄 머리» 로만 세면 `true; T=/` · `local T=/` · `T+=/../..` · `read -r T` · `for T in /` 가 새어나간다 — 맨 이름 출현으로 센다
+MKTEMP_LINE = r"(?m)^[ \t]*(?:export[ \t]+)?%s[ \t]*=[ \t]*"   # 줄 머리 대입만(주석·문자열 속 대입은 안 센다)
+MKTEMP_NAME = r"(?<![$\w{])%s(?![A-Za-z0-9_])"                # «쓰는 자리»($T·${T})가 아닌 맨 이름 — 대입·재대입·read·for 를 전부 센다
+MKTEMP_CASSIGN = r"\$\{%s:?="                                    # ${T:=…}·${T=…} 조건부 대입 = 읽기가 아니라 «추가 대입»(DA② R2)
+MKTEMP_TAIL = r"[ \t]*(?:;[ \t]*trap\s+.*)?$"                  # 값 뒤 = 줄 끝 또는 «; trap …» 하나
+
+
+def mktemp_trap_exempt(path, txt, show=None):   # → True = «그 시험이 방금 만든 임시 폴더를 지우는» 줄
+    if not path or not (path.startswith("tests/") or "/tests/" in path):
+        return False
+    m = TRAP_LINE.match(txt or "")   # 줄 전체가 trap 하나(+ 같은 변수의 mktemp 대입 하나) — r1597 NG1
+    var = TRAP_RM_RF_BODY.match(m.group("body")) if m else None
+    if not var or (m.group("pre") and m.group("pre") != var.group(1)):   # 앞 대입 변수 ≠ trap 변수 = 그 임시 폴더가 아니다
+        return False
+    body = (show(path) if show else "") or ""   # trap 꼴인 줄만 파일을 읽는다(git 호출 아끼기)
+    if not body:
+        return False
+    v = re.escape(var.group(1))
+    uses = re.findall(MKTEMP_NAME % v, body) + re.findall(MKTEMP_CASSIGN % v, body)
+    if len(uses) != 1:   # 맨 이름 + 조건부 대입이 «정확히 1번»(재대입·read·for·${T:=…} = 대상이 그 임시 폴더가 아니다 · NG3·R2)
+        return False
+    return bool(re.search(MKTEMP_LINE % v + MKTEMP_VALUE + MKTEMP_TAIL, body))   # 값 «전체» 가 mktemp -d (DA② R1-a: 뒤에 붙은 /../.. = destroy)
+
+
+def critical_kinds(blocks, secret=None, show=None):   # → (종류, 사유) | None · blocks = autonomy_scope_secret.parse_added 결과
     for path, _items, is_new in blocks:   # ① 새 LaunchAgents/LaunchDaemons plist
         if is_new and CRIT_LAUNCHD.search(path or ""):
             return "launchd", "새 launchd plist: %s" % path
@@ -248,9 +285,9 @@ def critical_kinds(blocks, secret=None):   # → (종류, 사유) | None · bloc
     why = secret() if secret else ""   # ③ 비밀 줄(autonomy_scope_secret.reason 재사용)
     if why:
         return "secret", why
-    for path, items, _is_new in blocks:   # ④ 파괴 명령 새 줄
+    for path, items, _is_new in blocks:   # ④ 파괴 명령 새 줄 — r1597 tests/ 임시 폴더 trap 줄만 예외
         for no, txt in items:
-            if CRIT_DESTROY.search(txt):
+            if CRIT_DESTROY.search(txt) and not mktemp_trap_exempt(path, txt, show):
                 return "destroy", "%s:%d %s" % (path or "?", no, txt.strip()[:80])
     return None
 
