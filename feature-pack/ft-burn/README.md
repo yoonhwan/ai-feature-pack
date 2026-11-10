@@ -1,4 +1,4 @@
-# Feature Pack: ctx-waste
+# Feature Pack: ft-burn
 
 A **read-only audit tool** that shows, with graphs, how much context your local AI coding agents waste.
 
@@ -17,14 +17,18 @@ So cost is `turns × context size`.
 
 ```bash
 git clone https://github.com/yoonhwan/ai-feature-pack.git
-cd ai-feature-pack/feature-pack/ctx-waste
-bash install.sh            # symlink into ~/.local/bin
+cd ai-feature-pack/feature-pack/ft-burn
+bash install.sh            # symlink into ~/.local/bin (ft-burn + ctx-waste alias)
 
 cd ~/my-project
-ctx-waste                  # last 3 hours, current folder
+ft-burn                    # last 3 hours, current folder
 ```
 
-English by default. Korean: `ctx-waste --lang ko`
+English by default. Korean: `ft-burn --lang ko`
+
+`ctx-waste` still works — it is a permanent alias of `ft-burn`. This tool **only measures what was
+burned**. Capacity, subscription count and goal throughput live in the sibling tool `ft-plan`
+(`ft-burn --hours 168 --json | ft-plan --capacity --accounts 5x:5,ultra:5`).
 
 ## Supported runtimes
 
@@ -89,11 +93,11 @@ You do not have to run anything by hand. Paste this into Claude Code, Codex, pi,
 coding agent and it installs, runs, and explains the result itself.
 
 ```text
-Install and run ctx-waste on this project, then explain the output.
-https://github.com/yoonhwan/ai-feature-pack/tree/main/feature-pack/ctx-waste
+Install and run ft-burn on this project, then explain the output.
+https://github.com/yoonhwan/ai-feature-pack/tree/main/feature-pack/ft-burn
 
-1. Clone the repo and run feature-pack/ctx-waste/install.sh (creates ~/.local/bin/ctx-waste).
-2. Run `ctx-waste --hours 6` in this project root. Use `--lang ko` if I speak Korean.
+1. Clone the repo and run feature-pack/ft-burn/install.sh (creates ~/.local/bin/ft-burn).
+2. Run `ft-burn --hours 6` in this project root. Use `--lang ko` if I speak Korean.
 3. From the output, report only these: cache full-rewrite share, average context per request,
    and the top 3 auto-loaded files over 4KB.
 4. If full rewrite is above 20%, find the cause from local logs (resume size, sessions starting
@@ -122,7 +126,7 @@ fresh start: 4.9x the working room · 4.7x less rewrite cost (vs resume 250k)
 
 **Resuming a 250k conversation leaves 50k of room and costs 500k to re-write. Starting fresh with a
 5k handover leaves 246k and costs 107k.** That single ratio is the biggest lever in agent cost, and
-it is why `ctx-waste` prints this table before the break-even section.
+it is why `ft-burn` prints this table before the break-even section.
 
 Tune with `--gate` and `--resume-caps` (comma separated).
 
@@ -138,15 +142,27 @@ Tune with `--gate` and `--resume-caps` (comma separated).
 | `--rewrite-tokens N` | 150000 | what counts as a full rewrite |
 | `--budget N` | 250000 | proposed distill threshold |
 | `--top N` | 6 | session rows per runtime |
-| `--json` | off | machine readable |
+| `--json` | off | machine readable · adds the `plan_input` block (contract `burn.v1`) consumed by `ft-plan` |
+
+`--capacity` / `--inventory` / `--need` / `--scales` are **not** here — they moved to `ft-plan`.
 
 ### `--request` — see tool definitions too
 
 ```bash
-ctx-waste --request ~/.cli-proxy-api/logs/error-v1-messages-*.log
+ft-burn --request ~/.cli-proxy-api/logs/error-v1-messages-*.log
 ```
 
 Any file containing a JSON request body works (a `=== REQUEST BODY ===` marker is also understood).
+
+`ft-burn --json` adds one block that is a **contract**: `plan_input` with `schema: burn.v1`
+(`window_hours` · `pools{req, usage0, ctx_per_req, active_hours, cache_reuse, cache_reuse_of_input,
+w_per_session_hour, samples, sessions, w_total}` · `rate_claude`). `ft-plan` refuses anything else.
+
+```bash
+ft-burn --hours 168 --json > /tmp/burn.json
+ft-plan --from /tmp/burn.json --inventory                     # 0순위 상수 점검
+ft-plan --from /tmp/burn.json --capacity --accounts 5x:5,ultra:5
+```
 
 ## How to fix what you find
 

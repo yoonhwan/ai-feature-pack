@@ -1,7 +1,7 @@
 {
-  "name": "ctx-waste",
+  "name": "ft-burn",
   "version": "0.3.0",
-  "title": "ctx-waste — local context waste audit for AI coding agents",
+  "title": "ft-burn — local context waste audit for AI coding agents",
   "description": "Read-only audit of context waste across claude, codex, pi, opencode, hermes, openclaw and commandcode. Detects installed/running runtimes, shows auto-loaded memory size, cache full-rewrite share, context per request and the distillation break-even turn count as graphs. Reports the start-budget breakdown (fresh distill vs resume: working room left and rewrite cost). English by default (--lang ko for Korean). No writes, no network.",
   "category": "observability",
   "os": [
@@ -13,9 +13,9 @@
   "requires_auth": false,
   "commands": [
     {
-      "name": "ctx-waste",
+      "name": "ft-burn",
       "kind": "cli-binary",
-      "path": "bin/ctx-waste",
+      "path": "bin/ft-burn",
       "runtime": "python3",
       "args": [
         "--lang en|ko",
@@ -23,12 +23,20 @@
         "--hours N",
         "--request FILE",
         "--json"
-      ]
+      ],
+      "note": "--json 은 plan_input 블록(계약 burn.v1)을 더한다. 용량·구독 산정 모드(--capacity·--inventory·--need·--scales)는 ft-plan 몫이다."
+    },
+    {
+      "name": "ctx-waste",
+      "kind": "alias",
+      "path": "bin/ft-burn",
+      "runtime": "python3",
+      "note": "옛 이름 — 영구 유지(오빠 승인 #278848)"
     }
   ],
   "install": {
     "script": "install.sh",
-    "target": "~/.local/bin/ctx-waste",
+    "target": "~/.local/bin/ft-burn",
     "idempotent": true,
     "uninstall": "uninstall.sh"
   },

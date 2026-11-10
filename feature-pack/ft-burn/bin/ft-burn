@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""ctx-waste — local context waste audit for AI coding agents (read-only).
+"""ft-burn — local context waste audit for AI coding agents (read-only).
 
 Checks the local environments of claude, codex, pi, hermes, openclaw, opencode and
 commandcode: how much of every request is paid before any work happens, which
@@ -18,6 +18,7 @@ import glob
 import json
 import os
 import re
+import statistics
 import subprocess
 import sys
 import time
@@ -31,7 +32,7 @@ HOME = os.path.expanduser("~")
 # ---------------------------------------------------------------- i18n
 STR = {
     "en": {
-        "title": "ctx-waste — local context waste audit (read-only)",
+        "title": "ft-burn — local context waste audit (read-only)",
         "window": "Window: last %gh · runtimes with data %d · sessions %d · requests %s",
         "env": "[0] Runtime environment",
         "env_head": "  %-12s %-9s %-7s %-8s %-13s %s",
@@ -88,7 +89,7 @@ STR = {
         "lang": "en",
     },
     "ko": {
-        "title": "ctx-waste — 로컬 컨텍스트 낭비 감사 (읽기 전용)",
+        "title": "ft-burn — 로컬 컨텍스트 낭비 감사 (읽기 전용)",
         "window": "구간: 최근 %g시간 · 데이터 있는 런타임 %d · 세션 %d개 · 고유 요청 %s건",
         "env": "[0] 실행 환경",
         "env_head": "  %-12s %-9s %-7s %-8s %-13s %s",
@@ -539,10 +540,98 @@ def analyze_request(path):
             "total_chars": len(json.dumps(d, ensure_ascii=False))}
 
 
+# ------------------------------------------- capacity input (계약 burn.v1)
+# 이 도구는 «쓴 양» 만 잰다. 감당량·필요 구독 계산은 ft-plan 몫이고, 두 축은 이 JSON 으로만 붙는다.
+CAP_SCHEMA = "burn.v1"
+
+
+def _w(read, write, inp, out):
+    """W = input·1 + cache_creation·1.25 + cache_read·0.1 + output·5 (arch#276 REPORT §0)."""
+    return (inp or 0) * 1.0 + (write or 0) * W_W5M + (read or 0) * W_READ + (out or 0) * W_OUT
+
+
+def _pool_of(rt_key, model):
+    """어느 쿼터를 쓰는 요청인가. 확정 불가 = unknown — 다른 pool 에 밀어 넣지 않는다(b)."""
+    m = (model or "").lower()
+    if rt_key == "claude":
+        return "claude"
+    if rt_key == "pi":
+        if m in ("", "pi", "?"):
+            return "unknown"
+        return "pi-claude" if "claude" in m else "pi-other"
+    return rt_key
+
+
+def capacity_pools(data):
+    """pool 별 측정값 — 요청수·usage0·ctx·호출 분모·캐시재사용 2종·세션 표본·W."""
+    pools = {}
+    for k, v in data.items():
+        for r in (v.get("recs") or []):
+            pool = _pool_of(k, r.get("model"))
+            p = pools.setdefault(pool, dict(req=0, zero=0, read=0, write=0, inp=0,
+                                            out=0, w=0.0, hours=set(), sess={}))
+            p["req"] += 1
+            read = r.get("read") or 0
+            write = r.get("write") or 0
+            inp = r.get("inp") or 0
+            out = r.get("out") or 0
+            if read + write + inp + out == 0:
+                p["zero"] += 1          # (d) usage 0 = API 오류 레코드 — 따로 세고 율 분모에서 뺀다
+                continue
+            p["read"] += read
+            p["write"] += write
+            p["inp"] += inp
+            p["out"] += out
+            w = _w(read, write, inp, out)
+            p["w"] += w
+            h = int((r.get("t") or 0) // 3600)
+            p["hours"].add(h)
+            s = p["sess"].setdefault(r.get("sess") or "?", dict(w=0.0, hours=set(), req=0))
+            s["w"] += w
+            s["hours"].add(h)
+            s["req"] += 1
+    out = {}
+    for name, p in pools.items():
+        per = [s["w"] / max(len(s["hours"]), 1) for s in p["sess"].values()
+               if s["req"] >= 20 and len(s["hours"]) >= 1]
+        nz = p["req"] - p["zero"]
+        den = p["read"] + p["write"]
+        tot_in = den + p["inp"]
+        out[name] = dict(
+            req=p["req"], usage0=p["zero"], calls=nz, sessions=len(p["sess"]),
+            ctx_per_req=(tot_in / nz) if nz else 0.0,
+            active_hours=len(p["hours"]),
+            cache_reuse=(p["read"] / den) if den else 0.0,
+            cache_reuse_of_input=(p["read"] / tot_in) if tot_in else 0.0,
+            w_total=round(p["w"], 3),
+            samples=len(per),
+            w_per_session_hour=(statistics.median(per) if per else None))
+    return out
+
+
+def capacity_input(data, hours):
+    """ft-plan 이 읽는 유일한 계약(burn.v1). 표본 0 = null — 0 으로 숨기지 않는다(no_silent_fallback)."""
+    P = capacity_pools(data)
+    cl = P.get("claude") or {}
+    return {"schema": CAP_SCHEMA, "window_hours": hours,
+            "pools": {k: {"req": v["req"], "usage0": v["usage0"],
+                          "ctx_per_req": round(v["ctx_per_req"], 1),
+                          "active_hours": v["active_hours"],
+                          "cache_reuse": round(v["cache_reuse"], 4),
+                          "cache_reuse_of_input": round(v["cache_reuse_of_input"], 4),
+                          "w_per_session_hour": (round(v["w_per_session_hour"], 4)
+                                                 if v["w_per_session_hour"] is not None else None),
+                          "samples": v["samples"], "sessions": v["sessions"],
+                          "w_total": v["w_total"]}
+                      for k, v in P.items()},
+            "rate_claude": (round(cl["w_per_session_hour"], 4)
+                            if cl.get("w_per_session_hour") else None)}
+
+
 # ---------------------------------------------------------------- report
 def main():
     ap = argparse.ArgumentParser(
-        prog="ctx-waste",
+        prog="ft-burn",
         description="Local context waste audit for AI coding agents (read-only)")
     ap.add_argument("--lang", choices=["en", "ko"], default="en", help="output language (default en)")
     ap.add_argument("--runtime", default="auto",
@@ -567,7 +656,7 @@ def main():
         mem = memory_of(rt, a.project)
         recs = scan(rt, a.hours)
         an = analyze(recs, a.rewrite_tokens) if recs else None
-        data[rt.key] = {"rt": rt, "memory": mem, "analysis": an,
+        data[rt.key] = {"rt": rt, "memory": mem, "analysis": an, "recs": recs,
                         "running": procs.get(rt.key, 0),
                         "installed": bool(recs) or os.path.isdir(os.path.expanduser(rt.home))}
     reqinfo = analyze_request(a.request) if a.request else None
@@ -583,6 +672,7 @@ def main():
 
     if a.json:
         out = {"lang": L, "hours": a.hours, "project": a.project,
+               "plan_input": capacity_input(data, a.hours),
                "runtimes": {k: {"installed": v["installed"], "running": v["running"],
                                 "memory": v["memory"],
                                 "memory_tokens": sum(r["tokens"] for r in v["memory"]),
