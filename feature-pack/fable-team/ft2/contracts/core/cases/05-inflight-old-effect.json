@@ -4,9 +4,18 @@
   "출처": {
     "정본 경로": "design/harness/research/ft-2.0/sim-atomic-json/cases_b.py",
     "정본 sha": "db18c453c77868355ffeb813d3b4c49f2047806a",
+    "폴더": "05-inflight-old-effect",
     "함수": "case_05_inflight",
     "줄": "9-53",
-    "실험 literal 필드명": ["status", "owner", "reported_to", "deadline", "uncertain_since", "reason", "effect_lines"]
+    "실험 literal 필드명": [
+      "status",
+      "owner",
+      "reported_to",
+      "deadline",
+      "uncertain_since",
+      "reason",
+      "effect_lines"
+    ]
   },
   "given": [
     "접수 card-s · 실행권 부여 · 착수",

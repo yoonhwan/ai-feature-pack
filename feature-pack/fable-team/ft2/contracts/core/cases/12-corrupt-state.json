@@ -4,9 +4,19 @@
   "출처": {
     "정본 경로": "design/harness/research/ft-2.0/sim-atomic-json/cases_corrupt.py",
     "정본 sha": "db18c453c77868355ffeb813d3b4c49f2047806a",
+    "폴더": "12-corrupt-state",
     "함수": "case_12_corrupt",
     "줄": "17-83",
-    "실험 literal 필드명": ["status", "initialised", "closed", "fsync_calls", "dir_fsync_calls", "state_bytes", "corrupt_digest", "CORRUPT_BYTES"]
+    "실험 literal 필드명": [
+      "status",
+      "initialised",
+      "closed",
+      "fsync_calls",
+      "dir_fsync_calls",
+      "state_bytes",
+      "corrupt_digest",
+      "CORRUPT_BYTES"
+    ]
   },
   "given": [
     "접수 card-1",
@@ -19,7 +29,7 @@
   "expect": {
     "처리 결과": "복구 필요",
     "상태 revision 변화": false,
-    "근거 검증": "읽기 후 원본 바이트 불변",
+    "근거 검증": "판정 = CORRUPT_STATE 명시",
     "관측 대조": [
       {
         "원자료 키": "k6",
@@ -27,14 +37,22 @@
           "file_hits": 2,
           "lines": 2,
           "ok": true,
-          "ops": ["accept", "read_state_guarded"]
+          "ops": [
+            "accept",
+            "read_state_guarded"
+          ]
         }
       },
       {
         "원자료 키": "k7",
         "관측": {
-          "backup_cards": ["card-1"],
-          "fsync": [3, 3],
+          "backup_cards": [
+            "card-1"
+          ],
+          "fsync": [
+            3,
+            3
+          ],
           "ok": true,
           "state_bytes": 29
         }

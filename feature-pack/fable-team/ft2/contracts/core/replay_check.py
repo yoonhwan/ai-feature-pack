@@ -1,5 +1,4 @@
 """ft2 코어 상태 계약 사례표 재생 검사기 (r1546).
-
 사례표(cases/*.json)가 r1496·r1497 원자료 관측과 1:1 인지 본다. 실험 코드 실행 0 · 원자료 읽기만.
 A 사례 수·id 12 · B 4칸·정본 결과 낱말 7군 · C 관측 1:1(13키) · D «비채택: …» 표시 · E literal 은 출처 칸만
 rc 0 통과 · 1 불일치 · 3 사례 폴더 없음/빈 표 · 4 원자료 못 읽음(no silent fallback)
@@ -16,7 +15,7 @@ RESULT_WORDS = ("접수 성공", "접수 거부", "복구 필요", "낡은 실�
                 "BUSY", "용량 부족", "완료 유보", "회수 결과")
 TOP_KEYS = {"id", "사례 이름", "출처", "given", "expect", "비채택"}
 EXPECT_KEYS = {"처리 결과", "상태 revision 변화", "근거 검증", "관측 대조"}
-SOURCE_KEYS = {"정본 경로", "정본 sha", "함수", "줄", "실험 literal 필드명"}
+SOURCE_KEYS = {"정본 경로", "정본 sha", "폴더", "함수", "줄", "실험 literal 필드명"}
 JUDGE_ROW_KEYS = {"원자료 키", "관측"}
 NONADOPT = "비채택: "
 
@@ -88,13 +87,11 @@ def check_judge(cases, run_doc, judge):
             continue
         keys.append(key)
         bad.extend([] if judge.get(key, row["관측"]) == row["관측"] else ["%s 값 불일치" % key])
-    for label, diff in (("중복 키", sorted({k for k in keys if keys.count(k) > 1})),
-                        ("원자료에만", sorted(set(judge) - set(keys))),
-                        ("표에만", sorted(set(keys) - set(judge)))):
-        if diff:
-            bad.append("%s %s" % (label, diff))
-    if [k for k, v in judge.items() if not v.get("ok")]:
-        bad.append("원자료 ok 아님")
+    groups = (("중복 키", sorted({k for k in keys if keys.count(k) > 1})),
+              ("원자료에만", sorted(set(judge) - set(keys))),
+              ("표에만", sorted(set(keys) - set(judge))))
+    bad += ["%s %s" % (label, diff) for label, diff in groups if diff]
+    bad += ["원자료 ok 아님"] if [k for k, v in judge.items() if not v.get("ok")] else []
     ok = not bad and len(keys) == len(judge)
     return ok, "대조 %d/%d 키 · 이상 %s" % (len(keys), len(judge), bad[:3] or "0")
 
@@ -131,13 +128,15 @@ def main(argv=None):
     parser.add_argument("--judge", required=True, help="원자료 경로 또는 git:<repo>@<sha>@<경로>")
     args = parser.parse_args(argv)
     try:
-        rows = run_checks(args.cases, load_judge(args.judge))
+        judge = load_judge(args.judge)
+    except (TableBroken, ValueError) as exc:
+        print("REPLAY-BROKEN: 원자료 — %s" % exc)
+        return 4
+    try:
+        rows = run_checks(args.cases, judge)
     except TableBroken as exc:
         print("REPLAY-BROKEN: %s" % exc)
         return 3
-    except ValueError as exc:
-        print("REPLAY-BROKEN: 원자료가 JSON 이 아님 — %s" % exc)
-        return 4
     for name, ok, detail in rows:
         print("%s %s — %s" % ("PASS" if ok else "FAIL", name, detail))
     bad = [name for name, ok, _ in rows if not ok]

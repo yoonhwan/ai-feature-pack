@@ -4,9 +4,21 @@
   "출처": {
     "정본 경로": "design/harness/research/ft-2.0/sim-atomic-json/cases_conc.py",
     "정본 sha": "db18c453c77868355ffeb813d3b4c49f2047806a",
+    "폴더": "02-concurrent-4x300",
     "함수": "case_02_concurrent_4x300",
     "줄": "18-71",
-    "실험 literal 필드명": ["applied", "busy", "ticks", "children", "events", "attempts", "pairs_equal", "strictly_increasing", "bound", "wall_s"]
+    "실험 literal 필드명": [
+      "applied",
+      "busy",
+      "ticks",
+      "children",
+      "events",
+      "attempts",
+      "pairs_equal",
+      "strictly_increasing",
+      "bound",
+      "wall_s"
+    ]
   },
   "given": [
     "접수 card-1 · card-2 · card-3 · card-4",

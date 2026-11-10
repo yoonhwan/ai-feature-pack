@@ -24,6 +24,10 @@ _SPEC = importlib.util.spec_from_file_location("ft2_core_replay",
                                                os.path.join(CORE, "replay_check.py"))
 replay = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(replay)
+_BIND = importlib.util.spec_from_file_location("ft2_core_bind",
+                                               os.path.join(CORE, "bind_check.py"))
+bind = importlib.util.module_from_spec(_BIND)
+_BIND.loader.exec_module(bind)
 
 _JUDGE = {}
 
@@ -44,6 +48,14 @@ def judge():
 
 def results(cases_dir=CASES):
     return {name: (ok, detail) for name, ok, detail in replay.run_checks(cases_dir, judge())}
+
+
+def bindings():
+    return {name: (ok, detail) for name, ok, detail in bind.run_checks(repo())}
+
+
+def repo():
+    return os.environ.get("FT20_BYZ_REPO") or BYZ_DEFAULT
 
 
 def write_case(folder, name, mutate):
@@ -121,3 +133,55 @@ def test_M3_unknown_result_word_fails_B(tmp_path):
 def test_missing_table_is_error_not_empty_pass(tmp_path):
     with pytest.raises(replay.TableBroken):
         replay.run_checks(str(tmp_path / "없는폴더"), judge())
+
+
+def test_F_semantic_binding_to_raw():
+    ok, detail = bindings()["F 의미 결속"]
+    assert ok, detail
+
+
+def test_G_source_sha_and_lines_exist():
+    ok, detail = bindings()["G 출처 실재"]
+    assert ok, detail
+
+
+def test_M4_da_r1_flip_expect_fails_F(tmp_path):
+    """DA R1-①: stale-owner expect 를 «접수 성공·revision 변경 true» 로 뒤집으면 rc≠0."""
+    def flip(folder):
+        def mutate(doc):
+            doc["expect"].update({"처리 결과": "접수 성공", "상태 revision 변화": True})
+
+        write_case(folder, "04-stale-owner.json", mutate)
+
+    original = bind.CASES
+    bind.CASES = mutfolded = str(tmp_path / "cases")
+    bind._CACHE.clear()
+    try:
+        shutil.copytree(CASES, mutfolded)
+        flip(mutfolded)
+        got = {name: ok for name, ok, _ in bind.run_checks(repo())}
+    finally:
+        bind.CASES = original
+        bind._CACHE.clear()
+    assert got["F 의미 결속"] is False
+
+
+def test_M5_da_r1_wrong_sha_fails_G(tmp_path):
+    """DA R1-②: 09-slow-team 출처 SHA 오기(38자)는 G 에서 rc≠0."""
+    def bad_sha(folder):
+        def mutate(doc):
+            doc["출처"]["정본 sha"] = "db18c453c77868355eb813d3b4c49f2047806a"
+
+        write_case(folder, "09-slow-team.json", mutate)
+
+    original = bind.CASES
+    bind.CASES = str(tmp_path / "cases")
+    bind._CACHE.clear()
+    try:
+        shutil.copytree(CASES, bind.CASES)
+        bad_sha(bind.CASES)
+        with pytest.raises(bind.Broken):
+            bind.run_checks(repo())
+    finally:
+        bind.CASES = original
+        bind._CACHE.clear()

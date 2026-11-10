@@ -3,10 +3,19 @@
   "사례 이름": "느린 팀",
   "출처": {
     "정본 경로": "design/harness/research/ft-2.0/sim-atomic-json/cases_c.py",
-    "정본 sha": "db18c453c77868355eb813d3b4c49f2047806a",
+    "정본 sha": "db18c453c77868355ffeb813d3b4c49f2047806a",
+    "폴더": "09-slow-team",
     "함수": "case_09_slow_team",
     "줄": "10-62",
-    "실험 literal 필드명": ["status", "claims", "busy_claims", "ticked_attempts", "events", "a_busy_wall_s", "b_full_transition_wall_s"]
+    "실험 literal 필드명": [
+      "status",
+      "claims",
+      "busy_claims",
+      "ticked_attempts",
+      "events",
+      "a_busy_wall_s",
+      "b_full_transition_wall_s"
+    ]
   },
   "given": [
     "접수 card-a · card-b",

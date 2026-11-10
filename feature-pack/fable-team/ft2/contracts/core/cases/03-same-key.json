@@ -4,9 +4,21 @@
   "출처": {
     "정본 경로": "design/harness/research/ft-2.0/sim-atomic-json/cases_a.py",
     "정본 sha": "db18c453c77868355ffeb813d3b4c49f2047806a",
+    "폴더": "03-same-key",
     "함수": "case_03_same_key",
     "줄": "59-101",
-    "실험 literal 필드명": ["final", "statuses", "ticks", "dispatch_lines", "busy", "attempt_id", "ack", "status", "pairs_equal", "wall_s"]
+    "실험 literal 필드명": [
+      "final",
+      "statuses",
+      "ticks",
+      "dispatch_lines",
+      "busy",
+      "attempt_id",
+      "ack",
+      "status",
+      "pairs_equal",
+      "wall_s"
+    ]
   },
   "given": [
     "접수 card-x",
@@ -16,9 +28,9 @@
     "스냅샷(attempt 단일 확인)"
   ],
   "expect": {
-    "처리 결과": "접수 성공",
+    "처리 결과": "완료 유보",
     "상태 revision 변화": true,
-    "근거 검증": "GRANTED 정확히 1",
+    "근거 검증": "같은 키 재요청 = IN_PROGRESS(재부여 아님)",
     "관측 대조": [
       {
         "원자료 키": "k1_03",
