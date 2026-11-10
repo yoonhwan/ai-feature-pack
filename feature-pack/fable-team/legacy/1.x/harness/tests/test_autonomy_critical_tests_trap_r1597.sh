@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # test_autonomy_critical_tests_trap_r1597.sh — r1597 «tests/ 의 mktemp -d → trap EXIT rm -rf» 줄만 D2 크리티컬 destroy 에서 뺀다
-#   ⓐ 예외 성립(두 줄 꼴 · r1592 실사건 한 줄 꼴) ⓑ 반례 ①~⑨(전부 kind=destroy · ⑧ = arch 인수 NG1 줄 앞 파괴 명령 3종)
-#   ⓒ 키트 사본 cmp0 · 변이 M1(경로 조건)·M2(mktemp 확인)·M3(대입 변수 일치)·M4(줄 전체 긍정)
+#   ⓐ 예외 성립(두 줄 꼴 · r1592 한 줄 꼴 · 따옴표 없는 꼴 · 템플릿 인자) ⓑ 반례 ①~⑩(전부 kind=destroy · ⑧ = NG1 앞 명령 · ⑩ = NG2 $(mktemp …) 안 명령)
+#   ⓒ 키트 사본 cmp0 · 변이 M1(경로)·M2(mktemp 확인)·M3(변수 일치)·M4(줄 전체 긍정)·M5(앞머리 [^;]*)
 #   ⓒ 의 «기존 시험 2개 rc 불변» 은 따로 돌린다(시험 1개 70초 상한 — test_autonomy_standing_d2_r1577.sh 가 41초 · 카드 r1597 증거 줄)
 #   격리: 임시 리포(origin bare + clone) · 실 상태·실 원격·press 0(나노는 쏘지 않는다)
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"
@@ -22,6 +22,8 @@ okc() { [ "$rc" = 0 ] && [ "$out" = CRITICAL-OK ]; }
 # ── ⓐ 예외 = 세 조건 모두 참인 그 줄
 pr tests/t_r1597.sh "$MK" "$TRP"; crit "$PRSHA"; A1="$PRSHA"; okc; ck "ⓐ1 tests/ 의 두 줄(mktemp -d · trap EXIT rm -rf) → CRITICAL-OK rc0" $?
 pr tests/t_r1597_one.sh "$MK; $TRP"; crit "$PRSHA"; A2="$PRSHA"; okc; ck "ⓐ2 r1592 실사건 꼴 한 줄(T=…; trap … EXIT) → CRITICAL-OK rc0" $?
+pr tests/t_r1597_uq.sh 'T=$(mktemp -d); '"$TRP"; crit "$PRSHA"; okc; ck 'ⓐ3 따옴표 없는 꼴 T=$(mktemp -d) · trap → CRITICAL-OK rc0' $?
+pr tests/t_r1597_tpl.sh 'T="$(mktemp -d /tmp/r1597.XXXXXX)"; '"$TRP"; crit "$PRSHA"; okc; ck 'ⓐ4 템플릿 인자 1개 mktemp -d /tmp/r1597.XXXXXX → CRITICAL-OK rc0' $?
 # ── ⓑ 반례 — 하나라도 거짓이면 지금처럼 destroy
 pr bin/x_r1597.sh "$MK" "$TRP"; crit "$PRSHA"; B1="$PRSHA"; [ "$rc" = 3 ] && eval "$DEST"; ck "ⓑ1 같은 두 줄이 tests/ 밖(bin/) → kind=destroy" $?
 pr tests/t_r1597_p.sh 'T=/tmp/x' "$TRP"; crit "$PRSHA"; B2="$PRSHA"; [ "$rc" = 3 ] && eval "$DEST"; ck "ⓑ2 변수 대입이 mktemp 아님(T=/tmp/x) → kind=destroy" $?
@@ -34,6 +36,11 @@ pr tests/t_r1597_8a.sh "$MK" "rm -rf / ; $TRP"; crit "$PRSHA"; B8="$PRSHA"; [ "$
 pr tests/t_r1597_8b.sh "$MK" "kill -9 1 && $TRP"; crit "$PRSHA"; [ "$rc" = 3 ] && eval "$DEST"; ck "ⓑ8b 줄 앞에 kill -9 1 && → kind=destroy" $?
 pr tests/t_r1597_8c.sh "$MK" "psql -c \"DROP TABLE users\" ; $TRP"; crit "$PRSHA"; [ "$rc" = 3 ] && eval "$DEST"; ck "ⓑ8c 줄 앞에 psql … DROP TABLE ; → kind=destroy" $?
 pr tests/t_r1597_ov.sh "$MK" 'X="$(mktemp -d)"; '"$TRP"; crit "$PRSHA"; B9="$PRSHA"; [ "$rc" = 3 ] && eval "$DEST"; ck "ⓑ9 한 줄 꼴에서 앞 대입 변수(X)와 trap 변수(T)가 다름 → kind=destroy" $?
+# ── ⓑ10 arch 재인수 NG2 — 앞머리 $(mktemp …) 안에 다른 명령이 들어가면 destroy
+pr tests/t_r1597_10a.sh 'T="$(mktemp -d && rm -rf /)"; '"$TRP"; crit "$PRSHA"; B10="$PRSHA"; [ "$rc" = 3 ] && eval "$DEST"; ck 'ⓑ10a 앞머리 mktemp -d && rm -rf / → kind=destroy' $?
+pr tests/t_r1597_10b.sh 'T="$(mktemp -d | xargs rm -rf)"; '"$TRP"; crit "$PRSHA"; [ "$rc" = 3 ] && eval "$DEST"; ck 'ⓑ10b 앞머리 mktemp -d | xargs rm -rf → kind=destroy' $?
+pr tests/t_r1597_10c.sh 'T=$(mktemp -d) && kill -9 1 $(true); '"$TRP"; crit "$PRSHA"; [ "$rc" = 3 ] && eval "$DEST"; ck 'ⓑ10c 앞머리 mktemp -d) && kill -9 1 · trap → kind=destroy' $?
+pr tests/t_r1597_10d.sh 'T="$(mktemp -d) $(psql -c '\''DROP TABLE users'\'')"; '"$TRP"; crit "$PRSHA"; [ "$rc" = 3 ] && eval "$DEST"; ck 'ⓑ10d 앞머리 mktemp -d) $(psql DROP TABLE) → kind=destroy' $?
 # ── ⓒ 키트 사본 = bin 사본(두 파일)
 for f in autonomy_scope_rules.py autonomy_scope_classify.py; do cmp -s "$BIN/$f" "$BIN/../kit/fable-team/bin/$f"; ck "ⓒ 키트 사본 cmp0 $f" $?; done
 # ── 변이 M1~M4 — 제품 파일 1곳씩 지우면 그 칸이 «빨강»(예외가 잘못 열린다)
@@ -55,4 +62,6 @@ mut m3 autonomy_scope_rules.py 'if not var or (m.group("pre") and m.group("pre")
 mc m3 "$B9"; [ "$rc" = 0 ] && [ "$out" = CRITICAL-OK ]; ck "ⓘM3 대입 변수 일치 조건 지우기 → ⓑ9 가 예외로 새어 통과(빨강)" $?
 mut m4 autonomy_scope_rules.py 'TRAP_LINE = re.compile(r"^\s*' 'TRAP_LINE = re.compile(r"^.*?'
 mc m4 "$B8"; [ "$rc" = 0 ] && [ "$out" = CRITICAL-OK ]; ck "ⓘM4 «줄 전체가 trap» 긍정(^) 느슨하게 → ⓑ8a 가 예외로 새어 통과(빨강)" $?
+mut m5 autonomy_scope_rules.py 'MKTEMP_VALUE = r"\"?\$\(\s*mktemp\s+-d(?:\s+[\w./-]+)?\s*\)\"?"' 'MKTEMP_VALUE = r"\"?\$\(\s*mktemp\s+-d[^;]*\)\"?"'
+mc m5 "$B10"; [ "$rc" = 0 ] && [ "$out" = CRITICAL-OK ]; ck "ⓘM5 앞머리 값을 [^;]* 로 느슨하게(NG2 옛 구멍) → ⓑ10a 가 예외로 새어 통과(빨강)" $?
 [ "$fail" = 0 ] && echo "ALL PASS" || { echo "FAILED $fail"; exit 1; }

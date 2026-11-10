@@ -241,10 +241,13 @@ CRIT_DESTROY = re.compile(
 #   ③ 같은 파일(바뀐 뒤 전문 · show)에서 V 대입이 정확히 1번이고 그 값이 `$(mktemp -d …)`. 하나라도 거짓이면 지금처럼 destroy(닫힌 쪽).
 #   ★NG1(r1597 arch 인수)★ 줄 «전체» 가 trap 하나일 때만 — 앞에 다른 명령(`rm -rf / ;` · `kill -9 1 &&` · `psql … DROP TABLE ;`)이 붙으면 예외 0.
 #     예외인 앞머리는 «같은 변수의 mktemp -d 대입» 하나뿐(r1592 실사건이 한 줄 꼴이라 필요 — 변수까지 같아야 한다).
-TRAP_LINE = re.compile(r"^\s*(?:(?P<pre>[A-Za-z_][A-Za-z0-9_]*)=\"?\$\(\s*mktemp\s+-d[^;]*\)\"?\s*;\s*)?"
+#   ★NG2(r1597 arch 재인수)★ 앞머리 값은 «닫힌 꼴» 만: V="$(mktemp -d)" · V=$(mktemp -d) · 템플릿 인자 1개(글자 [\w./-] 만).
+#     `$(mktemp -d && rm -rf /)` · `$(mktemp -d | xargs rm -rf)` · `$(mktemp -d) && kill …` · `$(mktemp -d) $(…)` = destroy.
+MKTEMP_VALUE = r"\"?\$\(\s*mktemp\s+-d(?:\s+[\w./-]+)?\s*\)\"?"
+TRAP_LINE = re.compile(r"^\s*(?:(?P<pre>[A-Za-z_][A-Za-z0-9_]*)=\s*" + MKTEMP_VALUE + r"\s*;\s*)?"
                        r"trap\s+(?P<q>['\"])(?P<body>.+?)(?P=q)\s+EXIT\s*;?\s*$")
 TRAP_RM_RF_BODY = re.compile(r'^rm -rf "\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?"$')
-MKTEMP_ASSIGN = r"(?<![$\w])%s\s*=\s*[\"']?\$\(\s*mktemp\s+-d"   # 그 변수 대입 값이 mktemp -d 인가
+MKTEMP_ASSIGN = r"(?<![$\w])%s\s*=\s*" + MKTEMP_VALUE   # 그 변수 대입 값이 mktemp -d 인가(NG2: 같은 닫힌 꼴)
 
 
 def mktemp_trap_exempt(path, txt, show=None):   # → True = «그 시험이 방금 만든 임시 폴더를 지우는» 줄
