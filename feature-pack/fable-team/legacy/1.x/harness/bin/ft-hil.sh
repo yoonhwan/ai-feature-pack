@@ -135,7 +135,7 @@ add() {
   [ -z "$ns" ] || printf 'seat=%s\ncomm=%s\n' "$ns" "$nc" > "$D/h$n.notify" || die "수신자 표식을 못 썼다: $D/h$n.notify"
   rmdir "$D/.hil.lock"; trap - EXIT
   [ -z "$ns" ] || [ -z "$new" ] || bash "$(dirname "${BASH_SOURCE[0]}")/ft-hil-notify.sh" issue "$D/h$n" "$t" "$nc" "$ns" 2>/dev/null || echo "WARN [HIL] 쪽지 실패 — h$n 은 등록됨 · 틱 30분 알림이 남는다(to=$ns comm=$nc)" >&2   # r1130: 새 h 만 1통
-  echo "! bash $D/h$n"
+  echo "! bash $D/h$n"; [ -z "$new" ] || FT_ROOT="${FT_ROOT:-$(dirname "${rc_c%/*}")}" python3 "$(dirname "${BASH_SOURCE[0]}")/ft_desk_reply_wake.py" --register-plan "$t" "h$n" >/dev/null || true   # r1587: 새 h 만 · 계획에 `approve-merge <sha40> … --oppa-slack <ts>` 가 1개면 감시 등록(실패는 도구가 stderr «감시 등록 실패 <ts>» 1줄 · h 발급 rc 그대로 · 루트는 쪽지함에서 푼 공용 루트, 못 풀면 cwd)
   clip "bash $D/h$n"
 }
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # pyright: basic
 """ft_desk_reply_wake.py — r1574: desk 승인 질문의 오빠 답글을 비모델(ft-stall-scan 120초 주기)이 찾아 desk 를 깨운다.
-CLI: (인자 없음) 점검 · `--register <질문ts> <h번호> <sha40>` 등록(desk 가 Slack 질문 글을 올린 직후 · 끝 시각 = 등록 + 24h)
+CLI: (인자 없음) 점검 · `--register <질문ts> <h번호> <sha40>` 등록(desk 가 Slack 질문 글을 올린 직후 · 끝 시각 = 등록 + 24h) · `--register-plan <계획> <h번호>` = 계획의 `approve-merge <sha40> … --oppa-slack <ts>` 1개에서 ts·sha 를 뽑아 같은 등록(r1587 · ft-hil 발급 자리)
 점검 = 끝나지 않은 줄마다 ft_oppa_slack_check 1회(7초 · 재시도 1) → SLACK-OK 이면 seats-planner.json `_desk` 로 `[오빠 답글] h<N> ts=<답글> → 실행 차례` 1통.
 끝 = h 실행 기록(<HIL_DIR>/h<N>.ran) 생성 또는 끝 시각 경과(경과는 `_master` 로 `[답글 없음 24시간]` 1통) · 같은 답글 ts = 1통 · 질문 ts 키는 한 줄(재등록 멱등).
 장부 갱신 = 배타 잠금(<장부>.lock) 안에서 다시 읽고 합쳐 쓰기 · 조회는 <장부>.cursor 로 순환(열린 줄이 상한보다 많아도 모두 본다).
@@ -9,15 +9,18 @@ CLI: (인자 없음) 점검 · `--register <질문ts> <h번호> <sha40>` 등록(
 rc: 0 정상 · 1 발신·쓰기 실패 · 2 판정 불가(루트·장부·명부) · 3 등록 거절
 """
 import fcntl
+import io
 import json
 import os
 import re
 import subprocess
 import sys
 import time
+from contextlib import redirect_stderr
 from pathlib import Path
 
 TS, SHA, HN = re.compile(r"[0-9]+\.[0-9]{6}$"), re.compile(r"[0-9a-f]{40}$"), re.compile(r"h[0-9]+$")
+PLAN = re.compile(r"(?<![\w-])approve-merge\s+([0-9a-fA-F]{40})(?![0-9a-fA-F])[^\n]*?(?<![\w-])--oppa-slack[ =]+([0-9]+\.[0-9]{6})(?![\w.-])")  # r1587 · ft_scope_plan_judge.OPPA 와 같은 꼴
 TO, SEND_TO, MAX, DAY = 7, 25, 4, 86400  # 7초·재시도 1(하드 룰 12) · 발신 25초(로컬 하네스 상한) · 한 주기 4줄 · 24시간
 
 
@@ -128,6 +131,25 @@ def register(led: Path, a: list, now: float) -> int:  # ⓐ 등록 · 같은 질
     return 0
 
 
+def register_plan(led: Path, a: list, now: float) -> int:  # r1587: 계획의 `approve-merge <sha40> … --oppa-slack <ts>` 1개 → ts·sha 로 기존 register · 0개 = 대상 아님(조용히 rc0) · 2개 이상 = 판정 불가 1줄
+    try:
+        hits = PLAN.findall(Path(a[0]).read_text(encoding="utf-8", errors="replace")) if len(a) == 2 else []
+    except OSError as e:
+        print("감시 등록 판정 불가 — 계획을 못 읽음(%s): %s" % (type(e).__name__, a[0]), file=sys.stderr)
+        return 3
+    if len(hits) != 1:
+        if not hits:
+            return 0
+        print("감시 등록 판정 불가 — approve-merge --oppa-slack 줄이 %d개: %s" % (len(hits), a[0]), file=sys.stderr)
+        return 3
+    with redirect_stderr(err := io.StringIO()):  # 실패는 «감시 등록 실패 <ts>» 1줄로 모아 드러낸다(조용한 실패 0)
+        rc = register(led, [hits[0][1], a[1], hits[0][0].lower()], now)
+    if rc:
+        why = (err.getvalue().strip().splitlines() or ["알 수 없음"])[-1].replace("감시 등록 실패 — ", "")
+        print("감시 등록 실패 %s — %s" % (hits[0][1], why), file=sys.stderr)
+    return rc
+
+
 def scan(base: Path, led: Path, now: float) -> int:
     rows = ledger(led)
     if rows is None:
@@ -203,6 +225,8 @@ def main(argv: list) -> int:
         return 2
     led = Path(os.environ.get("FT_DESK_REPLY_LEDGER") or base / ".fable-team/state/desk-reply-wait.jsonl")
     now = float(os.environ.get("FT_NOW") or time.time())
+    if argv[1:2] == ["--register-plan"]:
+        return register_plan(led, argv[2:], now)
     return register(led, argv[2:], now) if argv[1:2] == ["--register"] else scan(base, led, now)
 
 
