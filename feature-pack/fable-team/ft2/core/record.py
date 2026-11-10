@@ -24,8 +24,9 @@ RESULT_WORDS = (
 
 REQUIRED_FIELDS = ("schema", "team", "seq", "kind", "command", "attempt", "at", "body", "work")
 # r1579: 실행권·세대 종류 추가(세대 교체는 claim 의 gen 으로 표현). schema 1 유지 = 필드 추가만.
+# r1594: 진행 구분(progress)·골 마감(close) 추가 — lifecycle.py 만 쓴다.
 KINDS = ("accept", "claim", "start", "effect", "result", "uncertain",
-         "dispatch", "deliver", "execute", "complete", "reassess")
+         "dispatch", "deliver", "execute", "complete", "reassess", "progress", "close")
 STATE_FIELDS = ("revision", "pending", "attempts")
 # 확장 state 칸 — 없으면 기본값 {} 로 채운다(다른 writer 가 병합해 보존한다 · ⓘ).
 EXTENDED_STATE_FIELDS = ("generations", "owners", "uncertain", "deliveries", "reservations",
@@ -74,10 +75,25 @@ def read_state_guarded(path):
     return state
 
 
+def _lane_row(row, kind, tick, deadline):
+    """progress 줄 1개를 lane 1칸으로 접는다 — heartbeat 는 progress_at 을 밀지 않는다(재무장 0).
+    external_wait 는 시한(절대 tick)을 보존하고, 시한 안인지는 scan 이 판정한다."""
+    out = dict(row or {"progress_at": tick or 0, "heartbeat_at": 0, "external_wait": False,
+                       "wait_deadline": None, "rearm": 0})
+    if kind == "progress":
+        out["progress_at"] = tick
+    elif kind == "heartbeat":
+        out["heartbeat_at"] = tick
+    elif kind == "external_wait":
+        out["external_wait"], out["wait_deadline"] = True, deadline
+    return out
+
+
 def recover_state(state, records):
     """journal 을 정본으로 삼아 state checkpoint 를 앞선다(DA R2 · R1) — checkpoint 전 crash 복구.
     잠금 안 판독(모든 writer)이 이 함수를 지나므로 recover 호출 여부와 무관하게 전달·완료·재평가가 보인다:
-    세대·owner·예약(배정 줄) · 전달(전달 줄) · 완료 표식(완료 줄) · 재평가 결과(재평가 줄) · 미확정 표식.
+    세대·owner·예약(배정 줄) · 전달(전달 줄) · 완료 표식(완료 줄) · 재평가 결과(재평가 줄) · 미확정 표식 ·
+    진행 칸(진행 줄 · r1594) · 마감 표식(마감 줄 = done["goal:<골>"] · r1594).
     뒤 기록이 앞 기록을 덮는다(결과 확정은 owner·미확정을 지우고, 재평가는 반환·owner 복구를 남긴다).
     r1584(DA R1 ①②): state.journal_base = {upto,count,proj,receipts} 가 있으면 proj 9칸에서 시작해
     seq > upto 줄만 접는다. suffix 첫 줄은 upto+1 이어야 한다(아니면 복구 필요). base 없으면 오늘과 같다."""
@@ -91,6 +107,7 @@ def recover_state(state, records):
     done, reassessed = dict(proj.get("done") or {}), dict(proj.get("reassess_done") or {})
     released, recovered = dict(proj.get("released") or {}), dict(proj.get("owners_recovered") or {})
     uncertain = dict(proj.get("uncertain") or {})
+    lanes = dict(state.get("lanes") or {})
     for rec in rows:
         work, kind, gen = rec.get("work"), rec["kind"], rec.get("gen") or 0
         if kind in ("claim", "dispatch") and work and gen > gens.get(work, 0):
@@ -114,9 +131,14 @@ def recover_state(state, records):
             recovered[work] = {"owner": rec.get("holder"), "attempt": rec.get("after")}
             owners.pop(work, None)
             kept = {res: row for res, row in kept.items() if row.get("work") != work}
+        elif kind == "progress" and work and rec.get("lane"):
+            lanes[rec["lane"]] = _lane_row(lanes.get(rec["lane"]), rec.get("tick_kind"),
+                                           rec.get("tick"), rec.get("wait_deadline"))
+        elif kind == "close" and work:
+            done[work] = {"attempt": rec.get("attempt"), "at": rec["at"], "marker": ""}
     return dict(state, revision=max(state["revision"], count + len(rows)), generations=gens, owners=owners,
                 reservations=kept, deliveries=sent, done=done, reassess_done=reassessed,
-                released=released, owners_recovered=recovered, uncertain=uncertain)
+                released=released, owners_recovered=recovered, uncertain=uncertain, lanes=lanes)
 
 
 def build(team, seq, command, attempt, at, body, work=None, goal=None, kind="accept",

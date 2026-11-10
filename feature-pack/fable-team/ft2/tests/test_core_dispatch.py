@@ -303,7 +303,7 @@ def test_j_public_faces_and_contract_words(tmp_path):
         ("self", "work", "holder", "rotation", "confirm_by")
     assert execution.Grant._fields == ("result", "work", "gen", "holder", "revision", "written", "stage",
                                        "confirm_by", "reason")
-    assert (record.SCHEMA_VERSION, len(record.KINDS)) == (1, 11)
+    assert (record.SCHEMA_VERSION, len(record.KINDS)) == (1, 13)   # r1594: progress · close
     node = _d(tmp_path / "j")
     words = {node.assign("W3", "h1", evidence=EV).result, node.deliver("W3", "a1").result,
              node.complete("W3", "a1").result, node.reassess("W3").result,
