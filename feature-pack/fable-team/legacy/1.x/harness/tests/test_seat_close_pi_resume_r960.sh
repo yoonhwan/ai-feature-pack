@@ -38,7 +38,7 @@ cat > "$T/bin/tmux" <<'EOF'
 #!/usr/bin/env bash
 echo "$*" >> "$TMUX_LOG"
 case "$1" in
-  has-session) [ "${FAKE_SESSION:-1}" = 1 ] && { [ -z "$TMUX_LOG" ] || ! grep -q '^kill-session' "$TMUX_LOG"; };;   # 살아 있는 좌석인가 · r1568: kill-session 뒤엔 «세션 없음»
+  has-session) n=""; for a in "$@"; do case "$a" in =*) n="${a#=}";; esac; done; [ "${FAKE_SESSION:-1}" = 1 ] && ! { [ -n "$TMUX_LOG" ] && [ -n "$n" ] && grep -qE "=$n(\$| )" <<<"$(grep '^kill-session' "$TMUX_LOG")"; } || exit 1;;   # r1568: «그 세션» kill-session 뒤엔 세션 없음(앞 사례 kill 이 뒤 사례를 가리지 않는다)
   display) printf '%s %s\n' "${FAKE_PANE_PID:-1}" "${FAKE_PANE_CWD:-/tmp}" ;;  # ft_roster_lib.pi_seat_resume 의 결속 조회
   show-options) exit 0;;                                                       # @zc_v65_active 없음
   list-sessions) printf '%s\n' ${FAKE_SESSIONS:-} ;;                            # ⓦr5-4 lineage_ok 의 같은 계보 더 큰 번호 생존
@@ -246,7 +246,7 @@ RT_BIN=""
 RD5="$T/r5rd"; mkdir -p "$RD5"; seats_pi lg#5 claude; printf '{"engine":"claude"}\n' > "$RD5/lg#5.json"
 out="$(RDIR="$RD5" FAKE_SESSIONS="lg#6" close 'lg#5' --reason "r5 경로 한 번" --seats "$REPO/.fable-team/seats.json")"; rc=$?
 chk "ⓦr5-4 기록 있음 → kill=ok rc 0" "$rc $(printf '%s' "$out" | grep -o 'kill=[a-z]*')" "0 kill=ok"
-RM="$RD5/lg#5.json"; mv "$RM" "$RD5/hold.json"
+RM="$RD5/lg#5.json"; mv "$RM" "$RD5/hold.json"; : > "$TMUX_LOG"   # r1568: 사례마다 tmux 로그를 새로(앞 사례 kill 이 이 사례의 «세션 살아 있음» 을 가리지 않는다)
 out="$(RDIR="$RD5" FAKE_SESSIONS="lg#6" close 'lg#5' --reason "r5 경로 한 번2" --seats "$REPO/.fable-team/seats.json")"; rc=$?
 chk "ⓦr5-4 기록 없음 → kill=held rc 3(같은 경로를 본다)" "$rc $(printf '%s' "$out" | grep -o 'kill=held')" "3 kill=held"
 # ⓦr5-5 — 회귀 꼴: 세션 파일 없음 + pi → NORECORD 1줄 + 닫힘 · claude → HELD rc 3 · kill 0

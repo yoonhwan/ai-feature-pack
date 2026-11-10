@@ -24,7 +24,7 @@ cat > "$T/bin/tmux" <<'EOF'
 #!/usr/bin/env bash
 echo "$*" >> "$TMUX_LOG"
 case "$1" in
-  has-session) [ "${FAKE_SESSION:-1}" = 1 ] && { [ -z "$TMUX_LOG" ] || ! grep -q '^kill-session' "$TMUX_LOG"; } || exit 1;;   # r1568: 진짜 tmux 처럼 kill-session 뒤엔 «세션 없음»
+  has-session) n=""; for a in "$@"; do case "$a" in =*) n="${a#=}";; esac; done; [ "${FAKE_SESSION:-1}" = 1 ] && ! { [ -n "$TMUX_LOG" ] && [ -n "$n" ] && grep -qE "=$n(\$| )" <<<"$(grep '^kill-session' "$TMUX_LOG")"; } || exit 1;;   # r1568: «그 세션» kill-session 뒤엔 세션 없음(앞 사례 kill 이 뒤 사례를 가리지 않는다)
   show-options) [ "${FAKE_TAG:-1}" = 1 ] && echo 1; exit 0;;
   list-sessions) for x in ${FAKE_LIVE:-}; do echo "$x"; done;;
   list-panes) exit 0;;

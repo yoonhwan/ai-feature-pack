@@ -28,7 +28,7 @@ finish() {   # r960 — 닫기 결과 출력 «한 곳»: 결과 줄들 다음�
   exit "$rc"
 }
 FACTS="$(cd "$HERE" && python3 -c 'import sys;from ft_roster_lib import seat_facts;print("\x1f".join(seat_facts(*sys.argv[1:6])))' "$ARG" "${FT_SEATS_JSON:-}" "${ROOT:-.}" "$SEAT" "${ZC_RESUME_DIR:-$HOME/.claude/state/seat-resume}")" || finish 1 "${FACTS:-REJECT 좌석 사실 확정 실패 — 판정 안 함(명부 쓰기 0 · kill 0)}"   # r5 ①② — 명부 경로·행·agent·role·재개 기록 경로 «입구 1회» 확정(명부 후보 2개+ · 명부 불일치 = REJECT rc 1)
-IFS=$'\x1f' read -r SEATS_FILE AGENT ROLE RECF <<<"$FACTS"; if [ -n "$VERDICT" ]; then   # r1481 — ②③ 면제 근거(사람 판정 1건)를 원장에서 먼저 확인한다 — close-check «앞» · --verdict 있을 때만(빠른 종료 = 쓰기 0 · kill 0)
+IFS=$'\x1f' read -r SEATS_FILE AGENT ROLE RECF MST <<<"$FACTS"; if [ -n "$VERDICT" ]; then   # r1481 — ②③ 면제 근거(사람 판정 1건)를 원장에서 먼저 확인한다 — close-check «앞» · --verdict 있을 때만(빠른 종료 = 쓰기 0 · kill 0)
   . "$HERE/ft-verdict-row.sh" && . "$HERE/ft-team-lib.sh" || finish 1 "REJECT $SEAT 판정 원장 확인 불가(도우미 ft-verdict-row.sh·ft-team-lib.sh 없음 — 설치본 bin) — 쓰기 0 · kill 0"; VR="${FT_TEAMS_REF:-origin/main}"; VC="$(ft_team_cands_ref "${ROOT:-.}" planner "$VR" 2>/dev/null)" || finish 1 "REJECT $SEAT 판정 원장 확인 불가($VR:design/TEAMS.md) — 쓰기 0 · kill 0"   # 원장 조회 = ft-index-lint.sh:47 과 같은 호출(명단 ref · 함수 복사 0)
   VH=0; RE="$(fv_row_re "$VERDICT" 2>/dev/null)"; RRC=$?; [ "$RRC" = 0 ] && [ -n "$RE" ] || finish 1 "REJECT $SEAT 판정 $VERDICT 꼴이 원장 꼴(숫자)이 아님(fv_row_re rc=$RRC) — 쓰기 0 · kill 0"   # DA 반례 1(r1481 r2) — 빈 정규식이면 git grep -E "" 가 원장 아무 줄에나 일치한다(통과 0)
   while IFS= read -r C; do [ -n "$C" ] || continue; git -C "${ROOT:-.}" grep -q -E "$RE" "$VR" -- "${C#"${ROOT:-.}"/}/VERDICTS-planner-*.md" 2>/dev/null; VRC=$?; case "$VRC" in 0) VH=1; break;; 1) ;; *) finish 1 "REJECT $SEAT 판정 원장 확인 불가(git grep rc=$VRC) — 쓰기 0 · kill 0";; esac; done <<< "$VC"   # rc 1 = 그 후보에 없음(다음 후보) · rc>1 = 판정 불가(하드 룰 20)
@@ -123,8 +123,7 @@ reap() {
 }
 CFD="$(dirname "$FILE")/state/close-fail"; CF="$CFD/$SEAT.txt"
 cfail() {   # r1568 ⑤⑥ — 실패 기록 1개(좌석·담당·이유·남은 것·다음 실행 1줄) + master 쪽지 1통 · «CLOSED»·«GONE» 거짓 글자 0
-  local tag="$1" why="$2" m="$(dirname "$FILE")/comm/mbox.sh" h
-  h="$(python3 -c 'import json,sys;d=json.load(open(sys.argv[1]));print(d.get("_master","") if isinstance(d,dict) else "")' "$FILE" 2>/dev/null)"
+  local tag="$1" why="$2" m="$(dirname "$FILE")/comm/mbox.sh" h="$MST"   # r5 — master 칸은 입구 확정값(명부 재해석 0)
   mkdir -p "$CFD" && printf 'seat=%s\n담당=%s\n이유=%s\n%s\n다음 실행: %s %s --reason "<이유 1줄>"\n' "$SEAT" "$BY" "$why" "$3" "$HERE/ft-seat-close.sh" "$SEAT" > "$CF"
   [ -z "$h" ] || [ ! -f "$m" ] || bash "$m" send "$h" "$BY" "[$tag] $SEAT — $why · 기록 $CF · 세션 보존" >/dev/null 2>&1
   vlog "$tag"; finish 1 "CLOSE-FAIL $why — $SEAT 세션 보존(명부 표기는 남음 file=$FILE · 기록 $CF)"
