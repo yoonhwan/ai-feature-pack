@@ -2,5 +2,6 @@
 # scope «-» = 그 모델 전용 주간 창이 실측에 없다 → 공통 창만으로 판정(r1213 RESEARCH-r1213-limits-shape-20261031.md · 3계정 전부 scoped = Fable 하나)
 # 표에 없는 모델 = ft-acct-assign.sh «불명(scope 표 없음 <모델>)» — 지어내지 않는다
 claude-fable-5-1	claude	Fable
+claude-fable-5-2	claude	Fable
 claude-opus-5-5	claude	-
 claude-sonnet-5-5	claude	-

@@ -9,6 +9,7 @@ ft 2.0 의 새 뼈대다. 2.0 활성 소스는 이 폴더 안에서만 쓴다.
 |---|---|---|
 | `core/` | 좌석·쪽지·발주 같은 2.0 공통 코어. 실행 환경 차이를 모른다 | PR② |
 | `contracts/` | 카드·계약·시험 대응표의 2.0 계약 정의 | PR② |
+| `contracts/models/` | 모델 표 3개(model-scope·model-fallback·provider-of-model) 정본 자리 — `tools/models.py` 가 읽는다 | PR② |
 | `adapters/slack/` | Slack 수신·발행 어댑터 | PR③ |
 | `adapters/codex/` | Codex 실행 어댑터 | PR④ |
 | `adapters/pi/` | Pi 실행 어댑터 | PR④ |

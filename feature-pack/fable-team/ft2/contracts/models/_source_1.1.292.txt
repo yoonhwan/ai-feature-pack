@@ -1,0 +1,19 @@
+# 1.1.292 표의 고정 사본 (2026-11-10 이행 · 대조 전용 · 실행 0)
+# 출처 = 이 브랜치의 [fix] 커밋 88b851c5 = 1.x 5파일 이행분(소스 = 팩 메인 체크아웃 미커밋 수정 · 읽기만)
+#   legacy/1.x/harness/bin/{model-scope,model-fallback}.tsv · legacy/1.x/harness/kit/fable-team/bin/{model-scope,model-fallback}.tsv
+#   legacy/1.x/manifest.json · provider-of-model.tsv 는 이번 변경 밖(값 그대로)
+# sha256 앞16: model-scope ba2149502ea2f718 · model-fallback e71690da1277b99a · manifest e37143c52262c309 · provider-of-model cdc8fc260d5c57c7
+## model-scope.tsv
+claude-fable-5-1	claude	Fable
+claude-fable-5-2	claude	Fable
+claude-opus-5-5	claude	-
+claude-sonnet-5-5	claude	-
+## model-fallback.tsv
+claude-fable-5-1	claude-opus-5-5[1m]
+claude-fable-5-2	claude-opus-5-5[1m]
+claude-opus-5-5	claude-sonnet-5-5[1m]
+## provider-of-model.tsv
+^claude-	claude
+^(gpt-|codex|o[0-9])	codex
+^(opengateway/)?deepseek/	deepseek
+^deepseek-	deepseek

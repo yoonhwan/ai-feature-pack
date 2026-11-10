@@ -1,0 +1,8 @@
+# ft 2.0 model-scope — 모델 id(접미사 [1m] 없이) · provider(예측 도구 풀 이름) · scope(주간 모델 창 display_name)
+# 출처 = 1.1.292 데이터 행(팩 메인 체크아웃 미커밋 수정 5파일 · 읽기만) · sha256 앞16 = ba2149502ea2f718 (bin·kit 동일)
+# scope «-» = 그 모델 전용 주간 창이 실측에 없다 → 공통 창만으로 판정
+# 표에 없는 모델 = ft 2.0 models.py «불명(scope 표 없음 <모델>)» — 지어내지 않는다
+claude-fable-5-1	claude	Fable
+claude-fable-5-2	claude	Fable
+claude-opus-5-5	claude	-
+claude-sonnet-5-5	claude	-
