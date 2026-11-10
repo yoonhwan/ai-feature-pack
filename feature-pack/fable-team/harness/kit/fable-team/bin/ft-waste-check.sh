@@ -9,9 +9,9 @@ HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 HOURS=6; ALERT=0; JSON=0
 while [ $# -gt 0 ]; do case "$1" in
   --alert) ALERT=1; shift;; --json) JSON=1; shift;; --hours) HOURS="$2"; shift 2;; -*) shift;; *) shift;; esac; done
-CW="$(command -v ft-burn 2>/dev/null || command -v ctx-waste 2>/dev/null || true)"
-for c in "$HOME/.local/bin/ft-burn" "$HOME/.local/bin/ctx-waste" \
-         "$HOME/Project/ai-feature-pack/feature-pack/ft-burn/bin/ft-burn"; do
+CW="$(command -v ctx-burn 2>/dev/null || command -v ctx-waste 2>/dev/null || true)"
+for c in "$HOME/.local/bin/ctx-burn" "$HOME/.local/bin/ctx-waste" \
+         "$HOME/Project/ai-feature-pack/feature-pack/ctx-burn/bin/ctx-burn"; do
   [ -n "$CW" ] && break; [ -x "$c" ] && CW="$c"
 done
 [ -n "$CW" ] || { echo "WASTE skip (ctx-waste 없음 — 느슨한 연결이라 실패 아님)"; exit 0; }

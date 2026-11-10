@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""ft-burn — local context waste audit for AI coding agents (read-only).
+"""ctx-burn — local context waste audit for AI coding agents (read-only).
 
 Checks the local environments of claude, codex, pi, hermes, openclaw, opencode and
 commandcode: how much of every request is paid before any work happens, which
@@ -32,7 +32,7 @@ HOME = os.path.expanduser("~")
 # ---------------------------------------------------------------- i18n
 STR = {
     "en": {
-        "title": "ft-burn — local context waste audit (read-only)",
+        "title": "ctx-burn — local context waste audit (read-only)",
         "window": "Window: last %gh · runtimes with data %d · sessions %d · requests %s",
         "env": "[0] Runtime environment",
         "env_head": "  %-12s %-9s %-7s %-8s %-13s %s",
@@ -89,7 +89,7 @@ STR = {
         "lang": "en",
     },
     "ko": {
-        "title": "ft-burn — 로컬 컨텍스트 낭비 감사 (읽기 전용)",
+        "title": "ctx-burn — 로컬 컨텍스트 낭비 감사 (읽기 전용)",
         "window": "구간: 최근 %g시간 · 데이터 있는 런타임 %d · 세션 %d개 · 고유 요청 %s건",
         "env": "[0] 실행 환경",
         "env_head": "  %-12s %-9s %-7s %-8s %-13s %s",
@@ -540,9 +540,9 @@ def analyze_request(path):
             "total_chars": len(json.dumps(d, ensure_ascii=False))}
 
 
-# ------------------------------------------- capacity input (계약 burn.v1)
-# 이 도구는 «쓴 양» 만 잰다. 감당량·필요 구독 계산은 ft-plan 몫이고, 두 축은 이 JSON 으로만 붙는다.
-CAP_SCHEMA = "burn.v1"
+# ------------------------------------------- capacity input (계약 ctx.v1)
+# 이 도구는 «쓴 양» 만 잰다. 감당량·필요 구독 계산은 ctx-plan 몫이고, 두 축은 이 JSON 으로만 붙는다.
+CAP_SCHEMA = "ctx.v1"
 
 
 def _w(read, write, inp, out):
@@ -610,7 +610,7 @@ def capacity_pools(data):
 
 
 def capacity_input(data, hours):
-    """ft-plan 이 읽는 유일한 계약(burn.v1). 표본 0 = null — 0 으로 숨기지 않는다(no_silent_fallback)."""
+    """ctx-plan 이 읽는 유일한 계약(burn.v1). 표본 0 = null — 0 으로 숨기지 않는다(no_silent_fallback)."""
     P = capacity_pools(data)
     cl = P.get("claude") or {}
     return {"schema": CAP_SCHEMA, "window_hours": hours,
@@ -631,7 +631,7 @@ def capacity_input(data, hours):
 # ---------------------------------------------------------------- report
 def main():
     ap = argparse.ArgumentParser(
-        prog="ft-burn",
+        prog="ctx-burn",
         description="Local context waste audit for AI coding agents (read-only)")
     ap.add_argument("--lang", choices=["en", "ko"], default="en", help="output language (default en)")
     ap.add_argument("--runtime", default="auto",

@@ -1,4 +1,4 @@
-# INSTALL — ft-burn
+# INSTALL — ctx-burn
 
 ## 1. 요구사항
 
@@ -10,11 +10,11 @@
 
 ```bash
 git clone https://github.com/yoonhwan/ai-feature-pack.git
-cd ai-feature-pack/feature-pack/ft-burn
+cd ai-feature-pack/feature-pack/ctx-burn
 bash install.sh
 ```
 
-`install.sh` 가 하는 일은 하나다. `bin/ft-burn` 를 `~/.local/bin/ft-burn` 로 심링크.
+`install.sh` 가 하는 일은 하나다. `bin/ctx-burn` 를 `~/.local/bin/ctx-burn` 로 심링크.
 
 경로를 바꾸고 싶으면:
 
@@ -25,9 +25,9 @@ CTX_WASTE_BIN_DIR="$HOME/bin" bash install.sh
 ## 3. 확인
 
 ```bash
-ft-burn --hours 1              # English (default)
-ft-burn --hours 1 --lang ko    # 한국어
-ft-burn --runtime all          # 데이터 있는 런타임 전부 상세
+ctx-burn --hours 1              # English (default)
+ctx-burn --hours 1 --lang ko    # 한국어
+ctx-burn --runtime all          # 데이터 있는 런타임 전부 상세
 ```
 
 검사 대상 런타임은 자동 감지된다: `claude` `codex` `pi` `opencode` `hermes` `openclaw` `commandcode`.
@@ -53,7 +53,7 @@ bash uninstall.sh
 CLIProxyAPI를 쓴다면 `~/.cli-proxy-api/logs/error-v1-messages-*.log` 가 그 역할을 한다.
 
 ```bash
-ft-burn --request ~/.cli-proxy-api/logs/error-v1-messages-2026-11-06T092812-*.log
+ctx-burn --request ~/.cli-proxy-api/logs/error-v1-messages-2026-11-06T092812-*.log
 ```
 
 프록시를 안 쓴다면 이 옵션은 생략해도 된다. 나머지 6개 섹션은 혼자 동작한다.
@@ -73,11 +73,11 @@ ft-burn --request ~/.cli-proxy-api/logs/error-v1-messages-2026-11-06T092812-*.lo
 설치·실행·해석까지 스스로 한다. 이 툴이 읽기 전용이라 실행 자체에 위험이 없다.
 
 ```text
-ft-burn 를 이 프로젝트에 설치하고 돌린 뒤 결과를 해석해줘.
-https://github.com/yoonhwan/ai-feature-pack/tree/main/feature-pack/ft-burn
+ctx-burn 를 이 프로젝트에 설치하고 돌린 뒤 결과를 해석해줘.
+https://github.com/yoonhwan/ai-feature-pack/tree/main/feature-pack/ctx-burn
 
-1. 클론 후 feature-pack/ft-burn/install.sh 실행 (~/.local/bin/ft-burn 심링크)
-2. 이 프로젝트 루트에서 ft-burn --hours 6 실행 (한국어면 --lang ko)
+1. 클론 후 feature-pack/ctx-burn/install.sh 실행 (~/.local/bin/ctx-burn 심링크)
+2. 이 프로젝트 루트에서 ctx-burn --hours 6 실행 (한국어면 --lang ko)
 3. 출력에서 캐시 전면 재작성 비중 · 요청당 평균 컨텍스트 · 4KB 넘는 자동 로드 파일 top3 만 보고
 4. 재작성 비중이 20% 넘으면 로컬 로그로 원인(리줌 크기·세션 동시 시작·계정 전환)을 찾아 근거 줄과 함께 제시
 5. 4KB 넘는 자동 로드 파일은 guides/로 옮기고 1KB 다이제스트를 남기는 안을 제안

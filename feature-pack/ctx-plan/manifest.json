@@ -1,0 +1,52 @@
+{
+  "name": "ctx-plan",
+  "version": "0.1.0",
+  "title": "ctx-plan — FT 용량·감당량 산정 (계약 ctx.v1)",
+  "description": "감당량 축. ctx-burn 의 --json(ctx.v1)만 읽어 계정 구성으로 정원·피크 세션을 계산하고, 0순위 고정상수 점검(--inventory), 필요 구독 장수 역산(--need), 낭비 감소 시뮬레이션(--scales), 골 처리량 모형(--capacity)을 낸다. 세션 로그·네트워크·실 HOME 을 직접 읽지 않는다.",
+  "category": "observability",
+  "os": [
+    "darwin",
+    "linux"
+  ],
+  "install_time_minutes": 1,
+  "requires_api_key": false,
+  "requires_auth": false,
+  "commands": [
+    {
+      "name": "ctx-plan",
+      "kind": "cli-binary",
+      "path": "bin/ctx-plan",
+      "runtime": "python3",
+      "args": [
+        "--from FILE",
+        "--inventory",
+        "--capacity",
+        "--accounts 5x:5,ultra:5",
+        "--need concurrent:40",
+        "--scales 1.0,0.9,0.8,0.7",
+        "--inv-file FILE"
+      ]
+    }
+  ],
+  "inputs": {
+    "contract": "ctx.v1",
+    "note": "ctx-burn --json 의 plan_input 블록. schema 가 ctx.v1 이 아니면 rc≠0 으로 멈춘다(경고 후 진행 0).",
+    "constants": "accounts.env — $FT_CAP_FILE > <루트>/.fable-team/state/capacity/accounts.env > ~/.claude/fable-team/state/capacity/accounts.env"
+  },
+  "install": {
+    "script": "install.sh",
+    "target": "~/.local/bin/ctx-plan",
+    "idempotent": true,
+    "uninstall": "uninstall.sh"
+  },
+  "safety": {
+    "writes_files": false,
+    "network_calls": false,
+    "reads_session_logs": false,
+    "reads_real_home": false,
+    "note": "입력은 ctx.v1 JSON 하나와 상수 파일 하나뿐이다."
+  },
+  "public_docs": [
+    "README.md"
+  ]
+}

@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# ft-burn·ft-plan 계약 시험 — 사례 ⓐ~ⓞ · 변이 M1~M7. 격리 HOME · 실 HOME 읽기 0 · 네트워크 0.
-# 부르는 법: timeout 70 bash feature-pack/ft-plan/test/contract.sh
+# ctx-burn·ctx-plan 계약 시험 — 사례 ⓐ~ⓞ · 변이 M1~M7. 격리 HOME · 실 HOME 읽기 0 · 네트워크 0.
+# 부르는 법: timeout 70 bash feature-pack/ctx-plan/test/contract.sh
 set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"; PACK="$(cd "$HERE/../.." && pwd)"
-BURN="$PACK/ft-burn/bin/ft-burn"; PLAN="$PACK/ft-plan/bin/ft-plan"
+BURN="$PACK/ctx-burn/bin/ctx-burn"; PLAN="$PACK/ctx-plan/bin/ctx-plan"
 T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T"' EXIT
 export HOME="$T/home"; unset FT_CAP_FILE
 mkdir -p "$HOME/.claude/projects/p" "$HOME/.pi/agent/sessions/s" "$T/empty"
@@ -49,19 +49,19 @@ ok "픽스처 생성 (claude 22건 · pi 2건)"
 
 step "ⓐ 표본 0"
 "$BURN" --hours 0.01 --project "$T/empty" --json > "$T/a.json" 2>"$T/a.err"; rc=$?
-[ $rc -eq 0 ] && ok "ⓐ ft-burn rc0" || no "ⓐ ft-burn" "rc=$rc $(tail -1 "$T/a.err")"
+[ $rc -eq 0 ] && ok "ⓐ ctx-burn rc0" || no "ⓐ ctx-burn" "rc=$rc $(tail -1 "$T/a.err")"
 A="$("$PLAN" --from "$T/a.json" --capacity 2>&1)"; rc=$?
-[ $rc -eq 0 ] && ok "ⓐ ft-plan --capacity rc0" || no "ⓐ ft-plan" "rc=$rc"
+[ $rc -eq 0 ] && ok "ⓐ ctx-plan --capacity rc0" || no "ⓐ ctx-plan" "rc=$rc"
 chk "ⓐ 표본 0 = 미산정" "$A" "미산정"
 nchk "ⓐ ZeroDivision 없음" "$A" "ZeroDivision"
 
-step "ⓑⓒⓓⓞ ft-burn --json → burn.v1"
+step "ⓑⓒⓓⓞ ctx-burn --json → ctx.v1"
 "$BURN" --hours 168 --project "$T/empty" --json > "$T/b.json" 2>"$T/b.err"; rc=$?
-[ $rc -eq 0 ] && ok "ⓞ ft-burn --json rc0" || no "ⓞ rc" "rc=$rc $(tail -1 "$T/b.err")"
+[ $rc -eq 0 ] && ok "ⓞ ctx-burn --json rc0" || no "ⓞ rc" "rc=$rc $(tail -1 "$T/b.err")"
 JQ="$(python3 - "$T/b.json" <<'PY'
 import json, sys
 d = json.load(open(sys.argv[1]))["plan_input"]
-assert d["schema"] == "burn.v1", d["schema"]
+assert d["schema"] == "ctx.v1", d["schema"]
 req = {"req", "usage0", "ctx_per_req", "active_hours", "cache_reuse", "w_per_session_hour", "samples"}
 for k, v in d["pools"].items():
     assert req <= set(v), (k, req - set(v))
@@ -119,7 +119,7 @@ chk "ⓚ 하한 키도 INV_KEYS" "$K" "0순위 문제 2건"
 chk "ⓚ 하한 없으면 산정 불가" "$K" "산정 불가 — _LOW 키가 상수 파일에 없다"
 python3 - "$T/b.json" "$T/bad.json" <<'PY'
 import json, sys
-d = json.load(open(sys.argv[1])); d["plan_input"]["schema"] = "ctx.v1"
+d = json.load(open(sys.argv[1])); d["plan_input"]["schema"] = "burn.v1"
 json.dump(d, open(sys.argv[2], "w"))
 PY
 OUT="$("$PLAN" --from "$T/bad.json" --inventory 2>&1)"; rc=$?
@@ -143,5 +143,5 @@ mutate "$PLAN" "$T/m7" 'bad = ci.get("schema") != SCHEMA' 'bad = False'
 if python3 "$T/m7" --from "$T/bad.json" --inventory >/dev/null 2>&1; then ok "M7 계약 가드를 빼면 rc=0 이 된다(변이 검출)"; else no "M7 계약 가드" "가드를 빼도 rc≠0 — 변이 미검출"; fi
 
 echo ""
-echo "ft-plan contract: $P passed, $F failed"
+echo "ctx-plan contract: $P passed, $F failed"
 [ $F -eq 0 ]

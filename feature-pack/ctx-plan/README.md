@@ -1,26 +1,26 @@
-# Feature Pack: ft-plan
+# Feature Pack: ctx-plan
 
 감당량 축. **계정 구성 → 정원·피크 세션·골 처리량**을 계산하고, 0순위 고정상수(구독 장수·주간 리밋)를
 점검하고, 목표 규모에서 **필요 구독 장수**를 역산한다.
 
-짝 도구는 `ft-burn` 이다. `ft-burn` = «쓴 양» 측정 · `ft-plan` = «감당량» 시뮬.
-둘은 **JSON 계약 하나(`burn.v1`)로만** 붙는다. `ft-plan` 은 세션 로그도, 실 HOME 도 읽지 않는다.
+짝 도구는 `ctx-burn` 이다. `ctx-burn` = «쓴 양» 측정 · `ctx-plan` = «감당량» 시뮬.
+둘은 **JSON 계약 하나(`ctx.v1`)로만** 붙는다. `ctx-plan` 은 세션 로그도, 실 HOME 도 읽지 않는다.
 
 ## Quick start
 
 ```bash
-cd ai-feature-pack/feature-pack/ft-plan
-bash install.sh                 # ~/.local/bin/ft-plan + ctx-sim alias
+cd ai-feature-pack/feature-pack/ctx-plan
+bash install.sh                 # ~/.local/bin/ctx-plan
 
 cp accounts.env.example .fable-team/state/capacity/accounts.env   # 값은 머신마다 채운다
-ft-burn --hours 168 --json > /tmp/burn.json
+ctx-burn --hours 168 --json > /tmp/burn.json
 
-ft-plan --from /tmp/burn.json --inventory                        # 0순위 상수 점검 + 크리티컬
-ft-plan --from /tmp/burn.json --capacity --accounts 5x:5,ultra:5  # pool 분리 + 정원·피크 + 골 모형
-ft-plan --from /tmp/burn.json --need concurrent:40               # 필요 구독 장수
+ctx-plan --from /tmp/burn.json --inventory                        # 0순위 상수 점검 + 크리티컬
+ctx-plan --from /tmp/burn.json --capacity --accounts 5x:5,ultra:5  # pool 분리 + 정원·피크 + 골 모형
+ctx-plan --from /tmp/burn.json --need concurrent:40               # 필요 구독 장수
 ```
 
-`ctx-sim` 은 영구 alias 다.
+`ctx-sim` alias 는 **폐기**했다(오빠 #278951 — alias 는 `ctx-waste` → `ctx-burn` 하나만).
 
 ## Modes
 
@@ -36,7 +36,7 @@ ft-plan --from /tmp/burn.json --need concurrent:40               # 필요 구독
 
 | option | default | meaning |
 |---|---|---|
-| `--from FILE\|-` | stdin | `ft-burn --json` 출력 |
+| `--from FILE\|-` | stdin | `ctx-burn --json` 출력 |
 | `--inv-file FILE` | (아래 순서) | 고정상수 파일 |
 | `--accounts 5x:N,ultra:N` | 없음 | `--capacity` 정원·피크 계산용 계정 구성 |
 | `--wk-5x N` / `--wk-ultra N` | 630 / 2520 | 주간 리밋 앵커(가중 M) — 파일 값이 있으면 파일이 이긴다 |
@@ -77,15 +77,15 @@ ft-plan --from /tmp/burn.json --need concurrent:40               # 필요 구독
 - **라벨은 «낮은 용량 가정 · 높은 용량 가정»** — «낙관·보수» 를 쓰지 않는다(작은 용량이 보수라는 보장이 없다).
 - **앵커에는 상태가 붙는다** — `미검증·추정` · `추정(5x×4)·실측 필요` · `실측 주장·출처 미확인` · `운영정책`.
   상태 표기가 지워지기 전에는 이 숫자로 계정 결정을 내리지 않는다.
-- **계약 검사** — `plan_input.schema != burn.v1` 이면 계산하지 않고 rc≠0 으로 멈춘다(경고 후 진행 0).
+- **계약 검사** — `plan_input.schema != ctx.v1` 이면 계산하지 않고 rc≠0 으로 멈춘다(경고 후 진행 0).
 - **표본 0 = 미산정** — 0 으로 채우지 않는다. rc 는 0.
 
-## 입력 계약 (burn.v1)
+## 입력 계약 (ctx.v1)
 
-`ft-burn --json` 의 `plan_input`:
+`ctx-burn --json` 의 `plan_input`:
 
 ```json
-{"schema": "burn.v1", "window_hours": 168,
+{"schema": "ctx.v1", "window_hours": 168,
  "pools": {"claude": {"req": 0, "usage0": 0, "ctx_per_req": 0.0, "active_hours": 0,
                       "cache_reuse": 0.0, "cache_reuse_of_input": 0.0,
                       "w_per_session_hour": null, "samples": 0, "sessions": 0, "w_total": 0}},
