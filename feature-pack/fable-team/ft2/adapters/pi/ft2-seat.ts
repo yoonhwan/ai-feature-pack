@@ -3,7 +3,7 @@
 // ② 도구 결과 = cli stdout 의 JSON 1줄 «그대로» · rc≠0 = isError(성공으로 감싸지 않는다).
 // ③ 필수 인자 빠짐 = cli 를 부르기 «전» 에 오류(쓰기 0 · 루트 파일 변화 0).
 // ④ 상주 프로세스·주기 폴링·이벤트 훅 0 — 이 파일은 registerTool 만 한다(타이머·이벤트 훅·상주 자식 없음).
-// ⑤ 외부 호출 1회 상한 7초(하드 룰 12) — 넘으면 강제 종료하고 그 결과는 오류다.
+// ⑤ 외부 호출 1회 상한 7초(하드 룰 12) — 넘으면 SIGKILL 로 끝낸다(SIGTERM 무시 자식도 7초에 반환).
 import { execFile } from "node:child_process";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -54,20 +54,21 @@ export function argv(spec: VerbSpec, params: any, root: string, team: string): s
   }
   return out;
 }
-export interface CliRun { rc: number; stdout: string; stderr: string; timedOut: boolean }
-/** cli 1회 실행 — 상주 0 · 상한 7초를 넘으면 강제 종료(그때 rc 는 124 다). */
+export interface CliRun { rc: number; stdout: string; stderr: string; timedOut: boolean; error: string }
+/** cli 1회 실행 — 상주 0 · 상한 7초를 넘으면 SIGKILL 로 «반드시» 끝낸다(SIGTERM 무시 자식도 7초에 반환 · DA R1). */
 export function runCli(list: string[], signal?: AbortSignal): Promise<CliRun> {
   return new Promise((resolve) => {
-    execFile(python(), list, { timeout: TIMEOUT_MS, encoding: "utf8", maxBuffer: 1 << 20, signal }, (error: any, stdout, stderr) => {
-      const timedOut = !!error && typeof error.code !== "number";
+    execFile(python(), list, { timeout: TIMEOUT_MS, killSignal: "SIGKILL", encoding: "utf8", maxBuffer: 1 << 20, signal }, (error: any, stdout, stderr) => {
+      const timedOut = !!error && error.name !== "AbortError" && error.signal === "SIGKILL" && typeof error.code !== "number";
       resolve({ rc: typeof error?.code === "number" ? error.code : error ? 124 : 0,
-        stdout: String(stdout ?? ""), stderr: String(stderr ?? ""), timedOut });
+        stdout: String(stdout ?? ""), stderr: String(stderr ?? ""), timedOut,
+        error: error ? String(error.message ?? error).split("\n")[0].trim() : "" });  // ENOENT 같은 실행 실패의 진단 1줄
     });
   });
 }
-const detailsOf = (verb: string, run: CliRun, command: string[]) => ({ verb, rc: run.rc, timedOut: run.timedOut, command });
+const detailsOf = (verb: string, run: CliRun, command: string[]) => ({ verb, rc: run.rc, timedOut: run.timedOut, command, error: run.error });
 const fail = (text: string, verb = "") => ({ content: [{ type: "text" as const, text }],
-  details: { verb, rc: 0, timedOut: false, command: [] as string[] }, isError: true });
+  details: { verb, rc: 0, timedOut: false, command: [] as string[], error: "" }, isError: true });
 function tool(name: string, spec: VerbSpec, description: string) {
   return {
     name, label: LABELS[name], description, promptSnippet: description, parameters: PARAMETERS[name],
@@ -79,7 +80,7 @@ function tool(name: string, spec: VerbSpec, description: string) {
       if (!team) return fail("팀 이름 없음 — 인자 team 또는 FT2_TEAM 을 정한다 · cli 호출 0 · 쓰기 0", spec.verb);
       const command = argv(spec, params, root, team);
       const run = await runCli(command, signal);
-      const text = run.stdout.trim() || run.stderr.trim() || "(출력 없음)";
+      const text = run.stdout.trim() || run.stderr.trim() || run.error || "(출력 없음)";
       if (run.rc !== 0) return { content: [{ type: "text" as const, text }], details: detailsOf(spec.verb, run, command), isError: true };
       return { content: [{ type: "text" as const, text }], details: detailsOf(spec.verb, run, command) };
     },

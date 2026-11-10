@@ -205,6 +205,33 @@ def test_e_no_legacy_dependency(tmp_path):
 MUTANTS = {"M1: rc≠0 을 성공으로": ("isError: true };\n      return { content", "};\n      return { content"),
            "M2: 인자 검사 빼기": ("if (bad) return fail(", "if (false) return fail(")}
 
+HANG = '''
+import signal, sys
+signal.signal(signal.SIGTERM, signal.SIG_IGN)   # 종료 신호를 무시하는 자식
+signal.alarm(9)                                  # 자체 종료 상한 9초
+sys.stdin.read()
+print("{}")
+'''
+
+
+def test_g_timeout_returns_within_cap_even_if_child_ignores_sigterm(tmp_path):
+    """DA R1 직접 회귀 — 종료 신호를 무시하는 자식이면 예전에는 9.077초에 반환됐다."""
+    box = tmp_path / "r1"
+    box.mkdir()
+    hang, root, env = box / "hang.py", box / "root", seat(box)
+    hang.write_text(HANG, encoding="utf-8")
+    root.mkdir()
+    prepare(root, BASE)
+    env["env"]["FT2_CLI"] = str(hang)
+    started = time.monotonic()
+    got = run_tools(box, env["env"], root, ("ft2_claim",))[0]
+    elapsed = time.monotonic() - started
+    assert got["isError"] is True and got["details"]["timedOut"] is True and got["details"]["rc"] == 124, got
+    assert elapsed <= 8.0, "SIGTERM 무시 자식을 7초에 끝내지 못했다 — 실제 %.2f초" % elapsed
+    env["env"]["FT2_PYTHON"] = str(box / "nope-python")   # arch 비차단 ①: 실행 실패의 진단 1줄
+    missing = run_tools(box, env["env"], root, ("ft2_claim",))[0]
+    assert missing["isError"] is True and "ENOENT" in missing["text"] and missing["details"]["timedOut"] is False, missing
+
 
 def mutant(tmp_path, replacement_new):
     old, new = replacement_new
