@@ -40,19 +40,25 @@ export function seatOf(env: Record<string, string | undefined>): string {
   try { return execFileSync("tmux", ["display", "-p", "-t", env.TMUX_PANE, "#S"], { timeout: 3000 }).toString().trim(); } catch { return ""; }
 }
 /** 한 요청의 판정 — 순수 함수(부작용 0). allow 이외는 요청 0. */
-export function decide(table: Table | null, input: { tokens: number | null; model: string; summary: boolean; mark: boolean; tried: boolean }): Decision {
-  if (input.tokens === null) return { action: "allow", rule: "no-usage", reason: "ctx 추산 없음 — 판정 0(막기 0)" };
+export function decide(table: Table | null, input: { tokens: number | null; model: string; payload?: unknown; summary: boolean; mark: boolean; tried: boolean }): Decision {
+  const tokens = input.tokens ?? estimatePayload(input.payload); // ctx 추산이 없으면 payload 바이트 ÷ 3(arch#275 보정 1) — null 이면 판정하지 않고 막는다
+  if (tokens === null) return { action: "block", rule: "no-usage", reason: "ctx 추산 없음 · payload 도 없음 — 추산 0 · 요청 거절(막기 0 으로 열지 않는다)" };
   const budget = limitFor(table, input.model);
   if (!budget) return { action: "block", rule: "no-budget", reason: `모델 예산 없음: ${input.model || "(모델 불명)"} — compact_guard_budget.json 에 없다(추정 0)` };
-  if (input.summary) return input.tokens > budget.w
-    ? { action: "block", rule: "summary-window", budget, reason: `요약 요청 ${input.tokens} > 요약 모델 창 ${budget.w} — 요약 요청도 보내지 않는다` }
-    : { action: "allow", rule: "summary-within", budget, reason: `요약 요청 ${input.tokens} ≤ 창 ${budget.w}` };
-  if (input.tokens <= budget.c) return { action: "allow", rule: "below-limit", budget, reason: `ctx ${input.tokens} ≤ C ${budget.c}` };
-  if (!input.tried) return { action: "compact", rule: "over-limit-compact", budget, reason: `ctx ${input.tokens} > C ${budget.c} — 상태 파일 먼저 · 압축 1회 · 재추산 전 요청 0` };
-  return { action: "block", rule: "over-limit", budget, reason: `ctx ${input.tokens} > C ${budget.c} — 압축 뒤에도 임계 초과: 요청 0 · 증류 미완 상태 파일(사람 인계 필요)` };
+  if (input.summary) return tokens > budget.w
+    ? { action: "block", rule: "summary-window", budget, reason: `요약 요청 ${tokens} > 요약 모델 창 ${budget.w} — 요약 요청도 보내지 않는다` }
+    : { action: "allow", rule: "summary-within", budget, reason: `요약 요청 ${tokens} ≤ 창 ${budget.w}` };
+  if (tokens <= budget.c) return { action: "allow", rule: "below-limit", budget, reason: `ctx ${tokens} ≤ C ${budget.c}` };
+  if (!input.tried) return { action: "compact", rule: "over-limit-compact", budget, reason: `ctx ${tokens} > C ${budget.c} — 상태 파일 먼저 · 압축 1회 · 재추산 전 요청 0` };
+  return { action: "block", rule: "over-limit", budget, reason: `ctx ${tokens} > C ${budget.c} — 압축 뒤에도 임계 초과: 요청 0 · 증류 미완 상태 파일(사람 인계 필요)` };
+}
+/** payload 를 토큰으로 어림한다 — JSON UTF-8 바이트 ÷ 3(보수적 · 반올림 올림). payload 없음·직렬화 불가 = null(판정 불가). */
+export function estimatePayload(payload: unknown): number | null {
+  if (payload === undefined || payload === null) return null;
+  try { const bytes = Buffer.byteLength(JSON.stringify(payload) ?? "", "utf8"); return bytes > 0 ? Math.ceil(bytes / 3) : null; } catch { return null; }
 }
 export interface Guard {
-  request(input: { tokens: number | null; model: string }): Decision;
+  request(input: { tokens: number | null; model: string; payload?: unknown }): Decision;
   beforeCompact(): void;
   compactDone(): void;
   file(): string | null;
@@ -76,13 +82,11 @@ export function createGuard(opts: { table: Table | null; root: string | null; se
     beforeCompact() { summary = true; },
     compactDone() { summary = false; },
     request(input) {
-      const mark = exists();
+      const mark = exists(), tokens = input.tokens ?? estimatePayload(input.payload);
       const d = decide(opts.table, { ...input, summary, mark, tried: tried || mark }); // 압축 시도 표지는 상태 파일이 있으면 참(새 인스턴스도 압축 재시도 0)
-      if (d.action === "allow") {
-        if (exists()) { try { fs.rmSync(file as string, { force: true }); } catch { /* 다음 요청이 다시 닫는다 */ } tried = false; }
-        return d;
-      }
-      const bad = write(input.tokens as number, input.model);
+      if (d.rule === "below-limit" && exists()) { try { fs.rmSync(file as string, { force: true }); } catch { /* 다음 요청이 다시 닫는다 */ } tried = false; } // 숫자 재추산 ≤ C 일 때만 닫는다(요약 통과·추산 불가로 닫지 않는다)
+      if (d.action === "allow") return d;
+      const bad = write(tokens as number, input.model);
       if (d.action === "compact") tried = true;
       return bad ? { ...d, reason: `${d.reason} · ${bad}` } : d;
     },
@@ -107,8 +111,8 @@ export default function compactGuard(pi: any): void {
   pi.on("session_before_compact", (_e: any, ctx: any) => { g(ctx).beforeCompact(); });
   pi.on("session_compact", (_e: any, ctx: any) => { g(ctx).compactDone(); });
   pi.on("session_compact_failed", (_e: any, ctx: any) => { g(ctx).compactDone(); });
-  pi.on("before_provider_request", (_event: any, ctx: any) => {
-    const d = g(ctx).request({ tokens: tokensOf(ctx), model: modelOf(ctx) });
+  pi.on("before_provider_request", (event: any, ctx: any) => {
+    const d = g(ctx).request({ tokens: tokensOf(ctx), model: modelOf(ctx), payload: event?.payload });
     if (d.action === "allow") return undefined;
     const line = `ft2 compact-guard: ${d.reason}`;
     try { ctx?.ui?.notify?.(line, "warning"); } catch { /* ui 없는 모드 */ }
