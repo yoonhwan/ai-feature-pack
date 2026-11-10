@@ -40,10 +40,10 @@ def roster():                     # 명부(seats*.json) 전부 — 현역 판정
         except Exception: pass
     return js
 
-def desk(js):                     # 받는 자리 = 명부 포인터(_desk) 하나(DA R3) — 이름 글자·세션 존재·_master 로 대체 0
+def desk(js):                     # 받는 자리 = seats-planner.json 의 _desk 하나(DA R3 · R5) — 정렬 첫 _desk·이름 글자·_master 로 대체 0
     if os.environ.get("FT_BGW_DESK"): return os.environ["FT_BGW_DESK"]
-    for j in js.values():
-        if j.get("_desk"): return j["_desk"]
+    for p, j in js.items():
+        if os.path.basename(p) == "seats-planner.json": return j.get("_desk") or ""
     return ""
 
 def closed(js, seat):             # 닫힘 = 명부가 은퇴(_replaced_by)로 적었거나, 명부에 없고 세션도 없다
@@ -113,8 +113,10 @@ for ln in run(PS).splitlines():
         if now() < end_at: note("SKIP", "%s 장부 안·기한 전" % pid); continue
         reason = "기한지남"
     if k in seen: note("SKIP", "%s 이미 1통" % pid); continue
-    to = desk(JS) if closed(JS, seat) else seat
-    if not to: note("NA", "%s 판정 불가 — 명부에 _desk 없음(알림 완료 0)" % pid); continue
+    if closed(JS, seat):
+        to = desk(JS)
+        if not to or not alive(to): note("NA", "%s 판정 불가 — seats-planner.json _desk 없음 또는 세션 없음(알림 0)" % pid); continue
+    else: to = seat
     body = ("좌석 밖 상주 감시가 장부 밖이거나 끝 시각이 지났다(점검 r1572 · 자동 종료 0)\n- pid %s · 시작 %s · 사유 %s\n- 명령: %s\n"
             "- 끝내는 사람 = 소유자 또는 h · 등록 = ft-bg-watch.sh --seat <좌석> --until <끝 조건> --end-at <끝 시각> --every <초>\n- 장부 = %s"
             % (pid, lst, reason, cmd[:100], LDG))

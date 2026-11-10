@@ -37,10 +37,10 @@ printf '%s\n' "\$*" >> "$T/killcalled"; exit 0
 EOF
 printf '#!/usr/bin/env bash\nfor a; do case "$a" in 103) echo tPIPE;; esac; done\n' >"$T/bin/lsof_pipe.sh"
 printf '#!/usr/bin/env bash\necho tPIPE\n' >"$T/bin/lsof_all.sh"
-mkdir -p "$T/seatsdir" "$T/seats_r3" "$T/seats_nod"
-printf '%s\n' '{"_desk":"seat-H","seat-A":{"role":"nano"},"seat-Z":{"role":"nano","_replaced_by":"seat-Z2"}}' >"$T/seatsdir/seats.json"
-printf '%s\n' '{"_desk":"byz-planner-desk-pi#126","byz-planner-desk-pi#125":{"role":"desk"},"byz-planner-desk-pi#126":{"role":"desk"}}' >"$T/seats_r3/seats.json"
-printf '%s\n' '{"seat-A":{"role":"nano"}}' >"$T/seats_nod/seats.json"
+mkdir -p "$T/seatsdir" "$T/seats_r3" "$T/seats_nod" "$T/seats_r5" "$T/seats_r5m"
+printf '%s\n' '{"_desk":"seat-H","seat-A":{"role":"nano"},"seat-Z":{"role":"nano","_replaced_by":"seat-Z2"}}' >"$T/seatsdir/seats-planner.json"
+printf '%s\n' '{"_desk":"byz-planner-desk-pi#126","byz-planner-desk-pi#125":{"role":"desk"},"byz-planner-desk-pi#126":{"role":"desk"}}' >"$T/seats_r3/seats-planner.json"
+printf '%s\n' '{"seat-A":{"role":"nano"}}' >"$T/seats_nod/seats-planner.json"
 cat >"$T/bin/advance.sh" <<EOF
 #!/usr/bin/env bash
 printf '%s\n' "\$1" >>"$T/sleep.log"
@@ -189,9 +189,34 @@ eq "R3 수신자 = _desk 현역(#126, 옛 #125 아님)" "$(cut -f1 "$SENT")" "by
 # R3-b — _desk 가 없으면 임의 desk 로 성공 처리하지 않는다
 rm -f "$SENT" "$SENT.body" "$FT_BGW_LEDGER.seen"
 FT_BGW_SEATS_X="$T/seats_nod" FT_BGW_TMUX_CMD="exit 0" FT_BGW_NOW_CMD="echo 1700000100" bash "$C" >"$T/o_r3b" 2>&1
-has "R3 _desk 없음 = 판정 불가 1줄" "$(cat "$T/o_r3b")" "판정 불가 — 명부에 _desk 없음"
+has "R3 _desk 없음 = 판정 불가 1줄" "$(cat "$T/o_r3b")" "판정 불가 — seats-planner.json _desk 없음"
 eq "R3 _desk 없음 = 알림 0통(성공 처리 0)" "$(lines "$SENT")" 0
 [ -f "$FT_BGW_LEDGER.seen" ] && bad "R3 _desk 없음을 발신 완료로 기록" || ok "R3 _desk 없음 = 발신 완료 기록 0"
+# R5 — 받는 명부는 seats-planner.json 하나(정렬 첫 _desk 인 죽은 seats-ops.json 을 쓰지 않는다)
+printf '%s\n' '{"_desk":"byz-ops-desk-claude#0"}' >"$T/seats_r5/seats-ops.json"
+printf '%s\n' '{"_desk":"byz-planner-desk-pi#126"}' >"$T/seats_r5/seats-planner.json"
+printf '501 405 1 Mon Nov 10 10:00:00 2026 bash /x/main-land-watch.sh --loop 10\n' >"$T/ps.txt"
+TMUX126='bash -c "case {seat} in *126) exit 0;; *) exit 1;; esac"'
+: >"$FT_BGW_LEDGER"; rm -f "$SENT" "$SENT.body" "$FT_BGW_LEDGER.seen"
+FT_BGW_SEATS_X="$T/seats_r5" FT_BGW_TMUX_CMD="$TMUX126" FT_BGW_NOW_CMD="echo 1700000100" bash "$C" >"$T/o_r5" 2>&1
+eq "R5 수신자 = seats-planner.json _desk(죽은 seats-ops desk 아님)" "$(cut -f1 "$SENT")" "byz-planner-desk-pi#126"
+eq "R5 알림 1통" "$(lines "$SENT")" 1
+python3 - "$C" "$T/c_r5m.sh" <<'PYM'
+import sys
+s = open(sys.argv[1], encoding="utf-8").read()
+old = """    for p, j in js.items():
+        if os.path.basename(p) == "seats-planner.json": return j.get("_desk") or ""
+    return """""
+new = """    for p, j in js.items():
+        if j.get("_desk"): return j["_desk"]
+    return """""
+assert old in s, "변이 대상 못 찾음"
+open(sys.argv[2], "w", encoding="utf-8").write(s.replace(old, new))
+PYM
+rm -f "$SENT" "$SENT.body" "$FT_BGW_LEDGER.seen"
+FT_BGW_SEATS_X="$T/seats_r5" FT_BGW_TMUX_CMD="$TMUX126" FT_BGW_NOW_CMD="echo 1700000100" bash "$T/c_r5m.sh" >"$T/o_r5m" 2>&1
+[ "$(cut -f1 "$SENT")" = "byz-planner-desk-pi#126" ] && bad "변이R5(정렬 첫 _desk)를 못 잡음" || ok "변이R5(정렬 첫 _desk 복원) = planner desk 로 안 감(FAIL 검출)"
+
 # R4 — 일반 감시의 stdout 파이프는 MCP 가 아니다(파이프만으로 제외 0)
 printf '501 401 1 Mon Nov 10 10:00:00 2026 python3 /tmp/main-land-watch.py\n501 403 1 Mon Nov 10 10:00:00 2026 python3 /x/serena-mcp-server.py --loop 5\n' >"$T/ps.txt"
 rm -f "$SENT" "$SENT.body" "$FT_BGW_LEDGER.seen"
