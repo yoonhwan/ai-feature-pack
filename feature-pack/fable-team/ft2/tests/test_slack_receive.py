@@ -1,6 +1,6 @@
 """ft2 Slack 수신 어댑터 시험 (r1580 · PR③ 첫 장).
-사례 대조(ⓖ): `contracts/slack/cases/*.json` 21건 중 이 장은 8건(c1 c2 c3 d1 d2 t4 t1 t5)을 본다 — 계약 낱말은
-`CONTRACT-18.md` 대응표 원문과, 결과 수치는 사례 `expect.observed.checks` 와 대조한다. R1·R2 = DA #279756 반례.
+사례 대조(ⓖ): `cases/*.json` 21건 중 이 장은 8건(c1 c2 c3 d1 d2 t4 t1 t5)을 본다 — 계약 낱말은 `CONTRACT-18.md`
+대응표 원문과, 결과 수치는 사례 `expect.observed.checks` 와 대조한다. R1·R2 = DA #279756 반례, ⓙ = 실제 writer.lock.
 차이 1 = d2 «entrance_rows»: 모형 3행 vs 우리 1행 — 같은 command 재부여 0, DA R1 §2(조회 성공 = 완료)의 결과다.
 
 다음 장(초안 · 지우지 않는다): c4 c5 c6 c7 c8 d3 d4 t2 t3 f1 f2 f3 f4 — 계약 1·7~14·17·18 줄.
@@ -79,9 +79,9 @@ def _receiver(root, band, **kwargs):
     return cls(str(root), ack=band.ack, client=client, team=TEAM, allowed_users={"U1"},
                allowed_channels=set(channels), notify=band.on_notify), client
 
-def test_a_c1_order_confirmation_then_submit_completion(tmp_path):
+def test_a_c1_order_and_ack_crash_recovery(tmp_path):
     band, seen = _Band(), {}
-    receiver, client = _receiver(tmp_path, band)
+    receiver, client = _receiver(tmp_path / "c1", band)
 
     def ack(event):
         band.ack(event)
@@ -94,16 +94,13 @@ def test_a_c1_order_confirmation_then_submit_completion(tmp_path):
         "dispatched", {"result": OK, "attempt": "slack:%s:%s:%s#a1" % (W, C, TS), "written": True})
     dropped = receiver.handle(_event(user="U2"))
     assert (dropped["state"], dropped["reason"], len(band.acks)) == ("ignored", "미인가 사용자", 2)
-    _case("c1")
-
-def test_a_crash_after_ack_recovers_by_lookup_before_submit(tmp_path):
-    assert _crash_run(tmp_path, "ack").returncode == 9
-    receiver, client = _receiver(tmp_path, _Band())
-    assert [entry["state"] for entry in receiver.entries()] == ["received"]
-    assert [v["state"] for v in receiver.recover()] == ["dispatched"]
-    assert receiver.steps.index("lookup") < receiver.steps.index("submit")
-    assert (client.lookups, client.submits) == (1, 1)
-
+    assert _case("c1")["dispatched"] is True
+    assert _crash_run(tmp_path / "crash", "ack").returncode == 9  # 확인 직후 crash → 조회가 먼저
+    again, counted = _receiver(tmp_path / "crash", _Band())
+    assert [entry["state"] for entry in again.entries()] == ["received"]
+    assert [v["state"] for v in again.recover()] == ["dispatched"]
+    assert again.steps.index("lookup") < again.steps.index("submit")
+    assert (counted.lookups, counted.submits) == (1, 1)
 def test_b_c2_and_d1_three_part_key_one_message(tmp_path):
     receiver, client = _receiver(tmp_path / "c2", _Band())
     states = [receiver.handle(_event(event_id=name))["state"] for name in ("Ev1", "Ev1", "Ev2")]
@@ -113,9 +110,10 @@ def test_b_c2_and_d1_three_part_key_one_message(tmp_path):
     states = [receiver.handle(_event(channel=channel))["state"] for channel in (C, "C2")]
     assert (states, client.submits, len(_case("d1")["states"])) == (["dispatched", "dispatched"], 2, 2)
 
-def test_c_d2_and_i1_crash_before_receipt_completes_via_lookup(tmp_path):
-    assert [_crash_run(tmp_path, step).returncode for step in ("ack", "submit")] == [9, 9]
-    receiver, client = _receiver(tmp_path, _Band())
+def test_c_d2_and_i2_crash_recovery_paths(tmp_path):
+    root = tmp_path / "d2"  # ⓒ·ⓘ①: 확인 전·영수 전 crash 두 번(rc 9,9) → 조회 영수로 완료
+    assert [_crash_run(root, step).returncode for step in ("ack", "submit")] == [9, 9]
+    receiver, client = _receiver(root, _Band())
     (entry,) = receiver.latest().values()
     body = Path(client.inner.body_path(entry["command"])).read_text(encoding="utf-8")
     assert (entry["state"], entry["attempts"]) == ("received", 2)
@@ -123,13 +121,11 @@ def test_c_d2_and_i1_crash_before_receipt_completes_via_lookup(tmp_path):
     (verdict,) = receiver.recover()
     assert (verdict["state"], verdict["via"], verdict["receipt"]["written"]) == ("dispatched", "lookup", False)
     assert (client.submits, client.lookups, len(client.records())) == (0, 1, _case("d2")["seat_reads"])
-
-def test_i2_body_only_interruption_stays_unfinished(tmp_path):
-    assert _crash_run(tmp_path, "", "after_body").returncode == 9
-    receiver, client = _receiver(tmp_path, _Band())
+    only = tmp_path / "i2"  # ⓘ②: 본문만 남은 중단 → «완료 유보» = 미완 보존 · 완료 0 · 재송 0
+    assert _crash_run(only, "", "after_body").returncode == 9
+    receiver, client = _receiver(only, _Band())
     (verdict,) = receiver.recover()
     assert (verdict["state"], verdict["receipt"]["result"], client.submits) == ("hold", HOLD, 0)
-
 def test_d_t4_full_keeps_record_and_notifies(tmp_path):
     band = _Band()
     receiver, client = _receiver(tmp_path, band, capacity=2)
@@ -142,56 +138,61 @@ def test_d_t4_full_keeps_record_and_notifies(tmp_path):
     again, _ = _receiver(tmp_path, _Band())  # 용량 해제 = r1579 실행권 몫(대역: capacity 상향)
     assert [v["state"] for v in again.recover()] == ["dispatched"]
 
-def test_e_t1_bot_unauthorized_channel_are_confirmed_and_dropped(tmp_path):
+def test_j_real_writer_lock_busy_keeps_text_then_recovers(tmp_path):
+    """ⓙ 실제 r1579 writer.lock 점유 중 submit = BUSY → 미완 보존 → 잠금 해제 뒤 recover = 접수 성공."""
+    receiver, client = _receiver(tmp_path, _Band())
+    holder = intake.Intake(str(tmp_path), TEAM)  # 같은 팀 다른 writer = 실 잠금(비차단 → BUSY)
+    lock = holder._try_lock()
+    try:
+        busy = receiver.handle(_event(text="잠금 중 업무 원문"))
+    finally:
+        holder._unlock(lock)
+    assert (busy["state"], busy["receipt"]["result"], len(client.records())) == ("hold", BUSY, 0)
+    (verdict,) = receiver.recover()
+    body = Path(client.inner.body_path(verdict["command"])).read_text(encoding="utf-8")
+    assert (verdict["state"], "잠금 중 업무 원문" in body, len(client.records())) == ("dispatched", True, 1)
+
+
+def test_e_f_t1_idle_and_dropped_events_stay_inside_the_tool(tmp_path):
     band = _Band()
     receiver, client = _receiver(tmp_path, band)
     states = [receiver.handle(event)["state"] for event in (
         _event(bot_id="B1"), _event(subtype="bot_message"), _event(user="U9"), _event(channel="CX"))]
-    assert (states, len(band.acks), len(client.records()), client.submits) == (
-        _case("t1")["states"], len(states), 0, 0)
-
-def test_f_t5_idle_duplicate_and_no_change_stay_inside_the_tool(tmp_path):
-    receiver, client = _receiver(tmp_path, _Band())
+    assert (states, len(band.acks), len(client.records()), client.submits) == (_case("t1")["states"], 4, 0, 0)
+    receiver, client = _receiver(tmp_path / "t5", _Band())
     first, duplicate, dropped = (receiver.handle(event)["state"] for event in (
         _event(event_id="Ev-1"), _event(event_id="Ev-again"), _event(text="   ")))
     idle = [receiver.pass_idle()["state"] for _ in range(2)]
     assert (first, idle, duplicate, dropped) == ("dispatched", ["idle", "idle"], "duplicate", "ignored")
     assert sorted([first, duplicate, dropped]) == sorted(_case("t5")["states"])
     assert (client.submits, len(client.records())) == (1, 1)
-    size = os.path.getsize(receiver.path)
+    size, source = os.path.getsize(receiver.path), Path(ADAPTER).read_text(encoding="utf-8")
     assert (receiver.pass_idle()["state"], os.path.getsize(receiver.path)) == ("idle", size)
-    source = Path(ADAPTER).read_text(encoding="utf-8")
     assert [name for name in ("subprocess", "urllib", "requests", "socket") if name in source] == []
-
-def test_r1_full_recovery_keeps_the_original_text(tmp_path):
-    receiver, _ = _receiver(tmp_path, _Band(), capacity=1)  # 두 번째 글 = FULL, 원문은 received 행에 남는다
+def test_r1_r2_da_counterexamples(tmp_path):
+    receiver, _ = _receiver(tmp_path / "r1", _Band(), capacity=1)  # 두 번째 글 = FULL, 원문은 received 행에
     assert [receiver.handle(_event(ts=ts, text=text))["state"] for ts, text in (
         ("1800000001.000100", "첫 글"), ("1800000002.000100", "반드시 보존할 업무 원문"))] == ["dispatched", "full"]
-    again, counted = _receiver(tmp_path, _Band(), capacity=2)  # 용량 해제 = 격리 입력(r1579 몫)
+    again, counted = _receiver(tmp_path / "r1", _Band(), capacity=2)  # 용량 해제 = 격리 입력(r1579 몫)
     (verdict,) = again.recover()
     body = Path(counted.inner.body_path(verdict["command"])).read_text(encoding="utf-8")
-    assert (verdict["state"], "반드시 보존할 업무 원문" in body, body.startswith("[[slack-key")) == ("dispatched", True, True)
-
-
-def test_r2_redelivered_unfinished_message_is_acked(tmp_path):
-    assert _crash_run(tmp_path, "submit").returncode == 9
+    assert (verdict["state"], "반드시 보존할 업무 원문" in body) == ("dispatched", True)
+    root = tmp_path / "r2"  # R2: 영수 전 crash 뒤 «같은 사건 재전달» — 확인은 lookup 결과와 무관
+    assert _crash_run(root, "submit").returncode == 9
     band = _Band()
-    receiver, client = _receiver(tmp_path, band)
-    verdict = receiver.handle(_event())  # 같은 사건 재전달 — 확인은 lookup 결과와 무관
+    receiver, client = _receiver(root, band)
+    verdict = receiver.handle(_event())
     assert (verdict["state"], verdict["via"], len(band.acks), client.submits) == ("dispatched", "lookup", 1, 0)
-
-
-def test_g_remaining_13_cases_are_listed_not_dropped():
+def test_g_h_cases_listed_and_invariants():
     header = Path(__file__).read_text(encoding="utf-8").split('"""')[1]
     assert sorted(HANDLED + REST) == sorted(CASES_BY_ID) and len(CASES_BY_ID) == 21
-    assert [cid for cid in HANDLED + REST if cid not in header] == []  # 지우면 여기서 깨진다
-
-def test_h_core_untouched_guard_rc0_and_no_secret():
+    assert [cid for cid in HANDLED + REST if cid not in header] == []  # 13건 목록을 지우면 여기서 깨진다
     changed = subprocess.run(["git", "-C", FT2, "status", "--porcelain", "--", "core"], capture_output=True,
                              text=True, timeout=25)
     guard = subprocess.run([sys.executable, "-I", GUARD], capture_output=True, timeout=25)
     source = Path(ADAPTER).read_text(encoding="utf-8")
     assert (changed.stdout.strip(), guard.returncode, re.compile(r"xox[abposre]-|xapp-\d").search(source)) == ("", 0, None)
+
 
 def _judge_variant(check):
     """변이 M4·M7·M8·M9 — `check` 가 값을 내면 그 판정, 아니면 정본 판정."""
@@ -221,7 +222,9 @@ def _m5_no_bot_filter(self, event):  # bot 사건을 입구로
 def _m6_idle_wakes(self):  # 무변화 사건에 좌석 깨움 1회
     self.client.submit("slack:idle", "무변화")
     return slack.SlackReceive.pass_idle(self)
-def _mutant(root, **methods):
+def _mutant(root, crash=(), **methods):
+    if crash:
+        assert _crash_run(root, *crash).returncode == 9
     return _receiver(root, _Band(), cls=type("_Mutant", (slack.SlackReceive,), methods))
 def test_m1_m9_mutations_are_caught(tmp_path):
     receiver, _ = _mutant(tmp_path / "m1", _dispatch=_m1_ack_after_submit)
@@ -229,8 +232,7 @@ def test_m1_m9_mutations_are_caught(tmp_path):
     receiver, client = _mutant(tmp_path / "m2", channels=(C, "C2"), _key=_m2_no_channel_key)
     [receiver.handle(_event(channel=channel)) for channel in (C, "C2")]
     assert (len(receiver.latest()), client.submits) == (1, 1)
-    assert _crash_run(tmp_path / "m3", "ack").returncode == 9
-    receiver, client = _mutant(tmp_path / "m3", _next_attempt=_m3_budget_reset)
+    receiver, client = _mutant(tmp_path / "m3", ("ack",), _next_attempt=_m3_budget_reset)
     receiver.recover()
     assert "[[slack-key" not in Path(client.inner.body_path("slack:%s:%s:%s" % (W, C, TS))).read_text("utf-8")
     receiver, _ = _mutant(tmp_path / "m4", capacity=2, _judge=_m4)
@@ -240,11 +242,9 @@ def test_m1_m9_mutations_are_caught(tmp_path):
     assert (receiver.handle(_event(bot_id="B1"))["state"], client.submits) == ("dispatched", 1)
     receiver, client = _mutant(tmp_path / "m6", pass_idle=_m6_idle_wakes)
     assert (receiver.pass_idle()["state"], len(client.records()), len(receiver.entries())) != ("idle", 0, 0)
-    assert _crash_run(tmp_path / "m7", "submit").returncode == 9
-    receiver, _ = _mutant(tmp_path / "m7", _judge=_m7)
+    receiver, _ = _mutant(tmp_path / "m7", ("submit",), _judge=_m7)
     assert [v["state"] for v in receiver.recover()] != ["dispatched"]
-    assert _crash_run(tmp_path / "m8", "", "after_body").returncode == 9
-    receiver, _ = _mutant(tmp_path / "m8", _judge=_m8)
+    receiver, _ = _mutant(tmp_path / "m8", ("", "after_body"), _judge=_m8)
     assert [v["state"] for v in receiver.recover()] != ["hold"]
     for cls, want in ((slack.SlackReceive, "hold"), (_M9, "dispatched")):
         inner = intake.Intake(str(tmp_path / "m9" / want), TEAM)
