@@ -259,6 +259,21 @@ def test_p_turn_start_silent_only_before_any_usage(tmp_path):
     assert [v["rule"] for v in got[:2]] == ["undecidable-turn", "undecidable-first"], "ⓗ 주입 0 · ⓚ 턴 시작이 첫 판정 예외를 소모하지 않는다"
     assert log.read_text(encoding="utf-8").strip().splitlines() == [f"send byz-x-master#1 {SEAT} [긴급] 증류 판정 불가 {SEAT} ctx usage 없음"], "ⓗ 턴 시작 usage 없음 = 알림 0 · 읽은 뒤의 null 만 지금 동작(막음+1줄)"
 
+def test_r_successor_first_turn_ignores_previous_generation_marker(tmp_path):
+    root, mbox, log = build(tmp_path), *capture_mbox(tmp_path, "_r")
+    state = root / ".fable-team/state/pi-distill-pending/byz-x-nano"
+    state.write_text("2026-01-01T00:00:00Z seat=byz-x-nano#9 ctx=9 증류 미완\n", encoding="utf-8")  # 직전 세대(#9) 표식
+    got = gate(root, [("turn", None, {}), ("read", None, {})], env={"FT_MBOX": str(mbox)})
+    assert [v["rule"] for v in got] == ["undecidable-turn", "undecidable-first"], got  # ⓜ 승계 첫 턴 = 주입 0 · 알림 0 · 연속 횟수 불변
+    assert not log.exists() or log.read_text(encoding="utf-8").strip() == "", "ⓛ 직전 세대 표식으로 [긴급] 0"
+    assert state.exists() and one(root, "read", 1000)["rule"] == "below-warn" and not state.exists(), "ⓜ 이 좌석 첫 양수 판정 = 표식 닫힘(지금 동작)"
+    self_root, self_mbox, self_log = build(tmp_path / "s"), *capture_mbox(tmp_path, "_r2")  # 자기 좌석(#0) 표식 = 지금 동작 유지
+    (self_root / ".fable-team/state/pi-distill-pending/byz-x-nano").write_text("seat=byz-x-nano#0 ctx=9 증류 미완\n", encoding="utf-8")
+    assert gate(self_root, [("turn", None, {})], env={"FT_MBOX": str(self_mbox)})[0]["action"] == "block" and self_log.read_text(encoding="utf-8").count("send ") == 1, "ⓛⓜ 자기 좌석 표식 = 주입 + 1통 유지"
+    old = build(tmp_path / "o")  # 좌석 이름 없는 옛 표식 = 지금처럼 초기 예외 0
+    (old / ".fable-team/state/pi-distill-pending/byz-x-nano").write_text("2026-01-01T00:00:00Z ctx=9 증류 미완\n", encoding="utf-8")
+    assert one(old, "read", None)["action"] == "block", "ⓛ 이름 없는 옛 표식·읽기 실패 = 초기 예외 0"
+
 MUT1565 = {"M1": ("if (!seen && n < max) return { action: \"allow\",", "if (!seen && n < max) return { action: \"block\","),
            "M2": ("!seen && n < max", "!seen"), "M3": ("ok = toolAllowed(input, root)", "ok = false"),
            "M4": ("!seen && n < max", "n === 1"),  # M4 = 읽은 뒤의 null 을 «첫 판정» 처럼 통과시킨다
@@ -269,6 +284,8 @@ MUT1565 = {"M1": ("if (!seen && n < max) return { action: \"allow\",", "if (!see
            "M9": ("if (turn && !seen && fresh) return", "if (turn && !seen && fresh && seenUsage.set(key, true)) return"),
            "M10": ("!seen && n < max", "n < max")}  # M10 = 읽은 뒤의 null 을 다시 «통과» 로 되돌린다
 MUT1565["M11"] = ('!seat ? "좌석 이름 못 읽음(TMUX_PANE·FT_SEAT)" : !k ? "ctx usage 없음"', '!k ? "ctx usage 없음" : !seat ? "좌석 이름 못 읽음(TMUX_PANE·FT_SEAT)"')  # M11 = 좌석 불명 판정을 usage 예외 뒤로 되돌린다(DA R1)
+MUT1565["M12"] = ("&& (stored === seat || !stored), fresh", "&& true, fresh")  # M12 = 표식 판정을 베이스 존재로 되돌린다(ⓛⓜ FAIL)
+MUT1565["M13"] = ("(stored === seat || !stored), fresh", "false, fresh")  # M13 = 자기 좌석 이름 표식도 무시한다(ⓛⓜ FAIL)
 
 def mut1565(tmp_path, name):
     old, new = MUT1565[name]
@@ -281,7 +298,7 @@ def mut1565(tmp_path, name):
 def test_q_mutants_r1565(tmp_path):
     root = build(tmp_path)
     for name in MUT1565:
-        m, kind = mut1565(tmp_path, name), "10" if name == "M10" else "11" if name == "M11" else name[1]
+        m, kind = mut1565(tmp_path, name), "10" if name == "M10" else "11" if name == "M11" else "12" if name == "M12" else "13" if name == "M13" else name[1]
         if kind == "1":  # ⓐ 첫 판정 통과를 빼면 첫 호출이 막힌다
             assert run_gate(m, root, [{"tool": "bash", "tokens": None, "model": CLAUDE, "seat": SEAT, "session": S, "command": "ls"}])[0]["action"] == "block", name
         elif kind == "10":  # M10 읽은 뒤의 null 이 통과하면 허용 목록 밖 도구가 열린다
@@ -304,5 +321,13 @@ def test_q_mutants_r1565(tmp_path):
             norow = build(tmp_path / "n11")
             shutil.rmtree(norow / ".fable-team" / "state" / "pi-distill-pending")
             assert run_gate(m, norow, [{"tool": "read", "tokens": None, "model": CLAUDE, "seat": "", "session": S}])[0]["action"] != "block", name
+        elif kind == "12":  # M12 베이스 존재로 되돌리면 승계 첫 턴이 거짓 경보(직전 세대 표식)
+            base12 = build(tmp_path / "n12")
+            (base12 / ".fable-team/state/pi-distill-pending/byz-x-nano").write_text("seat=byz-x-nano#9 ctx=9\n", encoding="utf-8")
+            assert run_gate(m, base12, [{"tool": "turn", "tokens": None, "model": CLAUDE, "seat": SEAT, "session": S}])[0]["action"] == "block", name
+        elif kind == "13":  # M13 자기 좌석 표식도 무시하면 증류 중 좌석이 초기 예외를 받는다
+            base13 = build(tmp_path / "n13")
+            (base13 / ".fable-team/state/pi-distill-pending/byz-x-nano").write_text("seat=byz-x-nano#0 ctx=9\n", encoding="utf-8")
+            assert run_gate(m, base13, [{"tool": "turn", "tokens": None, "model": CLAUDE, "seat": SEAT, "session": S}])[0]["action"] == "allow", name
         else:  # M9 ⓚ 턴 시작이 «읽음» 을 소모하면 첫 tool_call 이 «첫 판정» 이 아니다
             assert [v["rule"] for v in run_gate(m, root, [{"tool": "turn", "tokens": None, "model": CLAUDE, "seat": SEAT, "session": S}, {"tool": "read", "tokens": None, "model": CLAUDE, "seat": SEAT, "session": S}])] == ["undecidable-turn", "undecidable-allowlist"], name
