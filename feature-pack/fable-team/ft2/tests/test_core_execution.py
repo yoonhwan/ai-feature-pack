@@ -276,6 +276,21 @@ def test_r2_journal_generation_survives_checkpoint_crash(tmp_path):
     assert (len(node.rs.records()), _state(node)["revision"]) == (4, 4)
 
 
+def test_r2_intake_writer_keeps_recovered_revision(tmp_path):
+    """DA R2 잔여: 같은 crash 뒤 «실제 Intake.submit» 도 journal 내구 revision·세대를 이어받는다."""
+    root = tmp_path / "t"
+    node = _ex(root)
+    g1 = node.claim("card-a", "h1")
+    node.start("card-a", "h1", g1.gen)
+    assert _child("rotate", root, "after_journal").returncode == 9
+    receipt = _intake(root).submit("c-1", "본문-1")
+    state, records = _state(node), node.rs.records()
+    assert (receipt.result, receipt.written) == (OK, True)
+    assert (len(records), state["revision"]) == (4, 4)          # 내구 3줄 + submit 1줄
+    assert (state["generations"], state["owners"]["card-a"]["gen"]) == ({"card-a": 2}, 2)
+    assert node.result("card-a", "h1", g1.gen).result == STALE  # 이후에도 옛 gen 은 거절
+
+
 class _NoGenCheck(execution.Execution):           # M1: 세대 검사 빼기
     _gen_matches = lambda self, state, work, gen: True  # noqa: E731
 

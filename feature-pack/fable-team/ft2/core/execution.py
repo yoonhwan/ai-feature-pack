@@ -26,7 +26,6 @@ def _load(name, alias):
 record, intake = _load("record", "ft2_core_record"), _load("intake", "ft2_core_intake")
 OK, HOLD, STALE, BUSY = "접수 성공", "완료 유보", "낡은 실행권", "BUSY"
 CORRUPT, REFUSED, RECOVERED = "복구 필요", "접수 거부", "회수 결과"
-CONFIRM_SECONDS = 300
 Grant = collections.namedtuple(
     "Grant", "result work gen holder revision written stage confirm_by reason",
     defaults=(None, None, None, None, False, None, None, ""))
@@ -168,17 +167,13 @@ class Execution:
         return Grant(HOLD, work, gen, holder, rev, True, "uncertain", confirm_by, marker["reason"])
 
     def _confirm_by(self):
-        return time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(time.time() + CONFIRM_SECONDS))
+        return time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(time.time() + 300))
 
     def _state_records(self):
         """journal 에만 내구화된 claim 세대를 유효본으로 되살린다(DA R2). revision 은 기록 수가 하한 —
         두 writer 를 통틀어 엄격 증가를 지킨다."""
         state, records = self.rs._state(), self.rs.records()
-        gens = self._field(state, "generations")
-        for rec in records:
-            if rec["kind"] == "claim" and rec.get("work") and rec.get("gen"):
-                gens[rec["work"]] = max(gens.get(rec["work"], 0), rec["gen"])
-        return dict(state, revision=max(state["revision"], len(records)), generations=gens), records
+        return record.recover_state(state, records), records
 
     def _gen_matches(self, state, work, gen):
         return self._field(state, "generations").get(work) == gen

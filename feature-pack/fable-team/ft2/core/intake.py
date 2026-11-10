@@ -18,7 +18,6 @@ record = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(record)
 
 RESULT_OK, RESULT_HOLD, RESULT_FULL, RESULT_CORRUPT = "접수 성공", "완료 유보", "용량 부족", "복구 필요"
-RESULT_BUSY = "BUSY"
 DURABLE_OPS = ("body_tmp_write", "body_file_fsync", "body_rename", "body_dir_fsync",
                "journal_write", "journal_fsync", "receipt")
 Receipt = collections.namedtuple("Receipt", "result command attempt revision written body_ref reason",
@@ -163,7 +162,7 @@ class Intake:
         """같은 팀 writer.lock 을 «비차단» 으로 잡고 접수한다. 점유 중이면 BUSY·쓰기 0(ⓗ)."""
         lock = self._try_lock()
         if lock is None:
-            return Receipt(RESULT_BUSY, command, reason="writer.lock 점유 = 기다리지 않는다(BUSY)")
+            return Receipt("BUSY", command, reason="writer.lock 점유 = 기다리지 않는다(BUSY)")
         try:
             return self._submit_locked(command, body, work)
         finally:
@@ -173,6 +172,7 @@ class Intake:
         """잠금 안의 접수 본체 — 영수는 내구화가 끝난 뒤에만 난다."""
         try:
             state, records = self._state(), self.records()
+            state = record.recover_state(state, records)      # DA R2: 내구 journal 이 기준(공통 writer)
         except CorruptStateError as exc:
             self._ops("read_state_guarded")
             return Receipt(RESULT_CORRUPT, command, reason=str(exc))
