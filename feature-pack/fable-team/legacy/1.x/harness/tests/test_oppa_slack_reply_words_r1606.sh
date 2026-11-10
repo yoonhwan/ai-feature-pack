@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # test_oppa_slack_reply_words_r1606.sh — 끝: ft_oppa_slack_check 가 창 안 오빠 답글의 «내용» 을 본다 (카드 r1606-oppa-slack-check-reply-text-approve-words · BYZ #8243 «tmddls»)
 #   ⓐ Red(지금 판 = 작성자만) → ⓑ 오타·모르는 말 = 승인 0 · ⓒ 거절 낱말 = REJECT(승인 뒤여도) · ⓓ 오타 뒤 승인 = 승인 ts 로 OK
-#   ⓔ 답글 전체 일치만 · ⓕ 창 규칙 그대로 · ⓖ 기존 길 회귀 0 · ⓗ kit 사본 cmp0 · 변이 M1~M3
+#   ⓔ 토막 판정 · ⓔ2 카드 실 표본 · ⓕ 창 규칙 그대로 · ⓖ 기존 길 회귀 0 · ⓗ kit 사본 cmp0 · 변이 M1~M4
 # 격리: 임시 루트 · 가짜 슬랙 조회(FT_SLACK_REPLIES_CMD) · 실 Slack 0 · 네트워크 0 · 자기 재호출 0 · 고정 sleep 0
 # 안전선(r1041): ulimit -u(현재+64) · timeout 70
 NPROC=$(ulimit -u 2>/dev/null || echo 3000); ulimit -u $((NPROC + 64)) 2>/dev/null || true
@@ -53,6 +53,22 @@ rep "$(tj "$(par)" "$(op "$A1" tmddls)" "$(op "$A2" 승인)")"; chk
 ok=0; for w in '승인 안 함' '네? 왜요' '확정 보류' '아니오 그래도 승인'; do rep "$(tj "$(par)" "$(op "$A1" "$w")")"; chk; { [ $rc = 2 ] && no_ok; } || { ok=1; echo "승인 0 아님: $w rc=$rc out=${out:0:120}"; }; done; [ $ok = 0 ]; ck "ⓔ «승인 안 함»·«네? 왜요»·«확정 보류»·«아니오 그래도 승인» = 승인 0" $?
 ok=0; for w in '네.' '  승인  ' 'OK' '네!'; do rep "$(tj "$(par)" "$(op "$A1" "$w")")"; chk; { [ $rc = 0 ] && grep -q "^SLACK-OK $X parent=$P reply=$A1$" <<<"$out"; } || { ok=1; echo "승인 아님: «$w» rc=$rc out=${out:0:120}"; }; done; [ $ok = 0 ]; ck "ⓔb 정규화(끝 문장부호·앞뒤 공백·영문 소문자) 뒤 일치 = 승인" $?
 
+# ⓔ2 카드 실 표본(arch 인수 NG1 #281024): 토막 전부 승인 낱말 = 승인 · 거절 토막 = REJECT · 모르는 토막 = 승인 0
+e2() {  # e2 <답글 본문> <기대 rc> <기대 줄(grep -E)> <이름>
+  rep "$(tj "$(par)" "$(op "$A1" "$1")")"; chk
+  { [ "$rc" = "$2" ] && has "$3"; }; ck "ⓔ2 «$1» → $4" $?
+}
+e2 '승인 네.' 0 '^SLACK-OK' '승인(토막 전부 승인 낱말)'
+e2 'OK 승인' 0 '^SLACK-OK' '승인(영문 소문자 · 토막 2개)'
+e2 '예. 승인' 0 '^SLACK-OK' '승인(끝 문장부호 붙은 토막)'
+e2 '승인' 0 '^SLACK-OK' '승인(낱말 1개)'
+e2 'tmddls' 2 '판정 불가: 답글 내용 승인 낱말 아님' '판정 불가(오타)'
+e2 '다음에 2번이지…' 2 '판정 불가: 답글 내용 승인 낱말 아님' '판정 불가(모르는 토막)'
+e2 '승인 안 함' 2 '판정 불가: 답글 내용 승인 낱말 아님' '판정 불가(«안»·«함» 모르는 토막)'
+e2 '네? 왜요' 2 '판정 불가: 답글 내용 승인 낱말 아님' '판정 불가(«네?» 는 낱말 아님)'
+e2 '확정 보류' 2 "오빠 거절 답글 reply=$A1" 'REJECT(승인 토막 + 거절 토막)'
+e2 '아니 승인' 2 "오빠 거절 답글 reply=$A1" 'REJECT(거절 토막 우선)'
+
 # ===== ⓕ 창 규칙 그대로 — 창 밖 승인은 무시 =====
 rep "$(tj "$(par)" "$(bot "$A2" '4. 다음 질문')" "$(op "$A3" 승인)")"; chk
 [ $rc = 2 ] && has '오빠 답글 없음' && no_ok; ck "ⓕ 다음 질문 뒤 «승인» → REJECT(창 밖 승인 무시)" $?
@@ -82,15 +98,18 @@ PY
   [ $? = 0 ] || { rc=0; out="변이 미적용: $2"; ck "변이 적용($1)" 1; }
 }
 runm() { run timeout $TO python3 "$MUT" "$P" "$X"; }
-mut M1 'if w in REJECT_WORDS]' 'if False]'; python3 - "$MUT" <<'PY'
+mut M1 'if REJECT_WORDS.intersection(ws)]' 'if False]'; python3 - "$MUT" <<'PY'
 import pathlib, sys
 p = pathlib.Path(sys.argv[1]); t = p.read_text(encoding="utf-8")
-p.write_text(t.replace("if w in APPROVE_WORDS]", "if True]", 1), encoding="utf-8")
+assert "if ws and all(w in APPROVE_WORDS for w in ws)]" in t, "변이 미적용: APPROVE"
+p.write_text(t.replace("if ws and all(w in APPROVE_WORDS for w in ws)]", "if True]", 1), encoding="utf-8")
 PY
 rep "$(tj "$(par)" "$(op "$A1" tmddls)")"; runm; [ $rc != 2 ]; ck "M1 내용 검사 뺌(작성자만) → ⓑ 가 못 막음(= 시험이 잡음)" $?
-mut M2 'if w in APPROVE_WORDS]' 'if any(a in w for a in APPROVE_WORDS)]'
-rep "$(tj "$(par)" "$(op "$A1" '승인 안 함')")"; runm; [ $rc != 2 ]; ck "M2 전체 일치를 부분 포함으로 → ⓔ «승인 안 함» 이 못 막음(= 시험이 잡음)" $?
-mut M3 'if w in REJECT_WORDS]' 'if False]'
+mut M2 'if ws and all(w in APPROVE_WORDS for w in ws)]' 'if any(a in w for w in ws for a in APPROVE_WORDS)]'
+rep "$(tj "$(par)" "$(op "$A1" '승인 안 함')")"; runm; [ $rc != 2 ]; ck "M2 토막 '전부' 를 부분 포함으로 → ⓔ «승인 안 함» 이 못 막음(= 시험이 잡음)" $?
+mut M3 'if REJECT_WORDS.intersection(ws)]' 'if False]'
 rep "$(tj "$(par)" "$(op "$A1" 네)" "$(op "$A2" 아니오)")"; runm; [ $rc != 2 ] && grep -q "^SLACK-OK $X parent=$P reply=$A1$" <<<"$out"; ck "M3 거절 우선 뺌 → ⓒ «네» → «아니오» 가 승인됨(= 시험이 잡음)" $?
+mut M4 'for x in re.split(r"[\s,]+", (t if isinstance(t, str) else "").strip().lower())' 'for x in [(t if isinstance(t, str) else "").strip().lower()]'
+rep "$(tj "$(par)" "$(op "$A1" '승인 네.')")"; runm; [ $rc != 0 ]; ck "M4 토막 대신 전체 일치로 되돌림 → ⓔ2 «승인 네.» 가 못 막음(= 시험이 잡음)" $?
 
 echo "단계 합계 ${SECONDS}s"; [ "$fail" = 0 ] && echo "ALL PASS" || { echo "FAILURES: $fail"; exit 1; }
