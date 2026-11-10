@@ -57,7 +57,8 @@ def _caps(node, **caps):
 
 
 def _d(root, cls=None, on_step=None, **caps):
-    return _caps((cls or dispatch.Dispatch)(str(root), TEAM, on_step=on_step), **caps)
+    return _caps((cls or dispatch.Dispatch)(str(root), TEAM, on_step=on_step),
+                 **{"capacity": 1000, **caps})          # r1616: work 마다 접수 1줄이 붙는다
 
 
 def _swap_journal(node, cls):
@@ -99,10 +100,17 @@ def _root_of(node):
     return os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_rs(node).runtime))))
 
 
+def _accept(node, *works):
+    """접수 영수 — r1616 부터 assign 은 같은 work 의 accept 줄을 요구한다(submit 1줄)."""
+    for work in works:
+        assert _rs(node).submit("c-" + work, "x" * 8, work).result == OK
+    return node
+
+
 def _close(node, work, holder=None):
     """닫힌 work — 배정 → 결과 → 전달 → 완료(+재평가). 회수 조건 4개를 만족시키는 최소 흐름."""
     holder = holder or work.lower()
-    assert node.assign(work, holder, evidence=EV).result == OK
+    assert _accept(node, work).assign(work, holder, evidence=EV).result == OK
     assert node.ex.result(work, holder, 1, OK).result == OK
     assert node.deliver(work, "a1").result == OK
     assert node.complete(work, "a1").result == OK
@@ -122,7 +130,7 @@ def _reclaim_scenario(root, cls=None):
     assert rs.submit("card-w1", "x" * 60, work="W1").result == OK
     while not rs.journal.closed():                       # 회전 1회까지 닫힌 work 만 쌓는다
         _close(node, queue.pop(0))
-    assert node.assign("U1", "h9", evidence=EV).result == OK
+    assert _accept(node, "U1").assign("U1", "h9", evidence=EV).result == OK
     assert node.deliver("U1", "a1").result == OK          # 전달 의도는 닫고 work 는 열어 둔다(회수 금지)
     assert rs.submit("card-u1", "x" * 60, work="U1").result == OK
     while len(rs.journal.closed()) < 4:
@@ -417,10 +425,13 @@ def test_e_append_boundary_peak_and_words(tmp_path):
     node = _d(tmp_path / "e", capacity=1000,
               on_step=lambda step: samples.append((step, _usage(node), _files(node))))
     rs = node.rs
-    assert node.assign("W1", "h1", evidence=EV, resources=["R1"]).result == OK
+    assert _accept(node, "W1").assign("W1", "h1", evidence=EV, resources=["R1"]).result == OK
     assert node.deliver("W1", "a1").result == OK
     while rs.submit("q-%d" % len(samples), "x" * 5000).result == OK:
         if len(samples) > 400:
+            break
+    while rs.submit("r-%d" % len(rs.records()), "x").result == OK:   # 남은 여유를 1줄 단위로 소진
+        if len(rs.records()) > 400:
             break
     journal_rows, files, total = len(rs.records()), _files(node), rs.journal.total_cap
     refused = node.complete("W1", "a1")                            # k=2 합산 예약 = 첫 쓰기 전 거절
@@ -473,7 +484,7 @@ def test_g_public_faces_and_legacy_guard(tmp_path):
 def test_r2_1_complete_second_append_refused_writes_nothing(tmp_path):
     """DA probe «complete_second_append_refusal» — k=2 예약이 거절하면 journal·state 변화 0."""
     node = _d(tmp_path / "r21", capacity=1000)
-    assert node.assign("W1", "h1", evidence=EV, resources=["R"]).result == OK
+    assert _accept(node, "W1").assign("W1", "h1", evidence=EV, resources=["R"]).result == OK
     assert node.deliver("W1", "a1").result == OK
     rs = node.rs
     while rs.submit("p-%d" % len(rs.records()), "x" * 2000).result == OK:
@@ -489,7 +500,7 @@ def test_r2_1_complete_second_append_refused_writes_nothing(tmp_path):
 
 def test_r2_2_refusal_word_and_written_match_durable(tmp_path):
     """DA probe — (낱말, written) 이 이 호출의 journal 줄 수 변화와 일치한다."""
-    node = _swap_journal(_d(tmp_path / "r22"), _StateOverflow)
+    node = _swap_journal(_accept(_d(tmp_path / "r22"), "W1"), _StateOverflow)   # 접수 = 변이 밖에서
     assert node.assign("W1", "h1", evidence=EV).result == OK
     rows, out = len(node.rs.records()), node.complete("W1", "a1")
     assert (out.result, out.written) == (HOLD, True) and len(node.rs.records()) == rows + 1
@@ -502,7 +513,7 @@ def test_r2_2_refusal_word_and_written_match_durable(tmp_path):
 def test_r2_3_recover_capacity_vs_busy_words(tmp_path):
     """DA probe «recover_refusal» — BUSY(잠금) · «용량 부족»(예약) · «복구 필요»(판독 불가)를 가른다."""
     node = _d(tmp_path / "r23")
-    assert node.assign("W1", "h1", evidence=EV).result == OK
+    assert _accept(node, "W1").assign("W1", "h1", evidence=EV).result == OK
     out = node.recover()
     assert out.pop("result") == OK and out == {"delivered": ["a1"], "reassessed": []}   # R2-③
     handle = open(node.rs.journal.lock_path, "a+", encoding="utf-8")
