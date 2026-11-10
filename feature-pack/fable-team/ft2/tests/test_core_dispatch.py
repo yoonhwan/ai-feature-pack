@@ -134,6 +134,17 @@ def _retry(call, tries=400):
     return out
 
 
+def _deliver_until(node, work, attempt, tries=400):
+    """전달 재시도 — BUSY(잠금 점유 · 계약상 «다음 tick») 일 때만 다시 부른다. 그 밖 결과는 그대로."""
+    out = node.deliver(work, attempt)
+    for _ in range(tries):
+        if out.result != BUSY:
+            return out
+        time.sleep(0.002)
+        out = node.deliver(work, attempt)
+    return out
+
+
 def _spawn(*args):
     return subprocess.Popen([sys.executable, os.path.abspath(__file__)] + [str(a) for a in args], env=CHILD_ENV)
 
@@ -222,6 +233,23 @@ def test_d_case_04_race_grants_once_and_stale_snapshot_double_grants(tmp_path):
     assert sorted(role for role, out in stale_outs.items() if out["written"]) == ["W1", "W3"]
     assert (stale["claim_granted"], stale["reserved"]) == (2, 1)                    # M3 = 승자 2
     assert (stale["dispatch_journal"], stale["delivery"]) == (0, 0)                 # 변이 검출
+
+
+def test_d2_winner_deliver_busy_then_retried(tmp_path):
+    """ⓐ 잠금 점유 중 승자 deliver = BUSY·쓰기 0 → helper 가 BUSY 만 다시 불러 hold 해제 뒤 전달 1."""
+    root = str(tmp_path / "d2")
+    node = _d(root)
+    grant = node.assign("W3", "h1", evidence=EV, resources=["shared-slot"])
+    assert grant.written
+    holder = _spawn("hold", root, 1.5)
+    _wait(os.path.join(root, "held"))
+    before = _bytes(node)
+    busy = node.deliver(grant.work, grant.attempt)
+    assert (busy.result, busy.written) == (BUSY, False) and _bytes(node) == before   # BUSY = 쓰기 0
+    assert _deliver_until(node, grant.work, grant.attempt, tries=0).result == BUSY   # M1 = 재시도 0회
+    written = _deliver_until(node, grant.work, grant.attempt, tries=1500)            # BUSY 만 다시
+    assert (written.result, written.written) == (OK, True) and holder.wait(timeout=25) == 0
+    assert _obs(node, 1)["dispatch_journal"] == 1                                    # 전달 줄 1
 
 
 def test_e_case_05_delivery_runs_once(tmp_path):
@@ -668,7 +696,8 @@ def _child_main(argv):
         grant = node.assign(role, "h1", evidence=EV, resources=["shared-slot"])
         out = {"written": bool(grant.written), "result": grant.result}
         if grant.written and not rest[2:]:                     # 변이 arm 은 전달하지 않는다
-            node.deliver(role, grant.attempt)
+            delivered = _deliver_until(node, grant.work, grant.attempt)
+            out["deliver"] = {"result": delivered.result, "written": bool(delivered.written)}
     else:
         _mix(root, node, role)
     Path(root, "out-" + role + ".json").write_text(json.dumps(out), encoding="utf-8")
