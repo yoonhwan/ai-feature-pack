@@ -132,12 +132,66 @@ pnew teams 진행; printf '# 카드\n' > "$P/design/teams/planner/indices/진행
 SENT='받을 일 0 이면 후계 0 — 좌석 닫기 대기 + 팀장에 «[다음 없음]» 1줄'
 n=0; for f in "$SKILL/templates/hooks/context-distill-gate.sh" "$REPO/kit/fable-team/templates/hooks/context-distill-gate.sh"; do grep -qF "$SENT" "$f" && n=$((n+1)) || true; done
 [ "$n" -ge 2 ] && ok "ⓗ 게이트 문구 사본 ${n}개(팩 2사본 · 세 번째는 설치 몫)" || bad "ⓗ 게이트 문구 사본 ${n}개"
-grep -qF '받을 일 0 이면 후계 대신 닫기 대기' "$GOV" && ok "ⓗ governance S17 블록 문구" || bad "ⓗ S17 블록 문구 없음"
+grep -qF '받을 일 0 = 닫기 대기 + «[다음 없음]» 1줄(r1539)' "$GOV" && ok "ⓗ governance S17 블록 문구" || bad "ⓗ S17 블록 문구 없음"
 blk="$(sed -n '/S17-BOOT-BEGIN/,/S17-BOOT-END/p' "$GOV")"
 { ! printf '%s' "$blk" | grep -q '15분' && ! printf '%s' "$blk" | grep -q 'CronCreate'; } && ok "ⓘ S17 블록에 15분·CronCreate 0" || bad "ⓘ S17 블록 잔존"
 rows="$(sed -n '/^| R5 |/p;/^| R6 |/p' "$GOV")"
 { ! printf '%s' "$rows" | grep -q '15분' && ! printf '%s' "$rows" | grep -q 'CronCreate'; } && ok "ⓘ R5·R6 행에 15분·CronCreate 0" || bad "ⓘ R5·R6 잔존"
 { ! grep -q '15분\|CronCreate' "$REPO/bin/ft-role-spawn.sh" && ! grep -q '15분\|CronCreate' "$REPO/kit/fable-team/bin/ft-role-spawn.sh"; } && ok "ⓘ ft-role-spawn 사본 2종에 15분·CronCreate 0" || bad "ⓘ role-spawn 잔존"
+
+# ── 3b) 승계 블록 길이 관문 (r1551) — 길이만 본다 · 뜻 유지(ⓑ)는 arch 수용 때 사람 대조 ──
+# ft-successor-open.sh:185-191 과 «같은 방식»: 표식 사이를 자르고 양끝 개행만 strip 한 뒤 python len ≤ 300.
+# 블록이 300자를 넘으면 desk 밖 모든 좌석의 승계가 rc1 로 막힌다(r1539 → 376자 사고 · mbox 739자 절단 안).
+blk() {   # blk <표식태그> <파일> → 길이 출력 · ≤300 rc0 · >300 rc1 · 표식 이상 rc2
+  python3 - "$1" "$2" <<'PY'
+import sys
+tag, path = sys.argv[1:3]
+t = open(path, encoding="utf-8").read()
+beg, end = f"<!-- {tag}-BEGIN -->", f"<!-- {tag}-END -->"
+if t.count(beg) != 1 or t.count(end) != 1:
+    print("표식 없음/여러 개"); sys.exit(2)
+b = t.split(beg, 1)[1].split(end, 1)[0].strip("\n")
+print(len(b)); sys.exit(1 if len(b) > 300 else 0)
+PY
+}
+runblk() { BOUT="$(blk "$1" "$2")"; BRC=$?; }
+runblk S17-BOOT "$GOV"
+BASE="$BOUT"
+{ [ "$BRC" = 0 ] && [ "$BOUT" -le 300 ]; } && ok "ⓛ S17-BOOT 블록 ${BOUT}자 ≤ 300 — 승계 관문 통과" || bad "ⓛ S17-BOOT ${BOUT}자 rc=$BRC"
+# r1551 보정(master #278072 · planner #278070 문안 대조): 줄이며 빠진 뜻 중 «STATE.md 읽기만»·«닫기 대기» 는 다른 절에 없다 → 블록 안에 반드시 남는다
+BODY="$(python3 - "$GOV" <<'PY'
+import sys
+t = open(sys.argv[1], encoding="utf-8").read()
+print(t.split("<!-- S17-BOOT-BEGIN -->", 1)[1].split("<!-- S17-BOOT-END -->", 1)[0].strip("\n"))
+PY
+)"
+{ printf '%s' "$BODY" | grep -qF 'STATE.md = 틱 렌더(읽기만)' && printf '%s' "$BODY" | grep -qF '닫기 대기'; } \
+  && ok "ⓛ-2 S17 블록에 «STATE.md 읽기만»·«닫기 대기» 두 뜻 남음" || bad "ⓛ-2 S17 블록 두 낱말 빠짐"
+runblk S11-DESK "$GOV"
+{ [ "$BRC" = 0 ] && [ "$BOUT" -le 300 ]; } && ok "ⓛ S11-DESK 블록 ${BOUT}자 ≤ 300 — 같은 관문" || bad "ⓛ2 S11-DESK ${BOUT}자 rc=$BRC"
+# 변이 M1·M2 = 사본 2장(S17 블록만 바꿈 · 실 파일 무변경)
+read -r -d '' OLD <<'EOF' || true
+목적 0 = 진행 카드를 완성하고 닫는다 → 1 = 카드 서빙 → 2 = 배분·질문·결정(부딪히면 0→1→2).
+크론 0 — 주기 크론을 만들지 않는다(오빠 11-08 · #274576). 깨우는 것은 쪽지와 발주뿐 · [정리] 첫 줄 = `카드 대기 N · 진행 N · 유휴 좌석 N · 다음 수: <카드> → <좌석>` · 둘째 줄 골좌표.
+배정표 <데이터 루트>/.fable-team/state/team-main/<팀>/ASSIGN.md 매 루프 다시 쓴다 · 후계는 이 절을 읽는다 · STATE.md = 틱 렌더(읽기만) · 보고 칸 cron=0 · launchd=<상태> · 받을 일 0 이면 후계 대신 닫기 대기 + 팀장에 «[다음 없음]» 1줄(r1539).
+EOF
+printf '%s\n' "$OLD" > "$T/m1.body"
+python3 - "$GOV" "$T" "$T/m1.body" <<'PY'
+import sys
+src, T, bodyf = sys.argv[1:4]
+t = open(src, encoding="utf-8").read()
+beg, end = "<!-- S17-BOOT-BEGIN -->", "<!-- S17-BOOT-END -->"
+head, tail = t.split(beg, 1)[0], t.split(end, 1)[1]
+cur = t.split(beg, 1)[1].split(end, 1)[0].strip("\n")
+def put(name, body):
+    open(f"{T}/gov.{name}.md", "w", encoding="utf-8").write(f"{head}{beg}\n{body}\n{end}{tail}")
+put("m1", open(bodyf, encoding="utf-8").read().rstrip("\n"))
+put("m2", cur + "가" * 30)
+PY
+runblk S17-BOOT "$T/gov.m1.md"
+{ [ "$BRC" = 1 ] && [ "$BOUT" = 376 ]; } && ok "M1 셋째 줄을 r1539 원문으로 되돌림 → ${BOUT}자 검출(ⓛ 빨강)" || bad "M1 미검출 ${BOUT}자 rc=$BRC"
+runblk S17-BOOT "$T/gov.m2.md"
+{ [ "$BRC" = 1 ] && [ "$BOUT" = "$((BASE + 30))" ]; } && ok "M2 블록에 30자 덧붙임 → ${BOUT}자 검출(ⓛ 빨강)" || bad "M2 미검출 ${BOUT}자 rc=$BRC base=$BASE"
 
 # ── 4) ft-successor-open rc6 실측 (받을 일 0 → 열기 0 · 팀장 1통 · rc6) ────
 FAKE="$T/fakebin"; W="$T/wt"; LOG="$T/calls.log"; SENTF="$T/sent.txt"; BODY="$T/body.txt"
