@@ -5,7 +5,7 @@
 #     뿐 판정에 안 쓴다(카드 ⓑ). 이 2계층은 claude 파일에만 — pi 는 좌석이라 요청 수와 무관하게 «작업세션 층»(카드 ⓖ).
 #     haiku 파일(요청 전부 haiku 모델)은 «작업세션» 에서만 빼고 «haiku» 칸에 따로 세되 기계 스폰 계층엔 그대로 센다.
 #   가중식 = input×1 + cache_creation×1.25 + cache_read×0.1 + output×5 (정본 #276 · claude·pi 같은 상수).
-#   조용한 0 금지(no_silent_fallback): 깨진 json 행은 «건너뛴줄=N» · 요청 0 파일은 «빈파일=N» · 창 밖 파일은 «창밖=N».
+#   조용한 0 금지: 깨진 json 행은 «건너뛴줄=N» · 요청 0 파일은 «빈파일=N» · 창 밖은 «창밖=N» · haiku 몫은 haikureq/haiku가중(DA R1).
 #   claude 는 message.id 로 접는다(응답이 블록마다 행으로 갈라진다) · ft_waste_measure.py 의 load() 는 import 하지 않는다(요청별 model 부재).
 import json
 import os
@@ -16,14 +16,11 @@ SPAWN_MAX_REQ = 3      # 경계(카드 ⓐ): req <= 3 = 기계 스폰 · req > 3
 HAIKU = "haiku"
 W_INPUT, W_CREATE, W_READ, W_OUTPUT = 1.0, 1.25, 0.1, 5.0
 TOP_ROWS = 15
-ZERO = dict(session=0, spawn=0, haiku=0, req=0, w=0.0, empty=0, skip=0, out=0)
+ZERO = dict(session=0, spawn=0, haiku=0, req=0, w=0.0, hreq=0, hw=0.0, empty=0, skip=0, out=0)
+
+
 def home():
     return os.environ.get("HOME") or os.path.expanduser("~")
-
-
-def roots():
-    h = home()
-    return [("claude", os.path.join(h, ".claude", "projects")), ("pi", os.path.join(h, ".pi", "agent", "sessions"))]
 
 
 def num(v):
@@ -95,10 +92,10 @@ def iter_files(root):
 
 
 def measure(hours):
-    """→ (원천별 행 dict, 계층별 합계 dict)."""
-    now = time.time()
-    rows, totals = {}, {}
-    for fmt, root in roots():
+    now, rows, totals, h = time.time(), {}, {}, home()
+    # 두 원천: claude 프로젝트 폴더 · pi 세션 폴더(모양이 달라 파서가 갈린다)
+    for fmt, root in (("claude", os.path.join(h, ".claude", "projects")),
+                      ("pi", os.path.join(h, ".pi", "agent", "sessions"))):
         t = totals.setdefault(fmt, dict(ZERO))
         for label, path in iter_files(root):
             try:
@@ -115,13 +112,15 @@ def measure(hours):
                 t["empty"] += 1
                 continue
             layer = "session" if fmt == "pi" else ("spawn" if req <= SPAWN_MAX_REQ else "session")  # pi = 좌석
-            a = rows.setdefault(fmt + "/" + label, dict(session=0, spawn=0, haiku=0, req=0, w=0.0))
+            a = rows.setdefault(fmt + "/" + label, dict(session=0, spawn=0, haiku=0, req=0, w=0.0, hreq=0, hw=0.0))
             for d in (a, t):
                 d["req"] += req
                 d["w"] += w
             if is_haiku(models):
-                a["haiku"] += 1
-                t["haiku"] += 1
+                for d in (a, t):        # haiku 파일은 req·가중도 따로 센다(DA R1 — 합계만 보이면 haiku 몫이 안 보인다)
+                    d["haiku"] += 1
+                    d["hreq"] += req
+                    d["hw"] += w
                 layer = None if layer == "session" else layer   # haiku 는 «작업세션 지표» 에서만 뺀다
             if layer:
                 a[layer] += 1
@@ -130,8 +129,10 @@ def measure(hours):
 
 
 def layer_line(name, t):
-    return ("%-6s 작업세션=%d 기계스폰=%d haiku=%d req=%d 가중=%.1fM 빈파일=%d 창밖=%d 건너뛴줄=%d"
-            % (name, t["session"], t["spawn"], t["haiku"], t["req"], t["w"] / 1e6, t["empty"], t["out"], t["skip"]))
+    return ("%-6s 작업세션=%d 기계스폰=%d haiku=%d req=%d 가중=%.1fM 빈파일=%d 창밖=%d 건너뛴줄=%d "
+            "haikureq=%d haiku가중=%.1fM"
+            % (name, t["session"], t["spawn"], t["haiku"], t["req"], t["w"] / 1e6, t["empty"], t["out"], t["skip"],
+               t["hreq"], t["hw"] / 1e6))
 
 
 def parse_hours(argv):
@@ -141,9 +142,9 @@ def parse_hours(argv):
         return None
     try:
         hours = float(argv[1])
+        return hours if hours >= 0 else None
     except ValueError:
         return None
-    return hours if hours >= 0 else None
 
 
 def main(argv):
@@ -157,15 +158,18 @@ def main(argv):
     print("SPAWN r1563 hours=%g home=%s" % (hours, home()))
     print(layer_line("CLAUDE", cl))
     print(layer_line("PI", pi))
-    print("합계 작업세션=%d (claude %d + pi %d) 기계스폰=%d haiku=%d req=%d 가중=%.1fM 빈파일=%d 창밖=%d 건너뛴줄=%d"
+    print("합계 작업세션=%d (claude %d + pi %d) 기계스폰=%d haiku=%d req=%d 가중=%.1fM 빈파일=%d 창밖=%d 건너뛴줄=%d "
+          "haikureq=%d haiku가중=%.1fM"
           % (cl["session"] + pi["session"], cl["session"], pi["session"], cl["spawn"] + pi["spawn"],
              cl["haiku"] + pi["haiku"], cl["req"] + pi["req"], (cl["w"] + pi["w"]) / 1e6,
-             cl["empty"] + pi["empty"], cl["out"] + pi["out"], cl["skip"] + pi["skip"]))
+             cl["empty"] + pi["empty"], cl["out"] + pi["out"], cl["skip"] + pi["skip"], cl["hreq"] + pi["hreq"],
+             (cl["hw"] + pi["hw"]) / 1e6))
     print("가중식 input×1 + cache_creation×1.25 + cache_read×0.1 + output×5 (claude·pi 같은 상수)")
-    print("%-52s %4s %4s %5s %6s %6s" % ("원천(cwd)", "작업", "스폰", "haiku", "req", "M"))
+    print("%-52s %4s %4s %5s %6s %6s %6s %6s" % ("원천(cwd)", "작업", "스폰", "haiku", "hreq", "hM", "req", "M"))
     ordered = sorted(rows.items(), key=lambda kv: (-kv[1]["w"], kv[0]))
     for name, a in ordered[:TOP_ROWS]:
-        print("%-52s %4d %4d %5d %6d %6.1f" % (name[-52:], a["session"], a["spawn"], a["haiku"], a["req"], a["w"] / 1e6))
+        print("%-52s %4d %4d %5d %6d %6.1f %6d %6.1f"
+              % (name[-52:], a["session"], a["spawn"], a["haiku"], a["hreq"], a["hw"] / 1e6, a["req"], a["w"] / 1e6))
     if len(ordered) > TOP_ROWS:
         print("… 외 %d 원천 (합계에 포함)" % (len(ordered) - TOP_ROWS))
     return 0

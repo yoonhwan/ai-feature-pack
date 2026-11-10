@@ -20,37 +20,29 @@ bash -n "$W" >/dev/null 2>&1 && ok "T0 래퍼 bash -n" || bad "T0 래퍼 bash -n
 # 픽스처 생성기 — 격리 HOME 안에만 쓴다
 cat > "$T/mk.py" <<'PY'
 import json, os, sys
-def row(kind, mid, model, u):
+def row(mid, model, u):
     return {"type": "assistant", "message": {"id": mid, "model": model, "usage": u}}
 def U(inp=100, cc=2000, cr=1000, out=50):
     return {"input_tokens": inp, "cache_creation_input_tokens": cc,
             "cache_read_input_tokens": cr, "output_tokens": out}
-def claude(path, n, model="claude-sonnet-5"):
-    rows = [row("a", "m%d" % i, model, U()) for i in range(n)]
+def w(path, rows, tail=""):
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    open(path, "w").write("\n".join(json.dumps(r) for r in rows) + "\n")
+    open(path, "w").write("\n".join(json.dumps(r) for r in rows) + "\n" + tail)
+def claude(path, n, model="claude-sonnet-5", cc=2000):
+    w(path, [row("m%d" % i, model, U(cc=cc)) for i in range(n)])
 def split(path):
-    # 같은 응답 1개가 content 블록마다 2행으로 갈라진 모양 — 요청은 1 이어야 한다
-    rows = [row("a", "same", "claude-sonnet-5", U()), row("a", "same", "claude-sonnet-5", U())]
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    open(path, "w").write("\n".join(json.dumps(r) for r in rows) + "\n")
+    w(path, [row("same", "claude-sonnet-5", U()), row("same", "claude-sonnet-5", U())])  # 한 응답이 블록마다 2행
 def zero(path):
-    rows = [row("a", "z", "claude-sonnet-5", {"input_tokens": 0, "cache_creation_input_tokens": 0,
-                                              "cache_read_input_tokens": 0, "output_tokens": 0})]
-    text = json.dumps(rows[0]) + "\n" + "{ this is not json\n"
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    open(path, "w").write(text)
+    z = {"input_tokens": 0, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "output_tokens": 0}
+    w(path, [row("z", "claude-sonnet-5", z)], tail="{ this is not json\n")
 def pi(path, n, model="deepseek/deepseek-v4.1-flash-ultrafast"):
-    rows = []
-    for i in range(n):
-        rows.append({"type": "message", "message": {"role": "assistant", "model": model, "responseId": "r%d" % i,
-                     "usage": {"input": 10, "cacheWrite": 2000, "cacheRead": 1000, "output": 50}}})
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    open(path, "w").write("\n".join(json.dumps(r) for r in rows) + "\n")
+    w(path, [{"type": "message", "message": {"role": "assistant", "model": model, "responseId": "r%d" % i,
+              "usage": {"input": 10, "cacheWrite": 2000, "cacheRead": 1000, "output": 50}}} for i in range(n)])
 cmd, path = sys.argv[1], sys.argv[2]
 n = int(sys.argv[3]) if len(sys.argv) > 3 else 0
 model = sys.argv[4] if len(sys.argv) > 4 else "claude-sonnet-5"
-{"claude": lambda: claude(path, n, model), "split": lambda: split(path),
+{"claude": lambda: claude(path, n, model, int(sys.argv[5]) if len(sys.argv) > 5 else 2000),
+ "split": lambda: split(path),
  "zero": lambda: zero(path), "pi": lambda: pi(path, n, model)}[cmd]()
 PY
 mk() { python3 "$T/mk.py" "$@"; }
@@ -84,7 +76,18 @@ printf '%s\n' "$o" | grep -q '^CLAUDE 작업세션=0 기계스폰=0 haiku=1 req=
 H4b="$T/h4b"; mk claude "$H4b/.claude/projects/inbox-haiku/x.jsonl" 2 "claude-haiku-4-5"
 o="$(run "$H4b")"
 printf '%s\n' "$o" | grep -q '^CLAUDE 작업세션=0 기계스폰=1 haiku=1 req=2 ' \
-  && ok "ⓒ-2 haiku 2요청 = haiku 1 · 기계스폰 1" || bad "ⓒ-2: $(printf '%s\n' "$o" | grep '^CLAUDE' | head -1)"
+  && printf '%s\n' "$o" | grep -q 'haikureq=2 haiku가중=' \
+  && ok "ⓒ-2 haiku 2요청 = haiku 1 · 기계스폰 1 · haikureq 2" || bad "ⓒ-2: $(printf '%s\n' "$o" | grep '^CLAUDE' | head -1)"
+
+# ── DA R1 — 같은 cwd 에 haiku(5요청·5M) + sonnet(4요청·8M): 합계만이 아니라 haiku 몫(req·가중)을 따로 보여야 한다
+H8="$T/h8"; mk claude "$H8/.claude/projects/mix/haiku.jsonl" 5 "claude-haiku-4-5" 800000
+mk claude "$H8/.claude/projects/mix/sonnet.jsonl" 4 "claude-sonnet-5" 1600000
+o="$(run "$H8")"
+printf '%s\n' "$o" | grep -q '^CLAUDE 작업세션=1 기계스폰=0 haiku=1 req=9 가중=13.0M .* haikureq=5 haiku가중=5.0M$' \
+  && ok "R1 haiku 몫 = haikureq 5 · haiku가중 5.0M (합계 req 9 · 13.0M)" \
+  || bad "R1: $(printf '%s\n' "$o" | grep '^CLAUDE' | head -1)"
+printf '%s\n' "$o" | grep -q '^claude/mix .*1 .*0 .*1 .*5 .*5\.0 .*9 .*13\.0$' \
+  && ok "R1 표 행에 haiku 몫(hreq 5 · hM 5.0) 따로" || bad "R1 표: $(printf '%s\n' "$o" | grep '^claude/mix' | head -1)"
 
 # ── ⓓ --hours 창 — mtime 2시간 전 파일은 --hours 1 에서 빠지고 --hours 24 에서 들어온다
 H5="$T/h5"; mk claude "$H5/.claude/projects/p/a.jsonl" 4
@@ -102,7 +105,7 @@ printf '%s\n' "$o24" | grep -q '^CLAUDE 작업세션=1 .*창밖=0 ' \
 # ── ⓔ usage 합 0 줄 = req 0 · 깨진 json 줄 = «건너뛴줄 N»
 H6="$T/h6"; mk zero "$H6/.claude/projects/p/a.jsonl"
 o="$(run "$H6")"
-printf '%s\n' "$o" | grep -q '^CLAUDE 작업세션=0 기계스폰=0 haiku=0 req=0 .*빈파일=1 .*건너뛴줄=1$' \
+printf '%s\n' "$o" | grep -q '^CLAUDE 작업세션=0 기계스폰=0 haiku=0 req=0 .*빈파일=1 .*건너뛴줄=1 haikureq=0 haiku가중=0.0M$' \
   && ok "ⓔ usage 0 = req 0 · 빈파일 1 · 깨진 줄 1" || bad "ⓔ: $(printf '%s\n' "$o" | grep '^CLAUDE' | head -1)"
 printf '%s\n' "$o" | grep -q '건너뛴줄=1' && ok "ⓔ 깨진 json 을 조용히 넘기지 않는다" || bad "ⓔ 건너뛴줄 표기 없음"
 
