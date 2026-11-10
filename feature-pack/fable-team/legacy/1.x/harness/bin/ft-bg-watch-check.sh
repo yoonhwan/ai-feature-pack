@@ -5,7 +5,8 @@
 #   중복 억제 키 = uid:pid:lstart:명령줄해시 — 같은 인스턴스 1통 · 같은 PID 라도 lstart 이 다르면 새 인스턴스(따로 1통)
 #          · 옛 장부 행을 새 인스턴스의 면제로 쓰지 않는다(키에 lstart 이 든다) · 같은 키로 두 번 안 보낸다(장부 옆 .seen 1줄)
 #   시작 시각을 못 읽으면 «판정 불가» 1줄 — 알림 완료로도 면제 확정으로도 적지 않는다(다음 점검이 다시 본다)
-#   오탐 0(ⓒ) = launchd 소유 · tmux 서버 · 사람 앱(.app/) · 현역 MCP(0·1번 fd 가 PIPE) · 장부 안 ∧ 끝 시각 전 → 알림 0
+#   중복 억제는 «사유별» — 장부밖 알림을 이미 보낸 인스턴스를 adopt 해도 기한지남 알림은 따로 1통 간다(사유마다 1통 · 같은 사유 두 번 0)
+#   오탐 0(ⓒ) = launchd 소유 · tmux 서버 · 사람 앱(.app/) · 현역 MCP(0·1번 fd 가 PIPE) · hermes browser_harness.daemon(다른 하네스 소유 · 실행 자리만) · 장부 안(up·adopt) ∧ 끝 시각 전 → 알림 0
 #   kill 0(ⓑ) — 종료는 소유자 또는 h. 읽기·쪽지·장부 읽기만 한다(프로세스 변경 0 · 새 launchd 0)
 #   출력 = `SKIP <pid> <사유>` · `NA <pid> 판정 불가 — 시작 시각을 못 읽음` · `NOTIFY <pid> <키> <사유=장부밖|기한지남> -> <받는좌석>` · 마지막 줄 `check sent=<n> skip=<m> na=<k>` rc0
 #   env(시험·이식): FT_BGW_LEDGER · FT_BGW_SEEN · FT_BGW_PS_CMD · FT_BGW_LAUNCHCTL_CMD · FT_BGW_LSOF_CMD · FT_BGW_MBOX · FT_BGW_TMUX_CMD · FT_BGW_NOW_CMD · FT_BGW_UID · FT_BGW_DESK · FT_MBOX_DIR
@@ -71,7 +72,7 @@ for ln in LEDGER:
     f = ln.split("\t")
     if len(f) < 11: continue
     k = "%s:%s:%s:%s" % (f[2], f[3], f[4], f[5])
-    if f[0] == "up":
+    if f[0] in ("up", "adopt"):      # adopt = «이미 도는» 프로세스를 장부에 올린 줄(ft-bg-watch.sh --adopt) — up 과 같게 «장부 안»
         try: reg[k] = (f[1], int(f[6]))
         except ValueError: reg[k] = (f[1], -1)
     elif f[0] in ("done", "fail"): ended.add(k)
@@ -81,8 +82,14 @@ LAUNCHD = {l.split()[0] for l in run(os.environ.get("FT_BGW_LAUNCHCTL_CMD") or "
 SHELLRE = re.compile(r"(^|/)(bash|sh|zsh|dash|python[0-9.]*|Python[0-9.]*)$")  # Python.framework 실행 경로(/…/MacOS/Python) 포함
 WATCHRE = re.compile(r"watch|loop|while|monitor|tail -f|nohup|daemon", re.I)
 MCPRE = re.compile(r"mcp|serena|probe|lsp|language-server", re.I)   # 파이프만으로 MCP 라 단정하지 않는다(DA R4)
+HERMES_PY = re.compile(r"(^|/)browser_harness/daemon\.py$")   # hermes 소유 데몬 — «실행 자리»만 본다(다른 스크립트의 인자로는 면제 0 · DA R2)
+def hermes_daemon(t):
+    if len(t) < 2 or not SHELLRE.search(t[0]): return False
+    if t[1] == "-m" and len(t) > 2 and t[2] == "browser_harness.daemon": return True
+    return bool(HERMES_PY.search(t[1]))
 def skip_reason(cmd):             # 명령줄만으로 «감시 꼴» 이 아닌 것을 먼저 거른다(오탐 0 · ⓒ)
     t = cmd.split()
+    if hermes_daemon(t): return "hermes 데몬"
     if t and t[0].rsplit("/", 1)[-1] == "tmux": return "tmux 서버"
     if t and SHELLRE.search(t[0]) and WATCHRE.search(cmd): return ""     # 인터프리터 + 감시 꼴 = 대상
     if t and (".app/" in t[0] or t[0].startswith("/Applications/")): return "사람 앱"   # Python.app 처럼 인터프리터 꼴은 위에서 먼저 걸러진다
@@ -112,7 +119,8 @@ for ln in run(PS).splitlines():
         seat, end_at = reg[k]
         if now() < end_at: note("SKIP", "%s 장부 안·기한 전" % pid); continue
         reason = "기한지남"
-    if k in seen: note("SKIP", "%s 이미 1통" % pid); continue
+    sk = k if reason == "장부밖" else k + "|" + reason   # 중복 억제 키는 «사유별» — 장부밖 알림과 기한지남 알림은 서로를 막지 않는다(각 1통)
+    if sk in seen: note("SKIP", "%s 이미 1통" % pid); continue
     if closed(JS, seat):
         to = desk(JS)
         if not to or not alive(to): note("NA", "%s 판정 불가 — seats-planner.json _desk 없음 또는 세션 없음(알림 0)" % pid); continue
@@ -123,8 +131,8 @@ for ln in run(PS).splitlines():
     if not send(to, body): note("SKIP", "%s 쪽지 실패" % pid); continue
     d = os.path.dirname(SEEN)
     if d: os.makedirs(d, exist_ok=True)
-    with open(SEEN, "a", encoding="utf-8") as fh: fh.write(k + "\n")
-    seen.add(k); note("NOTIFY", "%s %s %s -> %s" % (pid, k, reason, to))
+    with open(SEEN, "a", encoding="utf-8") as fh: fh.write(sk + "\n")
+    seen.add(sk); note("NOTIFY", "%s %s %s -> %s" % (pid, k, reason, to))
 print("check sent=%d skip=%d na=%d" % (S["sent"], S["skip"], S["na"]))
 sys.exit(0)
 PY
