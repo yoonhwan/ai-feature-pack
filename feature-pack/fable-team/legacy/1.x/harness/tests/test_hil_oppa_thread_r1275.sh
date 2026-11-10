@@ -27,7 +27,7 @@ reset; put "$Q" "$(tj "$(qmsg)")"; put "$R" "$(tj "$(root)" "$(qmsg)" "$(msg $A 
 # ===== U3 U4 답글 창 =====
 reset; put default "$(tj "$(root)" "$(qmsg)" "$(msg $Q2 $BOT '4. 다음 질문')" "$(msg $A $OPPA 예)")"; chk; [ $rc = 2 ] && has '^REJECT 오빠 슬랙 승인 확인 실패: 오빠 답글 없음'; ck "U3 오빠 글이 다음 질문(같은 작성자 Q2) 뒤 → REJECT rc2" $?
 reset; put default "$(tj "$(root)" "$(qmsg)" "$(msg $A UOTHER 예)")"; chk; [ $rc = 2 ] && has '^REJECT 오빠 슬랙 승인 확인 실패: 오빠 답글 없음'; ck "U4 창 안에 오빠 아닌 사람 글만 → REJECT" $?
-reset; put default "$(tj "$(root)" "$(qmsg)" "$(msg 1793700010.000000 $OPPA 먼저)" "$(msg $Q2 $BOT '4. 다음 질문')" "$(msg $A $OPPA 예)")"; chk; [ $rc = 0 ] && has "reply=1793700010.000000"; ck "U3b 오빠 글이 다음 질문 앞 → SLACK-OK(reply = 앞 글)" $?
+reset; put default "$(tj "$(root)" "$(qmsg)" "$(msg 1793700010.000000 $OPPA 승인)" "$(msg $Q2 $BOT '4. 다음 질문')" "$(msg $A $OPPA 예)")"; chk; [ $rc = 0 ] && has "reply=1793700010.000000"; ck "U3b 오빠 글이 다음 질문 앞 → SLACK-OK(reply = 앞 글)" $?   # r1606: 답글 내용 판정(«먼저» 는 승인 낱말 아님) → 픽스처 답글을 «승인» 으로
 
 # ===== U5 질문 글 못 찾음 · 조회 2회 상한 =====
 reset; put "$Q" "$(tj "$(qmsg)")"; put "$R" "$(tj "$(root)" "$(msg $A $OPPA 예)")"; chk; [ $rc = 2 ] && has '^REJECT 오빠 슬랙 승인 확인 실패: 판정 불가' && [ "$(ncalls)" = 2 ]; ck "U5 루트 조회에도 질문 글 없음 → 판정 불가 rc2 · 조회 2회(3번째 0)" $?

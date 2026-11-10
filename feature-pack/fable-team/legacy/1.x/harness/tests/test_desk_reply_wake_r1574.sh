@@ -57,7 +57,7 @@ import json, sys
 out, rts, qts, text = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
 msgs = [{"ts": qts, "user": "U0C9GRFHJ", "text": text}]
 if rts:
-    msgs.append({"ts": rts, "user": "U0AC2JF0M7D", "text": "OK 승인"})
+    msgs.append({"ts": rts, "user": "U0AC2JF0M7D", "text": "승인"})  # r1606: 답글 «내용» 판정 — 승인 낱말과 전체 일치
 json.dump({"ok": True, "messages": msgs}, open(out, "w", encoding="utf-8"), ensure_ascii=False)
 PY
 }

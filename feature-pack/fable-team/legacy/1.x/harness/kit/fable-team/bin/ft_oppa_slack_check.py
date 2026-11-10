@@ -3,6 +3,7 @@
 CLI: ft_oppa_slack_check.py <질문 글 ts> <40hex>… → 각 sha `SLACK-OK <sha> parent=<ts> reply=<ts>`(rc0) | `REJECT 오빠 슬랙 승인 확인 실패: <사유>`(rc2)
 질문 글(부모)에 sha 40자가 낱말로 있고, 오빠(OPPA_SLACK_UID) 답글이 부모 뒤 · 부모 수정 전 · «다음 질문 전»(질문 글과 같은 작성자의 다음 글 전)에 있어야 통과. 꼴이 맞지 않으면 «판정 불가» rc2.
 질문 글이 결정 스레드 안 답글이어도 읽는다(단계 3): 조회 결과에서 ts 가 같은 글을 찾고, 없거나 답글 하나뿐이면 스레드 루트(thread_ts)로 한 번 더 받는다(조회 2회 상한).
+r1606: 창 안 오빠 답글의 «내용» 도 본다 — 거절 낱말 답글이 하나라도 있으면 REJECT, 승인 낱말(답글 전체 일치) 답글이 없으면 REJECT «판정 불가: 답글 내용». «오빠가 답했다» ≠ «오빠가 승인했다».
 env: FT_SLACK_REPLIES_CMD(시험용 · 이 명령의 stdout = conversations.replies JSON · 조회할 ts 는 env FT_SLACK_TS 로 준다) · FT_SCOPE_SLACK_TOKEN_FILE · FT_SCOPE_SLACK_CHANNEL
 --reply-only <질문 ts>(r1591) = sha 칸이 없는 질문(설계 승인 등) 모드 — stdout 은 `REPLY-SEEN parent=<ts> reply=<ts>` 한 줄(rc0) · 답글 아직 없으면 rc3 · 판정 불가 rc2 · SLACK-OK 를 «한 줄도» 내지 않는다(승인 길에 못 쓴다)."""
 import json
@@ -16,6 +17,17 @@ from pathlib import Path
 
 OPPA_SLACK_UID = "U0AC2JF0M7D"  # 코드 상수 — 바꾸려면 착지·승인 거친 PR (seats-planner.json 은 좌석이 쓸 수 있어 출처로 안 쓴다)
 DESK_CHANNEL = "C0C9GRFHJE5"
+# r1606 · 답글 «내용» 판정 — 답글 전체가 이 낱말일 때만이다(«승인 안 함»·«네? 왜요» 는 승인 0). 오빠 확인 대상 — 바꾸려면 PR.
+APPROVE_WORDS = frozenset(("네", "예", "승인", "확정", "네 확정", "네, 확정", "진행", "ok", "ㅇㅋ", "go"))
+REJECT_WORDS = frozenset(("아니오", "아니요", "아니", "거절", "반려", "보류", "중지", "멈춰", "no", "stop"))
+
+
+def reply_word(m: dict) -> str:
+    """답글 낱말 비교 꼴 — 앞뒤 공백·끝 문장부호(. ! ~) 제거 · 영문 소문자(«네.» = «네»). 본문 없으면 빈 글."""
+    t = m.get("text")
+    return (t if isinstance(t, str) else "").strip().rstrip(" \t.!~").lower()
+
+
 _HERE = Path(__file__).resolve().parent
 sys.path[:0] = [str(p) for p in (Path(os.environ.get("FT_HERMES_SCRIPTS") or "~/.hermes/scripts").expanduser(), _HERE.parent / "harness-install" / "slack-mirror") if p.is_dir()]
 
@@ -85,10 +97,20 @@ def judge(ts: str, shas: list) -> list:
     for sha in shas:
         if not re.search(r"(?<![0-9a-fA-F])%s(?![0-9a-fA-F])" % sha, text, re.I) and sha:  # r1591 · 빈 sha = 답글 확인 모드(sha 낱말 검사 없음)
             raise ValueError("질문 글에 %s 없음" % sha)
-        ok = [t for t, u, _ in after if u == OPPA_SLACK_UID and t > parent and (nxt is None or t < nxt) and (edited is None or dec(edited["ts"]) < t)]
+        ok = [(t, m) for t, u, m in after if u == OPPA_SLACK_UID and t > parent and (nxt is None or t < nxt) and (edited is None or dec(edited["ts"]) < t)]
         if not ok:
             raise NoReply("오빠 답글 아직 없음") if not sha else ValueError("오빠 답글 없음(부모 뒤 · 수정 전 · 다음 질문 전): %s" % sha)
-        out.append("REPLY-SEEN parent=%s reply=%s" % (ts, min(ok)) if not sha else "SLACK-OK %s parent=%s reply=%s" % (sha, ts, min(ok)))
+        if not sha:  # r1591 · --reply-only 는 «도착» 만 본다(r1606 내용 판정은 승인 길에만 · 범위 밖)
+            out.append("REPLY-SEEN parent=%s reply=%s" % (ts, ok[0][0]))
+            continue
+        said = [(t, reply_word(m)) for t, m in ok]
+        no = [t for t, w in said if w in REJECT_WORDS]  # r1606 · 거절 낱말이 하나라도 있으면 승인이 있어도 REJECT
+        if no:
+            raise ValueError("오빠 거절 답글 reply=%s" % no[0])
+        yes = [t for t, w in said if w in APPROVE_WORDS]
+        if not yes:  # r1606 · 오타·모르는 말 = 승인 0 (BYZ #8243 «tmddls»)
+            raise Unjudgeable("답글 내용 승인 낱말 아님")
+        out.append("SLACK-OK %s parent=%s reply=%s" % (sha, ts, yes[0]))
     return out
 
 
