@@ -89,6 +89,17 @@ def _lane_row(row, kind, tick, deadline):
     return out
 
 
+def remaining(state, records):
+    """«남은 일» 장부 — 접수 command(활성 journal + state.pending) 중 회수된 영수(receipts)와 done work 를 뺀 것.
+    intake 용량 상한과 lifecycle 마감 판정이 «같은» 곳을 보게 하는 한 점이다(r1616 보정 2)."""
+    by_command = {rec["command"]: rec.get("work") for rec in records if rec["kind"] == "accept"}
+    by_command.update({cmd: by_command.get(cmd) for cmd in state.get("pending") or []
+                       if isinstance(cmd, str) and cmd not in by_command})
+    folded, done = (state.get("journal_base") or {}).get("receipts") or {}, state.get("done") or {}
+    return [cmd for cmd, work in by_command.items()
+            if cmd not in folded and not (isinstance(work, str) and work in done)]
+
+
 def recover_state(state, records):
     """journal 을 정본으로 삼아 state checkpoint 를 앞선다(DA R2 · R1) — checkpoint 전 crash 복구.
     잠금 안 판독(모든 writer)이 이 함수를 지나므로 recover 호출 여부와 무관하게 전달·완료·재평가가 보인다:

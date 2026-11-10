@@ -65,8 +65,9 @@ _word = lambda pair: (pair[0].get("result"), pair[1])    # CLI 반환 (JSON, rc)
 
 def _life(root, work, submit=True, holder="h1"):
     """ⓐ 사슬 1회 — (step, 낱말, rc) 목록. 세대는 claim 이 돌려준 값을 쓴다(assign 뒤 claim 은 +1)."""
-    got = [("submit",) + _word(_cli(root, "submit", "--command", "c-" + work, "--body", "본문-" + work))] \
-        if submit else []                      # 접수 상한 8 — 회전 반복에서는 첫 1건만 접수한다
+    got = [("submit",) + _word(_cli(root, "submit", "--command", "c-" + work, "--body", "본문-" + work,
+                                 "--work", work))] \
+        if submit else []                      # r1616 ⓕ: work 마다 접수 — 회수된 접수는 용량에서 빠진다
     got += [("assign",) + _word(_cli(root, "assign", "--work", work, "--holder", holder,
                                      "--evidence", "v1,v2")),
             ("deliver",) + _word(_cli(root, "deliver", "--work", work))]
@@ -85,7 +86,7 @@ def test_a_submit_to_closed_projection(tmp_path):
     assert (row["done"], row["owner"], row["uncertain"]) == (True, None, False)   # 닫힘 = 완료 + 실행권 반환
     assert row["deliveries"] == ["a1"] and row["gen"] == 2
     # ⓕ 완료 뒤 다음 배정 — 투영 owner 칸이 빈(가용) 같은 holder 가 두 번째 일을 배정→claim→착수한다
-    _cli(root, "submit", "--command", "c-W2", "--body", "본문-W2")
+    _cli(root, "submit", "--command", "c-W2", "--body", "본문-W2", "--work", "W2")
     assert _cli(root, "assign", "--work", "W2", "--holder", "h1", "--evidence", "v1,v2")[0]["result"] == OK
     gen2 = str(_cli(root, "claim", "--work", "W2", "--holder", "h1")[0]["gen"])
     assert _cli(root, "start", "--work", "W2", "--holder", "h1", "--gen", gen2)[0]["result"] == OK
@@ -95,7 +96,7 @@ def test_a_submit_to_closed_projection(tmp_path):
 def test_b_two_holders_one_execution_right(tmp_path):
     """ⓑ h1 이 착수한 일에 h2 가 claim — 하나만 성공하고, 진 쪽 effect 는 거절 낱말에 쓰기 0."""
     root = tmp_path / "race"
-    _cli(root, "submit", "--command", "c-W1", "--body", "본문-W1")
+    _cli(root, "submit", "--command", "c-W1", "--body", "본문-W1", "--work", "W1")
     _cli(root, "assign", "--work", "W1", "--holder", "h1", "--evidence", "v1,v2")
     _cli(root, "deliver", "--work", "W1")
     gen = _cli(root, "claim", "--work", "W1", "--holder", "h1")[0]["gen"]
@@ -118,7 +119,7 @@ def test_c_crash_resume_keeps_single_effect(tmp_path):
     kill = cli 자식이 자기 rc 를 낸 «뒤» sh 래퍼를 죽이는 «동사 사이 중단» 모형이다 — 쓰기 도중 crash 는
     계약 replay(contracts/core case 06·07) 몫이라 여기서 흉내내지 않는다."""
     root = tmp_path / "crash"
-    _cli(root, "submit", "--command", "c-W1", "--body", "본문-W1")
+    _cli(root, "submit", "--command", "c-W1", "--body", "본문-W1", "--work", "W1")
     _kill(root, "assign", "--work", "W1", "--holder", "h1", "--evidence", "v1,v2")
     recovered, rc = _cli(root, "recover")                     # M2 = 이 줄을 빼면 전달 기록이 사라진다
     assert (recovered["result"], rc, recovered["delivered"]) == (OK, 0, ["a1"])
@@ -140,7 +141,7 @@ def test_d_segment_rotation_keeps_projection(tmp_path):
     assert (row["done"], row["owner"], row["uncertain"]) == (True, None, False)   # 회전 전 닫힘
     closed = {"W000": row}                        # M3 = 이 칸을 {} 로 비우면 빨강
     for index in range(1, 30):                    # 실측 20 work 부근에서 회전한다
-        assert all(step[1:] == (OK, 0) for step in _life(root, "work-%03d-" % index + "x" * 70, submit=False))
+        assert all(step[1:] == (OK, 0) for step in _life(root, "work-%03d-" % index + "x" * 70))
     runtime = os.path.join(os.path.abspath(str(root)), ".fable-team", "teams", TEAM, "runtime")
     segments = [n for n in os.listdir(runtime) if n.startswith("journal.") and n != "journal.jsonl"]
     assert segments, "회전 0 = 시험 입력이 segment cap 에 못 닿았다"          # 회전 ≥ 1

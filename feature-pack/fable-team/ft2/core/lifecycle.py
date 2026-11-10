@@ -164,12 +164,10 @@ class Lifecycle:
         return blockers
 
     def _pending_works(self, state, records):
-        """접수 command → work 사상(accept 줄) — command 이름이 work 와 달라도 마감 판정이 맞는다.
-        이미 회수된 접수(journal_base.receipts)는 그 segment 가 닫혔다는 뜻이라 «남은 일» 이 아니다."""
+        """«남은 일» — intake 용량 상한과 **같은** 장부(`record.remaining` · 회수된 접수·done work 제외).
+        command 이름이 work 와 달라도 마감 판정이 맞도록 accept 줄로 command → work 사상을 먼저 한다."""
         by_command = {rec["command"]: rec.get("work") for rec in records if rec["kind"] == "accept"}
-        folded = (state.get("journal_base") or {}).get("receipts") or {}
-        return [by_command.get(command) or command
-                for command in state.get("pending") or [] if command not in folded]
+        return [by_command.get(command) or command for command in record.remaining(state, records)]
 
     def _owner_word(self, records, work):
         """착수 기록이 있으면 STARTED · 실행권만 있으면 GRANTED(원자료 낱말)."""
