@@ -90,6 +90,40 @@ reset_sent; runm m5 $((END-7200)); : > "$SENT"; runm m5 $((END-3600)); chk "변�
 mut m10 's/\[ "\$REL" = 1 \] && exit 0/true/'; : > "$W/m10/state/anchor-a-done"
 reset_sent; runm m10 $((END+86400)); : > "$SENT"; runm m10 $((END+90000)); chk "변이 M10(표식 뒤 반복) — 시험에 걸림(1줄)" "$(count)" 1
 
+# ── DA R1 회긍: plist 가 작업 폴더·문맥 env 를 고정 — cwd=/ 에서도 발신까지 간다 ──
+for k in WorkingDirectory FT_MBOX_DIR FT_ANCHOR_SEATS FT_ANCHOR_LOGS FT_ANCHOR_STATE_DIR __WORKTREE__ __COMM__ __SEATS__ __STATE__; do
+  grep -qF -- "$k" "$P" && ok "plist 문맥 «${k}»" || no "plist 문맥 «${k}» 없음"
+done
+rm -rf "$W/r1"; mkdir -p "$W/r1/state"; reset_sent
+RRC=0; ( cd / && FT_ANCHOR_NOW=$END FT_ANCHOR_MBOX="$W/mbox.sh" FT_ANCHOR_SEATS="$W/seats.json" FT_ANCHOR_LOGS="$W/r1/logs" \
+  FT_ANCHOR_STATE_DIR="$W/r1/state" FT_ANCHOR_DONE="$W/r1/state/anchor-a-done" FT_ANCHOR_ME=seat-test bash "$S" >"$W/r1/out" 2>"$W/r1/err" ) || RRC=$?
+chk "cwd=/ + 로그 폴더 없음 — rc0(정상 경로)" "$RRC" 0
+chk "cwd=/ — 끝 시각 발신 2통" "$(count)" 2
+RRC=0; ( cd / && env -u FT_MBOX_DIR -u FT_ANCHOR_MBOX -u FT_ANCHOR_SEATS -u FT_ANCHOR_LOGS -u FT_ROOT FT_ANCHOR_NOW=$END \
+  FT_ANCHOR_STATE_DIR="$W/r1/state2" FT_ANCHOR_ME=seat-test bash "$S" >/dev/null 2>"$W/r1/err2" ) || RRC=$?
+if [ "$RRC" != 0 ] && grep -q 'ERROR' "$W/r1/err2"; then ok "문맥 env 없이 cwd=/ — rc≠0 + ERROR(조용한 0 없음)"; else no "문맥 없음이 조용히 0 으로 끝남(rc=$RRC)"; fi
+
+# ── DA R2 회긍: 빈 logs 에서도 상태 저장 — 1h 0통 · 24h 2통 ──────────────────
+rm -rf "$W/r2"; mkdir -p "$W/r2/logs" "$W/r2/state"
+r2(){ FT_ANCHOR_NOW="$1" FT_ANCHOR_MBOX="$W/mbox.sh" FT_ANCHOR_SEATS="$W/seats.json" FT_ANCHOR_LOGS="$2" \
+      FT_ANCHOR_STATE_DIR="$W/r2/state" FT_ANCHOR_DONE="$W/r2/state/anchor-a-done" FT_ANCHOR_ME=seat-test bash "$S" >/dev/null 2>"$W/r2/err"; }
+reset_sent; RRC=0; r2 $END "$W/r2/logs" || RRC=$?; chk "빈 logs — 끝 시각 rc0" "$RRC" 0
+chk "빈 logs — 끝 시각 발신 2통" "$(count)" 2
+chk "빈 logs — 상태 저장(req_sent)" "$(sed -n 's/^req_sent=//p' "$W/r2/state/anchor-a-alert.state")" "$END"
+reset_sent; r2 $((END+3600)) "$W/r2/logs"; chk "빈 logs +1시간 — 0통(24h 계약 유지)" "$(count)" 0
+reset_sent; r2 $((END+86400)) "$W/r2/logs"; chk "빈 logs +24시간 — 2통" "$(count)" 2
+rm -f "$W/r2/state/anchor-a-alert.state"; reset_sent; RRC=0; r2 $END "$W/r2/nope" || RRC=$?
+chk "로그 폴더 자체 없음 — rc0" "$RRC" 0
+chk "로그 폴더 자체 없음 — 발신 2통(정상 경로)" "$(count)" 2
+
+# ── DA R3 회긍: h 문서 복구 확인 조건 · sampler.log 정본 경로 ─────────────────
+grep -qF '(debug=false)' "$D" && ok "복구 확인 조건 = debug=false 재적재 줄" || no "복구 확인 조건 문구 없음"
+grep -qF '켜기 전용' "$D" && ok "켜기 조건 재사용 금지 문구" || no "켜기 조건 재사용 금지 문구 없음"
+grep -qF '~/.claude/fable-team/state/capacity/anchor-sampler.log' "$D" && ok "sampler.log 정본 경로" || no "sampler.log 정본 경로 없음"
+for k in __WORKTREE__ __COMM__ __SEATS__ __STATE__; do
+  grep -qF -- "$k" "$D" && ok "치환 목록 «${k}»" || no "치환 목록 «${k}» 없음"
+done
+
 # ── 재기동 0 (M3) · 끝 시각 상수 1곳 · plist = 1시간 간격 ───────────────────
 if grep -vE '^[[:space:]]*#' "$S" | grep -qE 'launchctl|pkill|kill |systemctl|brew services'; then
   no "재기동·정지 호출이 스크립트에 있음 (M3)"; else ok "재기동·정지 호출 0 (M3)"; fi

@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!-- r1571 앵커 A «잊지 않는 장치» launchd 템플릿 — 1시간 간격 1개(카드 ⓕ).
-     설치는 h(사람 승인): h 묶음 문서 §알림 설치 가 __SCRIPT__ / __LOGS__ 를 치환해
+     ★launchd 는 cwd=/ 로 띄운다 — 스크립트가 명부·우편함을 못 풀면 rc3 으로 «알림 전에» 끝난다(DA R1).
+       그래서 작업 폴더(WorkingDirectory)와 문맥 env(FT_MBOX_DIR·FT_ANCHOR_SEATS·FT_ANCHOR_LOGS·FT_ANCHOR_STATE_DIR)를 여기 고정한다.★
+     설치는 h(사람 승인): h 묶음 문서 §알림 설치 가 __SCRIPT__·__LOGS__·__WORKTREE__·__COMM__·__SEATS__·__STATE__ 를 치환해
      ~/Library/LaunchAgents/com.byz.ft-anchor-a-request-log.plist 로 쓰고 bootstrap 한다(치환 전 직접 bootstrap 금지).
      해제도 h: 끄기·지우기 h 의 마지막 단계에서 bootout + 파일 제거. 이 스크립트는 스스로 내려가지 않는다(자동 bootout 0). -->
 <plist version="1.0"><dict>
@@ -10,10 +12,14 @@
     <string>/bin/bash</string>
     <string>__SCRIPT__</string>
   </array>
+  <key>WorkingDirectory</key><string>__WORKTREE__</string>
   <key>EnvironmentVariables</key><dict>
     <key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
     <key>LANG</key><string>ko_KR.UTF-8</string>
+    <key>FT_MBOX_DIR</key><string>__COMM__</string>
+    <key>FT_ANCHOR_SEATS</key><string>__SEATS__</string>
     <key>FT_ANCHOR_LOGS</key><string>__LOGS__</string>
+    <key>FT_ANCHOR_STATE_DIR</key><string>__STATE__</string>
   </dict>
   <key>RunAtLoad</key><true/>
   <key>StartInterval</key><integer>3600</integer>

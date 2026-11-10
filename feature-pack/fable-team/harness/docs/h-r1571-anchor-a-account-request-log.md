@@ -39,9 +39,10 @@
    - `logging-to-file=true`
    - `debug=true`
    - `logs-max-total-size-mb=1024`
-3. **재적재 확인(기한 60초)**: 켜기 시각 이후에 쓰인 줄에서 다음 중 하나를 본다.
+3. **켜기 재적재 확인(기한 60초)**: 켜기 시각 이후에 쓰인 줄에서 다음 중 하나를 본다.
    - `log level changed from %s to %s (debug=true)` 줄(설정 감시 재적재 흔적), 또는
    - `~/.cli-proxy-api/logs/` 에 main 로그 파일이 새로 생김.
+   ★이 조건은 «켜기 전용» 이다. 끝났을 때의 복구 확인은 §5 2번 조건(`debug=false` 줄)을 쓴다 — 섞으면 복구가 영원히 실패한다.★
 4. **60초 안에 확인되지 않으면**: 같은 h 안에서 3키를 백업 값으로 되돌리고(`logging-to-file=false` · `debug=false` · `logs-max-total-size-mb=0`) 재적재를 다시 확인한다.
    → planner 에 «A 보류 — 재적재 안 됨 · 재기동은 별도 판단» 1줄. 이 h 안에서 restart·kill·launchctl 호출 0.
 5. 확인되면 재적재 확인 시각을 적는다(다음 단계 관측 기한의 기준).
@@ -64,9 +65,10 @@
 
 1. 스크립트를 라이브 bin 에 둔다(추적본 = 팩 PR, 라이브 = 설치 사본):
    `cp -p feature-pack/fable-team/harness/bin/ft-anchor-a-request-log.sh "$(cat <리포>/.fable-team/LIVE_BIN)/"` (경로는 설치 꼴에 따른다)
-2. plist 치환: `__SCRIPT__` = 위 라이브 스크립트 절대경로 · `__LOGS__` = `~/.cli-proxy-api/logs` → `~/Library/LaunchAgents/com.byz.ft-anchor-a-request-log.plist`
+2. plist 치환 5개: `__SCRIPT__` = 라이브 스크립트 절대경로 · `__WORKTREE__` = 리포 공용 루트(작업 폴더 — launchd 는 cwd=/ 로 띄운다) · `__COMM__` = `<리포>/.fable-team/comm` · `__SEATS__` = `<리포>/.fable-team/seats-planner.json` · `__STATE__` = `~/.claude/fable-team/state/capacity` · `__LOGS__` = `~/.cli-proxy-api/logs` → `~/Library/LaunchAgents/com.byz.ft-anchor-a-request-log.plist`
+   ★env 를 빼면 스크립트가 문맥을 못 풀어 rc3 으로 «알림 전에» 끝난다(DA R1). 자리표시자가 남은 plist 는 bootstrap 하지 않는다.★
 3. `plutil -lint` → OK → `launchctl bootstrap gui/$UID <plist>` → `launchctl print gui/$UID/com.byz.ft-anchor-a-request-log` 에 `state = running`
-4. 손 시험 1회(선택 · 로그만): `bash <라이브 스크립트>` → `/tmp/ft-anchor-a-request-log.log` 에 ERROR 0 · 상태 파일 `~/.claude/fable-team/state/capacity/anchor-a-alert.state` 생성
+4. 손 시험 2회(로그만): `cd / && bash <라이브 스크립트>` (= launchd 와 같은 cwd) → `/tmp/ft-anchor-a-request-log.log` 에 ERROR 0 · 상태 파일 `~/.claude/fable-team/state/capacity/anchor-a-alert.state` 생성. 로그 폴더가 비어 있어도 rc0 이어야 정상이다(추출 0행).
 5. 이 시점부터 1시간마다: 끝 시각 전 = 조용, 끝 시각 뒤 = desk·planner 에 «끄기·지우기 h 실행 요청» 1통(24시간마다 반복), 로그 합계가 상한의 80% 이상이면 «크기 경보» 1통(같은 구간 반복 0).
 
 ## §4 전환 추출(자동 · 하루 1회 · 읽기만)
@@ -78,12 +80,14 @@
 ## §5 끄기·지우기 h (끝 시각 2026-11-17 13:00 뒤 · 순서 고정)
 
 1. **추출 결과 인계 먼저**: `anchor-a-transitions.tsv` 를 aifp#3 에 넘겼는지 1줄 확인. 안 넘겼으면 지우기 전에 넘긴다.
-2. **3키 복구**: `logging-to-file=false` · `debug=false` · `logs-max-total-size-mb=0` → 재적재 확인(§1 3번과 같은 방법, 기한 60초).
+2. **3키 복구**: `logging-to-file=false` · `debug=false` · `logs-max-total-size-mb=0` → **복구용 재적재 확인(기한 60초 · 조건은 켜기와 다르다)**: 복구 시각 뒤에 쓰인 `log level changed from %s to %s (debug=false)` 줄을 본다.
+   ★켜기 확인 조건(`debug=true` 줄 · «새 main 로그 파일 생김»)을 재사용하지 않는다 — 끄면 debug 줄도 새 main 로그도 나오지 않아 영원히 실패한다(DA R3).★
+   60초 안에 `debug=false` 재적재 줄이 없으면 «복구 확인 필요» 1줄 + 성공 처리 0(추측으로 넘기지 않는다).
 3. **관측기 종료**(ⓔ′): 명령줄이 `~/.claude/fable-team/state/capacity/anchor-watch.py` 인 프로세스만 종료한다(pid 번호 고정 0 · 실행 직전 `ps` 로 명령줄 대조 · 11-10 관측 pid 97247 · `--snapshot --loop 10`) → 종료 확인 1줄.
 4. **삭제 대상 = `~/.cli-proxy-api/logs/main*.log` 만**. 삭제 전 목록·크기 1줄 → 삭제 뒤 남은 수 0 확인.
    - 삭제 명령(글롭 넓히기 0): `ls -l ~/.cli-proxy-api/logs/main*.log` → `rm -f ~/.cli-proxy-api/logs/main*.log` · `ls ~/.cli-proxy-api/logs/main*.log 2>/dev/null | wc -l` → 0
    - glob 밖 0: `error-*` · `request-log-parts` · 인증 json 은 건드리지 않는다. 폴더 전체를 지우는 넓은 글롭 금지.
-   - 같은 폴더의 `anchor-sampler.log` 1개도 삭제 대상이다(경로 고정).
+   - 같은 폴더의 `anchor-sampler.log` 1개도 삭제 대상이다 — 경로 고정 = `~/.claude/fable-team/state/capacity/anchor-sampler.log`(정본 · cliproxy logs 폴더 아님).
    - **보존(삭제 0) = `anchor-t0.json` · `anchor-watch.py` · `anchor-snapshots.jsonl`** — 이 셋은 지우지 않는다.
 5. **완료 표식**: `~/.claude/fable-team/state/capacity/anchor-a-done` 빈 파일 생성 → 다음 1시간 실행에서 «앵커 A 해제» 1줄이 desk 에 가고 그 뒤 알림·경보 0.
 6. **plist 해제 = 끄기 h 의 마지막 단계**: `launchctl bootout gui/$UID/com.byz.ft-anchor-a-request-log` → `~/.fable-team`·`~/Library/LaunchAgents` 에서 plist 파일 제거 → `launchctl print` 로 사라진 것 확인. 자동 bootout 은 없다(사람이 한다).

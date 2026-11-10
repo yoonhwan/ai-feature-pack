@@ -27,7 +27,7 @@ route(){ python3 -c 'import json,sys;print(json.load(open(sys.argv[1],encoding="
 DESK="$(route _desk)"; PLAN="$(route _hil_route)"
 [ -n "$DESK" ] && [ -n "$PLAN" ] || { echo "ERROR 받는이 없음 — $SEATS 의 _desk·_hil_route" >&2; exit 3; }
 send(){ bash "$mbox" send "$1" "$ME" "$2" >/dev/null 2>&1 || { echo "ERROR mbox send 실패 to=$1" >&2; return 3; }; }
-now="${FT_ANCHOR_NOW:-$(date +%s)}"; REL="$(n "$(kv released)")"; REQ="$(n "$(kv req_sent)")"
+now="${FT_ANCHOR_NOW:-$(date +%s)}"; rc=0; REL="$(n "$(kv released)")"; REQ="$(n "$(kv req_sent)")"
 ARMED="$(kv size_armed)"; [ -n "$ARMED" ] || ARMED=1; EXT="$(n "$(kv extract_last)")"
 
 if [ -e "$DONE" ]; then   # ③ 해제 안내 1줄 뒤 알림·경보 0 (M10)
@@ -39,23 +39,25 @@ bytes=0; for f in "$LOGS"/main*.log; do [ -f "$f" ] || continue; bytes=$((bytes 
 thr=$(( CAP_MB * 1048576 * 8 / 10 ))
 if [ "$bytes" -ge "$thr" ] && [ "$ARMED" = 1 ]; then   # ⓖ 크기 경보 — 같은 구간 반복 0 (M5)
   body="[앵커 A 크기 경보] logs/main*.log 합계 $((bytes/1048576))MB ≥ 상한의 80%($((thr/1048576))MB · 상한 ${CAP_MB}MB · 경로 $LOGS). 끄기·지우기 h 로 정리하고 추출 결과를 aifp#3 에 넘겼는지 확인."
-  if send "$DESK" "$body" && send "$PLAN" "$body"; then ARMED=0; fi
+  if send "$DESK" "$body" && send "$PLAN" "$body"; then ARMED=0; else rc=3; fi
 fi
 [ "$bytes" -ge "$thr" ] || ARMED=1
 if [ "$now" -ge "$END_TS" ] && { [ "$REQ" = 0 ] || [ $((now-REQ)) -ge 86400 ]; }; then   # ② 끝 시각 뒤 요청 · 24시간 반복 (M1)
   body="[앵커 A 끄기·지우기 h 실행 요청] 끝 시각(2026-11-17 13:00 KST)이 지났다. h 문서 §끄기·지우기 순서: 3키 복구→설정 재적재 확인→삭제(logs/main*.log 만 · 보존 anchor-t0.json·anchor-watch.py·anchor-snapshots.jsonl)→관측기 종료→완료 표식→plist 해제."
-  send "$DESK" "$body" && send "$PLAN" "$body" && REQ="$now"
+  send "$DESK" "$body" && send "$PLAN" "$body" && REQ="$now" || rc=3
 fi
-if [ $((now-EXT)) -ge 86400 ]; then   # ④ 전환 추출 하루 1회 (M4)
-  cat "$LOGS"/main*.log 2>/dev/null | awk '
+if [ $((now-EXT)) -ge 86400 ]; then   # ④ 전환 추출 하루 1회 (M4) — 로그 폴더·파일 없음 = 정상 경로(추출 0행 · rc0)
+  if [ ! -d "$LOGS" ]; then EXT="$now"
+  elif find "$LOGS" -maxdepth 1 -name 'main*.log' -type f -exec cat {} + 2>/dev/null | awk '
     { if (match($0, /[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9][ T][0-9][0-9]:[0-9][0-9]:[0-9][0-9]/)) ts=substr($0,RSTART,RLENGTH)
       acct=""
       if (match($0, /Use OAuth [^ ]+ for model/)) { acct=substr($0,RSTART+10,RLENGTH-10); sub(/ for model.*/,"",acct) }
       else if (match($0, /Use API key [^ ]+ for model/)) acct="(api-key-id)"
       if (acct=="") next
       if (prev!="" && acct!=prev) print ts "\t" prev "\t" acct
-      prev=acct }' > "$OUT.new" || { echo "ERROR 전환 추출 실패" >&2; exit 3; }
-  { [ -f "$OUT" ] && cat "$OUT"; cat "$OUT.new"; } | awk '!seen[$0]++' > "$OUT.tmp" && mv "$OUT.tmp" "$OUT" && rm -f "$OUT.new"
-  EXT="$now"
+      prev=acct }' > "$OUT.new"; then
+    { [ -f "$OUT" ] && cat "$OUT"; cat "$OUT.new"; } | awk '!seen[$0]++' > "$OUT.tmp" && mv "$OUT.tmp" "$OUT"
+    rm -f "$OUT.new"; EXT="$now"
+  else echo "ERROR 전환 추출 실패 — 다음 회 재시도(${LOGS})" >&2; rc=3; fi
 fi
-save
+save; exit $rc
