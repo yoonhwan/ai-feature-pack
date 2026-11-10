@@ -1,0 +1,63 @@
+{
+  "id": "case_01_segment_reclaim",
+  "사례 이름": "회전 뒤 segment 회수 (S1)",
+  "출처": {
+    "정본 경로": "design/harness/research/ft-2.0/journal-cap-v4/s1_segment_reclaim.py",
+    "정본 sha": "db18c453c77868355ffeb813d3b4c49f2047806a",
+    "함수": "s1_segment_reclaim.py main (판정 S1-①~⑧)",
+    "줄": "판정 라벨 S1-①~S1-⑧ · 관측 = journal-cap-v4-checker/results/b-recount-impl.json trace-S1.jsonl",
+    "실험 literal 필드명": ["journal_bytes", "rotations", "seg_unlink", "body_unlink", "windows", "order_bad", "coexist_peak", "violations", "max_total", "over_cap_rows"]
+  },
+  "given": [
+    "journal 에 사건 노트 4,000 B × 3줄씩 주입 (주입 합 ≥ 후보값 320 KiB)",
+    "회전 4회",
+    "회수 실행 2회 — 지운 segment = 내구 checkpoint 뒤 · 적용 끝 앞 · 전부 완료 · Git blob · 참조 0 · 본문 영수",
+    "삭제 순서 = 본문 먼저 · segment 나중 (회수 창 3)",
+    "미처리 U · pin P · 영수 N=0 이 든 segment 는 남긴다",
+    "회수 창마다 공존 총량 계수 (총 cap 후보값 8 MiB)"
+  ],
+  "expect": {
+    "처리 결과": "회수 결과",
+    "근거 검증": "회수 실행 2 · 회전 4 · 지운 segment 2(= journal.1.jsonl 만) · 미처리 든 journal.2·3 은 남음 · 공존 peak < 총 cap",
+    "관측 대조": [
+      {
+        "원자료 키": "a-compare#/S1.json/verdict",
+        "관측": ["PASS", "PASS"]
+      },
+      {
+        "원자료 키": "a-compare#/S1.json/n_checks",
+        "관측": [8, 8]
+      },
+      {
+        "원자료 키": "b-recount#/trace-S1.jsonl/max_total",
+        "관측": 494499
+      },
+      {
+        "원자료 키": "b-recount#/trace-S1.jsonl/over_cap_rows",
+        "관측": 0
+      },
+      {
+        "원자료 키": "b-recount#/trace-S1.jsonl/seg_unlink",
+        "관측": 2
+      },
+      {
+        "원자료 키": "b-recount#/trace-S1.jsonl/body_unlink",
+        "관측": 28
+      },
+      {
+        "원자료 키": "b-recount#/trace-S1.jsonl/order_bad",
+        "관측": 0
+      },
+      {
+        "원자료 키": "b-recount#/trace-S1.jsonl/seg_unlink_without_covering_checkpoint",
+        "관측": []
+      }
+    ]
+  },
+  "비채택": [
+    {
+      "관측": "r1504 v1 C3 퇴출 관측 — 완료 본문을 오래된 순으로 100건 지웠다(ops 코드 DROP_OLDEST · journal-cap-v1/REPORT-r1504-journal-cap §3)",
+      "표시": "비채택: 미처리는 조용히 버리지 않는다 — 완료 근거 Git 보존과 참조 0 을 대조한 회수만 허용"
+    }
+  ]
+}

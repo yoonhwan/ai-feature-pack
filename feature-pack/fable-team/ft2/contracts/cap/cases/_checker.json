@@ -1,0 +1,82 @@
+{
+  "id": "_checker",
+  "사례 이름": "checker 회차 관측 (사례 아님 — 변이 3 · 경계 2)",
+  "출처": {
+    "정본 경로": "design/harness/research/ft-2.0/journal-cap-v4-checker/VERDICT.md",
+    "정본 sha": "db18c453c77868355ffeb813d3b4c49f2047806a",
+    "함수": "ck_mutate.py · ck_boundary.py b1·b2 (r1528 독립 checker)",
+    "줄": "VERDICT §5 변이 3 · §6 경계① · §7 경계② · 관측 = results/{c-mutants,boundary1,boundary2}.json",
+    "실험 literal 필드명": [
+      "detected",
+      "failed_checks",
+      "independent",
+      "mutate_count",
+      "cumulative_end",
+      "first_ok_where_continued_rule_defers",
+      "measured_use",
+      "receipt_blobs"
+    ]
+  },
+  "관측 대조": [
+    {
+      "원자료 키": "a-compare#/raw~1mutant-Ma-S1.json/verdict",
+      "관측": [
+        "FAIL",
+        "FAIL"
+      ]
+    },
+    {
+      "원자료 키": "a-compare#/raw~1mutant-Mb-S2.json/verdict",
+      "관측": [
+        "FAIL",
+        "FAIL"
+      ]
+    },
+    {
+      "원자료 키": "a-compare#/raw~1mutant-Mc-S3.json/verdict",
+      "관측": [
+        "FAIL",
+        "FAIL"
+      ]
+    },
+    {
+      "원자료 키": "c-mutants#/2/detected",
+      "관측": true
+    },
+    {
+      "원자료 키": "c-mutants#/2/independent/detected",
+      "관측": true
+    },
+    {
+      "원자료 키": "boundary1#/first_ok_where_continued_rule_defers",
+      "관측": 2
+    },
+    {
+      "원자료 키": "boundary1#/cumulative_end",
+      "관측": 604625
+    },
+    {
+      "원자료 키": "boundary1#/max_total",
+      "관측": 8359006
+    },
+    {
+      "원자료 키": "boundary2#/crash_seq_status",
+      "관측": "open"
+    },
+    {
+      "원자료 키": "boundary2#/crash_seq_status_in_state_json_before_recover",
+      "관측": "done"
+    },
+    {
+      "원자료 키": "boundary2#/recover/measured_use",
+      "관측": 1548
+    },
+    {
+      "원자료 키": "boundary2#/receipt_blobs",
+      "관측": [
+        117,
+        117
+      ]
+    }
+  ]
+}

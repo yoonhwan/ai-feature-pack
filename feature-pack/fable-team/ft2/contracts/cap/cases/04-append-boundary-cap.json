@@ -1,0 +1,53 @@
+{
+  "id": "case_04_append_boundary_cap",
+  "사례 이름": "journal append 경계의 공존 총량 (S4)",
+  "출처": {
+    "정본 경로": "design/harness/research/ft-2.0/journal-cap-v4/s4_journal_append.py",
+    "정본 sha": "db18c453c77868355ffeb813d3b4c49f2047806a",
+    "함수": "s4_journal_append.py one() (판정 S4-①~③ · S1~S3 이 남긴 trace 재사용)",
+    "줄": "판정 라벨 S4-①~③ · 관측 = journal-cap-v4-checker/results/b-recount-impl.json journal_append_rows·boundary_rows",
+    "실험 literal 필드명": ["site", "total", "journal_append_rows", "boundary_rows", "coexist_peak_with_ja", "coexist_peak_without_ja", "delete_between", "followed"]
+  },
+  "given": [
+    "S1~S3 이 남긴 trace 6개를 다시 읽는다 (사례 재실행 0)",
+    "trace 마다 site = journal_append 경계 행을 센다",
+    "journal_append 포함·제외 공존 총량의 최대를 센다",
+    "append 와 다음 경계 사이 사라지거나 줄어든 파일을 센다"
+  ],
+  "expect": {
+    "처리 결과": "접수 성공",
+    "근거 검증": "trace 6개 모두 journal_append 경계 존재 · 그 경계 포함 공존 peak < 총 cap 후보값 8 MiB · 순서 위반 0 (기록을 append 하는 순간에도 총 cap 을 넘기지 않는다)",
+    "관측 대조": [
+      {
+        "원자료 키": "a-compare#/S4.json/verdict",
+        "관측": ["PASS", "PASS"]
+      },
+      {
+        "원자료 키": "a-compare#/S4.json/n_checks",
+        "관측": [3, 3]
+      },
+      {
+        "원자료 키": "b-recount#/trace-S1.jsonl/journal_append_rows",
+        "관측": 145
+      },
+      {
+        "원자료 키": "b-recount#/trace-S2-s2ref.jsonl/journal_append_rows",
+        "관측": 91
+      },
+      {
+        "원자료 키": "b-recount#/trace-S3-s3.jsonl/journal_append_rows",
+        "관측": 255
+      },
+      {
+        "원자료 키": "b-recount#/trace-S3-s3.jsonl/boundary_rows",
+        "관측": 1163
+      }
+    ]
+  },
+  "비채택": [
+    {
+      "관측": "append 순간의 peak 값(예 8,276,932 B)은 실측값이다",
+      "표시": "비채택: 숫자는 확정값이 아니다 — 총 cap 8 MiB 도 격리 시험 후보값이다"
+    }
+  ]
+}
