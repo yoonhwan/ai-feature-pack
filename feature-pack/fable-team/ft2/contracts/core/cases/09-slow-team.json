@@ -1,0 +1,42 @@
+{
+  "id": "case_09_slow_team",
+  "사례 이름": "느린 팀",
+  "출처": {
+    "정본 경로": "design/harness/research/ft-2.0/sim-atomic-json/cases_c.py",
+    "정본 sha": "db18c453c77868355eb813d3b4c49f2047806a",
+    "함수": "case_09_slow_team",
+    "줄": "10-62",
+    "실험 literal 필드명": ["status", "claims", "busy_claims", "ticked_attempts", "events", "a_busy_wall_s", "b_full_transition_wall_s"]
+  },
+  "given": [
+    "접수 card-a · card-b",
+    "대역 프로세스가 team-a 잠금 보유(ready 표식)",
+    "claim card-a(잠금 점유 중)",
+    "claim card-b · 착수 · 외부 효과 band:independent · 결과",
+    "대역 프로세스 잠금 해제",
+    "스냅샷 · 루트 항목 확인(팀 전역 lock 유무)"
+  ],
+  "expect": {
+    "처리 결과": "BUSY",
+    "상태 revision 변화": true,
+    "근거 검증": "A 잠금 점유 중 claim = BUSY",
+    "관측 대조": [
+      {
+        "원자료 키": "k1_09",
+        "관측": {
+          "busy_claims": 1,
+          "claims": 2,
+          "events": 0,
+          "ok": true,
+          "ticked_attempts": 0
+        }
+      }
+    ]
+  },
+  "비채택": [
+    {
+      "관측": "BUSY 즉시 반환 · 타팀 전이 1초 미만(a_wall·b_wall < 1.0)",
+      "표시": "비채택: 정본은 «숫자 확정·실측 PASS 아님» 이라 1초 문턱을 계약 수치로 채택하지 않는다"
+    }
+  ]
+}

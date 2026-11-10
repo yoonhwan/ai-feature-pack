@@ -1,0 +1,80 @@
+{
+  "id": "case_02_concurrent_4x300",
+  "사례 이름": "다른 카드 동시 갱신",
+  "출처": {
+    "정본 경로": "design/harness/research/ft-2.0/sim-atomic-json/cases_conc.py",
+    "정본 sha": "db18c453c77868355ffeb813d3b4c49f2047806a",
+    "함수": "case_02_concurrent_4x300",
+    "줄": "18-71",
+    "실험 literal 필드명": ["applied", "busy", "ticks", "children", "events", "attempts", "pairs_equal", "strictly_increasing", "bound", "wall_s"]
+  },
+  "given": [
+    "접수 card-1 · card-2 · card-3 · card-4",
+    "자식 4개 × 300 적용 — 부모가 가상 tick 사건 큐를 들고 자식당 tick 1회 시도",
+    "BUSY 는 같은 자식 tick+1 사건으로 되돌림",
+    "스냅샷(applied · revision)"
+  ],
+  "expect": {
+    "처리 결과": "BUSY",
+    "상태 revision 변화": true,
+    "근거 검증": "BUSY 는 다음 tick 사건 · BUSY ≤ tick×(자식−1)",
+    "관측 대조": [
+      {
+        "원자료 키": "k1_02",
+        "관측": {
+          "attempts": 3121,
+          "children": 4,
+          "events": 3121,
+          "ok": true,
+          "orphan_attempts": 0,
+          "orphan_events": 0,
+          "pairs_equal": true,
+          "strictly_increasing": true
+        }
+      },
+      {
+        "원자료 키": "k2_02",
+        "관측": {
+          "busy_checked": 1921,
+          "ok": true,
+          "problems": []
+        }
+      },
+      {
+        "원자료 키": "k3_02",
+        "관측": {
+          "applied": {
+            "card-1": 300,
+            "card-2": 300,
+            "card-3": 300,
+            "card-4": 300
+          },
+          "bound": 3600,
+          "busy": 1921,
+          "children": 4,
+          "ok": true,
+          "ticks": 1200
+        }
+      },
+      {
+        "원자료 키": "k4_02",
+        "관측": {
+          "attempts": 3121,
+          "events": 3121,
+          "ok": true,
+          "wall_s": 0.431
+        }
+      }
+    ]
+  },
+  "비채택": [
+    {
+      "관측": "BUSY 상한 = tick×(자식−1) · ticks ≥ 300 · 적용 300/카드",
+      "표시": "비채택: 정본은 «숫자 확정·실측 PASS 아님» 이라 상한·300 을 계약 수치로 채택하지 않는다"
+    },
+    {
+      "관측": "회차 실측 wall_s = 0.431",
+      "표시": "비채택: 정본은 «숫자 확정·실측 PASS 아님» 이라 1회 소요 시간을 성능 기준으로 채택하지 않는다"
+    }
+  ]
+}

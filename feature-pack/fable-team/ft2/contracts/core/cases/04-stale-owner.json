@@ -1,0 +1,28 @@
+{
+  "id": "case_04_stale_owner",
+  "사례 이름": "옛 owner",
+  "출처": {
+    "정본 경로": "design/harness/research/ft-2.0/sim-atomic-json/cases_a.py",
+    "정본 sha": "db18c453c77868355ffeb813d3b4c49f2047806a",
+    "함수": "case_04_stale_owner",
+    "줄": "104-154",
+    "실험 literal 필드명": ["status", "reason", "generation", "revision", "cards_digest", "effect_lines", "ack"]
+  },
+  "given": [
+    "접수 card-o · 실행권 부여 · 착수 gen1",
+    "세대 교체 gen1→gen2",
+    "스냅샷(before: revision · cards digest · generation)",
+    "구세대 착수 gen=1",
+    "구세대 결과 쓰기 gen=1",
+    "구세대 접수 card-old gen=1",
+    "스냅샷(after)",
+    "새 세대 접수 card-new gen=2"
+  ],
+  "expect": {
+    "처리 결과": "낡은 실행권",
+    "상태 revision 변화": false,
+    "근거 검증": "정본 불변(revision·cards digest)",
+    "관측 대조": []
+  },
+  "비채택": []
+}

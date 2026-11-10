@@ -1,0 +1,41 @@
+{
+  "id": "_judge-run",
+  "사례 이름": "한 회차 전체 관측(사례 아님 — 재생 대조용 회차 기록)",
+  "출처": {
+    "정본 경로": "design/harness/research/ft-2.0/sim-atomic-json/checker-r1497/judge-output-r3.json",
+    "정본 sha": "db18c453c77868355ffeb813d3b4c49f2047806a",
+    "함수": "checker-r1497/judge-r3.py main (k5_carried·k5_baseline·k8)",
+    "줄": "judge-output-r3.json 전체",
+    "실험 literal 필드명": ["items", "changed", "changed_n", "source_checked", "unverified", "unverified_n", "bad_source", "bad_source_n"]
+  },
+  "관측 대조": [
+    {
+      "원자료 키": "k5_baseline",
+      "관측": {
+        "changed": [],
+        "items": 50,
+        "ok": true
+      }
+    },
+    {
+      "원자료 키": "k5_carried42",
+      "관측": {
+        "changed": [],
+        "changed_n": 0,
+        "items": 42,
+        "ok": true
+      }
+    },
+    {
+      "원자료 키": "k8",
+      "관측": {
+        "bad_source": [],
+        "bad_source_n": 0,
+        "ok": true,
+        "source_checked": 25,
+        "unverified": [],
+        "unverified_n": 0
+      }
+    }
+  ]
+}

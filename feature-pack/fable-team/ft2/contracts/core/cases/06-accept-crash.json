@@ -1,0 +1,30 @@
+{
+  "id": "case_06_accept_crash",
+  "사례 이름": "접수 crash",
+  "출처": {
+    "정본 경로": "design/harness/research/ft-2.0/sim-atomic-json/cases_b.py",
+    "정본 sha": "db18c453c77868355ffeb813d3b4c49f2047806a",
+    "함수": "case_06_accept_crash",
+    "줄": "56-102",
+    "실험 literal 필드명": ["rc", "ack_absent", "cards", "pending", "status", "active", "staged"]
+  },
+  "given": [
+    "자식 crash-accept-pre — 상태 교체 전 종료(rc 9 · ACK 없음)",
+    "스냅샷 · 임시 파일 잔여 확인",
+    "재접수 card-pre",
+    "자식 crash-accept-post — 상태 교체 후 ACK 전 종료",
+    "스냅샷 · 재접수 card-post · 실행권 부여 card-post"
+  ],
+  "expect": {
+    "처리 결과": "복구 필요",
+    "상태 revision 변화": true,
+    "근거 검증": "교체 후 crash: 영속 접수(카드 1)",
+    "관측 대조": []
+  },
+  "비채택": [
+    {
+      "관측": "교체 전 잔여 임시 파일 ≥ 1개가 증거로 남음",
+      "표시": "비채택: 정본은 «구체 fsync/rename 순서와 checkpoint 규칙은 구현·장애 실험으로 검증» 이라 임시 파일 개수를 계약 조건으로 채택하지 않는다"
+    }
+  ]
+}
