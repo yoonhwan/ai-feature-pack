@@ -1,0 +1,435 @@
+#!/usr/bin/env python3
+"""ctx-plan — FT 용량·감당량 축 (ctx-burn 자매 · 계약 ctx.v1 소비)
+
+ctx-burn = «쓴 양» 측정 · ctx-plan = «감당량» 시뮬. 두 축은 ctx.v1 JSON 계약으로만 붙는다.
+이 파일은 세션 로그를 직접 읽지 않는다. 실 HOME 읽기 0.
+
+단위는 한 곳에서만 바꾼다(R1 · DA #278950): 계약은 «가중 토큰/세션-시간»(rate_claude),
+계산은 «M(백만 가중 토큰)/세션-시간»(rate). 변환은 main() 의 TOKENS_PER_M 한 줄뿐이다.
+
+느슨한 연결(수용 기준 #1·#2·#6): 이 도구는 하네스 자리를 모른다.
+상수 파일 경로는 --inv-file 또는 $CTX_PLAN_CAP_FILE 둘뿐이고, 없으면 rc3 + 1줄로 멈춘다.
+
+사용
+  ctx-burn --hours 168 --json > /tmp/burn.json
+  ctx-plan --from /tmp/burn.json --inv-file accounts.env --inventory
+  ctx-plan --from /tmp/burn.json --inv-file accounts.env --capacity --accounts 5x:5,ultra:5
+  ctx-plan --from /tmp/burn.json --inv-file accounts.env --need concurrent:40
+"""
+import argparse
+import json
+import os
+import sys
+
+SCHEMA = "ctx.v1"
+TOKENS_PER_M = 1_000_000        # 가중 토큰 → M (이 상수 밖에서 단위를 바꾸지 않는다)
+GUARD = "ctx-plan: 상수 파일 없음 — --inv-file 또는 CTX_PLAN_CAP_FILE (install.sh 참고)"
+
+# 상수 파일 계약 키 — 값이 비면 «0순위 문제» 이고 기본값으로 대체하지 않는다(수용 기준 #7).
+INV_KEYS = ["FT_CAP_CLAUDE_5X", "FT_CAP_CLAUDE_ULTRA", "FT_CAP_CODEX_PLUS", "FT_CAP_CODEX_PRO",
+            "FT_CAP_DEEPSEEK_KEYS", "FT_CAP_WK_5X", "FT_CAP_WK_ULTRA", "FT_CAP_WK_5X_LOW",
+            "FT_CAP_WK_ULTRA_LOW", "FT_CAP_SEATS_PER_TEAM", "FT_GOAL_TEAMS",
+            "FT_GOAL_TEAM_HOURS", "FT_CAP_TARGET_UTIL"]
+
+# 계약 키가 아닌 두 손잡이 — 파일에 없으면 이 값을 쓰되 «기본값» 이라고 화면에 적는다(조용한 기본값 0).
+KNOBS = {"c5h_5x": ("FT_CAP_C5H_5X", 60.0), "hours_per_week": ("FT_CAP_HOURS_PER_WEEK", 40.0)}
+
+# 앵커 상태 — 값보다 상태가 중요하다. 표기 없는 앵커는 쓰지 않는다.
+ANCHOR_STATUS = {"wk_5x": "미검증·추정", "wk_ultra": "추정(5x×4)·실측 필요",
+                 "c5h_5x": "실측 주장·출처 미확인", "target": "운영정책"}
+
+SIM_NEED = ["wk_5x", "wk_ultra", "target", "seats_per_team"]
+GOAL_NEED = SIM_NEED + ["teams_per_goal", "team_hours_per_goal"]
+
+MODEL_KEYS = [("seats_per_team", "FT_CAP_SEATS_PER_TEAM", "세션/팀"),
+              ("teams_per_goal", "FT_GOAL_TEAMS", "팀/골"),
+              ("team_hours_per_goal", "FT_GOAL_TEAM_HOURS", "팀-시간/골"),
+              ("target", "FT_CAP_TARGET_UTIL", "목표 사용률"),
+              ("wk_5x", "FT_CAP_WK_5X", "주간 5x M"),
+              ("wk_ultra", "FT_CAP_WK_ULTRA", "주간 Ultra M")]
+
+
+# ---------------------------------------------------------------- 입력
+def inv_path(a):
+    """상수 파일 경로 = --inv-file > $CTX_PLAN_CAP_FILE. 그 밖의 자리는 보지 않는다(수용 기준 #2)."""
+    return a.inv_file or os.environ.get("CTX_PLAN_CAP_FILE", "")
+
+
+def read_inv(path):
+    inv = {}
+    for k in INV_KEYS:
+        v = os.environ.get(k)
+        if v not in (None, ""):
+            inv[k] = v
+    if path and os.path.isfile(path):
+        with open(path, encoding="utf-8", errors="ignore") as fh:
+            for ln in fh:
+                ln = ln.strip()
+                if ln and not ln.startswith("#") and "=" in ln:
+                    k, v = ln.split("=", 1)
+                    inv.setdefault(k.strip(), v.strip())
+    return inv
+
+
+def num(inv, k, d=None):
+    v = inv.get(k)
+    if v in (None, ""):
+        return d
+    try:
+        return float(v)
+    except ValueError:
+        return d
+
+
+def params(a, inv):
+    """(R2·#7) 모형 상수를 읽는 «한» 함수. CLI 명시 > 상수 파일 — 둘 다 없으면 None.
+    None 은 «산정 불가» 로 출력하고 기본값으로 조용히 계산하지 않는다."""
+    p = {"inv": inv}
+    for attr, key, _label in MODEL_KEYS:
+        v = getattr(a, attr, None)
+        if v is not None:
+            p[attr], p[attr + "_src"] = v, "CLI"
+        else:
+            f = num(inv, key)
+            if f is None:
+                p[attr], p[attr + "_src"] = None, "없음"
+            else:
+                p[attr], p[attr + "_src"] = f, "파일"
+    for attr, (key, d) in KNOBS.items():          # 계약 키가 아닌 손잡이만 기본값
+        v = getattr(a, attr, None)
+        if v is not None:
+            p[attr], p[attr + "_src"] = v, "CLI"
+        else:
+            f = num(inv, key)
+            p[attr], p[attr + "_src"] = (f, "파일") if f is not None else (d, "기본값(계약 키 아님)")
+    return p
+
+
+def missing(p, attrs):
+    """[('세션/팀','FT_CAP_SEATS_PER_TEAM'), …] — 비어 있는 계약 키만."""
+    lbl = {a: (k, l) for a, k, l in MODEL_KEYS}
+    return [lbl[a][1] + "(" + lbl[a][0] + ")" for a in attrs if p.get(a) is None]
+
+
+# ---------------------------------------------------------------- 모형
+def model(rate, n5, nu, wk5, wku, target, spt, tg, tgh):
+    """rate = M/세션-시간 · wk* = 주간 M. 단위는 전부 M 이다."""
+    wk = (wk5 * n5 + wku * nu) * target
+    sh = wk / rate if rate else 0.0
+    team_h = sh / spt
+    ct = team_h / 168.0
+    goal_h = tg * tgh
+    return dict(주간M=wk, 세션시간=sh, 동시세션=sh / 168.0, 동시팀=ct,
+                동시골=ct / max(tg, 1e-9), 골주=team_h / max(goal_h, 1e-9), 팀시간=team_h)
+
+
+# ---------------------------------------------------------------- 출력
+def header(ci, p, path, rate_tok):
+    L = ["[ctx-plan] 계약 %s · 윈도우 %gh · 세션-시간당 claude %s"
+         % (ci.get("schema"), ci.get("window_hours") or 0,
+            ("%0.2fM (= %d 가중토큰/h)" % (rate_tok / TOKENS_PER_M, rate_tok)) if rate_tok
+            else "표본0(미산정)")]
+    if p["teams_per_goal"] is None or p["team_hours_per_goal"] is None:
+        L.append("축 정의(참고 모형): 산정 불가 — " + " · ".join(
+            missing(p, ["teams_per_goal", "team_hours_per_goal"])))
+    else:
+        L.append("축 정의(참고 모형): 메인 골 = 전역 직렬(동시 1) · 한 골 = 팀 %g 동시 × %gh"
+                 "(%g 팀-시간) · 남는 팀은 후순위 골"
+                 % (p["teams_per_goal"], p["team_hours_per_goal"],
+                    p["teams_per_goal"] * p["team_hours_per_goal"]))
+    fmt = {"seats_per_team": "세션/팀 %g석", "teams_per_goal": "팀/골 %g",
+           "team_hours_per_goal": "팀-시간/골 %gh", "target": "목표 사용률 %g"}
+    cells = []
+    for attr, _key, label in MODEL_KEYS[:4]:
+        cells.append((fmt[attr] % p[attr]) if p[attr] is not None else ("%s 없음" % label))
+    cells.append("주/세션 %g" % p["hours_per_week"])
+    L.append("모형 상수: " + " · ".join(cells) + " (출처: %s)"
+             % "/".join(sorted({p[a + "_src"] for a, _k, _l in MODEL_KEYS[:4]}
+                               | {p["hours_per_week_src"]})))
+    L.append("상수 파일: %s" % path)
+    return L
+
+
+def anchors(p):
+    """(ⓔ) 앵커 4개 + 상태 표기 + 출처. 파일 값과 기본값을 섞지 않는다."""
+    rows = []
+    for key in ("wk_5x", "wk_ultra", "c5h_5x", "target"):
+        rows.append("%s=%s [%s · %s]" % (key, ("%g" % p[key]) if p[key] is not None else "없음",
+                                         ANCHOR_STATUS[key], p[key + "_src"]))
+    return "  앵커(상태 표기 필수): " + " · ".join(rows)
+
+
+def pool_rows(pools, hours):
+    L = ["  분모 명시: calls/h = 요청수 ÷ 관측창(%0.0fh) [괄호 = 활성 bucket 수] · "
+         "cache재사용 = read÷(read+write) · 총input대비 = read÷(read+write+input)" % hours,
+         "  %-10s %6s %7s %8s %12s %16s %14s"
+         % ("pool", "req", "usage0", "ctx/req", "calls/h(창)", "cache재사용", "W/세션시간(중앙)")]
+    for name in ("claude", "pi-claude", "pi-other", "unknown"):
+        p = pools.get(name)
+        if not p:
+            continue
+        med = ("%0.2fM" % (p["w_per_session_hour"] / TOKENS_PER_M)
+               if p.get("w_per_session_hour") else "표본0(미산정)")
+        chpw = (p["req"] - p.get("usage0", 0)) / max(hours, 1e-9)
+        L.append("  %-10s %6d %7d %8s %12s %16s %14s"
+                 % (name, p["req"], p.get("usage0", 0),
+                    "%0.0fk" % ((p.get("ctx_per_req") or 0) / 1000),
+                    "%0.1f [%d]" % (chpw, int(p.get("active_hours") or 0)),
+                    "%0.0f%% (%0.0f%%)" % ((p.get("cache_reuse") or 0) * 100,
+                                            (p.get("cache_reuse_of_input") or 0) * 100), med))
+    L.append("  표본 = 세션(요청 20건 이상) 개수 · usage0 = 가중 0 레코드(API 오류) → 율 분모에서 뺌 · "
+             "pi-other(deepseek)·unknown 은 Claude 쿼터 밖 → 산정 제외")
+    return L
+
+
+def capacity(ci, a, p, rate):
+    pools = ci.get("pools") or {}
+    L = ["[capacity] 평균 소모량·pool 분리·구독 필요 개수", anchors(p)]
+    L += pool_rows(pools, ci.get("window_hours") or a.hours)
+    cl = pools.get("claude") or {}
+    if not rate:
+        L.append("  미산정 — usage 레코드 0 (측정 불가). ctx-burn --hours 를 늘려 다시 실행하라.")
+        return "\n".join(L)
+    hours = ci.get("window_hours") or a.hours
+    L.append("  산정 근거(a): 요청 %d · 요청당 ctx %0.0fk · calls/h %0.1f(활성 bucket 분모 %d) · "
+             "cache재사용 %0.0f%% · 관측창 %0.0fh · rate %0.2fM/세션-시간"
+             % (cl.get("req", 0), (cl.get("ctx_per_req") or 0) / 1000,
+                (cl.get("req", 0) - cl.get("usage0", 0)) / max(hours, 1e-9),
+                int(cl.get("active_hours") or 0), (cl.get("cache_reuse") or 0) * 100, hours, rate))
+    n5 = nu = 0
+    if a.accounts:
+        try:
+            parts = dict(x.split(":") for x in a.accounts.split(","))
+            n5 = int(parts.get("5x", 0))
+            nu = int(parts.get("ultra", 0))
+        except ValueError:
+            L.append("  --accounts 형식 오류: 5x:5,ultra:5")
+    if not (n5 or nu):
+        L.append("  계정 미지정 — --accounts 5x:5,ultra:5 를 주면 정원·피크를 계산한다")
+        return "\n".join(L)
+    gone = missing(p, SIM_NEED)
+    if gone:
+        L.append("  정원 산정 불가 — " + " · ".join(gone) + " (기본값 대체 0 · 수용 기준 #7)")
+    else:
+        L.append("  계정: 5x %d장 · Ultra %d장 · 세션당 주 %g · 팀 = 세션 %g석"
+                 % (n5, nu, p["hours_per_week"], p["seats_per_team"]))
+        L.append("  %-12s %9s %11s %9s %6s %7s %7s"
+                 % ("시나리오", "주간85M", "세션시간/주", "정원세션", "팀", "피크", "관문"))
+        for sc in a.scales:
+            r = rate * sc
+            wk = (p["wk_5x"] * n5 + p["wk_ultra"] * nu) * p["target"]
+            seat_h = wk / r
+            정원 = seat_h / p["hours_per_week"]
+            peak5 = (p["c5h_5x"] * n5 * p["target"]) / (r * 5.0) if n5 else 0.0
+            ultra_peak = (p["wk_ultra"] * nu * p["target"] / r) / 168.0
+            peak_week = seat_h / 168.0
+            peak = min(peak_week, peak5 + ultra_peak)
+            lbl = "실측" if sc == 1.0 else ("낭비 -%d%%" % round((1 - sc) * 100))
+            L.append("  %-12s %9.0f %11.0f %9.1f %6.1f %7.1f %7s"
+                     % (lbl, wk, seat_h, 정원, 정원 / max(p["seats_per_team"], 1), peak,
+                        "주간" if peak_week <= peak5 + ultra_peak else "5h창"))
+    # (ⓙ) 골 모형 2행 — 앵커는 상수 파일의 실제 값(_LOW · 상한). «× 1/3» 고정 0.
+    # 오빠 #278942: 이 표는 «참고 출력» 이다 — 고정 기본값을 운영 규칙으로 읽지 않게 라벨을 붙인다.
+    gone = missing(p, GOAL_NEED)
+    if gone:
+        L.append("  골 모형 산정 불가 — " + " · ".join(gone) + " (빈 값은 대체하지 않는다 · 수용 기준 #7)")
+    else:
+        L.append("  골 모형(참고 — 운영 규칙 아님): 골1 = 팀 %g 동시 × %gh = %g 팀-시간 · 팀1 = 세션 %g석"
+                 % (p["teams_per_goal"], p["team_hours_per_goal"],
+                    p["teams_per_goal"] * p["team_hours_per_goal"], p["seats_per_team"]))
+        L.append("  %-30s %10s %7s %9s %7s"
+                 % ("앵커", "팀-시간/주", "동시팀", "동시골(용량상 가능 수)", "골/주"))
+        L += goal_block(p, rate, n5, nu)
+    L.append("  동시골 = 용량상 가능 수 (운영 규칙 «메인 3골 직렬» 과 구별) · "
+             "팀-시간/주 는 중간 단위 — 성과 판정에 쓰지 않는다")
+    return "\n".join(L)
+
+
+def goal_block(p, rate, n5, nu):
+    """골 모형 2행 — 낮은·높은 용량 가정. 하한은 상수 파일 _LOW 키 하나뿐이다."""
+    low5 = num(p["inv"], "FT_CAP_WK_5X_LOW")
+    lowu = num(p["inv"], "FT_CAP_WK_ULTRA_LOW")
+    if low5 is None or lowu is None:
+        return ["  낮은 용량 가정: 산정 불가 — FT_CAP_WK_5X_LOW·FT_CAP_WK_ULTRA_LOW 가 상수 파일에 없다",
+                goal_line("높은 용량 가정", rate, n5, nu, p, p["wk_5x"], p["wk_ultra"])]
+    return [goal_line("낮은 용량 가정", rate, n5, nu, p, low5, lowu),
+            goal_line("높은 용량 가정", rate, n5, nu, p, p["wk_5x"], p["wk_ultra"])]
+
+
+def goal_line(lbl, rate, n5, nu, p, wk5, wku):
+    m = model(rate, n5, nu, wk5, wku, p["target"], p["seats_per_team"],
+              p["teams_per_goal"], p["team_hours_per_goal"])
+    return "  %-30s %10.0f %7.1f %9.1f %7.1f" % (lbl, m["팀시간"], m["동시팀"], m["동시골"], m["골주"])
+
+
+def inventory(ci, p, path, inv):
+    rate = ci.get("rate_claude")
+    L = ["[inventory] 0순위 상수 점검 — 비면 산정 자체가 틀어진다", "  읽은 파일: %s" % path]
+    gone = [k for k in INV_KEYS if inv.get(k) in (None, "")]
+    for k in INV_KEYS:
+        v = inv.get(k)
+        L.append("  %-26s %-10s %s" % (k, v if v else "비어있음", "" if v else "← 0순위 문제"))
+    if gone:
+        L.append("  판정: **0순위 문제 %d건** — 위 값을 채우기 전 산정 숫자는 신뢰하지 않는다" % len(gone))
+    else:
+        L.append("  판정: 상수 완비 — 아래 크리티컬 숫자를 쓸 수 있다")
+    n5, nu = num(inv, "FT_CAP_CLAUDE_5X"), num(inv, "FT_CAP_CLAUDE_ULTRA")  # 0 대체 금지
+    gone_sub = [k for k, v in (("FT_CAP_CLAUDE_5X", n5), ("FT_CAP_CLAUDE_ULTRA", nu)) if v is None]
+    def shw(key):                     # 빈 값은 «없음» — 0 으로 대체하지 않는다(수용 기준 #7)
+        v = num(inv, key)
+        return ("%g" % v) if v is not None else "없음"
+    if gone_sub:
+        L.append("  구독 상수: 산정 불가 — %s 비어있음 (0 대체 금지 · 수용 기준 #7)"
+                 % " · ".join(gone_sub))
+        L.append("  codex plus %s/pro %s · deepseek key %s (쿼터 미산정)"
+                 % (shw("FT_CAP_CODEX_PLUS"), shw("FT_CAP_CODEX_PRO"), shw("FT_CAP_DEEPSEEK_KEYS")))
+    else:
+        L.append("  구독 상수: claude 5x %g + Ultra %g = %g장 · codex plus %s/pro %s · deepseek key %s (쿼터 미산정)"
+                 % (n5, nu, n5 + nu, shw("FT_CAP_CODEX_PLUS"), shw("FT_CAP_CODEX_PRO"),
+                    shw("FT_CAP_DEEPSEEK_KEYS")))
+    if not rate:
+        L.append("  크리티컬: 세션-시간당 W 를 못 재서 산정 불가 — ctx-burn --hours 168 --json 이 필요하다")
+        return "\n".join(L)
+    rate_m = rate / TOKENS_PER_M                       # 계약 단위(토큰) → M : 유일한 변환 지점
+    L.append("  %-18s %10s %11s %8s %8s %9s %8s"
+             % ("앵커", "주간85M", "세션시간/주", "동시세션", "동시팀", "동시골", "골/주"))
+    need_common = missing(p, ["target", "seats_per_team", "teams_per_goal", "team_hours_per_goal"])
+    if gone_sub:
+        need_common = need_common + ["구독 상수(%s)" % "·".join(gone_sub)]
+    for lbl, w5, wu, keys in (("낮은 용량 가정", num(inv, "FT_CAP_WK_5X_LOW"),
+                               num(inv, "FT_CAP_WK_ULTRA_LOW"),
+                               "FT_CAP_WK_5X_LOW·FT_CAP_WK_ULTRA_LOW"),
+                              ("높은 용량 가정", p["wk_5x"], p["wk_ultra"], "FT_CAP_WK_5X·FT_CAP_WK_ULTRA")):
+        if w5 is None or wu is None:
+            L.append("  %-18s 산정 불가 — %s 가 상수 파일에 없다 (상한÷3 대체 금지)" % (lbl, keys))
+            continue
+        if need_common:
+            L.append("  %-18s 산정 불가 — %s (기본값 대체 0)" % (lbl, " · ".join(need_common)))
+            continue
+        m = model(rate_m, n5, nu, w5, wu, p["target"], p["seats_per_team"],
+                  p["teams_per_goal"], p["team_hours_per_goal"])
+        L.append("  %-18s %10.0f %11.0f %8.1f %8.1f %9.1f %8.1f"
+                 % (lbl, m["주간M"], m["세션시간"], m["동시세션"], m["동시팀"], m["동시골"], m["골주"]))
+    L.append("  라벨: 낮은 용량 가정 = FT_CAP_WK_*_LOW · 높은 용량 가정 = FT_CAP_WK_* "
+             "(«낙관·보수» 라고 쓰지 않는다 — DA #278796)")
+    L.append("  상한 초과 = 알림 전용 · 거부·축소 0 (판정 4142 ⑥) — 나노·워커는 「동시세션/동시팀」 "
+             "상한 안에서 자유 구성하고, 넘으면 알리기만 한다")
+    L.append("  상한 적용: claude 좌석만 센다(pi deepseek 는 Claude 쿼터 밖 · 쿼터 미산정)")
+    return "\n".join(L)
+
+
+def need(ci, a, p):
+    rate_tok = ci.get("rate_claude")
+    L = ["[need] " + a.need]
+    if not rate_tok:
+        L.append("  미산정 — rate_claude 없음(표본0). ctx-burn 창을 늘려 다시 재라.")
+        return "\n".join(L)
+    rate = rate_tok / TOKENS_PER_M                      # 역산도 같은 변환 한 곳을 지난다(R1)
+    try:
+        k, v = a.need.split(":")
+        v = float(v)
+    except ValueError:
+        return "[need] 형식 오류: concurrent:40 | sessions:150 | teams:40 | goals:10"
+    gone = missing(p, ["seats_per_team", "teams_per_goal", "team_hours_per_goal", "target",
+                       "wk_5x", "wk_ultra"])
+    if gone:
+        L.append("  산정 불가 — " + " · ".join(gone) + " (기본값 대체 0 · 수용 기준 #7)")
+        return "\n".join(L)
+    spt, tg, tgh = p["seats_per_team"], p["teams_per_goal"], p["team_hours_per_goal"]
+    if k == "concurrent":
+        seats = v * 168.0
+    elif k == "teams":
+        seats = v * spt * 168.0
+    elif k == "goals":
+        seats = v * tg * tgh * spt
+    else:
+        seats = v
+    L.append("  정원 %0.1f 세션-시간/주 (= 상시 동시 %0.1f석 · 팀 %0.1f) · rate %0.2fM/세션-시간"
+             % (seats, seats / 168.0, seats / 168.0 / max(spt, 1), rate))
+    L.append("  골1 = 팀%g×%gh×세션%g석 = %g 세션-시간 · 앵커 출처: %s"
+             % (tg, tgh, spt, tg * tgh * spt, p["wk_5x_src"]))
+    L.append("  %-10s %12s %8s %7s" % ("낭비가정", "필요 주간M", "Ultra장", "5x장"))
+    for sc in a.scales:
+        need_m = seats * rate * sc / p["target"]
+        L.append("  %-10s %12.0f %8s %7s"
+                 % ("실측" if sc == 1.0 else ("-%d%%" % round((1 - sc) * 100)), need_m,
+                    qty(need_m, p["wk_ultra"]), qty(need_m, p["wk_5x"])))
+    return "\n".join(L)
+
+
+def qty(need_m, unit):
+    """(장수) 앵커가 0 이면 나누지 않는다 — 0 앵커로 ZeroDivision 을 내지 않는다."""
+    return str(int(need_m // unit) + 1) if unit else "—"
+
+
+def main():
+    ap = argparse.ArgumentParser(prog="ctx-plan", description="FT 감당량·필요 구독 산정 (계약 ctx.v1)")
+    ap.add_argument("--from", dest="src", default="-", help="ctx-burn --json 출력 파일 (- = stdin)")
+    ap.add_argument("--inventory", action="store_true", help="0순위 상수 점검 + 크리티컬 숫자")
+    ap.add_argument("--capacity", action="store_true", help="pool 분리 + 정원·피크 + 골 모형(참고)")
+    ap.add_argument("--need", default="", help="concurrent:N | sessions:N | teams:N | goals:N")
+    ap.add_argument("--scales", default="1.0,0.9,0.8,0.7", help="낭비 감소 배율 목록")
+    ap.add_argument("--inv-file", default="", help="고정상수 파일 (또는 $CTX_PLAN_CAP_FILE)")
+    ap.add_argument("--accounts", default="", help="capacity: 5x:5,ultra:5")
+    ap.add_argument("--wk-5x", dest="wk_5x", type=float, default=None, help="앵커 (파일 값이 기본)")
+    ap.add_argument("--wk-ultra", dest="wk_ultra", type=float, default=None, help="앵커 (파일 값이 기본)")
+    ap.add_argument("--c5h-5x", dest="c5h_5x", type=float, default=None, help="앵커 (기본 60)")
+    ap.add_argument("--target-util", dest="target", type=float, default=None, help="목표 사용률 (파일 값)")
+    ap.add_argument("--seats-per-team", dest="seats_per_team", type=float, default=None, help="파일 값")
+    ap.add_argument("--hours-per-week", dest="hours_per_week", type=float, default=None, help="기본 40")
+    ap.add_argument("--hours", type=float, default=3.0, help="계약에 창이 없을 때만 쓰는 대체값")
+    ap.add_argument("--teams-per-goal", dest="teams_per_goal", type=float, default=None, help="파일 값")
+    ap.add_argument("--team-hours-per-goal", dest="team_hours_per_goal", type=float, default=None,
+                    help="파일 값")
+    a = ap.parse_args()
+    a.scales = [float(x) for x in str(a.scales).split(",") if x.strip()]
+
+    # (수용 기준 #6) 상수 파일 가드 — 없으면 아무 표도 내지 않고 rc3 + 1줄.
+    path = inv_path(a)
+    if not (path and os.path.isfile(path)):
+        print(GUARD)
+        return 3
+    inv = read_inv(path)
+
+    raw = sys.stdin.read() if a.src == "-" else open(a.src, encoding="utf-8").read()
+    try:
+        doc = json.loads(raw)
+    except ValueError:
+        print("ctx-plan: 입력이 JSON 이 아니다 — ctx-burn --json 출력을 넣어라")
+        return 2
+    ci = doc.get("plan_input")
+    if not ci:
+        print("ctx-plan: plan_input 없음 — ctx-burn 을 --json 으로 실행해야 한다")
+        return 2
+    bad = ci.get("schema") != SCHEMA
+    if bad:
+        print("ctx-plan: 계약 불일치 — 받은 schema %r, 기대 %r (ctx-burn --json 출력을 넣어라)"
+              % (ci.get("schema"), SCHEMA))
+        return 2
+
+    p = params(a, inv)
+    rate_tok = ci.get("rate_claude")                      # 계약 단위 = 가중 토큰/세션-시간
+    rate = (rate_tok / TOKENS_PER_M) if rate_tok else None  # 계산 단위 = M/세션-시간
+
+    print("\n".join(header(ci, p, path, rate_tok)))
+    pools = ci.get("pools") or {}
+    if pools:
+        print("  pool: " + " · ".join(
+            "%s %d요청/%0.0fk/cache%0.0f%%" % (k, v.get("req", 0),
+                                              (v.get("ctx_per_req") or 0) / 1000,
+                                              (v.get("cache_reuse") or 0) * 100)
+            for k, v in pools.items()))
+    out = []
+    if a.inventory:
+        out.append(inventory(ci, p, path, inv))
+    if a.capacity:
+        out.append(capacity(ci, a, p, rate))
+    if a.need:
+        out.append(need(ci, a, p))
+    if out:
+        print("\n\n".join(out))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
