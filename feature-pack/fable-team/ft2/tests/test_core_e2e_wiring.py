@@ -67,7 +67,7 @@ def _life(root, work, submit=True, holder="h1"):
     """ⓐ 사슬 1회 — (step, 낱말, rc) 목록. 세대는 claim 이 돌려준 값을 쓴다(assign 뒤 claim 은 +1)."""
     got = [("submit",) + _word(_cli(root, "submit", "--command", "c-" + work, "--body", "본문-" + work,
                                  "--work", work))] \
-        if submit else []                      # 접수 상한 8 — 회전 반복에서는 첫 1건만 접수한다
+        if submit else []                      # r1616 ⓕ: work 마다 접수 — 회수된 접수는 용량에서 빠진다
     got += [("assign",) + _word(_cli(root, "assign", "--work", work, "--holder", holder,
                                      "--evidence", "v1,v2")),
             ("deliver",) + _word(_cli(root, "deliver", "--work", work))]
@@ -141,7 +141,7 @@ def test_d_segment_rotation_keeps_projection(tmp_path):
     assert (row["done"], row["owner"], row["uncertain"]) == (True, None, False)   # 회전 전 닫힘
     closed = {"W000": row}                        # M3 = 이 칸을 {} 로 비우면 빨강
     for index in range(1, 30):                    # 실측 20 work 부근에서 회전한다
-        assert all(step[1:] == (OK, 0) for step in _life(root, "work-%03d-" % index + "x" * 70, submit=False))
+        assert all(step[1:] == (OK, 0) for step in _life(root, "work-%03d-" % index + "x" * 70))
     runtime = os.path.join(os.path.abspath(str(root)), ".fable-team", "teams", TEAM, "runtime")
     segments = [n for n in os.listdir(runtime) if n.startswith("journal.") and n != "journal.jsonl"]
     assert segments, "회전 0 = 시험 입력이 segment cap 에 못 닿았다"          # 회전 ≥ 1
