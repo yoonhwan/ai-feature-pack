@@ -261,7 +261,7 @@ def test_d_case_04_race_grants_once_and_stale_snapshot_double_grants(tmp_path):
 def test_d2_winner_deliver_busy_then_retried(tmp_path):
     """ⓐ 부모 두 번째 노드가 잠금을 쥔 동안 승자 deliver = BUSY·쓰기 0 → BUSY 를 본 뒤 재시도 = 전달 1."""
     root = str(tmp_path / "d2")
-    node = _d(root)
+    node = _d(_accept(root, "W3"))                     # r1616: 배정 앞 접수 1줄(병합 뒤 1줄 고침)
     grant = node.assign("W3", "h1", evidence=EV, resources=["shared-slot"])
     assert grant.written
     own = _d(root).rs._try_lock()                            # 부모 두 번째 노드가 같은 팀 잠금을 쥔다
