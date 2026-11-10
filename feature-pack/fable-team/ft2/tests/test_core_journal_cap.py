@@ -727,6 +727,20 @@ def test_mutation_m3_r1616_done_work_stays_in_capacity(tmp_path):
     assert node.rs.submit("new-0", "x" * 8, "N0").result == FULL            # 변이 = 완료가 용량을 안 비운다
 
 
+def test_h2_r1616_reclaimed_accepts_leave_room_for_new_ones(tmp_path):
+    """ⓖ(작은 segment_cap 판 · M2 판정 무대) — 회수된 접수는 journal 줄이 사라진 뒤에도 `receipts` 로 «남은 일»
+    에서 빠진다: 회수 뒤 새 접수 7건이 성공하고 8번째가 «용량 부족»(팔로 남은 것은 over-1 하나)."""
+    node = _caps(dispatch.Dispatch(str(tmp_path / "h2r"), TEAM), **CAPS)
+    node.rs.capacity = 8
+    for n in range(8):
+        _accept(node, "C%d" % n)
+        _finish(node, "C%d" % n)
+    assert node.rs.journal.reclaim()["reclaimed"]
+    assert node.rs.submit("over-1", "x" * 8, "N1").result == OK            # 회수된 8건 = 용량 밖
+    assert [node.rs.submit("new-%d" % n, "x" * 8, "N%d" % n).result for n in range(7)] == [OK] * 7
+    assert node.rs.submit("new-7", "x" * 8, "N7").result == FULL           # 진행 중 8 = 상한
+
+
 def test_mutation_m2_r1616_receipts_line_is_the_ledger_for_folded_accepts(tmp_path):
     """M2 변이 — receipts 제외 줄을 빼면 빨강. 회수된 접수는 journal 줄이 사라져 command→work 사상이 없으므로,
     receipts 가 없으면 «남은 일» 로 잘못 세어 회수 뒤에도 상한이 안 풀린다(실측: real 새 접수 7건 성공 · M2 전부 «용량 부족»)."""
