@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test_seat_open_work_r1539.sh — r1539: «받을 일 0» 인 좌석은 후계를 열지 않는다(후계 0 · 팀장 1줄 · ft-successor-open rc6 · close-check [인계] 면제).
 #   판정 도구 ft-seat-open-work.py 단독 사례 ⓐ~ⓖ + r1541 «진행/ 폴더만 없음» 사례 ⓐ'~ⓔ' + 게이트 문구·크론 줄 ⓗⓘ + rc6 실측(가짜 tmux·tmuxc·pgrep) + close-check ⓙ + 변이 M1~M5 · RM1·RM2.
+#   + r1575 «같은 계보 후계에게 보낸 [인계] 도 일» 사례 2d-ⓐ~ⓔ · 4b-ⓓ(순서 2가지) · 변이 M6·M7(= 카드 M1·M2).
 # 격리만: 임시 루트·임시 우편함·가짜 센서(fake_resource_env) — 실 tmux 열기 0 · 실 우편함 0 · 실 명부 쓰기 0 · kill 0 · 고정 sleep 0.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"; REPO="$(cd "$HERE/.." && pwd)"
@@ -128,6 +129,22 @@ pnew design; printf '# 대기 카드\n' > "$P/design/planner/indices/대기/wait
 pnew teams 진행; printf '# 카드\n' > "$P/design/teams/planner/indices/진행/run.md"; run_tool "$ARCH" --root "$P"
 { [ "$RC" = 1 ] && printf '%s' "$OUT" | grep -q '^OPEN-WORK 있음 이유=팀 진행 1$'; } && ok "ⓔ' 진행/ 가 있고 카드 1장이면 그대로 rc1" || bad "ⓔ-2 rc=$RC out=$OUT"
 
+# ── 2d) r1575 같은 계보 후계에게 보낸 [인계] 도 «받을 일» ─────────────────
+SUCC='byz-harness-nano-x#7'   # 같은 계보 후계(SEAT = x#0)
+mrow() { printf '{"seq": %s, "ts": "2026-11-10T00:00:00", "to": "%s", "from": "%s", "body": "%s"}\n' "$1" "$2" "$3" "$4" >> "$R/.fable-team/comm/mailbox.jsonl"; }
+new_root; mrow 61 "$SUCC" "$SEAT" '[인계] byz-harness-nano-x#0 -> x#7 · 항목 6'; run_tool "$SEAT" --root "$R"
+{ [ "$RC" = 1 ] && printf '%s' "$OUT" | grep -q '^OPEN-WORK 있음 이유=쪽지 일 1$'; } && ok "2d-ⓐ 후계 [인계] → rc1 · 이유=쪽지 일 1" || bad "2d-ⓐ rc=$RC out=$OUT"
+run_tool "$SUCC" --root "$R"   # 후계 이름으로 판정해도 일이다(회귀 0)
+{ [ "$RC" = 1 ]; } && ok "2d-ⓐ-2 후계 이름 판정도 rc1" || bad "2d-ⓐ-2 rc=$RC out=$OUT"
+new_root; mrow 62 "$SEAT" "$SEAT" '[인계] 나에게 메모'; run_tool "$SEAT" --root "$R"
+{ [ "$RC" = 0 ] && printf '%s' "$OUT" | grep -q '^OPEN-WORK 0 이유=쪽지0'; } && ok "2d-ⓑ 자기 자신(to=from) 쪽지 → 일 아님 rc0" || bad "2d-ⓑ rc=$RC out=$OUT"
+new_root; mrow 63 'byz-planner-nano-y#3' "$SEAT" '[인계] 다른 계보'; mrow 64 "$SUCC" "$SEAT" '[처리함] 넘김'; mrow 65 "$SUCC" "$SEAT" '[알림] 점검'; run_tool "$SEAT" --root "$R"
+{ [ "$RC" = 0 ] && printf '%s' "$OUT" | grep -q '^OPEN-WORK 0 이유=쪽지0'; } && ok "2d-ⓒ 다른 계보·«일 아님» 머리 → 일 아님 rc0" || bad "2d-ⓒ rc=$RC out=$OUT"
+new_root; for b in '[알림] 곧 점검' '[처리 1줄] 확인함' '머리 없음 · 다음 일 없음'; do mrow 70 "$SEAT" "$MASTER" "$b"; done; run_tool "$SEAT" --root "$R"; E1="$RC"
+new_root; mrow 71 "$SEAT" "$MASTER" '[발주] 새 카드'; run_tool "$SEAT" --root "$R"; E2="$RC"
+pnew teams; run_tool "$ARCH" --root "$P"; E3="$RC"
+{ [ "$E1" = 0 ] && [ "$E2" = 1 ] && [ "$E3" = 0 ]; } && ok "2d-ⓔ r1539·r1541 기존 판정 3건 rc 불변(0/1/0)" || bad "2d-ⓔ rc=$E1/$E2/$E3"
+
 # ── 3) 게이트 문구 ⓗ · 크론 줄 ⓘ ─────────────────────────────────────────
 SENT='받을 일 0 이면 후계 0 — 좌석 닫기 대기 + 팀장에 «[다음 없음]» 1줄'
 n=0; for f in "$SKILL/templates/hooks/context-distill-gate.sh" "$REPO/kit/fable-team/templates/hooks/context-distill-gate.sh"; do grep -qF "$SENT" "$f" && n=$((n+1)) || true; done
@@ -253,6 +270,23 @@ printf -- '- 배정: 좌석 byz-harness-nano-x#3\n' > "$CE/design/teams/ops/indi
 ce "$TOOL" close-check 'byz-harness-nano-x#0'
 { [ "$RC" = 3 ] && printf '%s' "$OUT" | grep -q '\[인계\] 없음'; } && ok "ⓙ R2 팀 카드 배정 1 → [인계] 없음 REJECT rc3(면제 0)" || bad "ⓙ-3 rc=$RC out=$OUT"
 
+# ── 4b) r1575 ⓓ 순서 2가지 — handover→open · open→handover 둘 다 rc6 아님 ──
+ho_row() { printf '{"seq": 71, "to": "byz-harness-nano-x#1", "from": "byz-harness-nano-x#0", "body": "[인계] 항목 6"}\n' >> "$W/.fable-team/comm/mailbox.jsonl"; }
+so_run() {   # so_run [판정도구] → wt_setup 없이 한 번 · 출력 $T/so2.out · rc $SO_RC
+  rm -f "$LOG" "$SENTF"; : > "$LOG"
+  env HOME="$T/home" PATH="$FAKE:$PATH" WT="$W" LOG="$LOG" SENTF="$SENTF" FT_ROOT="$RES" FT_RES_ROOT="$RES" \
+      SENSORS="$T/sensors/fake-sensors" FT_TEAMSET_MD="$T/teamset.md" FT_GOV_MD="$T/gov.md" FT_SO_POLL=0 FT_SO_WAIT_MAX=2 \
+      FT_SEND_VERIFIED="$FAKE/send" FT_MBOX_SH="$FAKE/mbox" FT_REACH_CHECK="$FAKE/reach" ${1:+FT_SEAT_OPEN_WORK="$1"} \
+      bash "$SO" 'byz-harness-nano-x#0' "$W" --name 'byz-harness-nano-x#1' --agent claude --model 'claude-sonnet-5-5' --ctx 1m --body-file "$BODY" > "$T/so2.out" 2>&1
+  SO_RC=$?
+}
+wt_setup; ho_row; so_run
+{ [ "$SO_RC" != 6 ] && grep -q '^tmuxc open' "$LOG"; } && ok "2d-ⓓ-1 handover → open = rc$SO_RC(6 아님) · 열림" || bad "2d-ⓓ-1 rc=$SO_RC out=$(cat "$T/so2.out")"
+wt_setup work; so_run
+{ [ "$SO_RC" != 6 ] && grep -q '^tmuxc open' "$LOG"; } && ok "2d-ⓓ-2 open 먼저(발주 1) = rc$SO_RC(6 아님)" || bad "2d-ⓓ-2 rc=$SO_RC"
+ho_row; OUT="$(python3 "$TOOL" 'byz-harness-nano-x#0' --root "$W" 2>&1)"; RC=$?; so_run
+{ [ "$RC" = 1 ] && printf '%s' "$OUT" | grep -q '쪽지 일' && [ "$SO_RC" != 6 ]; } && ok "2d-ⓓ-3 open 뒤 handover = 판정 rc1 · 재시도 rc$SO_RC(6 아님)" || bad "2d-ⓓ-3 rc=$RC/$SO_RC out=$OUT"
+
 # ── 6) 변이 M1~M5 (사본을 고쳐 그 사례가 빨강이 되는지) ──────────────────
 mut() {   # mut <원본> <치환 전> <치환 후>  → $MUT 경로에 고친 사본
   MUT="$T/mut.$(basename "$1")"; python3 - "$1" "$MUT" "$2" "$3" <<'PY'
@@ -289,6 +323,15 @@ pnew teams; OUT="$(python3 "$MO" "$ARCH" --root "$P" 2>/dev/null)"; RC=$?
 mut "$TOOL" 'if not tidx:' 'if False:'; MO="$MUT"   # indices/ 없음도 0 으로
 pnew none; OUT="$(python3 "$MO" "$ARCH" --root "$P" 2>/dev/null)"; RC=$?
 { [ "$RC" = 0 ]; } && ok "RM2 «indices/ 없음도 0» 변이 검출(ⓒ' 가 빨강)" || bad "RM2 변이 미검출 rc=$RC"
+# r1575 변이 M6·M7 = 카드 M1·M2 — 되돌리면 2d-ⓐ·ⓓ / 2d-ⓑ 가 빨강이 되는지
+mut "$TOOL" 'and not (r.get("from") == r.get("to") == seat)' 'and r.get("from") != seat'; MO="$MUT"
+new_root; mrow 81 "$SUCC" "$SEAT" '[인계] 후계'; OUT="$(python3 "$MO" "$SEAT" --root "$R" 2>/dev/null)"; RC=$?
+{ [ "$RC" = 0 ]; } && ok "M6 «from != seat 로 되돌림» 변이 검출(2d-ⓐ 빨강)" || bad "M6 변이 미검출 rc=$RC"
+wt_setup; ho_row; so_run "$MO"
+{ [ "$SO_RC" = 6 ]; } && ok "M6-2 같은 변이로 후계 열기 rc6 재현(2d-ⓓ-1 빨강)" || bad "M6-2 변이 rc=$SO_RC"
+mut "$TOOL" 'and not (r.get("from") == r.get("to") == seat)' ''; MO="$MUT"
+new_root; mrow 82 "$SEAT" "$SEAT" '[인계] 나에게'; OUT="$(python3 "$MO" "$SEAT" --root "$R" 2>/dev/null)"; RC=$?
+{ [ "$RC" = 1 ]; } && ok "M7 «자기 자신도 일로 셈» 변이 검출(2d-ⓑ 빨강)" || bad "M7 변이 미검출 rc=$RC"
 
 echo "----"
 [ "$fail" = 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }
