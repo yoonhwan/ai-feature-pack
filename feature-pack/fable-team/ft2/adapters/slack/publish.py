@@ -1,12 +1,11 @@
 """ft2 Slack 답 발행 — 계약 줄 10·11·12·13·14 (r1582 · PR③ 둘째 장).
 
-답은 binding 이 가리키는 thread 1곳에만 나가고, 머리의 요청 번호는 팀 도구 command 그대로다(줄 10 ·
-사례 c1). 게시 «의도»(표식 · root · command · owner 세대 · 본문)를 post 앞에 내구화한다 — post 직후 결과
-기록 전에 crash 해도 재기동은 표식 조회 먼저다(ⓖ). post 응답 유실 = UNCERTAIN · 자동 재송 0(줄 11).
-표식 조회는 3값으로만 판정한다 — «있음» = posted(게시 1 · post 0) · «없음 확인» = 같은 표식으로 재송 1 ·
-«판정 불가» = 보존 + 사람 알림 1(사례 t3). 429 = Retry-After 만큼 기다린 뒤 재시도 1 · 두 번째 429 =
-보이는 오류 행 `post_failed`(줄 13 · 사례 c4). 옛 세대(gen 불일치) 답과 닫힌 binding 답은 거절 행만
-남기고 게시 0(줄 12·14 · 사례 c7·c6·d4). 전송은 대역 주입이다 — 이 파일은 네트워크를 직접 부르지 않는다.
+답은 binding 이 가리키는 thread 1곳에만 나가고 머리의 요청 번호는 팀 도구 command 그대로다(줄 10). 게시
+«의도»(표식 · root · command · owner 세대 · 본문)를 post 앞에 내구화한다 — 결과 기록 전에 crash 해도 재기동은
+표식 조회 먼저다(ⓖ). 응답 유실 = UNCERTAIN · 자동 재송 0(줄 11). 표식 조회는 3값으로만 판정한다 — «있음» =
+posted(게시 1 · post 0) · «없음 확인» = 같은 표식으로 재송 1(재송 직전 binding 재검사 · DA R1) · «판정 불가» =
+보존 + 사람 알림 1(사례 t3). 429 = Retry-After 만큼 기다린 뒤 재시도 1 · 두 번째 429 = 보이는 오류 행
+`post_failed`(줄 13 · 사례 c4). 옛 세대 답과 닫힌 binding 답은 거절 행만 남기고 게시 0(줄 12·14). 전송은 대역.
 """
 
 import importlib.util
@@ -19,7 +18,7 @@ _SPEC = importlib.util.spec_from_file_location("ft2_slack_binding", os.path.join
 binding = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(binding)
 
-Key, owner_label = binding.Key, binding.owner_label
+owner_label = binding.owner_label
 POSTED, RESENT, UNCERTAIN, ERROR, REFUSED, IDLE = "posted", "resent", "uncertain", "error", "refused", "idle"
 INTENT = "intent"
 UNSETTLED = (INTENT, UNCERTAIN)
@@ -74,11 +73,10 @@ class SlackPublish:
         self.sleep = sleep or (lambda seconds: None)
         self.notify = notify or (lambda row: None)
         self.clock = clock or (lambda: time.strftime("%Y-%m-%dT%H:%M:%S"))
-        self.binding = bindings or binding.ThreadBinding(root, team, clock=self.clock)
-        self.on_step, self.steps = on_step or (lambda step: None), []
-        data = os.path.join(os.path.abspath(str(root)), ".fable-team", "teams", team, "slack")
-        os.makedirs(data, exist_ok=True)
-        self.path = os.path.join(data, "publish.jsonl")
+        self.binding, self.on_step, self.steps = (
+            bindings or binding.ThreadBinding(root, team, clock=self.clock), on_step or (lambda step: None), [])
+        self.path = os.path.join(os.path.abspath(str(root)), ".fable-team", "teams", team, "slack", "publish.jsonl")
+        os.makedirs(os.path.dirname(self.path), exist_ok=True)
 
     def entries(self):
         if not os.path.exists(self.path):
@@ -115,14 +113,12 @@ class SlackPublish:
         seat = owner.rsplit("#", 1)[0] if owner else None
         answer = self._lookup(entry)
         self._step("lookup")
-        settled = {"key": list(key), "command": command, "owner": owner, "gen": gen,
-                   "marker": entry["marker"], "root": key.root, "body": entry.get("body", ""),
-                   "post_calls": entry.get("post_calls", 0), "attempts": entry.get("attempts", 0)}
+        settled = {"key": list(key), "command": command, "owner": owner, "gen": gen, "root": key.root,
+                   "marker": entry["marker"], "body": entry.get("body", ""), "post_calls": entry.get("post_calls", 0)}
         if answer == FOUND:
             return self._append(dict(settled, state=POSTED, via="lookup", resolve=POSTED))
         if answer == ABSENT:
-            return self._post(key, command, entry.get("body", ""), seat, gen, owner, via=RESENT,
-                              prior=entry.get("post_calls", 0))
+            return self._resend(key, command, entry.get("body", ""), seat, gen, owner, entry)
         repeated = entry.get("answer") == UNDECIDABLE  # 같은 «판정 불가» 를 두 번 알리지 않는다
         row = self._append(dict(settled, state=UNCERTAIN, reason="판정 불가 = 보존", answer=UNDECIDABLE,
                                 resolve=UNDECIDABLE))
@@ -130,6 +126,12 @@ class SlackPublish:
             self.notify(row)  # 판정 불가 = 보존 + 사람 알림 1(줄 11)
             self._step("notify")
         return row
+
+    def _resend(self, key, command, body, seat, gen, owner, entry):
+        """«없음 확인» 재송 — 재송 직전 binding 을 다시 본다(승계·닫힘 경합 · DA R1)."""
+        refusal = self._refusal(key, command, seat, gen)
+        return (self._append(refusal) if refusal is not None else self._post(
+            key, command, body, seat, gen, owner, via=RESENT, prior=entry.get("post_calls", 0)))
 
     def _post(self, key, command, body, seat, gen, owner, via=POSTED, prior=0):
         """post 시도 — 429 는 Retry-After 만큼 기다린 뒤 재시도 1회까지만."""
@@ -170,18 +172,16 @@ class SlackPublish:
     def _refusal(self, key, command, seat, gen):
         """답 거절 판정 — 닫힌 binding(줄 14) · 옛 세대(줄 12). 통과면 None."""
         now = self.binding.get(key)
-        if now is None or not now.open:
-            return self._refused(key, command, "reply_refused", reason="닫히면 담당 없음 = 답 거절",
-                                 owner=None if now is None else now.owner)
+        if now is None or not now.open:  # 닫히면 담당 없음 = 답 거절(줄 14)
+            return self._refused(key, command, "reply_refused", reason="닫히면 담당 없음 = 답 거절", owner=None if now is None else now.owner)
         if seat is not None and (seat, gen) != (now.seat, now.gen):
             return self._refused(key, command, "stale_owner", seat=owner_label(seat, gen or 0),
                                  owner=now.owner, reason="옛 세대 답 거절")
         return None
 
     def _refused(self, key, command, kind, **extra):
-        row = {"state": REFUSED, "k": kind, "key": list(key), "command": command, "root": key.root, "posts": 0}
-        row.update(extra)
-        return row
+        return dict({"state": REFUSED, "k": kind, "key": list(key), "command": command, "root": key.root,
+                     "posts": 0}, **extra)
 
     def _step(self, name):
         self.steps.append(name)

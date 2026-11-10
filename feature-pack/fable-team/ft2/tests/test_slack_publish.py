@@ -2,7 +2,7 @@
 사례 대조(ⓗ): 21건 중 이 장은 6건(c4 c6 c7 d4 t2 t3) — 계약 낱말은 `CONTRACT-18.md` 대응표 원문, 결과 수치는 사례
 `expect.observed.checks` 와 대조한다. c6·d4 는 «답 몫» 칸만(수신 몫 = pending_seen_by_next·states·last_entrance
 는 다음 장). 표식 기록 수(`stored_posts`) = «마커가 붙은 게시 의도» 의 서로 다른 값 수(모형 = 게시 1건).
-변이 M1~M8 = 카드 §변이 그대로.
+변이 = M1~M8(카드 §변이) · M4b(조회가 UNDECIDABLE 을 «반환») · M9(재송 직전 재검사 빼기 · DA R1 NG①).
 다음 장(초안 · 지우지 않는다): c1 c2 c3 c5 c8 d1 d2 d3 t1 t4 t5 f1 f2 f3 f4 — 수신 몫·재개·서식·인터뷰.
 """
 
@@ -100,8 +100,7 @@ def _publisher(root, band=None, cls=None, on_step=None):
 
 def test_a_line10_single_thread_and_request_number(tmp_path):
     """ⓐ 줄 10 — 답은 binding thread 1곳 · 머리 요청 번호 = command 그대로(새 번호 0)."""
-    root = tmp_path / "a"
-    other = _key("1800000002.000100")
+    root, other = tmp_path / "a", _key("1800000002.000100")
     _binder(root).bind(_key(), SEAT_A)
     _binder(root).bind(other, SEAT_A)
     publisher, band = _publisher(root)
@@ -117,27 +116,23 @@ def test_a_line10_single_thread_and_request_number(tmp_path):
 
 def test_b_c4_retry_after_once_then_visible_error(tmp_path):
     """ⓑ 줄 13 — 429 는 Retry-After 만큼 기다린 뒤 재시도 1 · 두 번째 429 = 보이는 오류 행."""
-    checks = _case("c4")
-    root = tmp_path / "b"
-    other = _key("1800000002.000100")
-    _binder(root).bind(_key(), SEAT_A)
-    _binder(root).bind(other, SEAT_A)
-    publisher, band = _publisher(root)
-    first = publisher.reply(other, COMMAND, "첫 답", SEAT_A, 1)
-    assert (first["state"], checks["first_ok"]) == ("posted", True)
+    checks, other = _case("c4"), _key("1800000002.000100")
+    _binder(tmp_path / "b").bind(_key(), SEAT_A)
+    _binder(tmp_path / "b").bind(other, SEAT_A)
+    publisher, band = _publisher(tmp_path / "b")
+    assert (publisher.reply(other, COMMAND, "첫 답", SEAT_A, 1)["state"], checks["first_ok"]) == ("posted", True)
     band.actions[:] = [("rate", 3.0), ("rate", 3.0)]
     with pytest.raises(publish.PostFailed) as caught:
         publisher.reply(_key(), COMMAND, "둘째 답", SEAT_A, 1)
     row, (want,) = caught.value.row, checks["errors_rows"]
-    assert tuple(row[k] for k in ("k", "code", "root", "attempts")) == tuple(want[k] for k in want)
-    assert (band.waits, checks["waits_requested_s"], checks["second_raised"]) == (checks["waits_requested_s"], band.waits, True)
-    assert (len(band.posts), row["attempts"], row["waits"]) == (3, 2, checks["waits_requested_s"])  # 세 번째 시도 0
+    assert tuple(row[k] for k in want) == tuple(want[k] for k in want)
+    assert (band.waits, row["waits"], checks["waits_requested_s"]) == (checks["waits_requested_s"],) * 3
+    assert (len(band.posts), row["attempts"], checks["second_raised"]) == (3, 2, True)  # 세 번째 시도 0
     assert [entry["state"] for entry in publisher.entries()].count(publish.ERROR) == 1  # 오류 행은 남는다
     for cls in (_M2IgnoreWait, _M2RetryTwice):
         m_root = tmp_path / ("m2-" + cls.__name__)
         _binder(m_root).bind(_key(), SEAT_A)
-        mutant, m_band = _publisher(m_root, cls=cls)
-        m_band.actions[:] = [("rate", 3.0), ("rate", 3.0), ("ok",)]
+        mutant, m_band = _publisher(m_root, _Band(actions=[("rate", 3.0), ("rate", 3.0), ("ok",)]), cls=cls)
         raised = False
         try:
             mutant.reply(_key(), COMMAND, "답", SEAT_A, 1)
@@ -146,44 +141,41 @@ def test_b_c4_retry_after_once_then_visible_error(tmp_path):
         assert not (raised and m_band.waits == checks["waits_requested_s"] and len(m_band.posts) == 2)
 
 
-def test_c_t3_uncertain_and_three_resolve_values(tmp_path):
-    """ⓒ 줄 11 — 유실 = UNCERTAIN(자동 재송 0) → 표식 조회 3값 · 판정 불가는 보존 + 알림 1."""
-    checks = _case("t3")
-    for name, answer, want in (("있음", publish.FOUND, "posted"),
-                               ("없음 확인", publish.ABSENT, "resent"),
-                               ("판정 불가", Exception("조회 불명"), "undecidable")):
+def test_c_t3_uncertain_and_four_resolve_paths(tmp_path):
+    """ⓒ 줄 11 — 유실 = UNCERTAIN(자동 재송 0) → 조회 3값 · «반환» 판정 불가도 보존 + 알림 1(DA NG②)."""
+    checks, undecidable = _case("t3"), _case("t3")["판정 불가"]
+    paths = (("있음", publish.FOUND, "posted", checks["있음"]),
+             ("없음 확인", publish.ABSENT, "resent", checks["없음 확인"]),
+             ("판정 불가", Exception("조회 불명"), "undecidable", undecidable),
+             ("판정 불가 반환", publish.UNDECIDABLE, "undecidable", undecidable))
+    for name, answer, want, want_checks in paths:
         root = tmp_path / ("t3-" + name)
         _binder(root).bind(_key(), SEAT_A)
         publisher, band = _publisher(root, _Band(actions=[("lost",)], answers=[answer]))
         first = publisher.reply(_key(), COMMAND, "답 본문", SEAT_A, 1)
-        assert (first["state"], first["post_calls"], checks[name]["first"]) == ("uncertain", 1, "uncertain")
+        assert (first["state"], first["post_calls"], want_checks["first"]) == ("uncertain", 1, "uncertain")
         verdict = publisher.resolve(_key())
         markers = {entry["marker"] for entry in publisher.entries() if entry.get("marker")}
-        assert (verdict["resolve"], len(band.posts), verdict["post_calls"]) == (want, checks[name]["post_calls"], checks[name]["post_calls"])
-        assert (len(markers), checks[name]["stored_posts"]) == (1, 1)  # 표식은 하나 · 재송도 같은 표식
-        band.answers[:] = [answer]
+        assert (verdict["resolve"], len(band.posts), verdict["post_calls"]) == (
+            want, want_checks["post_calls"], want_checks["post_calls"])
+        assert (len(markers), want_checks["stored_posts"]) == (1, 1)  # 표식 하나 · 재송도 같은 표식
         again = publisher.resolve(_key())  # 재기동 뒤에도 같은 판정 · 추가 게시 0
-        assert (again["resolve"], len(band.posts)) == (want, checks[name]["post_calls"])
-        assert len(band.notify) == (1 if name == "판정 불가" else 0)  # 사람 알림은 판정 불가에만 1
-    root = tmp_path / "m3"  # M3: 응답 유실을 실패로 보고 자동 재송
-    _binder(root).bind(_key(), SEAT_A)
-    mutant, m_band = _publisher(root, _Band(actions=[("lost",)]), cls=_M3AutoResend)
-    assert (mutant.reply(_key(), COMMAND, "답", SEAT_A, 1)["state"], len(m_band.posts)) != ("uncertain", 1)
-    root = tmp_path / "m4"  # M4: 판정 불가를 «없음 확인» 으로
-    _binder(root).bind(_key(), SEAT_A)
-    mutant, m_band = _publisher(root, _Band(actions=[("lost",)], answers=[Exception("조회 불명")]), cls=_M4UndecidableAsAbsent)
-    mutant.reply(_key(), COMMAND, "답", SEAT_A, 1)
-    verdict = mutant.resolve(_key())
-    assert (verdict["state"], len(band.posts), len(band.notify), len(m_band.posts)) != ("undecidable", 1, 1, 1)
+        assert (again["resolve"], len(band.posts)) == (want, want_checks["post_calls"])
+        assert len(band.notify) == (1 if want == "undecidable" else 0)  # 사람 알림은 판정 불가에만
+    for name, cls in (("m3", _M3AutoResend), ("m4", _M4UndecidableAsAbsent), ("m4b", _M4bReturnAsAbsent)):
+        _binder(tmp_path / name).bind(_key(), SEAT_A)
+        mutant, m_band = _publisher(tmp_path / name, _Band(actions=[("lost",)], answers=[Exception("조회 불명")]), cls=cls)
+        mutant.reply(_key(), COMMAND, "답", SEAT_A, 1)
+        verdict = mutant.resolve(_key())
+        assert (verdict["resolve"], len(m_band.posts), len(m_band.notify)) != ("undecidable", 1, 1)
 
 
 def test_d_c7_owner_chain_old_generation_rejected(tmp_path):
     """ⓓ 줄 12 — 승계(gen+1) 뒤 옛 세대 답은 거절 행 · 새 세대 답만 게시 1."""
     checks = _case("c7")
     root = tmp_path / "c7"
-    binder = _binder(root)
-    binder.bind(_key(), "seat")
-    assert binder.handover(_key(), "seat")["owner"] == "seat#2"
+    assert _binder(root).bind(_key(), "seat")["owner"] == "seat#1"
+    assert _binder(root).handover(_key(), "seat")["owner"] == "seat#2"
     publisher, band = _publisher(root)
     (want,), stale = checks["errors"], publisher.reply(_key(), COMMAND, "옛 답", "seat", 1)
     assert tuple(stale[k] for k in want) == tuple(want[k] for k in want)
@@ -205,14 +197,12 @@ def test_e_t2_second_owner_bind_rejected(tmp_path):
     """ⓔ 줄 12 — 같은 thread 두 번째 bind = rejected · owner 불변(교체는 명시 승계로만)."""
     checks = _case("t2")
     (want,) = checks["errors"]
-    root = tmp_path / "t2"
-    binder = _binder(root)
+    binder = _binder(tmp_path / "t2")
     first, second = binder.bind(_key(), SEAT_A), binder.bind(_key(), SEAT_B)
     assert (first["state"], second["state"], second["k"]) == ("bound", checks["second_owner"], want["k"])
     assert tuple(second[k] for k in want) == tuple(want[k] for k in want)
     assert binder.get(_key()).owner == checks["owner_now"]
-    m_root = tmp_path / "m6"  # M6: 두 번째 bind 가 덮어쓰기
-    m_binder = _M6Overwrite(m_root, TEAM)
+    m_binder = _M6Overwrite(tmp_path / "m6", TEAM)  # M6: 두 번째 bind 가 덮어쓰기
     m_binder.bind(_key(), SEAT_A)
     m_binder.bind(_key(), SEAT_B)
     assert m_binder.get(_key()).owner != checks["owner_now"]
@@ -221,51 +211,63 @@ def test_e_t2_second_owner_bind_rejected(tmp_path):
 def test_f_c6_d4_closed_binding_has_no_owner(tmp_path):
     """ⓕ 줄 14 — 닫히면 담당 없음 · 옛 담당 답 거절 · 재개 = gen 2 · 새 담당 답만 게시(답 몫 칸만)."""
     checks6, checks4 = _case("c6"), _case("d4")
-    root = tmp_path / "c6"
-    binder = _binder(root)
+    binder = _binder(tmp_path / "c6")
     binder.bind(_key(), "seat")
     binder.close(_key())
     now = binder.get(_key())
-    publisher, band = _publisher(root)
+    publisher, band = _publisher(tmp_path / "c6")
     refused = publisher.reply(_key(), COMMAND, "옛 답", "seat", 1)
     assert (now.open, now.owner) == (checks6["binding_open"], checks6["owner_after_close"])
     assert (refused["state"], len(band.posts), checks6["old_owner_reply_posted"]) == ("refused", 0, False)
-    root = tmp_path / "d4"
-    binder = _binder(root)
+    binder = _binder(tmp_path / "d4")
     binder.bind(_key(), "seat")
     binder.close(_key())
-    reopened = binder.reopen(_key(), "seat")
-    publisher, band = _publisher(root)
+    assert (binder.reopen(_key(), "seat")["gen"], checks4["reopen_gen"]) == (2, 2)
+    publisher, band = _publisher(tmp_path / "d4")
     old = publisher.reply(_key(), COMMAND, "옛 답", "seat", 1)
-    assert (reopened["gen"], checks4["reopen_gen"], old["state"], len(band.posts)) == (2, 2, "refused", 0)
-    assert checks4["old_owner_reply"] is False
+    assert (old["state"], len(band.posts), checks4["old_owner_reply"]) == ("refused", 0, False)
     new = publisher.reply(_key(), COMMAND, "새 답", "seat", 2)
     assert (new["state"], band.posts[0]["root"], checks4["new_owner_posted"]) == ("posted", TS, True)
-    m_root = tmp_path / "m7"  # M7: 닫힌 binding 답 허용
-    m_binder = _binder(m_root)
+    m_binder = _binder(tmp_path / "m7")  # M7: 닫힌 binding 답 허용
     m_binder.bind(_key(), "seat")
     m_binder.close(_key())
-    mutant, m_band = _publisher(m_root, cls=_M7AllowClosed)
+    mutant, m_band = _publisher(tmp_path / "m7", cls=_M7AllowClosed)
     assert (mutant.reply(_key(), COMMAND, "옛 답", "seat", 1)["state"], len(m_band.posts)) != ("refused", 0)
 
 
 def test_g_intent_before_post_crash_lookup_first(tmp_path):
     """ⓖ 게시 의도가 post 앞 · crash 뒤 재기동은 표식 조회 먼저(바로 재송 0)."""
-    root = tmp_path / "g"
-    assert _crash_run(root, "after_intent").returncode == 9
-    publisher, band = _publisher(root)
+    assert _crash_run(tmp_path / "g", "after_intent").returncode == 9
+    publisher, band = _publisher(tmp_path / "g")
     (intent,) = publisher.entries()
     assert (intent["state"], intent["command"], intent["gen"]) == ("intent", COMMAND, 1)
     assert intent["marker"] == publish.marker_for(_key(), COMMAND)
     band.answers[:] = [publish.FOUND]
     verdict = publisher.resolve(_key())
-    assert (verdict["state"], verdict["via"], band.posts) == ("posted", "lookup", [])
-    assert band.lookups == [intent["marker"]]
-    m_root = tmp_path / "m8"  # M8: 의도를 post 뒤로 → crash 뒤 표식이 없다(이중 게시 위험)
-    assert _crash_run(m_root, "after_post", "m8").returncode == 9
-    mutant, _ = _publisher(m_root, cls=_M8PostFirst)
+    assert (verdict["state"], verdict["via"], band.posts, band.lookups) == ("posted", "lookup", [], [intent["marker"]])
+    assert _crash_run(tmp_path / "m8", "after_post", "m8").returncode == 9  # M8: 의도를 post 뒤로
+    mutant, _ = _publisher(tmp_path / "m8", cls=_M8PostFirst)
     states = [entry["state"] for entry in mutant.entries()]
     assert (states, states == ["intent"]) == (["posted"], False)  # 표식 없음 = 이중 게시를 막을 근거가 없다
+
+
+def test_j_ng1_resolve_rechecks_binding_before_resend(tmp_path):
+    """NG① (DA R1) — 유실 뒤 resolve 전에 승계·닫힘이 있었으면 재송 0 · 거절 행만."""
+    changes = (("handover", "stale_owner", lambda b: b.handover(_key(), "seat")),
+               ("close", "reply_refused", lambda b: b.close(_key())))
+    for step, kind, change in changes:
+        _binder(tmp_path / step).bind(_key(), "seat")
+        publisher, band = _publisher(tmp_path / step, _Band(actions=[("lost",)], answers=[publish.ABSENT]))
+        publisher.reply(_key(), COMMAND, "답", "seat", 1)
+        change(publisher.binding)  # 답이 유실된 사이 담당이 바뀌거나 채널이 닫혔다
+        verdict = publisher.resolve(_key())
+        assert (verdict["state"], verdict["k"], len(band.posts)) == ("refused", kind, 1)
+    _binder(tmp_path / "m9").bind(_key(), "seat")  # M9: 재송 직전 재검사 빼기
+    mutant, m_band = _publisher(tmp_path / "m9", _Band(actions=[("lost",)], answers=[publish.ABSENT]),
+                                cls=_M9NoRecheck)
+    mutant.reply(_key(), COMMAND, "답", "seat", 1)
+    mutant.binding.close(_key())
+    assert (mutant.resolve(_key())["state"], len(m_band.posts)) != ("refused", 1)
 
 
 def test_h_cases_listed_and_lines_covered():
@@ -289,25 +291,21 @@ def test_i_invariants_no_core_write_no_secret_no_network():
     assert [name for name in ("subprocess", "urllib", "requests", "socket") if name in source] == []
 
 
-class _M1ChannelOnly(publish.SlackPublish):
-    """M1 — thread_ts 없이 채널에 게시(답이 thread 1곳에만 가지 않는다)."""
+class _M1ChannelOnly(publish.SlackPublish):  # M1 — thread_ts 없이 채널에 게시
     def _post(self, key, command, body, seat, gen, owner, via=publish.POSTED, prior=0):
         return super()._post(key._replace(root=None), command, body, seat, gen, owner, via=via, prior=prior)
 
 
-class _M2IgnoreWait(publish.SlackPublish):
-    """M2 — Retry-After 무시(즉시 재시도). 재시도 2회 변이는 MAX_POSTS 로."""
+class _M2IgnoreWait(publish.SlackPublish):  # M2 — Retry-After 무시(즉시 재시도)
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **dict(kwargs, sleep=None))  # 기다리지 않는다
 
 
-class _M2RetryTwice(publish.SlackPublish):
-    """M2 — 재시도 2회(세 번째 시도)."""
+class _M2RetryTwice(publish.SlackPublish):  # M2 — 재시도 2회(세 번째 시도)
     MAX_POSTS = 3
 
 
-class _M3AutoResend(publish.SlackPublish):
-    """M3 — 응답 유실을 실패로 보고 자동 재송."""
+class _M3AutoResend(publish.SlackPublish):  # M3 — 응답 유실을 실패로 보고 자동 재송
     def reply(self, key, command, body, seat=None, gen=None):
         verdict = super().reply(key, command, body, seat, gen)
         if verdict["state"] == publish.UNCERTAIN:
@@ -315,15 +313,18 @@ class _M3AutoResend(publish.SlackPublish):
         return verdict
 
 
-class _M4UndecidableAsAbsent(publish.SlackPublish):
-    """M4 — «판정 불가» 를 «없음 확인» 으로."""
+class _M4UndecidableAsAbsent(publish.SlackPublish):  # M4 — «판정 불가»(예외 갈래)를 «없음 확인» 으로
     def _lookup(self, entry):
         answer = super()._lookup(entry)
         return publish.ABSENT if answer == publish.UNDECIDABLE else answer
 
 
-class _M5NameOnly(publish.SlackPublish):
-    """M5 — owner 세대(gen) 대조를 뺀다."""
+class _M4bReturnAsAbsent(publish.SlackPublish):  # NG② — «반환» 판정 불가를 없음 확인으로
+    def _lookup(self, entry):
+        return publish.FOUND if super()._lookup(entry) == publish.FOUND else publish.ABSENT
+
+
+class _M5NameOnly(publish.SlackPublish):  # M5 — owner 세대(gen) 대조를 뺀다
     def _refusal(self, key, command, seat, gen):
         now = self.binding.get(key)
         if now is None or not now.open:
@@ -331,30 +332,30 @@ class _M5NameOnly(publish.SlackPublish):
         return None if seat == now.seat else self._refused(key, command, "stale_owner", owner=now.owner)
 
 
-class _M6Overwrite(binding.ThreadBinding):
-    """M6 — 두 번째 bind 가 덮어쓰기."""
+class _M6Overwrite(binding.ThreadBinding):  # M6 — 두 번째 bind 가 덮어쓰기
     def bind(self, key, seat):
         now = self.get(key)
         return self._write(key, seat, 1 if now is None else now.gen, True, binding.BOUND)
 
 
-class _M7AllowClosed(publish.SlackPublish):
-    """M7 — 닫힌 binding 의 답을 허용."""
+class _M7AllowClosed(publish.SlackPublish):  # M7 — 닫힌 binding 의 답을 허용
     def _refusal(self, key, command, seat, gen):
         now = self.binding.get(key)
-        if now is None or not now.open:
-            return None
-        return super()._refusal(key, command, seat, gen)
+        return None if now is None or not now.open else super()._refusal(key, command, seat, gen)
 
 
-class _M8PostFirst(publish.SlackPublish):
-    """M8 — 게시 의도 기록을 post 뒤로."""
+class _M8PostFirst(publish.SlackPublish):  # M8 — 게시 의도 기록을 post 뒤로
     def reply(self, key, command, body, seat=None, gen=None):
         verdict = self._post(key, command, body, seat, gen, None)
         self._step("after_post")
         self._append({"state": publish.INTENT, "key": list(key), "command": command, "body": body,
                       "marker": publish.marker_for(key, command)})
         return verdict
+
+
+class _M9NoRecheck(publish.SlackPublish):  # NG① — 재송 직전 binding 재검사를 뺀다
+    def _resend(self, key, command, body, seat, gen, owner, entry):
+        return self._post(key, command, body, seat, gen, owner, via=publish.RESENT, prior=entry.get("post_calls", 0))
 
 
 def _crash_run(root, step, cls=""):
@@ -369,7 +370,6 @@ def _child_main(argv):
     def exit_at(name):
         if name == step:
             os._exit(9)
-
     _binder(root).bind(_key(), SEAT_A)
     publisher, band = _publisher(root, cls=cls, on_step=exit_at)
     publisher.reply(_key(), COMMAND, "본문", SEAT_A, 1)
