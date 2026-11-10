@@ -151,7 +151,7 @@ export function judge(input: GateInput): Verdict {
   const seat = input.seat ?? seatOf(env), th = thresholds(env, root), state = pendingFile(root, seat), model = String(input.model ?? "");
   const k = typeof input.tokens === "number" && input.tokens > 0 ? input.tokens : 0, stored = seatIn(state);
   const key = seat || "unknown", fresh = (input.session?.fresh ?? newConversation(input.session?.reason, input.session?.entries)) && !fs.existsSync(state ?? "/nonexistent"); if (k > 0) { seenUsage.set(key, true); misses.delete(key); } // ⓙ 초기 예외 = 새 대화 ∧ 표식 없음 · ⓓⓘ 읽음 = 양수만 · 읽으면 연속 0
-  const why = !model ? "모델 불명" : !/claude/i.test(model) ? "" : !th ? `문턱 못 읽음(${K.warn}/${K.block}/${K.recv})` : !k ? "ctx usage 없음" : !seat ? "좌석 이름 못 읽음(TMUX_PANE·FT_SEAT)" : "";
+  const why = !model ? "모델 불명" : !/claude/i.test(model) ? "" : !th ? `문턱 못 읽음(${K.warn}/${K.block}/${K.recv})` : !seat ? "좌석 이름 못 읽음(TMUX_PANE·FT_SEAT)" : !k ? "ctx usage 없음" : ""; // ⓕ 좌석 불명을 usage 초기 예외(ⓐⓗ)보다 먼저 — 좌석이 없으면 팀장 알림·표식 경로가 전부 불명이다(DA R1)
   const missBlock = (): Verdict => { const bad = notifyTeam(input, env, seat || "unknown", root, why); return { action: "block", rule: "undecidable", reason: `증류 판정 불가 = 막음 — ${why}${bad ? ` · ${bad}` : ""}` }; };
   if (why === "ctx usage 없음") { // r1565 — 세 갈래: 첫 판정 통과(ⓐ) · 연속 N 허용 목록 모드(ⓑ) · 턴 시작 무주입(ⓗ)
     const seen = seenUsage.get(key) === true, n = (misses.get(key) ?? 0) + 1, turn = input.tool === "turn", max = Number(env.FT_DISTILL_FAILOPEN_MAX ?? envFiles(env, root).map((f) => f?.FT_DISTILL_FAILOPEN_MAX).find((v) => v !== undefined) ?? 3) || 3; // r1554 와 같은 키(env > 파일) · 기본 3
@@ -189,7 +189,7 @@ export default function distillGate(pi: any): void {
   pi.on("session_start", (event: any) => { reason = String(event?.reason ?? ""); });
   pi.on("tool_call", (event: any, ctx: any) => {
     const v = judge({ tool: String(event?.toolName ?? ""), command: event?.input?.command, path: event?.input?.path, tokens: usageOf(ctx), model: modelOf(ctx), cwd: ctx?.cwd, session: { reason, fresh } });
-    if (v.action !== "block") return undefined;
+    if (v.action !== "block") { if (/^undecidable/.test(v.rule)) console.error(`ft2 distill-gate: ${v.rule} ${v.reason}`); return undefined; } // ⓐ 판정 불가 통과도 기록 1줄(no_silent_fallback · 채널 = 차단과 같은 stderr)
     console.error(`ft2 distill-gate: ${v.rule} ${v.reason}`); return { block: true, reason: v.reason };
   });
   pi.on("before_agent_start", (_event: any, ctx: any) => {

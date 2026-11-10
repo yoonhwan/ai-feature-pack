@@ -248,6 +248,9 @@ def test_o_initial_exception_only_for_new_conversation(tmp_path):
     state.write_text("2026-01-01T00:00:00Z seat=byz-x-nano#0 ctx=9 증류 미완\n", encoding="utf-8")
     assert one(root, "read", None, {"reason": "startup", "entries": []})["action"] == "block" and state.exists(), "ⓙ 표식 있으면 초기 예외 0 · ⓔ usage 없음 판정은 표식을 지우지 않는다"
     assert one(root, "read", 999999, session={"reason": "startup", "entries": []}, model="")["action"] == "block", "ⓕ 모델 불명은 새 대화여도 그대로 막는다"
+    r1 = build(tmp_path / "r1")  # 표식 폴더도 없다 = DA R1 의 «fresh»
+    shutil.rmtree(r1 / ".fable-team" / "state" / "pi-distill-pending")
+    assert [v["action"] for v in run_gate(GATE, r1, [{"tool": t, "tokens": k, "model": CLAUDE, "seat": "", "session": S} for t, k in (("read", None), ("read", 0), ("turn", None))])] == ["block"] * 3, "DA R1 ⓕ 좌석 불명이 usage 초기 예외(ⓐⓗ)보다 먼저 — 좌석 없는 새 세션은 통과 0"
 
 def test_p_turn_start_silent_only_before_any_usage(tmp_path):
     root, mbox, log = build(tmp_path), *capture_mbox(tmp_path, "_p")
@@ -265,6 +268,7 @@ MUT1565 = {"M1": ("if (!seen && n < max) return { action: \"allow\",", "if (!see
            "M8": ("NEW.has(reason) && ", ""),
            "M9": ("if (turn && !seen && fresh) return", "if (turn && !seen && fresh && seenUsage.set(key, true)) return"),
            "M10": ("!seen && n < max", "n < max")}  # M10 = 읽은 뒤의 null 을 다시 «통과» 로 되돌린다
+MUT1565["M11"] = ('!seat ? "좌석 이름 못 읽음(TMUX_PANE·FT_SEAT)" : !k ? "ctx usage 없음"', '!k ? "ctx usage 없음" : !seat ? "좌석 이름 못 읽음(TMUX_PANE·FT_SEAT)"')  # M11 = 좌석 불명 판정을 usage 예외 뒤로 되돌린다(DA R1)
 
 def mut1565(tmp_path, name):
     old, new = MUT1565[name]
@@ -277,7 +281,7 @@ def mut1565(tmp_path, name):
 def test_q_mutants_r1565(tmp_path):
     root = build(tmp_path)
     for name in MUT1565:
-        m, kind = mut1565(tmp_path, name), "10" if name == "M10" else name[1]
+        m, kind = mut1565(tmp_path, name), "10" if name == "M10" else "11" if name == "M11" else name[1]
         if kind == "1":  # ⓐ 첫 판정 통과를 빼면 첫 호출이 막힌다
             assert run_gate(m, root, [{"tool": "bash", "tokens": None, "model": CLAUDE, "seat": SEAT, "session": S, "command": "ls"}])[0]["action"] == "block", name
         elif kind == "10":  # M10 읽은 뒤의 null 이 통과하면 허용 목록 밖 도구가 열린다
@@ -296,5 +300,9 @@ def test_q_mutants_r1565(tmp_path):
             assert run_gate(m, root, [{"tool": "bash", "tokens": 0, "model": CLAUDE, "seat": SEAT, "session": S, "command": "ls"}])[0]["rule"] != "undecidable-first", name
         elif kind == "8":  # ⓙ resume 세션에도 초기 예외를 주면 막히지 않는다
             assert run_gate(m, root, [{"tool": "read", "tokens": None, "model": CLAUDE, "seat": SEAT, "session": {"reason": "resume", "entries": []}}])[0]["rule"] == "undecidable-first", name
+        elif kind == "11":  # M11 좌석 불명을 usage 예외 뒤로 되돌리면 좌석 없는 새 세션이 통과한다(DA R1)
+            norow = build(tmp_path / "n11")
+            shutil.rmtree(norow / ".fable-team" / "state" / "pi-distill-pending")
+            assert run_gate(m, norow, [{"tool": "read", "tokens": None, "model": CLAUDE, "seat": "", "session": S}])[0]["action"] != "block", name
         else:  # M9 ⓚ 턴 시작이 «읽음» 을 소모하면 첫 tool_call 이 «첫 판정» 이 아니다
             assert [v["rule"] for v in run_gate(m, root, [{"tool": "turn", "tokens": None, "model": CLAUDE, "seat": SEAT, "session": S}, {"tool": "read", "tokens": None, "model": CLAUDE, "seat": SEAT, "session": S}])] == ["undecidable-turn", "undecidable-allowlist"], name
