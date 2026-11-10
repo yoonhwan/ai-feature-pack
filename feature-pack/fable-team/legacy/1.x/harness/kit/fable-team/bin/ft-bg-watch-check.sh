@@ -5,7 +5,7 @@
 #   중복 억제 키 = uid:pid:lstart:명령줄해시 — 같은 인스턴스 1통 · 같은 PID 라도 lstart 이 다르면 새 인스턴스(따로 1통)
 #          · 옛 장부 행을 새 인스턴스의 면제로 쓰지 않는다(키에 lstart 이 든다) · 같은 키로 두 번 안 보낸다(장부 옆 .seen 1줄)
 #   시작 시각을 못 읽으면 «판정 불가» 1줄 — 알림 완료로도 면제 확정으로도 적지 않는다(다음 점검이 다시 본다)
-#   오탐 0(ⓒ) = launchd 소유 · tmux 서버 · 사람 앱(.app/) · 현역 MCP(0·1번 fd 가 PIPE) · 장부 안 ∧ 끝 시각 전 → 알림 0
+#   오탐 0(ⓒ) = launchd 소유 · tmux 서버 · 사람 앱(.app/) · 현역 MCP(0·1번 fd 가 PIPE) · hermes browser_harness.daemon(다른 하네스 소유 · 모듈 꼴만) · 장부 안(up·adopt) ∧ 끝 시각 전 → 알림 0
 #   kill 0(ⓑ) — 종료는 소유자 또는 h. 읽기·쪽지·장부 읽기만 한다(프로세스 변경 0 · 새 launchd 0)
 #   출력 = `SKIP <pid> <사유>` · `NA <pid> 판정 불가 — 시작 시각을 못 읽음` · `NOTIFY <pid> <키> <사유=장부밖|기한지남> -> <받는좌석>` · 마지막 줄 `check sent=<n> skip=<m> na=<k>` rc0
 #   env(시험·이식): FT_BGW_LEDGER · FT_BGW_SEEN · FT_BGW_PS_CMD · FT_BGW_LAUNCHCTL_CMD · FT_BGW_LSOF_CMD · FT_BGW_MBOX · FT_BGW_TMUX_CMD · FT_BGW_NOW_CMD · FT_BGW_UID · FT_BGW_DESK · FT_MBOX_DIR
@@ -71,7 +71,7 @@ for ln in LEDGER:
     f = ln.split("\t")
     if len(f) < 11: continue
     k = "%s:%s:%s:%s" % (f[2], f[3], f[4], f[5])
-    if f[0] == "up":
+    if f[0] in ("up", "adopt"):      # adopt = «이미 도는» 프로세스를 장부에 올린 줄(ft-bg-watch.sh --adopt) — up 과 같게 «장부 안»
         try: reg[k] = (f[1], int(f[6]))
         except ValueError: reg[k] = (f[1], -1)
     elif f[0] in ("done", "fail"): ended.add(k)
@@ -81,8 +81,10 @@ LAUNCHD = {l.split()[0] for l in run(os.environ.get("FT_BGW_LAUNCHCTL_CMD") or "
 SHELLRE = re.compile(r"(^|/)(bash|sh|zsh|dash|python[0-9.]*|Python[0-9.]*)$")  # Python.framework 실행 경로(/…/MacOS/Python) 포함
 WATCHRE = re.compile(r"watch|loop|while|monitor|tail -f|nohup|daemon", re.I)
 MCPRE = re.compile(r"mcp|serena|probe|lsp|language-server", re.I)   # 파이프만으로 MCP 라 단정하지 않는다(DA R4)
+HERMESRE = re.compile(r"(^|\s)-m\s+browser_harness\.daemon(\s|$)|/browser_harness/daemon\.py(\s|$)")   # hermes 소유 데몬 — 모듈 꼴만(«hermes» 글자만으로 면제 0)
 def skip_reason(cmd):             # 명령줄만으로 «감시 꼴» 이 아닌 것을 먼저 거른다(오탐 0 · ⓒ)
     t = cmd.split()
+    if HERMESRE.search(cmd): return "hermes 데몬"
     if t and t[0].rsplit("/", 1)[-1] == "tmux": return "tmux 서버"
     if t and SHELLRE.search(t[0]) and WATCHRE.search(cmd): return ""     # 인터프리터 + 감시 꼴 = 대상
     if t and (".app/" in t[0] or t[0].startswith("/Applications/")): return "사람 앱"   # Python.app 처럼 인터프리터 꼴은 위에서 먼저 걸러진다
