@@ -213,9 +213,15 @@ function mutate(name, from, to) {
     EXTv = EXT;
   }
 }
-// ── 변이 M2: isIdle 검사 끔 → ⓑ 그 자리 1 = FAIL 검출 ─────────────────────────────────────
+// ── 변이 M2: isIdle 검사 끔 → ⓑ 그 자리 1 = FAIL 검출 ────────────────────────────────────
+//    r1540 — isIdle 검사가 두 곳(check · reload 직전 guard)이 되었다. r1540 이전 동작(= 검사 없음)을 흥내내려면 둘 다 꾸어야 한다.
 {
-  const mut = mutate("M2", "    if (!idle()) { pending = true; return; } // 일하는 중 = 그 자리 0 · 다음 agent_settled 에서 1", "    // M2: isIdle 검사 끔");
+  const src = fs.readFileSync(EXT, "utf-8");
+  const out = src
+    .replace("    if (!idle()) { pending = true; return; } // 일하는 중 = 그 자리 0 · 다음 agent_settled 에서 1", "    // M2: isIdle 검사 끔")
+    .replace("if (!guard(ctx as Ctx)) return; denied = 0;", "denied = 0;");
+  const mut = out !== src ? path.join(path.dirname(EXT), "mut-M2.ts") : null;
+  if (mut) fs.writeFileSync(mut, out); else bad("변이 M2 치우 미적용(줄 못 찾음)");
   if (mut) {
     EXTv = mut;
     const c = setup("m2", MINE);

@@ -1,6 +1,7 @@
 // ft-reload-request (r1531) — 설치 h 의 끝줄이 남긴 <state>/pi-wake/<좌석키>.reload 를 fs.watch 로 보고, 좌석이 쉬면 바로·
 //  일하는 중이면 agent_settled 에서 `/ft-reload-runtime` 명령을 «1회» 보낸다. 그래서 tmux send-keys /reload 입력 주입이 0 이 된다.
 //  ★요청 파일은 reload 전에 지운다★ — 지우기 성공 = 요청 1 · 실패 = reload 0 + ERROR 1줄(no_silent_fallback).
+//  · r1540 = 거절되면 요청을 «되살린다» — pi 는 일하는 중 reload 를 거절한다(interactive-mode.js:5438 «Wait for the current response…» · docs/extensions.md:1536). 지운 뒤 거절되면 요청이 조용히 사라지므로 handler 가 reload 직전에 한 번 더 쉼을 확인하고, 일하는 중이면 파일을 다시 쓴 뒤 pending 으로 두어 다음 정상 settled 에서 1회 쓴다.
 //  · 활성 판정·state·좌석키 = ft-mbox-wake.ts(r1477·r1529) 와 «같은 식»(두 벌이 다른 말을 하면 좌석이 두 길로 리로드한다).
 //  · 설치 = `~/.pi/agent/extensions/ft-reload-request.ts` 복사 1개 · 첫 적용만 오빠 /reload 1회.
 //  · env: FT_MBOX_ROOT · FT_MBOX_STATE_DIR · FT_SEAT · FT_RELOAD_REQUEST_DEBOUNCE_MS · 시험 = tests/test_pi_reload_request_r1531.sh
@@ -26,7 +27,7 @@ export default function (pi: ExtensionAPI) {
   const req = path.join(wakeDir, `${keyOf(seat)}.reload`);
   const debounce = Number(process.env.FT_RELOAD_REQUEST_DEBOUNCE_MS ?? 300);
   let watcher: fs.FSWatcher | null = null, timer: ReturnType<typeof setTimeout> | null = null, startup: ReturnType<typeof setTimeout> | null = null;
-  let pending = false, held = false, ctxNow: Ctx | null = null, announced = "", failed = "";
+  let pending = false, held = false, ctxNow: Ctx | null = null, announced = "", failed = "", denied = 0;
 
   // ★활성 = 이벤트마다 재확인★ (ft-mbox-wake.ts activeFlag 와 «같은 칸») — _master ∧ 같은 파일 행 agent=='pi' ∨ planner _desk
   const activeFlag = (): boolean => {
@@ -51,9 +52,21 @@ export default function (pi: ExtensionAPI) {
     try { fs.rmSync(req); failed = ""; return true; }
     catch (e) { const m = String(e); if (m !== failed) { failed = m; fail(`요청 파일 지우기 실패 ${req} — ${m}`); } return false; } // 같은 실패 반복 = ERROR 1줄
   }
-  const idle = (): boolean => { try { return ctxNow ? ctxNow.isIdle() : false; } catch { return false; } }; // ctx 없음 = 모른다 → 미룬다
+  const idleOf = (c: Ctx | null): boolean => { try { return c ? c.isIdle() : false; } catch { return false; } }; // ctx 없음 = 모른다 → 미룬다
+  const idle = (): boolean => idleOf(ctxNow);
   function fire(): void { // expandPromptTemplates = 명령으로 디스패치(모델 입력 0) · 핸들러가 ctx.reload() 1회로 끝난다
     try { void pi.sendUserMessage(CMD, { expandPromptTemplates: true }); } catch (e) { fail(`sendUserMessage 실패 — ${e}`); }
+  }
+  // ★r1540 = 지운 요청을 거절 때 되살린다★ — take() 가 먼저 지우므로 여기서 다시 써야 요청이 안 사라진다.
+  function restore(): void {
+    try { fs.mkdirSync(wakeDir, { recursive: true }); fs.writeFileSync(req, "reload rejected (busy) — restored by ft-reload-request\n"); }
+    catch (e) { fail(`요청 복원 실패 ${req} — ${e}`); } // 복원 실패 = 줄 1개(no_silent_fallback)
+  }
+  function guard(ctx: Ctx | null): boolean { // reload 직전 재확인 — 일하는 중이면 reload 0 · 요청 복원 · 다음 정상 settled 1회
+    if (ctx ? idleOf(ctx) : idle()) return true; // ★핸들러 ctx 가 있으면 그가 정본★ — ctxNow(마지막 settled) 는 한 턴 뒤처질 수 있다
+    restore(); pending = true;
+    if (denied !== 1) { denied = 1; console.error("ft-reload-request: reload 거절(일하는 중) — 요청 복원"); } // 같은 거절 반복 = 1줄
+    return false;
   }
   function check(): void {
     if (held) return; // ★중단(aborted)으로 끝난 런 뒤 = 다음 정상 settled 까지 보류★ — 시작 타이머·fs.watch·settled 가 «모두» 이 표지를 본다(DA R1)
@@ -69,7 +82,7 @@ export default function (pi: ExtensionAPI) {
 
   pi.registerCommand("ft-reload-runtime", { // 핸들러 = ctx.reload() 1회가 끝 · 그 뒤 코드는 옛 판본으로 돈다(docs/extensions.md:1512)
     description: "확장·스킬·프롬프트 판본을 다시 읽는다(요청 파일 ft-reload-request 가 부른다)",
-    handler: async (_args, ctx) => { await ctx.reload(); return; },
+    handler: async (_args, ctx) => { if (!guard(ctx as Ctx)) return; denied = 0; await ctx.reload(); return; },
   });
   pi.on("session_start", async (_event, ctx) => {
     appendLoadLine(pi, "r1531", "ft-reload-request.ts"); // r1537 — 실림 1줄
