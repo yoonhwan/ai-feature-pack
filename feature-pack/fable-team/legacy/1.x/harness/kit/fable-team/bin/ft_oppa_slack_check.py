@@ -24,11 +24,7 @@ class Unjudgeable(Exception):
     pass
 
 
-class NoReply(ValueError):  # r1591 · 답글 아직 없음 = 정상 열린 질문(SLACK-OK 0줄)
-    pass
-
-
-class NoReply(Exception):  # r1591 · 답글 아직 없음 = 정상 열린 질문(LookupError 를 쓰면 KeyError 까지 삼킨다)
+class NoReply(Exception):  # r1591 · 답글 아직 없음 = 정상 열린 질문(LookupError·ValueError 를 쓰면 KeyError·판정 불가 분기까지 삼킨다)
     pass
 
 
