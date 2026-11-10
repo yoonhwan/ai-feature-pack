@@ -1,0 +1,62 @@
+{
+  "id": "case_03_e2n_single_claim",
+  "사례 이름": "E2 정상 — 단일 claim(owner 1 · 예약 1)",
+  "축": "E2",
+  "극성": "정상",
+  "출처": {
+    "정본 경로": "design/harness/research/ft-2.0/parallel-dispatch/cases_e1e2.py",
+    "정본 sha": "db18c453c77868355ffeb813d3b4c49f2047806a",
+    "함수": "e2_normal",
+    "줄": "76-94",
+    "비교 키": "E2n-single-claim",
+    "관측 키": [
+      "E2nn"
+    ]
+  },
+  "given": [
+    "배정: claim W3 (attempt a1)",
+    "완료: 없음",
+    "재전달: 없음",
+    "반환 시도: release W1 — UNCERTAIN 이라 REFUSED"
+  ],
+  "expect": {
+    "판정": "PASS",
+    "계약": "claim 1회 → owner 1 · 예약 1 · 배정 1 · UNCERTAIN(W1) 반환 0",
+    "관측": [
+      {
+        "키": "E2nn",
+        "갈래": "정본",
+        "원자료": "판1",
+        "값": {
+          "dispatch_journal": 1,
+          "dispatch_state": 1,
+          "owner": 1,
+          "reserved": 1,
+          "delivery": 1,
+          "reassess_journal": 0,
+          "release_journal": 0,
+          "uncertain_release": 0,
+          "reservations": [
+            {
+              "attempt": "a1",
+              "res": "shared-slot",
+              "task": "W3"
+            }
+          ],
+          "claim_granted": 1,
+          "task_attempt": {
+            "W1": null,
+            "W2": null,
+            "W3": "a1",
+            "W4": null
+          },
+          "run": 0,
+          "suppressed": 0,
+          "deliver_attempts": [
+            "a1"
+          ]
+        }
+      }
+    ]
+  }
+}

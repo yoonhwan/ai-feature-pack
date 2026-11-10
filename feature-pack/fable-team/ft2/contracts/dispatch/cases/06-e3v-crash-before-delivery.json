@@ -1,0 +1,82 @@
+{
+  "id": "case_06_e3v_crash_before_delivery",
+  "사례 이름": "E3 주입 — claim 원자 쓰기 뒤 · 전달 쓰기 전 crash",
+  "축": "E3",
+  "극성": "주입",
+  "출처": {
+    "정본 경로": "design/harness/research/ft-2.0/parallel-dispatch/cases_e3e4.py",
+    "정본 sha": "db18c453c77868355ffeb813d3b4c49f2047806a",
+    "함수": "e3_variant",
+    "줄": "20-66",
+    "비교 키": "E3v-crash-before-delivery",
+    "관측 키": [
+      "E3v-contract",
+      "E3v-nointent"
+    ]
+  },
+  "given": [
+    "배정: claim W3 → 원자 쓰기 직후 crash(rc=9 · ACK 없음)",
+    "전달: 복구(intent) 전달 1 · 같은 attempt 재전달 1(mode=scan)",
+    "수신 업무: execute W3/a1 1회 → 재전달 뒤 execute 억제 1",
+    "완료: 없음",
+    "attempt id: W3=a1 (crash 뒤에도 동일)"
+  ],
+  "expect": {
+    "판정": "PASS",
+    "계약": "crash 직후 배정 0 → 의도 복구 전달 1 + 같은 attempt 재전달 1(재시도 허용) · 수신 업무 실행 1(재전달 뒤 중복 실행 0 = 억제 1) · attempt 동일 · 복구 재호출 추가 전달 0(멱등). 의도 미기록(변이 arm)이면 복구 전달 0",
+    "관측": [
+      {
+        "키": "E3v-contract",
+        "갈래": "정본 arm",
+        "원자료": "판1",
+        "값": {
+          "dispatch_journal": 2,
+          "dispatch_state": 2,
+          "owner": 1,
+          "reserved": 1,
+          "delivery": 2,
+          "reassess_journal": 0,
+          "release_journal": 0,
+          "uncertain_release": 0,
+          "run": 1,
+          "suppressed": 1,
+          "deliver_attempts": [
+            "a1"
+          ],
+          "deliver_by_task": {
+            "W3": 2
+          },
+          "journal_ops": [
+            "deliver:DELIVERED",
+            "execute:",
+            "deliver:DELIVERED",
+            "execute-suppressed:"
+          ]
+        }
+      },
+      {
+        "키": "E3v-nointent",
+        "갈래": "의도 미기록 arm(변이 검출)",
+        "원자료": "판1",
+        "값": {
+          "dispatch_journal": 1,
+          "dispatch_state": 1,
+          "owner": 1,
+          "reserved": 1,
+          "delivery": 1,
+          "reassess_journal": 0,
+          "release_journal": 0,
+          "uncertain_release": 0,
+          "run": 0,
+          "suppressed": 0,
+          "deliver_by_task": {
+            "W3": 1
+          },
+          "deliver_attempts": [
+            "a1"
+          ]
+        }
+      }
+    ]
+  }
+}
