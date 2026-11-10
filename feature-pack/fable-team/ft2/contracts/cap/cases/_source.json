@@ -1,0 +1,12 @@
+{
+  "정본 sha": "db18c453c77868355ffeb813d3b4c49f2047806a",
+  "정본 폴더": "design/harness/research/ft-2.0/journal-cap-v4-checker/results",
+  "파일": {
+    "a-compare": "a-compare.json",
+    "b-recount": "b-recount-impl.json",
+    "c-mutants": "c-mutants.json",
+    "boundary1": "boundary1.json",
+    "boundary2": "boundary2.json"
+  },
+  "메모": "원자료는 BYZ 저장소 origin/main 의 같은 sha 에서 git show 로 읽는다(복사하지 않는다). 관측 대조 키 = <파일 이름표>#<JSON pointer>."
+}

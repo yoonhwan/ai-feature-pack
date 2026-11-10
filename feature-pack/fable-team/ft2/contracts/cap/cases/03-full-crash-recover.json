@@ -1,0 +1,62 @@
+{
+  "id": "case_03_full_crash_recover",
+  "사례 이름": "포화 뒤 크래시 → RECOVER, 신규 접수는 계속 거절 (S3)",
+  "출처": {
+    "정본 경로": "design/harness/research/ft-2.0/journal-cap-v4/s3_full_crash_recover.py",
+    "정본 sha": "db18c453c77868355ffeb813d3b4c49f2047806a",
+    "함수": "s3_full_crash_recover.py main (판정 S3-①~⑥)",
+    "줄": "판정 라벨 S3-①~⑥ · 관측 = journal-cap-v4-checker/results/b-recount-impl.json trace-S3-s3*.jsonl",
+    "실험 literal 필드명": ["K", "crash_seq", "dry_stop", "filled", "full", "leftover_tmp", "cumulative", "pre_crash_reserve_used", "recover_measured", "store_recover_used", "max_total", "receipt_blobs"]
+  },
+  "given": [
+    "신규 접수를 TOTAL_FULL 까지 주입 (포화)",
+    "예약을 마지막 허용 COMPLETE 까지 사용",
+    "그 COMPLETE 의 state_tmp 경계에서 격리 자식 SIGKILL (state.json.tmp 잔여)",
+    "재기동 RECOVER — 복구가 끝날 때까지 신규 접수 시도",
+    "복구 뒤 미처리·영수 보존 확인"
+  ],
+  "expect": {
+    "처리 결과": "용량 부족",
+    "근거 검증": "포화 응답 TOTAL_FULL · 복구 전후 신규 접수 성공 0(복구 필요 응답 유지) · RECOVER 예약 사용 ≤ 예약 후보값 532,480 · 폴더 합 ≤ 총 cap 후보값 8 MiB · 미처리 19건·영수 117/117 보존",
+    "관측 대조": [
+      {
+        "원자료 키": "a-compare#/S3.json/verdict",
+        "관측": ["PASS", "PASS"]
+      },
+      {
+        "원자료 키": "a-compare#/S3.json/n_checks",
+        "관측": [7, 7]
+      },
+      {
+        "원자료 키": "b-recount#/trace-S3-s3.jsonl/max_total",
+        "관측": 8276932
+      },
+      {
+        "원자료 키": "b-recount#/trace-S3-s3.jsonl/over_cap_rows",
+        "관측": 0
+      },
+      {
+        "원자료 키": "b-recount#/trace-S3-s3.jsonl/reserve/cumulative_net_incl_recover",
+        "관측": 523988
+      },
+      {
+        "원자료 키": "b-recount#/trace-S3-s3.jsonl/reserve/reserve",
+        "관측": 532480
+      },
+      {
+        "원자료 키": "b-recount#/trace-S3-s3.jsonl/restart/recover_use_recount",
+        "관측": 196
+      },
+      {
+        "원자료 키": "b-recount#/trace-S3-s3dry.jsonl/max_total",
+        "관측": 8276391
+      }
+    ]
+  },
+  "비채택": [
+    {
+      "관측": "포화 상태에서 오래된 기록을 지워 자리를 만드는 방식(퇴출)은 이 회차 관측에 없다",
+      "표시": "비채택: 포화면 업무 접수를 거부하고 용량 부족을 알린다 — 미처리를 지워 자리를 만들지 않는다"
+    }
+  ]
+}

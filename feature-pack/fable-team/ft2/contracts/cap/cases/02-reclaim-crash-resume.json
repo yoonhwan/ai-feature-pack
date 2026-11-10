@@ -1,0 +1,66 @@
+{
+  "id": "case_02_reclaim_crash_resume",
+  "사례 이름": "회수 도중 크래시 → 재기동 복구 (S2)",
+  "출처": {
+    "정본 경로": "design/harness/research/ft-2.0/journal-cap-v4/s2_reclaim_crash.py",
+    "정본 sha": "db18c453c77868355ffeb813d3b4c49f2047806a",
+    "함수": "s2_reclaim_crash.py main (판정 S2-⓪ · K1 reclaim_after_bodies · K2 reclaim_after_seg)",
+    "줄": "판정 라벨 S2[reclaim_after_bodies]-①~⑤ · S2[reclaim_after_seg]-①~⑤ · 관측 = journal-cap-v4-checker/results/b-recount-impl.json trace-S2-*.jsonl",
+    "실험 literal 필드명": ["rc", "same", "open_bodies", "u_open", "recover", "use", "from_e", "rerun1", "rerun2", "sig_eq_ref", "peak", "recover_use_recount"]
+  },
+  "given": [
+    "기준(REF) — 크래시 없이 같은 주입으로 회수 1회",
+    "K1 reclaim_after_bodies — 본문 삭제 뒤 · segment 삭제 전에 격리 자식 SIGKILL",
+    "K2 reclaim_after_seg — 첫 segment 삭제 직후 SIGKILL",
+    "재기동 = 마지막 유효 checkpoint + 이후 사건 복원",
+    "회수 재실행 2회 (멱등 확인)"
+  ],
+  "expect": {
+    "처리 결과": "복구 필요",
+    "근거 검증": "두 정지점 모두 자식 rc = -9 · 복원 = 크래시 전 상태(jobs·pins·last_seq·revision) · 미처리 유실 0 · 회수 재실행 두 번째 삭제 0 · 재기동 쪽 공존 peak < 총 cap",
+    "관측 대조": [
+      {
+        "원자료 키": "a-compare#/S2.json/verdict",
+        "관측": ["PASS", "PASS"]
+      },
+      {
+        "원자료 키": "a-compare#/S2.json/n_checks",
+        "관측": [11, 11]
+      },
+      {
+        "원자료 키": "b-recount#/trace-S2-s2ref.jsonl/max_total",
+        "관측": 400689
+      },
+      {
+        "원자료 키": "b-recount#/trace-S2-s2-reclaim_after_bodies.jsonl/max_total",
+        "관측": 400689
+      },
+      {
+        "원자료 키": "b-recount#/trace-S2-s2-reclaim_after_bodies.jsonl/restart/peak",
+        "관측": 332128
+      },
+      {
+        "원자료 키": "b-recount#/trace-S2-s2-reclaim_after_seg.jsonl/restart/peak",
+        "관측": 267925
+      },
+      {
+        "원자료 키": "b-recount#/trace-S2-s2-reclaim_after_bodies.jsonl/restart/recover_use_recount",
+        "관측": 931
+      },
+      {
+        "원자료 키": "b-recount#/trace-S2-s2-reclaim_after_bodies.jsonl/seg_unlink_without_covering_checkpoint",
+        "관측": []
+      },
+      {
+        "원자료 키": "b-recount#/trace-S2-s2-reclaim_after_seg.jsonl/seg_unlink_without_covering_checkpoint",
+        "관측": []
+      }
+    ]
+  },
+  "비채택": [
+    {
+      "관측": "실측 회차 wall_s 3.073 (s2ref 1.073 · K1 1.038 · K2 0.962)",
+      "표시": "비채택: 숫자는 확정값이 아니다 — 실측 PASS 를 계약으로 옮기지 않는다"
+    }
+  ]
+}
