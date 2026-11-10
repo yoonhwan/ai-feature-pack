@@ -49,6 +49,7 @@
 #   (2) 좌석 세션(seats*.json 에 이름이 있는 세션) = 기록 1줄 → 같은 세션 연속 N회(FT_DISTILL_FAILOPEN_MAX 기본 3)면 막음 + 팀장 1줄
 #   (3) 그 밖 = 지금처럼 경고 통과 + 1줄. 닫는 사건 = transcript 에 실 usage 가 생기면 연속 횟수 0. 감사 = bin/ft-distill-audit.sh
 #   판정 «가능한» 호출의 경고 250k·차단 300k·recv 250k 동작은 그대로(ⓔ).
+#   보정(arch#276 반례1): 연속 상한 도달 = «막음» 이 아니라 «ctx ≥ 차단선» 과 같은 allowlist 판정 — 인계서·쪽지·Read·후계는 통과, 일반 도구만 막는다.
 set +e
 MODE="${1:-warn}"; shift
 WARN_AT_ARG=""; BLOCK_AT_ARG=""; RECV_AT_ARG=""
@@ -277,7 +278,9 @@ def failopen(reason, detail):
     if escalated:
         line = "%s undecidable-block branch=seat seat=%s session=%s reason=%s n=%d/%d notified=%s" % (
             time.strftime("%FT%T"), seat, session, reason, st["n"], FAILOPEN_MAX, note or "none")
-        return "seat", "block", line, detail
+        if mode == "warn":
+            return "seat", "pass", line, detail          # UserPromptSubmit 은 막을 수 없다 — 기록·통보만
+        return "seat", "escalate", line, detail          # r1554 보정: 막음도 «ctx ≥ 차단선» 과 같은 allowlist 판정으로 넘긴다
     line = "%s undecidable branch=seat seat=%s session=%s reason=%s n=%d/%d" % (
         time.strftime("%FT%T"), seat, session, reason, st["n"], FAILOPEN_MAX)
     return "seat", "pass", line, detail
@@ -294,7 +297,11 @@ else:
         fp = failopen("scan-failed", "scan failed: %s" % e)
         model, usage, ctx = None, None, 0
 if fp:
-    print("FAILOPEN|%s|%s|%s|%s" % fp); sys.exit(0)
+    br, act, ln, det = fp
+    if act != "escalate":
+        print("FAILOPEN|%s|%s|%s|%s" % fp); sys.exit(0)
+    print("FAILOPENLOG|%s" % ln)          # 기록 1줄 — 막을지는 아래 정상 흐름(allowlist)이 정한다
+    ctx = block_at                         # r1554 보정(arch#276 반례1): 판정 불가 막음 = «ctx ≥ 차단선» 과 같은 판정(인계서·쪽지·Read 통과)
 model = norm_model(model)
 if exempt_re and model and re.search(exempt_re, model):
     print("ALLOW|%d|exempt-model|%d|%d" % (ctx // 1000, warn_at // 1000, block_at // 1000)); sys.exit(0)
@@ -314,7 +321,8 @@ if ctx <= 0:
         print("ALLOW|0|fresh-session|%d|%d" % (warn_at // 1000, block_at // 1000)); sys.exit(0)
     br, act, ln, det = failopen("no-usage", "no real usage record in transcript")
     print("FAILOPEN|%s|%s|%s|%s" % (br, act, ln, det)); sys.exit(0)
-streak_reset()  # r1554 ⓓ 닫는 사건 — 판정 가능한 호출이 왔으니 연속 횟수 0
+if not fp:
+    streak_reset()  # r1554 ⓓ 닫는 사건 — 판정 가능한 호출이 왔으니 연속 횟수 0
 k = ctx // 1000
 
 # ── hard 모드 allowlist: 증류·마무리에 필요한 도구만 ─────────────────────────────
@@ -746,6 +754,16 @@ PYEOF
 PYRC=$?
 IFS='|' read -r STATE K WHAT WARN_K BLOCK_K AGENT <<<"$RESULT"
 
+# r1554 보정: 좌석 연속 상한 도달 = 로그 1줄만 남기고 «ctx ≥ 차단선» 과 같은 allowlist 판정으로 넘긴다(증류 도구 통과 · 일반 도구만 막음)
+_fo=""
+case "$RESULT" in
+  FAILOPENLOG\|*)
+    _note="${RESULT#FAILOPENLOG|}"; _note="${_note%%$'\n'*}"
+    printf '%s\n' "$_note" >> "$LOG" 2>/dev/null
+    _fo=1; RESULT="${RESULT#*$'\n'}"
+    IFS='|' read -r STATE K WHAT WARN_K BLOCK_K AGENT <<<"$RESULT";;
+esac
+
 # ── 판정기 실패 = 보이는 fail-open (exit 1 + 로그) ──────────────────────────────
 # r1554: 판정 불가 = 갈래 3 — 하위 세션 면제(로그 0) · 좌석(기록 → 연속 N회 막음 + 팀장 1줄) · 그 밖(지금처럼 경고 통과 + 1줄)
 if [ "$STATE" = "FAILOPEN" ]; then
@@ -782,6 +800,12 @@ case "$MODE" in
       printf '%s newwork mode=%s ctx=%sk warn_at=%sk block_at=%sk tool=%s agent_id=%s\n' "$(date +%FT%T)" "$MODE" "$K" "$WARN_K" "$BLOCK_K" "$WHAT" "${AGENT:--}" >> "$LOG" 2>/dev/null
       printf '🛑 [context-distill-gate] 컨텍스트 %sk 토큰 — 경고선(%sk) 도달 = ★새 일 수락 금지★. 지금 증류한다(규칙 r1429): 스냅샷 → 인계서 → 후계(받을 일 0 이면 후계 0 — 좌석 닫기 대기 + 팀장에 «[다음 없음]» 1줄).\n' "$K" "$WARN_K" >&2
       printf '허용: 스냅샷(HANDOFF-*.md · .fable-team/state/** · design/**/inbox/**) · baton save · mbox send/relay · git add/commit/push · Read · AskUserQuestion · tmuxc save · 후계 개설(증류 단어 포함 발주).\n' >&2
+      exit 2
+    fi
+    if [ "$STATE" = "BLOCK" ] && [ -n "$_fo" ]; then      # r1554 보정: 판정 불가 막음 = allowlist 판정 결과
+      printf '%s deny mode=%s ctx=? tool=%s agent_id=%s failopen-allowlist\n' "$(date +%FT%T)" "$MODE" "$WHAT" "${AGENT:--}" >> "$LOG" 2>/dev/null
+      printf '🛑 [context-distill-gate] 증류 판정 불가 %s회 연속 — 판정 대신 «차단선 기준 증류 allowlist» 로 막는다. 도구 «%s» 는 목록 밖.\n' "$FAILOPEN_MAX" "$WHAT" >&2
+      printf '통과하는 것: 인계서·state·design inbox 쓰기 · Read · mbox send/relay · git add/commit/push · baton save · 후계 개설. 로그 = %s\n' "$LOG" >&2
       exit 2
     fi
     if [ "$STATE" = "BLOCK" ]; then

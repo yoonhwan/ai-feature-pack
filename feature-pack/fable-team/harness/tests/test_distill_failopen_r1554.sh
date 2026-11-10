@@ -13,7 +13,7 @@ bad() { echo "FAIL $1"; fail=$((fail+1)); }
 want() { [ -z "${R1554_ONLY:-}" ] && return 0; case " $R1554_ONLY " in *" $1 "*) return 0;; *) return 1;; esac; }
 
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
-REPO="$TMP/repo"; HOMED="$TMP/home"; SEAT="byz-t-seat#0"; SESS="sess-1554"; MBOX="$TMP/mbox.sh"
+REPO="$TMP/repo"; HOMED="$TMP/home"; SEAT="byz-t-seat#0"; SESS="sess-1554"; MBOX="$REPO/.fable-team/comm/mbox.sh"   # 우편함 = 리포 안(고정 경로 = 증류 allowlist 판정 대상)
 LOG="$HOMED/.claude/logs/context-distill-gate.log"; STREAK="$HOMED/.claude/state/distill-gate-failopen/$SESS.json"
 mkdir -p "$REPO/.fable-team/comm" "$HOMED" "$REPO/.fable-team/state/inbox-haiku-cwd/sub"; git -C "$REPO" init -q
 printf '{"_master":"byz-harness-master-pi#172","%s":{"role":"nano","agent":"claude"}}\n' "$SEAT" > "$REPO/.fable-team/seats-harness.json"
@@ -23,6 +23,14 @@ run() { # run <훅> <모드> <cwd> <transcript|-> <좌석|-> → $RC · 로그 =
   local h="$1" mode="$2" cwd="$3" tr="$4" seat="$5"; [ "$tr" = "-" ] && tr="$TMP/nope.jsonl"
   local json; json="$(python3 -c 'import json,sys
 print(json.dumps({"transcript_path":sys.argv[1],"cwd":sys.argv[2],"session_id":sys.argv[3],"tool_name":"Bash","tool_input":{"command":"ls"}}))' "$tr" "$cwd" "$SESS")"
+  local se=""; [ "$seat" != "-" ] && se="$seat"
+  printf '%s' "$json" | env HOME="$HOMED" FT_MBOX="$MBOX" FT_SEAT="$se" TMUX_PANE= /bin/bash "$h" "$mode" >"$TMP/out" 2>"$TMP/err"
+  RC=$?
+}
+runt() { # runt <훅> <모드> <tool> <ti-json> <cwd> <transcript|-> <좌석> — 도구·입력을 지정해 부른다
+  local h="$1" mode="$2" tl="$3" ti="$4" cwd="$5" tr="$6" seat="$7"; [ "$tr" = "-" ] && tr="$TMP/nope.jsonl"
+  local json; json="$(python3 -c 'import json,sys
+print(json.dumps({"transcript_path":sys.argv[1],"cwd":sys.argv[2],"session_id":sys.argv[3],"tool_name":sys.argv[4],"tool_input":json.loads(sys.argv[5])}))' "$tr" "$cwd" "$SESS" "$tl" "$ti")"
   local se=""; [ "$seat" != "-" ] && se="$seat"
   printf '%s' "$json" | env HOME="$HOMED" FT_MBOX="$MBOX" FT_SEAT="$se" TMUX_PANE= /bin/bash "$h" "$mode" >"$TMP/out" 2>"$TMP/err"
   RC=$?
@@ -78,6 +86,15 @@ cases() { # cases <이름> <훅>
       && [ "$(undecided)" -eq 0 ] && [ ! -f "$STREAK" ]; } \
       && ok "$n ⓔ 판정 가능 = 경고·차단 그대로(판정 불가 줄·상태 0)" || bad "$n ⓔ rc=$e1/$e2/$e3 undecided=$(undecided)"; fi
 
+  if want ⓖ; then reset_all      # arch#276 반례1: 판정 불가 막음도 증류 allowlist 를 지킨다
+    run "$h" hard "$REPO" - "$SEAT"; run "$h" hard "$REPO" - "$SEAT"; run "$h" hard "$REPO" - "$SEAT"; g3="$RC"
+    runt "$h" hard Bash "{\"command\":\"bash $MBOX send byz-harness-master-pi#173 byz-t-seat#0 hi\"}" "$REPO" - "$SEAT"; gm="$RC"
+    runt "$h" hard Read "{\"file_path\":\"$REPO/design/x/HANDOFF-a.md\"}" "$REPO" - "$SEAT"; gr="$RC"
+    runt "$h" hard Write "{\"file_path\":\"$REPO/design/x/HANDOFF-a.md\",\"content\":\"x\"}" "$REPO" - "$SEAT"; gw="$RC"
+    runt "$h" hard Bash '{"command":"ls"}' "$REPO" - "$SEAT"; gl="$RC"
+    { [ "$g3" -eq 2 ] && [ "$gm" -eq 0 ] && [ "$gr" -eq 0 ] && [ "$gw" -eq 0 ] && [ "$gl" -eq 2 ]; } \
+      && ok "$n ⓖ 판정 불가 막음 = allowlist(쪽지·인계서·Read rc0 · 일반 rc2)" || bad "$n ⓖ rc=$g3/$gm/$gr/$gw/$gl"; fi
+
   if want ⓕ; then
     local now; now="$(date +%FT%T)"
     { printf '%s undecidable branch=seat seat=a#0 session=s1 reason=transcript-missing n=1/3\n' "$now"
@@ -102,7 +119,8 @@ for spec in \
   'if cwd_n and SUBSESSION_RE.search(cwd_n):|if False:|ⓐ1|ⓐ1' \
   'escalated = st["n"] >= FAILOPEN_MAX|escalated = False|ⓑ|ⓑ' \
   'if escalated and reason not in st["notified"]:|if escalated:|ⓑ|ⓒ' \
-  'streak_reset()  # r1554|pass  # r1554|ⓓ|ⓓ'; do
+  'streak_reset()  # r1554|pass  # r1554|ⓓ|ⓓ' \
+  'return "seat", "escalate", line, detail|return "seat", "block", line, detail|ⓖ|ⓖ'; do
   i=$((i+1)); IFS='|' read -r o nw ro ef <<<"$spec"
   M="$TMP/mut$i.sh"
   if OLD="$o" NEW="$nw" python3 - "$KIT" "$M" <<'PYEOF'
