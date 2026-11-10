@@ -235,7 +235,30 @@ CRIT_DESTROY = re.compile(
     r"\bDROP\s+(?:TABLE|DATABASE)\b|\bFLUSH(?:ALL|DB)\b", re.I)
 
 
-def critical_kinds(blocks, secret=None):   # → (종류, 사유) | None · blocks = autonomy_scope_secret.parse_added 결과
+# ── r1597 «시험이 자기가 만든 임시 폴더를 끝에 지우는 줄» 예외 (카드 r1597 · 오빠 Slack 승인 ts=1794320041.110549) ──
+#   destroy 판정은 줄 글자만 본다 — 그래서 시험의 `T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT` 도 destroy 가 된다(r1593 ⓔ 실측).
+#   세 조건이 «모두» 참인 그 줄만 뺀다: ① 경로가 tests/ ② 줄이 `trap '<rm -rf "$V">' EXIT` 꼴이고 trap 안 명령이 그 rm -rf 하나뿐
+#   ③ 같은 파일(바뀐 뒤 전문 · show)에서 V 대입이 정확히 1번이고 그 값이 `$(mktemp -d …)`. 하나라도 거짓이면 지금처럼 destroy(닫힌 쪽).
+TRAP_LINE = re.compile(r"(?:^|[;&|]\s*|\s)trap\s+(['\"])(.+)\1\s+EXIT\s*;?\s*$")
+TRAP_RM_RF_BODY = re.compile(r'^rm -rf "\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?"$')
+MKTEMP_ASSIGN = r"(?<![$\w])%s\s*=\s*[\"']?\$\(\s*mktemp\s+-d"   # 그 변수 대입 값이 mktemp -d 인가
+
+
+def mktemp_trap_exempt(path, txt, show=None):   # → True = «그 시험이 방금 만든 임시 폴더를 지우는» 줄
+    if not path or not (path.startswith("tests/") or "/tests/" in path):
+        return False
+    m = TRAP_LINE.search(txt or "")
+    var = TRAP_RM_RF_BODY.match(m.group(2)) if m else None
+    body = (show(path) if show else "") or ""   # 경로 조건을 통과한 줄만 파일을 읽는다(git 호출 아끼기)
+    if not var or not body:
+        return False
+    v = re.escape(var.group(1))
+    if len(re.findall(r"(?<![$\w])%s\s*=" % v, body)) != 1:   # 재대입 = 대상이 그 임시 폴더가 아닐 수 있다
+        return False
+    return bool(re.search(MKTEMP_ASSIGN % v, body))
+
+
+def critical_kinds(blocks, secret=None, show=None):   # → (종류, 사유) | None · blocks = autonomy_scope_secret.parse_added 결과
     for path, _items, is_new in blocks:   # ① 새 LaunchAgents/LaunchDaemons plist
         if is_new and CRIT_LAUNCHD.search(path or ""):
             return "launchd", "새 launchd plist: %s" % path
@@ -248,9 +271,9 @@ def critical_kinds(blocks, secret=None):   # → (종류, 사유) | None · bloc
     why = secret() if secret else ""   # ③ 비밀 줄(autonomy_scope_secret.reason 재사용)
     if why:
         return "secret", why
-    for path, items, _is_new in blocks:   # ④ 파괴 명령 새 줄
+    for path, items, _is_new in blocks:   # ④ 파괴 명령 새 줄 — r1597 tests/ 임시 폴더 trap 줄만 예외
         for no, txt in items:
-            if CRIT_DESTROY.search(txt):
+            if CRIT_DESTROY.search(txt) and not mktemp_trap_exempt(path, txt, show):
                 return "destroy", "%s:%d %s" % (path or "?", no, txt.strip()[:80])
     return None
 

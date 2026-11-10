@@ -131,7 +131,7 @@ def critical_check(repo, remote, target, sha):   # r1577 D2 — 되돌릴 수 �
     base = git(repo, "merge-base", ref, sha).strip(); blocks = secret_lines.parse_added(git, repo, base, sha)
     if not blocks: raise Err("빈 diff(판정할 변경 없음)")
     doc = lambda p: ("docs", "docs") if p.endswith(".md") else ("code", "code")   # .md = 산문 · 그 밖 = 전문(닫힌 쪽)
-    hit = rules.critical_kinds(blocks, lambda: secret_lines.reason(blocks, doc, repo, sha))
+    hit = rules.critical_kinds(blocks, lambda: secret_lines.reason(blocks, doc, repo, sha), show_at(repo, sha))   # r1597: 본문(show)까지 넘긴다
     return (3, "CRITICAL kind=%s %s" % hit) if hit else (0, "CRITICAL-OK")
 
 
