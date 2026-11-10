@@ -10,7 +10,8 @@ A="${FT_DRY_SHA:-4190a13e5f124813a467b716ca11fec0d1b4f596}"
 CARD="${FT_DRY_CARD:-/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-ops-m175/design/harness/indices/완성/r1592-merge-land-close-pr-right-after-push.md}"
 RK="${FT_DRY_REPO:-pack}"; ROOT="${FT_ROOT:-/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents}"
 [ -n "$ROOT" ] && [ -f "$V" ] || { echo "REJECT 입력 없음 — 루트=${ROOT:-없음} 판정문=$V"; exit 2; }
-STATE="${FT_AUTONOMY_STATE_DIR:-$ROOT/.fable-team/state}"; LOG="$STATE/autonomy.log"; PACK="$(git -C "$BIN" rev-parse --show-toplevel 2>/dev/null)"
+STATE="${FT_AUTONOMY_STATE_DIR:-$(cd "$ROOT" 2>/dev/null && env -u FT_ROOT bash "$BIN/ft-autonomy.sh" state-dir 2>/dev/null)}"; [ -n "$STATE" ] || { echo "REJECT 상태 폴더를 못 풂(R253 = ft-autonomy.sh state-dir)"; exit 2; }   # r253: 상태 폴더 해석의 유일한 출처 — $ROOT/.fable-team/state 로 추측하지 않는다(라이브 = LIVE_ROOT 워크트리)
+LOG="$STATE/autonomy.log"; PACK="$(git -C "$BIN" rev-parse --show-toplevel 2>/dev/null)"
 PRE="HERE='$BIN'; STATE='$STATE'; LOG='$LOG'; ROOT='$ROOT'; . \"\$HERE/ft-autonomy-level.sh\"; . \"\$HERE/ft-autonomy-standing-d2.sh\";"   # 레벨 파일 = ft-autonomy.sh 가 먼저 source 하는 것과 같은 문맥(tpl_file)
 B4="$( { shasum -a 256 "$LOG" 2>/dev/null; ls -1 "$STATE" 2>/dev/null | wc -l; } | shasum -a 256)"   # 쓰기 0 확인용 앞 지문
 if grep -qE '^approve-standing D2 [0-9]+ ' "$LOG" 2>/dev/null; then RANGE=live; else RANGE=declared; fi   # 실 로그에 D2 승인 줄이 없으면 ② 이후를 «내용» 으로 판정하려고 범위만 선언값으로(실 상태 변경 0)
