@@ -25,7 +25,6 @@ NEW, ANSWER, LATE, REOPEN = "새 업무", "답 %s", "늦은 답 %s", "재개 필
 QUESTION, ANSWERED = "question", "answer"
 OPEN, CLOSED = "open", "closed"
 DISPATCHED, DUPLICATE, IGNORED, IDLE = "dispatched", "duplicate", "ignored", "idle"
-HOLD = "hold"
 RECEIPT_OK = "접수 성공"  # intake.RESULT_OK 문면 — 영수 판정은 이 한 값으로만 본다
 NOTE, REQ, ROUTE, SEEN = "note", "req", "route", "seen"
 
@@ -58,8 +57,14 @@ class RoutingClient:
         return getattr(self.inner, name)
 
     def submit(self, command, body, work=None):
-        receipt = self.inner.submit(command, body, dict(work or {}, route=dict(self.owner.describe(command))))
-        if not self.owner.current:  # route 를 거치지 않은 제출(재기동 recover)도 같은 장부를 갖는다(R2)
+        return self._settle(command, self.inner.submit(
+            command, body, dict(work or {}, route=dict(self.owner.describe(command)))))
+
+    def lookup(self, command):  # 조회로만 영수가 보이는 재기동 복구도 같은 settle 1곳을 지난다(R2 경계)
+        return self._settle(command, self.inner.lookup(command))
+
+    def _settle(self, command, receipt):
+        if not self.owner.current:  # route 를 거치지 않은 복구 접수(재기동 submit·lookup)
             self.owner.settled(command, receipt)
         return receipt
 
@@ -135,14 +140,18 @@ class SlackRoute:
         return (binding.thread_key(*rows[-1]["key"]), rows[-1].get("which"), rows[-1].get("digest")) if rows else (None,) * 3
 
     def settled(self, command, receipt):
-        """route 를 거치지 않은 접수(재기동 recover)도 기록·pending 을 정상 경로와 같게 남긴다."""
-        key, which, content = self._recorded(command)
-        if key is None:
+        """route 를 거치지 않은 복구 접수도 기록·pending·알림을 정상 경로와 같게 남긴다 — command 당 1회."""
+        done = [row for row in self.entries(ROUTE) if command and row.get("command") == command
+                and row.get("state") == DISPATCHED and row.get("receipt")]
+        if done:  # 이미 완료 처리된 command = 행·pending·알림을 더 만들지 않는다(중복 0)
             return None
         ok = getattr(receipt, "result", None) == RECEIPT_OK
         ok = ok and bool(getattr(receipt, "written", False) or getattr(receipt, "attempt", None))
+        key, which, content = self._recorded(command)
+        if key is None or not ok:  # 기록 없는 command · 영수 없음 = 아무것도 남기지 않는다
+            return None
         kind, to = self._plan(key, self.binding.get(key), which, content)[:2]
-        row = self._record(key, kind, to, DISPATCHED if ok else HOLD, which, content, receipt=ok, command=command)
+        row = self._record(key, kind, to, DISPATCHED, which, content, receipt=True, command=command)
         if to == DESK:
             self.notify(row)
         return row

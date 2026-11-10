@@ -106,10 +106,10 @@ class _Counted:
         return self.inner.records()
 
 
-def _env(root, route_cls=route_mod.SlackRoute, capacity=64):
+def _env(root, route_cls=route_mod.SlackRoute, capacity=64, intake_step=None):
     """route 1좌석 — 실 Intake 까지 배선. `delivered` = 좌석 전달(모델 호출 1회) 기록."""
     band = _Band()
-    client = _Counted(intake.Intake(str(root), TEAM, capacity=capacity))
+    client = _Counted(intake.Intake(str(root), TEAM, capacity=capacity, on_step=intake_step))
     receive = slack.SlackReceive(str(root), ack=band.ack, client=client, team=TEAM, allowed_users={"U1"},
                                  allowed_channels={C}, notify=band.notify.append)
     binder = binding.ThreadBinding(str(root), TEAM)
@@ -456,7 +456,10 @@ MUTATIONS = {
     "m8": (ROUTE, '                and row.get("which") == ANSWERED and row.get("state") == DISPATCHED}',
            '                and row.get("which") == ANSWERED}'),  # M8 — 영수 없는 답도 중복 근거
     "m9": (ROUTE, "route=dict(self.owner.describe(command))", "route=dict(self.owner.describe())"),
-}  # M9 — 재기동 복구가 문맥을 잃는다
+    "m10": (ROUTE, '        if done:  # 이미 완료 처리된 command', "        if False:  # 이미 완료 처리된 command"),
+    "m11": (ROUTE, "        return self._settle(command, self.inner.lookup(command))",
+            "        return self.inner.lookup(command)"),
+}  # M9 — 복구 문맥 상실 · M10 — 중복 가드 제거 · M11 — lookup 이 settle 을 안 지난다
 
 
 def _mutant(root, name, source, old, new):
@@ -471,7 +474,7 @@ def _mutant(root, name, source, old, new):
     return _load("mut_" + name, str(target))
 
 
-def test_m1_m9_product_file_mutations_break_the_checks(tmp_path):
+def test_m1_m11_product_file_mutations_break_the_checks(tmp_path):
     muts = {name: _mutant(tmp_path / "mut", name, *spec) for name, spec in MUTATIONS.items()}
     cases = (
         ("m1", lambda root: _check_c6(_scenario_c6(root, muts["m1"].SlackRoute))),
@@ -483,6 +486,8 @@ def test_m1_m9_product_file_mutations_break_the_checks(tmp_path):
         ("m7", lambda root: _check_f4(_scenario_f4(root, muts["m7"].SlackRoute))),
         ("m8", lambda root: _retry_unaccepted(root, muts["m8"].SlackRoute)),
         ("m9", lambda root: _recovered_context(root, muts["m9"].SlackRoute)),
+        ("m10", lambda root: _lookup_once(root, muts["m10"].SlackRoute)),
+        ("m11", lambda root: _lookup_once(root, muts["m11"].SlackRoute)),
     )
     for name, run in cases:
         with pytest.raises(AssertionError):
@@ -567,3 +572,55 @@ def test_r1_retry_of_unaccepted_answer_is_accepted(tmp_path):
 def test_r2_recovered_dispatch_keeps_route_context(tmp_path):
     """R2 잔여 — 재기동 recover 접수도 work.route(to·kind·thread)와 pending 을 정상 경로와 같게 갖는다."""
     _recovered_context(tmp_path)
+
+
+def _crash_run(root, step):
+    """자식 = 재기동 recover 중 Intake `after_state`(영수 state 기록 직후)에서 스스로 죽는다."""
+    return subprocess.run([sys.executable, os.path.abspath(__file__), str(root), step],
+                          env=dict(os.environ, FT2_ROUTE_CHILD="1"), capture_output=True, timeout=25)
+
+
+def _child_main(argv):
+    def exit_at(name):
+        if name == argv[1]:
+            os._exit(73)
+    route, _binder, _delivered, _client, _band = _env(argv[0], capacity=64, intake_step=exit_at)
+    route.receive.recover()
+    return 0
+
+
+def _lookup_once(tmp, route_cls=route_mod.SlackRoute):
+    """lookup 성공도 같은 settle 1곳을 지나고, 같은 command 재실행은 pending 중복 0."""
+    root = tmp / "lookup_recover"
+    route, binder, _delivered, _client, _band = _env(root, route_cls, capacity=1)
+    key = route_mod.thread_key(_event())
+    binder.bind(key, "seat-a")
+    route.route(_event())
+    binder.close(key)
+    answer = _reply(T2, "닫힌 thread 미접수")
+    assert route.route(answer)["state"] == "full"  # 영수 0
+    assert _crash_run(root, "after_state").returncode == 73  # 용량 확대 재기동 recover 중 사망
+
+    rebooted, _binder, _d2, client2, band2 = _env(root, route_cls, capacity=64)  # 재기동
+    command = slack.command_for(slack.message_key(answer))
+    first = rebooted.receive.recover()
+    assert (first[0]["state"], first[0]["via"]) == ("dispatched", "lookup")  # 영수는 lookup 으로만 보인다
+    assert len(rebooted.pending("seat-next")) == 1
+    assert len(band2.notify) == 1  # desk 알림 1
+
+    again = rebooted.receive.recover()  # 재실행 1회 더
+    rebooted.settled(command, client2.lookup(command))  # 같은 settle 재실행 = 중복 0 가드
+    done = [row for row in rebooted.entries(route_mod.ROUTE)
+            if row.get("command") == command and row["state"] == "dispatched"]
+    assert (len(again), len(done), len(band2.notify)) == (0, 1, 1)  # 이미 dispatched = 행·알림 그대로 1
+    assert len(rebooted.entries(route_mod.SEEN)) == 1  # 소비 표식도 1(중복 읽음 0)
+    assert [item["command"] for item in client2.records()].count(command) == 1  # Intake 중복 0
+
+
+def test_r2_lookup_recovery_restores_pending_once(tmp_path):
+    """R2 복구 경계 — DA recovery_cut: after_state 에서 죽은 접수를 lookup 재기동이 1회만 정산한다."""
+    _lookup_once(tmp_path)
+
+
+if __name__ == "__main__":
+    sys.exit(0 if os.environ.get("FT2_ROUTE_CHILD") != "1" else _child_main(sys.argv[1:]))
