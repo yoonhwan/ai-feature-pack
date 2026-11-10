@@ -251,6 +251,7 @@ TRAP_RM_RF_BODY = re.compile(r'^rm -rf "\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?"$')
 # NG3: 재대입을 «줄 머리» 로만 세면 `true; T=/` · `local T=/` · `T+=/../..` · `read -r T` · `for T in /` 가 새어나간다 — 맨 이름 출현으로 센다
 MKTEMP_LINE = r"(?m)^[ \t]*(?:export[ \t]+)?%s[ \t]*=[ \t]*"   # 줄 머리 대입만(주석·문자열 속 대입은 안 센다)
 MKTEMP_NAME = r"(?<![$\w{])%s(?![A-Za-z0-9_])"                # «쓰는 자리»($T·${T})가 아닌 맨 이름 — 대입·재대입·read·for 를 전부 센다
+MKTEMP_CASSIGN = r"\$\{%s:?="                                    # ${T:=…}·${T=…} 조건부 대입 = 읽기가 아니라 «추가 대입»(DA② R2)
 MKTEMP_TAIL = r"[ \t]*(?:;[ \t]*trap\s+.*)?$"                  # 값 뒤 = 줄 끝 또는 «; trap …» 하나
 
 
@@ -265,7 +266,8 @@ def mktemp_trap_exempt(path, txt, show=None):   # → True = «그 시험이 방
     if not body:
         return False
     v = re.escape(var.group(1))
-    if len(re.findall(MKTEMP_NAME % v, body)) != 1:   # 맨 이름이 «정확히 1번»(재대입·추가 대입·read·for = 대상이 그 임시 폴더가 아니다 · NG3)
+    uses = re.findall(MKTEMP_NAME % v, body) + re.findall(MKTEMP_CASSIGN % v, body)
+    if len(uses) != 1:   # 맨 이름 + 조건부 대입이 «정확히 1번»(재대입·read·for·${T:=…} = 대상이 그 임시 폴더가 아니다 · NG3·R2)
         return False
     return bool(re.search(MKTEMP_LINE % v + MKTEMP_VALUE + MKTEMP_TAIL, body))   # 값 «전체» 가 mktemp -d (DA② R1-a: 뒤에 붙은 /../.. = destroy)
 

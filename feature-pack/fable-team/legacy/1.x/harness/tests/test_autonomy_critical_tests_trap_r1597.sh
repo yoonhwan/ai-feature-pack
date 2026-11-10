@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # test_autonomy_critical_tests_trap_r1597.sh — r1597 «tests/ 의 mktemp -d → trap EXIT rm -rf» 줄만 D2 크리티컬 destroy 에서 뺀다
-#   ⓐ 예외 성립(두 줄 꼴 · r1592 한 줄 꼴 · 따옴표 없는 꼴 · 템플릿 인자) ⓑ 반례 ①~⑫(전부 kind=destroy · ⑧ = NG1 앞 명령 · ⑩ = NG2 $(mktemp …) 안 명령 · ⑪ = DA② R1 대입 위치·값 전체 · ⑫ = NG3 재대입 10종)
-#   ⓒ 키트 사본 cmp0 · 변이 M1(경로)·M2(mktemp 확인)·M3(변수 일치)·M4(줄 전체 긍정)·M5(앞머리 [^;]*)·M6(값 전체)·M7(줄 머리)·M8(개수 검사)
+#   ⓐ 예외 성립(두 줄 꼴 · r1592 한 줄 꼴 · 따옴표 없는 꼴 · 템플릿 인자) ⓑ 반례 ①~⑫(전부 kind=destroy · ⑧ = NG1 앞 명령 · ⑩ = NG2 $(mktemp …) 안 명령 · ⑪ = DA② R1 대입 위치·값 전체 · ⑫ = NG3 재대입 10종 · ⑬ = DA② r2 조건부 대입)
+#   ⓒ 키트 사본 cmp0 · 변이 M1(경로)·M2(mktemp 확인)·M3(변수 일치)·M4(줄 전체 긍정)·M5(앞머리 [^;]*)·M6(값 전체)·M7(줄 머리)·M8(개수 검사)·M9(조건부 대입)
 #   ⓒ 의 «기존 시험 2개 rc 불변» 은 따로 돌린다(시험 1개 70초 상한 — test_autonomy_standing_d2_r1577.sh 가 41초 · 카드 r1597 증거 줄)
 #   격리: 임시 리포(origin bare + clone) · 실 상태·실 원격·press 0(나노는 쏘지 않는다)
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"
@@ -55,6 +55,9 @@ pr tests/t_r1597_12g.sh "$MK" '(cd "$T"; T=$PWD/..)' "$TRP"; crit "$PRSHA"; [ "$
 pr tests/t_r1597_12h.sh "$MK" 'T+=/../..' "$TRP"; crit "$PRSHA"; [ "$rc" = 3 ] && eval "$DEST"; ck 'ⓑ12h T+=/../.. → kind=destroy' $?
 pr tests/t_r1597_12i.sh "$MK" 'read -r T' "$TRP"; crit "$PRSHA"; [ "$rc" = 3 ] && eval "$DEST"; ck 'ⓑ12i read -r T → kind=destroy' $?
 pr tests/t_r1597_12j.sh "$MK" 'for T in /' "$TRP"; crit "$PRSHA"; [ "$rc" = 3 ] && eval "$DEST"; ck 'ⓑ12j for T in / → kind=destroy' $?
+# ── ⓑ13 DA② r2 HOLD(R2) — 조건부 대입 ${T:=…}·${T=…} 도 «추가 대입»
+pr tests/t_r1597_13a.sh "$MK" ': "${T:=/}"' "$TRP"; crit "$PRSHA"; B13="$PRSHA"; [ "$rc" = 3 ] && eval "$DEST"; ck 'ⓑ13a 조건부 대입 : ${T:=/} → kind=destroy' $?
+pr tests/t_r1597_13b.sh "$MK" ': "${T=/}"' "$TRP"; crit "$PRSHA"; [ "$rc" = 3 ] && eval "$DEST"; ck 'ⓑ13b 조건부 대입 : ${T=/} → kind=destroy' $?
 # ── ⓒ 키트 사본 = bin 사본(두 파일)
 for f in autonomy_scope_rules.py autonomy_scope_classify.py; do cmp -s "$BIN/$f" "$BIN/../kit/fable-team/bin/$f"; ck "ⓒ 키트 사본 cmp0 $f" $?; done
 # ── 변이 M1~M4 — 제품 파일 1곳씩 지우면 그 칸이 «빨강»(예외가 잘못 열린다)
@@ -82,6 +85,8 @@ mut m6 autonomy_scope_rules.py 'MKTEMP_LINE % v + MKTEMP_VALUE + MKTEMP_TAIL' 'M
 mc m6 "$B11"; [ "$rc" = 0 ] && [ "$out" = CRITICAL-OK ]; ck "ⓘM6 값 «전체» 조건 지우기(접두만) → ⓑ11a 가 예외로 새어 통과(빨강)" $?
 mut m7 autonomy_scope_rules.py 'MKTEMP_LINE = r"(?m)^' 'MKTEMP_LINE = r"(?m)'
 mc m7 "$B11B"; [ "$rc" = 0 ] && [ "$out" = CRITICAL-OK ]; ck "ⓘM7 «줄 머리» 긍정 지우기 → ⓑ11b(주석 줄 대입)가 예외로 새어 통과(빨강)" $?
-mut m8 autonomy_scope_rules.py 'if len(re.findall(MKTEMP_NAME % v, body)) != 1:' 'if len(re.findall(MKTEMP_LINE % v, body)) != 1:'
+mut m8 autonomy_scope_rules.py 'if len(uses) != 1:' 'if len(re.findall(MKTEMP_LINE % v, body)) != 1:'
 mc m8 "$B12"; [ "$rc" = 0 ] && [ "$out" = CRITICAL-OK ]; ck "ⓘM8 개수 검사를 줄 머리로 되돌림 → ⓑ12a 가 예외로 새어 통과(빨강)" $?
+mut m9 autonomy_scope_rules.py ' + re.findall(MKTEMP_CASSIGN % v, body)' ''
+mc m9 "$B13"; [ "$rc" = 0 ] && [ "$out" = CRITICAL-OK ]; ck "ⓘM9 조건부 대입 집계 지우기 → ⓑ13a 가 예외로 새어 통과(빨강)" $?
 [ "$fail" = 0 ] && echo "ALL PASS" || { echo "FAILED $fail"; exit 1; }
