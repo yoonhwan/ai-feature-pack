@@ -15,20 +15,20 @@ cls() { local c="$1"; shift; out="$(python3 "$c" classify "$SHA" --repo "$W" --s
 s0=$SECONDS
 
 # 기준 저장소: BASE 위에서 딴 가지 · main 은 한 칸 앞(ff 아님 — classify 기존 시험과 같은 꼴)
-mkdir -p "$W/feature-pack/fable-team/harness/kit/fable-team/templates"; echo d > "$W/feature-pack/fable-team/a.md"
-cp "$PT" "$W/feature-pack/fable-team/harness/kit/fable-team/templates/scope-classes-pack.tsv"
+mkdir -p "$W/feature-pack/fable-team/legacy/1.x/harness/kit/fable-team/templates"; echo d > "$W/feature-pack/fable-team/legacy/1.x/a.md"
+cp "$PT" "$W/feature-pack/fable-team/legacy/1.x/harness/kit/fable-team/templates/scope-classes-pack.tsv"
 cm "$W" base2; git -C "$W" push -q origin main; BASE="$(sha "$W" HEAD)"
 echo m1 > "$W/m1.txt"; cm "$W" m1; git -C "$W" push -q origin main; git -C "$W" fetch -q origin
 ST="$T/scope-table.tsv"   # r1198 의 scope-table 종류 줄(표 파일 자신) + 팩 표
-{ printf 'forbid\tscope-table\t^feature-pack/fable-team/harness/kit/fable-team/templates/scope-classes-[^/]*\\.tsv$\n'; cat "$PT"; } > "$ST"
+{ printf 'forbid\tscope-table\t^feature-pack/fable-team/legacy/1\\.x/harness/kit/fable-team/templates/scope-classes-[^/]*\\.tsv$\n'; cat "$PT"; } > "$ST"
 
 # ⓐ R1~R3 — 경계 종류는 학습표에 있어도 FORBID · learned 0
 mk r1 'echo h > hooks.txt';                                     cls "$CLS" --table "$PT" --learned repo-outside
 [ "$rc" = 3 ] && [[ "$out" == "FORBID kind=repo-outside"* ]] && [[ "$out" != *learned* ]]; ck "ⓐ R1 학습표 repo-outside · 표 밖 경로 → FORBID kind=repo-outside(learned 0)" $?
 R1SHA="$SHA"
-mk r2 'echo "# x" >> feature-pack/fable-team/harness/kit/fable-team/templates/scope-classes-pack.tsv'; cls "$CLS" --table "$ST" --learned scope-table
+mk r2 'echo "# x" >> feature-pack/fable-team/legacy/1.x/harness/kit/fable-team/templates/scope-classes-pack.tsv'; cls "$CLS" --table "$ST" --learned scope-table
 [ "$rc" = 3 ] && [[ "$out" == "FORBID kind=scope-table"* ]] && [[ "$out" != *learned* ]]; ck "ⓐ R2 학습표 scope-table · 표 파일 바꿈 → FORBID kind=scope-table" $?
-mk r3 'echo n > feature-pack/fable-team/b.md; chmod 755 feature-pack/fable-team/b.md'; cls "$CLS" --table "$PT" --learned mode
+mk r3 'echo n > feature-pack/fable-team/legacy/1.x/b.md; chmod 755 feature-pack/fable-team/legacy/1.x/b.md'; cls "$CLS" --table "$PT" --learned mode
 [ "$rc" = 3 ] && [[ "$out" == "FORBID kind=mode"* ]] && [[ "$out" != *learned* ]]; ck "ⓐ R3 학습표 mode · 새 파일 100755 → FORBID kind=mode" $?
 mk r1x 'echo h > hooks.txt';                                    cls "$CLS" --table "$PT" --learned billing,repo-outside,mode
 [ "$rc" = 3 ] && [[ "$out" == "FORBID kind=repo-outside"* ]]; ck "ⓐ 학습표 여러 행(billing·repo-outside·mode) 섞여도 R1 FORBID" $?
