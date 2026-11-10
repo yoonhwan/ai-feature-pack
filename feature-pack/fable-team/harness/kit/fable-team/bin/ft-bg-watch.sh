@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # ft-bg-watch.sh — 좌석 밖 «끝이 있는 반복» 감시 도우미 (r1572 · 카드 r1572-detached-watch-ttl · 수용 ⓐ)
 #   본체 = «1회 작업 명령»(한 번 돌고 끝나는 명령). 도우미가 --every 간격마다 1회씩 부르고, 회차 «시작 전» 에 --end-at 을 검사한다.
+#   대기는 min(--every, 남은 기한) — 기한을 넘겨 남지 않는다(DA R2).
 #   끝 시각이 지났으면 새 회차 0 · 장부 «끝남» · 도우미 종료. 회차가 상한(기본 25초)을 넘으면 «그 회차 자식만» 끝내고
 #   장부 «실패 — 1회 작업이 안 끝남» + 소유자 1통 + 도우미 종료(새 회차 0). 상주형(본체가 스스로 도는 while True)은 대상이 아니다 — 그건 ft-bg-loop.sh 쪽.
-#   필수 4개 — --seat <소유 좌석> --until <끝 조건 1줄> --end-at <epoch|YYYY-MM-DDTHH:MM[:SS]> --every <초> · 없거나 못 읽으면 «실행 전» rc2(기본값 대체 0)
+#   필수 4개 — --seat <소유 좌석> --until <끝 조건 1줄> --end-at <epoch|YYYY-MM-DDTHH:MM[:SS]> --every <초> · 옵션만 있고 값이 없어도 «실행 전» rc2(기본값 대체 0)
 #   장부 = <데이터 루트>/.fable-team/state/bg-watch.tsv (env FT_BGW_LEDGER) · 한 줄 = event seat uid pid lstart cmdhash end_at every until ts cmd (탭 11칸)
 #     up=띄움 · round=회차(«시각만» 적고 성공 표시 0) · done=끝남 · fail=실패 — 1회 작업이 안 끝남
 #   출력 1줄 `bg-watch seat=<좌석> rounds=<n> end=deadline|fail rc=<n>` · kill 은 «이 도우미의 회차 자식» 만(다른 프로세스 0)
@@ -13,13 +14,16 @@ set -uo pipefail
 USAGE="usage: $0 --seat <좌석> --until <끝 조건 1줄> --end-at <epoch|YYYY-MM-DDTHH:MM[:SS]> --every <초> -- <1회 명령…>"
 SEAT=""; UNTIL=""; END=""; EVERY=""
 while [ $# -gt 0 ]; do case "$1" in
-  --seat) SEAT="${2:-}"; shift 2;; --until) UNTIL="${2:-}"; shift 2;; --end-at) END="${2:-}"; shift 2;; --every) EVERY="${2:-}"; shift 2;;
+  --seat|--until|--end-at|--every)
+    { [ $# -ge 2 ] && [ -n "${2:-}" ]; } || { echo "$USAGE — $1 값이 없다(실행 0)" >&2; exit 2; }
+    case "$1" in --seat) SEAT="$2";; --until) UNTIL="$2";; --end-at) END="$2";; --every) EVERY="$2";; esac; shift 2;;
   --) shift; break;; *) echo "$USAGE" >&2; exit 2;; esac; done
 { [ -n "$SEAT" ] && [ -n "$UNTIL" ] && [ -n "$END" ] && [[ "$EVERY" =~ ^[1-9][0-9]*$ ]] && [ $# -gt 0 ]; } ||
   { echo "$USAGE — --seat·--until·--end-at·--every·명령이 모두 필요하다(기본값 대체 0 · 실행 0)" >&2; exit 2; }
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 now() { if [ -n "${FT_BGW_NOW_CMD:-}" ]; then eval "$FT_BGW_NOW_CMD"; else date +%s; fi; }
 waits() { if [ -n "${FT_BGW_SLEEP_CMD:-}" ]; then eval "$FT_BGW_SLEEP_CMD $1"; else sleep "$1"; fi; }
+wait_sec() { local left w; left=$(( END_AT - $(now) )); w="$1"; [ "$left" -lt "$w" ] && w="$left"; [ "$w" -gt 0 ] && waits "$w"; }
 END_AT="$(python3 -c 'import sys,time
 s=sys.argv[1].strip()
 try: print(int(s)); raise SystemExit
@@ -64,5 +68,5 @@ while :; do
   fi
   wait "$CP" 2>/dev/null; ROUNDS=$((ROUNDS+1))
   ROW round "$SEAT" "$UID_N" "$PID_N" "${LST:--}" "$CMDH" - - - "$T" -
-  waits "$EVERY"
+  wait_sec "$EVERY"      # R2 — 간격과 남은 기한 중 작은 값만 기다린다(기한을 넘겨 남지 않는다)
 done

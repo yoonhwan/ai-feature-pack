@@ -17,7 +17,7 @@ COMM="$(ft_comm_dir "$HERE" 2>/dev/null)" || COMM=""
 MBOX="${FT_BGW_MBOX:-}"; [ -n "$MBOX" ] || [ -z "$COMM" ] || MBOX="$COMM/mbox.sh"
 LDG="${FT_BGW_LEDGER:-}"
 if [ -z "$LDG" ]; then DR="$(ft_data_root "$HERE" 2>/dev/null)" || DR=""; LDG="${DR:-.}/.fable-team/state/bg-watch.tsv"; fi
-FT_BGW_MBOX_X="$MBOX" FT_BGW_LEDGER_X="$LDG" FT_BGW_SEATS_X="${COMM:+$(dirname "$COMM")}" exec python3 - <<'PY'
+FT_BGW_MBOX_X="$MBOX" FT_BGW_LEDGER_X="$LDG" FT_BGW_SEATS_X="${FT_BGW_SEATS_X:-${COMM:+$(dirname "$COMM")}}" exec python3 - <<'PY'
 import glob, hashlib, json, os, re, subprocess, sys, time
 
 def run(tpl, **kw):
@@ -33,16 +33,25 @@ def alive(seat):
     try: return subprocess.run(tpl.format(seat=seat), shell=True, capture_output=True, timeout=7).returncode == 0
     except Exception: return False
 
-def desk():                       # 소유자를 모르거나 그 좌석이 닫혔을 때 받는 자리
-    if os.environ.get("FT_BGW_DESK"): return os.environ["FT_BGW_DESK"]
-    js = []
+def roster():                     # 명부(seats*.json) 전부 — 현역 판정은 «명부 글자» 로만 한다
+    js = {}
     for p in sorted(glob.glob(os.path.join(os.environ.get("FT_BGW_SEATS_X") or "", "seats*.json"))):
-        try: js.append(json.load(open(p, encoding="utf-8")))
+        try: js[p] = json.load(open(p, encoding="utf-8"))
         except Exception: pass
-    for j in js:
-        for k in [k for k, v in j.items() if not k.startswith("_") and isinstance(v, dict) and "desk" in k]:
-            if alive(k): return k
-    return next((j["_master"] for j in js if j.get("_master")), "desk")
+    return js
+
+def desk(js):                     # 받는 자리 = 명부 포인터(_desk) 하나(DA R3) — 이름 글자·세션 존재·_master 로 대체 0
+    if os.environ.get("FT_BGW_DESK"): return os.environ["FT_BGW_DESK"]
+    for j in js.values():
+        if j.get("_desk"): return j["_desk"]
+    return ""
+
+def closed(js, seat):             # 닫힘 = 명부가 은퇴(_replaced_by)로 적었거나, 명부에 없고 세션도 없다
+    if not seat: return True
+    for j in js.values():
+        row = j.get(seat)
+        if isinstance(row, dict): return bool(row.get("_replaced_by"))
+    return not alive(seat)
 
 def send(to, body):               # 쪽지 1통 — 실패면 알림 완료로 적지 않는다
     m = os.environ.get("FT_BGW_MBOX_X") or ""
@@ -55,7 +64,7 @@ def send(to, body):               # 쪽지 1통 — 실패면 알림 완료로 �
 
 UID = os.environ.get("FT_BGW_UID") or str(os.getuid())
 LDG = os.environ["FT_BGW_LEDGER_X"]; SEEN = os.environ.get("FT_BGW_SEEN") or LDG + ".seen"
-reg, closed = {}, set()          # 키 = uid:pid:lstart:명령줄해시 — lstart 이 다르면 다른 인스턴스
+reg, ended = {}, set()          # 키 = uid:pid:lstart:명령줄해시 — lstart 이 다르면 다른 인스턴스
 try: LEDGER = open(LDG, encoding="utf-8").read().splitlines()
 except OSError: LEDGER = []
 for ln in LEDGER:
@@ -65,18 +74,20 @@ for ln in LEDGER:
     if f[0] == "up":
         try: reg[k] = (f[1], int(f[6]))
         except ValueError: reg[k] = (f[1], -1)
-    elif f[0] in ("done", "fail"): closed.add(k)
+    elif f[0] in ("done", "fail"): ended.add(k)
 try: seen = {l.strip() for l in open(SEEN, encoding="utf-8") if l.strip()}
 except OSError: seen = set()
 LAUNCHD = {l.split()[0] for l in run(os.environ.get("FT_BGW_LAUNCHCTL_CMD") or "launchctl list").splitlines() if l.split() and l.split()[0].isdigit()}
 SHELLRE = re.compile(r"(^|/)(bash|sh|zsh|dash|python[0-9.]*|Python[0-9.]*)$")  # Python.framework 실행 경로(/…/MacOS/Python) 포함
 WATCHRE = re.compile(r"watch|loop|while|monitor|tail -f|nohup|daemon", re.I)
+MCPRE = re.compile(r"mcp|serena|probe|lsp|language-server", re.I)   # 파이프만으로 MCP 라 단정하지 않는다(DA R4)
 def skip_reason(cmd):             # 명령줄만으로 «감시 꼴» 이 아닌 것을 먼저 거른다(오탐 0 · ⓒ)
     t = cmd.split()
     if t and t[0].rsplit("/", 1)[-1] == "tmux": return "tmux 서버"
     if t and SHELLRE.search(t[0]) and WATCHRE.search(cmd): return ""     # 인터프리터 + 감시 꼴 = 대상
     if t and (".app/" in t[0] or t[0].startswith("/Applications/")): return "사람 앱"   # Python.app 처럼 인터프리터 꼴은 위에서 먼저 걸러진다
     return "감시 꼴 아님"
+JS = roster()                     # 명부는 1회만 읽는다
 S = {"sent": 0, "skip": 0, "na": 0}
 def note(kind, msg):
     print(kind, msg)
@@ -94,15 +105,16 @@ for ln in run(PS).splitlines():
     if pid in LAUNCHD: note("SKIP", "%s launchd 소유" % pid); continue
     if lst == "-": note("NA", "%s 판정 불가 — 시작 시각을 못 읽음" % pid); continue
     k = "%s:%s:%s:%s" % (u, pid, lst, hashlib.sha1(cmd.encode()).hexdigest()[:12])
-    if "tPIPE" in run(os.environ.get("FT_BGW_LSOF_CMD") or "lsof -a -p {pid} -d 0,1 -Fft", pid=pid): note("SKIP", "%s 현역 MCP(파이프 연결)" % pid); continue
-    if k in closed: note("SKIP", "%s 장부 끝남" % pid); continue
+    if MCPRE.search(cmd) and "tPIPE" in run(os.environ.get("FT_BGW_LSOF_CMD") or "lsof -a -p {pid} -d 0,1 -Fft", pid=pid): note("SKIP", "%s 현역 MCP(파이프 연결)" % pid); continue
+    if k in ended: note("SKIP", "%s 장부 끝남" % pid); continue
     seat, reason = "", "장부밖"
     if k in reg:
         seat, end_at = reg[k]
         if now() < end_at: note("SKIP", "%s 장부 안·기한 전" % pid); continue
         reason = "기한지남"
     if k in seen: note("SKIP", "%s 이미 1통" % pid); continue
-    to = seat if seat and alive(seat) else desk()
+    to = desk(JS) if closed(JS, seat) else seat
+    if not to: note("NA", "%s 판정 불가 — 명부에 _desk 없음(알림 완료 0)" % pid); continue
     body = ("좌석 밖 상주 감시가 장부 밖이거나 끝 시각이 지났다(점검 r1572 · 자동 종료 0)\n- pid %s · 시작 %s · 사유 %s\n- 명령: %s\n"
             "- 끝내는 사람 = 소유자 또는 h · 등록 = ft-bg-watch.sh --seat <좌석> --until <끝 조건> --end-at <끝 시각> --every <초>\n- 장부 = %s"
             % (pid, lst, reason, cmd[:100], LDG))
