@@ -135,6 +135,9 @@ _absent_grace() {
 }
 uf_watch() {  # <to> <계기 쪽지 seq>
   local to="$1" ft="$DIR/.." o rc=0 hm mk af ev q grc=0
+  # ★r1559★ 확장이 깨우는 좌석(pi ft-mbox-wake.ts)은 감시 프로세스를 «안 쓴다» — watch 판정 자체가 늘 «없음» 이라 경보가 늘 거짓이다.
+  #   그래서 uf_watch 도 확장 좌석은 0(끈 이유는 stderr 1줄 · no_silent_fallback). claude 좌석 판정은 그대로.
+  if ext_wake_seat "$to"; then echo "WATCH 판정 0 — pi 확장 좌석 $to(감시 프로세스 없음 · 긴급 0통)" >&2; return 0; fi
   o="$(bash "${FT_BIN:-$DIR/../bin}/ft-mbox.sh" watch-alive "$to" 2>/dev/null)" || rc=$?
   [ "$rc" = 0 ] && return 0
   case "$rc:$o" in 3:"NO watch"*) ;; *) db="${db}(WATCH 판정 불가)"; echo "WARN planner watch 판정 불가 rc=$rc $to: ${o:0:80}" >&2; return 0;; esac
@@ -226,7 +229,7 @@ case "$cmd" in
     inbox_ingest "$seq"
     if inbox_must_ring; then notify=1; fi
     uf=0; if user_facing "$to"; then notify=0; uf=1; fi
-    if [ "$ew" = 1 ]; then notify=0; fi                                # ★r1524★ 확장 좌석 = pane 0(확장이 custom 턴으로 깨운다) · uf_watch 는 user_facing 그대로
+    if [ "$ew" = 1 ]; then notify=0; fi                                # ★r1524★ 확장 좌석 = pane 0(확장이 custom 턴으로 깨운다) · ★r1559★ uf_watch 도 확장 좌석 0
     # ★`[ ] && doorbell` 로 쓰지 않는다★ — set -e 에서 notify=0 이면 리스트가 실패로 끝나 exit 1.
     if [ "$notify" = 1 ] && [ "$gate" = sent ]; then db="$(doorbell_status "$dbto" "$dbf" "$seq")"; else db=quiet; fi
     # 예약은 됐는데 «울리지 않기로» 했으면 되돌린다 — 깨움 1회 = 차감 1회(r1476).
