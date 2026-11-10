@@ -250,7 +250,7 @@ class Journal:
             receipts = dict(base.get("receipts") or {})
             receipts.update({rec["command"]: rec["attempt"] for rec in folded if rec["kind"] == "accept"})
             new_state = dict(state, journal_base={
-                "upto": new_upto, "count": len(folded), "receipts": receipts,
+                "upto": new_upto, "count": (base.get("count") or 0) + len(folded), "receipts": receipts,
                 "proj": {name: proj.get(name) or {} for name in PROJ_FIELDS}})
             size, limit = self.envelope_for(new_state), self._limit(True)
             if self.usage() + size > limit:

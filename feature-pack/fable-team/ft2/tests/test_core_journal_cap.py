@@ -190,12 +190,17 @@ def _strip(value):
     return [_strip(item) for item in value] if isinstance(value, list) else value
 
 
+ACCEPTS = ("card-w1", "card-u1")          # card-w1 = 회수되는 accept · card-u1 = 보존되는 accept
+
+
 def _contrast(node):
-    """보정 R1 회수 전후 대조 6항 — ⓐ 9칸·revision ⓑ lookup ⓒ 재submit 낱말 ⓓ 재assign ⓔ recover ⓕ claim gen."""
+    """보정 R1 회수 전후 대조 6항 — ⓐ 9칸·revision ⓑ lookup ⓒ 재submit 은 «모든 접수 command»
+    (회수된 accept 포함 · DA #280086 NG1) ⓓ 재assign ⓔ recover ⓕ claim gen."""
     rs, state = _rs(node), _state(node)
     return {"nine": _strip({name: state.get(name) for name in journal.PROJ_FIELDS}),
-            "revision": state["revision"], "lookup": (rs.lookup("card-u1") or (None,)).result
-            if rs.lookup("card-u1") else None, "resubmit": rs.submit("card-u1", "x" * 40).result,
+            "revision": state["revision"],
+            "lookup": [getattr(rs.lookup(cmd), "result", None) for cmd in ACCEPTS],
+            "resubmit": [rs.submit(cmd, "x" * 40).result for cmd in ACCEPTS],
             "assign": node.assign("W1", "h7", evidence=EV).reason, "recover": node.recover(),
             "claim": node.ex._claim_plan(state, rs.records(), "U1", "h1")[0]}
 
@@ -262,6 +267,26 @@ def test_b2_last_seq_segment_is_never_reclaimed(tmp_path):
     assert first["result"] == RECLAIMED and len(first["reclaimed"]) == len(bounds) - 1
     assert len(node.rs.journal.closed()) == 1                        # 마지막 segment 는 남는다
     assert node.rs.records()[-1]["seq"] == top                       # seq 되감김 0
+
+
+def test_b3_consecutive_reclaims_accumulate_base_count(tmp_path):
+    """R1 ①(DA #280086 NG3) — 2회째 회수는 base.count = «옛 count + 새로 덮은 줄» 로 누적된다.
+    seq 는 1부터 이어지므로 count == upto 가 불변식이고, revision 하한 = count + 남은 줄 수다."""
+    node = _d(tmp_path / "b3")
+    journal, rs = node.rs.journal, node.rs
+    for work in ("W1", "W2", "W3"):
+        _close(node, work)
+    first = journal.reclaim()
+    base1 = journal.state().get("journal_base") or {}
+    assert first["reclaimed"] and base1["count"] == base1["upto"] == first["upto"]
+    for work in ("W4", "W5"):
+        _close(node, work)
+    second = journal.reclaim()
+    base2, state = journal.state().get("journal_base") or {}, journal.state()
+    assert second["reclaimed"] and base2["upto"] > first["upto"]
+    assert base2["count"] == base2["upto"]                                  # 누적(옛 count + 새 줄)
+    assert record.recover_state(state, rs.records())["revision"] == max(
+        state["revision"], base2["count"] + len(rs.records()))
 
 
 def test_c_reclaim_crash_resume_is_idempotent(tmp_path):
@@ -411,7 +436,8 @@ def test_r2_3_recover_capacity_vs_busy_words(tmp_path):
     """DA probe «recover_refusal» — BUSY(잠금) · «용량 부족»(예약) · «복구 필요»(판독 불가)를 가른다."""
     node = _d(tmp_path / "r23")
     assert node.assign("W1", "h1", evidence=EV).result == OK
-    assert node.recover() == {"delivered": ["a1"], "reassessed": []}      # 성공 모양 = ⓖ 기존 시험 그대로
+    out = node.recover()
+    assert out.pop("result") == OK and out == {"delivered": ["a1"], "reassessed": []}   # R2-③
     handle = open(node.rs.journal.lock_path, "a+", encoding="utf-8")
     fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
     try:

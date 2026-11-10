@@ -82,7 +82,8 @@ class Dispatch:
         try:
             if lock is not None:
                 self.rs.journal.reserve(k)                  # DA R2-①: 첫 쓰기 전 호출 단위 합산 예약
-                return body(self.ex._state_records(), work, *args)   # 성공 모양은 그대로(ⓖ)
+                out = body(self.ex._state_records(), work, *args)
+                return out if empty is None else dict(out, result=OK)   # R2-③: 기존 칸 + result
         except ValueError as exc:      # 모듈 사본(_load)마다 클래스가 달라 낱말 칸으로 가른다
             word, reason = getattr(exc, "word", CORRUPT), str(exc)
             written = getattr(exc, "written", False)

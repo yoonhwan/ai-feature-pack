@@ -252,7 +252,8 @@ def test_f_case_06_crash_before_delivery_redelivers_same_attempt(tmp_path):
 def test_g_case_07_completion_reassesses_releases_and_recovers_owner(tmp_path):
     node = _delivered(tmp_path / "e4")
     assert node.complete("W3", "a1").released == ["shared-slot"]
-    assert node.recover() == {"delivered": [], "reassessed": []}                   # 멱등
+    out = node.recover()                                                          # 멱등
+    assert out.pop("result") == OK and out == {"delivered": [], "reassessed": []}
     _check(_obs(node, 1), _want("07-e4n-complete-reassess.json", 0))               # E4nn
 
 
@@ -341,7 +342,8 @@ def test_k2_generation_and_delivery_intent_survive_checkpoint_crash(tmp_path):
     node = _d(root)
     assert node.ex.start("W3", "h1", 2).result == STALE                             # 옛 gen = 낡은 실행권
     assert node.ex.start("W3", "h1", 1).result == OK                                # journal 세대 유효본
-    assert node.recover() == {"delivered": ["a1"], "reassessed": []}
+    out = node.recover()
+    assert out.pop("result") == OK and out == {"delivered": ["a1"], "reassessed": []}
     state = node.ex._state_records()[0]
     assert (state["reservations"]["shared-slot"]["attempt"], state["deliveries"]["W3"]) == ("a1", ["a1"])
     assert node.recover()["delivered"] == []
