@@ -163,6 +163,15 @@ uf_watch() {  # <to> <계기 쪽지 seq>
 #   pipefail 이 그것을 파이프라인 rc 로 올린다. 호출부에서 `|| seq=""` 로 받는다.
 seq_of() { printf '%s\n' "$1" | grep -oE 'seq=[0-9]+' | head -1 | cut -d= -f2; }
 
+# ★r1562 다리(BRIDGED) — 다른 루트로 간 쪽지는 그 루트 mbox.sh(자식)가 자기 명부로 이미 판정·주입했다(r1309·r1524).
+#   보낸 쪽이 doorbell·inbox 적재·uf_watch 를 한 번 더 하면 받는 좌석이 «보낸 루트 mbox.sh recv» 를 실행한다(#278479 실측 10건).
+#   남는 일 = 예약한 깨움 예산 되돌림(울린 건 받는 루트다 — 깨움 1회 = 차감 1회) · 억제분 sweep(이 루트 몫) · 출력.
+bridged_out() {  # <py 출력 1줄> <gate> — 그 seq 는 «받는 루트 큐» 의 번호다(이 루트 큐에 없다).
+  if [ "$2" = sent ]; then wake_budget_refund "$dbto" send >/dev/null 2>&1 || true; fi
+  local fu; fu="$(doorbell_followup_sweep)"; fu="${fu//$'\n'/ }"
+  echo "$1 doorbell=bridged gate=$2${fu:+ $fu}"
+}
+
 # 인박스 적재(판정 425-B) — 큐 적재 직후 1줄 · 규칙표만 즉시(Haiku 는 ft-inbox 가 분리 실행) · 실패는 stderr WARN, 전송 rc 불변.
 #   적재 줄 `INGEST … cls=<분류>` 의 분류를 INBOX_CLS 에 둔다 — 알림 결정(inbox_must_ring)이 읽는다(판정 423 ③).
 inbox_ingest() {
@@ -222,6 +231,11 @@ case "$cmd" in
     fi
     py_out="$(python3 "$MBOXPY" send "$to" "$from" "${args[*]}" ${force[@]+"${force[@]}"})" || { _rc=$?; [ -z "$SK" ] || bash "$SE" abort "$SK"; [ "$gate" != sent ] || wake_budget_refund "$dbto" send >/dev/null 2>&1 || true; exit $_rc; }
     seq="$(seq_of "$py_out")" || seq=""
+    # ★r1562 — 다른 루트로 간 쪽지면 여기서 끝난다★(사유는 bridged_out 주석)
+    case "$py_out" in BRIDGED*)
+      [ -z "$SK" ] || bash "$SE" commit "$SK" --ref "bridged seq $seq" >/dev/null || true
+      bridged_out "$py_out" "$gate"; exit 0;;
+    esac
     # 억제분 seq 는 «확정 뒤» 에 적는다 — 발급 전에 적으면 그 번호가 아무것도 가리키지 않는다(r1476 T9).
     case "$gate" in held|budget) doorbell_record_held "$dbto" "$seq" "$gate";; esac
     [ -z "$SK" ] || bash "$SE" commit "$SK" --ref "seq $seq" >/dev/null || true
@@ -264,6 +278,7 @@ case "$cmd" in
     # relay 도 결국 send 를 타므로 출력에 `seq=` 가 있다 — 같은 번호를 창에도 싣는다.
     py_out="$(python3 "$MBOXPY" relay "$to" "$from" "$file" "${args[*]}")" || { _rc=$?; [ "$gate" != sent ] || wake_budget_refund "$dbto" send >/dev/null 2>&1 || true; exit $_rc; }
     seq="$(seq_of "$py_out")" || seq=""
+    case "$py_out" in BRIDGED*) bridged_out "$py_out" "$gate"; exit 0;; esac   # r1562 relay 도 같은 자리(relay 는 py 에서 send 를 탄다)
     case "$gate" in held|budget) doorbell_record_held "$dbto" "$seq" "$gate";; esac
     inbox_ingest "$seq"
     if inbox_must_ring; then notify=1; fi
