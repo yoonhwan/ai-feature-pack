@@ -50,6 +50,7 @@
 #   (3) 그 밖 = 지금처럼 경고 통과 + 1줄. 닫는 사건 = transcript 에 실 usage 가 생기면 연속 횟수 0. 감사 = bin/ft-distill-audit.sh
 #   판정 «가능한» 호출의 경고 250k·차단 300k·recv 250k 동작은 그대로(ⓔ).
 #   보정(arch#276 반례1): 연속 상한 도달 = «막음» 이 아니라 «ctx ≥ 차단선» 과 같은 allowlist 판정 — 인계서·쪽지·Read·후계는 통과, 일반 도구만 막는다.
+#   보정2(DA r1554 반례1·2): 판정 불가 모든 자리(tpath·scan·no-usage)가 fp_emit() 하나를 통과한다 · streak_reset 은 연속 횟수만 0 으로(알림 장부 notified 는 세션당 유지).
 set +e
 MODE="${1:-warn}"; shift
 WARN_AT_ARG=""; BLOCK_AT_ARG=""; RECV_AT_ARG=""
@@ -232,13 +233,12 @@ def streak_save(d):
         pass
 
 def streak_reset():
-    """r1554 ⓓ 닫는 사건 — transcript 에 실 usage 가 생기면 연속 횟수 0."""
-    p = streak_path()
-    if p:
-        try:
-            os.remove(p)
-        except Exception:
-            pass
+    """r1554 ⓓ 닫는 사건 — 실 usage 가 생기면 연속 횟수 0. ⓒ 알림 장부(notified)는 세션당 유지한다(DA 반례2)."""
+    st = streak_load()
+    if st["n"] <= 0:
+        return
+    st["n"] = 0
+    streak_save(st)
 
 def notify_leader(seat, master, why):
     """팀장 1줄 «[긴급] 증류 판정 불가 <좌석> <이유>» — r1553 과 같은 꼴. 실패도 사유 1줄(조용한 0 금지)."""
@@ -285,6 +285,16 @@ def failopen(reason, detail):
         time.strftime("%FT%T"), seat, session, reason, st["n"], FAILOPEN_MAX)
     return "seat", "pass", line, detail
 
+def fp_emit(fp):
+    """판정 불가 결과를 내보낸다. escalate = 기록 1줄 먼저 + ctx 를 차단선으로(아래 정상 allowlist 판정).
+    ★ 모든 판정 불가 자리(tpath/scan/no-usage)가 이 함수를 통과한다 — 한 자리만 빠지면 일반 도구가 통과한다(DA 반례1)."""
+    global ctx
+    br, act, ln, det = fp
+    if act != "escalate":
+        print("FAILOPEN|%s|%s|%s|%s" % fp); sys.exit(0)
+    print("FAILOPENLOG|%s" % ln)          # 기록 1줄 — 막을지는 아래 정상 흐름(allowlist)이 정한다
+    ctx = block_at                         # r1554 보정(arch#276 반례1): 판정 불가 막음 = «ctx ≥ 차단선» 과 같은 판정
+
 tpath = data.get("transcript_path", "")
 fp = None
 if not tpath or not os.path.isfile(tpath):
@@ -297,11 +307,7 @@ else:
         fp = failopen("scan-failed", "scan failed: %s" % e)
         model, usage, ctx = None, None, 0
 if fp:
-    br, act, ln, det = fp
-    if act != "escalate":
-        print("FAILOPEN|%s|%s|%s|%s" % fp); sys.exit(0)
-    print("FAILOPENLOG|%s" % ln)          # 기록 1줄 — 막을지는 아래 정상 흐름(allowlist)이 정한다
-    ctx = block_at                         # r1554 보정(arch#276 반례1): 판정 불가 막음 = «ctx ≥ 차단선» 과 같은 판정(인계서·쪽지·Read 통과)
+    fp_emit(fp)
 model = norm_model(model)
 if exempt_re and model and re.search(exempt_re, model):
     print("ALLOW|%d|exempt-model|%d|%d" % (ctx // 1000, warn_at // 1000, block_at // 1000)); sys.exit(0)
@@ -319,8 +325,8 @@ if ctx <= 0:
         fresh = False
     if fresh:
         print("ALLOW|0|fresh-session|%d|%d" % (warn_at // 1000, block_at // 1000)); sys.exit(0)
-    br, act, ln, det = failopen("no-usage", "no real usage record in transcript")
-    print("FAILOPEN|%s|%s|%s|%s" % (br, act, ln, det)); sys.exit(0)
+    fp = failopen("no-usage", "no real usage record in transcript")
+    fp_emit(fp)                             # r1554 보정(DA 반례1): no-usage 갈래도 같은 escalate 경로를 탄다(fp 를 반드시 채운다 — 아니면 아래 streak_reset 이 방금 쌓은 횟수를 0 으로 되돌린다)
 if not fp:
     streak_reset()  # r1554 ⓓ 닫는 사건 — 판정 가능한 호출이 왔으니 연속 횟수 0
 k = ctx // 1000

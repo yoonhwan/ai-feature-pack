@@ -70,13 +70,24 @@ cases() { # cases <이름> <훅>
     run "$h" hard "$REPO" - "$SEAT"
     [ "$(sends)" -eq 1 ] && ok "$n ⓒ2 4회째에도 1통(중복 0)" || bad "$n ⓒ2 중복 발송 $(sends)"; fi
 
-  if want ⓓ; then reset_all
-    run "$h" hard "$REPO" - "$SEAT"   # n=1
-    run "$h" hard "$REPO" - "$SEAT"   # n=2
+  if want ⓓ; then reset_all      # ⓓ + DA 반례2: 닫는 사건이 알림 장부를 지우지 않는다
+    run "$h" hard "$REPO" - "$SEAT"; run "$h" hard "$REPO" - "$SEAT"; run "$h" hard "$REPO" - "$SEAT"   # 3회 = 상한
     run "$h" warn "$REPO" "$(tx 100000)" "$SEAT"; r4="$RC"
-    { [ "$r4" -eq 0 ] && [ ! -f "$STREAK" ]; } && ok "$n ⓓ 닫는 사건 — 판정 가능해지면 연속 횟수 0" || bad "$n ⓓ streak 남음 rc=$r4 $(cat "$STREAK" 2>/dev/null)"
+    { [ "$r4" -eq 0 ] && grep -q '"n": 0' "$STREAK"; } && ok "$n ⓓ 닫는 사건 — 판정 가능해지면 연속 횟수 0" || bad "$n ⓓ rc=$r4 $(cat "$STREAK" 2>/dev/null)"
     run "$h" hard "$REPO" - "$SEAT"; r5="$RC"
-    { [ "$r5" -eq 0 ] && grep -q 'n=1/3' "$LOG"; } && ok "$n ⓓ2 닫힌 뒤 다시 1회부터(막힘 0)" || bad "$n ⓓ2 rc=$r5 $(tail -1 "$LOG")"; fi
+    { [ "$r5" -eq 0 ] && grep -q 'n=1/3' "$LOG"; } && ok "$n ⓓ2 닫힌 뒤 다시 1회부터(막힘 0)" || bad "$n ⓓ2 rc=$r5 $(tail -1 "$LOG")"
+    run "$h" hard "$REPO" - "$SEAT"; run "$h" hard "$REPO" - "$SEAT"; r6="$RC"
+    { [ "$r6" -eq 2 ] && [ "$(sends)" -eq 1 ]; } && ok "$n ⓓ3 두 번째 3연속도 막음 · 팀장 알림은 세션당 1통(반례2)" || bad "$n ⓓ3 rc=$r6 sends=$(sends)"; fi
+
+  if want ⓗ; then reset_all      # DA 반례1: no-usage 갈래도 escalate 를 allowlist 로 넘긴다
+    local t0; t0="$(printf '{"type":"assistant","message":{"model":"claude-opus-5-5"}}\n' > "$TMP/t0.jsonl"; echo "$TMP/t0.jsonl")"
+    run "$h" hard "$REPO" "$t0" "$SEAT"; h1="$RC"
+    run "$h" hard "$REPO" "$t0" "$SEAT"; h2="$RC"
+    run "$h" hard "$REPO" "$t0" "$SEAT"; h3="$RC"
+    run "$h" hard "$REPO" "$t0" "$SEAT"; h4="$RC"
+    runt "$h" hard Bash "{\"command\":\"bash $MBOX send byz-harness-master-pi#173 byz-t-seat#0 hi\"}" "$REPO" "$t0" "$SEAT"; hm="$RC"
+    { [ "$h1" -eq 0 ] && [ "$h2" -eq 0 ] && [ "$h3" -eq 2 ] && [ "$h4" -eq 2 ] && [ "$hm" -eq 0 ]; } \
+      && ok "$n ⓗ no-usage 4회 = rc0/0/2/2 · 쪽지는 rc0(반례1)" || bad "$n ⓗ rc=$h1/$h2/$h3/$h4/$hm"; fi
 
   if want ⓔ; then reset_all
     run "$h" warn "$REPO" "$(tx 100000)" "$SEAT"; e1="$RC"; o1="$(cat "$TMP/out")"
@@ -120,7 +131,9 @@ for spec in \
   'escalated = st["n"] >= FAILOPEN_MAX|escalated = False|ⓑ|ⓑ' \
   'if escalated and reason not in st["notified"]:|if escalated:|ⓑ|ⓒ' \
   'streak_reset()  # r1554|pass  # r1554|ⓓ|ⓓ' \
-  'return "seat", "escalate", line, detail|return "seat", "block", line, detail|ⓖ|ⓖ'; do
+  'return "seat", "escalate", line, detail|return "seat", "block", line, detail|ⓖ|ⓖ' \
+  'st["n"] = 0|st["notified"] = []; st["n"] = 0|ⓓ|ⓓ3' \
+  'fp_emit(fp)                             # r1554 보정(DA 반례1)|sys.exit(0)|ⓗ|ⓗ'; do
   i=$((i+1)); IFS='|' read -r o nw ro ef <<<"$spec"
   M="$TMP/mut$i.sh"
   if OLD="$o" NEW="$nw" python3 - "$KIT" "$M" <<'PYEOF'
