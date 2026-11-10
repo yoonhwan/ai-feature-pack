@@ -46,7 +46,7 @@ class Dispatch:
         return self._locked(self._deliver, work, attempt, mode)
 
     def complete(self, work, attempt=None):
-        return self._locked(self._complete, work, attempt)
+        return self._locked(self._complete, work, attempt, k=2)
 
     def reassess(self, work, mode="marker"):
         """반환·owner 복구 = 재평가 1줄. 미확정(UNCERTAIN) 작업의 반환은 «접수 거부» 다(ⓐ)."""
@@ -55,7 +55,7 @@ class Dispatch:
     def recover(self, mode="marker"):
         """crash 복구 1잠금 — 배정 줄로 예약·전달 의도를 되살려 같은 attempt 로 전달하고, 표식 있는
         complete 중 재평가 없는 것만 재평가한다(전체 훑기 0)."""
-        return self._locked(self._recover, None, mode,
+        return self._locked(self._recover, None, mode, k=self._recover_k(),
                             empty={"delivered": [], "reassessed": [], "reason": "writer.lock 점유/복구 필요"})
 
     def _recover(self, context, _work, mode):
@@ -68,16 +68,31 @@ class Dispatch:
                       if self._reassess(self.ex._state_records(), work, mode).written]
         return {"delivered": [g.attempt for g in delivered], "reassessed": reassessed}
 
-    def _locked(self, body, work, *args, empty=None):
-        lock = self.rs._try_lock()
-        if lock is None:
-            return empty or Grant(BUSY, work, reason="writer.lock 점유 = 기다리지 않는다")
+    def _recover_k(self):
+        """recover 1호출의 append 상한 = 전달 의도 남은 work 수 + 재평가 남은 work 수(DA R2-①)."""
         try:
-            return body(self.ex._state_records(), work, *args)
-        except intake.CorruptStateError as exc:
-            return empty or Grant(CORRUPT, work, reason=str(exc))
+            state, records = self.ex._state_records()
+        except ValueError:
+            return 1                                  # 잠금 안 판독이 같은 오류를 다시 낸다
+        return len({rec["work"] for rec in records if rec["kind"] == "dispatch"}) + len(self._pending_reassess(state))
+
+    def _locked(self, body, work, *args, k=1, empty=None):
+        lock, word, reason = self.rs._try_lock(), BUSY, "writer.lock 점유 = 기다리지 않는다"
+        written = False
+        try:
+            if lock is not None:
+                self.rs.journal.reserve(k)                  # DA R2-①: 첫 쓰기 전 호출 단위 합산 예약
+                out = body(self.ex._state_records(), work, *args)
+                return out if empty is None else dict(out, result=OK)   # R2-③: 기존 칸 + result
+        except ValueError as exc:      # 모듈 사본(_load)마다 클래스가 달라 낱말 칸으로 가른다
+            word, reason = getattr(exc, "word", CORRUPT), str(exc)
+            written = getattr(exc, "written", False)
         finally:
-            self.rs._unlock(lock)
+            if lock is not None:
+                self.rs._unlock(lock)
+        if empty is not None:
+            return dict(empty, result=word, reason=reason)
+        return Grant(word, work, reason=reason, written=written)
 
     def _assign(self, context, work, holder, pre, evidence, resources, rotation):
         state, records = context

@@ -63,7 +63,7 @@ class Execution:
             finally:
                 self.rs._unlock(lock)
         except intake.CorruptStateError as exc:
-            return Grant(CORRUPT, work, holder=holder, reason=str(exc))
+            return Grant(getattr(exc, "word", CORRUPT), work, holder=holder, written=getattr(exc, "written", False), reason=str(exc))
 
     def start(self, work, holder, gen):
         return self._step(work, holder, gen, "start", "")
@@ -98,7 +98,7 @@ class Execution:
             finally:
                 self.rs._unlock(lock)
         except intake.CorruptStateError as exc:
-            return Grant(CORRUPT, work, gen, holder, reason=str(exc))
+            return Grant(getattr(exc, "word", CORRUPT), work, gen, holder, written=getattr(exc, "written", False), reason=str(exc))
 
     def _step(self, work, holder, gen, kind, body, drop=False):
         """gen 대조 → 미확정 확인 → journal → state. 잠금은 쓰기 동안만 잡는다."""
@@ -130,7 +130,7 @@ class Execution:
             finally:
                 self.rs._unlock(lock)
         except intake.CorruptStateError as exc:
-            return Grant(CORRUPT, work, gen, holder, reason=str(exc))
+            return Grant(getattr(exc, "word", CORRUPT), work, gen, holder, written=getattr(exc, "written", False), reason=str(exc))
 
     def _claim_plan(self, state, records, work, holder, rotation=False):
         """잠금 안 판정(쓰기 0) — (세대, 미확정, owner 칸)을 돌려준다. 배정(dispatch)도 이 함수를 쓴다.
