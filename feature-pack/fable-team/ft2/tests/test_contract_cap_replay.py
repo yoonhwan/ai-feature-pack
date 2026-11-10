@@ -70,6 +70,11 @@ def test_C_replay_against_raw_observations():
     assert ok, detail
 
 
+def test_F_word_bound_to_observation():
+    ok, detail = results()["F 낱말 결속"]
+    assert ok, detail
+
+
 def test_D_numbers_marked_candidate():
     ok, detail = results()["D 후보값 표식"]
     assert ok, detail
@@ -120,6 +125,23 @@ def test_M3_open_job_delete_expect_fails_E(tmp_path):
                    lambda doc: doc["expect"].update({"근거 검증": "DROP_OLDEST 로 미처리를 지운다"}))
 
     assert not mutated(tmp_path, word)["E 미처리 삭제 0"][0]
+
+
+def test_DA_R1_reject_word_as_success_fails_F(tmp_path):
+    """DA R1 변이 — 포화 거절(용량 부족)을 «접수 성공» 으로 바꾸면 결속이 깨져 rc≠0."""
+    def word(folder):
+        write_case(folder, "03-full-crash-recover.json",
+                   lambda doc: doc["expect"].update({"처리 결과": "접수 성공"}))
+
+    assert not mutated(tmp_path, word)["F 낱말 결속"][0]
+
+
+def test_DA_R1_opposite_direction_also_fails_F(tmp_path):
+    def word(folder):
+        write_case(folder, "01-segment-reclaim.json",
+                   lambda doc: doc["expect"].update({"처리 결과": "용량 부족"}))
+
+    assert not mutated(tmp_path, word)["F 낱말 결속"][0]
 
 
 def test_missing_table_is_error_not_empty_pass(tmp_path):

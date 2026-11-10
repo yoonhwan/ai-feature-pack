@@ -11,8 +11,11 @@ ft 2.0 PR② 구현이 통과해야 닫히는 **기록 사건 → 기대 결과*
 | checker v4 변이 | 3 (Ma·Mb·Mc) | `results/a-compare.json` 의 mutant 3 + `c-mutants.json` |
 | checker v4 경계 | 2 (b1·b2) | `results/boundary1.json` · `results/boundary2.json` |
 | 사례표 파일 | **4** | `cases/*.json`(`_checker.json`·`_source.json` 은 사례 아님) |
-| 관측 대조 키 | **43** | 사례 31 + checker 회차 12 |
+| 관측 대조 키 | **44** | 사례 32 + checker 회차 12 |
 | core.html «5사례» | 5 | 다른 수다 — core.html «cap·회전·포화 복구 독립 checker 5사례 관측·FAIL 0» 은 r1504 v1 C1~C5 기준이다. 이 표는 r1528 checker v4 가 본 4사례만 옮긴다(두 값 모두 여기 적는다) |
+
+★이 4사례는 카드가 지정한 v4 세트다. v1 C1~C5 전체에 대응한다는 인증이 아니다★ — v1 의 C4(ENOSPC)·C5(상태본 포화)와
+v1 의 ops 코드 관측은 이 표 범위 밖이고, 옮기지 않았다. 표가 4사례를 덮는다는 뜻이지 cap 실험 전체를 덮는다는 뜻이 아니다.
 
 ## 결과 낱말 — 정본 «처리 결과» 7군 (새 낱말 0)
 
@@ -36,7 +39,7 @@ ft 2.0 PR② 구현이 통과해야 닫히는 **기록 사건 → 기대 결과*
 |---|---|---|---|---|---|
 | case_01_segment_reclaim | 회전 뒤 segment 회수 (S1) | 회수 결과 | 회수 2 · 회전 4 · 지운 segment 2 · 미처리 든 segment 보존 | 8키 | 1 |
 | case_02_reclaim_crash_resume | 회수 도중 크래시 → 재기동 복구 (S2) | 복구 필요 | 정지점 2 · 복원 = 크래시 전 상태 · 재실행 멱등 | 9키 | 1 |
-| case_03_full_crash_recover | 포화 뒤 크래시 → RECOVER · 신규 접수 거절 유지 (S3) | 용량 부족 | TOTAL_FULL · 복구 전후 접수 성공 0 · RECOVER 사용 196 ≤ 532,480 | 8키 | 1 |
+| case_03_full_crash_recover | 포화 뒤 크래시 → RECOVER · 신규 접수 거절 유지 (S3) | 용량 부족 | TOTAL_FULL · 복구 전후 접수 성공 0 · RECOVER 사용 196 ≤ 532,480 | 9키 | 1 |
 | case_04_append_boundary_cap | journal append 경계의 공존 총량 (S4) | 접수 성공 | trace 6 모두 append 경계 · 공존 peak < 8 MiB · 순서 위반 0 | 6키 | 1 |
 
 각 사례 파일 칸 = `id` · `출처`(정본 경로·sha·함수·줄 + 실험 literal 필드명) · `given`(기록 사건 열) ·
@@ -73,7 +76,23 @@ ft 2.0 PR② 구현이 통과해야 닫히는 **기록 사건 → 기대 결과*
 FT20_BYZ_REPO=<BYZ 저장소 절대경로> python3 ft2/contracts/cap/replay_check.py
 ```
 
-검사 5: A 사례 수·id · B 칸·결과 낱말 · C 관측 1:1(43키) · D 수치는 «후보값» 표식 · E 미처리 삭제 기대 0.
+검사 6: A 사례 수·id · B 칸·결과 낱말 · C 관측 1:1(44키) · D 수치는 «후보값» 표식 · E 미처리 삭제 기대 0 ·
+F 낱말↔관측 결속.
+
+## F 낱말 결속 — 결과 낱말이 그 사례 관측으로 뒷받침된다 (DA R1 보정)
+
+DA R1(쪽지 278002) 지적: 포화 거절을 «접수 성공» 으로 바꿔도 43키 대조가 PASS 였다. 낱말이 관측과 결속되지 않았기 때문이다.
+그래서 낱말마다 뒷받침 관측을 못박았다. 결속이 없으면 rc≠0 이다.
+
+| 낱말 | 결속 규칙 (사례 관측 대조 안에서) |
+|---|---|
+| 회수 결과 | 어떤 trace 의 `seg_unlink` > 0 (실제로 지운 segment 가 있다) |
+| 복구 필요 | 어떤 trace 의 `restart/recover_use_recount` > 0 (재기동 복구가 예약을 썼다) |
+| 용량 부족 | 어떤 trace 의 `max_total / cap ≥ 0.9` (포화 근접) — 그 trace 의 `cap` 관측이 있어야 한다 |
+| 접수 성공 | 어떤 trace 의 `journal_append_rows` > 0 (기록이 실제로 append 됐다) |
+
+이 규칙으로 DA R1 변이를 다시 재현하면 rc=1 이다: 포화 사례를 «접수 성공» 으로 바꾸면 case_03 에
+`journal_append_rows` 관측이 없어 F 가 FAIL 한다(반대 방향 «회수 결과»→«용량 부족» 도 FAIL).
 원자료를 못 읽으면 rc 3(no silent fallback) — 빈 표로 통과하지 않는다.
 
 ## 알려진 한계
