@@ -54,6 +54,7 @@ def _cli(args, root, script=None, module=False):
     done = subprocess.run(head + list(args) + ["--root", str(root), "--team", TEAM], cwd=FT2,
                           env=dict(os.environ, FT_NOW=NOW), capture_output=True, text=True, timeout=25)
     assert done.stdout.count("\n") == 1, (done.stdout, done.stderr)
+    assert "Traceback" not in done.stderr, done.stderr
     return json.loads(done.stdout), done.returncode
 
 
@@ -107,7 +108,6 @@ def test_cli_refusal_and_unknown_rc(tmp_path):
 class _Stop(Exception):
     """complete 는 내구화했고 재평가 «전» 에 끊겼다 — crash 대역(exit 없이 같은 지점)."""
 
-
 def test_cli_reassess_after_interrupted_complete(tmp_path):
     """reassess 가 «정본» 인 경우 = rc0. complete 가 재평가를 마치면 멱등 «완료 유보»(위 ⓐ 8번째 줄)."""
 
@@ -124,6 +124,19 @@ def test_cli_reassess_after_interrupted_complete(tmp_path):
     out, rc = _cli(["reassess", "--work", "W1"], root)
     assert (out["result"], out["stage"], rc) == ("접수 성공", "reassess", 0)
     assert _cli(["reassess", "--work", "W1"], root)[0]["result"] == HOLD              # 두 번째 = 멱등
+
+
+def test_cli_empty_command_is_json_refusal_not_traceback(tmp_path):
+    """R1 반례(고치기 전 FAIL) — 코어 RecordError 도 stdout JSON 1줄 + 계약 rc 다.
+    예전: cli 가 record 를 따로 _load 해 except 가 못 잡고 traceback rc1(0줄). 빈 command 는
+    코어 schema 경계 그대로 «접수 거부»(rc1)이고 state·journal·본문 쓰기가 없다."""
+    root = tmp_path / "empty"
+    out, rc = _cli(["submit", "--command", "", "--body", "본문"], root)
+    assert (out["result"], rc) == ("접수 거부", cli.RC["접수 거부"]) == ("접수 거부", 1)
+    assert "비어 있지 않은 문자열" in out["reason"] and out["written"] is False
+    runtime = Path(Runtime(root))
+    assert [name for name in ("state.json", "journal.jsonl") if (runtime / name).exists()] == []
+    assert list((runtime / "bodies").iterdir()) == [] if (runtime / "bodies").is_dir() else True
 
 
 def test_cli_m1_refusal_reported_as_success_breaks_b(tmp_path):

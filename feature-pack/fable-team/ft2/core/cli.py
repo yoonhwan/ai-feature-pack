@@ -107,21 +107,25 @@ def call(verb, given, clock):
     return out._asdict() if hasattr(out, "_asdict") else dict(out)
 
 
+def error_word(exc):
+    """코어 예외 → 계약 낱말. 모듈 사본(_load)마다 클래스 객체가 달라 낱말 칸 → 클래스 이름으로 가른다
+    (dispatch._locked 와 같은 이유·같은 방식). WriterRefused 는 자기 낱말을 갖고 있다."""
+    if getattr(exc, "word", ""):
+        return exc.word
+    return "복구 필요" if type(exc).__name__ == "CorruptStateError" else "접수 거부"
+
+
 def run(argv):
-    """(결과 dict, rc) — 예외도 계약 낱말 하나로 접는다."""
+    """(결과 dict, rc) — 예외도 계약 낱말 하나로 접는다(JSON 1줄 계약은 예외에도 걸린다)."""
     try:
         verb, given = parse(argv)
     except Usage as exc:
         return {"result": "사용법", "reason": str(exc)}, USAGE
-    record = _load("record")
     try:
         out = call(verb, given, clock_from_env())
-    except record.WriterRefused as exc:                  # 계약 낱말을 스스로 갖고 있다(총량 거절)
-        out = {"result": exc.word, "written": exc.written, "reason": str(exc)}
-    except record.CorruptStateError as exc:              # 손상 state·journal = 복구 필요
-        out = {"result": "복구 필요", "reason": str(exc)}
-    except record.RecordError as exc:                    # schema 위반 = 쓰지 않고 거절
-        out = {"result": "접수 거부", "reason": str(exc)}
+    except ValueError as exc:        # RecordError·CorruptStateError·WriterRefused(코어 사본 클래스)
+        out = {"result": error_word(exc), "reason": str(exc),
+               "written": bool(getattr(exc, "written", False))}
     word = out.get("result")
     return out, RC.get(word, 1)
 
