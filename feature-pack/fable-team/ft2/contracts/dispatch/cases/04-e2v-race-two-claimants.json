@@ -51,6 +51,11 @@
             "claim:BUSY",
             "claim:CLAIMED",
             "deliver:DELIVERED"
+          ],
+          "run": 0,
+          "suppressed": 0,
+          "deliver_attempts": [
+            "a1"
           ]
         }
       },
@@ -79,7 +84,10 @@
             "external-arrived:",
             "claim:CLAIMED",
             "claim:CLAIMED"
-          ]
+          ],
+          "run": 0,
+          "suppressed": 0,
+          "deliver_attempts": []
         }
       }
     ]

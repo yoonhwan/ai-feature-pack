@@ -50,7 +50,12 @@
           "claim_reject": {
             "pre-all": 1
           },
-          "refused": 1
+          "refused": 1,
+          "run": 0,
+          "suppressed": 0,
+          "deliver_attempts": [
+            "a1"
+          ]
         }
       },
       {
@@ -91,6 +96,11 @@
             "W1",
             "W2",
             "W3"
+          ],
+          "run": 0,
+          "suppressed": 0,
+          "deliver_attempts": [
+            "a1"
           ]
         }
       },
@@ -109,7 +119,12 @@
           "uncertain_release": 0,
           "deliver_by_task": {
             "W4": 1
-          }
+          },
+          "run": 0,
+          "suppressed": 0,
+          "deliver_attempts": [
+            "a1"
+          ]
         }
       }
     ]

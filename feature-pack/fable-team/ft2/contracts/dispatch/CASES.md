@@ -46,6 +46,13 @@ r1509 독립 checker 관측(`design/harness/research/ft-2.0/parallel-dispatch/`)
 같은 attempt 억제는 수가 아니라 **실행/억제 쌍**으로 적는다 — `run`(수신 업무 실행 수) ·
 `suppressed`(`execute-suppressed` 줄 수) · `deliver_attempts`. E3 주입 사례 = 전달 2 · 실행 1 · 억제 1.
 
+## 필수 관측 집합 (DA R1 · 2026-11-10)
+
+`replay_check.py` 는 «선언된 칸만» 비교하지 않는다. arm 행(원자료 `cases` 키)은 7수 + `run` ·
+`suppressed` · `deliver_attempts` 를 **반드시** 선언해야 하고, 하나라도 빠지면 rc=1 이다
+(DA R1 반증: E3v 에서 세 필드를 지운 표가 rc=0 으로 통과하던 결함 → 지금은 rc=1).
+접두 스냅숏 행(`E1n_mid`)만 `dispatch_journal` · `deliver_by_task` 로 줄인다.
+
 ## 미시험 (이 표가 닫지 않는다)
 
 실 분산 잠금(다중 호스트·네트워크 분할)과 실제 역할 통합(planner/구현/checker 실좌석 사슬)은 관측이

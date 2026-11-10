@@ -79,6 +79,28 @@ def test_m3_case_deleted(table):
     assert replay_check.main(["--cases", str(table)]) == 1
 
 
+def test_every_arm_row_has_required_fields():
+    """DA R1 — 실행·억제·attempt 관측은 필수다(모든 arm 행). 빠지면 표가 아니다."""
+    for path in sorted(CASES.glob("*.json")):
+        doc = load(path)
+        for row in doc["expect"]["관측"]:
+            if row["키"] == "E1n_mid":                       # 접두 스냅숏만 예외
+                continue
+            assert {"run", "suppressed", "deliver_attempts"} <= set(row["값"]), row["키"]
+
+
+def test_r1_required_fields_deleted(table):
+    """DA R1 변이 — E3v 필수 3필드를 지우면 rc≠0(선언 칸만 비교하던 결함이 닫혔는가)."""
+    path = table / "06-e3v-crash-before-delivery.json"
+    doc = load(path)
+    value = doc["expect"]["관측"][0]["값"]
+    for field in ("run", "suppressed", "deliver_attempts"):
+        assert field in value
+        value.pop(field)
+    save(path, doc)
+    assert replay_check.main(["--cases", str(table)]) == 1
+
+
 def test_empty_table_is_broken(tmp_path):
     """빈 표는 rc3 — 0 으로 조용히 통과하지 않는다."""
     assert replay_check.main(["--cases", str(tmp_path)]) == 3

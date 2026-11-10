@@ -49,7 +49,12 @@
             "W2": null,
             "W3": "a1",
             "W4": null
-          }
+          },
+          "run": 0,
+          "suppressed": 0,
+          "deliver_attempts": [
+            "a1"
+          ]
         }
       }
     ]

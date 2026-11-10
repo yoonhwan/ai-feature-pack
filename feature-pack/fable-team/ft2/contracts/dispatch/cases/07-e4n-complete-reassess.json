@@ -46,6 +46,11 @@
           "owner_recover_journal": 1,
           "owner_recover_state": [
             "W3"
+          ],
+          "run": 0,
+          "suppressed": 0,
+          "deliver_attempts": [
+            "a1"
           ]
         }
       }

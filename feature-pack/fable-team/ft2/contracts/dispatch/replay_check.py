@@ -1,7 +1,6 @@
 """ft2 병렬 배정·실행권 계약 사례표 재생 검사기 (r1549).
 `cases/*.json` 이 r1507 배정 실험·r1509 checker 관측과 1:1 인지 본다(읽기만 · 실험 코드 실행 0).
-A 사례 수·id(ⓐ) B 칸 꼴·극성(ⓑ) C compare 1:1 D counts 1:1 E 키 소진 — 카드 ⓔ 는 시험 파일.
-rc 0 통과 · 1 불일치 · 3 표 없음/빈 표 · 4 원자료 못 읽음(no silent fallback)
+A 사례 수·id(ⓐ) B 칸 꼴·극성(ⓑ) C compare 1:1 D counts 1:1 E 키 소진 · ⓔ=시험 파일 · rc 0/1/3/4(1=불일치·필수 칸 누락 · 3=표 없음 · 4=원자료 못 읽음 · no silent fallback)
 """
 import argparse
 import json
@@ -9,8 +8,8 @@ import os
 import subprocess
 import sys
 
-CASE_COUNT, SHA = 8, "db18c453c77868355ffeb813d3b4c49f2047806a"
-DEFAULT_REPO = "~/Project/Agent/BYZ-Work/BYZ-Agents"  # 사례표 밖 원자료 = git show
+CASE_COUNT, SHA = 8, "db18c453c77868355ffeb813d3b4c49f2047806a"   # 세트 = BYZ origin/main
+DEFAULT_REPO = "~/Project/Agent/BYZ-Work/BYZ-Agents"               # 원자료는 git show 로 읽는다
 BASE = "design/harness/research/ft-2.0/parallel-dispatch/checker-r1509"
 PATHS = {"compare": BASE + "/compare.json", "판1": BASE + "/counts.json",
          "보정": BASE + "/raw2/counts2.json"}
@@ -21,6 +20,7 @@ TOP = {"id", "사례 이름", "축", "극성", "출처", "given", "expect"}
 SRC_KEYS = {"정본 경로", "정본 sha", "함수", "줄", "비교 키", "관측 키"}
 EXPECT_KEYS, ROW_KEYS = {"판정", "계약", "관측"}, {"키", "갈래", "원자료", "값"}
 SOURCES, AXES, POLARITY = ("판1", "보정"), {"E1", "E2", "E3", "E4"}, {"정상", "변이", "주입"}
+ARM_FIELDS = ("deliver_attempts", "run", "suppressed") + tuple(f for _, f in COLS)  # DA R1: 필수
 
 class TableBroken(Exception):
     """사례표·원자료를 읽을 수 없다 — rc≠0."""
@@ -90,20 +90,20 @@ def check_compare(cases, cmp_doc, srcs):
             bad.append("%s 판정 %s≠%s" % (key, c["expect"]["판정"], pair["verdict"]))
     if cmp_doc.get("cells") != len(pairs) * len(COLS) or cmp_doc.get("mismatch"):
         bad.append("compare 머리말 cells/mismatch")
-    rows_bad = ["%s %s" % (r["키"], f) for r in rows for f, v in r["값"].items()
-                if _observed(srcs[r["원자료"]], r["키"]).get(f, v) != v]
-    if [f for _, f in COLS if f not in rows[0]["값"]]:
-        rows_bad.append("첫 행 7수 누락")
+    rows_bad = []
+    for r in rows:
+        doc, key = srcs[r["원자료"]], r["키"]
+        need = ("dispatch_journal", "deliver_by_task") if key in (doc["prefixes"] or {}) else ARM_FIELDS
+        value = doc["cases"].get(key) or (doc["prefixes"] or {}).get(key)
+        if value is None:
+            rows_bad.append("%s 원자료 키 없음" % key)
+            continue
+        rows_bad += ["%s 필수 칸 누락 %s" % (key, f) for f in need if f not in r["값"]]  # DA R1
+        rows_bad += ["%s %s" % (key, f) for f, v in r["값"].items() if value.get(f, v) != v]
     return (not bad, "pair %d × %d수 = %d칸 · 이상 %s" % (
         len(pairs), len(COLS), len(pairs) * len(COLS), bad[:3] or "0")), \
         (not rows_bad, "관측 행 %d · 선언 칸 전부 일치 · 이상 %s" % (len(rows),
                                                           rows_bad[:3] or "0"))
-
-def _observed(doc, key):
-    value = doc["cases"].get(key) or (doc["prefixes"] or {}).get(key)
-    if value is None:
-        raise TableBroken("%s 원자료 키 없음" % key)
-    return value
 
 def check_cover(cases, cmp_doc, srcs):
     """E 관측 키 소진 — 표에만/관측에만 0 · 같은 관측 키 재사용 0."""

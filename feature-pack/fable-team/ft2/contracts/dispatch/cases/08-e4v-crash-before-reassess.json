@@ -55,6 +55,11 @@
             "reassess:",
             "release:",
             "owner-recover:"
+          ],
+          "run": 0,
+          "suppressed": 0,
+          "deliver_attempts": [
+            "a1"
           ]
         }
       },
@@ -82,6 +87,11 @@
           "owner_recover_state": [
             "W2",
             "W3"
+          ],
+          "run": 0,
+          "suppressed": 0,
+          "deliver_attempts": [
+            "a1"
           ]
         }
       },
@@ -107,7 +117,12 @@
           "owner_recover_state": [
             "W3"
           ],
-          "released_without_need": []
+          "released_without_need": [],
+          "run": 0,
+          "suppressed": 0,
+          "deliver_attempts": [
+            "a1"
+          ]
         }
       }
     ]

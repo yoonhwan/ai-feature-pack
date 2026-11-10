@@ -49,7 +49,12 @@
             "W2": "완료",
             "W3": "대기",
             "W4": "대기"
-          }
+          },
+          "run": 0,
+          "suppressed": 0,
+          "deliver_attempts": [
+            "a1"
+          ]
         }
       },
       {
@@ -67,7 +72,10 @@
           "uncertain_release": 0,
           "claim_reject": {
             "pre-all": 1
-          }
+          },
+          "run": 0,
+          "suppressed": 0,
+          "deliver_attempts": []
         }
       }
     ]

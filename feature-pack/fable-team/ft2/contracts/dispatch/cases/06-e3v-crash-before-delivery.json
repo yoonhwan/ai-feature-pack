@@ -71,7 +71,10 @@
           "suppressed": 0,
           "deliver_by_task": {
             "W3": 1
-          }
+          },
+          "deliver_attempts": [
+            "a1"
+          ]
         }
       }
     ]
