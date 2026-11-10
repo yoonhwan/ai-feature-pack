@@ -24,10 +24,12 @@ RESULT_WORDS = (
 
 REQUIRED_FIELDS = ("schema", "team", "seq", "kind", "command", "attempt", "at", "body", "work")
 # r1579: 실행권·세대 종류 추가(세대 교체는 claim 의 gen 으로 표현). schema 1 유지 = 필드 추가만.
-KINDS = ("accept", "claim", "start", "effect", "result", "uncertain")
+KINDS = ("accept", "claim", "start", "effect", "result", "uncertain",
+         "dispatch", "deliver", "execute", "complete", "reassess")
 STATE_FIELDS = ("revision", "pending", "attempts")
 # 확장 state 칸 — 없으면 기본값 {} 로 채운다(다른 writer 가 병합해 보존한다 · ⓘ).
-EXTENDED_STATE_FIELDS = ("generations", "owners", "uncertain")
+EXTENDED_STATE_FIELDS = ("generations", "owners", "uncertain", "deliveries", "reservations",
+                         "done", "reassess_done", "released", "owners_recovered", "executed")
 
 
 class RecordError(ValueError):
@@ -44,7 +46,7 @@ def read_state_guarded(path):
         with open(path, encoding="utf-8") as handle:
             state = json.load(handle)
     except FileNotFoundError:
-        return {"schema": SCHEMA_VERSION, "revision": 0, "pending": [], "attempts": {}}
+        state = {"schema": SCHEMA_VERSION, "revision": 0, "pending": [], "attempts": {}}
     except (ValueError, UnicodeDecodeError) as exc:
         raise CorruptStateError("state 판독 불가: %s" % exc)
     if not isinstance(state, dict) or state.get("schema") != SCHEMA_VERSION:
@@ -64,21 +66,44 @@ def read_state_guarded(path):
 
 
 def recover_state(state, records):
-    """journal 에만 내구화된 claim 세대·기록 수를 state checkpoint 보다 앞세운다(DA R2).
-    모든 writer 가 같은 복구 기준을 쓴다 — 옛 gen 거절은 쓰기 0 이라 checkpoint 가 낡아 있기 때문이다."""
-    recovered = dict(state, revision=max(state["revision"], len(records)))
-    gens, owners = dict(recovered.get("generations") or {}), dict(recovered.get("owners") or {})
+    """journal 을 정본으로 삼아 state checkpoint 를 앞선다(DA R2 · R1) — checkpoint 전 crash 복구.
+    잠금 안 판독(모든 writer)이 이 함수를 지나므로 recover 호출 여부와 무관하게 전달·완료·재평가가 보인다:
+    세대·owner·예약(배정 줄) · 전달(전달 줄) · 완료 표식(완료 줄) · 재평가 결과(재평가 줄) · 미확정 표식.
+    뒤 기록이 앞 기록을 덮는다(결과 확정은 owner·미확정을 지우고, 재평가는 반환·owner 복구를 남긴다)."""
+    gens, owners, kept, sent = {}, {}, {}, {}
+    done, reassessed, released, recovered, uncertain = {}, {}, {}, {}, {}
     for rec in records:
-        gen = rec.get("gen") or 0
-        if rec.get("kind") == "claim" and rec.get("work") and gen > gens.get(rec["work"], 0):
-            gens[rec["work"]] = gen
-            owners[rec["work"]] = {"holder": rec.get("holder"), "gen": gen, "at": rec["at"]}
-    return dict(recovered, generations=gens, owners=owners)
+        work, kind, gen = rec.get("work"), rec["kind"], rec.get("gen") or 0
+        if kind in ("claim", "dispatch") and work and gen > gens.get(work, 0):
+            gens[work], owners[work] = gen, {"holder": rec.get("holder"), "gen": gen, "at": rec["at"]}
+        if kind == "dispatch" and work:
+            for res in rec.get("resources") or []:
+                kept.setdefault(res, {"work": work, "attempt": rec.get("attempt")})
+        elif kind == "deliver" and work:
+            sent[work] = list(sent.get(work) or []) + [rec.get("attempt")]
+        elif kind == "uncertain" and work:
+            uncertain[work] = {"gen": gen, "holder": rec.get("holder"), "at": rec["at"],
+                               "confirm_by": rec.get("confirm_by"), "reason": rec.get("body")}
+        elif kind == "result" and work:
+            owners.pop(work, None)
+            uncertain.pop(work, None)
+        elif kind == "complete" and work:
+            done[work] = {"attempt": rec.get("after"), "at": rec["at"], "marker": rec.get("marker") or ""}
+        elif kind == "reassess" and work:
+            reassessed[work] = {"after": rec.get("after"), "mode": rec.get("mode")}
+            released[work] = {"res": rec.get("released") or [], "count": len(rec.get("released") or [])}
+            recovered[work] = {"owner": rec.get("holder"), "attempt": rec.get("after")}
+            owners.pop(work, None)
+            kept = {res: row for res, row in kept.items() if row.get("work") != work}
+    return dict(state, revision=max(state["revision"], len(records)), generations=gens, owners=owners,
+                reservations=kept, deliveries=sent, done=done, reassess_done=reassessed,
+                released=released, owners_recovered=recovered, uncertain=uncertain)
 
 
 def build(team, seq, command, attempt, at, body, work=None, goal=None, kind="accept",
-          holder=None, gen=None):
-    """schema v1 레코드 1개를 만든다. 만든 뒤 `check` 로 자기 검사를 한다."""
+          holder=None, gen=None, extra=None):
+    """schema v1 레코드 1개를 만든다. 만든 뒤 `check` 로 자기 검사를 한다.
+    `extra` = r1581 확장 칸(예약·전달 의도·재평가 표식). 필드 추가만이고 schema 는 1 그대로다."""
     rec = {
         "schema": SCHEMA_VERSION,
         "team": team,
@@ -93,6 +118,7 @@ def build(team, seq, command, attempt, at, body, work=None, goal=None, kind="acc
         "holder": holder,
         "gen": gen,
     }
+    rec.update(extra or {})
     check(rec)
     return rec
 
