@@ -104,11 +104,15 @@ function seatOf(env: Record<string, string | undefined>): string {
 const notified = new Set<string>();
 /** mbox recv 인가 — 따옴표를 벗긴 토큰으로 본다(`bash "…/mbox.sh" recv` 포함 · DA R4). */
 const isRecv = (cmd: string | undefined): boolean => { const t = words(String(cmd ?? "")); return !!t && t.some((w, i) => MBOX.includes(path.basename(w)) && t[i + 1] === "recv"); };
+const mboxScript = (env: Record<string, string | undefined>, root: string | null): string => { // 팀장 알림 명령 = FT_MBOX > <루트>/.fable-team/comm/mbox.sh(파일이 있을 때) · 둘 다 없으면 ""
+  const builtin = root ? path.join(root, ".fable-team", "comm", "mbox.sh") : "";
+  return env.FT_MBOX || (builtin && fs.existsSync(builtin) ? builtin : "");
+};
 /** 표식 본문의 좌석 전체 이름(#N 포함) — 옛 파일처럼 없으면 ""(= 자동으로 닫지 않는다). */
 const seatIn = (state: string | null): string => { try { return (fs.readFileSync(state ?? "", "utf8").match(/seat=(\S+)/) ?? [])[1] ?? ""; } catch { return ""; } };
 /** 이 좌석의 팀장 = 그 좌석 행이 있는 seats 파일의 _master. 찾는 곳 = FT_MBOX 의 .fable-team → 리포 루트. 다른 팀 명부의 master 를 고르지 않는다(arch#274 동작 반례 1). */
 function teamMaster(env: Record<string, string | undefined>, root: string | null, seat: string): string {
-  let dir = env.FT_MBOX ? path.dirname(path.resolve(env.FT_MBOX)) : "";
+  const mbox = mboxScript(env, root); let dir = mbox ? path.dirname(path.resolve(mbox)) : "";
   while (dir && path.basename(dir) !== ".fable-team" && path.dirname(dir) !== dir) dir = path.dirname(dir);
   if (path.basename(dir) !== ".fable-team") dir = path.join(root ?? "/nonexistent", ".fable-team");
   const base = seat.replace(/#\d+$/, "");
@@ -125,8 +129,8 @@ function notifyTeam(input: GateInput, env: Record<string, string | undefined>, s
   const master = teamMaster(env, root, seat), body = `[긴급] 증류 판정 불가 ${seat} ${why}`;
   if (!master) return "팀장 불명 — seats 명부에 이 좌석 행이나 _master 없음(send 0)";
   if (input.notify) { input.notify(master, body); return ""; }
-  if (!env.FT_MBOX) return "FT_MBOX 미설정 — 팀장 알림 0";
-  try { execFileSync("bash", [env.FT_MBOX, "send", master, seat, body], { timeout: 7000 }); return ""; }
+  const mbox = mboxScript(env, root); if (!mbox) return `우편함 없음 ${path.join(root ?? "<리포 루트 못 찾음>", ".fable-team", "comm", "mbox.sh")} — 팀장 알림 0`; // 조용한 0 금지
+  try { execFileSync("bash", [mbox, "send", master, seat, body], { timeout: 7000 }); return ""; }
   catch (e) { return `팀장 알림 실패(${master}): ${e}`; }
 }
 const pendingFile = (root: string | null, seat: string): string | null => root ? path.join(root, ".fable-team", "state", "pi-distill-pending", seat.replace(/#\d+$/, "")) : null;
