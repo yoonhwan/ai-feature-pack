@@ -1,0 +1,72 @@
+{
+  "id": "case_12_corrupt",
+  "사례 이름": "상태 손상",
+  "출처": {
+    "정본 경로": "design/harness/research/ft-2.0/sim-atomic-json/cases_corrupt.py",
+    "정본 sha": "db18c453c77868355ffeb813d3b4c49f2047806a",
+    "폴더": "12-corrupt-state",
+    "함수": "case_12_corrupt",
+    "줄": "17-83",
+    "실험 literal 필드명": [
+      "status",
+      "initialised",
+      "closed",
+      "fsync_calls",
+      "dir_fsync_calls",
+      "state_bytes",
+      "corrupt_digest",
+      "CORRUPT_BYTES"
+    ]
+  },
+  "given": [
+    "접수 card-1",
+    "스냅샷 백업(state-before-corruption)",
+    "state 파일을 29바이트 손상본으로 교체",
+    "read_state_guarded",
+    "접수 card-2 시도",
+    "ops.jsonl · fsync 계수 기록"
+  ],
+  "expect": {
+    "처리 결과": "복구 필요",
+    "상태 revision 변화": false,
+    "근거 검증": "판정 = CORRUPT_STATE 명시",
+    "관측 대조": [
+      {
+        "원자료 키": "k6",
+        "관측": {
+          "file_hits": 2,
+          "lines": 2,
+          "ok": true,
+          "ops": [
+            "accept",
+            "read_state_guarded"
+          ]
+        }
+      },
+      {
+        "원자료 키": "k7",
+        "관측": {
+          "backup_cards": [
+            "card-1"
+          ],
+          "fsync": [
+            3,
+            3
+          ],
+          "ok": true,
+          "state_bytes": 29
+        }
+      }
+    ]
+  },
+  "비채택": [
+    {
+      "관측": "원자 쓰기 회당 파일 fsync 1 · 부모 dir fsync 1(계수 3/3)",
+      "표시": "비채택: 정본은 «구체 fsync/rename 순서와 checkpoint 규칙은 구현·장애 실험으로 검증» 이라 계수 3 을 계약 조건으로 채택하지 않는다"
+    },
+    {
+      "관측": "전원 손실 주입 미실시 — dir fsync 는 코드 경로·계수로만 확인",
+      "표시": "비채택: 정본은 «실제 ENOSPC… 전원 손실·장시간 내구성을 대신 증명하지 않음» 이라 이 관측을 손실 내구 증거로 채택하지 않는다"
+    }
+  ]
+}

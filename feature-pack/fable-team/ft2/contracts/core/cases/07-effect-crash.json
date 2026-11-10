@@ -1,0 +1,34 @@
+{
+  "id": "case_07_effect_crash",
+  "사례 이름": "효과 crash",
+  "출처": {
+    "정본 경로": "design/harness/research/ft-2.0/sim-atomic-json/cases_b.py",
+    "정본 sha": "db18c453c77868355ffeb813d3b4c49f2047806a",
+    "폴더": "07-effect-crash",
+    "함수": "case_07_effect_crash",
+    "줄": "105-149",
+    "실험 literal 필드명": [
+      "rc",
+      "status",
+      "deadline",
+      "reported_to",
+      "band_after_recovery"
+    ]
+  },
+  "given": [
+    "접수 card-e-pre",
+    "자식 crash-effect-pre — 효과 전 종료(rc 9)",
+    "스냅샷 · 효과 대역 계수",
+    "불명 표시(효과 전 crash)",
+    "스냅샷 · 효과 대역 재계수(재실행 0 확인)",
+    "접수 card-e-post · 자식 crash-effect-post — 효과 후 결과 확정 전 종료",
+    "스냅샷 · 효과 대역 계수 · 불명 표시 · 재계수"
+  ],
+  "expect": {
+    "처리 결과": "완료 유보",
+    "상태 revision 변화": true,
+    "근거 검증": "효과 후 crash: 결과 미확정 + 재실행 0",
+    "관측 대조": []
+  },
+  "비채택": []
+}

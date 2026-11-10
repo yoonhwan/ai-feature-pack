@@ -1,0 +1,37 @@
+{
+  "id": "case_11_close_race",
+  "사례 이름": "마감 경합",
+  "출처": {
+    "정본 경로": "design/harness/research/ft-2.0/sim-atomic-json/cases_c.py",
+    "정본 sha": "db18c453c77868355ffeb813d3b4c49f2047806a",
+    "폴더": "11-close-race",
+    "함수": "case_11_close_race",
+    "줄": "99-146",
+    "실험 literal 필드명": [
+      "status",
+      "blockers",
+      "ack",
+      "cards",
+      "closed",
+      "revision",
+      "PENDING_NOT_ZERO"
+    ]
+  },
+  "given": [
+    "접수 card-1 · 실행권 부여 · 착수 · 외부 효과 · 결과",
+    "근거 4종 기록",
+    "스냅샷 revision 읽기",
+    "접수 goal-new",
+    "마감(읽어 둔 revision 으로 시도)",
+    "마감(최신 revision 으로 재시도)",
+    "goal-new 실행권 부여 · 착수 · 외부 효과 · 결과 · 근거 4종",
+    "마감"
+  ],
+  "expect": {
+    "처리 결과": "완료 유보",
+    "상태 revision 변화": true,
+    "근거 검증": "마감 경합 = RETRY",
+    "관측 대조": []
+  },
+  "비채택": []
+}

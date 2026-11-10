@@ -1,0 +1,73 @@
+{
+  "id": "case_03_same_key",
+  "사례 이름": "동일 카드·동일 키",
+  "출처": {
+    "정본 경로": "design/harness/research/ft-2.0/sim-atomic-json/cases_a.py",
+    "정본 sha": "db18c453c77868355ffeb813d3b4c49f2047806a",
+    "폴더": "03-same-key",
+    "함수": "case_03_same_key",
+    "줄": "59-101",
+    "실험 literal 필드명": [
+      "final",
+      "statuses",
+      "ticks",
+      "dispatch_lines",
+      "busy",
+      "attempt_id",
+      "ack",
+      "status",
+      "pairs_equal",
+      "wall_s"
+    ]
+  },
+  "given": [
+    "접수 card-x",
+    "같은 tick 에 두 자식에게 claim card-x 연속 기록",
+    "스냅샷 → 착수 · 외부 효과 band:external-send",
+    "같은 키 재접수 card-x",
+    "스냅샷(attempt 단일 확인)"
+  ],
+  "expect": {
+    "처리 결과": "완료 유보",
+    "상태 revision 변화": true,
+    "근거 검증": "같은 키 재요청 = IN_PROGRESS(재부여 아님)",
+    "관측 대조": [
+      {
+        "원자료 키": "k1_03",
+        "관측": {
+          "attempts": 3,
+          "children": 2,
+          "events": 3,
+          "ok": true,
+          "orphan_attempts": 0,
+          "orphan_events": 0,
+          "pairs_equal": true,
+          "strictly_increasing": true
+        }
+      },
+      {
+        "원자료 키": "k2_03",
+        "관측": {
+          "busy_checked": 1,
+          "ok": true,
+          "problems": []
+        }
+      },
+      {
+        "원자료 키": "k4_03",
+        "관측": {
+          "attempts": 3,
+          "events": 3,
+          "ok": true,
+          "wall_s": null
+        }
+      }
+    ]
+  },
+  "비채택": [
+    {
+      "관측": "같은 키 재요청 응답 = IN_PROGRESS(재부여 아님)",
+      "표시": "비채택: 정본 «처리 결과» 7군에 IN_PROGRESS 낱말이 없어 계약 낱말로 채택하지 않고 관측 사실로만 남긴다"
+    }
+  ]
+}

@@ -1,0 +1,83 @@
+{
+  "_설명": "사례별 의미 expect 를 원자료(results/<폴더>.json)에 결속하는 표. DA R1 보정(r1546).",
+  "_규칙": [
+    "실험 낱말 → 계약 낱말 유도는 replay_check.py RESULT_CODES 한 곳에서만 정의한다.",
+    "관측 값은 원자료 check 의 observed 를 한 글자도 바꾸지 않고 옮긴다(bind_check.py 가 대조).",
+    "revision 관측에 revision_before/after · same_keys · before/after 가 있으면 변화 유무를 그 값에서 유도한다.",
+    "유도 값이 비어 있으면 «상태 쓰기가 관측됨» = 변화 있음으로 본다."
+  ],
+  "사례 결속": {
+    "case_01_happy_life": {
+      "실험 낱말": "ACCEPTED",
+      "관측": ["ACCEPTED", "ACCEPTED"],
+      "revision 검증": "신규 골 재개 pending",
+      "revision 관측": {"closed": false, "pending": ["goal-2"], "resumed": true, "status": "ACCEPTED"}
+    },
+    "case_02_concurrent_4x300": {
+      "실험 낱말": "BUSY",
+      "관측": {"busy": 1877, "ticks": 1201},
+      "revision 검증": "tick 수 ≥ 300 · 자식당 적용 300",
+      "revision 관측": {"applied_total": 1200, "ticks": 1201}
+    },
+    "case_03_same_key": {
+      "실험 낱말": "IN_PROGRESS",
+      "관측": {"status": "IN_PROGRESS"},
+      "revision 검증": "정본 attempt 단일",
+      "revision 관측": "card-x#a2"
+    },
+    "case_04_stale_owner": {
+      "실험 낱말": "STALE_OWNER",
+      "관측": {"reason": "STALE_OWNER", "status": "REJECTED"},
+      "revision 검증": "정본 불변(revision·cards digest)",
+      "revision 관측": {"revision_after": 4, "revision_before": 4}
+    },
+    "case_05_inflight": {
+      "실험 낱말": "UNCERTAIN",
+      "관측": {"deadline": 10, "mark": "UNCERTAIN", "status": "UNCERTAIN"},
+      "revision 검증": "담당·시한 보존",
+      "revision 관측": {"deadline": 10, "owner": "gen-1", "reported_to": "team-lead", "uncertain_since": 5}
+    },
+    "case_06_accept_crash": {
+      "실험 낱말": "IN_PROGRESS",
+      "관측": {"status": "IN_PROGRESS"},
+      "revision 검증": "교체 전 재요청 = 접수 1건",
+      "revision 관측": {"cards": 1, "status": "ACCEPTED"}
+    },
+    "case_07_effect_crash": {
+      "실험 낱말": "UNCERTAIN",
+      "관측": {"band_after_recovery": 1, "status": "UNCERTAIN"},
+      "revision 검증": "효과 전 crash: 불명 상태 + 담당·시한 보존",
+      "revision 관측": {"deadline": 9, "recovery": "UNCERTAIN", "reported_to": "team-lead", "status": "UNCERTAIN"}
+    },
+    "case_08_expiry_full": {
+      "실험 낱말": "FULL",
+      "관측": {"ack": false, "pending_len": 8, "same_keys": true, "status": "FULL"},
+      "revision 검증": "pending 8 유지 · 새 입력 FULL · 성공 ACK 0",
+      "revision 관측": {"ack": false, "pending_len": 8, "same_keys": true, "status": "FULL"}
+    },
+    "case_09_slow_team": {
+      "실험 낱말": "BUSY",
+      "관측": "BUSY",
+      "revision 검증": "B 전이 완료(DONE)",
+      "revision 관측": {"card": "DONE", "claim": "GRANTED"}
+    },
+    "case_10_progress": {
+      "실험 낱말": "EXTERNAL_WAIT_WITHIN_DEADLINE",
+      "관측": {"progress_age": 6, "reason": "EXTERNAL_WAIT_WITHIN_DEADLINE", "stalled": false, "wait_deadline": 8},
+      "revision 검증": "멈춤 목록 = B·D 두 줄",
+      "revision 관측": ["lane-b", "lane-d"]
+    },
+    "case_11_close_race": {
+      "실험 낱말": "RETRY",
+      "관측": "RETRY",
+      "revision 검증": "신규 골 소실 0",
+      "revision 관측": {"ack": true, "cards": ["card-1", "goal-new"]}
+    },
+    "case_12_corrupt": {
+      "실험 낱말": "CORRUPT_STATE",
+      "관측": {"accept": "CORRUPT_STATE", "read_state_guarded": "CORRUPT_STATE"},
+      "revision 검증": "읽기 후 원본 바이트 불변",
+      "revision 관측": {"after": "70d3de7d9f72", "before": "70d3de7d9f72"}
+    }
+  }
+}
