@@ -140,9 +140,20 @@ def _deliver_until(node, work, attempt, tries=400):
     for _ in range(tries):
         if out.result != BUSY:
             return out
-        time.sleep(0.002)
         out = node.deliver(work, attempt)
     return out
+
+
+class _UnlockAfterBusy:                                    # 첫 BUSY 직후 잠금을 놓는다 = 재시도 1회가 필요한 순서
+    def __init__(self, node, unlock):
+        self.node, self.unlock = node, unlock
+
+    def deliver(self, work, attempt, *args, **kwargs):
+        out = self.node.deliver(work, attempt, *args, **kwargs)
+        if out.result == BUSY and self.unlock:
+            unlock, self.unlock = self.unlock, None
+            unlock()
+        return out
 
 
 def _spawn(*args):
@@ -236,19 +247,28 @@ def test_d_case_04_race_grants_once_and_stale_snapshot_double_grants(tmp_path):
 
 
 def test_d2_winner_deliver_busy_then_retried(tmp_path):
-    """ⓐ 잠금 점유 중 승자 deliver = BUSY·쓰기 0 → helper 가 BUSY 만 다시 불러 hold 해제 뒤 전달 1."""
+    """ⓐ 잠금 점유 중 승자 deliver = BUSY·쓰기 0 → 해제 확인 뒤 재시도 1회로 전달 1(타이머 의존 0)."""
     root = str(tmp_path / "d2")
     node = _d(root)
     grant = node.assign("W3", "h1", evidence=EV, resources=["shared-slot"])
     assert grant.written
-    holder = _spawn("hold", root, 1.5)
+    holder = _spawn("hold", root, "until")                   # 해제 표식까지 잠금 유지
     _wait(os.path.join(root, "held"))
+    holding, own = _d(root), None
+    own = holding.rs._try_lock()                             # 자식이 먼저 놓았으면 부모가 쥔다 = BUSY 구간 고정
     before = _bytes(node)
     busy = node.deliver(grant.work, grant.attempt)
     assert (busy.result, busy.written) == (BUSY, False) and _bytes(node) == before   # BUSY = 쓰기 0
     assert _deliver_until(node, grant.work, grant.attempt, tries=0).result == BUSY   # M1 = 재시도 0회
-    written = _deliver_until(node, grant.work, grant.attempt, tries=1500)            # BUSY 만 다시
-    assert (written.result, written.written) == (OK, True) and holder.wait(timeout=25) == 0
+    open(os.path.join(root, "release"), "w", encoding="utf-8").close()              # 명시적 해제 표식
+    assert holder.wait(timeout=25) == 0                                              # 자식 해제·정상 종료
+    if own is not None:
+        holding.rs._unlock(own)
+    retry_own = holding.rs._try_lock()
+    assert retry_own is not None                                                     # 재시도가 필요한 잠금 = 부모가 쥔다
+    written = _deliver_until(_UnlockAfterBusy(node, lambda: holding.rs._unlock(retry_own)),
+                             grant.work, grant.attempt)
+    assert (written.result, written.written) == (OK, True)                           # BUSY 뒤 재시도 = 전달
     assert _obs(node, 1)["dispatch_journal"] == 1                                    # 전달 줄 1
 
 
@@ -685,7 +705,12 @@ def _child_main(argv):
         node = _d(root)
         handle = node.rs._try_lock()
         open(os.path.join(root, "held"), "w", encoding="utf-8").close()
-        time.sleep(float(rest[0]))
+        if str(rest[0]) == "until":                        # 해제 표식까지 유지(상한 10초 = 재현 모형용 안전 상한)
+            deadline = time.monotonic() + 10.0
+            while not os.path.exists(os.path.join(root, "release")) and time.monotonic() < deadline:
+                time.sleep(0.002)
+        else:
+            time.sleep(float(rest[0]))
         return node.rs._unlock(handle) or 0
     role = rest[1]
     node = _d(root, _MUTANTS.get(rest[2]) if len(rest) > 2 else None)   # 스냅숏 변이는 barrier 전
