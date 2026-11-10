@@ -1,6 +1,5 @@
 """ft2 pi distill-gate 시험 — 사례 ⓐ~ⓙ + 변이 M1~M6 (r1553 카드 · arch#274 보정 1). extension 은 TypeScript 라 node 로 불러 «판정»만 받는다.
-ⓘ = 실제 claude 훅(context-distill-gate.sh)을 가짜 transcript 로 돌려 같은 입력의 allow/deny 대조 · mbox handover·ready·close-check 3개는 «의도된 차이»(훅 deny · 게이트 allow)로 따로 단언 · 격리 픽스처 = tmp_path 뿐.
-"""
+ⓘ = 실제 claude 훅(context-distill-gate.sh)을 가짜 transcript 로 돌려 같은 입력의 allow/deny 대조 · mbox handover·ready·close-check 3개는 «의도된 차이»(훅 deny · 게이트 allow) · 격리 픽스처 = tmp_path 뿐."""
 import json
 import os
 import re
@@ -19,12 +18,12 @@ BIN = "." + "fable-team" + "/bin"  # 1.x 경로 문자열이라 조각으로 조
 CLAUDE, SEAT = "claude-sonnet-5-5", "byz-x-nano#0"
 DRIVER = """
 import fs from "node:fs"; const mod = await import(process.env.FT_GATE), req = JSON.parse(fs.readFileSync(0, "utf8"));
-const out = req.op === "thresholds" ? mod.thresholds(req.env, req.cwd) : req.cases.map((c) => { try { return mod.judge({ ...c, cwd: req.cwd, env: req.env }); } catch (e) { return { action: "throw", rule: "error", reason: String(e) }; } });
+const out = req.op === "thresholds" ? mod.thresholds(req.env, req.cwd) : req.cases.map((c) => { try { return mod.judge({ ...c, cwd: req.cwd, env: req.env, session: req.session ?? "" }); } catch (e) { return { action: "throw", rule: "error", reason: String(e) }; } });
 process.stdout.write(JSON.stringify(out));"""
 
-def run_gate(gate, root, cases, env=None, op="judge", home=None):
+def run_gate(gate, root, cases, env=None, op="judge", home=None, session=None):
     proc = subprocess.run([NODE, "--input-type=module", "-e", DRIVER], capture_output=True, text=True, timeout=60,
-                          input=json.dumps({"op": op, "cwd": str(root), "env": env or {}, "cases": cases}),
+                          input=json.dumps({"op": op, "cwd": str(root), "env": env or {}, "cases": cases, "session": session or ""}),
                           env={"PATH": os.environ["PATH"], "FT_GATE": gate.resolve().as_uri(), "HOME": str(home or root.parent)})
     if proc.returncode != 0:
         pytest.fail(proc.stderr[-800:])
@@ -44,9 +43,8 @@ def build(tmp):
     return root
 
 def capture_mbox(tmp, tag=""):
-    script = tmp / f"mbox-capture{tag}.sh"
-    script.write_text(f'#!/bin/bash\nprintf "%s\\n" "$*" >> "{tmp}/mbox{tag}.log"\n', encoding="utf-8")
-    return script, tmp / f"mbox{tag}.log"
+    (tmp / f"mbox-capture{tag}.sh").write_text(f'#!/bin/bash\nprintf "%s\\n" "$*" >> "{tmp}/mbox{tag}.log"\n', encoding="utf-8")
+    return tmp / f"mbox-capture{tag}.sh", tmp / f"mbox{tag}.log"
 
 def cases(*items):
     return [{"tool": t, "tokens": k, "model": CLAUDE, "seat": SEAT, **rest} for t, k, rest in items]
@@ -69,16 +67,16 @@ def test_b_warn_line_blocks_nothing(tmp_path):
 
 def test_c_block_allowlist(tmp_path):
     root = build(tmp_path)
-    got = run_gate(GATE, root, cases(("read", 330000, {"path": "/etc/passwd"}), ("write", 330000, {"path": str(root / "design/harness/HANDOFF-a.md")}),
-        ("bash", 330000, {"command": "git status"}), ("bash", 330000, {"command": "git commit --only -F /tmp/m -- a.txt"}))
-        + bash("rm -rf build", "echo hi") + cases(("write", 330000, {"path": "/tmp/out.md"}), ("grep", 330000, {})))
+    got = run_gate(GATE, root, cases(("read", 330000, {"path": "/etc/passwd"}), ("write", 330000, {"path": str(root / "design/harness/HANDOFF-a.md")}), ("bash", 330000, {"command": "git status"}))
+                   + cases(("bash", 330000, {"command": "git commit --only -F /tmp/m -- a.txt"}), ("write", 330000, {"path": "/tmp/out.md"}), ("grep", 330000, {})) + bash("rm -rf build", "echo hi"))
     assert [v["action"] for v in got] == ["allow"] * 4 + ["block"] * 4, got
 
 def test_d_recv_gate(tmp_path):
     root = build(tmp_path)
     base = f"bash {root}/{BIN}/mbox.sh"
-    got = run_gate(GATE, root, bash(*[base + s for s in (" recv me", " peek me", ' send a b "hi"', " relay a b /tmp/f", " handover a b", " ready a b", " close-check a")], k=260000))
-    assert [v["action"] for v in got] == ["block"] + ["allow"] * 6 and got[0]["rule"] == "recv-gate", got
+    got = run_gate(GATE, root, bash(*[base + s for s in (" recv me", " peek me", ' send a b "hi"', " relay a b /tmp/f", " handover a b", " ready a b", " close-check a")], k=260000)
+                   + bash(f'bash "{root}/{BIN}/mbox.sh" recv me', k=260000))  # 따옴표 친 정상 경로도 새 recv 차단(DA R4)
+    assert [v["action"] for v in got] == ["block"] + ["allow"] * 6 + ["block"] and {v["rule"] for v in got[:1] + got[7:]} == {"recv-gate"}, got
 
 def test_e_undecidable_blocks_and_notifies_once(tmp_path):
     root = build(tmp_path)
@@ -108,9 +106,13 @@ def test_e2_master_is_the_roster_that_holds_the_seat(tmp_path):
     assert absent[0]["action"] == "block" and "팀장 불명" in absent[0]["reason"], absent
     assert (tmp_path / "mbox-other.log").read_text(encoding="utf-8").count("byz-other-master#9") == 1, "팀장 불명이면 send 0"
 
-def test_f_non_claude_models_pass(tmp_path):
-    got = run_gate(GATE, build(tmp_path), [{"tool": "bash", "tokens": 999999, "model": m, "seat": SEAT, "command": "rm -rf x"} for m in ("gpt-6-sol", "gemini-3-pro", "deepseek-v4-pro", "")])
-    assert [v["action"] for v in got] == ["allow"] * 4 and {v["rule"] for v in got} == {"model-out-of-scope"}, got
+def test_f_known_non_claude_pass_unknown_model_blocks(tmp_path):
+    root, mbox, log = build(tmp_path), *capture_mbox(tmp_path, "_f")
+    got = run_gate(GATE, root, [{"tool": "bash", "tokens": 999999, "model": m, "seat": SEAT, "command": "rm -rf x"} for m in ("gpt-6-sol", "gemini-3-pro", "deepseek-v4-pro")])
+    assert [v["action"] for v in got] == ["allow"] * 3 and {v["rule"] for v in got} == {"model-out-of-scope"}, got
+    unknown = run_gate(GATE, root, [{"tool": "bash", "tokens": 330000, "model": "", "seat": SEAT, "command": "echo work"}], env={"FT_MBOX": str(mbox)})
+    assert unknown[0]["action"] == "block" and "모델 불명" in unknown[0]["reason"], "모델 불명 = 판정 불가(DA R1)"
+    assert log.read_text(encoding="utf-8").count("모델 불명") == 1, "모델 불명도 팀장 1줄"
 
 def test_g_pending_file_written_once(tmp_path):
     root = build(tmp_path)
@@ -118,8 +120,9 @@ def test_g_pending_file_written_once(tmp_path):
     assert [v["action"] for v in got] == ["warn", "block", "block"], got
     state = root / ".fable-team" / "state" / "pi-distill-pending" / "byz-x-nano"
     assert "ctx=330000" in state.read_text(encoding="utf-8"), "차단과 같이 미완 표식이 먼저 생긴다"
-    again = run_gate(GATE, root, bash("rm -rf z", k=500000))
-    assert [v["action"] for v in again] == ["block"] and state.read_text(encoding="utf-8").endswith("ctx=330000 증류 미완\n"), "이미 있으면 덮어쓰지 않는다(DA 반례 4)"
+    assert [v["action"] for v in run_gate(GATE, root, bash("rm -rf z", k=500000))] == ["block"] and state.read_text(encoding="utf-8").endswith("ctx=330000 증류 미완\n"), "이미 있으면 덮어쓰지 않는다(DA 반례 4)"
+    r6 = build(tmp_path / "r6")
+    assert run_gate(GATE, r6, cases(("read", 330000, {"path": "README.md"})))[0]["action"] == "allow" and (r6 / ".fable-team/state/pi-distill-pending/byz-x-nano").exists(), "허용 통과여도 ≥차단선이면 표식"
 
 def test_h_pending_blocks_new_work_allows_successor(tmp_path):
     root = build(tmp_path)
@@ -131,13 +134,11 @@ def test_h_pending_blocks_new_work_allows_successor(tmp_path):
                    + bash(base + "/bin/ft-successor-open.sh old wt --name new", base + "/comm/mbox.sh handover old new"))
     assert [v["action"] for v in got] == ["block", "allow", "allow", "allow"], got
 
-PARITY = [("Read", "read", "design/harness/HANDOFF-a.md"), ("Write", "write", "design/harness/HANDOFF-a.md"), ("Edit", "edit", "design/harness/VERDICT-da.md"),
-          ("Write", "write", "design/harness/inbox/arch/01-a.md"), ("Write", "write", ".fable-team/state/successor/x.json"), ("Write", "write", ".fable-team/state/x.sh"),
-          ("Write", "write", "/tmp/out.md"), ("Write", "write", "src/a.ts")]
+PARITY = [("Read", "read", "design/harness/HANDOFF-a.md"), ("Write", "write", "design/harness/HANDOFF-a.md"), ("Edit", "edit", "design/harness/VERDICT-da.md"), ("Write", "write", "design/harness/inbox/arch/01-a.md"),
+          ("Write", "write", ".fable-team/state/successor/x.json"), ("Write", "write", ".fable-team/state/x.sh"), ("Write", "write", "/tmp/out.md"), ("Write", "write", "src/a.ts")]
 PARITY_CMD = ["git status", "git add -A", "git commit --only -F /tmp/m -- a.txt", "git push origin nano/x", "git push --force origin x", "git log --oneline -5",
-              "rm -rf build", "echo hi", "bash {r}/{b}/mbox.sh send a b \"hi\"", "bash {r}/{b}/ft-successor-open.sh a b"]
-# 의도된 차이(카드 ⓓ·ⓗ): mbox handover·ready·close-check 는 claude 훅이 막고(SCRIPT_ARGS 5개만) pi 게이트는 통과시킨다.
-DIVERGE = ["handover a b", "ready a b", "close-check byz-x-nano"]
+              "git reset --hard HEAD", "git checkout -b task", "git branch -D task", "rm -rf build", "echo hi", "bash {r}/{b}/mbox.sh send a b \"hi\"", "bash {r}/{b}/ft-successor-open.sh a b"]
+DIVERGE = ["handover a b", "ready a b", "close-check byz-x-nano"]  # 의도된 차이(카드 ⓓ·ⓗ) — claude 훅은 막고(SCRIPT_ARGS 5개) pi 게이트는 통과
 
 def hook_verdict(hook, root, home, tool, tool_input):
     usage = {"input_tokens": 1000, "cache_read_input_tokens": 320000, "cache_creation_input_tokens": 9000}
@@ -162,27 +163,26 @@ def test_i_allowlist_matches_claude_hook(tmp_path):
         mine.append(("bash", {"command": text}))
     got = run_gate(GATE, root, [{"tool": t, "tokens": 330000, "model": CLAUDE, "seat": SEAT, **rest} for t, rest in mine])
     assert 0 < sum(theirs) < len(theirs), "훅 판정이 한 쪽으로 쏠리면 대조가 무의미하다"
-    assert [v["action"] != "block" for v in got] == theirs, "허용 19 가 claude 훅과 어긋난다"
+    assert [v["action"] != "block" for v in got] == theirs, "허용 입력이 claude 훅과 어긋난다"
     diff = [f"bash {root}/.fable-team/comm/mbox.sh {c}" for c in DIVERGE]
     assert [hook_verdict(HOOK, root, home, "Bash", {"command": c}) for c in diff] == [False] * 3, "훅은 이 3개를 막는다"
     assert [v["action"] for v in run_gate(GATE, root, bash(*diff))] == ["allow"] * 3, "pi 게이트는 증류 마무리를 통과시킨다(의도된 차이)"
 
-def test_j_successor_clears_pending(tmp_path):
+def test_j_closing_event_needs_new_session(tmp_path):
     root = build(tmp_path)
-    state = root / ".fable-team" / "state" / "pi-distill-pending"
-    state.mkdir(parents=True)
-    (state / "byz-x-nano").write_text("old\n", encoding="utf-8")
-    assert [v["action"] for v in run_gate(GATE, root, bash("git status", k=120000))] == ["allow"] and not (state / "byz-x-nano").exists()
+    state = root / ".fable-team" / "state" / "pi-distill-pending" / "byz-x-nano"
+    run_gate(GATE, root, bash("rm -rf x", k=330000), session="s1")
+    low = run_gate(GATE, root, bash(f"bash {root}/.fable-team/comm/mbox.sh recv me", k=120000), session="s1")
+    assert state.exists() and [v["action"] for v in low] == ["block"], "같은 세션 낮은 ctx = 표식 유지 + recv 차단(DA R3)"
+    run_gate(GATE, root, cases(("read", 120000, {})), session="s2")
+    assert not state.exists(), "다른 세션이 낮은 ctx 로 들어오면 닫는다(pi session 신원)"
 
-KEEP = 'if (fs.existsSync(p)) return "";\n    fs.mkdirSync(path.dirname(p), { recursive: true });\n    fs.writeFileSync(p, `${new Date().toISOString()} ${seat} ctx=${tokens} 증류 미완\\n`, { flag: "wx" });'
-DROP = 'fs.mkdirSync(path.dirname(p), { recursive: true });\n    fs.writeFileSync(p, `${new Date().toISOString()} ${seat} ctx=${tokens} 증류 미완\\n`);'
 MUTANTS = {"M1_판정불가를_통과로": ('action: "block", rule: "undecidable"', 'action: "allow", rule: "undecidable"'),
            "M2_팀장알림_빼기": ('const bad = notifyTeam(input, env, seat || "unknown", root, why);', 'const bad = "";'),
-           "M3_허용목록에서_handover_빼기": ('"ring", "handover", ', '"ring", '),
-           "M4_gpt도_판정": ("if (!/claude/i.test(model)) return", "if (!model) return"),
-           "M5_상태파일_덮어쓰기": ("    " + KEEP, "    " + DROP),
-           "M6_첫_master_행으로": ('if (Object.keys(data).some((k) => k === seat || k.replace(/#\\d+$/, "") === base)) return String(data._master ?? "");',
-                                 'if (String(data._master ?? "")) return String(data._master ?? "");')}
+           "M3_허용목록에서_handover_빼기": ('"ring", "handover", ', '"ring", '), "M4_gpt도_판정": ("if (!/claude/i.test(model)) return", "if (!model) return"),
+           "M5_상태파일_덮어쓰기": ('    if (fs.existsSync(p)) return "";\n    fs.mkdirSync(path.dirname(p), { recursive: true });\n    fs.writeFileSync(p, `${new Date().toISOString()} ${seat} session=${session} ctx=${tokens} 증류 미완\\n`, { flag: "wx" }); return "";',
+                                 '    fs.mkdirSync(path.dirname(p), { recursive: true });\n    fs.writeFileSync(p, `${new Date().toISOString()} ${seat} session=${session} ctx=${tokens} 증류 미완\\n`); return "";'),  # «덮어쓰기 0» 두 가드(existsSync·wx)를 함께 빼면 덮어쓴다
+           "M6_첫_master_행으로": ('k === seat || k.replace(/#\\d+$/, "") === base', 'true')}  # 좌석 행 유무를 안 보고 첫 _master 를 고른다
 
 def mutant(tmp_path, name):
     old, new = MUTANTS[name]
