@@ -45,6 +45,12 @@
 #     R4 git 은 옵션 약어를 받는다(--delet · --mirro) → '-' 시작 토큰은 정확일치 집합 12개만 통과.
 #     R5 --receive-pack='sh -c …' · --exec=id 임의 실행 → 같은 집합으로 자동 차단. refspec 규칙(+ · ^: · :$) 유지.
 #     C3 BLOCK 안내문에 «증류 커밋은 --only -F 파일 경유» 한 줄.
+# r1554: 판정 불가(fail-open)를 «3갈래»로 가른다 — (1) 하위 세션(cwd 가 .fable-team/state/inbox-haiku-cwd 아래) = 면제·로그 0
+#   (2) 좌석 세션(seats*.json 에 이름이 있는 세션) = 기록 1줄 → 같은 세션 연속 N회(FT_DISTILL_FAILOPEN_MAX 기본 3)면 막음 + 팀장 1줄
+#   (3) 그 밖 = 지금처럼 경고 통과 + 1줄. 닫는 사건 = transcript 에 실 usage 가 생기면 연속 횟수 0. 감사 = bin/ft-distill-audit.sh
+#   판정 «가능한» 호출의 경고 250k·차단 300k·recv 250k 동작은 그대로(ⓔ).
+#   보정(arch#276 반례1): 연속 상한 도달 = «막음» 이 아니라 «ctx ≥ 차단선» 과 같은 allowlist 판정 — 인계서·쪽지·Read·후계는 통과, 일반 도구만 막는다.
+#   보정2(DA r1554 반례1·2): 판정 불가 모든 자리(tpath·scan·no-usage)가 fp_emit() 하나를 통과한다 · streak_reset 은 연속 횟수만 0 으로(알림 장부 notified 는 세션당 유지).
 set +e
 MODE="${1:-warn}"; shift
 WARN_AT_ARG=""; BLOCK_AT_ARG=""; RECV_AT_ARG=""
@@ -63,8 +69,14 @@ for _t in "${OMC_FT_BIN:-}/ft-thresholds.sh" "$_d/ft-thresholds.sh" "$_d/../../b
   case "$_t" in *.env) set -a; . "$_t"; set +a;; *) eval "$(bash "$_t" --export 2>/dev/null)" || true;; esac
   break
 done
-RESULT=$(python3 - "$INPUT" "$WARN_AT_ARG" "$BLOCK_AT_ARG" "$EXEMPT_MODELS" "$MODE" "$RECV_AT_ARG" <<'PYEOF' 2>>"$LOG"
-import json, sys, os, re, shlex
+# r1554: 판정 불가 연속 상한 — thresholds.env 키 1개(명시 env > ~/.claude/fable-team/thresholds.env > 3). ft-thresholds.sh 는 이 키를 모른다.
+FAILOPEN_MAX="${FT_DISTILL_FAILOPEN_MAX:-}"
+if [ -z "$FAILOPEN_MAX" ] && [ -f "$HOME/.claude/fable-team/thresholds.env" ]; then
+  FAILOPEN_MAX=$(sed -n 's/^[[:space:]]*FT_DISTILL_FAILOPEN_MAX[[:space:]]*=[[:space:]]*//p' "$HOME/.claude/fable-team/thresholds.env" | tail -1 | tr -d '"'"'"' \r')
+fi
+case "$FAILOPEN_MAX" in ''|*[!0-9]*|0) FAILOPEN_MAX=3;; esac
+RESULT=$(python3 - "$INPUT" "$WARN_AT_ARG" "$BLOCK_AT_ARG" "$EXEMPT_MODELS" "$MODE" "$RECV_AT_ARG" "$FAILOPEN_MAX" <<'PYEOF' 2>>"$LOG"
+import json, sys, os, re, shlex, subprocess, time
 TAIL_CAP = 16 * 1024 * 1024
 TAIL_CHUNK = 262144
 WARN_DEFAULT = int(os.environ.get("FT_DISTILL_WARN") or 250_000)      # r1427: 문턱 한 곳(bin/ft-thresholds.sh)
@@ -114,40 +126,17 @@ try:
     mode = sys.argv[5]
     recv_at = int(sys.argv[6]) if len(sys.argv) > 6 and sys.argv[6].strip() else RECV_DEFAULT
 except Exception as e:
-    print("ERROR|input parse: %s" % e); sys.exit(0)
+    print("ERROR|branch=other input parse: %s" % e); sys.exit(0)
 
-tpath = data.get("transcript_path", "")
-if not tpath or not os.path.isfile(tpath):
-    print("ERROR|transcript missing: %r" % tpath); sys.exit(0)     # 구멍 H5 — 조용한 ALLOW 금지
-try:
-    model, usage, ctx = scan_last_real_usage(tpath)
-except Exception as e:
-    print("ERROR|scan failed: %s" % e); sys.exit(0)
-model = norm_model(model)
-if exempt_re and model and re.search(exempt_re, model):
-    print("ALLOW|%d|exempt-model|%d|%d" % (ctx // 1000, warn_at // 1000, block_at // 1000)); sys.exit(0)
-if ctx <= 0:
-    # r10: 첫 프롬프트(assistant 응답 0건)는 잴 컨텍스트가 없다 — 정상 ALLOW. assistant 기록이 있는데 usage 만 없으면 여전히 ERROR(H5).
-    def has_assistant(path):
-        with open(path, "rb") as f:
-            for line in f:
-                if b'"type":"assistant"' in line:
-                    return True
-        return False
-    try:
-        fresh = not has_assistant(tpath)
-    except Exception:
-        fresh = False
-    if fresh:
-        print("ALLOW|0|fresh-session|%d|%d" % (warn_at // 1000, block_at // 1000)); sys.exit(0)
-    print("ERROR|no real usage record in transcript"); sys.exit(0)
-k = ctx // 1000
-
-# ── hard 모드 allowlist: 증류·마무리에 필요한 도구만 ─────────────────────────────
+# ── r1554: 판정 불가 3갈래 · 좌석 연속 횟수 · 팀장 1줄 ──────────────────────────
+cwd_raw = str(data.get("cwd") or "")
 tool = data.get("tool_name") or ""
 ti = data.get("tool_input") or {}
-cwd_raw = str(data.get("cwd") or "")
 agent_id = re.sub(r"[^A-Za-z0-9._-]", "_", str(data.get("agent_id") or "")) or "-"   # C10·C11: 로그 집계용('|' 금지)
+session = re.sub(r"[^A-Za-z0-9._-]", "_", str(data.get("session_id") or "")) or "-"
+FAILOPEN_MAX = int(sys.argv[7]) if len(sys.argv) > 7 and re.fullmatch(r"\d+", sys.argv[7] or "") else 3
+SUBSESSION_RE = re.compile(r"(^|/)\.fable-team/state/inbox-haiku-cwd(/|$)")
+STREAK_DIR = os.path.join(os.path.expanduser("~"), ".claude", "state", "distill-gate-failopen")
 
 def find_repo_root(cwd):
     """git common-dir 의 부모(=…/BYZ-Agents/) 를 찾는다 — 어느 워크트리 cwd 에서 시작해도 같다.
@@ -168,6 +157,181 @@ def find_repo_root(cwd):
 
 REPO_ROOT = find_repo_root(cwd_raw)
 REPO_REAL = os.path.realpath(REPO_ROOT) if REPO_ROOT else None
+
+def seat_now():
+    """이 호출이 어느 좌석에서 났나 — FT_SEAT > TMUX_PANE 의 세션명. 못 읽으면 빈 문자열."""
+    s = os.environ.get("FT_SEAT", "")
+    if s:
+        return s
+    pane = os.environ.get("TMUX_PANE", "")
+    if not pane:
+        return ""
+    try:
+        return subprocess.run(["tmux", "display", "-p", "-t", pane, "#S"], stdout=subprocess.PIPE,
+                              stderr=subprocess.DEVNULL, timeout=3).stdout.decode().strip()
+    except Exception:
+        return ""
+
+def seats_dir():
+    """좌석 명부 폴더 — FT_MBOX 의 .fable-team(정합 r1553) → 리포 루트/.fable-team."""
+    m = os.environ.get("FT_MBOX", "")
+    d = os.path.dirname(os.path.abspath(m)) if m else ""
+    while d and os.path.basename(d) != ".fable-team" and os.path.dirname(d) != d:
+        d = os.path.dirname(d)
+    if d and os.path.basename(d) == ".fable-team":
+        return d
+    if REPO_ROOT and os.path.isdir(os.path.join(REPO_ROOT, ".fable-team")):
+        return os.path.join(REPO_ROOT, ".fable-team")
+    return None
+
+def seat_lookup(seat):
+    """그 좌석 행이 있는 명부의 _master. (행 없음·명부 없음) = ('', None) — 다른 팀 master 를 고르지 않는다."""
+    d = seats_dir()
+    if not d or not seat:
+        return "", None
+    base = re.sub(r"#\d+$", "", seat)
+    try:
+        names = sorted(n for n in os.listdir(d) if re.match(r"^seats.*\.json$", n))
+    except Exception:
+        return "", None
+    for n in names:
+        try:
+            with open(os.path.join(d, n), encoding="utf-8") as f:
+                row = json.load(f)
+        except Exception:
+            continue
+        if isinstance(row, dict) and any(k == seat or re.sub(r"#\d+$", "", k) == base for k in row):
+            return str(row.get("_master") or ""), n
+    return "", None
+
+def streak_path():
+    return os.path.join(STREAK_DIR, session + ".json") if session != "-" else ""
+
+def streak_load():
+    p = streak_path(); d = {}
+    if p:
+        try:
+            with open(p, encoding="utf-8") as f:
+                d = json.load(f)
+        except Exception:
+            d = {}
+    if not isinstance(d, dict):
+        d = {}
+    return {"n": int(d.get("n") or 0), "reason": str(d.get("reason") or ""),
+            "notified": [str(x) for x in (d.get("notified") or [])]}
+
+def streak_save(d):
+    p = streak_path()
+    if not p:
+        return
+    try:
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+        with open(p + ".tmp", "w", encoding="utf-8") as f:
+            json.dump(d, f)
+        os.replace(p + ".tmp", p)
+    except Exception:
+        pass
+
+def streak_reset():
+    """r1554 ⓓ 닫는 사건 — 실 usage 가 생기면 연속 횟수 0. ⓒ 알림 장부(notified)는 세션당 유지한다(DA 반례2)."""
+    st = streak_load()
+    if st["n"] <= 0:
+        return
+    st["n"] = 0
+    streak_save(st)
+
+def notify_leader(seat, master, why):
+    """팀장 1줄 «[긴급] 증류 판정 불가 <좌석> <이유>» — r1553 과 같은 꼴. 실패도 사유 1줄(조용한 0 금지)."""
+    if not master:
+        return "master-unknown"
+    mbox = os.environ.get("FT_MBOX", "")
+    if not mbox and REPO_ROOT:
+        cand = os.path.join(REPO_ROOT, ".fable-team", "comm", "mbox.sh")
+        mbox = cand if os.path.isfile(cand) else ""
+    if not mbox or not os.path.isfile(mbox):
+        return "mbox-missing"
+    try:
+        subprocess.run(["bash", mbox, "send", master, seat, "[긴급] 증류 판정 불가 %s %s" % (seat, why)],
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=7)
+        return "sent:%s" % master
+    except Exception as e:
+        return "send-failed:" + re.sub(r"\s+", "_", str(e))[:60]
+
+def failopen(reason, detail):
+    """판정 불가 처리 = 3갈래(ⓐ). 출력 = FAILOPEN|갈래|동작|로그줄(없으면 빈칸)|사유상세."""
+    cwd_n = cwd_raw.replace(os.sep, "/")
+    if cwd_n and SUBSESSION_RE.search(cwd_n):
+        return "subsession", "allow", "", ""                       # (1) 하위 세션 = 면제 · 로그 줄 0
+    seat = seat_now()
+    master, src = seat_lookup(seat)
+    if not seat or not src:
+        line = "%s error mode=%s branch=other reason=%s detail=%s" % (time.strftime("%FT%T"), mode, reason, detail)
+        return "other", "pass", line, detail                          # (3) 그 밖 = 지금처럼 경고 통과 + 1줄
+    st = streak_load()
+    st["n"] += 1; st["reason"] = reason
+    escalated = st["n"] >= FAILOPEN_MAX                              # (2) 좌석 = 연속 N회에서 막음
+    note = ""
+    if escalated and reason not in st["notified"]:                    # ⓒ 같은 좌석·같은 이유 세션당 1통
+        note = notify_leader(seat, master, reason)
+        st["notified"] = st["notified"] + [reason]
+    streak_save(st)
+    if escalated:
+        line = "%s undecidable-block branch=seat seat=%s session=%s reason=%s n=%d/%d notified=%s" % (
+            time.strftime("%FT%T"), seat, session, reason, st["n"], FAILOPEN_MAX, note or "none")
+        if mode == "warn":
+            return "seat", "pass", line, detail          # UserPromptSubmit 은 막을 수 없다 — 기록·통보만
+        return "seat", "escalate", line, detail          # r1554 보정: 막음도 «ctx ≥ 차단선» 과 같은 allowlist 판정으로 넘긴다
+    line = "%s undecidable branch=seat seat=%s session=%s reason=%s n=%d/%d" % (
+        time.strftime("%FT%T"), seat, session, reason, st["n"], FAILOPEN_MAX)
+    return "seat", "pass", line, detail
+
+def fp_emit(fp):
+    """판정 불가 결과를 내보낸다. escalate = 기록 1줄 먼저 + ctx 를 차단선으로(아래 정상 allowlist 판정).
+    ★ 모든 판정 불가 자리(tpath/scan/no-usage)가 이 함수를 통과한다 — 한 자리만 빠지면 일반 도구가 통과한다(DA 반례1)."""
+    global ctx
+    br, act, ln, det = fp
+    if act != "escalate":
+        print("FAILOPEN|%s|%s|%s|%s" % fp); sys.exit(0)
+    print("FAILOPENLOG|%s" % ln)          # 기록 1줄 — 막을지는 아래 정상 흐름(allowlist)이 정한다
+    ctx = block_at                         # r1554 보정(arch#276 반례1): 판정 불가 막음 = «ctx ≥ 차단선» 과 같은 판정
+
+tpath = data.get("transcript_path", "")
+fp = None
+if not tpath or not os.path.isfile(tpath):
+    fp = failopen("transcript-missing", "transcript missing: %r" % tpath)     # 구멍 H5 — 조용한 ALLOW 금지
+    model, usage, ctx = None, None, 0
+else:
+    try:
+        model, usage, ctx = scan_last_real_usage(tpath)
+    except Exception as e:
+        fp = failopen("scan-failed", "scan failed: %s" % e)
+        model, usage, ctx = None, None, 0
+if fp:
+    fp_emit(fp)
+model = norm_model(model)
+if exempt_re and model and re.search(exempt_re, model):
+    print("ALLOW|%d|exempt-model|%d|%d" % (ctx // 1000, warn_at // 1000, block_at // 1000)); sys.exit(0)
+if ctx <= 0:
+    # r10: 첫 프롬프트(assistant 응답 0건)는 잴 컨텍스트가 없다 — 정상 ALLOW. assistant 기록이 있는데 usage 만 없으면 여전히 ERROR(H5).
+    def has_assistant(path):
+        with open(path, "rb") as f:
+            for line in f:
+                if b'"type":"assistant"' in line:
+                    return True
+        return False
+    try:
+        fresh = not has_assistant(tpath)
+    except Exception:
+        fresh = False
+    if fresh:
+        print("ALLOW|0|fresh-session|%d|%d" % (warn_at // 1000, block_at // 1000)); sys.exit(0)
+    fp = failopen("no-usage", "no real usage record in transcript")
+    fp_emit(fp)                             # r1554 보정(DA 반례1): no-usage 갈래도 같은 escalate 경로를 탄다(fp 를 반드시 채운다 — 아니면 아래 streak_reset 이 방금 쌓은 횟수를 0 으로 되돌린다)
+if not fp:
+    streak_reset()  # r1554 ⓓ 닫는 사건 — 판정 가능한 호출이 왔으니 연속 횟수 0
+k = ctx // 1000
+
+# ── hard 모드 allowlist: 증류·마무리에 필요한 도구만 ─────────────────────────────
 
 # r5: 리포루트 상대 뿐 아니라 .worktrees/<이름>/ 접두 뒤도 받는다 — 접두 그룹이 .baton 까지 걸리게 묶는다
 # (오케 FB_CFO#15 실측: .fable-team/state/ Write 100건+ 전부 워크트리 절대경로, .baton 은 양쪽에 실재).
@@ -596,9 +760,37 @@ PYEOF
 PYRC=$?
 IFS='|' read -r STATE K WHAT WARN_K BLOCK_K AGENT <<<"$RESULT"
 
+# r1554 보정: 좌석 연속 상한 도달 = 로그 1줄만 남기고 «ctx ≥ 차단선» 과 같은 allowlist 판정으로 넘긴다(증류 도구 통과 · 일반 도구만 막음)
+_fo=""
+case "$RESULT" in
+  FAILOPENLOG\|*)
+    _note="${RESULT#FAILOPENLOG|}"; _note="${_note%%$'\n'*}"
+    printf '%s\n' "$_note" >> "$LOG" 2>/dev/null
+    _fo=1; RESULT="${RESULT#*$'\n'}"
+    IFS='|' read -r STATE K WHAT WARN_K BLOCK_K AGENT <<<"$RESULT";;
+esac
+
 # ── 판정기 실패 = 보이는 fail-open (exit 1 + 로그) ──────────────────────────────
+# r1554: 판정 불가 = 갈래 3 — 하위 세션 면제(로그 0) · 좌석(기록 → 연속 N회 막음 + 팀장 1줄) · 그 밖(지금처럼 경고 통과 + 1줄)
+if [ "$STATE" = "FAILOPEN" ]; then
+  _br="" _act="" _ln="" _det=""
+  IFS='|' read -r _ _br _act _ln _det <<<"$RESULT"
+  [ -n "$_ln" ] && printf '%s\n' "$_ln" >> "$LOG" 2>/dev/null
+  [ "$_br" = "subsession" ] && exit 0                       # (1) 하위 세션 = 면제 · stderr 0 · 로그 0
+  if [ "$_br" = "other" ]; then                             # (3) 그 밖 = 지금과 같은 모양·같은 rc
+    printf '⚠️ [context-distill-gate] 판정 실패(ALLOW, fail-open): %s\n' "$_det" >&2
+    exit 1
+  fi
+  if [ "$_act" = "block" ] && [ "$MODE" != "warn" ]; then   # (2) 좌석 연속 N회 — 도구 게이트에서만 막는다(UserPromptSubmit 은 못 막는다)
+    printf '🛑 [context-distill-gate] 증류 판정 불가 %s회 연속 — 판정을 못 하면 통과시키지 않는다. 사유: %s\n' "$FAILOPEN_MAX" "$_det" >&2
+    printf '지금: transcript 경로를 확인하고, 팀장 보고(«[긴급] 증류 판정 불가») 뒤 다시 시도한다. 로그 = %s\n' "$LOG" >&2
+    exit 2
+  fi
+  printf '⚠️ [context-distill-gate] 판정 불가(좌석 기록): %s\n' "$_det" >&2
+  exit 0
+fi
 if [ "$PYRC" != 0 ] || [ -z "$STATE" ] || [ "$STATE" = "ERROR" ]; then
-  printf '%s error mode=%s %s\n' "$(date +%FT%T)" "$MODE" "${RESULT:-python rc=$PYRC}" >> "$LOG" 2>/dev/null
+  printf '%s error mode=%s branch=other %s\n' "$(date +%FT%T)" "$MODE" "${RESULT:-python rc=$PYRC}" >> "$LOG" 2>/dev/null
   printf '⚠️ [context-distill-gate] 판정 실패(ALLOW, fail-open): %s\n' "${RESULT:-python rc=$PYRC}" >&2
   exit 1
 fi
@@ -614,6 +806,12 @@ case "$MODE" in
       printf '%s newwork mode=%s ctx=%sk warn_at=%sk block_at=%sk tool=%s agent_id=%s\n' "$(date +%FT%T)" "$MODE" "$K" "$WARN_K" "$BLOCK_K" "$WHAT" "${AGENT:--}" >> "$LOG" 2>/dev/null
       printf '🛑 [context-distill-gate] 컨텍스트 %sk 토큰 — 경고선(%sk) 도달 = ★새 일 수락 금지★. 지금 증류한다(규칙 r1429): 스냅샷 → 인계서 → 후계(받을 일 0 이면 후계 0 — 좌석 닫기 대기 + 팀장에 «[다음 없음]» 1줄).\n' "$K" "$WARN_K" >&2
       printf '허용: 스냅샷(HANDOFF-*.md · .fable-team/state/** · design/**/inbox/**) · baton save · mbox send/relay · git add/commit/push · Read · AskUserQuestion · tmuxc save · 후계 개설(증류 단어 포함 발주).\n' >&2
+      exit 2
+    fi
+    if [ "$STATE" = "BLOCK" ] && [ -n "$_fo" ]; then      # r1554 보정: 판정 불가 막음 = allowlist 판정 결과
+      printf '%s deny mode=%s ctx=? tool=%s agent_id=%s failopen-allowlist\n' "$(date +%FT%T)" "$MODE" "$WHAT" "${AGENT:--}" >> "$LOG" 2>/dev/null
+      printf '🛑 [context-distill-gate] 증류 판정 불가 %s회 연속 — 판정 대신 «차단선 기준 증류 allowlist» 로 막는다. 도구 «%s» 는 목록 밖.\n' "$FAILOPEN_MAX" "$WHAT" >&2
+      printf '통과하는 것: 인계서·state·design inbox 쓰기 · Read · mbox send/relay · git add/commit/push · baton save · 후계 개설. 로그 = %s\n' "$LOG" >&2
       exit 2
     fi
     if [ "$STATE" = "BLOCK" ]; then
