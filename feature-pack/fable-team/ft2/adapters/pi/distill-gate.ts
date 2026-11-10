@@ -158,9 +158,9 @@ export function judge(input: GateInput): Verdict {
     if (turn && !seen && fresh) return { action: "allow", rule: "undecidable-turn", reason: `턴 시작 ${why} — 메시지 주입 0 · 팀장 알림 0 · 연속 횟수 불변` }; // ⓗⓚ
     misses.set(key, n);
     if (turn || (!seen && !fresh)) return missBlock(); // ⓙ 초기 예외 0(새 대화 아님) = 지금 동작 · ⓔ 읽은 뒤의 null 은 «첫 판정» 이 아니다
-    if (!seen && n === 1) return { action: "allow", rule: "undecidable-first", reason: `증류 판정 불가 = 통과(첫 판정) — ${why} · 연속 ${n}/${max}` }; // ⓐ
-    if (n < max) return { action: "allow", rule: "undecidable-pass", reason: `증류 판정 불가 = 통과 — ${why} · 연속 ${n}/${max}` };
-    const bad = notifyTeam(input, env, key, root, why), ok = toolAllowed(input, root), tail = bad ? ` · ${bad}` : ""; // ⓑⓒ 막는 자리도 «ctx ≥ 차단선» 과 같은 허용 목록 판정
+    if (seen && input.tool === "bash" && isRecv(input.command) && fs.existsSync(state ?? "/nonexistent")) return { action: "block", rule: "recv-gate", reason: `ctx usage 없음(읽은 뒤) · 증류 미완 표식 있음 — 새 일 수락 0: peek 은 허용, 승계(ft-successor-open.sh·mbox handover/ready)부터` }; // ⓔ 표식 있으면 읽은 뒤의 null 도 «새 일» 을 받지 않는다
+    if (!seen && n < max) return { action: "allow", rule: n === 1 ? "undecidable-first" : "undecidable-pass", reason: `증류 판정 불가 = 통과 — ${why} · 연속 ${n}/${max}` }; // ⓐ 첫 판정(n=1) · ⓑ N 전까지
+    const bad = notifyTeam(input, env, key, root, why), ok = toolAllowed(input, root), tail = bad ? ` · ${bad}` : ""; // ⓔ 읽은 뒤의 null · 연속 N 도달 = «통과 0» 허용 목록 모드(ⓑⓒ)
     return ok ? { action: "allow", rule: "undecidable-allowlist", reason: `증류 판정 불가 ${n}/${max} 연속 = 허용 목록 모드 — 증류 도구라 통과${tail}` } : { action: "block", rule: "undecidable-allowlist", reason: `증류 판정 불가 ${n}/${max} 연속 = 허용 목록 모드 — 도구 «${input.tool}» 는 허용 목록 밖${tail}` };
   }
   if (why) return missBlock(); // ⓕ 모델·문턱·좌석 불명 = 지금처럼 즉시 막음(이번 변경 밖)

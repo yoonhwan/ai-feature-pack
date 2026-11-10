@@ -222,20 +222,21 @@ def test_legacy_guard_clean():
 # ── r1565: «ctx usage 없음» 3갈래(ⓐ~ⓚ) — 새 대화 판정은 session 입력으로만 받는다(안 주면 지금 동작) ──────────
 S = {"reason": "startup", "entries": []}  # ⓙ 새 대화
 
-def gate(root, rows, env=None, **kw):
-    return run_gate(GATE, root, [{"tool": t, "tokens": k, "model": CLAUDE, "seat": kw.get("seat", SEAT), "session": kw.get("session", S), **r} for t, k, r in rows], env=env)
+def gate(root, rows, env=None, **kw): return run_gate(GATE, root, [{"tool": t, "tokens": k, "model": CLAUDE, "seat": SEAT, "session": kw.get("session", S), **r} for t, k, r in rows], env=env)
 
-def one(root, tool, k, session=None, **rest):
-    return gate(root, [(tool, k, rest)], session=session or S)[0]
+def one(root, tool, k, session=None, **rest): return gate(root, [(tool, k, rest)], session=session or S)[0]
 
 def test_n_first_verdict_streak_and_allowlist(tmp_path):
     root, mbox, log = build(tmp_path), *capture_mbox(tmp_path, "_n")
     got = gate(root, [("bash", None, {"command": "ls"}), ("bash", None, {"command": "ls"}), ("bash", None, {"command": "rm -rf x"}), ("read", None, {"path": "/etc/passwd"}), ("bash", 1000, {"command": "ls"}), ("bash", None, {"command": "ls"})], env={"FT_MBOX": str(mbox)})
-    assert [v["action"] for v in got] == ["allow", "allow", "block", "allow", "allow", "allow"], got  # ⓐ 첫 판정 · ⓑ 연속 3 = 허용 목록(밖 막음·안 통과) · ⓓ 읽으면 연속 0
-    assert [v["rule"] for v in got] == ["undecidable-first", "undecidable-pass", "undecidable-allowlist", "undecidable-allowlist", "below-warn", "undecidable-pass"], got  # ⓔ 읽은 뒤 null 은 «첫 판정» 이 아니다
+    assert [v["action"] for v in got] == ["allow", "allow", "block", "allow", "allow", "block"], got  # ⓐ 첫 판정 · ⓑ 연속 3 = 허용 목록(밖 막음·안 통과) · ⓓ 읽으면 연속 0 · ⓔ 읽은 뒤의 null = 통과 0
+    assert [v["rule"] for v in got] == ["undecidable-first", "undecidable-pass", "undecidable-allowlist", "undecidable-allowlist", "below-warn", "undecidable-allowlist"], got
     assert log.read_text(encoding="utf-8").strip().splitlines() == [f"send byz-x-master#1 {SEAT} [긴급] 증류 판정 불가 {SEAT} ctx usage 없음"], "ⓒ 같은 좌석·같은 이유 세션당 1통(첫 판정 알림 0)"
     assert [v["rule"] for v in gate(root, [("bash", 0, {"command": "ls"}), ("bash", None, {"command": "ls"})])] == ["undecidable-first", "undecidable-pass"], "ⓘ tokens=0 은 «읽음» 이 아니다"
     assert [v["rule"] for v in gate(root, [("bash", None, {"command": "ls"}), ("bash", None, {"command": "ls"})], env={"FT_DISTILL_FAILOPEN_MAX": "2"})] == ["undecidable-first", "undecidable-allowlist"], "ⓑ r1554 와 같은 키(env) 로 상한을 바꿀 수 있다"
+    assert one(root, "bash", 330000, command="ls")["rule"] == "block-gate" and (root / ".fable-team/state/pi-distill-pending/byz-x-nano").exists(), "회귀① 판정 가능 호출은 그대로(차단선 + 표식)"
+    assert [v["rule"] for v in gate(root, [("bash", 1000, {"command": "ls"}), ("bash", None, {"command": f"bash {root}/.fable-team/comm/mbox.sh recv me"})])] == ["below-warn", "recv-gate"], "회귀② 압축 뒤 null + 표식 = recv 차단"
+    assert [v["action"] for v in gate(root, [("bash", 1000, {"command": "ls"}), ("bash", None, {"command": "rm -rf build"})])] == ["allow", "block"], "회귀③ 읽은 뒤 null 은 통과 0(허용 목록 밖 막음)"
 
 def test_o_initial_exception_only_for_new_conversation(tmp_path):
     root = build(tmp_path)
@@ -255,14 +256,15 @@ def test_p_turn_start_silent_only_before_any_usage(tmp_path):
     assert [v["rule"] for v in got[:2]] == ["undecidable-turn", "undecidable-first"], "ⓗ 주입 0 · ⓚ 턴 시작이 첫 판정 예외를 소모하지 않는다"
     assert log.read_text(encoding="utf-8").strip().splitlines() == [f"send byz-x-master#1 {SEAT} [긴급] 증류 판정 불가 {SEAT} ctx usage 없음"], "ⓗ 턴 시작 usage 없음 = 알림 0 · 읽은 뒤의 null 만 지금 동작(막음+1줄)"
 
-MUT1565 = {"M1": ("action: \"allow\", rule: \"undecidable-first\"", "action: \"block\", rule: \"undecidable-first\""),
-           "M2": ("if (n < max) return", "if (true) return"), "M3": ("ok = toolAllowed(input, root)", "ok = false"),
-           "M4": ("if (!seen && n === 1) return", "if (n === 1) return"),
+MUT1565 = {"M1": ("if (!seen && n < max) return { action: \"allow\",", "if (!seen && n < max) return { action: \"block\","),
+           "M2": ("!seen && n < max", "!seen"), "M3": ("ok = toolAllowed(input, root)", "ok = false"),
+           "M4": ("!seen && n < max", "n === 1"),  # M4 = 읽은 뒤의 null 을 «첫 판정» 처럼 통과시킨다
            "M5": ("if (turn && !seen && fresh) return", "if (false) return"),
            "M6": ("if (turn && !seen && fresh) return", "if (turn) return"),
            "M7": ("if (k > 0) { seenUsage.set(key, true); misses.delete(key); }", "if (input.tokens !== null && input.tokens !== undefined) { seenUsage.set(key, true); misses.delete(key); }"),
            "M8": ("NEW.has(reason) && ", ""),
-           "M9": ("if (turn && !seen && fresh) return", "if (turn && !seen && fresh && seenUsage.set(key, true)) return")}
+           "M9": ("if (turn && !seen && fresh) return", "if (turn && !seen && fresh && seenUsage.set(key, true)) return"),
+           "M10": ("!seen && n < max", "n < max")}  # M10 = 읽은 뒤의 null 을 다시 «통과» 로 되돌린다
 
 def mut1565(tmp_path, name):
     old, new = MUT1565[name]
@@ -275,9 +277,11 @@ def mut1565(tmp_path, name):
 def test_q_mutants_r1565(tmp_path):
     root = build(tmp_path)
     for name in MUT1565:
-        m, kind = mut1565(tmp_path, name), name[1]
+        m, kind = mut1565(tmp_path, name), "10" if name == "M10" else name[1]
         if kind == "1":  # ⓐ 첫 판정 통과를 빼면 첫 호출이 막힌다
             assert run_gate(m, root, [{"tool": "bash", "tokens": None, "model": CLAUDE, "seat": SEAT, "session": S, "command": "ls"}])[0]["action"] == "block", name
+        elif kind == "10":  # M10 읽은 뒤의 null 이 통과하면 허용 목록 밖 도구가 열린다
+            assert [v["action"] for v in run_gate(m, root, [{"tool": "bash", "tokens": 1000, "model": CLAUDE, "seat": SEAT, "session": S, "command": "ls"}, {"tool": "bash", "tokens": None, "model": CLAUDE, "seat": SEAT, "session": S, "command": "rm -rf build"}])][-1] == "allow", name
         elif kind == "2":  # ⓑ 연속 N 을 무한으로 두면 3회째도 통과한다
             assert [v["action"] for v in run_gate(m, root, [{"tool": "bash", "tokens": None, "model": CLAUDE, "seat": SEAT, "session": S, "command": "ls"}] * 3)] == ["allow"] * 3, name
         elif kind == "3":  # ⓑ 허용 목록을 무시하면 증류 도구도 막힌다
@@ -293,4 +297,4 @@ def test_q_mutants_r1565(tmp_path):
         elif kind == "8":  # ⓙ resume 세션에도 초기 예외를 주면 막히지 않는다
             assert run_gate(m, root, [{"tool": "read", "tokens": None, "model": CLAUDE, "seat": SEAT, "session": {"reason": "resume", "entries": []}}])[0]["rule"] == "undecidable-first", name
         else:  # M9 ⓚ 턴 시작이 «읽음» 을 소모하면 첫 tool_call 이 «첫 판정» 이 아니다
-            assert [v["rule"] for v in run_gate(m, root, [{"tool": "turn", "tokens": None, "model": CLAUDE, "seat": SEAT, "session": S}, {"tool": "read", "tokens": None, "model": CLAUDE, "seat": SEAT, "session": S}])] == ["undecidable-turn", "undecidable-pass"], name
+            assert [v["rule"] for v in run_gate(m, root, [{"tool": "turn", "tokens": None, "model": CLAUDE, "seat": SEAT, "session": S}, {"tool": "read", "tokens": None, "model": CLAUDE, "seat": SEAT, "session": S}])] == ["undecidable-turn", "undecidable-allowlist"], name
