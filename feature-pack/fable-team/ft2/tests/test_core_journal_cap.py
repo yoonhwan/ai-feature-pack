@@ -252,6 +252,18 @@ def test_b_reclaim_closed_segments_only_bodies_first_and_idempotent(tmp_path):
     assert _reclaim_failures(node) == []
 
 
+def test_b2_last_seq_segment_is_never_reclaimed(tmp_path):
+    """R1 ⑤ — 열린 work 가 없어도 마지막 seq 를 담은 segment 는 남는다(seq 되감김 0 · M9)."""
+    node = _d(tmp_path / "b2")
+    for work in ("W1", "W2", "W3", "W4", "W5"):
+        _close(node, work)
+    top, bounds = node.rs.records()[-1]["seq"], node.rs.journal.closed()
+    first = node.rs.journal.reclaim()
+    assert first["result"] == RECLAIMED and len(first["reclaimed"]) == len(bounds) - 1
+    assert len(node.rs.journal.closed()) == 1                        # 마지막 segment 는 남는다
+    assert node.rs.records()[-1]["seq"] == top                       # seq 되감김 0
+
+
 def test_c_reclaim_crash_resume_is_idempotent(tmp_path):
     """ⓒ — K1(본문 삭제 뒤)·K2(첫 segment 삭제 직후) SIGKILL → base + suffix 복원 · 재실행 삭제 0."""
     ref = _reclaim_scenario(tmp_path / "ref")
@@ -323,6 +335,7 @@ def test_e_append_boundary_peak_and_words(tmp_path):
     assert refused.result == FULL and len(rs.records()) == journal_rows and _files(node) == files
     claims = [node.ex.claim("Q%d" % n, "h") for n in range(40)]     # 예약을 소진하면 k=1 도 거절
     assert claims[-1].result == FULL
+    assert len(rs.records()) == journal_rows + len([g for g in claims if g.result == OK])   # 거절 = 쓰기 0
     assert all(_files(node).get(name, 0) >= size for name, size in files.items()
                if name != "journal.jsonl" and not name.startswith("tmp/"))   # 줄거나 사라진 파일 0
     usages = [usage for _step, usage, _files_at in samples]
