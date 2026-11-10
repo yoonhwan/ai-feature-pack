@@ -132,7 +132,8 @@ def test_h_pending_blocks_new_work_allows_successor(tmp_path):
 PARITY = [("Read", "read", "design/harness/HANDOFF-a.md"), ("Write", "write", "design/harness/HANDOFF-a.md"), ("Edit", "edit", "design/harness/VERDICT-da.md"), ("Write", "write", "design/harness/inbox/arch/01-a.md"),
           ("Write", "write", ".fable-team/state/successor/x.json"), ("Write", "write", ".fable-team/state/x.sh"), ("Write", "write", "/tmp/out.md"), ("Write", "write", "src/a.ts")]
 PARITY_CMD = ["git status", "git add -A", "git commit --only -F /tmp/m -- a.txt", "git push origin nano/x", "git push --force origin x", "git log --oneline -5",
-              "git reset --hard HEAD", "git checkout -b task", "git branch -D task", "rm -rf build", "echo hi", "bash {r}/{b}/mbox.sh send a b \"hi\"", "bash {r}/{b}/ft-successor-open.sh a b"]
+              "git reset --hard HEAD", "git checkout -b task", "git branch -D task", "rm -rf build", "echo hi", "bash {r}/{b}/mbox.sh send a b \"hi\"", "bash {r}/{b}/ft-successor-open.sh a b",
+              "tmux capture-pane -p", "tmuxc save", "baton save", "pgrep -x pi", "cd {r} && git status"]  # 승계용 비git 명령(git 판정을 git 조각에만 — DA R5 직접 회귀)
 DIVERGE = ["handover a b", "ready a b", "close-check byz-x-nano"]  # 의도된 차이(카드 ⓓ·ⓗ) — claude 훅은 막고(SCRIPT_ARGS 5개) pi 게이트는 통과
 
 def hook_verdict(hook, root, home, tool, tool_input):
@@ -216,5 +217,4 @@ def test_m_mutants_break_their_cases(tmp_path):
             assert "ctx=400000" in state.read_text(encoding="utf-8"), name
 
 def test_legacy_guard_clean():
-    proc = subprocess.run([sys.executable, str(FT2 / "tools" / "legacy_guard.py"), str(FT2)], capture_output=True, text=True, timeout=60)
-    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert (p := subprocess.run([sys.executable, str(FT2 / "tools" / "legacy_guard.py"), str(FT2)], capture_output=True, text=True, timeout=60)).returncode == 0, p.stdout + p.stderr

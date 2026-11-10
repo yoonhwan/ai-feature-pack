@@ -46,6 +46,7 @@ function splitTop(s: string): string[] {
 const words = (s: string): string[] | null => (/["']/.test(s.replace(/"[^"]*"|'[^']*'/g, "")) ? null : [...s.matchAll(/"([^"]*)"|'([^']*)'|(\S+)/g)].map((m) => (m[1] ?? m[2] ?? m[3]) as string));
 const PUSH_OPT = new Set(["-u", "--set-upstream", "-q", "--quiet", "-v", "--verbose", "--dry-run", "-n", "--follow-tags", "--tags", "--all", "--porcelain"]);
 function gitAllowed(frag: string): boolean {
+  if (!/^\s*git\b/.test(frag)) return true; // 공통 분기(:83~84)는 cd·baton·tmux·tmuxc·sleep·pgrep 도 넣는다 — git 판정은 git 조각에만(DA R5 직접 회귀)
   const sub = (frag.match(/^\s*git\s+(?:-C\s+\S+\s+)?(add|commit|status|diff|log|push)\b/) ?? [])[1];
   if (!sub) return false; // 허용 6개 밖 git = 막음(DA R5 · claude 훅과 같다)
   const toks = sub === "push" && /[$\\{]/.test(frag) ? null : words(frag); if (!toks || toks.some((t) => /^--output(?:=.*)?$/.test(t) || (t === "-o" && sub !== "commit"))) return false;
