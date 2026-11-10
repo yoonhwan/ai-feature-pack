@@ -1,0 +1,13 @@
+{
+  "symptom_key": "tunnel.llm_8000_down",
+  "install_sha": "e50b7439c1f4a2b3d4e5f60718293a4b5c6d7e8f",
+  "state_revision": 12,
+  "evidence": [
+    {"source": "ft-doctor", "ref": "probe/health-8000.log#L1"},
+    {"source": "ft-doctor", "ref": "probe/health-8000-after.log#L1"}
+  ],
+  "observation": {"verdict": "observed"},
+  "allowed_recovery": ["restart_llm_tunnel", "wait_health_200"],
+  "reverified": {"done": true, "evidence_ref": "probe/health-8000-after.log#L1"},
+  "unresolved": {"open": false}
+}

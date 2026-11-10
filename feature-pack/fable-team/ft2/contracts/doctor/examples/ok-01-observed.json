@@ -1,0 +1,12 @@
+{
+  "symptom_key": "stt.no_audio_device",
+  "install_sha": "e50b7439c1f4a2b3d4e5f60718293a4b5c6d7e8f",
+  "state_revision": 7,
+  "evidence": [
+    {"source": "ft-doctor", "ref": "probe/stt-device.log#L12"}
+  ],
+  "observation": {"verdict": "observed"},
+  "allowed_recovery": ["restart_stt_worker"],
+  "reverified": {"done": false},
+  "unresolved": {"open": false}
+}
