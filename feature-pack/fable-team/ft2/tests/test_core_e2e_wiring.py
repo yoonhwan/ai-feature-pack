@@ -1,12 +1,11 @@
 """ft2 코어 전체 연결 끝-끝 시험 (r1607 · 조건 12 «코어 전체 연결» 첫 칸).
 
-부품 7장(intake·dispatch·execution·lifecycle·journal·projection·record)을 `core/cli.py` 동사만으로 잇는다 —
-접수 1건이 배정·전달·claim·착수·효과·결과·완료를 지나 투영에 «닫힘» 으로 서고, crash 뒤 recover 로 같은
-결과에 닿는다. 상태를 바꾸는 호출은 전부 CLI 동사 하나(라이브러리 직접 호출 0)이고, 투영만 읽기 전용 관측
-1곳(`projection.project` subprocess)으로 읽는다 — CLI 에 투영 동사가 아직 없다(추가는 r1610).
+부품 7장(intake·dispatch·execution·lifecycle·journal·projection·record)을 `core/cli.py` 동사만으로 잇는다 — 접수 1건이
+배정·전달·claim·착수·효과·결과·완료를 지나 투영에 «닫힘» 으로 서고, crash 뒤 recover 로 같은 결과에 닿는다. 상태를
+바꾸는 호출은 전부 CLI 동사 하나(라이브러리 직접 호출 0)이고, 투영만 읽기 전용 관측 1곳(투영 동사는 r1610)이다.
 
-ⓐ 사슬 8줄 rc·낱말 = 계약값 + 닫힘 1행 · ⓑ 두 holder 경합 하나만 성공(진 쪽 effect 거절) · ⓕ 완료 뒤 재배정·착수
-ⓒ 배정 뒤·효과 뒤 kill → recover 재개 · ⓓ segment 회전·reclaim 뒤에도 투영 그대로 · M1·M2 변이 2/2 빨강 · sleep 0.
+ⓐ 8줄 rc·낱말 = 계약값 + 닫힘 1행 · ⓑ holder 경합 하나만 성공 · ⓕ 완료 뒤 재배정·착수 · ⓒ kill 뒤 recover 재개 · ⓓ 회전·reclaim
+뒤에도 닫힌 행 그대로 · M1(complete 제거)·M2(recover 제거)·M3(closed={}) 변이 3/3 빨강 · sleep 0 · 격리 tmp·팀 1개.
 """
 import json
 import os
@@ -17,6 +16,7 @@ FT2 = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CLI = os.path.join(FT2, "core", "cli.py")
 TEAM, NOW = "harness", "2026-11-11T01:00:00"
 OK, HOLD, RECOVERED = "접수 성공", "완료 유보", "회수 결과"
+STEPS = "submit assign deliver claim start effect result complete".split()
 ENV = dict(os.environ, FT_NOW=NOW)
 
 
@@ -61,8 +61,7 @@ def _project(root):
     return json.loads(done.stdout)
 
 
-def _word(pair):
-    return pair[0].get("result"), pair[1]
+_word = lambda pair: (pair[0].get("result"), pair[1])    # CLI 반환 (JSON, rc) → (낱말, rc)  # noqa: E731
 
 def _life(root, work, submit=True, holder="h1"):
     """ⓐ 사슬 1회 — (step, 낱말, rc) 목록. 세대는 claim 이 돌려준 값을 쓴다(assign 뒤 claim 은 +1)."""
@@ -81,8 +80,7 @@ def _life(root, work, submit=True, holder="h1"):
 def test_a_submit_to_closed_projection(tmp_path):
     """ⓐ 8줄이 계약값(접수 성공 ×8 · rc 0)으로 지나가고, 투영에 그 일이 «닫힘» 1행으로 선다."""
     root = tmp_path / "happy"
-    steps = "submit assign deliver claim start effect result complete".split()
-    assert _life(root, "W1") == [(step, OK, 0) for step in steps]               # ⓐ 8줄 = 계약값
+    assert _life(root, "W1") == [(step, OK, 0) for step in STEPS]               # ⓐ 8줄 = 계약값
     row = _project(root)["W1"]
     assert (row["done"], row["owner"], row["uncertain"]) == (True, None, False)   # 닫힘 = 완료 + 실행권 반환
     assert row["deliveries"] == ["a1"] and row["gen"] == 2
@@ -137,8 +135,10 @@ def test_c_crash_resume_keeps_single_effect(tmp_path):
 def test_d_segment_rotation_keeps_projection(tmp_path):
     """ⓓ segment 회전이 일어나도 먼저 닫힌 work 의 투영 행이 그대로 · reclaim 뒤에도 그대로."""
     root = tmp_path / "rotate"
-    _life(root, "W000")
-    closed = {"W000": _project(root)["W000"]}     # 회전 전에 닫힌 행 1개 — M3 = 이 칸을 {} 로 비우면 빨강
+    assert _life(root, "W000") == [(step, OK, 0) for step in STEPS]   # 첫 사슬 8동사 = 계약값
+    row = _project(root)["W000"]
+    assert (row["done"], row["owner"], row["uncertain"]) == (True, None, False)   # 회전 전 닫힘
+    closed = {"W000": row}                        # M3 = 이 칸을 {} 로 비우면 빨강
     for index in range(1, 30):                    # 실측 20 work 부근에서 회전한다
         assert all(step[1:] == (OK, 0) for step in _life(root, "work-%03d-" % index + "x" * 70, submit=False))
     runtime = os.path.join(os.path.abspath(str(root)), ".fable-team", "teams", TEAM, "runtime")
