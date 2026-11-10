@@ -16,7 +16,7 @@
 #     --dry-run = `reap-cand …` 줄 + `reap <좌석> found=<n> dry-run rc=0`
 #   rc 0 = left 0 · 1 = left>0 · 2 = usage · 20 = 조사 실패(ps·lsof·tmux 못 읽음 또는 상한 초과 — 0 과 구분 · ft-leak-reap ① 계약 · 끝 줄 left=? ).
 #     외부 호출 각 25 s 상한(r1406 · 판정 4114 «로컬 하네스 = 25초 · 런타임 7초» · env FT_SEAT_REAP_CAP_SEC 1~70 로 조정 · 꼴 틀림 = WARN + 25) — 부하 30+ 에서 lsof 가 7 s 를 넘겨 닫기가 rc 20 으로 멈추던 일 0.
-#   FT_REAP_NOSIGNAL=1 = 시험 전용(신호 0 — «못 멈춘 프로세스» 재현).
+#   FT_REAP_NOSIGNAL=1 = 시험 전용(신호 0 — «못 멈춘 프로세스» 재현) · FT_REAP_TERM_WAIT=<초> = 시험 전용(TERM 뒤 대기 단축 — 기본 3 · KILL 뒤 = 그 1/3).
 #   --defer-press (r690 · ft-seat-retire — 승계는 일을 잇는 것 · press 관측기를 끊지 않는다): press 진행 중이면 후보를 신호 0 으로 «미룸»
 #     press 진행 = 내 uid 의 살아 있는 python*(대소문자 무시 — macOS 프레임워크 빌드는 «Python») 프로세스의 «실행 스크립트»(옵션 뒤 첫 비옵션 토큰 · -c/-m/- = 없음)가
 #       FT_PRESS_RUNNER_RE(기본 아래 PRESS_RE)에 맞음 ∨ 장치 허가 device.json held=true · FT_PRESS_PS_SNAPSHOT=<파일>(`pid uid command` 줄) = 시험 전용 ps 표
@@ -38,6 +38,7 @@
 #     H2 넘김 = 장부 좌석 칸 갱신(잠금+읽기-병합-원자 교체 · 다른 줄 보존) → 후계의 다음 retire·닫기·leak-reap 이 같은 장부로 그 작업을 본다.
 #       resume 파일(ZC_RESUME_DIR)/<좌석>.json "handed" 칸은 «보기용 사본»(판정 근거 아님).
 #     ├ 닫기·일반 reap 은 반대로 «등록한 작업도 이 좌석의 일» 로 후보에 넣어 정리하고, 끝나면 죽은 줄을 prune 한다(장부 줄이 영원히 남지 않는다).
+#   r1568 — 마지막 정지: 2회전 뒤 «한 번 더» 정지(TERM→KILL 같은 규칙 · 총 3회 상한)하고 그 재조사만 left 로 센다(짧은 git 자식 1번 = left=0 rc0 · 계속 태어나면 left≥1 rc1). KILL 직전에는 새 ps 표에서 «lstart 같음 ∧ 같은 소유 규칙 ∧ 서비스 아님» 셋 다 참일 때만 누른다(pid 재사용·주인 바뀜 = KILL 0 · `reap-skip … why=owner-changed`).
 set -uo pipefail
 USAGE="usage: $0 <좌석> [--dry-run] [--wt <워크트리>] [--orphans-only] [--defer-press] [--handover <후계>]"
 SEAT="${1:-}"; case "$SEAT" in ""|--*) echo "$USAGE" >&2; exit 2;; esac
@@ -241,22 +242,40 @@ def survey():
             else: cand[pid] = ("자손", r[3], r[4])
     return cand, t, shared, skip
 NOSIG = os.environ.get("FT_REAP_NOSIGNAL") == "1"
+try: TERMW = float(os.environ.get("FT_REAP_TERM_WAIT") or 3)   # 시험 전용 — TERM 뒤 대기 초(기본 3) · KILL 뒤 대기 = 그 1/3
+except ValueError: TERMW = 3.0
 def sig(p, s):
     if NOSIG: return
     try: os.kill(p, s)
     except ProcessLookupError: pass
     except PermissionError: print(f"ft-seat-reap: WARN pid={p} 신호 권한 없음", file=sys.stderr)
 def alive(ps): return [p for p in ps if subprocess.run(["kill", "-0", str(p)], capture_output=True).returncode == 0]
+def owner_ctx():   # r1568 — KILL 직전 «같은 소유 규칙» 재확인용 새 표(ps · 세션 나무 · 래퍼 · 조상 · 서비스 · cwd · 워크트리 · 남의 나무)
+    t, pl = ps_table(), panes()
+    bg = {p for p, r in t.items() if re.search(r"ft-bg-loop\.sh .*--seat " + re.escape(seat) + r"(\s|$)", r[4])}
+    other = desc(t, [int(x[1]) for x in pl if x[0] != seat]) | {int(x[1]) for x in pl if x[0] != seat}
+    wt = wt_arg or next((x[3] for x in pl if x[0] == seat), "")
+    wt = os.path.realpath(wt) if wt and os.path.exists(os.path.join(wt, ".git")) and os.path.realpath(wt) not in ("/", os.path.realpath(os.path.expanduser("~"))) else ""
+    return t, desc(t, [int(x[1]) for x in pl if x[0] == seat]), bg, ancestors(t), services(t), (cwds() if wt else {}), wt, other
+def still_mine(p, via, t, tree, bg, cw, wt, other):   # 소유 규칙별 재확인(①나무 · ②FT_SEAT · ②b래퍼 · ③고아 cwd) · 자손·등록·만료·⑤미룸 = 뿌리가 같은 주인
+    r = t.get(p)   # r1568 DA② R2 — ③ 은 «지금 cwd» 로 최초 조사와 같은 조건(워크트리 안 ∧ 안쪽 .git 없음 ∧ 남의 나무 밖 ∧ sleep/while)을 다시 본다
+    if r is None: return False
+    if via == "①": return p in tree
+    if via == "②": return r[5] == seat
+    if via == "②b": return p in bg
+    if via == "③": return r[5] is None and r[0] == 1 and p not in other and bool(wt) and p in cw and own_wt(os.path.realpath(cw[p]), wt) and bool(re.search(r"\b(sleep|while)\b", r[4]))
+    return True
 def stop(cand):
     for p, (v, _, c) in sorted(cand.items()): print(f"reap-kill pid={p} via={v} cmd={c[:100]}"); sig(p, signal.SIGTERM)
-    end = time.time() + 3
+    end = time.time() + TERMW
     while alive(cand) and time.time() < end: time.sleep(0.1)
     left0 = alive(cand)
-    if left0:
-        t = ps_table()
+    if left0:   # r1568 — KILL 직전 새 표로 «lstart 같음 ∧ 같은 소유 ∧ 서비스 아님» 셋 다 참일 때만(재사용·주인 바뀜 = KILL 0)
+        t, tree, bg, anc, svc, cw, wt, oth = owner_ctx()
         for p in left0:
-            if p in t and t[p][3] == cand[p][1]: sig(p, signal.SIGKILL)   # 시작 시각이 같을 때만(pid 재사용 오살 0)
-        end = time.time() + 1
+            if p in t and t[p][3] == cand[p][1] and p not in anc and p not in svc and still_mine(p, cand[p][0], t, tree, bg, cw, wt, oth): sig(p, signal.SIGKILL)
+            else: print(f"reap-skip pid={p} why=owner-changed(정지 직전 재확인 실패 — KILL 0) cmd={t[p][4][:100] if p in t else '-'}")
+        end = time.time() + TERMW / 3
         while alive(left0) and time.time() < end: time.sleep(0.1)
 def script_arg(tok):   # python 옵션 뒤 첫 비옵션 토큰 = 실행 스크립트 · -c/-m/- = 스크립트 없음 · -W/-X 는 값 1개를 먹는다
     i = 1
@@ -369,7 +388,7 @@ if defer and cand and press():
     print(f"reap {seat} stopped=0 left=0 deferred={sum(1 for x in cand.values() if x[0] != '자손')} rc=0{tail}"); sys.exit(0)
 ht = f" handed={hn}" if HAND else ""
 seen, again = set(), cand
-for _ in range(2):   # 2회전 — 1회전 사이에 새로 드러난 것(부모를 잃은 자식 등)까지
+for _ in range(3):   # r1568 ① — 3회 상한: 2회전 사이에 새로 드러난 것 + 마지막 재조사에서 드러난 «짧은 git 자식 1번» 까지 한 번 더 멈추고, 그 재조사만 left 로 센다
     if not again: break
     seen |= {p for p, x in again.items() if x[0] != "자손"}; stop(again); again, _, _, _ = survey()
     again = {p: v for p, v in again.items() if p not in other and p not in HANDED}   # 넘긴 것은 살아 있는 것이 정상 — 후보로 다시 세지 않는다
