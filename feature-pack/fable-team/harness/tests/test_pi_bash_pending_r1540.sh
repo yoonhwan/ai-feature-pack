@@ -361,6 +361,21 @@ const h = async (pi, n) => { const x = await pi.emit("user_bash", { command: `ba
   eq("ⓙ 중복 알림 0", np.calls.length, 1);
   await np.emit("session_shutdown");
 }
+// ⓚ DA 277737 R3 — t=0 h 완료 → t=1000 reload → 새 session_start 는 «남은 창» 을 존중(즉시 0 · 만료 뒤 1)
+{
+  const c = setup("b-r3"); const pi = await load(piNew(), true);
+  await h(pi, 6);
+  fs.writeFileSync(c.req, "reload\n"); advance(1000); await new Promise(setImmediate);
+  eq("ⓚ 옛 확장 reload 1", pi.reloads, 1);
+  const np = await load(piNew(), true);
+  eq("ⓚ 새 시작 즉시 알림 0(남은 창 존중)", np.calls.length, 0);
+  advance(20001); // t≈21001 — 완료 시각 + 20000 만료
+  eq("ⓚ 남은 창 만료 뒤 1회", np.calls.length, 1);
+  eq("ⓚ 본문 = h6", np.calls[0]?.m?.content, "h6 끝 rc=0 → recv 하고 [완료] 정리");
+  advance(40001); await np.emit("agent_settled", {});
+  eq("ⓚ 중복 알림 0", np.calls.length, 1);
+  await np.emit("session_shutdown");
+}
 // M4 — 정상 settled 가 창을 무시하고 flush → ⓘ 창 안 flush 0 FAIL 검출
 {
   const src = fs.readFileSync(WAKE, "utf-8");
@@ -375,10 +390,25 @@ const h = async (pi, n) => { const x = await pi.emit("user_bash", { command: `ba
     wakePath = keep; await pi.emit("session_shutdown");
   }
 }
+// M6 — hLoad 가 남은 창을 무시하고 즉시 armed → ⓚ 새 시작 즉시 알림 0 FAIL 검출
+{
+  const src = fs.readFileSync(WAKE, "utf-8");
+  const out = src.replace("    if (left <= 0) { hArmed = true; hFlush(); return; }", "    hArmed = true; hFlush(); return; // M6: 남은 창 무시");
+  if (out === src) bad("M6 치환 미적용");
+  else {
+    fs.writeFileSync(path.join(TMP, "mut-M6.ts"), out);
+    const keep = wakePath; wakePath = path.join(TMP, "mut-M6.ts");
+    const c = setup("b-m6"); const pi = await load(piNew(), true);
+    await h(pi, 7); fs.writeFileSync(c.req, "reload\n"); advance(1000); await new Promise(setImmediate);
+    const np = await load(piNew(), true);
+    (np.calls.length > 0 ? ok : bad)(`M6 → ⓚ 새 시작 즉시 알림 0 FAIL 검출(${np.calls.length}회)`);
+    wakePath = keep; await np.emit("session_shutdown");
+  }
+}
 // M5 — 대기 목록 파일 저장 0 → ⓙ 유실 = FAIL 검출
 {
   const src = fs.readFileSync(WAKE, "utf-8");
-  const out = src.replace("    hDone.push({ n, rc });\n    hSave();", "    hDone.push({ n, rc }); // M5: 저장 0");
+  const out = src.replace("    hDone.push({ n, rc, at: Date.now() }); // ★R3★", "    hDone.push({ n, rc, at: Date.now() }); hSave = () => {}; // ★R3★");
   if (out === src) bad("M5 치환 미적용");
   else {
     fs.writeFileSync(path.join(TMP, "mut-M5.ts"), out);
