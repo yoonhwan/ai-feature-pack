@@ -95,6 +95,8 @@ cases() { # cases <이름> <훅>
 }
 
 cases 진본 "$KIT"
+# 변이는 자기 자신을 다시 부르지 않는다(재진입 = 시간 폭증). R1554_ONLY 가 있으면 사례만 돌린다.
+[ -n "${R1554_ONLY:-}" ] && { echo "$([ "$fail" -eq 0 ] && echo ALL PASS || echo FAIL=$fail)"; [ "$fail" -eq 0 ] || exit 1; exit 0; }
 i=0
 for spec in \
   'if cwd_n and SUBSESSION_RE.search(cwd_n):|if False:|ⓐ1|ⓐ1' \
