@@ -1,0 +1,41 @@
+{
+ "id": "t2",
+ "title": "T2 같은 thread 복수 owner",
+ "source": {
+  "path": "design/harness/research/ft-2.0/slack/checker-r1501/raw/case-json/14-t2_two_owners.json",
+  "sha": "e50b743978c3b2287296acc3cf99d89eff2549f5"
+ },
+ "given": {
+  "event": "같은 thread 에 두 번째 owner bind 시도",
+  "workspace": "TFAKE",
+  "channel": "CFAKE",
+  "ts": "1800000001.000100",
+  "basis": "원자료 값"
+ },
+ "contract": [
+  12
+ ],
+ "expect": {
+  "words": [
+   "담당 승계 사슬",
+   "옛 세대 답 거절"
+  ],
+  "observed": {
+   "pass": true,
+   "checks": {
+    "second_owner": "rejected",
+    "owner_now": "seat-a#1",
+    "errors": [
+     {
+      "k": "second_owner",
+      "root": "1800000001.000100",
+      "want": "seat-b#1",
+      "has": "seat-a#1"
+     }
+    ]
+   },
+   "evidence_kind": "모형",
+   "real_slack_calls": 0
+  }
+ }
+}

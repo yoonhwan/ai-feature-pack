@@ -1,0 +1,50 @@
+{
+ "id": "f3",
+ "title": "F3 파일 검사(팩 file_guard · 사람 채널)",
+ "source": {
+  "path": "design/harness/research/ft-2.0/slack/checker-r1501/raw/case-json/19-f3_file_guard.json",
+  "sha": "e50b743978c3b2287296acc3cf99d89eff2549f5"
+ },
+ "given": {
+  "event": "message + files(첨부 6종)",
+  "workspace": "TFAKE",
+  "channel": "CFAKE",
+  "ts": "1800000001.000100",
+  "basis": "모형 생성기 기본값(fake_slack: team TFAKE · channel CFAKE · 첫 ts 1800000001.000100)"
+ },
+ "contract": [],
+ "expect": {
+  "words": [],
+  "observed": {
+   "pass": true,
+   "checks": {
+    "result": {
+     "ok.md": "통과",
+     "report.pdf": "거부",
+     "secret.md": "거부",
+     "big.md": "거부",
+     "nul.txt": "거부",
+     "missing.md": "거부"
+    },
+    "want": {
+     "ok.md": "통과",
+     "report.pdf": "거부",
+     "secret.md": "거부",
+     "big.md": "거부",
+     "nul.txt": "거부",
+     "missing.md": "거부"
+    },
+    "reasons": {
+     "report.pdf": "첨부 거부(file_guard) — report.pdf: 내용 검사 불가 종류(사람 채널은 별칭·대상 모두 .md .txt .csv .json .yaml .yml",
+     "secret.md": "첨부 거부(file_guard) — secret.md: 게시 거부(post_guard) — 묶음1:slack-token · 게시 0 · 게시 0",
+     "big.md": "첨부 거부(file_guard) — big.md: 1 MiB 초과 · 게시 0",
+     "nul.txt": "첨부 거부(file_guard) — nul.txt: NUL 바이트(UTF-16 등 텍스트 아님) — 내용 검사 불가 · 게시 0",
+     "missing.md": "첨부 거부(file_guard) — 1번째 파일: 실재하는 파일이 아님 · 게시 0"
+    }
+   },
+   "evidence_kind": "모형",
+   "real_slack_calls": 0
+  }
+ },
+ "contract_gap": "계약 18줄이 파일 첨부 검사를 안 덮는다"
+}

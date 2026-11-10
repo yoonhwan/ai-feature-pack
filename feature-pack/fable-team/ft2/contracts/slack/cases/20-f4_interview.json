@@ -1,0 +1,48 @@
+{
+ "id": "f4",
+ "title": "F4 인터뷰 질문↔답 연결(중복·추가·늦은 답·재시작)",
+ "source": {
+  "path": "design/harness/research/ft-2.0/slack/checker-r1501/raw/case-json/20-f4_interview.json",
+  "sha": "e50b743978c3b2287296acc3cf99d89eff2549f5"
+ },
+ "given": {
+  "event": "인터뷰 질문 글 + 답 3건(중복·추가·늦은 답)",
+  "workspace": "TFAKE",
+  "channel": "CFAKE",
+  "ts": "1800000001.000100",
+  "basis": "모형 생성기 기본값(fake_slack: team TFAKE · channel CFAKE · 첫 ts 1800000001.000100)"
+ },
+ "contract": [
+  10
+ ],
+ "expect": {
+  "words": [
+   "요청 번호"
+  ],
+  "observed": {
+   "pass": true,
+   "checks": {
+    "states": [
+     "dispatched",
+     "duplicate",
+     "dispatched",
+     "dispatched"
+    ],
+    "kinds": [
+     "새 업무",
+     "답 Q7",
+     "답 Q7",
+     "늦은 답 Q7"
+    ],
+    "after_restart_q": {
+     "CFAKE:1800000001.000100": {
+      "id": "Q7",
+      "state": "closed"
+     }
+    }
+   },
+   "evidence_kind": "모형",
+   "real_slack_calls": 0
+  }
+ }
+}

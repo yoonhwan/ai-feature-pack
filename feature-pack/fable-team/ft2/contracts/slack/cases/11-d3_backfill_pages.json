@@ -1,0 +1,54 @@
+{
+ "id": "d3",
+ "title": "D3 보충 회차 next_cursor·중간 실패",
+ "source": {
+  "path": "design/harness/research/ft-2.0/slack/checker-r1501/raw/case-json/11-d3_backfill_pages.json",
+  "sha": "e50b743978c3b2287296acc3cf99d89eff2549f5"
+ },
+ "given": {
+  "event": "재시작 1회 → 보충 회차 3회(1쪽 limit 15)",
+  "workspace": "TFAKE",
+  "channel": "CFAKE",
+  "ts": "1800000015.000100",
+  "basis": "원자료 값"
+ },
+ "contract": [
+  7
+ ],
+ "expect": {
+  "words": [
+   "보충 회차",
+   "gap",
+   "미완 기록"
+  ],
+  "observed": {
+   "pass": true,
+   "checks": {
+    "round1": {
+     "state": "미완",
+     "dispatched": 14,
+     "cursor": "1800000015.000100",
+     "pages": 1
+    },
+    "round2": {
+     "state": "done",
+     "dispatched": 2,
+     "cursor": "1800000017.000100",
+     "pages": 1
+    },
+    "round3": {
+     "state": "done",
+     "dispatched": 0,
+     "cursor": "1800000017.000100",
+     "pages": 1
+    },
+    "cursor1_index": 14,
+    "entrance_rows": 16,
+    "unique": 16,
+    "note": "limit 15 에 root 가 1쪽 1칸을 차지 → 1쪽 사람 글 14 · DA 기대 «15번째» 는 root 미포함 가정"
+   },
+   "evidence_kind": "모형",
+   "real_slack_calls": 0
+  }
+ }
+}

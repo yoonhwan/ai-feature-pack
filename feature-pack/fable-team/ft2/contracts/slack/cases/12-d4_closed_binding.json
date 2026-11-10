@@ -1,0 +1,41 @@
+{
+ "id": "d4",
+ "title": "D4 닫힌 binding",
+ "source": {
+  "path": "design/harness/research/ft-2.0/slack/checker-r1501/raw/case-json/12-d4_closed_binding.json",
+  "sha": "e50b743978c3b2287296acc3cf99d89eff2549f5"
+ },
+ "given": {
+  "event": "닫힌 binding(open=false) thread 에 새 글",
+  "workspace": "TFAKE",
+  "channel": "CFAKE",
+  "ts": "1800000001.000100",
+  "basis": "모형 생성기 기본값(fake_slack: team TFAKE · channel CFAKE · 첫 ts 1800000001.000100)"
+ },
+ "contract": [
+  14
+ ],
+ "expect": {
+  "words": [
+   "닫히면 담당 없음",
+   "재개 필요"
+  ],
+  "observed": {
+   "pass": true,
+   "checks": {
+    "owner_after_close": null,
+    "states": [
+     "dispatched",
+     "dispatched"
+    ],
+    "last_kind": "재개 필요",
+    "last_to": "@team-desk",
+    "old_owner_reply": false,
+    "reopen_gen": 2,
+    "new_owner_posted": true
+   },
+   "evidence_kind": "모형",
+   "real_slack_calls": 0
+  }
+ }
+}

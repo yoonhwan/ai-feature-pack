@@ -1,0 +1,58 @@
+{
+ "id": "t5",
+ "title": "T5 유휴·중복·무변화 = 모델 호출·깨움 0",
+ "source": {
+  "path": "design/harness/research/ft-2.0/slack/checker-r1501/raw/case-json/21-t5_model_zero.json",
+  "sha": "e50b743978c3b2287296acc3cf99d89eff2549f5"
+ },
+ "given": {
+  "event": "유휴 pass 2회 + 중복 + 거른 envelope",
+  "workspace": "TFAKE",
+  "channel": "CFAKE",
+  "ts": "1800000001.000100",
+  "basis": "모형 생성기 기본값(fake_slack: team TFAKE · channel CFAKE · 첫 ts 1800000001.000100)"
+ },
+ "contract": [
+  16,
+  17
+ ],
+ "expect": {
+  "words": [
+   "유휴·중복·무변화",
+   "모델 호출·좌석 깨움·틱 상태 메시지 0"
+  ],
+  "observed": {
+   "pass": true,
+   "checks": {
+    "states": [
+     "dispatched",
+     "duplicate",
+     "ignored"
+    ],
+    "first_entrance_kind": "새 업무",
+    "seat_wakes_total": 1,
+    "idle_rounds": [
+     {
+      "state": "done",
+      "dispatched": 0,
+      "cursor": "0",
+      "pages": 1
+     },
+     {
+      "state": "done",
+      "dispatched": 0,
+      "cursor": "0",
+      "pages": 1
+     }
+    ],
+    "ctx_again": 0,
+    "journal_growth_idle": 0,
+    "cursor_write_idle": false,
+    "connections": 2,
+    "non_fake_connections(model 포함)": 0
+   },
+   "evidence_kind": "모형",
+   "real_slack_calls": 0
+  }
+ }
+}

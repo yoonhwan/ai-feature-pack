@@ -1,0 +1,41 @@
+{
+ "id": "d1",
+ "title": "D1 다른 channel 같은 ts",
+ "source": {
+  "path": "design/harness/research/ft-2.0/slack/checker-r1501/raw/case-json/09-d1_channel_key.json",
+  "sha": "e50b743978c3b2287296acc3cf99d89eff2549f5"
+ },
+ "given": {
+  "event": "다른 channel 같은 ts 글 2건",
+  "workspace": "TFAKE",
+  "channel": "CFAKE",
+  "ts": "1800000001.000100",
+  "basis": "원자료 값",
+  "channels": [
+   "CFAKE",
+   "C2"
+  ]
+ },
+ "contract": [
+  3
+ ],
+ "expect": {
+  "words": [
+   "메시지 키",
+   "(workspace, channel, ts)"
+  ],
+  "observed": {
+   "pass": true,
+   "checks": {
+    "same_ts": "1800000001.000100",
+    "states": [
+     "dispatched",
+     "dispatched"
+    ],
+    "entrance_rows": 2
+   },
+   "evidence_kind": "모형",
+   "real_slack_calls": 0
+  }
+ }
+}

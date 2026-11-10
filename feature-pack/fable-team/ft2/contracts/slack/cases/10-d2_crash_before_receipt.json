@@ -1,0 +1,41 @@
+{
+ "id": "d2",
+ "title": "D2 영수 전 crash 2번 → 입구 3행 · 좌석 1회",
+ "source": {
+  "path": "design/harness/research/ft-2.0/slack/checker-r1501/raw/case-json/10-d2_crash_before_receipt.json",
+  "sha": "e50b743978c3b2287296acc3cf99d89eff2549f5"
+ },
+ "given": {
+  "event": "영수 전 crash 2번(rc 9,9,0)",
+  "workspace": "TFAKE",
+  "channel": "CFAKE",
+  "ts": "1800000001.000100",
+  "basis": "모형 생성기 기본값(fake_slack: team TFAKE · channel CFAKE · 첫 ts 1800000001.000100)"
+ },
+ "contract": [
+  4,
+  5
+ ],
+ "expect": {
+  "words": [
+   "메시지 키 표식",
+   "영수"
+  ],
+  "observed": {
+   "pass": true,
+   "checks": {
+    "rcs": [
+     9,
+     9,
+     0
+    ],
+    "entrance_rows": 3,
+    "seat_reads": 1,
+    "dispatched_rows": 1,
+    "slack_redelivered": 0
+   },
+   "evidence_kind": "모형",
+   "real_slack_calls": 0
+  }
+ }
+}
