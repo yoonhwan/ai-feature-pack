@@ -29,7 +29,7 @@ VERBS = {
     "deliver": ("Dispatch", "deliver", ("work",), ("attempt", "mode")),
     "claim": ("Execution", "claim", ("work", "holder"), ("rotation", "confirm_by")),
     "start": ("Execution", "start", ("work", "holder", "gen"), ()),
-    "effect": ("Execution", "effect", ("work", "holder", "gen", "effect"), ("run",)),
+    "effect": ("Execution", "effect", ("work", "holder", "gen", "effect"), ()),
     "result": ("Execution", "result", ("work", "holder", "gen"), ("word",)),
     "complete": ("Dispatch", "complete", ("work",), ("attempt",)),
     "reassess": ("Dispatch", "reassess", ("work",), ("mode",)),
@@ -38,7 +38,7 @@ VERBS = {
     "project": ("Projection", "project", (), ()),      # 읽기 동사 — 잠금·쓰기 0 (r1617)
 }
 LISTS = ("pre", "evidence", "resources")      # 쉼표 = 여러 값
-INTS = ("gen", "run")
+INTS = ("gen",)
 BOOLS = ("rotation",)
 GLOBAL = ("root", "team")
 
