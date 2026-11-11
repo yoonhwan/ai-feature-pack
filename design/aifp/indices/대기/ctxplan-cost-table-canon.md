@@ -1,6 +1,6 @@
 # 인덱스: ctxplan-cost-table-canon — 끝: ctx-plan 패키지에 «Claude Opus 5.5 구독 요금제 vs API 비용(하루 기준)» 표가 문서 정본 1파일로 있고, README 에서 1줄로 찾아간다. 숫자는 원고 그대로이고, 근거가 없는 칸은 [확인 필요] 로 남는다
 <!-- ledger: feature-pack/fable-team/legacy/1.x/harness/design/harness/GOAL-harness.md -->
-- Issue: [확인 필요: 미발급 — 발급 = harness master(r1680 선례)]
+- Issue: #8356 (byz-agents · team:harness-ops)
 - 지시: 오빠 desk 원문 «이거 ctx-plan 프로젝트에 정본화 기준으로 랜딩»(2026-11-11 18:5x) → planner 3930 → aifp master #3931
 - 원고: /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/state/team-main/planner/ctx-plan-plan-cost-table-src-20261111.md (30줄 · desk#132 작성)
 - 나노: r1675 나노 좌석에 이어 준다(r1675 닫힌 뒤 · master #3931)
