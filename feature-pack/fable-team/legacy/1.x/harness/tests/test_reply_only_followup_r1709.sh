@@ -64,20 +64,9 @@ $O|$OPPA|네
 EOF
 run "$CHK" "$Q" "$A"
 { [ "$RC" != 0 ] && [[ "$OUT" != SLACK-OK* ]]; } && ok "④ 승인 길은 지금처럼 거절(창 규칙 불변) rc=$RC" || bad "④ rc=$RC out=$OUT"
-# ⑤ 회귀 4파일 — FAIL 줄 앞 판(origin/main 워크트리)과 같다
 T4="test_oppa_slack_repost_multiline_r1696.sh test_oppa_slack_reply_words_r1606.sh test_desk_reply_wake_question_r1591.sh test_hil_oppa_thread_r1275.sh"
-if [ -n "${R1709_FULL:-}" ]; then   # 4파일 두 번 실행 = 68초×2 → 70초 예산 밖이라 기본은 끈다(보고에서 따로 돌려 비교)
-  PRW="$T/old-wt"; git -C /Users/yoonhwan/Project/ai-feature-pack worktree add -q --detach "$PRW" origin/main 2>/dev/null
-  n_now=0; n_old=0
-  for t in $T4; do
-    n_now=$((n_now + $(timeout 70 bash "$HERE/$t" 2>&1 | grep -cE '^FAIL ')))
-    n_old=$((n_old + $(timeout 70 bash "$PRW/feature-pack/fable-team/legacy/1.x/harness/tests/$t" 2>&1 | grep -cE '^FAIL ')))
-  done
-  git -C /Users/yoonhwan/Project/ai-feature-pack worktree remove --force "$PRW" 2>/dev/null
-  [ "$n_now" = "$n_old" ] && ok "⑤ 회귀 4파일 FAIL 줄 앞 판과 같다($n_now = $n_old)" || bad "⑤ 회귀 FAIL 줄 다름(이번 $n_now ≠ 앞 판 $n_old)"
-else
-  ok "⑤ 회귀 4파일 — R1709_FULL=1 일 때만(68초×2 · 보고에서 따로 비교)"
-fi
+# ⑤ 회귀 4파일 — «SKIP»(PASS 0 · 하드 룰 22: 시험 1개 70초 밖) · 보고에서 파일마다 따로 돌린다
+echo "SKIP ⑤ 회귀 4파일 — 파일마다 따로(보고): $T4"
 for f in ft_oppa_slack_check.py; do cmp -s "$REPO/harness/bin/$f" "$KIT/$f" && ok "⑤ bin·kit cmp 0 $f" || bad "⑤ bin·kit 불일치 $f"; done
 # 변이 3종(사본에서만 · 변이마다 원본 대조)
 mkx(){ local d="$T/w-$1"; mkdir -p "$d"; cp "$REPO/harness/bin/ft_oppa_slack_check.py" "$d/"
