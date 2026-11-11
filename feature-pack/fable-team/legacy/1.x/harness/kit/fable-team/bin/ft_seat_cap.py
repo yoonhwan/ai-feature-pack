@@ -11,6 +11,8 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import ft_teamset   # r1702: 팀 접두 규칙 한 곳(ft_teamset.TEAM_PREFIX·team_of·prefixes_of) — 이름 규칙 두 벌 0
 from typing import NoReturn
 
 
@@ -41,8 +43,9 @@ def sessions():
 
 
 def count(names, team):
-    # r666: 나노만 센다(팀장·은퇴 팀장 화면·tester etc 제외) — 팀셋 ft_teamset.py 와 같은 접두 기준
-    return sum(1 for s in names if s.startswith(f"byz-{team}-nano-"))
+    # r666: 나노만 센다(팀장·은퇴 팀장 화면·tester etc 제외) — r1702: 접두 목록은 ft_teamset 한 곳(표 접두 + 옛 접두)
+    pre = ft_teamset.prefixes_of(team)
+    return sum(1 for s in names if s.startswith(pre))
 
 
 def group_teams(root, parent):
@@ -63,10 +66,10 @@ def main():
     team_cap, group_cap = cap_of("FT_TEAM_SEAT_CAP"), cap_of("FT_GROUP_SEAT_CAP")
     if team_cap is None and group_cap is None:
         return
-    m = re.fullmatch(r"byz-([a-z0-9]+)-nano-", os.environ.get("FT_NANO_PREFIX", ""))
-    if not m:
-        die("ERROR", f"FT_NANO_PREFIX={os.environ.get('FT_NANO_PREFIX', '')!r} 에서 팀을 못 읽는다 (byz-<팀>-nano-)")
-    team, names = m.group(1), sessions()
+    team = ft_teamset.team_of(os.environ.get("FT_NANO_PREFIX", ""), strict=False)   # r1702: 팀 읽기도 ft_teamset 한 곳
+    if team is None:
+        die("ERROR", f"FT_NANO_PREFIX={os.environ.get('FT_NANO_PREFIX', '')!r} 에서 팀을 못 읽는다 ({ft_teamset.KNOWN_HINT})")
+    names = sessions()
     if team_cap is not None and count(names, team) >= team_cap:
         die("REJECT", f"좌석 상한 {team} {count(names, team)}/{team_cap}")
     if group_cap is not None:

@@ -88,13 +88,19 @@ fm_push_bound() {
   else echo "WARN 객체 수 조회 실패(rev-list) → 크기 모름 · 상한 F+7 호환값: $(printf '%s' "$out" | tail -n1)" >&2; n='?'; fi
   echo "$n $(fm_push_calc "$n")"
 }
-#   fm_land_ctx <repo> <remote> <ft_root|빈> : r648 — 승인 루트(부른 리포)와 대상 리포를 가른다. stdout 1줄 "<원장루트>|<CROSS 0|1>|<owner/name|빈>|<base-head 경로>|<대상 리포 루트>" (칸 구분 = | — 빈 칸이 있어도 밀리지 않게 탭 금지)
+#   fm_base_head_file <기준경로> <대상 가지> : r1687 — 기준 헤드는 «대상 가지마다 따로» 다. main = 지금 경로 그대로(옛 파일 호환) · 그 밖 = <경로>@<가지를 /→-> (예 base-head@ops-main-base).
+#     이유: 기준 헤드가 리포에 1개뿐이면 main 기준을 ops/main-base 착지에도 들이대, main 이 ops 의 조상이 아닌 동안 ops 착지가 늘 DENY 된다(PR 8346·8347 실사건).
+fm_base_head_file() {
+  [ "${2:-main}" = main ] && { printf '%s\n' "$1"; return 0; }
+  printf '%s@%s\n' "$1" "${2//\//-}"
+}
+#   fm_land_ctx <repo> <remote> <ft_root|빈> [대상 가지] : r648 — 승인 루트(부른 리포)와 대상 리포를 가른다. stdout 1줄 "<원장루트>|<CROSS 0|1>|<owner/name|빈>|<base-head 경로>|<대상 리포 루트>" (칸 구분 = | — 빈 칸이 있어도 밀리지 않게 탭 금지)
 #     원장 루트 = FT_ROOT → 부른 리포(cwd 공용 루트) → 대상 리포 · CROSS = 부른 리포 ≠ 대상 리포(«리포 기준» 모드 — 원장은 부른 쪽 한 곳)
 #     owner/name 은 CROSS 일 때만 잡는다(아니면 빈 값 = 이전 판 그대로 -R·FT_ISSUE_REPO 0) · 실제 전송 URL «전부»(`remote get-url --all` + `remote get-url --push --all` — push 는 등록된 모든 URL 로 간다)가 같은 github owner/name 일 때만(목적지가 둘 이상이거나 갈리면 REJECT)
 #     base-head = <원장루트>/.fable-team/state/base-head · CROSS 면 -<owner>-<name> 꼬리(다른 리포 sha 를 기준 헤드로 섞지 않는다)
 #     rc 1 = 대상 리포 루트 확인 실패 또는 CROSS 인데 owner/name 을 못 풂(다른 리포 PR 을 조용히 조회하는 길 0)
 fm_land_ctx() {
-  local repo="$1" rem="$2" ft="${3:-}" xrepo="" rroot="" rt="" slug="" bh cross=0
+  local repo="$1" rem="$2" ft="${3:-}" tgt="${4:-main}" xrepo="" rroot="" rt="" slug="" bh cross=0
   rroot="$(git -C "$repo" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" && rroot="$(dirname "$rroot")" || return 1
   [ -n "$rroot" ] || return 1
   xrepo="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" && xrepo="$(dirname "$xrepo")" || xrepo=""
@@ -112,6 +118,7 @@ fm_land_ctx() {
     [ -n "$slug" ] || return 1
     bh="$bh-${slug//\//-}"
   fi
+  bh="$(fm_base_head_file "$bh" "$tgt")"   # r1687: 대상 가지마다 다른 파일(다른 리포 접미 뒤에 붙는다)
   printf '%s|%s|%s|%s|%s\n' "$rt" "$cross" "$slug" "$bh" "$rroot"
 }
 #   fm_gh_slug <url> : https://github.com/o/n[.git] · ssh://git@github.com/o/n[.git] · git@github.com:o/n[.git] 만 — 호스트가 «정확히» github.com 이고 owner/name 꼴이면 1줄, 아니면 빈 줄(rc0) · 꼴이 깨졌으면 rc1

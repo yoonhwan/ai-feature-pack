@@ -23,7 +23,7 @@ RETRY = r"retry[\s_-]*after\s*(\d+)\s*(min\w*|m\b|s\w*)?"
 
 TAIL = 1 << 20
 PS_MAX_S = 2.0  # r1086 ① 직기 — ps 1회 상한(넘으면 ② 지금 길 · 7초 룰 안쪽)
-SESSION_ID = re.compile(r"--session-id[= ]([0-9a-fA-F-]{8,})")  # r1086 ① 직기 — claude argv 의 기록 파일 이름
+SESSION_ID = re.compile(r"(?:^|\s)(?:--session-id|--resume|-r)[= ]([0-9a-fA-F-]{8,})")  # r1086 ① 직기 — claude argv 의 기록 파일 이름 · r1397 재부팅 복구의 --resume U · -r U 도 같은 이름 · 앞 경계 필수(--add-dir-r 같은 꼬리 오인 0)
 
 
 def epoch(rec: Rec) -> int:

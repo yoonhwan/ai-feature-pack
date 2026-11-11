@@ -1,6 +1,6 @@
 // ft-mbox-wake (r1477) — planner 대면 pi 좌석을 «쪽지 도착 = 턴 1회» 로 깨운다. 주기 타이머 0 · 입력 주입 0 · 예산은 r1476 `mbox.sh budget reserve` CLI 로만 차감.
 //  · 활성 = FT_SEAT(없으면 tmux 세션명) == <루트>/.fable-team/seats-planner.json `_master` «매 이벤트 재확인» · 루트 = FT_MBOX_ROOT ?? git 공용 루트 ?? cwd.
-//  · 설치 = `~/.pi/agent/extensions/ft-mbox-wake.ts` 복사 1개(pi 재시작 1회) · env: FT_MBOX_FILE(다른 데이터 루트) · FT_MBOX_STATE_DIR · FT_MBOX_WAKE_DEBOUNCE_MS · FT_H_DONE_QUIET_MS(r1540) · FT_USER_BASH_QUIET_MS(r1555) · 시험 = tests/test_pi_mbox_wake_{r1477,self_r1529}.sh · tests/test_pi_bash_pending_r1540.sh · tests/test_pi_user_bash_quiet_r1555.sh
+//  · 설치 = `~/.pi/agent/extensions/ft-mbox-wake.ts` 복사 1개(pi 재시작 1회) · env: FT_MBOX_FILE(다른 데이터 루트) · FT_MBOX_STATE_DIR · FT_MBOX_WAKE_DEBOUNCE_MS · FT_H_DONE_QUIET_MS(r1540) · FT_USER_BASH_QUIET_MS(r1555) · 시험 = tests/test_pi_mbox_wake_{r1477,self_r1529}.sh · tests/test_pi_bash_pending_r1540.sh · tests/test_pi_user_bash_quiet_r1555.sh · tests/test_pi_mbox_wake_recv_gate_r1669.sh(r1669 = 증류 게이트 좌석은 같은 미읽음에 깨움 1회 + 팀장 1통 · .gated·.gatedmark)
 //  · r1529 = 내 행 판정을 recv 와 같은 칸으로(from !== seat) + 판 2 턴 도중 깨움 쌓기 0(agent_start~agent_end 표지 · 배달 안 된 깨움 1개 상한).
 //  · r1540 = h 끝 알림을 «모은다» — h 마다 즉시 턴을 만들면 오빠의 다음 `!` 이 거의 늘 streaming 중이고, pi 는 그 결과를 대화로 옮기지 않는다(interactive-mode.js:5960·5982 · flush 는 :2781 한 곳). 마지막 h 뒤 조용함 창(FT_H_DONE_QUIET_MS · 기본 20000)이 지나고 좌석이 쉬면 한 통, 일하는 중이면 다음 정상 settled 에서 1회. 창이 안 끝난 settled 는 0(R1) · 대기 목록은 파일(<state>/pi-wake/<키>.hdone)이 정본이라 reload·shutdown 에서 유실 0(R2 · 새 session_start 회수 · ★R3★ 창은 «h 완료 시각» 에서 재므로 새 인스턴스는 남은 창을 존중한다).
 import * as fs from "node:fs";
@@ -40,6 +40,9 @@ export function piMasterFile(root: string, seat: string): string { const d = pat
   for (const f of names) { try { const j = JSON.parse(fs.readFileSync(path.join(d, f), "utf-8")), r = j?.[seat]; if ((r?.agent === "pi" && j._master === seat)) return f; } catch { continue; } }
   return ""; }
 
+// ★r1669★ 이 좌석의 팀장 = «내 행이 있는» seats 파일의 _master — distill-gate teamMaster 와 같은 칸(다른 팀 명부의 master 를 고르지 않는다).
+export function teamMasterOf(root: string, seat: string): string { const d = path.join(root, ".fable-team"), b = seat.replace(/#\d+$/, ""); let names: string[] = []; try { names = fs.readdirSync(d).filter((f) => /^seats.*\.json$/.test(f)).sort(); } catch { return ""; } for (const f of names) { try { const j = JSON.parse(fs.readFileSync(path.join(d, f), "utf-8")); if (Object.keys(j).some((k) => k === seat || k.replace(/#\d+$/, "") === b)) return String(j._master ?? ""); } catch { continue; } } return ""; }
+
 export default function (pi: ExtensionAPI) {
   const root = process.env.FT_MBOX_ROOT || gitRoot() || process.cwd();
   const seat = seatName();
@@ -52,6 +55,8 @@ export default function (pi: ExtensionAPI) {
   const wakeDir = path.join(state, "pi-wake");
   const seqFile = path.join(wakeDir, `${keyOf(seat)}.seq`);
   const nudge = path.join(wakeDir, `${keyOf(seat)}.nudge`);
+  // ★r1669★ 증류 게이트에 걸린 좌석 = recv 가 막혀 미읽음을 못 비운다 → 같은 미읽음에는 깨움 1회 뒤 억제(agent_end 가 지우지 않는다) + 팀장 1통.
+  const gated = path.join(wakeDir, `${keyOf(seat)}.gated`), gatedMark = path.join(wakeDir, `${keyOf(seat)}.gatedmark`), markerFile = path.join(state, "pi-distill-pending", seat.replace(/#\d+$/, "")); // .gated = 억제한 최대 seq · .gatedmark = 팀장에 알린 표식 본문(같은 표식 두 번 알림 0)
   const debounce = Number(process.env.FT_MBOX_WAKE_DEBOUNCE_MS ?? 300);
   let timer: ReturnType<typeof setTimeout> | null = null;
   let watchers: fs.FSWatcher[] = [], fallback: ReturnType<typeof setTimeout> | null = null, inTurn = false, wakePending = false; // fallback = 기동 창 1회 재확인 · 판 2(r1529) = 턴 도중 표지 · 배달 안 된 깨움 1개
@@ -135,6 +140,25 @@ export default function (pi: ExtensionAPI) {
     writeSeq(seq); wakePending = true; // 성공한 깨움 = 배달 대기 1개(세션 시작 회수 포함 · DA HOLD R1) — agent_start 에서 소비
     if (viaNudge) fs.rmSync(nudge, { force: true }); // nudge 삭제 = 깨운 뒤
   }
+  // ★r1669★ true = 이번 깨움 억제 · false = 지금 동작 그대로(표식 없음 ⓔ · 후계·직전 세대 표식 ⓓ · 첫 억제 1회 · 새 쪽지 1회 더 ⓒ) · scheduled = r1476 sweep 이 미리 예약한 nudge 자리(재차감 0 · 기록은 하되 이미 억제한 seq 면 깨우지 않는다 · DA R1·R2)
+  function recvGate(rows: Row[], seq: number, scheduled: boolean): boolean {
+    let body = "";
+    try { body = fs.readFileSync(markerFile, "utf-8"); } catch { try { fs.rmSync(gated, { force: true }); fs.rmSync(gatedMark, { force: true }); } catch { /* 표식 없음 */ } return false; } // ⓔ 표식이 사라짐 = 억제 기록 무시
+    const owner = (body.match(/(?:^|\s)seat=(\S+)/) ?? [])[1] ?? ""; // 표식 본문의 좌석(#N 포함 · 옛 파일 = "")
+    if (owner !== seat) return false; // ⓓ 후계(같은 베이스 · 다른 #N)·직전 세대 표식 = 이 카드 억제 0
+    let last = -1;
+    try { const n = Number(fs.readFileSync(gated, "utf-8").trim()); if (Number.isFinite(n)) last = n; } catch { /* 첫 억제 */ }
+    if (last >= seq) { if (scheduled) fs.rmSync(nudge, { force: true }); return true; } // ⓐⓖⓗ 이미 억제한 같은 seq = 깨움·팀장 알림 0 · 늦은 예약(nudge)도 0 — 표지만 소비(재차감 0 · DA R2)
+    try { fs.mkdirSync(wakeDir, { recursive: true }); fs.writeFileSync(gated, `${seq}\n`); } catch (e) { fail(`억제 기록 실패 ${gated} — ${e}`); } // ⓒ 새 쪽지 = 1회 더(.gated 갱신)
+    let told = "";
+    try { told = fs.readFileSync(gatedMark, "utf-8"); } catch { /* 아직 안 알림 */ }
+    if (told === body) return false; // 같은 표식 = 팀장 알림 0
+    const master = teamMasterOf(root, seat), alert = `[멈춤] ${seat} recv 막힘(증류 게이트) · 미읽음 ${rows.length}(최대 #${seq}) · 후계 필요 — 깨움 억제`;
+    const r = master ? spawnSync("bash", [mboxSh, "send", master, seat, alert], { encoding: "utf-8", timeout: 7000, env: { ...process.env, FT_MBOX_DIR: mboxDir } }) : null; // 하드 룰 12 = 7초 1회
+    if (!master) fail(`팀장 알림 0 — ${seat} 명부 행·_master 없음`); else if ((r?.status ?? 1) !== 0) fail(`팀장 알림 실패(${master}) rc=${r?.status ?? "?"} — 깨움 억제는 그대로`); // 조용한 0 금지
+    try { fs.writeFileSync(gatedMark, body); } catch (e) { fail(`알림 기록 실패 ${gatedMark} — ${e}`); }
+    return false;
+  }
   function check(force: boolean) {
     if (uUntil > Date.now()) return; // ★r1555★ 창 안 = 아무것도 하지 않는다(우편함 읽기·seq·예산·held 0) — 창 끝 타이머가 run() 을 1회 부른다
     const rows = mine();
@@ -144,6 +168,7 @@ export default function (pi: ExtensionAPI) {
     const seq = Math.max(...rows.map((r) => r.seq));
     const viaNudge = fs.existsSync(nudge); // r1476 sweep 이 이미 예약했다 — 재예약 0(이중 차감 0)
     if (!force && !viaNudge && readSeq() >= seq) return; // 턴 진행 중 중복 억제
+    if (recvGate(rows, seq, viaNudge)) return; // ★r1669★ 증류 게이트 좌석 = 같은 미읽음에 깨움 1회(예산·턴 0) — nudge 예약분도 같은 칸(첫 예약은 기록하고 깨우고 · 이미 억제한 seq 면 깨움 0 · DA R1·R2)
     const exempt = loud(rows) || rows.some((r) => humanSender(r.from, master)); // 예산 밖(카드 ④)
     if (!viaNudge && !exempt) {
       const rc = reserve();

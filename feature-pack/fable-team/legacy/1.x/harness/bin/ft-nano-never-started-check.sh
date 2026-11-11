@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
-# ft-nano-never-started-check.sh <좌석> --wt <워크트리> --branch <가지> [--base <sha>] [--card <카드>] [--comm <우편함 폴더>] [--agent claude|opencode] [--successor-auto --seats <명부>] [--landed-auto]
+# ft-nano-never-started-check.sh <좌석> --wt <워크트리> --branch <가지> [--base <sha>] [--card <카드>] [--comm <우편함 폴더>] [--agent claude|opencode|pi] [--successor-auto --seats <명부>] [--landed-auto]
 #   ft-nano-close.sh --never-started 의 «산출 0» 검사 (r506): 발주를 한 번도 처리하지 못한 나노는 회수할 산출·seq·증거 줄이 없다 — 그 대신 «한 일 0» 을 값 4개로 센다.
 #     ⓐ 대화 기록 assistant 턴 0 (규칙 1 · 에이전트별) — claude(기본) = ~/.claude/projects/<워크트리 인코딩>/*.jsonl 중 좌석명(agentName/customTitle) 파일의 type=assistant(model <synthetic> 제외) 줄 수(jsonl 없음 = 0)
 #        opencode = ${FT_OPENCODE_DB:-~/.local/share/opencode/opencode.db} 읽기 전용(7초 상한) · session.directory == 워크트리 실경로(또는 그 아래) ∧ time_created ≥ .worktree-info.json created_at(못 정하면 시각 조건 0)
 #        인 세션의 role=assistant 메시지 수 · db 없음·잠김·스키마 다름 = 확인 못 함 · 그 밖 에이전트 = 확인 못 함
+#        pi = ${FT_PI_SESSIONS:-~/.pi/agent/sessions}/*/*.jsonl 중 첫 줄 type=session 의 cwd == 워크트리 실경로(realpath) 인 파일만(그 밖 = 다른 워크트리 기록 · 안 셈)
+#        그중 파일 안 모든 정상 session_info 줄의 «마지막 name» == 좌석 이름인 파일의 type=message ∧ message.role=assistant 줄 수(재개·/name 개명으로 뒤에 붙는 이름 줄 포함 · 머리 몇 줄 제한 0)
+#        이름 줄이 없는 옛 파일 = cwd 같고 첫 줄 timestamp ≥ created_at 인 것만(못 정하면 전부 · 더 엄격)
+#        파일 0개 = 턴 0 · 파일을 열거나 JSON 을 못 읽음·7초 초과(FT_PI_TIMEOUT) = 확인 못 함
 #     ⓑ base 위 커밋 0 — base = --base › 카드 `base_sha:` › <워크트리>/.worktree-info.json base_sha · `git rev-list --count <base>..<가지>`
 #     ⓒ 워크트리 미커밋 0 — `git status --porcelain -uall` 중 노이즈(.worktree-info.json · next-env.d.ts · tsconfig.json · .serena/project.yml) 제외
 #     ⓓ 좌석이 보낸 쪽지 0 — <우편함>/mailbox.log.jsonl(+ 회전본 .1) 의 "from": "<좌석>" 줄 수
@@ -13,7 +17,7 @@
 #     `LANDED <근거>` 를 내고 ⓑ 커밋 수만 건너뛴다(ⓒ 미커밋·ⓐ 턴·ⓓ 발신은 그대로) · grep·no·판정 실패·7초 초과 = `LANDED no` → 4값 전부
 #   exit 0 = `NEVER-STARTED ok turns=0 commits=… dirty=… sent=0` · 1 = `REJECT never-started: <항목> <값>` 또는 `… 확인 못 함 <항목>`(셀 수 없으면 통과 0) · 2 = usage
 set -uo pipefail
-USAGE="usage: $0 <좌석> --wt <워크트리> --branch <가지> [--base <sha>] [--card <카드>] [--comm <우편함 폴더>] [--agent claude|opencode] [--successor-auto --seats <명부>]"
+USAGE="usage: $0 <좌석> --wt <워크트리> --branch <가지> [--base <sha>] [--card <카드>] [--comm <우편함 폴더>] [--agent claude|opencode|pi] [--successor-auto --seats <명부>]"
 SEAT="${1:-}"; shift 2>/dev/null || { echo "$USAGE" >&2; exit 2; }
 WT=""; BR=""; BASE=""; CARD=""; COMM="${FT_INBOX_ROOT:-}"; AGENT=""; SUCC_AUTO=0; SEATS=""; LAND_AUTO=0
 while [ $# -gt 0 ]; do
@@ -79,6 +83,55 @@ print(sum(c.execute("select count(*) from message where session_id=? and json_ex
 PY
 )" || turns=""
     if [ -z "$turns" ]; then bad+=("확인 못 함 opencode.db($db · 없음·잠김·스키마 다름)"); elif [ "$turns" != 0 ]; then bad+=("opencode 턴 $turns"); fi;;
+  pi)
+    # r1396: pi 기록 = ~/.pi/agent/sessions/<cwd 인코딩>/<시각>_<uuid>.jsonl · 1줄 type=session(cwd) · 2줄 type=session_info(name = 좌석 이름) · 턴 = type=message ∧ message.role=assistant
+    root="${FT_PI_SESSIONS:-$HOME/.pi/agent/sessions}"; turns=""; pif=""
+    if [ -z "$WTR" ]; then bad+=("확인 못 함 pi 기록(워크트리 경로 없음: $WT)")
+    else
+      _po="$(python3 - "$root" "$WTR" "$WT/.worktree-info.json" "$SEAT" "${FT_PI_TIMEOUT:-7}" <<'PY'
+import calendar, glob, json, os, sys, time
+root, wt, info, seat, to = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], float(sys.argv[5])
+wt = os.path.realpath(wt)
+since = 0.0
+try: since = time.mktime(time.strptime(json.load(open(info))["created_at"], "%Y-%m-%d %H:%M:%S"))
+except Exception: since = 0.0  # 좌석 생성 시각을 못 정하면 시각 조건 없이 전부(더 엄격)
+end = time.monotonic() + to
+n = 0
+def nah(p):
+    print("!%s" % p); sys.exit(1)
+for p in sorted(glob.glob(os.path.join(root, "*", "*.jsonl"))):
+    if time.monotonic() > end: nah(root)
+    try:
+        with open(p, encoding="utf-8", errors="replace") as fh:
+            first = fh.readline()
+            head = json.loads(first) if first.strip() else None
+            if not head or head.get("type") != "session": continue
+            cwd = head.get("cwd") or ""
+            if not cwd or os.path.realpath(cwd) != wt: continue   # 다른 워크트리 기록은 세지 않는다
+            try: ts = calendar.timegm(time.strptime((head.get("timestamp") or "")[:19], "%Y-%m-%dT%H:%M:%S"))
+            except Exception: ts = 0.0
+            name = None; cnt = 0
+            for line in fh:
+                if time.monotonic() > end: nah(root)
+                line = line.strip()
+                if not line: continue
+                r = json.loads(line)
+                t = r.get("type")
+                if t == "session_info":
+                    if r.get("name"): name = r["name"]   # 재개·개명으로 뒤에 붙는 이름 줄 포함 — 머리 5줄 제한 0
+                elif t == "message" and (r.get("message") or {}).get("role") == "assistant": cnt += 1
+            if name is not None:
+                if name != seat: continue   # 마지막 이름이 남의 좌석(후계 등)이면 세지 않는다
+            elif since and ts and ts < since: continue
+            n += cnt
+    except OSError: nah(p)
+    except ValueError: nah(p)
+print(n)
+PY
+)"; _prc=$?
+      if [ "$_prc" -eq 0 ]; then turns="$(printf '%s' "$_po" | tr -cd '0-9')"; else pif="${_po#!}"; fi
+      if [ -z "$turns" ]; then bad+=("확인 못 함 pi 기록(${pif:-$root})"); elif [ "$turns" != 0 ]; then bad+=("pi 턴 $turns"); fi
+    fi;;
   *) bad+=("확인 못 함 대화 기록(agent=$AGENT)");;
 esac
 # 규칙 2b 착지 가지(개정 r3) — 후계가 없고 센 커밋이 0 이 아닐 때만 · 판정 7초 상한(perl alarm) · rc0 강한 근거(ancestor·cherry·card)만

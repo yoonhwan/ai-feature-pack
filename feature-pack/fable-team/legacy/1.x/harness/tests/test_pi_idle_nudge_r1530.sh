@@ -4,7 +4,7 @@
 #        가짜 h 대기 목록 fake/hil · 가짜 골 표 fake/teams · 가짜 우편함 comm/mailbox.jsonl + receipts) ·
 #        스텁 shim(ft-goal-table.sh·ft-card-flow.sh·ft-hil.sh · mbox.sh peek/send = 임시 우편함) · 가짜 pi(sendMessage 셈 · agent_settled 직접 발화).
 #        실 pi 0 · 실 우편함 쓰기 0 · sleep 0.
-#  사례: ⓐ 쉼 = 턴 1 ⓑ 같은 지문 2회째 = 턴 0 + desk [긴급] 1 ⓒ 3회째 이후 0 ⓓ 진행 1 = 0·지문 무변화 ⓔ h 1 = 0 ⓕ 미읽음 1 = 0
+#  사례: ⓐ 쉼 = 턴 1 ⓑ 같은 지문 2회째 = 턴 0 + [긴급] 1 ⓒ 3회째 이후 0 ⓓ 진행 1 = 0·지문 무변화 ⓔ h 1 = 0 ⓕ 미읽음 1 = 0
 #        ⓖ 자기 발신 행 = 지문 무변화 ⓗ 남의 새 쪽지 seq = 다시 1회 ⓘ 읽기 실패 = 판정 불가·턴 0·[긴급] 0·지문 무변화
 #        ⓙ 나노·_desk·claude _master = 0 ⓚ aborted = 0 · ⓛ 팀 골 행 없음 = 0 · ⓜ 활성 판정 = ft-mbox-wake piMasterFile 공유
 #  변이: M1 지문 비교 끔 → ⓑ 턴 2 · M2 지문에 자기 발신 seq 포함 → ⓖ 턴 2 · M3 읽기 실패를 0 으로 → ⓘ 턴 1
@@ -124,7 +124,8 @@ async function load() {
   pi.settle = (aborted = false) => pi.emit("agent_settled", { aborted });
   return pi;
 }
-const urgents = (c) => read(c.mbox).split("\n").filter((l) => l.trim()).map((l) => JSON.parse(l)).filter((r) => r.to === DESK && r.body.startsWith("[긴급]")).length;
+// r1684 — [긴급] 받는이가 desk → planner 팀장(_master)으로 바뀌었다. 여기서는 «몇 통 나갔나» 만 센다(받는이 고정 = tests/test_pi_idle_nudge_route_r1684.sh ⓐ).
+const urgents = (c) => read(c.mbox).split("\n").filter((l) => l.trim()).map((l) => JSON.parse(l)).filter((r) => r.body.startsWith("[긴급]")).length;
 
 // ── ⓐ 쉼 = 턴 1 · ⓑ 2회째 = 턴 0 + [긴급] 1 · ⓒ 3·4회째 = 0 · 지문 파일 3회째에서 멈춤 ────────────
 {
@@ -136,7 +137,7 @@ const urgents = (c) => read(c.mbox).split("\n").filter((l) => l.trim()).map((l) 
   eq("ⓐ [긴급] 0", urgents(c), 0);
   await pi.settle();
   eq("ⓑ 같은 지문 2회째 = sendMessage 0(총 1)", pi.calls.length, 1);
-  eq("ⓑ desk [긴급] 1통(임시 우편함 행 1)", urgents(c), 1);
+  eq("ⓑ [긴급] 1통(임시 우편함 행 1)", urgents(c), 1);
   await pi.settle(); const s3 = read(c.idle); await pi.settle();
   eq("ⓒ 3·4회째 = sendMessage 0(총 1)", pi.calls.length, 1);
   eq("ⓒ 3·4회째 = [긴급] 추가 0", urgents(c), 1);
@@ -253,7 +254,8 @@ function mutate(name, from, to) {
     eq("변이 M1 → ⓑ sendMessage 2 = FAIL 검출", pi.calls.length, 2); EXTv = EXT; }
 }
 { // M2 지문에 자기 발신 seq 포함 → ⓖ 턴 2
-  const m = mutate("M2", 'String(r.from ?? "") !== seat', "true");
+  // r1699: r1699 가 같은 글자를 openOrdersOf 안에도 쓴다 → «첫 일치» 규칙에 걸려 엉뚱한 줄이 바뀌지 않게 줄 전체(고유)로 겨냥
+  const m = mutate("M2", 'const others = (r: { from?: unknown }) => String(r.from ?? "") !== seat', 'const others = (r: { from?: unknown }) => true');
   if (m) { EXTv = m; const c = setup("M2"); const pi = await load(); await pi.settle();
     append(c.mbox, row(1201, DESK, SEAT, "[회신] 막힌 이유"), row(1202, SEAT, SEAT, "[카드 이동] 자기 알림")); await pi.settle();
     eq("변이 M2 → ⓖ sendMessage 2 = FAIL 검출", pi.calls.length, 2); EXTv = EXT; }

@@ -86,12 +86,19 @@ def load(md, root):
 #   옛 접두는 «인식만» 한다 — 전환기에 이미 열려 있는 좌석을 같은 팀 나노로 세기 위해서지 새로 만들지 않는다.
 LEGACY_PREFIXES = {"v65": ("ft-v65-temp-",)}
 LEGACY_TEAM_PREFIXES = {"v65": ("ft-v65-",)}   # 「팀 좌석 전부」(나노+역할) 옛 이름 — 예전엔 ft-v65-master-… 처럼 팀 접두가 ft- 였다
-KNOWN_HINT = " | ".join(["byz-<팀>-nano-"] + list(LEGACY_PREFIXES.get("v65", ())))   # 오류 문구용 견본 — 목록 자체는 LEGACY_PREFIXES 한 곳
+# ★r1702 팀 접두 표(한 곳)★ — 표에 없는 팀은 지금처럼 byz-<팀>- · aifp 좌석은 aifp-ft- (aifp-env.sh FT_NANO_PREFIX=aifp-ft-nano-)
+TEAM_PREFIX = {"aifp": "aifp-ft-"}
+KNOWN_HINT = " | ".join(["byz-<팀>-nano-"] + [f"{p}nano-" for p in TEAM_PREFIX.values()] + list(LEGACY_PREFIXES.get("v65", ())))   # 오류 문구용 견본 — 목록 자체는 이 표·LEGACY 두 곳
+
+
+def team_prefix(team):
+    """그 팀 «좌석 전부»(나노·역할)의 새 접두 — 표에 없으면 byz-<팀>-."""
+    return TEAM_PREFIX.get(team, f"byz-{team}-")
 
 
 def prefix_of(team):
-    """그 팀 나노의 «새» 이름 접두 — 모든 팀이 byz-<팀>-nano- 한 꼴."""
-    return f"byz-{team}-nano-"
+    """그 팀 나노의 «새» 이름 접두 — 팀 접두(team_prefix) + nano- 한 꼴."""
+    return f"{team_prefix(team)}nano-"
 
 
 def prefixes_of(team):
@@ -101,15 +108,18 @@ def prefixes_of(team):
 
 def team_prefixes_of(team):
     """그 팀 좌석 «전부»(나노·역할 무관)의 접두 — 셸이 팀 좌석을 고를 때 쓰는 목록(두 벌 규칙 0)."""
-    return (f"byz-{team}-",) + LEGACY_TEAM_PREFIXES.get(team, ())
+    return (team_prefix(team),) + LEGACY_TEAM_PREFIXES.get(team, ())
 
 
 def team_of(prefix, strict=True):
     for t, legacies in LEGACY_PREFIXES.items():
         if prefix in legacies:
             return t
+    for t, p in TEAM_PREFIX.items():   # r1702: 표 접두 먼저, 그다음 byz 꼴
+        if prefix == f"{p}nano-":
+            return t
     m = re.fullmatch(r"byz-([a-z0-9]+)-nano-", prefix)
-    if m:
+    if m and m.group(1) not in TEAM_PREFIX:   # r1702: 표에 있는 팀(byz-aifp-nano-)은 그 팀 좌석이 아니다 → 섞임 0
         return m.group(1)
     return die(f"나노 접두 {prefix!r} 에서 팀을 못 읽는다 ({KNOWN_HINT})") if strict else None
 
@@ -122,8 +132,11 @@ def seat_info(seat):
         for p in legacies:
             if seat.startswith(p):
                 return t, p, True, seat[len(p):].rsplit("#", 1)[0]
+    for t, p in TEAM_PREFIX.items():   # r1702: 표 접두(aifp-ft-nano-) 좌석도 그 팀 나노로 읽는다
+        if seat.startswith(f"{p}nano-") and re.fullmatch(re.escape(f"{p}nano-") + r".+#\d+", seat):
+            return t, f"{p}nano-", False, seat[len(f"{p}nano-"):].rsplit("#", 1)[0]
     m = re.fullmatch(r"byz-([a-z0-9]+)-nano-(.+)#\d+", seat)
-    if m:
+    if m and m.group(1) not in TEAM_PREFIX:   # r1702: 표 팀의 byz 꼴 이름은 그 팀 나노가 아니다(접두가 다르다 — 키가 틀어짐)
         return m.group(1), prefix_of(m.group(1)), False, m.group(2)
     return None
 
@@ -222,7 +235,7 @@ def standby_close(root, d, team, live):
         return None
     _, seat, row = max(closed, key=lambda c: c[0])
     verdict = str(row["_closed"].get("verdict") or "")
-    if not verdict or any(k.startswith(f"byz-{team}-arch-") and k in live for k in d):
+    if not verdict or any(k.startswith(f"{team_prefix(team)}arch-") and k in live for k in d):
         return None
     return seat, verdict
 
@@ -298,7 +311,7 @@ def check_team(spec, root, team, live, roster=None, active_teams=None):
     if roster["diag"] != "OK":
         return "WARN", f"판정 불가({roster['diag']})"
     d = roster["doc"]
-    pre = (f"byz-{team}-",) + tuple(p for p in LEGACY_PREFIXES.get(team, ()))
+    pre = team_prefixes_of(team)
     mine = [s for s in live if s.startswith(pre)]
     nano = [s for s in mine if any(s.startswith(p) for p in prefixes_of(team))]
     cap, err, warn, info = cap_of(spec, team, active_teams), [], [], []
@@ -307,7 +320,7 @@ def check_team(spec, root, team, live, roster=None, active_teams=None):
         cap = spec["default"]
     if not mine:
         return "OK", f"휴면(라이브 좌석 0 · 나노 0/{cap})"
-    if not any(s.startswith(f"byz-{team}-master-") for s in mine):
+    if not any(s.startswith(f"{team_prefix(team)}master-") for s in mine):
         err.append("master 없음")
     gap = arch_gap(spec, d, team, live)
     sb = standby_close(root, d, team, live) if gap else None
@@ -319,8 +332,8 @@ def check_team(spec, root, team, live, roster=None, active_teams=None):
     master_ok = False
     if not isinstance(m, str) or not m:
         err.append("명부 _master 없음")
-    elif not re.fullmatch(rf"byz-{team}-master-[a-z0-9]+#\d+", m):
-        err.append(f"명부 _master {m} 형식·소속 위반(byz-{team}-master-<에이전트>#N)")
+    elif not re.fullmatch(re.escape(f"{team_prefix(team)}master-") + r"[a-z0-9]+#\d+", m):
+        err.append(f"명부 _master {m} 형식·소속 위반({team_prefix(team)}master-<에이전트>#N)")
     elif m not in live:
         err.append(f"명부 _master {m} 라이브 아님")
     else:
@@ -429,7 +442,7 @@ def cmd_name_rule(argv):
         die("좌석 이름 필요")
     info = seat_info(a.seat)
     if not info:
-        die(f"나노 좌석 이름이 아니다 — {a.seat} (규칙 byz-<팀>-nano-<키>#N · 옛 이름 {LEGACY_PREFIXES['v65'][0]}<키>#N)")
+        die(f"나노 좌석 이름이 아니다 — {a.seat} (규칙 {KNOWN_HINT}<키>#N)")
     print(f"team={info[0]} prefix={info[1]} legacy={int(info[2])} key={info[3]} prefixes={','.join(prefixes_of(info[0]))}")
 
 

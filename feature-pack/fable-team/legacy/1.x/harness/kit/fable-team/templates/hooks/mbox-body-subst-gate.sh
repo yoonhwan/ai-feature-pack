@@ -48,8 +48,12 @@ except Exception as e:
 INTERP = {"bash", "sh", "zsh", "dash", "ksh", "env", "exec", "command", "timeout", "nohup", "time"}
 SCRIPT = ("mbox.sh", "ft-mbox.sh")
 ASSIGN = re.compile(r"[A-Za-z_][A-Za-z0-9_]*(\[[^\]]*\])?\+?=")
-# 예외: 본문 인자 전체가 파일 읽기 한 개 — 경로에 치환·따옴표·구분자가 없는 단순 경로만
-EXC = re.compile(r"^\$\(\s*(?:cat\s+[^\s;)|&`$']+|<\s*[^\s;)|&`$']+)\s*\)$")
+# 예외: 본문 인자 전체가 파일 읽기 한 개 — 경로 = 글자(예전 꼴: 공백 · ; ) | & ` $ ' " 와 리다이렉션 > < 만 제외 · 그래서 # 한글 , % = 도 그대로 통과) + 변수 펼침($NAME · ${NAME} · 매개변수 펼침은 명령 실행이 아니다 · r1403) · 경로를 큰따옴표로 감싼 꼴도 허용
+#   그 밖 글자($( · ${…:-…} 펼침 연산 · 따옴표밖 > < = 파일 쓰기/읽기 변경)는 예외 밖 = 막는다
+_PIECE = r"[^\s;)|&<>`$'\"]|\$\{[A-Za-z_][A-Za-z0-9_]*\}|\$[A-Za-z_][A-Za-z0-9_]*"
+_PATH = r"(?:" + _PIECE + r")+"
+_DQ = '"'
+EXC = re.compile(r"^\$\(\s*(?:cat\s+(?:" + _PATH + "|" + _DQ + _PATH + _DQ + r")|<\s*(?:" + _PATH + "|" + _DQ + _PATH + _DQ + r"))\s*\)$")
 OP = "op"
 
 

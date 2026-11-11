@@ -13,7 +13,7 @@ set -uo pipefail
 USAGE="usage: $0 <좌석> --reason \"<1줄>\" [--seats <파일>] [--verdict <번호>] | $0 --reopen <좌석> [--seats <파일>]"
 REOPEN=0; [ "${1:-}" != --reopen ] || { REOPEN=1; shift; }
 SEAT="${1:-}"; case "$SEAT" in ""|--*) echo "$USAGE" >&2; exit 2;; esac
-shift; REASON=""; ARG=""; VERDICT=""; REC=""; NOLINE=""; DEAD=0
+shift; REASON=""; ARG=""; VERDICT=""; REC=""; NOLINE=""; DEAD=0; RN=""   # RN = renamed_ok 가 확정한 후계(r1691)
 while [ $# -gt 0 ]; do case "$1" in --reason) REASON="${2:-}"; shift 2;; --seats) ARG="${2:-}"; shift 2;; --reopen) REOPEN=1; shift;; --verdict) VERDICT="${2:-}"; [[ "$VERDICT" =~ ^[0-9]+$ ]] || { echo "$USAGE — --verdict <번호>" >&2; exit 2; }; shift 2;; *) echo "unknown $1" >&2; echo "$USAGE" >&2; exit 2;; esac; done
 [ "$REOPEN" = 1 ] || [ -n "${REASON//[[:space:]]/}" ] || { echo "$USAGE — --reason 필요" >&2; exit 2; }
 [ "$REOPEN" = 0 ] || [ -z "$VERDICT" ] || { echo "$USAGE — --reopen 과 --verdict 는 같이 쓰지 않는다" >&2; exit 2; }
@@ -42,7 +42,8 @@ if [ -n "$VERDICT" ]; then   # R400 ⓪① — 원장 루트를 먼저 풀고(�
   ROUT="$(bash "${FT_SEAT_RETIRE_BIN:-$HERE/ft-seat-retire.sh}" "$SEAT" --record-only --verdict "$VERDICT" ${SEATS_FILE:+--seats "$SEATS_FILE"} --keep-existing 2>&1)"; rrc=$?; NOLINE="$(printf '%s\n' "$ROUT" | grep -m1 '^NORECORD ')"   # r960 ⓡⓣ — 어느 갈래(수용·HELD·죽은 좌석)든 NORECORD 원문 줄은 finish 가 책임진다 — case 보다 먼저 잡는다 · r5: --seats = 확정 경로를 ARG 유무 무관하게 항상 넘긴다
   held() { if [ -n "$NOLINE" ]; then finish 3 "HELD $SEAT 재개 기록 실패 — 명부 쓰기 0 · kill 0 · rc=$rrc"; else finish 3 "HELD $SEAT 재개 기록 실패 — 명부 쓰기 0 · kill 0 · rc=$rrc $(printf '%s' "$ROUT" | head -1)"; fi; }   # r5: 수용 판정 근거 = 입구에서 확정한 $AGENT 하나(명부 다시 읽기 0)
   # PI ADAPTER BEGIN
-  if [ "$AGENT" = pi ] && [ "$rrc" = 0 ]; then
+  PI_DEADLY=0; case "$rrc $NOLINE" in "0 NORECORD "*"pi 좌석 tmux 없음"*) PI_DEADLY=1;; esac   # r1679 — retire 가 이미 «PI_DEAD(pi 좌석 tmux 없음)» 로 판정한 죽은 좌석은 pane 이 없어 결속 확인이 언제나 실패한다 → 그 판정 하나만 믿고 건너뛴다(판정 불가 = rrc≠0 이라 여기 못 온다 · seat-close 자신의 DEAD 로는 가르지 않는다)
+  if [ "$AGENT" = pi ] && [ "$rrc" = 0 ] && [ "$PI_DEADLY" = 0 ]; then
     python3 "$HERE/ft_seat_bind.py" "$SEAT" --expect "$RECF" >/dev/null || { rrc=1; held; }
   fi
   # PI ADAPTER END
@@ -110,6 +111,28 @@ lineage_ok() {
   while IFS= read -r s; do [ "${s%#*}" = "$base" ] && [[ "${s##*#}" =~ ^[0-9]+$ ]] && [ "${s##*#}" -gt "$n" ] && up=$((up+1)); done < <(tmux list-sessions -F '#{session_name}' 2>/dev/null)
   [ "$up" -ge 2 ] || { [ "$up" -ge 1 ] && [ -f "$rec" ]; }
 }
+# r1691 — 이름 접두가 바뀐 승계(byz-aifp-arch-pi#0 → aifp-ft-arch-pi#0): 옛 행 _replaced_by=N(비어 있지 않은 문자열) ∧ 같은 파일 N 행 있음 ∧ 그 행 _replaces 에 옛 좌석 ∧ N 행에 _replaced_by 없음(현역) ∧ tmux "=N" 생존 ∧ 재개 기록($RECF) 있음 — «모두» 설 때만 같은 표준 닫기.
+#   _replaces 는 list 일 때만·원소 정확 일치만(문자열 "… #00"·객체 {좌석:false} = 꼴 불일치 → held · DA R1).
+#   넓히는 쪽이라 모르면 닫지 않는다(명부 읽기·꼴 불일치·tmux 조회 실패 = 거짓 · held 그대로 · 하드 룰 2). 통과하면 결과 줄 끝에 lineage=renamed:<N>.
+renamed_ok() {
+  local n
+  n="$(python3 - "$FILE" "$SEAT" <<'PY2'
+import json, sys
+f, seat = sys.argv[1:3]
+try: d = json.load(open(f, encoding="utf-8"))
+except (OSError, ValueError): sys.exit(1)
+o = d.get(seat) if isinstance(d, dict) else None
+n = o.get("_replaced_by") if isinstance(o, dict) else None
+nxt = d.get(n) if isinstance(n, str) and n else None
+if not isinstance(nxt, dict) or nxt.get("_replaced_by") or not isinstance(nxt.get("_replaces"), list) or seat not in nxt["_replaces"]: sys.exit(1)   # 리스트일 때만 · 원소 정확 일치(문자열·객체는 꼴 불일치 = held)
+print(n)
+PY2
+)" || return 1
+  [ -n "$n" ] || return 1
+  tmux has-session -t "=$n" 2>/dev/null || return 1
+  [ -f "$RECF" ] || return 1
+  RN="$n"
+}
 # r448: kill «앞» 그 좌석이 띄운 백그라운드 루프 정지(ft-seat-reap) — left≠0 ∨ rc≠0 = CLOSE-FAIL rc 1(세션 보존 · 명부 표기는 남음 · 사람 판단). 세션이 이미 없어도 고아 루프를 본다.
 # r1568 ② — 정지·재조사 반복은 ft-seat-reap 안에서 끝났다(마지막 정지 1회 + 재조사 · 총 3회 상한). 여기서 남으면 CLOSE-FAIL 이유 1줄 rc≠0 — 세션 보존.
 reap() {
@@ -134,7 +157,7 @@ final() {   # r1568 ④ — 닫힘 확인: 세션 부재 ∧ 최종 재조사 le
   cfail fail-final "final ${L:-left=?} rc=$r session=$g" "$o"
 }
 if tmux has-session -t "=$SEAT" 2>/dev/null; then
-  [ -n "$VERDICT" ] || lineage_ok || finish 3 "CLOSED-SESSION $SEAT file=$FILE role_was=$WAS kill=held(표준승인 밖 — 나노는 ft-nano-close · 그 밖은 [HIL])"   # --verdict = 판정 승인 1건 + 재개 기록 확인됨
+  [ -n "$VERDICT" ] || lineage_ok || renamed_ok || finish 3 "CLOSED-SESSION $SEAT file=$FILE role_was=$WAS kill=held(표준승인 밖 — 나노는 ft-nano-close · 그 밖은 [HIL])"   # --verdict = 판정 승인 1건 + 재개 기록 확인됨 · r1691 = 이름 접두가 바뀐 승계도 같은 근거면 통과
   reap
   if [ -n "$(tmux show-options -qv -t "=$SEAT" @zc_v65_active 2>/dev/null)" ]; then
     tmux set-option -t "=$SEAT" -u @zc_v65_active || { vlog fail-tag; finish 1 "FAIL tag $SEAT — @zc_v65_active 해제 실패(세션 잔존 · 명부 표기는 남음 file=$FILE)"; }
@@ -147,4 +170,4 @@ if [ "$DEAD" = 1 ]; then   # r427 — 죽은 좌석: kill 할 것 0 · 명부만
   vlog dead; [ "$CELLS" = - ] && finish 0 "CLOSED-DEAD $SEAT record=$RK handoff=$CELLS" || finish 0 "CLOSED-DEAD $SEAT record=$RK handoff=$CELLS" "  - 교대 0 · planner 1줄: 비운 칸 $CELLS — 후임 지정은 planner(자동 선정 0)"
 fi
 [ -z "$VERDICT" ] || { vlog "$KILL"; finish 0 "CLOSED-ROLE $SEAT verdict=$VERDICT record=$REC cells=$CELLS kill=$KILL reap left=0 rc=0"; }   # r960 ⓣⓤ — 결과 줄 형식 그대로 · NORECORD 줄은 finish 가 붙인다
-finish 0 "CLOSED-SESSION $SEAT file=$FILE role_was=$WAS kill=$KILL reap left=0 rc=0"
+finish 0 "CLOSED-SESSION $SEAT file=$FILE role_was=$WAS kill=$KILL reap left=0 rc=0${RN:+ lineage=renamed:$RN}"

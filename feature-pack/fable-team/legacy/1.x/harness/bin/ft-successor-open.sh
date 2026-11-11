@@ -9,9 +9,30 @@
 #   송신 판정은 ft-send-verified 의 jsonl 도달 하나뿐이다(exit 0 만 성공). 2·5 면 같은 seq 로 ring 1회 + 재확인.
 #   mbox(R343·r607) = 대상 워크트리의 리포 것($ROOT 의 .fable-team/comm/mbox.sh · 워크트리 안 사본은 보지 않는다) — 없으면 REJECT rc2. 고른 폴더에 짝 파일 mbox_doorbell.sh 가 없으면 열기 «전» REJECT rc2. ★ft-role-spawn·ft-nano-spawn 은 «워크트리 = 이 리포(BYZ)» 전제라 이 결정 대상이 아니다★.
 #   r1116c: 이어가기는 boot-enter «전에» 도달 근거(후계 jsonl 제출 · 후계 발신 쪽지 · ft-reach-check)를 본다 · 도달 파일을 쓴 직후 같은 호출에서 ft-seat-retire <구> <후계>(실패해도 rc 는 도달 쪽 0).
-#   env(시험용): FT_SEND_VERIFIED · FT_MBOX_SH · FT_REACH_CHECK · FT_SEAT_RETIRE · FT_SO_WAIT_MAX(기동 대기 횟수 60) · FT_SO_POLL(간격 초 1)
+#   env(시험용): FT_SEND_VERIFIED · FT_MBOX_SH · FT_REACH_CHECK · FT_SEAT_RETIRE · FT_SO_WAIT_MAX(기동 대기 횟수 60) · FT_SO_POLL(간격 초 1) · FT_SO_BUDGET(한 실행 시간 상한 초 60) · FT_SO_SEND_RESERVE(송신·도달 예약 초 40)
+#   r1660: 관측할 수 없는 신호는 안 기다린다 — codex·cmd·opencode 는 SessionStart 를 claude projects 폴더에 쓰지 않아 매번 60초를 다 썼고,
+#     뒤에 붙는 송신·도달 확인까지 70초 상한(하드 룰 12·22)을 넘겨 래퍼가 끊었다(사건 = issues-master-sol#60 rc124 2회 · 기계 [인계] 0).
+#     그래서 ⓒ-2 를 갈래로 나누고, 한 실행이 FT_SO_BUDGET 을 넘기기 전에 단계 사이에서 rc5 + «다시 실행» 1줄로 넘긴다(이어가기는 아래 r609 그대로).
 set -uo pipefail
 [ -f "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" ] && . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" "$@"   # R201: 비설치 위치면 LIVE_BIN 으로 exec
+# ★r1660 한 실행 시간 상한★ — T0 = 도구가 시작하는 자리(인자 검사·문지기까지 전체 경과). 남은 시간이 0 이면 «단계 사이» 에서 멈춘다.
+BUDGET="${FT_SO_BUDGET:-60}"; SO_T0="$(date +%s)"
+so_elapsed() { echo $(( $(date +%s) - SO_T0 )); }
+so_budget_ok() { [ "$(( BUDGET - $(so_elapsed) ))" -gt 0 ]; }
+# ★r1660-b (DA HOLD §3)★ 송신은 «남은 시간이 있으면» 들어가는 단계가 아니다 — 자기 몫의 예산을 통째로 예약한 뒤에 들어간다.
+#   ft-send-verified 는 reach 20초 → ring → reach 20초(최대 40초)를 쓰고, 그 뒤 이 파일의 ring 재확인(ⓕ)이 20초를 더 쓴다.
+#   잔여 2초에서 들어가면 전체 상한을 넘고, 송신 «뒤» 에 끊으면 본문이 두 번 큐에 들어간다(중복 송신) — 그래서 들어가기 전에 막는다.
+SEND_RESERVE="${FT_SO_SEND_RESERVE:-40}"   # 송신·도달 단계 예약(초) = ft-send-verified 의 20+20 · 그 뒤 재확인은 아래 ⓕ 가 clip 으로 한다
+so_send_ready() { [ "$(( BUDGET - $(so_elapsed) ))" -ge "$SEND_RESERVE" ]; }
+# ★r1660-c (arch#298)★ 재실행이 «다시 보내지 않고» 확인만 하려면 보낸 seq 를 파일로 남겨야 한다.
+#   송신은 큐에 들어간 순간 돌이킬 수 없다 — 두 번 보내면 좌석이 recv 에서 2건을 본다. 그래서 seq 를 .sent 에 적고 재실행은 확인만 한다.
+so_verify_ready() { [ "$(( BUDGET - $(so_elapsed) ))" -ge 20 ]; }   # 확인 1회(reach 20초) 몫
+so_reach_to() { local left=$(( BUDGET - $(so_elapsed) )); [ "$left" -lt 20 ] && echo "$left" || echo 20; }
+so_budget_stop() {   # $1 = 멈춘 단계 이름 · rc5 = 열렸으나 도달 미확인(재실행이 같은 자리에서 잇는다 · r609)
+  echo "시간 상한 ${BUDGET}초 — «$1» 단계 앞에서 멈춘다(경과 $(so_elapsed)초 · 송신 0 · 도달 파일 0 · 구 좌석 닫기 0)"
+  echo "다음: 같은 인자로 다시 실행(이어가기 r609)"
+  exit 5
+}
 usage() { echo "usage: $0 <구 좌석> <워크트리> --name <후계> --agent claude|codex|cmd|opencode|pi --model M(sn=claude-sonnet-5-5 · op=claude-opus-5-5 · 팀장 이름이면 생략 시 claude-sonnet-5-5 · arch 이름(agent claude)이면 생략 시 claude-opus-5-5) [--carry 0|1] [--ctx C] [--effort E] --body-file F" >&2; exit 2; }
 [ $# -ge 2 ] || usage
 OLD="$1"; WT="$2"; shift 2
@@ -20,6 +41,9 @@ while [ $# -gt 0 ]; do case "$1" in
   --name) NAME="${2:-}"; shift 2;; --agent) AGENT="${2:-}"; shift 2;; --model) MODEL="${2:-}"; shift 2;;
   --ctx) CTX="${2:-}"; shift 2;; --effort) EFFORT="${2:-}"; shift 2;; --body-file) BODY="${2:-}"; shift 2;;
   --carry) CARRY="${2:-}"; CARRY_SET=1; shift 2;; *) usage;; esac; done
+# r1675 — 옛 좌석의 팀이 2.0 전환됨이면 후계 개설(state/successor·쪽지) 전에 멈춘다(첫 게이트). 명부 자체 수정 0 = 명부 쓰기는 ft-seat-retire 가 따로 막는다.
+_ft20h="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"   # r1675 — HERE 정의(아래 74줄)보다 앞에서 도는 가드라 자기 폴더를 직접 푼다
+if [ -f "$_ft20h/ft20-switch-lib.sh" ]; then . "$_ft20h/ft20-switch-lib.sh"; ft20_guard_retire "$(ft20_root_of "$WT" 2>/dev/null)" "$OLD" "" "$NAME" || exit $?; else _ft20_r="${FT_FT20_ROOT:-$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)}"; compgen -G "${_ft20_r%/.git}/.fable-team/state/ft20-switch/*.json" >/dev/null 2>&1 && { echo "REJECT 2.0 전환 표식이 있는데 ft20-switch-lib.sh 없음(설치 누락) — 1.x 쓰기 0(판정 불가)" >&2; exit 3; }; fi
 # ★r1037 모델 약어★ (오빠 2026-10-28 «sn5.5 → sn5.5 · op5.5 → op5.5 · sn5.5 → op5.5»): `sn` = claude-sonnet-5-5 · `op` = claude-opus-5-5.
 #   비어 있지 않을 때만 풀고, 그 밖의 값(풀네임 포함)은 그대로 둔다 — 모델을 모르는 도구가 값을 고치지 않는다.
 case "$MODEL" in sn) MODEL="claude-sonnet-5-5";; op) MODEL="claude-opus-5-5";; esac
@@ -150,12 +174,14 @@ else echo "REJECT 대상 리포 mbox 없음 — $ROOT/.fable-team/comm/mbox.sh (
 MDIR="$(dirname -- "$MBOX")"
 [ -f "$MDIR/mbox_doorbell.sh" ] || { echo "REJECT mbox 짝 파일 없음: $MDIR/mbox_doorbell.sh (mbox.sh 가 source 하는 mbox_doorbell.sh · 짝이 빠진 폴더는 쓰지 않는다)"; exit 2; }
 STATE="$ROOT/.fable-team/state/successor"
+SENTF="$STATE/$OLD.sent"   # r1660-c: «보냈으나 도달 미확인» 표지(seq 1줄) · 재실행은 이 파일이 있으면 확인만 한다
 hil() { echo "[HIL] 후계 $NAME 도달 미확인 — 구 좌석 닫기 0 (구=$OLD) · 도달 파일 없음 · $1"; }
 RETIRE="${FT_SEAT_RETIRE:-$HERE/ft-seat-retire.sh}"
 # ⓔ 도달 파일 + ⓔ-1(r1116c) 명부 승계 — 후계가 retire 전이면 역할 우편함·ring 이 구 좌석으로만 간다(v65 #254 · planner arch#28). retire 실패는 사유만 출력 · rc 는 도달 쪽(0).
 reached() {   # reached <seq|null>
   mkdir -p "$STATE" && printf '{"successor":"%s","seq":%s,"reached_at":"%s","rc":0,"model":"%s"}\n' "$NAME" "$1" "$(date +%FT%T%z)" "$MODEL" > "$STATE/$OLD.json" \
     || { hil "도달 파일 쓰기 실패 $STATE"; exit 5; }
+  rm -f "$STATE/$OLD.sent"   # r1660-c: 도달했으면 «보냈으나 미확인» 표지를 지운다(다음 재실행이 확인만 하지 않게)
   [ -f "$RETIRE" ] || { echo "WARN retire 0 — $RETIRE 없음 · 후계가 부팅 때 retire"; return 0; }
   _rt="$(cd "$WT" && bash "$RETIRE" "$OLD" "$NAME" 2>&1)"; _rtrc=$?
   [ -n "$_rt" ] && printf '%s\n' "$_rt" | sed 's/^/retire: /'
@@ -165,6 +191,12 @@ reached() {   # reached <seq|null>
 # ⓐ 본문 첫 3줄 = 골 원문 자리(하드 룰 7) — 하나라도 비면 열지 않는다
 [ -f "$BODY" ] || { echo "REJECT 본문 파일 없음: $BODY"; exit 1; }
 [ "$(sed -n '1,3p' "$BODY" | grep -c '[^[:space:]]')" = 3 ] || { echo "REJECT 본문 첫 3줄(골 원문)이 비었다: $BODY"; exit 1; }
+# ⓐ-2 (r1692) 개설 본문 «첫 비어 있지 않은 줄» 머리 — [인계]·[레디] 금지. 이 쪽지는 «옛 좌석 이름» 으로 나가 그 승계의 [인계] 묶음에 세어지고,
+#   항목 머리가 없어 ready·close 가 «형식 불명» 으로 영구 막힌다(#285416·#285446). 손 [인계] 거절(r1116b ④)은 그대로 두고 «보내기 전» 에 막는다.
+SO_FIRST="$(grep -m1 '[^[:space:]]' "$BODY" 2>/dev/null | sed -E 's/^[[:space:]]+//')"
+case "$SO_FIRST" in
+  "[인계]"*|"[레디]"*) echo "REJECT 본문 첫 줄 머리 [인계]·[레디] 금지 — 개설 발주는 [승계 발주] 머리로: $BODY"; exit 1;;
+esac
 # ⓐ-1 (r1391) 승계 본문 첫머리 지침 블록 — 정본 governance 에서 표식 블록을 «개설 전» 에 읽는다(desk 는 §11-6 블록).
 #   표식이 없거나 여러 개거나 300자 초과면 그 자리에서 REJECT rc1 = 세션 개설 0(이 도구의 fail-closed 꼴 그대로 · 본문 받은 뒤 거절되는 후계 0).
 #   본문 조립은 ⓓ — 골 3줄 다음에 이 블록을 넣는다(블록 본문은 한 곳 = governance · 이 파일은 복사만).
@@ -316,8 +348,11 @@ register_successor
 # ⓒ 에이전트 기동 확인 — pane pid 의 자식이 생길 때까지(BOOT 7 HARD GATE: pgrep 0건이면 send 금지). 상한 넘으면 송신 0.
 PID="$(tmux list-panes -t "=$NAME" -F '#{pane_pid}' 2>/dev/null | head -1)"
 up=0; i=0
-while [ "$i" -lt "$WAIT_MAX" ]; do i=$((i+1)); pgrep -P "$PID" >/dev/null 2>&1 && { up=1; break; }; sleep "$POLL"; done
-[ "$up" = 1 ] || { echo "REJECT $NAME 에서 에이전트 프로세스 기동 미확인(pgrep ${WAIT_MAX}회) — 송신 0"; hil "새 pane 을 사람이 확인"; exit 1; }
+while [ "$i" -lt "$WAIT_MAX" ] && so_budget_ok; do i=$((i+1)); pgrep -P "$PID" >/dev/null 2>&1 && { up=1; break; }; sleep "$POLL"; done
+[ "$up" = 1 ] || {
+  so_budget_ok || so_budget_stop "에이전트 기동 확인"   # 상한에 걸려 멈춘 것이면 REJECT(rc1) 아니라 재실행(rc5)
+  echo "REJECT $NAME 에서 에이전트 프로세스 기동 미확인(pgrep ${WAIT_MAX}회) — 송신 0"; hil "새 pane 을 사람이 확인"; exit 1
+}
 
 # ⓒ-1 이어가기 모드의 미제출 부팅 문장 (r925 r3) — 재실행으로 이어갈 때 tmuxc 가 넣은 부팅 문장이 입력줄에 남아 있어
 #   jsonl 이 안 생긴다(ops #56→#57 3회 정지). 판정은 tmuxc 한 곳(`tmuxc boot-enter`)이 한다 — 근거 = 그 좌석 세션 env 의
@@ -383,11 +418,17 @@ if [ "$RESUMED" = 1 ] && [ "$AGENT" = claude ]; then
 fi
 
 # ⓒ-2 새 좌석 jsonl 의 SessionStart — 실측 꼴(SessionStart 뒤 16초 Enter 미제출)을 줄이려 기다린다. 못 봐도 «미관측» 을 드러내고 송신(도달 판정은 아래 send-verified 몫).
+if [ "$AGENT" = codex ] || [ "$AGENT" = cmd ] || [ "$AGENT" = opencode ]; then
+  # ★r1660★ 이 셋은 claude projects 폴더에 SessionStart 를 «쓰지 않는다» — 관측할 수 없는 신호를 기다리면 그 자체가 상한을 넘긴다(대기 0 · «생략» 1줄)
+  echo "SessionStart 관측 생략($AGENT — 기록 없음) $NAME"
+else
 seen=0; i=0
-while [ "$i" -lt "$WAIT_MAX" ]; do i=$((i+1))
+while [ "$i" -lt "$WAIT_MAX" ] && so_budget_ok; do i=$((i+1))
   f="$(grep -lF "${SKEYS[@]}" "$JDIR"/*.jsonl 2>/dev/null)"
   [ -n "$f" ] && printf '%s\n' "$f" | xargs grep -lF "$SMARK" >/dev/null 2>&1 && { seen=1; break; }; sleep "$POLL"; done
 [ "$seen" = 1 ] && echo "SessionStart 관측 $NAME" || echo "SessionStart 미관측 $NAME (${WAIT_MAX}회) — 송신 후 도달 판정으로 확인"
+fi
+so_send_ready || so_budget_stop "검증 송신(송신·도달 예산 ${SEND_RESERVE}초 필요)"   # 송신 «전» 에만 멈춘다 — 송신 뒤에 멈추면 재실행이 두 번 보낸다
 
 # ⓓ 검증 송신 — 본문은 mbox 큐 · 창엔 doorbell 한 줄 · 도달은 jsonl 층(ft-send-verified exit 0 만 성공)
 # ★r1034 팀장 승계 «이월 0» 줄★: 사고 확대 키워드의 효과는 세션을 넘어가지 않는다 — 팀장 후계 본문 끝에 그 뜻을 한 줄 붙인다.
@@ -404,14 +445,44 @@ if [ "${NAME#*-master-}" != "$NAME" ]; then
   fi
 fi
 TAILENV=""; [ "$CARRY" = 1 ] && TAILENV="FT_DOORBELL_TAIL=ultrathink"
-OUT="$(env $TAILENV FT_REACH_AGENT="$AGENT" FT_MBOX_SH="$MBOX" FT_SEND_FROM="$OLD" bash "$SEND" "$NAME" "$SEND_TEXT" 2>&1)"; RC=$?
+# ★r1660-c 재실행 = 확인만★ .sent 에 보낸 seq 가 있으면 «다시 보내지 않는다» — ring 1회 + reach(남은 예산 clip) 만.
+#   본문은 이미 큐에 있으니 send 를 다시 부르면 두 벌이 된다(중복 송신 0). 성공하면 도달 파일 + .sent 삭제, 모자라면 rc5.
+if [ -s "$SENTF" ]; then
+  PSEQ="$(sed -n '1p' "$SENTF")"
+  so_verify_ready || so_budget_stop "송신 확인(이미 보냄 seq $PSEQ · reach 예산 20초 필요)"
+  echo "$PSEQ" | grep -qE '^[0-9]+$' || { hil "보낸 seq 표지가 숫자가 아니다: $SENTF"; exit 5; }
+  bash "$MBOX" ring "$NAME" "$PSEQ" >&2 || echo "WARN ring 실패 — reach 판정만 한다(seq $PSEQ)" >&2
+  if FT_REACH_AGENT="$AGENT" bash "$REACH" "$NAME" "[발주 #$PSEQ]" "$(so_reach_to)" 0 >/dev/null 2>&1; then
+    reached "$PSEQ"; echo "OK successor=$NAME seq=$PSEQ file=$STATE/$OLD.json mbox=$MBOX (재실행 확인만 · 송신 0)"; exit 0
+  fi
+  so_verify_ready || so_budget_stop "송신 확인(도달 미확인 seq $PSEQ)"
+  hil "이미 보낸 seq $PSEQ 도달 미확인 — 재실행은 확인만(다시 보내지 않는다)"; exit 5
+fi
+OUT="$(env $TAILENV FT_SV_DEADLINE="$(( SO_T0 + BUDGET ))" FT_REACH_AGENT="$AGENT" FT_MBOX_SH="$MBOX" FT_SEND_FROM="$OLD" bash "$SEND" "$NAME" "$SEND_TEXT" 2>&1)"; RC=$?
 printf '%s\n' "$OUT"
 SEQ="$(printf '%s\n' "$OUT" | grep -oE 'seq=[0-9]+' | head -1 | cut -d= -f2)"
-# ⓕ 2·5 → 같은 seq 로 ring 1회 + 도달 재확인(본문 재큐잉 0). 1(SEND_FAILED)·seq 없음 = 그대로 실패.
-if [ "$RC" -ne 0 ] && { [ "$RC" -eq 2 ] || [ "$RC" -eq 5 ]; } && [ -n "$SEQ" ]; then
-  env $TAILENV bash "$MBOX" ring "$NAME" "$SEQ" 2>&1 && FT_REACH_AGENT="$AGENT" bash "$REACH" "$NAME" "[발주 #$SEQ]" 20 0 >/dev/null 2>&1 && RC=0
+# ★r1660-c★ 큐에 들어간 seq 를 «바로» 남긴다 — 여기서 죽어도 재실행이 확인만 할 수 있다(못 쓰면 도달 판정 불가 = hil).
+if [ -n "$SEQ" ]; then
+  { mkdir -p "$STATE" && printf '%s\n' "$SEQ" > "$SENTF"; } || { hil "보낸 seq 기록 실패 $SENTF — 재실행이 중복 송신할 수 있다"; exit 5; }
 fi
-[ "$RC" -eq 0 ] || { hil "send-verified rc=$RC"; exit 5; }
+# ⓕ 2·5·6 → 같은 seq 로 ring 1회 + 도달 재확인(본문 재큐잉 0). 1(SEND_FAILED)·seq 없음 = 그대로 실패.
+#   ★r1660-c★ 재확인도 시간을 쓴다 — «남은 예산» 을 clip 으로 넘긴다(전에는 20초 고정 · ≥20 일 때만).
+RETRY_SKIP=0
+if [ "$RC" -ne 0 ] && { [ "$RC" -eq 2 ] || [ "$RC" -eq 5 ] || [ "$RC" -eq 6 ]; } && [ -n "$SEQ" ]; then
+  if so_verify_ready; then
+    env $TAILENV bash "$MBOX" ring "$NAME" "$SEQ" 2>&1 && FT_REACH_AGENT="$AGENT" bash "$REACH" "$NAME" "[발주 #$SEQ]" "$(so_reach_to)" 0 >/dev/null 2>&1 && RC=0
+  else
+    RETRY_SKIP=1; echo "WARN 재확인 생략 — 남은 예산(${BUDGET}초 상한) 부족" >&2
+  fi
+fi
+if [ "$RC" -ne 0 ]; then
+  if [ "$RC" = 6 ] || [ "$RETRY_SKIP" = 1 ]; then
+    hil "도달 미확인(rc=$RC) — seq ${SEQ:-없음} 를 .sent 에 남겼다 · 재실행은 확인만(다시 보내지 않는다)"
+  else
+    hil "send-verified rc=$RC"
+  fi
+  exit 5
+fi
 
 # ⓔ 도달 파일 — 훅(context-distill-gate.sh)이 이 파일이 있어야 550k 넘은 좌석의 recv 를 푼다 · 이어서 retire(r1116c)
 reached "${SEQ:-null}"

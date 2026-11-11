@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ft-merge-gate.sh <sha> [--base-head-file <경로>] [--repo <dir>] [--remote origin] [--target main]   (R230 · 판정 1860·1862·1875)
 #   병합·main push 게이트 — «후보 sha 가 현재 main 을 이미 포함하고 main 이 더한 줄을 지우지 않는가». 자율 ON/OFF 무관 · 읽기 전용(fetch 1회만).
-#   ① 검사 시각에 fetch(시도당 상한 = 25초(판정 4114) · FT_LAND_DEADLINE 있으면 min(25, 남은) · r1363 · 실패 = deny) · 마지막 줄 «INFO fetch 상한 <초>(판정 4114)»(지정 없음만) ② 기준 헤드 파일(.fable-team/state/base-head · 1줄 40hex) 있으면 «손상 아님 + 후보의 조상» · 없음 = 이 검사만 생략
+#   ① 검사 시각에 fetch(시도당 상한 = 25초(판정 4114) · FT_LAND_DEADLINE 있으면 min(25, 남은) · r1363 · 실패 = deny) · 마지막 줄 «INFO fetch 상한 <초>(판정 4114)»(지정 없음만) ② 기준 헤드 파일(.fable-team/state/base-head · 대상 가지가 main 이 아니면 base-head@<가지> · 1줄 40hex · r1687) 있으면 «손상 아님 + 후보의 조상» · 없음 = 이 검사만 생략
 #   ③ is-ancestor <main> <sha> 거짓 = deny(ft-head-sync 로 최신화) ④ 줄 계약(ft_merge_lines.py: main 이 더한 줄이 후보에서 사라지면 deny)
 #   exit 0 = ALLOW · 1 = DENY(사유 stdout) · 2 = usage. 명령 실패는 «거짓» 과 사유를 가른다(DENY … 판정 불가).
 set -uo pipefail
@@ -20,8 +20,8 @@ while [ $# -gt 0 ]; do case "$1" in
 G() { git -C "$REPO" "$@"; }
 deny() { echo "DENY $*"; exit 1; }
 
-if [ -z "$BHF" ]; then
-  COMMON="$(G rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" && BHF="${FT_ROOT:-$(dirname "$COMMON")}/.fable-team/state/base-head"
+if [ -z "$BHF" ]; then   # r1687: 기본 경로도 «대상 가지» 몫 — main 이면 지금 그대로 · 그 밖은 base-head@<가지>
+  COMMON="$(G rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" && BHF="$(fm_base_head_file "${FT_ROOT:-$(dirname "$COMMON")}/.fable-team/state/base-head" "$TARGET")"
 fi
 fm_fetch_sec >/dev/null; trap 'fm_fetch_info' EXIT   # r1363: 상한 1줄을 «맨 끝» 에 쓴다 — 게이트 stdout 은 «DENY …»/«ALLOW …» 접두 계약(부르는 곳·기존 시험) 이라 앞에 다른 줄을 넣으면 깨진다
 fm_fetch "$REPO" "$REMOTE" "$TARGET" || deny "fetch $REMOTE $TARGET 실패(시도당 $FM_FETCH_SEC s + 재시도 1) — main 을 못 봐서 판정 불가"

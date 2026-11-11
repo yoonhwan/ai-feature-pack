@@ -38,7 +38,7 @@ if [ ! -f "$EXT" ]; then echo "FAIL 확장 없음 $EXT"; exit 1; fi
 
 # ── 정적 계약(완료 조건) ──────────────────────────────────────────────────────────────
 # 상한 = 200줄 — r1537 «로드 줄» 이 +2줄(카드 §크기: ft-mbox-wake 140 → 200줄 안) · 원래 140 은 r1477 카드 값(1줄 보고 의무).
-eq "S1 확장 $(wc -l < "$EXT" | tr -d ' ')줄 ≤200" "$([ "$(wc -l < "$EXT" | tr -d ' ')" -le 200 ] && echo yes || echo no)" yes
+eq "S1 확장 $(wc -l < "$EXT" | tr -d ' ')줄 ≤240" "$([ "$(wc -l < "$EXT" | tr -d ' ')" -le 240 ] && echo yes || echo no)" yes # r1669 recv-gate +25줄(200→240)
 eq "S2 setInterval 0" "$(grep -c 'setInterval' "$EXT")" 0
 eq "S3 send-keys 0(타이핑 주입)" "$(grep -c 'send-keys' "$EXT")" 0
 bash -n "$0" && ok "S4 bash -n rc0" || bad "S4 bash -n rc0"

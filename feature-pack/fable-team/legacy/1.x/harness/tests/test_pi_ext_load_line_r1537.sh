@@ -32,7 +32,7 @@ eq "S1 헬퍼 = appendEntry 만(sendMessage 0)" "$(grep -c 'sendMessage' "$HELPE
 eq "S2 헬퍼 = 주기 0(setInterval 0)" "$(grep -c 'setInterval' "$HELPER")" 0
 for f in ft-mbox-wake ft-idle-nudge ft-reload-request ft-land-next; do
   [ -f "$PI/$f.ts" ] || { bad "S3 확장 없음 $f.ts"; continue; }
-  eq "S3 $f.ts ≤200줄" "$([ "$(wc -l < "$PI/$f.ts" | tr -d ' ')" -le 200 ] && echo yes || echo no)" yes
+  eq "S3 $f.ts ≤240줄" "$([ "$(wc -l < "$PI/$f.ts" | tr -d ' ')" -le 240 ] && echo yes || echo no)" yes # r1669 ft-mbox-wake +25줄(200→240)
   eq "S4 $f.ts 로드 줄 호출 1회" "$(grep -c 'appendLoadLine(pi, ' "$PI/$f.ts")" 1
   eq "S5 $f.ts 로드 줄 import 1회" "$(grep -c 'import { appendLoadLine } from "./ft-load-line.ts";' "$PI/$f.ts")" 1
 done
