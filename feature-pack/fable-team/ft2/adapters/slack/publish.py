@@ -85,6 +85,9 @@ class SlackPublish:
     def reply(self, key, command, body, seat=None, gen=None):
         """답 1건. 거절이면 게시 0, 아니면 «의도 기록 → post → 결과 기록»(ⓖ)."""
         self.steps = []
+        repeated = self._repeated(key, command)  # 계약 3 — 같은 intent 재회신 = 게시 0(r1623)
+        if repeated is not None:
+            return self._append(repeated)
         refusal = self._refusal(key, command, seat, gen)
         if refusal is not None:
             return self._append(refusal)
@@ -157,6 +160,16 @@ class SlackPublish:
         self._append(row)
         self._step("failed")
         raise PostFailed(row)
+
+    def _repeated(self, key, command):
+        """같은 key·command 기록 — 게시됨이면 첫 게시 ts 를 돌려주는 거절 · 미해소면 resolve() 먼저(계약 3)."""
+        same = [entry for entry in self.entries() if entry.get("key") == list(key) and entry.get("command") == command]
+        posted = next((entry for entry in same if entry["state"] in (POSTED, RESENT)), None)
+        if posted is not None:
+            return self._refused(key, command, "same_intent", reason="같은 intent 재회신", ts=posted.get("ts"))
+        if any(entry["state"] in UNSETTLED for entry in same):
+            return self._refused(key, command, "same_intent_unsettled", reason="같은 intent 재회신 = 미해소 · resolve() 먼저")
+        return None
 
     def _gate(self, key, command, seat, gen, via, call):  # 게시 전 재검사 — 옛 세대·닫힘은 게시 0(R1)
         return self._refusal(key, command, seat, gen)
