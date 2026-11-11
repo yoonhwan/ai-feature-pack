@@ -3,6 +3,7 @@ from mbox_conf import *
 from mbox_store import _check_name, _clip, _legacy_dirs, _load, _locked, _mbox, _next_seq, _prune_bodies, _save, _stash_body
 from mbox_guard import _guard_log, _guard_record, _guard_verdict, _log_sent, _reply_exempt
 import mbox_keep   # r912 — 넘칠 때 버리는 순서(시스템 → 일반 · 사람 글 보존)
+import mbox_drops  # r1651 — 버린 seq 를 받는 좌석의 다음 recv 에 1줄(유실 표시)
 import mbox_roots  # r1309 — 다른 루트 받는이 = 우편 다리(roots.tsv)
 from mbox_lineage import claim, eligible, retired_to
 import mbox_handover   # r1116 ③ 영수(받은 쪽지마다 1줄) — 승계 마무리 검사(close-check)의 재료
@@ -47,7 +48,7 @@ def send(to, frm, body, force=False, desk_attach=""):
         rows.append(row)
         byto = {}
         for r in rows: byto.setdefault(role_key(r["to"]), []).append(r)   # ★상한 = 역할 합(r1116 R5)★
-        keep, dropped, oldest, overflow = [], 0, None, 0
+        keep, dropped, oldest, overflow, seqs = [], 0, None, 0, []
         for t, rs in byto.items():
             rs.sort(key=lambda r: r["seq"])
             # ★밀려난 건수를 «센다»★ — ring 은 조용히 버린다. 안 세면 «보낸 사람은 QUEUED 를
@@ -58,6 +59,7 @@ def send(to, frm, body, force=False, desk_attach=""):
             keep.extend(k)
             if t == role_key(to):
                 dropped, oldest, overflow = d, o, overflow + ov
+                seqs = [r["seq"] for r in rs if r["seq"] not in {x["seq"] for x in k}]   # r1651 버린 seq 전부
         _save(CANON, keep)
         _log_sent(CANON, row)
         # ★가드 기록을 «이미 잡고 있는» 우편함 잠금 안에서 한다★ — 밖에서 하면 동시 send 가
@@ -68,7 +70,7 @@ def send(to, frm, body, force=False, desk_attach=""):
             _guard_record(to, frm, body, exempt)
         except Exception:
             pass
-        return seq, sum(1 for r in keep if role_key(r["to"]) == role_key(to)), dropped, oldest, overflow
+        return seq, sum(1 for r in keep if role_key(r["to"]) == role_key(to)), dropped, oldest, overflow, seqs
     res = _locked(CANON, op)
     if res[0] == "__BLOCKED__":
         reason, hint = res[1]
@@ -81,7 +83,7 @@ def send(to, frm, body, force=False, desk_attach=""):
         tail = " · desk 경로는 --force 로 안 풀린다" if reason.startswith("DESK_ROUTE") else " · 정말 필요하면 --force"
         sys.stderr.write("BLOCKED %s\n%s\n→ BLOCKED %s%s\n" % (reason, hint, reason, tail))
         sys.exit(3)
-    seq, pend, dropped, oldest, overflow = res
+    seq, pend, dropped, oldest, overflow, seqs = res
     # ★«어느 파일에 몇 바이트» 를 찍는다★ — QUEUED 를 «도착»으로도 «온전»으로도 읽지 않게.
     print(f"QUEUED seq={seq} to={to} pending={pend} "
           f"file={_mbox(CANON)} bytes={len(body.encode('utf-8'))}")
@@ -90,7 +92,7 @@ def send(to, frm, body, force=False, desk_attach=""):
             "DROPPED %d to=%s (ring=%d 포화 · 시스템 알림 먼저 · 사람 글 보존) — 이 좌석이 %d건을 안 읽고 쌓아뒀다.\n"
             "버려진 %d건은 «영구 유실»이다. 좌석 상태를 보고, 급하면 pane 으로 직접 보낸다.\n"
             % (dropped, to, MAX_PER_TO, pend, dropped))
-        _drop_log(to, dropped, oldest)
+        mbox_drops.log_drop(CANON, to, dropped, oldest, seqs)   # r1651 — 버린 seq 전부를 원장에
     if overflow:
         # ★사람 글은 안 버린다★ — 상한을 넘긴 채로 두고 «그 사실»을 알린다(조용한 초과 0 · r912).
         sys.stderr.write(
@@ -100,16 +102,6 @@ def send(to, frm, body, force=False, desk_attach=""):
     #   메시지는 이미 큐에 들어갔고 발신자는 이미 결과를 받았다. relay 는 send 를
     #   타므로 여기 한 곳이면 두 경로가 모두 덮인다.
     _prune_bodies(CANON)
-
-
-def _drop_log(to, dropped, oldest):
-    """★버림 원장 (r630)★ — stderr DROPPED 는 보낸 쪽 화면에만 남아 기록이 0 이었다. 건수만(본문 0) 1줄.
-    메시지는 이미 큐에 들어갔으니 기록 실패로 send 를 실패시키지 않는다 — 대신 stderr ERROR 1줄."""
-    try:
-        with open(os.path.join(CANON, "mailbox.drops.log"), "a", encoding="utf-8") as f:
-            f.write("%s to=%s dropped=%d oldest_seq=%s\n" % (time.strftime("%Y-%m-%dT%H:%M:%S"), to, dropped, oldest))
-    except OSError as e:
-        sys.stderr.write("ERROR mailbox.drops.log 기록 실패: %s\n" % e)
 
 
 def relay(to, frm, path, summary):
@@ -167,6 +159,8 @@ def recv(me, frm=None, limit=None):
     got, held = claim(dirs, names, frm, limit, me=me, on_take=lambda rows: mbox_handover.record(me, rows), only=only)
     # ★어느 파일들을 봤는지, 계보가 실제로 합류했는지 찍는다★ — 안 찍으면 union·합류가 도는지 아무도 모른다.
     print(f"SCANNED {len(dirs)} mailbox(es): " + " ".join(_mbox(d) for d in dirs) + f" lineage={joined}")
+    if lost := mbox_drops.report(CANON, me, names):   # r1651 — 버린 seq 를 다음 recv 첫 줄에
+        print(lost)
     if not got:
         print("READ none"); return
     for d, r in got:
