@@ -1393,7 +1393,9 @@ if [ "$tmux_ok" = 1 ]; then
       echo "INFO ③ never-started — 좌석 jsonl 없음: 유휴 판정은 ⑥ 턴 0 검사(에이전트별 기록)가 대신 · 워크트리 mtime 은 보지 않는다(공유 워크트리 후계 편집이 섞인다)"
     elif [ -z "$f" ]; then
       # codex/cmd/opencode 는 claude jsonl 이 없다 — 파일 mtime 으로 대신(에이전트 무관 하한)
-      last="$(find "$cwd" -type f -newer "$SEATS" -not -path '*/.git/*' -mmin -"$IDLE_MIN" 2>/dev/null | head -1)"
+      # r1652 + r1652 R1(DA codex#10 §2): .serena/project.yml(루트 하나)은 activate_project 노이즈 — 이 도구가 스스로 HEAD 로 되돌리라고 안내하는 파일이라 ③ 이 사람 편집으로 세지 않는다.
+      #   r1652 R1: find -path 는 glob 이라 경로에 «[1]» 같은 문자가 있으면 루트 파일도 안 걸리지 않는다(또는 엉뚱한 것을 걸러낸다) — 거르는 일은 결과에 대한 정확 일치(grep -vxF)로 한다.
+      last="$(find "${cwd%/}" -type f -newer "$SEATS" -not -path '*/.git/*' -mmin -"$IDLE_MIN" 2>/dev/null | grep -vxF -- "${cwd%/}/.serena/project.yml" | head -1)"
       [ -z "$last" ] || bad+=("③워크트리에 ${IDLE_MIN}분 내 편집: $last")
     else
       _lt="$("${FT_JSONL_LAST_TS:-$HERE/ft-jsonl-last-ts.py}" "$f" --skip-logged-out 2>&1)"; _lt_rc=$?  # R53: 파일 mtime 이 아니라 timestamp 있는 마지막 기록 · r849: 인증 실패 0초 턴은 «활동» 아님
