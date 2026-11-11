@@ -16,6 +16,7 @@ r1371 — 전팀 정지 표식(ft_stall_detect.all_stop · 스캔 처음 1회) o
 """
 import json
 import os
+import shlex
 import sys
 import time
 from pathlib import Path
@@ -437,6 +438,41 @@ class Scan:
                 self.notes.append(f"a? {f['team']} 카드 상한 확인 실패(rc {rc}) — a 0")
         return kept, unknown
 
+    def auto_close(self) -> list[str]:
+        """r1670 ⓔ — FT_NANO_AUTO_CLOSE=1 일 때만 close-due 의 «갈래=승인» 줄마다 닫기 1회. 한 회차 상한 = 줄 수 · 같은 좌석 실패는 같은 HEAD 동안 재시도 0 · 꺼짐(기본 0) = 지금 그대로(호출 0)."""
+        if os.environ.get("FT_NANO_AUTO_CLOSE") != "1":
+            return []
+        due = os.environ.get("FT_NANO_CLOSE_DUE") or str(HERE / "ft-nano-close-due.sh")
+        close = os.environ.get("FT_NANO_CLOSE") or str(HERE / "ft-nano-close.sh")
+        rc, out = run(["bash", due, "--all"], {**os.environ, "FT_NANO_AUTO_CLOSE": "1"}, 70)
+        if rc != 0:
+            return [f"판정 불가 auto-close close-due rc={rc} — 닫기 0"]
+        sf = self.state_dir / "nano-auto-close.json"
+        try: tried: dict[str, str] = json.loads(sf.read_text(encoding="utf-8"))
+        except (OSError, ValueError): tried = {}
+        stamp = time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(self.now))
+        lines: list[str] = []
+        for ln in [x for x in out.splitlines() if x.startswith("닫기 차례 ") and "갈래=승인" in x]:
+            seat = ln.split()[2] if len(ln.split()) > 2 else ""
+            head = next((t[4:] for t in ln.split() if t.startswith("set=")), "")
+            cmd = ln.split(" — ", 1)[1] if " — " in ln else ""
+            if not seat or not head or not cmd.startswith("bash ") or " --approved " not in cmd:
+                lines.append(f"{stamp} 판정 불가 auto-close 줄 해석 실패 — {ln[:120]}"); continue
+            if tried.get(seat) == head: continue
+            crc, cout = run(["bash", close, *shlex.split(cmd)[2:]], {**os.environ, "FT_NANO_AUTO_CLOSE": "1"}, 70)
+            first = (cout.strip().splitlines() or [""])[0]
+            if crc == 0 and first.startswith("CLOSED"):
+                tried.pop(seat, None); lines.append(f"{stamp} auto-close {first} set={head}")
+            else:
+                tried[seat] = head; lines.append(f"{stamp} auto-close 실패 {seat} rc={crc} — {first[:120]}")
+        try:
+            sf.parent.mkdir(parents=True, exist_ok=True)
+            (sf.parent / (sf.name + ".tmp")).write_text(json.dumps(tried), encoding="utf-8")
+            os.replace(sf.parent / (sf.name + ".tmp"), sf)
+        except OSError as e:
+            lines.append(f"{stamp} WARN auto-close 상태 파일 쓰기 실패: {e}")
+        return lines
+
     def run(self, dry: bool) -> int:
         pen = ft_penalty.load()
         found, unknown = self.find(pen)
@@ -476,6 +512,10 @@ class Scan:
                 handled[key] = self.now
                 log.append(f"{stamp} {res} key={f['kind']}:{f['seat']} {f['why']}")
         log += [f"{stamp} {e}" for e in self.errs]
+        ac = self.auto_close()  # r1670 ⓔ — FT_NANO_AUTO_CLOSE=1 일 때만(기본 0 = 로그·출력 그대로)
+        if ac:
+            log += ac
+            print("\n".join(ac))
         log += [f"{stamp} {n}" for n in self.notes if n.startswith(("보류 — API 장애", "유예 — API 장애", "보류 ", "판정 불가 ALL_STOP"))]  # r1238 B·r1371 — 감시기 로그에 남는 증거 줄(실사건 확인용)
         if trig and pen is None and os.environ.get("FT_STALL_PENALTY_AUTO", "1") != "0":
             _ = ft_penalty.turn_on("같은 멈춤을 처리 뒤에도 또 감지: " + ",".join(trig))
