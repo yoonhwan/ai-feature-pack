@@ -15,7 +15,8 @@ unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY F
 
 "$BB" -n "$SRCDIR/ft-index-move-canon.sh" && ok "bash -n ft-index-move-canon.sh" || bad "bash -n ft-index-move-canon.sh"
 
-T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT; T="$(cd "$T" && pwd -P)"
+TD="$(mktemp -d)"; trap 'rm -rf "$TD"' EXIT
+T="$(cd "$TD" && pwd -P)"
 BIN="$T/bin"; mkdir -p "$BIN"
 cp "$SRCDIR/ft-index-move-canon.sh" "$SRCDIR/ft-team-lib.sh" "$SRCDIR/ft_git_capped.py" "$BIN/"
 
