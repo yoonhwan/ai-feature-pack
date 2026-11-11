@@ -116,6 +116,11 @@ pas R3 "$MBG" 'bash '"$MB"' send A#1 B#1 "$(cat /tmp/a,b)"'
 pas R4 "$MBG" 'bash '"$MB"' send A#1 B#1 "$(cat /tmp/a%20)"'
 pas R5 "$MBG" 'bash '"$MB"' send A#1 B#1 "$(cat /tmp/x=1)"'
 pas R6 "$MBG" 'bash '"$MB"' send A#1 B#1 "$(cat $D/x#2-본문.txt)"'
+# r1403 보정 2: 따옴표 밖 리다이렉션(> <)은 경로 글자가 아니다 — 파일 쓰기로 의미가 바뀌므로 막는다
+blk X1 "$MBG" 'bash '"$MB"' send A#1 B#1 "$(cat $F>/tmp/out)"'
+blk X2 "$MBG" 'bash '"$MB"' send A#1 B#1 "$(cat /tmp/f>/tmp/out)"'
+blk X3 "$MBG" 'bash '"$MB"' send A#1 B#1 "$(cat $F</etc/passwd)"'
+pas X4 "$MBG" 'bash '"$MB"' send A#1 B#1 "$(<$F)"'
 # ── G9 홑따옴표 = 글자 ────────────────────────────────────────────────
 pas G9a "$MBG" "bash $MB send A#1 B#1 'literal \$(x) 글자'"
 pas G9b "$MBG" 'bash '"$MB"' send A#1 B#1 '"'"'백틱 `uptime` 글자'"'"''
@@ -158,5 +163,5 @@ mutg "$T/v3.sh" '\$\{[A-Za-z_][A-Za-z0-9_]*\}' '\$\{[^}]*\}'   # ${…} 안 아�
 expect W1m "$T/v3.sh" 0 nm "bash $MB send A#1 B#1 \"\$(cat \${F:-\$(id)})\""
 
 echo "SUMMARY blocked=$nb pass=$np mutant=$nm fail=$fail"
-[ "$nb" -eq 28 ] && [ "$np" -eq 30 ] && [ "$nm" -eq 13 ] && [ "$fail" -eq 0 ] || { echo "FAIL 표 미달 또는 실패 있음"; exit 1; }
+[ "$nb" -eq 31 ] && [ "$np" -eq 31 ] && [ "$nm" -eq 13 ] && [ "$fail" -eq 0 ] || { echo "FAIL 표 미달 또는 실패 있음"; exit 1; }
 echo "OK"
