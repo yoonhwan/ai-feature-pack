@@ -5,7 +5,7 @@
 산출물(이 묶음)
 | 파일 | 역할 |
 |---|---|
-| `feature-pack/fable-team/legacy/1.x/harness/bin/ft_desk_reply_wake.py` | 점검·등록 1개(등록은 desk 게시 직후 · 점검은 stall-scan 주기) |
+| `feature-pack/fable-team/legacy/1.x/harness/bin/ft_desk_reply_wake.py` | 점검·등록 1개(등록은 ft-hil h 발급 자리 자동 · r1587 · 점검은 stall-scan 주기) |
 | `feature-pack/fable-team/legacy/1.x/harness/bin/ft-stall-scan.sh` | 점검 호출 1줄(120초 주기 재사용 · 새 launchd 0 · 로그 `/tmp/ft-desk-reply-wake.log`) |
 | `feature-pack/fable-team/legacy/1.x/harness/tests/test_desk_reply_wake_r1574.sh` | 격리 시험(가짜 명부·mbox·replies·시계·h 폴더) + 변이 4 |
 | `feature-pack/fable-team/legacy/1.x/harness/docs/h-r1574-desk-slack-reply-wake.md` | 이 문서(장부 꼴 · desk 절차 · 설치 h) |
@@ -34,11 +34,11 @@
 
 장부가 JSON 이 아니거나 못 읽으면 «판정 불가» 1줄 + 쓰기 0(줄을 지우지 않는다). 한 질문 ts 는 장부에 한 줄만 있다 — 같은 값 재등록은 «이미 등록 — 중복 0»(rc0 · 멱등), 같은 ts 에 다른 h·sha 는 «감시 등록 실패»(rc3 · 조용한 중복 0 · DA R3).
 
-## §2 desk 게시 절차 1줄 (정본 반영 대상 · 반영은 master/arch)
+## §2 desk 게시 절차 1줄 (정본 = 이 절 · r1587 정정)
 
-정본(설치 뒤 desk 게시 절차)에 이 1줄을 넣는다 — **«Slack 승인 질문 게시 직후 장부 등록 같이: `python3 <하네스 bin>/ft_desk_reply_wake.py --register <질문 글 ts> h<N> <sha40>` · 실패면 desk 보고에 «감시 등록 실패» 1줄(조용한 0 금지)»**
+desk 게시 절차의 정본은 이 절이다(다른 문서에 복제 0). 절차는 이 1줄이다 — **«Slack 승인 질문을 올린 뒤 h 계획에 `approve-merge <sha40> … --oppa-slack <질문 글 ts>` 줄을 정확히 1개 넣고 `ft-hil` 로 발급한다 · 장부 등록은 발급이 자동으로 한다(`ft-hil.sh` → `ft_desk_reply_wake.py --register-plan <계획> h<N>` · r1587 e5063f0b) · 손 `--register` 는 필요 없다 · 발급 stderr 에 «감시 등록 실패 <ts>» 또는 «감시 등록 판정 불가» 가 뜨면 desk 보고에 그 1줄(조용한 0 금지)»**
 
-등록이 빠진 질문은 감시되지 않는다(알려진 한계) — 그래서 실패를 보고에 드러낸다.
+`--oppa-slack` 줄이 없는 계획은 등록 대상이 아니다(장부 0줄). h 가 없는 오빠 질문(설계 승인 등)은 이 절 밖이다 — `--register-question <질문 ts> <사유키>`(r1591 · 알림 수신 = `_master`).
 
 ## §3 점검(120초 주기 · 비모델)
 
@@ -58,7 +58,7 @@
 1. 팩 → 라이브 바이너리 반영(설치기 기본 경로 · 새 launchd 0 · 새 실행 비트 0 — `bash`/`python3` 로 부른다).
 2. 확인 1: `python3 <라이브 bin>/ft_desk_reply_wake.py` → `desk-reply-wake 열린=0 알림=0 닫힘=0 판정불가=0` (장부 없음 = 조용한 0 아님, 요약 1줄).
 3. 확인 2: `launchctl print gui/$UID/com.byz.ft-stall-scan | grep state` → running · `/tmp/ft-desk-reply-wake.log` 첫 줄 생성(120초 뒤).
-4. 정본 반영: §2 1줄을 desk 게시 절차 문서에 넣는다(반영 주체 = master/arch).
+4. 정본 반영: §2 가 desk 게시 절차 정본이다(r1587 뒤 등록 = 발급 자동 · 별도 문서 반영 0).
 
 ## §5 시험
 
@@ -72,6 +72,6 @@ DA 1라운드 반례 3건도 같은 시험에 있다 — R1 점검 중 독립 �
 ## §6 알려진 한계
 
 - 감지 지연 = stall-scan 주기 1회(최대 ~2분 + 조회 시간). 열린 줄이 4개를 넘으면 순환 때문에 줄마다 최대 «줄 수 ÷ 4» 주기가 걸린다.
-- desk 가 §2 등록을 빠뜨린 질문은 감시되지 않는다.
+- h 계획에 `--oppa-slack <ts>` 줄이 없는 질문은 감시되지 않는다(대상 아님 · 조용히 rc0). 2개 이상이면 발급 stderr 에 «감시 등록 판정 불가» 1줄이 뜨고 등록 0(§2).
 - 장부 줄은 지우지 않는다(닫힘 표시만). 줄이 많이 쌓이면 `FT_DESK_REPLY_MAX` 가 조회를 4줄로 자른다 — 오래된 열린 줄부터 본다.
 - 오빠가 답글을 지우거나 수정하면 `ft_oppa_slack_check` 판정 규칙(부모 수정 전 · 다음 질문 전)을 그대로 따른다.
