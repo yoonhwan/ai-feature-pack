@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
-"""ft 2.0 설치 — install·verify·rollback·status 네 동사 하나.
-
-설치 루트 꼴: `<루트>/versions/<버전>/`(패키지 복사본) · `<루트>/CURRENT`(일반 파일 1줄 · tmp 쓰고 os.replace) · `<루트>/install-log.jsonl`(한 줄 = {ts, op, version, prev, manifest_sha256, rc}). 판 전환은 PACKAGE.json manifest_sha256 = MANIFEST.json 바이트 sha · 숨은 파일 0 · MANIFEST 대조 rc0 일 때만 한다. 대조가 틀리면 CURRENT 를 건드리지 않고 복사본을 `<버전>.bad-<ts>` 로 rename 만 한다(지우기 0 · 하드 룰 2·19). 되돌림은 log 의 `prev` 로 가고, 그 판이 없거나 대조가 틀리면 rc2 이며 CURRENT 는 그대로다. 종료 코드: 0 = 됨/같음 · 1 = 대조 다름(전환 0) · 2 = 판정 불가(인자·손상·이미 있음·쓰기 실패) — traceback 0.
+"""ft 2.0 설치 — install·verify·rollback·status 네 동사 하나. 설치 루트 꼴: `<루트>/versions/<버전>/`(패키지 복사본) · `<루트>/CURRENT`(일반 파일 1줄 · tmp 쓰고 os.replace) · `<루트>/install-log.jsonl`(한 줄 = {ts, op, version, prev, manifest_sha256, rc}). 판 전환은 PACKAGE.json manifest_sha256 = MANIFEST.json 바이트 sha · 숨은 파일 0 · MANIFEST 대조 rc0 일 때만 한다. 대조가 틀리면 CURRENT 를 건드리지 않고 복사본을 `<버전>.bad-<ts>` 로 rename 만 한다(지우기 0 · 하드 룰 2·19). 되돌림은 log 의 `prev` 로 가고, 그 판이 없거나 대조가 틀리면 rc2 이며 CURRENT 는 그대로다. 종료 코드: 0 = 됨/같음 · 1 = 대조 다름(전환 0) · 2 = 판정 불가(인자·손상·이미 있음·쓰기 실패) — traceback 0.
 """
 import hashlib
 import json
@@ -44,17 +42,19 @@ def set_current(root, version):
 
 
 def log_write(root, op, version, prev, man_sha, rc):
-    line = {"ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "op": op, "version": version,
-            "prev": prev, "manifest_sha256": man_sha, "rc": rc}
+    line = {"ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "op": op, "version": version, "prev": prev, "manifest_sha256": man_sha, "rc": rc}
     with open(os.path.join(root, "install-log.jsonl"), "a", encoding="utf-8") as handle:
         handle.write(json.dumps(line, ensure_ascii=False) + "\n")
 
 
-def hidden_files(root):
+def hidden_files(root, known):
+    """숨은 파일(이름이 .) 과 남의 바이트코드 — __pycache__/<이름>.cpython-*.pyc 이고 짝 <이름>.py 가 MANIFEST 에 있으면 재생성물이라 뺀다."""
     found = []
     for dirpath, dirnames, filenames in os.walk(root):
         prefix = "" if dirpath == root else os.path.relpath(dirpath, root).replace(os.sep, "/") + "/"
-        found += [prefix + name for name in dirnames + filenames if name.startswith(".")]  # 바이트코드는 셈 밖
+        strip = prefix[:-len("__pycache__/")] if prefix.endswith("__pycache__/") else None
+        found += [prefix + name for name in dirnames + filenames if name.startswith(".") or (name.endswith((".pyc", ".pyo")) and not (
+            strip is not None and ".cpython-" in name and f"{strip}{name.split('.')[0]}.py" in known))]
     return sorted(found)
 
 
@@ -66,7 +66,7 @@ def package_of(folder):
     version, files = doc.get("version"), doc.get("files")
     named = isinstance(version, str) and version and "/" not in version and version not in (".", "..")
     counted = bool(files) if isinstance(files, list) else type(files) is int and files >= 0  # r1613 은 개수(정수)
-    shaped = named and counted and isinstance(doc.get("manifest_sha256"), str)
+    shaped = named and counted and isinstance(doc.get("source"), dict) and isinstance(doc.get("manifest_sha256"), str)
     return doc if shaped and manifest.load_manifest(os.path.join(folder, "MANIFEST.json")) is not None else None
 
 
@@ -77,12 +77,11 @@ def consistent(folder):
         return False, "PACKAGE.json·MANIFEST.json 칸이 없다"
     if hashlib.sha256(open(man, "rb").read()).hexdigest() != doc["manifest_sha256"]:
         return False, "MANIFEST.json 바이트 sha 가 PACKAGE.json 과 다르다"
-    stray = hidden_files(folder)
+    stray = hidden_files(folder, manifest.load_manifest(man) or {})
     if stray:
         return False, f"숨은 파일 {len(stray)}개 — 첫째 {stray[0]}"
     rc, out = manifest.verify(man, folder)
-    wrong = ["MANIFEST 를 읽지 못했다"] if rc == 2 else (
-        out["missing"] + out["different"] + [rel for rel in out["extra"] if rel not in META])
+    wrong = ["MANIFEST 를 읽지 못했다"] if rc == 2 else out["missing"] + out["different"] + [rel for rel in out["extra"] if rel not in META]
     return (False, f"MANIFEST 대조 다름 — {wrong[:3]}") if wrong else (True, "")
 
 

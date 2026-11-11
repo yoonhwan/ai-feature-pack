@@ -50,10 +50,10 @@ def log_of(root):
 def test_a_b_d_install_switch_mismatch_and_verify(tmp_path):
     root = installed(tmp_path, "abd")
     assert json.loads(run("status", root)[1]) == {"current": "V1", "versions": ["V1"], "last_op": "install"} and run("verify", root)[0] == 0
-    for version, kwargs, needle, kept in (("V2", {"extra": {".DS_Store": "x\n"}}, "숨은 파일 1개", 1), ("V3", {"drift": True}, "전환 0", 2), ("V4", {"pad": True}, "바이트 sha", 3)):
+    for version, kwargs, needle, kept in (("V2", {"extra": {".DS_Store": "x\n"}}, "숨은 파일 1개", 1), ("V3", {"drift": True}, "전환 0", 2), ("V4", {"pad": True}, "바이트 sha", 3), ("V5", {"extra": {"x.pyc": "x\n"}}, "숨은 파일", 4)):
         rc, out, err = run("install", make_package(tmp_path, version, **kwargs), root)
         assert (rc, needle in out, err, tail(root), len(list((root / "versions").glob("*.bad-*"))), (root / "versions" / version).exists()) == (1, True, "", "V1", kept, False)  # rename 만
-    assert [(line["op"], line["version"], line["prev"], line["rc"]) for line in log_of(root)] == [("install", "V1", None, 0)] + [("install", v, "V1", 1) for v in ("V2", "V3", "V4")]
+    assert [(line["op"], line["version"], line["prev"], line["rc"]) for line in log_of(root)] == [("install", "V1", None, 0)] + [("install", v, "V1", 1) for v in ("V2", "V3", "V4", "V5")]
     assert log_of(root)[0]["manifest_sha256"] == hashlib.sha256((root / "versions" / "V1" / "MANIFEST.json").read_bytes()).hexdigest()
     assert sorted(entry.name for entry in root.iterdir()) == ["CURRENT", "install-log.jsonl", "versions"]  # tmp 잔여물 0
     assert not subprocess.run([sys.executable, "-c", f"import sys; sys.path.insert(0, {str(root / 'versions' / 'V1')!r}); import core.loader"]).returncode and run("verify", root)[0] == 0  # import 뒤 verify rc0
@@ -84,7 +84,7 @@ def test_c_e_f_rollback_outside_root_and_unjudgeable(tmp_path):
         assert run("install", folder, root, verdict=True) == (2, "", 1, False)
     (tmp_path / "notadir").write_text("x\n", encoding="utf-8")  # 루트가 일반 파일이면 쓰기 실패 = 판정 불가
     assert run("install", make_package(tmp_path, "V5"), tmp_path / "notadir", verdict=True) == (2, "", 1, False)
-    assert run("install", make_package(tmp_path, "V6", drop="source"), installed(tmp_path, "b2"))[0] == 0  # source 칸 없어도 rc0
+    assert run("install", make_package(tmp_path, "V6", drop="source"), installed(tmp_path, "b2"), verdict=True) == (2, "", 1, False)  # source 칸 빠짐 = rc2
     assert run("install", make_package(tmp_path, "V7", broken=True), installed(tmp_path, "c2"), verdict=True) == (2, "", 1, False)  # MANIFEST 손상 = 복사 전 판정 불가
 
 
@@ -99,7 +99,7 @@ def mutant(tmp_path, name, old, new):
 
 def test_m1_to_m6_mutants_switch_what_the_cases_forbid(tmp_path):
     cases = (("m1", "    ok, reason = consistent(target)", "    set_current(root, version)\n    ok, reason = consistent(target)"),
-             ("m2", "    stray = hidden_files(folder)", "    stray = []"),
+             ("m2", "    stray = hidden_files(folder, manifest.load_manifest(man) or {})", "    stray = []"),
              ("m3", "    ok, reason = consistent(folder)", "    ok, reason = True, ''"),
              ("m4", 'if hashlib.sha256(open(man, "rb").read()).hexdigest() != doc["manifest_sha256"]:', "if False:"),
              ("m5", '    os.replace(tmp, os.path.join(root, "CURRENT"))', '    open(os.path.join(root, "CURRENT"), "w", encoding="utf-8").write(version + "\\n")'),
