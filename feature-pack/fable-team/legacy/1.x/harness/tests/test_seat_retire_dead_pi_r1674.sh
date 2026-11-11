@@ -31,7 +31,13 @@ printf '#!/bin/sh\necho "QUIESCED $1 stub left=0"\n' > "$T/bin/ft-seat-quiesce.s
 cat > "$T/fake/tmux" <<'EOF'
 #!/usr/bin/env bash
 case "$1" in
-  has-session) case "${FAKE_TMUX:-dead}" in alive) exit 0;; dead) exit 1;; *) exit 2;; esac;;
+  has-session) n=""; for a in "$@"; do case "$a" in =*) n="${a#=}";; esac; done
+               case "${FAKE_TMUX:-dead}" in
+                 alive) exit 0;;
+                 dead) echo "can't find session: $n" >&2; exit 1;;
+                 sockfail) echo "error connecting to /x (Permission denied)" >&2; exit 1;;   # r1674-b1: rc1 이라도 «그 세션이 없다» 는 말이 아니면 죽음이 아니다
+                 *) exit 2;;
+               esac;;
   list-panes) [ "${FAKE_TMUX:-dead}" = alive ] && printf 'other-seat\t1\t/tmp\t0\n'; exit 0;;   # 세션 살아 있음 ≠ pane 결속 판정 가능
   *) exit 0;;
 esac
@@ -67,10 +73,10 @@ chk "ⓑ rc 1 · REJECT" "$rc $(cut -d' ' -f1 <<< "${out%%$'\n'*}")" "1 REJECT"
 has "$out" "Pi 결속 판정 불가" "ⓑ  └ 사유에 «Pi 결속 판정 불가»"
 chk "ⓑ 명부 바이트 불변 · .bak 0" "$(cmp -s "$S" "$S.orig" && echo same || echo changed) $(ls "$R/.fable-team" | grep -c 'bak-retire')" "same 0"
 
-echo "== ⓒ tmux 확인 실패(rc2 · 명령 없음) → 판정 불가 REJECT rc1 · 쓰기 0(«없음» 으로 치지 않는다)"
-for m in fail nosuch; do
+echo "== ⓒ tmux 확인 실패(rc2 · 명령 없음 · 소켓 연결 실패 rc1) → 판정 불가 REJECT rc1 · 쓰기 0(«없음» 으로 치지 않는다)"
+for m in fail nosuch sockfail; do
   roster 'byz-t-master-pi#5' 'byz-t-master-pi#5' master pi > "$S"; cp "$S" "$S.orig"; rm -f "$R/.fable-team"/*.bak-retire-*
-  if [ "$m" = fail ]; then out="$(FAKE_TMUX=fail run 'byz-t-master-pi#5' 'byz-t-master-pi#6')"; rc=$?; else out="$(FT_TMUX="$T/nosuch/tmux" run 'byz-t-master-pi#5' 'byz-t-master-pi#6')"; rc=$?; fi
+  case "$m" in nosuch) out="$(FT_TMUX="$T/nosuch/tmux" run 'byz-t-master-pi#5' 'byz-t-master-pi#6')";; *) out="$(FAKE_TMUX="$m" run 'byz-t-master-pi#5' 'byz-t-master-pi#6')";; esac; rc=$?
   chk "ⓒ$m rc 1 · REJECT" "$rc $(cut -d' ' -f1 <<< "${out%%$'\n'*}")" "1 REJECT"
   has "$out" "Pi tmux 확인 실패" "ⓒ$m  └ 사유에 «Pi tmux 확인 실패»"
   chk "ⓒ$m 명부 바이트 불변 · .bak 0" "$(cmp -s "$S" "$S.orig" && echo same || echo changed) $(ls "$R/.fable-team" | grep -c 'bak-retire')" "same 0"
@@ -117,6 +123,11 @@ chk "ⓜ3 표지 1줄(생존 확인 삭제)" "$n" 1
 roster 'byz-t-master-pi#3' 'byz-t-master-pi#3' master pi > "$S"
 out="$(RT="$T/bin/m3.sh" FAKE_TMUX=alive run 'byz-t-master-pi#3' 'byz-t-master-pi#4')"; rc=$?
 chk "ⓜ3 산 좌석이 은퇴로 샘(ⓑ FAIL)" "$rc $(grep -c '^RETIRED ' <<< "$out")" "0 1"
+n="$(mutate "$SRC" "$T/bin/m4.sh" '(r.stderr or "").strip().startswith(PI_ABSENT)' 'True')"
+chk "ⓜ4 표지 1줄(stderr 검사 삭제)" "$n" 1
+roster 'byz-t-master-pi#5' 'byz-t-master-pi#5' master pi > "$S"
+out="$(RT="$T/bin/m4.sh" FAKE_TMUX=sockfail run 'byz-t-master-pi#5' 'byz-t-master-pi#6')"; rc=$?
+chk "ⓜ4 소켓 연결 실패가 은퇴로 샘(ⓒsockfail FAIL)" "$rc $(grep -c '^RETIRED ' <<< "$out")" "0 1"
 chk "ⓜ3 본 파일 복구(변이는 사본에서만)" "$(cmp -s "$SRC" "$BIN/ft-seat-retire.sh" && echo same || echo changed)" same
 
 echo

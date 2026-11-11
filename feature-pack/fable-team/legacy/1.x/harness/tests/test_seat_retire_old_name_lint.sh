@@ -14,7 +14,13 @@ bad() { echo "FAIL $1"; fail=$((fail+1)); }
 chk() { if [ "$2" = "$3" ]; then ok "$1"; else bad "$1 (got=[$2] want=[$3])"; fi; }
 J() { jq -r "$2" "$1"; }
 printf '#!/bin/sh\necho "reap $1 stopped=0 left=0 rc=0"\n' > "$TMP/reap-stub.sh"; export FT_SEAT_REAP_BIN="$TMP/reap-stub.sh"
-FK="$TMP/fake"; mkdir -p "$FK"; printf '#!/usr/bin/env bash\nexit 1\n' > "$FK/tmux"; chmod +x "$FK/tmux"   # 결속 0 → NORECORD(은퇴 결과와 분리)
+FK="$TMP/fake"; mkdir -p "$FK"; cat > "$FK/tmux" <<'EOF'
+#!/usr/bin/env bash
+n=""; for a in "$@"; do case "$a" in =*) n="${a#=}";; esac; done   # r1674-b1: 세션 없음은 tmux 가 «can't find session» 이라고 말할 때만이다(연결 실패 rc1 은 죽음이 아니다)
+echo "can't find session: $n" >&2
+exit 1
+EOF
+chmod +x "$FK/tmux"   # 결속 0 → NORECORD(은퇴 결과와 분리)
 repo() { # <라벨> → scratch 리포(.fable-team = seats-aifp.json · seats-planner.json · seats-b.json)
   local r="$TMP/r-$1"; mkdir -p "$r/.fable-team"; git -C "$r" init -q
   printf '{"_master": "old-aifp-master-pi#0", "_name": "Seatbelt-AIFP"}' > "$r/.fable-team/seats-aifp.json"

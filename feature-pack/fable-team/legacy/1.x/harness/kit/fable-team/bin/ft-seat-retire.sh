@@ -109,10 +109,11 @@ def write_record(rec, why):   # 재개 기록(zombie-clean 이 직전 세대를 
     except (OSError, ValueError) as e:   # r427 — 옛 기록 무효화 0(죽은 좌석의 유일한 재개 근거를 지우던 길) · 닫기 판정은 zombie-clean 의 binding --expect 가 다시 본다
         print(f"NORECORD {old} {e}" + (f" · 기존 기록 보존 {rp}" if os.path.exists(rp) else ""))
 PI_DEAD = "pi 좌석 tmux 없음 — 산출 커밋 보존"   # r1674 PI ADAPTER BEGIN — 이미 죽은 좌석(세션 없음)과 결속 판정 불가를 가른다 · alive() 불변
-def pi_tmux_state(seat):   # 세 갈래 — 없음(rc1)=죽음 · 있음(rc0)=산 · 그 밖(명령 실패·시간초과·rc2)=판정 불가
-    try: r = subprocess.run([os.environ.get("FT_TMUX", "tmux"), "has-session", "-t", "=" + seat], capture_output=True, timeout=7).returncode
+PI_ABSENT = ("can't find session", "no server running")   # r1674-b1 — tmux 가 «그 세션이 없다» 고 «말한» rc1 만 죽음(소켓 연결 실패 rc1 = 판정 불가)
+def pi_tmux_state(seat):   # 세 갈래 — 없음=죽음 · 있음(rc0)=산 · 그 밖(연결 실패·명령 없음·시간초과·rc2)=판정 불가
+    try: r = subprocess.run([os.environ.get("FT_TMUX", "tmux"), "has-session", "-t", "=" + seat], capture_output=True, text=True, timeout=7)
     except (OSError, subprocess.SubprocessError): return "unknown"
-    return "alive" if r == 0 else "dead" if r == 1 else "unknown"
+    return "alive" if r.returncode == 0 else "dead" if r.returncode == 1 and (r.stderr or "").strip().startswith(PI_ABSENT) else "unknown"
 def pi_resume_checked(seat, model, retired_by):   # 결속 ok=기록 · 죽은 좌석=NORECORD 사유 · 그 밖=REJECT 사유
     rec, why = pi_seat_resume(seat, model, retired_by); st = "alive" if rec else pi_tmux_state(seat)
     return (rec, why) if st == "alive" else (None, PI_DEAD if st == "dead" else "Pi tmux 확인 실패 · " + why)
