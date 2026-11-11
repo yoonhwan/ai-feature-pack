@@ -169,7 +169,7 @@ const urgents = (c) => read(c.mbox).split("\n").filter((l) => l.trim()).map((l) 
 // ── ⓖ nudge 턴에서 자기 쪽지(desk 앞 + 자기 앞 알림) → 지문 무변화 → 2회째 = [긴급] · 턴 0 ────────
 {
   const c = setup("g"), pi = await load();
-  append(c.receipts, row(650, SEAT, OTHER, "[레디] 받은 것")); // r1699: 살아 있는 좌석 앞 자기 발신은 «회신 대기 발주» 로 세지 않게 닫는 머리로
+  append(c.receipts, row(650, SEAT, OTHER, "[발주 #650] 받은 것"));
   await pi.settle();
   eq("ⓖ 1회째 = sendMessage 1", pi.calls.length, 1);
   append(c.mbox, row(1201, DESK, SEAT, "[회신] 막힌 이유 — 오빠 결정 대기"), row(1202, SEAT, SEAT, "[카드 이동] 자기 알림"));
