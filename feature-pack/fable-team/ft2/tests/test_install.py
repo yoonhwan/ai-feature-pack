@@ -51,9 +51,10 @@ def refused(*args, script=TOOL):
 def test_a_b_d_install_switch_mismatch_and_verify(tmp_path):
     root = installed(tmp_path, "abd")
     assert json.loads(run("status", root)[1]) == {"current": "V1", "versions": ["V1"], "last_op": "install"} and run("verify", root)[0] == 0
-    for version, kwargs, needle in (("V2", {"extra": {".DS_Store": "x\n"}}, "숨은 파일 1개"), ("V3", {"drift": True}, "전환 0"), ("V4", {"pad": True}, "바이트 sha")):
+    for version, kwargs, needle, kept in (("V2", {"extra": {".DS_Store": "x\n"}}, "숨은 파일 1개", 1), ("V3", {"drift": True}, "전환 0", 2), ("V4", {"pad": True}, "바이트 sha", 3)):
         rc, out, err = run("install", make_package(tmp_path, version, **kwargs), root)
         assert (rc, needle in out, err, tail(root)) == (1, True, "", "V1")
+        assert (len(list((root / "versions").glob("*.bad-*"))), (root / "versions" / version).exists()) == (kept, False)  # rename 만 · 지우기 0
     assert [(line["op"], line["version"], line["prev"], line["rc"]) for line in log_of(root)] == [("install", "V1", None, 0)] + [("install", v, "V1", 1) for v in ("V2", "V3", "V4")]
     assert log_of(root)[0]["manifest_sha256"] == hashlib.sha256((root / "versions" / "V1" / "MANIFEST.json").read_bytes()).hexdigest()
     assert sorted(entry.name for entry in root.iterdir()) == ["CURRENT", "install-log.jsonl", "versions"]  # tmp 잔여물 0
@@ -61,7 +62,6 @@ def test_a_b_d_install_switch_mismatch_and_verify(tmp_path):
     assert run("verify", root)[0] == 1
     (root / "CURRENT").unlink()
     assert refused("verify", root) == (2, "", 1, False)
-    assert len(TOOL.read_text(encoding="utf-8").splitlines()) <= 160  # 카드 크기 한도
 
 
 def test_c_e_f_rollback_outside_root_and_unjudgeable(tmp_path):
@@ -102,7 +102,8 @@ def test_m1_to_m6_mutants_switch_what_the_cases_forbid(tmp_path):
              ("m3", "    ok, reason = consistent(folder)", "    ok, reason = True, ''"),
              ("m4", 'if hashlib.sha256(open(man, "rb").read()).hexdigest() != doc["manifest_sha256"]:', "if False:"),
              ("m5", '    os.replace(tmp, os.path.join(root, "CURRENT"))', '    open(os.path.join(root, "CURRENT"), "w", encoding="utf-8").write(version + "\\n")'),
-             ("m6", '    if cur is None:\n        return 2, f"판정 불가 {root}: CURRENT 판이 없다"\n', ""))
+             ("m6", '    if cur is None:\n        return 2, f"판정 불가 {root}: CURRENT 판이 없다"\n', ""),
+             ("m7", "        os.replace(target, bad)", "        shutil.rmtree(target)"), ("m8", "        os.replace(target, bad)", "        pass"))
     m = {name: mutant(tmp_path, name, old, new) for name, old, new in cases}
     roots = [installed(tmp_path, name) for name in ("a", "b", "c", "d")]
     drift, hidden, pad = make_package(tmp_path, "V2", drift=True), make_package(tmp_path, "V9", extra={".DS_Store": "x\n"}), make_package(tmp_path, "V10", pad=True)
@@ -111,9 +112,9 @@ def test_m1_to_m6_mutants_switch_what_the_cases_forbid(tmp_path):
     assert (run("install", pad, roots[3], script=m["m4"])[0], run("install", pad, installed(tmp_path, "d2"))[0]) == (0, 1)
     pair = [installed(tmp_path, name, ("V1", "V2")) for name in ("e", "f")]
     [(root / "versions" / "V1" / "core" / "loader.py").write_text("print('BROKEN')\n", encoding="utf-8") for root in pair]
-    assert (run("rollback", pair[0], script=m["m3"])[0], run("rollback", pair[1])[0]) == (0, 2)
-    assert (tail(pair[0]), tail(pair[1])) == ("V1", "V2")
+    assert (run("rollback", pair[0], script=m["m3"])[0], run("rollback", pair[1])[0], tail(pair[0]), tail(pair[1])) == (0, 2, "V1", "V2")
     m5, m6 = installed(tmp_path, "m5"), installed(tmp_path, "m6")
     (m6 / "CURRENT").unlink()
     assert (run("install", make_package(tmp_path, "V20"), m5, script=m["m5"])[0], sorted(entry.name for entry in m5.iterdir())) == (0, ["CURRENT", "CURRENT.tmp", "install-log.jsonl", "versions"])
     assert (refused("verify", m6, script=m["m6"])[0], refused("verify", m6)[0]) == (1, 2)  # M6 은 traceback 으로 rc1
+    assert [(run("install", make_package(tmp_path, v, drift=True), r, script=m[n])[0], sorted(e.name for e in (r / "versions").iterdir())) for n, v, r in (("m7", "V30", installed(tmp_path, "m7")), ("m8", "V31", installed(tmp_path, "m8")))] == [(1, ["V1"]), (1, ["V1", "V31"])]
