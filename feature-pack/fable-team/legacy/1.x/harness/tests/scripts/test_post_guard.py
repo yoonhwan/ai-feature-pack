@@ -264,3 +264,109 @@ def test_r1089_mutation_e_always_prepend_is_caught(tmp_path, monkeypatch):
     monkeypatch.setattr(pg, "with_status_head", lambda text: f"{sh.head()}\n{text}")  # 중복 검사 끔
     with pytest.raises(AssertionError):  # 대응 시험이 실패해야 변이가 잡힌 것이다
         test_r1089_e_the_same_head_is_not_added_twice(tmp_path, monkeypatch)
+
+
+# ── r1710 — 사람 채널 «머지 질문» 글은 PR 마다 head sha(40자)가 있어야 나간다(반례 ①~⑤ · 변이 W1~W3 원본 대조) ──
+NO_SHA = "머지 질문에 PR head sha\\(40자\\)가 없음"
+
+
+@pytest.fixture
+def gate(tmp_path, monkeypatch):
+    """가짜 리포(bare origin + 클론) — new = origin/main 을 품은 PR head · old = 품지 않은 PR head · calls = 가짜 게시 기록."""
+    import subprocess
+    from types import SimpleNamespace
+
+    w = tmp_path / "w"
+    env = {**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t", "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t",
+           "GIT_CONFIG_GLOBAL": os.devnull}
+
+    def g(*a, cwd=w):
+        return subprocess.run(["git", *a], cwd=cwd, env=env, capture_output=True, text=True, timeout=7, check=True).stdout.strip()
+
+    g("init", "-q", "--bare", "-b", "main", str(tmp_path / "origin.git"), cwd=tmp_path)
+    g("clone", "-q", str(tmp_path / "origin.git"), str(w), cwd=tmp_path)
+    g("checkout", "-q", "-B", "main"), g("commit", "-q", "--allow-empty", "-m", "c0"), g("push", "-q", "origin", "main")
+    g("checkout", "-q", "-b", "pr-old"), g("commit", "-q", "--allow-empty", "-m", "pr")
+    old = g("rev-parse", "HEAD")
+    g("checkout", "-q", "main"), g("commit", "-q", "--allow-empty", "-m", "c1"), g("push", "-q", "origin", "main")
+    g("checkout", "-q", "-b", "pr-new", "pr-old"), g("merge", "-q", "--no-edit", "main")
+    new = g("rev-parse", "HEAD")
+    g("commit", "-q", "--allow-empty", "-m", "pr2")  # new2 = main 을 품은 또 다른 PR head(묶음 질문용)
+    monkeypatch.setenv(pg.GATE_REPOS_ENV, str(w))
+    monkeypatch.delenv(pg.GATE_TARGET_ENV, raising=False)
+    _status(tmp_path, monkeypatch)
+    monkeypatch.setattr(pg, "desk_copy", lambda *a, **k: None)
+    return SimpleNamespace(new=new, new2=g("rev-parse", "HEAD"), old=old, calls=_posted(monkeypatch))
+
+
+def _ask(text: str, human: bool = True) -> None:
+    pg.guarded_post("http://x", "t", "C1", text, human=human)
+
+
+def test_r1710_1_merge_question_without_sha_is_not_posted(gate):  # ① · A1·A2
+    for q in ("팩 PR #950 r1326 유휴 깨우기 머지할까요?", "PR #950 Merge 해도 될까요?", "#950 병합 진행할까요"):
+        with pytest.raises(pg.PostGuardError, match=NO_SHA):
+            _ask(q)
+    assert gate.calls == []
+
+
+def test_r1710_2_merge_question_with_head_on_main_is_posted(gate):  # ② · A3
+    _ask(f"팩 PR #950 머지할까요? head {gate.new}")
+    assert len(gate.calls) == 1 and gate.new in gate.calls[0]["text"]
+
+
+def test_r1710_3_merge_question_with_head_behind_main_is_not_posted(gate):  # ③ · A3 조상 검사
+    with pytest.raises(pg.PostGuardError, match="품지 않음"):
+        _ask(f"팩 PR #950 머지할까요? head {gate.old}")
+    assert gate.calls == []
+
+
+def test_r1710_4_non_questions_and_machine_channels_post_as_before(gate):  # ④ · A4
+    _ask("팩 PR #950 머지됨 · LANDED")          # 묻는 꼴 0
+    _ask("오늘 머지할까요? 건은 없습니다")       # PR 번호 0
+    _ask("팩 PR #950 올렸어요. 확인할까요?")     # 머지 낱말 0
+    _ask("팩 PR #950 머지할까요?", human=False)  # 기계 채널
+    assert len(gate.calls) == 4
+
+
+def test_r1710_5_batch_question_needs_one_sha_per_pr(gate):  # ⑤ · A2 묶음
+    with pytest.raises(pg.PostGuardError, match=NO_SHA):
+        _ask(f"7건 머지할까요?\n1. PR #950 {gate.new}\n2. PR #951")
+    assert gate.calls == []
+    with pytest.raises(pg.PostGuardError, match=NO_SHA):  # 같은 sha 를 두 번 적어도 1개로 센다
+        _ask(f"2건 머지할까요?\n1. PR #950 {gate.new}\n2. PR #951 {gate.new}")
+    assert gate.calls == []
+    _ask(f"2건 머지할까요? (하네스 Issue #8375)\n1. PR #950 {gate.new}\n2. PR #951 {gate.new2}")  # «PR #N» 이 있으면 그 번호만 센다
+    assert len(gate.calls) == 1
+
+
+def _mutant(old: str, new: str):
+    """post_guard 원문에서 old(정확히 1번)를 new 로 바꾼 사본 모듈 — 원본 pg 는 그대로."""
+    import types
+    from pathlib import Path
+
+    src = Path(pg.__file__).read_text(encoding="utf-8")
+    assert src.count(old) == 1, f"변이 자리 {src.count(old)}곳: {old}"
+    mod = types.ModuleType("post_guard_mut")
+    exec(compile(src.replace(old, new), pg.__file__, "exec"), mod.__dict__)
+    return mod
+
+
+def test_r1710_w1_no_merge_question_check_lets_case_1_through(gate):  # W1 → ① 이 깨진다
+    _mutant("if human and MERGE_WORD.search(text)", "if False and MERGE_WORD.search(text)").approval_gate("팩 PR #950 머지할까요?", True)
+    with pytest.raises(pg.PostGuardError, match=NO_SHA):  # 원본 = 반대 결과
+        pg.approval_gate("팩 PR #950 머지할까요?", True)
+
+
+def test_r1710_w2_no_ask_form_blocks_a_status_report(gate):  # W2 → ④(머지됨) 이 깨진다
+    mut = _mutant("MERGE_WORD.search(text) and ASK.search(text)", "MERGE_WORD.search(text)")
+    with pytest.raises(mut.PostGuardError, match=NO_SHA):
+        mut.approval_gate("팩 PR #950 머지됨 · LANDED", True)
+    pg.approval_gate("팩 PR #950 머지됨 · LANDED", True)  # 원본 = 통과
+
+
+def test_r1710_w3_any_one_sha_lets_a_batch_through(gate):  # W3 → ⑤ 가 깨진다
+    q = f"7건 머지할까요?\n1. PR #950 {gate.new}\n2. PR #951"
+    _mutant("if len(shas) < len(prs):", "if prs and not shas:").approval_gate(q, True)
+    with pytest.raises(pg.PostGuardError, match=NO_SHA):  # 원본 = 반대 결과
+        pg.approval_gate(q, True)
