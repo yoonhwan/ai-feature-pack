@@ -81,4 +81,8 @@ printf '#!/bin/sh\ncase "$*" in *cat-file*) exit 128;; esac\nexec %s "$@"\n' "$(
 c="$(card ki "- 정본 갱신: $P §운영 경로")"; out="$(PATH="$FG:$PATH" FT_LAND_REF=main gate "$c" "")"
 has "REJECT	판정 불가" "$out" && has "rc=128" "$out" && ok "ⓔ2 git 조회 실패 → 판정 불가" || bad "ⓔ2: $out"
 
+# ⓔ3 경로 rev-parse 가 rc=128 로 실패 → 판정 불가 (없음 rc=1 과 구분 · 하드 룰 20)
+FG2="$T/fakegit2"; mkdir -p "$FG2"; printf '#!/bin/sh\ncase "$*" in *rev-parse*main:*) exit 128;; esac\nexec %s "$@"\n' "$(command -v git)" > "$FG2/git"; chmod 755 "$FG2/git"
+c="$(card kj "- 정본 갱신: $P §운영 경로")"; out="$(PATH="$FG2:$PATH" FT_LAND_REF=main gate "$c" "")"
+has "판정 불가" "$out" && has "rc=128" "$out" && ! has "파일이 없다" "$out" && ok "ⓔ3 경로 rev-parse 실패(rc=128) → 판정 불가" || bad "ⓔ3: $out"
 echo "fail=$fail"; [ "$fail" = 0 ]
