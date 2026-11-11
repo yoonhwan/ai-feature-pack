@@ -17,7 +17,7 @@ export FT_PRESS_RUNNER_RE="r1568-never-$$" FT_SUCCESSOR_DIR="$TMP/succ" FT_MBOX_
 export FT_REAP_TERM_WAIT=0.15 FIX_STOP="$TMP/stop" FIX_PARENT="$TEST_PID"   # TERM 대기 0.15초 = 시험 전용(제품 기본 3초)
 printf 'print("CLOSE-OK stub")\n' > "$TMP/mbox-ok.py"
 printf '#!/bin/sh\necho "$*" >> %s/mbox.log\nexit 0\n' "$TMP/cf" > "$TMP/cf/comm/mbox.sh"
-cleanup() { local s p x i left; : > "$TMP/stop" 2>/dev/null; pkill -f "$TMP/keeper.sh" 2>/dev/null; pkill -f "$TMP/keep2.sh" 2>/dev/null
+cleanup() { local s p x i left; { : > "$TMP/stop"; } 2>/dev/null; pkill -f "$TMP/keeper.sh" 2>/dev/null; pkill -f "$TMP/keep2.sh" 2>/dev/null
   for s in "$S" "$S1" "$SD" "$SD1" "$S3" "$S4"; do tmux kill-session -t "=$s" 2>/dev/null; done
   i=0; while [ "$i" -lt 10 ]; do p="$(pgrep -f "$MKX" 2>/dev/null)"; [ -z "$p" ] && break; for x in $p; do kill -9 "$x" 2>/dev/null; done; sleep 0.1; i=$((i+1)); done
   left="$(pgrep -f "$MKX" 2>/dev/null | wc -l | tr -d ' ')"; [ "$left" != 0 ] && echo "cleanup: 남은 픽스처 $left (MKX=$MKX)" >&2
