@@ -24,7 +24,7 @@ printf '%s' "$PR" | grep -Eq '^[0-9]+$' || usage
 [ -n "$REPO" ] || REPO="$(git rev-parse --show-toplevel 2>/dev/null)" || { echo "REJECT repo 를 찾을 수 없음"; exit 1; }
 G() { git -C "$REPO" "$@"; }; lr_del() { local e; e="$(G update-ref -d "refs/ft-land/$PR" ${1:+"$1"} 2>&1)" || { echo "WARN 개인 ref 정리 실패 refs/ft-land/$PR — ${e:-git 원문 0}" >&2; return 1; }; }   # r706: 개인 ref 정리 = 이 도구 하나 책임(공용 FETCH_HEAD 는 다른 좌석 fetch 가 덮는다)
 rej() { echo "REJECT $* (착지 0)"; exit 1; }
-CTX="$(fm_land_ctx "$REPO" "$REMOTE" "${FT_ROOT:-}")" || rej "대상 리포 remote URL 해석 실패(fetch·push URL 이 같은 github owner/name 이어야) — 어느 리포 PR 인지 몰라 착지 0"   # r648: 승인 루트(BYZ) ≠ 대상 리포
+CTX="$(fm_land_ctx "$REPO" "$REMOTE" "${FT_ROOT:-}" "$TARGET")" || rej "대상 리포 remote URL 해석 실패(fetch·push URL 이 같은 github owner/name 이어야) — 어느 리포 PR 인지 몰라 착지 0"   # r1687: 기준 헤드는 대상 가지마다 따로(base-head@ops-main-base) · r648: 승인 루트 ≠ 대상 리포   # r648: 승인 루트(BYZ) ≠ 대상 리포
 IFS='|' read -r ROOT CROSS SLUG BH RROOT <<<"$CTX"; STATE="${FT_AUTONOMY_STATE_DIR:-$ROOT/.fable-team/state}"
 pushsave() { local f; mkdir -p -- "$STATE/push-out" 2>/dev/null && f="$STATE/push-out/push-$PR-$(date +%Y%m%dT%H%M%S)-$$.log" && printf '%s\n' "$POUT" >"$f" 2>/dev/null && printf '%s' "$f"; }   # r595: push 출력 전문을 상태 폴더에 남긴다 — 경로 출력, 쓰기 실패면 rc≠0(삼키기 0)
 pushwhy() { local f; f="$(pushsave)" || f=""; printf '사유 %s · 마지막 줄 %s · 전문=%s' "$(printf '%s\n' "$POUT" | grep -E '^(remote:|PUSH_DENIED|! \[)' | head -n 3 | cut -c1-200 | tr '\n' '|' | sed 's/|$//;s/|/ · /g')" "$(printf '%s' "$POUT" | tail -n1)" "${f:-저장 실패}"; }   # r595: 거부 사유 줄(앞 3개) + 마지막 줄 + 전문 파일 경로
