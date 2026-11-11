@@ -63,17 +63,18 @@ printf '#!/bin/bash\necho STUB-HIT >&2; touch "$ORDER.stub"\necho head-lag >> "$
 land "$FIXB/ft-merge-land.sh" 45 FT_HEAD_LAG_EVENT_S=2
 [ "$rc" = 0 ] && [[ "$out" == LANDED* ]] && grep -q 'WARN 뒤처짐 알림 2초 초과' <<<"$out" && [ -n "$(seqno install)" ] && [ -n "$(seqno notify)" ]; ck "ⓕ head-lag 상한 → WARN 1줄 · rc0 · LANDED · 설치·쪽지 먼저(r1700)" $?
 printf '#!/bin/bash\necho head-lag >> "$ORDER"\nexit 0\n' > "$FIXB/ft-head-lag.sh"   # 스텁 원복
-# r1700 변이 M4 — 실제 head-lag 호출 «줄» 을 설치 대조 앞으로 옮긴 사본: 같은 ⓔ 식으로 검출(원본 PASS · 변이 FAIL)
+# r1700 변이 M4 — DA 재현 스크립트(evidence/r1700-287120/da_r1700_move.sh.txt) 방식 그대로: 실제 head-lag 호출 «줄»을 쪼개 ITO 줄 앞으로 옮긴 사본
 rm -rf "$T/m4"; cp -R "$BIN" "$T/m4"; printf '#!/bin/bash\necho head-lag >> "$ORDER"\nexit 0\n' > "$T/m4/ft-head-lag.sh"; chmod +x "$T/m4/ft-head-lag.sh"
-python3 - "$T/m4/ft-merge-land.sh" <<'PYM'
-import sys,io
-p=sys.argv[1]; L=io.open(p,encoding="utf-8").read().split("\n")
-i=[k for k,l in enumerate(L) if l.startswith('echo "LANDED pr=')][0]
-L.insert(i+1, 'bash "$HERE/ft-head-lag.sh" --event --repo "$REPO" --base "$REMOTE/$TARGET" >/dev/null 2>&1 || true   # M4: head-lag 을 설치 대조보다 먼저')
-io.open(p,"w",encoding="utf-8").write("\n".join(L))
-PYM
-land "$T/m4/ft-merge-land.sh" 46
-{ echo "NOTE 변이판 rc=$rc" >> /tmp/m4.note; } ; [ "$rc" = 0 ] && [[ "$out" == LANDED* ]] && [ -n "$(seqno install)" ] && [ -n "$(seqno notify)" ] && [ -n "$(seqno head-lag)" ] && ! ordOK; ck "변이 M4 head-lag 을 설치 대조보다 먼저 → 같은 ⓔ 식이 위반 검출(rc0·3단계 도달)" $?
+printf 'fm_land_notify_land() { echo notify >> "$ORDER"; echo "NOTIFIED 착지 쪽지 (r1700 stub)"; }\n' >> "$T/m4/ft-merge-lib.sh"
+python3 - "$T/m4/ft-merge-land.sh" <<'PYMOVE'
+import sys,pathlib
+p=pathlib.Path(sys.argv[1]);lines=p.read_text().splitlines();idx=next(i for i,l in enumerate(lines) if 'ft-head-lag.sh" --event' in l)
+notify,call=lines[idx].split('; HLTO=',1);lines[idx]=notify
+at=next(i for i,l in enumerate(lines) if l.startswith('ITO='));lines.insert(at,'HLTO='+call)
+p.write_text('\n'.join(lines)+'\n')
+PYMOVE
+land "$T/m4/ft-merge-land.sh" 52
+[ "$rc" = 0 ] && [[ "$out" == LANDED* ]] && [ -n "$(seqno install)" ] && [ -n "$(seqno notify)" ] && [ -n "$(seqno head-lag)" ] && ! { [ "$(seqno install)" -lt "$(seqno notify)" ] && [ "$(seqno notify)" -lt "$(seqno head-lag)" ]; }; ck "변이 M4 실제 head-lag 호출 줄 이동 → 완전한 ⓔ 식이 거절(DA 재현 그대로)" $?
 S2=$SECONDS
 
 # 변이 M1 — 닫기 블록을 원래 자리(맨 끝)로 되돌린 사본: ⓐ 가 잡는다(r1700 뒤 첫 줄 = install)
