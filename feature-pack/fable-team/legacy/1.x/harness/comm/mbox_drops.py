@@ -12,7 +12,8 @@ r912/r630 은 버린 «건수» 만 남겼다(dropped=3 oldest_seq=…). 받는 
    (mbox_ops.recv 가 현역일 때만 report 를 부른다).
 ★r1663★ 표식이 «없을 때» 의 시작점(최근 24시간 창)과 한 줄 길이(최근 10개)에 상한을 둔다 — 설치 직후·
    계보 개명 직후 첫 recv 가 seq 1,893개(수천 자)를 한 줄에 찍던 실사건(planner master #283454)의 보정.
-   개명 계보는 옛 키(…-claude)의 마지막 줄 번호를 «이어받아» 창을 다시 훑지 않는다.
+   개명 계보는 recv 가 넘긴 계보 이름(`_replaced_by` 사슬)의 마지막 줄 번호만 «이어받아» 창을 다시 훑지 않는다
+   — 같은 줄기의 «동시 현역» 두 좌석은 서로 표식을 잇지 않는다(DA B · #284125).
 """
 import json
 import os
@@ -26,7 +27,6 @@ DROP_SEEN = "mailbox.drops.seen.json"
 SEEN_WINDOW = 24 * 3600   # ★표식이 없을 때★ 보일 원장 줄의 시각 창(초) — r1663
 SEEN_MAX = 10             # 한 줄에 싣는 seq 개수 상한 — 나머지는 «앞 N개 생략» — r1663
 LINE_MAX = 200            # 그 한 줄 길이 상한(자) — r1663
-AGENTS = ("claude", "codex", "pi", "cmd", "opencode", "gemini", "sol")   # 계보 개명 판별(r1663 ⓒ)
 
 
 def report(canon, me, names):
@@ -42,12 +42,6 @@ def report(canon, me, names):
     return _locked(canon, lambda: _mark(canon, me, names, lines))
 
 
-def _stem(key):
-    """계보 줄기 — `byz-x-master-claude` → `byz-x-master`(마지막 조각이 agent 일 때만). 개명 판별용(r1663 ⓒ)."""
-    head, _, tail = (key or "").rpartition("-")
-    return head if head and tail in AGENTS else key
-
-
 def _num(v):
     try:
         return int(v or 0)
@@ -55,14 +49,14 @@ def _num(v):
         return 0
 
 
-def _start(seen, key):
-    """시작 줄 번호 — 내 키 → (없으면) 개명 계보(같은 줄기·다른 agent)의 값. 0 = 표식 없음(창 모드).
-    ★옛 키를 이어받으면 창을 다시 훑지 않는다★ — 이미 소비한 seq 를 다시 보이지 않기 위해서다(r1663 ⓒ)."""
+def _start(seen, key, names):
+    """시작 줄 번호 — 내 키 → (없으면) recv 가 넘긴 «계보 이름»(`_replaced_by` 사슬)의 표식. 0 = 표식 없음(창 모드).
+    ★줄기(stem) 추론 0★ — 동시 현역 `…-da-astra#0` 와 `…-da-codex#10` 는 서로 표식을 잇지 않는다(DA B · r1663).
+    옛 이름의 값을 이어받으면 창을 다시 훑지 않는다 — 이미 소비한 seq 를 다시 보이지 않기 위해서다(r1663 ⓒ)."""
     last = _num(seen.get(key))
     if last:
         return last
-    stem = _stem(key)
-    olds = [_num(v) for k, v in seen.items() if k != key and _stem(str(k)) == stem]
+    olds = [_num(seen.get(role_key(n))) for n in names if role_key(n) != key]
     return max(olds) if olds else 0
 
 
@@ -111,7 +105,7 @@ def _mark(canon, me, names, lines):
     except (OSError, ValueError):
         seen = {}
     key = role_key(me)
-    mine, last = {role_key(n) for n in names}, _start(seen, key)
+    mine, last = {role_key(n) for n in names}, _start(seen, key, names)
     cut = None if last else _now() - SEEN_WINDOW   # ★표식이 없을 때만★ 시각 창 — r1663 ⓐ
     seqs, upto = [], last
     for i, ln in enumerate(lines, 1):
