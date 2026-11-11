@@ -1,7 +1,6 @@
-"""r1152 — 팀장 심박 [멈춤](f) 쪽지가 «정리 1통» 에 더해 체크 크론 다시 걸기 단계를 같은 쪽지에 싣는다.
+"""r1152 → r1647 — 팀장 심박 [멈춤](f) 쪽지 = «정리 1통» 만. 크론 다시 걸기 단계는 빼였다(오빠 11-08 #274576 주기 크론 0).
 
-심박이 끊기는 가장 흔한 원인 = 세션 종속 크론 소실(BOOT 16). b 경보(선언 뒤 정지) 문구는 그대로.
-R1152_BIN = 시험할 bin 폴더(기본 kit · 변이 사본을 넣어 R1 FAIL 을 본다). 자기 재호출 0.
+b 경보(선언 뒤 정지) 문구는 그대로. R1152_BIN = 시험할 bin 폴더(기본 kit · 변이 사본을 넣어 FAIL 을 본다). 자기 재호출 0.
 """
 import filecmp
 import os
@@ -44,30 +43,32 @@ def f_body(w: World) -> str:
     return s[0]
 
 
-# ── R1 — 심박 끊김(f) 쪽지 1통 = 정리 1통 + CronCreate + cron=<id> ───────────────
-def test_r1_stale_heartbeat_notice_has_cron_rearm(w: World) -> None:  # ⓐ
+# ── R1 — 심박 끊김(f) 쪽지 1통 = 정리 1통 · 크론 낱말 0(r1647) ──────────────────
+def test_r1_stale_heartbeat_notice_without_cron(w: World) -> None:  # ⓐ
     lead_b_candidate(w)
     w.heartbeat("t1-master#1", 21)
     body = f_body(w)
     assert body.startswith("[멈춤] t1-master#1 팀장 심박 21분"), body
-    for word in ("정리 1통", "CronCreate", "cron=<id>"):
-        assert word in body, (word, body)
+    assert "정리 1통" in body, body
+    for word in ("CronCreate", "cron=<id>"):
+        assert word not in body, (word, body)
 
 
-def test_r1_no_heartbeat_notice_has_cron_rearm(w: World) -> None:  # ⓐ 심박을 한 번도 안 보냄(cfo#120 꼴)
+def test_r1_no_heartbeat_notice_without_cron(w: World) -> None:  # ⓐ 심박을 한 번도 안 보냄(cfo#120 꼴)
     lead_b_candidate(w)
     w.mail("planner#1", 3, 20, frm="t1-master#1", body="[정지 레디] 끝")
     body = f_body(w)
-    assert "심박 없음" in body and "CronCreate" in body and "cron=<id>" in body, body
+    assert "심박 없음" in body and "CronCreate" not in body, body
 
 
-# ── R1b — 같은 쪽지에 CronList + 주기 어긋남(15분이 아니면) 단계 ──────────────────
-def test_r1b_notice_checks_cron_list_and_period(w: World) -> None:
+# ── R1b — 크론 확인·다시 걸기 단계 자체가 없다(r1647) ─────────────────────────
+def test_r1b_notice_has_no_cron_steps(w: World) -> None:
     lead_b_candidate(w)
     w.heartbeat("t1-master#1", 30)
     body = f_body(w)
-    assert "CronList" in body and "15분이 아니면" in body and "15분 틱" in body, body
-    assert body.index("CronList") < body.index("CronCreate"), body
+    for word in ("CronList", "CronCreate", "cron=<id>", "15분 틱", "15분이 아니면"):
+        assert word not in body, (word, body)
+    assert body.endswith("(BOOT 16 · ft-stall-scan)"), body
 
 
 # ── R2 — b 경보(팀장 아닌 좌석 선언 뒤 정지) 문구 그대로 · 크론 글자 0 ─────────────

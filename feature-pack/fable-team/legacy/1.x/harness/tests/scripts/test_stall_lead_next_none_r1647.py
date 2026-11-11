@@ -1,0 +1,105 @@
+"""r1647 — ft-stall-scan f([멈춤]): «닫기 대기 팀장»(마지막 발신 [다음 없음] + 받을 일 0)은 0통, 문구에서 크론 요구 제거.
+
+ⓐ 닫기 대기 = 0통 + 요약 노트 1줄 · ⓑ 새 일이 오면 다시 센다 · ⓒ 쪽지에 크론 낱말 0 · ⓓ 그 밖 팀장은 그대로(판정 불가 = 경보 + 노트).
+R1647_BIN = 시험할 bin 폴더(기본 kit · 변이 사본을 넣어 ⓐ~ⓓ FAIL 을 본다). 자기 재호출 0.
+"""
+import os
+import subprocess
+from pathlib import Path
+
+import pytest
+
+from _stall_world import World, counts
+from real_state_guard import guard_begin_module  # noqa: F401  r541: 실 상태 지문 + git 밖 cwd(모듈 autouse)
+
+BIN = Path(os.environ.get("R1647_BIN") or Path(__file__).resolve().parents[2] / "kit/fable-team/bin")
+
+
+@pytest.fixture
+def w(tmp_path: Path) -> World:
+    return World(tmp_path)
+
+
+def scan(w: World) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(["bash", str(BIN / "ft-stall-scan.sh")], env=w.env, capture_output=True, text=True, timeout=60)
+
+
+def bodies(w: World, to: str) -> list[str]:
+    return [r.split("|")[4] for r in w.mbox_log() if r.startswith(f"send|{to}|")]
+
+
+def lead_stall(w: World) -> None:
+    """팀장 b 후보(IDLE 5분 · 미래형 선언) + 심박 25분 = f 후보(임계 20분)."""
+    w.state("t1-master#1", "IDLE", 5)
+    w.jsonl("t1-master#1", "확인했습니다. 지금 착수하겠습니다")
+    w.heartbeat("t1-master#1", 25)
+
+
+def next_none(w: World) -> None:
+    """팀장 마지막 발신 = [다음 없음] (심박 seq 900 보다 뒤 = 마지막)."""
+    w.mail("planner#1", 950, 21, frm="t1-master#1", body="[다음 없음] t1-master#1 · 받을 일 0 · 닫기 대기")
+
+
+def open_work_zero(w: World) -> None:
+    """ft-seat-open-work 가 rc0(받을 일 0)을 내는 최소 세계 — 카드 폴더만 있고 진행 카드 0."""
+    (w.root / "design/t1/indices/진행").mkdir(parents=True, exist_ok=True)
+
+
+# ── ⓐ 닫기 대기 팀장 = [멈춤] 0통 + 「보류 f」 노트 1줄 ─────────────────────────
+def test_a_closed_wait_lead_gets_zero_notice(w: World) -> None:  # ⓐ
+    lead_stall(w)
+    next_none(w)
+    open_work_zero(w)
+    r = scan(w)
+    assert r.returncode == 0, r.stderr
+    assert counts(r.stdout)["f"] == "0", r.stdout
+    assert "보류 f t1 — [다음 없음] · 받을 일 0" in r.stdout, r.stdout
+    assert not bodies(w, "t1-master#1"), w.mbox_log()
+
+
+# ── ⓑ 그 팀장에게 새 일(미처리 쪽지)이 오면 다시 센다 = [멈춤] 1통 ────────────────
+def test_b_new_work_makes_it_alert_again(w: World) -> None:  # ⓑ
+    lead_stall(w)
+    next_none(w)
+    open_work_zero(w)
+    w.mail("t1-master#1", 40, 1, frm="planner#1", body="발주 — 새 카드 1장")
+    r = scan(w)
+    assert counts(r.stdout)["f"] == "1", r.stdout
+    assert len(bodies(w, "t1-master#1")) == 1, w.mbox_log()
+
+
+# ── ⓒ [멈춤] 쪽지에 크론 요구(CronList·CronCreate·cron=<id>·15분 틱) 0 ─────────
+def test_c_notice_has_no_cron_words(w: World) -> None:  # ⓒ (판정 불가 = 경보 그대로 → 문구를 본다)
+    lead_stall(w)
+    next_none(w)
+    _ = scan(w)  # 카드 폴더 없음 = ft-seat-open-work rc3 = 경보 그대로
+    s = bodies(w, "t1-master#1")
+    assert len(s) == 1, w.mbox_log()
+    assert s[0].startswith("[멈춤] t1-master#1 팀장 심박 25분"), s[0]
+    assert "정리 1통" in s[0], s[0]
+    for word in ("CronList", "CronCreate", "cron=<id>", "15분 틱"):
+        assert word not in s[0], (word, s[0])
+
+
+# ── ⓓ 그 밖 팀장은 그대로 — [다음 없음] 아님이면 받을 일 0 이어도 경보 ────────────
+def test_d1_lead_without_next_none_still_alerts(w: World) -> None:  # ⓓ · 변이 M1 검출
+    lead_stall(w)  # 마지막 발신 = [정리] (심박)
+    open_work_zero(w)
+    r = scan(w)
+    assert counts(r.stdout)["f"] == "1", r.stdout
+    assert len(bodies(w, "t1-master#1")) == 1, w.mbox_log()
+
+
+def test_d2_open_work_undecidable_keeps_alert_with_note(w: World) -> None:  # ⓓ · 변이 M2 검출
+    lead_stall(w)
+    next_none(w)
+    r = scan(w)  # 카드 폴더 없음 = rc3 판정 불가
+    assert counts(r.stdout)["f"] == "1", r.stdout
+    assert "받을 일 판정 불가" in r.stdout, r.stdout
+    assert len(bodies(w, "t1-master#1")) == 1, w.mbox_log()
+
+
+# ── bin 과 kit 사본 = 같은 바이트 ─────────────────────────────────────────────
+def test_bin_and_kit_same_bytes() -> None:
+    harness = Path(__file__).resolve().parents[2]
+    assert (harness / "bin/ft_stall_scan.py").read_bytes() == (harness / "kit/fable-team/bin/ft_stall_scan.py").read_bytes()
