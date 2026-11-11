@@ -102,7 +102,8 @@ def bind_codex(pane_pid, ident, home):
             found |= bool(lf); pairs += [(d, ln[1:]) for ln in (lf[1].splitlines() if lf else []) if ln.startswith(f"n{home}/.codex/sessions/") and re.search(r"/rollout-[^/]*\.jsonl$", ln)]
     if not found: return None
     metas = [(q, rollout_meta(q[1])) for q in pairs]
-    subs = {m.get("id"): m.get("parent_thread_id") or "" for _, m in metas if m and m.get("thread_source") == "subagent"}
+    subs = {m.get("id"): m.get("parent_thread_id") if isinstance(m.get("parent_thread_id"), str) else ""
+            for _, m in metas if m and m.get("thread_source") == "subagent"}
     keep = [(q, m) for q, m in metas if not (m and m.get("thread_source") == "subagent")]
     if len(keep) != 1: return res(1, f"codex rollout {len(keep)}개")
     (pid, path), p = keep[0]

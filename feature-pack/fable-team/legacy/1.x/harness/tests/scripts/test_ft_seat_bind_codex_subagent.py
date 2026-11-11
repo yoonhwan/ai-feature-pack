@@ -1,6 +1,6 @@
 """r1635 — codex 좌석 결속(`bind_codex`)이 서브에이전트 rollout 을 후보에서 뺀다.
 
-가짜 HOME 의 rollout jsonl + 주입한 ps·lsof — 실 프로세스·실 tmux 0 · 사례 ⓐ본1+서브4 ⓑ본2 ⓒ서브만 ⓓ못 읽는 첫 줄 ⓔ부모 불일치 ⓖ사본 4곳 · 손자 사슬(깊이 2)은 이어 봄.
+가짜 HOME 의 rollout jsonl + 주입한 ps·lsof(실 프로세스·tmux 0) · 사례 ⓐ본1+서브4 ⓑ본2 ⓒ서브만 ⓓ못 읽는 첫 줄 ⓔ부모 불일치 ⓘ배열 부모 ⓖ사본 4곳 · 손자 사슬은 이어 봄.
 """
 
 import importlib.util
@@ -32,7 +32,7 @@ class World:
         self.dir.mkdir(parents=True)
         self.files: list[Path] = []
 
-    def rollout(self, uuid: str, thread_source: str = "user", parent: str | None = None, raw: str | None = None) -> Path:
+    def rollout(self, uuid: str, thread_source: str = "user", parent: object = None, raw: str | None = None) -> Path:
         head = raw if raw is not None else json.dumps({"type": "session_meta", "payload": {
             "id": uuid, "cwd": "/tmp/w", "thread_source": thread_source,
             **({"parent_thread_id": parent} if parent else {})}})
@@ -47,16 +47,14 @@ class World:
         opened = "".join(f"n{f}\n" for f in self.files)
 
         def fake_sh(*a):
-            pid = a[-1]
             if a[0] == "ps":
-                return (0, comm.get(pid, "")) if a[2] == "comm=" else (0, lstart)
+                return (0, comm.get(a[-1], "")) if a[2] == "comm=" else (0, lstart)
             if a[0] == "lsof":
-                return 0, opened if pid == "101" else ""
+                return 0, opened if a[-1] == "101" else ""
             raise AssertionError(f"예상 밖 외부 조회: {a}")
 
         monkeypatch.setattr(mod, "sh", fake_sh)
-        monkeypatch.setattr(mod, "candidates",
-                            lambda pid: {"100": ["100", "101"], "101": ["101"]}.get(pid, []))
+        monkeypatch.setattr(mod, "candidates", lambda pid: {"100": ["100", "101"], "101": ["101"]}.get(pid, []))
         return mod.bind_codex("100", IDENT, str(self.home))
 
 
@@ -112,9 +110,18 @@ def test_h_grandchild_chain_reaches_main(tmp_path: Path, monkeypatch: pytest.Mon
     assert r["rc"] == 0 and r["jsonl"] == str(main), r
 
 
+def test_i_array_parent_is_judged_not_traceback(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # parent_thread_id 가 배열이면 traceback(TypeError unhashable) 대신 판정 1줄
+    mod, w = _load(), World(tmp_path)
+    w.rollout(MAIN)
+    w.rollout(SUB.format(1), "subagent", [MAIN])
+    r = w.bind(monkeypatch, mod)  # 보정 전엔 TypeError(unhashable) → 이 줄에서 FAIL
+    assert (r["rc"], r["reason"]) == (1, "subagent 부모 불일치")
+
+
 def test_g_bind_codex_body_identical_in_four_copies() -> None:
     def body(rel: str) -> str:
         text = (HARNESS / rel).read_text(encoding="utf-8")
-        return text[text.index("def rollout_meta"):text.index("def lstart_epoch")]
+        return text[text.index("def rollout_meta"):text.index("def lstart_epoch")]  # 사본마다 같은 본문
 
     assert len({body(c) for c in COPIES}) == 1
