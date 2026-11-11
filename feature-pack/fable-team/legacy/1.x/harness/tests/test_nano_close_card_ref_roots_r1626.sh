@@ -10,7 +10,8 @@
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 SRC="$HERE/../../harness/kit/fable-team/bin"; RBIN="$HERE/../../harness/bin"
-T0="$(mktemp -d)"; trap 'rm -rf "$T0"' EXIT; T="$(cd "$T0" && pwd -P)"
+T0="$(mktemp -d)"; trap 'rm -rf "$T0"' EXIT
+T="$(cd "$T0" && pwd -P)"
 fail=0; S=$(date +%s); lap(){ echo "LAP $1=$(( $(date +%s) - S ))s"; S=$(date +%s); }
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }
@@ -34,7 +35,7 @@ case "$1" in
   list-panes) if [ -s "$FAKE_PANES" ]; then cat "$FAKE_PANES"; else echo "no server running on /tmp/fake"; exit 1; fi;;
   display-message) cat "$FAKE_CWD";;
   has-session) exit 1;;
-  set-option|kill-session) echo "$*" >> "$FAKE_LOG";;
+  *) echo "$*" >> "$FAKE_LOG";;
 esac
 EOF
 chmod +x "$T/fake/tmux"; echo seq > "$T/comm/bodies/1.txt"; echo res > "$T/result.md"
