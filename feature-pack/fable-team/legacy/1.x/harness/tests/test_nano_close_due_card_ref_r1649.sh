@@ -2,6 +2,7 @@
 # test_nano_close_due_card_ref_r1649.sh — r1649 ⓔ: ft-nano-close-due.sh 의 카드 읽기가 «카드 ref» 판을 먼저 본다.
 #   실측 꼴 = 명부 index 칸은 진행/<카드>.md 인데 카드는 ref(origin/main)에 이미 완성/<카드>.md 뿐이고,
 #   카드 워크트리(_cards_wt) 체크아웃은 뒤처져 그 파일이 없다 → 지금은 «카드 파일 없음(근거 0)» 으로 닫을 좌석 0.
+#   사례2(반례 R1) = 카드 ref fetch 가 두 번 다 실패하면 «낡은 워크트리 카드» 로 완료 근거를 만들지 않고 판정 불가(rc3) · 그 좌석은 목록 밖.
 #   임시 리포 2개(remote·데이터 루트 clone) + 좌석 clone + 가짜 tmux·ft-seat-status 만 — 실 명부·tmux·좌석 0 · sleep 0.
 set -uo pipefail
 export LC_ALL=C
@@ -23,6 +24,7 @@ for f in ft-nano-close-due.sh; do cmp -s "$BIN/$f" "$KIT/$f" && ok "cmp bin == k
 bash -n "$TOOL" && ok "bash -n" || bad "bash -n"
 /bin/bash -n "$TOOL" && ok "/bin/bash 3.2 -n" || bad "/bin/bash 3.2 -n"
 eq "$(grep -c 'r1649-mut:cardref' "$TOOL")" "1" "변이 표식 r1649-mut:cardref 1개(ref 후보 삭제 지점)"
+eq "$(grep -c 'r1649-mut:reffetch' "$TOOL")" "1" "변이 표식 r1649-mut:reffetch 1개(fetch 두 번 실패 → 판정 불가 지점)"
 
 T0="$(mktemp -d)"; trap 'rm -rf "$T0"' EXIT; T="$(cd "$T0" && pwd -P)"
 FK="$T/fake"; mkdir -p "$FK"
@@ -78,6 +80,18 @@ eq "$RC" "0" "E1 판정 불가 0(정상 판정)"
 has "$OUT" "닫기 차례 $SEAT 팀=harness 가지=nano/$SLUG landed=ff" "E2 ref(완성/card1.md)에서 세트를 읽어 닫기 차례에 넣는다"
 hasnt "$OUT" "제외 $SEAT 카드 파일 없음" "E3 «카드 파일 없음(근거 0)» 0"
 git -C "$ROOT" cat-file -e "origin/main:design/teams/harness/indices/완성/card1.md" 2>/dev/null && ok "E4 카드 ref 를 fetch 했다(뒤처진 remote-tracking 을 그대로 믿지 않는다)" || bad "E4 fetch 0"
+
+echo "== 사례2(반례 R1) — ref fetch 두 번 실패 = 판정 불가 rc3 · 낡은 워크트리 카드로 닫기 차례 0"
+# 낡은 카드 사본을 «워크트리에» 둔다(세트 = HEAD · 예전엔 이 판으로 완료 근거를 만들었다)
+mkdir -p "$ROOT/.worktrees/cards-wt/design/teams/harness/indices/진행"
+printf '# 인덱스: card1\n## 상태\n- 세트: %s · 시험: bash x rc=0 · 이슈: 0\n' "$H" > "$ROOT/.worktrees/cards-wt/design/teams/harness/indices/진행/card1.md"
+git -C "$ROOT" remote set-url origin "$T/없는리포.git"   # fetch 가 두 번 다 실패하는 상황
+OUT2="$(FT_ROOT="$ROOT" bash "$TOOL" --all 2>&1)"; RC2=$?
+eq "$RC2" "3" "F1 fetch 두 번 실패 = 반환값 3(판정 불가)"
+has "$OUT2" "판정 불가 $SEAT 카드 ref fetch 실패 origin/main" "F2 사유 1줄(→ 낡은 판으로 대체 0)"
+hasnt "$OUT2" "닫기 차례 $SEAT" "F3 그 좌석은 닫기 차례 목록에 없다(낡은 완료 근거로 rc0 을 만들지 않는다)"
+OUT2S="$(FT_ROOT="$ROOT" bash "$TOOL" --all --summary 2>&1)"
+has "$OUT2S" "닫기 차례 harness=0+판정불가1" "F4 요약도 정상 0석으로 안 보인다"
 
 echo "== 결과: FAIL=$fail"
 exit $(( fail > 0 ? 1 : 0 ))

@@ -136,18 +136,22 @@ CARD_REFS = {}
 
 def card_ref(team):   # r1649: ft_card_ref 와 같은 규칙 — env(FT_CARD_REF) → 카드 루트 표(state/directive-roots.tsv) 팀·«*» 행 → origin/main · fetch 7초+재시도 1
     if team not in CARD_REFS:
-        ref = (os.environ.get("FT_CARD_REF") or "").strip()
+        ref, why = (os.environ.get("FT_CARD_REF") or "").strip(), ""
         if not ref:
             try: tab = [l.split("\t") for l in (root / ".fable-team/state/directive-roots.tsv").read_text(encoding="utf-8").split("\n")]
             except OSError: tab = []
             hit = [c for c in tab if len(c) > 2 and c[0] == team] or [c for c in tab if len(c) > 2 and c[0] == "*"]
             ref = (hit[0][2].strip() if hit else "") or "origin/main"
-        if "/" in ref:
+        if "/" in ref and run(["git", "-C", str(root), "rev-parse", "--git-dir"])[0] == 0:   # 리포 아닌 루트 = ref 없음(그때는 지금처럼 워크트리 후보)
             rem, br = ref.split("/", 1)
-            for _ in range(2):
-                if run(["git", "-C", str(root), "fetch", "-q", "--no-write-fetch-head", rem, f"+refs/heads/{br}:refs/remotes/{ref}"])[0] == 0: break
-        CARD_REFS[team] = ref
-    return CARD_REFS[team]
+            for _ in range(2):   # 7초 + 재시도 1
+                rc, _o, _e = run(["git", "-C", str(root), "fetch", "-q", "--no-write-fetch-head", rem, f"+refs/heads/{br}:refs/remotes/{ref}"])
+                why = "" if rc == 0 else f"카드 ref fetch 실패 {ref} rc={'-' if rc is None else rc}"
+                if not why: break
+        CARD_REFS[team] = (ref, why)
+    ref, why = CARD_REFS[team]
+    if why: raise Unjudged(why)   # r1649-mut:reffetch — 둘째 실패면 그 좌석은 판정 불가: 낡은 워크트리 카드로 «완료 근거» 를 만들지 않는다
+    return ref
 
 
 def card_text(card_dirs, idx, team):   # r1649: 카드 본문 — ref 판 먼저, 없으면 지금 후보(워크트리)
