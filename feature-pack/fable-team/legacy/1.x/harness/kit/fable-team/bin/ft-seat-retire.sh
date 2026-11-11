@@ -3,7 +3,7 @@
 #   구 행: tick=None · _replaced_by=<후계> · role=stop-ready(원래 role 은 _retired_role) · 후계 행: 없으면 생성·있으면 role/tick 상속·_replaces 추가 · r499 옛 role 이 stop-ready 면 후계 role = _retired_role → 역할 칸 → 이름 토큰(못 정하면 그대로) · 재실행도 stop-ready 꼴 현역 후계를 고침 ` role stop-ready-><역할>`.
 #   최상위 _<이름> 문자열 키 중 값이 <구> 인 것(_master·_arch·_hil_route…) 전부 → <후계>. retarget_seat(ft-tick-team.sh)와 같은 규칙을 «살아 있는 승계»에 쓴다.
 #   명부 = --seats · FT_SEATS_JSON · <루트>/.fable-team/seats*.json 중 키 <구> 를 가진 파일 정확히 1개. r465 같은 폴더의 다른 명부 = 값이 <구> 인 `_*` 칸 전부(역할 roles + 라우팅 routes · 공유 arch) → <후계> · 전부 검증 뒤 쓰기(손상 1개 = ERROR rc 1 · 쓰기 0) · 출력 files=N roles=[…] routes=[…].
-#   r465 재실행(이미 은퇴)도 남은 칸을 보정 → FIXED … · 옛 이름 칸 0 + 후계 행 실재 + 후계 역할 칸(_master·_arch·_da·_tester) 빈 값/없음 → 채움 ` FILLED <명부>:<칸>` · 그 칸이 살아 있는 다른 좌석 = REJECT rc 1(쓰기 0).
+#   r465 재실행(이미 은퇴)도 남은 칸을 보정 → FIXED … · 옛 이름 칸 0 + 후계 행 실재 + 후계 역할 칸(_master·_arch·_da·_tester) 빈 값/없음 → 채움 ` FILLED <명부>:<칸>` · 그 칸이 살아 있는 다른 좌석 = REJECT rc 1(쓰기 0) — r1646 같은 계보일 때만(`#<N>` 앞이 같음) · 계보가 다르면 칸은 두고 은퇴만 ` SKIP-FILL <명부>:<칸> 주인 <이름>` 1줄.
 #   rc 0 = RETIRED/NOOP · 1 = 명부 못 정함·구 행 없음 · 2 = usage · 3 = 후계 행이 이미 은퇴(쓰기 0). 쓰기 전 <파일>.bak-retire-<ts>.
 #   RETIRED 줄 다음에 재개 기록 결과 1줄 — `RESUME ok <~/.claude/state/seat-resume/<구>.json>` 또는 `NORECORD <구> <이유>` (rc 에 섞지 않음 · 판정 1344). 부팅 보고 retire 칸 옆에 복붙. · r960 pi 좌석(agent=pi)은 근거가 pi 세션 파일(~/.pi/agent/sessions · pane cwd 같은 폴더 · 가장 최근 1개 · 좌석 시작 뒤) → RESUME ok, 없으면 `NORECORD … pi 세션 없음 — 산출 커밋 보존`(ft-seat-close 가 «명부 agent 칸 = pi» 일 때만 살아 있는 좌석을 닫는다 · claude 는 지금처럼 HELD) · 본문은 ft_roster_lib.pi_seat_resume(retire 200줄 상한).
 #   `<구> --record-only [--seats <파일>]` (R110 · 판정 1380) — 이미 은퇴한 «살아 있는» 옛 좌석에 재개 기록만 쓴다. 명부 쓰기·.bak 0 · 구 행에 _replaced_by 없으면 REJECT rc 1(현역 좌석에 닫기 근거를 만들지 않는다) · retired_by = 그 _replaced_by. <후계> 와 같이 주면 usage rc 2. · r427 `--record-only --keep-existing`(죽은 좌석 · ft-seat-close 가 tmux 세션 없을 때): 기존 기록 있으면 새 시도 0 → `RESUME kept <경로>` · 없고 세션도 없으면 대화 기록 탐색 1회(~/.claude/history.jsonl 의 그 좌석 이름 줄 → project·sessionId → 그 jsonl 머리 64KB 에 `"agentName":"<구>"` «정확히 1개») → `RESUME ok` · 아니면 NORECORD · 기록 실패(NORECORD)는 옛 기록을 건드리지 않는다(무효화 0 — 닫기는 zombie-clean 이 binding --expect 로 다시 본다) · 새 기록 «성공» 때만 옛 것을 <경로>.prev-<ts> 로.
@@ -178,7 +178,10 @@ if not noop and isinstance(n, dict) and n.get("_replaced_by"): print(f"REJECT �
 others, cells, bad = scan_cells(p, old)   # r465 같은 폴더(루트 .fable-team) 다른 명부 전부 — 값이 <구> 인 `_*` 칸 전부(역할·라우팅)
 if bad: print(f"ERROR 명부 JSON 손상 {bad} — 전부 검증 뒤 쓰기라 쓰기 0 file={p}"); sys.exit(1)
 keys = [k for k, v in d.items() if k.startswith("_") and v == old]; fc, fv = (None, None) if keys else role_cell(d, new)   # r465 사례 2 — 옛 이름 칸 0 이면 후계 역할 칸이 빈 값/없음일 때 채움
-if fc and isinstance(fv, str) and fv not in ("", new) and alive(fv): reject(f"{os.path.basename(p)} {fc} = 살아 있는 다른 좌석 {fv} — 채우지 않는다(쓰기 0 · 추측 0)")
+sk = ""   # r1646 — SKIP-FILL 은 상태줄(RETIRED/FIXED) 뒤에 찍는다(첫 줄 = 상태 계약)
+if fc and isinstance(fv, str) and fv not in ("", new) and alive(fv):   # r1646 — 계보가 다르면 채우기만 건너뛰고 은퇴는 한다(같은 계보 현역만 승계 꼬임)
+    if fv.rpartition("#")[0] == new.rpartition("#")[0]: reject(f"{os.path.basename(p)} {fc} = 살아 있는 다른 좌석 {fv} — 채우지 않는다(쓰기 0 · 추측 0)")
+    sk = f"SKIP-FILL {os.path.basename(p)}:{fc} 주인 {fv}"
 fc = fc if fv in (None, "") else None; rc_ = held_roles(d, keys + [fc], new); pr = n.get("role") if isinstance(n, dict) else o.get("role"); rfx = fix_role(o, n, rc_, new) if noop else ""   # r499 ⓙ 재실행 — 현역 역할 칸 값인 후계가 stop-ready 꼴이면 도출 role(메모리 · 아래 dump)
 if noop and not (keys or cells or fc or rfx): print(f"NOOP {old} 은 이미 {new} 로 은퇴 file={p}"); sys.exit(0)
 own, ts, rec, why = not noop or bool(keys or fc or rfx),datetime.datetime.now().strftime("%Y%m%d%H%M%S"), None, ""   # own = 자기 명부를 쓰나
@@ -206,8 +209,10 @@ for k in keys + ([fc] if fc else []): d[k] = new
 if own: dump(p, d)   # 쓰기 중 죽어도 원본 무손상(tmp→교체)
 roles, rk = apply_cells(others, cells, new, ts)   # r465 남의 명부 = 값이 <구> 인 칸 전부 · 파일마다 .bak
 tail = f"keys={keys} files={int(own) + len(cells)} roles={roles} routes={rk}" + (f" FILLED {os.path.basename(p)}:{fc}" if fc else "") + (f" role stop-ready->{n['role']}" if isinstance(n, dict) and pr == "stop-ready" and n.get("role") != "stop-ready" else "")
-if noop: print(f"FIXED {old} -> {new} file={p} {tail}"); sys.exit(0)
-print(f"RETIRED {old} -> {new} file={p} {tail}")
+if noop: print(f"FIXED {old} -> {new} file={p} {tail}")
+else: print(f"RETIRED {old} -> {new} file={p} {tail}")
+if sk: print(sk)   # r1646 다른 계보 현역 — 칸은 그대로 두고 은퇴만 했다(상태줄 뒤 1줄)
+if noop: sys.exit(0)
 write_record(rec, why)
 PY
 prc=$?
