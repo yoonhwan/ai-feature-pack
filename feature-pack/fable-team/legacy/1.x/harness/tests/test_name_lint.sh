@@ -37,7 +37,7 @@ rej_case "byz-harness-qa#1" "에이전트 꼬리 필수"            # ⓒ
 rej_case "byz-harness-qa-ft20#1" "에이전트여야"
 rej_case "byz-harness-qa-a-b-pi#1" "qa 범위는 1토큰만"
 rej_case "byz-harness-da-ft20-pi#1" "에이전트여야"          # ⓓ 범위 꼬리는 qa 만
-for n in byz-issues-master-sol#59 byz-harness-da-astra#1; do pass_case "$n"; done   # ⓔ sol·astra
+for n in byz-issues-master-sol#59 byz-harness-da-astra#1; do rej_case "$n" "에이전트여야"; done   # ⓔ sol·astra = 모델 이름 · 꼬리 에이전트 아님
 rej_case "byz-harness-da-gpt#1" "에이전트여야"
 long="byz-v65-nano-$(printf 'a%.0s' $(seq 1 60))#0"
 rej_case "$long" "길이"
