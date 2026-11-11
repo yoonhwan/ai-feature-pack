@@ -1,13 +1,12 @@
-"""ft2 package 시험 — ⓐ패키지 꼴 · ⓑ결정성 · ⓒcheck 3사례 · ⓓ판정 불가 · ⓔ덮어쓰기 0 · 크기·stdlib · 변이 M1·M2·M3 을 나눠 맡는다."""
+"""ft2 package 시험 — ⓐ꼴·ⓑ결정성·크기 · ⓒcheck 5사례 · ⓓ판정 불가·ⓔ덮어쓰기 0 · 변이 M1·M2·M3·X1·X2 를 나눠 맡는다."""
 import ast, hashlib, json, shutil, subprocess, sys
 from pathlib import Path
 
 FT2 = Path(__file__).resolve().parents[1]
 TOOL, VERSION = FT2 / "tools" / "package.py", "2.0.0"
-TREE = {"core/loader.py": "print('hi')\n", "contracts/kinds.tsv": "a\tb\n", "tests/test_x.py": "x = 1\n",
-        "README.md": "# ft2\n", "docs/guide.md": "# g\n"}
-NOISE = {"__pycache__/junk.pyc": b"\0", ".hidden": b"x\n"}
-PACKAGE_FILES = ("MANIFEST.json", "PACKAGE.json")
+TREE = {"core/loader.py": "print('hi')\n", "contracts/kinds.tsv": "a\tb\n", "tests/test_x.py": "x = 1\n", "README.md": "# ft2\n", "docs/guide.md": "# g\n"}
+NOISE = {"__pycache__/junk.pyc": b"\0", ".hidden": b"x\n", ".git/HEAD": b"ref: refs/heads/main\n", ".git/refs/heads/main": b"1" * 40 + b"\n"}
+FILES = ("MANIFEST.json", "PACKAGE.json")  # .git 은 EXCLUDE(".*") 로 패키지에 안 들어간다 — source.sha 픽스처
 
 
 def run(*args, script=TOOL):
@@ -27,32 +26,37 @@ def built(src, out, version=VERSION):
     return rc, out / f"ft2-{version}", stdout, stderr
 
 
-def refused(*args, script=TOOL):
-    rc, stdout, stderr = run(*args, script=script)
-    assert (rc, stdout, stderr.count("판정 불가"), stderr.count("\n"), "Traceback" in stderr) == (2, "", 1, 1, False), (args, rc, stdout, stderr)
+def copies(pkg, root, tag):
+    """① 패키지 안 파일 내용이 바뀐 사본 ② PACKAGE.json 의 source.sha 가 바뀐 사본."""
+    edited, resha = root / (tag + "-edited"), root / (tag + "-resha")
+    shutil.copytree(pkg, edited), shutil.copytree(pkg, resha)
+    (edited / "README.md").write_text("# changed\n", encoding="utf-8")
+    meta = json.loads((resha / "PACKAGE.json").read_text(encoding="utf-8"))
+    (resha / "PACKAGE.json").write_text(json.dumps({**meta, "source": {"sha": "2" * 40}}), encoding="utf-8")
+    return edited, resha
 
 
-def test_a_build_package_shape(tmp_path):
+def test_a_build_shape_determinism_budget(tmp_path):
     src, out = make_source(tmp_path / "src"), tmp_path / "out"
     rc, pkg, stdout, stderr = built(src, out)
-    doc, info = [json.loads((pkg / name).read_text(encoding="utf-8")) for name in PACKAGE_FILES]
+    doc, info = [json.loads((pkg / name).read_text(encoding="utf-8")) for name in FILES]
     assert (rc, stderr, stdout.count("\n"), sorted(out.iterdir())) == (0, "", 1, [pkg])
-    assert (sorted(info), info["schema"], info["name"], info["version"], info["files"]) == (
-        ["files", "manifest_sha256", "name", "schema", "source", "version"], 1, "ft2", VERSION, len(TREE))
-    assert info["manifest_sha256"] == hashlib.sha256((pkg / "MANIFEST.json").read_bytes()).hexdigest()
+    assert (sorted(info), info["schema"], info["name"], info["version"], info["files"], info["source"]["sha"]) == (
+        ["files", "manifest_sha256", "name", "schema", "source", "version"], 1, "ft2", VERSION, len(TREE), doc["source"]["sha"])
+    assert (info["source"]["sha"], info["manifest_sha256"]) == ("1" * 40, hashlib.sha256((pkg / "MANIFEST.json").read_bytes()).hexdigest())
     assert stdout.startswith("PACKAGE ") and f"files={len(TREE)}" in stdout and info["manifest_sha256"] in stdout
-    assert sorted(str(path.relative_to(pkg)) for path in pkg.rglob("*") if path.is_file()) == sorted([*TREE, *PACKAGE_FILES])
+    assert sorted(str(path.relative_to(pkg)) for path in pkg.rglob("*") if path.is_file()) == sorted([*TREE, *FILES])
     assert all(hashlib.sha256((pkg / item["path"]).read_bytes()).hexdigest() == item["sha256"] for item in doc["files"])
+    assert [built(src, tmp_path / f"o{index}")[0] for index in (1, 2)] == [0, 0]  # ⓑ 같은 소스 = 같은 바이트
+    read = [[(tmp_path / f"o{index}" / f"ft2-{VERSION}" / name).read_bytes() for name in FILES] for index in (1, 2)]
+    source = TOOL.read_text(encoding="utf-8")
+    modules = {(node.module if isinstance(node, ast.ImportFrom) else node.names[0].name).split(".")[0]
+               for node in ast.walk(ast.parse(source)) if isinstance(node, (ast.Import, ast.ImportFrom))}
+    assert (read[0] == read[1], modules, "subprocess" in source, len(source.splitlines()) <= 150) == (
+        True, {"hashlib", "json", "os", "shutil", "sys", "manifest"}, False, True)
 
 
-def test_b_same_source_same_package(tmp_path):
-    src = make_source(tmp_path / "src")
-    assert (built(src, tmp_path / "o1")[0], built(src, tmp_path / "o2")[0]) == (0, 0)
-    read = [[(tmp_path / side / f"ft2-{VERSION}" / name).read_bytes() for name in PACKAGE_FILES] for side in ("o1", "o2")]
-    assert read[0] == read[1]
-
-
-def test_c_check_same_different_missing_hidden(tmp_path):
+def test_b_check_five_cases(tmp_path):
     src = make_source(tmp_path / "src")
     _, pkg, _, _ = built(src, tmp_path / "out")
     assert run("check", src, pkg)[:2] == (0, f"SAME {pkg} files={len(TREE)}\n")
@@ -61,11 +65,13 @@ def test_c_check_same_different_missing_hidden(tmp_path):
     (changed / "core/loader.py").write_text("print('HI')\n", encoding="utf-8")
     (missing / "core/loader.py").unlink()
     (hidden / ".env").write_text("k=1\n", encoding="utf-8")
-    assert (run("check", changed, pkg)[:2], run("check", src, missing)[:2], run("check", src, hidden)[:2]) == (
-        (1, "다름 1\n"), (1, "빠짐 1\n"), (1, "숨은 파일 1\n"))
+    edited, resha = copies(pkg, tmp_path, "c")
+    pairs = ((changed, pkg), (src, missing), (src, hidden), (src, edited), (src, resha))
+    assert [run("check", *pair)[:2] for pair in pairs] == [
+        (1, "다름 1\n"), (1, "빠짐 1\n"), (1, "숨은 파일 1\n"), (1, "내용 다름 1\n"), (1, "다름 1\n")]
 
 
-def test_d_refuse_when_unreadable(tmp_path):
+def test_c_refuse_and_no_overwrite(tmp_path):
     src = make_source(tmp_path / "src")
     _, pkg, _, _ = built(src, tmp_path / "out")
     broken, nokey = tmp_path / "broken", tmp_path / "nokey"
@@ -74,24 +80,13 @@ def test_d_refuse_when_unreadable(tmp_path):
     info = json.loads((nokey / "PACKAGE.json").read_text(encoding="utf-8"))
     (nokey / "PACKAGE.json").write_text(json.dumps({k: v for k, v in info.items() if k != "files"}), encoding="utf-8")
     for args in ((tmp_path / "nodir", pkg), (src, tmp_path / "nodir"), (src, broken), (src, nokey), (src, pkg / "MANIFEST.json")):
-        refused("check", *args)
-
-
-def test_e_no_overwrite(tmp_path):
-    src = make_source(tmp_path / "src")
-    _, pkg, _, _ = built(src, tmp_path / "out")
-    names = (*PACKAGE_FILES, "core/loader.py")
+        rc, stdout, stderr = run("check", *args)
+        assert (rc, stdout, stderr.count("판정 불가"), stderr.count("\n"), "Traceback" in stderr) == (2, "", 1, 1, False), args
+    names = (*FILES, "core/loader.py")
     before = {name: (pkg / name).read_bytes() for name in names}
     rc, stdout, stderr = run("build", src, tmp_path / "out", "--version", VERSION)
     assert (rc, stdout, stderr.count("판정 불가"), "이미 있음" in stderr, "Traceback" in stderr) == (2, "", 1, True, False)
     assert before == {name: (pkg / name).read_bytes() for name in names}
-
-
-def test_f_budget_and_stdlib_only():
-    source = TOOL.read_text(encoding="utf-8")
-    modules = {(node.module if isinstance(node, ast.ImportFrom) else node.names[0].name).split(".")[0]
-               for node in ast.walk(ast.parse(source)) if isinstance(node, (ast.Import, ast.ImportFrom))}
-    assert (modules, "subprocess" in source, len(source.splitlines()) <= 150) == ({"hashlib", "json", "os", "shutil", "sys", "manifest"}, False, True)
 
 
 def mutant(tmp_path, name, old, new):
@@ -104,17 +99,22 @@ def mutant(tmp_path, name, old, new):
     return tools / (name + ".py")
 
 
-def test_m1_m2_m3_mutants_fail_their_own_case(tmp_path):
+def test_mutants_m1_m2_m3_x1_x2_fail_their_own_case(tmp_path):
     src = make_source(tmp_path / "src")
     _, pkg, _, _ = built(src, tmp_path / "out")
-    changed, hidden = tmp_path / "changed", tmp_path / "hidden"
+    changed, hidden = tmp_path / "m-changed", tmp_path / "m-hidden"
     shutil.copytree(src, changed), shutil.copytree(pkg, hidden)
     (changed / "core/loader.py").write_text("print('HI')\n", encoding="utf-8")
     (hidden / ".env").write_text("k=1\n", encoding="utf-8")
-    m1 = mutant(tmp_path, "m1", "if rel not in (MANIFEST_FILE, PACKAGE_FILE) and manifest.skip_entry(rel)", "if False")
+    edited, resha = copies(pkg, tmp_path, "m")
     m2 = mutant(tmp_path, "m2", "    fresh = manifest.build(src)", "    fresh = manifest.build(pkg)")
     m3 = mutant(tmp_path, "m3", "    if os.path.exists(dest):", "    if False:")
+    x1 = mutant(tmp_path, "x1", 'if fresh["source"]["sha"] != info["source"]["sha"]:', "if False:")
+    x2 = mutant(tmp_path, "x2", 'changed = sorted(rel for rel in have if rel in want and want[rel]["sha256"] != have[rel]["sha256"])', "changed = []")
+    m1 = mutant(tmp_path, "m1", "if rel not in (MANIFEST_FILE, PACKAGE_FILE) and manifest.skip_entry(rel)", "if False")
     assert run("check", src, hidden, script=m1)[:2] == (0, f"SAME {hidden} files={len(TREE)}\n")  # M1 = 숨은 파일 통과
     assert run("check", changed, pkg, script=m2)[:2] != (1, "다름 1\n") == run("check", changed, pkg)[:2]  # M2 = 소스 바뀜 못 봄
+    assert run("check", src, edited, script=x2)[:2] == (0, f"SAME {edited} files={len(TREE)}\n")  # X2 = «내용 다름» 판정 뺌
+    assert run("check", src, resha, script=x1)[:2] == (0, f"SAME {resha} files={len(TREE)}\n")  # X1 = source.sha 대조 뺌
     again = run("build", src, tmp_path / "out", "--version", VERSION, script=m3)  # M3 = 덮어쓰기 허용 → «이미 있음» 사라짐
     assert (again[0], "이미 있음" in again[2]) == (2, False) and run("build", src, tmp_path / "out", "--version", VERSION)[0] == 2
