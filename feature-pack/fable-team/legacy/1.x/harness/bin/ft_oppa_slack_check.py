@@ -117,7 +117,8 @@ def judge(ts: str, shas: list) -> list:
     for sha in shas:
         if not re.search(r"(?<![0-9a-fA-F])%s(?![0-9a-fA-F])" % sha, text, re.I) and sha:  # r1591 · 빈 sha = 답글 확인 모드(sha 낱말 검사 없음)
             raise ValueError("질문 글에 %s 없음" % sha)
-        brk = [x for x, txt in mine if x > parent and not has_sha(txt, sha)]   # 이 sha 의 창을 끊는 글 = sha 를 안 담은 같은 작성자 글
+        # r1709: 승인 판정이 없는 질문 감시(sha 빈 값 = --reply-only)는 창을 끊지 않는다 — 같은 스레드 desk 정정·보충 글이 창을 끊어 그 뒤 오빠 답을 영영 못 보던 것(승인 0줄이라 새는 승인도 0)
+        brk = [] if not sha else [x for x, txt in mine if x > parent and not has_sha(txt, sha)]   # 이 sha 의 창을 끊는 글 = sha 를 안 담은 같은 작성자 글
         nxt = brk[0] if brk else None
         ok = [(t, m) for t, u, m in after if u == OPPA_SLACK_UID and t > parent and (nxt is None or t < nxt) and (edited is None or dec(edited["ts"]) < t)]
         if not ok:
