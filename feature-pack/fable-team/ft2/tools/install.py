@@ -54,7 +54,7 @@ def hidden_files(root):
     found = []
     for dirpath, dirnames, filenames in os.walk(root):
         prefix = "" if dirpath == root else os.path.relpath(dirpath, root).replace(os.sep, "/") + "/"
-        found += [prefix + name for name in dirnames + filenames if manifest.skip_entry(prefix + name)]
+        found += [prefix + name for name in dirnames + filenames if name.startswith(".")]  # 바이트코드는 셈 밖
     return sorted(found)
 
 
@@ -67,7 +67,7 @@ def package_of(folder):
     named = isinstance(version, str) and version and "/" not in version and version not in (".", "..")
     counted = bool(files) if isinstance(files, list) else type(files) is int and files >= 0  # r1613 은 개수(정수)
     shaped = named and counted and isinstance(doc.get("manifest_sha256"), str)
-    return doc if shaped and os.path.isfile(os.path.join(folder, "MANIFEST.json")) else None
+    return doc if shaped and manifest.load_manifest(os.path.join(folder, "MANIFEST.json")) is not None else None
 
 
 def consistent(folder):
