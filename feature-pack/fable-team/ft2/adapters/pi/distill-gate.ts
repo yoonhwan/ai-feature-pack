@@ -1,5 +1,6 @@
 // ft2 pi 증류 게이트 (r1553) — claude 훅과 같은 축을 pi 좌석에 건다(REC arch273 cb5f7c01d2 (a)). WARN = 매 턴 경고 1줄(막기 0) · BLOCK = 허용 목록 밖 tool_call 막음 · RECV = mbox recv 막음. 문턱은 파일에서만 읽는다(extension 안 숫자 0) — env FT_DISTILL_{WARN,BLOCK,RECV} > <루트>/.fable-team/thresholds.env > ~/.claude/fable-team/thresholds.env. 판정 불가(모델 불명·usage 없음·문턱 못 읽음·좌석 불명) = 막고 팀장 1줄(같은 좌석·같은 이유 세션당 1통).
 // r1565: 판정 불가 중 «ctx usage 없음» 만 r1554 와 같은 3갈래 — ⓐ 세션 첫 판정 = 통과+기록(알림 0) · ⓑ 같은 세션 연속 N(FT_DISTILL_FAILOPEN_MAX 기본 3) = 허용 목록 모드(밖 도구만 막음) + 팀장 1줄(세션당 1통) · ⓗ 턴 시작(before_agent_start) usage 없음 = 주입 0 · 알림 0 · 연속 횟수 불변. ⓔ 읽은 뒤의 null 은 «첫 판정» 이 아니고(연속 횟수에 더한다) 표식을 지우지 않는다 · ⓘ 읽음 = 양수(>0)만 · ⓙ 초기 예외 = 새 대화(startup|new ∧ assistant 0 ∧ compaction 0 ∧ 표식 0)뿐 · ⓛ 그 «표식 0» = 이 좌석 전체 이름(#N)이 적힌 표식 없음(같은 베이스 직전 세대 #N-1 표식은 막지 않는다 · 이름 없는 옛 표식·읽기 실패는 지금처럼 초기 예외 0) · ⓜ 승계 첫 턴 = 주입 0·알림 0·연속 횟수 불변. 모델·문턱·좌석 불명은 지금처럼 즉시 막는다(ⓕ).
+// r1634 = ft 좌석이 아니면 아무것도 하지 않는다 — 첫 갈래 = allow(rule not-seat) · 도구 차단 0 · 팀장 알림 0 · 표식 쓰기 0 · misses 증가 0. 좌석 판정 = FT_SEAT ∨ (tmux 세션명 == <루트>/.fable-team/seats*.json 키 «#N 뺀 이름») · 좌석 안의 판정 불가·fail-closed 는 그대로.
 // 대상 = model 이 claude 계열인 pi 좌석만(gpt·gemini·deepseek = 판정 0). 알림 = FT_MBOX 명령 + seats*.json 현역 master 행. 허용 목록은 claude 훅보다 넓다(mbox handover·ready·close-check) — 증류 마무리가 막히지 않게. 증류 미완 표식 = <루트>/.fable-team/state/pi-distill-pending/<좌석 베이스> 1개 · 덮어쓰기 0 · 닫는 사건 = 후계 좌석(같은 베이스 · 다른 #N)의 첫 판정 1개 · 같은 좌석은 압축으로 ctx 가 줄어도 유지(arch 확인 · DA R3).
 import * as fs from "node:fs";
 import * as os from "node:os";
@@ -101,6 +102,15 @@ export function pathAllowed(p: string | undefined, root: string | null): boolean
   }
   return [/(^|\/)design\/[^/]+\/(?:IMPL|HANDOFF|VERDICT|PROGRESS)-[^/]*\.md$/, /(^|\/)HANDOFF-[^/]*\.md$/, /(^|\/)design\/(?:[^/]+\/)*inbox\/(?:[^/]+\/)*[^/]+\.md$/, /(^|\/)\d+-HANDOFF-[^/]*\.md$/].some((rx) => rx.test(rel));
 }
+/** r1634 좌석 판정 — true = ft 좌석 · false = 좌석 아님(no-op) · null = 판정 불가(지금처럼 막는다 · 하드 룰 20: 이름 못 읽음 ≠ 좌석 아님). declared = 호출자가 이미 좌석 이름을 확정해 넘김(그 이름이 명부에 없으면 판정 불가). 루트를 못 찾으면 명부 대조는 거짓. */
+export function seatVerdict(env: Record<string, string | undefined>, root: string | null, seat: string, declared = false): boolean | null {
+  if (String(env.FT_SEAT ?? "").trim()) return true;
+  if (!seat) return env.TMUX_PANE || declared ? null : false;
+  const base = seat.replace(/#\d+$/, ""), dir = root ? path.join(root, ".fable-team") : "";
+  let known = false;
+  try { known = fs.readdirSync(dir).filter((f) => /^seats.*\.json$/.test(f)).some((f) => { try { const j = JSON.parse(fs.readFileSync(path.join(dir, f), "utf8")); return Object.keys(j).some((row) => !row.startsWith("_") && (row === seat || row.replace(/#\d+$/, "") === base)); } catch { return false; } }); } catch { /* 루트 없음·명부 없음 = 거짓 */ }
+  return known ? true : declared ? null : false;
+}
 function seatOf(env: Record<string, string | undefined>): string {
   if (env.FT_SEAT || !env.TMUX_PANE) return env.FT_SEAT ?? ""; try { return execFileSync("tmux", ["display", "-p", "-t", env.TMUX_PANE, "#S"], { timeout: 3000 }).toString().trim(); } catch { return ""; }
 }
@@ -149,6 +159,7 @@ const toolAllowed = (input: GateInput, root: string | null): boolean => input.to
 export function judge(input: GateInput): Verdict {
   const env = input.env ?? process.env, root = repoRoot(input.cwd ?? process.env.FT_CWD ?? process.cwd());
   const seat = input.seat ?? seatOf(env), th = thresholds(env, root), state = pendingFile(root, seat), model = String(input.model ?? "");
+  if (seatVerdict(env, root, seat, input.seat !== undefined) === false) return { action: "allow", rule: "not-seat", reason: `ft 좌석 아님 — 증류 게이트 무동작(${seat ? `세션 ${seat} 명부 행 없음` : "FT_SEAT·TMUX_PANE 없음"} · 도구 차단 0 · 팀장 알림 0 · 표식 0)`};
   const k = typeof input.tokens === "number" && input.tokens > 0 ? input.tokens : 0, stored = seatIn(state);
   const key = seat || "unknown", own = fs.existsSync(state ?? "/nonexistent") && (stored === seat || !stored), fresh = (input.session?.fresh ?? newConversation(input.session?.reason, input.session?.entries)) && !own; if (k > 0) { seenUsage.set(key, true); misses.delete(key); } // ⓙ 초기 예외 = 새 대화 ∧ 표식 없음 · ⓛ «표식 있음» = 이 좌석(#N) 몫이거나 이름 없는 옛 표식(직전 세대 #N-1 표식은 승계 첫 턴을 막지 않는다) · ⓓⓘ 읽음 = 양수만 · 읽으면 연속 0
   const why = !model ? "모델 불명" : !/claude/i.test(model) ? "" : !th ? `문턱 못 읽음(${K.warn}/${K.block}/${K.recv})` : !seat ? "좌석 이름 못 읽음(TMUX_PANE·FT_SEAT)" : !k ? "ctx usage 없음" : ""; // ⓕ 좌석 불명을 usage 초기 예외(ⓐⓗ)보다 먼저 — 좌석이 없으면 팀장 알림·표식 경로가 전부 불명이다(DA R1)

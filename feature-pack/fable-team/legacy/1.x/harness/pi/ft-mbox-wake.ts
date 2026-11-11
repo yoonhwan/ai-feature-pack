@@ -33,6 +33,7 @@ const log = (m: string) => console.error(`ft-mbox-wake: ${m}`);
 const fail = (m: string) => console.error(`ERROR ft-mbox-wake: ${m}`);
 const sh = (cmd: string): string => { try { return execSync(cmd, { encoding: "utf-8", timeout: 7000, stdio: ["ignore", "pipe", "ignore"] }).trim(); } catch { return ""; } };
 const seatName = (): string => process.env.FT_SEAT || sh('tmux display-message -p "#S"');
+const seatKnown = (): boolean | null => process.env.FT_SEAT ? true : !process.env.TMUX_PANE ? false : !seat ? null : (() => { const b = seat.replace(/#\d+$/, ""), d = path.join(root, ".fable-team"); try { return fs.readdirSync(d).filter((f) => /^seats.*\.json$/.test(f)).some((f) => { try { const j = JSON.parse(fs.readFileSync(path.join(d, f), "utf-8")); return Object.keys(j).some((k) => !k.startsWith("_") && (k === seat || k.replace(/#\d+$/, "") === b)); } catch { return false; } }); } catch { return false; } })(); // ★r1634★ ft 좌석인가 = distill-gate 와 같은 규칙(FT_SEAT ∨ 명부 행) · false = no-op · null = 판정 불가(tmux 안인데 이름 못 읽음 = 지금처럼)
 // ★root = «git 공용 루트»★ — pi pane 의 cwd 는 워크트리일 수 있다(실측 11-09 18:20 planner pi#245). 다른 ft 도구와 같은 식.
 const gitRoot = (): string => { const d = sh("git rev-parse --path-format=absolute --git-common-dir"); return d ? path.dirname(d) : ""; };
 // ★팀장 pi 판정(r1530 공유 · ft-idle-nudge 가 import)★ = seats*.json 하나의 _master 이고 «같은 파일» 그 행 agent=='pi' → 그 파일 이름(없으면 "") · 깨진 파일 = 그 파일 거짓
@@ -154,7 +155,7 @@ export default function (pi: ExtensionAPI) {
   pi.on("session_start", async (_event, ctx) => {
     ctxNow = ctx as { isIdle(): boolean }; // r1540 — h 끝 판정은 ctx.isIdle 로만 한다(r1531 과 같은 칸)
     appendLoadLine(pi, "r1529", "ft-mbox-wake.ts"); // 조기 return 앞 — 기록은 확장이 실렸다는 사실만 말한다
-    if (!fs.existsSync(mbox)) return fail(`우편함 없음 ${mbox} — 확장 비활성(폴링 폴백 0)`);
+    if (seatKnown() === false) return; if (!fs.existsSync(mbox)) return fail(`우편함 없음 ${mbox} — 확장 비활성(폴링 폴백 0)`); // ★r1634★ 좌석 아님 = 조용히(session_start 만 보고 끝 — ERROR 0 · watch 0 · sendMessage 0)
     try { fs.mkdirSync(wakeDir, { recursive: true }); } catch { /* 이미 있음 */ }
     try {
       // ★부모 폴더 감시★ — os.replace 로 inode 가 바뀌어도 폴더 감시는 유지된다(파일 직접 watch 0).
@@ -170,7 +171,7 @@ export default function (pi: ExtensionAPI) {
     fallback = setTimeout(() => { fallback = null; run(); }, debounce + 250); // 사건 타이머를 막지 않는다(사건이 오면 즉시 처리)
   });
   pi.on("agent_start", async () => { inTurn = true; wakePending = false; }); // 판 2 = 턴 시작(배달된 깨움 소비) · 도중 도착은 쌓지 않는다
-  pi.on("agent_end", async () => { inTurn = false; wakePending = false; writeSeq(null); run(); }); // 표지 해제 + 우편함 재확인 1회(소비 안 됐으면 다시 깨운다)
+  pi.on("agent_end", async () => { inTurn = false; wakePending = false; writeSeq(null); if (seatKnown() !== false) run(); }); // 표지 해제 + 우편함 재확인 1회(소비 안 됐으면 다시 깨운다) · r1634 좌석 밖에서는 우편함을 읽지 않는다(ERROR 0)
   // ★r1540 = 창이 끝났을 때 일하던 중이던 h 결과를 여기서 1회 알린다★ — 중단(Escape) settled 는 미룬다(r1531 꼴).
   pi.on("agent_settled", async (event, ctx) => {
     ctxNow = ctx as { isIdle(): boolean };
