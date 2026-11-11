@@ -41,7 +41,7 @@ esac
 SH
 chmod +x "$T/bin"/*.sh
 # 가짜 tmux — 세션 목록은 $T/sess 파일(없으면 «no server running» rc1)
-mkdir -p "$T/path"; printf '#!/bin/sh\nD="$(cd "$(dirname "$0")/.." && pwd)"\n[ -f "$D/sess" ] || { echo "no server running on /tmp/x" >&2; exit 1; }\nshift; cat "$D/sess"\n' > "$T/path/tmux"; chmod +x "$T/path/tmux"
+mkdir -p "$T/path"; printf '#!/bin/sh\nD="$(cd "$(dirname "$0")/.." && pwd)"\nM="$(cat "$D/tmux.mode" 2>/dev/null)"\n[ "$M" = fail ] && { echo "weird failure" >&2; exit 2; }\n[ "$M" = nosession ] && { echo "can\x27t find session" >&2; exit 1; }\n[ -f "$D/sess" ] || { echo "no server running on /tmp/x" >&2; exit 1; }\nshift; cat "$D/sess"\n' > "$T/path/tmux"; chmod +x "$T/path/tmux"
 printf 'planner\nharness\n' > "$T/fake/teams"; : > "$T/fake/hil"
 cat > "$T/driver.mjs" <<'NODE'
 import * as fs from "node:fs";
@@ -162,6 +162,24 @@ if (!ONLY || ONLY === "u") {
   eq("단위 31분 → 창 밖 stale 1(가장 오래된 seq)", m.openOrdersOf([ord({ ts: ago(31) })], S, L, 30, now).stale, 1);
   eq("단위 닫는 머리 → 0", m.openOrdersOf([ord({ body: "[레디] 처리" })], S, L, 30, now).open, 0);
 }
+// ⓘ R1 — 보내는 접두어 [발신->수신] 뒤의 닫는 머리는 닫는 보고로 본다 · 접두어가 없으면 지금 그대로
+if (!ONLY || ONLY === "i") {
+  const m = await import(pathToFileURL(EXT).href + "?i=" + (++modv));
+  const now = Date.now(), S = "byz-i-seat#0", L = new Set([NANO]);
+  const r = (body) => ({ seq: 1, ts: lts(1), to: NANO, from: S, body });
+  eq("ⓘ 접두어 뒤 [레디] = 닫는 보고(open 0)", m.openOrdersOf([r("[byz-i-seat#0->byz-nano#1] [레디] 정리 완료")], S, L, 30, now).open, 0);
+  eq("ⓘ 접두어 뒤 [긴급] = 닫는 보고(open 0)", m.openOrdersOf([r("[a->b] [긴급] 확인 부탁")], S, L, 30, now).open, 0);
+  eq("ⓘ 접두어만 있고 닫는 머리 없음 = 열린 발주 1", m.openOrdersOf([r("[a->b] 작업 하라")], S, L, 30, now).open, 1);
+}
+// ⓙ R2 — tmux «can't find session/noserver» 만 세션 0 · 그 밖 실패(rc2 등) = 판정 불가(턴 0 · [긴급] 0)
+if (!ONLY || ONLY === "j") {
+  const c1 = setup("j1", { log: "", sess: "", env: {} }); fs.writeFileSync(path.join(path.dirname(c1.dir), "tmux.mode"), "fail");
+  const p1 = await load(); errs.length = 0;
+  await p1.settle(); await p1.settle();
+  eq("ⓙ tmux 그 밖 실패 = 턴 0", p1.calls.length, 0);
+  eq("ⓙ tmux 그 밖 실패 = [긴급] 0", urgents(c1).length, 0);
+  eq("ⓙ «판정 불가» 1줄", errs.some((e) => e.includes("판정 불가")), true);
+}
 console.error = oe;
 if (process.env.R1699_DEBUG) console.log("ERRS " + JSON.stringify(errs.slice(-6)));
 console.log(`FAILED ${fails}`);
@@ -175,7 +193,7 @@ echo 'export const createLocalBashOperations = () => ({ exec: async () => ({ out
 EXTC="$T/ext/ft-idle-nudge.ts"
 RUNN=0
 drv() { local r c="${1:-}"; RUNN=$((RUNN+1)); r="$T/run$RUNN"; mkdir -p "$r"; cp -R "$T/bin" "$T/path" "$r/"; ( cd "$r" && R1699_EXT="$EXTC" R1699_TMP="$r" PATH="$r/path:$PATH" node "$T/driver.mjs" ${c:+"$c"} 2>&1 ); }
-drv_all() { local c o; for c in a0 a b c d e f g; do o="$(drv "$c")"; echo "$o" | grep -E '^(PASS|FAIL) ' ; done; }
+drv_all() { local c o; for c in a0 a b c d e f g i j; do o="$(drv "$c")"; echo "$o" | grep -E '^(PASS|FAIL) ' ; done; }
 # ── Red 먼저 — 고침 전(HEAD 판) 으로 돌리면 ⓐ 가 턴 2·[긴급] 으로 실패해야 한다 ─────────────
 # Red 판 = r1699 이전(origin/main) — 이 가지에 커밋이 쌓여도 «고침 전» 은 origin/main 이다
 RBASE="$(git -C "$HARNESS" merge-base HEAD origin/main 2>/dev/null)"   # 고침 직전 판 = 이 가지가 갈라진 고정 커밋(떠다니는 이름 아님)
@@ -208,4 +226,21 @@ r="$(drvx "$X" u)"; echo "M4RAW: $(echo "$r" | head -2 | tr '\n' '|')"; grep -qE
 # ── ⓗ 회귀 — 기존 idle-nudge 시험 2파일 새 FAIL 0 ────────────────────────────────────────
 n=0; for t in test_pi_idle_nudge_r1530.sh test_pi_idle_nudge_route_r1684.sh; do m="$(timeout 70 bash "$HERE/$t" 2>&1 | grep -cE '^FAIL ')"; n=$((n+m)); done
 [ "$n" = 0 ] && ok "ⓗ 회귀 idle-nudge 2파일 FAIL 0(앞 판과 같다)" || bad "ⓗ 회귀 FAIL $n 줄"
+mkx_line() {  # mkx_line <이름> <줄에_든_조각> <새_줄> — 줄 단위 변이(따옴표 문제 회피)
+  local d="$T/mx-$1"; mkdir -p "$d"; cp "$(dirname "$EXT")/ft-mbox-wake.ts" "$(dirname "$EXT")/ft-load-line.ts" "$d/"
+  printf '{"type":"module"}\n' > "$d/package.json"
+  python3 - "$EXT" "$d/ft-idle-nudge.ts" "$2" "$3" <<'PY'
+import sys
+src, dst, needle, new = sys.argv[1:5]
+lines = open(src, encoding="utf-8").read().split("\n")
+hit = [i for i, l in enumerate(lines) if needle in l]
+assert hit, "변이 대상 줄 없음: " + needle
+lines[hit[0]] = new
+open(dst, "w", encoding="utf-8").write("\n".join(lines))
+PY
+  printf '%s\n' "$d"; }
+X="$(mkx_line m5 'head = bodyHead(r.body)' '    const to = String(r.to ?? ""), head = String(r.body ?? "").trim().slice(0, 4);')"
+r="$(drvx "$X" i)"; grep -qE '^FAIL ⓘ' <<<"$r" && ok "M5 접두어 벗기기 삭제 → ⓘ FAIL(검출됨)" || bad "M5 검출 실패"
+X="$(mkx_line m6 'no server running' '      return new Set();')"
+r="$(drvx "$X" j)"; grep -qE '^FAIL ⓙ' <<<"$r" && ok "M6 tmux 실패 구분 삭제 → ⓙ FAIL(검출됨)" || bad "M6 검출 실패"
 echo "FAILED $fail"; [ "$fail" = 0 ] && echo "ALL PASS"; exit $([ "$fail" = 0 ] && echo 0 || echo 1)

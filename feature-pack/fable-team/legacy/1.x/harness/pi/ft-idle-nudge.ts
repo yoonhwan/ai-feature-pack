@@ -17,6 +17,8 @@ type Got = { goal: boolean; prog: number; h: number; unread: number; last: numbe
 // r1699: «회신 대기 발주» — 닫는 머리(이미 처리·보고) 4종 · 창(분) 기본 30 · 정수 아님 = 30
 export const CLOSED_HEAD = ["[레디]", "[받음]", "[긴급]", "[정리]"];
 const openMin = (): number => { const v = process.env.FT_IDLE_OPEN_MIN ?? ""; return /^\d+$/.test(v) && Number(v) > 0 ? Number(v) : 30; };
+// r1699 R1(DA astra 반례): 본문이 «[발신->수신] …» 전송 접두어로 시작하면 그 접두어를 벗긴 뒤 머리를 본다(접두어를 머리로 오인하면 닫는 보고를 열린 발주로 센다)
+const bodyHead = (body: unknown): string => String(body ?? "").trim().replace(/^\[[^\]]*->[^\]]*\]\s*/, "").slice(0, 4);
 type OrderRow = { seq?: number; ts?: string; to?: string; from?: string; body?: string };
 // r1699 — 열린 발주 셈(순수 함수 · 시험은 이 함수만 부른다): from=좌석 ∧ to≠좌석 ∧ 닫는 머리 아님 ∧ 그 뒤 to→좌석 행(seq 더 큼) 없음 ∧ 받는 좌석 생존
 //   창 안 = open(턴 0 · 지문 무변화) · 창 밖 = stale([긴급] 문구에 «회신 없는 발주 N(가장 오래된 seq)»)
@@ -25,7 +27,7 @@ export function openOrdersOf(rows: OrderRow[], seat: string, live: Set<string>, 
   let open = 0, stale = 0, oldest = 0;
   for (const r of rows) {
     if (typeof r.seq !== "number" || String(r.from ?? "") !== seat || String(r.to ?? "") === seat) continue;
-    const to = String(r.to ?? ""), head = String(r.body ?? "").trim().slice(0, 4);
+    const to = String(r.to ?? ""), head = bodyHead(r.body);
     if (!to || CLOSED_HEAD.includes(head)) continue;
     const replied = rows.some((x) => typeof x.seq === "number" && x.seq > (r.seq as number) && String(x.from ?? "") === to && String(x.to ?? "") === seat);
     if (replied || !live.has(to)) continue;
@@ -100,11 +102,14 @@ export default function (pi: ExtensionAPI) {
   }
   // tmux 세션 이름 집합 — 조회 실패(no server 제외) = null(판정 불가)
   function liveSeats(): Set<string> | null {
-    try { const out = execSync('tmux ls -F "#{session_name}"', { encoding: "utf-8", timeout: 7000, stdio: ["ignore", "pipe", "ignore"] }); return new Set(out.split("\n").map((x) => x.trim()).filter(Boolean)); }
-    // r1699: «tmux 없음·서버 없음·세션 0» 은 «살아 있는 좌석 0» 이다(판정 불가 아님) — 그 밖 오류만 판정 불가(null)
-    catch (e) { const err = String((e as { stderr?: unknown }).stderr ?? e) + String((e as { message?: unknown }).message ?? "");
-      if (/no server running|error connecting|ENOENT|not found|Command failed: tmux/.test(err)) return new Set();
-      log(`tmux 조회 실패 ${err.split("\n")[0]}`); return null; }
+    try { const out = execSync('tmux ls -F "#{session_name}"', { encoding: "utf-8", timeout: 7000, stdio: ["ignore", "pipe", "pipe"] }); return new Set(out.split("\n").map((x) => x.trim()).filter(Boolean)); }
+    catch (e) {
+      // r1699 R2(DA astra 반례): «서버 없음 · 세션 없음» 만 «살아 있는 좌석 0» — 그 밖 실패(rc2·알 수 없는 stderr) = 판정 불가(null)
+      const code = (e as { code?: unknown }).code, err = String((e as { stderr?: unknown }).stderr ?? "") + String((e as { message?: unknown }).message ?? "");
+      if (code === "ENOENT") return new Set();   // 이 환경에 tmux 자체가 없다 = 살아 있는 세션 0(조회 실패 아님)
+      if (/no server running|can't find session/.test(err)) return new Set();
+      log(`tmux 조회 실패 ${err.split("\n")[0] || String(e).split("\n")[0]}`); return null;
+    }
   }
   // r1684 ② — 골 원장이 없는 루트(aifp 등) = design/TEAMS.md 에 planner 행이 없음. 그때 골 칸 = 열림 + 세션당 INFO 1줄.
   //   읽는 곳 = 골 표와 «같은 ref»(FT_TEAMS_REF·기본 origin/main) 의 그 파일 — 작업 트리 파일은 보지 않는다(DA R1: 트리만 바꾼 판을 «원장 없음» 으로 오판했다).
