@@ -7,13 +7,13 @@
 #
 # 문법 (SPEC-session-naming-20261005 §2-A):
 #   <프로젝트>-<팀>-<역할>[-<꼬리>]#<N>
-#   프로젝트·팀 = [a-z0-9]+ · 역할 = 예약어 11 · 구분자는 '-' 만 · 대문자·'_'·공백 0 · 길이 ≤ 60
-#   꼬리 = nano 는 카드 slug(필수, [a-z0-9-]+) · 그 밖의 역할 좌석은 에이전트(claude|codex|opencode|cmd|pi) 필수
+#   프로젝트·팀 = [a-z0-9]+ · 역할 = 예약어 12 · 구분자는 '-' 만 · 대문자·'_'·공백 0 · 길이 ≤ 60
+#   꼬리 = nano 는 카드 slug(필수, [a-z0-9-]+) · qa 는 에이전트 또는 «범위 1토큰 + 에이전트» · 그 밖의 역할 좌석은 에이전트(claude|codex|opencode|cmd|pi) 필수
 #   #N = 계보 번호(0 이상 정수, 필수)
 # 이행 기간의 구 이름(ft-·FB_·KakaoBot …)은 허용 목록 없이 그대로 REJECT 한다 — 신규 이름 검사용이다.
 set -uo pipefail
 
-ROLES="master arch da tester checker analyst pm nano repro tool desk"
+ROLES="master arch da tester checker analyst pm nano repro tool desk qa"
 AGENTS="claude codex opencode cmd pi"
 MAXLEN=60
 
@@ -46,6 +46,7 @@ if [ "$ROLE" = "nano" ]; then
   [ -n "${TAIL:-}" ] || rej "nano 는 카드 slug 꼬리 필수"
 else
   [ -n "${TAIL:-}" ] || rej "역할 좌석은 에이전트 꼬리 필수 ($AGENTS)"
+  if [ "$ROLE" = "qa" ]; then case "${TAIL%-*}" in "$TAIL") ;; *-*) rej "qa 범위는 1토큰만 ('${TAIL%-*}') — <qa>-<범위>-<에이전트>";; esac; TAIL="${TAIL##*-}"; fi
   has "$AGENTS" "$TAIL" || rej "역할 좌석 꼬리는 에이전트여야 한다 ($AGENTS) — '$TAIL'"
 fi
 

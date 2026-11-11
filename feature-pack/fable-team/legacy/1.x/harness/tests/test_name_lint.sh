@@ -29,6 +29,16 @@ rej_case "byz-v65-nano#0" "nano 는 카드 slug"
 rej_case "byz-v65-master-gpt#1" "에이전트여야"
 rej_case "byz-v65--master-claude#1" "빈 토큰"
 rej_case "byz-v65#1" "토큰 부족"
+[ "$(bash "$LINT" --roles | awk '{print $NF}')" = "qa" ] && ok "예약어 끝 = qa" || bad "예약어 끝 = qa"   # r1650 ⓐ
+pass_case "byz-harness-qa-ft20-pi#3"   # ⓑ qa 범위 1토큰 + 에이전트
+pass_case "byz-harness-qa-pi#3"
+pass_case "byz-planner-qa-claude#2"
+rej_case "byz-harness-qa#1" "에이전트 꼬리 필수"            # ⓒ
+rej_case "byz-harness-qa-ft20#1" "에이전트여야"
+rej_case "byz-harness-qa-a-b-pi#1" "qa 범위는 1토큰만"
+rej_case "byz-harness-da-ft20-pi#1" "에이전트여야"          # ⓓ 범위 꼬리는 qa 만
+for n in byz-issues-master-sol#59 byz-harness-da-astra#1; do rej_case "$n" "에이전트여야"; done   # ⓔ sol·astra = 모델 이름 · 꼬리 에이전트 아님
+rej_case "byz-harness-da-gpt#1" "에이전트여야"
 long="byz-v65-nano-$(printf 'a%.0s' $(seq 1 60))#0"
 rej_case "$long" "길이"
 bash "$LINT" >/dev/null 2>&1; [ $? -eq 2 ] && ok "인자 없음 exit 2" || bad "인자 없음 exit"
