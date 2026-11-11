@@ -48,7 +48,10 @@ def mark(me, seqs, kind):
     got = {r["seq"] for r in _rows(me) if "mark" not in r}
     want = [int(x) for x in re.findall(r"\d+", seqs)]
     miss = [s for s in want if s not in got]
-    if miss:
+    if miss and os.environ.get("FT_MBOX_MARK_SKIP_MISSING") == "1":   # r1665 — [인계] 에 실은 억제 doorbell seq = 옛 좌석이 recv 한 적 없다(큐에 남아 후계 recv 몫) → 표시 0
+        sys.stderr.write("NOTE 영수 없는 seq %s — 큐에 남아 후계 recv 몫(표시 0)\n" % ",".join(map(str, miss)))
+        want = [s for s in want if s in got]
+    elif miss:
         sys.stderr.write("REJECT 영수 없는 seq %s — 내가 recv 한 쪽지만 표시한다\n" % ",".join(map(str, miss))); sys.exit(3)
     _append(me, [{"seq": s, "mark": kind, "ts": time.strftime("%Y-%m-%dT%H:%M:%S")} for s in want])
     print("MARKED %s %s %s" % (me, kind, ",".join(map(str, want)) or "0"))
@@ -159,6 +162,10 @@ def handover_body(old, new, extra=()):
                                          r.get("body_full") or "mailbox.log.jsonl seq %s" % r["seq"])
         (asks if r["from"] == "slack-oppa" or _head(r["body"]) in ASK_HEADS else rest).append(ln)
     rest += [ln for ln in _resent(old, new) if ln not in rest]   # r1653 ⓒ — 미받음 항목 재적재(받음 끝난 항목 0)
+    # ★r1665 ⓐ — 억제된 doorbell 은 «닫는 사건이 옛 좌석 recv» 뿐인데 증류 게이트 승계에서는 그 recv 가 막힌다 → 항목으로 넘겨 후계 [레디] 가 닫게 한다★
+    seen = {m.group(1) for m in (re.match(r"- (#\S+) ", ln) for ln in asks + rest) if m}
+    rest += ["- #%s [억제 doorbell] 미전달분 (전문: mailbox.log.jsonl seq %s)" % (s, s)
+             for s in _held_seqs(old) if re.fullmatch(r"\d+", s) and "#%s" % s not in seen]
     hs, note = _h_items()
     bg = _bg_items(old) + ["- bg:x%d %s" % (i + 1, e) for i, e in enumerate(extra)]
     n = len(asks) + len(rest) + len(hs) + len(bg)
@@ -207,6 +214,15 @@ def _held_file(seat):
     return os.path.join(sd, "doorbell-held", re.sub(r"[^A-Za-z0-9._#-]", "_", seat))
 
 
+def _held_seqs(seat):
+    """r1665 — 억제된 doorbell 의 seq 목록(첫 줄 `held …` 그 뒤 `seq=<N>` · mbox_wakegate.sh 와 같은 꼴) · 파일 없음 = []"""
+    try:
+        with open(_held_file(seat), encoding="utf-8") as f:
+            return [l.strip()[4:] for l in f if l.startswith("seq=")]
+    except OSError:
+        return []
+
+
 def _open_work(seat):   # r1539 — 받을 일 0 이면 False · 있으면 True · 판정 불가 = None(지금처럼 [인계] 요구)
     tool = os.environ.get("FT_SEAT_OPEN_WORK") or os.path.join(
         os.path.dirname(os.path.abspath(__file__)), "..", "bin", "ft-seat-open-work.py")
@@ -228,15 +244,12 @@ def close_check(seat, need_ready=True, verdict=False):
     need_ready=False(retire 관문) = ③ 만 · True(닫기 관문) = 후계 있는 옛 세션만 ③+② — 후계 없는 닫기(나노·판정 닫기)는 승계 검사 대상 아님.
     verdict=True(--verdict · 사람 판정 1건) = 후계가 있으면 ②③ 면제 — 판정 번호의 원장 실재는 ft-seat-close.sh 가 본다(r1481)."""
     # ★r1476 — 억제된 doorbell 이 남은 채 닫으면 그 쪽지는 영영 안 깨운다★ (닫는 사건 = 후속 doorbell 뒤 파일 삭제).
-    hf = _held_file(seat)
-    if os.path.exists(hf):
-        try:
-            with open(hf, encoding="utf-8") as f:
-                seqs = [l.strip()[4:] for l in f if l.startswith("seq=")]
-        except OSError:
-            seqs = []
+    hs = _held_seqs(seat)
+    if hs or os.path.exists(_held_file(seat)):
+        nxt = (mbox_lineage.chain(seat) or [mbox_lineage.retired_to(seat) or "<후계>"])[0]   # r1665 ⓓ — 막았으면 후계가 칠 명령을 다음 줄에 준다
         print("REJECT %s 억제된 doorbell %d건 미전달(seq %s) — recv 먼저" % (
-            seat, len(seqs), ",#".join(seqs[:10]) or "?"))
+            seat, len(hs), ",#".join(hs[:10]) or "?"))
+        print("다음(후계 pane): bash mbox.sh recv '%s' → bash mbox.sh handover '%s' '%s' → bash ft-seat-retire.sh '%s' '%s'" % (nxt, seat, nxt, seat, nxt))
         return 3
     chain = mbox_lineage.chain(seat)   # r1600 — 직계 후계부터 사슬 끝까지(여러 번 승계된 좌석)
     succ = chain[-1] if chain else mbox_lineage.retired_to(seat)
