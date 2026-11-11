@@ -80,8 +80,16 @@ def proc_of(pid, engine="claude"):
     return lstart, ""
 
 
+def rollout_meta(path):
+    """rollout 첫 줄 session_meta payload | None — 못 읽거나 session_meta 가 아니면 None(그 후보는 빼지 않는다)."""
+    try: m = json.loads(open(path, encoding="utf-8").readline())
+    except (OSError, ValueError): return None
+    p = m.get("payload") if isinstance(m, dict) and m.get("type") == "session_meta" else None
+    return p if isinstance(p, dict) else None
+
+
 def bind_codex(pane_pid, ident, home):
-    """R400 codex 좌석: pane 자손(깊이 ≤4 · npm→node→codex) 중 실행 주체 codex 가 연 ~/.codex/sessions/**/rollout-*.jsonl «정확히 1개» ∧ 첫 줄 session_meta id == 파일명 끝 ∧ 시작시각 ≤ mtime · codex 프로세스 없음 = None."""
+    """R400 codex 좌석: pane 자손(깊이 ≤4 · npm→node→codex) 중 실행 주체 codex 가 연 ~/.codex/sessions/**/rollout-*.jsonl 중 «서브에이전트 rollout(첫 줄 thread_source=subagent)을 뺀 나머지 정확히 1개» ∧ 첫 줄 session_meta id == 파일명 끝 ∧ 시작시각 ≤ mtime · 서브에이전트 부모 사슬이 그 1개에 닿지 않으면 결속 0 · codex 프로세스 없음 = None."""
     level, pairs, found = [pane_pid], [], False
     for _ in range(4):
         nxt = []
@@ -92,14 +100,19 @@ def bind_codex(pane_pid, ident, home):
             lf = sh("lsof", "-Fn", "-p", d) if (cm := sh("ps", "-o", "comm=", "-p", d)) and os.path.basename(cm[1].strip()) == "codex" else ()
             if cm is None or lf is None: return res(2, "ps·lsof 조회 불가(시간 초과)")
             found |= bool(lf); pairs += [(d, ln[1:]) for ln in (lf[1].splitlines() if lf else []) if ln.startswith(f"n{home}/.codex/sessions/") and re.search(r"/rollout-[^/]*\.jsonl$", ln)]
-    if not found or len(pairs) != 1: return res(1, f"codex rollout {len(pairs)}개") if found else None
-    (pid, path), pr = pairs[0], proc_of(pairs[0][0], "codex")
-    if isinstance(pr, dict): return pr
-    try: m = json.loads(open(path, encoding="utf-8").readline())
-    except (OSError, ValueError): m = None
-    p = m.get("payload") if isinstance(m, dict) and m.get("type") == "session_meta" else None
-    uuid, cwd = (p.get("id") or "", p.get("cwd") or "") if isinstance(p, dict) else ("", "")
+    if not found: return None
+    metas = [(q, rollout_meta(q[1])) for q in pairs]
+    subs = {m.get("id"): m.get("parent_thread_id") or "" for _, m in metas if m and m.get("thread_source") == "subagent"}
+    keep = [(q, m) for q, m in metas if not (m and m.get("thread_source") == "subagent")]
+    if len(keep) != 1: return res(1, f"codex rollout {len(keep)}개")
+    (pid, path), p = keep[0]
+    if isinstance(pr := proc_of(pid, "codex"), dict): return pr
+    uuid, cwd = (p.get("id") or "", p.get("cwd") or "") if p else ("", "")
     if not (uuid and cwd and path.endswith(f"-{uuid}.jsonl")): return res(1, "rollout id·cwd 없음")
+    for sid, par in subs.items():
+        cur, seen = par, {sid}
+        while cur in subs and cur not in seen: seen.add(cur); cur = subs[cur]
+        if cur != uuid: return res(1, "subagent 부모 불일치")
     if (started := lstart_epoch(pr[0])) is None or started > os.path.getmtime(path) + 1: return res(1, "시간 모순: 프로세스 시작시각 > rollout mtime")
     sess, win, pane = re.fullmatch(r"(.+):(@\d+)\.(%\d+)", ident).groups()
     return res(0, "", pid=int(pid), uuid=uuid, cwd=cwd, jsonl=path, name=None, name_source=None, engine="codex", binding=dict(session=sess, window=win, pane=pane, pid=int(pid), lstart=pr[0], source="codex-open-fd"))
