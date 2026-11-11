@@ -8,9 +8,10 @@
 - 개설 필수조건: 나노 개설 = `ft-nano-spawn … --base feature/rag-transplant` 만 쓴다(판단 여지 0). origin/main 개설은 금지다 — origin/main 에는 정본 문서 2개(arch-20261028-appreg.md · arch-20261029-appB.md)가 없다(git cat-file -e rc128 · feature/rag-transplant 는 rc0 · DA aifp 4096 R1).
 - 쓰기 자리: 새 나노 worktree(feature/rag-transplant 에서 갈라진 것) 하나뿐 · 산출 = `<나노 worktree>/.fable-team/state/airag/detector-s0s1-plan.sh`(state 폴더 = ignore · 나노가 폴더를 만든다)
 - 읽기 출처(쓰기 0): /Users/yoonhwan/Project/ai-feature-pack/.worktrees/rag-transplant — 기존 rag-transplant worktree 는 읽기만 한다. state 파일(opread-rh-terminal-test.sh · tcc-log-20261018-0945.txt)·발주문 전문은 가지 미추적이라 새 worktree 에 없다 → 이 절대경로에서 읽는다
-- 상태: 대기 · 2026-11-05 airag master#10 작성 · 2026-11-12 정본 꼴 재작성(aifp-ft-arch-pi#1 · aifp 4093 · r1410 실사건 선행)
+- 상태: 완성 · 2026-11-12 08:17 · aifp-ft-arch-pi#2
 - 설치: 없음 — 계획 파일 1개(state 폴더 · ignore 대상) · 사람 실행은 ft-hil h
 - 정본 영향 없음: 정본 판정표(arch-20261028-appreg.md §4)는 바꾸지 않는다 · 계획 파일만
+- 규칙: 없음 — 터미널 시험 계획 파일과 판정 기록만 남기는 카드라 새 규칙·훅·게이트가 없다
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
@@ -60,3 +61,5 @@ airag 골 원장(design/aifp/GOAL-LEDGER-airag.md) A03 / 닫는 증거(원장 �
 - 2026-11-12 · 정본 꼴 재작성 — aifp-ft-arch-pi#1(aifp 4093 · harness#207 4092 · r1410 실사건 선행) · 내용·범위 = 원래 카드 3줄 + 발주문 전문의 계약·금지·끝선 그대로 옮김 · 새 범위 0
 - 2026-11-12 · DA REJECT 보정(aifp 4096 R1) — aifp-ft-arch-pi#2 · base = feature/rag-transplant 필수 · 쓰기 = 새 나노 worktree · rag-transplant worktree = 읽기 출처만
 - 2026-11-12 · 끝 줄 1·2·3 원래 증거 대조·기입(aifp-ft-arch-pi#2 · aifp 4119 · DA 4116 상태 의견) · 나노 새로 열지 않음(재작성 0) · 다음 = DA 닫힘 판정문 → 완성 이동
+- 2026-11-12 08:17 — 대기→진행 · 좌석 aifp-ft-arch-pi#2
+- 2026-11-12 08:17 — 진행→완성 · 좌석 aifp-ft-arch-pi#2 · DA /Users/yoonhwan/Project/ai-feature-pack/.worktrees/aifp-airag-cards-state/design/aifp/DA-airag-detector-close-20261112.md#§1
