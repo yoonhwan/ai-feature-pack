@@ -121,6 +121,10 @@ mkv allow12 "$A12" "$DAO"; sa "$A12" 12 "$VF"
 [ "$rc" = 0 ] && has "^STANDING-OK $A12 "; ck "ⓐ-tail4 판정 값이 «APPROVE»·«APPROVE — …»·«APPROVE (…)» 꼴 = 통과(값 허용 폭 고정)" $?
 fresh; grant; mkda rev6 "$A6" APPROVE; printf -- '- 판정: APPROVE 아님 (HOLD)\n' >> "$DAO"; mkv rev6 "$A6" "$DAO"; sa "$A6" 6 "$VF"
 rej "ⓑ3c 반례(arch): «- 판정: APPROVE 아님 (HOLD)» 줄 → 거절(값이 정확히 APPROVE 아님 · 앞 «APPROVE » 만 보고 통과하던 구멍)" "$A6" '⑤ DA 마지막 codex 블록이 APPROVE 아님\(첫 줄: 판정: APPROVE · 판정 아닌 줄: - 판정: APPROVE 아님 \(HOLD\)\)'
+fresh; grant; mkda ind16 "$A6" APPROVE; printf -- '  - 판정: HOLD\n' >> "$DAO"; mkv ind16 "$A6" "$DAO"; sa "$A6" 6 "$VF"
+rej "ⓑ3d 반례(DA codex#10): 들여쓴 «  - 판정: HOLD» → 거절(앞 공백 있는 bullet 인식)" "$A6" '⑤ DA 마지막 codex 블록이 APPROVE 아님\(첫 줄: 판정: APPROVE · 판정 아닌 줄:   - 판정: HOLD\)'
+fresh; grant; mkda ind26 "$A6" APPROVE; printf -- '  * 판정: HOLD\n' >> "$DAO"; mkv ind26 "$A6" "$DAO"; sa "$A6" 6 "$VF"
+rej "ⓑ3e 반례(DA codex#10): 들여쓴 «  * 판정: HOLD» → 거절(* bullet 도 같은 자리)" "$A6" '⑤ DA 마지막 codex 블록이 APPROVE 아님\(첫 줄: 판정: APPROVE · 판정 아닌 줄:   \* 판정: HOLD\)'
 
 # ══ ⓒ head ≠ A: main 병합만이면 EQUIV 통과(use 줄 da=A) · 자기 변경이 다르면 거절
 git -C "$P" checkout -q -B mv origin/main; echo moved > "$P/feature-pack/fable-team/legacy/1.x/harness/bin/other.sh"; cm "$P" "main moves"; git -C "$P" push -q origin mv:main

@@ -121,7 +121,7 @@ std_verdict() {  # ③④ <판정문> [ref] → V_A V_OUT (ref 기본 refs/remot
 
 std_da_out() {  # ⑤ <원문> <A> — 마지막 codex 블록만 본다(앞 블록·메아리 APPROVE 는 안 센다) · 첫 줄 = `판정: APPROVE` ∧ 블록의 «판정:» 줄 전부 APPROVE(r1664 — DA 는 근거 줄을 끝에 쓴다)
   local f="$1" r m line lm first bad badline
-  r="$(awk '/^codex[[:space:]]*$/ {c=NR; first=""; bad=0; badline=""; next} c && first=="" && NF {first=$0} c && /^[-*]?[[:space:]]*판정:/ {l=$0; sub(/^[-*]?[[:space:]]*판정:[[:space:]]*/, "", l); sub(/[[:space:]]+$/, "", l); if (l != "APPROVE" && l !~ /^APPROVE[[:space:]]*(—|\()/ && !bad++) badline=$0}
+  r="$(awk '/^codex[[:space:]]*$/ {c=NR; first=""; bad=0; badline=""; next} c && first=="" && NF {first=$0} c && /^[[:space:]]*[-*]?[[:space:]]*판정:/ {l=$0; sub(/^[[:space:]]*[-*]?[[:space:]]*판정:[[:space:]]*/, "", l); sub(/[[:space:]]+$/, "", l); if (l != "APPROVE" && l !~ /^APPROVE[[:space:]]*(—|\()/ && !bad++) badline=$0}
     END {if (!c) exit 3; sub(/[ \t\r]+$/, "", first); print first "\t" bad "\t" badline}' "$f")" || std_err "⑤ DA 원문에 codex 블록 없음: $f"
   IFS=$'\t' read -r first bad badline <<<"$r"
   [ "$first" = '판정: APPROVE' ] && [ "$bad" = 0 ] || std_err "⑤ DA 마지막 codex 블록이 APPROVE 아님(첫 줄: ${first:-<빈 블록>} · 판정 아닌 줄: ${badline:-없음})"
