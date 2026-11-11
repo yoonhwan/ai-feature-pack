@@ -14,7 +14,7 @@ eq()  { if [ "$2" = "$3" ]; then ok "$1"; else bad "$1 (기대 '$3' 실제 '$2')
 
 [ -f "$EXT" ] || { echo "FAIL 확장 없음 $EXT"; exit 1; }
 command -v node >/dev/null 2>&1 || { echo "FAIL node 없음"; exit 1; }
-eq "S1 확장 $(wc -l < "$EXT" | tr -d ' ')줄 ≤200" "$([ "$(wc -l < "$EXT" | tr -d ' ')" -le 200 ] && echo yes || echo no)" yes
+eq "S1 확장 $(wc -l < "$EXT" | tr -d ' ')줄 ≤240" "$([ "$(wc -l < "$EXT" | tr -d ' ')" -le 240 ] && echo yes || echo no)" yes # r1669 recv-gate +25줄(200→240)
 eq "S2 좌석 판정 사용 2곳" "$(grep -c 'seatKnown()' "$EXT")" 2
 bash -n "$0" && ok "S3 bash -n rc0" || bad "S3 bash -n rc0"
 

@@ -26,7 +26,7 @@ command -v node >/dev/null 2>&1 || { echo "FAIL node 없음"; exit 1; }
 [ -f "$WAKE" ] || { echo "FAIL 확장 없음 $WAKE"; exit 1; }
 
 # ── 정적 계약 ─────────────────────────────────────────────────────────────────────────
-eq "S1 ft-mbox-wake ≤200줄" "$([ "$(wc -l < "$WAKE" | tr -d ' ')" -le 200 ] && echo yes || echo no)" yes
+eq "S1 ft-mbox-wake ≤240줄" "$([ "$(wc -l < "$WAKE" | tr -d ' ')" -le 240 ] && echo yes || echo no)" yes # r1669 recv-gate +25줄(200→240)
 eq "S2 창 기본값 = r1540 창 값(FT_H_DONE_QUIET_MS)" "$(grep -c 'FT_USER_BASH_QUIET_MS ?? hQuiet' "$WAKE")" 1
 eq "S3 check 첫 줄이 창 판정" "$(grep -c 'if (uUntil > Date.now()) return;' "$WAKE")" 1
 eq "S4 input 핸들러 1개" "$(grep -c 'pi.on("input"' "$WAKE")" 1
