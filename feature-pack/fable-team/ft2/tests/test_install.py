@@ -50,13 +50,13 @@ def log_of(root):
 def test_a_b_d_install_switch_mismatch_and_verify(tmp_path):
     root = installed(tmp_path, "abd")
     assert json.loads(run("status", root)[1]) == {"current": "V1", "versions": ["V1"], "last_op": "install"} and run("verify", root)[0] == 0
-    for version, kwargs, needle, kept in (("V2", {"extra": {".DS_Store": "x\n"}}, "숨은 파일 1개", 1), ("V3", {"drift": True}, "전환 0", 2), ("V4", {"pad": True}, "바이트 sha", 3), ("V5", {"extra": {"x.pyc": "x\n"}}, "숨은 파일", 4), ("V6", {"extra": {"__pycache__/notes.txt": "n\n", "__pycache__/evil.py": "x = 1\n"}}, "숨은 파일", 5)):
+    for version, kwargs, needle, kept in (("V2", {"extra": {".DS_Store": "x\n"}}, "숨은 파일 1개", 1), ("V3", {"drift": True}, "전환 0", 2), ("V4", {"pad": True}, "바이트 sha", 3), ("V5", {"extra": {"x.pyc": "x\n"}}, "숨은 파일", 4), ("V6", {"extra": {"__pycache__/notes.txt": "n\n", "__pycache__/evil.py": "x = 1\n"}}, "숨은 파일", 5), ("V7", {"extra": {"__pycache__/x.cpython-311.pyc/evil.py": "x = 1\n"}}, "숨은 파일", 6)):
         rc, out, err = run("install", make_package(tmp_path, version, **kwargs), root)
         assert (rc, needle in out, err, tail(root), len(list((root / "versions").glob("*.bad-*"))), (root / "versions" / version).exists()) == (1, True, "", "V1", kept, False)  # rename 만
-    assert [(line["op"], line["version"], line["prev"], line["rc"]) for line in log_of(root)] == [("install", "V1", None, 0)] + [("install", v, "V1", 1) for v in ("V2", "V3", "V4", "V5", "V6")]
+    assert [(line["op"], line["version"], line["prev"], line["rc"]) for line in log_of(root)] == [("install", "V1", None, 0)] + [("install", v, "V1", 1) for v in ("V2", "V3", "V4", "V5", "V6", "V7")]
     assert log_of(root)[0]["manifest_sha256"] == hashlib.sha256((root / "versions" / "V1" / "MANIFEST.json").read_bytes()).hexdigest()
     assert sorted(entry.name for entry in root.iterdir()) == ["CURRENT", "install-log.jsonl", "versions"]  # tmp 잔여물 0
-    assert not subprocess.run([sys.executable, "-c", f"import sys; sys.path.insert(0, {str(root / 'versions' / 'V1')!r}); import core.loader"]).returncode and run("verify", root)[0] == 0  # import 뒤 verify rc0
+    assert (not subprocess.run([sys.executable, "-c", f"import sys; sys.path.insert(0, {str(root / 'versions' / 'V1')!r}); import core.loader"]).returncode, run("verify", root)[0], not (root / "versions" / "V1" / "__pycache__" / "e.cpython-311.pyc").mkdir(parents=True), run("verify", root)[0]) == (True, 0, True, 1)  # import 뒤 rc0 · pyc 이름 «폴더» 는 rc1
     (root / "versions" / "V1" / "core" / "loader.py").write_text("print('HI')\n", encoding="utf-8")
     assert run("verify", root)[0] == 1
     (root / "CURRENT").unlink()

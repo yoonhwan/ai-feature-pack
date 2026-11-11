@@ -48,13 +48,13 @@ def log_write(root, op, version, prev, man_sha, rc):
 
 
 def hidden_files(root, known):
-    """숨은·여분 파일 — __pycache__/<이름>.cpython-*.pyc 이고 짝 <이름>.py 가 MANIFEST 에 있으면 재생성물이라 빼고, 그 밖은 다 센다."""
+    """숨은·여분 파일 — __pycache__ 안 면제는 «파일» <이름>.cpython-*.pyc 이고 짝 <이름>.py 가 MANIFEST 에 있을 때뿐, 폴더는 늘 센다."""
     found = []
     for dirpath, dirnames, filenames in os.walk(root):
         prefix = "" if dirpath == root else os.path.relpath(dirpath, root).replace(os.sep, "/") + "/"
-        cache, strip = prefix.endswith("__pycache__/"), prefix[:-len("__pycache__/")]
+        cache = "__pycache__/" in prefix  # 어느 깊이든 __pycache__ 안이면 셈 대상
         found += [prefix + name for name in dirnames + filenames if name.startswith(".") or (cache and not (
-            ".cpython-" in name and name.endswith(".pyc") and f"{strip}{name.split('.')[0]}.py" in known)) or (
+            name in filenames and ".cpython-" in name and name.endswith(".pyc") and f"{prefix[:prefix.rindex('__pycache__/')]}{name.split('.')[0]}.py" in known)) or (
             name.endswith((".pyc", ".pyo")) and not cache)]
     return sorted(found)
 
