@@ -47,6 +47,7 @@ seat_index_follow() {  # r1705 <좌석> <새 카드 절대경로> — 재사용 
   rel="${new#"$root"/}"
   local lk="${seats}.lock" i=0
   until mkdir "$lk" 2>/dev/null; do i=$((i+1)); [ "$i" -le 50 ] || { echo "REJECT 명부 잠금 선점 실패($lk) — 명부 쓰기 0(판정 불가)"; return 1; }; sleep 0.1; done   # R2: 동시 갱신 직렬화
+  trap 'rmdir "$lk" 2>/dev/null' EXIT   # 보정 4: 중간에 죽어도 잠금이 남지 않는다(정상 끝 포함)
   python3 - "$seats" "$seat" "$rel" <<'PY'
 import json, os, sys
 p, seat, rel = sys.argv[1:4]
@@ -67,7 +68,7 @@ except OSError as e:
     print("REJECT 명부 쓰기 실패(%s): %s — 되돌림: 카드는 이미 이동했다" % (p, e)); sys.exit(1)
 print("SEAT-INDEX %s → %s" % (seat, rel))
 PY
-  local prc=$?; rmdir "$lk" 2>/dev/null; return "$prc"
+  local prc=$?; rmdir "$lk" 2>/dev/null; trap - EXIT; return "$prc"
 }
 landed_marker_re() { printf '(닫힘|CLOSE)[[:space:]]*—[[:space:]]*%s[[:space:]]*—[[:space:]]*main' "$1"; }
 [ ! -f "$HERE/ft-team-lib.sh" ] || ( . "$HERE/ft-team-lib.sh" && ft_card_location_ok "$SRC" ) || exit 1   # r447: 명단 새 꼴 팀 카드가 옛 꼴 폴더면 REJECT(이동 0)

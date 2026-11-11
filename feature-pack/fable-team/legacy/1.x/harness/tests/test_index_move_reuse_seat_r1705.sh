@@ -125,6 +125,12 @@ s0=$SECONDS; mv_ "$R10" "$R10/.fable-team/seats-harness.json" "$H/대기/F.md" "
 rmdir "$R10/.fable-team/seats-harness.json.lock"
 card "$R10" harness G; mv_ "$R10" "$R10/.fable-team/seats-harness.json" "$H/대기/G.md" "$S10a"
 [ "$RC" = 0 ] && ok "R2 원본 대조: 잠금이 풀리면 갱신된다" || bad "R2 대조" "rc=$RC :: $OUT"
+# 보정 4 — 잠금 안에서 실패해도 <명부>.lock 이 남지 않는다(깨진 명부 = 읽기/쓰기 단계 실패)
+R11="$(mkroot h10 harness byz-harness-nano-l)"; S11='byz-harness-nano-l#0'
+printf 'not-json\n' > "$R11/.fable-team/seats-harness.json"
+mv_ "$R11" "$R11/.fable-team/seats-harness.json" "$H/대기/A.md" "$S11"
+[ "$RC" != 0 ] && [ ! -e "$R11/.fable-team/seats-harness.json.lock" ] \
+  && ok "보정4 잠금 안 실패 → rc≠0 · 잠금 폴더 남지 않음" || bad "보정4" "rc=$RC lock=$([ -e "$R11/.fable-team/seats-harness.json.lock" ] && echo 남음 || echo 없음) :: $OUT"
 # 변이 W1~W3 (사본 · 원본 대조)
 mut() { R="$T/m-$1"; rm -rf "$R"; mkdir -p "$R"; cp "$BIN"/* "$R/" 2>/dev/null; printf '#!/bin/sh\nexit 0\n' > "$R/ft-index-lint.sh"; python3 - "$R/ft-index-move.sh" "$1" <<'PY'
 import pathlib, sys
