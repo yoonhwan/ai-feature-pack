@@ -295,12 +295,22 @@ def quiet(k, cap):   # ⓕ 닫기 금지 → (True, "") | (False, 사유) · 조
 PACK_REPO = os.environ.get("FT_PACK_REPO") or os.path.expanduser("~/Project/ai-feature-pack")
 
 
-def packed(sha):   # r1701 ③ — 세트 sha 가 팩 리포에 «커밋으로 있고» origin/main 의 조상(착지)이면 참 · 아니면 거짓(지금처럼 제외)
+def pack_squash(sha):   # r1701 ③ — 팩 착지는 squash 라 세트(head)가 조상이 아니다 → 끝줄 «PR #N (head <세트>)» 로 본다(기존 파서 그대로)
+    rc, out, _e = run(["git", "-C", PACK_REPO, "log", "-n", "20", "--fixed-strings", f"--grep=(head {sha})", "--format=%h%x1f%B%x1e", "origin/main"], 7.0)
+    for rec in (out.split("\x1e") if rc == 0 else []):
+        _h, _, body = rec.strip("\n").partition("\x1f")
+        ls = [x for x in body.split("\n") if x.strip()]
+        if ls and ls[-1].startswith("main 자동 병합"): ls = ls[:-1]
+        if ls and re.fullmatch(r"PR #(\d+) \(head " + sha + r"\)", ls[-1].strip()): return True
+    return False
+
+
+def packed(sha):   # r1701 ③ — 세트 sha 가 팩 리포에 «커밋으로 있고» origin/main 착지(ff 조상 ∨ squash 끝줄)면 참 · 아니면 거짓(지금처럼 제외)
     if not re.fullmatch(r"[0-9a-f]{40}", sha or ""): return False
     rc, _o, _e = run(["git", "-C", PACK_REPO, "rev-parse", "--verify", "--quiet", sha + "^{commit}"], 7.0)
     if rc != 0: return False
     rc, _o, _e = run(["git", "-C", PACK_REPO, "merge-base", "--is-ancestor", sha, "origin/main"], 7.0)
-    return rc == 0
+    return rc == 0 or pack_squash(sha)
 
 
 def judge(t, k, row, card_dirs):   # → 줄 | None(제외 · exc 에 사유) · 조회 실패 = Unjudged
@@ -324,6 +334,8 @@ def judge(t, k, row, card_dirs):   # → 줄 | None(제외 · exc 에 사유) ·
     if not head or not re.fullmatch(r"[0-9a-f]{40}", head): raise Unjudged("git status HEAD rc=1")
     if dirty: exc.append(f"제외 {k} 미커밋 {dirty}줄"); return None
     if sha_card != head and not packed(sha_card): exc.append(f"제외 {k} 세트 {sha_card[:9]} ≠ HEAD {head[:9]}"); return None   # r1701 ③ 팩에서 일한 나노 = 세트가 팩 origin/main 착지면 완료 근거
+    in_pack = sha_card != head   # r1701 ③ — 세트가 팩 착지면 «판정 sha = 세트 · 리포 = 팩» (pane HEAD 로 다시 보면 갈래 줄이 0 이 된다)
+    jsha, jrepo = (sha_card, PACK_REPO) if in_pack else (head, cwd)
     if AUTO or GATE:   # ⓕ 닫기 금지 — 목록(AUTO=1)과 직접 재계산(GATE) 공통 · 둘 다 아닐 때만 지금 그대로
         ok_q, why_q = quiet(k, cap)
         if not ok_q: exc.append(f"제외 {k} {why_q}"); return None
@@ -332,31 +344,31 @@ def judge(t, k, row, card_dirs):   # → 줄 | None(제외 · exc 에 사유) ·
     if key is None: raise Unjudged("git 리포 찾기 rc=1")
     fetch_once(key, top)
     chk()
-    rc, _ = need(["git", "-C", cwd, "merge-base", "--is-ancestor", head, "refs/remotes/origin/main"], cap(), "git merge-base", ok=(0, 1))
+    rc, _ = need(["git", "-C", jrepo, "merge-base", "--is-ancestor", jsha, "refs/remotes/origin/main"], cap(), "git merge-base", ok=(0, 1))
     landed, main_sha, pr = ("ff", None, "-") if rc == 0 else (None, None, "-")
     if rc == 0:
-        _, o2 = need(["git", "-C", cwd, "rev-parse", "--short=9", "refs/remotes/origin/main"], cap(), "git rev-parse"); main_sha = o2.strip()
+        _, o2 = need(["git", "-C", jrepo, "rev-parse", "--short=9", "refs/remotes/origin/main"], cap(), "git rev-parse"); main_sha = o2.strip()
     else:
         chk()
-        _, o2 = need(["git", "-C", cwd, "log", "-n", "20", "--fixed-strings", f"--grep=(head {head})", "--format=%h%x1f%B%x1e", "refs/remotes/origin/main"], cap(), "git log")
+        _, o2 = need(["git", "-C", jrepo, "log", "-n", "20", "--fixed-strings", f"--grep=(head {jsha})", "--format=%h%x1f%B%x1e", "refs/remotes/origin/main"], cap(), "git log")
         for rec in o2.split("\x1e"):
             h, _, body = rec.strip("\n").partition("\x1f")
             ls = [x for x in body.split("\n") if x.strip()]
             if ls and ls[-1].startswith("main 자동 병합"): ls = ls[:-1]   # r1169 docam 꼬리 1줄
-            m = re.fullmatch(r"PR #(\d+) \(head " + head + r"\)", ls[-1].strip()) if ls else None
+            m = re.fullmatch(r"PR #(\d+) \(head " + jsha + r"\)", ls[-1].strip()) if ls else None
             if m: landed, main_sha, pr = "squash", h, m.group(1); break
         if landed is None and (AUTO or GATE):   # r1670 승인 갈래 — 착지 없이 DA APPROVE·인수·원격 보존이 다 서면 닫기 차례
             chk(); _, _so = need([SEAT_STATUS, "turn", k], cap(), "ft-seat-status turn"); _st = (_so.split() or [""])[0]
             if _st != "IDLE": exc.append(f"제외 {k} 상태 {_st or '-'} (IDLE 아님)"); return None   # ⓑ·ⓕ: 승인 갈래도 «지금 IDLE» 일 때만
-            ok_a, info = approve_ok(sec, head, str(root))
-            if ok_a: chk(); ok_a, info = (True, info) if on_remote(cwd, br, head, cap) else (False, "HEAD 가 origin 원격 가지에 없음")
+            ok_a, info = approve_ok(sec, jsha, str(root))
+            if ok_a: chk(); ok_a, info = (True, info) if (in_pack or on_remote(cwd, br, head, cap)) else (False, "HEAD 가 origin 원격 가지에 없음")
             seq, body = 0, ""
             if ok_a:
                 seq, body = last_sent(k)
                 if not body: ok_a, info = False, "좌석 보고 본문 없음(①·② 값 0)"
             if ok_a:
-                chk(); _, msha = need(["git", "-C", cwd, "rev-parse", "--short=9", "refs/remotes/origin/main"], cap(), "git rev-parse")
-                return (f"닫기 차례 {k} 팀={t} 갈래=승인 set={head} main={msha.strip()}"
+                chk(); _, msha = need(["git", "-C", jrepo, "rev-parse", "--short=9", "refs/remotes/origin/main"], cap(), "git rev-parse")
+                return (f"닫기 차례 {k} 팀={t} 갈래=승인 set={jsha} main={msha.strip()}"
                         f" — bash ft-nano-close.sh {k} --approved {info} --result {body} --recv {seq}")
             exc.append(f"제외 {k} {info}"); return None
         if landed is None: exc.append(f"제외 {k} main 에 산출 없음(ff 0 · squash 끝줄 0)"); return None

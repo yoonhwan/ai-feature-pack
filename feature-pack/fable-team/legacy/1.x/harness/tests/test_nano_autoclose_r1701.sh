@@ -127,6 +127,15 @@ printf '%s\n' "$SEAT" > "$T/sess"; printf '%s\n' "$WT" > "$T/cwd/$SEAT"; printf 
 cd_run() { OUT="$(cd "$ROOT" && PATH="$T/ck:$FK:$PATH" FT_ROOT="$ROOT" FT_PACK_REPO="$PACK" \
   FT_CLOSE_DUE_SEAT_STATUS="$FK/seat-status.sh" FAKE_SESS="$T/sess" FAKE_CWD_DIR="$T/cwd" FAKE_SS_DIR="$T/ss" \
   bash "$1" --all --why 2>&1)"; RC=$?; }
+# ⓓ2 실사건 꼴 — BYZ HEAD 미착지 + 팩 squash 끝줄 «PR #930 (head <세트>)» · 세트는 pane HEAD 와 다름
+git -C "$PACK" checkout -q -b side "$S2"; git -C "$PACK" checkout -q main
+git -C "$PACK" merge -q --no-ff --no-edit "$S2" -m "PR #930 (head $S2)" 2>/dev/null || { git -C "$PACK" checkout -q -b tmp930 "$S"; git -C "$PACK" merge -q --no-ff --no-edit side -m "PR #930 (head $S2)" 2>/dev/null; }
+SQ="$(git -C "$PACK" rev-parse HEAD)"; git -C "$PACK" update-ref refs/remotes/origin/main "$SQ"
+card_ref_sq() { printf '# 인덱스: card1\n## 상태\n- 세트: %s · 시험: bash x rc=0 · 이슈: 0\n' "$S2" > "$WT/design/teams/harness/indices/아카이브/2026-11/card1.md"; git -C "$WT" add -A; git -C "$WT" commit -qm "card $S2"; git -C "$WT" push -q origin HEAD:main; }
+card_ref_sq; cd_run "$BIN/ft-nano-close-due.sh"
+has "$OUT" "닫기 차례 $SEAT" "ⓓ2 세트가 팩 squash 착지(끝줄 PR #930) → 닫기 차례(pane HEAD 미착지여도)"
+hasnt "$OUT" "세트 $S2" "ⓓ2 «세트 ≠ HEAD» 제외 0"
+git -C "$PACK" update-ref refs/remotes/origin/main "$S"   # ⓓ2 가 만든 squash 를 되돌린다(뒤 사례 ⓔ·ⓖ 는 착지 전/없음)
 card "$S"; cd_run "$BIN/ft-nano-close-due.sh"
 has "$OUT" "닫기 차례 $SEAT" "ⓕ 카드가 아카이브/2026-11/ 에만 있어도 세트 줄을 읽는다"
 hasnt "$OUT" "카드 파일 없음" "ⓕ «카드 파일 없음» 0"
@@ -156,7 +165,7 @@ PY
 card "$S"; mut3 M3; cd_run "$T/m-M3/ft-nano-close-due.sh"
 hasnt "$OUT" "닫기 차례 $SEAT" "M3 팩 세트 갈래 삭제 → ⓓ 닫기 차례 0(변이 잡힘)"
 card "$S2"; mut3 M4; cd_run "$T/m-M4/ft-nano-close-due.sh"
-has "$OUT" "닫기 차례 $SEAT" "M4 착지 검사 삭제 → ⓔ 가 닫기 차례(변이 잡힘)"
+hasnt "$OUT" "≠ HEAD" "M4 착지 검사 삭제 → ⓔ 의 «세트 ≠ HEAD» 제외가 사라짐(변이 잡힘)"
 card "$S"; mut3 M5; cd_run "$T/m-M5/ft-nano-close-due.sh"
 has "$OUT" "카드 파일 없음" "M5 아카이브 찾기 삭제 → ⓕ «카드 파일 없음»(변이 잡힘)"
 # ── 짝 cmp
