@@ -13,7 +13,7 @@
 - 묶음 판정: 1건 — 표식과 가드는 한 계약의 양쪽이라 나누지 않는다 · 전환 실행 checker 는 r1677 로 뗀다(관측자 독립)
 - 겹침 대조: r1674(진행 · ft-seat-retire.sh PI ADAPTER) → 이 카드가 retire 머리에 가드 1줄을 더하면 같은 파일 · r1674 착지 뒤 그 위에서(선행) · r1670(진행 · ft-nano-close*.sh) → 닫기 도구는 쓰기 입구 표에 넣지 않는다(닫기는 전환 뒤에도 옛 좌석 정리용) · 겹침 1(순서로 해소)
 - 제안서: 없음 — 고칠 안 1개(표식 + 입구 가드)라 제안서 불필요
-- 상태: 진행 · 2026-11-11 18:30 대기→진행(나노 aifp-ft-nano-r1675-ft20-cond18-old-writer-block-switc#0) · 착지 cec9ec25(PR #926) · 설치 h8297 · 나노 CLOSED(landed-pr 926) · 완성 이동 = DA 닫힘 판정문 뒤 · 처음 = arch-pi#298 카드 초안(#284592 ①) · 2026-11-11 aifp 이식(byz-aifp-arch-pi#0 · #3869 ①)
+- 상태: 완성 · 2026-11-12 07:55 · aifp-ft-arch-pi#1
 - 설치: 있음 — 팩 원본 → 라이브 bin 설치 h(master) · 나노는 설치하지 않는다(r1672) · 끝 = h8297 rc0(2026-11-11 19:44 · BYZ .fable-team/state/team-main/harness/h-r1675-team-switch-guard-install-20261111.sh · «INSTALLED r1675 bin 8 cmp=0 · BYZ comm/mbox.sh cmp=0 · shim ft-team-switch.sh·ft20-switch-lib.sh») · 라이브 1.1.292 ft-team-switch.sh·ft20-switch-lib.sh = 팩 origin/main f522d309 판과 blob 같음(실측 aifp-ft-arch-pi#1 · 23:5x)
 - 착지: cec9ec255eafe7b3113079689525d50b77db6cb4(팩 main · PR #926 · ft-merge-land · 세트 8f6226f9)
 - 선행: r1674 착지됨(팩 356c4327 · PR #917 · 설치 h8260 · master #3869 회신 기준) → 해소 · 실 표식 쓰기는 조건 16 실 설치(r1614 ⓖ) + 전환 h(오빠 D) 뒤
@@ -91,3 +91,4 @@ ft 2.0 조건 18 은 두 팀(harness·planner)을 2.0 으로 옮긴 뒤 1.x 쪽 
 - 크기 상한 준수: ft-team-switch 80줄(80) · 가드 함수 20줄(20) · 시험 134줄(150) · 회귀 10종 직렬 재실행 — 앞 판 F 와 동일(seat_retire 3 · dead_pi 0 · mbox_bridged 1 · mv_fail_reason 0 · rule_line 0 · archive_r1000 2 · nano_team_env 11 · r1043 4 · role_spawn_ft_root 0 · tick_master 4)
 - 회귀(표식 0) 2회차: test_seat_retire.sh 177P 3F(50초) · test_seat_retire_dead_pi_r1674.sh 39P 0F(2초) · test_index_move_rule_line.sh 17P 0F(5초) · test_mbox_bridged_send_r1562.sh 12P 1F(52초) — 1회차와 FAIL 줄 목록 동일(늘어난 FAIL 0 · 200줄 미달 FAIL 은 이 파일의 앞 판부터 있던 것)
 - 2026-11-11 19:15 — 착지: PR #926(head 8f6226f92ba34af7604c3d91be990ca8ccc00ba7 · CLOSED = ft-merge-land) → 팩 main cec9ec255eafe7b3113079689525d50b77db6cb4 · feature-pack 트리 = 세트 8f6226f9 와 같음(diff 0) · 설치 h = harness 대기(planner 설치 HIL · «INSTALLED» 오면 설치 cmp0·실사건 뒤 완성 이동) · 카드 칸 = 진행 그대로
+- 2026-11-12 07:55 — 진행→완성 · 좌석 aifp-ft-arch-pi#1 · DA /Users/yoonhwan/Project/ai-feature-pack/.worktrees/aifp-r1675-done/design/aifp/DA-r1675-close-20261112.md#§1
