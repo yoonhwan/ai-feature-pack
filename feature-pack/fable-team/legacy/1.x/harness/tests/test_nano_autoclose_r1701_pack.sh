@@ -17,6 +17,7 @@ hasnt "$OUT" "닫기 차례 $SEAT" "ⓔ 착지 전 세트(팩 커밋으로만) �
 # ⓖ 어느 리포에도 없는 세트 → 제외
 card 2222222222222222222222222222222222222222; cd_run "$BIN/ft-nano-close-due.sh"
 hasnt "$OUT" "닫기 차례 $SEAT" "ⓖ 세트 sha 가 어느 리포에도 없음 → 제외(근거 0)"
+has "$OUT" "≠ HEAD" "ⓖ 제외 사유 = «세트 … ≠ HEAD»"
 # ⓓ2 진짜 squash — merge --squash + 끝줄 «PR #930 (head <세트>)» 단일 커밋 · 세트는 조상이 아니다
 git -C "$PACK" checkout -q -B sq "$S"; git -C "$PACK" merge -q --squash "$S2" >/dev/null 2>&1 || true
 git -C "$PACK" commit -q -m "squash $S2" -m "PR #930 (head $S2)"
@@ -36,14 +37,28 @@ has "$OUT" "갈래=승인 set=$S2" "ⓓ3 미착지 팩 세트 + DA APPROVE + 팩
 git -C "$PACK" update-ref -d refs/remotes/origin/hold
 card_da "$S2"; cd_run "$BIN/ft-nano-close-due.sh"
 hasnt "$OUT" "갈래=승인" "ⓓ4 팩 원격 가지에 없는 세트 → 갈래=승인 0(제외)"
-# 변이 M3~M6 — 사본에서만
+# 변이 M3~M6 — 사본과 «원본» 을 같은 픽스처로 나란히 돌려 반대 결과까지 본다(헛변이 0)
 card "$S"; mut3 M3; cd_run "$T/m-M3/ft-nano-close-due.sh"
 hasnt "$OUT" "닫기 차례 $SEAT" "M3 팩 커밋 갈래 삭제 → ⓓ 닫기 차례 0(변이 잡힘)"
-card "$S2"; mut3 M4; cd_run "$T/m-M4/ft-nano-close-due.sh"
-hasnt "$OUT" "≠ HEAD" "M4 팩 존재 검사 항상 참 → ⓔ 의 «세트≠HEAD» 제외 사라짐(변이 잡힘)"
+card "$S"; cd_run "$BIN/ft-nano-close-due.sh"
+has "$OUT" "닫기 차례 $SEAT" "M3 원본 대조: 닫기 차례 1줄"
+card 2222222222222222222222222222222222222222; mut3 M4; cd_run "$T/m-M4/ft-nano-close-due.sh"
+hasnt "$OUT" "≠ HEAD" "M4(X4 꼴) 팩 존재 검사 항상 참 → ⓖ 의 «세트 … ≠ HEAD» 사유가 사라짐(변이 잡힘)"
+card 2222222222222222222222222222222222222222; cd_run "$BIN/ft-nano-close-due.sh"
+has "$OUT" "≠ HEAD" "M4 원본 대조: ⓖ 에 «세트 … ≠ HEAD» 사유가 있다"
 card "$S"; mut3 M5; cd_run "$T/m-M5/ft-nano-close-due.sh"
 has "$OUT" "카드 파일 없음" "M5 아카이브 찾기 삭제 → ⓕ «카드 파일 없음»(변이 잡힘)"
+card "$S"; cd_run "$BIN/ft-nano-close-due.sh"
+hasnt "$OUT" "카드 파일 없음" "M5 원본 대조: «카드 파일 없음» 0(아카이브에서 읽는다)"
+# M6 — squash 상태를 «직전에» 다시 걸고 본다(위 ⓓ3·ⓓ4 가 origin/main 을 S 로 되돌렸다)
+git -C "$PACK" checkout -q -B sq2 "$S"; git -C "$PACK" merge -q --squash "$S2" >/dev/null 2>&1 || true
+git -C "$PACK" commit -q -m "squash $S2" -m "PR #930 (head $S2)"
+git -C "$PACK" update-ref refs/remotes/origin/main "$(git -C "$PACK" rev-parse HEAD)"
+git -C "$PACK" merge-base --is-ancestor "$S2" origin/main 2>/dev/null && bad "M6 픽스처: 세트가 조상이다(squash 아님)" "" || ok "M6 픽스처: 세트는 조상이 아니다(squash)"
 card "$S2"; mut3 M6; cd_run "$T/m-M6/ft-nano-close-due.sh"
 hasnt "$OUT" "닫기 차례 $SEAT" "M6 judge squash 파서 끔 → ⓓ2 닫기 차례 0(변이 잡힘)"
+card "$S2"; cd_run "$BIN/ft-nano-close-due.sh"
+has "$OUT" "닫기 차례 $SEAT" "M6 원본 대조: squash 착지 → 닫기 차례 1줄"
+git -C "$PACK" update-ref refs/remotes/origin/main "$S"   # 되돌림
 cmp -s "$BIN/ft-nano-close-due.sh" "$BIN/../kit/fable-team/bin/ft-nano-close-due.sh" && ok "짝 cmp0 ft-nano-close-due.sh" || bad "짝 다름" ""
 finish
