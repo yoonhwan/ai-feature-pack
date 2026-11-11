@@ -16,7 +16,7 @@ T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 SECS0=$SECONDS
 
 # ── 픽스처: main 이 뒤로 가 있는 워크트리 모음(이름 = 사건 번호) ──
-mkw() { git -C "$W" worktree add -q -b "nano/$1" "$T/$1" "$M0"; }   # mkw <이름>
+mkw() { git -C "$W" worktree add -q -b "wip/$1" "$T/$1" "$M0"; }   # mkw <이름>
 uniq1() { echo "u $1" > "$T/$1/u_$1.txt"; git -C "$T/$1" add "u_$1.txt"; git -C "$T/$1" commit -q -m "uniq $1"; }
 info() { printf '%s' "$2" > "$T/$1/.worktree-info.json"; }   # info <이름> <내용>
 wcm() { git -C "$T/$1" commit -q -a -m "$2"; }
@@ -30,7 +30,7 @@ uniq1 h4; info h4 '{broken'
 uniq1 h5; info h5 '{"base":"origin/side"}'
 uniq1 h7
 echo "dirty" >> "$T/h8/a.txt"
-git -C "$T/h9" checkout -q --orphan nano/h9o; git -C "$T/h9" rm -rfq .; echo o > "$T/h9/o.txt"; git -C "$T/h9" add o.txt; git -C "$T/h9" commit -q -m orphan
+git -C "$T/h9" checkout -q --orphan wip/h9o; git -C "$T/h9" rm -rfq .; echo o > "$T/h9/o.txt"; git -C "$T/h9" add o.txt; git -C "$T/h9" commit -q -m orphan
 for f in f1 f2 f3; do echo "$f" > "$T/h10/$f.txt"; git -C "$T/h10" add "$f.txt"; git -C "$T/h10" commit -q -m "h10 $f"; done
 echo "new" > "$T/h11/n1.txt"; echo "new" > "$T/h11b/n1.txt"
 uniq1 h13; uniq1 h14; info h14 '{"base":"origin/main"}'
@@ -54,7 +54,7 @@ git -C "$W" update-ref refs/heads/main "$(git -C "$T/h13" rev-parse HEAD)"      
 BD="$BIN"
 cnt() {
   local nm="$1" base="${2:-origin/main}"
-  local out; out="$(cd / && FT_HEAD_SYNC_SKIP="^(main|side|nano/(?!${nm}\$).*)\$" python3 -I "$BD/ft_head_lag.py" --summary --repo "$W" --base "$base" --bin "$BD" 2>"$T/err")"
+  local out; out="$(cd / && FT_HEAD_SYNC_SKIP="^(main|side|wip/(?!${nm}\$).*)\$" python3 -I "$BD/ft_head_lag.py" --summary --repo "$W" --base "$base" --bin "$BD" 2>"$T/err")"
   case "$out" in *"베이스 뒤처짐 1곳"*) N=1;; *) N=0;; esac
 }
 c_H1() { cnt h1; [ "$N" = 0 ]; }

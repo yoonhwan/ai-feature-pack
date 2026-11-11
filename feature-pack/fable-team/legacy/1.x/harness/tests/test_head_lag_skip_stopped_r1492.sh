@@ -31,7 +31,7 @@ echo '{"_master":"byz-teama-master-claude#1"}' > "$T/.fable-team/seats-teama.jso
 echo '{"_master":"byz-teamb-master-claude#2"}' > "$T/.fable-team/seats-teamb.json"
 MA="byz-teama-master-claude#1"; MB="byz-teamb-master-claude#2"
 mkwt() { git -C "$W" worktree add -q -b "$2" "$T/$1" "$M0"; echo "$1" > "$T/$1/w_$1.txt"; git -C "$T/$1" add "w_$1.txt"; git -C "$T/$1" commit -q -m "work $1"; }
-mkwt wtA nano/wtA; mkwt wtB nano/wtB
+mkwt wtA wip/wtA; mkwt wtB wip/wtB
 TM new-session -d -s 'byz-teama-nano-claude#0' -c "$T/wtA"
 TM new-session -d -s 'byz-teamb-nano-claude#0' -c "$T/wtB"
 git -C "$W" commit -q --allow-empty -m c1; git -C "$W" push -q origin main; git -C "$W" fetch -q origin
@@ -80,7 +80,7 @@ git -C "$T/wtA" merge -q --no-edit origin/main; rm -f "$ST/PENALTY_STOP"; run
 echo '{"_master":"byz-teamc-master-claude#3"}' > "$T/.fable-team/seats-teamc.json"
 echo '{"_master":"byz-teamd-master-claude#4"}' > "$T/.fable-team/seats-teamd.json"
 MC="byz-teamc-master-claude#3"; MD="byz-teamd-master-claude#4"
-mkwt wtS nano/wtS
+mkwt wtS wip/wtS
 TM new-session -d -s 'byz-teamc-nano-claude#0' -c "$T/wtS"
 TM new-session -d -s 'byz-teamd-nano-claude#0' -c "$T/wtS"
 RS="$(python3 -c 'import os,sys;print(os.path.realpath(sys.argv[1]))' "$T/wtS")"

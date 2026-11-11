@@ -30,7 +30,7 @@ mkwt() { git -C "$W" worktree add -q -b "$2" "$T/$1" "$3"; echo "$1" > "$T/$1/wo
 keys() { python3 -c 'import json,sys;print(" ".join(sorted(json.load(open(sys.argv[1]))["seats"])))' "$SF"; }   # 새 판 꼴 {"v":2,"seats":{…}}
 rec() { python3 -c 'import json,sys;r=json.load(open(sys.argv[1]))["seats"][sys.argv[2]];print(r["seq"],r["ts"],r["n"])' "$SF" "$2" 2>/dev/null; }
 ver() { python3 -c 'import json,sys;d=json.load(open(sys.argv[1]));print(type(d.get("v")).__name__, d.get("v"))' "$SF"; }
-L="$(sha "$W" HEAD)"; mkwt wa nano/wa "$L" 'byz-teama-nano-claude#0'; RA="$(cd "$T/wa" && pwd -P)"
+L="$(sha "$W" HEAD)"; mkwt wa wip/wa "$L" 'byz-teama-nano-claude#0'; RA="$(cd "$T/wa" && pwd -P)"
 mainc c1
 
 # ── ⓐ 같은 W · main 이 움직여도 재발송 0 (지금 판 = 2통)
@@ -48,7 +48,7 @@ mainc c5; run --event; [ "$(msgs)" = 3 ] && [ "$(rec x "$RA" | cut -d' ' -f3)" =
 # ── ⓓ 워크트리 2 · 팀 2 → 팀별 1통 · 문구 = 기준판(origin/main ft_head_lag.py)과 글자 같음
 OLD="$T/old"; mkdir -p "$OLD"; cp "$BIN/ft_head_lag_seats.py" "$BIN/ft-head-skip.txt" "$OLD/"
 git -C "$HERE" show origin/main:feature-pack/fable-team/harness/bin/ft_head_lag.py > "$OLD/ft_head_lag.py"
-mkwt wb nano/wb "$L" 'byz-teamb-nano-claude#0'
+mkwt wb wip/wb "$L" 'byz-teamb-nano-claude#0'
 rm -f "$SF"; : > "$MBOX_LOG"; PY="$OLD/ft_head_lag.py" run --event; cp "$MBOX_LOG" "$T/old.log"
 rm -f "$SF"; : > "$MBOX_LOG"; run --event
 [ "$(msgs)" = 2 ] && [ "$(grep -c '^byz-teama-master-claude#1' "$MBOX_LOG")" = 1 ] && [ "$(grep -c '^byz-teamb-master-claude#2' "$MBOX_LOG")" = 1 ]; ck "ⓓ 팀 A·B 각 1통" $?
@@ -91,7 +91,7 @@ printf '{"v": 2, "seats": {"%s": {"ts": %s, "n": 1}}}' "$RA" "$FT_HEAD_LAG_NOW" 
 run --event; ! grep -q WARN <<<"$out"; ck "r2 다음 실행 WARN 0" $?
 # ── r3(DA r2 반례): 이름 끝이 @<40hex> 인 실제 워크트리 — 새 판 키는 글자 그대로(해석 0)
 echo '{"_master":"byz-teamc-master-claude#3"}' > "$T/.fable-team/seats-teamc.json"
-mkwt "wx@$A40" nano/wx "$L" 'byz-teamc-nano-claude#0'; RX="$(cd "$T/wx@$A40" && pwd -P)"; rm -f "$SF"; : > "$MBOX_LOG"
+mkwt "wx@$A40" wip/wx "$L" 'byz-teamc-nano-claude#0'; RX="$(cd "$T/wx@$A40" && pwd -P)"; rm -f "$SF"; : > "$MBOX_LOG"
 w=0; for i in 1 2 3; do run --event; grep -q WARN <<<"$out" && w=1; mainc "x$i"; done
 [ "$(grep -c '^byz-teamc' "$MBOX_LOG")" = 1 ] && [ "$(rec x "$RX" | cut -d' ' -f3)" = 1 ] && [ "$w" = 0 ]; ck "r3 DA r2 반례: wx@<a×40> --event 3회(main 커밋 사이) → 발송 1 · 그 경로 기록 n=1 · WARN 0" $?
 printf '{"v": 2, "seats": {"%s": {"seq": 5, "ts": %s, "n": 1}}}' "$RX" "$(( FT_HEAD_LAG_NOW - 3600 ))" > "$SF"; : > "$MBOX_LOG"; run --event

@@ -63,13 +63,13 @@ git -C "$W" fetch -q origin; mkpr 11 pr11 origin/main; land 11 --approve-sha "$P
 git -C "$W" checkout -q main; git -C "$W" reset -q --hard origin/main
 mainc c1 18000; C1="$(sha "$W" HEAD)"; mainc c2 7200; C2="$(sha "$W" HEAD)"
 echo '{"_master":"byz-teama-master-claude#1"}' > "$T/.fable-team/seats-teama.json"; echo '{"_master":"byz-teamb-master-claude#2"}' > "$T/.fable-team/seats-teamb.json"
-mkwt lagA nano/lagA "$L" 'byz-teama-nano-claude#0'; mkwt lagB nano/lagB "$C1" 'byz-teamb-nano-claude#0'; mkwt lagC nano/lagC "$C2" 'byz-teamb-nano-codex#1'
-mkwt lagD nano/lagD "$C1"; mkwt lagR release/x "$L" 'byz-teama-nano-claude#3'
+mkwt lagA wip/lagA "$L" 'byz-teama-nano-claude#0'; mkwt lagB wip/lagB "$C1" 'byz-teamb-nano-claude#0'; mkwt lagC wip/lagC "$C2" 'byz-teamb-nano-codex#1'
+mkwt lagD wip/lagD "$C1"; mkwt lagR release/x "$L" 'byz-teama-nano-claude#3'
 : > "$MBOX_LOG"; rm -f "$T/.fable-team/state/head-lag.json"
 lag --event
 A="$(grep -c '^byz-teama-master-claude#1' "$MBOX_LOG")"; B="$(grep -c '^byz-teamb-master-claude#2' "$MBOX_LOG")"
 [ "$rc" = 0 ] && [ "$(msgs)" = 2 ] && [ "$A" = 1 ] && [ "$B" = 1 ]; ck "ⓑ 뒤처진 팀 A·B master 에 각 1통(팀당 1통)" $?
-grep '^byz-teama' "$MBOX_LOG" | grep -q '베이스 뒤처짐' && grep '^byz-teama' "$MBOX_LOG" | grep -q 'lagA(nano/lagA)' && grep '^byz-teama' "$MBOX_LOG" | grep -q '2커밋' && grep '^byz-teama' "$MBOX_LOG" | grep -q '5시간' && grep '^byz-teama' "$MBOX_LOG" | grep -q 'merge --no-edit'; ck "ⓑ 알림에 워크트리·브랜치·N커밋·N시간·조치 줄(R882 — 자기 워크트리 merge)" $?
+grep '^byz-teama' "$MBOX_LOG" | grep -q '베이스 뒤처짐' && grep '^byz-teama' "$MBOX_LOG" | grep -q 'lagA(wip/lagA)' && grep '^byz-teama' "$MBOX_LOG" | grep -q '2커밋' && grep '^byz-teama' "$MBOX_LOG" | grep -q '5시간' && grep '^byz-teama' "$MBOX_LOG" | grep -q 'merge --no-edit'; ck "ⓑ 알림에 워크트리·브랜치·N커밋·N시간·조치 줄(R882 — 자기 워크트리 merge)" $?
 ! grep -qE 'ft-head-sync|--apply' "$MBOX_LOG"; ck "ⓐ R886 알림에 실행 지시(ft-head-sync·--apply) 0 — 쪽지 1통이 실행 1개를 낳지 않음" $?
 ! grep -E 'lagC|lagD|lagR' "$MBOX_LOG" | grep -q '^byz-teama'; ck "ⓑ A 알림에 남의 워크트리·최신(lagC)·좌석 없는 곳(lagD)·release 브랜치(lagR) 없음" $?
 grep '^byz-teamb' "$MBOX_LOG" | grep -q 'lagB' && ! grep -q 'lagD' "$MBOX_LOG"; ck "ⓑ B 알림 = lagB · 좌석 없는 lagD 알림 0" $?
