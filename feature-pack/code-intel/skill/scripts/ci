@@ -61,9 +61,8 @@ need_tilth() { [ -n "$TILTH" ] || die_missing tilth "  npx -y tilth --version   
 # ── LSP crash-loop 판정 (r1636) ───────────────────────────────────────────
 #  probe 0.6.0 은 워크스페이스 캐시의 MVCC logical log 끝이 잘리면 기동 중 panic 한다("couldn't read
 #  enough data") → 데몬 즉사 → 호출은 25초를 기다린다(하드 룰 12). 창(기본 120초) 안 DB crash 2회 이상 = crash-loop.
-#  crash-log 에는 클라이언트 panic(예: md char-boundary f344d642)도 쌓인다 → 데몬 DB 열기 형태만 센다.
-#  창 «밖» 1건 + 창 «안» 1건은 loop 가 아니다 → 창 안 시각인 항목만 센다(보정 #282277).
-#  $1=slow 이면 crash-log 없이도 Uptime 0s 2회 연속을 본다(doctor). rc0=crash-loop · rc1=정상
+#  crash-log 에는 클라이언트 panic(예: md char-boundary f344d642)도 쌓인다 → 데몬 DB 열기 형태만 세고, 창 «안» 시각인 항목만 센다(보정 #282277).
+#  $1=slow 이면 crash-log 없이도 Uptime 0s 2회 연속을 본다(doctor·refs 공통 판정). rc0=crash-loop · rc1=정상
 _lsp_uptime() { "$PROBE" lsp status 2>/dev/null | sed -n 's/^ *Uptime: *//p' | head -1; }
 _ep() { date -j -u -f '%Y-%m-%dT%H:%M:%S' "${1%%.*}" +%s 2>/dev/null || echo 0; }
 _lsp_crash_state() {
@@ -88,7 +87,7 @@ _lsp_crash_state() {
 _lsp_ensure() {
   command -v "${PROBE:-probe}" >/dev/null 2>&1 || return 0
   local cs st
-  if cs="$(_lsp_crash_state)"; then echo "판정 불가 LSP 데몬 crash-loop — ci lsp repair ($cs)" >&2; exit 3; fi
+  if cs="$(_lsp_crash_state slow)"; then echo "판정 불가 LSP 데몬 crash-loop — ci lsp repair ($cs)" >&2; exit 3; fi
   st="$("$PROBE" lsp status 2>/dev/null)"
   case "$st" in
     *"No language servers initialized"*|*"Status: Not"*|*"not connected"*|*"unavailable"*)
@@ -262,14 +261,15 @@ case "$cmd" in
       repair)
         wsroot="${PROBE_LSP_WORKSPACE_CACHE_DIR:-$HOME/Library/Caches/probe/lsp/workspaces}"; only=""
         [ "${1:-}" = "--ws" ] && { only="$2"; shift 2; }
-        "$PROBE" lsp shutdown >/dev/null 2>&1; ts="$(date +%Y%m%d%H%M%S)"; moved=0
+        "$PROBE" lsp shutdown >/dev/null 2>&1 || { echo "판정 불가 repair — lsp shutdown rc≠0 · 아무것도 옮기지 않았다" >&2; exit 3; }
+        ts="$(date +%Y%m%d%H%M%S)"; moved=0
         for d in "$wsroot"/*; do
           [ -d "$d" ] && [ -f "$d/cache.db-log" ] || continue; case "$d" in *.corrupt-*) continue;; esac
           [ -n "$only" ] && [ "$(basename "$d")" != "$only" ] && continue
           mv "$d" "$d.corrupt-$ts" 2>/dev/null || { echo "판정 불가 repair — 옮기기 실패(지우지 않았다): $d" >&2; exit 3; }
           echo "옮김: $d → $d.corrupt-$ts"; moved=$((moved+1))
         done
-        "$PROBE" lsp init -w "${CI_LSP_SCOPE:-$PWD}" >/dev/null 2>&1
+        "$PROBE" lsp init -w "${CI_LSP_SCOPE:-$PWD}" >/dev/null 2>&1 || { echo "판정 불가 repair — lsp init rc≠0 (옮긴 캐시 $moved 개 · 되돌림 = 이름 되돌리기)" >&2; exit 3; }
         up="$("$PROBE" lsp status 2>/dev/null | sed -n 's/^ *Uptime: *//p' | head -1)"
         case "$up" in ""|0s|0sec|0secs) echo "판정 불가 repair — 데몬이 Uptime>0 으로 서지 않았다 (status: ${up:-none})" >&2; exit 3 ;; esac
         echo "repair OK — 데몬 Uptime $up · 옮긴 워크스페이스 $moved 개"; exit 0
