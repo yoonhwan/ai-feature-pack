@@ -14,7 +14,7 @@ export interface VerbSpec { verb: string; required: string[]; optional: string[]
 export const VERBS: Record<string, VerbSpec> = {
   ft2_claim: { verb: "claim", required: ["work", "holder"], optional: ["rotation", "confirm_by"] },
   ft2_start: { verb: "start", required: ["work", "holder", "gen"], optional: [] },
-  ft2_effect: { verb: "effect", required: ["work", "holder", "gen", "effect"], optional: ["run"] },
+  ft2_effect: { verb: "effect", required: ["work", "holder", "gen", "effect"], optional: [] },
   ft2_result: { verb: "result", required: ["work", "holder", "gen"], optional: ["word"] },
 };
 const STR = { type: "string" } as const;
@@ -25,7 +25,7 @@ export const PARAMETERS: Record<string, unknown> = {
   ft2_start: { type: "object", additionalProperties: false, required: ["work", "holder", "gen"],
     properties: { ...WHERE, work: STR, holder: STR, gen: { type: "integer" } } },
   ft2_effect: { type: "object", additionalProperties: false, required: ["work", "holder", "gen", "effect"],
-    properties: { ...WHERE, work: STR, holder: STR, gen: { type: "integer" }, effect: STR, run: { type: "integer" } } },
+    properties: { ...WHERE, work: STR, holder: STR, gen: { type: "integer" }, effect: STR } },
   ft2_result: { type: "object", additionalProperties: false, required: ["work", "holder", "gen"],
     properties: { ...WHERE, work: STR, holder: STR, gen: { type: "integer" }, word: STR } },
 };
