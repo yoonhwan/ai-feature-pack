@@ -28,7 +28,7 @@ command -v node >/dev/null 2>&1 || { echo "FAIL node 없음"; exit 1; }
 [ -f "$RELOAD" ] || { echo "FAIL 확장 없음 $RELOAD"; exit 1; }
 
 # ── 정적 계약 ─────────────────────────────────────────────────────────────────────────
-eq "S1 ft-mbox-wake ≤200줄" "$([ "$(wc -l < "$WAKE" | tr -d ' ')" -le 200 ] && echo yes || echo no)" yes
+eq "S1 ft-mbox-wake ≤240줄" "$([ "$(wc -l < "$WAKE" | tr -d ' ')" -le 240 ] && echo yes || echo no)" yes # r1669 recv-gate +25줄(200→240)
 eq "S2 ft-reload-request ≤200줄" "$([ "$(wc -l < "$RELOAD" | tr -d ' ')" -le 200 ] && echo yes || echo no)" yes
 eq "S3 조용함 창 기본 20000ms" "$(grep -c 'FT_H_DONE_QUIET_MS ?? 20000' "$WAKE")" 1
 eq "S4 주기 타이머 0(두 파일)" "$(cat "$WAKE" "$RELOAD" | grep -c 'setInterval')" 0

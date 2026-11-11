@@ -26,7 +26,7 @@ command -v node >/dev/null 2>&1 || { echo "FAIL node 없음"; exit 1; }
 [ -f "$EXT" ] || { echo "FAIL 확장 없음 $EXT"; exit 1; }
 
 # ── 정적 계약 ─────────────────────────────────────────────────────────────────────────
-eq "S1 확장 $(wc -l < "$EXT" | tr -d ' ')줄 ≤200" "$([ "$(wc -l < "$EXT" | tr -d ' ')" -le 200 ] && echo yes || echo no)" yes # r1537 로드 줄 +2
+eq "S1 확장 $(wc -l < "$EXT" | tr -d ' ')줄 ≤240" "$([ "$(wc -l < "$EXT" | tr -d ' ')" -le 240 ] && echo yes || echo no)" yes # r1537 로드 줄 +2 · r1669 recv-gate +25줄(200→240)
 eq "S2 내 행 = to ∧ from !== seat(한 줄)" "$(grep -c 'r.to === seat && r.from !== seat' "$EXT")" 1
 eq "S3 턴 도중 표지 = pi.on(agent_start) 1 + check 거르개 1" "$(grep -c 'pi.on("agent_start"' "$EXT")$(grep -c 'inTurn || wakePending' "$EXT")" "11"
 eq "S4 setInterval 0" "$(grep -c 'setInterval' "$EXT")" 0
