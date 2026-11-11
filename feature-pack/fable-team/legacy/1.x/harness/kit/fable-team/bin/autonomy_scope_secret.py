@@ -109,10 +109,18 @@ def _shield_fence(body):   # {줄 번호: 글} 코드 울타리 본문 — 문�
     return dict(zip(nums, out))
 
 
+def _inline_spans(t):   # 줄에서 «짝 맞는» 백틱 구간 글만 — 홀수(짝 안 맞음)면 None = 닫힌 쪽(줄 전체, r1341 A3)
+    runs = [(m.start(), m.end()) for m in re.finditer(r"`+", t)]
+    if not runs or len(runs) % 2:
+        return None
+    out = [t[runs[i][1]:runs[i + 1][0]].strip() for i in range(0, len(runs) - 1, 2)]
+    return [x for x in out if x]
+
+
 def doc_cmds(full, items):   # 문서: plan() 에 넘길 «실행될 수 있는» 줄 — full = 바뀐 뒤 전문(없으면 전부)
     if full is None:
         return "\n".join(t for _n, t in items)
-    ctx, fence, code, body, shield = set(), "", False, [], {}
+    ctx, fence, code, body, shield, inline = set(), "", False, [], {}, set()
     for i, ln in enumerate(full.split("\n"), 1):
         s = ln.strip()
         if s.startswith("```") or s.startswith("~~~"):
@@ -129,9 +137,18 @@ def doc_cmds(full, items):   # 문서: plan() 에 넘길 «실행될 수 있는�
             ctx.add(i)
             if fence and code:
                 body.append((i, ln))
+            # r1341 A1·A2: 울타리·들여쓰기·프롬프트 줄은 «줄 전체» · «`» 때문에만 골라진 줄은 백틱 안 글만(표 «|»·산문 «env» 오탐 0)
+            if not fence and not ln.startswith(("    ", "\t")) and not ln.lstrip().startswith(("! ", "$ ", "> ")):
+                inline.add(i)
     if fence and code:   # 닫히지 않은 울타리도 같은 규칙
         shield.update(_shield_fence(body))
-    return "\n".join(_promptless(shield.get(n, t)) for n, t in items if n in ctx)
+    out = []
+    for n, t in items:
+        if n not in ctx:
+            continue
+        spans = _inline_spans(t) if n in inline else None
+        out += spans if spans is not None else [_promptless(shield.get(n, t))]
+    return "\n".join(out)
 
 
 def _promptless(t):   # «$ »·«! » 는 셸 프롬프트 표시 — 판정기에는 명령만 넘긴다
