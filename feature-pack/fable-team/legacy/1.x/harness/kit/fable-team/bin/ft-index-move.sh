@@ -14,6 +14,7 @@
 #               카드에 `- 정본 영향 없음:` 줄 + DA 보류 가드(ft_da_hold_gate.py --closing) 통과 → indices/아카이브/<YYYY-MM>/ 로 이동.
 #               착지 sha·설치 대조·실사건 검사는 이 갈래에서 하지 않는다(착지 카드는 완성 갈래로 닫는다).
 #   기타 방향 : 되돌리기(진행→대기 등)는 --seat 로 사유만 남기고 허용.
+#   표준승인(r1649): 완성 이동 뒤 그 카드 나노의 ft-nano-close 표준 경로(세션 kill · 명부·원장 · 워크트리 정리 계획 생성만 · 브랜치 삭제 0)는 표준승인 · --cherry-override·--suspended·--superseded-by·--never-started 와 실패 재시도는 h.
 #   슬랙(판정 405) : 카드에 `- 슬랙:` 줄이 있으면 이동 «전»에 대기→진행=착수 답글 · 진행→완성=결과 답글 확인/발송.
 #               도구 = env FT_THREAD_POST(기본 ~/.hermes/scripts/byz_thread_post.py) · 실패·장부 불명·도구 없음 = REJECT(이동 0 · 폴백 0).
 set -uo pipefail
@@ -261,6 +262,43 @@ if [ "$DST" = 완성 ] && [ -n "$LANDED" ]; then
   else echo "WARN ft-branch-archive.sh 없음($HERE) — 끝난 가지 보관 이동 0"; fi
 fi
 printf 'MOVED %s→%s %s\n' "$FROM" "$DST" "$NEW"
+# r1649 — 완성 이동 = 그 카드 나노 좌석 닫기까지 «같은 실행». 닫기 실패·seq 없음만 h 1장으로 넘긴다(이동 rc 불변 · 브랜치 삭제 0).
+nano_close_card() {
+  local card="$1" new="$2" name seats="${FT_SEATS_JSON:-}" root="${ROOT:-$IDX_ROOT}" t hits=() rows rc seq seat hn note plan
+  name="$(basename "$card" .md)"
+  if [ -z "$seats" ] && . "$HERE/ft-team-lib.sh" 2>/dev/null; then
+    while IFS= read -r t; do [ -n "$t" ] && FT_REPO_ROOT="$IDX_ROOT" ft_team_has "$t" "$IDX_ROOT/" indices/ 2>/dev/null && hits+=("$t"); done < <(FT_REPO_ROOT="$IDX_ROOT" ft_team_names 2>/dev/null)
+    [ "${#hits[@]}" = 1 ] && { seats="$root/.fable-team/seats-${hits[0]}.json"; [ "${hits[0]}" != v65 ] || seats="$root/.fable-team/seats.json"; }
+  fi
+  rows="$(python3 - "$seats" "$name" "${FT_MBOX_DIR:-$root/.fable-team/comm}/mailbox.jsonl" <<'PY'
+import json, os, sys
+try: doc = json.load(open(sys.argv[1], encoding="utf-8"))
+except (OSError, ValueError): sys.exit(1)
+last = {}
+try:
+    for ln in open(sys.argv[3], encoding="utf-8"):
+        try: r = json.loads(ln)
+        except ValueError: continue
+        if isinstance(r.get("from"), str) and isinstance(r.get("seq"), int): last[r["from"]] = max(last.get(r["from"], 0), r["seq"])
+except OSError: pass
+ok = lambda v: isinstance(v, dict) and v.get("role") == "nano" and not v.get("_replaced_by") and os.path.basename(v.get("index") or "") == sys.argv[2] + ".md"
+for k in sorted(k for k, v in doc.items() if not k.startswith("_") and ok(v)): print(k + "\t" + str(last.get(k, "")))
+PY
+)" || rows=""
+  [ -n "$rows" ] || { echo "NANO-CLOSE 0석"; return 0; }
+  while IFS=$'\t' read -r seat seq; do
+    [ -n "$seat" ] || continue; rc=0
+    [ -z "$seq" ] || bash "${FT_NANO_CLOSE_BIN:-$HERE/ft-nano-close.sh}" "$seat" --result "$new" --recv "$seq" >/dev/null 2>&1 || rc=$?
+    [ -n "$seq" ] || rc=""
+    [ "$rc" = 0 ] && { echo "NANO-CLOSE $seat rc=0"; continue; }
+    note="ft-nano-close rc=$rc"; [ -n "$seq" ] || note="우편함에 이 좌석 발신 0 — 닫기 0"
+    plan="$(mktemp -d "${TMPDIR:-/tmp}/r1649-close-XXXXXX" 2>/dev/null)" && { plan="$plan/plan.sh"; printf '# %s\n' "$note" > "$plan"; printf 'bash %q %q --result %q%s\n' "${FT_NANO_CLOSE_BIN:-$HERE/ft-nano-close.sh}" "$seat" "$new" "${seq:+ --recv $seq}" >> "$plan"; }   # macOS mktemp 는 접미사 뒤 XXXXXX 를 안 바꾼다 — 폴더 + 고정 이름
+    hn="$(bash "${FT_HIL_BIN:-$HERE/ft-hil.sh}" --add ${plan:+"$plan"} 2>&1 | sed -n 's|.*/h\([0-9][0-9]*\).*|\1|p' | head -1)"   # r1649-mut:hil
+    echo "NANO-CLOSE $seat rc=${rc:--} → h${hn:-?} — $note"
+  done <<< "$rows"
+  return 0
+}
+if [ "$DST" = 완성 ]; then nano_close_card "$SRC" "$NEW"; fi   # r1649-mut:nanoclose — 이 줄이 없으면 사례1 FAIL(이동만 하고 좌석이 남는다)
 [ ! -f "$HERE/ft-merge-lib.sh" ] || { . "$HERE/ft-merge-lib.sh"; fm_land_notify_move "$FROM" "$DST" "$NEW" "${DA:-}"; }   # r1478: 이동 «사건» 1통(카드 팀 _master · 완성 때는 아래 arch 정본 쪽지가 따로) — 실패·부재는 1줄, 이동 rc 불변
 if [ "$DST" = 완성 ]; then
   # 정본 갱신 신호 — 수신자 = 카드 팀 명부(env FT_SEATS_JSON 이 이김) 최상위 `_arch`(팀 현역 arch). 키 없음·빈 값 = 쪽지 0 + INFO 1줄.

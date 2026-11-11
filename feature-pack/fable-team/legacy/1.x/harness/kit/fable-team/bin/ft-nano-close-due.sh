@@ -131,25 +131,56 @@ def fetch_once(key, top):
     if fetched[key]: raise Unjudged(fetched[key])
 
 
-def basis(card_dirs, idx):   # 카드 «## 상태» 절 → (마지막 세트 sha|None, 그 뒤 재개 아님 여부 · 사유)
-    if not idx: return None, "카드 index 칸 없음(근거 0)"
+CARD_REFS = {}
+
+
+def card_ref(team):   # r1649: ft_card_ref 와 같은 규칙 — env(FT_CARD_REF) → 카드 루트 표(state/directive-roots.tsv) 팀·«*» 행 → origin/main · fetch 7초+재시도 1
+    if team not in CARD_REFS:
+        ref = (os.environ.get("FT_CARD_REF") or "").strip()
+        if not ref:
+            try: tab = [l.split("\t") for l in (root / ".fable-team/state/directive-roots.tsv").read_text(encoding="utf-8").split("\n")]
+            except OSError: tab = []
+            hit = [c for c in tab if len(c) > 2 and c[0] == team] or [c for c in tab if len(c) > 2 and c[0] == "*"]
+            ref = (hit[0][2].strip() if hit else "") or "origin/main"
+        if "/" in ref:
+            rem, br = ref.split("/", 1)
+            for _ in range(2):
+                if run(["git", "-C", str(root), "fetch", "-q", "--no-write-fetch-head", rem, f"+refs/heads/{br}:refs/remotes/{ref}"])[0] == 0: break
+        CARD_REFS[team] = ref
+    return CARD_REFS[team]
+
+
+def card_text(card_dirs, idx, team):   # r1649: 카드 본문 — ref 판 먼저, 없으면 지금 후보(워크트리)
+    cm = re.match(r"^(?:.*/)?(design/(?:teams/[^/]+|[^/]+)/indices)/[^/]+/([^/]+)$", idx or "")   # r1649-mut:cardref
+    if cm:   # ref(FT_CARD_REF → 카드 루트 표 → origin/main) 의 진행·완성·대기 판부터 — 뒤처진 카드 워크트리에서 «카드 파일 없음» 0
+        ref = card_ref(team)
+        for stage in ("진행", "완성", "대기"):
+            rc, out, _e = run(["git", "-C", str(root), "show", f"{ref}:{cm.group(1)}/{stage}/{cm.group(2)}"])
+            if rc == 0: return out
     for d in card_dirs:
         f = d / idx
         if f.is_file():
-            try: txt = f.read_text(encoding="utf-8").split("\n")
+            try: return f.read_text(encoding="utf-8")
             except (OSError, UnicodeError): raise Unjudged("카드 읽기 rc=1")
-            st = next((n for n, l in enumerate(txt) if l.startswith("## 상태")), None)
-            if st is None: return None, "카드 상태 절 없음(근거 0)"
-            sec = []
-            for l in txt[st + 1:]:
-                if l.startswith("## "): break
-                sec.append(l)
-            sets = [(n, m.group(1)) for n, l in enumerate(sec) for m in [re.search(r"세트:\s*([0-9a-f]{40})", l)] if m]
-            reop = [n for n, l in enumerate(sec) if "재개(--reopen)" in l]
-            if not sets: return None, "세트 줄 없음(미착수·리서치)"
-            if reop and reop[-1] > sets[-1][0]: return None, "재개 뒤 세트 줄 없음(A12)"
-            return sets[-1][1], ""
-    return None, "카드 파일 없음(근거 0)"
+    return None
+
+
+def basis(card_dirs, idx, team=""):   # 카드 «## 상태» 절 → (마지막 세트 sha|None, 그 뒤 재개 아님 여부 · 사유)
+    if not idx: return None, "카드 index 칸 없음(근거 0)"
+    raw = card_text(card_dirs, idx, team)
+    if raw is None: return None, "카드 파일 없음(근거 0)"
+    txt = raw.split("\n")
+    st = next((n for n, l in enumerate(txt) if l.startswith("## 상태")), None)
+    if st is None: return None, "카드 상태 절 없음(근거 0)"
+    sec = []
+    for l in txt[st + 1:]:
+        if l.startswith("## "): break
+        sec.append(l)
+    sets = [(n, m.group(1)) for n, l in enumerate(sec) for m in [re.search(r"세트:\s*([0-9a-f]{40})", l)] if m]
+    reop = [n for n, l in enumerate(sec) if "재개(--reopen)" in l]
+    if not sets: return None, "세트 줄 없음(미착수·리서치)"
+    if reop and reop[-1] > sets[-1][0]: return None, "재개 뒤 세트 줄 없음(A12)"
+    return sets[-1][1], ""
 
 
 def judge(t, k, row, card_dirs):   # → 줄 | None(제외 · exc 에 사유) · 조회 실패 = Unjudged
@@ -158,7 +189,7 @@ def judge(t, k, row, card_dirs):   # → 줄 | None(제외 · exc 에 사유) ·
     def chk():
         if cap() <= 0: raise Unjudged("좌석 7초 상한 rc=-")
     if "-research#" in k: exc.append(f"제외 {k} 리서치 좌석(자기 근거 칸 = --research 닫기)"); return None
-    sha_card, why_ = basis(card_dirs, row.get("index") or "")
+    sha_card, why_ = basis(card_dirs, row.get("index") or "", t)
     if sha_card is None: exc.append(f"제외 {k} {why_}"); return None
     _, out = need(["tmux", "display-message", "-p", "-t", "=" + k + ":", "#{pane_current_path}"], cap(), "tmux display-message")
     cwd = out.strip()
