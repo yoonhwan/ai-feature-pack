@@ -77,13 +77,8 @@ send_b "$TO" "$(body_hil)"
 case "$OUT" in *"REJECT 오빠 명령 줄 판정기 사유 없음 rc=1 — 판정 불가"*) ok "ⓓ 사유 없음 문구";; *) bad "ⓓ 문구 :: $OUT";; esac
 empty="$(printf '%s\n' "$OUT" | grep -c '^REJECT *$' || true)"; [ "${empty:-0}" = 0 ] && ok "ⓓ 빈 사유 0" || bad "ⓓ 빈 사유 남음 :: $OUT"
 
-# ── ⓔ 회귀: 세 파일의 FAIL 줄 0 (앞 판과 같다)
-for spec in "bash test_mbox_guard.sh" "python3 scripts/test_bang_command_check.py" "python3 scripts/test_mbox_guard_tool_sender.py"; do
-  set -- $spec; cmd="$1"; f="$2"
-  r_out="$(cd "$HERE" && timeout 70 "$cmd" "$f" 2>&1)"; r_rc=$?
-  n_fail="$(printf '%s\n' "$r_out" | grep -c '^FAIL ' || true)"; n_fail="${n_fail:-0}"
-  [ "$r_rc" = 0 ] && [ "$n_fail" = 0 ] && ok "ⓔ 회귀 $f rc=0" || bad "ⓔ 회귀 $f rc=$r_rc FAIL=${n_fail:-0} :: $(printf '%s\n' "$r_out" | grep '^FAIL ' | head -3)"
-done
+# ── ⓔ 회귀 3파일 = 이 파일 밖(하드 룰 22 · test_mbox_guard.sh 하나가 41초) — RUN 줄에 rc·초로 적는다. r1678 보정 1
+#    bash tests/test_mbox_guard.sh · python3 tests/scripts/test_bang_command_check.py · python3 tests/scripts/test_mbox_guard_tool_sender.py
 
 echo "R1678 $([ "$fail" = 0 ] && echo OK || echo "FAIL=$fail")"
 exit "$([ "$fail" = 0 ] && echo 0 || echo 1)"
