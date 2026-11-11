@@ -2,7 +2,7 @@
 # test_da_verdict_head_r1593.sh — r1593 «DA 판정문 머리 4줄» (카드 r1593-da-verdict-head-four-lines-for-d2) ⓐⓑⓓ + 변이 M1 M2
 #   ⓐ da-counterexample.md §4 머리 4줄 꼴 블록 자리표를 가짜 값으로 채운 본문 → live std_field 4번 rc0 · 격리 줄 세트 = 승인 sha · ⓑ 키 4개 각각 1줄
 #   ⓓ §4 프롬프트 끝 지시문을 붙인 프롬프트로 ft-da-codex.sh 1회(PATH 앞 가짜 codex · --cwd = A 로 detached 한 임시 git 사본) → .out 이 live std_da_out rc0(⑤)
-#   M1 «격리: 세트 <A 40hex> · rc=0» → «격리: 세트=<A> rc=0» ⇒ ⓐ FAIL · M2 «최종 답의 마지막 줄도 …» 문장 삭제 ⇒ ⓓ FAIL(변이 = 제품 doc 1곳씩)
+#   M1 «격리: 세트 <A 40hex> · rc=0» → «격리: 세트=<A> rc=0» ⇒ ⓐ FAIL · M2 «최종 답의 첫 줄은 …» 문장 삭제 ⇒ ⓓ FAIL(변이 = 제품 doc 1곳씩)
 #   격리: 임시 STATE·LOG·CODEX_HOME·bg 장부·git 사본만 · 외부 호출 0 · press 0(나노는 쏘지 않는다) · 실 doc 은 읽기만
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"
 set -uo pipefail
@@ -49,13 +49,13 @@ judge "$body"; ck "ⓐ1 꼴 블록을 자리표 채운 본문 = live std_field 4
 [ "$(awk -F'\t' '{print ($4 == "세트 " $1 " · rc=0") ? "ok" : "no"}' "$T/judge.out")" = ok ]; ck "ⓐ2 격리 줄 세트 = 승인 sha(같은 40hex)" $?
 b_ok=0; for k in '승인 sha:' 'DA 원문:' 'DA 원문 sha256:' '격리:'; do n="$(grep -cE -- "^[-*]?[[:space:]]*$k" <<<"$body")"; [ "$n" = 1 ] || { echo "  키 [$k] 줄 수 = ${n:-0}"; b_ok=1; }; done
 ck "ⓑ 키 4개가 각각 정확히 1줄(같은 키 2줄 0)" $b_ok
-# ── ⓓ ⑤: 지시문이 붙은 프롬프트로 래퍼 1회 → 그 .out 이 std_da_out 을 지나는가(가짜 codex 는 «마지막 줄» 문구가 있을 때만 끝줄을 판정: APPROVE 로 낸다)
+# ── ⓓ ⑤: 지시문이 붙은 프롬프트로 래퍼 1회 → 그 .out 이 std_da_out 을 지나는가(가짜 codex 는 지시문에 «첫 줄» 문장이 있을 때만 첫 줄을 판정: APPROVE 로 낸다 · r1664: ⑤ 는 첫 줄 + «판정:» 줄 전부를 본다)
 export CODEX_HOME="$T/codex" FT_BG_FINITE_LEDGER="$T/bg-finite.tsv"; mkdir -p "$CODEX_HOME" "$T/fakebin" "$T/da"; : > "$CODEX_HOME/config.toml"
-printf '%s\n' '#!/usr/bin/env bash' 'p="${@: -1}"' 'printf "%s\n" codex "판정: APPROVE" "근거: 픽스처 DA"' 'case "$p" in *"마지막 줄"*) printf "%s\n" "판정: APPROVE" ;; esac' 'exit 0' > "$T/fakebin/codex"; chmod +x "$T/fakebin/codex"
+printf '%s\n' '#!/usr/bin/env bash' 'p="${@: -1}"' 'case "$p" in *"첫 줄"*) printf "%s\n" codex "판정: APPROVE" "근거: 픽스처 DA" ;; *) printf "%s\n" codex "근거: 픽스처 DA" "판정: APPROVE" ;; esac' 'exit 0' > "$T/fakebin/codex"; chmod +x "$T/fakebin/codex"
 git -C "$T/da" init -q; printf 'x\n' > "$T/da/f.txt"; git -C "$T/da" add -A; git -C "$T/da" -c user.email=t@t -c user.name=t commit -qm A
 DA_SHA="$(git -C "$T/da" rev-parse HEAD)"; git -C "$T/da" checkout -q --detach "$DA_SHA"
 darun() {  # <doc> <프롬프트> <out-dir> → $T/da-run.txt 에 래퍼 출력 · DA_OUT = 마지막 `OUT <경로> rc=` 의 경로
-  printf '질문: 이 카드가 계약을 지키는가\n\n%s\n' "$(block_body "$1" '첫 줄')" > "$2"
+  printf '질문: 이 카드가 계약을 지키는가\n\n%s\n' "$(block_body "$1" '마지막 줄')" > "$2"
   out="$(PATH="$T/fakebin:$PATH" bash "$KIT/ft-da-codex.sh" --cwd "$T/da" --prompt-file "$2" --out-dir "$3" 2>&1)"; rc=$?
   printf '%s' "$out" > "$T/da-run.txt"; DA_OUT="$(sed -nE 's/^OUT (.*) rc=[0-9]+$/\1/p' <<<"$out" | tail -1)"; }
 darun "$DOC" "$T/prompt.txt" "$T/daout"; [ "$rc" = 0 ] && [ -f "$DA_OUT" ] && [ -f "$DA_OUT.meta" ]; ck "ⓓ0 래퍼 1회 rc0 · .out·.meta 생김(--cwd = A detached 사본)" $?
@@ -69,10 +69,10 @@ PY
 judge "$(block_body "$T/mut.md" '승인 sha:' fill)"; rc=$?; [ "$rc" != 0 ] && grep -q '격리:» 줄이 0개' "$T/judge.out"; ck "ⓘM1 «격리: 세트=<A> rc=0» 변이 → ⓐ FAIL(빨강)" $?
 python3 - "$DOC" "$T/mut2.md" <<'PY'
 import sys
-s = open(sys.argv[1], encoding="utf-8").read(); old = "최종 답의 마지막 줄도 `판정: APPROVE` 또는 `판정: HOLD` 로 쓴다 — 그 사이에 근거를 적는다.\n"
+s = open(sys.argv[1], encoding="utf-8").read(); old = "최종 답의 첫 줄은 `판정: APPROVE` 또는 `판정: HOLD` 로 쓴다.\n"
 assert s.count(old) == 1, s.count(old)
 open(sys.argv[2], "w", encoding="utf-8").write(s.replace(old, ""))
 PY
 darun "$T/mut2.md" "$T/prompt2.txt" "$T/daout2"; daout "$DA_OUT" "$DA_SHA"; rc=$?
-[ "$rc" != 0 ] && grep -q '⑤ DA 마지막 codex 블록이 APPROVE 아님' "$T/daout.txt"; ck "ⓘM2 «마지막 줄도 판정:» 문장을 지운 doc → ⓓ FAIL(빨강)" $?
+[ "$rc" != 0 ] && grep -q '⑤ DA 마지막 codex 블록이 APPROVE 아님' "$T/daout.txt"; ck "ⓘM2 «첫 줄은 판정:» 문장을 지운 doc → ⓓ FAIL(빨강)" $?
 [ "$fail" = 0 ] && echo "ALL PASS" || { echo "FAILED $fail"; exit 1; }
