@@ -38,7 +38,7 @@ def is_pi(seat, directory=None):
 
 def live_identity(seat, tmux=None):
     tmux = tmux or os.environ.get("FT_TMUX", "tmux")
-    raw = run([tmux, "list-panes", "-a", "-F",
+    raw = run([tmux, "-u", "list-panes", "-a", "-F",
                "#{session_name}\t#{pane_pid}\t#{pane_current_path}\t#{pane_dead}"])
     panes = [ln.split("\t") for ln in raw.splitlines() if ln.split("\t")[0] == seat]
     if len(panes) != 1 or len(panes[0]) != 4:
@@ -48,7 +48,7 @@ def live_identity(seat, tmux=None):
         raise ValueError("Pi pane 생존/cwd 확인 불가")
     if run(["ps", "-p", pid, "-o", "pid="]).strip() != pid:
         raise ValueError("Pi pane 프로세스 확인 불가")
-    env = run([tmux, "show-environment", "-t", "=" + seat, "TMUXC_PI_SESSION_ID"])
+    env = run([tmux, "-u", "show-environment", "-t", "=" + seat, "TMUXC_PI_SESSION_ID"])
     ids = [ln.partition("=")[2] for ln in env.splitlines() if ln.startswith("TMUXC_PI_SESSION_ID=")]
     if len(ids) != 1 or not ids[0]:
         raise ValueError("Pi session ID 확인 불가")

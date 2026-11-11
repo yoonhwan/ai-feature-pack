@@ -169,6 +169,10 @@ def card_text(card_dirs, idx, team):   # r1649: 카드 본문 — ref 판 먼저
         for stage in ("진행", "완성", "대기"):
             rc, out, _e = run(["git", "-C", str(root), "show", f"{ref}:{cm.group(1)}/{stage}/{cm.group(2)}"])
             if rc == 0: return out
+        rc, out, _e = run(["git", "-C", str(root), "ls-tree", "-d", "--name-only", f"{ref}:{cm.group(1)}/아카이브"])   # r1701 ③ 아카이브로 옮긴 카드도 근거(ls-tree 1회)
+        for sub in (out.split() if rc == 0 else []):
+            rc, out2, _e = run(["git", "-C", str(root), "show", f"{ref}:{cm.group(1)}/아카이브/{sub}/{cm.group(2)}"])
+            if rc == 0: return out2
     for d in card_dirs:
         f = d / idx
         if f.is_file():
@@ -288,6 +292,17 @@ def quiet(k, cap):   # ⓕ 닫기 금지 → (True, "") | (False, 사유) · 조
     return True, ""
 
 
+PACK_REPO = os.environ.get("FT_PACK_REPO") or os.path.expanduser("~/Project/ai-feature-pack")
+
+
+def packed(sha):   # r1701 ③ — 세트 sha 가 팩 리포에 «커밋으로 있고» origin/main 의 조상(착지)이면 참 · 아니면 거짓(지금처럼 제외)
+    if not re.fullmatch(r"[0-9a-f]{40}", sha or ""): return False
+    rc, _o, _e = run(["git", "-C", PACK_REPO, "rev-parse", "--verify", "--quiet", sha + "^{commit}"], 7.0)
+    if rc != 0: return False
+    rc, _o, _e = run(["git", "-C", PACK_REPO, "merge-base", "--is-ancestor", sha, "origin/main"], 7.0)
+    return rc == 0
+
+
 def judge(t, k, row, card_dirs):   # → 줄 | None(제외 · exc 에 사유) · 조회 실패 = Unjudged
     seat_t0 = time.monotonic()
     cap = lambda: 7.0 - (time.monotonic() - seat_t0)
@@ -308,7 +323,7 @@ def judge(t, k, row, card_dirs):   # → 줄 | None(제외 · exc 에 사유) ·
         elif l and not l.startswith("#") and not l.rstrip().endswith((".serena/project.yml", ".serena/")): dirty += 1   # r1670 ⓕ: 잡음(.serena/project.yml · 폴더로 접힌 .serena/)은 미커밋으로 안 센다
     if not head or not re.fullmatch(r"[0-9a-f]{40}", head): raise Unjudged("git status HEAD rc=1")
     if dirty: exc.append(f"제외 {k} 미커밋 {dirty}줄"); return None
-    if sha_card != head: exc.append(f"제외 {k} 세트 {sha_card[:9]} ≠ HEAD {head[:9]}"); return None
+    if sha_card != head and not packed(sha_card): exc.append(f"제외 {k} 세트 {sha_card[:9]} ≠ HEAD {head[:9]}"); return None   # r1701 ③ 팩에서 일한 나노 = 세트가 팩 origin/main 착지면 완료 근거
     if AUTO or GATE:   # ⓕ 닫기 금지 — 목록(AUTO=1)과 직접 재계산(GATE) 공통 · 둘 다 아닐 때만 지금 그대로
         ok_q, why_q = quiet(k, cap)
         if not ok_q: exc.append(f"제외 {k} {why_q}"); return None
