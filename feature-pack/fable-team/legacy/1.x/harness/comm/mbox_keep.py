@@ -12,6 +12,9 @@
   SYSTEM = 자동 도구 보낸 이(SYSTEM_SENDERS) — 머리 유무로 두 등급(SYS_PLAIN → SYS_HEAD)
   NORMAL = 그 밖(좌석↔좌석 쪽지)
   버리는 순서 = SYS_PLAIN → SYS_HEAD → NORMAL · HUMAN 은 안 버린다(넘치면 ERROR 1줄 · 그대로).
+  ★r1651★ 실보고도 «안 버린다» — h 결과·발급(보낸 이 `ft-hil-h<N>`) 과 좌석의 `[완료` 보고는 HUMAN 과 같은 취급.
+        대신 자기에게 보낸 사건 알림(from == to · [착지]·[카드 이동])은 SYS_PLAIN 보다도 먼저 버린다.
+        버린 seq 는 mbox_drops 가 원장에 남겨 받는 좌석의 다음 recv 에 `DROPPED-SEEN` 1줄로 보인다.
 
 ★같은 규칙이 «세 곳»에서 큐를 자른다★ — 이 파일(comm/mbox_ops.py 경로) · kit/ft-mbox.py ·
 skill/ft-mbox.py. 세 사본은 «바이트 동일» 블록이고 시험(tests/test_mbox_keep_human_mail.sh ⓘ)이
@@ -25,6 +28,8 @@ from pathlib import Path as _Path
 
 HUMAN_SENDERS = frozenset({"slack-oppa"})     # 사람(오빠 슬랙) 보낸 이 — 절대 안 버린다
 HUMAN_HEADS = ("[HIL]", "[긴급]")              # 사람 판정 머리(보낸 이가 좌석일 때만 사람으로 본다)
+REAL_HEADS = ("[완료",)                        # r1651 좌석의 납품 보고 — 시스템 보낸 이의 [완료] 는 그대로 시스템
+REAL_SENDERS = _re.compile(r"^ft-hil-h[0-9]+$")   # r1651 h 결과·발급 도구 — 좌석도 자동 명단도 아니다
 # 자동 보낸 이 = 틱·경보·교대 도구(mailbox.log.jsonl 실측 상위 2026-10-25 · 좌석 이름 제외).
 SYSTEM_SENDERS = frozenset({
     "ft-tick", "ft-head-lag", "ft-model-swap", "ft-api-outage", "ft-decision-count",
@@ -93,13 +98,18 @@ def seat(name: str) -> bool:
 def kind(r):
     """행 하나의 등급 — 버리는 순서는 이 값의 «오름차순»(SYS_PLAIN → SYS_HEAD → NORMAL), HUMAN 은 제외."""
     frm = str(r.get("from") or "")
+    if frm and frm == str(r.get("to") or ""):
+        return SYS_PLAIN                  # ★자기에게 보낸 사건 알림([착지]·[카드 이동]) = 가장 먼저 버린다(r1651)
     head = str(r.get("body") or "").lstrip().startswith(HUMAN_HEADS)
+    done = str(r.get("body") or "").lstrip().startswith(REAL_HEADS)
     if frm in HUMAN_SENDERS:
         return HUMAN                      # 보낸 이가 사람 — 머리와 무관
+    if REAL_SENDERS.match(frm):
+        return HUMAN                      # h 완료 보고(ft-hil-h<N>) = 실보고 · 버리지 않는다(r1651)
     if frm in SYSTEM_SENDERS:
         return SYS_HEAD if head else SYS_PLAIN   # 자동 도구는 머리가 있어도 «자동»(사람 칸 0)
-    if head and seat(frm):
-        return HUMAN                      # 좌석이 올린 [HIL]·[긴급] = 사람 판정 대상
+    if (head or done) and seat(frm):
+        return HUMAN                      # 좌석이 올린 [HIL]·[긴급]·[완료] = 사람 판정 대상
     return NORMAL
 
 
