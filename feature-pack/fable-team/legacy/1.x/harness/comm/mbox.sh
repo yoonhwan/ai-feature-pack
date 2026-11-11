@@ -21,9 +21,19 @@ source "$DIR/mbox_guard.sh"
 FT20_ROOT="${FT_FT20_ROOT:-$(cd "$DIR/../.." 2>/dev/null && pwd -P)}"
 FT20_LIB="${FT_BIN:-$DIR/../bin}/ft20-switch-lib.sh"
 # lib 부재 = 설치 누락이지만 «표식이 0 이면 지금 동작 그대로»(카드 ⓑ) — 표식이 하나라도 있으면 판정 불가 rc3(조용한 통과 0)
+# ★그때도 본문은 잃지 않는다★(카드 ⓓ · DA R3): 팀을 판정할 수 없으니 <팀>.held 대신 _unjudged.held 에 같은 꼴로 남기고 경로를 알린다 · 못 쓰면 rc3 + «보류 실패»
 if [ -f "$FT20_LIB" ]; then . "$FT20_LIB"; else
   ft20_switch_active() { compgen -G "$FT20_ROOT/.fable-team/state/ft20-switch/*.json" >/dev/null 2>&1; }
-  ft20_guard_seat() { echo "REJECT 2.0 전환 표식이 있는데 ft20-switch-lib.sh 없음(설치 누락) — 1.x 쓰기 0(판정 불가): $FT20_LIB" >&2; return 3; }
+  ft20_guard_seat() {
+    local hd="$FT20_ROOT/.fable-team/state/ft20-switch/_unjudged.held" f
+    f="$hd/$(date +%Y%m%dT%H%M%S)-$(printf '%s' "${4:-seat}" | tr -c 'A-Za-z0-9._#-' '_')-$$-01.txt"
+    if mkdir -p "$hd" && ( set -C; printf '%s' "${3:-}" > "$f" ) 2>/dev/null; then
+      echo "REJECT 2.0 전환 표식이 있는데 ft20-switch-lib.sh 없음(설치 누락) — 1.x 쓰기 0(판정 불가: 팀을 판정할 수 없어 _unjudged 로 보류) · 보류 $f" >&2
+    else
+      echo "REJECT 2.0 전환 표식이 있는데 ft20-switch-lib.sh 없음(설치 누락) — 1.x 쓰기 0(판정 불가) · 보류 실패(보류 폴더 쓰기 0): $hd" >&2
+    fi
+    return 3
+  }
 fi
 # ★알림 여부는 «보내는 사람»이 아니라 «레지스트리»가 정한다★ (2026-09-14 · 하네스 업그레이드 §2-2 · 오빠 결정 Q1)
 #   실측: --no-notify 를 틱 없는 좌석(arch-fable#40)에 써서 4틱 무응답(CLAUDE.md STRUCTURAL FIX).

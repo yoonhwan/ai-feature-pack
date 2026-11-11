@@ -78,6 +78,11 @@ bash "$RK/bin/ft-nano-spawn.sh" "$R/design/aifp/indices/진행/c.md" --agent pi 
 ck "ⓒ④ ft-nano-spawn rc=$rc (첫 게이트)" "$([ "$rc" = 3 ] && grep -q '2.0 전환됨' "$T/o" && echo 0 || echo 1)"
 bash "$RK/bin/ft-successor-open.sh" 'fx-nano#0' "$R" --name 'fx-nano#1' --agent pi --model deepseek-v4 --body-file "$T/body.txt" >"$T/o" 2>&1; rc=$?
 ck "ⓒ⑤ ft-successor-open rc=$rc (state/successor 쓰기 0)" "$([ "$rc" = 3 ] && [ ! -e "$R/.fable-team/state/successor" ] && echo 0 || echo 1)"
+# ⓓ lib 없는 설치본(표식 있음)에서도 본문은 남는다 — <팀>.held 대신 _unjudged.held + 경로 알림(DA R3)
+mkdir -p "$T/nolib2"
+FT_BIN="$T/nolib2" bash "$RK/comm/mbox.sh" send 'fx-nano#0' 'fx-tester#0' 'lib-없는-본문' >"$T/o" 2>&1; rc=$?
+hp="$(ls "$R/.fable-team/state/ft20-switch"/_unjudged.held/*.txt 2>/dev/null | head -1)"
+ck "ⓓ lib 부재 + 표식 = rc=$rc · 본문 보류(${hp##*/}) · 경로 알림" "$([ "$rc" = 3 ] && [ -n "$hp" ] && [ "$(cat "$hp")" = 'lib-없는-본문' ] && grep -q '보류 ' "$T/o" && echo 0 || echo 1)"
 # ⓒ⑥ 명부에 «없는» 옛 좌석 retire = R282② 가 이름의 팀 명부에 새 행을 쓴다 → 그 팀도 실제 쓰기 대상(DA R1)
 st0="$(python3 -c 'import hashlib,sys;print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$R/.fable-team/seats-aifp.json")"
 bash "$RK/bin/ft-seat-retire.sh" 'byz-aifp-da-codex#100' 'byz-aifp-da-codex#101' >"$T/o" 2>&1; rc=$?
