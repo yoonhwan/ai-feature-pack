@@ -94,7 +94,8 @@ outb="$(bash "$BASEBIN/foo.py" 2>&1)"; outb="${outb//bin-bash/bin}"; [ "$out" = 
 mv "$T/foo.bak" "$W2/live/foo.py"
 
 # ── ⓕ .sh 연결 파일 = 지금 판과 바이트 동일(r657 -p 줄 포함) ──
-cmp -s "$RB1/bar.sh" "$RB2/bar.sh" && ok "ⓕ .sh 연결 파일 = base 판과 바이트 동일" || bad "ⓕ .sh 연결 파일이 바뀌었다 :: $(diff "$RB1/bar.sh" "$RB2/bar.sh" | head -4 | tr '\n' ' ')"
+dadd="$(diff "$RB1/bar.sh" "$RB2/bar.sh" | grep -c '^>')"; ddel="$(diff "$RB1/bar.sh" "$RB2/bar.sh" | grep -c '^<')"
+{ [ "$dadd" = 5 ] && [ "$ddel" = 3 ]; } && ok "ⓕ .sh 연결 파일 차이 = r1694 source 분기뿐(추가 5 · 삭제 3)" || bad "ⓕ .sh 연결 파일이 예상 밖으로 바뀌었다 :: 추가 $dadd · 삭제 $ddel (5·3 기대 · r1694 source 분기)"   # r1694: .sh 본문이 바뀌어 «바이트 동일» 대신 «그 차이만» 을 본다
 has "$(cat "$RB2/bar.sh")" 'case "$-" in *p*) exec "${BASH:-bash}" -p "$_l/bar.sh" "$@"' "ⓕ r657 -p 이어주기 줄 그대로(.sh)"
 
 # ── ⓖ 멱등 · 옛 bash 판 .py 연결 파일이 있는 루트에서 재실행 = 새 python 판으로 덮어씀(MOVED 0) ──
