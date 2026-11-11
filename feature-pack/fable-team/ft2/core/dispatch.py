@@ -97,6 +97,8 @@ class Dispatch:
     def _assign(self, context, work, holder, pre, evidence, resources, rotation):
         state, records = context
         reason = self._eligible(state, work, pre, evidence, resources)
+        if not reason and not self._accepted(records, work):        # r1616: 접수 영수 없는 일은 배정 0
+            reason = "영수-없음"
         if reason:
             return Grant(REFUSED, work, "reject", reason=reason)
         gen, hold, owner = self.ex._claim_plan(state, records, work, holder, rotation)
@@ -132,6 +134,9 @@ class Dispatch:
 
     def _complete(self, context, work, attempt):
         state, records = context
+        if work in (state.get("uncertain") or {}):     # r1624: 미확정 = 완료 유보(쓰기 0 · 계약 case07)
+            return Grant(HOLD, work, "uncertain", attempt, revision=state["revision"],
+                         reason="결과 미확정 = 완료 유보")
         if work in (state.get("done") or {}):
             return Grant(HOLD, work, "complete", attempt, revision=state["revision"], reason="이미 완료 기록")
         owner, assigned = dict((state.get("owners") or {}).get(work) or {}), self._assigned(records, work)
@@ -183,6 +188,10 @@ class Dispatch:
         if not set(self.REQUIRED_EVIDENCE) <= set(evidence):
             return "ver-all"
         return "resource" if [res for res in resources if res in taken] else ""
+
+    def _accepted(self, records, work):
+        """접수 영수 = 같은 work 를 남긴 accept 줄 — 없으면 배정 0(r1616). 판정 본문은 실행권 모듈 한 곳(r1632 ⓓ)."""
+        return execution.accepted(records, work)
 
     def _assigned(self, records, work):
         """배정 계보 = journal 의 dispatch 줄(자원 목록이 비어도 «배정» 이다 · 다른 실행권 owner 와 구별)."""

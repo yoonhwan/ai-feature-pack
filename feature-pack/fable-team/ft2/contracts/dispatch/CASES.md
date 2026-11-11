@@ -53,6 +53,15 @@ r1509 독립 checker 관측(`design/harness/research/ft-2.0/parallel-dispatch/`)
 (DA R1 반증: E3v 에서 세 필드를 지운 표가 rc=0 으로 통과하던 결함 → 지금은 rc=1).
 접두 스냅숏 행(`E1n_mid`)만 `dispatch_journal` · `deliver_by_task` 로 줄인다.
 
+## 구현 계약 사례 (r1616 · 재생 원자료 아님)
+
+이 표는 위 8행(실험 재생)과 달리 **제품 구현**에 붙은 계약 사례다. `replay_check.py` 는 `cases/*.json` 만 보므로
+이 행은 재생 대조에 들어가지 않는다(사례 수 8 불변).
+
+| 사례 | 사건 | 판정 | 계약 문면 | 시험 |
+|---|---|---|---|---|
+| 접수 없는 배정 | 같은 work 의 `kind=accept` 영수가 없는데 `assign` | **접수 거부** · `written=false` · journal·state 바이트 불변 | 「접수한 일만 배정한다」 — 영수는 `intake.submit(command, body, work)` 가 남긴다 | `tests/test_core_assign_requires_accepted.py` ⓑ · M1 |
+
 ## 미시험 (이 표가 닫지 않는다)
 
 실 분산 잠금(다중 호스트·네트워크 분할)과 실제 역할 통합(planner/구현/checker 실좌석 사슬)은 관측이

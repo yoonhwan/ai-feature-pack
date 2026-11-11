@@ -57,7 +57,8 @@ def _caps(node, **caps):
 
 
 def _d(root, cls=None, on_step=None, **caps):
-    return _caps((cls or dispatch.Dispatch)(str(root), TEAM, on_step=on_step), **caps)
+    return _caps((cls or dispatch.Dispatch)(str(root), TEAM, on_step=on_step),
+                 **{"capacity": 1000, **caps})          # r1616: work 마다 접수 1줄이 붙는다
 
 
 def _swap_journal(node, cls):
@@ -99,10 +100,17 @@ def _root_of(node):
     return os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_rs(node).runtime))))
 
 
+def _accept(node, *works):
+    """접수 영수 — r1616 부터 assign 은 같은 work 의 accept 줄을 요구한다(submit 1줄)."""
+    for work in works:
+        assert _rs(node).submit("c-" + work, "x" * 8, work).result == OK
+    return node
+
+
 def _close(node, work, holder=None):
     """닫힌 work — 배정 → 결과 → 전달 → 완료(+재평가). 회수 조건 4개를 만족시키는 최소 흐름."""
     holder = holder or work.lower()
-    assert node.assign(work, holder, evidence=EV).result == OK
+    assert _accept(node, work).assign(work, holder, evidence=EV).result == OK
     assert node.ex.result(work, holder, 1, OK).result == OK
     assert node.deliver(work, "a1").result == OK
     assert node.complete(work, "a1").result == OK
@@ -122,7 +130,7 @@ def _reclaim_scenario(root, cls=None):
     assert rs.submit("card-w1", "x" * 60, work="W1").result == OK
     while not rs.journal.closed():                       # 회전 1회까지 닫힌 work 만 쌓는다
         _close(node, queue.pop(0))
-    assert node.assign("U1", "h9", evidence=EV).result == OK
+    assert _accept(node, "U1").assign("U1", "h9", evidence=EV).result == OK
     assert node.deliver("U1", "a1").result == OK          # 전달 의도는 닫고 work 는 열어 둔다(회수 금지)
     assert rs.submit("card-u1", "x" * 60, work="U1").result == OK
     while len(rs.journal.closed()) < 4:
@@ -417,10 +425,14 @@ def test_e_append_boundary_peak_and_words(tmp_path):
     node = _d(tmp_path / "e", capacity=1000,
               on_step=lambda step: samples.append((step, _usage(node), _files(node))))
     rs = node.rs
-    assert node.assign("W1", "h1", evidence=EV, resources=["R1"]).result == OK
+    assert _accept(node, "W1").assign("W1", "h1", evidence=EV, resources=["R1"]).result == OK
     assert node.deliver("W1", "a1").result == OK
+    _accept(node, *["Q%d" % n for n in range(40)])    # r1632 ⓐ: 실행권도 접수 영수 필요(본문 작음)
     while rs.submit("q-%d" % len(samples), "x" * 5000).result == OK:
         if len(samples) > 400:
+            break
+    while rs.submit("r-%d" % len(rs.records()), "x").result == OK:   # 남은 여유를 1줄 단위로 소진
+        if len(rs.records()) > 400:
             break
     journal_rows, files, total = len(rs.records()), _files(node), rs.journal.total_cap
     refused = node.complete("W1", "a1")                            # k=2 합산 예약 = 첫 쓰기 전 거절
@@ -473,7 +485,7 @@ def test_g_public_faces_and_legacy_guard(tmp_path):
 def test_r2_1_complete_second_append_refused_writes_nothing(tmp_path):
     """DA probe «complete_second_append_refusal» — k=2 예약이 거절하면 journal·state 변화 0."""
     node = _d(tmp_path / "r21", capacity=1000)
-    assert node.assign("W1", "h1", evidence=EV, resources=["R"]).result == OK
+    assert _accept(node, "W1").assign("W1", "h1", evidence=EV, resources=["R"]).result == OK
     assert node.deliver("W1", "a1").result == OK
     rs = node.rs
     while rs.submit("p-%d" % len(rs.records()), "x" * 2000).result == OK:
@@ -489,7 +501,7 @@ def test_r2_1_complete_second_append_refused_writes_nothing(tmp_path):
 
 def test_r2_2_refusal_word_and_written_match_durable(tmp_path):
     """DA probe — (낱말, written) 이 이 호출의 journal 줄 수 변화와 일치한다."""
-    node = _swap_journal(_d(tmp_path / "r22"), _StateOverflow)
+    node = _swap_journal(_accept(_d(tmp_path / "r22"), "W1"), _StateOverflow)   # 접수 = 변이 밖에서
     assert node.assign("W1", "h1", evidence=EV).result == OK
     rows, out = len(node.rs.records()), node.complete("W1", "a1")
     assert (out.result, out.written) == (HOLD, True) and len(node.rs.records()) == rows + 1
@@ -502,7 +514,7 @@ def test_r2_2_refusal_word_and_written_match_durable(tmp_path):
 def test_r2_3_recover_capacity_vs_busy_words(tmp_path):
     """DA probe «recover_refusal» — BUSY(잠금) · «용량 부족»(예약) · «복구 필요»(판독 불가)를 가른다."""
     node = _d(tmp_path / "r23")
-    assert node.assign("W1", "h1", evidence=EV).result == OK
+    assert _accept(node, "W1").assign("W1", "h1", evidence=EV).result == OK
     out = node.recover()
     assert out.pop("result") == OK and out == {"delivered": ["a1"], "reassessed": []}   # R2-③
     handle = open(node.rs.journal.lock_path, "a+", encoding="utf-8")
@@ -611,9 +623,10 @@ def test_mutation_m5_submit_while_recovery_needed(tmp_path):
 
 def test_mutation_m6_cap_after_append(tmp_path):
     node = _swap_journal(_d(tmp_path / "m6", capacity=1000), _LateCap)
+    _accept(node, "Q0")                               # r1632 ⓐ: 실행권도 접수 영수 필요
     assert _fill(node) >= 3
     rows = len(node.rs.records())
-    claims = [node.ex.claim("Q%d" % n, "h") for n in range(40)]
+    claims = [node.ex.claim("Q0", "h") for _ in range(40)]     # 같은 work 재실행권 = 세대만 는다
     ok = len([grant for grant in claims if grant.result == OK])
     assert claims[-1].result == FULL
     assert len(node.rs.records()) == rows + ok + 1     # 변이 = 거절인데 줄이 하나 더 있다
@@ -664,8 +677,88 @@ def test_mutation_m11_submit_needed_without_body(tmp_path):
     assert _saturation_failures(_swap_journal(node, _BodyFree)) != []
 
 
+class _NoReceiptsExclusion(intake.Intake):  # M2(r1616): 회수된 접수를 용량에서 빼지 않는다(receipts 만 무시)
+    def _remaining(self, records, state):
+        base = state.get("journal_base") or {}
+        return record.remaining(dict(state, journal_base=dict(base, receipts={})), records)
+
+
+class _NoReceiptsExecution(execution.Execution):
+    CLIENT = _NoReceiptsExclusion
+
+
+class _NoDoneExclusion(intake.Intake):  # M3(r1616 보정 2): done work 를 용량에서 빼지 않는다
+    def _remaining(self, records, state):
+        return record.remaining(dict(state, done={}), records)
+
+
+class _NoDoneExecution(execution.Execution):
+    CLIENT = _NoDoneExclusion
+
+
+def _finish(node, work, holder="h1"):
+    """접수는 이미 있다 — 배정 → 결과 → 전달 → 완료(회수 조건 4개)."""
+    assert node.assign(work, holder, evidence=EV).result == OK
+    assert node.ex.result(work, holder, 1, OK).result == OK
+    assert node.deliver(work, "a1").result == OK
+    assert node.complete(work, "a1").result == OK
+
+
+def test_h_r1616_capacity_counts_only_remaining_work(tmp_path):
+    """ⓖ' r1616 보정 2 — 용량 = «남은 일»(record.remaining). 「완료만 한 접수는 상한에 셈」은 arch 오류 정정:
+    complete(done) 가 카드 단위 정리이므로 완료 8건 뒤 새 접수 8건이 성공하고 9번째가 «용량 부족» 이다.
+    ⓖ'' 진행 중 8(완료 0)이면 9번째가 그대로 «용량 부족»(원천 시뮬 case_08 유지) · 같은 command 재접수 = «완료 유보»."""
+    node = _d(tmp_path / "h", capacity=8)                                  # 제품 기본 cap
+    for n in range(8):
+        _accept(node, "C%d" % n)
+    assert node.rs.submit("over-1", "x" * 8, "N1").result == FULL           # ⓖ'' 진행 중 8 = 상한
+    assert len(node.rs.journal.state()["pending"]) == 8                    # 장부는 그대로 남는다
+    for n in range(8):
+        _finish(node, "C%d" % n)
+    assert [node.rs.submit("new-%d" % n, "x" * 8, "N%d" % n).result for n in range(8)] == [OK] * 8
+    assert node.rs.submit("new-8", "x" * 8, "N8").result == FULL           # ⓖ' 9번째 = 다시 상한
+    assert node.rs.submit("c-C0", "x" * 8, "C0").result == HOLD            # 같은 command 재접수 = 완료 유보
+
+
+def test_mutation_m3_r1616_done_work_stays_in_capacity(tmp_path):
+    """M3 변이 — done 제외를 빼면 ⓖ' 가 빨강(8 완료 뒤에도 새 접수 1번째부터 «용량 부족»)."""
+    node = _caps(dispatch.Dispatch(str(tmp_path / "h3"), TEAM, execution_cls=_NoDoneExecution), capacity=8)
+    for n in range(8):
+        _accept(node, "C%d" % n)
+        _finish(node, "C%d" % n)
+    assert node.rs.submit("new-0", "x" * 8, "N0").result == FULL            # 변이 = 완료가 용량을 안 비운다
+
+
+def test_h2_r1616_reclaimed_accepts_leave_room_for_new_ones(tmp_path):
+    """ⓖ(작은 segment_cap 판 · M2 판정 무대) — 회수된 접수는 journal 줄이 사라진 뒤에도 `receipts` 로 «남은 일»
+    에서 빠진다: 회수 뒤 새 접수 7건이 성공하고 8번째가 «용량 부족»(팔로 남은 것은 over-1 하나)."""
+    node = _caps(dispatch.Dispatch(str(tmp_path / "h2r"), TEAM), **CAPS)
+    node.rs.capacity = 8
+    for n in range(8):
+        _accept(node, "C%d" % n)
+        _finish(node, "C%d" % n)
+    assert node.rs.journal.reclaim()["reclaimed"]
+    assert node.rs.submit("over-1", "x" * 8, "N1").result == OK            # 회수된 8건 = 용량 밖
+    assert [node.rs.submit("new-%d" % n, "x" * 8, "N%d" % n).result for n in range(7)] == [OK] * 7
+    assert node.rs.submit("new-7", "x" * 8, "N7").result == FULL           # 진행 중 8 = 상한
+
+
+def test_mutation_m2_r1616_receipts_line_is_the_ledger_for_folded_accepts(tmp_path):
+    """M2 변이 — receipts 제외 줄을 빼면 빨강. 회수된 접수는 journal 줄이 사라져 command→work 사상이 없으므로,
+    receipts 가 없으면 «남은 일» 로 잘못 세어 회수 뒤에도 상한이 안 풀린다(실측: real 새 접수 7건 성공 · M2 전부 «용량 부족»)."""
+    node = _caps(dispatch.Dispatch(str(tmp_path / "m2"), TEAM, execution_cls=_NoReceiptsExecution), **CAPS)
+    node.rs.capacity = 8
+    for n in range(8):
+        _accept(node, "C%d" % n)
+        _finish(node, "C%d" % n)
+    assert node.rs.journal.reclaim()["reclaimed"]
+    assert node.rs.submit("new-0", "x" * 8, "N0").result == FULL            # 변이 = 회수가 용량을 안 비운다
+
+
 def test_mutation_m12_refusal_word_without_field(tmp_path):
-    node = _swap_journal(_d(tmp_path / "m12"), _NoWord)
+    node = _d(tmp_path / "m12")
+    _accept(node, "W1")                                 # r1632 ⓐ: 실행권도 접수 영수 필요
+    node = _swap_journal(node, _NoWord)
     assert node.ex.claim("W1", "h1").result == CORRUPT
 
 

@@ -103,13 +103,13 @@ def _pi_model(path, head):   # r960 ⓢ model 은 세션 파일 «전체» 에�
     return head.get("modelId") if isinstance(head.get("modelId"), str) and head.get("modelId") else None
 
 
-def seat_facts(arg, env, root, seat, rd):   # r5 — 명부 경로·좌석 행·agent·role·재개 기록 경로를 «입구에서 1회» 확정한다(닫기 도구가 갈래마다·자식이 다시 읽지 않는다) → (명부파일, agent, role, 재개기록경로) · 판정 불가 = print + exit 1
+def seat_facts(arg, env, root, seat, rd):   # r5 — 명부 경로·좌석 행·agent·role·재개 기록 경로를 «입구에서 1회» 확정한다(닫기 도구가 갈래마다·자식이 다시 읽지 않는다) → (명부파일, agent, role, 재개기록경로, _master 칸) · 판정 불가 = print + exit 1
     files = sorted(glob.glob(root + "/.fable-team/seats*.json"))
     cand = [arg] if arg else [env] if env else files
     cand = [f for f in cand if isinstance(load(f), dict) and isinstance(load(f).get(seat), dict)]
     if len(cand) > 1:   # r5 ① — 후보 2개+ = 어느 행이 사실인지 모른다(판정 아님 · 명부 쓰기 0 · kill 0)
         print(f"REJECT 판정 안 함 — 명부 후보 {len(cand)}개 (키 {seat}) · --seats 로 지정"); raise SystemExit(1)
-    if not cand: return ("", "", "", rd + "/" + seat + ".json")   # 행 없음 = 부르는 쪽의 NOROW/NORECORD 갈래 그대로
+    if not cand: return ("", "", "", rd + "/" + seat + ".json", "")   # 행 없음 = 부르는 쪽의 NOROW/NORECORD 갈래 그대로
     p = cand[0]; o = load(p)[seat]; a, r = o.get("agent") or "", o.get("role") or ""
     seen = [] if arg else files   # r5 ⓦ2 — --seats 는 확정이 이긴다(FT_SEATS_JSON·루트 글롭을 보지 않는다)
     for f in seen:   # r5 ④ — 확정 밖 명부의 같은 좌석이 다른 agent/role 이면 판정 아님(REJECT · 명부 쓰기 0 · kill 0)
@@ -120,7 +120,8 @@ def seat_facts(arg, env, root, seat, rd):   # r5 — 명부 경로·좌석 행·
             print(f"REJECT {seat} 명부 불일치 {p}={a or '-'}/{r or '-'} ≠ {f}={a2 or '-'}/{r2 or '-'} — 명부 쓰기 0 · kill 0"); raise SystemExit(1)
     if len([f for f in seen if isinstance(load(f), dict) and isinstance(load(f).get(seat), dict)]) > 1:
         print(f"WARN {seat} 명부 중복 등록 — 확정 {p} 로 진행", file=sys.stderr)   # r5 — 같으면 진행(중복 등록 정리는 범위 밖 · 경고 1줄)
-    return (p, a, r, rd + "/" + seat + ".json")
+    m = load(p).get("_master") if isinstance(load(p), dict) else None   # r1568 — master 칸도 «입구 1회» 확정(닫기 도구가 명부를 다시 안 읽는다)
+    return (p, a, r, rd + "/" + seat + ".json", m if isinstance(m, str) else "")
 
 
 def pi_seat_resume(seat, model, retired_by):   # Pi 계약 v3 — 상태 판정과 동일 locator만 사용한다.

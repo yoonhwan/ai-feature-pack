@@ -50,8 +50,23 @@ def works_of(state):
     return sorted(names)
 
 
+def holders_of(state, records):
+    """holder 1명 = {free, works}. works = 지금 쥔 일(owner 이고 완료 아님). 완료로 반환된 이름도 남는다."""
+    done, held, names = state.get("done") or {}, {}, set()
+    for work, owner in (state.get("owners") or {}).items():
+        holder = (owner or {}).get("holder")
+        if holder and work not in done:
+            names.add(holder)
+            held.setdefault(holder, []).append(work)
+    for rec in records:      # 한 번이라도 맡은 사람 — 완료로 실행권을 반환한 뒤에도 «가용» 칸에 서야 한다
+        names.add(rec.get("holder"))
+    names.discard(None)
+    return {name: {"free": not held.get(name), "works": sorted(held.get(name) or [])}
+            for name in sorted(names)}
+
+
 def project(root, team):
-    """팀 상태 투영 1개 = {result, team, revision, pending, works, reason}. 쓰기·잠금 0."""
+    """팀 상태 투영 1개 = {result, team, revision, pending, works, holders, reason}. 쓰기·잠금 0."""
     runtime = runtime_path(root, team)
     if not os.path.isdir(runtime):
         return _empty(team, OK, "runtime 없음: %s" % runtime)
@@ -62,9 +77,11 @@ def project(root, team):
     except record.CorruptStateError as exc:              # 손상 checkpoint(suffix 불연속)도 여기로 온다
         return _empty(team, CORRUPT, str(exc))
     return {"result": OK, "team": team, "revision": state["revision"], "pending": len(state["pending"]),
-            "works": {work: row(work, state) for work in works_of(state)}, "reason": ""}
+            "works": {work: row(work, state) for work in works_of(state)},
+            "holders": holders_of(state, records), "reason": ""}
 
 
 def _empty(team, word, reason):
     """투영 0 꼴 — 판독 불가·runtime 없음에서도 사유 1줄은 남긴다(숨김 0)."""
-    return {"result": word, "team": team, "revision": 0, "pending": 0, "works": {}, "reason": reason}
+    return {"result": word, "team": team, "revision": 0, "pending": 0, "works": {}, "holders": {},
+            "reason": reason}

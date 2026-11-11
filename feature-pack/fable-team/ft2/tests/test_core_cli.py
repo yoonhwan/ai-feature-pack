@@ -24,7 +24,7 @@ CLI = os.path.join(CORE, "cli.py")
 TEAM, NOW, EV = "harness", "2026-11-11T01:00:00", ("v1", "v2")
 STALE, CORRUPT, HOLD, USAGE = "낡은 실행권", "복구 필요", "완료 유보", 64
 STEPS = (
-    (["submit", "--command", "c1", "--body", "본문-1"], 0),
+    (["submit", "--command", "c1", "--body", "본문-1", "--work", "W1"], 0),
     (["assign", "--work", "W1", "--holder", "h1", "--evidence", "v1,v2"], 0),
     (["deliver", "--work", "W1", "--attempt", "a1"], 0),
     (["start", "--work", "W1", "--holder", "h1", "--gen", "1"], 0),
@@ -63,7 +63,7 @@ def _lib_round_trip(root):
     clock = lambda: NOW                                                                     # noqa: E731
     entry, node = intake.Intake(str(root), TEAM, clock=clock), dispatch.Dispatch(str(root), TEAM, clock=clock)
     ex = execution.Execution(str(root), TEAM, clock=clock)
-    return [entry.submit("c1", "본문-1")._asdict(), node.assign("W1", "h1", evidence=EV)._asdict(),
+    return [entry.submit("c1", "본문-1", "W1")._asdict(), node.assign("W1", "h1", evidence=EV)._asdict(),
             node.deliver("W1", "a1")._asdict(), ex.start("W1", "h1", 1)._asdict(),
             ex.effect("W1", "h1", 1, "e1")._asdict(), ex.result("W1", "h1", 1)._asdict(),
             node.complete("W1", "a1")._asdict(), node.reassess("W1")._asdict(),
@@ -116,6 +116,7 @@ def test_cli_reassess_after_interrupted_complete(tmp_path):
             raise _Stop
 
     root = str(tmp_path / "interrupted")
+    intake.Intake(root, TEAM, clock=lambda: NOW).submit("c1", "본문-1", "W1")     # r1616: 배정 전 접수 1줄
     node = dispatch.Dispatch(root, TEAM, clock=lambda: NOW)
     node.assign("W1", "h1", evidence=EV)
     node.deliver("W1", "a1")

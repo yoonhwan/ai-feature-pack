@@ -29,6 +29,11 @@ Grant = collections.namedtuple(
     defaults=(None, None, None, None, False, None, None, ""))
 
 
+def accepted(records, work):
+    """접수 영수 = 같은 work 를 남긴 accept 줄 — 배정·실행권 입구가 함께 보는 한 곳(r1632 ⓓ)."""
+    return any(rec["kind"] == "accept" and rec.get("work") == work for rec in records)
+
+
 class Execution:
     """팀 runtime 1곳의 실행권. 경로·판독·내구화·잠금은 입구(Intake)와 같은 것을 쓴다."""
     CLIENT = intake.Intake
@@ -47,6 +52,8 @@ class Execution:
                 return Grant(BUSY, work, holder=holder, reason="writer.lock 점유 = 기다리지 않는다")
             try:
                 state, records = self._state_records()
+                if not accepted(records, work):        # r1632: 접수 영수 없는 일은 실행권 0(쓰기 0)
+                    return Grant(REFUSED, work, holder=holder, reason="접수 영수 없음 · intake.submit 먼저")
                 gen, hold, owner = self._claim_plan(state, records, work, holder, rotation)
                 if hold is not None:
                     if hold.get("marked"):
