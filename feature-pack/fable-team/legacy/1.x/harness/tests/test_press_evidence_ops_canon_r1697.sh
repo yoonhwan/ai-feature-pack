@@ -26,23 +26,31 @@ git -C "$W" checkout -q -b ops/main-base "$BASE"; mkdir -p "$W/gateway"; printf 
 git -C "$W" push -q origin ops/main-base; OPS="$(sha "$W" HEAD)"
 head_() { git -C "$W" checkout -q -B "$1" "$2"; }
 P="$BIN/press_evidence_land.py"
-pl() { out="$(cd "$T" && FT_ROOT="$T" python3 "$P" land --repo "$W" --remote origin --main "$1" --head "$2" --landing "$3" --pr 1 --root "$T" 2>&1)"; rc=$?; }
+pl() { ( cd "$T" && FT_ROOT="$T" python3 "$P" land --repo "$W" --remote origin --main "$1" --head "$2" --landing "$3" --pr 1 --root "$T" >"$T/o.txt" 2>"$T/e.txt" ); rc=$?; out="$(cat "$T/o.txt")"; err="$(cat "$T/e.txt")"; }
 
 # ⓐ ops 대상 · 양쪽 목록 없음 · 음성 경로 변경 0 → press=out + 출처 줄
 head_ pr-a origin/ops/main-base; printf 'x\n' > "$W/other.txt"; cm "$W" "other only"; HA="$(sha "$W" HEAD)"
 pl origin/ops/main-base "$HA" "$(sha "$W" HEAD)"
-{ [ "$rc" = 0 ] && [[ "$out" == *"press=out"* ]] && [[ "$out" == *"음성 경로 목록 출처 = 정본 main"* ]]; } \
+{ [ "$rc" = 0 ] && [[ "$out" == *"press=out"* ]] && [[ "$err" == *"음성 경로 목록 출처 = 정본 main"* ]]; } \
   && ck "ⓐ ops 대상 · 목록 없는 가지 → press=out rc0 + «목록 출처 = 정본 main»" 0 \
   || ck "ⓐ ops 대상 · 목록 없는 가지 → press=out rc0 + «목록 출처 = 정본 main»" 1
+{ [ "$(printf '%s\n' "$out" | head -1)" = "press 증거 대상 밖(음성 경로 변경 0)" ] && [[ "$err" == *"음성 경로 목록 출처 = 정본 main"* ]]; } \
+  && ck "ⓗ 보정1 — stdout 첫 줄 = 판정 줄 · 출처 줄은 stderr(부르는 쪽이 첫 줄만 출력)" 0 \
+  || ck "ⓗ 보정1 — stdout 첫 줄 = 판정 줄 · 출처 줄은 stderr(부르는 쪽이 첫 줄만 출력)" 1
+# ⓘ 보정2 — FT_PRESS_SCOPE=deploy 에서는 canon 갈래를 타지 않는다(지금처럼 판정 불가)
+( cd "$T" && FT_ROOT="$T" FT_PRESS_SCOPE=deploy python3 "$P" land --repo "$W" --remote origin --main origin/ops/main-base --head "$HA" --landing "$HA" --pr 1 --root "$T" >"$T/o2.txt" 2>&1 ); rc=$?; out="$(cat "$T/o2.txt")"
+{ [ "$rc" = 1 ] && [[ "$out" == *"판정 불가"* ]] && [[ "$out" != *"정본 main"* ]]; } \
+  && ck "ⓘ 보정2 — deploy 길은 정본 main 갈래를 쓰지 않는다(판정 불가 그대로)" 0 \
+  || ck "ⓘ 보정2 — deploy 길은 정본 main 갈래를 쓰지 않는다(판정 불가 그대로)" 1
 # ⓑ 같은 꼴에서 head 가 정본 목록의 음성 경로를 바꿈 → 대상 안(거절 문구는 main 대상과 같다)
 head_ pr-b origin/ops/main-base; mkdir -p "$W/clients/web/src/domains/realtime"; printf 'v\n' > "$W/clients/web/src/domains/realtime/x.ts"; cm "$W" "voice path"
 HB="$(sha "$W" HEAD)"
 pl origin/ops/main-base "$HB" "$(sha "$W" HEAD)"
-A_OUT="$out"; A_RC="$rc"
+A_OUT="$out"; A_RC="$rc"; A_ERR="$err"
 # 같은 변경을 main 대상으로(대조군) — 목록이 있으니 지금 동작
 head_ pr-b2 origin/main; git -C "$W" checkout -q -B pr-b2 origin/main; mkdir -p "$W/clients/web/src/domains/realtime"; printf 'v\n' > "$W/clients/web/src/domains/realtime/y.ts"; cm "$W" "voice path"; HB2="$(sha "$W" HEAD)"
 pl origin/main "$HB2" "$(sha "$W" HEAD)"; B_OUT="$out"
-{ [ "$A_RC" = 1 ] && [[ "$A_OUT" == *"press 증거"* ]] && [[ "$A_OUT" == *"음성 경로 목록 출처 = 정본 main"* ]]; } \
+{ [ "$A_RC" = 1 ] && [[ "$A_OUT" == *"press 증거"* ]] && [[ "$A_ERR" == *"음성 경로 목록 출처 = 정본 main"* ]]; } \
   && ck "ⓑ 정본 목록으로도 음성 경로는 대상 → 묶음 없음 거절(목록 출처 줄 유지)" 0 \
   || ck "ⓑ 정본 목록으로도 음성 경로는 대상 → 묶음 없음 거절(목록 출처 줄 유지)" 1
 # ⓒ main 대상 · head 가 목록 지움 → 판정 불가(지금과 같다)
@@ -87,11 +95,11 @@ PY
   printf '%s\n' "$d"; }
 plx() { out="$(cd "$T" && FT_ROOT="$T" python3 "$1/press_evidence_land.py" land --repo "$W" --remote origin --main "$2" --head "$3" --landing "$3" --pr 1 --root "$T" 2>&1)"; rc=$?; }
 git -C "$W" update-ref refs/remotes/origin/main "$MAINL"
-CX="$(mkx m1 'if not (tgt and patterns(repo, tgt)) and canon and canon != tgt and patterns(repo, canon):' 'if False:')"
+CX="$(mkx m1 'if os.environ.get("FT_PRESS_SCOPE") != "deploy" and not (tgt and patterns(repo, tgt)) and canon and canon != tgt and patterns(repo, canon):' 'if False:')"
 plx "$CX" origin/ops/main-base "$HA"; { [ "$rc" = 1 ] && [[ "$out" == *"판정 불가"* ]]; } && ck "M1 canon 갈래 삭제 → ⓐ FAIL(검출됨)" 0 || ck "M1 canon 갈래 삭제 → ⓐ FAIL(검출됨)" 1
-CX="$(mkx m2 'if not (tgt and patterns(repo, tgt)) and canon and canon != tgt and patterns(repo, canon):' 'if canon and canon != tgt and patterns(repo, canon):')"
+CX="$(mkx m2 'if os.environ.get("FT_PRESS_SCOPE") != "deploy" and not (tgt and patterns(repo, tgt)) and canon and canon != tgt and patterns(repo, canon):' 'if os.environ.get("FT_PRESS_SCOPE") != "deploy" and canon and canon != tgt and patterns(repo, canon):')"
 plx "$CX" origin/ops2 "$HD"; { [ "$rc" = 0 ]; } && ck "M2 «대상 가지에 목록 있으면 거절» 삭제 → ⓓ FAIL(검출됨)" 0 || ck "M2 «대상 가지에 목록 있으면 거절» 삭제 → ⓓ FAIL(검출됨)" 1
-CX="$(mkx m3 'if not (tgt and patterns(repo, tgt)) and canon and canon != tgt and patterns(repo, canon):' 'if canon and patterns(repo, canon):')"   # M3: D1 가드·canon≠대상 가드 둘 다 없애 «canon=main 도 사용»
+CX="$(mkx m3 'if os.environ.get("FT_PRESS_SCOPE") != "deploy" and not (tgt and patterns(repo, tgt)) and canon and canon != tgt and patterns(repo, canon):' 'if os.environ.get("FT_PRESS_SCOPE") != "deploy" and canon and patterns(repo, canon):')"   # M3: D1·canon≠대상 가드 제거
 plx "$CX" origin/main "$HC"; { [ "$rc" = 0 ]; } && ck "M3 canon = main 일 때도 canon 사용 → ⓒ FAIL(검출됨)" 0 || ck "M3 canon = main 일 때도 canon 사용 → ⓒ FAIL(검출됨)" 1
 MUT_N=1; [ -z "$(git -C "$W" diff --name-only)" ] || MUT_N=0; ck "변이는 사본에서만(실 리포 작업본 무변경)" $((1-MUT_N))
 echo "FAILED $fail"; [ "$fail" = 0 ] && echo "ALL PASS"; exit $([ "$fail" = 0 ] && echo 0 || echo 1)
