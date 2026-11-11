@@ -27,6 +27,42 @@ SRC="$(cd -- "$(dirname -- "$SRC")" && pwd)/$(basename -- "$SRC")"   # 절대경
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 # 착지 표식 정규식 «단일 출처» — 완성 갈래(FT_LANDED_MARKER)와 아카이브 갈래가 같이 쓴다(두 벌 금지 · r1000 r1 F2).
 # «닫힘|CLOSE» 둘 다 인정 · 카드 이름은 «정확» 일치 · 세 번째 칸이 main 으로 시작해야 착지.
+seat_roster() {  # r1705 <root> — 좌석 명부 파일(FT_SEATS_JSON 이 이김 · 없으면 카드 팀 명부 하나) — nano_close_card 와 «같은» 한 함수
+  local root="$1" seats="${FT_SEATS_JSON:-}" t hits=()
+  if [ -z "$seats" ] && . "$HERE/ft-team-lib.sh" 2>/dev/null; then
+    while IFS= read -r t; do [ -n "$t" ] && FT_REPO_ROOT="$IDX_ROOT" ft_team_has "$t" "$IDX_ROOT/" indices/ 2>/dev/null && hits+=("$t"); done < <(FT_REPO_ROOT="$IDX_ROOT" ft_team_names 2>/dev/null)
+    [ "${#hits[@]}" = 1 ] && { seats="$root/.fable-team/seats-${hits[0]}.json"; [ "${hits[0]}" != v65 ] || seats="$root/.fable-team/seats.json"; }
+  fi
+  printf '%s' "$seats"
+}
+seat_index_follow() {  # r1705 <좌석> <새 카드 절대경로> — 재사용 좌석의 index 를 지금 카드로(role=nano 만 · 멱등 · 원자 쓰기 · 옛 값 = index_prev)
+  local seat="$1" new="$2" root seats rel
+  root="$(git -C "$IDX_ROOT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')"; [ -n "$root" ] || root="$IDX_ROOT"
+  root="$(cd "$root" 2>/dev/null && pwd -P)" || return 1   # /var ↔ /private/var 심링크 차이 제거
+  new="$(cd "$(dirname "$new")" && pwd -P)/$(basename "$new")"
+  seats="$(seat_roster "$root")"; [ -n "$seats" ] && [ -f "$seats" ] || { echo "INFO 명부 index 손 0 — 명부 못 풂(${seats:-없음})"; return 0; }
+  rel="${new#"$root"/}"
+  python3 - "$seats" "$seat" "$rel" <<'PY'
+import json, os, sys
+p, seat, rel = sys.argv[1:4]
+try: doc = json.load(open(p, encoding="utf-8"))
+except (OSError, ValueError) as e: print("REJECT 명부 읽기 실패(%s): %s" % (p, e)); sys.exit(1)
+row = doc.get(seat) if isinstance(doc, dict) else None
+if not isinstance(row, dict): print("INFO 명부 index 손 0 — 좌석 행 없음(%s)" % seat); sys.exit(0)
+if row.get("role") != "nano": print("INFO 명부 index 손 0 — role=%s(나노 아님)" % row.get("role")); sys.exit(0)
+old = row.get("index")
+if old == rel: print("INFO 명부 index 그대로 — %s" % rel); sys.exit(0)
+row["index"] = rel; prev = row.get("index_prev"); prev = prev if isinstance(prev, list) else []
+if old and old not in prev: row["index_prev"] = prev + [old]
+tmp = "%s.tmp.%d" % (p, os.getpid())
+try: open(tmp, "w", encoding="utf-8").write(json.dumps(doc, ensure_ascii=False) + "\n"); os.replace(tmp, p)
+except OSError as e:
+    try: os.unlink(tmp)
+    except OSError: pass
+    print("REJECT 명부 쓰기 실패(%s): %s — 되돌림: 카드는 이미 이동했다" % (p, e)); sys.exit(1)
+print("SEAT-INDEX %s → %s" % (seat, rel))
+PY
+}
 landed_marker_re() { printf '(닫힘|CLOSE)[[:space:]]*—[[:space:]]*%s[[:space:]]*—[[:space:]]*main' "$1"; }
 [ ! -f "$HERE/ft-team-lib.sh" ] || ( . "$HERE/ft-team-lib.sh" && ft_card_location_ok "$SRC" ) || exit 1   # r447: 명단 새 꼴 팀 카드가 옛 꼴 폴더면 REJECT(이동 0)
 IDX_ROOT="$(cd "$(dirname "$SRC")/.." && pwd)"
@@ -207,6 +243,9 @@ TRACKED=0; git -C "$IDX_ROOT" ls-files --error-unmatch "$SRC" >/dev/null 2>&1 &&
 # r959: 실패 사유를 버리지 않는다 — git·mv 의 stderr 첫 줄을 REJECT 줄 «안»에 붙인다(«REJECT 이동 실패» 한마디로는 무엇을 고칠지 알 수 없다 · r737·r847)
 if [ "$TRACKED" = 1 ]; then _mv_out="$(git -C "$IDX_ROOT" mv "$SRC" "$NEW" 2>&1)"; _mv_rc=$?; else _mv_out="$(mv "$SRC" "$NEW" 2>&1)"; _mv_rc=$?; fi
 [ "$_mv_rc" = 0 ] || { _mv1="${_mv_out%%$'\n'*}"; echo "REJECT 이동 실패: $SRC → $NEW${_mv1:+ — $_mv1}"; exit 1; }
+if [ "$FROM" = 대기 ] && [ "$DST" = 진행 ] && [ -n "$SEAT" ]; then   # r1705 — 재사용 좌석의 명부 index 가 지금 카드를 따라간다
+  seat_index_follow "$SEAT" "$NEW" || { echo "REJECT 명부 index 갱신 실패 — 카드는 이미 이동했다(되돌림: git mv)"; exit 1; }
+fi
 if [ "$DST" = 완성 ]; then
   # 하네스 0.5 행 3 — «완성 이동»이 원장 close 의 유일한 기록자. 원장 없는 완성은 없다(#0 RULE).
   #   트랙 = FT_TRACK(기본 default · 카드가 design/v65/indices 아래면 v65) · $ROOT/STATE_DIR 은 ft-index-gate.sh 와 같은 규약.
@@ -268,10 +307,7 @@ printf 'MOVED %s→%s %s\n' "$FROM" "$DST" "$NEW"
 nano_close_card() {
   local card="$1" new="$2" name seats="${FT_SEATS_JSON:-}" root="${ROOT:-$IDX_ROOT}" t hits=() rows rc seq seat hn note plan out first
   name="$(basename "$card" .md)"
-  if [ -z "$seats" ] && . "$HERE/ft-team-lib.sh" 2>/dev/null; then
-    while IFS= read -r t; do [ -n "$t" ] && FT_REPO_ROOT="$IDX_ROOT" ft_team_has "$t" "$IDX_ROOT/" indices/ 2>/dev/null && hits+=("$t"); done < <(FT_REPO_ROOT="$IDX_ROOT" ft_team_names 2>/dev/null)
-    [ "${#hits[@]}" = 1 ] && { seats="$root/.fable-team/seats-${hits[0]}.json"; [ "${hits[0]}" != v65 ] || seats="$root/.fable-team/seats.json"; }
-  fi
+  [ -n "$seats" ] || seats="$(seat_roster "$root")"   # r1705: 명부 찾기 = 한 함수
   rows="$(python3 - "$seats" "$name" "${FT_MBOX_DIR:-$root/.fable-team/comm}" <<'PY'
 import json, os, sys
 try: doc = json.load(open(sys.argv[1], encoding="utf-8"))
