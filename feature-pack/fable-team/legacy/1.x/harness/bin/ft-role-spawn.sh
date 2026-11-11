@@ -148,9 +148,9 @@ else
   # ★r1683 접두 출처 = 팀 명부 `_master` 이름★ — `<접두>-master-<에이전트>#N` 꼴이면 그 `<접두>-` · 순서 = env FT_ROLE_BASE_PREFIX › 명부 `_master` › byz-<팀>-
   #   명부를 못 읽으면 REJECT(하드 룰 20 «판정 불가» — 기본 접두로 조용히 가지 않는다). «없음/꼴 아님» 만 기본 갈래 + stderr 1줄.
   _rprefix="${FT_ROLE_BASE_PREFIX:-}"
+  _rmaster="$(python3 -c 'import json,sys;v=json.load(open(sys.argv[1],encoding="utf-8")).get("_master");print(v if isinstance(v,str) else "")' "$SEATS" 2>/dev/null)" \
+    || { echo "REJECT 명부 판정 불가(_master) — $SEATS (하드 룰 20 · 기본 접두로 대체 0)"; exit 1; }   # ★env 가 있어도 명부는 늘 읽는다★(DA r1 — 명시값 우선과 명부 검증은 다른 일)
   if [ -z "$_rprefix" ]; then
-    _rmaster="$(python3 -c 'import json,sys;v=json.load(open(sys.argv[1],encoding="utf-8")).get("_master");print(v if isinstance(v,str) else "")' "$SEATS")" \
-      || { echo "REJECT 명부 판정 불가(_master) — $SEATS (하드 룰 20 · 기본 접두로 대체 0)"; exit 1; }
     [[ "$_rmaster" =~ ^(.+)-master-[a-z0-9]+#[0-9]+$ ]] && _rprefix="${BASH_REMATCH[1]}-"
     [ -n "$_rprefix" ] || echo "접두 출처 = 기본 byz-$TEAM- · 사유: ${_rmaster:+명부 _master=$_rmaster 꼴 아님}${_rmaster:-명부 _master 없음}" >&2
   fi

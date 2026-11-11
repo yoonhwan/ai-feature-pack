@@ -73,6 +73,8 @@ o="$(rs arch --team aifp --agent pi --dry-run)"
 aifp '{"_name":"aifp",'
 o="$(rs arch --team aifp --agent pi --dry-run)"; rc=$?
 { [ "$rc" = 1 ] && [[ "$o" == *"REJECT 명부 판정 불가(_master)"* && "$o" != *"PLAN "* ]]; } && ok "ⓕ 명부 못 읽음 → REJECT rc1(기본 접두 대체 0)" || bad "ⓕ 판정불가 rc=$rc $o"
+o="$(rse zz-yy- arch --team aifp --agent pi --dry-run)"; rc=$?
+{ [ "$rc" = 1 ] && [[ "$o" == *"REJECT 명부 판정 불가(_master)"* && "$o" != *"PLAN "* ]]; } && ok "ⓕ env 가 있어도 명부 못 읽음 → REJECT rc1(DA r1)" || bad "ⓕ env+깨진 명부 rc=$rc $o"
 
 # ⓖ v65 가지는 이 카드가 건드리지 않는다
 expect "ⓖ v65 불변" "$(rs arch --team v65 --dry-run)" "byz-v65-arch-claude#4" "byz-v65-arch-claude#3"
