@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # ft-wt-census.sh [--only <경로>] [--h <출력파일>] [--repo <경로>] (r1688) — 실행 = `bash ft-wt-census.sh …`(모드 100644) — 쌓인 워크트리를 «읽기만» 해서 줄마다 «정리 가능 / KEEP + 사유 / 판정 불가» 를 내는 표(TSV)와, 표의 «정리 가능» 줄만 담는 h 생성기.
 #   실행 위치 = 리포 안(워크트리 무관). 지우기·가지·refs·stash 손대기 0. 실행(run)은 만들어진 h 를 사람이 승인한 뒤에만.
-#   판정 칸(워크트리 1개 = 1줄): ①미커밋·그 가지의 stash ②착지(origin/main·origin/ops/main-base 의 조상 ∨ patch-id(`git cherry` +0) ∨ squash tree)
-#     ③원격 가지가 HEAD 를 담음 ④reflog 만 닿는 커밋(가지·원격이 안 닿음) ⑤살아 있는 tmux pane·프로세스 cwd 가 그 안 ⑥설정(*.json·LaunchAgents plist)이 가리키는 경로
+#   판정 칸(워크트리 1개 = 1줄): ①미커밋·숨은 변경(assume-unchanged·skip-worktree)·stash(detached 포함) ②착지(조상 ∨ patch-id ∨ squash tree · 그 줄이 바꾼 경로 내용까지 대조)
+#     ③원격 가지가 HEAD 를 담음 ④reflog 만 닿는 커밋 ⑤tmux pane·프로세스 cwd(경로 별칭 해소) ⑥설정(*.json 은 escape 해소·plist 는 고정 문자열)이 가리키는 경로 · 못 재면 미확인 = KEEP
 #   판정 = 정리 가능(①0 ∧ ②참 ∧ ④0 ∧ ⑤0 ∧ ⑥0 · ③은 ②참이면 무관) · KEEP:<걸린 번호> · 판정 불가(git 실패·한 줄 상한 초과 · 하드 룰 20 «정리 가능으로 치지 않는다»)
-#   출력 = TSV(11칸: 경로·가지·HEAD·①·②·③·④·⑤·⑥·마지막커밋·판정) + 요약 1줄. --only 는 그 줄만(요약 0).
-#   h = «정리 가능» 줄마다 실행 직전 같은 도구로 그 줄만 다시 재서 정리 가능이면 `git worktree remove <경로>`(--force 0 · -f 0 · 가지·refs·stash 0) → 끝 요약 «지움 N · 건너뜀 M(사유별)»
-#   손잡이(시험): FT_WT_CENSUS_ROW_TIMEOUT(기본 7초) · FT_WT_CENSUS_BASES · FT_WT_CENSUS_GIT · FT_WT_CENSUS_TMUX(1) · FT_WT_CENSUS_CONFIG(설정 파일 목록 덮어쓰기) · FT_WT_GIT_SEC(git 1회 상한)
+#   출력 = TSV 11칸(경로·가지·HEAD·①~⑥·마지막커밋·판정) + 요약 1줄 · --only 는 그 줄만 · --repo 는 cwd 밖에서도 · --h 는 h 생성
+#   h = «정리 가능» 줄마다 실행 직전 같은 도구로 다시 재서 정리 가능이면 `git worktree remove`(--force 0 · 가지·refs·stash 0)
+#   손잡이: FT_WT_CENSUS_ROW_TIMEOUT(7초) · _BASES · _GIT · _TMUX · _CONFIG · _PATCH_MAX(50) · _RELOG_MAX(200) · FT_WT_GIT_SEC(7초)
 set -uo pipefail
 SELF="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)/$(basename -- "${BASH_SOURCE[0]:-$0}")"
 GIT="${FT_WT_CENSUS_GIT:-git}"; ROW_MAX="${FT_WT_CENSUS_ROW_TIMEOUT:-7}"; GIT_SEC="${FT_WT_GIT_SEC:-7}"
@@ -23,8 +23,7 @@ GR() { if [ -n "$REPO" ]; then git7 "$REPO" "$@"; else g7 "$@"; fi; }
 ROOT="$(GR rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')"
 [ -n "$ROOT" ] || { echo "판정 불가: git 리포가 아니다" >&2; exit 1; }
 
-# ② 착지 — 조상 ∨ patch-id ∨ squash tree. ★patch-id 는 «그 줄의 미착지 커밋 ≤ PATCH_MAX(기본 50)» 일 때만★
-#    (실측: origin/main 에 없는 9,343커밋 갈래에서 -p|patch-id = 12초 · ops/main-base 전체 집합 = 61초 → 둘 다 상한 밖은 KEEP:② «정리 가능으로 치지 않는다»)
+# ② 착지 — 조상 ∨ patch-id(그 줄 미착지 커밋 ≤ PATCH_MAX 때만 · 실측 9,343커밋 갈래 12초) ∨ squash tree. 상한 밖 = KEEP:②
 IDS_DIR="$(mktemp -d "${TMPDIR:-/tmp}/wtc-ids.XXXXXX")"; trap 'rm -rf "$IDS_DIR"' EXIT; PATCH_MAX="${FT_WT_CENSUS_PATCH_MAX:-50}"
 pid_of() { cap 60 "${GIT_CLEAN[@]}" "$GIT" patch-id --stable 2>/dev/null | awk '{print $1}'; }
 landed() {  # $1=경로
@@ -40,7 +39,7 @@ landed() {  # $1=경로
       if [ -n "$ids" ] && [ -n "$paths" ]; then
         cand="$(git7 "$p" log --no-merges -p --format='commit %H' "$mb..$b" -- $paths 2>/dev/null | pid_of)"; hit=1
         while IFS= read -r id; do [ -n "$id" ] && { grep -qxF "$id" <<<"$cand" || hit=0; }; done <<<"$ids"
-        [ "$hit" = 1 ] && return 0
+        if [ "$hit" = 1 ] && [ -z "$(git7 "$p" diff --name-only HEAD "$b" -- $paths 2>/dev/null)" ]; then return 0; fi
       fi
     fi
     tree="$(git7 "$p" rev-parse 'HEAD^{tree}' 2>/dev/null)" || return 2
@@ -48,10 +47,12 @@ landed() {  # $1=경로
   done
   return 1
 }
-# ④ reflog 만 닿는 커밋(가지·원격이 안 닿는 것) — 있으면 KEEP
-reflog_only() {  # HEAD reflog 의 커밋 중 가지·원격이 안 닿는 것(최근 50개만 본다)
-  local shas n
-  shas="$(git7 "$1" reflog show HEAD --format=%H 2>/dev/null | sort -u | head -50)" || return 2
+# ④ reflog 만 닿는 커밋(가지·원격이 안 닿는 것) — 있으면 KEEP. ★정렬·50컷 금지(그러면 고유 커밋이 잘린다)·상한 초과 = 미확인 = KEEP★
+reflog_only() {
+  local shas cnt n
+  shas="$(git7 "$1" reflog show HEAD --format=%H 2>/dev/null)" || return 2
+  cnt="$(printf '%s\n' "$shas" | grep -c .)"
+  [ "${cnt:-0}" -gt "${RELOG_MAX:-200}" ] && return 0    # 검사 못 한 몫 = 보존 근거 미확인 → KEEP(지우기 안전 방향)
   [ -n "$shas" ] || return 1
   n="$(git7 "$1" rev-list --count $shas --not --branches --remotes 2>/dev/null)" || return 2
   [ "${n:-0}" -gt 0 ] 2>/dev/null && return 0; return 1
@@ -80,20 +81,26 @@ remote_has() {  # ③ 원격 가지가 HEAD 를 담음 — 같은 HEAD 는 한 �
 cfg_hit() {
   local f files=()
   if [ -n "$CFG" ]; then for f in $CFG; do files+=("$f"); done; else files=("$ROOT"/.fable-team/*.json "$HOME"/Library/LaunchAgents/com.byz.*.plist); fi
-  for f in "${files[@]}"; do [ -f "$f" ] || continue; cap "$GIT_SEC" grep -qF -- "$1" "$f" && return 0; done
+  for f in "${files[@]}"; do [ -f "$f" ] || continue
+    if [ "${f##*.}" = json ]; then cap "$GIT_SEC" python3 -c 'import json,sys;sys.exit(0 if sys.argv[2] in json.dumps(json.load(open(sys.argv[1],encoding="utf-8")),ensure_ascii=False) else 1)' "$f" "$1" 2>/dev/null && return 0; continue; fi
+    cap "$GIT_SEC" grep -qF -- "$1" "$f" && return 0; done
   return 1
 }
 judge() {  # $1=경로 $2=가지(빈값=detached) $3=HEAD 짧은 sha → TSV 1줄
-  local p="$1" br="${2:-detached}" head="$3" d1=0 d2=0 d3=0 d4=0 d5=0 d6=0 f=0 o rc t0 el last="-" v r=""
-  t0=$(date +%s)
+  local p="$1" br="${2:-detached}" head="$3" d1=0 d2=0 d3=0 d4=0 d5=0 d6=0 f=0 o rc el last="-" v r="" t0=$(date +%s)
   [ -d "$p" ] || { printf '%s\t%s\t%s\t-\t-\t-\t-\t-\t-\t-\t판정 불가:경로 없음\n' "$p" "$br" "$head"; return; }
   o="$(git7 "$p" status --porcelain 2>/dev/null)"; rc=$?; [ "$rc" = 0 ] || f=1; [ -z "$o" ] || d1=1
-  if [ -z "$o" ] && [ "$br" != detached ]; then o="$(git7 "$p" stash list --format=%gs 2>/dev/null)"; rc=$?; [ "$rc" = 0 ] || f=1
-    if [ -n "$o" ] && { grep -qF "WIP on ${br}:" <<<"$o" || grep -qF "On ${br}:" <<<"$o"; }; then d1=1; fi; fi
+  o="$(git7 "$p" ls-files -v 2>/dev/null)"; rc=$?; [ "$rc" = 0 ] || f=1
+  grep -qE '^[a-z]|^S ' <<<"$o" && d1=1   # R1: assume-unchanged(소문자)·skip-worktree(S) 는 status 에 안 보인다 → 미확인 = KEEP
+  o="$(git7 "$p" stash list --format=%gs 2>/dev/null)"; rc=$?; [ "$rc" = 0 ] || f=1
+  if [ -n "$o" ]; then
+    if [ "$br" = detached ]; then d1=1               # R2: detached 는 그 가지 이름을 못 만들므로 stash 가 있으면 미확인 = KEEP
+    elif grep -qF "WIP on ${br}:" <<<"$o" || grep -qF "On ${br}:" <<<"$o"; then d1=1; fi; fi
   landed "$p"; rc=$?; [ "$rc" = 2 ] && f=1; [ "$rc" = 0 ] && d2=1
   remote_has "$p" "$head"; rc=$?; [ "$rc" = 2 ] && f=1; [ "$rc" = 0 ] && d3=1
   reflog_only "$p"; rc=$?; [ "$rc" = 2 ] && f=1; [ "$rc" = 0 ] && d4=1
-  busy "$p" && d5=1
+  local preal; preal="$(cd "$p" 2>/dev/null && pwd -P)" || preal="$p"   # R6: 운영체제 경로 별칭 해소
+  busy "$preal" && d5=1
   cfg_hit "$p" && d6=1
   last="$(git7 "$p" log -1 --format=%cI 2>/dev/null)"; [ -n "$last" ] || { f=1; last="-"; }
   el=$(( $(date +%s) - t0 )); [ "$el" -le "$ROW_MAX" ] || { f=2; }
@@ -135,16 +142,8 @@ if [ -n "$H_OUT" ]; then
   } > "$H_OUT"
 fi
 [ -n "$ONLY" ] && exit 0
-# 요약 1줄 — 사유별 KEEP 수(사유 순서 고정 · awk substr 은 다바이트를 바이트로 잘라 쓸 수 없다)
-c=0; k=0; u=0; n=0; why=""; cnt=(0 0 0 0 0); marks=(① ② ④ ⑤ ⑥)
-while IFS= read -r line; do
-  [ -n "$line" ] || continue; n=$((n+1)); v="${line##*$'\t'}"
-  case "$v" in
-    "정리 가능") c=$((c+1));;
-    KEEP:*) k=$((k+1)); r="${v#KEEP:}"
-      for i in 0 1 2 3 4; do case "$r" in *"${marks[$i]}"*) cnt[$i]=$(( cnt[$i] + 1 ));; esac; done;;
-    *) u=$((u+1));;
-  esac
-done <<<"$OUT"
-for i in 0 1 2 3 4; do [ "${cnt[$i]}" = 0 ] || why="$why ${marks[$i]}:${cnt[$i]}"; done
-printf '요약 정리 가능 %d · KEEP %d%s · 판정 불가 %d (총 %d줄)\n' "$c" "$k" "$([ "$k" = 0 ] || echo "(${why# })")" "$u" "$n"
+# 요약 1줄 — 사유별 KEEP 수(사유 순서 고정 · index() 로 다바이트 안전)
+printf '%s\n' "$OUT" | awk -F'\t' 'BEGIN{m[1]="①";m[2]="②";m[3]="④";m[4]="⑤";m[5]="⑥"}
+  $NF=="정리 가능"{c++;next} $NF ~ /^KEEP:/{k++; for(i=1;i<=5;i++) if(index($NF,m[i])) w[i]++; next} {u++}
+  END{for(i=1;i<=5;i++) if(w[i]) s=s (s==""?"":" ") m[i] ":" w[i]
+      printf "요약 정리 가능 %d · KEEP %d%s · 판정 불가 %d (총 %d줄)\n", c+0, k+0, (k?"(" s ")":""), u+0, c+k+u}'
