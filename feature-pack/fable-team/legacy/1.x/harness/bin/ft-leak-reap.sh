@@ -13,6 +13,8 @@
 #   ⑤ r939 ⓔ — 승계(retire)가 «넘긴 작업»(ft-seat-reap --handover)이 영원히 남는 길을 본다: 재개 기록(ZC_RESUME_DIR · 기본 ~/.claude/state/seat-resume)/*.json 의
 #      "handed" 칸에서 `at`(retire 시각) + FT_HANDOVER_REPORT_MIN(기본 70)분 초과 ∧ 그 pid 가 아직 살아 있으면 `handover-stale …` 1줄 보고.
 #      ★죽이지 않는다(넘김은 머리 나쁜 게 아니다 — 사람·후계 판단) · 유출 수·killed·left·종료코드에 안 섬김(보고만)★
+#   ⑥ r1231 server.sh 갈래 — `scripts/server/server.sh all` ∧ 1시간+ ∧ 누적 CPU<5초 ∧ 자신·자손 LISTEN 0(lsof 1회 · 대역 FT_LSOF_CMD 시험 전용) → 그것과 자손 tail 이 후보.
+#      lsof 실패 = 이 갈래만 판정 불가 1줄 · 회수 0(바쁜 루프 갈래·종료코드 그대로) · --kill 뒤 «leak-reap: server.sh 회수 N건(pid · 나이 · 워크트리)» 1줄(--quiet 여도).
 # 판정이 좁은 이유: «고아 + 누적 CPU» 만으로 찾으면 launchd 데몬(logd·mds…)이 전부 PPID=1 이라 오탐 사살 — 시그니처 필수.
 #
 # Usage: ft-leak-reap.sh [--kill] [--dry-run] [--min-cpu=N] [--quiet] [--json] | --snapshot=<파일>
@@ -165,6 +167,38 @@ for pid, ppid, lstart, cpu, cmd in table:
         continue
     if cpu >= mincpu:
         rows.append((pid, lstart, cpu, cmd[:160]))
+
+# r1231 server.sh 갈래 — press 뒤 남은 `scripts/server/server.sh all`(끝없는 tail -f). 대상 = 명령 글자 ∧ 1시간+ ∧ 누적 CPU<5초 ∧ 자신·자손 LISTEN 0.
+#   그 자손 tail 도 같이. lsof 는 후보가 있을 때만 1회(7초 · 첫 출력 전 실패 재시도 1) · 실패 = 이 갈래 판정 불가 1줄 · 회수 0.
+def age_s(lstart):
+    try: return time.time() - time.mktime(time.strptime(lstart, "%a %b %d %H:%M:%S %Y"))
+    except ValueError: return -1
+def listen_pids():
+    cmd, err = shlex.split(os.environ.get("FT_LSOF_CMD") or "lsof -nP -iTCP -sTCP:LISTEN -Fp"), ""
+    for _ in (1, 2):
+        try: r = subprocess.run(cmd, capture_output=True, text=True, timeout=7)
+        except subprocess.TimeoutExpired: err = "lsof timeout"; continue
+        except Exception as e: err = f"lsof 실행 실패: {e}"; continue
+        if r.returncode == 0 or (r.returncode == 1 and not r.stdout.strip() and not r.stderr.strip()):
+            return {int(l[1:]) for l in r.stdout.splitlines() if l[:1] == "p" and l[1:].isdigit()}
+        err = f"lsof rc={r.returncode} {r.stderr.strip()[:80]}"
+        if r.stdout.strip(): break
+    print(f"ft-leak-reap: WARN server.sh 갈래 판정 불가 — {err} · 회수 0", file=sys.stderr)
+    return None
+srv = [(p, s, c, m) for p, _, s, c, m in table if p != mine and "scripts/server/server.sh all" in m and c < 5 and age_s(s) >= 3600]
+listen = listen_pids() if srv else None
+kids, info = {}, {p: (s, c, m) for p, _, s, c, m in table}
+for p, pp, _, _, _ in table: kids.setdefault(int(pp), []).append(p)
+for pid, lstart, cpu, cmd in (srv if listen is not None else []):
+    tree, todo = [], list(kids.get(pid, []))
+    while todo:
+        q = todo.pop(); tree.append(q); todo += kids.get(q, [])
+    if listen & ({pid} | set(tree)): continue
+    wt = re.search(r"(\S*)/scripts/server/server\.sh all", cmd)
+    print(f"#srv pid={pid} 나이={int(age_s(lstart) // 3600)}h 워크트리={(wt.group(1) if wt else '') or '?'}")
+    rows.append((pid, lstart, cpu, cmd[:160]))
+    rows += [(q, *info[q][:2], info[q][2][:160]) for q in tree if os.path.basename((info[q][2].split() or [""])[0]) == "tail"]
+
 for pid, lstart, cpu, cmd in rows:
     print(f"{pid}\t{lstart}\t{int(cpu)}\t{cmd}")
 if rows:
@@ -211,6 +245,7 @@ PY
 
 fp="$(printf '%s\n' "$found" | sed -n 's/^#fp //p' | tail -1)"
 hst="$(printf '%s\n' "$found" | sed -n 's/^#handover-stale //p')"; hst="$(printf '%s\n' "$hst" | grep -v '^$' || true)"
+srv="$(printf '%s\n' "$found" | sed -n 's/^#srv //p')"   # r1231 server.sh 갈래 대상(pid · 나이 · 워크트리)
 found="$(printf '%s\n' "$found" | grep -v '^#' || true)"
 hn=0; [ -z "$hst" ] || hn="$(printf '%s\n' "$hst" | grep -c .)"
 if [ -n "$hst" ]; then   # r939 ⓔ — 보고만(신호 0) · 유출 수·killed·left·rc 에 안 섬김
@@ -255,6 +290,11 @@ for pid in $pids; do
   if kill -0 "$pid" 2>/dev/null; then left=$((left+1)); else killed=$((killed+1)); fi
 done
 echo "leak-reap: 정리 ${killed}건 · 잔여 ${left}건 (대상 ${n}건)"
+if [ -n "$srv" ]; then   # r1231 — --quiet 여도 회수했으면 1줄(reap.log)
+  sn=0; sd=""
+  while read -r a b c; do kill -0 "${a#pid=}" 2>/dev/null || { sn=$((sn+1)); sd="$sd; $a $b $c"; }; done <<< "$srv"
+  [ "$sn" = 0 ] || echo "leak-reap: server.sh 회수 ${sn}건(${sd#; })"
+fi
 
 [ "$JSON" = 1 ] && echo "{\"leaked\":$n,\"killed\":$killed,\"left\":$left,\"handover_stale\":$hn}" || true
 exit 0
