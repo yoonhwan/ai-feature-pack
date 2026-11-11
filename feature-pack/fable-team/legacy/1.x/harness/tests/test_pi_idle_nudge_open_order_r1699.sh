@@ -105,9 +105,7 @@ if (!ONLY || ONLY === "b") {
   const c = setup("b", { log: (S) => row(2001, NANO, S, "[발주] 일 하라", 1) + "\n" + row(2002, S, NANO, "[보고] 끝", 0) + "\n", sess: NANO + "\n" });
   const pi = await load(); errs.length = 0;
   const rd = () => { try { return fs.readFileSync(path.join(c.dir, ".fable-team/state/pi-wake", (process.env.FT_SEAT || "").replace(/[^A-Za-z0-9._#-]/g, "_") + ".idle"), "utf-8").trim(); } catch { return "<없음>"; } };
-  if (process.env.R1699_DEBUG) console.log("DBG-PRE " + rd());
   await pi.settle();
-  if (process.env.R1699_DEBUG) console.log("DBG-POST " + rd());
   if (process.env.R1699_DEBUG) console.log("DBG-B calls=" + pi.calls.length + " nh=" + (pi.h.agent_settled || []).length + " errs=" + JSON.stringify(errs) + " idle=" + (() => { try { return fs.readFileSync(path.join(c.dir, ".fable-team/state/pi-wake", (process.env.FT_SEAT || "").replace(/[^A-Za-z0-9._#-]/g, "_") + ".idle"), "utf-8").trim(); } catch { return "<없음>"; } })());
   eq("ⓑ 회신 오면 지금 판정(1회째 턴 1)", pi.calls.length, 1);
 }
@@ -166,7 +164,6 @@ if (!ONLY || ONLY === "u") {
 }
 console.error = oe;
 if (process.env.R1699_DEBUG) console.log("ERRS " + JSON.stringify(errs.slice(-6)));
-if (process.env.R1699_DEBUG) console.log("ERRS " + JSON.stringify(errs.slice(-4)));
 console.log(`FAILED ${fails}`);
 process.exit(fails ? 1 : 0);
 NODE
@@ -177,15 +174,17 @@ printf '{"name":"@earendil-works/pi-coding-agent","type":"module","main":"index.
 echo 'export const createLocalBashOperations = () => ({ exec: async () => ({ output: "", exitCode: 0 }) });' > "$T/node_modules/@earendil-works/pi-coding-agent/index.mjs"
 EXTC="$T/ext/ft-idle-nudge.ts"
 RUNN=0
-drv() { local r c="${1:-}"; RUNN=$((RUNN+1)); r="$T/run$RUNN"; mkdir -p "$r"; cp -R "$T/bin" "$T/path" "$r/"; ( cd "$r" && R1699_EXT="$EXTC" R1699_TMP="$r" R1699_DEBUG=1 PATH="$r/path:$PATH" node "$T/driver.mjs" ${c:+"$c"} 2>&1 ); }
+drv() { local r c="${1:-}"; RUNN=$((RUNN+1)); r="$T/run$RUNN"; mkdir -p "$r"; cp -R "$T/bin" "$T/path" "$r/"; ( cd "$r" && R1699_EXT="$EXTC" R1699_TMP="$r" PATH="$r/path:$PATH" node "$T/driver.mjs" ${c:+"$c"} 2>&1 ); }
 drv_all() { local c o; for c in a0 a b c d e f g; do o="$(drv "$c")"; echo "$o" | grep -E '^(PASS|FAIL) ' ; done; }
 # ── Red 먼저 — 고침 전(HEAD 판) 으로 돌리면 ⓐ 가 턴 2·[긴급] 으로 실패해야 한다 ─────────────
-git -C "$HARNESS" show HEAD:feature-pack/fable-team/legacy/1.x/harness/pi/ft-idle-nudge.ts > "$EXTC" 2>/dev/null || cp "$EXT" "$EXTC"
-r="$(drv a)"; grep -q '^FAIL ⓐ' <<<"$r" && ok "Red — 고침 전 판은 ⓐ 에서 실패(턴·[긴급] 발생)" || bad "Red 확인 실패" "$(grep '^FAIL' <<<"$r" | head -1)"
+# Red 판 = r1699 이전(origin/main) — 이 가지에 커밋이 쌓여도 «고침 전» 은 origin/main 이다
+RBASE="$(git -C "$HARNESS" merge-base HEAD origin/main 2>/dev/null)"   # 고침 직전 판 = 이 가지가 갈라진 고정 커밋(떠다니는 이름 아님)
+[ -n "$RBASE" ] && git -C "$HARNESS" show "$RBASE:feature-pack/fable-team/legacy/1.x/harness/pi/ft-idle-nudge.ts" > "$EXTC" 2>/dev/null || cp "$EXT" "$EXTC"
+r="$(drv a)"; grep -qE '^FAIL ⓐ' <<<"$r" && ok "Red — 고침 전 판은 ⓐ 에서 실패(턴·[긴급] 발생)" || bad "Red 확인 실패" "$(grep '^FAIL' <<<"$r" | head -1)"
 cp "$EXT" "$EXTC"
 echo "--- 기본(고침 후) ---"
 r="$(drv)"; echo "$r" | sed 's/^/  /'
-grep -q '^FAIL' <<<"$r" && { echo "$r" | grep '^FAIL' | sed 's/^/  /'; fail=$((fail+$(grep -c '^FAIL' <<<"$r"))); } || ok "사례 ⓐ~ⓖ ALL PASS"
+grep -qE '^FAIL ' <<<"$r" && { echo "$r" | grep -E '^FAIL ' | sed 's/^/  /'; fail=$((fail+$(grep -cE '^FAIL ' <<<"$r"))); } || ok "사례 ⓐ~ⓖ ALL PASS"
 # ── 변이 4종(사본에서만 · 변이마다 형제 파일까지 새 ext 폴더 = 고립 실행과 같은 꼴) ──────────
 mkx() {  # mkx <이름> <old> <new> → ext 폴더 경로
   local d="$T/mx-$1"; mkdir -p "$d"; cp "$(dirname "$EXT")/ft-mbox-wake.ts" "$(dirname "$EXT")/ft-load-line.ts" "$d/"; printf '{"type":"module"}\n' > "$d/package.json"
@@ -197,16 +196,16 @@ assert old in s, "변이 대상 없음: " + old[:60]
 open(dst, "w", encoding="utf-8").write(s.replace(old, new, 1))
 PY
   printf '%s\n' "$d"; }
-drvx() { local d="$1" c="$2" r; RUNN=$((RUNN+1)); r="$T/iso$RUNN"; mkdir -p "$r"; cp -R "$T/bin" "$T/path" "$r/"; cp "$T/driver.mjs" "$r/"; cp -R "$T/node_modules" "$r/"; ( cd "$r" && R1699_EXT="$d/ft-idle-nudge.ts" R1699_TMP="$r" R1699_DEBUG=1 PATH="$r/path:$PATH" node "$r/driver.mjs" "$c" 2>&1 ); }
+drvx() { local d="$1" c="$2" r; RUNN=$((RUNN+1)); r="$T/iso$RUNN"; mkdir -p "$r"; cp -R "$T/bin" "$T/path" "$r/"; cp "$T/driver.mjs" "$r/"; cp -R "$T/node_modules" "$r/"; ( cd "$r" && R1699_EXT="$d/ft-idle-nudge.ts" R1699_TMP="$r" PATH="$r/path:$PATH" node "$r/driver.mjs" "$c" 2>&1 ); }
 X="$(mkx m1 'const ord = openOrders(live);' 'const ord = { open: 0, stale: 0, oldest: 0 };')"
-r="$(drvx "$X" a)"; echo "M1RAW: $(echo "$r" | head -3 | tr '\n' '|')"; grep -q '^FAIL ⓐ' <<<"$r" && ok "M1 열린 발주 칸 삭제 → ⓐ FAIL(검출됨)" || bad "M1 검출 실패"
+r="$(drvx "$X" a)"; echo "M1RAW: $(echo "$r" | head -3 | tr '\n' '|')"; grep -qE '^FAIL ⓐ' <<<"$r" && ok "M1 열린 발주 칸 삭제 → ⓐ FAIL(검출됨)" || bad "M1 검출 실패"
 X="$(mkx m2 'const replied = rows.some(' 'const replied = false && rows.some(')"
-r="$(drvx "$X" u)"; echo "M2RAW: $(echo "$r" | head -2 | tr '\n' '|')"; grep -q '^FAIL 단위 회신' <<<"$r" && ok "M2 회신 검사 삭제 → 단위 FAIL(검출됨)" || bad "M2 검출 실패"
+r="$(drvx "$X" u)"; echo "M2RAW: $(echo "$r" | head -2 | tr '\n' '|')"; grep -qE '^FAIL 단위 회신' <<<"$r" && ok "M2 회신 검사 삭제 → 단위 FAIL(검출됨)" || bad "M2 검출 실패"
 X="$(mkx m3 'now - ts <= win' 'true')"
-r="$(drvx "$X" c)"; grep -q '^FAIL ⓒ' <<<"$r" && ok "M3 시간 창 삭제 → ⓒ FAIL(검출됨)" || bad "M3 검출 실패"
+r="$(drvx "$X" c)"; grep -qE '^FAIL ⓒ' <<<"$r" && ok "M3 시간 창 삭제 → ⓒ FAIL(검출됨)" || bad "M3 검출 실패"
 X="$(mkx m4 'if (replied || !live.has(to)) continue;' 'if (replied) continue;')"
-r="$(drvx "$X" u)"; echo "M4RAW: $(echo "$r" | head -2 | tr '\n' '|')"; grep -q '^FAIL 단위 받는 좌석' <<<"$r" && ok "M4 생존 검사 삭제 → 단위 FAIL(검출됨)" || bad "M4 검출 실패"
+r="$(drvx "$X" u)"; echo "M4RAW: $(echo "$r" | head -2 | tr '\n' '|')"; grep -qE '^FAIL 단위 받는 좌석' <<<"$r" && ok "M4 생존 검사 삭제 → 단위 FAIL(검출됨)" || bad "M4 검출 실패"
 # ── ⓗ 회귀 — 기존 idle-nudge 시험 2파일 새 FAIL 0 ────────────────────────────────────────
-n=0; for t in test_pi_idle_nudge_r1530.sh test_pi_idle_nudge_route_r1684.sh; do m="$(timeout 70 bash "$HERE/$t" 2>&1 | grep -c '^FAIL')"; n=$((n+m)); done
+n=0; for t in test_pi_idle_nudge_r1530.sh test_pi_idle_nudge_route_r1684.sh; do m="$(timeout 70 bash "$HERE/$t" 2>&1 | grep -cE '^FAIL ')"; n=$((n+m)); done
 [ "$n" = 0 ] && ok "ⓗ 회귀 idle-nudge 2파일 FAIL 0(앞 판과 같다)" || bad "ⓗ 회귀 FAIL $n 줄"
 echo "FAILED $fail"; [ "$fail" = 0 ] && echo "ALL PASS"; exit $([ "$fail" = 0 ] && echo 0 || echo 1)

@@ -101,7 +101,10 @@ export default function (pi: ExtensionAPI) {
   // tmux 세션 이름 집합 — 조회 실패(no server 제외) = null(판정 불가)
   function liveSeats(): Set<string> | null {
     try { const out = execSync('tmux ls -F "#{session_name}"', { encoding: "utf-8", timeout: 7000, stdio: ["ignore", "pipe", "ignore"] }); return new Set(out.split("\n").map((x) => x.trim()).filter(Boolean)); }
-    catch (e) { const err = String((e as { stderr?: unknown }).stderr ?? e); if (/no server running|error connecting/.test(err)) return new Set(); log(`tmux 조회 실패 ${err.split("\n")[0]}`); return null; }
+    // r1699: «tmux 없음·서버 없음·세션 0» 은 «살아 있는 좌석 0» 이다(판정 불가 아님) — 그 밖 오류만 판정 불가(null)
+    catch (e) { const err = String((e as { stderr?: unknown }).stderr ?? e) + String((e as { message?: unknown }).message ?? "");
+      if (/no server running|error connecting|ENOENT|not found|Command failed: tmux/.test(err)) return new Set();
+      log(`tmux 조회 실패 ${err.split("\n")[0]}`); return null; }
   }
   // r1684 ② — 골 원장이 없는 루트(aifp 등) = design/TEAMS.md 에 planner 행이 없음. 그때 골 칸 = 열림 + 세션당 INFO 1줄.
   //   읽는 곳 = 골 표와 «같은 ref»(FT_TEAMS_REF·기본 origin/main) 의 그 파일 — 작업 트리 파일은 보지 않는다(DA R1: 트리만 바꾼 판을 «원장 없음» 으로 오판했다).
