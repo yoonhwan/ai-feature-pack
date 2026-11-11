@@ -99,6 +99,27 @@ def test_d2_open_work_undecidable_keeps_alert_with_note(w: World) -> None:  # �
     assert len(bodies(w, "t1-master#1")) == 1, w.mbox_log()
 
 
+# ── P1·P2 — arch HOLD(#283056) 반례: 작은 파일의 «첫 줄» 을 버리면 안 된다 ──────────────
+def test_p1_first_queue_line_is_the_latest_mail(w: World) -> None:  # P1
+    w.mail("planner#1", 990, 22, frm="t1-master#1", body="[정리] 새 일 착수")  # 큐 첫 줄 = 더 새 발신
+    lead_stall(w)
+    next_none(w)
+    open_work_zero(w)
+    r = scan(w)
+    assert counts(r.stdout)["f"] == "1", r.stdout  # 마지막 발신 = 990 → 닫기 대기 아님
+
+
+def test_p2_single_line_queue_next_none_is_closed_wait(w: World) -> None:  # P2
+    lead_stall(w)
+    q, lg = w.root / ".fable-team/comm/mailbox.jsonl", w.root / ".fable-team/comm/mailbox.log.jsonl"
+    _ = lg.write_text(q.read_text(encoding="utf-8"), encoding="utf-8")  # 심박은 로그로 옮긴다(recv 뒤)
+    _ = q.write_text("", encoding="utf-8")
+    next_none(w)  # 큐에는 [다음 없음] 1줄(= 첫 줄)
+    open_work_zero(w)
+    r = scan(w)
+    assert counts(r.stdout)["f"] == "0", r.stdout
+
+
 # ── bin 과 kit 사본 = 같은 바이트 ─────────────────────────────────────────────
 def test_bin_and_kit_same_bytes() -> None:
     harness = Path(__file__).resolve().parents[2]

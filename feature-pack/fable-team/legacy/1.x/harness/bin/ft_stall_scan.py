@@ -39,11 +39,12 @@ def _last_sent(comm: Path, names: set[str]) -> str:
     for p in (comm / "mailbox.jsonl", comm / "mailbox.log.jsonl"):
         try:
             with open(p, "rb") as fh:
-                fh.seek(max(0, fh.seek(0, os.SEEK_END) - (4 << 20)))
+                off = max(0, fh.seek(0, os.SEEK_END) - (4 << 20))
+                fh.seek(off)
                 raw = fh.read()
         except OSError:
             continue
-        for line in raw.decode("utf-8", "replace").splitlines()[1:]:  # 첫 줄 = 잘린 조각
+        for line in raw.decode("utf-8", "replace").splitlines()[1 if off else 0:]:  # 4MB 앞을 잘랐을 때만 첫 줄이 조각
             try:
                 r = json.loads(line)
                 seq = int(r.get("seq") or 0)
