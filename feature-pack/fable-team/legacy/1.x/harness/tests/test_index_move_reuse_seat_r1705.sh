@@ -95,7 +95,8 @@ raw = open(b, encoding="utf-8").read()
 ok = load(a) == load(b) and '"index"' in raw and raw.endswith("\n") and raw.split("\n")[1].startswith("  ")
 raise SystemExit(0 if ok else 1)
 PY
-{ [ "$RC" = 0 ] && [ "$?" = 0 ]; } && ok "⑧ 명부 꼴 보존(indent 2 · 끝 줄바꿈) · 다른 키 변화 0" || bad "⑧" "rc=$RC"
+_p8=$?   # python 검사 결과를 «바로» 잡는다(전에는 $? 가 앞 [ ] 결과라 헛 PASS)
+[ "$RC" = 0 ] && [ "$_p8" = 0 ] && ok "⑧ 명부 꼴 보존(indent 2 · 끝 줄바꿈) · 다른 키 변화 0" || bad "⑧" "rc=$RC py=$_p8"
 # 변이 W1~W3 (사본 · 원본 대조)
 mut() { R="$T/m-$1"; rm -rf "$R"; mkdir -p "$R"; cp "$BIN"/* "$R/" 2>/dev/null; printf '#!/bin/sh\nexit 0\n' > "$R/ft-index-lint.sh"; python3 - "$R/ft-index-move.sh" "$1" <<'PY'
 import pathlib, sys
