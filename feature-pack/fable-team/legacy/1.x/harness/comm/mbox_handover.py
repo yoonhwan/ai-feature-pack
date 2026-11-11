@@ -110,6 +110,44 @@ def _bg_items(old):   # 옛 세션 pane 아래 백그라운드 명령(에이전�
     return out
 
 
+def _handovers(old, new):   # 옛→후계 기계 [인계] 전부(보낸 순)
+    return [r for r in _sent() if r.get("from") == old and r.get("to") == new and _head(r.get("body")) == "[인계]"]
+
+
+def _readies(new, old, after=0):   # 후계→옛 [레디] 중 seq > after(보낸 순)
+    return [r for r in _sent() if r.get("seq", 0) > after and r.get("from") == new
+            and r.get("to") == old and _head(r.get("body")) == "[레디]"]
+
+
+def handover_group(old, new):
+    """r1653 — [인계] 묶음 = 아직 «받음» 이 없는 통들(항목 단위 완료 확인) · 다 받았으면 마지막 1통(다시 ready 해도 항목 0 이 아니다).
+    마지막 1통만 보면 앞 통 항목이 확인 없이 통과하고(#282965 104 항목 · #283071), seq 로 자르면 옛 꼴 [레디] 뒤 새 [레디] 가 앞 통을 덮어
+    미받음이 누락된다(DA R1-a). 한 통이라도 항목이 남아 있으면 합집합에 남긴다 — 이미 받은 항목을 두 번 받으라 하지 않는다(DA R1-b)."""
+    hs = _handovers(old, new)
+    if not hs:
+        return []
+    pend = []
+    for h in hs:
+        got = "\n".join(r.get("body", "") for r in _readies(new, old, h.get("seq", 0)))
+        ids = items(h)
+        if ids is None or any(("%s 받음" % i) not in got for i in ids):
+            pend.append(h)
+    return pend or hs[-1:]
+
+
+def group_items(gs):   # 묶음 항목 id 합집합(처음 나온 순서 · 중복 1번) · 형식 불명 1통이라도 있으면 None
+    return None if any(items(h) is None for h in gs) else list(dict.fromkeys(i for h in gs for i in items(h)))
+
+
+def _resent(old, new):   # r1653 ⓒ — 앞 [인계] 로 넘겼지만 뒤 [레디] 에 «받음» 이 아직 없는 쪽지 항목(같은 줄 꼴)
+    out, ln = [], lambda h, i: next((l for l in h.get("body", "").splitlines() if l.startswith("- %s " % i)), "")
+    for h in _handovers(old, new):
+        got = "\n".join(r.get("body", "") for r in _readies(new, old, h.get("seq", 0)))
+        out += [x for x in (ln(h, i) for i in (items(h) or []) if i.startswith("#") and ("%s 받음" % i) not in got)
+                if x and x not in out]
+    return out
+
+
 def handover_body(old, new, extra=()):
     """[인계] 본문 — 남은 쪽지 끝까지 recv(현역일 때) → 미표시 영수 전부 · h · bg · 손 항목(--bg «설명»). 표시(인계)는 send 성공 뒤 mbox.sh 가 한다."""
     if not mbox_lineage.retired_to(old):
@@ -120,6 +158,7 @@ def handover_body(old, new, extra=()):
         ln = "- #%s [%s] %s (전문: %s)" % (r["seq"], r["from"], re.sub(r"\s+", " ", r["body"])[:100],
                                          r.get("body_full") or "mailbox.log.jsonl seq %s" % r["seq"])
         (asks if r["from"] == "slack-oppa" or _head(r["body"]) in ASK_HEADS else rest).append(ln)
+    rest += [ln for ln in _resent(old, new) if ln not in rest]   # r1653 ⓒ — 미받음 항목 재적재(받음 끝난 항목 0)
     hs, note = _h_items()
     bg = _bg_items(old) + ["- bg:x%d %s" % (i + 1, e) for i, e in enumerate(extra)]
     n = len(asks) + len(rest) + len(hs) + len(bg)
@@ -149,16 +188,17 @@ def _gate(g, out=sys.stderr):   # r1319 — (rc, 문구) 관문 결과를 그대
 
 
 def ready_body(new, old):
-    h = last_handover(old, new)
-    if not h:
+    gs = handover_group(old, new)
+    if not gs:
         sys.stderr.write("REJECT %s 의 [인계] 없음 — 구세션이 bash mbox.sh handover %s %s 먼저\n" % (old, old, new)); sys.exit(3)
-    if h["seq"] not in {r["seq"] for r in _rows(new)}:
-        sys.stderr.write("REJECT [인계] #%s 를 %s 가 아직 recv 안 함 — recv 먼저\n" % (h["seq"], new)); sys.exit(3)
-    _gate(mbox_retire_check.ready_gate(new, old, mbox_retire_check.handover_target(h)), sys.stderr)   # C1 retire 먼저 · C2 남은 `_*` 칸
-    ids = items(h)
+    miss = [h["seq"] for h in gs if h["seq"] not in {r["seq"] for r in _rows(new)}]
+    if miss:
+        sys.stderr.write("REJECT [인계] #%s 를 %s 가 아직 recv 안 함 — recv 먼저\n" % (miss[0], new)); sys.exit(3)
+    _gate(mbox_retire_check.ready_gate(new, old, mbox_retire_check.handover_target(gs[-1])), sys.stderr)   # C1 retire 먼저 · C2 남은 `_*` 칸
+    ids = group_items(gs)   # r1653 ⓐ — 묶음 항목 합집합(머리 = #a,#b)
     if ids is None:
-        sys.stderr.write("REJECT [인계] #%s 형식 불명(기계 머리 «항목 N» 과 «- <id>» 줄 수 불일치) — 구세션이 bash mbox.sh handover %s %s 로 다시\n" % (h["seq"], old, new)); sys.exit(3)
-    return "\n".join(["[레디] %s <- %s · [인계] #%s 받음 · 항목 %d" % (new, old, h["seq"], len(ids))] + ["%s 받음" % i for i in ids])
+        sys.stderr.write("REJECT [인계] #%s 형식 불명(기계 머리 «항목 N» 과 «- <id>» 줄 수 불일치) — 구세션이 bash mbox.sh handover %s %s 로 다시\n" % (next(h["seq"] for h in gs if items(h) is None), old, new)); sys.exit(3)
+    return "\n".join(["[레디] %s <- %s · [인계] #%s 받음 · 항목 %d" % (new, old, ",".join(str(h["seq"]) for h in gs), len(ids))] + ["%s 받음" % i for i in ids])
 
 
 def _held_file(seat):
@@ -216,20 +256,22 @@ def close_check(seat, need_ready=True, verdict=False):
     if _open_work(seat) is False:   # r1539 — 받을 일 0 이면 [인계] 요구 면제(승계 0 = 인계할 것이 없다) · 있음·판정 불가 = 지금처럼 REJECT
         print("CLOSE-OK %s 받을 일 0 · [인계] 면제" % seat); return 0
     near, succ = chain or [succ], (chain or [succ])[0]   # 안내 줄·[레디] 대상 = «직계» 후계(r1600 ⓑ)
-    h = None
-    for n in near:   # 직계부터 마지막 기계 [인계] 를 가진 후계를 고른다(사슬 끝만 보면 다 마친 좌석이 막힌다)
-        h = last_handover(seat, n)
-        if h: succ = n; break
-    if not h:
+    gs = []
+    for n in near:   # 직계부터 기계 [인계] 를 가진 후계를 고른다(사슬 끝만 보면 다 마친 좌석이 막힌다)
+        gs = handover_group(seat, n)
+        if gs: succ = n; break
+    if not gs:
         print("REJECT %s [인계] 없음 — bash mbox.sh handover %s %s" % (seat, seat, succ)); return 3
-    ids = items(h)
+    seqs, after = ",".join(str(h["seq"]) for h in gs), min(h.get("seq", 0) for h in gs)
+    ids = group_items(gs)   # r1653 ⓑ — 묶음 합집합 항목이 묶음 뒤 [레디] 들의 «받음» 합집합에 전부 있어야
     if ids is None:
-        print("REJECT %s [인계] #%s 형식 불명(손으로 쓴 [인계]) — bash mbox.sh handover %s %s 로 다시" % (seat, h["seq"], seat, succ)); return 3
-    for r in reversed(_sent()):
-        if r.get("seq", 0) > h["seq"] and _head(r.get("body")) == "[레디]" and r.get("from") != seat \
-                and r.get("from") == succ and "#%s 받음" % h["seq"] in r.get("body", ""):   # r1493 후계 = 명부 사슬 끝 «정확 일치»(개명 승계도 닫힌다 · 같은 역할 키 비후계 [레디] 는 안 센다)
-            miss = [i for i in ids if "%s 받음" % i not in r["body"]]
-            if miss:
-                print("REJECT %s [레디] #%s 에 «받음» 없는 항목 %s" % (seat, r["seq"], ",".join(miss))); return 3
-            print("CLOSE-OK %s [인계] #%s → [레디] #%s 항목 %d 전부 받음" % (seat, h["seq"], r["seq"], len(ids))); return 0
-    print("REJECT %s [인계] #%s 뒤 후계 [레디] 없음(회신 0 = 안 닫음) — 후계가 bash mbox.sh ready %s %s (pane 입력은 세지 않음)" % (seat, h["seq"], succ, seat)); return 3
+        print("REJECT %s [인계] #%s 형식 불명(손으로 쓴 [인계]) — bash mbox.sh handover %s %s 로 다시" % (seat, seqs, seat, succ)); return 3
+    hit = [r for r in _sent() if r.get("seq", 0) > after and _head(r.get("body")) == "[레디]" and r.get("from") != seat
+           and r.get("from") == succ and r.get("to") == seat]   # r1493 후계 = 명부 사슬 끝 «정확 일치»(개명 승계도 닫힌다 · 같은 역할 키 비후계 [레디] 는 안 센다)
+    if not hit:
+        print("REJECT %s [인계] #%s 뒤 후계 [레디] 없음(회신 0 = 안 닫음) — 후계가 bash mbox.sh ready %s %s (pane 입력은 세지 않음)" % (seat, seqs, succ, seat)); return 3
+    got = "\n".join(r.get("body", "") for r in hit)
+    miss = [i for i in ids if "%s 받음" % i not in got]
+    if miss:
+        print("REJECT %s [레디] #%s 에 «받음» 없는 항목 %s" % (seat, hit[-1]["seq"], ",".join(miss))); return 3
+    print("CLOSE-OK %s [인계] #%s → [레디] #%s 항목 %d 전부 받음" % (seat, seqs, hit[-1]["seq"], len(ids))); return 0
