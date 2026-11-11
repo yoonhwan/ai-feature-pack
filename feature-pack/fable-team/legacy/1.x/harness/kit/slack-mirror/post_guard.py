@@ -42,7 +42,8 @@ GATE_REPOS_ENV = "FT_APPROVAL_GATE_REPOS"  # 콜론 목록 · 기본 = 루트 + 
 GATE_TARGET_ENV = "FT_APPROVAL_GATE_TARGET"  # 기본 origin/main
 DEFAULT_PACK_REPO = "/Users/yoonhwan/Project/ai-feature-pack"
 SHA40 = re.compile(r"(?<![0-9a-fA-F])[0-9a-f]{40}(?![0-9a-fA-F])")
-MERGE_WORD, ASK, PR_REF = re.compile(r"머지|병합|merge", re.I), re.compile(r"할까요|\?"), re.compile(r"(PR\s*)?#([0-9]+)", re.I)  # r1710 머지 질문
+MERGE_WORD, ASK, PR_REF = re.compile(r"머지|병합|merge", re.I), re.compile(r"할까요|\?"), re.compile(r"(PR|Issue|이슈)?\s*#([0-9]+)", re.I)  # r1710 머지 질문
+URL = re.compile(r"\S+://\S+")  # r1710 보정 1 — 링크 안 물음표는 묻는 꼴이 아니다
 
 
 class PostGuardError(MirrorError):
@@ -122,8 +123,8 @@ def approval_gate(text: str, human: bool = False) -> None:
     품지 않음 = 게시 0 «먼저 main 따라잡기» · 조회 실패 = 게시 0 «판정 불가»(조용한 통과 0) · approve-merge 낱말 없음 = 대상 밖.
     r1710: 사람 채널 «머지 질문»(머지 낱말 ∧ 묻는 꼴 ∧ PR 번호)은 PR 마다 40hex 가 있어야 나가고, 그 sha 도 같은 조상 검사를 탄다(승인 검사가 질문 글의 sha 를 본다)."""
     shas = sorted(set(SHA40.findall(text)))
-    refs = PR_REF.findall(text) if human and MERGE_WORD.search(text) and ASK.search(text) else []
-    prs = {n for p, n in refs if p} or {n for _, n in refs}  # «PR #N» 이 있으면 그 번호만 · 없으면 «#N»
+    refs = PR_REF.findall(text) if human and MERGE_WORD.search(text) and ASK.search(URL.sub("", text)) else []
+    prs = {n for p, n in refs if p.upper() == "PR"} or {n for p, n in refs if not p}  # «PR #N» 이 있으면 그 번호만 · 없으면 맨 «#N»(Issue·이슈 #N 은 안 셈)
     if len(shas) < len(prs):
         raise PostGuardError(f"게시 거부(approval_gate) — 머지 질문에 PR head sha(40자)가 없음 · 질문 글에 sha 를 넣어 다시(PR {len(prs)}건 · sha {len(shas)}개) · 게시 0")
     if not shas or not (prs or "approve-merge" in text):

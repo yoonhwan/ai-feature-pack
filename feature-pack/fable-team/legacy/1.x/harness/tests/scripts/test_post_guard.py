@@ -359,7 +359,7 @@ def test_r1710_w1_no_merge_question_check_lets_case_1_through(gate):  # W1 → �
 
 
 def test_r1710_w2_no_ask_form_blocks_a_status_report(gate):  # W2 → ④(머지됨) 이 깨진다
-    mut = _mutant("MERGE_WORD.search(text) and ASK.search(text)", "MERGE_WORD.search(text)")
+    mut = _mutant('MERGE_WORD.search(text) and ASK.search(URL.sub("", text))', "MERGE_WORD.search(text)")
     with pytest.raises(mut.PostGuardError, match=NO_SHA):
         mut.approval_gate("팩 PR #950 머지됨 · LANDED", True)
     pg.approval_gate("팩 PR #950 머지됨 · LANDED", True)  # 원본 = 통과
@@ -370,3 +370,39 @@ def test_r1710_w3_any_one_sha_lets_a_batch_through(gate):  # W3 → ⑤ 가 깨�
     _mutant("if len(shas) < len(prs):", "if prs and not shas:").approval_gate(q, True)
     with pytest.raises(pg.PostGuardError, match=NO_SHA):  # 원본 = 반대 결과
         pg.approval_gate(q, True)
+
+
+# ── r1710 보정 1 — 오탐 2건(ⓐ URL 물음표 · ⓑ Issue 번호) + 변이 Wa·Wb(원본 대조) ──
+URL_REPORT = "PR #950 머지됨 https://x.com/a?b=1"
+ISSUE_ASK = "Issue #8375 머지 관련 확인할까요?"
+
+
+def test_r1710_a_url_question_mark_is_not_an_ask_form(gate):  # ⓐ 상태 보고의 링크 물음표는 묻는 꼴이 아니다
+    _ask(URL_REPORT)
+    assert len(gate.calls) == 1
+    with pytest.raises(pg.PostGuardError, match=NO_SHA):  # 링크가 있어도 글이 묻는 꼴이면 그대로 막힌다
+        _ask("PR #950 머지할까요? https://x.com/a?b=1")
+    assert len(gate.calls) == 1
+
+
+def test_r1710_b_issue_number_is_not_a_pr_number(gate):  # ⓑ «PR #N» 없을 때 Issue·이슈 번호는 PR 로 세지 않는다
+    for q in (ISSUE_ASK, "이슈 #8375 병합 건 확인할까요?", "issue #8375 merge 볼까요?"):
+        _ask(q)
+    assert len(gate.calls) == 3
+    with pytest.raises(pg.PostGuardError, match=NO_SHA):  # 같은 글에 맨 «#N» 이 있으면 그 번호는 센다
+        _ask("Issue #8375 관련 #950 머지할까요?")
+    assert len(gate.calls) == 3
+
+
+def test_r1710_wa_ask_on_raw_text_blocks_a_url_report(gate):  # Wa → ⓐ 가 깨진다
+    mut = _mutant('ASK.search(URL.sub("", text))', "ASK.search(text)")
+    with pytest.raises(mut.PostGuardError, match=NO_SHA):
+        mut.approval_gate(URL_REPORT, True)
+    pg.approval_gate(URL_REPORT, True)  # 원본 = 통과
+
+
+def test_r1710_wb_counting_issue_numbers_blocks_an_issue_ask(gate):  # Wb → ⓑ 가 깨진다
+    mut = _mutant("{n for p, n in refs if not p}", "{n for p, n in refs}")
+    with pytest.raises(mut.PostGuardError, match=NO_SHA):
+        mut.approval_gate(ISSUE_ASK, True)
+    pg.approval_gate(ISSUE_ASK, True)  # 원본 = 통과
