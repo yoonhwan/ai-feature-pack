@@ -42,7 +42,8 @@ if [ -n "$VERDICT" ]; then   # R400 ⓪① — 원장 루트를 먼저 풀고(�
   ROUT="$(bash "${FT_SEAT_RETIRE_BIN:-$HERE/ft-seat-retire.sh}" "$SEAT" --record-only --verdict "$VERDICT" ${SEATS_FILE:+--seats "$SEATS_FILE"} --keep-existing 2>&1)"; rrc=$?; NOLINE="$(printf '%s\n' "$ROUT" | grep -m1 '^NORECORD ')"   # r960 ⓡⓣ — 어느 갈래(수용·HELD·죽은 좌석)든 NORECORD 원문 줄은 finish 가 책임진다 — case 보다 먼저 잡는다 · r5: --seats = 확정 경로를 ARG 유무 무관하게 항상 넘긴다
   held() { if [ -n "$NOLINE" ]; then finish 3 "HELD $SEAT 재개 기록 실패 — 명부 쓰기 0 · kill 0 · rc=$rrc"; else finish 3 "HELD $SEAT 재개 기록 실패 — 명부 쓰기 0 · kill 0 · rc=$rrc $(printf '%s' "$ROUT" | head -1)"; fi; }   # r5: 수용 판정 근거 = 입구에서 확정한 $AGENT 하나(명부 다시 읽기 0)
   # PI ADAPTER BEGIN
-  if [ "$AGENT" = pi ] && [ "$rrc" = 0 ]; then
+  PI_DEADLY=0; case "$rrc $NOLINE" in "0 NORECORD "*"pi 좌석 tmux 없음"*) PI_DEADLY=1;; esac   # r1679 — retire 가 이미 «PI_DEAD(pi 좌석 tmux 없음)» 로 판정한 죽은 좌석은 pane 이 없어 결속 확인이 언제나 실패한다 → 그 판정 하나만 믿고 건너뛴다(판정 불가 = rrc≠0 이라 여기 못 온다 · seat-close 자신의 DEAD 로는 가르지 않는다)
+  if [ "$AGENT" = pi ] && [ "$rrc" = 0 ] && [ "$PI_DEADLY" = 0 ]; then
     python3 "$HERE/ft_seat_bind.py" "$SEAT" --expect "$RECF" >/dev/null || { rrc=1; held; }
   fi
   # PI ADAPTER END
