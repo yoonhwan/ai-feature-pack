@@ -71,3 +71,4 @@ ft 2.0 조건 18 은 두 팀(harness·planner)을 2.0 으로 옮긴 뒤 1.x 쪽 
 - base_sha: 816fa5e412a75e3e5801a642f8a9eb1fc39dbb98 (spawn 2026-11-11)
 - 2026-11-11 · arch-pi#298 카드 초안(#284592 ①) · 대기
 - 2026-11-11 18:30 — 대기→진행 · 좌석 aifp-ft-nano-r1675-ft20-cond18-old-writer-block-switc#0
+- [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)
