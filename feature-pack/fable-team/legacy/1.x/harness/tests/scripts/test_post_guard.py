@@ -402,7 +402,15 @@ def test_r1710_wa_ask_on_raw_text_blocks_a_url_report(gate):  # Wa → ⓐ 가 �
 
 
 def test_r1710_wb_counting_issue_numbers_blocks_an_issue_ask(gate):  # Wb → ⓑ 가 깨진다
-    mut = _mutant("{n for p, n in refs if not p}", "{n for p, n in refs}")
+    mut = _mutant('{n for p, n in refs if not p or p.upper() == "PR"}', "{n for p, n in refs}")
     with pytest.raises(mut.PostGuardError, match=NO_SHA):
         mut.approval_gate(ISSUE_ASK, True)
     pg.approval_gate(ISSUE_ASK, True)  # 원본 = 통과
+
+
+def test_r1710_r1_explicit_pr_and_bare_number_are_both_counted(gate):  # 보정 2 · DA HOLD R1 — «PR #N» 과 맨 «#N» 은 합쳐 센다
+    with pytest.raises(pg.PostGuardError, match=NO_SHA):
+        _ask(f"2건 머지할까요?\n1. PR #950 {gate.new}\n2. #951")
+    assert gate.calls == []
+    _ask(f"2건 머지할까요?\n1. PR #950 {gate.new}\n2. #951 {gate.new2}")  # PR 마다 sha 가 있으면 나간다
+    assert len(gate.calls) == 1
