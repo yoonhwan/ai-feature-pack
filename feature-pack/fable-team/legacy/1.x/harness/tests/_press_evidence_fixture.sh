@@ -62,12 +62,14 @@ mkpr() { local n="$1" b="$2"; shift 2; git -C "$REPO" fetch -q origin; git -C "$
 adv() { git -C "$REPO" fetch -q origin; git -C "$REPO" checkout -q -B main origin/main; for kv in "$@"; do put "${kv%%=*}" "${kv#*=}"; done; cm "$REPO" "main adv"; git -C "$REPO" push -q origin main; git -C "$REPO" fetch -q origin; }
 brn() { git -C "$REPO" fetch -q origin; git -C "$REPO" checkout -q -B "$1" origin/main; }
 land() { local b="$1" t0=$SECONDS; shift; apv "$@"; : > "$STUB_LOG"; out="$(bash "$b" "$@" --repo "$REPO" 2>&1)"; rc=$?; [ -z "${LAND_T:-}" ] || echo "  land $1 $((SECONDS - t0))s"; }
-ev() {  # ev <폴더> <run> [poller 첫 줄] [로그 칸] [turbopack 원문] → poller_dom.jsonl·table.md·turbopack.txt
-  local p1="${3:-}" lg="${4:-worker 12:00 줄}" tp="${5:-}"; mkdir -p "$1"
+ev() {  # ev <폴더> <run> [poller 첫 줄] [로그 칸] [turbopack 원문] [표 turbopack 값 · none = 행 없음] → poller_dom.jsonl·table.md·turbopack.txt
+  # r1263: 표에 «| turbopack | build N · runtime N · config N · 원문 … |» 행 필수 — 기본값 = 기본 원문(build 0 runtime 1 config 0)과 같은 숫자
+  local p1="${3:-}" lg="${4:-worker 12:00 줄}" tp="${5:-}" tr="${6:-build 0 · runtime 1 · config 0 · 원문 turbopack.txt}"; mkdir -p "$1"
   [ -n "$p1" ] || p1="{\"axis\":\"conn\",\"epoch_ms\":1,\"run_id\":\"$2\"}"
   [ -n "$tp" ] || tp='data: {"result":{"content":[{"type":"text","text":"{\"configErrors\":[],\"sessionErrors\":[{\"url\":\"/realtime\",\"buildError\":null,\"runtimeErrors\":[{\"m\":1}]}]}"}]},"jsonrpc":"2.0","id":1}'
   printf '%s\n{"axis":"dom","epoch_ms":2,"poll":1}\n' "$p1" > "$1/poller_dom.jsonl"
   printf 'run_id: %s\n\n| 축 | 사실 | 시간 |\n|---|---|---|\n| 아키텍처 문서 | 기획 §5 | 12:00 |\n| 코드 | 세트 | 12:00 |\n| 로그 | %s | 12:01 |\n| 화면 | 말풍선 1 | 12:02 |\n' "$2" "$lg" > "$1/table.md"
+  [ "$tr" = none ] || printf '| turbopack | %s | 12:03 |\n' "$tr" >> "$1/table.md"
   printf 'event: message\n%s\n' "$tp" > "$1/turbopack.txt"
 }
 pk() { ev "$T/ev/$2" "$2" "${@:3}"; out="$(bash "$EVT" pack "$1" --run "$2" --poller "$T/ev/$2/poller_dom.jsonl" --table "$T/ev/$2/table.md" --turbopack "$T/ev/$2/turbopack.txt" --repo "$REPO" 2>&1)"; rc=$?; }

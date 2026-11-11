@@ -42,7 +42,12 @@ def violations(body):
 
 
 if __name__ == "__main__":
-    found = violations(sys.stdin.read())
+    try:                      # r1678 ⓒ — 읽기·디코드 실패는 «판정 불가»(rc 2)다. 위반(rc 1)으로 내지 않는다(하드 룰 20).
+        body = sys.stdin.read()
+    except Exception as e:
+        print("판정 불가 " + type(e).__name__)
+        sys.exit(2)
+    found = violations(body)
     if found:
         print(GUIDE)
         for c in found:

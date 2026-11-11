@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # test_card_flow_r954.sh — r954: ft-card-flow.sh 숫자 줄 + ft-news-tick ④-b 줄 + ft-nano-spawn 앞 «이동 먼저» WARN(rc 불변). 축 ⓐ~ⓖ.
+#   ⓕ = «/bin/bash 3.2 문법(-n)» 만 본다(r1698) — 예전에는 다른 시험 19+1 개를 안에서 다시 돌려 109~138초였다(70초 상한 초과 · 남의 FAIL 섞임).
+#     빠진 시험들은 각자 독립 파일이라 따로 돌린다(r879·teamset_cap 기존 FAIL 은 그 파일 몫).
 # 전부 mktemp — 임시 저장소·가짜 tmux(PATH)·가짜 docker. 실 좌석·실 워크트리·실 kill 0.
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
@@ -15,7 +17,7 @@ has() { case "$1" in *"$2"*) ok "$3";; *) bad "$3 — 없음: «$2» ← ${1:0:4
 hasnt() { case "$1" in *"$2"*) bad "$3 — 있으면 안 됨: «$2»";; *) ok "$3";; esac; }
 
 for f in ft-card-flow.sh ft-news-tick.sh ft-nano-spawn.sh; do
-  bash -n "$BIN/$f" && ok "bash -n $f" || bad "bash -n $f"
+  /bin/bash -n "$BIN/$f" && ok "3.2 문법(/bin/bash -n) $f" || bad "3.2 문법(/bin/bash -n) $f"
   cmp -s "$BIN/$f" "$KIT/$f" && ok "키트 사본 cmp 0 $f" || bad "키트 사본 불일치 $f"
 done
 CF="$KIT/ft-card-flow.sh"
@@ -280,11 +282,6 @@ o="$(sp)"; hasnt "$o" "WARN 카드 흐름" "ⓔ 건강(진행 2 ≤ 좌석 2+2 �
 card 진행 o1; card 진행 o2; card 진행 o3; sess "byz-alpha-master-claude#1" "byz-alpha-nano-other#0"
 o="$(sp)"; has "$o" "REJECT 카드 상한 — alpha 진행 5(좌석 0) > 0+2" "ⓔ-3 r1292 상한 넘으면 대기 spawn 막힘"
 o="$(FT_CARD_CAP=0 sp)"; has "$o" "WARN 카드 흐름 — alpha 진행 5(좌석 0) · 착지됐는데 진행 0 · 이동 먼저:" "ⓔ-3 끄면(FT_CARD_CAP=0) 진행 > 좌석+2 → WARN"
-
-# ⓕ 기존 시험(test_nano_spawn*·news 트리·harness_root) rc0 — /bin/bash 3.2 로
-for t in $(cd "$HERE" && ls test_nano_spawn_*.sh) test_news_tree_root.sh; do
-  /bin/bash "$HERE/$t" > "$T/f.out" 2>&1; r=$?; [ "$r" = 0 ] && ok "ⓕ $t rc0 (/bin/bash 3.2)" || { bad "ⓕ $t rc=${r} «$(tail -1 "$T/f.out")»"; }
-done
 
 [ "$fail" = 0 ] && echo "ALL PASS" || echo "FAILED $fail"
 exit $fail

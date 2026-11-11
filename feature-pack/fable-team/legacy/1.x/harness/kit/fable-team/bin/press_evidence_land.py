@@ -83,7 +83,8 @@ def commit_tree(repo, tree, msg, parent=None):
 def land(a):
     if not byz_repo(a.repo, a.remote):
         return 0
-    specs = specs_of(a.repo, a.head, a.main)
+    _rc, _canon = run(a.repo, "rev-parse", "--verify", "-q", "%s/main^{commit}" % a.remote)   # r1697: 목록 정본 = <remote>/main(못 읽으면 None = 지금 동작)
+    specs = specs_of(a.repo, a.head, a.main, canon=(_canon.strip() or None) if _rc == 0 else None)
     if same(a.repo, a.main, a.head, specs):
         print("press 증거 대상 밖(음성 경로 변경 0)\npress=out")
         return 0
@@ -124,8 +125,7 @@ def pack(a):
                         txt[k] = f.read()
             if big:
                 sha, size, ps = pp.split(a.poller, lim, td, lambda rows: check_poller(a.run, rows), Reject)
-                check_table(a.run, txt["table.md"])
-                check_turbopack(txt["turbopack.txt"])
+                check_table(a.run, txt["table.md"], check_turbopack(txt["turbopack.txt"]))   # r1263: 원문 판정 → 표 turbopack 행 대조
                 files = {k: v for k, v in files.items() if k != "poller_dom.jsonl"}
                 files.update({os.path.basename(p): p for p in ps})
                 extra = "poller_sha256=%s\npoller_bytes=%d\npoller_parts=%d\n" % (sha, size, len(ps))

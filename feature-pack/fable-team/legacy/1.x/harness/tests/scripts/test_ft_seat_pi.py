@@ -28,7 +28,7 @@ def world(tmp_path, monkeypatch):
     (ft / "seats.json").write_text(json.dumps({SEAT: {"agent": "pi"}}), encoding="utf-8")
     tmux = tmp_path / "tmux"
     tmux.write_text(
-        "#!/bin/sh\ncase $1 in\n"
+        "#!/bin/sh\n[ \"${1:-}\" = -u ] && shift\ncase $1 in\n"   # r1701: 제품이 tmux -u 로 부른다(로케일 무관 탭)
         f"list-panes) printf '{SEAT}\\t{os.getpid()}\\t{cwd}\\t0\\n';;\n"
         f"show-environment) echo TMUXC_PI_SESSION_ID={SID};;\n"
         f"list-sessions|ls) echo '{SEAT}';;\n*) exit 1;;\nesac\n", encoding="utf-8")

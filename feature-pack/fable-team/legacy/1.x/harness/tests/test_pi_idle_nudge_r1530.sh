@@ -254,7 +254,8 @@ function mutate(name, from, to) {
     eq("변이 M1 → ⓑ sendMessage 2 = FAIL 검출", pi.calls.length, 2); EXTv = EXT; }
 }
 { // M2 지문에 자기 발신 seq 포함 → ⓖ 턴 2
-  const m = mutate("M2", 'String(r.from ?? "") !== seat', "true");
+  // r1699: r1699 가 같은 글자를 openOrdersOf 안에도 쓴다 → «첫 일치» 규칙에 걸려 엉뚱한 줄이 바뀌지 않게 줄 전체(고유)로 겨냥
+  const m = mutate("M2", 'const others = (r: { from?: unknown }) => String(r.from ?? "") !== seat', 'const others = (r: { from?: unknown }) => true');
   if (m) { EXTv = m; const c = setup("M2"); const pi = await load(); await pi.settle();
     append(c.mbox, row(1201, DESK, SEAT, "[회신] 막힌 이유"), row(1202, SEAT, SEAT, "[카드 이동] 자기 알림")); await pi.settle();
     eq("변이 M2 → ⓖ sendMessage 2 = FAIL 검출", pi.calls.length, 2); EXTv = EXT; }

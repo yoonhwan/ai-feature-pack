@@ -98,10 +98,11 @@ iso() { python3 -c 'import datetime as d,sys;print(d.datetime.fromtimestamp(int(
 set_state() { printf '%s %s\n' "$2" "$(iso "$3")" > "$STATUS_DIR/$1"; }   # set_state <좌석> <STATE> <턴 끝 epoch>
 set_state "$SEAT" IDLE "$((NOW - 1200))"                                   # 팀장 IDLE 20분
 
+printf 'import sys\nprint(sys.argv[2])\n' > "$T/holder.py"   # r1326 대역 `mbox.py holder <이름>` = 이름 그대로(교대 없음) — 없으면 깨우기가 «holder 판정 불가» 로 0
 run() {  # run [<가짜 now>] [env…] → ft-idle-wake 1회(그 안에서 빈 석 장치가 돈다)
   : > "$MBOX_LOG"
   local t0=$SECONDS n="${1:-$NOW}"; : > "$ACT_CALLS"   # ACT_FLIP 호출 수는 «회차마다» 1부터
-  env FT_ROOT="$T" FT_MBOX="$BIN/mbox.sh" FT_SEAT_STATUS="$BIN/ft-seat-status.sh" \
+  env FT_ROOT="$T" FT_MBOX="$BIN/mbox.sh" FT_MBOX_PY="$T/holder.py" FT_SEAT_STATUS="$BIN/ft-seat-status.sh" \
     FT_TMUX="bash $BIN/tmux" FT_SEATS_JSON="$T/.fable-team/seats.json" FT_TEAMS_REF=origin/main \
     FT_IDLE_WAKE_NOW="$n" FT_IDLE_WAKE_LOG="$T/wake.log" FT_IDLE_SLOT_LOG="$T/slot.log" \
     PATH="$BIN:$PATH" "${@:2}" bash "${WAKESH:-$BIN/ft-idle-wake.sh}" >"$T/out" 2>"$T/err"
