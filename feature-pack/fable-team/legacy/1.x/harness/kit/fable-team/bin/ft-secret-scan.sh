@@ -5,7 +5,8 @@
 #   원장: ~/.fable-team/state/secret-scan.log — «파일:줄 종류» 만(값 0) · 새로 찾은 것만 planner `_hil_route` 앞 [HIL] 묶음 1통
 #   사용: ft-secret-scan.sh [--plans <경로>…]   스캔(첫 실행은 nice -n 10)
 #         ft-secret-scan.sh --report            스캔 0·쪽지 0 — 「비밀 기록 스캔: 새 N건 · 마지막 실행 시각」 1줄(주간 점검용)
-#   rc: 0 정상 · 2 usage · 4 상태 파일 손상(전수 재스캔 대신 ERROR) · 5 쪽지 실패(상태·원장 미갱신 → 다음 실행이 다시 보낸다)
+#   rc: 0 정상 · 3 판정 불가(judge_unknown>0 · 0 과 구분) · 2 usage · 4 상태 파일 손상(전수 재스캔 대신 ERROR) · 5 쪽지 실패(상태·원장 미갱신 → 다음 실행이 다시 보낸다)
+#   r1341 단계 2: 계획 1건 판정기의 시간 초과·rc=2·출력 꼴 어긋남 = «판정 불가» 1줄 + 그 파일만 세고(sig 저장 0) 반복 계속 · 같은 파일 3회차 연속이면 [긴급] 1통
 #   env(시험용): HOME · FT_SECRET_SCAN_ROOT · FT_MBOX_SH · FT_SEATS_JSON
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
@@ -34,6 +35,48 @@ STATE, LOG, MODE = E["SCAN_STATE"], E["SCAN_LOG"], E["SCAN_MODE"]
 home, root = os.path.expanduser("~"), E["SCAN_ROOT"]
 
 
+def judge_plan(p: str) -> tuple[list[str], str | None]:
+    """계획 1건 — 판정기 rc 계약(0 ok / 1 reject / 2 내부 오류)대로 가른다 → (found, 판정 불가 사유|None).
+    재시도 1회는 «시간 초과»일 때만(하드 룰 12) · 판정기 호출 상한은 7초 그대로."""
+    for attempt in (1, 2):
+        try:
+            r = subprocess.run([sys.executable, E["SCAN_HERE"] + "/ft_secret_judge.py", "--plan", p],
+                               capture_output=True, text=True, timeout=7)
+        except subprocess.TimeoutExpired:
+            if attempt == 1:
+                continue
+            return [], "판정기 7초"
+        except OSError:
+            return [], "판정기 실행 실패"
+        outs = r.stdout.strip()
+        if r.returncode == 0:   # 계약 = rc0 + «ok» 만 깨끗하다(그 밖 출력 = 판정 불가 · DA R2)
+            return ([], None) if outs == "ok" else ([], "판정기 출력 꼴")
+        if r.returncode == 1:   # ★정상 검출은 지금처럼 수집★ — 단 «reject <줄번호> <이유>» 문법일 때만(IndexError 0)
+            parts = [x.split(" ", 2) for x in outs.splitlines() if x.startswith("reject ")]
+            if not parts or any(len(x) != 3 or not x[1].isdigit() for x in parts):
+                return [], "판정기 출력 꼴"
+            return [f"{p}:{x[1]} plan:{x[2]}" for x in parts], None
+        if r.returncode in (124,) and attempt == 1:
+            continue
+        return [], "판정기 rc=2" if r.returncode == 2 else "판정기 출력 꼴"
+    return [], "판정기 7초"
+
+
+def hil_route() -> str:
+    try:
+        return json.load(open(E["SCAN_SEATS"]))["_hil_route"]
+    except (OSError, ValueError, KeyError):
+        print(f"ERROR secret-scan: planner _hil_route 없음 — 쪽지 못 보냄 ({E['SCAN_SEATS']})", file=sys.stderr)
+        sys.exit(5)
+
+
+def send_mail(msg: str) -> None:
+    r = subprocess.run(["bash", E["SCAN_MBOX"], "send", hil_route(), "ft-secret-scan", msg], capture_output=True, text=True)
+    if r.returncode != 0:
+        print("ERROR secret-scan: 쪽지 실패 — 상태·원장 미갱신(다음 실행이 다시 보낸다)", file=sys.stderr)
+        sys.exit(5)
+
+
 def load_state() -> dict:
     if not os.path.exists(STATE):
         return {"files": {}, "last": {}}
@@ -58,6 +101,8 @@ if os.path.exists(LOG):
 plans = [p for p in E["SCAN_PLANS"].split("\n") if p] or glob.glob(root + "/design/**/*.sh.hil", recursive=True) + glob.glob("/tmp/h*")
 logs = glob.glob(home + "/.claude/projects/**/*.jsonl", recursive=True) + glob.glob(home + "/.codex/sessions/**/rollout-*.jsonl", recursive=True)
 files, new, read, skipped = dict(st["files"]), [], 0, 0
+unknown = dict(st.get("unknown") or {})   # rd1341: 파일별 «연속 판정 불가» 횟수 · 사유
+judge_unknown, escalate = 0, []
 plan_only = set(plans) - set(logs)
 
 for p in logs + plans:
@@ -72,8 +117,16 @@ for p in logs + plans:
     read += 1
     found: list[str] = []
     if p in plan_only:
-        r = subprocess.run([sys.executable, E["SCAN_HERE"] + "/ft_secret_judge.py", "--plan", p], capture_output=True, text=True, timeout=7)
-        found = [f"{p}:{x.split(' ', 2)[1]} plan:{x.split(' ', 2)[2]}" for x in r.stdout.splitlines() if x.startswith("reject ")]
+        found, why = judge_plan(p)
+        if why:   # 판정 불가 = 그 파일만 세고 sig 저장 0(«안 읽음» · 다음 회차 재판정) · 조용한 영구 건너뜀 0
+            judge_unknown += 1
+            cnt = int((unknown.get(p) or [0, ""])[0]) + 1
+            unknown[p] = [cnt, why]
+            print(f"판정 불가 {p} {why}", file=sys.stderr)
+            if cnt == 3:
+                escalate.append((p, why))
+            continue
+        unknown.pop(p, None)
     else:
         with open(p, errors="replace") as f:
             for n, line in enumerate(f, 1):
@@ -83,22 +136,18 @@ for p in logs + plans:
 
 now = time.strftime("%F %T")
 if new and MODE == "scan":
-    try:
-        route = json.load(open(E["SCAN_SEATS"]))["_hil_route"]
-    except (OSError, ValueError, KeyError):
-        print(f"ERROR secret-scan: planner _hil_route 없음 — 쪽지 못 보냄 ({E['SCAN_SEATS']})", file=sys.stderr)
-        sys.exit(5)
     shown = "\n".join(new[:5]) + (f"\n…외 {len(new) - 5}건(원장 {LOG})" if len(new) > 5 else "")
-    msg = f"[HIL] 비밀 기록 스캔 — 새 {len(new)}건(위치만 · 값 0 · 교체는 오빠 롤아웃 판정 1583)\n{shown}"
-    r = subprocess.run(["bash", E["SCAN_MBOX"], "send", route, "ft-secret-scan", msg], capture_output=True, text=True)
-    if r.returncode != 0:
-        print("ERROR secret-scan: 쪽지 실패 — 상태·원장 미갱신(다음 실행이 다시 보낸다)", file=sys.stderr)
-        sys.exit(5)
+    send_mail(f"[HIL] 비밀 기록 스캔 — 새 {len(new)}건(위치만 · 값 0 · 교체는 오빠 롤아웃 판정 1583)\n{shown}")
+for p, why in escalate:   # 같은 파일 3회차 연속 판정 불가 = [긴급] 1통(경로 · 마지막 사유)
+    if MODE == "scan":
+        send_mail(f"[긴급] 비밀 스캔 판정 불가 3회차 — {p} (마지막 사유: {why})")
 os.makedirs(os.path.dirname(STATE), exist_ok=True)
 with open(LOG, "a") as f:
     f.writelines(f"{now}\t{k}\n" for k in new)
 tmp = STATE + ".tmp"
-json.dump({"files": files, "last": {"ts": now, "new": len(new), "read": read, "skipped": skipped}}, open(tmp, "w"))
+json.dump({"files": files, "last": {"ts": now, "new": len(new), "read": read, "skipped": skipped},
+           "unknown": unknown}, open(tmp, "w"))
 os.replace(tmp, STATE)
-print(f"SCAN read={read} skipped={skipped} new={len(new)}")
+print(f"SCAN read={read} skipped={skipped} new={len(new)} judge_unknown={judge_unknown}")
+sys.exit(3 if judge_unknown else 0)
 PYEOF
