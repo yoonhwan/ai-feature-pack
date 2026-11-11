@@ -75,6 +75,7 @@
 - 2026-11-02T19:3x 대기 — arch#213 작성(판정 3482 · master#153 #231004 · 3건 원문 plan() 직접 호출 실측) · 다음 = master Issue · 사전 DA 면제 후보(문서 갈래 1곳 · 셸·코드 갈래 무변경)
 - 2026-11-03T22:5x 대기 — arch#219 반례 S8 보탬(master#157 #246030 · planner #246021 · BYZ PR 6792 문서 2·코드 0 FORBID secret) · 판정: 722(r1195 단계 2 · 파이썬 셔뱅)와 «다른 칸» — 6792 는 문서 백틱 갈래(이 카드 A2) · 고치면 S8 통과 · *.md 를 secret 검사에서 통째로 빼지는 않음(울타리·«$ » 줄의 진짜 명령은 S3~S5 처럼 잡아야 함)
 - 2026-11-11T21:4x 대기 — aifp 사본(aifp-ft-arch-pi#0 · master #3972 · 실측 #3971): 경로 legacy/1.x · 원인 줄 :130·:134 · S3' · S4·S8 회귀 · 완료 조건 S1·S2 FAIL · Issue #8375
+- 2026-11-11 19:34 — arch 인수 보류 1 보정(기준판 sha 고정) · 세트: a3ae114e338970014c8fccc578eda81b9213fa14 · 시험: bash tests/test_scope_secret_doc_inline_code_r1341.sh (24 passed — 기준판 = 251b1f00 판 고정 · 커밋 뒤에도 S1·S2 기준판 FORBID 재현) rc=0 3초 · 바꾼 것 = `git show HEAD:` → `git show 251b1f00:` 1줄
 - 2026-11-11 19:25 — 나노 구현 완료(단계1·2) · 세트: 4edf133ef0ddf9ecd62428e7a64c4aba1fbc199c · 시험: bash tests/test_scope_secret_doc_inline_code_r1341.sh (24 passed · 기준판 S1·S2 FORBID 재현 · 변이 3/3) rc=0 · bash tests/test_secret_scan_judge_timeout_r1341.sh (12 passed · J1~J6 · 변이 3/3) rc=0 · 회귀 test_autonomy_scope_code_literals_r1195 16P0F 2초 · test_autonomy_scope_classify 74P6F 11초(앞 판 FAIL 줄 동일) · test_secret_scan 16P0F 1초 · 단계별 초 = 단계1 3초 · 단계2 29초(J1 14 · J5 8) · 이슈: #8375
 - 2026-11-11T22:0x 대기 — DA HOLD R1 보정(aifp 3978 · master #3979): 단계 2 설계 1 = rc1+reject 정상 검출 유지 · rc2·시간 초과·출력 꼴 어긋남만 판정 불가 · J6(정상 검출 회귀)·변이 3 추가 · S3' = 회귀 문구
 
