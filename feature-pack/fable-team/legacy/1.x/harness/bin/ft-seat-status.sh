@@ -25,14 +25,19 @@
 #        ft-seat-status.sh turn <seat> [--json]                    (Seatbelt 1.1 · 턴 경계 판정 — 아래 turn_of_file 주석)
 #        ft-seat-status.sh turn --file <jsonl> [--json] [--bytes] [--no-reported]  (픽스처·경로 캐시 · 좌석 해석 생략)
 #        ft-seat-status.sh jsonl <seat>                            (좌석 → 최신 jsonl 경로 1줄 · 없으면 rc 1 — ft-tick-line 의 경로 캐시용)
-# 출력 4열: 좌석  PANE(BUSY|IDLE|NOSEAT)  JSONL_AGE(초|-)  AGENT   /  turn 은 1줄 5열: STATE TURN_END_ISO DURATION_MS REPORTED SOURCE
+# 출력 4열: 좌석  PANE(BUSY|IDLE|UNKNOWN|NOSEAT)  JSONL_AGE(초|-)  AGENT   /  turn 은 1줄 5열: STATE TURN_END_ISO DURATION_MS REPORTED SOURCE
 #   turn 읽은 바이트(F5): --json 은 read_bytes 키 · 텍스트는 --bytes 일 때만 6열째(기본 5열 — ft-tick.sh `read -r st end dur rep src` 보호)
 #   끝 읽기는 64KB 부터 시작해 «턴 끝 레코드 2개»(REPORTED 의 직전 턴 경계)를 찾을 때까지 2배씩(최대 1MB). --no-reported 는 REPORTED 를 건너뛰어(`-`)
 #   «1개»만 찾으면 멈춘다 — 긴 턴(수백 KB)이 흔한 실 좌석에서 상태만 필요한 틱이 1MB 를 읽지 않게 한다.
 # 스피너 토큰은 버전마다 늘어난다. 목록을 여기 한 곳에서만 고친다.
 
 set -uo pipefail
-SPIN='thinking|Sublimating|Cogitat|Gusting|Crunch|Sock-hopping|Brewed|Elucidat|Worked for|Percolat|Simmer|Mulling|Pondering|Noodling|Ruminat|Deliberat|Herding|Puzzl|Wrangl|Baking|Steeping|Whirring|Forging|Honing|Distilling|Musing'
+# r1689 — «진행 중» 표시만 센다. 끝난 뒤 남는 줄(claude «✻ Brewed for 1m 2s»·«✻ Crunched for 3m» · codex «Worked for 5m 37s»)은 진행이 아니다.
+#   claude = 진행형 낱말(-ing) 또는 «Word… (» 꼴 · codex = «(2m 07s • esc to interrupt)» · pi(어느 명부에도 없을 때만 이 경로) = «⠦ Working»
+SPIN_CLAUDE='thinking|Sublimating|Cogitating|Gusting|Crunching|Sock-hopping|Elucidating|Percolating|Simmering|Mulling|Pondering|Noodling|Ruminating|Deliberating|Herding|Puzzling|Wrangling|Baking|Steeping|Whirring|Forging|Honing|Distilling|Musing|[A-Z][A-Za-z-]+… \('
+SPIN_CODEX='\([0-9][0-9hms ]* • esc to interrupt\)'
+SPIN_PI='(⠋|⠙|⠹|⠸|⠼|⠴|⠦|⠧|⠇|⠏) Working'
+SPIN="$SPIN_CLAUDE|$SPIN_CODEX|$SPIN_PI"
 
 # seats.json — 리포 루트(<git-common-dir 의 부모>)/.fable-team/seats.json. FT_SEATS_JSON 으로 덮어쓴다.
 SEATS_JSON="${FT_SEATS_JSON:-}"
@@ -40,23 +45,43 @@ if [ -z "$SEATS_JSON" ]; then
   common="$(git -C "$(dirname "$0")" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"
   [ -n "$common" ] && SEATS_JSON="$(dirname "$common")/.fable-team/seats.json"
 fi
-# 좌석명\tagent\treplaced(0|1) — 파일이 없으면 빈 표 + stderr 한 줄 (조용히 넘기지 않는다)
-SEATS_TSV=""
-if [ -f "$SEATS_JSON" ]; then
-  SEATS_TSV="$(python3 - "$SEATS_JSON" <<'PY'
-import json, sys
-d = json.load(open(sys.argv[1], encoding="utf-8"))
-for k, v in d.items():
-    if k.startswith("_") or not isinstance(v, dict):
+# 좌석명\tagent\treplaced(0|1)\t찾은 명부 폴더 — 파일이 없으면 stderr 한 줄 (조용히 넘기지 않는다)
+# r1689 — 명부 1개가 아니라 «찾을 수 있는 명부 전부»: ①SEATS_JSON ②같은 폴더 seats*.json(다른 팀)
+#   ③기계 루트 명부(roots.tsv · FT_ROOTS_TSV)의 루트별 .fable-team/seats*.json. 같은 좌석이 여러 명부에 있으면 앞 순서가 이긴다.
+#   4열(찾은 명부 폴더)을 pi 어댑터에 넘긴다 — 그 명부 밖 pi 좌석이 pane 스피너 경로로 떨어지지 않게.
+[ -f "$SEATS_JSON" ] || echo "warn: seats.json 없음($SEATS_JSON) — AGENT 열은 '-', (replaced) 판정 없음" >&2
+SEATS_TSV="$(python3 - "$SEATS_JSON" "${FT_ROOTS_TSV:-$HOME/.claude/fable-team/roots.tsv}" <<'PY'
+import glob, json, os, sys
+first, roots = sys.argv[1], sys.argv[2]
+files = [first] if os.path.isfile(first) else []
+dirs = [os.path.dirname(first)] if first else []
+try:
+    for ln in open(roots, encoding="utf-8"):
+        cell = ln.rstrip("\n").split("\t")
+        if len(cell) > 1 and not ln.startswith("#"):
+            dirs.append(os.path.join(cell[1], ".fable-team"))
+except OSError:
+    pass  # 기계 루트 명부 없음 = 루트 1개(지금 동작)
+for d in dirs:
+    files += sorted(glob.glob(os.path.join(d, "seats*.json")))
+seen = set()
+for f in files:
+    if os.path.realpath(f) in seen:
         continue
-    print("%s\t%s\t%d" % (k, v.get("agent") or "-", 1 if v.get("_replaced_by") else 0))
+    seen.add(os.path.realpath(f))
+    try:
+        rows = json.load(open(f, encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        print("warn: 명부 읽기 실패 %s (%s)" % (f, type(e).__name__), file=sys.stderr)
+        continue
+    for k, v in rows.items() if isinstance(rows, dict) else ():
+        if k.startswith("_") or not isinstance(v, dict):
+            continue
+        print("%s\t%s\t%d\t%s" % (k, v.get("agent") or "-", 1 if v.get("_replaced_by") else 0, os.path.dirname(f)))
 PY
 )"
-else
-  echo "warn: seats.json 없음($SEATS_JSON) — AGENT 열은 '-', (replaced) 판정 없음" >&2
-fi
 
-seat_field() {  # $1=seat $2=열번호(2 agent · 3 replaced)
+seat_field() {  # $1=seat $2=열번호(2 agent · 3 replaced · 4 찾은 명부 폴더)
   printf '%s\n' "$SEATS_TSV" | awk -F'\t' -v s="$1" -v c="$2" '$1==s{print $c; exit}'
 }
 
@@ -73,7 +98,7 @@ pane_of() {
 # PI ADAPTER BEGIN
 pi_dispatch() {
   [ "$(seat_field "$2" 2)" = pi ] || return 3
-  python3 "$(dirname "$0")/ft_seat_pi.py" "$1" "$(dirname "$SEATS_JSON")" "$2"
+  python3 "$(dirname "$0")/ft_seat_pi.py" "$1" "$(seat_field "$2" 4)" "$2"   # r1689 — 그 좌석을 «찾은» 명부 폴더(다른 팀·다른 루트)
 }
 # PI ADAPTER END
 status_of() {
@@ -84,7 +109,7 @@ status_of() {
   # PI ADAPTER END
   local p; p="$(pane_of "$1")"
   [ -n "$p" ] || { echo "NOSEAT"; return; }
-  local cap; cap="$(tmux capture-pane -p -J -S -12 -t "$p" 2>/dev/null)"
+  local cap; cap="$(tmux capture-pane -p -J -S -12 -t "$p" 2>/dev/null)" || { echo "UNKNOWN"; return; }   # r1689 — 캡처 실패 = 판정 불가(조용한 IDLE·BUSY 0)
   if echo "$cap" | grep -qE "$SPIN"; then echo "BUSY"; else echo "IDLE"; fi
 }
 
