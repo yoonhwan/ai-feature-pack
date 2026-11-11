@@ -51,9 +51,10 @@ def two_leads(w: World) -> None:
     w._tmux()
 
 
-def open_work_zero(w: World) -> None:
+def open_work_zero(w: World, teams: tuple[str, ...] = ("t1",)) -> None:
     """ft-seat-open-work 가 rc0(받을 일 0)을 내는 최소 세계 — 카드 폴더만 있고 진행 카드 0."""
-    (w.root / "design/t1/indices/진행").mkdir(parents=True, exist_ok=True)
+    for team in teams:
+        (w.root / f"design/{team}/indices/진행").mkdir(parents=True, exist_ok=True)
 
 
 # ── ⓐ 닫기 대기 팀장 = [멈춤] 0통 + 「보류 f」 노트 1줄 ─────────────────────────
@@ -143,6 +144,23 @@ def test_two_live_leads_closed_wait_one_note(w: World) -> None:
     assert counts(r.stdout)["f"] == "0", r.stdout
     assert [x for x in r.stdout.splitlines() if x.startswith("보류 f ")] == ["보류 f t1 — [다음 없음] · 받을 일 0"], r.stdout
     assert not bodies(w, "t1-master#0") and not bodies(w, "t1-master#1"), w.mbox_log()
+
+
+# ── DA 보정 리뷰 HOLD(#283176) — 중복 판정은 «팀» 단위 · 두 팀이면 팀마다 1줄 ─────────
+def test_two_teams_closed_wait_one_note_each(w: World) -> None:
+    lead_stall(w)
+    next_none(w)
+    w.team("t2", "t2-master#1", [])  # 두 번째 팀 — 현역 팀장 1명
+    w.state("t2-master#1", "IDLE", 6)
+    w.jsonl("t2-master#1", "지금 착수하겠습니다")
+    w.heartbeat("t2-master#1", 25, seq=901)
+    next_none(w, frm="t2-master#1", seq=990)
+    open_work_zero(w, ("t1", "t2"))
+    r = scan(w)
+    assert counts(r.stdout)["f"] == "0", r.stdout
+    assert [x for x in r.stdout.splitlines() if x.startswith("보류 f ")] == [
+        "보류 f t1 — [다음 없음] · 받을 일 0", "보류 f t2 — [다음 없음] · 받을 일 0"], r.stdout
+    assert not w.mbox_log(), w.mbox_log()
 
 
 # ── bin 과 kit 사본 = 같은 바이트 ─────────────────────────────────────────────
