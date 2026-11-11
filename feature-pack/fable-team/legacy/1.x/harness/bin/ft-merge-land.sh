@@ -111,10 +111,10 @@ OLD="$(head -n1 "$BH" 2>/dev/null | tr -d '[:space:]')"
 if [ -z "$OLD" ] || G merge-base --is-ancestor "$OLD" "$Q" 2>/dev/null; then
   { mkdir -p "$(dirname "$BH")" && printf '%s\n' "$Q" > "$BH.$$" && mv -f "$BH.$$" "$BH"; } || echo "WARN 기준 헤드 갱신 실패($BH) — 손으로 기록"
 fi
-FT_ROOT="$ROOT" bash "$HERE/ft-head-lag.sh" --event --repo "$REPO" --base "$REMOTE/$TARGET" || echo "WARN ft-head-lag --event 실패(rc=$?) — 착지는 성공"
 # R245 병합 ≠ 끝: 착지 «뒤»에 키트→라이브 설치 대조 — 출력·기록만(판정 0). 어긋남·오류·시간 초과여도 착지 rc·LANDED 줄 불변. 대기 기록 = state/install-pending/<Q>.txt · r1150: FT_BIN 없으면 이 도구 폴더(ft-index-move-install.sh:47 과 같은 꼴)
 ITO="${FT_INSTALL_CHECK_TIMEOUT:-7}"; IOUT="$(FT_BIN="${FT_BIN:-$HERE}" "$TB" "$ITO" bash "${FT_INSTALL_CHECK:-$HERE/ft-live-install-check.sh}" --range "$M..$Q" --ref "$Q" --repo "$REPO" 2>&1)"; irc=$?
 if [ "$irc" -eq 124 ] || [ "$irc" -eq 143 ]; then echo "INSTALL-PENDING 설치 검사 ${ITO}초 초과 — 손으로: ft-live-install-check.sh --range $M..$Q"; IOUT="INSTALL-PENDING 검사 시간 초과"
 else printf '%s\n' "$IOUT" | sed 's/^/INSTALL /'; fi
 [ "$irc" -eq 0 ] || { mkdir -p "$ROOT/.fable-team/state/install-pending" && printf '%s\n' "$IOUT" > "$ROOT/.fable-team/state/install-pending/$Q.txt"; } || echo "WARN install-pending 기록 실패"
-fm_land_notify_land "$ROOT" "$PR" "${Q:0:10}" "$(pf title) $(pf body)" "$irc" "$IOUT"; [ "${CR:-0}" = 0 ] || exit 3   # r1478: 착지 «사건» 1통(카드 팀 _master · 설치 칸 = OK/PENDING/SKIP) — 실패는 WARN 1줄, 착지 rc 불변
+fm_land_notify_land "$ROOT" "$PR" "${Q:0:10}" "$(pf title) $(pf body)" "$irc" "$IOUT"; HLTO="${FT_HEAD_LAG_EVENT_S:-25}"; HLO="$(FT_ROOT="$ROOT" "$TB" "$HLTO" bash "$HERE/ft-head-lag.sh" --event --repo "$REPO" --base "$REMOTE/$TARGET" 2>&1 >/dev/null)"; hrc=$?; printf '%s\n' "$HLO" | grep '^판정 불가' || true; if [ "$hrc" -eq 124 ] || [ "$hrc" -eq 143 ]; then echo "WARN 뒤처짐 알림 ${HLTO}초 초과 — 30분 cron 이 대신"; elif [ "$hrc" -ne 0 ]; then echo "WARN ft-head-lag --event 실패(rc=$hrc) — 착지는 성공"; fi   # r1700: 뒤처짐 알림은 맨 뒤 · 상한 · 판정 불가 1줄 통과(하드 룰 20)
+[ "${CR:-0}" = 0 ] || exit 3   # r1478: 착지 «사건» 1통(카드 팀 _master · 설치 칸 = OK/PENDING/SKIP) — 실패는 WARN 1줄, 착지 rc 불변
