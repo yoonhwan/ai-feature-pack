@@ -89,4 +89,12 @@ D5="$T/dest5"; mkdir -p "$D5"; printf 'old\n' > "$D5/k.sh"; chmod 755 "$D5/k.sh"
 bash "$X" --repo "$R" --ref "$REV" --path bin/plain.sh --dest "$D5/k.sh" >/dev/null 2>&1
 leaked="$(ls "$D5" | grep -c '\.put\.')"
 { [ "$leaked" -ge 1 ]; } && ok "W4 검사 순서 되돌림(임시 파일 먼저) → ⑦ FAIL(원본은 잔존 0 · 대조)" || bad "W4 검출 실패 leaked=$leaked"
+# ⑧ 상대 --dest — 절대 --repo 와 함께 줘도 PUT rc0(종전엔 hash-object 가 REPO 기준으로 읽어 rc1)
+D8="$T/rel8"; mkdir -p "$D8"
+o="$( cd "$T" && bash "$PUT" --repo "$R" --ref "$REV" --path bin/plain.sh --dest rel8/plain.sh 2>&1 )"; rc=$?
+{ [ "$rc" = 0 ] && [[ "$o" == PUT*"mode=644"* ]] && [ "$(mode_of "$D8/plain.sh")" = 644 ]; } \
+  && ok "⑧ 상대 --dest → PUT rc0 · dest 644" || bad "⑧ rc=$rc «$o»"
+X="$(mkx w5 'DEST="$(cd "$(dirname "$DEST")" && pwd)/$(basename "$DEST")"' ':')"
+o="$( cd "$T" && bash "$X" --repo "$R" --ref "$REV" --path bin/plain.sh --dest rel8/p2.sh 2>&1 )"; rc=$?
+{ [ "$rc" != 0 ] && [[ "$o" == *"FAIL dest 해시"* || "$o" == *ERROR* ]]; } && ok "W5 절대화 삭제 → ⑧ FAIL(원본은 rc0 · 대조)" || bad "W5 검출 실패 rc=$rc «$o»"
 echo "FAILED $fail"; [ "$fail" = 0 ] && echo "ALL PASS"; exit $([ "$fail" = 0 ] && echo 0 || echo 1)
