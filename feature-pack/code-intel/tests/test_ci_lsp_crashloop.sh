@@ -30,7 +30,9 @@ case "$1" in
          status)   printf 'LSP Daemon Status\n  Status: Connected\n  Uptime: %s\n' "${FAKE_UPTIME:-120s}" ;;
          call)     echo "FAKE_REFERENCES 16" ;;
          shutdown) exit "${FAKE_SHUTDOWN_RC:-0}" ;;
-         init)     exit "${FAKE_INIT_RC:-0}" ;;
+         init)     [ -n "${FAKE_INIT_RC:-}" ] && exit "$FAKE_INIT_RC"
+                   c="${FAKE_LOG:-/dev/null}.init"; i=$(( $(cat "$c" 2>/dev/null || echo 0) + 1 )); echo "$i" > "$c"
+                   [ "$i" -lt 2 ] && exit 1; exit 0 ;;
        esac ;;
 esac
 exit 0
@@ -38,7 +40,7 @@ FAKE
   chmod +x "$SB/probe"; : > "$SB/fake.log"; UPTIME=120s
 }
 run_ci() { HOME="$SB/home" TMPDIR="$SB/tmp" PROBE_BIN="$SB/probe" FAKE_LOG="$SB/fake.log" \
-           FAKE_UPTIME="$UPTIME" FAKE_INIT_RC="${INIT_RC:-0}" FAKE_SHUTDOWN_RC="${SHUT_RC:-0}" \
+           FAKE_UPTIME="$UPTIME" FAKE_INIT_RC="${INIT_RC:-}" FAKE_SHUTDOWN_RC="${SHUT_RC:-0}" \
            CI_TIMEOUT=10 bash "$CI" "$@" 2>&1; }
 crash() { # $1=마지막 ts · $2=앞선 ts(기본 10초 전) · DB crash 형태 2건(loop = 반복)
   printf '==== LSP Daemon Crash ====\ntimestamp: %s\nmessage: %s\n==== LSP Daemon Crash ====\ntimestamp: %s\nmessage: %s\n' \
@@ -101,6 +103,10 @@ out="$(run_ci lsp repair)"; rc=$?
 chmod 700 "$SB/home/Library/Caches/probe/lsp/workspaces"
 chk "rename 실패 rc" "$rc" "3"
 has "판정 불가 1줄" "$out" "판정 불가 repair — 옮기기 실패"
+echo "== ⓓ init 실패 = 1회 재시도 =="; mk
+out="$(run_ci lsp repair)"; chk "init 1회차 rc1 → 재시도로 rc0" "$?" "0"
+has "재시도 뒤 OK" "$out" "repair OK — 데몬 Uptime 120s"
+
 echo "== ⓓ shutdown·init 실패 = 판정 불가 rc3 =="; mk; SHUT_RC=1
 out="$(run_ci lsp repair)"; chk "shutdown rc≠0 → rc3" "$?" "3"
 has "아무것도 안 옮김" "$out" "아무것도 옮기지 않았다"
