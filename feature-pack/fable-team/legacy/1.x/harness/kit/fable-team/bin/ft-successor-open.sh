@@ -22,8 +22,12 @@ so_budget_ok() { [ "$(( BUDGET - $(so_elapsed) ))" -gt 0 ]; }
 # ★r1660-b (DA HOLD §3)★ 송신은 «남은 시간이 있으면» 들어가는 단계가 아니다 — 자기 몫의 예산을 통째로 예약한 뒤에 들어간다.
 #   ft-send-verified 는 reach 20초 → ring → reach 20초(최대 40초)를 쓰고, 그 뒤 이 파일의 ring 재확인(ⓕ)이 20초를 더 쓴다.
 #   잔여 2초에서 들어가면 전체 상한을 넘고, 송신 «뒤» 에 끊으면 본문이 두 번 큐에 들어간다(중복 송신) — 그래서 들어가기 전에 막는다.
-SEND_RESERVE="${FT_SO_SEND_RESERVE:-40}"   # 송신·도달 단계 예약(초) = ft-send-verified 의 20+20 · 그 뒤 retry 20은 아래 ⓕ 가 따로 남은 예산을 본다
+SEND_RESERVE="${FT_SO_SEND_RESERVE:-40}"   # 송신·도달 단계 예약(초) = ft-send-verified 의 20+20 · 그 뒤 재확인은 아래 ⓕ 가 clip 으로 한다
 so_send_ready() { [ "$(( BUDGET - $(so_elapsed) ))" -ge "$SEND_RESERVE" ]; }
+# ★r1660-c (arch#298)★ 재실행이 «다시 보내지 않고» 확인만 하려면 보낸 seq 를 파일로 남겨야 한다.
+#   송신은 큐에 들어간 순간 돌이킬 수 없다 — 두 번 보내면 좌석이 recv 에서 2건을 본다. 그래서 seq 를 .sent 에 적고 재실행은 확인만 한다.
+so_verify_ready() { [ "$(( BUDGET - $(so_elapsed) ))" -ge 20 ]; }   # 확인 1회(reach 20초) 몫
+so_reach_to() { local left=$(( BUDGET - $(so_elapsed) )); [ "$left" -lt 20 ] && echo "$left" || echo 20; }
 so_budget_stop() {   # $1 = 멈춘 단계 이름 · rc5 = 열렸으나 도달 미확인(재실행이 같은 자리에서 잇는다 · r609)
   echo "시간 상한 ${BUDGET}초 — «$1» 단계 앞에서 멈춘다(경과 $(so_elapsed)초 · 송신 0 · 도달 파일 0 · 구 좌석 닫기 0)"
   echo "다음: 같은 인자로 다시 실행(이어가기 r609)"
@@ -167,12 +171,14 @@ else echo "REJECT 대상 리포 mbox 없음 — $ROOT/.fable-team/comm/mbox.sh (
 MDIR="$(dirname -- "$MBOX")"
 [ -f "$MDIR/mbox_doorbell.sh" ] || { echo "REJECT mbox 짝 파일 없음: $MDIR/mbox_doorbell.sh (mbox.sh 가 source 하는 mbox_doorbell.sh · 짝이 빠진 폴더는 쓰지 않는다)"; exit 2; }
 STATE="$ROOT/.fable-team/state/successor"
+SENTF="$STATE/$OLD.sent"   # r1660-c: «보냈으나 도달 미확인» 표지(seq 1줄) · 재실행은 이 파일이 있으면 확인만 한다
 hil() { echo "[HIL] 후계 $NAME 도달 미확인 — 구 좌석 닫기 0 (구=$OLD) · 도달 파일 없음 · $1"; }
 RETIRE="${FT_SEAT_RETIRE:-$HERE/ft-seat-retire.sh}"
 # ⓔ 도달 파일 + ⓔ-1(r1116c) 명부 승계 — 후계가 retire 전이면 역할 우편함·ring 이 구 좌석으로만 간다(v65 #254 · planner arch#28). retire 실패는 사유만 출력 · rc 는 도달 쪽(0).
 reached() {   # reached <seq|null>
   mkdir -p "$STATE" && printf '{"successor":"%s","seq":%s,"reached_at":"%s","rc":0,"model":"%s"}\n' "$NAME" "$1" "$(date +%FT%T%z)" "$MODEL" > "$STATE/$OLD.json" \
     || { hil "도달 파일 쓰기 실패 $STATE"; exit 5; }
+  rm -f "$STATE/$OLD.sent"   # r1660-c: 도달했으면 «보냈으나 미확인» 표지를 지운다(다음 재실행이 확인만 하지 않게)
   [ -f "$RETIRE" ] || { echo "WARN retire 0 — $RETIRE 없음 · 후계가 부팅 때 retire"; return 0; }
   _rt="$(cd "$WT" && bash "$RETIRE" "$OLD" "$NAME" 2>&1)"; _rtrc=$?
   [ -n "$_rt" ] && printf '%s\n' "$_rt" | sed 's/^/retire: /'
@@ -430,19 +436,44 @@ if [ "${NAME#*-master-}" != "$NAME" ]; then
   fi
 fi
 TAILENV=""; [ "$CARRY" = 1 ] && TAILENV="FT_DOORBELL_TAIL=ultrathink"
-OUT="$(env $TAILENV FT_REACH_AGENT="$AGENT" FT_MBOX_SH="$MBOX" FT_SEND_FROM="$OLD" bash "$SEND" "$NAME" "$SEND_TEXT" 2>&1)"; RC=$?
+# ★r1660-c 재실행 = 확인만★ .sent 에 보낸 seq 가 있으면 «다시 보내지 않는다» — ring 1회 + reach(남은 예산 clip) 만.
+#   본문은 이미 큐에 있으니 send 를 다시 부르면 두 벌이 된다(중복 송신 0). 성공하면 도달 파일 + .sent 삭제, 모자라면 rc5.
+if [ -s "$SENTF" ]; then
+  PSEQ="$(sed -n '1p' "$SENTF")"
+  so_verify_ready || so_budget_stop "송신 확인(이미 보냄 seq $PSEQ · reach 예산 20초 필요)"
+  echo "$PSEQ" | grep -qE '^[0-9]+$' || { hil "보낸 seq 표지가 숫자가 아니다: $SENTF"; exit 5; }
+  bash "$MBOX" ring "$NAME" "$PSEQ" >&2 || echo "WARN ring 실패 — reach 판정만 한다(seq $PSEQ)" >&2
+  if FT_REACH_AGENT="$AGENT" bash "$REACH" "$NAME" "[발주 #$PSEQ]" "$(so_reach_to)" 0 >/dev/null 2>&1; then
+    reached "$PSEQ"; echo "OK successor=$NAME seq=$PSEQ file=$STATE/$OLD.json mbox=$MBOX (재실행 확인만 · 송신 0)"; exit 0
+  fi
+  so_verify_ready || so_budget_stop "송신 확인(도달 미확인 seq $PSEQ)"
+  hil "이미 보낸 seq $PSEQ 도달 미확인 — 재실행은 확인만(다시 보내지 않는다)"; exit 5
+fi
+OUT="$(env $TAILENV FT_SV_DEADLINE="$(( SO_T0 + BUDGET ))" FT_REACH_AGENT="$AGENT" FT_MBOX_SH="$MBOX" FT_SEND_FROM="$OLD" bash "$SEND" "$NAME" "$SEND_TEXT" 2>&1)"; RC=$?
 printf '%s\n' "$OUT"
 SEQ="$(printf '%s\n' "$OUT" | grep -oE 'seq=[0-9]+' | head -1 | cut -d= -f2)"
-# ⓕ 2·5 → 같은 seq 로 ring 1회 + 도달 재확인(본문 재큐잉 0). 1(SEND_FAILED)·seq 없음 = 그대로 실패.
-#   ★r1660-b★ 재확인도 20초를 쓴다 — 남은 예산이 그것을 덮을 때만 한다(모자라면 안 하고 rc5 · 다음 실행 몫).
-if [ "$RC" -ne 0 ] && { [ "$RC" -eq 2 ] || [ "$RC" -eq 5 ]; } && [ -n "$SEQ" ]; then
-  if [ "$(( BUDGET - $(so_elapsed) ))" -ge 20 ]; then
-    env $TAILENV bash "$MBOX" ring "$NAME" "$SEQ" 2>&1 && FT_REACH_AGENT="$AGENT" bash "$REACH" "$NAME" "[발주 #$SEQ]" 20 0 >/dev/null 2>&1 && RC=0
+# ★r1660-c★ 큐에 들어간 seq 를 «바로» 남긴다 — 여기서 죽어도 재실행이 확인만 할 수 있다(못 쓰면 도달 판정 불가 = hil).
+if [ -n "$SEQ" ]; then
+  { mkdir -p "$STATE" && printf '%s\n' "$SEQ" > "$SENTF"; } || { hil "보낸 seq 기록 실패 $SENTF — 재실행이 중복 송신할 수 있다"; exit 5; }
+fi
+# ⓕ 2·5·6 → 같은 seq 로 ring 1회 + 도달 재확인(본문 재큐잉 0). 1(SEND_FAILED)·seq 없음 = 그대로 실패.
+#   ★r1660-c★ 재확인도 시간을 쓴다 — «남은 예산» 을 clip 으로 넘긴다(전에는 20초 고정 · ≥20 일 때만).
+RETRY_SKIP=0
+if [ "$RC" -ne 0 ] && { [ "$RC" -eq 2 ] || [ "$RC" -eq 5 ] || [ "$RC" -eq 6 ]; } && [ -n "$SEQ" ]; then
+  if so_verify_ready; then
+    env $TAILENV bash "$MBOX" ring "$NAME" "$SEQ" 2>&1 && FT_REACH_AGENT="$AGENT" bash "$REACH" "$NAME" "[발주 #$SEQ]" "$(so_reach_to)" 0 >/dev/null 2>&1 && RC=0
   else
-    echo "WARN 재확인 생략 — 남은 예산(${BUDGET}초 상한) 부족 · 도달 판정은 다음 실행 몫" >&2
+    RETRY_SKIP=1; echo "WARN 재확인 생략 — 남은 예산(${BUDGET}초 상한) 부족" >&2
   fi
 fi
-[ "$RC" -eq 0 ] || { hil "send-verified rc=$RC"; exit 5; }
+if [ "$RC" -ne 0 ]; then
+  if [ "$RC" = 6 ] || [ "$RETRY_SKIP" = 1 ]; then
+    hil "도달 미확인(rc=$RC) — seq ${SEQ:-없음} 를 .sent 에 남겼다 · 재실행은 확인만(다시 보내지 않는다)"
+  else
+    hil "send-verified rc=$RC"
+  fi
+  exit 5
+fi
 
 # ⓔ 도달 파일 — 훅(context-distill-gate.sh)이 이 파일이 있어야 550k 넘은 좌석의 recv 를 푼다 · 이어서 retire(r1116c)
 reached "${SEQ:-null}"

@@ -66,7 +66,10 @@
 # ★인터페이스는 그대로다★ — ft-broadcast.sh 는 이 스크립트를 rc 로만 쓴다(0/1/2/5).
 #
 # usage: ft-send-verified.sh <session> <text>
-#   exit 0 = OK / 1 = SEND_FAILED / 2 = NOT_SUBMITTED / 5 = UNVERIFIED(사람 확인)
+#   exit 0 = OK / 1 = SEND_FAILED / 2 = NOT_SUBMITTED / 5 = UNVERIFIED(사람 확인) / 6 = SENT_UNCONFIRMED(예산 소진 — 본문은 큐에 있다 · 재실행은 확인만)
+#   r1660-c(arch#298): env FT_SV_DEADLINE(epoch 초) 이 있으면 두 reach 대기를 min(기본 20|60, DEADLINE-지금) 으로 «clip» 한다.
+#     남은 초 ≤0 이면 reach·ring 을 건너뛰고 SENT_UNCONFIRMED(6) 로 답한다 — 본문은 이미 큐에 있으니 다시 보내면 두 벌이 된다.
+#     env 가 없으면 지금 동작 그대로(기다리는 값·rc 불변) — 부르는 쪽이 없으면 아무것도 달라지지 않는다.
 set -uo pipefail
 
 SESSION="${1:?session required}"
@@ -179,14 +182,29 @@ esac
 
 TIMEOUT=20
 [ "$QUEUED" -eq 1 ] && TIMEOUT=60
+# ★r1660-c 예산 clip★ — 부르는 쪽이 준 DEADLINE 을 넘지 않게 대기값을 줄인다(없으면 종전 그대로).
+sv_timeout() {   # $1 = 기본 초 → 표준출력 = clip 초 · 남은 초 ≤0 이면 rc1(기다리지 않는다)
+    [ -z "${FT_SV_DEADLINE:-}" ] && { echo "$1"; return 0; }
+    local left=$(( FT_SV_DEADLINE - $(date +%s) ))
+    [ "$left" -ge 1 ] || return 1
+    [ "$left" -lt "$1" ] && echo "$left" || echo "$1"
+}
+unconf() {   # 본문은 큐에 있다 — 재실행은 «다시 보내지 않고» 확인만 한다
+    echo "SENT_UNCONFIRMED seq=${SEQ:-null} — 남은 예산 없음(도달 미확인 · 재실행은 확인만)"
+    exit 6
+}
+T1="$(sv_timeout "$TIMEOUT")" || unconf
 
 # 기준값 0 을 ★명시★해 넘긴다 — 빈 값으로 넘기면 ft-reach-check 가 자기 나름대로
 # 세는데, 그건 이 마커에 대해 늘 0 이라도 «왜 0 인지»가 코드에서 안 보인다.
-if bash "$REACH" "$SESSION" "$MARKER" "$TIMEOUT" 0; then
+if bash "$REACH" "$SESSION" "$MARKER" "$T1" 0; then
     [ "$QUEUED" -eq 1 ] && echo "  (좌석이 작업 중이었다 — 대기열을 거쳐 제출됐다)"
     exit 0
 fi
 RC=$?
+
+# ★r1660-c★ 재발주도 시간을 쓴다 — ring «전에» 남은 예산을 본다(모자라면 ring 0 · 6 으로 넘긴다).
+T2="$(sv_timeout "$TIMEOUT")" || unconf
 
 if [ "$RC" -eq 5 ]; then
     echo "UNVERIFIED session=$SESSION — 발주 후 jsonl 층을 못 읽었다. 사람이 확인해야 한다" >&2
@@ -212,7 +230,7 @@ case "$DOORBELL" in
         exit 5
         ;;
 esac
-if bash "$REACH" "$SESSION" "$MARKER" "$TIMEOUT" 0; then
+if bash "$REACH" "$SESSION" "$MARKER" "$T2" 0; then
     exit 0
 fi
 
