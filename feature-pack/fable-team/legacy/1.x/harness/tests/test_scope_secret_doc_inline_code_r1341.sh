@@ -26,8 +26,10 @@ same() {  # same <이름> <가지> — 새 판과 기준판 rc·출력이 같다
 }
 MD='design/teams/ops/indices/대기/ops-x.md'
 BASE="$T/base"; mkdir -p "$BASE"; cp "$BIN"/autonomy_scope_*.py "$BIN"/ft_secret_*.py "$BASE"/
-( cd "$HERE/.." && git show HEAD:feature-pack/fable-team/legacy/1.x/harness/bin/autonomy_scope_secret.py ) > "$BASE/autonomy_scope_secret.py" \
-  && ck "기준판 사본 = HEAD 판(r1341 전)" 0 || ck "기준판 사본" 1
+# 기준판 = «고치기 전 판» 을 sha 로 고정한다(HEAD 를 쓰면 커밋 뒤 고친 판이 기준판이 돼 영원히 빨강 · r1132 꼴)
+BASE_SHA=251b1f00
+( cd "$HERE/.." && git show "$BASE_SHA:feature-pack/fable-team/legacy/1.x/harness/bin/autonomy_scope_secret.py" ) > "$BASE/autonomy_scope_secret.py" \
+  && ck "기준판 사본 = $BASE_SHA 판(r1341 전 · sha 고정)" 0 || ck "기준판 사본" 1
 python3 -I -m py_compile "$BIN/autonomy_scope_secret.py"; ck "py_compile secret" $?
 
 # S1 — ops 6076 원문(표 산문 · 백틱 2쌍) → 고친 판 FORBID 0 · 기준판 FORBID
