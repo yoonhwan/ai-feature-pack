@@ -13,7 +13,30 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { piMasterFile } from "./ft-mbox-wake.ts";
 import { appendLoadLine } from "./ft-load-line.ts"; // r1537 — 세션 기록 «로드 <카드> <판>» 1줄(턴 0)
 
-type Got = { goal: boolean; prog: number; h: number; unread: number; last: number };
+type Got = { goal: boolean; prog: number; h: number; unread: number; last: number; open: number; stale: number; oldest: number };
+// r1699: «회신 대기 발주» — 닫는 머리(이미 처리·보고) 4종 · 창(분) 기본 30 · 정수 아님 = 30
+export const CLOSED_HEAD = ["[레디]", "[받음]", "[긴급]", "[정리]"];
+const openMin = (): number => { const v = process.env.FT_IDLE_OPEN_MIN ?? ""; return /^\d+$/.test(v) && Number(v) > 0 ? Number(v) : 30; };
+// r1699 R1(DA astra 반례): 본문이 «[발신->수신] …» 전송 접두어로 시작하면 그 접두어를 벗긴 뒤 머리를 본다(접두어를 머리로 오인하면 닫는 보고를 열린 발주로 센다)
+const bodyHead = (body: unknown): string => String(body ?? "").trim().replace(/^\[[^\]]*->[^\]]*\]\s*/, "").slice(0, 4);
+type OrderRow = { seq?: number; ts?: string; to?: string; from?: string; body?: string };
+// r1699 — 열린 발주 셈(순수 함수 · 시험은 이 함수만 부른다): from=좌석 ∧ to≠좌석 ∧ 닫는 머리 아님 ∧ 그 뒤 to→좌석 행(seq 더 큼) 없음 ∧ 받는 좌석 생존
+//   창 안 = open(턴 0 · 지문 무변화) · 창 밖 = stale([긴급] 문구에 «회신 없는 발주 N(가장 오래된 seq)»)
+export function openOrdersOf(rows: OrderRow[], seat: string, live: Set<string>, winMin: number, now: number): { open: number; stale: number; oldest: number } {
+  const win = winMin * 60000;
+  let open = 0, stale = 0, oldest = 0;
+  for (const r of rows) {
+    if (typeof r.seq !== "number" || String(r.from ?? "") !== seat || String(r.to ?? "") === seat) continue;
+    const to = String(r.to ?? ""), head = bodyHead(r.body);
+    if (!to || CLOSED_HEAD.includes(head)) continue;
+    const replied = rows.some((x) => typeof x.seq === "number" && x.seq > (r.seq as number) && String(x.from ?? "") === to && String(x.to ?? "") === seat);
+    if (replied || !live.has(to)) continue;
+    const ts = Date.parse(String(r.ts ?? ""));
+    if (!Number.isFinite(ts) || now - ts <= win) open++;
+    else { stale++; if (!oldest) oldest = r.seq as number; }
+  }
+  return { open, stale, oldest };
+}
 type Run = { rc: number; out: string };
 const keyOf = (s: string) => s.replace(/[^A-Za-z0-9._#-]/g, "_");
 const log = (m: string) => console.error(`ft-idle-nudge: ${m}`);
@@ -67,6 +90,27 @@ export default function (pi: ExtensionAPI) {
     try { scan(fs.readFileSync(receipts, "utf-8"), false); } catch (e) { if ((e as NodeJS.ErrnoException)?.code !== "ENOENT") { log(`영수 ${receipts} — ${e}`); return null; } } // 영수 없음 = 받은 쪽지 0
     return max;
   }
+  // r1699 — 발신 기록 = mailbox.log.jsonl(없으면 mailbox.jsonl) · 읽기 실패 = null(판정 불가 · no_silent_fallback)
+  function openOrders(live: Set<string>): { open: number; stale: number; oldest: number } | null {
+    const logFile = [path.join(mboxDir, "mailbox.log.jsonl"), mbox].find((f) => fs.existsSync(f));
+    if (!logFile) return { open: 0, stale: 0, oldest: 0 };
+    let text: string;
+    try { text = fs.readFileSync(logFile, "utf-8"); } catch (e) { log(`발신 기록 ${logFile} — ${e}`); return null; }
+    const rows: OrderRow[] = [];
+    for (const line of text.split("\n")) { if (!line.trim()) continue; try { rows.push(JSON.parse(line)); } catch { continue; } }
+    return openOrdersOf(rows, seat, live, openMin(), Date.now());
+  }
+  // tmux 세션 이름 집합 — 조회 실패(no server 제외) = null(판정 불가)
+  function liveSeats(): Set<string> | null {
+    try { const out = execSync('tmux ls -F "#{session_name}"', { encoding: "utf-8", timeout: 7000, stdio: ["ignore", "pipe", "pipe"] }); return new Set(out.split("\n").map((x) => x.trim()).filter(Boolean)); }
+    catch (e) {
+      // r1699 R2(DA astra 반례): «서버 없음 · 세션 없음» 만 «살아 있는 좌석 0» — 그 밖 실패(rc2·알 수 없는 stderr) = 판정 불가(null)
+      const code = (e as { code?: unknown }).code, err = String((e as { stderr?: unknown }).stderr ?? "") + String((e as { message?: unknown }).message ?? "");
+      if (code === "ENOENT") return new Set();   // 이 환경에 tmux 자체가 없다 = 살아 있는 세션 0(조회 실패 아님)
+      if (/no server running|can't find session/.test(err)) return new Set();
+      log(`tmux 조회 실패 ${err.split("\n")[0] || String(e).split("\n")[0]}`); return null;
+    }
+  }
   // r1684 ② — 골 원장이 없는 루트(aifp 등) = design/TEAMS.md 에 planner 행이 없음. 그때 골 칸 = 열림 + 세션당 INFO 1줄.
   //   읽는 곳 = 골 표와 «같은 ref»(FT_TEAMS_REF·기본 origin/main) 의 그 파일 — 작업 트리 파일은 보지 않는다(DA R1: 트리만 바꾼 판을 «원장 없음» 으로 오판했다).
   //   그 ref 에서 못 읽거나 planner 행이 있으면 지금처럼 null(=«판정 불가») — «없음» 과 «못 읽음» 을 가른다(하드 룰 20).
@@ -90,7 +134,11 @@ export default function (pi: ExtensionAPI) {
     if (unread === null) return `미읽음 rc=${p.rc}`;
     const last = lastSeq();
     if (last === null) return "우편함·영수 읽기 실패";
-    return { goal, prog, h: hil, unread, last };
+    const live = liveSeats();
+    if (live === null) return "tmux 세션 목록 조회 실패";
+    const ord = openOrders(live);
+    if (ord === null) return "발신 기록 읽기 실패";
+    return { goal, prog, h: hil, unread, last, open: ord.open, stale: ord.stale, oldest: ord.oldest };
   }
   function readIdle(): { fp: string; n: number } | null {
     try { const j = JSON.parse(fs.readFileSync(idleFile, "utf-8")); return typeof j?.fp === "string" && Number.isInteger(j?.n) ? j : null; }
@@ -100,10 +148,11 @@ export default function (pi: ExtensionAPI) {
   // r1684 ① — [긴급] 은 planner 팀장(_master) 앞으로. desk 는 planner 밖 수신자를 REJECT 하는 경로 규칙이 있다(feature#69 실사건 = rc3).
   const plannerMaster = (): string => { try { return String(JSON.parse(fs.readFileSync(path.join(root, ".fable-team", "seats-planner.json"), "utf-8"))._master ?? ""); } catch { return ""; } };
 
-  async function urgent() { // planner 팀장 앞 [긴급] 1통 — 본문에 백틱·$( 0
+  async function urgent(stale = 0, oldest = 0) { // planner 팀장 앞 [긴급] 1통 — 본문에 백틱·$( 0 · r1699: 창 밖 발주 수·가장 오래된 seq
     const to = plannerMaster();
     if (!to) return log(`[긴급] 못 보냄 — seats-planner.json _master 없음 (${seat})`);
-    const r = await run(mboxSh, ["send", to, seat, `[긴급] ${seat} 쉼 지문 반복 · 진행 0 · h 0 · 다음 발주 없음 · 막힌 이유 확인 필요`], mboxEnv);
+    const tail = stale > 0 ? ` · 회신 없는 발주 ${stale}(${oldest})` : "";
+    const r = await run(mboxSh, ["send", to, seat, `[긴급] ${seat} 쉼 지문 반복 · 진행 0 · h 0 · 다음 발주 없음 · 막힌 이유 확인 필요${tail}`], mboxEnv);
     if (r.rc !== 0) log(`[긴급] 발신 실패 rc=${r.rc} → ${to}`);
   }
 
@@ -115,7 +164,7 @@ export default function (pi: ExtensionAPI) {
     if (!file) return; // 팀장 pi 좌석만(나노·_desk·claude/codex 팀장 = 0)
     const team = teamOf(file), got = await read(team);
     if (typeof got === "string") return log(`판정 불가 — ${got} · ${seat} 턴 0`);
-    if (!got.goal || got.prog > 0 || got.h > 0 || got.unread > 0) return; // 일이 남았다 = 턴 0 · 지문 무변화
+    if (!got.goal || got.prog > 0 || got.h > 0 || got.unread > 0 || got.open > 0) return; // 일이 남았다 = 턴 0 · 지문 무변화 (r1699: 회신 대기 발주 포함)
     const fp = `${got.prog}|${got.h}|${got.last}`, prev = readIdle();
     if (prev === null) return log(`판정 불가 — 지문 파일 꼴 불일치 ${idleFile} · ${seat} 턴 0`);
     const n = prev.fp === fp ? prev.n + 1 : 1;
@@ -123,7 +172,7 @@ export default function (pi: ExtensionAPI) {
       const content = `[idle-nudge] ${team} 골 열림 · 진행 카드 0 · 대기 h 0 · 미읽음 0 — ${NUDGE}: 다음 발주를 1건 내거나, 막힌 이유를 1줄로 쓴다(오빠 결정이면 desk 앞 mbox 1통).`;
       try { pi.sendMessage({ customType: "ft-idle-nudge", content, display: true }, { triggerTurn: true, deliverAs: "followUp" }); }
       catch (e) { return log(`sendMessage 실패 — ${e}`); } // 실패 = 지문 무변화(다음 settled 재시도)
-    } else if (n === 2) await urgent();
+    } else if (n === 2) await urgent(got.stale, got.oldest);
     if (n <= 3) writeIdle(fp, n); // 3회째에서 멈춘다 — 그 뒤 settled 는 파일도 안 바꾼다
   });
 }
