@@ -3,7 +3,7 @@
 
 제외 규칙은 EXCLUDE 한 곳 · 그 문자열을 manifest 에 남긴다 · 같은 입력 두 번 = 같은 출력.
 경로 = 루트 기준 상대경로 · 경로 순 정렬(다른 위치의 사본과도 대조) · `git` 호출 0(HEAD 를 파일로 읽는다).
-종료 코드: 0 = 만들어짐/같음 · 1 = 다름 · 2 = 판정 불가(못 읽음·손상).
+종료 코드: 0 = 만들어짐/같음 · 1 = 다름 · 2 = 판정 불가(못 읽음·권한 없음·손상) — traceback 0.
 """
 import hashlib
 import json
@@ -11,7 +11,6 @@ import os
 import sys
 
 SCHEMA = 1
-TOOL = "tools/manifest.py"
 EXCLUDE = ("__pycache__/", "*.pyc", "*.pyo", ".*")
 
 
@@ -31,7 +30,6 @@ def kind_of(rel):
 
 
 def walk_files(root):
-    """루트 아래 파일의 상대경로를 경로 순으로 돌려준다(제외 규칙 적용)."""
     found = []
     for dirpath, dirnames, filenames in os.walk(root):
         rel_dir = os.path.relpath(dirpath, root)
@@ -50,7 +48,6 @@ def read_text(path):
 
 
 def head_of(gitdir):
-    """HEAD 파일 하나로 sha 를 푼다 — 링크 워크트리는 commondir 도 본다."""
     head = (read_text(os.path.join(gitdir, "HEAD")) or "").strip()
     if not head.startswith("ref: "):
         return head or None
@@ -89,28 +86,23 @@ def entry(root, rel):
 
 def build(root):
     files = [entry(root, rel) for rel in walk_files(root)]
-    return {"schema": SCHEMA, "tool": TOOL, "exclude": list(EXCLUDE),
+    return {"schema": SCHEMA, "tool": "tools/manifest.py", "exclude": list(EXCLUDE),
             "source": {"sha": git_sha(root)}, "count": len(files), "files": files}
 
 
 def load_manifest(path):
-    text = read_text(path)
-    if text is None:
-        return None
     try:
-        doc = json.loads(text)
+        doc = json.loads(read_text(path) or "")
         return {item["path"]: item for item in doc["files"]} if doc["schema"] == SCHEMA else None
     except (ValueError, KeyError, TypeError, AttributeError):
         return None
 
 
 def differs(before, after):
-    """지문이 다르면 True — sha256 우선, sha 가 같고 바이트가 달라도 다름."""
     return before["sha256"] != after["sha256"] or before["bytes"] != after["bytes"]
 
 
 def verify(manifest_path, folder):
-    """(rc, 문서 또는 사유 1줄) — 빠짐·남음·다름을 각각 센다."""
     want = load_manifest(manifest_path)
     if want is None:
         return 2, f"판정 불가 {manifest_path}: manifest 를 읽지 못했다(없음·JSON 손상·schema 다름)"
@@ -128,6 +120,15 @@ def verify(manifest_path, folder):
 
 
 def main(argv):
+    """파일을 못 읽으면(권한·경합) traceback 대신 «판정 불가» 1줄 + rc2 로 끝낸다."""
+    try:
+        return dispatch(argv)
+    except OSError as exc:
+        print(f"판정 불가 {exc.filename}: 읽지 못했다", file=sys.stderr)
+        return 2  # 못 읽음 = 판정 불가
+
+
+def dispatch(argv):
     if len(argv) == 3 and argv[1] == "build":
         if not os.path.isdir(argv[2]):
             print(f"판정 불가 {argv[2]}: 폴더가 아니다", file=sys.stderr)

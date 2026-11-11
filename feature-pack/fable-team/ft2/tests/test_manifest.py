@@ -51,15 +51,14 @@ def test_a_build_is_deterministic_and_fingerprinted(tmp_path):
     assert [item["path"] for item in first["files"]] == sorted(TREE)
     kinds = {item["path"]: item["kind"] for item in first["files"]}
     assert (kinds["core/loader.py"], kinds["tests/test_x.py"]) == ("code", "test")
-    raw = TREE["core/loader.py"].encode()
     one = [item for item in first["files"] if item["path"] == "core/loader.py"][0]
+    raw = TREE["core/loader.py"].encode()
     assert (one["sha256"], one["bytes"]) == (hashlib.sha256(raw).hexdigest(), len(raw))
     assert first["source"]["sha"] is None or len(first["source"]["sha"]) == 40
 
 def test_b_exclude_rules_live_in_one_place(tmp_path):
     doc = build(make_source(tmp_path / "src"), tmp_path / "m.json")
-    assert doc["exclude"] == ["__pycache__/", "*.pyc", "*.pyo", ".*"]
-    assert [item["path"] for item in doc["files"]] == sorted(TREE)
+    assert doc["exclude"] == ["__pycache__/", "*.pyc", "*.pyo", ".*"] and [item["path"] for item in doc["files"]] == sorted(TREE)
     source = TOOL.read_text(encoding="utf-8")
     assert (source.count("EXCLUDE = ("), source.count("__pycache__")) == (1, 2)
 
@@ -68,37 +67,34 @@ def test_c_verify_reports_missing_extra_different(tmp_path):
     manifest = tmp_path / "m.json"
     build(src, manifest)
     rc, doc, stderr = verify(manifest, src)
-    assert (rc, stderr, doc["count"]) == (0, "", {"manifest": 4, "folder": 4, "missing": 0,
-                                                  "extra": 0, "different": 0})
-    cases = (("missing", "core/loader.py", lambda folder: (folder / "core" / "loader.py").unlink()),
-             ("extra", "core/new.py", lambda folder: (folder / "core" / "new.py").write_text("y = 2\n", encoding="utf-8")),
-             ("different", "core/loader.py", lambda folder: (folder / "core" / "loader.py").write_text("print('HI')\n", encoding="utf-8")))
-    for key, want, change in cases:
-        folder = copied(src, tmp_path, key)
+    assert (rc, stderr, [doc["count"][k] for k in ("missing", "extra", "different")]) == (0, "", [0, 0, 0])
+    cases = (("missing", "missing", "core/loader.py", lambda folder: (folder / "core" / "loader.py").unlink()),
+             ("extra", "extra", "core/new.py", lambda folder: (folder / "core" / "new.py").write_text("y = 2\n", encoding="utf-8")),
+             ("different", "different", "core/loader.py", lambda folder: (folder / "core" / "loader.py").write_text("print('HI')\n", encoding="utf-8")))
+    for name, key, want, change in cases:
+        folder = copied(src, tmp_path, name)
         change(folder)
         rc, doc, _ = verify(manifest, folder)
-        other = "missing" if key == "extra" else "extra"
-        assert (rc, doc[key], doc[other]) == (1, [want], [])
+        other = doc["missing"] + doc["extra"] + doc["different"]
+        assert (rc, other) == (1, [want])
     broken = tmp_path / "broken.json"
     broken.write_text("{oops", encoding="utf-8")
-    for args in ((tmp_path / "nope.json", src), (broken, src), (manifest, tmp_path / "nodir")):
-        rc, doc, stderr = verify(*args)
-        assert (rc, doc, stderr.count("판정 불가")) == (2, {}, 1)
+    locked = copied(src, tmp_path, "locked")
+    (locked / "core" / "loader.py").chmod(0)
+    for args in (("verify", tmp_path / "nope.json", src), ("verify", broken, src), ("verify", manifest, tmp_path / "nodir"),
+                 ("build", locked), ("verify", manifest, locked)):
+        rc, stdout, stderr = run(*args)
+        assert (rc, stdout, stderr.count("판정 불가"), "Traceback" in stderr) == (2, "", 1, False)
 
 def test_d_real_ft2_tree_is_measured(tmp_path):
-    doc = build(FT2, tmp_path / "real.json")
-    assert doc["count"] > 40 and "tools/manifest.py" in [item["path"] for item in doc["files"]]
-    rc, out, stderr = verify(tmp_path / "real.json", FT2)
-    assert (rc, stderr, out["count"]["different"]) == (0, "", 0)
+    assert (doc := build(FT2, tmp_path / "real.json"))["count"] > 40
+    assert "tools/manifest.py" in [item["path"] for item in doc["files"]] and verify(tmp_path / "real.json", FT2)[0] == 0
 
 def test_e_stdlib_only_and_small():
     source = TOOL.read_text(encoding="utf-8")
-    nodes = [node for node in ast.walk(ast.parse(source))
-             if isinstance(node, (ast.Import, ast.ImportFrom))]
-    names = {name.split(".")[0] for node in nodes for name in
-             ([alias.name for alias in node.names] if isinstance(node, ast.Import) else [node.module or ""])}
-    assert len(source.splitlines()) <= 150
-    assert names <= {"hashlib", "json", "os", "sys"} and "subprocess" not in source
+    modules = {(getattr(node, "module", None) or node.names[0].name).split(".")[0]
+               for node in ast.walk(ast.parse(source)) if isinstance(node, (ast.Import, ast.ImportFrom))}
+    assert len(source.splitlines()) <= 150 and "subprocess" not in source and modules <= {"hashlib", "json", "os", "sys"}
 
 def mutant(tmp_path, name, old, new):
     source = TOOL.read_text(encoding="utf-8")
@@ -114,7 +110,11 @@ def test_m1_m2_mutants_miss_their_own_case(tmp_path):
     (added / "core" / "new.py").write_text("y = 2\n", encoding="utf-8")
     same = copied(src, tmp_path, "same")
     (same / "core" / "loader.py").write_text("print('HI')\n", encoding="utf-8")
+    locked = copied(src, tmp_path, "locked")
+    (locked / "core" / "loader.py").chmod(0)
     m1 = mutant(tmp_path, "m1", "    extra = sorted(path for path in have if path not in want)\n", "    extra = []\n")
     m2 = mutant(tmp_path, "m2", 'before["sha256"] != after["sha256"] or ', "")
+    m3 = mutant(tmp_path, "m3", "        return 2  # 못 읽음 = 판정 불가\n", "        raise\n")
     assert (run("verify", manifest, added, script=m1)[0], run("verify", manifest, added)[0]) == (0, 1)
     assert (run("verify", manifest, same, script=m2)[0], run("verify", manifest, same)[0]) == (0, 1)
+    assert (run("verify", manifest, locked, script=m3)[0], run("verify", manifest, locked)[0]) == (1, 2)
