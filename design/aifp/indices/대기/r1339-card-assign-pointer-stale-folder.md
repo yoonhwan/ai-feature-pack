@@ -18,6 +18,7 @@
 - 규칙: 없음 — 배정 감시 읽기 결함
 - 대상: 팩 feature-pack/fable-team/legacy/1.x/harness/bin/ft_card_assign_watch.py(orders() 판정 · 머리 칸) · feature-pack/fable-team/legacy/1.x/harness/kit/fable-team/bin/ft_card_assign_watch.py(같은 판) · 시험 feature-pack/fable-team/legacy/1.x/harness/tests/test_card_assign_pointer_stale_folder_r1339.sh(신설 · 100644)
 - 정본 영향 없음: 하네스 배정 감시 판정 — 제품 정본 0
+- 2026-11-11 20:05 — 나노 구현 완료(A1~A5) · 세트: d51b47d852a400135d1016fda58e5a179b8c9957 · 시험: bash tests/test_card_assign_pointer_stale_folder_r1339.sh (13 passed — S1~S5 · 기준판 0241f6f4 고정 sha 에서 S1·S2·S3 «없는 경로» 재현 · 변이 3/3) rc=0 5초(새 1초 · 기준판 0초 · 변이 2초) · 회귀 test_card_assign_pointer_path_token_r1329.sh 13P0F 2초 · test_card_assign* 14종 FAIL 수 기준판 0241f6f4 와 동일(기존 2F·5F·4F 그대로) · 이슈: #8374
 - 배정: 대기(석 · 2026-11-02T20:21:40)
 
 ## 골 원문 (항상 이 3줄)
