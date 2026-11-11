@@ -134,6 +134,9 @@ class Dispatch:
 
     def _complete(self, context, work, attempt):
         state, records = context
+        if work in (state.get("uncertain") or {}):     # r1624: 미확정 = 완료 유보(쓰기 0 · 계약 case07)
+            return Grant(HOLD, work, "uncertain", attempt, revision=state["revision"],
+                         reason="결과 미확정 = 완료 유보")
         if work in (state.get("done") or {}):
             return Grant(HOLD, work, "complete", attempt, revision=state["revision"], reason="이미 완료 기록")
         owner, assigned = dict((state.get("owners") or {}).get(work) or {}), self._assigned(records, work)
