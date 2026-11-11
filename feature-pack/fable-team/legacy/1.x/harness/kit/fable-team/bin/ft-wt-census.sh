@@ -23,15 +23,26 @@ GR() { if [ -n "$REPO" ]; then git7 "$REPO" "$@"; else g7 "$@"; fi; }
 ROOT="$(GR rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')"
 [ -n "$ROOT" ] || { echo "판정 불가: git 리포가 아니다" >&2; exit 1; }
 
-# ② 착지 — 조상 ∨ patch-id ∨ squash tree (r1676 대조기 3신호)
+# ② 착지 — 조상 ∨ patch-id ∨ squash tree. ★patch-id 는 «그 줄의 미착지 커밋 ≤ PATCH_MAX(기본 50)» 일 때만★
+#    (실측: origin/main 에 없는 9,343커밋 갈래에서 -p|patch-id = 12초 · ops/main-base 전체 집합 = 61초 → 둘 다 상한 밖은 KEEP:② «정리 가능으로 치지 않는다»)
+IDS_DIR="$(mktemp -d "${TMPDIR:-/tmp}/wtc-ids.XXXXXX")"; trap 'rm -rf "$IDS_DIR"' EXIT; PATCH_MAX="${FT_WT_CENSUS_PATCH_MAX:-50}"
+pid_of() { cap 60 "${GIT_CLEAN[@]}" "$GIT" patch-id --stable 2>/dev/null | awk '{print $1}'; }
 landed() {  # $1=경로
-  local p="$1" b tree
+  local p="$1" b mb paths ids cand tree hit id n
   for b in $BASES; do
     GR rev-parse -q --verify "$b^{commit}" >/dev/null 2>&1 || continue
     git7 "$p" merge-base --is-ancestor HEAD "$b" 2>/dev/null && return 0
-    git7 "$p" cherry "$b" HEAD >/tmp/.wtc.$$ 2>/dev/null || { rm -f /tmp/.wtc.$$; return 2; }
-    grep -q '^+' /tmp/.wtc.$$ || { rm -f /tmp/.wtc.$$; return 0; }
-    rm -f /tmp/.wtc.$$
+    mb="$(git7 "$p" merge-base "$b" HEAD 2>/dev/null)" || return 2; [ -n "$mb" ] || return 2
+    n="$(git7 "$p" rev-list --count "$mb..HEAD" 2>/dev/null)" || return 2
+    if [ "${n:-0}" -gt 0 ] && [ "${n:-0}" -le "$PATCH_MAX" ]; then
+      ids="$(git7 "$p" log --no-merges -p --format='commit %H' "$mb..HEAD" 2>/dev/null | pid_of)"
+      paths="$(git7 "$p" diff --name-only "$mb" HEAD 2>/dev/null)"
+      if [ -n "$ids" ] && [ -n "$paths" ]; then
+        cand="$(git7 "$p" log --no-merges -p --format='commit %H' "$mb..$b" -- $paths 2>/dev/null | pid_of)"; hit=1
+        while IFS= read -r id; do [ -n "$id" ] && { grep -qxF "$id" <<<"$cand" || hit=0; }; done <<<"$ids"
+        [ "$hit" = 1 ] && return 0
+      fi
+    fi
     tree="$(git7 "$p" rev-parse 'HEAD^{tree}' 2>/dev/null)" || return 2
     [ -n "$tree" ] && git7 "$p" log -n 80 --format=%T "$b" 2>/dev/null | grep -qxF "$tree" && return 0
   done
@@ -47,14 +58,25 @@ reflog_only() {  # HEAD reflog 의 커밋 중 가지·원격이 안 닿는 것(�
 }
 # ⑤ 점유 — tmux pane cwd · 살아 있는 프로세스 cwd 가 그 안
 prefixed() { local x; while IFS= read -r x; do case "$x" in "$1"|"$1"/*) return 0;; esac; done <<<"$2"; return 1; }
-busy() {   # lsof 는 일부 프로세스를 못 읽어도 출력은 정상인데 rc≠0 이다(pipefail 에 기대지 않는다)
-  local c=""
-  if [ "$TMUX_ON" = 1 ] && command -v tmux >/dev/null 2>&1; then
-    c="$(cap "$GIT_SEC" tmux list-panes -a -F '#{pane_current_path}' 2>/dev/null)"; prefixed "$1" "$c" && return 0; fi
-  command -v lsof >/dev/null 2>&1 || return 1
-  c="$(cap "$GIT_SEC" lsof -w -d cwd -F n 2>/dev/null | sed -n 's/^n//p')"; prefixed "$1" "$c"
+CWDS=""; CWDS_SET=0
+cwd_list() {  # tmux pane·프로세스 cwd — ★실행당 1회★(lsof 는 줄마다 부르면 비싸다)
+  if [ "$CWDS_SET" = 0 ]; then
+    CWDS_SET=1
+    [ "$TMUX_ON" = 1 ] && command -v tmux >/dev/null 2>&1 && CWDS="$(cap "$GIT_SEC" tmux list-panes -a -F '#{pane_current_path}' 2>/dev/null)"
+    command -v lsof >/dev/null 2>&1 && CWDS="$CWDS
+$(cap "$GIT_SEC" lsof -w -d cwd -F n 2>/dev/null | sed -n 's/^n//p')"
+  fi
+  printf '%s' "$CWDS"
 }
-# ⑥ 설정이 가리키는 경로(r1111)
+busy() { prefixed "$1" "$(cwd_list)"; }
+remote_has() {  # ③ 원격 가지가 HEAD 를 담음 — 같은 HEAD 는 한 번만
+  local c o rc
+  c="$(grep -m1 "^$2 " "$IDS_DIR/rc" 2>/dev/null)"; [ -n "$c" ] && { [ "${c##* }" = 1 ]; return; }
+  o="$(git7 "$1" branch -r --contains "$2" 2>/dev/null)"; rc=$?; [ "$rc" = 0 ] || return 2
+  if [ -n "$o" ]; then echo "$2 1" >> "$IDS_DIR/rc"; return 0; fi
+  echo "$2 0" >> "$IDS_DIR/rc"; return 1
+}
+# ⑥ 설정이 가리키는 경로(r1111) — 기본 = 루트 .fable-team/*.json + LaunchAgents plist
 cfg_hit() {
   local f files=()
   if [ -n "$CFG" ]; then for f in $CFG; do files+=("$f"); done; else files=("$ROOT"/.fable-team/*.json "$HOME"/Library/LaunchAgents/com.byz.*.plist); fi
@@ -67,9 +89,9 @@ judge() {  # $1=경로 $2=가지(빈값=detached) $3=HEAD 짧은 sha → TSV 1�
   [ -d "$p" ] || { printf '%s\t%s\t%s\t-\t-\t-\t-\t-\t-\t-\t판정 불가:경로 없음\n' "$p" "$br" "$head"; return; }
   o="$(git7 "$p" status --porcelain 2>/dev/null)"; rc=$?; [ "$rc" = 0 ] || f=1; [ -z "$o" ] || d1=1
   if [ -z "$o" ] && [ "$br" != detached ]; then o="$(git7 "$p" stash list --format=%gs 2>/dev/null)"; rc=$?; [ "$rc" = 0 ] || f=1
-    if [ -n "$o" ] && grep -q "on ${br}[: ]" <<<"$o"; then d1=1; fi; fi
+    if [ -n "$o" ] && { grep -qF "WIP on ${br}:" <<<"$o" || grep -qF "On ${br}:" <<<"$o"; }; then d1=1; fi; fi
   landed "$p"; rc=$?; [ "$rc" = 2 ] && f=1; [ "$rc" = 0 ] && d2=1
-  o="$(git7 "$p" branch -r --contains HEAD 2>/dev/null)"; rc=$?; [ "$rc" = 0 ] || f=1; [ -z "$o" ] || d3=1
+  remote_has "$p" HEAD; rc=$?; [ "$rc" = 2 ] && f=1; [ "$rc" = 0 ] && d3=1
   reflog_only "$p"; rc=$?; [ "$rc" = 2 ] && f=1; [ "$rc" = 0 ] && d4=1
   busy "$p" && d5=1
   cfg_hit "$p" && d6=1

@@ -66,6 +66,28 @@ for a in "\$@"; do if [ "\$a" = "$T/wt-unland" ] && [ ! -e "$T/slow.once" ]; the
 exec git "\$@"
 EOF
 chmod +x "$T/slowgit"
+# ── 보정(arch#301 #285823): patch-id 집합 실행당 1회 · stash push -m · 바탕 수백 커밋에서 줄당 7초 ──
+cat > "$T/loggit" <<EOF
+#!/usr/bin/env bash
+printf '%s\n' "\$*" >> "$T/gitcalls.log"
+exec git "\$@"
+EOF
+chmod +x "$T/loggit"; : > "$T/gitcalls.log"
+( cd "$T" && FT_WT_CENSUS_GIT="$T/loggit" bash "$TOOL" --repo "$R" >/dev/null 2>&1 )
+eq "P1 git cherry 호출 0(줄마다 재계산 금지)" "$(grep -c ' cherry ' "$T/gitcalls.log")" 0
+git worktree add -q "$T/wt-stashmsg" -b nano/stashmsg; ( cd "$T/wt-stashmsg" && echo m > m.txt && git add m.txt && git stash push -q -m "메시지 stash" )
+eq "P3 stash push -m = KEEP:①" "$(cd "$T" && bash "$TOOL" --repo "$R" --only "$T/wt-stashmsg" 2>/dev/null | awk -F'\t' '{print $NF}')" "KEEP:①"
+P="$T/perf"; git init -q --bare "$T/perf.git"; git init -q -b main "$P"
+( cd "$P" && git config user.email a@b.c && git config user.name t && for i in $(seq 1 300); do echo "l$i" >> f; git add f; git commit -qm "c$i"; done
+  git remote add origin "$T/perf.git"; git push -q -u origin main; git worktree add -q "$T/wt-perf" -b nano/perf12
+  ( cd "$T/wt-perf" && echo p > p.txt && git add p.txt && git commit -qm "perf work" ); git cherry-pick nano/perf12 >/dev/null 2>&1; git push -q origin main )
+ms(){ perl -MTime::HiRes=time -e 'printf "%d", time()*1000'; }
+t1=$(ms); pv="$(cd "$T" && bash "$TOOL" --repo "$P" --only "$T/wt-perf" 2>/dev/null | awk -F'\t' '{print $NF}')"; t2=$(ms)
+eq "P4 줄당 7초 안(바탕 300커밋)" "$([ $((t2-t1)) -lt 7000 ] && echo yes || echo "no($((t2-t1))ms)")" yes
+eq "P5 패치 동일 = 착지 판정(patch-id 경로)" "$pv" "정리 가능"
+( cd "$P" && git worktree add -q "$T/wt-perf60" -b nano/perf60 && ( cd "$T/wt-perf60" && for i in $(seq 1 60); do echo "q$i" >> q; git add q; git commit -qm "q$i"; done ) )
+t1=$(ms); v60="$(cd "$T" && bash "$TOOL" --repo "$P" --only "$T/wt-perf60" 2>/dev/null | awk -F'\t' '{print $NF}')"; t2=$(ms)
+eq "P2 큰 갈래(60커밋) 줄도 7초 안 · KEEP:②" "$([ $((t2-t1)) -lt 7000 ] && echo yes || echo "no($((t2-t1))ms)")/$(case "$v60" in KEEP:②) echo KEEP;; *) echo "$v60";; esac)" "yes/KEEP"
 o2="$(cd "$T" && FT_WT_CENSUS_GIT="$T/slowgit" FT_WT_CENSUS_ROW_TIMEOUT=1 bash "$TOOL" --repo "$R" 2>/dev/null)"
 like "ⓓ 상한 초과 = 그 줄만 판정 불가" "$(printf '%s\n' "$o2" | awk -F'\t' -v p="$T/wt-unland" '$1==p{print $NF}')" '판정\ 불가:*초과'
 eq "ⓓ 전체는 계속(다른 줄 그대로)" "$(printf '%s\n' "$o2" | awk -F'\t' -v p="$T/wt-cfg" '$1==p{print $NF}')" "KEEP:⑥"
@@ -84,7 +106,7 @@ hs="$(bash "$H1" 2>&1)"
 eq "ⓒ 재판정으로 건너뜀" "$(printf '%s' "$hs" | grep -c '재판정 바뀜 1')" 1
 eq "ⓒ 지움 1" "$(printf '%s' "$hs" | grep -c '지움 1')" 1
 [ -d "$T/wt-squash" ] && ok "ⓒ 바뀐 줄은 남는다" || bad "ⓒ 바뀐 줄이 지워졌다"
-eq "ⓒ 가지 삭제 0" "$(git -C "$R" branch | grep -c 'nano/')" 9
+eq "ⓒ 가지 삭제 0" "$(git -C "$R" branch | grep -c 'nano/')" 10
 st ⓒ; kill "$BUSY" 2>/dev/null; wait "$BUSY" 2>/dev/null; BUSY=""
 eq "프로세스 0(점유 프로세스 정리)" "$(pgrep -f "wt-busy" 2>/dev/null | wc -l | tr -d ' ')" 0
 echo "----"; eq "합계 fail" "$fail" 0; exit $((fail > 0))
