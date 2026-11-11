@@ -227,24 +227,29 @@ case "$cmd" in
         *) path="$1"; shift ;;
       esac
     done
-    out="$("$PROBE" query "$pat" "$path" $lang 2>&1)"
-    printf '%s\n' "$out"
-    # probe 0.6.0-rc342: python(및 일부 언어) 패턴 매칭이 0건으로 샌다 → ast-grep 폴백
-    case "$out" in
-      *"No results found"*)
-        SG="${ASTGREP_BIN:-$(command -v ast-grep || command -v sg || true)}"
-        if [ -n "$SG" ]; then
-          case "$rawlang" in
-            py) sl=python ;; rs) sl=rust ;; ts) sl=typescript ;; js) sl=javascript ;;
-            tsx) sl=tsx ;; go) sl=go ;; *) sl="${rawlang:-python}" ;;
-          esac
-          echo "[fallback] ast-grep 사용 (probe query 0건) — lang=$sl" >&2
-          _guard_run "$SG" run -p "$pat" -l "$sl" "$path"
-          exit $?
-        fi
-        echo "[hint] probe query 가 0건입니다. ast-grep 설치를 권장: brew install ast-grep" >&2
-        ;;
-    esac
+    out="$("$PROBE" query "$pat" "$path" $lang 2>&1)"; prc=$?
+    # 폴백 사유 2종 → ast-grep: ① r1706 probe 이상 종료(panic·signal · rc≠0 — 그 출력은 stderr 로만) ② probe 0.6.0-rc342 가 python 등에서 0건으로 샘
+    why=""
+    if [ "$prc" -ne 0 ]; then
+      why="probe rc=$prc"; printf '%s\n' "$out" >&2
+    else
+      printf '%s\n' "$out"
+      case "$out" in *"No results found"*) why="probe query 0건" ;; esac
+    fi
+    if [ -n "$why" ]; then
+      SG="${ASTGREP_BIN:-$(command -v ast-grep || command -v sg || true)}"
+      if [ -n "$SG" ] && command -v "$SG" >/dev/null 2>&1; then
+        case "$rawlang" in
+          py) sl=python ;; rs) sl=rust ;; ts) sl=typescript ;; js) sl=javascript ;;
+          tsx) sl=tsx ;; go) sl=go ;; *) sl="${rawlang:-python}" ;;
+        esac
+        echo "[fallback] ast-grep 사용 ($why) — lang=$sl" >&2
+        _guard_run "$SG" run -p "$pat" -l "$sl" "$path"
+        exit $?
+      fi
+      [ "$prc" -eq 0 ] || { echo "판정 불가 ci ast: probe rc=$prc · ast-grep 없음" >&2; exit 3; }
+      echo "[hint] probe query 가 0건입니다. ast-grep 설치를 권장: brew install ast-grep" >&2
+    fi
     ;;
 
   lsp)
