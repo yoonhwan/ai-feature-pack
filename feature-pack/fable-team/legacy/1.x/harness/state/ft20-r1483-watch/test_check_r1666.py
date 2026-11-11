@@ -191,3 +191,33 @@ def test_idle_debounce_stays_300_seconds(world):  # ⓗ: r1605 문턱 불변
     assert check.check() == 'IDLE_DEBOUNCE' and state['typed'] == 0
     state['now'] = T0 + 300
     assert check.check() != 'IDLE_DEBOUNCE'
+
+
+def test_error_round_keeps_the_seat_so_next_round_resets(world):  # DA 단계 2 R1① 재현
+    base, state = world
+    state['roster']('qa#1')
+    state['config']()
+    state['latest'](seat='qa#0', sent_terminal=iso(T0), pending_offset=7, pending_sha='x')
+    state['tmux'] = []  # 1회차 = 대상 tmux 없음 (송신 0 · error 1줄)
+    assert check.check() == 'TARGET_NOT_RUNNING'
+    assert saved(base).get('seat')  # 저장에서 seat 가 사라지면 다음 회차가 대상을 못 알아본다
+    state['tmux'] = ['qa#1']  # 2회차 = 대상 살아남 · 유휴 문턱 전 (송신 0 이어도 상태는 정리된다)
+    state['now'] = T0 + 10
+    check.check()
+    after = saved(base)
+    assert after['seat'] == 'qa#1'
+    assert after['pending_offset'] is None and after['pending_sha'] is None and after['sent_terminal'] is None
+
+
+def test_max_delay_sends_even_when_the_seat_is_never_idle(world):  # DA 단계 2 R1② 재현 (오빠 «왜 스케줄이 없어»)
+    base, state = world
+    state['roster']('qa#1')
+    state['config']()
+    turn = iso(T0)
+    state['latest'](seat='qa#1', terminal=turn, first_seen_at=T0 - 601, sent_terminal=iso(T0 - 900))
+    state['now'] = T0 + 10  # 유휴 10초 = 문턱 미달이지만 «처음 본 뒤 611초» = 상한(600초) 초과
+    assert check.check() != 'IDLE_DEBOUNCE' and state['enters'] + state['typed'] >= 1
+    assert saved(base).get('sent_at')
+    state['latest'](seat='qa#1', terminal=turn, first_seen_at=T0 - 100)  # 상한 안 = 종전 디바운스 그대로
+    state['now'] = T0 + 10
+    assert check.check() == 'IDLE_DEBOUNCE' and state['enters'] == 1

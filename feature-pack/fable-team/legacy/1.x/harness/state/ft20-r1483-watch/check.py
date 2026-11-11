@@ -68,6 +68,13 @@ def resolve_target(cfg):  # r1666 ⓔ 받는 좌석 = 명부 현역 → 도달 �
     return seat, None
 
 
+def overdue(result):  # r1666 R1②: «디바운스 + 주기» 상한을 넘겼나 (넘으면 유휴 문턱을 기다리지 않는다)
+    mark = result.get('sent_at')
+    if mark is None:  # 아직 송신 0 = 이 턴을 처음 본 시각부터 잰다 (회차 시각이 아니다)
+        mark = result.get('first_seen_at')
+    return mark is not None and time.time() - mark >= MAX_DELAY_SECONDS
+
+
 def live_bin(cfg):  # r1666 ⓖ: 회차마다 LIVE_BIN 파일을 읽는다 (판 번호를 등록·설정에 고정하지 않는다)
     path = Path(cfg.get('live_bin') or FT / 'LIVE_BIN')
     try:
@@ -84,6 +91,7 @@ def save(path, value):
 
 
 IDLE_GATE_SECONDS = 300  # r1605: «마지막 활동 뒤 300초 조용했나» 관문 (StartInterval 과 별개)
+MAX_DELAY_SECONDS = IDLE_GATE_SECONDS + 300  # r1666 R1②: 디바운스 + 주기 = 최악 지연 상한 (새 숫자 0)
 DOORBELL_MAX_BYTES = 200  # r1625: 입력창에 넣는 지침 문구는 1줄 · 200바이트가 상한
 DOORBELL = '[ft20-check 300초] 지침 = %s sha %s · 그 형식으로 점검'  # r1625: 경로 + 지침 지문
 ENGINE = None  # r1621: None|'codex' = 지금 경로 그대로 · 'pi' = Pi 판독기 (engine 키를 더하기만)
@@ -284,7 +292,8 @@ def check():
     result = {'at': time.time(), 'sent_terminal': old.get('sent_terminal'), 'interval_seconds': 300,
               'pending_terminal': old.get('pending_terminal'),
               'pending_offset': old.get('pending_offset'), 'retyped': old.get('retyped'),
-              'pending_sha': old.get('pending_sha'), 'typed_at': old.get('typed_at')}
+              'pending_sha': old.get('pending_sha'), 'typed_at': old.get('typed_at'),
+              'sent_at': old.get('sent_at'), 'first_seen_at': old.get('first_seen_at')}
     global TYPED_AT
     TYPED_AT = result.get('typed_at')
     def finish(status):
@@ -294,10 +303,11 @@ def check():
     if not cfg['enabled']:
         return finish('DISABLED')
     seat, problem = resolve_target(cfg)  # r1666 ⓔ: 회차마다 명부·도달 파일에서 받는 좌석을 찾는다
+    # r1666 ⓕ (DA 단계 2 R1①): 실패 회차에도 seat 를 남긴다 — 잃으면 다음 회차가 대상 변경을 못 알아본다
+    result['seat'] = seat or old.get('seat') or cfg.get('seat')
     if problem is not None:  # 송신 0 + error 1줄 · 예외로 회차를 죽이지 않는다 (RuntimeError 0)
         save(BASE / 'error.json', {'at': time.time(), 'status': problem[0], 'error': problem[1][:1000]})
         return finish(problem[0])
-    result['seat'] = seat
     if old.get('seat') and old['seat'] != seat:  # r1666 ⓕ (seat 칸 없는 옛 상태 = 첫 회차 · 비울 것 없음): 대상이 바뀌면 «그 좌석의 입력 위치» 만 비운다 (사건 이력은 이월)
         result.update(pending_offset=None, pending_sha=None, sent_terminal=None)
     cfg['seat'] = seat
@@ -338,6 +348,10 @@ def check():
         raise RuntimeError('agent not verified')
     events, size = read_events(cfg['rollout'])
     state, terminal, _, _, why = judge(events)
+    if old.get('seat') == seat and old.get('terminal') == terminal and old.get('first_seen_at'):
+        result['first_seen_at'] = old['first_seen_at']  # 같은 턴을 계속 미루는 중 = 처음 본 시각 유지
+    else:
+        result['first_seen_at'], result['terminal'] = time.time(), terminal
     result.update(read_bytes=size, state=state, reason=why, pane=pane)
     capture = run(['tmux', 'capture-pane', '-pt', pane, '-S', '-25'])
     ours = exact_input(capture, message)
@@ -349,9 +363,10 @@ def check():
 
     def gate():
         fresh = idle_seconds(cfg['rollout'], terminal)
-        return fresh is not None and fresh >= IDLE_GATE_SECONDS
+        return fresh is not None and (fresh >= IDLE_GATE_SECONDS or overdue(result))
 
-    if state == 'IDLE' and idle is not None and idle < IDLE_GATE_SECONDS:
+    # r1666 R1②: 5분 점검·쪽지 깸이 유휴를 계속 되돌려도, 마지막 송신 뒤 상한을 넘으면 보낸다
+    if state == 'IDLE' and idle is not None and idle < IDLE_GATE_SECONDS and not overdue(result):
         result['idle_remaining_seconds'] = IDLE_GATE_SECONDS - int(idle)
         return finish('IDLE_DEBOUNCE')
     # A claim without a submitted turn is not a receipt: when the box still holds our own
@@ -367,6 +382,7 @@ def check():
     if status in ('NOTIFIED', 'MANUAL_OR_UNKNOWN_SUBMIT'):
         # Receipt first: 'sent' is written only once the rollout shows our user turn.
         result['sent_terminal'], result['pending_terminal'] = terminal, None
+        result['sent_at'] = time.time()  # r1666 R1②: 상한 기준 = «마지막 송신» (회차 시각이 아니다)
         result['auto_notified'] = status == 'NOTIFIED'  # r1620: 사람·불명 영수는 성공 수 0
     return finish(status)
 
