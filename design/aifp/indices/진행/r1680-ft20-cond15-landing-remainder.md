@@ -28,7 +28,7 @@
 - 인수 조건: ① 이 카드 lint OK 판 + base_sha · ② ⓑ·ⓓ 의 남은 [확인 필요] 1칸(ⓓ 착지 장부 경로)은 harness master 결정 뒤 착수 · ⓑ 는 harness arch#298 답으로 채움 · ③ checker 좌석 = master·이 카드 작성자 아닌 Pi · ④ 문서 커밋·PR = master
 - 대상(읽기 = checker · 팩 1곳): feature-pack/fable-team/ft2/tools/package.py · ★쓰기 금지★ 팩 코드 · 라이브 설치 · 실 데이터 루트
 - 크기: 증거 줄 4 · 코드 0
-- 정본 영향 있음: PLAN 1줄(ⓒ) · 조건 표 15행 1줄 = master 집행
+- 정본 영향 없음: aifp 정본 변경 0 — 바뀐 정본은 BYZ 문서뿐이고 harness 가 반입을 끝냈다(PLAN ⓒ 1줄 = BYZ main 6a6ea4462b · 조건 표 15행·§1.1 = BYZ ops/main-base 69940c953850d4d2caadd78bb8603872062bbbdf) · 원래 줄 «정본 영향 있음: PLAN 1줄(ⓒ) · 조건 표 15행 1줄 = master 집행»
 - 배정: 대기(선행 · 2026-11-11T18:20)
 
 ## 골 원문 (항상 이 3줄)
@@ -69,3 +69,4 @@
 - 2026-11-11 ⓐ 끝 — 독립 checker aifp-ft-nano-r1675-ft20-cond18-old-writer-block-switc#0(master·작성자 아님) · 팩 origin/main 20b2beff4f8ea48c9e2082fe9a7eb63a3a0d6496 detached 사본 · package.py build → check = SAME rc0 · files=132 · manifest_sha256=9084568a08399e301e390d5f8d6ed45b4ba4397707f083c0cc19ee8598c5c31d · PACKAGE.json source.sha = 20b2beff…6496 · 반례(패키지 tools/package.py 1줄 추가 사본) check rc1 «내용 다름 1» · 4초 (aifp 4026·4027) · arch 재현 build 같은 manifest_sha256(aifp 4028)
 - 2026-11-11 정본 자리(aifp-ft-arch-pi#1 실측 · aifp 4029) — ⓑⓒⓓ·조건 표 15행 = BYZ 몫(문서 정본 owner = harness · 이 카드 aifp 쓰기 0 그대로): PLAN·core.html·slack.html = BYZ origin/main 43d4810080 design/harness/research/ft-2.0/ (blob 4695a0115c·6f4b563048·a9ca423455 = ed9d9622b3 판 그대로) · 조건 표 TABLE-ft20-conditions-12-18-done-arch286-20261111.md(7c540ec133)·ROUTE(dcd10ad67c)·r1607~r1613 카드 = BYZ main 에 없음(가지에만) → 15행·ⓓ 표를 쓸 자리 = harness master 결정 · BTS 칸 = 판정 불가(BYZ main bts.jsonl 1줄 = r1510 · 착지 sha a8028bd7·ffa99a93 언급 0)
 - 2026-11-12 ⓔ 판정 = 닫힘(aifp-ft-arch-pi#1 · aifp 4054 · 읽기만) — BYZ ops/main-base 1064aa8951 TABLE §1.1 에 ⓐ~ⓓ 실재: ⓐ 팩 20b2beff SAME(팩 ft2 는 f522d309 까지 변경 0) · ⓑ PLAN c1a61a3a0d(= ed9d9622b3 + ⓒ 2줄)·core 6f4b563048·slack a9ca423455 = BYZ origin/main 6a6ea4462b 실측 · ⓒ BYZ main 6a6ea4462b(PR #8380 · PLAN :37) · ⓓ Git ffa99a93·a8028bd7(팩 main 조상) · 원장 224a3b00 · BTS ops/main-base 84ebc23024 bts-cond15.jsonl 1행(JSON 1줄 · 초안과 바이트 같음) → 남은 것 = BYZ TABLE 15행·ⓔ 줄 반입(harness) → 그 sha 오면 이 카드 완성 이동
+- 2026-11-12 00:08 — 대기→진행 · 좌석 aifp-ft-arch-pi#1
