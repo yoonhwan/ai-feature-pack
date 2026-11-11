@@ -3,6 +3,7 @@
 `expect.observed.checks` 와 대조(c6·d4 는 «답 몫» 칸만 · `stored_posts` = 마커가 붙은 게시 의도 값 수). 변이: M1~M8(카드) ·
 M9 재송 재검사 · M10 429 뒤 재시도 재검사 · M11 예산 초기화 · M12 거절 행이 답을 가림(DA R1~R3).
 다음 장(초안 · 지우지 않는다): c1 c2 c3 c5 c8 d1 d2 d3 t1 t4 t5 f1 f2 f3 f4 — 수신 몫·재개·서식·인터뷰.
+r1623 계약 3 사례 1(재검 회차 `t6` · 같은 intent 재회신 거절)을 이 장에 더한다 — 사례 ⓐ~ⓓ · 변이 M13(카드 변이 M1).
 """
 
 import importlib.util
@@ -295,6 +296,37 @@ def test_m_r3_refusal_does_not_hide_unsettled_answer(tmp_path):
     mutant.reply(_key(), COMMAND, "옛 답", "seat", 1)
     assert (mutant.resolve(_key())["state"], m_band.lookups) != ("posted", [publish.marker_for(_key(), COMMAND)])
 
+def test_n_contract3_same_intent_reply_refused(tmp_path):
+    """ⓐ~ⓓ r1623 계약 3 — 같은 key·command 재회신은 게시 0 · 첫 게시 ts 반환 · 미해소는 resolve() 경로만."""
+    root = tmp_path / "n"
+    _binder(root).bind(_key(), SEAT_A)
+    publisher, band = _publisher(root)
+    first = publisher.reply(_key(), COMMAND, "첫 답", SEAT_A, 1)
+    again = publisher.reply(_key(), COMMAND, "둘째 답", SEAT_A, 1)  # ⓐ 같은 intent 재회신
+    assert (first["state"], again["state"], again.get("posts"), len(band.posts)) == ("posted", "refused", 0, 1)
+    assert (again["k"], again["reason"], again["ts"]) == ("same_intent", "같은 intent 재회신", first["ts"])
+    assert [entry["state"] for entry in publisher.entries()].count("refused") == 1  # 장부 행 1개
+    fresh = publisher.reply(_key(), COMMAND + ":2", "새 답", SEAT_A, 1)  # ⓒ 새 요청 번호 = 정상 게시
+    assert (fresh["state"], len(band.posts)) == ("posted", 2)
+    restart, r_band = _publisher(root)  # ⓓ 재기동 경계 = 장부에서 복원
+    twice = restart.reply(_key(), COMMAND, "셋째 답", SEAT_A, 1)
+    assert (twice["k"], twice["ts"], len(r_band.posts), len(band.posts)) == ("same_intent", first["ts"], 0, 2)
+    lost_root = tmp_path / "n-lost"  # ⓑ 첫 회 UNCERTAIN · 표식 조회는 resolve() 경로만(자동 재송 0)
+    _binder(lost_root).bind(_key(), SEAT_A)
+    lost, l_band = _publisher(lost_root, _Band(actions=[("lost",)], answers=[publish.FOUND]))
+    assert lost.reply(_key(), COMMAND, "답", SEAT_A, 1)["state"] == "uncertain"
+    repeat = lost.reply(_key(), COMMAND, "다시 답", SEAT_A, 1)
+    assert (repeat["state"], repeat["k"], len(l_band.posts), l_band.lookups) == ("refused", "same_intent_unsettled", 1, [])
+    verdict = lost.resolve(_key())
+    assert (verdict["state"], verdict["via"], len(l_band.posts)) == ("posted", "lookup", 1)
+    m_root = tmp_path / "m13"  # M13: 재회신 판정을 빼면 같은 intent 가 두 번 게시된다
+    _binder(m_root).bind(_key(), SEAT_A)
+    mutant, m_band = _publisher(m_root, cls=_M13)
+    mutant.reply(_key(), COMMAND, "첫 답", SEAT_A, 1)
+    mut = mutant.reply(_key(), COMMAND, "둘째 답", SEAT_A, 1)
+    assert (mut["state"], len(m_band.posts)) != ("refused", 1)
+
+
 def test_i_cases_listed_and_invariants():
     """ⓗⓘ 사례 21건 목록 보존·이 장 몫 줄 10~14 · core·receive.py 쓰기 0 · legacy_guard rc0 · 비밀값 0."""
     header = Path(__file__).read_text(encoding="utf-8").split('"""')[1]
@@ -358,6 +390,7 @@ _M11 = _mutant(_post=lambda self, key, command, body, seat=None, gen=None, owner
                via=publish.POSTED, prior=0: publish.SlackPublish._post(self, key, command, body, seat, gen, owner,
                                                                       via, 0))
 _M12 = _mutant(latest=lambda self: {tuple(e["key"]): e for e in self.entries() if e.get("key")})  # M12 — 거절이 답 가림
+_M13 = _mutant(_repeated=lambda self, key, command: None)  # M13 — 같은 intent 재회신 판정 제거(카드 변이 M1)
 
 def _crash_run(root, step, cls=""):
     return subprocess.run([sys.executable, os.path.abspath(__file__), str(root), step, cls],
