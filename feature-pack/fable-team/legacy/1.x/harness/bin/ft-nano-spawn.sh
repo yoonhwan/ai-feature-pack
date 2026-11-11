@@ -20,6 +20,8 @@ while [ $# -gt 0 ]; do case "$1" in
 [ "$REOPEN" != 1 ] || [ "$RESEARCH" != 1 ] || { echo "usage: --reopen 과 --research 는 같이 못 쓴다(--reopen = 닫힌 진행 카드 나노 다시 열기 · --research = 리서치 좌석)" >&2; exit 2; }   # r1335 V8
 CO_ARGS=(); [ "$HAVE_CO" -eq 0 ] || { [ -n "${CO//[[:space:]]/}" ] || { echo "usage: --cherry-override \"<사유>\" — 사유가 비었다(사유 없는 우회 거부)" >&2; exit 2; }; CO_ARGS=(--override "$CO"); }
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
+# r1675 — 카드 팀이 2.0 전환됨이면 spawn(워크트리·명부 행·카드 이동) 전에 멈춘다(첫 게이트). 표식 쓰기·지우기 = ft-team-switch.sh
+if [ -f "$HERE/ft20-switch-lib.sh" ]; then . "$HERE/ft20-switch-lib.sh"; ft20_guard_spawn "$(ft20_root_of "${IDX:-.}" 2>/dev/null)" "${IDX:-}" "${FT_SEATS_JSON:-}" || exit $?; else _ft20_r="${FT_FT20_ROOT:-$(git -C "${IDX:-.}" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)}"; compgen -G "${_ft20_r%/.git}/.fable-team/state/ft20-switch/*.json" >/dev/null 2>&1 && { echo "REJECT 2.0 전환 표식이 있는데 ft20-switch-lib.sh 없음(설치 누락) — 1.x 쓰기 0(판정 불가)" >&2; exit 3; }; fi
 [ -f "$HERE/ft-heavy-slot-lib.sh" ] || { echo "REJECT ft-heavy-slot-lib.sh 없음: $HERE — 좌석 0"; exit 1; }; . "$HERE/ft-heavy-slot-lib.sh"   # r1286: 무거운 git 전역 자리(동시 2) — 없으면 조용한 통과 0
 _cmd_on="${FT_CMD_ENABLED:-0}"
 # ★일반화(2026-10-20 오빠 «ft-nano-spawn.sh 일반화 업그레이드»)★ — 티어는 «기본값 공급자»다: --agent 를 명시하면 티어가 에이전트·모델·effort·fast 를 덮어쓰지 않는다
@@ -832,27 +834,37 @@ link_web_node_modules() {
 #   자리 = --dry-run 종료 줄 «뒤»(dry-run 은 좌석을 열지 않아 README 가 필요 없다 — 기존 동작 보존) · ② 워크트리 «앞».
 #   옛 자리(⑦⑧)는 좌석을 열고 명부를 쓰고 카드를 옮긴 «뒤» 였다 — ccu 처럼 sparse 워크트리(v65 폴더 없음)에서
 #   경로를 못 풀면 REJECT 가 그 뒤에 떠서 «좌석만 열리고 첫 발주 0» 이 남았다(실측 2026-10-28 ccu#18).
-#   해석 순서: ① FT_SEATBELT_README(명시 = 그대로) ② 디스크(ft_team_file_ref · 실재 1개)
+#   ★r1686 팀 순서★: 카드 팀 README 먼저 → 그 팀에 없을 때만 v65(지금 값). aifp 처럼 v65 폴더가 없는 리포가 통과한다(11-11 aifp 1차 REJECT).
+#   고른 팀은 «README 출처 = <팀> <경로>» 1줄로 남는다(부르는 쪽).
+#   해석 순서: ① FT_SEATBELT_README(명시 = 그대로) ② 디스크(ft_team_file_ref · 카드 팀 → v65 · 실재 1개)
 #   ③ ref 판 사본 — <루트>/.fable-team/state/seatbelt-readme/<ref sha 12>-SEATBELT-README.md (같은 sha = 재사용 · tmp+mv)
 #   셋 다 실패 = rc1(부르는 쪽이 REJECT — 좌석·명부·카드 손 0). 결과 = 전역 _SBR(경로) · _SBR_REF(사본일 때만 ref 이름)
 #   ★$( ) 로 부르지 않는다★ — 서브셸이면 _SBR_REF 가 부르는 쪽으로 안 온다.
 seatbelt_readme_path() {
-  local ref sha doc dest tmp
-  _SBR=""; _SBR_REF=""
-  if [ -n "${FT_SEATBELT_README:-}" ]; then _SBR="$WT/$FT_SEATBELT_README"; return 0; fi   # R406: 명시 지정은 그대로
-  if doc="$(ft_team_file_ref "$WT" v65 SEATBELT-README.md)"; then _SBR="$doc"; return 0; fi   # R406: 기본값 = 명단 ref 의 v65 폴더 꼴·쌍둥이 중 WT 에 실재하는 1개
-  ref="${FT_TEAMS_REF:-origin/main}"
-  sha="$(git -C "$WT" rev-parse --verify -q "$ref^{commit}" 2>/dev/null)" || return 1
-  doc="$(ft_team_doc_ref "$WT" v65 SEATBELT-README.md "$ref")" || return 1
-  dest="$ROOT/.fable-team/state/seatbelt-readme/${sha:0:12}-SEATBELT-README.md"
+  local ref sha doc dest tmp t seg dr
+  _SBR=""; _SBR_REF=""; _SBR_TEAM=""
+  if [ -n "${FT_SEATBELT_README:-}" ]; then _SBR="$WT/$FT_SEATBELT_README"; _SBR_TEAM="(명시 FT_SEATBELT_README)"; return 0; fi   # R406: 명시 지정은 그대로
+  # r1686: 카드 팀 = FT_TEAM > 카드 경로(design/<팀>/indices/…) — _nano_team 을 부르지 않는다(함수만 떼어 시험하는 자리에서도 돈다)
+  t="${FT_TEAM:-}"; [ -n "$t" ] || case "${IDX:-}" in */indices/*) seg="${IDX%/indices/*}"; t="${seg##*/}";; esac
+  [ "$t" = v65 ] && t=""
+  if [ -n "$t" ] && doc="$(ft_team_file_ref "$WT" "$t" SEATBELT-README.md 2>/dev/null)"; then _SBR="$doc"; _SBR_TEAM="$t"; return 0; fi   # ① 카드 팀 디스크
+  ref="${FT_TEAMS_REF:-origin/main}"; sha="$(git -C "$WT" rev-parse --verify -q "$ref^{commit}" 2>/dev/null)"; doc=""
+  [ -n "$t" ] && [ -n "$sha" ] && { dr="$(ft_team_doc_ref "$WT" "$t" SEATBELT-README.md "$ref" 2>/dev/null)"; doc="${dr:-}"; }   # ② 카드 팀 ref 판 — v65 디스크보다 «먼저»(DA r1: sparse 워크트리)
+  if [ -z "$doc" ] && doc="$(ft_team_file_ref "$WT" v65 SEATBELT-README.md)"; then _SBR="$doc"; _SBR_TEAM=v65; return 0; fi   # ③ v65 디스크(R406: 지금 값)
+  if [ -z "$doc" ] && [ -n "$sha" ]; then doc="$(ft_team_doc_ref "$WT" v65 SEATBELT-README.md "$ref" 2>/dev/null)"; t=v65; fi   # ④ v65 ref 판
+  [ -n "$doc" ] || return 1
+  [ -n "$t" ] || t=v65
+  [ "$t" = v65 ] && dest="$ROOT/.fable-team/state/seatbelt-readme/${sha:0:12}-SEATBELT-README.md" \
+    || dest="$ROOT/.fable-team/state/seatbelt-readme/${sha:0:12}-${t}-SEATBELT-README.md"   # r1686: 팀 사본은 팀 이름을 붙인다(v65 이름은 그대로 — 같은 sha 라도 팀이 다르면 갈린다)
   if [ ! -f "$dest" ]; then   # 같은 ref sha = 이미 꺼낸 사본 재사용(두 번 spawn 해도 1개)
     { mkdir -p "${dest%/*}" && tmp="$dest.tmp.$$" && cp "$doc" "$tmp" && mv -f "$tmp" "$dest"; } 2>/dev/null || { rm -f "${tmp:-}" "$doc" 2>/dev/null; return 1; }
   fi
   ft_team_doc_tmp "$doc" && rm -f "$doc"
-  _SBR="$dest"; _SBR_REF="$ref"
+  _SBR="$dest"; _SBR_REF="$ref"; _SBR_TEAM="$t"
   return 0
 }
 seatbelt_readme_path || { echo "REJECT SEATBELT-README 경로를 못 풀었다(디스크 0 · ${FT_TEAMS_REF:-origin/main} 판 0) — 좌석·명부·카드 손대기 전"; exit 1; }
+echo "README 출처 = ${_SBR_TEAM:-v65} $_SBR"   # r1686: 어느 팀 README 를 골랐는지 1줄
 
 # ② 워크트리 — 이미 있으면 재사용(재발주), 없으면 기준 브랜치에서 분기
 # r444 ⑤ sparse — 남의 팀 폴더(design/teams/<남>/)는 체크아웃하지 않는다(나노 1개 1.5Gi 중 design 1.34Gi).

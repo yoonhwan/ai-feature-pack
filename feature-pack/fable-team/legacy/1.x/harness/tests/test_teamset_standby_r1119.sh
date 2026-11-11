@@ -106,8 +106,8 @@ PY
   grep -q "^$4 F" <<<"$(cases "$d")" && ok "변이 $1 → $4 FAIL" || bad "변이 $1 → $4 가 여전히 PASS(시험이 못 잡는다)"
 }
 mutant realpath 'os.path.realpath(os.path.join(root, f)) == me' 'f == str(roster_path(root, team))' R2
-mutant no-live-check ' or any(k.startswith(f"byz-{team}-arch-") and k in live for k in d)' '' R6
-mutant role-based 'any(k.startswith(f"byz-{team}-arch-") and k in live for k in d)' 'any(isinstance(v, dict) and v.get("role") == "arch" for v in d.values())' R10
+mutant no-live-check ' or any(k.startswith(f"{team_prefix(team)}arch-") and k in live for k in d)' '' R6   # r1702: 접두가 team_prefix() 로 바뀌어 겨냥 문자열 갱신
+mutant role-based 'any(k.startswith(f"{team_prefix(team)}arch-") and k in live for k in d)' 'any(isinstance(v, dict) and v.get("role") == "arch" for v in d.values())' R10   # r1702 겨냥 갱신
 echo "INFO 변이 ${SECONDS}s"
 
 # 세 사본 같은 내용

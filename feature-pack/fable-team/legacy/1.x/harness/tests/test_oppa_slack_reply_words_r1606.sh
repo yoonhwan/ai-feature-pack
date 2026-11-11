@@ -101,15 +101,15 @@ runm() { run timeout $TO python3 "$MUT" "$P" "$X"; }
 mut M1 'if REJECT_WORDS.intersection(ws)]' 'if False]'; python3 - "$MUT" <<'PY'
 import pathlib, sys
 p = pathlib.Path(sys.argv[1]); t = p.read_text(encoding="utf-8")
-assert "if ws and all(w in APPROVE_WORDS for w in ws)]" in t, "변이 미적용: APPROVE"
-p.write_text(t.replace("if ws and all(w in APPROVE_WORDS for w in ws)]", "if True]", 1), encoding="utf-8")
+assert "if fc and all(w in APPROVE_WORDS for w in fc)]" in t, "변이 미적용: APPROVE"
+p.write_text(t.replace("if fc and all(w in APPROVE_WORDS for w in fc)]", "if True]", 1), encoding="utf-8")
 PY
 rep "$(tj "$(par)" "$(op "$A1" tmddls)")"; runm; [ $rc != 2 ]; ck "M1 내용 검사 뺌(작성자만) → ⓑ 가 못 막음(= 시험이 잡음)" $?
-mut M2 'if ws and all(w in APPROVE_WORDS for w in ws)]' 'if any(a in w for w in ws for a in APPROVE_WORDS)]'
+mut M2 'if fc and all(w in APPROVE_WORDS for w in fc)]' 'if any(a in w for w in fc for a in APPROVE_WORDS)]'
 rep "$(tj "$(par)" "$(op "$A1" '승인 안 함')")"; runm; [ $rc != 2 ]; ck "M2 토막 '전부' 를 부분 포함으로 → ⓔ «승인 안 함» 이 못 막음(= 시험이 잡음)" $?
 mut M3 'if REJECT_WORDS.intersection(ws)]' 'if False]'
 rep "$(tj "$(par)" "$(op "$A1" 네)" "$(op "$A2" 아니오)")"; runm; [ $rc != 2 ] && grep -q "^SLACK-OK $X parent=$P reply=$A1$" <<<"$out"; ck "M3 거절 우선 뺌 → ⓒ «네» → «아니오» 가 승인됨(= 시험이 잡음)" $?
-mut M4 'for x in re.split(r"[\s,]+", (t if isinstance(t, str) else "").strip().lower())' 'for x in [(t if isinstance(t, str) else "").strip().lower()]'
+mut M4 're.split(r"[\s,]+", chunk.strip().lower())' '[chunk.strip().lower()]'   # r1696: 승인 판정 자리 = first_chunk_words 의 토막 나누기(토막 대신 전체 일치로 되돌림)
 rep "$(tj "$(par)" "$(op "$A1" '승인 네.')")"; runm; [ $rc != 0 ]; ck "M4 토막 대신 전체 일치로 되돌림 → ⓔ2 «승인 네.» 가 못 막음(= 시험이 잡음)" $?
 
 echo "단계 합계 ${SECONDS}s"; [ "$fail" = 0 ] && echo "ALL PASS" || { echo "FAILURES: $fail"; exit 1; }

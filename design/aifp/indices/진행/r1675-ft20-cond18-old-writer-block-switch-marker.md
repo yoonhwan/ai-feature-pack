@@ -22,6 +22,7 @@
   - ⓑ 쓰기 입구 가드 1함수: 표식이 있는 팀의 데이터에 쓰려 하면 쓰기 전에 «REJECT 팀 <팀> 은 2.0 전환됨(<switched_at> · h<번호>) — 1.x 쓰기 0» 1줄 + rc3 · 표식 없는 팀 = 지금 동작 그대로 · 표식 파일을 못 읽음(깨진 JSON·권한) = «판정 불가» rc3(쓰기 0 · 하드 룰 20)
   - ⓒ 쓰기 입구 표: 나노가 먼저 팩 legacy/1.x/harness/bin 에서 seats-*.json · design/*/indices/ · mailbox.jsonl 에 쓰는 도구를 뽑아 표 1장(도구 · 쓰는 자리 · 팀 결정 방법)으로 arch 에 보낸다 → arch 확인 뒤 가드를 넣는다 · 후보 = mbox.sh(send·ring·handover · 받는 좌석의 팀) · ft-index-move.sh · ft-nano-spawn.sh · ft-seat-retire.sh · ft-successor-open.sh · 닫기 도구(ft-nano-close·ft-seat-close)는 표에서 뺀다
   - ⓓ 새 입력 보존: mbox send 가 ⓑ 로 막히면 본문을 `<데이터 루트>/.fable-team/state/ft20-switch/<팀>.held/<ts>-<from>.txt` 에 바이트 그대로 남기고 그 경로를 REJECT 줄에 적는다 · 보류 파일 쓰기 실패 = rc3 + «보류 실패» (조용한 유실 0)
+  - ⓓ 범위: «바이트 그대로» = mbox_guard 정규화(ALIAS 머리 바꿈·첫 줄 교체) 뒤 본문이다. 보낸 원문 바이트와 다를 수 있다(arch 인수 #3921 ④)
   - ⓔ 회귀: 표식 0 일 때 test_seat_retire*.sh · mbox 시험 · index-move 시험 FAIL 줄이 앞 판과 같다(늘어난 FAIL 0)
 - 변이(나노 · 사본에서만): M1 가드의 표식 확인 삭제 → 전환 팀 쓰기 사례가 rc0 으로 새서 FAIL · M2 보류 쓰기 삭제 → ⓓ 보류 파일 0 으로 FAIL · M3 깨진 표식을 «없음» 으로 침 → 판정 불가 사례 FAIL
 - 규칙: 없음 — 상시 로드 변경 0
@@ -31,7 +32,7 @@
 - 대상(쓰기 = 나노 · 팩 1곳): feature-pack/fable-team/legacy/1.x/harness/bin/ft-team-switch.sh(새) · ⓒ 표의 도구 머리(가드 1줄씩 · mbox.sh 원본 = legacy/1.x/harness/comm/mbox.sh) · legacy/1.x/harness/kit/fable-team/bin 같은 사본(kit 에 comm/mbox.sh 짝 없음 · mbox 짝은 ⓒ 표에서 나노가 확인) · 새 시험 legacy/1.x/harness/tests/test_team_switch_guard_r1675.sh · ★나노 쓰기 금지★ 라이브 설치 · 실 데이터 루트 · ft2/
 - 크기: 도구 ≤80줄 · 가드 함수 ≤20줄 + 입구마다 1줄 · 시험 ≤150줄
 - 정본 영향 없음: 1.x 도구 가드 · 정본 문서 변경 0
-- 배정: 대기(선행 · 2026-11-11T17:40)
+- 배정: 좌석 aifp-ft-nano-r1675-ft20-cond18-old-writer-block-switc#0
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
@@ -68,4 +69,24 @@ ft 2.0 조건 18 은 두 팀(harness·planner)을 2.0 으로 옮긴 뒤 1.x 쪽 
 | 표식 0 회귀 | 사례 ⓔ |
 
 ## 상태
+- base_sha: 816fa5e412a75e3e5801a642f8a9eb1fc39dbb98 (spawn 2026-11-11)
 - 2026-11-11 · arch-pi#298 카드 초안(#284592 ①) · 대기
+- 2026-11-11 18:30 — 대기→진행 · 좌석 aifp-ft-nano-r1675-ft20-cond18-old-writer-block-switc#0
+- [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)
+- 2026-11-11 18:39 — ⓐ~ⓔ 구현·시험 완료(나노) · 브랜치 nano/r1675-ft20-cond18-old-writer-block-switc
+- ⓒ 표 = harness arch #285137 → 보정 5줄 #3917 수신(arch 확인 완료): ①mbox 팀 판정 3갈래(없음=INFO 통과 · 깨짐/2개 이상=rc3) ②index-move 팀 = 카드 경로 우선 ③nano-spawn = env 팀 + 카드 팀 둘 다 ④retire = 쓰기 대상 명부 전부 ⑤successor-open OK · 누락 입구 3 추가(role-spawn · tick-team) + 제외 2 사유(ft_model_swap.py = ft-successor-open·mbox 로 위임이라 그 두 가드가 덮음 · ft-nano-spawn-undo.sh = spawn 되돌림/정리 계열)
+- 세트: c4798b91e31fd61374e6cba3c76125a250dd2f0d · 시험: bash tests/test_team_switch_guard_r1675.sh (27 passed · 변이 3/3 · 재진입 lint rc=0) rc=0 · 이슈: 0
+- 회귀(표식 0): test_seat_retire.sh 177P 3F · test_seat_retire_dead_pi_r1674.sh 39P 0F · test_index_move_rule_line.sh 17P 0F · test_mbox_bridged_send_r1562.sh 12P 1F — 앞 판 대비 늘어난 FAIL 0(줄 목록 동일 · kit-bin-sync 는 동기화로 PASS 로 줄었다)
+- RUN: 표식 도구·lib 1회 작성 → 시험 27사례 2초 · 변이 3종 2초 · 회귀 4종 48/3/3/45초 · 합계 1회차 약 2분
+- press 0(단위·임시 데이터 루트 시험만 · 실 .fable-team·실 우편함 쓰기 0) · 설치 h 필요(라이브 bin 에 ft20-switch-lib.sh + ft-team-switch.sh 짝 = master 집행)
+- 2026-11-11 18:47 — arch 인수 보류 3건(#3922) 보정 → 세트: 628bfc2f32dae3edfadd521bd873067505ce2537 · 시험: bash tests/test_team_switch_guard_r1675.sh (29 passed · 변이 3/3 · 재진입 lint rc=0) rc=0 · 이슈: 0
+- 보정 ① 보류 파일 = 이름에 순번 + noclobber(같은 초 2통 2파일 · 앞 본문 보존) ② retire = --seats/FT_SEATS_JSON 을 줘도 쓰기 대상 명부 전부 검사(r465 `_*` 칸 포함) ③ 입구 = 호출 1줄(팀 판정은 ft20_guard_move·spawn·retire·roster·seat) · successor-open = retire 와 같은 판정 · ft20_team_of_seat 삭제
+- 2026-11-11 19:05 — DA HOLD(#3927) 대응 → 세트: d3a11910c125fbb3640ea83fa4125e3030ef9a16 · 시험: bash tests/test_team_switch_guard_r1675.sh (32 passed · 변이 3/3 · 재진입 lint rc=0) rc=0 · 이슈: 0
+- R1(동작) 명부에 없는 옛 좌석 retire = R282② 가 이름의 팀 명부에 새 행을 쓴다 → ft20_guard_retire 가 «쓰기 대상 명부 전부 + 이름의 팀 명부(옛 이름 lint 실패면 후계 이름 팀)» 로 판정 · DA 재현 스크립트 rc=3 · 명부 불변 · 사례 ⓒ⑥ 추가
+- R2(회귀) lib 부재 WARN 제거 → «표식 0 = 무출력(지금 동작 그대로) · 표식 있으면 rc3 판정 불가» 로 7개 입구 통일 · test_index_move_mv_fail_reason.sh F 1→0 · 사례 2 추가 · kit 8파일 재동기화(bin=kit)
+- 회귀 표(앞 판 816fa5e4 F / 새 판 F · 초): test_seat_retire.sh 3/3(43초 · ⑧ 뗀 판 1/1 · 12/14초) · ⑧test_ft_tick_master_seat 4/4 · ⑧test_role_spawn_name 4/4 · ⑧test_kit_bin_sync 0/0 · test_seat_retire_dead_pi_r1674 0/0 · test_mbox_bridged_send_r1562 1/1(50/53초) · test_index_move_mv_fail_reason 0/0 · test_index_move_rule_line 0/0 · test_index_move_archive_r1000 2/2 · test_nano_team_env 11/11 · test_r1043_role_default_model 4/4 · test_role_spawn_ft_root_r1404 0/0 — 늘어난 FAIL 0(DA 가 못 본 두 시험은 ⑧을 떼어 12~14초로 쪼개 FAIL 줄 완전 동일 확인 · 동시 4개 실행은 서로 간섭해 FAIL 을 만들어 전부 직렬)
+- 2026-11-11 19:11 — DA 재판정 HOLD 중 R3(ⓓ) 대응 → 세트: 8f6226f92ba34af7604c3d91be990ca8ccc00ba7 · 시험: bash tests/test_team_switch_guard_r1675.sh (33 passed · 변이 3/3 · 재진입 lint rc=0) rc=0 · 이슈: 0
+- R3 lib 없는 설치본(표식 있음)에서 막힌 mbox 본문이 사라졌다 → 팀 판정 불가라 <팀>.held 대신 <데이터루트>/.fable-team/state/ft20-switch/_unjudged.held/<ts>-<from>-<pid>-01.txt 에 같은 꼴(noclobber·순번)로 남기고 경로를 REJECT 줄에 적는다 · 쓰기 실패면 rc3 + «보류 실패(보류 폴더 쓰기 0)» · 사례 ⓓ 추가
+- 크기 상한 준수: ft-team-switch 80줄(80) · 가드 함수 20줄(20) · 시험 134줄(150) · 회귀 10종 직렬 재실행 — 앞 판 F 와 동일(seat_retire 3 · dead_pi 0 · mbox_bridged 1 · mv_fail_reason 0 · rule_line 0 · archive_r1000 2 · nano_team_env 11 · r1043 4 · role_spawn_ft_root 0 · tick_master 4)
+- 회귀(표식 0) 2회차: test_seat_retire.sh 177P 3F(50초) · test_seat_retire_dead_pi_r1674.sh 39P 0F(2초) · test_index_move_rule_line.sh 17P 0F(5초) · test_mbox_bridged_send_r1562.sh 12P 1F(52초) — 1회차와 FAIL 줄 목록 동일(늘어난 FAIL 0 · 200줄 미달 FAIL 은 이 파일의 앞 판부터 있던 것)
+- 2026-11-11 19:15 — 착지: PR #926(head 8f6226f92ba34af7604c3d91be990ca8ccc00ba7 · CLOSED = ft-merge-land) → 팩 main cec9ec255eafe7b3113079689525d50b77db6cb4 · feature-pack 트리 = 세트 8f6226f9 와 같음(diff 0) · 설치 h = harness 대기(planner 설치 HIL · «INSTALLED» 오면 설치 cmp0·실사건 뒤 완성 이동) · 카드 칸 = 진행 그대로

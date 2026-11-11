@@ -161,9 +161,41 @@ _guard_bang_lint() {
   res="$(printf '%s' "$1" | python3 "$chk")"; rc=$?
   case "$rc" in
     0) return 0;;
-    1) echo "REJECT $res" >&2; return 3;;
-    *) echo "WARN 오빠 명령 줄 판정기 실행 실패 rc=$rc — 검사 없이 전송" >&2; return 0;;
+    1) [ -n "$res" ] || res="오빠 명령 줄 판정기 사유 없음 rc=1 — 판정 불가"; echo "REJECT $res" >&2; return 3;;   # r1678 ⓓ 빈 사유 금지(하드 룰 20)
+    *) echo "WARN 오빠 명령 줄 판정기 실행 실패 rc=$rc${res:+ — $res} — 검사 없이 전송" >&2; return 0;;   # r1678 ⓒ rc2 = 판정 불가(위반 아님 · ⓐ 가 디코드 고장을 앞에서 막는다)
   esac
+}
+
+# 입구 UTF-8 검사(r1678 ⓐ) — 받는이 판정보다 «먼저» 본문(·relay 첨부) 바이트를 본다. UTF-8 이 아니면 사유 1줄 + rc 3, 큐 적재 0.
+#   왜 입구인가: 판정기(bang_command_check.py)가 디코드에서 죽으면 그 죽음이 «위반» 으로 읽혀 사유가 빈칸이 됐다(2026-11-11 planner 실사건 · 0xBB 단독 2194 바이트).
+#   사유 = 바이트 위치 N + 앞 20글자 + 고칠 꼴(`$이름»` → `${이름}»`). 고치지는 않는다 — 막고 알려 주기만.
+_guard_utf8_lint() {   # <본문> [relay 첨부 파일] — rc 3 = REJECT
+  local res rc
+  res="$(printf '%s' "$1" | python3 /dev/fd/3 "${2:-}" 3<<'PY'
+import sys
+
+def why(label, data):
+    try:
+        data.decode("utf-8")
+        return ""
+    except UnicodeDecodeError as e:
+        pre = data[:e.start].decode("utf-8", "replace")[-20:]
+        return "%s UTF-8 이 아니다 — 바이트 위치 %d · 앞 글자 «%s» · bash 3.2 에서 $이름» · $이름« 꼴이면 ${이름} 으로 감싸라" % (label, e.start, pre)
+
+out = why("본문이", sys.stdin.buffer.read())
+if not out and len(sys.argv) > 1 and sys.argv[1]:
+    try:
+        with open(sys.argv[1], "rb") as f:
+            out = why("relay 첨부가", f.read())
+    except OSError as e:   # 확인 못 하면 통과가 아니다(하드 룰 20)
+        out = "relay 첨부를 읽지 못했다 — %s (판정 불가 · 확인 못 하면 통과 아니다)" % type(e).__name__
+print(out)
+sys.exit(1 if out else 0)
+PY
+)"; rc=$?
+  [ "$res" = "" ] || echo "REJECT $res" >&2
+  [ "$rc" = 0 ] && return 0
+  guard_log mbox-guard.log "utf8-reject rc=$rc body=${#1}B"; return 3   # 판정기 고장(rc≠1)도 통과 아님(하드 룰 20 fail-closed)
 }
 
 # spawn 정지 선언 검사(R320 · 판정 2166) — 정지는 머리 `[spawn 정지]` 쪽지 하나뿐이다. 그 머리는 같은 본문의 hold=<판정 번호> 가
@@ -187,6 +219,7 @@ _guard_hold_lint() {
 guard_check() {
   GUARD_TO="$1"; GUARD_BODY="$2"; GUARD_FILE=""; GUARD_TMP=""
   local first safe=0 out verb new msg rej="" _pf _pn
+  _guard_utf8_lint "$2" "${4:-}" || return $?   # r1678 ⓐ 입구 = 받는이 판정보다 먼저(디코드 고장이 «위반» 으로 읽히지 않게)
   first="${2%%$'\n'*}"; first="${first#"${first%%[![:space:]]*}"}"
   case "$first" in '[HIL]'*|'[HIL·'*|'[긴급]'*) safe=1;; esac
   out="$(_guard_py_recipient "$1" "$safe" "$3" "$first" 2>/dev/null)" || out="REJECT$US${US}가드 실행 실패 — 다시 보내라"

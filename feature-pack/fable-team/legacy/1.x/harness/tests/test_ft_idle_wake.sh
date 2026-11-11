@@ -25,14 +25,22 @@ cat > "$T/seat-status.sh" <<'EOF'
 f="$STATUS_DIR/$2"; [ -f "$f" ] || { echo "turn: no jsonl" >&2; exit 3; }
 echo "$(cat "$f") 2026-10-15T00:00:00 1000 yes jsonl"
 EOF
-export RING_LOG="$T/ring.log" STATUS_DIR="$T/status"; mkdir -p "$STATUS_DIR"; : > "$RING_LOG"
-row() {  # seq to 대기초 → 큐 행 (ts = 가짜 now − 대기초, 로컬 시각)
-  python3 -c 'import json,sys,time;s,to,age=sys.argv[1:4];print(json.dumps({"seq":int(s),"ts":time.strftime("%Y-%m-%dT%H:%M:%S",time.localtime(int(sys.argv[4])-int(age))),"to":to,"from":"x","body":"b"}))' "$1" "$2" "$3" "$NOW" >> "$Q"
+# 대역 mbox.py(r1326): `holder <이름>` = 표($HOLDER_TAB «이름 현역» 줄)에 있으면 현역 · 없으면 이름 그대로 · $HOLDER_FAIL 과 같은 이름 = rc 1
+cat > "$T/mbox.py" <<'EOF'
+import os, sys
+name = sys.argv[2]
+if name == os.environ.get("HOLDER_FAIL"): sys.exit(1)
+tab = dict(ln.split() for ln in open(os.environ["HOLDER_TAB"], encoding="utf-8") if ln.strip())
+print(tab.get(name, name))
+EOF
+export RING_LOG="$T/ring.log" STATUS_DIR="$T/status" HOLDER_TAB="$T/holder.tab"; mkdir -p "$STATUS_DIR"; : > "$RING_LOG"; : > "$HOLDER_TAB"
+row() {  # seq to 대기초 [from] → 큐 행 (ts = 가짜 now − 대기초, 로컬 시각 · from 기본 x)
+  python3 -c 'import json,sys,time;s,to,age=sys.argv[1:4];print(json.dumps({"seq":int(s),"ts":time.strftime("%Y-%m-%dT%H:%M:%S",time.localtime(int(sys.argv[4])-int(age))),"to":to,"from":sys.argv[5],"body":"b"}))' "$1" "$2" "$3" "$NOW" "${4:-x}" >> "$Q"
 }
 set_state() { printf '%s' "$2" > "$STATUS_DIR/$1"; }
 wake() {
   : > "$RING_LOG"
-  out="$(env FT_ROOT="$T" FT_MBOX="$T/mbox.sh" FT_SEAT_STATUS="$T/seat-status.sh" FT_TMUX="tmux -L $SOCK" FT_IDLE_WAKE_NOW="${1:-$NOW}" "${@:2}" bash "$SH" 2>"$T/err")"; rc=$?
+  out="$(env FT_ROOT="$T" FT_MBOX="$T/mbox.sh" FT_MBOX_PY="$T/mbox.py" FT_SEAT_STATUS="$T/seat-status.sh" FT_TMUX="tmux -L $SOCK" FT_IDLE_WAKE_NOW="${1:-$NOW}" "${@:2}" bash "$SH" 2>"$T/err")"; rc=$?
 }
 rings() { wc -l < "$RING_LOG" | tr -d ' '; }
 
@@ -86,7 +94,7 @@ wake "$(date +%s)" FT_TMUX="bash $T/tmux-wrap.sh" FT_IDLE_CLIENT_SEC=1
 touch "$CTL/stop"; wait "$PP" 2>/dev/null
 # ⑭ H4: 같은 좌석·seq 를 두 실행이 동시에 관측해도 ring 1 (flock 선점)
 rm -f "$STATE_F"; : > "$Q"; row 21 "$SEAT" 400; set_state "$SEAT" IDLE; : > "$RING_LOG"
-for i in 1 2; do env FT_ROOT="$T" FT_MBOX="$T/mbox.sh" FT_SEAT_STATUS="$T/seat-status.sh" FT_TMUX="tmux -L $SOCK" FT_IDLE_WAKE_NOW="$NOW" MBOX_SLEEP=1 bash "$SH" >/dev/null 2>&1 & done; wait
+for i in 1 2; do env FT_ROOT="$T" FT_MBOX="$T/mbox.sh" FT_MBOX_PY="$T/mbox.py" FT_SEAT_STATUS="$T/seat-status.sh" FT_TMUX="tmux -L $SOCK" FT_IDLE_WAKE_NOW="$NOW" MBOX_SLEEP=1 bash "$SH" >/dev/null 2>&1 & done; wait
 out="rings=$(rings) $(cat "$RING_LOG" | tr "\n" ";")"; [ "$(rings)" = 1 ]; ck "⑭ 동시 2 실행 → ring 1 ($out)" $?
 # ⑮ H4: 상태 JSON 손상 → ring 0 + stderr ERROR + rc 4 (빈 상태로 덮지 않는다)
 printf '{깨진' > "$STATE_F"; : > "$Q"; row 22 "$SEAT" 400; wake
@@ -95,6 +103,25 @@ printf '{깨진' > "$STATE_F"; : > "$Q"; row 22 "$SEAT" 400; wake
 rm -f "$STATE_F"; : > "$Q"; row 23 "$SEAT" 400; wake "$NOW" MBOX_FAIL=1; [ "$(rings)" = 1 ]; ck "⑯a ring 명시 실패 → 시도 기록(ring 호출 1)" $?
 wake; [ "$(rings)" = 1 ]; ck "⑯b 다음 실행에 재시도 → ring 호출 1(성공)" $?
 wake; [ "$(rings)" = 0 ]; ck "⑯c 성공 뒤엔 다시 안 함" $?
+
+# ── r1326: 깨울 좌석(받는 이의 역할 현역 = mbox.py holder) = 보낸 좌석 인 행은 깨우기 후보에서 뺀다 ──
+HOLD='seat-r241w#2'; WLOG="$T/.fable-team/state/idle-wake.log"
+selflog() { grep -c "$SEAT seq=$1 자기 발신(from=$HOLD) — 깨우기 0" "$WLOG" 2>/dev/null; }
+# C1 큐 = [to=옛 · from=현역 · 200초] · holder(옛)=현역 → ring 0 · 로그 «자기 발신» 1줄
+rm -f "$STATE_F"; : > "$Q"; echo "$SEAT $HOLD" > "$HOLDER_TAB"; row 31 "$SEAT" 200 "$HOLD"; set_state "$SEAT" IDLE; wake
+out="rings=$(rings) log=$(selflog 31)"; [ "$(rings)" = 0 ] && [ "$(selflog 31)" = 1 ]; ck "C1 옛 좌석 앞 · 후계가 보낸 행만 → ring 0 · «자기 발신» 로그 1줄" $?
+# C3 C1 을 한 번 더 → 로그 그대로 1줄(두 번째 실행 0줄) · ring 0
+wake; out="rings=$(rings) log=$(selflog 31)"; [ "$(rings)" = 0 ] && [ "$(selflog 31)" = 1 ]; ck "C3 같은 큐 재실행 → 로그 반복 0 · ring 0" $?
+# C2 C1 행 + [to=옛 · from=남 · 190초] → ring 1 · seq = 남이 보낸 행
+rm -f "$STATE_F"; row 32 "$SEAT" 190; wake
+out="rings=$(rings) $(tr '\n' ';' < "$RING_LOG")"; [ "$(rings)" = 1 ] && grep -q "ring $SEAT 32 " "$RING_LOG"; ck "C2 자기 발신 행 + 남의 행 → ring 1(seq 32 · 남의 행)" $?
+# C4 holder 조회 rc1 → 그 받는 이 ring 0 · «holder 판정 불가» 1줄 · 다른 받는 이는 ring 1
+rm -f "$STATE_F"; : > "$Q"; : > "$HOLDER_TAB"; row 33 "$SEAT" 200; row 34 "$PLAN" 200; set_state "$PLAN" IDLE; wake "$NOW" HOLDER_FAIL="$SEAT"
+out="rings=$(rings) $(tr '\n' ';' < "$RING_LOG") log=$(grep -c "$SEAT seq=33 .*holder 판정 불가" "$WLOG")"
+[ "$(rings)" = 1 ] && grep -q "ring $PLAN 34 " "$RING_LOG" && [ "$(grep -c "$SEAT seq=33 .*holder 판정 불가" "$WLOG")" = 1 ]; ck "C4 holder 실패 → 그 받는 이 ring 0 · 판정 불가 로그 1줄 · 다른 받는 이 ring 1" $?
+# C5 교대 없음: [to=A · from=B · 200초] · holder(A)=A → ring 1(지금 동작 그대로)
+rm -f "$STATE_F"; : > "$Q"; row 35 "$SEAT" 200 "$PLAN"; wake
+out="rings=$(rings)"; [ "$(rings)" = 1 ] && grep -q "ring $SEAT 35 " "$RING_LOG"; ck "C5 교대 없음(holder = 받는 이) → ring 1(seq 35)" $?
 
 # ⑫ launchd plist 틀 — 60초 간격 · 자리표시자 2종만 · plutil lint
 PT="$ROOT/harness/kit/launchd/com.byz.ft-idle-wake.plist.template"
