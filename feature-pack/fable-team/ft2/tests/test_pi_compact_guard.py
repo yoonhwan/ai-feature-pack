@@ -10,6 +10,8 @@ import pytest
 FT2 = Path(__file__).resolve().parents[1]
 GUARD = FT2 / "adapters" / "pi" / "compact-guard.ts"
 BUDGET = FT2 / "adapters" / "pi" / "compact_guard_budget.json"
+# 정본(r1667) = pi-agent-ops config/models.env.json. 모델 id 를 넣는 곳은 이 파일 하나이고, 팩 예산 표가 따라온다.
+CANON = Path(os.environ.get("PI_OPS_MODELS", Path.home() / "Project" / "pi-agent-ops" / "pi-ops" / "config" / "models.env.json"))
 NODE = shutil.which("node")
 SEAT, OPUS, BASE = "byz-x-nano#0", "claude-opus-5-5", "byz-x-nano"  # opus = W 1,000,000 · O 64,000 · G 36,000 → C 900,000
 DRIVER = """
@@ -153,6 +155,45 @@ def test_h_wiring_aborts_after_mark_and_leaves_payload_untouched(tmp_path):
     assert hot["untouched"] and hot["calls"][-2:] == ["compact", "abort"] and hot["calls"][0].startswith("notify:"), hot
     assert marks(root) == [BASE], "거절 1줄 + 상태 파일 + 요청 0(abort)"  # 폭주 방지: 파일 1개 유지
     assert run(root, mode="wiring", tokens=800000, model=OPUS)["calls"] == [], "임계 아래 = 아무것도 하지 않는다"
+
+
+def test_l_fable_5_2_has_budget_and_request_passes(tmp_path):
+    root = build(tmp_path)
+    out = run(root, [{"op": "limit", "model": "claude-fable-5-2"}, req(800000, "claude-fable-5-2")])["out"]
+    assert out[0] == {"w": 1000000, "o": 64000, "g": 36000, "c": 900000}, "fable-5-2 는 opus 와 같은 1M 창 예산(ⓐ)"
+    assert out[1]["action"] == "allow" and out[1]["rule"] == "below-limit", "fable-5-2 요청 = 통과 — 표에 없으면 나노가 첫 요청에서 Operation aborted"
+    assert marks(root) == [], "통과는 상태 파일을 만들지 않는다"
+
+
+def models_of(path, providers=None):
+    doc = json.loads(Path(path).read_text(encoding="utf-8"))
+    return {m["id"] for name, p in doc["providers"].items() if not providers or name in providers for m in p.get("models", [])}
+
+
+def budget_ids(path):
+    return set(json.loads(Path(path).read_text(encoding="utf-8"))["models"])
+
+
+needs_canon = pytest.mark.skipif(not CANON.is_file(), reason="pi-agent-ops 정본 없음")
+
+
+@needs_canon
+def test_n_canon_models_all_have_budget_row():
+    canon, budget = models_of(CANON), budget_ids(BUDGET)
+    assert canon <= budget, f"정본 모델 중 예산 표에 없음 = 그 모델 요청은 compact-guard 가 막는다: {sorted(canon - budget)} (ⓑ)"
+    assert "claude-fable-5-2" in canon, "정본 cliproxy-anthropic 에 fable-5-2 가 있어야 이 대조가 의미를 갖는다"
+
+
+@needs_canon
+def test_o_budget_row_missing_is_caught(tmp_path):
+    table = json.loads(BUDGET.read_text(encoding="utf-8"))
+    del table["models"]["claude-fable-5-2"]
+    thin = tmp_path / "budget.json"
+    thin.write_text(json.dumps(table), encoding="utf-8")
+    root = build(tmp_path / "w")
+    assert run(root, [req(800000, "claude-fable-5-2")], budget=thin)["out"][0]["rule"] == "no-budget", "표에서 행을 빼면 fable-5-2 요청 = 거절(그래서 ⓑ 대조가 필요하다)"
+    assert sorted(models_of(CANON) - budget_ids(thin)) == ["claude-fable-5-2"], "대조는 정본 전 provider 를 읽어야 그 누락을 잡는다"
+    assert not models_of(CANON, ["opengateway"]) - budget_ids(thin), "변이 M2: provider 를 opengateway 로 좁히면 누락이 사라진다 = cliproxy-anthropic 을 빼면 이 사례가 안 잡힌다"
 
 
 MUTANTS = {  # 카드 변이 M1~M5 — 각 변이는 자기 사례를 깬다
