@@ -56,23 +56,25 @@ land "$FIXB/ft-merge-land.sh" 42 FAIL_CLOSE=all
 [ "$(grep -c . "$CPL" 2>/dev/null)" = 1 ] && python3 -c 'import json,sys;d=json.loads(open(sys.argv[1]).readline());sys.exit(0 if d["pr"]==42 else 1)' "$CPL"; ck "ⓑ «닫기 대기» 장부 1줄 = pr 42" $?
 : > "$CPL"
 # r1700 ⓔ — 행동 순서: 설치 대조 → 착지 쪽지 → head-lag (소스 grep 아님 · ORDER 파일)
-[ -n "$(seqno notify)" ] && [ "$(seqno install)" -lt "$(seqno notify)" ] && [ "$(seqno notify)" -lt "$(seqno head-lag)" ]; ck "ⓔ 행동 순서 install < notify < head-lag(r1700)" $?
+ordOK() { [ -n "$(seqno notify)" ] && [ -n "$(seqno install)" ] && [ -n "$(seqno head-lag)" ] && [ "$(seqno install)" -lt "$(seqno notify)" ] && [ "$(seqno notify)" -lt "$(seqno head-lag)" ]; }
+ordOK; ck "ⓔ 행동 순서 install < notify < head-lag(r1700)" $?
 # r1700 ⓕ — 표식 대기 스텁 + FT_HEAD_LAG_EVENT_S=2 → WARN 1줄 · rc0 · LANDED · 설치·쪽지는 이미 끝남
 printf '#!/bin/bash\necho STUB-HIT >&2; touch "$ORDER.stub"\necho head-lag >> "$ORDER"\nwhile [ ! -e "$ORDER.hl" ]; do :; done\nexit 0\n' > "$FIXB/ft-head-lag.sh"
 land "$FIXB/ft-merge-land.sh" 45 FT_HEAD_LAG_EVENT_S=2
 [ "$rc" = 0 ] && [[ "$out" == LANDED* ]] && grep -q 'WARN 뒤처짐 알림 2초 초과' <<<"$out" && [ -n "$(seqno install)" ] && [ -n "$(seqno notify)" ]; ck "ⓕ head-lag 상한 → WARN 1줄 · rc0 · LANDED · 설치·쪽지 먼저(r1700)" $?
 printf '#!/bin/bash\necho head-lag >> "$ORDER"\nexit 0\n' > "$FIXB/ft-head-lag.sh"   # 스텁 원복
-# r1700 변이 M4 — head-lag 을 맨 앞으로 되돌린 사본: ⓔ 행동 순서가 잡는다
+# r1700 변이 M4 — 실제 head-lag 호출 «줄» 을 설치 대조 앞으로 옮긴 사본: 같은 ⓔ 식으로 검출(원본 PASS · 변이 FAIL)
 rm -rf "$T/m4"; cp -R "$BIN" "$T/m4"; printf '#!/bin/bash\necho head-lag >> "$ORDER"\nexit 0\n' > "$T/m4/ft-head-lag.sh"; chmod +x "$T/m4/ft-head-lag.sh"
 python3 - "$T/m4/ft-merge-land.sh" <<'PYM'
 import sys,io
 p=sys.argv[1]; L=io.open(p,encoding="utf-8").read().split("\n")
-i=[k for k,l in enumerate(L) if 'ft-head-lag.sh" --event' in l][0]
-L.insert(12, 'echo head-lag >> "$ORDER"   # M4: 순서 되돌림(먼저)')
+i=[k for k,l in enumerate(L) if 'ft-head-lag.sh" --event' in l and 'HLO=' in l][0]
+line=L.pop(i); j=[k for k,l in enumerate(L) if 'ft-live-install-check' in l and 'IOUT=' in l][0]
+L.insert(j, line)
 io.open(p,"w",encoding="utf-8").write("\n".join(L))
 PYM
 land "$T/m4/ft-merge-land.sh" 46
-[ "$(first)" != install ]; ck "변이 M4 head-lag 먼저 → ⓔ 순서 위반 검출" $?
+{ echo "NOTE 변이판 rc=$rc" >> /tmp/m4.note; } ; [ -n "$(seqno install)" ] && [ -n "$(seqno notify)" ] && [ -n "$(seqno head-lag)" ] && ! ordOK; ck "변이 M4 head-lag 줄을 앞으로 → 같은 ⓔ 식이 위반 검출(3단계 도달)" $?
 S2=$SECONDS
 
 # 변이 M1 — 닫기 블록을 원래 자리(맨 끝)로 되돌린 사본: ⓐ 가 잡는다(r1700 뒤 첫 줄 = install)
