@@ -295,16 +295,6 @@ def quiet(k, cap):   # ⓕ 닫기 금지 → (True, "") | (False, 사유) · 조
 PACK_REPO = os.environ.get("FT_PACK_REPO") or os.path.expanduser("~/Project/ai-feature-pack")
 
 
-def pack_squash(sha):   # r1701 ③ — 팩 착지는 squash 라 세트(head)가 조상이 아니다 → 끝줄 «PR #N (head <세트>)» 로 본다(기존 파서 그대로)
-    rc, out, _e = run(["git", "-C", PACK_REPO, "log", "-n", "20", "--fixed-strings", f"--grep=(head {sha})", "--format=%h%x1f%B%x1e", "origin/main"], 7.0)
-    for rec in (out.split("\x1e") if rc == 0 else []):
-        _h, _, body = rec.strip("\n").partition("\x1f")
-        ls = [x for x in body.split("\n") if x.strip()]
-        if ls and ls[-1].startswith("main 자동 병합"): ls = ls[:-1]
-        if ls and re.fullmatch(r"PR #(\d+) \(head " + sha + r"\)", ls[-1].strip()): return True
-    return False
-
-
 def pack_commit(sha):   # r1701 ③ r3 — 세트 sha 가 팩 리포에 «커밋으로 있나»(착지 여부와 별개 · 미착지 세트도 승인 갈래 후보)
     if not re.fullmatch(r"[0-9a-f]{40}", sha or ""): return False
     rc, _o, _e = run(["git", "-C", PACK_REPO, "rev-parse", "--verify", "--quiet", sha + "^{commit}"], 7.0)
@@ -314,11 +304,6 @@ def pack_commit(sha):   # r1701 ③ r3 — 세트 sha 가 팩 리포에 «커밋
 def pack_remote(sha, cap):   # r1701 ③ r3 — 세트가 팩 origin «원격 가지» 에 있나(branch -r --contains)
     rc, out, _e = run(["git", "-C", PACK_REPO, "branch", "-r", "--contains", sha], max(0.5, cap))
     return rc == 0 and bool(out.strip())
-
-
-def pack_landed(sha):   # r1701 ③ — 팩 origin/main 착지 = ff 조상 ∨ squash 끝줄
-    rc, _o, _e = run(["git", "-C", PACK_REPO, "merge-base", "--is-ancestor", sha, "origin/main"], 7.0)
-    return rc == 0 or pack_squash(sha)
 
 
 def judge(t, k, row, card_dirs):   # → 줄 | None(제외 · exc 에 사유) · 조회 실패 = Unjudged
