@@ -27,6 +27,7 @@ printf '#!/bin/bash\necho install >> "$ORDER"\necho "OK n=1 (r1592 stub)"\nexit 
 chmod +x "$T/gh-stub" "$T/install-stub"
 FIXB="$T/bin"; cp -R "$BIN" "$FIXB"   # HERE 사본 — 가짜 ft-head-lag.sh 를 같은 폴더에 끼운다(실 도구 무수정)
 printf '#!/bin/bash\necho head-lag >> "$ORDER"\nexit 0\n' > "$FIXB/ft-head-lag.sh"; chmod +x "$FIXB/ft-head-lag.sh"
+printf 'fm_land_notify_land() { echo notify >> "$ORDER"; echo "NOTIFIED 착지 쪽지 (r1700 stub)"; }\n' >> "$FIXB/ft-merge-lib.sh"   # r1700 ⓔ: 쪽지 단계도 순서 파일에 1줄
 CPL="$T/state/merge-close-pending.jsonl"
 mkpr() {  # mkpr <번호> — origin/main 위 PR head 를 refs/pull/N/head 에 올리고 스텁 JSON
   git -C "$W" fetch -q origin; git -C "$W" checkout -q -B "pr$1" origin/main; echo "pr$1" > "$W/pr$1.txt"; cm "$W" "pr $1 work"
@@ -54,6 +55,13 @@ land "$FIXB/ft-merge-land.sh" 42 FAIL_CLOSE=all
   && grep -qE 'INFO 착지 쪽지 생략|NOTIFIED 착지' <<<"$out"; ck "ⓑ 닫기 실패 → rc3 · WARN · head-lag·설치·착지 쪽지 그대로" $?
 [ "$(grep -c . "$CPL" 2>/dev/null)" = 1 ] && python3 -c 'import json,sys;d=json.loads(open(sys.argv[1]).readline());sys.exit(0 if d["pr"]==42 else 1)' "$CPL"; ck "ⓑ «닫기 대기» 장부 1줄 = pr 42" $?
 : > "$CPL"
+# r1700 ⓔ — 행동 순서: 설치 대조 → 착지 쪽지 → head-lag (소스 grep 아님 · ORDER 파일)
+[ -n "$(seqno notify)" ] && [ "$(seqno install)" -lt "$(seqno notify)" ] && [ "$(seqno notify)" -lt "$(seqno head-lag)" ]; ck "ⓔ 행동 순서 install < notify < head-lag(r1700)" $?
+# r1700 ⓕ — 표식 대기 스텁 + FT_HEAD_LAG_EVENT_S=2 → WARN 1줄 · rc0 · LANDED · 설치·쪽지는 이미 끝남
+printf '#!/bin/bash\necho head-lag >> "$ORDER"\nwhile [ ! -e "$ORDER.hl" ]; do :; done\nexit 0\n' > "$FIXB/ft-head-lag.sh"
+land "$FIXB/ft-merge-land.sh" 45 FT_HEAD_LAG_EVENT_S=2
+[ "$rc" = 0 ] && [[ "$out" == LANDED* ]] && grep -q 'WARN 뒤처짐 알림 2초 초과' <<<"$out" && [ -n "$(seqno install)" ] && [ -n "$(seqno notify)" ]; ck "ⓕ head-lag 상한 → WARN 1줄 · rc0 · LANDED · 설치·쪽지 먼저(r1700)" $?
+printf '#!/bin/bash\necho head-lag >> "$ORDER"\nexit 0\n' > "$FIXB/ft-head-lag.sh"   # 스텁 원복
 S2=$SECONDS
 
 # 변이 M1 — 닫기 블록을 원래 자리(맨 끝)로 되돌린 사본: ⓐ 가 잡는다(r1700 뒤 첫 줄 = install)
