@@ -84,6 +84,19 @@ P="$T/perf"; git init -q --bare "$T/perf.git"; git init -q -b main "$P"
 ms(){ perl -MTime::HiRes=time -e 'printf "%d", time()*1000'; }
 t1=$(ms); pv="$(cd "$T" && bash "$TOOL" --repo "$P" --only "$T/wt-perf" 2>/dev/null | awk -F'\t' '{print $NF}')"; t2=$(ms)
 eq "P4 줄당 7초 안(바탕 300커밋)" "$([ $((t2-t1)) -lt 7000 ] && echo yes || echo "no($((t2-t1))ms)")" yes
+# ── arch#301 r2: ③ 은 줄마다 실 sha 로 · cwd 목록은 실행당 1회 ──
+git -C "$R" push -q origin nano/clean
+o3="$(cd "$T" && bash "$TOOL" --repo "$R" 2>/dev/null)"
+eq "P6 원격 있는 줄 ③=1(clean)" "$(printf '%s\n' "$o3" | awk -F'\t' -v p="$T/wt-clean" '$1==p{print $6}')" 1
+eq "P6 원격 없는 줄 ③=0(unland)" "$(printf '%s\n' "$o3" | awk -F'\t' -v p="$T/wt-unland" '$1==p{print $6}')" 0
+mkdir -p "$T/bin"; cat > "$T/bin/lsof" <<EOF
+#!/usr/bin/env bash
+echo x >> "$T/lsof.log"
+exec /usr/sbin/lsof "\$@"
+EOF
+chmod +x "$T/bin/lsof"; : > "$T/lsof.log"
+( cd "$T" && PATH="$T/bin:$PATH" bash "$TOOL" --repo "$R" >/dev/null 2>&1 )
+eq "P7 lsof 실행당 1회(줄마다 부르지 않음)" "$(wc -l < "$T/lsof.log" | tr -d ' ')" 1
 eq "P5 패치 동일 = 착지 판정(patch-id 경로)" "$pv" "정리 가능"
 ( cd "$P" && git worktree add -q "$T/wt-perf60" -b nano/perf60 && ( cd "$T/wt-perf60" && for i in $(seq 1 60); do echo "q$i" >> q; git add q; git commit -qm "q$i"; done ) )
 t1=$(ms); v60="$(cd "$T" && bash "$TOOL" --repo "$P" --only "$T/wt-perf60" 2>/dev/null | awk -F'\t' '{print $NF}')"; t2=$(ms)

@@ -68,7 +68,7 @@ $(cap "$GIT_SEC" lsof -w -d cwd -F n 2>/dev/null | sed -n 's/^n//p')"
   fi
   printf '%s' "$CWDS"
 }
-busy() { prefixed "$1" "$(cwd_list)"; }
+cwd_list >/dev/null; busy() { prefixed "$1" "$CWDS"; }   # ★부모 셸에서 1회★(명령 치환은 하위 셸이라 캐시가 사라진다)
 remote_has() {  # ③ 원격 가지가 HEAD 를 담음 — 같은 HEAD 는 한 번만
   local c o rc
   c="$(grep -m1 "^$2 " "$IDS_DIR/rc" 2>/dev/null)"; [ -n "$c" ] && { [ "${c##* }" = 1 ]; return; }
@@ -91,7 +91,7 @@ judge() {  # $1=경로 $2=가지(빈값=detached) $3=HEAD 짧은 sha → TSV 1�
   if [ -z "$o" ] && [ "$br" != detached ]; then o="$(git7 "$p" stash list --format=%gs 2>/dev/null)"; rc=$?; [ "$rc" = 0 ] || f=1
     if [ -n "$o" ] && { grep -qF "WIP on ${br}:" <<<"$o" || grep -qF "On ${br}:" <<<"$o"; }; then d1=1; fi; fi
   landed "$p"; rc=$?; [ "$rc" = 2 ] && f=1; [ "$rc" = 0 ] && d2=1
-  remote_has "$p" HEAD; rc=$?; [ "$rc" = 2 ] && f=1; [ "$rc" = 0 ] && d3=1
+  remote_has "$p" "$head"; rc=$?; [ "$rc" = 2 ] && f=1; [ "$rc" = 0 ] && d3=1
   reflog_only "$p"; rc=$?; [ "$rc" = 2 ] && f=1; [ "$rc" = 0 ] && d4=1
   busy "$p" && d5=1
   cfg_hit "$p" && d6=1
@@ -100,12 +100,12 @@ judge() {  # $1=경로 $2=가지(빈값=detached) $3=HEAD 짧은 sha → TSV 1�
   if [ "$f" = 1 ]; then v="판정 불가:git 실패"; elif [ "$f" = 2 ]; then v="판정 불가:한 줄 ${ROW_MAX}초 초과"
   elif [ "$d1" = 0 ] && [ "$d2" = 1 ] && [ "$d4" = 0 ] && [ "$d5" = 0 ] && [ "$d6" = 0 ]; then v="정리 가능"
   else [ "$d1" = 1 ] && r="${r}①"; [ "$d2" = 0 ] && r="${r}②"; [ "$d4" = 1 ] && r="${r}④"; [ "$d5" = 1 ] && r="${r}⑤"; [ "$d6" = 1 ] && r="${r}⑥"; v="KEEP:$r"; fi
-  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$p" "$br" "$head" "$d1" "$d2" "$d3" "$d4" "$d5" "$d6" "$last" "$v"
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$p" "$br" "${head:0:12}" "$d1" "$d2" "$d3" "$d4" "$d5" "$d6" "$last" "$v"
 }
 rows() {
   if [ -n "$ONLY" ]; then
     local h b; h="$(git7 "$ONLY" rev-parse HEAD 2>/dev/null)"; b="$(git7 "$ONLY" rev-parse --abbrev-ref HEAD 2>/dev/null)"; [ "$b" = HEAD ] && b=""
-    judge "$ONLY" "$b" "${h:0:12}"; return
+    judge "$ONLY" "$b" "$h"; return
   fi
   local p="" head="" br=""
   while IFS= read -r line; do
