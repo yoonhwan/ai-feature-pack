@@ -839,17 +839,19 @@ link_web_node_modules() {
 #   셋 다 실패 = rc1(부르는 쪽이 REJECT — 좌석·명부·카드 손 0). 결과 = 전역 _SBR(경로) · _SBR_REF(사본일 때만 ref 이름)
 #   ★$( ) 로 부르지 않는다★ — 서브셸이면 _SBR_REF 가 부르는 쪽으로 안 온다.
 seatbelt_readme_path() {
-  local ref sha doc dest tmp t seg
+  local ref sha doc dest tmp t seg dr
   _SBR=""; _SBR_REF=""; _SBR_TEAM=""
   if [ -n "${FT_SEATBELT_README:-}" ]; then _SBR="$WT/$FT_SEATBELT_README"; _SBR_TEAM="(명시 FT_SEATBELT_README)"; return 0; fi   # R406: 명시 지정은 그대로
   # r1686: 카드 팀 = FT_TEAM > 카드 경로(design/<팀>/indices/…) — _nano_team 을 부르지 않는다(함수만 떼어 시험하는 자리에서도 돈다)
   t="${FT_TEAM:-}"; [ -n "$t" ] || case "${IDX:-}" in */indices/*) seg="${IDX%/indices/*}"; t="${seg##*/}";; esac
-  if [ -n "$t" ] && [ "$t" != v65 ] && doc="$(ft_team_file_ref "$WT" "$t" SEATBELT-README.md 2>/dev/null)"; then _SBR="$doc"; _SBR_TEAM="$t"; return 0; fi
-  if doc="$(ft_team_file_ref "$WT" v65 SEATBELT-README.md)"; then _SBR="$doc"; _SBR_TEAM=v65; return 0; fi   # R406: 기본값 = 명단 ref 의 v65 폴더 꼴·쌍둥이 중 WT 에 실재하는 1개
-  ref="${FT_TEAMS_REF:-origin/main}"
-  sha="$(git -C "$WT" rev-parse --verify -q "$ref^{commit}" 2>/dev/null)" || return 1
-  for t in "$t" v65; do doc="$(ft_team_doc_ref "$WT" "$t" SEATBELT-README.md "$ref" 2>/dev/null)" && break; doc=""; done   # r1686: ref 판도 카드 팀 먼저 → v65
+  [ "$t" = v65 ] && t=""
+  if [ -n "$t" ] && doc="$(ft_team_file_ref "$WT" "$t" SEATBELT-README.md 2>/dev/null)"; then _SBR="$doc"; _SBR_TEAM="$t"; return 0; fi   # ① 카드 팀 디스크
+  ref="${FT_TEAMS_REF:-origin/main}"; sha="$(git -C "$WT" rev-parse --verify -q "$ref^{commit}" 2>/dev/null)"; doc=""
+  [ -n "$t" ] && [ -n "$sha" ] && { dr="$(ft_team_doc_ref "$WT" "$t" SEATBELT-README.md "$ref" 2>/dev/null)"; doc="${dr:-}"; }   # ② 카드 팀 ref 판 — v65 디스크보다 «먼저»(DA r1: sparse 워크트리)
+  if [ -z "$doc" ] && doc="$(ft_team_file_ref "$WT" v65 SEATBELT-README.md)"; then _SBR="$doc"; _SBR_TEAM=v65; return 0; fi   # ③ v65 디스크(R406: 지금 값)
+  if [ -z "$doc" ] && [ -n "$sha" ]; then doc="$(ft_team_doc_ref "$WT" v65 SEATBELT-README.md "$ref" 2>/dev/null)"; t=v65; fi   # ④ v65 ref 판
   [ -n "$doc" ] || return 1
+  [ -n "$t" ] || t=v65
   [ "$t" = v65 ] && dest="$ROOT/.fable-team/state/seatbelt-readme/${sha:0:12}-SEATBELT-README.md" \
     || dest="$ROOT/.fable-team/state/seatbelt-readme/${sha:0:12}-${t}-SEATBELT-README.md"   # r1686: 팀 사본은 팀 이름을 붙인다(v65 이름은 그대로 — 같은 sha 라도 팀이 다르면 갈린다)
   if [ ! -f "$dest" ]; then   # 같은 ref sha = 이미 꺼낸 사본 재사용(두 번 spawn 해도 1개)

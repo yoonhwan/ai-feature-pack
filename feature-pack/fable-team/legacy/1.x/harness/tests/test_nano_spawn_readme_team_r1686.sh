@@ -43,6 +43,13 @@ C="$(mk c aifp 1 1)"; o="$(runsp "$SPAWN" "$C" aifp)"      # 둘 다 있음 → 
 o="$(runsp "$SPAWN" "$C" aifp FT_SEATBELT_README=design/v65/SEATBELT-README.md)"   # 명시값 우선
 { [ "$(f "$o" sbr)" = "$C/design/v65/SEATBELT-README.md" ] && [[ "$(f "$o" team)" == "(명시"* ]]; } \
   && ok "ⓓ FT_SEATBELT_README 명시 → 그 값(지금과 같다)" || bad "ⓓ sbr=$(f "$o" sbr) team=$(f "$o" team)"
+# ⓖ DA r1 반례: sparse 워크트리 = 디스크에 v65 만 · 기준 ref 에 팀 README → 팀 ref 를 먼저 고른다(v65 디스크가 앞지르면 FAIL)
+G="$(mk g aifp 1 1)"; rm -f "$G/design/aifp/SEATBELT-README.md"; o="$(runsp "$SPAWN" "$G" aifp)"
+{ [ "$(f "$o" team)" = aifp ] && [[ "$(f "$o" sbr)" == *"-aifp-SEATBELT-README.md" ]]; } \
+  && ok "ⓖ 디스크 v65 + ref 팀 README → 팀 ref 사본(DA r1)" || bad "ⓖ team=$(f "$o" team) sbr=$(f "$o" sbr)"
+H="$(mk h aifp 1 1)"; rm -f "$H/design/aifp/SEATBELT-README.md" "$H/design/v65/SEATBELT-README.md"; o="$(runsp "$SPAWN" "$H" aifp)"   # 대조군: 둘 다 디스크에서 뺌
+{ [ "$(f "$o" team)" = aifp ] && [[ "$(f "$o" sbr)" == *"-aifp-SEATBELT-README.md" ]]; } \
+  && ok "ⓖ 대조군(둘 다 디스크 밖) → 팀 ref 사본" || bad "ⓖ 대조군 team=$(f "$o" team) sbr=$(f "$o" sbr)"
 E="$(mk e aifp 0 0)"; o="$(runsp "$SPAWN" "$E" aifp)"      # 둘 다 없음 → rc1 · 쓰기 0
 { [ "$(f "$o" rc)" = 1 ] && [ ! -d "$E/.fable-team/state/seatbelt-readme" ]; } \
   && ok "ⓔ 둘 다 없음 → rc1(부르는 쪽 REJECT) · 사본 0" || bad "ⓔ rc=$(f "$o" rc) 사본폴더=$(ls "$E/.fable-team/state" 2>/dev/null | tr '\n' ' ')"
@@ -62,21 +69,12 @@ assert old in s, "변이 대상 없음: " + old[:60]
 open(dst, "w", encoding="utf-8").write(s.replace(old, new, 1))
 PY
 }
-patch1(){ python3 - "$T/$1.sh" "$2" "$3" <<'PY'
-import sys
-p, old, new = sys.argv[1:4]
-s = open(p, encoding="utf-8").read()
-assert old in s, "변이 대상 없음: " + old[:60]
-open(p, "w", encoding="utf-8").write(s.replace(old, new, 1))
-PY
-}
-mut m1 '[ "$t" != v65 ]' '[ 1 = 2 ]'          # M1: 디스크 팀 갈래를 v65 로 되돌림
-patch1 m1 'for t in "$t" v65; do' 'for t in v65; do'   # M1: ref 판도 v65 로 되돌림
+mut m1 '[ "$t" = v65 ] && t=""' 't=""'      # M1: 팀 갈래(디스크·ref)를 v65 로 되돌림
 bash -n "$T/m1.sh" && ok "M1 bash -n rc0" || bad "M1 bash -n"
 o="$(runsp "$T/m1.sh" "$A" aifp)"; o2="$(runsp "$T/m1.sh" "$C" aifp)"
 { [ "$(f "$o" rc)" = 1 ] && [ "$(f "$o2" sbr)" = "$C/design/v65/SEATBELT-README.md" ]; } \
   && ok "M1 팀 갈래 제거 → ⓐ·ⓒ FAIL(검출됨)" || bad "M1 검출 실패 rc=$(f "$o" rc) sbr=$(f "$o2" sbr)"
-mut m2 'if doc="$(ft_team_file_ref "$WT" v65 SEATBELT-README.md)"; then _SBR="$doc"; _SBR_TEAM=v65; return 0; fi' ':'   # M2: v65 기본 갈래 삭제
+mut m2 'if [ -z "$doc" ] && doc="$(ft_team_file_ref "$WT" v65 SEATBELT-README.md)"; then _SBR="$doc"; _SBR_TEAM=v65; return 0; fi' ':'   # M2: v65 디스크 갈래 삭제
 bash -n "$T/m2.sh" && ok "M2 bash -n rc0" || bad "M2 bash -n"
 o="$(runsp "$T/m2.sh" "$B" aifp)"
 [ "$(f "$o" sbr)" != "$B/design/v65/SEATBELT-README.md" ] && ok "M2 v65 기본 갈래 삭제 → ⓑ FAIL(검출됨)" || bad "M2 검출 실패 sbr=$(f "$o" sbr)"
