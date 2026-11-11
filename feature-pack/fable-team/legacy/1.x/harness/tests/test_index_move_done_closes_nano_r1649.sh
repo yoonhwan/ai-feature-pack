@@ -2,6 +2,7 @@
 # test_index_move_done_closes_nano_r1649.sh — r1649 ⓐⓑⓓ: 완성 이동이 그 카드 나노 좌석을 «같은 실행»에서 ft-nano-close 표준 경로로 닫는다.
 #   사례1 나노 1석 닫기 rc0 → NANO-CLOSE rc=0 · h 0 · 사례2 가짜 닫기 rc1 → h 1장 · 이동 rc0 · 사례3 _replaced_by·다른 카드 행 = 호출 0 ·
 #   사례4 완성 아닌 이동(대기→진행) = 호출 0. 사례2b 우편함 발신 0 = 닫기 0 → h 1장(ⓑ).
+#   사례1b 발신이 «로그(mailbox.log.jsonl)에만» 있어도 그 seq 로 닫는다(r2 ⓐ) · 사례2c 닫기 실패의 첫 REJECT 줄이 h 주석·NANO-CLOSE 줄에 남는다(r2 ⓑ).
 #   임시 리포·가짜 판정문·가짜 명부(FT_SEATS_JSON)·가짜 ft-nano-close(FT_NANO_CLOSE_BIN)·가짜 ft-hil(FT_HIL_BIN)만 — 실 tmux·실 우편함·실 명부 0 · sleep 0.
 set -uo pipefail
 export LC_ALL=C
@@ -26,14 +27,14 @@ cp "$SRCDIR/ft-index-move.sh" "$SRCDIR/ft-index-move-canon.sh" "$SRCDIR/ft-index
 printf '#!/usr/bin/env bash\nexit 0\n' > "$BIN/ft-index-lint.sh"
 printf '#!/usr/bin/env bash\necho "$*" >> "$MBOX_LOG"\nexit 0\n' > "$T/fake-mbox.sh"
 # 가짜 닫기·가짜 h — 인자·rc 를 그대로 기록한다(실 ft-nano-close·실 ft-hil 0)
-printf '#!/usr/bin/env bash\nprintf "%%s\\n" "$*" >> "$CLOSE_LOG"\nexit "$(cat "$CLOSE_RC" 2>/dev/null || echo 0)"\n' > "$T/fake-close.sh"
+printf '#!/usr/bin/env bash\nprintf "%%s\\n" "$*" >> "$CLOSE_LOG"\n[ ! -f "$CLOSE_OUT" ] || cat "$CLOSE_OUT"\nexit "$(cat "$CLOSE_RC" 2>/dev/null || echo 0)"\n' > "$T/fake-close.sh"
 printf '#!/usr/bin/env bash\nprintf "%%s\\n" "$*" >> "$HIL_LOG"\necho "! bash /tmp/h7"\nexit 0\n' > "$T/fake-hil.sh"
 chmod +x "$T/fake-mbox.sh" "$T/fake-close.sh" "$T/fake-hil.sh"
 mkdir -p "$T/state" "$T/comm"
 export FT_MBOX="$T/fake-mbox.sh" MBOX_LOG="$T/mbox.log" FT_INDEX_STATE_DIR="$T/state" FT_LAND_REF=main
 export FT_MBOX_DIR="$T/comm" FT_NANO_CLOSE_BIN="$T/fake-close.sh" FT_HIL_BIN="$T/fake-hil.sh"
-export CLOSE_LOG="$T/close.log" HIL_LOG="$T/hil.log" CLOSE_RC="$T/close.rc"
-: > "$CLOSE_LOG"; : > "$HIL_LOG"; echo 0 > "$CLOSE_RC"
+export CLOSE_LOG="$T/close.log" HIL_LOG="$T/hil.log" CLOSE_RC="$T/close.rc" CLOSE_OUT="$T/close.out"
+: > "$CLOSE_LOG"; : > "$HIL_LOG"; : > "$T/close.out"; echo 0 > "$CLOSE_RC"
 
 REPO="$T/repo"; IDX="$REPO/design/harness/indices"; mkdir -p "$IDX"/{대기,진행,완성}
 G() { git -C "$REPO" "$@"; }
@@ -63,6 +64,16 @@ has "$out" "MOVED 진행→완성" "1b 이동도 그대로(닫기가 이동을 �
 eq "$(cat "$CLOSE_LOG")" "byz-nano-a#0 --result $IDX/완성/k1.md --recv 12" "1c 닫기 인자 = 좌석 · 완성 카드 경로 · 그 좌석 마지막 seq"
 [ ! -s "$HIL_LOG" ] && ok "1d 성공 좌석 h 0" || bad "1d h 가 불렸다: $(cat "$HIL_LOG")"
 
+# ══ 사례1b — 발신이 «로그에만» 있어도 그 seq 로 닫는다(큐는 recv 가 소비해 비어 있다) ═══════════════
+c1b="$(card k1b)"; d1b="$(da da1b "## §1 닫힘: k1b")"
+seats '{"byz-nano-a2#0":{"role":"nano","index":"design/harness/indices/진행/k1b.md"}}'
+: > "$T/comm/mailbox.jsonl"; printf '{"seq":33,"ts":"2026-11-11T13:00:00","from":"byz-nano-a2#0","to":"byz-harness-master-pi#193","body":"산출"}\n' > "$T/comm/mailbox.log.jsonl"
+: > "$CLOSE_LOG"
+out="$(mv_ "$c1b" 완성 --da "$d1b#§1" --seat s)"
+has "$out" "NANO-CLOSE byz-nano-a2#0 rc=0" "1e 로그에만 있는 발신 → 닫기 rc0(«발신 0 → h» 로 새지 않는다)"
+eq "$(cat "$CLOSE_LOG")" "byz-nano-a2#0 --result $IDX/완성/k1b.md --recv 33" "1f 로그에서 읽은 seq 를 --recv 로 넘긴다"
+: > "$T/comm/mailbox.log.jsonl"
+
 # ══ 사례2 — 닫기 rc≠0 = 그 좌석만 h 1장 · 이동 rc 불변 ════════════════════════════════════════
 c2="$(card k2)"; d2="$(da da2 "## §1 닫힘: k2 k2b")"
 seats '{"_arch":"","byz-nano-b#0":{"role":"nano","index":"design/harness/indices/진행/k2.md"}}'
@@ -73,6 +84,18 @@ eq "$rc2" "0" "2b 이동 rc 불변(닫기 실패가 완성을 되돌리지 않�
 [ -f "$IDX/완성/k2.md" ] && ok "2c 카드는 완성/ 에 있다" || bad "2c 카드가 안 옮겨졌다: $out"
 eq "$(wc -l < "$HIL_LOG" | tr -d ' ')" "1" "2d h 등록 1장(성공 좌석 0)"
 case "$(cat "$HIL_LOG")" in *"--add "*/plan.sh) ok "2e h 에 계획 파일 경로가 넘어간다";; *) bad "2e h 인자: $(cat "$HIL_LOG")";; esac
+
+# ══ 사례2c — 닫기 실패의 첫 REJECT 줄이 h 주석·NANO-CLOSE 줄에 남는다 ══════════════════════════
+c2c="$(card k2c)"; d2c="$(da da2c "## §1 닫힘: k2c")"
+seats '{"_arch":"","byz-nano-e#0":{"role":"nano","index":"design/harness/indices/진행/k2c.md"}}'
+printf '{"seq":41,"from":"byz-nano-e#0","to":"byz-harness-master-pi#193","body":"산출"}\n' >> "$T/comm/mailbox.jsonl"
+printf 'REJECT 테스트 실패 — ⑥ 증거 줄 없음\n  - 세부 줄\n' > "$T/close.out"; echo 1 > "$CLOSE_RC"; : > "$HIL_LOG"
+out="$(mv_ "$c2c" 완성 --da "$d2c#§1" --seat s)"
+has "$out" "NANO-CLOSE byz-nano-e#0 rc=1 → h7 — ft-nano-close rc=1 — REJECT 테스트 실패" "2h NANO-CLOSE 줄 끝에 실패 첫 REJECT 줄"
+plan="$(sed -n 's/^--add //p' "$HIL_LOG" | head -1)"
+[ -f "$plan" ] && grep -q '^# .*REJECT 테스트 실패' "$plan" && ok "2i h 계획 주석에 실패 첫 줄" || bad "2i h 계획 주석: $(cat "$plan" 2>/dev/null | head -3)"
+grep -q -- '--recv 41' "$plan" 2>/dev/null && ok "2j h 계획 = 같은 ft-nano-close 한 줄(seq 보존)" || bad "2j h 계획: $(cat "$plan" 2>/dev/null)"
+: > "$T/close.out"; echo 0 > "$CLOSE_RC"
 
 # ══ 사례2b — 우편함 발신 0 = 닫기 0 → h 1장 ═════════════════════════════════════════════════
 c2b="$(card k2b)"; echo 0 > "$CLOSE_RC"; : > "$CLOSE_LOG"; : > "$HIL_LOG"

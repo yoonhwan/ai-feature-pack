@@ -264,34 +264,37 @@ fi
 printf 'MOVED %s→%s %s\n' "$FROM" "$DST" "$NEW"
 # r1649 — 완성 이동 = 그 카드 나노 좌석 닫기까지 «같은 실행». 닫기 실패·seq 없음만 h 1장으로 넘긴다(이동 rc 불변 · 브랜치 삭제 0).
 nano_close_card() {
-  local card="$1" new="$2" name seats="${FT_SEATS_JSON:-}" root="${ROOT:-$IDX_ROOT}" t hits=() rows rc seq seat hn note plan
+  local card="$1" new="$2" name seats="${FT_SEATS_JSON:-}" root="${ROOT:-$IDX_ROOT}" t hits=() rows rc seq seat hn note plan out first
   name="$(basename "$card" .md)"
   if [ -z "$seats" ] && . "$HERE/ft-team-lib.sh" 2>/dev/null; then
     while IFS= read -r t; do [ -n "$t" ] && FT_REPO_ROOT="$IDX_ROOT" ft_team_has "$t" "$IDX_ROOT/" indices/ 2>/dev/null && hits+=("$t"); done < <(FT_REPO_ROOT="$IDX_ROOT" ft_team_names 2>/dev/null)
     [ "${#hits[@]}" = 1 ] && { seats="$root/.fable-team/seats-${hits[0]}.json"; [ "${hits[0]}" != v65 ] || seats="$root/.fable-team/seats.json"; }
   fi
-  rows="$(python3 - "$seats" "$name" "${FT_MBOX_DIR:-$root/.fable-team/comm}/mailbox.jsonl" <<'PY'
+  rows="$(python3 - "$seats" "$name" "${FT_MBOX_DIR:-$root/.fable-team/comm}" <<'PY'
 import json, os, sys
 try: doc = json.load(open(sys.argv[1], encoding="utf-8"))
 except (OSError, ValueError): sys.exit(1)
 last = {}
-try:
-    for ln in open(sys.argv[3], encoding="utf-8"):
-        try: r = json.loads(ln)
-        except ValueError: continue
-        if isinstance(r.get("from"), str) and isinstance(r.get("seq"), int): last[r["from"]] = max(last.get(r["from"], 0), r["seq"])
-except OSError: pass
+for fn in ("mailbox.jsonl", "mailbox.log.jsonl"):   # r1649-mut:mboxlog — 큐는 recv 가 소비해 비어 있고 로그에만 남는 발신이 있다 · 둘 다 읽고 최대 seq
+    try:
+        for ln in open(os.path.join(sys.argv[3], fn), encoding="utf-8"):
+            try: r = json.loads(ln)
+            except ValueError: continue
+            if isinstance(r.get("from"), str) and isinstance(r.get("seq"), int): last[r["from"]] = max(last.get(r["from"], 0), r["seq"])
+    except OSError: pass
 ok = lambda v: isinstance(v, dict) and v.get("role") == "nano" and not v.get("_replaced_by") and os.path.basename(v.get("index") or "") == sys.argv[2] + ".md"
 for k in sorted(k for k, v in doc.items() if not k.startswith("_") and ok(v)): print(k + "\t" + str(last.get(k, "")))
 PY
 )" || rows=""
   [ -n "$rows" ] || { echo "NANO-CLOSE 0석"; return 0; }
   while IFS=$'\t' read -r seat seq; do
-    [ -n "$seat" ] || continue; rc=0
-    [ -z "$seq" ] || bash "${FT_NANO_CLOSE_BIN:-$HERE/ft-nano-close.sh}" "$seat" --result "$new" --recv "$seq" >/dev/null 2>&1 || rc=$?
+    [ -n "$seat" ] || continue; rc=0; out=""
+    [ -z "$seq" ] || out="$(bash "${FT_NANO_CLOSE_BIN:-$HERE/ft-nano-close.sh}" "$seat" --result "$new" --recv "$seq" 2>&1)" || rc=$?
     [ -n "$seq" ] || rc=""
     [ "$rc" = 0 ] && { echo "NANO-CLOSE $seat rc=0"; continue; }
     note="ft-nano-close rc=$rc"; [ -n "$seq" ] || note="우편함에 이 좌석 발신 0 — 닫기 0"
+    first="$(printf '%s\n' "$out" | grep -m1 '^REJECT' || printf '%s\n' "$out" | grep -m1 -v '^[[:space:]]*$' || true)"   # r1649 r2 ⓑ: rc 만 남기면 무엇을 고칠지 모른다 — 출력 첫 REJECT 줄을 h 주석·NANO-CLOSE 줄에
+    [ -z "$first" ] || note="$note — ${first:0:200}"
     plan="$(mktemp -d "${TMPDIR:-/tmp}/r1649-close-XXXXXX" 2>/dev/null)" && { plan="$plan/plan.sh"; printf '# %s\n' "$note" > "$plan"; printf 'bash %q %q --result %q%s\n' "${FT_NANO_CLOSE_BIN:-$HERE/ft-nano-close.sh}" "$seat" "$new" "${seq:+ --recv $seq}" >> "$plan"; }   # macOS mktemp 는 접미사 뒤 XXXXXX 를 안 바꾼다 — 폴더 + 고정 이름
     hn="$(bash "${FT_HIL_BIN:-$HERE/ft-hil.sh}" --add ${plan:+"$plan"} 2>&1 | sed -n 's|.*/h\([0-9][0-9]*\).*|\1|p' | head -1)"   # r1649-mut:hil
     echo "NANO-CLOSE $seat rc=${rc:--} → h${hn:-?} — $note"
