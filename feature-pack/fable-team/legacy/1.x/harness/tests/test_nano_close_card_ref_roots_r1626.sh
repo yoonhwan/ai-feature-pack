@@ -90,7 +90,7 @@ tab 'harness\t.\torigin/main\tdesign/harness/indices\n*\t.\torigin/ops/main-base
 [ "$(libr harness)" = origin/main ] && ok "ⓓ 팀 행 우선" || bad "ⓓ 팀 행 우선 실패"; [ "$(libr room)" = origin/ops/main-base ] && ok "ⓓ 팀 행 없는 팀 → «*»" || bad "ⓓ «*» 후퇴"; lap ⓓ
 echo "== ⓔ 표 행 ref 를 리포에서 못 읽음 → rc≠0 «판정 불가» 1줄 · origin/main 후퇴 0"
 tab 'harness\t.\torigin/nope\tdesign/harness/indices\n'; libout="$(libr harness)"; lrc=$?
-[ "$lrc" -ne 0 ] && [ -z "$libout" ] && ok "ⓔ lib rc=$lrc · stdout 0" || bad "ⓔ lib rc=$lrc out=«$libout» ← 후퇴 0 위반"
+[ "$lrc" -ne 0 ] && [ -z "$libout" ] && ok "ⓔ lib rc=$lrc · stdout 0" || bad "ⓔ lib rc=$lrc out=«${libout}» ← 후퇴 0 위반"
 out="$(close)"; rc=$?
 [ "$rc" -eq 1 ] && has "$out" "판정 불가" "  └ 닫기 REJECT «판정 불가»" || bad "ⓔ rc=$rc ← ${out:0:700}"
 [ "$(printf "%s\n" "$out" | grep -c "^ERROR")" = 1 ] && ok "  └ ERROR 정확히 1줄" || bad "  └ ERROR 줄 수 ≠ 1"
