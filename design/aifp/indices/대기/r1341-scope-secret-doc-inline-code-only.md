@@ -43,7 +43,7 @@
 ## 반례 집합
 - S1 «| ① | … env `GCE_VM_STT_TTS` 1개 |»(6076 원문) → FORBID 0(기준판 FORBID)
 - S2 «… 명시(env `WORKER_HEALTH_URL`) 하거나 …»(6054 원문) → FORBID 0(기준판 FORBID)
-- S3' «실행: `env "$X" bash x.sh`» → FORBID(백틱 안 진짜 명령 · 기준판 줄 전체도 FORBID · 재실측 원문 위)
+- S3' «실행: `env "$X" bash x.sh`» → 회귀: FORBID 유지(백틱 안 진짜 명령 · 기준판·고친 판 둘 다 검출 · 변이 2 에서만 FAIL · 재실측 원문 위 · 기준판 FAIL/고친 판 PASS 로 가르는 사례는 S1·S2)
 - S4 «`VAR_DSN=postgres://u:p@h/db timeout 70 pytest`»(PR 6020 꼴) → 회귀: 기준판·고친 판 판정 같음(지금 둘 다 FORBID 0 · 재실측)
 - S5 울타리 ```bash 안 «env "$X"» → 지금처럼 FORBID(A1)
 - S6 백틱 홀수 줄 «env `X 1개» → 지금처럼 줄 전체 판정(A3)
@@ -56,7 +56,7 @@
 2. 시험 신설 feature-pack/fable-team/legacy/1.x/harness/tests/test_scope_secret_doc_inline_code_r1341.sh(100644 · S1~S8 · 변이 3 · 루트 cwd · ulimit -u 2000 · timeout 70) + 회귀 feature-pack/fable-team/legacy/1.x/harness/tests/test_autonomy_scope_code_literals_r1195.sh · test_autonomy_scope_classify.sh(단계별 초)
 
 ## 완료 조건
-- 나노: S1~S8 rc0 · 기준판(origin/main + 새 시험) S1·S2 FAIL(S4·S8 = 회귀라 기준판도 PASS) · 변이 1(A2 뺌 = 줄 전체) → S1·S2 FAIL · 변이 2(백틱 구간 버림) → S3' FAIL · 변이 3(A3 홀수 백틱도 구간만) → S6 FAIL · bin·kit cmp0 · 시험 100644
+- 나노: S1~S8 rc0 · 기준판(origin/main + 새 시험) S1·S2 FAIL(S3'·S4·S8 = 회귀라 기준판도 PASS) · 변이 1(A2 뺌 = 줄 전체) → S1·S2 FAIL · 변이 2(백틱 구간 버림) → S3' FAIL · 변이 3(A3 홀수 백틱도 구간만) → S6 FAIL · bin·kit cmp0 · 시험 100644
 - master: 착지 → 설치 cmp0 → 실사건(6792 head f67a12683d 다시 분류 → FORBID 0 원문) → 완성
 
 ## 계약↔시험 대응표
@@ -75,13 +75,14 @@
 - 2026-11-02T19:3x 대기 — arch#213 작성(판정 3482 · master#153 #231004 · 3건 원문 plan() 직접 호출 실측) · 다음 = master Issue · 사전 DA 면제 후보(문서 갈래 1곳 · 셸·코드 갈래 무변경)
 - 2026-11-03T22:5x 대기 — arch#219 반례 S8 보탬(master#157 #246030 · planner #246021 · BYZ PR 6792 문서 2·코드 0 FORBID secret) · 판정: 722(r1195 단계 2 · 파이썬 셔뱅)와 «다른 칸» — 6792 는 문서 백틱 갈래(이 카드 A2) · 고치면 S8 통과 · *.md 를 secret 검사에서 통째로 빼지는 않음(울타리·«$ » 줄의 진짜 명령은 S3~S5 처럼 잡아야 함)
 - 2026-11-11T21:4x 대기 — aifp 사본(aifp-ft-arch-pi#0 · master #3972 · 실측 #3971): 경로 legacy/1.x · 원인 줄 :130·:134 · S3' · S4·S8 회귀 · 완료 조건 S1·S2 FAIL · Issue #8375
+- 2026-11-11T22:0x 대기 — DA HOLD R1 보정(aifp 3978 · master #3979): 단계 2 설계 1 = rc1+reject 정상 검출 유지 · rc2·시간 초과·출력 꼴 어긋남만 판정 불가 · J6(정상 검출 회귀)·변이 3 추가 · S3' = 회귀 문구
 
 ## 단계 2 — 비밀 스캔이 판정기 1건 시간 초과로 회차 전체가 죽음 (판단만 · 자율정지 중 착수 0 · arch#223 · 2026-11-04 06:5x · master#159 #251262 · launchd-check [급] #251259 · 새 카드 동결 3614 → 같은 판정기(ft_secret_judge.plan) 계열 대기 카드에 합침)
 - 합침 자리: 열린 secret 카드 중 ft-secret-scan.sh 를 대상으로 둔 카드 0(r135b 완성) · r1195 는 완성 상태 줄 · 이 카드 r1341 = 같은 판정기(ft_secret_judge.plan)를 부르는 쪽 고침 → 단계 2 로 붙임(파일은 다름 · 나노 1석 같은 팩 가지)
 - 실측(읽기만): /tmp/ft-secret-scan.log 끝 = Traceback … subprocess.TimeoutExpired: Command '[… /Users/yoonhwan/.claude/fable-team/live/1.1.255/bin/ft_secret_judge.py, --plan, /tmp/h355]' timed out after 7 · 같은 줄 2번(runs 2 · com.byz.ft-secret-scan rc1) · 호출 자리 live /Users/yoonhwan/.claude/fable-team/live/1.1.255/bin/ft-secret-scan.sh:75 `subprocess.run([... "--plan", p], capture_output=True, text=True, timeout=7)` — try 0 · r.returncode 확인 0 · 상태 저장(json.dump · :101 근처)은 반복 «뒤» 라 예외면 그 회차 상태 저장 0
-- 원인 1줄: 계획 파일 1개의 판정 시간 초과가 잡히지 않아 스캔 회차 전체가 rc1 로 죽고 상태도 안 남아 다음 회차가 같은 자리에서 또 죽는다(그 뒤 파일들의 비밀은 보고 0) · 판정기가 rc≠0 으로 끝나도 «found 0» 으로 셈 = 조용한 통과 → 하드 룰 20 · BYZ #0 RULE 위반 꼴
+- 원인 1줄: 계획 파일 1개의 판정 시간 초과가 잡히지 않아 스캔 회차 전체가 rc1 로 죽고 상태도 안 남아 다음 회차가 같은 자리에서 또 죽는다(그 뒤 파일들의 비밀은 보고 0) · 판정기가 rc=2(내부 오류)로 끝나도 reject 줄이 없어 «found 0» 으로 셈 = 조용한 통과 → 하드 룰 20 · BYZ #0 RULE 위반 꼴
 - 설계:
-  1. :75 호출을 한 함수 judge_plan(p) 로 감싼다 — TimeoutExpired = «판정 불가 <p> 판정기 7초» 1줄 · rc≠0 = «판정 불가 <p> 판정기 rc=<n>» 1줄 · 두 경우 모두 그 파일만 판정 불가로 세고(셈 judge_unknown=N) 반복은 계속
+  1. :75 호출을 한 함수 judge_plan(p) 로 감싼다 — 판정기 rc 계약(ft_secret_judge.py:3~5 · 0 ok / 1 reject / 2 내부 오류)대로 가른다: rc0 + «ok» = 깨끗 · rc1 + «reject » 줄 1개 이상 = ★정상 검출(지금처럼 found 수집 · sig 저장)★ · TimeoutExpired = «판정 불가 <p> 판정기 7초» 1줄 · rc2 = «판정 불가 <p> 판정기 rc=2» 1줄 · 그 밖 꼴(rc1 인데 reject 줄 0 · rc0 인데 reject 줄 · 다른 rc) = «판정 불가 <p> 판정기 출력 꼴» 1줄(닫힌 쪽) · 판정 불가는 그 파일만 세고(셈 judge_unknown=N) 반복은 계속 (DA HOLD R1 · aifp 3978)
   2. 판정 불가 파일은 상태(files)에 «안 읽음» 으로 둔다(sig 저장 0) — 다음 회차에 다시 판정 · 같은 파일이 3회차 연속 판정 불가면 [긴급] 1통(그 파일 경로 · 마지막 사유) · 조용한 영구 건너뜀 0
   3. 회차 rc: judge_unknown>0 이면 rc=3(판정 불가 · 0 과 구분) · 끝 줄 SCAN 에 judge_unknown 칸 · 그 밖 rc 뜻 그대로
   4. 재시도 1(하드 룰 12 · rc 124/TimeoutExpired 일 때만) · 판정기 호출 시간 상한은 7초 그대로
@@ -92,7 +93,8 @@
   - J3 같은 파일 3회차 연속 J1 → 3회차에 [긴급] 1통(가짜 mbox 대역 · 받는이 = _hil_route)
   - J4 모두 정상 → 지금 끝 줄 그대로 · judge_unknown=0 · rc0
   - J5 재시도에서 통과(첫 호출 8초 · 둘째 1초) → 판정됨 · judge_unknown=0
-  - 변이 1: try 제거 → J1 FAIL(traceback) · 변이 2: rc 확인 제거 → J2 FAIL
+  - J6 정상 검출 회귀: 판정기 대역(또는 실제 판정기 + 계획 파일 «env "$X" bash x.sh») rc1 + «reject 1 …» → found 1 · 쪽지 경로 그대로 · judge_unknown=0 · sig 저장(기준판·고친 판 둘 다 PASS)
+  - 변이 1: try 제거 → J1 FAIL(traceback) · 변이 2: rc 확인 제거 → J2 FAIL · 변이 3: rc1 도 판정 불가로 셈 → J6 FAIL
 - 시험 입력: 임시 SCAN_* env(로그 0 · 계획 파일 3) · ft_secret_judge 대역(SCAN_HERE 를 임시 폴더로 · 대역 안 sleep 만) · 가짜 mbox · 실 /tmp/h* 0 · 자기 재호출 0 · ulimit -u + timeout 70
 - 대상(보탬): 팩 feature-pack/fable-team/legacy/1.x/harness/bin/ft-secret-scan.sh · feature-pack/fable-team/legacy/1.x/harness/kit/fable-team/bin/ft-secret-scan.sh(같은 판) · 시험 feature-pack/fable-team/legacy/1.x/harness/tests/test_secret_scan_judge_timeout_r1341.sh(신설 · 100644) · 회귀 feature-pack/fable-team/legacy/1.x/harness/tests/test_secret_scan.sh
 - 재실측(2026-11-11 · origin/main): feature-pack/fable-team/legacy/1.x/harness/bin/ft-secret-scan.sh:75 subprocess.run(… timeout=7) try 0 · TimeoutExpired 잡지 않음 · r.returncode 확인 0 · :81 files[p]=sig 를 판정 실패에도 저장 → 결함 그대로
