@@ -40,5 +40,8 @@ probe lsp call workspace-symbols "<query>"
 - pylsp는 pyright보다 타입 추론이 약함(동적 코드 오탐 가능) → 넓은 탐색은 tilth, 확정 참조만 LSP.
 - 대형 모노레포에서 `init` 은 워크스페이스 루트를 잡는다 → 하위만 하려면 `--scope <subdir>`.
 
+## crash-loop 수리 (r1636)
+데몬이 기동 즉시 죽으면(`probe lsp crash-logs` 에 "couldn't read enough data") 호출은 25초를 기다린다. `ci doctor` 가 rc=3 + `lsp : CRASH-LOOP … · 다음: ci lsp repair` 로 알리고, `ci lsp repair [--ws <이름>]` 이 워크스페이스 캐시를 지우지 않고 `…corrupt-<YYYYmmddHHMMSS>` 로 옮긴 뒤 데몬을 다시 세운다(rm 0 · 되돌림 = 이름 되돌리기).
+
 ## 비용
 유휴 시 lsp-daemon 33MB + pylsp 79MB = **112MB**. 쓰지 않으면 `down`.
