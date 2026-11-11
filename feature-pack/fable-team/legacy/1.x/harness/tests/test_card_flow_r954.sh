@@ -218,7 +218,7 @@ for n in c1 c2 c3; do printf '# c\n' > "$T/v5/design/alpha/indices/진행/$n.md"
 o="$(vrun "$T/v5/design/alpha" "")"; rc=$?
 { [ "$rc" = 0 ] && [ "$o" = "카드 대기 0 · 진행 4(좌석 0) · 착지됐는데 진행 0" ]; } \
   && ok "ⓥ5 개행 이름 카드 = 1장 · K 0(이름 조각을 카드 줄로 읽지 않는다)" || bad "ⓥ5 일반 rc=$rc «${o}»"
-o="$(vrun "$T/v5/design/alpha" "--warn")"; rc=$?
+o="$(FT_CARD_CAP_FLOOR=2 vrun "$T/v5/design/alpha" "--warn")"; rc=$?   # r1693: 상한 바닥 10 이라 옛 «> M+2» 경보를 보려면 바닥을 2 로
 { [ "$rc" = 0 ] && [ "$(printf '%s\n' "$o" | wc -l | tr -d ' ')" = 1 ] \
   && [[ "$o" == *'이동 먼저: a\nC L 0 b.md c1.md c2.md c3.md'* ]]; } \
   && ok "ⓥ5 --warn 이동 대상 = 이스케이프한 한 줄 · «b.md» 조각 카드 추가 0" || bad "ⓥ5 --warn rc=$rc «${o}»"
