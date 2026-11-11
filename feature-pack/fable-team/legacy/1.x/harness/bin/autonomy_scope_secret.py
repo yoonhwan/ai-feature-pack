@@ -11,7 +11,7 @@ SECRET_SHAPE(키 원문 모양)는 이 상태 기계가 뽑은 «모든 추가 �
 H4(r909 r3 · 하드 룰 14 「추적 대신 예외를 좁힌다」): 셸 판정 밖으로 빼는 예외는 «하나» 뿐 —
   코드 확장자(.py·.ts·.js·.go·.rs …) 파일의 추가 줄에서 문자열 리터럴 «밖» 의 식별자 «set(» 를 «set_(» 로 바꾸는 것.
   자료 확장자(.json·.txt·.sql …) 제외는 없다(DA⑥ r2 반례 1 — ci/task.txt 의 printf 비밀). 문서(.md)는 셔뱅이 «없을» 때만 doc_cmds(반례 3).
-  셔뱅 있는 파일은 확장자 무관 전 줄 판정. YAML 은 추가 줄만 보고 run:/script: 값·목록 항목의 명령을 뽑아 판정한다(기준판처럼 전문 블록 재검사 0 — 오탐 2).
+  셔뱅 있는 파일은 확장자 무관 전 줄 판정(r1645: 해석기가 셸 아님 + 코드 확장자면 리터럴 길로). YAML 은 추가 줄만 보고 run:/script: 값·목록 항목의 명령을 뽑아 판정한다(기준판처럼 전문 블록 재검사 0 — 오탐 2).
   키 원문 모양(SECRET_SHAPE)은 종전대로 모든 추가 줄을 본다(줄이지 않음).
 """
 import re
@@ -219,6 +219,19 @@ def yaml_added(items):   # yaml: «추가 줄만» — run:/script: 값과 목�
     return "\n".join(out)
 
 
+NON_SHELL_INTERP = ("python", "python2", "python3", "pypy3", "node", "deno", "bun", "ruby", "perl", "php")
+
+
+def non_shell_shebang(full):   # r1645: 셔뱅 해석기가 «셸 아님이 확실» 한가 — 판단 못 하면 False(셸로 본다 · 닫힌 쪽)
+    words = (full or "").split("\n", 1)[0][2:].split()
+    if words and words[0].rsplit("/", 1)[-1] == "env":   # env = 옵션(-)·이름=값 을 빼고 첫 낱말이 해석기
+        if "-S" in words[1:]:
+            return False                        # env -S = 문자열 분해 — 판단 못 함
+        words = [w for w in words[1:] if not w.startswith("-") and "=" not in w]
+    name = words[0].rsplit("/", 1)[-1] if words else ""
+    return name in NON_SHELL_INTERP or re.fullmatch(r"python3\.\d+", name) is not None
+
+
 def shell_text(path, is_doc, items, full):   # plan() 에 넘길 글 · "" = 이 파일은 셸 판정 밖
     text = "\n".join(t for _n, t in items)
     if path is None:   # 경로를 못 풀면 전부 판정(닫힌 쪽)
@@ -227,7 +240,8 @@ def shell_text(path, is_doc, items, full):   # plan() 에 넘길 글 · "" = 이
     if ext in SHELL_EXT or not ext:
         return text   # 셸 확장자 · 확장자 없는 실행 스크립트
     if full and full.split("\n", 1)[0].startswith("#!"):
-        return text   # 셔뱅 있는 파일 = 셸 문맥(확장자 무관 · DA⑥ r3 반례 3)
+        if not (ext in CODE_EXT and non_shell_shebang(full)):   # r1645: 셸 아닌 해석기 + 코드 확장자만 비켜선다
+            return text   # 셔뱅 있는 파일 = 셸 문맥(확장자 무관 · DA⑥ r3 반례 3)
     if is_doc or ext in DOC_EXT:
         return doc_cmds(full, items)   # 문서는 «셔뱅 없는» 파일만(실행될 수 있는 줄)
     if ext in YAML_EXT:
